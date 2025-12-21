@@ -11,15 +11,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/announce"
-	"github.com/Sudo-Ivan/reticulum-go/pkg/common"
-	"github.com/Sudo-Ivan/reticulum-go/pkg/debug"
-	"github.com/Sudo-Ivan/reticulum-go/pkg/destination"
-	"github.com/Sudo-Ivan/reticulum-go/pkg/identity"
-	"github.com/Sudo-Ivan/reticulum-go/pkg/interfaces"
-	"github.com/Sudo-Ivan/reticulum-go/pkg/packet"
-	"github.com/Sudo-Ivan/reticulum-go/pkg/pathfinder"
-	"github.com/Sudo-Ivan/reticulum-go/pkg/rate"
+	"reticulum-go/pkg/announce"
+	"reticulum-go/pkg/common"
+	"reticulum-go/pkg/debug"
+	"reticulum-go/pkg/destination"
+	"reticulum-go/pkg/identity"
+	"reticulum-go/pkg/interfaces"
+	"reticulum-go/pkg/packet"
+	"reticulum-go/pkg/pathfinder"
+	"reticulum-go/pkg/rate"
 )
 
 var (

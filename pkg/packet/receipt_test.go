@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/identity"
+	"reticulum-go/pkg/identity"
 )
 
 func TestPacketReceiptCreation(t *testing.T) {

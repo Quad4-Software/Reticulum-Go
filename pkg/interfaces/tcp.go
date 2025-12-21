@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/common"
-	"github.com/Sudo-Ivan/reticulum-go/pkg/debug"
+	"reticulum-go/pkg/common"
+	"reticulum-go/pkg/debug"
 )
 
 const (

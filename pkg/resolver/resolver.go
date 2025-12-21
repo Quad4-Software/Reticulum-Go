@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/identity"
+	"reticulum-go/pkg/identity"
 )
 
 type Resolver struct {

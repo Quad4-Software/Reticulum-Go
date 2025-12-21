@@ -4,11 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/common"
-	"github.com/Sudo-Ivan/reticulum-go/pkg/destination"
-	"github.com/Sudo-Ivan/reticulum-go/pkg/identity"
-	"github.com/Sudo-Ivan/reticulum-go/pkg/packet"
-	"github.com/Sudo-Ivan/reticulum-go/pkg/transport"
+	"reticulum-go/pkg/common"
+	"reticulum-go/pkg/destination"
+	"reticulum-go/pkg/identity"
+	"reticulum-go/pkg/packet"
+	"reticulum-go/pkg/transport"
 )
 
 func TestEphemeralKeyGeneration(t *testing.T) {

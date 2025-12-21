@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/common"
+	"reticulum-go/pkg/common"
 )
 
 const (

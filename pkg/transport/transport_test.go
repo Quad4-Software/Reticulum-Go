@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/common"
+	"reticulum-go/pkg/common"
 )
 
 func randomBytes(n int) []byte {

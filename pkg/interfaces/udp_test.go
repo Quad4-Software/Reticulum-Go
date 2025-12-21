@@ -3,7 +3,7 @@ package interfaces
 import (
 	"testing"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/common"
+	"reticulum-go/pkg/common"
 )
 
 func TestNewUDPInterface(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"net"
 	"syscall"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/debug"
+	"reticulum-go/pkg/debug"
 )
 
 func (tc *TCPClientInterface) setTimeoutsLinux() error {

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/rate"
+	"reticulum-go/pkg/rate"
 )
 
 const (

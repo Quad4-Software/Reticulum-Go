@@ -1,4 +1,4 @@
-module github.com/Sudo-Ivan/reticulum-go
+module reticulum-go
 
 go 1.24.0
 

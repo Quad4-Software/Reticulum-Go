@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/debug"
+	"reticulum-go/pkg/debug"
 	"github.com/vmihailenco/msgpack/v5"
 )
 

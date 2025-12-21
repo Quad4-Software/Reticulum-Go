@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/debug"
-	"github.com/Sudo-Ivan/reticulum-go/pkg/identity"
+	"reticulum-go/pkg/debug"
+	"reticulum-go/pkg/identity"
 )
 
 const (

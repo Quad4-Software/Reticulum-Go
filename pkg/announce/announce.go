@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/common"
-	"github.com/Sudo-Ivan/reticulum-go/pkg/debug"
-	"github.com/Sudo-Ivan/reticulum-go/pkg/identity"
+	"reticulum-go/pkg/common"
+	"reticulum-go/pkg/debug"
+	"reticulum-go/pkg/identity"
 	"golang.org/x/crypto/curve25519"
 )
 

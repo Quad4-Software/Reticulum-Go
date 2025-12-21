@@ -8,7 +8,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/channel"
+	"reticulum-go/pkg/channel"
 )
 
 const (

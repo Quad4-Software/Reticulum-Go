@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/common"
+	"reticulum-go/pkg/common"
 )
 
 func TestBaseInterfaceStateChanges(t *testing.T) {

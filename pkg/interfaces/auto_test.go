@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/common"
+	"reticulum-go/pkg/common"
 )
 
 func TestNewAutoInterface(t *testing.T) {
