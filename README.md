@@ -55,7 +55,3 @@ make build-experimental
 
 - [Telegram](https://t.me/reticulum_go)
 - [Matrix](https://matrix.to/#/#reticulum-go-dev:matrix.org)
-
-## Donations
-
-See [donate.md](donate.md) for more information.
