@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"reticulum-go/pkg/debug"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 	"github.com/vmihailenco/msgpack/v5"
 )
 

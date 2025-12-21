@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"reticulum-go/pkg/rate"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/rate"
 )
 
 const (

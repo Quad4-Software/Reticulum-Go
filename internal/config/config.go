@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"reticulum-go/pkg/common"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 )
 
 const (

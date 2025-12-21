@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"reticulum-go/pkg/identity"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
 )
 
 func TestPacketReceiptCreation(t *testing.T) {

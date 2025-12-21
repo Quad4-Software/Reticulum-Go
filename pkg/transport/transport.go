@@ -11,15 +11,15 @@ import (
 	"sync"
 	"time"
 
-	"reticulum-go/pkg/announce"
-	"reticulum-go/pkg/common"
-	"reticulum-go/pkg/debug"
-	"reticulum-go/pkg/destination"
-	"reticulum-go/pkg/identity"
-	"reticulum-go/pkg/interfaces"
-	"reticulum-go/pkg/packet"
-	"reticulum-go/pkg/pathfinder"
-	"reticulum-go/pkg/rate"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/announce"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/destination"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/interfaces"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/pathfinder"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/rate"
 )
 
 var (

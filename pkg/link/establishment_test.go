@@ -4,11 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"reticulum-go/pkg/common"
-	"reticulum-go/pkg/destination"
-	"reticulum-go/pkg/identity"
-	"reticulum-go/pkg/packet"
-	"reticulum-go/pkg/transport"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/destination"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
 )
 
 func TestEphemeralKeyGeneration(t *testing.T) {

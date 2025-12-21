@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"reticulum-go/pkg/common"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 )
 
 func TestNewAutoInterface(t *testing.T) {

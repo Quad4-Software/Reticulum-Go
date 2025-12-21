@@ -5,7 +5,7 @@ import (
 	"net"
 	"time"
 
-	"reticulum-go/pkg/debug"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 )
 
 func (tc *TCPClientInterface) setTimeoutsLinux() error {

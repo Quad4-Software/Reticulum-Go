@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"reticulum-go/pkg/identity"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
 )
 
 type Resolver struct {

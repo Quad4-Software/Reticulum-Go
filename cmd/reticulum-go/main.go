@@ -12,17 +12,17 @@ import (
 	"syscall"
 	"time"
 
-	"reticulum-go/internal/config"
-	"reticulum-go/internal/storage"
-	"reticulum-go/pkg/buffer"
-	"reticulum-go/pkg/channel"
-	"reticulum-go/pkg/common"
-	"reticulum-go/pkg/debug"
-	"reticulum-go/pkg/destination"
-	"reticulum-go/pkg/identity"
-	"reticulum-go/pkg/interfaces"
-	"reticulum-go/pkg/packet"
-	"reticulum-go/pkg/transport"
+	"git.quad4.io/Networks/Reticulum-Go/internal/config"
+	"git.quad4.io/Networks/Reticulum-Go/internal/storage"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/buffer"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/channel"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/destination"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/interfaces"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
 )
 
 var (
@@ -159,7 +159,7 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 	dest.AcceptsLinks(true)
 	// Enable ratchets and point to a file for persistence.
 	// The actual path should probably be configurable.
-	ratchetPath := ".reticulum-go/storage/ratchets/" + r.identity.GetHexHash()
+	ratchetPath := ".git.quad4.io/Networks/Reticulum-Go/storage/ratchets/" + r.identity.GetHexHash()
 	dest.EnableRatchets(ratchetPath)
 	dest.SetProofStrategy(destination.PROVE_APP)
 

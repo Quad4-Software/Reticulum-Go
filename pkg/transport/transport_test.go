@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"reticulum-go/pkg/common"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 )
 
 func randomBytes(n int) []byte {

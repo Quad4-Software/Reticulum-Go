@@ -15,9 +15,9 @@ import (
 	"sync"
 	"time"
 
-	"reticulum-go/pkg/common"
-	"reticulum-go/pkg/cryptography"
-	"reticulum-go/pkg/debug"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 	"github.com/vmihailenco/msgpack/v5"
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/hkdf"

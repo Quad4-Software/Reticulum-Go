@@ -8,7 +8,7 @@ import (
 	"io"
 	"sync"
 
-	"reticulum-go/pkg/channel"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/channel"
 )
 
 const (

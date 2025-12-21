@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"reticulum-go/pkg/debug"
-	"reticulum-go/pkg/identity"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
 )
 
 const (
