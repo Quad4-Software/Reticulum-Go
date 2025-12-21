@@ -1,9 +1,3 @@
-[![Socket Badge](https://socket.dev/api/badge/go/package/github.com/sudo-ivan/reticulum-go?version=v0.4.0)](https://socket.dev/go/package/github.com/sudo-ivan/reticulum-go)
-![Multi-Platform Tests](https://github.com/Sudo-Ivan/Reticulum-Go/actions/workflows/go-test.yml/badge.svg)
-![Gosec Scan](https://github.com/Sudo-Ivan/Reticulum-Go/actions/workflows/gosec.yml/badge.svg)
-[![Multi-Platform Build](https://github.com/Sudo-Ivan/Reticulum-Go/actions/workflows/build.yml/badge.svg)](https://github.com/Sudo-Ivan/Reticulum-Go/actions/workflows/build.yml)
-[![Revive Linter](https://github.com/Sudo-Ivan/Reticulum-Go/actions/workflows/revive.yml/badge.svg)](https://github.com/Sudo-Ivan/Reticulum-Go/actions/workflows/revive.yml)
-
 # Reticulum-Go
 
 A Go implementation of the [Reticulum Network Stack](https://github.com/markqvist/Reticulum).
@@ -40,7 +34,7 @@ make test
 
 ## Embedded systems and WebAssembly
 
-For building for WebAssembly and embedded systems, see the [tinygo branch](https://github.com/Sudo-Ivan/Reticulum-Go/tree/tinygo). Requires TinyGo 0.37.0+. 
+For building for WebAssembly and embedded systems, see the [tinygo branch](https://git.quad4.io/Networks/Reticulum-Go/src/branch/tinygo/). Requires TinyGo 0.37.0+. 
 
 Note: I am not actively working on webassembly support at the moment.
 
