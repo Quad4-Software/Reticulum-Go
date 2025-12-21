@@ -58,7 +58,7 @@ jobs:
         echo "Calculated SHA256 for ${output_name}"
 
     - name: Upload Artifact
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+      uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5
       with:
         name: reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}
         path: reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}*
@@ -74,7 +74,7 @@ jobs:
 
     steps:
       - name: Download All Build Artifacts
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a
         with:
           path: ./release-assets
 
