@@ -51,7 +51,6 @@ Build with experimental Green Tea GC (Go 1.25+):
 make build-experimental
 ```
 
-## Official Channels
+## License
 
-- [Telegram](https://t.me/reticulum_go)
-- [Matrix](https://matrix.to/#/#reticulum-go-dev:matrix.org)
+This project is licensed under the [0BSD](LICENSE) license.
