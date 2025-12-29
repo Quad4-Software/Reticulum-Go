@@ -1,9 +1,30 @@
-logs/
-*.log
-
-.env
-.json
-
+# Build artifacts
 bin/
 
+# Test coverage reports
+coverage.out
+
+# Log files
+*.log
+logs/
+
+# Local environment variables
+.env
+
+# JSON assets and auto-generated exports
+*.json
+
+# Example files, not adding them just yet.
 examples/
+
+# OS / Editor files
+.DS_Store       # macOS Finder metadata
+Thumbs.db       # Windows Explorer thumbnail cache
+
+# IDE / Editor config directories
+.idea/          # JetBrains IDEs
+.vscode/        # Visual Studio Code
+
+# Swap and test binaries
+*.swp           # Swap files (e.g. vim)
+*.test          # Go test binaries

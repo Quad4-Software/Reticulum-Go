@@ -1,0 +1,37 @@
+# Binaries and build folders
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go modules' cache
+/pkg/
+vendor/
+
+# Local test/coverage/log artifacts
+*.test
+*.out
+*.log
+logs/
+coverage.out
+
+# Environment and secret files
+.env
+
+# User/IDE/Editor config
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Example and generated files
+examples/
+*.json
+
+# SBOM and analysis artifacts
+bom.json
+dependency-results.sbom.json
+*.sbom.json
+
