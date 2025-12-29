@@ -1,0 +1,167 @@
+version: '3'
+
+vars:
+  GOCMD: go
+  BINARY_NAME: reticulum-go
+  BUILD_DIR: bin
+  MAIN_PACKAGE: ./cmd/reticulum-go
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  all:
+    desc: Clean, download dependencies, build and test
+    deps: [clean, deps, build, test]
+
+  build:
+    desc: Build release binary (no debug symbols, static)
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - '{{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}'
+
+  debug:
+    desc: Build debug binary
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - '{{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}'
+
+  build-experimental:
+    desc: Build binary with experimental features (GOEXPERIMENT=greenteagc)
+    env:
+      GOEXPERIMENT: greenteagc
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - '{{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-experimental {{.MAIN_PACKAGE}}'
+
+  experimental:
+    desc: Alias for build-experimental
+    cmds:
+      - task: build-experimental
+
+  release:
+    desc: Build stripped static binary for release (alias for build)
+    cmds:
+      - task: build
+
+  fmt:
+    desc: Format Go code
+    cmds:
+      - '{{.GOCMD}} fmt ./...'
+
+  fmt-check:
+    desc: Check if code is formatted (useful for CI)
+    cmds:
+      - '{{.GOCMD}} fmt -d ./... > fmt.diff 2>&1 || true'
+      - 'test -s fmt.diff && (echo "Code is not formatted. Run ''task fmt'' to fix." && cat fmt.diff && rm -f fmt.diff && exit 1) || (rm -f fmt.diff && exit 0)'
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - '{{.GOCMD}} vet ./...'
+
+  lint:
+    desc: Run revive linter
+    cmds:
+      - revive -config revive.toml -formatter friendly ./pkg/* ./cmd/* ./internal/*
+
+  check:
+    desc: Run fmt-check, vet, and lint
+    deps: [fmt-check, vet, lint]
+
+  bench:
+    desc: Run benchmarks with standard GC
+    cmds:
+      - '{{.GOCMD}} test -bench=. -benchmem ./...'
+
+  bench-experimental:
+    desc: Run benchmarks with experimental GC
+    env:
+      GOEXPERIMENT: greenteagc
+    cmds:
+      - '{{.GOCMD}} test -bench=. -benchmem ./...'
+
+  bench-compare:
+    desc: Run benchmarks with both GC settings
+    deps: [bench, bench-experimental]
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - '{{.GOCMD}} clean'
+      - rm -rf {{.BUILD_DIR}}
+
+  test:
+    desc: Run tests
+    cmds:
+      - '{{.GOCMD}} test -v ./...'
+
+  test-short:
+    desc: Run short tests
+    cmds:
+      - '{{.GOCMD}} test -short -v ./...'
+
+  coverage:
+    desc: Generate test coverage report
+    cmds:
+      - '{{.GOCMD}} test -coverprofile=coverage.out ./...'
+      - '{{.GOCMD}} tool cover -html=coverage.out'
+
+  deps:
+    desc: Download and verify dependencies
+    env:
+      GOPROXY: '{{.GOPROXY | default "https://proxy.golang.org,direct"}}'
+    cmds:
+      - '{{.GOCMD}} mod download'
+      - '{{.GOCMD}} mod verify'
+
+  mod-tidy:
+    desc: Tidy go.mod file
+    cmds:
+      - '{{.GOCMD}} mod tidy'
+
+  mod-verify:
+    desc: Verify dependencies
+    cmds:
+      - '{{.GOCMD}} mod verify'
+
+  build-linux:
+    desc: Build for Linux (amd64, arm64, arm, riscv64)
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - 'GOOS=linux GOARCH=amd64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-amd64 {{.MAIN_PACKAGE}}'
+      - 'GOOS=linux GOARCH=arm64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-arm64 {{.MAIN_PACKAGE}}'
+      - 'GOOS=linux GOARCH=arm {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-arm {{.MAIN_PACKAGE}}'
+      - 'GOOS=linux GOARCH=riscv64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-riscv64 {{.MAIN_PACKAGE}}'
+
+  build-all:
+    desc: Build for all Linux architectures
+    deps: [build-linux]
+
+  run:
+    desc: Run with go run
+    cmds:
+      - '{{.GOCMD}} run {{.MAIN_PACKAGE}}'
+
+  tinygo-build:
+    desc: Build binary with TinyGo compiler
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - tinygo build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-tinygo -size short {{.MAIN_PACKAGE}}
+
+  tinygo-wasm:
+    desc: Build WebAssembly binary with TinyGo compiler
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - tinygo build -target wasm -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm {{.MAIN_PACKAGE}}
+
+  install:
+    desc: Install dependencies
+    cmds:
+      - '{{.GOCMD}} mod download'
