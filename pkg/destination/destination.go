@@ -485,7 +485,7 @@ func (d *Destination) Encrypt(plaintext []byte) ([]byte, error) {
 
 	switch d.destType {
 	case SINGLE:
-		recipientKey := d.identity.GetPublicKey()
+		recipientKey := d.identity.GetEncryptionKey()
 		debug.Log(debug.DEBUG_VERBOSE, "Encrypting for single recipient", "key", fmt.Sprintf("%x", recipientKey[:8]))
 		return d.identity.Encrypt(plaintext, recipientKey)
 	case GROUP:

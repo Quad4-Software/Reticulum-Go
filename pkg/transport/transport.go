@@ -576,6 +576,7 @@ func (t *Transport) updatePathUnlocked(destinationHash []byte, nextHop []byte, i
 		NextHop:     nextHop,
 		Interface:   iface,
 		Hops:        hops,
+		HopCount:    hops,
 		LastUpdated: time.Now(),
 	}
 }
