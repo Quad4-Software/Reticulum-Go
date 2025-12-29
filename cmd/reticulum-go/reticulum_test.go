@@ -12,9 +12,9 @@ import (
 func TestNewReticulum(t *testing.T) {
 	// Set up a temporary home directory for testing
 	tmpDir := t.TempDir()
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	originalHome := os.Getenv(common.STR_HOME)
+	os.Setenv(common.STR_HOME, tmpDir)
+	defer os.Setenv(common.STR_HOME, originalHome)
 
 	cfg := config.DefaultConfig()
 	// Disable interfaces for simple test
@@ -44,18 +44,18 @@ func TestNewReticulum(t *testing.T) {
 
 func TestNodeAppData(t *testing.T) {
 	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
+	os.Setenv(common.STR_HOME, tmpDir)
 
 	r := &Reticulum{
 		nodeEnabled:     true,
-		maxTransferSize: 500,
+		maxTransferSize: common.NUM_500,
 	}
 
 	data := r.createNodeAppData()
-	if len(data) == 0 {
+	if len(data) == common.ZERO {
 		t.Error("createNodeAppData returned empty data")
 	}
-	if data[0] != 0x93 {
+	if data[0] != common.HEX_0x93 {
 		t.Errorf("Expected array header 0x93, got 0x%x", data[0])
 	}
 }

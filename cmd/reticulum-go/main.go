@@ -102,18 +102,18 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to load identity: %v", err)
 		}
-		debug.Log(debug.DEBUG_ERROR, "Loaded existing identity", "hash", fmt.Sprintf("%x", ident.Hash()))
+		debug.Log(debug.DEBUG_ERROR, "Loaded existing identity", common.STR_HASH, fmt.Sprintf(common.STR_FMT_HEX_LOW, ident.Hash()))
 	} else {
 		// Create new identity
 		ident, err = identity.NewIdentity()
 		if err != nil {
 			return nil, fmt.Errorf("failed to create identity: %v", err)
 		}
-		debug.Log(debug.DEBUG_ERROR, "Created new identity", "hash", fmt.Sprintf("%x", ident.Hash()))
+		debug.Log(debug.DEBUG_ERROR, "Created new identity", common.STR_HASH, fmt.Sprintf(common.STR_FMT_HEX_LOW, ident.Hash()))
 
 		// Save it to disk
 		if err := ident.ToFile(identityPath); err != nil {
-			debug.Log(debug.DEBUG_ERROR, "Failed to save identity to file", "error", err)
+			debug.Log(debug.DEBUG_ERROR, "Failed to save identity to file", common.STR_ERROR, err)
 		} else {
 			debug.Log(debug.DEBUG_INFO, "Identity saved to file", "path", identityPath)
 		}
@@ -132,7 +132,7 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create destination: %v", err)
 	}
-	debug.Log(debug.DEBUG_INFO, "Created destination with hash", "hash", fmt.Sprintf("%x", dest.GetHash()))
+	debug.Log(debug.DEBUG_INFO, "Created destination with hash", common.STR_HASH, fmt.Sprintf(common.STR_FMT_HEX_LOW, dest.GetHash()))
 
 	// Set node metadata
 	nodeTimestamp := time.Now().Unix()
@@ -150,8 +150,8 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 		storage:         storageMgr,
 
 		// Node-specific information
-		maxTransferSize: 500,  // Default 500KB
-		nodeEnabled:     true, // Enabled by default
+		maxTransferSize: common.NUM_500, // Default 500KB
+		nodeEnabled:     true,           // Enabled by default
 		nodeTimestamp:   nodeTimestamp,
 	}
 
@@ -175,7 +175,7 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 		var err error
 
 		switch ifaceConfig.Type {
-		case "TCPClientInterface":
+		case common.STR_TCP_CLIENT:
 			iface, err = interfaces.NewTCPClientInterface(
 				name,
 				ifaceConfig.TargetHost,
@@ -194,7 +194,7 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 		case "AutoInterface":
 			iface, err = interfaces.NewAutoInterface(name, ifaceConfig)
 		default:
-			debug.Log(debug.DEBUG_CRITICAL, "Unknown interface type", "type", ifaceConfig.Type)
+			debug.Log(debug.DEBUG_CRITICAL, "Unknown interface type", common.STR_TYPE, ifaceConfig.Type)
 			continue
 		}
 
@@ -202,13 +202,13 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 			if cfg.PanicOnInterfaceErr {
 				return nil, fmt.Errorf("failed to create interface %s: %v", name, err)
 			}
-			debug.Log(debug.DEBUG_CRITICAL, "Error creating interface", "name", name, "error", err)
+			debug.Log(debug.DEBUG_CRITICAL, "Error creating interface", common.STR_NAME, name, common.STR_ERROR, err)
 			continue
 		}
 
 		// Set packet callback
 		iface.SetPacketCallback(func(data []byte, ni common.NetworkInterface) {
-			debug.Log(debug.DEBUG_INFO, "Packet callback called for interface", "name", ni.GetName(), "data_len", len(data))
+			debug.Log(debug.DEBUG_INFO, "Packet callback called for interface", common.STR_NAME, ni.GetName(), "data_len", len(data))
 			if r.transport != nil {
 				r.transport.HandlePacket(data, ni)
 			} else {
@@ -216,16 +216,16 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 			}
 		})
 
-		debug.Log(debug.DEBUG_ERROR, "Configuring interface", "name", name, "type", ifaceConfig.Type)
+		debug.Log(debug.DEBUG_ERROR, "Configuring interface", common.STR_NAME, name, common.STR_TYPE, ifaceConfig.Type)
 		r.interfaces = append(r.interfaces, iface)
-		debug.Log(debug.DEBUG_INFO, "Interface started successfully", "name", name)
+		debug.Log(debug.DEBUG_INFO, "Interface started successfully", common.STR_NAME, name)
 	}
 
 	return r, nil
 }
 
 func (r *Reticulum) handleInterface(iface common.NetworkInterface) {
-	debug.Log(debug.DEBUG_INFO, "Setting up interface", "name", iface.GetName(), "type", fmt.Sprintf("%T", iface))
+	debug.Log(debug.DEBUG_INFO, "Setting up interface", common.STR_NAME, iface.GetName(), common.STR_TYPE, fmt.Sprintf("%T", iface))
 
 	ch := channel.NewChannel(&transportWrapper{r.transport})
 	r.channels[iface.GetName()] = ch
@@ -236,11 +236,11 @@ func (r *Reticulum) handleInterface(iface common.NetworkInterface) {
 		ch,
 		func(size int) {
 			data := make([]byte, size)
-			debug.Log(debug.DEBUG_PACKETS, "Interface reading bytes from buffer", "name", iface.GetName(), "size", size)
+			debug.Log(debug.DEBUG_PACKETS, "Interface reading bytes from buffer", common.STR_NAME, iface.GetName(), "size", size)
 			iface.ProcessIncoming(data)
 
-			if len(data) > 0 {
-				debug.Log(debug.DEBUG_TRACE, "Interface received packet type", "name", iface.GetName(), "type", fmt.Sprintf("0x%02x", data[0]))
+			if len(data) > common.ZERO {
+				debug.Log(debug.DEBUG_TRACE, "Interface received packet type", common.STR_NAME, iface.GetName(), common.STR_TYPE, fmt.Sprintf("0x%02x", data[0]))
 				r.transport.HandlePacket(data, iface)
 			}
 		},
@@ -284,7 +284,7 @@ func main() {
 
 	cfg, err := config.InitConfig()
 	if err != nil {
-		debug.GetLogger().Error("Failed to initialize config", "error", err)
+		debug.GetLogger().Error("Failed to initialize config", common.STR_ERROR, err)
 		os.Exit(1)
 	}
 	debug.Log(debug.DEBUG_ERROR, "Configuration loaded", "path", cfg.ConfigPath)
@@ -301,25 +301,25 @@ func main() {
 		}
 
 		cfg.Interfaces["Go-RNS-Testnet"] = &common.InterfaceConfig{
-			Type:       "TCPClientInterface",
+			Type:       common.STR_TCP_CLIENT,
 			Enabled:    false,
 			TargetHost: "127.0.0.1",
-			TargetPort: 4242,
+			TargetPort: common.NUM_4242,
 			Name:       "Go-RNS-Testnet",
 		}
 
 		cfg.Interfaces["Quad4 TCP"] = &common.InterfaceConfig{
-			Type:       "TCPClientInterface",
+			Type:       common.STR_TCP_CLIENT,
 			Enabled:    true,
 			TargetHost: "rns2.quad4.io",
-			TargetPort: 4242,
+			TargetPort: common.NUM_4242,
 			Name:       "Quad4 TCP",
 		}
 	}
 
 	r, err := NewReticulum(cfg)
 	if err != nil {
-		debug.GetLogger().Error("Failed to create Reticulum instance", "error", err)
+		debug.GetLogger().Error("Failed to create Reticulum instance", common.STR_ERROR, err)
 		os.Exit(1)
 	}
 
@@ -332,7 +332,7 @@ func main() {
 
 	// Start Reticulum
 	if err := r.Start(); err != nil {
-		debug.GetLogger().Error("Failed to start Reticulum", "error", err)
+		debug.GetLogger().Error("Failed to start Reticulum", common.STR_ERROR, err)
 		os.Exit(1)
 	}
 
@@ -342,7 +342,7 @@ func main() {
 
 	debug.Log(debug.DEBUG_CRITICAL, "Shutting down...")
 	if err := r.Stop(); err != nil {
-		debug.Log(debug.DEBUG_CRITICAL, "Error during shutdown", "error", err)
+		debug.Log(debug.DEBUG_CRITICAL, "Error during shutdown", common.STR_ERROR, err)
 	}
 	debug.Log(debug.DEBUG_CRITICAL, "Goodbye!")
 }
@@ -416,17 +416,17 @@ func initializeDirectories() error {
 	basePath := filepath.Join(homeDir, ".reticulum-go")
 	dirs := []string{
 		basePath,
-		filepath.Join(basePath, "storage"),
-		filepath.Join(basePath, "storage", "destinations"),
-		filepath.Join(basePath, "storage", "identities"),
-		filepath.Join(basePath, "storage", "ratchets"),
-		filepath.Join(basePath, "storage", "cache"),
-		filepath.Join(basePath, "storage", "cache", "announces"),
-		filepath.Join(basePath, "storage", "resources"),
+		filepath.Join(basePath, common.STR_STORAGE),
+		filepath.Join(basePath, common.STR_STORAGE, "destinations"),
+		filepath.Join(basePath, common.STR_STORAGE, "identities"),
+		filepath.Join(basePath, common.STR_STORAGE, "ratchets"),
+		filepath.Join(basePath, common.STR_STORAGE, "cache"),
+		filepath.Join(basePath, common.STR_STORAGE, "cache", "announces"),
+		filepath.Join(basePath, common.STR_STORAGE, "resources"),
 	}
 
 	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0700); err != nil { // #nosec G301
+		if err := os.MkdirAll(dir, common.NUM_0700); err != nil { // #nosec G301
 			return fmt.Errorf("failed to create directory %s: %v", dir, err)
 		}
 	}
@@ -553,15 +553,15 @@ func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id interface{}, appD
 	var nodeMaxSize int16
 
 	// Parse msgpack appData from transport announce format
-	if len(appData) > 0 {
+	if len(appData) > common.ZERO {
 		// appData is msgpack array [name, customData]
-		if appData[0] == 0x92 { // array of 2 elements
+		if appData[0] == common.HEX_0x92 { // array of 2 elements
 			// Skip array header and first element (name)
-			pos := 1
-			if pos < len(appData) && appData[pos] == 0xc4 { // bin 8
+			pos := common.ONE
+			if pos < len(appData) && appData[pos] == common.HEX_0xC4 { // bin 8
 				nameLen := int(appData[pos+1])
-				pos += 2 + nameLen
-				if pos < len(appData) && appData[pos] == 0xc4 { // bin 8
+				pos += common.TWO + nameLen
+				if pos < len(appData) && appData[pos] == common.HEX_0xC4 { // bin 8
 					dataLen := int(appData[pos+1])
 					if pos+2+dataLen <= len(appData) {
 						customData := appData[pos+2 : pos+2+dataLen]
@@ -629,26 +629,26 @@ func (r *Reticulum) GetDestination() *destination.Destination {
 func (r *Reticulum) createNodeAppData() []byte {
 	// Create a msgpack array with 3 elements
 	// [Bool, Int32, Int16] for [enable, timestamp, max_transfer_size]
-	appData := []byte{0x93} // Array with 3 elements
+	appData := []byte{common.HEX_0x93} // Array with 3 elements
 
 	// Element 0: Boolean for enable/disable peer
 	if r.nodeEnabled {
-		appData = append(appData, 0xc3) // true
+		appData = append(appData, common.HEX_0xC3) // true
 	} else {
-		appData = append(appData, 0xc2) // false
+		appData = append(appData, common.HEX_0xC2) // false
 	}
 
 	// Element 1: Int32 timestamp (current time)
 	// Update the timestamp when creating new announcements
 	r.nodeTimestamp = time.Now().Unix()
-	appData = append(appData, 0xd2) // int32 format
-	timeBytes := make([]byte, 4)
+	appData = append(appData, common.HEX_0xD2) // int32 format
+	timeBytes := make([]byte, common.FOUR)
 	binary.BigEndian.PutUint32(timeBytes, uint32(r.nodeTimestamp)) // #nosec G115
 	appData = append(appData, timeBytes...)
 
 	// Element 2: Int16 max transfer size in KB
-	appData = append(appData, 0xd1) // int16 format
-	sizeBytes := make([]byte, 2)
+	appData = append(appData, common.HEX_0xD1) // int16 format
+	sizeBytes := make([]byte, common.TWO)
 	binary.BigEndian.PutUint16(sizeBytes, uint16(r.maxTransferSize)) // #nosec G115
 	appData = append(appData, sizeBytes...)
 
