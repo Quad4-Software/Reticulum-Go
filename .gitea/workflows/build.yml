@@ -70,7 +70,20 @@ jobs:
 
     - name: Generate SPDX SBOM with Trivy
       run: |
-        trivy fs --format spdx-json --output dependency-results.sbom.json .
+        trivy fs --format spdx-json --output dependency-results.sbom.json . || exit 1
+        if [ ! -f dependency-results.sbom.json ]; then
+          echo "Error: SBOM file was not created!"
+          exit 1
+        fi
+        echo "SBOM file created successfully:"
+        ls -lh dependency-results.sbom.json
+
+    - name: Verify SBOM files exist
+      run: |
+        echo "Checking for SBOM files..."
+        ls -lh bom.json dependency-results.sbom.json || true
+        test -f bom.json && echo "bom.json exists" || echo "bom.json missing"
+        test -f dependency-results.sbom.json && echo "dependency-results.sbom.json exists" || echo "dependency-results.sbom.json missing"
 
     - name: Upload Artifact
       uses: https://git.quad4.io/actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3.2.1
@@ -80,6 +93,14 @@ jobs:
           reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}*
           bom.json
           dependency-results.sbom.json
+
+    - name: Upload SPDX SBOM Artifact
+      if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+      uses: https://git.quad4.io/actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3.2.1
+      with:
+        name: spdx-sbom
+        path: dependency-results.sbom.json
+        retention-days: 90
 
   release:
     name: Create Release
