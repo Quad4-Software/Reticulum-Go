@@ -594,8 +594,8 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 	debug.Log(debug.DEBUG_ALL, "Transport handling announce", "bytes", len(data), "source", sourceIface.GetName())
 
 	// Parse announce fields according to RNS spec
-	destHash := data[common.ONE:common.SIZE_32+common.ONE]
-	identity := data[common.SIZE_32+common.ONE:common.SIZE_16+common.SIZE_32+common.ONE]
+	destHash := data[common.ONE : common.SIZE_32+common.ONE]
+	identity := data[common.SIZE_32+common.ONE : common.SIZE_16+common.SIZE_32+common.ONE]
 	appData := data[common.SIZE_16+common.SIZE_32+common.ONE:]
 
 	// Generate announce hash to check for duplicates
@@ -865,12 +865,12 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	hopCount := data[common.ONE]
 
 	// Extract header fields
-	ifacFlag := (headerByte1 & 0x80) >> common.SEVEN    // IFAC flag in highest bit
-	headerType := (headerByte1 & 0x40) >> common.SIX  // Header type in next bit
+	ifacFlag := (headerByte1 & 0x80) >> common.SEVEN   // IFAC flag in highest bit
+	headerType := (headerByte1 & 0x40) >> common.SIX   // Header type in next bit
 	contextFlag := (headerByte1 & 0x20) >> common.FIVE // Context flag
 	propType := (headerByte1 & 0x10) >> common.FOUR    // Propagation type
-	destType := (headerByte1 & 0x0C) >> common.TWO    // Destination type in next 2 bits
-	packetType := headerByte1 & common.HEX_0x03         // Packet type in lowest 2 bits
+	destType := (headerByte1 & 0x0C) >> common.TWO     // Destination type in next 2 bits
+	packetType := headerByte1 & common.HEX_0x03        // Packet type in lowest 2 bits
 
 	debug.Log(debug.DEBUG_TRACE, "Announce header", "ifac", ifacFlag, "headerType", headerType, "context", contextFlag, "propType", propType, "destType", destType, "packetType", packetType)
 

@@ -72,9 +72,9 @@ const (
 	FIFTEEN = 15
 
 	// Common Size Constants
-	SIZE_16 = 16
-	SIZE_32 = 32
-	SIZE_64 = 64
+	SIZE_16     = 16
+	SIZE_32     = 32
+	SIZE_64     = 64
 	SIXTY_SEVEN = 67
 
 	// Common Hex Constants
