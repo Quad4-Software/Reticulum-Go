@@ -1,35 +1,9 @@
 # Contributing
 
-Be good to each other.
+Send issues, suggestions, `.patch` files, or any feedback to one of the preferred methods:
 
-## Communication
+1. Reticulum LXMF: `7cc8d66b4f6a0e0e49d34af7f6077b5a`
+2. XMPP: `ivan@chat.quad4.io`
+3. Email: `team@quad4.io`
 
-Feel free to join our telegram or matrix channels for this implementation.
-
-- [Matrix](https://matrix.to/#/#reticulum-go-dev:matrix.org)
-- [Telegram](https://t.me/reticulum_go)
-
-## Usage of LLMs and other Generative AI tools
-
-You should not use LLMs and other generative AI tools to write critical parts of the code. They can produce lots of security issues and outdated code when used incorrectly. You are not required to report that you are using these tools. 
-
-## Static Analysis Tools
-
-You are welcome to use the following tools, however there are actions in place to ensure the code is linted and checked with gosec.
-
-### Linting (optional)
-
-[Revive](https://github.com/mgechev/revive)
-
-```bash
-revive -config revive.toml -formatter friendly ./pkg/* ./cmd/* ./internal/*
-```
-
-### Security (optional)
-
-[Gosec](https://github.com/securego/gosec)
-
-```bash
-gosec ./...
-```
-
+Eventually I will add better methods, like automation via LXMF bot, XMPP or email bot. Also looking into [Fider](https://fider.io/) for a public feedback system.
