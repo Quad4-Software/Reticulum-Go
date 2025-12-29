@@ -72,7 +72,7 @@ jobs:
         scan-ref: '.'
 
     - name: Upload Artifact
-      uses: https://git.quad4.io/actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5
+      uses: https://git.quad4.io/actions/upload-artifact@672174a5bad8453f715436e010047cb8fa7680be # v3.2.0-node20
       with:
         name: reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}
         path: |
