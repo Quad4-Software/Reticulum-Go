@@ -23,42 +23,42 @@ const (
 	ANNOUNCE_INTERVAL      = 1600 * time.Millisecond
 	PEER_JOB_INTERVAL      = 4 * time.Second
 	MCAST_ECHO_TIMEOUT     = 6500 * time.Millisecond
-	
+
 	SCOPE_LINK         = "2"
 	SCOPE_ADMIN        = "4"
 	SCOPE_SITE         = "5"
 	SCOPE_ORGANISATION = "8"
 	SCOPE_GLOBAL       = "e"
-	
+
 	MCAST_ADDR_TYPE_PERMANENT = "0"
 	MCAST_ADDR_TYPE_TEMPORARY = "1"
 )
 
 type AutoInterface struct {
 	BaseInterface
-	groupID              []byte
-	groupHash            []byte
-	discoveryPort        int
-	dataPort             int
-	discoveryScope       string
-	multicastAddrType    string
-	mcastDiscoveryAddr   string
-	ifacNetname          string
-	peers                map[string]*Peer
-	linkLocalAddrs       []string
-	adoptedInterfaces    map[string]*AdoptedInterface
-	interfaceServers     map[string]*net.UDPConn
-	discoveryServers     map[string]*net.UDPConn
-	multicastEchoes      map[string]time.Time
-	timedOutInterfaces   map[string]time.Time
-	allowedInterfaces    []string
-	ignoredInterfaces    []string
-	mutex                sync.RWMutex
-	outboundConn         *net.UDPConn
-	announceInterval     time.Duration
-	peerJobInterval      time.Duration
-	peeringTimeout       time.Duration
-	mcastEchoTimeout     time.Duration
+	groupID            []byte
+	groupHash          []byte
+	discoveryPort      int
+	dataPort           int
+	discoveryScope     string
+	multicastAddrType  string
+	mcastDiscoveryAddr string
+	ifacNetname        string
+	peers              map[string]*Peer
+	linkLocalAddrs     []string
+	adoptedInterfaces  map[string]*AdoptedInterface
+	interfaceServers   map[string]*net.UDPConn
+	discoveryServers   map[string]*net.UDPConn
+	multicastEchoes    map[string]time.Time
+	timedOutInterfaces map[string]time.Time
+	allowedInterfaces  []string
+	ignoredInterfaces  []string
+	mutex              sync.RWMutex
+	outboundConn       *net.UDPConn
+	announceInterval   time.Duration
+	peerJobInterval    time.Duration
+	peeringTimeout     time.Duration
+	mcastEchoTimeout   time.Duration
 }
 
 type AdoptedInterface struct {
@@ -97,7 +97,7 @@ func NewAutoInterface(name string, config *common.InterfaceConfig) (*AutoInterfa
 	}
 
 	groupHash := sha256.Sum256([]byte(groupID))
-	
+
 	ifacNetname := hex.EncodeToString(groupHash[:])[:16]
 	mcastAddr := fmt.Sprintf("ff%s%s::%s", discoveryScope, multicastAddrType, ifacNetname)
 
@@ -114,27 +114,27 @@ func NewAutoInterface(name string, config *common.InterfaceConfig) (*AutoInterfa
 			MTU:      HW_MTU,
 			Bitrate:  BITRATE_GUESS,
 		},
-		groupID:              []byte(groupID),
-		groupHash:            groupHash[:],
-		discoveryPort:        discoveryPort,
-		dataPort:             dataPort,
-		discoveryScope:       discoveryScope,
-		multicastAddrType:    multicastAddrType,
-		mcastDiscoveryAddr:   mcastAddr,
-		ifacNetname:          ifacNetname,
-		peers:                make(map[string]*Peer),
-		linkLocalAddrs:       make([]string, 0),
-		adoptedInterfaces:    make(map[string]*AdoptedInterface),
-		interfaceServers:     make(map[string]*net.UDPConn),
-		discoveryServers:     make(map[string]*net.UDPConn),
-		multicastEchoes:      make(map[string]time.Time),
-		timedOutInterfaces:   make(map[string]time.Time),
-		allowedInterfaces:    make([]string, 0),
-		ignoredInterfaces:    make([]string, 0),
-		announceInterval:     ANNOUNCE_INTERVAL,
-		peerJobInterval:      PEER_JOB_INTERVAL,
-		peeringTimeout:       PEERING_TIMEOUT,
-		mcastEchoTimeout:     MCAST_ECHO_TIMEOUT,
+		groupID:            []byte(groupID),
+		groupHash:          groupHash[:],
+		discoveryPort:      discoveryPort,
+		dataPort:           dataPort,
+		discoveryScope:     discoveryScope,
+		multicastAddrType:  multicastAddrType,
+		mcastDiscoveryAddr: mcastAddr,
+		ifacNetname:        ifacNetname,
+		peers:              make(map[string]*Peer),
+		linkLocalAddrs:     make([]string, 0),
+		adoptedInterfaces:  make(map[string]*AdoptedInterface),
+		interfaceServers:   make(map[string]*net.UDPConn),
+		discoveryServers:   make(map[string]*net.UDPConn),
+		multicastEchoes:    make(map[string]time.Time),
+		timedOutInterfaces: make(map[string]time.Time),
+		allowedInterfaces:  make([]string, 0),
+		ignoredInterfaces:  make([]string, 0),
+		announceInterval:   ANNOUNCE_INTERVAL,
+		peerJobInterval:    PEER_JOB_INTERVAL,
+		peeringTimeout:     PEERING_TIMEOUT,
+		mcastEchoTimeout:   MCAST_ECHO_TIMEOUT,
 	}
 
 	debug.Log(debug.DEBUG_INFO, "AutoInterface configured", "name", name, "group", groupID, "mcast_addr", mcastAddr)
@@ -202,26 +202,26 @@ func (ai *AutoInterface) Start() error {
 
 	go ai.peerJobs()
 	go ai.announceLoop()
-	
+
 	debug.Log(debug.DEBUG_INFO, "AutoInterface started", "adopted", len(ai.adoptedInterfaces))
 	return nil
 }
 
 func (ai *AutoInterface) shouldIgnoreInterface(name string) bool {
 	ignoreList := []string{"lo", "lo0", "tun0", "awdl0", "llw0", "en5", "dummy0"}
-	
+
 	for _, ignored := range ai.ignoredInterfaces {
 		if name == ignored {
 			return true
 		}
 	}
-	
+
 	for _, ignored := range ignoreList {
 		if name == ignored {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -394,7 +394,7 @@ func (ai *AutoInterface) handlePeerAnnounce(addr *net.UDPAddr, ifaceName string)
 	}
 
 	peerKey := peerIP + "%" + ifaceName
-	
+
 	if peer, exists := ai.peers[peerKey]; exists {
 		peer.lastHeard = time.Now()
 		debug.Log(debug.DEBUG_TRACE, "Updated peer", "peer", peerIP, "interface", ifaceName)

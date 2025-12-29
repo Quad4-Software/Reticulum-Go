@@ -86,7 +86,6 @@ func TestAES256CBC_InvalidKeySize(t *testing.T) {
 	}
 }
 
-
 func TestDecryptAES256CBCErrorCases(t *testing.T) {
 	key, err := GenerateAES256Key()
 	if err != nil {

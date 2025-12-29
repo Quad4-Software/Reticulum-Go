@@ -64,6 +64,11 @@ const (
 
 	WATCHDOG_MIN_SLEEP = 0.025
 	WATCHDOG_INTERVAL  = 0.1
+
+	DEST_TYPE_LINK = 0x03
+
+	MIN_REQUEST_DATA_LEN  = 3
+	MIN_RESPONSE_DATA_LEN = 2
 )
 
 func init() {
@@ -229,10 +234,10 @@ func (l *Link) Identify(id *identity.Identity) error {
 	p := &packet.Packet{
 		HeaderType:      packet.HeaderType1,
 		PacketType:      packet.PacketTypeData,
-		TransportType:   0,
+		TransportType:   common.ZERO,
 		Context:         packet.ContextLinkIdentify,
 		ContextFlag:     packet.FlagUnset,
-		Hops:            0,
+		Hops:            common.ZERO,
 		DestinationType: l.destination.GetType(),
 		DestinationHash: l.destination.GetHash(),
 		Data:            id.GetPublicKey(),
@@ -258,25 +263,25 @@ func (l *Link) HandleIdentification(data []byte) error {
 	pubKey := data[:ed25519.PublicKeySize]
 	signature := data[ed25519.PublicKeySize:]
 
-	debug.Log(debug.DEBUG_VERBOSE, "Processing identification from public key", "public_key", fmt.Sprintf("%x", pubKey[:8]))
+	debug.Log(debug.DEBUG_VERBOSE, "Processing identification from public key", "public_key", fmt.Sprintf("%x", pubKey[:common.EIGHT]))
 
 	remoteIdentity := identity.FromPublicKey(pubKey)
 	if remoteIdentity == nil {
-		debug.Log(debug.DEBUG_INFO, "Invalid remote identity from public key", "public_key", fmt.Sprintf("%x", pubKey[:8]))
+		debug.Log(debug.DEBUG_INFO, "Invalid remote identity from public key", "public_key", fmt.Sprintf("%x", pubKey[:common.EIGHT]))
 		return errors.New("invalid remote identity")
 	}
 
 	signData := append(l.linkID, pubKey...)
 	if !remoteIdentity.Verify(signData, signature) {
-		debug.Log(debug.DEBUG_INFO, "Invalid signature from remote identity", "public_key", fmt.Sprintf("%x", pubKey[:8]))
+		debug.Log(debug.DEBUG_INFO, "Invalid signature from remote identity", "public_key", fmt.Sprintf("%x", pubKey[:common.EIGHT]))
 		return errors.New("invalid signature")
 	}
 
-	debug.Log(debug.DEBUG_VERBOSE, "Remote identity verified successfully", "public_key", fmt.Sprintf("%x", pubKey[:8]))
+	debug.Log(debug.DEBUG_VERBOSE, "Remote identity verified successfully", "public_key", fmt.Sprintf("%x", pubKey[:common.EIGHT]))
 	l.remoteIdentity = remoteIdentity
 
 	if l.identifiedCallback != nil {
-		debug.Log(debug.DEBUG_VERBOSE, "Executing identified callback for remote identity", "public_key", fmt.Sprintf("%x", pubKey[:8]))
+		debug.Log(debug.DEBUG_VERBOSE, "Executing identified callback for remote identity", "public_key", fmt.Sprintf("%x", pubKey[:common.EIGHT]))
 		l.identifiedCallback(l, remoteIdentity)
 	}
 
@@ -308,11 +313,11 @@ func (l *Link) Request(path string, data []byte, timeout time.Duration) (*Reques
 		reqPkt := &packet.Packet{
 			HeaderType:      packet.HeaderType1,
 			PacketType:      packet.PacketTypeData,
-			TransportType:   0,
+			TransportType:   common.ZERO,
 			Context:         packet.ContextRequest,
 			ContextFlag:     packet.FlagUnset,
-			Hops:            0,
-			DestinationType: 0x03,
+			Hops:            common.ZERO,
+			DestinationType: DEST_TYPE_LINK,
 			DestinationHash: l.linkID,
 			Data:            packedRequest,
 			CreateReceipt:   false,
@@ -395,7 +400,7 @@ func (r *RequestReceipt) GetResponseTime() float64 {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 	if r.receivedAt.IsZero() {
-		return 0
+		return common.FLOAT_ZERO
 	}
 	return r.receivedAt.Sub(r.sentAt).Seconds()
 }
@@ -455,7 +460,7 @@ func (l *Link) GetRSSI() float64 {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
 	if !l.trackPhyStats {
-		return 0
+		return common.FLOAT_ZERO
 	}
 	return l.rssi
 }
@@ -464,7 +469,7 @@ func (l *Link) GetSNR() float64 {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
 	if !l.trackPhyStats {
-		return 0
+		return common.FLOAT_ZERO
 	}
 	return l.snr
 }
@@ -473,7 +478,7 @@ func (l *Link) GetQ() float64 {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
 	if !l.trackPhyStats {
-		return 0
+		return common.FLOAT_ZERO
 	}
 	return l.q
 }
@@ -488,7 +493,7 @@ func (l *Link) GetAge() float64 {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
 	if l.establishedAt.IsZero() {
-		return 0
+		return common.FLOAT_ZERO
 	}
 	return time.Since(l.establishedAt).Seconds()
 }
@@ -497,7 +502,7 @@ func (l *Link) NoInboundFor() float64 {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
 	if l.lastInbound.IsZero() {
-		return 0
+		return common.FLOAT_ZERO
 	}
 	return time.Since(l.lastInbound).Seconds()
 }
@@ -506,7 +511,7 @@ func (l *Link) NoOutboundFor() float64 {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
 	if l.lastOutbound.IsZero() {
-		return 0
+		return common.FLOAT_ZERO
 	}
 	return time.Since(l.lastOutbound).Seconds()
 }
@@ -519,7 +524,7 @@ func (l *Link) NoDataFor() float64 {
 		lastData = l.lastDataSent
 	}
 	if lastData.IsZero() {
-		return 0
+		return common.FLOAT_ZERO
 	}
 	return time.Since(lastData).Seconds()
 }
@@ -532,7 +537,7 @@ func (l *Link) InactiveFor() float64 {
 		lastActivity = l.lastOutbound
 	}
 	if lastActivity.IsZero() {
-		return 0
+		return common.FLOAT_ZERO
 	}
 	return time.Since(lastActivity).Seconds()
 }
@@ -621,10 +626,10 @@ func (l *Link) SendPacket(data []byte) error {
 	p := &packet.Packet{
 		HeaderType:      packet.HeaderType1,
 		PacketType:      packet.PacketTypeData,
-		TransportType:   0,
+		TransportType:   common.ZERO,
 		Context:         packet.ContextNone,
 		ContextFlag:     packet.FlagUnset,
-		Hops:            0,
+		Hops:            common.ZERO,
 		DestinationType: l.destination.GetType(),
 		DestinationHash: l.destination.GetHash(),
 		Data:            encrypted,
@@ -707,16 +712,16 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 	case packet.ContextLinkIdentify:
 		return l.HandleIdentification(plaintext)
 	case packet.ContextKeepalive:
-		if !l.initiator && len(plaintext) == 1 && plaintext[0] == 0xFF {
+		if !l.initiator && len(plaintext) == common.ONE && plaintext[common.ZERO] == common.HEX_0xFF {
 			keepaliveResp := []byte{0xFE}
 			keepalivePkt := &packet.Packet{
 				HeaderType:      packet.HeaderType1,
 				PacketType:      packet.PacketTypeData,
-				TransportType:   0,
+				TransportType:   common.ZERO,
 				Context:         packet.ContextKeepalive,
 				ContextFlag:     packet.FlagUnset,
-				Hops:            0,
-				DestinationType: 0x03,
+				Hops:            common.ZERO,
+				DestinationType: DEST_TYPE_LINK,
 				DestinationHash: l.linkID,
 				Data:            keepaliveResp,
 				CreateReceipt:   false,
@@ -860,11 +865,11 @@ func (l *Link) rejectResource(resourceHash []byte) error {
 	rejectPkt := &packet.Packet{
 		HeaderType:      packet.HeaderType1,
 		PacketType:      packet.PacketTypeData,
-		TransportType:   0,
+		TransportType:   common.ZERO,
 		Context:         packet.ContextResourceRCL,
 		ContextFlag:     packet.FlagUnset,
-		Hops:            0,
-		DestinationType: 0x03,
+		Hops:            common.ZERO,
+		DestinationType: DEST_TYPE_LINK,
 		DestinationHash: l.linkID,
 		Data:            resourceHash,
 		CreateReceipt:   false,
@@ -904,7 +909,7 @@ func (l *Link) sendResourceAdvertisement(res *resource.Resource) error {
 		return errors.New("failed to create resource advertisement")
 	}
 
-	advData, err := adv.Pack(0)
+	advData, err := adv.Pack(common.ZERO)
 	if err != nil {
 		return fmt.Errorf("failed to pack advertisement: %w", err)
 	}
@@ -917,11 +922,11 @@ func (l *Link) sendResourceAdvertisement(res *resource.Resource) error {
 	advPkt := &packet.Packet{
 		HeaderType:      packet.HeaderType1,
 		PacketType:      packet.PacketTypeData,
-		TransportType:   0,
+		TransportType:   common.ZERO,
 		Context:         packet.ContextResourceAdv,
 		ContextFlag:     packet.FlagUnset,
-		Hops:            0,
-		DestinationType: 0x03,
+		Hops:            common.ZERO,
+		DestinationType: DEST_TYPE_LINK,
 		DestinationHash: l.linkID,
 		Data:            encrypted,
 		CreateReceipt:   false,
@@ -1005,13 +1010,13 @@ func (l *Link) handleRequest(plaintext []byte, pkt *packet.Packet) error {
 		return fmt.Errorf("failed to unpack request: %w", err)
 	}
 
-	if len(requestData) < 3 {
+	if len(requestData) < MIN_REQUEST_DATA_LEN {
 		return errors.New("invalid request format")
 	}
 
-	requestedAt := time.Unix(int64(requestData[0].(int64)), 0)
-	pathHash := requestData[1].([]byte)
-	requestPayload := requestData[2].([]byte)
+	requestedAt := time.Unix(int64(requestData[common.ZERO].(int64)), common.ZERO)
+	pathHash := requestData[common.ONE].([]byte)
+	requestPayload := requestData[common.TWO].([]byte)
 
 	requestID := identity.TruncatedHash(plaintext)
 
@@ -1034,12 +1039,12 @@ func (l *Link) handleResponse(plaintext []byte) error {
 		return fmt.Errorf("failed to unpack response: %w", err)
 	}
 
-	if len(responseData) < 2 {
+	if len(responseData) < MIN_RESPONSE_DATA_LEN {
 		return errors.New("invalid response format")
 	}
 
-	requestID := responseData[0].([]byte)
-	responsePayload := responseData[1].([]byte)
+	requestID := responseData[common.ZERO].([]byte)
+	responsePayload := responseData[common.ONE].([]byte)
 
 	l.requestMutex.Lock()
 	for i, req := range l.pendingRequests {
@@ -1079,11 +1084,11 @@ func (l *Link) sendResponse(requestID []byte, response interface{}) error {
 		respPkt := &packet.Packet{
 			HeaderType:      packet.HeaderType1,
 			PacketType:      packet.PacketTypeData,
-			TransportType:   0,
+			TransportType:   common.ZERO,
 			Context:         packet.ContextResponse,
 			ContextFlag:     packet.FlagUnset,
-			Hops:            0,
-			DestinationType: 0x03,
+			Hops:            common.ZERO,
+			DestinationType: DEST_TYPE_LINK,
 			DestinationHash: l.linkID,
 			Data:            encrypted,
 			CreateReceipt:   false,
@@ -1110,8 +1115,8 @@ func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
 		}
 
 		var rtt float64
-		if len(plaintext) >= 8 {
-			rtt = float64(binary.BigEndian.Uint64(plaintext[:8])) / 1e9
+		if len(plaintext) >= common.EIGHT {
+			rtt = float64(binary.BigEndian.Uint64(plaintext[:common.EIGHT])) / common.FLOAT_1E9
 		}
 
 		l.rtt = max(measuredRTT, rtt)
@@ -1140,9 +1145,9 @@ func (l *Link) updateKeepalive() {
 		return
 	}
 
-	keepaliveMaxRTT := 1.75
+	keepaliveMaxRTT := common.FLOAT_1_75
 	keepaliveMax := float64(KEEPALIVE)
-	keepaliveMin := 5.0
+	keepaliveMin := common.FLOAT_5_0
 
 	calculatedKeepalive := l.rtt * (keepaliveMax / keepaliveMaxRTT)
 	if calculatedKeepalive > keepaliveMax {
@@ -1153,7 +1158,7 @@ func (l *Link) updateKeepalive() {
 	}
 
 	l.keepalive = time.Duration(calculatedKeepalive * float64(time.Second))
-	l.staleTime = time.Duration(float64(l.keepalive) * 2.0)
+	l.staleTime = time.Duration(float64(l.keepalive) * float64(common.TWO))
 }
 
 func (l *Link) handleLinkProof(pkt *packet.Packet) error {
@@ -1284,11 +1289,11 @@ func (l *Link) Send(data []byte) interface{} {
 	pkt := &packet.Packet{
 		HeaderType:      packet.HeaderType1,
 		PacketType:      packet.PacketTypeData,
-		TransportType:   0,
+		TransportType:   common.ZERO,
 		Context:         packet.ContextChannel,
 		ContextFlag:     packet.FlagUnset,
-		Hops:            0,
-		DestinationType: 0x03,
+		Hops:            common.ZERO,
+		DestinationType: DEST_TYPE_LINK,
 		DestinationHash: l.linkID,
 		Data:            data,
 		CreateReceipt:   false,
@@ -1464,33 +1469,33 @@ func (l *Link) decodePacket(data []byte) {
 	}
 
 	packetType := data[0]
-	debug.Log(debug.DEBUG_ALL, "Packet Analysis", "size", len(data), "type", fmt.Sprintf("0x%02x", packetType))
+	debug.Log(debug.DEBUG_ALL, "Packet Analysis", "size", len(data), "type", fmt.Sprintf(common.STR_FMT_HEX, packetType))
 
 	switch packetType {
 	case packet.PacketTypeData:
-		debug.Log(debug.DEBUG_ALL, "Type Description: Data Packet", "payload_size", len(data)-1)
+		debug.Log(debug.DEBUG_ALL, "Type Description: Data Packet", "payload_size", len(data)-common.ONE)
 
 	case packet.PacketTypeLinkReq:
-		debug.Log(debug.DEBUG_ALL, "Type Description: Link Management", "link_id", fmt.Sprintf("%x", data[1:33]))
+		debug.Log(debug.DEBUG_ALL, "Type Description: Link Management", common.STR_LINK_ID, fmt.Sprintf("%x", data[common.ONE:common.SIZE_32+common.ONE]))
 
 	case packet.PacketTypeAnnounce:
-		debug.Log(debug.DEBUG_ALL, "Received announce packet", "bytes", len(data))
+		debug.Log(debug.DEBUG_ALL, "Received announce packet", common.STR_BYTES, len(data))
 		if len(data) < packet.MinAnnounceSize {
 			debug.Log(debug.DEBUG_INFO, "Announce packet too short", "bytes", len(data))
 			return
 		}
 
-		destHash := data[2:18]
-		encKey := data[18:50]
-		signKey := data[50:82]
-		nameHash := data[82:92]
-		randomHash := data[92:102]
-		signature := data[102:166]
-		appData := data[166:]
+		destHash := data[common.TWO : common.SIZE_16+common.TWO]
+		encKey := data[common.SIZE_16+common.TWO : common.SIZE_32+common.SIZE_16+common.TWO]
+		signKey := data[common.SIZE_32+common.SIZE_16+common.TWO : common.SIZE_32*common.TWO+common.SIZE_16+common.TWO]
+		nameHash := data[common.SIZE_32*common.TWO+common.SIZE_16+common.TWO : common.SIZE_32*common.TWO+common.SIZE_16+common.TWO+common.EIGHT+common.TWO]
+		randomHash := data[common.SIZE_32*common.TWO+common.SIZE_16+common.TWO+common.EIGHT+common.TWO : common.SIZE_32*common.TWO+common.SIZE_16+common.TWO+common.EIGHT*common.TWO+common.TWO]
+		signature := data[common.SIZE_32*common.TWO+common.SIZE_16+common.TWO+common.EIGHT*common.TWO+common.TWO : common.SIZE_64+common.SIZE_32*common.TWO+common.SIZE_16+common.TWO+common.EIGHT*common.TWO+common.TWO]
+		appData := data[common.SIZE_64+common.SIZE_32*common.TWO+common.SIZE_16+common.TWO+common.EIGHT*common.TWO+common.TWO:]
 
 		pubKey := append(encKey, signKey...)
 
-		validationData := make([]byte, 0, 164)
+		validationData := make([]byte, common.ZERO, common.SIZE_32*common.FIVE+common.FOUR)
 		validationData = append(validationData, destHash...)
 		validationData = append(validationData, encKey...)
 		validationData = append(validationData, signKey...)
@@ -1498,18 +1503,18 @@ func (l *Link) decodePacket(data []byte) {
 		validationData = append(validationData, randomHash...)
 
 		if identity.ValidateAnnounce(validationData, destHash, pubKey, signature, appData) {
-			debug.Log(debug.DEBUG_VERBOSE, "Valid announce from", "public_key", fmt.Sprintf("%x", pubKey[:8]))
+			debug.Log(debug.DEBUG_VERBOSE, "Valid announce from", "public_key", fmt.Sprintf("%x", pubKey[:common.EIGHT]))
 			if err := l.transport.HandleAnnounce(destHash, l.networkInterface); err != nil {
 				debug.Log(debug.DEBUG_INFO, "Failed to handle announce", "error", err)
 			}
 		} else {
-			debug.Log(debug.DEBUG_INFO, "Invalid announce signature from", "public_key", fmt.Sprintf("%x", pubKey[:8]))
+			debug.Log(debug.DEBUG_INFO, "Invalid announce signature from", "public_key", fmt.Sprintf("%x", pubKey[:common.EIGHT]))
 		}
 
 	case packet.PacketTypeProof:
 		debug.Log(debug.DEBUG_ALL, "Type Description: RNS Discovery")
-		if len(data) > 17 {
-			searchHash := data[1:17]
+		if len(data) > common.SIZE_16+common.ONE {
+			searchHash := data[common.ONE : common.SIZE_16+common.ONE]
 			debug.Log(debug.DEBUG_ALL, "Searching for Hash", "search_hash", fmt.Sprintf("%x", searchHash))
 
 			if id, err := resolver.ResolveIdentity(hex.EncodeToString(searchHash)); err == nil {
@@ -1535,12 +1540,12 @@ func (l *Link) watchdog() {
 	for l.status != STATUS_CLOSED {
 		l.mutex.Lock()
 		if l.watchdogLock {
-			rttWait := 0.025
-			if l.rtt > 0 {
+			rttWait := common.FLOAT_0_025
+			if l.rtt > common.FLOAT_ZERO {
 				rttWait = l.rtt
 			}
-			if rttWait < 0.025 {
-				rttWait = 0.025
+			if rttWait < common.FLOAT_0_025 {
+				rttWait = common.FLOAT_0_025
 			}
 			l.mutex.Unlock()
 			time.Sleep(time.Duration(rttWait * float64(time.Second)))
@@ -1559,7 +1564,7 @@ func (l *Link) watchdog() {
 				if l.closedCallback != nil {
 					l.closedCallback(l)
 				}
-				sleepTime = 0.001
+				sleepTime = common.FLOAT_0_001
 			}
 		} else if l.status == STATUS_HANDSHAKE {
 			nextCheck := l.requestTime.Add(l.establishmentTimeout)
@@ -1607,20 +1612,21 @@ func (l *Link) watchdog() {
 				sleepTime = time.Until(nextKeepalive).Seconds()
 			}
 		} else if l.status == STATUS_STALE {
-			sleepTime = 0.001
+			sleepTime = common.FLOAT_0_001
 			_ = l.sendTeardownPacket() // #nosec G104 - best effort teardown
 			l.status = STATUS_CLOSED
 			l.teardownReason = STATUS_FAILED
 			if l.closedCallback != nil {
 				l.closedCallback(l)
 			}
+			sleepTime = common.FLOAT_0_001
 		}
 
-		if sleepTime <= 0 {
-			sleepTime = 0.1
+		if sleepTime <= common.FLOAT_ZERO {
+			sleepTime = common.FLOAT_0_1
 		}
-		if sleepTime > 5.0 {
-			sleepTime = 5.0
+		if sleepTime > common.FLOAT_5_0 {
+			sleepTime = common.FLOAT_5_0
 		}
 
 		l.mutex.Unlock()
@@ -1634,11 +1640,11 @@ func (l *Link) sendKeepalive() error {
 	keepalivePkt := &packet.Packet{
 		HeaderType:      packet.HeaderType1,
 		PacketType:      packet.PacketTypeData,
-		TransportType:   0,
+		TransportType:   common.ZERO,
 		Context:         packet.ContextKeepalive,
 		ContextFlag:     packet.FlagUnset,
-		Hops:            0,
-		DestinationType: 0x03,
+		Hops:            common.ZERO,
+		DestinationType: DEST_TYPE_LINK,
 		DestinationHash: l.linkID,
 		Data:            keepaliveData,
 		CreateReceipt:   false,
@@ -1659,11 +1665,11 @@ func (l *Link) sendTeardownPacket() error {
 	teardownPkt := &packet.Packet{
 		HeaderType:      packet.HeaderType1,
 		PacketType:      packet.PacketTypeData,
-		TransportType:   0,
+		TransportType:   common.ZERO,
 		Context:         packet.ContextLinkClose,
 		ContextFlag:     packet.FlagUnset,
-		Hops:            0,
-		DestinationType: 0x03,
+		Hops:            common.ZERO,
+		DestinationType: DEST_TYPE_LINK,
 		DestinationHash: l.linkID,
 		Data:            l.linkID,
 		CreateReceipt:   false,
@@ -1711,10 +1717,10 @@ func (l *Link) generateEphemeralKeys() error {
 
 func signallingBytes(mtu int, mode byte) []byte {
 	bytes := make([]byte, LINK_MTU_SIZE)
-	bytes[0] = byte((mtu >> 16) & 0xFF)
-	bytes[1] = byte((mtu >> 8) & 0xFF)
-	bytes[2] = byte(mtu & 0xFF)
-	bytes[0] |= (mode << 5)
+	bytes[common.ZERO] = byte((mtu >> common.SIZE_16) & common.HEX_0xFF)
+	bytes[common.ONE] = byte((mtu >> common.EIGHT) & common.HEX_0xFF)
+	bytes[common.TWO] = byte(mtu & common.HEX_0xFF)
+	bytes[common.ZERO] |= (mode << common.FIVE)
 	return bytes
 }
 
@@ -1724,7 +1730,7 @@ func (l *Link) SendLinkRequest() error {
 	}
 
 	l.mode = MODE_DEFAULT
-	l.mtu = 500
+	l.mtu = common.DEFAULT_MTU / common.THREE
 	l.updateMDU()
 
 	signalling := signallingBytes(l.mtu, l.mode)
@@ -1736,10 +1742,10 @@ func (l *Link) SendLinkRequest() error {
 	pkt := &packet.Packet{
 		HeaderType:      packet.HeaderType1,
 		PacketType:      packet.PacketTypeLinkReq,
-		TransportType:   0,
+		TransportType:   common.ZERO,
 		Context:         packet.ContextNone,
 		ContextFlag:     packet.FlagUnset,
-		Hops:            0,
+		Hops:            common.ZERO,
 		DestinationType: l.destination.GetType(),
 		DestinationHash: l.destination.GetHash(),
 		Data:            requestData,
@@ -1764,18 +1770,18 @@ func (l *Link) SendLinkRequest() error {
 }
 
 func linkIDFromPacket(pkt *packet.Packet) []byte {
-	hashablePart := make([]byte, 0, 1+16+1+ECPUBSIZE)
-	hashablePart = append(hashablePart, pkt.Raw[0])
+	hashablePart := make([]byte, common.ZERO, common.ONE+common.SIZE_16+common.ONE+ECPUBSIZE)
+	hashablePart = append(hashablePart, pkt.Raw[common.ZERO])
 
 	if pkt.HeaderType == packet.HeaderType2 {
-		startIndex := 18
-		endIndex := startIndex + 16 + 1 + ECPUBSIZE
+		startIndex := common.SIZE_16 + common.TWO
+		endIndex := startIndex + common.SIZE_16 + common.ONE + ECPUBSIZE
 		if len(pkt.Raw) >= endIndex {
 			hashablePart = append(hashablePart, pkt.Raw[startIndex:endIndex]...)
 		}
 	} else {
-		startIndex := 2
-		endIndex := startIndex + 16 + 1 + ECPUBSIZE
+		startIndex := common.TWO
+		endIndex := startIndex + common.SIZE_16 + common.ONE + ECPUBSIZE
 		if len(pkt.Raw) >= endIndex {
 			hashablePart = append(hashablePart, pkt.Raw[startIndex:endIndex]...)
 		}
@@ -1788,7 +1794,7 @@ func (l *Link) HandleLinkRequest(pkt *packet.Packet, ownerIdentity *identity.Ide
 		return errors.New("link request data too short")
 	}
 
-	peerPub := pkt.Data[0:KEYSIZE]
+	peerPub := pkt.Data[common.ZERO:KEYSIZE]
 	peerSigPub := pkt.Data[KEYSIZE:ECPUBSIZE]
 
 	l.peerPub = peerPub
@@ -1802,7 +1808,7 @@ func (l *Link) HandleLinkRequest(pkt *packet.Packet, ownerIdentity *identity.Ide
 		l.mode = (mtuBytes[0] & MODE_BYTEMASK) >> 5
 		debug.Log(debug.DEBUG_VERBOSE, "Link request includes MTU", "mtu", l.mtu, "mode", l.mode)
 	} else {
-		l.mtu = 500
+		l.mtu = common.DEFAULT_MTU / common.THREE
 		l.mode = MODE_DEFAULT
 	}
 
@@ -1834,14 +1840,14 @@ func (l *Link) HandleLinkRequest(pkt *packet.Packet, ownerIdentity *identity.Ide
 }
 
 func (l *Link) updateMDU() {
-	headerMaxSize := 64
-	ifacMinSize := 4
-	tokenOverhead := 16
-	aesBlockSize := 16
+	headerMaxSize := common.SIZE_64
+	ifacMinSize := common.FOUR
+	tokenOverhead := common.SIZE_16
+	aesBlockSize := common.SIZE_16
 
-	l.mdu = int(float64(l.mtu-headerMaxSize-ifacMinSize-tokenOverhead)/float64(aesBlockSize))*aesBlockSize - 1
-	if l.mdu < 0 {
-		l.mdu = 100
+	l.mdu = int(float64(l.mtu-headerMaxSize-ifacMinSize-tokenOverhead)/float64(aesBlockSize))*aesBlockSize - common.ONE
+	if l.mdu < common.ZERO {
+		l.mdu = common.DEFAULT_MTU / common.FIFTEEN
 	}
 }
 
@@ -1891,7 +1897,7 @@ func (l *Link) sendLinkProof(ownerIdentity *identity.Identity) error {
 		return err
 	}
 
-	debug.Log(debug.DEBUG_ERROR, "Link proof packet created", "dest_hash", fmt.Sprintf("%x", proofPkt.DestinationHash), "packet_type", fmt.Sprintf("0x%02x", proofPkt.PacketType))
+	debug.Log(debug.DEBUG_ERROR, "Link proof packet created", "dest_hash", fmt.Sprintf("%x", proofPkt.DestinationHash), "packet_type", fmt.Sprintf(common.STR_FMT_HEX, proofPkt.PacketType))
 
 	// For responder links (not initiator), send proof directly through the receiving interface
 	if !l.initiator && l.networkInterface != nil {
@@ -1940,11 +1946,11 @@ func (l *Link) GenerateLinkProof(ownerIdentity *identity.Identity) (*packet.Pack
 	proofPkt := &packet.Packet{
 		HeaderType:      packet.HeaderType1,
 		PacketType:      packet.PacketTypeProof,
-		TransportType:   0,
+		TransportType:   common.ZERO,
 		Context:         packet.ContextLRProof,
 		ContextFlag:     packet.FlagUnset,
-		Hops:            0,
-		DestinationType: 0x03,
+		Hops:            common.ZERO,
+		DestinationType: DEST_TYPE_LINK,
 		DestinationHash: l.linkID,
 		Data:            proofData,
 		CreateReceipt:   false,
@@ -1967,14 +1973,14 @@ func (l *Link) ValidateLinkProof(pkt *packet.Packet) error {
 		return errors.New("link proof data too short")
 	}
 
-	signature := pkt.Data[0 : identity.SIGLENGTH/8]
-	peerPub := pkt.Data[identity.SIGLENGTH/8 : identity.SIGLENGTH/8+KEYSIZE]
+	signature := pkt.Data[common.ZERO : identity.SIGLENGTH/common.EIGHT]
+	peerPub := pkt.Data[identity.SIGLENGTH/common.EIGHT : identity.SIGLENGTH/common.EIGHT+KEYSIZE]
 
-	signalling := []byte{0, 0, 0}
+	signalling := []byte{common.ZERO, common.ZERO, common.ZERO}
 	if len(pkt.Data) >= identity.SIGLENGTH/8+KEYSIZE+LINK_MTU_SIZE {
 		signalling = pkt.Data[identity.SIGLENGTH/8+KEYSIZE : identity.SIGLENGTH/8+KEYSIZE+LINK_MTU_SIZE]
-		mtu := (int(signalling[0]&0x1F) << 16) | (int(signalling[1]) << 8) | int(signalling[2])
-		mode := (signalling[0] & MODE_BYTEMASK) >> 5
+		mtu := (int(signalling[common.ZERO]&0x1F) << common.SIZE_16) | (int(signalling[common.ONE]) << common.EIGHT) | int(signalling[common.TWO])
+		mode := (signalling[common.ZERO] & MODE_BYTEMASK) >> common.FIVE
 		l.mtu = mtu
 		l.mode = mode
 		debug.Log(debug.DEBUG_VERBOSE, "Link proof includes MTU", "mtu", mtu, "mode", mode)
@@ -2018,15 +2024,15 @@ func (l *Link) ValidateLinkProof(pkt *packet.Packet) error {
 	}
 
 	rttData := make([]byte, 8)
-	binary.BigEndian.PutUint64(rttData, uint64(l.rtt*1e9))
+	binary.BigEndian.PutUint64(rttData, uint64(l.rtt*common.FLOAT_1E9))
 	rttPkt := &packet.Packet{
 		HeaderType:      packet.HeaderType1,
 		PacketType:      packet.PacketTypeData,
-		TransportType:   0,
+		TransportType:   common.ZERO,
 		Context:         packet.ContextLRRTT,
 		ContextFlag:     packet.FlagUnset,
-		Hops:            0,
-		DestinationType: 0x03,
+		Hops:            common.ZERO,
+		DestinationType: DEST_TYPE_LINK,
 		DestinationHash: l.linkID,
 		Data:            rttData,
 		CreateReceipt:   false,

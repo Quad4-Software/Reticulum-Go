@@ -13,13 +13,13 @@ import (
 )
 
 type Manager struct {
-	basePath           string
-	ratchetsPath       string
-	identitiesPath     string
-	destinationTable   string
-	knownDestinations  string
-	transportIdentity  string
-	mutex              sync.RWMutex
+	basePath          string
+	ratchetsPath      string
+	identitiesPath    string
+	destinationTable  string
+	knownDestinations string
+	transportIdentity string
+	mutex             sync.RWMutex
 }
 
 type RatchetData struct {
@@ -34,14 +34,14 @@ func NewManager() (*Manager, error) {
 	}
 
 	basePath := filepath.Join(homeDir, ".reticulum-go", "storage")
-	
+
 	m := &Manager{
-		basePath:           basePath,
-		ratchetsPath:       filepath.Join(basePath, "ratchets"),
-		identitiesPath:     filepath.Join(basePath, "identities"),
-		destinationTable:   filepath.Join(basePath, "destination_table"),
-		knownDestinations:  filepath.Join(basePath, "known_destinations"),
-		transportIdentity:  filepath.Join(basePath, "transport_identity"),
+		basePath:          basePath,
+		ratchetsPath:      filepath.Join(basePath, "ratchets"),
+		identitiesPath:    filepath.Join(basePath, "identities"),
+		destinationTable:  filepath.Join(basePath, "destination_table"),
+		knownDestinations: filepath.Join(basePath, "known_destinations"),
+		transportIdentity: filepath.Join(basePath, "transport_identity"),
 	}
 
 	if err := m.initializeDirectories(); err != nil {
@@ -76,7 +76,7 @@ func (m *Manager) SaveRatchet(identityHash []byte, ratchetKey []byte) error {
 
 	hexHash := hex.EncodeToString(identityHash)
 	ratchetDir := filepath.Join(m.ratchetsPath, hexHash)
-	
+
 	if err := os.MkdirAll(ratchetDir, 0700); err != nil {
 		return fmt.Errorf("failed to create ratchet directory: %w", err)
 	}
@@ -186,4 +186,3 @@ func (m *Manager) GetDestinationTablePath() string {
 func (m *Manager) GetKnownDestinationsPath() string {
 	return m.knownDestinations
 }
-

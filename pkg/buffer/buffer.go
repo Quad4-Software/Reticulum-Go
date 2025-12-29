@@ -114,7 +114,7 @@ func (r *RawChannelReader) Read(p []byte) (n int, err error) {
 }
 
 func (r *RawChannelReader) HandleMessage(msg channel.MessageBase) bool { // #nosec G115
-       if streamMsg, ok := msg.(*StreamDataMessage); ok && streamMsg.StreamID == uint16(r.streamID) {
+	if streamMsg, ok := msg.(*StreamDataMessage); ok && streamMsg.StreamID == uint16(r.streamID) {
 		r.mutex.Lock()
 		defer r.mutex.Unlock()
 

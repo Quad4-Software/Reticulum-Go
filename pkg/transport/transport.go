@@ -162,13 +162,13 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		interfaces:            make(map[string]common.NetworkInterface),
 		paths:                 make(map[string]*common.Path),
 		seenAnnounces:         make(map[string]bool),
-		announceRate:          rate.NewLimiter(PROPAGATION_RATE, 1),
+		announceRate:          rate.NewLimiter(PROPAGATION_RATE, common.ONE),
 		mutex:                 sync.RWMutex{},
 		config:                cfg,
 		links:                 make(map[string]LinkInterface),
 		destinations:          make(map[string]interface{}),
 		pathfinder:            pathfinder.NewPathFinder(),
-		receipts:              make([]*packet.PacketReceipt, 0),
+		receipts:              make([]*packet.PacketReceipt, common.ZERO),
 		receiptsMutex:         sync.RWMutex{},
 		pathRequests:          make(map[string]time.Time),
 		pathStates:            make(map[string]byte),
@@ -189,7 +189,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 }
 
 func (t *Transport) startMaintenanceJobs() {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(common.FIVE * time.Second)
 	defer ticker.Stop()
 
 	for range ticker.C {
@@ -211,7 +211,7 @@ func (t *Transport) cleanupExpiredPaths() {
 		if now.Sub(path.LastUpdated) > pathExpiry {
 			delete(t.paths, destHash)
 			delete(t.pathStates, destHash)
-			debug.Log(debug.DEBUG_VERBOSE, "Expired path", "dest_hash", fmt.Sprintf("%x", destHash[:8]))
+			debug.Log(debug.DEBUG_VERBOSE, "Expired path", "dest_hash", fmt.Sprintf("%x", destHash[:common.EIGHT]))
 		}
 	}
 }
@@ -224,7 +224,7 @@ func (t *Transport) cleanupExpiredDiscoveryRequests() {
 	for destHash, req := range t.discoveryPathRequests {
 		if now.After(req.Timeout) {
 			delete(t.discoveryPathRequests, destHash)
-			debug.Log(debug.DEBUG_VERBOSE, "Expired discovery path request", "dest_hash", fmt.Sprintf("%x", destHash[:8]))
+			debug.Log(debug.DEBUG_VERBOSE, "Expired discovery path request", "dest_hash", fmt.Sprintf("%x", destHash[:common.EIGHT]))
 		}
 	}
 }
@@ -238,7 +238,7 @@ func (t *Transport) cleanupExpiredAnnounces() {
 	for destHash, entry := range t.announceTable {
 		if entry != nil && time.Since(entry.CreatedAt) > announceExpiry {
 			delete(t.announceTable, destHash)
-			debug.Log(debug.DEBUG_VERBOSE, "Expired announce entry", "dest_hash", fmt.Sprintf("%x", destHash[:8]))
+			debug.Log(debug.DEBUG_VERBOSE, "Expired announce entry", "dest_hash", fmt.Sprintf("%x", destHash[:common.EIGHT]))
 		}
 	}
 
@@ -253,7 +253,7 @@ func (t *Transport) cleanupExpiredReceipts() {
 	t.receiptsMutex.Lock()
 	defer t.receiptsMutex.Unlock()
 
-	validReceipts := make([]*packet.PacketReceipt, 0)
+	validReceipts := make([]*packet.PacketReceipt, common.ZERO)
 	for _, receipt := range t.receipts {
 		if receipt != nil && !receipt.IsTimedOut() {
 			status := receipt.GetStatus()
@@ -452,7 +452,7 @@ func (l *Link) Send(data []byte) interface{} {
 		Timestamp:   time.Now(),
 	}
 
-	if l.rtt == 0 {
+	if l.rtt == common.FLOAT_ZERO {
 		l.rtt = l.InactiveFor()
 	}
 
@@ -594,9 +594,9 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 	debug.Log(debug.DEBUG_ALL, "Transport handling announce", "bytes", len(data), "source", sourceIface.GetName())
 
 	// Parse announce fields according to RNS spec
-	destHash := data[1:33]
-	identity := data[33:49]
-	appData := data[49:]
+	destHash := data[common.ONE:common.SIZE_32+common.ONE]
+	identity := data[common.SIZE_32+common.ONE:common.SIZE_16+common.SIZE_32+common.ONE]
+	appData := data[common.SIZE_16+common.SIZE_32+common.ONE:]
 
 	// Generate announce hash to check for duplicates
 	announceHash := sha256.Sum256(data)
@@ -605,15 +605,15 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 	t.mutex.Lock()
 	if _, seen := t.seenAnnounces[hashStr]; seen {
 		t.mutex.Unlock()
-		debug.Log(debug.DEBUG_ALL, "Ignoring duplicate announce", "hash", fmt.Sprintf("%x", announceHash[:8]))
+		debug.Log(debug.DEBUG_ALL, "Ignoring duplicate announce", "hash", fmt.Sprintf("%x", announceHash[:common.EIGHT]))
 		return nil
 	}
 	t.seenAnnounces[hashStr] = true
 	t.mutex.Unlock()
 
 	// Don't forward if max hops reached
-	if data[0] >= MAX_HOPS {
-		debug.Log(debug.DEBUG_ALL, "Announce exceeded max hops", "hops", data[0])
+	if data[common.ZERO] >= MAX_HOPS {
+		debug.Log(debug.DEBUG_ALL, "Announce exceeded max hops", "hops", data[common.ZERO])
 		return nil
 	}
 
@@ -798,23 +798,23 @@ func SendAnnounce(packet []byte) error {
 }
 
 func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
-	if len(data) < 2 {
-		debug.Log(debug.DEBUG_INFO, "Dropping packet: insufficient length", "bytes", len(data))
+	if len(data) < common.TWO {
+		debug.Log(debug.DEBUG_INFO, "Dropping packet: insufficient length", common.STR_BYTES, len(data))
 		return
 	}
 
-	headerByte := data[0]
-	packetType := headerByte & 0x03
-	headerType := (headerByte & 0x40) >> 6
-	contextFlag := (headerByte & 0x20) >> 5
-	propType := (headerByte & 0x10) >> 4
-	destType := (headerByte & 0x0C) >> 2
+	headerByte := data[common.ZERO]
+	packetType := headerByte & common.HEX_0x03
+	headerType := (headerByte & 0x40) >> common.SIX
+	contextFlag := (headerByte & 0x20) >> common.FIVE
+	propType := (headerByte & 0x10) >> common.FOUR
+	destType := (headerByte & 0x0C) >> common.TWO
 
-	debug.Log(debug.DEBUG_INFO, "TRANSPORT: Packet received", "type", fmt.Sprintf("0x%02x", packetType), "header", headerType, "context", contextFlag, "propType", propType, "destType", destType, "size", len(data))
-	debug.Log(debug.DEBUG_TRACE, "Interface and raw header", "name", iface.GetName(), "header", fmt.Sprintf("0x%02x", headerByte))
+	debug.Log(debug.DEBUG_INFO, "TRANSPORT: Packet received", "type", fmt.Sprintf(common.STR_FMT_HEX, packetType), "header", headerType, "context", contextFlag, "propType", propType, "destType", destType, "size", len(data))
+	debug.Log(debug.DEBUG_TRACE, "Interface and raw header", "name", iface.GetName(), "header", fmt.Sprintf(common.STR_FMT_HEX, headerByte))
 
-	if len(data) == 67 {
-		debug.Log(debug.DEBUG_ERROR, "67-byte packet detected", "header", fmt.Sprintf("0x%02x", headerByte), "packet_type_bits", fmt.Sprintf("0x%02x", packetType), "first_32_bytes", fmt.Sprintf("%x", data[:32]))
+	if len(data) == common.SIXTY_SEVEN {
+		debug.Log(debug.DEBUG_ERROR, "67-byte packet detected", "header", fmt.Sprintf(common.STR_FMT_HEX, headerByte), "packet_type_bits", fmt.Sprintf(common.STR_FMT_HEX, packetType), "first_32_bytes", fmt.Sprintf("%x", data[:common.SIZE_32]))
 	}
 
 	if tcpIface, ok := iface.(*interfaces.TCPClientInterface); ok {
@@ -830,66 +830,66 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 		}
 	case PACKET_TYPE_LINK:
 		debug.Log(debug.DEBUG_ERROR, "Processing link packet (type=0x02)", "packet_size", len(data))
-		t.handleLinkPacket(data[1:], iface, PACKET_TYPE_LINK)
+		t.handleLinkPacket(data[common.ONE:], iface, PACKET_TYPE_LINK)
 	case packet.PacketTypeProof:
 		debug.Log(debug.DEBUG_VERBOSE, "Processing proof packet")
-		fullData := append([]byte{packet.PacketTypeProof}, data[1:]...)
+		fullData := append([]byte{packet.PacketTypeProof}, data[common.ONE:]...)
 		pkt := &packet.Packet{Raw: fullData}
 		if err := pkt.Unpack(); err != nil {
 			debug.Log(debug.DEBUG_INFO, "Failed to unpack proof packet", "error", err)
 			return
 		}
 		t.handleProofPacket(pkt, iface)
-	case 0x00:
+	case common.ZERO:
 		// Data packets addressed to link destinations carry link traffic
 		if destType == DEST_TYPE_LINK {
 			debug.Log(debug.DEBUG_ERROR, "Processing link data packet (dest_type=3)", "packet_size", len(data))
-			t.handleLinkPacket(data[1:], iface, 0x00)
+			t.handleLinkPacket(data[common.ONE:], iface, common.ZERO)
 		} else {
 			debug.Log(debug.DEBUG_ERROR, "Processing data packet (type 0x00)", "packet_size", len(data), "dest_type", destType, "header_type", headerType)
-			t.handleTransportPacket(data[1:], iface)
+			t.handleTransportPacket(data[common.ONE:], iface)
 		}
 	default:
-		debug.Log(debug.DEBUG_INFO, "Unknown packet type", "type", fmt.Sprintf("0x%02x", packetType), "source", iface.GetName())
+		debug.Log(debug.DEBUG_INFO, "Unknown packet type", "type", fmt.Sprintf(common.STR_FMT_HEX, packetType), "source", iface.GetName())
 	}
 }
 
 func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterface) error {
 	debug.Log(debug.DEBUG_INFO, "Processing announce packet", "length", len(data))
-	if len(data) < 2 {
+	if len(data) < common.TWO {
 		return fmt.Errorf("packet too small for header")
 	}
 
 	// Parse header bytes according to RNS spec
-	headerByte1 := data[0]
-	hopCount := data[1]
+	headerByte1 := data[common.ZERO]
+	hopCount := data[common.ONE]
 
 	// Extract header fields
-	ifacFlag := (headerByte1 & 0x80) >> 7    // IFAC flag in highest bit
-	headerType := (headerByte1 & 0x40) >> 6  // Header type in next bit
-	contextFlag := (headerByte1 & 0x20) >> 5 // Context flag
-	propType := (headerByte1 & 0x10) >> 4    // Propagation type
-	destType := (headerByte1 & 0x0C) >> 2    // Destination type in next 2 bits
-	packetType := headerByte1 & 0x03         // Packet type in lowest 2 bits
+	ifacFlag := (headerByte1 & 0x80) >> common.SEVEN    // IFAC flag in highest bit
+	headerType := (headerByte1 & 0x40) >> common.SIX  // Header type in next bit
+	contextFlag := (headerByte1 & 0x20) >> common.FIVE // Context flag
+	propType := (headerByte1 & 0x10) >> common.FOUR    // Propagation type
+	destType := (headerByte1 & 0x0C) >> common.TWO    // Destination type in next 2 bits
+	packetType := headerByte1 & common.HEX_0x03         // Packet type in lowest 2 bits
 
 	debug.Log(debug.DEBUG_TRACE, "Announce header", "ifac", ifacFlag, "headerType", headerType, "context", contextFlag, "propType", propType, "destType", destType, "packetType", packetType)
 
 	// Skip IFAC code if present
-	startIdx := 2
-	if ifacFlag == 1 {
+	startIdx := common.TWO
+	if ifacFlag == common.ONE {
 		startIdx++ // For now assume 1 byte IFAC code
 	}
 
 	// Announce packets use HEADER_TYPE_1 (single address field)
 	// Calculate address field size
-	addrSize := 16 // Always 16 bytes for HEADER_TYPE_1
-	if headerType == 1 {
+	addrSize := common.SIZE_16 // Always 16 bytes for HEADER_TYPE_1
+	if headerType == common.ONE {
 		// HEADER_TYPE_2 has two address fields
-		addrSize = 32
+		addrSize = common.SIZE_32
 	}
 
 	// Validate minimum packet size
-	minSize := startIdx + addrSize + 1 // Header + address(es) + context
+	minSize := startIdx + addrSize + common.ONE // Header + address(es) + context
 	if len(data) < minSize {
 		return fmt.Errorf("packet too small: %d bytes", len(data))
 	}

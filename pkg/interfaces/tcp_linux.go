@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 package interfaces
@@ -26,7 +27,7 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 	var sockoptErr error
 	err = rawConn.Control(func(fd uintptr) {
 		var userTimeout, probeAfter, probeInterval, probeCount int
-		
+
 		if tc.i2pTunneled {
 			userTimeout = I2P_USER_TIMEOUT_SEC * 1000
 			probeAfter = I2P_PROBE_AFTER_SEC
@@ -42,20 +43,20 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, 18, userTimeout); err != nil {
 			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_USER_TIMEOUT", "error", err)
 		}
-		
+
 		if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, 1); err != nil {
 			sockoptErr = fmt.Errorf("failed to enable SO_KEEPALIVE: %v", err)
 			return
 		}
-		
+
 		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, 4, probeAfter); err != nil {
 			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_KEEPIDLE", "error", err)
 		}
-		
+
 		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, 5, probeInterval); err != nil {
 			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_KEEPINTVL", "error", err)
 		}
-		
+
 		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, 6, probeCount); err != nil {
 			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_KEEPCNT", "error", err)
 		}
@@ -79,7 +80,7 @@ func (tc *TCPClientInterface) setTimeoutsOSX() error {
 func platformGetRTT(fd uintptr) time.Duration {
 	var info syscall.TCPInfo
 	infoLen := uint32(unsafe.Sizeof(info))
-	
+
 	// TCP_INFO is 11 on Linux
 	// #nosec G103
 	_, _, errno := syscall.Syscall6(
@@ -91,10 +92,10 @@ func platformGetRTT(fd uintptr) time.Duration {
 		uintptr(unsafe.Pointer(&infoLen)),
 		0,
 	)
-	
+
 	if errno != 0 {
 		return 0
 	}
-	
+
 	return time.Duration(info.Rtt) * time.Microsecond
 }

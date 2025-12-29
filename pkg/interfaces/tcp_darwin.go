@@ -1,3 +1,4 @@
+//go:build darwin
 // +build darwin
 
 package interfaces
@@ -28,19 +29,19 @@ func (tc *TCPClientInterface) setTimeoutsOSX() error {
 	var sockoptErr error
 	err = rawConn.Control(func(fd uintptr) {
 		const TCP_KEEPALIVE = 0x10
-		
+
 		var probeAfter int
 		if tc.i2pTunneled {
 			probeAfter = I2P_PROBE_AFTER_SEC
 		} else {
 			probeAfter = TCP_PROBE_AFTER_SEC
 		}
-		
+
 		if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, 1); err != nil {
 			sockoptErr = fmt.Errorf("failed to enable SO_KEEPALIVE: %v", err)
 			return
 		}
-		
+
 		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, TCP_KEEPALIVE, probeAfter); err != nil {
 			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_KEEPALIVE", "error", err)
 		}
@@ -56,4 +57,3 @@ func (tc *TCPClientInterface) setTimeoutsOSX() error {
 	debug.Log(debug.DEBUG_VERBOSE, "TCP keepalive configured (OSX)", "i2p", tc.i2pTunneled)
 	return nil
 }
-

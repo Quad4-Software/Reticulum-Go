@@ -13,23 +13,23 @@ import (
 
 func TestEphemeralKeyGeneration(t *testing.T) {
 	link := &Link{}
-	
+
 	if err := link.generateEphemeralKeys(); err != nil {
 		t.Fatalf("Failed to generate ephemeral keys: %v", err)
 	}
-	
+
 	if len(link.prv) != KEYSIZE {
 		t.Errorf("Expected private key length %d, got %d", KEYSIZE, len(link.prv))
 	}
-	
+
 	if len(link.pub) != KEYSIZE {
 		t.Errorf("Expected public key length %d, got %d", KEYSIZE, len(link.pub))
 	}
-	
+
 	if len(link.sigPriv) != 64 {
 		t.Errorf("Expected signing private key length 64, got %d", len(link.sigPriv))
 	}
-	
+
 	if len(link.sigPub) != 32 {
 		t.Errorf("Expected signing public key length 32, got %d", len(link.sigPub))
 	}
@@ -38,18 +38,18 @@ func TestEphemeralKeyGeneration(t *testing.T) {
 func TestSignallingBytes(t *testing.T) {
 	mtu := 500
 	mode := byte(MODE_AES256_CBC)
-	
+
 	bytes := signallingBytes(mtu, mode)
-	
+
 	if len(bytes) != LINK_MTU_SIZE {
 		t.Errorf("Expected signalling bytes length %d, got %d", LINK_MTU_SIZE, len(bytes))
 	}
-	
+
 	extractedMTU := (int(bytes[0]&0x1F) << 16) | (int(bytes[1]) << 8) | int(bytes[2])
 	if extractedMTU != mtu {
 		t.Errorf("Expected MTU %d, got %d", mtu, extractedMTU)
 	}
-	
+
 	extractedMode := (bytes[0] & MODE_BYTEMASK) >> 5
 	if extractedMode != mode {
 		t.Errorf("Expected mode %d, got %d", mode, extractedMode)
@@ -106,55 +106,55 @@ func TestLinkIDGeneration(t *testing.T) {
 	}
 
 	linkID := linkIDFromPacket(pkt)
-	
+
 	if len(linkID) != 16 {
 		t.Errorf("Expected link ID length 16, got %d", len(linkID))
 	}
-	
+
 	t.Logf("Generated link ID: %x", linkID)
 }
 
 func TestHandshake(t *testing.T) {
 	link1 := &Link{}
 	link2 := &Link{}
-	
+
 	if err := link1.generateEphemeralKeys(); err != nil {
 		t.Fatalf("Failed to generate keys for link1: %v", err)
 	}
-	
+
 	if err := link2.generateEphemeralKeys(); err != nil {
 		t.Fatalf("Failed to generate keys for link2: %v", err)
 	}
-	
+
 	link1.peerPub = link2.pub
 	link2.peerPub = link1.pub
-	
+
 	link1.linkID = []byte("test-link-id-abc")
 	link2.linkID = []byte("test-link-id-abc")
-	
+
 	link1.mode = MODE_AES256_CBC
 	link2.mode = MODE_AES256_CBC
-	
+
 	if err := link1.performHandshake(); err != nil {
 		t.Fatalf("Link1 handshake failed: %v", err)
 	}
-	
+
 	if err := link2.performHandshake(); err != nil {
 		t.Fatalf("Link2 handshake failed: %v", err)
 	}
-	
+
 	if string(link1.sharedKey) != string(link2.sharedKey) {
 		t.Error("Shared keys do not match")
 	}
-	
+
 	if string(link1.derivedKey) != string(link2.derivedKey) {
 		t.Error("Derived keys do not match")
 	}
-	
+
 	if link1.status != STATUS_HANDSHAKE {
 		t.Errorf("Expected link1 status HANDSHAKE, got %d", link1.status)
 	}
-	
+
 	if link2.status != STATUS_HANDSHAKE {
 		t.Errorf("Expected link2 status HANDSHAKE, got %d", link2.status)
 	}
@@ -224,9 +224,9 @@ func TestLinkEstablishment(t *testing.T) {
 	responderLink.peerSigPub = linkRequestPkt.Data[KEYSIZE:ECPUBSIZE]
 	responderLink.linkID = linkIDFromPacket(linkRequestPkt)
 	responderLink.initiator = false
-	
+
 	t.Logf("Responder link ID=%x (len=%d)", responderLink.linkID, len(responderLink.linkID))
-	
+
 	if len(responderLink.linkID) == 0 {
 		t.Fatal("Responder link ID is empty!")
 	}
@@ -362,4 +362,3 @@ func TestLinkProofValidation(t *testing.T) {
 	t.Logf("Derived key length: %d", len(initiatorLink.derivedKey))
 	t.Logf("RTT: %.3f seconds", initiatorLink.rtt)
 }
-

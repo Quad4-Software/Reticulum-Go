@@ -18,8 +18,8 @@ const (
 )
 
 var (
-	debugLevel = flag.Int("debug", 3, "debug level (1-7)")
-	logger     *slog.Logger
+	debugLevel  = flag.Int("debug", 3, "debug level (1-7)")
+	logger      *slog.Logger
 	initialized bool
 )
 
@@ -113,4 +113,3 @@ func SetDebugLevel(level int) {
 func GetDebugLevel() int {
 	return *debugLevel
 }
-

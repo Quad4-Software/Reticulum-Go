@@ -240,7 +240,7 @@ func (i *Identity) String() string {
 
 func Recall(hash []byte) (*Identity, error) {
 	hashStr := hex.EncodeToString(hash)
-	
+
 	if data, exists := knownDestinations[hashStr]; exists {
 		// data is [packet, destHash, identity, appData]
 		if len(data) >= 3 {
@@ -249,7 +249,7 @@ func Recall(hash []byte) (*Identity, error) {
 			}
 		}
 	}
-	
+
 	return nil, fmt.Errorf("identity not found for hash %x", hash)
 }
 
@@ -523,7 +523,7 @@ func FromFile(path string) (*Identity, error) {
 		ratchetExpiry: make(map[string]int64),
 		mutex:         &sync.RWMutex{},
 	}
-	
+
 	if err := ident.loadPrivateKey(privateKey, signingSeed); err != nil {
 		return nil, fmt.Errorf("failed to load private key: %w", err)
 	}
@@ -547,7 +547,7 @@ func LoadOrCreateTransportIdentity() (*Identity, error) {
 	}
 
 	transportIdentityPath := fmt.Sprintf("%s/transport_identity", storagePath)
-	
+
 	if ident, err := FromFile(transportIdentityPath); err == nil {
 		debug.Log(debug.DEBUG_INFO, "Loaded transport identity from storage")
 		return ident, nil
@@ -610,7 +610,7 @@ func (i *Identity) saveRatchets(path string) error {
 	}
 
 	debug.Log(debug.DEBUG_PACKETS, "Saving ratchets", "count", len(i.ratchets), "path", path)
-	
+
 	// Convert ratchets to list format for msgpack
 	ratchetList := make([][]byte, 0, len(i.ratchets))
 	for _, ratchet := range i.ratchets {
@@ -750,7 +750,7 @@ func (i *Identity) loadRatchets(path string) error {
 
 	signature, hasSignature := persistedData["signature"]
 	packedRatchets, hasRatchets := persistedData["ratchets"]
-	
+
 	if !hasSignature || !hasRatchets {
 		return fmt.Errorf("invalid ratchet file format: missing signature or ratchets")
 	}

@@ -87,7 +87,7 @@ type Packet struct {
 
 	Addresses []byte
 	Link      interface{}
-	
+
 	receipt *PacketReceipt
 }
 
@@ -143,7 +143,7 @@ func (p *Packet) Pack() error {
 	debug.Log(debug.DEBUG_TRACE, "Created packet header", "flags", fmt.Sprintf("%08b", flags), "hops", p.Hops)
 
 	header = append(header, p.DestinationHash...)
-	
+
 	if p.HeaderType == HeaderType2 {
 		if p.TransportID == nil {
 			return errors.New("transport ID required for header type 2")
@@ -189,8 +189,8 @@ func (p *Packet) Unpack() error {
 		if len(p.Raw) < 2*dstLen+3 {
 			return errors.New("packet too short for header type 2")
 		}
-		p.DestinationHash = p.Raw[2 : dstLen+2]           // Destination hash first
-		p.TransportID = p.Raw[dstLen+2 : 2*dstLen+2]      // Transport ID second
+		p.DestinationHash = p.Raw[2 : dstLen+2]      // Destination hash first
+		p.TransportID = p.Raw[dstLen+2 : 2*dstLen+2] // Transport ID second
 		p.Context = p.Raw[2*dstLen+2]
 		p.Data = p.Raw[2*dstLen+3:]
 	} else {

@@ -226,7 +226,7 @@ func (c *Channel) HandleInbound(data []byte) error {
 	msgType := uint16(data[0])<<8 | uint16(data[1])
 	sequence := uint16(data[2])<<8 | uint16(data[3])
 	length := uint16(data[4])<<8 | uint16(data[5])
-	
+
 	if len(data) < 6+int(length) {
 		return errors.New("channel packet incomplete")
 	}
@@ -239,9 +239,9 @@ func (c *Channel) HandleInbound(data []byte) error {
 	for _, handler := range c.messageHandlers {
 		if handler != nil {
 			msg := &GenericMessage{
-				Type:    msgType,
-				Data:    msgData,
-				Seq:     sequence,
+				Type: msgType,
+				Data: msgData,
+				Seq:  sequence,
 			}
 			if handler(msg) {
 				break

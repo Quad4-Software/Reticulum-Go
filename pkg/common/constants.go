@@ -58,4 +58,40 @@ const (
 	STALE_TIME         = 720
 	PATH_REQUEST_TTL   = 300
 	ANNOUNCE_TIMEOUT   = 15
+
+	// Common Numeric Constants
+	ZERO    = 0
+	ONE     = 1
+	TWO     = 2
+	THREE   = 3
+	FOUR    = 4
+	FIVE    = 5
+	SIX     = 6
+	SEVEN   = 7
+	EIGHT   = 8
+	FIFTEEN = 15
+
+	// Common Size Constants
+	SIZE_16 = 16
+	SIZE_32 = 32
+	SIZE_64 = 64
+	SIXTY_SEVEN = 67
+
+	// Common Hex Constants
+	HEX_0x03 = 0x03
+	HEX_0xFF = 0xFF
+
+	// Common Float Constants
+	FLOAT_ZERO  = 0.0
+	FLOAT_0_001 = 0.001
+	FLOAT_0_025 = 0.025
+	FLOAT_0_1   = 0.1
+	FLOAT_1_75  = 1.75
+	FLOAT_5_0   = 5.0
+	FLOAT_1E9   = 1e9
+
+	// Common String Constants
+	STR_LINK_ID = "link_id"
+	STR_BYTES   = "bytes"
+	STR_FMT_HEX = "0x%02x"
 )

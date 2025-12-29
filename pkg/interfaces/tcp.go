@@ -21,18 +21,18 @@ const (
 	KISS_TFEND = 0xDC
 	KISS_TFESC = 0xDD
 
-	DEFAULT_MTU             = 1064
-	BITRATE_GUESS_VAL       = 10 * 1000 * 1000
-	RECONNECT_WAIT          = 5
-	INITIAL_TIMEOUT         = 5
-	INITIAL_BACKOFF         = time.Second
-	MAX_BACKOFF             = time.Minute * 5
-	
+	DEFAULT_MTU       = 1064
+	BITRATE_GUESS_VAL = 10 * 1000 * 1000
+	RECONNECT_WAIT    = 5
+	INITIAL_TIMEOUT   = 5
+	INITIAL_BACKOFF   = time.Second
+	MAX_BACKOFF       = time.Minute * 5
+
 	TCP_USER_TIMEOUT_SEC   = 24
 	TCP_PROBE_AFTER_SEC    = 5
 	TCP_PROBE_INTERVAL_SEC = 2
 	TCP_PROBES_COUNT       = 12
-	
+
 	I2P_USER_TIMEOUT_SEC   = 45
 	I2P_PROBE_AFTER_SEC    = 10
 	I2P_PROBE_INTERVAL_SEC = 9
@@ -201,7 +201,7 @@ func (tc *TCPClientInterface) handlePacket(data []byte) {
 // Send implements the interface Send method for TCP interface
 func (tc *TCPClientInterface) Send(data []byte, address string) error {
 	debug.Log(debug.DEBUG_ALL, "TCP interface sending bytes", "name", tc.Name, "bytes", len(data))
-	
+
 	if !tc.IsEnabled() || !tc.IsOnline() {
 		return fmt.Errorf("TCP interface %s is not online", tc.Name)
 	}
@@ -433,7 +433,6 @@ func (tc *TCPClientInterface) GetStats() (tx uint64, rx uint64, lastTx time.Time
 	defer tc.mutex.RUnlock()
 	return tc.TxBytes, tc.RxBytes, tc.lastTx, tc.lastRx
 }
-
 
 type TCPServerInterface struct {
 	BaseInterface

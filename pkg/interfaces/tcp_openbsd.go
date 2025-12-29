@@ -1,3 +1,4 @@
+//go:build openbsd
 // +build openbsd
 
 package interfaces
@@ -24,7 +25,7 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 	if tc.i2pTunneled {
 		keepalivePeriod = I2P_PROBE_INTERVAL_SEC * time.Second
 	}
-	
+
 	if err := tcpConn.SetKeepAlivePeriod(keepalivePeriod); err != nil {
 		debug.Log(debug.DEBUG_VERBOSE, "Failed to set keepalive period", "error", err)
 	}
@@ -36,4 +37,3 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 func (tc *TCPClientInterface) setTimeoutsOSX() error {
 	return tc.setTimeoutsLinux()
 }
-

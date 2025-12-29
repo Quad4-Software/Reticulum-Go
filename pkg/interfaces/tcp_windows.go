@@ -30,7 +30,7 @@ func (tc *TCPClientInterface) setTimeoutsWindows() error {
 	if tc.i2pTunneled {
 		keepalivePeriod = I2P_PROBE_INTERVAL_SEC * time.Second
 	}
-	
+
 	if err := tcpConn.SetKeepAlivePeriod(keepalivePeriod); err != nil {
 		debug.Log(debug.DEBUG_VERBOSE, "Failed to set keepalive period", "error", err)
 	}
@@ -38,5 +38,3 @@ func (tc *TCPClientInterface) setTimeoutsWindows() error {
 	debug.Log(debug.DEBUG_VERBOSE, "TCP keepalive configured (Windows)", "i2p", tc.i2pTunneled)
 	return nil
 }
-
-

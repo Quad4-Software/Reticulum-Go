@@ -38,7 +38,7 @@ func NewUDPInterface(name string, addr string, target string, enabled bool) (*UD
 		targetAddr:    targetAddr,
 		readBuffer:    make([]byte, 1064),
 	}
-	
+
 	ui.MTU = 1064
 
 	return ui, nil
@@ -183,7 +183,7 @@ func (ui *UDPInterface) Start() error {
 		return err
 	}
 	ui.conn = conn
-	
+
 	// Enable broadcast mode if we have a target address
 	if ui.targetAddr != nil {
 		// Get the raw connection file descriptor to set SO_BROADCAST
@@ -194,12 +194,12 @@ func (ui *UDPInterface) Start() error {
 			debug.Log(debug.DEBUG_ERROR, "Failed to set write buffer size", "error", err)
 		}
 	}
-	
+
 	ui.Online = true
-	
+
 	// Start the read loop in a goroutine
 	go ui.readLoop()
-	
+
 	return nil
 }
 
@@ -218,7 +218,7 @@ func (ui *UDPInterface) readLoop() {
 		ui.mutex.Lock()
 		// #nosec G115 - Network read sizes are always positive and within safe range
 		ui.RxBytes += uint64(n)
-		
+
 		// Auto-discover target address from first packet if not set
 		if ui.targetAddr == nil {
 			debug.Log(debug.DEBUG_ALL, "UDP interface discovered peer", "name", ui.Name, "peer", remoteAddr.String())

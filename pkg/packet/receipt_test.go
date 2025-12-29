@@ -115,13 +115,13 @@ func TestPacketReceiptProofValidation(t *testing.T) {
 
 	packetHash := pkt.GetHash()
 	t.Logf("Packet hash: %x", packetHash)
-	
+
 	signature := testIdent.Sign(packetHash)
 
 	t.Logf("PacketHash length: %d", len(packetHash))
 	t.Logf("Signature length: %d", len(signature))
 	t.Logf("EXPL_LENGTH constant: %d", EXPL_LENGTH)
-	
+
 	if testIdent.Verify(packetHash, signature) {
 		t.Log("Direct verification succeeded")
 	} else {
@@ -207,4 +207,3 @@ func TestPacketReceiptCallbacks(t *testing.T) {
 		t.Error("Delivery callback was not called")
 	}
 }
-

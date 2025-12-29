@@ -87,17 +87,17 @@ func New(dest *identity.Identity, destinationHash []byte, destinationName string
 	}
 
 	a := &Announce{
-		mutex:            &sync.RWMutex{},
-		identity:         dest,
-		destinationHash:  destinationHash,
-		destinationName:  destinationName,
-		appData:          appData,
-		config:           config,
-		hops:             0,
-		timestamp:        time.Now().Unix(),
-		pathResponse:     pathResponse,
-		retries:          0,
-		handlers:         make([]AnnounceHandler, 0),
+		mutex:           &sync.RWMutex{},
+		identity:        dest,
+		destinationHash: destinationHash,
+		destinationName: destinationName,
+		appData:         appData,
+		config:          config,
+		hops:            0,
+		timestamp:       time.Now().Unix(),
+		pathResponse:    pathResponse,
+		retries:         0,
+		handlers:        make([]AnnounceHandler, 0),
 	}
 
 	// Get current ratchet ID if enabled
@@ -365,7 +365,7 @@ func (a *Announce) CreatePacket() []byte {
 			copy(ratchetData, ratchetPub)
 		}
 	}
-	
+
 	// Determine context flag based on whether ratchet exists
 	contextFlag := byte(0)
 	if len(ratchetData) > 0 {
