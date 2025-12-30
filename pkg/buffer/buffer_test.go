@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"git.quad4.io/Networks/Reticulum-Go/pkg/channel"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
 )
@@ -217,7 +218,9 @@ func (m *mockLink) Resend(p interface{}) error                                  
 func (m *mockLink) SetPacketTimeout(p interface{}, cb func(interface{}), t time.Duration) {}
 func (m *mockLink) SetPacketDelivered(p interface{}, cb func(interface{}))                {}
 func (m *mockLink) HandleInbound(pkt *packet.Packet) error                                { return nil }
-func (m *mockLink) ValidateLinkProof(pkt *packet.Packet) error                            { return nil }
+func (m *mockLink) ValidateLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error {
+	return nil
+}
 
 func TestNewRawChannelReader(t *testing.T) {
 	link := &mockLink{status: transport.STATUS_ACTIVE}
