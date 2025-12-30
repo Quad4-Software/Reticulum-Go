@@ -340,7 +340,7 @@ func TestLinkProofValidation(t *testing.T) {
 		t.Fatalf("Failed to generate link proof: %v", err)
 	}
 
-	if err := initiatorLink.ValidateLinkProof(proofPkt); err != nil {
+	if err := initiatorLink.ValidateLinkProof(proofPkt, nil); err != nil {
 		t.Fatalf("Initiator failed to validate link proof: %v", err)
 	}
 
