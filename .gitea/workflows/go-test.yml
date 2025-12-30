@@ -37,6 +37,11 @@ jobs:
         with:
           go-version: '1.25'
 
+      - name: Setup Task
+        uses: https://git.quad4.io/actions/setup-task@0ab1b2a65bc55236a3bc64cde78f80e20e8885c2 # v1
+        with:
+          version: '3.46.3'
+
       - name: Cache Go modules
         uses: https://git.quad4.io/actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
@@ -47,29 +52,28 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-${{ matrix.goarch }}-
 
-      - name: Run Go tests
-        run: go test -v ./...
+      - name: Run tests
+        run: task test
 
-      - name: Run Go tests with race detector (Linux AMD64 only)
+      - name: Run tests with race detector (Linux AMD64 only)
         if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
-        run: go test -race -v ./...
+        run: task test-race
 
       - name: Test build (ensure compilation works)
         run: |
-          # Test that we can build for the current platform
           echo "Testing build for current platform (${{ matrix.os }}, ${{ matrix.goarch }})..."
-          go build -v ./cmd/reticulum-go
+          task build
 
       - name: Test binary execution
         run: |
           echo "Testing binary execution on (${{ matrix.os }}, ${{ matrix.goarch }})..."
-          timeout 5s ./reticulum-go || echo "Binary started successfully (timeout expected)"
+          timeout 5s ./bin/reticulum-go || echo "Binary started successfully (timeout expected)"
 
       - name: Test cross-compilation (AMD64 runners only)
         if: matrix.goarch == 'amd64'
         run: |
           echo "Testing ARM64 cross-compilation from AMD64..."
-          go build -v ./cmd/reticulum-go
+          GOOS=linux GOARCH=arm64 task build
         env:
           GOOS: linux
           GOARCH: arm64
@@ -78,7 +82,7 @@ jobs:
         if: matrix.goarch == 'amd64'
         run: |
           echo "Testing ARMv6 cross-compilation from AMD64..."
-          go build -v ./cmd/reticulum-go
+          GOOS=linux GOARCH=arm GOARM=6 task build
         env:
           GOOS: linux
           GOARCH: arm

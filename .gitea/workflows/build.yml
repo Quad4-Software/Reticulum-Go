@@ -34,18 +34,27 @@ jobs:
       with:
         go-version: '1.25'
 
+    - name: Setup Task
+      uses: https://git.quad4.io/actions/setup-task@0ab1b2a65bc55236a3bc64cde78f80e20e8885c2 # v1
+      with:
+        version: '3.46.3'
+
     - name: Build
       id: build_step
       env:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
         GOARM: ${{ matrix.goarch == 'arm' && '6' || '' }}
+        CGO_ENABLED: '0'
       run: |
+        task build
         output_name="reticulum-go-${GOOS}-${GOARCH}"
         if [ "$GOOS" = "windows" ]; then
           output_name+=".exe"
+          mv bin/reticulum-go "${output_name}"
+        else
+          mv bin/reticulum-go "${output_name}"
         fi
-        go build -v -ldflags="-s -w" -o "${output_name}" ./cmd/reticulum-go
         echo "Built: ${output_name}"
 
     - name: Calculate SHA256 Checksum
@@ -54,36 +63,7 @@ jobs:
         if [ "${{ matrix.goos }}" = "windows" ]; then
           output_name+=".exe"
         fi
-        sha256sum "${output_name}" > "${output_name}.sha256"
-        echo "Calculated SHA256 for ${output_name}"
-
-    - name: Generate SBOM
-      uses: https://git.quad4.io/actions/gh-gomod-generate-sbom@efc74245d6802c8cefd925620515442756c70d8f # v2
-      with:
-        version: v1
-        args: mod -licenses -json -output bom.json
-
-    - name: Install Trivy
-      run: |
-        wget https://git.quad4.io/Quad4-Extra/assets/raw/commit/90fdcea1bb71d91df2de6ff2e3897f278413f300/bin/trivy_0.68.2_Linux-64bit.deb
-        sudo dpkg -i trivy_0.68.2_Linux-64bit.deb
-
-    - name: Generate SPDX SBOM with Trivy
-      run: |
-        trivy fs --format spdx-json --output dependency-results.sbom.json . || exit 1
-        if [ ! -f dependency-results.sbom.json ]; then
-          echo "Error: SBOM file was not created!"
-          exit 1
-        fi
-        echo "SBOM file created successfully:"
-        ls -lh dependency-results.sbom.json
-
-    - name: Verify SBOM files exist
-      run: |
-        echo "Checking for SBOM files..."
-        ls -lh bom.json dependency-results.sbom.json || true
-        test -f bom.json && echo "bom.json exists" || echo "bom.json missing"
-        test -f dependency-results.sbom.json && echo "dependency-results.sbom.json exists" || echo "dependency-results.sbom.json missing"
+        BINARY_PATH="${output_name}" task checksum
 
     - name: Upload Artifact
       uses: https://git.quad4.io/actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3.2.1
@@ -91,16 +71,6 @@ jobs:
         name: reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}
         path: |
           reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}*
-          bom.json
-          dependency-results.sbom.json
-
-    - name: Upload SPDX SBOM Artifact
-      if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
-      uses: https://git.quad4.io/actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3.2.1
-      with:
-        name: spdx-sbom
-        path: dependency-results.sbom.json
-        retention-days: 90
 
   release:
     name: Create Release
