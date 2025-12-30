@@ -169,7 +169,7 @@ tasks:
     desc: Build WebAssembly binary with TinyGo compiler
     cmds:
       - mkdir -p {{.BUILD_DIR}}
-      - tinygo build -target wasm -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm {{.MAIN_PACKAGE}}
+      - tinygo build -target wasm -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm ./cmd/reticulum-wasm
 
   build-wasm:
     desc: Build WebAssembly binary with standard Go compiler
@@ -177,7 +177,7 @@ tasks:
       CGO_ENABLED: '0'
     cmds:
       - mkdir -p {{.BUILD_DIR}}
-      - 'GOOS=js GOARCH=wasm {{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm {{.MAIN_PACKAGE}}'
+      - 'GOOS=js GOARCH=wasm {{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm ./cmd/reticulum-wasm'
 
   build-wasm-example:
     desc: Build WebAssembly example
