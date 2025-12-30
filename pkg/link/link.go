@@ -807,7 +807,7 @@ func (l *Link) handleResourceAdvertisement(pkt *packet.Packet) error {
 		if l.destination != nil {
 			handler := l.destination.GetRequestHandler(requestID)
 			if handler != nil {
-				response := handler(requestID, nil, requestID, l.remoteIdentity, time.Now())
+				response := handler(requestID, nil, requestID, l.linkID, l.remoteIdentity, time.Now())
 				if response != nil {
 					return l.sendResourceResponse(requestID, response)
 				}
@@ -1014,19 +1014,43 @@ func (l *Link) handleRequest(plaintext []byte, pkt *packet.Packet) error {
 		return errors.New("invalid request format")
 	}
 
-	requestedAt := time.Unix(int64(requestData[common.ZERO].(int64)), common.ZERO)
-	pathHash := requestData[common.ONE].([]byte)
-	requestPayload := requestData[common.TWO].([]byte)
+	requestedAtFloat, ok := requestData[common.ZERO].(float64)
+	if !ok {
+		if requestedAtInt, ok := requestData[common.ZERO].(int64); ok {
+			requestedAtFloat = float64(requestedAtInt)
+		} else {
+			return fmt.Errorf("invalid requested_at type: %T", requestData[common.ZERO])
+		}
+	}
+	requestedAt := time.Unix(int64(requestedAtFloat), 0)
 
-	requestID := identity.TruncatedHash(plaintext)
+	pathHash, ok := requestData[common.ONE].([]byte)
+	if !ok {
+		return fmt.Errorf("invalid path_hash type: %T", requestData[common.ONE])
+	}
+
+	var requestPayload []byte
+	if requestData[common.TWO] != nil {
+		if payload, ok := requestData[common.TWO].([]byte); ok {
+			requestPayload = payload
+		} else {
+			return fmt.Errorf("invalid request_payload type: %T", requestData[common.TWO])
+		}
+	}
+
+	requestID := pkt.TruncatedHash()
+
+	debug.Log(debug.DEBUG_INFO, "Handling request", "path_hash", fmt.Sprintf("%x", pathHash), "request_id", fmt.Sprintf("%x", requestID))
 
 	if l.destination != nil {
 		handler := l.destination.GetRequestHandler(pathHash)
 		if handler != nil {
-			response := handler(pathHash, requestPayload, requestID, l.remoteIdentity, requestedAt)
+			response := handler(pathHash, requestPayload, requestID, l.linkID, l.remoteIdentity, requestedAt)
 			if response != nil {
 				return l.sendResponse(requestID, response)
 			}
+		} else {
+			debug.Log(debug.DEBUG_VERBOSE, "No handler found for path", "path_hash", fmt.Sprintf("%x", pathHash))
 		}
 	}
 
