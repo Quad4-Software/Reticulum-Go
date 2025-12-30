@@ -26,11 +26,8 @@ jobs:
         with:
           version: '3.46.3'
 
-      - name: Setup environment
-        run: task setup
-
       - name: Install dependencies
-        run: task install:ci
+        run: task deps
 
       - name: Download Trivy
         run: |
