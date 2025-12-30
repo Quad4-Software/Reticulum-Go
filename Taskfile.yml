@@ -177,9 +177,7 @@ tasks:
       CGO_ENABLED: '0'
     cmds:
       - mkdir -p {{.BUILD_DIR}}
-      - 'GOOS=js GOARCH=wasm {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm {{.MAIN_PACKAGE}}'
-      - mkdir -p examples/wasm/static
-      - cp {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm examples/wasm/static/reticulum-go.wasm
+      - 'GOOS=js GOARCH=wasm {{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm {{.MAIN_PACKAGE}}'
 
   build-wasm-example:
     desc: Build WebAssembly example
