@@ -21,6 +21,7 @@
             go
             go-task
             revive
+            gosec
             gnumake
           ];
 
@@ -29,6 +30,7 @@
             echo "Go version: $(go version)"
             echo "Task version: $(task --version 2>/dev/null || echo 'not available')"
             echo "Revive version: $(revive --version 2>/dev/null || echo 'not available')"
+            echo "Gosec version: $(gosec --version 2>/dev/null || echo 'not available')"
           '';
         };
 
