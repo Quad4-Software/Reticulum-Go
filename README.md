@@ -170,9 +170,7 @@ task build-linux
 
 ## Embedded Systems and WebAssembly
 
-For building for WebAssembly and embedded systems, see the [tinygo branch](https://git.quad4.io/Networks/Reticulum-Go/src/branch/tinygo/). Requires TinyGo 0.37.0+.
-
-Note: WebAssembly support is not actively maintained at this time.
+For building for embedded systems, see the [tinygo branch](https://git.quad4.io/Networks/Reticulum-Go/src/branch/tinygo/). Requires TinyGo 0.37.0+.
 
 Build WebAssembly binary with standard Go compiler:
 
