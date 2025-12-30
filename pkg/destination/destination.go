@@ -128,6 +128,12 @@ func New(id *identity.Identity, direction byte, destType byte, appName string, t
 	d.hashValue = d.calculateHash()
 	debug.Log(debug.DEBUG_VERBOSE, "Created destination with hash", "hash", fmt.Sprintf("%x", d.hashValue))
 
+	// Auto-register with transport if direction is IN
+	if (direction & IN) != 0 {
+		transport.RegisterDestination(d.hashValue, d)
+		debug.Log(debug.DEBUG_INFO, "Destination auto-registered with transport", "hash", fmt.Sprintf("%x", d.hashValue))
+	}
+
 	return d, nil
 }
 
@@ -299,6 +305,33 @@ func (d *Destination) SetPacketCallback(callback common.PacketCallback) {
 	d.packetCallback = callback
 }
 
+func (d *Destination) Receive(pkt *packet.Packet, iface common.NetworkInterface) {
+	d.mutex.RLock()
+	callback := d.packetCallback
+	d.mutex.RUnlock()
+
+	if callback == nil {
+		debug.Log(debug.DEBUG_VERBOSE, "No packet callback set for destination")
+		return
+	}
+
+	if pkt.PacketType == packet.PacketTypeLinkReq {
+		debug.Log(debug.DEBUG_INFO, "Received link request for destination")
+		d.HandleIncomingLinkRequest(pkt, d.transport, iface)
+		return
+	}
+
+	plaintext, err := d.Decrypt(pkt.Data)
+	if err != nil {
+		debug.Log(debug.DEBUG_INFO, "Failed to decrypt packet data", "error", err)
+		return
+	}
+
+	debug.Log(debug.DEBUG_INFO, "Destination received packet", "bytes", len(plaintext))
+
+	callback(plaintext, iface)
+}
+
 func (d *Destination) SetProofRequestedCallback(callback common.ProofRequestedCallback) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -416,14 +449,14 @@ func (d *Destination) DeregisterRequestHandler(path string) bool {
 	return false
 }
 
-func (d *Destination) GetRequestHandler(pathHash []byte) func([]byte, []byte, []byte, *identity.Identity, time.Time) interface{} {
+func (d *Destination) GetRequestHandler(pathHash []byte) func([]byte, []byte, []byte, []byte, *identity.Identity, time.Time) interface{} {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
 	for _, handler := range d.requestHandlers {
 		handlerPathHash := identity.TruncatedHash([]byte(handler.Path))
 		if string(handlerPathHash) == string(pathHash) {
-			return func(pathHash []byte, data []byte, requestID []byte, remoteIdentity *identity.Identity, requestedAt time.Time) interface{} {
+			return func(pathHash []byte, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt time.Time) interface{} {
 				allowed := false
 				if handler.AllowMode == ALLOW_ALL {
 					allowed = true
@@ -441,7 +474,7 @@ func (d *Destination) GetRequestHandler(pathHash []byte) func([]byte, []byte, []
 					return nil
 				}
 
-				result := handler.ResponseGenerator(handler.Path, data, requestID, nil, remoteIdentity, requestedAt.Unix())
+				result := handler.ResponseGenerator(handler.Path, data, requestID, linkID, remoteIdentity, requestedAt.Unix())
 				if result == nil {
 					return nil
 				}
