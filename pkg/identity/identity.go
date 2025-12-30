@@ -466,12 +466,23 @@ func (i *Identity) tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet [
 }
 
 func (i *Identity) EncryptWithHMAC(plaintext []byte, key []byte) ([]byte, error) {
-	ciphertext, err := cryptography.EncryptAES256CBC(key, plaintext)
+	var hmacKey, encryptionKey []byte
+	if len(key) == 64 {
+		hmacKey = key[:32]
+		encryptionKey = key[32:64]
+	} else if len(key) == 32 {
+		hmacKey = key[:16]
+		encryptionKey = key[16:32]
+	} else {
+		return nil, errors.New("invalid key length for EncryptWithHMAC")
+	}
+
+	ciphertext, err := cryptography.EncryptAES256CBC(encryptionKey, plaintext)
 	if err != nil {
 		return nil, err
 	}
 
-	mac := cryptography.ComputeHMAC(key, ciphertext)
+	mac := cryptography.ComputeHMAC(hmacKey, ciphertext)
 	return append(ciphertext, mac...), nil
 }
 
@@ -480,15 +491,26 @@ func (i *Identity) DecryptWithHMAC(data []byte, key []byte) ([]byte, error) {
 		return nil, errors.New("data too short")
 	}
 
+	var hmacKey, encryptionKey []byte
+	if len(key) == 64 {
+		hmacKey = key[:32]
+		encryptionKey = key[32:64]
+	} else if len(key) == 32 {
+		hmacKey = key[:16]
+		encryptionKey = key[16:32]
+	} else {
+		return nil, errors.New("invalid key length for DecryptWithHMAC")
+	}
+
 	macStart := len(data) - cryptography.SHA256Size
 	ciphertext := data[:macStart]
 	messageMAC := data[macStart:]
 
-	if !cryptography.ValidateHMAC(key, ciphertext, messageMAC) {
+	if !cryptography.ValidateHMAC(hmacKey, ciphertext, messageMAC) {
 		return nil, errors.New("invalid HMAC")
 	}
 
-	return cryptography.DecryptAES256CBC(key, ciphertext)
+	return cryptography.DecryptAES256CBC(encryptionKey, ciphertext)
 }
 
 func (i *Identity) ToFile(path string) error {
@@ -898,7 +920,7 @@ func NewIdentity() (*Identity, error) {
 	copy(combinedPub[:KEYSIZE/16], i.publicKey)
 	copy(combinedPub[KEYSIZE/16:], i.verificationKey)
 	hash := sha256.Sum256(combinedPub)
-	i.hash = hash[:]
+	i.hash = hash[:TRUNCATED_HASHLENGTH/8]
 
 	return i, nil
 }
