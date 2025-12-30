@@ -136,7 +136,7 @@ func (m *Manager) LoadRatchets(identityHash []byte) (map[string][]byte, error) {
 		}
 
 		filePath := filepath.Join(ratchetDir, entry.Name())
-		// bearer:disable
+		// bearer:disable go_gosec_filesystem_filereadtaint
 		data, err := os.ReadFile(filePath) // #nosec G304 - reading from controlled directory
 		if err != nil {
 			debug.Log(debug.DEBUG_ERROR, "Failed to read ratchet file", "file", entry.Name(), "error", err)

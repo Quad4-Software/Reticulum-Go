@@ -503,7 +503,7 @@ func FromFile(path string) (*Identity, error) {
 	debug.Log(debug.DEBUG_ALL, "Loading identity from file", "path", path)
 
 	// Read the private key bytes from file
-	// bearer:disable
+	// bearer:disable go_gosec_filesystem_filereadtaint
 	data, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
 		return nil, fmt.Errorf("failed to read identity file: %w", err)
@@ -670,6 +670,7 @@ func (i *Identity) saveRatchets(path string) error {
 func RecallIdentity(path string) (*Identity, error) {
 	debug.Log(debug.DEBUG_ALL, "Attempting to recall identity", "path", path)
 
+	// bearer:disable go_gosec_filesystem_filereadtaint
 	file, err := os.Open(path) // #nosec G304
 	if err != nil {
 		debug.Log(debug.DEBUG_CRITICAL, "Failed to open identity file", "error", err)
@@ -727,6 +728,7 @@ func (i *Identity) loadRatchets(path string) error {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
+	// bearer:disable go_gosec_filesystem_filereadtaint
 	file, err := os.Open(path) // #nosec G304
 	if err != nil {
 		if os.IsNotExist(err) {
