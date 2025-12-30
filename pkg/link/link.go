@@ -1016,11 +1016,11 @@ func (l *Link) handleRequest(plaintext []byte, pkt *packet.Packet) error {
 
 	requestedAtFloat, ok := requestData[common.ZERO].(float64)
 	if !ok {
-		if requestedAtInt, ok := requestData[common.ZERO].(int64); ok {
-			requestedAtFloat = float64(requestedAtInt)
-		} else {
+		requestedAtInt, ok := requestData[common.ZERO].(int64)
+		if !ok {
 			return fmt.Errorf("invalid requested_at type: %T", requestData[common.ZERO])
 		}
+		requestedAtFloat = float64(requestedAtInt)
 	}
 	requestedAt := time.Unix(int64(requestedAtFloat), 0)
 
@@ -1031,11 +1031,11 @@ func (l *Link) handleRequest(plaintext []byte, pkt *packet.Packet) error {
 
 	var requestPayload []byte
 	if requestData[common.TWO] != nil {
-		if payload, ok := requestData[common.TWO].([]byte); ok {
-			requestPayload = payload
-		} else {
+		payload, ok := requestData[common.TWO].([]byte)
+		if !ok {
 			return fmt.Errorf("invalid request_payload type: %T", requestData[common.TWO])
 		}
+		requestPayload = payload
 	}
 
 	requestID := pkt.TruncatedHash()
@@ -1143,7 +1143,7 @@ func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
 			rtt = float64(binary.BigEndian.Uint64(plaintext[:common.EIGHT])) / common.FLOAT_1E9
 		}
 
-		l.rtt = max(measuredRTT, rtt)
+		l.rtt = maxFloat(measuredRTT, rtt)
 		l.status = STATUS_ACTIVE
 		l.establishedAt = time.Now()
 
@@ -1207,7 +1207,7 @@ func (l *Link) handleTeardown(plaintext []byte) error {
 	return nil
 }
 
-func max(a, b float64) float64 {
+func maxFloat(a, b float64) float64 {
 	if a > b {
 		return a
 	}
@@ -1364,10 +1364,7 @@ func (l *Link) Resend(pkt interface{}) error {
 		return errors.New("invalid packet type")
 	}
 
-	if err := l.transport.SendPacket(packetObj); err != nil {
-		return err
-	}
-	return nil
+	return l.transport.SendPacket(packetObj)
 }
 
 func (l *Link) GetLinkID() []byte {
