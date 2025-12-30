@@ -16,6 +16,9 @@ jobs:
       matrix:
         goos: [linux, windows, darwin, freebsd]
         goarch: [amd64, arm64, arm]
+        include:
+          - goos: js
+            goarch: wasm
         exclude:
           - goos: darwin
             goarch: arm
@@ -47,12 +50,16 @@ jobs:
         GOARM: ${{ matrix.goarch == 'arm' && '6' || '' }}
         CGO_ENABLED: '0'
       run: |
-        task build
         output_name="reticulum-go-${GOOS}-${GOARCH}"
-        if [ "$GOOS" = "windows" ]; then
-          output_name+=".exe"
-          mv bin/reticulum-go "${output_name}"
+        if [ "$GOOS" = "js" ] && [ "$GOARCH" = "wasm" ]; then
+          task build-wasm
+          output_name+=".wasm"
+          mv bin/reticulum-go.wasm "${output_name}"
         else
+          task build
+          if [ "$GOOS" = "windows" ]; then
+            output_name+=".exe"
+          fi
           mv bin/reticulum-go "${output_name}"
         fi
         echo "Built: ${output_name}"
@@ -62,6 +69,8 @@ jobs:
         output_name="reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}"
         if [ "${{ matrix.goos }}" = "windows" ]; then
           output_name+=".exe"
+        elif [ "${{ matrix.goos }}" = "js" ] && [ "${{ matrix.goarch }}" = "wasm" ]; then
+          output_name+=".wasm"
         fi
         BINARY_PATH="${output_name}" task checksum
 
