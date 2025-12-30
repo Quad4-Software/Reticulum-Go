@@ -317,7 +317,9 @@ func (d *Destination) Receive(pkt *packet.Packet, iface common.NetworkInterface)
 
 	if pkt.PacketType == packet.PacketTypeLinkReq {
 		debug.Log(debug.DEBUG_INFO, "Received link request for destination")
-		d.HandleIncomingLinkRequest(pkt, d.transport, iface)
+		if err := d.HandleIncomingLinkRequest(pkt, d.transport, iface); err != nil {
+			debug.Log(debug.DEBUG_ERROR, "Failed to handle incoming link request", "error", err)
+		}
 		return
 	}
 
