@@ -186,19 +186,19 @@ tasks:
     env:
       CGO_ENABLED: '0'
     cmds:
-      - mkdir -p examples/wasm/static
-      - 'cd examples/wasm && GOOS=js GOARCH=wasm {{.GOCMD}} build -o static/reticulum-go.wasm .'
+      - mkdir -p examples/wasm/public/static
+      - 'cd examples/wasm && GOOS=js GOARCH=wasm {{.GOCMD}} build -o public/static/reticulum-go.wasm .'
       - |
         GOROOT=$({{.GOCMD}} env GOROOT)
         if [ -f "$GOROOT/lib/wasm/wasm_exec.js" ]; then
-          cp "$GOROOT/lib/wasm/wasm_exec.js" examples/wasm/
+          cp "$GOROOT/lib/wasm/wasm_exec.js" examples/wasm/public/js/
           echo "wasm_exec.js copied successfully from $GOROOT/lib/wasm/"
         elif [ -f "$GOROOT/misc/wasm/wasm_exec.js" ]; then
-          cp "$GOROOT/misc/wasm/wasm_exec.js" examples/wasm/
+          cp "$GOROOT/misc/wasm/wasm_exec.js" examples/wasm/public/js/
           echo "wasm_exec.js copied successfully from $GOROOT/misc/wasm/"
         else
-          echo "Warning: wasm_exec.js not found at $GOROOT/lib/wasm/wasm_exec.js or $GOROOT/misc/wasm/wasm_exec.js"
-          echo "Please copy it manually to examples/wasm/"
+          echo "Warning: wasm_exec.js not found"
+          exit 1
         fi
 
   install:
@@ -218,3 +218,72 @@ tasks:
           echo "Error: Binary not found at $BINARY_PATH"
           exit 1
         fi
+
+  example:announce:
+    desc: Run announce example
+    cmds:
+      - 'cd examples/announce && {{.GOCMD}} run .'
+
+  example:minimal:
+    desc: Run minimal example
+    cmds:
+      - 'cd examples/minimal && {{.GOCMD}} run .'
+
+  example:pageserver:
+    desc: Run pageserver example
+    cmds:
+      - 'cd examples/pageserver && {{.GOCMD}} run .'
+
+  example:echo-listen:
+    desc: Run echo example (waits for incoming connections, P2P peer)
+    cmds:
+      - 'cd examples/echo && {{.GOCMD}} run . --server'
+
+  example:echo-connect:
+    desc: Run echo example (initiates connection to peer, requires DESTINATION env var)
+    cmds:
+      - |
+        if [ -z "${DESTINATION}" ]; then
+          echo "Error: DESTINATION environment variable required (hexadecimal hash of peer)"
+          echo "Example: DESTINATION=abc123... task example:echo-connect"
+          exit 1
+        fi
+        cd examples/echo && {{.GOCMD}} run . --destination="${DESTINATION}"
+
+  example:link-listen:
+    desc: Run link example (waits for incoming link requests, P2P peer)
+    cmds:
+      - 'cd examples/link && {{.GOCMD}} run . --server'
+
+  example:link-connect:
+    desc: Run link example (initiates link to peer, requires DESTINATION env var)
+    cmds:
+      - |
+        if [ -z "${DESTINATION}" ]; then
+          echo "Error: DESTINATION environment variable required (hexadecimal hash of peer)"
+          echo "Example: DESTINATION=abc123... task example:link-connect"
+          exit 1
+        fi
+        cd examples/link && {{.GOCMD}} run . --destination="${DESTINATION}"
+
+  example:filetransfer-share:
+    desc: Run filetransfer example (shares files from directory, P2P peer)
+    cmds:
+      - |
+        if [ -z "${SERVE_PATH}" ]; then
+          echo "Error: SERVE_PATH environment variable required (directory to share)"
+          echo "Example: SERVE_PATH=/path/to/files task example:filetransfer-share"
+          exit 1
+        fi
+        cd examples/filetransfer && {{.GOCMD}} run . --server --serve="${SERVE_PATH}"
+
+  example:filetransfer-fetch:
+    desc: Run filetransfer example (fetches files from peer, requires DESTINATION env var)
+    cmds:
+      - |
+        if [ -z "${DESTINATION}" ]; then
+          echo "Error: DESTINATION environment variable required (hexadecimal hash of peer)"
+          echo "Example: DESTINATION=abc123... task example:filetransfer-fetch"
+          exit 1
+        fi
+        cd examples/filetransfer && {{.GOCMD}} run . --destination="${DESTINATION}"
