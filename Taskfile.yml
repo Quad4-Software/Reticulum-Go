@@ -190,11 +190,14 @@ tasks:
       - 'cd examples/wasm && GOOS=js GOARCH=wasm {{.GOCMD}} build -o static/reticulum-go.wasm .'
       - |
         GOROOT=$({{.GOCMD}} env GOROOT)
-        if [ -f "$GOROOT/misc/wasm/wasm_exec.js" ]; then
+        if [ -f "$GOROOT/lib/wasm/wasm_exec.js" ]; then
+          cp "$GOROOT/lib/wasm/wasm_exec.js" examples/wasm/
+          echo "wasm_exec.js copied successfully from $GOROOT/lib/wasm/"
+        elif [ -f "$GOROOT/misc/wasm/wasm_exec.js" ]; then
           cp "$GOROOT/misc/wasm/wasm_exec.js" examples/wasm/
-          echo "wasm_exec.js copied successfully"
+          echo "wasm_exec.js copied successfully from $GOROOT/misc/wasm/"
         else
-          echo "Warning: wasm_exec.js not found at $GOROOT/misc/wasm/wasm_exec.js"
+          echo "Warning: wasm_exec.js not found at $GOROOT/lib/wasm/wasm_exec.js or $GOROOT/misc/wasm/wasm_exec.js"
           echo "Please copy it manually to examples/wasm/"
         fi
 
