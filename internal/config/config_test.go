@@ -71,7 +71,7 @@ func TestLoadSaveConfig(t *testing.T) {
 	if loadedCfg.LogLevel != 1 {
 		t.Errorf("Expected LogLevel 1, got %d", loadedCfg.LogLevel)
 	}
-	if loadedCfg.EnableTransport != false {
+	if loadedCfg.EnableTransport {
 		t.Error("Expected EnableTransport false")
 	}
 
