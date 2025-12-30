@@ -162,7 +162,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		interfaces:            make(map[string]common.NetworkInterface),
 		paths:                 make(map[string]*common.Path), // TODO: Load persisted path table from storage/destination_table for faster startup
 		seenAnnounces:         make(map[string]bool),
-		announceRate:          rate.NewLimiter(PROPAGATION_RATE, common.ONE),
+		announceRate:          rate.NewLimiter(rate.DefaultBurstFreq, 20.0),
 		mutex:                 sync.RWMutex{},
 		config:                cfg,
 		links:                 make(map[string]LinkInterface),
@@ -690,6 +690,12 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 			continue
 		}
 
+		// Check interface-level bandwidth before forwarding
+		if !iface.GetBandwidthAvailable() {
+			debug.Log(debug.DEBUG_VERBOSE, "Skipping announce forwarding on interface due to bandwidth cap", "name", name)
+			continue
+		}
+
 		debug.Log(debug.DEBUG_ALL, "Forwarding announce on interface", "name", name)
 		if err := iface.Send(data, ""); err != nil {
 			debug.Log(debug.DEBUG_ALL, "Failed to forward announce", "name", name, "error", err)
@@ -1132,6 +1138,12 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	var lastErr error
 	for name, outIface := range t.interfaces {
 		if outIface == iface || !outIface.IsEnabled() {
+			continue
+		}
+
+		// Check interface-level bandwidth before forwarding
+		if !outIface.GetBandwidthAvailable() {
+			debug.Log(debug.DEBUG_VERBOSE, "Skipping announce forwarding on interface due to bandwidth cap", "name", name)
 			continue
 		}
 
