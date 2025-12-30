@@ -95,19 +95,20 @@ func TestHandleInbound(t *testing.T) {
 }
 
 func TestMessageHandlers(t *testing.T) {
-	c := &Channel{}
+	c := &Channel{
+		messageHandlers: make([]messageHandlerEntry, 0),
+	}
 	h := func(m MessageBase) bool { return true }
 
-	c.AddMessageHandler(h)
+	id := c.AddMessageHandler(h)
 	if len(c.messageHandlers) != 1 {
 		t.Errorf("Expected 1 handler, got %d", len(c.messageHandlers))
 	}
 
-	// RemoveMessageHandler in channel.go uses &h == &handler which is tricky
-	// for function comparisons. Let's see if it works.
-	c.RemoveMessageHandler(h)
-	// It likely won't work as expected because of how Go handles function pointers
-	// and closures in comparisons. But we're testing the code as is.
+	c.RemoveMessageHandler(id)
+	if len(c.messageHandlers) != 0 {
+		t.Errorf("Expected 0 handlers, got %d", len(c.messageHandlers))
+	}
 }
 
 func TestGenericMessage(t *testing.T) {

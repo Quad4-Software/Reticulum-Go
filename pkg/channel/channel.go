@@ -67,7 +67,13 @@ type Channel struct {
 	maxTries        int
 	fastRateRounds  int
 	medRateRounds   int
-	messageHandlers []func(MessageBase) bool
+	messageHandlers []messageHandlerEntry
+	nextHandlerID   int
+}
+
+type messageHandlerEntry struct {
+	id      int
+	handler func(MessageBase) bool
 }
 
 // Envelope wraps a message with metadata for transmission
@@ -84,7 +90,7 @@ type Envelope struct {
 func NewChannel(link transport.LinkInterface) *Channel {
 	return &Channel{
 		link:            link,
-		messageHandlers: make([]func(MessageBase) bool, 0),
+		messageHandlers: make([]messageHandlerEntry, 0),
 		mutex:           sync.RWMutex{},
 		windowMax:       WindowMaxSlow,
 		windowMin:       WindowMinSlow,
@@ -177,17 +183,20 @@ func (c *Channel) getPacketTimeout(tries int) time.Duration {
 	return time.Duration(timeout * float64(time.Second))
 }
 
-func (c *Channel) AddMessageHandler(handler func(MessageBase) bool) {
+func (c *Channel) AddMessageHandler(handler func(MessageBase) bool) int {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	c.messageHandlers = append(c.messageHandlers, handler)
+	id := c.nextHandlerID
+	c.nextHandlerID++
+	c.messageHandlers = append(c.messageHandlers, messageHandlerEntry{id: id, handler: handler})
+	return id
 }
 
-func (c *Channel) RemoveMessageHandler(handler func(MessageBase) bool) {
+func (c *Channel) RemoveMessageHandler(id int) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	for i, h := range c.messageHandlers {
-		if &h == &handler {
+	for i, entry := range c.messageHandlers {
+		if entry.id == id {
 			c.messageHandlers = append(c.messageHandlers[:i], c.messageHandlers[i+1:]...)
 			break
 		}
@@ -236,14 +245,14 @@ func (c *Channel) HandleInbound(data []byte) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	for _, handler := range c.messageHandlers {
-		if handler != nil {
+	for _, entry := range c.messageHandlers {
+		if entry.handler != nil {
 			msg := &GenericMessage{
 				Type: msgType,
 				Data: msgData,
 				Seq:  sequence,
 			}
-			if handler(msg) {
+			if entry.handler(msg) {
 				break
 			}
 		}
