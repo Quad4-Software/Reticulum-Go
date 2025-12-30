@@ -553,7 +553,9 @@ func (t *Transport) NextHopInterface(destinationHash []byte) string {
 func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag []byte, recursive bool) error {
 	if tag == nil {
 		tag = make([]byte, common.SIZE_16)
-		rand.Read(tag)
+		if _, err := rand.Read(tag); err != nil {
+			return fmt.Errorf("failed to generate random tag: %w", err)
+		}
 	}
 
 	var pathRequestData []byte
