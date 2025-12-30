@@ -110,6 +110,11 @@ tasks:
     cmds:
       - '{{.GOCMD}} test -short -v ./...'
 
+  test-race:
+    desc: Run tests with race detector
+    cmds:
+      - '{{.GOCMD}} test -race -v ./...'
+
   coverage:
     desc: Generate test coverage report
     cmds:
@@ -197,3 +202,16 @@ tasks:
     desc: Install dependencies
     cmds:
       - '{{.GOCMD}} mod download'
+
+  checksum:
+    desc: Generate SHA256 checksum for binary (uses BINARY_PATH env var if set, otherwise defaults to bin/reticulum-go)
+    cmds:
+      - |
+        BINARY_PATH="${BINARY_PATH:-{{.BUILD_DIR}}/{{.BINARY_NAME}}}"
+        if [ -f "$BINARY_PATH" ]; then
+          sha256sum "$BINARY_PATH" > "${BINARY_PATH}.sha256"
+          echo "Generated checksum: ${BINARY_PATH}.sha256"
+        else
+          echo "Error: Binary not found at $BINARY_PATH"
+          exit 1
+        fi
