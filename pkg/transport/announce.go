@@ -39,7 +39,7 @@ func NewAnnounceManager() *AnnounceManager {
 	return &AnnounceManager{
 		announces:     make(map[string]*AnnounceEntry),
 		announceQueue: make(map[string][]*AnnounceEntry),
-		rateLimiter:   rate.NewLimiter(DefaultPropagationRate, 1),
+		rateLimiter:   rate.NewLimiter(rate.DefaultBurstFreq, 10.0),
 		mutex:         sync.RWMutex{},
 	}
 }
