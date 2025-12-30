@@ -77,8 +77,8 @@ func TestDeriveKeyEdgeCases(t *testing.T) {
 
 	t.Run("EmptySecret", func(t *testing.T) {
 		_, err := DeriveKey([]byte{}, salt, info, 32)
-		if err != nil {
-			t.Errorf("DeriveKey failed with empty secret: %v", err)
+		if err == nil {
+			t.Errorf("DeriveKey should fail with empty secret")
 		}
 	})
 
@@ -97,12 +97,9 @@ func TestDeriveKeyEdgeCases(t *testing.T) {
 	})
 
 	t.Run("ZeroLength", func(t *testing.T) {
-		key, err := DeriveKey(secret, salt, info, 0)
-		if err != nil {
-			t.Errorf("DeriveKey failed with zero length: %v", err)
-		}
-		if len(key) != 0 {
-			t.Errorf("DeriveKey with zero length returned non-empty key: %x", key)
+		_, err := DeriveKey(secret, salt, info, 0)
+		if err == nil {
+			t.Errorf("DeriveKey should fail with zero length")
 		}
 	})
 }
