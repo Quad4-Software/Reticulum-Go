@@ -69,6 +69,11 @@ tasks:
     cmds:
       - revive -config revive.toml -formatter friendly ./pkg/* ./cmd/* ./internal/*
 
+  scan:
+    desc: Run gosec security scanner
+    cmds:
+      - gosec ./...
+
   check:
     desc: Run fmt-check, vet, and lint
     deps: [fmt-check, vet, lint]
@@ -160,6 +165,33 @@ tasks:
     cmds:
       - mkdir -p {{.BUILD_DIR}}
       - tinygo build -target wasm -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm {{.MAIN_PACKAGE}}
+
+  build-wasm:
+    desc: Build WebAssembly binary with standard Go compiler
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - 'GOOS=js GOARCH=wasm {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm {{.MAIN_PACKAGE}}'
+      - mkdir -p examples/wasm/static
+      - cp {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm examples/wasm/static/reticulum-go.wasm
+
+  build-wasm-example:
+    desc: Build WebAssembly example
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - mkdir -p examples/wasm/static
+      - 'cd examples/wasm && GOOS=js GOARCH=wasm {{.GOCMD}} build -o static/reticulum-go.wasm .'
+      - |
+        GOROOT=$({{.GOCMD}} env GOROOT)
+        if [ -f "$GOROOT/misc/wasm/wasm_exec.js" ]; then
+          cp "$GOROOT/misc/wasm/wasm_exec.js" examples/wasm/
+          echo "wasm_exec.js copied successfully"
+        else
+          echo "Warning: wasm_exec.js not found at $GOROOT/misc/wasm/wasm_exec.js"
+          echo "Please copy it manually to examples/wasm/"
+        fi
 
   install:
     desc: Install dependencies
