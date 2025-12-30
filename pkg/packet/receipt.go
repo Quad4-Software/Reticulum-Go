@@ -252,7 +252,7 @@ func (pr *PacketReceipt) checkTimeout() {
 		return
 	}
 
-	if !pr.IsTimedOut() {
+	if time.Since(pr.sentAt) <= pr.timeout {
 		pr.mutex.Unlock()
 		return
 	}
