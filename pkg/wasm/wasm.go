@@ -297,13 +297,12 @@ func (h *announceHandler) ReceivePathResponses() bool {
 	return false
 }
 
-func (h *announceHandler) ReceivedAnnounce(destHash []byte, ident interface{}, appData []byte, hops uint8) error {
+func (h *announceHandler) ReceivedAnnounce(destHash []byte, ident interface{}, appData []byte) error {
 	hashStr := hex.EncodeToString(destHash)
 	peerMap[hashStr] = string(appData)
 	js.Global().Call("onPeerDiscovered", js.ValueOf(map[string]interface{}{
 		"hash":    hashStr,
 		"appData": string(appData),
-		"hops":    int(hops),
 	}))
 	return nil
 }
