@@ -1,0 +1,288 @@
+package common
+
+import (
+	"testing"
+	"time"
+)
+
+func TestNewBaseInterface(t *testing.T) {
+	iface := NewBaseInterface("test0", IF_TYPE_UDP, true)
+
+	if iface.Name != "test0" {
+		t.Errorf("Name = %q, want %q", iface.Name, "test0")
+	}
+	if iface.Type != IF_TYPE_UDP {
+		t.Errorf("Type = %v, want %v", iface.Type, IF_TYPE_UDP)
+	}
+	if iface.Mode != IF_MODE_FULL {
+		t.Errorf("Mode = %v, want %v", iface.Mode, IF_MODE_FULL)
+	}
+	if !iface.Enabled {
+		t.Errorf("Enabled = %v, want true", iface.Enabled)
+	}
+	if iface.MTU != DEFAULT_MTU {
+		t.Errorf("MTU = %d, want %d", iface.MTU, DEFAULT_MTU)
+	}
+	if iface.Bitrate != BITRATE_MINIMUM {
+		t.Errorf("Bitrate = %d, want %d", iface.Bitrate, BITRATE_MINIMUM)
+	}
+}
+
+func TestBaseInterface_GetType(t *testing.T) {
+	iface := NewBaseInterface("test1", IF_TYPE_TCP, true)
+	if iface.GetType() != IF_TYPE_TCP {
+		t.Errorf("GetType() = %v, want %v", iface.GetType(), IF_TYPE_TCP)
+	}
+}
+
+func TestBaseInterface_GetMode(t *testing.T) {
+	iface := NewBaseInterface("test2", IF_TYPE_UDP, true)
+	if iface.GetMode() != IF_MODE_FULL {
+		t.Errorf("GetMode() = %v, want %v", iface.GetMode(), IF_MODE_FULL)
+	}
+}
+
+func TestBaseInterface_GetMTU(t *testing.T) {
+	iface := NewBaseInterface("test3", IF_TYPE_UDP, true)
+	if iface.GetMTU() != DEFAULT_MTU {
+		t.Errorf("GetMTU() = %d, want %d", iface.GetMTU(), DEFAULT_MTU)
+	}
+}
+
+func TestBaseInterface_GetName(t *testing.T) {
+	iface := NewBaseInterface("test4", IF_TYPE_UDP, true)
+	if iface.GetName() != "test4" {
+		t.Errorf("GetName() = %q, want %q", iface.GetName(), "test4")
+	}
+}
+
+func TestBaseInterface_IsEnabled(t *testing.T) {
+	iface := NewBaseInterface("test5", IF_TYPE_UDP, true)
+	iface.Online = true
+	iface.Detached = false
+
+	if !iface.IsEnabled() {
+		t.Error("IsEnabled() = false, want true")
+	}
+
+	iface.Enabled = false
+	if iface.IsEnabled() {
+		t.Error("IsEnabled() = true, want false when disabled")
+	}
+
+	iface.Enabled = true
+	iface.Online = false
+	if iface.IsEnabled() {
+		t.Error("IsEnabled() = true, want false when offline")
+	}
+
+	iface.Online = true
+	iface.Detached = true
+	if iface.IsEnabled() {
+		t.Error("IsEnabled() = true, want false when detached")
+	}
+}
+
+func TestBaseInterface_IsOnline(t *testing.T) {
+	iface := NewBaseInterface("test6", IF_TYPE_UDP, true)
+	iface.Online = true
+
+	if !iface.IsOnline() {
+		t.Error("IsOnline() = false, want true")
+	}
+
+	iface.Online = false
+	if iface.IsOnline() {
+		t.Error("IsOnline() = true, want false")
+	}
+}
+
+func TestBaseInterface_IsDetached(t *testing.T) {
+	iface := NewBaseInterface("test7", IF_TYPE_UDP, true)
+	iface.Detached = true
+
+	if !iface.IsDetached() {
+		t.Error("IsDetached() = false, want true")
+	}
+
+	iface.Detached = false
+	if iface.IsDetached() {
+		t.Error("IsDetached() = true, want false")
+	}
+}
+
+func TestBaseInterface_SetPacketCallback(t *testing.T) {
+	iface := NewBaseInterface("test8", IF_TYPE_UDP, true)
+
+	callback := func(data []byte, ni NetworkInterface) {}
+	iface.SetPacketCallback(callback)
+
+	if iface.GetPacketCallback() == nil {
+		t.Error("GetPacketCallback() = nil, want callback")
+	}
+}
+
+func TestBaseInterface_GetPacketCallback(t *testing.T) {
+	iface := NewBaseInterface("test9", IF_TYPE_UDP, true)
+
+	if iface.GetPacketCallback() != nil {
+		t.Error("GetPacketCallback() != nil, want nil")
+	}
+
+	callback := func(data []byte, ni NetworkInterface) {}
+	iface.SetPacketCallback(callback)
+
+	if iface.GetPacketCallback() == nil {
+		t.Error("GetPacketCallback() = nil, want callback")
+	}
+}
+
+func TestBaseInterface_Detach(t *testing.T) {
+	iface := NewBaseInterface("test10", IF_TYPE_UDP, true)
+	iface.Online = true
+	iface.Detached = false
+
+	iface.Detach()
+
+	if !iface.IsDetached() {
+		t.Error("IsDetached() = false, want true after Detach()")
+	}
+	if iface.IsOnline() {
+		t.Error("IsOnline() = true, want false after Detach()")
+	}
+}
+
+func TestBaseInterface_Enable(t *testing.T) {
+	iface := NewBaseInterface("test11", IF_TYPE_UDP, false)
+	iface.Online = false
+
+	iface.Enable()
+
+	if !iface.Enabled {
+		t.Error("Enabled = false, want true after Enable()")
+	}
+	if !iface.IsOnline() {
+		t.Error("IsOnline() = false, want true after Enable()")
+	}
+}
+
+func TestBaseInterface_Disable(t *testing.T) {
+	iface := NewBaseInterface("test12", IF_TYPE_UDP, true)
+	iface.Online = true
+
+	iface.Disable()
+
+	if iface.Enabled {
+		t.Error("Enabled = true, want false after Disable()")
+	}
+	if iface.IsOnline() {
+		t.Error("IsOnline() = true, want false after Disable()")
+	}
+}
+
+func TestBaseInterface_Start(t *testing.T) {
+	iface := NewBaseInterface("test13", IF_TYPE_UDP, true)
+	if err := iface.Start(); err != nil {
+		t.Errorf("Start() error = %v, want nil", err)
+	}
+}
+
+func TestBaseInterface_Stop(t *testing.T) {
+	iface := NewBaseInterface("test14", IF_TYPE_UDP, true)
+	if err := iface.Stop(); err != nil {
+		t.Errorf("Stop() error = %v, want nil", err)
+	}
+}
+
+func TestBaseInterface_GetConn(t *testing.T) {
+	iface := NewBaseInterface("test15", IF_TYPE_UDP, true)
+	if iface.GetConn() != nil {
+		t.Error("GetConn() != nil, want nil")
+	}
+}
+
+func TestBaseInterface_Send(t *testing.T) {
+	iface := NewBaseInterface("test16", IF_TYPE_UDP, true)
+	data := []byte("test data")
+
+	if err := iface.Send(data, ""); err != nil {
+		t.Errorf("Send() error = %v, want nil", err)
+	}
+}
+
+func TestBaseInterface_ProcessIncoming(t *testing.T) {
+	iface := NewBaseInterface("test17", IF_TYPE_UDP, true)
+
+	called := false
+	callback := func(data []byte, ni NetworkInterface) {
+		called = true
+	}
+	iface.SetPacketCallback(callback)
+
+	data := []byte("test")
+	iface.ProcessIncoming(data)
+
+	if !called {
+		t.Error("ProcessIncoming() did not call callback")
+	}
+
+	iface.SetPacketCallback(nil)
+	iface.ProcessIncoming(data)
+}
+
+func TestBaseInterface_ProcessOutgoing(t *testing.T) {
+	iface := NewBaseInterface("test18", IF_TYPE_UDP, true)
+	data := []byte("test data")
+
+	if err := iface.ProcessOutgoing(data); err != nil {
+		t.Errorf("ProcessOutgoing() error = %v, want nil", err)
+	}
+}
+
+func TestBaseInterface_SendPathRequest(t *testing.T) {
+	iface := NewBaseInterface("test19", IF_TYPE_UDP, true)
+	data := []byte("path request")
+
+	if err := iface.SendPathRequest(data); err != nil {
+		t.Errorf("SendPathRequest() error = %v, want nil", err)
+	}
+}
+
+func TestBaseInterface_SendLinkPacket(t *testing.T) {
+	iface := NewBaseInterface("test20", IF_TYPE_UDP, true)
+	dest := []byte("destination")
+	data := []byte("link data")
+	timestamp := time.Now()
+
+	if err := iface.SendLinkPacket(dest, data, timestamp); err != nil {
+		t.Errorf("SendLinkPacket() error = %v, want nil", err)
+	}
+}
+
+func TestBaseInterface_GetBandwidthAvailable(t *testing.T) {
+	iface := NewBaseInterface("test21", IF_TYPE_UDP, true)
+
+	if !iface.GetBandwidthAvailable() {
+		t.Error("GetBandwidthAvailable() = false, want true when no recent transmission")
+	}
+
+	iface.lastTx = time.Now()
+	iface.TxBytes = 0
+	if !iface.GetBandwidthAvailable() {
+		t.Error("GetBandwidthAvailable() = false, want true when TxBytes is 0")
+	}
+
+	iface.lastTx = time.Now().Add(-500 * time.Millisecond)
+	iface.TxBytes = 1000
+	iface.Bitrate = 1000000
+
+	if !iface.GetBandwidthAvailable() {
+		t.Error("GetBandwidthAvailable() = false, want true when usage is below threshold")
+	}
+
+	iface.TxBytes = 10000000
+	iface.Bitrate = 1000
+	if iface.GetBandwidthAvailable() {
+		t.Error("GetBandwidthAvailable() = true, want false when usage exceeds threshold")
+	}
+}
