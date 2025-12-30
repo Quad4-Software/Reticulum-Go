@@ -134,7 +134,7 @@ func TestRawChannelReader_AddCallback(t *testing.T) {
 	reader := &RawChannelReader{
 		streamID:  1,
 		buffer:    bytes.NewBuffer(nil),
-		callbacks: make([]func(int), 0),
+		callbacks: make(map[int]func(int)),
 	}
 
 	cb := func(int) {}
@@ -242,23 +242,23 @@ func TestRawChannelReader_RemoveReadyCallback(t *testing.T) {
 	reader := &RawChannelReader{
 		streamID:  1,
 		buffer:    bytes.NewBuffer(nil),
-		callbacks: make([]func(int), 0),
+		callbacks: make(map[int]func(int)),
 	}
 
 	cb1 := func(int) {}
 	cb2 := func(int) {}
 
-	reader.AddReadyCallback(cb1)
+	id1 := reader.AddReadyCallback(cb1)
 	reader.AddReadyCallback(cb2)
 
 	if len(reader.callbacks) != 2 {
 		t.Errorf("callbacks length = %d, want 2", len(reader.callbacks))
 	}
 
-	reader.RemoveReadyCallback(cb1)
+	reader.RemoveReadyCallback(id1)
 
-	if len(reader.callbacks) == 2 {
-		t.Log("RemoveReadyCallback did not remove callback (expected behavior due to function pointer comparison)")
+	if len(reader.callbacks) != 1 {
+		t.Errorf("RemoveReadyCallback did not remove callback, length = %d", len(reader.callbacks))
 	}
 }
 
@@ -293,7 +293,7 @@ func TestRawChannelReader_HandleMessage(t *testing.T) {
 	reader := &RawChannelReader{
 		streamID:  1,
 		buffer:    bytes.NewBuffer(nil),
-		callbacks: make([]func(int), 0),
+		callbacks: make(map[int]func(int)),
 	}
 
 	msg := &StreamDataMessage{

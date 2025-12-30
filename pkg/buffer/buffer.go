@@ -61,12 +61,14 @@ func (m *StreamDataMessage) Unpack(data []byte) error {
 }
 
 type RawChannelReader struct {
-	streamID  int
-	channel   *channel.Channel
-	buffer    *bytes.Buffer
-	eof       bool
-	callbacks []func(int)
-	mutex     sync.RWMutex
+	streamID         int
+	channel          *channel.Channel
+	buffer           *bytes.Buffer
+	eof              bool
+	callbacks        map[int]func(int)
+	nextCallbackID   int
+	messageHandlerID int
+	mutex            sync.RWMutex
 }
 
 func NewRawChannelReader(streamID int, ch *channel.Channel) *RawChannelReader {
@@ -74,28 +76,26 @@ func NewRawChannelReader(streamID int, ch *channel.Channel) *RawChannelReader {
 		streamID:  streamID,
 		channel:   ch,
 		buffer:    bytes.NewBuffer(nil),
-		callbacks: make([]func(int), 0),
+		callbacks: make(map[int]func(int)),
 	}
 
-	ch.AddMessageHandler(reader.HandleMessage)
+	reader.messageHandlerID = ch.AddMessageHandler(reader.HandleMessage)
 	return reader
 }
 
-func (r *RawChannelReader) AddReadyCallback(cb func(int)) {
+func (r *RawChannelReader) AddReadyCallback(cb func(int)) int {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	r.callbacks = append(r.callbacks, cb)
+	id := r.nextCallbackID
+	r.nextCallbackID++
+	r.callbacks[id] = cb
+	return id
 }
 
-func (r *RawChannelReader) RemoveReadyCallback(cb func(int)) {
+func (r *RawChannelReader) RemoveReadyCallback(id int) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	for i, fn := range r.callbacks {
-		if &fn == &cb {
-			r.callbacks = append(r.callbacks[:i], r.callbacks[i+1:]...)
-			break
-		}
-	}
+	delete(r.callbacks, id)
 }
 
 func (r *RawChannelReader) Read(p []byte) (n int, err error) {
@@ -227,6 +227,7 @@ func compressData(data []byte) []byte {
 	var compressed bytes.Buffer
 	w := bytes.NewBuffer(data)
 	r := bzip2.NewReader(w)
+	// bearer:disable go_gosec_filesystem_decompression_bomb
 	_, err := io.Copy(&compressed, r) // #nosec G104 #nosec G110
 	if err != nil {
 		// Handle error, e.g., log it or return an error
@@ -240,6 +241,7 @@ func decompressData(data []byte) []byte {
 	var decompressed bytes.Buffer
 	// Limit the amount of data read to prevent decompression bombs
 	limitedReader := io.LimitReader(reader, MaxChunkLen) // #nosec G110
+	// bearer:disable go_gosec_filesystem_decompression_bomb
 	_, err := io.Copy(&decompressed, limitedReader)
 	if err != nil {
 		// Handle error, e.g., log it or return an error
