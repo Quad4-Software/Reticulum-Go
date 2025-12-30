@@ -26,5 +26,10 @@ jobs:
       with:
         version: '3.46.3'
 
+    - name: Install revive
+      env:
+        GOPRIVATE: git.quad4.io
+      run: go install git.quad4.io/Quad4-Extra/revive@master
+
     - name: Run lint
       run: task lint
