@@ -70,6 +70,7 @@ func parseValue(value string) interface{} {
 
 // LoadConfig loads the configuration from the specified path
 func LoadConfig(path string) (*common.ReticulumConfig, error) {
+	// bearer:disable
 	file, err := os.Open(path) // #nosec G304
 	if err != nil {
 		return nil, err

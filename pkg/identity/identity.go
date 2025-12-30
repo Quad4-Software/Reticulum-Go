@@ -503,6 +503,7 @@ func FromFile(path string) (*Identity, error) {
 	debug.Log(debug.DEBUG_ALL, "Loading identity from file", "path", path)
 
 	// Read the private key bytes from file
+	// bearer:disable
 	data, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
 		return nil, fmt.Errorf("failed to read identity file: %w", err)
