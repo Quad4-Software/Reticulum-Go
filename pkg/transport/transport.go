@@ -557,35 +557,33 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 	}
 
 	var pathRequestData []byte
-	if t.identity != nil {
-		pathRequestData = append(destinationHash, t.identity.Hash()...)
+	if t.transportIdentity != nil {
+		pathRequestData = append(destinationHash, t.transportIdentity.Hash()...)
 		pathRequestData = append(pathRequestData, tag...)
 	} else {
 		pathRequestData = append(destinationHash, tag...)
 	}
 
-	pathRequestDest := destination.NewDestination(
-		nil,
-		destination.OUT,
-		destination.PLAIN,
-		"rnstransport",
-		"path",
-		"request",
-	)
+	destHashFull := sha256.Sum256([]byte("rnstransport.path.request"))
+	pathRequestDestHash := destHashFull[:common.SIZE_16]
 
 	pkt := packet.NewPacket(
-		pathRequestDest,
+		packet.DestinationPlain,
 		pathRequestData,
-		common.DATA,
+		0x00,
+		0x00,
+		packet.PropagationBroadcast,
+		0x01,
+		pathRequestDestHash,
+		false,
+		0x00,
 	)
-	pkt.SetTransportType(common.BROADCAST)
-	pkt.SetHeaderType(common.HEADER_1)
 
 	if err := pkt.Pack(); err != nil {
 		return fmt.Errorf("failed to pack path request: %w", err)
 	}
 
-	debug.Log(debug.DEBUG_INFO, "Sending path request", "dest_hash", fmt.Sprintf("%x", destinationHash), "data_len", len(pathRequestData))
+	debug.Log(debug.DEBUG_INFO, "Sending path request", "dest_hash", fmt.Sprintf("%x", destinationHash), "data_len", len(pathRequestData), "packet_len", len(pkt.Raw))
 
 	if onInterface != "" {
 		iface, ok := t.interfaces[onInterface]
