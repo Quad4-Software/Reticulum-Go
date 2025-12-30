@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
 )
 
@@ -38,8 +39,10 @@ func (m *mockLink) SetPacketDelivered(p interface{}, cb func(interface{})) {
 	}
 	m.delivered[p] = cb
 }
-func (m *mockLink) HandleInbound(pkt *packet.Packet) error     { return nil }
-func (m *mockLink) ValidateLinkProof(pkt *packet.Packet) error { return nil }
+func (m *mockLink) HandleInbound(pkt *packet.Packet) error { return nil }
+func (m *mockLink) ValidateLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error {
+	return nil
+}
 
 type testMessage struct {
 	data []byte
