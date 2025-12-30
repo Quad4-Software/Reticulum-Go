@@ -79,6 +79,7 @@ func (tc *TCPClientInterface) setTimeoutsOSX() error {
 
 func platformGetRTT(fd uintptr) time.Duration {
 	var info syscall.TCPInfo
+	// bearer:disable go_gosec_unsafe_unsafe
 	infoLen := uint32(unsafe.Sizeof(info))
 
 	// TCP_INFO is 11 on Linux
@@ -88,7 +89,9 @@ func platformGetRTT(fd uintptr) time.Duration {
 		fd,
 		syscall.IPPROTO_TCP,
 		11, // TCP_INFO
+		// bearer:disable go_gosec_unsafe_unsafe
 		uintptr(unsafe.Pointer(&info)),
+		// bearer:disable go_gosec_unsafe_unsafe
 		uintptr(unsafe.Pointer(&infoLen)),
 		0,
 	)
