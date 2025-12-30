@@ -925,6 +925,28 @@ func NewIdentity() (*Identity, error) {
 	return i, nil
 }
 
+// FromBytes creates an Identity from a 64-byte private key representation
+func FromBytes(data []byte) (*Identity, error) {
+	if len(data) != 64 {
+		return nil, fmt.Errorf("invalid identity data: expected 64 bytes, got %d", len(data))
+	}
+
+	privateKey := data[:32]
+	signingSeed := data[32:64]
+
+	ident := &Identity{
+		ratchets:      make(map[string][]byte),
+		ratchetExpiry: make(map[string]int64),
+		mutex:         &sync.RWMutex{},
+	}
+
+	if err := ident.loadPrivateKey(privateKey, signingSeed); err != nil {
+		return nil, fmt.Errorf("failed to load private key: %w", err)
+	}
+
+	return ident, nil
+}
+
 func (i *Identity) RotateRatchet() ([]byte, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
