@@ -72,10 +72,12 @@ const (
 	FIFTEEN = 15
 
 	// Common Size Constants
-	SIZE_16     = 16
-	SIZE_32     = 32
-	SIZE_64     = 64
-	SIXTY_SEVEN = 67
+	SIZE_16        = 16
+	SIZE_32        = 32
+	SIZE_48        = 48
+	SIZE_64        = 64
+	SIXTY_SEVEN    = 67
+	TOKEN_OVERHEAD = 48
 
 	// Common Hex Constants
 	HEX_0x00 = 0x00
