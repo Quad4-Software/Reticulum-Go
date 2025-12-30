@@ -160,7 +160,7 @@ type Path struct {
 func NewTransport(cfg *common.ReticulumConfig) *Transport {
 	t := &Transport{
 		interfaces:            make(map[string]common.NetworkInterface),
-		paths:                 make(map[string]*common.Path),
+		paths:                 make(map[string]*common.Path), // TODO: Load persisted path table from storage/destination_table for faster startup
 		seenAnnounces:         make(map[string]bool),
 		announceRate:          rate.NewLimiter(PROPAGATION_RATE, common.ONE),
 		mutex:                 sync.RWMutex{},
@@ -177,6 +177,13 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		announceTable:         make(map[string]*PathAnnounceEntry),
 		heldAnnounces:         make(map[string]*PathAnnounceEntry),
 	}
+
+	// TODO: Path table persistence - Python Reticulum persists the path table to disk at
+	// storage/destination_table containing [timestamp, received_from, hops, expires, random_blobs, interface, packet_hash]
+	// for each known destination. This allows faster startup by not needing to re-discover all paths.
+	// However, NOT persisting provides better privacy as paths are ephemeral and forgotten on restart.
+	// Decision: Keep paths in-memory only for now (better privacy). If persistence is needed in the future,
+	// implement loadPathTable() and persistPathTable() methods with periodic saves.
 
 	transportIdent, err := identity.LoadOrCreateTransportIdentity()
 	if err == nil {
@@ -1231,19 +1238,59 @@ func (t *Transport) handleTransportPacket(data []byte, iface common.NetworkInter
 		return
 	}
 
+	pkt := &packet.Packet{Raw: append([]byte{0x00}, data...)}
+	if err := pkt.Unpack(); err != nil {
+		debug.Log(debug.DEBUG_INFO, "Failed to unpack transport packet", "error", err)
+		return
+	}
+
 	headerByte := data[0]
 	packetType := headerByte & 0x03
 	destType := (headerByte & 0x0C) >> 2
 
-	if packetType == packet.PacketTypeData && destType == DEST_TYPE_PLAIN {
-		if len(data) < 19 {
-			return
+	if packetType == packet.PacketTypeData {
+		if destType == DEST_TYPE_PLAIN {
+			if len(data) < 19 {
+				return
+			}
+
+			context := data[18]
+
+			if context == packet.ContextPathResponse {
+				t.handlePathResponse(data[19:], iface)
+				return
+			}
 		}
 
-		context := data[18]
+		destHash := pkt.DestinationHash
+		if len(destHash) > 16 {
+			destHash = destHash[:16]
+		}
 
-		if context == packet.ContextPathResponse {
-			t.handlePathResponse(data[19:], iface)
+		debug.Log(debug.DEBUG_VERBOSE, "Looking up destination for data packet", "hash", fmt.Sprintf("%x", destHash))
+
+		t.mutex.RLock()
+		destIface, exists := t.destinations[string(destHash)]
+		t.mutex.RUnlock()
+
+		if exists {
+			debug.Log(debug.DEBUG_INFO, "Routing data packet to destination", "hash", fmt.Sprintf("%x", destHash))
+
+			destValue := reflect.ValueOf(destIface)
+			if destValue.IsValid() && !destValue.IsNil() {
+				method := destValue.MethodByName("Receive")
+				if method.IsValid() {
+					args := []reflect.Value{
+						reflect.ValueOf(pkt),
+						reflect.ValueOf(iface),
+					}
+					method.Call(args)
+				} else {
+					debug.Log(debug.DEBUG_VERBOSE, "Destination does not have Receive method")
+				}
+			}
+		} else {
+			debug.Log(debug.DEBUG_VERBOSE, "No destination registered for hash", "hash", fmt.Sprintf("%x", destHash))
 		}
 	}
 }
