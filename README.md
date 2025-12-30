@@ -1,5 +1,9 @@
 # Reticulum-Go
 
+[![Revive Lint](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/revive.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/revive.yml)
+[![Go Test](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/go-test.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/go-test.yml)
+[![Gosec](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/gosec.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/gosec.yml)
+
 A high-performance Go implementation of the [Reticulum Network Stack](https://github.com/markqvist/Reticulum)
 
 ## Project Goals:
@@ -130,13 +134,15 @@ The project uses [Task](https://taskfile.dev/) for all development and build ope
 | clean               | Remove build artifacts                               |
 | test                | Run all tests                                        |
 | test-short          | Run short tests only                                 |
+| test-race           | Run tests with race detector                         |
 | coverage            | Generate test coverage report                        |
+| checksum            | Generate SHA256 checksum for binary                  |
 | deps                | Download and verify dependencies                     |
 | mod-tidy            | Tidy go.mod file                                     |
 | mod-verify          | Verify dependencies                                  |
 | build-linux         | Build for Linux (amd64, arm64, arm, riscv64)         |
 | build-all           | Build for all Linux architectures                    |
-| build-wasm          | Build WebAssembly binary with standard Go compiler    |
+| build-wasm          | Build WebAssembly binary with standard Go compiler   |
 | run                 | Run with go run                                      |
 | tinygo-build        | Build binary with TinyGo compiler                    |
 | tinygo-wasm         | Build WebAssembly binary with TinyGo                 |
