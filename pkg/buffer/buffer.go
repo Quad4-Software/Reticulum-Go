@@ -16,6 +16,19 @@ const (
 	MaxChunkLen   = 16 * 1024
 	MaxDataLen    = 457 // MDU - 2 - 6 (2 for stream header, 6 for channel envelope)
 	CompressTries = 4
+
+	// Stream header flags
+	StreamHeaderEOF        = 0x8000
+	StreamHeaderCompressed = 0x4000
+
+	// Message type
+	StreamDataMessageType = 0x01
+
+	// Header size
+	StreamHeaderSize = 2
+
+	// Compression threshold
+	CompressThreshold = 32
 )
 
 type StreamDataMessage struct {
@@ -28,10 +41,10 @@ type StreamDataMessage struct {
 func (m *StreamDataMessage) Pack() ([]byte, error) {
 	headerVal := uint16(m.StreamID & StreamIDMax)
 	if m.EOF {
-		headerVal |= 0x8000
+		headerVal |= StreamHeaderEOF
 	}
 	if m.Compressed {
-		headerVal |= 0x4000
+		headerVal |= StreamHeaderCompressed
 	}
 
 	buf := new(bytes.Buffer)
@@ -43,19 +56,19 @@ func (m *StreamDataMessage) Pack() ([]byte, error) {
 }
 
 func (m *StreamDataMessage) GetType() uint16 {
-	return 0x01 // Assign appropriate message type constant
+	return StreamDataMessageType
 }
 
 func (m *StreamDataMessage) Unpack(data []byte) error {
-	if len(data) < 2 {
+	if len(data) < StreamHeaderSize {
 		return io.ErrShortBuffer
 	}
 
-	header := binary.BigEndian.Uint16(data[:2])
+	header := binary.BigEndian.Uint16(data[:StreamHeaderSize])
 	m.StreamID = header & StreamIDMax
-	m.EOF = (header & 0x8000) != 0
-	m.Compressed = (header & 0x4000) != 0
-	m.Data = data[2:]
+	m.EOF = (header & StreamHeaderEOF) != 0
+	m.Compressed = (header & StreamHeaderCompressed) != 0
+	m.Data = data[StreamHeaderSize:]
 
 	return nil
 }
@@ -163,7 +176,7 @@ func (w *RawChannelWriter) Write(p []byte) (n int, err error) {
 		EOF:      w.eof,
 	}
 
-	if len(p) > 32 {
+	if len(p) > CompressThreshold {
 		for try := 1; try < CompressTries; try++ {
 			chunkLen := len(p) / try
 			compressed := compressData(p[:chunkLen])

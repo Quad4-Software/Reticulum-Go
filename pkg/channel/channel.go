@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
 )
@@ -33,6 +34,19 @@ const (
 	SeqModulus uint16 = SeqMax
 
 	FastRateThreshold = 10
+
+	// Timeout calculation constants
+	RTTMinThreshold       = 0.025
+	TimeoutBaseMultiplier = 1.5
+	TimeoutRingMultiplier = 2.5
+	TimeoutRingOffset     = 2
+
+	// Packet header constants
+	ChannelHeaderSize = 6
+	ChannelHeaderBits = 8
+
+	// Default retry count
+	DefaultMaxTries = 3
 )
 
 // MessageState represents the state of a message
@@ -95,7 +109,7 @@ func NewChannel(link transport.LinkInterface) *Channel {
 		windowMax:       WindowMaxSlow,
 		windowMin:       WindowMinSlow,
 		window:          WindowInitial,
-		maxTries:        3,
+		maxTries:        DefaultMaxTries,
 	}
 }
 
@@ -112,7 +126,7 @@ func (c *Channel) Send(msg MessageBase) error {
 	}
 
 	c.mutex.Lock()
-	c.nextSequence = (c.nextSequence + 1) % SeqModulus
+	c.nextSequence = (c.nextSequence + common.ONE) % SeqModulus
 	c.txRing = append(c.txRing, env)
 	c.mutex.Unlock()
 
@@ -175,11 +189,11 @@ func (c *Channel) handleDelivered(packet interface{}) {
 
 func (c *Channel) getPacketTimeout(tries int) time.Duration {
 	rtt := c.link.GetRTT()
-	if rtt < 0.025 {
-		rtt = 0.025
+	if rtt < RTTMinThreshold {
+		rtt = RTTMinThreshold
 	}
 
-	timeout := math.Pow(1.5, float64(tries-1)) * rtt * 2.5 * float64(len(c.txRing)+2)
+	timeout := math.Pow(TimeoutBaseMultiplier, float64(tries-common.ONE)) * rtt * TimeoutRingMultiplier * float64(len(c.txRing)+TimeoutRingOffset)
 	return time.Duration(timeout * float64(time.Second))
 }
 
@@ -207,10 +221,10 @@ func (c *Channel) updateRateThresholds() {
 	rtt := c.link.RTT()
 
 	if rtt > RTTFast {
-		c.fastRateRounds = 0
+		c.fastRateRounds = common.ZERO
 
 		if rtt > RTTMedium {
-			c.medRateRounds = 0
+			c.medRateRounds = common.ZERO
 		} else {
 			c.medRateRounds++
 			if c.windowMax < WindowMaxMedium && c.medRateRounds == FastRateThreshold {
@@ -228,19 +242,19 @@ func (c *Channel) updateRateThresholds() {
 }
 
 func (c *Channel) HandleInbound(data []byte) error {
-	if len(data) < 6 {
+	if len(data) < ChannelHeaderSize {
 		return errors.New("channel packet too short")
 	}
 
-	msgType := uint16(data[0])<<8 | uint16(data[1])
-	sequence := uint16(data[2])<<8 | uint16(data[3])
-	length := uint16(data[4])<<8 | uint16(data[5])
+	msgType := uint16(data[0])<<ChannelHeaderBits | uint16(data[1])
+	sequence := uint16(data[2])<<ChannelHeaderBits | uint16(data[3])
+	length := uint16(data[4])<<ChannelHeaderBits | uint16(data[5])
 
-	if len(data) < 6+int(length) {
+	if len(data) < ChannelHeaderSize+int(length) {
 		return errors.New("channel packet incomplete")
 	}
 
-	msgData := data[6 : 6+length]
+	msgData := data[ChannelHeaderSize : ChannelHeaderSize+length]
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()

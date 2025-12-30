@@ -3,6 +3,8 @@ package rate
 import (
 	"sync"
 	"time"
+
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 )
 
 const (
@@ -15,6 +17,13 @@ const (
 	DefaultBurstPenalty        = 300    // Default seconds penalty after burst
 	DefaultMaxHeldAnnounces    = 256    // Default max announces in hold queue
 	DefaultHeldReleaseInterval = 30     // Default seconds between releasing held announces
+
+	// Allowance thresholds
+	AllowanceMinThreshold = 1.0
+	AllowanceDecrement    = 1.0
+
+	// History check threshold
+	HistoryGraceThreshold = 1
 )
 
 type Limiter struct {
@@ -47,11 +56,11 @@ func (l *Limiter) Allow() bool {
 		l.allowance = l.rate
 	}
 
-	if l.allowance < 1.0 {
+	if l.allowance < AllowanceMinThreshold {
 		return false
 	}
 
-	l.allowance -= 1.0
+	l.allowance -= AllowanceDecrement
 	return true
 }
 
@@ -100,7 +109,7 @@ func (arc *AnnounceRateControl) AllowAnnounce(destHash string) bool {
 	// Check rate
 	lastAnnounce := history[len(history)-1]
 	waitTime := arc.rateTarget
-	if len(history) > arc.rateGrace {
+	if len(history) > arc.rateGrace+HistoryGraceThreshold {
 		waitTime += arc.ratePenalty
 	}
 
@@ -155,7 +164,7 @@ func (ic *IngressControl) ProcessAnnounce(announceHash string, announceData []by
 
 	// Reset counter if enough time has passed
 	if elapsed > ic.burstHold+ic.burstPenalty {
-		ic.announceCount = 0
+		ic.announceCount = common.ZERO
 		ic.lastBurst = now
 	}
 
