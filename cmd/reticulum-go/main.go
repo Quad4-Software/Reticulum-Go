@@ -403,7 +403,7 @@ func (tw *transportWrapper) HandleInbound(pkt *packet.Packet) error {
 	return nil
 }
 
-func (tw *transportWrapper) ValidateLinkProof(pkt *packet.Packet) error {
+func (tw *transportWrapper) ValidateLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error {
 	return nil
 }
 
