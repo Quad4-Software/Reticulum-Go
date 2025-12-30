@@ -6,14 +6,14 @@ import (
 )
 
 func TestNewLimiter(t *testing.T) {
-	limiter := NewLimiter(10.0, time.Second)
+	limiter := NewLimiter(10.0, 1.0)
 	if limiter == nil {
 		t.Fatal("NewLimiter() returned nil")
 	}
 }
 
 func TestLimiter_Allow(t *testing.T) {
-	limiter := NewLimiter(10.0, time.Second)
+	limiter := NewLimiter(10.0, 1.0)
 
 	if !limiter.Allow() {
 		t.Error("Allow() should return true initially")

@@ -28,18 +28,18 @@ const (
 
 type Limiter struct {
 	rate       float64
-	interval   time.Duration
+	capacity   float64
 	lastUpdate time.Time
 	allowance  float64
 	mutex      sync.Mutex
 }
 
-func NewLimiter(rate float64, interval time.Duration) *Limiter {
+func NewLimiter(rate float64, capacity float64) *Limiter {
 	return &Limiter{
 		rate:       rate,
-		interval:   interval,
+		capacity:   capacity,
 		lastUpdate: time.Now(),
-		allowance:  rate,
+		allowance:  capacity,
 	}
 }
 
@@ -52,8 +52,8 @@ func (l *Limiter) Allow() bool {
 	l.lastUpdate = now
 
 	l.allowance += elapsed.Seconds() * l.rate
-	if l.allowance > l.rate {
-		l.allowance = l.rate
+	if l.allowance > l.capacity {
+		l.allowance = l.capacity
 	}
 
 	if l.allowance < AllowanceMinThreshold {
@@ -175,7 +175,13 @@ func (ic *IngressControl) ProcessAnnounce(announceHash string, announceData []by
 	}
 
 	ic.announceCount++
-	burstFreq := float64(ic.announceCount) / elapsed.Seconds()
+
+	// Avoid division by zero and handle very small elapsed times
+	seconds := elapsed.Seconds()
+	if seconds < 0.01 {
+		seconds = 0.01
+	}
+	burstFreq := float64(ic.announceCount) / seconds
 
 	// Hold announce if burst frequency exceeded
 	if burstFreq > maxFreq {
