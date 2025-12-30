@@ -178,12 +178,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		heldAnnounces:         make(map[string]*PathAnnounceEntry),
 	}
 
-	// TODO: Path table persistence - Python Reticulum persists the path table to disk at
-	// storage/destination_table containing [timestamp, received_from, hops, expires, random_blobs, interface, packet_hash]
-	// for each known destination. This allows faster startup by not needing to re-discover all paths.
-	// However, NOT persisting provides better privacy as paths are ephemeral and forgotten on restart.
-	// Decision: Keep paths in-memory only for now (better privacy). If persistence is needed in the future,
-	// implement loadPathTable() and persistPathTable() methods with periodic saves.
+	// TODO: Path table persistence
 
 	transportIdent, err := identity.LoadOrCreateTransportIdentity()
 	if err == nil {
