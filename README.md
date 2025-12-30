@@ -1,6 +1,7 @@
 # Reticulum-Go
 
 [![Revive Lint](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/revive.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/revive.yml)
+[![Go Build](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/build.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/build.yml)
 [![Go Test](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/go-test.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/go-test.yml)
 [![Gosec](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/gosec.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/gosec.yml)
 [![Bearer](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/bearer.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/bearer.yml)
