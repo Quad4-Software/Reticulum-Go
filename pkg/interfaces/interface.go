@@ -67,8 +67,9 @@ type BaseInterface struct {
 	TxBytes  uint64
 	RxBytes  uint64
 	lastTx   time.Time
+	lastRx   time.Time
 
-	mutex          sync.RWMutex
+	Mutex          sync.RWMutex
 	packetCallback common.PacketCallback
 }
 
@@ -85,29 +86,30 @@ func NewBaseInterface(name string, ifType common.InterfaceType, enabled bool) Ba
 		MTU:      common.DEFAULT_MTU,
 		Bitrate:  BITRATE_MINIMUM,
 		lastTx:   time.Now(),
+		lastRx:   time.Now(),
 	}
 }
 
 func (i *BaseInterface) SetPacketCallback(callback common.PacketCallback) {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
 	i.packetCallback = callback
 }
 
 func (i *BaseInterface) GetPacketCallback() common.PacketCallback {
-	i.mutex.RLock()
-	defer i.mutex.RUnlock()
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
 	return i.packetCallback
 }
 
 func (i *BaseInterface) ProcessIncoming(data []byte) {
-	i.mutex.Lock()
+	i.Mutex.Lock()
 	i.RxBytes += uint64(len(data))
-	i.mutex.Unlock()
+	i.Mutex.Unlock()
 
-	i.mutex.RLock()
+	i.Mutex.RLock()
 	callback := i.packetCallback
-	i.mutex.RUnlock()
+	i.Mutex.RUnlock()
 
 	if callback != nil {
 		callback(data, i)
@@ -120,9 +122,9 @@ func (i *BaseInterface) ProcessOutgoing(data []byte) error {
 		return fmt.Errorf("interface offline or detached")
 	}
 
-	i.mutex.Lock()
+	i.Mutex.Lock()
 	i.TxBytes += uint64(len(data))
-	i.mutex.Unlock()
+	i.Mutex.Unlock()
 
 	debug.Log(debug.DEBUG_VERBOSE, "Interface processed outgoing packet", "name", i.Name, "bytes", len(data), "total_tx", i.TxBytes)
 	return nil
@@ -134,7 +136,7 @@ func (i *BaseInterface) SendPathRequest(packet []byte) error {
 	}
 
 	frame := make([]byte, 0, len(packet)+1)
-	frame = append(frame, 0x01)
+	frame = append(frame, common.HEX_0x01)
 	frame = append(frame, packet...)
 
 	return i.ProcessOutgoing(frame)
@@ -146,7 +148,7 @@ func (i *BaseInterface) SendLinkPacket(dest []byte, data []byte, timestamp time.
 	}
 
 	frame := make([]byte, 0, len(dest)+len(data)+9)
-	frame = append(frame, 0x02)
+	frame = append(frame, common.HEX_0x02)
 	frame = append(frame, dest...)
 
 	ts := make([]byte, 8)
@@ -158,21 +160,21 @@ func (i *BaseInterface) SendLinkPacket(dest []byte, data []byte, timestamp time.
 }
 
 func (i *BaseInterface) Detach() {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
 	i.Detached = true
 	i.Online = false
 }
 
 func (i *BaseInterface) IsEnabled() bool {
-	i.mutex.RLock()
-	defer i.mutex.RUnlock()
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
 	return i.Enabled && i.Online && !i.Detached
 }
 
 func (i *BaseInterface) Enable() {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
 
 	prevState := i.Enabled
 	i.Enabled = true
@@ -182,8 +184,8 @@ func (i *BaseInterface) Enable() {
 }
 
 func (i *BaseInterface) Disable() {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
 	i.Enabled = false
 	i.Online = false
 	debug.Log(debug.DEBUG_ERROR, "Interface disabled and offline", "name", i.Name)
@@ -206,14 +208,14 @@ func (i *BaseInterface) GetMTU() int {
 }
 
 func (i *BaseInterface) IsOnline() bool {
-	i.mutex.RLock()
-	defer i.mutex.RUnlock()
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
 	return i.Online
 }
 
 func (i *BaseInterface) IsDetached() bool {
-	i.mutex.RLock()
-	defer i.mutex.RUnlock()
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
 	return i.Detached
 }
 
@@ -243,8 +245,8 @@ func (i *BaseInterface) GetConn() net.Conn {
 }
 
 func (i *BaseInterface) GetBandwidthAvailable() bool {
-	i.mutex.RLock()
-	defer i.mutex.RUnlock()
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
 
 	now := time.Now()
 	timeSinceLastTx := now.Sub(i.lastTx)
@@ -265,8 +267,8 @@ func (i *BaseInterface) GetBandwidthAvailable() bool {
 }
 
 func (i *BaseInterface) updateBandwidthStats(bytes uint64) {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
 
 	i.TxBytes += bytes
 	i.lastTx = time.Now()
