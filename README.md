@@ -145,6 +145,7 @@ The project uses [Task](https://taskfile.dev/) for all development and build ope
 | build-linux         | Build for Linux (amd64, arm64, arm, riscv64)         |
 | build-all           | Build for all Linux architectures                    |
 | build-wasm          | Build WebAssembly binary with standard Go compiler   |
+| test-wasm           | Run WebAssembly tests using Node.js                  |
 | run                 | Run with go run                                      |
 | tinygo-build        | Build binary with TinyGo compiler                    |
 | tinygo-wasm         | Build WebAssembly binary with TinyGo                 |
@@ -177,6 +178,12 @@ Build WebAssembly binary with standard Go compiler:
 
 ```bash
 task build-wasm
+```
+
+Run WebAssembly unit tests (requires Node.js):
+
+```bash
+task test-wasm
 ```
 
 Build with TinyGo:
