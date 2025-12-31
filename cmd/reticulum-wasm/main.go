@@ -11,6 +11,12 @@ import (
 )
 
 func main() {
+	run()
+	// Keep the Go program running
+	select {}
+}
+
+func run() {
 	debug.Init()
 	debug.SetDebugLevel(debug.DEBUG_INFO)
 
@@ -18,8 +24,5 @@ func main() {
 
 	// Notify JS that reticulum is ready
 	js.Global().Call("reticulumReady")
-
-	// Keep the Go program running
-	select {}
 }
 
