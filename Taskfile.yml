@@ -75,8 +75,32 @@ tasks:
       - gosec ./...
 
   check:
-    desc: Run fmt-check, vet, lint, test-short, and scan
-    deps: [fmt-check, vet, lint, test-short, scan]
+    desc: Run fmt-check, vet, lint, test-short, and scan with summary
+    cmds:
+      - |
+        FAILED_TASKS=""
+        FAIL_COUNT=0
+        TOTAL_TASKS=5
+
+        echo "--- Running all checks ---"
+        task fmt-check || { FAILED_TASKS="$FAILED_TASKS fmt-check"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
+        task vet || { FAILED_TASKS="$FAILED_TASKS vet"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
+        task lint || { FAILED_TASKS="$FAILED_TASKS lint"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
+        task test-short || { FAILED_TASKS="$FAILED_TASKS test-short"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
+        task scan || { FAILED_TASKS="$FAILED_TASKS scan"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
+
+        echo "------------------------------------------"
+        if [ $FAIL_COUNT -eq 0 ]; then
+          echo "OK: All checks passed!"
+        elif [ $FAIL_COUNT -eq $TOTAL_TASKS ]; then
+          echo "ERROR: All tasks failed!"
+          echo "Failed tasks:$FAILED_TASKS"
+          exit 1
+        else
+          echo "ERROR: $FAIL_COUNT task(s) failed out of $TOTAL_TASKS!"
+          echo "Failed tasks:$FAILED_TASKS"
+          exit 1
+        fi
 
   bench:
     desc: Run benchmarks with standard GC
