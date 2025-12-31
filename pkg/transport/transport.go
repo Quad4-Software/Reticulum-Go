@@ -125,6 +125,8 @@ type Transport struct {
 	heldAnnounces         map[string]*PathAnnounceEntry
 	transportIdentity     *identity.Identity
 	pathRequestDest       interface{}
+	done                  chan struct{}
+	stopOnce              sync.Once
 }
 
 type DiscoveryPathRequest struct {
@@ -176,6 +178,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		discoveryPRTags:       make(map[string]bool),
 		announceTable:         make(map[string]*PathAnnounceEntry),
 		heldAnnounces:         make(map[string]*PathAnnounceEntry),
+		done:                  make(chan struct{}),
 	}
 
 	// TODO: Path table persistence
@@ -194,11 +197,16 @@ func (t *Transport) startMaintenanceJobs() {
 	ticker := time.NewTicker(common.FIVE * time.Second)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		t.cleanupExpiredPaths()
-		t.cleanupExpiredDiscoveryRequests()
-		t.cleanupExpiredAnnounces()
-		t.cleanupExpiredReceipts()
+	for {
+		select {
+		case <-ticker.C:
+			t.cleanupExpiredPaths()
+			t.cleanupExpiredDiscoveryRequests()
+			t.cleanupExpiredAnnounces()
+			t.cleanupExpiredReceipts()
+		case <-t.done:
+			return
+		}
 	}
 }
 
@@ -308,14 +316,12 @@ func (t *Transport) CreateIncomingLink(dest interface{}, networkIface common.Net
 	return nil
 }
 
-// Add GetTransportInstance function
 func GetTransportInstance() *Transport {
 	transportMutex.Lock()
 	defer transportMutex.Unlock()
 	return transportInstance
 }
 
-// Update the interface methods
 func (t *Transport) RegisterInterface(name string, iface common.NetworkInterface) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -340,8 +346,11 @@ func (t *Transport) GetInterface(name string) (common.NetworkInterface, error) {
 	return iface, nil
 }
 
-// Update the Close method
 func (t *Transport) Close() error {
+	t.stopOnce.Do(func() {
+		close(t.done)
+	})
+
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -607,7 +616,6 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 	return nil
 }
 
-// updatePathUnlocked updates path without acquiring mutex (caller must hold lock)
 func (t *Transport) updatePathUnlocked(destinationHash []byte, nextHop []byte, interfaceName string, hops uint8) {
 	// Direct access to interfaces map since caller holds the lock
 	iface, exists := t.interfaces[interfaceName]
@@ -745,7 +753,6 @@ func (p *LinkPacket) send() error {
 	header = append(header, 0x02) // Link packet type
 	header = append(header, p.Destination...)
 
-	// Add timestamp
 	ts := make([]byte, 8)
 	binary.BigEndian.PutUint64(ts, uint64(p.Timestamp.Unix())) // #nosec G115
 	header = append(header, ts...)
