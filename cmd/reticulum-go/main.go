@@ -198,7 +198,13 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 			if wsURL == "" {
 				wsURL = ifaceConfig.TargetHost
 			}
+			debug.Log(debug.DEBUG_INFO, "Creating WebSocket interface", common.STR_NAME, name, "url", wsURL, "enabled", ifaceConfig.Enabled)
 			iface, err = interfaces.NewWebSocketInterface(name, wsURL, ifaceConfig.Enabled)
+			if err != nil {
+				debug.Log(debug.DEBUG_ERROR, "Failed to create WebSocket interface", common.STR_NAME, name, common.STR_ERROR, err)
+			} else {
+				debug.Log(debug.DEBUG_INFO, "WebSocket interface created successfully", common.STR_NAME, name)
+			}
 		default:
 			debug.Log(debug.DEBUG_CRITICAL, "Unknown interface type", common.STR_TYPE, ifaceConfig.Type)
 			continue
@@ -294,41 +300,6 @@ func main() {
 		os.Exit(1)
 	}
 	debug.Log(debug.DEBUG_ERROR, "Configuration loaded", "path", cfg.ConfigPath)
-
-	if len(cfg.Interfaces) == 0 {
-		debug.Log(debug.DEBUG_ERROR, "No interfaces configured, adding default interfaces")
-		cfg.Interfaces = make(map[string]*common.InterfaceConfig)
-
-		// Auto interface for local discovery
-		cfg.Interfaces["Auto Discovery"] = &common.InterfaceConfig{
-			Type:    "AutoInterface",
-			Enabled: true,
-			Name:    "Auto Discovery",
-		}
-
-		cfg.Interfaces["Go-RNS-Testnet"] = &common.InterfaceConfig{
-			Type:       common.STR_TCP_CLIENT,
-			Enabled:    false,
-			TargetHost: "127.0.0.1",
-			TargetPort: common.NUM_4242,
-			Name:       "Go-RNS-Testnet",
-		}
-
-		cfg.Interfaces["Quad4 TCP"] = &common.InterfaceConfig{
-			Type:       common.STR_TCP_CLIENT,
-			Enabled:    true,
-			TargetHost: "rns2.quad4.io",
-			TargetPort: common.NUM_4242,
-			Name:       "Quad4 TCP",
-		}
-
-		cfg.Interfaces["Quad4 WebSocket"] = &common.InterfaceConfig{
-			Type:    "WebSocketInterface",
-			Enabled: true,
-			Address: "wss://socket.quad4.io/ws",
-			Name:    "Quad4 WebSocket",
-		}
-	}
 
 	r, err := NewReticulum(cfg)
 	if err != nil {
