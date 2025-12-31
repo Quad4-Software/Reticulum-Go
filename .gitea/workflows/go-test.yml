@@ -52,6 +52,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-${{ matrix.goarch }}-
 
+      - name: Set up Node.js
+        if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
+        uses: https://git.quad4.io/actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6
+        with:
+          node-version: '22'
+
       - name: Run tests
         run: task test
 
@@ -59,10 +65,20 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
         run: task test-race
 
+      - name: Run WebAssembly tests (Linux AMD64 only)
+        if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
+        run: |
+          chmod +x misc/wasm/go_js_wasm_exec
+          task test-wasm
+
       - name: Test build (ensure compilation works)
         run: |
           echo "Testing build for current platform (${{ matrix.os }}, ${{ matrix.goarch }})..."
           task build
+
+      - name: Test WebAssembly build (Linux AMD64 only)
+        if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
+        run: task build-wasm
 
       - name: Test binary execution
         run: |
