@@ -15,7 +15,8 @@ logs/
 *.json
 
 # Example files, not adding them just yet.
-examples/
+/examples/*
+!/examples/wasm/
 
 # OS / Editor files
 .DS_Store       # macOS Finder metadata
