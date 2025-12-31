@@ -70,6 +70,7 @@ type WebSocketInterface struct {
 }
 
 func NewWebSocketInterface(name string, wsURL string, enabled bool) (*WebSocketInterface, error) {
+	debug.Log(debug.DEBUG_VERBOSE, "NewWebSocketInterface called", "name", name, "url", wsURL, "enabled", enabled)
 	ws := &WebSocketInterface{
 		BaseInterface: NewBaseInterface(name, common.IF_TYPE_UDP, enabled),
 		wsURL:         wsURL,
@@ -82,6 +83,7 @@ func NewWebSocketInterface(name string, wsURL string, enabled bool) (*WebSocketI
 	ws.MTU = WS_MTU
 	ws.Bitrate = WS_BITRATE
 
+	debug.Log(debug.DEBUG_VERBOSE, "WebSocket interface initialized", "name", name, "mtu", ws.MTU, "bitrate", ws.Bitrate)
 	return ws, nil
 }
 
@@ -135,10 +137,12 @@ func (wsi *WebSocketInterface) Start() error {
 	wsi.Mutex.Lock()
 	if !wsi.Enabled || wsi.Detached {
 		wsi.Mutex.Unlock()
+		debug.Log(debug.DEBUG_INFO, "WebSocket interface not enabled or detached", "name", wsi.Name)
 		return fmt.Errorf("interface not enabled or detached")
 	}
 	if wsi.conn != nil {
 		wsi.Mutex.Unlock()
+		debug.Log(debug.DEBUG_INFO, "WebSocket already started", "name", wsi.Name)
 		return fmt.Errorf("WebSocket already started")
 	}
 	// Only recreate done if it's nil or was closed
@@ -154,8 +158,11 @@ func (wsi *WebSocketInterface) Start() error {
 	}
 	wsi.Mutex.Unlock()
 
+	debug.Log(debug.DEBUG_INFO, "Starting WebSocket connection", "name", wsi.Name, "url", wsi.wsURL)
+
 	u, err := url.Parse(wsi.wsURL)
 	if err != nil {
+		debug.Log(debug.DEBUG_ERROR, "Invalid WebSocket URL", "name", wsi.Name, "url", wsi.wsURL, "error", err)
 		return fmt.Errorf("invalid WebSocket URL: %v", err)
 	}
 
@@ -178,6 +185,7 @@ func (wsi *WebSocketInterface) Start() error {
 		})
 		if err := tlsConn.Handshake(); err != nil {
 			_ = tcpConn.Close()
+			debug.Log(debug.DEBUG_ERROR, "TLS handshake failed", "name", wsi.Name, "host", host, "error", err)
 			return fmt.Errorf("TLS handshake failed: %v", err)
 		}
 		conn = tlsConn
@@ -186,12 +194,15 @@ func (wsi *WebSocketInterface) Start() error {
 		if !strings.Contains(host, ":") {
 			host += fmt.Sprintf(":%d", WS_HTTP_PORT)
 		}
+		debug.Log(debug.DEBUG_VERBOSE, "Connecting to WebSocket server", "name", wsi.Name, "host", host)
 		tcpConn, err := net.DialTimeout("tcp", host, WS_CONNECT_TIMEOUT)
 		if err != nil {
+			debug.Log(debug.DEBUG_ERROR, "Failed to connect to WebSocket server", "name", wsi.Name, "host", host, "error", err)
 			return fmt.Errorf("failed to connect: %v", err)
 		}
 		conn = tcpConn
 	} else {
+		debug.Log(debug.DEBUG_ERROR, "Unsupported WebSocket scheme", "name", wsi.Name, "scheme", u.Scheme)
 		return fmt.Errorf("unsupported scheme: %s (use ws:// or wss://)", u.Scheme)
 	}
 
@@ -236,6 +247,7 @@ func (wsi *WebSocketInterface) Start() error {
 
 	if resp.StatusCode != http.StatusSwitchingProtocols {
 		_ = conn.Close()
+		debug.Log(debug.DEBUG_ERROR, "WebSocket handshake failed", "name", wsi.Name, "status", resp.StatusCode)
 		return fmt.Errorf("handshake failed: status %d", resp.StatusCode)
 	}
 
@@ -451,6 +463,7 @@ func (wsi *WebSocketInterface) Send(data []byte, addr string) error {
 	wsi.Mutex.RUnlock()
 
 	if !enabled || detached {
+		debug.Log(debug.DEBUG_VERBOSE, "WebSocket interface not enabled or detached, dropping packet", "name", wsi.Name, "bytes", len(data))
 		return fmt.Errorf("interface not enabled")
 	}
 
@@ -459,12 +472,25 @@ func (wsi *WebSocketInterface) Send(data []byte, addr string) error {
 	wsi.Mutex.Unlock()
 
 	if !connected {
+		debug.Log(debug.DEBUG_VERBOSE, "WebSocket not connected, queuing packet", "name", wsi.Name, "bytes", len(data), "queue_size", len(wsi.messageQueue))
 		wsi.Mutex.Lock()
 		wsi.messageQueue = append(wsi.messageQueue, data)
 		wsi.Mutex.Unlock()
 		return nil
 	}
 
+	packetType := "unknown"
+	if len(data) > 0 {
+		switch data[0] {
+		case 0x01:
+			packetType = "announce"
+		case 0x02:
+			packetType = "link"
+		default:
+			packetType = fmt.Sprintf("0x%02x", data[0])
+		}
+	}
+	debug.Log(debug.DEBUG_INFO, "Sending packet over WebSocket", "name", wsi.Name, "bytes", len(data), "packet_type", packetType)
 	return wsi.sendWebSocketMessage(data)
 }
 
@@ -486,7 +512,7 @@ func (wsi *WebSocketInterface) sendWebSocketMessage(data []byte) error {
 		return fmt.Errorf("failed to send: %v", err)
 	}
 
-	debug.Log(debug.DEBUG_VERBOSE, "WebSocket sent packet", "name", wsi.Name, "bytes", len(data))
+	debug.Log(debug.DEBUG_INFO, "WebSocket sent packet successfully", "name", wsi.Name, "bytes", len(data), "frame_bytes", len(frame))
 	return nil
 }
 
