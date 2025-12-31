@@ -29,35 +29,40 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 		var userTimeout, probeAfter, probeInterval, probeCount int
 
 		if tc.i2pTunneled {
-			userTimeout = I2P_USER_TIMEOUT_SEC * 1000
+			userTimeout = I2P_USER_TIMEOUT_SEC * TCP_MILLISECONDS
 			probeAfter = I2P_PROBE_AFTER_SEC
 			probeInterval = I2P_PROBE_INTERVAL_SEC
 			probeCount = I2P_PROBES_COUNT
 		} else {
-			userTimeout = TCP_USER_TIMEOUT_SEC * 1000
+			userTimeout = TCP_USER_TIMEOUT_SEC * TCP_MILLISECONDS
 			probeAfter = TCP_PROBE_AFTER_SEC
 			probeInterval = TCP_PROBE_INTERVAL_SEC
 			probeCount = TCP_PROBES_COUNT
 		}
 
-		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, 18, userTimeout); err != nil {
+		const TCP_USER_TIMEOUT = 18
+		const TCP_KEEPIDLE = 4
+		const TCP_KEEPINTVL = 5
+		const TCP_KEEPCNT = 6
+
+		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, TCP_USER_TIMEOUT, userTimeout); err != nil {
 			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_USER_TIMEOUT", "error", err)
 		}
 
-		if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, 1); err != nil {
+		if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, SO_KEEPALIVE_ENABLE); err != nil {
 			sockoptErr = fmt.Errorf("failed to enable SO_KEEPALIVE: %v", err)
 			return
 		}
 
-		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, 4, probeAfter); err != nil {
+		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, TCP_KEEPIDLE, probeAfter); err != nil {
 			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_KEEPIDLE", "error", err)
 		}
 
-		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, 5, probeInterval); err != nil {
+		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, TCP_KEEPINTVL, probeInterval); err != nil {
 			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_KEEPINTVL", "error", err)
 		}
 
-		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, 6, probeCount); err != nil {
+		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, TCP_KEEPCNT, probeCount); err != nil {
 			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_KEEPCNT", "error", err)
 		}
 	})
@@ -82,13 +87,13 @@ func platformGetRTT(fd uintptr) time.Duration {
 	// bearer:disable go_gosec_unsafe_unsafe
 	infoLen := uint32(unsafe.Sizeof(info))
 
-	// TCP_INFO is 11 on Linux
+	const TCP_INFO = 11
 	// #nosec G103
 	_, _, errno := syscall.Syscall6(
 		syscall.SYS_GETSOCKOPT,
 		fd,
 		syscall.IPPROTO_TCP,
-		11, // TCP_INFO
+		TCP_INFO,
 		// bearer:disable go_gosec_unsafe_unsafe
 		uintptr(unsafe.Pointer(&info)),
 		// bearer:disable go_gosec_unsafe_unsafe
