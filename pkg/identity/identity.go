@@ -56,9 +56,10 @@ type Identity struct {
 }
 
 var (
-	knownDestinations  = make(map[string][]interface{})
-	knownRatchets      = make(map[string][]byte)
-	ratchetPersistLock sync.Mutex
+	knownDestinations     = make(map[string][]interface{})
+	knownDestinationsLock sync.RWMutex
+	knownRatchets         = make(map[string][]byte)
+	ratchetPersistLock    sync.Mutex
 )
 
 func New() (*Identity, error) {
@@ -189,12 +190,14 @@ func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) 
 
 	// Store destination data as [packet, destHash, identity, appData]
 	id := FromPublicKey(publicKey)
+	knownDestinationsLock.Lock()
 	knownDestinations[hashStr] = []interface{}{
 		packet,
 		destHash,
 		id,
 		appData,
 	}
+	knownDestinationsLock.Unlock()
 }
 
 func ValidateAnnounce(packet []byte, destHash []byte, publicKey []byte, signature []byte, appData []byte) bool {
@@ -251,7 +254,11 @@ func (i *Identity) String() string {
 func Recall(hash []byte) (*Identity, error) {
 	hashStr := hex.EncodeToString(hash)
 
-	if data, exists := knownDestinations[hashStr]; exists {
+	knownDestinationsLock.RLock()
+	data, exists := knownDestinations[hashStr]
+	knownDestinationsLock.RUnlock()
+
+	if exists {
 		// data is [packet, destHash, identity, appData]
 		if len(data) >= 3 {
 			if id, ok := data[2].(*Identity); ok {
@@ -636,7 +643,6 @@ func (i *Identity) loadPrivateKey(privateKey, signingSeed []byte) error {
 	signingKey := ed25519.NewKeyFromSeed(i.signingSeed)
 	i.verificationKey = signingKey.Public().(ed25519.PublicKey)
 
-	// Update hash
 	publicKeyBytes := make([]byte, 0, len(i.publicKey)+len(i.verificationKey))
 	publicKeyBytes = append(publicKeyBytes, i.publicKey...)
 	publicKeyBytes = append(publicKeyBytes, i.verificationKey...)
@@ -854,7 +860,10 @@ func (i *Identity) GetRatchetID(ratchetPubBytes []byte) []byte {
 }
 
 func GetKnownDestination(hash string) ([]interface{}, bool) {
-	if data, exists := knownDestinations[hash]; exists {
+	knownDestinationsLock.RLock()
+	data, exists := knownDestinations[hash]
+	knownDestinationsLock.RUnlock()
+	if exists {
 		return data, true
 	}
 	return nil, false
