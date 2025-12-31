@@ -171,13 +171,24 @@ tasks:
       - mkdir -p {{.BUILD_DIR}}
       - tinygo build -target wasm -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm ./cmd/reticulum-wasm
 
+  test-wasm:
+    desc: Run WebAssembly tests using Node.js
+    env:
+      GOOS: js
+      GOARCH: wasm
+      PATH: '{{.PATH}}:{{.PWD}}/misc/wasm'
+    cmds:
+      - '{{.GOCMD}} test -v ./pkg/wasm/ ./cmd/reticulum-wasm/'
+
   build-wasm:
     desc: Build WebAssembly binary with standard Go compiler
     env:
       CGO_ENABLED: '0'
+      GOOS: js
+      GOARCH: wasm
     cmds:
       - mkdir -p {{.BUILD_DIR}}
-      - 'GOOS=js GOARCH=wasm {{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm ./cmd/reticulum-wasm'
+      - '{{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm ./cmd/reticulum-wasm'
 
   build-wasm-example:
     desc: Build WebAssembly example
