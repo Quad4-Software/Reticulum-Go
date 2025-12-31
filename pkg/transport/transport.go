@@ -652,7 +652,11 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 	appData := data[common.SIZE_16+common.SIZE_32+common.ONE:]
 
 	// Generate announce hash to check for duplicates
-	announceHash := sha256.Sum256(data)
+	// We exclude the hop count (byte 1) from the hash since it changes during propagation
+	// We also exclude the header (byte 0) just in case propagation flags change
+	// The destination hash (bytes 2-18) + payload (including random hash) is unique enough
+	hashData := data[common.TWO:]
+	announceHash := sha256.Sum256(hashData)
 	hashStr := string(announceHash[:])
 
 	t.mutex.Lock()
@@ -1081,7 +1085,11 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	identity.Remember(data, destinationHash, pubKey, appData)
 
 	// Generate announce hash to check for duplicates
-	announceHash := sha256.Sum256(data)
+	// We exclude the hop count (byte 1) from the hash since it changes during propagation
+	// We also exclude the header (byte 0) just in case propagation flags change
+	// The destination hash (bytes 2-18) + payload (including random hash) is unique enough
+	hashData := data[common.TWO:]
+	announceHash := sha256.Sum256(hashData)
 	hashStr := string(announceHash[:])
 
 	debug.Log(debug.DEBUG_INFO, "Announce hash", "hash", fmt.Sprintf("%x", announceHash[:8]))
