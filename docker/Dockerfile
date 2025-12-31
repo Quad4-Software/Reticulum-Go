@@ -22,7 +22,7 @@ RUN go build \
     -o reticulum-go \
     ./cmd/reticulum-go
 
-FROM busybox:latest
+FROM busybox:1.37.0@sha256:870e815c3a50dd0f6b40efddb319c72c32c3ee340b5a3e8945904232ccd12f44
 
 RUN adduser -D -s /bin/sh app
 
