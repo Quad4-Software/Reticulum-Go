@@ -66,7 +66,6 @@ func TestNewUDPInterface(t *testing.T) {
 
 func TestUDPInterfaceState(t *testing.T) {
 	// Basic state tests are covered by BaseInterface tests
-	// Add specific UDP ones if needed, e.g., involving the conn
 	addr := "127.0.0.1:0"
 	ui, _ := NewUDPInterface("udpState", addr, "", true)
 
