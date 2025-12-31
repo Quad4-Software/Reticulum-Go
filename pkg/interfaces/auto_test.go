@@ -144,14 +144,14 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 		for {
 			select {
 			case <-ticker.C:
-				ai.mutex.Lock()
+				ai.Mutex.Lock()
 				now := time.Now()
 				for addr, peer := range ai.peers {
 					if now.Sub(peer.lastHeard) > testTimeout {
 						delete(ai.peers, addr)
 					}
 				}
-				ai.mutex.Unlock()
+				ai.Mutex.Unlock()
 			case <-done:
 				return
 			}
@@ -173,27 +173,26 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 	peer2Addr := &net.UDPAddr{IP: net.ParseIP("fe80::2"), Zone: "eth0"}
 	localAddr := &net.UDPAddr{IP: net.ParseIP("fe80::aaaa"), Zone: "eth0"}
 
-	// Add a simulated local address to avoid adding it as a peer
-	ai.mutex.Lock()
+	ai.Mutex.Lock()
 	ai.linkLocalAddrs = append(ai.linkLocalAddrs, localAddrStr)
-	ai.mutex.Unlock()
+	ai.Mutex.Unlock()
 
 	t.Run("AddPeer1", func(t *testing.T) {
-		ai.mutex.Lock()
+		ai.Mutex.Lock()
 		ai.mockHandlePeerAnnounce(peer1Addr, "eth0")
-		ai.mutex.Unlock()
+		ai.Mutex.Unlock()
 
 		// Give a small amount of time for the peer to be processed
 		time.Sleep(10 * time.Millisecond)
 
-		ai.mutex.RLock()
+		ai.Mutex.RLock()
 		count := len(ai.peers)
 		peer, exists := ai.peers[peer1AddrStr]
 		var ifaceName string
 		if exists {
 			ifaceName = peer.ifaceName
 		}
-		ai.mutex.RUnlock()
+		ai.Mutex.RUnlock()
 
 		if count != 1 {
 			t.Fatalf("Expected 1 peer, got %d", count)
@@ -207,17 +206,17 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 	})
 
 	t.Run("AddPeer2", func(t *testing.T) {
-		ai.mutex.Lock()
+		ai.Mutex.Lock()
 		ai.mockHandlePeerAnnounce(peer2Addr, "eth0")
-		ai.mutex.Unlock()
+		ai.Mutex.Unlock()
 
 		// Give a small amount of time for the peer to be processed
 		time.Sleep(10 * time.Millisecond)
 
-		ai.mutex.RLock()
+		ai.Mutex.RLock()
 		count := len(ai.peers)
 		_, exists := ai.peers[peer2AddrStr]
-		ai.mutex.RUnlock()
+		ai.Mutex.RUnlock()
 
 		if count != 2 {
 			t.Fatalf("Expected 2 peers, got %d", count)
@@ -228,16 +227,16 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 	})
 
 	t.Run("IgnoreLocalAnnounce", func(t *testing.T) {
-		ai.mutex.Lock()
+		ai.Mutex.Lock()
 		ai.mockHandlePeerAnnounce(localAddr, "eth0")
-		ai.mutex.Unlock()
+		ai.Mutex.Unlock()
 
 		// Give a small amount of time for the peer to be processed
 		time.Sleep(10 * time.Millisecond)
 
-		ai.mutex.RLock()
+		ai.Mutex.RLock()
 		count := len(ai.peers)
-		ai.mutex.RUnlock()
+		ai.Mutex.RUnlock()
 
 		if count != 2 {
 			t.Fatalf("Expected 2 peers after local announce, got %d", count)
@@ -245,32 +244,32 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 	})
 
 	t.Run("UpdatePeerTimestamp", func(t *testing.T) {
-		ai.mutex.RLock()
+		ai.Mutex.RLock()
 		peer, exists := ai.peers[peer1AddrStr]
 		var initialTime time.Time
 		if exists {
 			initialTime = peer.lastHeard
 		}
-		ai.mutex.RUnlock()
+		ai.Mutex.RUnlock()
 
 		if !exists {
 			t.Fatalf("Peer %s not found before timestamp update", peer1AddrStr)
 		}
 
-		ai.mutex.Lock()
+		ai.Mutex.Lock()
 		ai.mockHandlePeerAnnounce(peer1Addr, "eth0")
-		ai.mutex.Unlock()
+		ai.Mutex.Unlock()
 
 		// Give a small amount of time for the peer to be processed
 		time.Sleep(10 * time.Millisecond)
 
-		ai.mutex.RLock()
+		ai.Mutex.RLock()
 		peer, exists = ai.peers[peer1AddrStr]
 		var updatedTime time.Time
 		if exists {
 			updatedTime = peer.lastHeard
 		}
-		ai.mutex.RUnlock()
+		ai.Mutex.RUnlock()
 
 		if !exists {
 			t.Fatalf("Peer %s not found after timestamp update", peer1AddrStr)
@@ -285,9 +284,9 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 		// Wait for peer timeout
 		time.Sleep(testTimeout * 2)
 
-		ai.mutex.RLock()
+		ai.Mutex.RLock()
 		count := len(ai.peers)
-		ai.mutex.RUnlock()
+		ai.Mutex.RUnlock()
 
 		if count != 0 {
 			t.Errorf("Expected all peers to timeout, got %d peers", count)
