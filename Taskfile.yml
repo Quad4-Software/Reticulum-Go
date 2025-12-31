@@ -75,8 +75,8 @@ tasks:
       - gosec ./...
 
   check:
-    desc: Run fmt-check, vet, and lint
-    deps: [fmt-check, vet, lint]
+    desc: Run fmt-check, vet, lint, test-short, and scan
+    deps: [fmt-check, vet, lint, test-short, scan]
 
   bench:
     desc: Run benchmarks with standard GC
