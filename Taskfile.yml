@@ -1,4 +1,6 @@
 version: '3'
+env:
+  GOPRIVATE: git.quad4.io
 
 vars:
   GOCMD: go
@@ -258,7 +260,8 @@ tasks:
       GOOS: js
       GOARCH: wasm
     cmds:
-      - PATH="$PATH:{{.WASM_BIN_PATH}}/misc/wasm" {{.GOCMD}} test -v ./pkg/wasm/ ./cmd/reticulum-wasm/ ./examples/wasm/
+      - PATH="$PATH:{{.WASM_BIN_PATH}}/misc/wasm" {{.GOCMD}} test -v ./pkg/wasm/ ./cmd/reticulum-wasm/
+      - PATH="$PATH:{{.WASM_BIN_PATH}}/misc/wasm" cd examples/wasm && {{.GOCMD}} test -v .
 
   build-wasm:
     desc: Build WebAssembly binary with standard Go compiler
