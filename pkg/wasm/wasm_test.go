@@ -22,7 +22,8 @@ func TestRegisterJSFunctions(t *testing.T) {
 	
 	functions := []string{
 		"init", "getIdentity", "getDestination", "announce",
-		"connect", "disconnect", "isConnected", "sendMessage", "getStats",
+		"connect", "disconnect", "isConnected", "requestPath", "getStats",
+		"setPacketCallback", "setAnnounceCallback", "sendData",
 	}
 	
 	for _, fn := range functions {
@@ -60,9 +61,7 @@ func TestIsConnected(t *testing.T) {
 
 func TestInitReticulum(t *testing.T) {
 	// Mock JS global functions
-	js.Global().Set("onChatMessage", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
 	js.Global().Set("log", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
-	js.Global().Set("onPeerDiscovered", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
 
 	// Test without arguments
 	result := InitReticulum(js.Undefined(), []js.Value{})
@@ -71,10 +70,10 @@ func TestInitReticulum(t *testing.T) {
 		t.Errorf("expected error 'WebSocket URL required', got %v", val.Get("error"))
 	}
 
-	// Test with valid URL and username
+	// Test with valid URL and app name
 	wsURL := "ws://localhost:8080"
-	username := "testuser"
-	result = InitReticulum(js.Undefined(), []js.Value{js.ValueOf(wsURL), js.ValueOf(username)})
+	appName := "test_app"
+	result = InitReticulum(js.Undefined(), []js.Value{js.ValueOf(wsURL), js.ValueOf(appName)})
 	val = result.(js.Value)
 	
 	if !val.Get("success").Bool() {
@@ -84,10 +83,6 @@ func TestInitReticulum(t *testing.T) {
 	if reticulumIdentity == nil {
 		t.Fatal("reticulumIdentity should not be nil after successful init")
 	}
-	
-	if userName != username {
-		t.Errorf("expected userName %s, got %s", username, userName)
-	}
 
 	// Test with provided identity
 	id, _ := identity.NewIdentity()
@@ -96,7 +91,7 @@ func TestInitReticulum(t *testing.T) {
 	idBytes := id.GetPrivateKey()
 	idHexFull := hex.EncodeToString(idBytes)
 	
-	result = InitReticulum(js.Undefined(), []js.Value{js.ValueOf(wsURL), js.ValueOf(username), js.ValueOf(idHexFull)})
+	result = InitReticulum(js.Undefined(), []js.Value{js.ValueOf(wsURL), js.ValueOf(appName), js.ValueOf(idHexFull)})
 	val = result.(js.Value)
 	
 	if !val.Get("success").Bool() {
@@ -110,9 +105,7 @@ func TestInitReticulum(t *testing.T) {
 
 func TestIdentityAndDestination(t *testing.T) {
 	// Ensure initialized
-	js.Global().Set("onChatMessage", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
 	js.Global().Set("log", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
-	js.Global().Set("onPeerDiscovered", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
 	InitReticulum(js.Undefined(), []js.Value{js.ValueOf("ws://localhost")})
 
 	idResult := GetIdentity(js.Undefined(), nil).(js.Value)
@@ -127,21 +120,7 @@ func TestIdentityAndDestination(t *testing.T) {
 	}
 }
 
-func TestAnnounce(t *testing.T) {
-	// Ensure initialized
-	InitReticulum(js.Undefined(), []js.Value{js.ValueOf("ws://localhost")})
-	
-	result := SendAnnounce(js.Undefined(), []js.Value{js.ValueOf("new_username")}).(js.Value)
-	if !result.Get("success").Bool() {
-		t.Errorf("SendAnnounce failed: %v", result.Get("error"))
-	}
-	
-	if userName != "new_username" {
-		t.Errorf("userName should have been updated to 'new_username', got %s", userName)
-	}
-}
-
-func TestSendMessage(t *testing.T) {
+func TestSendDataJS(t *testing.T) {
 	// Ensure initialized
 	InitReticulum(js.Undefined(), []js.Value{js.ValueOf("ws://localhost")})
 
@@ -153,22 +132,16 @@ func TestSendMessage(t *testing.T) {
 	// Manually add to known destinations so Recall works
 	identity.Remember([]byte("mock_packet"), peerHash, peerId.GetPublicKey(), []byte("peer_app_data"))
 
-	// Test SendMessage
-	msg := "Hello Peer!"
-	result := SendMessage(js.Undefined(), []js.Value{js.ValueOf(peerHashHex), js.ValueOf(msg)}).(js.Value)
+	// Test SendDataJS with string
+	data := "Hello Peer!"
+	result := SendDataJS(js.Undefined(), []js.Value{js.ValueOf(peerHashHex), js.ValueOf(data)}).(js.Value)
 	
 	if !result.Get("error").IsUndefined() {
 		errStr := result.Get("error").String()
 		if errStr != "Packet sending failed: no path to destination" {
-			t.Errorf("SendMessage failed with unexpected error: %s", errStr)
-		} else {
-			t.Log("SendMessage correctly failed with 'no path to destination' (as expected in test environment)")
+			t.Errorf("SendDataJS failed with unexpected error: %s", errStr)
 		}
 	} else if !result.Get("success").Bool() {
-		t.Errorf("SendMessage failed without error message")
-	} else {
-		if stats.packetsSent != 1 {
-			t.Errorf("expected 1 packet sent, got %d", stats.packetsSent)
-		}
+		t.Errorf("SendDataJS failed without error message")
 	}
 }

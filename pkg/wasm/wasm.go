@@ -21,29 +21,80 @@ var (
 	reticulumTransport *transport.Transport
 	reticulumDest      *destination.Destination
 	reticulumIdentity  *identity.Identity
-	userName           string
-	peerMap            = make(map[string]string)
 	stats              = struct {
 		packetsSent     int
 		packetsReceived int
 		bytesSent       int
 		bytesReceived   int
 	}{}
+	packetCallback  js.Value
+	announceHandler js.Value
 )
 
 // RegisterJSFunctions registers the Reticulum WASM API to the JavaScript global scope.
 func RegisterJSFunctions() {
 	js.Global().Set("reticulum", js.ValueOf(map[string]interface{}{
-		"init":           js.FuncOf(InitReticulum),
-		"getIdentity":    js.FuncOf(GetIdentity),
-		"getDestination": js.FuncOf(GetDestination),
-		"announce":       js.FuncOf(SendAnnounce),
-		"connect":        js.FuncOf(ConnectWebSocket),
-		"disconnect":     js.FuncOf(DisconnectWebSocket),
-		"isConnected":    js.FuncOf(IsConnected),
-		"sendMessage":    js.FuncOf(SendMessage),
-		"getStats":       js.FuncOf(GetStats),
+		"init":                js.FuncOf(InitReticulum),
+		"getIdentity":         js.FuncOf(GetIdentity),
+		"getDestination":      js.FuncOf(GetDestination),
+		"connect":             js.FuncOf(ConnectWebSocket),
+		"disconnect":          js.FuncOf(DisconnectWebSocket),
+		"isConnected":         js.FuncOf(IsConnected),
+		"requestPath":         js.FuncOf(RequestPath),
+		"getStats":            js.FuncOf(GetStats),
+		"setPacketCallback":   js.FuncOf(SetPacketCallback),
+		"setAnnounceCallback": js.FuncOf(SetAnnounceCallback),
+		"sendData":            js.FuncOf(SendDataJS),
+		"announce":            js.FuncOf(SendAnnounceJS),
 	}))
+}
+
+func SetPacketCallback(this js.Value, args []js.Value) interface{} {
+	if len(args) > 0 && args[0].Type() == js.TypeFunction {
+		packetCallback = args[0]
+		return js.ValueOf(true)
+	}
+	return js.ValueOf(false)
+}
+
+func SetAnnounceCallback(this js.Value, args []js.Value) interface{} {
+	if len(args) > 0 && args[0].Type() == js.TypeFunction {
+		announceHandler = args[0]
+		return js.ValueOf(true)
+	}
+	return js.ValueOf(false)
+}
+
+func RequestPath(this js.Value, args []js.Value) interface{} {
+	if len(args) < 1 {
+		return js.ValueOf(map[string]interface{}{
+			"error": "Destination hash required",
+		})
+	}
+
+	destHashHex := args[0].String()
+	destHash, err := hex.DecodeString(destHashHex)
+	if err != nil {
+		return js.ValueOf(map[string]interface{}{
+			"error": fmt.Sprintf("Invalid destination hash: %v", err),
+		})
+	}
+
+	if reticulumTransport == nil {
+		return js.ValueOf(map[string]interface{}{
+			"error": "Reticulum not initialized",
+		})
+	}
+
+	if err := reticulumTransport.RequestPath(destHash, "", nil, true); err != nil {
+		return js.ValueOf(map[string]interface{}{
+			"error": fmt.Sprintf("Failed to request path: %v", err),
+		})
+	}
+
+	return js.ValueOf(map[string]interface{}{
+		"success": true,
+	})
 }
 
 func GetStats(this js.Value, args []js.Value) interface{} {
@@ -68,8 +119,9 @@ func InitReticulum(this js.Value, args []js.Value) interface{} {
 	}
 
 	wsURL := args[0].String()
-	if len(args) >= 2 {
-		userName = args[1].String()
+	appName := "wasm_core"
+	if len(args) >= 2 && args[1].Type() == js.TypeString {
+		appName = args[1].String()
 	}
 
 	var id *identity.Identity
@@ -105,7 +157,7 @@ func InitReticulum(this js.Value, args []js.Value) interface{} {
 		id,
 		destination.IN,
 		destination.SINGLE,
-		"wasm_core",
+		appName,
 		t,
 		"browser",
 	)
@@ -115,33 +167,21 @@ func InitReticulum(this js.Value, args []js.Value) interface{} {
 		})
 	}
 
-	if userName != "" {
-		dest.SetDefaultAppData([]byte(userName))
-	}
-
 	dest.SetPacketCallback(func(data []byte, ni common.NetworkInterface) {
 		stats.packetsReceived++
 		stats.bytesReceived += len(data)
 
-		var from string
-		var text string
-		if len(data) >= 16 {
-			from = hex.EncodeToString(data[:16])
-			text = string(data[16:])
-		} else {
-			from = ""
-			text = string(data)
+		if !packetCallback.IsUndefined() {
+			// Convert bytes to JS Uint8Array for performance and compatibility
+			uint8Array := js.Global().Get("Uint8Array").New(len(data))
+			js.CopyBytesToJS(uint8Array, data)
+			packetCallback.Invoke(uint8Array)
 		}
-
-		js.Global().Call("onChatMessage", js.ValueOf(map[string]interface{}{
-			"text": text,
-			"from": from,
-		}))
 	})
 
 	dest.SetProofStrategy(destination.PROVE_ALL)
 
-	t.RegisterAnnounceHandler(&announceHandler{})
+	t.RegisterAnnounceHandler(&genericAnnounceHandler{})
 
 	wsInterface, err := interfaces.NewWebSocketInterface("wasm0", wsURL, true)
 	if err != nil {
@@ -181,6 +221,16 @@ func InitReticulum(this js.Value, args []js.Value) interface{} {
 	})
 }
 
+// GetTransport returns the internal transport pointer.
+func GetTransport() *transport.Transport {
+	return reticulumTransport
+}
+
+// GetDestinationPointer returns the internal destination pointer.
+func GetDestinationPointer() *destination.Destination {
+	return reticulumDest
+}
+
 func GetIdentity(this js.Value, args []js.Value) interface{} {
 	if reticulumIdentity == nil {
 		return js.ValueOf(map[string]interface{}{
@@ -205,34 +255,19 @@ func GetDestination(this js.Value, args []js.Value) interface{} {
 	})
 }
 
-func SendAnnounce(this js.Value, args []js.Value) interface{} {
-	if reticulumDest == nil {
-		return js.ValueOf(map[string]interface{}{
-			"error": "Reticulum not initialized",
-		})
+func IsConnected(this js.Value, args []js.Value) interface{} {
+	if reticulumTransport == nil {
+		return js.ValueOf(false)
 	}
 
-	var appData []byte
-	if len(args) >= 1 && args[0].String() != "" {
-		appData = []byte(args[0].String())
-		userName = args[0].String()
-	} else if userName != "" {
-		appData = []byte(userName)
+	ifaces := reticulumTransport.GetInterfaces()
+	for _, iface := range ifaces {
+		if iface.IsOnline() {
+			return js.ValueOf(true)
+		}
 	}
 
-	if len(appData) > 0 {
-		reticulumDest.SetDefaultAppData(appData)
-	}
-
-	if err := reticulumDest.Announce(false, nil, nil); err != nil {
-		return js.ValueOf(map[string]interface{}{
-			"error": fmt.Sprintf("Failed to send announce: %v", err),
-		})
-	}
-
-	return js.ValueOf(map[string]interface{}{
-		"success": true,
-	})
+	return js.ValueOf(false)
 }
 
 func ConnectWebSocket(this js.Value, args []js.Value) interface{} {
@@ -246,7 +281,7 @@ func ConnectWebSocket(this js.Value, args []js.Value) interface{} {
 	for name, iface := range ifaces {
 		if iface.IsOnline() {
 			return js.ValueOf(map[string]interface{}{
-				"success": true,
+				"success":   true,
 				"interface": name,
 			})
 		}
@@ -256,7 +291,7 @@ func ConnectWebSocket(this js.Value, args []js.Value) interface{} {
 			})
 		}
 		return js.ValueOf(map[string]interface{}{
-			"success": true,
+			"success":   true,
 			"interface": name,
 		})
 	}
@@ -290,55 +325,60 @@ func DisconnectWebSocket(this js.Value, args []js.Value) interface{} {
 	})
 }
 
-func IsConnected(this js.Value, args []js.Value) interface{} {
-	if reticulumTransport == nil {
-		return js.ValueOf(false)
-	}
+type genericAnnounceHandler struct{}
 
-	ifaces := reticulumTransport.GetInterfaces()
-	for _, iface := range ifaces {
-		if iface.IsOnline() {
-			return js.ValueOf(true)
-		}
-	}
-
-	return js.ValueOf(false)
-}
-
-type announceHandler struct{}
-
-func (h *announceHandler) AspectFilter() []string {
+func (h *genericAnnounceHandler) AspectFilter() []string {
 	return nil
 }
 
-func (h *announceHandler) ReceivePathResponses() bool {
+func (h *genericAnnounceHandler) ReceivePathResponses() bool {
 	return false
 }
 
-func (h *announceHandler) ReceivedAnnounce(destHash []byte, ident interface{}, appData []byte) error {
-	hashStr := hex.EncodeToString(destHash)
-	peerMap[hashStr] = string(appData)
-	js.Global().Call("onPeerDiscovered", js.ValueOf(map[string]interface{}{
-		"hash":    hashStr,
-		"appData": string(appData),
-	}))
+func (h *genericAnnounceHandler) ReceivedAnnounce(destHash []byte, ident interface{}, appData []byte) error {
+	if !announceHandler.IsUndefined() {
+		hashStr := hex.EncodeToString(destHash)
+		announceHandler.Invoke(js.ValueOf(map[string]interface{}{
+			"hash":    hashStr,
+			"appData": string(appData),
+		}))
+	}
 	return nil
 }
 
-func SendMessage(this js.Value, args []js.Value) interface{} {
+// SendDataJS is the JS-facing wrapper for SendData
+func SendDataJS(this js.Value, args []js.Value) interface{} {
 	if len(args) < 2 {
 		return js.ValueOf(map[string]interface{}{
-			"error": "Destination hash and message required",
+			"error": "Destination hash and data required",
 		})
 	}
 
 	destHashHex := args[0].String()
-	message := args[1].String()
-
 	destHash, err := hex.DecodeString(destHashHex)
 	if err != nil {
 		return js.ValueOf(map[string]interface{}{
 			"error": fmt.Sprintf("Invalid destination hash: %v", err),
+		})
+	}
+
+	// Support both string and Uint8Array data from JS
+	var data []byte
+	if args[1].Type() == js.TypeString {
+		data = []byte(args[1].String())
+	} else {
+		data = make([]byte, args[1].Length())
+		js.CopyBytesToGo(data, args[1])
+	}
+
+	return SendData(destHash, data)
+}
+
+// SendData is a generic function to send raw bytes to a destination
+func SendData(destHash []byte, data []byte) interface{} {
+	if reticulumTransport == nil {
+		return js.ValueOf(map[string]interface{}{
+			"error": "Reticulum not initialized",
 		})
 	}
 
@@ -356,11 +396,7 @@ func SendMessage(this js.Value, args []js.Value) interface{} {
 		})
 	}
 
-	// Prepend sender hash to message
-	senderHash := reticulumDest.GetHash()
-	payload := append(senderHash, []byte(message)...)
-
-	encrypted, err := targetDest.Encrypt(payload)
+	encrypted, err := targetDest.Encrypt(data)
 	if err != nil {
 		return js.ValueOf(map[string]interface{}{
 			"error": fmt.Sprintf("Encryption failed: %v", err),
@@ -393,7 +429,42 @@ func SendMessage(this js.Value, args []js.Value) interface{} {
 	}
 
 	stats.packetsSent++
-	stats.bytesSent += len(message)
+	stats.bytesSent += len(data)
+
+	return js.ValueOf(map[string]interface{}{
+		"success": true,
+	})
+}
+
+// SendAnnounceJS is the JS-facing wrapper for SendAnnounce
+func SendAnnounceJS(this js.Value, args []js.Value) interface{} {
+	var appData []byte
+	if len(args) >= 1 && args[0].Type() == js.TypeString {
+		appData = []byte(args[0].String())
+	} else if len(args) >= 1 && args[0].Type() == js.TypeObject {
+		appData = make([]byte, args[0].Length())
+		js.CopyBytesToGo(appData, args[0])
+	}
+	return SendAnnounce(appData)
+}
+
+// SendAnnounce is a generic function to send an announce
+func SendAnnounce(appData []byte) interface{} {
+	if reticulumDest == nil {
+		return js.ValueOf(map[string]interface{}{
+			"error": "Reticulum not initialized",
+		})
+	}
+
+	if len(appData) > 0 {
+		reticulumDest.SetDefaultAppData(appData)
+	}
+
+	if err := reticulumDest.Announce(false, nil, nil); err != nil {
+		return js.ValueOf(map[string]interface{}{
+			"error": fmt.Sprintf("Failed to send announce: %v", err),
+		})
+	}
 
 	return js.ValueOf(map[string]interface{}{
 		"success": true,
