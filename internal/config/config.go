@@ -211,7 +211,6 @@ func CreateDefaultConfig(path string) error {
 	cfg := DefaultConfig()
 	cfg.ConfigPath = path
 
-	// Add Auto Interface
 	cfg.Interfaces["Auto Discovery"] = &common.InterfaceConfig{
 		Type:           "AutoInterface",
 		Enabled:        true,
@@ -221,7 +220,6 @@ func CreateDefaultConfig(path string) error {
 		DataPort:       42671,
 	}
 
-	// Add default interfaces
 	cfg.Interfaces["Go-RNS-Testnet"] = &common.InterfaceConfig{
 		Type:       "TCPClientInterface",
 		Enabled:    true,
