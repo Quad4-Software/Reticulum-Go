@@ -6,7 +6,6 @@ bin/
 *.dylib
 
 # Go modules' cache
-/pkg/
 vendor/
 
 # Local test/coverage/log artifacts
