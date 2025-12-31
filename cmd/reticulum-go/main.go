@@ -193,6 +193,12 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 			)
 		case "AutoInterface":
 			iface, err = interfaces.NewAutoInterface(name, ifaceConfig)
+		case "WebSocketInterface":
+			wsURL := ifaceConfig.Address
+			if wsURL == "" {
+				wsURL = ifaceConfig.TargetHost
+			}
+			iface, err = interfaces.NewWebSocketInterface(name, wsURL, ifaceConfig.Enabled)
 		default:
 			debug.Log(debug.DEBUG_CRITICAL, "Unknown interface type", common.STR_TYPE, ifaceConfig.Type)
 			continue
@@ -314,6 +320,13 @@ func main() {
 			TargetHost: "rns2.quad4.io",
 			TargetPort: common.NUM_4242,
 			Name:       "Quad4 TCP",
+		}
+
+		cfg.Interfaces["Quad4 WebSocket"] = &common.InterfaceConfig{
+			Type:    "WebSocketInterface",
+			Enabled: true,
+			Address: "wss://socket.quad4.io/ws",
+			Name:    "Quad4 WebSocket",
 		}
 	}
 
@@ -639,7 +652,6 @@ func (r *Reticulum) createNodeAppData() []byte {
 	}
 
 	// Element 1: Int32 timestamp (current time)
-	// Update the timestamp when creating new announcements
 	r.nodeTimestamp = time.Now().Unix()
 	appData = append(appData, common.HEX_0xD2) // int32 format
 	timeBytes := make([]byte, common.FOUR)
