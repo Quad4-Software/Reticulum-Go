@@ -37,7 +37,7 @@ func (tc *TCPClientInterface) setTimeoutsOSX() error {
 			probeAfter = TCP_PROBE_AFTER_SEC
 		}
 
-		if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, 1); err != nil {
+		if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, SO_KEEPALIVE_ENABLE); err != nil {
 			sockoptErr = fmt.Errorf("failed to enable SO_KEEPALIVE: %v", err)
 			return
 		}
