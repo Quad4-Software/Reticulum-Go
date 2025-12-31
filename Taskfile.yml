@@ -298,3 +298,71 @@ tasks:
           exit 1
         fi
         cd examples/filetransfer && {{.GOCMD}} run . --destination="${DESTINATION}"
+
+  trivy:install:
+    desc: Install Trivy scanner
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          curl -L -o /tmp/trivy.deb https://git.quad4.io/Quad4-Extra/assets/raw/commit/90fdcea1bb71d91df2de6ff2e3897f278413f300/bin/trivy_0.68.2_Linux-64bit.deb
+          sudo dpkg -i /tmp/trivy.deb || sudo apt-get install -f -y
+        else
+          echo "Trivy is already installed: $(trivy --version)"
+        fi
+
+  trivy:scan:
+    desc: Run Trivy vulnerability scan
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          echo "Error: Trivy not found. Run 'task trivy:install' first."
+          exit 1
+        fi
+        trivy fs --scanners vuln --severity HIGH,CRITICAL --timeout 90m .
+
+  trivy:scan-all:
+    desc: Run Trivy full scan (vulnerabilities, secrets, misconfig)
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          echo "Error: Trivy not found. Run 'task trivy:install' first."
+          exit 1
+        fi
+        trivy fs --scanners vuln,secret,misconfig .
+
+  sbom:
+    desc: Generate SBOM files (SPDX and CycloneDX formats)
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          echo "Error: Trivy not found. Run 'task trivy:install' first."
+          exit 1
+        fi
+        mkdir -p sbom
+        trivy fs --format spdx-json --include-dev-deps --output sbom/sbom.spdx.json .
+        trivy fs --format cyclonedx --include-dev-deps --output sbom/sbom.cyclonedx.json .
+        echo "SBOM files generated in sbom/ directory"
+
+  sbom:spdx:
+    desc: Generate SPDX JSON SBOM
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          echo "Error: Trivy not found. Run 'task trivy:install' first."
+          exit 1
+        fi
+        mkdir -p sbom
+        trivy fs --format spdx-json --include-dev-deps --output sbom/sbom.spdx.json .
+        echo "SPDX SBOM generated: sbom/sbom.spdx.json"
+
+  sbom:cyclonedx:
+    desc: Generate CycloneDX SBOM
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          echo "Error: Trivy not found. Run 'task trivy:install' first."
+          exit 1
+        fi
+        mkdir -p sbom
+        trivy fs --format cyclonedx --include-dev-deps --output sbom/sbom.cyclonedx.json .
+        echo "CycloneDX SBOM generated: sbom/sbom.cyclonedx.json"
