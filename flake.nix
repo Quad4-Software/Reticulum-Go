@@ -13,7 +13,7 @@
           inherit system;
         };
 
-        go = pkgs.go_1_24;
+        go = pkgs.go_1_25;
       in
       {
         devShells.default = pkgs.mkShell {
