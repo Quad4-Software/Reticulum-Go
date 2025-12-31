@@ -35,6 +35,7 @@ WebAssembly.instantiate(fs.readFileSync(process.argv[2]), go.importObject).then(
 	});
 	return go.run(result.instance);
 }).catch((err) => {
+	// bearer:disable javascript_lang_logger_leak
 	console.error(err);
 	process.exit(1);
 });
