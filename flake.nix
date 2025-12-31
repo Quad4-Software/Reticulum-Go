@@ -23,6 +23,7 @@
             revive
             gosec
             gnumake
+            tinygo
           ];
 
           shellHook = ''
@@ -31,6 +32,7 @@
             echo "Task version: $(task --version 2>/dev/null || echo 'not available')"
             echo "Revive version: $(revive --version 2>/dev/null || echo 'not available')"
             echo "Gosec version: $(gosec --version 2>/dev/null || echo 'not available')"
+            echo "TinyGo version: $(tinygo version 2>/dev/null || echo 'not available')"
           '';
         };
 
