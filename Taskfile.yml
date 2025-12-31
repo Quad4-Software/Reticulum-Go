@@ -254,14 +254,17 @@ tasks:
   test-wasm:
     desc: Run WebAssembly tests using Node.js
     vars:
-      WASM_BIN_PATH:
+      ROOT_DIR:
         sh: pwd
     env:
       GOOS: js
       GOARCH: wasm
     cmds:
-      - PATH="$PATH:{{.WASM_BIN_PATH}}/misc/wasm" {{.GOCMD}} test -v ./pkg/wasm/ ./cmd/reticulum-wasm/
-      - PATH="$PATH:{{.WASM_BIN_PATH}}/misc/wasm" cd examples/wasm && {{.GOCMD}} test -v .
+      - chmod +x {{.ROOT_DIR}}/misc/wasm/go_js_wasm_exec
+      - PATH="$PATH:{{.ROOT_DIR}}/misc/wasm" {{.GOCMD}} test -v ./pkg/wasm/ ./cmd/reticulum-wasm/
+      - |
+        export PATH="$PATH:{{.ROOT_DIR}}/misc/wasm"
+        cd examples/wasm && {{.GOCMD}} test -v .
 
   build-wasm:
     desc: Build WebAssembly binary with standard Go compiler
