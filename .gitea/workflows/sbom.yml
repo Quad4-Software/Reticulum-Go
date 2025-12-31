@@ -8,13 +8,14 @@ on:
 
 jobs:
   generate-sbom:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: https://git.quad4.io/actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           fetch-depth: 0
-          ref: ${{ github.ref }}
 
       - name: Setup Go
         uses: https://git.quad4.io/actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
@@ -29,26 +30,24 @@ jobs:
       - name: Install dependencies
         run: task deps
 
-      - name: Download Trivy
-        run: |
-          curl -L -o /tmp/trivy.deb https://git.quad4.io/Quad4-Extra/assets/raw/commit/90fdcea1bb71d91df2de6ff2e3897f278413f300/bin/trivy_0.68.2_Linux-64bit.deb
-          sudo dpkg -i /tmp/trivy.deb || sudo apt-get install -f -y
+      - name: Install Trivy
+        run: task trivy:install
 
       - name: Generate SBOM
-        run: |
-          mkdir -p sbom
-          trivy fs --format spdx-json --include-dev-deps --output sbom/sbom.spdx.json .
-          trivy fs --format cyclonedx --include-dev-deps --output sbom/sbom.cyclonedx.json .
+        run: task sbom
 
       - name: Commit and Push Changes
         run: |
           git config --global user.name "Gitea Action"
           git config --global user.email "actions@noreply.quad4.io"
           git remote set-url origin https://${{ secrets.GITEA_TOKEN }}@git.quad4.io/${{ github.repository }}.git
-          git fetch origin main
-          git checkout main
+          git fetch origin main || git fetch origin master
+          git checkout main || git checkout master
           git add sbom/
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update SBOM [skip ci]" && git push origin main)
+          if ! git diff --quiet || ! git diff --staged --quiet; then
+            git commit -m "Auto-update SBOM [skip ci]"
+            git push origin main || git push origin master
+          fi
         env:
           GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
 
