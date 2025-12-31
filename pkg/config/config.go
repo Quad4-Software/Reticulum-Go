@@ -223,7 +223,6 @@ func InitConfig() (*Config, error) {
 		cfg.Logging.Level = "info"
 		cfg.Logging.File = filepath.Join(GetConfigDir(), "reticulum.log")
 
-		// Add default interfaces
 		cfg.Interfaces = append(cfg.Interfaces, struct {
 			Name        string
 			Type        string
