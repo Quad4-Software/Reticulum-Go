@@ -115,13 +115,27 @@ func InitReticulum(this js.Value, args []js.Value) interface{} {
 		})
 	}
 
+	if userName != "" {
+		dest.SetDefaultAppData([]byte(userName))
+	}
+
 	dest.SetPacketCallback(func(data []byte, ni common.NetworkInterface) {
 		stats.packetsReceived++
 		stats.bytesReceived += len(data)
-		
+
+		var from string
+		var text string
+		if len(data) >= 16 {
+			from = hex.EncodeToString(data[:16])
+			text = string(data[16:])
+		} else {
+			from = ""
+			text = string(data)
+		}
+
 		js.Global().Call("onChatMessage", js.ValueOf(map[string]interface{}{
-			"text": string(data),
-			"from": "",
+			"text": text,
+			"from": from,
 		}))
 	})
 
@@ -206,7 +220,11 @@ func SendAnnounce(this js.Value, args []js.Value) interface{} {
 		appData = []byte(userName)
 	}
 
-	if err := reticulumDest.Announce(false, appData, nil); err != nil {
+	if len(appData) > 0 {
+		reticulumDest.SetDefaultAppData(appData)
+	}
+
+	if err := reticulumDest.Announce(false, nil, nil); err != nil {
 		return js.ValueOf(map[string]interface{}{
 			"error": fmt.Sprintf("Failed to send announce: %v", err),
 		})
@@ -338,7 +356,11 @@ func SendMessage(this js.Value, args []js.Value) interface{} {
 		})
 	}
 
-	encrypted, err := targetDest.Encrypt([]byte(message))
+	// Prepend sender hash to message
+	senderHash := reticulumDest.GetHash()
+	payload := append(senderHash, []byte(message)...)
+
+	encrypted, err := targetDest.Encrypt(payload)
 	if err != nil {
 		return js.ValueOf(map[string]interface{}{
 			"error": fmt.Sprintf("Encryption failed: %v", err),
