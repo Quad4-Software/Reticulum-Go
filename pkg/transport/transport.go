@@ -492,14 +492,14 @@ func (t *Transport) UnregisterAnnounceHandler(handler announce.Handler) {
 	}
 }
 
-func (t *Transport) notifyAnnounceHandlers(destHash []byte, identity interface{}, appData []byte) {
+func (t *Transport) notifyAnnounceHandlers(destHash []byte, identity interface{}, appData []byte, hops uint8) {
 	t.mutex.RLock()
 	handlers := make([]announce.Handler, len(t.announceHandlers))
 	copy(handlers, t.announceHandlers)
 	t.mutex.RUnlock()
 
 	for _, handler := range handlers {
-		if err := handler.ReceivedAnnounce(destHash, identity, appData); err != nil {
+		if err := handler.ReceivedAnnounce(destHash, identity, appData, hops); err != nil {
 			debug.Log(debug.DEBUG_ERROR, "Error in announce handler", "error", err)
 		}
 	}
@@ -716,7 +716,7 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 	}
 
 	// Notify handlers
-	t.notifyAnnounceHandlers(destHash, identity, appData)
+	t.notifyAnnounceHandlers(destHash, identity, appData, data[0])
 
 	return lastErr
 }
@@ -1117,7 +1117,7 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 
 	// Notify handlers first, regardless of forwarding limits
 	debug.Log(debug.DEBUG_INFO, "Notifying announce handlers", "destHash", fmt.Sprintf("%x", destinationHash), "appDataLen", len(appData))
-	t.notifyAnnounceHandlers(destinationHash, id, appData)
+	t.notifyAnnounceHandlers(destinationHash, id, appData, hopCount)
 	debug.Log(debug.DEBUG_INFO, "Announce handlers notified")
 
 	// Don't forward if max hops reached

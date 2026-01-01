@@ -49,12 +49,6 @@ const (
 	MAX_RETRIES      = 3
 )
 
-type AnnounceHandler interface {
-	AspectFilter() []string
-	ReceivedAnnounce(destinationHash []byte, announcedIdentity interface{}, appData []byte) error
-	ReceivePathResponses() bool
-}
-
 type Announce struct {
 	mutex           *sync.RWMutex
 	destinationHash []byte
@@ -67,7 +61,7 @@ type Announce struct {
 	signature       []byte
 	pathResponse    bool
 	retries         int
-	handlers        []AnnounceHandler
+	handlers        []Handler
 	ratchetID       []byte
 	packet          []byte
 	hash            []byte
@@ -97,7 +91,7 @@ func New(dest *identity.Identity, destinationHash []byte, destinationName string
 		timestamp:       time.Now().Unix(),
 		pathResponse:    pathResponse,
 		retries:         0,
-		handlers:        make([]AnnounceHandler, 0),
+		handlers:        make([]Handler, 0),
 	}
 
 	// Get current ratchet ID if enabled
@@ -156,13 +150,13 @@ func (a *Announce) Propagate(interfaces []common.NetworkInterface) error {
 	return nil
 }
 
-func (a *Announce) RegisterHandler(handler AnnounceHandler) {
+func (a *Announce) RegisterHandler(handler Handler) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	a.handlers = append(a.handlers, handler)
 }
 
-func (a *Announce) DeregisterHandler(handler AnnounceHandler) {
+func (a *Announce) DeregisterHandler(handler Handler) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	for i, h := range a.handlers {
@@ -283,7 +277,7 @@ func (a *Announce) HandleAnnounce(data []byte) error {
 	// Process with handlers
 	for _, handler := range a.handlers {
 		if handler.ReceivePathResponses() || !a.pathResponse {
-			if err := handler.ReceivedAnnounce(destHash, announcedIdentity, appData); err != nil {
+			if err := handler.ReceivedAnnounce(destHash, announcedIdentity, appData, hopCount); err != nil {
 				return err
 			}
 		}
@@ -480,7 +474,7 @@ func NewAnnounce(identity *identity.Identity, destinationHash []byte, appData []
 		destinationHash: destHash,
 		hops:            0,
 		mutex:           &sync.RWMutex{},
-		handlers:        make([]AnnounceHandler, 0),
+		handlers:        make([]Handler, 0),
 		config:          config,
 	}
 

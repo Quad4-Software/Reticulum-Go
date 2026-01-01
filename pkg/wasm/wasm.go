@@ -335,12 +335,13 @@ func (h *genericAnnounceHandler) ReceivePathResponses() bool {
 	return false
 }
 
-func (h *genericAnnounceHandler) ReceivedAnnounce(destHash []byte, ident interface{}, appData []byte) error {
+func (h *genericAnnounceHandler) ReceivedAnnounce(destHash []byte, ident interface{}, appData []byte, hops uint8) error {
 	if !announceHandler.IsUndefined() {
 		hashStr := hex.EncodeToString(destHash)
 		announceHandler.Invoke(js.ValueOf(map[string]interface{}{
 			"hash":    hashStr,
 			"appData": string(appData),
+			"hops":    int(hops),
 		}))
 	}
 	return nil
