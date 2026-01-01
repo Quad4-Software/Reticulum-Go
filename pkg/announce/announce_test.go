@@ -17,7 +17,7 @@ func (m *mockAnnounceHandler) AspectFilter() []string {
 	return nil
 }
 
-func (m *mockAnnounceHandler) ReceivedAnnounce(destinationHash []byte, announcedIdentity interface{}, appData []byte) error {
+func (m *mockAnnounceHandler) ReceivedAnnounce(destinationHash []byte, announcedIdentity interface{}, appData []byte, hops uint8) error {
 	m.received = true
 	return nil
 }
