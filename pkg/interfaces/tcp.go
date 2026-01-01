@@ -18,11 +18,6 @@ const (
 	HDLC_ESC      = 0x7D
 	HDLC_ESC_MASK = 0x20
 
-	KISS_FEND  = 0xC0
-	KISS_FESC  = 0xDB
-	KISS_TFEND = 0xDC
-	KISS_TFESC = 0xDD
-
 	DEFAULT_MTU       = 1064
 	BITRATE_GUESS_VAL = 10 * 1000 * 1000
 	RECONNECT_WAIT    = 5
@@ -322,20 +317,6 @@ func escapeHDLC(data []byte) []byte {
 	for _, b := range data {
 		if b == HDLC_FLAG || b == HDLC_ESC {
 			escaped = append(escaped, HDLC_ESC, b^HDLC_ESC_MASK)
-		} else {
-			escaped = append(escaped, b)
-		}
-	}
-	return escaped
-}
-
-func escapeKISS(data []byte) []byte {
-	escaped := make([]byte, 0, len(data)*2)
-	for _, b := range data {
-		if b == KISS_FEND {
-			escaped = append(escaped, KISS_FESC, KISS_TFEND)
-		} else if b == KISS_FESC {
-			escaped = append(escaped, KISS_FESC, KISS_TFESC)
 		} else {
 			escaped = append(escaped, b)
 		}
