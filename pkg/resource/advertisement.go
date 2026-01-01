@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/vmihailenco/msgpack/v5"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 )
 
 const (
@@ -117,12 +117,12 @@ func (ra *ResourceAdvertisement) Pack(segment int) ([]byte, error) {
 		"m": hashmap,
 	}
 
-	return msgpack.Marshal(dict)
+	return common.MsgpackMarshal(dict)
 }
 
 func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 	var dict map[string]interface{}
-	if err := msgpack.Unmarshal(data, &dict); err != nil {
+	if err := common.MsgpackUnmarshal(data, &dict); err != nil {
 		return nil, fmt.Errorf("failed to unpack advertisement: %w", err)
 	}
 
