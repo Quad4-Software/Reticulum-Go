@@ -207,6 +207,34 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 			} else {
 				debug.Log(debug.DEBUG_INFO, "WebSocket interface created successfully", common.STR_NAME, name)
 			}
+		case "SerialInterface":
+			iface, err = interfaces.NewSerialInterface(
+				name,
+				ifaceConfig.Interface,
+				uint32(ifaceConfig.Bitrate),
+				ifaceConfig.Enabled,
+			)
+		case "RNodeInterface":
+			// RNode usually runs over Serial
+			serial, sErr := interfaces.NewSerialInterface(
+				name+"_serial",
+				ifaceConfig.Interface,
+				uint32(ifaceConfig.Bitrate),
+				ifaceConfig.Enabled,
+			)
+			if sErr != nil {
+				err = sErr
+			} else {
+				iface, err = interfaces.NewRNodeInterface(
+					name,
+					serial,
+					ifaceConfig.Frequency,
+					ifaceConfig.Bandwidth,
+					ifaceConfig.SF,
+					ifaceConfig.CR,
+					ifaceConfig.TXPower,
+				)
+			}
 		default:
 			debug.Log(debug.DEBUG_CRITICAL, "Unknown interface type", common.STR_TYPE, ifaceConfig.Type)
 			continue
