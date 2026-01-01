@@ -20,7 +20,6 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
-	"github.com/vmihailenco/msgpack/v5"
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/hkdf"
 )
@@ -672,7 +671,7 @@ func (i *Identity) saveRatchets(path string) error {
 	}
 
 	// Pack ratchets using msgpack
-	packedRatchets, err := msgpack.Marshal(ratchetList)
+	packedRatchets, err := common.MsgpackMarshal(ratchetList)
 	if err != nil {
 		return fmt.Errorf("failed to pack ratchets: %w", err)
 	}
@@ -687,7 +686,7 @@ func (i *Identity) saveRatchets(path string) error {
 	}
 
 	// Pack the entire structure
-	finalData, err := msgpack.Marshal(persistedData)
+	finalData, err := common.MsgpackMarshal(persistedData)
 	if err != nil {
 		return fmt.Errorf("failed to pack ratchet data: %w", err)
 	}
@@ -800,7 +799,7 @@ func (i *Identity) loadRatchets(path string) error {
 
 	// Unpack outer structure: {"signature": ..., "ratchets": ...}
 	var persistedData map[string][]byte
-	if err := msgpack.Unmarshal(fileData, &persistedData); err != nil {
+	if err := common.MsgpackUnmarshal(fileData, &persistedData); err != nil {
 		return fmt.Errorf("failed to unpack ratchet data: %w", err)
 	}
 
@@ -818,7 +817,7 @@ func (i *Identity) loadRatchets(path string) error {
 
 	// Unpack ratchet list
 	var ratchetList [][]byte
-	if err := msgpack.Unmarshal(packedRatchets, &ratchetList); err != nil {
+	if err := common.MsgpackUnmarshal(packedRatchets, &ratchetList); err != nil {
 		return fmt.Errorf("failed to unpack ratchet list: %w", err)
 	}
 
