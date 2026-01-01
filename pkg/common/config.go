@@ -40,6 +40,11 @@ type InterfaceConfig struct {
 	DiscoveryScope string
 	DiscoveryPort  int
 	DataPort       int
+	Frequency      uint32
+	Bandwidth      uint32
+	SF             uint8
+	CR             uint8
+	TXPower        uint8
 }
 
 // ReticulumConfig represents the main configuration structure
