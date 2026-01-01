@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: 0BSD
+// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
 package config
 
 import (
@@ -8,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/common"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 )
 
 const (
@@ -70,6 +72,7 @@ func parseValue(value string) interface{} {
 
 // LoadConfig loads the configuration from the specified path
 func LoadConfig(path string) (*common.ReticulumConfig, error) {
+	// bearer:disable go_gosec_filesystem_filereadtaint
 	file, err := os.Open(path) // #nosec G304
 	if err != nil {
 		return nil, err
@@ -210,7 +213,6 @@ func CreateDefaultConfig(path string) error {
 	cfg := DefaultConfig()
 	cfg.ConfigPath = path
 
-	// Add Auto Interface
 	cfg.Interfaces["Auto Discovery"] = &common.InterfaceConfig{
 		Type:           "AutoInterface",
 		Enabled:        true,
@@ -220,7 +222,6 @@ func CreateDefaultConfig(path string) error {
 		DataPort:       42671,
 	}
 
-	// Add default interfaces
 	cfg.Interfaces["Go-RNS-Testnet"] = &common.InterfaceConfig{
 		Type:       "TCPClientInterface",
 		Enabled:    true,

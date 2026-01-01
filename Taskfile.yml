@@ -1,0 +1,711 @@
+version: '3'
+env:
+  GOPRIVATE: git.quad4.io
+
+vars:
+  GOCMD: go
+  BINARY_NAME: reticulum-go
+  BUILD_DIR: bin
+  MAIN_PACKAGE: ./cmd/reticulum-go
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  all:
+    desc: Clean, download dependencies, build and test
+    deps: [clean, deps, build, test]
+
+  build:
+    desc: Build release binary (no debug symbols, static)
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - '{{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}'
+
+  debug:
+    desc: Build debug binary
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - '{{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}'
+
+  build-experimental:
+    desc: Build binary with experimental features (GOEXPERIMENT=greenteagc)
+    env:
+      GOEXPERIMENT: greenteagc
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - '{{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-experimental {{.MAIN_PACKAGE}}'
+
+  experimental:
+    desc: Alias for build-experimental
+    cmds:
+      - task: build-experimental
+
+  release:
+    desc: Build stripped static binary for release (alias for build)
+    cmds:
+      - task: build
+
+  fmt:
+    desc: Format Go code
+    cmds:
+      - '{{.GOCMD}} fmt ./...'
+
+  fmt-check:
+    desc: Check if code is formatted (useful for CI)
+    cmds:
+      - '{{.GOCMD}} fmt -d ./... > fmt.diff 2>&1 || true'
+      - 'test -s fmt.diff && (echo "Code is not formatted. Run ''task fmt'' to fix." && cat fmt.diff && rm -f fmt.diff && exit 1) || (rm -f fmt.diff && exit 0)'
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - '{{.GOCMD}} vet ./...'
+
+  lint:
+    desc: Run revive linter
+    cmds:
+      - revive -config revive.toml -formatter friendly ./pkg/* ./cmd/* ./internal/*
+
+  scan:
+    desc: Run gosec security scanner
+    cmds:
+      - gosec ./...
+
+  check:
+    desc: Run fmt-check, vet, lint, test-short, and scan with summary
+    cmds:
+      - |
+        FAILED_TASKS=""
+        FAIL_COUNT=0
+        TOTAL_TASKS=5
+
+        echo "--- Running all checks ---"
+        task fmt-check || { FAILED_TASKS="$FAILED_TASKS fmt-check"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
+        task vet || { FAILED_TASKS="$FAILED_TASKS vet"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
+        task lint || { FAILED_TASKS="$FAILED_TASKS lint"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
+        task test-short || { FAILED_TASKS="$FAILED_TASKS test-short"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
+        task scan || { FAILED_TASKS="$FAILED_TASKS scan"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
+
+        echo "------------------------------------------"
+        if [ $FAIL_COUNT -eq 0 ]; then
+          echo "OK: All checks passed!"
+        elif [ $FAIL_COUNT -eq $TOTAL_TASKS ]; then
+          echo "ERROR: All tasks failed!"
+          echo "Failed tasks:$FAILED_TASKS"
+          exit 1
+        else
+          echo "ERROR: $FAIL_COUNT task(s) failed out of $TOTAL_TASKS!"
+          echo "Failed tasks:$FAILED_TASKS"
+          exit 1
+        fi
+
+  bench:
+    desc: Run benchmarks with standard GC
+    cmds:
+      - '{{.GOCMD}} test -bench=. -benchmem ./...'
+
+  bench-experimental:
+    desc: Run benchmarks with experimental GC
+    env:
+      GOEXPERIMENT: greenteagc
+    cmds:
+      - '{{.GOCMD}} test -bench=. -benchmem ./...'
+
+  bench-compare:
+    desc: Run benchmarks with both GC settings
+    deps: [bench, bench-experimental]
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - '{{.GOCMD}} clean'
+      - rm -rf {{.BUILD_DIR}}
+
+  test:
+    desc: Run tests
+    cmds:
+      - '{{.GOCMD}} test -v ./...'
+
+  test-short:
+    desc: Run short tests
+    cmds:
+      - '{{.GOCMD}} test -short -v ./...'
+
+  test-race:
+    desc: Run tests with race detector
+    cmds:
+      - '{{.GOCMD}} test -race -v ./...'
+
+  coverage:
+    desc: Generate test coverage report
+    cmds:
+      - '{{.GOCMD}} test -coverprofile=coverage.out ./...'
+      - '{{.GOCMD}} tool cover -html=coverage.out'
+
+  deps:
+    desc: Download and verify dependencies
+    env:
+      GOPROXY: '{{.GOPROXY | default "https://proxy.golang.org,direct"}}'
+    cmds:
+      - '{{.GOCMD}} mod download'
+      - '{{.GOCMD}} mod verify'
+
+  mod-tidy:
+    desc: Tidy go.mod file
+    cmds:
+      - '{{.GOCMD}} mod tidy'
+
+  mod-verify:
+    desc: Verify dependencies
+    cmds:
+      - '{{.GOCMD}} mod verify'
+
+  build-linux:
+    desc: Build for Linux (amd64, arm64, arm, riscv64)
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - 'GOOS=linux GOARCH=amd64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-amd64 {{.MAIN_PACKAGE}}'
+      - 'GOOS=linux GOARCH=arm64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-arm64 {{.MAIN_PACKAGE}}'
+      - 'GOOS=linux GOARCH=arm {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-arm {{.MAIN_PACKAGE}}'
+      - 'GOOS=linux GOARCH=riscv64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-riscv64 {{.MAIN_PACKAGE}}'
+
+  build-windows:
+    desc: Build for Windows (amd64, arm64)
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - 'GOOS=windows GOARCH=amd64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64.exe {{.MAIN_PACKAGE}}'
+      - 'GOOS=windows GOARCH=arm64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-arm64.exe {{.MAIN_PACKAGE}}'
+
+  build-darwin:
+    desc: Build for MacOS (amd64, arm64)
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - 'GOOS=darwin GOARCH=amd64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-amd64 {{.MAIN_PACKAGE}}'
+      - 'GOOS=darwin GOARCH=arm64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-arm64 {{.MAIN_PACKAGE}}'
+
+  build-freebsd:
+    desc: Build for FreeBSD (amd64, 386, arm64, arm, riscv64)
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - 'GOOS=freebsd GOARCH=amd64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-freebsd-amd64 {{.MAIN_PACKAGE}}'
+      - 'GOOS=freebsd GOARCH=386 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-freebsd-386 {{.MAIN_PACKAGE}}'
+      - 'GOOS=freebsd GOARCH=arm64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-freebsd-arm64 {{.MAIN_PACKAGE}}'
+      - 'GOOS=freebsd GOARCH=arm {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-freebsd-arm {{.MAIN_PACKAGE}}'
+      - 'GOOS=freebsd GOARCH=riscv64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-freebsd-riscv64 {{.MAIN_PACKAGE}}'
+
+  build-openbsd:
+    desc: Build for OpenBSD (amd64, 386, arm64, arm, ppc64, riscv64)
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - 'GOOS=openbsd GOARCH=amd64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-openbsd-amd64 {{.MAIN_PACKAGE}}'
+      - 'GOOS=openbsd GOARCH=386 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-openbsd-386 {{.MAIN_PACKAGE}}'
+      - 'GOOS=openbsd GOARCH=arm64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-openbsd-arm64 {{.MAIN_PACKAGE}}'
+      - 'GOOS=openbsd GOARCH=arm {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-openbsd-arm {{.MAIN_PACKAGE}}'
+      - 'GOOS=openbsd GOARCH=ppc64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-openbsd-ppc64 {{.MAIN_PACKAGE}}'
+      - 'GOOS=openbsd GOARCH=riscv64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-openbsd-riscv64 {{.MAIN_PACKAGE}}'
+
+  build-netbsd:
+    desc: Build for NetBSD (amd64, 386, arm64, arm)
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - 'GOOS=netbsd GOARCH=amd64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-netbsd-amd64 {{.MAIN_PACKAGE}}'
+      - 'GOOS=netbsd GOARCH=386 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-netbsd-386 {{.MAIN_PACKAGE}}'
+      - 'GOOS=netbsd GOARCH=arm64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-netbsd-arm64 {{.MAIN_PACKAGE}}'
+      - 'GOOS=netbsd GOARCH=arm {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-netbsd-arm {{.MAIN_PACKAGE}}'
+
+  build-all:
+    desc: Build for all platforms and architectures
+    deps: [build-linux, build-windows, build-darwin, build-freebsd, build-openbsd, build-netbsd]
+
+  run:
+    desc: Run with go run
+    cmds:
+      - '{{.GOCMD}} run {{.MAIN_PACKAGE}}'
+
+  tinygo-build:
+    desc: Build binary with TinyGo compiler
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - tinygo build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-tinygo -size short -opt=z -gc=leaking -panic=trap {{.MAIN_PACKAGE}}
+
+  tinygo-build-debug:
+    desc: Build binary optimized for debugging with TinyGo compiler
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - tinygo build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-tinygo-debug -size short -opt=1 {{.MAIN_PACKAGE}}
+
+  tinygo-build-all:
+    desc: Build for all available TinyGo targets
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - echo "Building for all TinyGo targets..."
+      - |
+        targets=$(tinygo targets)
+        failed=0
+        for target in $targets; do
+          if [ -n "$target" ]; then
+            echo "Building for target: $target"
+            if ! tinygo build -target "$target" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-"$target" -size short -opt=z -gc=leaking -panic=trap {{.MAIN_PACKAGE}} 2>&1 | tee {{.BUILD_DIR}}/build-"$target".log; then
+              echo "Failed to build for $target" >> {{.BUILD_DIR}}/build-"$target".log
+              failed=$((failed + 1))
+            fi
+          fi
+        done
+        echo "Build complete. Check {{.BUILD_DIR}}/ for outputs and logs."
+        if [ $failed -gt 0 ]; then
+          echo "$failed target(s) failed to build. See logs in {{.BUILD_DIR}}/build-*.log"
+        fi
+
+  tinygo-wasm:
+    desc: Build WebAssembly binary with TinyGo compiler
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - tinygo build -target wasm -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm ./cmd/reticulum-wasm
+
+  test-wasm:
+    desc: Run WebAssembly tests using Node.js
+    vars:
+      ROOT_DIR:
+        sh: pwd
+    env:
+      GOOS: js
+      GOARCH: wasm
+    cmds:
+      - chmod +x {{.ROOT_DIR}}/misc/wasm/go_js_wasm_exec
+      - PATH="$PATH:{{.ROOT_DIR}}/misc/wasm" {{.GOCMD}} test -v ./pkg/wasm/ ./cmd/reticulum-wasm/
+      - |
+        export PATH="$PATH:{{.ROOT_DIR}}/misc/wasm"
+        cd examples/wasm && {{.GOCMD}} test -v .
+
+  build-wasm:
+    desc: Build WebAssembly binary with standard Go compiler
+    env:
+      CGO_ENABLED: '0'
+      GOOS: js
+      GOARCH: wasm
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - '{{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm ./cmd/reticulum-wasm'
+
+  example:wasm:build:
+    desc: Build WebAssembly example
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - mkdir -p examples/wasm/public/static examples/wasm/public/js
+      - 'cd examples/wasm && GOOS=js GOARCH=wasm {{.GOCMD}} build -o public/static/reticulum-go.wasm .'
+      - |
+        GOROOT=$({{.GOCMD}} env GOROOT)
+        if [ -f "$GOROOT/lib/wasm/wasm_exec.js" ]; then
+          cp "$GOROOT/lib/wasm/wasm_exec.js" examples/wasm/public/js/
+          echo "wasm_exec.js copied successfully from $GOROOT/lib/wasm/"
+        elif [ -f "$GOROOT/misc/wasm/wasm_exec.js" ]; then
+          cp "$GOROOT/misc/wasm/wasm_exec.js" examples/wasm/public/js/
+          echo "wasm_exec.js copied successfully from $GOROOT/misc/wasm/"
+        else
+          echo "Warning: wasm_exec.js not found"
+          exit 1
+        fi
+
+  example:wasm:run:
+    desc: Run WebAssembly example using a simple HTTP server
+    deps: [example:wasm:build]
+    cmds:
+      - echo "Starting server at http://localhost:8080"
+      - echo "Press Ctrl+C to stop"
+      - 'cd examples/wasm/public && python3 -m http.server 8080'
+
+  example:wasm:test:
+    desc: Run tests for WASM example
+    cmds:
+      - task: test-wasm
+
+  install:
+    desc: Install dependencies
+    cmds:
+      - '{{.GOCMD}} mod download'
+
+  checksum:
+    desc: Generate SHA256 checksum for binary (uses BINARY_PATH env var if set, otherwise defaults to bin/reticulum-go)
+    cmds:
+      - |
+        BINARY_PATH="${BINARY_PATH:-{{.BUILD_DIR}}/{{.BINARY_NAME}}}"
+        if [ -f "$BINARY_PATH" ]; then
+          sha256sum "$BINARY_PATH" > "${BINARY_PATH}.sha256"
+          echo "Generated checksum: ${BINARY_PATH}.sha256"
+        else
+          echo "Error: Binary not found at $BINARY_PATH"
+          exit 1
+        fi
+
+  example:announce:
+    desc: Run announce example
+    cmds:
+      - 'cd examples/announce && {{.GOCMD}} run .'
+
+  example:minimal:
+    desc: Run minimal example
+    cmds:
+      - 'cd examples/minimal && {{.GOCMD}} run .'
+
+  example:pageserver:
+    desc: Run pageserver example
+    cmds:
+      - 'cd examples/pageserver && {{.GOCMD}} run .'
+
+  example:echo-listen:
+    desc: Run echo example (waits for incoming connections, P2P peer)
+    cmds:
+      - 'cd examples/echo && {{.GOCMD}} run . --server'
+
+  example:echo-connect:
+    desc: Run echo example (initiates connection to peer, requires DESTINATION env var)
+    cmds:
+      - |
+        if [ -z "${DESTINATION}" ]; then
+          echo "Error: DESTINATION environment variable required (hexadecimal hash of peer)"
+          echo "Example: DESTINATION=abc123... task example:echo-connect"
+          exit 1
+        fi
+        cd examples/echo && {{.GOCMD}} run . --destination="${DESTINATION}"
+
+  example:link-listen:
+    desc: Run link example (waits for incoming link requests, P2P peer)
+    cmds:
+      - 'cd examples/link && {{.GOCMD}} run . --server'
+
+  example:link-connect:
+    desc: Run link example (initiates link to peer, requires DESTINATION env var)
+    cmds:
+      - |
+        if [ -z "${DESTINATION}" ]; then
+          echo "Error: DESTINATION environment variable required (hexadecimal hash of peer)"
+          echo "Example: DESTINATION=abc123... task example:link-connect"
+          exit 1
+        fi
+        cd examples/link && {{.GOCMD}} run . --destination="${DESTINATION}"
+
+  example:filetransfer-share:
+    desc: Run filetransfer example (shares files from directory, P2P peer)
+    cmds:
+      - |
+        if [ -z "${SERVE_PATH}" ]; then
+          echo "Error: SERVE_PATH environment variable required (directory to share)"
+          echo "Example: SERVE_PATH=/path/to/files task example:filetransfer-share"
+          exit 1
+        fi
+        cd examples/filetransfer && {{.GOCMD}} run . --server --serve="${SERVE_PATH}"
+
+  example:filetransfer-fetch:
+    desc: Run filetransfer example (fetches files from peer, requires DESTINATION env var)
+    cmds:
+      - |
+        if [ -z "${DESTINATION}" ]; then
+          echo "Error: DESTINATION environment variable required (hexadecimal hash of peer)"
+          echo "Example: DESTINATION=abc123... task example:filetransfer-fetch"
+          exit 1
+        fi
+        cd examples/filetransfer && {{.GOCMD}} run . --destination="${DESTINATION}"
+
+  trivy:install:
+    desc: Install Trivy scanner
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          curl -L -o /tmp/trivy.deb https://git.quad4.io/Quad4-Extra/assets/raw/commit/90fdcea1bb71d91df2de6ff2e3897f278413f300/bin/trivy_0.68.2_Linux-64bit.deb
+          sudo dpkg -i /tmp/trivy.deb || sudo apt-get install -f -y
+        else
+          echo "Trivy is already installed: $(trivy --version)"
+        fi
+
+  trivy:scan:
+    desc: Run Trivy vulnerability scan
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          echo "Error: Trivy not found. Run 'task trivy:install' first."
+          exit 1
+        fi
+        trivy fs --scanners vuln --severity HIGH,CRITICAL --timeout 90m .
+
+  trivy:scan-all:
+    desc: Run Trivy full scan (vulnerabilities, secrets, misconfig)
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          echo "Error: Trivy not found. Run 'task trivy:install' first."
+          exit 1
+        fi
+        trivy fs --scanners vuln,secret,misconfig .
+
+  sbom:
+    desc: Generate SBOM files (SPDX and CycloneDX formats)
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          echo "Error: Trivy not found. Run 'task trivy:install' first."
+          exit 1
+        fi
+        mkdir -p sbom
+        trivy fs --format spdx-json --include-dev-deps --output sbom/sbom.spdx.json .
+        trivy fs --format cyclonedx --include-dev-deps --output sbom/sbom.cyclonedx.json .
+        echo "SBOM files generated in sbom/ directory"
+
+  sbom:spdx:
+    desc: Generate SPDX JSON SBOM
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          echo "Error: Trivy not found. Run 'task trivy:install' first."
+          exit 1
+        fi
+        mkdir -p sbom
+        trivy fs --format spdx-json --include-dev-deps --output sbom/sbom.spdx.json .
+        echo "SPDX SBOM generated: sbom/sbom.spdx.json"
+
+  sbom:cyclonedx:
+    desc: Generate CycloneDX SBOM
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          echo "Error: Trivy not found. Run 'task trivy:install' first."
+          exit 1
+        fi
+        mkdir -p sbom
+        trivy fs --format cyclonedx --include-dev-deps --output sbom/sbom.cyclonedx.json .
+        echo "CycloneDX SBOM generated: sbom/sbom.cyclonedx.json"
+
+  trivy:scan:json:
+    desc: Run Trivy vulnerability scan with JSON output
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          echo "Error: Trivy not found. Run 'task trivy:install' first."
+          exit 1
+        fi
+        mkdir -p reports
+        trivy fs --scanners vuln --format json --output reports/trivy-vuln.json --timeout 90m .
+
+  trivy:scan:sarif:
+    desc: Run Trivy scan with SARIF output (for GitHub/GitLab integration)
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          echo "Error: Trivy not found. Run 'task trivy:install' first."
+          exit 1
+        fi
+        mkdir -p reports
+        trivy fs --scanners vuln,secret --format sarif --output reports/trivy.sarif --timeout 90m .
+
+  trivy:scan:secrets:
+    desc: Scan for hardcoded secrets
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          echo "Error: Trivy not found. Run 'task trivy:install' first."
+          exit 1
+        fi
+        trivy fs --scanners secret .
+
+  trivy:scan:licenses:
+    desc: Scan for licenses in dependencies
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          echo "Error: Trivy not found. Run 'task trivy:install' first."
+          exit 1
+        fi
+        trivy fs --scanners license .
+
+  trivy:scan:misconfig:
+    desc: Scan for misconfigurations in config files
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          echo "Error: Trivy not found. Run 'task trivy:install' first."
+          exit 1
+        fi
+        trivy fs --scanners misconfig .
+
+  trivy:db-update:
+    desc: Update Trivy vulnerability database
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          echo "Error: Trivy not found. Run 'task trivy:install' first."
+          exit 1
+        fi
+        trivy image --download-db-only
+
+  trivy:cache-clean:
+    desc: Clean Trivy cache
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          echo "Error: Trivy not found. Run 'task trivy:install' first."
+          exit 1
+        fi
+        trivy clean --cache
+
+  trivy:compliance:
+    desc: "Generate compliance report (specify COMPLIANCE env var: docker-bench-cis, k8s-nsa, etc.)"
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          echo "Error: Trivy not found. Run 'task trivy:install' first."
+          exit 1
+        fi
+        if [ -z "${COMPLIANCE}" ]; then
+          echo "Error: COMPLIANCE environment variable required"
+          echo "Example: COMPLIANCE=docker-bench-cis task trivy:compliance"
+          exit 1
+        fi
+        mkdir -p reports
+        trivy fs --compliance "${COMPLIANCE}" --format json --output "reports/compliance-${COMPLIANCE}.json" .
+
+  trivy:ci:
+    desc: Run Trivy scan for CI (exits with non-zero code on findings)
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          echo "Error: Trivy not found. Run 'task trivy:install' first."
+          exit 1
+        fi
+        trivy fs --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --timeout 90m .
+
+  docker:build:
+    desc: Build Docker image (runtime image)
+    vars:
+      IMAGE_NAME: reticulum-go
+      IMAGE_TAG: latest
+    cmds:
+      - docker build -f docker/Dockerfile -t {{.IMAGE_NAME}}:{{.IMAGE_TAG}} .
+
+  docker:build:tag:
+    desc: Build Docker image with custom tag (use IMAGE_TAG env var)
+    vars:
+      IMAGE_NAME: reticulum-go
+      IMAGE_TAG: ${IMAGE_TAG:-latest}
+    cmds:
+      - docker build -f docker/Dockerfile -t {{.IMAGE_NAME}}:{{.IMAGE_TAG}} .
+
+  docker:build:build:
+    desc: Build Docker image for building binaries only
+    vars:
+      IMAGE_NAME: reticulum-go-build
+      IMAGE_TAG: latest
+    cmds:
+      - docker build -f docker/Dockerfile.build -t {{.IMAGE_NAME}}:{{.IMAGE_TAG}} .
+
+  docker:run:
+    desc: Run Docker container (runtime image)
+    vars:
+      IMAGE_NAME: reticulum-go
+      IMAGE_TAG: latest
+      CONTAINER_NAME: reticulum-go
+    cmds:
+      - |
+        docker run --rm -it \
+          --name {{.CONTAINER_NAME}} \
+          -p 4242:4242 \
+          {{.IMAGE_NAME}}:{{.IMAGE_TAG}}
+
+  docker:run:detached:
+    desc: Run Docker container in detached mode
+    vars:
+      IMAGE_NAME: reticulum-go
+      IMAGE_TAG: latest
+      CONTAINER_NAME: reticulum-go
+    cmds:
+      - |
+        docker run -d \
+          --name {{.CONTAINER_NAME}} \
+          -p 4242:4242 \
+          {{.IMAGE_NAME}}:{{.IMAGE_TAG}}
+
+  docker:stop:
+    desc: Stop running Docker container
+    vars:
+      CONTAINER_NAME: reticulum-go
+    cmds:
+      - docker stop {{.CONTAINER_NAME}} || true
+      - docker rm {{.CONTAINER_NAME}} || true
+
+  docker:extract:
+    desc: Extract binary from build container
+    vars:
+      IMAGE_NAME: reticulum-go-build
+      IMAGE_TAG: latest
+      BINARY_NAME: reticulum-go
+    cmds:
+      - |
+        CONTAINER_ID=$(docker create {{.IMAGE_NAME}}:{{.IMAGE_TAG}})
+        docker cp $CONTAINER_ID:/dist/{{.BINARY_NAME}} {{.BUILD_DIR}}/{{.BINARY_NAME}}
+        docker rm $CONTAINER_ID
+        echo "Binary extracted to {{.BUILD_DIR}}/{{.BINARY_NAME}}"
+
+  docker:buildx:setup:
+    desc: Setup Docker buildx for multi-platform builds
+    cmds:
+      - docker buildx create --name reticulum-builder --use || docker buildx use reticulum-builder
+      - docker buildx inspect --bootstrap
+
+  docker:buildx:build:
+    desc: Build multi-platform Docker image
+    vars:
+      IMAGE_NAME: reticulum-go
+      IMAGE_TAG: latest
+      PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7
+    cmds:
+      - |
+        docker buildx build \
+          --platform {{.PLATFORMS}} \
+          -f docker/Dockerfile \
+          -t {{.IMAGE_NAME}}:{{.IMAGE_TAG}} \
+          --load \
+          .
+
+  docker:buildx:build:push:
+    desc: Build and push multi-platform Docker image
+    vars:
+      IMAGE_NAME: reticulum-go
+      IMAGE_TAG: latest
+      PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7
+    cmds:
+      - |
+        if [ -z "${DOCKER_REGISTRY}" ]; then
+          echo "Error: DOCKER_REGISTRY environment variable required"
+          echo "Example: DOCKER_REGISTRY=registry.example.com task docker:buildx:build:push"
+          exit 1
+        fi
+        docker buildx build \
+          --platform {{.PLATFORMS}} \
+          -f docker/Dockerfile \
+          -t ${DOCKER_REGISTRY}/{{.IMAGE_NAME}}:{{.IMAGE_TAG}} \
+          --push \
+          .
+
+  docker:clean:
+    desc: Clean Docker images and containers
+    cmds:
+      - docker stop reticulum-go || true
+      - docker rm reticulum-go || true
+      - docker rmi reticulum-go:latest || true
+      - docker rmi reticulum-go-build:latest || true

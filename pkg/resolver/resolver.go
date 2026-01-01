@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: 0BSD
+// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
 package resolver
 
 import (
@@ -7,7 +9,18 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/identity"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
+)
+
+const (
+	// Hash length conversion (bits to bytes)
+	BitsPerByte = 8
+
+	// Known destination data index
+	KnownDestIdentityIndex = 2
+
+	// Minimum name parts for hierarchical resolution
+	MinNameParts = 2
 )
 
 type Resolver struct {
@@ -36,12 +49,12 @@ func (r *Resolver) ResolveIdentity(fullName string) (*identity.Identity, error) 
 	// Hash the full name to create a deterministic identity
 	h := sha256.New()
 	h.Write([]byte(fullName))
-	nameHash := h.Sum(nil)[:identity.NAME_HASH_LENGTH/8]
+	nameHash := h.Sum(nil)[:identity.NAME_HASH_LENGTH/BitsPerByte]
 	hashStr := hex.EncodeToString(nameHash)
 
 	// Check if this identity is known
 	if knownData, exists := identity.GetKnownDestination(hashStr); exists {
-		if id, ok := knownData[2].(*identity.Identity); ok {
+		if id, ok := knownData[KnownDestIdentityIndex].(*identity.Identity); ok {
 			r.cacheLock.Lock()
 			r.cache[fullName] = id
 			r.cacheLock.Unlock()
@@ -51,7 +64,7 @@ func (r *Resolver) ResolveIdentity(fullName string) (*identity.Identity, error) 
 
 	// Split name into parts for hierarchical resolution
 	parts := strings.Split(fullName, ".")
-	if len(parts) < 2 {
+	if len(parts) < MinNameParts {
 		return nil, errors.New("invalid identity name format")
 	}
 

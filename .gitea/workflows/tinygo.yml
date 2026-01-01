@@ -16,12 +16,17 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      uses: https://git.quad4.io/actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
     - name: Set up Go
-      uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+      uses: https://git.quad4.io/actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
       with:
         go-version: '1.24'
+
+    - name: Setup Task
+      uses: https://git.quad4.io/actions/setup-task@0ab1b2a65bc55236a3bc64cde78f80e20e8885c2 # v1
+      with:
+        version: '3.46.3'
 
     - name: Install TinyGo
       run: |
@@ -31,7 +36,7 @@ jobs:
     - name: Build for all TinyGo targets
       id: build_step
       run: |
-        make tinygo-build-all || true
+        task tinygo-build-all || true
         echo "Build process completed (some targets may have failed)"
 
     - name: Collect build results
@@ -72,7 +77,7 @@ jobs:
         echo "Generated unsupported-microcontrollers.txt with $failed_count failed targets"
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+      uses: https://git.quad4.io/actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5
       with:
         name: tinygo-builds
         path: |

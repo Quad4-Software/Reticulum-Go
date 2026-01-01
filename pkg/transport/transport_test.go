@@ -1,88 +1,120 @@
 package transport
 
 import (
-	"crypto/rand"
+	"bytes"
 	"testing"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/common"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 )
 
-func randomBytes(n int) []byte {
-	b := make([]byte, n)
-	_, err := rand.Read(b)
+type mockInterface struct {
+	common.BaseInterface
+	sent [][]byte
+}
+
+func (m *mockInterface) Send(data []byte, address string) error {
+	m.sent = append(m.sent, data)
+	return nil
+}
+
+func (m *mockInterface) GetName() string {
+	return m.Name
+}
+
+func (m *mockInterface) IsEnabled() bool {
+	return m.Enabled
+}
+
+func TestNewTransport(t *testing.T) {
+	config := &common.ReticulumConfig{}
+	tr := NewTransport(config)
+	if tr == nil {
+		t.Fatal("NewTransport returned nil")
+	}
+	defer tr.Close()
+}
+
+func TestRegisterInterface(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{})
+	defer tr.Close()
+
+	iface := &mockInterface{}
+	iface.Name = "test"
+	err := tr.RegisterInterface("test", iface)
 	if err != nil {
-		panic("Failed to generate random bytes: " + err.Error())
-	}
-	return b
-}
-
-// BenchmarkTransportDestinationCreation benchmarks destination creation
-func BenchmarkTransportDestinationCreation(b *testing.B) {
-	// Create a basic config for transport
-	config := &common.ReticulumConfig{
-		ConfigPath: "/tmp/test_config",
+		t.Fatalf("RegisterInterface failed: %v", err)
 	}
 
-	transport := NewTransport(config)
-
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		// Create destination (this allocates and initializes destination objects)
-		dest := transport.NewDestination(nil, OUT, SINGLE, "test_app")
-		_ = dest // Use the destination to avoid optimization
+	retrieved, err := tr.GetInterface("test")
+	if err != nil {
+		t.Fatalf("GetInterface failed: %v", err)
+	}
+	if retrieved != iface {
+		t.Error("Retrieved interface doesn't match")
 	}
 }
 
-// BenchmarkTransportPathLookup benchmarks path lookup operations
-func BenchmarkTransportPathLookup(b *testing.B) {
-	// Create a basic config for transport
-	config := &common.ReticulumConfig{
-		ConfigPath: "/tmp/test_config",
+func TestPathManagement(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{})
+	defer tr.Close()
+
+	destHash := []byte("test-destination-hash")
+	nextHop := []byte("next-hop")
+	iface := &mockInterface{}
+	iface.Name = "iface1"
+	_ = tr.RegisterInterface("iface1", iface)
+
+	tr.UpdatePath(destHash, nextHop, "iface1", 2)
+
+	if !tr.HasPath(destHash) {
+		t.Error("Path not found after update")
 	}
 
-	transport := NewTransport(config)
+	if tr.HopsTo(destHash) != 2 {
+		t.Errorf("Expected 2 hops, got %d", tr.HopsTo(destHash))
+	}
 
-	// Pre-populate with some destinations
-	destHash1 := randomBytes(16)
-	destHash2 := randomBytes(16)
-	destHash3 := randomBytes(16)
+	if !bytes.Equal(tr.NextHop(destHash), nextHop) {
+		t.Error("Next hop mismatch")
+	}
 
-	// Create some destinations
-	transport.NewDestination(nil, OUT, SINGLE, "test_app")
-	transport.NewDestination(nil, OUT, SINGLE, "test_app")
-	transport.NewDestination(nil, OUT, SINGLE, "test_app")
-
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		// Test path lookup operations (these involve map lookups and allocations)
-		_ = transport.HasPath(destHash1)
-		_ = transport.HasPath(destHash2)
-		_ = transport.HasPath(destHash3)
+	if tr.NextHopInterface(destHash) != "iface1" {
+		t.Errorf("Expected iface1, got %s", tr.NextHopInterface(destHash))
 	}
 }
 
-// BenchmarkTransportHopsCalculation benchmarks hops calculation
-func BenchmarkTransportHopsCalculation(b *testing.B) {
-	// Create a basic config for transport
-	config := &common.ReticulumConfig{
-		ConfigPath: "/tmp/test_config",
+func TestDestinationRegistration(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{})
+	defer tr.Close()
+
+	destHash := []byte("dest")
+	tr.RegisterDestination(destHash, "test-dest")
+
+	tr.mutex.RLock()
+	dest, ok := tr.destinations[string(destHash)]
+	tr.mutex.RUnlock()
+
+	if !ok || dest != "test-dest" {
+		t.Error("Destination not registered correctly")
+	}
+}
+
+func TestTransportStatus(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{})
+	defer tr.Close()
+
+	destHash := []byte("dest")
+	if tr.PathIsUnresponsive(destHash) {
+		t.Error("Path should not be unresponsive initially")
 	}
 
-	transport := NewTransport(config)
+	tr.MarkPathUnresponsive(destHash)
+	if !tr.PathIsUnresponsive(destHash) {
+		t.Error("Path should be unresponsive")
+	}
 
-	// Create some destinations
-	destHash := randomBytes(16)
-	transport.NewDestination(nil, OUT, SINGLE, "test_app")
-
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		// Test hops calculation (involves internal data structure access)
-		_ = transport.HopsTo(destHash)
+	tr.MarkPathResponsive(destHash)
+	if tr.PathIsUnresponsive(destHash) {
+		t.Error("Path should be responsive again")
 	}
 }

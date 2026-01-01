@@ -16,6 +16,9 @@ jobs:
       matrix:
         goos: [linux, windows, darwin, freebsd]
         goarch: [amd64, arm64, arm]
+        include:
+          - goos: js
+            goarch: wasm
         exclude:
           - goos: darwin
             goarch: arm
@@ -27,12 +30,17 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      uses: https://git.quad4.io/actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
     - name: Set up Go
-      uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+      uses: https://git.quad4.io/actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
       with:
         go-version: '1.25'
+
+    - name: Setup Task
+      uses: https://git.quad4.io/actions/setup-task@0ab1b2a65bc55236a3bc64cde78f80e20e8885c2 # v1
+      with:
+        version: '3.46.3'
 
     - name: Build
       id: build_step
@@ -40,12 +48,20 @@ jobs:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
         GOARM: ${{ matrix.goarch == 'arm' && '6' || '' }}
+        CGO_ENABLED: '0'
       run: |
         output_name="reticulum-go-${GOOS}-${GOARCH}"
-        if [ "$GOOS" = "windows" ]; then
-          output_name+=".exe"
+        if [ "$GOOS" = "js" ] && [ "$GOARCH" = "wasm" ]; then
+          task build-wasm
+          output_name+=".wasm"
+          mv bin/reticulum-go.wasm "${output_name}"
+        else
+          task build
+          if [ "$GOOS" = "windows" ]; then
+            output_name+=".exe"
+          fi
+          mv bin/reticulum-go "${output_name}"
         fi
-        go build -v -ldflags="-s -w" -o "${output_name}" ./cmd/reticulum-go
         echo "Built: ${output_name}"
 
     - name: Calculate SHA256 Checksum
@@ -53,15 +69,17 @@ jobs:
         output_name="reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}"
         if [ "${{ matrix.goos }}" = "windows" ]; then
           output_name+=".exe"
+        elif [ "${{ matrix.goos }}" = "js" ] && [ "${{ matrix.goarch }}" = "wasm" ]; then
+          output_name+=".wasm"
         fi
-        sha256sum "${output_name}" > "${output_name}.sha256"
-        echo "Calculated SHA256 for ${output_name}"
+        BINARY_PATH="${output_name}" task checksum
 
     - name: Upload Artifact
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+      uses: https://git.quad4.io/actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3.2.1
       with:
         name: reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}
-        path: reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}*
+        path: |
+          reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}*
 
   release:
     name: Create Release
@@ -74,14 +92,14 @@ jobs:
 
     steps:
       - name: Download All Build Artifacts
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: https://git.quad4.io/actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a
         with:
           path: ./release-assets
 
       - name: List downloaded files (for debugging)
         run: ls -R ./release-assets
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090 # v2.4.1
+      - name: Create Gitea Release
+        uses: https://git.quad4.io/actions/gitea-release-action@4875285c0950474efb7ca2df55233c51333eeb74
         with:
           files: ./release-assets/*/*

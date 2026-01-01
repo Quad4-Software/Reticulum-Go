@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: 0BSD
+// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
 package buffer
 
 import (
@@ -8,7 +10,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/channel"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/channel"
 )
 
 const (
@@ -16,6 +18,19 @@ const (
 	MaxChunkLen   = 16 * 1024
 	MaxDataLen    = 457 // MDU - 2 - 6 (2 for stream header, 6 for channel envelope)
 	CompressTries = 4
+
+	// Stream header flags
+	StreamHeaderEOF        = 0x8000
+	StreamHeaderCompressed = 0x4000
+
+	// Message type
+	StreamDataMessageType = 0x01
+
+	// Header size
+	StreamHeaderSize = 2
+
+	// Compression threshold
+	CompressThreshold = 32
 )
 
 type StreamDataMessage struct {
@@ -28,10 +43,10 @@ type StreamDataMessage struct {
 func (m *StreamDataMessage) Pack() ([]byte, error) {
 	headerVal := uint16(m.StreamID & StreamIDMax)
 	if m.EOF {
-		headerVal |= 0x8000
+		headerVal |= StreamHeaderEOF
 	}
 	if m.Compressed {
-		headerVal |= 0x4000
+		headerVal |= StreamHeaderCompressed
 	}
 
 	buf := new(bytes.Buffer)
@@ -43,30 +58,32 @@ func (m *StreamDataMessage) Pack() ([]byte, error) {
 }
 
 func (m *StreamDataMessage) GetType() uint16 {
-	return 0x01 // Assign appropriate message type constant
+	return StreamDataMessageType
 }
 
 func (m *StreamDataMessage) Unpack(data []byte) error {
-	if len(data) < 2 {
+	if len(data) < StreamHeaderSize {
 		return io.ErrShortBuffer
 	}
 
-	header := binary.BigEndian.Uint16(data[:2])
+	header := binary.BigEndian.Uint16(data[:StreamHeaderSize])
 	m.StreamID = header & StreamIDMax
-	m.EOF = (header & 0x8000) != 0
-	m.Compressed = (header & 0x4000) != 0
-	m.Data = data[2:]
+	m.EOF = (header & StreamHeaderEOF) != 0
+	m.Compressed = (header & StreamHeaderCompressed) != 0
+	m.Data = data[StreamHeaderSize:]
 
 	return nil
 }
 
 type RawChannelReader struct {
-	streamID  int
-	channel   *channel.Channel
-	buffer    *bytes.Buffer
-	eof       bool
-	callbacks []func(int)
-	mutex     sync.RWMutex
+	streamID         int
+	channel          *channel.Channel
+	buffer           *bytes.Buffer
+	eof              bool
+	callbacks        map[int]func(int)
+	nextCallbackID   int
+	messageHandlerID int
+	mutex            sync.RWMutex
 }
 
 func NewRawChannelReader(streamID int, ch *channel.Channel) *RawChannelReader {
@@ -74,28 +91,26 @@ func NewRawChannelReader(streamID int, ch *channel.Channel) *RawChannelReader {
 		streamID:  streamID,
 		channel:   ch,
 		buffer:    bytes.NewBuffer(nil),
-		callbacks: make([]func(int), 0),
+		callbacks: make(map[int]func(int)),
 	}
 
-	ch.AddMessageHandler(reader.HandleMessage)
+	reader.messageHandlerID = ch.AddMessageHandler(reader.HandleMessage)
 	return reader
 }
 
-func (r *RawChannelReader) AddReadyCallback(cb func(int)) {
+func (r *RawChannelReader) AddReadyCallback(cb func(int)) int {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	r.callbacks = append(r.callbacks, cb)
+	id := r.nextCallbackID
+	r.nextCallbackID++
+	r.callbacks[id] = cb
+	return id
 }
 
-func (r *RawChannelReader) RemoveReadyCallback(cb func(int)) {
+func (r *RawChannelReader) RemoveReadyCallback(id int) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	for i, fn := range r.callbacks {
-		if &fn == &cb {
-			r.callbacks = append(r.callbacks[:i], r.callbacks[i+1:]...)
-			break
-		}
-	}
+	delete(r.callbacks, id)
 }
 
 func (r *RawChannelReader) Read(p []byte) (n int, err error) {
@@ -110,11 +125,11 @@ func (r *RawChannelReader) Read(p []byte) (n int, err error) {
 	if err == io.EOF && !r.eof {
 		err = nil
 	}
-	return
+	return n, err
 }
 
 func (r *RawChannelReader) HandleMessage(msg channel.MessageBase) bool { // #nosec G115
-       if streamMsg, ok := msg.(*StreamDataMessage); ok && streamMsg.StreamID == uint16(r.streamID) {
+	if streamMsg, ok := msg.(*StreamDataMessage); ok && streamMsg.StreamID == uint16(r.streamID) {
 		r.mutex.Lock()
 		defer r.mutex.Unlock()
 
@@ -163,7 +178,7 @@ func (w *RawChannelWriter) Write(p []byte) (n int, err error) {
 		EOF:      w.eof,
 	}
 
-	if len(p) > 32 {
+	if len(p) > CompressThreshold {
 		for try := 1; try < CompressTries; try++ {
 			chunkLen := len(p) / try
 			compressed := compressData(p[:chunkLen])
@@ -201,10 +216,7 @@ func (b *Buffer) Read(p []byte) (n int, err error) {
 }
 
 func (b *Buffer) Close() error {
-	if err := b.ReadWriter.Writer.Flush(); err != nil {
-		return err
-	}
-	return nil
+	return b.ReadWriter.Writer.Flush()
 }
 
 func CreateReader(streamID int, ch *channel.Channel, readyCallback func(int)) *bufio.Reader {
@@ -230,6 +242,7 @@ func compressData(data []byte) []byte {
 	var compressed bytes.Buffer
 	w := bytes.NewBuffer(data)
 	r := bzip2.NewReader(w)
+	// bearer:disable go_gosec_filesystem_decompression_bomb
 	_, err := io.Copy(&compressed, r) // #nosec G104 #nosec G110
 	if err != nil {
 		// Handle error, e.g., log it or return an error
@@ -243,6 +256,7 @@ func decompressData(data []byte) []byte {
 	var decompressed bytes.Buffer
 	// Limit the amount of data read to prevent decompression bombs
 	limitedReader := io.LimitReader(reader, MaxChunkLen) // #nosec G110
+	// bearer:disable go_gosec_filesystem_decompression_bomb
 	_, err := io.Copy(&decompressed, limitedReader)
 	if err != nil {
 		// Handle error, e.g., log it or return an error

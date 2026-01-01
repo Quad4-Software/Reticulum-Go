@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: 0BSD
+// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
 package resource
 
 import (
@@ -58,6 +60,7 @@ const (
 	PROCESSING_GRACE              = 1.0
 	RETRY_GRACE_TIME              = 0.25
 	PER_RETRY_DELAY               = 0.5
+	RESPONSE_MAX_GRACE_TIME       = 10.0
 )
 
 type Resource struct {
@@ -92,6 +95,10 @@ type Resource struct {
 	callback           func(*Resource)
 	progressCallback   func(*Resource)
 	readOffset         int64
+	requestID          []byte
+	isResponse         bool
+	hashmap            []byte
+	parts              [][]byte
 }
 
 func New(data interface{}, autoCompress bool) (*Resource, error) {
@@ -217,12 +224,6 @@ func (r *Resource) GetSegments() uint16 {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 	return r.segments
-}
-
-func (r *Resource) IsCompressed() bool {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
-	return r.compressed
 }
 
 func (r *Resource) Cancel() {
@@ -420,4 +421,98 @@ func (r *Resource) GetSize() int64 {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 	return r.dataSize
+}
+
+func (r *Resource) HasMetadata() bool {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	return false
+}
+
+func (r *Resource) IsRequest() bool {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	return r.requestID != nil && !r.isResponse
+}
+
+func (r *Resource) IsResponse() bool {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	return r.isResponse
+}
+
+func (r *Resource) GetRequestID() []byte {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	if r.requestID == nil {
+		return nil
+	}
+	return append([]byte{}, r.requestID...)
+}
+
+func (r *Resource) SetRequestID(id []byte) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	if id == nil {
+		r.requestID = nil
+		return
+	}
+	r.requestID = append([]byte{}, id...)
+}
+
+func (r *Resource) SetIsResponse(isResponse bool) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	r.isResponse = isResponse
+}
+
+func (r *Resource) getHashmap() []byte {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	if r.hashmap == nil {
+		return nil
+	}
+	return append([]byte{}, r.hashmap...)
+}
+
+func (r *Resource) GetRandomHash() []byte {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	if r.randomHash == nil {
+		return nil
+	}
+	return append([]byte{}, r.randomHash...)
+}
+
+func (r *Resource) GetOriginalHash() []byte {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	if r.originalHash == nil {
+		return nil
+	}
+	return append([]byte{}, r.originalHash...)
+}
+
+func (r *Resource) GetSegmentIndex() uint16 {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	return r.segmentIndex
+}
+
+func (r *Resource) GetTotalSegments() uint16 {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	return r.totalSegments
+}
+
+func (r *Resource) IsEncrypted() bool {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	return r.encrypted
+}
+
+func (r *Resource) IsSplit() bool {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	return r.split
 }

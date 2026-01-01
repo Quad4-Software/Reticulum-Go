@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: 0BSD
+// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
 package transport
 
 import (
@@ -7,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/rate"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/rate"
 )
 
 const (
@@ -39,7 +41,7 @@ func NewAnnounceManager() *AnnounceManager {
 	return &AnnounceManager{
 		announces:     make(map[string]*AnnounceEntry),
 		announceQueue: make(map[string][]*AnnounceEntry),
-		rateLimiter:   rate.NewLimiter(DefaultPropagationRate, 1),
+		rateLimiter:   rate.NewLimiter(rate.DefaultBurstFreq, 10.0),
 		mutex:         sync.RWMutex{},
 	}
 }

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: 0BSD
+// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
 package config
 
 import (
@@ -39,6 +41,7 @@ type Config struct {
 }
 
 func LoadConfig(path string) (*Config, error) {
+	// bearer:disable go_gosec_filesystem_filereadtaint
 	file, err := os.Open(path) // #nosec G304
 	if err != nil {
 		return nil, err
@@ -222,7 +225,6 @@ func InitConfig() (*Config, error) {
 		cfg.Logging.Level = "info"
 		cfg.Logging.File = filepath.Join(GetConfigDir(), "reticulum.log")
 
-		// Add default interfaces
 		cfg.Interfaces = append(cfg.Interfaces, struct {
 			Name        string
 			Type        string

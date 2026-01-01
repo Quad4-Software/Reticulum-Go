@@ -1,14 +1,16 @@
+// SPDX-License-Identifier: 0BSD
+// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
 package interfaces
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"runtime"
 	"sync"
 	"time"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/common"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 )
 
 const (
@@ -21,14 +23,26 @@ const (
 	KISS_TFEND = 0xDC
 	KISS_TFESC = 0xDD
 
-	TCP_USER_TIMEOUT   = 24
-	TCP_PROBE_AFTER    = 5
-	TCP_PROBE_INTERVAL = 2
-	TCP_PROBES         = 12
-	RECONNECT_WAIT     = 5
-	INITIAL_TIMEOUT    = 5
-	INITIAL_BACKOFF    = time.Second
-	MAX_BACKOFF        = time.Minute * 5
+	DEFAULT_MTU       = 1064
+	BITRATE_GUESS_VAL = 10 * 1000 * 1000
+	RECONNECT_WAIT    = 5
+	INITIAL_TIMEOUT   = 5
+	INITIAL_BACKOFF   = time.Second
+	MAX_BACKOFF       = time.Minute * 5
+
+	TCP_USER_TIMEOUT_SEC   = 24
+	TCP_PROBE_AFTER_SEC    = 5
+	TCP_PROBE_INTERVAL_SEC = 2
+	TCP_PROBES_COUNT       = 12
+	TCP_CONNECT_TIMEOUT    = 10 * time.Second
+	TCP_MILLISECONDS       = 1000
+
+	I2P_USER_TIMEOUT_SEC   = 45
+	I2P_PROBE_AFTER_SEC    = 10
+	I2P_PROBE_INTERVAL_SEC = 9
+	I2P_PROBES_COUNT       = 5
+
+	SO_KEEPALIVE_ENABLE = 1
 )
 
 type TCPClientInterface struct {
@@ -45,12 +59,8 @@ type TCPClientInterface struct {
 	maxReconnectTries int
 	packetBuffer      []byte
 	packetType        byte
-	mutex             sync.RWMutex
-	enabled           bool
-	TxBytes           uint64
-	RxBytes           uint64
-	lastTx            time.Time
-	lastRx            time.Time
+	done              chan struct{}
+	stopOnce          sync.Once
 }
 
 func NewTCPClientInterface(name string, targetHost string, targetPort int, kissFraming bool, i2pTunneled bool, enabled bool) (*TCPClientInterface, error) {
@@ -61,10 +71,10 @@ func NewTCPClientInterface(name string, targetHost string, targetPort int, kissF
 		kissFraming:       kissFraming,
 		i2pTunneled:       i2pTunneled,
 		initiator:         true,
-		enabled:           enabled,
-		maxReconnectTries: TCP_PROBES,
+		maxReconnectTries: RECONNECT_WAIT * TCP_PROBES_COUNT,
 		packetBuffer:      make([]byte, 0),
 		neverConnected:    true,
+		done:              make(chan struct{}),
 	}
 
 	if enabled {
@@ -82,40 +92,78 @@ func NewTCPClientInterface(name string, targetHost string, targetPort int, kissF
 }
 
 func (tc *TCPClientInterface) Start() error {
-	tc.mutex.Lock()
-	defer tc.mutex.Unlock()
-
-	if !tc.Enabled {
-		return fmt.Errorf("interface not enabled")
+	tc.Mutex.Lock()
+	if !tc.Enabled || tc.Detached {
+		tc.Mutex.Unlock()
+		return fmt.Errorf("interface not enabled or detached")
 	}
 
 	if tc.conn != nil {
 		tc.Online = true
 		go tc.readLoop()
+		tc.Mutex.Unlock()
 		return nil
 	}
 
+	// Only recreate done if it's nil or was closed
+	select {
+	case <-tc.done:
+		tc.done = make(chan struct{})
+		tc.stopOnce = sync.Once{}
+	default:
+		if tc.done == nil {
+			tc.done = make(chan struct{})
+			tc.stopOnce = sync.Once{}
+		}
+	}
+	tc.Mutex.Unlock()
+
 	addr := net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort))
-	conn, err := net.Dial("tcp", addr)
+	conn, err := net.DialTimeout("tcp", addr, TCP_CONNECT_TIMEOUT)
 	if err != nil {
 		return err
 	}
+
+	tc.Mutex.Lock()
 	tc.conn = conn
+	tc.Mutex.Unlock()
 
 	// Set platform-specific timeouts
 	switch runtime.GOOS {
 	case "linux":
 		if err := tc.setTimeoutsLinux(); err != nil {
-			log.Printf("[DEBUG-2] Failed to set Linux TCP timeouts: %v", err)
+			debug.Log(debug.DEBUG_ERROR, "Failed to set Linux TCP timeouts", "error", err)
 		}
 	case "darwin":
 		if err := tc.setTimeoutsOSX(); err != nil {
-			log.Printf("[DEBUG-2] Failed to set OSX TCP timeouts: %v", err)
+			debug.Log(debug.DEBUG_ERROR, "Failed to set OSX TCP timeouts", "error", err)
 		}
 	}
 
+	tc.Mutex.Lock()
 	tc.Online = true
+	tc.Mutex.Unlock()
+
 	go tc.readLoop()
+	return nil
+}
+
+func (tc *TCPClientInterface) Stop() error {
+	tc.Mutex.Lock()
+	tc.Enabled = false
+	tc.Online = false
+	if tc.conn != nil {
+		_ = tc.conn.Close()
+		tc.conn = nil
+	}
+	tc.Mutex.Unlock()
+
+	tc.stopOnce.Do(func() {
+		if tc.done != nil {
+			close(tc.done)
+		}
+	})
+
 	return nil
 }
 
@@ -126,10 +174,30 @@ func (tc *TCPClientInterface) readLoop() {
 	dataBuffer := make([]byte, 0)
 
 	for {
-		n, err := tc.conn.Read(buffer)
+		tc.Mutex.RLock()
+		conn := tc.conn
+		done := tc.done
+		tc.Mutex.RUnlock()
+
+		if conn == nil {
+			return
+		}
+
+		select {
+		case <-done:
+			return
+		default:
+		}
+
+		n, err := conn.Read(buffer)
 		if err != nil {
+			tc.Mutex.Lock()
 			tc.Online = false
-			if tc.initiator && !tc.Detached {
+			detached := tc.Detached
+			initiator := tc.initiator
+			tc.Mutex.Unlock()
+
+			if initiator && !detached {
 				go tc.reconnect()
 			} else {
 				tc.teardown()
@@ -137,7 +205,6 @@ func (tc *TCPClientInterface) readLoop() {
 			return
 		}
 
-		// Update RX bytes for raw received data
 		tc.UpdateStats(uint64(n), true) // #nosec G115
 
 		for i := 0; i < n; i++ {
@@ -169,46 +236,47 @@ func (tc *TCPClientInterface) readLoop() {
 
 func (tc *TCPClientInterface) handlePacket(data []byte) {
 	if len(data) < 1 {
-		log.Printf("[DEBUG-7] Received invalid packet: empty")
+		debug.Log(debug.DEBUG_ALL, "Received invalid packet: empty")
 		return
 	}
 
-	tc.mutex.Lock()
+	tc.Mutex.Lock()
 	tc.RxBytes += uint64(len(data))
 	lastRx := time.Now()
 	tc.lastRx = lastRx
-	tc.mutex.Unlock()
+	callback := tc.packetCallback
+	tc.Mutex.Unlock()
 
-	log.Printf("[DEBUG-7] Received packet: type=0x%02x, size=%d bytes", data[0], len(data))
+	debug.Log(debug.DEBUG_ALL, "Received packet", "type", fmt.Sprintf("0x%02x", data[0]), "size", len(data))
 
 	// For RNS packets, call the packet callback directly
-	if callback := tc.GetPacketCallback(); callback != nil {
-		log.Printf("[DEBUG-7] Calling packet callback for RNS packet")
+	if callback != nil {
+		debug.Log(debug.DEBUG_ALL, "Calling packet callback for RNS packet")
 		callback(data, tc)
 	} else {
-		log.Printf("[DEBUG-7] No packet callback set for TCP interface")
+		debug.Log(debug.DEBUG_ALL, "No packet callback set for TCP interface")
 	}
 }
 
 // Send implements the interface Send method for TCP interface
 func (tc *TCPClientInterface) Send(data []byte, address string) error {
-	log.Printf("[DEBUG-7] TCP interface %s: Sending %d bytes", tc.Name, len(data))
-	
+	debug.Log(debug.DEBUG_ALL, "TCP interface sending bytes", "name", tc.Name, "bytes", len(data))
+
 	if !tc.IsEnabled() || !tc.IsOnline() {
 		return fmt.Errorf("TCP interface %s is not online", tc.Name)
 	}
 
-	// For TCP interface, we need to prepend a packet type byte for announce packets
-	// RNS TCP protocol expects: [packet_type][data]
-	frame := make([]byte, 0, len(data)+1)
-	frame = append(frame, 0x01) // Announce packet type
-	frame = append(frame, data...)
-
-	return tc.ProcessOutgoing(frame)
+	// Send data directly - packet type is already in the first byte of data
+	// TCP interface uses HDLC framing around the raw packet
+	return tc.ProcessOutgoing(data)
 }
 
 func (tc *TCPClientInterface) ProcessOutgoing(data []byte) error {
-	if !tc.Online {
+	tc.Mutex.RLock()
+	online := tc.Online
+	tc.Mutex.RUnlock()
+
+	if !online {
 		return fmt.Errorf("interface offline")
 	}
 
@@ -220,13 +288,21 @@ func (tc *TCPClientInterface) ProcessOutgoing(data []byte) error {
 	frame = append([]byte{HDLC_FLAG}, escapeHDLC(data)...)
 	frame = append(frame, HDLC_FLAG)
 
-	// Update TX stats before sending
-	tc.UpdateStats(uint64(len(frame)), false)
+	tc.UpdateStats(uint64(len(frame)), false) // #nosec G115
 
-	log.Printf("[DEBUG-7] TCP interface %s: Writing %d bytes to network", tc.Name, len(frame))
-	_, err := tc.conn.Write(frame)
+	debug.Log(debug.DEBUG_ALL, "TCP interface writing to network", "name", tc.Name, "bytes", len(frame))
+
+	tc.Mutex.RLock()
+	conn := tc.conn
+	tc.Mutex.RUnlock()
+
+	if conn == nil {
+		return fmt.Errorf("connection closed")
+	}
+
+	_, err := conn.Write(frame)
 	if err != nil {
-		log.Printf("[DEBUG-1] TCP interface %s: Write failed: %v", tc.Name, err)
+		debug.Log(debug.DEBUG_CRITICAL, "TCP interface write failed", "name", tc.Name, "error", err)
 	}
 	return err
 }
@@ -236,7 +312,7 @@ func (tc *TCPClientInterface) teardown() {
 	tc.IN = false
 	tc.OUT = false
 	if tc.conn != nil {
-		tc.conn.Close() // #nosec G104
+		_ = tc.conn.Close()
 	}
 }
 
@@ -272,9 +348,9 @@ func (tc *TCPClientInterface) SetPacketCallback(cb common.PacketCallback) {
 }
 
 func (tc *TCPClientInterface) IsEnabled() bool {
-	tc.mutex.RLock()
-	defer tc.mutex.RUnlock()
-	return tc.enabled && tc.Online && !tc.Detached
+	tc.Mutex.RLock()
+	defer tc.Mutex.RUnlock()
+	return tc.Enabled && tc.Online && !tc.Detached
 }
 
 func (tc *TCPClientInterface) GetName() string {
@@ -282,31 +358,31 @@ func (tc *TCPClientInterface) GetName() string {
 }
 
 func (tc *TCPClientInterface) GetPacketCallback() common.PacketCallback {
-	tc.mutex.RLock()
-	defer tc.mutex.RUnlock()
+	tc.Mutex.RLock()
+	defer tc.Mutex.RUnlock()
 	return tc.packetCallback
 }
 
 func (tc *TCPClientInterface) IsDetached() bool {
-	tc.mutex.RLock()
-	defer tc.mutex.RUnlock()
+	tc.Mutex.RLock()
+	defer tc.Mutex.RUnlock()
 	return tc.Detached
 }
 
 func (tc *TCPClientInterface) IsOnline() bool {
-	tc.mutex.RLock()
-	defer tc.mutex.RUnlock()
+	tc.Mutex.RLock()
+	defer tc.Mutex.RUnlock()
 	return tc.Online
 }
 
 func (tc *TCPClientInterface) reconnect() {
-	tc.mutex.Lock()
+	tc.Mutex.Lock()
 	if tc.reconnecting {
-		tc.mutex.Unlock()
+		tc.Mutex.Unlock()
 		return
 	}
 	tc.reconnecting = true
-	tc.mutex.Unlock()
+	tc.Mutex.Unlock()
 
 	backoff := time.Second
 	maxBackoff := time.Minute * 5
@@ -319,21 +395,19 @@ func (tc *TCPClientInterface) reconnect() {
 
 		conn, err := net.Dial("tcp", addr)
 		if err == nil {
-			tc.mutex.Lock()
+			tc.Mutex.Lock()
 			tc.conn = conn
 			tc.Online = true
 
 			tc.neverConnected = false
 			tc.reconnecting = false
-			tc.mutex.Unlock()
+			tc.Mutex.Unlock()
 
 			go tc.readLoop()
 			return
 		}
 
-		// Log reconnection attempt
-		fmt.Printf("Failed to reconnect to %s (attempt %d/%d): %v\n",
-			addr, retries+1, tc.maxReconnectTries, err)
+		debug.Log(debug.DEBUG_VERBOSE, "Failed to reconnect", "target", net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort)), "attempt", retries+1, "maxTries", tc.maxReconnectTries, "error", err)
 
 		// Wait with exponential backoff
 		time.Sleep(backoff)
@@ -347,50 +421,48 @@ func (tc *TCPClientInterface) reconnect() {
 		retries++
 	}
 
-	tc.mutex.Lock()
+	tc.Mutex.Lock()
 	tc.reconnecting = false
-	tc.mutex.Unlock()
+	tc.Mutex.Unlock()
 
-	// If we've exhausted all retries, perform final teardown
 	tc.teardown()
-	fmt.Printf("Failed to reconnect to %s after %d attempts\n",
-		fmt.Sprintf("%s:%d", tc.targetAddr, tc.targetPort), tc.maxReconnectTries)
+	debug.Log(debug.DEBUG_ERROR, "Failed to reconnect after all attempts", "target", net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort)), "maxTries", tc.maxReconnectTries)
 }
 
 func (tc *TCPClientInterface) Enable() {
-	tc.mutex.Lock()
-	defer tc.mutex.Unlock()
+	tc.Mutex.Lock()
+	defer tc.Mutex.Unlock()
 	tc.Online = true
 }
 
 func (tc *TCPClientInterface) Disable() {
-	tc.mutex.Lock()
-	defer tc.mutex.Unlock()
+	tc.Mutex.Lock()
+	defer tc.Mutex.Unlock()
 	tc.Online = false
 }
 
 func (tc *TCPClientInterface) IsConnected() bool {
-	tc.mutex.RLock()
-	defer tc.mutex.RUnlock()
+	tc.Mutex.RLock()
+	defer tc.Mutex.RUnlock()
 	return tc.conn != nil && tc.Online && !tc.reconnecting
 }
 
 func (tc *TCPClientInterface) GetRTT() time.Duration {
-	tc.mutex.RLock()
-	defer tc.mutex.RUnlock()
+	tc.Mutex.RLock()
+	defer tc.Mutex.RUnlock()
 
 	if !tc.IsConnected() {
 		return 0
 	}
 
 	if tcpConn, ok := tc.conn.(*net.TCPConn); ok {
-		var rtt time.Duration = 0
+		var rtt time.Duration
 		if runtime.GOOS == "linux" {
 			if info, err := tcpConn.SyscallConn(); err == nil {
 				if err := info.Control(func(fd uintptr) { // #nosec G104
 					rtt = platformGetRTT(fd)
 				}); err != nil {
-					log.Printf("[DEBUG-2] Error in SyscallConn Control: %v", err)
+					debug.Log(debug.DEBUG_ERROR, "Error in SyscallConn Control", "error", err)
 				}
 			}
 		}
@@ -401,84 +473,50 @@ func (tc *TCPClientInterface) GetRTT() time.Duration {
 }
 
 func (tc *TCPClientInterface) GetTxBytes() uint64 {
-	tc.mutex.RLock()
-	defer tc.mutex.RUnlock()
+	tc.Mutex.RLock()
+	defer tc.Mutex.RUnlock()
 	return tc.TxBytes
 }
 
 func (tc *TCPClientInterface) GetRxBytes() uint64 {
-	tc.mutex.RLock()
-	defer tc.mutex.RUnlock()
+	tc.Mutex.RLock()
+	defer tc.Mutex.RUnlock()
 	return tc.RxBytes
 }
 
 func (tc *TCPClientInterface) UpdateStats(bytes uint64, isRx bool) {
-	tc.mutex.Lock()
-	defer tc.mutex.Unlock()
+	tc.Mutex.Lock()
+	defer tc.Mutex.Unlock()
 
 	now := time.Now()
 	if isRx {
 		tc.RxBytes += bytes
 		tc.lastRx = now
-		log.Printf("[DEBUG-5] Interface %s RX stats: bytes=%d total=%d last=%v",
-			tc.Name, bytes, tc.RxBytes, tc.lastRx)
+		debug.Log(debug.DEBUG_TRACE, "Interface RX stats", "name", tc.Name, "bytes", bytes, "total", tc.RxBytes, "last", tc.lastRx)
 	} else {
 		tc.TxBytes += bytes
 		tc.lastTx = now
-		log.Printf("[DEBUG-5] Interface %s TX stats: bytes=%d total=%d last=%v",
-			tc.Name, bytes, tc.TxBytes, tc.lastTx)
+		debug.Log(debug.DEBUG_TRACE, "Interface TX stats", "name", tc.Name, "bytes", bytes, "total", tc.TxBytes, "last", tc.lastTx)
 	}
 }
 
 func (tc *TCPClientInterface) GetStats() (tx uint64, rx uint64, lastTx time.Time, lastRx time.Time) {
-	tc.mutex.RLock()
-	defer tc.mutex.RUnlock()
+	tc.Mutex.RLock()
+	defer tc.Mutex.RUnlock()
 	return tc.TxBytes, tc.RxBytes, tc.lastTx, tc.lastRx
-}
-
-func (tc *TCPClientInterface) setTimeoutsLinux() error {
-	tcpConn, ok := tc.conn.(*net.TCPConn)
-	if !ok {
-		return fmt.Errorf("not a TCP connection")
-	}
-
-	if !tc.i2pTunneled {
-		if err := tcpConn.SetKeepAlive(true); err != nil {
-			return err
-		}
-		if err := tcpConn.SetKeepAlivePeriod(time.Duration(TCP_PROBE_INTERVAL) * time.Second); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (tc *TCPClientInterface) setTimeoutsOSX() error {
-	tcpConn, ok := tc.conn.(*net.TCPConn)
-	if !ok {
-		return fmt.Errorf("not a TCP connection")
-	}
-
-	if err := tcpConn.SetKeepAlive(true); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 type TCPServerInterface struct {
 	BaseInterface
-	connections    map[string]net.Conn
-	mutex          sync.RWMutex
-	bindAddr       string
-	bindPort       int
-	preferIPv6     bool
-	kissFraming    bool
-	i2pTunneled    bool
-	packetCallback common.PacketCallback
-	TxBytes        uint64
-	RxBytes        uint64
+	connections map[string]net.Conn
+	listener    net.Listener
+	bindAddr    string
+	bindPort    int
+	preferIPv6  bool
+	kissFraming bool
+	i2pTunneled bool
+	done        chan struct{}
+	stopOnce    sync.Once
 }
 
 func NewTCPServerInterface(name string, bindAddr string, bindPort int, kissFraming bool, i2pTunneled bool, preferIPv6 bool) (*TCPServerInterface, error) {
@@ -489,6 +527,7 @@ func NewTCPServerInterface(name string, bindAddr string, bindPort int, kissFrami
 			Type:     common.IF_TYPE_TCP,
 			Online:   false,
 			MTU:      common.DEFAULT_MTU,
+			Enabled:  true,
 			Detached: false,
 		},
 		connections: make(map[string]net.Conn),
@@ -497,6 +536,7 @@ func NewTCPServerInterface(name string, bindAddr string, bindPort int, kissFrami
 		preferIPv6:  preferIPv6,
 		kissFraming: kissFraming,
 		i2pTunneled: i2pTunneled,
+		done:        make(chan struct{}),
 	}
 
 	return ts, nil
@@ -515,21 +555,21 @@ func (ts *TCPServerInterface) String() string {
 }
 
 func (ts *TCPServerInterface) SetPacketCallback(callback common.PacketCallback) {
-	ts.mutex.Lock()
-	defer ts.mutex.Unlock()
+	ts.Mutex.Lock()
+	defer ts.Mutex.Unlock()
 	ts.packetCallback = callback
 }
 
 func (ts *TCPServerInterface) GetPacketCallback() common.PacketCallback {
-	ts.mutex.RLock()
-	defer ts.mutex.RUnlock()
+	ts.Mutex.RLock()
+	defer ts.Mutex.RUnlock()
 	return ts.packetCallback
 }
 
 func (ts *TCPServerInterface) IsEnabled() bool {
-	ts.mutex.RLock()
-	defer ts.mutex.RUnlock()
-	return ts.BaseInterface.Enabled && ts.BaseInterface.Online && !ts.BaseInterface.Detached
+	ts.Mutex.RLock()
+	defer ts.Mutex.RUnlock()
+	return ts.Enabled && ts.Online && !ts.Detached
 }
 
 func (ts *TCPServerInterface) GetName() string {
@@ -537,50 +577,81 @@ func (ts *TCPServerInterface) GetName() string {
 }
 
 func (ts *TCPServerInterface) IsDetached() bool {
-	ts.mutex.RLock()
-	defer ts.mutex.RUnlock()
-	return ts.BaseInterface.Detached
+	ts.Mutex.RLock()
+	defer ts.Mutex.RUnlock()
+	return ts.Detached
 }
 
 func (ts *TCPServerInterface) IsOnline() bool {
-	ts.mutex.RLock()
-	defer ts.mutex.RUnlock()
+	ts.Mutex.RLock()
+	defer ts.Mutex.RUnlock()
 	return ts.Online
 }
 
 func (ts *TCPServerInterface) Enable() {
-	ts.mutex.Lock()
-	defer ts.mutex.Unlock()
+	ts.Mutex.Lock()
+	defer ts.Mutex.Unlock()
 	ts.Online = true
 }
 
 func (ts *TCPServerInterface) Disable() {
-	ts.mutex.Lock()
-	defer ts.mutex.Unlock()
+	ts.Mutex.Lock()
+	defer ts.Mutex.Unlock()
 	ts.Online = false
 }
 
 func (ts *TCPServerInterface) Start() error {
-	ts.mutex.Lock()
-	defer ts.mutex.Unlock()
+	ts.Mutex.Lock()
+	if ts.listener != nil {
+		ts.Mutex.Unlock()
+		return fmt.Errorf("TCP server already started")
+	}
+	// Only recreate done if it's nil or was closed
+	select {
+	case <-ts.done:
+		ts.done = make(chan struct{})
+		ts.stopOnce = sync.Once{}
+	default:
+		if ts.done == nil {
+			ts.done = make(chan struct{})
+			ts.stopOnce = sync.Once{}
+		}
+	}
+	ts.Mutex.Unlock()
 
-	addr := fmt.Sprintf("%s:%d", ts.bindAddr, ts.bindPort)
+	addr := net.JoinHostPort(ts.bindAddr, fmt.Sprintf("%d", ts.bindPort))
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to start TCP server: %w", err)
 	}
 
+	ts.Mutex.Lock()
+	ts.listener = listener
 	ts.Online = true
+	ts.Mutex.Unlock()
 
 	// Accept connections in a goroutine
 	go func() {
 		for {
+			ts.Mutex.RLock()
+			done := ts.done
+			ts.Mutex.RUnlock()
+
+			select {
+			case <-done:
+				return
+			default:
+			}
+
 			conn, err := listener.Accept()
 			if err != nil {
-				if !ts.Online {
+				ts.Mutex.RLock()
+				online := ts.Online
+				ts.Mutex.RUnlock()
+				if !online {
 					return // Normal shutdown
 				}
-				log.Printf("[DEBUG-2] Error accepting connection: %v", err)
+				debug.Log(debug.DEBUG_ERROR, "Error accepting connection", "error", err)
 				continue
 			}
 
@@ -593,60 +664,87 @@ func (ts *TCPServerInterface) Start() error {
 }
 
 func (ts *TCPServerInterface) Stop() error {
-	ts.mutex.Lock()
-	defer ts.mutex.Unlock()
-
+	ts.Mutex.Lock()
 	ts.Online = false
+	if ts.listener != nil {
+		_ = ts.listener.Close()
+		ts.listener = nil
+	}
+	// Close all client connections
+	for addr, conn := range ts.connections {
+		_ = conn.Close()
+		delete(ts.connections, addr)
+	}
+	ts.Mutex.Unlock()
+
+	ts.stopOnce.Do(func() {
+		if ts.done != nil {
+			close(ts.done)
+		}
+	})
+
 	return nil
 }
 
 func (ts *TCPServerInterface) GetTxBytes() uint64 {
-	ts.mutex.RLock()
-	defer ts.mutex.RUnlock()
+	ts.Mutex.RLock()
+	defer ts.Mutex.RUnlock()
 	return ts.TxBytes
 }
 
 func (ts *TCPServerInterface) GetRxBytes() uint64 {
-	ts.mutex.RLock()
-	defer ts.mutex.RUnlock()
+	ts.Mutex.RLock()
+	defer ts.Mutex.RUnlock()
 	return ts.RxBytes
 }
 
 func (ts *TCPServerInterface) handleConnection(conn net.Conn) {
 	addr := conn.RemoteAddr().String()
-	ts.mutex.Lock()
+	ts.Mutex.Lock()
 	ts.connections[addr] = conn
-	ts.mutex.Unlock()
+	ts.Mutex.Unlock()
 
 	defer func() {
-		ts.mutex.Lock()
+		ts.Mutex.Lock()
 		delete(ts.connections, addr)
-		ts.mutex.Unlock()
-		conn.Close() // #nosec G104
+		ts.Mutex.Unlock()
+		_ = conn.Close()
 	}()
 
 	buffer := make([]byte, ts.MTU)
 	for {
+		ts.Mutex.RLock()
+		done := ts.done
+		ts.Mutex.RUnlock()
+
+		select {
+		case <-done:
+			return
+		default:
+		}
+
 		n, err := conn.Read(buffer)
 		if err != nil {
 			return
 		}
 
-		ts.mutex.Lock()
+		ts.Mutex.Lock()
 		ts.RxBytes += uint64(n) // #nosec G115
-		ts.mutex.Unlock()
+		callback := ts.packetCallback
+		ts.Mutex.Unlock()
 
-		if ts.packetCallback != nil {
-			ts.packetCallback(buffer[:n], ts)
+		if callback != nil {
+			callback(buffer[:n], ts)
 		}
 	}
 }
 
 func (ts *TCPServerInterface) ProcessOutgoing(data []byte) error {
-	ts.mutex.RLock()
-	defer ts.mutex.RUnlock()
+	ts.Mutex.RLock()
+	online := ts.Online
+	ts.Mutex.RUnlock()
 
-	if !ts.Online {
+	if !online {
 		return fmt.Errorf("interface offline")
 	}
 
@@ -659,12 +757,17 @@ func (ts *TCPServerInterface) ProcessOutgoing(data []byte) error {
 		frame = append(frame, HDLC_FLAG)
 	}
 
-	ts.TxBytes += uint64(len(frame))
-
+	ts.Mutex.Lock()
+	ts.TxBytes += uint64(len(frame)) // #nosec G115
+	conns := make([]net.Conn, 0, len(ts.connections))
 	for _, conn := range ts.connections {
+		conns = append(conns, conn)
+	}
+	ts.Mutex.Unlock()
+
+	for _, conn := range conns {
 		if _, err := conn.Write(frame); err != nil {
-			log.Printf("[DEBUG-4] Error writing to connection %s: %v",
-				conn.RemoteAddr(), err)
+			debug.Log(debug.DEBUG_VERBOSE, "Error writing to connection", "address", conn.RemoteAddr(), "error", err)
 		}
 	}
 

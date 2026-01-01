@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: 0BSD
+// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
 package common
 
 import (
@@ -181,12 +183,10 @@ func (i *BaseInterface) SendLinkPacket(dest []byte, data []byte, timestamp time.
 	packet = append(packet, 0x02)                    // Link packet type
 	packet = append(packet, dest...)
 
-	// Add timestamp
 	ts := make([]byte, 8)
 	binary.BigEndian.PutUint64(ts, uint64(timestamp.Unix())) // #nosec G115
 	packet = append(packet, ts...)
 
-	// Add data
 	packet = append(packet, data...)
 
 	return i.Send(packet, "")

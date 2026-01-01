@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Reticulum WASM Chat Example</title>
+</head>
+<body>
+    <script src="js/wasm_exec.js"></script>
+    <script>
+        if (!WebAssembly.instantiateStreaming) { // polyfill
+            WebAssembly.instantiateStreaming = async (resp, importObject) => {
+                const source = await (await resp).arrayBuffer();
+                return await WebAssembly.instantiate(source, importObject);
+            };
+        }
+
+        const go = new Go();
+        let mod, inst;
+        WebAssembly.instantiateStreaming(fetch("static/reticulum-go.wasm"), go.importObject).then(async (result) => {
+            mod = result.module;
+            inst = result.instance;
+            console.log("WASM loaded");
+            await go.run(inst);
+        }).catch((err) => {
+            console.error(err);
+        });
+
+        // Basic chat interface helper
+        window.onChatMessage = (msg) => {
+            console.log("Chat message received:", msg);
+        };
+        window.onPeerDiscovered = (peer) => {
+            console.log("Peer discovered:", peer);
+        };
+        window.log = (msg, level) => {
+            console.log(`[${level}] ${msg}`);
+        };
+    </script>
+    <h1>Reticulum WASM Chat</h1>
+    <p>Open console to see output.</p>
+</body>
+</html>
+

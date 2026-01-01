@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: 0BSD
+// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+//go:build netbsd
+// +build netbsd
+
+package interfaces
+
+import (
+	"fmt"
+	"net"
+	"time"
+
+	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
+)
+
+func (tc *TCPClientInterface) setTimeoutsLinux() error {
+	tcpConn, ok := tc.conn.(*net.TCPConn)
+	if !ok {
+		return fmt.Errorf("not a TCP connection")
+	}
+
+	if err := tcpConn.SetKeepAlive(true); err != nil {
+		return fmt.Errorf("failed to enable keepalive: %v", err)
+	}
+
+	keepalivePeriod := TCP_PROBE_INTERVAL_SEC * time.Second
+	if tc.i2pTunneled {
+		keepalivePeriod = I2P_PROBE_INTERVAL_SEC * time.Second
+	}
+
+	if err := tcpConn.SetKeepAlivePeriod(keepalivePeriod); err != nil {
+		debug.Log(debug.DEBUG_VERBOSE, "Failed to set keepalive period", "error", err)
+	}
+
+	debug.Log(debug.DEBUG_VERBOSE, "TCP keepalive configured (NetBSD)", "i2p", tc.i2pTunneled)
+	return nil
+}
+
+func (tc *TCPClientInterface) setTimeoutsOSX() error {
+	return tc.setTimeoutsLinux()
+}

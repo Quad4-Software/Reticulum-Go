@@ -1,64 +1,215 @@
-[![Socket Badge](https://socket.dev/api/badge/go/package/github.com/sudo-ivan/reticulum-go?version=v0.4.0)](https://socket.dev/go/package/github.com/sudo-ivan/reticulum-go)
-![Multi-Platform Tests](https://github.com/Sudo-Ivan/Reticulum-Go/actions/workflows/go-test.yml/badge.svg)
-![Gosec Scan](https://github.com/Sudo-Ivan/Reticulum-Go/actions/workflows/gosec.yml/badge.svg)
-[![Multi-Platform Build](https://github.com/Sudo-Ivan/Reticulum-Go/actions/workflows/build.yml/badge.svg)](https://github.com/Sudo-Ivan/Reticulum-Go/actions/workflows/build.yml)
-[![Revive Linter](https://github.com/Sudo-Ivan/Reticulum-Go/actions/workflows/revive.yml/badge.svg)](https://github.com/Sudo-Ivan/Reticulum-Go/actions/workflows/revive.yml)
-
 # Reticulum-Go
 
-A Go implementation of the [Reticulum Network Protocol](https://github.com/markqvist/Reticulum).
+[![Revive Lint](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/revive.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/revive.yml)
+[![Go Build](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/build.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/build.yml)
+[![Go Test](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/go-test.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/go-test.yml)
+[![Gosec](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/gosec.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/gosec.yml)
+[![Bearer](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/bearer.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/bearer.yml)
 
-> [!WARNING]  
-> This project is currently in development and is not yet compatible with the Python reference implementation.
+A high-performance Go implementation of the [Reticulum Network Stack](https://github.com/markqvist/Reticulum)
 
-## Goals
+## Project Goals:
 
-- To be fully compatible with the Python reference implementation.
-- Additional privacy and security features.
-- Support for a broader range of platforms and architectures old and new.
+- **Full Protocol Compatibility**: Maintain complete interoperability with the Python reference implementation
+- **Cross-Platform Support**: Support for legacy and modern platforms across multiple architectures
+- **Performance**: Leverage Go's concurrency model and runtime for improved throughput and latency
+- **More Privacy and Security**: Additional privacy and security features beyond the base specification
+
+## Prerequisites
+
+- Go 1.24 or later
+- [Task](https://taskfile.dev/) for build automation
+
+Note: You may need to set `alias task='go-task'` in your shell configuration to use `task` instead of `go-task`.
+
+### Nix
+
+If you have Nix installed, you can use the development shell which automatically provides all dependencies including Task:
+
+```bash
+nix develop
+```
+
+This will enter a development environment with Go and Task pre-configured.
 
 ## Quick Start
 
-### Prerequisites
-
-- Go 1.24 or later
-
-### Build
+### Building the Binary
 
 ```bash
-make build
+task build
 ```
 
-### Run
+The compiled binary will be located in `bin/reticulum-go`.
+
+### Running the Application
 
 ```bash
-make run
+task run
 ```
 
-### Test
+### Running Tests
 
 ```bash
-make test
+task test
 ```
 
-## Embedded systems and WebAssembly
+## Development
 
-For building for WebAssembly and embedded systems, see the [tinygo branch](https://github.com/Sudo-Ivan/Reticulum-Go/tree/tinygo). Requires TinyGo 0.37.0+.
+### Code Quality
+
+Format code:
 
 ```bash
-make tinygo-build
-make tinygo-wasm
+task fmt
 ```
 
-### Experimental Features
-
-Build with experimental Green Tea GC (Go 1.25+):
+Run static analysis checks (formatting, vet, linting):
 
 ```bash
-make build-experimental
+task check
 ```
 
-## Official Channels
+### Testing
 
-- [Telegram](https://t.me/reticulum_go)
-- [Matrix](https://matrix.to/#/#reticulum-go-dev:matrix.org)
+Run all tests:
+
+```bash
+task test
+```
+
+Run short tests only:
+
+```bash
+task test-short
+```
+
+Generate coverage report:
+
+```bash
+task coverage
+```
+
+### Benchmarking
+
+Run benchmarks with standard GC:
+
+```bash
+task bench
+```
+
+Run benchmarks with experimental Green Tea GC:
+
+```bash
+task bench-experimental
+```
+
+Compare both GC implementations:
+
+```bash
+task bench-compare
+```
+
+## Tasks
+
+The project uses [Task](https://taskfile.dev/) for all development and build operations.
+
+```
+| Task                | Description                                          |
+|---------------------|------------------------------------------------------|
+| default             | Show available tasks                                 |
+| all                 | Clean, download dependencies, build and test         |
+| build               | Build release binary (stripped, static)              |
+| debug               | Build debug binary                                   |
+| build-experimental  | Build with experimental Green Tea GC (Go 1.25+)      |
+| experimental        | Alias for build-experimental                         |
+| release             | Build stripped static binary for release             |
+| fmt                 | Format Go code                                       |
+| fmt-check           | Check if code is formatted (CI-friendly)             |
+| vet                 | Run go vet                                           |
+| lint                | Run revive linter                                    |
+| scan                | Run gosec security scanner                           |
+| check               | Run fmt-check, vet, and lint                         |
+| bench               | Run benchmarks with standard GC                      |
+| bench-experimental  | Run benchmarks with experimental GC                  |
+| bench-compare       | Run benchmarks with both GC settings                 |
+| clean               | Remove build artifacts                               |
+| test                | Run all tests                                        |
+| test-short          | Run short tests only                                 |
+| test-race           | Run tests with race detector                         |
+| coverage            | Generate test coverage report                        |
+| checksum            | Generate SHA256 checksum for binary                  |
+| deps                | Download and verify dependencies                     |
+| mod-tidy            | Tidy go.mod file                                     |
+| mod-verify          | Verify dependencies                                  |
+| build-linux         | Build for Linux (amd64, arm64, arm, riscv64)         |
+| build-all           | Build for all Linux architectures                    |
+| build-wasm          | Build WebAssembly binary with standard Go compiler   |
+| test-wasm           | Run WebAssembly tests using Node.js                  |
+| run                 | Run with go run                                      |
+| tinygo-build        | Build binary with TinyGo compiler                    |
+| tinygo-wasm         | Build WebAssembly binary with TinyGo                 |
+| install             | Install dependencies                                 |
+
+example: task build
+```
+
+## Cross-Platform Builds
+
+### Linux Builds
+
+Build for all Linux architectures:
+
+```bash
+task build-all
+```
+
+Build for specific Linux architecture:
+
+```bash
+task build-linux
+```
+
+## Embedded Systems and WebAssembly
+
+For building for embedded systems, see the [tinygo branch](https://git.quad4.io/Networks/Reticulum-Go/src/branch/tinygo/). Requires TinyGo 0.37.0+.
+
+Build WebAssembly binary with standard Go compiler:
+
+```bash
+task build-wasm
+```
+
+Run WebAssembly unit tests (requires Node.js):
+
+```bash
+task test-wasm
+```
+
+Build with TinyGo:
+
+```bash
+task tinygo-build
+```
+
+Build WebAssembly binary with TinyGo:
+
+```bash
+task tinygo-wasm
+```
+
+## Experimental Features
+
+### Green Tea Garbage Collector
+
+Build with experimental Green Tea GC (requires Go 1.25+):
+
+```bash
+task build-experimental
+```
+
+This enables the experimental garbage collector for performance evaluation and testing.
+
+## License
+
+This project is licensed under the [0BSD](LICENSE) license.

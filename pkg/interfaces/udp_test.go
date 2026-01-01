@@ -3,7 +3,7 @@ package interfaces
 import (
 	"testing"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/common"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 )
 
 func TestNewUDPInterface(t *testing.T) {
@@ -24,11 +24,6 @@ func TestNewUDPInterface(t *testing.T) {
 		}
 		if ui.GetType() != common.IF_TYPE_UDP {
 			t.Errorf("GetType() = %v; want %v", ui.GetType(), common.IF_TYPE_UDP)
-		}
-		if ui.addr.String() != validAddr && ui.addr.Port == 0 { // Check if address resolved, port 0 is special
-			// Allow OS-assigned port if 0 was specified
-		} else if ui.addr.String() != validAddr {
-			// t.Errorf("Resolved addr = %s; want %s", ui.addr.String(), validAddr) //This check is flaky with port 0
 		}
 		if ui.targetAddr.String() != validTarget {
 			t.Errorf("Resolved targetAddr = %s; want %s", ui.targetAddr.String(), validTarget)
@@ -71,7 +66,6 @@ func TestNewUDPInterface(t *testing.T) {
 
 func TestUDPInterfaceState(t *testing.T) {
 	// Basic state tests are covered by BaseInterface tests
-	// Add specific UDP ones if needed, e.g., involving the conn
 	addr := "127.0.0.1:0"
 	ui, _ := NewUDPInterface("udpState", addr, "", true)
 

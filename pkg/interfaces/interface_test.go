@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/common"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 )
 
 func TestBaseInterfaceStateChanges(t *testing.T) {
@@ -183,7 +183,6 @@ func (m *mockInterface) Send(data []byte, addr string) error {
 	return nil
 }
 
-// Add other methods to satisfy the Interface interface (can be minimal/panic)
 func (m *mockInterface) GetType() common.InterfaceType                  { return common.IF_TYPE_NONE }
 func (m *mockInterface) GetMode() common.InterfaceMode                  { return common.IF_MODE_FULL }
 func (m *mockInterface) ProcessIncoming(data []byte)                    {}

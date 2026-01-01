@@ -20,8 +20,8 @@ jobs:
       GO111MODULE: on
     steps:
       - name: Checkout Source
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: https://git.quad4.io/actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Run Gosec Security Scanner
-        uses: securego/gosec@master
+        uses: https://git.quad4.io/actions/gosec@c073629009897d89e03229bc81232c7375892086
         with:
           args: ./...

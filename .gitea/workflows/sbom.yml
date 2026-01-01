@@ -1,0 +1,53 @@
+name: Generate SBOM
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  generate-sbom:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: https://git.quad4.io/actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: https://git.quad4.io/actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.25.5'
+
+      - name: Setup Task
+        uses: https://git.quad4.io/actions/setup-task@0ab1b2a65bc55236a3bc64cde78f80e20e8885c2 # v1
+        with:
+          version: '3.46.3'
+
+      - name: Install dependencies
+        run: task deps
+
+      - name: Install Trivy
+        run: task trivy:install
+
+      - name: Generate SBOM
+        run: task sbom
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "Gitea Action"
+          git config --global user.email "actions@noreply.quad4.io"
+          git remote set-url origin https://${{ secrets.GITEA_TOKEN }}@git.quad4.io/${{ github.repository }}.git
+          git fetch origin main || git fetch origin master
+          git checkout main || git checkout master
+          git add sbom/
+          if ! git diff --quiet || ! git diff --staged --quiet; then
+            git commit -m "Auto-update SBOM [skip ci]"
+            git push origin main || git push origin master
+          fi
+        env:
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+

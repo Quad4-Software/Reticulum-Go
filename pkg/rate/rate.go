@@ -1,8 +1,12 @@
+// SPDX-License-Identifier: 0BSD
+// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
 package rate
 
 import (
 	"sync"
 	"time"
+
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 )
 
 const (
@@ -15,22 +19,29 @@ const (
 	DefaultBurstPenalty        = 300    // Default seconds penalty after burst
 	DefaultMaxHeldAnnounces    = 256    // Default max announces in hold queue
 	DefaultHeldReleaseInterval = 30     // Default seconds between releasing held announces
+
+	// Allowance thresholds
+	AllowanceMinThreshold = 1.0
+	AllowanceDecrement    = 1.0
+
+	// History check threshold
+	HistoryGraceThreshold = 1
 )
 
 type Limiter struct {
 	rate       float64
-	interval   time.Duration
+	capacity   float64
 	lastUpdate time.Time
 	allowance  float64
 	mutex      sync.Mutex
 }
 
-func NewLimiter(rate float64, interval time.Duration) *Limiter {
+func NewLimiter(rate float64, capacity float64) *Limiter {
 	return &Limiter{
 		rate:       rate,
-		interval:   interval,
+		capacity:   capacity,
 		lastUpdate: time.Now(),
-		allowance:  rate,
+		allowance:  capacity,
 	}
 }
 
@@ -43,15 +54,15 @@ func (l *Limiter) Allow() bool {
 	l.lastUpdate = now
 
 	l.allowance += elapsed.Seconds() * l.rate
-	if l.allowance > l.rate {
-		l.allowance = l.rate
+	if l.allowance > l.capacity {
+		l.allowance = l.capacity
 	}
 
-	if l.allowance < 1.0 {
+	if l.allowance < AllowanceMinThreshold {
 		return false
 	}
 
-	l.allowance -= 1.0
+	l.allowance -= AllowanceDecrement
 	return true
 }
 
@@ -100,7 +111,7 @@ func (arc *AnnounceRateControl) AllowAnnounce(destHash string) bool {
 	// Check rate
 	lastAnnounce := history[len(history)-1]
 	waitTime := arc.rateTarget
-	if len(history) > arc.rateGrace {
+	if len(history) > arc.rateGrace+HistoryGraceThreshold {
 		waitTime += arc.ratePenalty
 	}
 
@@ -155,7 +166,7 @@ func (ic *IngressControl) ProcessAnnounce(announceHash string, announceData []by
 
 	// Reset counter if enough time has passed
 	if elapsed > ic.burstHold+ic.burstPenalty {
-		ic.announceCount = 0
+		ic.announceCount = common.ZERO
 		ic.lastBurst = now
 	}
 
@@ -166,7 +177,13 @@ func (ic *IngressControl) ProcessAnnounce(announceHash string, announceData []by
 	}
 
 	ic.announceCount++
-	burstFreq := float64(ic.announceCount) / elapsed.Seconds()
+
+	// Avoid division by zero and handle very small elapsed times
+	seconds := elapsed.Seconds()
+	if seconds < 0.01 {
+		seconds = 0.01
+	}
+	burstFreq := float64(ic.announceCount) / seconds
 
 	// Hold announce if burst frequency exceeded
 	if burstFreq > maxFreq {

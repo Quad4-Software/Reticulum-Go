@@ -1,14 +1,13 @@
 # Security Policy
 
-We use [Socket](https://socket.dev/), [Deepsource](https://deepsource.com/) and [gosec](https://github.com/securego/gosec) for this project.
-
 ## Supply Chain Security
 
-- All actions are pinned to a commit hash. 
+- All actions are pinned to a full-length commit hash and have been forked to my Gitea instance in https://git.quad4.io/actions
+- BOM generation using CycloneDX
 
 ## Cryptography Dependencies
 
-- golang.org/x/crypto for core cryptographic primitives
+- golang.org/x/crypto `v0.46.0` for core cryptographic primitives
   - hkdf
   - curve25519
 
@@ -22,4 +21,4 @@ We use [Socket](https://socket.dev/), [Deepsource](https://deepsource.com/) and 
 
 ## Reporting a Vulnerability
 
-Please report any security vulnerabilities using Github reporting tool or email to [rns@quad4.io](mailto:rns@quad4.io)
+Refer to [https://quad4.io/security](https://quad4.io/security) for how to report vulnerabilities.

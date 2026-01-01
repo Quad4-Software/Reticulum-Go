@@ -1,13 +1,16 @@
+// SPDX-License-Identifier: 0BSD
+// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
 package channel
 
 import (
 	"errors"
-	"log"
 	"math"
 	"sync"
 	"time"
 
-	"github.com/Sudo-Ivan/reticulum-go/pkg/transport"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
 )
 
 const (
@@ -33,6 +36,19 @@ const (
 	SeqModulus uint16 = SeqMax
 
 	FastRateThreshold = 10
+
+	// Timeout calculation constants
+	RTTMinThreshold       = 0.025
+	TimeoutBaseMultiplier = 1.5
+	TimeoutRingMultiplier = 2.5
+	TimeoutRingOffset     = 2
+
+	// Packet header constants
+	ChannelHeaderSize = 6
+	ChannelHeaderBits = 8
+
+	// Default retry count
+	DefaultMaxTries = 3
 )
 
 // MessageState represents the state of a message
@@ -67,7 +83,13 @@ type Channel struct {
 	maxTries        int
 	fastRateRounds  int
 	medRateRounds   int
-	messageHandlers []func(MessageBase) bool
+	messageHandlers []messageHandlerEntry
+	nextHandlerID   int
+}
+
+type messageHandlerEntry struct {
+	id      int
+	handler func(MessageBase) bool
 }
 
 // Envelope wraps a message with metadata for transmission
@@ -84,12 +106,12 @@ type Envelope struct {
 func NewChannel(link transport.LinkInterface) *Channel {
 	return &Channel{
 		link:            link,
-		messageHandlers: make([]func(MessageBase) bool, 0),
+		messageHandlers: make([]messageHandlerEntry, 0),
 		mutex:           sync.RWMutex{},
 		windowMax:       WindowMaxSlow,
 		windowMin:       WindowMinSlow,
 		window:          WindowInitial,
-		maxTries:        3,
+		maxTries:        DefaultMaxTries,
 	}
 }
 
@@ -106,7 +128,7 @@ func (c *Channel) Send(msg MessageBase) error {
 	}
 
 	c.mutex.Lock()
-	c.nextSequence = (c.nextSequence + 1) % SeqModulus
+	c.nextSequence = (c.nextSequence + common.ONE) % SeqModulus
 	c.txRing = append(c.txRing, env)
 	c.mutex.Unlock()
 
@@ -141,7 +163,7 @@ func (c *Channel) handleTimeout(packet interface{}) {
 			env.Tries++
 			if err := c.link.Resend(packet); err != nil { // #nosec G104
 				// Handle resend error, e.g., log it or mark envelope as failed
-				log.Printf("Failed to resend packet: %v", err)
+				debug.Log(debug.DEBUG_INFO, "Failed to resend packet", "error", err)
 				// Optionally, mark the envelope as failed or remove it from txRing
 				// env.State = MsgStateFailed
 				// c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
@@ -169,25 +191,28 @@ func (c *Channel) handleDelivered(packet interface{}) {
 
 func (c *Channel) getPacketTimeout(tries int) time.Duration {
 	rtt := c.link.GetRTT()
-	if rtt < 0.025 {
-		rtt = 0.025
+	if rtt < RTTMinThreshold {
+		rtt = RTTMinThreshold
 	}
 
-	timeout := math.Pow(1.5, float64(tries-1)) * rtt * 2.5 * float64(len(c.txRing)+2)
+	timeout := math.Pow(TimeoutBaseMultiplier, float64(tries-common.ONE)) * rtt * TimeoutRingMultiplier * float64(len(c.txRing)+TimeoutRingOffset)
 	return time.Duration(timeout * float64(time.Second))
 }
 
-func (c *Channel) AddMessageHandler(handler func(MessageBase) bool) {
+func (c *Channel) AddMessageHandler(handler func(MessageBase) bool) int {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	c.messageHandlers = append(c.messageHandlers, handler)
+	id := c.nextHandlerID
+	c.nextHandlerID++
+	c.messageHandlers = append(c.messageHandlers, messageHandlerEntry{id: id, handler: handler})
+	return id
 }
 
-func (c *Channel) RemoveMessageHandler(handler func(MessageBase) bool) {
+func (c *Channel) RemoveMessageHandler(id int) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	for i, h := range c.messageHandlers {
-		if &h == &handler {
+	for i, entry := range c.messageHandlers {
+		if entry.id == id {
 			c.messageHandlers = append(c.messageHandlers[:i], c.messageHandlers[i+1:]...)
 			break
 		}
@@ -198,10 +223,10 @@ func (c *Channel) updateRateThresholds() {
 	rtt := c.link.RTT()
 
 	if rtt > RTTFast {
-		c.fastRateRounds = 0
+		c.fastRateRounds = common.ZERO
 
 		if rtt > RTTMedium {
-			c.medRateRounds = 0
+			c.medRateRounds = common.ZERO
 		} else {
 			c.medRateRounds++
 			if c.windowMax < WindowMaxMedium && c.medRateRounds == FastRateThreshold {
@@ -216,6 +241,59 @@ func (c *Channel) updateRateThresholds() {
 			c.windowMin = WindowMinFast
 		}
 	}
+}
+
+func (c *Channel) HandleInbound(data []byte) error {
+	if len(data) < ChannelHeaderSize {
+		return errors.New("channel packet too short")
+	}
+
+	msgType := uint16(data[0])<<ChannelHeaderBits | uint16(data[1])
+	sequence := uint16(data[2])<<ChannelHeaderBits | uint16(data[3])
+	length := uint16(data[4])<<ChannelHeaderBits | uint16(data[5])
+
+	if len(data) < ChannelHeaderSize+int(length) {
+		return errors.New("channel packet incomplete")
+	}
+
+	msgData := data[ChannelHeaderSize : ChannelHeaderSize+length]
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	for _, entry := range c.messageHandlers {
+		if entry.handler != nil {
+			msg := &GenericMessage{
+				Type: msgType,
+				Data: msgData,
+				Seq:  sequence,
+			}
+			if entry.handler(msg) {
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+type GenericMessage struct {
+	Type uint16
+	Data []byte
+	Seq  uint16
+}
+
+func (g *GenericMessage) Pack() ([]byte, error) {
+	return g.Data, nil
+}
+
+func (g *GenericMessage) Unpack(data []byte) error {
+	g.Data = data
+	return nil
+}
+
+func (g *GenericMessage) GetType() uint16 {
+	return g.Type
 }
 
 func (c *Channel) Close() error {
