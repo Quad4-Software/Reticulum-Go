@@ -211,7 +211,7 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 			iface, err = interfaces.NewSerialInterface(
 				name,
 				ifaceConfig.Interface,
-				uint32(ifaceConfig.Bitrate),
+				uint32(ifaceConfig.Bitrate), // #nosec G115
 				ifaceConfig.Enabled,
 			)
 		case "RNodeInterface":
@@ -219,7 +219,7 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 			serial, sErr := interfaces.NewSerialInterface(
 				name+"_serial",
 				ifaceConfig.Interface,
-				uint32(ifaceConfig.Bitrate),
+				uint32(ifaceConfig.Bitrate), // #nosec G115
 				ifaceConfig.Enabled,
 			)
 			if sErr != nil {
