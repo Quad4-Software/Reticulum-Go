@@ -15,4 +15,3 @@ func MsgpackMarshal(v interface{}) ([]byte, error) {
 func MsgpackUnmarshal(data []byte, v interface{}) error {
 	return msgpack.Unmarshal(data, v)
 }
-

@@ -66,4 +66,3 @@ func (ui *UDPInterface) Stop() error {
 	ui.Online = false
 	return nil
 }
-

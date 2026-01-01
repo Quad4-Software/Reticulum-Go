@@ -22,4 +22,3 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 func (tc *TCPClientInterface) setTimeoutsOSX() error {
 	return nil
 }
-

@@ -290,4 +290,3 @@ func (li *LoRaInterface) Stop() error {
 
 	return nil
 }
-

@@ -94,4 +94,3 @@ func (ai *AutoInterface) Stop() error {
 	ai.Online = false
 	return nil
 }
-

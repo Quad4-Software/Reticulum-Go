@@ -27,4 +27,3 @@ func (li *LoRaInterface) Stop() error {
 func (li *LoRaInterface) Send(data []byte, address string) error {
 	return fmt.Errorf("LoRaInterface is only supported on TinyGo targets currently")
 }
-

@@ -27,4 +27,3 @@ func (si *SerialInterface) Stop() error {
 func (si *SerialInterface) Send(data []byte, address string) error {
 	return fmt.Errorf("SerialInterface is only supported on TinyGo targets currently")
 }
-

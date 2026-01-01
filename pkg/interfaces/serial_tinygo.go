@@ -219,4 +219,3 @@ func (si *SerialInterface) SendKISS(command byte, data []byte) error {
 
 	return nil
 }
-
