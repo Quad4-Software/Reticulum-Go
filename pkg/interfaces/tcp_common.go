@@ -14,3 +14,12 @@ import (
 func platformGetRTT(fd uintptr) time.Duration {
 	return 0
 }
+
+func (tc *TCPClientInterface) setTimeoutsLinux() error {
+	return nil
+}
+
+func (tc *TCPClientInterface) setTimeoutsOSX() error {
+	return nil
+}
+
