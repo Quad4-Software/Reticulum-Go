@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Manager struct {
@@ -88,7 +88,7 @@ func (m *Manager) SaveRatchet(identityHash []byte, ratchetKey []byte) error {
 		Received:   time.Now().Unix(),
 	}
 
-	data, err := msgpack.Marshal(ratchetData)
+	data, err := common.MsgpackMarshal(ratchetData)
 	if err != nil {
 		return fmt.Errorf("failed to marshal ratchet data: %w", err)
 	}
@@ -146,7 +146,7 @@ func (m *Manager) LoadRatchets(identityHash []byte) (map[string][]byte, error) {
 		}
 
 		var ratchetData RatchetData
-		if err := msgpack.Unmarshal(data, &ratchetData); err != nil {
+		if err := common.MsgpackUnmarshal(data, &ratchetData); err != nil {
 			debug.Log(debug.DEBUG_ERROR, "Corrupted ratchet data", "file", entry.Name(), "error", err)
 			_ = os.Remove(filePath)
 			continue
