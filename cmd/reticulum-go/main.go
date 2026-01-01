@@ -526,10 +526,10 @@ func (h *AnnounceHandler) AspectFilter() []string {
 	return h.aspectFilter
 }
 
-func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id interface{}, appData []byte) error {
-	debug.Log(debug.DEBUG_INFO, "Received announce", "hash", fmt.Sprintf("%x", destHash))
+func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id interface{}, appData []byte, hops uint8) error {
+	debug.Log(debug.DEBUG_INFO, "Received announce", "hash", fmt.Sprintf("%x", destHash), "hops", hops)
 	debug.Log(debug.DEBUG_PACKETS, "Raw announce data", "data", fmt.Sprintf("%x", appData))
-	debug.Log(debug.DEBUG_INFO, "MAIN HANDLER: Received announce", "hash", fmt.Sprintf("%x", destHash), "appData_len", len(appData))
+	debug.Log(debug.DEBUG_INFO, "MAIN HANDLER: Received announce", "hash", fmt.Sprintf("%x", destHash), "appData_len", len(appData), "hops", hops)
 
 	var isNode bool
 	var nodeEnabled bool
