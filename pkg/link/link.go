@@ -28,7 +28,6 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/resolver"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/resource"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 const (
@@ -308,7 +307,7 @@ func (l *Link) Request(path string, data []byte, timeout time.Duration) (*Reques
 
 	pathHash := identity.TruncatedHash([]byte(path))
 	requestData := []interface{}{time.Now().Unix(), pathHash, data}
-	packedRequest, err := msgpack.Marshal(requestData)
+	packedRequest, err := common.MsgpackMarshal(requestData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to pack request: %w", err)
 	}
@@ -1029,7 +1028,7 @@ func (l *Link) handleRequest(plaintext []byte, pkt *packet.Packet) error {
 	}
 
 	var requestData []interface{}
-	if err := msgpack.Unmarshal(plaintext, &requestData); err != nil {
+	if err := common.MsgpackUnmarshal(plaintext, &requestData); err != nil {
 		return fmt.Errorf("failed to unpack request: %w", err)
 	}
 
@@ -1060,7 +1059,7 @@ func (l *Link) handleRequest(plaintext []byte, pkt *packet.Packet) error {
 		case string:
 			requestPayload = []byte(payload)
 		default:
-			packed, err := msgpack.Marshal(payload)
+			packed, err := common.MsgpackMarshal(payload)
 			if err != nil {
 				return fmt.Errorf("failed to pack request_payload: %w", err)
 			}
@@ -1089,7 +1088,7 @@ func (l *Link) handleRequest(plaintext []byte, pkt *packet.Packet) error {
 
 func (l *Link) handleResponse(plaintext []byte) error {
 	var responseData []interface{}
-	if err := msgpack.Unmarshal(plaintext, &responseData); err != nil {
+	if err := common.MsgpackUnmarshal(plaintext, &responseData); err != nil {
 		return fmt.Errorf("failed to unpack response: %w", err)
 	}
 
@@ -1124,7 +1123,7 @@ func (l *Link) handleResponse(plaintext []byte) error {
 
 func (l *Link) sendResponse(requestID []byte, response interface{}) error {
 	responseData := []interface{}{requestID, response}
-	packedResponse, err := msgpack.Marshal(responseData)
+	packedResponse, err := common.MsgpackMarshal(responseData)
 	if err != nil {
 		return fmt.Errorf("failed to pack response: %w", err)
 	}
