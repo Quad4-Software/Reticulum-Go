@@ -87,30 +87,6 @@ func (ui *UDPInterface) Detach() {
 	})
 }
 
-func (ui *UDPInterface) Send(data []byte, addr string) error {
-	debug.Log(debug.DEBUG_ALL, "UDP interface sending bytes", "name", ui.Name, "bytes", len(data))
-
-	if !ui.IsEnabled() {
-		return fmt.Errorf("interface not enabled")
-	}
-
-	if ui.targetAddr == nil {
-		return fmt.Errorf("no target address configured")
-	}
-
-	ui.Mutex.Lock()
-	ui.TxBytes += uint64(len(data))
-	ui.Mutex.Unlock()
-
-	_, err := ui.conn.WriteTo(data, ui.targetAddr)
-	if err != nil {
-		debug.Log(debug.DEBUG_CRITICAL, "UDP interface write failed", "name", ui.Name, "error", err)
-	} else {
-		debug.Log(debug.DEBUG_ALL, "UDP interface sent bytes successfully", "name", ui.Name, "bytes", len(data))
-	}
-	return err
-}
-
 func (ui *UDPInterface) SetPacketCallback(callback common.PacketCallback) {
 	ui.Mutex.Lock()
 	defer ui.Mutex.Unlock()
@@ -142,10 +118,6 @@ func (ui *UDPInterface) ProcessOutgoing(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("UDP write failed: %v", err)
 	}
-
-	ui.Mutex.Lock()
-	ui.TxBytes += uint64(len(data))
-	ui.Mutex.Unlock()
 
 	return nil
 }
@@ -269,20 +241,14 @@ func (ui *UDPInterface) readLoop() {
 		}
 
 		ui.Mutex.Lock()
-		// #nosec G115 - Network read sizes are always positive and within safe range
-		ui.RxBytes += uint64(n)
-
 		// Auto-discover target address from first packet if not set
 		if ui.targetAddr == nil {
 			debug.Log(debug.DEBUG_ALL, "UDP interface discovered peer", "name", ui.Name, "peer", remoteAddr.String())
 			ui.targetAddr = remoteAddr
 		}
-		callback := ui.packetCallback
 		ui.Mutex.Unlock()
 
-		if callback != nil {
-			callback(buffer[:n], ui)
-		}
+		ui.ProcessIncoming(buffer[:n])
 	}
 }
 
