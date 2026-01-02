@@ -16,7 +16,7 @@ func TestTransportLeak(t *testing.T) {
 	baseline := runtime.NumGoroutine()
 
 	cfg := &common.ReticulumConfig{}
-	
+
 	// Create and close many transport instances
 	for i := 0; i < 100; i++ {
 		tr := NewTransport(cfg)
@@ -28,13 +28,12 @@ func TestTransportLeak(t *testing.T) {
 	// Wait for goroutines to finish
 	time.Sleep(100 * time.Millisecond)
 	runtime.GC()
-	
+
 	final := runtime.NumGoroutine()
-	
-	// We allow a small margin for other system goroutines, 
+
+	// We allow a small margin for other system goroutines,
 	// but 100 leaks would be very obvious.
 	if final > baseline+5 {
 		t.Errorf("Potential goroutine leak: baseline %d, final %d", baseline, final)
 	}
 }
-
