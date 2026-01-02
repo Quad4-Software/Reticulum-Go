@@ -323,6 +323,12 @@ func GetTransportInstance() *Transport {
 	return transportInstance
 }
 
+func SetTransportInstance(t *Transport) {
+	transportMutex.Lock()
+	defer transportMutex.Unlock()
+	transportInstance = t
+}
+
 func (t *Transport) RegisterInterface(name string, iface common.NetworkInterface) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
