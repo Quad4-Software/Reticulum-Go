@@ -18,7 +18,6 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/destination"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/interfaces"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/pathfinder"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/rate"
@@ -883,11 +882,6 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 
 	if len(data) == common.SIXTY_SEVEN {
 		debug.Log(debug.DEBUG_ERROR, "67-byte packet detected", "header", fmt.Sprintf(common.STR_FMT_HEX, headerByte), "packet_type_bits", fmt.Sprintf(common.STR_FMT_HEX, packetType), "first_32_bytes", fmt.Sprintf("%x", data[:common.SIZE_32]))
-	}
-
-	if tcpIface, ok := iface.(*interfaces.TCPClientInterface); ok {
-		tcpIface.UpdateStats(uint64(len(data)), true)
-		debug.Log(debug.DEBUG_PACKETS, "Updated TCP interface stats", "rx_bytes", len(data))
 	}
 
 	dataCopy := make([]byte, len(data))
