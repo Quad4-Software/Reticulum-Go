@@ -107,9 +107,9 @@ type Destination struct {
 func New(id *identity.Identity, direction byte, destType byte, appName string, transport Transport, aspects ...string) (*Destination, error) {
 	debug.Log(debug.DEBUG_INFO, "Creating new destination", "app", appName, "type", destType, "direction", direction)
 
-	if id == nil {
-		debug.Log(debug.DEBUG_ERROR, "Cannot create destination: identity is nil")
-		return nil, errors.New("identity cannot be nil")
+	if id == nil && destType != PLAIN {
+		debug.Log(debug.DEBUG_ERROR, "Cannot create destination: identity is nil for non-PLAIN destination")
+		return nil, errors.New("identity cannot be nil for non-PLAIN destination")
 	}
 
 	d := &Destination{
@@ -144,9 +144,9 @@ func New(id *identity.Identity, direction byte, destType byte, appName string, t
 func FromHash(hash []byte, id *identity.Identity, destType byte, transport Transport) (*Destination, error) {
 	debug.Log(debug.DEBUG_INFO, "Creating destination from hash", "hash", fmt.Sprintf("%x", hash))
 
-	if id == nil {
-		debug.Log(debug.DEBUG_ERROR, "Cannot create destination: identity is nil")
-		return nil, errors.New("identity cannot be nil")
+	if id == nil && destType != PLAIN {
+		debug.Log(debug.DEBUG_ERROR, "Cannot create destination: identity is nil for non-PLAIN destination")
+		return nil, errors.New("identity cannot be nil for non-PLAIN destination")
 	}
 
 	d := &Destination{
@@ -169,19 +169,25 @@ func FromHash(hash []byte, id *identity.Identity, destType byte, transport Trans
 func (d *Destination) calculateHash() []byte {
 	debug.Log(debug.DEBUG_TRACE, "Calculating hash for destination", "name", d.ExpandName())
 
-	// destination_hash = SHA256(name_hash_10bytes + identity_hash_16bytes)[:16]
-	// Identity hash is the truncated hash of the public key (16 bytes)
-	identityHash := identity.TruncatedHash(d.identity.GetPublicKey())
-
 	// Name hash is the FULL 32-byte SHA256, then we take first 10 bytes for concatenation
 	nameHashFull := sha256.Sum256([]byte(d.ExpandName()))
 	nameHash10 := nameHashFull[:10] // Only use 10 bytes
 
-	debug.Log(debug.DEBUG_ALL, "Identity hash", "hash", fmt.Sprintf("%x", identityHash))
-	debug.Log(debug.DEBUG_ALL, "Name hash (10 bytes)", "hash", fmt.Sprintf("%x", nameHash10))
+	var combined []byte
+	if d.identity != nil {
+		// destination_hash = SHA256(name_hash_10bytes + identity_hash_16bytes)[:16]
+		// Identity hash is the truncated hash of the public key (16 bytes)
+		identityHash := identity.TruncatedHash(d.identity.GetPublicKey())
+		debug.Log(debug.DEBUG_ALL, "Identity hash", "hash", fmt.Sprintf("%x", identityHash))
+		debug.Log(debug.DEBUG_ALL, "Name hash (10 bytes)", "hash", fmt.Sprintf("%x", nameHash10))
 
-	// Concatenate name_hash (10 bytes) + identity_hash (16 bytes) = 26 bytes
-	combined := append(nameHash10, identityHash...)
+		// Concatenate name_hash (10 bytes) + identity_hash (16 bytes) = 26 bytes
+		combined = append(nameHash10, identityHash...)
+	} else {
+		// PLAIN destination has no identity hash
+		combined = nameHash10
+		debug.Log(debug.DEBUG_ALL, "Name hash (10 bytes)", "hash", fmt.Sprintf("%x", nameHash10))
+	}
 
 	// Then hash again and truncate to 16 bytes
 	finalHashFull := sha256.Sum256(combined)

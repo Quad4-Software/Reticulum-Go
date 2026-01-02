@@ -2,6 +2,7 @@ package destination
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"path/filepath"
 	"testing"
 
@@ -148,5 +149,30 @@ func TestPlainDestination(t *testing.T) {
 	decrypted, _ := dest.Decrypt(ciphertext)
 	if !bytes.Equal(plaintext, decrypted) {
 		t.Error("Plain destination should not decrypt")
+	}
+}
+
+func TestPlainDestinationHash(t *testing.T) {
+	// A PLAIN destination with no identity should have a hash based only on its name
+	transport := &mockTransport{}
+	dest, err := New(nil, IN|OUT, PLAIN, "testapp", transport, "testaspect")
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	hash := dest.GetHash()
+	if len(hash) != 16 {
+		t.Fatalf("Expected hash length 16, got %d", len(hash))
+	}
+
+	// Calculate manually: SHA256(SHA256("testapp.testaspect")[:10])[:16]
+	name := "testapp.testaspect"
+	nameHashFull := sha256.Sum256([]byte(name))
+	nameHash10 := nameHashFull[:10]
+	finalHashFull := sha256.Sum256(nameHash10)
+	expectedHash := finalHashFull[:16]
+
+	if !bytes.Equal(hash, expectedHash) {
+		t.Errorf("Expected hash %x, got %x", expectedHash, hash)
 	}
 }
