@@ -92,7 +92,12 @@ func (wsi *WebSocketInterface) Start() error {
 	defer wsi.Mutex.Unlock()
 
 	if wsi.ws.Truthy() {
-		return fmt.Errorf("WebSocket already started")
+		readyState := wsi.ws.Get("readyState").Int()
+		if readyState == 1 { // OPEN
+			return nil
+		}
+		// If connecting, closing or closed, clean up first
+		wsi.closeWebSocket()
 	}
 
 	ws := js.Global().Get("WebSocket").New(wsi.wsURL)
