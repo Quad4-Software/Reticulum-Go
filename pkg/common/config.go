@@ -21,25 +21,26 @@ type ConfigProvider interface {
 
 // InterfaceConfig represents interface configuration
 type InterfaceConfig struct {
-	Name           string
-	Type           string
-	Enabled        bool
-	Address        string
-	Port           int
-	TargetHost     string
-	TargetPort     int
-	TargetAddress  string
-	Interface      string
-	KISSFraming    bool
-	I2PTunneled    bool
-	PreferIPv6     bool
-	MaxReconnTries int
-	Bitrate        int64
-	MTU            int
-	GroupID        string
-	DiscoveryScope string
-	DiscoveryPort  int
-	DataPort       int
+	Name              string
+	Type              string
+	Enabled           bool
+	Address           string
+	Port              int
+	TargetHost        string
+	TargetPort        int
+	TargetAddress     string
+	Interface         string
+	KISSFraming       bool
+	I2PTunneled       bool
+	PreferIPv6        bool
+	MaxReconnTries    int
+	Bitrate           int64
+	MTU               int
+	GroupID           string
+	DiscoveryScope    string
+	DiscoveryPort     int
+	DataPort          int
+	MulticastAddrType string
 }
 
 // ReticulumConfig represents the main configuration structure
