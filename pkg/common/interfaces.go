@@ -39,6 +39,10 @@ type NetworkInterface interface {
 	SendLinkPacket([]byte, []byte, time.Time) error
 	SetPacketCallback(PacketCallback)
 	GetPacketCallback() PacketCallback
+	GetTxBytes() uint64
+	GetRxBytes() uint64
+	GetTxPackets() uint64
+	GetRxPackets() uint64
 }
 
 // BaseInterface provides common implementation for network interfaces
@@ -56,9 +60,11 @@ type BaseInterface struct {
 	MTU     int
 	Bitrate int64
 
-	TxBytes uint64
-	RxBytes uint64
-	lastTx  time.Time
+	TxBytes   uint64
+	RxBytes   uint64
+	TxPackets uint64
+	RxPackets uint64
+	lastTx    time.Time
 
 	Mutex          sync.RWMutex
 	Owner          interface{}
@@ -125,6 +131,30 @@ func (i *BaseInterface) GetPacketCallback() PacketCallback {
 	return i.PacketCallback
 }
 
+func (i *BaseInterface) GetTxBytes() uint64 {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.TxBytes
+}
+
+func (i *BaseInterface) GetRxBytes() uint64 {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.RxBytes
+}
+
+func (i *BaseInterface) GetTxPackets() uint64 {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.TxPackets
+}
+
+func (i *BaseInterface) GetRxPackets() uint64 {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.RxPackets
+}
+
 func (i *BaseInterface) Detach() {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
@@ -160,10 +190,20 @@ func (i *BaseInterface) GetConn() net.Conn {
 }
 
 func (i *BaseInterface) Send(data []byte, address string) error {
+	i.Mutex.Lock()
+	i.TxBytes += uint64(len(data))
+	i.TxPackets++
+	i.lastTx = time.Now()
+	i.Mutex.Unlock()
 	return i.ProcessOutgoing(data)
 }
 
 func (i *BaseInterface) ProcessIncoming(data []byte) {
+	i.Mutex.Lock()
+	i.RxBytes += uint64(len(data))
+	i.RxPackets++
+	i.Mutex.Unlock()
+
 	if i.PacketCallback != nil {
 		i.PacketCallback(data, i)
 	}

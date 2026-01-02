@@ -56,20 +56,22 @@ type Interface interface {
 }
 
 type BaseInterface struct {
-	Name     string
-	Mode     common.InterfaceMode
-	Type     common.InterfaceType
-	Online   bool
-	Enabled  bool
-	Detached bool
-	IN       bool
-	OUT      bool
-	MTU      int
-	Bitrate  int64
-	TxBytes  uint64
-	RxBytes  uint64
-	lastTx   time.Time
-	lastRx   time.Time
+	Name      string
+	Mode      common.InterfaceMode
+	Type      common.InterfaceType
+	Online    bool
+	Enabled   bool
+	Detached  bool
+	IN        bool
+	OUT       bool
+	MTU       int
+	Bitrate   int64
+	TxBytes   uint64
+	RxBytes   uint64
+	TxPackets uint64
+	RxPackets uint64
+	lastTx    time.Time
+	lastRx    time.Time
 
 	Mutex          sync.RWMutex
 	packetCallback common.PacketCallback
@@ -77,18 +79,22 @@ type BaseInterface struct {
 
 func NewBaseInterface(name string, ifType common.InterfaceType, enabled bool) BaseInterface {
 	return BaseInterface{
-		Name:     name,
-		Mode:     common.IF_MODE_FULL,
-		Type:     ifType,
-		Online:   false,
-		Enabled:  enabled,
-		Detached: false,
-		IN:       false,
-		OUT:      false,
-		MTU:      common.DEFAULT_MTU,
-		Bitrate:  BITRATE_MINIMUM,
-		lastTx:   time.Now(),
-		lastRx:   time.Now(),
+		Name:      name,
+		Mode:      common.IF_MODE_FULL,
+		Type:      ifType,
+		Online:    false,
+		Enabled:   enabled,
+		Detached:  false,
+		IN:        false,
+		OUT:       false,
+		MTU:       common.DEFAULT_MTU,
+		Bitrate:   BITRATE_MINIMUM,
+		TxBytes:   0,
+		RxBytes:   0,
+		TxPackets: 0,
+		RxPackets: 0,
+		lastTx:    time.Now(),
+		lastRx:    time.Now(),
 	}
 }
 
@@ -107,6 +113,7 @@ func (i *BaseInterface) GetPacketCallback() common.PacketCallback {
 func (i *BaseInterface) ProcessIncoming(data []byte) {
 	i.Mutex.Lock()
 	i.RxBytes += uint64(len(data))
+	i.RxPackets++
 	i.Mutex.Unlock()
 
 	i.Mutex.RLock()
@@ -126,6 +133,7 @@ func (i *BaseInterface) ProcessOutgoing(data []byte) error {
 
 	i.Mutex.Lock()
 	i.TxBytes += uint64(len(data))
+	i.TxPackets++
 	i.Mutex.Unlock()
 
 	debug.Log(debug.DEBUG_VERBOSE, "Interface processed outgoing packet", "name", i.Name, "bytes", len(data), "total_tx", i.TxBytes)
@@ -221,6 +229,30 @@ func (i *BaseInterface) IsDetached() bool {
 	return i.Detached
 }
 
+func (i *BaseInterface) GetTxBytes() uint64 {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.TxBytes
+}
+
+func (i *BaseInterface) GetRxBytes() uint64 {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.RxBytes
+}
+
+func (i *BaseInterface) GetTxPackets() uint64 {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.TxPackets
+}
+
+func (i *BaseInterface) GetRxPackets() uint64 {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.RxPackets
+}
+
 func (i *BaseInterface) Start() error {
 	return nil
 }
@@ -272,7 +304,6 @@ func (i *BaseInterface) updateBandwidthStats(bytes uint64) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
 
-	i.TxBytes += bytes
 	i.lastTx = time.Now()
 
 	debug.Log(debug.DEBUG_VERBOSE, "Interface updated bandwidth stats", "name", i.Name, "tx_bytes", i.TxBytes, "last_tx", i.lastTx)
