@@ -65,41 +65,20 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
         run: task test-race
 
+      - name: Run Resource Leak tests (Linux AMD64 only)
+        if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
+        run: task test-leaks
+
+      - name: Run Network Simulation tests (Linux AMD64 only)
+        if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
+        run: task test-network
+
+      - name: Run Fuzz tests (Linux AMD64 only)
+        if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
+        run: task test-fuzz
+
       - name: Run WebAssembly tests (Linux AMD64 only)
         if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
         run: |
           chmod +x misc/wasm/go_js_wasm_exec
           task test-wasm
-
-      - name: Test build (ensure compilation works)
-        run: |
-          echo "Testing build for current platform (${{ matrix.os }}, ${{ matrix.goarch }})..."
-          task build
-
-      - name: Test WebAssembly build (Linux AMD64 only)
-        if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
-        run: task build-wasm
-
-      - name: Test binary execution
-        run: |
-          echo "Testing binary execution on (${{ matrix.os }}, ${{ matrix.goarch }})..."
-          timeout 5s ./bin/reticulum-go || echo "Binary started successfully (timeout expected)"
-
-      - name: Test cross-compilation (AMD64 runners only)
-        if: matrix.goarch == 'amd64'
-        run: |
-          echo "Testing ARM64 cross-compilation from AMD64..."
-          GOOS=linux GOARCH=arm64 task build
-        env:
-          GOOS: linux
-          GOARCH: arm64
-
-      - name: Test ARMv6 cross-compilation (AMD64 runners only)
-        if: matrix.goarch == 'amd64'
-        run: |
-          echo "Testing ARMv6 cross-compilation from AMD64..."
-          GOOS=linux GOARCH=arm GOARM=6 task build
-        env:
-          GOOS: linux
-          GOARCH: arm
-          GOARM: 6

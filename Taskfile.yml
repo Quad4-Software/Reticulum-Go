@@ -141,6 +141,21 @@ tasks:
     cmds:
       - '{{.GOCMD}} test -race -v ./...'
 
+  test-fuzz:
+    desc: Run fuzz tests for a short duration
+    cmds:
+      - '{{.GOCMD}} test -fuzz=FuzzPacketUnpack -fuzztime=30s ./pkg/packet'
+
+  test-leaks:
+    desc: Run resource leak tests
+    cmds:
+      - '{{.GOCMD}} test -v ./pkg/transport -run TestTransportLeak'
+
+  test-network:
+    desc: Run network simulation tests
+    cmds:
+      - '{{.GOCMD}} test -v ./pkg/transport -run TestTransportNetworkSimulation'
+
   coverage:
     desc: Generate test coverage report
     cmds:
