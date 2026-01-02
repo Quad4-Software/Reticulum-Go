@@ -38,4 +38,3 @@ func FuzzPacketUnpack(f *testing.F) {
 		_ = p.Unpack()
 	})
 }
-
