@@ -24,10 +24,12 @@ var (
 	reticulumDest      *destination.Destination
 	reticulumIdentity  *identity.Identity
 	stats              = struct {
-		packetsSent     int
-		packetsReceived int
-		bytesSent       int
-		bytesReceived   int
+		packetsSent       int
+		packetsReceived   int
+		bytesSent         int
+		bytesReceived     int
+		announcesSent     int
+		announcesReceived int
 	}{}
 	packetCallback  js.Value
 	announceHandler js.Value
@@ -47,6 +49,7 @@ func RegisterJSFunctions() {
 		"setPacketCallback":   js.FuncOf(SetPacketCallback),
 		"setAnnounceCallback": js.FuncOf(SetAnnounceCallback),
 		"sendData":            js.FuncOf(SendDataJS),
+		"sendMessage":         js.FuncOf(SendDataJS),
 		"announce":            js.FuncOf(SendAnnounceJS),
 	}))
 }
@@ -100,11 +103,31 @@ func RequestPath(this js.Value, args []js.Value) interface{} {
 }
 
 func GetStats(this js.Value, args []js.Value) interface{} {
+	if reticulumTransport != nil {
+		ifaces := reticulumTransport.GetInterfaces()
+		totalTxBytes := 0
+		totalRxBytes := 0
+		totalTxPackets := 0
+		totalRxPackets := 0
+		for _, iface := range ifaces {
+			totalTxBytes += int(iface.GetTxBytes())
+			totalRxBytes += int(iface.GetRxBytes())
+			totalTxPackets += int(iface.GetTxPackets())
+			totalRxPackets += int(iface.GetRxPackets())
+		}
+		stats.bytesSent = totalTxBytes
+		stats.bytesReceived = totalRxBytes
+		stats.packetsSent = totalTxPackets
+		stats.packetsReceived = totalRxPackets
+	}
+
 	return js.ValueOf(map[string]interface{}{
-		"packetsSent":     stats.packetsSent,
-		"packetsReceived": stats.packetsReceived,
-		"bytesSent":       stats.bytesSent,
-		"bytesReceived":   stats.bytesReceived,
+		"packetsSent":       stats.packetsSent,
+		"packetsReceived":   stats.packetsReceived,
+		"bytesSent":         stats.bytesSent,
+		"bytesReceived":     stats.bytesReceived,
+		"announcesSent":     stats.announcesSent,
+		"announcesReceived": stats.announcesReceived,
 	})
 }
 
@@ -154,6 +177,8 @@ func InitReticulum(this js.Value, args []js.Value) interface{} {
 
 	cfg := common.DefaultConfig()
 	t := transport.NewTransport(cfg)
+	// Ensure the global instance is set for internal RNS calls (like Announce)
+	transport.SetTransportInstance(t)
 
 	// Set transport identity to the same as the node identity for now in WASM
 	t.SetIdentity(id)
@@ -176,9 +201,6 @@ func InitReticulum(this js.Value, args []js.Value) interface{} {
 	}
 
 	dest.SetPacketCallback(func(data []byte, ni common.NetworkInterface) {
-		stats.packetsReceived++
-		stats.bytesReceived += len(data)
-
 		if !packetCallback.IsUndefined() {
 			// Convert bytes to JS Uint8Array for performance and compatibility
 			uint8Array := js.Global().Get("Uint8Array").New(len(data))
@@ -198,12 +220,8 @@ func InitReticulum(this js.Value, args []js.Value) interface{} {
 		})
 	}
 
-	wsInterface.SetPacketCallback(func(data []byte, ni common.NetworkInterface) {
-		msg := fmt.Sprintf("Received packet: %d bytes (type: 0x%02x)", len(data), data[0])
-		js.Global().Call("log", msg, "success")
-		debug.Log(debug.DEBUG_INFO, "WASM received packet", "bytes", len(data), "type", fmt.Sprintf("0x%02x", data[0]))
-		t.HandlePacket(data, ni)
-	})
+	// Wire the interface to the transport
+	wsInterface.SetPacketCallback(t.HandlePacket)
 
 	if err := t.RegisterInterface("wasm0", wsInterface); err != nil {
 		return js.ValueOf(map[string]interface{}{
@@ -344,6 +362,8 @@ func (h *genericAnnounceHandler) ReceivePathResponses() bool {
 }
 
 func (h *genericAnnounceHandler) ReceivedAnnounce(destHash []byte, ident interface{}, appData []byte, hops uint8) error {
+	debug.Log(debug.DEBUG_INFO, "WASM Announce Handler received announce", "dest", hex.EncodeToString(destHash), "hops", hops)
+	stats.announcesReceived++
 	if !announceHandler.IsUndefined() {
 		hashStr := hex.EncodeToString(destHash)
 		announceHandler.Invoke(js.ValueOf(map[string]interface{}{
@@ -437,9 +457,6 @@ func SendData(destHash []byte, data []byte) interface{} {
 		})
 	}
 
-	stats.packetsSent++
-	stats.bytesSent += len(data)
-
 	return js.ValueOf(map[string]interface{}{
 		"success": true,
 	})
@@ -474,6 +491,8 @@ func SendAnnounce(appData []byte) interface{} {
 			"error": fmt.Sprintf("Failed to send announce: %v", err),
 		})
 	}
+
+	stats.announcesSent++
 
 	return js.ValueOf(map[string]interface{}{
 		"success": true,
