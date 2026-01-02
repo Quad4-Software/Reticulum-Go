@@ -155,6 +155,12 @@ func InitReticulum(this js.Value, args []js.Value) interface{} {
 	cfg := common.DefaultConfig()
 	t := transport.NewTransport(cfg)
 
+	// Set transport identity to the same as the node identity for now in WASM
+	t.SetIdentity(id)
+	if err := t.InitializePathRequestHandler(); err != nil {
+		debug.Log(debug.DEBUG_ERROR, "Failed to initialize path request handler", "error", err)
+	}
+
 	dest, err := destination.New(
 		id,
 		destination.IN,
