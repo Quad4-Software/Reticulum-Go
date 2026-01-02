@@ -577,8 +577,11 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 		pathRequestData = append(destinationHash, tag...)
 	}
 
-	destHashFull := sha256.Sum256([]byte("rnstransport.path.request"))
-	pathRequestDestHash := destHashFull[:common.SIZE_16]
+	pathRequestName := "rnstransport.path.request"
+	nameHashFull := sha256.Sum256([]byte(pathRequestName))
+	nameHash10 := nameHashFull[:10]
+	finalHashFull := sha256.Sum256(nameHash10)
+	pathRequestDestHash := finalHashFull[:16]
 
 	pkt := packet.NewPacket(
 		packet.DestinationPlain,
@@ -586,11 +589,12 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 		0x00,
 		0x00,
 		packet.PropagationBroadcast,
-		0x01,
-		pathRequestDestHash,
+		0x00, // Header Type 1
+		nil,
 		false,
 		0x00,
 	)
+	pkt.DestinationHash = pathRequestDestHash
 
 	if err := pkt.Pack(); err != nil {
 		return fmt.Errorf("failed to pack path request: %w", err)
@@ -1110,16 +1114,15 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	// Register the path from this announce
 	// The destination is reachable via the interface that received this announce
 	if iface != nil {
-		// Use unlocked version since we may be called in a locked context
 		t.mutex.Lock()
-		t.updatePathUnlocked(destinationHash, nil, iface.GetName(), hopCount)
+		t.updatePathUnlocked(destinationHash, nil, iface.GetName(), hopCount+1)
 		t.mutex.Unlock()
-		debug.Log(debug.DEBUG_INFO, "Registered path", "hash", fmt.Sprintf("%x", destinationHash), "interface", iface.GetName(), "hops", hopCount)
+		debug.Log(debug.DEBUG_INFO, "Registered path", "hash", fmt.Sprintf("%x", destinationHash), "interface", iface.GetName(), "hops", hopCount+1)
 	}
 
 	// Notify handlers first, regardless of forwarding limits
 	debug.Log(debug.DEBUG_INFO, "Notifying announce handlers", "destHash", fmt.Sprintf("%x", destinationHash), "appDataLen", len(appData))
-	t.notifyAnnounceHandlers(destinationHash, id, appData, hopCount)
+	t.notifyAnnounceHandlers(destinationHash, id, appData, hopCount+1)
 	debug.Log(debug.DEBUG_INFO, "Announce handlers notified")
 
 	// Don't forward if max hops reached
@@ -1376,7 +1379,7 @@ func (t *Transport) InitializePathRequestHandler() error {
 		return errors.New("transport identity not initialized")
 	}
 
-	pathRequestDest, err := destination.New(t.transportIdentity, destination.IN, destination.PLAIN, "rnstransport", t, "path", "request")
+	pathRequestDest, err := destination.New(nil, destination.IN, destination.PLAIN, "rnstransport", t, "path", "request")
 	if err != nil {
 		return fmt.Errorf("failed to create path request destination: %w", err)
 	}
@@ -1692,6 +1695,14 @@ func (l *Link) HandleResource(resource interface{}) bool {
 	}
 }
 
+// SetIdentity sets the identity for the Transport.
+func (t *Transport) SetIdentity(id *identity.Identity) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	t.transportIdentity = id
+}
+
+// Start initializes the Transport.
 func (t *Transport) Start() error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
