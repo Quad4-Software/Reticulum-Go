@@ -29,3 +29,4 @@ Thumbs.db       # Windows Explorer thumbnail cache
 # Swap and test binaries
 *.swp           # Swap files (e.g. vim)
 *.test          # Go test binaries
+test/compat/
