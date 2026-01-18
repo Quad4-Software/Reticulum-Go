@@ -907,11 +907,10 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 			}
 		case PACKET_TYPE_LINK:
 			debug.Log(debug.DEBUG_ERROR, "Processing link packet (type=0x02)", "packet_size", len(dataCopy))
-			t.handleLinkPacket(dataCopy[common.ONE:], iface, PACKET_TYPE_LINK)
+			t.handleLinkPacket(dataCopy, iface, PACKET_TYPE_LINK)
 		case packet.PacketTypeProof:
 			debug.Log(debug.DEBUG_VERBOSE, "Processing proof packet")
-			fullData := append([]byte{packet.PacketTypeProof}, dataCopy[common.ONE:]...)
-			pkt := &packet.Packet{Raw: fullData}
+			pkt := &packet.Packet{Raw: dataCopy}
 			if err := pkt.Unpack(); err != nil {
 				debug.Log(debug.DEBUG_INFO, "Failed to unpack proof packet", "error", err)
 				return
@@ -921,10 +920,10 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 			// Data packets addressed to link destinations carry link traffic
 			if destType == DEST_TYPE_LINK {
 				debug.Log(debug.DEBUG_ERROR, "Processing link data packet (dest_type=3)", "packet_size", len(dataCopy))
-				t.handleLinkPacket(dataCopy[common.ONE:], iface, common.ZERO)
+				t.handleLinkPacket(dataCopy, iface, common.ZERO)
 			} else {
 				debug.Log(debug.DEBUG_ERROR, "Processing data packet (type 0x00)", "packet_size", len(dataCopy), "dest_type", destType, "header_type", headerType)
-				t.handleTransportPacket(dataCopy[common.ONE:], iface)
+				t.handleTransportPacket(dataCopy, iface)
 			}
 		default:
 			debug.Log(debug.DEBUG_INFO, "Unknown packet type", "type", fmt.Sprintf(common.STR_FMT_HEX, packetType), "source", iface.GetName())
@@ -1186,14 +1185,12 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 	startTime := time.Now()
 	debug.Log(debug.DEBUG_INFO, "Handling link packet", "bytes", len(data), "packet_type", fmt.Sprintf("0x%02x", packetType), "interface", iface.GetName())
 
-	pkt := &packet.Packet{}
+	pkt := &packet.Packet{Raw: data}
 
 	// If this is a LINKREQUEST packet (type=0x02), handle it as link establishment
 	if packetType == PACKET_TYPE_LINK {
 		debug.Log(debug.DEBUG_INFO, "Processing LINKREQUEST (type=0x02)", "interface", iface.GetName())
 
-		// Parse as LINKREQUEST packet - prepend the packet type
-		pkt.Raw = append([]byte{PACKET_TYPE_LINK}, data...)
 		if err := pkt.Unpack(); err != nil {
 			debug.Log(debug.DEBUG_ERROR, "Failed to unpack link request", "error", err, "elapsed", time.Since(startTime).Seconds())
 			return
@@ -1228,8 +1225,6 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 	// Otherwise, this is a data packet for an established link
 	debug.Log(debug.DEBUG_INFO, "Processing link data packet", "interface", iface.GetName())
 
-	// Parse as data packet - prepend packet type 0x00
-	pkt.Raw = append([]byte{0x00}, data...)
 	if err := pkt.Unpack(); err != nil {
 		debug.Log(debug.DEBUG_ERROR, "Failed to unpack link data packet", "error", err, "interface", iface.GetName())
 		return
@@ -1322,7 +1317,7 @@ func (t *Transport) handleTransportPacket(data []byte, iface common.NetworkInter
 		return
 	}
 
-	pkt := &packet.Packet{Raw: append([]byte{0x00}, data...)}
+	pkt := &packet.Packet{Raw: data}
 	if err := pkt.Unpack(); err != nil {
 		debug.Log(debug.DEBUG_INFO, "Failed to unpack transport packet", "error", err)
 		return
