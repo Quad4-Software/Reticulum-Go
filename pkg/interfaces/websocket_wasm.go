@@ -27,6 +27,12 @@ type WebSocketInterface struct {
 	ws           js.Value
 	connected    bool
 	messageQueue [][]byte
+
+	// Keep references to JS callbacks to prevent them from being garbage collected
+	onOpenFunc    js.Func
+	onMessageFunc js.Func
+	onErrorFunc   js.Func
+	onCloseFunc   js.Func
 }
 
 func NewWebSocketInterface(name string, wsURL string, enabled bool) (*WebSocketInterface, error) {
@@ -100,10 +106,13 @@ func (wsi *WebSocketInterface) Start() error {
 		wsi.closeWebSocket()
 	}
 
+	// Ensure old callbacks are released before creating new ones
+	wsi.releaseCallbacks()
+
 	ws := js.Global().Get("WebSocket").New(wsi.wsURL)
 	ws.Set("binaryType", "arraybuffer")
 
-	ws.Set("onopen", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	wsi.onOpenFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		wsi.Mutex.Lock()
 		wsi.connected = true
 		wsi.Online = true
@@ -122,9 +131,10 @@ func (wsi *WebSocketInterface) Start() error {
 		}
 
 		return nil
-	}))
+	})
+	ws.Set("onopen", wsi.onOpenFunc)
 
-	ws.Set("onmessage", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	wsi.onMessageFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		if len(args) < 1 {
 			return nil
 		}
@@ -166,20 +176,24 @@ func (wsi *WebSocketInterface) Start() error {
 		}
 
 		return nil
-	}))
+	})
+	ws.Set("onmessage", wsi.onMessageFunc)
 
-	ws.Set("onerror", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	wsi.onErrorFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		debug.Log(debug.DEBUG_ERROR, "WebSocket error", "name", wsi.Name)
 		return nil
-	}))
+	})
+	ws.Set("onerror", wsi.onErrorFunc)
 
-	ws.Set("onclose", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	wsi.onCloseFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		wsi.Mutex.Lock()
 		wsi.connected = false
 		wsi.Online = false
 		wsi.Mutex.Unlock()
 
 		debug.Log(debug.DEBUG_INFO, "WebSocket closed", "name", wsi.Name)
+
+		wsi.releaseCallbacks()
 
 		if wsi.Enabled && !wsi.Detached {
 			go func() {
@@ -189,7 +203,8 @@ func (wsi *WebSocketInterface) Start() error {
 		}
 
 		return nil
-	}))
+	})
+	ws.Set("onclose", wsi.onCloseFunc)
 
 	wsi.ws = ws
 
@@ -209,6 +224,9 @@ func (wsi *WebSocketInterface) closeWebSocket() {
 		wsi.ws.Call("close")
 		wsi.ws = js.Value{}
 	}
+
+	wsi.releaseCallbacks()
+
 	wsi.connected = false
 	wsi.Online = false
 }
@@ -248,6 +266,25 @@ func (wsi *WebSocketInterface) GetConn() net.Conn {
 
 func (wsi *WebSocketInterface) GetMTU() int {
 	return wsi.MTU
+}
+
+func (wsi *WebSocketInterface) releaseCallbacks() {
+	if wsi.onOpenFunc.Truthy() {
+		wsi.onOpenFunc.Release()
+		wsi.onOpenFunc = js.Func{}
+	}
+	if wsi.onMessageFunc.Truthy() {
+		wsi.onMessageFunc.Release()
+		wsi.onMessageFunc = js.Func{}
+	}
+	if wsi.onErrorFunc.Truthy() {
+		wsi.onErrorFunc.Release()
+		wsi.onErrorFunc = js.Func{}
+	}
+	if wsi.onCloseFunc.Truthy() {
+		wsi.onCloseFunc.Release()
+		wsi.onCloseFunc = js.Func{}
+	}
 }
 
 func (wsi *WebSocketInterface) IsEnabled() bool {
