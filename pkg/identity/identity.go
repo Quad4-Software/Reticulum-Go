@@ -587,8 +587,12 @@ func FromFile(path string) (*Identity, error) {
 	return ident, nil
 }
 
-func LoadOrCreateTransportIdentity() (*Identity, error) {
-	storagePath := os.Getenv("RETICULUM_STORAGE_PATH")
+func LoadOrCreateTransportIdentity(customPath string) (*Identity, error) {
+	storagePath := customPath
+	if storagePath == "" {
+		storagePath = os.Getenv("RETICULUM_STORAGE_PATH")
+	}
+
 	if storagePath == "" {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
