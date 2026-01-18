@@ -329,8 +329,6 @@ func (l *Link) Request(path string, data []byte, timeout time.Duration) (*Reques
 		timeout = time.Duration(l.rtt*TRAFFIC_TIMEOUT_FACTOR*float64(time.Second)) + time.Duration(resource.RESPONSE_MAX_GRACE_TIME*1.125*float64(time.Second))
 	}
 
-	requestID := identity.TruncatedHash(packedRequest)
-
 	if len(packedRequest) <= l.mdu {
 		reqPkt := &packet.Packet{
 			HeaderType:      packet.HeaderType1,
@@ -355,9 +353,12 @@ func (l *Link) Request(path string, data []byte, timeout time.Duration) (*Reques
 		}
 
 		reqPkt.Data = encrypted
+		reqPkt.Packed = false
 		if err := reqPkt.Pack(); err != nil {
 			return nil, err
 		}
+
+		requestID := reqPkt.TruncatedHash()
 
 		if l.networkInterface != nil {
 			debug.Log(debug.DEBUG_INFO, "Sending request through interface", "path", path, "request_id", fmt.Sprintf("%x", requestID), "interface", l.networkInterface.GetName())
