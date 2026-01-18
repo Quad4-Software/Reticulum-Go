@@ -228,6 +228,9 @@ func (l *Link) Establish() error {
 
 	if l.transport != nil {
 		l.transport.RegisterLink(l.linkID, l)
+		if l.networkInterface != nil {
+			l.transport.UpdatePath(l.linkID, nil, l.networkInterface.GetName(), 0)
+		}
 	}
 
 	go l.startWatchdog()
@@ -241,6 +244,17 @@ func (l *Link) Identify(id *identity.Identity) error {
 		return errors.New("link not active")
 	}
 
+	pubKey := id.GetPublicKey()
+	signData := append(l.linkID, pubKey...)
+	signature := id.Sign(signData)
+
+	identData := append(pubKey, signature...)
+
+	encrypted, err := l.encrypt(identData)
+	if err != nil {
+		return err
+	}
+
 	p := &packet.Packet{
 		HeaderType:      packet.HeaderType1,
 		PacketType:      packet.PacketTypeData,
@@ -248,9 +262,9 @@ func (l *Link) Identify(id *identity.Identity) error {
 		Context:         packet.ContextLinkIdentify,
 		ContextFlag:     packet.FlagUnset,
 		Hops:            common.ZERO,
-		DestinationType: l.destination.GetType(),
-		DestinationHash: l.destination.GetHash(),
-		Data:            id.GetPublicKey(),
+		DestinationType: DEST_TYPE_LINK,
+		DestinationHash: l.linkID,
+		Data:            encrypted,
 		CreateReceipt:   true,
 	}
 
@@ -262,16 +276,14 @@ func (l *Link) Identify(id *identity.Identity) error {
 }
 
 func (l *Link) HandleIdentification(data []byte) error {
-	l.mutex.Lock()
-	defer l.mutex.Unlock()
-
-	if len(data) < ed25519.PublicKeySize+ed25519.SignatureSize {
+	pubKeySize := identity.KEYSIZE / 8
+	if len(data) < pubKeySize+ed25519.SignatureSize {
 		debug.Log(debug.DEBUG_INFO, "Invalid identification data length", "length", len(data))
 		return errors.New("invalid identification data length")
 	}
 
-	pubKey := data[:ed25519.PublicKeySize]
-	signature := data[ed25519.PublicKeySize:]
+	pubKey := data[:pubKeySize]
+	signature := data[pubKeySize:]
 
 	debug.Log(debug.DEBUG_VERBOSE, "Processing identification from public key", "public_key", fmt.Sprintf("%x", pubKey[:common.EIGHT]))
 
@@ -647,8 +659,8 @@ func (l *Link) SendPacket(data []byte) error {
 		Context:         packet.ContextNone,
 		ContextFlag:     packet.FlagUnset,
 		Hops:            common.ZERO,
-		DestinationType: l.destination.GetType(),
-		DestinationHash: l.destination.GetHash(),
+		DestinationType: DEST_TYPE_LINK,
+		DestinationHash: l.linkID,
 		Data:            encrypted,
 		CreateReceipt:   false,
 	}
@@ -1188,6 +1200,9 @@ func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
 
 		if l.transport != nil {
 			l.transport.RegisterLink(l.linkID, l)
+			if l.networkInterface != nil {
+				l.transport.UpdatePath(l.linkID, nil, l.networkInterface.GetName(), 0)
+			}
 		}
 
 		if l.rtt > 0 {
@@ -1951,6 +1966,9 @@ func (l *Link) HandleLinkRequest(pkt *packet.Packet, ownerIdentity *identity.Ide
 
 	if l.transport != nil {
 		l.transport.RegisterLink(l.linkID, l)
+		if l.networkInterface != nil {
+			l.transport.UpdatePath(l.linkID, nil, l.networkInterface.GetName(), 0)
+		}
 	}
 
 	debug.Log(debug.DEBUG_INFO, "Link proof sent (responder), waiting for RTT", "link_id", fmt.Sprintf("%x", l.linkID), "proof_send_elapsed", time.Since(proofStartTime).Seconds(), "total_elapsed", time.Since(startTime).Seconds())
@@ -2198,6 +2216,9 @@ func (l *Link) ValidateLinkProof(pkt *packet.Packet, networkIface common.Network
 
 	if l.transport != nil {
 		l.transport.RegisterLink(l.linkID, l)
+		if l.networkInterface != nil {
+			l.transport.UpdatePath(l.linkID, nil, l.networkInterface.GetName(), 0)
+		}
 	}
 
 	establishmentElapsed := time.Since(l.requestTime).Seconds()
