@@ -184,7 +184,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 
 	// TODO: Path table persistence
 
-	transportIdent, err := identity.LoadOrCreateTransportIdentity()
+	transportIdent, err := identity.LoadOrCreateTransportIdentity(cfg.ConfigPath)
 	if err == nil {
 		t.transportIdentity = transportIdent
 	}
@@ -336,6 +336,11 @@ func (t *Transport) RegisterInterface(name string, iface common.NetworkInterface
 	if _, exists := t.interfaces[name]; exists {
 		return errors.New("interface already registered")
 	}
+
+	// Automatically plumb the interface to the transport
+	iface.SetPacketCallback(func(data []byte, ni common.NetworkInterface) {
+		t.HandlePacket(data, ni)
+	})
 
 	t.interfaces[name] = iface
 	return nil
