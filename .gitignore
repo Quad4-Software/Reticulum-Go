@@ -30,3 +30,5 @@ Thumbs.db       # Windows Explorer thumbnail cache
 *.swp           # Swap files (e.g. vim)
 *.test          # Go test binaries
 test/compat/
+
+node_modules/
