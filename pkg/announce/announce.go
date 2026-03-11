@@ -17,40 +17,6 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
-const (
-	PACKET_TYPE_DATA     = 0x00
-	PACKET_TYPE_ANNOUNCE = 0x01
-	PACKET_TYPE_LINK     = 0x02
-	PACKET_TYPE_PROOF    = 0x03
-
-	// Announce Types
-	ANNOUNCE_NONE     = 0x00
-	ANNOUNCE_PATH     = 0x01
-	ANNOUNCE_IDENTITY = 0x02
-
-	// Header Types
-	HEADER_TYPE_1 = 0x00 // One address field
-	HEADER_TYPE_2 = 0x01 // Two address fields
-
-	// Propagation Types
-	PROP_TYPE_BROADCAST = 0x00
-	PROP_TYPE_TRANSPORT = 0x01
-
-	DEST_TYPE_SINGLE = 0x00
-	DEST_TYPE_GROUP  = 0x01
-	DEST_TYPE_PLAIN  = 0x02
-	DEST_TYPE_LINK   = 0x03
-
-	// IFAC Flag
-	IFAC_NONE = 0x00
-	IFAC_AUTH = 0x80
-
-	MAX_HOPS         = 128
-	PROPAGATION_RATE = 0.02 // 2% of interface bandwidth
-	RETRY_INTERVAL   = 300  // 5 minutes
-	MAX_RETRIES      = 3
-)
-
 type Announce struct {
 	mutex           *sync.RWMutex
 	destinationHash []byte
