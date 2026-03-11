@@ -6,13 +6,6 @@ import (
 	"fmt"
 )
 
-const (
-	DEFAULT_SHARED_INSTANCE_PORT  = 37428
-	DEFAULT_INSTANCE_CONTROL_PORT = 37429
-	DEFAULT_LOG_LEVEL             = 20
-)
-
-// ConfigProvider interface for accessing configuration
 type ConfigProvider interface {
 	GetConfigPath() string
 	GetLogLevel() int
@@ -72,10 +65,10 @@ func NewReticulumConfig() *ReticulumConfig {
 
 // Validate checks if the configuration is valid
 func (c *ReticulumConfig) Validate() error {
-	if c.SharedInstancePort < 1 || c.SharedInstancePort > 65535 {
+	if c.SharedInstancePort < MinPort || c.SharedInstancePort > MaxPort {
 		return fmt.Errorf("invalid shared instance port: %d", c.SharedInstancePort)
 	}
-	if c.InstanceControlPort < 1 || c.InstanceControlPort > 65535 {
+	if c.InstanceControlPort < MinPort || c.InstanceControlPort > MaxPort {
 		return fmt.Errorf("invalid instance control port: %d", c.InstanceControlPort)
 	}
 	return nil
