@@ -15,7 +15,7 @@ Reticulum-Go provides full protocol compatibility with the Python reference impl
 - Full protocol interoperability with the Python reference implementation
 - Cross-platform support for multiple architectures (old and new)
 - High performance via Go's concurrency model
-- Better privacy and security features that do not break compatibility with the Python reference implementation
+- Improved privacy and security features that do not break compatibility with the Python reference implementation
 
 ## Requirements
 
