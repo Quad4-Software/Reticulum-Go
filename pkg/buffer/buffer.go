@@ -13,26 +13,6 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/channel"
 )
 
-const (
-	StreamIDMax   = 0x3fff // 16383
-	MaxChunkLen   = 16 * 1024
-	MaxDataLen    = 457 // MDU - 2 - 6 (2 for stream header, 6 for channel envelope)
-	CompressTries = 4
-
-	// Stream header flags
-	StreamHeaderEOF        = 0x8000
-	StreamHeaderCompressed = 0x4000
-
-	// Message type
-	StreamDataMessageType = 0x01
-
-	// Header size
-	StreamHeaderSize = 2
-
-	// Compression threshold
-	CompressThreshold = 32
-)
-
 type StreamDataMessage struct {
 	StreamID   uint16
 	Data       []byte
