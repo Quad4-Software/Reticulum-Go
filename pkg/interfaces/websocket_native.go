@@ -29,34 +29,7 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 )
 
-const (
-	wsGUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-
-	WS_BUFFER_SIZE         = 4096
-	WS_MTU                 = 1064
-	WS_BITRATE             = 10000000
-	WS_HTTPS_PORT          = 443
-	WS_HTTP_PORT           = 80
-	WS_VERSION             = "13"
-	WS_CONNECT_TIMEOUT     = 10 * time.Second
-	WS_RECONNECT_DELAY     = 2 * time.Second
-	WS_KEY_SIZE            = 16
-	WS_MASK_KEY_SIZE       = 4
-	WS_HEADER_SIZE         = 2
-	WS_PAYLOAD_LEN_16BIT   = 126
-	WS_PAYLOAD_LEN_64BIT   = 127
-	WS_MAX_PAYLOAD_16BIT   = 65536
-	WS_FRAME_HEADER_FIN    = 0x80
-	WS_FRAME_HEADER_OPCODE = 0x0F
-	WS_FRAME_HEADER_MASKED = 0x80
-	WS_FRAME_HEADER_LEN    = 0x7F
-	WS_OPCODE_CONTINUATION = 0x00
-	WS_OPCODE_TEXT         = 0x01
-	WS_OPCODE_BINARY       = 0x02
-	WS_OPCODE_CLOSE        = 0x08
-	WS_OPCODE_PING         = 0x09
-	WS_OPCODE_PONG         = 0x0A
-)
+const wsGUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
 type WebSocketInterface struct {
 	BaseInterface

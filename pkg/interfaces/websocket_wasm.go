@@ -15,12 +15,6 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 )
 
-const (
-	WS_MTU             = 1064
-	WS_BITRATE         = 10000000
-	WS_RECONNECT_DELAY = 2 * time.Second
-)
-
 type WebSocketInterface struct {
 	BaseInterface
 	wsURL        string
