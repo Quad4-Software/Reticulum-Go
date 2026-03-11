@@ -498,4 +498,3 @@ func SendAnnounce(appData []byte) interface{} {
 		"success": true,
 	})
 }
-

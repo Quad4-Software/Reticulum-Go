@@ -54,7 +54,7 @@ func TestTwoPeersAnnounce(t *testing.T) {
 	defer os.RemoveAll(tmpDirB)
 
 	wsURL := "wss://socket.quad4.io/ws"
-	
+
 	// Peer A setup (The Announcer)
 	debug.Log(debug.DEBUG_INFO, "Setting up Peer A...")
 	os.Setenv("RETICULUM_STORAGE_PATH", tmpDirA)
@@ -63,7 +63,7 @@ func TestTwoPeersAnnounce(t *testing.T) {
 	trA := transport.NewTransport(cfgA)
 	trA.SetIdentity(idA)
 	defer trA.Close()
-	
+
 	wsA, err := interfaces.NewWebSocketInterface("peerA", wsURL, true)
 	if err != nil {
 		t.Fatalf("Failed to create WS interface A: %v", err)
@@ -80,7 +80,7 @@ func TestTwoPeersAnnounce(t *testing.T) {
 	}
 	hashA := destA.GetHash()
 	debug.Log(debug.DEBUG_INFO, "Peer A hash", "hash", fmt.Sprintf("%x", hashA))
-	
+
 	// Peer B setup (The Listener)
 	debug.Log(debug.DEBUG_INFO, "Setting up Peer B...")
 	os.Setenv("RETICULUM_STORAGE_PATH", tmpDirB)
@@ -89,7 +89,7 @@ func TestTwoPeersAnnounce(t *testing.T) {
 	trB := transport.NewTransport(cfgB)
 	trB.SetIdentity(idB)
 	defer trB.Close()
-	
+
 	wsB, err := interfaces.NewWebSocketInterface("peerB", wsURL, true)
 	if err != nil {
 		t.Fatalf("Failed to create WS interface B: %v", err)

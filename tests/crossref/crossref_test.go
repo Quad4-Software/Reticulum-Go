@@ -15,6 +15,8 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/vmihailenco/msgpack/v5"
+
 	"git.quad4.io/Networks/Reticulum-Go/pkg/buffer"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/channel"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
@@ -58,6 +60,57 @@ type TestVectors struct {
 	ResourceContext        []ResourceContextVector        `json:"resource_context"`
 	ResourceMetadataPrefix []ResourceMetadataPrefixVector `json:"resource_metadata_prefix"`
 	BufferCompressed       []BufferCompressedVector       `json:"buffer_compressed"`
+	ResourceReq            []ResourceReqVector            `json:"resource_req"`
+	ResourceHMU            []ResourceHMUVector            `json:"resource_hmu"`
+	ResourcePRF            []ResourcePRFVector            `json:"resource_prf"`
+	ResourceICLRCL         []ResourceICLRCLVector         `json:"resource_icl_rcl"`
+	LRRTT                  []LRRTTVector                  `json:"lrrtt"`
+	DestinationType        []DestinationTypeVector        `json:"destination_type"`
+	CacheRequest           []CacheRequestVector           `json:"cache_request"`
+}
+
+type ResourceReqVector struct {
+	DataHex            string `json:"data_hex"`
+	HMUPartHex         string `json:"hmu_part_hex"`
+	HashmapExhausted   bool   `json:"hashmap_exhausted"`
+	ResourceHashHex    string `json:"resource_hash_hex"`
+	LastMapHashHex     string `json:"last_map_hash_hex"`
+	RequestedHashesHex string `json:"requested_hashes_hex"`
+}
+
+type ResourceHMUVector struct {
+	DataHex         string `json:"data_hex"`
+	ResourceHashHex string `json:"resource_hash_hex"`
+	Segment         int    `json:"segment"`
+	HashmapHex      string `json:"hashmap_hex"`
+}
+
+type ResourcePRFVector struct {
+	DataHex         string `json:"data_hex"`
+	ResourceHashHex string `json:"resource_hash_hex"`
+	ProofHex        string `json:"proof_hex"`
+	ProofDataHex    string `json:"proof_data_hex"`
+}
+
+type ResourceICLRCLVector struct {
+	PayloadHex      string `json:"payload_hex"`
+	ResourceHashHex string `json:"resource_hash_hex"`
+}
+
+type LRRTTVector struct {
+	PayloadHex string  `json:"payload_hex"`
+	RTT        float64 `json:"rtt"`
+}
+
+type DestinationTypeVector struct {
+	Name  string `json:"name"`
+	Value int    `json:"value"`
+}
+
+type CacheRequestVector struct {
+	PayloadHex    string `json:"payload_hex"`
+	PacketHashHex string `json:"packet_hash_hex"`
+	Context       int    `json:"context"`
 }
 
 type IdentityVector struct {
@@ -362,7 +415,7 @@ func loadVectors(t *testing.T) *TestVectors {
 		t.Fatalf("Failed to parse test vectors: %v", err)
 	}
 
-	if v.FormatVersion < 1 || v.FormatVersion > 4 {
+	if v.FormatVersion < 1 || v.FormatVersion > 5 {
 		t.Fatalf("Unsupported test vector format version: %d", v.FormatVersion)
 	}
 
@@ -379,6 +432,31 @@ func mustHex(t *testing.T, s string) []byte {
 		t.Fatalf("Invalid hex string %q: %v", s, err)
 	}
 	return b
+}
+
+func toInt64(v interface{}) int64 {
+	switch x := v.(type) {
+	case int:
+		return int64(x)
+	case int8:
+		return int64(x)
+	case int16:
+		return int64(x)
+	case int32:
+		return int64(x)
+	case int64:
+		return x
+	case uint8:
+		return int64(x)
+	case uint16:
+		return int64(x)
+	case uint32:
+		return int64(x)
+	case uint64:
+		return int64(x)
+	default:
+		return 0
+	}
 }
 
 func TestIdentityKeyDerivation(t *testing.T) {
@@ -1921,5 +1999,197 @@ func TestProtocolConstants(t *testing.T) {
 	}
 	if packet.ContextLRProof != 0xFF {
 		t.Errorf("ContextLRProof: got 0x%02x, want 0xFF", packet.ContextLRProof)
+	}
+}
+
+func TestResourceReqFormat(t *testing.T) {
+	v := loadVectors(t)
+
+	for i, vec := range v.ResourceReq {
+		t.Run(fmt.Sprintf("resource_req_%d", i), func(t *testing.T) {
+			data := mustHex(t, vec.DataHex)
+			expectedHash := mustHex(t, vec.ResourceHashHex)
+
+			if len(data) < 1+32 {
+				t.Fatalf("Resource REQ data too short: %d", len(data))
+			}
+			hmuPart := data[0]
+			if vec.HashmapExhausted && hmuPart != 0xFF {
+				t.Errorf("HMU part: got 0x%02x, want 0xFF (HASHMAP_IS_EXHAUSTED)", hmuPart)
+			}
+			if !vec.HashmapExhausted && hmuPart != 0x00 {
+				t.Errorf("HMU part: got 0x%02x, want 0x00", hmuPart)
+			}
+
+			var hashStart, hashEnd int
+			if vec.HashmapExhausted {
+				if len(data) < 1+4+32 {
+					t.Fatalf("Exhausted REQ too short: %d", len(data))
+				}
+				hashStart = 1 + 4
+				hashEnd = hashStart + 32
+			} else {
+				hashStart = 1
+				hashEnd = 1 + 32
+			}
+			resourceHash := data[hashStart:hashEnd]
+			if !bytes.Equal(resourceHash, expectedHash) {
+				t.Errorf("Resource hash mismatch:\n  got:  %x\n  want: %x", resourceHash, expectedHash)
+			}
+		})
+	}
+}
+
+func TestResourceHMUFormat(t *testing.T) {
+	v := loadVectors(t)
+
+	for i, vec := range v.ResourceHMU {
+		t.Run(fmt.Sprintf("resource_hmu_%d", i), func(t *testing.T) {
+			data := mustHex(t, vec.DataHex)
+			expectedHash := mustHex(t, vec.ResourceHashHex)
+			expectedHashmap := mustHex(t, vec.HashmapHex)
+
+			if len(data) < 32 {
+				t.Fatalf("Resource HMU data too short: %d", len(data))
+			}
+			resourceHash := data[:32]
+			msgpackPart := data[32:]
+
+			if !bytes.Equal(resourceHash, expectedHash) {
+				t.Errorf("Resource hash mismatch:\n  got:  %x\n  want: %x", resourceHash, expectedHash)
+			}
+
+			var unpacked []interface{}
+			if err := msgpack.Unmarshal(msgpackPart, &unpacked); err != nil {
+				t.Fatalf("msgpack unpack failed: %v", err)
+			}
+			if len(unpacked) != 2 {
+				t.Fatalf("HMU array length: got %d, want 2", len(unpacked))
+			}
+			seg := toInt64(unpacked[0])
+			if int(seg) != vec.Segment {
+				t.Errorf("Segment: got %d, want %d", seg, vec.Segment)
+			}
+			hashmap, ok := unpacked[1].([]byte)
+			if !ok {
+				t.Fatalf("Hashmap type: %T", unpacked[1])
+			}
+			if !bytes.Equal(hashmap, expectedHashmap) {
+				t.Errorf("Hashmap mismatch:\n  got:  %x\n  want: %x", hashmap, expectedHashmap)
+			}
+		})
+	}
+}
+
+func TestResourcePRFFormat(t *testing.T) {
+	v := loadVectors(t)
+
+	for i, vec := range v.ResourcePRF {
+		t.Run(fmt.Sprintf("resource_prf_%d", i), func(t *testing.T) {
+			data := mustHex(t, vec.DataHex)
+			expectedHash := mustHex(t, vec.ResourceHashHex)
+			expectedProof := mustHex(t, vec.ProofHex)
+
+			h := sha256.New()
+			h.Write(data)
+			h.Write(expectedHash)
+			computedProof := h.Sum(nil)
+
+			if !bytes.Equal(computedProof, expectedProof) {
+				t.Errorf("Proof computation mismatch:\n  got:  %x\n  want: %x", computedProof, expectedProof)
+			}
+
+			proofData := mustHex(t, vec.ProofDataHex)
+			if len(proofData) != 64 {
+				t.Fatalf("Proof data length: got %d, want 64", len(proofData))
+			}
+			proofHash := proofData[:32]
+			proof := proofData[32:64]
+			if !bytes.Equal(proofHash, expectedHash) {
+				t.Error("Proof data hash mismatch")
+			}
+			if !bytes.Equal(proof, expectedProof) {
+				t.Error("Proof data proof mismatch")
+			}
+		})
+	}
+}
+
+func TestResourceICLRCLFormat(t *testing.T) {
+	v := loadVectors(t)
+
+	for i, vec := range v.ResourceICLRCL {
+		t.Run(fmt.Sprintf("resource_icl_rcl_%d", i), func(t *testing.T) {
+			payload := mustHex(t, vec.PayloadHex)
+			expectedHash := mustHex(t, vec.ResourceHashHex)
+
+			if len(payload) != 32 {
+				t.Errorf("ICL/RCL payload length: got %d, want 32", len(payload))
+			}
+			if !bytes.Equal(payload, expectedHash) {
+				t.Errorf("Payload mismatch:\n  got:  %x\n  want: %x", payload, expectedHash)
+			}
+		})
+	}
+}
+
+func TestLRRTTFormat(t *testing.T) {
+	v := loadVectors(t)
+
+	for i, vec := range v.LRRTT {
+		t.Run(fmt.Sprintf("lrrtt_%d", i), func(t *testing.T) {
+			payload := mustHex(t, vec.PayloadHex)
+
+			var rtt float64
+			if err := msgpack.Unmarshal(payload, &rtt); err != nil {
+				t.Fatalf("msgpack unpack failed: %v", err)
+			}
+			if rtt != vec.RTT {
+				t.Errorf("RTT: got %v, want %v", rtt, vec.RTT)
+			}
+		})
+	}
+}
+
+func TestDestinationTypeConstants(t *testing.T) {
+	v := loadVectors(t)
+
+	expected := map[string]int{
+		"SINGLE": int(packet.DestinationSingle),
+		"GROUP":  int(packet.DestinationGroup),
+		"PLAIN":  int(packet.DestinationPlain),
+		"LINK":   int(packet.DestinationLink),
+	}
+
+	for _, vec := range v.DestinationType {
+		want, ok := expected[vec.Name]
+		if !ok {
+			t.Errorf("Unknown destination type: %s", vec.Name)
+			continue
+		}
+		if vec.Value != want {
+			t.Errorf("%s: got %d, want %d", vec.Name, vec.Value, want)
+		}
+	}
+}
+
+func TestCacheRequestFormat(t *testing.T) {
+	v := loadVectors(t)
+
+	for i, vec := range v.CacheRequest {
+		t.Run(fmt.Sprintf("cache_request_%d", i), func(t *testing.T) {
+			payload := mustHex(t, vec.PayloadHex)
+			expectedHash := mustHex(t, vec.PacketHashHex)
+
+			if len(payload) != 32 {
+				t.Errorf("Cache request payload length: got %d, want 32", len(payload))
+			}
+			if !bytes.Equal(payload, expectedHash) {
+				t.Errorf("Payload mismatch:\n  got:  %x\n  want: %x", payload, expectedHash)
+			}
+			if vec.Context != int(packet.ContextCacheReq) {
+				t.Errorf("Context: got 0x%02x, want 0x%02x", vec.Context, packet.ContextCacheReq)
+			}
+		})
 	}
 }

@@ -27,4 +27,3 @@ func run() {
 	// Notify JS that reticulum is ready
 	js.Global().Call("reticulumReady")
 }
-

@@ -7,8 +7,16 @@ to ensure protocol compatibility between implementations.
 Usage:
     python3 generate_vectors.py
 
+Environment:
+    RETICULUM_PATH  Path to Python Reticulum repo (default: reticulum-ref/ in project root)
+
 Output:
     test_vectors.json in the same directory
+
+To run full crossref test (clones/updates from github.com/markqvist/Reticulum):
+    make test-crossref
+    task test-crossref
+    ./tests/crossref/run_crossref.sh
 """
 
 import sys
@@ -17,7 +25,11 @@ import json
 import hashlib
 import struct
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "reticulum")))
+_reticulum_path = os.environ.get(
+    "RETICULUM_PATH",
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "reticulum-ref")),
+)
+sys.path.insert(0, _reticulum_path)
 
 from RNS.Cryptography import X25519PrivateKey, X25519PublicKey, Ed25519PrivateKey, Ed25519PublicKey
 from RNS.Cryptography import hkdf, Token
@@ -1184,9 +1196,161 @@ def generate_buffer_compressed_vectors():
     return vectors
 
 
+def generate_resource_req_vectors():
+    """Generate resource request packet data format vectors."""
+    from RNS.Resource import Resource
+
+    vectors = []
+
+    resource_hash = hashlib.sha256(b"resource-req-hash-data").digest()
+    map_hash_a = hashlib.sha256(b"map-hash-a").digest()[:4]
+    map_hash_b = hashlib.sha256(b"map-hash-b").digest()[:4]
+    last_map_hash = hashlib.sha256(b"last-map-hash").digest()[:4]
+
+    hmu_part_normal = bytes([0x00])
+    request_data_normal = hmu_part_normal + resource_hash + map_hash_a + map_hash_b
+    vectors.append({
+        "data_hex": request_data_normal.hex(),
+        "hmu_part_hex": hmu_part_normal.hex(),
+        "hashmap_exhausted": False,
+        "resource_hash_hex": resource_hash.hex(),
+        "last_map_hash_hex": "",
+        "requested_hashes_hex": (map_hash_a + map_hash_b).hex(),
+    })
+
+    hmu_part_exhausted = bytes([Resource.HASHMAP_IS_EXHAUSTED])
+    request_data_exhausted = hmu_part_exhausted + last_map_hash + resource_hash
+    vectors.append({
+        "data_hex": request_data_exhausted.hex(),
+        "hmu_part_hex": hmu_part_exhausted.hex(),
+        "hashmap_exhausted": True,
+        "resource_hash_hex": resource_hash.hex(),
+        "last_map_hash_hex": last_map_hash.hex(),
+        "requested_hashes_hex": "",
+    })
+
+    return vectors
+
+
+def generate_resource_hmu_vectors():
+    """Generate resource hashmap update packet format vectors."""
+    from RNS.vendor import umsgpack
+
+    vectors = []
+
+    resource_hash = hashlib.sha256(b"resource-hmu-hash").digest()
+    segment = 0
+    hashmap = hashlib.sha256(b"hashmap-seg-0-a").digest()[:4] + hashlib.sha256(b"hashmap-seg-0-b").digest()[:4]
+
+    hmu = resource_hash + umsgpack.packb([segment, hashmap])
+    vectors.append({
+        "data_hex": hmu.hex(),
+        "resource_hash_hex": resource_hash.hex(),
+        "segment": segment,
+        "hashmap_hex": hashmap.hex(),
+    })
+
+    segment2 = 2
+    hashmap2 = hashlib.sha256(b"hm2-a").digest()[:4] * 8
+    hmu2 = resource_hash + umsgpack.packb([segment2, hashmap2])
+    vectors.append({
+        "data_hex": hmu2.hex(),
+        "resource_hash_hex": resource_hash.hex(),
+        "segment": segment2,
+        "hashmap_hex": hashmap2.hex(),
+    })
+
+    return vectors
+
+
+def generate_resource_prf_vectors():
+    """Generate resource proof packet format vectors."""
+    vectors = []
+
+    data = b"resource data for proof"
+    resource_hash = hashlib.sha256(b"resource-prf-hash").digest()
+    proof = hashlib.sha256(data + resource_hash).digest()
+    proof_data = resource_hash + proof
+
+    vectors.append({
+        "data_hex": data.hex(),
+        "resource_hash_hex": resource_hash.hex(),
+        "proof_hex": proof.hex(),
+        "proof_data_hex": proof_data.hex(),
+    })
+
+    data2 = b""
+    resource_hash2 = hashlib.sha256(b"empty-resource").digest()
+    proof2 = hashlib.sha256(data2 + resource_hash2).digest()
+    proof_data2 = resource_hash2 + proof2
+    vectors.append({
+        "data_hex": data2.hex(),
+        "resource_hash_hex": resource_hash2.hex(),
+        "proof_hex": proof2.hex(),
+        "proof_data_hex": proof_data2.hex(),
+    })
+
+    return vectors
+
+
+def generate_resource_icl_rcl_vectors():
+    """Generate resource initiator/receiver cancel packet format vectors."""
+    vectors = []
+
+    resource_hash = hashlib.sha256(b"resource-cancel-hash").digest()
+    vectors.append({
+        "payload_hex": resource_hash.hex(),
+        "resource_hash_hex": resource_hash.hex(),
+    })
+
+    return vectors
+
+
+def generate_lrrtt_vectors():
+    """Generate LRRTT packet payload format vectors (msgpack float)."""
+    from RNS.vendor import umsgpack
+
+    vectors = []
+
+    for rtt in [0.0, 0.123, 1.5, 42.0]:
+        payload = umsgpack.packb(rtt)
+        vectors.append({
+            "payload_hex": payload.hex(),
+            "rtt": rtt,
+        })
+
+    return vectors
+
+
+def generate_destination_type_vectors():
+    """Generate destination type constant values."""
+    from RNS.Destination import Destination
+
+    return [
+        {"name": "SINGLE", "value": Destination.SINGLE},
+        {"name": "GROUP", "value": Destination.GROUP},
+        {"name": "PLAIN", "value": Destination.PLAIN},
+        {"name": "LINK", "value": Destination.LINK},
+    ]
+
+
+def generate_cache_request_vectors():
+    """Generate cache request packet format vectors."""
+    vectors = []
+
+    packet_hash = hashlib.sha256(b"packet-to-cache-request").digest()
+    vectors.append({
+        "payload_hex": packet_hash.hex(),
+        "packet_hash_hex": packet_hash.hex(),
+        "context": 0x08,
+    })
+
+    return vectors
+
+
 def main():
     all_vectors = {
-        "format_version": 4,
+        "format_version": 5,
         "generator": "Python Reticulum reference implementation",
         "identity": generate_identity_vectors(),
         "destination_hash": generate_destination_hash_vectors(),
@@ -1220,6 +1384,13 @@ def main():
         "resource_context": generate_resource_context_vectors(),
         "resource_metadata_prefix": generate_resource_metadata_prefix_vectors(),
         "buffer_compressed": generate_buffer_compressed_vectors(),
+        "resource_req": generate_resource_req_vectors(),
+        "resource_hmu": generate_resource_hmu_vectors(),
+        "resource_prf": generate_resource_prf_vectors(),
+        "resource_icl_rcl": generate_resource_icl_rcl_vectors(),
+        "lrrtt": generate_lrrtt_vectors(),
+        "destination_type": generate_destination_type_vectors(),
+        "cache_request": generate_cache_request_vectors(),
     }
 
     output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_vectors.json")

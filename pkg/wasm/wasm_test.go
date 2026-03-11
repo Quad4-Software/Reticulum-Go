@@ -14,18 +14,18 @@ import (
 
 func TestRegisterJSFunctions(t *testing.T) {
 	RegisterJSFunctions()
-	
+
 	reticulum := js.Global().Get("reticulum")
 	if reticulum.IsUndefined() {
 		t.Fatal("reticulum object not registered in global scope")
 	}
-	
+
 	functions := []string{
 		"init", "getIdentity", "getDestination", "announce",
 		"connect", "disconnect", "isConnected", "requestPath", "getStats",
 		"setPacketCallback", "setAnnounceCallback", "sendData",
 	}
-	
+
 	for _, fn := range functions {
 		if reticulum.Get(fn).Type() != js.TypeFunction {
 			t.Errorf("function %s not registered or not a function", fn)
@@ -39,10 +39,10 @@ func TestGetStats(t *testing.T) {
 	stats.packetsReceived = 5
 	stats.bytesSent = 100
 	stats.bytesReceived = 50
-	
+
 	result := GetStats(js.Undefined(), nil)
 	val := result.(js.Value)
-	
+
 	if val.Get("packetsSent").Int() != 10 {
 		t.Errorf("expected packetsSent 10, got %d", val.Get("packetsSent").Int())
 	}
@@ -75,11 +75,11 @@ func TestInitReticulum(t *testing.T) {
 	appName := "test_app"
 	result = InitReticulum(js.Undefined(), []js.Value{js.ValueOf(wsURL), js.ValueOf(appName)})
 	val = result.(js.Value)
-	
+
 	if !val.Get("success").Bool() {
 		t.Errorf("InitReticulum failed: %v", val.Get("error"))
 	}
-	
+
 	if reticulumIdentity == nil {
 		t.Fatal("reticulumIdentity should not be nil after successful init")
 	}
@@ -90,14 +90,14 @@ func TestInitReticulum(t *testing.T) {
 	// InitReticulum expects the FULL identity bytes in hex (64 bytes).
 	idBytes := id.GetPrivateKey()
 	idHexFull := hex.EncodeToString(idBytes)
-	
+
 	result = InitReticulum(js.Undefined(), []js.Value{js.ValueOf(wsURL), js.ValueOf(appName), js.ValueOf(idHexFull)})
 	val = result.(js.Value)
-	
+
 	if !val.Get("success").Bool() {
 		t.Errorf("InitReticulum with identity failed: %v", val.Get("error"))
 	}
-	
+
 	if reticulumIdentity.GetHexHash() != idHex {
 		t.Errorf("expected identity hash %s, got %s", idHex, reticulumIdentity.GetHexHash())
 	}
@@ -128,14 +128,14 @@ func TestSendDataJS(t *testing.T) {
 	peerId, _ := identity.NewIdentity()
 	peerHash := peerId.Hash()
 	peerHashHex := hex.EncodeToString(peerHash)
-	
+
 	// Manually add to known destinations so Recall works
 	identity.Remember([]byte("mock_packet"), peerHash, peerId.GetPublicKey(), []byte("peer_app_data"))
 
 	// Test SendDataJS with string
 	data := "Hello Peer!"
 	result := SendDataJS(js.Undefined(), []js.Value{js.ValueOf(peerHashHex), js.ValueOf(data)}).(js.Value)
-	
+
 	if !result.Get("error").IsUndefined() {
 		errStr := result.Get("error").String()
 		if errStr != "Packet sending failed: no path to destination" {
