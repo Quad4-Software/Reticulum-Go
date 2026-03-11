@@ -4,7 +4,6 @@
 [![Go Build](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/build.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/build.yml)
 [![Go Test](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/go-test.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/go-test.yml)
 [![Security Scans](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/scan.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/scan.yml)
-[![Bearer](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/bearer.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/bearer.yml)
 
 A high-performance Go implementation of the [Reticulum Network Stack](https://github.com/markqvist/Reticulum).
 
