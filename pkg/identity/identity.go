@@ -25,24 +25,6 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
-const (
-	CURVE                = "Curve25519"
-	KEYSIZE              = 512 // Combined length of encryption key (256) and signing key (256)
-	RATCHETSIZE          = 256
-	RATCHET_EXPIRY       = 2592000 // 30 days in seconds
-	TRUNCATED_HASHLENGTH = 128
-	NAME_HASH_LENGTH     = 80
-
-	// Token constants for Fernet-like spec
-	TOKEN_OVERHEAD   = 16 // AES block size
-	AES128_BLOCKSIZE = 16
-	HASHLENGTH       = 256
-	SIGLENGTH        = KEYSIZE
-
-	RATCHET_ROTATION_INTERVAL = 1800 // Default 30 minutes in seconds
-	MAX_RETAINED_RATCHETS     = 512  // Maximum number of retained ratchet keys
-)
-
 type Identity struct {
 	privateKey      []byte
 	publicKey       []byte
