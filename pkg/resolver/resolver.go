@@ -12,17 +12,6 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
 )
 
-const (
-	// Hash length conversion (bits to bytes)
-	BitsPerByte = 8
-
-	// Known destination data index
-	KnownDestIdentityIndex = 2
-
-	// Minimum name parts for hierarchical resolution
-	MinNameParts = 2
-)
-
 type Resolver struct {
 	cache     map[string]*identity.Identity
 	cacheLock sync.RWMutex
