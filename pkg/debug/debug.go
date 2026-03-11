@@ -9,16 +9,6 @@ import (
 	"os"
 )
 
-const (
-	DEBUG_CRITICAL = 1
-	DEBUG_ERROR    = 2
-	DEBUG_INFO     = 3
-	DEBUG_VERBOSE  = 4
-	DEBUG_TRACE    = 5
-	DEBUG_PACKETS  = 6
-	DEBUG_ALL      = 7
-)
-
 var (
 	debugLevel  = flag.Int("debug", 3, "debug level (1-7)")
 	logger      *slog.Logger
