@@ -123,27 +123,72 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 
 	ra := &ResourceAdvertisement{}
 
-	if t, ok := dict["t"].(int64); ok {
+	switch t := dict["t"].(type) {
+	case int:
+		ra.TransferSize = int64(t)
+	case int8:
+		ra.TransferSize = int64(t)
+	case int16:
+		ra.TransferSize = int64(t)
+	case int32:
+		ra.TransferSize = int64(t)
+	case int64:
 		ra.TransferSize = t
-	} else if t, ok := dict["t"].(uint64); ok {
+	case uint8:
+		ra.TransferSize = int64(t)
+	case uint16:
+		ra.TransferSize = int64(t)
+	case uint32:
+		ra.TransferSize = int64(t)
+	case uint64:
 		if t > uint64(math.MaxInt64) {
 			return nil, fmt.Errorf("transfer size overflow")
 		}
 		ra.TransferSize = int64(t) // #nosec G115 - checked for overflow
 	}
 
-	if d, ok := dict["d"].(int64); ok {
+	switch d := dict["d"].(type) {
+	case int:
+		ra.DataSize = int64(d)
+	case int8:
+		ra.DataSize = int64(d)
+	case int16:
+		ra.DataSize = int64(d)
+	case int32:
+		ra.DataSize = int64(d)
+	case int64:
 		ra.DataSize = d
-	} else if d, ok := dict["d"].(uint64); ok {
+	case uint8:
+		ra.DataSize = int64(d)
+	case uint16:
+		ra.DataSize = int64(d)
+	case uint32:
+		ra.DataSize = int64(d)
+	case uint64:
 		if d > uint64(math.MaxInt64) {
 			return nil, fmt.Errorf("data size overflow")
 		}
 		ra.DataSize = int64(d) // #nosec G115 - checked for overflow
 	}
 
-	if n, ok := dict["n"].(int); ok {
+	switch n := dict["n"].(type) {
+	case int:
 		ra.Parts = n
-	} else if n, ok := dict["n"].(uint64); ok {
+	case int8:
+		ra.Parts = int(n)
+	case int16:
+		ra.Parts = int(n)
+	case int32:
+		ra.Parts = int(n)
+	case int64:
+		ra.Parts = int(n)
+	case uint8:
+		ra.Parts = int(n)
+	case uint16:
+		ra.Parts = int(n)
+	case uint32:
+		ra.Parts = int(n)
+	case uint64:
 		if n > uint64(math.MaxInt32) {
 			return nil, fmt.Errorf("parts count overflow")
 		}
@@ -166,9 +211,24 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 		ra.Hashmap = m
 	}
 
-	if f, ok := dict["f"].(byte); ok {
+	switch f := dict["f"].(type) {
+	case int:
+		ra.Flags = byte(f)
+	case int8:
+		ra.Flags = byte(f)
+	case int16:
+		ra.Flags = byte(f)
+	case int32:
+		ra.Flags = byte(f)
+	case int64:
+		ra.Flags = byte(f)
+	case uint8:
 		ra.Flags = f
-	} else if f, ok := dict["f"].(uint64); ok {
+	case uint16:
+		ra.Flags = byte(f)
+	case uint32:
+		ra.Flags = byte(f)
+	case uint64:
 		ra.Flags = byte(f)
 	}
 
