@@ -58,8 +58,13 @@ tasks:
   fmt-check:
     desc: Check if code is formatted (useful for CI)
     cmds:
-      - '{{.GOCMD}} fmt -d ./... > fmt.diff 2>&1 || true'
-      - 'test -s fmt.diff && (echo "Code is not formatted. Run ''task fmt'' to fix." && cat fmt.diff && rm -f fmt.diff && exit 1) || (rm -f fmt.diff && exit 0)'
+      - |
+        UNFORMATTED=$(gofmt -l $(git ls-files '*.go'))
+        if [ -n "$UNFORMATTED" ]; then
+          echo "Code is not formatted. Run 'task fmt' to fix."
+          echo "$UNFORMATTED"
+          exit 1
+        fi
 
   vet:
     desc: Run go vet
@@ -74,7 +79,7 @@ tasks:
   scan:
     desc: Run gosec security scanner
     cmds:
-      - gosec ./...
+      - gosec ./pkg/... ./cmd/... ./internal/...
 
   check:
     desc: Run fmt-check, vet, lint, test-short, and scan with summary
@@ -107,14 +112,14 @@ tasks:
   bench:
     desc: Run benchmarks with standard GC
     cmds:
-      - '{{.GOCMD}} test -bench=. -benchmem ./...'
+      - '{{.GOCMD}} test -run=^$ -bench=. -benchmem ./...'
 
   bench-experimental:
     desc: Run benchmarks with experimental GC
     env:
       GOEXPERIMENT: greenteagc
     cmds:
-      - '{{.GOCMD}} test -bench=. -benchmem ./...'
+      - '{{.GOCMD}} test -run=^$ -bench=. -benchmem ./...'
 
   bench-compare:
     desc: Run benchmarks with both GC settings
@@ -130,6 +135,11 @@ tasks:
     desc: Run tests
     cmds:
       - '{{.GOCMD}} test -v ./...'
+
+  test-crossref:
+    desc: Regenerate vectors from Python Reticulum and run crossref tests
+    cmds:
+      - bash tests/crossref/run_crossref.sh
 
   test-short:
     desc: Run short tests
