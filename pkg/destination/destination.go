@@ -21,31 +21,6 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
-const (
-	// Destination direction types
-	// The IN bit specifies that the destination can receive traffic.
-	// The OUT bit specifies that the destination can send traffic.
-	// A destination can be both IN and OUT.
-	IN  = 0x01
-	OUT = 0x02
-
-	// Destination types
-	SINGLE = 0x00
-	GROUP  = 0x01
-	PLAIN  = 0x02
-
-	PROVE_NONE = 0x00
-	PROVE_ALL  = 0x01
-	PROVE_APP  = 0x02
-
-	ALLOW_NONE = 0x00
-	ALLOW_ALL  = 0x01
-	ALLOW_LIST = 0x02
-
-	RATCHET_COUNT    = 512  // Default number of retained ratchet keys
-	RATCHET_INTERVAL = 1800 // Minimum interval between ratchet rotations in seconds
-)
-
 type PacketCallback = common.PacketCallback
 type ProofRequestedCallback = common.ProofRequestedCallback
 type LinkEstablishedCallback = common.LinkEstablishedCallback
