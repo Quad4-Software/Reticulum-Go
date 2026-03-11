@@ -7,7 +7,7 @@
 
 ## Cryptography Dependencies
 
-- golang.org/x/crypto `v0.46.0` for core cryptographic primitives
+- golang.org/x/crypto `v0.48.0` for core cryptographic primitives
   - hkdf
   - curve25519
 
