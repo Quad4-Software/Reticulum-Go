@@ -144,3 +144,18 @@ const (
 	STR_LINK_NOT_ACTIVE   = "link not active"
 	STR_INTERFACE_OFFLINE = "interface offline or detached"
 )
+
+const (
+	MinPort = 1
+	MaxPort = 65535
+
+	DEFAULT_SHARED_INSTANCE_PORT   = 37428
+	DEFAULT_INSTANCE_CONTROL_PORT = 37429
+	DEFAULT_LOG_LEVEL              = 20
+)
+
+const (
+	DESTINATION_SINGLE = 0x00
+	DESTINATION_GROUP  = 0x01
+	DESTINATION_PLAIN  = 0x02
+)
