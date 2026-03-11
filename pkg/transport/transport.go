@@ -28,76 +28,6 @@ var (
 	transportMutex    sync.Mutex
 )
 
-const (
-	PathfinderM     = 128 // Maximum number of hops that Reticulum will transport a packet
-	PathRequestTTL  = 300 // Time to live for path requests in seconds
-	AnnounceTimeout = 15  // Timeout for announce responses in seconds
-
-	// Link constants
-	EstablishmentTimeoutPerHop = 6   // Timeout for link establishment per hop
-	KeepaliveTimeoutFactor     = 4   // RTT timeout factor for link timeout
-	StaleGrace                 = 2   // Grace period in seconds
-	Keepalive                  = 360 // Interval for sending keep-alive packets
-	StaleTime                  = 720 // Time after which link is considered stale
-
-	// Resource strategies
-	AcceptNone = 0
-	AcceptAll  = 1
-	AcceptApp  = 2
-
-	// Resource status
-	ResourceStatusPending   = 0x00
-	ResourceStatusActive    = 0x01
-	ResourceStatusComplete  = 0x02
-	ResourceStatusFailed    = 0x03
-	ResourceStatusCancelled = 0x04
-
-	// Direction constants
-	OUT = 0x02
-	IN  = 0x01
-
-	// Destination type constants
-	SINGLE = 0x00
-	GROUP  = 0x01
-	PLAIN  = 0x02
-
-	// Link status constants
-	STATUS_NEW    = 0
-	STATUS_ACTIVE = 1
-	STATUS_CLOSED = 2
-	STATUS_FAILED = 3
-
-	AnnounceRatePercent = 2.0  // 2% of bandwidth for announces
-	PATHFINDER_M        = 8    // Maximum hop count
-	AnnounceRateKbps    = 20.0 // 20 Kbps for announces
-
-	MAX_HOPS         = 128  // Default m value for announce propagation
-	PROPAGATION_RATE = 0.02 // 2% bandwidth cap for announces
-
-	// Announce packet types
-	PACKET_TYPE_ANNOUNCE = 0x01
-	PACKET_TYPE_LINK     = 0x02
-
-	// Announce flags
-	ANNOUNCE_NONE     = 0x00
-	ANNOUNCE_PATH     = 0x01
-	ANNOUNCE_IDENTITY = 0x02
-
-	// Header types
-	HEADER_TYPE_1 = 0x00 // One address field
-	HEADER_TYPE_2 = 0x01 // Two address fields
-
-	// Propagation types
-	PROP_TYPE_BROADCAST = 0x00
-	PROP_TYPE_TRANSPORT = 0x01
-
-	// Destination types
-	DEST_TYPE_SINGLE = 0x00
-	DEST_TYPE_GROUP  = 0x01
-	DEST_TYPE_PLAIN  = 0x02
-	DEST_TYPE_LINK   = 0x03
-)
-
 type PathInfo struct {
 	NextHop     []byte
 	Interface   string
@@ -147,12 +77,6 @@ type PathAnnounceEntry struct {
 	BlockRebroadcasts bool
 	AttachedInterface common.NetworkInterface
 }
-
-const (
-	STATE_UNKNOWN      = 0x00
-	STATE_UNRESPONSIVE = 0x01
-	STATE_RESPONSIVE   = 0x02
-)
 
 type Path struct {
 	NextHop   []byte
