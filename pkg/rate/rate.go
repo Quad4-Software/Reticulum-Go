@@ -9,25 +9,7 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 )
 
-const (
-	DefaultAnnounceRateTarget  = 3600.0 // Default 1 hour between announces
-	DefaultAnnounceRateGrace   = 3      // Default number of grace announces
-	DefaultAnnounceRatePenalty = 7200.0 // Default 2 hour penalty
-	DefaultBurstFreqNew        = 3.5    // Default announces/sec for new interfaces
-	DefaultBurstFreq           = 12.0   // Default announces/sec for established interfaces
-	DefaultBurstHold           = 60     // Default seconds to hold after burst
-	DefaultBurstPenalty        = 300    // Default seconds penalty after burst
-	DefaultMaxHeldAnnounces    = 256    // Default max announces in hold queue
-	DefaultHeldReleaseInterval = 30     // Default seconds between releasing held announces
-
-	// Allowance thresholds
-	AllowanceMinThreshold = 1.0
-	AllowanceDecrement    = 1.0
-
-	// History check threshold
-	HistoryGraceThreshold = 1
-)
-
+// Limiter implements a token-bucket style rate limiter.
 type Limiter struct {
 	rate       float64
 	capacity   float64
@@ -36,6 +18,7 @@ type Limiter struct {
 	mutex      sync.Mutex
 }
 
+// NewLimiter returns a new Limiter with the given rate and capacity.
 func NewLimiter(rate float64, capacity float64) *Limiter {
 	return &Limiter{
 		rate:       rate,
@@ -45,6 +28,7 @@ func NewLimiter(rate float64, capacity float64) *Limiter {
 	}
 }
 
+// Allow returns true if a token is available and consumes it.
 func (l *Limiter) Allow() bool {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
@@ -76,6 +60,7 @@ type AnnounceRateControl struct {
 	mutex           sync.RWMutex
 }
 
+// NewAnnounceRateControl returns a new AnnounceRateControl with the given target, grace count, and penalty.
 func NewAnnounceRateControl(target float64, grace int, penalty float64) *AnnounceRateControl {
 	return &AnnounceRateControl{
 		rateTarget:      target,
@@ -85,6 +70,7 @@ func NewAnnounceRateControl(target float64, grace int, penalty float64) *Announc
 	}
 }
 
+// AllowAnnounce returns true if an announce is allowed for the given destination hash.
 func (arc *AnnounceRateControl) AllowAnnounce(destHash string) bool {
 	arc.mutex.Lock()
 	defer arc.mutex.Unlock()
@@ -109,7 +95,7 @@ func (arc *AnnounceRateControl) AllowAnnounce(destHash string) bool {
 	}
 
 	// Check rate
-	lastAnnounce := history[len(history)-1]
+	lastAnnounce := history[len(history)-common.ONE]
 	waitTime := arc.rateTarget
 	if len(history) > arc.rateGrace+HistoryGraceThreshold {
 		waitTime += arc.ratePenalty
@@ -139,6 +125,7 @@ type IngressControl struct {
 	mutex         sync.RWMutex
 }
 
+// NewIngressControl returns a new IngressControl; when enabled it rate-limits new-destination announces.
 func NewIngressControl(enabled bool) *IngressControl {
 	return &IngressControl{
 		enabled:             enabled,
@@ -153,6 +140,7 @@ func NewIngressControl(enabled bool) *IngressControl {
 	}
 }
 
+// ProcessAnnounce returns true if the announce is accepted; otherwise it may be held.
 func (ic *IngressControl) ProcessAnnounce(announceHash string, announceData []byte, isNewDest bool) bool {
 	if !ic.enabled {
 		return true
@@ -178,10 +166,9 @@ func (ic *IngressControl) ProcessAnnounce(announceHash string, announceData []by
 
 	ic.announceCount++
 
-	// Avoid division by zero and handle very small elapsed times
 	seconds := elapsed.Seconds()
-	if seconds < 0.01 {
-		seconds = 0.01
+	if seconds < MinElapsedSeconds {
+		seconds = MinElapsedSeconds
 	}
 	burstFreq := float64(ic.announceCount) / seconds
 
@@ -196,6 +183,7 @@ func (ic *IngressControl) ProcessAnnounce(announceHash string, announceData []by
 	return true
 }
 
+// ReleaseHeldAnnounce returns one held announce if any, and reports success.
 func (ic *IngressControl) ReleaseHeldAnnounce() (string, []byte, bool) {
 	ic.mutex.Lock()
 	defer ic.mutex.Unlock()
