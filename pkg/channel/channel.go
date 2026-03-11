@@ -13,62 +13,14 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
 )
 
-const (
-	// Window sizes and thresholds
-	WindowInitial     = 2
-	WindowMin         = 2
-	WindowMinSlow     = 2
-	WindowMinMedium   = 5
-	WindowMinFast     = 16
-	WindowMaxSlow     = 5
-	WindowMaxMedium   = 12
-	WindowMaxFast     = 48
-	WindowMax         = WindowMaxFast
-	WindowFlexibility = 4
-
-	// RTT thresholds
-	RTTFast   = 0.18
-	RTTMedium = 0.75
-	RTTSlow   = 1.45
-
-	// Sequence numbers
-	SeqMax     uint16 = 0xFFFF
-	SeqModulus uint16 = SeqMax
-
-	FastRateThreshold = 10
-
-	// Timeout calculation constants
-	RTTMinThreshold       = 0.025
-	TimeoutBaseMultiplier = 1.5
-	TimeoutRingMultiplier = 2.5
-	TimeoutRingOffset     = 2
-
-	// Packet header constants
-	ChannelHeaderSize = 6
-	ChannelHeaderBits = 8
-
-	// Default retry count
-	DefaultMaxTries = 3
-)
-
-// MessageState represents the state of a message
-type MessageState int
-
-const (
-	MsgStateNew MessageState = iota
-	MsgStateSent
-	MsgStateDelivered
-	MsgStateFailed
-)
-
-// MessageBase defines the interface for messages that can be sent over a channel
+// MessageBase is the interface for messages sent over a Channel.
 type MessageBase interface {
 	Pack() ([]byte, error)
 	Unpack([]byte) error
 	GetType() uint16
 }
 
-// Channel manages reliable message delivery over a transport link
+// Channel provides reliable message delivery over a transport link.
 type Channel struct {
 	link            transport.LinkInterface
 	mutex           sync.RWMutex
@@ -102,11 +54,11 @@ type Envelope struct {
 	Timestamp time.Time
 }
 
-// NewChannel creates a new Channel instance
+// NewChannel creates a new Channel for the given link.
 func NewChannel(link transport.LinkInterface) *Channel {
 	return &Channel{
 		link:            link,
-		messageHandlers: make([]messageHandlerEntry, 0),
+		messageHandlers: make([]messageHandlerEntry, InitialHandlerCapacity),
 		mutex:           sync.RWMutex{},
 		windowMax:       WindowMaxSlow,
 		windowMin:       WindowMinSlow,
@@ -199,6 +151,7 @@ func (c *Channel) getPacketTimeout(tries int) time.Duration {
 	return time.Duration(timeout * float64(time.Second))
 }
 
+// AddMessageHandler registers a handler for inbound messages and returns its ID.
 func (c *Channel) AddMessageHandler(handler func(MessageBase) bool) int {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -208,6 +161,7 @@ func (c *Channel) AddMessageHandler(handler func(MessageBase) bool) int {
 	return id
 }
 
+// RemoveMessageHandler unregisters the handler with the given ID.
 func (c *Channel) RemoveMessageHandler(id int) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -243,6 +197,7 @@ func (c *Channel) updateRateThresholds() {
 	}
 }
 
+// HandleInbound processes an inbound channel packet and dispatches to registered handlers.
 func (c *Channel) HandleInbound(data []byte) error {
 	if len(data) < ChannelHeaderSize {
 		return errors.New("channel packet too short")
@@ -277,25 +232,30 @@ func (c *Channel) HandleInbound(data []byte) error {
 	return nil
 }
 
+// GenericMessage is a default message implementation with type, data, and sequence.
 type GenericMessage struct {
 	Type uint16
 	Data []byte
 	Seq  uint16
 }
 
+// Pack returns the message payload.
 func (g *GenericMessage) Pack() ([]byte, error) {
 	return g.Data, nil
 }
 
+// Unpack sets the message payload from data.
 func (g *GenericMessage) Unpack(data []byte) error {
 	g.Data = data
 	return nil
 }
 
+// GetType returns the message type.
 func (g *GenericMessage) GetType() uint16 {
 	return g.Type
 }
 
+// Close releases channel resources.
 func (c *Channel) Close() error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
