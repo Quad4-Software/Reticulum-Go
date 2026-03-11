@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	SHA256Size     = 32
-	AES256KeySize  = 32
+	SHA256Size    = 32
+	AES256KeySize = 32
 )
 
 // GetBasepoint returns the standard Curve25519 basepoint

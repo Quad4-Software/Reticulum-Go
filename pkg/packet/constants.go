@@ -18,7 +18,7 @@ const (
 	MinAnnounceSize = 170
 
 	TruncatedHashLength = 16
-	MinPacketSize      = 3
+	MinPacketSize       = 3
 
 	ReceiptTimeoutBaseSec   = 15
 	ReceiptTimeoutPerHopSec = 3
@@ -26,12 +26,12 @@ const (
 
 // Header flag bit masks for packing/unpacking.
 const (
-	HeaderMaskHeaderType    = 0x40
-	HeaderMaskContextFlag   = 0x20
-	HeaderMaskTransportType = 0x10
+	HeaderMaskHeaderType      = 0x40
+	HeaderMaskContextFlag     = 0x20
+	HeaderMaskTransportType   = 0x10
 	HeaderMaskDestinationType = 0x0C
-	HeaderMaskPacketType    = 0x03
-	HashableFlagsMask      = 0x0F
+	HeaderMaskPacketType      = 0x03
+	HashableFlagsMask         = 0x0F
 )
 
 // Packet types, header types, context and flag constants.
