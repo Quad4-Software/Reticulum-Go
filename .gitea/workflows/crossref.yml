@@ -29,7 +29,10 @@ jobs:
           go-version: '1.25'
 
       - name: Install Python dependencies
-        run: pip install --quiet pycryptodome
+        run: |
+          python3 -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --quiet pycryptodome
 
       - name: Run crossref tests
         run: bash tests/crossref/run_crossref.sh
