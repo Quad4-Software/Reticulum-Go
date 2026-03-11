@@ -6,18 +6,9 @@ import (
 	"time"
 )
 
-// Destination type constants
-const (
-	DESTINATION_SINGLE = 0x00
-	DESTINATION_GROUP  = 0x01
-	DESTINATION_PLAIN  = 0x02
-)
-
-// Transport related types
 type TransportMode byte
 type PathStatus byte
 
-// Path represents routing information for a destination
 type Path struct {
 	Interface   NetworkInterface
 	LastSeen    time.Time
