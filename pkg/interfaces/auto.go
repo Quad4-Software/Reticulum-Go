@@ -15,30 +15,6 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 )
 
-const (
-	HW_MTU                 = 1196
-	DEFAULT_DISCOVERY_PORT = 29716
-	DEFAULT_DATA_PORT      = 42671
-	DEFAULT_GROUP_ID       = "reticulum"
-	BITRATE_GUESS          = 10 * 1000 * 1000
-	PEERING_TIMEOUT        = 22 * time.Second
-	ANNOUNCE_INTERVAL      = 1600 * time.Millisecond
-	PEER_JOB_INTERVAL      = 4 * time.Second
-	MCAST_ECHO_TIMEOUT     = 6500 * time.Millisecond
-
-	SCOPE_LINK         = "2"
-	SCOPE_ADMIN        = "4"
-	SCOPE_SITE         = "5"
-	SCOPE_ORGANISATION = "8"
-	SCOPE_GLOBAL       = "e"
-
-	MCAST_ADDR_TYPE_PERMANENT = "0"
-	MCAST_ADDR_TYPE_TEMPORARY = "1"
-
-	MULTI_IF_DEQUE_LEN = 48
-	MULTI_IF_DEQUE_TTL = 750 * time.Millisecond
-)
-
 type DequeEntry struct {
 	hash      [32]byte
 	timestamp time.Time
