@@ -12,57 +12,6 @@ import (
 	"time"
 )
 
-const (
-	STATUS_PENDING   = 0x00
-	STATUS_ACTIVE    = 0x01
-	STATUS_COMPLETE  = 0x02
-	STATUS_FAILED    = 0x03
-	STATUS_CANCELLED = 0x04
-
-	DEFAULT_SEGMENT_SIZE = 384 // Based on ENCRYPTED_MDU
-	MAX_SEGMENTS         = 65535
-	CLEANUP_INTERVAL     = 300 // 5 minutes
-
-	// Window size constants
-	WINDOW               = 4
-	WINDOW_MIN           = 2
-	WINDOW_MAX_SLOW      = 10
-	WINDOW_MAX_VERY_SLOW = 4
-	WINDOW_MAX_FAST      = 75
-	WINDOW_MAX           = WINDOW_MAX_FAST
-
-	// Rate thresholds
-	FAST_RATE_THRESHOLD      = WINDOW_MAX_SLOW - WINDOW - 2
-	VERY_SLOW_RATE_THRESHOLD = 2
-
-	// Transfer rates (bytes per second)
-	RATE_FAST      = (50 * 1000) / 8 // 50 Kbps
-	RATE_VERY_SLOW = (2 * 1000) / 8  // 2 Kbps
-
-	// Window flexibility
-	WINDOW_FLEXIBILITY = 4
-
-	// Hash and segment constants
-	MAPHASH_LEN      = 4
-	RANDOM_HASH_SIZE = 4
-
-	// Size limits
-	MAX_EFFICIENT_SIZE     = 16*1024*1024 - 1 // ~16MB
-	AUTO_COMPRESS_MAX_SIZE = MAX_EFFICIENT_SIZE
-
-	// Timeouts and retries
-	PART_TIMEOUT_FACTOR           = 4
-	PART_TIMEOUT_FACTOR_AFTER_RTT = 2
-	PROOF_TIMEOUT_FACTOR          = 3
-	MAX_RETRIES                   = 16
-	MAX_ADV_RETRIES               = 4
-	SENDER_GRACE_TIME             = 10.0
-	PROCESSING_GRACE              = 1.0
-	RETRY_GRACE_TIME              = 0.25
-	PER_RETRY_DELAY               = 0.5
-	RESPONSE_MAX_GRACE_TIME       = 10.0
-)
-
 type Resource struct {
 	mutex              sync.RWMutex
 	data               []byte
