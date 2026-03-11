@@ -1,6 +1,6 @@
 .PHONY: all build install uninstall clean test fmt vet lint check deps run
 .PHONY: build-linux build-windows build-darwin build-all
-.PHONY: test-short test-race coverage bench debug release
+.PHONY: test-short test-race test-crossref coverage bench debug release
 
 GOCMD := go
 BINARY_NAME := reticulum-go
@@ -47,12 +47,15 @@ test-short:
 test-race:
 	$(GOCMD) test -race -v ./...
 
+test-crossref:
+	@bash tests/crossref/run_crossref.sh
+
 coverage:
 	$(GOCMD) test -coverprofile=coverage.out ./...
 	$(GOCMD) tool cover -html=coverage.out
 
 bench:
-	$(GOCMD) test -bench=. -benchmem ./...
+	$(GOCMD) test -run=^$ -bench=. -benchmem ./...
 
 fmt:
 	$(GOCMD) fmt ./...
