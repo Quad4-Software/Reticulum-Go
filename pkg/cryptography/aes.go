@@ -10,12 +10,6 @@ import (
 	"io"
 )
 
-const (
-	// AES256KeySize is the size of an AES-256 key in bytes.
-	AES256KeySize = 32 // 256 bits
-)
-
-// GenerateAES256Key generates a random AES-256 key.
 func GenerateAES256Key() ([]byte, error) {
 	key := make([]byte, AES256KeySize)
 	if _, err := io.ReadFull(rand.Reader, key); err != nil {
