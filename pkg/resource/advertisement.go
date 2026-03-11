@@ -9,11 +9,6 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-const (
-	OVERHEAD             = 134
-	COLLISION_GUARD_SIZE = 2*WINDOW_MAX + 100
-)
-
 type ResourceAdvertisement struct {
 	TransferSize  int64
 	DataSize      int64

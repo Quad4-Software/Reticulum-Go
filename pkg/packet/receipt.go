@@ -11,6 +11,7 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
 )
 
+// Receipt status and proof lengths.
 const (
 	RECEIPT_FAILED    = 0x00
 	RECEIPT_SENT      = 0x01
@@ -21,6 +22,7 @@ const (
 	IMPL_LENGTH = identity.SIGLENGTH / 8
 )
 
+// PacketReceipt tracks delivery status and proof for a sent packet.
 type PacketReceipt struct {
 	mutex sync.RWMutex
 
@@ -44,6 +46,7 @@ type PacketReceipt struct {
 	timeoutCheckDone chan bool
 }
 
+// NewPacketReceipt creates a receipt for the given packet and starts the timeout watchdog.
 func NewPacketReceipt(pkt *Packet) *PacketReceipt {
 	hash := pkt.Hash()
 	receipt := &PacketReceipt{
@@ -65,12 +68,10 @@ func NewPacketReceipt(pkt *Packet) *PacketReceipt {
 }
 
 func calculateTimeout(pkt *Packet) time.Duration {
-	baseTimeout := 15 * time.Second
-
+	baseTimeout := time.Duration(ReceiptTimeoutBaseSec) * time.Second
 	if pkt.Hops > 0 {
-		baseTimeout += time.Duration(pkt.Hops) * (3 * time.Second)
+		baseTimeout += time.Duration(pkt.Hops) * (time.Duration(ReceiptTimeoutPerHopSec) * time.Second)
 	}
-
 	return baseTimeout
 }
 

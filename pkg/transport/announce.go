@@ -12,14 +12,6 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/rate"
 )
 
-const (
-	MaxRetries             = 3
-	RetryInterval          = 5 * time.Second
-	MaxQueueSize           = 1000
-	MinPriorityDelta       = 0.1
-	DefaultPropagationRate = 0.02 // 2% of bandwidth for announces
-)
-
 type AnnounceEntry struct {
 	Data        []byte
 	HopCount    int

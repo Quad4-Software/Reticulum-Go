@@ -13,38 +13,6 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 )
 
-const (
-	HDLC_FLAG     = 0x7E
-	HDLC_ESC      = 0x7D
-	HDLC_ESC_MASK = 0x20
-
-	KISS_FEND  = 0xC0
-	KISS_FESC  = 0xDB
-	KISS_TFEND = 0xDC
-	KISS_TFESC = 0xDD
-
-	DEFAULT_MTU       = 1064
-	BITRATE_GUESS_VAL = 10 * 1000 * 1000
-	RECONNECT_WAIT    = 5
-	INITIAL_TIMEOUT   = 5
-	INITIAL_BACKOFF   = time.Second
-	MAX_BACKOFF       = time.Minute * 5
-
-	TCP_USER_TIMEOUT_SEC   = 24
-	TCP_PROBE_AFTER_SEC    = 5
-	TCP_PROBE_INTERVAL_SEC = 2
-	TCP_PROBES_COUNT       = 12
-	TCP_CONNECT_TIMEOUT    = 10 * time.Second
-	TCP_MILLISECONDS       = 1000
-
-	I2P_USER_TIMEOUT_SEC   = 45
-	I2P_PROBE_AFTER_SEC    = 10
-	I2P_PROBE_INTERVAL_SEC = 9
-	I2P_PROBES_COUNT       = 5
-
-	SO_KEEPALIVE_ENABLE = 1
-)
-
 type TCPClientInterface struct {
 	BaseInterface
 	conn              net.Conn

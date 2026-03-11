@@ -13,23 +13,6 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 )
 
-const (
-	BITRATE_MINIMUM = 1200 // Minimum bitrate in bits/second
-	MODE_FULL       = 0x01
-
-	// Interface modes
-	MODE_GATEWAY      = 0x02
-	MODE_ACCESS_POINT = 0x03
-	MODE_ROAMING      = 0x04
-	MODE_BOUNDARY     = 0x05
-
-	// Interface types
-	TYPE_UDP = 0x01
-	TYPE_TCP = 0x02
-
-	PROPAGATION_RATE = 0.02 // 2% of interface bandwidth
-)
-
 type Interface interface {
 	GetName() string
 	GetType() common.InterfaceType
