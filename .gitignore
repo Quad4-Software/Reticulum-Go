@@ -32,3 +32,6 @@ Thumbs.db       # Windows Explorer thumbnail cache
 test/compat/
 
 node_modules/
+
+# Python Reticulum reference (cloned for crossref tests)
+reticulum-ref/
