@@ -151,12 +151,12 @@ func TestHandshake(t *testing.T) {
 		t.Error("Derived keys do not match")
 	}
 
-	if link1.status != STATUS_HANDSHAKE {
-		t.Errorf("Expected link1 status HANDSHAKE, got %d", link1.status)
+	if byte(link1.status.Load()) != STATUS_HANDSHAKE {
+		t.Errorf("Expected link1 status HANDSHAKE, got %d", link1.status.Load())
 	}
 
-	if link2.status != STATUS_HANDSHAKE {
-		t.Errorf("Expected link2 status HANDSHAKE, got %d", link2.status)
+	if byte(link2.status.Load()) != STATUS_HANDSHAKE {
+		t.Errorf("Expected link2 status HANDSHAKE, got %d", link2.status.Load())
 	}
 }
 
@@ -216,7 +216,7 @@ func TestLinkEstablishment(t *testing.T) {
 
 	initiatorLink.linkID = linkIDFromPacket(linkRequestPkt)
 	initiatorLink.requestTime = time.Now()
-	initiatorLink.status = STATUS_PENDING
+	initiatorLink.status.Store(int32(STATUS_PENDING))
 
 	t.Logf("Initiator link request created, link_id=%x", initiatorLink.linkID)
 
@@ -245,7 +245,7 @@ func TestLinkEstablishment(t *testing.T) {
 		t.Fatalf("Responder handshake failed: %v", err)
 	}
 
-	responderLink.status = STATUS_ACTIVE
+	responderLink.status.Store(int32(STATUS_ACTIVE))
 	responderLink.establishedAt = time.Now()
 
 	if string(responderLink.linkID) != string(initiatorLink.linkID) {
@@ -311,7 +311,7 @@ func TestLinkProofValidation(t *testing.T) {
 
 	initiatorLink.linkID = linkIDFromPacket(linkRequestPkt)
 	initiatorLink.requestTime = time.Now()
-	initiatorLink.status = STATUS_PENDING
+	initiatorLink.status.Store(int32(STATUS_PENDING))
 
 	responderLink.peerPub = linkRequestPkt.Data[0:KEYSIZE]
 	responderLink.peerSigPub = linkRequestPkt.Data[KEYSIZE:ECPUBSIZE]
@@ -344,8 +344,8 @@ func TestLinkProofValidation(t *testing.T) {
 		t.Fatalf("Initiator failed to validate link proof: %v", err)
 	}
 
-	if initiatorLink.status != STATUS_ACTIVE {
-		t.Errorf("Expected initiator status ACTIVE, got %d", initiatorLink.status)
+	if byte(initiatorLink.status.Load()) != STATUS_ACTIVE {
+		t.Errorf("Expected initiator status ACTIVE, got %d", initiatorLink.status.Load())
 	}
 
 	if string(initiatorLink.sharedKey) != string(responderLink.sharedKey) {
