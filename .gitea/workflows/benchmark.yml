@@ -2,9 +2,9 @@ name: Go Benchmarks
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "master", "dev" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "dev" ]
 
 jobs:
   benchmark:
