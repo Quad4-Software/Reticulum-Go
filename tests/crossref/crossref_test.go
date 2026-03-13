@@ -407,7 +407,7 @@ func loadVectors(t *testing.T) *TestVectors {
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("Failed to load test vectors: %v\nRun generate_vectors.py first", err)
+		t.Skipf("Skipping: test_vectors.json not found (run generate_vectors.py or task test-crossref)")
 	}
 
 	var v TestVectors
