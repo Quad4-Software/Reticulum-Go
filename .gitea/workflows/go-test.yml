@@ -3,11 +3,9 @@ name: Go Test Multi-Platform
 on:
   push:
     branches:
-      - main
       - master
   pull_request:
     branches:
-      - main
       - master
 
 permissions:

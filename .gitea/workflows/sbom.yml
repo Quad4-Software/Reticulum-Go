@@ -41,12 +41,12 @@ jobs:
           git config --global user.name "Gitea Action"
           git config --global user.email "actions@noreply.quad4.io"
           git remote set-url origin https://${{ secrets.GITEA_TOKEN }}@git.quad4.io/${{ github.repository }}.git
-          git fetch origin main || git fetch origin master
-          git checkout main || git checkout master
+          git fetch origin master
+          git checkout master
           git add sbom/
           if ! git diff --quiet || ! git diff --staged --quiet; then
             git commit -m "Auto-update SBOM [skip ci]"
-            git push origin main || git push origin master
+            git push origin master
           fi
         env:
           GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}

@@ -3,11 +3,9 @@ name: Cross-Reference Tests (Python)
 on:
   push:
     branches:
-      - main
       - master
   pull_request:
     branches:
-      - main
       - master
   workflow_dispatch:
 
@@ -34,5 +32,12 @@ jobs:
           . .venv/bin/activate
           python -m pip install --quiet pycryptodome
 
+      - name: Generate test vectors
+        run: |
+          . .venv/bin/activate
+          bash tests/crossref/run_crossref.sh generate
+
       - name: Run crossref tests
-        run: bash tests/crossref/run_crossref.sh
+        run: |
+          . .venv/bin/activate
+          bash tests/crossref/run_crossref.sh test

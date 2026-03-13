@@ -3,7 +3,6 @@ name: Go Build Test
 on:
   pull_request:
     branches:
-      - main
       - master
 
 permissions:
