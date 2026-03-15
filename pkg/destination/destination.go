@@ -269,15 +269,14 @@ func (d *Destination) HandleIncomingLinkRequest(pkt interface{}, transport inter
 		return errors.New("no incoming link handler registered")
 	}
 
-	linkIface, err := incomingLinkHandler(pktObj, d, transport, networkIface)
+	_, err := incomingLinkHandler(pktObj, d, transport, networkIface)
 	if err != nil {
 		return fmt.Errorf("failed to handle link request: %w", err)
 	}
 
-	if d.linkCallback != nil && linkIface != nil {
-		debug.Log(debug.DEBUG_INFO, "Calling link established callback")
-		d.linkCallback(linkIface)
-	}
+	// Note: For responders, the link established callback is now handled
+	// within the Link lifecycle (in handleRTTPacket) to ensure the link
+	// is actually active before the application is notified.
 
 	return nil
 }
