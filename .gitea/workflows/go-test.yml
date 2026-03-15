@@ -60,8 +60,11 @@ jobs:
 
       - name: Setup Python environment
         run: |
-          python3 -m pip install --upgrade pip
-          pip3 install rns
+          python3 -m venv .venv
+          . .venv/bin/activate
+          pip install --upgrade pip
+          pip install rns
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> $GITHUB_PATH
 
       - name: Generate test vectors
         run: task test-crossref generate
