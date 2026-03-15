@@ -122,6 +122,18 @@ func (ui *UDPInterface) ProcessOutgoing(data []byte) error {
 	return nil
 }
 
+func (ui *UDPInterface) Send(data []byte, address string) error {
+	debug.Log(debug.DEBUG_VERBOSE, "Interface sending bytes", "name", ui.Name, "bytes", len(data), "address", address)
+
+	if err := ui.ProcessOutgoing(data); err != nil {
+		debug.Log(debug.DEBUG_CRITICAL, "Interface failed to send data", "name", ui.Name, "error", err)
+		return err
+	}
+
+	ui.updateBandwidthStats(uint64(len(data)))
+	return nil
+}
+
 func (ui *UDPInterface) GetConn() net.Conn {
 	return ui.conn
 }
