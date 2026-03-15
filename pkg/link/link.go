@@ -141,6 +141,13 @@ func HandleIncomingLinkRequest(pkt *packet.Packet, dest *destination.Destination
 	l.status.Store(int32(STATUS_PENDING))
 	l.initiator = false // This is a responder link
 
+	// Set the established callback from the destination if it exists
+	if dest.GetLinkCallback() != nil {
+		l.SetEstablishedCallback(func(lnk *Link) {
+			dest.GetLinkCallback()(lnk)
+		})
+	}
+
 	ownerIdentity := dest.GetIdentity()
 	if ownerIdentity == nil {
 		return nil, errors.New("destination has no identity")
@@ -184,6 +191,16 @@ func (l *Link) Establish() error {
 
 	if l.transport != nil {
 		l.transport.RegisterLink(l.linkID, l)
+
+		// If network interface is not set, try to find it from transport paths
+		if l.networkInterface == nil {
+			if ifaceName := l.transport.NextHopInterface(l.destination.GetHash()); ifaceName != "" {
+				if iface, err := l.transport.GetInterface(ifaceName); err == nil {
+					l.networkInterface = iface
+				}
+			}
+		}
+
 		if l.networkInterface != nil {
 			l.transport.UpdatePath(l.linkID, nil, l.networkInterface.GetName(), 0)
 		}
@@ -546,6 +563,12 @@ func (l *Link) Teardown() {
 	}
 }
 
+func (l *Link) SetEstablishedCallback(callback func(*Link)) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	l.establishedCallback = callback
+}
+
 func (l *Link) SetLinkClosedCallback(callback func(*Link)) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
@@ -594,6 +617,10 @@ func (l *Link) SetResourceStrategy(strategy byte) error {
 }
 
 func (l *Link) SendPacket(data []byte) error {
+	return l.SendPacketWithContext(data, packet.ContextNone)
+}
+
+func (l *Link) SendPacketWithContext(data []byte, context byte) error {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -602,7 +629,7 @@ func (l *Link) SendPacket(data []byte) error {
 		return errors.New("link not active")
 	}
 
-	debug.Log(debug.DEBUG_VERBOSE, "Encrypting packet", "bytes", len(data))
+	debug.Log(debug.DEBUG_VERBOSE, "Encrypting packet", "bytes", len(data), "context", fmt.Sprintf("0x%02x", context))
 	encrypted, err := l.encrypt(data)
 	if err != nil {
 		debug.Log(debug.DEBUG_INFO, "Failed to encrypt packet", "error", err)
@@ -613,7 +640,7 @@ func (l *Link) SendPacket(data []byte) error {
 		HeaderType:      packet.HeaderType1,
 		PacketType:      packet.PacketTypeData,
 		TransportType:   common.ZERO,
-		Context:         packet.ContextNone,
+		Context:         context,
 		ContextFlag:     packet.FlagUnset,
 		Hops:            common.ZERO,
 		DestinationType: DEST_TYPE_LINK,
@@ -745,7 +772,7 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 	case packet.ContextResourceRCL:
 		return l.handleResourceReject(pkt)
 	case packet.ContextResource:
-		return l.handleResourcePart(pkt)
+		return l.handleResourcePart(plaintext, pkt)
 	case packet.ContextChannel:
 		return l.handleChannelPacket(pkt)
 	}
@@ -982,9 +1009,9 @@ func (l *Link) handleResourceReject(pkt *packet.Packet) error {
 	return nil
 }
 
-func (l *Link) handleResourcePart(pkt *packet.Packet) error {
+func (l *Link) handleResourcePart(data []byte, pkt *packet.Packet) error {
 	if l.resourceStartedCallback != nil {
-		l.resourceStartedCallback(pkt.Data)
+		l.resourceStartedCallback(data)
 	}
 
 	return nil
@@ -1162,6 +1189,11 @@ func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
 
 		if l.rtt > 0 {
 			l.updateKeepalive()
+		}
+
+		// Ensure transport has a path for the link ID
+		if l.transport != nil && l.networkInterface != nil {
+			l.transport.UpdatePath(l.linkID, nil, l.networkInterface.GetName(), 0)
 		}
 
 		if l.establishedCallback != nil {
@@ -1446,10 +1478,15 @@ func (l *Link) SendResource(res *resource.Resource) error {
 			return fmt.Errorf("error reading resource: %v", err)
 		}
 
-		if err := l.SendPacket(buffer[:n]); err != nil {
+		if err := l.SendPacketWithContext(buffer[:n], packet.ContextResource); err != nil {
 			l.teardownReason = STATUS_FAILED
 			return fmt.Errorf("error sending resource packet: %v", err)
 		}
+	}
+
+	// Send final empty packet to signal completion
+	if err := l.SendPacketWithContext(nil, packet.ContextResource); err != nil {
+		debug.Log(debug.DEBUG_ERROR, "Failed to send resource completion packet", "error", err)
 	}
 
 	return nil
