@@ -718,14 +718,12 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 				Data:            keepaliveResp,
 				CreateReceipt:   false,
 			}
-			if err := keepalivePkt.Pack(); err != nil {
-				return err
-			}
 			encrypted, err := l.encrypt(keepaliveResp)
 			if err != nil {
 				return err
 			}
 			keepalivePkt.Data = encrypted
+			keepalivePkt.Packed = false
 			if err := keepalivePkt.Pack(); err != nil {
 				return err
 			}
