@@ -169,6 +169,18 @@ func (tc *TCPClientInterface) ProcessOutgoing(data []byte) error {
 	return err
 }
 
+func (tc *TCPClientInterface) Send(data []byte, address string) error {
+	debug.Log(debug.DEBUG_VERBOSE, "Interface sending bytes", "name", tc.Name, "bytes", len(data), "address", address)
+
+	if err := tc.ProcessOutgoing(data); err != nil {
+		debug.Log(debug.DEBUG_CRITICAL, "Interface failed to send data", "name", tc.Name, "error", err)
+		return err
+	}
+
+	tc.updateBandwidthStats(uint64(len(data)))
+	return nil
+}
+
 func (tc *TCPClientInterface) readLoop() {
 	buffer := make([]byte, tc.MTU)
 	inFrame := false
@@ -660,5 +672,17 @@ func (ts *TCPServerInterface) ProcessOutgoing(data []byte) error {
 		}
 	}
 
+	return nil
+}
+
+func (ts *TCPServerInterface) Send(data []byte, address string) error {
+	debug.Log(debug.DEBUG_VERBOSE, "Interface sending bytes", "name", ts.Name, "bytes", len(data), "address", address)
+
+	if err := ts.ProcessOutgoing(data); err != nil {
+		debug.Log(debug.DEBUG_CRITICAL, "Interface failed to send data", "name", ts.Name, "error", err)
+		return err
+	}
+
+	ts.updateBandwidthStats(uint64(len(data)))
 	return nil
 }
