@@ -58,6 +58,14 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Setup Python environment
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install rns
+
+      - name: Generate test vectors
+        run: task test-crossref generate
+
       - name: Run tests
         run: task test
 
