@@ -10,7 +10,6 @@ package interfaces
 import (
 	"bufio"
 	"crypto/rand"
-	// bearer:disable go_gosec_blocklist_sha1
 	"crypto/sha1" // #nosec G505
 	"crypto/tls"
 	"encoding/base64"
@@ -678,10 +677,8 @@ func generateWebSocketKey() (string, error) {
 }
 
 func computeAcceptKey(key string) string {
-	// bearer:disable go_gosec_crypto_weak_crypto
 	h := sha1.New() // #nosec G401
 	h.Write([]byte(key))
 	h.Write([]byte(wsGUID))
-	// bearer:disable go_lang_weak_hash_sha1
 	return base64.StdEncoding.EncodeToString(h.Sum(nil))
 }

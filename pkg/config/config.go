@@ -41,7 +41,6 @@ type Config struct {
 }
 
 func LoadConfig(path string) (*Config, error) {
-	// bearer:disable go_gosec_filesystem_filereadtaint
 	file, err := os.Open(path) // #nosec G304
 	if err != nil {
 		return nil, err

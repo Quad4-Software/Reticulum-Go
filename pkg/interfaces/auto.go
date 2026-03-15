@@ -67,7 +67,6 @@ func descopeLinkLocal(addr string) string {
 	}
 
 	// Drop embedded scope specifier (NetBSD, OpenBSD)
-	// Python: re.sub(r"fe80:[0-9a-f]*::","fe80::", link_local_addr)
 	if strings.HasPrefix(addr, "fe80:") {
 		parts := strings.Split(addr, ":")
 		// Check for fe80:[scope]::...
@@ -106,8 +105,6 @@ func NewAutoInterface(name string, config *common.InterfaceConfig) (*AutoInterfa
 
 	groupHash := sha256.Sum256([]byte(groupID))
 
-	// Python-compatible multicast address generation
-	// gt = "0:" + "{:02x}".format(g[3]+(g[2]<<8)) + ":" + ...
 	gt := "0"
 	for i := 1; i <= 6; i++ {
 		gt += fmt.Sprintf(":%02x%02x", groupHash[i*2], groupHash[i*2+1])
@@ -215,7 +212,6 @@ func (ai *AutoInterface) Start() error {
 		}
 
 		ifaceCopy := iface
-		// bearer:disable go_gosec_memory_memory_aliasing
 		if err := ai.configureInterface(&ifaceCopy); err != nil {
 			debug.Log(debug.DEBUG_VERBOSE, "Failed to configure interface", "name", iface.Name, "error", err)
 			continue
@@ -391,7 +387,6 @@ func (ai *AutoInterface) handleDiscovery(conn *net.UDPConn, ifaceName string) {
 			return
 		}
 
-		// Python: discovery_token = RNS.Identity.full_hash(self.group_id+ipv6_src[0].encode("utf-8"))
 		peerIP := descopeLinkLocal(remoteAddr.IP.String())
 		tokenSource := append(ai.groupID, []byte(peerIP)...)
 		expectedHash := sha256.Sum256(tokenSource)
@@ -533,7 +528,6 @@ func (ai *AutoInterface) sendPeerAnnounce() {
 			}
 		}
 
-		// Python: discovery_token = RNS.Identity.full_hash(self.group_id+link_local_address.encode("utf-8"))
 		tokenSource := append(ai.groupID, []byte(adoptedIface.linkLocalAddr)...)
 		token := sha256.Sum256(tokenSource)
 

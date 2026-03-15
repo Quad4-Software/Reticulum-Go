@@ -222,7 +222,6 @@ func compressData(data []byte) []byte {
 	var compressed bytes.Buffer
 	w := bytes.NewBuffer(data)
 	r := bzip2.NewReader(w)
-	// bearer:disable go_gosec_filesystem_decompression_bomb
 	_, err := io.Copy(&compressed, r) // #nosec G104 #nosec G110
 	if err != nil {
 		// Handle error, e.g., log it or return an error
@@ -236,7 +235,6 @@ func decompressData(data []byte) []byte {
 	var decompressed bytes.Buffer
 	// Limit the amount of data read to prevent decompression bombs
 	limitedReader := io.LimitReader(reader, MaxChunkLen) // #nosec G110
-	// bearer:disable go_gosec_filesystem_decompression_bomb
 	_, err := io.Copy(&decompressed, limitedReader)
 	if err != nil {
 		// Handle error, e.g., log it or return an error

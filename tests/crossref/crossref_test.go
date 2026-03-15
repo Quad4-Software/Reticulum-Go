@@ -1044,7 +1044,6 @@ func TestAESCrossImpl(t *testing.T) {
 			expectedCT := mustHex(t, vec.CiphertextHex)
 			expectedPlaintext := mustHex(t, vec.PlaintextHex)
 
-			// Decrypt the Python-generated ciphertext with known IV
 			ivPlusCT := append(iv, expectedCT...)
 			plaintext, err := cryptography.DecryptAES256CBC(key, ivPlusCT)
 			if err != nil {
@@ -1406,7 +1405,6 @@ func TestResourceAdvertisementCrossImpl(t *testing.T) {
 				t.Errorf("HasMetadata flag: got %v, want %v", hasMetadata, vec.HasMetadata)
 			}
 
-			// Go Pack -> Unpack roundtrip using Python's field values
 			adv := &resource.ResourceAdvertisement{
 				TransferSize:  vec.TransferSize,
 				DataSize:      vec.DataSize,
