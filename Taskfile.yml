@@ -139,7 +139,7 @@ tasks:
   test-crossref:
     desc: Regenerate vectors from Python Reticulum and run crossref tests
     cmds:
-      - bash tests/crossref/run_crossref.sh
+      - bash tests/crossref/run_crossref.sh {{.CLI_ARGS}}
 
   test-short:
     desc: Run short tests
