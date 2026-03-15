@@ -1,6 +1,7 @@
 package interfaces
 
 import (
+	"net"
 	"testing"
 	"time"
 
@@ -66,10 +67,19 @@ func TestNewWebSocketInterface(t *testing.T) {
 	}
 }
 
+func checkNetwork(t *testing.T) {
+	conn, err := net.DialTimeout("tcp", "socket.quad4.io:443", 1*time.Second)
+	if err != nil {
+		t.Skip("Skipping network test: socket.quad4.io unreachable")
+	}
+	conn.Close()
+}
+
 func TestWebSocketConnection(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping network test in short mode")
 	}
+	checkNetwork(t)
 
 	ws, err := NewWebSocketInterface("test", "wss://socket.quad4.io/ws", true)
 	if err != nil {
@@ -114,6 +124,7 @@ func TestWebSocketReconnection(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping network test in short mode")
 	}
+	checkNetwork(t)
 
 	ws, err := NewWebSocketInterface("test", "wss://socket.quad4.io/ws", true)
 	if err != nil {
@@ -152,6 +163,7 @@ func TestWebSocketReconnection(t *testing.T) {
 }
 
 func TestWebSocketMessageQueue(t *testing.T) {
+	checkNetwork(t)
 	ws, err := NewWebSocketInterface("test", "wss://socket.quad4.io/ws", true)
 	if err != nil {
 		t.Fatalf("Failed to create WebSocket interface: %v", err)
@@ -199,6 +211,7 @@ func TestWebSocketFrameEncoding(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping frame encoding test in short mode")
 	}
+	checkNetwork(t)
 
 	ws, err := NewWebSocketInterface("test", "wss://socket.quad4.io/ws", true)
 	if err != nil {
