@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,10 +37,10 @@ type RequestHandler struct {
 type Transport interface {
 	GetConfig() *common.ReticulumConfig
 	GetInterfaces() map[string]common.NetworkInterface
-	RegisterDestination(hash []byte, dest interface{})
+	RegisterDestination(hash []byte, dest any)
 }
 
-type IncomingLinkHandler func(pkt *packet.Packet, dest *Destination, transport interface{}, networkIface common.NetworkInterface) (interface{}, error)
+type IncomingLinkHandler func(pkt *packet.Packet, dest *Destination, transport any, networkIface common.NetworkInterface) (any, error)
 
 var incomingLinkHandler IncomingLinkHandler
 
@@ -174,11 +175,12 @@ func (d *Destination) calculateHash() []byte {
 }
 
 func (d *Destination) ExpandName() string {
-	name := d.appName
+	var name strings.Builder
+	name.WriteString(d.appName)
 	for _, aspect := range d.aspects {
-		name += "." + aspect
+		name.WriteString("." + aspect)
 	}
-	return name
+	return name.String()
 }
 
 func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface common.NetworkInterface) error {
@@ -257,7 +259,7 @@ func (d *Destination) GetLinkCallback() common.LinkEstablishedCallback {
 	return d.linkCallback
 }
 
-func (d *Destination) HandleIncomingLinkRequest(pkt interface{}, transport interface{}, networkIface common.NetworkInterface) error {
+func (d *Destination) HandleIncomingLinkRequest(pkt any, transport any, networkIface common.NetworkInterface) error {
 	debug.Log(debug.DEBUG_INFO, "Handling incoming link request for destination", "hash", fmt.Sprintf("%x", d.GetHash()))
 
 	pktObj, ok := pkt.(*packet.Packet)
@@ -433,14 +435,14 @@ func (d *Destination) DeregisterRequestHandler(path string) bool {
 	return false
 }
 
-func (d *Destination) GetRequestHandler(pathHash []byte) func([]byte, []byte, []byte, []byte, *identity.Identity, time.Time) interface{} {
+func (d *Destination) GetRequestHandler(pathHash []byte) func([]byte, []byte, []byte, []byte, *identity.Identity, time.Time) any {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
 	for _, handler := range d.requestHandlers {
 		handlerPathHash := identity.TruncatedHash([]byte(handler.Path))
 		if string(handlerPathHash) == string(pathHash) {
-			return func(pathHash []byte, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt time.Time) interface{} {
+			return func(pathHash []byte, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt time.Time) any {
 				allowed := false
 				if handler.AllowMode == ALLOW_ALL {
 					allowed = true

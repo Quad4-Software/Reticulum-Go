@@ -18,7 +18,7 @@ func TestTransportLeak(t *testing.T) {
 	cfg := &common.ReticulumConfig{}
 
 	// Create and close many transport instances
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		tr := NewTransport(cfg)
 		// Give it a tiny bit of time to start the goroutine
 		time.Sleep(1 * time.Millisecond)

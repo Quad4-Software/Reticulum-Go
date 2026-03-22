@@ -219,7 +219,7 @@ func (tc *TCPClientInterface) readLoop() {
 			return
 		}
 
-		for i := 0; i < n; i++ {
+		for i := range n {
 			b := buffer[i]
 
 			if b == HDLC_FLAG {

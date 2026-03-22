@@ -25,7 +25,7 @@ type Packet struct {
 
 	DestinationType byte
 	DestinationHash []byte
-	Destination     interface{}
+	Destination     any
 	TransportID     []byte
 	Data            []byte
 
@@ -44,7 +44,7 @@ type Packet struct {
 	Q    *float64
 
 	Addresses []byte
-	Link      interface{}
+	Link      any
 
 	receipt *PacketReceipt
 }

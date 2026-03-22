@@ -33,7 +33,7 @@ import (
 )
 
 func init() {
-	destination.RegisterIncomingLinkHandler(func(pkt *packet.Packet, dest *destination.Destination, trans interface{}, networkIface common.NetworkInterface) (interface{}, error) {
+	destination.RegisterIncomingLinkHandler(func(pkt *packet.Packet, dest *destination.Destination, trans any, networkIface common.NetworkInterface) (any, error) {
 		transportObj, ok := trans.(*transport.Transport)
 		if !ok {
 			return nil, errors.New("invalid transport type")
@@ -73,9 +73,9 @@ type Link struct {
 	rssi                      float64
 	snr                       float64
 	q                         float64
-	resourceCallback          func(interface{}) bool
-	resourceStartedCallback   func(interface{})
-	resourceConcludedCallback func(interface{})
+	resourceCallback          func(any) bool
+	resourceStartedCallback   func(any)
+	resourceConcludedCallback func(any)
 	resourceStrategy          byte
 	proofStrategy             byte
 	proofCallback             func(*packet.Packet) bool
@@ -292,7 +292,7 @@ func (l *Link) Request(path string, data []byte, timeout time.Duration) (*Reques
 	}
 
 	pathHash := identity.TruncatedHash([]byte(path))
-	requestData := []interface{}{time.Now().Unix(), pathHash, data}
+	requestData := []any{time.Now().Unix(), pathHash, data}
 	packedRequest, err := msgpack.Marshal(requestData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to pack request: %w", err)
@@ -581,19 +581,19 @@ func (l *Link) SetPacketCallback(callback func([]byte, *packet.Packet)) {
 	l.packetCallback = callback
 }
 
-func (l *Link) SetResourceCallback(callback func(interface{}) bool) {
+func (l *Link) SetResourceCallback(callback func(any) bool) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 	l.resourceCallback = callback
 }
 
-func (l *Link) SetResourceStartedCallback(callback func(interface{})) {
+func (l *Link) SetResourceStartedCallback(callback func(any)) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 	l.resourceStartedCallback = callback
 }
 
-func (l *Link) SetResourceConcludedCallback(callback func(interface{})) {
+func (l *Link) SetResourceConcludedCallback(callback func(any)) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 	l.resourceConcludedCallback = callback
@@ -903,7 +903,7 @@ func (l *Link) rejectResource(resourceHash []byte) error {
 	return l.transport.SendPacket(rejectPkt)
 }
 
-func (l *Link) sendResourceResponse(requestID []byte, response interface{}) error {
+func (l *Link) sendResourceResponse(requestID []byte, response any) error {
 	resData, ok := response.([]byte)
 	if !ok {
 		return errors.New("response must be []byte")
@@ -1022,7 +1022,7 @@ func (l *Link) handleRequest(plaintext []byte, pkt *packet.Packet) error {
 		return errors.New("no destination for request handling")
 	}
 
-	var requestData []interface{}
+	var requestData []any
 	if err := msgpack.Unmarshal(plaintext, &requestData); err != nil {
 		return fmt.Errorf("failed to unpack request: %w", err)
 	}
@@ -1082,7 +1082,7 @@ func (l *Link) handleRequest(plaintext []byte, pkt *packet.Packet) error {
 }
 
 func (l *Link) handleResponse(plaintext []byte) error {
-	var responseData []interface{}
+	var responseData []any
 	if err := msgpack.Unmarshal(plaintext, &responseData); err != nil {
 		return fmt.Errorf("failed to unpack response: %w", err)
 	}
@@ -1116,8 +1116,8 @@ func (l *Link) handleResponse(plaintext []byte) error {
 	return nil
 }
 
-func (l *Link) sendResponse(requestID []byte, response interface{}) error {
-	responseData := []interface{}{requestID, response}
+func (l *Link) sendResponse(requestID []byte, response any) error {
+	responseData := []any{requestID, response}
 	packedResponse, err := msgpack.Marshal(responseData)
 	if err != nil {
 		return fmt.Errorf("failed to pack response: %w", err)
@@ -1386,7 +1386,7 @@ func (l *Link) GetStatus() byte {
 	return byte(l.status.Load())
 }
 
-func (l *Link) Send(data []byte) interface{} {
+func (l *Link) Send(data []byte) any {
 	pkt := &packet.Packet{
 		HeaderType:      packet.HeaderType1,
 		PacketType:      packet.PacketTypeData,
@@ -1418,7 +1418,7 @@ func (l *Link) Send(data []byte) interface{} {
 	return pkt
 }
 
-func (l *Link) SetPacketTimeout(pkt interface{}, callback func(interface{}), timeout time.Duration) {
+func (l *Link) SetPacketTimeout(pkt any, callback func(any), timeout time.Duration) {
 	if packetObj, ok := pkt.(*packet.Packet); ok {
 		go func() {
 			time.Sleep(timeout)
@@ -1429,13 +1429,13 @@ func (l *Link) SetPacketTimeout(pkt interface{}, callback func(interface{}), tim
 	}
 }
 
-func (l *Link) SetPacketDelivered(pkt interface{}, callback func(interface{})) {
+func (l *Link) SetPacketDelivered(pkt any, callback func(any)) {
 	if callback != nil {
 		go callback(pkt)
 	}
 }
 
-func (l *Link) Resend(pkt interface{}) error {
+func (l *Link) Resend(pkt any) error {
 	packetObj, ok := pkt.(*packet.Packet)
 	if !ok {
 		return errors.New("invalid packet type")
@@ -2132,10 +2132,7 @@ func (l *Link) ValidateLinkProof(pkt *packet.Packet, networkIface common.Network
 	signedData = append(signedData, l.peerSigPub...)
 	signedData = append(signedData, signalling...)
 
-	first32Len := 32
-	if len(signedData) < 32 {
-		first32Len = len(signedData)
-	}
+	first32Len := min(len(signedData), 32)
 	debug.Log(debug.DEBUG_INFO, "Constructed signed data for validation", "link_id", fmt.Sprintf("%x", l.linkID[:8]), "peer_pub", fmt.Sprintf("%x", peerPub[:8]), "peer_sig_pub", fmt.Sprintf("%x", l.peerSigPub[:8]), "signalling", fmt.Sprintf("%x", signalling), "signed_data_len", len(signedData), "signed_data_first32", fmt.Sprintf("%x", signedData[:first32Len]))
 
 	if l.destination == nil || l.destination.GetIdentity() == nil {

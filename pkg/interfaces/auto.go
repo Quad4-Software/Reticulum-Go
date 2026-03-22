@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"net"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -105,11 +106,12 @@ func NewAutoInterface(name string, config *common.InterfaceConfig) (*AutoInterfa
 
 	groupHash := sha256.Sum256([]byte(groupID))
 
-	gt := "0"
+	var gt strings.Builder
+	gt.WriteString("0")
 	for i := 1; i <= 6; i++ {
-		gt += fmt.Sprintf(":%02x%02x", groupHash[i*2], groupHash[i*2+1])
+		gt.WriteString(fmt.Sprintf(":%02x%02x", groupHash[i*2], groupHash[i*2+1]))
 	}
-	mcastAddr := fmt.Sprintf("ff%s%s:%s", multicastAddrType, discoveryScope, gt)
+	mcastAddr := fmt.Sprintf("ff%s%s:%s", multicastAddrType, discoveryScope, gt.String())
 
 	ai := &AutoInterface{
 		BaseInterface: BaseInterface{
@@ -236,28 +238,15 @@ func (ai *AutoInterface) Start() error {
 func (ai *AutoInterface) shouldIgnoreInterface(name string) bool {
 	ignoreList := []string{"lo", "lo0", "tun0", "awdl0", "llw0", "en5", "dummy0"}
 
-	for _, ignored := range ai.ignoredInterfaces {
-		if name == ignored {
-			return true
-		}
+	if slices.Contains(ai.ignoredInterfaces, name) {
+		return true
 	}
 
-	for _, ignored := range ignoreList {
-		if name == ignored {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(ignoreList, name)
 }
 
 func (ai *AutoInterface) isAllowedInterface(name string) bool {
-	for _, allowed := range ai.allowedInterfaces {
-		if name == allowed {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(ai.allowedInterfaces, name)
 }
 
 func (ai *AutoInterface) configureInterface(iface *net.Interface) error {
@@ -468,12 +457,10 @@ func (ai *AutoInterface) handlePeerAnnounce(addr *net.UDPAddr, ifaceName string)
 
 	peerIP := addr.IP.String()
 
-	for _, localAddr := range ai.linkLocalAddrs {
-		if peerIP == localAddr {
-			ai.multicastEchoes[ifaceName] = time.Now()
-			debug.Log(debug.DEBUG_TRACE, "Received own multicast echo", "interface", ifaceName)
-			return
-		}
+	if slices.Contains(ai.linkLocalAddrs, peerIP) {
+		ai.multicastEchoes[ifaceName] = time.Now()
+		debug.Log(debug.DEBUG_TRACE, "Received own multicast echo", "interface", ifaceName)
+		return
 	}
 
 	peerKey := peerIP + "%" + ifaceName

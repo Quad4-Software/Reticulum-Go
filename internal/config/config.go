@@ -50,7 +50,7 @@ func EnsureConfigDir() error {
 }
 
 // parseValue parses string values into appropriate types
-func parseValue(value string) interface{} {
+func parseValue(value string) any {
 	value = strings.TrimSpace(value)
 
 	// Try bool

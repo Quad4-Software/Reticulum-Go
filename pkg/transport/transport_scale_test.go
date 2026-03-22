@@ -25,7 +25,7 @@ func BenchmarkRoutingTableScale(b *testing.B) {
 
 			// Pre-fill routing table
 			hashes := make([][]byte, size)
-			for i := 0; i < size; i++ {
+			for i := range size {
 				h := make([]byte, 16)
 				_, _ = rand.Read(h)
 				hashes[i] = h

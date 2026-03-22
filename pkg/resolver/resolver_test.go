@@ -99,7 +99,7 @@ func TestResolver_ResolveIdentity_Concurrent(t *testing.T) {
 	r := New()
 
 	done := make(chan bool, 10)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		go func() {
 			id, err := r.ResolveIdentity("app.aspect")
 			if err != nil {
@@ -112,7 +112,7 @@ func TestResolver_ResolveIdentity_Concurrent(t *testing.T) {
 		}()
 	}
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		<-done
 	}
 }

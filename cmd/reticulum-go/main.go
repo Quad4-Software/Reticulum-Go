@@ -349,7 +349,7 @@ func (tw *transportWrapper) GetStatus() byte {
 	return transport.STATUS_ACTIVE
 }
 
-func (tw *transportWrapper) Send(data []byte) interface{} {
+func (tw *transportWrapper) Send(data []byte) any {
 	p := &packet.Packet{
 		PacketType: packet.PacketTypeData,
 		Hops:       0,
@@ -364,20 +364,20 @@ func (tw *transportWrapper) Send(data []byte) interface{} {
 	return p
 }
 
-func (tw *transportWrapper) Resend(p interface{}) error {
+func (tw *transportWrapper) Resend(p any) error {
 	if pkt, ok := p.(*packet.Packet); ok {
 		return tw.Transport.SendPacket(pkt)
 	}
 	return fmt.Errorf("invalid packet type")
 }
 
-func (tw *transportWrapper) SetPacketTimeout(packet interface{}, callback func(interface{}), timeout time.Duration) {
+func (tw *transportWrapper) SetPacketTimeout(packet any, callback func(any), timeout time.Duration) {
 	time.AfterFunc(timeout, func() {
 		callback(packet)
 	})
 }
 
-func (tw *transportWrapper) SetPacketDelivered(packet interface{}, callback func(interface{})) {
+func (tw *transportWrapper) SetPacketDelivered(packet any, callback func(any)) {
 	callback(packet)
 }
 
@@ -528,7 +528,7 @@ func (h *AnnounceHandler) AspectFilter() []string {
 	return h.aspectFilter
 }
 
-func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id interface{}, appData []byte, hops uint8) error {
+func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id any, appData []byte, hops uint8) error {
 	debug.Log(debug.DEBUG_INFO, "Received announce", "hash", fmt.Sprintf("%x", destHash), "hops", hops)
 	debug.Log(debug.DEBUG_PACKETS, "Raw announce data", "data", fmt.Sprintf("%x", appData))
 	debug.Log(debug.DEBUG_INFO, "MAIN HANDLER: Received announce", "hash", fmt.Sprintf("%x", destHash), "appData_len", len(appData), "hops", hops)

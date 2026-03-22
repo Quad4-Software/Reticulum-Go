@@ -16,15 +16,15 @@ type scaleMockLink struct {
 	status byte
 }
 
-func (m *scaleMockLink) GetStatus() byte                                                       { return m.status }
-func (m *scaleMockLink) GetRTT() float64                                                       { return 0.1 }
-func (m *scaleMockLink) RTT() float64                                                          { return 0.1 }
-func (m *scaleMockLink) GetLinkID() []byte                                                     { return []byte("mocklink") }
-func (m *scaleMockLink) Send(data []byte) interface{}                                          { return "packet" }
-func (m *scaleMockLink) Resend(p interface{}) error                                            { return nil }
-func (m *scaleMockLink) SetPacketTimeout(p interface{}, cb func(interface{}), t time.Duration) {}
-func (m *scaleMockLink) SetPacketDelivered(p interface{}, cb func(interface{}))                {}
-func (m *scaleMockLink) HandleInbound(pkt *packet.Packet) error                                { return nil }
+func (m *scaleMockLink) GetStatus() byte                                       { return m.status }
+func (m *scaleMockLink) GetRTT() float64                                       { return 0.1 }
+func (m *scaleMockLink) RTT() float64                                          { return 0.1 }
+func (m *scaleMockLink) GetLinkID() []byte                                     { return []byte("mocklink") }
+func (m *scaleMockLink) Send(data []byte) any                                  { return "packet" }
+func (m *scaleMockLink) Resend(p any) error                                    { return nil }
+func (m *scaleMockLink) SetPacketTimeout(p any, cb func(any), t time.Duration) {}
+func (m *scaleMockLink) SetPacketDelivered(p any, cb func(any))                {}
+func (m *scaleMockLink) HandleInbound(pkt *packet.Packet) error                { return nil }
 func (m *scaleMockLink) ValidateLinkProof(pkt *packet.Packet, iface common.NetworkInterface) error {
 	return nil
 }
@@ -37,7 +37,7 @@ func BenchmarkChannelScale(b *testing.B) {
 			link := &scaleMockLink{status: transport.STATUS_ACTIVE}
 			ch := NewChannel(link)
 
-			for i := 0; i < size; i++ {
+			for range size {
 				ch.AddMessageHandler(func(m MessageBase) bool {
 					return false // continue to next handler
 				})

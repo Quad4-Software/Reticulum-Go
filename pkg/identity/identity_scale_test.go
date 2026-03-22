@@ -16,11 +16,11 @@ func BenchmarkKnownDestinationsScale(b *testing.B) {
 		b.Run(fmt.Sprintf("Size-%d", size), func(b *testing.B) {
 			// Clear map for each run
 			knownDestinationsLock.Lock()
-			knownDestinations = make(map[string][]interface{})
+			knownDestinations = make(map[string][]any)
 			knownDestinationsLock.Unlock()
 
 			// Fill cache
-			for i := 0; i < size; i++ {
+			for range size {
 				h := make([]byte, 16)
 				_, _ = rand.Read(h)
 				Remember([]byte("packet"), h, make([]byte, 64), []byte("appdata"))
@@ -32,7 +32,7 @@ func BenchmarkKnownDestinationsScale(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				h := make([]byte, 16)
 				// We use a small subset of the size for lookups to test hit performance
-				for j := 0; j < 16; j++ {
+				for j := range 16 {
 					h[j] = byte((i % size) >> (j * 8))
 				}
 				_, _ = Recall(h)
@@ -53,9 +53,9 @@ func TestIdentityMemoryScale(t *testing.T) {
 	size := 100000
 	t.Logf("Filling knownDestinations with %d entries...", size)
 
-	for i := 0; i < size; i++ {
+	for i := range size {
 		h := make([]byte, 16)
-		for j := 0; j < 16; j++ {
+		for j := range 16 {
 			h[j] = byte(i >> (j * 8))
 		}
 		Remember([]byte("p"), h, make([]byte, 64), []byte("a"))

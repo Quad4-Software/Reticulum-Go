@@ -49,7 +49,7 @@ type Envelope struct {
 	Sequence  uint16
 	Message   MessageBase
 	Raw       []byte
-	Packet    interface{}
+	Packet    any
 	Tries     int
 	Timestamp time.Time
 }
@@ -102,7 +102,7 @@ func (c *Channel) Send(msg MessageBase) error {
 }
 
 // handleTimeout handles packet timeout events
-func (c *Channel) handleTimeout(packet interface{}) {
+func (c *Channel) handleTimeout(packet any) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -129,7 +129,7 @@ func (c *Channel) handleTimeout(packet interface{}) {
 }
 
 // handleDelivered handles packet delivery confirmations
-func (c *Channel) handleDelivered(packet interface{}) {
+func (c *Channel) handleDelivered(packet any) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 

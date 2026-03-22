@@ -187,7 +187,7 @@ func TestWebSocketMessageQueue(t *testing.T) {
 	}
 
 	// Wait for interface to be online (up to 10 seconds)
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if ws.IsOnline() {
 			break
 		}

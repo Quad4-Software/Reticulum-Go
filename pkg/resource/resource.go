@@ -50,7 +50,7 @@ type Resource struct {
 	parts              [][]byte
 }
 
-func New(data interface{}, autoCompress bool) (*Resource, error) {
+func New(data any, autoCompress bool) (*Resource, error) {
 	r := &Resource{
 		status:         STATUS_PENDING,
 		compressed:     false,
@@ -293,10 +293,7 @@ func (r *Resource) SetFailed() {
 // Helper functions for compression estimation
 func estimateCompressibility(data []byte) float64 {
 	// Sample the data to estimate compressibility
-	sampleSize := 4096
-	if len(data) < sampleSize {
-		sampleSize = len(data)
-	}
+	sampleSize := min(len(data), 4096)
 
 	// Count unique bytes in sample
 	uniqueBytes := make(map[byte]struct{})

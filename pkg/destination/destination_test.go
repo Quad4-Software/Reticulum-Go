@@ -23,7 +23,7 @@ func (m *mockTransport) GetInterfaces() map[string]common.NetworkInterface {
 	return m.interfaces
 }
 
-func (m *mockTransport) RegisterDestination(hash []byte, dest interface{}) {
+func (m *mockTransport) RegisterDestination(hash []byte, dest any) {
 }
 
 type mockInterface struct {

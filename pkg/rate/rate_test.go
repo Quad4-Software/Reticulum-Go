@@ -19,7 +19,7 @@ func TestLimiter_Allow(t *testing.T) {
 		t.Error("Allow() should return true initially")
 	}
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		limiter.Allow()
 	}
 
@@ -103,7 +103,7 @@ func TestIngressControl_ProcessAnnounce(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	for i := 0; i < 200; i++ {
+	for range 200 {
 		ic.ProcessAnnounce(hash, data, false)
 	}
 
@@ -133,7 +133,7 @@ func TestIngressControl_ReleaseHeldAnnounce(t *testing.T) {
 	}
 
 	ic.ProcessAnnounce("hash1", []byte("data1"), false)
-	for i := 0; i < 200; i++ {
+	for range 200 {
 		ic.ProcessAnnounce("hash1", []byte("data1"), false)
 	}
 

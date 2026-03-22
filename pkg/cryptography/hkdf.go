@@ -36,7 +36,7 @@ func DeriveKey(secret, salt, info []byte, length int) ([]byte, error) {
 	derived := []byte{}
 
 	iterations := int(math.Ceil(float64(length) / float64(hashLen)))
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		h := hmac.New(sha256.New, prk)
 		h.Write(block)
 		h.Write(info)

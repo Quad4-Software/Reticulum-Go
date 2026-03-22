@@ -55,7 +55,7 @@ func GetLogger() *slog.Logger {
 	return logger
 }
 
-func Log(level int, msg string, args ...interface{}) {
+func Log(level int, msg string, args ...any) {
 	if !initialized {
 		Init()
 	}
@@ -88,7 +88,7 @@ func Log(level int, msg string, args ...interface{}) {
 		return
 	}
 
-	allArgs := make([]interface{}, len(args)+2)
+	allArgs := make([]any, len(args)+2)
 	copy(allArgs, args)
 	allArgs[len(args)] = "debug_level"
 	allArgs[len(args)+1] = level

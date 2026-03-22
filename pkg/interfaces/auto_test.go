@@ -2,6 +2,7 @@ package interfaces
 
 import (
 	"net"
+	"slices"
 	"testing"
 	"time"
 
@@ -106,11 +107,9 @@ func (m *mockAutoInterface) Stop() error {
 func (m *mockAutoInterface) mockHandlePeerAnnounce(addr *net.UDPAddr, ifaceName string) {
 	peerAddr := addr.IP.String() + "%" + addr.Zone
 
-	for _, localAddr := range m.linkLocalAddrs {
-		if peerAddr == localAddr {
-			m.multicastEchoes[ifaceName] = time.Now()
-			return
-		}
+	if slices.Contains(m.linkLocalAddrs, peerAddr) {
+		m.multicastEchoes[ifaceName] = time.Now()
+		return
 	}
 
 	if _, exists := m.peers[peerAddr]; !exists {

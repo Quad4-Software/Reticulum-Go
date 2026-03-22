@@ -40,7 +40,7 @@ type Identity struct {
 }
 
 var (
-	knownDestinations     = make(map[string][]interface{})
+	knownDestinations     = make(map[string][]any)
 	knownDestinationsLock sync.RWMutex
 	knownRatchets         = make(map[string][]byte)
 	ratchetPersistLock    sync.Mutex
@@ -175,7 +175,7 @@ func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) 
 	// Store destination data as [packet, destHash, identity, appData]
 	id := FromPublicKey(publicKey)
 	knownDestinationsLock.Lock()
-	knownDestinations[hashStr] = []interface{}{
+	knownDestinations[hashStr] = []any{
 		packet,
 		destHash,
 		id,
@@ -844,7 +844,7 @@ func (i *Identity) GetRatchetID(ratchetPubBytes []byte) []byte {
 	return hash[:NAME_HASH_LENGTH/8]
 }
 
-func GetKnownDestination(hash string) ([]interface{}, bool) {
+func GetKnownDestination(hash string) ([]any, bool) {
 	knownDestinationsLock.RLock()
 	data, exists := knownDestinations[hash]
 	knownDestinationsLock.RUnlock()

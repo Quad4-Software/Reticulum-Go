@@ -20,7 +20,7 @@ func (m *mockTransport) SendPacket(pkt *packet.Packet) error {
 	return nil
 }
 
-func (m *mockTransport) RegisterLink(linkID []byte, link interface{}) {
+func (m *mockTransport) RegisterLink(linkID []byte, link any) {
 }
 
 func (m *mockTransport) GetConfig() *common.ReticulumConfig {
@@ -31,7 +31,7 @@ func (m *mockTransport) GetInterfaces() map[string]common.NetworkInterface {
 	return make(map[string]common.NetworkInterface)
 }
 
-func (m *mockTransport) RegisterDestination(hash []byte, dest interface{}) {
+func (m *mockTransport) RegisterDestination(hash []byte, dest any) {
 }
 
 type mockInterface struct {
@@ -94,7 +94,7 @@ func (m *mockInterface) GetPacketCallback() func([]byte, common.NetworkInterface
 	return nil
 }
 
-func (m *mockInterface) GetConn() interface{} {
+func (m *mockInterface) GetConn() any {
 	return nil
 }
 

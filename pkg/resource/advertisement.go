@@ -91,14 +91,11 @@ func NewResourceAdvertisement(res *Resource) *ResourceAdvertisement {
 func (ra *ResourceAdvertisement) Pack(segment int) ([]byte, error) {
 	hashmapMaxLen := getHashmapMaxLen()
 	hashmapStart := segment * hashmapMaxLen
-	hashmapEnd := hashmapStart + hashmapMaxLen
-	if hashmapEnd > len(ra.Hashmap)/MAPHASH_LEN {
-		hashmapEnd = len(ra.Hashmap) / MAPHASH_LEN
-	}
+	hashmapEnd := min(hashmapStart+hashmapMaxLen, len(ra.Hashmap)/MAPHASH_LEN)
 
 	hashmap := ra.Hashmap[hashmapStart*MAPHASH_LEN : hashmapEnd*MAPHASH_LEN]
 
-	dict := map[string]interface{}{
+	dict := map[string]any{
 		"t": ra.TransferSize,
 		"d": ra.DataSize,
 		"n": ra.Parts,
@@ -116,7 +113,7 @@ func (ra *ResourceAdvertisement) Pack(segment int) ([]byte, error) {
 }
 
 func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
-	var dict map[string]interface{}
+	var dict map[string]any
 	if err := msgpack.Unmarshal(data, &dict); err != nil {
 		return nil, fmt.Errorf("failed to unpack advertisement: %w", err)
 	}

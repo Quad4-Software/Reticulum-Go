@@ -45,7 +45,7 @@ func TestResponderCallbackTiming(t *testing.T) {
 	var callbackTriggered atomic.Bool
 	var linkStatusAtCallback atomic.Int32
 
-	destA.SetLinkEstablishedCallback(func(l interface{}) {
+	destA.SetLinkEstablishedCallback(func(l any) {
 		lnk, ok := l.(*Link)
 		if ok {
 			linkStatusAtCallback.Store(lnk.status.Load())

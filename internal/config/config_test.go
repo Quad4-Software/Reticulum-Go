@@ -24,7 +24,7 @@ func TestDefaultConfig(t *testing.T) {
 func TestParseValue(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected interface{}
+		expected any
 	}{
 		{"true", true},
 		{"false", false},

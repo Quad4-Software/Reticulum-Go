@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"reflect"
 	"sync"
@@ -40,7 +41,7 @@ type Transport struct {
 	config                *common.ReticulumConfig
 	interfaces            map[string]common.NetworkInterface
 	links                 map[string]LinkInterface
-	destinations          map[string]interface{}
+	destinations          map[string]any
 	announceRate          *rate.Limiter
 	seenAnnounces         map[string]bool
 	pathfinder            *pathfinder.PathFinder
@@ -55,7 +56,7 @@ type Transport struct {
 	announceTable         map[string]*PathAnnounceEntry
 	heldAnnounces         map[string]*PathAnnounceEntry
 	transportIdentity     *identity.Identity
-	pathRequestDest       interface{}
+	pathRequestDest       any
 	done                  chan struct{}
 	stopOnce              sync.Once
 }
@@ -93,7 +94,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		mutex:                 sync.RWMutex{},
 		config:                cfg,
 		links:                 make(map[string]LinkInterface),
-		destinations:          make(map[string]interface{}),
+		destinations:          make(map[string]any),
 		pathfinder:            pathfinder.NewPathFinder(),
 		receipts:              make([]*packet.PacketReceipt, common.ZERO),
 		receiptsMutex:         sync.RWMutex{},
@@ -224,7 +225,7 @@ func (t *Transport) PathIsUnresponsive(destHash []byte) bool {
 }
 
 // RegisterDestination registers a destination to receive incoming link requests
-func (t *Transport) RegisterDestination(hash []byte, dest interface{}) {
+func (t *Transport) RegisterDestination(hash []byte, dest any) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	t.destinations[string(hash)] = dest
@@ -233,7 +234,7 @@ func (t *Transport) RegisterDestination(hash []byte, dest interface{}) {
 
 // CreateIncomingLink creates a link object for an incoming link request
 // This avoids circular import issues by having transport create the link
-func (t *Transport) CreateIncomingLink(dest interface{}, networkIface common.NetworkInterface) interface{} {
+func (t *Transport) CreateIncomingLink(dest any, networkIface common.NetworkInterface) any {
 	// This function signature uses interface{} to avoid importing link package
 	// The actual implementation will be in the application code
 	// For now, return nil to indicate links aren't fully implemented
@@ -308,10 +309,10 @@ type Link struct {
 	establishedCb       func()
 	closedCb            func()
 	packetCb            func([]byte, *packet.Packet)
-	resourceCb          func(interface{}) bool
+	resourceCb          func(any) bool
 	resourceStrategy    int
-	resourceStartedCb   func(interface{})
-	resourceConcludedCb func(interface{})
+	resourceStartedCb   func(any)
+	resourceConcludedCb func(any)
 	remoteIdentifiedCb  func(*Link, []byte)
 	connectedCb         func()
 	disconnectedCb      func()
@@ -323,7 +324,7 @@ type Link struct {
 }
 
 type Destination struct {
-	Identity  interface{}
+	Identity  any
 	Direction int
 	Type      int
 	AppName   string
@@ -374,7 +375,7 @@ func (l *Link) SetPacketCallback(cb func([]byte, *packet.Packet)) {
 	l.packetCb = cb
 }
 
-func (l *Link) SetResourceCallback(cb func(interface{}) bool) {
+func (l *Link) SetResourceCallback(cb func(any) bool) {
 	l.resourceCb = cb
 }
 
@@ -387,7 +388,7 @@ func (l *Link) Teardown() {
 	}
 }
 
-func (l *Link) Send(data []byte) interface{} {
+func (l *Link) Send(data []byte) any {
 	l.mutex.Lock()
 	l.lastOutbound = time.Now()
 	l.lastData = time.Now()
@@ -428,7 +429,7 @@ func (t *Transport) UnregisterAnnounceHandler(handler announce.Handler) {
 	}
 }
 
-func (t *Transport) notifyAnnounceHandlers(destHash []byte, identity interface{}, appData []byte, hops uint8) {
+func (t *Transport) notifyAnnounceHandlers(destHash []byte, identity any, appData []byte, hops uint8) {
 	t.mutex.RLock()
 	handlers := make([]announce.Handler, len(t.announceHandlers))
 	copy(handlers, t.announceHandlers)
@@ -661,7 +662,7 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 	return lastErr
 }
 
-func (t *Transport) NewDestination(identity interface{}, direction int, destType int, appName string, aspects ...string) *Destination {
+func (t *Transport) NewDestination(identity any, direction int, destType int, appName string, aspects ...string) *Destination {
 	return &Destination{
 		Identity:  identity,
 		Direction: direction,
@@ -1177,7 +1178,7 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 	}
 }
 
-func (t *Transport) handleIncomingLinkRequest(pkt *packet.Packet, destIface interface{}, networkIface common.NetworkInterface) {
+func (t *Transport) handleIncomingLinkRequest(pkt *packet.Packet, destIface any, networkIface common.NetworkInterface) {
 	startTime := time.Now()
 	debug.Log(debug.DEBUG_INFO, "Handling incoming link request", "interface", networkIface.GetName())
 
@@ -1582,13 +1583,13 @@ func (l *Link) SetResourceStrategy(strategy int) error {
 	return nil
 }
 
-func (l *Link) SetResourceStartedCallback(cb func(interface{})) {
+func (l *Link) SetResourceStartedCallback(cb func(any)) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 	l.resourceStartedCb = cb
 }
 
-func (l *Link) SetResourceConcludedCallback(cb func(interface{})) {
+func (l *Link) SetResourceConcludedCallback(cb func(any)) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 	l.resourceConcludedCb = cb
@@ -1600,7 +1601,7 @@ func (l *Link) SetRemoteIdentifiedCallback(cb func(*Link, []byte)) {
 	l.remoteIdentifiedCb = cb
 }
 
-func (l *Link) HandleResource(resource interface{}) bool {
+func (l *Link) HandleResource(resource any) bool {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
 
@@ -1639,10 +1640,10 @@ type LinkInterface interface {
 	GetRTT() float64
 	RTT() float64
 	GetLinkID() []byte
-	Send(data []byte) interface{}
-	Resend(packet interface{}) error
-	SetPacketTimeout(packet interface{}, callback func(interface{}), timeout time.Duration)
-	SetPacketDelivered(packet interface{}, callback func(interface{}))
+	Send(data []byte) any
+	Resend(packet any) error
+	SetPacketTimeout(packet any, callback func(any), timeout time.Duration)
+	SetPacketDelivered(packet any, callback func(any))
 	HandleInbound(pkt *packet.Packet) error
 	ValidateLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error
 }
@@ -1657,7 +1658,7 @@ func (l *Link) RTT() float64 {
 	return l.GetRTT()
 }
 
-func (l *Link) Resend(p interface{}) error {
+func (l *Link) Resend(p any) error {
 	if pkt, ok := p.(*packet.Packet); ok {
 		t := GetTransportInstance()
 		if t == nil {
@@ -1668,7 +1669,7 @@ func (l *Link) Resend(p interface{}) error {
 	return fmt.Errorf("invalid packet type")
 }
 
-func (l *Link) SetPacketTimeout(p interface{}, callback func(interface{}), timeout time.Duration) {
+func (l *Link) SetPacketTimeout(p any, callback func(any), timeout time.Duration) {
 	if pkt, ok := p.(*packet.Packet); ok {
 		time.AfterFunc(timeout, func() {
 			callback(pkt)
@@ -1676,7 +1677,7 @@ func (l *Link) SetPacketTimeout(p interface{}, callback func(interface{}), timeo
 	}
 }
 
-func (l *Link) SetPacketDelivered(p interface{}, callback func(interface{})) {
+func (l *Link) SetPacketDelivered(p any, callback func(any)) {
 	if pkt, ok := p.(*packet.Packet); ok {
 		l.mutex.Lock()
 		l.rtt = time.Since(time.Now())
@@ -1785,9 +1786,7 @@ func (t *Transport) GetInterfaces() map[string]common.NetworkInterface {
 	defer t.mutex.RUnlock()
 
 	interfaces := make(map[string]common.NetworkInterface, len(t.interfaces))
-	for k, v := range t.interfaces {
-		interfaces[k] = v
-	}
+	maps.Copy(interfaces, t.interfaces)
 
 	return interfaces
 }

@@ -21,7 +21,7 @@ func BenchmarkSeenAnnouncesScale(b *testing.B) {
 			defer tr.Close()
 
 			// Fill seenAnnounces
-			for i := 0; i < size; i++ {
+			for range size {
 				h := make([]byte, 32)
 				_, _ = rand.Read(h)
 				tr.seenAnnounces[string(h)] = true
@@ -59,7 +59,7 @@ func BenchmarkReceiptRegistryScale(b *testing.B) {
 			}
 
 			receipts := make([]*packet.PacketReceipt, size)
-			for i := 0; i < size; i++ {
+			for i := range size {
 				receipts[i] = packet.NewPacketReceipt(p)
 			}
 
@@ -96,10 +96,10 @@ func TestTransportMemoryUsage(t *testing.T) {
 	size := 1000000
 	t.Logf("Filling transport with %d routes...", size)
 
-	for i := 0; i < size; i++ {
+	for i := range size {
 		h := make([]byte, 16)
 		// Optimization: Use a simple loop for hash generation to avoid crypto overhead
-		for j := 0; j < 16; j++ {
+		for j := range 16 {
 			h[j] = byte(i >> (j * 8))
 		}
 		tr.UpdatePath(h, h, "eth0", uint8(i%255))

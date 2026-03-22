@@ -434,7 +434,7 @@ func mustHex(t *testing.T, s string) []byte {
 	return b
 }
 
-func toInt64(v interface{}) int64 {
+func toInt64(v any) int64 {
 	switch x := v.(type) {
 	case int:
 		return int64(x)
@@ -2057,7 +2057,7 @@ func TestResourceHMUFormat(t *testing.T) {
 				t.Errorf("Resource hash mismatch:\n  got:  %x\n  want: %x", resourceHash, expectedHash)
 			}
 
-			var unpacked []interface{}
+			var unpacked []any
 			if err := msgpack.Unmarshal(msgpackPart, &unpacked); err != nil {
 				t.Fatalf("msgpack unpack failed: %v", err)
 			}

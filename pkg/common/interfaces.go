@@ -67,7 +67,7 @@ type BaseInterface struct {
 	lastTx    time.Time
 
 	Mutex          sync.RWMutex
-	Owner          interface{}
+	Owner          any
 	PacketCallback PacketCallback
 }
 

@@ -32,7 +32,7 @@ type PacketReceipt struct {
 	sentAt        time.Time
 	proved        bool
 	status        byte
-	destination   interface{}
+	destination   any
 	timeout       time.Duration
 	concludedAt   time.Time
 	proofPacket   *Packet
@@ -40,7 +40,7 @@ type PacketReceipt struct {
 	deliveryCallback func(*PacketReceipt)
 	timeoutCallback  func(*PacketReceipt)
 
-	link             interface{}
+	link             any
 	destinationHash  []byte
 	destinationIdent *identity.Identity
 	timeoutCheckDone chan bool
@@ -106,7 +106,7 @@ func (pr *PacketReceipt) ValidateProofPacket(proofPacket *Packet) bool {
 	return pr.ValidateProof(proofPacket.Data, proofPacket)
 }
 
-func (pr *PacketReceipt) ValidateLinkProof(proof []byte, link interface{}, proofPacket *Packet) bool {
+func (pr *PacketReceipt) ValidateLinkProof(proof []byte, link any, proofPacket *Packet) bool {
 	if len(proof) == EXPL_LENGTH {
 		proofHash := proof[:identity.HASHLENGTH/8]
 		signature := proof[identity.HASHLENGTH/8 : identity.HASHLENGTH/8+identity.SIGLENGTH/8]
@@ -216,7 +216,7 @@ func (pr *PacketReceipt) ValidateProof(proof []byte, proofPacket *Packet) bool {
 	return false
 }
 
-func (pr *PacketReceipt) validateLinkSignature(signature []byte, link interface{}) bool {
+func (pr *PacketReceipt) validateLinkSignature(signature []byte, link any) bool {
 	type linkValidator interface {
 		Validate(signature, message []byte) bool
 	}
@@ -323,7 +323,7 @@ func (pr *PacketReceipt) SetDestinationIdentity(ident *identity.Identity) {
 	pr.destinationIdent = ident
 }
 
-func (pr *PacketReceipt) SetLink(link interface{}) {
+func (pr *PacketReceipt) SetLink(link any) {
 	pr.mutex.Lock()
 	defer pr.mutex.Unlock()
 	pr.link = link

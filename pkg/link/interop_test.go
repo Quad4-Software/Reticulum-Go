@@ -91,7 +91,7 @@ func TestNodeInterop(t *testing.T) {
 	wg.Add(1)
 
 	var establishedLink *Link
-	destA.SetLinkEstablishedCallback(func(l interface{}) {
+	destA.SetLinkEstablishedCallback(func(l any) {
 		link, ok := l.(*Link)
 		if ok {
 			establishedLink = link
@@ -246,7 +246,7 @@ func TestNodeInterop(t *testing.T) {
 
 	// Wait for discovery
 	discovered := false
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		if trB.HasPath(destA2.GetHash()) {
 			discovered = true
 			break
