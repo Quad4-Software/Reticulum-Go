@@ -66,7 +66,7 @@ That model exists because third-party distribution channels are an attractive su
 
 ## Cryptography Dependencies
 
-- golang.org/x/crypto `v0.48.0` for core cryptographic primitives
+- golang.org/x/crypto `v0.49.0` for core cryptographic primitives
   - hkdf
   - curve25519
 
