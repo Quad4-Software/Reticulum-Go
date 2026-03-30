@@ -65,6 +65,7 @@ type Link struct {
 	establishedCallback func(*Link)
 	closedCallback      func(*Link)
 	packetCallback      func([]byte, *packet.Packet)
+	packetCbMu          sync.RWMutex
 	identifiedCallback  func(*Link, *identity.Identity)
 
 	teardownReason byte
@@ -112,8 +113,13 @@ type Link struct {
 	incomingMu sync.Mutex
 	incomingRx *incomingResourceAsm
 
-	outgoingMu  sync.Mutex
-	outgoingRes *resource.Resource
+	outgoingMu              sync.Mutex
+	outgoingRes             *resource.Resource
+	outgoingResCompleteChan chan struct{}
+	outgoingDispatchMu      sync.Mutex
+
+	pendingPlainMu   sync.Mutex
+	pendingPlainData []byte
 }
 
 func NewLink(dest *destination.Destination, transport *transport.Transport, networkIface common.NetworkInterface, establishedCallback func(*Link), closedCallback func(*Link)) *Link {
@@ -584,9 +590,17 @@ func (l *Link) SetLinkClosedCallback(callback func(*Link)) {
 }
 
 func (l *Link) SetPacketCallback(callback func([]byte, *packet.Packet)) {
-	l.mutex.Lock()
-	defer l.mutex.Unlock()
+	l.packetCbMu.Lock()
 	l.packetCallback = callback
+	l.packetCbMu.Unlock()
+
+	l.pendingPlainMu.Lock()
+	data := l.pendingPlainData
+	l.pendingPlainData = nil
+	l.pendingPlainMu.Unlock()
+	if callback != nil && len(data) > 0 {
+		callback(data, nil)
+	}
 }
 
 func (l *Link) SetResourceCallback(callback func(any) bool) {
@@ -710,6 +724,36 @@ func (l *Link) HandleInbound(pkt *packet.Packet) error {
 	return nil
 }
 
+func (l *Link) deliverOrQueuePlainPacket(plaintext []byte, pkt *packet.Packet) {
+	l.packetCbMu.RLock()
+	cb := l.packetCallback
+	l.packetCbMu.RUnlock()
+	if cb != nil {
+		data := append([]byte(nil), plaintext...)
+		go func() {
+			cb(data, pkt)
+		}()
+		return
+	}
+	l.pendingPlainMu.Lock()
+	l.pendingPlainData = append([]byte(nil), plaintext...)
+	l.pendingPlainMu.Unlock()
+}
+
+func (l *Link) signalOutgoingResourceComplete() {
+	l.outgoingMu.Lock()
+	ch := l.outgoingResCompleteChan
+	l.outgoingResCompleteChan = nil
+	l.outgoingRes = nil
+	l.outgoingMu.Unlock()
+	if ch != nil {
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
+	}
+}
+
 func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 	st := l.status.Load()
 	if st != int32(STATUS_ACTIVE) && st != int32(STATUS_HANDSHAKE) {
@@ -745,9 +789,7 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 
 	switch pkt.Context {
 	case packet.ContextNone:
-		if l.packetCallback != nil {
-			l.packetCallback(plaintext, pkt)
-		}
+		l.deliverOrQueuePlainPacket(plaintext, pkt)
 	case packet.ContextRequest:
 		return l.handleRequest(plaintext, pkt)
 	case packet.ContextResponse:
@@ -985,6 +1027,62 @@ func (l *Link) sendResourceAdvertisement(res *resource.Resource) error {
 	return l.transport.SendPacket(advPkt)
 }
 
+func (l *Link) dispatchOutgoingResourceRequests(plaintext []byte) {
+	l.outgoingDispatchMu.Lock()
+	defer l.outgoingDispatchMu.Unlock()
+
+	l.outgoingMu.Lock()
+	out := l.outgoingRes
+	l.outgoingMu.Unlock()
+	if out == nil || len(plaintext) < 1+32 {
+		return
+	}
+	var resourceHash []byte
+	var pad int
+	if plaintext[0] == 0xFF {
+		pad = 1 + resource.MAPHASH_LEN
+		if len(plaintext) < pad+32 {
+			return
+		}
+		resourceHash = plaintext[pad : pad+32]
+	} else {
+		pad = 1
+		resourceHash = plaintext[pad : pad+32]
+	}
+	if !bytes.Equal(resourceHash, out.GetHash()) {
+		return
+	}
+	reqHashes := plaintext[pad+32:]
+	if len(reqHashes)%resource.MAPHASH_LEN != 0 {
+		return
+	}
+	l.mutex.RLock()
+	sdu := l.mdu
+	l.mutex.RUnlock()
+	for i := 0; i < len(reqHashes); i += resource.MAPHASH_LEN {
+		mh := reqHashes[i : i+resource.MAPHASH_LEN]
+		pi := out.PartIndexForMapHash(mh)
+		if pi < 0 {
+			continue
+		}
+		slice := out.OutboundCiphertextSlice(pi, sdu)
+		if len(slice) == 0 {
+			continue
+		}
+		if err := l.SendPacketWithContext(slice, packet.ContextResource); err != nil {
+			return
+		}
+		_ = out.MarkOutboundPartSent(pi)
+	}
+	if out.OutboundTransferComplete() {
+		if err := l.SendPacketWithContext(nil, packet.ContextResource); err != nil {
+			l.signalOutgoingResourceComplete()
+			return
+		}
+		l.signalOutgoingResourceComplete()
+	}
+}
+
 func (l *Link) handleResourceRequest(pkt *packet.Packet) error {
 	plaintext, err := l.decrypt(pkt.Data)
 	if err != nil {
@@ -995,42 +1093,8 @@ func (l *Link) handleResourceRequest(pkt *packet.Packet) error {
 	out := l.outgoingRes
 	l.outgoingMu.Unlock()
 	if out != nil && len(plaintext) >= 1+32 {
-		var resourceHash []byte
-		var pad int
-		if plaintext[0] == 0xFF {
-			pad = 1 + resource.MAPHASH_LEN
-			if len(plaintext) < pad+32 {
-				return nil
-			}
-			resourceHash = plaintext[pad : pad+32]
-		} else {
-			pad = 1
-			resourceHash = plaintext[pad : pad+32]
-		}
-		if !bytes.Equal(resourceHash, out.GetHash()) {
-			return nil
-		}
-		reqHashes := plaintext[pad+32:]
-		if len(reqHashes)%resource.MAPHASH_LEN != 0 {
-			return nil
-		}
-		l.mutex.RLock()
-		sdu := l.mdu
-		l.mutex.RUnlock()
-		for i := 0; i < len(reqHashes); i += resource.MAPHASH_LEN {
-			mh := reqHashes[i : i+resource.MAPHASH_LEN]
-			pi := out.PartIndexForMapHash(mh)
-			if pi < 0 {
-				continue
-			}
-			slice := out.OutboundCiphertextSlice(pi, sdu)
-			if len(slice) == 0 {
-				continue
-			}
-			if err := l.SendPacketWithContext(slice, packet.ContextResource); err != nil {
-				return err
-			}
-		}
+		pt := append([]byte(nil), plaintext...)
+		go l.dispatchOutgoingResourceRequests(pt)
 		return nil
 	}
 
@@ -1044,6 +1108,46 @@ func (l *Link) handleResourceRequest(pkt *packet.Packet) error {
 func (l *Link) handleResourceHashmapUpdate(pkt *packet.Packet) error {
 	plaintext, err := l.decrypt(pkt.Data)
 	if err != nil {
+		return err
+	}
+
+	if len(plaintext) < sha256.Size {
+		if l.resourceStartedCallback != nil {
+			l.resourceStartedCallback(plaintext)
+		}
+		return nil
+	}
+
+	resHash := plaintext[:sha256.Size]
+	var update []any
+	if err := msgpack.Unmarshal(plaintext[sha256.Size:], &update); err != nil {
+		if l.resourceStartedCallback != nil {
+			l.resourceStartedCallback(plaintext)
+		}
+		return nil
+	}
+	if len(update) < 2 {
+		if l.resourceStartedCallback != nil {
+			l.resourceStartedCallback(plaintext)
+		}
+		return nil
+	}
+	seg, ok := wireInt(update[0])
+	if !ok {
+		if l.resourceStartedCallback != nil {
+			l.resourceStartedCallback(plaintext)
+		}
+		return nil
+	}
+	hm, ok := update[1].([]byte)
+	if !ok {
+		if l.resourceStartedCallback != nil {
+			l.resourceStartedCallback(plaintext)
+		}
+		return nil
+	}
+
+	if err := l.applyIncomingHashmapUpdate(resHash, seg, hm); err != nil {
 		return err
 	}
 
@@ -1558,49 +1662,48 @@ func (l *Link) SendResource(res *resource.Resource) error {
 	res.Activate()
 	l.mutex.Unlock()
 
+	done := make(chan struct{}, 1)
 	l.outgoingMu.Lock()
 	l.outgoingRes = res
+	l.outgoingResCompleteChan = done
 	l.outgoingMu.Unlock()
-	defer func() {
-		l.outgoingMu.Lock()
-		l.outgoingRes = nil
-		l.outgoingMu.Unlock()
-	}()
 
 	if err := l.sendResourceAdvertisement(res); err != nil {
+		l.outgoingMu.Lock()
+		l.outgoingRes = nil
+		l.outgoingResCompleteChan = nil
+		l.outgoingMu.Unlock()
 		l.mutex.Lock()
 		l.teardownReason = STATUS_FAILED
 		l.mutex.Unlock()
 		return fmt.Errorf("resource advertisement: %w", err)
 	}
 
-	// Do not hold l.mutex while sending: SendPacketWithContext locks the same mutex.
-	buffer := make([]byte, sdu)
-	for {
-		n, err := res.Read(buffer)
-		if err == io.EOF {
-			break
+	if res.GetSegments() == 0 {
+		if err := l.SendPacketWithContext(nil, packet.ContextResource); err != nil {
+			l.outgoingMu.Lock()
+			l.outgoingRes = nil
+			l.outgoingResCompleteChan = nil
+			l.outgoingMu.Unlock()
+			return err
 		}
-		if err != nil {
-			l.mutex.Lock()
-			l.teardownReason = STATUS_FAILED
-			l.mutex.Unlock()
-			return fmt.Errorf("error reading resource: %v", err)
-		}
-
-		if err := l.SendPacketWithContext(buffer[:n], packet.ContextResource); err != nil {
-			l.mutex.Lock()
-			l.teardownReason = STATUS_FAILED
-			l.mutex.Unlock()
-			return fmt.Errorf("error sending resource packet: %v", err)
-		}
+		l.signalOutgoingResourceComplete()
+		return nil
 	}
 
-	if err := l.SendPacketWithContext(nil, packet.ContextResource); err != nil {
-		debug.Log(debug.DEBUG_ERROR, "Failed to send resource completion packet", "error", err)
+	select {
+	case <-done:
+		return nil
+	case <-time.After(10 * time.Minute):
+		l.outgoingMu.Lock()
+		l.outgoingRes = nil
+		l.outgoingResCompleteChan = nil
+		l.outgoingMu.Unlock()
+		l.mutex.Lock()
+		l.teardownReason = STATUS_FAILED
+		l.mutex.Unlock()
+		return errors.New("resource transfer timeout")
 	}
-
-	return nil
 }
 
 func (l *Link) maintainLink() {
