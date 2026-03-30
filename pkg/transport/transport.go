@@ -723,6 +723,9 @@ func (p *LinkPacket) send() error {
 }
 
 func (t *Transport) sendPathRequest(req *PathRequest, interfaceName string) error {
+	if req.TTL < 0 || req.TTL > 255 {
+		return fmt.Errorf("path request TTL out of range: %d", req.TTL)
+	}
 	// Create path request packet
 	packet := &PathRequestPacket{
 		Type:            0x01,
@@ -1756,13 +1759,19 @@ func CreateAnnouncePacket(destHash []byte, identity *identity.Identity, appData 
 
 	// Create msgpack array for app data
 	nameBytes := []byte(destName)
+	if len(nameBytes) > 255 || len(appData) > 255 {
+		debug.Log(debug.DEBUG_ERROR, "announce name or app data exceeds msgpack bin8 limit", "nameLen", len(nameBytes), "appLen", len(appData))
+		return nil
+	}
 	appDataMsg := []byte{0x92} // array of 2 elements
 
 	// Add name as first element
+	// #nosec G115 -- lengths verified above against msgpack bin8 (255) limit
 	appDataMsg = append(appDataMsg, 0xc4, byte(len(nameBytes)))
 	appDataMsg = append(appDataMsg, nameBytes...)
 
 	// Add app data as second element
+	// #nosec G115 -- lengths verified above against msgpack bin8 (255) limit
 	appDataMsg = append(appDataMsg, 0xc4, byte(len(appData)))
 	appDataMsg = append(appDataMsg, appData...)
 
