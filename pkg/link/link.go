@@ -724,10 +724,15 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 		if pkt.Context == packet.ContextResource {
 			plaintext = pkt.Data
 		} else {
-			plaintext, err = l.decrypt(pkt.Data)
-			if err != nil {
-				debug.Log(debug.DEBUG_INFO, "Failed to decrypt packet", "error", err, "context", fmt.Sprintf("0x%02x", pkt.Context), "link_id", fmt.Sprintf("%x", l.linkID))
-				return err
+			minEnc := aes.BlockSize + aes.BlockSize + common.SIZE_32
+			if pkt.Context == packet.ContextKeepalive && len(pkt.Data) < minEnc {
+				plaintext = pkt.Data
+			} else {
+				plaintext, err = l.decrypt(pkt.Data)
+				if err != nil {
+					debug.Log(debug.DEBUG_INFO, "Failed to decrypt packet", "error", err, "context", fmt.Sprintf("0x%02x", pkt.Context), "link_id", fmt.Sprintf("%x", l.linkID))
+					return err
+				}
 			}
 		}
 	} else {
@@ -760,12 +765,6 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 				Data:            keepaliveResp,
 				CreateReceipt:   false,
 			}
-			encrypted, err := l.encrypt(keepaliveResp)
-			if err != nil {
-				return err
-			}
-			keepalivePkt.Data = encrypted
-			keepalivePkt.Packed = false
 			if err := keepalivePkt.Pack(); err != nil {
 				return err
 			}
