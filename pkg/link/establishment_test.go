@@ -151,11 +151,11 @@ func TestHandshake(t *testing.T) {
 		t.Error("Derived keys do not match")
 	}
 
-	if byte(link1.status.Load()) != STATUS_HANDSHAKE {
+	if link1.status.Load() != int32(STATUS_HANDSHAKE) {
 		t.Errorf("Expected link1 status HANDSHAKE, got %d", link1.status.Load())
 	}
 
-	if byte(link2.status.Load()) != STATUS_HANDSHAKE {
+	if link2.status.Load() != int32(STATUS_HANDSHAKE) {
 		t.Errorf("Expected link2 status HANDSHAKE, got %d", link2.status.Load())
 	}
 }
@@ -344,7 +344,7 @@ func TestLinkProofValidation(t *testing.T) {
 		t.Fatalf("Initiator failed to validate link proof: %v", err)
 	}
 
-	if byte(initiatorLink.status.Load()) != STATUS_ACTIVE {
+	if initiatorLink.status.Load() != int32(STATUS_ACTIVE) {
 		t.Errorf("Expected initiator status ACTIVE, got %d", initiatorLink.status.Load())
 	}
 
