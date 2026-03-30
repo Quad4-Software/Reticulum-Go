@@ -38,3 +38,5 @@ dependency-results.sbom.json
 node_modules/
 
 __pycache__/
+
+.cache/

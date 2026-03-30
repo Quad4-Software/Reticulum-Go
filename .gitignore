@@ -40,3 +40,5 @@ node_modules/
 reticulum-ref/
 
 __pycache__/
+
+.cache/
