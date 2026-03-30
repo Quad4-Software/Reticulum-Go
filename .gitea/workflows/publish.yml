@@ -13,6 +13,7 @@ permissions:
 env:
   CI_GO_VERSION: "1.25.5"
   CI_TASK_VERSION: "3.46.3"
+  COSIGN_VERSION: "3.0.5"
 
 jobs:
   build:
@@ -97,10 +98,50 @@ jobs:
     needs: build
     if: startsWith(github.ref, 'refs/tags/')
     steps:
+      - name: Checkout Source
+        run: |
+          set -eu
+          SERVER="${GITEA_SERVER_URL:-${GITHUB_SERVER_URL:-}}"
+          REPO="${GITEA_REPOSITORY:-${GITHUB_REPOSITORY:-}}"
+          if [ -z "$SERVER" ] || [ -z "$REPO" ]; then
+            echo "Checkout: set GITEA_SERVER_URL/GITEA_REPOSITORY or GITHUB_SERVER_URL/GITHUB_REPOSITORY" >&2
+            exit 1
+          fi
+          if [ -n "${GITEA_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
+            TOKEN="${GITEA_TOKEN:-$GITHUB_TOKEN}"
+            git config --global credential.helper "!f() { echo username=x-access-token; echo password=${TOKEN}; }; f"
+          fi
+          git init -q && git remote add origin "${SERVER}/${REPO}.git"
+          git fetch -q --depth=1 origin "${GITHUB_SHA}" && git checkout -q FETCH_HEAD
+
       - name: Download All Build Artifacts
         uses: https://git.quad4.io/actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a
         with:
           path: ./release-assets
+
+      - name: SLSA attestations (cosign)
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+        run: |
+          set -eu
+          if [ -z "${COSIGN_PRIVATE_KEY:-}" ]; then
+            echo "Skipping SLSA attestations: add repository secret COSIGN_PRIVATE_KEY (PEM) to sign releases."
+            exit 0
+          fi
+          sh scripts/ci/setup-cosign.sh "${COSIGN_VERSION}"
+          printf '%s\n' "$COSIGN_PRIVATE_KEY" > /tmp/cosign.key
+          chmod 600 /tmp/cosign.key
+          export COSIGN_KEY_PATH=/tmp/cosign.key
+          sh scripts/ci/attest-release-assets.sh ./release-assets
+          rm -f /tmp/cosign.key
 
       - name: Create Gitea Release
         uses: https://git.quad4.io/actions/gitea-release-action@4875285c0950474efb7ca2df55233c51333eeb74
