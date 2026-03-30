@@ -7,7 +7,7 @@ on:
     branches: [ "tinygo" ]
 
 env:
-  CI_GO_VERSION: "1.25.0"
+  CI_GO_VERSION: "1.25.8"
   CI_TINYGO_VERSION: "0.37.0"
   TINYGO_DEB_SHA256: "8f34a4aac7f1aa2ad51dc0f4eccd40da13b6f52fbac5c13887d57327e5f0a862"
   GOPRIVATE: git.quad4.io

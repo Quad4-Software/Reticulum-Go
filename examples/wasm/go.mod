@@ -1,6 +1,6 @@
 module git.quad4.io/Networks/Reticulum-Go/examples/wasm
 
-go 1.25.0
+go 1.25.8
 
 require (
 	git.quad4.io/Networks/Reticulum-Go v0.6.0

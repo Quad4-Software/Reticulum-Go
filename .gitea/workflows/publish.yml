@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 env:
-  CI_GO_VERSION: "1.25.5"
+  CI_GO_VERSION: "1.25.8"
   CI_TASK_VERSION: "3.46.3"
   COSIGN_VERSION: "3.0.5"
   GOPRIVATE: git.quad4.io

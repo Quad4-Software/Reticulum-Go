@@ -19,7 +19,7 @@ Reticulum-Go provides full protocol compatibility with the Python reference impl
 
 ## Requirements
 
-- Go 1.25 or later
+- Go 1.25.8 or later
 
 ## Quick Start
 

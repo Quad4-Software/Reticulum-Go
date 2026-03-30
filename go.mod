@@ -1,6 +1,8 @@
 module git.quad4.io/Networks/Reticulum-Go
 
-go 1.25.0
+go 1.25.8
+
+toolchain go1.25.8
 
 require (
 	git.quad4.io/Go-Libs/bzip2 v1.0.0
