@@ -1,8 +1,9 @@
-.PHONY: all build install uninstall clean test fmt vet lint check deps run
+.PHONY: all build install uninstall clean test fmt vet lint vulncheck check deps run
 .PHONY: build-linux build-windows build-darwin build-all
 .PHONY: test-short test-race test-crossref coverage bench debug release
 
 GOCMD := go
+GOVULNCHECK_VER ?= v1.1.4
 BINARY_NAME := reticulum-go
 BUILD_DIR := bin
 MAIN_PACKAGE := ./cmd/reticulum-go
@@ -66,7 +67,10 @@ vet:
 lint:
 	revive -config revive.toml -formatter friendly ./pkg/* ./cmd/* ./internal/*
 
-check: fmt vet lint test-short
+vulncheck:
+	$(GOCMD) run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VER) ./...
+
+check: fmt vet lint test-short vulncheck
 
 run:
 	$(GOCMD) run $(MAIN_PACKAGE)
