@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ "tinygo" ]
 
+env:
+  CI_GO_VERSION: "1.25.0"
+  CI_TINYGO_VERSION: "0.37.0"
+  TINYGO_DEB_SHA256: "8f34a4aac7f1aa2ad51dc0f4eccd40da13b6f52fbac5c13887d57327e5f0a862"
+
 jobs:
   tinygo-build:
     permissions:
@@ -29,36 +34,32 @@ jobs:
       build_complete: ${{ steps.build_step.outcome == 'success' }}
 
     steps:
-    - name: Checkout code
-      uses: https://git.quad4.io/actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Checkout code
+        run: sh scripts/ci/checkout.sh 1
 
-    - name: Set up Go
-      uses: https://git.quad4.io/actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
-      with:
-        go-version: '1.24'
+      - name: Set up Go
+        run: sh scripts/ci/setup-go.sh "${{ env.CI_GO_VERSION }}"
 
-    - name: Install TinyGo
-      run: |
-        wget https://github.com/tinygo-org/tinygo/releases/download/v0.37.0/tinygo_0.37.0_amd64.deb
-        sudo dpkg -i tinygo_0.37.0_amd64.deb
+      - name: Install TinyGo
+        run: sh scripts/ci/setup-tinygo.sh "${{ env.CI_TINYGO_VERSION }}"
 
-    - name: Build with TinyGo
-      id: build_step
-      run: |
-        make ${{ matrix.make_target }}
-        output_name="${{ matrix.output }}"
-        if [ -f "bin/${output_name}" ]; then
-          sha256sum "bin/${output_name}" | cut -d' ' -f1 > "bin/${output_name}.sha256"
-          echo "Built: ${output_name}"
-          echo "Generated checksum: bin/${output_name}.sha256"
-        else
-          echo "Build output not found: bin/${output_name}"
-          ls -la bin/
-          exit 1
-        fi
+      - name: Build with TinyGo
+        id: build_step
+        run: |
+          make ${{ matrix.make_target }}
+          output_name="${{ matrix.output }}"
+          if [ -f "bin/${output_name}" ]; then
+            sha256sum "bin/${output_name}" | cut -d' ' -f1 > "bin/${output_name}.sha256"
+            echo "Built: ${output_name}"
+            echo "Generated checksum: bin/${output_name}.sha256"
+          else
+            echo "Build output not found: bin/${output_name}"
+            ls -la bin/
+            exit 1
+          fi
 
-    - name: Upload Artifact
-      uses: https://git.quad4.io/actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5
-      with:
-        name: ${{ matrix.name }}
-        path: bin/${{ matrix.output }}*
+      - name: Upload Artifact
+        uses: https://git.quad4.io/actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5
+        with:
+          name: ${{ matrix.name }}
+          path: bin/${{ matrix.output }}*

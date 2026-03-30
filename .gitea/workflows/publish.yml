@@ -10,6 +10,10 @@ on:
 permissions:
   contents: write
 
+env:
+  CI_GO_VERSION: "1.25.5"
+  CI_TASK_VERSION: "3.46.3"
+
 jobs:
   build:
     name: Build (${{ matrix.goos }}, ${{ matrix.goarch }})
@@ -28,17 +32,13 @@ jobs:
 
     steps:
       - name: Checkout Source
-        uses: https://git.quad4.io/actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        run: sh scripts/ci/checkout.sh 1
 
       - name: Set up Go
-        uses: https://git.quad4.io/actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
-        with:
-          go-version: '1.25'
+        run: sh scripts/ci/setup-go.sh "${{ env.CI_GO_VERSION }}"
 
       - name: Setup Task
-        uses: https://git.quad4.io/actions/setup-task@0ab1b2a65bc55236a3bc64cde78f80e20e8885c2
-        with:
-          version: '3.46.3'
+        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
 
       - name: Build
         env:
@@ -93,4 +93,3 @@ jobs:
         uses: https://git.quad4.io/actions/gitea-release-action@4875285c0950474efb7ca2df55233c51333eeb74
         with:
           files: ./release-assets/*/*
-
