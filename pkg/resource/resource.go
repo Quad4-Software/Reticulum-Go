@@ -353,32 +353,57 @@ func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), 
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	if r.fileHandle != nil {
-		return errors.New("resource send from file is not supported")
-	}
-	if r.data == nil {
+	var body []byte
+	switch {
+	case r.data != nil:
+		body = r.data
+	case r.fileHandle != nil:
+		if _, err := r.fileHandle.Seek(0, io.SeekStart); err != nil {
+			return err
+		}
+		b, err := io.ReadAll(r.fileHandle)
+		if err != nil {
+			return err
+		}
+		body = b
+	default:
 		return errors.New("no data")
 	}
 
-	body := r.data
+	uncompressed := body
 	randomHash := make([]byte, RANDOM_HASH_SIZE)
 	if _, err := io.ReadFull(rand.Reader, randomHash); err != nil {
 		return err
 	}
 
-	h := sha256.Sum256(append(append([]byte(nil), body...), randomHash...))
+	payload := uncompressed
+	if r.autoCompress {
+		compressed, err := bzip2CompressBody(uncompressed)
+		if err != nil {
+			return err
+		}
+		if len(compressed) < len(uncompressed) {
+			payload = compressed
+			r.compressed = true
+		} else {
+			r.compressed = false
+		}
+	} else {
+		r.compressed = false
+	}
+
+	h := sha256.Sum256(append(append([]byte(nil), uncompressed...), randomHash...))
 	r.hash = h[:]
 	r.randomHash = append([]byte(nil), randomHash...)
 	r.originalHash = append([]byte(nil), r.hash...)
 
-	plain := append(append([]byte(nil), randomHash...), body...)
+	plain := append(append([]byte(nil), randomHash...), payload...)
 	innerBlob, err := encrypt(plain)
 	if err != nil {
 		return err
 	}
 
 	r.encrypted = true
-	r.compressed = false
 	r.split = false
 	r.totalSegments = 1
 	r.segmentIndex = 1
@@ -389,7 +414,7 @@ func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), 
 	}
 	r.segments = uint16(partCount) // #nosec G115
 	r.transferSize = int64(len(innerBlob))
-	r.dataSize = int64(len(body))
+	r.dataSize = int64(len(uncompressed))
 
 	r.hashmap = make([]byte, partCount*MAPHASH_LEN)
 	for i := 0; i < partCount; i++ {
