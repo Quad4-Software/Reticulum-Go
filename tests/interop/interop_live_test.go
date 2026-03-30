@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: 0BSD
 // Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
 
+// Live Python (rns) UDP loopback interop; set RUN_LIVE_INTEROP=1.
+// See interop_transport_live_test.go for transport path/hops checks.
+
 package interop
 
 import (
@@ -21,8 +24,23 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/destination"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/interfaces"
+	rlink "git.quad4.io/Networks/Reticulum-Go/pkg/link"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/resource"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
 )
+
+const (
+	interopApp    = "interop_pygo"
+	interopAspect = "linksvc"
+)
+
+func liveOrSkip(t *testing.T) {
+	t.Helper()
+	if os.Getenv("RUN_LIVE_INTEROP") != "1" {
+		t.Skip("set RUN_LIVE_INTEROP=1 to run live Python-Go interop")
+	}
+}
 
 func freeUDPPort(t *testing.T) int {
 	t.Helper()
@@ -45,38 +63,19 @@ func pythonExe() string {
 	return "python3"
 }
 
-// TestLiveInteropPythonSeesGoAnnouncePath runs a Python RNS peer against this stack over UDP on loopback.
-// Requires the `rns` package (pip) or RETICULUM_PATH pointing at the Python Reticulum tree.
-// Enable with: RUN_LIVE_INTEROP=1
-func TestLiveInteropPythonSeesGoAnnouncePath(t *testing.T) {
-	if os.Getenv("RUN_LIVE_INTEROP") != "1" {
-		t.Skip("set RUN_LIVE_INTEROP=1 to run live Python-Go interop")
+func scriptDir(t *testing.T) string {
+	t.Helper()
+	_, testFile, _, ok := runtime.Caller(1)
+	if !ok {
+		t.Fatal("runtime.Caller")
 	}
+	return filepath.Dir(testFile)
+}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	pyListen := freeUDPPort(t)
-	pyForward := freeUDPPort(t)
-	if pyListen == pyForward {
-		t.Fatal("expected distinct UDP ports")
-	}
-
+func setupGoUDPPeer(t *testing.T, pyListen, pyForward int) (*transport.Transport, *interfaces.UDPInterface, func()) {
+	t.Helper()
 	cfg := &common.ReticulumConfig{}
 	tr := transport.NewTransport(cfg)
-	defer tr.Close()
-
-	idGo, err := identity.New()
-	if err != nil {
-		t.Fatalf("identity: %v", err)
-	}
-
-	destGo, err := destination.New(idGo, destination.IN, destination.SINGLE, "interop_live", tr, "peer")
-	if err != nil {
-		t.Fatalf("destination: %v", err)
-	}
-	destGo.AcceptsLinks(true)
-
 	addrGo := "127.0.0.1:" + strconv.Itoa(pyForward)
 	targetGo := "127.0.0.1:" + strconv.Itoa(pyListen)
 	iface, err := interfaces.NewUDPInterface("interop_udp", addrGo, targetGo, true)
@@ -92,13 +91,69 @@ func TestLiveInteropPythonSeesGoAnnouncePath(t *testing.T) {
 	if err := tr.InitializePathRequestHandler(); err != nil {
 		t.Fatalf("path handler: %v", err)
 	}
+	cleanup := func() { tr.Close() }
+	return tr, iface, cleanup
+}
 
-	_, testFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller")
+func readLineTimeout(ctx context.Context, br *bufio.Reader, d time.Duration) (string, error) {
+	type res struct {
+		s   string
+		err error
 	}
-	script := filepath.Join(filepath.Dir(testFile), "python_interop_wait_path.py")
+	ch := make(chan res, 1)
+	go func() {
+		s, err := br.ReadString('\n')
+		ch <- res{s, err}
+	}()
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case r := <-ch:
+		return r.s, r.err
+	case <-time.After(d):
+		return "", context.DeadlineExceeded
+	}
+}
 
+func waitPath(ctx context.Context, tr *transport.Transport, destHash []byte, total time.Duration) error {
+	deadline := time.Now().Add(total)
+	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		if tr.HasPath(destHash) {
+			return nil
+		}
+		_ = tr.RequestPath(destHash, "interop_udp", nil, false)
+		time.Sleep(80 * time.Millisecond)
+	}
+	return context.DeadlineExceeded
+}
+
+// TestLiveInteropPythonSeesGoAnnouncePath checks Python learns a path after Go announces.
+func TestLiveInteropPythonSeesGoAnnouncePath(t *testing.T) {
+	liveOrSkip(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	pyListen := freeUDPPort(t)
+	pyForward := freeUDPPort(t)
+	tr, _, cleanup := setupGoUDPPeer(t, pyListen, pyForward)
+	defer cleanup()
+
+	idGo, err := identity.New()
+	if err != nil {
+		t.Fatalf("identity: %v", err)
+	}
+	destGo, err := destination.New(idGo, destination.IN, destination.SINGLE, interopApp, tr, interopAspect)
+	if err != nil {
+		t.Fatalf("destination: %v", err)
+	}
+	destGo.AcceptsLinks(true)
+
+	script := filepath.Join(scriptDir(t), "python_interop_wait_path.py")
 	cmd := exec.CommandContext(ctx, pythonExe(), script)
 	cmd.Env = append(os.Environ(),
 		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
@@ -126,11 +181,9 @@ func TestLiveInteropPythonSeesGoAnnouncePath(t *testing.T) {
 	if strings.TrimSpace(line) != "READY" {
 		t.Fatalf("expected READY, got %q", line)
 	}
-
 	if err := destGo.Announce(false, nil, nil); err != nil {
 		t.Fatalf("announce: %v", err)
 	}
-
 	line, err = readLineTimeout(ctx, br, 45*time.Second)
 	if err != nil {
 		t.Fatalf("wait OK: %v", err)
@@ -140,22 +193,242 @@ func TestLiveInteropPythonSeesGoAnnouncePath(t *testing.T) {
 	}
 }
 
-func readLineTimeout(ctx context.Context, br *bufio.Reader, d time.Duration) (string, error) {
-	type res struct {
-		s   string
-		err error
+// TestLiveInteropGoSeesPythonAnnouncePath checks Go learns a path after Python announces.
+func TestLiveInteropGoSeesPythonAnnouncePath(t *testing.T) {
+	liveOrSkip(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	pyListen := freeUDPPort(t)
+	pyForward := freeUDPPort(t)
+	tr, _, cleanup := setupGoUDPPeer(t, pyListen, pyForward)
+	defer cleanup()
+
+	script := filepath.Join(scriptDir(t), "python_interop_announce_peer.py")
+	cmd := exec.CommandContext(ctx, pythonExe(), script)
+	cmd.Env = append(os.Environ(),
+		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
+		"INTEROP_FORWARD_PORT="+strconv.Itoa(pyForward),
+	)
+	cmd.Stderr = os.Stderr
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("stdout pipe: %v", err)
 	}
-	ch := make(chan res, 1)
-	go func() {
-		s, err := br.ReadString('\n')
-		ch <- res{s, err}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start python: %v", err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
 	}()
+
+	br := bufio.NewReader(out)
+	line, err := readLineTimeout(ctx, br, 25*time.Second)
+	if err != nil {
+		t.Fatalf("wait READY: %v", err)
+	}
+	if strings.TrimSpace(line) != "READY" {
+		t.Fatalf("expected READY, got %q", line)
+	}
+	hashLine, err := readLineTimeout(ctx, br, 5*time.Second)
+	if err != nil {
+		t.Fatalf("wait hash: %v", err)
+	}
+	pyHash, err := hex.DecodeString(strings.TrimSpace(hashLine))
+	if err != nil || len(pyHash) != 16 {
+		t.Fatalf("bad python destination hash: %q err %v", hashLine, err)
+	}
+	if err := waitPath(ctx, tr, pyHash, 40*time.Second); err != nil {
+		t.Fatalf("go never got path to python destination: %v", err)
+	}
+}
+
+// TestLiveInteropGoLinkPacketEchoPython establishes a link Go (initiator) to Python (responder) and echoes a packet.
+func TestLiveInteropGoLinkPacketEchoPython(t *testing.T) {
+	liveOrSkip(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	pyListen := freeUDPPort(t)
+	pyForward := freeUDPPort(t)
+	tr, iface, cleanup := setupGoUDPPeer(t, pyListen, pyForward)
+	defer cleanup()
+
+	script := filepath.Join(scriptDir(t), "python_interop_link_server.py")
+	cmd := exec.CommandContext(ctx, pythonExe(), script)
+	cmd.Env = append(os.Environ(),
+		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
+		"INTEROP_FORWARD_PORT="+strconv.Itoa(pyForward),
+		"INTEROP_LINK_MODE=echo",
+	)
+	cmd.Stderr = os.Stderr
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("stdout pipe: %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start python: %v", err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	}()
+
+	br := bufio.NewReader(out)
+	line, err := readLineTimeout(ctx, br, 25*time.Second)
+	if err != nil {
+		t.Fatalf("wait READY: %v", err)
+	}
+	if strings.TrimSpace(line) != "READY" {
+		t.Fatalf("expected READY, got %q", line)
+	}
+	hashLine, err := readLineTimeout(ctx, br, 5*time.Second)
+	if err != nil {
+		t.Fatalf("wait hash: %v", err)
+	}
+	pyHash, err := hex.DecodeString(strings.TrimSpace(hashLine))
+	if err != nil || len(pyHash) != 16 {
+		t.Fatalf("bad python destination hash: %q err %v", hashLine, err)
+	}
+	if err := waitPath(ctx, tr, pyHash, 40*time.Second); err != nil {
+		t.Fatalf("path to python: %v", err)
+	}
+
+	srvID, err := identity.Recall(pyHash)
+	if err != nil {
+		t.Fatalf("recall python identity: %v", err)
+	}
+	destOut, err := destination.FromHash(pyHash, srvID, destination.SINGLE, tr)
+	if err != nil {
+		t.Fatalf("from hash: %v", err)
+	}
+
+	established := make(chan struct{})
+	replyCh := make(chan []byte, 1)
+	lnk := rlink.NewLink(destOut, tr, iface, func(_ *rlink.Link) {
+		close(established)
+	}, nil)
+	defer lnk.Teardown()
+	lnk.SetPacketCallback(func(data []byte, _ *packet.Packet) {
+		replyCh <- append([]byte(nil), data...)
+	})
+
+	if err := lnk.Establish(); err != nil {
+		t.Fatalf("establish: %v", err)
+	}
 	select {
-	case <-ctx.Done():
-		return "", ctx.Err()
-	case r := <-ch:
-		return r.s, r.err
-	case <-time.After(d):
-		return "", context.DeadlineExceeded
+	case <-established:
+	case <-time.After(45 * time.Second):
+		t.Fatal("link establish timeout")
+	}
+	lnk.Start()
+
+	payload := []byte("interop-ping")
+	if err := lnk.SendPacket(payload); err != nil {
+		t.Fatalf("send packet: %v", err)
+	}
+	select {
+	case got := <-replyCh:
+		if string(got) != string(payload) {
+			t.Fatalf("echo mismatch: %q != %q", got, payload)
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("no echo reply")
+	}
+}
+
+// TestLiveInteropGoResourceToPython sends a small in-memory resource from Go to Python over a link.
+func TestLiveInteropGoResourceToPython(t *testing.T) {
+	liveOrSkip(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	pyListen := freeUDPPort(t)
+	pyForward := freeUDPPort(t)
+	tr, iface, cleanup := setupGoUDPPeer(t, pyListen, pyForward)
+	defer cleanup()
+
+	script := filepath.Join(scriptDir(t), "python_interop_link_server.py")
+	cmd := exec.CommandContext(ctx, pythonExe(), script)
+	cmd.Env = append(os.Environ(),
+		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
+		"INTEROP_FORWARD_PORT="+strconv.Itoa(pyForward),
+		"INTEROP_LINK_MODE=resource",
+		"INTEROP_RESOURCE_EXPECT=interop-resource-payload",
+	)
+	cmd.Stderr = os.Stderr
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("stdout pipe: %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start python: %v", err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	}()
+
+	br := bufio.NewReader(out)
+	line, err := readLineTimeout(ctx, br, 25*time.Second)
+	if err != nil {
+		t.Fatalf("wait READY: %v", err)
+	}
+	if strings.TrimSpace(line) != "READY" {
+		t.Fatalf("expected READY, got %q", line)
+	}
+	hashLine, err := readLineTimeout(ctx, br, 5*time.Second)
+	if err != nil {
+		t.Fatalf("wait hash: %v", err)
+	}
+	pyHash, err := hex.DecodeString(strings.TrimSpace(hashLine))
+	if err != nil || len(pyHash) != 16 {
+		t.Fatalf("bad python destination hash: %q err %v", hashLine, err)
+	}
+	if err := waitPath(ctx, tr, pyHash, 40*time.Second); err != nil {
+		t.Fatalf("path to python: %v", err)
+	}
+
+	srvID, err := identity.Recall(pyHash)
+	if err != nil {
+		t.Fatalf("recall: %v", err)
+	}
+	destOut, err := destination.FromHash(pyHash, srvID, destination.SINGLE, tr)
+	if err != nil {
+		t.Fatalf("from hash: %v", err)
+	}
+
+	established := make(chan struct{})
+	lnk := rlink.NewLink(destOut, tr, iface, func(_ *rlink.Link) {
+		close(established)
+	}, nil)
+	defer lnk.Teardown()
+	lnk.SetPacketCallback(func(_ []byte, _ *packet.Packet) {})
+
+	if err := lnk.Establish(); err != nil {
+		t.Fatalf("establish: %v", err)
+	}
+	select {
+	case <-established:
+	case <-time.After(45 * time.Second):
+		t.Fatal("link establish timeout")
+	}
+	lnk.Start()
+
+	res, err := resource.New([]byte("interop-resource-payload"), false)
+	if err != nil {
+		t.Fatalf("resource: %v", err)
+	}
+	if err := lnk.SendResource(res); err != nil {
+		t.Fatalf("send resource: %v", err)
+	}
+
+	line, err = readLineTimeout(ctx, br, 90*time.Second)
+	if err != nil {
+		t.Fatalf("wait RESOURCE_OK: %v", err)
+	}
+	if strings.TrimSpace(line) != "RESOURCE_OK" {
+		t.Fatalf("expected RESOURCE_OK, got %q", line)
 	}
 }

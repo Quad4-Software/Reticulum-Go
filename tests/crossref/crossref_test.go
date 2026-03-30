@@ -1425,7 +1425,7 @@ func TestResourceAdvertisementCrossImpl(t *testing.T) {
 				HasMetadata:   vec.HasMetadata,
 			}
 
-			packed, err := adv.Pack(0)
+			packed, err := adv.Pack(0, 384)
 			if err != nil {
 				t.Fatalf("Pack failed: %v", err)
 			}
