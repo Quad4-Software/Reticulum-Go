@@ -17,6 +17,7 @@ coverage.out
 
 # Environment and secret files
 .env
+cosign.key
 
 # User/IDE/Editor config
 .idea/

@@ -11,6 +11,9 @@ logs/
 # Local environment variables
 .env
 
+# Cosign release signing
+cosign.key
+
 # JSON assets and auto-generated exports
 *.json
 
