@@ -208,25 +208,12 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 		ra.Hashmap = m
 	}
 
-	switch f := dict["f"].(type) {
-	case int:
-		ra.Flags = byte(f)
-	case int8:
-		ra.Flags = byte(f)
-	case int16:
-		ra.Flags = byte(f)
-	case int32:
-		ra.Flags = byte(f)
-	case int64:
-		ra.Flags = byte(f)
-	case uint8:
-		ra.Flags = f
-	case uint16:
-		ra.Flags = byte(f)
-	case uint32:
-		ra.Flags = byte(f)
-	case uint64:
-		ra.Flags = byte(f)
+	if f, ok := dict["f"]; ok {
+		flags, err := wireFlagsFromAny(f)
+		if err != nil {
+			return nil, err
+		}
+		ra.Flags = flags
 	}
 
 	ra.Encrypted = (ra.Flags & 0x01) == 0x01
@@ -259,6 +246,55 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 	}
 
 	return ra, nil
+}
+
+func wireFlagsFromAny(f any) (byte, error) {
+	switch v := f.(type) {
+	case uint8:
+		return v, nil
+	case int:
+		if v < 0 || v > 255 {
+			return 0, fmt.Errorf("advertisement flags out of range")
+		}
+		return byte(v), nil
+	case int8:
+		if v < 0 {
+			return 0, fmt.Errorf("advertisement flags out of range")
+		}
+		return byte(v), nil
+	case int16:
+		if v < 0 || v > 255 {
+			return 0, fmt.Errorf("advertisement flags out of range")
+		}
+		return byte(v), nil
+	case int32:
+		if v < 0 || v > 255 {
+			return 0, fmt.Errorf("advertisement flags out of range")
+		}
+		return byte(v), nil
+	case int64:
+		if v < 0 || v > 255 {
+			return 0, fmt.Errorf("advertisement flags out of range")
+		}
+		return byte(v), nil
+	case uint16:
+		if v > 255 {
+			return 0, fmt.Errorf("advertisement flags out of range")
+		}
+		return byte(v), nil
+	case uint32:
+		if v > 255 {
+			return 0, fmt.Errorf("advertisement flags out of range")
+		}
+		return byte(v), nil
+	case uint64:
+		if v > 255 {
+			return 0, fmt.Errorf("advertisement flags out of range")
+		}
+		return byte(v), nil
+	default:
+		return 0, nil
+	}
 }
 
 func getHashmapMaxLen() int {
