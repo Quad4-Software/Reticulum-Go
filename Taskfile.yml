@@ -131,6 +131,11 @@ tasks:
       - '{{.GOCMD}} clean'
       - rm -rf {{.BUILD_DIR}}
 
+  reproducibility:
+    desc: Fail if two consecutive release builds (trimpath, no VCS stamp) are not byte-identical
+    cmds:
+      - sh scripts/ci/reproducibility-build.sh
+
   test:
     desc: Run tests
     cmds:
