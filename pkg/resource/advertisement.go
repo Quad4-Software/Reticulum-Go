@@ -324,6 +324,11 @@ func hashmapEntriesPerAdvSegment(linkMDU int) int {
 	return (linkMDU - OVERHEAD) / MAPHASH_LEN
 }
 
+// HashmapEntriesPerSegment is the number of map-hash slots per advertisement or HMU segment for a link MDU.
+func HashmapEntriesPerSegment(linkMDU int) int {
+	return hashmapEntriesPerAdvSegment(linkMDU)
+}
+
 func IsRequestAdvertisement(data []byte) bool {
 	adv, err := UnpackResourceAdvertisement(data)
 	if err != nil {
