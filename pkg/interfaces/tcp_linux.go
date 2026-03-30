@@ -14,6 +14,15 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 )
 
+func linuxFdToInt(fd uintptr) (int, bool) {
+	max := int(^uint(0) >> 1)
+	if fd > uintptr(max) {
+		return 0, false
+	}
+	// #nosec G115 -- fd is bounded above by max int; invalid fds rejected above
+	return int(fd), true
+}
+
 func (tc *TCPClientInterface) setTimeoutsLinux() error {
 	tcpConn, ok := tc.conn.(*net.TCPConn)
 	if !ok {
@@ -27,6 +36,12 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 
 	var sockoptErr error
 	err = rawConn.Control(func(fd uintptr) {
+		fdInt, ok := linuxFdToInt(fd)
+		if !ok {
+			sockoptErr = fmt.Errorf("invalid file descriptor")
+			return
+		}
+
 		var userTimeout, probeAfter, probeInterval, probeCount int
 
 		if tc.i2pTunneled {
@@ -46,24 +61,24 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 		const TCP_KEEPINTVL = 5
 		const TCP_KEEPCNT = 6
 
-		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, TCP_USER_TIMEOUT, userTimeout); err != nil {
+		if err := syscall.SetsockoptInt(fdInt, syscall.IPPROTO_TCP, TCP_USER_TIMEOUT, userTimeout); err != nil {
 			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_USER_TIMEOUT", "error", err)
 		}
 
-		if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, SO_KEEPALIVE_ENABLE); err != nil {
+		if err := syscall.SetsockoptInt(fdInt, syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, SO_KEEPALIVE_ENABLE); err != nil {
 			sockoptErr = fmt.Errorf("failed to enable SO_KEEPALIVE: %v", err)
 			return
 		}
 
-		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, TCP_KEEPIDLE, probeAfter); err != nil {
+		if err := syscall.SetsockoptInt(fdInt, syscall.IPPROTO_TCP, TCP_KEEPIDLE, probeAfter); err != nil {
 			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_KEEPIDLE", "error", err)
 		}
 
-		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, TCP_KEEPINTVL, probeInterval); err != nil {
+		if err := syscall.SetsockoptInt(fdInt, syscall.IPPROTO_TCP, TCP_KEEPINTVL, probeInterval); err != nil {
 			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_KEEPINTVL", "error", err)
 		}
 
-		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, TCP_KEEPCNT, probeCount); err != nil {
+		if err := syscall.SetsockoptInt(fdInt, syscall.IPPROTO_TCP, TCP_KEEPCNT, probeCount); err != nil {
 			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_KEEPCNT", "error", err)
 		}
 	})
