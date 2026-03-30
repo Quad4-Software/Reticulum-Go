@@ -171,7 +171,7 @@ func (l *Link) Establish() error {
 	startTime := time.Now()
 	debug.Log(debug.DEBUG_INFO, "Establishing link", "dest_hash", fmt.Sprintf("%x", l.destination.GetHash()))
 
-	if byte(l.status.Load()) != STATUS_PENDING {
+	if l.status.Load() != int32(STATUS_PENDING) {
 		debug.Log(debug.DEBUG_INFO, "Cannot establish link: invalid status", "status", l.status.Load())
 		return errors.New("link already established or failed")
 	}
@@ -287,7 +287,7 @@ func (l *Link) Request(path string, data []byte, timeout time.Duration) (*Reques
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	if byte(l.status.Load()) != STATUS_ACTIVE {
+	if l.status.Load() != int32(STATUS_ACTIVE) {
 		return nil, errors.New("link not active")
 	}
 
@@ -555,7 +555,7 @@ func (l *Link) Teardown() {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	if byte(l.status.Load()) == STATUS_ACTIVE {
+	if l.status.Load() == int32(STATUS_ACTIVE) {
 		l.status.Store(int32(STATUS_CLOSED))
 		if l.closedCallback != nil {
 			l.closedCallback(l)
@@ -624,7 +624,7 @@ func (l *Link) SendPacketWithContext(data []byte, context byte) error {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	if byte(l.status.Load()) != STATUS_ACTIVE {
+	if l.status.Load() != int32(STATUS_ACTIVE) {
 		debug.Log(debug.DEBUG_INFO, "Cannot send packet: link not active", "status", l.status.Load())
 		return errors.New("link not active")
 	}
@@ -669,7 +669,7 @@ func (l *Link) HandleInbound(pkt *packet.Packet) error {
 		l.watchdogLock = false
 	}()
 
-	if byte(l.status.Load()) == STATUS_CLOSED {
+	if l.status.Load() == int32(STATUS_CLOSED) {
 		debug.Log(debug.DEBUG_VERBOSE, "Ignoring packet for closed link", "link_id", fmt.Sprintf("%x", l.linkID))
 		return nil
 	}
@@ -679,7 +679,7 @@ func (l *Link) HandleInbound(pkt *packet.Packet) error {
 		l.lastDataReceived = time.Now()
 	}
 
-	if byte(l.status.Load()) == STATUS_STALE {
+	if l.status.Load() == int32(STATUS_STALE) {
 		l.status.Store(int32(STATUS_ACTIVE))
 	}
 
@@ -697,11 +697,12 @@ func (l *Link) HandleInbound(pkt *packet.Packet) error {
 }
 
 func (l *Link) handleDataPacket(pkt *packet.Packet) error {
-	if byte(l.status.Load()) != STATUS_ACTIVE && byte(l.status.Load()) != STATUS_HANDSHAKE {
+	st := l.status.Load()
+	if st != int32(STATUS_ACTIVE) && st != int32(STATUS_HANDSHAKE) {
 		return errors.New("link not active")
 	}
 
-	if pkt.Context == packet.ContextLRRTT && byte(l.status.Load()) == STATUS_HANDSHAKE && !l.initiator {
+	if pkt.Context == packet.ContextLRRTT && st == int32(STATUS_HANDSHAKE) && !l.initiator {
 		debug.Log(debug.DEBUG_INFO, "RTT packet detected in handleDataPacket, routing to handleRTTPacket", "link_id", fmt.Sprintf("%x", l.linkID))
 		return l.handleRTTPacket(pkt)
 	}
@@ -1383,7 +1384,22 @@ func (l *Link) SetRTT(rtt float64) {
 }
 
 func (l *Link) GetStatus() byte {
-	return byte(l.status.Load())
+	switch l.status.Load() {
+	case int32(STATUS_PENDING):
+		return STATUS_PENDING
+	case int32(STATUS_HANDSHAKE):
+		return STATUS_HANDSHAKE
+	case int32(STATUS_ACTIVE):
+		return STATUS_ACTIVE
+	case int32(STATUS_STALE):
+		return STATUS_STALE
+	case int32(STATUS_CLOSED):
+		return STATUS_CLOSED
+	case int32(STATUS_FAILED):
+		return STATUS_FAILED
+	default:
+		return STATUS_FAILED
+	}
 }
 
 func (l *Link) Send(data []byte) any {
@@ -1458,7 +1474,7 @@ func (l *Link) SendResource(res *resource.Resource) error {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	if byte(l.status.Load()) != STATUS_ACTIVE {
+	if l.status.Load() != int32(STATUS_ACTIVE) {
 		l.teardownReason = STATUS_FAILED
 		return errors.New("link not active")
 	}
@@ -1497,7 +1513,7 @@ func (l *Link) maintainLink() {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		if byte(l.status.Load()) != STATUS_ACTIVE {
+		if l.status.Load() != int32(STATUS_ACTIVE) {
 			return
 		}
 
@@ -1657,7 +1673,7 @@ func (l *Link) watchdog() {
 
 		var sleepTime = WATCHDOG_INTERVAL
 
-		if byte(l.status.Load()) == STATUS_PENDING {
+		if l.status.Load() == int32(STATUS_PENDING) {
 			nextCheck := l.requestTime.Add(l.establishmentTimeout)
 			sleepTime = time.Until(nextCheck).Seconds()
 			if time.Now().After(nextCheck) {
@@ -1669,7 +1685,7 @@ func (l *Link) watchdog() {
 				}
 				sleepTime = common.FLOAT_0_001
 			}
-		} else if byte(l.status.Load()) == STATUS_HANDSHAKE {
+		} else if l.status.Load() == int32(STATUS_HANDSHAKE) {
 			nextCheck := l.requestTime.Add(l.establishmentTimeout)
 			sleepTime = time.Until(nextCheck).Seconds()
 			if time.Now().After(nextCheck) {
@@ -1686,7 +1702,7 @@ func (l *Link) watchdog() {
 				}
 				sleepTime = 0.001
 			}
-		} else if byte(l.status.Load()) == STATUS_ACTIVE {
+		} else if l.status.Load() == int32(STATUS_ACTIVE) {
 			activatedAt := l.establishedAt
 			if activatedAt.IsZero() {
 				activatedAt = time.Time{}
@@ -1715,7 +1731,7 @@ func (l *Link) watchdog() {
 				nextKeepalive := lastInbound.Add(l.keepalive)
 				sleepTime = time.Until(nextKeepalive).Seconds()
 			}
-		} else if byte(l.status.Load()) == STATUS_STALE {
+		} else if l.status.Load() == int32(STATUS_STALE) {
 			sleepTime = common.FLOAT_0_001
 			debug.Log(debug.DEBUG_INFO, "Link marked stale, closing", "link_id", fmt.Sprintf("%x", l.linkID))
 			_ = l.sendTeardownPacket() // #nosec G104 - best effort teardown
@@ -2096,7 +2112,8 @@ func (l *Link) GenerateLinkProof(ownerIdentity *identity.Identity) (*packet.Pack
 func (l *Link) ValidateLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error {
 	startTime := time.Now()
 	debug.Log(debug.DEBUG_INFO, "Validating link proof", "link_id", fmt.Sprintf("%x", l.linkID), "status", l.status.Load(), "initiator", l.initiator, "has_interface", networkIface != nil, "proof_data_len", len(pkt.Data))
-	if byte(l.status.Load()) != STATUS_PENDING && byte(l.status.Load()) != STATUS_HANDSHAKE {
+	st := l.status.Load()
+	if st != int32(STATUS_PENDING) && st != int32(STATUS_HANDSHAKE) {
 		return fmt.Errorf("invalid link status for proof validation: %d", l.status.Load())
 	}
 
