@@ -3,6 +3,7 @@
 package link
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ed25519"
@@ -110,6 +111,9 @@ type Link struct {
 
 	incomingMu sync.Mutex
 	incomingRx *incomingResourceAsm
+
+	outgoingMu  sync.Mutex
+	outgoingRes *resource.Resource
 }
 
 func NewLink(dest *destination.Destination, transport *transport.Transport, networkIface common.NetworkInterface, establishedCallback func(*Link), closedCallback func(*Link)) *Link {
@@ -870,6 +874,8 @@ func (l *Link) handleResourceAdvertisement(pkt *packet.Packet) error {
 	}
 
 	if l.resourceStrategy == ACCEPT_NONE {
+		_ = l.rejectResource(adv.Hash) // #nosec G104 - best effort resource rejection
+		debug.Log(debug.DEBUG_INFO, "Resource advertisement rejected (ACCEPT_NONE)")
 		return nil
 	}
 
@@ -881,7 +887,10 @@ func (l *Link) handleResourceAdvertisement(pkt *packet.Packet) error {
 	}
 
 	if allowed {
-		l.startIncomingResource(adv)
+		if err := l.beginIncomingResource(adv); err != nil {
+			debug.Log(debug.DEBUG_INFO, "Failed to begin incoming resource", "error", err)
+			return err
+		}
 		if l.resourceStartedCallback != nil {
 			l.resourceStartedCallback(adv)
 		}
@@ -982,6 +991,49 @@ func (l *Link) handleResourceRequest(pkt *packet.Packet) error {
 		return err
 	}
 
+	l.outgoingMu.Lock()
+	out := l.outgoingRes
+	l.outgoingMu.Unlock()
+	if out != nil && len(plaintext) >= 1+32 {
+		var resourceHash []byte
+		var pad int
+		if plaintext[0] == 0xFF {
+			pad = 1 + resource.MAPHASH_LEN
+			if len(plaintext) < pad+32 {
+				return nil
+			}
+			resourceHash = plaintext[pad : pad+32]
+		} else {
+			pad = 1
+			resourceHash = plaintext[pad : pad+32]
+		}
+		if !bytes.Equal(resourceHash, out.GetHash()) {
+			return nil
+		}
+		reqHashes := plaintext[pad+32:]
+		if len(reqHashes)%resource.MAPHASH_LEN != 0 {
+			return nil
+		}
+		l.mutex.RLock()
+		sdu := l.mdu
+		l.mutex.RUnlock()
+		for i := 0; i < len(reqHashes); i += resource.MAPHASH_LEN {
+			mh := reqHashes[i : i+resource.MAPHASH_LEN]
+			pi := out.PartIndexForMapHash(mh)
+			if pi < 0 {
+				continue
+			}
+			slice := out.OutboundCiphertextSlice(pi, sdu)
+			if len(slice) == 0 {
+				continue
+			}
+			if err := l.SendPacketWithContext(slice, packet.ContextResource); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
 	if l.resourceStartedCallback != nil {
 		l.resourceStartedCallback(plaintext)
 	}
@@ -1003,28 +1055,19 @@ func (l *Link) handleResourceHashmapUpdate(pkt *packet.Packet) error {
 }
 
 func (l *Link) handleResourceCancel(pkt *packet.Packet) error {
-	plaintext, err := l.decrypt(pkt.Data)
+	_, err := l.decrypt(pkt.Data)
 	if err != nil {
 		return err
 	}
-
-	if l.resourceConcludedCallback != nil {
-		l.resourceConcludedCallback(plaintext)
-	}
-
+	l.resetIncomingResource()
 	return nil
 }
 
 func (l *Link) handleResourceReject(pkt *packet.Packet) error {
-	plaintext, err := l.decrypt(pkt.Data)
+	_, err := l.decrypt(pkt.Data)
 	if err != nil {
 		return err
 	}
-
-	if l.resourceConcludedCallback != nil {
-		l.resourceConcludedCallback(plaintext)
-	}
-
 	return nil
 }
 
@@ -1515,6 +1558,15 @@ func (l *Link) SendResource(res *resource.Resource) error {
 	res.Activate()
 	l.mutex.Unlock()
 
+	l.outgoingMu.Lock()
+	l.outgoingRes = res
+	l.outgoingMu.Unlock()
+	defer func() {
+		l.outgoingMu.Lock()
+		l.outgoingRes = nil
+		l.outgoingMu.Unlock()
+	}()
+
 	if err := l.sendResourceAdvertisement(res); err != nil {
 		l.mutex.Lock()
 		l.teardownReason = STATUS_FAILED
@@ -1572,7 +1624,7 @@ func (l *Link) maintainLink() {
 		noDataTime := l.NoDataFor()
 		if noDataTime > float64(KEEPALIVE) {
 			l.mutex.Lock()
-			err := l.SendPacket([]byte{})
+			err := l.sendKeepalive()
 			if err != nil {
 				l.teardownReason = STATUS_FAILED
 				l.mutex.Unlock()
