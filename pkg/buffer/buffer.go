@@ -5,11 +5,11 @@ package buffer
 import (
 	"bufio"
 	"bytes"
-	"compress/bzip2"
 	"encoding/binary"
 	"io"
 	"sync"
 
+	"git.quad4.io/Go-Libs/bzip2/pkg/bzip2"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/channel"
 )
 
