@@ -79,6 +79,14 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
         run: task test-network
 
+      - name: Live Python-Go interop (Linux AMD64 only)
+        if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
+        run: |
+          . .venv/bin/activate
+          export RUN_LIVE_INTEROP=1
+          export PYTHON_INTEROP="$PWD/.venv/bin/python"
+          go test -v -timeout 90s ./tests/interop/...
+
       - name: Run Fuzz tests (Linux AMD64 only)
         if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
         run: task test-fuzz

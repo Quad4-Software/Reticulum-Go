@@ -146,6 +146,11 @@ tasks:
     cmds:
       - bash tests/crossref/run_crossref.sh {{.CLI_ARGS}}
 
+  test-interop-live:
+    desc: Live Python-Go UDP interop (set PYTHON_INTEROP=.venv/bin/python when using venv)
+    cmds:
+      - RUN_LIVE_INTEROP=1 {{.GOCMD}} test -v -timeout 90s ./tests/interop/...
+
   test-short:
     desc: Run short tests
     cmds:
