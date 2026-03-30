@@ -630,10 +630,16 @@ func (l *Link) SendPacketWithContext(data []byte, context byte) error {
 	}
 
 	debug.Log(debug.DEBUG_VERBOSE, "Encrypting packet", "bytes", len(data), "context", fmt.Sprintf("0x%02x", context))
-	encrypted, err := l.encrypt(data)
-	if err != nil {
-		debug.Log(debug.DEBUG_INFO, "Failed to encrypt packet", "error", err)
-		return err
+	var wireData []byte
+	var err error
+	if context == packet.ContextResource {
+		wireData = data
+	} else {
+		wireData, err = l.encrypt(data)
+		if err != nil {
+			debug.Log(debug.DEBUG_INFO, "Failed to encrypt packet", "error", err)
+			return err
+		}
 	}
 
 	p := &packet.Packet{
@@ -645,7 +651,7 @@ func (l *Link) SendPacketWithContext(data []byte, context byte) error {
 		Hops:            common.ZERO,
 		DestinationType: DEST_TYPE_LINK,
 		DestinationHash: l.linkID,
-		Data:            encrypted,
+		Data:            wireData,
 		CreateReceipt:   false,
 	}
 
@@ -653,7 +659,7 @@ func (l *Link) SendPacketWithContext(data []byte, context byte) error {
 		return err
 	}
 
-	debug.Log(debug.DEBUG_VERBOSE, "Sending encrypted packet", "bytes", len(encrypted))
+	debug.Log(debug.DEBUG_VERBOSE, "Sending encrypted packet", "bytes", len(wireData))
 	l.lastOutbound = time.Now()
 	l.lastDataSent = time.Now()
 
@@ -711,10 +717,14 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 	var err error
 
 	if l.sessionKey != nil {
-		plaintext, err = l.decrypt(pkt.Data)
-		if err != nil {
-			debug.Log(debug.DEBUG_INFO, "Failed to decrypt packet", "error", err, "context", fmt.Sprintf("0x%02x", pkt.Context), "link_id", fmt.Sprintf("%x", l.linkID))
-			return err
+		if pkt.Context == packet.ContextResource {
+			plaintext = pkt.Data
+		} else {
+			plaintext, err = l.decrypt(pkt.Data)
+			if err != nil {
+				debug.Log(debug.DEBUG_INFO, "Failed to decrypt packet", "error", err, "context", fmt.Sprintf("0x%02x", pkt.Context), "link_id", fmt.Sprintf("%x", l.linkID))
+				return err
+			}
 		}
 	} else {
 		plaintext = pkt.Data
@@ -927,7 +937,11 @@ func (l *Link) sendResourceAdvertisement(res *resource.Resource) error {
 		return errors.New("failed to create resource advertisement")
 	}
 
-	advData, err := adv.Pack(common.ZERO)
+	l.mutex.RLock()
+	mdu := l.mdu
+	l.mutex.RUnlock()
+
+	advData, err := adv.Pack(0, mdu)
 	if err != nil {
 		return fmt.Errorf("failed to pack advertisement: %w", err)
 	}
@@ -1472,35 +1486,51 @@ func (l *Link) IsActive() bool {
 
 func (l *Link) SendResource(res *resource.Resource) error {
 	l.mutex.Lock()
-	defer l.mutex.Unlock()
-
 	if l.status.Load() != int32(STATUS_ACTIVE) {
 		l.teardownReason = STATUS_FAILED
+		l.mutex.Unlock()
 		return errors.New("link not active")
 	}
+	sdu := l.mdu
+	l.mutex.Unlock()
 
-	// Activate the resource
+	if err := res.PrepareOutboundForLink(l.encrypt, sdu); err != nil {
+		return err
+	}
+
+	l.mutex.Lock()
 	res.Activate()
+	l.mutex.Unlock()
 
-	// Send the resource data as packets
-	buffer := make([]byte, resource.DEFAULT_SEGMENT_SIZE)
+	if err := l.sendResourceAdvertisement(res); err != nil {
+		l.mutex.Lock()
+		l.teardownReason = STATUS_FAILED
+		l.mutex.Unlock()
+		return fmt.Errorf("resource advertisement: %w", err)
+	}
+
+	// Do not hold l.mutex while sending: SendPacketWithContext locks the same mutex.
+	buffer := make([]byte, sdu)
 	for {
 		n, err := res.Read(buffer)
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
+			l.mutex.Lock()
 			l.teardownReason = STATUS_FAILED
+			l.mutex.Unlock()
 			return fmt.Errorf("error reading resource: %v", err)
 		}
 
 		if err := l.SendPacketWithContext(buffer[:n], packet.ContextResource); err != nil {
+			l.mutex.Lock()
 			l.teardownReason = STATUS_FAILED
+			l.mutex.Unlock()
 			return fmt.Errorf("error sending resource packet: %v", err)
 		}
 	}
 
-	// Send final empty packet to signal completion
 	if err := l.SendPacketWithContext(nil, packet.ContextResource); err != nil {
 		debug.Log(debug.DEBUG_ERROR, "Failed to send resource completion packet", "error", err)
 	}
@@ -1707,13 +1737,19 @@ func (l *Link) watchdog() {
 			if activatedAt.IsZero() {
 				activatedAt = time.Time{}
 			}
-			lastInbound := l.lastInbound
-			if lastInbound.Before(activatedAt) {
-				lastInbound = activatedAt
+			lastActivity := l.lastInbound
+			if l.lastOutbound.After(lastActivity) {
+				lastActivity = l.lastOutbound
+			}
+			if l.lastDataSent.After(lastActivity) {
+				lastActivity = l.lastDataSent
+			}
+			if lastActivity.Before(activatedAt) {
+				lastActivity = activatedAt
 			}
 			now := time.Now()
 
-			if now.After(lastInbound.Add(l.keepalive)) {
+			if now.After(lastActivity.Add(l.keepalive)) {
 				if l.initiator {
 					lastKeepalive := l.lastOutbound
 					if now.After(lastKeepalive.Add(l.keepalive)) {
@@ -1721,14 +1757,14 @@ func (l *Link) watchdog() {
 					}
 				}
 
-				if now.After(lastInbound.Add(l.staleTime)) {
+				if now.After(lastActivity.Add(l.staleTime)) {
 					sleepTime = l.rtt*KEEPALIVE_TIMEOUT_FACTOR + STALE_GRACE
 					l.status.Store(int32(STATUS_STALE))
 				} else {
 					sleepTime = float64(l.keepalive) / float64(time.Second)
 				}
 			} else {
-				nextKeepalive := lastInbound.Add(l.keepalive)
+				nextKeepalive := lastActivity.Add(l.keepalive)
 				sleepTime = time.Until(nextKeepalive).Seconds()
 			}
 		} else if l.status.Load() == int32(STATUS_STALE) {
