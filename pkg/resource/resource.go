@@ -3,6 +3,7 @@
 package resource
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"errors"
 	"io"
@@ -48,6 +49,7 @@ type Resource struct {
 	isResponse         bool
 	hashmap            []byte
 	parts              [][]byte
+	outboundCipher     []byte
 }
 
 func New(data any, autoCompress bool) (*Resource, error) {
@@ -337,9 +339,87 @@ func estimateFileCompression(size int64, extension string) int64 {
 	return int64(float64(size) * ratio)
 }
 
+// PrepareOutboundForLink builds the inner ciphertext blob, hash, hashmap, and
+// segment counts for sending a resource compatible with Reticulum (Python RNS).
+// sdu is the maximum plaintext length per link data packet (link MDU).
+func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), sdu int) error {
+	if sdu <= 0 {
+		return errors.New("invalid sdu")
+	}
+	if encrypt == nil {
+		return errors.New("nil encrypt")
+	}
+
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	if r.fileHandle != nil {
+		return errors.New("resource send from file is not supported")
+	}
+	if r.data == nil {
+		return errors.New("no data")
+	}
+
+	body := r.data
+	randomHash := make([]byte, RANDOM_HASH_SIZE)
+	if _, err := io.ReadFull(rand.Reader, randomHash); err != nil {
+		return err
+	}
+
+	h := sha256.Sum256(append(append([]byte(nil), body...), randomHash...))
+	r.hash = h[:]
+	r.randomHash = append([]byte(nil), randomHash...)
+	r.originalHash = append([]byte(nil), r.hash...)
+
+	plain := append(append([]byte(nil), randomHash...), body...)
+	innerBlob, err := encrypt(plain)
+	if err != nil {
+		return err
+	}
+
+	r.encrypted = true
+	r.compressed = false
+	r.split = false
+	r.totalSegments = 1
+	r.segmentIndex = 1
+
+	partCount := (len(innerBlob) + sdu - 1) / sdu
+	if partCount > int(MAX_SEGMENTS) {
+		return errors.New("resource too large")
+	}
+	r.segments = uint16(partCount) // #nosec G115
+	r.transferSize = int64(len(innerBlob))
+	r.dataSize = int64(len(body))
+
+	r.hashmap = make([]byte, partCount*MAPHASH_LEN)
+	for i := 0; i < partCount; i++ {
+		start := i * sdu
+		end := start + sdu
+		if end > len(innerBlob) {
+			end = len(innerBlob)
+		}
+		chunk := innerBlob[start:end]
+		partHash := sha256.Sum256(append(chunk, randomHash...))
+		copy(r.hashmap[i*MAPHASH_LEN:], partHash[:MAPHASH_LEN])
+	}
+
+	r.outboundCipher = innerBlob
+	r.readOffset = 0
+	return nil
+}
+
 func (r *Resource) Read(p []byte) (n int, err error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
+
+	if r.outboundCipher != nil {
+		if r.readOffset >= int64(len(r.outboundCipher)) {
+			return 0, io.EOF
+		}
+		n = copy(p, r.outboundCipher[r.readOffset:])
+		r.readOffset += int64(n)
+		return n, nil
+	}
 
 	if r.data != nil {
 		if r.readOffset >= int64(len(r.data)) {
