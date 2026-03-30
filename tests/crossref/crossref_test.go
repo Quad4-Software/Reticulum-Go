@@ -4,7 +4,6 @@ package crossref
 
 import (
 	"bytes"
-	"compress/bzip2"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/vmihailenco/msgpack/v5"
 
+	"git.quad4.io/Go-Libs/bzip2/pkg/bzip2"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/buffer"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/channel"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
