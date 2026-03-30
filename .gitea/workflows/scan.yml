@@ -13,8 +13,11 @@ permissions:
 env:
   CI_GO_VERSION: "1.25.5"
   CI_GOSEC_VERSION: "v2.24.5"
+  CI_GOVULNCHECK_VERSION: "v1.1.4"
   TRIVY_DEB_URL: "https://git.quad4.io/Quad4-Software/Trivy-Assets/raw/commit/fdfe96b77d2f7b7f5a90cea00af5024c9f728f17/trivy_0.69.3_Linux-64bit.deb"
   TRIVY_DEB_SHA256: "a484057aafde31089cf2558ca0f79a4bc835125a5ee6834183a5bcf0735af358"
+  GOPRIVATE: git.quad4.io
+  GONOSUMDB: git.quad4.io
 
 jobs:
   scan:
@@ -44,6 +47,12 @@ jobs:
 
       - name: Run Gosec Security Scanner
         run: gosec ./...
+
+      - name: Install govulncheck
+        run: sh scripts/ci/setup-govulncheck.sh "${{ env.CI_GOVULNCHECK_VERSION }}"
+
+      - name: Run govulncheck
+        run: govulncheck ./...
 
       - name: Install Trivy
         run: sh scripts/ci/setup-trivy.sh

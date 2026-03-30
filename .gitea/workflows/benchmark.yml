@@ -9,6 +9,8 @@ on:
 env:
   CI_GO_VERSION: "1.25.5"
   CI_TASK_VERSION: "3.46.3"
+  GOPRIVATE: git.quad4.io
+  GONOSUMDB: git.quad4.io
 
 jobs:
   benchmark:

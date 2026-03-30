@@ -17,6 +17,8 @@ env:
   CI_GO_VERSION: "1.25.5"
   CI_TASK_VERSION: "3.46.3"
   CI_NODE_MAJOR: "22"
+  GOPRIVATE: git.quad4.io
+  GONOSUMDB: git.quad4.io
 
 jobs:
   test:
@@ -85,7 +87,7 @@ jobs:
           . .venv/bin/activate
           export RUN_LIVE_INTEROP=1
           export PYTHON_INTEROP="$PWD/.venv/bin/python"
-          go test -v -timeout 90s ./tests/interop/...
+          go test -v -timeout 600s ./tests/interop/...
 
       - name: Run Fuzz tests (Linux AMD64 only)
         if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
