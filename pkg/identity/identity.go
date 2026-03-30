@@ -519,7 +519,8 @@ func (i *Identity) ToFile(path string) error {
 	copy(privateKeyBytes[32:], i.signingSeed)
 
 	// Write raw bytes to file
-	file, err := os.Create(path) // #nosec G304
+	// #nosec G304 G703 -- path is caller-chosen identity storage; not derived from network input here
+	file, err := os.Create(path)
 	if err != nil {
 		debug.Log(debug.DEBUG_CRITICAL, "Failed to create identity file", "error", err)
 		return err
@@ -539,7 +540,8 @@ func FromFile(path string) (*Identity, error) {
 	debug.Log(debug.DEBUG_ALL, "Loading identity from file", "path", path)
 
 	// Read the private key bytes from file
-	data, err := os.ReadFile(path) // #nosec G304
+	// #nosec G304 G703 -- path is caller-chosen identity storage; not derived from network input here
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read identity file: %w", err)
 	}
@@ -582,6 +584,7 @@ func LoadOrCreateTransportIdentity(customPath string) (*Identity, error) {
 		storagePath = fmt.Sprintf("%s/.reticulum/storage", homeDir)
 	}
 
+	// #nosec G703 -- storage path from RETICULUM_STORAGE_PATH or ~/.reticulum/storage; operator-controlled, not remote taint
 	if err := os.MkdirAll(storagePath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create storage directory: %w", err)
 	}
