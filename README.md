@@ -5,7 +5,7 @@
 [![Go Test](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/go-test.yml/badge.svg?branch=master)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/go-test.yml)
 [![Security Scans](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/scan.yml/badge.svg?branch=master)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/scan.yml)
 
-A high-performance Go implementation of the [Reticulum Network Stack](https://github.com/markqvist/Reticulum).
+A high-performance and [secure](SECURITY.md) Go implementation of the [Reticulum Network Stack](https://github.com/markqvist/Reticulum).
 
 ## Overview
 
@@ -23,10 +23,17 @@ Reticulum-Go provides full protocol compatibility with the Python reference impl
 
 ## Quick Start
 
+You can use the [Makefile](Makefile) targets below or run the equivalent `go` commands directly if you do not have Make installed.
+
 ### Build
 
 ```bash
 make build
+```
+
+```bash
+mkdir -p bin
+CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
 ```
 
 Output: `bin/reticulum-go`
@@ -39,10 +46,29 @@ Install to system path (default `/usr/local/bin`):
 make install
 ```
 
+```bash
+mkdir -p bin
+CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
+cp bin/reticulum-go /usr/local/bin/
+```
+
 Custom install prefix:
 
 ```bash
 make install PREFIX=/opt/reticulum
+```
+
+```bash
+mkdir -p /opt/reticulum/bin
+mkdir -p bin
+CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
+cp bin/reticulum-go /opt/reticulum/bin/
+```
+
+Alternatively, install into your Go toolchain binary directory (`$GOBIN` or `$(go env GOPATH)/bin`):
+
+```bash
+CGO_ENABLED=0 go install -ldflags="-s -w" ./cmd/reticulum-go
 ```
 
 ### Run
@@ -51,37 +77,46 @@ make install PREFIX=/opt/reticulum
 make run
 ```
 
+```bash
+go run ./cmd/reticulum-go
+```
+
 ### Test
 
 ```bash
 make test
 ```
 
+```bash
+go test -v ./...
+```
+
 ## Makefile Reference
 
-| Target | Description |
-|--------|-------------|
-| `make` / `make all` | Build release binary |
-| `make build` | Build release binary (stripped, static) |
-| `make install` | Build and install to PREFIX/bin |
-| `make uninstall` | Remove installed binary |
-| `make clean` | Remove build artifacts |
-| `make test` | Run all tests |
-| `make test-short` | Run short tests only |
-| `make test-race` | Run tests with race detector |
-| `make coverage` | Generate coverage report |
-| `make bench` | Run benchmarks |
-| `make fmt` | Format code |
-| `make vet` | Run go vet |
-| `make lint` | Run revive linter |
-| `make check` | Run fmt, vet, lint, test-short |
-| `make deps` | Download and verify dependencies |
-| `make run` | Run with go run |
-| `make debug` | Build debug binary |
-| `make build-linux` | Cross-build for Linux (amd64, arm64, arm, riscv64) |
-| `make build-windows` | Cross-build for Windows |
-| `make build-darwin` | Cross-build for macOS |
-| `make build-all` | Cross-build for Linux, Windows, macOS |
+| Target | Description | Go / other |
+|--------|-------------|------------|
+| `make` / `make all` | Build release binary | same as `make build` |
+| `make build` | Build release binary (stripped, static) | `mkdir -p bin` then `CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go` |
+| `make install` | Build and install to PREFIX/bin | build as above, then `cp bin/reticulum-go $(PREFIX)/bin/` |
+| `make uninstall` | Remove installed binary | `rm -f $(PREFIX)/bin/reticulum-go` |
+| `make clean` | Remove build artifacts | `go clean` and `rm -rf bin` |
+| `make test` | Run all tests | `go test -v ./...` |
+| `make test-short` | Run short tests only | `go test -short -v ./...` |
+| `make test-race` | Run tests with race detector | `go test -race -v ./...` |
+| `make coverage` | Generate coverage report | `go test -coverprofile=coverage.out ./...` then `go tool cover -html=coverage.out` |
+| `make bench` | Run benchmarks | `go test -run=^$ -bench=. -benchmem ./...` |
+| `make fmt` | Format code | `go fmt ./...` |
+| `make vet` | Run go vet | `go vet ./...` |
+| `make lint` | Run revive linter | `revive -config revive.toml -formatter friendly ./pkg/* ./cmd/* ./internal/*` |
+| `make vulncheck` | Run govulncheck | `go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...` (override version with `GOVULNCHECK_VER`) |
+| `make check` | Run fmt, vet, lint, test-short, vulncheck | run those targets in sequence |
+| `make deps` | Download and verify dependencies | `go mod download` and `go mod verify` |
+| `make run` | Run with go run | `go run ./cmd/reticulum-go` |
+| `make debug` | Build debug binary | `mkdir -p bin` then `go build -o bin/reticulum-go ./cmd/reticulum-go` |
+| `make build-linux` | Cross-build for Linux (amd64, arm64, arm, riscv64) | set `GOOS=linux` and `GOARCH=...` per [Makefile](Makefile) |
+| `make build-windows` | Cross-build for Windows | set `GOOS=windows` and `GOARCH=...` per [Makefile](Makefile) |
+| `make build-darwin` | Cross-build for macOS | set `GOOS=darwin` and `GOARCH=...` per [Makefile](Makefile) |
+| `make build-all` | Cross-build for Linux, Windows, macOS | run the three cross-build command groups from the Makefile |
 
 ## Taskfile (Alternative)
 
@@ -97,14 +132,6 @@ Note: On some systems, use `go-task` instead of `task`; add `alias task='go-task
 
 ## Development
 
-### Nix
-
-With Nix installed, use the development shell for a preconfigured environment:
-
-```bash
-nix develop
-```
-
 ### Code Quality
 
 ```bash
@@ -112,6 +139,14 @@ make fmt
 make vet
 make lint
 make check
+```
+
+```bash
+go fmt ./...
+go vet ./...
+revive -config revive.toml -formatter friendly ./pkg/* ./cmd/* ./internal/*
+go test -short -v ./...
+go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 ```
 
 ### Cross-Platform Builds
@@ -123,6 +158,8 @@ make build-darwin
 make build-all
 ```
 
+Cross-compilation uses `GOOS` and `GOARCH` with the same `go build` flags as `make build`; see [Makefile](Makefile) `build-linux`, `build-windows`, and `build-darwin` targets for exact commands.
+
 ## WebAssembly and Embedded
 
 Build WebAssembly binary (requires Task):
@@ -133,16 +170,6 @@ task test-wasm
 ```
 
 For embedded systems and TinyGo builds, see the [tinygo branch](https://git.quad4.io/Networks/Reticulum-Go/src/branch/tinygo/). Requires TinyGo 0.37.0+.
-
-## Experimental Features
-
-### Green Tea GC
-
-Build with experimental Green Tea garbage collector (Go 1.25+):
-
-```bash
-task build-experimental
-```
 
 ## License
 
