@@ -526,6 +526,47 @@ func (r *Resource) getHashmap() []byte {
 	return append([]byte{}, r.hashmap...)
 }
 
+// PartIndexForMapHash returns the part index whose map hash equals mh, or -1.
+func (r *Resource) PartIndexForMapHash(mh []byte) int {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	if r.hashmap == nil || len(mh) != MAPHASH_LEN {
+		return -1
+	}
+	n := len(r.hashmap) / MAPHASH_LEN
+	for i := 0; i < n; i++ {
+		off := i * MAPHASH_LEN
+		if string(r.hashmap[off:off+MAPHASH_LEN]) == string(mh) {
+			return i
+		}
+	}
+	return -1
+}
+
+// OutboundCiphertextSlice returns the ciphertext bytes for part i using the given SDU.
+func (r *Resource) OutboundCiphertextSlice(partIndex int, sdu int) []byte {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	if r.outboundCipher == nil || sdu <= 0 {
+		return nil
+	}
+	n := int(r.segments)
+	if partIndex < 0 || partIndex >= n {
+		return nil
+	}
+	start := partIndex * sdu
+	if start >= len(r.outboundCipher) {
+		return nil
+	}
+	end := start + sdu
+	if end > len(r.outboundCipher) {
+		end = len(r.outboundCipher)
+	}
+	out := make([]byte, end-start)
+	copy(out, r.outboundCipher[start:end])
+	return out
+}
+
 func (r *Resource) GetRandomHash() []byte {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
