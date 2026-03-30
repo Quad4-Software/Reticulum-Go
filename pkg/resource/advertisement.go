@@ -88,8 +88,8 @@ func NewResourceAdvertisement(res *Resource) *ResourceAdvertisement {
 	}
 }
 
-func (ra *ResourceAdvertisement) Pack(segment int) ([]byte, error) {
-	hashmapMaxLen := getHashmapMaxLen()
+func (ra *ResourceAdvertisement) Pack(segment int, linkMDU int) ([]byte, error) {
+	hashmapMaxLen := hashmapEntriesPerAdvSegment(linkMDU)
 	hashmapStart := segment * hashmapMaxLen
 	hashmapEnd := min(hashmapStart+hashmapMaxLen, len(ra.Hashmap)/MAPHASH_LEN)
 
@@ -297,9 +297,11 @@ func wireFlagsFromAny(f any) (byte, error) {
 	}
 }
 
-func getHashmapMaxLen() int {
-	mdu := 384
-	return (mdu - OVERHEAD) / MAPHASH_LEN
+func hashmapEntriesPerAdvSegment(linkMDU int) int {
+	if linkMDU <= 0 {
+		linkMDU = 384
+	}
+	return (linkMDU - OVERHEAD) / MAPHASH_LEN
 }
 
 func IsRequestAdvertisement(data []byte) bool {
