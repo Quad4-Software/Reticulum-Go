@@ -4,6 +4,8 @@ FROM golang:${GO_VERSION}-alpine
 ENV CGO_ENABLED=0
 ENV GOOS=linux
 ENV GOARCH=amd64
+ENV GOPRIVATE=git.quad4.io
+ENV GONOSUMDB=git.quad4.io
 
 RUN apk add --no-cache git && \
     adduser -D -s /bin/sh builder

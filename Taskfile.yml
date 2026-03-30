@@ -1,6 +1,7 @@
 version: '3'
 env:
   GOPRIVATE: git.quad4.io
+  GONOSUMDB: git.quad4.io
 
 vars:
   GOCMD: go
@@ -81,13 +82,18 @@ tasks:
     cmds:
       - gosec ./pkg/... ./cmd/... ./internal/...
 
+  vulncheck:
+    desc: Run govulncheck (Go vulnerability database)
+    cmds:
+      - go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+
   check:
-    desc: Run fmt-check, vet, lint, test-short, and scan with summary
+    desc: Run fmt-check, vet, lint, test-short, scan, vulncheck with summary
     cmds:
       - |
         FAILED_TASKS=""
         FAIL_COUNT=0
-        TOTAL_TASKS=5
+        TOTAL_TASKS=6
 
         echo "--- Running all checks ---"
         task fmt-check || { FAILED_TASKS="$FAILED_TASKS fmt-check"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
@@ -95,6 +101,7 @@ tasks:
         task lint || { FAILED_TASKS="$FAILED_TASKS lint"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
         task test-short || { FAILED_TASKS="$FAILED_TASKS test-short"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
         task scan || { FAILED_TASKS="$FAILED_TASKS scan"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
+        task vulncheck || { FAILED_TASKS="$FAILED_TASKS vulncheck"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
 
         echo "------------------------------------------"
         if [ $FAIL_COUNT -eq 0 ]; then
