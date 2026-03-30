@@ -107,6 +107,9 @@ type Link struct {
 
 	channel      *channel.Channel
 	channelMutex sync.RWMutex
+
+	incomingMu sync.Mutex
+	incomingRx *incomingResourceAsm
 }
 
 func NewLink(dest *destination.Destination, transport *transport.Transport, networkIface common.NetworkInterface, establishedCallback func(*Link), closedCallback func(*Link)) *Link {
@@ -561,6 +564,7 @@ func (l *Link) Teardown() {
 			l.closedCallback(l)
 		}
 	}
+	l.resetIncomingResource()
 }
 
 func (l *Link) SetEstablishedCallback(callback func(*Link)) {
@@ -878,6 +882,7 @@ func (l *Link) handleResourceAdvertisement(pkt *packet.Packet) error {
 	}
 
 	if allowed {
+		l.startIncomingResource(adv)
 		if l.resourceStartedCallback != nil {
 			l.resourceStartedCallback(adv)
 		}
@@ -928,7 +933,7 @@ func (l *Link) sendResourceResponse(requestID []byte, response any) error {
 	res.SetRequestID(requestID)
 	res.SetIsResponse(true)
 
-	return l.sendResourceAdvertisement(res)
+	return l.SendResource(res)
 }
 
 func (l *Link) sendResourceAdvertisement(res *resource.Resource) error {
@@ -1025,6 +1030,15 @@ func (l *Link) handleResourceReject(pkt *packet.Packet) error {
 }
 
 func (l *Link) handleResourcePart(data []byte, pkt *packet.Packet) error {
+	l.incomingMu.Lock()
+	hasAsm := l.incomingRx != nil
+	l.incomingMu.Unlock()
+	if hasAsm {
+		return l.appendIncomingResourcePart(data)
+	}
+	if len(data) == 0 {
+		return nil
+	}
 	if l.resourceStartedCallback != nil {
 		l.resourceStartedCallback(data)
 	}

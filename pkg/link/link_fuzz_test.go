@@ -19,7 +19,7 @@ func FuzzLinkHandleData(f *testing.F) {
 	defer tr.Close()
 	id, _ := identity.New()
 	dest, _ := destination.New(id, destination.IN, destination.SINGLE, "testapp", tr, "service")
-	
+
 	l := NewLink(dest, tr, nil, nil, nil)
 	l.status.Store(int32(STATUS_ACTIVE))
 	l.linkID = make([]byte, 16)
@@ -43,7 +43,7 @@ func FuzzLinkHandleData(f *testing.F) {
 		if err := pkt.Unpack(); err != nil {
 			return
 		}
-		
+
 		// Ensure it's a link-type packet for the mock link
 		pkt.DestinationType = DEST_TYPE_LINK
 		pkt.DestinationHash = l.linkID
