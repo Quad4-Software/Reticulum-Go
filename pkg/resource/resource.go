@@ -50,6 +50,8 @@ type Resource struct {
 	hashmap            []byte
 	parts              [][]byte
 	outboundCipher     []byte
+	outboundPartSent   []bool
+	outboundSentCount  int
 }
 
 func New(data any, autoCompress bool) (*Resource, error) {
@@ -353,6 +355,9 @@ func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), 
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
+	r.outboundPartSent = nil
+	r.outboundSentCount = 0
+
 	var body []byte
 	switch {
 	case r.data != nil:
@@ -565,6 +570,35 @@ func (r *Resource) OutboundCiphertextSlice(partIndex int, sdu int) []byte {
 	out := make([]byte, end-start)
 	copy(out, r.outboundCipher[start:end])
 	return out
+}
+
+// MarkOutboundPartSent records that part i has been transmitted at least once.
+// It returns true when every part index has been sent at least once.
+func (r *Resource) MarkOutboundPartSent(i int) bool {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	n := int(r.segments)
+	if n == 0 {
+		return true
+	}
+	if i < 0 || i >= n {
+		return false
+	}
+	if r.outboundPartSent == nil {
+		r.outboundPartSent = make([]bool, n)
+	}
+	if !r.outboundPartSent[i] {
+		r.outboundPartSent[i] = true
+		r.outboundSentCount++
+	}
+	return r.outboundSentCount >= n
+}
+
+// OutboundTransferComplete reports whether every part has been sent at least once.
+func (r *Resource) OutboundTransferComplete() bool {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	return int(r.segments) > 0 && r.outboundSentCount >= int(r.segments)
 }
 
 func (r *Resource) GetRandomHash() []byte {
