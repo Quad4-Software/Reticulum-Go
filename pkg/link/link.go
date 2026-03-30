@@ -689,6 +689,30 @@ func (l *Link) SendPacketWithContext(data []byte, context byte) error {
 }
 
 func (l *Link) HandleInbound(pkt *packet.Packet) error {
+	if pkt.PacketType == packet.PacketTypeData {
+		l.mutex.Lock()
+		l.watchdogLock = true
+		if l.status.Load() == int32(STATUS_CLOSED) {
+			debug.Log(debug.DEBUG_VERBOSE, "Ignoring packet for closed link", "link_id", fmt.Sprintf("%x", l.linkID))
+			l.watchdogLock = false
+			l.mutex.Unlock()
+			return nil
+		}
+
+		l.lastInbound = time.Now()
+		if pkt.Context != packet.ContextKeepalive {
+			l.lastDataReceived = time.Now()
+		}
+
+		if l.status.Load() == int32(STATUS_STALE) {
+			l.status.Store(int32(STATUS_ACTIVE))
+		}
+
+		l.watchdogLock = false
+		l.mutex.Unlock()
+		return l.handleDataPacket(pkt)
+	}
+
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -711,9 +735,7 @@ func (l *Link) HandleInbound(pkt *packet.Packet) error {
 		l.status.Store(int32(STATUS_ACTIVE))
 	}
 
-	if pkt.PacketType == packet.PacketTypeData {
-		return l.handleDataPacket(pkt)
-	} else if pkt.PacketType == packet.PacketTypeProof {
+	if pkt.PacketType == packet.PacketTypeProof {
 		if pkt.Context == packet.ContextLRProof {
 			return l.handleLinkProof(pkt, l.networkInterface)
 		} else if pkt.Context == packet.ContextLRRTT {
@@ -1094,7 +1116,7 @@ func (l *Link) handleResourceRequest(pkt *packet.Packet) error {
 	l.outgoingMu.Unlock()
 	if out != nil && len(plaintext) >= 1+32 {
 		pt := append([]byte(nil), plaintext...)
-		go l.dispatchOutgoingResourceRequests(pt)
+		l.dispatchOutgoingResourceRequests(pt)
 		return nil
 	}
 
