@@ -53,7 +53,7 @@ func (am *AnnounceManager) ProcessAnnounce(data []byte, sourceIface string) erro
 		entry.Data = data
 		entry.RetryCount = 0
 		entry.LastRetry = time.Now()
-		entry.Priority = calculatePriority(data[0], 0)
+		entry.Priority = calculatePriority(int(data[0]), 0)
 		return nil
 	}
 
@@ -63,7 +63,7 @@ func (am *AnnounceManager) ProcessAnnounce(data []byte, sourceIface string) erro
 		RetryCount:  0,
 		LastRetry:   time.Now(),
 		SourceIface: sourceIface,
-		Priority:    calculatePriority(data[0], 0),
+		Priority:    calculatePriority(int(data[0]), 0),
 		Hash:        hashStr,
 	}
 
@@ -122,7 +122,7 @@ func (am *AnnounceManager) GetNextAnnounce(iface string) *AnnounceEntry {
 
 	entry.RetryCount++
 	entry.LastRetry = now
-	entry.Priority = calculatePriority(byte(entry.HopCount), entry.RetryCount)
+	entry.Priority = calculatePriority(entry.HopCount, entry.RetryCount)
 
 	am.announceQueue[iface] = queue[1:]
 	am.queueAnnounce(entry, iface)
@@ -130,8 +130,12 @@ func (am *AnnounceManager) GetNextAnnounce(iface string) *AnnounceEntry {
 	return entry
 }
 
-func calculatePriority(hopCount byte, retryCount int) float64 {
-	basePriority := 1.0 / float64(hopCount)
+func calculatePriority(hopCount int, retryCount int) float64 {
+	den := hopCount
+	if den < 1 {
+		den = 1
+	}
+	basePriority := 1.0 / float64(den)
 	retryPenalty := float64(retryCount) * MinPriorityDelta
 	return basePriority - retryPenalty
 }
