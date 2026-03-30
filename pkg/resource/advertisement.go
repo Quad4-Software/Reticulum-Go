@@ -230,6 +230,16 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 			return nil, fmt.Errorf("segment index overflow")
 		}
 		ra.SegmentIndex = uint16(i) // #nosec G115 - checked for overflow
+	} else if i, ok := dict["i"].(int); ok {
+		if i < 0 || i > math.MaxUint16 {
+			return nil, fmt.Errorf("segment index out of range")
+		}
+		ra.SegmentIndex = uint16(i) // #nosec G115
+	} else if i, ok := dict["i"].(int64); ok {
+		if i < 0 || i > math.MaxUint16 {
+			return nil, fmt.Errorf("segment index out of range")
+		}
+		ra.SegmentIndex = uint16(i) // #nosec G115
 	}
 
 	if l, ok := dict["l"].(uint16); ok {
@@ -239,6 +249,16 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 			return nil, fmt.Errorf("total segments overflow")
 		}
 		ra.TotalSegments = uint16(l) // #nosec G115 - checked for overflow
+	} else if l, ok := dict["l"].(int); ok {
+		if l < 0 || l > math.MaxUint16 {
+			return nil, fmt.Errorf("total segments out of range")
+		}
+		ra.TotalSegments = uint16(l) // #nosec G115
+	} else if l, ok := dict["l"].(int64); ok {
+		if l < 0 || l > math.MaxUint16 {
+			return nil, fmt.Errorf("total segments out of range")
+		}
+		ra.TotalSegments = uint16(l) // #nosec G115
 	}
 
 	if q, ok := dict["q"].([]byte); ok {
