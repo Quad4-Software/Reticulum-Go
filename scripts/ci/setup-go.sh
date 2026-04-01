@@ -4,6 +4,8 @@
 #   version: e.g. 1.25.8 (no "go" prefix)
 set -eu
 
+. "$(dirname "$0")/priv.sh"
+
 GO_VER="${1:?}"
 GO_VERSION="go${GO_VER#go}"
 
@@ -28,8 +30,8 @@ if [ "$ACTUAL" != "$EXPECTED" ]; then
     exit 1
 fi
 
-sudo rm -rf /usr/local/go
-sudo tar -C /usr/local -xzf /tmp/go.tar.gz
+run_priv rm -rf /usr/local/go
+run_priv tar -C /usr/local -xzf /tmp/go.tar.gz
 rm -f /tmp/go.tar.gz /tmp/go.sha256
 
 export PATH="/usr/local/go/bin:$PATH"

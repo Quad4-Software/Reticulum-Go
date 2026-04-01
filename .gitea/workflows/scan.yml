@@ -54,6 +54,9 @@ jobs:
       - name: Run govulncheck
         run: govulncheck ./...
 
+      - name: Apt update (for Trivy .deb)
+        run: sh scripts/ci/exec-priv.sh apt-get update -qq
+
       - name: Install Trivy
         run: sh scripts/ci/setup-trivy.sh
 

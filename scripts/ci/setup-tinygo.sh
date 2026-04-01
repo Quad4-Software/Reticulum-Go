@@ -3,6 +3,8 @@
 # Usage: setup-tinygo.sh <version> [arch]
 set -eu
 
+. "$(dirname "$0")/priv.sh"
+
 VER="${1:?}"
 ARCH="${2:-amd64}"
 DEB="tinygo_${VER}_${ARCH}.deb"
@@ -19,6 +21,6 @@ if [ -n "${TINYGO_DEB_SHA256:-}" ]; then
     fi
 fi
 
-sudo dpkg -i /tmp/tinygo.deb 2>/dev/null || sudo apt-get install -f -y
+run_priv dpkg -i /tmp/tinygo.deb 2>/dev/null || run_priv apt-get install -f -y
 rm -f /tmp/tinygo.deb
 tinygo version

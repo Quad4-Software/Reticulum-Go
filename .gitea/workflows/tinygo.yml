@@ -55,6 +55,9 @@ jobs:
       - name: Set up Go
         run: sh scripts/ci/setup-go.sh "${{ env.CI_GO_VERSION }}"
 
+      - name: Apt update (for TinyGo .deb)
+        run: sh scripts/ci/exec-priv.sh apt-get update -qq
+
       - name: Install TinyGo
         run: sh scripts/ci/setup-tinygo.sh "${{ env.CI_TINYGO_VERSION }}"
 

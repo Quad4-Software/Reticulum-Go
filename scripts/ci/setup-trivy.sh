@@ -5,6 +5,8 @@
 # Required: TRIVY_DEB_URL — direct URL to the .deb package.
 set -eu
 
+. "$(dirname "$0")/priv.sh"
+
 URL="${TRIVY_DEB_URL:-}"
 EXPECTED="${TRIVY_DEB_SHA256:-}"
 
@@ -23,6 +25,6 @@ if [ -n "$EXPECTED" ]; then
     fi
 fi
 
-sudo dpkg -i /tmp/trivy.deb 2>/dev/null || sudo apt-get install -f -y
+run_priv dpkg -i /tmp/trivy.deb 2>/dev/null || run_priv apt-get install -f -y
 rm -f /tmp/trivy.deb
 trivy version

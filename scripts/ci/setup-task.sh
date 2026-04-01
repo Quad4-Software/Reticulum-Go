@@ -3,6 +3,8 @@
 # Usage: setup-task.sh [version]
 set -eu
 
+. "$(dirname "$0")/priv.sh"
+
 TASK_VERSION="${1:-3.49.1}"
 
 ARCH="$(uname -m)"
@@ -26,6 +28,6 @@ if [ -z "$EXPECTED" ] || [ "$EXPECTED" != "$ACTUAL" ]; then
     exit 1
 fi
 
-sudo tar -xzf /tmp/task.tar.gz -C /usr/local/bin task
+run_priv tar -xzf /tmp/task.tar.gz -C /usr/local/bin task
 rm -f /tmp/task.tar.gz /tmp/task-checksums.txt
 task --version
