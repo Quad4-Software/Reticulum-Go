@@ -76,9 +76,12 @@ const (
 )
 
 const (
-	WS_MTU             = 1064
-	WS_BITRATE         = 10000000
-	WS_RECONNECT_DELAY = 2 * time.Second
+	WS_MTU = 1064
+
+	// MaxWSControlPayload caps ping/pong/close control frame payloads (defense in depth).
+	MaxWSControlPayload = 4096
+	WS_BITRATE          = 10000000
+	WS_RECONNECT_DELAY  = 2 * time.Second
 )
 
 const (
