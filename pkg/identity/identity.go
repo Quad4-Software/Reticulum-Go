@@ -3,8 +3,6 @@
 package identity
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/ed25519"
 	"crypto/hmac"
 	"crypto/rand"
@@ -118,11 +116,13 @@ func (i *Identity) Encrypt(plaintext []byte, ratchet []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	// Derive key material (64 bytes: first 32 for HMAC, last 32 for encryption)
+	// Derive key material (64 bytes: first 32 for HMAC, last 32 for encryption).
+	// Use RFC 5869 HKDF to match Decrypt() exactly.
 	salt := i.GetSalt()
 	debug.Log(debug.DEBUG_ALL, "Encrypt: using salt", "salt", fmt.Sprintf("%x", salt), "identity_hash", fmt.Sprintf("%x", i.Hash()))
-	key, err := cryptography.DeriveKey(sharedSecret, salt, i.GetContext(), 64)
-	if err != nil {
+	hkdfReader := hkdf.New(sha256.New, sharedSecret, salt, i.GetContext())
+	key := make([]byte, 64)
+	if _, err := io.ReadFull(hkdfReader, key); err != nil {
 		return nil, err
 	}
 
@@ -375,38 +375,9 @@ func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRat
 		return nil, errors.New("invalid HMAC")
 	}
 
-	// Create AES cipher
-	block, err := aes.NewCipher(encryptionKey)
+	plaintext, err := cryptography.DecryptAES256CBC(encryptionKey, ciphertext)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create cipher: %v", err)
-	}
-
-	// Extract IV and decrypt
-	if len(ciphertext) < aes.BlockSize {
-		return nil, errors.New("ciphertext too short")
-	}
-
-	iv := ciphertext[:aes.BlockSize]
-	actualCiphertext := ciphertext[aes.BlockSize:]
-
-	if len(actualCiphertext)%aes.BlockSize != 0 {
-		return nil, errors.New("ciphertext is not a multiple of block size")
-	}
-
-	mode := cipher.NewCBCDecrypter(block, iv)
-	plaintext := make([]byte, len(actualCiphertext))
-	mode.CryptBlocks(plaintext, actualCiphertext)
-
-	// Remove PKCS7 padding
-	padding := int(plaintext[len(plaintext)-1])
-	if padding > aes.BlockSize || padding == 0 {
-		return nil, errors.New("invalid padding")
-	}
-
-	for i := len(plaintext) - padding; i < len(plaintext); i++ {
-		if plaintext[i] != byte(padding) {
-			return nil, errors.New("invalid padding")
-		}
+		return nil, err
 	}
 
 	if ratchetIDReceiver != nil {
@@ -414,7 +385,7 @@ func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRat
 	}
 
 	debug.Log(debug.DEBUG_ALL, "Decryption completed successfully")
-	return plaintext[:len(plaintext)-padding], nil
+	return plaintext, nil
 }
 
 // Helper function to attempt decryption using a ratchet
@@ -435,8 +406,9 @@ func (i *Identity) tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet [
 		return nil, nil, err
 	}
 
-	key, err := cryptography.DeriveKey(sharedSecret, i.GetSalt(), i.GetContext(), 64)
-	if err != nil {
+	hkdfReader := hkdf.New(sha256.New, sharedSecret, i.GetSalt(), i.GetContext())
+	key := make([]byte, 64)
+	if _, err := io.ReadFull(hkdfReader, key); err != nil {
 		return nil, nil, err
 	}
 
@@ -458,12 +430,15 @@ func (i *Identity) tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet [
 
 func (i *Identity) EncryptWithHMAC(plaintext []byte, key []byte) ([]byte, error) {
 	var hmacKey, encryptionKey []byte
+	var err error
 	if len(key) == 64 {
 		hmacKey = key[:32]
 		encryptionKey = key[32:64]
 	} else if len(key) == 32 {
-		hmacKey = key[:16]
-		encryptionKey = key[16:32]
+		hmacKey, encryptionKey, err = cryptography.ExpandEncryptWithHMACKeyMaterial(key)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		return nil, errors.New("invalid key length for EncryptWithHMAC")
 	}
@@ -483,12 +458,15 @@ func (i *Identity) DecryptWithHMAC(data []byte, key []byte) ([]byte, error) {
 	}
 
 	var hmacKey, encryptionKey []byte
+	var err error
 	if len(key) == 64 {
 		hmacKey = key[:32]
 		encryptionKey = key[32:64]
 	} else if len(key) == 32 {
-		hmacKey = key[:16]
-		encryptionKey = key[16:32]
+		hmacKey, encryptionKey, err = cryptography.ExpandEncryptWithHMACKeyMaterial(key)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		return nil, errors.New("invalid key length for DecryptWithHMAC")
 	}
