@@ -310,7 +310,7 @@ func (wsi *WebSocketInterface) readLoop() {
 		default:
 		}
 
-		data, err := wsi.readFrame()
+		data, err := wsi.readFrameBounded()
 		if err != nil {
 			wsi.Mutex.Lock()
 			wsi.connected = false
@@ -346,7 +346,17 @@ func (wsi *WebSocketInterface) readLoop() {
 	}
 }
 
-func (wsi *WebSocketInterface) readFrame() ([]byte, error) {
+func (wsi *WebSocketInterface) readFrameBounded() ([]byte, error) {
+	wsi.Mutex.RLock()
+	limit := wsi.MTU
+	wsi.Mutex.RUnlock()
+	if limit <= 0 {
+		limit = WS_MTU
+	}
+	return wsi.readFrameWithRemaining(limit)
+}
+
+func (wsi *WebSocketInterface) readFrameWithRemaining(remaining int) ([]byte, error) {
 	wsi.Mutex.RLock()
 	reader := wsi.reader
 	wsi.Mutex.RUnlock()
@@ -399,6 +409,10 @@ func (wsi *WebSocketInterface) readFrame() ([]byte, error) {
 		payloadLen = int(val) // #nosec G115
 	}
 
+	if payloadLen > remaining {
+		return nil, fmt.Errorf("websocket payload exceeds maximum allowed size")
+	}
+
 	maskKey := make([]byte, WS_MASK_KEY_SIZE)
 	if masked {
 		if _, err := io.ReadFull(reader, maskKey); err != nil {
@@ -418,11 +432,14 @@ func (wsi *WebSocketInterface) readFrame() ([]byte, error) {
 	}
 
 	if !fin {
-		nextFrame, err := wsi.readFrame()
+		nextFrame, err := wsi.readFrameWithRemaining(remaining - payloadLen)
 		if err != nil {
 			return nil, err
 		}
-		return append(payload, nextFrame...), nil
+		out := make([]byte, 0, len(payload)+len(nextFrame))
+		out = append(out, payload...)
+		out = append(out, nextFrame...)
+		return out, nil
 	}
 
 	return payload, nil
@@ -524,6 +541,10 @@ func (wsi *WebSocketInterface) handlePingFrame(reader *bufio.Reader, payloadLen 
 		payloadLen = int(val) // #nosec G115
 	}
 
+	if payloadLen > MaxWSControlPayload {
+		return nil, fmt.Errorf("ping payload too large")
+	}
+
 	maskKey := make([]byte, WS_MASK_KEY_SIZE)
 	if masked {
 		if _, err := io.ReadFull(reader, maskKey); err != nil {
@@ -565,6 +586,10 @@ func (wsi *WebSocketInterface) handlePongFrame(reader *bufio.Reader, payloadLen 
 			return nil, fmt.Errorf("payload length exceeds maximum integer value")
 		}
 		payloadLen = int(val) // #nosec G115
+	}
+
+	if payloadLen > MaxWSControlPayload {
+		return nil, fmt.Errorf("pong payload too large")
 	}
 
 	maskKey := make([]byte, WS_MASK_KEY_SIZE)
