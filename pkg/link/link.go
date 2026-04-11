@@ -1288,8 +1288,16 @@ func (l *Link) handleResponse(plaintext []byte) error {
 		return errors.New("invalid response format")
 	}
 
-	requestID := responseData[common.ZERO].([]byte)
-	responsePayload := responseData[common.ONE].([]byte)
+	requestIDRaw, ok := responseData[common.ZERO].([]byte)
+	if !ok {
+		return errors.New("invalid response format: request id is not bytes")
+	}
+	responsePayloadRaw, ok := responseData[common.ONE].([]byte)
+	if !ok {
+		return errors.New("invalid response format: response payload is not bytes")
+	}
+	requestID := requestIDRaw
+	responsePayload := responsePayloadRaw
 
 	l.requestMutex.Lock()
 	for i, req := range l.pendingRequests {
@@ -1524,43 +1532,13 @@ func (l *Link) decrypt(data []byte) ([]byte, error) {
 		return nil, errors.New("HMAC verification failed")
 	}
 
-	// Extract IV and ciphertext
-	iv := signedParts[:aes.BlockSize]
-	ciphertext := signedParts[aes.BlockSize:]
-
-	if len(ciphertext)%aes.BlockSize != 0 {
-		debug.Log(debug.DEBUG_ERROR, "Decrypt failed: ciphertext not multiple of block size", "length", len(ciphertext))
-		return nil, errors.New("ciphertext is not a multiple of block size")
-	}
-
-	block, err := aes.NewCipher(l.sessionKey)
+	plaintext, err := cryptography.DecryptAES256CBC(l.sessionKey, signedParts)
 	if err != nil {
+		debug.Log(debug.DEBUG_ERROR, "Decrypt failed", "link_id", fmt.Sprintf("%x", l.linkID), "error", err)
 		return nil, err
 	}
 
-	mode := cipher.NewCBCDecrypter(block, iv)
-	plaintext := make([]byte, len(ciphertext))
-	mode.CryptBlocks(plaintext, ciphertext)
-
-	// Remove PKCS7 padding
-	if len(plaintext) == 0 {
-		return nil, errors.New("invalid padding: plaintext empty")
-	}
-
-	padding := int(plaintext[len(plaintext)-1])
-	if padding > aes.BlockSize || padding == 0 {
-		debug.Log(debug.DEBUG_ERROR, "Decrypt failed: invalid padding value", "padding", padding)
-		return nil, errors.New("invalid padding")
-	}
-
-	for i := len(plaintext) - padding; i < len(plaintext); i++ {
-		if plaintext[i] != byte(padding) {
-			debug.Log(debug.DEBUG_ERROR, "Decrypt failed: padding byte mismatch", "expected", padding, "got", plaintext[i])
-			return nil, errors.New("invalid padding")
-		}
-	}
-
-	return plaintext[:len(plaintext)-padding], nil
+	return plaintext, nil
 }
 
 func (l *Link) GetRTT() float64 {
