@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"runtime"
 	"testing"
+	"time"
 
 	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
@@ -24,7 +25,7 @@ func BenchmarkSeenAnnouncesScale(b *testing.B) {
 			for range size {
 				h := make([]byte, 32)
 				_, _ = rand.Read(h)
-				tr.seenAnnounces[string(h)] = true
+				tr.seenAnnounces[string(h)] = time.Now()
 			}
 
 			b.ResetTimer()

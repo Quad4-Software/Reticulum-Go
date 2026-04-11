@@ -43,7 +43,8 @@ type Transport struct {
 	links                 map[string]LinkInterface
 	destinations          map[string]any
 	announceRate          *rate.Limiter
-	seenAnnounces         map[string]bool
+	seenAnnounces         map[string]time.Time
+	packetHandleSem       chan struct{}
 	pathfinder            *pathfinder.PathFinder
 	announceHandlers      []announce.Handler
 	paths                 map[string]*common.Path
@@ -89,7 +90,8 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 	t := &Transport{
 		interfaces:            make(map[string]common.NetworkInterface),
 		paths:                 make(map[string]*common.Path), // TODO: Load persisted path table from storage/destination_table for faster startup
-		seenAnnounces:         make(map[string]bool),
+		seenAnnounces:         make(map[string]time.Time),
+		packetHandleSem:       make(chan struct{}, MaxConcurrentPacketHandlers),
 		announceRate:          rate.NewLimiter(rate.DefaultBurstFreq, 20.0),
 		mutex:                 sync.RWMutex{},
 		config:                cfg,
@@ -130,8 +132,21 @@ func (t *Transport) startMaintenanceJobs() {
 			t.cleanupExpiredDiscoveryRequests()
 			t.cleanupExpiredAnnounces()
 			t.cleanupExpiredReceipts()
+			t.cleanupSeenAnnounces()
 		case <-t.done:
 			return
+		}
+	}
+}
+
+func (t *Transport) cleanupSeenAnnounces() {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	cutoff := time.Now().Add(-SeenAnnounceTTL)
+	for k, v := range t.seenAnnounces {
+		if v.Before(cutoff) {
+			delete(t.seenAnnounces, k)
 		}
 	}
 }
@@ -601,12 +616,14 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 	hashStr := string(announceHash[:])
 
 	t.mutex.Lock()
-	if _, seen := t.seenAnnounces[hashStr]; seen {
-		t.mutex.Unlock()
-		debug.Log(debug.DEBUG_ALL, "Ignoring duplicate announce", "hash", fmt.Sprintf("%x", announceHash[:common.EIGHT]))
-		return nil
+	if last, ok := t.seenAnnounces[hashStr]; ok {
+		if time.Since(last) < SeenAnnounceTTL {
+			t.mutex.Unlock()
+			debug.Log(debug.DEBUG_ALL, "Ignoring duplicate announce", "hash", fmt.Sprintf("%x", announceHash[:common.EIGHT]))
+			return nil
+		}
 	}
-	t.seenAnnounces[hashStr] = true
+	t.seenAnnounces[hashStr] = time.Now()
 	t.mutex.Unlock()
 
 	// Don't forward if max hops reached
@@ -826,7 +843,7 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 	dataCopy := make([]byte, len(data))
 	copy(dataCopy, data)
 
-	go func() {
+	dispatch := func() {
 		switch packetType {
 		case PACKET_TYPE_ANNOUNCE:
 			debug.Log(debug.DEBUG_VERBOSE, "Processing announce packet")
@@ -856,7 +873,17 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 		default:
 			debug.Log(debug.DEBUG_INFO, "Unknown packet type", "type", fmt.Sprintf(common.STR_FMT_HEX, packetType), "source", iface.GetName())
 		}
-	}()
+	}
+
+	select {
+	case t.packetHandleSem <- struct{}{}:
+		go func() {
+			defer func() { <-t.packetHandleSem }()
+			dispatch()
+		}()
+	default:
+		dispatch()
+	}
 }
 
 func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterface) error {
@@ -1033,12 +1060,14 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	debug.Log(debug.DEBUG_INFO, "Announce hash", "hash", fmt.Sprintf("%x", announceHash[:8]))
 
 	t.mutex.Lock()
-	if _, seen := t.seenAnnounces[hashStr]; seen {
-		t.mutex.Unlock()
-		debug.Log(debug.DEBUG_INFO, "Ignoring duplicate announce", "hash", fmt.Sprintf("%x", announceHash[:8]))
-		return nil
+	if last, ok := t.seenAnnounces[hashStr]; ok {
+		if time.Since(last) < SeenAnnounceTTL {
+			t.mutex.Unlock()
+			debug.Log(debug.DEBUG_INFO, "Ignoring duplicate announce", "hash", fmt.Sprintf("%x", announceHash[:8]))
+			return nil
+		}
 	}
-	t.seenAnnounces[hashStr] = true
+	t.seenAnnounces[hashStr] = time.Now()
 	t.mutex.Unlock()
 
 	debug.Log(debug.DEBUG_INFO, "Processing new announce")
