@@ -82,25 +82,5 @@ func DecryptAES256CBC(key, ciphertext []byte) ([]byte, error) {
 	plaintext := make([]byte, len(ciphertext))
 	mode.CryptBlocks(plaintext, ciphertext)
 
-	// Remove PKCS7 padding.
-	if len(plaintext) == 0 {
-		return nil, errors.New("invalid padding: plaintext is empty")
-	}
-
-	padding := int(plaintext[len(plaintext)-1])
-	if padding > aes.BlockSize || padding == 0 {
-		return nil, errors.New("invalid padding size")
-	}
-	if len(plaintext) < padding {
-		return nil, errors.New("invalid padding: padding size is larger than plaintext")
-	}
-
-	// Verify the padding bytes.
-	for i := len(plaintext) - padding; i < len(plaintext); i++ {
-		if plaintext[i] != byte(padding) {
-			return nil, errors.New("invalid padding bytes")
-		}
-	}
-
-	return plaintext[:len(plaintext)-padding], nil
+	return RemovePKCS7Padding(plaintext)
 }
