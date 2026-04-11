@@ -186,6 +186,10 @@ func (tc *TCPClientInterface) readLoop() {
 	inFrame := false
 	escape := false
 	dataBuffer := make([]byte, 0)
+	maxHDLC := 2*tc.MTU + 32
+	if maxHDLC < 256 {
+		maxHDLC = 2048
+	}
 
 	for {
 		tc.Mutex.RLock()
@@ -238,6 +242,12 @@ func (tc *TCPClientInterface) readLoop() {
 					if escape {
 						b ^= HDLC_ESC_MASK
 						escape = false
+					}
+					if len(dataBuffer) >= maxHDLC {
+						dataBuffer = dataBuffer[:0]
+						inFrame = false
+						escape = false
+						continue
 					}
 					dataBuffer = append(dataBuffer, b)
 				}
@@ -620,7 +630,19 @@ func (ts *TCPServerInterface) handleConnection(conn net.Conn) {
 		_ = conn.Close()
 	}()
 
+	ts.readHDLCLoop(conn)
+}
+
+func (ts *TCPServerInterface) readHDLCLoop(conn net.Conn) {
 	buffer := make([]byte, ts.MTU)
+	inFrame := false
+	escape := false
+	dataBuffer := make([]byte, 0)
+	maxHDLC := 2*ts.MTU + 32
+	if maxHDLC < 256 {
+		maxHDLC = 2048
+	}
+
 	for {
 		ts.Mutex.RLock()
 		done := ts.done
@@ -637,7 +659,36 @@ func (ts *TCPServerInterface) handleConnection(conn net.Conn) {
 			return
 		}
 
-		ts.ProcessIncoming(buffer[:n])
+		for i := range n {
+			b := buffer[i]
+
+			if b == HDLC_FLAG {
+				if inFrame && len(dataBuffer) > 0 {
+					ts.ProcessIncoming(dataBuffer)
+					dataBuffer = dataBuffer[:0]
+				}
+				inFrame = !inFrame
+				continue
+			}
+
+			if inFrame {
+				if b == HDLC_ESC {
+					escape = true
+				} else {
+					if escape {
+						b ^= HDLC_ESC_MASK
+						escape = false
+					}
+					if len(dataBuffer) >= maxHDLC {
+						dataBuffer = dataBuffer[:0]
+						inFrame = false
+						escape = false
+						continue
+					}
+					dataBuffer = append(dataBuffer, b)
+				}
+			}
+		}
 	}
 }
 
