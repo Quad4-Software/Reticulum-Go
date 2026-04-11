@@ -9,6 +9,12 @@ const (
 	PathRequestTTL  = 300
 	AnnounceTimeout = 15
 
+	// SeenAnnounceTTL is how long a deduplication key for an announce hash is retained.
+	SeenAnnounceTTL = 1 * time.Hour
+
+	// MaxConcurrentPacketHandlers limits concurrent goroutines spawned by HandlePacket.
+	MaxConcurrentPacketHandlers = 512
+
 	EstablishmentTimeoutPerHop = 6
 	KeepaliveTimeoutFactor     = 4
 	StaleGrace                 = 2
