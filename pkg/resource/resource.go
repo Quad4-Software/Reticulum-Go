@@ -14,44 +14,36 @@ import (
 )
 
 type Resource struct {
-	mutex              sync.RWMutex
-	data               []byte
-	fileHandle         io.ReadWriteSeeker
-	fileName           string
-	hash               []byte
-	randomHash         []byte
-	originalHash       []byte
-	status             byte
-	compressed         bool
-	autoCompress       bool
-	encrypted          bool
-	split              bool
-	segments           uint16
-	segmentIndex       uint16
-	totalSegments      uint16
-	completedParts     map[uint16]bool
-	transferSize       int64
-	dataSize           int64
-	progress           float64
-	window             int
-	windowMax          int
-	windowMin          int
-	windowFlexibility  int
-	rtt                float64
-	fastRateRounds     int
-	verySlowRateRounds int
-	createdAt          time.Time
-	completedAt        time.Time
-	callback           func(*Resource)
-	progressCallback   func(*Resource)
-	readOffset         int64
-	requestID          []byte
-	isResponse         bool
-	hashmap            []byte
-	parts              [][]byte
-	outboundCipher     []byte
-	outboundPartSent   []bool
-	outboundSentCount  int
+	mutex             sync.RWMutex
+	data              []byte
+	fileHandle        io.ReadWriteSeeker
+	fileName          string
+	hash              []byte
+	randomHash        []byte
+	originalHash      []byte
+	status            byte
+	compressed        bool
+	autoCompress      bool
+	encrypted         bool
+	split             bool
+	segments          uint16
+	segmentIndex      uint16
+	totalSegments     uint16
+	completedParts    map[uint16]bool
+	transferSize      int64
+	dataSize          int64
+	progress          float64
+	createdAt         time.Time
+	completedAt       time.Time
+	callback          func(*Resource)
+	progressCallback  func(*Resource)
+	readOffset        int64
+	requestID         []byte
+	isResponse        bool
+	hashmap           []byte
+	outboundCipher    []byte
+	outboundPartSent  []bool
+	outboundSentCount int
 }
 
 func New(data any, autoCompress bool) (*Resource, error) {

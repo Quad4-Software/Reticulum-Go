@@ -127,7 +127,7 @@ func TestIngressControl_ProcessAnnounce_Disabled(t *testing.T) {
 func TestIngressControl_ReleaseHeldAnnounce(t *testing.T) {
 	ic := NewIngressControl(true)
 
-	hash, data, found := ic.ReleaseHeldAnnounce()
+	_, _, found := ic.ReleaseHeldAnnounce()
 	if found {
 		t.Error("ReleaseHeldAnnounce() should return false when no announces held")
 	}
@@ -137,7 +137,7 @@ func TestIngressControl_ReleaseHeldAnnounce(t *testing.T) {
 		ic.ProcessAnnounce("hash1", []byte("data1"), false)
 	}
 
-	hash, data, found = ic.ReleaseHeldAnnounce()
+	hash, data, found := ic.ReleaseHeldAnnounce()
 	if !found {
 		t.Error("ReleaseHeldAnnounce() should return true when announces are held")
 	}

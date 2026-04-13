@@ -11,7 +11,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -27,7 +26,6 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/pathfinder"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/resolver"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/resource"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
 	"github.com/vmihailenco/msgpack/v5"
@@ -1776,71 +1774,6 @@ func (l *Link) HandleProofRequest(packet *packet.Packet) bool {
 		return false
 	default:
 		return false
-	}
-}
-
-func (l *Link) decodePacket(data []byte) {
-	if len(data) < 1 {
-		debug.Log(debug.DEBUG_ALL, "Invalid packet: zero length")
-		return
-	}
-
-	packetType := data[0]
-	debug.Log(debug.DEBUG_ALL, "Packet Analysis", "size", len(data), "type", fmt.Sprintf(common.STR_FMT_HEX, packetType))
-
-	switch packetType {
-	case packet.PacketTypeData:
-		debug.Log(debug.DEBUG_ALL, "Type Description: Data Packet", "payload_size", len(data)-common.ONE)
-
-	case packet.PacketTypeLinkReq:
-		debug.Log(debug.DEBUG_ALL, "Type Description: Link Management", common.STR_LINK_ID, fmt.Sprintf("%x", data[common.ONE:common.SIZE_32+common.ONE]))
-
-	case packet.PacketTypeAnnounce:
-		debug.Log(debug.DEBUG_ALL, "Received announce packet", common.STR_BYTES, len(data))
-		if len(data) < packet.MinAnnounceSize {
-			debug.Log(debug.DEBUG_INFO, "Announce packet too short", "bytes", len(data))
-			return
-		}
-
-		destHash := data[common.TWO : common.SIZE_16+common.TWO]
-		encKey := data[common.SIZE_16+common.TWO : common.SIZE_32+common.SIZE_16+common.TWO]
-		signKey := data[common.SIZE_32+common.SIZE_16+common.TWO : common.SIZE_32*common.TWO+common.SIZE_16+common.TWO]
-		nameHash := data[common.SIZE_32*common.TWO+common.SIZE_16+common.TWO : common.SIZE_32*common.TWO+common.SIZE_16+common.TWO+common.EIGHT+common.TWO]
-		randomHash := data[common.SIZE_32*common.TWO+common.SIZE_16+common.TWO+common.EIGHT+common.TWO : common.SIZE_32*common.TWO+common.SIZE_16+common.TWO+common.EIGHT*common.TWO+common.TWO]
-		signature := data[common.SIZE_32*common.TWO+common.SIZE_16+common.TWO+common.EIGHT*common.TWO+common.TWO : common.SIZE_64+common.SIZE_32*common.TWO+common.SIZE_16+common.TWO+common.EIGHT*common.TWO+common.TWO]
-		appData := data[common.SIZE_64+common.SIZE_32*common.TWO+common.SIZE_16+common.TWO+common.EIGHT*common.TWO+common.TWO:]
-
-		pubKey := append(encKey, signKey...)
-
-		validationData := make([]byte, common.ZERO, common.SIZE_32*common.FIVE+common.FOUR)
-		validationData = append(validationData, destHash...)
-		validationData = append(validationData, encKey...)
-		validationData = append(validationData, signKey...)
-		validationData = append(validationData, nameHash...)
-		validationData = append(validationData, randomHash...)
-
-		if identity.ValidateAnnounce(validationData, destHash, pubKey, signature, appData) {
-			debug.Log(debug.DEBUG_VERBOSE, "Valid announce from", "public_key", fmt.Sprintf("%x", pubKey[:common.EIGHT]))
-			if err := l.transport.HandleAnnounce(destHash, l.networkInterface); err != nil {
-				debug.Log(debug.DEBUG_INFO, "Failed to handle announce", "error", err)
-			}
-		} else {
-			debug.Log(debug.DEBUG_INFO, "Invalid announce signature from", "public_key", fmt.Sprintf("%x", pubKey[:common.EIGHT]))
-		}
-
-	case packet.PacketTypeProof:
-		debug.Log(debug.DEBUG_ALL, "Type Description: RNS Discovery")
-		if len(data) > common.SIZE_16+common.ONE {
-			searchHash := data[common.ONE : common.SIZE_16+common.ONE]
-			debug.Log(debug.DEBUG_ALL, "Searching for Hash", "search_hash", fmt.Sprintf("%x", searchHash))
-
-			if id, err := resolver.ResolveIdentity(hex.EncodeToString(searchHash)); err == nil {
-				debug.Log(debug.DEBUG_ALL, "Found matching identity", "identity_hash", id.GetHexHash())
-			}
-		}
-
-	default:
-		debug.Log(debug.DEBUG_ALL, "Type Description: Unknown", "type", fmt.Sprintf("0x%02x", packetType), "raw_hex", fmt.Sprintf("%x", data))
 	}
 }
 

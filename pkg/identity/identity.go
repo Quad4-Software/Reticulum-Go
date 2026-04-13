@@ -16,7 +16,6 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Identity struct {
@@ -26,7 +25,6 @@ type Identity struct {
 	verificationKey ed25519.PublicKey
 	hash            []byte
 	hexHash         string
-	appData         []byte
 
 	ratchets      map[string][]byte
 	ratchetExpiry map[string]int64
@@ -604,71 +602,6 @@ func (i *Identity) loadPrivateKey(privateKey, signingSeed []byte) error {
 	return nil
 }
 
-func (i *Identity) saveRatchets(path string) error {
-	i.mutex.RLock()
-	defer i.mutex.RUnlock()
-
-	if len(i.ratchets) == 0 {
-		return nil // Nothing to save
-	}
-
-	debug.Log(debug.DEBUG_PACKETS, "Saving ratchets", "count", len(i.ratchets), "path", path)
-
-	// Convert ratchets to list format for msgpack
-	ratchetList := make([][]byte, 0, len(i.ratchets))
-	for _, ratchet := range i.ratchets {
-		ratchetList = append(ratchetList, ratchet)
-	}
-
-	// Pack ratchets using msgpack
-	packedRatchets, err := msgpack.Marshal(ratchetList)
-	if err != nil {
-		return fmt.Errorf("failed to pack ratchets: %w", err)
-	}
-
-	// Sign the packed ratchets
-	signature := i.Sign(packedRatchets)
-
-	// Create structure: {"signature": ..., "ratchets": ...}
-	persistedData := map[string][]byte{
-		"signature": signature,
-		"ratchets":  packedRatchets,
-	}
-
-	// Pack the entire structure
-	finalData, err := msgpack.Marshal(persistedData)
-	if err != nil {
-		return fmt.Errorf("failed to pack ratchet data: %w", err)
-	}
-
-	// Write to temporary file first, then rename (atomic operation)
-	tempPath := path + ".tmp"
-	file, err := os.Create(tempPath) // #nosec G304
-	if err != nil {
-		return fmt.Errorf("failed to create temp ratchet file: %w", err)
-	}
-
-	if _, err := file.Write(finalData); err != nil {
-		// #nosec G104 - Error already being handled, cleanup errors are non-critical
-		file.Close()
-		// #nosec G104 - Error already being handled, cleanup errors are non-critical
-		os.Remove(tempPath)
-		return fmt.Errorf("failed to write ratchet data: %w", err)
-	}
-	// #nosec G104 - File is being closed after successful write, error is non-critical
-	file.Close()
-
-	// Atomic rename
-	if err := os.Rename(tempPath, path); err != nil {
-		// #nosec G104 - Error already being handled, cleanup errors are non-critical
-		os.Remove(tempPath)
-		return fmt.Errorf("failed to rename ratchet file: %w", err)
-	}
-
-	debug.Log(debug.DEBUG_PACKETS, "Ratchets saved successfully")
-	return nil
-}
-
 func RecallIdentity(path string) (*Identity, error) {
 	debug.Log(debug.DEBUG_ALL, "Attempting to recall identity", "path", path)
 
@@ -721,68 +654,6 @@ func RecallIdentity(path string) (*Identity, error) {
 
 	debug.Log(debug.DEBUG_ALL, "Successfully recalled identity", "hash", id.GetHexHash())
 	return id, nil
-}
-
-func (i *Identity) loadRatchets(path string) error {
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
-
-	file, err := os.Open(path) // #nosec G304
-	if err != nil {
-		if os.IsNotExist(err) {
-			debug.Log(debug.DEBUG_PACKETS, "No ratchet file found, skipping", "path", path)
-			return nil
-		}
-		return fmt.Errorf("failed to open ratchet file: %w", err)
-	}
-	defer file.Close()
-
-	// Read all data
-	fileData, err := io.ReadAll(file)
-	if err != nil {
-		return fmt.Errorf("failed to read ratchet file: %w", err)
-	}
-
-	// Unpack outer structure: {"signature": ..., "ratchets": ...}
-	var persistedData map[string][]byte
-	if err := msgpack.Unmarshal(fileData, &persistedData); err != nil {
-		return fmt.Errorf("failed to unpack ratchet data: %w", err)
-	}
-
-	signature, hasSignature := persistedData["signature"]
-	packedRatchets, hasRatchets := persistedData["ratchets"]
-
-	if !hasSignature || !hasRatchets {
-		return fmt.Errorf("invalid ratchet file format: missing signature or ratchets")
-	}
-
-	// Verify signature
-	if !i.Verify(packedRatchets, signature) {
-		return fmt.Errorf("invalid ratchet file signature")
-	}
-
-	// Unpack ratchet list
-	var ratchetList [][]byte
-	if err := msgpack.Unmarshal(packedRatchets, &ratchetList); err != nil {
-		return fmt.Errorf("failed to unpack ratchet list: %w", err)
-	}
-
-	// Store ratchets with generated IDs
-	now := time.Now().Unix()
-	for _, ratchet := range ratchetList {
-		// Generate ratchet public key to create ID
-		ratchetPub, err := cryptography.PublicKeyFromPrivate(ratchet)
-		if err != nil {
-			debug.Log(debug.DEBUG_ERROR, "Failed to generate ratchet public key", "error", err)
-			continue
-		}
-		ratchetID := i.GetRatchetID(ratchetPub)
-		i.ratchets[string(ratchetID)] = ratchet
-		i.ratchetExpiry[string(ratchetID)] = now + RATCHET_EXPIRY
-	}
-
-	debug.Log(debug.DEBUG_PACKETS, "Loaded ratchets", "count", len(i.ratchets), "path", path)
-	return nil
 }
 
 func HashFromString(hash string) ([]byte, error) {

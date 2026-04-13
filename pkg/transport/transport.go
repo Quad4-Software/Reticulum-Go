@@ -773,20 +773,6 @@ func (t *Transport) sendPathRequest(req *PathRequest, interfaceName string) erro
 	return iface.Send(buf, "")
 }
 
-func (t *Transport) broadcastPathRequest(req *PathRequest) error {
-	var lastErr error
-	for _, iface := range t.interfaces {
-		if !iface.IsEnabled() {
-			continue
-		}
-
-		if err := t.sendPathRequest(req, iface.GetName()); err != nil {
-			lastErr = err
-		}
-	}
-	return lastErr
-}
-
 type PathRequestPacket struct {
 	Type            byte   // 0x01 for path request
 	DestinationHash []byte // 32 bytes

@@ -26,7 +26,6 @@ type TCPClientInterface struct {
 	writing           bool
 	maxReconnectTries int
 	packetBuffer      []byte
-	packetType        byte
 	done              chan struct{}
 	stopOnce          sync.Once
 }

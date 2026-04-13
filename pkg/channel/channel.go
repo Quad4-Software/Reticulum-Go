@@ -25,16 +25,11 @@ type Channel struct {
 	link            transport.LinkInterface
 	mutex           sync.RWMutex
 	txRing          []*Envelope
-	rxRing          []*Envelope
 	window          int
 	windowMax       int
 	windowMin       int
-	windowFlex      int
 	nextSequence    uint16
-	nextRxSequence  uint16
 	maxTries        int
-	fastRateRounds  int
-	medRateRounds   int
 	messageHandlers []messageHandlerEntry
 	nextHandlerID   int
 }
@@ -169,30 +164,6 @@ func (c *Channel) RemoveMessageHandler(id int) {
 		if entry.id == id {
 			c.messageHandlers = append(c.messageHandlers[:i], c.messageHandlers[i+1:]...)
 			break
-		}
-	}
-}
-
-func (c *Channel) updateRateThresholds() {
-	rtt := c.link.RTT()
-
-	if rtt > RTTFast {
-		c.fastRateRounds = common.ZERO
-
-		if rtt > RTTMedium {
-			c.medRateRounds = common.ZERO
-		} else {
-			c.medRateRounds++
-			if c.windowMax < WindowMaxMedium && c.medRateRounds == FastRateThreshold {
-				c.windowMax = WindowMaxMedium
-				c.windowMin = WindowMinMedium
-			}
-		}
-	} else {
-		c.fastRateRounds++
-		if c.windowMax < WindowMaxFast && c.fastRateRounds == FastRateThreshold {
-			c.windowMax = WindowMaxFast
-			c.windowMin = WindowMinFast
 		}
 	}
 }

@@ -4,7 +4,6 @@ package main
 
 import (
 	"encoding/binary"
-	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -25,11 +24,6 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/interfaces"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
-)
-
-var (
-	interceptPackets = flag.Bool("intercept-packets", false, "Enable packet interception")
-	interceptOutput  = flag.String("intercept-output", "packets.log", "Output file for intercepted packets")
 )
 
 const (
@@ -292,7 +286,6 @@ func (r *Reticulum) monitorInterfaces() {
 }
 
 func main() {
-	flag.Parse()
 	debug.Init()
 	debug.Log(debug.DEBUG_CRITICAL, "Initializing Reticulum", "debug_level", debug.GetDebugLevel())
 

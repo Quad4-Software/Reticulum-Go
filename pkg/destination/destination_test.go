@@ -26,14 +26,6 @@ func (m *mockTransport) GetInterfaces() map[string]common.NetworkInterface {
 func (m *mockTransport) RegisterDestination(hash []byte, dest any) {
 }
 
-type mockInterface struct {
-	common.BaseInterface
-}
-
-func (m *mockInterface) Send(data []byte, address string) error {
-	return nil
-}
-
 func TestNewDestination(t *testing.T) {
 	id, _ := identity.New()
 	transport := &mockTransport{config: &common.ReticulumConfig{}}

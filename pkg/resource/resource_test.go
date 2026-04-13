@@ -125,7 +125,7 @@ func TestRead(t *testing.T) {
 		t.Errorf("Read wrong data: %q", buf[:n])
 	}
 
-	n, err = r.Read(buf)
+	_, err = r.Read(buf)
 	if err != io.EOF {
 		t.Errorf("Expected EOF, got %v", err)
 	}

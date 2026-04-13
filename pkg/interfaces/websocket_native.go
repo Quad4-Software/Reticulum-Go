@@ -275,12 +275,6 @@ func (wsi *WebSocketInterface) Stop() error {
 	return nil
 }
 
-func (wsi *WebSocketInterface) closeWebSocket() {
-	wsi.Mutex.Lock()
-	defer wsi.Mutex.Unlock()
-	wsi.closeWebSocketLocked()
-}
-
 func (wsi *WebSocketInterface) closeWebSocketLocked() {
 	if wsi.conn != nil {
 		wsi.sendCloseFrameLocked()
@@ -504,12 +498,6 @@ func (wsi *WebSocketInterface) sendWebSocketMessage(data []byte) error {
 
 	debug.Log(debug.DEBUG_INFO, "WebSocket sent packet successfully", "name", wsi.Name, "bytes", len(data), "frame_bytes", len(frame))
 	return nil
-}
-
-func (wsi *WebSocketInterface) sendCloseFrame() {
-	wsi.Mutex.RLock()
-	defer wsi.Mutex.RUnlock()
-	wsi.sendCloseFrameLocked()
 }
 
 func (wsi *WebSocketInterface) sendCloseFrameLocked() {

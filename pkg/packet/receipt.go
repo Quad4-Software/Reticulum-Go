@@ -41,7 +41,6 @@ type PacketReceipt struct {
 	timeoutCallback  func(*PacketReceipt)
 
 	link             any
-	destinationHash  []byte
 	destinationIdent *identity.Identity
 	timeoutCheckDone chan bool
 }

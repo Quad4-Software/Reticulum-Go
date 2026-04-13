@@ -45,8 +45,6 @@ type Packet struct {
 
 	Addresses []byte
 	Link      any
-
-	receipt *PacketReceipt
 }
 
 // PacketConfig holds the parameters used to create a new packet.
