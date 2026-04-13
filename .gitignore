@@ -10,6 +10,7 @@ logs/
 
 # Local environment variables
 .env
+.venv/
 
 # Cosign release signing
 cosign.key
