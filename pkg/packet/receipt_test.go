@@ -116,7 +116,10 @@ func TestPacketReceiptProofValidation(t *testing.T) {
 	packetHash := pkt.GetHash()
 	t.Logf("Packet hash: %x", packetHash)
 
-	signature := testIdent.Sign(packetHash)
+	signature, err := testIdent.Sign(packetHash)
+	if err != nil {
+		t.Fatalf("Sign: %v", err)
+	}
 
 	t.Logf("PacketHash length: %d", len(packetHash))
 	t.Logf("Signature length: %d", len(signature))
@@ -187,7 +190,10 @@ func TestPacketReceiptCallbacks(t *testing.T) {
 	})
 
 	packetHash := pkt.GetHash()
-	signature := testIdent.Sign(packetHash)
+	signature, err := testIdent.Sign(packetHash)
+	if err != nil {
+		t.Fatalf("Sign: %v", err)
+	}
 
 	proof := make([]byte, 0, EXPL_LENGTH)
 	proof = append(proof, packetHash...)

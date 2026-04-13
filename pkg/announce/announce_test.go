@@ -68,13 +68,15 @@ func TestCreateAndHandleAnnounce(t *testing.T) {
 	config := &common.ReticulumConfig{}
 
 	ann, _ := New(id, destHash, "testapp", []byte("appdata"), false, config)
-	packet := ann.CreatePacket()
+	packet, err := ann.CreatePacket()
+	if err != nil {
+		t.Fatalf("CreatePacket: %v", err)
+	}
 
 	handler := &mockAnnounceHandler{}
 	ann.RegisterHandler(handler)
 
-	err := ann.HandleAnnounce(packet)
-	if err != nil {
+	if err = ann.HandleAnnounce(packet); err != nil {
 		t.Fatalf("HandleAnnounce failed: %v", err)
 	}
 

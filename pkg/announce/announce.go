@@ -71,12 +71,15 @@ func New(dest *identity.Identity, destinationHash []byte, destinationName string
 		}
 	}
 
-	// Sign announce data
 	signData := append(a.destinationHash, a.appData...)
 	if a.ratchetID != nil {
 		signData = append(signData, a.ratchetID...)
 	}
-	a.signature = dest.Sign(signData)
+	sig, err := dest.Sign(signData)
+	if err != nil {
+		return nil, fmt.Errorf("sign announce: %w", err)
+	}
+	a.signature = sig
 
 	return a, nil
 }
@@ -93,7 +96,11 @@ func (a *Announce) Propagate(interfaces []common.NetworkInterface) error {
 		packet = a.packet
 	} else {
 		debug.Log(debug.DEBUG_TRACE, "Creating new packet")
-		packet = a.CreatePacket()
+		var err error
+		packet, err = a.CreatePacket()
+		if err != nil {
+			return err
+		}
 		a.packet = packet
 	}
 
@@ -281,7 +288,7 @@ func CreateHeader(ifacFlag byte, headerType byte, contextFlag byte, propType byt
 	return header
 }
 
-func (a *Announce) CreatePacket() []byte {
+func (a *Announce) CreatePacket() ([]byte, error) {
 	// This function creates the complete announce packet according to the Reticulum specification.
 	// Announce Packet Structure:
 	// [Header (2 bytes)][Dest Hash (16 bytes)][Context (1 byte)][Announce Data]
@@ -362,7 +369,10 @@ func (a *Announce) CreatePacket() []byte {
 		validationData = append(validationData, ratchetData...)
 	}
 	validationData = append(validationData, a.appData...)
-	signature := a.identity.Sign(validationData)
+	signature, err := a.identity.Sign(validationData)
+	if err != nil {
+		return nil, fmt.Errorf("sign announce packet: %w", err)
+	}
 
 	debug.Log(debug.DEBUG_TRACE, "Creating announce packet", "destHash", fmt.Sprintf("%x", destHash), "pubKeyLen", len(pubKey), "nameHash", fmt.Sprintf("%x", nameHash10), "randomHash", fmt.Sprintf("%x", randomHash), "ratchetLen", len(ratchetData), "sigLen", len(signature), "appDataLen", len(a.appData))
 
@@ -382,7 +392,7 @@ func (a *Announce) CreatePacket() []byte {
 
 	debug.Log(debug.DEBUG_TRACE, "Final announce packet", "totalBytes", len(packet), "ratchetLen", len(ratchetData), "appDataLen", len(a.appData))
 
-	return packet
+	return packet, nil
 }
 
 type AnnouncePacket struct {
@@ -448,11 +458,12 @@ func NewAnnounce(identity *identity.Identity, destinationHash []byte, appData []
 
 	debug.Log(debug.DEBUG_TRACE, "Created announce object", "destHash", fmt.Sprintf("%x", a.destinationHash), "hops", a.hops)
 
-	// Create initial packet
-	packet := a.CreatePacket()
+	packet, err := a.CreatePacket()
+	if err != nil {
+		return nil, err
+	}
 	a.packet = packet
 
-	// Generate hash
 	hash := a.Hash()
 	debug.Log(debug.DEBUG_TRACE, "Generated announce hash", "hash", fmt.Sprintf("%x", hash))
 
@@ -475,14 +486,17 @@ func (a *Announce) Hash() []byte {
 	return a.hash
 }
 
-func (a *Announce) GetPacket() []byte {
+func (a *Announce) GetPacket() ([]byte, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
 	if a.packet == nil {
-		// Use CreatePacket to generate the packet
-		a.packet = a.CreatePacket()
+		var err error
+		a.packet, err = a.CreatePacket()
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return a.packet
+	return a.packet, nil
 }

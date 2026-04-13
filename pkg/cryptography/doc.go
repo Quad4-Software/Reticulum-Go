@@ -15,4 +15,9 @@
 // elsewhere and assume the default provider’s behavior. Replacing the provider
 // without updating those formats will break interoperability; treat provider
 // swaps as coordinated protocol changes unless you control all peers.
+//
+// Hardware signing (HSM, PKCS#11, cloud KMS) can integrate via [Ed25519Signer]:
+// use [NewSoftwareEd25519Signer] for in-memory seeds, or [NewEd25519SignerFromCryptoSigner]
+// to wrap a standard [crypto.Signer] that performs Ed25519. Identity wiring is
+// in package identity ([git.quad4.io/Networks/Reticulum-Go/pkg/identity.NewIdentityWithSigner]).
 package cryptography

@@ -1,9 +1,23 @@
 package cryptography
 
 import (
+	"bytes"
+	"crypto"
 	"crypto/ed25519"
+	"errors"
+	"io"
 	"testing"
 )
+
+type nonEd25519Signer struct{}
+
+func (nonEd25519Signer) Public() crypto.PublicKey {
+	return []byte{1, 2, 3}
+}
+
+func (nonEd25519Signer) Sign(io.Reader, []byte, crypto.SignerOpts) ([]byte, error) {
+	return nil, errors.New("unused")
+}
 
 func TestGenerateSigningKeyPair(t *testing.T) {
 	pub1, priv1, err := GenerateSigningKeyPair()
@@ -75,5 +89,57 @@ func TestSignAndVerify(t *testing.T) {
 	}
 	if Verify(pub, message, emptySig) {
 		t.Errorf("Verify succeeded comparing non-empty message with empty signature")
+	}
+}
+
+func TestSoftwareEd25519Signer(t *testing.T) {
+	_, priv, err := GenerateSigningKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed := priv.Seed()
+	s, err := NewSoftwareEd25519Signer(seed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg := []byte("hello")
+	sig, err := s.Sign(msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub := priv.Public().(ed25519.PublicKey)
+	if !Verify(pub, msg, sig) {
+		t.Error("software signer signature did not verify")
+	}
+	if !bytes.Equal(s.Ed25519PublicKey(), pub) {
+		t.Error("Ed25519PublicKey mismatch")
+	}
+}
+
+func TestEd25519SignerFromCryptoSigner(t *testing.T) {
+	_, priv, err := GenerateSigningKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := NewEd25519SignerFromCryptoSigner(priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg := []byte("pkcs11-style")
+	sig, err := s.Sign(msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub := priv.Public().(ed25519.PublicKey)
+	if !Verify(pub, msg, sig) {
+		t.Error("crypto.Signer wrapper did not verify")
+	}
+	_, err = NewEd25519SignerFromCryptoSigner(nil)
+	if err == nil {
+		t.Fatal("expected error for nil Signer")
+	}
+	_, err = NewEd25519SignerFromCryptoSigner(nonEd25519Signer{})
+	if err == nil {
+		t.Fatal("expected error for non-Ed25519 public key")
 	}
 }

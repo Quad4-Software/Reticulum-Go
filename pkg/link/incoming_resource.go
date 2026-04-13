@@ -270,6 +270,9 @@ func (l *Link) deliverIncomingResource(inner []byte, adv *resource.ResourceAdver
 	if err != nil {
 		return err
 	}
+	if err := l.sendIncomingResourceProof(payload, adv.Hash); err != nil {
+		return err
+	}
 	if l.resourceConcludedCallback != nil {
 		l.resourceConcludedCallback(payload)
 	}
@@ -291,9 +294,8 @@ func (l *Link) assembleIncomingPayload(inner []byte, adv *resource.ResourceAdver
 	if len(innerPlain) < resource.RANDOM_HASH_SIZE {
 		return nil, errors.New("incoming resource too short for random hash")
 	}
-	if len(adv.RandomHash) == resource.RANDOM_HASH_SIZE && !bytes.Equal(innerPlain[:resource.RANDOM_HASH_SIZE], adv.RandomHash) {
-		return nil, errors.New("incoming resource random hash mismatch")
-	}
+	// Leading bytes are a guard prefix before link encryption; they are not required to
+	// equal adv.RandomHash (reference stack uses two independent randoms).
 	data := innerPlain[resource.RANDOM_HASH_SIZE:]
 
 	if adv.Compressed {

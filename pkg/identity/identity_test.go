@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"path/filepath"
 	"testing"
+
+	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
 )
 
 func TestNewIdentity(t *testing.T) {
@@ -20,16 +22,63 @@ func TestNewIdentity(t *testing.T) {
 		t.Errorf("Expected public key length 64, got %d", len(pubKey))
 	}
 
-	privKey := id.GetPrivateKey()
+	privKey, err := id.GetPrivateKey()
+	if err != nil {
+		t.Fatalf("GetPrivateKey: %v", err)
+	}
 	if len(privKey) != 64 {
 		t.Errorf("Expected private key length 64, got %d", len(privKey))
+	}
+}
+
+func TestNewIdentityWithSignerMatchesSoftware(t *testing.T) {
+	id, err := NewIdentity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pk, err := id.GetPrivateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	signer, err := cryptography.NewSoftwareEd25519Signer(pk[32:64])
+	if err != nil {
+		t.Fatal(err)
+	}
+	id2, err := NewIdentityWithSigner(pk[:32], signer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id.GetHexHash() != id2.GetHexHash() {
+		t.Errorf("hash mismatch: %s vs %s", id.GetHexHash(), id2.GetHexHash())
+	}
+	if !bytes.Equal(id.GetPublicKey(), id2.GetPublicKey()) {
+		t.Error("public key mismatch")
+	}
+	msg := []byte("probe")
+	sig1, err := id.Sign(msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig2, err := id2.Sign(msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(sig1, sig2) {
+		t.Error("signatures differ for same keys")
+	}
+	_, err = id2.GetPrivateKey()
+	if err != ErrSigningMaterialNotExportable {
+		t.Fatalf("GetPrivateKey: want %v, got %v", ErrSigningMaterialNotExportable, err)
 	}
 }
 
 func TestSignVerify(t *testing.T) {
 	id, _ := New()
 	data := []byte("test data")
-	sig := id.Sign(data)
+	sig, err := id.Sign(data)
+	if err != nil {
+		t.Fatalf("Sign: %v", err)
+	}
 
 	if !id.Verify(data, sig) {
 		t.Error("Verification failed for valid signature")

@@ -19,7 +19,10 @@ func FuzzIdentitySignVerify(f *testing.F) {
 			t.Fatalf("Failed to create identity: %v", err)
 		}
 
-		sig := id.Sign(data)
+		sig, err := id.Sign(data)
+		if err != nil {
+			t.Fatalf("Sign: %v", err)
+		}
 		if !id.Verify(data, sig) {
 			t.Error("Verification failed for valid signature")
 		}

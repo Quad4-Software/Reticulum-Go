@@ -18,11 +18,15 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 )
 
+// Ed25519Signer is re-exported for identity callers configuring HSM-backed signing.
+type Ed25519Signer = cryptography.Ed25519Signer
+
 type Identity struct {
 	privateKey      []byte
 	publicKey       []byte
-	signingSeed     []byte // 32-byte Ed25519 seed
+	signingSeed     []byte // 32-byte Ed25519 seed; nil if externalSigner is set
 	verificationKey ed25519.PublicKey
+	externalSigner  cryptography.Ed25519Signer // if non-nil, Sign uses this instead of signingSeed
 	hash            []byte
 	hexHash         string
 
@@ -77,14 +81,28 @@ func (i *Identity) GetPublicKey() []byte {
 	return fullKey
 }
 
-func (i *Identity) GetPrivateKey() []byte {
-	return append(i.privateKey, i.signingSeed...)
+func (i *Identity) GetPrivateKey() ([]byte, error) {
+	if i.externalSigner != nil {
+		return nil, ErrSigningMaterialNotExportable
+	}
+	if i.privateKey == nil || len(i.signingSeed) != ed25519.SeedSize {
+		return nil, errors.New("identity has no exportable private key material")
+	}
+	out := make([]byte, 64)
+	copy(out[:32], i.privateKey)
+	copy(out[32:], i.signingSeed)
+	return out, nil
 }
 
-func (i *Identity) Sign(data []byte) []byte {
-	// Derive Ed25519 private key from seed
+func (i *Identity) Sign(data []byte) ([]byte, error) {
+	if i.externalSigner != nil {
+		return i.externalSigner.Sign(data)
+	}
+	if len(i.signingSeed) != ed25519.SeedSize {
+		return nil, errors.New("identity has no signing key")
+	}
 	privKey := ed25519.NewKeyFromSeed(i.signingSeed)
-	return cryptography.Sign(privKey, data)
+	return cryptography.Sign(privKey, data), nil
 }
 
 func (i *Identity) Verify(data []byte, signature []byte) bool {
@@ -467,13 +485,13 @@ func (i *Identity) DecryptWithHMAC(data []byte, key []byte) ([]byte, error) {
 func (i *Identity) ToFile(path string) error {
 	debug.Log(debug.DEBUG_ALL, "Saving identity to file", "hash", i.GetHexHash(), "path", path)
 
-	if i.privateKey == nil || i.signingSeed == nil {
+	if i.externalSigner != nil {
+		return ErrSigningMaterialNotExportable
+	}
+	if i.privateKey == nil || len(i.signingSeed) != ed25519.SeedSize {
 		return errors.New("cannot save identity without private keys")
 	}
 
-	// Store private keys as raw bytes
-	// Format: [X25519 PrivKey (32 bytes)][Ed25519 PrivKey (32 bytes)]
-	// Total: 64 bytes
 	privateKeyBytes := make([]byte, 64)
 	copy(privateKeyBytes[:32], i.privateKey)
 	copy(privateKeyBytes[32:], i.signingSeed)

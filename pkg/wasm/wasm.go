@@ -239,10 +239,14 @@ func InitReticulum(this js.Value, args []js.Value) interface{} {
 	reticulumDest = dest
 	reticulumIdentity = id
 
+	privHex := ""
+	if pk, err := id.GetPrivateKey(); err == nil {
+		privHex = hex.EncodeToString(pk)
+	}
 	return js.ValueOf(map[string]interface{}{
 		"success":     true,
 		"identity":    id.GetHexHash(),
-		"privateKey":  hex.EncodeToString(id.GetPrivateKey()),
+		"privateKey":  privHex,
 		"destination": fmt.Sprintf("%x", dest.GetHash()),
 	})
 }

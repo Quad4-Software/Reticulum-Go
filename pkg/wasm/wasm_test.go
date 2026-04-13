@@ -88,7 +88,10 @@ func TestInitReticulum(t *testing.T) {
 	id, _ := identity.NewIdentity()
 	idHex := id.GetHexHash()
 	// InitReticulum expects the FULL identity bytes in hex (64 bytes).
-	idBytes := id.GetPrivateKey()
+	idBytes, err := id.GetPrivateKey()
+	if err != nil {
+		t.Fatalf("GetPrivateKey: %v", err)
+	}
 	idHexFull := hex.EncodeToString(idBytes)
 
 	result = InitReticulum(js.Undefined(), []js.Value{js.ValueOf(wsURL), js.ValueOf(appName), js.ValueOf(idHexFull)})

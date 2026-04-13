@@ -1710,7 +1710,7 @@ func (l *Link) GetStatus() int {
 	return l.status
 }
 
-func CreateAnnouncePacket(destHash []byte, identity *identity.Identity, appData []byte, destName string, hops byte, config *common.ReticulumConfig) []byte {
+func CreateAnnouncePacket(destHash []byte, identity *identity.Identity, appData []byte, destName string, hops byte, config *common.ReticulumConfig) ([]byte, error) {
 	debug.Log(debug.DEBUG_INFO, "Creating announce packet", "destName", destName)
 	debug.Log(debug.DEBUG_INFO, "Input", "destHash", fmt.Sprintf("%x", destHash[:8]), "appData", string(appData), "hops", hops)
 
@@ -1763,7 +1763,7 @@ func CreateAnnouncePacket(destHash []byte, identity *identity.Identity, appData 
 	_, err := rand.Read(randomBytes) // #nosec G104
 	if err != nil {
 		debug.Log(debug.DEBUG_ALL, "Failed to read random bytes", "error", err)
-		return nil // Or handle the error appropriately
+		return nil, err
 	}
 	timeBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(timeBytes, uint64(time.Now().Unix())) // #nosec G115
@@ -1776,7 +1776,7 @@ func CreateAnnouncePacket(destHash []byte, identity *identity.Identity, appData 
 	nameBytes := []byte(destName)
 	if len(nameBytes) > 255 || len(appData) > 255 {
 		debug.Log(debug.DEBUG_ERROR, "announce name or app data exceeds msgpack bin8 limit", "nameLen", len(nameBytes), "appLen", len(appData))
-		return nil
+		return nil, errors.New("announce name or app data exceeds msgpack bin8 limit")
 	}
 	appDataMsg := []byte{0x92} // array of 2 elements
 
@@ -1792,7 +1792,10 @@ func CreateAnnouncePacket(destHash []byte, identity *identity.Identity, appData 
 
 	// Create signature over destination hash and app data
 	signData := append(destHash, appDataMsg...)
-	signature := identity.Sign(signData)
+	signature, err := identity.Sign(signData)
+	if err != nil {
+		return nil, fmt.Errorf("sign announce: %w", err)
+	}
 	debug.Log(debug.DEBUG_ALL, "Adding signature (64 bytes)", "signature", fmt.Sprintf("%x", signature))
 	packet = append(packet, signature...)
 	debug.Log(debug.DEBUG_ALL, "Packet size after adding signature", "bytes", len(packet))
@@ -1802,7 +1805,7 @@ func CreateAnnouncePacket(destHash []byte, identity *identity.Identity, appData 
 	debug.Log(debug.DEBUG_INFO, "Final packet size", "bytes", len(packet))
 	debug.Log(debug.DEBUG_INFO, "appDataMsg", "data", fmt.Sprintf("%x", appDataMsg), "len", len(appDataMsg))
 
-	return packet
+	return packet, nil
 }
 
 func (t *Transport) GetInterfaces() map[string]common.NetworkInterface {

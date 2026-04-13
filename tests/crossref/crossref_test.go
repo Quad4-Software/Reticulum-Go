@@ -502,7 +502,10 @@ func TestIdentitySignature(t *testing.T) {
 			message := mustHex(t, vec.SignMessageHex)
 			expectedSig := mustHex(t, vec.SignatureHex)
 
-			sig := id.Sign(message)
+			sig, err := id.Sign(message)
+			if err != nil {
+				t.Fatalf("Sign: %v", err)
+			}
 			if !bytes.Equal(sig, expectedSig) {
 				t.Errorf("Signature mismatch:\n  got:  %x\n  want: %x", sig, expectedSig)
 			}
@@ -1115,8 +1118,10 @@ func TestIdentityFileFormat(t *testing.T) {
 				t.Errorf("Hash mismatch:\n  got:  %s\n  want: %s", gotHash, vec.HashHex)
 			}
 
-			// Verify roundtrip: GetPrivateKey() should return the same 64 bytes
-			gotPriv := id.GetPrivateKey()
+			gotPriv, err := id.GetPrivateKey()
+			if err != nil {
+				t.Fatalf("GetPrivateKey: %v", err)
+			}
 			if !bytes.Equal(gotPriv, fileBytes) {
 				t.Errorf("Private key roundtrip mismatch:\n  got:  %x\n  want: %x", gotPriv, fileBytes)
 			}

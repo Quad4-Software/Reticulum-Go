@@ -230,7 +230,10 @@ func (l *Link) Identify(id *identity.Identity) error {
 
 	pubKey := id.GetPublicKey()
 	signData := append(l.linkID, pubKey...)
-	signature := id.Sign(signData)
+	signature, err := id.Sign(signData)
+	if err != nil {
+		return fmt.Errorf("sign link identify: %w", err)
+	}
 
 	identData := append(pubKey, signature...)
 
@@ -652,7 +655,7 @@ func (l *Link) SendPacketWithContext(data []byte, context byte) error {
 	debug.Log(debug.DEBUG_VERBOSE, "Encrypting packet", "bytes", len(data), "context", fmt.Sprintf("0x%02x", context))
 	var wireData []byte
 	var err error
-	if context == packet.ContextResource {
+	if context == packet.ContextResource || context == packet.ContextCacheReq {
 		wireData = data
 	} else {
 		wireData, err = l.encrypt(data)
@@ -790,6 +793,8 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 
 	if l.sessionKey != nil {
 		if pkt.Context == packet.ContextResource {
+			plaintext = pkt.Data
+		} else if pkt.Context == packet.ContextCacheReq {
 			plaintext = pkt.Data
 		} else {
 			minEnc := aes.BlockSize + aes.BlockSize + common.SIZE_32
@@ -962,6 +967,35 @@ func (l *Link) handleResourceAdvertisement(pkt *packet.Packet) error {
 	}
 
 	return nil
+}
+
+// sendIncomingResourceProof notifies the sender that the resource was assembled correctly
+// (SHA-256(payload||resourceHash)), matching Python RNS Resource.prove / validate_proof.
+func (l *Link) sendIncomingResourceProof(payload []byte, resourceHash []byte) error {
+	if len(resourceHash) != sha256.Size {
+		return errors.New("resource hash must be 32 bytes")
+	}
+	sum := sha256.Sum256(append(append([]byte(nil), payload...), resourceHash...))
+	proofData := append(append([]byte(nil), resourceHash...), sum[:]...)
+	proofPkt := &packet.Packet{
+		HeaderType:      packet.HeaderType1,
+		PacketType:      packet.PacketTypeProof,
+		TransportType:   common.ZERO,
+		Context:         packet.ContextResourcePRF,
+		ContextFlag:     packet.FlagUnset,
+		Hops:            common.ZERO,
+		DestinationType: DEST_TYPE_LINK,
+		DestinationHash: l.linkID,
+		Data:            proofData,
+		CreateReceipt:   false,
+	}
+	if err := proofPkt.Pack(); err != nil {
+		return err
+	}
+	l.mutex.Lock()
+	l.lastOutbound = time.Now()
+	l.mutex.Unlock()
+	return l.transport.SendPacket(proofPkt)
 }
 
 func (l *Link) rejectResource(resourceHash []byte) error {
@@ -2218,7 +2252,10 @@ func (l *Link) GenerateLinkProof(ownerIdentity *identity.Identity) (*packet.Pack
 	signedData = append(signedData, ownerSigPub...)
 	signedData = append(signedData, signalling...)
 
-	signature := ownerIdentity.Sign(signedData)
+	signature, err := ownerIdentity.Sign(signedData)
+	if err != nil {
+		return nil, fmt.Errorf("sign link proof: %w", err)
+	}
 
 	proofData := make([]byte, 0, len(signature)+KEYSIZE+len(signalling))
 	proofData = append(proofData, signature...)

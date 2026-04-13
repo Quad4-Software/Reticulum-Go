@@ -273,8 +273,10 @@ func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []b
 	signedData = append(signedData, appData...)
 	debug.Log(debug.DEBUG_TRACE, "Created signed data", "bytes", len(signedData))
 
-	// Sign the data
-	signature := identity.Sign(signedData)
+	signature, err := identity.Sign(signedData)
+	if err != nil {
+		return nil, fmt.Errorf("sign announce: %w", err)
+	}
 	debug.Log(debug.DEBUG_PACKETS, "Generated signature", "signature", fmt.Sprintf("%x", signature))
 
 	// Combine all fields according to spec

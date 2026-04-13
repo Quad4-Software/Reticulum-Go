@@ -197,9 +197,9 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 		return fmt.Errorf("failed to create announce: %w", err)
 	}
 
-	packet := announceObj.GetPacket()
-	if packet == nil {
-		return errors.New("failed to create announce packet")
+	packet, err := announceObj.GetPacket()
+	if err != nil {
+		return fmt.Errorf("failed to create announce packet: %w", err)
 	}
 
 	if pathResponse && tag != nil {
@@ -545,8 +545,7 @@ func (d *Destination) Sign(data []byte) ([]byte, error) {
 	if d.identity == nil {
 		return nil, errors.New("no identity available")
 	}
-	signature := d.identity.Sign(data)
-	return signature, nil
+	return d.identity.Sign(data)
 }
 
 func (d *Destination) GetPublicKey() []byte {
