@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
-	"golang.org/x/crypto/curve25519"
 )
 
 type Announce struct {
@@ -65,7 +65,7 @@ func New(dest *identity.Identity, destinationHash []byte, destinationName string
 	// Get current ratchet ID if enabled
 	currentRatchet := dest.GetCurrentRatchetKey()
 	if currentRatchet != nil {
-		ratchetPub, err := curve25519.X25519(currentRatchet, curve25519.Basepoint)
+		ratchetPub, err := cryptography.PublicKeyFromPrivate(currentRatchet)
 		if err == nil {
 			a.ratchetID = dest.GetRatchetID(ratchetPub)
 		}
@@ -321,7 +321,7 @@ func (a *Announce) CreatePacket() []byte {
 	var ratchetData []byte
 	currentRatchetKey := a.identity.GetCurrentRatchetKey()
 	if currentRatchetKey != nil {
-		ratchetPub, err := curve25519.X25519(currentRatchetKey, curve25519.Basepoint)
+		ratchetPub, err := cryptography.PublicKeyFromPrivate(currentRatchetKey)
 		if err == nil {
 			ratchetData = make([]byte, 32)
 			copy(ratchetData, ratchetPub)

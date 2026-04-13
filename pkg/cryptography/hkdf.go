@@ -8,7 +8,7 @@ import (
 	"errors"
 )
 
-func DeriveKey(secret, salt, info []byte, length int) ([]byte, error) {
+func implDeriveKey(secret, salt, info []byte, length int) ([]byte, error) {
 	hashLen := 32
 
 	if length < 1 {
@@ -49,4 +49,9 @@ func DeriveKey(secret, salt, info []byte, length int) ([]byte, error) {
 	}
 
 	return derived[:length], nil
+}
+
+// DeriveKey performs HKDF-SHA256 expansion (non-RFC 5869 extract; matches legacy use).
+func DeriveKey(secret, salt, info []byte, length int) ([]byte, error) {
+	return ActiveProvider().DeriveKey(secret, salt, info, length)
 }

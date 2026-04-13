@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"testing"
 
-	"golang.org/x/crypto/curve25519"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
 )
 
 func FuzzIdentitySignVerify(f *testing.F) {
@@ -75,7 +75,7 @@ func FuzzIdentityEncryptDecrypt(f *testing.F) {
 		}
 
 		// Derive public key from ratchet private key
-		ratchetPub, err := curve25519.X25519(ratchetPriv, curve25519.Basepoint)
+		ratchetPub, err := cryptography.PublicKeyFromPrivate(ratchetPriv)
 		if err != nil {
 			t.Fatalf("Failed to derive ratchet public key: %v", err)
 		}

@@ -4,9 +4,7 @@ package identity
 
 import (
 	"crypto/ed25519"
-	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -19,8 +17,6 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 	"github.com/vmihailenco/msgpack/v5"
-	"golang.org/x/crypto/curve25519"
-	"golang.org/x/crypto/hkdf"
 )
 
 type Identity struct {
@@ -116,13 +112,10 @@ func (i *Identity) Encrypt(plaintext []byte, ratchet []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	// Derive key material (64 bytes: first 32 for HMAC, last 32 for encryption).
-	// Use RFC 5869 HKDF to match Decrypt() exactly.
 	salt := i.GetSalt()
 	debug.Log(debug.DEBUG_ALL, "Encrypt: using salt", "salt", fmt.Sprintf("%x", salt), "identity_hash", fmt.Sprintf("%x", i.Hash()))
-	hkdfReader := hkdf.New(sha256.New, sharedSecret, salt, i.GetContext())
-	key := make([]byte, 64)
-	if _, err := io.ReadFull(hkdfReader, key); err != nil {
+	key, err := cryptography.DeriveIdentityKeyMaterial(sharedSecret, salt, i.GetContext())
+	if err != nil {
 		return nil, err
 	}
 
@@ -153,9 +146,7 @@ func (i *Identity) Hash() []byte {
 }
 
 func TruncatedHash(data []byte) []byte {
-	h := sha256.New()
-	h.Write(data)
-	fullHash := h.Sum(nil)
+	fullHash := cryptography.Hash(data)
 	return fullHash[:TRUNCATED_HASHLENGTH/8]
 }
 
@@ -263,14 +254,11 @@ func (i *Identity) GenerateHMACKey() []byte {
 }
 
 func (i *Identity) ComputeHMAC(key, message []byte) []byte {
-	h := hmac.New(sha256.New, key)
-	h.Write(message)
-	return h.Sum(nil)
+	return cryptography.ComputeHMAC(key, message)
 }
 
 func (i *Identity) ValidateHMAC(key, message, messageHMAC []byte) bool {
-	expectedHMAC := i.ComputeHMAC(key, message)
-	return hmac.Equal(messageHMAC, expectedHMAC)
+	return cryptography.ValidateHMAC(key, message, messageHMAC)
 }
 
 func (i *Identity) GetCurrentRatchetKey() []byte {
@@ -352,18 +340,15 @@ func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRat
 		}
 	}
 
-	// Try normal decryption if ratchet decryption failed or wasn't requested
-	sharedKey, err := curve25519.X25519(i.privateKey, peerPubBytes)
+	sharedKey, err := cryptography.DeriveSharedSecret(i.privateKey, peerPubBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate shared key: %v", err)
 	}
 
-	// Derive key material (64 bytes: first 32 for HMAC, last 32 for encryption)
 	salt := i.GetSalt()
 	debug.Log(debug.DEBUG_ALL, "Decrypt: using salt", "salt", fmt.Sprintf("%x", salt), "identity_hash", fmt.Sprintf("%x", i.Hash()))
-	hkdfReader := hkdf.New(sha256.New, sharedKey, salt, i.GetContext())
-	derivedKey := make([]byte, 64)
-	if _, err := io.ReadFull(hkdfReader, derivedKey); err != nil {
+	derivedKey, err := cryptography.DeriveIdentityKeyMaterial(sharedKey, salt, i.GetContext())
+	if err != nil {
 		return nil, fmt.Errorf("failed to derive key: %v", err)
 	}
 
@@ -394,7 +379,7 @@ func (i *Identity) tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet [
 	ratchetPriv := ratchet
 
 	// Get ratchet ID
-	ratchetPubBytes, err := curve25519.X25519(ratchetPriv, cryptography.GetBasepoint())
+	ratchetPubBytes, err := cryptography.PublicKeyFromPrivate(ratchetPriv)
 	if err != nil {
 		debug.Log(debug.DEBUG_ALL, "Failed to generate ratchet public key", "error", err)
 		return nil, nil, err
@@ -406,9 +391,8 @@ func (i *Identity) tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet [
 		return nil, nil, err
 	}
 
-	hkdfReader := hkdf.New(sha256.New, sharedSecret, i.GetSalt(), i.GetContext())
-	key := make([]byte, 64)
-	if _, err := io.ReadFull(hkdfReader, key); err != nil {
+	key, err := cryptography.DeriveIdentityKeyMaterial(sharedSecret, i.GetSalt(), i.GetContext())
+	if err != nil {
 		return nil, nil, err
 	}
 
@@ -601,9 +585,8 @@ func (i *Identity) loadPrivateKey(privateKey, signingSeed []byte) error {
 	i.signingSeed = make([]byte, 32)
 	copy(i.signingSeed, signingSeed)
 
-	// Derive public keys from private keys
 	var err error
-	i.publicKey, err = curve25519.X25519(i.privateKey, curve25519.Basepoint)
+	i.publicKey, err = cryptography.PublicKeyFromPrivate(i.privateKey)
 	if err != nil {
 		return fmt.Errorf("failed to derive X25519 public key: %w", err)
 	}
@@ -712,8 +695,7 @@ func RecallIdentity(path string) (*Identity, error) {
 	x25519PrivKey := privateKeyBytes[:32]
 	ed25519Seed := privateKeyBytes[32:]
 
-	// Derive public keys
-	x25519PubKey, err := curve25519.X25519(x25519PrivKey, curve25519.Basepoint)
+	x25519PubKey, err := cryptography.PublicKeyFromPrivate(x25519PrivKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive X25519 public key: %v", err)
 	}
@@ -731,12 +713,11 @@ func RecallIdentity(path string) (*Identity, error) {
 		mutex:           &sync.RWMutex{},
 	}
 
-	// Generate hash
 	combinedPub := make([]byte, KEYSIZE/8)
 	copy(combinedPub[:KEYSIZE/16], id.publicKey)
 	copy(combinedPub[KEYSIZE/16:], id.verificationKey)
-	hash := sha256.Sum256(combinedPub)
-	id.hash = hash[:TRUNCATED_HASHLENGTH/8]
+	fullHash := cryptography.Hash(combinedPub)
+	id.hash = fullHash[:TRUNCATED_HASHLENGTH/8]
 
 	debug.Log(debug.DEBUG_ALL, "Successfully recalled identity", "hash", id.GetHexHash())
 	return id, nil
@@ -790,7 +771,7 @@ func (i *Identity) loadRatchets(path string) error {
 	now := time.Now().Unix()
 	for _, ratchet := range ratchetList {
 		// Generate ratchet public key to create ID
-		ratchetPub, err := curve25519.X25519(ratchet, curve25519.Basepoint)
+		ratchetPub, err := cryptography.PublicKeyFromPrivate(ratchet)
 		if err != nil {
 			debug.Log(debug.DEBUG_ERROR, "Failed to generate ratchet public key", "error", err)
 			continue
@@ -875,7 +856,7 @@ func NewIdentity() (*Identity, error) {
 		return nil, fmt.Errorf("failed to generate X25519 private key: %v", err)
 	}
 
-	encPubKey, err := curve25519.X25519(encPrivKey[:], curve25519.Basepoint)
+	encPubKey, err := cryptography.PublicKeyFromPrivate(encPrivKey[:])
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate X25519 public key: %v", err)
 	}
@@ -890,12 +871,11 @@ func NewIdentity() (*Identity, error) {
 		mutex:           &sync.RWMutex{},
 	}
 
-	// Generate hash
 	combinedPub := make([]byte, KEYSIZE/8)
 	copy(combinedPub[:KEYSIZE/16], i.publicKey)
 	copy(combinedPub[KEYSIZE/16:], i.verificationKey)
-	hash := sha256.Sum256(combinedPub)
-	i.hash = hash[:TRUNCATED_HASHLENGTH/8]
+	fullHash := cryptography.Hash(combinedPub)
+	i.hash = fullHash[:TRUNCATED_HASHLENGTH/8]
 
 	return i, nil
 }
@@ -935,8 +915,7 @@ func (i *Identity) RotateRatchet() ([]byte, error) {
 		return nil, err
 	}
 
-	// Get public key for ratchet ID
-	ratchetPub, err := curve25519.X25519(newRatchet, curve25519.Basepoint)
+	ratchetPub, err := cryptography.PublicKeyFromPrivate(newRatchet)
 	if err != nil {
 		debug.Log(debug.DEBUG_CRITICAL, "Failed to generate ratchet public key", "error", err)
 		return nil, err
@@ -1028,7 +1007,7 @@ func (i *Identity) ValidateAnnounce(data []byte, destHash []byte, appData []byte
 	signedData := append(destHash, i.GetPublicKey()...)
 	signedData = append(signedData, appData...)
 
-	return ed25519.Verify(i.verificationKey, signedData, signature)
+	return cryptography.Verify(i.verificationKey, signedData, signature)
 }
 
 // GetNameHash returns a 10-byte hash derived from the identity's public key
@@ -1037,12 +1016,7 @@ func (i *Identity) GetNameHash() []byte {
 		return nil
 	}
 
-	// Generate hash from combined public key
-	h := sha256.New()
-	h.Write(i.GetPublicKey())
-	fullHash := h.Sum(nil)
-
-	// Return first 10 bytes (NAME_HASH_LENGTH/8)
+	fullHash := cryptography.Hash(i.GetPublicKey())
 	return fullHash[:NAME_HASH_LENGTH/8]
 }
 

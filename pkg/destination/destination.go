@@ -15,11 +15,11 @@ import (
 
 	"git.quad4.io/Networks/Reticulum-Go/pkg/announce"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
 	"github.com/vmihailenco/msgpack/v5"
-	"golang.org/x/crypto/curve25519"
 )
 
 type PacketCallback = common.PacketCallback
@@ -722,7 +722,7 @@ func (d *Destination) RotateRatchets() error {
 	d.latestRatchetTime = now
 
 	// Get ratchet public key for ID
-	ratchetPub, err := curve25519.X25519(newRatchet, curve25519.Basepoint)
+	ratchetPub, err := cryptography.PublicKeyFromPrivate(newRatchet)
 	if err == nil {
 		d.latestRatchetID = identity.TruncatedHash(ratchetPub)[:identity.NAME_HASH_LENGTH/8]
 	}

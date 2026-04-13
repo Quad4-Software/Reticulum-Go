@@ -263,7 +263,7 @@ func (l *Link) Identify(id *identity.Identity) error {
 
 func (l *Link) HandleIdentification(data []byte) error {
 	pubKeySize := identity.KEYSIZE / 8
-	if len(data) < pubKeySize+ed25519.SignatureSize {
+	if len(data) < pubKeySize+cryptography.Ed25519SignatureSize {
 		debug.Log(debug.DEBUG_INFO, "Invalid identification data length", "length", len(data))
 		return errors.New("invalid identification data length")
 	}
@@ -2030,7 +2030,7 @@ func (l *Link) generateEphemeralKeys() error {
 	l.prv = priv
 	l.pub = pub
 
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	pubKey, privKey, err := cryptography.GenerateSigningKeyPair()
 	if err != nil {
 		return fmt.Errorf("failed to generate Ed25519 keypair: %w", err)
 	}
