@@ -1,6 +1,6 @@
-.PHONY: all build install uninstall clean test fmt vet lint vulncheck check deps run
+.PHONY: all build install uninstall clean test fmt vet lint vulncheck gosec check deps run
 .PHONY: build-linux build-windows build-darwin build-all
-.PHONY: test-short test-race test-crossref coverage bench debug release
+.PHONY: test-short test-race test-crossref test-wasm test-all coverage bench debug release
 
 GOCMD := go
 GOVULNCHECK_VER ?= v1.1.4
@@ -51,6 +51,12 @@ test-race:
 test-crossref:
 	@bash tests/crossref/run_crossref.sh
 
+# js/wasm packages are not included in `go test ./...` on native GOOS; requires Node (see GOROOT/lib/wasm/go_js_wasm_exec).
+test-wasm:
+	env -i HOME=$$HOME PATH="/usr/local/bin:/usr/bin:/bin" GOROOT=$(shell go env GOROOT) TMPDIR=/tmp GOOS=js GOARCH=wasm $(GOCMD) test -count=1 -exec="$(shell go env GOROOT)/lib/wasm/go_js_wasm_exec" ./pkg/wasm/... ./cmd/reticulum-wasm/...
+
+test-all: test test-wasm test-crossref
+
 coverage:
 	$(GOCMD) test -coverprofile=coverage.out ./...
 	$(GOCMD) tool cover -html=coverage.out
@@ -70,7 +76,11 @@ lint:
 vulncheck:
 	$(GOCMD) run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VER) ./...
 
-check: fmt vet lint test-short vulncheck
+# Scope packages so module cache under .cache/ is not scanned (avoids false positives from dependencies).
+gosec:
+	CGO_ENABLED=0 $(GOCMD) run github.com/securego/gosec/v2/cmd/gosec@latest -quiet ./pkg/... ./cmd/... ./internal/... ./tests/...
+
+check: fmt vet lint test-short vulncheck gosec
 
 run:
 	$(GOCMD) run $(MAIN_PACKAGE)
