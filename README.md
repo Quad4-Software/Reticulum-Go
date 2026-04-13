@@ -11,11 +11,17 @@ A high-performance and [secure](SECURITY.md) Go implementation of the [Reticulum
 
 Reticulum-Go provides full protocol compatibility with the Python reference implementation while leveraging Go's concurrency model for improved throughput and latency. The implementation targets cross-platform deployment across legacy and modern systems.
 
+See [COMPATIBILITY.md](COMPATIBILITY.md) for how this is verified against the Python stack and the [network API reference](https://reticulum.network/manual/reference.html).
+
 **Goals:**
 - Full protocol interoperability with the Python reference implementation
 - Cross-platform support for multiple architectures (old and new)
 - High performance via Go's concurrency model
 - Improved privacy and security features that do not break compatibility with the Python reference implementation
+
+### Cryptography
+
+Cryptographic behaviour is centralized in `pkg/cryptography` (including a pluggable `CryptoProvider`). For deployments that need keys or signing outside process memory, Ed25519 signing can be delegated via `cryptography.Ed25519Signer` (for example a `crypto.Signer` backed by PKCS#11 or an HSM). The on-wire format stays fixed; replacing primitives or integrating hardware must remain coordinated with peers. Link encryption still uses the standard X25519/AES path unless you implement a compatible custom provider.
 
 ## Requirements
 
