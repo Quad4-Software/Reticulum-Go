@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vmihailenco/msgpack/v5"
-	"github.com/vmihailenco/msgpack/v5/msgpcode"
+	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack/msgpcode"
 )
 
 func decodeHex(s string) ([]byte, error) { return hex.DecodeString(s) }
@@ -469,7 +469,7 @@ const MaxEntries = 65535
 //
 // The decoder bounds map and slice lengths to defeat adversarial inputs
 // that declare a declared-length far larger than the available payload
-// (vmihailenco/msgpack/v5 does not bound decodeSlice allocations).
+// (the msgpack decoder does not bound decodeSlice allocations).
 func DecodeBlackholeMap(raw []byte) (map[string]Entry, error) {
 	if len(raw) == 0 {
 		return map[string]Entry{}, nil

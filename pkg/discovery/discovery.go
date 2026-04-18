@@ -12,8 +12,8 @@ import (
 	"io"
 
 	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
-	"github.com/vmihailenco/msgpack/v5"
-	"github.com/vmihailenco/msgpack/v5/msgpcode"
+	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack/msgpcode"
 )
 
 // AppName is the destination app_name used by Discovery (see const value).

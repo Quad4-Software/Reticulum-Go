@@ -19,7 +19,7 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
-	"github.com/vmihailenco/msgpack/v5"
+	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
 )
 
 type PacketCallback = common.PacketCallback

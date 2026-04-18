@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/vmihailenco/msgpack/v5"
+	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
 )
 
 type ResourceAdvertisement struct {

@@ -13,7 +13,7 @@ import (
 	"git.quad4.io/Go-Libs/bzip2/pkg/bzip2"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/resource"
-	"github.com/vmihailenco/msgpack/v5"
+	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
 )
 
 const (

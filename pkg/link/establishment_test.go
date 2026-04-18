@@ -9,7 +9,7 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
-	"github.com/vmihailenco/msgpack/v5"
+	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
 )
 
 func TestEphemeralKeyGeneration(t *testing.T) {

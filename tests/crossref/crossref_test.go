@@ -14,7 +14,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/vmihailenco/msgpack/v5"
+	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
 
 	"git.quad4.io/Go-Libs/bzip2/pkg/bzip2"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/buffer"
