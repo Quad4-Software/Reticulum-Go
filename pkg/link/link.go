@@ -223,7 +223,7 @@ func (l *Link) Establish() error {
 	return nil
 }
 
-// registerLinkPath mirrors the destination's transport path for this link's
+// registerLinkPath copies the destination's transport path for this link's
 // link_id, so outgoing link packets get the same multi-hop wrapping as
 // destination-addressed packets.
 func (l *Link) registerLinkPath() {
@@ -997,7 +997,7 @@ func (l *Link) handleResourceAdvertisement(pkt *packet.Packet) error {
 }
 
 // sendIncomingResourceProof notifies the sender that the resource was assembled correctly
-// (SHA-256(payload||resourceHash)), matching Python RNS Resource.prove / validate_proof.
+// (SHA-256(payload||resourceHash)), matching Resource.prove / validate_proof.
 func (l *Link) sendIncomingResourceProof(payload []byte, resourceHash []byte) error {
 	if len(resourceHash) != sha256.Size {
 		return errors.New("resource hash must be 32 bytes")
@@ -2171,7 +2171,7 @@ func (l *Link) HandleLinkRequest(pkt *packet.Packet, ownerIdentity *identity.Ide
 	l.status.Store(int32(STATUS_HANDSHAKE))
 	l.lastInbound = time.Now()
 	l.requestTime = time.Now()
-	// Match Python RNS responder behavior: establishment timeout is per-hop plus keepalive grace.
+	// Match reference responder behavior: establishment timeout is per-hop plus keepalive grace.
 	// This prevents WAN/backbone proof/RTT races from being closed too aggressively.
 	hops := int(pkt.Hops)
 	if hops < 1 {

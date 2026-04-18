@@ -7,6 +7,7 @@ const (
 	DefaultAnnounceRateTarget  = 3600.0
 	DefaultAnnounceRateGrace   = 3
 	DefaultAnnounceRatePenalty = 7200.0
+	DefaultNewTime             = 2 * 60 * 60
 	DefaultBurstFreqNew        = 3.5
 	DefaultBurstFreq           = 12.0
 	DefaultBurstHold           = 60

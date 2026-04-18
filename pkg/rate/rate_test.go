@@ -80,6 +80,15 @@ func TestAnnounceRateControl_AllowAnnounce_DifferentHashes(t *testing.T) {
 	}
 }
 
+func TestAnnounceRateControl_DisabledByZeroTarget(t *testing.T) {
+	arc := NewAnnounceRateControl(0, 0, 0)
+	for i := 0; i < 100; i++ {
+		if !arc.AllowAnnounce("h") {
+			t.Fatalf("AllowAnnounce should always pass when disabled (i=%d)", i)
+		}
+	}
+}
+
 func TestNewIngressControl(t *testing.T) {
 	ic := NewIngressControl(true)
 	if ic == nil {
@@ -88,28 +97,29 @@ func TestNewIngressControl(t *testing.T) {
 }
 
 func TestIngressControl_ProcessAnnounce(t *testing.T) {
-	ic := NewIngressControl(true)
+	cfg := NewIngressControlConfig()
+	cfg.BurstFreq = 50.0
+	cfg.BurstFreqNew = 50.0
+	cfg.NewTime = 0
+	cfg.BurstHold = 5 * time.Second
+	cfg.BurstPenalty = 5 * time.Second
+	cfg.HeldReleaseInterval = time.Second
+	ic := NewIngressControlWith(cfg)
 
-	hash := "test-hash"
-	data := []byte("announce data")
-
-	ic.mutex.Lock()
-	ic.lastBurst = time.Now().Add(-time.Second)
-	ic.mutex.Unlock()
-
-	if !ic.ProcessAnnounce(hash, data, false) {
-		t.Error("ProcessAnnounce() should return true for first announce")
+	if !ic.ProcessAnnounce("first", []byte("data"), true) {
+		t.Error("first announce should pass")
 	}
-
-	time.Sleep(10 * time.Millisecond)
-
-	for range 200 {
-		ic.ProcessAnnounce(hash, data, false)
+	for i := 0; i < 200; i++ {
+		ic.ProcessAnnounce("burst-"+itoa(i), []byte("data"), true)
 	}
-
-	result := ic.ProcessAnnounce(hash, data, false)
-	if result {
-		t.Error("ProcessAnnounce() should return false when burst frequency exceeded")
+	if !ic.InBurst() {
+		t.Fatal("expected burst-active after flood")
+	}
+	if ic.HeldCount() == 0 {
+		t.Fatal("expected at least one held announce after burst")
+	}
+	if !ic.ProcessAnnounce("known", []byte("k"), false) {
+		t.Error("known-destination announce must not be held mid-burst")
 	}
 }
 
@@ -119,32 +129,84 @@ func TestIngressControl_ProcessAnnounce_Disabled(t *testing.T) {
 	hash := "test-hash"
 	data := []byte("announce data")
 
-	if !ic.ProcessAnnounce(hash, data, false) {
+	if !ic.ProcessAnnounce(hash, data, true) {
 		t.Error("ProcessAnnounce() should return true when disabled")
+	}
+	if ic.HeldCount() != 0 {
+		t.Error("disabled controller must not queue anything")
 	}
 }
 
-func TestIngressControl_ReleaseHeldAnnounce(t *testing.T) {
-	ic := NewIngressControl(true)
+func TestIngressControl_ReleaseHeldAnnounce_RespectsTiming(t *testing.T) {
+	cfg := NewIngressControlConfig()
+	cfg.BurstFreq = 50.0
+	cfg.BurstFreqNew = 50.0
+	cfg.NewTime = 0
+	cfg.BurstHold = 50 * time.Millisecond
+	cfg.BurstPenalty = 50 * time.Millisecond
+	cfg.HeldReleaseInterval = 10 * time.Millisecond
+	ic := NewIngressControlWith(cfg)
 
-	_, _, found := ic.ReleaseHeldAnnounce()
-	if found {
-		t.Error("ReleaseHeldAnnounce() should return false when no announces held")
+	for i := 0; i < 200; i++ {
+		ic.ProcessAnnounce("h-"+itoa(i), []byte{byte(i)}, true)
+	}
+	if ic.HeldCount() == 0 {
+		t.Fatal("expected announces queued during burst")
+	}
+	if _, _, ok := ic.ReleaseHeldAnnounce(); ok {
+		t.Error("must not release while burst still active / penalty pending")
 	}
 
-	ic.ProcessAnnounce("hash1", []byte("data1"), false)
-	for range 200 {
-		ic.ProcessAnnounce("hash1", []byte("data1"), false)
+	time.Sleep(150 * time.Millisecond)
+	ic.ProcessAnnounce("settle", []byte{0}, false)
+	time.Sleep(150 * time.Millisecond)
+	ic.ProcessAnnounce("settle2", []byte{0}, false)
+	if _, _, ok := ic.ReleaseHeldAnnounce(); !ok {
+		t.Fatal("expected release once burst cleared and penalty elapsed")
 	}
+	if _, _, ok := ic.ReleaseHeldAnnounce(); ok {
+		t.Error("must respect HeldReleaseInterval between releases")
+	}
+}
 
-	hash, data, found := ic.ReleaseHeldAnnounce()
-	if !found {
-		t.Error("ReleaseHeldAnnounce() should return true when announces are held")
+func TestIngressControl_MaxHeldAnnouncesCap(t *testing.T) {
+	cfg := NewIngressControlConfig()
+	cfg.BurstFreq = 1.0
+	cfg.BurstFreqNew = 1.0
+	cfg.NewTime = 0
+	cfg.MaxHeldAnnounces = 4
+	cfg.BurstHold = 5 * time.Second
+	cfg.BurstPenalty = 5 * time.Second
+	ic := NewIngressControlWith(cfg)
+
+	for i := 0; i < 50; i++ {
+		ic.ProcessAnnounce("h-"+itoa(i), []byte{byte(i)}, true)
 	}
-	if hash == "" {
-		t.Error("ReleaseHeldAnnounce() should return non-empty hash")
+	if got := ic.HeldCount(); got > 4 {
+		t.Fatalf("queue exceeded max: %d", got)
 	}
-	if len(data) == 0 {
-		t.Error("ReleaseHeldAnnounce() should return non-empty data")
+}
+
+func itoa(i int) string {
+	if i == 0 {
+		return "0"
 	}
+	const digits = "0123456789"
+	neg := false
+	if i < 0 {
+		neg = true
+		i = -i
+	}
+	var buf [20]byte
+	pos := len(buf)
+	for i > 0 {
+		pos--
+		buf[pos] = digits[i%10]
+		i /= 10
+	}
+	if neg {
+		pos--
+		buf[pos] = '-'
+	}
+	return string(buf[pos:])
 }

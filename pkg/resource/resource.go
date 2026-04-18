@@ -334,7 +334,7 @@ func estimateFileCompression(size int64, extension string) int64 {
 }
 
 // PrepareOutboundForLink builds the inner ciphertext blob, hash, hashmap, and
-// segment counts for sending a resource compatible with Reticulum (Python RNS).
+// segment counts for sending a resource compatible with Reticulum peers.
 // sdu is the maximum plaintext length per link data packet (link MDU).
 func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), sdu int) error {
 	if sdu <= 0 {

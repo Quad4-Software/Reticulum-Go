@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -18,8 +17,6 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
 )
 
-// TestLiveInteropTransportPathRequest exercises the Go transport path table: RequestPath,
-// HasPath, HopsTo, and NextHop after Python announces a destination on the shared UDP interface.
 func TestLiveInteropTransportPathRequest(t *testing.T) {
 	liveOrSkip(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -30,7 +27,7 @@ func TestLiveInteropTransportPathRequest(t *testing.T) {
 	tr, _, cleanup := setupGoUDPPeer(t, pyListen, pyForward)
 	defer cleanup()
 
-	script := filepath.Join(scriptDir(t), "python_interop_announce_peer.py")
+	script := pyScript(t, "announce_peer.py")
 	cmd := exec.CommandContext(ctx, pythonExe(), script)
 	cmd.Env = append(os.Environ(),
 		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),

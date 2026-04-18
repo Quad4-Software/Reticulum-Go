@@ -50,6 +50,31 @@ const (
 	MAX_HOPS         = 128
 	PROPAGATION_RATE = 0.02
 
+	// PathfinderRW is the random window (seconds) added before
+	// retransmitting an announce. Matches Transport.PATHFINDER_RW.
+	PathfinderRW = 0.5
+
+	// PathfinderR is the number of retransmit retries for queued
+	// announces. Matches Transport.PATHFINDER_R.
+	PathfinderR = 1
+
+	// PathfinderG is the retry grace period in seconds added to the
+	// retransmit timeout. Matches Transport.PATHFINDER_G.
+	PathfinderG = 5
+
+	// PathRequestMI is the minimum interval between automated path
+	// requests for the same destination. Matches Transport.PATH_REQUEST_MI.
+	PathRequestMI = 20 * time.Second
+
+	// LocalRebroadcastsMax bounds how many local rebroadcasts of a
+	// queued announce are allowed before it is considered handed off.
+	// Matches Transport.LOCAL_REBROADCASTS_MAX.
+	LocalRebroadcastsMax = 2
+
+	// LinkProofTimeoutPerHop is the link-establishment proof timeout
+	// added per remaining hop when registering a relayed link entry.
+	LinkProofTimeoutPerHop = 6 * time.Second
+
 	PACKET_TYPE_ANNOUNCE = 0x01
 	PACKET_TYPE_LINK     = 0x02
 

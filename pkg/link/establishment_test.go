@@ -9,6 +9,7 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 func TestEphemeralKeyGeneration(t *testing.T) {
@@ -361,4 +362,27 @@ func TestLinkProofValidation(t *testing.T) {
 	t.Logf("Shared key length: %d", len(initiatorLink.sharedKey))
 	t.Logf("Derived key length: %d", len(initiatorLink.derivedKey))
 	t.Logf("RTT: %.3f seconds", initiatorLink.rtt)
+}
+
+func TestParseRTTPayloadSecondsMsgpack(t *testing.T) {
+	want := 0.734
+	payload, err := msgpack.Marshal(want)
+	if err != nil {
+		t.Fatalf("failed to encode msgpack payload: %v", err)
+	}
+
+	got, err := parseRTTPayloadSeconds(payload)
+	if err != nil {
+		t.Fatalf("unexpected error parsing msgpack RTT payload: %v", err)
+	}
+	if got != want {
+		t.Fatalf("expected RTT %.3f, got %.3f", want, got)
+	}
+}
+
+func TestParseRTTPayloadSecondsRejectsNonMsgpack(t *testing.T) {
+	payload := []byte{0x00, 0x01, 0x02, 0x03}
+	if _, err := parseRTTPayloadSeconds(payload); err == nil {
+		t.Fatal("expected parse error for non-msgpack RTT payload")
+	}
 }

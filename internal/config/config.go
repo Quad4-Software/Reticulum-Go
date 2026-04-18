@@ -49,6 +49,17 @@ func EnsureConfigDir() error {
 	return os.MkdirAll(configDir, 0700) // #nosec G301
 }
 
+// parseBool accepts the same truthy values as the reference Reticulum stack for its
+// boolean configuration knobs (yes/no/true/false/1/0), case-insensitive.
+func parseBool(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true", "yes", "y", "on", "1":
+		return true
+	default:
+		return false
+	}
+}
+
 // parseValue parses string values into appropriate types
 func parseValue(value string) any {
 	value = strings.TrimSpace(value)
@@ -131,6 +142,31 @@ func LoadConfig(path string) (*common.ReticulumConfig, error) {
 				currentInterface.DiscoveryScope = value
 			case "group_id":
 				currentInterface.GroupID = value
+			case "announce_cap":
+				currentInterface.AnnounceCap, _ = strconv.ParseFloat(value, 64)
+			case "announce_rate_target":
+				currentInterface.AnnounceRateTarget, _ = strconv.ParseFloat(value, 64)
+			case "announce_rate_grace":
+				currentInterface.AnnounceRateGrace, _ = strconv.Atoi(value)
+			case "announce_rate_penalty":
+				currentInterface.AnnounceRatePenalty, _ = strconv.ParseFloat(value, 64)
+			case "ingress_control":
+				currentInterface.IngressControl = parseBool(value)
+				currentInterface.IngressControlSet = true
+			case "ic_new_time":
+				currentInterface.ICNewTime, _ = strconv.Atoi(value)
+			case "ic_burst_freq_new":
+				currentInterface.ICBurstFreqNew, _ = strconv.ParseFloat(value, 64)
+			case "ic_burst_freq":
+				currentInterface.ICBurstFreq, _ = strconv.ParseFloat(value, 64)
+			case "ic_max_held_announces":
+				currentInterface.ICMaxHeldAnnounces, _ = strconv.Atoi(value)
+			case "ic_burst_hold":
+				currentInterface.ICBurstHold, _ = strconv.Atoi(value)
+			case "ic_burst_penalty":
+				currentInterface.ICBurstPenalty, _ = strconv.Atoi(value)
+			case "ic_held_release_interval":
+				currentInterface.ICHeldReleaseInterval, _ = strconv.Atoi(value)
 			}
 		} else {
 			// Parse global config

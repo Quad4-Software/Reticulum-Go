@@ -12,7 +12,7 @@ type ConfigProvider interface {
 	GetInterfaces() map[string]InterfaceConfig
 }
 
-// InterfaceConfig represents interface configuration
+// InterfaceConfig is per-interface settings (announce_* / ic_* match reference Reticulum).
 type InterfaceConfig struct {
 	Name              string
 	Type              string
@@ -34,6 +34,20 @@ type InterfaceConfig struct {
 	DiscoveryPort     int
 	DataPort          int
 	MulticastAddrType string
+
+	AnnounceCap           float64 // % of bitrate; 0 => default 2%
+	AnnounceRateTarget    float64 // min seconds between same-dest rebroadcasts; 0 => off
+	AnnounceRateGrace     int
+	AnnounceRatePenalty   float64
+	IngressControl        bool
+	IngressControlSet     bool // false => use default (ingress on)
+	ICNewTime             int
+	ICBurstFreqNew        float64
+	ICBurstFreq           float64
+	ICMaxHeldAnnounces    int
+	ICBurstHold           int
+	ICBurstPenalty        int
+	ICHeldReleaseInterval int
 }
 
 // ReticulumConfig represents the main configuration structure

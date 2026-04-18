@@ -21,6 +21,62 @@ func TestDefaultConfig(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_SpamProtectionKnobs(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config")
+	body := "" +
+		"[noisy]\n" +
+		"type = TCPClientInterface\n" +
+		"enabled = true\n" +
+		"announce_cap = 5.5\n" +
+		"announce_rate_target = 1800\n" +
+		"announce_rate_grace = 4\n" +
+		"announce_rate_penalty = 600\n" +
+		"ingress_control = no\n" +
+		"ic_new_time = 60\n" +
+		"ic_burst_freq_new = 1.25\n" +
+		"ic_burst_freq = 7\n" +
+		"ic_max_held_announces = 64\n" +
+		"ic_burst_hold = 30\n" +
+		"ic_burst_penalty = 90\n" +
+		"ic_held_release_interval = 15\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	iface, ok := cfg.Interfaces["noisy"]
+	if !ok {
+		t.Fatalf("interface section not parsed")
+	}
+	checks := []struct {
+		name string
+		got  any
+		want any
+	}{
+		{"AnnounceCap", iface.AnnounceCap, 5.5},
+		{"AnnounceRateTarget", iface.AnnounceRateTarget, 1800.0},
+		{"AnnounceRateGrace", iface.AnnounceRateGrace, 4},
+		{"AnnounceRatePenalty", iface.AnnounceRatePenalty, 600.0},
+		{"IngressControl", iface.IngressControl, false},
+		{"IngressControlSet", iface.IngressControlSet, true},
+		{"ICNewTime", iface.ICNewTime, 60},
+		{"ICBurstFreqNew", iface.ICBurstFreqNew, 1.25},
+		{"ICBurstFreq", iface.ICBurstFreq, 7.0},
+		{"ICMaxHeldAnnounces", iface.ICMaxHeldAnnounces, 64},
+		{"ICBurstHold", iface.ICBurstHold, 30},
+		{"ICBurstPenalty", iface.ICBurstPenalty, 90},
+		{"ICHeldReleaseInterval", iface.ICHeldReleaseInterval, 15},
+	}
+	for _, c := range checks {
+		if c.got != c.want {
+			t.Errorf("%s: got %v, want %v", c.name, c.got, c.want)
+		}
+	}
+}
+
 func TestParseValue(t *testing.T) {
 	tests := []struct {
 		input    string

@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: 0BSD
 // Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
 
-// Live Python (rns) UDP loopback interop; set RUN_LIVE_INTEROP=1.
-// See interop_transport_live_test.go for transport path/hops checks.
+// Live UDP loopback cross-stack interop; set RUN_LIVE_INTEROP=1.
 
 package interop
 
@@ -34,6 +33,12 @@ import (
 const (
 	interopApp    = "interop_pygo"
 	interopAspect = "linksvc"
+
+	// pyProc* bound how long the peer subprocess stays up (exec.CommandContext).
+	// Multipart resources can run until link SendResource's internal deadline (10m).
+	pyProcShortTimeout  = 2 * time.Minute
+	pyProcMediumTimeout = 8 * time.Minute
+	pyProcLongTimeout   = 22 * time.Minute
 )
 
 func interopLink(t *testing.T, v any) *rlink.Link {
@@ -80,6 +85,11 @@ func scriptDir(t *testing.T) string {
 		t.Fatal("runtime.Caller")
 	}
 	return filepath.Dir(testFile)
+}
+
+func pyScript(t *testing.T, name string) string {
+	t.Helper()
+	return filepath.Join(scriptDir(t), "py", name)
 }
 
 func setupGoUDPPeer(t *testing.T, pyListen, pyForward int) (*transport.Transport, *interfaces.UDPInterface, func()) {
@@ -142,7 +152,7 @@ func waitPath(ctx context.Context, tr *transport.Transport, destHash []byte, tot
 	return context.DeadlineExceeded
 }
 
-// TestLiveInteropPythonSeesGoAnnouncePath checks Python learns a path after Go announces.
+// Verifies the peer learns a path after Go announces.
 func TestLiveInteropPythonSeesGoAnnouncePath(t *testing.T) {
 	liveOrSkip(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -163,7 +173,7 @@ func TestLiveInteropPythonSeesGoAnnouncePath(t *testing.T) {
 	}
 	destGo.AcceptsLinks(true)
 
-	script := filepath.Join(scriptDir(t), "python_interop_wait_path.py")
+	script := pyScript(t, "wait_path.py")
 	cmd := exec.CommandContext(ctx, pythonExe(), script)
 	cmd.Env = append(os.Environ(),
 		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
@@ -203,7 +213,7 @@ func TestLiveInteropPythonSeesGoAnnouncePath(t *testing.T) {
 	}
 }
 
-// TestLiveInteropGoSeesPythonAnnouncePath checks Go learns a path after Python announces.
+// Verifies Go learns a path after the peer announces.
 func TestLiveInteropGoSeesPythonAnnouncePath(t *testing.T) {
 	liveOrSkip(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -214,7 +224,7 @@ func TestLiveInteropGoSeesPythonAnnouncePath(t *testing.T) {
 	tr, _, cleanup := setupGoUDPPeer(t, pyListen, pyForward)
 	defer cleanup()
 
-	script := filepath.Join(scriptDir(t), "python_interop_announce_peer.py")
+	script := pyScript(t, "announce_peer.py")
 	cmd := exec.CommandContext(ctx, pythonExe(), script)
 	cmd.Env = append(os.Environ(),
 		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
@@ -254,10 +264,10 @@ func TestLiveInteropGoSeesPythonAnnouncePath(t *testing.T) {
 	}
 }
 
-// TestLiveInteropGoLinkPacketEchoPython establishes a link Go (initiator) to Python (responder) and echoes a packet.
+// Establishes a link from Go (initiator) to the peer (responder) and echoes a packet.
 func TestLiveInteropGoLinkPacketEchoPython(t *testing.T) {
 	liveOrSkip(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), pyProcShortTimeout)
 	defer cancel()
 
 	pyListen := freeUDPPort(t)
@@ -265,7 +275,7 @@ func TestLiveInteropGoLinkPacketEchoPython(t *testing.T) {
 	tr, iface, cleanup := setupGoUDPPeer(t, pyListen, pyForward)
 	defer cleanup()
 
-	script := filepath.Join(scriptDir(t), "python_interop_link_server.py")
+	script := pyScript(t, "link_server.py")
 	cmd := exec.CommandContext(ctx, pythonExe(), script)
 	cmd.Env = append(os.Environ(),
 		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
@@ -348,10 +358,10 @@ func TestLiveInteropGoLinkPacketEchoPython(t *testing.T) {
 	}
 }
 
-// TestLiveInteropGoResourceToPython sends a small in-memory resource from Go to Python over a link.
+// Sends a small in-memory resource from Go to the peer over a link.
 func TestLiveInteropGoResourceToPython(t *testing.T) {
 	liveOrSkip(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), pyProcMediumTimeout)
 	defer cancel()
 
 	pyListen := freeUDPPort(t)
@@ -359,7 +369,7 @@ func TestLiveInteropGoResourceToPython(t *testing.T) {
 	tr, iface, cleanup := setupGoUDPPeer(t, pyListen, pyForward)
 	defer cleanup()
 
-	script := filepath.Join(scriptDir(t), "python_interop_link_server.py")
+	script := pyScript(t, "link_server.py")
 	cmd := exec.CommandContext(ctx, pythonExe(), script)
 	cmd.Env = append(os.Environ(),
 		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
@@ -443,9 +453,106 @@ func TestLiveInteropGoResourceToPython(t *testing.T) {
 	}
 }
 
+// Sends two small resources on one established link (peer prints RESOURCE_OK per completion).
+func TestLiveInteropGoTwoResourcesToPythonSameLink(t *testing.T) {
+	liveOrSkip(t)
+	ctx, cancel := context.WithTimeout(context.Background(), pyProcMediumTimeout)
+	defer cancel()
+
+	pyListen := freeUDPPort(t)
+	pyForward := freeUDPPort(t)
+	tr, iface, cleanup := setupGoUDPPeer(t, pyListen, pyForward)
+	defer cleanup()
+
+	script := pyScript(t, "link_server.py")
+	cmd := exec.CommandContext(ctx, pythonExe(), script)
+	cmd.Env = append(os.Environ(),
+		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
+		"INTEROP_FORWARD_PORT="+strconv.Itoa(pyForward),
+		"INTEROP_LINK_MODE=resource",
+		"INTEROP_RESOURCE_EXPECT=interop-resource-payload",
+	)
+	cmd.Stderr = os.Stderr
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("stdout pipe: %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start python: %v", err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	}()
+
+	br := bufio.NewReader(out)
+	line, err := readLineTimeout(ctx, br, 25*time.Second)
+	if err != nil {
+		t.Fatalf("wait READY: %v", err)
+	}
+	if strings.TrimSpace(line) != "READY" {
+		t.Fatalf("expected READY, got %q", line)
+	}
+	hashLine, err := readLineTimeout(ctx, br, 5*time.Second)
+	if err != nil {
+		t.Fatalf("wait hash: %v", err)
+	}
+	pyHash, err := hex.DecodeString(strings.TrimSpace(hashLine))
+	if err != nil || len(pyHash) != 16 {
+		t.Fatalf("bad python destination hash: %q err %v", hashLine, err)
+	}
+	if err := waitPath(ctx, tr, pyHash, 40*time.Second); err != nil {
+		t.Fatalf("path to python: %v", err)
+	}
+
+	srvID, err := identity.Recall(pyHash)
+	if err != nil {
+		t.Fatalf("recall: %v", err)
+	}
+	destOut, err := destination.FromHash(pyHash, srvID, destination.SINGLE, tr)
+	if err != nil {
+		t.Fatalf("from hash: %v", err)
+	}
+
+	established := make(chan struct{})
+	lnk := rlink.NewLink(destOut, tr, iface, func(_ *rlink.Link) {
+		close(established)
+	}, nil)
+	defer lnk.Teardown()
+	lnk.SetPacketCallback(func(_ []byte, _ *packet.Packet) {})
+
+	if err := lnk.Establish(); err != nil {
+		t.Fatalf("establish: %v", err)
+	}
+	select {
+	case <-established:
+	case <-time.After(45 * time.Second):
+		t.Fatal("link establish timeout")
+	}
+	lnk.Start()
+
+	payload := []byte("interop-resource-payload")
+	for i := 0; i < 2; i++ {
+		res, err := resource.New(payload, false)
+		if err != nil {
+			t.Fatalf("resource: %v", err)
+		}
+		if err := lnk.SendResource(res); err != nil {
+			t.Fatalf("send resource %d: %v", i, err)
+		}
+		line, err = readLineTimeout(ctx, br, 3*time.Minute)
+		if err != nil {
+			t.Fatalf("wait RESOURCE_OK (%d): %v", i, err)
+		}
+		if strings.TrimSpace(line) != "RESOURCE_OK" {
+			t.Fatalf("expected RESOURCE_OK, got %q (resource %d)", line, i)
+		}
+	}
+}
+
 func TestLiveInteropPythonResourceToGo(t *testing.T) {
 	liveOrSkip(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), pyProcMediumTimeout)
 	defer cancel()
 
 	pyListen := freeUDPPort(t)
@@ -484,7 +591,7 @@ func TestLiveInteropPythonResourceToGo(t *testing.T) {
 		t.Fatalf("announce: %v", err)
 	}
 
-	script := filepath.Join(scriptDir(t), "python_interop_link_client.py")
+	script := pyScript(t, "link_client.py")
 	cmd := exec.CommandContext(ctx, pythonExe(), script)
 	cmd.Env = append(os.Environ(),
 		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
@@ -541,7 +648,7 @@ func TestLiveInteropPythonResourceToGo(t *testing.T) {
 
 func TestLiveInteropPythonInitiatedLinkEcho(t *testing.T) {
 	liveOrSkip(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), pyProcShortTimeout)
 	defer cancel()
 
 	pyListen := freeUDPPort(t)
@@ -575,7 +682,7 @@ func TestLiveInteropPythonInitiatedLinkEcho(t *testing.T) {
 		t.Fatalf("announce: %v", err)
 	}
 
-	script := filepath.Join(scriptDir(t), "python_interop_link_client.py")
+	script := pyScript(t, "link_client.py")
 	cmd := exec.CommandContext(ctx, pythonExe(), script)
 	cmd.Env = append(os.Environ(),
 		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
@@ -622,7 +729,7 @@ func TestLiveInteropPythonInitiatedLinkEcho(t *testing.T) {
 
 func TestLiveInteropGoLargeResourceToPython(t *testing.T) {
 	liveOrSkip(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), pyProcLongTimeout)
 	defer cancel()
 
 	pyListen := freeUDPPort(t)
@@ -633,7 +740,7 @@ func TestLiveInteropGoLargeResourceToPython(t *testing.T) {
 	large := bytes.Repeat([]byte("L"), 5000)
 	expect := string(large)
 
-	script := filepath.Join(scriptDir(t), "python_interop_link_server.py")
+	script := pyScript(t, "link_server.py")
 	cmd := exec.CommandContext(ctx, pythonExe(), script)
 	cmd.Env = append(os.Environ(),
 		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
@@ -708,7 +815,7 @@ func TestLiveInteropGoLargeResourceToPython(t *testing.T) {
 		t.Fatalf("send resource: %v", err)
 	}
 
-	line, err = readLineTimeout(ctx, br, 120*time.Second)
+	line, err = readLineTimeout(ctx, br, 12*time.Minute)
 	if err != nil {
 		t.Fatalf("wait RESOURCE_OK: %v", err)
 	}
@@ -719,7 +826,7 @@ func TestLiveInteropGoLargeResourceToPython(t *testing.T) {
 
 func TestLiveInteropGoCompressedResourceToPython(t *testing.T) {
 	liveOrSkip(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), pyProcMediumTimeout)
 	defer cancel()
 
 	compressible := bytes.Repeat([]byte("Z"), 4000)
@@ -729,7 +836,7 @@ func TestLiveInteropGoCompressedResourceToPython(t *testing.T) {
 	tr, iface, cleanup := setupGoUDPPeer(t, pyListen, pyForward)
 	defer cleanup()
 
-	script := filepath.Join(scriptDir(t), "python_interop_link_server.py")
+	script := pyScript(t, "link_server.py")
 	cmd := exec.CommandContext(ctx, pythonExe(), script)
 	cmd.Env = append(os.Environ(),
 		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
@@ -804,7 +911,7 @@ func TestLiveInteropGoCompressedResourceToPython(t *testing.T) {
 		t.Fatalf("send resource: %v", err)
 	}
 
-	line, err = readLineTimeout(ctx, br, 120*time.Second)
+	line, err = readLineTimeout(ctx, br, 6*time.Minute)
 	if err != nil {
 		t.Fatalf("wait RESOURCE_OK: %v", err)
 	}
@@ -815,7 +922,7 @@ func TestLiveInteropGoCompressedResourceToPython(t *testing.T) {
 
 func TestLiveInteropPythonCompressedResourceToGo(t *testing.T) {
 	liveOrSkip(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), pyProcMediumTimeout)
 	defer cancel()
 
 	pyListen := freeUDPPort(t)
@@ -855,7 +962,7 @@ func TestLiveInteropPythonCompressedResourceToGo(t *testing.T) {
 	}
 
 	expect := bytes.Repeat([]byte("C"), 3500)
-	script := filepath.Join(scriptDir(t), "python_interop_link_client.py")
+	script := pyScript(t, "link_client.py")
 	cmd := exec.CommandContext(ctx, pythonExe(), script)
 	cmd.Env = append(os.Environ(),
 		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
@@ -898,11 +1005,11 @@ func TestLiveInteropPythonCompressedResourceToGo(t *testing.T) {
 		if !bytes.Equal(got, expect) {
 			t.Fatalf("payload mismatch len %d vs %d", len(got), len(expect))
 		}
-	case <-time.After(120 * time.Second):
+	case <-time.After(6 * time.Minute):
 		t.Fatal("no resource payload on Go side")
 	}
 
-	line, err = readLineTimeout(ctx, br, 30*time.Second)
+	line, err = readLineTimeout(ctx, br, 2*time.Minute)
 	if err != nil {
 		t.Fatalf("wait RESOURCE_SENT_OK: %v", err)
 	}
@@ -913,7 +1020,7 @@ func TestLiveInteropPythonCompressedResourceToGo(t *testing.T) {
 
 func TestLiveInteropGoRejectIncomingResource(t *testing.T) {
 	liveOrSkip(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), pyProcShortTimeout)
 	defer cancel()
 
 	pyListen := freeUDPPort(t)
@@ -941,7 +1048,7 @@ func TestLiveInteropGoRejectIncomingResource(t *testing.T) {
 		t.Fatalf("announce: %v", err)
 	}
 
-	script := filepath.Join(scriptDir(t), "python_interop_link_client.py")
+	script := pyScript(t, "link_client.py")
 	cmd := exec.CommandContext(ctx, pythonExe(), script)
 	cmd.Env = append(os.Environ(),
 		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
@@ -983,7 +1090,7 @@ func TestLiveInteropGoRejectIncomingResource(t *testing.T) {
 
 func TestLiveInteropPythonLinkRequest(t *testing.T) {
 	liveOrSkip(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), pyProcShortTimeout)
 	defer cancel()
 
 	pyListen := freeUDPPort(t)
@@ -1017,7 +1124,7 @@ func TestLiveInteropPythonLinkRequest(t *testing.T) {
 		t.Fatalf("announce: %v", err)
 	}
 
-	script := filepath.Join(scriptDir(t), "python_interop_link_client.py")
+	script := pyScript(t, "link_client.py")
 	cmd := exec.CommandContext(ctx, pythonExe(), script)
 	cmd.Env = append(os.Environ(),
 		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
@@ -1060,7 +1167,7 @@ func TestLiveInteropPythonLinkRequest(t *testing.T) {
 
 func TestLiveInteropGoFileResourceToPython(t *testing.T) {
 	liveOrSkip(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), pyProcMediumTimeout)
 	defer cancel()
 
 	tmpDir := t.TempDir()
@@ -1080,7 +1187,7 @@ func TestLiveInteropGoFileResourceToPython(t *testing.T) {
 	tr, iface, cleanup := setupGoUDPPeer(t, pyListen, pyForward)
 	defer cleanup()
 
-	script := filepath.Join(scriptDir(t), "python_interop_link_server.py")
+	script := pyScript(t, "link_server.py")
 	cmd := exec.CommandContext(ctx, pythonExe(), script)
 	cmd.Env = append(os.Environ(),
 		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
@@ -1155,7 +1262,7 @@ func TestLiveInteropGoFileResourceToPython(t *testing.T) {
 		t.Fatalf("send resource: %v", err)
 	}
 
-	line, err = readLineTimeout(ctx, br, 120*time.Second)
+	line, err = readLineTimeout(ctx, br, 6*time.Minute)
 	if err != nil {
 		t.Fatalf("wait RESOURCE_OK: %v", err)
 	}

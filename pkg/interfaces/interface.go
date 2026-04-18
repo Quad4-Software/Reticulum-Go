@@ -58,6 +58,12 @@ type BaseInterface struct {
 
 	Mutex          sync.RWMutex
 	packetCallback common.PacketCallback
+
+	// IFACIdentity is set when the interface participates in an IFAC network.
+	// When non-nil, outbound packets are masked before transmit and inbound
+	// packets are unmasked + verified, with the same drop policy as the
+	// reference implementation.
+	IFACIdentity common.IFAC
 }
 
 func NewBaseInterface(name string, ifType common.InterfaceType, enabled bool) BaseInterface {
@@ -93,34 +99,53 @@ func (i *BaseInterface) GetPacketCallback() common.PacketCallback {
 	return i.packetCallback
 }
 
+// SetIFAC stores an Interface Access Code identity on this interface. Pass
+// nil to disable IFAC. Subsequent Send / ProcessIncoming calls will use the
+// new value.
+func (i *BaseInterface) SetIFAC(id common.IFAC) {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.IFACIdentity = id
+}
+
+// GetIFAC returns the configured Interface Access Code identity, or nil if
+// IFAC is disabled.
+func (i *BaseInterface) GetIFAC() common.IFAC {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.IFACIdentity
+}
+
 func (i *BaseInterface) ProcessIncoming(data []byte) {
 	i.Mutex.Lock()
 	i.RxBytes += uint64(len(data))
 	i.RxPackets++
 	i.Mutex.Unlock()
 
+	stripped, ok := common.ApplyIFACInbound(i, data)
+	if !ok {
+		debug.Log(debug.DEBUG_VERBOSE, "Dropped packet failing IFAC policy", "name", i.Name, "size", len(data))
+		return
+	}
+
 	i.Mutex.RLock()
 	callback := i.packetCallback
 	i.Mutex.RUnlock()
 
 	if callback != nil {
-		callback(data, i)
+		callback(stripped, i)
 	}
 }
 
+// ProcessOutgoing on the abstract BaseInterface is intentionally a fail-loud
+// stub: any concrete network interface that uses BaseInterface as its base
+// MUST override ProcessOutgoing to actually transmit bytes. Returning an
+// error (and logging at CRITICAL) surfaces dynamic-dispatch mistakes
+// (e.g. a *BaseInterface pointer leaking through a callback closure)
+// instead of letting the transport silently swallow every outgoing packet.
 func (i *BaseInterface) ProcessOutgoing(data []byte) error {
-	if !i.Online || i.Detached {
-		debug.Log(debug.DEBUG_CRITICAL, "Interface cannot process outgoing packet - interface offline or detached", "name", i.Name)
-		return fmt.Errorf("interface offline or detached")
-	}
-
-	i.Mutex.Lock()
-	i.TxBytes += uint64(len(data))
-	i.TxPackets++
-	i.Mutex.Unlock()
-
-	debug.Log(debug.DEBUG_VERBOSE, "Interface processed outgoing packet", "name", i.Name, "bytes", len(data), "total_tx", i.TxBytes)
-	return nil
+	debug.Log(debug.DEBUG_CRITICAL, "BaseInterface.ProcessOutgoing called directly; concrete interface type must override it", "name", i.Name, "bytes", len(data))
+	return fmt.Errorf("ProcessOutgoing not implemented on abstract interfaces.BaseInterface (name=%q, %d bytes); concrete interface type must override it", i.Name, len(data))
 }
 
 func (i *BaseInterface) SendPathRequest(packet []byte) error {
@@ -247,13 +272,18 @@ func (i *BaseInterface) Stop() error {
 func (i *BaseInterface) Send(data []byte, address string) error {
 	debug.Log(debug.DEBUG_VERBOSE, "Interface sending bytes", "name", i.Name, "bytes", len(data), "address", address)
 
-	err := i.ProcessOutgoing(data)
+	masked, err := common.ApplyIFACOutbound(i, data)
 	if err != nil {
+		debug.Log(debug.DEBUG_CRITICAL, "Failed to mask outgoing packet for IFAC", "name", i.Name, "error", err)
+		return err
+	}
+
+	if err := i.ProcessOutgoing(masked); err != nil {
 		debug.Log(debug.DEBUG_CRITICAL, "Interface failed to send data", "name", i.Name, "error", err)
 		return err
 	}
 
-	i.updateBandwidthStats(uint64(len(data)))
+	i.updateBandwidthStats(uint64(len(masked)))
 	return nil
 }
 

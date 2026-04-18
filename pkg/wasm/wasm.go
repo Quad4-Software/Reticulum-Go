@@ -177,7 +177,7 @@ func InitReticulum(this js.Value, args []js.Value) interface{} {
 
 	cfg := common.DefaultConfig()
 	t := transport.NewTransport(cfg)
-	// Ensure the global instance is set for internal RNS calls (like Announce)
+	// Ensure the global instance is set for internal transport calls (like Announce)
 	transport.SetTransportInstance(t)
 
 	// Set transport identity to the same as the node identity for now in WASM

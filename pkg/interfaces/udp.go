@@ -100,8 +100,12 @@ func (ui *UDPInterface) GetPacketCallback() common.PacketCallback {
 }
 
 func (ui *UDPInterface) ProcessIncoming(data []byte) {
+	stripped, ok := common.ApplyIFACInbound(ui, data)
+	if !ok {
+		return
+	}
 	if callback := ui.GetPacketCallback(); callback != nil {
-		callback(data, ui)
+		callback(stripped, ui)
 	}
 }
 
@@ -125,12 +129,18 @@ func (ui *UDPInterface) ProcessOutgoing(data []byte) error {
 func (ui *UDPInterface) Send(data []byte, address string) error {
 	debug.Log(debug.DEBUG_VERBOSE, "Interface sending bytes", "name", ui.Name, "bytes", len(data), "address", address)
 
-	if err := ui.ProcessOutgoing(data); err != nil {
+	masked, err := common.ApplyIFACOutbound(ui, data)
+	if err != nil {
+		debug.Log(debug.DEBUG_CRITICAL, "Failed to mask outgoing packet for IFAC", "name", ui.Name, "error", err)
+		return err
+	}
+
+	if err := ui.ProcessOutgoing(masked); err != nil {
 		debug.Log(debug.DEBUG_CRITICAL, "Interface failed to send data", "name", ui.Name, "error", err)
 		return err
 	}
 
-	ui.updateBandwidthStats(uint64(len(data)))
+	ui.updateBandwidthStats(uint64(len(masked)))
 	return nil
 }
 

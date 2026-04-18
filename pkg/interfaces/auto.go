@@ -445,8 +445,12 @@ func (ai *AutoInterface) handleData(conn *net.UDPConn, ifaceName string) {
 		}
 		ai.Mutex.Unlock()
 
+		stripped, ok := common.ApplyIFACInbound(ai, data)
+		if !ok {
+			continue
+		}
 		if callback := ai.GetPacketCallback(); callback != nil {
-			callback(data, ai)
+			callback(stripped, ai)
 		}
 	}
 }
@@ -569,6 +573,13 @@ func (ai *AutoInterface) Send(data []byte, address string) error {
 	if !ai.IsOnline() {
 		return fmt.Errorf("interface offline")
 	}
+
+	masked, err := common.ApplyIFACOutbound(ai, data)
+	if err != nil {
+		debug.Log(debug.DEBUG_CRITICAL, "Failed to mask outgoing packet for IFAC", "name", ai.Name, "error", err)
+		return err
+	}
+	data = masked
 
 	ai.Mutex.RLock()
 	defer ai.Mutex.RUnlock()

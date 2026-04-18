@@ -205,8 +205,8 @@ func TestBaseInterface_Send(t *testing.T) {
 	iface := NewBaseInterface("test16", IF_TYPE_UDP, true)
 	data := []byte("test data")
 
-	if err := iface.Send(data, ""); err != nil {
-		t.Errorf("Send() error = %v, want nil", err)
+	if err := iface.Send(data, ""); err == nil {
+		t.Error("Send() on abstract BaseInterface must propagate the ProcessOutgoing error so dispatch bugs surface immediately")
 	}
 }
 
@@ -234,8 +234,8 @@ func TestBaseInterface_ProcessOutgoing(t *testing.T) {
 	iface := NewBaseInterface("test18", IF_TYPE_UDP, true)
 	data := []byte("test data")
 
-	if err := iface.ProcessOutgoing(data); err != nil {
-		t.Errorf("ProcessOutgoing() error = %v, want nil", err)
+	if err := iface.ProcessOutgoing(data); err == nil {
+		t.Error("ProcessOutgoing() on abstract BaseInterface must return an error so dispatch bugs surface immediately")
 	}
 }
 
@@ -243,8 +243,8 @@ func TestBaseInterface_SendPathRequest(t *testing.T) {
 	iface := NewBaseInterface("test19", IF_TYPE_UDP, true)
 	data := []byte("path request")
 
-	if err := iface.SendPathRequest(data); err != nil {
-		t.Errorf("SendPathRequest() error = %v, want nil", err)
+	if err := iface.SendPathRequest(data); err == nil {
+		t.Error("SendPathRequest() on abstract BaseInterface must propagate the ProcessOutgoing error")
 	}
 }
 
@@ -254,8 +254,8 @@ func TestBaseInterface_SendLinkPacket(t *testing.T) {
 	data := []byte("link data")
 	timestamp := time.Now()
 
-	if err := iface.SendLinkPacket(dest, data, timestamp); err != nil {
-		t.Errorf("SendLinkPacket() error = %v, want nil", err)
+	if err := iface.SendLinkPacket(dest, data, timestamp); err == nil {
+		t.Error("SendLinkPacket() on abstract BaseInterface must propagate the ProcessOutgoing error")
 	}
 }
 

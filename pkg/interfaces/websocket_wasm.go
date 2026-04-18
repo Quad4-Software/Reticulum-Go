@@ -224,6 +224,24 @@ func (wsi *WebSocketInterface) closeWebSocket() {
 	wsi.Online = false
 }
 
+// Send routes through the concrete ProcessOutgoing; without this
+// override, the embedded BaseInterface.Send dispatches to its own
+// abstract ProcessOutgoing stub.
+func (wsi *WebSocketInterface) Send(data []byte, _ string) error {
+	wsi.Mutex.RLock()
+	enabled := wsi.Enabled
+	detached := wsi.Detached
+	wsi.Mutex.RUnlock()
+	if !enabled || detached {
+		return fmt.Errorf("interface not enabled")
+	}
+	wsi.Mutex.Lock()
+	wsi.TxBytes += uint64(len(data))
+	wsi.TxPackets++
+	wsi.Mutex.Unlock()
+	return wsi.ProcessOutgoing(data)
+}
+
 func (wsi *WebSocketInterface) ProcessOutgoing(data []byte) error {
 	if !wsi.connected {
 		wsi.Mutex.Lock()

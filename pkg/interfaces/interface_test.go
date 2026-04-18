@@ -137,21 +137,16 @@ func TestBaseInterfaceStats(t *testing.T) {
 		t.Errorf("RxBytes = %d; want %d after second ProcessIncoming", bi.RxBytes, len(data1)+len(data2))
 	}
 
-	// ProcessOutgoing only updates TxBytes in BaseInterface
-	err := bi.ProcessOutgoing(data1)
-	if err != nil {
-		t.Fatalf("ProcessOutgoing failed: %v", err)
+	// BaseInterface.ProcessOutgoing is now a fail-loud stub that the
+	// concrete interface type is required to override. Calling it directly
+	// must return an error and must NOT mutate TxBytes; otherwise we lose
+	// our compile/runtime guarantee that the abstract base never silently
+	// swallows packets.
+	if err := bi.ProcessOutgoing(data1); err == nil {
+		t.Fatal("expected BaseInterface.ProcessOutgoing to return an error, got nil")
 	}
-	if bi.TxBytes != uint64(len(data1)) {
-		t.Errorf("TxBytes = %d; want %d after first ProcessOutgoing", bi.TxBytes, len(data1))
-	}
-
-	err = bi.ProcessOutgoing(data2)
-	if err != nil {
-		t.Fatalf("ProcessOutgoing failed: %v", err)
-	}
-	if bi.TxBytes != uint64(len(data1)+len(data2)) {
-		t.Errorf("TxBytes = %d; want %d after second ProcessOutgoing", bi.TxBytes, len(data1)+len(data2))
+	if bi.TxBytes != 0 {
+		t.Errorf("TxBytes = %d; want 0 (BaseInterface.ProcessOutgoing must not update stats)", bi.TxBytes)
 	}
 }
 

@@ -171,12 +171,18 @@ func (tc *TCPClientInterface) ProcessOutgoing(data []byte) error {
 func (tc *TCPClientInterface) Send(data []byte, address string) error {
 	debug.Log(debug.DEBUG_VERBOSE, "Interface sending bytes", "name", tc.Name, "bytes", len(data), "address", address)
 
-	if err := tc.ProcessOutgoing(data); err != nil {
+	masked, err := common.ApplyIFACOutbound(tc, data)
+	if err != nil {
+		debug.Log(debug.DEBUG_CRITICAL, "Failed to mask outgoing packet for IFAC", "name", tc.Name, "error", err)
+		return err
+	}
+
+	if err := tc.ProcessOutgoing(masked); err != nil {
 		debug.Log(debug.DEBUG_CRITICAL, "Interface failed to send data", "name", tc.Name, "error", err)
 		return err
 	}
 
-	tc.updateBandwidthStats(uint64(len(data)))
+	tc.updateBandwidthStats(uint64(len(masked)))
 	return nil
 }
 
@@ -728,11 +734,17 @@ func (ts *TCPServerInterface) ProcessOutgoing(data []byte) error {
 func (ts *TCPServerInterface) Send(data []byte, address string) error {
 	debug.Log(debug.DEBUG_VERBOSE, "Interface sending bytes", "name", ts.Name, "bytes", len(data), "address", address)
 
-	if err := ts.ProcessOutgoing(data); err != nil {
+	masked, err := common.ApplyIFACOutbound(ts, data)
+	if err != nil {
+		debug.Log(debug.DEBUG_CRITICAL, "Failed to mask outgoing packet for IFAC", "name", ts.Name, "error", err)
+		return err
+	}
+
+	if err := ts.ProcessOutgoing(masked); err != nil {
 		debug.Log(debug.DEBUG_CRITICAL, "Interface failed to send data", "name", ts.Name, "error", err)
 		return err
 	}
 
-	ts.updateBandwidthStats(uint64(len(data)))
+	ts.updateBandwidthStats(uint64(len(masked)))
 	return nil
 }
