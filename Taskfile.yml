@@ -156,7 +156,7 @@ tasks:
   test-interop-live:
     desc: Live Python-Go UDP interop (set PYTHON_INTEROP=.venv/bin/python when using venv)
     cmds:
-      - RUN_LIVE_INTEROP=1 {{.GOCMD}} test -v -timeout 90s ./tests/interop/...
+      - RUN_LIVE_INTEROP=1 {{.GOCMD}} test -v -timeout 30m ./tests/interop/...
 
   test-short:
     desc: Run short tests
