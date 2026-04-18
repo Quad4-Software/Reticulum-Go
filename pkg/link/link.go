@@ -10,7 +10,6 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -108,8 +107,9 @@ type Link struct {
 	channel      *channel.Channel
 	channelMutex sync.RWMutex
 
-	incomingMu sync.Mutex
-	incomingRx *incomingResourceAsm
+	incomingMu              sync.Mutex
+	incomingRx              *incomingResourceAsm
+	incomingResourceRequest *RequestReceipt
 
 	outgoingMu              sync.Mutex
 	outgoingRes             *resource.Resource
@@ -213,7 +213,7 @@ func (l *Link) Establish() error {
 		}
 
 		if l.networkInterface != nil {
-			l.transport.UpdatePath(l.linkID, nil, l.networkInterface.GetName(), 0)
+			l.registerLinkPath()
 		}
 	}
 
@@ -221,6 +221,30 @@ func (l *Link) Establish() error {
 
 	debug.Log(debug.DEBUG_INFO, "Link establishment initiated", "link_id", fmt.Sprintf("%x", l.linkID), "elapsed", time.Since(startTime).Seconds())
 	return nil
+}
+
+// registerLinkPath mirrors the destination's transport path for this link's
+// link_id, so outgoing link packets get the same multi-hop wrapping as
+// destination-addressed packets.
+func (l *Link) registerLinkPath() {
+	if l.transport == nil || l.networkInterface == nil {
+		return
+	}
+
+	var nextHop []byte
+	var hops uint8
+
+	if l.destination != nil {
+		destHash := l.destination.GetHash()
+		if h := l.transport.HopsTo(destHash); h > 0 && h < 0xff {
+			hops = h
+		}
+		if nh := l.transport.NextHop(destHash); len(nh) > 0 {
+			nextHop = nh
+		}
+	}
+
+	l.transport.UpdatePath(l.linkID, nextHop, l.networkInterface.GetName(), hops)
 }
 
 func (l *Link) Identify(id *identity.Identity) error {
@@ -347,15 +371,9 @@ func (l *Link) Request(path string, data []byte, timeout time.Duration) (*Reques
 
 		requestID := reqPkt.TruncatedHash()
 
-		if l.networkInterface != nil {
-			debug.Log(debug.DEBUG_INFO, "Sending request through interface", "path", path, "request_id", fmt.Sprintf("%x", requestID), "interface", l.networkInterface.GetName())
-			if err := l.networkInterface.Send(reqPkt.Raw, ""); err != nil {
-				return nil, fmt.Errorf("failed to send request through interface: %w", err)
-			}
-		} else {
-			if err := l.transport.SendPacket(reqPkt); err != nil {
-				return nil, err
-			}
+		debug.Log(debug.DEBUG_INFO, "Sending request", "path", path, "request_id", fmt.Sprintf("%x", requestID))
+		if err := l.transport.SendPacket(reqPkt); err != nil {
+			return nil, fmt.Errorf("failed to send request: %w", err)
 		}
 
 		receipt := &RequestReceipt{
@@ -920,23 +938,32 @@ func (l *Link) handleResourceAdvertisement(pkt *packet.Packet) error {
 
 	if resource.IsResponseAdvertisement(plaintext) {
 		requestID := resource.ReadRequestID(plaintext)
-		l.requestMutex.Lock()
-		for i, req := range l.pendingRequests {
+		var matched *RequestReceipt
+		l.requestMutex.RLock()
+		for _, req := range l.pendingRequests {
 			if string(req.requestID) == string(requestID) {
-				req.mutex.Lock()
-				req.status = STATUS_ACTIVE
-				req.receivedAt = time.Now()
-				req.mutex.Unlock()
-
-				if req.responseCb != nil {
-					go req.responseCb(req)
-				}
-
-				l.pendingRequests = append(l.pendingRequests[:i], l.pendingRequests[i+1:]...)
+				matched = req
 				break
 			}
 		}
-		l.requestMutex.Unlock()
+		l.requestMutex.RUnlock()
+
+		if matched == nil {
+			debug.Log(debug.DEBUG_INFO, "Received response resource advertisement for unknown request", "request_id", fmt.Sprintf("%x", requestID))
+			return nil
+		}
+
+		l.incomingMu.Lock()
+		l.incomingResourceRequest = matched
+		l.incomingMu.Unlock()
+
+		if err := l.beginIncomingResource(adv); err != nil {
+			debug.Log(debug.DEBUG_INFO, "Failed to begin incoming response resource", "error", err)
+			l.incomingMu.Lock()
+			l.incomingResourceRequest = nil
+			l.incomingMu.Unlock()
+			return err
+		}
 		return nil
 	}
 
@@ -1386,11 +1413,7 @@ func (l *Link) sendResponse(requestID []byte, response any) error {
 		l.lastOutbound = time.Now()
 		l.lastDataSent = time.Now()
 
-		if l.networkInterface != nil {
-			debug.Log(debug.DEBUG_INFO, "Sending response through interface", "request_id", fmt.Sprintf("%x", requestID), "response_len", len(encrypted), "interface", l.networkInterface.GetName())
-			return l.networkInterface.Send(respPkt.Raw, "")
-		}
-
+		debug.Log(debug.DEBUG_INFO, "Sending response", "request_id", fmt.Sprintf("%x", requestID), "response_len", len(encrypted))
 		return l.transport.SendPacket(respPkt)
 	}
 
@@ -1408,9 +1431,10 @@ func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
 		}
 		debug.Log(debug.DEBUG_INFO, "RTT packet decrypted successfully", "plaintext_len", len(plaintext), "link_id", fmt.Sprintf("%x", l.linkID))
 
-		var rtt float64
-		if len(plaintext) >= common.EIGHT {
-			rtt = float64(binary.BigEndian.Uint64(plaintext[:common.EIGHT])) / common.FLOAT_1E9
+		rtt, err := parseRTTPayloadSeconds(plaintext)
+		if err != nil {
+			debug.Log(debug.DEBUG_ERROR, "Failed to decode RTT payload", "error", err, "link_id", fmt.Sprintf("%x", l.linkID))
+			return err
 		}
 
 		l.rtt = maxFloat(measuredRTT, rtt)
@@ -1420,17 +1444,12 @@ func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
 		if l.transport != nil {
 			l.transport.RegisterLink(l.linkID, l)
 			if l.networkInterface != nil {
-				l.transport.UpdatePath(l.linkID, nil, l.networkInterface.GetName(), 0)
+				l.registerLinkPath()
 			}
 		}
 
 		if l.rtt > 0 {
 			l.updateKeepalive()
-		}
-
-		// Ensure transport has a path for the link ID
-		if l.transport != nil && l.networkInterface != nil {
-			l.transport.UpdatePath(l.linkID, nil, l.networkInterface.GetName(), 0)
 		}
 
 		if l.establishedCallback != nil {
@@ -1441,6 +1460,24 @@ func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
 		debug.Log(debug.DEBUG_INFO, "Link established (responder) after RTT", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", l.rtt), "total_elapsed", fmt.Sprintf("%.3fs", establishmentElapsed))
 	}
 	return nil
+}
+
+func parseRTTPayloadSeconds(payload []byte) (float64, error) {
+	if len(payload) == 0 {
+		return 0, errors.New("empty RTT payload")
+	}
+	if payload[0] != 0xca && payload[0] != 0xcb {
+		return 0, errors.New("RTT payload is not msgpack float")
+	}
+
+	var rtt float64
+	if err := msgpack.Unmarshal(payload, &rtt); err != nil {
+		return 0, fmt.Errorf("invalid msgpack RTT payload: %w", err)
+	}
+	if rtt < 0 {
+		return 0, errors.New("negative RTT payload")
+	}
+	return rtt, nil
 }
 
 func (l *Link) updateKeepalive() {
@@ -2131,21 +2168,30 @@ func (l *Link) HandleLinkRequest(pkt *packet.Packet, ownerIdentity *identity.Ide
 
 	l.updateMDU()
 
+	l.status.Store(int32(STATUS_HANDSHAKE))
+	l.lastInbound = time.Now()
+	l.requestTime = time.Now()
+	// Match Python RNS responder behavior: establishment timeout is per-hop plus keepalive grace.
+	// This prevents WAN/backbone proof/RTT races from being closed too aggressively.
+	hops := int(pkt.Hops)
+	if hops < 1 {
+		hops = 1
+	}
+	l.establishmentTimeout = time.Duration(float64(hops)*ESTABLISHMENT_TIMEOUT_PER_HOP*float64(time.Second)) + l.keepalive
+	debug.Log(debug.DEBUG_INFO, "Responder establishment timeout configured", "link_id", fmt.Sprintf("%x", l.linkID), "packet_hops", pkt.Hops, "effective_hops", hops, "timeout_sec", l.establishmentTimeout.Seconds())
+
+	// Register before sending proof so an immediate LRRTT cannot race and miss.
+	if l.transport != nil {
+		l.transport.RegisterLink(l.linkID, l)
+		if l.networkInterface != nil {
+			l.registerLinkPath()
+		}
+	}
+
 	proofStartTime := time.Now()
 	if err := l.sendLinkProof(ownerIdentity); err != nil {
 		debug.Log(debug.DEBUG_ERROR, "Failed to send link proof", "error", err, "elapsed", time.Since(proofStartTime).Seconds())
 		return fmt.Errorf("failed to send link proof: %w", err)
-	}
-
-	l.status.Store(int32(STATUS_HANDSHAKE))
-	l.lastInbound = time.Now()
-	l.requestTime = time.Now()
-
-	if l.transport != nil {
-		l.transport.RegisterLink(l.linkID, l)
-		if l.networkInterface != nil {
-			l.transport.UpdatePath(l.linkID, nil, l.networkInterface.GetName(), 0)
-		}
 	}
 
 	debug.Log(debug.DEBUG_INFO, "Link proof sent (responder), waiting for RTT", "link_id", fmt.Sprintf("%x", l.linkID), "proof_send_elapsed", time.Since(proofStartTime).Seconds(), "total_elapsed", time.Since(startTime).Seconds())
@@ -2256,6 +2302,15 @@ func (l *Link) GenerateLinkProof(ownerIdentity *identity.Identity) (*packet.Pack
 	if err != nil {
 		return nil, fmt.Errorf("sign link proof: %w", err)
 	}
+	debug.Log(
+		debug.DEBUG_INFO,
+		"Generated link proof signature",
+		"link_id", fmt.Sprintf("%x", l.linkID),
+		"sig_prefix", fmt.Sprintf("%x", signature[:8]),
+		"pub_prefix", fmt.Sprintf("%x", l.pub[:8]),
+		"owner_sig_pub_prefix", fmt.Sprintf("%x", ownerSigPub[:8]),
+		"signalling", fmt.Sprintf("%x", signalling),
+	)
 
 	proofData := make([]byte, 0, len(signature)+KEYSIZE+len(signalling))
 	proofData = append(proofData, signature...)
@@ -2350,8 +2405,10 @@ func (l *Link) ValidateLinkProof(pkt *packet.Packet, networkIface common.Network
 		l.updateKeepalive()
 	}
 
-	rttData := make([]byte, 8)
-	binary.BigEndian.PutUint64(rttData, uint64(l.rtt*common.FLOAT_1E9))
+	rttData, err := msgpack.Marshal(l.rtt)
+	if err != nil {
+		return fmt.Errorf("failed to encode RTT payload: %w", err)
+	}
 	rttPkt := &packet.Packet{
 		HeaderType:      packet.HeaderType1,
 		PacketType:      packet.PacketTypeData,
@@ -2364,6 +2421,13 @@ func (l *Link) ValidateLinkProof(pkt *packet.Packet, networkIface common.Network
 		Data:            rttData,
 		CreateReceipt:   false,
 	}
+	if l.transport != nil {
+		l.transport.RegisterLink(l.linkID, l)
+		if l.networkInterface != nil {
+			l.registerLinkPath()
+		}
+	}
+
 	encrypted, err := l.encrypt(rttData)
 	if err != nil {
 		debug.Log(debug.DEBUG_ERROR, "Failed to encrypt RTT packet", "error", err, "link_id", fmt.Sprintf("%x", l.linkID))
@@ -2372,30 +2436,13 @@ func (l *Link) ValidateLinkProof(pkt *packet.Packet, networkIface common.Network
 		if err := rttPkt.Pack(); err != nil {
 			debug.Log(debug.DEBUG_ERROR, "Failed to pack RTT packet", "error", err, "link_id", fmt.Sprintf("%x", l.linkID))
 		} else {
-			if networkIface != nil {
-				debug.Log(debug.DEBUG_INFO, "Sending RTT packet through interface", "interface", networkIface.GetName(), "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", l.rtt), "packet_size", len(rttPkt.Raw))
-				if err := networkIface.Send(rttPkt.Raw, ""); err != nil {
-					debug.Log(debug.DEBUG_ERROR, "Failed to send RTT packet through interface", "error", err, "link_id", fmt.Sprintf("%x", l.linkID))
-				} else {
-					l.lastOutbound = time.Now()
-					debug.Log(debug.DEBUG_INFO, "RTT packet sent successfully", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", l.rtt))
-				}
+			debug.Log(debug.DEBUG_INFO, "Sending RTT packet", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", l.rtt), "packet_size", len(rttPkt.Raw))
+			if err := l.transport.SendPacket(rttPkt); err != nil {
+				debug.Log(debug.DEBUG_ERROR, "Failed to send RTT packet", "error", err, "link_id", fmt.Sprintf("%x", l.linkID))
 			} else {
-				debug.Log(debug.DEBUG_INFO, "No network interface for RTT packet, using transport", "link_id", fmt.Sprintf("%x", l.linkID))
-				if err := l.transport.SendPacket(rttPkt); err != nil {
-					debug.Log(debug.DEBUG_ERROR, "Failed to send RTT packet", "error", err, "link_id", fmt.Sprintf("%x", l.linkID))
-				} else {
-					l.lastOutbound = time.Now()
-					debug.Log(debug.DEBUG_INFO, "RTT packet sent via transport", "link_id", fmt.Sprintf("%x", l.linkID))
-				}
+				l.lastOutbound = time.Now()
+				debug.Log(debug.DEBUG_INFO, "RTT packet sent successfully", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", l.rtt))
 			}
-		}
-	}
-
-	if l.transport != nil {
-		l.transport.RegisterLink(l.linkID, l)
-		if l.networkInterface != nil {
-			l.transport.UpdatePath(l.linkID, nil, l.networkInterface.GetName(), 0)
 		}
 	}
 

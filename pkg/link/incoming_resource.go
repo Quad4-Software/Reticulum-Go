@@ -8,10 +8,12 @@ import (
 	"errors"
 	"io"
 	"math"
+	"time"
 
 	"git.quad4.io/Go-Libs/bzip2/pkg/bzip2"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/resource"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 const (
@@ -273,10 +275,54 @@ func (l *Link) deliverIncomingResource(inner []byte, adv *resource.ResourceAdver
 	if err := l.sendIncomingResourceProof(payload, adv.Hash); err != nil {
 		return err
 	}
+
+	l.incomingMu.Lock()
+	pending := l.incomingResourceRequest
+	l.incomingResourceRequest = nil
+	l.incomingMu.Unlock()
+
+	if pending != nil {
+		l.completeRequestWithResourcePayload(pending, payload)
+		return nil
+	}
+
 	if l.resourceConcludedCallback != nil {
 		l.resourceConcludedCallback(payload)
 	}
 	return nil
+}
+
+func (l *Link) completeRequestWithResourcePayload(req *RequestReceipt, payload []byte) {
+	var unpacked []any
+	respBytes := payload
+	if err := msgpack.Unmarshal(payload, &unpacked); err == nil && len(unpacked) >= 2 {
+		if rawResp, ok := unpacked[1].([]byte); ok {
+			respBytes = rawResp
+		} else if str, ok := unpacked[1].(string); ok {
+			respBytes = []byte(str)
+		} else if reMarshaled, err := msgpack.Marshal(unpacked[1]); err == nil {
+			respBytes = reMarshaled
+		}
+	}
+
+	req.mutex.Lock()
+	req.status = STATUS_ACTIVE
+	req.response = respBytes
+	req.receivedAt = time.Now()
+	req.mutex.Unlock()
+
+	l.requestMutex.Lock()
+	for i, pending := range l.pendingRequests {
+		if pending == req {
+			l.pendingRequests = append(l.pendingRequests[:i], l.pendingRequests[i+1:]...)
+			break
+		}
+	}
+	l.requestMutex.Unlock()
+
+	if req.responseCb != nil {
+		go req.responseCb(req)
+	}
 }
 
 func (l *Link) assembleIncomingPayload(inner []byte, adv *resource.ResourceAdvertisement) ([]byte, error) {

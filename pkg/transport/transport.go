@@ -916,15 +916,18 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	var destinationHash []byte
 	var context byte
 	var payload []byte
+	var receivedFrom []byte
 
 	if headerType == 0 {
 		// HEADER_TYPE_1: Header(2) + DestHash(16) + Context(1) + Data
 		destinationHash = data[startIdx : startIdx+16]
 		context = data[startIdx+16]
 		payload = data[startIdx+17:]
+		receivedFrom = destinationHash
 	} else {
 		// HEADER_TYPE_2: Header(2) + TransportID(16) + DestHash(16) + Context(1) + Data
-		// Skip transport ID, get destination hash
+		receivedFrom = make([]byte, 16)
+		copy(receivedFrom, data[startIdx:startIdx+16])
 		destinationHash = data[startIdx+16 : startIdx+32]
 		context = data[startIdx+32]
 		payload = data[startIdx+33:]
@@ -1061,10 +1064,14 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	// Register the path from this announce
 	// The destination is reachable via the interface that received this announce
 	if iface != nil {
+		nextHop := receivedFrom
+		if len(nextHop) == 0 {
+			nextHop = destinationHash
+		}
 		t.mutex.Lock()
-		t.updatePathUnlocked(destinationHash, nil, iface.GetName(), hopCount+1)
+		t.updatePathUnlocked(destinationHash, nextHop, iface.GetName(), hopCount+1)
 		t.mutex.Unlock()
-		debug.Log(debug.DEBUG_INFO, "Registered path", "hash", fmt.Sprintf("%x", destinationHash), "interface", iface.GetName(), "hops", hopCount+1)
+		debug.Log(debug.DEBUG_INFO, "Registered path", "hash", fmt.Sprintf("%x", destinationHash), "interface", iface.GetName(), "hops", hopCount+1, "nextHop", fmt.Sprintf("%x", nextHop))
 	}
 
 	// Notify handlers first, regardless of forwarding limits
@@ -1490,14 +1497,6 @@ func (t *Transport) SendPacket(p *packet.Packet) error {
 
 	debug.Log(debug.DEBUG_VERBOSE, "Sending packet", "type", fmt.Sprintf("0x%02x", p.PacketType), "header", p.HeaderType)
 
-	data, err := p.Serialize()
-	if err != nil {
-		debug.Log(debug.DEBUG_INFO, "Packet serialization failed", "error", err)
-		return fmt.Errorf("failed to serialize packet: %w", err)
-	}
-	debug.Log(debug.DEBUG_TRACE, "Serialized packet size", "bytes", len(data))
-
-	// Use the DestinationHash field directly for path lookup
 	destHash := p.DestinationHash
 	if len(destHash) > 16 {
 		destHash = destHash[:16]
@@ -1509,6 +1508,21 @@ func (t *Transport) SendPacket(p *packet.Packet) error {
 		debug.Log(debug.DEBUG_INFO, "No path found for destination", "hash", fmt.Sprintf("%x", destHash))
 		return errors.New("no path to destination")
 	}
+
+	if p.DestinationType != DEST_TYPE_LINK && path.HopCount > 1 && len(path.NextHop) > 0 && string(path.NextHop) != string(destHash) {
+		debug.Log(debug.DEBUG_VERBOSE, "Rewrapping packet for transport", "destHash", fmt.Sprintf("%x", destHash), "nextHop", fmt.Sprintf("%x", path.NextHop), "hops", path.HopCount)
+		p.HeaderType = packet.HeaderType2
+		p.TransportType = packet.PropagationTransport
+		p.TransportID = path.NextHop
+		p.Packed = false
+	}
+
+	data, err := p.Serialize()
+	if err != nil {
+		debug.Log(debug.DEBUG_INFO, "Packet serialization failed", "error", err)
+		return fmt.Errorf("failed to serialize packet: %w", err)
+	}
+	debug.Log(debug.DEBUG_TRACE, "Serialized packet size", "bytes", len(data))
 
 	debug.Log(debug.DEBUG_TRACE, "Using path", "interface", path.Interface.GetName(), "nextHop", fmt.Sprintf("%x", path.NextHop), "hops", path.HopCount)
 
