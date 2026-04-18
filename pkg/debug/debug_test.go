@@ -1,7 +1,11 @@
 package debug
 
 import (
+	"bytes"
+	"context"
 	"flag"
+	"log/slog"
+	"strings"
 	"testing"
 )
 
@@ -182,4 +186,115 @@ func TestLog_DisabledLevel(t *testing.T) {
 	initialized = false
 
 	Log(DEBUG_TRACE, "this should be filtered")
+}
+
+// captureLog swaps in a buffer-backed slog handler at the given level
+// and returns whatever was written during fn.
+func captureLog(t *testing.T, level slog.Level, fn func()) string {
+	t.Helper()
+	mu.Lock()
+	prev := logger
+	var buf bytes.Buffer
+	logger = slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: level}))
+	initialized = true
+	mu.Unlock()
+
+	defer func() {
+		mu.Lock()
+		logger = prev
+		mu.Unlock()
+	}()
+
+	fn()
+	return buf.String()
+}
+
+// TestSetDebugLevel_SilencesEverythingButCritical verifies that lowering
+// the debug level at runtime truly suppresses higher-level output.
+func TestSetDebugLevel_SilencesEverythingButCritical(t *testing.T) {
+	originalFlag := flag.CommandLine
+	defer func() {
+		flag.CommandLine = originalFlag
+		mu.Lock()
+		initialized = false
+		mu.Unlock()
+	}()
+
+	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
+	debugLevel = flag.Int("debug", DEBUG_INFO, "debug level")
+	mu.Lock()
+	initialized = false
+	mu.Unlock()
+	Init()
+
+	SetDebugLevel(DEBUG_CRITICAL)
+
+	out := captureLog(t, slogLevelFor(DEBUG_CRITICAL), func() {
+		Log(DEBUG_CRITICAL, "boom")
+		Log(DEBUG_ERROR, "err")
+		Log(DEBUG_INFO, "info")
+		Log(DEBUG_VERBOSE, "verbose")
+		Log(DEBUG_TRACE, "trace")
+	})
+
+	if !strings.Contains(out, "boom") {
+		t.Fatalf("critical message should pass: %q", out)
+	}
+	for _, banned := range []string{"err", "info", "verbose", "trace"} {
+		if strings.Contains(out, banned) {
+			t.Fatalf("debug level CRITICAL should suppress %q, got: %q", banned, out)
+		}
+	}
+}
+
+// TestSetDebugLevel_RaisesAfterInit verifies that raising the debug
+// level at runtime makes previously-suppressed messages appear.
+func TestSetDebugLevel_RaisesAfterInit(t *testing.T) {
+	originalFlag := flag.CommandLine
+	defer func() {
+		flag.CommandLine = originalFlag
+		mu.Lock()
+		initialized = false
+		mu.Unlock()
+	}()
+
+	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
+	debugLevel = flag.Int("debug", DEBUG_CRITICAL, "debug level")
+	mu.Lock()
+	initialized = false
+	mu.Unlock()
+	Init()
+
+	SetDebugLevel(DEBUG_TRACE)
+
+	out := captureLog(t, slogLevelFor(DEBUG_TRACE), func() {
+		Log(DEBUG_TRACE, "trace-now-on")
+	})
+
+	if !strings.Contains(out, "trace-now-on") {
+		t.Fatalf("trace should be enabled after raising level: %q", out)
+	}
+}
+
+// TestSlogLevelFor sanity-checks the RNS->slog level mapping so the
+// handler filter and the explicit Log filter stay consistent.
+func TestSlogLevelFor(t *testing.T) {
+	cases := []struct {
+		in   int
+		want slog.Level
+	}{
+		{DEBUG_CRITICAL, slog.LevelError},
+		{DEBUG_ERROR, slog.LevelWarn},
+		{DEBUG_INFO, slog.LevelInfo},
+		{DEBUG_VERBOSE, slog.LevelDebug},
+		{DEBUG_TRACE, slog.LevelDebug},
+		{DEBUG_PACKETS, slog.LevelDebug},
+		{DEBUG_ALL, slog.LevelDebug},
+	}
+	for _, c := range cases {
+		if got := slogLevelFor(c.in); got != c.want {
+			t.Errorf("slogLevelFor(%d)=%v, want %v", c.in, got, c.want)
+		}
+	}
+	_ = context.Background()
 }

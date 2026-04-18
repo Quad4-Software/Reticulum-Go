@@ -291,14 +291,14 @@ func main() {
 
 	cfg, err := config.InitConfig()
 	if err != nil {
-		debug.GetLogger().Error("Failed to initialize config", common.STR_ERROR, err)
+		debug.Log(debug.DEBUG_CRITICAL, "Failed to initialize config", common.STR_ERROR, err)
 		os.Exit(1)
 	}
-	debug.Log(debug.DEBUG_ERROR, "Configuration loaded", "path", cfg.ConfigPath)
+	debug.Log(debug.DEBUG_INFO, "Configuration loaded", "path", cfg.ConfigPath)
 
 	r, err := NewReticulum(cfg)
 	if err != nil {
-		debug.GetLogger().Error("Failed to create Reticulum instance", common.STR_ERROR, err)
+		debug.Log(debug.DEBUG_CRITICAL, "Failed to create Reticulum instance", common.STR_ERROR, err)
 		os.Exit(1)
 	}
 
@@ -311,7 +311,7 @@ func main() {
 
 	// Start Reticulum
 	if err := r.Start(); err != nil {
-		debug.GetLogger().Error("Failed to start Reticulum", common.STR_ERROR, err)
+		debug.Log(debug.DEBUG_CRITICAL, "Failed to start Reticulum", common.STR_ERROR, err)
 		os.Exit(1)
 	}
 
