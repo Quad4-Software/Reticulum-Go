@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 env:
-  CI_GO_VERSION: "1.25.8"
+  CI_GO_VERSION: "1.26.2"
   CI_GOSEC_VERSION: "v2.24.5"
   CI_GOVULNCHECK_VERSION: "v1.1.4"
   TRIVY_DEB_URL: "https://git.quad4.io/Quad4-Software/Trivy-Assets/raw/commit/fdfe96b77d2f7b7f5a90cea00af5024c9f728f17/trivy_0.69.3_Linux-64bit.deb"
