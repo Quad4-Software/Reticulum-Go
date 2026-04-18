@@ -205,6 +205,7 @@ func InitReticulum(this js.Value, args []js.Value) interface{} {
 	}
 
 	dest.SetPacketCallback(func(data []byte, ni common.NetworkInterface) {
+		debug.Log(debug.DEBUG_INFO, "Destination packet callback invoked", "bytes", len(data))
 		if packetCallback.IsUndefined() || packetCallback.IsNull() {
 			debug.Log(debug.DEBUG_ERROR, "JS packet callback not registered; dropping packet", "bytes", len(data))
 			return
@@ -220,7 +221,9 @@ func InitReticulum(this js.Value, args []js.Value) interface{} {
 		}()
 		uint8Array := js.Global().Get("Uint8Array").New(len(data))
 		js.CopyBytesToJS(uint8Array, data)
+		debug.Log(debug.DEBUG_INFO, "Invoking JS packet callback", "bytes", len(data))
 		packetCallback.Invoke(uint8Array)
+		debug.Log(debug.DEBUG_INFO, "JS packet callback completed", "bytes", len(data))
 	})
 
 	dest.SetProofStrategy(destination.PROVE_ALL)
@@ -399,13 +402,13 @@ func (h *genericAnnounceHandler) ReceivedAnnounce(destHash []byte, ident interfa
 		}
 	}()
 
-	debug.Log(debug.DEBUG_VERBOSE, "Invoking JS announce callback", "dest", hashStr, "appData_len", len(appData))
+	debug.Log(debug.DEBUG_INFO, "Invoking JS announce callback", "dest", hashStr, "appData_len", len(appData))
 	announceHandler.Invoke(js.ValueOf(map[string]interface{}{
 		"hash":    hashStr,
 		"appData": string(appData),
 		"hops":    int(hops),
 	}))
-	debug.Log(debug.DEBUG_VERBOSE, "JS announce callback completed", "dest", hashStr)
+	debug.Log(debug.DEBUG_INFO, "JS announce callback completed", "dest", hashStr)
 	return nil
 }
 
