@@ -25,7 +25,7 @@ Cryptographic behaviour is centralized in `pkg/cryptography` (including a plugga
 
 ## Requirements
 
-- Go 1.25.9 or later
+- Go 1.26.2 or later
 
 ## Quick Start
 
