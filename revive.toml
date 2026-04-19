@@ -5,9 +5,16 @@ errorCode = 1
 warningCode = 0
 
 [rule.add-constant]
+  arguments = [
+    { maxLitCount = "5", allowStrs = "\"\",\"%v\",\"%s\",\"%d\",\"%x\",\"%w\"", allowInts = "0,1,2,3,4,5,6,7,8,10,16,24,32,64,100,128,255,256,512,1000,1024,2048,4096,8192,65535", allowFloats = "0.0,1.0,0.5", ignoreFuncs = "^(fmt|log|debug|slog)\\." }
+  ]
+
 [rule.exported]
+  arguments = ["checkPrivateReceivers", "disableStutteringCheck", "disableChecksOnConstants", "disableChecksOnFunctions", "disableChecksOnMethods", "disableChecksOnTypes", "disableChecksOnVariables"]
+
 [rule.argument-limit]
-  arguments = [10]
+  arguments = [12]
+
 [rule.atomic]
 [rule.bare-return]
 [rule.blank-imports]

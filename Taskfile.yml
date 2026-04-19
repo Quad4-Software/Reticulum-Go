@@ -77,7 +77,7 @@ tasks:
   lint:
     desc: Run revive linter
     cmds:
-      - revive -config revive.toml -formatter friendly ./pkg/* ./cmd/* ./internal/*
+      - revive -config revive.toml -formatter friendly -exclude './vendor/...' ./pkg/... ./cmd/... ./internal/...
 
   scan:
     desc: Run gosec security scanner
