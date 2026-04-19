@@ -27,6 +27,20 @@ Cryptographic behaviour is centralized in `pkg/cryptography` (including a plugga
 
 - Go 1.26.2 or later
 
+## Vendored dependencies and offline builds
+
+### Why we vendor
+
+Vendoring keeps the exact third-party source tree in this repository so builds and tests do not depend on fetching modules at compile time. That supports air-gapped and offline environments, avoids coupling releases to the availability of public module proxies or hosting sites, and makes the dependency set easy to review in diffs and audits. It is also central to supply chain security for dependencies: ordinary builds compile what is committed here, not whatever a proxy or upstream source might serve at build time, and changes to third-party code show up in review as normal source diffs. Dependency versions are still recorded in `go.mod` and `go.sum`; `vendor/` is the canonical copy used for ordinary builds.
+
+The Makefile and Taskfile default to `GOFLAGS=-mod=vendor` and `GOPROXY=off`, so a normal `make build`, `make test`, or `task build` / `task test` does not contact module proxies, the checksum database, or Git remotes for dependencies. Only the Go toolchain (and the standard library it ships with) is required besides this repository.
+
+CI sets the same variables for build, test, and related jobs. Steps that install standalone tools with `go install` (for example revive, gosec, and govulncheck in `scripts/ci/`) temporarily clear those flags so the installer can fetch those binaries; project code still builds from `vendor/`.
+
+When you change dependencies, use a network-enabled environment, run `go mod tidy` and `go mod vendor`, then commit `go.mod`, `go.sum`, and `vendor/`. The `make deps` and `task deps` targets use the public module proxy to download and verify modules for that workflow.
+
+The `examples/wasm` tree has its own `go.mod`; it is not covered by the root `vendor/` layout. Docker images under `docker/` copy `vendor/` and build with the same offline module settings.
+
 ## Quick Start
 
 You can use the [Makefile](Makefile) targets below or run the equivalent `go` commands directly if you do not have Make installed.
@@ -116,7 +130,7 @@ go test -v ./...
 | `make lint` | Run revive linter | `revive -config revive.toml -formatter friendly ./pkg/* ./cmd/* ./internal/*` |
 | `make vulncheck` | Run govulncheck | `go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...` (override version with `GOVULNCHECK_VER`) |
 | `make check` | Run fmt, vet, lint, test-short, vulncheck | run those targets in sequence |
-| `make deps` | Download and verify dependencies | `go mod download` and `go mod verify` |
+| `make deps` | Download and verify dependencies (uses the module network; run after editing imports or versions) | `go mod download` and `go mod verify` with the public proxy |
 | `make run` | Run with go run | `go run ./cmd/reticulum-go` |
 | `make debug` | Build debug binary | `mkdir -p bin` then `go build -o bin/reticulum-go ./cmd/reticulum-go` |
 | `make build-linux` | Cross-build for Linux (amd64, arm64, arm, riscv64) | set `GOOS=linux` and `GOARCH=...` per [Makefile](Makefile) |
