@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package interfaces
 
 import (
@@ -45,8 +45,8 @@ type BaseInterface struct {
 	Online    bool
 	Enabled   bool
 	Detached  bool
-	IN        bool
-	OUT       bool
+	In        bool
+	Out       bool
 	MTU       int
 	Bitrate   int64
 	TxBytes   uint64
@@ -61,23 +61,22 @@ type BaseInterface struct {
 
 	// IFACIdentity is set when the interface participates in an IFAC network.
 	// When non-nil, outbound packets are masked before transmit and inbound
-	// packets are unmasked + verified, with the same drop policy as the
-	// reference implementation.
+	// packets are unmasked and verified; unauthenticated packets are dropped.
 	IFACIdentity common.IFAC
 }
 
 func NewBaseInterface(name string, ifType common.InterfaceType, enabled bool) BaseInterface {
 	return BaseInterface{
 		Name:      name,
-		Mode:      common.IF_MODE_FULL,
+		Mode:      common.IFModeFull,
 		Type:      ifType,
 		Online:    false,
 		Enabled:   enabled,
 		Detached:  false,
-		IN:        false,
-		OUT:       false,
-		MTU:       common.DEFAULT_MTU,
-		Bitrate:   BITRATE_MINIMUM,
+		In:        false,
+		Out:       false,
+		MTU:       common.DefaultMTU,
+		Bitrate:   BitrateMinimum,
 		TxBytes:   0,
 		RxBytes:   0,
 		TxPackets: 0,
@@ -124,7 +123,7 @@ func (i *BaseInterface) ProcessIncoming(data []byte) {
 
 	stripped, ok := common.ApplyIFACInbound(i, data)
 	if !ok {
-		debug.Log(debug.DEBUG_VERBOSE, "Dropped packet failing IFAC policy", "name", i.Name, "size", len(data))
+		debug.Log(debug.DebugVerbose, "Dropped packet failing IFAC policy", "name", i.Name, "size", len(data))
 		return
 	}
 
@@ -144,7 +143,7 @@ func (i *BaseInterface) ProcessIncoming(data []byte) {
 // (e.g. a *BaseInterface pointer leaking through a callback closure)
 // instead of letting the transport silently swallow every outgoing packet.
 func (i *BaseInterface) ProcessOutgoing(data []byte) error {
-	debug.Log(debug.DEBUG_CRITICAL, "BaseInterface.ProcessOutgoing called directly; concrete interface type must override it", "name", i.Name, "bytes", len(data))
+	debug.Log(debug.DebugCritical, "BaseInterface.ProcessOutgoing called directly; concrete interface type must override it", "name", i.Name, "bytes", len(data))
 	return fmt.Errorf("ProcessOutgoing not implemented on abstract interfaces.BaseInterface (name=%q, %d bytes); concrete interface type must override it", i.Name, len(data))
 }
 
@@ -154,7 +153,7 @@ func (i *BaseInterface) SendPathRequest(packet []byte) error {
 	}
 
 	frame := make([]byte, 0, len(packet)+1)
-	frame = append(frame, common.HEX_0x01)
+	frame = append(frame, 0x01)
 	frame = append(frame, packet...)
 
 	return i.ProcessOutgoing(frame)
@@ -166,7 +165,7 @@ func (i *BaseInterface) SendLinkPacket(dest []byte, data []byte, timestamp time.
 	}
 
 	frame := make([]byte, 0, len(dest)+len(data)+9)
-	frame = append(frame, common.HEX_0x02)
+	frame = append(frame, 0x02)
 	frame = append(frame, dest...)
 
 	ts := make([]byte, 8)
@@ -198,7 +197,7 @@ func (i *BaseInterface) Enable() {
 	i.Enabled = true
 	i.Online = true
 
-	debug.Log(debug.DEBUG_INFO, "Interface state changed", "name", i.Name, "enabled_prev", prevState, "enabled", i.Enabled, "online_prev", !i.Online, "online", i.Online)
+	debug.Log(debug.DebugInfo, "Interface state changed", "name", i.Name, "enabled_prev", prevState, "enabled", i.Enabled, "online_prev", !i.Online, "online", i.Online)
 }
 
 func (i *BaseInterface) Disable() {
@@ -206,7 +205,7 @@ func (i *BaseInterface) Disable() {
 	defer i.Mutex.Unlock()
 	i.Enabled = false
 	i.Online = false
-	debug.Log(debug.DEBUG_ERROR, "Interface disabled and offline", "name", i.Name)
+	debug.Log(debug.DebugError, "Interface disabled and offline", "name", i.Name)
 }
 
 func (i *BaseInterface) GetName() string {
@@ -270,16 +269,16 @@ func (i *BaseInterface) Stop() error {
 }
 
 func (i *BaseInterface) Send(data []byte, address string) error {
-	debug.Log(debug.DEBUG_VERBOSE, "Interface sending bytes", "name", i.Name, "bytes", len(data), "address", address)
+	debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", i.Name, "bytes", len(data), "address", address)
 
 	masked, err := common.ApplyIFACOutbound(i, data)
 	if err != nil {
-		debug.Log(debug.DEBUG_CRITICAL, "Failed to mask outgoing packet for IFAC", "name", i.Name, "error", err)
+		debug.Log(debug.DebugCritical, "Failed to mask outgoing packet for IFAC", "name", i.Name, "error", err)
 		return err
 	}
 
 	if err := i.ProcessOutgoing(masked); err != nil {
-		debug.Log(debug.DEBUG_CRITICAL, "Interface failed to send data", "name", i.Name, "error", err)
+		debug.Log(debug.DebugCritical, "Interface failed to send data", "name", i.Name, "error", err)
 		return err
 	}
 
@@ -299,16 +298,16 @@ func (i *BaseInterface) GetBandwidthAvailable() bool {
 	timeSinceLastTx := now.Sub(i.lastTx)
 
 	if timeSinceLastTx > time.Second {
-		debug.Log(debug.DEBUG_VERBOSE, "Interface bandwidth available", "name", i.Name, "idle_seconds", timeSinceLastTx.Seconds())
+		debug.Log(debug.DebugVerbose, "Interface bandwidth available", "name", i.Name, "idle_seconds", timeSinceLastTx.Seconds())
 		return true
 	}
 
 	bytesPerSec := float64(i.TxBytes) / timeSinceLastTx.Seconds()
 	currentUsage := bytesPerSec * 8
-	maxUsage := float64(i.Bitrate) * PROPAGATION_RATE
+	maxUsage := float64(i.Bitrate) * PropagationRate
 
 	available := currentUsage < maxUsage
-	debug.Log(debug.DEBUG_VERBOSE, "Interface bandwidth stats", "name", i.Name, "current_bps", currentUsage, "max_bps", maxUsage, "usage_percent", (currentUsage/maxUsage)*100, "available", available)
+	debug.Log(debug.DebugVerbose, "Interface bandwidth stats", "name", i.Name, "current_bps", currentUsage, "max_bps", maxUsage, "usage_percent", (currentUsage/maxUsage)*100, "available", available)
 
 	return available
 }
@@ -319,7 +318,7 @@ func (i *BaseInterface) updateBandwidthStats(bytes uint64) {
 
 	i.lastTx = time.Now()
 
-	debug.Log(debug.DEBUG_VERBOSE, "Interface updated bandwidth stats", "name", i.Name, "tx_bytes", i.TxBytes, "last_tx", i.lastTx)
+	debug.Log(debug.DebugVerbose, "Interface updated bandwidth stats", "name", i.Name, "tx_bytes", i.TxBytes, "last_tx", i.lastTx)
 }
 
 type InterceptedInterface struct {
@@ -342,7 +341,7 @@ func (i *InterceptedInterface) Send(data []byte, addr string) error {
 	// Call interceptor if provided
 	if i.interceptor != nil && len(data) > 0 {
 		if err := i.interceptor(data, i); err != nil {
-			debug.Log(debug.DEBUG_ERROR, "Failed to intercept outgoing packet", "error", err)
+			debug.Log(debug.DebugError, "Failed to intercept outgoing packet", "error", err)
 		}
 	}
 

@@ -6,58 +6,58 @@ import (
 )
 
 func TestNewBaseInterface(t *testing.T) {
-	iface := NewBaseInterface("test0", IF_TYPE_UDP, true)
+	iface := NewBaseInterface("test0", IFTypeUDP, true)
 
 	if iface.Name != "test0" {
 		t.Errorf("Name = %q, want %q", iface.Name, "test0")
 	}
-	if iface.Type != IF_TYPE_UDP {
-		t.Errorf("Type = %v, want %v", iface.Type, IF_TYPE_UDP)
+	if iface.Type != IFTypeUDP {
+		t.Errorf("Type = %v, want %v", iface.Type, IFTypeUDP)
 	}
-	if iface.Mode != IF_MODE_FULL {
-		t.Errorf("Mode = %v, want %v", iface.Mode, IF_MODE_FULL)
+	if iface.Mode != IFModeFull {
+		t.Errorf("Mode = %v, want %v", iface.Mode, IFModeFull)
 	}
 	if !iface.Enabled {
 		t.Errorf("Enabled = %v, want true", iface.Enabled)
 	}
-	if iface.MTU != DEFAULT_MTU {
-		t.Errorf("MTU = %d, want %d", iface.MTU, DEFAULT_MTU)
+	if iface.MTU != DefaultMTU {
+		t.Errorf("MTU = %d, want %d", iface.MTU, DefaultMTU)
 	}
-	if iface.Bitrate != BITRATE_MINIMUM {
-		t.Errorf("Bitrate = %d, want %d", iface.Bitrate, BITRATE_MINIMUM)
+	if iface.Bitrate != BitrateMinimum {
+		t.Errorf("Bitrate = %d, want %d", iface.Bitrate, BitrateMinimum)
 	}
 }
 
 func TestBaseInterface_GetType(t *testing.T) {
-	iface := NewBaseInterface("test1", IF_TYPE_TCP, true)
-	if iface.GetType() != IF_TYPE_TCP {
-		t.Errorf("GetType() = %v, want %v", iface.GetType(), IF_TYPE_TCP)
+	iface := NewBaseInterface("test1", IFTypeTCP, true)
+	if iface.GetType() != IFTypeTCP {
+		t.Errorf("GetType() = %v, want %v", iface.GetType(), IFTypeTCP)
 	}
 }
 
 func TestBaseInterface_GetMode(t *testing.T) {
-	iface := NewBaseInterface("test2", IF_TYPE_UDP, true)
-	if iface.GetMode() != IF_MODE_FULL {
-		t.Errorf("GetMode() = %v, want %v", iface.GetMode(), IF_MODE_FULL)
+	iface := NewBaseInterface("test2", IFTypeUDP, true)
+	if iface.GetMode() != IFModeFull {
+		t.Errorf("GetMode() = %v, want %v", iface.GetMode(), IFModeFull)
 	}
 }
 
 func TestBaseInterface_GetMTU(t *testing.T) {
-	iface := NewBaseInterface("test3", IF_TYPE_UDP, true)
-	if iface.GetMTU() != DEFAULT_MTU {
-		t.Errorf("GetMTU() = %d, want %d", iface.GetMTU(), DEFAULT_MTU)
+	iface := NewBaseInterface("test3", IFTypeUDP, true)
+	if iface.GetMTU() != DefaultMTU {
+		t.Errorf("GetMTU() = %d, want %d", iface.GetMTU(), DefaultMTU)
 	}
 }
 
 func TestBaseInterface_GetName(t *testing.T) {
-	iface := NewBaseInterface("test4", IF_TYPE_UDP, true)
+	iface := NewBaseInterface("test4", IFTypeUDP, true)
 	if iface.GetName() != "test4" {
 		t.Errorf("GetName() = %q, want %q", iface.GetName(), "test4")
 	}
 }
 
 func TestBaseInterface_IsEnabled(t *testing.T) {
-	iface := NewBaseInterface("test5", IF_TYPE_UDP, true)
+	iface := NewBaseInterface("test5", IFTypeUDP, true)
 	iface.Online = true
 	iface.Detached = false
 
@@ -84,7 +84,7 @@ func TestBaseInterface_IsEnabled(t *testing.T) {
 }
 
 func TestBaseInterface_IsOnline(t *testing.T) {
-	iface := NewBaseInterface("test6", IF_TYPE_UDP, true)
+	iface := NewBaseInterface("test6", IFTypeUDP, true)
 	iface.Online = true
 
 	if !iface.IsOnline() {
@@ -98,7 +98,7 @@ func TestBaseInterface_IsOnline(t *testing.T) {
 }
 
 func TestBaseInterface_IsDetached(t *testing.T) {
-	iface := NewBaseInterface("test7", IF_TYPE_UDP, true)
+	iface := NewBaseInterface("test7", IFTypeUDP, true)
 	iface.Detached = true
 
 	if !iface.IsDetached() {
@@ -112,7 +112,7 @@ func TestBaseInterface_IsDetached(t *testing.T) {
 }
 
 func TestBaseInterface_SetPacketCallback(t *testing.T) {
-	iface := NewBaseInterface("test8", IF_TYPE_UDP, true)
+	iface := NewBaseInterface("test8", IFTypeUDP, true)
 
 	callback := func(data []byte, ni NetworkInterface) {}
 	iface.SetPacketCallback(callback)
@@ -123,7 +123,7 @@ func TestBaseInterface_SetPacketCallback(t *testing.T) {
 }
 
 func TestBaseInterface_GetPacketCallback(t *testing.T) {
-	iface := NewBaseInterface("test9", IF_TYPE_UDP, true)
+	iface := NewBaseInterface("test9", IFTypeUDP, true)
 
 	if iface.GetPacketCallback() != nil {
 		t.Error("GetPacketCallback() != nil, want nil")
@@ -138,7 +138,7 @@ func TestBaseInterface_GetPacketCallback(t *testing.T) {
 }
 
 func TestBaseInterface_Detach(t *testing.T) {
-	iface := NewBaseInterface("test10", IF_TYPE_UDP, true)
+	iface := NewBaseInterface("test10", IFTypeUDP, true)
 	iface.Online = true
 	iface.Detached = false
 
@@ -153,7 +153,7 @@ func TestBaseInterface_Detach(t *testing.T) {
 }
 
 func TestBaseInterface_Enable(t *testing.T) {
-	iface := NewBaseInterface("test11", IF_TYPE_UDP, false)
+	iface := NewBaseInterface("test11", IFTypeUDP, false)
 	iface.Online = false
 
 	iface.Enable()
@@ -167,7 +167,7 @@ func TestBaseInterface_Enable(t *testing.T) {
 }
 
 func TestBaseInterface_Disable(t *testing.T) {
-	iface := NewBaseInterface("test12", IF_TYPE_UDP, true)
+	iface := NewBaseInterface("test12", IFTypeUDP, true)
 	iface.Online = true
 
 	iface.Disable()
@@ -181,28 +181,28 @@ func TestBaseInterface_Disable(t *testing.T) {
 }
 
 func TestBaseInterface_Start(t *testing.T) {
-	iface := NewBaseInterface("test13", IF_TYPE_UDP, true)
+	iface := NewBaseInterface("test13", IFTypeUDP, true)
 	if err := iface.Start(); err != nil {
 		t.Errorf("Start() error = %v, want nil", err)
 	}
 }
 
 func TestBaseInterface_Stop(t *testing.T) {
-	iface := NewBaseInterface("test14", IF_TYPE_UDP, true)
+	iface := NewBaseInterface("test14", IFTypeUDP, true)
 	if err := iface.Stop(); err != nil {
 		t.Errorf("Stop() error = %v, want nil", err)
 	}
 }
 
 func TestBaseInterface_GetConn(t *testing.T) {
-	iface := NewBaseInterface("test15", IF_TYPE_UDP, true)
+	iface := NewBaseInterface("test15", IFTypeUDP, true)
 	if iface.GetConn() != nil {
 		t.Error("GetConn() != nil, want nil")
 	}
 }
 
 func TestBaseInterface_Send(t *testing.T) {
-	iface := NewBaseInterface("test16", IF_TYPE_UDP, true)
+	iface := NewBaseInterface("test16", IFTypeUDP, true)
 	data := []byte("test data")
 
 	if err := iface.Send(data, ""); err == nil {
@@ -211,7 +211,7 @@ func TestBaseInterface_Send(t *testing.T) {
 }
 
 func TestBaseInterface_ProcessIncoming(t *testing.T) {
-	iface := NewBaseInterface("test17", IF_TYPE_UDP, true)
+	iface := NewBaseInterface("test17", IFTypeUDP, true)
 
 	called := false
 	callback := func(data []byte, ni NetworkInterface) {
@@ -231,7 +231,7 @@ func TestBaseInterface_ProcessIncoming(t *testing.T) {
 }
 
 func TestBaseInterface_ProcessOutgoing(t *testing.T) {
-	iface := NewBaseInterface("test18", IF_TYPE_UDP, true)
+	iface := NewBaseInterface("test18", IFTypeUDP, true)
 	data := []byte("test data")
 
 	if err := iface.ProcessOutgoing(data); err == nil {
@@ -240,7 +240,7 @@ func TestBaseInterface_ProcessOutgoing(t *testing.T) {
 }
 
 func TestBaseInterface_SendPathRequest(t *testing.T) {
-	iface := NewBaseInterface("test19", IF_TYPE_UDP, true)
+	iface := NewBaseInterface("test19", IFTypeUDP, true)
 	data := []byte("path request")
 
 	if err := iface.SendPathRequest(data); err == nil {
@@ -249,7 +249,7 @@ func TestBaseInterface_SendPathRequest(t *testing.T) {
 }
 
 func TestBaseInterface_SendLinkPacket(t *testing.T) {
-	iface := NewBaseInterface("test20", IF_TYPE_UDP, true)
+	iface := NewBaseInterface("test20", IFTypeUDP, true)
 	dest := []byte("destination")
 	data := []byte("link data")
 	timestamp := time.Now()
@@ -260,7 +260,7 @@ func TestBaseInterface_SendLinkPacket(t *testing.T) {
 }
 
 func TestBaseInterface_GetBandwidthAvailable(t *testing.T) {
-	iface := NewBaseInterface("test21", IF_TYPE_UDP, true)
+	iface := NewBaseInterface("test21", IFTypeUDP, true)
 
 	if !iface.GetBandwidthAvailable() {
 		t.Error("GetBandwidthAvailable() = false, want true when no recent transmission")

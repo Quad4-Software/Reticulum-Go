@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package packet
 
 import (
@@ -13,13 +13,13 @@ import (
 
 // Receipt status and proof lengths.
 const (
-	RECEIPT_FAILED    = 0x00
-	RECEIPT_SENT      = 0x01
-	RECEIPT_DELIVERED = 0x02
-	RECEIPT_CULLED    = 0xFF
+	ReceiptFailed    = 0x00
+	ReceiptSent      = 0x01
+	ReceiptDelivered = 0x02
+	ReceiptCulled    = 0xFF
 
-	EXPL_LENGTH = (identity.HASHLENGTH + identity.SIGLENGTH) / 8
-	IMPL_LENGTH = identity.SIGLENGTH / 8
+	ExplicitLength = (identity.HashLength + identity.SigLength) / 8
+	ImplicitLength = identity.SigLength / 8
 )
 
 // PacketReceipt tracks delivery status and proof for a sent packet.
@@ -54,7 +54,7 @@ func NewPacketReceipt(pkt *Packet) *PacketReceipt {
 		sent:             true,
 		sentAt:           time.Now(),
 		proved:           false,
-		status:           RECEIPT_SENT,
+		status:           ReceiptSent,
 		destination:      pkt.Destination,
 		timeout:          calculateTimeout(pkt),
 		timeoutCheckDone: make(chan bool, 1),
@@ -62,7 +62,7 @@ func NewPacketReceipt(pkt *Packet) *PacketReceipt {
 
 	go receipt.timeoutWatchdog()
 
-	debug.Log(debug.DEBUG_PACKETS, "Created packet receipt", "hash", fmt.Sprintf("%x", receipt.truncatedHash))
+	debug.Log(debug.DebugPackets, "Created packet receipt", "hash", fmt.Sprintf("%x", receipt.truncatedHash))
 	return receipt
 }
 
@@ -89,13 +89,13 @@ func (pr *PacketReceipt) GetHash() []byte {
 func (pr *PacketReceipt) IsDelivered() bool {
 	pr.mutex.RLock()
 	defer pr.mutex.RUnlock()
-	return pr.status == RECEIPT_DELIVERED
+	return pr.status == ReceiptDelivered
 }
 
 func (pr *PacketReceipt) IsFailed() bool {
 	pr.mutex.RLock()
 	defer pr.mutex.RUnlock()
-	return pr.status == RECEIPT_FAILED
+	return pr.status == ReceiptFailed
 }
 
 func (pr *PacketReceipt) ValidateProofPacket(proofPacket *Packet) bool {
@@ -106,9 +106,9 @@ func (pr *PacketReceipt) ValidateProofPacket(proofPacket *Packet) bool {
 }
 
 func (pr *PacketReceipt) ValidateLinkProof(proof []byte, link any, proofPacket *Packet) bool {
-	if len(proof) == EXPL_LENGTH {
-		proofHash := proof[:identity.HASHLENGTH/8]
-		signature := proof[identity.HASHLENGTH/8 : identity.HASHLENGTH/8+identity.SIGLENGTH/8]
+	if len(proof) == ExplicitLength {
+		proofHash := proof[:identity.HashLength/8]
+		signature := proof[identity.HashLength/8 : identity.HashLength/8+identity.SigLength/8]
 
 		pr.mutex.RLock()
 		hashMatch := string(proofHash) == string(pr.hash)
@@ -121,7 +121,7 @@ func (pr *PacketReceipt) ValidateLinkProof(proof []byte, link any, proofPacket *
 		proofValid := pr.validateLinkSignature(signature, link)
 		if proofValid {
 			pr.mutex.Lock()
-			pr.status = RECEIPT_DELIVERED
+			pr.status = ReceiptDelivered
 			pr.proved = true
 			pr.concludedAt = time.Now()
 			pr.proofPacket = proofPacket
@@ -132,43 +132,43 @@ func (pr *PacketReceipt) ValidateLinkProof(proof []byte, link any, proofPacket *
 				go callback(pr)
 			}
 
-			debug.Log(debug.DEBUG_PACKETS, "Link proof validated", "hash", fmt.Sprintf("%x", pr.truncatedHash))
+			debug.Log(debug.DebugPackets, "Link proof validated", "hash", fmt.Sprintf("%x", pr.truncatedHash))
 			return true
 		}
-	} else if len(proof) == IMPL_LENGTH {
-		debug.Log(debug.DEBUG_TRACE, "Implicit link proof not yet implemented")
+	} else if len(proof) == ImplicitLength {
+		debug.Log(debug.DebugTrace, "Implicit link proof not yet implemented")
 	}
 
 	return false
 }
 
 func (pr *PacketReceipt) ValidateProof(proof []byte, proofPacket *Packet) bool {
-	if len(proof) == EXPL_LENGTH {
-		proofHash := proof[:identity.HASHLENGTH/8]
-		signature := proof[identity.HASHLENGTH/8 : identity.HASHLENGTH/8+identity.SIGLENGTH/8]
+	if len(proof) == ExplicitLength {
+		proofHash := proof[:identity.HashLength/8]
+		signature := proof[identity.HashLength/8 : identity.HashLength/8+identity.SigLength/8]
 
 		pr.mutex.RLock()
 		hashMatch := string(proofHash) == string(pr.hash)
 		ident := pr.destinationIdent
 		pr.mutex.RUnlock()
 
-		debug.Log(debug.DEBUG_PACKETS, "Explicit proof validation", "len", len(proof), "hashMatch", hashMatch, "hasIdent", ident != nil)
+		debug.Log(debug.DebugPackets, "Explicit proof validation", "len", len(proof), "hashMatch", hashMatch, "hasIdent", ident != nil)
 
 		if !hashMatch {
-			debug.Log(debug.DEBUG_PACKETS, "Proof hash mismatch")
+			debug.Log(debug.DebugPackets, "Proof hash mismatch")
 			return false
 		}
 
 		if ident == nil {
-			debug.Log(debug.DEBUG_VERBOSE, "Cannot validate proof without destination identity")
+			debug.Log(debug.DebugVerbose, "Cannot validate proof without destination identity")
 			return false
 		}
 
 		proofValid := ident.Verify(pr.hash, signature)
-		debug.Log(debug.DEBUG_PACKETS, "Signature verification result", "valid", proofValid)
+		debug.Log(debug.DebugPackets, "Signature verification result", "valid", proofValid)
 		if proofValid {
 			pr.mutex.Lock()
-			pr.status = RECEIPT_DELIVERED
+			pr.status = ReceiptDelivered
 			pr.proved = true
 			pr.concludedAt = time.Now()
 			pr.proofPacket = proofPacket
@@ -179,11 +179,11 @@ func (pr *PacketReceipt) ValidateProof(proof []byte, proofPacket *Packet) bool {
 				go callback(pr)
 			}
 
-			debug.Log(debug.DEBUG_PACKETS, "Proof validated", "hash", fmt.Sprintf("%x", pr.truncatedHash))
+			debug.Log(debug.DebugPackets, "Proof validated", "hash", fmt.Sprintf("%x", pr.truncatedHash))
 			return true
 		}
-	} else if len(proof) == IMPL_LENGTH {
-		signature := proof[:identity.SIGLENGTH/8]
+	} else if len(proof) == ImplicitLength {
+		signature := proof[:identity.SigLength/8]
 
 		pr.mutex.RLock()
 		ident := pr.destinationIdent
@@ -196,7 +196,7 @@ func (pr *PacketReceipt) ValidateProof(proof []byte, proofPacket *Packet) bool {
 		proofValid := ident.Verify(pr.hash, signature)
 		if proofValid {
 			pr.mutex.Lock()
-			pr.status = RECEIPT_DELIVERED
+			pr.status = ReceiptDelivered
 			pr.proved = true
 			pr.concludedAt = time.Now()
 			pr.proofPacket = proofPacket
@@ -207,7 +207,7 @@ func (pr *PacketReceipt) ValidateProof(proof []byte, proofPacket *Packet) bool {
 				go callback(pr)
 			}
 
-			debug.Log(debug.DEBUG_PACKETS, "Implicit proof validated", "hash", fmt.Sprintf("%x", pr.truncatedHash))
+			debug.Log(debug.DebugPackets, "Implicit proof validated", "hash", fmt.Sprintf("%x", pr.truncatedHash))
 			return true
 		}
 	}
@@ -224,7 +224,7 @@ func (pr *PacketReceipt) validateLinkSignature(signature []byte, link any) bool 
 		return validator.Validate(signature, pr.hash)
 	}
 
-	debug.Log(debug.DEBUG_TRACE, "Link does not implement Validate method")
+	debug.Log(debug.DebugTrace, "Link does not implement Validate method")
 	return false
 }
 
@@ -249,7 +249,7 @@ func (pr *PacketReceipt) IsTimedOut() bool {
 func (pr *PacketReceipt) checkTimeout() {
 	pr.mutex.Lock()
 
-	if pr.status != RECEIPT_SENT {
+	if pr.status != ReceiptSent {
 		pr.mutex.Unlock()
 		return
 	}
@@ -260,16 +260,16 @@ func (pr *PacketReceipt) checkTimeout() {
 	}
 
 	if pr.timeout < 0 {
-		pr.status = RECEIPT_CULLED
+		pr.status = ReceiptCulled
 	} else {
-		pr.status = RECEIPT_FAILED
+		pr.status = ReceiptFailed
 	}
 
 	pr.concludedAt = time.Now()
 	callback := pr.timeoutCallback
 	pr.mutex.Unlock()
 
-	debug.Log(debug.DEBUG_VERBOSE, "Packet receipt timed out", "hash", fmt.Sprintf("%x", pr.truncatedHash))
+	debug.Log(debug.DebugVerbose, "Packet receipt timed out", "hash", fmt.Sprintf("%x", pr.truncatedHash))
 
 	if callback != nil {
 		go callback(pr)
@@ -289,7 +289,7 @@ func (pr *PacketReceipt) timeoutWatchdog() {
 			status := pr.status
 			pr.mutex.RUnlock()
 
-			if status != RECEIPT_SENT {
+			if status != ReceiptSent {
 				return
 			}
 		case <-pr.timeoutCheckDone:
@@ -332,8 +332,8 @@ func (pr *PacketReceipt) Cancel() {
 	pr.mutex.Lock()
 	defer pr.mutex.Unlock()
 
-	if pr.status == RECEIPT_SENT {
-		pr.status = RECEIPT_CULLED
+	if pr.status == ReceiptSent {
+		pr.status = ReceiptCulled
 		pr.concludedAt = time.Now()
 	}
 

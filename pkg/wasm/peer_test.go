@@ -69,7 +69,7 @@ func TestTwoPeersAnnounce(t *testing.T) {
 		t.Fatalf("Failed to start interface A: %v", err)
 	}
 
-	destA, err := destination.New(idA, destination.IN, destination.SINGLE, "test_app_A", trA)
+	destA, err := destination.New(idA, destination.In, destination.Single, "test_app_A", trA)
 	if err != nil {
 		t.Fatalf("Failed to create destination A: %v", err)
 	}

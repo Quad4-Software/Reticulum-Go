@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 //go:build js && wasm
 // +build js,wasm
 
@@ -57,20 +57,20 @@ func RegisterJSFunctions() {
 func SetPacketCallback(this js.Value, args []js.Value) interface{} {
 	if len(args) > 0 && args[0].Type() == js.TypeFunction {
 		packetCallback = args[0]
-		debug.Log(debug.DEBUG_INFO, "JS packet callback registered")
+		debug.Log(debug.DebugInfo, "JS packet callback registered")
 		return js.ValueOf(true)
 	}
-	debug.Log(debug.DEBUG_ERROR, "setPacketCallback called without a function argument", "argc", len(args))
+	debug.Log(debug.DebugError, "setPacketCallback called without a function argument", "argc", len(args))
 	return js.ValueOf(false)
 }
 
 func SetAnnounceCallback(this js.Value, args []js.Value) interface{} {
 	if len(args) > 0 && args[0].Type() == js.TypeFunction {
 		announceHandler = args[0]
-		debug.Log(debug.DEBUG_INFO, "JS announce callback registered")
+		debug.Log(debug.DebugInfo, "JS announce callback registered")
 		return js.ValueOf(true)
 	}
-	debug.Log(debug.DEBUG_ERROR, "setAnnounceCallback called without a function argument", "argc", len(args))
+	debug.Log(debug.DebugError, "setAnnounceCallback called without a function argument", "argc", len(args))
 	return js.ValueOf(false)
 }
 
@@ -163,7 +163,7 @@ func InitReticulum(this js.Value, args []js.Value) interface{} {
 		if decodeErr == nil && len(idBytes) == 64 {
 			id, err = identity.FromBytes(idBytes)
 			if err != nil {
-				debug.Log(debug.DEBUG_ERROR, "Failed to load provided identity, generating new one", "error", err)
+				debug.Log(debug.DebugError, "Failed to load provided identity, generating new one", "error", err)
 				id, err = identity.NewIdentity()
 			}
 		} else {
@@ -187,13 +187,13 @@ func InitReticulum(this js.Value, args []js.Value) interface{} {
 	// Set transport identity to the same as the node identity for now in WASM
 	t.SetIdentity(id)
 	if err := t.InitializePathRequestHandler(); err != nil {
-		debug.Log(debug.DEBUG_ERROR, "Failed to initialize path request handler", "error", err)
+		debug.Log(debug.DebugError, "Failed to initialize path request handler", "error", err)
 	}
 
 	dest, err := destination.New(
 		id,
-		destination.IN,
-		destination.SINGLE,
+		destination.In,
+		destination.Single,
 		appName,
 		t,
 		"browser",
@@ -205,28 +205,28 @@ func InitReticulum(this js.Value, args []js.Value) interface{} {
 	}
 
 	dest.SetPacketCallback(func(data []byte, ni common.NetworkInterface) {
-		debug.Log(debug.DEBUG_INFO, "Destination packet callback invoked", "bytes", len(data))
+		debug.Log(debug.DebugInfo, "Destination packet callback invoked", "bytes", len(data))
 		if packetCallback.IsUndefined() || packetCallback.IsNull() {
-			debug.Log(debug.DEBUG_ERROR, "JS packet callback not registered; dropping packet", "bytes", len(data))
+			debug.Log(debug.DebugError, "JS packet callback not registered; dropping packet", "bytes", len(data))
 			return
 		}
 		if packetCallback.Type() != js.TypeFunction {
-			debug.Log(debug.DEBUG_ERROR, "JS packet callback is not a function", "type", packetCallback.Type().String())
+			debug.Log(debug.DebugError, "JS packet callback is not a function", "type", packetCallback.Type().String())
 			return
 		}
 		defer func() {
 			if r := recover(); r != nil {
-				debug.Log(debug.DEBUG_CRITICAL, "JS packet callback panicked", "panic", fmt.Sprintf("%v", r))
+				debug.Log(debug.DebugCritical, "JS packet callback panicked", "panic", fmt.Sprintf("%v", r))
 			}
 		}()
 		uint8Array := js.Global().Get("Uint8Array").New(len(data))
 		js.CopyBytesToJS(uint8Array, data)
-		debug.Log(debug.DEBUG_INFO, "Invoking JS packet callback", "bytes", len(data))
+		debug.Log(debug.DebugInfo, "Invoking JS packet callback", "bytes", len(data))
 		packetCallback.Invoke(uint8Array)
-		debug.Log(debug.DEBUG_INFO, "JS packet callback completed", "bytes", len(data))
+		debug.Log(debug.DebugInfo, "JS packet callback completed", "bytes", len(data))
 	})
 
-	dest.SetProofStrategy(destination.PROVE_ALL)
+	dest.SetProofStrategy(destination.ProveAll)
 
 	t.RegisterAnnounceHandler(&genericAnnounceHandler{})
 
@@ -384,31 +384,31 @@ func (h *genericAnnounceHandler) ReceivePathResponses() bool {
 
 func (h *genericAnnounceHandler) ReceivedAnnounce(destHash []byte, ident interface{}, appData []byte, hops uint8) error {
 	hashStr := hex.EncodeToString(destHash)
-	debug.Log(debug.DEBUG_INFO, "WASM Announce Handler received announce", "dest", hashStr, "hops", hops)
+	debug.Log(debug.DebugInfo, "WASM Announce Handler received announce", "dest", hashStr, "hops", hops)
 	stats.announcesReceived++
 
 	if announceHandler.IsUndefined() || announceHandler.IsNull() {
-		debug.Log(debug.DEBUG_ERROR, "JS announce callback not registered; dropping announce on the floor", "dest", hashStr)
+		debug.Log(debug.DebugError, "JS announce callback not registered; dropping announce on the floor", "dest", hashStr)
 		return nil
 	}
 	if announceHandler.Type() != js.TypeFunction {
-		debug.Log(debug.DEBUG_ERROR, "JS announce callback is not a function", "type", announceHandler.Type().String())
+		debug.Log(debug.DebugError, "JS announce callback is not a function", "type", announceHandler.Type().String())
 		return nil
 	}
 
 	defer func() {
 		if r := recover(); r != nil {
-			debug.Log(debug.DEBUG_CRITICAL, "JS announce callback panicked", "panic", fmt.Sprintf("%v", r))
+			debug.Log(debug.DebugCritical, "JS announce callback panicked", "panic", fmt.Sprintf("%v", r))
 		}
 	}()
 
-	debug.Log(debug.DEBUG_INFO, "Invoking JS announce callback", "dest", hashStr, "appData_len", len(appData))
+	debug.Log(debug.DebugInfo, "Invoking JS announce callback", "dest", hashStr, "appData_len", len(appData))
 	announceHandler.Invoke(js.ValueOf(map[string]interface{}{
 		"hash":    hashStr,
 		"appData": string(appData),
 		"hops":    int(hops),
 	}))
-	debug.Log(debug.DEBUG_INFO, "JS announce callback completed", "dest", hashStr)
+	debug.Log(debug.DebugInfo, "JS announce callback completed", "dest", hashStr)
 	return nil
 }
 
@@ -455,7 +455,7 @@ func SendData(destHash []byte, data []byte) interface{} {
 		})
 	}
 
-	targetDest, err := destination.FromHash(destHash, remoteIdentity, destination.SINGLE, reticulumTransport)
+	targetDest, err := destination.FromHash(destHash, remoteIdentity, destination.Single, reticulumTransport)
 	if err != nil {
 		return js.ValueOf(map[string]interface{}{
 			"error": fmt.Sprintf("Failed to create target destination: %v", err),

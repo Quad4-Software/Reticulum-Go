@@ -4,12 +4,12 @@ import (
 	"testing"
 	"time"
 
+	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/destination"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
-	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
 )
 
 func TestEphemeralKeyGeneration(t *testing.T) {
@@ -19,12 +19,12 @@ func TestEphemeralKeyGeneration(t *testing.T) {
 		t.Fatalf("Failed to generate ephemeral keys: %v", err)
 	}
 
-	if len(link.prv) != KEYSIZE {
-		t.Errorf("Expected private key length %d, got %d", KEYSIZE, len(link.prv))
+	if len(link.prv) != KeySize {
+		t.Errorf("Expected private key length %d, got %d", KeySize, len(link.prv))
 	}
 
-	if len(link.pub) != KEYSIZE {
-		t.Errorf("Expected public key length %d, got %d", KEYSIZE, len(link.pub))
+	if len(link.pub) != KeySize {
+		t.Errorf("Expected public key length %d, got %d", KeySize, len(link.pub))
 	}
 
 	if len(link.sigPriv) != 64 {
@@ -38,12 +38,12 @@ func TestEphemeralKeyGeneration(t *testing.T) {
 
 func TestSignallingBytes(t *testing.T) {
 	mtu := 500
-	mode := byte(MODE_AES256_CBC)
+	mode := byte(ModeAES256CBC)
 
 	bytes := signallingBytes(mtu, mode)
 
-	if len(bytes) != LINK_MTU_SIZE {
-		t.Errorf("Expected signalling bytes length %d, got %d", LINK_MTU_SIZE, len(bytes))
+	if len(bytes) != LinkMTUSize {
+		t.Errorf("Expected signalling bytes length %d, got %d", LinkMTUSize, len(bytes))
 	}
 
 	extractedMTU := (int(bytes[0]&0x1F) << 16) | (int(bytes[1]) << 8) | int(bytes[2])
@@ -51,7 +51,7 @@ func TestSignallingBytes(t *testing.T) {
 		t.Errorf("Expected MTU %d, got %d", mtu, extractedMTU)
 	}
 
-	extractedMode := (bytes[0] & MODE_BYTEMASK) >> 5
+	extractedMode := (bytes[0] & ModeByteMask) >> 5
 	if extractedMode != mode {
 		t.Errorf("Expected mode %d, got %d", mode, extractedMode)
 	}
@@ -66,7 +66,7 @@ func TestLinkIDGeneration(t *testing.T) {
 	cfg := &common.ReticulumConfig{}
 	transportInstance := transport.NewTransport(cfg)
 
-	dest, err := destination.New(responderIdent, destination.IN, destination.SINGLE, "test", transportInstance, "link")
+	dest, err := destination.New(responderIdent, destination.In, destination.Single, "test", transportInstance, "link")
 	if err != nil {
 		t.Fatalf("Failed to create destination: %v", err)
 	}
@@ -81,11 +81,11 @@ func TestLinkIDGeneration(t *testing.T) {
 		t.Fatalf("Failed to generate keys: %v", err)
 	}
 
-	link.mode = MODE_DEFAULT
+	link.mode = ModeDefault
 	link.mtu = 500
 
 	signalling := signallingBytes(link.mtu, link.mode)
-	requestData := make([]byte, 0, ECPUBSIZE+LINK_MTU_SIZE)
+	requestData := make([]byte, 0, ECPubSize+LinkMTUSize)
 	requestData = append(requestData, link.pub...)
 	requestData = append(requestData, link.sigPub...)
 	requestData = append(requestData, signalling...)
@@ -133,8 +133,8 @@ func TestHandshake(t *testing.T) {
 	link1.linkID = []byte("test-link-id-abc")
 	link2.linkID = []byte("test-link-id-abc")
 
-	link1.mode = MODE_AES256_CBC
-	link2.mode = MODE_AES256_CBC
+	link1.mode = ModeAES256CBC
+	link2.mode = ModeAES256CBC
 
 	if err := link1.performHandshake(); err != nil {
 		t.Fatalf("Link1 handshake failed: %v", err)
@@ -152,11 +152,11 @@ func TestHandshake(t *testing.T) {
 		t.Error("Derived keys do not match")
 	}
 
-	if link1.status.Load() != int32(STATUS_HANDSHAKE) {
+	if link1.status.Load() != int32(StatusHandshake) {
 		t.Errorf("Expected link1 status HANDSHAKE, got %d", link1.status.Load())
 	}
 
-	if link2.status.Load() != int32(STATUS_HANDSHAKE) {
+	if link2.status.Load() != int32(StatusHandshake) {
 		t.Errorf("Expected link2 status HANDSHAKE, got %d", link2.status.Load())
 	}
 }
@@ -170,7 +170,7 @@ func TestLinkEstablishment(t *testing.T) {
 	cfg := &common.ReticulumConfig{}
 	transportInstance := transport.NewTransport(cfg)
 
-	dest, err := destination.New(responderIdent, destination.IN, destination.SINGLE, "test", transportInstance, "link")
+	dest, err := destination.New(responderIdent, destination.In, destination.Single, "test", transportInstance, "link")
 	if err != nil {
 		t.Fatalf("Failed to create destination: %v", err)
 	}
@@ -190,11 +190,11 @@ func TestLinkEstablishment(t *testing.T) {
 		t.Fatalf("Failed to generate initiator keys: %v", err)
 	}
 
-	initiatorLink.mode = MODE_DEFAULT
+	initiatorLink.mode = ModeDefault
 	initiatorLink.mtu = 500
 
 	signalling := signallingBytes(initiatorLink.mtu, initiatorLink.mode)
-	requestData := make([]byte, 0, ECPUBSIZE+LINK_MTU_SIZE)
+	requestData := make([]byte, 0, ECPubSize+LinkMTUSize)
 	requestData = append(requestData, initiatorLink.pub...)
 	requestData = append(requestData, initiatorLink.sigPub...)
 	requestData = append(requestData, signalling...)
@@ -217,12 +217,12 @@ func TestLinkEstablishment(t *testing.T) {
 
 	initiatorLink.linkID = linkIDFromPacket(linkRequestPkt)
 	initiatorLink.requestTime = time.Now()
-	initiatorLink.status.Store(int32(STATUS_PENDING))
+	initiatorLink.status.Store(int32(StatusPending))
 
 	t.Logf("Initiator link request created, link_id=%x", initiatorLink.linkID)
 
-	responderLink.peerPub = linkRequestPkt.Data[0:KEYSIZE]
-	responderLink.peerSigPub = linkRequestPkt.Data[KEYSIZE:ECPUBSIZE]
+	responderLink.peerPub = linkRequestPkt.Data[0:KeySize]
+	responderLink.peerSigPub = linkRequestPkt.Data[KeySize:ECPubSize]
 	responderLink.linkID = linkIDFromPacket(linkRequestPkt)
 	responderLink.initiator = false
 
@@ -232,10 +232,10 @@ func TestLinkEstablishment(t *testing.T) {
 		t.Fatal("Responder link ID is empty!")
 	}
 
-	if len(linkRequestPkt.Data) >= ECPUBSIZE+LINK_MTU_SIZE {
-		mtuBytes := linkRequestPkt.Data[ECPUBSIZE : ECPUBSIZE+LINK_MTU_SIZE]
+	if len(linkRequestPkt.Data) >= ECPubSize+LinkMTUSize {
+		mtuBytes := linkRequestPkt.Data[ECPubSize : ECPubSize+LinkMTUSize]
 		responderLink.mtu = (int(mtuBytes[0]&0x1F) << 16) | (int(mtuBytes[1]) << 8) | int(mtuBytes[2])
-		responderLink.mode = (mtuBytes[0] & MODE_BYTEMASK) >> 5
+		responderLink.mode = (mtuBytes[0] & ModeByteMask) >> 5
 	}
 
 	if err := responderLink.generateEphemeralKeys(); err != nil {
@@ -246,7 +246,7 @@ func TestLinkEstablishment(t *testing.T) {
 		t.Fatalf("Responder handshake failed: %v", err)
 	}
 
-	responderLink.status.Store(int32(STATUS_ACTIVE))
+	responderLink.status.Store(int32(StatusActive))
 	responderLink.establishedAt = time.Now()
 
 	if string(responderLink.linkID) != string(initiatorLink.linkID) {
@@ -265,7 +265,7 @@ func TestLinkProofValidation(t *testing.T) {
 	cfg := &common.ReticulumConfig{}
 	transportInstance := transport.NewTransport(cfg)
 
-	dest, err := destination.New(responderIdent, destination.IN, destination.SINGLE, "test", transportInstance, "link")
+	dest, err := destination.New(responderIdent, destination.In, destination.Single, "test", transportInstance, "link")
 	if err != nil {
 		t.Fatalf("Failed to create destination: %v", err)
 	}
@@ -285,11 +285,11 @@ func TestLinkProofValidation(t *testing.T) {
 		t.Fatalf("Failed to generate initiator keys: %v", err)
 	}
 
-	initiatorLink.mode = MODE_DEFAULT
+	initiatorLink.mode = ModeDefault
 	initiatorLink.mtu = 500
 
 	signalling := signallingBytes(initiatorLink.mtu, initiatorLink.mode)
-	requestData := make([]byte, 0, ECPUBSIZE+LINK_MTU_SIZE)
+	requestData := make([]byte, 0, ECPubSize+LinkMTUSize)
 	requestData = append(requestData, initiatorLink.pub...)
 	requestData = append(requestData, initiatorLink.sigPub...)
 	requestData = append(requestData, signalling...)
@@ -312,20 +312,20 @@ func TestLinkProofValidation(t *testing.T) {
 
 	initiatorLink.linkID = linkIDFromPacket(linkRequestPkt)
 	initiatorLink.requestTime = time.Now()
-	initiatorLink.status.Store(int32(STATUS_PENDING))
+	initiatorLink.status.Store(int32(StatusPending))
 
-	responderLink.peerPub = linkRequestPkt.Data[0:KEYSIZE]
-	responderLink.peerSigPub = linkRequestPkt.Data[KEYSIZE:ECPUBSIZE]
+	responderLink.peerPub = linkRequestPkt.Data[0:KeySize]
+	responderLink.peerSigPub = linkRequestPkt.Data[KeySize:ECPubSize]
 	responderLink.linkID = linkIDFromPacket(linkRequestPkt)
 	responderLink.initiator = false
 
-	if len(linkRequestPkt.Data) >= ECPUBSIZE+LINK_MTU_SIZE {
-		mtuBytes := linkRequestPkt.Data[ECPUBSIZE : ECPUBSIZE+LINK_MTU_SIZE]
+	if len(linkRequestPkt.Data) >= ECPubSize+LinkMTUSize {
+		mtuBytes := linkRequestPkt.Data[ECPubSize : ECPubSize+LinkMTUSize]
 		responderLink.mtu = (int(mtuBytes[0]&0x1F) << 16) | (int(mtuBytes[1]) << 8) | int(mtuBytes[2])
-		responderLink.mode = (mtuBytes[0] & MODE_BYTEMASK) >> 5
+		responderLink.mode = (mtuBytes[0] & ModeByteMask) >> 5
 	} else {
 		responderLink.mtu = 500
-		responderLink.mode = MODE_DEFAULT
+		responderLink.mode = ModeDefault
 	}
 
 	if err := responderLink.generateEphemeralKeys(); err != nil {
@@ -345,7 +345,7 @@ func TestLinkProofValidation(t *testing.T) {
 		t.Fatalf("Initiator failed to validate link proof: %v", err)
 	}
 
-	if initiatorLink.status.Load() != int32(STATUS_ACTIVE) {
+	if initiatorLink.status.Load() != int32(StatusActive) {
 		t.Errorf("Expected initiator status ACTIVE, got %d", initiatorLink.status.Load())
 	}
 

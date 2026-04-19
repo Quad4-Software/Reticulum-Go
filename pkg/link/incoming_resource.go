@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package link
 
 import (
@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"git.quad4.io/Go-Libs/bzip2/pkg/bzip2"
+	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/resource"
-	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
 )
 
 const (
@@ -38,7 +38,7 @@ func (rx *incomingResourceAsm) applyHashmapSegment(segment int, hashmapBytes []b
 	if segLen <= 0 {
 		segLen = 1
 	}
-	hashes := len(hashmapBytes) / resource.MAPHASH_LEN
+	hashes := len(hashmapBytes) / resource.MapHashLen
 	for i := 0; i < hashes; i++ {
 		idx := i + segment*segLen
 		if idx >= rx.totalParts {
@@ -47,8 +47,8 @@ func (rx *incomingResourceAsm) applyHashmapSegment(segment int, hashmapBytes []b
 		if rx.mapHashes[idx] == nil {
 			rx.hashmapHeight++
 		}
-		off := i * resource.MAPHASH_LEN
-		rx.mapHashes[idx] = append([]byte(nil), hashmapBytes[off:off+resource.MAPHASH_LEN]...)
+		off := i * resource.MapHashLen
+		rx.mapHashes[idx] = append([]byte(nil), hashmapBytes[off:off+resource.MapHashLen]...)
 	}
 }
 
@@ -62,7 +62,7 @@ func (l *Link) beginIncomingResource(adv *resource.ResourceAdvertisement) error 
 	if adv.Parts <= 0 {
 		return errors.New("invalid parts in advertisement")
 	}
-	if len(adv.Hashmap) == 0 || len(adv.Hashmap)%resource.MAPHASH_LEN != 0 {
+	if len(adv.Hashmap) == 0 || len(adv.Hashmap)%resource.MapHashLen != 0 {
 		return errors.New("invalid advertisement hashmap")
 	}
 
@@ -103,7 +103,7 @@ func (l *Link) sendIncomingResourceReqNext() error {
 		return nil
 	}
 
-	end := searchStart + resource.WINDOW
+	end := searchStart + resource.Window
 	if end > rx.totalParts {
 		end = rx.totalParts
 	}
@@ -119,7 +119,7 @@ func (l *Link) sendIncomingResourceReqNext() error {
 		if mh != nil {
 			requestedHashes = append(requestedHashes, mh...)
 			batch++
-			if batch >= resource.WINDOW {
+			if batch >= resource.Window {
 				break
 			}
 			continue
@@ -140,7 +140,7 @@ func (l *Link) sendIncomingResourceReqNext() error {
 			return errors.New("incoming resource cannot request hashmap extension")
 		}
 		last := rx.mapHashes[rx.hashmapHeight-1]
-		if len(last) != resource.MAPHASH_LEN {
+		if len(last) != resource.MapHashLen {
 			l.incomingMu.Unlock()
 			return errors.New("invalid last map hash for HMU request")
 		}
@@ -197,19 +197,19 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 	}
 
 	rh := rx.adv.RandomHash
-	if len(rh) != resource.RANDOM_HASH_SIZE {
+	if len(rh) != resource.RandomHashSize {
 		l.incomingMu.Unlock()
 		return errors.New("bad random hash in advertisement")
 	}
 	h := sha256.Sum256(append(append([]byte(nil), data...), rh...))
-	mh := h[:resource.MAPHASH_LEN]
+	mh := h[:resource.MapHashLen]
 
 	idx := -1
 	for i := 0; i < rx.totalParts; i++ {
 		if rx.partSlots[i] != nil {
 			continue
 		}
-		if len(rx.mapHashes[i]) != resource.MAPHASH_LEN {
+		if len(rx.mapHashes[i]) != resource.MapHashLen {
 			continue
 		}
 		if bytes.Equal(rx.mapHashes[i], mh) {
@@ -306,7 +306,7 @@ func (l *Link) completeRequestWithResourcePayload(req *RequestReceipt, payload [
 	}
 
 	req.mutex.Lock()
-	req.status = STATUS_ACTIVE
+	req.status = StatusActive
 	req.response = respBytes
 	req.receivedAt = time.Now()
 	req.mutex.Unlock()
@@ -337,12 +337,12 @@ func (l *Link) assembleIncomingPayload(inner []byte, adv *resource.ResourceAdver
 		innerPlain = inner
 	}
 
-	if len(innerPlain) < resource.RANDOM_HASH_SIZE {
+	if len(innerPlain) < resource.RandomHashSize {
 		return nil, errors.New("incoming resource too short for random hash")
 	}
-	// Leading bytes are a guard prefix before link encryption; they are not required to
-	// equal adv.RandomHash (reference stack uses two independent randoms).
-	data := innerPlain[resource.RANDOM_HASH_SIZE:]
+	// Leading bytes are a guard prefix before link encryption; they are not
+	// required to equal adv.RandomHash (two independent randoms are used).
+	data := innerPlain[resource.RandomHashSize:]
 
 	if adv.Compressed {
 		r := bzip2.NewReader(bytes.NewReader(data))

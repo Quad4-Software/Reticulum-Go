@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package resource
 
 import (
@@ -34,15 +34,15 @@ func NewResourceAdvertisement(res *Resource) *ResourceAdvertisement {
 		return nil
 	}
 
-	flags := byte(0x00)
+	var flags byte
 	if res.HasMetadata() {
-		flags |= 0x20
+		flags |= AdvFlagHasMetadata
 	}
 	if res.IsResponse() {
-		flags |= 0x10
+		flags |= AdvFlagIsResponse
 	}
 	if res.IsRequest() {
-		flags |= 0x08
+		flags |= AdvFlagIsRequest
 	}
 
 	res.mutex.RLock()
@@ -56,13 +56,13 @@ func NewResourceAdvertisement(res *Resource) *ResourceAdvertisement {
 	res.mutex.RUnlock()
 
 	if split {
-		flags |= 0x04
+		flags |= AdvFlagSplit
 	}
 	if compressed {
-		flags |= 0x02
+		flags |= AdvFlagCompressed
 	}
 	if encrypted {
-		flags |= 0x01
+		flags |= AdvFlagEncrypted
 	}
 
 	hashmap := res.getHashmap()
@@ -91,9 +91,9 @@ func NewResourceAdvertisement(res *Resource) *ResourceAdvertisement {
 func (ra *ResourceAdvertisement) Pack(segment int, linkMDU int) ([]byte, error) {
 	hashmapMaxLen := hashmapEntriesPerAdvSegment(linkMDU)
 	hashmapStart := segment * hashmapMaxLen
-	hashmapEnd := min(hashmapStart+hashmapMaxLen, len(ra.Hashmap)/MAPHASH_LEN)
+	hashmapEnd := min(hashmapStart+hashmapMaxLen, len(ra.Hashmap)/MapHashLen)
 
-	hashmap := ra.Hashmap[hashmapStart*MAPHASH_LEN : hashmapEnd*MAPHASH_LEN]
+	hashmap := ra.Hashmap[hashmapStart*MapHashLen : hashmapEnd*MapHashLen]
 
 	dict := map[string]any{
 		"t": ra.TransferSize,
@@ -216,12 +216,12 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 		ra.Flags = flags
 	}
 
-	ra.Encrypted = (ra.Flags & 0x01) == 0x01
-	ra.Compressed = ((ra.Flags >> 1) & 0x01) == 0x01
-	ra.Split = ((ra.Flags >> 2) & 0x01) == 0x01
-	ra.IsRequest = ((ra.Flags >> 3) & 0x01) == 0x01
-	ra.IsResponse = ((ra.Flags >> 4) & 0x01) == 0x01
-	ra.HasMetadata = ((ra.Flags >> 5) & 0x01) == 0x01
+	ra.Encrypted = ra.Flags&AdvFlagEncrypted != 0
+	ra.Compressed = ra.Flags&AdvFlagCompressed != 0
+	ra.Split = ra.Flags&AdvFlagSplit != 0
+	ra.IsRequest = ra.Flags&AdvFlagIsRequest != 0
+	ra.IsResponse = ra.Flags&AdvFlagIsResponse != 0
+	ra.HasMetadata = ra.Flags&AdvFlagHasMetadata != 0
 
 	if i, ok := dict["i"].(uint16); ok {
 		ra.SegmentIndex = i
@@ -321,7 +321,7 @@ func hashmapEntriesPerAdvSegment(linkMDU int) int {
 	if linkMDU <= 0 {
 		linkMDU = 384
 	}
-	return (linkMDU - OVERHEAD) / MAPHASH_LEN
+	return (linkMDU - Overhead) / MapHashLen
 }
 
 // HashmapEntriesPerSegment is the number of map-hash slots per advertisement or HMU segment for a link MDU.

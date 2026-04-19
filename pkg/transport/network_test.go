@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package transport
 
 import (
@@ -35,10 +35,10 @@ func TestTransportNetworkSimulation(t *testing.T) {
 	tr := NewTransport(cfg)
 	defer tr.Close()
 
-	iface1 := &MockInterface{BaseInterface: common.NewBaseInterface("iface1", common.IF_TYPE_UDP, true)}
+	iface1 := &MockInterface{BaseInterface: common.NewBaseInterface("iface1", common.IFTypeUDP, true)}
 	iface1.Enable()
 
-	iface2 := &MockInterface{BaseInterface: common.NewBaseInterface("iface2", common.IF_TYPE_UDP, true)}
+	iface2 := &MockInterface{BaseInterface: common.NewBaseInterface("iface2", common.IFTypeUDP, true)}
 	iface2.Enable()
 
 	tr.RegisterInterface(iface1.GetName(), iface1)
@@ -47,7 +47,7 @@ func TestTransportNetworkSimulation(t *testing.T) {
 	// Simulate receiving an announce on iface1
 	// [header][hops][dest_hash(16)][payload...]
 	announcePacket := make([]byte, 100)
-	announcePacket[0] = PACKET_TYPE_ANNOUNCE
+	announcePacket[0] = PacketTypeAnnounce
 	announcePacket[1] = 0 // 0 hops
 	copy(announcePacket[2:18], []byte("destination_hash"))
 

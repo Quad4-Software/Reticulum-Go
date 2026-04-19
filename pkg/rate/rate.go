@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 
 // Package rate implements rate-limiting and ingress-control primitives
 package rate
@@ -7,8 +7,6 @@ package rate
 import (
 	"sync"
 	"time"
-
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 )
 
 // Limiter is a token-bucket rate limiter.
@@ -52,8 +50,8 @@ func (l *Limiter) Allow() bool {
 	return true
 }
 
-// AnnounceRateControl gates announce re-broadcasts on a per-destination
-// basis, mirroring announce_rate_target / _grace / _penalty in reference Reticulum.
+// AnnounceRateControl gates announce re-broadcasts on a per-destination basis
+// using a target rate, a grace count, and a penalty period.
 type AnnounceRateControl struct {
 	rateTarget  float64
 	rateGrace   int
@@ -100,7 +98,7 @@ func (arc *AnnounceRateControl) AllowAnnounce(destHash string) bool {
 		return true
 	}
 
-	lastAnnounce := history[len(history)-common.ONE]
+	lastAnnounce := history[len(history)-1]
 	waitTime := arc.rateTarget
 	if len(history) > arc.rateGrace+HistoryGraceThreshold {
 		waitTime += arc.ratePenalty

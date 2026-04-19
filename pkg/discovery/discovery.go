@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 
 package discovery
 
@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"io"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
 	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
 	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack/msgpcode"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
 )
 
 // AppName is the destination app_name used by Discovery (see const value).
@@ -44,21 +44,22 @@ const (
 	FieldChannel         byte = 0x0E
 )
 
-// Flag bits from InterfaceAnnounceHandler.
+// Flag bits used in the announce app_data flag byte.
 const (
 	FlagSigned    byte = 0b00000001
 	FlagEncrypted byte = 0b00000010
 )
 
-// DefaultStampValue matches InterfaceAnnouncer.DEFAULT_STAMP_VALUE.
+// DefaultStampValue is the default proof-of-work target value applied when
+// stamping discovery announcements.
 const DefaultStampValue = 14
 
-// WorkblockExpandRounds matches InterfaceAnnouncer.WORKBLOCK_EXPAND_ROUNDS
-// and is the value used when stamping discovery announcements (much smaller
-// than the LXMF defaults).
+// WorkblockExpandRounds controls the HKDF expansion rounds used to derive the
+// stamp workblock for discovery announcements.
 const WorkblockExpandRounds = 20
 
-// StampSize matches LXMF.LXStamper.STAMP_SIZE (identity HASHLENGTH / 8 = 32).
+// StampSize is the size in bytes of a discovery proof-of-work stamp
+// (one identity hash).
 const StampSize = 32
 
 // Info is the high-level Go representation of a discovery info payload. Only
@@ -89,12 +90,10 @@ type Info struct {
 	Modulation      string
 }
 
-// EncodeInfo serialises an Info into the msgpack representation that
-// Discovery.get_interface_announce_data emits for the info dictionary
-// (i.e. the bytes passed to msgpack.packb). Numeric fields are omitted when
-// zero unless the matching Has flag is set, because the reference stack pre-populates the
-// map with explicit interface defaults; callers that want zero-valued fields
-// should pass in the appropriate flag.
+// EncodeInfo serialises an Info into the msgpack representation used as the
+// info dictionary inside an interface announce app_data payload. Numeric
+// fields are omitted when zero unless the matching Has flag is set; callers
+// that want explicit zero-valued fields should set the appropriate flag.
 func EncodeInfo(in Info) ([]byte, error) {
 	if in.Type == "" {
 		return nil, errors.New("discovery: Info.Type required")
@@ -362,8 +361,7 @@ func safeDecodeBytes(dec *msgpack.Decoder, maxLen int) ([]byte, error) {
 	return b, nil
 }
 
-// StampWorkblock builds the workblock used by stamp_value and stamp_valid.
-// Equivalent to LXMF.LXStamper.stamp_workblock.
+// StampWorkblock builds the workblock used by StampValue and StampValid.
 func StampWorkblock(material []byte, expandRounds int) ([]byte, error) {
 	if expandRounds <= 0 {
 		expandRounds = WorkblockExpandRounds
@@ -384,8 +382,7 @@ func StampWorkblock(material []byte, expandRounds int) ([]byte, error) {
 	return out, nil
 }
 
-// StampValue counts the leading-zero bits of sha256(workblock || stamp),
-// matching LXMF.LXStamper.stamp_value.
+// StampValue counts the leading-zero bits of sha256(workblock || stamp).
 func StampValue(workblock, stamp []byte) int {
 	h := sha256.Sum256(append(append([]byte(nil), workblock...), stamp...))
 	value := 0
@@ -405,7 +402,6 @@ func StampValue(workblock, stamp []byte) int {
 }
 
 // StampValid reports whether stamp meets targetCost on the given workblock.
-// Equivalent to LXMF.LXStamper.stamp_valid.
 func StampValid(stamp []byte, targetCost int, workblock []byte) bool {
 	if targetCost < 0 || targetCost > 256 {
 		return false
@@ -414,10 +410,9 @@ func StampValid(stamp []byte, targetCost int, workblock []byte) bool {
 }
 
 // GenerateStamp brute-forces a 32-byte stamp such that
-// StampValue(workblock, stamp) >= stampCost. Matches
-// LXMF.LXStamper.generate_stamp's job_simple variant. The workblock is
-// derived from messageID with the same expand rounds the verifier will use
-// (defaulting to WorkblockExpandRounds, the value Discovery uses).
+// StampValue(workblock, stamp) >= stampCost. The workblock is derived from
+// messageID with the same expand rounds the verifier will use (defaulting to
+// WorkblockExpandRounds).
 func GenerateStamp(messageID []byte, stampCost int, expandRounds int) (stamp []byte, value int, err error) {
 	workblock, err := StampWorkblock(messageID, expandRounds)
 	if err != nil {
@@ -434,8 +429,8 @@ func GenerateStamp(messageID []byte, stampCost int, expandRounds int) (stamp []b
 	}
 }
 
-// InfoHash returns sha256(packedInfo), the message_id passed to
-// LXStamper.generate_stamp by Discovery for an interface announce.
+// InfoHash returns sha256(packedInfo), used as the message id when stamping
+// an interface announce.
 func InfoHash(packed []byte) []byte {
 	h := sha256.Sum256(packed)
 	return h[:]

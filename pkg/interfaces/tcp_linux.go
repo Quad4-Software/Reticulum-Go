@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 //go:build linux
 
 package interfaces
@@ -45,15 +45,15 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 		var userTimeout, probeAfter, probeInterval, probeCount int
 
 		if tc.i2pTunneled {
-			userTimeout = I2P_USER_TIMEOUT_SEC * TCP_MILLISECONDS
-			probeAfter = I2P_PROBE_AFTER_SEC
-			probeInterval = I2P_PROBE_INTERVAL_SEC
-			probeCount = I2P_PROBES_COUNT
+			userTimeout = I2PUserTimeoutSec * TCPMilliseconds
+			probeAfter = I2PProbeAfterSec
+			probeInterval = I2PProbeIntervalSec
+			probeCount = I2PProbesCount
 		} else {
-			userTimeout = TCP_USER_TIMEOUT_SEC * TCP_MILLISECONDS
-			probeAfter = TCP_PROBE_AFTER_SEC
-			probeInterval = TCP_PROBE_INTERVAL_SEC
-			probeCount = TCP_PROBES_COUNT
+			userTimeout = TCPUserTimeoutSec * TCPMilliseconds
+			probeAfter = TCPProbeAfterSec
+			probeInterval = TCPProbeIntervalSec
+			probeCount = TCPProbesCount
 		}
 
 		const TCP_USER_TIMEOUT = 18
@@ -62,24 +62,24 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 		const TCP_KEEPCNT = 6
 
 		if err := syscall.SetsockoptInt(fdInt, syscall.IPPROTO_TCP, TCP_USER_TIMEOUT, userTimeout); err != nil {
-			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_USER_TIMEOUT", "error", err)
+			debug.Log(debug.DebugVerbose, "Failed to set TCP_USER_TIMEOUT", "error", err)
 		}
 
-		if err := syscall.SetsockoptInt(fdInt, syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, SO_KEEPALIVE_ENABLE); err != nil {
+		if err := syscall.SetsockoptInt(fdInt, syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, SOKeepaliveEnable); err != nil {
 			sockoptErr = fmt.Errorf("failed to enable SO_KEEPALIVE: %v", err)
 			return
 		}
 
 		if err := syscall.SetsockoptInt(fdInt, syscall.IPPROTO_TCP, TCP_KEEPIDLE, probeAfter); err != nil {
-			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_KEEPIDLE", "error", err)
+			debug.Log(debug.DebugVerbose, "Failed to set TCP_KEEPIDLE", "error", err)
 		}
 
 		if err := syscall.SetsockoptInt(fdInt, syscall.IPPROTO_TCP, TCP_KEEPINTVL, probeInterval); err != nil {
-			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_KEEPINTVL", "error", err)
+			debug.Log(debug.DebugVerbose, "Failed to set TCP_KEEPINTVL", "error", err)
 		}
 
 		if err := syscall.SetsockoptInt(fdInt, syscall.IPPROTO_TCP, TCP_KEEPCNT, probeCount); err != nil {
-			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_KEEPCNT", "error", err)
+			debug.Log(debug.DebugVerbose, "Failed to set TCP_KEEPCNT", "error", err)
 		}
 	})
 
@@ -90,7 +90,7 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 		return sockoptErr
 	}
 
-	debug.Log(debug.DEBUG_VERBOSE, "TCP keepalive configured (Linux)", "i2p", tc.i2pTunneled)
+	debug.Log(debug.DebugVerbose, "TCP keepalive configured (Linux)", "i2p", tc.i2pTunneled)
 	return nil
 }
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 //go:build js && wasm
 
 package interfaces
@@ -30,13 +30,13 @@ type WebSocketInterface struct {
 
 func NewWebSocketInterface(name string, wsURL string, enabled bool) (*WebSocketInterface, error) {
 	ws := &WebSocketInterface{
-		BaseInterface: NewBaseInterface(name, common.IF_TYPE_UDP, enabled),
+		BaseInterface: NewBaseInterface(name, common.IFTypeUDP, enabled),
 		wsURL:         wsURL,
 		messageQueue:  make([][]byte, 0),
 	}
 
-	ws.MTU = WS_MTU
-	ws.Bitrate = WS_BITRATE
+	ws.MTU = WSMTU
+	ws.Bitrate = WSBitrate
 
 	return ws, nil
 }
@@ -111,7 +111,7 @@ func (wsi *WebSocketInterface) Start() error {
 		wsi.Online = true
 		wsi.Mutex.Unlock()
 
-		debug.Log(debug.DEBUG_INFO, "WebSocket connected", "name", wsi.Name, "url", wsi.wsURL)
+		debug.Log(debug.DebugInfo, "WebSocket connected", "name", wsi.Name, "url", wsi.wsURL)
 
 		wsi.Mutex.Lock()
 		queue := make([][]byte, len(wsi.messageQueue))
@@ -143,13 +143,13 @@ func (wsi *WebSocketInterface) Start() error {
 			}
 			packet := make([]byte, length)
 			js.CopyBytesToGo(packet, array)
-			debug.Log(debug.DEBUG_VERBOSE, "WASM WebSocket received binary data", "name", wsi.Name, "length", length, "first_byte", fmt.Sprintf("0x%02x", packet[0]))
+			debug.Log(debug.DebugVerbose, "WASM WebSocket received binary data", "name", wsi.Name, "length", length, "first_byte", fmt.Sprintf("0x%02x", packet[0]))
 			wsi.ProcessIncoming(packet)
 		}
 
 		if data.Type() == js.TypeString {
 			packet := []byte(data.String())
-			debug.Log(debug.DEBUG_TRACE, "WebSocket received string data", "name", wsi.Name, "length", len(packet))
+			debug.Log(debug.DebugTrace, "WebSocket received string data", "name", wsi.Name, "length", len(packet))
 			wsi.ProcessIncoming(packet)
 		} else if data.InstanceOf(js.Global().Get("ArrayBuffer")) {
 			handlePacket(data)
@@ -165,7 +165,7 @@ func (wsi *WebSocketInterface) Start() error {
 			// Fallback for other object types that might be TypedArrays
 			handlePacket(data)
 		} else {
-			debug.Log(debug.DEBUG_ERROR, "Unknown WebSocket message type", "type", data.Type().String())
+			debug.Log(debug.DebugError, "Unknown WebSocket message type", "type", data.Type().String())
 		}
 
 		return nil
@@ -173,7 +173,7 @@ func (wsi *WebSocketInterface) Start() error {
 	ws.Set("onmessage", wsi.onMessageFunc)
 
 	wsi.onErrorFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		debug.Log(debug.DEBUG_ERROR, "WebSocket error", "name", wsi.Name)
+		debug.Log(debug.DebugError, "WebSocket error", "name", wsi.Name)
 		return nil
 	})
 	ws.Set("onerror", wsi.onErrorFunc)
@@ -184,13 +184,13 @@ func (wsi *WebSocketInterface) Start() error {
 		wsi.Online = false
 		wsi.Mutex.Unlock()
 
-		debug.Log(debug.DEBUG_INFO, "WebSocket closed", "name", wsi.Name)
+		debug.Log(debug.DebugInfo, "WebSocket closed", "name", wsi.Name)
 
 		wsi.releaseCallbacks()
 
 		if wsi.Enabled && !wsi.Detached {
 			go func() {
-				time.Sleep(WS_RECONNECT_DELAY)
+				time.Sleep(WSReconnectDelay)
 				_ = wsi.Start()
 			}()
 		}
@@ -267,7 +267,7 @@ func (wsi *WebSocketInterface) sendWebSocketMessage(data []byte) error {
 
 	wsi.ws.Call("send", array)
 
-	debug.Log(debug.DEBUG_VERBOSE, "WebSocket sent packet", "name", wsi.Name, "bytes", len(data))
+	debug.Log(debug.DebugVerbose, "WebSocket sent packet", "name", wsi.Name, "bytes", len(data))
 	return nil
 }
 

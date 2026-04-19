@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package transport
 
 import "time"
@@ -31,67 +31,65 @@ const (
 	ResourceStatusFailed    = 0x03
 	ResourceStatusCancelled = 0x04
 
-	OUT = 0x02
-	IN  = 0x01
+	Out = 0x02
+	In  = 0x01
 
-	SINGLE = 0x00
-	GROUP  = 0x01
-	PLAIN  = 0x02
+	Single = 0x00
+	Group  = 0x01
+	Plain  = 0x02
 
-	STATUS_NEW    = 0
-	STATUS_ACTIVE = 1
-	STATUS_CLOSED = 2
-	STATUS_FAILED = 3
+	StatusNew    = 0
+	StatusActive = 1
+	StatusClosed = 2
+	StatusFailed = 3
 
 	AnnounceRatePercent = 2.0
-	PATHFINDER_M        = 8
 	AnnounceRateKbps    = 20.0
 
-	MAX_HOPS         = 128
-	PROPAGATION_RATE = 0.02
+	MaxHops         = 128
+	PropagationRate = 0.02
 
 	// PathfinderRW is the random window (seconds) added before
 	// retransmitting an announce.
 	PathfinderRW = 0.5
 
 	// PathfinderR is the number of retransmit retries for queued
-	// announces. Matches Transport.PATHFINDER_R.
+	// announces.
 	PathfinderR = 1
 
 	// PathfinderG is the retry grace period in seconds added to the
-	// retransmit timeout. Matches Transport.PATHFINDER_G.
+	// retransmit timeout.
 	PathfinderG = 5
 
 	// PathRequestMI is the minimum interval between automated path
-	// requests for the same destination. Matches Transport.PATH_REQUEST_MI.
+	// requests for the same destination.
 	PathRequestMI = 20 * time.Second
 
 	// LocalRebroadcastsMax bounds how many local rebroadcasts of a
 	// queued announce are allowed before it is considered handed off.
-	// Matches Transport.LOCAL_REBROADCASTS_MAX.
 	LocalRebroadcastsMax = 2
 
 	// LinkProofTimeoutPerHop is the link-establishment proof timeout
 	// added per remaining hop when registering a relayed link entry.
 	LinkProofTimeoutPerHop = 6 * time.Second
 
-	PACKET_TYPE_ANNOUNCE = 0x01
-	PACKET_TYPE_LINK     = 0x02
+	PacketTypeAnnounce = 0x01
+	PacketTypeLink     = 0x02
 
-	ANNOUNCE_NONE     = 0x00
-	ANNOUNCE_PATH     = 0x01
-	ANNOUNCE_IDENTITY = 0x02
+	AnnounceNone     = 0x00
+	AnnouncePath     = 0x01
+	AnnounceIdentity = 0x02
 
-	HEADER_TYPE_1 = 0x00
-	HEADER_TYPE_2 = 0x01
+	HeaderType1 = 0x00
+	HeaderType2 = 0x01
 
-	PROP_TYPE_BROADCAST = 0x00
-	PROP_TYPE_TRANSPORT = 0x01
+	PropTypeBroadcast = 0x00
+	PropTypeTransport = 0x01
 
-	DEST_TYPE_SINGLE = 0x00
-	DEST_TYPE_GROUP  = 0x01
-	DEST_TYPE_PLAIN  = 0x02
-	DEST_TYPE_LINK   = 0x03
+	DestTypeSingle = 0x00
+	DestTypeGroup  = 0x01
+	DestTypePlain  = 0x02
+	DestTypeLink   = 0x03
 )
 
 const (
@@ -103,7 +101,7 @@ const (
 )
 
 const (
-	STATE_UNKNOWN      = 0x00
-	STATE_UNRESPONSIVE = 0x01
-	STATE_RESPONSIVE   = 0x02
+	StateUnknown      = 0x00
+	StateUnresponsive = 0x01
+	StateResponsive   = 0x02
 )

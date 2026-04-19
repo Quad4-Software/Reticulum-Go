@@ -47,7 +47,7 @@ func TestNewResourceFromFile(t *testing.T) {
 }
 
 func TestGetSegmentData(t *testing.T) {
-	data := make([]byte, DEFAULT_SEGMENT_SIZE+100)
+	data := make([]byte, DefaultSegmentSize+100)
 	for i := range data {
 		data[i] = byte(i % 256)
 	}
@@ -61,7 +61,7 @@ func TestGetSegmentData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSegmentData(0) failed: %v", err)
 	}
-	if !bytes.Equal(seg0, data[:DEFAULT_SEGMENT_SIZE]) {
+	if !bytes.Equal(seg0, data[:DefaultSegmentSize]) {
 		t.Error("Segment 0 data mismatch")
 	}
 
@@ -69,13 +69,13 @@ func TestGetSegmentData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSegmentData(1) failed: %v", err)
 	}
-	if !bytes.Equal(seg1, data[DEFAULT_SEGMENT_SIZE:]) {
+	if !bytes.Equal(seg1, data[DefaultSegmentSize:]) {
 		t.Error("Segment 1 data mismatch")
 	}
 }
 
 func TestMarkSegmentComplete(t *testing.T) {
-	data := make([]byte, DEFAULT_SEGMENT_SIZE*2)
+	data := make([]byte, DefaultSegmentSize*2)
 	r, _ := New(data, false)
 
 	callbackCalled := false
@@ -87,7 +87,7 @@ func TestMarkSegmentComplete(t *testing.T) {
 	if r.GetProgress() != 0.5 {
 		t.Errorf("Expected progress 0.5, got %f", r.GetProgress())
 	}
-	if r.GetStatus() != STATUS_PENDING && r.GetStatus() != STATUS_ACTIVE {
+	if r.GetStatus() != StatusPending && r.GetStatus() != StatusActive {
 		t.Errorf("Wrong status: %v", r.GetStatus())
 	}
 
@@ -95,7 +95,7 @@ func TestMarkSegmentComplete(t *testing.T) {
 	if r.GetProgress() != 1.0 {
 		t.Errorf("Expected progress 1.0, got %f", r.GetProgress())
 	}
-	if r.GetStatus() != STATUS_COMPLETE {
+	if r.GetStatus() != StatusComplete {
 		t.Errorf("Expected status COMPLETE, got %v", r.GetStatus())
 	}
 	if !callbackCalled {
@@ -136,18 +136,18 @@ func TestCancelActivateFailed(t *testing.T) {
 	r, _ := New(data, false)
 
 	r.Activate()
-	if r.GetStatus() != STATUS_ACTIVE {
+	if r.GetStatus() != StatusActive {
 		t.Errorf("Expected ACTIVE, got %v", r.GetStatus())
 	}
 
 	r.SetFailed()
-	if r.GetStatus() != STATUS_FAILED {
+	if r.GetStatus() != StatusFailed {
 		t.Errorf("Expected FAILED, got %v", r.GetStatus())
 	}
 
 	r2, _ := New(data, false)
 	r2.Cancel()
-	if r2.GetStatus() != STATUS_CANCELLED {
+	if r2.GetStatus() != StatusCancelled {
 		t.Errorf("Expected CANCELLED, got %v", r2.GetStatus())
 	}
 }

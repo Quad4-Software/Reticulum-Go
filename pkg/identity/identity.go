@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package identity
 
 import (
@@ -129,7 +129,7 @@ func (i *Identity) Encrypt(plaintext []byte, ratchet []byte) ([]byte, error) {
 	}
 
 	salt := i.GetSalt()
-	debug.Log(debug.DEBUG_ALL, "Encrypt: using salt", "salt", fmt.Sprintf("%x", salt), "identity_hash", fmt.Sprintf("%x", i.Hash()))
+	debug.Log(debug.DebugAll, "Encrypt: using salt", "salt", fmt.Sprintf("%x", salt), "identity_hash", fmt.Sprintf("%x", i.Hash()))
 	key, err := cryptography.DeriveIdentityKeyMaterial(sharedSecret, salt, i.GetContext())
 	if err != nil {
 		return nil, err
@@ -158,19 +158,19 @@ func (i *Identity) Encrypt(plaintext []byte, ratchet []byte) ([]byte, error) {
 
 func (i *Identity) Hash() []byte {
 	hash := cryptography.Hash(i.GetPublicKey())
-	return hash[:TRUNCATED_HASHLENGTH/8]
+	return hash[:TruncatedHashLength/8]
 }
 
 func TruncatedHash(data []byte) []byte {
 	fullHash := cryptography.Hash(data)
-	return fullHash[:TRUNCATED_HASHLENGTH/8]
+	return fullHash[:TruncatedHashLength/8]
 }
 
 func GetRandomHash() []byte {
-	randomData := make([]byte, TRUNCATED_HASHLENGTH/8)
+	randomData := make([]byte, TruncatedHashLength/8)
 	_, err := rand.Read(randomData) // #nosec G104
 	if err != nil {
-		debug.Log(debug.DEBUG_CRITICAL, "Failed to read random data for hash", "error", err)
+		debug.Log(debug.DebugCritical, "Failed to read random data for hash", "error", err)
 		return nil // Or handle the error appropriately
 	}
 	return TruncatedHash(randomData)
@@ -192,14 +192,14 @@ func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) 
 }
 
 func ValidateAnnounce(packet []byte, destHash []byte, publicKey []byte, signature []byte, appData []byte) bool {
-	if len(publicKey) != KEYSIZE/8 {
+	if len(publicKey) != KeySize/8 {
 		return false
 	}
 
 	// Split public key into encryption and verification keys
 	announced := &Identity{
-		publicKey:       publicKey[:KEYSIZE/16],
-		verificationKey: publicKey[KEYSIZE/16:],
+		publicKey:       publicKey[:KeySize/16],
+		verificationKey: publicKey[KeySize/16:],
 	}
 
 	// Verify signature
@@ -216,20 +216,20 @@ func ValidateAnnounce(packet []byte, destHash []byte, publicKey []byte, signatur
 }
 
 func FromPublicKey(publicKey []byte) *Identity {
-	if len(publicKey) != KEYSIZE/8 {
+	if len(publicKey) != KeySize/8 {
 		return nil
 	}
 
 	id := &Identity{
-		publicKey:       publicKey[:KEYSIZE/16],
-		verificationKey: publicKey[KEYSIZE/16:],
+		publicKey:       publicKey[:KeySize/16],
+		verificationKey: publicKey[KeySize/16:],
 		ratchets:        make(map[string][]byte),
 		ratchetExpiry:   make(map[string]int64),
 		mutex:           &sync.RWMutex{},
 	}
 
 	hash := cryptography.Hash(id.GetPublicKey())
-	id.hash = hash[:TRUNCATED_HASHLENGTH/8]
+	id.hash = hash[:TruncatedHashLength/8]
 
 	return id
 }
@@ -262,7 +262,7 @@ func Recall(hash []byte) (*Identity, error) {
 }
 
 func (i *Identity) GenerateHMACKey() []byte {
-	hmacKey := make([]byte, KEYSIZE/8)
+	hmacKey := make([]byte, KeySize/8)
 	if _, err := io.ReadFull(rand.Reader, hmacKey); err != nil {
 		return nil
 	}
@@ -284,13 +284,13 @@ func (i *Identity) GetCurrentRatchetKey() []byte {
 	if len(i.ratchets) == 0 {
 		// If no ratchets exist, generate one.
 		// This should ideally be handled by an explicit setup process.
-		debug.Log(debug.DEBUG_TRACE, "No ratchets found, generating a new one on-the-fly")
+		debug.Log(debug.DebugTrace, "No ratchets found, generating a new one on-the-fly")
 		// Temporarily unlock to call RotateRatchet, which locks internally.
 		i.mutex.RUnlock()
 		newRatchet, err := i.RotateRatchet()
 		i.mutex.RLock()
 		if err != nil {
-			debug.Log(debug.DEBUG_CRITICAL, "Failed to generate initial ratchet key", "error", err)
+			debug.Log(debug.DebugCritical, "Failed to generate initial ratchet key", "error", err)
 			return nil
 		}
 		return newRatchet
@@ -307,7 +307,7 @@ func (i *Identity) GetCurrentRatchetKey() []byte {
 	}
 
 	if latestKey == nil {
-		debug.Log(debug.DEBUG_ERROR, "Could not determine the latest ratchet key", "ratchet_count", len(i.ratchets))
+		debug.Log(debug.DebugError, "Could not determine the latest ratchet key", "ratchet_count", len(i.ratchets))
 	}
 
 	return latestKey
@@ -315,16 +315,16 @@ func (i *Identity) GetCurrentRatchetKey() []byte {
 
 func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRatchets bool, ratchetIDReceiver *common.RatchetIDReceiver) ([]byte, error) {
 	if i.privateKey == nil {
-		debug.Log(debug.DEBUG_CRITICAL, "Decryption failed: identity has no private key")
+		debug.Log(debug.DebugCritical, "Decryption failed: identity has no private key")
 		return nil, errors.New("decryption failed because identity does not hold a private key")
 	}
 
-	debug.Log(debug.DEBUG_ALL, "Starting decryption for identity", "hash", i.GetHexHash())
+	debug.Log(debug.DebugAll, "Starting decryption for identity", "hash", i.GetHexHash())
 	if len(ratchets) > 0 {
-		debug.Log(debug.DEBUG_ALL, "Attempting decryption with ratchets", "count", len(ratchets))
+		debug.Log(debug.DebugAll, "Attempting decryption with ratchets", "count", len(ratchets))
 	}
 
-	if len(ciphertextToken) <= KEYSIZE/8/2 {
+	if len(ciphertextToken) <= KeySize/8/2 {
 		return nil, errors.New("decryption failed because the token size was invalid")
 	}
 
@@ -362,7 +362,7 @@ func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRat
 	}
 
 	salt := i.GetSalt()
-	debug.Log(debug.DEBUG_ALL, "Decrypt: using salt", "salt", fmt.Sprintf("%x", salt), "identity_hash", fmt.Sprintf("%x", i.Hash()))
+	debug.Log(debug.DebugAll, "Decrypt: using salt", "salt", fmt.Sprintf("%x", salt), "identity_hash", fmt.Sprintf("%x", i.Hash()))
 	derivedKey, err := cryptography.DeriveIdentityKeyMaterial(sharedKey, salt, i.GetContext())
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive key: %v", err)
@@ -385,7 +385,7 @@ func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRat
 		ratchetIDReceiver.LatestRatchetID = nil
 	}
 
-	debug.Log(debug.DEBUG_ALL, "Decryption completed successfully")
+	debug.Log(debug.DebugAll, "Decryption completed successfully")
 	return plaintext, nil
 }
 
@@ -397,7 +397,7 @@ func (i *Identity) tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet [
 	// Get ratchet ID
 	ratchetPubBytes, err := cryptography.PublicKeyFromPrivate(ratchetPriv)
 	if err != nil {
-		debug.Log(debug.DEBUG_ALL, "Failed to generate ratchet public key", "error", err)
+		debug.Log(debug.DebugAll, "Failed to generate ratchet public key", "error", err)
 		return nil, nil, err
 	}
 	ratchetID = i.GetRatchetID(ratchetPubBytes)
@@ -483,7 +483,7 @@ func (i *Identity) DecryptWithHMAC(data []byte, key []byte) ([]byte, error) {
 }
 
 func (i *Identity) ToFile(path string) error {
-	debug.Log(debug.DEBUG_ALL, "Saving identity to file", "hash", i.GetHexHash(), "path", path)
+	debug.Log(debug.DebugAll, "Saving identity to file", "hash", i.GetHexHash(), "path", path)
 
 	if i.externalSigner != nil {
 		return ErrSigningMaterialNotExportable
@@ -500,22 +500,22 @@ func (i *Identity) ToFile(path string) error {
 	// #nosec G304 G703 -- path is caller-chosen identity storage; not derived from network input here
 	file, err := os.Create(path)
 	if err != nil {
-		debug.Log(debug.DEBUG_CRITICAL, "Failed to create identity file", "error", err)
+		debug.Log(debug.DebugCritical, "Failed to create identity file", "error", err)
 		return err
 	}
 	defer file.Close()
 
 	if _, err := file.Write(privateKeyBytes); err != nil {
-		debug.Log(debug.DEBUG_CRITICAL, "Failed to write identity data", "error", err)
+		debug.Log(debug.DebugCritical, "Failed to write identity data", "error", err)
 		return err
 	}
 
-	debug.Log(debug.DEBUG_ALL, "Identity saved successfully", "bytes", len(privateKeyBytes))
+	debug.Log(debug.DebugAll, "Identity saved successfully", "bytes", len(privateKeyBytes))
 	return nil
 }
 
 func FromFile(path string) (*Identity, error) {
-	debug.Log(debug.DEBUG_ALL, "Loading identity from file", "path", path)
+	debug.Log(debug.DebugAll, "Loading identity from file", "path", path)
 
 	// Read the private key bytes from file
 	// #nosec G304 G703 -- path is caller-chosen identity storage; not derived from network input here
@@ -544,7 +544,7 @@ func FromFile(path string) (*Identity, error) {
 		return nil, fmt.Errorf("failed to load private key: %w", err)
 	}
 
-	debug.Log(debug.DEBUG_INFO, "Identity loaded from file", "hash", ident.GetHexHash())
+	debug.Log(debug.DebugInfo, "Identity loaded from file", "hash", ident.GetHexHash())
 	return ident, nil
 }
 
@@ -570,11 +570,11 @@ func LoadOrCreateTransportIdentity(customPath string) (*Identity, error) {
 	transportIdentityPath := fmt.Sprintf("%s/transport_identity", storagePath)
 
 	if ident, err := FromFile(transportIdentityPath); err == nil {
-		debug.Log(debug.DEBUG_INFO, "Loaded transport identity from storage")
+		debug.Log(debug.DebugInfo, "Loaded transport identity from storage")
 		return ident, nil
 	}
 
-	debug.Log(debug.DEBUG_INFO, "No valid transport identity in storage, creating new one")
+	debug.Log(debug.DebugInfo, "No valid transport identity in storage, creating new one")
 	ident, err := New()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create transport identity: %w", err)
@@ -584,7 +584,7 @@ func LoadOrCreateTransportIdentity(customPath string) (*Identity, error) {
 		return nil, fmt.Errorf("failed to save transport identity: %w", err)
 	}
 
-	debug.Log(debug.DEBUG_INFO, "Created and saved transport identity")
+	debug.Log(debug.DebugInfo, "Created and saved transport identity")
 	return ident, nil
 }
 
@@ -613,19 +613,19 @@ func (i *Identity) loadPrivateKey(privateKey, signingSeed []byte) error {
 	publicKeyBytes := make([]byte, 0, len(i.publicKey)+len(i.verificationKey))
 	publicKeyBytes = append(publicKeyBytes, i.publicKey...)
 	publicKeyBytes = append(publicKeyBytes, i.verificationKey...)
-	i.hash = TruncatedHash(publicKeyBytes)[:TRUNCATED_HASHLENGTH/8]
+	i.hash = TruncatedHash(publicKeyBytes)[:TruncatedHashLength/8]
 	i.hexHash = hex.EncodeToString(i.hash)
 
-	debug.Log(debug.DEBUG_VERBOSE, "Private key loaded successfully", "hash", i.GetHexHash())
+	debug.Log(debug.DebugVerbose, "Private key loaded successfully", "hash", i.GetHexHash())
 	return nil
 }
 
 func RecallIdentity(path string) (*Identity, error) {
-	debug.Log(debug.DEBUG_ALL, "Attempting to recall identity", "path", path)
+	debug.Log(debug.DebugAll, "Attempting to recall identity", "path", path)
 
 	file, err := os.Open(path) // #nosec G304
 	if err != nil {
-		debug.Log(debug.DEBUG_CRITICAL, "Failed to open identity file", "error", err)
+		debug.Log(debug.DebugCritical, "Failed to open identity file", "error", err)
 		return nil, err
 	}
 	defer file.Close()
@@ -635,7 +635,7 @@ func RecallIdentity(path string) (*Identity, error) {
 	privateKeyBytes := make([]byte, 64)
 	n, err := io.ReadFull(file, privateKeyBytes)
 	if err != nil {
-		debug.Log(debug.DEBUG_CRITICAL, "Failed to read identity data", "error", err)
+		debug.Log(debug.DebugCritical, "Failed to read identity data", "error", err)
 		return nil, err
 	}
 	if n != 64 {
@@ -664,13 +664,13 @@ func RecallIdentity(path string) (*Identity, error) {
 		mutex:           &sync.RWMutex{},
 	}
 
-	combinedPub := make([]byte, KEYSIZE/8)
-	copy(combinedPub[:KEYSIZE/16], id.publicKey)
-	copy(combinedPub[KEYSIZE/16:], id.verificationKey)
+	combinedPub := make([]byte, KeySize/8)
+	copy(combinedPub[:KeySize/16], id.publicKey)
+	copy(combinedPub[KeySize/16:], id.verificationKey)
 	fullHash := cryptography.Hash(combinedPub)
-	id.hash = fullHash[:TRUNCATED_HASHLENGTH/8]
+	id.hash = fullHash[:TruncatedHashLength/8]
 
-	debug.Log(debug.DEBUG_ALL, "Successfully recalled identity", "hash", id.GetHexHash())
+	debug.Log(debug.DebugAll, "Successfully recalled identity", "hash", id.GetHexHash())
 	return id, nil
 }
 
@@ -692,7 +692,7 @@ func (i *Identity) GetContext() []byte {
 
 func (i *Identity) GetRatchetID(ratchetPubBytes []byte) []byte {
 	hash := cryptography.Hash(ratchetPubBytes)
-	return hash[:NAME_HASH_LENGTH/8]
+	return hash[:NameHashLength/8]
 }
 
 func GetKnownDestination(hash string) ([]any, bool) {
@@ -760,11 +760,11 @@ func NewIdentity() (*Identity, error) {
 		mutex:           &sync.RWMutex{},
 	}
 
-	combinedPub := make([]byte, KEYSIZE/8)
-	copy(combinedPub[:KEYSIZE/16], i.publicKey)
-	copy(combinedPub[KEYSIZE/16:], i.verificationKey)
+	combinedPub := make([]byte, KeySize/8)
+	copy(combinedPub[:KeySize/16], i.publicKey)
+	copy(combinedPub[KeySize/16:], i.verificationKey)
 	fullHash := cryptography.Hash(combinedPub)
-	i.hash = fullHash[:TRUNCATED_HASHLENGTH/8]
+	i.hash = fullHash[:TruncatedHashLength/8]
 
 	return i, nil
 }
@@ -795,32 +795,32 @@ func (i *Identity) RotateRatchet() ([]byte, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
-	debug.Log(debug.DEBUG_ALL, "Rotating ratchet for identity", "hash", i.GetHexHash())
+	debug.Log(debug.DebugAll, "Rotating ratchet for identity", "hash", i.GetHexHash())
 
 	// Generate new ratchet key
-	newRatchet := make([]byte, RATCHETSIZE/8)
+	newRatchet := make([]byte, RatchetSize/8)
 	if _, err := io.ReadFull(rand.Reader, newRatchet); err != nil {
-		debug.Log(debug.DEBUG_CRITICAL, "Failed to generate new ratchet", "error", err)
+		debug.Log(debug.DebugCritical, "Failed to generate new ratchet", "error", err)
 		return nil, err
 	}
 
 	ratchetPub, err := cryptography.PublicKeyFromPrivate(newRatchet)
 	if err != nil {
-		debug.Log(debug.DEBUG_CRITICAL, "Failed to generate ratchet public key", "error", err)
+		debug.Log(debug.DebugCritical, "Failed to generate ratchet public key", "error", err)
 		return nil, err
 	}
 
 	ratchetID := i.GetRatchetID(ratchetPub)
-	expiry := time.Now().Unix() + RATCHET_EXPIRY
+	expiry := time.Now().Unix() + RatchetExpiry
 
 	// Store new ratchet
 	i.ratchets[string(ratchetID)] = newRatchet
 	i.ratchetExpiry[string(ratchetID)] = expiry
 
-	debug.Log(debug.DEBUG_ALL, "New ratchet generated", "id", fmt.Sprintf("%x", ratchetID), "expiry", expiry)
+	debug.Log(debug.DebugAll, "New ratchet generated", "id", fmt.Sprintf("%x", ratchetID), "expiry", expiry)
 
 	// Cleanup old ratchets if we exceed max retained
-	if len(i.ratchets) > MAX_RETAINED_RATCHETS {
+	if len(i.ratchets) > MaxRetainedRatchets {
 		var oldestID string
 		oldestTime := time.Now().Unix()
 
@@ -833,10 +833,10 @@ func (i *Identity) RotateRatchet() ([]byte, error) {
 
 		delete(i.ratchets, oldestID)
 		delete(i.ratchetExpiry, oldestID)
-		debug.Log(debug.DEBUG_ALL, "Cleaned up oldest ratchet", "id", fmt.Sprintf("%x", []byte(oldestID)))
+		debug.Log(debug.DebugAll, "Cleaned up oldest ratchet", "id", fmt.Sprintf("%x", []byte(oldestID)))
 	}
 
-	debug.Log(debug.DEBUG_ALL, "Current number of active ratchets", "count", len(i.ratchets))
+	debug.Log(debug.DebugAll, "Current number of active ratchets", "count", len(i.ratchets))
 	return newRatchet, nil
 }
 
@@ -844,7 +844,7 @@ func (i *Identity) GetRatchets() [][]byte {
 	i.mutex.RLock()
 	defer i.mutex.RUnlock()
 
-	debug.Log(debug.DEBUG_ALL, "Getting ratchets for identity", "hash", i.GetHexHash())
+	debug.Log(debug.DebugAll, "Getting ratchets for identity", "hash", i.GetHexHash())
 
 	ratchets := make([][]byte, 0, len(i.ratchets))
 	now := time.Now().Unix()
@@ -862,7 +862,7 @@ func (i *Identity) GetRatchets() [][]byte {
 		}
 	}
 
-	debug.Log(debug.DEBUG_ALL, "Retrieved active ratchets", "active", len(ratchets), "expired", expired)
+	debug.Log(debug.DebugAll, "Retrieved active ratchets", "active", len(ratchets), "expired", expired)
 	return ratchets
 }
 
@@ -870,7 +870,7 @@ func (i *Identity) CleanupExpiredRatchets() {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
-	debug.Log(debug.DEBUG_ALL, "Starting ratchet cleanup for identity", "hash", i.GetHexHash())
+	debug.Log(debug.DebugAll, "Starting ratchet cleanup for identity", "hash", i.GetHexHash())
 
 	now := time.Now().Unix()
 	cleaned := 0
@@ -882,7 +882,7 @@ func (i *Identity) CleanupExpiredRatchets() {
 		}
 	}
 
-	debug.Log(debug.DEBUG_ALL, "Cleaned up expired ratchets", "cleaned", cleaned, "remaining", len(i.ratchets))
+	debug.Log(debug.DebugAll, "Cleaned up expired ratchets", "cleaned", cleaned, "remaining", len(i.ratchets))
 }
 
 // ValidateAnnounce validates an announce packet's signature
@@ -906,7 +906,7 @@ func (i *Identity) GetNameHash() []byte {
 	}
 
 	fullHash := cryptography.Hash(i.GetPublicKey())
-	return fullHash[:NAME_HASH_LENGTH/8]
+	return fullHash[:NameHashLength/8]
 }
 
 // GetEncryptionKey returns the X25519 public key used for encryption

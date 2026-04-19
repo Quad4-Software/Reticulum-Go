@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package link
 
 import (
@@ -18,10 +18,10 @@ func FuzzLinkHandleData(f *testing.F) {
 	tr := transport.NewTransport(cfg)
 	defer tr.Close()
 	id, _ := identity.New()
-	dest, _ := destination.New(id, destination.IN, destination.SINGLE, "testapp", tr, "service")
+	dest, _ := destination.New(id, destination.In, destination.Single, "testapp", tr, "service")
 
 	l := NewLink(dest, tr, nil, nil, nil)
-	l.status.Store(int32(STATUS_ACTIVE))
+	l.status.Store(int32(StatusActive))
 	l.linkID = make([]byte, 16)
 	l.sessionKey = make([]byte, 32) // Dummy session key to trigger decryption logic
 
@@ -29,7 +29,7 @@ func FuzzLinkHandleData(f *testing.F) {
 	p := &packet.Packet{
 		HeaderType:      packet.HeaderType1,
 		PacketType:      packet.PacketTypeData,
-		DestinationType: DEST_TYPE_LINK,
+		DestinationType: DestTypeLink,
 		DestinationHash: l.linkID,
 		Context:         packet.ContextNone,
 		Data:            []byte("hello world"),
@@ -45,7 +45,7 @@ func FuzzLinkHandleData(f *testing.F) {
 		}
 
 		// Ensure it's a link-type packet for the mock link
-		pkt.DestinationType = DEST_TYPE_LINK
+		pkt.DestinationType = DestTypeLink
 		pkt.DestinationHash = l.linkID
 
 		// We just want to make sure it doesn't panic

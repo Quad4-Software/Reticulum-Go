@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package common
 
 import (
@@ -10,11 +10,11 @@ import (
 	"time"
 )
 
-// IFAC matches the subset of pkg/ifac.Identity that interfaces and transport
-// need to authenticate and mask/unmask raw packets, without forcing pkg/common
-// to import pkg/ifac (which would create an import cycle through pkg/identity).
+// IFAC is the subset of pkg/ifac.Identity that interfaces and transport need
+// to authenticate and mask/unmask raw packets. Living in pkg/common avoids an
+// import cycle (pkg/common -> pkg/ifac -> pkg/identity -> pkg/common).
 type IFAC interface {
-	// Size returns the per-interface IFAC size in bytes (DEFAULT_IFAC_SIZE).
+	// Size returns the per-interface IFAC size in bytes.
 	Size() int
 	// Mask wraps a raw outbound packet with an authenticated Interface Access
 	// Code; the returned buffer is the bytes to write on the wire.
@@ -77,8 +77,8 @@ type BaseInterface struct {
 	Enabled  bool
 	Detached bool
 
-	IN  bool
-	OUT bool
+	In  bool
+	Out bool
 
 	MTU     int
 	Bitrate int64
@@ -102,10 +102,10 @@ func NewBaseInterface(name string, ifaceType InterfaceType, enabled bool) BaseIn
 	return BaseInterface{
 		Name:    name,
 		Type:    ifaceType,
-		Mode:    IF_MODE_FULL,
+		Mode:    IFModeFull,
 		Enabled: enabled,
-		MTU:     DEFAULT_MTU,
-		Bitrate: BITRATE_MINIMUM,
+		MTU:     DefaultMTU,
+		Bitrate: BitrateMinimum,
 		lastTx:  time.Now(),
 	}
 }

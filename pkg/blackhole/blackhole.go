@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 
 package blackhole
 
@@ -22,12 +22,10 @@ import (
 func decodeHex(s string) ([]byte, error) { return hex.DecodeString(s) }
 func encodeHex(b []byte) string          { return hex.EncodeToString(b) }
 
-// HashLen is the truncated identity hash length in bytes
-// (Reticulum.TRUNCATED_HASHLENGTH/8).
+// HashLen is the truncated identity hash length in bytes.
 const HashLen = 16
 
-// CheckInterval is the period at which the table sweeps for expired entries,
-// matching Transport.blackhole_check_interval.
+// CheckInterval is the period at which the table sweeps for expired entries.
 const CheckInterval = 60 * time.Second
 
 // LocalSource is the bytes value used as the "source" of locally authored
@@ -338,9 +336,6 @@ func (t *Table) LoadAll() error {
 			}
 			srcHash = b
 		}
-		// Path is constructed from a fixed dir + a name validated above
-		// to be either "local" or a 32-char hex string, so no traversal
-		// is possible.
 		raw, err := os.ReadFile(filepath.Join(dir, name)) // #nosec G304 -- name is validated by isSafeBlackholeName above
 		if err != nil {
 			continue
@@ -438,8 +433,7 @@ func (t *Table) MergeRemote(sourceHash []byte, decoded map[string]Entry) error {
 }
 
 // EncodeForRequest builds the msgpack payload that a /list request handler
-// would return to a peer. The format matches Transport.blackhole_list_handler
-// in the reference stack.
+// returns to a peer.
 func (t *Table) EncodeForRequest() ([]byte, error) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()

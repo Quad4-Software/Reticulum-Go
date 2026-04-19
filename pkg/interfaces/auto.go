@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package interfaces
 
 import (
@@ -79,27 +79,27 @@ func descopeLinkLocal(addr string) string {
 }
 
 func NewAutoInterface(name string, config *common.InterfaceConfig) (*AutoInterface, error) {
-	groupID := DEFAULT_GROUP_ID
+	groupID := DefaultGroupID
 	if config.GroupID != "" {
 		groupID = config.GroupID
 	}
 
-	discoveryScope := SCOPE_LINK
+	discoveryScope := ScopeLink
 	if config.DiscoveryScope != "" {
 		discoveryScope = normalizeScope(config.DiscoveryScope)
 	}
 
-	multicastAddrType := MCAST_ADDR_TYPE_TEMPORARY
+	multicastAddrType := McastAddrTypeTemporary
 	if config.MulticastAddrType != "" {
 		multicastAddrType = normalizeMulticastType(config.MulticastAddrType)
 	}
 
-	discoveryPort := DEFAULT_DISCOVERY_PORT
+	discoveryPort := DefaultDiscoveryPort
 	if config.DiscoveryPort != 0 {
 		discoveryPort = config.DiscoveryPort
 	}
 
-	dataPort := DEFAULT_DATA_PORT
+	dataPort := DefaultDataPort
 	if config.DataPort != 0 {
 		dataPort = config.DataPort
 	}
@@ -116,15 +116,15 @@ func NewAutoInterface(name string, config *common.InterfaceConfig) (*AutoInterfa
 	ai := &AutoInterface{
 		BaseInterface: BaseInterface{
 			Name:     name,
-			Mode:     common.IF_MODE_FULL,
-			Type:     common.IF_TYPE_AUTO,
+			Mode:     common.IFModeFull,
+			Type:     common.IFTypeAuto,
 			Online:   false,
 			Enabled:  config.Enabled,
 			Detached: false,
-			IN:       true,
-			OUT:      false,
-			MTU:      HW_MTU,
-			Bitrate:  BITRATE_GUESS,
+			In:       true,
+			Out:      false,
+			MTU:      HWMTU,
+			Bitrate:  BitrateGuess,
 		},
 		groupID:            []byte(groupID),
 		groupHash:          groupHash[:],
@@ -142,43 +142,43 @@ func NewAutoInterface(name string, config *common.InterfaceConfig) (*AutoInterfa
 		timedOutInterfaces: make(map[string]time.Time),
 		allowedInterfaces:  make([]string, 0),
 		ignoredInterfaces:  make([]string, 0),
-		announceInterval:   ANNOUNCE_INTERVAL,
-		peerJobInterval:    PEER_JOB_INTERVAL,
-		peeringTimeout:     PEERING_TIMEOUT,
-		mcastEchoTimeout:   MCAST_ECHO_TIMEOUT,
-		mifDeque:           make([]DequeEntry, 0, MULTI_IF_DEQUE_LEN),
+		announceInterval:   AnnounceInterval,
+		peerJobInterval:    PeerJobInterval,
+		peeringTimeout:     PeeringTimeout,
+		mcastEchoTimeout:   McastEchoTimeout,
+		mifDeque:           make([]DequeEntry, 0, MultiIFDequeLen),
 		done:               make(chan struct{}),
 	}
 
-	debug.Log(debug.DEBUG_INFO, "AutoInterface configured", "name", name, "group", groupID, "mcast_addr", mcastAddr)
+	debug.Log(debug.DebugInfo, "AutoInterface configured", "name", name, "group", groupID, "mcast_addr", mcastAddr)
 	return ai, nil
 }
 
 func normalizeScope(scope string) string {
 	switch scope {
 	case "link", "2":
-		return SCOPE_LINK
+		return ScopeLink
 	case "admin", "4":
-		return SCOPE_ADMIN
+		return ScopeAdmin
 	case "site", "5":
-		return SCOPE_SITE
+		return ScopeSite
 	case "organisation", "organization", "8":
-		return SCOPE_ORGANISATION
+		return ScopeOrganisation
 	case "global", "e":
-		return SCOPE_GLOBAL
+		return ScopeGlobal
 	default:
-		return SCOPE_LINK
+		return ScopeLink
 	}
 }
 
 func normalizeMulticastType(mtype string) string {
 	switch mtype {
 	case "permanent", "0":
-		return MCAST_ADDR_TYPE_PERMANENT
+		return McastAddrTypePermanent
 	case "temporary", "1":
-		return MCAST_ADDR_TYPE_TEMPORARY
+		return McastAddrTypeTemporary
 	default:
-		return MCAST_ADDR_TYPE_TEMPORARY
+		return McastAddrTypeTemporary
 	}
 }
 
@@ -204,18 +204,18 @@ func (ai *AutoInterface) Start() error {
 
 	for _, iface := range interfaces {
 		if ai.shouldIgnoreInterface(iface.Name) {
-			debug.Log(debug.DEBUG_TRACE, "Ignoring interface", "name", iface.Name)
+			debug.Log(debug.DebugTrace, "Ignoring interface", "name", iface.Name)
 			continue
 		}
 
 		if len(ai.allowedInterfaces) > 0 && !ai.isAllowedInterface(iface.Name) {
-			debug.Log(debug.DEBUG_TRACE, "Interface not in allowed list", "name", iface.Name)
+			debug.Log(debug.DebugTrace, "Interface not in allowed list", "name", iface.Name)
 			continue
 		}
 
 		ifaceCopy := iface
 		if err := ai.configureInterface(&ifaceCopy); err != nil {
-			debug.Log(debug.DEBUG_VERBOSE, "Failed to configure interface", "name", iface.Name, "error", err)
+			debug.Log(debug.DebugVerbose, "Failed to configure interface", "name", iface.Name, "error", err)
 			continue
 		}
 	}
@@ -225,13 +225,13 @@ func (ai *AutoInterface) Start() error {
 	}
 
 	ai.Online = true
-	ai.IN = true
-	ai.OUT = true
+	ai.In = true
+	ai.Out = true
 
 	go ai.peerJobs()
 	go ai.announceLoop()
 
-	debug.Log(debug.DEBUG_INFO, "AutoInterface started", "adopted", len(ai.adoptedInterfaces))
+	debug.Log(debug.DebugInfo, "AutoInterface started", "adopted", len(ai.adoptedInterfaces))
 	return nil
 }
 
@@ -295,7 +295,7 @@ func (ai *AutoInterface) configureInterface(iface *net.Interface) error {
 		return fmt.Errorf("failed to start data listener: %v", err)
 	}
 
-	debug.Log(debug.DEBUG_INFO, "Configured interface", "name", iface.Name, "addr", linkLocalAddr)
+	debug.Log(debug.DebugInfo, "Configured interface", "name", iface.Name, "addr", linkLocalAddr)
 	return nil
 }
 
@@ -311,8 +311,8 @@ func (ai *AutoInterface) startDiscoveryListener(iface *net.Interface) error {
 		return err
 	}
 
-	if err := conn.SetReadBuffer(common.NUM_1024); err != nil {
-		debug.Log(debug.DEBUG_ERROR, "Failed to set discovery read buffer", "error", err)
+	if err := conn.SetReadBuffer(1024); err != nil {
+		debug.Log(debug.DebugError, "Failed to set discovery read buffer", "error", err)
 	}
 
 	ai.Mutex.Lock()
@@ -320,7 +320,7 @@ func (ai *AutoInterface) startDiscoveryListener(iface *net.Interface) error {
 	ai.Mutex.Unlock()
 
 	go ai.handleDiscovery(conn, iface.Name)
-	debug.Log(debug.DEBUG_VERBOSE, "Discovery listener started", "interface", iface.Name, "addr", ai.mcastDiscoveryAddr)
+	debug.Log(debug.DebugVerbose, "Discovery listener started", "interface", iface.Name, "addr", ai.mcastDiscoveryAddr)
 	return nil
 }
 
@@ -338,12 +338,12 @@ func (ai *AutoInterface) startDataListener(iface *net.Interface) error {
 
 	conn, err := net.ListenUDP("udp6", addr)
 	if err != nil {
-		debug.Log(debug.DEBUG_ERROR, "Failed to listen on data port", "addr", addr, "error", err)
+		debug.Log(debug.DebugError, "Failed to listen on data port", "addr", addr, "error", err)
 		return err
 	}
 
 	if err := conn.SetReadBuffer(ai.MTU); err != nil {
-		debug.Log(debug.DEBUG_ERROR, "Failed to set data read buffer", "error", err)
+		debug.Log(debug.DebugError, "Failed to set data read buffer", "error", err)
 	}
 
 	ai.Mutex.Lock()
@@ -351,12 +351,12 @@ func (ai *AutoInterface) startDataListener(iface *net.Interface) error {
 	ai.Mutex.Unlock()
 
 	go ai.handleData(conn, iface.Name)
-	debug.Log(debug.DEBUG_VERBOSE, "Data listener started", "interface", iface.Name, "addr", addr)
+	debug.Log(debug.DebugVerbose, "Data listener started", "interface", iface.Name, "addr", addr)
 	return nil
 }
 
 func (ai *AutoInterface) handleDiscovery(conn *net.UDPConn, ifaceName string) {
-	buf := make([]byte, common.NUM_1024)
+	buf := make([]byte, 1024)
 	for {
 		ai.Mutex.RLock()
 		done := ai.done
@@ -371,7 +371,7 @@ func (ai *AutoInterface) handleDiscovery(conn *net.UDPConn, ifaceName string) {
 		n, remoteAddr, err := conn.ReadFromUDP(buf)
 		if err != nil {
 			if ai.IsOnline() {
-				debug.Log(debug.DEBUG_ERROR, "Discovery read error", "interface", ifaceName, "error", err)
+				debug.Log(debug.DebugError, "Discovery read error", "interface", ifaceName, "error", err)
 			}
 			return
 		}
@@ -385,7 +385,7 @@ func (ai *AutoInterface) handleDiscovery(conn *net.UDPConn, ifaceName string) {
 			if bytes.Equal(receivedHash, expectedHash[:]) {
 				ai.handlePeerAnnounce(remoteAddr, ifaceName)
 			} else {
-				debug.Log(debug.DEBUG_TRACE, "Received discovery with mismatched group hash", "interface", ifaceName, "peer", peerIP)
+				debug.Log(debug.DebugTrace, "Received discovery with mismatched group hash", "interface", ifaceName, "peer", peerIP)
 			}
 		}
 	}
@@ -407,7 +407,7 @@ func (ai *AutoInterface) handleData(conn *net.UDPConn, ifaceName string) {
 		n, remoteAddr, err := conn.ReadFromUDP(buf)
 		if err != nil {
 			if ai.IsOnline() {
-				debug.Log(debug.DEBUG_ERROR, "Data read error", "interface", ifaceName, "error", err)
+				debug.Log(debug.DebugError, "Data read error", "interface", ifaceName, "error", err)
 			}
 			return
 		}
@@ -420,7 +420,7 @@ func (ai *AutoInterface) handleData(conn *net.UDPConn, ifaceName string) {
 		// Check for duplicate in mifDeque
 		isDuplicate := false
 		for i := 0; i < len(ai.mifDeque); i++ {
-			if ai.mifDeque[i].hash == dataHash && now.Sub(ai.mifDeque[i].timestamp) < MULTI_IF_DEQUE_TTL {
+			if ai.mifDeque[i].hash == dataHash && now.Sub(ai.mifDeque[i].timestamp) < MultiIFDequeTTL {
 				isDuplicate = true
 				break
 			}
@@ -433,7 +433,7 @@ func (ai *AutoInterface) handleData(conn *net.UDPConn, ifaceName string) {
 
 		// Add to deque
 		ai.mifDeque = append(ai.mifDeque, DequeEntry{hash: dataHash, timestamp: now})
-		if len(ai.mifDeque) > MULTI_IF_DEQUE_LEN {
+		if len(ai.mifDeque) > MultiIFDequeLen {
 			ai.mifDeque = ai.mifDeque[1:]
 		}
 
@@ -463,7 +463,7 @@ func (ai *AutoInterface) handlePeerAnnounce(addr *net.UDPAddr, ifaceName string)
 
 	if slices.Contains(ai.linkLocalAddrs, peerIP) {
 		ai.multicastEchoes[ifaceName] = time.Now()
-		debug.Log(debug.DEBUG_TRACE, "Received own multicast echo", "interface", ifaceName)
+		debug.Log(debug.DebugTrace, "Received own multicast echo", "interface", ifaceName)
 		return
 	}
 
@@ -471,14 +471,14 @@ func (ai *AutoInterface) handlePeerAnnounce(addr *net.UDPAddr, ifaceName string)
 
 	if peer, exists := ai.peers[peerKey]; exists {
 		peer.lastHeard = time.Now()
-		debug.Log(debug.DEBUG_TRACE, "Updated peer", "peer", peerIP, "interface", ifaceName)
+		debug.Log(debug.DebugTrace, "Updated peer", "peer", peerIP, "interface", ifaceName)
 	} else {
 		ai.peers[peerKey] = &Peer{
 			ifaceName: ifaceName,
 			lastHeard: time.Now(),
 			addr:      addr,
 		}
-		debug.Log(debug.DEBUG_INFO, "Discovered new peer", "peer", peerIP, "interface", ifaceName)
+		debug.Log(debug.DebugInfo, "Discovered new peer", "peer", peerIP, "interface", ifaceName)
 	}
 }
 
@@ -514,7 +514,7 @@ func (ai *AutoInterface) sendPeerAnnounce() {
 			var err error
 			ai.outboundConn, err = net.ListenUDP("udp6", &net.UDPAddr{Port: 0})
 			if err != nil {
-				debug.Log(debug.DEBUG_ERROR, "Failed to create outbound socket", "error", err)
+				debug.Log(debug.DebugError, "Failed to create outbound socket", "error", err)
 				return
 			}
 		}
@@ -523,9 +523,9 @@ func (ai *AutoInterface) sendPeerAnnounce() {
 		token := sha256.Sum256(tokenSource)
 
 		if _, err := ai.outboundConn.WriteToUDP(token[:], mcastAddr); err != nil {
-			debug.Log(debug.DEBUG_VERBOSE, "Failed to send peer announce", "interface", ifaceName, "error", err)
+			debug.Log(debug.DebugVerbose, "Failed to send peer announce", "interface", ifaceName, "error", err)
 		} else {
-			debug.Log(debug.DEBUG_TRACE, "Sent peer announce", "interface", adoptedIface.name)
+			debug.Log(debug.DebugTrace, "Sent peer announce", "interface", adoptedIface.name)
 		}
 	}
 }
@@ -547,14 +547,14 @@ func (ai *AutoInterface) peerJobs() {
 			for peerKey, peer := range ai.peers {
 				if now.Sub(peer.lastHeard) > ai.peeringTimeout {
 					delete(ai.peers, peerKey)
-					debug.Log(debug.DEBUG_VERBOSE, "Removed timed out peer", "peer", peerKey)
+					debug.Log(debug.DebugVerbose, "Removed timed out peer", "peer", peerKey)
 				}
 			}
 
 			for ifaceName, echoTime := range ai.multicastEchoes {
 				if now.Sub(echoTime) > ai.mcastEchoTimeout {
 					if _, exists := ai.timedOutInterfaces[ifaceName]; !exists {
-						debug.Log(debug.DEBUG_INFO, "Interface timed out", "interface", ifaceName)
+						debug.Log(debug.DebugInfo, "Interface timed out", "interface", ifaceName)
 						ai.timedOutInterfaces[ifaceName] = now
 					}
 				} else {
@@ -576,7 +576,7 @@ func (ai *AutoInterface) Send(data []byte, address string) error {
 
 	masked, err := common.ApplyIFACOutbound(ai, data)
 	if err != nil {
-		debug.Log(debug.DEBUG_CRITICAL, "Failed to mask outgoing packet for IFAC", "name", ai.Name, "error", err)
+		debug.Log(debug.DebugCritical, "Failed to mask outgoing packet for IFAC", "name", ai.Name, "error", err)
 		return err
 	}
 	data = masked
@@ -585,7 +585,7 @@ func (ai *AutoInterface) Send(data []byte, address string) error {
 	defer ai.Mutex.RUnlock()
 
 	if len(ai.peers) == 0 {
-		debug.Log(debug.DEBUG_TRACE, "No peers available for sending")
+		debug.Log(debug.DebugTrace, "No peers available for sending")
 		return nil
 	}
 
@@ -606,14 +606,14 @@ func (ai *AutoInterface) Send(data []byte, address string) error {
 		}
 
 		if _, err := ai.outboundConn.WriteToUDP(data, targetAddr); err != nil {
-			debug.Log(debug.DEBUG_VERBOSE, "Failed to send to peer", "interface", peer.ifaceName, "error", err)
+			debug.Log(debug.DebugVerbose, "Failed to send to peer", "interface", peer.ifaceName, "error", err)
 			continue
 		}
 		sentCount++
 	}
 
 	if sentCount > 0 {
-		debug.Log(debug.DEBUG_TRACE, "Sent data to peers", "count", sentCount, "bytes", len(data))
+		debug.Log(debug.DebugTrace, "Sent data to peers", "count", sentCount, "bytes", len(data))
 	}
 
 	return nil
@@ -622,8 +622,8 @@ func (ai *AutoInterface) Send(data []byte, address string) error {
 func (ai *AutoInterface) Stop() error {
 	ai.Mutex.Lock()
 	ai.Online = false
-	ai.IN = false
-	ai.OUT = false
+	ai.In = false
+	ai.Out = false
 
 	for _, server := range ai.interfaceServers {
 		server.Close() // #nosec G104
@@ -644,6 +644,6 @@ func (ai *AutoInterface) Stop() error {
 		}
 	})
 
-	debug.Log(debug.DEBUG_INFO, "AutoInterface stopped")
+	debug.Log(debug.DebugInfo, "AutoInterface stopped")
 	return nil
 }

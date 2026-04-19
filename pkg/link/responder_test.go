@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package link
 
 import (
@@ -39,7 +39,7 @@ func TestResponderCallbackTiming(t *testing.T) {
 	_ = trB.RegisterInterface("pipeB", pipeB)
 
 	// Setup Destination on Node A
-	destA, _ := destination.New(idA, destination.IN, destination.SINGLE, "testapp", trA, "service")
+	destA, _ := destination.New(idA, destination.In, destination.Single, "testapp", trA, "service")
 	destA.AcceptsLinks(true)
 
 	var callbackTriggered atomic.Bool
@@ -75,8 +75,8 @@ func TestResponderCallbackTiming(t *testing.T) {
 		case <-ticker.C:
 			if callbackTriggered.Load() {
 				status := byte(linkStatusAtCallback.Load())
-				if status != STATUS_ACTIVE {
-					t.Errorf("Callback triggered with invalid status: %d (expected %d/STATUS_ACTIVE)", status, STATUS_ACTIVE)
+				if status != StatusActive {
+					t.Errorf("Callback triggered with invalid status: %d (expected %d/StatusActive)", status, StatusActive)
 				}
 				return
 			}

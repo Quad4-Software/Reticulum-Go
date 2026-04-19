@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package transport
 
 import (
@@ -24,7 +24,7 @@ type relayIface struct {
 
 func newRelayIface(name string) *relayIface {
 	r := &relayIface{
-		BaseInterface: common.NewBaseInterface(name, common.IF_TYPE_TCP, true),
+		BaseInterface: common.NewBaseInterface(name, common.IFTypeTCP, true),
 	}
 	r.Enable()
 	return r
@@ -62,7 +62,7 @@ func mustIdentity(t *testing.T) *identity.Identity {
 	return id
 }
 
-// buildHT2Packet hand-rolls a HEADER_TYPE_2 data packet so the relay
+// buildHT2Packet hand-rolls a HeaderType2 data packet so the relay
 // path can be exercised without going through the full wire-format packet
 // builder.
 func buildHT2Packet(transportID, destHash []byte, hops byte, payload []byte) []byte {
@@ -81,7 +81,7 @@ func buildHT2Packet(transportID, destHash []byte, hops byte, payload []byte) []b
 	return out
 }
 
-// TestForwardTransportPacketRewritesNextHop verifies the HEADER_TYPE_2
+// TestForwardTransportPacketRewritesNextHop verifies the HeaderType2
 // transit path: when we receive a packet whose TransportID equals our
 // identity hash and the destination has hops > 1 in our path table, the
 // outbound copy must contain the next hop transport id (not ours) and
@@ -141,7 +141,7 @@ func TestForwardTransportPacketRewritesNextHop(t *testing.T) {
 
 // TestForwardTransportPacketLastHopStripsHeader verifies that when the
 // final hop is one away (path.HopCount == 1) we collapse the packet to
-// HEADER_TYPE_1 + broadcast so the destination sees a normal directly-
+// HeaderType1 + broadcast so the destination sees a normal directly-
 // addressed packet, matching Transport.inbound's remaining_hops==1
 // branch.
 func TestForwardTransportPacketLastHopStripsHeader(t *testing.T) {
@@ -191,7 +191,7 @@ func TestForwardTransportPacketLastHopStripsHeader(t *testing.T) {
 }
 
 // TestForwardTransportPacketDisabledByConfig confirms the EnableTransport
-// gate: when the local instance is not a transport node, HEADER_TYPE_2
+// gate: when the local instance is not a transport node, HeaderType2
 // packets addressed to our transport id are dropped (returns true,
 // nothing forwarded) instead of being silently relayed.
 func TestForwardTransportPacketDisabledByConfig(t *testing.T) {
@@ -219,7 +219,7 @@ func TestForwardTransportPacketDisabledByConfig(t *testing.T) {
 }
 
 // TestForwardTransportPacketIgnoresOtherTransportID verifies that a
-// HEADER_TYPE_2 packet whose transport id does not match ours falls
+// HeaderType2 packet whose transport id does not match ours falls
 // through to the local-destination handling path (which itself will
 // drop it when no destination exists). The relay must not transmit
 // anything on outbound interfaces in that case.

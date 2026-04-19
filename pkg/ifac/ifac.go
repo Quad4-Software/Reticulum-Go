@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 
 package ifac
 
@@ -16,19 +16,18 @@ import (
 // outer Interface Access Code is present in the packet.
 const IFACFlag byte = 0x80
 
-// MinSize matches Reticulum.IFAC_MIN_SIZE.
+// MinSize is the smallest accepted IFAC size in bytes.
 const MinSize = 1
 
-// DefaultSize matches the per-interface DEFAULT_IFAC_SIZE used by UDP, TCP,
-// AutoInterface, BackboneInterface, etc. in the reference stack.
+// DefaultSize is the default outer Interface Access Code size in bytes for
+// UDP, TCP, AutoInterface, BackboneInterface and similar interfaces.
 const DefaultSize = 16
 
-// SaltHex matches Reticulum.IFAC_SALT (used as the HKDF salt that turns a
-// netname/passphrase into a 64-byte interface key).
+// SaltHex is the fixed HKDF salt used to turn a netname/passphrase pair into
+// a 64-byte interface key.
 const SaltHex = "adf54d882c9a9b80771eb4995d702d4a3e733391b2a0f53f416d9f907e55cff8"
 
-// keyLen is the size in bytes of the HKDF output that gets loaded as a
-// Reticulum Identity (32-byte X25519 + 32-byte Ed25519 seed).
+// keyLen is the HKDF output size in bytes (32-byte X25519 + 32-byte Ed25519 seed).
 const keyLen = 64
 
 // Salt returns a fresh copy of the IFAC salt bytes.
@@ -54,9 +53,7 @@ func (i *Identity) Size() int { return i.size }
 // Key returns the 64-byte HKDF output used as the masking salt.
 func (i *Identity) Key() []byte { return append([]byte(nil), i.key...) }
 
-// Sign returns the last `size` bytes of the Ed25519 signature of `raw`,
-// matching `interface.ifac_identity.sign(raw)[-interface.ifac_size:]` in the
-// reference stack.
+// Sign returns the last `size` bytes of the Ed25519 signature of `raw`.
 func (i *Identity) Sign(raw []byte) ([]byte, error) {
 	sig, err := i.identity.Sign(raw)
 	if err != nil {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package resource
 
 import (
@@ -48,7 +48,7 @@ type Resource struct {
 
 func New(data any, autoCompress bool) (*Resource, error) {
 	r := &Resource{
-		status:         STATUS_PENDING,
+		status:         StatusPending,
 		compressed:     false,
 		autoCompress:   autoCompress,
 		completedParts: make(map[uint16]bool),
@@ -80,8 +80,8 @@ func New(data any, autoCompress bool) (*Resource, error) {
 	}
 
 	// Calculate segments needed
-	r.segments = uint16((r.dataSize + DEFAULT_SEGMENT_SIZE - 1) / DEFAULT_SEGMENT_SIZE) // #nosec G115
-	if r.segments > MAX_SEGMENTS {
+	r.segments = uint16((r.dataSize + DefaultSegmentSize - 1) / DefaultSegmentSize) // #nosec G115
+	if r.segments > MaxSegments {
 		return nil, errors.New("resource too large")
 	}
 
@@ -175,8 +175,8 @@ func (r *Resource) Cancel() {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	if r.status == STATUS_PENDING || r.status == STATUS_ACTIVE {
-		r.status = STATUS_CANCELLED
+	if r.status == StatusPending || r.status == StatusActive {
+		r.status = StatusCancelled
 		r.completedAt = time.Now()
 		if r.callback != nil {
 			r.callback(r)
@@ -205,8 +205,8 @@ func (r *Resource) GetSegmentData(segment uint16) ([]byte, error) {
 		return nil, errors.New("invalid segment number")
 	}
 
-	start := int64(segment) * DEFAULT_SEGMENT_SIZE
-	size := DEFAULT_SEGMENT_SIZE
+	start := int64(segment) * DefaultSegmentSize
+	size := DefaultSegmentSize
 	if segment == r.segments-1 {
 		size = int(r.dataSize - start)
 	}
@@ -249,7 +249,7 @@ func (r *Resource) MarkSegmentComplete(segment uint16) {
 
 	// Check if all segments are complete
 	if completed == int(r.segments) {
-		r.status = STATUS_COMPLETE
+		r.status = StatusComplete
 		r.completedAt = time.Now()
 		if r.callback != nil {
 			r.callback(r)
@@ -268,8 +268,8 @@ func (r *Resource) IsSegmentComplete(segment uint16) bool {
 func (r *Resource) Activate() {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	if r.status == STATUS_PENDING {
-		r.status = STATUS_ACTIVE
+	if r.status == StatusPending {
+		r.status = StatusActive
 	}
 }
 
@@ -277,8 +277,8 @@ func (r *Resource) Activate() {
 func (r *Resource) SetFailed() {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	if r.status != STATUS_COMPLETE {
-		r.status = STATUS_FAILED
+	if r.status != StatusComplete {
+		r.status = StatusFailed
 		r.completedAt = time.Now()
 		if r.callback != nil {
 			r.callback(r)
@@ -299,35 +299,34 @@ func estimateCompressibility(data []byte) float64 {
 
 	// Calculate entropy-based compression estimate
 	uniqueRatio := float64(len(uniqueBytes)) / float64(sampleSize)
-	return 0.3 + (0.7 * uniqueRatio) // Base compression ratio between 0.3 and 1.0
+	return CompressionEntropyBase + (CompressionEntropyRange * uniqueRatio)
 }
 
 func estimateFileCompression(size int64, extension string) int64 {
-	// Compression ratio estimates based on common file types
 	compressionRatios := map[string]float64{
-		".txt":  0.4, // Text compresses well
-		".log":  0.4,
-		".json": 0.4,
-		".xml":  0.4,
-		".html": 0.4,
-		".csv":  0.5,
-		".doc":  0.8, // Already compressed
-		".docx": 0.95,
-		".pdf":  0.95,
-		".jpg":  0.99, // Already compressed
-		".jpeg": 0.99,
-		".png":  0.99,
-		".gif":  0.99,
-		".mp3":  0.99,
-		".mp4":  0.99,
-		".zip":  0.99,
-		".gz":   0.99,
-		".rar":  0.99,
+		".txt":  CompressionRatioText,
+		".log":  CompressionRatioText,
+		".json": CompressionRatioText,
+		".xml":  CompressionRatioText,
+		".html": CompressionRatioText,
+		".csv":  CompressionRatioCSV,
+		".doc":  CompressionRatioOfficeLegacy,
+		".docx": CompressionRatioOfficeModern,
+		".pdf":  CompressionRatioOfficeModern,
+		".jpg":  CompressionRatioAlreadyPacked,
+		".jpeg": CompressionRatioAlreadyPacked,
+		".png":  CompressionRatioAlreadyPacked,
+		".gif":  CompressionRatioAlreadyPacked,
+		".mp3":  CompressionRatioAlreadyPacked,
+		".mp4":  CompressionRatioAlreadyPacked,
+		".zip":  CompressionRatioAlreadyPacked,
+		".gz":   CompressionRatioAlreadyPacked,
+		".rar":  CompressionRatioAlreadyPacked,
 	}
 
 	ratio, exists := compressionRatios[extension]
 	if !exists {
-		ratio = 0.7 // Default compression ratio for unknown types
+		ratio = CompressionRatioUnknown
 	}
 
 	return int64(float64(size) * ratio)
@@ -368,7 +367,7 @@ func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), 
 	}
 
 	uncompressed := body
-	randomHash := make([]byte, RANDOM_HASH_SIZE)
+	randomHash := make([]byte, RandomHashSize)
 	if _, err := io.ReadFull(rand.Reader, randomHash); err != nil {
 		return err
 	}
@@ -406,14 +405,14 @@ func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), 
 	r.segmentIndex = 1
 
 	partCount := (len(innerBlob) + sdu - 1) / sdu
-	if partCount > int(MAX_SEGMENTS) {
+	if partCount > int(MaxSegments) {
 		return errors.New("resource too large")
 	}
 	r.segments = uint16(partCount) // #nosec G115
 	r.transferSize = int64(len(innerBlob))
 	r.dataSize = int64(len(uncompressed))
 
-	r.hashmap = make([]byte, partCount*MAPHASH_LEN)
+	r.hashmap = make([]byte, partCount*MapHashLen)
 	for i := 0; i < partCount; i++ {
 		start := i * sdu
 		end := start + sdu
@@ -422,7 +421,7 @@ func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), 
 		}
 		chunk := innerBlob[start:end]
 		partHash := sha256.Sum256(append(chunk, randomHash...))
-		copy(r.hashmap[i*MAPHASH_LEN:], partHash[:MAPHASH_LEN])
+		copy(r.hashmap[i*MapHashLen:], partHash[:MapHashLen])
 	}
 
 	r.outboundCipher = innerBlob
@@ -527,13 +526,13 @@ func (r *Resource) getHashmap() []byte {
 func (r *Resource) PartIndexForMapHash(mh []byte) int {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
-	if r.hashmap == nil || len(mh) != MAPHASH_LEN {
+	if r.hashmap == nil || len(mh) != MapHashLen {
 		return -1
 	}
-	n := len(r.hashmap) / MAPHASH_LEN
+	n := len(r.hashmap) / MapHashLen
 	for i := 0; i < n; i++ {
-		off := i * MAPHASH_LEN
-		if string(r.hashmap[off:off+MAPHASH_LEN]) == string(mh) {
+		off := i * MapHashLen
+		if string(r.hashmap[off:off+MapHashLen]) == string(mh) {
 			return i
 		}
 	}

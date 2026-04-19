@@ -138,7 +138,7 @@ func TestAnnounceHopCount(t *testing.T) {
 
 	// Create a destination to get a valid hash for this identity
 	// NewAnnouncePacket uses "reticulum-go.node" by default
-	dest, _ := destination.New(id, destination.IN, destination.SINGLE, "reticulum-go.node", tr)
+	dest, _ := destination.New(id, destination.In, destination.Single, "reticulum-go.node", tr)
 	destHash := dest.GetHash()
 
 	// Create a raw announce packet manually to control hop count

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 
 // Live UDP loopback cross-stack interop; set RUN_LIVE_INTEROP=1.
 
@@ -167,7 +167,7 @@ func TestLiveInteropPythonSeesGoAnnouncePath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("identity: %v", err)
 	}
-	destGo, err := destination.New(idGo, destination.IN, destination.SINGLE, interopApp, tr, interopAspect)
+	destGo, err := destination.New(idGo, destination.In, destination.Single, interopApp, tr, interopAspect)
 	if err != nil {
 		t.Fatalf("destination: %v", err)
 	}
@@ -319,7 +319,7 @@ func TestLiveInteropGoLinkPacketEchoPython(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recall python identity: %v", err)
 	}
-	destOut, err := destination.FromHash(pyHash, srvID, destination.SINGLE, tr)
+	destOut, err := destination.FromHash(pyHash, srvID, destination.Single, tr)
 	if err != nil {
 		t.Fatalf("from hash: %v", err)
 	}
@@ -414,7 +414,7 @@ func TestLiveInteropGoResourceToPython(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recall: %v", err)
 	}
-	destOut, err := destination.FromHash(pyHash, srvID, destination.SINGLE, tr)
+	destOut, err := destination.FromHash(pyHash, srvID, destination.Single, tr)
 	if err != nil {
 		t.Fatalf("from hash: %v", err)
 	}
@@ -509,7 +509,7 @@ func TestLiveInteropGoTwoResourcesToPythonSameLink(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recall: %v", err)
 	}
-	destOut, err := destination.FromHash(pyHash, srvID, destination.SINGLE, tr)
+	destOut, err := destination.FromHash(pyHash, srvID, destination.Single, tr)
 	if err != nil {
 		t.Fatalf("from hash: %v", err)
 	}
@@ -564,7 +564,7 @@ func TestLiveInteropPythonResourceToGo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("identity: %v", err)
 	}
-	destGo, err := destination.New(idGo, destination.IN, destination.SINGLE, interopApp, tr, interopAspect)
+	destGo, err := destination.New(idGo, destination.In, destination.Single, interopApp, tr, interopAspect)
 	if err != nil {
 		t.Fatalf("destination: %v", err)
 	}
@@ -574,7 +574,7 @@ func TestLiveInteropPythonResourceToGo(t *testing.T) {
 	established := make(chan struct{})
 	destGo.SetLinkEstablishedCallback(func(v any) {
 		lnk := interopLink(t, v)
-		_ = lnk.SetResourceStrategy(rlink.ACCEPT_ALL)
+		_ = lnk.SetResourceStrategy(rlink.AcceptAll)
 		lnk.SetResourceConcludedCallback(func(v any) {
 			if b, ok := v.([]byte); ok {
 				select {
@@ -660,7 +660,7 @@ func TestLiveInteropPythonInitiatedLinkEcho(t *testing.T) {
 	if err != nil {
 		t.Fatalf("identity: %v", err)
 	}
-	destGo, err := destination.New(idGo, destination.IN, destination.SINGLE, interopApp, tr, interopAspect)
+	destGo, err := destination.New(idGo, destination.In, destination.Single, interopApp, tr, interopAspect)
 	if err != nil {
 		t.Fatalf("destination: %v", err)
 	}
@@ -785,7 +785,7 @@ func TestLiveInteropGoLargeResourceToPython(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recall: %v", err)
 	}
-	destOut, err := destination.FromHash(pyHash, srvID, destination.SINGLE, tr)
+	destOut, err := destination.FromHash(pyHash, srvID, destination.Single, tr)
 	if err != nil {
 		t.Fatalf("from hash: %v", err)
 	}
@@ -881,7 +881,7 @@ func TestLiveInteropGoCompressedResourceToPython(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recall: %v", err)
 	}
-	destOut, err := destination.FromHash(pyHash, srvID, destination.SINGLE, tr)
+	destOut, err := destination.FromHash(pyHash, srvID, destination.Single, tr)
 	if err != nil {
 		t.Fatalf("from hash: %v", err)
 	}
@@ -934,7 +934,7 @@ func TestLiveInteropPythonCompressedResourceToGo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("identity: %v", err)
 	}
-	destGo, err := destination.New(idGo, destination.IN, destination.SINGLE, interopApp, tr, interopAspect)
+	destGo, err := destination.New(idGo, destination.In, destination.Single, interopApp, tr, interopAspect)
 	if err != nil {
 		t.Fatalf("destination: %v", err)
 	}
@@ -944,7 +944,7 @@ func TestLiveInteropPythonCompressedResourceToGo(t *testing.T) {
 	established := make(chan struct{})
 	destGo.SetLinkEstablishedCallback(func(v any) {
 		lnk := interopLink(t, v)
-		_ = lnk.SetResourceStrategy(rlink.ACCEPT_ALL)
+		_ = lnk.SetResourceStrategy(rlink.AcceptAll)
 		lnk.SetResourceConcludedCallback(func(v any) {
 			if b, ok := v.([]byte); ok {
 				select {
@@ -1032,7 +1032,7 @@ func TestLiveInteropGoRejectIncomingResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("identity: %v", err)
 	}
-	destGo, err := destination.New(idGo, destination.IN, destination.SINGLE, interopApp, tr, interopAspect)
+	destGo, err := destination.New(idGo, destination.In, destination.Single, interopApp, tr, interopAspect)
 	if err != nil {
 		t.Fatalf("destination: %v", err)
 	}
@@ -1040,7 +1040,7 @@ func TestLiveInteropGoRejectIncomingResource(t *testing.T) {
 
 	destGo.SetLinkEstablishedCallback(func(v any) {
 		lnk := interopLink(t, v)
-		_ = lnk.SetResourceStrategy(rlink.ACCEPT_NONE)
+		_ = lnk.SetResourceStrategy(rlink.AcceptNone)
 		lnk.Start()
 	})
 
@@ -1102,7 +1102,7 @@ func TestLiveInteropPythonLinkRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("identity: %v", err)
 	}
-	destGo, err := destination.New(idGo, destination.IN, destination.SINGLE, interopApp, tr, interopAspect)
+	destGo, err := destination.New(idGo, destination.In, destination.Single, interopApp, tr, interopAspect)
 	if err != nil {
 		t.Fatalf("destination: %v", err)
 	}
@@ -1111,7 +1111,7 @@ func TestLiveInteropPythonLinkRequest(t *testing.T) {
 	const reqPath = "interop_req_path"
 	if err := destGo.RegisterRequestHandler(reqPath, func(_ string, _ []byte, _ []byte, _ []byte, _ *identity.Identity, _ int64) []byte {
 		return []byte("PONG_FROM_GO")
-	}, destination.ALLOW_ALL, nil); err != nil {
+	}, destination.AllowAll, nil); err != nil {
 		t.Fatalf("RegisterRequestHandler: %v", err)
 	}
 
@@ -1232,7 +1232,7 @@ func TestLiveInteropGoFileResourceToPython(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recall: %v", err)
 	}
-	destOut, err := destination.FromHash(pyHash, srvID, destination.SINGLE, tr)
+	destOut, err := destination.FromHash(pyHash, srvID, destination.Single, tr)
 	if err != nil {
 		t.Fatalf("from hash: %v", err)
 	}

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 
 // Cross-implementation msgpack compatibility test for the blackhole list
 // format. Set RUN_PY_INTEROP=1 to enable (optional interpreter path via env).

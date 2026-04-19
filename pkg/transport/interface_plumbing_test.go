@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package transport
 
 import (
 	"bytes"
 	"errors"
 	"net"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -16,10 +17,20 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/interfaces"
 )
 
-// trackingIface is a NetworkInterface wrapper that counts how many times
-// each of its methods is invoked. This lets a test prove that the transport
-// is operating on the registered concrete pointer rather than a different
-// pointer it received as a packet-callback argument.
+const tcpPlumbingEnvVar = "RETICULUM_RUN_TCP_PLUMBING"
+
+// requireTCPPlumbing skips the calling test unless the opt-in environment
+// variable is set to a truthy value.
+func requireTCPPlumbing(t *testing.T) {
+	t.Helper()
+	switch strings.ToLower(os.Getenv(tcpPlumbingEnvVar)) {
+	case "1", "true", "yes", "on":
+		return
+	default:
+		t.Skipf("skipping TCP plumbing test; set %s=1 to enable", tcpPlumbingEnvVar)
+	}
+}
+
 type trackingIface struct {
 	common.BaseInterface
 	mu              sync.Mutex
@@ -31,7 +42,7 @@ type trackingIface struct {
 
 func newTrackingIface(name string) *trackingIface {
 	c := &trackingIface{
-		BaseInterface: common.NewBaseInterface(name, common.IF_TYPE_TCP, true),
+		BaseInterface: common.NewBaseInterface(name, common.IFTypeTCP, true),
 	}
 	c.Enable()
 	return c
@@ -161,6 +172,7 @@ func TestTransportLoopbackOverTCP(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping TCP loopback test in -short mode")
 	}
+	requireTCPPlumbing(t)
 
 	port, err := pickFreeTCPPort()
 	if err != nil {

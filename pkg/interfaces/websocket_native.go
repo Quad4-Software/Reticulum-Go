@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 //go:build !js
 
 // WebSocketInterface is a native implementation of the WebSocket interface.
@@ -43,20 +43,20 @@ type WebSocketInterface struct {
 }
 
 func NewWebSocketInterface(name string, wsURL string, enabled bool) (*WebSocketInterface, error) {
-	debug.Log(debug.DEBUG_VERBOSE, "NewWebSocketInterface called", "name", name, "url", wsURL, "enabled", enabled)
+	debug.Log(debug.DebugVerbose, "NewWebSocketInterface called", "name", name, "url", wsURL, "enabled", enabled)
 	ws := &WebSocketInterface{
-		BaseInterface: NewBaseInterface(name, common.IF_TYPE_UDP, enabled),
+		BaseInterface: NewBaseInterface(name, common.IFTypeUDP, enabled),
 		wsURL:         wsURL,
 		messageQueue:  make([][]byte, 0),
-		readBuffer:    make([]byte, WS_BUFFER_SIZE),
-		writeBuffer:   make([]byte, WS_BUFFER_SIZE),
+		readBuffer:    make([]byte, WSBufferSize),
+		writeBuffer:   make([]byte, WSBufferSize),
 		done:          make(chan struct{}),
 	}
 
-	ws.MTU = WS_MTU
-	ws.Bitrate = WS_BITRATE
+	ws.MTU = WSMTU
+	ws.Bitrate = WSBitrate
 
-	debug.Log(debug.DEBUG_VERBOSE, "WebSocket interface initialized", "name", name, "mtu", ws.MTU, "bitrate", ws.Bitrate)
+	debug.Log(debug.DebugVerbose, "WebSocket interface initialized", "name", name, "mtu", ws.MTU, "bitrate", ws.Bitrate)
 	return ws, nil
 }
 
@@ -110,12 +110,12 @@ func (wsi *WebSocketInterface) Start() error {
 	wsi.Mutex.Lock()
 	if !wsi.Enabled || wsi.Detached {
 		wsi.Mutex.Unlock()
-		debug.Log(debug.DEBUG_INFO, "WebSocket interface not enabled or detached", "name", wsi.Name)
+		debug.Log(debug.DebugInfo, "WebSocket interface not enabled or detached", "name", wsi.Name)
 		return fmt.Errorf("interface not enabled or detached")
 	}
 	if wsi.conn != nil {
 		wsi.Mutex.Unlock()
-		debug.Log(debug.DEBUG_INFO, "WebSocket already started", "name", wsi.Name)
+		debug.Log(debug.DebugInfo, "WebSocket already started", "name", wsi.Name)
 		return fmt.Errorf("WebSocket already started")
 	}
 	// Only recreate done if it's nil or was closed
@@ -131,11 +131,11 @@ func (wsi *WebSocketInterface) Start() error {
 	}
 	wsi.Mutex.Unlock()
 
-	debug.Log(debug.DEBUG_INFO, "Starting WebSocket connection", "name", wsi.Name, "url", wsi.wsURL)
+	debug.Log(debug.DebugInfo, "Starting WebSocket connection", "name", wsi.Name, "url", wsi.wsURL)
 
 	u, err := url.Parse(wsi.wsURL)
 	if err != nil {
-		debug.Log(debug.DEBUG_ERROR, "Invalid WebSocket URL", "name", wsi.Name, "url", wsi.wsURL, "error", err)
+		debug.Log(debug.DebugError, "Invalid WebSocket URL", "name", wsi.Name, "url", wsi.wsURL, "error", err)
 		return fmt.Errorf("invalid WebSocket URL: %v", err)
 	}
 
@@ -145,9 +145,9 @@ func (wsi *WebSocketInterface) Start() error {
 	if u.Scheme == "wss" {
 		host = u.Host
 		if !strings.Contains(host, ":") {
-			host += fmt.Sprintf(":%d", WS_HTTPS_PORT)
+			host += fmt.Sprintf(":%d", WSHTTPSPort)
 		}
-		tcpConn, err := net.DialTimeout("tcp", host, WS_CONNECT_TIMEOUT)
+		tcpConn, err := net.DialTimeout("tcp", host, WSConnectTimeout)
 		if err != nil {
 			return fmt.Errorf("failed to connect: %v", err)
 		}
@@ -158,24 +158,24 @@ func (wsi *WebSocketInterface) Start() error {
 		})
 		if err := tlsConn.Handshake(); err != nil {
 			_ = tcpConn.Close()
-			debug.Log(debug.DEBUG_ERROR, "TLS handshake failed", "name", wsi.Name, "host", host, "error", err)
+			debug.Log(debug.DebugError, "TLS handshake failed", "name", wsi.Name, "host", host, "error", err)
 			return fmt.Errorf("TLS handshake failed: %v", err)
 		}
 		conn = tlsConn
 	} else if u.Scheme == "ws" {
 		host = u.Host
 		if !strings.Contains(host, ":") {
-			host += fmt.Sprintf(":%d", WS_HTTP_PORT)
+			host += fmt.Sprintf(":%d", WSHTTPPort)
 		}
-		debug.Log(debug.DEBUG_VERBOSE, "Connecting to WebSocket server", "name", wsi.Name, "host", host)
-		tcpConn, err := net.DialTimeout("tcp", host, WS_CONNECT_TIMEOUT)
+		debug.Log(debug.DebugVerbose, "Connecting to WebSocket server", "name", wsi.Name, "host", host)
+		tcpConn, err := net.DialTimeout("tcp", host, WSConnectTimeout)
 		if err != nil {
-			debug.Log(debug.DEBUG_ERROR, "Failed to connect to WebSocket server", "name", wsi.Name, "host", host, "error", err)
+			debug.Log(debug.DebugError, "Failed to connect to WebSocket server", "name", wsi.Name, "host", host, "error", err)
 			return fmt.Errorf("failed to connect: %v", err)
 		}
 		conn = tcpConn
 	} else {
-		debug.Log(debug.DEBUG_ERROR, "Unsupported WebSocket scheme", "name", wsi.Name, "scheme", u.Scheme)
+		debug.Log(debug.DebugError, "Unsupported WebSocket scheme", "name", wsi.Name, "scheme", u.Scheme)
 		return fmt.Errorf("unsupported scheme: %s (use ws:// or wss://)", u.Scheme)
 	}
 
@@ -203,7 +203,7 @@ func (wsi *WebSocketInterface) Start() error {
 	req.Header.Set("Upgrade", "websocket")
 	req.Header.Set("Connection", "Upgrade")
 	req.Header.Set("Sec-WebSocket-Key", key)
-	req.Header.Set("Sec-WebSocket-Version", WS_VERSION)
+	req.Header.Set("Sec-WebSocket-Version", WSVersion)
 	req.Header.Set("User-Agent", "Reticulum-Go/1.0")
 
 	if err := req.Write(conn); err != nil {
@@ -220,7 +220,7 @@ func (wsi *WebSocketInterface) Start() error {
 
 	if resp.StatusCode != http.StatusSwitchingProtocols {
 		_ = conn.Close()
-		debug.Log(debug.DEBUG_ERROR, "WebSocket handshake failed", "name", wsi.Name, "status", resp.StatusCode)
+		debug.Log(debug.DebugError, "WebSocket handshake failed", "name", wsi.Name, "status", resp.StatusCode)
 		return fmt.Errorf("handshake failed: status %d", resp.StatusCode)
 	}
 
@@ -242,7 +242,7 @@ func (wsi *WebSocketInterface) Start() error {
 	wsi.connected = true
 	wsi.Online = true
 
-	debug.Log(debug.DEBUG_INFO, "WebSocket connected", "name", wsi.Name, "url", wsi.wsURL)
+	debug.Log(debug.DebugInfo, "WebSocket connected", "name", wsi.Name, "url", wsi.wsURL)
 
 	queue := make([][]byte, len(wsi.messageQueue))
 	copy(queue, wsi.messageQueue)
@@ -316,9 +316,9 @@ func (wsi *WebSocketInterface) readLoop() {
 			}
 			wsi.Mutex.Unlock()
 
-			debug.Log(debug.DEBUG_INFO, "WebSocket closed", "name", wsi.Name, "error", err)
+			debug.Log(debug.DebugInfo, "WebSocket closed", "name", wsi.Name, "error", err)
 
-			time.Sleep(WS_RECONNECT_DELAY)
+			time.Sleep(WSReconnectDelay)
 
 			wsi.Mutex.RLock()
 			stillEnabled := wsi.Enabled && !wsi.Detached
@@ -345,7 +345,7 @@ func (wsi *WebSocketInterface) readFrameBounded() ([]byte, error) {
 	limit := wsi.MTU
 	wsi.Mutex.RUnlock()
 	if limit <= 0 {
-		limit = WS_MTU
+		limit = WSMTU
 	}
 	return wsi.readFrameWithRemaining(limit)
 }
@@ -359,39 +359,39 @@ func (wsi *WebSocketInterface) readFrameWithRemaining(remaining int) ([]byte, er
 		return nil, io.EOF
 	}
 
-	header := make([]byte, WS_HEADER_SIZE)
+	header := make([]byte, WSHeaderSize)
 	if _, err := io.ReadFull(reader, header); err != nil {
 		return nil, err
 	}
 
-	fin := (header[0] & WS_FRAME_HEADER_FIN) != 0
-	opcode := header[0] & WS_FRAME_HEADER_OPCODE
-	masked := (header[1] & WS_FRAME_HEADER_MASKED) != 0
-	payloadLen := int(header[1] & WS_FRAME_HEADER_LEN)
+	fin := (header[0] & WSFrameHeaderFin) != 0
+	opcode := header[0] & WSFrameHeaderOpcode
+	masked := (header[1] & WSFrameHeaderMasked) != 0
+	payloadLen := int(header[1] & WSFrameHeaderLen)
 
-	if opcode == WS_OPCODE_CLOSE {
+	if opcode == WSOpcodeClose {
 		return nil, io.EOF
 	}
 
-	if opcode == WS_OPCODE_PING {
+	if opcode == WSOpcodePing {
 		return wsi.handlePingFrame(reader, payloadLen, masked)
 	}
 
-	if opcode == WS_OPCODE_PONG {
+	if opcode == WSOpcodePong {
 		return wsi.handlePongFrame(reader, payloadLen, masked)
 	}
 
-	if opcode != WS_OPCODE_BINARY {
+	if opcode != WSOpcodeBinary {
 		return nil, fmt.Errorf("unsupported opcode: %d", opcode)
 	}
 
-	if payloadLen == WS_PAYLOAD_LEN_16BIT {
+	if payloadLen == WSPayloadLen16Bit {
 		lenBytes := make([]byte, 2)
 		if _, err := io.ReadFull(reader, lenBytes); err != nil {
 			return nil, err
 		}
 		payloadLen = int(binary.BigEndian.Uint16(lenBytes))
-	} else if payloadLen == WS_PAYLOAD_LEN_64BIT {
+	} else if payloadLen == WSPayloadLen64Bit {
 		lenBytes := make([]byte, 8)
 		if _, err := io.ReadFull(reader, lenBytes); err != nil {
 			return nil, err
@@ -407,7 +407,7 @@ func (wsi *WebSocketInterface) readFrameWithRemaining(remaining int) ([]byte, er
 		return nil, fmt.Errorf("websocket payload exceeds maximum allowed size")
 	}
 
-	maskKey := make([]byte, WS_MASK_KEY_SIZE)
+	maskKey := make([]byte, WSMaskKeySize)
 	if masked {
 		if _, err := io.ReadFull(reader, maskKey); err != nil {
 			return nil, err
@@ -421,7 +421,7 @@ func (wsi *WebSocketInterface) readFrameWithRemaining(remaining int) ([]byte, er
 
 	if masked {
 		for i := 0; i < payloadLen; i++ {
-			payload[i] ^= maskKey[i%WS_MASK_KEY_SIZE]
+			payload[i] ^= maskKey[i%WSMaskKeySize]
 		}
 	}
 
@@ -447,7 +447,7 @@ func (wsi *WebSocketInterface) Send(data []byte, addr string) error {
 	wsi.Mutex.RUnlock()
 
 	if !enabled || detached {
-		debug.Log(debug.DEBUG_VERBOSE, "WebSocket interface not enabled or detached, dropping packet", "name", wsi.Name, "bytes", len(data))
+		debug.Log(debug.DebugVerbose, "WebSocket interface not enabled or detached, dropping packet", "name", wsi.Name, "bytes", len(data))
 		return fmt.Errorf("interface not enabled")
 	}
 
@@ -456,7 +456,7 @@ func (wsi *WebSocketInterface) Send(data []byte, addr string) error {
 	wsi.Mutex.Unlock()
 
 	if !connected {
-		debug.Log(debug.DEBUG_VERBOSE, "WebSocket not connected, queuing packet", "name", wsi.Name, "bytes", len(data), "queue_size", len(wsi.messageQueue))
+		debug.Log(debug.DebugVerbose, "WebSocket not connected, queuing packet", "name", wsi.Name, "bytes", len(data), "queue_size", len(wsi.messageQueue))
 		wsi.Mutex.Lock()
 		wsi.messageQueue = append(wsi.messageQueue, data)
 		wsi.Mutex.Unlock()
@@ -474,7 +474,7 @@ func (wsi *WebSocketInterface) Send(data []byte, addr string) error {
 			packetType = fmt.Sprintf("0x%02x", data[0])
 		}
 	}
-	debug.Log(debug.DEBUG_INFO, "Sending packet over WebSocket", "name", wsi.Name, "bytes", len(data), "packet_type", packetType)
+	debug.Log(debug.DebugInfo, "Sending packet over WebSocket", "name", wsi.Name, "bytes", len(data), "packet_type", packetType)
 	return wsi.sendWebSocketMessage(data)
 }
 
@@ -487,7 +487,7 @@ func (wsi *WebSocketInterface) sendWebSocketMessage(data []byte) error {
 		return fmt.Errorf("WebSocket not initialized")
 	}
 
-	frame := wsi.createFrame(data, WS_OPCODE_BINARY, true)
+	frame := wsi.createFrame(data, WSOpcodeBinary, true)
 	wsi.Mutex.Lock()
 	_, err := conn.Write(frame)
 	wsi.Mutex.Unlock()
@@ -496,7 +496,7 @@ func (wsi *WebSocketInterface) sendWebSocketMessage(data []byte) error {
 		return fmt.Errorf("failed to send: %v", err)
 	}
 
-	debug.Log(debug.DEBUG_INFO, "WebSocket sent packet successfully", "name", wsi.Name, "bytes", len(data), "frame_bytes", len(frame))
+	debug.Log(debug.DebugInfo, "WebSocket sent packet successfully", "name", wsi.Name, "bytes", len(data), "frame_bytes", len(frame))
 	return nil
 }
 
@@ -506,18 +506,18 @@ func (wsi *WebSocketInterface) sendCloseFrameLocked() {
 		return
 	}
 
-	frame := wsi.createFrame(nil, WS_OPCODE_CLOSE, true)
+	frame := wsi.createFrame(nil, WSOpcodeClose, true)
 	_, _ = conn.Write(frame)
 }
 
 func (wsi *WebSocketInterface) handlePingFrame(reader *bufio.Reader, payloadLen int, masked bool) ([]byte, error) {
-	if payloadLen == WS_PAYLOAD_LEN_16BIT {
+	if payloadLen == WSPayloadLen16Bit {
 		lenBytes := make([]byte, 2)
 		if _, err := io.ReadFull(reader, lenBytes); err != nil {
 			return nil, err
 		}
 		payloadLen = int(binary.BigEndian.Uint16(lenBytes))
-	} else if payloadLen == WS_PAYLOAD_LEN_64BIT {
+	} else if payloadLen == WSPayloadLen64Bit {
 		lenBytes := make([]byte, 8)
 		if _, err := io.ReadFull(reader, lenBytes); err != nil {
 			return nil, err
@@ -533,7 +533,7 @@ func (wsi *WebSocketInterface) handlePingFrame(reader *bufio.Reader, payloadLen 
 		return nil, fmt.Errorf("ping payload too large")
 	}
 
-	maskKey := make([]byte, WS_MASK_KEY_SIZE)
+	maskKey := make([]byte, WSMaskKeySize)
 	if masked {
 		if _, err := io.ReadFull(reader, maskKey); err != nil {
 			return nil, err
@@ -548,7 +548,7 @@ func (wsi *WebSocketInterface) handlePingFrame(reader *bufio.Reader, payloadLen 
 
 		if masked {
 			for i := 0; i < payloadLen; i++ {
-				payload[i] ^= maskKey[i%WS_MASK_KEY_SIZE]
+				payload[i] ^= maskKey[i%WSMaskKeySize]
 			}
 		}
 	}
@@ -558,13 +558,13 @@ func (wsi *WebSocketInterface) handlePingFrame(reader *bufio.Reader, payloadLen 
 }
 
 func (wsi *WebSocketInterface) handlePongFrame(reader *bufio.Reader, payloadLen int, masked bool) ([]byte, error) {
-	if payloadLen == WS_PAYLOAD_LEN_16BIT {
+	if payloadLen == WSPayloadLen16Bit {
 		lenBytes := make([]byte, 2)
 		if _, err := io.ReadFull(reader, lenBytes); err != nil {
 			return nil, err
 		}
 		payloadLen = int(binary.BigEndian.Uint16(lenBytes))
-	} else if payloadLen == WS_PAYLOAD_LEN_64BIT {
+	} else if payloadLen == WSPayloadLen64Bit {
 		lenBytes := make([]byte, 8)
 		if _, err := io.ReadFull(reader, lenBytes); err != nil {
 			return nil, err
@@ -580,7 +580,7 @@ func (wsi *WebSocketInterface) handlePongFrame(reader *bufio.Reader, payloadLen 
 		return nil, fmt.Errorf("pong payload too large")
 	}
 
-	maskKey := make([]byte, WS_MASK_KEY_SIZE)
+	maskKey := make([]byte, WSMaskKeySize)
 	if masked {
 		if _, err := io.ReadFull(reader, maskKey); err != nil {
 			return nil, err
@@ -606,7 +606,7 @@ func (wsi *WebSocketInterface) sendPongFrame(data []byte) {
 		return
 	}
 
-	frame := wsi.createFrame(data, WS_OPCODE_PONG, true)
+	frame := wsi.createFrame(data, WSOpcodePong, true)
 	wsi.Mutex.Lock()
 	_, _ = conn.Write(frame)
 	wsi.Mutex.Unlock()
@@ -614,24 +614,24 @@ func (wsi *WebSocketInterface) sendPongFrame(data []byte) {
 
 func (wsi *WebSocketInterface) createFrame(data []byte, opcode byte, fin bool) []byte {
 	payloadLen := len(data)
-	frame := make([]byte, WS_HEADER_SIZE)
+	frame := make([]byte, WSHeaderSize)
 
 	if fin {
-		frame[0] |= WS_FRAME_HEADER_FIN
+		frame[0] |= WSFrameHeaderFin
 	}
 	frame[0] |= opcode
 
-	if payloadLen < WS_PAYLOAD_LEN_16BIT {
+	if payloadLen < WSPayloadLen16Bit {
 		frame[1] = byte(payloadLen)
 		frame = append(frame, data...)
-	} else if payloadLen < WS_MAX_PAYLOAD_16BIT {
-		frame[1] = WS_PAYLOAD_LEN_16BIT // #nosec G602
+	} else if payloadLen < WSMaxPayload16Bit {
+		frame[1] = WSPayloadLen16Bit // #nosec G602
 		lenBytes := make([]byte, 2)
 		binary.BigEndian.PutUint16(lenBytes, uint16(payloadLen)) // #nosec G115
 		frame = append(frame, lenBytes...)
 		frame = append(frame, data...)
 	} else {
-		frame[1] = WS_PAYLOAD_LEN_64BIT // #nosec G602
+		frame[1] = WSPayloadLen64Bit // #nosec G602
 		lenBytes := make([]byte, 8)
 		binary.BigEndian.PutUint64(lenBytes, uint64(payloadLen)) // #nosec G115
 		frame = append(frame, lenBytes...)
@@ -667,7 +667,7 @@ func (wsi *WebSocketInterface) SendPathRequest(packet []byte) error {
 
 func (wsi *WebSocketInterface) SendLinkPacket(dest []byte, data []byte, timestamp time.Time) error {
 	frame := make([]byte, 0, len(dest)+len(data)+9)
-	frame = append(frame, WS_OPCODE_BINARY)
+	frame = append(frame, WSOpcodeBinary)
 	frame = append(frame, dest...)
 	ts := make([]byte, 8)
 	binary.BigEndian.PutUint64(ts, uint64(timestamp.Unix())) // #nosec G115
@@ -681,7 +681,7 @@ func (wsi *WebSocketInterface) GetBandwidthAvailable() bool {
 }
 
 func generateWebSocketKey() (string, error) {
-	key := make([]byte, WS_KEY_SIZE)
+	key := make([]byte, WSKeySize)
 	if _, err := rand.Read(key); err != nil {
 		return "", err
 	}

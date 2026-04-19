@@ -111,13 +111,13 @@ func TestEncryptDecrypt(t *testing.T) {
 func TestIdentityHash(t *testing.T) {
 	id, _ := New()
 	h := id.Hash()
-	if len(h) != TRUNCATED_HASHLENGTH/8 {
-		t.Errorf("Expected hash length %d, got %d", TRUNCATED_HASHLENGTH/8, len(h))
+	if len(h) != TruncatedHashLength/8 {
+		t.Errorf("Expected hash length %d, got %d", TruncatedHashLength/8, len(h))
 	}
 
 	hexHash := id.Hex()
-	if len(hexHash) != TRUNCATED_HASHLENGTH/4 {
-		t.Errorf("Expected hex hash length %d, got %d", TRUNCATED_HASHLENGTH/4, len(hexHash))
+	if len(hexHash) != TruncatedHashLength/4 {
+		t.Errorf("Expected hex hash length %d, got %d", TruncatedHashLength/4, len(hexHash))
 	}
 }
 
@@ -148,8 +148,8 @@ func TestRatchets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RotateRatchet failed: %v", err)
 	}
-	if len(ratchet) != RATCHETSIZE/8 {
-		t.Errorf("Expected ratchet size %d, got %d", RATCHETSIZE/8, len(ratchet))
+	if len(ratchet) != RatchetSize/8 {
+		t.Errorf("Expected ratchet size %d, got %d", RatchetSize/8, len(ratchet))
 	}
 
 	ratchets := id.GetRatchets()
@@ -184,14 +184,14 @@ func TestRecallIdentity(t *testing.T) {
 func TestTruncatedHash(t *testing.T) {
 	data := []byte("some data")
 	h := TruncatedHash(data)
-	if len(h) != TRUNCATED_HASHLENGTH/8 {
-		t.Errorf("Expected length %d, got %d", TRUNCATED_HASHLENGTH/8, len(h))
+	if len(h) != TruncatedHashLength/8 {
+		t.Errorf("Expected length %d, got %d", TruncatedHashLength/8, len(h))
 	}
 }
 
 func TestGetRandomHash(t *testing.T) {
 	h := GetRandomHash()
-	if len(h) != TRUNCATED_HASHLENGTH/8 {
-		t.Errorf("Expected length %d, got %d", TRUNCATED_HASHLENGTH/8, len(h))
+	if len(h) != TruncatedHashLength/8 {
+		t.Errorf("Expected length %d, got %d", TruncatedHashLength/8, len(h))
 	}
 }

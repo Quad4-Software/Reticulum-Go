@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 
 package interop
 
@@ -38,7 +38,7 @@ func preparePageServerIdentity(t *testing.T, homeDir string) []byte {
 	}
 
 	tr := transport.NewTransport(common.DefaultConfig())
-	dest, err := destination.New(id, destination.IN, destination.SINGLE, "nomadnetwork", tr, "node")
+	dest, err := destination.New(id, destination.In, destination.Single, "nomadnetwork", tr, "node")
 	if err != nil {
 		t.Fatalf("destination hash derive: %v", err)
 	}

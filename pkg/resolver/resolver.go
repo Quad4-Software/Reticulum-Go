@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package resolver
 
 import (
@@ -38,7 +38,7 @@ func (r *Resolver) ResolveIdentity(fullName string) (*identity.Identity, error) 
 	// Hash the full name to create a deterministic identity
 	h := sha256.New()
 	h.Write([]byte(fullName))
-	nameHash := h.Sum(nil)[:identity.NAME_HASH_LENGTH/BitsPerByte]
+	nameHash := h.Sum(nil)[:identity.NameHashLength/BitsPerByte]
 	hashStr := hex.EncodeToString(nameHash)
 
 	// Check if this identity is known

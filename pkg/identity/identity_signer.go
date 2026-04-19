@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package identity
 
 import (
@@ -42,11 +42,11 @@ func NewIdentityWithSigner(x25519Private []byte, signer cryptography.Ed25519Sign
 		mutex:           &sync.RWMutex{},
 	}
 
-	combinedPub := make([]byte, KEYSIZE/8)
-	copy(combinedPub[:KEYSIZE/16], i.publicKey)
-	copy(combinedPub[KEYSIZE/16:], i.verificationKey)
+	combinedPub := make([]byte, KeySize/8)
+	copy(combinedPub[:KeySize/16], i.publicKey)
+	copy(combinedPub[KeySize/16:], i.verificationKey)
 	fullHash := cryptography.Hash(combinedPub)
-	i.hash = fullHash[:TRUNCATED_HASHLENGTH/8]
+	i.hash = fullHash[:TruncatedHashLength/8]
 	i.hexHash = hex.EncodeToString(i.hash)
 
 	return i, nil

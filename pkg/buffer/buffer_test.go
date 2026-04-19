@@ -223,7 +223,7 @@ func (m *mockLink) ValidateLinkProof(pkt *packet.Packet, networkIface common.Net
 }
 
 func TestNewRawChannelReader(t *testing.T) {
-	link := &mockLink{status: transport.STATUS_ACTIVE}
+	link := &mockLink{status: transport.StatusActive}
 	ch := channel.NewChannel(link)
 	reader := NewRawChannelReader(123, ch)
 
@@ -337,7 +337,7 @@ func TestRawChannelReader_HandleMessage(t *testing.T) {
 }
 
 func TestNewRawChannelWriter(t *testing.T) {
-	link := &mockLink{status: transport.STATUS_ACTIVE}
+	link := &mockLink{status: transport.StatusActive}
 	ch := channel.NewChannel(link)
 	writer := NewRawChannelWriter(456, ch)
 
@@ -353,7 +353,7 @@ func TestNewRawChannelWriter(t *testing.T) {
 }
 
 func TestRawChannelWriter_Write(t *testing.T) {
-	link := &mockLink{status: transport.STATUS_ACTIVE}
+	link := &mockLink{status: transport.StatusActive}
 	ch := channel.NewChannel(link)
 	writer := NewRawChannelWriter(1, ch)
 
@@ -377,7 +377,7 @@ func TestRawChannelWriter_Write(t *testing.T) {
 }
 
 func TestRawChannelWriter_Close(t *testing.T) {
-	link := &mockLink{status: transport.STATUS_ACTIVE}
+	link := &mockLink{status: transport.StatusActive}
 	ch := channel.NewChannel(link)
 	writer := NewRawChannelWriter(1, ch)
 
@@ -395,7 +395,7 @@ func TestRawChannelWriter_Close(t *testing.T) {
 }
 
 func TestCreateReader(t *testing.T) {
-	link := &mockLink{status: transport.STATUS_ACTIVE}
+	link := &mockLink{status: transport.StatusActive}
 	ch := channel.NewChannel(link)
 	callback := func(int) {}
 	reader := CreateReader(789, ch, callback)
@@ -406,7 +406,7 @@ func TestCreateReader(t *testing.T) {
 }
 
 func TestCreateWriter(t *testing.T) {
-	link := &mockLink{status: transport.STATUS_ACTIVE}
+	link := &mockLink{status: transport.StatusActive}
 	ch := channel.NewChannel(link)
 	writer := CreateWriter(101, ch)
 
@@ -416,7 +416,7 @@ func TestCreateWriter(t *testing.T) {
 }
 
 func TestCreateBidirectionalBuffer(t *testing.T) {
-	link := &mockLink{status: transport.STATUS_ACTIVE}
+	link := &mockLink{status: transport.StatusActive}
 	ch := channel.NewChannel(link)
 	callback := func(int) {}
 	buf := CreateBidirectionalBuffer(1, 2, ch, callback)

@@ -56,8 +56,8 @@ func TestNewWebSocketInterface(t *testing.T) {
 		t.Errorf("Expected name 'test', got %s", ws.GetName())
 	}
 
-	if ws.GetType() != common.IF_TYPE_UDP {
-		t.Errorf("Expected type IF_TYPE_UDP, got %v", ws.GetType())
+	if ws.GetType() != common.IFTypeUDP {
+		t.Errorf("Expected type IFTypeUDP, got %v", ws.GetType())
 	}
 
 	if ws.GetMTU() != 1064 {

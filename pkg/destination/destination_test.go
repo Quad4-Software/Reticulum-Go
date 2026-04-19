@@ -30,7 +30,7 @@ func TestNewDestination(t *testing.T) {
 	id, _ := identity.New()
 	transport := &mockTransport{config: &common.ReticulumConfig{}}
 
-	dest, err := New(id, IN|OUT, SINGLE, "testapp", transport, "testaspect")
+	dest, err := New(id, In|Out, Single, "testapp", transport, "testaspect")
 	if err != nil {
 		t.Fatalf("New failed: %v", err)
 	}
@@ -53,7 +53,7 @@ func TestFromHash(t *testing.T) {
 	transport := &mockTransport{}
 	hash := make([]byte, 16)
 
-	dest, err := FromHash(hash, id, SINGLE, transport)
+	dest, err := FromHash(hash, id, Single, transport)
 	if err != nil {
 		t.Fatalf("FromHash failed: %v", err)
 	}
@@ -64,14 +64,14 @@ func TestFromHash(t *testing.T) {
 
 func TestRequestHandlers(t *testing.T) {
 	id, _ := identity.New()
-	dest, _ := New(id, IN, SINGLE, "test", &mockTransport{})
+	dest, _ := New(id, In, Single, "test", &mockTransport{})
 
 	path := "test/path"
 	response := []byte("hello")
 
 	err := dest.RegisterRequestHandler(path, func(p string, d []byte, rid []byte, lid []byte, ri *identity.Identity, ra int64) []byte {
 		return response
-	}, ALLOW_ALL, nil)
+	}, AllowAll, nil)
 	if err != nil {
 		t.Fatalf("RegisterRequestHandler failed: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestRequestHandlers(t *testing.T) {
 
 func TestEncryptDecrypt(t *testing.T) {
 	id, _ := identity.New()
-	dest, _ := New(id, IN|OUT, SINGLE, "test", &mockTransport{})
+	dest, _ := New(id, In|Out, Single, "test", &mockTransport{})
 
 	plaintext := []byte("hello world")
 	ciphertext, err := dest.Encrypt(plaintext)
@@ -111,7 +111,7 @@ func TestRatchets(t *testing.T) {
 	ratchetPath := filepath.Join(tmpDir, "ratchets")
 
 	id, _ := identity.New()
-	dest, _ := New(id, IN|OUT, SINGLE, "test", &mockTransport{})
+	dest, _ := New(id, In|Out, Single, "test", &mockTransport{})
 
 	if !dest.EnableRatchets(ratchetPath) {
 		t.Fatal("EnableRatchets failed")
@@ -130,7 +130,7 @@ func TestRatchets(t *testing.T) {
 
 func TestPlainDestination(t *testing.T) {
 	id, _ := identity.New()
-	dest, _ := New(id, IN|OUT, PLAIN, "test", &mockTransport{})
+	dest, _ := New(id, In|Out, Plain, "test", &mockTransport{})
 
 	plaintext := []byte("plain text")
 	ciphertext, _ := dest.Encrypt(plaintext)
@@ -145,9 +145,9 @@ func TestPlainDestination(t *testing.T) {
 }
 
 func TestPlainDestinationHash(t *testing.T) {
-	// A PLAIN destination with no identity should have a hash based only on its name
+	// A Plain destination with no identity should have a hash based only on its name
 	transport := &mockTransport{}
-	dest, err := New(nil, IN|OUT, PLAIN, "testapp", transport, "testaspect")
+	dest, err := New(nil, In|Out, Plain, "testapp", transport, "testaspect")
 	if err != nil {
 		t.Fatalf("New failed: %v", err)
 	}

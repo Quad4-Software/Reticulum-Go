@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 
 // Live IFAC UDP loopback interop. RUN_LIVE_INTEROP=1.
 
@@ -133,7 +133,7 @@ func TestLiveInteropIFACPythonSeesGoAnnounce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("identity: %v", err)
 	}
-	destGo, err := destination.New(idGo, destination.IN, destination.SINGLE, ifacInteropApp, tr, ifacInteropAspect)
+	destGo, err := destination.New(idGo, destination.In, destination.Single, ifacInteropApp, tr, ifacInteropAspect)
 	if err != nil {
 		t.Fatalf("destination: %v", err)
 	}

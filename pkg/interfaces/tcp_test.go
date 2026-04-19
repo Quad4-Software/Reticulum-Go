@@ -12,9 +12,9 @@ func TestEscapeHDLC(t *testing.T) {
 		expected []byte
 	}{
 		{"NoEscape", []byte{0x01, 0x02, 0x03}, []byte{0x01, 0x02, 0x03}},
-		{"EscapeFlag", []byte{0x01, HDLC_FLAG, 0x03}, []byte{0x01, HDLC_ESC, HDLC_FLAG ^ HDLC_ESC_MASK, 0x03}},
-		{"EscapeEsc", []byte{0x01, HDLC_ESC, 0x03}, []byte{0x01, HDLC_ESC, HDLC_ESC ^ HDLC_ESC_MASK, 0x03}},
-		{"EscapeBoth", []byte{HDLC_FLAG, HDLC_ESC}, []byte{HDLC_ESC, HDLC_FLAG ^ HDLC_ESC_MASK, HDLC_ESC, HDLC_ESC ^ HDLC_ESC_MASK}},
+		{"EscapeFlag", []byte{0x01, HDLCFlag, 0x03}, []byte{0x01, HDLCEsc, HDLCFlag ^ HDLCEscMask, 0x03}},
+		{"EscapeEsc", []byte{0x01, HDLCEsc, 0x03}, []byte{0x01, HDLCEsc, HDLCEsc ^ HDLCEscMask, 0x03}},
+		{"EscapeBoth", []byte{HDLCFlag, HDLCEsc}, []byte{HDLCEsc, HDLCFlag ^ HDLCEscMask, HDLCEsc, HDLCEsc ^ HDLCEscMask}},
 		{"Empty", []byte{}, []byte{}},
 	}
 
@@ -35,9 +35,9 @@ func TestEscapeKISS(t *testing.T) {
 		expected []byte
 	}{
 		{"NoEscape", []byte{0x01, 0x02, 0x03}, []byte{0x01, 0x02, 0x03}},
-		{"EscapeFEND", []byte{0x01, KISS_FEND, 0x03}, []byte{0x01, KISS_FESC, KISS_TFEND, 0x03}},
-		{"EscapeFESC", []byte{0x01, KISS_FESC, 0x03}, []byte{0x01, KISS_FESC, KISS_TFESC, 0x03}},
-		{"EscapeBoth", []byte{KISS_FEND, KISS_FESC}, []byte{KISS_FESC, KISS_TFEND, KISS_FESC, KISS_TFESC}},
+		{"EscapeFEND", []byte{0x01, KISSFend, 0x03}, []byte{0x01, KISSFesc, KISSTFend, 0x03}},
+		{"EscapeFESC", []byte{0x01, KISSFesc, 0x03}, []byte{0x01, KISSFesc, KISSTFesc, 0x03}},
+		{"EscapeBoth", []byte{KISSFend, KISSFesc}, []byte{KISSFesc, KISSTFend, KISSFesc, KISSTFesc}},
 		{"Empty", []byte{}, []byte{}},
 	}
 

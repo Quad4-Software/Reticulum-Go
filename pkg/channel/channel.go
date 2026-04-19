@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package channel
 
 import (
@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
 )
@@ -64,7 +63,7 @@ func NewChannel(link transport.LinkInterface) *Channel {
 
 // Send transmits a message over the channel
 func (c *Channel) Send(msg MessageBase) error {
-	if c.link.GetStatus() != transport.STATUS_ACTIVE {
+	if c.link.GetStatus() != transport.StatusActive {
 		return errors.New("link not ready")
 	}
 
@@ -75,7 +74,7 @@ func (c *Channel) Send(msg MessageBase) error {
 	}
 
 	c.mutex.Lock()
-	c.nextSequence = (c.nextSequence + common.ONE) % SeqModulus
+	c.nextSequence = (c.nextSequence + 1) % SeqModulus
 	c.txRing = append(c.txRing, env)
 	c.mutex.Unlock()
 
@@ -110,7 +109,7 @@ func (c *Channel) handleTimeout(packet any) {
 			env.Tries++
 			if err := c.link.Resend(packet); err != nil { // #nosec G104
 				// Handle resend error, e.g., log it or mark envelope as failed
-				debug.Log(debug.DEBUG_INFO, "Failed to resend packet", "error", err)
+				debug.Log(debug.DebugInfo, "Failed to resend packet", "error", err)
 				// Optionally, mark the envelope as failed or remove it from txRing
 				// env.State = MsgStateFailed
 				// c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
@@ -142,7 +141,7 @@ func (c *Channel) getPacketTimeout(tries int) time.Duration {
 		rtt = RTTMinThreshold
 	}
 
-	timeout := math.Pow(TimeoutBaseMultiplier, float64(tries-common.ONE)) * rtt * TimeoutRingMultiplier * float64(len(c.txRing)+TimeoutRingOffset)
+	timeout := math.Pow(TimeoutBaseMultiplier, float64(tries-1)) * rtt * TimeoutRingMultiplier * float64(len(c.txRing)+TimeoutRingOffset)
 	return time.Duration(timeout * float64(time.Second))
 }
 

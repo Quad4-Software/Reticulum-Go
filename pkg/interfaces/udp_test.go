@@ -22,8 +22,8 @@ func TestNewUDPInterface(t *testing.T) {
 		if ui.GetName() != "udpValid" {
 			t.Errorf("GetName() = %s; want udpValid", ui.GetName())
 		}
-		if ui.GetType() != common.IF_TYPE_UDP {
-			t.Errorf("GetType() = %v; want %v", ui.GetType(), common.IF_TYPE_UDP)
+		if ui.GetType() != common.IFTypeUDP {
+			t.Errorf("GetType() = %v; want %v", ui.GetType(), common.IFTypeUDP)
 		}
 		if ui.targetAddr.String() != validTarget {
 			t.Errorf("Resolved targetAddr = %s; want %s", ui.targetAddr.String(), validTarget)

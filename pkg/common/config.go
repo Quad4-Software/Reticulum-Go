@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package common
 
 import (
@@ -69,10 +69,10 @@ func NewReticulumConfig() *ReticulumConfig {
 	return &ReticulumConfig{
 		EnableTransport:     true,
 		ShareInstance:       false,
-		SharedInstancePort:  DEFAULT_SHARED_INSTANCE_PORT,
-		InstanceControlPort: DEFAULT_INSTANCE_CONTROL_PORT,
+		SharedInstancePort:  DefaultSharedInstancePort,
+		InstanceControlPort: DefaultInstanceControlPort,
 		PanicOnInterfaceErr: false,
-		LogLevel:            DEFAULT_LOG_LEVEL,
+		LogLevel:            DefaultLogLevel,
 		Interfaces:          make(map[string]*InterfaceConfig),
 	}
 }
@@ -92,10 +92,10 @@ func DefaultConfig() *ReticulumConfig {
 	return &ReticulumConfig{
 		EnableTransport:     true,
 		ShareInstance:       false,
-		SharedInstancePort:  DEFAULT_SHARED_INSTANCE_PORT,
-		InstanceControlPort: DEFAULT_INSTANCE_CONTROL_PORT,
+		SharedInstancePort:  DefaultSharedInstancePort,
+		InstanceControlPort: DefaultInstanceControlPort,
 		PanicOnInterfaceErr: false,
-		LogLevel:            DEFAULT_LOG_LEVEL,
+		LogLevel:            DefaultLogLevel,
 		Interfaces:          make(map[string]*InterfaceConfig),
 		AppName:             "Go Client",
 		AppAspect:           "node",

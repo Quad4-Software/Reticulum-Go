@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package packet
 
 import (
@@ -87,7 +87,7 @@ func (p *Packet) Pack() error {
 		return nil
 	}
 
-	debug.Log(debug.DEBUG_PACKETS, "Packing packet", "type", p.PacketType, "header", p.HeaderType)
+	debug.Log(debug.DebugPackets, "Packing packet", "type", p.PacketType, "header", p.HeaderType)
 
 	flags := byte(0)
 	flags |= (p.HeaderType << 6) & HeaderMaskHeaderType
@@ -97,23 +97,23 @@ func (p *Packet) Pack() error {
 	flags |= p.PacketType & HeaderMaskPacketType
 
 	header := []byte{flags, p.Hops}
-	debug.Log(debug.DEBUG_TRACE, "Created packet header", "flags", fmt.Sprintf("%08b", flags), "hops", p.Hops)
+	debug.Log(debug.DebugTrace, "Created packet header", "flags", fmt.Sprintf("%08b", flags), "hops", p.Hops)
 
 	if p.HeaderType == HeaderType2 {
 		if p.TransportID == nil {
 			return errors.New("transport ID required for header type 2")
 		}
 		header = append(header, p.TransportID...)
-		debug.Log(debug.DEBUG_ALL, "Added transport ID to header", "transport_id", fmt.Sprintf("%x", p.TransportID))
+		debug.Log(debug.DebugAll, "Added transport ID to header", "transport_id", fmt.Sprintf("%x", p.TransportID))
 	}
 
 	header = append(header, p.DestinationHash...)
 
 	header = append(header, p.Context)
-	debug.Log(debug.DEBUG_PACKETS, "Final header length", "bytes", len(header))
+	debug.Log(debug.DebugPackets, "Final header length", "bytes", len(header))
 
 	p.Raw = append(header, p.Data...)
-	debug.Log(debug.DEBUG_TRACE, "Final packet size", "bytes", len(p.Raw))
+	debug.Log(debug.DebugTrace, "Final packet size", "bytes", len(p.Raw))
 
 	if len(p.Raw) > MTU {
 		return errors.New("packet size exceeds MTU")
@@ -121,7 +121,7 @@ func (p *Packet) Pack() error {
 
 	p.Packed = true
 	p.updateHash()
-	debug.Log(debug.DEBUG_ALL, "Packet hash", "hash", fmt.Sprintf("%x", p.PacketHash))
+	debug.Log(debug.DebugAll, "Packet hash", "hash", fmt.Sprintf("%x", p.PacketHash))
 	return nil
 }
 
@@ -214,13 +214,13 @@ func (p *Packet) Serialize() ([]byte, error) {
 }
 
 func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []byte, transportID []byte) (*Packet, error) {
-	debug.Log(debug.DEBUG_ALL, "Creating new announce packet", "dest_hash", fmt.Sprintf("%x", destHash), "app_data", fmt.Sprintf("%x", appData))
+	debug.Log(debug.DebugAll, "Creating new announce packet", "dest_hash", fmt.Sprintf("%x", destHash), "app_data", fmt.Sprintf("%x", appData))
 
 	// Get public key separated into encryption and signing keys
 	pubKey := identity.GetPublicKey()
 	encKey := pubKey[:32]
 	signKey := pubKey[32:]
-	debug.Log(debug.DEBUG_PACKETS, "Using public keys", "enc_key", fmt.Sprintf("%x", encKey), "sign_key", fmt.Sprintf("%x", signKey))
+	debug.Log(debug.DebugPackets, "Using public keys", "enc_key", fmt.Sprintf("%x", encKey), "sign_key", fmt.Sprintf("%x", signKey))
 
 	// Parse app name from first msgpack element if possible
 	// For nodes, we'll use "reticulum.node" as the name hash
@@ -245,19 +245,19 @@ func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []b
 	// Create name hash (10 bytes)
 	nameHash := sha256.Sum256([]byte(appName))
 	nameHash10 := nameHash[:10]
-	debug.Log(debug.DEBUG_PACKETS, "Using name hash", "name", appName, "hash", fmt.Sprintf("%x", nameHash10))
+	debug.Log(debug.DebugPackets, "Using name hash", "name", appName, "hash", fmt.Sprintf("%x", nameHash10))
 
 	// Create random hash (10 bytes) - 5 bytes random + 5 bytes time
 	randomHash := make([]byte, 10)
 	_, err := rand.Read(randomHash[:5]) // #nosec G104
 	if err != nil {
-		debug.Log(debug.DEBUG_PACKETS, "Failed to read random bytes for hash", "error", err)
+		debug.Log(debug.DebugPackets, "Failed to read random bytes for hash", "error", err)
 		return nil, err // Or handle the error appropriately
 	}
 	timeBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(timeBytes, uint64(time.Now().Unix())) // #nosec G115
 	copy(randomHash[5:], timeBytes[:5])
-	debug.Log(debug.DEBUG_PACKETS, "Generated random hash", "hash", fmt.Sprintf("%x", randomHash))
+	debug.Log(debug.DebugPackets, "Generated random hash", "hash", fmt.Sprintf("%x", randomHash))
 
 	// Prepare ratchet ID if available (not yet implemented)
 	var ratchetID []byte
@@ -271,13 +271,13 @@ func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []b
 	signedData = append(signedData, nameHash10...)
 	signedData = append(signedData, randomHash...)
 	signedData = append(signedData, appData...)
-	debug.Log(debug.DEBUG_TRACE, "Created signed data", "bytes", len(signedData))
+	debug.Log(debug.DebugTrace, "Created signed data", "bytes", len(signedData))
 
 	signature, err := identity.Sign(signedData)
 	if err != nil {
 		return nil, fmt.Errorf("sign announce: %w", err)
 	}
-	debug.Log(debug.DEBUG_PACKETS, "Generated signature", "signature", fmt.Sprintf("%x", signature))
+	debug.Log(debug.DebugPackets, "Generated signature", "signature", fmt.Sprintf("%x", signature))
 
 	// Combine all fields according to spec
 	// Data structure: Public Key (32) + Signing Key (32) + Name Hash (10) + Random Hash (10) + Ratchet (optional) + Signature (64) + App Data
@@ -292,7 +292,7 @@ func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []b
 	data = append(data, signature...) // Signature (64 bytes)
 	data = append(data, appData...)   // Application data (variable)
 
-	debug.Log(debug.DEBUG_TRACE, "Combined packet data", "bytes", len(data))
+	debug.Log(debug.DebugTrace, "Combined packet data", "bytes", len(data))
 
 	// Create the packet with header type 2 (two address fields)
 	p := &Packet{
@@ -303,6 +303,6 @@ func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []b
 		Data:            data,
 	}
 
-	debug.Log(debug.DEBUG_VERBOSE, "Created announce packet", "type", p.PacketType, "header", p.HeaderType)
+	debug.Log(debug.DebugVerbose, "Created announce packet", "type", p.PacketType, "header", p.HeaderType)
 	return p, nil
 }

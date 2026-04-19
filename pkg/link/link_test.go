@@ -49,7 +49,7 @@ func TestLinkRequestResponse(t *testing.T) {
 		sentPackets: make([]*packet.Packet, 0),
 	}
 
-	serverDest, err := destination.New(serverIdent, destination.IN, destination.SINGLE, "testapp", mockTrans, "server")
+	serverDest, err := destination.New(serverIdent, destination.In, destination.Single, "testapp", mockTrans, "server")
 	if err != nil {
 		t.Fatalf("Failed to create server destination: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestLinkRequestResponse(t *testing.T) {
 			t.Errorf("Expected path %s, got %s", testPath, path)
 		}
 		return expectedResponse
-	}, destination.ALLOW_ALL, nil)
+	}, destination.AllowAll, nil)
 	if err != nil {
 		t.Fatalf("Failed to register request handler: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestLinkRequestHandlerNotFound(t *testing.T) {
 	serverIdent, _ := identity.New()
 	mockTrans := &mockTransport{sentPackets: make([]*packet.Packet, 0)}
 
-	serverDest, _ := destination.New(serverIdent, destination.IN, destination.SINGLE, "testapp", mockTrans, "server")
+	serverDest, _ := destination.New(serverIdent, destination.In, destination.Single, "testapp", mockTrans, "server")
 
 	nonExistentPath := "/does/not/exist"
 	pathHash := identity.TruncatedHash([]byte(nonExistentPath))
@@ -116,23 +116,23 @@ func TestLinkResponseHandling(t *testing.T) {
 
 	receipt := &RequestReceipt{
 		requestID: requestID,
-		status:    STATUS_PENDING,
+		status:    StatusPending,
 	}
 
 	// Verify initial state
-	if receipt.status != STATUS_PENDING {
+	if receipt.status != StatusPending {
 		t.Errorf("Expected initial status PENDING, got %d", receipt.status)
 	}
 
 	// Simulate setting response
 	receipt.response = responseData
-	receipt.status = STATUS_ACTIVE
+	receipt.status = StatusActive
 
 	if !bytes.Equal(receipt.response, responseData) {
 		t.Errorf("Expected response %q, got %q", responseData, receipt.response)
 	}
 
-	if receipt.status != STATUS_ACTIVE {
+	if receipt.status != StatusActive {
 		t.Errorf("Expected status ACTIVE after response, got %d", receipt.status)
 	}
 }

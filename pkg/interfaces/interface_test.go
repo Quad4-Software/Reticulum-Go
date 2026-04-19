@@ -11,7 +11,7 @@ import (
 )
 
 func TestBaseInterfaceStateChanges(t *testing.T) {
-	bi := NewBaseInterface("test", common.IF_TYPE_TCP, false) // Start disabled
+	bi := NewBaseInterface("test", common.IFTypeTCP, false) // Start disabled
 
 	if bi.IsEnabled() {
 		t.Error("Newly created disabled interface reports IsEnabled() == true")
@@ -46,8 +46,8 @@ func TestBaseInterfaceStateChanges(t *testing.T) {
 	}
 
 	// Reset for Disable test
-	bi = NewBaseInterface("test2", common.IF_TYPE_UDP, true) // Start enabled
-	if !bi.Enabled {                                         // Check the Enabled field directly first
+	bi = NewBaseInterface("test2", common.IFTypeUDP, true) // Start enabled
+	if !bi.Enabled {                                       // Check the Enabled field directly first
 		t.Error("Newly created enabled interface reports Enabled == false")
 	}
 	if bi.IsEnabled() { // IsEnabled should still be false because Online is false
@@ -72,24 +72,24 @@ func TestBaseInterfaceStateChanges(t *testing.T) {
 }
 
 func TestBaseInterfaceGetters(t *testing.T) {
-	bi := NewBaseInterface("getterTest", common.IF_TYPE_AUTO, true)
+	bi := NewBaseInterface("getterTest", common.IFTypeAuto, true)
 
 	if bi.GetName() != "getterTest" {
 		t.Errorf("GetName() = %s; want getterTest", bi.GetName())
 	}
-	if bi.GetType() != common.IF_TYPE_AUTO {
-		t.Errorf("GetType() = %v; want %v", bi.GetType(), common.IF_TYPE_AUTO)
+	if bi.GetType() != common.IFTypeAuto {
+		t.Errorf("GetType() = %v; want %v", bi.GetType(), common.IFTypeAuto)
 	}
-	if bi.GetMode() != common.IF_MODE_FULL {
-		t.Errorf("GetMode() = %v; want %v", bi.GetMode(), common.IF_MODE_FULL)
+	if bi.GetMode() != common.IFModeFull {
+		t.Errorf("GetMode() = %v; want %v", bi.GetMode(), common.IFModeFull)
 	}
-	if bi.GetMTU() != common.DEFAULT_MTU { // Assuming default MTU
-		t.Errorf("GetMTU() = %d; want %d", bi.GetMTU(), common.DEFAULT_MTU)
+	if bi.GetMTU() != common.DefaultMTU { // Assuming default MTU
+		t.Errorf("GetMTU() = %d; want %d", bi.GetMTU(), common.DefaultMTU)
 	}
 }
 
 func TestBaseInterfaceCallbacks(t *testing.T) {
-	bi := NewBaseInterface("callbackTest", common.IF_TYPE_TCP, true)
+	bi := NewBaseInterface("callbackTest", common.IFTypeTCP, true)
 	var wg sync.WaitGroup
 	var callbackCalled bool
 
@@ -121,7 +121,7 @@ func TestBaseInterfaceCallbacks(t *testing.T) {
 }
 
 func TestBaseInterfaceStats(t *testing.T) {
-	bi := NewBaseInterface("statsTest", common.IF_TYPE_UDP, true)
+	bi := NewBaseInterface("statsTest", common.IFTypeUDP, true)
 	bi.Enable() // Need to be Online for ProcessOutgoing
 
 	data1 := []byte{1, 2, 3}
@@ -178,8 +178,8 @@ func (m *mockInterface) Send(data []byte, addr string) error {
 	return nil
 }
 
-func (m *mockInterface) GetType() common.InterfaceType                  { return common.IF_TYPE_NONE }
-func (m *mockInterface) GetMode() common.InterfaceMode                  { return common.IF_MODE_FULL }
+func (m *mockInterface) GetType() common.InterfaceType                  { return common.IFTypeNone }
+func (m *mockInterface) GetMode() common.InterfaceMode                  { return common.IFModeFull }
 func (m *mockInterface) ProcessIncoming(data []byte)                    {}
 func (m *mockInterface) ProcessOutgoing(data []byte) error              { return nil }
 func (m *mockInterface) SendPathRequest([]byte) error                   { return nil }

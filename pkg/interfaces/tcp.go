@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package interfaces
 
 import (
@@ -32,13 +32,13 @@ type TCPClientInterface struct {
 
 func NewTCPClientInterface(name string, targetHost string, targetPort int, kissFraming bool, i2pTunneled bool, enabled bool) (*TCPClientInterface, error) {
 	tc := &TCPClientInterface{
-		BaseInterface:     NewBaseInterface(name, common.IF_TYPE_TCP, enabled),
+		BaseInterface:     NewBaseInterface(name, common.IFTypeTCP, enabled),
 		targetAddr:        targetHost,
 		targetPort:        targetPort,
 		kissFraming:       kissFraming,
 		i2pTunneled:       i2pTunneled,
 		initiator:         true,
-		maxReconnectTries: RECONNECT_WAIT * TCP_PROBES_COUNT,
+		maxReconnectTries: ReconnectWait * TCPProbesCount,
 		packetBuffer:      make([]byte, 0),
 		neverConnected:    true,
 		done:              make(chan struct{}),
@@ -86,7 +86,7 @@ func (tc *TCPClientInterface) Start() error {
 	tc.Mutex.Unlock()
 
 	addr := net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort))
-	conn, err := net.DialTimeout("tcp", addr, TCP_CONNECT_TIMEOUT)
+	conn, err := net.DialTimeout("tcp", addr, TCPConnectTimeout)
 	if err != nil {
 		return err
 	}
@@ -99,11 +99,11 @@ func (tc *TCPClientInterface) Start() error {
 	switch runtime.GOOS {
 	case "linux":
 		if err := tc.setTimeoutsLinux(); err != nil {
-			debug.Log(debug.DEBUG_ERROR, "Failed to set Linux TCP timeouts", "error", err)
+			debug.Log(debug.DebugError, "Failed to set Linux TCP timeouts", "error", err)
 		}
 	case "darwin":
 		if err := tc.setTimeoutsOSX(); err != nil {
-			debug.Log(debug.DEBUG_ERROR, "Failed to set OSX TCP timeouts", "error", err)
+			debug.Log(debug.DebugError, "Failed to set OSX TCP timeouts", "error", err)
 		}
 	}
 
@@ -148,10 +148,10 @@ func (tc *TCPClientInterface) ProcessOutgoing(data []byte) error {
 
 	// For TCP connections, use HDLC framing
 	var frame []byte
-	frame = append([]byte{HDLC_FLAG}, escapeHDLC(data)...)
-	frame = append(frame, HDLC_FLAG)
+	frame = append([]byte{HDLCFlag}, escapeHDLC(data)...)
+	frame = append(frame, HDLCFlag)
 
-	debug.Log(debug.DEBUG_ALL, "TCP interface writing to network", "name", tc.Name, "bytes", len(frame))
+	debug.Log(debug.DebugAll, "TCP interface writing to network", "name", tc.Name, "bytes", len(frame))
 
 	tc.Mutex.RLock()
 	conn := tc.conn
@@ -163,22 +163,22 @@ func (tc *TCPClientInterface) ProcessOutgoing(data []byte) error {
 
 	_, err := conn.Write(frame)
 	if err != nil {
-		debug.Log(debug.DEBUG_CRITICAL, "TCP interface write failed", "name", tc.Name, "error", err)
+		debug.Log(debug.DebugCritical, "TCP interface write failed", "name", tc.Name, "error", err)
 	}
 	return err
 }
 
 func (tc *TCPClientInterface) Send(data []byte, address string) error {
-	debug.Log(debug.DEBUG_VERBOSE, "Interface sending bytes", "name", tc.Name, "bytes", len(data), "address", address)
+	debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", tc.Name, "bytes", len(data), "address", address)
 
 	masked, err := common.ApplyIFACOutbound(tc, data)
 	if err != nil {
-		debug.Log(debug.DEBUG_CRITICAL, "Failed to mask outgoing packet for IFAC", "name", tc.Name, "error", err)
+		debug.Log(debug.DebugCritical, "Failed to mask outgoing packet for IFAC", "name", tc.Name, "error", err)
 		return err
 	}
 
 	if err := tc.ProcessOutgoing(masked); err != nil {
-		debug.Log(debug.DEBUG_CRITICAL, "Interface failed to send data", "name", tc.Name, "error", err)
+		debug.Log(debug.DebugCritical, "Interface failed to send data", "name", tc.Name, "error", err)
 		return err
 	}
 
@@ -231,7 +231,7 @@ func (tc *TCPClientInterface) readLoop() {
 		for i := range n {
 			b := buffer[i]
 
-			if b == HDLC_FLAG {
+			if b == HDLCFlag {
 				if inFrame && len(dataBuffer) > 0 {
 					tc.handlePacket(dataBuffer)
 					dataBuffer = dataBuffer[:0]
@@ -241,11 +241,11 @@ func (tc *TCPClientInterface) readLoop() {
 			}
 
 			if inFrame {
-				if b == HDLC_ESC {
+				if b == HDLCEsc {
 					escape = true
 				} else {
 					if escape {
-						b ^= HDLC_ESC_MASK
+						b ^= HDLCEscMask
 						escape = false
 					}
 					if len(dataBuffer) >= maxHDLC {
@@ -263,7 +263,7 @@ func (tc *TCPClientInterface) readLoop() {
 
 func (tc *TCPClientInterface) handlePacket(data []byte) {
 	if len(data) < 1 {
-		debug.Log(debug.DEBUG_ALL, "Received invalid packet: empty")
+		debug.Log(debug.DebugAll, "Received invalid packet: empty")
 		return
 	}
 
@@ -272,15 +272,15 @@ func (tc *TCPClientInterface) handlePacket(data []byte) {
 	tc.lastRx = lastRx
 	tc.Mutex.Unlock()
 
-	debug.Log(debug.DEBUG_ALL, "Received packet", "type", fmt.Sprintf("0x%02x", data[0]), "size", len(data))
+	debug.Log(debug.DebugAll, "Received packet", "type", fmt.Sprintf("0x%02x", data[0]), "size", len(data))
 
 	tc.ProcessIncoming(data)
 }
 
 func (tc *TCPClientInterface) teardown() {
 	tc.Online = false
-	tc.IN = false
-	tc.OUT = false
+	tc.In = false
+	tc.Out = false
 	if tc.conn != nil {
 		_ = tc.conn.Close()
 	}
@@ -290,8 +290,8 @@ func (tc *TCPClientInterface) teardown() {
 func escapeHDLC(data []byte) []byte {
 	escaped := make([]byte, 0, len(data)*2)
 	for _, b := range data {
-		if b == HDLC_FLAG || b == HDLC_ESC {
-			escaped = append(escaped, HDLC_ESC, b^HDLC_ESC_MASK)
+		if b == HDLCFlag || b == HDLCEsc {
+			escaped = append(escaped, HDLCEsc, b^HDLCEscMask)
 		} else {
 			escaped = append(escaped, b)
 		}
@@ -302,10 +302,10 @@ func escapeHDLC(data []byte) []byte {
 func escapeKISS(data []byte) []byte {
 	escaped := make([]byte, 0, len(data)*2)
 	for _, b := range data {
-		if b == KISS_FEND {
-			escaped = append(escaped, KISS_FESC, KISS_TFEND)
-		} else if b == KISS_FESC {
-			escaped = append(escaped, KISS_FESC, KISS_TFESC)
+		if b == KISSFend {
+			escaped = append(escaped, KISSFesc, KISSTFend)
+		} else if b == KISSFesc {
+			escaped = append(escaped, KISSFesc, KISSTFesc)
 		} else {
 			escaped = append(escaped, b)
 		}
@@ -377,7 +377,7 @@ func (tc *TCPClientInterface) reconnect() {
 			return
 		}
 
-		debug.Log(debug.DEBUG_VERBOSE, "Failed to reconnect", "target", net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort)), "attempt", retries+1, "maxTries", tc.maxReconnectTries, "error", err)
+		debug.Log(debug.DebugVerbose, "Failed to reconnect", "target", net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort)), "attempt", retries+1, "maxTries", tc.maxReconnectTries, "error", err)
 
 		// Wait with exponential backoff
 		time.Sleep(backoff)
@@ -396,7 +396,7 @@ func (tc *TCPClientInterface) reconnect() {
 	tc.Mutex.Unlock()
 
 	tc.teardown()
-	debug.Log(debug.DEBUG_ERROR, "Failed to reconnect after all attempts", "target", net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort)), "maxTries", tc.maxReconnectTries)
+	debug.Log(debug.DebugError, "Failed to reconnect after all attempts", "target", net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort)), "maxTries", tc.maxReconnectTries)
 }
 
 func (tc *TCPClientInterface) Enable() {
@@ -432,7 +432,7 @@ func (tc *TCPClientInterface) GetRTT() time.Duration {
 				if err := info.Control(func(fd uintptr) { // #nosec G104
 					rtt = platformGetRTT(fd)
 				}); err != nil {
-					debug.Log(debug.DEBUG_ERROR, "Error in SyscallConn Control", "error", err)
+					debug.Log(debug.DebugError, "Error in SyscallConn Control", "error", err)
 				}
 			}
 		}
@@ -459,10 +459,10 @@ func NewTCPServerInterface(name string, bindAddr string, bindPort int, kissFrami
 	ts := &TCPServerInterface{
 		BaseInterface: BaseInterface{
 			Name:     name,
-			Mode:     common.IF_MODE_FULL,
-			Type:     common.IF_TYPE_TCP,
+			Mode:     common.IFModeFull,
+			Type:     common.IFTypeTCP,
 			Online:   false,
-			MTU:      common.DEFAULT_MTU,
+			MTU:      common.DefaultMTU,
 			Enabled:  true,
 			Detached: false,
 		},
@@ -587,7 +587,7 @@ func (ts *TCPServerInterface) Start() error {
 				if !online {
 					return // Normal shutdown
 				}
-				debug.Log(debug.DEBUG_ERROR, "Error accepting connection", "error", err)
+				debug.Log(debug.DebugError, "Error accepting connection", "error", err)
 				continue
 			}
 
@@ -667,7 +667,7 @@ func (ts *TCPServerInterface) readHDLCLoop(conn net.Conn) {
 		for i := range n {
 			b := buffer[i]
 
-			if b == HDLC_FLAG {
+			if b == HDLCFlag {
 				if inFrame && len(dataBuffer) > 0 {
 					ts.ProcessIncoming(dataBuffer)
 					dataBuffer = dataBuffer[:0]
@@ -677,11 +677,11 @@ func (ts *TCPServerInterface) readHDLCLoop(conn net.Conn) {
 			}
 
 			if inFrame {
-				if b == HDLC_ESC {
+				if b == HDLCEsc {
 					escape = true
 				} else {
 					if escape {
-						b ^= HDLC_ESC_MASK
+						b ^= HDLCEscMask
 						escape = false
 					}
 					if len(dataBuffer) >= maxHDLC {
@@ -708,11 +708,11 @@ func (ts *TCPServerInterface) ProcessOutgoing(data []byte) error {
 
 	var frame []byte
 	if ts.kissFraming {
-		frame = append([]byte{KISS_FEND}, escapeKISS(data)...)
-		frame = append(frame, KISS_FEND)
+		frame = append([]byte{KISSFend}, escapeKISS(data)...)
+		frame = append(frame, KISSFend)
 	} else {
-		frame = append([]byte{HDLC_FLAG}, escapeHDLC(data)...)
-		frame = append(frame, HDLC_FLAG)
+		frame = append([]byte{HDLCFlag}, escapeHDLC(data)...)
+		frame = append(frame, HDLCFlag)
 	}
 
 	ts.Mutex.Lock()
@@ -724,7 +724,7 @@ func (ts *TCPServerInterface) ProcessOutgoing(data []byte) error {
 
 	for _, conn := range conns {
 		if _, err := conn.Write(frame); err != nil {
-			debug.Log(debug.DEBUG_VERBOSE, "Error writing to connection", "address", conn.RemoteAddr(), "error", err)
+			debug.Log(debug.DebugVerbose, "Error writing to connection", "address", conn.RemoteAddr(), "error", err)
 		}
 	}
 
@@ -732,16 +732,16 @@ func (ts *TCPServerInterface) ProcessOutgoing(data []byte) error {
 }
 
 func (ts *TCPServerInterface) Send(data []byte, address string) error {
-	debug.Log(debug.DEBUG_VERBOSE, "Interface sending bytes", "name", ts.Name, "bytes", len(data), "address", address)
+	debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", ts.Name, "bytes", len(data), "address", address)
 
 	masked, err := common.ApplyIFACOutbound(ts, data)
 	if err != nil {
-		debug.Log(debug.DEBUG_CRITICAL, "Failed to mask outgoing packet for IFAC", "name", ts.Name, "error", err)
+		debug.Log(debug.DebugCritical, "Failed to mask outgoing packet for IFAC", "name", ts.Name, "error", err)
 		return err
 	}
 
 	if err := ts.ProcessOutgoing(masked); err != nil {
-		debug.Log(debug.DEBUG_CRITICAL, "Interface failed to send data", "name", ts.Name, "error", err)
+		debug.Log(debug.DebugCritical, "Interface failed to send data", "name", ts.Name, "error", err)
 		return err
 	}
 

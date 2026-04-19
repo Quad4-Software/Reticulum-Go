@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package link
 
 import (
@@ -27,7 +27,7 @@ func NewPipeInterface(name string) *PipeInterface {
 	return &PipeInterface{
 		BaseInterface: common.BaseInterface{
 			Name:    name,
-			Type:    common.IF_TYPE_UDP,
+			Type:    common.IFTypeUDP,
 			Enabled: true,
 			Online:  true,
 		},
@@ -84,7 +84,7 @@ func TestNodeInterop(t *testing.T) {
 	_ = trA.InitializePathRequestHandler()
 
 	// Create a destination on Node A
-	destA, _ := destination.New(idA, destination.IN, destination.SINGLE, "testapp", trA, "service")
+	destA, _ := destination.New(idA, destination.In, destination.Single, "testapp", trA, "service")
 	destA.AcceptsLinks(true)
 
 	var wg sync.WaitGroup
@@ -232,7 +232,7 @@ func TestNodeInterop(t *testing.T) {
 	// Test path discovery for unknown destination
 	t.Log("Testing path discovery for unknown destination...")
 	// Create another destination on Node A that B doesn't know about yet
-	destA2, _ := destination.New(idA, destination.IN, destination.SINGLE, "anotherapp", trA)
+	destA2, _ := destination.New(idA, destination.In, destination.Single, "anotherapp", trA)
 	destA2.AcceptsLinks(true)
 
 	// Node B shouldn't have a path yet
@@ -285,17 +285,17 @@ func TestLinkRequestResponseInterop(t *testing.T) {
 	_ = trB.RegisterInterface("pipeB", pipeB)
 
 	// Setup Destination on A
-	destA, _ := destination.New(idA, destination.IN, destination.SINGLE, "reqapp", trA)
+	destA, _ := destination.New(idA, destination.In, destination.Single, "reqapp", trA)
 	destA.AcceptsLinks(true)
 
 	// Register multiple handlers to test routing
 	destA.RegisterRequestHandler("test/1", func(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) []byte {
 		return []byte("resp 1")
-	}, destination.ALLOW_ALL, nil)
+	}, destination.AllowAll, nil)
 
 	destA.RegisterRequestHandler("test/2", func(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) []byte {
 		return append([]byte("resp 2: "), data...)
-	}, destination.ALLOW_ALL, nil)
+	}, destination.AllowAll, nil)
 
 	// Node A announces
 	_ = destA.Announce(false, nil, nil)

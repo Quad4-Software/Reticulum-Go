@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package transport
 
 import (
@@ -86,12 +86,12 @@ func (t *Transport) ourTransportID() []byte {
 }
 
 func rebuildHeaderType2(raw []byte, hops byte, nextHop []byte) ([]byte, error) {
-	tail := identity.TRUNCATED_HASHLENGTH/8 + 2
+	tail := identity.TruncatedHashLength/8 + 2
 	if len(raw) < tail {
-		return nil, errors.New("packet too short for HEADER_TYPE_2 rewrite")
+		return nil, errors.New("packet too short for HeaderType2 rewrite")
 	}
-	if len(nextHop) != identity.TRUNCATED_HASHLENGTH/8 {
-		return nil, fmt.Errorf("next hop must be %d bytes, got %d", identity.TRUNCATED_HASHLENGTH/8, len(nextHop))
+	if len(nextHop) != identity.TruncatedHashLength/8 {
+		return nil, fmt.Errorf("next hop must be %d bytes, got %d", identity.TruncatedHashLength/8, len(nextHop))
 	}
 	out := make([]byte, 0, len(raw))
 	out = append(out, raw[0])
@@ -102,15 +102,15 @@ func rebuildHeaderType2(raw []byte, hops byte, nextHop []byte) ([]byte, error) {
 }
 
 func stripHeaderType2(raw []byte, hops byte) ([]byte, error) {
-	tail := identity.TRUNCATED_HASHLENGTH/8 + 2
+	tail := identity.TruncatedHashLength/8 + 2
 	if len(raw) < tail {
-		return nil, errors.New("packet too short for HEADER_TYPE_2 strip")
+		return nil, errors.New("packet too short for HeaderType2 strip")
 	}
 	newFlags := byte(0)
 	newFlags |= (packet.HeaderType1 << 6) & packet.HeaderMaskHeaderType
 	newFlags |= (packet.PropagationBroadcast << 4) & packet.HeaderMaskTransportType
 	newFlags |= raw[0] & 0x0F
-	out := make([]byte, 0, len(raw)-(identity.TRUNCATED_HASHLENGTH/8))
+	out := make([]byte, 0, len(raw)-(identity.TruncatedHashLength/8))
 	out = append(out, newFlags, hops)
 	out = append(out, raw[tail:]...)
 	return out, nil
@@ -126,7 +126,7 @@ func rewriteHopsOnly(raw []byte, hops byte) []byte {
 	return out
 }
 
-// forwardTransportPacket relays HEADER_TYPE_2 when TransportID matches
+// forwardTransportPacket relays HeaderType2 when TransportID matches
 // ours. Returns true if handled (forwarded or dropped); false to fall
 // through to local handling.
 func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourceIface common.NetworkInterface) bool {
@@ -138,20 +138,20 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 		return false
 	}
 	if string(pkt.TransportID) != string(ourID) {
-		debug.Log(debug.DEBUG_VERBOSE, "Transport packet not for us, ignoring",
+		debug.Log(debug.DebugVerbose, "Transport packet not for us, ignoring",
 			"transport_id", fmt.Sprintf("%x", pkt.TransportID),
 			"our_id", fmt.Sprintf("%x", ourID))
 		return false
 	}
 	if !t.transportEnabled() {
-		debug.Log(debug.DEBUG_VERBOSE, "Dropping transport packet: relay disabled",
+		debug.Log(debug.DebugVerbose, "Dropping transport packet: relay disabled",
 			"dest_hash", fmt.Sprintf("%x", pkt.DestinationHash))
 		return true
 	}
 
 	destHash := pkt.DestinationHash
-	if len(destHash) > identity.TRUNCATED_HASHLENGTH/8 {
-		destHash = destHash[:identity.TRUNCATED_HASHLENGTH/8]
+	if len(destHash) > identity.TruncatedHashLength/8 {
+		destHash = destHash[:identity.TruncatedHashLength/8]
 	}
 
 	t.mutex.RLock()
@@ -160,24 +160,24 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 	t.mutex.RUnlock()
 
 	if isLocal {
-		debug.Log(debug.DEBUG_VERBOSE, "Transport packet absorbed (local destination)",
+		debug.Log(debug.DebugVerbose, "Transport packet absorbed (local destination)",
 			"dest_hash", fmt.Sprintf("%x", destHash))
 		return false
 	}
 	if !hasPath || path == nil || path.Interface == nil {
-		debug.Log(debug.DEBUG_INFO, "No path for relayed transport packet, dropping",
+		debug.Log(debug.DebugInfo, "No path for relayed transport packet, dropping",
 			"dest_hash", fmt.Sprintf("%x", destHash))
 		return true
 	}
 	if path.Interface == sourceIface {
-		debug.Log(debug.DEBUG_VERBOSE, "Refusing to relay back onto receiving interface",
+		debug.Log(debug.DebugVerbose, "Refusing to relay back onto receiving interface",
 			"iface", sourceIface.GetName())
 		return true
 	}
 
 	newHops := pkt.Hops + 1
-	if newHops >= MAX_HOPS {
-		debug.Log(debug.DEBUG_INFO, "Transport packet exceeds MAX_HOPS, dropping",
+	if newHops >= MaxHops {
+		debug.Log(debug.DebugInfo, "Transport packet exceeds MaxHops, dropping",
 			"hops", newHops)
 		return true
 	}
@@ -193,7 +193,7 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 		out = rewriteHopsOnly(raw, newHops)
 	}
 	if err != nil {
-		debug.Log(debug.DEBUG_ERROR, "Failed to rewrite transport packet",
+		debug.Log(debug.DebugError, "Failed to rewrite transport packet",
 			"error", err)
 		return true
 	}
@@ -202,13 +202,13 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 		t.recordLinkRelay(pkt, raw, sourceIface, path)
 	}
 
-	debug.Log(debug.DEBUG_INFO, "Relaying transport packet",
+	debug.Log(debug.DebugInfo, "Relaying transport packet",
 		"dest_hash", fmt.Sprintf("%x", destHash),
 		"out_iface", path.Interface.GetName(),
 		"hops_remaining", path.HopCount,
 		"new_hops", newHops)
 	if sendErr := path.Interface.Send(out, ""); sendErr != nil {
-		debug.Log(debug.DEBUG_ERROR, "Failed to relay transport packet",
+		debug.Log(debug.DebugError, "Failed to relay transport packet",
 			"error", sendErr,
 			"out_iface", path.Interface.GetName())
 	}
@@ -242,7 +242,7 @@ func (t *Transport) recordLinkRelay(pkt *packet.Packet, raw []byte, recvIface co
 		OriginalLinkID:  append([]byte(nil), linkID...),
 	}
 	t.linkTable.put(linkID, entry)
-	debug.Log(debug.DEBUG_INFO, "Registered relayed link",
+	debug.Log(debug.DebugInfo, "Registered relayed link",
 		"link_id", fmt.Sprintf("%x", linkID),
 		"remaining_hops", remaining,
 		"recv_iface", recvIface.GetName(),
@@ -261,23 +261,23 @@ func linkIDFromLinkRequest(pkt *packet.Packet, raw []byte) []byte {
 	hasher.Write(dest)
 	hasher.Write(pkt.Data)
 	h := hasher.Sum(nil)
-	if len(h) >= identity.TRUNCATED_HASHLENGTH/8 {
-		return h[:identity.TRUNCATED_HASHLENGTH/8]
+	if len(h) >= identity.TruncatedHashLength/8 {
+		return h[:identity.TruncatedHashLength/8]
 	}
 	return h
 }
 
 func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterface) bool {
-	if t.linkTable == nil || len(raw) < identity.TRUNCATED_HASHLENGTH/8+2 {
+	if t.linkTable == nil || len(raw) < identity.TruncatedHashLength/8+2 {
 		return false
 	}
-	linkID := raw[2 : identity.TRUNCATED_HASHLENGTH/8+2]
+	linkID := raw[2 : identity.TruncatedHashLength/8+2]
 	entry, ok := t.linkTable.get(linkID)
 	if !ok {
 		return false
 	}
 	if !t.transportEnabled() {
-		debug.Log(debug.DEBUG_VERBOSE, "Dropping link relay packet: transport disabled",
+		debug.Log(debug.DebugVerbose, "Dropping link relay packet: transport disabled",
 			"link_id", fmt.Sprintf("%x", linkID))
 		return true
 	}
@@ -291,7 +291,7 @@ func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterf
 	case sourceIface == entry.ReceivedIface:
 		outIface = entry.NextHopIface
 	default:
-		debug.Log(debug.DEBUG_VERBOSE, "Link relay: source iface unknown, dropping",
+		debug.Log(debug.DebugVerbose, "Link relay: source iface unknown, dropping",
 			"link_id", fmt.Sprintf("%x", linkID))
 		return true
 	}
@@ -305,11 +305,11 @@ func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterf
 		newRaw[1]++
 	}
 
-	debug.Log(debug.DEBUG_INFO, "Relaying link data packet",
+	debug.Log(debug.DebugInfo, "Relaying link data packet",
 		"link_id", fmt.Sprintf("%x", linkID),
 		"out_iface", outIface.GetName())
 	if err := outIface.Send(newRaw, ""); err != nil {
-		debug.Log(debug.DEBUG_ERROR, "Failed to relay link data packet",
+		debug.Log(debug.DebugError, "Failed to relay link data packet",
 			"error", err,
 			"out_iface", outIface.GetName())
 	}
@@ -335,7 +335,7 @@ func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag [
 	}
 	for _, iface := range ifaces {
 		if err := t.RequestPath(destHash, iface.GetName(), tag, true); err != nil {
-			debug.Log(debug.DEBUG_VERBOSE, "Path-request rebroadcast failed",
+			debug.Log(debug.DebugVerbose, "Path-request rebroadcast failed",
 				"iface", iface.GetName(), "error", err)
 		}
 	}

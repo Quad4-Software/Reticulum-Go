@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package crossref
 
 import (
@@ -558,19 +558,19 @@ func TestDestinationHash(t *testing.T) {
 
 			identityHash := mustHex(t, vec.IdentityHashHex)
 
-			// SINGLE destination hash = SHA256(nameHash10 + identityHash)[:16]
+			// Single destination hash = SHA256(nameHash10 + identityHash)[:16]
 			combined := append(nameHash10, identityHash...)
 			singleFull := sha256.Sum256(combined)
 			singleHash := singleFull[:16]
 			if hex.EncodeToString(singleHash) != vec.SingleDestHashHex {
-				t.Errorf("SINGLE dest hash mismatch:\n  got:  %x\n  want: %s", singleHash, vec.SingleDestHashHex)
+				t.Errorf("Single dest hash mismatch:\n  got:  %x\n  want: %s", singleHash, vec.SingleDestHashHex)
 			}
 
-			// PLAIN destination hash = SHA256(nameHash10)[:16]
+			// Plain destination hash = SHA256(nameHash10)[:16]
 			plainFull := sha256.Sum256(nameHash10)
 			plainHash := plainFull[:16]
 			if hex.EncodeToString(plainHash) != vec.PlainDestHashHex {
-				t.Errorf("PLAIN dest hash mismatch:\n  got:  %x\n  want: %s", plainHash, vec.PlainDestHashHex)
+				t.Errorf("Plain dest hash mismatch:\n  got:  %x\n  want: %s", plainHash, vec.PlainDestHashHex)
 			}
 		})
 	}
@@ -1315,7 +1315,7 @@ func TestLinkRequestFormat(t *testing.T) {
 			}
 
 			if vec.ECPubSize != 64 {
-				t.Errorf("ECPUBSIZE: got %d, want 64", vec.ECPubSize)
+				t.Errorf("ECPubSize: got %d, want 64", vec.ECPubSize)
 			}
 		})
 	}
@@ -1678,11 +1678,11 @@ func TestLinkConstants(t *testing.T) {
 	if buffer.StreamHeaderCompressed != 0x4000 {
 		t.Errorf("Buffer StreamHeaderCompressed: got 0x%04x, want 0x4000", buffer.StreamHeaderCompressed)
 	}
-	if resource.MAPHASH_LEN != 4 {
-		t.Errorf("Resource MAPHASH_LEN: got %d, want 4", resource.MAPHASH_LEN)
+	if resource.MapHashLen != 4 {
+		t.Errorf("Resource MapHashLen: got %d, want 4", resource.MapHashLen)
 	}
-	if resource.RANDOM_HASH_SIZE != 4 {
-		t.Errorf("Resource RANDOM_HASH_SIZE: got %d, want 4", resource.RANDOM_HASH_SIZE)
+	if resource.RandomHashSize != 4 {
+		t.Errorf("Resource RandomHashSize: got %d, want 4", resource.RandomHashSize)
 	}
 }
 

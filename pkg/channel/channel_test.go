@@ -61,7 +61,7 @@ func TestNewChannel(t *testing.T) {
 }
 
 func TestChannelSend(t *testing.T) {
-	link := &mockLink{status: 1} // STATUS_ACTIVE
+	link := &mockLink{status: 1} // StatusActive
 	c := NewChannel(link)
 
 	msg := &testMessage{data: []byte("test")}

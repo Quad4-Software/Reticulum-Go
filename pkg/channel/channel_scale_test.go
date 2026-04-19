@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package channel
 
 import (
@@ -34,7 +34,7 @@ func BenchmarkChannelScale(b *testing.B) {
 
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("Handlers-%d", size), func(b *testing.B) {
-			link := &scaleMockLink{status: transport.STATUS_ACTIVE}
+			link := &scaleMockLink{status: transport.StatusActive}
 			ch := NewChannel(link)
 
 			for range size {
@@ -61,7 +61,7 @@ func BenchmarkChannelScale(b *testing.B) {
 }
 
 func BenchmarkChannelSendScale(b *testing.B) {
-	link := &scaleMockLink{status: transport.STATUS_ACTIVE}
+	link := &scaleMockLink{status: transport.StatusActive}
 	ch := NewChannel(link)
 	msg := &GenericMessage{Type: 1, Data: []byte("benchmark")}
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 //go:build netbsd
 
 package interfaces
@@ -22,16 +22,16 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 		return fmt.Errorf("failed to enable keepalive: %v", err)
 	}
 
-	keepalivePeriod := TCP_PROBE_INTERVAL_SEC * time.Second
+	keepalivePeriod := TCPProbeIntervalSec * time.Second
 	if tc.i2pTunneled {
-		keepalivePeriod = I2P_PROBE_INTERVAL_SEC * time.Second
+		keepalivePeriod = I2PProbeIntervalSec * time.Second
 	}
 
 	if err := tcpConn.SetKeepAlivePeriod(keepalivePeriod); err != nil {
-		debug.Log(debug.DEBUG_VERBOSE, "Failed to set keepalive period", "error", err)
+		debug.Log(debug.DebugVerbose, "Failed to set keepalive period", "error", err)
 	}
 
-	debug.Log(debug.DEBUG_VERBOSE, "TCP keepalive configured (NetBSD)", "i2p", tc.i2pTunneled)
+	debug.Log(debug.DebugVerbose, "TCP keepalive configured (NetBSD)", "i2p", tc.i2pTunneled)
 	return nil
 }
 

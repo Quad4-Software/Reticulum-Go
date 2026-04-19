@@ -62,7 +62,7 @@ func TestLog(t *testing.T) {
 	debugLevel = flag.Int("debug", 7, "debug level")
 	initialized = false
 
-	Log(DEBUG_INFO, "test message", "key", "value")
+	Log(DebugInfo, "test message", "key", "value")
 }
 
 func TestSetDebugLevel(t *testing.T) {
@@ -109,32 +109,32 @@ func TestLog_LevelFiltering(t *testing.T) {
 	debugLevel = flag.Int("debug", 3, "debug level")
 	initialized = false
 
-	Log(DEBUG_TRACE, "trace message")
-	Log(DEBUG_INFO, "info message")
-	Log(DEBUG_ERROR, "error message")
+	Log(DebugTrace, "trace message")
+	Log(DebugInfo, "info message")
+	Log(DebugError, "error message")
 }
 
 func TestConstants(t *testing.T) {
-	if DEBUG_CRITICAL != 1 {
-		t.Errorf("DEBUG_CRITICAL = %d, want 1", DEBUG_CRITICAL)
+	if DebugCritical != 1 {
+		t.Errorf("DebugCritical = %d, want 1", DebugCritical)
 	}
-	if DEBUG_ERROR != 2 {
-		t.Errorf("DEBUG_ERROR = %d, want 2", DEBUG_ERROR)
+	if DebugError != 2 {
+		t.Errorf("DebugError = %d, want 2", DebugError)
 	}
-	if DEBUG_INFO != 3 {
-		t.Errorf("DEBUG_INFO = %d, want 3", DEBUG_INFO)
+	if DebugInfo != 3 {
+		t.Errorf("DebugInfo = %d, want 3", DebugInfo)
 	}
-	if DEBUG_VERBOSE != 4 {
-		t.Errorf("DEBUG_VERBOSE = %d, want 4", DEBUG_VERBOSE)
+	if DebugVerbose != 4 {
+		t.Errorf("DebugVerbose = %d, want 4", DebugVerbose)
 	}
-	if DEBUG_TRACE != 5 {
-		t.Errorf("DEBUG_TRACE = %d, want 5", DEBUG_TRACE)
+	if DebugTrace != 5 {
+		t.Errorf("DebugTrace = %d, want 5", DebugTrace)
 	}
-	if DEBUG_PACKETS != 6 {
-		t.Errorf("DEBUG_PACKETS = %d, want 6", DEBUG_PACKETS)
+	if DebugPackets != 6 {
+		t.Errorf("DebugPackets = %d, want 6", DebugPackets)
 	}
-	if DEBUG_ALL != 7 {
-		t.Errorf("DEBUG_ALL = %d, want 7", DEBUG_ALL)
+	if DebugAll != 7 {
+		t.Errorf("DebugAll = %d, want 7", DebugAll)
 	}
 }
 
@@ -149,7 +149,7 @@ func TestLog_WithArgs(t *testing.T) {
 	debugLevel = flag.Int("debug", 7, "debug level")
 	initialized = false
 
-	Log(DEBUG_INFO, "test message", "key1", "value1", "key2", "value2")
+	Log(DebugInfo, "test message", "key1", "value1", "key2", "value2")
 }
 
 func TestInit_MultipleCalls(t *testing.T) {
@@ -185,7 +185,7 @@ func TestLog_DisabledLevel(t *testing.T) {
 	debugLevel = flag.Int("debug", 1, "debug level")
 	initialized = false
 
-	Log(DEBUG_TRACE, "this should be filtered")
+	Log(DebugTrace, "this should be filtered")
 }
 
 // captureLog swaps in a buffer-backed slog handler at the given level
@@ -221,20 +221,20 @@ func TestSetDebugLevel_SilencesEverythingButCritical(t *testing.T) {
 	}()
 
 	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
-	debugLevel = flag.Int("debug", DEBUG_INFO, "debug level")
+	debugLevel = flag.Int("debug", DebugInfo, "debug level")
 	mu.Lock()
 	initialized = false
 	mu.Unlock()
 	Init()
 
-	SetDebugLevel(DEBUG_CRITICAL)
+	SetDebugLevel(DebugCritical)
 
-	out := captureLog(t, slogLevelFor(DEBUG_CRITICAL), func() {
-		Log(DEBUG_CRITICAL, "boom")
-		Log(DEBUG_ERROR, "err")
-		Log(DEBUG_INFO, "info")
-		Log(DEBUG_VERBOSE, "verbose")
-		Log(DEBUG_TRACE, "trace")
+	out := captureLog(t, slogLevelFor(DebugCritical), func() {
+		Log(DebugCritical, "boom")
+		Log(DebugError, "err")
+		Log(DebugInfo, "info")
+		Log(DebugVerbose, "verbose")
+		Log(DebugTrace, "trace")
 	})
 
 	if !strings.Contains(out, "boom") {
@@ -259,16 +259,16 @@ func TestSetDebugLevel_RaisesAfterInit(t *testing.T) {
 	}()
 
 	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
-	debugLevel = flag.Int("debug", DEBUG_CRITICAL, "debug level")
+	debugLevel = flag.Int("debug", DebugCritical, "debug level")
 	mu.Lock()
 	initialized = false
 	mu.Unlock()
 	Init()
 
-	SetDebugLevel(DEBUG_TRACE)
+	SetDebugLevel(DebugTrace)
 
-	out := captureLog(t, slogLevelFor(DEBUG_TRACE), func() {
-		Log(DEBUG_TRACE, "trace-now-on")
+	out := captureLog(t, slogLevelFor(DebugTrace), func() {
+		Log(DebugTrace, "trace-now-on")
 	})
 
 	if !strings.Contains(out, "trace-now-on") {
@@ -283,13 +283,13 @@ func TestSlogLevelFor(t *testing.T) {
 		in   int
 		want slog.Level
 	}{
-		{DEBUG_CRITICAL, slog.LevelError},
-		{DEBUG_ERROR, slog.LevelWarn},
-		{DEBUG_INFO, slog.LevelInfo},
-		{DEBUG_VERBOSE, slog.LevelDebug},
-		{DEBUG_TRACE, slog.LevelDebug},
-		{DEBUG_PACKETS, slog.LevelDebug},
-		{DEBUG_ALL, slog.LevelDebug},
+		{DebugCritical, slog.LevelError},
+		{DebugError, slog.LevelWarn},
+		{DebugInfo, slog.LevelInfo},
+		{DebugVerbose, slog.LevelDebug},
+		{DebugTrace, slog.LevelDebug},
+		{DebugPackets, slog.LevelDebug},
+		{DebugAll, slog.LevelDebug},
 	}
 	for _, c := range cases {
 		if got := slogLevelFor(c.in); got != c.want {

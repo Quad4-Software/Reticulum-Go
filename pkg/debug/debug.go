@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package debug
 
 import (
@@ -41,11 +41,11 @@ func rebuildLocked() {
 // slogLevelFor maps an RNS debug level (1-7) to the closest slog level.
 func slogLevelFor(level int) slog.Level {
 	switch {
-	case level >= DEBUG_VERBOSE:
+	case level >= DebugVerbose:
 		return slog.LevelDebug
-	case level >= DEBUG_INFO:
+	case level >= DebugInfo:
 		return slog.LevelInfo
-	case level >= DEBUG_ERROR:
+	case level >= DebugError:
 		return slog.LevelWarn
 	default:
 		return slog.LevelError

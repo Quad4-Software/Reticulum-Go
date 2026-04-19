@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 
 package interop
 
@@ -232,7 +232,7 @@ func TestLiveNomadNetCrawlFetchMU(t *testing.T) {
 			t.Logf("skip %s: no path (%v)", nodeHashHex, err)
 			continue
 		}
-		destOut, err := destination.FromHash(node.destHash, node.id, destination.SINGLE, tr)
+		destOut, err := destination.FromHash(node.destHash, node.id, destination.Single, tr)
 		if err != nil {
 			t.Logf("skip %s: destination from hash failed (%v)", nodeHashHex, err)
 			continue
