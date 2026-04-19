@@ -20,7 +20,7 @@ func sentCount(ti *trackingIface) int {
 
 // signedAnnounce builds a valid announce; dest name must be
 // "reticulum-go.node" to match NewAnnouncePacket name hashing.
-func signedAnnounce(t *testing.T, tr *Transport, id *identity.Identity) ([]byte, []byte) {
+func signedAnnounce(t *testing.T, tr *Transport, id *identity.Identity) (raw, destHash []byte) {
 	t.Helper()
 	dest, err := destination.New(id, destination.IN, destination.SINGLE, "reticulum-go.node", tr)
 	if err != nil {
@@ -31,7 +31,7 @@ func signedAnnounce(t *testing.T, tr *Transport, id *identity.Identity) ([]byte,
 	if err != nil {
 		t.Fatalf("NewAnnouncePacket: %v", err)
 	}
-	raw, err := pkt.Serialize()
+	raw, err = pkt.Serialize()
 	if err != nil {
 		t.Fatalf("Serialize: %v", err)
 	}
@@ -39,7 +39,7 @@ func signedAnnounce(t *testing.T, tr *Transport, id *identity.Identity) ([]byte,
 	return raw, dest.GetHash()
 }
 
-func transportWithIfaceConfig(t *testing.T, inCfg, outCfg *common.InterfaceConfig) (*Transport, *trackingIface, *trackingIface) {
+func transportWithIfaceConfig(t *testing.T, inCfg, outCfg *common.InterfaceConfig) (tr *Transport, in, out *trackingIface) {
 	t.Helper()
 	cfg := &common.ReticulumConfig{
 		EnableTransport: true,
@@ -51,10 +51,10 @@ func transportWithIfaceConfig(t *testing.T, inCfg, outCfg *common.InterfaceConfi
 	if outCfg != nil {
 		cfg.Interfaces["out"] = outCfg
 	}
-	tr := NewTransport(cfg)
+	tr = NewTransport(cfg)
 
-	in := newTrackingIface("in")
-	out := newTrackingIface("out")
+	in = newTrackingIface("in")
+	out = newTrackingIface("out")
 	if err := tr.RegisterInterface("in", in); err != nil {
 		t.Fatalf("register in: %v", err)
 	}

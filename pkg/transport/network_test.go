@@ -20,12 +20,6 @@ func (m *MockInterface) Send(data []byte, destination string) error {
 	m.Mutex.Lock()
 	defer m.Mutex.Unlock()
 
-	// Simulate packet loss
-	if m.dropRate > 0 {
-		// In a real test we'd use rand.Float64()
-		// For deterministic testing, let's just record everything for now
-	}
-
 	m.sentData = append(m.sentData, data)
 	return nil
 }

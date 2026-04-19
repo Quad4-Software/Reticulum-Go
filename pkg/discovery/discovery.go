@@ -301,7 +301,7 @@ func DecodeAppData(raw []byte) (flags byte, payload, stamp []byte, err error) {
 // underlying msgpack decoder. Composite types (arrays, maps, ext) are
 // rejected; only primitives, strings and binary blobs (bounded by max)
 // are accepted.
-func safeDecodeInterface(dec *msgpack.Decoder, max int) (any, error) {
+func safeDecodeInterface(dec *msgpack.Decoder, maxLen int) (any, error) {
 	c, err := dec.PeekCode()
 	if err != nil {
 		return nil, err
@@ -330,7 +330,7 @@ func safeDecodeInterface(dec *msgpack.Decoder, max int) (any, error) {
 		c == msgpcode.Str8 || c == msgpcode.Str16 || c == msgpcode.Str32
 	isBin := c == msgpcode.Bin8 || c == msgpcode.Bin16 || c == msgpcode.Bin32
 	if isStr || isBin {
-		b, err := safeDecodeBytes(dec, max)
+		b, err := safeDecodeBytes(dec, maxLen)
 		if err != nil {
 			return nil, err
 		}
@@ -344,7 +344,7 @@ func safeDecodeInterface(dec *msgpack.Decoder, max int) (any, error) {
 
 // safeDecodeBytes reads a bin/str length and rejects anything whose
 // declared length exceeds the available payload before allocating.
-func safeDecodeBytes(dec *msgpack.Decoder, max int) ([]byte, error) {
+func safeDecodeBytes(dec *msgpack.Decoder, maxLen int) ([]byte, error) {
 	n, err := dec.DecodeBytesLen()
 	if err != nil {
 		return nil, err
@@ -352,8 +352,8 @@ func safeDecodeBytes(dec *msgpack.Decoder, max int) ([]byte, error) {
 	if n < 0 {
 		return nil, nil
 	}
-	if n > max {
-		return nil, fmt.Errorf("discovery: declared bin/str length %d exceeds payload size %d", n, max)
+	if n > maxLen {
+		return nil, fmt.Errorf("discovery: declared bin/str length %d exceeds payload size %d", n, maxLen)
 	}
 	b := make([]byte, n)
 	if _, err := io.ReadFull(dec.Buffered(), b); err != nil {
@@ -395,11 +395,10 @@ func StampValue(workblock, stamp []byte) int {
 			continue
 		}
 		for mask := byte(0x80); mask != 0; mask >>= 1 {
-			if b&mask == 0 {
-				value++
-			} else {
+			if b&mask != 0 {
 				return value
 			}
+			value++
 		}
 	}
 	return value

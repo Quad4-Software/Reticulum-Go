@@ -521,7 +521,7 @@ func peekIsBytesOrString(c byte) bool {
 	return false
 }
 
-func decodeBytesOrString(dec *msgpack.Decoder, max int) ([]byte, error) {
+func decodeBytesOrString(dec *msgpack.Decoder, maxLen int) ([]byte, error) {
 	c, err := dec.PeekCode()
 	if err != nil {
 		return nil, err
@@ -540,8 +540,8 @@ func decodeBytesOrString(dec *msgpack.Decoder, max int) ([]byte, error) {
 	if n < 0 {
 		return nil, nil
 	}
-	if n > max {
-		return nil, fmt.Errorf("blackhole: declared bin/str length %d exceeds payload size %d", n, max)
+	if n > maxLen {
+		return nil, fmt.Errorf("blackhole: declared bin/str length %d exceeds payload size %d", n, maxLen)
 	}
 	b := make([]byte, n)
 	if _, err := io.ReadFull(dec.Buffered(), b); err != nil {
@@ -585,7 +585,7 @@ func decodeNumeric(dec *msgpack.Decoder) (val float64, ok bool, err error) {
 	return 0, false, nil
 }
 
-func decodeEntry(dec *msgpack.Decoder, max int) (Entry, error) {
+func decodeEntry(dec *msgpack.Decoder, maxLen int) (Entry, error) {
 	subLen, err := dec.DecodeMapLen()
 	if err != nil {
 		return Entry{}, fmt.Errorf("decode submap len: %w", err)
@@ -593,7 +593,7 @@ func decodeEntry(dec *msgpack.Decoder, max int) (Entry, error) {
 	if subLen < 0 {
 		return Entry{}, nil
 	}
-	if subLen > 32 || subLen > max {
+	if subLen > 32 || subLen > maxLen {
 		return Entry{}, fmt.Errorf("submap length %d exceeds bounds", subLen)
 	}
 	entry := Entry{}
@@ -604,7 +604,7 @@ func decodeEntry(dec *msgpack.Decoder, max int) (Entry, error) {
 		}
 		switch key {
 		case "source":
-			b, err := decodeBytesOrString(dec, max)
+			b, err := decodeBytesOrString(dec, maxLen)
 			if err != nil {
 				return Entry{}, fmt.Errorf("decode source: %w", err)
 			}
@@ -636,7 +636,7 @@ func decodeEntry(dec *msgpack.Decoder, max int) (Entry, error) {
 			if err != nil {
 				return Entry{}, fmt.Errorf("decode reason: %w", err)
 			}
-			if len(b) > max {
+			if len(b) > maxLen {
 				return Entry{}, fmt.Errorf("reason length %d exceeds payload size", len(b))
 			}
 			entry.Reason = string(b)

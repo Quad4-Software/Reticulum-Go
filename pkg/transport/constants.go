@@ -51,7 +51,7 @@ const (
 	PROPAGATION_RATE = 0.02
 
 	// PathfinderRW is the random window (seconds) added before
-	// retransmitting an announce. Matches Transport.PATHFINDER_RW.
+	// retransmitting an announce.
 	PathfinderRW = 0.5
 
 	// PathfinderR is the number of retransmit retries for queued
