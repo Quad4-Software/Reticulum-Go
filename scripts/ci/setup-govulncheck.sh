@@ -7,5 +7,5 @@ set -eu
 
 export PATH="/usr/local/go/bin:$PATH"
 VER="${1:-v1.1.4}"
-run_priv env PATH="$PATH" GOBIN=/usr/local/bin go install "golang.org/x/vuln/cmd/govulncheck@${VER}"
+run_priv env PATH="$PATH" GOBIN=/usr/local/bin GOFLAGS= GOPROXY=https://proxy.golang.org,direct go install "golang.org/x/vuln/cmd/govulncheck@${VER}"
 command -v govulncheck

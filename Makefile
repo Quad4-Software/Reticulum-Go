@@ -3,6 +3,10 @@
 .PHONY: test-short test-race test-crossref test-wasm test-all coverage bench debug release
 
 GOCMD := go
+# Use committed vendor/ for builds and tests; targets that fetch modules or tools clear these.
+GOFLAGS := -mod=vendor
+GOPROXY := off
+export GOFLAGS GOPROXY
 GOVULNCHECK_VER ?= v1.1.4
 BINARY_NAME := reticulum-go
 BUILD_DIR := bin
@@ -36,8 +40,8 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 deps:
-	$(GOCMD) mod download
-	$(GOCMD) mod verify
+	env GOFLAGS= GOPROXY=https://proxy.golang.org,direct $(GOCMD) mod download
+	env GOFLAGS= GOPROXY=https://proxy.golang.org,direct $(GOCMD) mod verify
 
 test:
 	$(GOCMD) test -v ./...
@@ -74,11 +78,11 @@ lint:
 	revive -config revive.toml -formatter friendly ./pkg/* ./cmd/* ./internal/*
 
 vulncheck:
-	$(GOCMD) run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VER) ./...
+	env GOFLAGS= GOPROXY=https://proxy.golang.org,direct $(GOCMD) run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VER) ./...
 
 # Scope packages so module cache under .cache/ is not scanned (avoids false positives from dependencies).
 gosec:
-	CGO_ENABLED=0 $(GOCMD) run github.com/securego/gosec/v2/cmd/gosec@latest -quiet ./pkg/... ./cmd/... ./internal/... ./tests/...
+	env GOFLAGS= GOPROXY=https://proxy.golang.org,direct CGO_ENABLED=0 $(GOCMD) run github.com/securego/gosec/v2/cmd/gosec@latest -quiet ./pkg/... ./cmd/... ./internal/... ./tests/...
 
 check: fmt vet lint test-short vulncheck gosec
 

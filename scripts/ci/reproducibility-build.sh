@@ -7,6 +7,8 @@ set -eu
 
 MAIN_PACKAGE="${MAIN_PACKAGE:-./cmd/reticulum-go}"
 export CGO_ENABLED="${CGO_ENABLED:-0}"
+export GOFLAGS="${GOFLAGS:--mod=vendor}"
+export GOPROXY="${GOPROXY:-off}"
 
 if [ -z "${GOOS:-}" ]; then
 	GOOS="$(go env GOOS)"

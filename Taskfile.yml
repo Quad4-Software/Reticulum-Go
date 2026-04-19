@@ -1,5 +1,7 @@
 version: '3'
 env:
+  GOFLAGS: -mod=vendor
+  GOPROXY: 'off'
   GOPRIVATE: git.quad4.io
   GONOSUMDB: git.quad4.io
 
@@ -84,6 +86,9 @@ tasks:
 
   vulncheck:
     desc: Run govulncheck (Go vulnerability database)
+    env:
+      GOFLAGS: ''
+      GOPROXY: 'https://proxy.golang.org,direct'
     cmds:
       - go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 
@@ -192,6 +197,7 @@ tasks:
   deps:
     desc: Download and verify dependencies
     env:
+      GOFLAGS: ''
       GOPROXY: '{{.GOPROXY | default "https://proxy.golang.org,direct"}}'
     cmds:
       - '{{.GOCMD}} mod download'
@@ -199,11 +205,17 @@ tasks:
 
   mod-tidy:
     desc: Tidy go.mod file
+    env:
+      GOFLAGS: ''
+      GOPROXY: 'https://proxy.golang.org,direct'
     cmds:
       - '{{.GOCMD}} mod tidy'
 
   mod-verify:
     desc: Verify dependencies
+    env:
+      GOFLAGS: ''
+      GOPROXY: 'https://proxy.golang.org,direct'
     cmds:
       - '{{.GOCMD}} mod verify'
 
@@ -353,6 +365,9 @@ tasks:
 
   install:
     desc: Install dependencies
+    env:
+      GOFLAGS: ''
+      GOPROXY: 'https://proxy.golang.org,direct'
     cmds:
       - '{{.GOCMD}} mod download'
 

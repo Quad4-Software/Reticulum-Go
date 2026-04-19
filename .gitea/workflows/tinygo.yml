@@ -10,6 +10,8 @@ env:
   CI_GO_VERSION: "1.26.2"
   CI_TINYGO_VERSION: "0.37.0"
   TINYGO_DEB_SHA256: "8f34a4aac7f1aa2ad51dc0f4eccd40da13b6f52fbac5c13887d57327e5f0a862"
+  GOFLAGS: -mod=vendor
+  GOPROXY: "off"
   GOPRIVATE: git.quad4.io
   GONOSUMDB: git.quad4.io
 

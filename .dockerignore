@@ -5,9 +5,6 @@ bin/
 *.so
 *.dylib
 
-# Go modules' cache
-vendor/
-
 # Local test/coverage/log artifacts
 *.test
 *.out

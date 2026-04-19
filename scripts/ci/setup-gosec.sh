@@ -7,5 +7,5 @@ set -eu
 
 export PATH="/usr/local/go/bin:$PATH"
 VER="${1:-v2.24.5}"
-run_priv env PATH="$PATH" GOBIN=/usr/local/bin go install "github.com/securego/gosec/v2/cmd/gosec@${VER}"
+run_priv env PATH="$PATH" GOBIN=/usr/local/bin GOFLAGS= GOPROXY=https://proxy.golang.org,direct go install "github.com/securego/gosec/v2/cmd/gosec@${VER}"
 command -v gosec
