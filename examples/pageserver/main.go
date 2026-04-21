@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -323,17 +324,21 @@ func (r *Reticulum) monitorInterfaces() {
 
 func main() {
 	flag.Parse()
-	if *logLevel >= debug.DebugCritical {
-		debug.SetDebugLevel(*logLevel)
-	}
+	applyPageserverLogLevel()
 	debug.Init()
-	debug.Log(debug.DebugCritical, "Initializing Reticulum", "debug_level", debug.GetDebugLevel())
+	if debug.GetDebugLevel() > debug.DebugCritical {
+		debug.Log(debug.DebugCritical, "Initializing Reticulum", "debug_level", debug.GetDebugLevel())
+	}
 
 	cfg := common.DefaultConfig()
-	debug.Log(debug.DebugError, "Configuration loaded")
+	if debug.GetDebugLevel() >= debug.DebugError {
+		debug.Log(debug.DebugError, "Configuration loaded")
+	}
 
 	if len(cfg.Interfaces) == 0 {
-		debug.Log(debug.DebugError, "No interfaces configured, adding default interfaces")
+		if debug.GetDebugLevel() >= debug.DebugError {
+			debug.Log(debug.DebugError, "No interfaces configured, adding default interfaces")
+		}
 		cfg.Interfaces = make(map[string]*common.InterfaceConfig)
 
 		if *useUDP {
@@ -409,6 +414,8 @@ func main() {
 		debug.GetLogger().Error("Failed to start Reticulum", "error", err)
 		os.Exit(1)
 	}
+
+	printPageserverStartupSummary(r)
 
 	sigChan := make(chan os.Signal, 1)
 	sigs := []os.Signal{os.Interrupt}
@@ -1114,4 +1121,56 @@ func (r *Reticulum) handleLinkPacket(l *link.Link, data []byte, pkt *packet.Pack
 	debug.Log(debug.DebugInfo, "Processing request", "path", requestPath, "request_id", fmt.Sprintf("%x", requestID))
 
 	r.destination.HandleRequest(requestPath, nil, requestID, l.GetLinkID(), nil, time.Now().Unix())
+}
+
+func flagWasSet(name string) bool {
+	found := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
+}
+
+func applyPageserverLogLevel() {
+	switch {
+	case flagWasSet("log-level") && *logLevel >= debug.DebugCritical:
+		debug.SetDebugLevel(*logLevel)
+	case flagWasSet("log-level") && *logLevel != -1 && *logLevel < debug.DebugCritical:
+		debug.SetDebugLevel(debug.DebugCritical)
+	case flagWasSet("debug"):
+		// Parsed into debug package *debugLevel.
+	default:
+		debug.SetDebugLevel(debug.DebugCritical)
+	}
+}
+
+func printPageserverStartupSummary(r *Reticulum) {
+	h := fmt.Sprintf("%x", r.destination.GetHash())
+	pages := make([]string, 0, len(r.registeredPagePaths))
+	for p := range r.registeredPagePaths {
+		pages = append(pages, p)
+	}
+	sort.Strings(pages)
+	files := make([]string, 0, len(r.registeredFilePaths))
+	for p := range r.registeredFilePaths {
+		files = append(files, p)
+	}
+	sort.Strings(files)
+
+	w := os.Stderr
+	fmt.Fprintf(w, "pageserver node destination hash: %s\n", h)
+	fmt.Fprintf(w, "  pages (%d): ", len(pages))
+	if len(pages) == 0 {
+		fmt.Fprintln(w, "(none)")
+	} else {
+		fmt.Fprintln(w, strings.Join(pages, ", "))
+	}
+	fmt.Fprintf(w, "  files (%d): ", len(files))
+	if len(files) == 0 {
+		fmt.Fprintln(w, "(none)")
+	} else {
+		fmt.Fprintln(w, strings.Join(files, ", "))
+	}
 }
