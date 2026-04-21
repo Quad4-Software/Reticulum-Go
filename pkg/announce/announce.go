@@ -312,17 +312,14 @@ func (a *Announce) CreatePacket() ([]byte, error) {
 	nameHash := sha256.Sum256([]byte(a.destinationName))
 	nameHash10 := nameHash[:10]
 
-	// 3.3 Random Hash (5 bytes random + 5 bytes timestamp)
 	randomHash := make([]byte, 10)
-	_, err := rand.Read(randomHash[:5])
-	if err != nil {
+	if _, err := rand.Read(randomHash[:5]); err != nil {
 		debug.Log(debug.DebugError, "Failed to read random bytes for announce", "error", err)
 	}
-	// Add 5 bytes of timestamp
 	timeBytes := make([]byte, 8)
 	// #nosec G115 - Unix timestamp is always positive, no overflow risk
 	binary.BigEndian.PutUint64(timeBytes, uint64(time.Now().Unix()))
-	copy(randomHash[5:], timeBytes[:5])
+	copy(randomHash[5:], timeBytes[3:8])
 
 	// 3.4 Ratchet (only include if exists)
 	var ratchetData []byte
