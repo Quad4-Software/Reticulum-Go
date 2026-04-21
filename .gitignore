@@ -21,6 +21,7 @@ cosign.key
 # Example files, not adding them just yet.
 /examples/*
 !/examples/wasm/
+!/examples/pageserver/
 
 # OS / Editor files
 .DS_Store       # macOS Finder metadata
