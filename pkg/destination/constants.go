@@ -7,6 +7,7 @@ const (
 	Out = 0x02
 
 	Single = 0x00
+	SINGLE = Single // FIXME: remove this when reticulum-mf is updated.
 	Group  = 0x01
 	Plain  = 0x02
 
