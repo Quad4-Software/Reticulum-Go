@@ -29,6 +29,7 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/interfaces"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/link"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/reticulumconfig"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
 )
 
@@ -36,12 +37,10 @@ var (
 	interceptPackets     = flag.Bool("intercept-packets", false, "Enable packet interception")
 	interceptOutput      = flag.String("intercept-output", "packets.log", "Output file for intercepted packets")
 	logLevel             = flag.Int("log-level", -1, "Log level override (1-7). Alias for -debug")
-	useUDP               = flag.Bool("udp", false, "Use local UDP interface mode")
+	configPath           = flag.String("config", "", "Path to Reticulum config file (default: ~/.reticulum-go/config). Created with default interfaces if missing.")
+	useUDP               = flag.Bool("udp", false, "Add a local UDP interface overlay on top of the loaded config")
 	listenPort           = flag.Int("listen-port", 4242, "UDP listen port when -udp is enabled")
 	targetPort           = flag.Int("target-port", 0, "UDP target port when -udp is enabled (0 disables target)")
-	tcpTargetHost        = flag.String("tcp-target-host", "", "TCP target host for non-UDP mode (default hub: rns.beleth.net when unset)")
-	tcpTargetPort        = flag.Int("tcp-target-port", 4242, "TCP target port for non-UDP mode")
-	tcpName              = flag.String("tcp-name", "Beleth RNS Hub", "TCP interface name for non-UDP mode")
 	freshIdentity        = flag.Bool("fresh-identity", false, "Remove persisted identity before startup to force a new destination hash")
 	identityPath         = flag.String("identity-path", "", "Override identity file path (defaults to ~/.reticulum-go/storage/identity)")
 	noAutoDiscovery      = flag.Bool("no-auto-discovery", false, "Disable the AutoInterface (UDP discovery), forcing TCP-only operation")
@@ -330,72 +329,32 @@ func main() {
 		debug.Log(debug.DebugCritical, "Initializing Reticulum", "debug_level", debug.GetDebugLevel())
 	}
 
-	cfg := common.DefaultConfig()
+	cfg, err := loadOrInitConfig(*configPath)
+	if err != nil {
+		debug.GetLogger().Error("Failed to load configuration", "error", err)
+		os.Exit(1)
+	}
 	if debug.GetDebugLevel() >= debug.DebugError {
-		debug.Log(debug.DebugError, "Configuration loaded")
+		debug.Log(debug.DebugError, "Configuration loaded", "path", cfg.ConfigPath)
 	}
 
-	if len(cfg.Interfaces) == 0 {
-		if debug.GetDebugLevel() >= debug.DebugError {
-			debug.Log(debug.DebugError, "No interfaces configured, adding default interfaces")
+	if *noAutoDiscovery {
+		if iface, ok := cfg.Interfaces["Auto Discovery"]; ok {
+			iface.Enabled = false
 		}
-		cfg.Interfaces = make(map[string]*common.InterfaceConfig)
+	}
 
-		if *useUDP {
-			targetHost := ""
-			if *targetPort > 0 {
-				targetHost = fmt.Sprintf("127.0.0.1:%d", *targetPort)
-			}
-
-			cfg.Interfaces["UDP"] = &common.InterfaceConfig{
-				Type:       "UDPInterface",
-				Enabled:    true,
-				Address:    fmt.Sprintf("0.0.0.0:%d", *listenPort),
-				TargetHost: targetHost,
-				Name:       "UDP",
-			}
-		} else {
-			if !*noAutoDiscovery {
-				cfg.Interfaces["Auto Discovery"] = &common.InterfaceConfig{
-					Type:    "AutoInterface",
-					Enabled: true,
-					Name:    "Auto Discovery",
-				}
-			}
-
-			cfg.Interfaces["Go-RNS-Testnet"] = &common.InterfaceConfig{
-				Type:       "TCPClientInterface",
-				Enabled:    false,
-				TargetHost: "127.0.0.1",
-				TargetPort: 4242,
-				Name:       "Go-RNS-Testnet",
-			}
-
-			if *tcpTargetHost != "" {
-				cfg.Interfaces[*tcpName] = &common.InterfaceConfig{
-					Type:       "TCPClientInterface",
-					Enabled:    true,
-					TargetHost: *tcpTargetHost,
-					TargetPort: *tcpTargetPort,
-					Name:       *tcpName,
-				}
-			} else {
-				cfg.Interfaces["Beleth RNS Hub"] = &common.InterfaceConfig{
-					Type:       "TCPClientInterface",
-					Enabled:    true,
-					TargetHost: "rns.beleth.net",
-					TargetPort: 4242,
-					Name:       "Beleth RNS Hub",
-				}
-			}
-
-			cfg.Interfaces["Catz Node (TCP)"] = &common.InterfaceConfig{
-				Type:       "TCPClientInterface",
-				Enabled:    true,
-				TargetHost: "77.37.146.243",
-				TargetPort: 4242,
-				Name:       "Catz Node (TCP)",
-			}
+	if *useUDP {
+		targetHost := ""
+		if *targetPort > 0 {
+			targetHost = fmt.Sprintf("127.0.0.1:%d", *targetPort)
+		}
+		cfg.Interfaces["UDP"] = &common.InterfaceConfig{
+			Type:       "UDPInterface",
+			Enabled:    true,
+			Address:    fmt.Sprintf("0.0.0.0:%d", *listenPort),
+			TargetHost: targetHost,
+			Name:       "UDP",
 		}
 	}
 
@@ -1131,6 +1090,27 @@ func flagWasSet(name string) bool {
 		}
 	})
 	return found
+}
+
+func loadOrInitConfig(override string) (*common.ReticulumConfig, error) {
+	path := override
+	if path == "" {
+		p, err := reticulumconfig.GetConfigPath()
+		if err != nil {
+			return nil, fmt.Errorf("resolve default config path: %w", err)
+		}
+		path = p
+	}
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if err := reticulumconfig.CreateDefaultConfig(path); err != nil {
+			return nil, fmt.Errorf("create default config %q: %w", path, err)
+		}
+	} else if err != nil {
+		return nil, fmt.Errorf("stat config %q: %w", path, err)
+	}
+
+	return reticulumconfig.LoadConfig(path)
 }
 
 func applyPageserverLogLevel() {
