@@ -1,14 +1,90 @@
 # pageserver
 
-Serves static pages under `/page/` and files under `/file/` over Reticulum request handlers, with optional UDP or TCP/Auto interfaces. Run from this directory:
+Serves static pages under `/page/` and files under `/file/` over Reticulum
+request handlers, with interfaces driven by a Reticulum configuration file.
+
+## Build
+
+From this directory:
+
+```text
+go build -o example-pageserver .
+```
+
+The example uses a local `replace` directive to point at the in-tree
+`Reticulum-Go` module, so no extra setup is required. Cross-compile with the
+usual `GOOS` / `GOARCH` environment variables (the example is **not** a WASM
+target).
+
+## Run
+
+```text
+./example-pageserver [flags]
+```
+
+Or run directly without building:
 
 ```text
 go run . [flags]
 ```
 
+## Configuration file
+
+Interface configuration (TCP hubs, AutoInterface, UDP) lives in a Reticulum
+configuration file. Default path:
+
+```text
+~/.reticulum-go/config
+```
+
+Override with `-config /path/to/config`. If the file does not exist it is
+created with a single `Auto Discovery` (`AutoInterface`) entry using
+`pkg/reticulumconfig`. No external TCP hubs are baked in; add your own.
+
+The format is the standard Reticulum INI-style layout:
+
+```ini
+[reticulum]
+  enable_transport = yes
+  share_instance = yes
+
+[logging]
+  loglevel = 4
+
+[interfaces]
+
+  [[Auto Discovery]]
+    type = AutoInterface
+    enabled = yes
+
+  [[My TCP Hub]]
+    type = TCPClientInterface
+    enabled = yes
+    target_host = hub.example.com
+    target_port = 4242
+
+  [[Local UDP]]
+    type = UDPInterface
+    enabled = no
+    address = 0.0.0.0
+    port = 37696
+```
+
+Edit the file to enable or disable individual interfaces, change target
+hosts, or add new ones. Supported interface types: `AutoInterface`,
+`TCPClientInterface`, `UDPInterface`.
+
+The `-udp` flag adds an additional `UDP` overlay interface on top of whatever
+the file declares (useful for one-off local testing without editing the
+config). `-no-auto-discovery` disables the `Auto Discovery` interface for
+the current run only.
+
 ## Logging and verbosity
 
-If you do **not** pass `-log-level` or `-debug`, the process runs at **critical-only** (level 1): library and transport **INFO** lines are suppressed, and stderr shows a short **startup summary** (node destination hash, registered page paths, and file paths).
+If you do **not** pass `-log-level` or `-debug`, the process runs at
+**critical-only** (level 1): library and transport **INFO** lines are
+suppressed, and stderr shows a short **startup summary** (node destination
+hash, registered page paths, and file paths).
 
 Pass **`-log-level`** or **`-debug`** to raise verbosity.
 
@@ -30,17 +106,15 @@ Pass **`-log-level`** or **`-debug`** to raise verbosity.
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-debug` | `3` in `pkg/debug` | Same scale as `-log-level`. Omitted means this binary forces level **1** (critical-only). If you pass `-debug`, that value is used. |
-| `-log-level` | `-1` (unset) | Sets level `1`–`7`. If set, overrides the default-quiet behavior. |
-| `-udp` | `false` | Use a local UDP interface instead of TCP hubs / Auto. |
-| `-listen-port` | `4242` | UDP listen address port when `-udp` is set. |
+| `-config` | `""` | Path to Reticulum config file. Empty uses `~/.reticulum-go/config`. Created with default interfaces if missing. |
+| `-udp` | `false` | Add a local UDP overlay interface on top of the loaded config. |
+| `-listen-port` | `4242` | UDP listen port when `-udp` is set. |
 | `-target-port` | `0` | UDP peer port when `-udp` is set (`0` = no target). |
-| `-tcp-target-host` | `""` | TCP client target host in non-UDP mode; empty selects the default hub. |
-| `-tcp-target-port` | `4242` | TCP client target port. |
-| `-tcp-name` | `Beleth RNS Hub` | Interface name when using `-tcp-target-host`. |
+| `-no-auto-discovery` | `false` | Disable the `Auto Discovery` interface for this run. |
+| `-debug` | `3` in `pkg/debug` | Same scale as `-log-level`. Omitted means this binary forces level **1** (critical-only). |
+| `-log-level` | `-1` (unset) | Sets level `1`–`7`. If set, overrides the default-quiet behavior. |
 | `-fresh-identity` | `false` | Delete the on-disk identity before start (new destination hash). |
 | `-identity-path` | `""` | Identity file path (default: `~/.reticulum-go/storage/identity`). |
-| `-no-auto-discovery` | `false` | Disable `AutoInterface` (TCP-only path). |
 | `-announce-interval` | `6h` | Period for repeated announces; `0` disables repeats (initial announce still sent). |
 | `-pages-dir` | `pages` | Directory of pages served under `/page/`. |
 | `-files-dir` | `files` | Directory of files served under `/file/`. |
@@ -49,4 +123,5 @@ Pass **`-log-level`** or **`-debug`** to raise verbosity.
 | `-intercept-packets` | `false` | Log raw packets to a file (debugging). |
 | `-intercept-output` | `packets.log` | Output path when `-intercept-packets` is set. |
 
-Constants such as announce rate targets are compiled into the binary (see `main.go`); they are not CLI flags.
+Constants such as announce rate targets are compiled into the binary (see
+`main.go`); they are not CLI flags.
