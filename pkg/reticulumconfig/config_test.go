@@ -1,4 +1,4 @@
-package config
+package reticulumconfig
 
 import (
 	"os"
@@ -91,7 +91,7 @@ func TestStripInlineComment(t *testing.T) {
 		"abc;def":             "abc;def",
 		"only a value":        "only a value",
 		"trailing  ":          "trailing  ",
-		"77.37.146.243 # ip ": "77.37.146.243",
+		"192.0.2.10 # ip ":    "192.0.2.10",
 	}
 	for in, want := range cases {
 		if got := stripInlineComment(in); got != want {
@@ -123,10 +123,10 @@ func TestLoadConfig_NestedFormat(t *testing.T) {
     enabled = Yes
     group_id = reticulum
 
-  [[Catz Node (TCP)]]
+  [[Hub Node]]
     type = TCPClientInterface
     enabled = yes
-    target_host = 77.37.146.243
+    target_host = hub.example.com
     target_port = 4242
     kiss_framing = no
     i2p_tunneled = no
@@ -168,18 +168,18 @@ func TestLoadConfig_NestedFormat(t *testing.T) {
 		t.Errorf("Default Interface: %+v", auto)
 	}
 
-	catz, ok := cfg.Interfaces["Catz Node (TCP)"]
+	hub, ok := cfg.Interfaces["Hub Node"]
 	if !ok {
-		t.Fatal("Catz Node (TCP) missing")
+		t.Fatal("Hub Node missing")
 	}
-	if catz.Type != "TCPClientInterface" || !catz.Enabled {
-		t.Errorf("Catz core fields: %+v", catz)
+	if hub.Type != "TCPClientInterface" || !hub.Enabled {
+		t.Errorf("Hub core fields: %+v", hub)
 	}
-	if catz.TargetHost != "77.37.146.243" || catz.TargetPort != 4242 {
-		t.Errorf("Catz target: got %s:%d", catz.TargetHost, catz.TargetPort)
+	if hub.TargetHost != "hub.example.com" || hub.TargetPort != 4242 {
+		t.Errorf("Hub target: got %s:%d", hub.TargetHost, hub.TargetPort)
 	}
-	if catz.KISSFraming || catz.I2PTunneled {
-		t.Errorf("Catz framing flags should be false: kiss=%v i2p=%v", catz.KISSFraming, catz.I2PTunneled)
+	if hub.KISSFraming || hub.I2PTunneled {
+		t.Errorf("Hub framing flags should be false: kiss=%v i2p=%v", hub.KISSFraming, hub.I2PTunneled)
 	}
 }
 
@@ -302,10 +302,10 @@ func TestLoadConfig_MalformedSafe(t *testing.T) {
 		"  unknown_key = whatever",
 		"  enable_transport = yes",
 		"[interfaces]",
-		"  [[Catz Node (TCP)]]",
+		"  [[Hub Node]]",
 		"    type = TCPClientInterface",
 		"    enabled = yes",
-		"    target_host = 77.37.146.243",
+		"    target_host = hub.example.com",
 		"    target_port = 4242",
 		"    target_port = oops",
 		"    bitrate = NaN",
@@ -335,18 +335,18 @@ func TestLoadConfig_MalformedSafe(t *testing.T) {
 		}
 	}
 
-	catz, ok := cfg.Interfaces["Catz Node (TCP)"]
+	hub, ok := cfg.Interfaces["Hub Node"]
 	if !ok {
-		t.Fatal("the well-formed Catz interface should still register")
+		t.Fatal("the well-formed Hub interface should still register")
 	}
-	if catz.Type != "TCPClientInterface" || !catz.Enabled {
-		t.Errorf("Catz core fields after garbage neighbours: %+v", catz)
+	if hub.Type != "TCPClientInterface" || !hub.Enabled {
+		t.Errorf("Hub core fields after garbage neighbours: %+v", hub)
 	}
-	if catz.TargetPort != 4242 {
-		t.Errorf("TargetPort should keep first valid value: got %d", catz.TargetPort)
+	if hub.TargetPort != 4242 {
+		t.Errorf("TargetPort should keep first valid value: got %d", hub.TargetPort)
 	}
-	if catz.Bitrate != 0 || catz.MTU != 0 {
-		t.Errorf("invalid numeric fields should remain zero: bitrate=%d mtu=%d", catz.Bitrate, catz.MTU)
+	if hub.Bitrate != 0 || hub.MTU != 0 {
+		t.Errorf("invalid numeric fields should remain zero: bitrate=%d mtu=%d", hub.Bitrate, hub.MTU)
 	}
 }
 
@@ -405,11 +405,11 @@ func TestSaveConfig_RoundTrip(t *testing.T) {
 	cfg.ConfigPath = path
 	cfg.LogLevel = 2
 	cfg.EnableTransport = false
-	cfg.Interfaces["Catz Node (TCP)"] = &common.InterfaceConfig{
-		Name:       "Catz Node (TCP)",
+	cfg.Interfaces["Hub Node"] = &common.InterfaceConfig{
+		Name:       "Hub Node",
 		Type:       "TCPClientInterface",
 		Enabled:    true,
-		TargetHost: "77.37.146.243",
+		TargetHost: "hub.example.com",
 		TargetPort: 4242,
 	}
 
@@ -421,7 +421,7 @@ func TestSaveConfig_RoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
-	for _, want := range []string{"[reticulum]", "[logging]", "[interfaces]", "[[Catz Node (TCP)]]"} {
+	for _, want := range []string{"[reticulum]", "[logging]", "[interfaces]", "[[Hub Node]]"} {
 		if !strings.Contains(string(raw), want) {
 			t.Errorf("expected output to contain %q, got:\n%s", want, raw)
 		}
@@ -437,12 +437,12 @@ func TestSaveConfig_RoundTrip(t *testing.T) {
 	if loaded.EnableTransport {
 		t.Error("EnableTransport should round-trip as false")
 	}
-	catz, ok := loaded.Interfaces["Catz Node (TCP)"]
+	hub, ok := loaded.Interfaces["Hub Node"]
 	if !ok {
-		t.Fatal("Catz interface missing after round-trip")
+		t.Fatal("Hub interface missing after round-trip")
 	}
-	if catz.TargetHost != "77.37.146.243" || catz.TargetPort != 4242 || !catz.Enabled {
-		t.Errorf("Catz round-trip mismatch: %+v", catz)
+	if hub.TargetHost != "hub.example.com" || hub.TargetPort != 4242 || !hub.Enabled {
+		t.Errorf("Hub round-trip mismatch: %+v", hub)
 	}
 }
 
@@ -457,8 +457,9 @@ func TestSaveConfig_RequiresPath(t *testing.T) {
 	}
 }
 
-// TestCreateDefaultConfig writes the starter file and checks the resulting
-// interface set covers the defaults the binaries depend on.
+// TestCreateDefaultConfig writes the starter file and checks the only
+// shipped default interface (Auto Discovery) is present and enabled. No
+// external TCP hubs are baked into defaults; users add their own.
 func TestCreateDefaultConfig(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config")
 
@@ -474,20 +475,20 @@ func TestCreateDefaultConfig(t *testing.T) {
 		t.Fatalf("LoadConfig: %v", err)
 	}
 
-	for _, name := range []string{"Auto Discovery", "Beleth RNS Hub", "Catz Node (TCP)"} {
-		iface, ok := cfg.Interfaces[name]
-		if !ok {
-			t.Errorf("default interface %q missing", name)
-			continue
-		}
-		if !iface.Enabled {
-			t.Errorf("default interface %q should be enabled", name)
-		}
+	auto, ok := cfg.Interfaces["Auto Discovery"]
+	if !ok {
+		t.Fatal("default Auto Discovery interface missing")
+	}
+	if !auto.Enabled {
+		t.Error("Auto Discovery should be enabled")
+	}
+	if auto.Type != "AutoInterface" {
+		t.Errorf("Auto Discovery type: got %q, want AutoInterface", auto.Type)
 	}
 
-	catz := cfg.Interfaces["Catz Node (TCP)"]
-	if catz == nil || catz.TargetHost != "77.37.146.243" || catz.TargetPort != 4242 {
-		t.Errorf("Catz default mismatch: %+v", catz)
+	if len(cfg.Interfaces) != 1 {
+		t.Errorf("default config should ship exactly one interface (Auto Discovery), got %d: %v",
+			len(cfg.Interfaces), cfg.Interfaces)
 	}
 }
 
