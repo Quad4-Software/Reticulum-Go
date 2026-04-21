@@ -2039,9 +2039,10 @@ func CreateAnnouncePacket(destHash []byte, identity *identity.Identity, appData 
 	}
 	timeBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(timeBytes, uint64(time.Now().Unix())) // #nosec G115
-	debug.Log(debug.DebugAll, "Adding random hash", "random", fmt.Sprintf("%x", randomBytes), "time", fmt.Sprintf("%x", timeBytes[:AnnounceTimestampBytesLen]), "size", AnnounceRandomHashSize)
+	tsSlice := timeBytes[8-AnnounceTimestampBytesLen:]
+	debug.Log(debug.DebugAll, "Adding random hash", "random", fmt.Sprintf("%x", randomBytes), "time", fmt.Sprintf("%x", tsSlice), "size", AnnounceRandomHashSize)
 	packet = append(packet, randomBytes...)
-	packet = append(packet, timeBytes[:AnnounceTimestampBytesLen]...)
+	packet = append(packet, tsSlice...)
 	debug.Log(debug.DebugAll, "Packet size after adding random hash", "bytes", len(packet))
 
 	// Create msgpack array for app data
