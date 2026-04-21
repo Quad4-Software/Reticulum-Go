@@ -153,9 +153,7 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 
 	// Enable destination features
 	dest.AcceptsLinks(true)
-	// Enable ratchets and point to a file for persistence.
-	// The actual path should probably be configurable.
-	ratchetPath := ".git.quad4.io/Networks/Reticulum-Go/storage/ratchets/" + r.identity.GetHexHash()
+	ratchetPath := filepath.Join(storageMgr.GetRatchetsPath(), r.identity.GetHexHash())
 	dest.EnableRatchets(ratchetPath)
 	dest.SetProofStrategy(destination.ProveApp)
 
@@ -316,7 +314,11 @@ func main() {
 	}
 
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	sigs := []os.Signal{os.Interrupt}
+	if runtime.GOOS != "windows" {
+		sigs = append(sigs, syscall.SIGTERM)
+	}
+	signal.Notify(sigChan, sigs...)
 	<-sigChan
 
 	debug.Log(debug.DebugCritical, "Shutting down...")
