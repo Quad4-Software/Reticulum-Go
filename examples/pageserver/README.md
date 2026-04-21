@@ -81,12 +81,13 @@ the current run only.
 
 ## Logging and verbosity
 
-If you do **not** pass `-log-level` or `-debug`, the process runs at
-**critical-only** (level 1): library and transport **INFO** lines are
-suppressed, and stderr shows a short **startup summary** (node destination
-hash, registered page paths, and file paths).
+If you do **not** pass `-log-level` or `-debug`, verbosity comes from the
+config file `[logging]` `loglevel` (1–7), same scale as `-debug`. If that
+value is missing or out of range, the binary falls back to **critical-only**
+(level 1).
 
-Pass **`-log-level`** or **`-debug`** to raise verbosity.
+Pass **`-log-level`** or **`-debug`** on the command line to override the
+file for that run.
 
 ### Debug levels (`-debug` / `-log-level`)
 
@@ -111,8 +112,8 @@ Pass **`-log-level`** or **`-debug`** to raise verbosity.
 | `-listen-port` | `4242` | UDP listen port when `-udp` is set. |
 | `-target-port` | `0` | UDP peer port when `-udp` is set (`0` = no target). |
 | `-no-auto-discovery` | `false` | Disable the `Auto Discovery` interface for this run. |
-| `-debug` | `3` in `pkg/debug` | Same scale as `-log-level`. Omitted means this binary forces level **1** (critical-only). |
-| `-log-level` | `-1` (unset) | Sets level `1`–`7`. If set, overrides the default-quiet behavior. |
+| `-debug` | `3` in `pkg/debug` | Same scale as `-log-level`. Only applies when you pass `-debug` on the command line; otherwise verbosity follows config `loglevel` (unless `-log-level` is set). |
+| `-log-level` | `-1` (unset) | Sets level `1`–`7`. If set, overrides config and `-debug`. |
 | `-fresh-identity` | `false` | Delete the on-disk identity before start (new destination hash). |
 | `-identity-path` | `""` | Identity file path (default: `~/.reticulum-go/storage/identity`). |
 | `-announce-interval` | `6h` | Period for repeated announces; `0` disables repeats (initial announce still sent). |

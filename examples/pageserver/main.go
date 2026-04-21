@@ -323,16 +323,17 @@ func (r *Reticulum) monitorInterfaces() {
 
 func main() {
 	flag.Parse()
-	applyPageserverLogLevel()
+	cfg, err := loadOrInitConfig(*configPath)
+	if err != nil {
+		applyPageserverLogLevel(nil)
+		debug.Init()
+		debug.GetLogger().Error("Failed to load configuration", "error", err)
+		os.Exit(1)
+	}
+	applyPageserverLogLevel(cfg)
 	debug.Init()
 	if debug.GetDebugLevel() > debug.DebugCritical {
 		debug.Log(debug.DebugCritical, "Initializing Reticulum", "debug_level", debug.GetDebugLevel())
-	}
-
-	cfg, err := loadOrInitConfig(*configPath)
-	if err != nil {
-		debug.GetLogger().Error("Failed to load configuration", "error", err)
-		os.Exit(1)
 	}
 	if debug.GetDebugLevel() >= debug.DebugError {
 		debug.Log(debug.DebugError, "Configuration loaded", "path", cfg.ConfigPath)
@@ -1113,15 +1114,21 @@ func loadOrInitConfig(override string) (*common.ReticulumConfig, error) {
 	return reticulumconfig.LoadConfig(path)
 }
 
-func applyPageserverLogLevel() {
+func applyPageserverLogLevel(cfg *common.ReticulumConfig) {
 	switch {
 	case flagWasSet("log-level") && *logLevel >= debug.DebugCritical:
 		debug.SetDebugLevel(*logLevel)
 	case flagWasSet("log-level") && *logLevel != -1 && *logLevel < debug.DebugCritical:
 		debug.SetDebugLevel(debug.DebugCritical)
 	case flagWasSet("debug"):
-		// Parsed into debug package *debugLevel.
 	default:
+		if cfg != nil {
+			l := cfg.LogLevel
+			if l >= debug.DebugCritical && l <= debug.DebugAll {
+				debug.SetDebugLevel(l)
+				return
+			}
+		}
 		debug.SetDebugLevel(debug.DebugCritical)
 	}
 }
