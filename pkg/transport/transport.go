@@ -738,20 +738,21 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 }
 
 func (t *Transport) updatePathUnlocked(destinationHash []byte, nextHop []byte, interfaceName string, hops uint8) {
-	// Direct access to interfaces map since caller holds the lock
 	iface, exists := t.interfaces[interfaceName]
 	if !exists {
 		debug.Log(debug.DebugInfo, "Interface not found", "name", interfaceName)
 		return
 	}
 
-	t.paths[string(destinationHash)] = &common.Path{
+	key := string(destinationHash)
+	t.paths[key] = &common.Path{
 		NextHop:     nextHop,
 		Interface:   iface,
 		Hops:        hops,
 		HopCount:    hops,
 		LastUpdated: time.Now(),
 	}
+	t.pathStates[key] = StateUnknown
 }
 
 func (t *Transport) UpdatePath(destinationHash []byte, nextHop []byte, interfaceName string, hops uint8) {
