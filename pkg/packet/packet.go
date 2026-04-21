@@ -256,7 +256,7 @@ func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []b
 	}
 	timeBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(timeBytes, uint64(time.Now().Unix())) // #nosec G115
-	copy(randomHash[5:], timeBytes[:5])
+	copy(randomHash[5:], timeBytes[3:8])
 	debug.Log(debug.DebugPackets, "Generated random hash", "hash", fmt.Sprintf("%x", randomHash))
 
 	// Prepare ratchet ID if available (not yet implemented)
