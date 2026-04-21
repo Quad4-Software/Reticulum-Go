@@ -7,6 +7,7 @@ env:
 
 vars:
   GOCMD: go
+  GOEXAMPLE: env GOFLAGS=-mod=mod GOPROXY=https://proxy.golang.org,direct
   BINARY_NAME: reticulum-go
   BUILD_DIR: bin
   MAIN_PACKAGE: ./cmd/reticulum-go
@@ -82,7 +83,7 @@ tasks:
   scan:
     desc: Run gosec security scanner
     cmds:
-      - gosec ./pkg/... ./cmd/... ./internal/...
+      - gosec ./pkg/... ./cmd/... ./internal/... ./tests/...
 
   vulncheck:
     desc: Run govulncheck (Go vulnerability database)
@@ -318,7 +319,7 @@ tasks:
       - PATH="$PATH:{{.ROOT_DIR}}/misc/wasm" {{.GOCMD}} test -v ./pkg/wasm/ ./cmd/reticulum-wasm/
       - |
         export PATH="$PATH:{{.ROOT_DIR}}/misc/wasm"
-        cd examples/wasm && GOFLAGS=-mod=mod {{.GOCMD}} test -v .
+        cd examples/wasm && {{.GOEXAMPLE}} {{.GOCMD}} test -v .
 
   build-wasm:
     desc: Build WebAssembly binary with standard Go compiler
@@ -336,7 +337,7 @@ tasks:
       CGO_ENABLED: '0'
     cmds:
       - mkdir -p examples/wasm/public/static examples/wasm/public/js
-      - 'cd examples/wasm && GOOS=js GOARCH=wasm {{.GOCMD}} build -o public/static/reticulum-go.wasm .'
+      - 'cd examples/wasm && {{.GOEXAMPLE}} GOOS=js GOARCH=wasm {{.GOCMD}} build -o public/static/reticulum-go.wasm .'
       - |
         GOROOT=$({{.GOCMD}} env GOROOT)
         if [ -f "$GOROOT/lib/wasm/wasm_exec.js" ]; then
@@ -387,22 +388,22 @@ tasks:
   example:announce:
     desc: Run announce example
     cmds:
-      - 'cd examples/announce && {{.GOCMD}} run .'
+      - 'cd examples/announce && {{.GOEXAMPLE}} {{.GOCMD}} run .'
 
   example:minimal:
     desc: Run minimal example
     cmds:
-      - 'cd examples/minimal && {{.GOCMD}} run .'
+      - 'cd examples/minimal && {{.GOEXAMPLE}} {{.GOCMD}} run .'
 
   example:pageserver:
     desc: Run pageserver example
     cmds:
-      - 'cd examples/pageserver && {{.GOCMD}} run .'
+      - 'cd examples/pageserver && {{.GOEXAMPLE}} {{.GOCMD}} run .'
 
   example:echo-listen:
     desc: Run echo example (waits for incoming connections, P2P peer)
     cmds:
-      - 'cd examples/echo && {{.GOCMD}} run . --server'
+      - 'cd examples/echo && {{.GOEXAMPLE}} {{.GOCMD}} run . --server'
 
   example:echo-connect:
     desc: Run echo example (initiates connection to peer, requires DESTINATION env var)
@@ -413,12 +414,12 @@ tasks:
           echo "Example: DESTINATION=abc123... task example:echo-connect"
           exit 1
         fi
-        cd examples/echo && {{.GOCMD}} run . --destination="${DESTINATION}"
+        cd examples/echo && {{.GOEXAMPLE}} {{.GOCMD}} run . --destination="${DESTINATION}"
 
   example:link-listen:
     desc: Run link example (waits for incoming link requests, P2P peer)
     cmds:
-      - 'cd examples/link && {{.GOCMD}} run . --server'
+      - 'cd examples/link && {{.GOEXAMPLE}} {{.GOCMD}} run . --server'
 
   example:link-connect:
     desc: Run link example (initiates link to peer, requires DESTINATION env var)
@@ -429,7 +430,7 @@ tasks:
           echo "Example: DESTINATION=abc123... task example:link-connect"
           exit 1
         fi
-        cd examples/link && {{.GOCMD}} run . --destination="${DESTINATION}"
+        cd examples/link && {{.GOEXAMPLE}} {{.GOCMD}} run . --destination="${DESTINATION}"
 
   example:filetransfer-share:
     desc: Run filetransfer example (shares files from directory, P2P peer)
@@ -440,7 +441,7 @@ tasks:
           echo "Example: SERVE_PATH=/path/to/files task example:filetransfer-share"
           exit 1
         fi
-        cd examples/filetransfer && {{.GOCMD}} run . --server --serve="${SERVE_PATH}"
+        cd examples/filetransfer && {{.GOEXAMPLE}} {{.GOCMD}} run . --server --serve="${SERVE_PATH}"
 
   example:filetransfer-fetch:
     desc: Run filetransfer example (fetches files from peer, requires DESTINATION env var)
@@ -451,7 +452,7 @@ tasks:
           echo "Example: DESTINATION=abc123... task example:filetransfer-fetch"
           exit 1
         fi
-        cd examples/filetransfer && {{.GOCMD}} run . --destination="${DESTINATION}"
+        cd examples/filetransfer && {{.GOEXAMPLE}} {{.GOCMD}} run . --destination="${DESTINATION}"
 
   trivy:install:
     desc: Install Trivy scanner
