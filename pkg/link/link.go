@@ -1051,20 +1051,7 @@ func (l *Link) rejectResource(resourceHash []byte) error {
 }
 
 func (l *Link) sendResourceResponse(requestID []byte, response any) error {
-	resData, ok := response.([]byte)
-	if !ok {
-		return errors.New("response must be []byte")
-	}
-
-	res, err := resource.New(resData, false)
-	if err != nil {
-		return fmt.Errorf("failed to create resource: %w", err)
-	}
-
-	res.SetRequestID(requestID)
-	res.SetIsResponse(true)
-
-	return l.SendResource(res)
+	return l.sendResponse(requestID, response)
 }
 
 func (l *Link) sendResourceAdvertisement(res *resource.Resource) error {
@@ -1351,12 +1338,16 @@ func (l *Link) handleResponse(plaintext []byte) error {
 	if !ok {
 		return errors.New("invalid response format: request id is not bytes")
 	}
-	responsePayloadRaw, ok := responseData[1].([]byte)
-	if !ok {
-		return errors.New("invalid response format: response payload is not bytes")
+	var responsePayload []byte
+	switch p := responseData[1].(type) {
+	case []byte:
+		responsePayload = p
+	case string:
+		responsePayload = []byte(p)
+	default:
+		return errors.New("invalid response format: response payload is not bytes or string")
 	}
 	requestID := requestIDRaw
-	responsePayload := responsePayloadRaw
 
 	l.requestMutex.Lock()
 	for i, req := range l.pendingRequests {
@@ -1387,7 +1378,11 @@ func (l *Link) sendResponse(requestID []byte, response any) error {
 		return fmt.Errorf("failed to pack response: %w", err)
 	}
 
-	if len(packedResponse) <= l.mdu {
+	l.mutex.RLock()
+	mdu := l.mdu
+	l.mutex.RUnlock()
+
+	if len(packedResponse) <= mdu {
 		encrypted, err := l.encrypt(packedResponse)
 		if err != nil {
 			return err
@@ -1417,7 +1412,15 @@ func (l *Link) sendResponse(requestID []byte, response any) error {
 		return l.transport.SendPacket(respPkt)
 	}
 
-	return errors.New("response too large, resource transfer not yet implemented")
+	res, err := resource.New(packedResponse, false)
+	if err != nil {
+		return fmt.Errorf("failed to create response resource: %w", err)
+	}
+	res.SetRequestID(requestID)
+	res.SetIsResponse(true)
+
+	debug.Log(debug.DebugInfo, "Sending response as resource", "request_id", fmt.Sprintf("%x", requestID), "packed_len", len(packedResponse), "mdu", mdu)
+	return l.SendResource(res)
 }
 
 func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
