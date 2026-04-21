@@ -169,6 +169,34 @@ func TestIngressControl_ReleaseHeldAnnounce_RespectsTiming(t *testing.T) {
 	}
 }
 
+func TestIngressControl_BurstSampleMinimum(t *testing.T) {
+	cfg := NewIngressControlConfig()
+	cfg.BurstFreq = 0.1
+	cfg.BurstFreqNew = 0.1
+	cfg.NewTime = 0
+	cfg.BurstHold = 5 * time.Second
+	cfg.BurstPenalty = 5 * time.Second
+	ic := NewIngressControlWith(cfg)
+
+	for i := 0; i < burstSampleMinimum-1; i++ {
+		ic.ProcessAnnounce("seed-"+itoa(i), []byte{byte(i)}, true)
+	}
+
+	if ic.InBurst() {
+		t.Fatalf("burst should not engage with fewer than %d samples", burstSampleMinimum)
+	}
+	if ic.HeldCount() != 0 {
+		t.Fatalf("no announces must be held before burst engages; held=%d", ic.HeldCount())
+	}
+
+	for i := 0; i < 50; i++ {
+		ic.ProcessAnnounce("flood-"+itoa(i), []byte{byte(i)}, true)
+	}
+	if !ic.InBurst() {
+		t.Fatal("burst must engage once enough samples accumulate above threshold")
+	}
+}
+
 func TestIngressControl_MaxHeldAnnouncesCap(t *testing.T) {
 	cfg := NewIngressControlConfig()
 	cfg.BurstFreq = 1.0
