@@ -26,9 +26,11 @@ type PacketCallback = common.PacketCallback
 type ProofRequestedCallback = common.ProofRequestedCallback
 type LinkEstablishedCallback = common.LinkEstablishedCallback
 
+type ResponseGeneratorFunc func(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) any
+
 type RequestHandler struct {
 	Path              string
-	ResponseGenerator func(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) []byte
+	ResponseGenerator ResponseGeneratorFunc
 	AllowMode         byte
 	AllowedList       [][]byte
 	AutoCompress      bool
@@ -399,6 +401,17 @@ func (d *Destination) ClearDefaultAppData() {
 }
 
 func (d *Destination) RegisterRequestHandler(path string, responseGen func(string, []byte, []byte, []byte, *identity.Identity, int64) []byte, allow byte, allowedList [][]byte) error {
+	wrapped := func(p string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) any {
+		out := responseGen(p, data, requestID, linkID, remoteIdentity, requestedAt)
+		if out == nil {
+			return nil
+		}
+		return out
+	}
+	return d.RegisterRequestHandlerAny(path, wrapped, allow, allowedList)
+}
+
+func (d *Destination) RegisterRequestHandlerAny(path string, responseGen ResponseGeneratorFunc, allow byte, allowedList [][]byte) error {
 	if path == "" {
 		return errors.New("path cannot be empty")
 	}
@@ -460,11 +473,7 @@ func (d *Destination) GetRequestHandler(pathHash []byte) func([]byte, []byte, []
 					return nil
 				}
 
-				result := handler.ResponseGenerator(handler.Path, data, requestID, linkID, remoteIdentity, requestedAt.Unix())
-				if result == nil {
-					return nil
-				}
-				return result
+				return handler.ResponseGenerator(handler.Path, data, requestID, linkID, remoteIdentity, requestedAt.Unix())
 			}
 		}
 	}
@@ -486,7 +495,15 @@ func (d *Destination) HandleRequest(path string, data []byte, requestID []byte, 
 	if result == nil {
 		return []byte(">Not Found\n\nThe requested resource was not found.")
 	}
-	return result
+	if b, ok := result.([]byte); ok {
+		return b
+	}
+	encoded, err := msgpack.Marshal(result)
+	if err != nil {
+		debug.Log(debug.DebugError, "Failed to msgpack-encode handler response", "path", path, "error", err)
+		return []byte(">Not Found\n\nThe requested resource was not found.")
+	}
+	return encoded
 }
 
 func (d *Destination) Encrypt(plaintext []byte) ([]byte, error) {

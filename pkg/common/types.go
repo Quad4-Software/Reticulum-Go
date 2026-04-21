@@ -26,7 +26,7 @@ type PacketCallback func([]byte, NetworkInterface)
 // RequestHandler manages path requests and responses
 type RequestHandler struct {
 	Path              string
-	ResponseGenerator func(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity any, requestedAt int64) []byte
+	ResponseGenerator func(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity any, requestedAt int64) any
 	AllowMode         byte
 	AllowedList       [][]byte
 }
