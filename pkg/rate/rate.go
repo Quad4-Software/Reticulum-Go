@@ -355,4 +355,4 @@ func (ic *IngressControl) currentFrequencyLocked(now time.Time) float64 {
 	return float64(len(ic.arrivals)-1) / window
 }
 
-const burstSampleMinimum = 3
+const burstSampleMinimum = 8
