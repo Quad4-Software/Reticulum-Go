@@ -10,10 +10,10 @@ import (
 	"git.quad4.io/Go-Libs/pbt/pkg/pbt"
 )
 
-func byteSliceNonEmpty(max int) pbt.Generator[[]byte] {
+func byteSliceNonEmpty(maxLen int) pbt.Generator[[]byte] {
 	return pbt.Map(
 		"nonEmptyBytes",
-		pbt.SliceOf(pbt.IntRange(0, 255), 1, max),
+		pbt.SliceOf(pbt.IntRange(0, 255), 1, maxLen),
 		func(xs []int) []byte {
 			b := make([]byte, len(xs))
 			for i, v := range xs {
@@ -24,10 +24,10 @@ func byteSliceNonEmpty(max int) pbt.Generator[[]byte] {
 	)
 }
 
-func byteSliceMaybeEmpty(max int) pbt.Generator[[]byte] {
+func byteSliceMaybeEmpty(maxLen int) pbt.Generator[[]byte] {
 	return pbt.Map(
 		"bytes",
-		pbt.SliceOf(pbt.IntRange(0, 255), 0, max),
+		pbt.SliceOf(pbt.IntRange(0, 255), 0, maxLen),
 		func(xs []int) []byte {
 			b := make([]byte, len(xs))
 			for i, v := range xs {

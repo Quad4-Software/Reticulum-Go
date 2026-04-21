@@ -44,7 +44,7 @@ func (l *lossySimIface) Send(data []byte, addr string) error {
 // wraps each direction in a per-packet drop filter. The originator's
 // transport sees only the lossy wrapper, so an outbound Send must
 // pass the drop check before reaching the peer's inbox.
-func linkLossy(t testing.TB, s *simNetwork, a, b int, dropAtoB, dropBtoA float64, seed uint64) (*lossySimIface, *lossySimIface) {
+func linkLossy(t testing.TB, s *simNetwork, a, b int, dropAtoB, dropBtoA float64, seed uint64) (left, right *lossySimIface) {
 	t.Helper()
 	if a == b {
 		t.Fatalf("cannot link node %d to itself", a)
@@ -54,12 +54,12 @@ func linkLossy(t testing.TB, s *simNetwork, a, b int, dropAtoB, dropBtoA float64
 	rightBase := newSimIface(fmt.Sprintf("%s_lossy_%s", nb.name, na.name))
 	leftBase.peer = rightBase
 	rightBase.peer = leftBase
-	left := &lossySimIface{
+	left = &lossySimIface{
 		simIface: leftBase,
 		dropProb: dropAtoB,
 		rng:      rand.New(rand.NewPCG(seed, seed^0xdeadbeef)),
 	}
-	right := &lossySimIface{
+	right = &lossySimIface{
 		simIface: rightBase,
 		dropProb: dropBtoA,
 		rng:      rand.New(rand.NewPCG(seed^0xfeedface, seed^0xcafef00d)),
