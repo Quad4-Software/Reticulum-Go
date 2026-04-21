@@ -123,6 +123,44 @@ func TestTransportStatus(t *testing.T) {
 	}
 }
 
+func TestUpdatePathResetsState(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{})
+	defer tr.Close()
+
+	destHash := []byte("dest-state-reset-hash")
+	nextHop := []byte("nh")
+	iface := &mockInterface{}
+	iface.Name = "iface-A"
+	if err := tr.RegisterInterface("iface-A", iface); err != nil {
+		t.Fatalf("RegisterInterface: %v", err)
+	}
+
+	tr.UpdatePath(destHash, nextHop, "iface-A", 3)
+	tr.MarkPathUnresponsive(destHash)
+	if !tr.PathIsUnresponsive(destHash) {
+		t.Fatalf("precondition: path should be unresponsive")
+	}
+
+	tr.UpdatePath(destHash, nextHop, "iface-A", 2)
+
+	if tr.PathIsUnresponsive(destHash) {
+		t.Fatal("path state must be reset to unknown after path update")
+	}
+
+	tr.MarkPathResponsive(destHash)
+	if tr.PathIsUnresponsive(destHash) {
+		t.Fatalf("sanity: just-marked-responsive should not be unresponsive")
+	}
+	tr.UpdatePath(destHash, nextHop, "iface-A", 4)
+
+	tr.mutex.RLock()
+	st, exists := tr.pathStates[string(destHash)]
+	tr.mutex.RUnlock()
+	if !exists || st != StateUnknown {
+		t.Fatalf("path state must be StateUnknown after update; got exists=%v state=%d", exists, st)
+	}
+}
+
 func TestAnnounceHopCount(t *testing.T) {
 	config := common.DefaultConfig()
 	tr := NewTransport(config)
