@@ -146,3 +146,55 @@ func TestLiveInteropPythonNomadNetPageServerRequests(t *testing.T) {
 	runPythonPageRequest(t, ctx, pyListen, goListen, goDestHash, "/page/index.mu", "Reticulum-Go Page Node")
 	runPythonPageRequest(t, ctx, pyListen, goListen, goDestHash, "/file/interop_test_file.txt", "PY_FILE_TEST")
 }
+
+func TestLiveInteropPythonPageServerLargeFileRequest(t *testing.T) {
+	liveOrSkip(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+	defer cancel()
+
+	goListen := freeUDPPort(t)
+	pyListen := freeUDPPort(t)
+
+	pageServerHome := t.TempDir()
+	goDestHash := preparePageServerIdentity(t, pageServerHome)
+
+	pageServerDir := filepath.Join(scriptDir(t), "..", "..", "examples", "pageserver")
+	filesDir := filepath.Join(pageServerDir, "files")
+	if err := os.MkdirAll(filesDir, 0o750); err != nil {
+		t.Fatalf("mkdir files: %v", err)
+	}
+
+	largePath := filepath.Join(filesDir, "interop_large_file.txt")
+	largeContent := strings.Repeat("x", 18000) + "\nLARGE_INTEROP_MARKER\n" + strings.Repeat("y", 18000) + "\n"
+	if err := os.WriteFile(largePath, []byte(largeContent), 0o640); err != nil {
+		t.Fatalf("write large interop file: %v", err)
+	}
+	defer func() { _ = os.Remove(largePath) }()
+
+	cmd := exec.CommandContext(
+		ctx,
+		filepath.Join(pageServerDir, "example-pageserver"),
+		"-udp",
+		"-listen-port",
+		strconv.Itoa(goListen),
+		"-target-port",
+		strconv.Itoa(pyListen),
+		"-log-level",
+		"1",
+	)
+	cmd.Dir = pageServerDir
+	cmd.Env = append(os.Environ(), "HOME="+pageServerHome)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start pageserver: %v", err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	}()
+
+	time.Sleep(4 * time.Second)
+
+	runPythonPageRequest(t, ctx, pyListen, goListen, goDestHash, "/file/interop_large_file.txt", "LARGE_INTEROP_MARKER")
+}
