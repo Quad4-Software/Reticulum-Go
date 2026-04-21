@@ -318,7 +318,7 @@ tasks:
       - PATH="$PATH:{{.ROOT_DIR}}/misc/wasm" {{.GOCMD}} test -v ./pkg/wasm/ ./cmd/reticulum-wasm/
       - |
         export PATH="$PATH:{{.ROOT_DIR}}/misc/wasm"
-        cd examples/wasm && {{.GOCMD}} test -v .
+        cd examples/wasm && GOFLAGS=-mod=mod {{.GOCMD}} test -v .
 
   build-wasm:
     desc: Build WebAssembly binary with standard Go compiler
