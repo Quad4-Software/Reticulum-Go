@@ -48,7 +48,7 @@ jobs:
         run: sh scripts/ci/setup-gosec.sh "${{ env.CI_GOSEC_VERSION }}"
 
       - name: Run Gosec Security Scanner
-        run: gosec ./...
+        run: gosec ./pkg/... ./cmd/... ./internal/... ./tests/...
 
       - name: Install govulncheck
         run: sh scripts/ci/setup-govulncheck.sh "${{ env.CI_GOVULNCHECK_VERSION }}"
