@@ -28,16 +28,16 @@ This document covers how well Reticulum-Go plays along with the official [Reticu
 | `TCPClientInterface`      | Yes          | `pkg/interfaces/tcp.go` + `tcp_common.go`, HDLC framing, per-OS `tcp_<os>.go` keepalive tuning |
 | `TCPServerInterface`      | Yes          | `pkg/interfaces/tcp.go`, accept loop, HDLC framing, IFAC support |
 | `AutoInterface`           | Yes          | `pkg/interfaces/auto.go`; IPv6 link-local multicast group discovery, group hash, peer aging |
-| `I2PInterface`            | No           | Not ported; no SAM bridge wrapper in Go |
-| `BackboneInterface`       | No           | Not ported; the Python epoll/kqueue multiplexed backbone listener has no Go equivalent |
-| `RNodeInterface`          | No           | Not ported; no RNode hardware/serial driver |
-| `RNodeMultiInterface`     | No           | Not ported; depends on RNode driver |
-| `SerialInterface`         | No           | Not ported |
-| `KISSInterface`           | No           | Not ported |
-| `AX25KISSInterface`       | No           | Not ported |
-| `PipeInterface`           | No           | Not ported (subprocess stdio bridge) |
-| `LocalInterface`          | No           | Not ported (Unix-domain shared-instance bridge) |
-| `WeaveInterface`          | No           | Not ported |
+| `I2PInterface`            | No           | No Implemented Yet; no SAM bridge wrapper in Go |
+| `BackboneInterface`       | No           | No Implemented Yet; the Python epoll/kqueue multiplexed backbone listener has no Go equivalent |
+| `RNodeInterface`          | No           | No Implemented Yet; no RNode hardware/serial driver |
+| `RNodeMultiInterface`     | No           | No Implemented Yet; depends on RNode driver |
+| `SerialInterface`         | No           | No Implemented Yet |
+| `KISSInterface`           | No           | No Implemented Yet |
+| `AX25KISSInterface`       | No           | No Implemented Yet |
+| `PipeInterface`           | No           | No Implemented Yet (subprocess stdio bridge) |
+| `LocalInterface`          | No           | No Implemented Yet (Unix-domain shared-instance bridge) |
+| `WeaveInterface`          | No           | No Implemented Yet |
 | Android `KISS`/`RNode`/`Serial` (`RNS/Interfaces/Android/`) | No | Android-specific shims; not applicable to the Go build |
 | `Interface` base class    | Yes          | `pkg/interfaces/interface.go` (`Interface` interface) + `constants.go` (mode/bitrate constants) |
 | WebSocket interface       | Go-only      | `pkg/interfaces/websocket_native.go` and `websocket_wasm.go`; not present in Python `rns` |
@@ -47,16 +47,31 @@ This document covers how well Reticulum-Go plays along with the official [Reticu
 | Python utility | Reticulum-Go | Notes |
 |----------------|:------------:|-------|
 | `rnsd`         | Yes          | `cmd/reticulum-go` is the daemon equivalent: loads config, brings up interfaces, runs the transport, persists identity/destination tables |
-| `rncp`         | No           | Reticulum file copy CLI; not ported (resource transfer primitives exist in `pkg/resource`) |
-| `rnid`         | No           | Identity management CLI (create/inspect/sign/encrypt); not ported (primitives in `pkg/identity`) |
-| `rnir`         | No           | Identity recall / reverse-resolve CLI; not ported |
-| `rnpath`       | No           | Path table inspect / drop / request CLI; not ported (transport exposes `RequestPath` and path table APIs) |
-| `rnprobe`      | No           | Echo/probe CLI; not ported |
-| `rnstatus`     | No           | Interface and transport status CLI; not ported |
-| `rnx`          | No           | Remote command execution CLI; not ported |
-| `rnodeconf`    | No           | RNode flashing/configuration CLI; not ported (depends on RNode driver) |
-| `rnpkg`        | No           | Reticulum package signing/inspection CLI; not ported |
+| `rncp`         | No           | Reticulum file copy CLI; No Implemented Yet (resource transfer primitives exist in `pkg/resource`) |
+| `rnid`         | No           | Identity management CLI (create/inspect/sign/encrypt); No Implemented Yet (primitives in `pkg/identity`) |
+| `rnir`         | No           | Identity recall / reverse-resolve CLI; No Implemented Yet |
+| `rnpath`       | No           | Path table inspect / drop / request CLI; No Implemented Yet (transport exposes `RequestPath` and path table APIs) |
+| `rnprobe`      | No           | Echo/probe CLI; No Implemented Yet |
+| `rnstatus`     | No           | Interface and transport status CLI; No Implemented Yet |
+| `rnx`          | No           | Remote command execution CLI; No Implemented Yet |
+| `rnodeconf`    | No           | RNode flashing/configuration CLI; No Implemented Yet (depends on RNode driver) |
+| `rnpkg`        | No           | Reticulum package signing/inspection CLI; No Implemented Yet |
 | WASM build     | Go-only      | `cmd/reticulum-wasm` builds a browser-loadable Reticulum stack; no Python counterpart |
+
+## Examples
+
+Sample programs live under `examples/`. **Public** examples are included in the repository; **planned** examples exist in development and are intended for publication later.
+
+| Directory | Status | Notes |
+|-----------|:------:|-------|
+| `wasm` | Public | Browser WASM (`//go:build js,wasm`), JS bridge via `pkg/wasm` |
+| `pageserver` | Public | Serve templated pages and static files over Reticulum |
+| `announce` | Planned | |
+| `echo` | Planned | |
+| `filetransfer` | Planned | |
+| `link` | Planned | |
+| `minimal` | Planned | |
+| `page-downloader` | Planned | |
 
 ## Configuration
 
@@ -141,8 +156,8 @@ The keys below are parsed by `applyInterfaceOption` in `internal/config/config.g
 | `target_port`                  | Yes          | Yes          | TCP client |
 | `target_address`               | Yes          | Yes          | UDP (peer hint) |
 | `interface`                    | Yes          | Yes          | AutoInterface (NIC name) |
-| `kiss_framing`                 | Yes          | Parsed only  | Used by KISS interfaces (not ported) |
-| `i2p_tunneled`                 | Yes          | Parsed only  | Used by I2P (not ported) |
+| `kiss_framing`                 | Yes          | Parsed only  | Used by KISS interfaces (No Implemented Yet) |
+| `i2p_tunneled`                 | Yes          | Parsed only  | Used by I2P (No Implemented Yet) |
 | `prefer_ipv6`                  | Yes          | Yes          | TCP, AutoInterface |
 | `max_reconnect_tries`          | Yes          | Yes          | TCP client |
 | `bitrate`                      | Yes          | Yes          | All |
