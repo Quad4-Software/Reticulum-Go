@@ -607,21 +607,25 @@ func (t *Transport) notifyAnnounceHandlers(destHash []byte, identity any, appDat
 }
 
 func (t *Transport) HasPath(destinationHash []byte) bool {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
+	key := string(destinationHash)
+	ttl := time.Duration(PathRequestTTL) * time.Second
 
-	path, exists := t.paths[string(destinationHash)]
+	t.mutex.RLock()
+	path, exists := t.paths[key]
+	t.mutex.RUnlock()
 	if !exists {
 		return false
 	}
-
-	// Check if path is still valid (not expired)
-	if time.Since(path.LastUpdated) > time.Duration(PathRequestTTL)*time.Second {
-		delete(t.paths, string(destinationHash))
-		return false
+	if time.Since(path.LastUpdated) <= ttl {
+		return true
 	}
 
-	return true
+	t.mutex.Lock()
+	if cur, ok := t.paths[key]; ok && time.Since(cur.LastUpdated) > ttl {
+		delete(t.paths, key)
+	}
+	t.mutex.Unlock()
+	return false
 }
 
 func (t *Transport) HopsTo(destinationHash []byte) uint8 {
