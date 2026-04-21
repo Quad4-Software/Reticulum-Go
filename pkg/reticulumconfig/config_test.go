@@ -84,14 +84,14 @@ func TestSectionHeader(t *testing.T) {
 // are preserved while trailing comments are removed.
 func TestStripInlineComment(t *testing.T) {
 	cases := map[string]string{
-		"value":               "value",
-		"value # comment":     "value",
-		"value\t; comment":    "value",
-		"value#nocomment":     "value#nocomment",
-		"abc;def":             "abc;def",
-		"only a value":        "only a value",
-		"trailing  ":          "trailing  ",
-		"192.0.2.10 # ip ":    "192.0.2.10",
+		"value":            "value",
+		"value # comment":  "value",
+		"value\t; comment": "value",
+		"value#nocomment":  "value#nocomment",
+		"abc;def":          "abc;def",
+		"only a value":     "only a value",
+		"trailing  ":       "trailing  ",
+		"192.0.2.10 # ip ": "192.0.2.10",
 	}
 	for in, want := range cases {
 		if got := stripInlineComment(in); got != want {
