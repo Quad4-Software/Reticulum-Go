@@ -3,9 +3,13 @@ package destination
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 
+	"git.quad4.io/Networks/Reticulum-Go/pkg/announce"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
 )
@@ -25,6 +29,50 @@ func (m *mockTransport) GetInterfaces() map[string]common.NetworkInterface {
 
 func (m *mockTransport) RegisterDestination(hash []byte, dest any) {
 }
+
+type recordingInterface struct {
+	common.BaseInterface
+	mu       sync.Mutex
+	sent     [][]byte
+	bwOK     bool
+	enabled  bool
+	online   bool
+	detached bool
+}
+
+func newRecordingInterface(name string) *recordingInterface {
+	ri := &recordingInterface{
+		bwOK:    true,
+		enabled: true,
+		online:  true,
+	}
+	ri.Name = name
+	ri.Online = true
+	ri.Enabled = true
+	return ri
+}
+
+func (r *recordingInterface) Send(data []byte, address string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	cp := make([]byte, len(data))
+	copy(cp, data)
+	r.sent = append(r.sent, cp)
+	return nil
+}
+
+func (r *recordingInterface) Sent() [][]byte {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([][]byte, len(r.sent))
+	copy(out, r.sent)
+	return out
+}
+
+func (r *recordingInterface) IsEnabled() bool             { return r.enabled }
+func (r *recordingInterface) IsOnline() bool              { return r.online }
+func (r *recordingInterface) IsDetached() bool            { return r.detached }
+func (r *recordingInterface) GetBandwidthAvailable() bool { return r.bwOK }
 
 func TestNewDestination(t *testing.T) {
 	id, _ := identity.New()
@@ -141,6 +189,117 @@ func TestPlainDestination(t *testing.T) {
 	decrypted, _ := dest.Decrypt(ciphertext)
 	if !bytes.Equal(plaintext, decrypted) {
 		t.Error("Plain destination should not decrypt")
+	}
+}
+
+func TestAnnounceFanoutAndFreshness(t *testing.T) {
+	id, err := identity.New()
+	if err != nil {
+		t.Fatalf("identity.New: %v", err)
+	}
+
+	ifaces := map[string]common.NetworkInterface{
+		"if-a": newRecordingInterface("if-a"),
+		"if-b": newRecordingInterface("if-b"),
+		"if-c": newRecordingInterface("if-c"),
+	}
+	tr := &mockTransport{config: &common.ReticulumConfig{}, interfaces: ifaces}
+
+	dest, err := New(id, In|Out, Single, "testapp", tr, "testaspect")
+	if err != nil {
+		t.Fatalf("New destination: %v", err)
+	}
+	dest.SetDefaultAppData([]byte("appdata"))
+
+	const announces = 4
+	before := time.Now().Unix()
+	for i := 0; i < announces; i++ {
+		if err := dest.Announce(false, nil, nil); err != nil {
+			t.Fatalf("Announce iter %d: %v", i, err)
+		}
+	}
+	after := time.Now().Unix()
+
+	seenRandomHashes := map[string]int{}
+	for name, iface := range ifaces {
+		ri := iface.(*recordingInterface)
+		sent := ri.Sent()
+		if len(sent) != announces {
+			t.Fatalf("interface %s received %d announces, want %d", name, len(sent), announces)
+		}
+
+		rhStart := announce.HeaderType1Offset + announce.AnnounceRandomOffset
+		for i, pkt := range sent {
+			if len(pkt) < rhStart+announce.RandomHashSize {
+				t.Fatalf("%s pkt %d too short: %d bytes", name, i, len(pkt))
+			}
+			rh := pkt[rhStart : rhStart+announce.RandomHashSize]
+			seenRandomHashes[string(rh)]++
+
+			tsBytes := rh[5:]
+			padded := make([]byte, 8)
+			copy(padded[8-len(tsBytes):], tsBytes)
+			ts := int64(binary.BigEndian.Uint64(padded)) // #nosec G115
+			if ts < before-1 || ts > after+1 {
+				t.Fatalf("%s pkt %d: decoded ts %d outside window [%d,%d] (raw=%x)", name, i, ts, before, after, tsBytes)
+			}
+		}
+	}
+
+	for rh, n := range seenRandomHashes {
+		if n != len(ifaces) {
+			t.Fatalf("random hash %x appeared on %d/%d interfaces; expected exactly one announce per interface", []byte(rh), n, len(ifaces))
+		}
+	}
+	if got, want := len(seenRandomHashes), announces; got != want {
+		t.Fatalf("got %d distinct random hashes, want %d (one per Announce call)", got, want)
+	}
+}
+
+// TestAnnounceSkipsOfflineOrDisabledInterfaces ensures a periodic
+// announcer doesn't silently disappear from the network because
+// one interface has flapped offline; it must still emit on every
+// other healthy interface.
+func TestAnnounceSkipsOfflineOrDisabledInterfaces(t *testing.T) {
+	id, err := identity.New()
+	if err != nil {
+		t.Fatalf("identity.New: %v", err)
+	}
+
+	healthy := newRecordingInterface("healthy")
+	offline := newRecordingInterface("offline")
+	offline.online = false
+	disabled := newRecordingInterface("disabled")
+	disabled.enabled = false
+
+	tr := &mockTransport{
+		config: &common.ReticulumConfig{},
+		interfaces: map[string]common.NetworkInterface{
+			"healthy":  healthy,
+			"offline":  offline,
+			"disabled": disabled,
+		},
+	}
+
+	dest, err := New(id, In|Out, Single, "testapp", tr, "testaspect")
+	if err != nil {
+		t.Fatalf("New destination: %v", err)
+	}
+
+	for i := 0; i < 3; i++ {
+		if err := dest.Announce(false, nil, nil); err != nil {
+			t.Fatalf("Announce iter %d: %v", i, err)
+		}
+	}
+
+	if got := len(healthy.Sent()); got != 3 {
+		t.Fatalf("healthy interface got %d announces, want 3", got)
+	}
+	if got := len(offline.Sent()); got != 0 {
+		t.Fatalf("offline interface got %d announces, want 0", got)
+	}
+	if got := len(disabled.Sent()); got != 0 {
+		t.Fatalf("disabled interface got %d announces, want 0", got)
 	}
 }
 
