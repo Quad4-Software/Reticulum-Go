@@ -49,10 +49,11 @@ var (
 	filesDirFlag         = flag.String("files-dir", "files", "Directory of files served under /file/")
 	pagesRefreshInterval = flag.Duration("pages-refresh-interval", 0, "Rescan pages-dir and update /page/ handlers on this interval (0 disables). New and removed files apply without restarting.")
 	filesRefreshInterval = flag.Duration("files-refresh-interval", 0, "Rescan files-dir and update /file/ handlers on this interval (0 disables). New and removed files apply without restarting.")
+	nodeNameFlag         = flag.String("node-name", APP_NAME, "Node name advertised in announces as NomadNetwork-style app_data (max 255 bytes).")
 )
 
-// Default announce timing, rate limits, and app identity for Nomad Network–style node announces.
-// APP_NAME and APP_ASPECT are applied when cfg leaves the corresponding fields empty.
+const maxNodeNameBytes = 255
+
 const (
 	ANNOUNCE_RATE_TARGET  = 3600
 	ANNOUNCE_RATE_GRACE   = 3
@@ -103,15 +104,32 @@ type announceRecord struct {
 	appData   []byte
 }
 
+// resolveNodeName returns the announced node name, falling back to APP_NAME
+// when the flag is unset or whitespace-only and clamping to maxNodeNameBytes
+// so the value can always fit inside an msgpack bin8 announce field.
+func resolveNodeName() string {
+	name := strings.TrimSpace(*nodeNameFlag)
+	if name == "" {
+		name = APP_NAME
+	}
+	if len(name) > maxNodeNameBytes {
+		debug.Log(debug.DebugCritical,
+			"node name exceeds max length, truncating",
+			"max_bytes", maxNodeNameBytes,
+			"got_bytes", len(name),
+		)
+		name = name[:maxNodeNameBytes]
+	}
+	return name
+}
+
 // NewReticulum loads or creates identity, opens the destination, wires link and static handlers, and builds interfaces from cfg.
 func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 	if cfg == nil {
 		cfg = common.DefaultConfig()
 	}
 
-	if cfg.AppName == "" {
-		cfg.AppName = APP_NAME
-	}
+	cfg.AppName = resolveNodeName()
 	if cfg.AppAspect == "" {
 		cfg.AppAspect = APP_ASPECT
 	}
@@ -526,8 +544,14 @@ func (r *Reticulum) Start() error {
 
 	time.Sleep(2 * time.Second)
 
-	debug.Log(debug.DebugInfo, "Sending initial announce", "dest_hash", fmt.Sprintf("%x", r.destination.GetHash()))
-	nodeName := "Reticulum-Go Test Node"
+	nodeName := r.config.AppName
+	if nodeName == "" {
+		nodeName = APP_NAME
+	}
+	debug.Log(debug.DebugInfo, "Sending initial announce",
+		"dest_hash", fmt.Sprintf("%x", r.destination.GetHash()),
+		"node_name", nodeName,
+	)
 	r.destination.SetDefaultAppData([]byte(nodeName))
 	announceStartTime := time.Now()
 	if err := r.destination.Announce(false, nil, nil); err != nil {
@@ -1148,6 +1172,7 @@ func printPageserverStartupSummary(r *Reticulum) {
 
 	w := os.Stderr
 	fmt.Fprintf(w, "pageserver node destination hash: %s\n", h)
+	fmt.Fprintf(w, "  node name: %s\n", r.config.AppName)
 	fmt.Fprintf(w, "  pages (%d): ", len(pages))
 	if len(pages) == 0 {
 		fmt.Fprintln(w, "(none)")
