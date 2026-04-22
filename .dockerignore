@@ -37,3 +37,7 @@ node_modules/
 __pycache__/
 
 .cache/
+
+.tools/
+
+.reticulum-go/
