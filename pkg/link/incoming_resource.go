@@ -340,15 +340,24 @@ func (l *Link) assembleIncomingPayload(inner []byte, adv *resource.ResourceAdver
 	if len(innerPlain) < resource.RandomHashSize {
 		return nil, errors.New("incoming resource too short for random hash")
 	}
-	// Leading bytes are a guard prefix before link encryption; they are not
-	// required to equal adv.RandomHash (two independent randoms are used).
 	data := innerPlain[resource.RandomHashSize:]
 
 	if adv.Compressed {
+		if adv.DataSize <= 0 {
+			return nil, errors.New("incoming compressed resource has invalid data_size")
+		}
+		if adv.DataSize > int64(resource.AutoCompressMaxSize) {
+			return nil, errors.New("incoming compressed resource exceeds AutoCompressMaxSize")
+		}
+
 		r := bzip2.NewReader(bytes.NewReader(data))
-		decompressed, err := io.ReadAll(r)
+		limited := io.LimitReader(r, adv.DataSize+1)
+		decompressed, err := io.ReadAll(limited)
 		if err != nil {
 			return nil, err
+		}
+		if int64(len(decompressed)) > adv.DataSize {
+			return nil, errors.New("incoming compressed resource exceeds advertised data_size")
 		}
 		data = decompressed
 	}
