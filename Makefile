@@ -1,5 +1,5 @@
 .PHONY: all build install uninstall clean test fmt vet lint vulncheck gosec check deps run
-.PHONY: build-linux build-windows build-darwin build-all tinygo-build tinygo-wasm
+.PHONY: build-linux build-windows build-darwin build-all tinygo-build tinygo-wasm tinygo-pageserver
 .PHONY: test-short test-race test-crossref test-wasm test-all coverage bench debug release
 
 GOCMD := go
@@ -118,3 +118,9 @@ tinygo-build:
 tinygo-wasm:
 	@mkdir -p $(BUILD_DIR)
 	$(TINYGO) build -target=wasm -o $(BUILD_DIR)/$(BINARY_NAME).wasm ./cmd/reticulum-wasm
+
+# Host Linux/amd64 ELF (no -target). Other OS: set TINYGO and build on that host or use a JSON target.
+# Clear GOFLAGS: examples/pageserver has no vendor/; root -mod=vendor breaks TinyGo there.
+tinygo-pageserver:
+	@mkdir -p $(BUILD_DIR)
+	cd examples/pageserver && GOFLAGS= GOPROXY=https://proxy.golang.org,direct $(TINYGO) build -size short -opt=z -o ../../$(BUILD_DIR)/example-pageserver-tinygo .
