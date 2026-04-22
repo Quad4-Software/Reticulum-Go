@@ -44,3 +44,7 @@ reticulum-ref/
 __pycache__/
 
 .cache/
+
+.tools/
+
+.reticulum-go/
