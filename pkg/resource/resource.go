@@ -419,8 +419,10 @@ func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), 
 		if end > len(innerBlob) {
 			end = len(innerBlob)
 		}
-		chunk := innerBlob[start:end]
-		partHash := sha256.Sum256(append(chunk, randomHash...))
+		h := sha256.New()
+		h.Write(innerBlob[start:end])
+		h.Write(randomHash)
+		partHash := h.Sum(nil)
 		copy(r.hashmap[i*MapHashLen:], partHash[:MapHashLen])
 	}
 
