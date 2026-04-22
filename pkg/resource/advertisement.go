@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package resource
 
 import (
 	"fmt"
 	"math"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-)
-
-const (
-	OVERHEAD             = 134
-	COLLISION_GUARD_SIZE = 2*WINDOW_MAX + 100
+	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
 )
 
 type ResourceAdvertisement struct {
@@ -39,15 +34,15 @@ func NewResourceAdvertisement(res *Resource) *ResourceAdvertisement {
 		return nil
 	}
 
-	flags := byte(0x00)
+	var flags byte
 	if res.HasMetadata() {
-		flags |= 0x20
+		flags |= AdvFlagHasMetadata
 	}
 	if res.IsResponse() {
-		flags |= 0x10
+		flags |= AdvFlagIsResponse
 	}
 	if res.IsRequest() {
-		flags |= 0x08
+		flags |= AdvFlagIsRequest
 	}
 
 	res.mutex.RLock()
@@ -61,13 +56,13 @@ func NewResourceAdvertisement(res *Resource) *ResourceAdvertisement {
 	res.mutex.RUnlock()
 
 	if split {
-		flags |= 0x04
+		flags |= AdvFlagSplit
 	}
 	if compressed {
-		flags |= 0x02
+		flags |= AdvFlagCompressed
 	}
 	if encrypted {
-		flags |= 0x01
+		flags |= AdvFlagEncrypted
 	}
 
 	hashmap := res.getHashmap()
@@ -93,17 +88,14 @@ func NewResourceAdvertisement(res *Resource) *ResourceAdvertisement {
 	}
 }
 
-func (ra *ResourceAdvertisement) Pack(segment int) ([]byte, error) {
-	hashmapMaxLen := getHashmapMaxLen()
+func (ra *ResourceAdvertisement) Pack(segment int, linkMDU int) ([]byte, error) {
+	hashmapMaxLen := hashmapEntriesPerAdvSegment(linkMDU)
 	hashmapStart := segment * hashmapMaxLen
-	hashmapEnd := hashmapStart + hashmapMaxLen
-	if hashmapEnd > len(ra.Hashmap)/MAPHASH_LEN {
-		hashmapEnd = len(ra.Hashmap) / MAPHASH_LEN
-	}
+	hashmapEnd := min(hashmapStart+hashmapMaxLen, len(ra.Hashmap)/MapHashLen)
 
-	hashmap := ra.Hashmap[hashmapStart*MAPHASH_LEN : hashmapEnd*MAPHASH_LEN]
+	hashmap := ra.Hashmap[hashmapStart*MapHashLen : hashmapEnd*MapHashLen]
 
-	dict := map[string]interface{}{
+	dict := map[string]any{
 		"t": ra.TransferSize,
 		"d": ra.DataSize,
 		"n": ra.Parts,
@@ -117,38 +109,83 @@ func (ra *ResourceAdvertisement) Pack(segment int) ([]byte, error) {
 		"m": hashmap,
 	}
 
-	return common.MsgpackMarshal(dict)
+	return msgpack.Marshal(dict)
 }
 
 func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
-	var dict map[string]interface{}
-	if err := common.MsgpackUnmarshal(data, &dict); err != nil {
+	var dict map[string]any
+	if err := msgpack.Unmarshal(data, &dict); err != nil {
 		return nil, fmt.Errorf("failed to unpack advertisement: %w", err)
 	}
 
 	ra := &ResourceAdvertisement{}
 
-	if t, ok := dict["t"].(int64); ok {
+	switch t := dict["t"].(type) {
+	case int:
+		ra.TransferSize = int64(t)
+	case int8:
+		ra.TransferSize = int64(t)
+	case int16:
+		ra.TransferSize = int64(t)
+	case int32:
+		ra.TransferSize = int64(t)
+	case int64:
 		ra.TransferSize = t
-	} else if t, ok := dict["t"].(uint64); ok {
+	case uint8:
+		ra.TransferSize = int64(t)
+	case uint16:
+		ra.TransferSize = int64(t)
+	case uint32:
+		ra.TransferSize = int64(t)
+	case uint64:
 		if t > uint64(math.MaxInt64) {
 			return nil, fmt.Errorf("transfer size overflow")
 		}
 		ra.TransferSize = int64(t) // #nosec G115 - checked for overflow
 	}
 
-	if d, ok := dict["d"].(int64); ok {
+	switch d := dict["d"].(type) {
+	case int:
+		ra.DataSize = int64(d)
+	case int8:
+		ra.DataSize = int64(d)
+	case int16:
+		ra.DataSize = int64(d)
+	case int32:
+		ra.DataSize = int64(d)
+	case int64:
 		ra.DataSize = d
-	} else if d, ok := dict["d"].(uint64); ok {
+	case uint8:
+		ra.DataSize = int64(d)
+	case uint16:
+		ra.DataSize = int64(d)
+	case uint32:
+		ra.DataSize = int64(d)
+	case uint64:
 		if d > uint64(math.MaxInt64) {
 			return nil, fmt.Errorf("data size overflow")
 		}
 		ra.DataSize = int64(d) // #nosec G115 - checked for overflow
 	}
 
-	if n, ok := dict["n"].(int); ok {
+	switch n := dict["n"].(type) {
+	case int:
 		ra.Parts = n
-	} else if n, ok := dict["n"].(uint64); ok {
+	case int8:
+		ra.Parts = int(n)
+	case int16:
+		ra.Parts = int(n)
+	case int32:
+		ra.Parts = int(n)
+	case int64:
+		ra.Parts = int(n)
+	case uint8:
+		ra.Parts = int(n)
+	case uint16:
+		ra.Parts = int(n)
+	case uint32:
+		ra.Parts = int(n)
+	case uint64:
 		if n > uint64(math.MaxInt32) {
 			return nil, fmt.Errorf("parts count overflow")
 		}
@@ -171,18 +208,20 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 		ra.Hashmap = m
 	}
 
-	if f, ok := dict["f"].(byte); ok {
-		ra.Flags = f
-	} else if f, ok := dict["f"].(uint64); ok {
-		ra.Flags = byte(f)
+	if f, ok := dict["f"]; ok {
+		flags, err := wireFlagsFromAny(f)
+		if err != nil {
+			return nil, err
+		}
+		ra.Flags = flags
 	}
 
-	ra.Encrypted = (ra.Flags & 0x01) == 0x01
-	ra.Compressed = ((ra.Flags >> 1) & 0x01) == 0x01
-	ra.Split = ((ra.Flags >> 2) & 0x01) == 0x01
-	ra.IsRequest = ((ra.Flags >> 3) & 0x01) == 0x01
-	ra.IsResponse = ((ra.Flags >> 4) & 0x01) == 0x01
-	ra.HasMetadata = ((ra.Flags >> 5) & 0x01) == 0x01
+	ra.Encrypted = ra.Flags&AdvFlagEncrypted != 0
+	ra.Compressed = ra.Flags&AdvFlagCompressed != 0
+	ra.Split = ra.Flags&AdvFlagSplit != 0
+	ra.IsRequest = ra.Flags&AdvFlagIsRequest != 0
+	ra.IsResponse = ra.Flags&AdvFlagIsResponse != 0
+	ra.HasMetadata = ra.Flags&AdvFlagHasMetadata != 0
 
 	if i, ok := dict["i"].(uint16); ok {
 		ra.SegmentIndex = i
@@ -191,6 +230,16 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 			return nil, fmt.Errorf("segment index overflow")
 		}
 		ra.SegmentIndex = uint16(i) // #nosec G115 - checked for overflow
+	} else if i, ok := dict["i"].(int); ok {
+		if i < 0 || i > math.MaxUint16 {
+			return nil, fmt.Errorf("segment index out of range")
+		}
+		ra.SegmentIndex = uint16(i) // #nosec G115
+	} else if i, ok := dict["i"].(int64); ok {
+		if i < 0 || i > math.MaxUint16 {
+			return nil, fmt.Errorf("segment index out of range")
+		}
+		ra.SegmentIndex = uint16(i) // #nosec G115
 	}
 
 	if l, ok := dict["l"].(uint16); ok {
@@ -200,6 +249,16 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 			return nil, fmt.Errorf("total segments overflow")
 		}
 		ra.TotalSegments = uint16(l) // #nosec G115 - checked for overflow
+	} else if l, ok := dict["l"].(int); ok {
+		if l < 0 || l > math.MaxUint16 {
+			return nil, fmt.Errorf("total segments out of range")
+		}
+		ra.TotalSegments = uint16(l) // #nosec G115
+	} else if l, ok := dict["l"].(int64); ok {
+		if l < 0 || l > math.MaxUint16 {
+			return nil, fmt.Errorf("total segments out of range")
+		}
+		ra.TotalSegments = uint16(l) // #nosec G115
 	}
 
 	if q, ok := dict["q"].([]byte); ok {
@@ -209,9 +268,65 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 	return ra, nil
 }
 
-func getHashmapMaxLen() int {
-	mdu := 384
-	return (mdu - OVERHEAD) / MAPHASH_LEN
+func wireFlagsFromAny(f any) (byte, error) {
+	switch v := f.(type) {
+	case uint8:
+		return v, nil
+	case int:
+		if v < 0 || v > 255 {
+			return 0, fmt.Errorf("advertisement flags out of range")
+		}
+		return byte(v), nil
+	case int8:
+		if v < 0 {
+			return 0, fmt.Errorf("advertisement flags out of range")
+		}
+		return byte(v), nil
+	case int16:
+		if v < 0 || v > 255 {
+			return 0, fmt.Errorf("advertisement flags out of range")
+		}
+		return byte(v), nil
+	case int32:
+		if v < 0 || v > 255 {
+			return 0, fmt.Errorf("advertisement flags out of range")
+		}
+		return byte(v), nil
+	case int64:
+		if v < 0 || v > 255 {
+			return 0, fmt.Errorf("advertisement flags out of range")
+		}
+		return byte(v), nil
+	case uint16:
+		if v > 255 {
+			return 0, fmt.Errorf("advertisement flags out of range")
+		}
+		return byte(v), nil
+	case uint32:
+		if v > 255 {
+			return 0, fmt.Errorf("advertisement flags out of range")
+		}
+		return byte(v), nil
+	case uint64:
+		if v > 255 {
+			return 0, fmt.Errorf("advertisement flags out of range")
+		}
+		return byte(v), nil
+	default:
+		return 0, nil
+	}
+}
+
+func hashmapEntriesPerAdvSegment(linkMDU int) int {
+	if linkMDU <= 0 {
+		linkMDU = 384
+	}
+	return (linkMDU - Overhead) / MapHashLen
+}
+
+// HashmapEntriesPerSegment is the number of map-hash slots per advertisement or HMU segment for a link MDU.
+func HashmapEntriesPerSegment(linkMDU int) int {
+	return hashmapEntriesPerAdvSegment(linkMDU)
 }
 
 func IsRequestAdvertisement(data []byte) bool {

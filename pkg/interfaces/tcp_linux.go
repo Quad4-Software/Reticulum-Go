@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 //go:build linux && !tinygo
 // +build linux,!tinygo
 
@@ -15,6 +15,15 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 )
 
+func linuxFdToInt(fd uintptr) (int, bool) {
+	maxInt := int(^uint(0) >> 1)
+	if fd > uintptr(maxInt) {
+		return 0, false
+	}
+	// #nosec G115 -- fd is bounded above by max int; invalid fds rejected above
+	return int(fd), true
+}
+
 func (tc *TCPClientInterface) setTimeoutsLinux() error {
 	tcpConn, ok := tc.conn.(*net.TCPConn)
 	if !ok {
@@ -28,18 +37,24 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 
 	var sockoptErr error
 	err = rawConn.Control(func(fd uintptr) {
+		fdInt, ok := linuxFdToInt(fd)
+		if !ok {
+			sockoptErr = fmt.Errorf("invalid file descriptor")
+			return
+		}
+
 		var userTimeout, probeAfter, probeInterval, probeCount int
 
 		if tc.i2pTunneled {
-			userTimeout = I2P_USER_TIMEOUT_SEC * TCP_MILLISECONDS
-			probeAfter = I2P_PROBE_AFTER_SEC
-			probeInterval = I2P_PROBE_INTERVAL_SEC
-			probeCount = I2P_PROBES_COUNT
+			userTimeout = I2PUserTimeoutSec * TCPMilliseconds
+			probeAfter = I2PProbeAfterSec
+			probeInterval = I2PProbeIntervalSec
+			probeCount = I2PProbesCount
 		} else {
-			userTimeout = TCP_USER_TIMEOUT_SEC * TCP_MILLISECONDS
-			probeAfter = TCP_PROBE_AFTER_SEC
-			probeInterval = TCP_PROBE_INTERVAL_SEC
-			probeCount = TCP_PROBES_COUNT
+			userTimeout = TCPUserTimeoutSec * TCPMilliseconds
+			probeAfter = TCPProbeAfterSec
+			probeInterval = TCPProbeIntervalSec
+			probeCount = TCPProbesCount
 		}
 
 		const TCP_USER_TIMEOUT = 18
@@ -47,25 +62,25 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 		const TCP_KEEPINTVL = 5
 		const TCP_KEEPCNT = 6
 
-		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, TCP_USER_TIMEOUT, userTimeout); err != nil {
-			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_USER_TIMEOUT", "error", err)
+		if err := syscall.SetsockoptInt(fdInt, syscall.IPPROTO_TCP, TCP_USER_TIMEOUT, userTimeout); err != nil {
+			debug.Log(debug.DebugVerbose, "Failed to set TCP_USER_TIMEOUT", "error", err)
 		}
 
-		if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, SO_KEEPALIVE_ENABLE); err != nil {
+		if err := syscall.SetsockoptInt(fdInt, syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, SOKeepaliveEnable); err != nil {
 			sockoptErr = fmt.Errorf("failed to enable SO_KEEPALIVE: %v", err)
 			return
 		}
 
-		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, TCP_KEEPIDLE, probeAfter); err != nil {
-			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_KEEPIDLE", "error", err)
+		if err := syscall.SetsockoptInt(fdInt, syscall.IPPROTO_TCP, TCP_KEEPIDLE, probeAfter); err != nil {
+			debug.Log(debug.DebugVerbose, "Failed to set TCP_KEEPIDLE", "error", err)
 		}
 
-		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, TCP_KEEPINTVL, probeInterval); err != nil {
-			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_KEEPINTVL", "error", err)
+		if err := syscall.SetsockoptInt(fdInt, syscall.IPPROTO_TCP, TCP_KEEPINTVL, probeInterval); err != nil {
+			debug.Log(debug.DebugVerbose, "Failed to set TCP_KEEPINTVL", "error", err)
 		}
 
-		if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, TCP_KEEPCNT, probeCount); err != nil {
-			debug.Log(debug.DEBUG_VERBOSE, "Failed to set TCP_KEEPCNT", "error", err)
+		if err := syscall.SetsockoptInt(fdInt, syscall.IPPROTO_TCP, TCP_KEEPCNT, probeCount); err != nil {
+			debug.Log(debug.DebugVerbose, "Failed to set TCP_KEEPCNT", "error", err)
 		}
 	})
 
@@ -76,7 +91,7 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 		return sockoptErr
 	}
 
-	debug.Log(debug.DEBUG_VERBOSE, "TCP keepalive configured (Linux)", "i2p", tc.i2pTunneled)
+	debug.Log(debug.DebugVerbose, "TCP keepalive configured (Linux)", "i2p", tc.i2pTunneled)
 	return nil
 }
 
@@ -86,7 +101,6 @@ func (tc *TCPClientInterface) setTimeoutsOSX() error {
 
 func platformGetRTT(fd uintptr) time.Duration {
 	var info syscall.TCPInfo
-	// bearer:disable go_gosec_unsafe_unsafe
 	infoLen := uint32(unsafe.Sizeof(info))
 
 	const TCP_INFO = 11
@@ -96,9 +110,7 @@ func platformGetRTT(fd uintptr) time.Duration {
 		fd,
 		syscall.IPPROTO_TCP,
 		TCP_INFO,
-		// bearer:disable go_gosec_unsafe_unsafe
 		uintptr(unsafe.Pointer(&info)),
-		// bearer:disable go_gosec_unsafe_unsafe
 		uintptr(unsafe.Pointer(&infoLen)),
 		0,
 	)

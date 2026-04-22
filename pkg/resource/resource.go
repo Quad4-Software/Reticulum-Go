@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package resource
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"errors"
 	"io"
@@ -12,98 +13,42 @@ import (
 	"time"
 )
 
-const (
-	STATUS_PENDING   = 0x00
-	STATUS_ACTIVE    = 0x01
-	STATUS_COMPLETE  = 0x02
-	STATUS_FAILED    = 0x03
-	STATUS_CANCELLED = 0x04
-
-	DEFAULT_SEGMENT_SIZE = 384 // Based on ENCRYPTED_MDU
-	MAX_SEGMENTS         = 65535
-	CLEANUP_INTERVAL     = 300 // 5 minutes
-
-	// Window size constants
-	WINDOW               = 4
-	WINDOW_MIN           = 2
-	WINDOW_MAX_SLOW      = 10
-	WINDOW_MAX_VERY_SLOW = 4
-	WINDOW_MAX_FAST      = 75
-	WINDOW_MAX           = WINDOW_MAX_FAST
-
-	// Rate thresholds
-	FAST_RATE_THRESHOLD      = WINDOW_MAX_SLOW - WINDOW - 2
-	VERY_SLOW_RATE_THRESHOLD = 2
-
-	// Transfer rates (bytes per second)
-	RATE_FAST      = (50 * 1000) / 8 // 50 Kbps
-	RATE_VERY_SLOW = (2 * 1000) / 8  // 2 Kbps
-
-	// Window flexibility
-	WINDOW_FLEXIBILITY = 4
-
-	// Hash and segment constants
-	MAPHASH_LEN      = 4
-	RANDOM_HASH_SIZE = 4
-
-	// Size limits
-	MAX_EFFICIENT_SIZE     = 16*1024*1024 - 1 // ~16MB
-	AUTO_COMPRESS_MAX_SIZE = MAX_EFFICIENT_SIZE
-
-	// Timeouts and retries
-	PART_TIMEOUT_FACTOR           = 4
-	PART_TIMEOUT_FACTOR_AFTER_RTT = 2
-	PROOF_TIMEOUT_FACTOR          = 3
-	MAX_RETRIES                   = 16
-	MAX_ADV_RETRIES               = 4
-	SENDER_GRACE_TIME             = 10.0
-	PROCESSING_GRACE              = 1.0
-	RETRY_GRACE_TIME              = 0.25
-	PER_RETRY_DELAY               = 0.5
-	RESPONSE_MAX_GRACE_TIME       = 10.0
-)
-
 type Resource struct {
-	mutex              sync.RWMutex
-	data               []byte
-	fileHandle         io.ReadWriteSeeker
-	fileName           string
-	hash               []byte
-	randomHash         []byte
-	originalHash       []byte
-	status             byte
-	compressed         bool
-	autoCompress       bool
-	encrypted          bool
-	split              bool
-	segments           uint16
-	segmentIndex       uint16
-	totalSegments      uint16
-	completedParts     map[uint16]bool
-	transferSize       int64
-	dataSize           int64
-	progress           float64
-	window             int
-	windowMax          int
-	windowMin          int
-	windowFlexibility  int
-	rtt                float64
-	fastRateRounds     int
-	verySlowRateRounds int
-	createdAt          time.Time
-	completedAt        time.Time
-	callback           func(*Resource)
-	progressCallback   func(*Resource)
-	readOffset         int64
-	requestID          []byte
-	isResponse         bool
-	hashmap            []byte
-	parts              [][]byte
+	mutex             sync.RWMutex
+	data              []byte
+	fileHandle        io.ReadWriteSeeker
+	fileName          string
+	hash              []byte
+	randomHash        []byte
+	originalHash      []byte
+	status            byte
+	compressed        bool
+	autoCompress      bool
+	encrypted         bool
+	split             bool
+	segments          uint16
+	segmentIndex      uint16
+	totalSegments     uint16
+	completedParts    map[uint16]bool
+	transferSize      int64
+	dataSize          int64
+	progress          float64
+	createdAt         time.Time
+	completedAt       time.Time
+	callback          func(*Resource)
+	progressCallback  func(*Resource)
+	readOffset        int64
+	requestID         []byte
+	isResponse        bool
+	hashmap           []byte
+	outboundCipher    []byte
+	outboundPartSent  []bool
+	outboundSentCount int
 }
 
-func New(data interface{}, autoCompress bool) (*Resource, error) {
+func New(data any, autoCompress bool) (*Resource, error) {
 	r := &Resource{
-		status:         STATUS_PENDING,
+		status:         StatusPending,
 		compressed:     false,
 		autoCompress:   autoCompress,
 		completedParts: make(map[uint16]bool),
@@ -135,8 +80,8 @@ func New(data interface{}, autoCompress bool) (*Resource, error) {
 	}
 
 	// Calculate segments needed
-	r.segments = uint16((r.dataSize + DEFAULT_SEGMENT_SIZE - 1) / DEFAULT_SEGMENT_SIZE) // #nosec G115
-	if r.segments > MAX_SEGMENTS {
+	r.segments = uint16((r.dataSize + DefaultSegmentSize - 1) / DefaultSegmentSize) // #nosec G115
+	if r.segments > MaxSegments {
 		return nil, errors.New("resource too large")
 	}
 
@@ -230,8 +175,8 @@ func (r *Resource) Cancel() {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	if r.status == STATUS_PENDING || r.status == STATUS_ACTIVE {
-		r.status = STATUS_CANCELLED
+	if r.status == StatusPending || r.status == StatusActive {
+		r.status = StatusCancelled
 		r.completedAt = time.Now()
 		if r.callback != nil {
 			r.callback(r)
@@ -260,8 +205,8 @@ func (r *Resource) GetSegmentData(segment uint16) ([]byte, error) {
 		return nil, errors.New("invalid segment number")
 	}
 
-	start := int64(segment) * DEFAULT_SEGMENT_SIZE
-	size := DEFAULT_SEGMENT_SIZE
+	start := int64(segment) * DefaultSegmentSize
+	size := DefaultSegmentSize
 	if segment == r.segments-1 {
 		size = int(r.dataSize - start)
 	}
@@ -304,7 +249,7 @@ func (r *Resource) MarkSegmentComplete(segment uint16) {
 
 	// Check if all segments are complete
 	if completed == int(r.segments) {
-		r.status = STATUS_COMPLETE
+		r.status = StatusComplete
 		r.completedAt = time.Now()
 		if r.callback != nil {
 			r.callback(r)
@@ -323,8 +268,8 @@ func (r *Resource) IsSegmentComplete(segment uint16) bool {
 func (r *Resource) Activate() {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	if r.status == STATUS_PENDING {
-		r.status = STATUS_ACTIVE
+	if r.status == StatusPending {
+		r.status = StatusActive
 	}
 }
 
@@ -332,8 +277,8 @@ func (r *Resource) Activate() {
 func (r *Resource) SetFailed() {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	if r.status != STATUS_COMPLETE {
-		r.status = STATUS_FAILED
+	if r.status != StatusComplete {
+		r.status = StatusFailed
 		r.completedAt = time.Now()
 		if r.callback != nil {
 			r.callback(r)
@@ -344,10 +289,7 @@ func (r *Resource) SetFailed() {
 // Helper functions for compression estimation
 func estimateCompressibility(data []byte) float64 {
 	// Sample the data to estimate compressibility
-	sampleSize := 4096
-	if len(data) < sampleSize {
-		sampleSize = len(data)
-	}
+	sampleSize := min(len(data), 4096)
 
 	// Count unique bytes in sample
 	uniqueBytes := make(map[byte]struct{})
@@ -357,43 +299,148 @@ func estimateCompressibility(data []byte) float64 {
 
 	// Calculate entropy-based compression estimate
 	uniqueRatio := float64(len(uniqueBytes)) / float64(sampleSize)
-	return 0.3 + (0.7 * uniqueRatio) // Base compression ratio between 0.3 and 1.0
+	return CompressionEntropyBase + (CompressionEntropyRange * uniqueRatio)
 }
 
 func estimateFileCompression(size int64, extension string) int64 {
-	// Compression ratio estimates based on common file types
 	compressionRatios := map[string]float64{
-		".txt":  0.4, // Text compresses well
-		".log":  0.4,
-		".json": 0.4,
-		".xml":  0.4,
-		".html": 0.4,
-		".csv":  0.5,
-		".doc":  0.8, // Already compressed
-		".docx": 0.95,
-		".pdf":  0.95,
-		".jpg":  0.99, // Already compressed
-		".jpeg": 0.99,
-		".png":  0.99,
-		".gif":  0.99,
-		".mp3":  0.99,
-		".mp4":  0.99,
-		".zip":  0.99,
-		".gz":   0.99,
-		".rar":  0.99,
+		".txt":  CompressionRatioText,
+		".log":  CompressionRatioText,
+		".json": CompressionRatioText,
+		".xml":  CompressionRatioText,
+		".html": CompressionRatioText,
+		".csv":  CompressionRatioCSV,
+		".doc":  CompressionRatioOfficeLegacy,
+		".docx": CompressionRatioOfficeModern,
+		".pdf":  CompressionRatioOfficeModern,
+		".jpg":  CompressionRatioAlreadyPacked,
+		".jpeg": CompressionRatioAlreadyPacked,
+		".png":  CompressionRatioAlreadyPacked,
+		".gif":  CompressionRatioAlreadyPacked,
+		".mp3":  CompressionRatioAlreadyPacked,
+		".mp4":  CompressionRatioAlreadyPacked,
+		".zip":  CompressionRatioAlreadyPacked,
+		".gz":   CompressionRatioAlreadyPacked,
+		".rar":  CompressionRatioAlreadyPacked,
 	}
 
 	ratio, exists := compressionRatios[extension]
 	if !exists {
-		ratio = 0.7 // Default compression ratio for unknown types
+		ratio = CompressionRatioUnknown
 	}
 
 	return int64(float64(size) * ratio)
 }
 
+// PrepareOutboundForLink builds the inner ciphertext blob, hash, hashmap, and
+// segment counts for sending a resource compatible with Reticulum peers.
+// sdu is the maximum plaintext length per link data packet (link MDU).
+func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), sdu int) error {
+	if sdu <= 0 {
+		return errors.New("invalid sdu")
+	}
+	if encrypt == nil {
+		return errors.New("nil encrypt")
+	}
+
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	r.outboundPartSent = nil
+	r.outboundSentCount = 0
+
+	var body []byte
+	switch {
+	case r.data != nil:
+		body = r.data
+	case r.fileHandle != nil:
+		if _, err := r.fileHandle.Seek(0, io.SeekStart); err != nil {
+			return err
+		}
+		b, err := io.ReadAll(r.fileHandle)
+		if err != nil {
+			return err
+		}
+		body = b
+	default:
+		return errors.New("no data")
+	}
+
+	uncompressed := body
+	randomHash := make([]byte, RandomHashSize)
+	if _, err := io.ReadFull(rand.Reader, randomHash); err != nil {
+		return err
+	}
+
+	payload := uncompressed
+	if r.autoCompress {
+		compressed, err := bzip2CompressBody(uncompressed)
+		if err != nil {
+			return err
+		}
+		if len(compressed) < len(uncompressed) {
+			payload = compressed
+			r.compressed = true
+		} else {
+			r.compressed = false
+		}
+	} else {
+		r.compressed = false
+	}
+
+	h := sha256.Sum256(append(append([]byte(nil), uncompressed...), randomHash...))
+	r.hash = h[:]
+	r.randomHash = append([]byte(nil), randomHash...)
+	r.originalHash = append([]byte(nil), r.hash...)
+
+	plain := append(append([]byte(nil), randomHash...), payload...)
+	innerBlob, err := encrypt(plain)
+	if err != nil {
+		return err
+	}
+
+	r.encrypted = true
+	r.split = false
+	r.totalSegments = 1
+	r.segmentIndex = 1
+
+	partCount := (len(innerBlob) + sdu - 1) / sdu
+	if partCount > int(MaxSegments) {
+		return errors.New("resource too large")
+	}
+	r.segments = uint16(partCount) // #nosec G115
+	r.transferSize = int64(len(innerBlob))
+	r.dataSize = int64(len(uncompressed))
+
+	r.hashmap = make([]byte, partCount*MapHashLen)
+	for i := 0; i < partCount; i++ {
+		start := i * sdu
+		end := start + sdu
+		if end > len(innerBlob) {
+			end = len(innerBlob)
+		}
+		chunk := innerBlob[start:end]
+		partHash := sha256.Sum256(append(chunk, randomHash...))
+		copy(r.hashmap[i*MapHashLen:], partHash[:MapHashLen])
+	}
+
+	r.outboundCipher = innerBlob
+	r.readOffset = 0
+	return nil
+}
+
 func (r *Resource) Read(p []byte) (n int, err error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
+
+	if r.outboundCipher != nil {
+		if r.readOffset >= int64(len(r.outboundCipher)) {
+			return 0, io.EOF
+		}
+		n = copy(p, r.outboundCipher[r.readOffset:])
+		r.readOffset += int64(n)
+		return n, nil
+	}
 
 	if r.data != nil {
 		if r.readOffset >= int64(len(r.data)) {
@@ -473,6 +520,76 @@ func (r *Resource) getHashmap() []byte {
 		return nil
 	}
 	return append([]byte{}, r.hashmap...)
+}
+
+// PartIndexForMapHash returns the part index whose map hash equals mh, or -1.
+func (r *Resource) PartIndexForMapHash(mh []byte) int {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	if r.hashmap == nil || len(mh) != MapHashLen {
+		return -1
+	}
+	n := len(r.hashmap) / MapHashLen
+	for i := 0; i < n; i++ {
+		off := i * MapHashLen
+		if string(r.hashmap[off:off+MapHashLen]) == string(mh) {
+			return i
+		}
+	}
+	return -1
+}
+
+// OutboundCiphertextSlice returns the ciphertext bytes for part i using the given SDU.
+func (r *Resource) OutboundCiphertextSlice(partIndex int, sdu int) []byte {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	if r.outboundCipher == nil || sdu <= 0 {
+		return nil
+	}
+	n := int(r.segments)
+	if partIndex < 0 || partIndex >= n {
+		return nil
+	}
+	start := partIndex * sdu
+	if start >= len(r.outboundCipher) {
+		return nil
+	}
+	end := start + sdu
+	if end > len(r.outboundCipher) {
+		end = len(r.outboundCipher)
+	}
+	out := make([]byte, end-start)
+	copy(out, r.outboundCipher[start:end])
+	return out
+}
+
+// MarkOutboundPartSent records that part i has been transmitted at least once.
+// It returns true when every part index has been sent at least once.
+func (r *Resource) MarkOutboundPartSent(i int) bool {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	n := int(r.segments)
+	if n == 0 {
+		return true
+	}
+	if i < 0 || i >= n {
+		return false
+	}
+	if r.outboundPartSent == nil {
+		r.outboundPartSent = make([]bool, n)
+	}
+	if !r.outboundPartSent[i] {
+		r.outboundPartSent[i] = true
+		r.outboundSentCount++
+	}
+	return r.outboundSentCount >= n
+}
+
+// OutboundTransferComplete reports whether every part has been sent at least once.
+func (r *Resource) OutboundTransferComplete() bool {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	return int(r.segments) > 0 && r.outboundSentCount >= int(r.segments)
 }
 
 func (r *Resource) GetRandomHash() []byte {

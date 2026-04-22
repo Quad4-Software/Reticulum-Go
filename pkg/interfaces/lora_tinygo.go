@@ -72,7 +72,7 @@ type LoRaInterface struct {
 // NewLoRaInterface initializes a new LoRaInterface.
 func NewLoRaInterface(name string, spi machine.SPI, cs, reset, dio0 machine.Pin, freq uint32, bw uint32, sf uint8, cr uint8, enabled bool) (*LoRaInterface, error) {
 	li := &LoRaInterface{
-		BaseInterface: NewBaseInterface(name, common.IF_TYPE_SERIAL, enabled),
+		BaseInterface: NewBaseInterface(name, common.IFTypeNone, enabled),
 		spi:           spi,
 		cs:            cs,
 		reset:         reset,
@@ -260,7 +260,7 @@ func (li *LoRaInterface) ProcessOutgoing(data []byte) error {
 			break
 		}
 		if time.Since(start) > 2*time.Second {
-			debug.Log(debug.DEBUG_ERROR, "LoRa TX timeout")
+			debug.Log(debug.DebugError, "LoRa TX timeout")
 			break
 		}
 		time.Sleep(1 * time.Millisecond)

@@ -1,0 +1,22 @@
+Third-party software (vendored)
+
+This repository vendors third-party Go module source under vendor/. Full license
+texts are included next to that source. The list below is for convenience; if it
+differs from vendor/modules.txt or the files on disk, the vendored files govern.
+
+Module                                  Version   License (summary)     Full text
+--------------------------------------------------------------------------------
+git.quad4.io/Go-Libs/bzip2              v1.0.0    0BSD                  vendor/git.quad4.io/Go-Libs/bzip2/LICENSE
+git.quad4.io/Go-Libs/msgpack/v5         v5.6.1    BSD 2-Clause          vendor/git.quad4.io/Go-Libs/msgpack/v5/LICENSE
+git.quad4.io/Go-Libs/tagparser/v2       v2.1.0    BSD 2-Clause          vendor/git.quad4.io/Go-Libs/tagparser/v2/LICENSE
+git.quad4.io/Go-Libs/pbt                v0.0.0    0BSD                  vendor/git.quad4.io/Go-Libs/pbt/LICENSE
+golang.org/x/crypto                     v0.50.0   BSD 3-Clause          vendor/golang.org/x/crypto/LICENSE
+
+golang.org/x/crypto also includes a patent grant; see vendor/golang.org/x/crypto/PATENTS.
+
+Reticulum-Go itself is licensed under the terms in the LICENSE file at the
+repository root. SPDX: 0BSD.
+
+Machine-readable dependency and license information may also be produced via
+the SBOM tasks in Taskfile.yml (for example task sbom) when the required tools
+are installed.

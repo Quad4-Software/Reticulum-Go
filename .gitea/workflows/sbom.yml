@@ -6,6 +6,16 @@ on:
       - 'v*'
   workflow_dispatch:
 
+env:
+  CI_GO_VERSION: "1.26.2"
+  CI_TASK_VERSION: "3.46.3"
+  TRIVY_DEB_URL: "https://git.quad4.io/Quad4-Software/Trivy-Assets/raw/commit/fdfe96b77d2f7b7f5a90cea00af5024c9f728f17/trivy_0.69.3_Linux-64bit.deb"
+  TRIVY_DEB_SHA256: "a484057aafde31089cf2558ca0f79a4bc835125a5ee6834183a5bcf0735af358"
+  GOFLAGS: -mod=vendor
+  GOPROXY: "off"
+  GOPRIVATE: git.quad4.io
+  GONOSUMDB: git.quad4.io
+
 jobs:
   generate-sbom:
     permissions:
@@ -13,25 +23,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: https://git.quad4.io/actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-        with:
-          fetch-depth: 0
+        run: |
+          set -eu
+          SERVER="${GITEA_SERVER_URL:-${GITHUB_SERVER_URL:-}}"
+          REPO="${GITEA_REPOSITORY:-${GITHUB_REPOSITORY:-}}"
+          if [ -z "$SERVER" ] || [ -z "$REPO" ]; then
+            echo "Checkout: set GITEA_SERVER_URL/GITEA_REPOSITORY or GITHUB_SERVER_URL/GITHUB_REPOSITORY" >&2
+            exit 1
+          fi
+          if [ -n "${GITEA_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
+            TOKEN="${GITEA_TOKEN:-$GITHUB_TOKEN}"
+            git config --global credential.helper "!f() { echo username=x-access-token; echo password=${TOKEN}; }; f"
+          fi
+          git clone "${SERVER}/${REPO}.git" .
+          git checkout "${GITHUB_SHA}"
 
       - name: Setup Go
-        uses: https://git.quad4.io/actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
-        with:
-          go-version: '1.25.5'
+        run: sh scripts/ci/setup-go.sh "${{ env.CI_GO_VERSION }}"
 
       - name: Setup Task
-        uses: https://git.quad4.io/actions/setup-task@0ab1b2a65bc55236a3bc64cde78f80e20e8885c2 # v1
-        with:
-          version: '3.46.3'
+        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
 
-      - name: Install dependencies
-        run: task deps
+      - name: Apt update (for Trivy .deb)
+        run: sh scripts/ci/exec-priv.sh apt-get update -qq
 
       - name: Install Trivy
-        run: task trivy:install
+        run: sh scripts/ci/setup-trivy.sh
 
       - name: Generate SBOM
         run: task sbom
@@ -41,13 +58,12 @@ jobs:
           git config --global user.name "Gitea Action"
           git config --global user.email "actions@noreply.quad4.io"
           git remote set-url origin https://${{ secrets.GITEA_TOKEN }}@git.quad4.io/${{ github.repository }}.git
-          git fetch origin main || git fetch origin master
-          git checkout main || git checkout master
+          git fetch origin master
+          git checkout master
           git add sbom/
           if ! git diff --quiet || ! git diff --staged --quiet; then
             git commit -m "Auto-update SBOM [skip ci]"
-            git push origin main || git push origin master
+            git push origin master
           fi
         env:
           GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
-

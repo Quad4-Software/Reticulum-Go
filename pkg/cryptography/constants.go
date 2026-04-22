@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package cryptography
 
 import (
@@ -9,16 +9,28 @@ import (
 )
 
 const (
-	SHA256Size = 32
+	SHA256Size    = 32
+	AES256KeySize = 32
+	// IdentityKeyMaterialSize is the HKDF output for identity encrypt/decrypt (HMAC key + AES key).
+	IdentityKeyMaterialSize = SHA256Size + AES256KeySize
 )
 
-// GetBasepoint returns the standard Curve25519 basepoint
-func GetBasepoint() []byte {
+func implGetBasepoint() []byte {
 	return curve25519.Basepoint
 }
 
-func Hash(data []byte) []byte {
+func implHash(data []byte) []byte {
 	h := sha256.New()
 	h.Write(data)
 	return h.Sum(nil)
+}
+
+// GetBasepoint returns the standard Curve25519 basepoint.
+func GetBasepoint() []byte {
+	return ActiveProvider().GetBasepoint()
+}
+
+// Hash returns the SHA-256 digest of data.
+func Hash(data []byte) []byte {
+	return ActiveProvider().Hash(data)
 }

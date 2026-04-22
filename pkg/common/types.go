@@ -1,23 +1,14 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package common
 
 import (
 	"time"
 )
 
-// Destination type constants
-const (
-	DESTINATION_SINGLE = 0x00
-	DESTINATION_GROUP  = 0x01
-	DESTINATION_PLAIN  = 0x02
-)
-
-// Transport related types
 type TransportMode byte
 type PathStatus byte
 
-// Path represents routing information for a destination
 type Path struct {
 	Interface   NetworkInterface
 	LastSeen    time.Time
@@ -29,13 +20,13 @@ type Path struct {
 
 // Common callbacks
 type ProofRequestedCallback func([]byte, []byte)
-type LinkEstablishedCallback func(interface{})
+type LinkEstablishedCallback func(any)
 type PacketCallback func([]byte, NetworkInterface)
 
 // RequestHandler manages path requests and responses
 type RequestHandler struct {
 	Path              string
-	ResponseGenerator func(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity interface{}, requestedAt int64) []byte
+	ResponseGenerator func(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity any, requestedAt int64) any
 	AllowMode         byte
 	AllowedList       [][]byte
 }

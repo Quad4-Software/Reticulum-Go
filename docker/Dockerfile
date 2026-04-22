@@ -1,16 +1,18 @@
-ARG GO_VERSION=1.25
+ARG GO_VERSION=1.26.2
 FROM golang:${GO_VERSION}-alpine AS builder
 
 ENV CGO_ENABLED=0
 ENV GOOS=linux
 ENV GOARCH=amd64
-
-RUN apk add --no-cache git
+ENV GOFLAGS=-mod=vendor
+ENV GOPROXY=off
+ENV GOPRIVATE=git.quad4.io
+ENV GONOSUMDB=git.quad4.io
 
 WORKDIR /build
 
 COPY go.mod go.sum ./
-RUN go mod download
+COPY vendor/ vendor/
 
 COPY cmd/ cmd/
 COPY internal/ internal/

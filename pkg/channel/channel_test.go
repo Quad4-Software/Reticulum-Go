@@ -13,29 +13,29 @@ type mockLink struct {
 	status    byte
 	rtt       float64
 	sent      [][]byte
-	timeouts  map[interface{}]func(interface{})
-	delivered map[interface{}]func(interface{})
+	timeouts  map[any]func(any)
+	delivered map[any]func(any)
 }
 
 func (m *mockLink) GetStatus() byte   { return m.status }
 func (m *mockLink) GetRTT() float64   { return m.rtt }
 func (m *mockLink) RTT() float64      { return m.rtt }
 func (m *mockLink) GetLinkID() []byte { return []byte("testlink") }
-func (m *mockLink) Send(data []byte) interface{} {
+func (m *mockLink) Send(data []byte) any {
 	m.sent = append(m.sent, data)
 	p := &packet.Packet{Raw: data}
 	return p
 }
-func (m *mockLink) Resend(p interface{}) error { return nil }
-func (m *mockLink) SetPacketTimeout(p interface{}, cb func(interface{}), t time.Duration) {
+func (m *mockLink) Resend(p any) error { return nil }
+func (m *mockLink) SetPacketTimeout(p any, cb func(any), t time.Duration) {
 	if m.timeouts == nil {
-		m.timeouts = make(map[interface{}]func(interface{}))
+		m.timeouts = make(map[any]func(any))
 	}
 	m.timeouts[p] = cb
 }
-func (m *mockLink) SetPacketDelivered(p interface{}, cb func(interface{})) {
+func (m *mockLink) SetPacketDelivered(p any, cb func(any)) {
 	if m.delivered == nil {
-		m.delivered = make(map[interface{}]func(interface{}))
+		m.delivered = make(map[any]func(any))
 	}
 	m.delivered[p] = cb
 }
@@ -61,7 +61,7 @@ func TestNewChannel(t *testing.T) {
 }
 
 func TestChannelSend(t *testing.T) {
-	link := &mockLink{status: 1} // STATUS_ACTIVE
+	link := &mockLink{status: 1} // StatusActive
 	c := NewChannel(link)
 
 	msg := &testMessage{data: []byte("test")}

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package storage
 
 import (
@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 )
 
@@ -88,7 +88,7 @@ func (m *Manager) SaveRatchet(identityHash []byte, ratchetKey []byte) error {
 		Received:   time.Now().Unix(),
 	}
 
-	data, err := common.MsgpackMarshal(ratchetData)
+	data, err := msgpack.Marshal(ratchetData)
 	if err != nil {
 		return fmt.Errorf("failed to marshal ratchet data: %w", err)
 	}
@@ -106,7 +106,7 @@ func (m *Manager) SaveRatchet(identityHash []byte, ratchetKey []byte) error {
 		return fmt.Errorf("failed to move ratchet file: %w", err)
 	}
 
-	debug.Log(debug.DEBUG_VERBOSE, "Saved ratchet to storage", "identity", hexHash, "ratchet", ratchetHash)
+	debug.Log(debug.DebugVerbose, "Saved ratchet to storage", "identity", hexHash, "ratchet", ratchetHash)
 	return nil
 }
 
@@ -120,7 +120,7 @@ func (m *Manager) LoadRatchets(identityHash []byte) (map[string][]byte, error) {
 	ratchets := make(map[string][]byte)
 
 	if _, err := os.Stat(ratchetDir); os.IsNotExist(err) {
-		debug.Log(debug.DEBUG_VERBOSE, "No ratchet directory found", "identity", hexHash)
+		debug.Log(debug.DebugVerbose, "No ratchet directory found", "identity", hexHash)
 		return ratchets, nil
 	}
 
@@ -138,22 +138,21 @@ func (m *Manager) LoadRatchets(identityHash []byte) (map[string][]byte, error) {
 		}
 
 		filePath := filepath.Join(ratchetDir, entry.Name())
-		// bearer:disable go_gosec_filesystem_filereadtaint
 		data, err := os.ReadFile(filePath) // #nosec G304 - reading from controlled directory
 		if err != nil {
-			debug.Log(debug.DEBUG_ERROR, "Failed to read ratchet file", "file", entry.Name(), "error", err)
+			debug.Log(debug.DebugError, "Failed to read ratchet file", "file", entry.Name(), "error", err)
 			continue
 		}
 
 		var ratchetData RatchetData
-		if err := common.MsgpackUnmarshal(data, &ratchetData); err != nil {
-			debug.Log(debug.DEBUG_ERROR, "Corrupted ratchet data", "file", entry.Name(), "error", err)
+		if err := msgpack.Unmarshal(data, &ratchetData); err != nil {
+			debug.Log(debug.DebugError, "Corrupted ratchet data", "file", entry.Name(), "error", err)
 			_ = os.Remove(filePath)
 			continue
 		}
 
 		if now > ratchetData.Received+expiry {
-			debug.Log(debug.DEBUG_VERBOSE, "Removing expired ratchet", "file", entry.Name())
+			debug.Log(debug.DebugVerbose, "Removing expired ratchet", "file", entry.Name())
 			_ = os.Remove(filePath)
 			continue
 		}
@@ -162,7 +161,7 @@ func (m *Manager) LoadRatchets(identityHash []byte) (map[string][]byte, error) {
 		ratchets[ratchetHash] = ratchetData.RatchetKey
 	}
 
-	debug.Log(debug.DEBUG_VERBOSE, "Loaded ratchets from storage", "identity", hexHash, "count", len(ratchets))
+	debug.Log(debug.DebugVerbose, "Loaded ratchets from storage", "identity", hexHash, "count", len(ratchets))
 	return ratchets, nil
 }
 

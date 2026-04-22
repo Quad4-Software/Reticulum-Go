@@ -3,15 +3,24 @@ name: Go Test Multi-Platform
 on:
   push:
     branches:
-      - main
       - master
+      - dev
   pull_request:
     branches:
-      - main
       - master
+      - dev
 
 permissions:
   contents: read
+
+env:
+  CI_GO_VERSION: "1.26.2"
+  CI_TASK_VERSION: "3.46.3"
+  CI_NODE_MAJOR: "22"
+  GOFLAGS: -mod=vendor
+  GOPROXY: "off"
+  GOPRIVATE: git.quad4.io
+  GONOSUMDB: git.quad4.io
 
 jobs:
   test:
@@ -19,10 +28,8 @@ jobs:
     strategy:
       matrix:
         include:
-          # AMD64 testing on Linux
           - os: ubuntu-latest
             goarch: amd64
-          # ARM64 testing on Linux
           - os: ubuntu-latest
             goarch: arm64
 
@@ -30,33 +37,36 @@ jobs:
 
     steps:
       - name: Checkout Source
-        uses: https://git.quad4.io/actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        run: |
+          set -eu
+          SERVER="${GITEA_SERVER_URL:-${GITHUB_SERVER_URL:-}}"
+          REPO="${GITEA_REPOSITORY:-${GITHUB_REPOSITORY:-}}"
+          if [ -z "$SERVER" ] || [ -z "$REPO" ]; then
+            echo "Checkout: set GITEA_SERVER_URL/GITEA_REPOSITORY or GITHUB_SERVER_URL/GITHUB_REPOSITORY" >&2
+            exit 1
+          fi
+          if [ -n "${GITEA_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
+            TOKEN="${GITEA_TOKEN:-$GITHUB_TOKEN}"
+            git config --global credential.helper "!f() { echo username=x-access-token; echo password=${TOKEN}; }; f"
+          fi
+          git init -q && git remote add origin "${SERVER}/${REPO}.git"
+          git fetch -q --depth=1 origin "${GITHUB_SHA}" && git checkout -q FETCH_HEAD
 
-      - name: Set up Go 1.25
-        uses: https://git.quad4.io/actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
-        with:
-          go-version: '1.25'
+      - name: Set up Go
+        run: sh scripts/ci/setup-go.sh "${{ env.CI_GO_VERSION }}"
 
       - name: Setup Task
-        uses: https://git.quad4.io/actions/setup-task@0ab1b2a65bc55236a3bc64cde78f80e20e8885c2 # v1
-        with:
-          version: '3.46.3'
-
-      - name: Cache Go modules
-        uses: https://git.quad4.io/actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ matrix.goarch }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ matrix.goarch }}-
+        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
 
       - name: Set up Node.js
         if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
-        uses: https://git.quad4.io/actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6
-        with:
-          node-version: '22'
+        run: sh scripts/ci/setup-node.sh "${{ env.CI_NODE_MAJOR }}"
+
+      - name: Python venv and RNS
+        run: sh scripts/ci/setup-venv-pip.sh rns
+
+      - name: Generate test vectors
+        run: task test-crossref -- generate
 
       - name: Run tests
         run: task test
@@ -65,41 +75,20 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
         run: task test-race
 
+      - name: Run Resource Leak tests (Linux AMD64 only)
+        if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
+        run: task test-leaks
+
+      - name: Run Network Simulation tests (Linux AMD64 only)
+        if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
+        run: task test-network
+
+      - name: Run Fuzz tests (Linux AMD64 only)
+        if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
+        run: task test-fuzz
+
       - name: Run WebAssembly tests (Linux AMD64 only)
         if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
         run: |
           chmod +x misc/wasm/go_js_wasm_exec
           task test-wasm
-
-      - name: Test build (ensure compilation works)
-        run: |
-          echo "Testing build for current platform (${{ matrix.os }}, ${{ matrix.goarch }})..."
-          task build
-
-      - name: Test WebAssembly build (Linux AMD64 only)
-        if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
-        run: task build-wasm
-
-      - name: Test binary execution
-        run: |
-          echo "Testing binary execution on (${{ matrix.os }}, ${{ matrix.goarch }})..."
-          timeout 5s ./bin/reticulum-go || echo "Binary started successfully (timeout expected)"
-
-      - name: Test cross-compilation (AMD64 runners only)
-        if: matrix.goarch == 'amd64'
-        run: |
-          echo "Testing ARM64 cross-compilation from AMD64..."
-          GOOS=linux GOARCH=arm64 task build
-        env:
-          GOOS: linux
-          GOARCH: arm64
-
-      - name: Test ARMv6 cross-compilation (AMD64 runners only)
-        if: matrix.goarch == 'amd64'
-        run: |
-          echo "Testing ARMv6 cross-compilation from AMD64..."
-          GOOS=linux GOARCH=arm GOARM=6 task build
-        env:
-          GOOS: linux
-          GOARCH: arm
-          GOARM: 6

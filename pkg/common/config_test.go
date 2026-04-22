@@ -13,17 +13,17 @@ func TestNewReticulumConfig(t *testing.T) {
 	if cfg.ShareInstance {
 		t.Errorf("NewReticulumConfig() ShareInstance = %v; want false", cfg.ShareInstance)
 	}
-	if cfg.SharedInstancePort != DEFAULT_SHARED_INSTANCE_PORT {
-		t.Errorf("NewReticulumConfig() SharedInstancePort = %d; want %d", cfg.SharedInstancePort, DEFAULT_SHARED_INSTANCE_PORT)
+	if cfg.SharedInstancePort != DefaultSharedInstancePort {
+		t.Errorf("NewReticulumConfig() SharedInstancePort = %d; want %d", cfg.SharedInstancePort, DefaultSharedInstancePort)
 	}
-	if cfg.InstanceControlPort != DEFAULT_INSTANCE_CONTROL_PORT {
-		t.Errorf("NewReticulumConfig() InstanceControlPort = %d; want %d", cfg.InstanceControlPort, DEFAULT_INSTANCE_CONTROL_PORT)
+	if cfg.InstanceControlPort != DefaultInstanceControlPort {
+		t.Errorf("NewReticulumConfig() InstanceControlPort = %d; want %d", cfg.InstanceControlPort, DefaultInstanceControlPort)
 	}
 	if cfg.PanicOnInterfaceErr {
 		t.Errorf("NewReticulumConfig() PanicOnInterfaceErr = %v; want false", cfg.PanicOnInterfaceErr)
 	}
-	if cfg.LogLevel != DEFAULT_LOG_LEVEL {
-		t.Errorf("NewReticulumConfig() LogLevel = %d; want %d", cfg.LogLevel, DEFAULT_LOG_LEVEL)
+	if cfg.LogLevel != DefaultLogLevel {
+		t.Errorf("NewReticulumConfig() LogLevel = %d; want %d", cfg.LogLevel, DefaultLogLevel)
 	}
 	if len(cfg.Interfaces) != 0 {
 		t.Errorf("NewReticulumConfig() Interfaces length = %d; want 0", len(cfg.Interfaces))
@@ -39,17 +39,17 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.ShareInstance {
 		t.Errorf("DefaultConfig() ShareInstance = %v; want false", cfg.ShareInstance)
 	}
-	if cfg.SharedInstancePort != DEFAULT_SHARED_INSTANCE_PORT {
-		t.Errorf("DefaultConfig() SharedInstancePort = %d; want %d", cfg.SharedInstancePort, DEFAULT_SHARED_INSTANCE_PORT)
+	if cfg.SharedInstancePort != DefaultSharedInstancePort {
+		t.Errorf("DefaultConfig() SharedInstancePort = %d; want %d", cfg.SharedInstancePort, DefaultSharedInstancePort)
 	}
-	if cfg.InstanceControlPort != DEFAULT_INSTANCE_CONTROL_PORT {
-		t.Errorf("DefaultConfig() InstanceControlPort = %d; want %d", cfg.InstanceControlPort, DEFAULT_INSTANCE_CONTROL_PORT)
+	if cfg.InstanceControlPort != DefaultInstanceControlPort {
+		t.Errorf("DefaultConfig() InstanceControlPort = %d; want %d", cfg.InstanceControlPort, DefaultInstanceControlPort)
 	}
 	if cfg.PanicOnInterfaceErr {
 		t.Errorf("DefaultConfig() PanicOnInterfaceErr = %v; want false", cfg.PanicOnInterfaceErr)
 	}
-	if cfg.LogLevel != DEFAULT_LOG_LEVEL {
-		t.Errorf("DefaultConfig() LogLevel = %d; want %d", cfg.LogLevel, DEFAULT_LOG_LEVEL)
+	if cfg.LogLevel != DefaultLogLevel {
+		t.Errorf("DefaultConfig() LogLevel = %d; want %d", cfg.LogLevel, DefaultLogLevel)
 	}
 	if len(cfg.Interfaces) != 0 {
 		t.Errorf("DefaultConfig() Interfaces length = %d; want 0", len(cfg.Interfaces))

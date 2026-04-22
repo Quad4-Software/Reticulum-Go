@@ -38,7 +38,7 @@ func TestPacketReceiptCreation(t *testing.T) {
 		t.Fatal("Receipt creation failed")
 	}
 
-	if receipt.GetStatus() != RECEIPT_SENT {
+	if receipt.GetStatus() != ReceiptSent {
 		t.Errorf("Expected status SENT, got %d", receipt.GetStatus())
 	}
 
@@ -116,11 +116,14 @@ func TestPacketReceiptProofValidation(t *testing.T) {
 	packetHash := pkt.GetHash()
 	t.Logf("Packet hash: %x", packetHash)
 
-	signature := testIdent.Sign(packetHash)
+	signature, err := testIdent.Sign(packetHash)
+	if err != nil {
+		t.Fatalf("Sign: %v", err)
+	}
 
 	t.Logf("PacketHash length: %d", len(packetHash))
 	t.Logf("Signature length: %d", len(signature))
-	t.Logf("EXPL_LENGTH constant: %d", EXPL_LENGTH)
+	t.Logf("ExplicitLength constant: %d", ExplicitLength)
 
 	if testIdent.Verify(packetHash, signature) {
 		t.Log("Direct verification succeeded")
@@ -128,7 +131,7 @@ func TestPacketReceiptProofValidation(t *testing.T) {
 		t.Error("Direct verification failed")
 	}
 
-	proof := make([]byte, 0, EXPL_LENGTH)
+	proof := make([]byte, 0, ExplicitLength)
 	proof = append(proof, packetHash...)
 	proof = append(proof, signature...)
 
@@ -140,10 +143,10 @@ func TestPacketReceiptProofValidation(t *testing.T) {
 	}
 
 	if !receipt.ValidateProof(proof, proofPacket) {
-		t.Errorf("Valid proof was rejected. Proof len=%d, expected=%d", len(proof), EXPL_LENGTH)
+		t.Errorf("Valid proof was rejected. Proof len=%d, expected=%d", len(proof), ExplicitLength)
 	}
 
-	if receipt.GetStatus() != RECEIPT_DELIVERED {
+	if receipt.GetStatus() != ReceiptDelivered {
 		t.Errorf("Expected status DELIVERED, got %d", receipt.GetStatus())
 	}
 
@@ -187,9 +190,12 @@ func TestPacketReceiptCallbacks(t *testing.T) {
 	})
 
 	packetHash := pkt.GetHash()
-	signature := testIdent.Sign(packetHash)
+	signature, err := testIdent.Sign(packetHash)
+	if err != nil {
+		t.Fatalf("Sign: %v", err)
+	}
 
-	proof := make([]byte, 0, EXPL_LENGTH)
+	proof := make([]byte, 0, ExplicitLength)
 	proof = append(proof, packetHash...)
 	proof = append(proof, signature...)
 

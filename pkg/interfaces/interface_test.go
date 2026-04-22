@@ -11,7 +11,7 @@ import (
 )
 
 func TestBaseInterfaceStateChanges(t *testing.T) {
-	bi := NewBaseInterface("test", common.IF_TYPE_TCP, false) // Start disabled
+	bi := NewBaseInterface("test", common.IFTypeTCP, false) // Start disabled
 
 	if bi.IsEnabled() {
 		t.Error("Newly created disabled interface reports IsEnabled() == true")
@@ -46,8 +46,8 @@ func TestBaseInterfaceStateChanges(t *testing.T) {
 	}
 
 	// Reset for Disable test
-	bi = NewBaseInterface("test2", common.IF_TYPE_UDP, true) // Start enabled
-	if !bi.Enabled {                                         // Check the Enabled field directly first
+	bi = NewBaseInterface("test2", common.IFTypeUDP, true) // Start enabled
+	if !bi.Enabled {                                       // Check the Enabled field directly first
 		t.Error("Newly created enabled interface reports Enabled == false")
 	}
 	if bi.IsEnabled() { // IsEnabled should still be false because Online is false
@@ -72,24 +72,24 @@ func TestBaseInterfaceStateChanges(t *testing.T) {
 }
 
 func TestBaseInterfaceGetters(t *testing.T) {
-	bi := NewBaseInterface("getterTest", common.IF_TYPE_AUTO, true)
+	bi := NewBaseInterface("getterTest", common.IFTypeAuto, true)
 
 	if bi.GetName() != "getterTest" {
 		t.Errorf("GetName() = %s; want getterTest", bi.GetName())
 	}
-	if bi.GetType() != common.IF_TYPE_AUTO {
-		t.Errorf("GetType() = %v; want %v", bi.GetType(), common.IF_TYPE_AUTO)
+	if bi.GetType() != common.IFTypeAuto {
+		t.Errorf("GetType() = %v; want %v", bi.GetType(), common.IFTypeAuto)
 	}
-	if bi.GetMode() != common.IF_MODE_FULL {
-		t.Errorf("GetMode() = %v; want %v", bi.GetMode(), common.IF_MODE_FULL)
+	if bi.GetMode() != common.IFModeFull {
+		t.Errorf("GetMode() = %v; want %v", bi.GetMode(), common.IFModeFull)
 	}
-	if bi.GetMTU() != common.DEFAULT_MTU { // Assuming default MTU
-		t.Errorf("GetMTU() = %d; want %d", bi.GetMTU(), common.DEFAULT_MTU)
+	if bi.GetMTU() != common.DefaultMTU { // Assuming default MTU
+		t.Errorf("GetMTU() = %d; want %d", bi.GetMTU(), common.DefaultMTU)
 	}
 }
 
 func TestBaseInterfaceCallbacks(t *testing.T) {
-	bi := NewBaseInterface("callbackTest", common.IF_TYPE_TCP, true)
+	bi := NewBaseInterface("callbackTest", common.IFTypeTCP, true)
 	var wg sync.WaitGroup
 	var callbackCalled bool
 
@@ -121,7 +121,7 @@ func TestBaseInterfaceCallbacks(t *testing.T) {
 }
 
 func TestBaseInterfaceStats(t *testing.T) {
-	bi := NewBaseInterface("statsTest", common.IF_TYPE_UDP, true)
+	bi := NewBaseInterface("statsTest", common.IFTypeUDP, true)
 	bi.Enable() // Need to be Online for ProcessOutgoing
 
 	data1 := []byte{1, 2, 3}
@@ -137,21 +137,16 @@ func TestBaseInterfaceStats(t *testing.T) {
 		t.Errorf("RxBytes = %d; want %d after second ProcessIncoming", bi.RxBytes, len(data1)+len(data2))
 	}
 
-	// ProcessOutgoing only updates TxBytes in BaseInterface
-	err := bi.ProcessOutgoing(data1)
-	if err != nil {
-		t.Fatalf("ProcessOutgoing failed: %v", err)
+	// BaseInterface.ProcessOutgoing is now a fail-loud stub that the
+	// concrete interface type is required to override. Calling it directly
+	// must return an error and must NOT mutate TxBytes; otherwise we lose
+	// our compile/runtime guarantee that the abstract base never silently
+	// swallows packets.
+	if err := bi.ProcessOutgoing(data1); err == nil {
+		t.Fatal("expected BaseInterface.ProcessOutgoing to return an error, got nil")
 	}
-	if bi.TxBytes != uint64(len(data1)) {
-		t.Errorf("TxBytes = %d; want %d after first ProcessOutgoing", bi.TxBytes, len(data1))
-	}
-
-	err = bi.ProcessOutgoing(data2)
-	if err != nil {
-		t.Fatalf("ProcessOutgoing failed: %v", err)
-	}
-	if bi.TxBytes != uint64(len(data1)+len(data2)) {
-		t.Errorf("TxBytes = %d; want %d after second ProcessOutgoing", bi.TxBytes, len(data1)+len(data2))
+	if bi.TxBytes != 0 {
+		t.Errorf("TxBytes = %d; want 0 (BaseInterface.ProcessOutgoing must not update stats)", bi.TxBytes)
 	}
 }
 
@@ -183,8 +178,8 @@ func (m *mockInterface) Send(data []byte, addr string) error {
 	return nil
 }
 
-func (m *mockInterface) GetType() common.InterfaceType                  { return common.IF_TYPE_NONE }
-func (m *mockInterface) GetMode() common.InterfaceMode                  { return common.IF_MODE_FULL }
+func (m *mockInterface) GetType() common.InterfaceType                  { return common.IFTypeNone }
+func (m *mockInterface) GetMode() common.InterfaceMode                  { return common.IFModeFull }
 func (m *mockInterface) ProcessIncoming(data []byte)                    {}
 func (m *mockInterface) ProcessOutgoing(data []byte) error              { return nil }
 func (m *mockInterface) SendPathRequest([]byte) error                   { return nil }

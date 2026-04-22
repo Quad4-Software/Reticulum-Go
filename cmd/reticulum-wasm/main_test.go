@@ -26,4 +26,3 @@ func TestRun(t *testing.T) {
 		t.Error("reticulum functions were not registered")
 	}
 }
-

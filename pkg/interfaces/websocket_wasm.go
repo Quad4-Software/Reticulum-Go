@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 //go:build js && wasm
-// +build js,wasm
 
 package interfaces
 
@@ -15,29 +14,29 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 )
 
-const (
-	WS_MTU             = 1064
-	WS_BITRATE         = 10000000
-	WS_RECONNECT_DELAY = 2 * time.Second
-)
-
 type WebSocketInterface struct {
 	BaseInterface
 	wsURL        string
 	ws           js.Value
 	connected    bool
 	messageQueue [][]byte
+
+	// Keep references to JS callbacks to prevent them from being garbage collected
+	onOpenFunc    js.Func
+	onMessageFunc js.Func
+	onErrorFunc   js.Func
+	onCloseFunc   js.Func
 }
 
 func NewWebSocketInterface(name string, wsURL string, enabled bool) (*WebSocketInterface, error) {
 	ws := &WebSocketInterface{
-		BaseInterface: NewBaseInterface(name, common.IF_TYPE_UDP, enabled),
+		BaseInterface: NewBaseInterface(name, common.IFTypeUDP, enabled),
 		wsURL:         wsURL,
 		messageQueue:  make([][]byte, 0),
 	}
 
-	ws.MTU = WS_MTU
-	ws.Bitrate = WS_BITRATE
+	ws.MTU = WSMTU
+	ws.Bitrate = WSBitrate
 
 	return ws, nil
 }
@@ -92,19 +91,27 @@ func (wsi *WebSocketInterface) Start() error {
 	defer wsi.Mutex.Unlock()
 
 	if wsi.ws.Truthy() {
-		return fmt.Errorf("WebSocket already started")
+		readyState := wsi.ws.Get("readyState").Int()
+		if readyState == 1 { // OPEN
+			return nil
+		}
+		// If connecting, closing or closed, clean up first
+		wsi.closeWebSocket()
 	}
+
+	// Ensure old callbacks are released before creating new ones
+	wsi.releaseCallbacks()
 
 	ws := js.Global().Get("WebSocket").New(wsi.wsURL)
 	ws.Set("binaryType", "arraybuffer")
 
-	ws.Set("onopen", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	wsi.onOpenFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		wsi.Mutex.Lock()
 		wsi.connected = true
 		wsi.Online = true
 		wsi.Mutex.Unlock()
 
-		debug.Log(debug.DEBUG_INFO, "WebSocket connected", "name", wsi.Name, "url", wsi.wsURL)
+		debug.Log(debug.DebugInfo, "WebSocket connected", "name", wsi.Name, "url", wsi.wsURL)
 
 		wsi.Mutex.Lock()
 		queue := make([][]byte, len(wsi.messageQueue))
@@ -117,9 +124,10 @@ func (wsi *WebSocketInterface) Start() error {
 		}
 
 		return nil
-	}))
+	})
+	ws.Set("onopen", wsi.onOpenFunc)
 
-	ws.Set("onmessage", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	wsi.onMessageFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		if len(args) < 1 {
 			return nil
 		}
@@ -127,53 +135,69 @@ func (wsi *WebSocketInterface) Start() error {
 		event := args[0]
 		data := event.Get("data")
 
-		var packet []byte
-		if data.Type() == js.TypeString {
-			packet = []byte(data.String())
-		} else if data.Type() == js.TypeObject {
-			array := js.Global().Get("Uint8Array").New(data)
+		handlePacket := func(buf js.Value) {
+			array := js.Global().Get("Uint8Array").New(buf)
 			length := array.Get("length").Int()
-			packet = make([]byte, length)
+			if length < 1 {
+				return
+			}
+			packet := make([]byte, length)
 			js.CopyBytesToGo(packet, array)
+			debug.Log(debug.DebugVerbose, "WASM WebSocket received binary data", "name", wsi.Name, "length", length, "first_byte", fmt.Sprintf("0x%02x", packet[0]))
+			wsi.ProcessIncoming(packet)
+		}
+
+		if data.Type() == js.TypeString {
+			packet := []byte(data.String())
+			debug.Log(debug.DebugTrace, "WebSocket received string data", "name", wsi.Name, "length", len(packet))
+			wsi.ProcessIncoming(packet)
+		} else if data.InstanceOf(js.Global().Get("ArrayBuffer")) {
+			handlePacket(data)
+		} else if data.InstanceOf(js.Global().Get("Blob")) {
+			// Handle Blob by converting to ArrayBuffer
+			data.Call("arrayBuffer").Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				if len(args) > 0 {
+					handlePacket(args[0])
+				}
+				return nil
+			}))
+		} else if data.Type() == js.TypeObject {
+			// Fallback for other object types that might be TypedArrays
+			handlePacket(data)
 		} else {
-			debug.Log(debug.DEBUG_ERROR, "Unknown WebSocket message type", "type", data.Type().String())
-			return nil
+			debug.Log(debug.DebugError, "Unknown WebSocket message type", "type", data.Type().String())
 		}
 
-		if len(packet) < 1 {
-			debug.Log(debug.DEBUG_ERROR, "WebSocket message empty")
-			return nil
-		}
-
-		wsi.Mutex.Lock()
-		wsi.RxBytes += uint64(len(packet))
-		wsi.Mutex.Unlock()
-
-		wsi.ProcessIncoming(packet)
-
 		return nil
-	}))
+	})
+	ws.Set("onmessage", wsi.onMessageFunc)
 
-	ws.Set("onerror", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		debug.Log(debug.DEBUG_ERROR, "WebSocket error", "name", wsi.Name)
+	wsi.onErrorFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		debug.Log(debug.DebugError, "WebSocket error", "name", wsi.Name)
 		return nil
-	}))
+	})
+	ws.Set("onerror", wsi.onErrorFunc)
 
-	ws.Set("onclose", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	wsi.onCloseFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		wsi.Mutex.Lock()
 		wsi.connected = false
 		wsi.Online = false
 		wsi.Mutex.Unlock()
 
-		debug.Log(debug.DEBUG_INFO, "WebSocket closed", "name", wsi.Name)
+		debug.Log(debug.DebugInfo, "WebSocket closed", "name", wsi.Name)
+
+		wsi.releaseCallbacks()
 
 		if wsi.Enabled && !wsi.Detached {
-			time.Sleep(WS_RECONNECT_DELAY)
-			go wsi.Start()
+			go func() {
+				time.Sleep(WSReconnectDelay)
+				_ = wsi.Start()
+			}()
 		}
 
 		return nil
-	}))
+	})
+	ws.Set("onclose", wsi.onCloseFunc)
 
 	wsi.ws = ws
 
@@ -193,19 +217,32 @@ func (wsi *WebSocketInterface) closeWebSocket() {
 		wsi.ws.Call("close")
 		wsi.ws = js.Value{}
 	}
+
+	wsi.releaseCallbacks()
+
 	wsi.connected = false
 	wsi.Online = false
 }
 
-func (wsi *WebSocketInterface) Send(data []byte, addr string) error {
-	if !wsi.IsEnabled() {
+// Send routes through the concrete ProcessOutgoing; without this
+// override, the embedded BaseInterface.Send dispatches to its own
+// abstract ProcessOutgoing stub.
+func (wsi *WebSocketInterface) Send(data []byte, _ string) error {
+	wsi.Mutex.RLock()
+	enabled := wsi.Enabled
+	detached := wsi.Detached
+	wsi.Mutex.RUnlock()
+	if !enabled || detached {
 		return fmt.Errorf("interface not enabled")
 	}
-
 	wsi.Mutex.Lock()
 	wsi.TxBytes += uint64(len(data))
+	wsi.TxPackets++
 	wsi.Mutex.Unlock()
+	return wsi.ProcessOutgoing(data)
+}
 
+func (wsi *WebSocketInterface) ProcessOutgoing(data []byte) error {
 	if !wsi.connected {
 		wsi.Mutex.Lock()
 		wsi.messageQueue = append(wsi.messageQueue, data)
@@ -230,12 +267,8 @@ func (wsi *WebSocketInterface) sendWebSocketMessage(data []byte) error {
 
 	wsi.ws.Call("send", array)
 
-	debug.Log(debug.DEBUG_VERBOSE, "WebSocket sent packet", "name", wsi.Name, "bytes", len(data))
+	debug.Log(debug.DebugVerbose, "WebSocket sent packet", "name", wsi.Name, "bytes", len(data))
 	return nil
-}
-
-func (wsi *WebSocketInterface) ProcessOutgoing(data []byte) error {
-	return wsi.Send(data, "")
 }
 
 func (wsi *WebSocketInterface) GetConn() net.Conn {
@@ -244,6 +277,25 @@ func (wsi *WebSocketInterface) GetConn() net.Conn {
 
 func (wsi *WebSocketInterface) GetMTU() int {
 	return wsi.MTU
+}
+
+func (wsi *WebSocketInterface) releaseCallbacks() {
+	if wsi.onOpenFunc.Truthy() {
+		wsi.onOpenFunc.Release()
+		wsi.onOpenFunc = js.Func{}
+	}
+	if wsi.onMessageFunc.Truthy() {
+		wsi.onMessageFunc.Release()
+		wsi.onMessageFunc = js.Func{}
+	}
+	if wsi.onErrorFunc.Truthy() {
+		wsi.onErrorFunc.Release()
+		wsi.onErrorFunc = js.Func{}
+	}
+	if wsi.onCloseFunc.Truthy() {
+		wsi.onCloseFunc.Release()
+		wsi.onCloseFunc = js.Func{}
+	}
 }
 
 func (wsi *WebSocketInterface) IsEnabled() bool {

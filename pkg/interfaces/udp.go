@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 //go:build !tinygo
 // +build !tinygo
 
@@ -39,16 +39,40 @@ func NewUDPInterface(name string, addr string, target string, enabled bool) (*UD
 	}
 
 	ui := &UDPInterface{
-		BaseInterface: NewBaseInterface(name, common.IF_TYPE_UDP, enabled),
+		BaseInterface: NewBaseInterface(name, common.IFTypeUDP, enabled),
 		addr:          udpAddr,
 		targetAddr:    targetAddr,
-		readBuffer:    make([]byte, common.NUM_1064),
+		readBuffer:    make([]byte, 1064),
 		done:          make(chan struct{}),
 	}
 
-	ui.MTU = common.NUM_1064
+	ui.MTU = 1064
 
 	return ui, nil
+}
+
+func (ui *UDPInterface) GetName() string {
+	return ui.Name
+}
+
+func (ui *UDPInterface) GetType() common.InterfaceType {
+	return ui.Type
+}
+
+func (ui *UDPInterface) GetMode() common.InterfaceMode {
+	return ui.Mode
+}
+
+func (ui *UDPInterface) IsOnline() bool {
+	ui.Mutex.RLock()
+	defer ui.Mutex.RUnlock()
+	return ui.Online
+}
+
+func (ui *UDPInterface) IsDetached() bool {
+	ui.Mutex.RLock()
+	defer ui.Mutex.RUnlock()
+	return ui.Detached
 }
 
 func (ui *UDPInterface) Detach() {
@@ -66,28 +90,26 @@ func (ui *UDPInterface) Detach() {
 	})
 }
 
-func (ui *UDPInterface) Send(data []byte, addr string) error {
-	debug.Log(debug.DEBUG_ALL, "UDP interface sending bytes", "name", ui.Name, "bytes", len(data))
-
-	if !ui.IsEnabled() {
-		return fmt.Errorf("interface not enabled")
-	}
-
-	if ui.targetAddr == nil {
-		return fmt.Errorf("no target address configured")
-	}
-
+func (ui *UDPInterface) SetPacketCallback(callback common.PacketCallback) {
 	ui.Mutex.Lock()
-	ui.TxBytes += uint64(len(data))
-	ui.Mutex.Unlock()
+	defer ui.Mutex.Unlock()
+	ui.packetCallback = callback
+}
 
-	_, err := ui.conn.WriteTo(data, ui.targetAddr)
-	if err != nil {
-		debug.Log(debug.DEBUG_CRITICAL, "UDP interface write failed", "name", ui.Name, "error", err)
-	} else {
-		debug.Log(debug.DEBUG_ALL, "UDP interface sent bytes successfully", "name", ui.Name, "bytes", len(data))
+func (ui *UDPInterface) GetPacketCallback() common.PacketCallback {
+	ui.Mutex.RLock()
+	defer ui.Mutex.RUnlock()
+	return ui.packetCallback
+}
+
+func (ui *UDPInterface) ProcessIncoming(data []byte) {
+	stripped, ok := common.ApplyIFACInbound(ui, data)
+	if !ok {
+		return
 	}
-	return err
+	if callback := ui.GetPacketCallback(); callback != nil {
+		callback(stripped, ui)
+	}
 }
 
 func (ui *UDPInterface) ProcessOutgoing(data []byte) error {
@@ -95,20 +117,70 @@ func (ui *UDPInterface) ProcessOutgoing(data []byte) error {
 		return fmt.Errorf("interface offline")
 	}
 
-	_, err := ui.conn.Write(data)
+	if ui.targetAddr == nil {
+		return fmt.Errorf("no target address configured")
+	}
+
+	_, err := ui.conn.WriteToUDP(data, ui.targetAddr)
 	if err != nil {
 		return fmt.Errorf("UDP write failed: %v", err)
 	}
 
-	ui.Mutex.Lock()
-	ui.TxBytes += uint64(len(data))
-	ui.Mutex.Unlock()
+	return nil
+}
 
+func (ui *UDPInterface) Send(data []byte, address string) error {
+	debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", ui.Name, "bytes", len(data), "address", address)
+
+	masked, err := common.ApplyIFACOutbound(ui, data)
+	if err != nil {
+		debug.Log(debug.DebugCritical, "Failed to mask outgoing packet for IFAC", "name", ui.Name, "error", err)
+		return err
+	}
+
+	if err := ui.ProcessOutgoing(masked); err != nil {
+		debug.Log(debug.DebugCritical, "Interface failed to send data", "name", ui.Name, "error", err)
+		return err
+	}
+
+	ui.updateBandwidthStats(uint64(len(masked)))
 	return nil
 }
 
 func (ui *UDPInterface) GetConn() net.Conn {
 	return ui.conn
+}
+
+func (ui *UDPInterface) GetTxBytes() uint64 {
+	ui.Mutex.RLock()
+	defer ui.Mutex.RUnlock()
+	return ui.TxBytes
+}
+
+func (ui *UDPInterface) GetRxBytes() uint64 {
+	ui.Mutex.RLock()
+	defer ui.Mutex.RUnlock()
+	return ui.RxBytes
+}
+
+func (ui *UDPInterface) GetMTU() int {
+	return ui.MTU
+}
+
+func (ui *UDPInterface) GetBitrate() int {
+	return int(ui.Bitrate)
+}
+
+func (ui *UDPInterface) Enable() {
+	ui.Mutex.Lock()
+	defer ui.Mutex.Unlock()
+	ui.Online = true
+}
+
+func (ui *UDPInterface) Disable() {
+	ui.Mutex.Lock()
+	defer ui.Mutex.Unlock()
+	ui.Online = false
 }
 
 func (ui *UDPInterface) Start() error {
@@ -139,11 +211,11 @@ func (ui *UDPInterface) Start() error {
 	// Enable broadcast mode if we have a target address
 	if ui.targetAddr != nil {
 		// Get the raw connection file descriptor to set SO_BROADCAST
-		if err := conn.SetReadBuffer(common.NUM_1064); err != nil {
-			debug.Log(debug.DEBUG_ERROR, "Failed to set read buffer size", "error", err)
+		if err := conn.SetReadBuffer(1064); err != nil {
+			debug.Log(debug.DebugError, "Failed to set read buffer size", "error", err)
 		}
-		if err := conn.SetWriteBuffer(common.NUM_1064); err != nil {
-			debug.Log(debug.DEBUG_ERROR, "Failed to set write buffer size", "error", err)
+		if err := conn.SetWriteBuffer(1064); err != nil {
+			debug.Log(debug.DebugError, "Failed to set write buffer size", "error", err)
 		}
 	}
 
@@ -163,7 +235,7 @@ func (ui *UDPInterface) Stop() error {
 }
 
 func (ui *UDPInterface) readLoop() {
-	buffer := make([]byte, common.NUM_1064)
+	buffer := make([]byte, 1064)
 	for {
 		ui.Mutex.RLock()
 		online := ui.Online
@@ -188,25 +260,25 @@ func (ui *UDPInterface) readLoop() {
 			stillOnline := ui.Online
 			ui.Mutex.RUnlock()
 			if stillOnline {
-				debug.Log(debug.DEBUG_ERROR, "Error reading from UDP interface", "name", ui.Name, "error", err)
+				debug.Log(debug.DebugError, "Error reading from UDP interface", "name", ui.Name, "error", err)
 			}
 			return
 		}
 
 		ui.Mutex.Lock()
-		// #nosec G115 - Network read sizes are always positive and within safe range
-		ui.RxBytes += uint64(n)
-
 		// Auto-discover target address from first packet if not set
 		if ui.targetAddr == nil {
-			debug.Log(debug.DEBUG_ALL, "UDP interface discovered peer", "name", ui.Name, "peer", remoteAddr.String())
+			debug.Log(debug.DebugAll, "UDP interface discovered peer", "name", ui.Name, "peer", remoteAddr.String())
 			ui.targetAddr = remoteAddr
 		}
-		callback := ui.packetCallback
 		ui.Mutex.Unlock()
 
-		if callback != nil {
-			callback(buffer[:n], ui)
-		}
+		ui.ProcessIncoming(buffer[:n])
 	}
+}
+
+func (ui *UDPInterface) IsEnabled() bool {
+	ui.Mutex.RLock()
+	defer ui.Mutex.RUnlock()
+	return ui.Enabled && ui.Online && !ui.Detached
 }

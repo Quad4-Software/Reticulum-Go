@@ -44,19 +44,14 @@ type Peer struct {
 }
 
 func NewAutoInterface(name string, config *common.InterfaceConfig) (*AutoInterface, error) {
+	base := NewBaseInterface(name, common.IFTypeAuto, config.Enabled)
+	base.Mode = common.IFModeFull
+	base.In = true
+	base.Out = false
+	base.MTU = HW_MTU
+	base.Bitrate = BITRATE_GUESS
 	ai := &AutoInterface{
-		BaseInterface: BaseInterface{
-			Name:     name,
-			Mode:     common.IF_MODE_FULL,
-			Type:     common.IF_TYPE_AUTO,
-			Online:   false,
-			Enabled:  config.Enabled,
-			Detached: false,
-			IN:       true,
-			OUT:      false,
-			MTU:      HW_MTU,
-			Bitrate:  BITRATE_GUESS,
-		},
+		BaseInterface: base,
 		discoveryPort:     DEFAULT_DISCOVERY_PORT,
 		dataPort:          DEFAULT_DATA_PORT,
 		peers:             make(map[string]*Peer),

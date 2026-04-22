@@ -1,9 +1,13 @@
 version: '3'
 env:
+  GOFLAGS: -mod=vendor
+  GOPROXY: 'off'
   GOPRIVATE: git.quad4.io
+  GONOSUMDB: git.quad4.io
 
 vars:
   GOCMD: go
+  GOEXAMPLE: env GOFLAGS=-mod=mod GOPROXY=https://proxy.golang.org,direct
   BINARY_NAME: reticulum-go
   BUILD_DIR: bin
   MAIN_PACKAGE: ./cmd/reticulum-go
@@ -58,8 +62,13 @@ tasks:
   fmt-check:
     desc: Check if code is formatted (useful for CI)
     cmds:
-      - '{{.GOCMD}} fmt -d ./... > fmt.diff 2>&1 || true'
-      - 'test -s fmt.diff && (echo "Code is not formatted. Run ''task fmt'' to fix." && cat fmt.diff && rm -f fmt.diff && exit 1) || (rm -f fmt.diff && exit 0)'
+      - |
+        UNFORMATTED=$(gofmt -l $(git ls-files '*.go'))
+        if [ -n "$UNFORMATTED" ]; then
+          echo "Code is not formatted. Run 'task fmt' to fix."
+          echo "$UNFORMATTED"
+          exit 1
+        fi
 
   vet:
     desc: Run go vet
@@ -69,20 +78,28 @@ tasks:
   lint:
     desc: Run revive linter
     cmds:
-      - revive -config revive.toml -formatter friendly ./pkg/* ./cmd/* ./internal/*
+      - revive -config revive.toml -formatter friendly -exclude './vendor/...' ./pkg/... ./cmd/... ./internal/...
 
   scan:
     desc: Run gosec security scanner
     cmds:
-      - gosec ./...
+      - gosec ./pkg/... ./cmd/... ./internal/... ./tests/...
+
+  vulncheck:
+    desc: Run govulncheck (Go vulnerability database)
+    env:
+      GOFLAGS: ''
+      GOPROXY: 'https://proxy.golang.org,direct'
+    cmds:
+      - go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 
   check:
-    desc: Run fmt-check, vet, lint, test-short, and scan with summary
+    desc: Run fmt-check, vet, lint, test-short, scan, vulncheck with summary
     cmds:
       - |
         FAILED_TASKS=""
         FAIL_COUNT=0
-        TOTAL_TASKS=5
+        TOTAL_TASKS=6
 
         echo "--- Running all checks ---"
         task fmt-check || { FAILED_TASKS="$FAILED_TASKS fmt-check"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
@@ -90,6 +107,7 @@ tasks:
         task lint || { FAILED_TASKS="$FAILED_TASKS lint"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
         task test-short || { FAILED_TASKS="$FAILED_TASKS test-short"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
         task scan || { FAILED_TASKS="$FAILED_TASKS scan"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
+        task vulncheck || { FAILED_TASKS="$FAILED_TASKS vulncheck"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
 
         echo "------------------------------------------"
         if [ $FAIL_COUNT -eq 0 ]; then
@@ -107,14 +125,14 @@ tasks:
   bench:
     desc: Run benchmarks with standard GC
     cmds:
-      - '{{.GOCMD}} test -bench=. -benchmem ./...'
+      - '{{.GOCMD}} test -run=^$ -bench=. -benchmem ./...'
 
   bench-experimental:
     desc: Run benchmarks with experimental GC
     env:
       GOEXPERIMENT: greenteagc
     cmds:
-      - '{{.GOCMD}} test -bench=. -benchmem ./...'
+      - '{{.GOCMD}} test -run=^$ -bench=. -benchmem ./...'
 
   bench-compare:
     desc: Run benchmarks with both GC settings
@@ -126,10 +144,25 @@ tasks:
       - '{{.GOCMD}} clean'
       - rm -rf {{.BUILD_DIR}}
 
+  reproducibility:
+    desc: Fail if two consecutive release builds (trimpath, no VCS stamp) are not byte-identical
+    cmds:
+      - sh scripts/ci/reproducibility-build.sh
+
   test:
     desc: Run tests
     cmds:
       - '{{.GOCMD}} test -v ./...'
+
+  test-crossref:
+    desc: Regenerate vectors from Python Reticulum and run crossref tests
+    cmds:
+      - bash tests/crossref/run_crossref.sh {{.CLI_ARGS}}
+
+  test-interop-live:
+    desc: Live Python-Go UDP interop (set PYTHON_INTEROP=.venv/bin/python when using venv)
+    cmds:
+      - RUN_LIVE_INTEROP=1 {{.GOCMD}} test -v -timeout 30m ./tests/interop/...
 
   test-short:
     desc: Run short tests
@@ -141,6 +174,21 @@ tasks:
     cmds:
       - '{{.GOCMD}} test -race -v ./...'
 
+  test-fuzz:
+    desc: Run fuzz tests for a short duration
+    cmds:
+      - '{{.GOCMD}} test -fuzz=FuzzPacketUnpack -fuzztime=30s ./pkg/packet'
+
+  test-leaks:
+    desc: Run resource leak tests
+    cmds:
+      - '{{.GOCMD}} test -v ./pkg/transport -run TestTransportLeak'
+
+  test-network:
+    desc: Run network simulation tests
+    cmds:
+      - '{{.GOCMD}} test -v ./pkg/transport -run TestTransportNetworkSimulation'
+
   coverage:
     desc: Generate test coverage report
     cmds:
@@ -150,6 +198,7 @@ tasks:
   deps:
     desc: Download and verify dependencies
     env:
+      GOFLAGS: ''
       GOPROXY: '{{.GOPROXY | default "https://proxy.golang.org,direct"}}'
     cmds:
       - '{{.GOCMD}} mod download'
@@ -157,11 +206,17 @@ tasks:
 
   mod-tidy:
     desc: Tidy go.mod file
+    env:
+      GOFLAGS: ''
+      GOPROXY: 'https://proxy.golang.org,direct'
     cmds:
       - '{{.GOCMD}} mod tidy'
 
   mod-verify:
     desc: Verify dependencies
+    env:
+      GOFLAGS: ''
+      GOPROXY: 'https://proxy.golang.org,direct'
     cmds:
       - '{{.GOCMD}} mod verify'
 
@@ -240,16 +295,16 @@ tasks:
       - '{{.GOCMD}} run {{.MAIN_PACKAGE}}'
 
   tinygo-build:
-    desc: Build binary with TinyGo compiler
+    desc: Build binary with TinyGo compiler (WASI; avoids generic bare-metal UART)
     cmds:
       - mkdir -p {{.BUILD_DIR}}
-      - tinygo build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-tinygo -size short -opt=z -gc=leaking -panic=trap {{.MAIN_PACKAGE}}
+      - tinygo build -target=wasi -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-tinygo -size short -opt=z -gc=leaking -panic=trap {{.MAIN_PACKAGE}}
 
   tinygo-build-debug:
-    desc: Build binary optimized for debugging with TinyGo compiler
+    desc: Build binary optimized for debugging with TinyGo compiler (WASI)
     cmds:
       - mkdir -p {{.BUILD_DIR}}
-      - tinygo build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-tinygo-debug -size short -opt=1 {{.MAIN_PACKAGE}}
+      - tinygo build -target=wasi -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-tinygo-debug -size short -opt=1 {{.MAIN_PACKAGE}}
 
   tinygo-build-all:
     desc: Build for all available TinyGo targets in parallel
@@ -294,7 +349,7 @@ tasks:
       - PATH="$PATH:{{.ROOT_DIR}}/misc/wasm" {{.GOCMD}} test -v ./pkg/wasm/ ./cmd/reticulum-wasm/
       - |
         export PATH="$PATH:{{.ROOT_DIR}}/misc/wasm"
-        cd examples/wasm && {{.GOCMD}} test -v .
+        cd examples/wasm && {{.GOEXAMPLE}} {{.GOCMD}} test -v .
 
   build-wasm:
     desc: Build WebAssembly binary with standard Go compiler
@@ -312,7 +367,7 @@ tasks:
       CGO_ENABLED: '0'
     cmds:
       - mkdir -p examples/wasm/public/static examples/wasm/public/js
-      - 'cd examples/wasm && GOOS=js GOARCH=wasm {{.GOCMD}} build -o public/static/reticulum-go.wasm .'
+      - 'cd examples/wasm && {{.GOEXAMPLE}} GOOS=js GOARCH=wasm {{.GOCMD}} build -o public/static/reticulum-go.wasm .'
       - |
         GOROOT=$({{.GOCMD}} env GOROOT)
         if [ -f "$GOROOT/lib/wasm/wasm_exec.js" ]; then
@@ -341,6 +396,9 @@ tasks:
 
   install:
     desc: Install dependencies
+    env:
+      GOFLAGS: ''
+      GOPROXY: 'https://proxy.golang.org,direct'
     cmds:
       - '{{.GOCMD}} mod download'
 
@@ -360,22 +418,22 @@ tasks:
   example:announce:
     desc: Run announce example
     cmds:
-      - 'cd examples/announce && {{.GOCMD}} run .'
+      - 'cd examples/announce && {{.GOEXAMPLE}} {{.GOCMD}} run .'
 
   example:minimal:
     desc: Run minimal example
     cmds:
-      - 'cd examples/minimal && {{.GOCMD}} run .'
+      - 'cd examples/minimal && {{.GOEXAMPLE}} {{.GOCMD}} run .'
 
   example:pageserver:
     desc: Run pageserver example
     cmds:
-      - 'cd examples/pageserver && {{.GOCMD}} run .'
+      - 'cd examples/pageserver && {{.GOEXAMPLE}} {{.GOCMD}} run .'
 
   example:echo-listen:
     desc: Run echo example (waits for incoming connections, P2P peer)
     cmds:
-      - 'cd examples/echo && {{.GOCMD}} run . --server'
+      - 'cd examples/echo && {{.GOEXAMPLE}} {{.GOCMD}} run . --server'
 
   example:echo-connect:
     desc: Run echo example (initiates connection to peer, requires DESTINATION env var)
@@ -386,12 +444,12 @@ tasks:
           echo "Example: DESTINATION=abc123... task example:echo-connect"
           exit 1
         fi
-        cd examples/echo && {{.GOCMD}} run . --destination="${DESTINATION}"
+        cd examples/echo && {{.GOEXAMPLE}} {{.GOCMD}} run . --destination="${DESTINATION}"
 
   example:link-listen:
     desc: Run link example (waits for incoming link requests, P2P peer)
     cmds:
-      - 'cd examples/link && {{.GOCMD}} run . --server'
+      - 'cd examples/link && {{.GOEXAMPLE}} {{.GOCMD}} run . --server'
 
   example:link-connect:
     desc: Run link example (initiates link to peer, requires DESTINATION env var)
@@ -402,7 +460,7 @@ tasks:
           echo "Example: DESTINATION=abc123... task example:link-connect"
           exit 1
         fi
-        cd examples/link && {{.GOCMD}} run . --destination="${DESTINATION}"
+        cd examples/link && {{.GOEXAMPLE}} {{.GOCMD}} run . --destination="${DESTINATION}"
 
   example:filetransfer-share:
     desc: Run filetransfer example (shares files from directory, P2P peer)
@@ -413,7 +471,7 @@ tasks:
           echo "Example: SERVE_PATH=/path/to/files task example:filetransfer-share"
           exit 1
         fi
-        cd examples/filetransfer && {{.GOCMD}} run . --server --serve="${SERVE_PATH}"
+        cd examples/filetransfer && {{.GOEXAMPLE}} {{.GOCMD}} run . --server --serve="${SERVE_PATH}"
 
   example:filetransfer-fetch:
     desc: Run filetransfer example (fetches files from peer, requires DESTINATION env var)
@@ -424,7 +482,7 @@ tasks:
           echo "Example: DESTINATION=abc123... task example:filetransfer-fetch"
           exit 1
         fi
-        cd examples/filetransfer && {{.GOCMD}} run . --destination="${DESTINATION}"
+        cd examples/filetransfer && {{.GOEXAMPLE}} {{.GOCMD}} run . --destination="${DESTINATION}"
 
   trivy:install:
     desc: Install Trivy scanner
@@ -432,7 +490,7 @@ tasks:
       - |
         if ! command -v trivy &> /dev/null; then
           curl -L -o /tmp/trivy.deb https://git.quad4.io/Quad4-Extra/assets/raw/commit/90fdcea1bb71d91df2de6ff2e3897f278413f300/bin/trivy_0.68.2_Linux-64bit.deb
-          sudo dpkg -i /tmp/trivy.deb || sudo apt-get install -f -y
+          sh scripts/ci/exec-priv.sh dpkg -i /tmp/trivy.deb 2>/dev/null || sh scripts/ci/exec-priv.sh apt-get install -f -y
         else
           echo "Trivy is already installed: $(trivy --version)"
         fi

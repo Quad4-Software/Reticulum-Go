@@ -10,6 +10,10 @@ logs/
 
 # Local environment variables
 .env
+.venv/
+
+# Cosign release signing
+cosign.key
 
 # JSON assets and auto-generated exports
 *.json
@@ -17,6 +21,7 @@ logs/
 # Example files, not adding them just yet.
 /examples/*
 !/examples/wasm/
+!/examples/pageserver/
 
 # OS / Editor files
 .DS_Store       # macOS Finder metadata
@@ -29,3 +34,15 @@ Thumbs.db       # Windows Explorer thumbnail cache
 # Swap and test binaries
 *.swp           # Swap files (e.g. vim)
 *.test          # Go test binaries
+test/compat/
+
+node_modules/
+
+# Python Reticulum reference (cloned for crossref tests)
+reticulum-ref/
+
+__pycache__/
+
+.cache/
+
+.tools/

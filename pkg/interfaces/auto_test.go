@@ -2,6 +2,7 @@ package interfaces
 
 import (
 	"net"
+	"slices"
 	"testing"
 	"time"
 
@@ -22,20 +23,20 @@ func TestNewAutoInterface(t *testing.T) {
 		if ai.GetName() != "autoDefault" {
 			t.Errorf("GetName() = %s; want autoDefault", ai.GetName())
 		}
-		if ai.GetType() != common.IF_TYPE_AUTO {
-			t.Errorf("GetType() = %v; want %v", ai.GetType(), common.IF_TYPE_AUTO)
+		if ai.GetType() != common.IFTypeAuto {
+			t.Errorf("GetType() = %v; want %v", ai.GetType(), common.IFTypeAuto)
 		}
-		if ai.discoveryPort != DEFAULT_DISCOVERY_PORT {
-			t.Errorf("discoveryPort = %d; want %d", ai.discoveryPort, DEFAULT_DISCOVERY_PORT)
+		if ai.discoveryPort != DefaultDiscoveryPort {
+			t.Errorf("discoveryPort = %d; want %d", ai.discoveryPort, DefaultDiscoveryPort)
 		}
-		if ai.dataPort != DEFAULT_DATA_PORT {
-			t.Errorf("dataPort = %d; want %d", ai.dataPort, DEFAULT_DATA_PORT)
+		if ai.dataPort != DefaultDataPort {
+			t.Errorf("dataPort = %d; want %d", ai.dataPort, DefaultDataPort)
 		}
 		if string(ai.groupID) != "reticulum" {
 			t.Errorf("groupID = %s; want reticulum", string(ai.groupID))
 		}
-		if ai.discoveryScope != SCOPE_LINK {
-			t.Errorf("discoveryScope = %s; want %s", ai.discoveryScope, SCOPE_LINK)
+		if ai.discoveryScope != ScopeLink {
+			t.Errorf("discoveryScope = %s; want %s", ai.discoveryScope, ScopeLink)
 		}
 		if len(ai.peers) != 0 {
 			t.Errorf("peers map not empty initially")
@@ -106,11 +107,9 @@ func (m *mockAutoInterface) Stop() error {
 func (m *mockAutoInterface) mockHandlePeerAnnounce(addr *net.UDPAddr, ifaceName string) {
 	peerAddr := addr.IP.String() + "%" + addr.Zone
 
-	for _, localAddr := range m.linkLocalAddrs {
-		if peerAddr == localAddr {
-			m.multicastEchoes[ifaceName] = time.Now()
-			return
-		}
+	if slices.Contains(m.linkLocalAddrs, peerAddr) {
+		m.multicastEchoes[ifaceName] = time.Now()
+		return
 	}
 
 	if _, exists := m.peers[peerAddr]; !exists {

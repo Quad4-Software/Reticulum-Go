@@ -106,7 +106,7 @@ func (ri *RNodeInterface) handleIncoming(data []byte, ni common.NetworkInterface
 		if len(payload) >= 2 {
 			ri.rMajVer = payload[0]
 			ri.rMinVer = payload[1]
-			debug.Log(debug.DEBUG_INFO, "RNode firmware version", "name", ri.GetName(), "version", fmt.Sprintf("%d.%d", ri.rMajVer, ri.rMinVer))
+			debug.Log(debug.DebugInfo, "RNode firmware version", "name", ri.GetName(), "version", fmt.Sprintf("%d.%d", ri.rMajVer, ri.rMinVer))
 		}
 	case RNODE_CMD_FREQUENCY:
 		if len(payload) >= 4 {
@@ -135,15 +135,15 @@ func (ri *RNodeInterface) handleIncoming(data []byte, ni common.NetworkInterface
 	case RNODE_CMD_STAT_RSSI:
 		if len(payload) >= 1 {
 			rssi := int(payload[0]) - RNODE_RSSI_OFFSET
-			debug.Log(debug.DEBUG_VERBOSE, "RNode RSSI", "name", ri.GetName(), "rssi", rssi)
+			debug.Log(debug.DebugVerbose, "RNode RSSI", "name", ri.GetName(), "rssi", rssi)
 		}
 	case RNODE_CMD_STAT_SNR:
 		if len(payload) >= 1 {
 			snr := float32(int8(payload[0])) * 0.25
-			debug.Log(debug.DEBUG_VERBOSE, "RNode SNR", "name", ri.GetName(), "snr", snr)
+			debug.Log(debug.DebugVerbose, "RNode SNR", "name", ri.GetName(), "snr", snr)
 		}
 	default:
-		debug.Log(debug.DEBUG_ALL, "RNode received command", "cmd", fmt.Sprintf("0x%02x", cmd), "len", len(payload))
+		debug.Log(debug.DebugAll, "RNode received command", "cmd", fmt.Sprintf("0x%02x", cmd), "len", len(payload))
 	}
 }
 
@@ -169,7 +169,7 @@ func (ri *RNodeInterface) Start() error {
 		return err
 	}
 
-	debug.Log(debug.DEBUG_INFO, "Initializing RNode...", "name", ri.GetName())
+	debug.Log(debug.DebugInfo, "Initializing RNode...", "name", ri.GetName())
 
 	if ri.frequency != 0 {
 		freqBytes := make([]byte, 4)
@@ -211,7 +211,7 @@ func (ri *RNodeInterface) Start() error {
 
 	ri.interfaceReady = true
 
-	debug.Log(debug.DEBUG_INFO, "RNode initialized", "name", ri.GetName())
+	debug.Log(debug.DebugInfo, "RNode initialized", "name", ri.GetName())
 	return nil
 }
 
@@ -225,7 +225,7 @@ func (ri *RNodeInterface) detect() error {
 	start := time.Now()
 	for !ri.rDetected {
 		if time.Since(start) > 2*time.Second {
-			debug.Log(debug.DEBUG_ERROR, "RNode detection timed out", "name", ri.GetName())
+			debug.Log(debug.DebugError, "RNode detection timed out", "name", ri.GetName())
 			break
 		}
 		time.Sleep(100 * time.Millisecond)

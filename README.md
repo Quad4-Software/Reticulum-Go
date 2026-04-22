@@ -1,215 +1,196 @@
 # Reticulum-Go
 
-[![Revive Lint](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/revive.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/revive.yml)
-[![Go Build](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/build.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/build.yml)
-[![Go Test](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/go-test.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/go-test.yml)
-[![Gosec](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/gosec.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/gosec.yml)
-[![Bearer](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/bearer.yml/badge.svg?branch=main)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/bearer.yml)
+[![Revive Lint](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/revive.yml/badge.svg?branch=master)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/revive.yml)
+[![Go Build](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/build.yml/badge.svg?branch=master)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/build.yml)
+[![Go Test](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/go-test.yml/badge.svg?branch=master)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/go-test.yml)
+[![Security Scans](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/scan.yml/badge.svg?branch=master)](https://git.quad4.io/Networks/Reticulum-Go/actions/workflows/scan.yml)
 
-A high-performance Go implementation of the [Reticulum Network Stack](https://github.com/markqvist/Reticulum)
+A high-performance and [secure](SECURITY.md) Go implementation of the [Reticulum Network Stack](https://github.com/markqvist/Reticulum).
 
-## Project Goals:
+## Overview
 
-- **Full Protocol Compatibility**: Maintain complete interoperability with the Python reference implementation
-- **Cross-Platform Support**: Support for legacy and modern platforms across multiple architectures
-- **Performance**: Leverage Go's concurrency model and runtime for improved throughput and latency
-- **More Privacy and Security**: Additional privacy and security features beyond the base specification
+Reticulum-Go provides full protocol compatibility with the Python reference implementation while leveraging Go's concurrency model for improved throughput and latency. The implementation targets cross-platform deployment across legacy and modern systems.
 
-## Prerequisites
+See [COMPATIBILITY.md](COMPATIBILITY.md) for how this is verified against the Python stack and the [network API reference](https://reticulum.network/manual/reference.html).
 
-- Go 1.24 or later
-- [Task](https://taskfile.dev/) for build automation
+**Goals:**
+- Full protocol interoperability with the Python reference implementation
+- Cross-platform support for multiple architectures (old and new)
+- High performance via Go's concurrency model
+- Improved privacy and security features that do not break compatibility with the Python reference implementation
 
-Note: You may need to set `alias task='go-task'` in your shell configuration to use `task` instead of `go-task`.
+### Cryptography
 
-### Nix
+Cryptographic behaviour is centralized in `pkg/cryptography` (including a pluggable `CryptoProvider`). For deployments that need keys or signing outside process memory, Ed25519 signing can be delegated via `cryptography.Ed25519Signer` (for example a `crypto.Signer` backed by PKCS#11 or an HSM). The on-wire format stays fixed; replacing primitives or integrating hardware must remain coordinated with peers. Link encryption still uses the standard X25519/AES path unless you implement a compatible custom provider.
 
-If you have Nix installed, you can use the development shell which automatically provides all dependencies including Task:
+## Requirements
 
-```bash
-nix develop
-```
+- Go 1.26.2 or later
 
-This will enter a development environment with Go and Task pre-configured.
+## Vendored dependencies and offline builds
+
+### Why we vendor
+
+Vendoring keeps the exact third-party source tree in this repository so builds and tests do not depend on fetching modules at compile time. That supports air-gapped and offline environments, avoids coupling releases to the availability of public module proxies or hosting sites, and makes the dependency set easy to review in diffs and audits. It is also central to supply chain security for dependencies: ordinary builds compile what is committed here, not whatever a proxy or upstream source might serve at build time, and changes to third-party code show up in review as normal source diffs. Dependency versions are still recorded in `go.mod` and `go.sum`; `vendor/` is the canonical copy used for ordinary builds.
+
+The Makefile and Taskfile default to `GOFLAGS=-mod=vendor` and `GOPROXY=off`, so a normal `make build`, `make test`, or `task build` / `task test` does not contact module proxies, the checksum database, or Git remotes for dependencies. Only the Go toolchain (and the standard library it ships with) is required besides this repository.
+
+CI sets the same variables for build, test, and related jobs. Steps that install standalone tools with `go install` (for example revive, gosec, and govulncheck in `scripts/ci/`) temporarily clear those flags so the installer can fetch those binaries; project code still builds from `vendor/`.
+
+When you change dependencies, use a network-enabled environment, run `go mod tidy` and `go mod vendor`, then commit `go.mod`, `go.sum`, and `vendor/`. The `make deps` and `task deps` targets use the public module proxy to download and verify modules for that workflow.
+
+The `examples/wasm` tree has its own `go.mod`; it is not covered by the root `vendor/` layout. Docker images under `docker/` copy `vendor/` and build with the same offline module settings.
 
 ## Quick Start
 
-### Building the Binary
+You can use the [Makefile](Makefile) targets below or run the equivalent `go` commands directly if you do not have Make installed.
+
+### Build
+
+```bash
+make build
+```
+
+```bash
+mkdir -p bin
+CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
+```
+
+Output: `bin/reticulum-go`
+
+### Install
+
+Install to system path (default `/usr/local/bin`):
+
+```bash
+make install
+```
+
+```bash
+mkdir -p bin
+CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
+cp bin/reticulum-go /usr/local/bin/
+```
+
+Custom install prefix:
+
+```bash
+make install PREFIX=/opt/reticulum
+```
+
+```bash
+mkdir -p /opt/reticulum/bin
+mkdir -p bin
+CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
+cp bin/reticulum-go /opt/reticulum/bin/
+```
+
+Alternatively, install into your Go toolchain binary directory (`$GOBIN` or `$(go env GOPATH)/bin`):
+
+```bash
+CGO_ENABLED=0 go install -ldflags="-s -w" ./cmd/reticulum-go
+```
+
+### Run
+
+```bash
+make run
+```
+
+```bash
+go run ./cmd/reticulum-go
+```
+
+### Test
+
+```bash
+make test
+```
+
+```bash
+go test -v ./...
+```
+
+## Makefile Reference
+
+| Target | Description | Go / other |
+|--------|-------------|------------|
+| `make` / `make all` | Build release binary | same as `make build` |
+| `make build` | Build release binary (stripped, static) | `mkdir -p bin` then `CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go` |
+| `make install` | Build and install to PREFIX/bin | build as above, then `cp bin/reticulum-go $(PREFIX)/bin/` |
+| `make uninstall` | Remove installed binary | `rm -f $(PREFIX)/bin/reticulum-go` |
+| `make clean` | Remove build artifacts | `go clean` and `rm -rf bin` |
+| `make test` | Run all tests | `go test -v ./...` |
+| `make test-short` | Run short tests only | `go test -short -v ./...` |
+| `make test-race` | Run tests with race detector | `go test -race -v ./...` |
+| `make coverage` | Generate coverage report | `go test -coverprofile=coverage.out ./...` then `go tool cover -html=coverage.out` |
+| `make bench` | Run benchmarks | `go test -run=^$ -bench=. -benchmem ./...` |
+| `make fmt` | Format code | `go fmt ./...` |
+| `make vet` | Run go vet | `go vet ./...` |
+| `make lint` | Run revive linter | `revive -config revive.toml -formatter friendly ./pkg/* ./cmd/* ./internal/*` |
+| `make vulncheck` | Run govulncheck | `go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...` (override version with `GOVULNCHECK_VER`) |
+| `make check` | Run fmt, vet, lint, test-short, vulncheck | run those targets in sequence |
+| `make deps` | Download and verify dependencies (uses the module network; run after editing imports or versions) | `go mod download` and `go mod verify` with the public proxy |
+| `make run` | Run with go run | `go run ./cmd/reticulum-go` |
+| `make debug` | Build debug binary | `mkdir -p bin` then `go build -o bin/reticulum-go ./cmd/reticulum-go` |
+| `make build-linux` | Cross-build for Linux (amd64, arm64, arm, riscv64) | set `GOOS=linux` and `GOARCH=...` per [Makefile](Makefile) |
+| `make build-windows` | Cross-build for Windows | set `GOOS=windows` and `GOARCH=...` per [Makefile](Makefile) |
+| `make build-darwin` | Cross-build for macOS | set `GOOS=darwin` and `GOARCH=...` per [Makefile](Makefile) |
+| `make build-all` | Cross-build for Linux, Windows, macOS | run the three cross-build command groups from the Makefile |
+
+## Taskfile (Alternative)
+
+The project also provides a [Taskfile](https://taskfile.dev/) for extended automation. Install Task and run `task --list` for available targets.
 
 ```bash
 task build
-```
-
-The compiled binary will be located in `bin/reticulum-go`.
-
-### Running the Application
-
-```bash
-task run
-```
-
-### Running Tests
-
-```bash
+task install
 task test
 ```
+
+Note: On some systems, use `go-task` instead of `task`; add `alias task='go-task'` to your shell config if needed.
 
 ## Development
 
 ### Code Quality
 
-Format code:
+```bash
+make fmt
+make vet
+make lint
+make check
+```
 
 ```bash
-task fmt
+go fmt ./...
+go vet ./...
+revive -config revive.toml -formatter friendly ./pkg/* ./cmd/* ./internal/*
+go test -short -v ./...
+go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 ```
 
-Run static analysis checks (formatting, vet, linting):
+### Cross-Platform Builds
 
 ```bash
-task check
+make build-linux
+make build-windows
+make build-darwin
+make build-all
 ```
 
-### Testing
+Cross-compilation uses `GOOS` and `GOARCH` with the same `go build` flags as `make build`; see [Makefile](Makefile) `build-linux`, `build-windows`, and `build-darwin` targets for exact commands.
 
-Run all tests:
+## WebAssembly and Embedded
 
-```bash
-task test
-```
-
-Run short tests only:
-
-```bash
-task test-short
-```
-
-Generate coverage report:
-
-```bash
-task coverage
-```
-
-### Benchmarking
-
-Run benchmarks with standard GC:
-
-```bash
-task bench
-```
-
-Run benchmarks with experimental Green Tea GC:
-
-```bash
-task bench-experimental
-```
-
-Compare both GC implementations:
-
-```bash
-task bench-compare
-```
-
-## Tasks
-
-The project uses [Task](https://taskfile.dev/) for all development and build operations.
-
-```
-| Task                | Description                                          |
-|---------------------|------------------------------------------------------|
-| default             | Show available tasks                                 |
-| all                 | Clean, download dependencies, build and test         |
-| build               | Build release binary (stripped, static)              |
-| debug               | Build debug binary                                   |
-| build-experimental  | Build with experimental Green Tea GC (Go 1.25+)      |
-| experimental        | Alias for build-experimental                         |
-| release             | Build stripped static binary for release             |
-| fmt                 | Format Go code                                       |
-| fmt-check           | Check if code is formatted (CI-friendly)             |
-| vet                 | Run go vet                                           |
-| lint                | Run revive linter                                    |
-| scan                | Run gosec security scanner                           |
-| check               | Run fmt-check, vet, and lint                         |
-| bench               | Run benchmarks with standard GC                      |
-| bench-experimental  | Run benchmarks with experimental GC                  |
-| bench-compare       | Run benchmarks with both GC settings                 |
-| clean               | Remove build artifacts                               |
-| test                | Run all tests                                        |
-| test-short          | Run short tests only                                 |
-| test-race           | Run tests with race detector                         |
-| coverage            | Generate test coverage report                        |
-| checksum            | Generate SHA256 checksum for binary                  |
-| deps                | Download and verify dependencies                     |
-| mod-tidy            | Tidy go.mod file                                     |
-| mod-verify          | Verify dependencies                                  |
-| build-linux         | Build for Linux (amd64, arm64, arm, riscv64)         |
-| build-all           | Build for all Linux architectures                    |
-| build-wasm          | Build WebAssembly binary with standard Go compiler   |
-| test-wasm           | Run WebAssembly tests using Node.js                  |
-| run                 | Run with go run                                      |
-| tinygo-build        | Build binary with TinyGo compiler                    |
-| tinygo-wasm         | Build WebAssembly binary with TinyGo                 |
-| install             | Install dependencies                                 |
-
-example: task build
-```
-
-## Cross-Platform Builds
-
-### Linux Builds
-
-Build for all Linux architectures:
-
-```bash
-task build-all
-```
-
-Build for specific Linux architecture:
-
-```bash
-task build-linux
-```
-
-## Embedded Systems and WebAssembly
-
-For building for embedded systems, see the [tinygo branch](https://git.quad4.io/Networks/Reticulum-Go/src/branch/tinygo/). Requires TinyGo 0.37.0+.
-
-Build WebAssembly binary with standard Go compiler:
+Build WebAssembly binary (requires Task):
 
 ```bash
 task build-wasm
-```
-
-Run WebAssembly unit tests (requires Node.js):
-
-```bash
 task test-wasm
 ```
 
-Build with TinyGo:
-
-```bash
-task tinygo-build
-```
-
-Build WebAssembly binary with TinyGo:
-
-```bash
-task tinygo-wasm
-```
-
-## Experimental Features
-
-### Green Tea Garbage Collector
-
-Build with experimental Green Tea GC (requires Go 1.25+):
-
-```bash
-task build-experimental
-```
-
-This enables the experimental garbage collector for performance evaluation and testing.
+For embedded systems and TinyGo builds, see the [tinygo branch](https://git.quad4.io/Networks/Reticulum-Go/src/branch/tinygo/). Requires TinyGo 0.37.0+.
 
 ## License
 
-This project is licensed under the [0BSD](LICENSE) license.
+0BSD. See [LICENSE](LICENSE).

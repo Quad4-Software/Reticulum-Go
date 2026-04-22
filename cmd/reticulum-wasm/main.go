@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 //go:build js && wasm
 // +build js,wasm
 
@@ -20,11 +20,10 @@ func main() {
 
 func run() {
 	debug.Init()
-	debug.SetDebugLevel(debug.DEBUG_INFO)
+	debug.SetDebugLevel(debug.DebugInfo)
 
 	wasm.RegisterJSFunctions()
 
 	// Notify JS that reticulum is ready
 	js.Global().Call("reticulumReady")
 }
-

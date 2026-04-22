@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package debug
 
 import (
@@ -7,111 +7,109 @@ import (
 	"flag"
 	"log/slog"
 	"os"
-)
-
-const (
-	DEBUG_CRITICAL = 1
-	DEBUG_ERROR    = 2
-	DEBUG_INFO     = 3
-	DEBUG_VERBOSE  = 4
-	DEBUG_TRACE    = 5
-	DEBUG_PACKETS  = 6
-	DEBUG_ALL      = 7
+	"sync"
 )
 
 var (
-	debugLevel  = flag.Int("debug", 3, "debug level (1-7)")
+	debugLevel  = flag.Int("debug", 3, "debug level (1-7); 1=critical, 2=error, 3=info, 4=verbose, 5=trace, 6=packets, 7=all")
 	logger      *slog.Logger
 	initialized bool
+	mu          sync.RWMutex
 )
 
+// Init builds the underlying slog logger. Safe to call repeatedly; only
+// the first call wires it up. SetDebugLevel rebuilds the handler so the
+// active level can change at runtime.
 func Init() {
+	mu.Lock()
+	defer mu.Unlock()
 	if initialized {
 		return
 	}
+	rebuildLocked()
 	initialized = true
+}
 
-	var level slog.Level
-	switch {
-	case *debugLevel >= DEBUG_ALL:
-		level = slog.LevelDebug
-	case *debugLevel >= DEBUG_PACKETS:
-		level = slog.LevelDebug
-	case *debugLevel >= DEBUG_TRACE:
-		level = slog.LevelDebug
-	case *debugLevel >= DEBUG_VERBOSE:
-		level = slog.LevelDebug
-	case *debugLevel >= DEBUG_INFO:
-		level = slog.LevelInfo
-	case *debugLevel >= DEBUG_ERROR:
-		level = slog.LevelWarn
-	case *debugLevel >= DEBUG_CRITICAL:
-		level = slog.LevelError
-	default:
-		level = slog.LevelError
-	}
-
-	opts := &slog.HandlerOptions{
-		Level: level,
-	}
+// rebuildLocked rebuilds the slog logger so the handler honours the
+// current *debugLevel. Caller must hold mu.
+func rebuildLocked() {
+	opts := &slog.HandlerOptions{Level: slogLevelFor(*debugLevel)}
 	logger = slog.New(slog.NewTextHandler(os.Stderr, opts))
 	slog.SetDefault(logger)
 }
 
-func GetLogger() *slog.Logger {
-	if !initialized {
-		Init()
+// slogLevelFor maps an RNS debug level (1-7) to the closest slog level.
+func slogLevelFor(level int) slog.Level {
+	switch {
+	case level >= DebugVerbose:
+		return slog.LevelDebug
+	case level >= DebugInfo:
+		return slog.LevelInfo
+	case level >= DebugError:
+		return slog.LevelWarn
+	default:
+		return slog.LevelError
 	}
+}
+
+// GetLogger returns the underlying slog logger. Prefer Log so callers
+// route through the central level filter.
+func GetLogger() *slog.Logger {
+	mu.RLock()
+	if initialized {
+		l := logger
+		mu.RUnlock()
+		return l
+	}
+	mu.RUnlock()
+	Init()
+	mu.RLock()
+	defer mu.RUnlock()
 	return logger
 }
 
-func Log(level int, msg string, args ...interface{}) {
-	if !initialized {
+// Log emits msg at the given RNS debug level, suppressing it when the
+// level is above the current threshold.
+func Log(level int, msg string, args ...any) {
+	mu.RLock()
+	ready := initialized
+	mu.RUnlock()
+	if !ready {
 		Init()
 	}
 
+	mu.RLock()
 	if *debugLevel < level {
+		mu.RUnlock()
+		return
+	}
+	l := logger
+	mu.RUnlock()
+
+	slogLevel := slogLevelFor(level)
+	if !l.Enabled(context.TODO(), slogLevel) {
 		return
 	}
 
-	var slogLevel slog.Level
-	switch {
-	case level >= DEBUG_ALL:
-		slogLevel = slog.LevelDebug
-	case level >= DEBUG_PACKETS:
-		slogLevel = slog.LevelDebug
-	case level >= DEBUG_TRACE:
-		slogLevel = slog.LevelDebug
-	case level >= DEBUG_VERBOSE:
-		slogLevel = slog.LevelDebug
-	case level >= DEBUG_INFO:
-		slogLevel = slog.LevelInfo
-	case level >= DEBUG_ERROR:
-		slogLevel = slog.LevelWarn
-	case level >= DEBUG_CRITICAL:
-		slogLevel = slog.LevelError
-	default:
-		slogLevel = slog.LevelError
-	}
-
-	if !logger.Enabled(context.TODO(), slogLevel) {
-		return
-	}
-
-	allArgs := make([]interface{}, len(args)+2)
+	allArgs := make([]any, len(args)+2)
 	copy(allArgs, args)
 	allArgs[len(args)] = "debug_level"
 	allArgs[len(args)+1] = level
-	logger.Log(context.TODO(), slogLevel, msg, allArgs...)
+	l.Log(context.TODO(), slogLevel, msg, allArgs...)
 }
 
+// SetDebugLevel updates the active level and rebuilds the slog handler
+// so the change takes effect immediately.
 func SetDebugLevel(level int) {
+	mu.Lock()
+	defer mu.Unlock()
 	*debugLevel = level
 	if initialized {
-		Init()
+		rebuildLocked()
 	}
 }
 
+// GetDebugLevel returns the current debug level.
 func GetDebugLevel() int {
 	return *debugLevel
 }

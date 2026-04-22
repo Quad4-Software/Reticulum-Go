@@ -1,33 +1,15 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
+
+// Package rate implements rate-limiting and ingress-control primitives
 package rate
 
 import (
 	"sync"
 	"time"
-
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 )
 
-const (
-	DefaultAnnounceRateTarget  = 3600.0 // Default 1 hour between announces
-	DefaultAnnounceRateGrace   = 3      // Default number of grace announces
-	DefaultAnnounceRatePenalty = 7200.0 // Default 2 hour penalty
-	DefaultBurstFreqNew        = 3.5    // Default announces/sec for new interfaces
-	DefaultBurstFreq           = 12.0   // Default announces/sec for established interfaces
-	DefaultBurstHold           = 60     // Default seconds to hold after burst
-	DefaultBurstPenalty        = 300    // Default seconds penalty after burst
-	DefaultMaxHeldAnnounces    = 256    // Default max announces in hold queue
-	DefaultHeldReleaseInterval = 30     // Default seconds between releasing held announces
-
-	// Allowance thresholds
-	AllowanceMinThreshold = 1.0
-	AllowanceDecrement    = 1.0
-
-	// History check threshold
-	HistoryGraceThreshold = 1
-)
-
+// Limiter is a token-bucket rate limiter.
 type Limiter struct {
 	rate       float64
 	capacity   float64
@@ -36,6 +18,7 @@ type Limiter struct {
 	mutex      sync.Mutex
 }
 
+// NewLimiter returns a Limiter with the given rate and capacity.
 func NewLimiter(rate float64, capacity float64) *Limiter {
 	return &Limiter{
 		rate:       rate,
@@ -45,6 +28,7 @@ func NewLimiter(rate float64, capacity float64) *Limiter {
 	}
 }
 
+// Allow returns true if a token is available and consumes it.
 func (l *Limiter) Allow() bool {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
@@ -66,16 +50,18 @@ func (l *Limiter) Allow() bool {
 	return true
 }
 
-// AnnounceRateControl handles per-destination announce rate limiting
+// AnnounceRateControl gates announce re-broadcasts on a per-destination basis
+// using a target rate, a grace count, and a penalty period.
 type AnnounceRateControl struct {
 	rateTarget  float64
 	rateGrace   int
 	ratePenalty float64
 
-	announceHistory map[string][]time.Time // Maps dest hash to announce times
+	announceHistory map[string][]time.Time
 	mutex           sync.RWMutex
 }
 
+// NewAnnounceRateControl returns a new AnnounceRateControl.
 func NewAnnounceRateControl(target float64, grace int, penalty float64) *AnnounceRateControl {
 	return &AnnounceRateControl{
 		rateTarget:      target,
@@ -85,16 +71,21 @@ func NewAnnounceRateControl(target float64, grace int, penalty float64) *Announc
 	}
 }
 
+// AllowAnnounce reports whether an announce for destHash is allowed.
+// Returns true unconditionally when rateTarget <= 0.
 func (arc *AnnounceRateControl) AllowAnnounce(destHash string) bool {
+	if arc == nil || arc.rateTarget <= 0 {
+		return true
+	}
+
 	arc.mutex.Lock()
 	defer arc.mutex.Unlock()
 
 	history := arc.announceHistory[destHash]
 	now := time.Now()
 
-	// Cleanup old history entries
 	cutoff := now.Add(-24 * time.Hour)
-	newHistory := []time.Time{}
+	newHistory := make([]time.Time, 0, len(history))
 	for _, t := range history {
 		if t.After(cutoff) {
 			newHistory = append(newHistory, t)
@@ -102,13 +93,11 @@ func (arc *AnnounceRateControl) AllowAnnounce(destHash string) bool {
 	}
 	history = newHistory
 
-	// Allow if within grace period
 	if len(history) < arc.rateGrace {
 		arc.announceHistory[destHash] = append(history, now)
 		return true
 	}
 
-	// Check rate
 	lastAnnounce := history[len(history)-1]
 	waitTime := arc.rateTarget
 	if len(history) > arc.rateGrace+HistoryGraceThreshold {
@@ -123,38 +112,125 @@ func (arc *AnnounceRateControl) AllowAnnounce(destHash string) bool {
 	return true
 }
 
-// IngressControl handles new destination announce rate limiting
-type IngressControl struct {
-	enabled             bool
-	burstFreqNew        float64
-	burstFreq           float64
-	burstHold           time.Duration
-	burstPenalty        time.Duration
-	maxHeldAnnounces    int
-	heldReleaseInterval time.Duration
-
-	heldAnnounces map[string][]byte // Maps announce hash to announce data
-	lastBurst     time.Time
-	announceCount int
-	mutex         sync.RWMutex
-}
-
-func NewIngressControl(enabled bool) *IngressControl {
-	return &IngressControl{
-		enabled:             enabled,
-		burstFreqNew:        DefaultBurstFreqNew,
-		burstFreq:           DefaultBurstFreq,
-		burstHold:           time.Duration(DefaultBurstHold) * time.Second,
-		burstPenalty:        time.Duration(DefaultBurstPenalty) * time.Second,
-		maxHeldAnnounces:    DefaultMaxHeldAnnounces,
-		heldReleaseInterval: time.Duration(DefaultHeldReleaseInterval) * time.Second,
-		heldAnnounces:       make(map[string][]byte),
-		lastBurst:           time.Now(),
+// CleanupExpired drops history entries older than 24 hours.
+func (arc *AnnounceRateControl) CleanupExpired() {
+	if arc == nil {
+		return
+	}
+	arc.mutex.Lock()
+	defer arc.mutex.Unlock()
+	cutoff := time.Now().Add(-24 * time.Hour)
+	for hash, history := range arc.announceHistory {
+		filtered := history[:0]
+		for _, t := range history {
+			if t.After(cutoff) {
+				filtered = append(filtered, t)
+			}
+		}
+		if len(filtered) == 0 {
+			delete(arc.announceHistory, hash)
+		} else {
+			arc.announceHistory[hash] = filtered
+		}
 	}
 }
 
+// IngressControlConfig captures the ic_* knobs from the reference interface
+// configuration.
+type IngressControlConfig struct {
+	Enabled             bool
+	NewTime             time.Duration
+	BurstFreqNew        float64
+	BurstFreq           float64
+	BurstHold           time.Duration
+	BurstPenalty        time.Duration
+	MaxHeldAnnounces    int
+	HeldReleaseInterval time.Duration
+}
+
+// NewIngressControlConfig returns the reference defaults.
+func NewIngressControlConfig() IngressControlConfig {
+	return IngressControlConfig{
+		Enabled:             true,
+		NewTime:             time.Duration(DefaultNewTime) * time.Second,
+		BurstFreqNew:        DefaultBurstFreqNew,
+		BurstFreq:           DefaultBurstFreq,
+		BurstHold:           time.Duration(DefaultBurstHold) * time.Second,
+		BurstPenalty:        time.Duration(DefaultBurstPenalty) * time.Second,
+		MaxHeldAnnounces:    DefaultMaxHeldAnnounces,
+		HeldReleaseInterval: time.Duration(DefaultHeldReleaseInterval) * time.Second,
+	}
+}
+
+// IngressControl implements per-interface announce ingress control.
+type IngressControl struct {
+	cfg IngressControlConfig
+
+	spawnedAt      time.Time
+	arrivals       []time.Time
+	heldQueue      []ingressHeld
+	heldIndex      map[string]int
+	burstActive    bool
+	burstClearedAt time.Time
+	lastReleaseAt  time.Time
+
+	mutex sync.Mutex
+}
+
+type ingressHeld struct {
+	hash string
+	data []byte
+}
+
+// NewIngressControl constructs an IngressControl with default thresholds.
+func NewIngressControl(enabled bool) *IngressControl {
+	cfg := NewIngressControlConfig()
+	cfg.Enabled = enabled
+	return NewIngressControlWith(cfg)
+}
+
+// NewIngressControlWith constructs an IngressControl with explicit
+// thresholds. Zero values fall back to defaults.
+func NewIngressControlWith(cfg IngressControlConfig) *IngressControl {
+	def := NewIngressControlConfig()
+	if cfg.NewTime <= 0 {
+		cfg.NewTime = def.NewTime
+	}
+	if cfg.BurstFreqNew <= 0 {
+		cfg.BurstFreqNew = def.BurstFreqNew
+	}
+	if cfg.BurstFreq <= 0 {
+		cfg.BurstFreq = def.BurstFreq
+	}
+	if cfg.BurstHold <= 0 {
+		cfg.BurstHold = def.BurstHold
+	}
+	if cfg.BurstPenalty <= 0 {
+		cfg.BurstPenalty = def.BurstPenalty
+	}
+	if cfg.MaxHeldAnnounces <= 0 {
+		cfg.MaxHeldAnnounces = def.MaxHeldAnnounces
+	}
+	if cfg.HeldReleaseInterval <= 0 {
+		cfg.HeldReleaseInterval = def.HeldReleaseInterval
+	}
+	return &IngressControl{
+		cfg:       cfg,
+		spawnedAt: time.Now(),
+		heldIndex: make(map[string]int),
+	}
+}
+
+// Enabled reports whether the control is enforcing limits.
+func (ic *IngressControl) Enabled() bool {
+	return ic != nil && ic.cfg.Enabled
+}
+
+// ProcessAnnounce returns true when the announce should be processed
+// immediately, false when it has been queued or dropped. isNewDest must
+// be true when the receiving transport has no path for the destination.
 func (ic *IngressControl) ProcessAnnounce(announceHash string, announceData []byte, isNewDest bool) bool {
-	if !ic.enabled {
+	if !ic.Enabled() {
 		return true
 	}
 
@@ -162,49 +238,121 @@ func (ic *IngressControl) ProcessAnnounce(announceHash string, announceData []by
 	defer ic.mutex.Unlock()
 
 	now := time.Now()
-	elapsed := now.Sub(ic.lastBurst)
+	ic.recordArrivalLocked(now)
 
-	// Reset counter if enough time has passed
-	if elapsed > ic.burstHold+ic.burstPenalty {
-		ic.announceCount = common.ZERO
-		ic.lastBurst = now
+	threshold := ic.cfg.BurstFreq
+	if now.Sub(ic.spawnedAt) < ic.cfg.NewTime {
+		threshold = ic.cfg.BurstFreqNew
 	}
+	freq := ic.currentFrequencyLocked(now)
 
-	// Check burst frequency
-	maxFreq := ic.burstFreq
-	if isNewDest {
-		maxFreq = ic.burstFreqNew
-	}
-
-	ic.announceCount++
-
-	// Avoid division by zero and handle very small elapsed times
-	seconds := elapsed.Seconds()
-	if seconds < 0.01 {
-		seconds = 0.01
-	}
-	burstFreq := float64(ic.announceCount) / seconds
-
-	// Hold announce if burst frequency exceeded
-	if burstFreq > maxFreq {
-		if len(ic.heldAnnounces) < ic.maxHeldAnnounces {
-			ic.heldAnnounces[announceHash] = announceData
+	if freq > threshold {
+		ic.burstActive = true
+		ic.burstClearedAt = time.Time{}
+	} else if ic.burstActive {
+		if ic.burstClearedAt.IsZero() {
+			ic.burstClearedAt = now
+		} else if now.Sub(ic.burstClearedAt) >= ic.cfg.BurstHold {
+			ic.burstActive = false
 		}
+	}
+
+	if !ic.burstActive {
+		return true
+	}
+	if !isNewDest {
+		return true
+	}
+
+	if _, dup := ic.heldIndex[announceHash]; dup {
 		return false
 	}
-
-	return true
+	if len(ic.heldQueue) >= ic.cfg.MaxHeldAnnounces {
+		return false
+	}
+	buf := make([]byte, len(announceData))
+	copy(buf, announceData)
+	ic.heldIndex[announceHash] = len(ic.heldQueue)
+	ic.heldQueue = append(ic.heldQueue, ingressHeld{hash: announceHash, data: buf})
+	return false
 }
 
+// ReleaseHeldAnnounce returns one queued announce when the burst is
+// clear and the release interval has elapsed.
 func (ic *IngressControl) ReleaseHeldAnnounce() (string, []byte, bool) {
+	if ic == nil {
+		return "", nil, false
+	}
 	ic.mutex.Lock()
 	defer ic.mutex.Unlock()
 
-	// Return first held announce if any exist
-	for hash, data := range ic.heldAnnounces {
-		delete(ic.heldAnnounces, hash)
-		return hash, data, true
+	if len(ic.heldQueue) == 0 {
+		return "", nil, false
+	}
+	now := time.Now()
+	if ic.burstActive {
+		return "", nil, false
+	}
+	if !ic.burstClearedAt.IsZero() && now.Sub(ic.burstClearedAt) < ic.cfg.BurstHold+ic.cfg.BurstPenalty {
+		return "", nil, false
+	}
+	if !ic.lastReleaseAt.IsZero() && now.Sub(ic.lastReleaseAt) < ic.cfg.HeldReleaseInterval {
+		return "", nil, false
 	}
 
-	return "", nil, false
+	entry := ic.heldQueue[0]
+	ic.heldQueue = ic.heldQueue[1:]
+	delete(ic.heldIndex, entry.hash)
+	for i, h := range ic.heldQueue {
+		ic.heldIndex[h.hash] = i
+	}
+	ic.lastReleaseAt = now
+	return entry.hash, entry.data, true
 }
+
+// HeldCount returns the number of currently queued announces.
+func (ic *IngressControl) HeldCount() int {
+	if ic == nil {
+		return 0
+	}
+	ic.mutex.Lock()
+	defer ic.mutex.Unlock()
+	return len(ic.heldQueue)
+}
+
+// InBurst reports whether the controller is currently in a burst.
+func (ic *IngressControl) InBurst() bool {
+	if ic == nil {
+		return false
+	}
+	ic.mutex.Lock()
+	defer ic.mutex.Unlock()
+	return ic.burstActive
+}
+
+func (ic *IngressControl) recordArrivalLocked(now time.Time) {
+	ic.arrivals = append(ic.arrivals, now)
+	cutoff := now.Add(-ic.cfg.BurstHold)
+	idx := 0
+	for ; idx < len(ic.arrivals); idx++ {
+		if !ic.arrivals[idx].Before(cutoff) {
+			break
+		}
+	}
+	if idx > 0 {
+		ic.arrivals = ic.arrivals[idx:]
+	}
+}
+
+func (ic *IngressControl) currentFrequencyLocked(now time.Time) float64 {
+	if len(ic.arrivals) < burstSampleMinimum {
+		return 0
+	}
+	window := now.Sub(ic.arrivals[0]).Seconds()
+	if window < MinElapsedSeconds {
+		window = MinElapsedSeconds
+	}
+	return float64(len(ic.arrivals)-1) / window
+}
+
+const burstSampleMinimum = 8

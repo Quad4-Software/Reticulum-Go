@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package channel
 
 import (
@@ -8,81 +8,27 @@ import (
 	"sync"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
 )
 
-const (
-	// Window sizes and thresholds
-	WindowInitial     = 2
-	WindowMin         = 2
-	WindowMinSlow     = 2
-	WindowMinMedium   = 5
-	WindowMinFast     = 16
-	WindowMaxSlow     = 5
-	WindowMaxMedium   = 12
-	WindowMaxFast     = 48
-	WindowMax         = WindowMaxFast
-	WindowFlexibility = 4
-
-	// RTT thresholds
-	RTTFast   = 0.18
-	RTTMedium = 0.75
-	RTTSlow   = 1.45
-
-	// Sequence numbers
-	SeqMax     uint16 = 0xFFFF
-	SeqModulus uint16 = SeqMax
-
-	FastRateThreshold = 10
-
-	// Timeout calculation constants
-	RTTMinThreshold       = 0.025
-	TimeoutBaseMultiplier = 1.5
-	TimeoutRingMultiplier = 2.5
-	TimeoutRingOffset     = 2
-
-	// Packet header constants
-	ChannelHeaderSize = 6
-	ChannelHeaderBits = 8
-
-	// Default retry count
-	DefaultMaxTries = 3
-)
-
-// MessageState represents the state of a message
-type MessageState int
-
-const (
-	MsgStateNew MessageState = iota
-	MsgStateSent
-	MsgStateDelivered
-	MsgStateFailed
-)
-
-// MessageBase defines the interface for messages that can be sent over a channel
+// MessageBase is the interface for messages sent over a Channel.
 type MessageBase interface {
 	Pack() ([]byte, error)
 	Unpack([]byte) error
 	GetType() uint16
 }
 
-// Channel manages reliable message delivery over a transport link
+// Channel provides reliable message delivery over a transport link.
 type Channel struct {
 	link            transport.LinkInterface
 	mutex           sync.RWMutex
 	txRing          []*Envelope
-	rxRing          []*Envelope
 	window          int
 	windowMax       int
 	windowMin       int
-	windowFlex      int
 	nextSequence    uint16
-	nextRxSequence  uint16
 	maxTries        int
-	fastRateRounds  int
-	medRateRounds   int
 	messageHandlers []messageHandlerEntry
 	nextHandlerID   int
 }
@@ -97,16 +43,16 @@ type Envelope struct {
 	Sequence  uint16
 	Message   MessageBase
 	Raw       []byte
-	Packet    interface{}
+	Packet    any
 	Tries     int
 	Timestamp time.Time
 }
 
-// NewChannel creates a new Channel instance
+// NewChannel creates a new Channel for the given link.
 func NewChannel(link transport.LinkInterface) *Channel {
 	return &Channel{
 		link:            link,
-		messageHandlers: make([]messageHandlerEntry, 0),
+		messageHandlers: make([]messageHandlerEntry, InitialHandlerCapacity),
 		mutex:           sync.RWMutex{},
 		windowMax:       WindowMaxSlow,
 		windowMin:       WindowMinSlow,
@@ -117,7 +63,7 @@ func NewChannel(link transport.LinkInterface) *Channel {
 
 // Send transmits a message over the channel
 func (c *Channel) Send(msg MessageBase) error {
-	if c.link.GetStatus() != transport.STATUS_ACTIVE {
+	if c.link.GetStatus() != transport.StatusActive {
 		return errors.New("link not ready")
 	}
 
@@ -128,7 +74,7 @@ func (c *Channel) Send(msg MessageBase) error {
 	}
 
 	c.mutex.Lock()
-	c.nextSequence = (c.nextSequence + common.ONE) % SeqModulus
+	c.nextSequence = (c.nextSequence + 1) % SeqModulus
 	c.txRing = append(c.txRing, env)
 	c.mutex.Unlock()
 
@@ -150,7 +96,7 @@ func (c *Channel) Send(msg MessageBase) error {
 }
 
 // handleTimeout handles packet timeout events
-func (c *Channel) handleTimeout(packet interface{}) {
+func (c *Channel) handleTimeout(packet any) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -163,7 +109,7 @@ func (c *Channel) handleTimeout(packet interface{}) {
 			env.Tries++
 			if err := c.link.Resend(packet); err != nil { // #nosec G104
 				// Handle resend error, e.g., log it or mark envelope as failed
-				debug.Log(debug.DEBUG_INFO, "Failed to resend packet", "error", err)
+				debug.Log(debug.DebugInfo, "Failed to resend packet", "error", err)
 				// Optionally, mark the envelope as failed or remove it from txRing
 				// env.State = MsgStateFailed
 				// c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
@@ -177,7 +123,7 @@ func (c *Channel) handleTimeout(packet interface{}) {
 }
 
 // handleDelivered handles packet delivery confirmations
-func (c *Channel) handleDelivered(packet interface{}) {
+func (c *Channel) handleDelivered(packet any) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -195,10 +141,11 @@ func (c *Channel) getPacketTimeout(tries int) time.Duration {
 		rtt = RTTMinThreshold
 	}
 
-	timeout := math.Pow(TimeoutBaseMultiplier, float64(tries-common.ONE)) * rtt * TimeoutRingMultiplier * float64(len(c.txRing)+TimeoutRingOffset)
+	timeout := math.Pow(TimeoutBaseMultiplier, float64(tries-1)) * rtt * TimeoutRingMultiplier * float64(len(c.txRing)+TimeoutRingOffset)
 	return time.Duration(timeout * float64(time.Second))
 }
 
+// AddMessageHandler registers a handler for inbound messages and returns its ID.
 func (c *Channel) AddMessageHandler(handler func(MessageBase) bool) int {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -208,6 +155,7 @@ func (c *Channel) AddMessageHandler(handler func(MessageBase) bool) int {
 	return id
 }
 
+// RemoveMessageHandler unregisters the handler with the given ID.
 func (c *Channel) RemoveMessageHandler(id int) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -219,30 +167,7 @@ func (c *Channel) RemoveMessageHandler(id int) {
 	}
 }
 
-func (c *Channel) updateRateThresholds() {
-	rtt := c.link.RTT()
-
-	if rtt > RTTFast {
-		c.fastRateRounds = common.ZERO
-
-		if rtt > RTTMedium {
-			c.medRateRounds = common.ZERO
-		} else {
-			c.medRateRounds++
-			if c.windowMax < WindowMaxMedium && c.medRateRounds == FastRateThreshold {
-				c.windowMax = WindowMaxMedium
-				c.windowMin = WindowMinMedium
-			}
-		}
-	} else {
-		c.fastRateRounds++
-		if c.windowMax < WindowMaxFast && c.fastRateRounds == FastRateThreshold {
-			c.windowMax = WindowMaxFast
-			c.windowMin = WindowMinFast
-		}
-	}
-}
-
+// HandleInbound processes an inbound channel packet and dispatches to registered handlers.
 func (c *Channel) HandleInbound(data []byte) error {
 	if len(data) < ChannelHeaderSize {
 		return errors.New("channel packet too short")
@@ -277,25 +202,30 @@ func (c *Channel) HandleInbound(data []byte) error {
 	return nil
 }
 
+// GenericMessage is a default message implementation with type, data, and sequence.
 type GenericMessage struct {
 	Type uint16
 	Data []byte
 	Seq  uint16
 }
 
+// Pack returns the message payload.
 func (g *GenericMessage) Pack() ([]byte, error) {
 	return g.Data, nil
 }
 
+// Unpack sets the message payload from data.
 func (g *GenericMessage) Unpack(data []byte) error {
 	g.Data = data
 	return nil
 }
 
+// GetType returns the message type.
 func (g *GenericMessage) GetType() uint16 {
 	return g.Type
 }
 
+// Close releases channel resources.
 func (c *Channel) Close() error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()

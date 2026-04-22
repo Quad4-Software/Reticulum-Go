@@ -40,7 +40,7 @@ func NewSerialInterface(name string, portName string, baud uint32, enabled bool)
 	}
 
 	si := &SerialInterface{
-		BaseInterface: NewBaseInterface(name, common.IF_TYPE_SERIAL, enabled),
+		BaseInterface: NewBaseInterface(name, common.IFTypeSerial, enabled),
 		uart:          uart,
 		baud:          baud,
 		done:          make(chan struct{}),
@@ -61,19 +61,8 @@ func NewSerialInterface(name string, portName string, baud uint32, enabled bool)
 
 // getUART returns a TinyGo UART handle by name or index.
 func getUART(name string) (*machine.UART, error) {
-	switch name {
-	case "UART0", "0":
-		return machine.UART0, nil
-	case "UART1", "1":
-		return machine.UART1, nil
-	case "UART2", "2":
-		return machine.UART2, nil
-	default:
-		if name == "" {
-			return machine.UART0, nil
-		}
-		return nil, fmt.Errorf("unknown UART: %s", name)
-	}
+	_ = name
+	return machine.Serial, nil
 }
 
 // Start enables the serial interface and starts the read loop.
@@ -85,12 +74,9 @@ func (si *SerialInterface) Start() error {
 		return nil
 	}
 
-	err := si.uart.Configure(machine.UARTConfig{
+	si.uart.Configure(machine.UARTConfig{
 		BaudRate: si.baud,
 	})
-	if err != nil {
-		return fmt.Errorf("failed to configure UART: %w", err)
-	}
 
 	si.Online = true
 	si.Enabled = true
@@ -142,7 +128,7 @@ func (si *SerialInterface) readLoop() {
 		if si.uart.Buffered() > 0 {
 			n, err := si.uart.Read(buffer)
 			if err != nil {
-				debug.Log(debug.DEBUG_ERROR, "Serial read error", "name", si.Name, "error", err)
+				debug.Log(debug.DebugError, "Serial read error", "name", si.Name, "error", err)
 				time.Sleep(100 * time.Millisecond)
 				continue
 			}
@@ -151,7 +137,7 @@ func (si *SerialInterface) readLoop() {
 				for i := 0; i < n; i++ {
 					b := buffer[i]
 
-					if b == KISS_FEND {
+					if b == KISSFend {
 						if inFrame && len(dataBuffer) > 0 {
 							packet := make([]byte, len(dataBuffer))
 							copy(packet, dataBuffer)
@@ -164,14 +150,14 @@ func (si *SerialInterface) readLoop() {
 					}
 
 					if inFrame {
-						if b == KISS_FESC {
+						if b == KISSFesc {
 							escape = true
 						} else {
 							if escape {
-								if b == KISS_TFEND {
-									b = KISS_FEND
-								} else if b == KISS_TFESC {
-									b = KISS_FESC
+								if b == KISSTFend {
+									b = KISSFend
+								} else if b == KISSTFesc {
+									b = KISSFesc
 								}
 								escape = false
 							}
@@ -202,10 +188,10 @@ func (si *SerialInterface) SendKISS(command byte, data []byte) error {
 	}
 
 	frame := make([]byte, 0, len(data)*2+3)
-	frame = append(frame, KISS_FEND)
+	frame = append(frame, KISSFend)
 	frame = append(frame, command)
 	frame = append(frame, escapeKISS(data)...)
-	frame = append(frame, KISS_FEND)
+	frame = append(frame, KISSFend)
 
 	_, err := si.uart.Write(frame)
 	if err != nil {

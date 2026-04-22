@@ -1,0 +1,155 @@
+name: Go Publish
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  CI_GO_VERSION: "1.26.2"
+  CI_TASK_VERSION: "3.46.3"
+  COSIGN_VERSION: "3.0.5"
+  GOFLAGS: -mod=vendor
+  GOPROXY: "off"
+  GOPRIVATE: git.quad4.io
+  GONOSUMDB: git.quad4.io
+
+jobs:
+  build:
+    name: Build (${{ matrix.goos }}, ${{ matrix.goarch }})
+    strategy:
+      matrix:
+        goos: [linux, windows, darwin, freebsd]
+        goarch: [amd64, arm64, arm]
+        include:
+          - goos: js
+            goarch: wasm
+        exclude:
+          - goos: darwin
+            goarch: arm
+          - goos: windows
+            goarch: arm
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source
+        run: |
+          set -eu
+          SERVER="${GITEA_SERVER_URL:-${GITHUB_SERVER_URL:-}}"
+          REPO="${GITEA_REPOSITORY:-${GITHUB_REPOSITORY:-}}"
+          if [ -z "$SERVER" ] || [ -z "$REPO" ]; then
+            echo "Checkout: set GITEA_SERVER_URL/GITEA_REPOSITORY or GITHUB_SERVER_URL/GITHUB_REPOSITORY" >&2
+            exit 1
+          fi
+          if [ -n "${GITEA_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
+            TOKEN="${GITEA_TOKEN:-$GITHUB_TOKEN}"
+            git config --global credential.helper "!f() { echo username=x-access-token; echo password=${TOKEN}; }; f"
+          fi
+          git init -q && git remote add origin "${SERVER}/${REPO}.git"
+          git fetch -q --depth=1 origin "${GITHUB_SHA}" && git checkout -q FETCH_HEAD
+
+      - name: Set up Go
+        run: sh scripts/ci/setup-go.sh "${{ env.CI_GO_VERSION }}"
+
+      - name: Setup Task
+        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarch == 'arm' && '6' || '' }}
+          CGO_ENABLED: '0'
+        run: |
+          output_name="reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}"
+          if [ "${{ matrix.goos }}" = "js" ] && [ "${{ matrix.goarch }}" = "wasm" ]; then
+            task build-wasm
+            output_name+=".wasm"
+            mv bin/reticulum-go.wasm "${output_name}"
+          else
+            task build
+            if [ "${{ matrix.goos }}" = "windows" ]; then
+              output_name+=".exe"
+            fi
+            mv bin/reticulum-go "${output_name}"
+          fi
+          echo "Built: ${output_name}"
+
+      - name: Calculate SHA256 Checksum
+        run: |
+          output_name="reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            output_name+=".exe"
+          elif [ "${{ matrix.goos }}" = "js" ] && [ "${{ matrix.goarch }}" = "wasm" ]; then
+            output_name+=".wasm"
+          fi
+          BINARY_PATH="${output_name}" task checksum
+
+      - name: Upload Artifact
+        uses: https://git.quad4.io/actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5
+        with:
+          name: reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}*
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout Source
+        run: |
+          set -eu
+          SERVER="${GITEA_SERVER_URL:-${GITHUB_SERVER_URL:-}}"
+          REPO="${GITEA_REPOSITORY:-${GITHUB_REPOSITORY:-}}"
+          if [ -z "$SERVER" ] || [ -z "$REPO" ]; then
+            echo "Checkout: set GITEA_SERVER_URL/GITEA_REPOSITORY or GITHUB_SERVER_URL/GITHUB_REPOSITORY" >&2
+            exit 1
+          fi
+          if [ -n "${GITEA_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
+            TOKEN="${GITEA_TOKEN:-$GITHUB_TOKEN}"
+            git config --global credential.helper "!f() { echo username=x-access-token; echo password=${TOKEN}; }; f"
+          fi
+          git init -q && git remote add origin "${SERVER}/${REPO}.git"
+          git fetch -q --depth=1 origin "${GITHUB_SHA}" && git checkout -q FETCH_HEAD
+
+      - name: Download All Build Artifacts
+        uses: https://git.quad4.io/actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a
+        with:
+          path: ./release-assets
+
+      - name: SLSA attestations (cosign)
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+        run: |
+          set -eu
+          if [ -z "${COSIGN_PRIVATE_KEY:-}" ]; then
+            echo "Skipping SLSA attestations: add repository secret COSIGN_PRIVATE_KEY (PEM) to sign releases."
+            exit 0
+          fi
+          sh scripts/ci/setup-cosign.sh "${COSIGN_VERSION}"
+          printf '%s\n' "$COSIGN_PRIVATE_KEY" > /tmp/cosign.key
+          chmod 600 /tmp/cosign.key
+          export COSIGN_KEY_PATH=/tmp/cosign.key
+          sh scripts/ci/attest-release-assets.sh ./release-assets
+          rm -f /tmp/cosign.key
+
+      - name: Create Gitea Release
+        uses: https://git.quad4.io/actions/gitea-release-action@4875285c0950474efb7ca2df55233c51333eeb74
+        with:
+          files: ./release-assets/*/*

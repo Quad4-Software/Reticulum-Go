@@ -1,6 +1,9 @@
+//go:build !js
+
 package interfaces
 
 import (
+	"net"
 	"testing"
 	"time"
 
@@ -53,8 +56,8 @@ func TestNewWebSocketInterface(t *testing.T) {
 		t.Errorf("Expected name 'test', got %s", ws.GetName())
 	}
 
-	if ws.GetType() != common.IF_TYPE_UDP {
-		t.Errorf("Expected type IF_TYPE_UDP, got %v", ws.GetType())
+	if ws.GetType() != common.IFTypeUDP {
+		t.Errorf("Expected type IFTypeUDP, got %v", ws.GetType())
 	}
 
 	if ws.GetMTU() != 1064 {
@@ -66,10 +69,19 @@ func TestNewWebSocketInterface(t *testing.T) {
 	}
 }
 
+func checkNetwork(t *testing.T) {
+	conn, err := net.DialTimeout("tcp", "socket.quad4.io:443", 1*time.Second)
+	if err != nil {
+		t.Skip("Skipping network test: socket.quad4.io unreachable")
+	}
+	conn.Close()
+}
+
 func TestWebSocketConnection(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping network test in short mode")
 	}
+	checkNetwork(t)
 
 	ws, err := NewWebSocketInterface("test", "wss://socket.quad4.io/ws", true)
 	if err != nil {
@@ -114,6 +126,7 @@ func TestWebSocketReconnection(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping network test in short mode")
 	}
+	checkNetwork(t)
 
 	ws, err := NewWebSocketInterface("test", "wss://socket.quad4.io/ws", true)
 	if err != nil {
@@ -152,6 +165,7 @@ func TestWebSocketReconnection(t *testing.T) {
 }
 
 func TestWebSocketMessageQueue(t *testing.T) {
+	checkNetwork(t)
 	ws, err := NewWebSocketInterface("test", "wss://socket.quad4.io/ws", true)
 	if err != nil {
 		t.Fatalf("Failed to create WebSocket interface: %v", err)
@@ -175,7 +189,7 @@ func TestWebSocketMessageQueue(t *testing.T) {
 	}
 
 	// Wait for interface to be online (up to 10 seconds)
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if ws.IsOnline() {
 			break
 		}
@@ -199,6 +213,7 @@ func TestWebSocketFrameEncoding(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping frame encoding test in short mode")
 	}
+	checkNetwork(t)
 
 	ws, err := NewWebSocketInterface("test", "wss://socket.quad4.io/ws", true)
 	if err != nil {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package packet
 
 import (
@@ -14,51 +14,7 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
 )
 
-const (
-	// Packet Types
-	PacketTypeData     = 0x00
-	PacketTypeAnnounce = 0x01
-	PacketTypeLinkReq  = 0x02
-	PacketTypeProof    = 0x03
-
-	// Header Types
-	HeaderType1 = 0x00
-	HeaderType2 = 0x01
-
-	// Context Types
-	ContextNone         = 0x00
-	ContextResource     = 0x01
-	ContextResourceAdv  = 0x02
-	ContextResourceReq  = 0x03
-	ContextResourceHMU  = 0x04
-	ContextResourcePRF  = 0x05
-	ContextResourceICL  = 0x06
-	ContextResourceRCL  = 0x07
-	ContextCacheReq     = 0x08
-	ContextRequest      = 0x09
-	ContextResponse     = 0x0A
-	ContextPathResponse = 0x0B
-	ContextCommand      = 0x0C
-	ContextCmdStatus    = 0x0D
-	ContextChannel      = 0x0E
-	ContextKeepalive    = 0xFA
-	ContextLinkIdentify = 0xFB
-	ContextLinkClose    = 0xFC
-	ContextLinkProof    = 0xFD
-	ContextLRRTT        = 0xFE
-	ContextLRProof      = 0xFF
-
-	// Flag Values
-	FlagSet   = 0x01
-	FlagUnset = 0x00
-
-	// Header sizes
-	HeaderMaxSize = 64
-	MTU           = 500
-
-	AddressSize = 32 // Size of address/hash fields in bytes
-)
-
+// Packet represents a Reticulum packet with header, destination, context and payload.
 type Packet struct {
 	HeaderType    byte
 	PacketType    byte
@@ -69,7 +25,7 @@ type Packet struct {
 
 	DestinationType byte
 	DestinationHash []byte
-	Destination     interface{}
+	Destination     any
 	TransportID     []byte
 	Data            []byte
 
@@ -88,11 +44,10 @@ type Packet struct {
 	Q    *float64
 
 	Addresses []byte
-	Link      interface{}
-
-	receipt *PacketReceipt
+	Link      any
 }
 
+// PacketConfig holds the parameters used to create a new packet.
 type PacketConfig struct {
 	DestType      byte
 	Data          []byte
@@ -105,6 +60,7 @@ type PacketConfig struct {
 	ContextFlag   byte
 }
 
+// NewPacket builds a new Packet from the given config fields.
 func NewPacket(destType byte, data []byte, packetType byte, context byte,
 	transportType byte, headerType byte, transportID []byte, createReceipt bool,
 	contextFlag byte) *Packet {
@@ -131,34 +87,33 @@ func (p *Packet) Pack() error {
 		return nil
 	}
 
-	debug.Log(debug.DEBUG_PACKETS, "Packing packet", "type", p.PacketType, "header", p.HeaderType)
+	debug.Log(debug.DebugPackets, "Packing packet", "type", p.PacketType, "header", p.HeaderType)
 
-	// Create header byte (Corrected order)
 	flags := byte(0)
-	flags |= (p.HeaderType << 6) & 0b01000000
-	flags |= (p.ContextFlag << 5) & 0b00100000
-	flags |= (p.TransportType << 4) & 0b00010000
-	flags |= (p.DestinationType << 2) & 0b00001100
-	flags |= p.PacketType & 0b00000011
+	flags |= (p.HeaderType << 6) & HeaderMaskHeaderType
+	flags |= (p.ContextFlag << 5) & HeaderMaskContextFlag
+	flags |= (p.TransportType << 4) & HeaderMaskTransportType
+	flags |= (p.DestinationType << 2) & HeaderMaskDestinationType
+	flags |= p.PacketType & HeaderMaskPacketType
 
 	header := []byte{flags, p.Hops}
-	debug.Log(debug.DEBUG_TRACE, "Created packet header", "flags", fmt.Sprintf("%08b", flags), "hops", p.Hops)
-
-	header = append(header, p.DestinationHash...)
+	debug.Log(debug.DebugTrace, "Created packet header", "flags", fmt.Sprintf("%08b", flags), "hops", p.Hops)
 
 	if p.HeaderType == HeaderType2 {
 		if p.TransportID == nil {
 			return errors.New("transport ID required for header type 2")
 		}
 		header = append(header, p.TransportID...)
-		debug.Log(debug.DEBUG_ALL, "Added transport ID to header", "transport_id", fmt.Sprintf("%x", p.TransportID))
+		debug.Log(debug.DebugAll, "Added transport ID to header", "transport_id", fmt.Sprintf("%x", p.TransportID))
 	}
 
+	header = append(header, p.DestinationHash...)
+
 	header = append(header, p.Context)
-	debug.Log(debug.DEBUG_PACKETS, "Final header length", "bytes", len(header))
+	debug.Log(debug.DebugPackets, "Final header length", "bytes", len(header))
 
 	p.Raw = append(header, p.Data...)
-	debug.Log(debug.DEBUG_TRACE, "Final packet size", "bytes", len(p.Raw))
+	debug.Log(debug.DebugTrace, "Final packet size", "bytes", len(p.Raw))
 
 	if len(p.Raw) > MTU {
 		return errors.New("packet size exceeds MTU")
@@ -166,38 +121,36 @@ func (p *Packet) Pack() error {
 
 	p.Packed = true
 	p.updateHash()
-	debug.Log(debug.DEBUG_ALL, "Packet hash", "hash", fmt.Sprintf("%x", p.PacketHash))
+	debug.Log(debug.DebugAll, "Packet hash", "hash", fmt.Sprintf("%x", p.PacketHash))
 	return nil
 }
 
 func (p *Packet) Unpack() error {
-	if len(p.Raw) < 3 {
+	if len(p.Raw) < MinPacketSize {
 		return errors.New("packet too short")
 	}
 
 	flags := p.Raw[0]
 	p.Hops = p.Raw[1]
 
-	p.HeaderType = (flags & 0b01000000) >> 6
-	p.ContextFlag = (flags & 0b00100000) >> 5
-	p.TransportType = (flags & 0b00010000) >> 4
-	p.DestinationType = (flags & 0b00001100) >> 2
-	p.PacketType = flags & 0b00000011
+	p.HeaderType = (flags & HeaderMaskHeaderType) >> 6
+	p.ContextFlag = (flags & HeaderMaskContextFlag) >> 5
+	p.TransportType = (flags & HeaderMaskTransportType) >> 4
+	p.DestinationType = (flags & HeaderMaskDestinationType) >> 2
+	p.PacketType = flags & HeaderMaskPacketType
 
-	dstLen := 16 // Truncated hash length
+	dstLen := TruncatedHashLength
 
 	if p.HeaderType == HeaderType2 {
-		// Header Type 2: Header(2) + DestHash(16) + TransportID(16) + Context(1) + Data
-		if len(p.Raw) < 2*dstLen+3 {
+		if len(p.Raw) < 2*dstLen+MinPacketSize {
 			return errors.New("packet too short for header type 2")
 		}
-		p.DestinationHash = p.Raw[2 : dstLen+2]      // Destination hash first
-		p.TransportID = p.Raw[dstLen+2 : 2*dstLen+2] // Transport ID second
+		p.TransportID = p.Raw[2 : dstLen+2]
+		p.DestinationHash = p.Raw[dstLen+2 : 2*dstLen+2]
 		p.Context = p.Raw[2*dstLen+2]
 		p.Data = p.Raw[2*dstLen+3:]
 	} else {
-		// Header Type 1: Header(2) + DestHash(16) + Context(1) + Data
-		if len(p.Raw) < dstLen+3 {
+		if len(p.Raw) < dstLen+MinPacketSize {
 			return errors.New("packet too short for header type 1")
 		}
 		p.TransportID = nil
@@ -218,16 +171,13 @@ func (p *Packet) GetHash() []byte {
 }
 
 func (p *Packet) getHashablePart() []byte {
-	hashable := []byte{p.Raw[0] & 0b00001111} // Lower 4 bits of flags
+	hashable := []byte{p.Raw[0] & HashableFlagsMask}
 	if p.HeaderType == HeaderType2 {
-		// Start hash from DestHash (index 18), skipping TransportID
-		dstLen := 16 // RNS.Identity.TRUNCATED_HASHLENGTH / 8
-		startIndex := dstLen + 2
+		startIndex := TruncatedHashLength + 2
 		if len(p.Raw) > startIndex {
 			hashable = append(hashable, p.Raw[startIndex:]...)
 		}
 	} else {
-		// Start hash from DestHash (index 2)
 		if len(p.Raw) > 2 {
 			hashable = append(hashable, p.Raw[2:]...)
 		}
@@ -245,8 +195,8 @@ func (p *Packet) Hash() []byte {
 
 func (p *Packet) TruncatedHash() []byte {
 	hash := p.GetHash()
-	if len(hash) >= 16 {
-		return hash[:16]
+	if len(hash) >= TruncatedHashLength {
+		return hash[:TruncatedHashLength]
 	}
 	return hash
 }
@@ -264,13 +214,13 @@ func (p *Packet) Serialize() ([]byte, error) {
 }
 
 func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []byte, transportID []byte) (*Packet, error) {
-	debug.Log(debug.DEBUG_ALL, "Creating new announce packet", "dest_hash", fmt.Sprintf("%x", destHash), "app_data", fmt.Sprintf("%x", appData))
+	debug.Log(debug.DebugAll, "Creating new announce packet", "dest_hash", fmt.Sprintf("%x", destHash), "app_data", fmt.Sprintf("%x", appData))
 
 	// Get public key separated into encryption and signing keys
 	pubKey := identity.GetPublicKey()
 	encKey := pubKey[:32]
 	signKey := pubKey[32:]
-	debug.Log(debug.DEBUG_PACKETS, "Using public keys", "enc_key", fmt.Sprintf("%x", encKey), "sign_key", fmt.Sprintf("%x", signKey))
+	debug.Log(debug.DebugPackets, "Using public keys", "enc_key", fmt.Sprintf("%x", encKey), "sign_key", fmt.Sprintf("%x", signKey))
 
 	// Parse app name from first msgpack element if possible
 	// For nodes, we'll use "reticulum.node" as the name hash
@@ -295,19 +245,19 @@ func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []b
 	// Create name hash (10 bytes)
 	nameHash := sha256.Sum256([]byte(appName))
 	nameHash10 := nameHash[:10]
-	debug.Log(debug.DEBUG_PACKETS, "Using name hash", "name", appName, "hash", fmt.Sprintf("%x", nameHash10))
+	debug.Log(debug.DebugPackets, "Using name hash", "name", appName, "hash", fmt.Sprintf("%x", nameHash10))
 
 	// Create random hash (10 bytes) - 5 bytes random + 5 bytes time
 	randomHash := make([]byte, 10)
 	_, err := rand.Read(randomHash[:5]) // #nosec G104
 	if err != nil {
-		debug.Log(debug.DEBUG_PACKETS, "Failed to read random bytes for hash", "error", err)
+		debug.Log(debug.DebugPackets, "Failed to read random bytes for hash", "error", err)
 		return nil, err // Or handle the error appropriately
 	}
 	timeBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(timeBytes, uint64(time.Now().Unix())) // #nosec G115
-	copy(randomHash[5:], timeBytes[:5])
-	debug.Log(debug.DEBUG_PACKETS, "Generated random hash", "hash", fmt.Sprintf("%x", randomHash))
+	copy(randomHash[5:], timeBytes[3:8])
+	debug.Log(debug.DebugPackets, "Generated random hash", "hash", fmt.Sprintf("%x", randomHash))
 
 	// Prepare ratchet ID if available (not yet implemented)
 	var ratchetID []byte
@@ -321,11 +271,13 @@ func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []b
 	signedData = append(signedData, nameHash10...)
 	signedData = append(signedData, randomHash...)
 	signedData = append(signedData, appData...)
-	debug.Log(debug.DEBUG_TRACE, "Created signed data", "bytes", len(signedData))
+	debug.Log(debug.DebugTrace, "Created signed data", "bytes", len(signedData))
 
-	// Sign the data
-	signature := identity.Sign(signedData)
-	debug.Log(debug.DEBUG_PACKETS, "Generated signature", "signature", fmt.Sprintf("%x", signature))
+	signature, err := identity.Sign(signedData)
+	if err != nil {
+		return nil, fmt.Errorf("sign announce: %w", err)
+	}
+	debug.Log(debug.DebugPackets, "Generated signature", "signature", fmt.Sprintf("%x", signature))
 
 	// Combine all fields according to spec
 	// Data structure: Public Key (32) + Signing Key (32) + Name Hash (10) + Random Hash (10) + Ratchet (optional) + Signature (64) + App Data
@@ -340,7 +292,7 @@ func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []b
 	data = append(data, signature...) // Signature (64 bytes)
 	data = append(data, appData...)   // Application data (variable)
 
-	debug.Log(debug.DEBUG_TRACE, "Combined packet data", "bytes", len(data))
+	debug.Log(debug.DebugTrace, "Combined packet data", "bytes", len(data))
 
 	// Create the packet with header type 2 (two address fields)
 	p := &Packet{
@@ -351,6 +303,6 @@ func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []b
 		Data:            data,
 	}
 
-	debug.Log(debug.DEBUG_VERBOSE, "Created announce packet", "type", p.PacketType, "header", p.HeaderType)
+	debug.Log(debug.DebugVerbose, "Created announce packet", "type", p.PacketType, "header", p.HeaderType)
 	return p, nil
 }

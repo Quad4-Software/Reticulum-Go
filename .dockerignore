@@ -5,9 +5,6 @@ bin/
 *.so
 *.dylib
 
-# Go modules' cache
-vendor/
-
 # Local test/coverage/log artifacts
 *.test
 *.out
@@ -17,6 +14,7 @@ coverage.out
 
 # Environment and secret files
 .env
+cosign.key
 
 # User/IDE/Editor config
 .idea/
@@ -34,3 +32,8 @@ bom.json
 dependency-results.sbom.json
 *.sbom.json
 
+node_modules/
+
+__pycache__/
+
+.cache/

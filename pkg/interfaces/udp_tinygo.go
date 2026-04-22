@@ -38,14 +38,14 @@ func NewUDPInterface(name string, addr string, target string, enabled bool) (*UD
 	}
 
 	ui := &UDPInterface{
-		BaseInterface: NewBaseInterface(name, common.IF_TYPE_UDP, enabled),
+		BaseInterface: NewBaseInterface(name, common.IFTypeUDP, enabled),
 		addr:          udpAddr,
 		targetAddr:    targetAddr,
-		readBuffer:    make([]byte, common.NUM_1064),
+		readBuffer:    make([]byte, 1064),
 		done:          make(chan struct{}),
 	}
 
-	ui.MTU = common.NUM_1064
+	ui.MTU = 1064
 
 	return ui, nil
 }

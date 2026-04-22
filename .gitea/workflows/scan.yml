@@ -1,0 +1,66 @@
+name: Security Scans
+
+on:
+  schedule:
+    - cron: "30 12 * * 1"
+  push:
+    branches: [master, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CI_GO_VERSION: "1.26.2"
+  CI_GOSEC_VERSION: "v2.24.5"
+  CI_GOVULNCHECK_VERSION: "v1.1.4"
+  TRIVY_DEB_URL: "https://git.quad4.io/Quad4-Software/Trivy-Assets/raw/commit/fdfe96b77d2f7b7f5a90cea00af5024c9f728f17/trivy_0.69.3_Linux-64bit.deb"
+  TRIVY_DEB_SHA256: "a484057aafde31089cf2558ca0f79a4bc835125a5ee6834183a5bcf0735af358"
+  GOFLAGS: -mod=vendor
+  GOPROXY: "off"
+  GOPRIVATE: git.quad4.io
+  GONOSUMDB: git.quad4.io
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        run: |
+          set -eu
+          SERVER="${GITEA_SERVER_URL:-${GITHUB_SERVER_URL:-}}"
+          REPO="${GITEA_REPOSITORY:-${GITHUB_REPOSITORY:-}}"
+          if [ -z "$SERVER" ] || [ -z "$REPO" ]; then
+            echo "Checkout: set GITEA_SERVER_URL/GITEA_REPOSITORY or GITHUB_SERVER_URL/GITHUB_REPOSITORY" >&2
+            exit 1
+          fi
+          if [ -n "${GITEA_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
+            TOKEN="${GITEA_TOKEN:-$GITHUB_TOKEN}"
+            git config --global credential.helper "!f() { echo username=x-access-token; echo password=${TOKEN}; }; f"
+          fi
+          git init -q && git remote add origin "${SERVER}/${REPO}.git"
+          git fetch -q --depth=1 origin "${GITHUB_SHA}" && git checkout -q FETCH_HEAD
+
+      - name: Set up Go
+        run: sh scripts/ci/setup-go.sh "${{ env.CI_GO_VERSION }}"
+
+      - name: Install gosec
+        run: sh scripts/ci/setup-gosec.sh "${{ env.CI_GOSEC_VERSION }}"
+
+      - name: Run Gosec Security Scanner
+        run: gosec ./pkg/... ./cmd/... ./internal/... ./tests/...
+
+      - name: Install govulncheck
+        run: sh scripts/ci/setup-govulncheck.sh "${{ env.CI_GOVULNCHECK_VERSION }}"
+
+      - name: Run govulncheck
+        run: govulncheck ./...
+
+      - name: Apt update (for Trivy .deb)
+        run: sh scripts/ci/exec-priv.sh apt-get update -qq
+
+      - name: Install Trivy
+        run: sh scripts/ci/setup-trivy.sh
+
+      - name: Trivy FS scan
+        run: trivy fs --exit-code 1 .

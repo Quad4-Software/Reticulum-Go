@@ -1,36 +1,16 @@
 // SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// Copyright (c) 2024-2026 Quad4.io
 package buffer
 
 import (
 	"bufio"
 	"bytes"
-	"compress/bzip2"
 	"encoding/binary"
 	"io"
 	"sync"
 
+	"git.quad4.io/Go-Libs/bzip2/pkg/bzip2"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/channel"
-)
-
-const (
-	StreamIDMax   = 0x3fff // 16383
-	MaxChunkLen   = 16 * 1024
-	MaxDataLen    = 457 // MDU - 2 - 6 (2 for stream header, 6 for channel envelope)
-	CompressTries = 4
-
-	// Stream header flags
-	StreamHeaderEOF        = 0x8000
-	StreamHeaderCompressed = 0x4000
-
-	// Message type
-	StreamDataMessageType = 0x01
-
-	// Header size
-	StreamHeaderSize = 2
-
-	// Compression threshold
-	CompressThreshold = 32
 )
 
 type StreamDataMessage struct {
@@ -242,7 +222,6 @@ func compressData(data []byte) []byte {
 	var compressed bytes.Buffer
 	w := bytes.NewBuffer(data)
 	r := bzip2.NewReader(w)
-	// bearer:disable go_gosec_filesystem_decompression_bomb
 	_, err := io.Copy(&compressed, r) // #nosec G104 #nosec G110
 	if err != nil {
 		// Handle error, e.g., log it or return an error
@@ -256,7 +235,6 @@ func decompressData(data []byte) []byte {
 	var decompressed bytes.Buffer
 	// Limit the amount of data read to prevent decompression bombs
 	limitedReader := io.LimitReader(reader, MaxChunkLen) // #nosec G110
-	// bearer:disable go_gosec_filesystem_decompression_bomb
 	_, err := io.Copy(&decompressed, limitedReader)
 	if err != nil {
 		// Handle error, e.g., log it or return an error

@@ -2,8 +2,10 @@ package announce
 
 import (
 	"bytes"
+	"encoding/binary"
 	"sync"
 	"testing"
+	"time"
 
 	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
@@ -17,7 +19,7 @@ func (m *mockAnnounceHandler) AspectFilter() []string {
 	return nil
 }
 
-func (m *mockAnnounceHandler) ReceivedAnnounce(destinationHash []byte, announcedIdentity interface{}, appData []byte, hops uint8) error {
+func (m *mockAnnounceHandler) ReceivedAnnounce(destinationHash []byte, announcedIdentity any, appData []byte, hops uint8) error {
 	m.received = true
 	return nil
 }
@@ -68,13 +70,15 @@ func TestCreateAndHandleAnnounce(t *testing.T) {
 	config := &common.ReticulumConfig{}
 
 	ann, _ := New(id, destHash, "testapp", []byte("appdata"), false, config)
-	packet := ann.CreatePacket()
+	packet, err := ann.CreatePacket()
+	if err != nil {
+		t.Fatalf("CreatePacket: %v", err)
+	}
 
 	handler := &mockAnnounceHandler{}
 	ann.RegisterHandler(handler)
 
-	err := ann.HandleAnnounce(packet)
-	if err != nil {
+	if err = ann.HandleAnnounce(packet); err != nil {
 		t.Fatalf("HandleAnnounce failed: %v", err)
 	}
 
@@ -102,6 +106,82 @@ func TestPropagate(t *testing.T) {
 
 	if !iface.sent {
 		t.Error("Packet was not sent on interface")
+	}
+}
+
+func TestRandomHashTimestampEncoding(t *testing.T) {
+	id, err := identity.New()
+	if err != nil {
+		t.Fatalf("identity.New: %v", err)
+	}
+	destHash := make([]byte, 16)
+	cfg := &common.ReticulumConfig{}
+
+	ann, err := New(id, destHash, "testapp", []byte("appdata"), false, cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	before := time.Now().Unix()
+	pkt, err := ann.CreatePacket()
+	if err != nil {
+		t.Fatalf("CreatePacket: %v", err)
+	}
+	after := time.Now().Unix()
+
+	const randomHashStart = HeaderType1Offset + AnnounceRandomOffset
+	if len(pkt) < randomHashStart+RandomHashSize {
+		t.Fatalf("packet too short for random hash: len=%d", len(pkt))
+	}
+	tsBytes := pkt[randomHashStart+5 : randomHashStart+RandomHashSize]
+	if len(tsBytes) != 5 {
+		t.Fatalf("expected 5 timestamp bytes, got %d", len(tsBytes))
+	}
+
+	padded := make([]byte, 8)
+	copy(padded[8-len(tsBytes):], tsBytes)
+	got := int64(binary.BigEndian.Uint64(padded)) // #nosec G115
+
+	if got < before || got > after {
+		t.Fatalf("decoded announce timestamp %d outside expected window [%d,%d]; raw bytes=%x — encoding bug would yield %d",
+			got, before, after, tsBytes, int64(tsBytes[0]))
+	}
+}
+
+// TestRandomHashChangesPerAnnounce ensures each announce packet
+// produced by a destination carries a strictly different random
+// hash, so a peer that deduplicates by packet hash (Python RNS
+// packet_hashlist) cannot accidentally drop all follow-up
+// announces from the same destination.
+func TestRandomHashChangesPerAnnounce(t *testing.T) {
+	id, err := identity.New()
+	if err != nil {
+		t.Fatalf("identity.New: %v", err)
+	}
+	destHash := make([]byte, 16)
+	cfg := &common.ReticulumConfig{}
+
+	const randomHashStart = HeaderType1Offset + AnnounceRandomOffset
+	const iterations = 8
+
+	prev := make(map[string]struct{}, iterations)
+	for i := 0; i < iterations; i++ {
+		ann, err := New(id, destHash, "testapp", []byte("appdata"), false, cfg)
+		if err != nil {
+			t.Fatalf("New: %v", err)
+		}
+		pkt, err := ann.CreatePacket()
+		if err != nil {
+			t.Fatalf("CreatePacket: %v", err)
+		}
+		if len(pkt) < randomHashStart+RandomHashSize {
+			t.Fatalf("packet too short")
+		}
+		rh := string(pkt[randomHashStart : randomHashStart+RandomHashSize])
+		if _, dup := prev[rh]; dup {
+			t.Fatalf("duplicate random hash in iteration %d: %x", i, []byte(rh))
+		}
+		prev[rh] = struct{}{}
 	}
 }
 

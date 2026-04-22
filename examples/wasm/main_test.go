@@ -30,4 +30,3 @@ func TestRegisterFunctions(t *testing.T) {
 		}
 	}
 }
-
