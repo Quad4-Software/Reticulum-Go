@@ -20,44 +20,6 @@ To verify a downloaded binary and its bundle with the `cosign` CLI:
 
 Set `COSIGN_PUBLIC_KEY` if your copy of the public key is not named `cosign.pub` in the current directory.
 
-### Verifying Git commits (OpenPGP)
-
-Maintainer commits and tags may be signed with the following key. Fingerprint: `2DDE FF56 E5EB 629F 485E 31D9 7FD8 154D 9416 F101` (long form: `2DDEFF56E5EB629F485E31D97FD8154D9416F101`). User ID: `Ivan <ivan@quad4.io>`.
-
-Import the key (save the block below to a file and run `gpg --import`, or pipe it):
-
-```
------BEGIN PGP PUBLIC KEY BLOCK-----
-
-mDMEabUDFhYJKwYBBAHaRw8BAQdAM5T+cvQRuHbYXC1JVsw5QEsqhp5SuomeaYup
-HvsNC1u0FEl2YW4gPGl2YW5AcXVhZDQuaW8+iJYEExYKAD4WIQQt3v9W5etin0he
-Mdl/2BVNlBbxAQUCabUDFgIbAwUJAeEzgAULCQgHAgYVCgkICwIEFgIDAQIeAQIX
-gAAKCRB/2BVNlBbxAQzCAQCInNzdhLK8akBkDYwS3JRcwvHUR6B3w35cVTtdvB6O
-TAD/ZDO74TNn1ljyaOm0rO3nvmQwCl5S8L/eWoeGukz2gwm4OARptQMWEgorBgEE
-AZdVAQUBAQdAKGXyPhLMnDxQRRS84V0F3lGaSIGfKSymKtRXZfVtgEsDAQgHiH4E
-GBYKACYWIQQt3v9W5etin0heMdl/2BVNlBbxAQUCabUDFgIbDAUJAeEzgAAKCRB/
-2BVNlBbxAdgLAP96CEwW9eV7y4d4cs0329u7nXvJo75JBMhZPjmJ8C/yggEA7Bxm
-gOGRpVlvV8q/n8BhVZ2yAH+X1XjoLZAVaWenAAs=
-=XHma
------END PGP PUBLIC KEY BLOCK-----
-```
-
-After importing, confirm the fingerprint matches:
-
-`gpg --fingerprint 9416F101`
-
-Then verify signatures on the repository:
-
-`git log --show-signature`
-
-For a specific commit:
-
-`git verify-commit <commit-sha>`
-
-For a signed tag:
-
-`git verify-tag <tag-name>`
-
 ### Static analysis (SAST)
 
 CI runs Gosec (Go security linter), govulncheck (Go vulnerability database, reachable-code analysis for `go.mod` dependencies), and Trivy (filesystem and dependency vulnerability scanning) in `.gitea/workflows/scan.yml`. Gosec is installed with a pinned module version via `scripts/ci/setup-gosec.sh`. Govulncheck is installed with a pinned module version via `scripts/ci/setup-govulncheck.sh`. Trivy is not pulled from upstream GitHub Actions tags or release URLs in the workflow: the job downloads a pinned `.deb` from a repository we control (`TRIVY_DEB_URL` in that workflow), verifies it with `TRIVY_DEB_SHA256`, and installs it through `scripts/ci/setup-trivy.sh`. We bump that URL and hash manually when upgrading Trivy.
@@ -65,10 +27,6 @@ CI runs Gosec (Go security linter), govulncheck (Go vulnerability database, reac
 That model exists because third-party distribution channels are an attractive supply-chain target. For example, in March 2026 attackers compromised the Trivy ecosystem by repointing most GitHub Action tags in `aquasecurity/trivy-action` and shipping trojanized Trivy binaries through official-looking release and registry paths, so workflows that resolved moving tags or unverified binaries could run malicious code in CI or on developer machines. Pinning a binary we host at an immutable commit URL with a recorded SHA256 avoids depending on those tag or release surfaces for our scans.
 
 ## Cryptography Dependencies
-
-- golang.org/x/crypto `v0.49.0` for core cryptographic primitives
-  - hkdf
-  - curve25519
 
 - go/crypto
   - ed25519
@@ -78,6 +36,10 @@ That model exists because third-party distribution channels are an attractive su
   - cipher
   - hmac
 
+- golang.org/x/crypto `v0.50.0`
+  - hkdf
+  - curve25519
+
 ## Reporting a Vulnerability
 
-Please try to contact me over Reticulum LXMF: `7cc8d66b4f6a0e0e49d34af7f6077b5a` or email `security@quad4.io`.
+Please contact me over Reticulum LXMF: `7cc8d66b4f6a0e0e49d34af7f6077b5a` or email `security@quad4.io`.
