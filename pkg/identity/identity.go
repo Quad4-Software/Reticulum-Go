@@ -16,6 +16,7 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/reticulumconfig"
 )
 
 // Ed25519Signer is re-exported for identity callers configuring HSM-backed signing.
@@ -555,11 +556,7 @@ func LoadOrCreateTransportIdentity(customPath string) (*Identity, error) {
 	}
 
 	if storagePath == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get home directory: %w", err)
-		}
-		storagePath = fmt.Sprintf("%s/.reticulum/storage", homeDir)
+		storagePath = fmt.Sprintf("%s/.reticulum/storage", reticulumconfig.ConfigHomeDir())
 	}
 
 	// #nosec G703 -- storage path from RETICULUM_STORAGE_PATH or ~/.reticulum/storage; operator-controlled, not remote taint

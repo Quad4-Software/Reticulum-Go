@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: 0BSD
 // Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
-//go:build tinygo
+//go:build tinygo && !tinygo.wasm
 
 package interfaces
 
@@ -19,10 +19,35 @@ const (
 	SERIAL_MTU          = 1500
 )
 
+// serialTransport is the subset of machine.Serial used for I/O. Configure is
+// not part of this interface: some targets use Configure() error, others
+// Configure() with no return (e.g. WASI generic UART).
+type serialTransport interface {
+	Buffered() int
+	ReadByte() (byte, error)
+	Write(data []byte) (n int, err error)
+}
+
+func configureSerialPort(u any, cfg machine.UARTConfig) error {
+	switch t := u.(type) {
+	case interface {
+		Configure(machine.UARTConfig) error
+	}:
+		return t.Configure(cfg)
+	case interface {
+		Configure(machine.UARTConfig)
+	}:
+		t.Configure(cfg)
+		return nil
+	default:
+		return nil
+	}
+}
+
 // SerialInterface implements a serial interface using TinyGo UART.
 type SerialInterface struct {
 	BaseInterface
-	uart     *machine.UART
+	uart     serialTransport
 	baud     uint32
 	done     chan struct{}
 	stopOnce sync.Once
@@ -59,8 +84,8 @@ func NewSerialInterface(name string, portName string, baud uint32, enabled bool)
 	return si, nil
 }
 
-// getUART returns a TinyGo UART handle by name or index.
-func getUART(name string) (*machine.UART, error) {
+// getUART returns the default serial port (USB CDC, hardware UART, or WASI stub UART).
+func getUART(name string) (serialTransport, error) {
 	_ = name
 	return machine.Serial, nil
 }
@@ -74,9 +99,11 @@ func (si *SerialInterface) Start() error {
 		return nil
 	}
 
-	si.uart.Configure(machine.UARTConfig{
+	if err := configureSerialPort(si.uart, machine.UARTConfig{
 		BaudRate: si.baud,
-	})
+	}); err != nil {
+		return err
+	}
 
 	si.Online = true
 	si.Enabled = true
@@ -104,7 +131,6 @@ func (si *SerialInterface) Stop() error {
 
 // readLoop reads and processes frames from the UART, handling KISS framing.
 func (si *SerialInterface) readLoop() {
-	buffer := make([]byte, si.MTU)
 	dataBuffer := make([]byte, 0, si.MTU)
 	inFrame := false
 	escape := false
@@ -125,48 +151,44 @@ func (si *SerialInterface) readLoop() {
 		default:
 		}
 
-		if si.uart.Buffered() > 0 {
-			n, err := si.uart.Read(buffer)
+		for si.uart.Buffered() > 0 {
+			b, err := si.uart.ReadByte()
 			if err != nil {
 				debug.Log(debug.DebugError, "Serial read error", "name", si.Name, "error", err)
 				time.Sleep(100 * time.Millisecond)
+				break
+			}
+
+			if b == KISSFend {
+				if inFrame && len(dataBuffer) > 0 {
+					packet := make([]byte, len(dataBuffer))
+					copy(packet, dataBuffer)
+					si.ProcessIncoming(packet)
+					dataBuffer = dataBuffer[:0]
+				}
+				inFrame = true
+				escape = false
 				continue
 			}
 
-			if n > 0 {
-				for i := 0; i < n; i++ {
-					b := buffer[i]
-
-					if b == KISSFend {
-						if inFrame && len(dataBuffer) > 0 {
-							packet := make([]byte, len(dataBuffer))
-							copy(packet, dataBuffer)
-							si.ProcessIncoming(packet)
-							dataBuffer = dataBuffer[:0]
+			if inFrame {
+				if b == KISSFesc {
+					escape = true
+				} else {
+					if escape {
+						if b == KISSTFend {
+							b = KISSFend
+						} else if b == KISSTFesc {
+							b = KISSFesc
 						}
-						inFrame = true
 						escape = false
-						continue
 					}
-
-					if inFrame {
-						if b == KISSFesc {
-							escape = true
-						} else {
-							if escape {
-								if b == KISSTFend {
-									b = KISSFend
-								} else if b == KISSTFesc {
-									b = KISSFesc
-								}
-								escape = false
-							}
-							dataBuffer = append(dataBuffer, b)
-						}
-					}
+					dataBuffer = append(dataBuffer, b)
 				}
 			}
-		} else {
+		}
+
+		if si.uart.Buffered() == 0 {
 			time.Sleep(10 * time.Millisecond)
 		}
 	}

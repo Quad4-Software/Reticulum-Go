@@ -23,6 +23,7 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/interfaces"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/reticulumconfig"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
 )
 
@@ -417,12 +418,7 @@ func (tw *transportWrapper) ValidateLinkProof(pkt *packet.Packet, networkIface c
 }
 
 func initializeDirectories() error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %v", err)
-	}
-
-	basePath := filepath.Join(homeDir, ".reticulum-go")
+	basePath := filepath.Join(reticulumconfig.ConfigHomeDir(), ".reticulum-go")
 	dirs := []string{
 		basePath,
 		filepath.Join(basePath, "storage"),

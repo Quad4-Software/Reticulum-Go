@@ -56,22 +56,51 @@ func DefaultConfig() *common.ReticulumConfig {
 	}
 }
 
+// usableConfigRoot rejects "/" so we do not create /.reticulum-go on WASI,
+// where UserHomeDir or Getwd may return "/" inside the sandbox.
+func usableConfigRoot(s string) bool {
+	return s != "" && s != "/"
+}
+
+// configHomeDir returns a base directory for Reticulum config (normally the
+// user home). WASI and some test environments do not define a home directory;
+// we fall back to $HOME, $XDG_CONFIG_HOME, the working directory, then /tmp.
+func configHomeDir() string {
+	if home, err := os.UserHomeDir(); err == nil && usableConfigRoot(home) {
+		return home
+	}
+	if h := os.Getenv("HOME"); usableConfigRoot(h) {
+		return h
+	}
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		return xdg
+	}
+	if wd, err := os.Getwd(); err == nil && usableConfigRoot(wd) {
+		return wd
+	}
+	// WASI: / may be the only "cwd", /tmp may not exist in the guest; a
+	// relative .reticulum-go next to the mapped working directory works with
+	// `wasmtime run` without extra --dir flags.
+	return "."
+}
+
+// ConfigHomeDir returns the parent directory of the ".reticulum-go" config
+// folder (same rules as configHomeDir). Other packages use this for storage
+// paths so they match InitConfig on WASI and bare-metal smoke builds.
+func ConfigHomeDir() string {
+	return configHomeDir()
+}
+
 // GetConfigPath returns ~/.reticulum-go/config.
 func GetConfigPath() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
+	homeDir := configHomeDir()
 	return filepath.Join(homeDir, DefaultConfigDirName, DefaultConfigFileName), nil
 }
 
 // EnsureConfigDir creates ~/.reticulum-go with restrictive permissions if it
 // does not already exist.
 func EnsureConfigDir() error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
+	homeDir := configHomeDir()
 	return os.MkdirAll(filepath.Join(homeDir, DefaultConfigDirName), 0o700) // #nosec G301
 }
 

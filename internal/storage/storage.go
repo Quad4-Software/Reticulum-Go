@@ -12,6 +12,7 @@ import (
 
 	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/reticulumconfig"
 )
 
 type Manager struct {
@@ -30,12 +31,7 @@ type RatchetData struct {
 }
 
 func NewManager() (*Manager, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	basePath := filepath.Join(homeDir, ".reticulum-go", "storage")
+	basePath := filepath.Join(reticulumconfig.ConfigHomeDir(), ".reticulum-go", "storage")
 
 	m := &Manager{
 		basePath:          basePath,
