@@ -46,10 +46,10 @@ type Link struct {
 	status           atomic.Int32
 	networkInterface common.NetworkInterface
 	establishedAt    time.Time
-	lastInbound      time.Time
-	lastOutbound     time.Time
-	lastDataReceived time.Time
-	lastDataSent     time.Time
+	lastInboundNs      atomic.Int64
+	lastOutboundNs     atomic.Int64
+	lastDataReceivedNs atomic.Int64
+	lastDataSentNs     atomic.Int64
 	pathFinder       *pathfinder.PathFinder
 
 	remoteIdentity *identity.Identity
@@ -127,11 +127,7 @@ func NewLink(dest *destination.Destination, transport *transport.Transport, netw
 		networkInterface:    networkIface,
 		establishedCallback: establishedCallback,
 		closedCallback:      closedCallback,
-		establishedAt:       time.Time{}, // Zero time until established
-		lastInbound:         time.Time{},
-		lastOutbound:        time.Time{},
-		lastDataReceived:    time.Time{},
-		lastDataSent:        time.Time{},
+		establishedAt:       time.Time{},
 		pathFinder:          pathfinder.NewPathFinder(),
 
 		watchdogLock:         false,
@@ -533,48 +529,76 @@ func (l *Link) GetAge() float64 {
 	return time.Since(l.establishedAt).Seconds()
 }
 
+// NoInboundFor returns the seconds elapsed since the last inbound packet.
 func (l *Link) NoInboundFor() float64 {
-	l.mutex.RLock()
-	defer l.mutex.RUnlock()
-	if l.lastInbound.IsZero() {
+	ns := l.lastInboundNs.Load()
+	if ns == 0 {
 		return 0.0
 	}
-	return time.Since(l.lastInbound).Seconds()
+	return time.Since(time.Unix(0, ns)).Seconds()
 }
 
+// NoOutboundFor returns the seconds elapsed since the last outbound packet.
 func (l *Link) NoOutboundFor() float64 {
-	l.mutex.RLock()
-	defer l.mutex.RUnlock()
-	if l.lastOutbound.IsZero() {
+	ns := l.lastOutboundNs.Load()
+	if ns == 0 {
 		return 0.0
 	}
-	return time.Since(l.lastOutbound).Seconds()
+	return time.Since(time.Unix(0, ns)).Seconds()
 }
 
+// NoDataFor returns the seconds since the most recent data packet (sent or received).
 func (l *Link) NoDataFor() float64 {
-	l.mutex.RLock()
-	defer l.mutex.RUnlock()
-	lastData := l.lastDataReceived
-	if l.lastDataSent.After(lastData) {
-		lastData = l.lastDataSent
+	rxNs := l.lastDataReceivedNs.Load()
+	txNs := l.lastDataSentNs.Load()
+	last := rxNs
+	if txNs > last {
+		last = txNs
 	}
-	if lastData.IsZero() {
+	if last == 0 {
 		return 0.0
 	}
-	return time.Since(lastData).Seconds()
+	return time.Since(time.Unix(0, last)).Seconds()
 }
 
+// InactiveFor returns the seconds since the most recent inbound or outbound packet.
 func (l *Link) InactiveFor() float64 {
-	l.mutex.RLock()
-	defer l.mutex.RUnlock()
-	lastActivity := l.lastInbound
-	if l.lastOutbound.After(lastActivity) {
-		lastActivity = l.lastOutbound
+	inNs := l.lastInboundNs.Load()
+	outNs := l.lastOutboundNs.Load()
+	last := inNs
+	if outNs > last {
+		last = outNs
 	}
-	if lastActivity.IsZero() {
+	if last == 0 {
 		return 0.0
 	}
-	return time.Since(lastActivity).Seconds()
+	return time.Since(time.Unix(0, last)).Seconds()
+}
+
+// nsToTime converts a UnixNano timestamp (0 means zero time) into a time.Time.
+func nsToTime(ns int64) time.Time {
+	if ns == 0 {
+		return time.Time{}
+	}
+	return time.Unix(0, ns)
+}
+
+func (l *Link) recordOutbound() {
+	l.lastOutboundNs.Store(time.Now().UnixNano())
+}
+
+func (l *Link) recordOutboundData() {
+	now := time.Now().UnixNano()
+	l.lastOutboundNs.Store(now)
+	l.lastDataSentNs.Store(now)
+}
+
+func (l *Link) recordInbound(isData bool) {
+	now := time.Now().UnixNano()
+	l.lastInboundNs.Store(now)
+	if isData {
+		l.lastDataReceivedNs.Store(now)
+	}
 }
 
 func (l *Link) GetRemoteIdentity() *identity.Identity {
@@ -701,8 +725,7 @@ func (l *Link) SendPacketWithContext(data []byte, context byte) error {
 	}
 
 	debug.Log(debug.DebugVerbose, "Sending encrypted packet", "bytes", len(wireData))
-	l.lastOutbound = time.Now()
-	l.lastDataSent = time.Now()
+	l.recordOutboundData()
 
 	return l.transport.SendPacket(p)
 }
@@ -718,10 +741,7 @@ func (l *Link) HandleInbound(pkt *packet.Packet) error {
 			return nil
 		}
 
-		l.lastInbound = time.Now()
-		if pkt.Context != packet.ContextKeepalive {
-			l.lastDataReceived = time.Now()
-		}
+		l.recordInbound(pkt.Context != packet.ContextKeepalive)
 
 		if l.status.Load() == int32(StatusStale) {
 			l.status.Store(int32(StatusActive))
@@ -745,10 +765,7 @@ func (l *Link) HandleInbound(pkt *packet.Packet) error {
 		return nil
 	}
 
-	l.lastInbound = time.Now()
-	if pkt.Context != packet.ContextKeepalive {
-		l.lastDataReceived = time.Now()
-	}
+	l.recordInbound(pkt.Context != packet.ContextKeepalive)
 
 	if l.status.Load() == int32(StatusStale) {
 		l.status.Store(int32(StatusActive))
@@ -857,7 +874,7 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 			if err := keepalivePkt.Pack(); err != nil {
 				return err
 			}
-			l.lastOutbound = time.Now()
+			l.recordOutbound()
 			return l.transport.SendPacket(keepalivePkt)
 		}
 	case packet.ContextLinkClose:
@@ -1019,9 +1036,7 @@ func (l *Link) sendIncomingResourceProof(payload []byte, resourceHash []byte) er
 	if err := proofPkt.Pack(); err != nil {
 		return err
 	}
-	l.mutex.Lock()
-	l.lastOutbound = time.Now()
-	l.mutex.Unlock()
+	l.recordOutbound()
 	return l.transport.SendPacket(proofPkt)
 }
 
@@ -1046,7 +1061,7 @@ func (l *Link) rejectResource(resourceHash []byte) error {
 	if err := rejectPkt.Pack(); err != nil {
 		return err
 	}
-	l.lastOutbound = time.Now()
+	l.recordOutbound()
 	return l.transport.SendPacket(rejectPkt)
 }
 
@@ -1091,7 +1106,7 @@ func (l *Link) sendResourceAdvertisement(res *resource.Resource) error {
 		return err
 	}
 
-	l.lastOutbound = time.Now()
+	l.recordOutbound()
 	return l.transport.SendPacket(advPkt)
 }
 
@@ -1405,8 +1420,7 @@ func (l *Link) sendResponse(requestID []byte, response any) error {
 			return err
 		}
 
-		l.lastOutbound = time.Now()
-		l.lastDataSent = time.Now()
+		l.recordOutboundData()
 
 		debug.Log(debug.DebugInfo, "Sending response", "request_id", fmt.Sprintf("%x", requestID), "response_len", len(encrypted))
 		return l.transport.SendPacket(respPkt)
@@ -1670,7 +1684,7 @@ func (l *Link) Send(data []byte) any {
 		return nil
 	}
 
-	l.lastOutbound = time.Now()
+	l.recordOutbound()
 	if err := l.transport.SendPacket(pkt); err != nil {
 		return nil
 	}
@@ -1910,12 +1924,15 @@ func (l *Link) watchdog() {
 			if activatedAt.IsZero() {
 				activatedAt = time.Time{}
 			}
-			lastActivity := l.lastInbound
-			if l.lastOutbound.After(lastActivity) {
-				lastActivity = l.lastOutbound
+			lastInbound := nsToTime(l.lastInboundNs.Load())
+			lastOutbound := nsToTime(l.lastOutboundNs.Load())
+			lastDataSent := nsToTime(l.lastDataSentNs.Load())
+			lastActivity := lastInbound
+			if lastOutbound.After(lastActivity) {
+				lastActivity = lastOutbound
 			}
-			if l.lastDataSent.After(lastActivity) {
-				lastActivity = l.lastDataSent
+			if lastDataSent.After(lastActivity) {
+				lastActivity = lastDataSent
 			}
 			if lastActivity.Before(activatedAt) {
 				lastActivity = activatedAt
@@ -1924,7 +1941,7 @@ func (l *Link) watchdog() {
 
 			if now.After(lastActivity.Add(l.keepalive)) {
 				if l.initiator {
-					lastKeepalive := l.lastOutbound
+					lastKeepalive := lastOutbound
 					if now.After(lastKeepalive.Add(l.keepalive)) {
 						_ = l.sendKeepalive() // #nosec G104 - best effort keepalive
 					}
@@ -1987,7 +2004,7 @@ func (l *Link) sendKeepalive() error {
 	if err := keepalivePkt.Pack(); err != nil {
 		return err
 	}
-	l.lastOutbound = time.Now()
+	l.recordOutbound()
 	return l.transport.SendPacket(keepalivePkt)
 }
 
@@ -2012,7 +2029,7 @@ func (l *Link) sendTeardownPacket() error {
 	if err := teardownPkt.Pack(); err != nil {
 		return err
 	}
-	l.lastOutbound = time.Now()
+	l.recordOutbound()
 	return l.transport.SendPacket(teardownPkt)
 }
 
@@ -2170,7 +2187,7 @@ func (l *Link) HandleLinkRequest(pkt *packet.Packet, ownerIdentity *identity.Ide
 	l.updateMDU()
 
 	l.status.Store(int32(StatusHandshake))
-	l.lastInbound = time.Now()
+	l.recordInbound(false)
 	l.requestTime = time.Now()
 	// Match reference responder behavior: establishment timeout is per-hop plus keepalive grace.
 	// This prevents WAN/backbone proof/RTT races from being closed too aggressively.
@@ -2205,6 +2222,11 @@ func (l *Link) updateMDU() {
 	ifacMinSize := 4
 	tokenOverhead := common.TokenOverhead
 	aesBlockSize := 16
+
+	if l.mtu > packet.MTU {
+		debug.Log(debug.DebugVerbose, "Clamping negotiated link MTU to packet.MTU", "negotiated", l.mtu, "packet_mtu", packet.MTU)
+		l.mtu = packet.MTU
+	}
 
 	l.mdu = int(float64(l.mtu-headerMaxSize-ifacMinSize-tokenOverhead)/float64(aesBlockSize))*aesBlockSize - 1
 	if l.mdu < 0 {
@@ -2441,7 +2463,7 @@ func (l *Link) ValidateLinkProof(pkt *packet.Packet, networkIface common.Network
 			if err := l.transport.SendPacket(rttPkt); err != nil {
 				debug.Log(debug.DebugError, "Failed to send RTT packet", "error", err, "link_id", fmt.Sprintf("%x", l.linkID))
 			} else {
-				l.lastOutbound = time.Now()
+				l.recordOutbound()
 				debug.Log(debug.DebugInfo, "RTT packet sent successfully", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", l.rtt))
 			}
 		}
