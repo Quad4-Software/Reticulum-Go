@@ -62,6 +62,16 @@ func (l *Link) beginIncomingResource(adv *resource.ResourceAdvertisement) error 
 	if adv.Parts <= 0 {
 		return errors.New("invalid parts in advertisement")
 	}
+	if adv.Parts > int(resource.MaxSegments) {
+		return errors.New("incoming resource parts exceed MaxSegments")
+	}
+	if adv.TransferSize < 0 {
+		return errors.New("incoming resource has negative transfer_size")
+	}
+	maxTransfer := int64(adv.Parts) * int64(sdu)
+	if adv.TransferSize > maxTransfer {
+		return errors.New("incoming resource transfer_size exceeds parts*sdu")
+	}
 	if len(adv.Hashmap) == 0 || len(adv.Hashmap)%resource.MapHashLen != 0 {
 		return errors.New("invalid advertisement hashmap")
 	}
