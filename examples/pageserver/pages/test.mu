@@ -1,1 +1,0 @@
-2nd Test Page for Reticulum-Go
