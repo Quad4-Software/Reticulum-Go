@@ -41,16 +41,16 @@ func init() {
 }
 
 type Link struct {
-	mutex            sync.RWMutex
-	destination      *destination.Destination
-	status           atomic.Int32
-	networkInterface common.NetworkInterface
-	establishedAt    time.Time
+	mutex              sync.RWMutex
+	destination        *destination.Destination
+	status             atomic.Int32
+	networkInterface   common.NetworkInterface
+	establishedAt      time.Time
 	lastInboundNs      atomic.Int64
 	lastOutboundNs     atomic.Int64
 	lastDataReceivedNs atomic.Int64
 	lastDataSentNs     atomic.Int64
-	pathFinder       *pathfinder.PathFinder
+	pathFinder         *pathfinder.PathFinder
 
 	remoteIdentity *identity.Identity
 	sessionKey     []byte
