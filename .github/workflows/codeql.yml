@@ -36,13 +36,14 @@ jobs:
       matrix:
         include:
           - language: go
-            build-mode: autobuild
+            build-mode: manual
           - language: javascript-typescript
             build-mode: none
           - language: python
             build-mode: none
 
     env:
+      CI_GO_VERSION: "1.26.2"
       GOFLAGS: -mod=vendor
       GOPROXY: "off"
       GOPRIVATE: git.quad4.io
@@ -52,11 +53,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
+      - name: Set up Go
+        if: matrix.language == 'go'
+        run: sh scripts/ci/setup-go.sh "${{ env.CI_GO_VERSION }}"
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
+
+      - name: Build Go (main module, vendor)
+        if: matrix.language == 'go'
+        run: go build -mod=vendor ./...
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
