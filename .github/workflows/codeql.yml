@@ -1,0 +1,64 @@
+# Pinned first-party and CodeQL actions (bump tag and SHA together when upgrading):
+#   actions/checkout@v6.0.1                8e8c483db84b4bee98b60c0593521ed34d9990e8
+#   github/codeql-action/init@v4.35.2      95e58e9a2cdfd71adc6e0353d5c52f41a045d225
+#   github/codeql-action/analyze@v4.35.2   95e58e9a2cdfd71adc6e0353d5c52f41a045d225
+#
+name: CodeQL
+
+on:
+  push:
+    branches:
+      - master
+      - dev
+  pull_request:
+    branches:
+      - master
+      - dev
+  schedule:
+    - cron: "20 16 * * 6"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: go
+            build-mode: autobuild
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+
+    env:
+      GOFLAGS: -mod=vendor
+      GOPROXY: "off"
+      GOPRIVATE: git.quad4.io
+      GONOSUMDB: git.quad4.io
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
+        with:
+          category: "/language:${{ matrix.language }}"
