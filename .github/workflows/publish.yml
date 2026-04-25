@@ -1,0 +1,157 @@
+# Pinned first-party actions (bump tag and SHA together when upgrading):
+#   actions/checkout@v6.0.1            8e8c483db84b4bee98b60c0593521ed34d9990e8
+#   actions/setup-python@v6.2.0        a309ff8b426b58ec0e2a45f0f869d46889d02405
+#   actions/setup-node@v6.1.0          395ad3262231945c25e8478fd5baf05154b1d79f
+#   actions/upload-artifact@v5.0.0     330a01c490aca151604b8cf639adc76d48f6c5d4
+#   actions/download-artifact@v5.0.0   634f93cb2916e3fdff6788551b99b062d0335ce0
+#   actions/cache@v4.2.0               1bd1e32a3bdc45362d1e726936510720a7c30a57
+#   actions/attest@v4.1.0              59d89421af93a897026c735860bf21b6eb4f7b26
+#
+name: Go Publish
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - "v*"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  actions: write
+  id-token: write
+  attestations: write
+
+env:
+  CI_GO_VERSION: "1.26.2"
+  CI_TASK_VERSION: "3.46.3"
+  GOFLAGS: -mod=vendor
+  GOPROXY: "off"
+  GOPRIVATE: git.quad4.io
+  GONOSUMDB: git.quad4.io
+
+jobs:
+  build:
+    name: Build (${{ matrix.goos }}, ${{ matrix.goarch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        goos: [linux, windows, darwin, freebsd]
+        goarch: [amd64, arm64, arm]
+        include:
+          - goos: js
+            goarch: wasm
+        exclude:
+          - goos: darwin
+            goarch: arm
+          - goos: windows
+            goarch: arm
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Set up Go
+        run: sh scripts/ci/setup-go.sh "${{ env.CI_GO_VERSION }}"
+
+      - name: Setup Task
+        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarch == 'arm' && '6' || '' }}
+          CGO_ENABLED: "0"
+        run: |
+          output_name="reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}"
+          if [ "${{ matrix.goos }}" = "js" ] && [ "${{ matrix.goarch }}" = "wasm" ]; then
+            task build-wasm
+            output_name+=".wasm"
+            mv bin/reticulum-go.wasm "${output_name}"
+          else
+            task build
+            if [ "${{ matrix.goos }}" = "windows" ]; then
+              output_name+=".exe"
+            fi
+            mv bin/reticulum-go "${output_name}"
+          fi
+          echo "Built: ${output_name}"
+
+      - name: Calculate SHA256 Checksum
+        run: |
+          output_name="reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            output_name+=".exe"
+          elif [ "${{ matrix.goos }}" = "js" ] && [ "${{ matrix.goarch }}" = "wasm" ]; then
+            output_name+=".wasm"
+          fi
+          BINARY_PATH="${output_name}" task checksum
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}*
+
+  release:
+    name: Attest and publish release
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          path: merged
+          pattern: reticulum-go-*
+          merge-multiple: true
+
+      - name: Write subject checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find merged -type f ! -name '*.sha256' | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "no files under merged/" >&2
+            ls -laR merged >&2 || true
+            exit 1
+          fi
+          printf '%s\0' "${files[@]}" | xargs -0 sha256sum > subject.checksums.txt
+
+      - name: Attest release binaries
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-checksums: subject.checksums.txt
+          show-summary: true
+
+      - name: Create release with all assets once
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          shopt -s nullglob
+          assets=(merged/reticulum-go-*)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "no release binaries under merged/" >&2
+            exit 1
+          fi
+          gh release create "${tag}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --verify-tag \
+            --generate-notes \
+            "${assets[@]}"

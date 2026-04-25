@@ -1,0 +1,62 @@
+# Pinned first-party actions (bump tag and SHA together when upgrading):
+#   actions/checkout@v6.0.1            8e8c483db84b4bee98b60c0593521ed34d9990e8
+#   actions/setup-python@v6.2.0        a309ff8b426b58ec0e2a45f0f869d46889d02405
+#   actions/setup-node@v6.1.0          395ad3262231945c25e8478fd5baf05154b1d79f
+#   actions/upload-artifact@v5.0.0     330a01c490aca151604b8cf639adc76d48f6c5d4
+#   actions/download-artifact@v5.0.0   634f93cb2916e3fdff6788551b99b062d0335ce0
+#   actions/cache@v4.2.0               1bd1e32a3bdc45362d1e726936510720a7c30a57
+#   actions/attest@v4.1.0              59d89421af93a897026c735860bf21b6eb4f7b26
+#
+name: Generate SBOM
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  CI_GO_VERSION: "1.26.2"
+  CI_TASK_VERSION: "3.46.3"
+  TRIVY_DEB_URL: "https://git.quad4.io/Quad4-Software/Trivy-Assets/raw/commit/fdfe96b77d2f7b7f5a90cea00af5024c9f728f17/trivy_0.69.3_Linux-64bit.deb"
+  TRIVY_DEB_SHA256: "a484057aafde31089cf2558ca0f79a4bc835125a5ee6834183a5bcf0735af358"
+  GOFLAGS: -mod=vendor
+  GOPROXY: "off"
+  GOPRIVATE: git.quad4.io
+  GONOSUMDB: git.quad4.io
+
+jobs:
+  generate-sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup Go
+        run: sh scripts/ci/setup-go.sh "${{ env.CI_GO_VERSION }}"
+
+      - name: Setup Task
+        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
+
+      - name: Apt update (for Trivy .deb)
+        run: sh scripts/ci/exec-priv.sh apt-get update -qq
+
+      - name: Install Trivy
+        run: sh scripts/ci/setup-trivy.sh
+
+      - name: Generate SBOM
+        run: task sbom
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: sbom-${{ github.ref_name }}
+          path: sbom/

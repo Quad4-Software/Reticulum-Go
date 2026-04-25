@@ -1,0 +1,53 @@
+# Pinned first-party actions (bump tag and SHA together when upgrading):
+#   actions/checkout@v6.0.1            8e8c483db84b4bee98b60c0593521ed34d9990e8
+#   actions/setup-python@v6.2.0        a309ff8b426b58ec0e2a45f0f869d46889d02405
+#   actions/setup-node@v6.1.0          395ad3262231945c25e8478fd5baf05154b1d79f
+#   actions/upload-artifact@v5.0.0     330a01c490aca151604b8cf639adc76d48f6c5d4
+#   actions/download-artifact@v5.0.0   634f93cb2916e3fdff6788551b99b062d0335ce0
+#   actions/cache@v4.2.0               1bd1e32a3bdc45362d1e726936510720a7c30a57
+#   actions/attest@v4.1.0              59d89421af93a897026c735860bf21b6eb4f7b26
+#
+name: Go Revive Lint
+
+on:
+  push:
+    branches: ["master", "dev"]
+  pull_request:
+    branches: ["master", "dev"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+env:
+  CI_GO_VERSION: "1.26.2"
+  CI_TASK_VERSION: "3.46.3"
+  CI_REVIVE_VERSION: "v1.15.0"
+  GOFLAGS: -mod=vendor
+  GOPROXY: "off"
+  GOPRIVATE: git.quad4.io
+  GONOSUMDB: git.quad4.io
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Set up Go
+        run: sh scripts/ci/setup-go.sh "${{ env.CI_GO_VERSION }}"
+
+      - name: Setup Task
+        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
+
+      - name: Install revive
+        run: sh scripts/ci/setup-revive.sh "${{ env.CI_REVIVE_VERSION }}"
+
+      - name: Run lint
+        run: task lint

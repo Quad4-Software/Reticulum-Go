@@ -1,8 +1,8 @@
 #!/bin/sh
 # Clone or shallow-fetch the repository using Gitea/GitHub Actions-compatible env.
 #
-# Workflows in .gitea/workflows use the same inline git commands as reticulum-meshchatX
-# (git init + fetch + checkout, or git clone + checkout for full history), not this file.
+# CI workflows may use actions/checkout on GitHub or inline git in other hosts; this script
+# is for local runs or act when you want a single shared implementation.
 # Use this script for local runs or act when you want a single shared implementation.
 #
 # Usage: checkout.sh [fetch_depth]
