@@ -19,9 +19,9 @@ Include enough detail to reproduce or understand the issue (what component, what
 
 **Dependencies and scanning.** We run static analysis and vulnerability scanning on the codebase and dependencies (see [Static analysis](#static-analysis-sast) below).
 
-**Releases.** Tagged releases ship with checksums so you can confirm files were not corrupted in transit. We also attach build provenance (cryptographic attestations) so you can verify that a binary was produced by our official GitHub release workflow, not replaced afterward.
+**Releases.** Tagged releases attach **cosign** provenance bundles (`*.cosign.bundle`) next to each asset, signed with a project key (public half in `cosign.pub`). Informal SHA256 digests are listed in the GitHub release notes as a backup only; prefer cosign verification.
 
-**Supply chain.** CI and tagged-release publishing run on **GitHub Actions**, with workflow definitions in `.github/workflows/` on GitHub-hosted runners. That is what enables Sigstore-backed **artifact attestations** and the **SLSA Build Level 3**-oriented provenance model [GitHub documents](https://docs.github.com/en/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds) for those builds (workflows were moved here from `.gitea/workflows/` for that reason). Tool versions in CI are pinned where practical; GitHub’s own actions are referenced by full commit SHA. Optional cosign-based verification for separately produced bundles is documented below.
+**Supply chain.** CI and tagged-release publishing run on **GitHub Actions**, with workflow definitions in `.github/workflows/` on GitHub-hosted runners (moved from `.gitea/workflows/`). Release provenance uses **cosign** blob attestations (`scripts/ci/attest-release-assets.sh`) with a SLSA-style predicate (`scripts/ci/slsa-predicate.py`). Tool versions in CI are pinned where practical; GitHub’s own actions are referenced by full commit SHA where applicable.
 
 The sections below spell out the same points with paths, tools, and verification steps for technical readers.
 
@@ -29,23 +29,17 @@ The sections below spell out the same points with paths, tools, and verification
 
 **In short.** All automation paths described here use `.github/workflows/` on GitHub Actions. Jobs call installers and helpers in `scripts/ci/*.sh` (Go, Task, Node, cosign, gosec, govulncheck, Trivy, revive, Python venv, TinyGo, and similar) using pinned versions declared in workflow `env` blocks, then run `task` or `go` as appropriate. That layout keeps install and test logic in ordinary shell that you can diff like any other project code.
 
-**Actions pinning.** GitHub-owned steps such as checkout, artifact upload/download, Node setup, attest, and related actions are pinned to full commit SHAs in the YAML (each workflow file notes this in a comment at the top).
+**Actions pinning.** GitHub-owned steps such as checkout, artifact upload/download, Node setup, and related actions are pinned to full commit SHAs in the YAML where this repository pins them (see the comment at the top of each workflow file).
 
-**Bill of materials.** Software bill of materials (SBOM) generation uses CycloneDX; see `task sbom` and `.github/workflows/sbom.yml`.
+**Bill of materials.** SPDX and CycloneDX SBOMs are produced with Trivy (`task sbom`); tagged releases attach them from `.github/workflows/publish.yml`. The standalone `workflow_dispatch` workflow `.github/workflows/sbom.yml` is available for ad-hoc generation.
 
 **Reproducibility.** CI includes a reproducibility check (`task reproducibility`, `.github/workflows/reproducibility.yml`).
 
 ### Release provenance
 
-Tagged releases are built and published from `.github/workflows/publish.yml` on GitHub Actions. The workflow’s `release` job runs only for `refs/tags/*` (not for ordinary branch pushes). Every published release includes SHA256 checksum sidecars next to the binaries.
+Tagged releases are built and published from `.github/workflows/publish.yml` on GitHub Actions. The `release` job runs only for `refs/tags/*` (not for ordinary branch pushes). The same workflow builds main binaries, **wasm** and **pageserver** examples, and SBOMs (SPDX and CycloneDX), uploads them as workflow artifacts, then runs **cosign** (`scripts/ci/setup-cosign.sh` and `scripts/ci/attest-release-assets.sh`) to emit one `*.cosign.bundle` per file. There are no separate `.sha256` sidecar files; a `sha256sum` listing is appended to the auto-generated release notes as an informal backup.
 
-After all matrix builds finish, that same workflow run [attests](https://docs.github.com/en/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds) the release binaries using GitHub’s [`actions/attest`](https://github.com/actions/attest) (Sigstore-backed provenance in the form GitHub associates with **SLSA Build Level 3** expectations), then creates the GitHub release in a single `gh release create` step so assets are not appended piecemeal by later jobs.
-
-**Verifying attestations.** With a recent GitHub CLI that supports attestation commands, you can verify a downloaded binary against the repository, for example:
-
-`gh attestation verify PATH/TO/reticulum-go-linux-amd64 --repo OWNER/REPO`
-
-**Cosign bundles.** cosign bundles (`*.cosign.bundle`) from `scripts/ci/attest-release-assets.sh` are not produced by the default GitHub publish path. If bundles are attached separately, verification uses the public key at `cosign.pub` and `sh scripts/ci/verify-release-attestation.sh <blob> <bundle>` as documented in that script.
+**Verifying cosign bundles.** Use the committed public key `cosign.pub` and `sh scripts/ci/verify-release-attestation.sh PATH/TO/blob PATH/TO/blob.cosign.bundle`, or `cosign verify-blob-attestation` with the same key and bundle paths as in that script.
 
 ### Static analysis (SAST)
 
