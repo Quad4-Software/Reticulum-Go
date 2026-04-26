@@ -5,14 +5,10 @@
 #   actions/upload-artifact@v5.0.0     330a01c490aca151604b8cf639adc76d48f6c5d4
 #   actions/download-artifact@v5.0.0   634f93cb2916e3fdff6788551b99b062d0335ce0
 #   actions/cache@v4.2.0               1bd1e32a3bdc45362d1e726936510720a7c30a57
-#   actions/attest@v4.1.0              59d89421af93a897026c735860bf21b6eb4f7b26
 #
 name: Generate SBOM
 
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
 
 concurrency:

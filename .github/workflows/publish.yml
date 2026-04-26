@@ -5,7 +5,6 @@
 #   actions/upload-artifact@v5.0.0     330a01c490aca151604b8cf639adc76d48f6c5d4
 #   actions/download-artifact@v5.0.0   634f93cb2916e3fdff6788551b99b062d0335ce0
 #   actions/cache@v4.2.0               1bd1e32a3bdc45362d1e726936510720a7c30a57
-#   actions/attest@v4.1.0              59d89421af93a897026c735860bf21b6eb4f7b26
 #
 name: Go Publish
 
@@ -22,13 +21,13 @@ concurrency:
 
 permissions:
   contents: write
-  actions: write
-  id-token: write
-  attestations: write
 
 env:
   CI_GO_VERSION: "1.26.2"
   CI_TASK_VERSION: "3.46.3"
+  CI_COSIGN_VERSION: "3.0.5"
+  TRIVY_DEB_URL: "https://git.quad4.io/Quad4-Software/Trivy-Assets/raw/commit/fdfe96b77d2f7b7f5a90cea00af5024c9f728f17/trivy_0.69.3_Linux-64bit.deb"
+  TRIVY_DEB_SHA256: "a484057aafde31089cf2558ca0f79a4bc835125a5ee6834183a5bcf0735af358"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
   GOPRIVATE: git.quad4.io
@@ -84,16 +83,6 @@ jobs:
           fi
           echo "Built: ${output_name}"
 
-      - name: Calculate SHA256 Checksum
-        run: |
-          output_name="reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}"
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            output_name+=".exe"
-          elif [ "${{ matrix.goos }}" = "js" ] && [ "${{ matrix.goarch }}" = "wasm" ]; then
-            output_name+=".wasm"
-          fi
-          BINARY_PATH="${output_name}" task checksum
-
       - name: Upload Artifact
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
@@ -101,10 +90,86 @@ jobs:
           path: |
             reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}*
 
-  release:
-    name: Attest and publish release
+  sbom:
+    name: SBOM
     runs-on: ubuntu-latest
-    needs: [build]
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Set up Go
+        run: sh scripts/ci/setup-go.sh "${{ env.CI_GO_VERSION }}"
+
+      - name: Setup Task
+        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
+
+      - name: Apt update (for Trivy .deb)
+        run: sh scripts/ci/exec-priv.sh apt-get update -qq
+
+      - name: Install Trivy
+        run: sh scripts/ci/setup-trivy.sh
+
+      - name: Generate SBOM
+        run: task sbom
+
+      - name: Stage SBOM files for release
+        run: |
+          set -euo pipefail
+          cp sbom/sbom.spdx.json reticulum-go-sbom.spdx.json
+          cp sbom/sbom.cyclonedx.json reticulum-go-sbom.cyclonedx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: sbom-release
+          path: |
+            reticulum-go-sbom.spdx.json
+            reticulum-go-sbom.cyclonedx.json
+
+  examples:
+    name: Examples (pageserver, wasm)
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Set up Go
+        run: sh scripts/ci/setup-go.sh "${{ env.CI_GO_VERSION }}"
+
+      - name: Setup Task
+        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
+
+      - name: Build pageserver (linux/amd64)
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          cd examples/pageserver
+          env GOFLAGS=-mod=mod GOPROXY=https://proxy.golang.org,direct \
+            go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-amd64 .
+
+      - name: Build wasm example
+        run: task example:wasm:build
+
+      - name: Stage wasm artifact
+        run: cp examples/wasm/public/static/reticulum-go.wasm reticulum-go-example-wasm.wasm
+
+      - name: Upload examples artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: reticulum-go-examples
+          path: |
+            reticulum-go-example-pageserver-linux-amd64
+            reticulum-go-example-wasm.wasm
+
+  release:
+    name: Cosign attest and publish release
+    runs-on: ubuntu-latest
+    needs: [build, sbom, examples]
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Checkout
@@ -112,32 +177,34 @@ jobs:
         with:
           ref: ${{ github.ref }}
 
-      - name: Download build artifacts
+      - name: Download workflow artifacts
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           path: merged
-          pattern: reticulum-go-*
           merge-multiple: true
 
-      - name: Write subject checksums
-        shell: bash
+      - name: Install cosign
+        run: sh scripts/ci/setup-cosign.sh "${{ env.CI_COSIGN_VERSION }}"
+
+      - name: Write cosign private key
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-          mapfile -t files < <(find merged -type f ! -name '*.sha256' | sort)
-          if [ "${#files[@]}" -eq 0 ]; then
-            echo "no files under merged/" >&2
-            ls -laR merged >&2 || true
+          if [ -z "${COSIGN_PRIVATE_KEY:-}" ]; then
+            echo "Missing repository secret COSIGN_PRIVATE_KEY (PEM for cosign key; keep cosign.pub in repo)." >&2
             exit 1
           fi
-          printf '%s\0' "${files[@]}" | xargs -0 sha256sum > subject.checksums.txt
+          printf '%s\n' "$COSIGN_PRIVATE_KEY" > "${RUNNER_TEMP}/cosign-release.key"
+          chmod 600 "${RUNNER_TEMP}/cosign-release.key"
 
-      - name: Attest release binaries
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
-        with:
-          subject-checksums: subject.checksums.txt
-          show-summary: true
+      - name: Cosign attest release assets
+        env:
+          COSIGN_KEY_PATH: ${{ runner.temp }}/cosign-release.key
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        run: sh scripts/ci/attest-release-assets.sh merged
 
-      - name: Create release with all assets once
+      - name: Create release with assets and notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
@@ -145,13 +212,31 @@ jobs:
           set -euo pipefail
           tag="${GITHUB_REF_NAME}"
           shopt -s nullglob
-          assets=(merged/reticulum-go-*)
+          mapfile -t assets < <(find merged -type f | LC_ALL=C sort)
           if [ "${#assets[@]}" -eq 0 ]; then
-            echo "no release binaries under merged/" >&2
+            echo "no release files under merged/" >&2
+            find merged -type f -print >&2 || true
             exit 1
           fi
+          notes="$(mktemp)"
+          trap 'rm -f "$notes"' EXIT
+          gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+            -f tag_name="${tag}" \
+            --jq .body > "${notes}.gen"
+          {
+            cat "${notes}.gen"
+            echo
+            echo "## SHA256 digests (backup only)"
+            echo
+            echo "Prefer verification with cosign: each release file has a matching \`*.cosign.bundle\` signed for this repo; use \`cosign.pub\` and \`scripts/ci/verify-release-attestation.sh\` (or \`cosign verify-blob-attestation\`)."
+            echo
+            echo '```'
+            find merged -type f ! -name '*.cosign.bundle' -print0 | LC_ALL=C sort -z | xargs -0 sha256sum
+            echo '```'
+          } > "$notes"
+          rm -f "${notes}.gen"
           gh release create "${tag}" \
             --repo "${GITHUB_REPOSITORY}" \
             --verify-tag \
-            --generate-notes \
+            --notes-file "$notes" \
             "${assets[@]}"
