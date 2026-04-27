@@ -153,7 +153,7 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 	var ident *identity.Identity
 
 	if _, err := os.Stat(identityPath); err == nil {
-		ident, err = identity.FromFile(identityPath)
+		ident, err = identity.LoadIdentityFile(identityPath, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load identity: %v", err)
 		}
