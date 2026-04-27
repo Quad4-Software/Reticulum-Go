@@ -7,7 +7,7 @@ This document covers how well Reticulum-Go plays along with the official [Reticu
 | Component                                        | Reticulum-Go | Notes |
 |--------------------------------------------------|:------------:|-------|
 | Crypto                                           | Yes          | Curve25519 (X25519 + Ed25519), AES-256-CBC (`MODE_AES256_CBC`, the only currently enabled `Link.ENABLED_MODES` entry in Python `rns`), HMAC-SHA256, HKDF; verified by `tests/crossref` |
-| Identity                                         | Yes          | Key generation, recall, sign/verify, encrypt/decrypt, ratchets |
+| Identity                                         | Yes          | Key generation, recall, sign/verify, encrypt/decrypt, ratchets. Optional hardware-bound storage: 72-byte descriptor (`RHB1` v1 header + X25519 private + Ed25519 public) via `identity.LoadIdentityFile` / `ToHardwareBoundFile`; signing uses `Ed25519Signer` (same on-wire 64-byte public key as Python `RNS.Identity`, so Python peers verify announces without changes). Python `Identity.from_file` today only reads the 64-byte software layout; the descriptor format is documented here for a future Python loader or sidecar tooling. |
 | Destination                                      | Yes          | `SINGLE`, `GROUP`, `PLAIN`, `LINK` types; announce, request handlers, link in/out |
 | Packet                                           | Yes          | `HEADER_TYPE_1` and `HEADER_TYPE_2`, all packet types and contexts; byte-for-byte parity in crossref |
 | Transport [^transport-scope]                     | Yes          | Path table, announces, `RequestPath`, hops, next-hop, multi-hop `HEADER_TYPE_2` rewrap, link-table forwarding for `DEST_TYPE_LINK` |
