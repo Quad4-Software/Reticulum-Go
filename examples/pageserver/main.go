@@ -231,33 +231,7 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 			continue
 		}
 
-		var iface interfaces.Interface
-		var err error
-
-		switch ifaceConfig.Type {
-		case "TCPClientInterface":
-			iface, err = interfaces.NewTCPClientInterface(
-				name,
-				ifaceConfig.TargetHost,
-				ifaceConfig.TargetPort,
-				ifaceConfig.KISSFraming,
-				ifaceConfig.I2PTunneled,
-				ifaceConfig.Enabled,
-			)
-		case "UDPInterface":
-			iface, err = interfaces.NewUDPInterface(
-				name,
-				ifaceConfig.Address,
-				ifaceConfig.TargetHost,
-				ifaceConfig.Enabled,
-			)
-		case "AutoInterface":
-			iface, err = interfaces.NewAutoInterface(name, ifaceConfig)
-		default:
-			debug.Log(debug.DebugCritical, "Unknown interface type", "type", ifaceConfig.Type)
-			continue
-		}
-
+		iface, err := interfaces.NewFromConfig(name, ifaceConfig)
 		if err != nil {
 			if cfg.PanicOnInterfaceErr {
 				return nil, fmt.Errorf("failed to create interface %s: %v", name, err)
@@ -266,21 +240,9 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 			continue
 		}
 
-		iface.SetPacketCallback(func(data []byte, ni common.NetworkInterface) {
-			if len(data) > 0 {
-				packetType := data[0]
-				debug.Log(debug.DebugInfo, "Packet callback called for interface", "name", ni.GetName(), "data_len", len(data), "packet_type", fmt.Sprintf("0x%02x", packetType))
-			}
-			if r.transport != nil {
-				r.transport.HandlePacket(data, ni)
-			} else {
-				debug.Log(debug.DebugCritical, "Transport is nil in packet callback")
-			}
-		})
-
 		debug.Log(debug.DebugError, "Configuring interface", "name", name, "type", ifaceConfig.Type)
 		r.interfaces = append(r.interfaces, iface)
-		debug.Log(debug.DebugInfo, "Interface started successfully", "name", name)
+		debug.Log(debug.DebugInfo, "Interface configured", "name", name)
 	}
 
 	return r, nil
@@ -467,6 +429,10 @@ func (tw *transportWrapper) HandleInbound(pkt *packet.Packet) error {
 }
 
 func (tw *transportWrapper) ValidateLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error {
+	return nil
+}
+
+func (tw *transportWrapper) LinkedNetworkInterface() common.NetworkInterface {
 	return nil
 }
 

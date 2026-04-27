@@ -28,6 +28,7 @@ func (m *scaleMockLink) HandleInbound(pkt *packet.Packet) error                {
 func (m *scaleMockLink) ValidateLinkProof(pkt *packet.Packet, iface common.NetworkInterface) error {
 	return nil
 }
+func (m *scaleMockLink) LinkedNetworkInterface() common.NetworkInterface { return nil }
 
 func BenchmarkChannelScale(b *testing.B) {
 	sizes := []int{10, 100, 1000}

@@ -378,16 +378,59 @@ func (t *Transport) RegisterInterface(name string, iface common.NetworkInterface
 		return errors.New("interface already registered")
 	}
 
-	iface.SetPacketCallback(func(data []byte, _ common.NetworkInterface) {
-		t.HandlePacket(data, iface)
-	})
-
-	t.interfaces[name] = iface
-	t.ifaceStates.put(name, buildIfaceState(t.interfaceConfig(name)))
+	t.registerInterfaceLocked(name, iface)
 	return nil
 }
 
-// UnregisterInterface removes a logical interface (e.g. when a dynamic peer disconnects).
+// registerInterfaceLocked registers iface under name. Transport mutex must be held.
+func (t *Transport) registerInterfaceLocked(name string, iface common.NetworkInterface) {
+	iface.SetPacketCallback(func(data []byte, _ common.NetworkInterface) {
+		t.HandlePacket(data, iface)
+	})
+	t.interfaces[name] = iface
+	t.ifaceStates.put(name, buildIfaceState(t.interfaceConfig(name)))
+}
+
+func (t *Transport) invalidateInterfaceReferencesLocked(iface common.NetworkInterface) {
+	if iface == nil {
+		return
+	}
+	for k, p := range t.paths {
+		if p != nil && p.Interface == iface {
+			delete(t.paths, k)
+			delete(t.pathStates, k)
+		}
+	}
+	for k, req := range t.discoveryPathRequests {
+		if req != nil && req.RequestingIface == iface {
+			delete(t.discoveryPathRequests, k)
+		}
+	}
+	for k, e := range t.announceTable {
+		if e != nil && (e.ReceivedFrom == iface || e.AttachedInterface == iface) {
+			delete(t.announceTable, k)
+		}
+	}
+	for k, e := range t.heldAnnounces {
+		if e != nil && (e.ReceivedFrom == iface || e.AttachedInterface == iface) {
+			delete(t.heldAnnounces, k)
+		}
+	}
+	if t.linkTable != nil {
+		t.linkTable.removeEntriesReferencing(iface)
+	}
+	for k, linkObj := range t.links {
+		if linkObj == nil {
+			continue
+		}
+		if ni := linkObj.LinkedNetworkInterface(); ni != nil && ni == iface {
+			delete(t.links, k)
+		}
+	}
+}
+
+// UnregisterInterface removes a logical interface and drops paths, link relay
+// rows, discovery path requests, and announce cache entries tied to it.
 func (t *Transport) UnregisterInterface(name string) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -396,9 +439,37 @@ func (t *Transport) UnregisterInterface(name string) {
 	if !ok {
 		return
 	}
+	t.invalidateInterfaceReferencesLocked(iface)
 	iface.SetPacketCallback(nil)
 	delete(t.interfaces, name)
 	t.ifaceStates.delete(name)
+}
+
+// ReplaceInterface swaps the registered implementation for name, scrubbing
+// transport state that referenced the previous instance. If name was not
+// registered, behaves like [Transport.RegisterInterface].
+func (t *Transport) ReplaceInterface(name string, iface common.NetworkInterface) error {
+	if err := assertConcreteInterface(iface); err != nil {
+		return err
+	}
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	if old, ok := t.interfaces[name]; ok && old != nil {
+		t.invalidateInterfaceReferencesLocked(old)
+		old.SetPacketCallback(nil)
+		delete(t.interfaces, name)
+		t.ifaceStates.delete(name)
+	}
+	t.registerInterfaceLocked(name, iface)
+	return nil
+}
+
+// SetReticulumConfig replaces the config pointer used for per-interface limits
+// (e.g. after hot reload). Call after reloading disk config.
+func (t *Transport) SetReticulumConfig(cfg *common.ReticulumConfig) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	t.config = cfg
 }
 
 // interfaceConfig returns config for name by map key or by InterfaceConfig.Name, or nil.
@@ -638,7 +709,7 @@ func (t *Transport) NextHopInterface(destinationHash []byte) string {
 	defer t.mutex.RUnlock()
 
 	path, exists := t.paths[string(destinationHash)]
-	if !exists {
+	if !exists || path == nil || path.Interface == nil {
 		return ""
 	}
 
@@ -701,6 +772,9 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 		iface, ok := t.interfaces[onInterface]
 		if !ok {
 			return fmt.Errorf("interface not found: %s", onInterface)
+		}
+		if !iface.IsEnabled() {
+			return fmt.Errorf("interface offline or disabled: %s", onInterface)
 		}
 		return iface.Send(pkt.Raw, "")
 	}
@@ -940,6 +1014,9 @@ func SendAnnounce(packet []byte) error {
 
 	var lastErr error
 	for _, iface := range t.interfaces {
+		if !iface.IsEnabled() {
+			continue
+		}
 		if err := iface.Send(packet, ""); err != nil {
 			lastErr = err
 		}
@@ -1818,6 +1895,8 @@ type LinkInterface interface {
 	SetPacketDelivered(packet any, callback func(any))
 	HandleInbound(pkt *packet.Packet) error
 	ValidateLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error
+	// LinkedNetworkInterface returns the bound outbound iface, or nil if unknown.
+	LinkedNetworkInterface() common.NetworkInterface
 }
 
 func (l *Link) GetRTT() float64 {

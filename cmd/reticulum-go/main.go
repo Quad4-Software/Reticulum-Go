@@ -44,6 +44,7 @@ type Reticulum struct {
 	pathRequests      map[string]*common.PathRequest
 	announceHistory   map[string]announceRecord
 	announceHistoryMu sync.RWMutex
+	reloadMu          sync.Mutex
 	identity          *identity.Identity
 	destination       *destination.Destination
 	storage           *storage.Manager
@@ -165,45 +166,7 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 			continue
 		}
 
-		var iface interfaces.Interface
-		var err error
-
-		switch ifaceConfig.Type {
-		case "TCPClientInterface":
-			iface, err = interfaces.NewTCPClientInterface(
-				name,
-				ifaceConfig.TargetHost,
-				ifaceConfig.TargetPort,
-				ifaceConfig.KISSFraming,
-				ifaceConfig.I2PTunneled,
-				ifaceConfig.Enabled,
-			)
-		case "UDPInterface":
-			iface, err = interfaces.NewUDPInterface(
-				name,
-				ifaceConfig.Address,
-				ifaceConfig.TargetHost,
-				ifaceConfig.Enabled,
-			)
-		case "AutoInterface":
-			iface, err = interfaces.NewAutoInterface(name, ifaceConfig)
-		case "WebSocketInterface":
-			wsURL := ifaceConfig.Address
-			if wsURL == "" {
-				wsURL = ifaceConfig.TargetHost
-			}
-			debug.Log(debug.DebugInfo, "Creating WebSocket interface", "name", name, "url", wsURL, "enabled", ifaceConfig.Enabled)
-			iface, err = interfaces.NewWebSocketInterface(name, wsURL, ifaceConfig.Enabled)
-			if err != nil {
-				debug.Log(debug.DebugError, "Failed to create WebSocket interface", "name", name, "error", err)
-			} else {
-				debug.Log(debug.DebugInfo, "WebSocket interface created successfully", "name", name)
-			}
-		default:
-			debug.Log(debug.DebugCritical, "Unknown interface type", "type", ifaceConfig.Type)
-			continue
-		}
-
+		iface, err := interfaces.NewFromConfig(name, ifaceConfig)
 		if err != nil {
 			if cfg.PanicOnInterfaceErr {
 				return nil, fmt.Errorf("failed to create interface %s: %v", name, err)
@@ -212,19 +175,9 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 			continue
 		}
 
-		// Set packet callback
-		iface.SetPacketCallback(func(data []byte, ni common.NetworkInterface) {
-			debug.Log(debug.DebugInfo, "Packet callback called for interface", "name", ni.GetName(), "data_len", len(data))
-			if r.transport != nil {
-				r.transport.HandlePacket(data, ni)
-			} else {
-				debug.Log(debug.DebugCritical, "Transport is nil in packet callback")
-			}
-		})
-
 		debug.Log(debug.DebugError, "Configuring interface", "name", name, "type", ifaceConfig.Type)
 		r.interfaces = append(r.interfaces, iface)
-		debug.Log(debug.DebugInfo, "Interface started successfully", "name", name)
+		debug.Log(debug.DebugInfo, "Interface configured", "name", name)
 	}
 
 	return r, nil
@@ -313,6 +266,34 @@ func main() {
 		os.Exit(1)
 	}
 
+	if runtime.GOOS != "windows" {
+		go func() {
+			hup := make(chan os.Signal, 1)
+			signal.Notify(hup, syscall.SIGHUP)
+			for range hup {
+				path := r.config.ConfigPath
+				if path == "" {
+					p, err := config.GetConfigPath()
+					if err != nil {
+						debug.Log(debug.DebugCritical, "SIGHUP reload: config path", "error", err)
+						continue
+					}
+					path = p
+				}
+				newCfg, err := config.LoadConfig(path)
+				if err != nil {
+					debug.Log(debug.DebugCritical, "SIGHUP reload: load config", "error", err)
+					continue
+				}
+				if err := r.ReloadInterfaces(newCfg); err != nil {
+					debug.Log(debug.DebugCritical, "ReloadInterfaces", "error", err)
+				} else {
+					debug.Log(debug.DebugInfo, "Reloaded interfaces from config", "path", path)
+				}
+			}
+		}()
+	}
+
 	sigChan := make(chan os.Signal, 1)
 	sigs := []os.Signal{os.Interrupt}
 	if runtime.GOOS != "windows" {
@@ -385,6 +366,10 @@ func (tw *transportWrapper) HandleInbound(pkt *packet.Packet) error {
 }
 
 func (tw *transportWrapper) ValidateLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error {
+	return nil
+}
+
+func (tw *transportWrapper) LinkedNetworkInterface() common.NetworkInterface {
 	return nil
 }
 
@@ -479,6 +464,9 @@ func (r *Reticulum) Start() error {
 }
 
 func (r *Reticulum) Stop() error {
+	r.reloadMu.Lock()
+	defer r.reloadMu.Unlock()
+
 	debug.Log(debug.DebugError, "Stopping Reticulum...")
 
 	for _, buf := range r.buffers {

@@ -43,6 +43,7 @@ func (m *mockLink) HandleInbound(pkt *packet.Packet) error { return nil }
 func (m *mockLink) ValidateLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error {
 	return nil
 }
+func (m *mockLink) LinkedNetworkInterface() common.NetworkInterface { return nil }
 
 type testMessage struct {
 	data []byte

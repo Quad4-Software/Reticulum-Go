@@ -221,6 +221,7 @@ func (m *mockLink) HandleInbound(pkt *packet.Packet) error                { retu
 func (m *mockLink) ValidateLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error {
 	return nil
 }
+func (m *mockLink) LinkedNetworkInterface() common.NetworkInterface { return nil }
 
 func TestNewRawChannelReader(t *testing.T) {
 	link := &mockLink{status: transport.StatusActive}

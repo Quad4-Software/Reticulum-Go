@@ -1724,6 +1724,13 @@ func (l *Link) GetLinkID() []byte {
 	return l.linkID
 }
 
+// LinkedNetworkInterface implements [transport.LinkInterface] for iface teardown.
+func (l *Link) LinkedNetworkInterface() common.NetworkInterface {
+	l.mutex.RLock()
+	defer l.mutex.RUnlock()
+	return l.networkInterface
+}
+
 func (l *Link) IsActive() bool {
 	return l.GetStatus() == StatusActive
 }
