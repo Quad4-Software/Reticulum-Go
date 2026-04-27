@@ -44,7 +44,7 @@ This document covers how well Reticulum-Go plays along with the official [Reticu
 
 ### Interface hot reload (Reticulum-Go only)
 
-Python `rns` today does not expose an equivalent: this is an implementation convenience in Go.
+Python `rns` currently does not expose an equivalent, this is an implementation convenience in Go.
 
 - **`transport.ReplaceInterface`**, **`transport.UnregisterInterface`**, and **`transport.SetReticulumConfig`** keep the transport and path state consistent when a logical interface is swapped or removed. Unregister scrubs paths, discovery path requests, announce/held-announce entries, link relay rows, and **`t.links`** entries whose `transport.LinkInterface` reports a matching bound iface via **`LinkedNetworkInterface()`** (implemented on `pkg/link.Link` and required on all `LinkInterface` mocks).
 - **`cmd/reticulum-go`**: **`ReloadInterfaces`**, config equality for keep-vs-rebuild, **`SIGHUP`** reload on Unix, and **`Stop()`** serialized with the same mutex as reload to avoid races with teardown.
