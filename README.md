@@ -8,6 +8,23 @@ Reticulum-Go provides full protocol compatibility with the Python reference impl
 
 See [COMPATIBILITY.md](COMPATIBILITY.md) for how this is verified against the Python stack and the [network API reference](https://reticulum.network/manual/reference.html).
 
+## Features
+
+| Area | Status | Notes |
+|------|:------:|-------|
+| Wire compatibility with Python [Reticulum](https://github.com/markqvist/Reticulum) | Yes | Packet and crypto paths cross-checked (`tests/crossref`, interop tests); see [COMPATIBILITY.md](COMPATIBILITY.md) |
+| Daemon | Yes | `cmd/reticulum-go`: config, interfaces, transport, identity storage |
+| Core stack | Yes | `pkg/transport`, `pkg/packet`, `pkg/destination`, `pkg/announce`, `pkg/pathfinder` |
+| Links, resources, channel, buffer | Yes | `pkg/link`, `pkg/resource`, `pkg/channel`, `pkg/buffer` |
+| Cryptography | Yes | Centralized in `pkg/cryptography`; details in [docs/cryptography.md](docs/cryptography.md) |
+| Identity (software + optional hardware-bound signing) | Yes | `pkg/identity`, `LoadIdentityFile`, `NewIdentityWithSigner`, RHB1 descriptor |
+| IFAC (interface access code) | Yes | `pkg/ifac`; masks UDP/TCP/Auto frames per reference |
+| Discovery / blackhole | Partial | `pkg/discovery`, `pkg/blackhole` (see compatibility table) |
+| Interfaces | Partial | UDP, TCP client/server, Auto, WebSocket (native/WASM); see [COMPATIBILITY.md](COMPATIBILITY.md#interfaces) |
+| Interface hot reload | Yes | `ReloadInterfaces`, `SIGHUP` (Unix); not in Python `rns` |
+| WASM / browser | Yes | `cmd/reticulum-wasm`, `pkg/wasm` |
+| Supply chain secure | Yes | Vendored deps, cosign attestations, CI scans; see [SECURITY.md](SECURITY.md) |
+
 **Goals:**
 - Full protocol interoperability with the Python reference implementation
 - Cross-platform support for multiple architectures (old and new)
@@ -16,7 +33,7 @@ See [COMPATIBILITY.md](COMPATIBILITY.md) for how this is verified against the Py
 
 ### Cryptography
 
-Cryptographic behaviour is centralized in `pkg/cryptography` (including a pluggable `CryptoProvider`). For deployments that need keys or signing outside process memory, Ed25519 signing can be delegated via `cryptography.Ed25519Signer` (for example a `crypto.Signer` backed by PKCS#11 or an HSM). The on-wire format stays fixed; replacing primitives or integrating hardware must remain coordinated with peers. Link encryption still uses the standard X25519/AES path unless you implement a compatible custom provider.
+Algorithms, key formats, storage, IFAC, and operational guidance are documented in [docs/cryptography.md](docs/cryptography.md). Application code should use `pkg/cryptography` and `pkg/identity` rather than ad hoc primitives.
 
 ## Requirements
 
