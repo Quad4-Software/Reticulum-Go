@@ -500,6 +500,27 @@ func (t *Transport) GetInterface(name string) (common.NetworkInterface, error) {
 	return iface, nil
 }
 
+// registeredIface pairs a logical interface name with its implementation
+// for snapshots taken under the transport mutex.
+type registeredIface struct {
+	name  string
+	iface common.NetworkInterface
+}
+
+// snapshotRegisteredInterfaces returns a shallow copy of current interfaces.
+// Callers may call iface methods without holding the transport mutex.
+func (t *Transport) snapshotRegisteredInterfaces() []registeredIface {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	out := make([]registeredIface, 0, len(t.interfaces))
+	for name, iface := range t.interfaces {
+		if iface != nil {
+			out = append(out, registeredIface{name: name, iface: iface})
+		}
+	}
+	return out
+}
+
 func (t *Transport) Close() error {
 	t.stopOnce.Do(func() {
 		close(t.done)
@@ -769,8 +790,10 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 	debug.Log(debug.DebugInfo, "Sending path request", "dest_hash", fmt.Sprintf("%x", destinationHash), "data_len", len(pathRequestData), "packet_len", len(pkt.Raw))
 
 	if onInterface != "" {
+		t.mutex.RLock()
 		iface, ok := t.interfaces[onInterface]
-		if !ok {
+		t.mutex.RUnlock()
+		if !ok || iface == nil {
 			return fmt.Errorf("interface not found: %s", onInterface)
 		}
 		if !iface.IsEnabled() {
@@ -779,12 +802,12 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 		return iface.Send(pkt.Raw, "")
 	}
 
-	for _, iface := range t.interfaces {
-		if !iface.IsEnabled() {
+	for _, e := range t.snapshotRegisteredInterfaces() {
+		if !e.iface.IsEnabled() {
 			continue
 		}
-		if err := iface.Send(pkt.Raw, ""); err != nil {
-			debug.Log(debug.DebugError, "Failed to send path request on interface", "interface", iface.GetName(), "error", err)
+		if err := e.iface.Send(pkt.Raw, ""); err != nil {
+			debug.Log(debug.DebugError, "Failed to send path request on interface", "interface", e.iface.GetName(), "error", err)
 		}
 	}
 
@@ -883,7 +906,9 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 	data[0]++
 
 	var lastErr error
-	for name, iface := range t.interfaces {
+	for _, e := range t.snapshotRegisteredInterfaces() {
+		iface := e.iface
+		name := e.name
 		if iface == sourceIface || !iface.IsEnabled() {
 			continue
 		}
@@ -934,6 +959,9 @@ type LinkPacket struct {
 
 func (p *LinkPacket) send() error {
 	t := GetTransportInstance()
+	if t == nil {
+		return errors.New("transport not initialized")
+	}
 
 	header := make([]byte, 0, 64)
 	header = append(header, PacketTypeLink)
@@ -951,8 +979,10 @@ func (p *LinkPacket) send() error {
 	}
 
 	ifaceName := t.NextHopInterface(p.Destination)
+	t.mutex.RLock()
 	iface, ok := t.interfaces[ifaceName]
-	if !ok {
+	t.mutex.RUnlock()
+	if !ok || iface == nil {
 		return errors.New("interface not found")
 	}
 
@@ -982,8 +1012,10 @@ func (t *Transport) sendPathRequest(req *PathRequest, interfaceName string) erro
 		buf = append(buf, wireFlagFalse)
 	}
 
+	t.mutex.RLock()
 	iface, ok := t.interfaces[interfaceName]
-	if !ok {
+	t.mutex.RUnlock()
+	if !ok || iface == nil {
 		return errors.New("interface not found")
 	}
 
@@ -1013,11 +1045,11 @@ func SendAnnounce(packet []byte) error {
 	}
 
 	var lastErr error
-	for _, iface := range t.interfaces {
-		if !iface.IsEnabled() {
+	for _, e := range t.snapshotRegisteredInterfaces() {
+		if !e.iface.IsEnabled() {
 			continue
 		}
-		if err := iface.Send(packet, ""); err != nil {
+		if err := e.iface.Send(packet, ""); err != nil {
 			lastErr = err
 		}
 	}
@@ -1315,7 +1347,9 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 
 	destKey := string(destinationHash)
 	var lastErr error
-	for name, outIface := range t.interfaces {
+	for _, e := range t.snapshotRegisteredInterfaces() {
+		name := e.name
+		outIface := e.iface
 		if outIface == iface || !outIface.IsEnabled() {
 			continue
 		}
