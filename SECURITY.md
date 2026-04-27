@@ -1,6 +1,6 @@
 # Security policy
 
-This document explains how we think about security for Reticulum-Go, how to report problems, and where to look if you need implementation-level detail (for example for a security review or internal risk assessment).
+This document explains how we think about security for Reticulum-Go, how to report problems, and supply-chain and CI practices. For cryptography primitives, key formats, and protocol-aligned behavior, see [docs/cryptography.md](docs/cryptography.md).
 
 ## Reporting a vulnerability
 
@@ -51,14 +51,6 @@ CI runs **Gosec** (Go security linter), **govulncheck** (official Go vulnerabili
 
 **Why Trivy is pinned this way.** Third-party distribution channels are a common supply-chain risk. For example, in March 2026 attackers compromised parts of the Trivy ecosystem by repointing GitHub Action tags and distributing trojanized binaries through plausible official paths; workflows that followed moving tags or unverified binaries could have run malicious code in CI or on developer machines. Hosting a known-good package at an immutable URL with a recorded SHA256 avoids depending on those surfaces for our scans.
 
-## Cryptography in this project
+## Cryptography
 
-Reticulum-Go uses standard Go cryptography APIs and a small set of supplementary packages from the Go extended library. Below is a concise inventory for reviewers; see `go.mod` and `pkg/cryptography/` for authoritative usage.
-
-**Standard library (`crypto/...`, `crypto/*` via Go)**
-
-- ed25519, sha256, rand, aes, cipher, hmac
-
-**Extended library**
-
-- `golang.org/x/crypto` at `v0.50.0` (as in `go.mod`): HKDF, curve25519
+Algorithms, key formats, identity encryption, IFAC, links, ratchets, operational handling, and verification pointers are documented in **[docs/cryptography.md](docs/cryptography.md)**. That file is the canonical cryptography reference for this repository; this `SECURITY.md` focuses on reporting, supply chain, and automation.
