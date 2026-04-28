@@ -1276,22 +1276,9 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 			return nil
 		}
 	}
-	t.seenAnnounces[hashStr] = time.Now()
 	t.mutex.Unlock()
 
-	if iface != nil {
-		if st := t.ifaceStates.get(iface.GetName()); st != nil && st.ingress != nil {
-			isNewDest := !t.HasPath(destinationHash)
-			if !st.ingress.ProcessAnnounce(string(announceHash[:]), data, isNewDest) {
-				debug.Log(debug.DebugVerbose,
-					"Announce held by ingress control",
-					"iface", iface.GetName(),
-					"dest_hash", fmt.Sprintf("%x", destinationHash),
-					"queue_depth", st.ingress.HeldCount())
-				return nil
-			}
-		}
-	}
+	isNewDest := iface != nil && !t.HasPath(destinationHash)
 
 	debug.Log(debug.DebugInfo, "Processing new announce")
 
@@ -1309,6 +1296,23 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	debug.Log(debug.DebugInfo, "Notifying announce handlers", "destHash", fmt.Sprintf("%x", destinationHash), "appDataLen", len(appData))
 	t.notifyAnnounceHandlers(destinationHash, id, appData, hopCount+1)
 	debug.Log(debug.DebugInfo, "Announce handlers notified")
+
+	t.mutex.Lock()
+	t.seenAnnounces[hashStr] = time.Now()
+	t.mutex.Unlock()
+
+	if iface != nil {
+		if st := t.ifaceStates.get(iface.GetName()); st != nil && st.ingress != nil {
+			if !st.ingress.ProcessAnnounce(string(announceHash[:]), data, isNewDest) {
+				debug.Log(debug.DebugVerbose,
+					"Announce held by ingress control",
+					"iface", iface.GetName(),
+					"dest_hash", fmt.Sprintf("%x", destinationHash),
+					"queue_depth", st.ingress.HeldCount())
+				return nil
+			}
+		}
+	}
 
 	if hopCount >= MaxHops {
 		debug.Log(debug.DebugInfo, "Announce exceeded max hops", "hops", hopCount)
