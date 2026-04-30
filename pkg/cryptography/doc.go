@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024-2026 Quad4.io
+
 // Package cryptography is the single integration point for cryptographic
 // primitives used across Reticulum-Go. Application and library code should
 // call the exported functions here (or types derived from them) rather than

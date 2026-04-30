@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
 // Live transport relay: external peer A -- Go -- external peer B. RUN_LIVE_INTEROP=1.
