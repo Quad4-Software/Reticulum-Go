@@ -15,7 +15,7 @@ golang.org/x/crypto                     v0.50.0   BSD 3-Clause          vendor/g
 golang.org/x/crypto also includes a patent grant; see vendor/golang.org/x/crypto/PATENTS.
 
 Reticulum-Go itself is licensed under the terms in the LICENSE file at the
-repository root. SPDX: 0BSD.
+repository root. SPDX-License-Identifier: Apache-2.0.
 
 Machine-readable dependency and license information may also be produced via
 the SBOM tasks in Taskfile.yml (for example task sbom) when the required tools
