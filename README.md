@@ -205,4 +205,4 @@ For embedded systems and TinyGo builds, see the [tinygo branch](https://git.quad
 
 ## License
 
-0BSD. See [LICENSE](LICENSE).
+Apache License 2.0. See [LICENSE](LICENSE).
