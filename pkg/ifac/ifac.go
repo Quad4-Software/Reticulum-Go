@@ -30,13 +30,19 @@ const SaltHex = "adf54d882c9a9b80771eb4995d702d4a3e733391b2a0f53f416d9f907e55cff
 // keyLen is the HKDF output size in bytes (32-byte X25519 + 32-byte Ed25519 seed).
 const keyLen = 64
 
-// Salt returns a fresh copy of the IFAC salt bytes.
-func Salt() []byte {
-	salt, err := hex.DecodeString(SaltHex)
+var saltBytes = mustDecodeHex(SaltHex)
+
+func mustDecodeHex(s string) []byte {
+	b, err := hex.DecodeString(s)
 	if err != nil {
 		panic(fmt.Errorf("ifac: invalid salt constant: %w", err))
 	}
-	return salt
+	return b
+}
+
+// Salt returns a fresh copy of the IFAC salt bytes.
+func Salt() []byte {
+	return append([]byte(nil), saltBytes...)
 }
 
 // Identity carries a fully derived Interface Access Code keypair plus the raw
@@ -87,6 +93,9 @@ func New(size int, netname, netkey string) (*Identity, error) {
 	}
 
 	var origin []byte
+	if netname != "" && netkey != "" {
+		origin = make([]byte, 0, 64)
+	}
 	if netname != "" {
 		h := cryptography.Hash([]byte(netname))
 		origin = append(origin, h...)
@@ -154,14 +163,13 @@ func (i *Identity) Mask(raw []byte) ([]byte, error) {
 		return nil, fmt.Errorf("ifac: hkdf mask derive failed: %w", err)
 	}
 
-	newHeader := []byte{raw[0] | IFACFlag, raw[1]}
-	newRaw := make([]byte, 0, maskLen)
-	newRaw = append(newRaw, newHeader...)
-	newRaw = append(newRaw, ifac...)
-	newRaw = append(newRaw, raw[2:]...)
+	masked := make([]byte, maskLen)
+	masked[0] = raw[0] | IFACFlag
+	masked[1] = raw[1]
+	copy(masked[2:], ifac)
+	copy(masked[2+i.size:], raw[2:])
 
-	masked := make([]byte, len(newRaw))
-	for k, b := range newRaw {
+	for k, b := range masked {
 		switch {
 		case k == 0:
 			masked[k] = (b ^ mask[k]) | IFACFlag
@@ -199,19 +207,13 @@ func (i *Identity) Unmask(raw []byte) ([]byte, bool, error) {
 		return nil, false, fmt.Errorf("ifac: hkdf unmask derive failed: %w", err)
 	}
 
-	unmasked := make([]byte, len(raw))
-	for k, b := range raw {
-		if k <= 1 || k > i.size+1 {
-			unmasked[k] = b ^ mask[k]
-		} else {
-			unmasked[k] = b
-		}
+	rebuilt := make([]byte, 2+len(raw)-2-i.size)
+	rebuilt[0] = (raw[0] ^ mask[0]) & 0x7f
+	rebuilt[1] = raw[1] ^ mask[1]
+	for src := 2 + i.size; src < len(raw); src++ {
+		dst := src - i.size
+		rebuilt[dst] = raw[src] ^ mask[src]
 	}
-
-	header := []byte{unmasked[0] & 0x7f, unmasked[1]}
-	rebuilt := make([]byte, 0, 2+(len(unmasked)-2-i.size))
-	rebuilt = append(rebuilt, header...)
-	rebuilt = append(rebuilt, unmasked[2+i.size:]...)
 
 	expected, err := i.Sign(rebuilt)
 	if err != nil {
