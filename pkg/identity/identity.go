@@ -25,6 +25,7 @@ type Identity struct {
 	privateKey      []byte
 	publicKey       []byte
 	signingSeed     []byte // 32-byte Ed25519 seed; nil if externalSigner is set
+	signingKey      ed25519.PrivateKey
 	verificationKey ed25519.PublicKey
 	externalSigner  cryptography.Ed25519Signer // if non-nil, Sign uses this instead of signingSeed
 	hash            []byte
@@ -68,6 +69,7 @@ func New() (*Identity, error) {
 	pubKeyEd := privKeyEd.Public().(ed25519.PublicKey)
 
 	i.signingSeed = ed25519Seed[:]
+	i.signingKey = privKeyEd
 	i.verificationKey = pubKeyEd
 
 	return i, nil
@@ -98,11 +100,10 @@ func (i *Identity) Sign(data []byte) ([]byte, error) {
 	if i.externalSigner != nil {
 		return i.externalSigner.Sign(data)
 	}
-	if len(i.signingSeed) != ed25519.SeedSize {
+	if len(i.signingKey) != ed25519.PrivateKeySize {
 		return nil, errors.New("identity has no signing key")
 	}
-	privKey := ed25519.NewKeyFromSeed(i.signingSeed)
-	return cryptography.Sign(privKey, data), nil
+	return cryptography.Sign(i.signingKey, data), nil
 }
 
 func (i *Identity) Verify(data []byte, signature []byte) bool {
@@ -178,15 +179,19 @@ func GetRandomHash() []byte {
 
 func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) {
 	hashStr := hex.EncodeToString(destHash)
+	packetCopy := append([]byte(nil), packet...)
+	destHashCopy := append([]byte(nil), destHash...)
+	publicKeyCopy := append([]byte(nil), publicKey...)
+	appDataCopy := append([]byte(nil), appData...)
 
 	// Store destination data as [packet, destHash, identity, appData]
-	id := FromPublicKey(publicKey)
+	id := FromPublicKey(publicKeyCopy)
 	knownDestinationsLock.Lock()
 	knownDestinations[hashStr] = []any{
-		packet,
-		destHash,
+		packetCopy,
+		destHashCopy,
 		id,
-		appData,
+		appDataCopy,
 	}
 	knownDestinationsLock.Unlock()
 }
@@ -203,7 +208,9 @@ func ValidateAnnounce(packet []byte, destHash []byte, publicKey []byte, signatur
 	}
 
 	// Verify signature
-	signedData := append(destHash, publicKey...)
+	signedData := make([]byte, 0, len(destHash)+len(publicKey)+len(appData))
+	signedData = append(signedData, destHash...)
+	signedData = append(signedData, publicKey...)
 	signedData = append(signedData, appData...)
 
 	if !announced.Verify(signedData, signature) {
@@ -608,6 +615,7 @@ func (i *Identity) loadPrivateKey(privateKey, signingSeed []byte) error {
 	}
 
 	signingKey := ed25519.NewKeyFromSeed(i.signingSeed)
+	i.signingKey = signingKey
 	i.verificationKey = signingKey.Public().(ed25519.PublicKey)
 
 	publicKeyBytes := make([]byte, 0, len(i.publicKey)+len(i.verificationKey))
@@ -658,6 +666,7 @@ func RecallIdentity(path string) (*Identity, error) {
 		privateKey:      x25519PrivKey,
 		publicKey:       x25519PubKey,
 		signingSeed:     ed25519Seed,
+		signingKey:      ed25519PrivKey,
 		verificationKey: ed25519PubKey,
 		ratchets:        make(map[string][]byte),
 		ratchetExpiry:   make(map[string]int64),
@@ -683,7 +692,12 @@ func HashFromString(hash string) ([]byte, error) {
 }
 
 func (i *Identity) GetSalt() []byte {
-	return i.hash
+	if i.hash == nil {
+		return nil
+	}
+	out := make([]byte, len(i.hash))
+	copy(out, i.hash)
+	return out
 }
 
 func (i *Identity) GetContext() []byte {
@@ -700,7 +714,14 @@ func GetKnownDestination(hash string) ([]any, bool) {
 	data, exists := knownDestinations[hash]
 	knownDestinationsLock.RUnlock()
 	if exists {
-		return data, true
+		copied := make([]any, len(data))
+		copy(copied, data)
+		for i := range copied {
+			if b, ok := copied[i].([]byte); ok {
+				copied[i] = append([]byte(nil), b...)
+			}
+		}
+		return copied, true
 	}
 	return nil, false
 }
@@ -717,14 +738,17 @@ func (i *Identity) GetRatchetKey(id string) ([]byte, bool) {
 	defer ratchetPersistLock.Unlock()
 
 	key, exists := knownRatchets[id]
-	return key, exists
+	if !exists {
+		return nil, false
+	}
+	return append([]byte(nil), key...), true
 }
 
 func (i *Identity) SetRatchetKey(id string, key []byte) {
 	ratchetPersistLock.Lock()
 	defer ratchetPersistLock.Unlock()
 
-	knownRatchets[id] = key
+	knownRatchets[id] = append([]byte(nil), key...)
 }
 
 // NewIdentity creates a new Identity instance with fresh keys
@@ -754,6 +778,7 @@ func NewIdentity() (*Identity, error) {
 		privateKey:      encPrivKey[:],
 		publicKey:       encPubKey,
 		signingSeed:     ed25519Seed[:],
+		signingKey:      privKey,
 		verificationKey: pubKey,
 		ratchets:        make(map[string][]byte),
 		ratchetExpiry:   make(map[string]int64),
