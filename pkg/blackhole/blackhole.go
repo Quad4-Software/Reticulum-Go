@@ -209,7 +209,7 @@ func (t *Table) Snapshot() []SnapshotEntry {
 		out = append(out, SnapshotEntry{Hash: append([]byte(nil), k[:]...), Entry: v})
 	}
 	sort.Slice(out, func(i, j int) bool {
-		for x := 0; x < HashLen; x++ {
+		for x := range HashLen {
 			if out[i].Hash[x] != out[j].Hash[x] {
 				return out[i].Hash[x] < out[j].Hash[x]
 			}
@@ -487,7 +487,7 @@ func DecodeBlackholeMap(raw []byte) (map[string]Entry, error) {
 	}
 
 	out := make(map[string]Entry, mapLen)
-	for i := 0; i < mapLen; i++ {
+	for i := range mapLen {
 		key, err := decodeBytesOrString(dec, len(raw))
 		if err != nil {
 			return nil, fmt.Errorf("blackhole: decode key %d: %w", i, err)
@@ -591,7 +591,7 @@ func decodeEntry(dec *msgpack.Decoder, maxLen int) (Entry, error) {
 		return Entry{}, fmt.Errorf("submap length %d exceeds bounds", subLen)
 	}
 	entry := Entry{}
-	for i := 0; i < subLen; i++ {
+	for i := range subLen {
 		key, err := dec.DecodeString()
 		if err != nil {
 			return Entry{}, fmt.Errorf("decode submap key %d: %w", i, err)
