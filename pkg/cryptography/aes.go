@@ -41,10 +41,10 @@ func implEncryptAES256CBC(key, plaintext []byte) ([]byte, error) {
 	}
 
 	mode := cipher.NewCBCEncrypter(block, iv) // #nosec G407
-	ciphertext := make([]byte, len(padtext))
-	mode.CryptBlocks(ciphertext, padtext)
-
-	return append(iv, ciphertext...), nil
+	out := make([]byte, aes.BlockSize+len(padtext))
+	copy(out[:aes.BlockSize], iv)
+	mode.CryptBlocks(out[aes.BlockSize:], padtext)
+	return out, nil
 }
 
 func implDecryptAES256CBC(key, ciphertext []byte) ([]byte, error) {
