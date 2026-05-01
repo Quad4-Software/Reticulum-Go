@@ -172,6 +172,8 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 		}
 	}
 
+	t.SetIdentity(ident)
+
 	debug.Log(debug.DebugInfo, "Creating destination...")
 	dest, err := destination.New(
 		ident,
