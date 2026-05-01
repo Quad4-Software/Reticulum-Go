@@ -152,6 +152,29 @@ jobs:
           env GOFLAGS=-mod=mod GOPROXY=https://proxy.golang.org,direct \
             go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-amd64 .
 
+      - name: Build pageserver (linux/arm64)
+        env:
+          GOOS: linux
+          GOARCH: arm64
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          cd examples/pageserver
+          env GOFLAGS=-mod=mod GOPROXY=https://proxy.golang.org,direct \
+            go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-arm64 .
+
+      - name: Build pageserver (linux/arm v6)
+        env:
+          GOOS: linux
+          GOARCH: arm
+          GOARM: "6"
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          cd examples/pageserver
+          env GOFLAGS=-mod=mod GOPROXY=https://proxy.golang.org,direct \
+            go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-arm .
+
       - name: Build wasm example
         run: task example:wasm:build
 
@@ -164,6 +187,8 @@ jobs:
           name: reticulum-go-examples
           path: |
             reticulum-go-example-pageserver-linux-amd64
+            reticulum-go-example-pageserver-linux-arm64
+            reticulum-go-example-pageserver-linux-arm
             reticulum-go-example-wasm.wasm
 
   release:
