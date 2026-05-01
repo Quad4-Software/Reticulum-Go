@@ -29,12 +29,11 @@ func (m *StreamDataMessage) Pack() ([]byte, error) {
 		headerVal |= StreamHeaderCompressed
 	}
 
-	buf := new(bytes.Buffer)
-	if err := binary.Write(buf, binary.BigEndian, headerVal); err != nil { // #nosec G104
-		return nil, err // Or handle the error appropriately
-	}
-	buf.Write(m.Data)
-	return buf.Bytes(), nil
+	n := StreamHeaderSize + len(m.Data)
+	buf := make([]byte, n)
+	binary.BigEndian.PutUint16(buf, headerVal)
+	copy(buf[StreamHeaderSize:], m.Data)
+	return buf, nil
 }
 
 func (m *StreamDataMessage) GetType() uint16 {
