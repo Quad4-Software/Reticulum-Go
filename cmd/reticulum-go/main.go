@@ -407,31 +407,51 @@ func (r *Reticulum) Start() error {
 	}
 	debug.Log(debug.DebugInfo, "Transport started successfully")
 
-	// Start interfaces
+	type interfaceStartResult struct {
+		iface interfaces.Interface
+		err   error
+	}
+
+	// Start interfaces in parallel so one slow dial/listen does not
+	// delay the whole node startup.
+	results := make(chan interfaceStartResult, len(r.interfaces))
 	for _, iface := range r.interfaces {
-		debug.Log(debug.DebugError, "Starting interface", "name", iface.GetName())
-		if err := iface.Start(); err != nil {
+		go func() {
+			debug.Log(debug.DebugError, "Starting interface", "name", iface.GetName())
+			results <- interfaceStartResult{iface: iface, err: iface.Start()}
+		}()
+	}
+
+	started := make([]interfaces.Interface, 0, len(r.interfaces))
+	for range len(r.interfaces) {
+		res := <-results
+		if res.err != nil {
 			if r.config.PanicOnInterfaceErr {
-				return fmt.Errorf("failed to start interface %s: %v", iface.GetName(), err)
+				return fmt.Errorf("failed to start interface %s: %v", res.iface.GetName(), res.err)
 			}
-			debug.Log(debug.DebugCritical, "Error starting interface", "name", iface.GetName(), "error", err)
+			debug.Log(debug.DebugCritical, "Error starting interface", "name", res.iface.GetName(), "error", res.err)
 			continue
 		}
+		started = append(started, res.iface)
+	}
 
-		if netIface, ok := iface.(common.NetworkInterface); ok {
-			// Register interface with transport
-			if err := r.transport.RegisterInterface(iface.GetName(), netIface); err != nil {
-				debug.Log(debug.DebugCritical, "Failed to register interface with transport", "name", iface.GetName(), "error", err)
-			} else {
-				debug.Log(debug.DebugInfo, "Registered interface with transport", "name", iface.GetName())
-			}
-			r.handleInterface(netIface)
+	for _, iface := range started {
+		netIface, ok := iface.(common.NetworkInterface)
+		if !ok {
+			continue
 		}
+		if err := r.transport.RegisterInterface(iface.GetName(), netIface); err != nil {
+			debug.Log(debug.DebugCritical, "Failed to register interface with transport", "name", iface.GetName(), "error", err)
+			continue
+		}
+		debug.Log(debug.DebugInfo, "Registered interface with transport", "name", iface.GetName())
+		r.handleInterface(netIface)
 		debug.Log(debug.DebugInfo, "Interface started successfully", "name", iface.GetName())
 	}
 
-	// Wait for interfaces to initialize
-	time.Sleep(2 * time.Second)
+	if !r.hasOnlineInterface() {
+		debug.Log(debug.DebugInfo, "No interface online yet; continuing startup and waiting for dynamic bring-up")
+	}
 
 	// Send initial announce
 	debug.Log(debug.DebugError, "Sending initial announce")
@@ -457,10 +477,17 @@ func (r *Reticulum) Start() error {
 		}
 	}()
 
-	go r.monitorInterfaces()
-
 	debug.Log(debug.DebugError, "Reticulum started successfully")
 	return nil
+}
+
+func (r *Reticulum) hasOnlineInterface() bool {
+	for _, iface := range r.interfaces {
+		if iface != nil && iface.IsOnline() && iface.IsEnabled() {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *Reticulum) Stop() error {
