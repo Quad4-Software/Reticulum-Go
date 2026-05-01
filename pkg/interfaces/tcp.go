@@ -45,14 +45,9 @@ func NewTCPClientInterface(name string, targetHost string, targetPort int, kissF
 	}
 
 	if enabled {
-		addr := net.JoinHostPort(targetHost, fmt.Sprintf("%d", targetPort))
-		conn, err := net.Dial("tcp", addr)
-		if err != nil {
-			return nil, err
-		}
-		tc.conn = conn
-		tc.Online = true
-		go tc.readLoop()
+		// Startup should not block on remote reachability. Connection
+		// establishment is handled asynchronously by reconnect().
+		go tc.reconnect()
 	}
 
 	return tc, nil
@@ -85,33 +80,8 @@ func (tc *TCPClientInterface) Start() error {
 	}
 	tc.Mutex.Unlock()
 
-	addr := net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort))
-	conn, err := net.DialTimeout("tcp", addr, TCPConnectTimeout)
-	if err != nil {
-		return err
-	}
-
-	tc.Mutex.Lock()
-	tc.conn = conn
-	tc.Mutex.Unlock()
-
-	// Set platform-specific timeouts
-	switch runtime.GOOS {
-	case "linux":
-		if err := tc.setTimeoutsLinux(); err != nil {
-			debug.Log(debug.DebugError, "Failed to set Linux TCP timeouts", "error", err)
-		}
-	case "darwin":
-		if err := tc.setTimeoutsOSX(); err != nil {
-			debug.Log(debug.DebugError, "Failed to set OSX TCP timeouts", "error", err)
-		}
-	}
-
-	tc.Mutex.Lock()
-	tc.Online = true
-	tc.Mutex.Unlock()
-
-	go tc.readLoop()
+	// Do not block startup waiting on remote availability.
+	go tc.reconnect()
 	return nil
 }
 
@@ -363,7 +333,7 @@ func (tc *TCPClientInterface) reconnect() {
 
 		addr := net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort))
 
-		conn, err := net.Dial("tcp", addr)
+		conn, err := net.DialTimeout("tcp", addr, TCPConnectTimeout)
 		if err == nil {
 			tc.Mutex.Lock()
 			tc.conn = conn
@@ -372,6 +342,18 @@ func (tc *TCPClientInterface) reconnect() {
 			tc.neverConnected = false
 			tc.reconnecting = false
 			tc.Mutex.Unlock()
+
+			// Set platform-specific timeouts once connected.
+			switch runtime.GOOS {
+			case "linux":
+				if err := tc.setTimeoutsLinux(); err != nil {
+					debug.Log(debug.DebugError, "Failed to set Linux TCP timeouts", "error", err)
+				}
+			case "darwin":
+				if err := tc.setTimeoutsOSX(); err != nil {
+					debug.Log(debug.DebugError, "Failed to set OSX TCP timeouts", "error", err)
+				}
+			}
 
 			go tc.readLoop()
 			return
