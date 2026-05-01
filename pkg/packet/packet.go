@@ -47,6 +47,36 @@ type Packet struct {
 	Link      any
 }
 
+// hashableInto writes the wire bytes that participate in the packet hash into dst
+// (reinitialized) and returns the resulting slice. dst must have capacity at least
+// the preimage length (always <= MTU for valid packets).
+func (p *Packet) hashableInto(dst []byte) []byte {
+	b := dst[:0]
+	b = append(b, p.Raw[0]&HashableFlagsMask)
+	if p.HeaderType == HeaderType2 {
+		start := TruncatedHashLength + 2
+		if len(p.Raw) > start {
+			b = append(b, p.Raw[start:]...)
+		}
+	} else if len(p.Raw) > 2 {
+		b = append(b, p.Raw[2:]...)
+	}
+	return b
+}
+
+func (p *Packet) hashablePreimageLen() int {
+	n := 1
+	if p.HeaderType == HeaderType2 {
+		start := TruncatedHashLength + 2
+		if len(p.Raw) > start {
+			n += len(p.Raw) - start
+		}
+	} else if len(p.Raw) > 2 {
+		n += len(p.Raw) - 2
+	}
+	return n
+}
+
 // PacketConfig holds the parameters used to create a new packet.
 type PacketConfig struct {
 	DestType      byte
@@ -96,23 +126,41 @@ func (p *Packet) Pack() error {
 	flags |= (p.DestinationType << 2) & HeaderMaskDestinationType
 	flags |= p.PacketType & HeaderMaskPacketType
 
-	header := []byte{flags, p.Hops}
-	debug.Log(debug.DebugTrace, "Created packet header", "flags", fmt.Sprintf("%08b", flags), "hops", p.Hops)
+	if debug.GetDebugLevel() >= debug.DebugTrace {
+		debug.Log(debug.DebugTrace, "Created packet header", "flags", fmt.Sprintf("%08b", flags), "hops", p.Hops)
+	}
 
+	need := 2 + len(p.DestinationHash) + 1 + len(p.Data)
 	if p.HeaderType == HeaderType2 {
 		if p.TransportID == nil {
 			return errors.New("transport ID required for header type 2")
 		}
-		header = append(header, p.TransportID...)
-		debug.Log(debug.DebugAll, "Added transport ID to header", "transport_id", fmt.Sprintf("%x", p.TransportID))
+		need += len(p.TransportID)
+		if debug.GetDebugLevel() >= debug.DebugAll {
+			debug.Log(debug.DebugAll, "Added transport ID to header", "transport_id", fmt.Sprintf("%x", p.TransportID))
+		}
 	}
 
-	header = append(header, p.DestinationHash...)
+	var raw []byte
+	if cap(p.Raw) >= need {
+		raw = p.Raw[:0]
+	} else {
+		raw = make([]byte, 0, need)
+	}
+	raw = append(raw, flags, p.Hops)
+	if p.HeaderType == HeaderType2 {
+		raw = append(raw, p.TransportID...)
+	}
+	raw = append(raw, p.DestinationHash...)
+	raw = append(raw, p.Context)
+	raw = append(raw, p.Data...)
+	p.Raw = raw
 
-	header = append(header, p.Context)
-	debug.Log(debug.DebugPackets, "Final header length", "bytes", len(header))
-
-	p.Raw = append(header, p.Data...)
+	hdrLen := 2 + len(p.DestinationHash) + 1
+	if p.HeaderType == HeaderType2 {
+		hdrLen += len(p.TransportID)
+	}
+	debug.Log(debug.DebugPackets, "Final header length", "bytes", hdrLen)
 	debug.Log(debug.DebugTrace, "Final packet size", "bytes", len(p.Raw))
 
 	if len(p.Raw) > MTU {
@@ -121,7 +169,9 @@ func (p *Packet) Pack() error {
 
 	p.Packed = true
 	p.updateHash()
-	debug.Log(debug.DebugAll, "Packet hash", "hash", fmt.Sprintf("%x", p.PacketHash))
+	if debug.GetDebugLevel() >= debug.DebugAll {
+		debug.Log(debug.DebugAll, "Packet hash", "hash", fmt.Sprintf("%x", p.PacketHash))
+	}
 	return nil
 }
 
@@ -165,28 +215,26 @@ func (p *Packet) Unpack() error {
 }
 
 func (p *Packet) GetHash() []byte {
-	hashable := p.getHashablePart()
-	hash := sha256.Sum256(hashable)
-	return hash[:]
-}
-
-func (p *Packet) getHashablePart() []byte {
-	hashable := []byte{p.Raw[0] & HashableFlagsMask}
-	if p.HeaderType == HeaderType2 {
-		startIndex := TruncatedHashLength + 2
-		if len(p.Raw) > startIndex {
-			hashable = append(hashable, p.Raw[startIndex:]...)
-		}
-	} else {
-		if len(p.Raw) > 2 {
-			hashable = append(hashable, p.Raw[2:]...)
-		}
-	}
-	return hashable
+	p.updateHash()
+	return p.PacketHash
 }
 
 func (p *Packet) updateHash() {
-	p.PacketHash = p.GetHash()
+	n := p.hashablePreimageLen()
+	var sum [sha256.Size]byte
+	if n <= MTU {
+		var scratch [MTU]byte
+		hb := p.hashableInto(scratch[:0])
+		sum = sha256.Sum256(hb)
+	} else {
+		scratch := make([]byte, n)
+		hb := p.hashableInto(scratch[:0])
+		sum = sha256.Sum256(hb)
+	}
+	if cap(p.PacketHash) < sha256.Size {
+		p.PacketHash = make([]byte, 0, sha256.Size)
+	}
+	p.PacketHash = append(p.PacketHash[:0], sum[:]...)
 }
 
 func (p *Packet) Hash() []byte {
