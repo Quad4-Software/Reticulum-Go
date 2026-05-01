@@ -3,6 +3,7 @@
 package resource
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
@@ -292,40 +293,35 @@ func estimateCompressibility(data []byte) float64 {
 	sampleSize := min(len(data), 4096)
 
 	// Count unique bytes in sample
-	uniqueBytes := make(map[byte]struct{})
-	for i := 0; i < sampleSize; i++ {
-		uniqueBytes[data[i]] = struct{}{}
+	var seen [256]bool
+	unique := 0
+	for i := range sampleSize {
+		b := data[i]
+		if !seen[b] {
+			seen[b] = true
+			unique++
+		}
 	}
 
 	// Calculate entropy-based compression estimate
-	uniqueRatio := float64(len(uniqueBytes)) / float64(sampleSize)
+	uniqueRatio := float64(unique) / float64(sampleSize)
 	return CompressionEntropyBase + (CompressionEntropyRange * uniqueRatio)
 }
 
 func estimateFileCompression(size int64, extension string) int64 {
-	compressionRatios := map[string]float64{
-		".txt":  CompressionRatioText,
-		".log":  CompressionRatioText,
-		".json": CompressionRatioText,
-		".xml":  CompressionRatioText,
-		".html": CompressionRatioText,
-		".csv":  CompressionRatioCSV,
-		".doc":  CompressionRatioOfficeLegacy,
-		".docx": CompressionRatioOfficeModern,
-		".pdf":  CompressionRatioOfficeModern,
-		".jpg":  CompressionRatioAlreadyPacked,
-		".jpeg": CompressionRatioAlreadyPacked,
-		".png":  CompressionRatioAlreadyPacked,
-		".gif":  CompressionRatioAlreadyPacked,
-		".mp3":  CompressionRatioAlreadyPacked,
-		".mp4":  CompressionRatioAlreadyPacked,
-		".zip":  CompressionRatioAlreadyPacked,
-		".gz":   CompressionRatioAlreadyPacked,
-		".rar":  CompressionRatioAlreadyPacked,
-	}
-
-	ratio, exists := compressionRatios[extension]
-	if !exists {
+	var ratio float64
+	switch extension {
+	case ".txt", ".log", ".json", ".xml", ".html":
+		ratio = CompressionRatioText
+	case ".csv":
+		ratio = CompressionRatioCSV
+	case ".doc":
+		ratio = CompressionRatioOfficeLegacy
+	case ".docx", ".pdf":
+		ratio = CompressionRatioOfficeModern
+	case ".jpg", ".jpeg", ".png", ".gif", ".mp3", ".mp4", ".zip", ".gz", ".rar":
+		ratio = CompressionRatioAlreadyPacked
+	default:
 		ratio = CompressionRatioUnknown
 	}
 
@@ -388,12 +384,16 @@ func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), 
 		r.compressed = false
 	}
 
-	h := sha256.Sum256(append(append([]byte(nil), uncompressed...), randomHash...))
-	r.hash = h[:]
+	hb := sha256.New()
+	hb.Write(uncompressed)
+	hb.Write(randomHash)
+	r.hash = hb.Sum(nil)
 	r.randomHash = append([]byte(nil), randomHash...)
 	r.originalHash = append([]byte(nil), r.hash...)
 
-	plain := append(append([]byte(nil), randomHash...), payload...)
+	plain := make([]byte, len(randomHash)+len(payload))
+	copy(plain, randomHash)
+	copy(plain[len(randomHash):], payload)
 	innerBlob, err := encrypt(plain)
 	if err != nil {
 		return err
@@ -413,12 +413,9 @@ func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), 
 	r.dataSize = int64(len(uncompressed))
 
 	r.hashmap = make([]byte, partCount*MapHashLen)
-	for i := 0; i < partCount; i++ {
+	for i := range partCount {
 		start := i * sdu
-		end := start + sdu
-		if end > len(innerBlob) {
-			end = len(innerBlob)
-		}
+		end := min(start+sdu, len(innerBlob))
 		h := sha256.New()
 		h.Write(innerBlob[start:end])
 		h.Write(randomHash)
@@ -532,13 +529,31 @@ func (r *Resource) PartIndexForMapHash(mh []byte) int {
 		return -1
 	}
 	n := len(r.hashmap) / MapHashLen
-	for i := 0; i < n; i++ {
+	for i := range n {
 		off := i * MapHashLen
-		if string(r.hashmap[off:off+MapHashLen]) == string(mh) {
+		if bytes.Equal(r.hashmap[off:off+MapHashLen], mh) {
 			return i
 		}
 	}
 	return -1
+}
+
+// PartIndicesForMapHash returns all part indexes whose map hash equals mh.
+func (r *Resource) PartIndicesForMapHash(mh []byte) []int {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	if r.hashmap == nil || len(mh) != MapHashLen {
+		return nil
+	}
+	n := len(r.hashmap) / MapHashLen
+	indexes := make([]int, 0, 1)
+	for i := range n {
+		off := i * MapHashLen
+		if bytes.Equal(r.hashmap[off:off+MapHashLen], mh) {
+			indexes = append(indexes, i)
+		}
+	}
+	return indexes
 }
 
 // OutboundCiphertextSlice returns the ciphertext bytes for part i using the given SDU.
@@ -556,13 +571,42 @@ func (r *Resource) OutboundCiphertextSlice(partIndex int, sdu int) []byte {
 	if start >= len(r.outboundCipher) {
 		return nil
 	}
-	end := start + sdu
-	if end > len(r.outboundCipher) {
-		end = len(r.outboundCipher)
-	}
+	end := min(start+sdu, len(r.outboundCipher))
 	out := make([]byte, end-start)
 	copy(out, r.outboundCipher[start:end])
 	return out
+}
+
+// OutboundCiphertextView returns a copy of outbound ciphertext for part i.
+func (r *Resource) OutboundCiphertextView(partIndex int, sdu int) []byte {
+	return r.OutboundCiphertextSlice(partIndex, sdu)
+}
+
+// OutboundCiphertextSliceInto copies ciphertext bytes for part i into dst and returns dst.
+// If dst capacity is insufficient, a new buffer is allocated.
+func (r *Resource) OutboundCiphertextSliceInto(dst []byte, partIndex int, sdu int) []byte {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	if r.outboundCipher == nil || sdu <= 0 {
+		return nil
+	}
+	n := int(r.segments)
+	if partIndex < 0 || partIndex >= n {
+		return nil
+	}
+	start := partIndex * sdu
+	if start >= len(r.outboundCipher) {
+		return nil
+	}
+	end := min(start+sdu, len(r.outboundCipher))
+	need := end - start
+	if cap(dst) < need {
+		dst = make([]byte, need)
+	} else {
+		dst = dst[:need]
+	}
+	copy(dst, r.outboundCipher[start:end])
+	return dst
 }
 
 // MarkOutboundPartSent records that part i has been transmitted at least once.
@@ -585,6 +629,57 @@ func (r *Resource) MarkOutboundPartSent(i int) bool {
 		r.outboundSentCount++
 	}
 	return r.outboundSentCount >= n
+}
+
+// IsOutboundPartSent reports whether part i has already been sent at least once.
+func (r *Resource) IsOutboundPartSent(i int) bool {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	n := int(r.segments)
+	if i < 0 || i >= n || r.outboundPartSent == nil {
+		return false
+	}
+	return r.outboundPartSent[i]
+}
+
+// HashmapSegment returns a copy of the hashmap bytes for segment index.
+func (r *Resource) HashmapSegment(linkMDU int, segment int) []byte {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	if segment < 0 || len(r.hashmap) == 0 {
+		return nil
+	}
+	entries := HashmapEntriesPerSegment(linkMDU)
+	if entries <= 0 {
+		entries = 1
+	}
+	totalEntries := len(r.hashmap) / MapHashLen
+	startEntry := segment * entries
+	if startEntry >= totalEntries {
+		return nil
+	}
+	endEntry := min(startEntry+entries, totalEntries)
+	start := startEntry * MapHashLen
+	end := endEntry * MapHashLen
+	out := make([]byte, end-start)
+	copy(out, r.hashmap[start:end])
+	return out
+}
+
+// MapHashAt returns the map hash at part index i.
+func (r *Resource) MapHashAt(i int) []byte {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	if i < 0 {
+		return nil
+	}
+	off := i * MapHashLen
+	if off+MapHashLen > len(r.hashmap) {
+		return nil
+	}
+	out := make([]byte, MapHashLen)
+	copy(out, r.hashmap[off:off+MapHashLen])
+	return out
 }
 
 // OutboundTransferComplete reports whether every part has been sent at least once.
