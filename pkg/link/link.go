@@ -112,7 +112,9 @@ type Link struct {
 	incomingResourceRequest *RequestReceipt
 
 	outgoingMu              sync.Mutex
+	resourceSendMu          sync.Mutex
 	outgoingRes             *resource.Resource
+	outgoingReceiverMinPart int
 	outgoingResCompleteChan chan struct{}
 	outgoingDispatchMu      sync.Mutex
 
@@ -551,10 +553,7 @@ func (l *Link) NoOutboundFor() float64 {
 func (l *Link) NoDataFor() float64 {
 	rxNs := l.lastDataReceivedNs.Load()
 	txNs := l.lastDataSentNs.Load()
-	last := rxNs
-	if txNs > last {
-		last = txNs
-	}
+	last := max(txNs, rxNs)
 	if last == 0 {
 		return 0.0
 	}
@@ -565,10 +564,7 @@ func (l *Link) NoDataFor() float64 {
 func (l *Link) InactiveFor() float64 {
 	inNs := l.lastInboundNs.Load()
 	outNs := l.lastOutboundNs.Load()
-	last := inNs
-	if outNs > last {
-		last = outNs
-	}
+	last := max(outNs, inNs)
 	if last == 0 {
 		return 0.0
 	}
@@ -776,6 +772,8 @@ func (l *Link) HandleInbound(pkt *packet.Packet) error {
 			return l.handleLinkProof(pkt, l.networkInterface)
 		} else if pkt.Context == packet.ContextLRRTT {
 			return l.handleRTTPacket(pkt)
+		} else if pkt.Context == packet.ContextResourcePRF {
+			return l.handleResourceProof(pkt)
 		}
 	}
 
@@ -803,6 +801,7 @@ func (l *Link) signalOutgoingResourceComplete() {
 	ch := l.outgoingResCompleteChan
 	l.outgoingResCompleteChan = nil
 	l.outgoingRes = nil
+	l.outgoingReceiverMinPart = 0
 	l.outgoingMu.Unlock()
 	if ch != nil {
 		select {
@@ -810,6 +809,27 @@ func (l *Link) signalOutgoingResourceComplete() {
 		default:
 		}
 	}
+}
+
+func (l *Link) handleResourceProof(pkt *packet.Packet) error {
+	if len(pkt.Data) < sha256.Size {
+		return nil
+	}
+	resourceHash := pkt.Data[:sha256.Size]
+
+	l.outgoingMu.Lock()
+	out := l.outgoingRes
+	l.outgoingMu.Unlock()
+	if out == nil {
+		return nil
+	}
+	if !bytes.Equal(out.GetHash(), resourceHash) {
+		return nil
+	}
+
+	debug.Log(debug.DebugInfo, "Outgoing resource proof received", "resource_hash", fmt.Sprintf("%x", resourceHash))
+	l.signalOutgoingResourceComplete()
+	return nil
 }
 
 func (l *Link) handleDataPacket(pkt *packet.Packet) error {
@@ -1116,39 +1136,86 @@ func (l *Link) dispatchOutgoingResourceRequests(plaintext []byte) {
 
 	l.outgoingMu.Lock()
 	out := l.outgoingRes
+	receiverMinPart := l.outgoingReceiverMinPart
 	l.outgoingMu.Unlock()
-	if out == nil || len(plaintext) < 1+32 {
+	if out == nil {
+		debug.Log(debug.DebugVerbose, "Ignoring resource request: no outgoing resource")
+		return
+	}
+	if len(plaintext) < 1+32 {
+		debug.Log(debug.DebugVerbose, "Ignoring resource request: payload too short", "len", len(plaintext))
 		return
 	}
 	var resourceHash []byte
+	var hmuAnchorHash []byte
 	var pad int
 	if plaintext[0] == LinkResourceMappedFlag {
 		pad = 1 + resource.MapHashLen
 		if len(plaintext) < pad+32 {
+			debug.Log(debug.DebugVerbose, "Ignoring mapped resource request: payload too short", "len", len(plaintext))
 			return
 		}
+		hmuAnchorHash = plaintext[1:pad]
 		resourceHash = plaintext[pad : pad+32]
 	} else {
 		pad = 1
 		resourceHash = plaintext[pad : pad+32]
 	}
 	if !bytes.Equal(resourceHash, out.GetHash()) {
+		debug.Log(
+			debug.DebugVerbose,
+			"Ignoring resource request: hash mismatch",
+			"request_hash",
+			fmt.Sprintf("%x", resourceHash),
+			"out_hash",
+			fmt.Sprintf("%x", out.GetHash()),
+		)
 		return
 	}
 	reqHashes := plaintext[pad+32:]
 	if len(reqHashes)%resource.MapHashLen != 0 {
+		debug.Log(debug.DebugVerbose, "Ignoring resource request: invalid hash vector length", "len", len(reqHashes))
 		return
 	}
 	l.mutex.RLock()
-	sdu := l.mdu
+	hashmapMDU := l.mdu
 	l.mutex.RUnlock()
-	for i := 0; i < len(reqHashes); i += resource.MapHashLen {
-		mh := reqHashes[i : i+resource.MapHashLen]
-		pi := out.PartIndexForMapHash(mh)
-		if pi < 0 {
-			continue
+	partSDU := l.resourceSDU()
+	if len(hmuAnchorHash) == resource.MapHashLen {
+		debug.Log(
+			debug.DebugVerbose,
+			"Outgoing resource received HMU request",
+			"resource_hash",
+			fmt.Sprintf("%x", resourceHash),
+			"anchor_hash",
+			fmt.Sprintf("%x", hmuAnchorHash),
+			"receiver_min_part",
+			receiverMinPart,
+		)
+		nextMin, err := l.sendResourceHashmapUpdate(out, hashmapMDU, hmuAnchorHash, receiverMinPart)
+		if err == nil && nextMin >= 0 {
+			l.outgoingMu.Lock()
+			if l.outgoingRes == out {
+				l.outgoingReceiverMinPart = nextMin
+			}
+			l.outgoingMu.Unlock()
 		}
-		slice := out.OutboundCiphertextSlice(pi, sdu)
+	}
+	partIndexes := selectRequestedPartIndexes(out, reqHashes, receiverMinPart)
+	debug.Log(
+		debug.DebugVerbose,
+		"Outgoing resource part request selection",
+		"resource_hash",
+		fmt.Sprintf("%x", resourceHash),
+		"requested_hashes",
+		len(reqHashes)/resource.MapHashLen,
+		"selected_parts",
+		len(partIndexes),
+		"receiver_min_part",
+		receiverMinPart,
+	)
+	for _, pi := range partIndexes {
+		slice := out.OutboundCiphertextSlice(pi, partSDU)
 		if len(slice) == 0 {
 			continue
 		}
@@ -1159,11 +1226,179 @@ func (l *Link) dispatchOutgoingResourceRequests(plaintext []byte) {
 	}
 	if out.OutboundTransferComplete() {
 		if err := l.SendPacketWithContext(nil, packet.ContextResource); err != nil {
-			l.signalOutgoingResourceComplete()
 			return
 		}
-		l.signalOutgoingResourceComplete()
 	}
+}
+
+func chooseHashmapUpdateSegment(out *resource.Resource, sdu int, anchorHash []byte, receiverMinPart int) (int, int, bool) {
+	if out == nil || len(anchorHash) != resource.MapHashLen {
+		return 0, 0, false
+	}
+	entries := resource.HashmapEntriesPerSegment(sdu)
+	if entries <= 0 {
+		entries = 1
+	}
+	totalParts := int(out.GetSegments())
+	if totalParts == 0 {
+		return 0, 0, false
+	}
+	if receiverMinPart < 0 {
+		receiverMinPart = 0
+	}
+	searchStart := receiverMinPart
+	if searchStart >= totalParts {
+		searchStart = 0
+	}
+	searchEnd := min(searchStart+resource.CollisionGuardSize, totalParts)
+
+	target := -1
+	fallback := -1
+	for idx := searchStart; idx < searchEnd; idx++ {
+		mh := out.MapHashAt(idx)
+		if len(mh) != resource.MapHashLen {
+			continue
+		}
+		if bytes.Equal(mh, anchorHash) {
+			if fallback < 0 {
+				fallback = idx
+			}
+			if idx+1 < totalParts && (idx+1)%entries == 0 {
+				target = idx
+				break
+			}
+		}
+	}
+	if target < 0 {
+		target = fallback
+	}
+	if target < 0 {
+		return 0, 0, false
+	}
+
+	segment := (target + 1) / entries
+	if segment <= 0 {
+		return 0, 0, false
+	}
+	nextMin := max(target-1-resource.WindowMax, 0)
+	return segment, nextMin, true
+}
+
+func (l *Link) sendResourceHashmapUpdate(out *resource.Resource, sdu int, anchorHash []byte, receiverMinPart int) (int, error) {
+	segment, nextMin, ok := chooseHashmapUpdateSegment(out, sdu, anchorHash, receiverMinPart)
+	if !ok {
+		return -1, nil
+	}
+	hashmap := out.HashmapSegment(sdu, segment)
+	if len(hashmap) == 0 {
+		return -1, nil
+	}
+	update, err := msgpack.Marshal([]any{segment, hashmap})
+	if err != nil {
+		return -1, err
+	}
+	payload := append(append([]byte{}, out.GetHash()...), update...)
+	if err := l.SendPacketWithContext(payload, packet.ContextResourceHMU); err != nil {
+		return -1, err
+	}
+	debug.Log(
+		debug.DebugVerbose,
+		"Outgoing HMU sent",
+		"resource_hash",
+		fmt.Sprintf("%x", out.GetHash()),
+		"segment",
+		segment,
+		"entries",
+		len(hashmap)/resource.MapHashLen,
+		"next_min_part",
+		nextMin,
+	)
+	// HMU loss can deadlock receivers that pause new part requests while waiting.
+	// Emit a best-effort immediate duplicate to improve delivery odds on lossy links.
+	_ = l.SendPacketWithContext(payload, packet.ContextResourceHMU)
+	return nextMin, nil
+}
+
+func selectRequestedPartIndexes(out *resource.Resource, reqHashes []byte, receiverMinPart int) []int {
+	if out == nil || len(reqHashes)%resource.MapHashLen != 0 {
+		return nil
+	}
+	totalParts := int(out.GetSegments())
+	if totalParts == 0 {
+		return nil
+	}
+	if receiverMinPart < 0 {
+		receiverMinPart = 0
+	}
+	searchStart := receiverMinPart
+	if searchStart >= totalParts {
+		searchStart = 0
+	}
+	searchEnd := min(searchStart+resource.CollisionGuardSize, totalParts)
+
+	usedPartIndexes := make(map[int]struct{})
+	indexes := make([]int, 0, len(reqHashes)/resource.MapHashLen)
+	for i := 0; i < len(reqHashes); i += resource.MapHashLen {
+		mh := reqHashes[i : i+resource.MapHashLen]
+		pi := -1
+		for idx := searchStart; idx < searchEnd; idx++ {
+			if _, used := usedPartIndexes[idx]; used {
+				continue
+			}
+			mapHash := out.MapHashAt(idx)
+			if len(mapHash) != resource.MapHashLen || !bytes.Equal(mapHash, mh) {
+				continue
+			}
+			if !out.IsOutboundPartSent(idx) {
+				pi = idx
+				break
+			}
+		}
+		if pi < 0 {
+			for idx := searchStart; idx < searchEnd; idx++ {
+				if _, used := usedPartIndexes[idx]; used {
+					continue
+				}
+				mapHash := out.MapHashAt(idx)
+				if len(mapHash) == resource.MapHashLen && bytes.Equal(mapHash, mh) {
+					pi = idx
+					break
+				}
+			}
+		}
+		if pi < 0 {
+			candidates := out.PartIndicesForMapHash(mh)
+			for _, idx := range candidates {
+				if _, used := usedPartIndexes[idx]; used {
+					continue
+				}
+				if !out.IsOutboundPartSent(idx) {
+					pi = idx
+					break
+				}
+			}
+		}
+		if pi < 0 {
+			candidates := out.PartIndicesForMapHash(mh)
+			for _, idx := range candidates {
+				if _, used := usedPartIndexes[idx]; !used {
+					pi = idx
+					break
+				}
+			}
+		}
+		if pi < 0 {
+			candidates := out.PartIndicesForMapHash(mh)
+			if len(candidates) == 0 {
+				continue
+			}
+			pi = candidates[0]
+		}
+
+		usedPartIndexes[pi] = struct{}{}
+		indexes = append(indexes, pi)
+	}
+	return indexes
 }
 
 func (l *Link) handleResourceRequest(pkt *packet.Packet) error {
@@ -1176,8 +1411,7 @@ func (l *Link) handleResourceRequest(pkt *packet.Packet) error {
 	out := l.outgoingRes
 	l.outgoingMu.Unlock()
 	if out != nil && len(plaintext) >= 1+32 {
-		pt := append([]byte(nil), plaintext...)
-		l.dispatchOutgoingResourceRequests(pt)
+		l.dispatchOutgoingResourceRequests(plaintext)
 		return nil
 	}
 
@@ -1434,7 +1668,12 @@ func (l *Link) sendResponse(requestID []byte, response any) error {
 	res.SetIsResponse(true)
 
 	debug.Log(debug.DebugInfo, "Sending response as resource", "request_id", fmt.Sprintf("%x", requestID), "packed_len", len(packedResponse), "mdu", mdu)
-	return l.SendResource(res)
+	go func() {
+		if err := l.SendResource(res); err != nil {
+			debug.Log(debug.DebugError, "Failed to send response resource", "request_id", fmt.Sprintf("%x", requestID), "error", err)
+		}
+	}()
+	return nil
 }
 
 func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
@@ -1736,14 +1975,17 @@ func (l *Link) IsActive() bool {
 }
 
 func (l *Link) SendResource(res *resource.Resource) error {
+	l.resourceSendMu.Lock()
+	defer l.resourceSendMu.Unlock()
+
 	l.mutex.Lock()
 	if l.status.Load() != int32(StatusActive) {
 		l.teardownReason = StatusFailed
 		l.mutex.Unlock()
 		return errors.New("link not active")
 	}
-	sdu := l.mdu
 	l.mutex.Unlock()
+	sdu := l.resourceSDU()
 
 	if err := res.PrepareOutboundForLink(l.encrypt, sdu); err != nil {
 		return err
@@ -1756,12 +1998,14 @@ func (l *Link) SendResource(res *resource.Resource) error {
 	done := make(chan struct{}, 1)
 	l.outgoingMu.Lock()
 	l.outgoingRes = res
+	l.outgoingReceiverMinPart = 0
 	l.outgoingResCompleteChan = done
 	l.outgoingMu.Unlock()
 
 	if err := l.sendResourceAdvertisement(res); err != nil {
 		l.outgoingMu.Lock()
 		l.outgoingRes = nil
+		l.outgoingReceiverMinPart = 0
 		l.outgoingResCompleteChan = nil
 		l.outgoingMu.Unlock()
 		l.mutex.Lock()
@@ -1774,6 +2018,7 @@ func (l *Link) SendResource(res *resource.Resource) error {
 		if err := l.SendPacketWithContext(nil, packet.ContextResource); err != nil {
 			l.outgoingMu.Lock()
 			l.outgoingRes = nil
+			l.outgoingReceiverMinPart = 0
 			l.outgoingResCompleteChan = nil
 			l.outgoingMu.Unlock()
 			return err
@@ -1788,6 +2033,7 @@ func (l *Link) SendResource(res *resource.Resource) error {
 	case <-time.After(10 * time.Minute):
 		l.outgoingMu.Lock()
 		l.outgoingRes = nil
+		l.outgoingReceiverMinPart = 0
 		l.outgoingResCompleteChan = nil
 		l.outgoingMu.Unlock()
 		l.mutex.Lock()
@@ -2198,10 +2444,7 @@ func (l *Link) HandleLinkRequest(pkt *packet.Packet, ownerIdentity *identity.Ide
 	l.requestTime = time.Now()
 	// Match reference responder behavior: establishment timeout is per-hop plus keepalive grace.
 	// This prevents WAN/backbone proof/RTT races from being closed too aggressively.
-	hops := int(pkt.Hops)
-	if hops < 1 {
-		hops = 1
-	}
+	hops := max(int(pkt.Hops), 1)
 	l.establishmentTimeout = time.Duration(float64(hops)*EstablishmentTimeoutPerHop*float64(time.Second)) + l.keepalive
 	debug.Log(debug.DebugInfo, "Responder establishment timeout configured", "link_id", fmt.Sprintf("%x", l.linkID), "packet_hops", pkt.Hops, "effective_hops", hops, "timeout_sec", l.establishmentTimeout.Seconds())
 
@@ -2225,8 +2468,8 @@ func (l *Link) HandleLinkRequest(pkt *packet.Packet, ownerIdentity *identity.Ide
 }
 
 func (l *Link) updateMDU() {
-	headerMaxSize := 64
-	ifacMinSize := 4
+	headerMinSize := 19
+	ifacMinSize := 1
 	tokenOverhead := common.TokenOverhead
 	aesBlockSize := 16
 
@@ -2235,10 +2478,29 @@ func (l *Link) updateMDU() {
 		l.mtu = packet.MTU
 	}
 
-	l.mdu = int(float64(l.mtu-headerMaxSize-ifacMinSize-tokenOverhead)/float64(aesBlockSize))*aesBlockSize - 1
+	l.mdu = int(float64(l.mtu-headerMinSize-ifacMinSize-tokenOverhead)/float64(aesBlockSize))*aesBlockSize - 1
 	if l.mdu < 0 {
 		l.mdu = common.DefaultMTU / 15
 	}
+}
+
+func (l *Link) resourceSDU() int {
+	resourceHeaderMaxSize := 35
+	resourceIFACMinSize := 1
+
+	l.mutex.RLock()
+	mtu := l.mtu
+	mdu := l.mdu
+	l.mutex.RUnlock()
+
+	if mtu > 0 {
+		sdu := mtu - resourceHeaderMaxSize - resourceIFACMinSize
+		if sdu > 0 {
+			return sdu
+		}
+	}
+
+	return mdu
 }
 
 func (l *Link) performHandshake() error {
