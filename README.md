@@ -27,9 +27,8 @@ See [COMPATIBILITY.md](COMPATIBILITY.md) for how this is verified against the Py
 
 **Goals:**
 - Full protocol interoperability with the Python reference implementation
-- Cross-platform support for multiple architectures (old and new)
-- High performance via Go's concurrency model
-- Improved privacy and security features that do not break compatibility with the Python reference implementation
+- Portability
+- High performance via Go's concurrency model and best coding practices
 
 ### Cryptography
 
@@ -38,20 +37,6 @@ Algorithms, key formats, storage, IFAC, and operational guidance are documented 
 ## Requirements
 
 - Go 1.26.2 or later
-
-## Vendored dependencies and offline builds
-
-### Why we vendor
-
-Vendoring keeps the exact third-party source tree in this repository so builds and tests do not depend on fetching modules at compile time. That supports air-gapped and offline environments, avoids coupling releases to the availability of public module proxies or hosting sites, and makes the dependency set easy to review in diffs and audits. It is also central to supply chain security for dependencies: ordinary builds compile what is committed here, not whatever a proxy or upstream source might serve at build time, and changes to third-party code show up in review as normal source diffs. Dependency versions are still recorded in `go.mod` and `go.sum`; `vendor/` is the canonical copy used for ordinary builds.
-
-The Makefile and Taskfile default to `GOFLAGS=-mod=vendor` and `GOPROXY=off`, so a normal `make build`, `make test`, or `task build` / `task test` does not contact module proxies, the checksum database, or Git remotes for dependencies. Only the Go toolchain (and the standard library it ships with) is required besides this repository.
-
-CI sets the same variables for build, test, and related jobs. Steps that install standalone tools with `go install` (for example revive, gosec, and govulncheck in `scripts/ci/`) temporarily clear those flags so the installer can fetch those binaries; project code still builds from `vendor/`.
-
-When you change dependencies, use a network-enabled environment, run `go mod tidy` and `go mod vendor`, then commit `go.mod`, `go.sum`, and `vendor/`. The `make deps` and `task deps` targets use the public module proxy to download and verify modules for that workflow.
-
-The `examples/wasm` tree has its own `go.mod`; it is not covered by the root `vendor/` layout. Docker images under `docker/` copy `vendor/` and build with the same offline module settings.
 
 ## Quick Start
 
@@ -201,7 +186,25 @@ task build-wasm
 task test-wasm
 ```
 
-For embedded systems and TinyGo builds, see the [tinygo branch](https://git.quad4.io/Networks/Reticulum-Go/src/branch/tinygo/). Requires TinyGo 0.37.0+.
+For embedded systems and TinyGo builds, see the [tinygo branch](https://git.quad4.io/Networks/Reticulum-Go/src/branch/tinygo/). Requires TinyGo 0.41.0+.
+
+## Vendored dependencies and offline builds
+
+### Why we vendor
+
+Vendoring keeps the exact third-party source tree in this repository so builds and tests do not depend on fetching modules at compile time. That supports air-gapped and offline environments, avoids coupling releases to the availability of public module proxies or hosting sites, and makes the dependency set easy to review in diffs and audits. It is also central to supply chain security for dependencies: ordinary builds compile what is committed here, not whatever a proxy or upstream source might serve at build time, and changes to third-party code show up in review as normal source diffs. Dependency versions are still recorded in `go.mod` and `go.sum`; `vendor/` is the canonical copy used for ordinary builds.
+
+The Makefile and Taskfile default to `GOFLAGS=-mod=vendor` and `GOPROXY=off`, so a normal `make build`, `make test`, or `task build` / `task test` does not contact module proxies, the checksum database, or Git remotes for dependencies. Only the Go toolchain (and the standard library it ships with) is required besides this repository.
+
+CI sets the same variables for build, test, and related jobs. Steps that install standalone tools with `go install` (for example revive, gosec, and govulncheck in `scripts/ci/`) temporarily clear those flags so the installer can fetch those binaries; project code still builds from `vendor/`.
+
+When you change dependencies, use a network-enabled environment, run `go mod tidy` and `go mod vendor`, then commit `go.mod`, `go.sum`, and `vendor/`. The `make deps` and `task deps` targets use the public module proxy to download and verify modules for that workflow.
+
+The `examples/wasm` tree has its own `go.mod`; it is not covered by the root `vendor/` layout. Docker images under `docker/` copy `vendor/` and build with the same offline module settings.
+
+## Credit
+
+[Mark Qvist](https://github.com/markqvist) - For creating the Reticulum Network Stack
 
 ## License
 
