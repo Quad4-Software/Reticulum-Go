@@ -3,6 +3,7 @@
 package transport
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -31,30 +32,30 @@ type LinkRelayEntry struct {
 
 type linkRelayTable struct {
 	mu      sync.RWMutex
-	entries map[string]*LinkRelayEntry
+	entries map[hash16]*LinkRelayEntry
 }
 
 func newLinkRelayTable() *linkRelayTable {
-	return &linkRelayTable{entries: make(map[string]*LinkRelayEntry)}
+	return &linkRelayTable{entries: make(map[hash16]*LinkRelayEntry)}
 }
 
 func (lt *linkRelayTable) put(linkID []byte, entry *LinkRelayEntry) {
 	lt.mu.Lock()
 	defer lt.mu.Unlock()
-	lt.entries[string(linkID)] = entry
+	lt.entries[hash16FromSlice(linkID)] = entry
 }
 
 func (lt *linkRelayTable) get(linkID []byte) (*LinkRelayEntry, bool) {
 	lt.mu.RLock()
 	defer lt.mu.RUnlock()
-	e, ok := lt.entries[string(linkID)]
+	e, ok := lt.entries[hash16FromSlice(linkID)]
 	return e, ok
 }
 
 func (lt *linkRelayTable) delete(linkID []byte) {
 	lt.mu.Lock()
 	defer lt.mu.Unlock()
-	delete(lt.entries, string(linkID))
+	delete(lt.entries, hash16FromSlice(linkID))
 }
 
 func (lt *linkRelayTable) sweep(maxIdle time.Duration) int {
@@ -109,12 +110,9 @@ func rebuildHeaderType2(raw []byte, hops byte, nextHop []byte) ([]byte, error) {
 	if len(nextHop) != identity.TruncatedHashLength/8 {
 		return nil, fmt.Errorf("next hop must be %d bytes, got %d", identity.TruncatedHashLength/8, len(nextHop))
 	}
-	out := make([]byte, 0, len(raw))
-	out = append(out, raw[0])
-	out = append(out, hops)
-	out = append(out, nextHop...)
-	out = append(out, raw[tail:]...)
-	return out, nil
+	raw[1] = hops
+	copy(raw[2:tail], nextHop)
+	return raw, nil
 }
 
 func stripHeaderType2(raw []byte, hops byte) ([]byte, error) {
@@ -126,20 +124,18 @@ func stripHeaderType2(raw []byte, hops byte) ([]byte, error) {
 	newFlags |= (packet.HeaderType1 << 6) & packet.HeaderMaskHeaderType
 	newFlags |= (packet.PropagationBroadcast << 4) & packet.HeaderMaskTransportType
 	newFlags |= raw[0] & 0x0F
-	out := make([]byte, 0, len(raw)-(identity.TruncatedHashLength/8))
-	out = append(out, newFlags, hops)
-	out = append(out, raw[tail:]...)
-	return out, nil
+	copy(raw[2:], raw[tail:])
+	raw[0] = newFlags
+	raw[1] = hops
+	return raw[:len(raw)-(identity.TruncatedHashLength/8)], nil
 }
 
 func rewriteHopsOnly(raw []byte, hops byte) []byte {
 	if len(raw) < 2 {
 		return raw
 	}
-	out := make([]byte, len(raw))
-	copy(out, raw)
-	out[1] = hops
-	return out
+	raw[1] = hops
+	return raw
 }
 
 // forwardTransportPacket relays HeaderType2 when TransportID matches
@@ -153,7 +149,7 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 	if ourID == nil {
 		return false
 	}
-	if string(pkt.TransportID) != string(ourID) {
+	if !bytes.Equal(pkt.TransportID, ourID) {
 		debug.Log(debug.DebugVerbose, "Transport packet not for us, ignoring",
 			"transport_id", fmt.Sprintf("%x", pkt.TransportID),
 			"our_id", fmt.Sprintf("%x", ourID))
@@ -169,10 +165,11 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 	if len(destHash) > identity.TruncatedHashLength/8 {
 		destHash = destHash[:identity.TruncatedHashLength/8]
 	}
+	destKey := hash16FromSlice(destHash)
 
 	t.mutex.RLock()
 	path, hasPath := t.paths[string(destHash)]
-	_, isLocal := t.destinations[string(destHash)]
+	_, isLocal := t.destinations[destKey]
 	t.mutex.RUnlock()
 
 	if isLocal {
@@ -240,10 +237,7 @@ func (t *Transport) recordLinkRelay(pkt *packet.Packet, raw []byte, recvIface co
 		return
 	}
 	now := time.Now()
-	remaining := int(path.HopCount)
-	if remaining < 1 {
-		remaining = 1
-	}
+	remaining := max(int(path.HopCount), 1)
 	timeout := now.Add(LinkProofTimeoutPerHop * time.Duration(remaining))
 	entry := &LinkRelayEntry{
 		NextHop:         path.NextHop,
@@ -315,16 +309,14 @@ func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterf
 		return true
 	}
 
-	newRaw := make([]byte, len(raw))
-	copy(newRaw, raw)
-	if newRaw[1] < 0xFF {
-		newRaw[1]++
+	if raw[1] < 0xFF {
+		raw[1]++
 	}
 
 	debug.Log(debug.DebugInfo, "Relaying link data packet",
 		"link_id", fmt.Sprintf("%x", linkID),
 		"out_iface", outIface.GetName())
-	if err := outIface.Send(newRaw, ""); err != nil {
+	if err := outIface.Send(raw, ""); err != nil {
 		debug.Log(debug.DebugError, "Failed to relay link data packet",
 			"error", err,
 			"out_iface", outIface.GetName())
