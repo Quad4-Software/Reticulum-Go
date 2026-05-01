@@ -8,8 +8,6 @@ import (
 	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack/msgpcode"
 )
 
-var stringSliceType = reflect.TypeOf(([]string)(nil))
-
 func encodeStringValue(e *Encoder, v reflect.Value) error {
 	return e.EncodeString(v.String())
 }
@@ -100,8 +98,19 @@ func (e *Encoder) EncodeArrayLen(l int) error {
 }
 
 func encodeStringSliceValue(e *Encoder, v reflect.Value) error {
-	ss := v.Convert(stringSliceType).Interface().([]string)
-	return e.encodeStringSlice(ss)
+	if v.IsNil() {
+		return e.EncodeNil()
+	}
+	l := v.Len()
+	if err := e.EncodeArrayLen(l); err != nil {
+		return err
+	}
+	for i := 0; i < l; i++ {
+		if err := e.EncodeString(v.Index(i).String()); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (e *Encoder) encodeStringSlice(s []string) error {

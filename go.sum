@@ -1,7 +1,7 @@
-git.quad4.io/Go-Libs/bzip2 v1.0.0 h1:/6pSP064uwoNWu7xwRYG0sQ6c1vxYHi5CHPHAoVz79o=
-git.quad4.io/Go-Libs/bzip2 v1.0.0/go.mod h1:aFkU4kPaH3mcV/ywqpjSJubnkokYR1bAMvhpM1ZXLB8=
-git.quad4.io/Go-Libs/msgpack/v5 v5.6.1 h1:zgf37+IGsa7eSMxvFtv+UrUOR+SNBEbDtmJUoRMGCnQ=
-git.quad4.io/Go-Libs/msgpack/v5 v5.6.1/go.mod h1:ShEk1+LTQY1oMP6CsGOIJsiflj9zzIqbZjyyRoyAsQE=
+git.quad4.io/Go-Libs/bzip2 v1.1.0 h1:Qc0k/eQoI2xCWXFFKcEjRdLomJVobiA+b7atEWmvPc4=
+git.quad4.io/Go-Libs/bzip2 v1.1.0/go.mod h1:Nuzi9dxKpjM9VrQkqZ9tOcJMuA/b3n1grqndlmmeZU0=
+git.quad4.io/Go-Libs/msgpack/v5 v5.7.0 h1:9BLuiKIAilUDVttbcLiMTWzv72lBpWA/jQ5PFFVenHE=
+git.quad4.io/Go-Libs/msgpack/v5 v5.7.0/go.mod h1:ShEk1+LTQY1oMP6CsGOIJsiflj9zzIqbZjyyRoyAsQE=
 git.quad4.io/Go-Libs/pbt v0.0.0-20260222224506-d027ddfbe012 h1:qrkEopX3N/RD1mNxosBzS/gbb6QsoANY6zhZtKFD2fE=
 git.quad4.io/Go-Libs/pbt v0.0.0-20260222224506-d027ddfbe012/go.mod h1:5lGubRvn/S68scD6dHJf64sCzmebWXdeGm00VN4GEOU=
 git.quad4.io/Go-Libs/tagparser/v2 v2.1.0 h1:yLqI1BVNiRcEJS+0N9qfH8XnEqaMxS/MSpRvTDQi6J0=

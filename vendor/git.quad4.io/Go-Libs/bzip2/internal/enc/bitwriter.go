@@ -3,6 +3,15 @@
 
 package enc
 
+// EncodedBitBufferCap returns a conservative output byte capacity so one compressed block rarely
+// forces the internal slice to realloc during streaming (worst-case blocks can exceed input length).
+func EncodedBitBufferCap(nblockMax int) int {
+	if nblockMax <= 0 {
+		return 0
+	}
+	return nblockMax*3 + 256*1024
+}
+
 // BitWriter buffers a bzip2 bit stream into a byte slice (MSB-first within each byte, per format).
 type BitWriter struct {
 	out    []byte
@@ -17,6 +26,13 @@ func (w *BitWriter) Bytes() []byte { return w.out }
 // Bit accumulator state (bsBuff, bsLive) is unchanged.
 func (w *BitWriter) ResetOutput() {
 	w.out = w.out[:0]
+}
+
+// ResetForNewStream clears output and partial-bit state before starting another bzip2 stream.
+func (w *BitWriter) ResetForNewStream() {
+	w.out = w.out[:0]
+	w.bsBuff = 0
+	w.bsLive = 0
 }
 
 // Grow reserves at least n bytes of capacity in the output buffer.

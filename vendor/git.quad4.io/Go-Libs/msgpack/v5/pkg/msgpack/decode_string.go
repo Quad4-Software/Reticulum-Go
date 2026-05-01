@@ -25,7 +25,10 @@ func (d *Decoder) bytesLen(c byte) (int, error) {
 		return int(n), err
 	case msgpcode.Str32, msgpcode.Bin32:
 		n, err := d.uint32()
-		return int(n), err
+		if err != nil {
+			return 0, err
+		}
+		return uint32ToInt(n, "string/bytes length")
 	}
 
 	return 0, fmt.Errorf("msgpack: invalid code=%x decoding string/bytes length", c)

@@ -15,9 +15,10 @@ import (
 )
 
 const (
-	bytesAllocLimit = 1 << 20 // 1mb
-	sliceAllocLimit = 1e6     // 1m elements
-	maxMapSize      = 1e6     // 1m elements
+	bytesAllocLimit         = 1 << 20 // 1mb
+	sliceAllocLimit         = 1e6     // 1m elements
+	maxMapSize              = 1e6     // 1m elements
+	defaultDecodeDepthLimit = 10_000
 )
 
 const (
@@ -90,6 +91,8 @@ type Decoder struct {
 	buf        []byte
 	rec        []byte
 	dict       []string
+	depth      int
+	maxDepth   int
 	flags      uint32
 }
 
@@ -99,7 +102,9 @@ type Decoder struct {
 // beyond the requested msgpack values. Buffering can be disabled
 // by passing a reader that implements io.ByteScanner interface.
 func NewDecoder(r io.Reader) *Decoder {
-	d := new(Decoder)
+	d := &Decoder{
+		maxDepth: defaultDecodeDepthLimit,
+	}
 	d.Reset(r)
 	return d
 }
@@ -116,6 +121,7 @@ func (d *Decoder) ResetDict(r io.Reader, dict []string) {
 	d.flags = 0
 	d.structTag = ""
 	d.dict = dict
+	d.depth = 0
 }
 
 func (d *Decoder) WithDict(dict []string, fn func(*Decoder) error) error {
@@ -199,6 +205,18 @@ func (d *Decoder) DisableAllocLimit(on bool) {
 	} else {
 		d.flags &= ^disableAllocLimitFlag
 	}
+}
+
+// SetDecodeDepthLimit caps nested decode/skip recursion depth.
+//
+// This is a defense-in-depth guard against hostile inputs crafted to trigger
+// stack exhaustion. Values <= 0 restore the default limit.
+func (d *Decoder) SetDecodeDepthLimit(limit int) {
+	if limit <= 0 {
+		d.maxDepth = defaultDecodeDepthLimit
+		return
+	}
+	d.maxDepth = limit
 }
 
 // Buffered returns a reader of the data remaining in the Decoder's buffer.
@@ -338,6 +356,11 @@ func (d *Decoder) DecodeMulti(v ...interface{}) error {
 }
 
 func (d *Decoder) decodeInterfaceCond() (interface{}, error) {
+	if err := d.enterDepth(); err != nil {
+		return nil, err
+	}
+	defer d.leaveDepth()
+
 	if d.flags&looseInterfaceDecodingFlag != 0 {
 		return d.DecodeInterfaceLoose()
 	}
@@ -345,6 +368,11 @@ func (d *Decoder) decodeInterfaceCond() (interface{}, error) {
 }
 
 func (d *Decoder) DecodeValue(v reflect.Value) error {
+	if err := d.enterDepth(); err != nil {
+		return err
+	}
+	defer d.leaveDepth()
+
 	decode := getDecoder(v.Type())
 	return decode(d, v)
 }
@@ -543,6 +571,11 @@ func (d *Decoder) DecodeInterfaceLoose() (interface{}, error) {
 
 // Skip skips next value.
 func (d *Decoder) Skip() error {
+	if err := d.enterDepth(); err != nil {
+		return err
+	}
+	defer d.leaveDepth()
+
 	c, err := d.readCode()
 	if err != nil {
 		return err
@@ -586,6 +619,25 @@ func (d *Decoder) Skip() error {
 	}
 
 	return fmt.Errorf("msgpack: unknown code %x", c)
+}
+
+func (d *Decoder) enterDepth() error {
+	limit := d.maxDepth
+	if limit <= 0 {
+		limit = defaultDecodeDepthLimit
+	}
+	d.depth++
+	if d.depth > limit {
+		d.depth--
+		return fmt.Errorf("msgpack: decode nesting depth exceeds limit=%d", limit)
+	}
+	return nil
+}
+
+func (d *Decoder) leaveDepth() {
+	if d.depth > 0 {
+		d.depth--
+	}
 }
 
 func (d *Decoder) DecodeRaw() (RawMessage, error) {
@@ -722,4 +774,12 @@ func min(a, b int) int { //nolint:unparam
 		return a
 	}
 	return b
+}
+
+func uint32ToInt(n uint32, hint string) (int, error) {
+	const maxInt = int(^uint(0) >> 1)
+	if uint64(n) > uint64(maxInt) {
+		return 0, fmt.Errorf("msgpack: %s=%d overflows int", hint, n)
+	}
+	return int(n), nil
 }

@@ -22,6 +22,23 @@ type Scratch struct {
 	selectorMtf   []uint8
 }
 
+// PrepareEncoderAux pre-sizes auxiliary buffers reused across blocks (selector MTF streams,
+// symbol frequency slices). Suffix-sort and MTF vectors still grow lazily by block length.
+func (s *Scratch) PrepareEncoderAux() {
+	if cap(s.mtfFreq) < BZMaxAlphaSize {
+		s.mtfFreq = make([]int32, BZMaxAlphaSize)
+	}
+	if cap(s.yy) < 256 {
+		s.yy = make([]byte, 256)
+	}
+	if cap(s.selector) < BZMaxSelectors {
+		s.selector = make([]uint8, 0, BZMaxSelectors)
+	}
+	if cap(s.selectorMtf) < BZMaxSelectors {
+		s.selectorMtf = make([]uint8, BZMaxSelectors)
+	}
+}
+
 func (s *Scratch) grow(n int) {
 	if cap(s.sa) >= n {
 		s.sa = s.sa[:n]
@@ -50,15 +67,24 @@ func (s *Scratch) grow(n int) {
 func countingSortStableBySecondary(sa, dst []int, n, k int, rank []int, cnt []int) {
 	B := maxInt(256, n)
 	clear(cnt[:B+1])
-	for i := 0; i < n; i++ {
-		key := rank[(sa[i]+k)%n]
+	nMinusK := n - k
+	for i := range n {
+		idx := sa[i] + k
+		if sa[i] >= nMinusK {
+			idx -= n
+		}
+		key := rank[idx]
 		cnt[key]++
 	}
 	for i := 1; i < B; i++ {
 		cnt[i] += cnt[i-1]
 	}
 	for i := n - 1; i >= 0; i-- {
-		key := rank[(sa[i]+k)%n]
+		idx := sa[i] + k
+		if sa[i] >= nMinusK {
+			idx -= n
+		}
+		key := rank[idx]
 		cnt[key]--
 		dst[cnt[key]] = sa[i]
 	}
@@ -68,7 +94,7 @@ func countingSortStableBySecondary(sa, dst []int, n, k int, rank []int, cnt []in
 func countingSortStableByPrimary(sa, dst []int, n int, rank []int, cnt []int) {
 	B := maxInt(256, n)
 	clear(cnt[:B+1])
-	for i := 0; i < n; i++ {
+	for i := range n {
 		key := rank[sa[i]]
 		cnt[key]++
 	}
@@ -107,15 +133,24 @@ func buildCyclicSuffixArray(block []byte, sc *Scratch) (sa []int, origPtr int) {
 		countingSortStableBySecondary(sa, sa2, n, k, rank, cnt)
 		countingSortStableByPrimary(sa2, sa, n, rank, cnt)
 		tmp[sa[0]] = 0
+		nMinusK := n - k
 		for i := 1; i < n; i++ {
 			a, b := sa[i-1], sa[i]
-			same := rank[a] == rank[b] && rank[(a+k)%n] == rank[(b+k)%n]
+			ka := a + k
+			if a >= nMinusK {
+				ka -= n
+			}
+			kb := b + k
+			if b >= nMinusK {
+				kb -= n
+			}
+			same := rank[a] == rank[b] && rank[ka] == rank[kb]
 			tmp[sa[i]] = tmp[sa[i-1]]
 			if !same {
 				tmp[sa[i]]++
 			}
 		}
-		copy(rank, tmp)
+		rank, tmp = tmp, rank
 		if rank[sa[n-1]] == n-1 {
 			break
 		}

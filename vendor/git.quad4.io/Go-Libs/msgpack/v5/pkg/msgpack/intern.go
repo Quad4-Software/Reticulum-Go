@@ -176,7 +176,11 @@ func (d *Decoder) decodeInternedString(intern bool) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return d.decodeInternedStringWithLen(int(n), intern)
+		nn, err := uint32ToInt(n, "interned string length")
+		if err != nil {
+			return "", err
+		}
+		return d.decodeInternedStringWithLen(nn, intern)
 	}
 
 	return "", unexpectedCodeError{
@@ -204,7 +208,7 @@ func (d *Decoder) decodeInternedStringIndex(extLen int) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		return int(n), nil
+		return uint32ToInt(n, "interned string index")
 	}
 
 	err := fmt.Errorf("msgpack: unsupported ext len=%d decoding interned string", extLen)

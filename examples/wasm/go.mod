@@ -8,7 +8,7 @@ require (
 )
 
 require (
-	git.quad4.io/Go-Libs/msgpack/v5 v5.6.1 // indirect
+	git.quad4.io/Go-Libs/msgpack/v5 v5.7.0 // indirect
 	git.quad4.io/Go-Libs/tagparser/v2 v2.1.0 // indirect
 	golang.org/x/crypto v0.50.0 // indirect
 )

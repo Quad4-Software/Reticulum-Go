@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"time"
+	"unsafe"
 
 	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack/msgpcode"
 )
@@ -18,6 +19,11 @@ func init() {
 }
 
 func timeEncoder(e *Encoder, v reflect.Value) ([]byte, error) {
+	if v.CanAddr() {
+		// #nosec G103 -- reads addressable reflect.Value as time.Time to avoid boxing allocation.
+		tm := (*time.Time)(unsafe.Pointer(v.UnsafeAddr()))
+		return e.encodeTime(*tm), nil
+	}
 	return e.encodeTime(v.Interface().(time.Time)), nil
 }
 

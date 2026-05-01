@@ -12,4 +12,6 @@ var (
 	ErrLevelRange = errors.New("bzip2: level must be between 1 and 9")
 	// ErrNilWriter is returned when NewWriter is called with a nil destination writer.
 	ErrNilWriter = errors.New("bzip2: nil io.Writer")
+	// ErrWriterUninitialized is returned when methods are called on a zero-value writer.
+	ErrWriterUninitialized = errors.New("bzip2: writer not initialized")
 )

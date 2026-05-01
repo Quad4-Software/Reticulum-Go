@@ -5,7 +5,7 @@ go 1.26.2
 replace git.quad4.io/Networks/Reticulum-Go => ../..
 
 require (
-	git.quad4.io/Go-Libs/msgpack/v5 v5.6.1
+	git.quad4.io/Go-Libs/msgpack/v5 v5.7.0
 	git.quad4.io/Networks/Reticulum-Go v0.9.1
 )
 

@@ -55,7 +55,10 @@ func generateMTFValues(block []byte, sa []int, unseqToSeq [256]byte, nInUse int,
 	eob := nInUse + 1
 	zPend := 0
 	for i := range n {
-		j := (sa[i] - 1 + n) % n
+		j := sa[i] - 1
+		if j < 0 {
+			j = n - 1
+		}
 		llI := unseqToSeq[block[j]]
 		if yy[0] == llI {
 			zPend++

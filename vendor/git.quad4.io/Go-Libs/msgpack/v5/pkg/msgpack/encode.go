@@ -1,7 +1,6 @@
 package msgpack
 
 import (
-	"bytes"
 	"io"
 	"reflect"
 	"sync"
@@ -44,6 +43,20 @@ func (bw *byteWriter) WriteByte(c byte) error {
 	return err
 }
 
+type appendWriter struct {
+	b []byte
+}
+
+func (w *appendWriter) Write(p []byte) (int, error) {
+	w.b = append(w.b, p...)
+	return len(p), nil
+}
+
+func (w *appendWriter) WriteByte(c byte) error {
+	w.b = append(w.b, c)
+	return nil
+}
+
 //------------------------------------------------------------------------------
 
 var encPool = sync.Pool{
@@ -70,21 +83,42 @@ const marshalInitialBufSize = 64
 
 // Marshal returns the MessagePack encoding of v.
 func Marshal(v interface{}) ([]byte, error) {
+	return AppendMarshal(nil, v)
+}
+
+// AppendMarshal appends the MessagePack encoding of v into dst[:0] and
+// returns the resulting slice.
+//
+// The returned bytes may reuse dst's backing array. This allows callers to
+// keep a reusable scratch buffer and avoid per-call output allocations in
+// hot paths.
+func AppendMarshal(dst []byte, v interface{}) ([]byte, error) {
 	enc := GetEncoder()
-
-	var buf bytes.Buffer
-	buf.Grow(marshalInitialBufSize)
-	enc.Reset(&buf)
-
-	err := enc.Encode(v)
-	b := buf.Bytes()
-
+	enc.Reset(nil)
+	b, err := enc.Append(dst, v)
 	PutEncoder(enc)
+	return b, err
+}
 
+// Append encodes v into dst[:0] and returns the resulting bytes.
+//
+// The returned bytes may reuse dst's backing array. Reusing both an Encoder
+// and dst allows hot paths to avoid per-call output allocations.
+func (e *Encoder) Append(dst []byte, v interface{}) ([]byte, error) {
+	aw := &e.appendBuf
+	aw.b = dst[:0]
+	if cap(dst) == 0 {
+		aw.b = make([]byte, 0, marshalInitialBufSize)
+	}
+
+	oldWriter := e.w
+	e.w = aw
+	err := e.Encode(v)
+	e.w = oldWriter
 	if err != nil {
 		return nil, err
 	}
-	return b, err
+	return aw.b, nil
 }
 
 type Encoder struct {
@@ -93,6 +127,7 @@ type Encoder struct {
 	structTag string
 	buf       []byte
 	timeBuf   []byte
+	appendBuf appendWriter
 	flags     uint32
 }
 

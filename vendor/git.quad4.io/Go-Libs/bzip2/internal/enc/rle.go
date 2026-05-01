@@ -84,6 +84,22 @@ func (e *RLEEncoder) AddByte(zch byte) (consumed bool, blockFull bool) {
 	return true, len(e.Block) >= e.NBlockMax
 }
 
+// AddBytes ingests as much of p as fits into the current block and run state.
+// It returns the count consumed from p and whether the block is now full.
+func (e *RLEEncoder) AddBytes(p []byte) (n int, blockFull bool) {
+	for n < len(p) {
+		consumed, full := e.AddByte(p[n])
+		if !consumed {
+			return n, true
+		}
+		n++
+		if full {
+			return n, true
+		}
+	}
+	return n, false
+}
+
 // FinalCRC returns the CRC of the current block per bzip2 (bitwise complement of internal state).
 func (e *RLEEncoder) FinalCRC() uint32 {
 	return ^e.BlockCRC
