@@ -58,7 +58,7 @@ func (r *Reticulum) tearDownInterface(iface interfaces.Interface) {
 }
 
 // ReloadInterfaces reconciles network interfaces against newCfg without
-// restarting the transport or identity. Disabled or removed interfaces are
+// restarting the transport. Disabled or removed interfaces are
 // stopped and unregistered; unchanged enabled entries are kept; new or
 // reconfigured entries are built, started, and registered via ReplaceInterface.
 func (r *Reticulum) ReloadInterfaces(newCfg *common.ReticulumConfig) error {

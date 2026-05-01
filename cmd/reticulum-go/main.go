@@ -3,7 +3,6 @@
 package main
 
 import (
-	"encoding/binary"
 	"fmt"
 	"os"
 	"os/signal"
@@ -14,25 +13,14 @@ import (
 	"time"
 
 	"git.quad4.io/Networks/Reticulum-Go/internal/config"
-	"git.quad4.io/Networks/Reticulum-Go/internal/storage"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/buffer"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/channel"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/destination"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/interfaces"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
-)
-
-const (
-	AnnounceRateTarget  = 3600
-	AnnounceRateGrace   = 3
-	AnnounceRatePenalty = 7200
-	MaxAnnounceHops     = 128
-	AppName             = "Reticulum-Go Test Node"
-	AppAspect           = "node"
 )
 
 type Reticulum struct {
@@ -45,14 +33,6 @@ type Reticulum struct {
 	announceHistory   map[string]announceRecord
 	announceHistoryMu sync.RWMutex
 	reloadMu          sync.Mutex
-	identity          *identity.Identity
-	destination       *destination.Destination
-	storage           *storage.Manager
-
-	// Node-specific information
-	maxTransferSize int16 // Max transfer size in KB
-	nodeEnabled     bool  // Whether this node is enabled
-	nodeTimestamp   int64 // Last node announcement timestamp
 }
 
 type announceRecord struct {
@@ -65,74 +45,13 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 		cfg = config.DefaultConfig()
 	}
 
-	// Set default app name and aspect if not provided
-	if cfg.AppName == "" {
-		cfg.AppName = AppName
-	}
-	if cfg.AppAspect == "" {
-		cfg.AppAspect = AppAspect
-	}
-
 	if err := initializeDirectories(); err != nil {
 		return nil, fmt.Errorf("failed to initialize directories: %v", err)
 	}
 	debug.Log(debug.DebugInfo, "Directories initialized")
 
-	// Initialize storage manager
-	storageMgr, err := storage.NewManager()
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize storage manager: %v", err)
-	}
-	debug.Log(debug.DebugInfo, "Storage manager initialized")
-
 	t := transport.NewTransport(cfg)
 	debug.Log(debug.DebugInfo, "Transport initialized")
-
-	// Load or create identity
-	identityPath := storageMgr.GetIdentityPath()
-
-	var ident *identity.Identity
-
-	if _, err := os.Stat(identityPath); err == nil {
-		// Identity file exists, load it (64-byte software or hardware-bound descriptor)
-		ident, err = identity.LoadIdentityFile(identityPath, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load identity: %v", err)
-		}
-		debug.Log(debug.DebugError, "Loaded existing identity", "hash", fmt.Sprintf("%x", ident.Hash()))
-	} else {
-		// Create new identity
-		ident, err = identity.NewIdentity()
-		if err != nil {
-			return nil, fmt.Errorf("failed to create identity: %v", err)
-		}
-		debug.Log(debug.DebugError, "Created new identity", "hash", fmt.Sprintf("%x", ident.Hash()))
-
-		// Save it to disk
-		if err := ident.ToFile(identityPath); err != nil {
-			debug.Log(debug.DebugError, "Failed to save identity to file", "error", err)
-		} else {
-			debug.Log(debug.DebugInfo, "Identity saved to file", "path", identityPath)
-		}
-	}
-
-	// Create destination
-	debug.Log(debug.DebugInfo, "Creating destination...")
-	dest, err := destination.New(
-		ident,
-		destination.In,
-		destination.Single,
-		"nomadnetwork",
-		t,
-		"node",
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create destination: %v", err)
-	}
-	debug.Log(debug.DebugInfo, "Created destination with hash", "hash", fmt.Sprintf("%x", dest.GetHash()))
-
-	// Set node metadata
-	nodeTimestamp := time.Now().Unix()
 
 	r := &Reticulum{
 		config:          cfg,
@@ -142,23 +61,7 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 		buffers:         make(map[string]*buffer.Buffer),
 		pathRequests:    make(map[string]*common.PathRequest),
 		announceHistory: make(map[string]announceRecord),
-		identity:        ident,
-		destination:     dest,
-		storage:         storageMgr,
-
-		// Node-specific information
-		maxTransferSize: 500,  // Default 500KB
-		nodeEnabled:     true, // Enabled by default
-		nodeTimestamp:   nodeTimestamp,
 	}
-
-	// Enable destination features
-	dest.AcceptsLinks(true)
-	ratchetPath := filepath.Join(storageMgr.GetRatchetsPath(), r.identity.GetHexHash())
-	dest.EnableRatchets(ratchetPath)
-	dest.SetProofStrategy(destination.ProveApp)
-
-	debug.Log(debug.DebugVerbose, "Configured destination features")
 
 	// Initialize interfaces from config
 	for name, ifaceConfig := range cfg.Interfaces {
@@ -453,30 +356,6 @@ func (r *Reticulum) Start() error {
 		debug.Log(debug.DebugInfo, "No interface online yet; continuing startup and waiting for dynamic bring-up")
 	}
 
-	// Send initial announce
-	debug.Log(debug.DebugError, "Sending initial announce")
-	nodeName := "Reticulum-Go Test Node"
-	r.destination.SetDefaultAppData([]byte(nodeName))
-	if err := r.destination.Announce(false, nil, nil); err != nil {
-		debug.Log(debug.DebugCritical, "Failed to send initial announce", "error", err)
-	}
-
-	// Start periodic announce goroutine
-	go func() {
-		// Wait a bit before the first announce
-		time.Sleep(5 * time.Second)
-
-		for {
-			debug.Log(debug.DebugInfo, "Announcing destination...")
-			err := r.destination.Announce(false, nil, nil)
-			if err != nil {
-				debug.Log(debug.DebugCritical, "Could not send announce", "error", err)
-			}
-
-			time.Sleep(60 * time.Second)
-		}
-	}()
-
 	debug.Log(debug.DebugError, "Reticulum started successfully")
 	return nil
 }
@@ -539,76 +418,18 @@ func (h *AnnounceHandler) AspectFilter() []string {
 }
 
 func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id any, appData []byte, hops uint8) error {
-	debug.Log(debug.DebugInfo, "Received announce", "hash", fmt.Sprintf("%x", destHash), "hops", hops)
-	debug.Log(debug.DebugPackets, "Raw announce data", "data", fmt.Sprintf("%x", appData))
-	debug.Log(debug.DebugInfo, "MAIN HANDLER: Received announce", "hash", fmt.Sprintf("%x", destHash), "appData_len", len(appData), "hops", hops)
+	debug.Log(debug.DebugInfo, "Received announce", "hash", fmt.Sprintf("%x", destHash), "appData_len", len(appData), "hops", hops)
+	debug.Log(debug.DebugPackets, "Announce appData", "data", fmt.Sprintf("%x", appData))
 
-	var isNode bool
-	var nodeEnabled bool
-	var nodeTimestamp int64
-	var nodeMaxSize int16
-
-	// Parse msgpack appData from transport announce format
-	if len(appData) > 0 {
-		// appData is msgpack array [name, customData]
-		if appData[0] == 0x92 { // array of 2 elements
-			// Skip array header and first element (name)
-			pos := 1
-			if pos < len(appData) && appData[pos] == 0xC4 { // bin 8
-				nameLen := int(appData[pos+1])
-				pos += 2 + nameLen
-				if pos < len(appData) && appData[pos] == 0xC4 { // bin 8
-					dataLen := int(appData[pos+1])
-					if pos+2+dataLen <= len(appData) {
-						customData := appData[pos+2 : pos+2+dataLen]
-						nodeName := string(customData)
-						debug.Log(debug.DebugInfo, "Parsed node name", "name", nodeName)
-						debug.Log(debug.DebugInfo, "Announced node", "name", nodeName)
-					}
-				}
-			}
-		} else {
-			// Fallback: treat as raw node name
-			nodeName := string(appData)
-			debug.Log(debug.DebugInfo, "Raw node name", "name", nodeName)
-			debug.Log(debug.DebugInfo, "Announced node", "name", nodeName)
-		}
-	} else {
-		debug.Log(debug.DebugInfo, "No appData (empty announce)")
-	}
-
-	// Type assert and log identity details
-	if identity, ok := id.(*identity.Identity); ok {
-		debug.Log(debug.DebugAll, "Identity details")
-		debug.Log(debug.DebugAll, "Identity hash", "hash", identity.GetHexHash())
-		debug.Log(debug.DebugAll, "Identity public key", "key", fmt.Sprintf("%x", identity.GetPublicKey()))
-
-		ratchets := identity.GetRatchets()
-		debug.Log(debug.DebugAll, "Active ratchets", "count", len(ratchets))
-
-		if len(ratchets) > 0 {
-			ratchetKey := identity.GetCurrentRatchetKey()
-			if ratchetKey != nil {
-				ratchetID := identity.GetRatchetID(ratchetKey)
-				debug.Log(debug.DebugAll, "Current ratchet ID", "id", fmt.Sprintf("%x", ratchetID))
-			}
-		}
-
-		// Create a better record with more info
-		recordType := "peer"
-		if isNode {
-			recordType = "node"
-			debug.Log(debug.DebugInfo, "Storing node in announce history", "enabled", nodeEnabled, "timestamp", nodeTimestamp, "maxsize", fmt.Sprintf("%dKB", nodeMaxSize))
-		}
+	if annID, ok := id.(*identity.Identity); ok {
+		debug.Log(debug.DebugAll, "Announce identity", "hash", annID.GetHexHash(), "pubkey", fmt.Sprintf("%x", annID.GetPublicKey()))
 
 		h.reticulum.announceHistoryMu.Lock()
-		h.reticulum.announceHistory[identity.GetHexHash()] = announceRecord{
+		h.reticulum.announceHistory[annID.GetHexHash()] = announceRecord{
 			timestamp: time.Now().Unix(),
 			appData:   appData,
 		}
 		h.reticulum.announceHistoryMu.Unlock()
-
-		debug.Log(debug.DebugVerbose, "Stored announce in history", "type", recordType, "identity", identity.GetHexHash())
 	}
 
 	return nil
@@ -616,37 +437,4 @@ func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id any, appData []by
 
 func (h *AnnounceHandler) ReceivePathResponses() bool {
 	return true
-}
-
-func (r *Reticulum) GetDestination() *destination.Destination {
-	return r.destination
-}
-
-func (r *Reticulum) createNodeAppData() []byte {
-	// Create a msgpack array with 3 elements
-	// [Bool, Int32, Int16] for [enable, timestamp, max_transfer_size]
-	appData := []byte{0x93} // Array with 3 elements
-
-	// Element 0: Boolean for enable/disable peer
-	if r.nodeEnabled {
-		appData = append(appData, 0xC3) // true
-	} else {
-		appData = append(appData, 0xC2) // false
-	}
-
-	// Element 1: Int32 timestamp (current time)
-	r.nodeTimestamp = time.Now().Unix()
-	appData = append(appData, 0xD2) // int32 format
-	timeBytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(timeBytes, uint32(r.nodeTimestamp)) // #nosec G115
-	appData = append(appData, timeBytes...)
-
-	// Element 2: Int16 max transfer size in KB
-	appData = append(appData, 0xD1) // int16 format
-	sizeBytes := make([]byte, 2)
-	binary.BigEndian.PutUint16(sizeBytes, uint16(r.maxTransferSize)) // #nosec G115
-	appData = append(appData, sizeBytes...)
-
-	debug.Log(debug.DebugAll, "Created node appData", "enable", r.nodeEnabled, "timestamp", r.nodeTimestamp, "maxsize", r.maxTransferSize, "data", fmt.Sprintf("%x", appData))
-	return appData
 }
