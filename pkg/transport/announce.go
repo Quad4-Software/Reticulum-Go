@@ -131,10 +131,7 @@ func (am *AnnounceManager) GetNextAnnounce(iface string) *AnnounceEntry {
 }
 
 func calculatePriority(hopCount int, retryCount int) float64 {
-	den := hopCount
-	if den < 1 {
-		den = 1
-	}
+	den := max(hopCount, 1)
 	basePriority := 1.0 / float64(den)
 	retryPenalty := float64(retryCount) * MinPriorityDelta
 	return basePriority - retryPenalty
