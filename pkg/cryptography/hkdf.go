@@ -31,8 +31,8 @@ func implDeriveKey(secret, salt, info []byte, length int) ([]byte, error) {
 	pseudorandomKey.Write(secret)
 	prk := pseudorandomKey.Sum(nil)
 
-	block := []byte{}
-	derived := []byte{}
+	block := make([]byte, 0, hashLen)
+	derived := make([]byte, 0, ((length+hashLen-1)/hashLen)*hashLen)
 
 	iterations := (length + hashLen - 1) / hashLen
 	if iterations > 255 {
@@ -42,8 +42,9 @@ func implDeriveKey(secret, salt, info []byte, length int) ([]byte, error) {
 		h := hmac.New(sha256.New, prk)
 		h.Write(block)
 		h.Write(info)
-		counter := byte(i + 1)
-		h.Write([]byte{counter})
+		var counter [1]byte
+		counter[0] = byte(i + 1)
+		h.Write(counter[:])
 		block = h.Sum(nil)
 		derived = append(derived, block...)
 	}
