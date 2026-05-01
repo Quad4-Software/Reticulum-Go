@@ -193,7 +193,7 @@ func DecodeInfo(raw []byte) (Info, error) {
 		return Info{}, fmt.Errorf("discovery: map length %d exceeds bounds (max=%d, payload=%d)", n, MaxInfoFields, len(raw))
 	}
 	out := Info{}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		var keyByte byte
 		if err := dec.Decode(&keyByte); err != nil {
 			return Info{}, fmt.Errorf("discovery: decode key %d: %w", i, err)
