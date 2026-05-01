@@ -17,7 +17,7 @@ func TestBlackholeNoGoroutineLeak(t *testing.T) {
 	runtime.GC()
 	baseline := runtime.NumGoroutine()
 
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		dir := t.TempDir()
 		newLocal(t)
 		tab := New(dir)

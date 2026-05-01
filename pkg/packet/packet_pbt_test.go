@@ -34,10 +34,7 @@ func genValidPacket(r *rand.Rand, size int) *Packet {
 	if headerType == HeaderType2 {
 		overhead = 35
 	}
-	maxData := MTU - overhead
-	if maxData < 0 {
-		maxData = 0
-	}
+	maxData := max(MTU-overhead, 0)
 	if size > 0 && size < maxData {
 		maxData = size
 	}

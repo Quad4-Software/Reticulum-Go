@@ -532,7 +532,7 @@ func TestLiveInteropGoTwoResourcesToPythonSameLink(t *testing.T) {
 	lnk.Start()
 
 	payload := []byte("interop-resource-payload")
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		res, err := resource.New(payload, false)
 		if err != nil {
 			t.Fatalf("resource: %v", err)

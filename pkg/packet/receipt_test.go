@@ -216,3 +216,42 @@ func TestPacketReceiptCallbacks(t *testing.T) {
 		t.Error("Delivery callback was not called")
 	}
 }
+
+func TestPacketReceiptGetHashReturnsCopy(t *testing.T) {
+	testIdent, err := identity.NewIdentity()
+	if err != nil {
+		t.Fatalf("Failed to create identity: %v", err)
+	}
+
+	pkt := &Packet{
+		HeaderType:      HeaderType1,
+		PacketType:      PacketTypeData,
+		TransportType:   0,
+		Context:         ContextNone,
+		ContextFlag:     FlagUnset,
+		Hops:            0,
+		DestinationType: 0x00,
+		DestinationHash: testIdent.Hash(),
+		Data:            []byte("hash-copy"),
+		CreateReceipt:   true,
+	}
+	if err := pkt.Pack(); err != nil {
+		t.Fatalf("Failed to pack packet: %v", err)
+	}
+
+	receipt := NewPacketReceipt(pkt)
+
+	h1 := receipt.GetHash()
+	if len(h1) == 0 {
+		t.Fatal("empty receipt hash")
+	}
+	h1[0] ^= 0xFF
+
+	h2 := receipt.GetHash()
+	if h1[0] == h2[0] {
+		t.Fatal("GetHash returned aliased internal slice")
+	}
+	if !receipt.MatchesHash(h2) {
+		t.Fatal("MatchesHash should match fresh hash bytes")
+	}
+}

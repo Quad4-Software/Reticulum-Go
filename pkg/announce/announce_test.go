@@ -168,7 +168,7 @@ func TestRandomHashChangesPerAnnounce(t *testing.T) {
 	const iterations = 8
 
 	prev := make(map[string]struct{}, iterations)
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		ann, err := New(id, destHash, "testapp", []byte("appdata"), false, cfg)
 		if err != nil {
 			t.Fatalf("New: %v", err)

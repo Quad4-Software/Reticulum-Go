@@ -86,10 +86,7 @@ func TestTCPClient_HDLCFramingBombDoesNotOverflow(t *testing.T) {
 	if memAfter > memBefore {
 		growth = memAfter - memBefore
 	}
-	memBudget := maxHDLC * 8
-	if memBudget < 1<<20 {
-		memBudget = 1 << 20
-	}
+	memBudget := max(maxHDLC*8, 1<<20)
 	if growth > memBudget {
 		t.Fatalf("readLoop retained %d bytes after %d-byte bomb (budget=%d, maxHDLC=%d)",
 			growth, bombSize, memBudget, maxHDLC)
@@ -193,10 +190,7 @@ func TestTCPServer_HDLCFramingBombDoesNotOverflow(t *testing.T) {
 	if memAfter > memBefore {
 		growth = memAfter - memBefore
 	}
-	memBudget := maxHDLC * 8
-	if memBudget < 1<<20 {
-		memBudget = 1 << 20
-	}
+	memBudget := max(maxHDLC*8, 1<<20)
 	if growth > memBudget {
 		t.Fatalf("readHDLCLoop retained %d bytes after %d-byte bomb (budget=%d, maxHDLC=%d)",
 			growth, bombSize, memBudget, maxHDLC)

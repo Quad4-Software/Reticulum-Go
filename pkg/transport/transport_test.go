@@ -98,10 +98,10 @@ func TestDestinationRegistration(t *testing.T) {
 	tr.RegisterDestination(destHash, "test-dest")
 
 	tr.mutex.RLock()
-	dest, ok := tr.destinations[string(destHash)]
+	dest, ok := tr.destinations[hash16FromSlice(destHash)]
 	tr.mutex.RUnlock()
 
-	if !ok || dest != "test-dest" {
+	if !ok || dest.raw != "test-dest" {
 		t.Error("Destination not registered correctly")
 	}
 }

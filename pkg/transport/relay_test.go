@@ -404,6 +404,33 @@ func TestRequestPathThrottle(t *testing.T) {
 	}
 }
 
+// TestRequestPathDoesNotMutateInputHash ensures RequestPath never appends
+// onto caller-owned destination-hash storage. This guards against
+// side-effects when the caller provides a short slice with spare capacity.
+func TestRequestPathDoesNotMutateInputHash(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+	tr.SetIdentity(mustIdentity(t))
+
+	out := newRelayIface("out")
+	if err := tr.RegisterInterface("out", out); err != nil {
+		t.Fatalf("register out: %v", err)
+	}
+
+	backing := make([]byte, 32)
+	copy(backing[:16], bytes.Repeat([]byte{0x33}, 16))
+	destHash := backing[:16]
+	before := append([]byte(nil), backing...)
+
+	if err := tr.RequestPath(destHash, "out", nil, false); err != nil {
+		t.Fatalf("RequestPath: %v", err)
+	}
+
+	if !bytes.Equal(backing, before) {
+		t.Fatalf("RequestPath mutated caller-owned destination backing: before=%x after=%x", before, backing)
+	}
+}
+
 // TestHandleAnnouncePacketRespectsTransportFlag checks that an
 // announce received from another node is NOT forwarded onto other
 // interfaces when EnableTransport is false. The receiving interface

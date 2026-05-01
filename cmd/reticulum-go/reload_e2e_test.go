@@ -102,7 +102,7 @@ func TestStopAfterReloadSerial(t *testing.T) {
 	}
 	r, cleanup := minimalReticulumUDP(t)
 	defer cleanup()
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		cfg := cloneReticulumCfg(r.config)
 		cfg.Interfaces["udpe2e"].Enabled = i%2 == 0
 		if err := r.ReloadInterfaces(cfg); err != nil {
@@ -121,17 +121,15 @@ func TestConcurrentReloadWhileStop(t *testing.T) {
 	r, cleanup := minimalReticulumUDP(t)
 	defer cleanup()
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for i := 0; i < 40; i++ {
+	wg.Go(func() {
+		for i := range 40 {
 			cfg := cloneReticulumCfg(r.config)
 			if cfg.Interfaces["udpe2e"] != nil {
 				cfg.Interfaces["udpe2e"].Enabled = i%2 == 0
 			}
 			_ = r.ReloadInterfaces(cfg)
 		}
-	}()
+	})
 	time.Sleep(8 * time.Millisecond)
 	if err := r.Stop(); err != nil {
 		t.Fatal(err)

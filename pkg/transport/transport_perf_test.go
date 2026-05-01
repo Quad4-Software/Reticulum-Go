@@ -14,6 +14,7 @@ import (
 )
 
 func BenchmarkSeenAnnouncesScale(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	sizes := []int{1000, 10000, 100000, 1000000}
 
 	for _, size := range sizes {
@@ -42,6 +43,7 @@ func BenchmarkSeenAnnouncesScale(b *testing.B) {
 }
 
 func BenchmarkReceiptRegistryScale(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	sizes := []int{1000, 10000, 100000}
 
 	for _, size := range sizes {

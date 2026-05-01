@@ -216,7 +216,7 @@ func TestAnnounceFanoutAndFreshness(t *testing.T) {
 
 	const announces = 4
 	before := time.Now().Unix()
-	for i := 0; i < announces; i++ {
+	for i := range announces {
 		if err := dest.Announce(false, nil, nil); err != nil {
 			t.Fatalf("Announce iter %d: %v", i, err)
 		}
@@ -289,7 +289,7 @@ func TestAnnounceSkipsOfflineOrDisabledInterfaces(t *testing.T) {
 		t.Fatalf("New destination: %v", err)
 	}
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if err := dest.Announce(false, nil, nil); err != nil {
 			t.Fatalf("Announce iter %d: %v", i, err)
 		}

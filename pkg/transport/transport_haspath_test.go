@@ -112,14 +112,12 @@ func TestHasPath_RefreshDuringEscalationKeepsEntry(t *testing.T) {
 	backdatePath(tr, dest, time.Duration(PathRequestTTL+5)*time.Second)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		time.Sleep(2 * time.Millisecond)
 		tr.UpdatePath(dest, []byte("next2"), iface.Name, 2)
-	}()
+	})
 
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		_ = tr.HasPath(dest)
 	}
 	wg.Wait()
@@ -147,11 +145,11 @@ func TestHasPath_ConcurrentReadersOnSingleExpiredPath(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(readers)
 	start := make(chan struct{})
-	for i := 0; i < readers; i++ {
+	for range readers {
 		go func() {
 			defer wg.Done()
 			<-start
-			for j := 0; j < iters; j++ {
+			for range iters {
 				_ = tr.HasPath(dest)
 			}
 		}()
@@ -180,7 +178,7 @@ func TestHasPath_ConcurrentReadersWritersManyDestinations(t *testing.T) {
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
 
-	for w := 0; w < 8; w++ {
+	for w := range 8 {
 		wg.Add(1)
 		go func(seed int) {
 			defer wg.Done()
@@ -201,7 +199,7 @@ func TestHasPath_ConcurrentReadersWritersManyDestinations(t *testing.T) {
 		}(w * 17)
 	}
 
-	for r := 0; r < 32; r++ {
+	for r := range 32 {
 		wg.Add(1)
 		go func(seed int) {
 			defer wg.Done()
@@ -241,7 +239,7 @@ func TestHasPath_RaceAgainstAllPathReaders(t *testing.T) {
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
 
-	for r := 0; r < 16; r++ {
+	for r := range 16 {
 		wg.Add(1)
 		go func(seed int) {
 			defer wg.Done()
@@ -263,10 +261,8 @@ func TestHasPath_RaceAgainstAllPathReaders(t *testing.T) {
 		}(r * 13)
 	}
 
-	for w := 0; w < 4; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 4 {
+		wg.Go(func() {
 			for {
 				select {
 				case <-stop:
@@ -276,7 +272,7 @@ func TestHasPath_RaceAgainstAllPathReaders(t *testing.T) {
 				h := hashes[time.Now().UnixNano()%int64(dests)]
 				tr.UpdatePath(h, []byte("nh"), iface.Name, 2)
 			}
-		}()
+		})
 	}
 
 	time.Sleep(250 * time.Millisecond)
@@ -292,18 +288,16 @@ func TestHasPath_NoEarlyExitOnSlowReader(t *testing.T) {
 
 	var calls int64
 	var wg sync.WaitGroup
-	for i := 0; i < 8; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < 256; j++ {
+	for range 8 {
+		wg.Go(func() {
+			for range 256 {
 				if tr.HasPath(dest) {
 					t.Errorf("expired path returned true")
 					return
 				}
 				atomic.AddInt64(&calls, 1)
 			}
-		}()
+		})
 	}
 	wg.Wait()
 
@@ -350,6 +344,7 @@ func TestHasPath_DistinctKeysIndependent(t *testing.T) {
 }
 
 func BenchmarkHasPath_Hit(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	tr, iface := newHasPathTransport(b)
 	dest := randomHash(b, 16)
 	tr.UpdatePath(dest, []byte("nh"), iface.Name, 1)
@@ -360,6 +355,7 @@ func BenchmarkHasPath_Hit(b *testing.B) {
 }
 
 func BenchmarkHasPath_Miss(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	tr, _ := newHasPathTransport(b)
 	dest := randomHash(b, 16)
 	b.ResetTimer()
@@ -369,6 +365,7 @@ func BenchmarkHasPath_Miss(b *testing.B) {
 }
 
 func BenchmarkHasPath_ParallelMixed(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	tr, iface := newHasPathTransport(b)
 	const n = 64
 	hashes := make([][]byte, n)

@@ -21,10 +21,7 @@ func bz2Bomb(t *testing.T, decompressedLen int) []byte {
 	zeros := make([]byte, 64*1024)
 	remaining := decompressedLen
 	for remaining > 0 {
-		n := len(zeros)
-		if n > remaining {
-			n = remaining
-		}
+		n := min(len(zeros), remaining)
 		if _, err := w.Write(zeros[:n]); err != nil {
 			t.Fatalf("bzip2 write: %v", err)
 		}

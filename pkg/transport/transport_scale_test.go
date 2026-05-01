@@ -11,6 +11,7 @@ import (
 )
 
 func BenchmarkRoutingTableScale(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	sizes := []int{10, 100, 1000, 10000, 100000, 1000000}
 
 	for _, size := range sizes {
@@ -47,6 +48,7 @@ func BenchmarkRoutingTableScale(b *testing.B) {
 }
 
 func BenchmarkRoutingTableUpdates(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	sizes := []int{10, 100, 1000, 10000, 100000, 1000000}
 
 	for _, size := range sizes {

@@ -237,7 +237,7 @@ func buildLine(t testing.TB, n int) *simNetwork {
 
 func buildRing(t testing.TB, n int) *simNetwork {
 	net := newSimNetwork(t, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		net.link(t, i, (i+1)%n)
 	}
 	return net
@@ -253,7 +253,7 @@ func buildStar(t testing.TB, n int) *simNetwork {
 
 func buildMesh(t testing.TB, n int) *simNetwork {
 	net := newSimNetwork(t, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		for j := i + 1; j < n; j++ {
 			net.link(t, i, j)
 		}
@@ -270,7 +270,7 @@ func buildRandom(t testing.TB, n int, p float64, seed uint64) *simNetwork {
 	for i := 0; i < n-1; i++ {
 		net.link(t, i, i+1)
 	}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		for j := i + 2; j < n; j++ {
 			if rng.Float64() < p {
 				net.link(t, i, j)
@@ -315,7 +315,7 @@ func waitForPaths(nodes []*simNode, dest []byte, timeout time.Duration) (time.Du
 // header-stripping branch.
 func preloadLinePaths(nodes []*simNode, target []byte) {
 	last := len(nodes) - 1
-	for i := 0; i < last; i++ {
+	for i := range last {
 		ifc := nodes[i].ifaces[len(nodes[i].ifaces)-1]
 		nextHop := nodes[i+1].id.Hash()
 		hops := uint8(last - i)
@@ -416,7 +416,7 @@ func TestSimPartitionIsolation(t *testing.T) {
 	}
 	net := newSimNetwork(t, 6)
 	t.Cleanup(net.close)
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		net.link(t, i, i+1)
 	}
 	for i := 3; i < 5; i++ {
@@ -520,6 +520,7 @@ func TestSimMemoryFootprintAcrossNodes(t *testing.T) {
 // The whole network is rebuilt every iteration and torn down before
 // the next so transport and interface goroutines never accumulate.
 func BenchmarkSimAnnounceConvergence(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	for _, n := range []int{4, 8, 16} {
 		b.Run(fmt.Sprintf("Line-%d", n), func(b *testing.B) {
 			b.ReportAllocs()
@@ -543,6 +544,7 @@ func BenchmarkSimAnnounceConvergence(b *testing.B) {
 // across the whole network. The network is built once per
 // sub-benchmark and torn down via b.Cleanup.
 func BenchmarkSimPathLookupAcrossNodes(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	for _, n := range []int{8, 32, 128} {
 		b.Run(fmt.Sprintf("N-%d", n), func(b *testing.B) {
 			b.StopTimer()
@@ -573,6 +575,7 @@ func BenchmarkSimPathLookupAcrossNodes(b *testing.B) {
 // per-iteration end-to-end delivery cost. Backpressure on simIface
 // inboxes caps in-flight memory.
 func BenchmarkSimLineRelayThroughput(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	for _, hops := range []int{2, 4, 8} {
 		b.Run(fmt.Sprintf("Hops-%d", hops), func(b *testing.B) {
 			b.StopTimer()
@@ -612,6 +615,7 @@ func BenchmarkSimLineRelayThroughput(b *testing.B) {
 // node receives N-1 copies of the same announce; all but one must be
 // deduplicated by seenAnnounces.
 func BenchmarkSimMeshAnnounceLoad(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	for _, n := range []int{4, 8} {
 		b.Run(fmt.Sprintf("N-%d", n), func(b *testing.B) {
 			b.ReportAllocs()
@@ -634,6 +638,7 @@ func BenchmarkSimMeshAnnounceLoad(b *testing.B) {
 // the same line. Useful for spotting lock contention along the
 // transport's per-packet path.
 func BenchmarkSimConcurrentLineRelay(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	for _, workers := range []int{1, 4, 16} {
 		b.Run(fmt.Sprintf("Workers-%d", workers), func(b *testing.B) {
 			b.StopTimer()
@@ -656,14 +661,12 @@ func BenchmarkSimConcurrentLineRelay(b *testing.B) {
 			b.ReportAllocs()
 
 			var wg sync.WaitGroup
-			for w := 0; w < workers; w++ {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
+			for range workers {
+				wg.Go(func() {
 					for i := 0; i < perWorker; i++ {
 						_ = src.Send(pkt, "")
 					}
-				}()
+				})
 			}
 			wg.Wait()
 		})

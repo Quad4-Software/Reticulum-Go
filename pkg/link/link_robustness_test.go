@@ -384,6 +384,36 @@ func TestLinkRobustness_SendPacketRejectsFarOversize(t *testing.T) {
 	}
 }
 
+func TestLinkRobustness_LargeRequestResponseResourceCompletes(t *testing.T) {
+	initLink, respLink, cleanup := establishInteropLink(t)
+	defer cleanup()
+
+	largeResponse := bytes.Repeat([]byte("LARGE_RESPONSE_PAYLOAD_"), 2048)
+	respLink.destination.RegisterRequestHandler("echo_large", func(_ string, data []byte, _ []byte, _ []byte, _ *identity.Identity, _ int64) []byte {
+		_ = data
+		return largeResponse
+	}, destination.AllowAll, nil)
+
+	receipt, err := initLink.Request("echo_large", []byte("hello"), 10*time.Second)
+	if err != nil {
+		t.Fatalf("Request: %v", err)
+	}
+
+	respCh := make(chan []byte, 1)
+	receipt.SetResponseCallback(func(r *RequestReceipt) {
+		respCh <- append([]byte(nil), r.GetResponse()...)
+	})
+
+	select {
+	case got := <-respCh:
+		if !bytes.Equal(got, largeResponse) {
+			t.Fatalf("large response mismatch: got=%d want=%d", len(got), len(largeResponse))
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("large request response timeout")
+	}
+}
+
 func TestLinkRobustness_NoInboundResetsOnReceive(t *testing.T) {
 	initLink, respLink, cleanup := establishInteropLink(t)
 	defer cleanup()

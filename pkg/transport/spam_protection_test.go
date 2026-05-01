@@ -84,7 +84,7 @@ func TestIngressControlHoldsAnnounceFlood(t *testing.T) {
 		t.Fatal("missing in iface")
 	}
 
-	for i := 0; i < 12; i++ {
+	for range 12 {
 		id, err := identity.New()
 		if err != nil {
 			t.Fatalf("identity.New: %v", err)
@@ -142,7 +142,7 @@ func TestEgressAnnounceRateControlSuppressesRebroadcast(t *testing.T) {
 		t.Fatalf("identity.New: %v", err)
 	}
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		raw, _ := signedAnnounce(t, tr, id)
 		tr.HandlePacket(raw, in)
 		time.Sleep(50 * time.Millisecond)

@@ -46,7 +46,7 @@ def peer_destination(go_hash: bytes):
         return None
     return RNS.Destination(
         identity,
-        RNS.Destination.IN,
+        RNS.Destination.OUT,
         RNS.Destination.SINGLE,
         PAGE_APP,
         PAGE_ASPECT,
@@ -66,9 +66,13 @@ def main() -> int:
         cfg_dir = tempfile.mkdtemp(prefix="rns_interop_pageserver_")
 
     write_config(cfg_dir, listen_port, forward_port)
+    log_path = os.path.join(cfg_dir, "rns.log")
+    RNS.loglevel = 7
+    RNS.logdest = RNS.LOG_FILE
+    RNS.logfile = log_path
     RNS.Reticulum(cfg_dir)
 
-    sys.stdout.write("READY\n")
+    sys.stdout.write("READY rns_log=" + log_path + "\n")
     sys.stdout.flush()
 
     deadline = time.time() + timeout_sec
@@ -82,6 +86,7 @@ def main() -> int:
 
     if dest is None:
         sys.stderr.write("timeout: could not recall pageserver identity\n")
+        sys.stderr.write("rns_log=" + log_path + "\n")
         return 1
 
     state = {"done": False, "ok": False}
@@ -89,8 +94,14 @@ def main() -> int:
     def on_response(receipt):
         try:
             response = receipt.response or b""
+            if isinstance(response, (list, tuple)) and len(response) >= 2:
+                response = response[1]
             if isinstance(response, str):
                 response = response.encode("utf-8")
+            elif not isinstance(response, (bytes, bytearray)):
+                response = str(response).encode("utf-8", errors="replace")
+            else:
+                response = bytes(response)
 
             if expected_contains in response:
                 state["ok"] = True
@@ -107,11 +118,13 @@ def main() -> int:
                     + str(len(response))
                     + "\n"
                 )
+                sys.stderr.write("rns_log=" + log_path + "\n")
                 sys.stderr.flush()
         except Exception as exc:
             state["ok"] = False
             state["done"] = True
             sys.stderr.write("response callback error: " + str(exc) + "\n")
+            sys.stderr.write("rns_log=" + log_path + "\n")
             sys.stderr.flush()
 
     def on_link_established(link):
@@ -121,6 +134,7 @@ def main() -> int:
             state["ok"] = False
             state["done"] = True
             sys.stderr.write("request send error: " + str(exc) + "\n")
+            sys.stderr.write("rns_log=" + log_path + "\n")
             sys.stderr.flush()
 
     RNS.Link(dest, on_link_established)
@@ -133,6 +147,7 @@ def main() -> int:
     sys.stderr.write(
         "timeout waiting for request response after " + str(timeout_sec) + " seconds\n"
     )
+    sys.stderr.write("rns_log=" + log_path + "\n")
     return 1
 
 

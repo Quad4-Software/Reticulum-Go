@@ -85,7 +85,7 @@ func TestAnnounceRateControl_AllowAnnounce_DifferentHashes(t *testing.T) {
 
 func TestAnnounceRateControl_DisabledByZeroTarget(t *testing.T) {
 	arc := NewAnnounceRateControl(0, 0, 0)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		if !arc.AllowAnnounce("h") {
 			t.Fatalf("AllowAnnounce should always pass when disabled (i=%d)", i)
 		}
@@ -112,7 +112,7 @@ func TestIngressControl_ProcessAnnounce(t *testing.T) {
 	if !ic.ProcessAnnounce("first", []byte("data"), true) {
 		t.Error("first announce should pass")
 	}
-	for i := 0; i < 200; i++ {
+	for i := range 200 {
 		ic.ProcessAnnounce("burst-"+itoa(i), []byte("data"), true)
 	}
 	if !ic.InBurst() {
@@ -150,7 +150,7 @@ func TestIngressControl_ReleaseHeldAnnounce_RespectsTiming(t *testing.T) {
 	cfg.HeldReleaseInterval = 10 * time.Millisecond
 	ic := NewIngressControlWith(cfg)
 
-	for i := 0; i < 200; i++ {
+	for i := range 200 {
 		ic.ProcessAnnounce("h-"+itoa(i), []byte{byte(i)}, true)
 	}
 	if ic.HeldCount() == 0 {
@@ -181,7 +181,7 @@ func TestIngressControl_BurstSampleMinimum(t *testing.T) {
 	cfg.BurstPenalty = 5 * time.Second
 	ic := NewIngressControlWith(cfg)
 
-	for i := 0; i < burstSampleMinimum-1; i++ {
+	for i := range burstSampleMinimum - 1 {
 		ic.ProcessAnnounce("seed-"+itoa(i), []byte{byte(i)}, true)
 	}
 
@@ -192,7 +192,7 @@ func TestIngressControl_BurstSampleMinimum(t *testing.T) {
 		t.Fatalf("no announces must be held before burst engages; held=%d", ic.HeldCount())
 	}
 
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		ic.ProcessAnnounce("flood-"+itoa(i), []byte{byte(i)}, true)
 	}
 	if !ic.InBurst() {
@@ -210,7 +210,7 @@ func TestIngressControl_MaxHeldAnnouncesCap(t *testing.T) {
 	cfg.BurstPenalty = 5 * time.Second
 	ic := NewIngressControlWith(cfg)
 
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		ic.ProcessAnnounce("h-"+itoa(i), []byte{byte(i)}, true)
 	}
 	if got := ic.HeldCount(); got > 4 {

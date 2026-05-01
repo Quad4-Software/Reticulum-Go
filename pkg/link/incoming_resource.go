@@ -6,12 +6,14 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"time"
 
 	"git.quad4.io/Go-Libs/bzip2/pkg/bzip2"
 	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/resource"
 )
@@ -39,7 +41,7 @@ func (rx *incomingResourceAsm) applyHashmapSegment(segment int, hashmapBytes []b
 		segLen = 1
 	}
 	hashes := len(hashmapBytes) / resource.MapHashLen
-	for i := 0; i < hashes; i++ {
+	for i := range hashes {
 		idx := i + segment*segLen
 		if idx >= rx.totalParts {
 			break
@@ -53,9 +55,7 @@ func (rx *incomingResourceAsm) applyHashmapSegment(segment int, hashmapBytes []b
 }
 
 func (l *Link) beginIncomingResource(adv *resource.ResourceAdvertisement) error {
-	l.mutex.RLock()
-	sdu := l.mdu
-	l.mutex.RUnlock()
+	sdu := l.resourceSDU()
 	if sdu <= 0 {
 		return errors.New("invalid mdu for incoming resource")
 	}
@@ -85,6 +85,18 @@ func (l *Link) beginIncomingResource(adv *resource.ResourceAdvertisement) error 
 		consecutiveCompleted: -1,
 	}
 	rx.applyHashmapSegment(0, adv.Hashmap)
+	debug.Log(
+		debug.DebugInfo,
+		"Incoming resource started",
+		"link_id",
+		fmt.Sprintf("%x", l.linkID),
+		"parts",
+		adv.Parts,
+		"transfer_size",
+		adv.TransferSize,
+		"hashmap_entries",
+		len(adv.Hashmap)/resource.MapHashLen,
+	)
 
 	l.incomingMu.Lock()
 	l.incomingRx = rx
@@ -104,21 +116,15 @@ func (l *Link) sendIncomingResourceReqNext() error {
 		return nil
 	}
 
-	searchStart := rx.consecutiveCompleted + 1
-	if searchStart < 0 {
-		searchStart = 0
-	}
+	searchStart := max(rx.consecutiveCompleted+1, 0)
 	if searchStart >= rx.totalParts {
 		l.incomingMu.Unlock()
 		return nil
 	}
 
-	end := searchStart + resource.Window
-	if end > rx.totalParts {
-		end = rx.totalParts
-	}
+	end := min(searchStart+resource.Window, rx.totalParts)
 
-	var requestedHashes []byte
+	requestedHashes := make([]byte, 0, resource.Window*resource.MapHashLen)
 	exhausted := false
 	batch := 0
 	for pn := searchStart; pn < end; pn++ {
@@ -156,12 +162,36 @@ func (l *Link) sendIncomingResourceReqNext() error {
 		}
 		prefix = append([]byte{hashmapExhausted}, last...)
 		rx.waitingForHmu = true
+		debug.Log(
+			debug.DebugInfo,
+			"Incoming resource requesting HMU",
+			"link_id",
+			fmt.Sprintf("%x", l.linkID),
+			"hashmap_height",
+			rx.hashmapHeight,
+			"anchor_hash",
+			fmt.Sprintf("%x", last),
+		)
 	} else {
 		prefix = []byte{hashmapNotExhausted}
 	}
 
 	reqBody := append(prefix, rx.adv.Hash...)
 	reqBody = append(reqBody, requestedHashes...)
+	debug.Log(
+		debug.DebugVerbose,
+		"Incoming resource requesting parts",
+		"link_id",
+		fmt.Sprintf("%x", l.linkID),
+		"search_start",
+		searchStart,
+		"window_end",
+		end,
+		"requested_parts",
+		len(requestedHashes)/resource.MapHashLen,
+		"waiting_for_hmu",
+		exhausted,
+	)
 	l.incomingMu.Unlock()
 
 	return l.SendPacketWithContext(reqBody, packet.ContextResourceReq)
@@ -177,11 +207,29 @@ func (l *Link) applyIncomingHashmapUpdate(resHash []byte, segment int, hashmapBy
 	l.incomingMu.Lock()
 	rx := l.incomingRx
 	if rx == nil || rx.adv == nil || !bytes.Equal(resHash, rx.adv.Hash) {
+		debug.Log(
+			debug.DebugVerbose,
+			"Ignoring HMU for inactive/mismatched resource",
+			"link_id",
+			fmt.Sprintf("%x", l.linkID),
+		)
 		l.incomingMu.Unlock()
 		return nil
 	}
 	rx.applyHashmapSegment(segment, hashmapBytes)
 	rx.waitingForHmu = false
+	debug.Log(
+		debug.DebugInfo,
+		"Incoming HMU applied",
+		"link_id",
+		fmt.Sprintf("%x", l.linkID),
+		"segment",
+		segment,
+		"entries",
+		len(hashmapBytes)/resource.MapHashLen,
+		"hashmap_height",
+		rx.hashmapHeight,
+	)
 	l.incomingMu.Unlock()
 	return l.sendIncomingResourceReqNext()
 }
@@ -211,8 +259,11 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 		l.incomingMu.Unlock()
 		return errors.New("bad random hash in advertisement")
 	}
-	h := sha256.Sum256(append(append([]byte(nil), data...), rh...))
-	mh := h[:resource.MapHashLen]
+	hb := sha256.New()
+	hb.Write(data)
+	hb.Write(rh)
+	sum := hb.Sum(nil)
+	mh := sum[:resource.MapHashLen]
 
 	idx := -1
 	for i := 0; i < rx.totalParts; i++ {
@@ -228,12 +279,32 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 		}
 	}
 	if idx < 0 {
+		debug.Log(
+			debug.DebugInfo,
+			"Incoming resource part map hash mismatch",
+			"link_id",
+			fmt.Sprintf("%x", l.linkID),
+			"part_len",
+			len(data),
+			"map_hash",
+			fmt.Sprintf("%x", mh),
+		)
 		l.incomingMu.Unlock()
 		return errors.New("incoming resource part map hash mismatch")
 	}
 	rx.partSlots[idx] = append([]byte(nil), data...)
 
 	rx.consecutiveCompleted = consecutivePrefix(rx.partSlots)
+	debug.Log(
+		debug.DebugVerbose,
+		"Incoming resource part accepted",
+		"link_id",
+		fmt.Sprintf("%x", l.linkID),
+		"part_index",
+		idx,
+		"consecutive_completed",
+		rx.consecutiveCompleted,
+	)
 
 	if l.incomingTransferComplete(rx) {
 		inner := l.concatIncomingParts(rx)
@@ -249,7 +320,7 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 
 func consecutivePrefix(slots [][]byte) int {
 	h := -1
-	for i := 0; i < len(slots); i++ {
+	for i := range slots {
 		if len(slots[i]) == 0 {
 			break
 		}
@@ -270,7 +341,11 @@ func (l *Link) incomingTransferComplete(rx *incomingResourceAsm) bool {
 }
 
 func (l *Link) concatIncomingParts(rx *incomingResourceAsm) []byte {
-	var b []byte
+	total := 0
+	for i := 0; i < rx.totalParts; i++ {
+		total += len(rx.partSlots[i])
+	}
+	b := make([]byte, 0, total)
 	for i := 0; i < rx.totalParts; i++ {
 		b = append(b, rx.partSlots[i]...)
 	}
@@ -282,6 +357,16 @@ func (l *Link) deliverIncomingResource(inner []byte, adv *resource.ResourceAdver
 	if err != nil {
 		return err
 	}
+	debug.Log(
+		debug.DebugInfo,
+		"Incoming resource assembled",
+		"link_id",
+		fmt.Sprintf("%x", l.linkID),
+		"inner_len",
+		len(inner),
+		"payload_len",
+		len(payload),
+	)
 	if err := l.sendIncomingResourceProof(payload, adv.Hash); err != nil {
 		return err
 	}
@@ -372,8 +457,11 @@ func (l *Link) assembleIncomingPayload(inner []byte, adv *resource.ResourceAdver
 		data = decompressed
 	}
 
-	sum := sha256.Sum256(append(append([]byte(nil), data...), adv.RandomHash...))
-	if len(adv.Hash) != len(sum) || !bytes.Equal(sum[:], adv.Hash) {
+	h := sha256.New()
+	h.Write(data)
+	h.Write(adv.RandomHash)
+	sum := h.Sum(nil)
+	if len(adv.Hash) != len(sum) || !bytes.Equal(sum, adv.Hash) {
 		return nil, errors.New("incoming resource hash mismatch")
 	}
 

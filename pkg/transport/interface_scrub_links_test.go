@@ -52,7 +52,7 @@ func TestUnregisterInterfaceScrubsRegisteredLinks(t *testing.T) {
 	tr.UnregisterInterface("wan")
 
 	tr.mutex.RLock()
-	_, exists := tr.links[string(linkID)]
+	_, exists := tr.links[hash16FromSlice(linkID)]
 	tr.mutex.RUnlock()
 	if exists {
 		t.Fatal("link table should drop entries bound to removed interface")

@@ -29,10 +29,10 @@ func TestStressConcurrentUnregisterReplacePath(t *testing.T) {
 	const iters = 150
 	var wg sync.WaitGroup
 	wg.Add(workers)
-	for w := 0; w < workers; w++ {
+	for range workers {
 		go func() {
 			defer wg.Done()
-			for i := 0; i < iters; i++ {
+			for range iters {
 				iface := mockIface("wan", true)
 				_ = tr.ReplaceInterface("wan", iface)
 				tr.UpdatePath(dest, nextHop, "wan", 2)
@@ -101,10 +101,10 @@ func TestStressConcurrentReadersDuringUnregister(t *testing.T) {
 	var wg sync.WaitGroup
 	const readers = 16
 	wg.Add(readers + 1)
-	for r := 0; r < readers; r++ {
+	for range readers {
 		go func() {
 			defer wg.Done()
-			for i := 0; i < 200; i++ {
+			for range 200 {
 				_ = tr.HasPath(dest)
 				_ = tr.NextHop(dest)
 				_ = tr.NextHopInterface(dest)
@@ -114,7 +114,7 @@ func TestStressConcurrentReadersDuringUnregister(t *testing.T) {
 	}
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 50; i++ {
+		for range 50 {
 			tr.UnregisterInterface("eth")
 			_ = tr.RegisterInterface("eth", mockIface("eth", true))
 			tr.UpdatePath(dest, bytes.Repeat([]byte{0xDD}, 16), "eth", 1)
@@ -135,17 +135,15 @@ func TestGoroutineBudgetAfterUnregisterStress(t *testing.T) {
 	dest := bytes.Repeat([]byte{0x11}, 16)
 	nh := bytes.Repeat([]byte{0x22}, 16)
 	var wg sync.WaitGroup
-	for w := 0; w < 8; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := 0; i < 120; i++ {
+	for range 8 {
+		wg.Go(func() {
+			for range 120 {
 				iface := mockIface("w", true)
 				_ = tr.ReplaceInterface("w", iface)
 				tr.UpdatePath(dest, nh, "w", 1)
 				tr.UnregisterInterface("w")
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	runtime.GC()
@@ -163,9 +161,7 @@ func TestConcurrentTransportCloseAndReplace(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{})
 	done := make(chan struct{})
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-done:
@@ -174,7 +170,7 @@ func TestConcurrentTransportCloseAndReplace(t *testing.T) {
 				_ = tr.ReplaceInterface("x", mockIface("x", true))
 			}
 		}
-	}()
+	})
 	time.Sleep(40 * time.Millisecond)
 	close(done)
 	wg.Wait()
