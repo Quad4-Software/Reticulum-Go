@@ -4,6 +4,7 @@
 package transport
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
@@ -38,12 +39,41 @@ type PathInfo struct {
 	LastUpdated time.Time
 }
 
+type hash16 struct {
+	bytes [packet.TruncatedHashLength]byte
+	n     int
+}
+
+type destinationPacketReceiver interface {
+	Receive(pkt *packet.Packet, iface common.NetworkInterface)
+}
+
+type destinationLinkRequestHandler interface {
+	HandleIncomingLinkRequest(pkt any, transport any, networkIface common.NetworkInterface) error
+}
+
+type registeredDestination struct {
+	raw                any
+	packetReceiver     destinationPacketReceiver
+	linkRequestHandler destinationLinkRequestHandler
+}
+
+func hash16FromSlice(b []byte) hash16 {
+	var k hash16
+	if len(b) > len(k.bytes) {
+		b = b[:len(k.bytes)]
+	}
+	copy(k.bytes[:], b)
+	k.n = len(b)
+	return k
+}
+
 type Transport struct {
 	mutex                 sync.RWMutex
 	config                *common.ReticulumConfig
 	interfaces            map[string]common.NetworkInterface
-	links                 map[string]LinkInterface
-	destinations          map[string]any
+	links                 map[hash16]LinkInterface
+	destinations          map[hash16]registeredDestination
 	announceRate          *rate.Limiter
 	seenAnnounces         map[string]time.Time
 	packetHandleSem       chan struct{}
@@ -117,8 +147,8 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		announceRate:          rate.NewLimiter(rate.DefaultBurstFreq, AnnounceRateKbps),
 		mutex:                 sync.RWMutex{},
 		config:                cfg,
-		links:                 make(map[string]LinkInterface),
-		destinations:          make(map[string]any),
+		links:                 make(map[hash16]LinkInterface),
+		destinations:          make(map[hash16]registeredDestination),
 		pathfinder:            pathfinder.NewPathFinder(),
 		receipts:              make([]*packet.PacketReceipt, 0),
 		receiptsMutex:         sync.RWMutex{},
@@ -316,9 +346,18 @@ func (t *Transport) PathIsUnresponsive(destHash []byte) bool {
 
 // RegisterDestination registers a destination to receive incoming link requests.
 func (t *Transport) RegisterDestination(hash []byte, dest any) {
+	key := hash16FromSlice(hash)
+	registered := registeredDestination{raw: dest}
+	if recv, ok := dest.(destinationPacketReceiver); ok {
+		registered.packetReceiver = recv
+	}
+	if handler, ok := dest.(destinationLinkRequestHandler); ok {
+		registered.linkRequestHandler = handler
+	}
+
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	t.destinations[string(hash)] = dest
+	t.destinations[key] = registered
 	debug.Log(debug.DebugTrace, "Registered destination with transport", "hash", fmt.Sprintf("%x", hash))
 }
 
@@ -355,7 +394,7 @@ func assertConcreteInterface(iface common.NetworkInterface) error {
 		return errors.New("nil network interface")
 	}
 	rt := reflect.TypeOf(iface)
-	if rt.Kind() != reflect.Ptr {
+	if rt.Kind() != reflect.Pointer {
 		return fmt.Errorf("network interface must be a pointer, got %s", rt.Kind())
 	}
 	name := "*" + rt.Elem().PkgPath() + "." + rt.Elem().Name()
@@ -758,10 +797,15 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 
 	var pathRequestData []byte
 	if t.transportIdentity != nil {
-		pathRequestData = append(destinationHash, t.transportIdentity.Hash()...)
+		tid := t.transportIdentity.Hash()
+		pathRequestData = make([]byte, 0, len(destinationHash)+len(tid)+len(tag))
+		pathRequestData = append(pathRequestData, destinationHash...)
+		pathRequestData = append(pathRequestData, tid...)
 		pathRequestData = append(pathRequestData, tag...)
 	} else {
-		pathRequestData = append(destinationHash, tag...)
+		pathRequestData = make([]byte, 0, len(destinationHash)+len(tag))
+		pathRequestData = append(pathRequestData, destinationHash...)
+		pathRequestData = append(pathRequestData, tag...)
 	}
 
 	pathRequestName := "rnstransport.path.request"
@@ -890,10 +934,7 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 		debug.Log(debug.DebugAll, "Failed to generate random delay", "error", err)
 		delay = 0
 	} else {
-		windowMs := int64(PathfinderRW * 1000.0)
-		if windowMs < 1 {
-			windowMs = 1
-		}
+		windowMs := max(int64(PathfinderRW*1000.0), 1)
 		delay = time.Duration(int64(binary.BigEndian.Uint64(b)%uint64(windowMs))) * time.Millisecond // #nosec G115
 	}
 	time.Sleep(delay)
@@ -1250,7 +1291,7 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 
 	debug.Log(debug.DebugInfo, "Destination hash validation", "received", fmt.Sprintf("%x", destinationHash), "expected", fmt.Sprintf("%x", expectedHash))
 
-	if string(destinationHash) != string(expectedHash) {
+	if !bytes.Equal(destinationHash, expectedHash) {
 		debug.Log(debug.DebugInfo, "Destination hash mismatch - announce rejected")
 		return fmt.Errorf("destination hash mismatch")
 	}
@@ -1339,10 +1380,7 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		debug.Log(debug.DebugAll, "Failed to generate random delay", "error", err)
 		delay = 0
 	} else {
-		windowMs := int64(PathfinderRW * 1000.0)
-		if windowMs < 1 {
-			windowMs = 1
-		}
+		windowMs := max(int64(PathfinderRW*1000.0), 1)
 		delay = time.Duration(int64(binary.BigEndian.Uint64(b)%uint64(windowMs))) * time.Millisecond // #nosec G115
 	}
 	time.Sleep(delay)
@@ -1408,8 +1446,10 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 
 		debug.Log(debug.DebugVerbose, "Link request for destination", "hash", fmt.Sprintf("%x", destHash), "interface", iface.GetName())
 
+		destKey := hash16FromSlice(destHash)
+
 		t.mutex.RLock()
-		destIface, exists := t.destinations[string(destHash)]
+		destIface, exists := t.destinations[destKey]
 		t.mutex.RUnlock()
 
 		if !exists {
@@ -1439,8 +1479,10 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 
 	debug.Log(debug.DebugVerbose, "Link data for link ID", "link_id", fmt.Sprintf("%x", linkID), "context", fmt.Sprintf("0x%02x", pkt.Context), "packet_type", fmt.Sprintf("0x%02x", pkt.PacketType), "interface", iface.GetName())
 
+	linkKey := hash16FromSlice(linkID)
+
 	t.mutex.RLock()
-	linkObj, exists := t.links[string(linkID)]
+	linkObj, exists := t.links[linkKey]
 	t.mutex.RUnlock()
 
 	if exists && linkObj != nil {
@@ -1458,7 +1500,7 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 	debug.Log(debug.DebugVerbose, "No established link found for link ID", "link_id", fmt.Sprintf("%x", linkID))
 }
 
-func (t *Transport) handleIncomingLinkRequest(pkt *packet.Packet, destIface any, networkIface common.NetworkInterface) {
+func (t *Transport) handleIncomingLinkRequest(pkt *packet.Packet, destIface registeredDestination, networkIface common.NetworkInterface) {
 	startTime := time.Now()
 	debug.Log(debug.DebugVerbose, "Handling incoming link request", "interface", networkIface.GetName())
 
@@ -1470,29 +1512,16 @@ func (t *Transport) handleIncomingLinkRequest(pkt *packet.Packet, destIface any,
 
 	debug.Log(debug.DebugVerbose, "Link request with ID", "id", fmt.Sprintf("%x", linkID[:8]), "full_id", fmt.Sprintf("%x", linkID), "elapsed", time.Since(startTime).Seconds())
 
-	destValue := reflect.ValueOf(destIface)
-	if destValue.IsValid() && !destValue.IsNil() {
-		method := destValue.MethodByName("HandleIncomingLinkRequest")
-		if method.IsValid() {
-			args := []reflect.Value{
-				reflect.ValueOf(pkt),
-				reflect.ValueOf(t),
-				reflect.ValueOf(networkIface),
-			}
-			callStartTime := time.Now()
-			results := method.Call(args)
-			if len(results) > 0 && !results[0].IsNil() {
-				err := results[0].Interface().(error)
-				debug.Log(debug.DebugError, "Failed to handle incoming link request", "error", err, "call_elapsed", time.Since(callStartTime).Seconds(), "total_elapsed", time.Since(startTime).Seconds())
-			} else {
-				debug.Log(debug.DebugVerbose, "Link request handled successfully by destination", "call_elapsed", time.Since(callStartTime).Seconds(), "total_elapsed", time.Since(startTime).Seconds())
-			}
-		} else {
-			debug.Log(debug.DebugError, "Destination does not have HandleIncomingLinkRequest method", "elapsed", time.Since(startTime).Seconds())
-		}
-	} else {
-		debug.Log(debug.DebugError, "Invalid destination object", "elapsed", time.Since(startTime).Seconds())
+	if destIface.linkRequestHandler == nil {
+		debug.Log(debug.DebugError, "Destination does not have HandleIncomingLinkRequest method", "elapsed", time.Since(startTime).Seconds())
+		return
 	}
+	callStartTime := time.Now()
+	if err := destIface.linkRequestHandler.HandleIncomingLinkRequest(pkt, t, networkIface); err != nil {
+		debug.Log(debug.DebugError, "Failed to handle incoming link request", "error", err, "call_elapsed", time.Since(callStartTime).Seconds(), "total_elapsed", time.Since(startTime).Seconds())
+		return
+	}
+	debug.Log(debug.DebugVerbose, "Link request handled successfully by destination", "call_elapsed", time.Since(callStartTime).Seconds(), "total_elapsed", time.Since(startTime).Seconds())
 }
 
 func (t *Transport) handlePathResponse(data []byte, iface common.NetworkInterface) {
@@ -1557,25 +1586,19 @@ func (t *Transport) handleTransportPacket(data []byte, iface common.NetworkInter
 
 		debug.Log(debug.DebugVerbose, "Looking up destination for data packet", "hash", fmt.Sprintf("%x", destHash))
 
+		destKey := hash16FromSlice(destHash)
+
 		t.mutex.RLock()
-		destIface, exists := t.destinations[string(destHash)]
+		destIface, exists := t.destinations[destKey]
 		t.mutex.RUnlock()
 
 		if exists {
 			debug.Log(debug.DebugInfo, "Routing data packet to destination", "hash", fmt.Sprintf("%x", destHash))
 
-			destValue := reflect.ValueOf(destIface)
-			if destValue.IsValid() && !destValue.IsNil() {
-				method := destValue.MethodByName("Receive")
-				if method.IsValid() {
-					args := []reflect.Value{
-						reflect.ValueOf(pkt),
-						reflect.ValueOf(iface),
-					}
-					method.Call(args)
-				} else {
-					debug.Log(debug.DebugVerbose, "Destination does not have Receive method")
-				}
+			if destIface.packetReceiver != nil {
+				destIface.packetReceiver.Receive(pkt, iface)
+			} else {
+				debug.Log(debug.DebugVerbose, "Destination does not have Receive method")
 			}
 		} else {
 			debug.Log(debug.DebugVerbose, "No destination registered for hash", "hash", fmt.Sprintf("%x", destHash))
@@ -1633,7 +1656,9 @@ func (t *Transport) handlePathRequest(data []byte, iface common.NetworkInterface
 		return
 	}
 
-	uniqueTag := append(destHash, tag...)
+	uniqueTag := make([]byte, 0, len(destHash)+len(tag))
+	uniqueTag = append(uniqueTag, destHash...)
+	uniqueTag = append(uniqueTag, tag...)
 	tagStr := string(uniqueTag)
 
 	t.mutex.Lock()
@@ -1655,13 +1680,14 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 	destHashStr := string(destHash)
 	debug.Log(debug.DebugInfo, "Processing path request", "dest_hash", fmt.Sprintf("%x", destHash))
 
+	destKey := hash16FromSlice(destHash)
 	t.mutex.RLock()
-	localDest, isLocal := t.destinations[destHashStr]
+	localDest, isLocal := t.destinations[destKey]
 	path, hasPath := t.paths[destHashStr]
 	t.mutex.RUnlock()
 
 	if isLocal {
-		if dest, ok := localDest.(*destination.Destination); ok {
+		if dest, ok := localDest.raw.(*destination.Destination); ok {
 			debug.Log(debug.DebugInfo, "Answering path request for local destination", "dest_hash", fmt.Sprintf("%x", destHash))
 			if err := dest.Announce(true, tag, attachedIface); err != nil {
 				debug.Log(debug.DebugError, "Failed to announce local destination for path request", "error", err)
@@ -1677,7 +1703,7 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 			return
 		}
 		nextHop := path.NextHop
-		if requestorTransportID != nil && string(nextHop) == string(requestorTransportID) {
+		if requestorTransportID != nil && bytes.Equal(nextHop, requestorTransportID) {
 			debug.Log(debug.DebugInfo, "Not answering path request, next hop is requestor", "dest_hash", fmt.Sprintf("%x", destHash))
 			return
 		}
@@ -1767,7 +1793,7 @@ func (t *Transport) SendPacket(p *packet.Packet) error {
 		return errors.New("no path to destination")
 	}
 
-	if p.DestinationType != DestTypeLink && path.HopCount > 1 && len(path.NextHop) > 0 && string(path.NextHop) != string(destHash) {
+	if p.DestinationType != DestTypeLink && path.HopCount > 1 && len(path.NextHop) > 0 && !bytes.Equal(path.NextHop, destHash) {
 		debug.Log(debug.DebugVerbose, "Rewrapping packet for transport", "destHash", fmt.Sprintf("%x", destHash), "nextHop", fmt.Sprintf("%x", path.NextHop), "hops", path.HopCount)
 		p.HeaderType = packet.HeaderType2
 		p.TransportType = packet.PropagationTransport
@@ -1803,25 +1829,22 @@ func (t *Transport) SendPacket(p *packet.Packet) error {
 }
 
 func (t *Transport) RegisterLink(linkID []byte, linkObj LinkInterface) {
+	linkKey := hash16FromSlice(linkID)
+
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	if len(linkID) > 16 {
-		linkID = linkID[:16]
-	}
-
-	t.links[string(linkID)] = linkObj
+	t.links[linkKey] = linkObj
 	debug.Log(debug.DebugVerbose, "Registered link", "link_id", fmt.Sprintf("%x", linkID))
 }
 
 func (t *Transport) UnregisterLink(linkID []byte) {
+	linkKey := hash16FromSlice(linkID)
+
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	if len(linkID) > 16 {
-		linkID = linkID[:16]
-	}
-	delete(t.links, string(linkID))
+	delete(t.links, linkKey)
 	debug.Log(debug.DebugVerbose, "Unregistered link", "link_id", fmt.Sprintf("%x", linkID))
 }
 
@@ -2050,7 +2073,9 @@ func CreateAnnouncePacket(destHash []byte, identity *identity.Identity, appData 
 	appDataMsg = append(appDataMsg, MsgpackBin8, byte(len(appData))) // #nosec G115 -- lengths checked against MsgpackBin8MaxLen
 	appDataMsg = append(appDataMsg, appData...)
 
-	signData := append(destHash, appDataMsg...)
+	signData := make([]byte, 0, len(destHash)+len(appDataMsg))
+	signData = append(signData, destHash...)
+	signData = append(signData, appDataMsg...)
 	signature, err := identity.Sign(signData)
 	if err != nil {
 		return nil, fmt.Errorf("sign announce: %w", err)
@@ -2111,8 +2136,10 @@ func (t *Transport) handleProofPacket(pkt *packet.Packet, iface common.NetworkIn
 
 		debug.Log(debug.DebugInfo, "Received link proof packet", "link_id", fmt.Sprintf("%x", linkID), "data_len", len(pkt.Data))
 
+		linkKey := hash16FromSlice(linkID)
+
 		t.mutex.RLock()
-		link, exists := t.links[string(linkID)]
+		link, exists := t.links[linkKey]
 		t.mutex.RUnlock()
 
 		if exists && link != nil {
@@ -2146,8 +2173,7 @@ func (t *Transport) handleProofPacket(pkt *packet.Packet, iface common.NetworkIn
 		receiptValidated := false
 
 		if proofHash != nil {
-			receiptHash := receipt.GetHash()
-			if string(receiptHash) == string(proofHash) {
+			if receipt.MatchesHash(proofHash) {
 				receiptValidated = receipt.ValidateProofPacket(pkt)
 			}
 		} else {
