@@ -3,6 +3,7 @@
 package packet
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 	"time"
@@ -47,7 +48,7 @@ type PacketReceipt struct {
 
 // NewPacketReceipt creates a receipt for the given packet and starts the timeout watchdog.
 func NewPacketReceipt(pkt *Packet) *PacketReceipt {
-	hash := pkt.Hash()
+	hash := append([]byte(nil), pkt.Hash()...)
 	receipt := &PacketReceipt{
 		hash:             hash,
 		truncatedHash:    pkt.TruncatedHash(),
@@ -83,7 +84,18 @@ func (pr *PacketReceipt) GetStatus() byte {
 func (pr *PacketReceipt) GetHash() []byte {
 	pr.mutex.RLock()
 	defer pr.mutex.RUnlock()
-	return pr.hash
+	if pr.hash == nil {
+		return nil
+	}
+	out := make([]byte, len(pr.hash))
+	copy(out, pr.hash)
+	return out
+}
+
+func (pr *PacketReceipt) MatchesHash(proofHash []byte) bool {
+	pr.mutex.RLock()
+	defer pr.mutex.RUnlock()
+	return bytes.Equal(proofHash, pr.hash)
 }
 
 func (pr *PacketReceipt) IsDelivered() bool {
@@ -111,7 +123,7 @@ func (pr *PacketReceipt) ValidateLinkProof(proof []byte, link any, proofPacket *
 		signature := proof[identity.HashLength/8 : identity.HashLength/8+identity.SigLength/8]
 
 		pr.mutex.RLock()
-		hashMatch := string(proofHash) == string(pr.hash)
+		hashMatch := bytes.Equal(proofHash, pr.hash)
 		pr.mutex.RUnlock()
 
 		if !hashMatch {
@@ -148,7 +160,7 @@ func (pr *PacketReceipt) ValidateProof(proof []byte, proofPacket *Packet) bool {
 		signature := proof[identity.HashLength/8 : identity.HashLength/8+identity.SigLength/8]
 
 		pr.mutex.RLock()
-		hashMatch := string(proofHash) == string(pr.hash)
+		hashMatch := bytes.Equal(proofHash, pr.hash)
 		ident := pr.destinationIdent
 		pr.mutex.RUnlock()
 
