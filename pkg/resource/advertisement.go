@@ -96,20 +96,27 @@ func (ra *ResourceAdvertisement) Pack(segment int, linkMDU int) ([]byte, error) 
 	hashmap := ra.Hashmap[hashmapStart*MapHashLen : hashmapEnd*MapHashLen]
 
 	dict := map[string]any{
-		"t": ra.TransferSize,
-		"d": ra.DataSize,
+		"t": packInt64Compact(ra.TransferSize),
+		"d": packInt64Compact(ra.DataSize),
 		"n": ra.Parts,
 		"h": ra.Hash,
 		"r": ra.RandomHash,
 		"o": ra.OriginalHash,
-		"i": ra.SegmentIndex,
-		"l": ra.TotalSegments,
+		"i": int(ra.SegmentIndex),
+		"l": int(ra.TotalSegments),
 		"q": ra.RequestID,
 		"f": ra.Flags,
 		"m": hashmap,
 	}
 
 	return msgpack.Marshal(dict)
+}
+
+func packInt64Compact(v int64) any {
+	if v >= int64(math.MinInt) && v <= int64(math.MaxInt) {
+		return int(v)
+	}
+	return v
 }
 
 func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
