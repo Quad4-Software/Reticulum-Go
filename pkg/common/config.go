@@ -34,6 +34,8 @@ type InterfaceConfig struct {
 	DiscoveryPort     int
 	DataPort          int
 	MulticastAddrType string
+	Devices           []string
+	IgnoredDevices    []string
 
 	AnnounceCap           float64 // % of bitrate; 0 => default 2%
 	AnnounceRateTarget    float64 // min seconds between same-dest rebroadcasts; 0 => off

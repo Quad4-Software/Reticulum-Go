@@ -244,6 +244,37 @@ func TestLoadConfig_SpamProtectionKnobs(t *testing.T) {
 	}
 }
 
+// TestLoadConfig_AutoInterfaceDevices covers AutoInterface devices and
+// ignored_devices list parsing.
+func TestLoadConfig_AutoInterfaceDevices(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	body := `[interfaces]
+  [[auto]]
+    type = AutoInterface
+    enabled = yes
+    devices = eth0, eth1
+    ignored_devices = wlan0, dummy0
+`
+	writeFile(t, path, body)
+
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	iface, ok := cfg.Interfaces["auto"]
+	if !ok {
+		t.Fatal("auto interface missing")
+	}
+	wantDevices := []string{"eth0", "eth1"}
+	wantIgnored := []string{"wlan0", "dummy0"}
+	if len(iface.Devices) != len(wantDevices) || iface.Devices[0] != wantDevices[0] || iface.Devices[1] != wantDevices[1] {
+		t.Errorf("Devices: got %v, want %v", iface.Devices, wantDevices)
+	}
+	if len(iface.IgnoredDevices) != len(wantIgnored) || iface.IgnoredDevices[0] != wantIgnored[0] || iface.IgnoredDevices[1] != wantIgnored[1] {
+		t.Errorf("IgnoredDevices: got %v, want %v", iface.IgnoredDevices, wantIgnored)
+	}
+}
+
 // TestLoadConfig_InlineComments verifies trailing comment markers do not leak
 // into string values.
 func TestLoadConfig_InlineComments(t *testing.T) {

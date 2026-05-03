@@ -310,6 +310,10 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		iface.GroupID = value
 	case "multicast_address_type":
 		iface.MulticastAddrType = value
+	case "devices":
+		iface.Devices = parseStringList(value)
+	case "ignored_devices":
+		iface.IgnoredDevices = parseStringList(value)
 	case "announce_cap":
 		setFloat(value, &iface.AnnounceCap)
 	case "announce_rate_target":
@@ -357,6 +361,19 @@ func setFloat(value string, dst *float64) {
 	if v, err := strconv.ParseFloat(strings.TrimSpace(value), 64); err == nil {
 		*dst = v
 	}
+}
+
+// parseStringList splits a comma-separated config value into a clean slice.
+func parseStringList(value string) []string {
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // SaveConfig writes cfg to cfg.ConfigPath using the nested [reticulum] /
@@ -455,6 +472,12 @@ func writeInterface(b *strings.Builder, name string, iface *common.InterfaceConf
 	}
 	if iface.MulticastAddrType != "" {
 		fmt.Fprintf(b, "    multicast_address_type = %s\n", iface.MulticastAddrType)
+	}
+	if len(iface.Devices) > 0 {
+		fmt.Fprintf(b, "    devices = %s\n", strings.Join(iface.Devices, ", "))
+	}
+	if len(iface.IgnoredDevices) > 0 {
+		fmt.Fprintf(b, "    ignored_devices = %s\n", strings.Join(iface.IgnoredDevices, ", "))
 	}
 	if iface.AnnounceCap != 0 {
 		fmt.Fprintf(b, "    announce_cap = %g\n", iface.AnnounceCap)

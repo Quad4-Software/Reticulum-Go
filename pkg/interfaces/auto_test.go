@@ -44,6 +44,12 @@ func TestNewAutoInterface(t *testing.T) {
 		if len(ai.peers) != 0 {
 			t.Errorf("peers map not empty initially")
 		}
+		if ai.unicastDiscoveryPort != DefaultDiscoveryPort+1 {
+			t.Errorf("unicastDiscoveryPort = %d; want %d", ai.unicastDiscoveryPort, DefaultDiscoveryPort+1)
+		}
+		if ai.reversePeeringInterval != time.Duration(float64(AnnounceInterval)*3.25) {
+			t.Errorf("reversePeeringInterval = %v; want %v", ai.reversePeeringInterval, time.Duration(float64(AnnounceInterval)*3.25))
+		}
 	})
 
 	t.Run("CustomConfig", func(t *testing.T) {
@@ -71,6 +77,53 @@ func TestNewAutoInterface(t *testing.T) {
 			t.Errorf("groupID = %s; want customGroup", string(ai.groupID))
 		}
 	})
+
+	t.Run("DevicesConfig", func(t *testing.T) {
+		config := &common.InterfaceConfig{
+			Enabled:        true,
+			Devices:        []string{"eth0", "eth1"},
+			IgnoredDevices: []string{"wlan0"},
+		}
+		ai, err := NewAutoInterface("autoDevices", config)
+		if err != nil {
+			t.Fatalf("NewAutoInterface failed: %v", err)
+		}
+		if !slices.Equal(ai.allowedInterfaces, []string{"eth0", "eth1"}) {
+			t.Errorf("allowedInterfaces = %v; want [eth0 eth1]", ai.allowedInterfaces)
+		}
+		if !slices.Equal(ai.ignoredInterfaces, []string{"wlan0"}) {
+			t.Errorf("ignoredInterfaces = %v; want [wlan0]", ai.ignoredInterfaces)
+		}
+	})
+}
+
+func TestAutoInterfacePeerCount(t *testing.T) {
+	config := &common.InterfaceConfig{Enabled: true}
+	ai, err := newMockAutoInterface("autoCount", config)
+	if err != nil {
+		t.Fatalf("Failed to create mock interface: %v", err)
+	}
+
+	if ai.PeerCount() != 0 {
+		t.Errorf("PeerCount() = %d; want 0", ai.PeerCount())
+	}
+
+	ai.Mutex.Lock()
+	ai.peers["fe80::1%eth0"] = &Peer{
+		ifaceName: "eth0",
+		lastHeard: time.Now(),
+		addr:      &net.UDPAddr{IP: net.ParseIP("fe80::1"), Zone: "eth0"},
+	}
+	ai.peers["fe80::2%eth0"] = &Peer{
+		ifaceName: "eth0",
+		lastHeard: time.Now(),
+		addr:      &net.UDPAddr{IP: net.ParseIP("fe80::2"), Zone: "eth0"},
+	}
+	ai.Mutex.Unlock()
+
+	if ai.PeerCount() != 2 {
+		t.Errorf("PeerCount() = %d; want 2", ai.PeerCount())
+	}
 }
 
 // mockAutoInterface embeds AutoInterface but overrides methods that start goroutines

@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"net"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -23,30 +24,33 @@ type DequeEntry struct {
 
 type AutoInterface struct {
 	BaseInterface
-	groupID            []byte
-	groupHash          []byte
-	discoveryPort      int
-	dataPort           int
-	discoveryScope     string
-	multicastAddrType  string
-	mcastDiscoveryAddr string
-	peers              map[string]*Peer
-	linkLocalAddrs     []string
-	adoptedInterfaces  map[string]*AdoptedInterface
-	interfaceServers   map[string]*net.UDPConn
-	discoveryServers   map[string]*net.UDPConn
-	multicastEchoes    map[string]time.Time
-	timedOutInterfaces map[string]time.Time
-	allowedInterfaces  []string
-	ignoredInterfaces  []string
-	outboundConn       *net.UDPConn
-	announceInterval   time.Duration
-	peerJobInterval    time.Duration
-	peeringTimeout     time.Duration
-	mcastEchoTimeout   time.Duration
-	mifDeque           []DequeEntry
-	done               chan struct{}
-	stopOnce           sync.Once
+	groupID                 []byte
+	groupHash               []byte
+	discoveryPort           int
+	unicastDiscoveryPort    int
+	dataPort                int
+	discoveryScope          string
+	multicastAddrType       string
+	mcastDiscoveryAddr      string
+	peers                   map[string]*Peer
+	linkLocalAddrs          []string
+	adoptedInterfaces       map[string]*AdoptedInterface
+	interfaceServers        map[string]*net.UDPConn
+	discoveryServers        map[string]*net.UDPConn
+	unicastDiscoveryServers map[string]*net.UDPConn
+	multicastEchoes         map[string]time.Time
+	timedOutInterfaces      map[string]time.Time
+	allowedInterfaces       []string
+	ignoredInterfaces       []string
+	outboundConns           map[string]*net.UDPConn
+	announceInterval        time.Duration
+	peerJobInterval         time.Duration
+	peeringTimeout          time.Duration
+	mcastEchoTimeout        time.Duration
+	reversePeeringInterval  time.Duration
+	mifDeque                []DequeEntry
+	done                    chan struct{}
+	stopOnce                sync.Once
 }
 
 type AdoptedInterface struct {
@@ -56,9 +60,10 @@ type AdoptedInterface struct {
 }
 
 type Peer struct {
-	ifaceName string
-	lastHeard time.Time
-	addr      *net.UDPAddr
+	ifaceName    string
+	lastHeard    time.Time
+	lastOutbound time.Time
+	addr         *net.UDPAddr
 }
 
 func descopeLinkLocal(addr string) string {
@@ -113,6 +118,13 @@ func NewAutoInterface(name string, config *common.InterfaceConfig) (*AutoInterfa
 	}
 	mcastAddr := fmt.Sprintf("ff%s%s:%s", multicastAddrType, discoveryScope, gt.String())
 
+	announceInterval := AnnounceInterval
+	peerJobInterval := PeerJobInterval
+	peeringTimeout := PeeringTimeout
+	mcastEchoTimeout := McastEchoTimeout
+
+	// Android peering timeout increase is omitted here; add if platform detection is needed.
+
 	ai := &AutoInterface{
 		BaseInterface: BaseInterface{
 			Name:     name,
@@ -126,28 +138,32 @@ func NewAutoInterface(name string, config *common.InterfaceConfig) (*AutoInterfa
 			MTU:      HWMTU,
 			Bitrate:  BitrateGuess,
 		},
-		groupID:            []byte(groupID),
-		groupHash:          groupHash[:],
-		discoveryPort:      discoveryPort,
-		dataPort:           dataPort,
-		discoveryScope:     discoveryScope,
-		multicastAddrType:  multicastAddrType,
-		mcastDiscoveryAddr: mcastAddr,
-		peers:              make(map[string]*Peer),
-		linkLocalAddrs:     make([]string, 0),
-		adoptedInterfaces:  make(map[string]*AdoptedInterface),
-		interfaceServers:   make(map[string]*net.UDPConn),
-		discoveryServers:   make(map[string]*net.UDPConn),
-		multicastEchoes:    make(map[string]time.Time),
-		timedOutInterfaces: make(map[string]time.Time),
-		allowedInterfaces:  make([]string, 0),
-		ignoredInterfaces:  make([]string, 0),
-		announceInterval:   AnnounceInterval,
-		peerJobInterval:    PeerJobInterval,
-		peeringTimeout:     PeeringTimeout,
-		mcastEchoTimeout:   McastEchoTimeout,
-		mifDeque:           make([]DequeEntry, 0, MultiIFDequeLen),
-		done:               make(chan struct{}),
+		groupID:                 []byte(groupID),
+		groupHash:               groupHash[:],
+		discoveryPort:           discoveryPort,
+		unicastDiscoveryPort:    discoveryPort + 1,
+		dataPort:                dataPort,
+		discoveryScope:          discoveryScope,
+		multicastAddrType:       multicastAddrType,
+		mcastDiscoveryAddr:      mcastAddr,
+		peers:                   make(map[string]*Peer),
+		linkLocalAddrs:          make([]string, 0),
+		adoptedInterfaces:       make(map[string]*AdoptedInterface),
+		interfaceServers:        make(map[string]*net.UDPConn),
+		discoveryServers:        make(map[string]*net.UDPConn),
+		unicastDiscoveryServers: make(map[string]*net.UDPConn),
+		multicastEchoes:         make(map[string]time.Time),
+		timedOutInterfaces:      make(map[string]time.Time),
+		allowedInterfaces:       config.Devices,
+		ignoredInterfaces:       config.IgnoredDevices,
+		outboundConns:           make(map[string]*net.UDPConn),
+		announceInterval:        announceInterval,
+		peerJobInterval:         peerJobInterval,
+		peeringTimeout:          peeringTimeout,
+		mcastEchoTimeout:        mcastEchoTimeout,
+		reversePeeringInterval:  time.Duration(float64(announceInterval) * 3.25),
+		mifDeque:                make([]DequeEntry, 0, MultiIFDequeLen),
+		done:                    make(chan struct{}),
 	}
 
 	debug.Log(debug.DebugInfo, "AutoInterface configured", "name", name, "group", groupID, "mcast_addr", mcastAddr)
@@ -224,9 +240,11 @@ func (ai *AutoInterface) Start() error {
 		return fmt.Errorf("no suitable interfaces found")
 	}
 
+	ai.Mutex.Lock()
 	ai.Online = true
 	ai.In = true
 	ai.Out = true
+	ai.Mutex.Unlock()
 
 	go ai.peerJobs()
 	go ai.announceLoop()
@@ -236,13 +254,18 @@ func (ai *AutoInterface) Start() error {
 }
 
 func (ai *AutoInterface) shouldIgnoreInterface(name string) bool {
-	ignoreList := []string{"lo", "lo0", "tun0", "awdl0", "llw0", "en5", "dummy0"}
-
 	if slices.Contains(ai.ignoredInterfaces, name) {
 		return true
 	}
 
-	return slices.Contains(ignoreList, name)
+	switch runtime.GOOS {
+	case "darwin":
+		return slices.Contains([]string{"awdl0", "llw0", "lo0", "en5"}, name)
+	case "android":
+		return slices.Contains([]string{"dummy0", "lo", "tun0"}, name)
+	default:
+		return name == "lo0"
+	}
 }
 
 func (ai *AutoInterface) isAllowedInterface(name string) bool {
@@ -291,9 +314,29 @@ func (ai *AutoInterface) configureInterface(iface *net.Interface) error {
 		return fmt.Errorf("failed to start discovery listener: %v", err)
 	}
 
+	if err := ai.startUnicastDiscoveryListener(iface); err != nil {
+		return fmt.Errorf("failed to start unicast discovery listener: %v", err)
+	}
+
 	if err := ai.startDataListener(iface); err != nil {
 		return fmt.Errorf("failed to start data listener: %v", err)
 	}
+
+	// Create a dedicated outbound socket for this interface so multicast
+	// and unicast traffic goes out the correct NIC.
+	outboundAddr := &net.UDPAddr{
+		IP:   net.ParseIP(linkLocalAddr),
+		Port: 0,
+		Zone: iface.Name,
+	}
+	outboundConn, err := net.ListenUDP("udp6", outboundAddr)
+	if err != nil {
+		return fmt.Errorf("failed to create outbound socket: %v", err)
+	}
+
+	ai.Mutex.Lock()
+	ai.outboundConns[iface.Name] = outboundConn
+	ai.Mutex.Unlock()
 
 	debug.Log(debug.DebugInfo, "Configured interface", "name", iface.Name, "addr", linkLocalAddr)
 	return nil
@@ -321,6 +364,37 @@ func (ai *AutoInterface) startDiscoveryListener(iface *net.Interface) error {
 
 	go ai.handleDiscovery(conn, iface.Name)
 	debug.Log(debug.DebugVerbose, "Discovery listener started", "interface", iface.Name, "addr", ai.mcastDiscoveryAddr)
+	return nil
+}
+
+func (ai *AutoInterface) startUnicastDiscoveryListener(iface *net.Interface) error {
+	adoptedIface, exists := ai.adoptedInterfaces[iface.Name]
+	if !exists {
+		return fmt.Errorf("interface not adopted")
+	}
+
+	addr := &net.UDPAddr{
+		IP:   net.ParseIP(adoptedIface.linkLocalAddr),
+		Port: ai.unicastDiscoveryPort,
+		Zone: iface.Name,
+	}
+
+	conn, err := net.ListenUDP("udp6", addr)
+	if err != nil {
+		debug.Log(debug.DebugError, "Failed to listen on unicast discovery port", "addr", addr, "error", err)
+		return err
+	}
+
+	if err := conn.SetReadBuffer(1024); err != nil {
+		debug.Log(debug.DebugError, "Failed to set unicast discovery read buffer", "error", err)
+	}
+
+	ai.Mutex.Lock()
+	ai.unicastDiscoveryServers[iface.Name] = conn
+	ai.Mutex.Unlock()
+
+	go ai.handleDiscovery(conn, iface.Name)
+	debug.Log(debug.DebugVerbose, "Unicast discovery listener started", "interface", iface.Name, "addr", addr)
 	return nil
 }
 
@@ -443,6 +517,12 @@ func (ai *AutoInterface) handleData(conn *net.UDPConn, ifaceName string) {
 		if peer, exists := ai.peers[peerKey]; exists {
 			peer.lastHeard = now
 		}
+
+		// Update RX stats
+		ai.RxBytes += uint64(len(data))
+		ai.RxPackets++
+		ai.lastRx = now
+
 		ai.Mutex.Unlock()
 
 		stripped, ok := common.ApplyIFACInbound(ai, data)
@@ -474,9 +554,10 @@ func (ai *AutoInterface) handlePeerAnnounce(addr *net.UDPAddr, ifaceName string)
 		debug.Log(debug.DebugTrace, "Updated peer", "peer", peerIP, "interface", ifaceName)
 	} else {
 		ai.peers[peerKey] = &Peer{
-			ifaceName: ifaceName,
-			lastHeard: time.Now(),
-			addr:      addr,
+			ifaceName:    ifaceName,
+			lastHeard:    time.Now(),
+			lastOutbound: time.Now(),
+			addr:         addr,
 		}
 		debug.Log(debug.DebugInfo, "Discovered new peer", "peer", peerIP, "interface", ifaceName)
 	}
@@ -510,23 +591,46 @@ func (ai *AutoInterface) sendPeerAnnounce() {
 			Zone: ifaceName,
 		}
 
-		if ai.outboundConn == nil {
-			var err error
-			ai.outboundConn, err = net.ListenUDP("udp6", &net.UDPAddr{Port: 0})
-			if err != nil {
-				debug.Log(debug.DebugError, "Failed to create outbound socket", "error", err)
-				return
-			}
+		conn, ok := ai.outboundConns[ifaceName]
+		if !ok || conn == nil {
+			debug.Log(debug.DebugError, "No outbound socket for interface", "interface", ifaceName)
+			continue
 		}
 
 		tokenSource := append(ai.groupID, []byte(adoptedIface.linkLocalAddr)...)
 		token := sha256.Sum256(tokenSource)
 
-		if _, err := ai.outboundConn.WriteToUDP(token[:], mcastAddr); err != nil {
+		if _, err := conn.WriteToUDP(token[:], mcastAddr); err != nil {
 			debug.Log(debug.DebugVerbose, "Failed to send peer announce", "interface", ifaceName, "error", err)
 		} else {
 			debug.Log(debug.DebugTrace, "Sent peer announce", "interface", adoptedIface.name)
 		}
+	}
+}
+
+func (ai *AutoInterface) reverseAnnounce(peer *Peer) {
+	ai.Mutex.RLock()
+	adoptedIface, exists := ai.adoptedInterfaces[peer.ifaceName]
+	conn := ai.outboundConns[peer.ifaceName]
+	ai.Mutex.RUnlock()
+
+	if !exists || conn == nil {
+		return
+	}
+
+	tokenSource := append(ai.groupID, []byte(adoptedIface.linkLocalAddr)...)
+	token := sha256.Sum256(tokenSource)
+
+	targetAddr := &net.UDPAddr{
+		IP:   peer.addr.IP,
+		Port: ai.unicastDiscoveryPort,
+		Zone: peer.ifaceName,
+	}
+
+	if _, err := conn.WriteToUDP(token[:], targetAddr); err != nil {
+		debug.Log(debug.DebugVerbose, "Failed to send reverse peering packet", "peer", peer.addr.IP.String(), "interface", peer.ifaceName, "error", err)
+	} else {
+		debug.Log(debug.DebugTrace, "Sent reverse peering packet", "peer", peer.addr.IP.String(), "interface", peer.ifaceName)
 	}
 }
 
@@ -548,6 +652,15 @@ func (ai *AutoInterface) peerJobs() {
 				if now.Sub(peer.lastHeard) > ai.peeringTimeout {
 					delete(ai.peers, peerKey)
 					debug.Log(debug.DebugVerbose, "Removed timed out peer", "peer", peerKey)
+					continue
+				}
+				if now.Sub(peer.lastOutbound) > ai.reversePeeringInterval {
+					ai.Mutex.Unlock()
+					ai.reverseAnnounce(peer)
+					ai.Mutex.Lock()
+					if p, ok := ai.peers[peerKey]; ok {
+						p.lastOutbound = now
+					}
 				}
 			}
 
@@ -581,31 +694,29 @@ func (ai *AutoInterface) Send(data []byte, address string) error {
 	}
 	data = masked
 
-	ai.Mutex.RLock()
-	defer ai.Mutex.RUnlock()
+	ai.Mutex.Lock()
+	defer ai.Mutex.Unlock()
 
 	if len(ai.peers) == 0 {
 		debug.Log(debug.DebugTrace, "No peers available for sending")
 		return nil
 	}
 
-	if ai.outboundConn == nil {
-		var err error
-		ai.outboundConn, err = net.ListenUDP("udp6", &net.UDPAddr{Port: 0})
-		if err != nil {
-			return fmt.Errorf("failed to create outbound socket: %v", err)
-		}
-	}
-
 	sentCount := 0
 	for _, peer := range ai.peers {
+		conn, ok := ai.outboundConns[peer.ifaceName]
+		if !ok || conn == nil {
+			debug.Log(debug.DebugVerbose, "No outbound socket for peer interface", "interface", peer.ifaceName)
+			continue
+		}
+
 		targetAddr := &net.UDPAddr{
 			IP:   peer.addr.IP,
 			Port: ai.dataPort,
 			Zone: peer.ifaceName,
 		}
 
-		if _, err := ai.outboundConn.WriteToUDP(data, targetAddr); err != nil {
+		if _, err := conn.WriteToUDP(data, targetAddr); err != nil {
 			debug.Log(debug.DebugVerbose, "Failed to send to peer", "interface", peer.ifaceName, "error", err)
 			continue
 		}
@@ -616,7 +727,19 @@ func (ai *AutoInterface) Send(data []byte, address string) error {
 		debug.Log(debug.DebugTrace, "Sent data to peers", "count", sentCount, "bytes", len(data))
 	}
 
+	// Update TX stats
+	ai.TxBytes += uint64(len(data)) * uint64(sentCount)
+	ai.TxPackets += uint64(sentCount)
+	ai.lastTx = time.Now()
+
 	return nil
+}
+
+// PeerCount returns the number of currently known peers.
+func (ai *AutoInterface) PeerCount() int {
+	ai.Mutex.RLock()
+	defer ai.Mutex.RUnlock()
+	return len(ai.peers)
 }
 
 func (ai *AutoInterface) Stop() error {
@@ -633,9 +756,14 @@ func (ai *AutoInterface) Stop() error {
 		server.Close() // #nosec G104
 	}
 
-	if ai.outboundConn != nil {
-		ai.outboundConn.Close() // #nosec G104
+	for _, server := range ai.unicastDiscoveryServers {
+		server.Close() // #nosec G104
 	}
+
+	for _, conn := range ai.outboundConns {
+		conn.Close() // #nosec G104
+	}
+
 	ai.Mutex.Unlock()
 
 	ai.stopOnce.Do(func() {
