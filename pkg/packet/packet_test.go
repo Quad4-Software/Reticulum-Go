@@ -313,20 +313,22 @@ func BenchmarkPacketSerializeDeserialize(b *testing.B) {
 		b.Fatalf("Original packet.Pack() failed: %v", err)
 	}
 
+	wireLen := len(originalPacket.Raw)
+	buf := make([]byte, wireLen, nextRawWireCap(wireLen))
+	copy(buf, originalPacket.Raw)
+	packet := &Packet{Raw: buf}
+
 	b.ResetTimer()
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		// Create new packet from raw data
-		packet := &Packet{Raw: make([]byte, len(originalPacket.Raw))}
-		copy(packet.Raw, originalPacket.Raw)
+		copy(buf, originalPacket.Raw)
+		packet.Raw = buf[:wireLen]
 
-		// Unpack the packet
 		if err := packet.Unpack(); err != nil {
 			b.Fatalf("Packet.Unpack() failed: %v", err)
 		}
 
-		// Re-pack
 		if err := packet.Pack(); err != nil {
 			b.Fatalf("Packet.Pack() failed: %v", err)
 		}

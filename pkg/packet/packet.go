@@ -77,6 +77,18 @@ func (p *Packet) hashablePreimageLen() int {
 	return n
 }
 
+func nextRawWireCap(need int) int {
+	if need > MTU {
+		return need
+	}
+	const align = 64
+	rounded := (need + align - 1) / align * align
+	if rounded > MTU {
+		return MTU
+	}
+	return rounded
+}
+
 // PacketConfig holds the parameters used to create a new packet.
 type PacketConfig struct {
 	DestType      byte
@@ -145,7 +157,11 @@ func (p *Packet) Pack() error {
 	if cap(p.Raw) >= need {
 		raw = p.Raw[:0]
 	} else {
-		raw = make([]byte, 0, need)
+		newCap := need
+		if cap(p.Raw) > 0 {
+			newCap = nextRawWireCap(need)
+		}
+		raw = make([]byte, 0, newCap)
 	}
 	raw = append(raw, flags, p.Hops)
 	if p.HeaderType == HeaderType2 {
@@ -232,9 +248,11 @@ func (p *Packet) updateHash() {
 		sum = sha256.Sum256(hb)
 	}
 	if cap(p.PacketHash) < sha256.Size {
-		p.PacketHash = make([]byte, 0, sha256.Size)
+		p.PacketHash = make([]byte, sha256.Size)
+	} else {
+		p.PacketHash = p.PacketHash[:sha256.Size]
 	}
-	p.PacketHash = append(p.PacketHash[:0], sum[:]...)
+	copy(p.PacketHash, sum[:])
 }
 
 func (p *Packet) Hash() []byte {
