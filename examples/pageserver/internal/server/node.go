@@ -62,8 +62,9 @@ type Reticulum struct {
 	refreshStop          chan struct{}
 	refreshOnce          sync.Once
 
-	pageStatsMu sync.Mutex
-	pageStats   map[string]int64
+	pageStatsMu       sync.RWMutex
+	pageStats         map[string]int64
+	pageStatsDisabled bool
 
 	announceEveryMinutes int
 }
@@ -137,6 +138,11 @@ func NewReticulum(cfg *common.ReticulumConfig, opts Options) (*Reticulum, error)
 
 	nodeTimestamp := time.Now().Unix()
 
+	var pageStats map[string]int64
+	if !opts.DisablePageStats {
+		pageStats = make(map[string]int64)
+	}
+
 	r := &Reticulum{
 		config:          cfg,
 		transport:       t,
@@ -159,7 +165,8 @@ func NewReticulum(cfg *common.ReticulumConfig, opts Options) (*Reticulum, error)
 		filesRefreshInterval: opts.FileRefreshInterval,
 		refreshStop:          make(chan struct{}),
 
-		pageStats: make(map[string]int64),
+		pageStats:         pageStats,
+		pageStatsDisabled: opts.DisablePageStats,
 
 		announceEveryMinutes: opts.AnnounceIntervalMinutes,
 	}

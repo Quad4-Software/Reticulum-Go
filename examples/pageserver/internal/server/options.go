@@ -14,4 +14,7 @@ type Options struct {
 	AnnounceIntervalMinutes int
 	IdentityFileOverride    string
 	NodeDisplayName         string
+	// DisablePageStats omits the built-in /page/__pageviews.mu handler and skips
+	// recording view counts. A static pages/__pageviews.mu file can still be served.
+	DisablePageStats bool
 }

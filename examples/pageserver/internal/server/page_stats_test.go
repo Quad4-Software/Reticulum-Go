@@ -142,3 +142,11 @@ func TestEscapeMicronPath(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestRecordPageViewSkipsWhenStatsDisabled(t *testing.T) {
+	r := &Reticulum{pageStatsDisabled: true, pageStats: nil}
+	r.recordPageView("/page/x.mu")
+	if r.pageStats != nil {
+		t.Fatalf("expected nil map when stats disabled, got %v", r.pageStats)
+	}
+}

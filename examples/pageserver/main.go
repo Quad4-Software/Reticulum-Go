@@ -28,6 +28,7 @@ var (
 	fileRefreshSec      int
 	pageserverLogLevel  int
 	identityOverride    string
+	disablePageStats    bool
 )
 
 func init() {
@@ -48,6 +49,7 @@ func init() {
 	flag.IntVar(&pageserverLogLevel, "log-level", -1, "Log verbosity 1-7. Use -1 to take the level from the config file.")
 	flag.StringVar(&identityOverride, "identity", "", "Identity file path (default ~/.reticulum-go/storage/identity).")
 	flag.StringVar(&identityOverride, "identity-path", "", "Same as -identity.")
+	flag.BoolVar(&disablePageStats, "no-page-stats", false, "Disable built-in page view stats and stop recording views. A static pages/__pageviews.mu can still be served.")
 }
 
 func main() {
@@ -76,6 +78,7 @@ func main() {
 		AnnounceIntervalMinutes: announceIntervalMin,
 		IdentityFileOverride:    identityOverride,
 		NodeDisplayName:         server.ClampDisplayName(nodeNameFlag, server.AppName),
+		DisablePageStats:        disablePageStats,
 	}
 
 	r, err := server.NewReticulum(cfg, opts)

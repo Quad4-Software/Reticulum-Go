@@ -40,7 +40,11 @@ func PrintStartupSummary(r *Reticulum) {
 	} else {
 		fmt.Fprintln(w, strings.Join(files, ", "))
 	}
-	fmt.Fprintf(w, "  page view stats: %s\n", BuiltInPageViewsPath)
+	if r.pageStatsDisabled {
+		fmt.Fprintln(w, "  page view stats: off")
+	} else {
+		fmt.Fprintf(w, "  page view stats: %s\n", BuiltInPageViewsPath)
+	}
 	if r.announceEveryMinutes > 0 {
 		ann := time.Duration(r.announceEveryMinutes) * time.Minute
 		fmt.Fprintf(w, "  periodic announce: every %d min (%s)\n", r.announceEveryMinutes, FormatDuration(ann))

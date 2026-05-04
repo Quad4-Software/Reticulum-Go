@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -55,7 +56,9 @@ func appendEnvironFromData(base []string, data []byte) []string {
 }
 
 func buildScriptEnv(data []byte, linkID []byte, remoteIdentity *identity.Identity) []string {
-	env := append([]string(nil), os.Environ()...)
+	base := os.Environ()
+	env := make([]string, len(base), len(base)+8)
+	copy(env, base)
 	env = appendEnvironFromData(env, data)
 	if len(linkID) > 0 {
 		env = append(env, "link_id="+hex.EncodeToString(linkID))
@@ -69,12 +72,18 @@ func buildScriptEnv(data []byte, linkID []byte, remoteIdentity *identity.Identit
 // ReadOrExecute returns static .mu bytes, or stdout from the page script when
 // the file is .mu, starts with a shebang, and has an execute bit set.
 func ReadOrExecute(filePath string, data []byte, linkID []byte, remoteIdentity *identity.Identity) ([]byte, error) {
-	fi, err := os.Stat(filePath)
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	fi, err := f.Stat()
 	if err != nil {
 		return nil, err
 	}
 
-	raw, err := os.ReadFile(filePath)
+	raw, err := io.ReadAll(f)
 	if err != nil {
 		return nil, err
 	}

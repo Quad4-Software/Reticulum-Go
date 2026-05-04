@@ -4,10 +4,10 @@
 package server
 
 import (
-	"fmt"
 	"maps"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,15 +53,24 @@ func formatPageViewStatsMicron(generatedUnix int64, counts map[string]int64) []b
 	total := sumPageViewCountsSaturated(counts)
 
 	var b strings.Builder
+	b.Grow(256 + len(paths)*96)
 	b.WriteString("`c`!Page view statistics`!\n\n")
 	b.WriteString("`F888Successful page responses only.`f\n\n")
-	fmt.Fprintf(&b, "`!Total views`! `!%d`!\n\n", total)
-	fmt.Fprintf(&b, "`!Generated (unix)`! `!%d`!\n\n", generatedUnix)
+	b.WriteString("`!Total views`! `!")
+	var nbuf [24]byte
+	b.Write(strconv.AppendInt(nbuf[:0], total, 10))
+	b.WriteString("`!\n\n")
+	b.WriteString("`!Generated (unix)`! `!")
+	b.Write(strconv.AppendInt(nbuf[:0], generatedUnix, 10))
+	b.WriteString("`!\n\n")
 	b.WriteString("-\n\n")
 	b.WriteString("`!Per path`!\n\n")
 	for _, p := range paths {
-		fmt.Fprintf(&b, "%s\n", escapeMicronPath(p))
-		fmt.Fprintf(&b, "`!%d`! views\n\n", counts[p])
+		b.WriteString(escapeMicronPath(p))
+		b.WriteByte('\n')
+		b.WriteString("`!")
+		b.Write(strconv.AppendInt(nbuf[:0], counts[p], 10))
+		b.WriteString("`! views\n\n")
 	}
 	return []byte(b.String())
 }
@@ -74,11 +83,11 @@ func (r *Reticulum) evictOnePageStatLocked() {
 }
 
 func (r *Reticulum) recordPageView(requestPath string) {
+	if r.pageStatsDisabled {
+		return
+	}
 	r.pageStatsMu.Lock()
 	defer r.pageStatsMu.Unlock()
-	if r.pageStats == nil {
-		r.pageStats = make(map[string]int64)
-	}
 	v, ok := r.pageStats[requestPath]
 	if ok {
 		if v < PageStatsMaxCountPerPath {
@@ -100,15 +109,21 @@ func (r *Reticulum) servePageViewStats(
 	_ *identity.Identity,
 	_ int64,
 ) []byte {
-	r.pageStatsMu.Lock()
-	snap := make(map[string]int64, len(r.pageStats))
-	maps.Copy(snap, r.pageStats)
-	r.pageStatsMu.Unlock()
+	r.pageStatsMu.RLock()
+	n := len(r.pageStats)
+	snap := make(map[string]int64, n)
+	if n > 0 {
+		maps.Copy(snap, r.pageStats)
+	}
+	r.pageStatsMu.RUnlock()
 
 	return formatPageViewStatsMicron(time.Now().Unix(), snap)
 }
 
 func (r *Reticulum) syncBuiltInPageStatsHandler() {
+	if r.pageStatsDisabled {
+		return
+	}
 	if err := r.destination.RegisterRequestHandler(
 		BuiltInPageViewsPath,
 		r.servePageViewStats,
