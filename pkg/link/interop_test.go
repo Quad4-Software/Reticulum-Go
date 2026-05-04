@@ -56,6 +56,7 @@ func (p *PipeInterface) Stop() error     { return nil }
 func (p *PipeInterface) Detach()         {}
 
 func TestNodeInterop(t *testing.T) {
+	skipHeavyLinkTestsIfShort(t)
 	// Create Node A
 	cfgA := &common.ReticulumConfig{}
 	trA := transport.NewTransport(cfgA)
@@ -262,6 +263,7 @@ func TestNodeInterop(t *testing.T) {
 }
 
 func TestLinkRequestResponseInterop(t *testing.T) {
+	skipHeavyLinkTestsIfShort(t)
 	// Create Nodes
 	cfgA := &common.ReticulumConfig{}
 	trA := transport.NewTransport(cfgA)

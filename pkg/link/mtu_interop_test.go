@@ -25,6 +25,7 @@ func establishInteropLinkAsync(t *testing.T) (*Link, *Link, func()) {
 
 func establishInteropLinkPipe(t *testing.T, asyncDelivery bool) (*Link, *Link, func()) {
 	t.Helper()
+	skipHeavyLinkTestsIfShort(t)
 
 	cfgA := &common.ReticulumConfig{}
 	trA := transport.NewTransport(cfgA)

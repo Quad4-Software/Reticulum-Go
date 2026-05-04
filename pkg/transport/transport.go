@@ -1686,6 +1686,20 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 	path, hasPath := t.paths[destHashStr]
 	t.mutex.RUnlock()
 
+	if hasPath && path != nil {
+		ttl := time.Duration(PathRequestTTL) * time.Second
+		if time.Since(path.LastUpdated) > ttl {
+			t.mutex.Lock()
+			if cur, ok := t.paths[destHashStr]; ok && cur == path && time.Since(cur.LastUpdated) > ttl {
+				delete(t.paths, destHashStr)
+				delete(t.pathStates, destHashStr)
+			}
+			t.mutex.Unlock()
+			hasPath = false
+			path = nil
+		}
+	}
+
 	if isLocal {
 		if dest, ok := localDest.raw.(*destination.Destination); ok {
 			debug.Log(debug.DebugInfo, "Answering path request for local destination", "dest_hash", fmt.Sprintf("%x", destHash))

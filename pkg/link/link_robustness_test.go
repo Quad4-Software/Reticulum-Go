@@ -95,6 +95,7 @@ func TestLinkRobustness_TeardownClosesBothEnds(t *testing.T) {
 }
 
 func TestLinkRobustness_SendPacketOverManyMTUs(t *testing.T) {
+	skipHeavyLinkTestsIfShort(t)
 	mtus := []int{200, 350, 500, 1064, 1196, 4096}
 
 	for _, mtu := range mtus {
@@ -232,6 +233,7 @@ func TestLinkRobustness_ConcurrentSenders(t *testing.T) {
 }
 
 func TestLinkRobustness_SequentialLinkChurn(t *testing.T) {
+	skipHeavyLinkTestsIfShort(t)
 	const cycles = 5
 
 	for i := range cycles {
@@ -291,6 +293,7 @@ func TestLinkRobustness_IdentifyOverMTUClampedLink(t *testing.T) {
 }
 
 func TestLinkRobustness_RequestResponseOverMTUClampedLink(t *testing.T) {
+	skipHeavyLinkTestsIfShort(t)
 	cfgA := &common.ReticulumConfig{}
 	trA := transport.NewTransport(cfgA)
 	defer trA.Close()
@@ -396,10 +399,7 @@ func TestLinkRobustness_LargeRequestResponseResourceCompletes(t *testing.T) {
 	// A fixed multi-10s payload (e.g. 2048 repeats of a 23-byte string) forces
 	// excessive HMU/resource rounds and times out under -race -count=N; scale to mdu with a cap.
 	const maxBody = 8 * 1024
-	bodyLen := mdu*12 + 256
-	if bodyLen > maxBody {
-		bodyLen = maxBody
-	}
+	bodyLen := min(mdu*12+256, maxBody)
 	if bodyLen < mdu+64 {
 		bodyLen = mdu + 64
 	}

@@ -194,6 +194,7 @@ func (l *Link) Establish() error {
 	l.requestTime = time.Now()
 
 	if err := l.SendLinkRequest(); err != nil {
+		l.markInitiatorEstablishmentFailedLocked()
 		debug.Log(debug.DebugError, "Failed to send link request", "error", err, "elapsed", time.Since(startTime).Seconds())
 		return err
 	}
@@ -1765,10 +1766,12 @@ func (l *Link) handleLinkProof(pkt *packet.Packet, networkIface common.NetworkIn
 func (l *Link) handleTeardown(plaintext []byte) error {
 	if len(plaintext) == len(l.linkID) && string(plaintext) == string(l.linkID) {
 		l.status.Store(int32(StatusClosed))
-		if l.initiator {
-			l.teardownReason = StatusFailed
-		} else {
-			l.teardownReason = StatusFailed
+		l.teardownReason = StatusFailed
+		if l.transport != nil && len(l.linkID) > 0 {
+			l.transport.UnregisterLink(l.linkID)
+		}
+		if l.initiator && l.establishedAt.IsZero() {
+			l.invalidateTransportPathAfterInitiatorFailure()
 		}
 		if l.closedCallback != nil {
 			l.closedCallback(l)
@@ -2150,6 +2153,12 @@ func (l *Link) watchdog() {
 				debug.Log(debug.DebugInfo, "Link establishment timed out", "link_id", fmt.Sprintf("%x", l.linkID), "status", l.status.Load())
 				l.status.Store(int32(StatusClosed))
 				l.teardownReason = StatusFailed
+				if l.transport != nil && len(l.linkID) > 0 {
+					l.transport.UnregisterLink(l.linkID)
+				}
+				if l.initiator {
+					l.invalidateTransportPathAfterInitiatorFailure()
+				}
 				if l.closedCallback != nil {
 					l.closedCallback(l)
 				}
@@ -2167,6 +2176,12 @@ func (l *Link) watchdog() {
 				}
 				l.status.Store(int32(StatusClosed))
 				l.teardownReason = StatusFailed
+				if l.transport != nil && len(l.linkID) > 0 {
+					l.transport.UnregisterLink(l.linkID)
+				}
+				if l.initiator {
+					l.invalidateTransportPathAfterInitiatorFailure()
+				}
 				if l.closedCallback != nil {
 					l.closedCallback(l)
 				}
@@ -2639,6 +2654,7 @@ func (l *Link) ValidateLinkProof(pkt *packet.Packet, networkIface common.Network
 	}
 
 	if len(pkt.Data) < identity.SigLength/8+KeySize {
+		l.markInitiatorEstablishmentFailedLocked()
 		return errors.New("link proof data too short")
 	}
 
@@ -2674,16 +2690,19 @@ func (l *Link) ValidateLinkProof(pkt *packet.Packet, networkIface common.Network
 	debug.Log(debug.DebugInfo, "Constructed signed data for validation", "link_id", fmt.Sprintf("%x", l.linkID[:8]), "peer_pub", fmt.Sprintf("%x", peerPub[:8]), "peer_sig_pub", fmt.Sprintf("%x", l.peerSigPub[:8]), "signalling", fmt.Sprintf("%x", signalling), "signed_data_len", len(signedData), "signed_data_first32", fmt.Sprintf("%x", signedData[:first32Len]))
 
 	if l.destination == nil || l.destination.GetIdentity() == nil {
+		l.markInitiatorEstablishmentFailedLocked()
 		return errors.New("no destination identity for proof validation")
 	}
 
 	if !l.destination.GetIdentity().Verify(signedData, signature) {
 		debug.Log(debug.DebugError, "Link proof signature validation failed", "link_id", fmt.Sprintf("%x", l.linkID[:8]), "signature", fmt.Sprintf("%x", signature[:8]), "signed_data", fmt.Sprintf("%x", signedData))
+		l.markInitiatorEstablishmentFailedLocked()
 		return errors.New("link proof signature validation failed")
 	}
 	debug.Log(debug.DebugInfo, "Link proof signature validated successfully", "link_id", fmt.Sprintf("%x", l.linkID[:8]))
 
 	if err := l.performHandshake(); err != nil {
+		l.markInitiatorEstablishmentFailedLocked()
 		return fmt.Errorf("handshake failed: %w", err)
 	}
 

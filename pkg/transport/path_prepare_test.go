@@ -6,6 +6,7 @@ package transport
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 )
@@ -41,6 +42,36 @@ func TestPrepareFreshPathRequest_NewDestinationEmitsPacket(t *testing.T) {
 	}
 	if n := len(out.snapshot()); n != 1 {
 		t.Fatalf("expected one path request packet, got %d", n)
+	}
+}
+
+func TestPrepareFreshPathRequest_ExpiredTTLDropsAndRefreshes(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+	tr.SetIdentity(mustIdentity(t))
+	out := newRelayIface("out")
+	if err := tr.RegisterInterface("out", out); err != nil {
+		t.Fatalf("RegisterInterface: %v", err)
+	}
+
+	dest := bytes.Repeat([]byte{0xAA}, 16)
+	tr.UpdatePath(dest, bytes.Repeat([]byte{0xBB}, 16), "out", 2)
+	backdatePath(tr, dest, time.Duration(PathRequestTTL+30)*time.Second)
+	// Do not call HasPath here: it deletes expired rows, which would make
+	// PrepareFreshPathRequest behave like a first discovery (new_path_requested).
+
+	before := len(out.snapshot())
+	if got := tr.PrepareFreshPathRequest(dest); got != PrepareFreshPathRefreshRequested {
+		t.Fatalf("expected path_refresh_requested, got %q", got)
+	}
+	if len(out.snapshot()) <= before {
+		t.Fatal("expected TTL expiry to emit a new path request")
+	}
+	tr.mutex.RLock()
+	_, still := tr.paths[string(dest)]
+	tr.mutex.RUnlock()
+	if still {
+		t.Fatal("stale path row should be removed before rediscovery")
 	}
 }
 
