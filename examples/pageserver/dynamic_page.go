@@ -20,8 +20,8 @@ import (
 
 func dynamicPageShebangLine(content []byte) bool {
 	line := content
-	if i := bytes.IndexByte(content, '\n'); i >= 0 {
-		line = content[:i]
+	if before, _, ok := bytes.Cut(content, []byte{'\n'}); ok {
+		line = before
 	}
 	return bytes.HasPrefix(bytes.TrimSpace(line), []byte("#!"))
 }
@@ -38,7 +38,7 @@ func appendDynamicPageEnvironFromData(base []string, data []byte) []string {
 	if len(data) == 0 {
 		return base
 	}
-	var m map[string]interface{}
+	var m map[string]any
 	if err := msgpack.Unmarshal(data, &m); err != nil {
 		return base
 	}
