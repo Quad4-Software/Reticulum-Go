@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-package main
+// Package dynamicpage implements executable .mu pages (shebang + execute bit),
+// matching rns-page-node serve_page semantics.
+package dynamicpage
 
 import (
 	"bytes"
@@ -18,7 +20,7 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
 )
 
-func dynamicPageShebangLine(content []byte) bool {
+func shebangLine(content []byte) bool {
 	line := content
 	if before, _, ok := bytes.Cut(content, []byte{'\n'}); ok {
 		line = before
@@ -26,7 +28,7 @@ func dynamicPageShebangLine(content []byte) bool {
 	return bytes.HasPrefix(bytes.TrimSpace(line), []byte("#!"))
 }
 
-func dynamicPageExecutable(fi os.FileInfo) bool {
+func fileExecutable(fi os.FileInfo) bool {
 	mode := fi.Mode()
 	if !mode.IsRegular() {
 		return false
@@ -34,7 +36,7 @@ func dynamicPageExecutable(fi os.FileInfo) bool {
 	return mode.Perm()&0111 != 0
 }
 
-func appendDynamicPageEnvironFromData(base []string, data []byte) []string {
+func appendEnvironFromData(base []string, data []byte) []string {
 	if len(data) == 0 {
 		return base
 	}
@@ -52,9 +54,9 @@ func appendDynamicPageEnvironFromData(base []string, data []byte) []string {
 	return out
 }
 
-func buildDynamicPageScriptEnv(data []byte, linkID []byte, remoteIdentity *identity.Identity) []string {
+func buildScriptEnv(data []byte, linkID []byte, remoteIdentity *identity.Identity) []string {
 	env := append([]string(nil), os.Environ()...)
-	env = appendDynamicPageEnvironFromData(env, data)
+	env = appendEnvironFromData(env, data)
 	if len(linkID) > 0 {
 		env = append(env, "link_id="+hex.EncodeToString(linkID))
 	}
@@ -64,10 +66,9 @@ func buildDynamicPageScriptEnv(data []byte, linkID []byte, remoteIdentity *ident
 	return env
 }
 
-// readOrExecuteDynamicPage returns static .mu bytes, or stdout from the page
-// script when the file is .mu, starts with a shebang, and has an execute bit
-// (same rules as rns-page-node serve_page).
-func readOrExecuteDynamicPage(filePath string, data []byte, linkID []byte, remoteIdentity *identity.Identity) ([]byte, error) {
+// ReadOrExecute returns static .mu bytes, or stdout from the page script when
+// the file is .mu, starts with a shebang, and has an execute bit set.
+func ReadOrExecute(filePath string, data []byte, linkID []byte, remoteIdentity *identity.Identity) ([]byte, error) {
 	fi, err := os.Stat(filePath)
 	if err != nil {
 		return nil, err
@@ -81,18 +82,18 @@ func readOrExecuteDynamicPage(filePath string, data []byte, linkID []byte, remot
 	if !strings.EqualFold(filepath.Ext(filePath), ".mu") {
 		return raw, nil
 	}
-	if !dynamicPageShebangLine(raw) {
+	if !shebangLine(raw) {
 		return raw, nil
 	}
-	if !dynamicPageExecutable(fi) {
+	if !fileExecutable(fi) {
 		return raw, nil
 	}
 
 	cmd := exec.Command(filePath)
-	cmd.Env = buildDynamicPageScriptEnv(data, linkID, remoteIdentity)
+	cmd.Env = buildScriptEnv(data, linkID, remoteIdentity)
 	out, err := cmd.Output()
 	if err != nil {
-		debug.Log(debug.DebugError, "dynamic .mu page execution failed; serving file contents", "path", filePath, "error", err)
+		debug.Log(debug.DebugError, "dynamic .mu page execution failed. Serving file contents", "path", filePath, "error", err)
 		return raw, nil
 	}
 	return out, nil

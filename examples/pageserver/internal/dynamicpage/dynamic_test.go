@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-package main
+package dynamicpage
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func TestReadOrExecuteDynamicPageShebangExecutableRuns(t *testing.T) {
+func TestReadOrExecuteShebangExecutableRuns(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shebang execution is not supported the same way on windows")
 	}
@@ -20,7 +20,7 @@ func TestReadOrExecuteDynamicPageShebangExecutableRuns(t *testing.T) {
 	if err := os.WriteFile(p, []byte("#!/bin/sh\necho 'script output'\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	out, err := readOrExecuteDynamicPage(p, nil, nil, nil)
+	out, err := ReadOrExecute(p, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,13 +29,13 @@ func TestReadOrExecuteDynamicPageShebangExecutableRuns(t *testing.T) {
 	}
 }
 
-func TestReadOrExecuteDynamicPageShebangNotExecutableServesRaw(t *testing.T) {
+func TestReadOrExecuteShebangNotExecutableServesRaw(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "prop_script.mu")
 	if err := os.WriteFile(p, []byte("#!/bin/sh\necho hi\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	out, err := readOrExecuteDynamicPage(p, nil, nil, nil)
+	out, err := ReadOrExecute(p, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,13 +44,13 @@ func TestReadOrExecuteDynamicPageShebangNotExecutableServesRaw(t *testing.T) {
 	}
 }
 
-func TestReadOrExecuteDynamicPageExecutableNoShebangServesRaw(t *testing.T) {
+func TestReadOrExecuteExecutableNoShebangServesRaw(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "plain.mu")
 	if err := os.WriteFile(p, []byte("plain text\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	out, err := readOrExecuteDynamicPage(p, nil, nil, nil)
+	out, err := ReadOrExecute(p, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestReadOrExecuteDynamicPageExecutableNoShebangServesRaw(t *testing.T) {
 	}
 }
 
-func TestReadOrExecuteDynamicPageNonMuShebangExecutableIgnored(t *testing.T) {
+func TestReadOrExecuteNonMuShebangExecutableIgnored(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shebang execution is not supported the same way on windows")
 	}
@@ -68,7 +68,7 @@ func TestReadOrExecuteDynamicPageNonMuShebangExecutableIgnored(t *testing.T) {
 	if err := os.WriteFile(p, []byte("#!/bin/sh\necho x\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	out, err := readOrExecuteDynamicPage(p, nil, nil, nil)
+	out, err := ReadOrExecute(p, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
