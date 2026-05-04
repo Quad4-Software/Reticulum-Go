@@ -1013,7 +1013,7 @@ func (r *Reticulum) servePage(path string, data []byte, requestID []byte, linkID
 		return []byte(">Request Not Allowed\n\nYou are not authorized to access this resource.")
 	}
 
-	content, err := os.ReadFile(filePath)
+	content, err := readOrExecuteDynamicPage(filePath, data, linkID, remoteIdentity)
 	if err != nil {
 		debug.Log(debug.DebugError, "Failed to read page", "path", filePath, "error", err)
 		return []byte(">Page Not Found\n\nThe requested page could not be found.")
