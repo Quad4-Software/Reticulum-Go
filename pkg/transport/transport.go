@@ -309,19 +309,24 @@ func (t *Transport) cleanupExpiredReceipts() {
 	t.receiptsMutex.Lock()
 	defer t.receiptsMutex.Unlock()
 
-	validReceipts := make([]*packet.PacketReceipt, 0)
-	for _, receipt := range t.receipts {
+	oldLen := len(t.receipts)
+	write := 0
+	for read := 0; read < oldLen; read++ {
+		receipt := t.receipts[read]
 		if receipt != nil && !receipt.IsTimedOut() {
 			status := receipt.GetStatus()
 			if status == packet.ReceiptSent || status == packet.ReceiptDelivered {
-				validReceipts = append(validReceipts, receipt)
+				t.receipts[write] = receipt
+				write++
 			}
 		}
 	}
-
-	if len(validReceipts) < len(t.receipts) {
-		t.receipts = validReceipts
-		debug.Log(debug.DebugVerbose, "Cleaned up expired receipts", "remaining", len(validReceipts))
+	if write < oldLen {
+		for i := write; i < oldLen; i++ {
+			t.receipts[i] = nil
+		}
+		t.receipts = t.receipts[:write]
+		debug.Log(debug.DebugVerbose, "Cleaned up expired receipts", "remaining", write)
 	}
 }
 
