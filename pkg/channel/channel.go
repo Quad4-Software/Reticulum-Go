@@ -12,6 +12,20 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
 )
 
+var envelopePool = sync.Pool{
+	New: func() any {
+		return new(Envelope)
+	},
+}
+
+func releaseEnvelope(env *Envelope) {
+	if env == nil {
+		return
+	}
+	*env = Envelope{}
+	envelopePool.Put(env)
+}
+
 // MessageBase is the interface for messages sent over a Channel.
 type MessageBase interface {
 	Pack() ([]byte, error)
@@ -67,19 +81,29 @@ func (c *Channel) Send(msg MessageBase) error {
 		return errors.New("link not ready")
 	}
 
-	env := &Envelope{
-		Sequence:  c.nextSequence,
+	env := envelopePool.Get().(*Envelope)
+	*env = Envelope{
 		Message:   msg,
 		Timestamp: time.Now(),
 	}
 
 	c.mutex.Lock()
+	env.Sequence = c.nextSequence
 	c.nextSequence = (c.nextSequence + 1) % SeqModulus
 	c.txRing = append(c.txRing, env)
 	c.mutex.Unlock()
 
 	data, err := msg.Pack()
 	if err != nil {
+		c.mutex.Lock()
+		for i, e := range c.txRing {
+			if e == env {
+				c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
+				break
+			}
+		}
+		c.mutex.Unlock()
+		releaseEnvelope(env)
 		return err
 	}
 
@@ -100,25 +124,26 @@ func (c *Channel) handleTimeout(packet any) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	for _, env := range c.txRing {
-		if env.Packet == packet {
-			if env.Tries >= c.maxTries {
-				// Remove from ring and notify failure
-				return
-			}
-			env.Tries++
-			if err := c.link.Resend(packet); err != nil { // #nosec G104
-				// Handle resend error, e.g., log it or mark envelope as failed
-				debug.Log(debug.DebugInfo, "Failed to resend packet", "error", err)
-				// Optionally, mark the envelope as failed or remove it from txRing
-				// env.State = MsgStateFailed
-				// c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
-				return
-			}
-			timeout := c.getPacketTimeout(env.Tries)
-			c.link.SetPacketTimeout(packet, c.handleTimeout, timeout)
-			break
+	for i := 0; i < len(c.txRing); i++ {
+		env := c.txRing[i]
+		if env.Packet != packet {
+			continue
 		}
+		if env.Tries >= c.maxTries {
+			c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
+			releaseEnvelope(env)
+			return
+		}
+		env.Tries++
+		if err := c.link.Resend(packet); err != nil { // #nosec G104
+			debug.Log(debug.DebugInfo, "Failed to resend packet", "error", err)
+			c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
+			releaseEnvelope(env)
+			return
+		}
+		timeout := c.getPacketTimeout(env.Tries)
+		c.link.SetPacketTimeout(packet, c.handleTimeout, timeout)
+		return
 	}
 }
 
@@ -130,6 +155,7 @@ func (c *Channel) handleDelivered(packet any) {
 	for i, env := range c.txRing {
 		if env.Packet == packet {
 			c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
+			releaseEnvelope(env)
 			break
 		}
 	}
@@ -168,6 +194,8 @@ func (c *Channel) RemoveMessageHandler(id int) {
 }
 
 // HandleInbound processes an inbound channel packet and dispatches to registered handlers.
+// Each handler receives the same *GenericMessage, treat it as read-only unless the
+// handler stops the chain (returns true). Data aliases the input slice.
 func (c *Channel) HandleInbound(data []byte) error {
 	if len(data) < ChannelHeaderSize {
 		return errors.New("channel packet too short")
@@ -186,14 +214,14 @@ func (c *Channel) HandleInbound(data []byte) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	msg := GenericMessage{
+		Type: msgType,
+		Data: msgData,
+		Seq:  sequence,
+	}
 	for _, entry := range c.messageHandlers {
 		if entry.handler != nil {
-			msg := &GenericMessage{
-				Type: msgType,
-				Data: msgData,
-				Seq:  sequence,
-			}
-			if entry.handler(msg) {
+			if entry.handler(&msg) {
 				break
 			}
 		}
@@ -229,6 +257,9 @@ func (g *GenericMessage) GetType() uint16 {
 func (c *Channel) Close() error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	// Cleanup resources
+	for _, env := range c.txRing {
+		releaseEnvelope(env)
+	}
+	c.txRing = nil
 	return nil
 }

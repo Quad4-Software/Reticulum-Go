@@ -67,6 +67,7 @@ func TestNewChannel(t *testing.T) {
 func TestChannelSend(t *testing.T) {
 	link := &mockLink{status: 1} // StatusActive
 	c := NewChannel(link)
+	defer func() { _ = c.Close() }()
 
 	msg := &testMessage{data: []byte("test")}
 	err := c.Send(msg)

@@ -72,10 +72,18 @@ func BenchmarkChannelSendScale(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = ch.Send(msg)
 		if i%100 == 0 {
-			// Clear txRing to avoid infinite growth during benchmark
 			ch.mutex.Lock()
+			for _, env := range ch.txRing {
+				releaseEnvelope(env)
+			}
 			ch.txRing = nil
 			ch.mutex.Unlock()
 		}
 	}
+	ch.mutex.Lock()
+	for _, env := range ch.txRing {
+		releaseEnvelope(env)
+	}
+	ch.txRing = nil
+	ch.mutex.Unlock()
 }
