@@ -390,7 +390,7 @@ func (tw *transportWrapper) GetStatus() byte {
 	return transport.StatusActive
 }
 
-func (tw *transportWrapper) Send(data []byte) interface{} {
+func (tw *transportWrapper) Send(data []byte) any {
 	p := &packet.Packet{
 		PacketType: packet.PacketTypeData,
 		Hops:       0,
@@ -405,20 +405,20 @@ func (tw *transportWrapper) Send(data []byte) interface{} {
 	return p
 }
 
-func (tw *transportWrapper) Resend(p interface{}) error {
+func (tw *transportWrapper) Resend(p any) error {
 	if pkt, ok := p.(*packet.Packet); ok {
 		return tw.Transport.SendPacket(pkt)
 	}
 	return fmt.Errorf("invalid packet type")
 }
 
-func (tw *transportWrapper) SetPacketTimeout(packet interface{}, callback func(interface{}), timeout time.Duration) {
+func (tw *transportWrapper) SetPacketTimeout(packet any, callback func(any), timeout time.Duration) {
 	time.AfterFunc(timeout, func() {
 		callback(packet)
 	})
 }
 
-func (tw *transportWrapper) SetPacketDelivered(packet interface{}, callback func(interface{})) {
+func (tw *transportWrapper) SetPacketDelivered(packet any, callback func(any)) {
 	callback(packet)
 }
 
@@ -641,7 +641,7 @@ func (h *AnnounceHandler) AspectFilter() []string {
 	return h.aspectFilter
 }
 
-func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id interface{}, appData []byte, hops uint8) error {
+func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id any, appData []byte, hops uint8) error {
 	debug.Log(debug.DebugInfo, "Received announce", "hash", fmt.Sprintf("%x", destHash))
 	debug.Log(debug.DebugPackets, "Raw announce data", "data", fmt.Sprintf("%x", appData))
 	debug.Log(debug.DebugInfo, "MAIN HANDLER: Received announce", "hash", fmt.Sprintf("%x", destHash), "appData_len", len(appData))
@@ -652,7 +652,7 @@ func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id interface{}, appD
 	var nodeMaxSize int16
 
 	if len(appData) > 0 {
-		var decoded interface{}
+		var decoded any
 		if err := msgpack.Unmarshal(appData, &decoded); err == nil {
 			if enabled, ts, maxSize, ok := parseNodeStatusAppData(decoded); ok {
 				isNode = true
@@ -730,7 +730,7 @@ func (h *AnnounceHandler) ReceivePathResponses() bool {
 	return true
 }
 
-func extractNodeName(decoded interface{}) (string, bool) {
+func extractNodeName(decoded any) (string, bool) {
 	if decoded == nil {
 		return "", false
 	}
@@ -740,7 +740,7 @@ func extractNodeName(decoded interface{}) (string, bool) {
 		return str, str != ""
 	}
 
-	arr, ok := decoded.([]interface{})
+	arr, ok := decoded.([]any)
 	if !ok || len(arr) == 0 {
 		return "", false
 	}
@@ -757,8 +757,8 @@ func extractNodeName(decoded interface{}) (string, bool) {
 	return "", false
 }
 
-func parseNodeStatusAppData(decoded interface{}) (enabled bool, timestamp int64, maxSizeKB int16, ok bool) {
-	arr, ok := decoded.([]interface{})
+func parseNodeStatusAppData(decoded any) (enabled bool, timestamp int64, maxSizeKB int16, ok bool) {
+	arr, ok := decoded.([]any)
 	if !ok || len(arr) < 3 {
 		return false, 0, 0, false
 	}
@@ -781,7 +781,7 @@ func parseNodeStatusAppData(decoded interface{}) (enabled bool, timestamp int64,
 	return enabledVal, timestampVal, int16(maxSizeVal), true // #nosec G115
 }
 
-func msgpackString(v interface{}) (string, bool) {
+func msgpackString(v any) (string, bool) {
 	switch val := v.(type) {
 	case string:
 		return val, true
@@ -795,7 +795,7 @@ func msgpackString(v interface{}) (string, bool) {
 	}
 }
 
-func msgpackInt64(v interface{}) (int64, bool) {
+func msgpackInt64(v any) (int64, bool) {
 	switch val := v.(type) {
 	case int:
 		return int64(val), true
@@ -851,7 +851,7 @@ func (r *Reticulum) createNodeAppData() []byte {
 	return appData
 }
 
-func (r *Reticulum) onLinkEstablished(linkInterface interface{}) {
+func (r *Reticulum) onLinkEstablished(linkInterface any) {
 	startTime := time.Now()
 	debug.Log(debug.DebugInfo, "Link established callback called", "interface_type", fmt.Sprintf("%T", linkInterface))
 
@@ -999,8 +999,8 @@ func (r *Reticulum) servePage(path string, data []byte, requestID []byte, linkID
 	debug.Log(debug.DebugInfo, "Serving page", "path", path, "request_id", fmt.Sprintf("%x", requestID))
 
 	var filePath string
-	if strings.HasPrefix(path, "/page/") {
-		filePath = filepath.Join(r.pagesPath, strings.TrimPrefix(path, "/page/"))
+	if after, ok := strings.CutPrefix(path, "/page/"); ok {
+		filePath = filepath.Join(r.pagesPath, after)
 	} else {
 		filePath = filepath.Join(r.pagesPath, path)
 	}
@@ -1027,8 +1027,8 @@ func (r *Reticulum) serveFile(path string, data []byte, requestID []byte, linkID
 	debug.Log(debug.DebugInfo, "Serving file", "path", path, "request_id", fmt.Sprintf("%x", requestID))
 
 	var filePath string
-	if strings.HasPrefix(path, "/file/") {
-		filePath = filepath.Join(r.filesPath, strings.TrimPrefix(path, "/file/"))
+	if after, ok := strings.CutPrefix(path, "/file/"); ok {
+		filePath = filepath.Join(r.filesPath, after)
 	} else {
 		filePath = filepath.Join(r.filesPath, path)
 	}
