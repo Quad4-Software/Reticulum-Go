@@ -168,7 +168,7 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 	destKey := hash16FromSlice(destHash)
 
 	t.mutex.RLock()
-	path, hasPath := t.paths[string(destHash)]
+	path, hasPath := t.paths[pathMapKey(destHash)]
 	_, isLocal := t.destinations[destKey]
 	t.mutex.RUnlock()
 

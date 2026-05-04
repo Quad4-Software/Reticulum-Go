@@ -35,7 +35,7 @@ func TestProcessPathRequest_doesNotAnswerWhenNextHopEqualsRequestorTransportID(t
 	}
 
 	tr.mutex.Lock()
-	tr.paths[string(dest)] = &common.Path{
+	tr.paths[pathMapKey(dest)] = &common.Path{
 		NextHop:     append([]byte(nil), requestorTID...),
 		Interface:   wan,
 		HopCount:    2,
@@ -81,7 +81,7 @@ func TestProcessPathRequest_rewritesAnnounceWhenNextHopIsNotRequestor(t *testing
 	}
 
 	tr.mutex.Lock()
-	tr.paths[string(dest)] = &common.Path{
+	tr.paths[pathMapKey(dest)] = &common.Path{
 		NextHop:     append([]byte(nil), nextHop...),
 		Interface:   wan,
 		HopCount:    2,
@@ -129,7 +129,7 @@ func TestProcessPathRequest_knownPathWithoutAnnounceDoesNotStartDiscovery(t *tes
 	tag := bytes.Repeat([]byte{0x81}, 16)
 
 	tr.mutex.Lock()
-	tr.paths[string(dest)] = &common.Path{
+	tr.paths[pathMapKey(dest)] = &common.Path{
 		NextHop:     bytes.Repeat([]byte{0x62}, 16),
 		Interface:   wan,
 		HopCount:    1,
@@ -192,7 +192,7 @@ func TestProcessPathRequest_stalePathByTTLStartsDiscovery(t *testing.T) {
 	nh := bytes.Repeat([]byte{0x62}, 16)
 
 	tr.mutex.Lock()
-	tr.paths[string(dest)] = &common.Path{
+	tr.paths[pathMapKey(dest)] = &common.Path{
 		NextHop:     nh,
 		Interface:   wan,
 		HopCount:    1,

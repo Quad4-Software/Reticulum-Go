@@ -79,11 +79,11 @@ type Transport struct {
 	packetHandleSem       chan struct{}
 	pathfinder            *pathfinder.PathFinder
 	announceHandlers      []announce.Handler
-	paths                 map[string]*common.Path
+	paths                 map[[PathMapKeySize]byte]*common.Path
 	receipts              []*packet.PacketReceipt
 	receiptsMutex         sync.RWMutex
 	pathRequests          map[string]time.Time
-	pathStates            map[string]byte
+	pathStates            map[[PathMapKeySize]byte]byte
 	discoveryPathRequests map[string]*DiscoveryPathRequest
 	discoveryPRTags       map[string]bool
 	announceTable         map[string]*PathAnnounceEntry
@@ -92,7 +92,7 @@ type Transport struct {
 	pathRequestDest       any
 	blackholeTable        *blackhole.Table
 	linkTable             *linkRelayTable
-	lastPathRequest       map[string]time.Time
+	lastPathRequest       map[[PathMapKeySize]byte]time.Time
 	ifaceStates           *ifaceStateTable
 	done                  chan struct{}
 	stopOnce              sync.Once
@@ -141,7 +141,7 @@ type Path struct {
 func NewTransport(cfg *common.ReticulumConfig) *Transport {
 	t := &Transport{
 		interfaces:            make(map[string]common.NetworkInterface),
-		paths:                 make(map[string]*common.Path),
+		paths:                 make(map[[PathMapKeySize]byte]*common.Path),
 		seenAnnounces:         make(map[string]time.Time),
 		packetHandleSem:       make(chan struct{}, MaxConcurrentPacketHandlers),
 		announceRate:          rate.NewLimiter(rate.DefaultBurstFreq, AnnounceRateKbps),
@@ -153,13 +153,13 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		receipts:              make([]*packet.PacketReceipt, 0),
 		receiptsMutex:         sync.RWMutex{},
 		pathRequests:          make(map[string]time.Time),
-		pathStates:            make(map[string]byte),
+		pathStates:            make(map[[PathMapKeySize]byte]byte),
 		discoveryPathRequests: make(map[string]*DiscoveryPathRequest),
 		discoveryPRTags:       make(map[string]bool),
 		announceTable:         make(map[string]*PathAnnounceEntry),
 		heldAnnounces:         make(map[string]*PathAnnounceEntry),
 		linkTable:             newLinkRelayTable(),
-		lastPathRequest:       make(map[string]time.Time),
+		lastPathRequest:       make(map[[PathMapKeySize]byte]time.Time),
 		ifaceStates:           newIfaceStateTable(),
 		done:                  make(chan struct{}),
 	}
@@ -311,7 +311,7 @@ func (t *Transport) cleanupExpiredReceipts() {
 
 	oldLen := len(t.receipts)
 	write := 0
-	for read := 0; read < oldLen; read++ {
+	for read := range oldLen {
 		receipt := t.receipts[read]
 		if receipt != nil && !receipt.IsTimedOut() {
 			status := receipt.GetStatus()
@@ -333,19 +333,19 @@ func (t *Transport) cleanupExpiredReceipts() {
 func (t *Transport) MarkPathUnresponsive(destHash []byte) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	t.pathStates[string(destHash)] = StateUnresponsive
+	t.pathStates[pathMapKey(destHash)] = StateUnresponsive
 }
 
 func (t *Transport) MarkPathResponsive(destHash []byte) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	t.pathStates[string(destHash)] = StateResponsive
+	t.pathStates[pathMapKey(destHash)] = StateResponsive
 }
 
 func (t *Transport) PathIsUnresponsive(destHash []byte) bool {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-	state, exists := t.pathStates[string(destHash)]
+	state, exists := t.pathStates[pathMapKey(destHash)]
 	return exists && state == StateUnresponsive
 }
 
@@ -724,7 +724,7 @@ func (t *Transport) notifyAnnounceHandlers(destHash []byte, identity any, appDat
 }
 
 func (t *Transport) HasPath(destinationHash []byte) bool {
-	key := string(destinationHash)
+	key := pathMapKey(destinationHash)
 	ttl := time.Duration(PathRequestTTL) * time.Second
 
 	t.mutex.RLock()
@@ -749,7 +749,7 @@ func (t *Transport) HopsTo(destinationHash []byte) uint8 {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
-	path, exists := t.paths[string(destinationHash)]
+	path, exists := t.paths[pathMapKey(destinationHash)]
 	if !exists {
 		return PathfinderM
 	}
@@ -761,7 +761,7 @@ func (t *Transport) NextHop(destinationHash []byte) []byte {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
-	path, exists := t.paths[string(destinationHash)]
+	path, exists := t.paths[pathMapKey(destinationHash)]
 	if !exists {
 		return nil
 	}
@@ -773,7 +773,7 @@ func (t *Transport) NextHopInterface(destinationHash []byte) string {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
-	path, exists := t.paths[string(destinationHash)]
+	path, exists := t.paths[pathMapKey(destinationHash)]
 	if !exists || path == nil || path.Interface == nil {
 		return ""
 	}
@@ -784,7 +784,7 @@ func (t *Transport) NextHopInterface(destinationHash []byte) string {
 func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag []byte, recursive bool) error {
 	if tag == nil {
 		t.mutex.Lock()
-		key := string(destinationHash)
+		key := pathMapKey(destinationHash)
 		if last, ok := t.lastPathRequest[key]; ok && time.Since(last) < PathRequestMI {
 			t.mutex.Unlock()
 			debug.Log(debug.DebugVerbose, "Throttling path request",
@@ -870,7 +870,7 @@ func (t *Transport) updatePathUnlocked(destinationHash []byte, nextHop []byte, i
 		return
 	}
 
-	key := string(destinationHash)
+	key := pathMapKey(destinationHash)
 	t.paths[key] = &common.Path{
 		NextHop:     nextHop,
 		Interface:   iface,
@@ -1683,21 +1683,22 @@ func (t *Transport) handlePathRequest(data []byte, iface common.NetworkInterface
 
 func (t *Transport) processPathRequest(destHash []byte, attachedIface common.NetworkInterface, requestorTransportID []byte, tag []byte) {
 	destHashStr := string(destHash)
+	pathKey := pathMapKey(destHash)
 	debug.Log(debug.DebugInfo, "Processing path request", "dest_hash", fmt.Sprintf("%x", destHash))
 
 	destKey := hash16FromSlice(destHash)
 	t.mutex.RLock()
 	localDest, isLocal := t.destinations[destKey]
-	path, hasPath := t.paths[destHashStr]
+	path, hasPath := t.paths[pathKey]
 	t.mutex.RUnlock()
 
 	if hasPath && path != nil {
 		ttl := time.Duration(PathRequestTTL) * time.Second
 		if time.Since(path.LastUpdated) > ttl {
 			t.mutex.Lock()
-			if cur, ok := t.paths[destHashStr]; ok && cur == path && time.Since(cur.LastUpdated) > ttl {
-				delete(t.paths, destHashStr)
-				delete(t.pathStates, destHashStr)
+			if cur, ok := t.paths[pathKey]; ok && cur == path && time.Since(cur.LastUpdated) > ttl {
+				delete(t.paths, pathKey)
+				delete(t.pathStates, pathKey)
 			}
 			t.mutex.Unlock()
 			hasPath = false
@@ -1806,7 +1807,7 @@ func (t *Transport) SendPacket(p *packet.Packet) error {
 	}
 	debug.Log(debug.DebugPackets, "Destination hash", "hash", fmt.Sprintf("%x", destHash))
 
-	path, exists := t.paths[string(destHash)]
+	path, exists := t.paths[pathMapKey(destHash)]
 	if !exists {
 		debug.Log(debug.DebugInfo, "No path found for destination", "hash", fmt.Sprintf("%x", destHash))
 		return errors.New("no path to destination")

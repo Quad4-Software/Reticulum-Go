@@ -68,7 +68,7 @@ func TestPrepareFreshPathRequest_ExpiredTTLDropsAndRefreshes(t *testing.T) {
 		t.Fatal("expected TTL expiry to emit a new path request")
 	}
 	tr.mutex.RLock()
-	_, still := tr.paths[string(dest)]
+	_, still := tr.paths[pathMapKey(dest)]
 	tr.mutex.RUnlock()
 	if still {
 		t.Fatal("stale path row should be removed before rediscovery")

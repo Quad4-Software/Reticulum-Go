@@ -399,10 +399,7 @@ func TestLinkRobustness_LargeRequestResponseResourceCompletes(t *testing.T) {
 	// A fixed multi-10s payload (e.g. 2048 repeats of a 23-byte string) forces
 	// excessive HMU/resource rounds and times out under -race -count=N; scale to mdu with a cap.
 	const maxBody = 8 * 1024
-	bodyLen := min(mdu*12+256, maxBody)
-	if bodyLen < mdu+64 {
-		bodyLen = mdu + 64
-	}
+	bodyLen := max(min(mdu*12+256, maxBody), mdu+64)
 	largeResponse := bytes.Repeat([]byte("L"), bodyLen)
 	respLink.destination.RegisterRequestHandler("echo_large", func(_ string, data []byte, _ []byte, _ []byte, _ *identity.Identity, _ int64) []byte {
 		_ = data

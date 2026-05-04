@@ -157,7 +157,7 @@ func TestUpdatePathResetsState(t *testing.T) {
 	tr.UpdatePath(destHash, nextHop, "iface-A", 4)
 
 	tr.mutex.RLock()
-	st, exists := tr.pathStates[string(destHash)]
+	st, exists := tr.pathStates[pathMapKey(destHash)]
 	tr.mutex.RUnlock()
 	if !exists || st != StateUnknown {
 		t.Fatalf("path state must be StateUnknown after update; got exists=%v state=%d", exists, st)

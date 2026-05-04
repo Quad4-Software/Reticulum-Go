@@ -22,7 +22,7 @@ func (t *Transport) PrepareFreshPathRequest(destinationHash []byte) PrepareFresh
 	if t == nil || len(destinationHash) != 16 {
 		return PrepareFreshInvalidDestination
 	}
-	key := string(destinationHash)
+	key := pathMapKey(destinationHash)
 	ttl := time.Duration(PathRequestTTL) * time.Second
 
 	t.mutex.Lock()
@@ -61,7 +61,7 @@ func (t *Transport) NudgePathRequest(destinationHash []byte) error {
 		return nil
 	}
 	t.mutex.Lock()
-	delete(t.lastPathRequest, string(destinationHash))
+	delete(t.lastPathRequest, pathMapKey(destinationHash))
 	t.mutex.Unlock()
 	return t.RequestPath(destinationHash, "", nil, false)
 }
@@ -73,7 +73,7 @@ func (t *Transport) ExpirePath(destinationHash []byte) {
 	if t == nil || len(destinationHash) != 16 {
 		return
 	}
-	key := string(destinationHash)
+	key := pathMapKey(destinationHash)
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	delete(t.paths, key)

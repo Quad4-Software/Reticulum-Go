@@ -34,7 +34,7 @@ func TestUnregisterInterfaceScrubsPaths(t *testing.T) {
 
 	dest := bytes.Repeat([]byte{0xAB}, 16)
 	tr.mutex.Lock()
-	tr.paths[string(dest)] = &common.Path{
+	tr.paths[pathMapKey(dest)] = &common.Path{
 		NextHop:     bytes.Repeat([]byte{0x01}, 16),
 		Interface:   b,
 		HopCount:    1,
@@ -67,7 +67,7 @@ func TestUnregisterInterfaceScrubsLinkRelay(t *testing.T) {
 
 	linkID := bytes.Repeat([]byte{0xCD}, identity.TruncatedHashLength/8)
 	tr.mutex.Lock()
-	tr.paths[string(bytes.Repeat([]byte{0x11}, 16))] = &common.Path{
+	tr.paths[pathMapKey(bytes.Repeat([]byte{0x11}, 16))] = &common.Path{
 		NextHop:     bytes.Repeat([]byte{0x22}, 16),
 		Interface:   b,
 		HopCount:    2,

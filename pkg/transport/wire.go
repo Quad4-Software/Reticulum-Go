@@ -97,4 +97,20 @@ const (
 	AnnounceRandomHashSize    = 10
 	AnnounceRandomBytesLen    = 5
 	AnnounceTimestampBytesLen = 5
+
+	// PathMapKeySize is the fixed width for path routing map keys (covers
+	// DoubleAddrSize path responses and truncated 16-byte lookups).
+	PathMapKeySize = 32
 )
+
+// pathMapKey builds a comparable map key for path caches without allocating
+// a string. Longer hashes keep the first PathMapKeySize bytes.
+func pathMapKey(h []byte) [PathMapKeySize]byte {
+	var k [PathMapKeySize]byte
+	if len(h) > PathMapKeySize {
+		copy(k[:], h[:PathMapKeySize])
+	} else {
+		copy(k[:], h)
+	}
+	return k
+}

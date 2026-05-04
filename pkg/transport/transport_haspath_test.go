@@ -30,13 +30,13 @@ func newHasPathTransport(t testing.TB) (*Transport, *mockInterface) {
 func backdatePath(t *Transport, destHash []byte, age time.Duration) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	old, ok := t.paths[string(destHash)]
+	old, ok := t.paths[pathMapKey(destHash)]
 	if !ok {
 		return
 	}
 	clone := *old
 	clone.LastUpdated = time.Now().Add(-age)
-	t.paths[string(destHash)] = &clone
+	t.paths[pathMapKey(destHash)] = &clone
 }
 
 func randomHash(t testing.TB, n int) []byte {
@@ -79,7 +79,7 @@ func TestHasPath_BoundaryWithinTTL(t *testing.T) {
 	}
 
 	tr.mutex.RLock()
-	_, present := tr.paths[string(dest)]
+	_, present := tr.paths[pathMapKey(dest)]
 	tr.mutex.RUnlock()
 	if !present {
 		t.Fatal("non-expired path must not be evicted")
@@ -97,7 +97,7 @@ func TestHasPath_ExpiredEvicted(t *testing.T) {
 	}
 
 	tr.mutex.RLock()
-	_, present := tr.paths[string(dest)]
+	_, present := tr.paths[pathMapKey(dest)]
 	tr.mutex.RUnlock()
 	if present {
 		t.Fatal("expired path was not evicted")
@@ -123,7 +123,7 @@ func TestHasPath_RefreshDuringEscalationKeepsEntry(t *testing.T) {
 	wg.Wait()
 
 	tr.mutex.RLock()
-	cur, present := tr.paths[string(dest)]
+	cur, present := tr.paths[pathMapKey(dest)]
 	tr.mutex.RUnlock()
 	if !present {
 		t.Fatal("refreshed path must be retained when racing with HasPath escalation")
@@ -158,7 +158,7 @@ func TestHasPath_ConcurrentReadersOnSingleExpiredPath(t *testing.T) {
 	wg.Wait()
 
 	tr.mutex.RLock()
-	_, present := tr.paths[string(dest)]
+	_, present := tr.paths[pathMapKey(dest)]
 	tr.mutex.RUnlock()
 	if present {
 		t.Fatal("expired path must be evicted exactly once across many readers")
@@ -305,7 +305,7 @@ func TestHasPath_NoEarlyExitOnSlowReader(t *testing.T) {
 		t.Fatalf("expected %d calls, got %d", 8*256, calls)
 	}
 	tr.mutex.RLock()
-	_, present := tr.paths[string(dest)]
+	_, present := tr.paths[pathMapKey(dest)]
 	tr.mutex.RUnlock()
 	if present {
 		t.Fatal("expired path must be evicted")
@@ -332,8 +332,8 @@ func TestHasPath_DistinctKeysIndependent(t *testing.T) {
 	}
 
 	tr.mutex.RLock()
-	_, liveOK := tr.paths[string(live)]
-	_, deadOK := tr.paths[string(dead)]
+	_, liveOK := tr.paths[pathMapKey(live)]
+	_, deadOK := tr.paths[pathMapKey(dead)]
 	tr.mutex.RUnlock()
 	if !liveOK {
 		t.Fatal("live entry evicted")
