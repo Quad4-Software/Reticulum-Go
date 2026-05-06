@@ -152,7 +152,7 @@ tasks:
   test:
     desc: Run tests
     cmds:
-      - '{{.GOCMD}} test -v ./...'
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./...'
 
   test-crossref:
     desc: Regenerate vectors from Python Reticulum and run crossref tests
@@ -167,27 +167,27 @@ tasks:
   test-short:
     desc: Run short tests
     cmds:
-      - '{{.GOCMD}} test -short -v ./...'
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -short -v ./...'
 
   test-race:
     desc: Run tests with race detector
     cmds:
-      - '{{.GOCMD}} test -race -v ./...'
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -race -v ./...'
 
   test-fuzz:
     desc: Run fuzz tests for a short duration
     cmds:
-      - '{{.GOCMD}} test -fuzz=FuzzPacketUnpack -fuzztime=30s ./pkg/packet'
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -fuzz=FuzzPacketUnpack -fuzztime=30s ./pkg/packet'
 
   test-leaks:
     desc: Run resource leak tests
     cmds:
-      - '{{.GOCMD}} test -v ./pkg/transport -run TestTransportLeak'
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/transport -run TestTransportLeak'
 
   test-network:
     desc: Run network simulation tests
     cmds:
-      - '{{.GOCMD}} test -v ./pkg/transport -run TestTransportNetworkSimulation'
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/transport -run TestTransportNetworkSimulation'
 
   coverage:
     desc: Generate test coverage report
