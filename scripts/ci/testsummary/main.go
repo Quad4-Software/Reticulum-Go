@@ -108,6 +108,12 @@ func run() int {
 		}
 	}
 
+	for pkg := range failedPackages {
+		if len(failedTests[pkg]) > 0 {
+			delete(failedPackages, pkg)
+		}
+	}
+
 	totalFailed := len(failedPackages)
 	for _, tests := range failedTests {
 		totalFailed += len(tests)
