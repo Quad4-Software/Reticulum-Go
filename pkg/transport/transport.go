@@ -2176,6 +2176,25 @@ func (t *Transport) handleProofPacket(pkt *packet.Packet, iface common.NetworkIn
 		return
 	}
 
+	if pkt.Context == packet.ContextResourcePRF {
+		linkID := pkt.DestinationHash
+		if len(linkID) > 16 {
+			linkID = linkID[:16]
+		}
+		linkKey := hash16FromSlice(linkID)
+		t.mutex.RLock()
+		linkObj, exists := t.links[linkKey]
+		t.mutex.RUnlock()
+		if exists && linkObj != nil {
+			if err := linkObj.HandleInbound(pkt); err != nil {
+				debug.Log(debug.DebugError, "Resource proof handling failed", "error", err, "link_id", fmt.Sprintf("%x", linkID))
+			}
+			return
+		}
+		debug.Log(debug.DebugInfo, "No link found for resource proof packet", "link_id", fmt.Sprintf("%x", linkID))
+		return
+	}
+
 	var proofHash []byte
 	if len(pkt.Data) == packet.ExplicitLength {
 		proofHash = pkt.Data[:identity.HashLength/8]
