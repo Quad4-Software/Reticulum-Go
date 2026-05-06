@@ -17,12 +17,11 @@ import (
 )
 
 type noopIface struct {
-	common.BaseInterface
+	*common.BaseInterface
 }
 
 func newNoopIface(name string) *noopIface {
-	bi := common.NewBaseInterface(name, common.IFTypeUDP, true)
-	return &noopIface{BaseInterface: bi}
+	return &noopIface{BaseInterface: common.NewBaseInterfacePtr(name, common.IFTypeUDP, true)}
 }
 
 func (n *noopIface) Send([]byte, string) error { return nil }
@@ -30,12 +29,11 @@ func (n *noopIface) GetName() string           { return n.Name }
 func (n *noopIface) IsEnabled() bool           { return n.Enabled }
 
 type errSendIface struct {
-	common.BaseInterface
+	*common.BaseInterface
 }
 
 func newErrSendIface(name string) *errSendIface {
-	bi := common.NewBaseInterface(name, common.IFTypeUDP, true)
-	return &errSendIface{BaseInterface: bi}
+	return &errSendIface{BaseInterface: common.NewBaseInterfacePtr(name, common.IFTypeUDP, true)}
 }
 
 func (e *errSendIface) Send([]byte, string) error { return errSendDown }

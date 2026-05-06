@@ -160,7 +160,7 @@ func (tc *TCPClientInterface) readLoop() {
 	buffer := make([]byte, tc.MTU)
 	inFrame := false
 	escape := false
-	dataBuffer := make([]byte, 0)
+	dataBuffer := make([]byte, 0, tc.MTU)
 	maxHDLC := 2*tc.MTU + 32
 	if maxHDLC < 256 {
 		maxHDLC = 2048
@@ -210,23 +210,27 @@ func (tc *TCPClientInterface) readLoop() {
 				continue
 			}
 
-			if inFrame {
-				if b == HDLCEsc {
-					escape = true
-				} else {
-					if escape {
-						b ^= HDLCEscMask
-						escape = false
-					}
-					if len(dataBuffer) >= maxHDLC {
-						dataBuffer = dataBuffer[:0]
-						inFrame = false
-						escape = false
-						continue
-					}
-					dataBuffer = append(dataBuffer, b)
-				}
+			if !inFrame {
+				continue
 			}
+
+			if b == HDLCEsc {
+				escape = true
+				continue
+			}
+
+			if escape {
+				b ^= HDLCEscMask
+				escape = false
+			}
+
+			if len(dataBuffer) >= maxHDLC {
+				dataBuffer = dataBuffer[:0]
+				inFrame = false
+				escape = false
+				continue
+			}
+			dataBuffer = append(dataBuffer, b)
 		}
 	}
 }
@@ -258,7 +262,13 @@ func (tc *TCPClientInterface) teardown() {
 
 // Helper functions for escaping data
 func escapeHDLC(data []byte) []byte {
-	escaped := make([]byte, 0, len(data)*2)
+	need := len(data)
+	for _, b := range data {
+		if b == HDLCFlag || b == HDLCEsc {
+			need++
+		}
+	}
+	escaped := make([]byte, 0, need)
 	for _, b := range data {
 		if b == HDLCFlag || b == HDLCEsc {
 			escaped = append(escaped, HDLCEsc, b^HDLCEscMask)
@@ -267,6 +277,24 @@ func escapeHDLC(data []byte) []byte {
 		}
 	}
 	return escaped
+}
+
+func unescapeHDLC(data []byte) []byte {
+	out := make([]byte, 0, len(data))
+	escape := false
+	for _, b := range data {
+		if escape {
+			out = append(out, b^HDLCEscMask)
+			escape = false
+			continue
+		}
+		if b == HDLCEsc {
+			escape = true
+			continue
+		}
+		out = append(out, b)
+	}
+	return out
 }
 
 func escapeKISS(data []byte) []byte {
@@ -624,7 +652,7 @@ func (ts *TCPServerInterface) readHDLCLoop(conn net.Conn) {
 	buffer := make([]byte, ts.MTU)
 	inFrame := false
 	escape := false
-	dataBuffer := make([]byte, 0)
+	dataBuffer := make([]byte, 0, ts.MTU)
 	maxHDLC := 2*ts.MTU + 32
 	if maxHDLC < 256 {
 		maxHDLC = 2048
@@ -658,23 +686,27 @@ func (ts *TCPServerInterface) readHDLCLoop(conn net.Conn) {
 				continue
 			}
 
-			if inFrame {
-				if b == HDLCEsc {
-					escape = true
-				} else {
-					if escape {
-						b ^= HDLCEscMask
-						escape = false
-					}
-					if len(dataBuffer) >= maxHDLC {
-						dataBuffer = dataBuffer[:0]
-						inFrame = false
-						escape = false
-						continue
-					}
-					dataBuffer = append(dataBuffer, b)
-				}
+			if !inFrame {
+				continue
 			}
+
+			if b == HDLCEsc {
+				escape = true
+				continue
+			}
+
+			if escape {
+				b ^= HDLCEscMask
+				escape = false
+			}
+
+			if len(dataBuffer) >= maxHDLC {
+				dataBuffer = dataBuffer[:0]
+				inFrame = false
+				escape = false
+				continue
+			}
+			dataBuffer = append(dataBuffer, b)
 		}
 	}
 }

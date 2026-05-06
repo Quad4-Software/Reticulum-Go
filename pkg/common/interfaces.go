@@ -110,6 +110,21 @@ func NewBaseInterface(name string, ifaceType InterfaceType, enabled bool) BaseIn
 	}
 }
 
+// NewBaseInterfacePtr returns a heap-allocated BaseInterface with the same defaults
+// as NewBaseInterface. Callers that embed BaseInterface in larger structs should
+// prefer this constructor so they store *BaseInterface and avoid copying sync.Mutex.
+func NewBaseInterfacePtr(name string, ifaceType InterfaceType, enabled bool) *BaseInterface {
+	return &BaseInterface{
+		Name:    name,
+		Type:    ifaceType,
+		Mode:    IFModeFull,
+		Enabled: enabled,
+		MTU:     DefaultMTU,
+		Bitrate: BitrateMinimum,
+		lastTx:  time.Now(),
+	}
+}
+
 // Default implementations for BaseInterface
 func (i *BaseInterface) GetType() InterfaceType {
 	return i.Type

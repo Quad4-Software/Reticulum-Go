@@ -12,6 +12,7 @@ const (
 	IFTypeBluetooth
 	IFTypeSerial
 	IFTypeAuto
+	IFTypeBackbone
 )
 
 // Interface operational modes.

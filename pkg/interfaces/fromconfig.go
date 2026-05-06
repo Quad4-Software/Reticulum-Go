@@ -33,12 +33,23 @@ func NewFromConfig(name string, cfg *common.InterfaceConfig) (Interface, error) 
 		)
 	case "AutoInterface":
 		return NewAutoInterface(name, cfg)
+	case "BackboneInterface":
+		return NewBackboneInterface(name, cfg)
 	case "WebSocketInterface":
 		wsURL := cfg.Address
 		if wsURL == "" {
 			wsURL = cfg.TargetHost
 		}
 		return NewWebSocketInterface(name, wsURL, cfg.Enabled)
+	case "TCPServerInterface":
+		return NewTCPServerInterface(
+			name,
+			cfg.Address,
+			cfg.Port,
+			cfg.KISSFraming,
+			cfg.I2PTunneled,
+			cfg.PreferIPv6,
+		)
 	default:
 		return nil, fmt.Errorf("unsupported interface type %q", cfg.Type)
 	}
