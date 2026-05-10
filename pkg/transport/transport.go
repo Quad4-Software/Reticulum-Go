@@ -14,6 +14,7 @@ import (
 	"net"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"git.quad4.io/Networks/Reticulum-Go/pkg/announce"
@@ -68,6 +69,11 @@ func hash16FromSlice(b []byte) hash16 {
 	return k
 }
 
+type pendingDiscoveryPR struct {
+	destHash  []byte
+	exclude   common.NetworkInterface
+}
+
 type Transport struct {
 	mutex                 sync.RWMutex
 	config                *common.ReticulumConfig
@@ -94,6 +100,9 @@ type Transport struct {
 	linkTable             *linkRelayTable
 	lastPathRequest       map[[PathMapKeySize]byte]time.Time
 	ifaceStates           *ifaceStateTable
+	pendingDiscoveryPRs   []pendingDiscoveryPR
+	pendingDiscoveryPRMu  sync.Mutex
+	discoveryDraining     atomic.Bool
 	done                  chan struct{}
 	stopOnce              sync.Once
 }
@@ -161,6 +170,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		linkTable:             newLinkRelayTable(),
 		lastPathRequest:       make(map[[PathMapKeySize]byte]time.Time),
 		ifaceStates:           newIfaceStateTable(),
+		pendingDiscoveryPRs:   make([]pendingDiscoveryPR, 0, maxQueuedDiscoveryPRs),
 		done:                  make(chan struct{}),
 	}
 
@@ -432,7 +442,9 @@ func (t *Transport) registerInterfaceLocked(name string, iface common.NetworkInt
 		t.HandlePacket(data, iface)
 	})
 	t.interfaces[name] = iface
-	t.ifaceStates.put(name, buildIfaceState(t.interfaceConfig(name)))
+	cfg := t.interfaceConfig(name)
+	t.ifaceStates.put(name, buildIfaceState(cfg))
+	applyIfacePRConfig(iface, cfg)
 }
 
 func (t *Transport) invalidateInterfaceReferencesLocked(iface common.NetworkInterface) {
@@ -848,7 +860,11 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 		if !iface.IsEnabled() {
 			return fmt.Errorf("interface offline or disabled: %s", onInterface)
 		}
-		return iface.Send(pkt.Raw, "")
+		if err := iface.Send(pkt.Raw, ""); err != nil {
+			return err
+		}
+		iface.SentPathRequest()
+		return nil
 	}
 
 	for _, e := range t.snapshotRegisteredInterfaces() {
@@ -857,6 +873,8 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 		}
 		if err := e.iface.Send(pkt.Raw, ""); err != nil {
 			debug.Log(debug.DebugError, "Failed to send path request on interface", "interface", e.iface.GetName(), "error", err)
+		} else {
+			e.iface.SentPathRequest()
 		}
 	}
 
@@ -1678,6 +1696,10 @@ func (t *Transport) handlePathRequest(data []byte, iface common.NetworkInterface
 	}
 	t.mutex.Unlock()
 
+	if iface != nil {
+		iface.ReceivedPathRequest()
+	}
+
 	t.processPathRequest(destHash, iface, requestorTransportID, tag)
 }
 
@@ -1774,6 +1796,11 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 			"dest_hash", fmt.Sprintf("%x", destHash))
 		return
 	}
+	if attachedIface.ShouldIngressLimitPR() {
+		debug.Log(debug.DebugVerbose, "Not rebroadcasting path request: ingress limiting active",
+			"dest_hash", fmt.Sprintf("%x", destHash), "iface", attachedIface.GetName())
+		return
+	}
 
 	debug.Log(debug.DebugInfo, "Attempting to discover unknown path", "dest_hash", fmt.Sprintf("%x", destHash))
 
@@ -1792,7 +1819,7 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 	t.discoveryPathRequests[destHashStr] = prEntry
 	t.mutex.Unlock()
 
-	t.rebroadcastPathRequest(destHash, requestorTransportID, tag, attachedIface)
+	t.queueDiscoveryPathRequest(destHash, attachedIface)
 }
 
 func (t *Transport) SendPacket(p *packet.Packet) error {

@@ -356,3 +356,10 @@ func (ic *IngressControl) currentFrequencyLocked(now time.Time) float64 {
 }
 
 const burstSampleMinimum = 8
+
+// Path-request burst defaults (match upstream 0.8.x).
+const (
+	DefaultPRBurstFreqNew = 3.0
+	DefaultPRBurstFreq    = 8.0
+	DefaultECPRFreq       = 5.0
+)

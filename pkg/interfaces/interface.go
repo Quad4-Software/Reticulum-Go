@@ -38,6 +38,20 @@ type Interface interface {
 	common.NetworkInterface
 }
 
+const (
+	prFreqSamples        = 48
+	prMinFreqHz          = 0.1
+	prFreqDecay          = 1.0 / prMinFreqHz // 10 seconds
+	icDequeMinSample     = 2
+	icBurstMinSamples    = 6
+	icPRBurstFreqNew     = 3.0
+	icPRBurstFreq        = 8.0
+	ecPRFreq             = 5.0
+	icNewTime            = 2 * 60 * 60 // 2 hours in seconds
+	icBurstHold          = 15
+	icBurstPenalty       = 15
+)
+
 type BaseInterface struct {
 	Name      string
 	Mode      common.InterfaceMode
@@ -63,22 +77,39 @@ type BaseInterface struct {
 	// When non-nil, outbound packets are masked before transmit and inbound
 	// packets are unmasked and verified; unauthenticated packets are dropped.
 	IFACIdentity common.IFAC
+
+	// Path request frequency tracking (ingress/egress burst control)
+	created           time.Time
+	ipFreqDeque       []time.Time
+	opFreqDeque       []time.Time
+	icPRBurstActive   bool
+	icPRBurstActivated time.Time
+	ingressControl    bool
+	egressControl     bool
+	icPRBurstFreqNewV float64
+	icPRBurstFreqV    float64
+	ecPRFreqV         float64
 }
 
 func NewBaseInterface(name string, ifType common.InterfaceType, enabled bool) BaseInterface {
 	return BaseInterface{
-		Name:      name,
-		Mode:      common.IFModeFull,
-		Type:      ifType,
-		Online:    false,
-		Enabled:   enabled,
-		Detached:  false,
-		In:        false,
-		Out:       false,
-		MTU:       common.DefaultMTU,
-		Bitrate:   BitrateMinimum,
-		TxBytes:   0,
-		RxBytes:   0,
+		Name:              name,
+		Mode:              common.IFModeFull,
+		Type:              ifType,
+		Online:            false,
+		Enabled:           enabled,
+		Detached:          false,
+		In:                false,
+		Out:               false,
+		MTU:               common.DefaultMTU,
+		Bitrate:           BitrateMinimum,
+		TxBytes:           0,
+		RxBytes:           0,
+		created:           time.Now(),
+		ingressControl:    true,
+		icPRBurstFreqNewV: icPRBurstFreqNew,
+		icPRBurstFreqV:    icPRBurstFreq,
+		ecPRFreqV:         ecPRFreq,
 		TxPackets: 0,
 		RxPackets: 0,
 		lastTx:    time.Now(),
@@ -319,6 +350,121 @@ func (i *BaseInterface) updateBandwidthStats(bytes uint64) {
 	i.lastTx = time.Now()
 
 	debug.Log(debug.DebugVerbose, "Interface updated bandwidth stats", "name", i.Name, "tx_bytes", i.TxBytes, "last_tx", i.lastTx)
+}
+
+// ReceivedPathRequest records an incoming path request for frequency tracking.
+func (i *BaseInterface) ReceivedPathRequest() {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.ipFreqDeque = append(i.ipFreqDeque, time.Now())
+	if len(i.ipFreqDeque) > prFreqSamples {
+		i.ipFreqDeque = i.ipFreqDeque[1:]
+	}
+}
+
+// SentPathRequest records an outgoing path request for frequency tracking.
+func (i *BaseInterface) SentPathRequest() {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.opFreqDeque = append(i.opFreqDeque, time.Now())
+	if len(i.opFreqDeque) > prFreqSamples {
+		i.opFreqDeque = i.opFreqDeque[1:]
+	}
+}
+
+// SetPRBurstConfig configures path-request burst thresholds.
+func (i *BaseInterface) SetPRBurstConfig(icPrBurstFreqNew, icPrBurstFreq, ecPrFreq float64, egressControl bool) {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.icPRBurstFreqNewV = icPrBurstFreqNew
+	i.icPRBurstFreqV = icPrBurstFreq
+	i.ecPRFreqV = ecPrFreq
+	i.egressControl = egressControl
+}
+
+// SetIngressControl sets whether ingress limiting is enabled.
+func (i *BaseInterface) SetIngressControl(enabled bool) {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.ingressControl = enabled
+}
+
+func (i *BaseInterface) incomingPRFrequency() float64 {
+	n := len(i.ipFreqDeque)
+	if n <= icDequeMinSample {
+		return 0
+	}
+	oldest := i.ipFreqDeque[0]
+	span := time.Since(oldest).Seconds()
+	if span > prFreqDecay {
+		i.ipFreqDeque = i.ipFreqDeque[1:]
+	}
+	if span <= 0 {
+		return 0
+	}
+	return float64(n) / span
+}
+
+func (i *BaseInterface) outgoingPRFrequency() float64 {
+	n := len(i.opFreqDeque)
+	if n <= 1 {
+		return 0
+	}
+	oldest := i.opFreqDeque[0]
+	span := time.Since(oldest).Seconds()
+	if span > prFreqDecay {
+		i.opFreqDeque = i.opFreqDeque[1:]
+	}
+	if span <= 0 {
+		return 0
+	}
+	return float64(n) / span
+}
+
+func (i *BaseInterface) ShouldIngressLimitPR() bool {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+
+	if !i.ingressControl {
+		return false
+	}
+
+	freqThreshold := i.icPRBurstFreqV
+	if time.Since(i.created).Seconds() < icNewTime {
+		freqThreshold = i.icPRBurstFreqNewV
+	}
+	ipFreq := i.incomingPRFrequency()
+
+	if i.icPRBurstActive {
+		if ipFreq < freqThreshold && time.Since(i.icPRBurstActivated).Seconds() > icBurstHold {
+			i.icPRBurstActive = false
+		}
+		return true
+	}
+
+	if ipFreq > freqThreshold {
+		i.icPRBurstActive = true
+		i.icPRBurstActivated = time.Now()
+		return true
+	}
+	return false
+}
+
+func (i *BaseInterface) ShouldEgressLimitPR() bool {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+
+	if !i.egressControl {
+		return false
+	}
+
+	opFreq := i.outgoingPRFrequency()
+	if opFreq > i.ecPRFreqV {
+		if len(i.opFreqDeque) >= icBurstMinSamples {
+			return true
+		}
+	}
+	return false
 }
 
 type InterceptedInterface struct {

@@ -65,6 +65,13 @@ const (
 	// requests for the same destination.
 	PathRequestMI = 20 * time.Second
 
+	// maxQueuedDiscoveryPRs is the maximum pending discovery path requests.
+	maxQueuedDiscoveryPRs = 32
+
+	// discoveryPRTxThrottle is the minimum interval between processing
+	// queued discovery path requests.
+	discoveryPRTxThrottle = 500 * time.Millisecond
+
 	// LocalRebroadcastsMax bounds how many local rebroadcasts of a
 	// queued announce are allowed before it is considered handed off.
 	LocalRebroadcastsMax = 2

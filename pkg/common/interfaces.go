@@ -66,6 +66,14 @@ type NetworkInterface interface {
 	// Transport.transmit / Transport.inbound.
 	SetIFAC(IFAC)
 	GetIFAC() IFAC
+
+	// Path request frequency tracking (ingress/egress burst control)
+	ReceivedPathRequest()
+	SentPathRequest()
+	ShouldIngressLimitPR() bool
+	ShouldEgressLimitPR() bool
+	SetPRBurstConfig(icPrBurstFreqNew, icPrBurstFreq, ecPrFreq float64, egressControl bool)
+	SetIngressControl(enabled bool)
 }
 
 // BaseInterface provides common implementation for network interfaces
@@ -379,3 +387,21 @@ func (i *BaseInterface) GetBandwidthAvailable() bool {
 	maxUsage := float64(i.Bitrate) * 0.02 // 2% propagation rate
 	return currentUsage < maxUsage
 }
+
+// ReceivedPathRequest records an incoming path request.
+func (i *BaseInterface) ReceivedPathRequest() {}
+
+// SentPathRequest records an outgoing path request.
+func (i *BaseInterface) SentPathRequest() {}
+
+// ShouldIngressLimitPR reports whether ingress path-request limiting is active.
+func (i *BaseInterface) ShouldIngressLimitPR() bool { return false }
+
+// ShouldEgressLimitPR reports whether egress path-request limiting is active.
+func (i *BaseInterface) ShouldEgressLimitPR() bool { return false }
+
+// SetPRBurstConfig configures path-request burst thresholds.
+func (i *BaseInterface) SetPRBurstConfig(_, _, _ float64, _ bool) {}
+
+// SetIngressControl sets whether ingress limiting is enabled.
+func (i *BaseInterface) SetIngressControl(_ bool) {}

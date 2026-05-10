@@ -50,6 +50,13 @@ type InterfaceConfig struct {
 	ICBurstHold           int
 	ICBurstPenalty        int
 	ICHeldReleaseInterval int
+
+	// Path-request burst control
+	ICPRBurstFreqNew    float64
+	ICPRBurstFreq       float64
+	ECPRFreq            float64
+	EgressControl       bool
+	EgressControlSet    bool // false => use default (egress off)
 }
 
 // ReticulumConfig represents the main configuration structure

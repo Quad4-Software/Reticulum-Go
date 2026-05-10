@@ -335,6 +335,11 @@ func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag [
 		if iface == exclude || !iface.IsEnabled() {
 			continue
 		}
+		if iface.ShouldEgressLimitPR() {
+			debug.Log(debug.DebugVerbose, "Skipping path-request rebroadcast due to egress limiting",
+				"iface", iface.GetName(), "dest_hash", fmt.Sprintf("%x", destHash))
+			continue
+		}
 		ifaces = append(ifaces, iface)
 	}
 	t.mutex.RUnlock()
@@ -346,5 +351,46 @@ func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag [
 			debug.Log(debug.DebugVerbose, "Path-request rebroadcast failed",
 				"iface", iface.GetName(), "error", err)
 		}
+	}
+}
+
+func (t *Transport) queueDiscoveryPathRequest(destHash []byte, exclude common.NetworkInterface) {
+	t.pendingDiscoveryPRMu.Lock()
+	if len(t.pendingDiscoveryPRs) >= maxQueuedDiscoveryPRs {
+		t.pendingDiscoveryPRMu.Unlock()
+		debug.Log(debug.DebugVerbose, "Discovery PR queue full, dropping",
+			"dest_hash", fmt.Sprintf("%x", destHash))
+		return
+	}
+	t.pendingDiscoveryPRs = append(t.pendingDiscoveryPRs, pendingDiscoveryPR{
+		destHash: destHash,
+		exclude:  exclude,
+	})
+	shouldStart := !t.discoveryDraining.Load()
+	if shouldStart {
+		t.discoveryDraining.Store(true)
+	}
+	t.pendingDiscoveryPRMu.Unlock()
+
+	if shouldStart {
+		go t.drainDiscoveryPRs()
+	}
+}
+
+func (t *Transport) drainDiscoveryPRs() {
+	defer t.discoveryDraining.Store(false)
+	for {
+		t.pendingDiscoveryPRMu.Lock()
+		if len(t.pendingDiscoveryPRs) == 0 {
+			t.pendingDiscoveryPRMu.Unlock()
+			return
+		}
+		entry := t.pendingDiscoveryPRs[0]
+		t.pendingDiscoveryPRs[0] = pendingDiscoveryPR{}
+		t.pendingDiscoveryPRs = t.pendingDiscoveryPRs[1:]
+		t.pendingDiscoveryPRMu.Unlock()
+
+		t.rebroadcastPathRequest(entry.destHash, nil, nil, entry.exclude)
+		time.Sleep(discoveryPRTxThrottle)
 	}
 }

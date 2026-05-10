@@ -121,3 +121,32 @@ func buildIfaceState(cfg *common.InterfaceConfig) *ifaceState {
 
 	return st
 }
+
+// applyIfacePRConfig configures path-request burst thresholds on iface from cfg.
+func applyIfacePRConfig(iface common.NetworkInterface, cfg *common.InterfaceConfig) {
+	if iface == nil {
+		return
+	}
+	if cfg != nil && cfg.IngressControlSet {
+		iface.SetIngressControl(cfg.IngressControl)
+	}
+	icPrBurstFreqNew := rate.DefaultPRBurstFreqNew
+	icPrBurstFreq := rate.DefaultPRBurstFreq
+	ecPrFreq := rate.DefaultECPRFreq
+	egressControl := false
+	if cfg != nil {
+		if cfg.ICPRBurstFreqNew > 0 {
+			icPrBurstFreqNew = cfg.ICPRBurstFreqNew
+		}
+		if cfg.ICPRBurstFreq > 0 {
+			icPrBurstFreq = cfg.ICPRBurstFreq
+		}
+		if cfg.ECPRFreq > 0 {
+			ecPrFreq = cfg.ECPRFreq
+		}
+		if cfg.EgressControlSet {
+			egressControl = cfg.EgressControl
+		}
+	}
+	iface.SetPRBurstConfig(icPrBurstFreqNew, icPrBurstFreq, ecPrFreq, egressControl)
+}
