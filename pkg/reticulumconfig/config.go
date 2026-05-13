@@ -53,6 +53,7 @@ func DefaultConfig() *common.ReticulumConfig {
 		PanicOnInterfaceErr: false,
 		LogLevel:            DefaultLogLevel,
 		Interfaces:          make(map[string]*common.InterfaceConfig),
+		EnableSandbox:       true,
 	}
 }
 
@@ -258,6 +259,8 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		cfg.PanicOnInterfaceErr = parseBool(value)
 	case "loglevel":
 		setInt(value, &cfg.LogLevel)
+	case "enable_sandbox":
+		cfg.EnableSandbox = parseBool(value)
 	}
 }
 
@@ -394,7 +397,8 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	fmt.Fprintf(&b, "  share_instance = %s\n", boolStr(cfg.ShareInstance))
 	fmt.Fprintf(&b, "  shared_instance_port = %d\n", cfg.SharedInstancePort)
 	fmt.Fprintf(&b, "  instance_control_port = %d\n", cfg.InstanceControlPort)
-	fmt.Fprintf(&b, "  panic_on_interface_error = %s\n\n", boolStr(cfg.PanicOnInterfaceErr))
+	fmt.Fprintf(&b, "  panic_on_interface_error = %s\n", boolStr(cfg.PanicOnInterfaceErr))
+	fmt.Fprintf(&b, "  enable_sandbox = %s\n\n", boolStr(cfg.EnableSandbox))
 
 	b.WriteString("[logging]\n")
 	fmt.Fprintf(&b, "  loglevel = %d\n\n", cfg.LogLevel)

@@ -70,8 +70,8 @@ func hash16FromSlice(b []byte) hash16 {
 }
 
 type pendingDiscoveryPR struct {
-	destHash  []byte
-	exclude   common.NetworkInterface
+	destHash []byte
+	exclude  common.NetworkInterface
 }
 
 type Transport struct {

@@ -52,11 +52,11 @@ type InterfaceConfig struct {
 	ICHeldReleaseInterval int
 
 	// Path-request burst control
-	ICPRBurstFreqNew    float64
-	ICPRBurstFreq       float64
-	ECPRFreq            float64
-	EgressControl       bool
-	EgressControlSet    bool // false => use default (egress off)
+	ICPRBurstFreqNew float64
+	ICPRBurstFreq    float64
+	ECPRFreq         float64
+	EgressControl    bool
+	EgressControlSet bool // false => use default (egress off)
 }
 
 // ReticulumConfig represents the main configuration structure
@@ -71,6 +71,7 @@ type ReticulumConfig struct {
 	Interfaces          map[string]*InterfaceConfig
 	AppName             string
 	AppAspect           string
+	EnableSandbox       bool
 }
 
 // NewReticulumConfig creates a new ReticulumConfig with default values
@@ -108,5 +109,6 @@ func DefaultConfig() *ReticulumConfig {
 		Interfaces:          make(map[string]*InterfaceConfig),
 		AppName:             "Go Client",
 		AppAspect:           "node",
+		EnableSandbox:       true,
 	}
 }

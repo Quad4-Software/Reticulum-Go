@@ -39,17 +39,17 @@ type Interface interface {
 }
 
 const (
-	prFreqSamples        = 48
-	prMinFreqHz          = 0.1
-	prFreqDecay          = 1.0 / prMinFreqHz // 10 seconds
-	icDequeMinSample     = 2
-	icBurstMinSamples    = 6
-	icPRBurstFreqNew     = 3.0
-	icPRBurstFreq        = 8.0
-	ecPRFreq             = 5.0
-	icNewTime            = 2 * 60 * 60 // 2 hours in seconds
-	icBurstHold          = 15
-	icBurstPenalty       = 15
+	prFreqSamples     = 48
+	prMinFreqHz       = 0.1
+	prFreqDecay       = 1.0 / prMinFreqHz // 10 seconds
+	icDequeMinSample  = 2
+	icBurstMinSamples = 6
+	icPRBurstFreqNew  = 3.0
+	icPRBurstFreq     = 8.0
+	ecPRFreq          = 5.0
+	icNewTime         = 2 * 60 * 60 // 2 hours in seconds
+	icBurstHold       = 15
+	icBurstPenalty    = 15
 )
 
 type BaseInterface struct {
@@ -79,16 +79,16 @@ type BaseInterface struct {
 	IFACIdentity common.IFAC
 
 	// Path request frequency tracking (ingress/egress burst control)
-	created           time.Time
-	ipFreqDeque       []time.Time
-	opFreqDeque       []time.Time
-	icPRBurstActive   bool
+	created            time.Time
+	ipFreqDeque        []time.Time
+	opFreqDeque        []time.Time
+	icPRBurstActive    bool
 	icPRBurstActivated time.Time
-	ingressControl    bool
-	egressControl     bool
-	icPRBurstFreqNewV float64
-	icPRBurstFreqV    float64
-	ecPRFreqV         float64
+	ingressControl     bool
+	egressControl      bool
+	icPRBurstFreqNewV  float64
+	icPRBurstFreqV     float64
+	ecPRFreqV          float64
 }
 
 func NewBaseInterface(name string, ifType common.InterfaceType, enabled bool) BaseInterface {
@@ -110,10 +110,10 @@ func NewBaseInterface(name string, ifType common.InterfaceType, enabled bool) Ba
 		icPRBurstFreqNewV: icPRBurstFreqNew,
 		icPRBurstFreqV:    icPRBurstFreq,
 		ecPRFreqV:         ecPRFreq,
-		TxPackets: 0,
-		RxPackets: 0,
-		lastTx:    time.Now(),
-		lastRx:    time.Now(),
+		TxPackets:         0,
+		RxPackets:         0,
+		lastTx:            time.Now(),
+		lastRx:            time.Now(),
 	}
 }
 

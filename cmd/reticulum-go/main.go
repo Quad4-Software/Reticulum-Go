@@ -20,6 +20,7 @@ import (
 	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/interfaces"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
+	"git.quad4.io/Networks/Reticulum-Go/pkg/sandbox"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
 )
 
@@ -167,6 +168,14 @@ func main() {
 	if err := r.Start(); err != nil {
 		debug.Log(debug.DebugCritical, "Failed to start Reticulum", "error", err)
 		os.Exit(1)
+	}
+
+	// Apply sandbox after all privileged initialization is complete.
+	if err := sandbox.Apply(cfg); err != nil {
+		debug.Log(debug.DebugCritical, "Sandbox application failed", "error", err)
+		if cfg != nil && cfg.PanicOnInterfaceErr {
+			os.Exit(1)
+		}
 	}
 
 	if runtime.GOOS != "windows" {

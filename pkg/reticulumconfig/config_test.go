@@ -31,6 +31,9 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Interfaces == nil {
 		t.Error("Interfaces map must be initialised")
 	}
+	if !cfg.EnableSandbox {
+		t.Error("EnableSandbox should be true by default")
+	}
 }
 
 // TestParseBool covers every truthy and falsy spelling accepted by the parser.
@@ -477,6 +480,59 @@ func TestSaveConfig_RoundTrip(t *testing.T) {
 	}
 	if hub.TargetHost != "hub.example.com" || hub.TargetPort != 4242 || !hub.Enabled {
 		t.Errorf("Hub round-trip mismatch: %+v", hub)
+	}
+	if !loaded.EnableSandbox {
+		t.Error("EnableSandbox should round-trip as true (default)")
+	}
+}
+
+// TestLoadConfig_EnableSandbox verifies the parser recognises the
+// enable_sandbox key and that both truthy and falsy values are handled.
+func TestLoadConfig_EnableSandbox(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+
+	writeFile(t, path, `[reticulum]
+  enable_sandbox = no
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.EnableSandbox {
+		t.Error("enable_sandbox = no should set EnableSandbox to false")
+	}
+
+	writeFile(t, path, `[reticulum]
+  enable_sandbox = yes
+`)
+	cfg, err = LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if !cfg.EnableSandbox {
+		t.Error("enable_sandbox = yes should set EnableSandbox to true")
+	}
+}
+
+// TestSaveConfig_EnableSandboxRoundTrip writes enable_sandbox = no and
+// reloads it to ensure the field persists.
+func TestSaveConfig_EnableSandboxRoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+
+	cfg := DefaultConfig()
+	cfg.ConfigPath = path
+	cfg.EnableSandbox = false
+
+	if err := SaveConfig(cfg); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+
+	loaded, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if loaded.EnableSandbox {
+		t.Error("EnableSandbox should round-trip as false")
 	}
 }
 
