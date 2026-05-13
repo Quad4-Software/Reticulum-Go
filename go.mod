@@ -7,6 +7,7 @@ require (
 	git.quad4.io/Go-Libs/msgpack/v5 v5.7.0
 	git.quad4.io/Go-Libs/pbt v0.0.0-20260222224506-d027ddfbe012
 	golang.org/x/crypto v0.50.0
+	golang.org/x/sys v0.43.0
 )
 
 require git.quad4.io/Go-Libs/tagparser/v2 v2.1.0 // indirect
