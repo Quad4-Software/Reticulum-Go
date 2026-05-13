@@ -11,8 +11,9 @@ git.quad4.io/Go-Libs/msgpack/v5         v5.7.0    BSD 2-Clause          vendor/g
 git.quad4.io/Go-Libs/tagparser/v2       v2.1.0    BSD 2-Clause          vendor/git.quad4.io/Go-Libs/tagparser/v2/LICENSE
 git.quad4.io/Go-Libs/pbt                v0.0.0    0BSD                  vendor/git.quad4.io/Go-Libs/pbt/LICENSE
 golang.org/x/crypto                     v0.50.0   BSD 3-Clause          vendor/golang.org/x/crypto/LICENSE
+golang.org/x/sys                        v0.43.0   BSD 3-Clause          vendor/golang.org/x/sys/LICENSE
 
-golang.org/x/crypto also includes a patent grant; see vendor/golang.org/x/crypto/PATENTS.
+golang.org/x/crypto and golang.org/x/sys also include a patent grant; see the respective PATENTS files in vendor/.
 
 Reticulum-Go itself is licensed under the terms in the LICENSE file at the
 repository root. SPDX-License-Identifier: Apache-2.0.
