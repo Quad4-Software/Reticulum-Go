@@ -17,7 +17,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/channel"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"

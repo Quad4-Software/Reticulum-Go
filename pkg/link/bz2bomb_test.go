@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"git.quad4.io/Go-Libs/bzip2/pkg/bzip2"
+	"github.com/Quad4-Software/bzip2/pkg/bzip2"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/resource"
 )
 

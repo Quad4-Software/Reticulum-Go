@@ -5,7 +5,7 @@ package resource
 import (
 	"bytes"
 
-	"git.quad4.io/Go-Libs/bzip2/pkg/bzip2"
+	"github.com/Quad4-Software/bzip2/pkg/bzip2"
 )
 
 func bzip2CompressBody(in []byte) ([]byte, error) {

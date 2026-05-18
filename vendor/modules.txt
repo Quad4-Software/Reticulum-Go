@@ -1,19 +1,19 @@
-# git.quad4.io/Go-Libs/bzip2 v1.1.0
+# github.com/Quad4-Software/bzip2 v0.0.0-20260518093619-51b0024224e1
 ## explicit; go 1.26.2
-git.quad4.io/Go-Libs/bzip2/internal/enc
-git.quad4.io/Go-Libs/bzip2/pkg/bzip2
-# git.quad4.io/Go-Libs/msgpack/v5 v5.7.0
+github.com/Quad4-Software/bzip2/internal/enc
+github.com/Quad4-Software/bzip2/pkg/bzip2
+# github.com/Quad4-Software/msgpack/v5 v5.0.0-20260518092343-14dd39a9b6ac
 ## explicit; go 1.26.2
-git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack
-git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack/msgpcode
-# git.quad4.io/Go-Libs/pbt v0.0.0-20260222224506-d027ddfbe012
+github.com/Quad4-Software/msgpack/v5/pkg/msgpack
+github.com/Quad4-Software/msgpack/v5/pkg/msgpack/msgpcode
+# github.com/Quad4-Software/pbt v0.0.0-20260518091336-18705571f8c9
 ## explicit; go 1.24
-git.quad4.io/Go-Libs/pbt/pkg/pbt
-# git.quad4.io/Go-Libs/tagparser/v2 v2.1.0
+github.com/Quad4-Software/pbt/pkg/pbt
+# github.com/Quad4-Software/tagparser v0.1.3-0.20260518090537-f89b2bf4dade
 ## explicit; go 1.26.2
-git.quad4.io/Go-Libs/tagparser/v2/internal
-git.quad4.io/Go-Libs/tagparser/v2/internal/parser
-git.quad4.io/Go-Libs/tagparser/v2/pkg/tagparser
+github.com/Quad4-Software/tagparser/internal
+github.com/Quad4-Software/tagparser/internal/parser
+github.com/Quad4-Software/tagparser/pkg/tagparser
 # golang.org/x/crypto v0.50.0
 ## explicit; go 1.25.0
 golang.org/x/crypto/curve25519

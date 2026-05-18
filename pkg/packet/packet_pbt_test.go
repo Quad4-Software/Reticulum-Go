@@ -7,7 +7,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"git.quad4.io/Go-Libs/pbt/pkg/pbt"
+	"github.com/Quad4-Software/pbt/pkg/pbt"
 )
 
 func randomHash16(r *rand.Rand) []byte {

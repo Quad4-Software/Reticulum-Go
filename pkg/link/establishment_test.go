@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/destination"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"

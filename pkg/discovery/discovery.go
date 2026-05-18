@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"io"
 
-	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
-	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack/msgpcode"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack/msgpcode"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
 )
 

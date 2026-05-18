@@ -11,8 +11,8 @@ import (
 	"math"
 	"time"
 
-	"git.quad4.io/Go-Libs/bzip2/pkg/bzip2"
-	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
+	"github.com/Quad4-Software/bzip2/pkg/bzip2"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
 	"git.quad4.io/Networks/Reticulum-Go/pkg/resource"
