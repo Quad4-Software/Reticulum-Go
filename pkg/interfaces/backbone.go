@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 )
 
 // BackboneInterface is a high-throughput TCP server with HDLC framing.

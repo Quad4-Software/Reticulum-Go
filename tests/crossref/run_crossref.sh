@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-export GOPRIVATE="${GOPRIVATE:-git.quad4.io}"
-export GONOSUMDB="${GONOSUMDB:-git.quad4.io}"
+
 
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 RETICULUM_REF="$ROOT_DIR/reticulum-ref"

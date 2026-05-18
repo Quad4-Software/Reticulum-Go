@@ -186,7 +186,7 @@ task build-wasm
 task test-wasm
 ```
 
-For embedded systems and TinyGo builds, see the [tinygo branch](https://git.quad4.io/Networks/Reticulum-Go/src/branch/tinygo/). Requires TinyGo 0.41.0+.
+For embedded systems and TinyGo builds, see the [tinygo branch](https://github.com/Quad4-Software/Reticulum-Go/src/branch/tinygo/). Requires TinyGo 0.41.0+.
 
 ## Vendored dependencies and offline builds
 

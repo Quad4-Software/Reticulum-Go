@@ -6,8 +6,7 @@ ENV GOOS=linux
 ENV GOARCH=amd64
 ENV GOFLAGS=-mod=vendor
 ENV GOPROXY=off
-ENV GOPRIVATE=git.quad4.io
-ENV GONOSUMDB=git.quad4.io
+
 
 WORKDIR /build
 

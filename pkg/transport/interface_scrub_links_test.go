@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 )
 
 // linkBoundIface is a minimal [LinkInterface] bound to a [common.NetworkInterface].

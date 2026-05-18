@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 )
 
 func TestCreateAnnouncePacket_RejectsOversizeName(t *testing.T) {

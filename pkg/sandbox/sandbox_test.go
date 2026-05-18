@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"golang.org/x/sys/unix"
 )
 

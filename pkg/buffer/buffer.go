@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	"github.com/Quad4-Software/bzip2/pkg/bzip2"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/channel"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/channel"
 )
 
 type StreamDataMessage struct {

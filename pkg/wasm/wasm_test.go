@@ -12,7 +12,7 @@ import (
 	"syscall/js"
 	"testing"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 )
 
 func TestRegisterJSFunctions(t *testing.T) {

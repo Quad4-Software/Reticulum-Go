@@ -2,10 +2,10 @@ module example-pageserver
 
 go 1.26.2
 
-replace git.quad4.io/Networks/Reticulum-Go => ../..
+replace github.com/Quad4-Software/Reticulum-Go => ../..
 
 require (
-	git.quad4.io/Networks/Reticulum-Go v0.9.1
+	github.com/Quad4-Software/Reticulum-Go v0.9.1
 	github.com/Quad4-Software/msgpack/v5 v5.0.0-20260518092343-14dd39a9b6ac
 )
 

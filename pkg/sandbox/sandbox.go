@@ -6,8 +6,8 @@ package sandbox
 import (
 	"runtime"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 )
 
 func Apply(cfg *common.ReticulumConfig) error {

@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/announce"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/announce"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 )
 
 // simInboxSize bounds in-flight packets per duplex side. The sender

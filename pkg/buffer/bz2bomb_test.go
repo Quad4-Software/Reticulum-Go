@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/Quad4-Software/bzip2/pkg/bzip2"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/channel"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/channel"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
 func bz2Bomb(t *testing.T, decompressedLen int) []byte {

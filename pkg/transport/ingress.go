@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/rate"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/rate"
 )
 
 // ifaceState is per-interface announce cap and ingress/egress controllers.

@@ -17,8 +17,8 @@ import (
 
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 )
 
 func shebangLine(content []byte) bool {

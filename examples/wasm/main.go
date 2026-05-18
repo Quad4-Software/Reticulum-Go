@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"syscall/js"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/wasm"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/wasm"
 	"git.quad4.io/RNS-Things/reticulum-go-mf/pkg/mf"
 )
 

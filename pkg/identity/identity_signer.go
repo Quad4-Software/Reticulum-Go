@@ -8,7 +8,7 @@ import (
 	"errors"
 	"sync"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
 )
 
 // NewIdentityWithSigner builds an identity whose Ed25519 operations go through

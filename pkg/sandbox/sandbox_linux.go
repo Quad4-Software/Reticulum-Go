@@ -13,8 +13,8 @@ import (
 	"strings"
 	"unsafe"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 	"golang.org/x/sys/unix"
 )
 
@@ -59,7 +59,7 @@ func applyLandlock(cfg *common.ReticulumConfig) error {
 	}
 
 	fd, _, errno := unix.Syscall(unix.SYS_LANDLOCK_CREATE_RULESET,
-		uintptr(unsafe.Pointer(&attr)),
+		uintptr(unsafe.Pointer(&attr)), // #nosec G103 -- required for direct Landlock syscall interface
 		uintptr(unsafe.Sizeof(attr)),
 		0)
 	if errno == unix.ENOSYS {
@@ -68,7 +68,7 @@ func applyLandlock(cfg *common.ReticulumConfig) error {
 	if errno != 0 {
 		return fmt.Errorf("landlock_create_ruleset: %w", errno)
 	}
-	rulesetFD := int(fd)
+	rulesetFD := int(fd) // #nosec G115 -- syscall fd is always a small non-negative integer on Linux
 	defer unix.Close(rulesetFD)
 
 	home, err := os.UserHomeDir()
@@ -108,7 +108,7 @@ func applyLandlock(cfg *common.ReticulumConfig) error {
 	}
 
 	_, _, errno = unix.Syscall(unix.SYS_LANDLOCK_RESTRICT_SELF,
-		uintptr(rulesetFD),
+		uintptr(rulesetFD), // #nosec G115 -- converting syscall fd to uintptr for raw syscall
 		0, 0)
 	if errno != 0 {
 		return fmt.Errorf("landlock_restrict_self: %w", errno)
@@ -175,13 +175,13 @@ func landlockAddRule(rulesetFD int, path string, access uint64) error {
 
 	attr := unix.LandlockPathBeneathAttr{
 		Allowed_access: allowed,
-		Parent_fd:      int32(fd),
+		Parent_fd:      int32(fd), // #nosec G115 -- O_PATH fd from unix.Open is always small non-negative
 	}
 
 	_, _, errno := unix.Syscall(unix.SYS_LANDLOCK_ADD_RULE,
-		uintptr(rulesetFD),
+		uintptr(rulesetFD), // #nosec G115 -- converting syscall fd to uintptr for raw syscall
 		uintptr(unix.LANDLOCK_RULE_PATH_BENEATH),
-		uintptr(unsafe.Pointer(&attr)))
+		uintptr(unsafe.Pointer(&attr))) // #nosec G103 -- required for direct Landlock syscall interface
 	if errno != 0 {
 		return errno
 	}

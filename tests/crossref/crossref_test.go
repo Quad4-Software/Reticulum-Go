@@ -18,12 +18,12 @@ import (
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 
 	"github.com/Quad4-Software/bzip2/pkg/bzip2"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/buffer"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/channel"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/resource"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/buffer"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/channel"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
 )
 
 type TestVectors struct {

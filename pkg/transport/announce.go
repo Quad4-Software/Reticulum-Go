@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/rate"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/rate"
 )
 
 type AnnounceEntry struct {

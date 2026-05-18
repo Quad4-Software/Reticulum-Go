@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/destination"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 )
 
 // BuiltInPageViewsPath is reserved. It overrides any file at pages/__pageviews.mu after sync.

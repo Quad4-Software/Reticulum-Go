@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 )
 
 // Default values used when a fresh configuration is created or fields are

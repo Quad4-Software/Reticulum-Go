@@ -13,7 +13,7 @@ import (
 
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack/msgpcode"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
 )
 
 // AppName is the destination app_name used by Discovery (see const value).

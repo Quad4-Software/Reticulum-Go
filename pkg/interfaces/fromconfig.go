@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 )
 
 // NewFromConfig constructs a logical interface from a loaded [common.InterfaceConfig].

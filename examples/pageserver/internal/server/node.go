@@ -17,16 +17,16 @@ import (
 
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/buffer"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/channel"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/destination"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/interfaces"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/link"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/buffer"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/channel"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 
 	"example-pageserver/internal/dynamicpage"
 )

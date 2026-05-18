@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/Quad4-Software/pbt/pkg/pbt"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
 )
 
 func TestPBTIdentitySignVerify(t *testing.T) {

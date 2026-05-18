@@ -13,9 +13,9 @@ import (
 
 	"github.com/Quad4-Software/bzip2/pkg/bzip2"
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/resource"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
 )
 
 const (

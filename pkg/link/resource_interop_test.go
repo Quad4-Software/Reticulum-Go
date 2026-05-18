@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/resource"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
 )
 
 func waitForResource(t *testing.T, ch <-chan []byte, label string, timeout time.Duration) []byte {

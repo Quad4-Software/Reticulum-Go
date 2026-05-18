@@ -2,8 +2,6 @@ version: '3'
 env:
   GOFLAGS: -mod=vendor
   GOPROXY: 'off'
-  GOPRIVATE: git.quad4.io
-  GONOSUMDB: git.quad4.io
 
 vars:
   GOCMD: go
@@ -459,7 +457,7 @@ tasks:
     cmds:
       - |
         if ! command -v trivy &> /dev/null; then
-          curl -L -o /tmp/trivy.deb https://git.quad4.io/Quad4-Extra/assets/raw/commit/90fdcea1bb71d91df2de6ff2e3897f278413f300/bin/trivy_0.68.2_Linux-64bit.deb
+          curl -L -o /tmp/trivy.deb https://github.com/Quad4-Software/Quad4-Extra/raw/refs/heads/main/bin/trivy_0.68.2_Linux-64bit.deb
           sh scripts/ci/exec-priv.sh dpkg -i /tmp/trivy.deb 2>/dev/null || sh scripts/ci/exec-priv.sh apt-get install -f -y
         else
           echo "Trivy is already installed: $(trivy --version)"

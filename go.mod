@@ -1,4 +1,4 @@
-module git.quad4.io/Networks/Reticulum-Go
+module github.com/Quad4-Software/Reticulum-Go
 
 go 1.26.2
 

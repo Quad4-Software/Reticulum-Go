@@ -22,5 +22,5 @@
 // Hardware signing (HSM, PKCS#11, cloud KMS) can integrate via [Ed25519Signer]:
 // use [NewSoftwareEd25519Signer] for in-memory seeds, or [NewEd25519SignerFromCryptoSigner]
 // to wrap a standard [crypto.Signer] that performs Ed25519. Identity wiring is
-// in package identity ([git.quad4.io/Networks/Reticulum-Go/pkg/identity.NewIdentityWithSigner]).
+// in package identity ([github.com/Quad4-Software/Reticulum-Go/pkg/identity.NewIdentityWithSigner]).
 package cryptography

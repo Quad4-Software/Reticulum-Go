@@ -17,15 +17,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/announce"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/blackhole"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/destination"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/pathfinder"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/rate"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/announce"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/blackhole"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/pathfinder"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/rate"
 )
 
 var (

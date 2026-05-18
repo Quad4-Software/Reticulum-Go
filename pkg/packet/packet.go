@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 )
 
 // Packet represents a Reticulum packet with header, destination, context and payload.

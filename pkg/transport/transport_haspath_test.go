@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 )
 
 func newHasPathTransport(t testing.TB) (*Transport, *mockInterface) {

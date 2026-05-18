@@ -11,7 +11,7 @@ import (
 	"time"
 	"unsafe"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 )
 
 func linuxFdToInt(fd uintptr) (int, bool) {
