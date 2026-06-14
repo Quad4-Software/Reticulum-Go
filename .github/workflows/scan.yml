@@ -21,7 +21,7 @@ permissions:
   actions: read
 
 env:
-  CI_GO_VERSION: "1.26.2"
+  CI_GO_VERSION: "1.26.4"
   CI_GOSEC_VERSION: "v2.24.5"
   CI_GOVULNCHECK_VERSION: "v1.1.4"
   CI_TRIVY_VERSION: "0.69.3"

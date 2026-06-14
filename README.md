@@ -36,7 +36,7 @@ Algorithms, key formats, storage, IFAC, and operational guidance are documented 
 
 ## Requirements
 
-- Go 1.26.2 or later
+- Go 1.26.4 or later
 
 ## Quick Start
 
