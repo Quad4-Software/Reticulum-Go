@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
+	"quad4/reticulum-go/pkg/cryptography"
 )
 
 func TestNewIdentity(t *testing.T) {

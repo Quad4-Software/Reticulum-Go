@@ -27,12 +27,9 @@ env:
   CI_GO_LEGACY_WIN7_VERSION: "1.26.4-1"
   CI_TASK_VERSION: "3.46.3"
   CI_COSIGN_VERSION: "3.0.5"
-  TRIVY_DEB_URL: "https://git.quad4.io/Quad4-Software/Trivy-Assets/raw/commit/fdfe96b77d2f7b7f5a90cea00af5024c9f728f17/trivy_0.69.3_Linux-64bit.deb"
-  TRIVY_DEB_SHA256: "a484057aafde31089cf2558ca0f79a4bc835125a5ee6834183a5bcf0735af358"
+  CI_TRIVY_VERSION: "0.69.3"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
-  GOPRIVATE: git.quad4.io
-  GONOSUMDB: git.quad4.io
 
 jobs:
   build:
@@ -145,7 +142,7 @@ jobs:
         run: sh scripts/ci/exec-priv.sh apt-get update -qq
 
       - name: Install Trivy
-        run: sh scripts/ci/setup-trivy.sh
+        run: sh scripts/ci/setup-trivy.sh "${{ env.CI_TRIVY_VERSION }}"
 
       - name: Generate SBOM
         run: task sbom
@@ -186,8 +183,7 @@ jobs:
         run: |
           set -euo pipefail
           cd examples/pageserver
-          env GOFLAGS=-mod=mod GOPROXY=https://proxy.golang.org,direct \
-            go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-amd64 .
+          go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-amd64 .
 
       - name: Build pageserver (linux/arm64)
         env:
@@ -197,8 +193,7 @@ jobs:
         run: |
           set -euo pipefail
           cd examples/pageserver
-          env GOFLAGS=-mod=mod GOPROXY=https://proxy.golang.org,direct \
-            go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-arm64 .
+          go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-arm64 .
 
       - name: Build pageserver (linux/arm v6)
         env:
@@ -209,8 +204,7 @@ jobs:
         run: |
           set -euo pipefail
           cd examples/pageserver
-          env GOFLAGS=-mod=mod GOPROXY=https://proxy.golang.org,direct \
-            go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-arm .
+          go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-arm .
 
       - name: Build wasm example
         run: task example:wasm:build

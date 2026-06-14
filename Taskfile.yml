@@ -2,11 +2,12 @@ version: '3'
 env:
   GOFLAGS: -mod=vendor
   GOPROXY: 'off'
+  GOSUMDB: 'off'
 
 vars:
   GOCMD: go
+  LIBS_ROOT: '{{default "../../Reticulum-Go-Projects" .LIBS_ROOT}}'
   GO_LEGACY_WIN7: '{{default "/usr/local/go-legacy-win7/bin/go" .GO_LEGACY_WIN7}}'
-  GOEXAMPLE: env GOFLAGS=-mod=mod GOPROXY=https://proxy.golang.org,direct
   BINARY_NAME: reticulum-go
   BUILD_DIR: bin
   MAIN_PACKAGE: ./cmd/reticulum-go
@@ -194,30 +195,15 @@ tasks:
       - '{{.GOCMD}} test -coverprofile=coverage.out ./...'
       - '{{.GOCMD}} tool cover -html=coverage.out'
 
+  vendor-sync:
+    desc: Refresh vendor trees from Reticulum-Go-Projects
+    cmds:
+      - sh scripts/vendor-sync.sh "{{.LIBS_ROOT}}"
+
   deps:
-    desc: Download and verify dependencies
-    env:
-      GOFLAGS: ''
-      GOPROXY: '{{.GOPROXY | default "https://proxy.golang.org,direct"}}'
+    desc: Refresh vendored dependencies from Reticulum-Go-Projects (offline after sync)
     cmds:
-      - '{{.GOCMD}} mod download'
-      - '{{.GOCMD}} mod verify'
-
-  mod-tidy:
-    desc: Tidy go.mod file
-    env:
-      GOFLAGS: ''
-      GOPROXY: 'https://proxy.golang.org,direct'
-    cmds:
-      - '{{.GOCMD}} mod tidy'
-
-  mod-verify:
-    desc: Verify dependencies
-    env:
-      GOFLAGS: ''
-      GOPROXY: 'https://proxy.golang.org,direct'
-    cmds:
-      - '{{.GOCMD}} mod verify'
+      - task: vendor-sync
 
   build-linux:
     desc: Build for Linux (amd64, arm64, arm, riscv64)
@@ -327,7 +313,7 @@ tasks:
       - PATH="$PATH:{{.ROOT_DIR}}/misc/wasm" {{.GOCMD}} test -v ./pkg/wasm/ ./cmd/reticulum-wasm/
       - |
         export PATH="$PATH:{{.ROOT_DIR}}/misc/wasm"
-        cd examples/wasm && {{.GOEXAMPLE}} {{.GOCMD}} test -v .
+        cd examples/wasm && {{.GOCMD}} test -v .
 
   build-wasm:
     desc: Build WebAssembly binary with standard Go compiler
@@ -343,9 +329,11 @@ tasks:
     desc: Build WebAssembly example
     env:
       CGO_ENABLED: '0'
+      GOFLAGS: -mod=vendor
+      GOPROXY: 'off'
     cmds:
       - mkdir -p examples/wasm/public/static examples/wasm/public/js
-      - 'cd examples/wasm && {{.GOEXAMPLE}} GOOS=js GOARCH=wasm {{.GOCMD}} build -o public/static/reticulum-go.wasm .'
+      - 'cd examples/wasm && GOOS=js GOARCH=wasm {{.GOCMD}} build -o public/static/reticulum-go.wasm .'
       - |
         GOROOT=$({{.GOCMD}} env GOROOT)
         if [ -f "$GOROOT/lib/wasm/wasm_exec.js" ]; then
@@ -373,12 +361,9 @@ tasks:
       - task: test-wasm
 
   install:
-    desc: Install dependencies
-    env:
-      GOFLAGS: ''
-      GOPROXY: 'https://proxy.golang.org,direct'
+    desc: Refresh vendored dependencies from Reticulum-Go-Projects (offline after sync)
     cmds:
-      - '{{.GOCMD}} mod download'
+      - task: vendor-sync
 
   checksum:
     desc: Generate SHA256 checksum for binary (uses BINARY_PATH env var if set, otherwise defaults to bin/reticulum-go)
@@ -396,22 +381,22 @@ tasks:
   example:announce:
     desc: Run announce example
     cmds:
-      - 'cd examples/announce && {{.GOEXAMPLE}} {{.GOCMD}} run .'
+      - 'cd examples/announce && {{.GOCMD}} run .'
 
   example:minimal:
     desc: Run minimal example
     cmds:
-      - 'cd examples/minimal && {{.GOEXAMPLE}} {{.GOCMD}} run .'
+      - 'cd examples/minimal && {{.GOCMD}} run .'
 
   example:pageserver:
     desc: Run pageserver example
     cmds:
-      - 'cd examples/pageserver && {{.GOEXAMPLE}} {{.GOCMD}} run .'
+      - 'cd examples/pageserver && {{.GOCMD}} run .'
 
   example:echo-listen:
     desc: Run echo example (waits for incoming connections, P2P peer)
     cmds:
-      - 'cd examples/echo && {{.GOEXAMPLE}} {{.GOCMD}} run . --server'
+      - 'cd examples/echo && {{.GOCMD}} run . --server'
 
   example:echo-connect:
     desc: Run echo example (initiates connection to peer, requires DESTINATION env var)
@@ -422,12 +407,12 @@ tasks:
           echo "Example: DESTINATION=abc123... task example:echo-connect"
           exit 1
         fi
-        cd examples/echo && {{.GOEXAMPLE}} {{.GOCMD}} run . --destination="${DESTINATION}"
+        cd examples/echo && {{.GOCMD}} run . --destination="${DESTINATION}"
 
   example:link-listen:
     desc: Run link example (waits for incoming link requests, P2P peer)
     cmds:
-      - 'cd examples/link && {{.GOEXAMPLE}} {{.GOCMD}} run . --server'
+      - 'cd examples/link && {{.GOCMD}} run . --server'
 
   example:link-connect:
     desc: Run link example (initiates link to peer, requires DESTINATION env var)
@@ -438,7 +423,7 @@ tasks:
           echo "Example: DESTINATION=abc123... task example:link-connect"
           exit 1
         fi
-        cd examples/link && {{.GOEXAMPLE}} {{.GOCMD}} run . --destination="${DESTINATION}"
+        cd examples/link && {{.GOCMD}} run . --destination="${DESTINATION}"
 
   example:filetransfer-share:
     desc: Run filetransfer example (shares files from directory, P2P peer)
@@ -449,7 +434,7 @@ tasks:
           echo "Example: SERVE_PATH=/path/to/files task example:filetransfer-share"
           exit 1
         fi
-        cd examples/filetransfer && {{.GOEXAMPLE}} {{.GOCMD}} run . --server --serve="${SERVE_PATH}"
+        cd examples/filetransfer && {{.GOCMD}} run . --server --serve="${SERVE_PATH}"
 
   example:filetransfer-fetch:
     desc: Run filetransfer example (fetches files from peer, requires DESTINATION env var)
@@ -460,15 +445,14 @@ tasks:
           echo "Example: DESTINATION=abc123... task example:filetransfer-fetch"
           exit 1
         fi
-        cd examples/filetransfer && {{.GOEXAMPLE}} {{.GOCMD}} run . --destination="${DESTINATION}"
+        cd examples/filetransfer && {{.GOCMD}} run . --destination="${DESTINATION}"
 
   trivy:install:
     desc: Install Trivy scanner
     cmds:
       - |
         if ! command -v trivy &> /dev/null; then
-          curl -L -o /tmp/trivy.deb https://github.com/Quad4-Software/Quad4-Extra/raw/refs/heads/main/bin/trivy_0.68.2_Linux-64bit.deb
-          sh scripts/ci/exec-priv.sh dpkg -i /tmp/trivy.deb 2>/dev/null || sh scripts/ci/exec-priv.sh apt-get install -f -y
+          sh scripts/ci/setup-trivy.sh 0.69.3
         else
           echo "Trivy is already installed: $(trivy --version)"
         fi

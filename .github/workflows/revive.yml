@@ -30,9 +30,6 @@ env:
   CI_REVIVE_VERSION: "v1.15.0"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
-  GOPRIVATE: git.quad4.io
-  GONOSUMDB: git.quad4.io
-
 jobs:
   lint:
     runs-on: ubuntu-latest

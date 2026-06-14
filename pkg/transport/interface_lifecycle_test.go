@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/identity"
 )
 
 func mockIface(name string, enabled bool) *mockInterface {

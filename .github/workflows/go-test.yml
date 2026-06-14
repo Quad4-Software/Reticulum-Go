@@ -33,9 +33,6 @@ env:
   CI_NODE_MAJOR: "22"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
-  GOPRIVATE: git.quad4.io
-  GONOSUMDB: git.quad4.io
-
 jobs:
   test:
     name: Test (${{ matrix.os }}, ${{ matrix.goarch }})

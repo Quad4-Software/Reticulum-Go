@@ -47,7 +47,7 @@ CI runs **Gosec** (Go security linter), **govulncheck** (official Go vulnerabili
 
 - Gosec is installed via `scripts/ci/setup-gosec.sh` with a pinned module version.
 - Govulncheck is installed via `scripts/ci/setup-govulncheck.sh` with a pinned module version.
-- Trivy is not installed from moving GitHub Action tags or unverified release URLs in the workflow. The job downloads a pinned `.deb` from a URL we control (`TRIVY_DEB_URL` in that workflow), checks it with `TRIVY_DEB_SHA256`, and installs through `scripts/ci/setup-trivy.sh`. We bump the URL and hash deliberately when upgrading Trivy.
+- Trivy is not installed from moving GitHub Action tags or unverified release URLs in the workflow. The job downloads a pinned `.deb` from the official Aqua Security GitHub release (`scripts/ci/setup-trivy.sh`), checks it with a pinned SHA256, and installs the package. We bump the version and hash deliberately when upgrading Trivy.
 
 **Why Trivy is pinned this way.** Third-party distribution channels are a common supply-chain risk. For example, in March 2026 attackers compromised parts of the Trivy ecosystem by repointing GitHub Action tags and distributing trojanized binaries through plausible official paths; workflows that followed moving tags or unverified binaries could have run malicious code in CI or on developer machines. Hosting a known-good package at an immutable URL with a recorded SHA256 avoids depending on those surfaces for our scans.
 

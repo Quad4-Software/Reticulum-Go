@@ -6,8 +6,8 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/Quad4-Software/pbt/pkg/pbt"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
+	"quad4/pbt/pkg/pbt"
+	"quad4/reticulum-go/pkg/cryptography"
 )
 
 func TestPBTIdentitySignVerify(t *testing.T) {

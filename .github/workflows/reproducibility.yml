@@ -33,9 +33,6 @@ env:
   CI_TASK_VERSION: "3.46.3"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
-  GOPRIVATE: git.quad4.io
-  GONOSUMDB: git.quad4.io
-
 jobs:
   reproducibility:
     name: Verify byte-identical builds

@@ -15,20 +15,20 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"quad4/msgpack/v5/pkg/msgpack"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/buffer"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/channel"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"quad4/reticulum-go/pkg/buffer"
+	"quad4/reticulum-go/pkg/channel"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/destination"
+	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/interfaces"
+	"quad4/reticulum-go/pkg/link"
+	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/transport"
 
-	"example-pageserver/internal/dynamicpage"
+	"quad4/reticulum-go/examples/pageserver/internal/dynamicpage"
 )
 
 // Reticulum owns the transport, destination, static /page and /file handlers, and announce history.

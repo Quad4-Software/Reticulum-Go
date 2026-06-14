@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/buffer"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/channel"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"quad4/reticulum-go/pkg/buffer"
+	"quad4/reticulum-go/pkg/channel"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/interfaces"
+	"quad4/reticulum-go/pkg/transport"
 )
 
 func cloneReticulumCfg(c *common.ReticulumConfig) *common.ReticulumConfig {

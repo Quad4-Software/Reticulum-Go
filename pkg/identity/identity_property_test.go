@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
+	"quad4/reticulum-go/pkg/cryptography"
 )
 
 func FuzzIdentitySignVerify(f *testing.F) {

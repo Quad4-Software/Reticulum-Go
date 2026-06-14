@@ -8,8 +8,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"quad4/reticulum-go/pkg/cryptography"
+	"quad4/reticulum-go/pkg/identity"
 )
 
 // IFACFlag is the high bit of the first packet header byte that signals an

@@ -29,9 +29,6 @@ env:
   CI_TASK_VERSION: "3.46.3"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
-  GOPRIVATE: git.quad4.io
-  GONOSUMDB: git.quad4.io
-
 jobs:
   build:
     name: Build (${{ matrix.goos }}, ${{ matrix.goarch }})

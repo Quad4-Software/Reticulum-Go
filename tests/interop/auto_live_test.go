@@ -16,9 +16,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/interfaces"
+	"quad4/reticulum-go/pkg/transport"
 )
 
 // setupVethPair creates a veth pair with IPv6 link-local addresses.

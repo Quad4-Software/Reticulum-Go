@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/destination"
+	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/transport"
 )
 
 func establishInteropLink(t *testing.T) (*Link, *Link, func()) {

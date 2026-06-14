@@ -12,16 +12,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/internal/config"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/buffer"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/channel"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/sandbox"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"quad4/reticulum-go/internal/config"
+	"quad4/reticulum-go/pkg/buffer"
+	"quad4/reticulum-go/pkg/channel"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/interfaces"
+	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/sandbox"
+	"quad4/reticulum-go/pkg/transport"
 )
 
 type Reticulum struct {

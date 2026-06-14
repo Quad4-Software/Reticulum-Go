@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/interfaces"
 )
 
 const tcpPlumbingEnvVar = "RETICULUM_RUN_TCP_PLUMBING"

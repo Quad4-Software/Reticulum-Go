@@ -11,11 +11,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/reticulumconfig"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/reticulumconfig"
 
-	"example-pageserver/internal/server"
+	"quad4/reticulum-go/examples/pageserver/internal/server"
 )
 
 var (

@@ -6,8 +6,8 @@ import (
 	"crypto/aes"
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/packet"
 )
 
 func TestUpdateMDU_ClampsAtPacketMTU(t *testing.T) {

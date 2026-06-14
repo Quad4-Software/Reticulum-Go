@@ -1,16 +1,23 @@
-module github.com/Quad4-Software/Reticulum-Go/examples/wasm
+module quad4/reticulum-go/examples/wasm
 
 go 1.26.2
 
 require (
-	github.com/Quad4-Software/Reticulum-Go v0.9.1
-	git.quad4.io/RNS-Things/reticulum-go-mf v0.0.0-20260427163431-86610ea742f0
+	quad4/reticulum-go v0.0.0
+	quad4/reticulum-go-mf v0.0.0
 )
 
 require (
-	github.com/Quad4-Software/msgpack/v5 v5.0.0-20260518092343-14dd39a9b6ac // indirect
-	github.com/Quad4-Software/tagparser v0.1.3-0.20260518090537-f89b2bf4dade // indirect
 	golang.org/x/crypto v0.50.0 // indirect
+	quad4/msgpack/v5 v5.0.0 // indirect
+	quad4/tagparser v0.0.0 // indirect
 )
 
-replace github.com/Quad4-Software/Reticulum-Go => ../../
+replace (
+	quad4/bzip2 => ../../../../Reticulum-Go-Projects/bzip2
+	quad4/msgpack/v5 => ../../../../Reticulum-Go-Projects/msgpack
+	quad4/pbt => ../../../../Reticulum-Go-Projects/pbt
+	quad4/reticulum-go => ../../
+	quad4/reticulum-go-mf => ../../../../Reticulum-Go-Projects/reticulum-go-mf
+	quad4/tagparser => ../../../../Reticulum-Go-Projects/tagparser
+)

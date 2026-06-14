@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"quad4/reticulum-go/pkg/transport"
 )
 
 func TestLiveInteropTransportPathRequest(t *testing.T) {

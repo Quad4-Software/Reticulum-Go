@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/interfaces"
 )
 
 func interfaceConfigsEqualForReload(a, b *common.InterfaceConfig) bool {

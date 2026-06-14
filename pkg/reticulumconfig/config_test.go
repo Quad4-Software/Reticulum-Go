@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"quad4/reticulum-go/pkg/common"
 )
 
 // TestDefaultConfig sanity-checks the built-in defaults exposed by

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"quad4/reticulum-go/pkg/common"
 )
 
 func TestBaseInterfaceStateChanges(t *testing.T) {

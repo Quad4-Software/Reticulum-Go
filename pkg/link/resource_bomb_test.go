@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
+	"quad4/reticulum-go/pkg/resource"
 )
 
 func makeFakeHashmap(parts int) []byte {

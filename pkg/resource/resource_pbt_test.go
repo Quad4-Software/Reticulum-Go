@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/Quad4-Software/pbt/pkg/pbt"
+	"quad4/pbt/pkg/pbt"
 )
 
 func TestPBTResourceSegmentsReassemble(t *testing.T) {

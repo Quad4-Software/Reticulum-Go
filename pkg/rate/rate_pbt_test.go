@@ -5,7 +5,7 @@ package rate
 import (
 	"testing"
 
-	"github.com/Quad4-Software/pbt/pkg/pbt"
+	"quad4/pbt/pkg/pbt"
 )
 
 func TestPBTAnnounceRateControlDisabledAlwaysAllows(t *testing.T) {

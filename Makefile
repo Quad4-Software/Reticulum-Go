@@ -7,7 +7,9 @@ GO_LEGACY_WIN7 ?= /usr/local/go-legacy-win7/bin/go
 # Use committed vendor/ for builds and tests; targets that fetch modules or tools clear these.
 GOFLAGS := -mod=vendor
 GOPROXY := off
-export GOFLAGS GOPROXY
+GOSUMDB := off
+export GOFLAGS GOPROXY GOSUMDB
+LIBS_ROOT ?= ../../Reticulum-Go-Projects
 GOVULNCHECK_VER ?= v1.1.4
 BINARY_NAME := reticulum-go
 BUILD_DIR := bin
@@ -41,8 +43,7 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 deps:
-	env GOFLAGS= GOPROXY=https://proxy.golang.org,direct $(GOCMD) mod download
-	env GOFLAGS= GOPROXY=https://proxy.golang.org,direct $(GOCMD) mod verify
+	sh scripts/vendor-sync.sh "$(LIBS_ROOT)"
 
 test:
 	$(GOCMD) run ./scripts/ci/testsummary -v ./...

@@ -211,7 +211,7 @@ task build-wasm
 task test-wasm
 ```
 
-For embedded systems and TinyGo builds, see the [tinygo branch](https://github.com/Quad4-Software/Reticulum-Go/src/branch/tinygo/). Requires TinyGo 0.41.0+.
+For embedded systems and TinyGo builds, see the `tinygo` branch in your Reticulum-Go checkout. Requires TinyGo 0.41.0+.
 
 ## Vendored dependencies and offline builds
 
@@ -223,9 +223,9 @@ The Makefile and Taskfile default to `GOFLAGS=-mod=vendor` and `GOPROXY=off`, so
 
 CI sets the same variables for build, test, and related jobs. Steps that install standalone tools with `go install` (for example revive, gosec, and govulncheck in `scripts/ci/`) temporarily clear those flags so the installer can fetch those binaries; project code still builds from `vendor/`.
 
-When you change dependencies, use a network-enabled environment, run `go mod tidy` and `go mod vendor`, then commit `go.mod`, `go.sum`, and `vendor/`. The `make deps` and `task deps` targets use the public module proxy to download and verify modules for that workflow.
+When you change first-party libraries under `Reticulum-Go-Projects/`, run `task vendor-sync` (or `make deps`) with `LIBS_ROOT` pointing at that tree. That refreshes `go.mod` replace paths and regenerates `vendor/` for the root module and the `examples/wasm` and `examples/pageserver` modules. Commit `go.mod`, `go.sum`, and the updated `vendor/` trees. Ordinary clones only need `vendor/` to build offline; the sibling lib checkout is required for re-vendoring, not for day-to-day builds.
 
-The `examples/wasm` tree has its own `go.mod`; it is not covered by the root `vendor/` layout. Docker images under `docker/` copy `vendor/` and build with the same offline module settings.
+The `examples/wasm` and `examples/pageserver` trees have their own `go.mod` and `vendor/` directories. Docker images under `docker/` copy `vendor/` and build with the same offline module settings.
 
 ## Credit
 

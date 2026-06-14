@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"quad4/reticulum-go/pkg/debug"
 )
 
 // ClampDisplayName trims name, applies fallback when empty, and truncates to

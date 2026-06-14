@@ -7,7 +7,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/Quad4-Software/pbt/pkg/pbt"
+	"quad4/pbt/pkg/pbt"
 )
 
 func genStreamDataMessage(r *rand.Rand, size int) StreamDataMessage {

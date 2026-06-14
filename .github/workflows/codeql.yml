@@ -46,9 +46,6 @@ jobs:
       CI_GO_VERSION: "1.26.2"
       GOFLAGS: -mod=vendor
       GOPROXY: "off"
-      GOPRIVATE: git.quad4.io
-      GONOSUMDB: git.quad4.io
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1

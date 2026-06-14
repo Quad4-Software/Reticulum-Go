@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Quad4-Software/bzip2/pkg/bzip2"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
+	"quad4/bzip2/pkg/bzip2"
+	"quad4/reticulum-go/pkg/resource"
 )
 
 func bz2Stream(t *testing.T, plaintext []byte) []byte {
