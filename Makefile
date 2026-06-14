@@ -1,8 +1,9 @@
 .PHONY: all build install uninstall clean test fmt vet lint vulncheck gosec check deps run
-.PHONY: build-linux build-windows build-darwin build-all
+.PHONY: build-linux build-windows build-windows-legacy build-darwin build-all
 .PHONY: test-short test-race test-crossref test-wasm test-all coverage bench debug release
 
 GOCMD := go
+GO_LEGACY_WIN7 ?= /usr/local/go-legacy-win7/bin/go
 # Use committed vendor/ for builds and tests; targets that fetch modules or tools clear these.
 GOFLAGS := -mod=vendor
 GOPROXY := off
@@ -100,6 +101,11 @@ build-windows:
 	@mkdir -p $(BUILD_DIR)
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_PACKAGE)
 	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64.exe $(MAIN_PACKAGE)
+
+build-windows-legacy:
+	@mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO_LEGACY_WIN7) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64-win7.exe $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 $(GO_LEGACY_WIN7) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64-win7.exe $(MAIN_PACKAGE)
 
 build-darwin:
 	@mkdir -p $(BUILD_DIR)

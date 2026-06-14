@@ -5,6 +5,7 @@ env:
 
 vars:
   GOCMD: go
+  GO_LEGACY_WIN7: '{{default "/usr/local/go-legacy-win7/bin/go" .GO_LEGACY_WIN7}}'
   GOEXAMPLE: env GOFLAGS=-mod=mod GOPROXY=https://proxy.golang.org,direct
   BINARY_NAME: reticulum-go
   BUILD_DIR: bin
@@ -237,6 +238,15 @@ tasks:
       - mkdir -p {{.BUILD_DIR}}
       - 'GOOS=windows GOARCH=amd64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64.exe {{.MAIN_PACKAGE}}'
       - 'GOOS=windows GOARCH=arm64 {{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-arm64.exe {{.MAIN_PACKAGE}}'
+
+  build-windows-legacy:
+    desc: Build for Windows 7/8/8.1 using go-legacy-win7 (amd64, arm64)
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - 'GOOS=windows GOARCH=amd64 {{.GO_LEGACY_WIN7}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64-win7.exe {{.MAIN_PACKAGE}}'
+      - 'GOOS=windows GOARCH=arm64 {{.GO_LEGACY_WIN7}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-arm64-win7.exe {{.MAIN_PACKAGE}}'
 
   build-darwin:
     desc: Build for MacOS (amd64, arm64)
