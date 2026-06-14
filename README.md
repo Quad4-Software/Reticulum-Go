@@ -132,6 +132,7 @@ go test -v ./...
 | `make debug` | Build debug binary | `mkdir -p bin` then `go build -o bin/reticulum-go ./cmd/reticulum-go` |
 | `make build-linux` | Cross-build for Linux (amd64, arm64, arm, riscv64) | set `GOOS=linux` and `GOARCH=...` per [Makefile](Makefile) |
 | `make build-windows` | Cross-build for Windows | set `GOOS=windows` and `GOARCH=...` per [Makefile](Makefile) |
+| `make build-windows-legacy` | Cross-build for Windows 7/8/8.1 using [go-legacy-win7](https://github.com/thongtech/go-legacy-win7) | requires go-legacy-win7 on `PATH` or set `GO_LEGACY_WIN7` |
 | `make build-darwin` | Cross-build for macOS | set `GOOS=darwin` and `GOARCH=...` per [Makefile](Makefile) |
 | `make build-all` | Cross-build for Linux, Windows, macOS | run the three cross-build command groups from the Makefile |
 
@@ -176,6 +177,30 @@ make build-all
 ```
 
 Cross-compilation uses `GOOS` and `GOARCH` with the same `go build` flags as `make build`; see [Makefile](Makefile) `build-linux`, `build-windows`, and `build-darwin` targets for exact commands.
+
+### Windows 7, 8, and 8.1
+
+Official Go 1.21 and later no longer support Windows 7. Release builds for legacy Windows use [go-legacy-win7](https://github.com/thongtech/go-legacy-win7), a maintained fork that restores compatibility with Windows 7, 8, 8.1, and Server 2008 R2 through 2012 R2.
+
+Tagged releases include `reticulum-go-windows-amd64-win7.exe` and `reticulum-go-windows-arm64-win7.exe`. These binaries also run on Windows 10 and later.
+
+To build locally, install go-legacy-win7 and run:
+
+```bash
+make build-windows-legacy
+```
+
+```bash
+task build-windows-legacy
+```
+
+Or cross-compile with an explicit compiler path:
+
+```bash
+GO_LEGACY_WIN7=/usr/local/go-legacy-win7/bin/go make build-windows-legacy
+```
+
+CI installs go-legacy-win7 via `scripts/ci/setup-go-legacy-win7.sh`.
 
 ## WebAssembly and Embedded
 
