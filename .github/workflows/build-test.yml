@@ -25,6 +25,7 @@ permissions:
 
 env:
   CI_GO_VERSION: "1.26.2"
+  CI_GO_LEGACY_WIN7_VERSION: "1.26.4-1"
   CI_TASK_VERSION: "3.46.3"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
@@ -72,3 +73,31 @@ jobs:
           else
             task build
           fi
+
+  build-windows-legacy:
+    name: Build (windows, ${{ matrix.goarch }}, win7)
+    strategy:
+      fail-fast: false
+      matrix:
+        goarch: [amd64, arm64]
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Set up go-legacy-win7
+        run: sh scripts/ci/setup-go-legacy-win7.sh "${{ env.CI_GO_LEGACY_WIN7_VERSION }}"
+
+      - name: Setup Task
+        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
+
+      - name: Build
+        env:
+          GOOS: windows
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: |
+          mkdir -p bin
+          go build -ldflags="-s -w" -o "bin/reticulum-go-windows-${{ matrix.goarch }}-win7.exe" ./cmd/reticulum-go
