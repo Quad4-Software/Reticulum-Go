@@ -1281,7 +1281,7 @@ func chooseHashmapUpdateSegment(out *resource.Resource, sdu int, anchorHash []by
 	if segment <= 0 {
 		return 0, 0, false
 	}
-	nextMin := max(target-1-resource.WindowMax, 0)
+	nextMin := target + 1
 	return segment, nextMin, true
 }
 

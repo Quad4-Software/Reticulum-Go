@@ -35,23 +35,26 @@ type incomingResourceAsm struct {
 	waitingForHmu        bool
 }
 
-func (rx *incomingResourceAsm) applyHashmapSegment(segment int, hashmapBytes []byte) {
+func (rx *incomingResourceAsm) applyHashmapSegment(segment int, hashmapBytes []byte) int {
 	segLen := resource.HashmapEntriesPerSegment(rx.sdu)
 	if segLen <= 0 {
 		segLen = 1
 	}
+	added := 0
 	hashes := len(hashmapBytes) / resource.MapHashLen
 	for i := range hashes {
 		idx := i + segment*segLen
 		if idx >= rx.totalParts {
-			break
+			return added
 		}
 		if rx.mapHashes[idx] == nil {
 			rx.hashmapHeight++
+			added++
 		}
 		off := i * resource.MapHashLen
 		rx.mapHashes[idx] = append([]byte(nil), hashmapBytes[off:off+resource.MapHashLen]...)
 	}
+	return added
 }
 
 func (l *Link) beginIncomingResource(adv *resource.ResourceAdvertisement) error {
@@ -216,10 +219,26 @@ func (l *Link) applyIncomingHashmapUpdate(resHash []byte, segment int, hashmapBy
 		l.incomingMu.Unlock()
 		return nil
 	}
-	rx.applyHashmapSegment(segment, hashmapBytes)
+	added := rx.applyHashmapSegment(segment, hashmapBytes)
+	if added == 0 {
+		debug.Log(
+			debug.DebugVerbose,
+			"Incoming duplicate HMU ignored",
+			"link_id",
+			fmt.Sprintf("%x", l.linkID),
+			"segment",
+			segment,
+			"entries",
+			len(hashmapBytes)/resource.MapHashLen,
+			"hashmap_height",
+			rx.hashmapHeight,
+		)
+		l.incomingMu.Unlock()
+		return nil
+	}
 	rx.waitingForHmu = false
 	debug.Log(
-		debug.DebugInfo,
+		debug.DebugVerbose,
 		"Incoming HMU applied",
 		"link_id",
 		fmt.Sprintf("%x", l.linkID),
@@ -279,6 +298,25 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 		}
 	}
 	if idx < 0 {
+		for i := 0; i < rx.totalParts; i++ {
+			if rx.partSlots[i] == nil || len(rx.mapHashes[i]) != resource.MapHashLen {
+				continue
+			}
+			if bytes.Equal(rx.mapHashes[i], mh) {
+				debug.Log(
+					debug.DebugVerbose,
+					"Incoming resource duplicate part ignored",
+					"link_id",
+					fmt.Sprintf("%x", l.linkID),
+					"part_index",
+					i,
+					"part_len",
+					len(data),
+				)
+				l.incomingMu.Unlock()
+				return nil
+			}
+		}
 		debug.Log(
 			debug.DebugInfo,
 			"Incoming resource part map hash mismatch",
