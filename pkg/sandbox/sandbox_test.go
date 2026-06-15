@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"quad4/reticulum-go/pkg/common"
 	"golang.org/x/sys/unix"
+	"quad4/reticulum-go/pkg/common"
 )
 
 func TestApply_Disabled(t *testing.T) {
