@@ -23,6 +23,7 @@ See [COMPATIBILITY.md](COMPATIBILITY.md) for how this is verified against the Py
 | Interfaces | Partial | UDP, TCP client/server, Auto, WebSocket (native/WASM); see [COMPATIBILITY.md](COMPATIBILITY.md#interfaces) |
 | Interface hot reload | Yes | `ReloadInterfaces`, `SIGHUP` (Unix); not in Python `rns` |
 | WASM / browser | Yes | `cmd/reticulum-wasm`, `pkg/wasm` |
+| Runtime sandbox | Yes | `pkg/sandbox`; enabled by default; see [SECURITY.md](SECURITY.md#runtime-sandbox) |
 | Supply chain secure | Yes | Vendored deps, cosign attestations, CI scans; see [SECURITY.md](SECURITY.md) |
 
 **Goals:**
@@ -33,6 +34,16 @@ See [COMPATIBILITY.md](COMPATIBILITY.md) for how this is verified against the Py
 ### Cryptography
 
 Algorithms, key formats, storage, IFAC, and operational guidance are documented in [docs/cryptography.md](docs/cryptography.md). Application code should use `pkg/cryptography` and `pkg/identity` rather than ad hoc primitives.
+
+### Runtime sandbox
+
+The `reticulum-go` daemon applies a platform-specific sandbox after startup (`pkg/sandbox`). It is **on by default** and can be turned off in config:
+
+```ini
+enable_sandbox = no
+```
+
+Linux uses Landlock (kernel 5.13+) to whitelist paths the daemon needs; OpenBSD uses `unveil` and `pledge`; FreeBSD uses capability mode; Windows applies job-object limits. Details and limitations are in [SECURITY.md](SECURITY.md#runtime-sandbox).
 
 ## Requirements
 

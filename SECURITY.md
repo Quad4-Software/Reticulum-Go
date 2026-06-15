@@ -19,6 +19,8 @@ Include enough detail to reproduce or understand the issue (what component, what
 
 **Dependencies and scanning.** We run static analysis and vulnerability scanning on the codebase and dependencies (see [Static analysis](#static-analysis-sast) below).
 
+**Runtime sandbox.** The `reticulum-go` daemon applies OS-level restrictions after initialization to limit filesystem, privilege, and resource exposure if the process is compromised. See [Runtime sandbox](#runtime-sandbox).
+
 **Releases.** Tagged releases attach **cosign** provenance bundles (`*.cosign.bundle`) next to each asset, signed with a project key (public half in `cosign.pub`). Informal SHA256 digests are listed in the GitHub release notes as a backup only; prefer cosign verification.
 
 **Supply chain.** CI and tagged-release publishing run on **GitHub Actions**, with workflow definitions in `.github/workflows/` on GitHub-hosted runners (moved from `.gitea/workflows/`). Release provenance uses **cosign** blob attestations (`scripts/ci/attest-release-assets.sh`) with a SLSA-style predicate (`scripts/ci/slsa-predicate.py`). Tool versions in CI are pinned where practical; GitHub’s own actions are referenced by full commit SHA where applicable.
@@ -50,6 +52,25 @@ CI runs **Gosec** (Go security linter), **govulncheck** (official Go vulnerabili
 - Trivy is not installed from moving GitHub Action tags or unverified release URLs in the workflow. The job downloads a pinned `.deb` from the official Aqua Security GitHub release (`scripts/ci/setup-trivy.sh`), checks it with a pinned SHA256, and installs the package. We bump the version and hash deliberately when upgrading Trivy.
 
 **Why Trivy is pinned this way.** Third-party distribution channels are a common supply-chain risk. For example, in March 2026 attackers compromised parts of the Trivy ecosystem by repointing GitHub Action tags and distributing trojanized binaries through plausible official paths; workflows that followed moving tags or unverified binaries could have run malicious code in CI or on developer machines. Hosting a known-good package at an immutable URL with a recorded SHA256 avoids depending on those surfaces for our scans.
+
+## Runtime sandbox
+
+The `reticulum-go` daemon (`cmd/reticulum-go`) calls `sandbox.Apply` from `pkg/sandbox` **after** config load, interface setup, and transport start so privileged initialization can complete first. Sandboxing is **enabled by default** (`enable_sandbox = yes` in the Reticulum config). Set `enable_sandbox = no` to skip it.
+
+Platform behavior (best-effort; failures are logged and the daemon may continue unless `panic_on_interface_err` applies to a fatal sandbox error on your platform):
+
+| OS | Mechanism | What it does |
+|----|-----------|--------------|
+| Linux | Landlock, `PR_SET_NO_NEW_PRIVS`, rlimits | Whitelists `~/.reticulum-go`, `/tmp`, DNS/TLS paths, and the config parent dir; drops caps and mounts a private namespace when running as root |
+| OpenBSD | `unveil`, `pledge` | Restricts visible paths and syscall classes to those needed by a network daemon |
+| FreeBSD | `cap_enter`, rlimits | Enters capability mode after setting conservative resource limits |
+| Darwin | rlimits | Caps memory, FDs, core dumps, stack, and process count |
+| Windows | Job object | Limits breakaway, active processes, and working set; disables mini-dumps |
+| Other / WASM | no-op | Logs that sandboxing is not supported on the platform |
+
+Landlock requires Linux kernel 5.13 or newer. On older kernels the Landlock step fails gracefully and other Linux restrictions still apply where possible.
+
+This is **defense in depth**, not a substitute for correct cryptography, interface configuration, or host hardening. It does not isolate the WASM build (`reticulum-wasm`), which runs under the browser or embedded runtime sandbox instead.
 
 ## Cryptography
 
