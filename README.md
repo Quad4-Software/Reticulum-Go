@@ -36,7 +36,7 @@ Algorithms, key formats, storage, IFAC, and operational guidance are documented 
 
 ## Requirements
 
-- Go 1.26.4 or later
+- [go-no-telemetry](https://github.com/Quad4-Software/go-no-telemetry) (recommended) or Go 1.26.4 or later
 
 ## Quick Start
 
@@ -200,7 +200,7 @@ Or cross-compile with an explicit compiler path:
 GO_LEGACY_WIN7=/usr/local/go-legacy-win7/bin/go make build-windows-legacy
 ```
 
-CI installs go-legacy-win7 via `scripts/ci/setup-go-legacy-win7.sh`.
+CI builds [go-no-telemetry](https://github.com/Quad4-Software/go-no-telemetry) from source via `scripts/ci/setup-go-no-telemetry.sh` (pinned Go **1.26.4**, `GOTOOLCHAIN=local`, telemetry verified off). Legacy Windows builds still use `scripts/ci/setup-go-legacy-win7.sh` (SHA256-pinned release tarball).
 
 ## WebAssembly and Embedded
 
