@@ -77,6 +77,7 @@ build_at_version() {
     export GOTOOLCHAIN=local
     export CGO_ENABLED=0
     ./make.bash
+    cd "$root"
 }
 
 if [ ! -x "${BOOTSTRAP_ROOT}/bin/go" ]; then
@@ -110,12 +111,20 @@ else
     build_at_version "$WORK_DIR"
 fi
 
-if [ "$(bin/go telemetry)" != "off" ]; then
+cd "$WORK_DIR"
+GO="${WORK_DIR}/bin/go"
+
+if [ ! -x "$GO" ]; then
+    echo "missing ${GO} after build" >&2
+    exit 1
+fi
+
+if [ "$("$GO" telemetry)" != "off" ]; then
     echo "go telemetry is not off" >&2
     exit 1
 fi
 
-GO_VER="$(bin/go version | awk '{print $3}')"
+GO_VER="$("$GO" version | awk '{print $3}')"
 case "$GO_VER" in
     go${VERSION}*) ;;
     *)
