@@ -24,7 +24,6 @@ permissions:
 
 env:
   CI_GO_NO_TELEMETRY_VERSION: "1.26.4"
-  CI_GO_BOOTSTRAP_VERSION: "1.24.6"
   CI_GO_LEGACY_WIN7_VERSION: "1.26.4-1"
   CI_TASK_VERSION: "3.46.3"
   CI_COSIGN_VERSION: "3.0.5"
@@ -56,8 +55,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - name: Set up go-no-telemetry
-        run: sh scripts/ci/setup-go-no-telemetry.sh "${{ env.CI_GO_NO_TELEMETRY_VERSION }}"
+      - name: Install go-no-telemetry
+        uses: ./.github/actions/install-go-no-telemetry
+        with:
+          version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
 
       - name: Setup Task
         run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
@@ -134,8 +135,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - name: Set up go-no-telemetry
-        run: sh scripts/ci/setup-go-no-telemetry.sh "${{ env.CI_GO_NO_TELEMETRY_VERSION }}"
+      - name: Install go-no-telemetry
+        uses: ./.github/actions/install-go-no-telemetry
+        with:
+          version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
 
       - name: Setup Task
         run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
@@ -171,8 +174,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - name: Set up go-no-telemetry
-        run: sh scripts/ci/setup-go-no-telemetry.sh "${{ env.CI_GO_NO_TELEMETRY_VERSION }}"
+      - name: Install go-no-telemetry
+        uses: ./.github/actions/install-go-no-telemetry
+        with:
+          version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
 
       - name: Setup Task
         run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"

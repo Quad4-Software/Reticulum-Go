@@ -1,0 +1,44 @@
+name: Install go-no-telemetry
+description: Restore or download a prebuilt go-no-telemetry toolchain artifact
+inputs:
+  version:
+    description: Go release version (e.g. 1.26.4)
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Restore toolchain cache
+      id: cache
+      uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+      with:
+        path: /usr/local/go-no-telemetry
+        key: go-no-telemetry-${{ inputs.version }}-linux-amd64
+
+    - name: Install toolchain
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: sh
+      run: sh scripts/ci/install-go-no-telemetry.sh "${{ inputs.version }}"
+
+    - name: Verify cached toolchain
+      if: steps.cache.outputs.cache-hit == 'true'
+      shell: sh
+      run: |
+          export GOROOT=/usr/local/go-no-telemetry
+          export PATH="$GOROOT/bin:$PATH"
+          export GOTOOLCHAIN=local
+          go version
+          test "$(go telemetry)" = "off"
+
+    - name: Export toolchain paths
+      shell: sh
+      run: |
+          echo "GOROOT=/usr/local/go-no-telemetry" >> "$GITHUB_ENV"
+          echo "GOTOOLCHAIN=local" >> "$GITHUB_ENV"
+          echo "/usr/local/go-no-telemetry/bin" >> "$GITHUB_PATH"
+
+    - name: Save toolchain cache
+      if: steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+      with:
+        path: /usr/local/go-no-telemetry
+        key: go-no-telemetry-${{ inputs.version }}-linux-amd64

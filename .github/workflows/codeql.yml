@@ -44,7 +44,6 @@ jobs:
 
     env:
       CI_GO_NO_TELEMETRY_VERSION: "1.26.4"
-      CI_GO_BOOTSTRAP_VERSION: "1.24.6"
       GOFLAGS: -mod=vendor
       GOPROXY: "off"
       GOTOOLCHAIN: local
@@ -52,9 +51,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - name: Set up go-no-telemetry
+      - name: Install go-no-telemetry
         if: matrix.language == 'go'
-        run: sh scripts/ci/setup-go-no-telemetry.sh "${{ env.CI_GO_NO_TELEMETRY_VERSION }}"
+        uses: ./.github/actions/install-go-no-telemetry
+        with:
+          version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
