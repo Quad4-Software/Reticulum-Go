@@ -34,7 +34,7 @@ env:
 
 jobs:
   build:
-    name: Build go-no-telemetry (${{ env.CI_GO_NO_TELEMETRY_VERSION }}, linux-amd64)
+    name: Build go-no-telemetry (1.26.4, linux-amd64)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
