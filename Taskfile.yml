@@ -171,6 +171,8 @@ tasks:
 
   test-race:
     desc: Run tests with race detector
+    env:
+      CGO_ENABLED: "1"
     cmds:
       - '{{.GOCMD}} run ./scripts/ci/testsummary -race -v ./...'
 
