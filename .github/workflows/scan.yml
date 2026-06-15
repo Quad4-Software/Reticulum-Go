@@ -21,12 +21,14 @@ permissions:
   actions: read
 
 env:
-  CI_GO_VERSION: "1.26.4"
+  CI_GO_NO_TELEMETRY_VERSION: "1.26.4"
+  CI_GO_BOOTSTRAP_VERSION: "1.24.6"
   CI_GOSEC_VERSION: "v2.24.5"
   CI_GOVULNCHECK_VERSION: "v1.1.4"
   CI_TRIVY_VERSION: "0.69.3"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
+  GOTOOLCHAIN: local
 
 jobs:
   scan:
@@ -35,8 +37,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - name: Set up Go
-        run: sh scripts/ci/setup-go.sh "${{ env.CI_GO_VERSION }}"
+      - name: Set up go-no-telemetry
+        run: sh scripts/ci/setup-go-no-telemetry.sh "${{ env.CI_GO_NO_TELEMETRY_VERSION }}"
 
       - name: Install gosec
         run: sh scripts/ci/setup-gosec.sh "${{ env.CI_GOSEC_VERSION }}"
