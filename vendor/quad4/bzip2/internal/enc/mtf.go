@@ -3,6 +3,8 @@
 
 package enc
 
+import "bytes"
+
 func makeUnseqToSeq(inUse [256]bool) (unseqToSeq [256]byte, nInUse int) {
 	for i := range 256 {
 		if inUse[i] {
@@ -13,12 +15,13 @@ func makeUnseqToSeq(inUse [256]bool) (unseqToSeq [256]byte, nInUse int) {
 	return unseqToSeq, nInUse
 }
 
+// mtfIndexAndMove finds llI's position in yy and moves it to the front, shifting the
+// preceding entries back by one. It uses bytes.IndexByte for the search, which is
+// vectorized by the Go runtime and considerably faster than a byte-at-a-time scan,
+// since this runs once per input byte and yy can hold up to 256 entries.
 func mtfIndexAndMove(yy []byte, llI byte) int {
-	j := 0
-	for yy[j] != llI {
-		j++
-	}
-	if j == 0 {
+	j := bytes.IndexByte(yy, llI)
+	if j <= 0 {
 		return 0
 	}
 	sym := yy[j]
@@ -27,7 +30,7 @@ func mtfIndexAndMove(yy []byte, llI byte) int {
 	return j
 }
 
-func generateMTFValues(block []byte, sa []int, unseqToSeq [256]byte, nInUse int, sc *Scratch) (mtfv []uint16, mtfFreq []int32) {
+func generateMTFValues(block []byte, sa []int32, unseqToSeq [256]byte, nInUse int, sc *Scratch) (mtfv []uint16, mtfFreq []int32) {
 	n := len(block)
 	needCap := n + 2 + 2*n
 	if cap(sc.mtfFreq) < BZMaxAlphaSize {
@@ -54,10 +57,11 @@ func generateMTFValues(block []byte, sa []int, unseqToSeq [256]byte, nInUse int,
 	}
 	eob := nInUse + 1
 	zPend := 0
+	nMinus1 := int32(n - 1) // #nosec G115 -- n capped well under 2^31
 	for i := range n {
 		j := sa[i] - 1
 		if j < 0 {
-			j = n - 1
+			j = nMinus1
 		}
 		llI := unseqToSeq[block[j]]
 		if yy[0] == llI {
