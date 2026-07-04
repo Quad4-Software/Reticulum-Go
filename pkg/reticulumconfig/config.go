@@ -5,6 +5,7 @@ package reticulumconfig
 
 import (
 	"bufio"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"strings"
 
 	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/ifac"
 )
 
 // Default values used when a fresh configuration is created or fields are
@@ -255,6 +257,17 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		setInt(value, &cfg.SharedInstancePort)
 	case "instance_control_port":
 		setInt(value, &cfg.InstanceControlPort)
+	case "shared_instance_type":
+		v := strings.ToLower(strings.TrimSpace(value))
+		if v == common.SharedInstanceTCP || v == common.SharedInstanceUnix {
+			cfg.SharedInstanceType = v
+		}
+	case "instance_name":
+		cfg.InstanceName = value
+	case "rpc_key":
+		if b, err := decodeRPCKey(value); err == nil {
+			cfg.RPCKey = b
+		}
 	case "panic_on_interface_error":
 		cfg.PanicOnInterfaceErr = parseBool(value)
 	case "loglevel":
@@ -295,6 +308,12 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		iface.KISSFraming = parseBool(value)
 	case "i2p_tunneled":
 		iface.I2PTunneled = parseBool(value)
+	case "peers":
+		iface.I2PPeers = parseStringList(value)
+	case "connectable":
+		iface.I2PConnectable = parseBool(value)
+	case "sam_address":
+		iface.I2PSAMAddress = value
 	case "prefer_ipv6":
 		iface.PreferIPv6 = parseBool(value)
 	case "max_reconnect_tries":
@@ -342,6 +361,18 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		setInt(value, &iface.ICBurstPenalty)
 	case "ic_held_release_interval":
 		setInt(value, &iface.ICHeldReleaseInterval)
+	case "network_name", "networkname":
+		iface.NetworkName = value
+	case "passphrase", "pass_phrase":
+		iface.Passphrase = value
+	case "ifac_netname":
+		iface.IFACNetname = value
+	case "ifac_netkey":
+		iface.IFACNetkey = value
+	case "ifac_size":
+		setIFACSize(value, &iface.IFACSize)
+	case "publish_ifac":
+		iface.PublishIFAC = parseBool(value)
 	}
 }
 
@@ -366,7 +397,6 @@ func setFloat(value string, dst *float64) {
 	}
 }
 
-// parseStringList splits a comma-separated config value into a clean slice.
 func parseStringList(value string) []string {
 	parts := strings.Split(value, ",")
 	out := make([]string, 0, len(parts))
@@ -377,6 +407,22 @@ func parseStringList(value string) []string {
 		}
 	}
 	return out
+}
+
+func setIFACSize(value string, dst *int) {
+	v, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || v < ifac.MinSize*8 {
+		return
+	}
+	*dst = v / 8
+}
+
+func decodeRPCKey(value string) ([]byte, error) {
+	s := strings.TrimSpace(value)
+	if s == "" {
+		return nil, errors.New("empty rpc_key")
+	}
+	return hex.DecodeString(s)
 }
 
 // SaveConfig writes cfg to cfg.ConfigPath using the nested [reticulum] /

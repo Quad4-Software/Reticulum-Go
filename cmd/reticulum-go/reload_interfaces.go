@@ -11,6 +11,18 @@ import (
 	"quad4/reticulum-go/pkg/interfaces"
 )
 
+func sliceEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func interfaceConfigsEqualForReload(a, b *common.InterfaceConfig) bool {
 	if a == nil && b == nil {
 		return true
@@ -26,12 +38,20 @@ func interfaceConfigsEqualForReload(a, b *common.InterfaceConfig) bool {
 		a.Port == b.Port &&
 		a.KISSFraming == b.KISSFraming &&
 		a.I2PTunneled == b.I2PTunneled &&
+		a.I2PConnectable == b.I2PConnectable &&
+		a.I2PSAMAddress == b.I2PSAMAddress &&
+		sliceEqual(a.I2PPeers, b.I2PPeers) &&
 		a.GroupID == b.GroupID &&
 		a.DiscoveryScope == b.DiscoveryScope &&
 		a.DiscoveryPort == b.DiscoveryPort &&
 		a.DataPort == b.DataPort &&
 		a.MulticastAddrType == b.MulticastAddrType &&
-		a.Interface == b.Interface
+		a.Interface == b.Interface &&
+		a.NetworkName == b.NetworkName &&
+		a.Passphrase == b.Passphrase &&
+		a.IFACSize == b.IFACSize &&
+		a.IFACNetname == b.IFACNetname &&
+		a.IFACNetkey == b.IFACNetkey
 }
 
 func (r *Reticulum) tearDownInterface(iface interfaces.Interface) {
@@ -64,6 +84,11 @@ func (r *Reticulum) tearDownInterface(iface interfaces.Interface) {
 func (r *Reticulum) ReloadInterfaces(newCfg *common.ReticulumConfig) error {
 	if newCfg == nil {
 		return errors.New("nil config")
+	}
+	if r.sharedInstance != nil && !r.sharedInstance.OwnsNetworkInterfaces() {
+		r.config = newCfg
+		r.transport.SetReticulumConfig(newCfg)
+		return nil
 	}
 	if r.transport == nil {
 		return errors.New("nil transport")
@@ -100,7 +125,7 @@ func (r *Reticulum) ReloadInterfaces(newCfg *common.ReticulumConfig) error {
 			next = append(next, oldI)
 			continue
 		}
-		niface, err := interfaces.NewFromConfig(name, ic)
+		niface, err := interfaces.NewFromConfigWithContext(name, ic, r.interfaceFromConfigContext())
 		if err != nil {
 			if newCfg.PanicOnInterfaceErr {
 				return fmt.Errorf("interface %s: %w", name, err)

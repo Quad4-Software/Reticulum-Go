@@ -5,6 +5,7 @@ package debug
 import (
 	"context"
 	"flag"
+	"io"
 	"log/slog"
 	"os"
 	"sync"
@@ -13,9 +14,20 @@ import (
 var (
 	debugLevel  = flag.Int("debug", 3, "debug level (1-7); 1=critical, 2=error, 3=info, 4=verbose, 5=trace, 6=packets, 7=all")
 	logger      *slog.Logger
+	extraWriter io.Writer
 	initialized bool
 	mu          sync.RWMutex
 )
+
+// SetExtraWriter mirrors Reticulum log output to w in addition to stderr.
+func SetExtraWriter(w io.Writer) {
+	mu.Lock()
+	defer mu.Unlock()
+	extraWriter = w
+	if initialized {
+		rebuildLocked()
+	}
+}
 
 // Init builds the underlying slog logger. Safe to call repeatedly; only
 // the first call wires it up. SetDebugLevel rebuilds the handler so the
@@ -34,7 +46,11 @@ func Init() {
 // current *debugLevel. Caller must hold mu.
 func rebuildLocked() {
 	opts := &slog.HandlerOptions{Level: slogLevelFor(*debugLevel)}
-	logger = slog.New(slog.NewTextHandler(os.Stderr, opts))
+	out := io.Writer(os.Stderr)
+	if extraWriter != nil {
+		out = io.MultiWriter(os.Stderr, extraWriter)
+	}
+	logger = slog.New(slog.NewTextHandler(out, opts))
 	slog.SetDefault(logger)
 }
 

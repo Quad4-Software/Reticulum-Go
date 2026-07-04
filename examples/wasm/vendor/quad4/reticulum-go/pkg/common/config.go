@@ -25,6 +25,9 @@ type InterfaceConfig struct {
 	Interface         string
 	KISSFraming       bool
 	I2PTunneled       bool
+	I2PPeers          []string
+	I2PConnectable    bool
+	I2PSAMAddress     string
 	PreferIPv6        bool
 	MaxReconnTries    int
 	Bitrate           int64
@@ -57,7 +60,20 @@ type InterfaceConfig struct {
 	ECPRFreq         float64
 	EgressControl    bool
 	EgressControlSet bool // false => use default (egress off)
+
+	NetworkName string
+	Passphrase  string
+	IFACSize    int // bytes; config ifac_size is stored in bits and converted at parse time
+	IFACNetname string
+	IFACNetkey  string
+	PublishIFAC bool
 }
+
+// SharedInstanceType values for [reticulum] shared_instance_type.
+const (
+	SharedInstanceTCP  = "tcp"
+	SharedInstanceUnix = "unix"
+)
 
 // ReticulumConfig represents the main configuration structure
 type ReticulumConfig struct {
@@ -66,21 +82,29 @@ type ReticulumConfig struct {
 	ShareInstance       bool
 	SharedInstancePort  int
 	InstanceControlPort int
+	SharedInstanceType  string
+	InstanceName        string
+	RPCKey              []byte
 	PanicOnInterfaceErr bool
 	LogLevel            int
 	Interfaces          map[string]*InterfaceConfig
 	AppName             string
 	AppAspect           string
 	EnableSandbox       bool
+
+	// ConnectedToSharedInstance is set at runtime when this process attaches
+	// to an existing local shared instance instead of owning one.
+	ConnectedToSharedInstance bool
 }
 
 // NewReticulumConfig creates a new ReticulumConfig with default values
 func NewReticulumConfig() *ReticulumConfig {
 	return &ReticulumConfig{
 		EnableTransport:     true,
-		ShareInstance:       false,
+		ShareInstance:       true,
 		SharedInstancePort:  DefaultSharedInstancePort,
 		InstanceControlPort: DefaultInstanceControlPort,
+		SharedInstanceType:  SharedInstanceTCP,
 		PanicOnInterfaceErr: false,
 		LogLevel:            DefaultLogLevel,
 		Interfaces:          make(map[string]*InterfaceConfig),
@@ -101,9 +125,10 @@ func (c *ReticulumConfig) Validate() error {
 func DefaultConfig() *ReticulumConfig {
 	return &ReticulumConfig{
 		EnableTransport:     true,
-		ShareInstance:       false,
+		ShareInstance:       true,
 		SharedInstancePort:  DefaultSharedInstancePort,
 		InstanceControlPort: DefaultInstanceControlPort,
+		SharedInstanceType:  SharedInstanceTCP,
 		PanicOnInterfaceErr: false,
 		LogLevel:            DefaultLogLevel,
 		Interfaces:          make(map[string]*InterfaceConfig),

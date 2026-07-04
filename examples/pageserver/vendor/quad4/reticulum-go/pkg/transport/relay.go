@@ -89,6 +89,9 @@ func (lt *linkRelayTable) removeEntriesReferencing(iface common.NetworkInterface
 }
 
 func (t *Transport) transportEnabled() bool {
+	if t.config != nil && t.config.ConnectedToSharedInstance {
+		return false
+	}
 	if t.config == nil {
 		return false
 	}

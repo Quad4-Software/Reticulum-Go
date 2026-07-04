@@ -11,10 +11,15 @@ func maxInt(a, b int) int {
 }
 
 // Scratch holds reusable buffers for block encoding (BWT and MTF stages).
+// Suffix-sort buffers use int32 rather than int: block lengths are capped well under
+// 2^31 (max ~900000), and the narrower width halves the memory traffic of the
+// counting-sort passes below, which are the hottest and most cache-sensitive loops
+// in the encoder.
 type Scratch struct {
-	sa, rank, tmp []int
-	sa2           []int
-	cnt           []int
+	sa, rank, tmp []int32
+	sa2           []int32
+	cnt           []int32
+	keys          []int32
 	mtfv          []uint16
 	yy            []byte
 	mtfFreq       []int32
@@ -42,67 +47,79 @@ func (s *Scratch) PrepareEncoderAux() {
 func (s *Scratch) grow(n int) {
 	if cap(s.sa) >= n {
 		s.sa = s.sa[:n]
-		s.rank = s.rank[:n]
-		s.tmp = s.tmp[:n]
 	} else {
-		s.sa = make([]int, n)
-		s.rank = make([]int, n)
-		s.tmp = make([]int, n)
+		s.sa = make([]int32, n)
+	}
+	// rank/tmp are kept at double length: rank[n+i] mirrors rank[i]. This lets every
+	// lookup of rank[(sa[i]+k)%n] become a branchless rank[sa[i]+k], since sa[i]+k never
+	// exceeds 2n-2 for k < n.
+	need2n := 2 * n
+	if cap(s.rank) >= need2n {
+		s.rank = s.rank[:need2n]
+	} else {
+		s.rank = make([]int32, need2n)
+	}
+	if cap(s.tmp) >= need2n {
+		s.tmp = s.tmp[:need2n]
+	} else {
+		s.tmp = make([]int32, need2n)
 	}
 	if cap(s.sa2) < n {
-		s.sa2 = make([]int, n)
+		s.sa2 = make([]int32, n)
 	} else {
 		s.sa2 = s.sa2[:n]
+	}
+	if cap(s.keys) < n {
+		s.keys = make([]int32, n)
+	} else {
+		s.keys = s.keys[:n]
 	}
 	// Keys are byte values (0–255) on the first doubling step, then 0..n−1.
 	buckets := maxInt(256, n) + 1
 	if cap(s.cnt) < buckets {
-		s.cnt = make([]int, buckets)
+		s.cnt = make([]int32, buckets)
 	} else {
 		s.cnt = s.cnt[:buckets]
 	}
 }
 
 // countingSortStableBySecondary sorts sa into dst by key rank[(sa[i]+k)%n] (stable).
-func countingSortStableBySecondary(sa, dst []int, n, k int, rank []int, cnt []int) {
+// rank must be mirrored (rank[n+i] == rank[i]) so the modulo can be dropped. keys is
+// scratch space that caches each element's key so the placement pass reads it back
+// sequentially instead of re-chasing the sa[i] -> rank[sa[i]+k] pointer chain.
+func countingSortStableBySecondary(sa, dst []int32, n int, k int32, rank []int32, cnt []int32, keys []int32) {
 	B := maxInt(256, n)
 	clear(cnt[:B+1])
-	nMinusK := n - k
 	for i := range n {
-		idx := sa[i] + k
-		if sa[i] >= nMinusK {
-			idx -= n
-		}
-		key := rank[idx]
+		key := rank[sa[i]+k]
+		keys[i] = key
 		cnt[key]++
 	}
 	for i := 1; i < B; i++ {
 		cnt[i] += cnt[i-1]
 	}
 	for i := n - 1; i >= 0; i-- {
-		idx := sa[i] + k
-		if sa[i] >= nMinusK {
-			idx -= n
-		}
-		key := rank[idx]
+		key := keys[i]
 		cnt[key]--
 		dst[cnt[key]] = sa[i]
 	}
 }
 
 // countingSortStableByPrimary sorts sa into dst by key rank[sa[i]] (stable).
-func countingSortStableByPrimary(sa, dst []int, n int, rank []int, cnt []int) {
+// See countingSortStableBySecondary for why keys is cached rather than recomputed.
+func countingSortStableByPrimary(sa, dst []int32, n int, rank []int32, cnt []int32, keys []int32) {
 	B := maxInt(256, n)
 	clear(cnt[:B+1])
 	for i := range n {
 		key := rank[sa[i]]
+		keys[i] = key
 		cnt[key]++
 	}
 	for i := 1; i < B; i++ {
 		cnt[i] += cnt[i-1]
 	}
 	for i := n - 1; i >= 0; i-- {
-		key := rank[sa[i]]
+		key := keys[i]
 		cnt[key]--
 		dst[cnt[key]] = sa[i]
 	}
@@ -111,7 +128,7 @@ func countingSortStableByPrimary(sa, dst []int, n int, rank []int, cnt []int) {
 // buildCyclicSuffixArray builds the sorted cyclic suffix array of block and returns the
 // index of the original string (rotation starting at 0) in that order.
 // Uses prefix doubling with O(n) radix passes per round (O(n log n) total), not sort.Slice.
-func buildCyclicSuffixArray(block []byte, sc *Scratch) (sa []int, origPtr int) {
+func buildCyclicSuffixArray(block []byte, sc *Scratch) (sa []int32, origPtr int) {
 	n := len(block)
 	if n == 0 {
 		return nil, 0
@@ -122,36 +139,33 @@ func buildCyclicSuffixArray(block []byte, sc *Scratch) (sa []int, origPtr int) {
 	rank := sc.rank
 	tmp := sc.tmp
 	cnt := sc.cnt
+	keys := sc.keys
 
 	for i := range sa {
-		sa[i] = i
+		sa[i] = int32(i) // #nosec G115 -- i < n, block length capped well under 2^31
 	}
-	for i := range rank {
-		rank[i] = int(block[i])
+	for i := range n {
+		rank[i] = int32(block[i])
 	}
+	copy(rank[n:2*n], rank[:n])
+
+	nMinus1 := int32(n - 1) // #nosec G115 -- n capped well under 2^31
 	for k := 1; k < n; k *= 2 {
-		countingSortStableBySecondary(sa, sa2, n, k, rank, cnt)
-		countingSortStableByPrimary(sa2, sa, n, rank, cnt)
+		kk := int32(k) // #nosec G115 -- k < n, capped well under 2^31
+		countingSortStableBySecondary(sa, sa2, n, kk, rank, cnt, keys)
+		countingSortStableByPrimary(sa2, sa, n, rank, cnt, keys)
 		tmp[sa[0]] = 0
-		nMinusK := n - k
 		for i := 1; i < n; i++ {
 			a, b := sa[i-1], sa[i]
-			ka := a + k
-			if a >= nMinusK {
-				ka -= n
-			}
-			kb := b + k
-			if b >= nMinusK {
-				kb -= n
-			}
-			same := rank[a] == rank[b] && rank[ka] == rank[kb]
+			same := rank[a] == rank[b] && rank[a+kk] == rank[b+kk]
 			tmp[sa[i]] = tmp[sa[i-1]]
 			if !same {
 				tmp[sa[i]]++
 			}
 		}
+		copy(tmp[n:2*n], tmp[:n])
 		rank, tmp = tmp, rank
-		if rank[sa[n-1]] == n-1 {
+		if rank[sa[n-1]] == nMinus1 {
 			break
 		}
 	}

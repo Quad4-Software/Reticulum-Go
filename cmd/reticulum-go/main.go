@@ -21,12 +21,14 @@ import (
 	"quad4/reticulum-go/pkg/interfaces"
 	"quad4/reticulum-go/pkg/packet"
 	"quad4/reticulum-go/pkg/sandbox"
+	"quad4/reticulum-go/pkg/sharedinstance"
 	"quad4/reticulum-go/pkg/transport"
 )
 
 type Reticulum struct {
 	config            *common.ReticulumConfig
 	transport         *transport.Transport
+	sharedInstance    *sharedinstance.Instance
 	interfaces        []interfaces.Interface
 	channels          map[string]*channel.Channel
 	buffers           map[string]*buffer.Buffer
@@ -64,13 +66,15 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 		announceHistory: make(map[string]announceRecord),
 	}
 
+	ifaceCtx := r.interfaceFromConfigContext()
+
 	// Initialize interfaces from config
 	for name, ifaceConfig := range cfg.Interfaces {
 		if !ifaceConfig.Enabled {
 			continue
 		}
 
-		iface, err := interfaces.NewFromConfig(name, ifaceConfig)
+		iface, err := interfaces.NewFromConfigWithContext(name, ifaceConfig, ifaceCtx)
 		if err != nil {
 			if cfg.PanicOnInterfaceErr {
 				return nil, fmt.Errorf("failed to create interface %s: %v", name, err)
@@ -85,6 +89,22 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 	}
 
 	return r, nil
+}
+
+func (r *Reticulum) interfaceFromConfigContext() *interfaces.FromConfigContext {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	storage := filepath.Join(homeDir, ".reticulum-go", "storage")
+	return &interfaces.FromConfigContext{
+		I2PStoragePath: storage,
+		TransportID:    r.transport.TransportIdentityHash(),
+		RegisterPeer: func(name string, peer common.NetworkInterface) error {
+			return r.transport.RegisterInterface(name, peer)
+		},
+		SetupPeer: r.handleInterface,
+	}
 }
 
 func (r *Reticulum) handleInterface(iface common.NetworkInterface) {
@@ -319,6 +339,22 @@ func (r *Reticulum) Start() error {
 	}
 	debug.Log(debug.DebugInfo, "Transport started successfully")
 
+	hooks := sharedinstance.Hooks{
+		RegisterInterface: r.transport.RegisterInterface,
+		HandleInterface:   r.handleInterface,
+	}
+	inst, err := sharedinstance.Attach(r.config, r.transport, hooks)
+	if err != nil {
+		return fmt.Errorf("shared instance: %w", err)
+	}
+	r.sharedInstance = inst
+
+	if !inst.OwnsNetworkInterfaces() {
+		debug.Log(debug.DebugInfo, "Using existing local shared Reticulum instance; skipping configured network interfaces")
+		debug.Log(debug.DebugError, "Reticulum started successfully")
+		return nil
+	}
+
 	type interfaceStartResult struct {
 		iface interfaces.Interface
 		err   error
@@ -383,6 +419,11 @@ func (r *Reticulum) Stop() error {
 	defer r.reloadMu.Unlock()
 
 	debug.Log(debug.DebugError, "Stopping Reticulum...")
+
+	if r.sharedInstance != nil {
+		r.sharedInstance.Close()
+		r.sharedInstance = nil
+	}
 
 	for _, buf := range r.buffers {
 		if err := buf.Close(); err != nil {
