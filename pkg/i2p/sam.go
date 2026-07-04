@@ -52,7 +52,15 @@ func parseMessage(line string) (*Message, error) {
 }
 
 func (m *Message) OK() bool {
-	return m.Opts["RESULT"] == "OK"
+	if m.Opts["RESULT"] == "OK" {
+		return true
+	}
+	// i2pd and some SAM implementations omit RESULT on successful data
+	// replies such as DEST REPLY PUB=... PRIV=...
+	if m.Action == "REPLY" && m.Opts["RESULT"] == "" {
+		return true
+	}
+	return false
 }
 
 func (m *Message) ResultError() error {
@@ -169,25 +177,56 @@ func (c *Client) DestGenerate(ctx context.Context) (*Destination, error) {
 	return NewDestinationFromPrivateB64(m.Opts["PRIV"])
 }
 
-func (c *Client) CreateSession(ctx context.Context, sessionID, destination string) error {
+// Session is an open SAM stream session. The underlying connection must stay
+// open for STREAM CONNECT/ACCEPT on other sockets to succeed.
+type Session struct {
+	ID     string
+	conn   net.Conn
+	client *Client
+}
+
+func (s *Session) Close() error {
+	if s.conn == nil {
+		return nil
+	}
+	err := s.conn.Close()
+	s.conn = nil
+	return err
+}
+
+func (c *Client) OpenSession(ctx context.Context, sessionID, destination string) (*Session, error) {
 	conn, err := c.dial(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer conn.Close()
 	cmd := fmt.Sprintf("SESSION CREATE STYLE=STREAM ID=%s DESTINATION=%s\n", sessionID, destination)
 	if _, err := conn.Write([]byte(cmd)); err != nil {
-		return err
+		_ = conn.Close()
+		return nil, err
 	}
 	reply, err := readLine(conn)
 	if err != nil {
-		return err
+		_ = conn.Close()
+		return nil, err
 	}
 	m, err := parseMessage(reply)
 	if err != nil {
+		_ = conn.Close()
+		return nil, err
+	}
+	if err := m.ResultError(); err != nil {
+		_ = conn.Close()
+		return nil, err
+	}
+	return &Session{ID: sessionID, conn: conn, client: c}, nil
+}
+
+func (c *Client) CreateSession(ctx context.Context, sessionID, destination string) error {
+	sess, err := c.OpenSession(ctx, sessionID, destination)
+	if err != nil {
 		return err
 	}
-	return m.ResultError()
+	return sess.Close()
 }
 
 func (c *Client) StreamConnect(ctx context.Context, sessionID, destinationB64 string) (net.Conn, error) {

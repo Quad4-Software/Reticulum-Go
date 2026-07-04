@@ -186,6 +186,10 @@ func (p *I2PInterface) Clients() int {
 	return len(p.spawned)
 }
 
+func (p *I2PInterface) LocalAddr() string {
+	return net.JoinHostPort("127.0.0.1", strconv.Itoa(p.bindPort))
+}
+
 func (p *I2PInterface) Base32() string {
 	return p.b32
 }
