@@ -1694,9 +1694,16 @@ func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
 			return err
 		}
 
+		l.mutex.Lock()
 		l.rtt = maxFloat(measuredRTT, rtt)
-		l.status.Store(int32(StatusActive))
 		l.establishedAt = time.Now()
+		if l.rtt > 0 {
+			l.updateKeepaliveLocked()
+		}
+		logRtt := l.rtt
+		l.mutex.Unlock()
+
+		l.status.Store(int32(StatusActive))
 
 		if l.transport != nil {
 			l.transport.RegisterLink(l.linkID, l)
@@ -1705,16 +1712,12 @@ func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
 			}
 		}
 
-		if l.rtt > 0 {
-			l.updateKeepalive()
-		}
-
 		if l.establishedCallback != nil {
 			go l.establishedCallback(l)
 		}
 
 		establishmentElapsed := time.Since(l.requestTime).Seconds()
-		debug.Log(debug.DebugInfo, "Link established (responder) after RTT", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", l.rtt), "total_elapsed", fmt.Sprintf("%.3fs", establishmentElapsed))
+		debug.Log(debug.DebugInfo, "Link established (responder) after RTT", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", logRtt), "total_elapsed", fmt.Sprintf("%.3fs", establishmentElapsed))
 	}
 	return nil
 }
@@ -1737,7 +1740,7 @@ func parseRTTPayloadSeconds(payload []byte) (float64, error) {
 	return rtt, nil
 }
 
-func (l *Link) updateKeepalive() {
+func (l *Link) updateKeepaliveLocked() {
 	if l.rtt <= 0 {
 		return
 	}
@@ -2708,15 +2711,18 @@ func (l *Link) ValidateLinkProof(pkt *packet.Packet, networkIface common.Network
 
 	l.updateMDU()
 
+	l.mutex.Lock()
 	l.rtt = time.Since(l.requestTime).Seconds()
-	l.status.Store(int32(StatusActive))
 	l.establishedAt = time.Now()
-
 	if l.rtt > 0 {
-		l.updateKeepalive()
+		l.updateKeepaliveLocked()
 	}
+	logRtt := l.rtt
+	l.mutex.Unlock()
 
-	rttData, err := msgpack.Marshal(l.rtt)
+	l.status.Store(int32(StatusActive))
+
+	rttData, err := msgpack.Marshal(logRtt)
 	if err != nil {
 		return fmt.Errorf("failed to encode RTT payload: %w", err)
 	}
@@ -2747,18 +2753,18 @@ func (l *Link) ValidateLinkProof(pkt *packet.Packet, networkIface common.Network
 		if err := rttPkt.Pack(); err != nil {
 			debug.Log(debug.DebugError, "Failed to pack RTT packet", "error", err, "link_id", fmt.Sprintf("%x", l.linkID))
 		} else {
-			debug.Log(debug.DebugInfo, "Sending RTT packet", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", l.rtt), "packet_size", len(rttPkt.Raw))
+			debug.Log(debug.DebugInfo, "Sending RTT packet", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", logRtt), "packet_size", len(rttPkt.Raw))
 			if err := l.transport.SendPacket(rttPkt); err != nil {
 				debug.Log(debug.DebugError, "Failed to send RTT packet", "error", err, "link_id", fmt.Sprintf("%x", l.linkID))
 			} else {
 				l.recordOutbound()
-				debug.Log(debug.DebugInfo, "RTT packet sent successfully", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", l.rtt))
+				debug.Log(debug.DebugInfo, "RTT packet sent successfully", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", logRtt))
 			}
 		}
 	}
 
 	establishmentElapsed := time.Since(l.requestTime).Seconds()
-	debug.Log(debug.DebugInfo, "Link established (initiator)", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", l.rtt), "total_elapsed", fmt.Sprintf("%.3fs", establishmentElapsed), "validation_elapsed", fmt.Sprintf("%.3fs", time.Since(startTime).Seconds()))
+	debug.Log(debug.DebugInfo, "Link established (initiator)", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", logRtt), "total_elapsed", fmt.Sprintf("%.3fs", establishmentElapsed), "validation_elapsed", fmt.Sprintf("%.3fs", time.Since(startTime).Seconds()))
 
 	if l.establishedCallback != nil {
 		go l.establishedCallback(l)
