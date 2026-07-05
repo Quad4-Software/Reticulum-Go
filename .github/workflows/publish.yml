@@ -55,13 +55,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - name: Install go-no-telemetry
-        uses: ./.github/actions/install-go-no-telemetry
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
         with:
-          version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
-
-      - name: Setup Task
-        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
+          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Build
         env:
@@ -135,13 +133,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - name: Install go-no-telemetry
-        uses: ./.github/actions/install-go-no-telemetry
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
         with:
-          version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
-
-      - name: Setup Task
-        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
+          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Apt update (for Trivy .deb)
         run: sh scripts/ci/exec-priv.sh apt-get update -qq
@@ -174,13 +170,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - name: Install go-no-telemetry
-        uses: ./.github/actions/install-go-no-telemetry
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
         with:
-          version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
-
-      - name: Setup Task
-        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
+          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Build pageserver (linux/amd64)
         env:

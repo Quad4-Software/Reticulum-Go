@@ -1,0 +1,65 @@
+version: '3'
+
+tasks:
+  test:
+    desc: Run tests
+    cmds:
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./...'
+
+  test-crossref:
+    desc: Regenerate vectors from Python Reticulum and run crossref tests
+    cmds:
+      - bash tests/crossref/run_crossref.sh {{.CLI_ARGS}}
+
+  test-interop-live:
+    desc: Live Python-Go UDP interop (set PYTHON_INTEROP=.venv/bin/python when using venv)
+    cmds:
+      - RUN_LIVE_INTEROP=1 {{.GOCMD}} test -v -timeout 30m ./tests/interop/...
+
+  test-short:
+    desc: Run short tests
+    cmds:
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -short -v ./...'
+
+  test-race:
+    desc: Run tests with race detector
+    env:
+      CGO_ENABLED: "1"
+    cmds:
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -race -v ./...'
+
+  test-fuzz:
+    desc: Run fuzz tests for a short duration
+    cmds:
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -fuzz=FuzzPacketUnpack -fuzztime=30s ./pkg/packet'
+
+  test-leaks:
+    desc: Run resource leak tests
+    cmds:
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/transport -run TestTransportLeak'
+
+  test-network:
+    desc: Run network simulation tests
+    cmds:
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/transport -run TestTransportNetworkSimulation'
+
+  coverage:
+    desc: Generate test coverage report
+    cmds:
+      - '{{.GOCMD}} test -coverprofile=coverage.out ./...'
+      - '{{.GOCMD}} tool cover -html=coverage.out'
+
+  test-wasm:
+    desc: Run WebAssembly tests using Node.js
+    vars:
+      ROOT_DIR:
+        sh: pwd
+    env:
+      GOOS: js
+      GOARCH: wasm
+    cmds:
+      - chmod +x {{.ROOT_DIR}}/misc/wasm/go_js_wasm_exec
+      - PATH="$PATH:{{.ROOT_DIR}}/misc/wasm" {{.GOCMD}} test -v ./pkg/wasm/ ./cmd/reticulum-wasm/
+      - |
+        export PATH="$PATH:{{.ROOT_DIR}}/misc/wasm"
+        cd examples/wasm && {{.GOCMD}} test -v .

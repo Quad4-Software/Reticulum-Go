@@ -1,22 +1,17 @@
 # Pinned first-party actions (bump tag and SHA together when upgrading):
 #   actions/checkout@v6.0.1            8e8c483db84b4bee98b60c0593521ed34d9990e8
-#   actions/setup-python@v6.2.0        a309ff8b426b58ec0e2a45f0f869d46889d02405
-#   actions/setup-node@v6.1.0          395ad3262231945c25e8478fd5baf05154b1d79f
 #   actions/upload-artifact@v5.0.0     330a01c490aca151604b8cf639adc76d48f6c5d4
-#   actions/download-artifact@v5.0.0   634f93cb2916e3fdff6788551b99b062d0335ce0
-#   actions/cache@v4.2.0               1bd1e32a3bdc45362d1e726936510720a7c30a57
-#   actions/attest@v4.1.0              59d89421af93a897026c735860bf21b6eb4f7b26
 #
 name: TinyGo Build
 
 on:
   push:
-    branches: ["tinygo"]
+    branches: [tinygo]
   pull_request:
-    branches: ["tinygo"]
+    branches: [tinygo]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: tinygo-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -25,39 +20,38 @@ permissions:
 
 env:
   CI_GO_NO_TELEMETRY_VERSION: "1.26.4"
+  CI_TASK_VERSION: "3.46.3"
   CI_TINYGO_VERSION: "0.37.0"
   TINYGO_DEB_SHA256: "8f34a4aac7f1aa2ad51dc0f4eccd40da13b6f52fbac5c13887d57327e5f0a862"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
   GOTOOLCHAIN: local
+
 jobs:
   tinygo-build:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: tinygo-default
-            target: ""
+            task: tinygo-build
             output: reticulum-go-tinygo
-            make_target: tinygo-build
           - name: tinygo-wasm
-            target: wasm
+            task: tinygo-wasm
             output: reticulum-go.wasm
-            make_target: tinygo-wasm
-
-    runs-on: ubuntu-latest
-
-    outputs:
-      build_complete: ${{ steps.build_step.outcome == 'success' }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - name: Install go-no-telemetry
-        uses: ./.github/actions/install-go-no-telemetry
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
         with:
-          version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Apt update (for TinyGo .deb)
         run: sh scripts/ci/exec-priv.sh apt-get update -qq
@@ -66,22 +60,22 @@ jobs:
         run: sh scripts/ci/setup-tinygo.sh "${{ env.CI_TINYGO_VERSION }}"
 
       - name: Build with TinyGo
-        id: build_step
         run: |
-          make ${{ matrix.make_target }}
+          set -euo pipefail
+          task "${{ matrix.task }}"
           output_name="${{ matrix.output }}"
           if [ -f "bin/${output_name}" ]; then
             sha256sum "bin/${output_name}" | cut -d' ' -f1 > "bin/${output_name}.sha256"
             echo "Built: ${output_name}"
-            echo "Generated checksum: bin/${output_name}.sha256"
           else
-            echo "Build output not found: bin/${output_name}"
+            echo "Build output not found: bin/${output_name}" >&2
             ls -la bin/
             exit 1
           fi
 
-      - name: Upload Artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ matrix.name }}
           path: bin/${{ matrix.output }}*
+          if-no-files-found: error

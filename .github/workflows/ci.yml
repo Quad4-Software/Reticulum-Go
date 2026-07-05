@@ -1,0 +1,237 @@
+# Pinned actions (bump tag and SHA together when upgrading):
+#   actions/checkout@v6.0.1            8e8c483db84b4bee98b60c0593521ed34d9990e8
+#   actions/setup-node@v6.1.0          395ad3262231945c25e8478fd5baf05154b1d79f
+#
+name: CI
+
+on:
+  push:
+    branches: [master, dev]
+  pull_request:
+    branches: [master, dev]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+env:
+  CI_GO_NO_TELEMETRY_VERSION: "1.26.4"
+  CI_GO_LEGACY_WIN7_VERSION: "1.26.4-1"
+  CI_TASK_VERSION: "3.46.3"
+  CI_REVIVE_VERSION: "v1.15.0"
+  CI_NODE_MAJOR: "22"
+  GOFLAGS: -mod=vendor
+  GOPROXY: "off"
+  GOTOOLCHAIN: local
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+          revive_version: ${{ env.CI_REVIVE_VERSION }}
+
+      - name: Format check
+        run: task fmt-check
+
+      - name: Vet
+        run: task vet
+
+      - name: Revive
+        run: task lint
+
+  test:
+    name: Test (${{ matrix.os }}, ${{ matrix.goarch }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goarch: amd64
+          - os: ubuntu-latest
+            goarch: arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Python venv and RNS
+        run: sh scripts/ci/setup-venv-pip.sh rns
+
+      - name: Generate crossref vectors
+        run: task test-crossref -- generate
+
+      - name: Run tests
+        run: task test
+
+  test-extra:
+    name: Extra (${{ matrix.suite }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [race, leaks, network, fuzz, wasm]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Set up Node.js
+        if: matrix.suite == 'wasm'
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version: "${{ env.CI_NODE_MAJOR }}"
+
+      - name: Python venv and RNS
+        run: sh scripts/ci/setup-venv-pip.sh rns
+
+      - name: Generate crossref vectors
+        run: task test-crossref -- generate
+
+      - name: Run suite
+        run: |
+          set -euo pipefail
+          case "${{ matrix.suite }}" in
+            race) task test-race ;;
+            leaks) task test-leaks ;;
+            network) task test-network ;;
+            fuzz) task test-fuzz ;;
+            wasm) task test-wasm ;;
+            *) echo "unknown suite: ${{ matrix.suite }}" >&2; exit 1 ;;
+          esac
+
+  build:
+    name: Build (${{ matrix.goos }}, ${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        goos: [linux, windows, darwin, freebsd]
+        goarch: [amd64, arm64, arm]
+        include:
+          - goos: js
+            goarch: wasm
+        exclude:
+          - goos: darwin
+            goarch: arm
+          - goos: windows
+            goarch: arm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarch == 'arm' && '6' || '' }}
+          CGO_ENABLED: "0"
+        run: |
+          if [ "${{ matrix.goos }}" = "js" ] && [ "${{ matrix.goarch }}" = "wasm" ]; then
+            task build-wasm
+          else
+            task build
+          fi
+
+  build-windows-legacy:
+    name: Build (windows, ${{ matrix.goarch }}, win7)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        goarch: [amd64, arm64]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Set up go-legacy-win7
+        run: sh scripts/ci/setup-go-legacy-win7.sh "${{ env.CI_GO_LEGACY_WIN7_VERSION }}"
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Build
+        env:
+          GOOS: windows
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          mkdir -p bin
+          go build -ldflags="-s -w" -o "bin/reticulum-go-windows-${{ matrix.goarch }}-win7.exe" ./cmd/reticulum-go
+
+  reproducibility:
+    name: Reproducible build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Verify byte-identical release builds
+        run: task reproducibility
+
+  benchmark:
+    name: Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Run benchmarks
+        run: task bench

@@ -33,9 +33,9 @@ The sections below spell out the same points with paths, tools, and verification
 
 **Actions pinning.** GitHub-owned steps such as checkout, artifact upload/download, Node setup, and related actions are pinned to full commit SHAs in the YAML where this repository pins them (see the comment at the top of each workflow file).
 
-**Bill of materials.** SPDX and CycloneDX SBOMs are produced with Trivy (`task sbom`); tagged releases attach them from `.github/workflows/publish.yml`. The standalone `workflow_dispatch` workflow `.github/workflows/sbom.yml` is available for ad-hoc generation.
+**Bill of materials.** SPDX and CycloneDX SBOMs are produced with Trivy (`task sbom`); tagged releases attach them from `.github/workflows/publish.yml`. Ad-hoc SBOM generation is available via `workflow_dispatch` on `.github/workflows/security.yml`.
 
-**Reproducibility.** CI includes a reproducibility check (`task reproducibility`, `.github/workflows/reproducibility.yml`).
+**Reproducibility.** CI includes a reproducibility check (`task reproducibility`, `.github/workflows/ci.yml`).
 
 ### Release provenance
 
@@ -45,7 +45,7 @@ Tagged releases are built and published from `.github/workflows/publish.yml` on 
 
 ### Static analysis (SAST)
 
-CI runs **Gosec** (Go security linter), **govulncheck** (official Go vulnerability database with reachable-code analysis for `go.mod` dependencies), and **Trivy** (filesystem and dependency scanning) in `.github/workflows/scan.yml`.
+CI runs **Gosec** (Go security linter), **govulncheck** (official Go vulnerability database with reachable-code analysis for `go.mod` dependencies), and **Trivy** (filesystem and dependency scanning) in `.github/workflows/security.yml`.
 
 - Gosec is installed via `scripts/ci/setup-gosec.sh` with a pinned module version.
 - Govulncheck is installed via `scripts/ci/setup-govulncheck.sh` with a pinned module version.

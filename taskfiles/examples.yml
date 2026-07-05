@@ -1,0 +1,90 @@
+version: '3'
+
+tasks:
+  "example:wasm:build":
+    desc: Build WebAssembly example
+    env:
+      CGO_ENABLED: '0'
+      GOFLAGS: -mod=vendor
+      GOPROXY: 'off'
+    cmds:
+      - mkdir -p examples/wasm/public/static examples/wasm/public/js
+      - 'cd examples/wasm && GOOS=js GOARCH=wasm {{.GOCMD}} build -o public/static/reticulum-go.wasm .'
+      - |
+        GOROOT=$({{.GOCMD}} env GOROOT)
+        if [ -f "$GOROOT/lib/wasm/wasm_exec.js" ]; then
+          cp "$GOROOT/lib/wasm/wasm_exec.js" examples/wasm/public/js/
+          echo "wasm_exec.js copied successfully from $GOROOT/lib/wasm/"
+        elif [ -f "$GOROOT/misc/wasm/wasm_exec.js" ]; then
+          cp "$GOROOT/misc/wasm/wasm_exec.js" examples/wasm/public/js/
+          echo "wasm_exec.js copied successfully from $GOROOT/misc/wasm/"
+        else
+          echo "Warning: wasm_exec.js not found"
+          exit 1
+        fi
+
+  "example:wasm:run":
+    desc: Run WebAssembly example using a simple HTTP server
+    deps: ["example:wasm:build"]
+    cmds:
+      - echo "Starting server at http://localhost:8080"
+      - echo "Press Ctrl+C to stop"
+      - 'cd examples/wasm/public && python3 -m http.server 8080'
+
+  "example:wasm:test":
+    desc: Run tests for WASM example
+    cmds:
+      - task: test-wasm
+
+  "example:announce":
+    desc: Run announce example
+    cmds:
+      - 'cd examples/announce && {{.GOCMD}} run .'
+
+  "example:minimal":
+    desc: Run minimal example
+    cmds:
+      - 'cd examples/minimal && {{.GOCMD}} run .'
+
+  "example:pageserver":
+    desc: Run pageserver example
+    cmds:
+      - 'cd examples/pageserver && {{.GOCMD}} run .'
+
+  "example:echo-listen":
+    desc: Run echo example (waits for incoming connections, P2P peer)
+    cmds:
+      - 'cd examples/echo && {{.GOCMD}} run . --server'
+
+  "example:echo-connect":
+    desc: Run echo example (initiates connection to peer, requires DESTINATION env var)
+    requires:
+      vars: [DESTINATION]
+    cmds:
+      - 'cd examples/echo && {{.GOCMD}} run . --destination="${DESTINATION}"'
+
+  "example:link-listen":
+    desc: Run link example (waits for incoming link requests, P2P peer)
+    cmds:
+      - 'cd examples/link && {{.GOCMD}} run . --server'
+
+  "example:link-connect":
+    desc: Run link example (initiates link to peer, requires DESTINATION env var)
+    requires:
+      vars: [DESTINATION]
+    cmds:
+      - 'cd examples/link && {{.GOCMD}} run . --destination="${DESTINATION}"'
+
+  "example:filetransfer-share":
+    desc: Run filetransfer example (shares files from directory, P2P peer)
+    requires:
+      vars: [SERVE_PATH]
+    cmds:
+      - 'cd examples/filetransfer && {{.GOCMD}} run . --server --serve="${SERVE_PATH}"'
+
+  "example:filetransfer-fetch":
+    desc: Run filetransfer example (fetches files from peer, requires DESTINATION env var)
+    requires:
+      vars: [DESTINATION]
+    cmds:
+      - 'cd examples/filetransfer && {{.GOCMD}} run . --destination="${DESTINATION}"'

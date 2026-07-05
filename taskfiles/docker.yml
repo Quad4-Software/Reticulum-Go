@@ -1,0 +1,119 @@
+version: '3'
+
+tasks:
+  "docker:build":
+    desc: Build Docker image (runtime image)
+    vars:
+      IMAGE_NAME: reticulum-go
+      IMAGE_TAG: latest
+    cmds:
+      - docker build -f docker/Dockerfile -t {{.IMAGE_NAME}}:{{.IMAGE_TAG}} .
+
+  "docker:build:tag":
+    desc: Build Docker image with custom tag (use IMAGE_TAG env var)
+    vars:
+      IMAGE_NAME: reticulum-go
+      IMAGE_TAG: ${IMAGE_TAG:-latest}
+    cmds:
+      - docker build -f docker/Dockerfile -t {{.IMAGE_NAME}}:{{.IMAGE_TAG}} .
+
+  "docker:build:build":
+    desc: Build Docker image for building binaries only
+    vars:
+      IMAGE_NAME: reticulum-go-build
+      IMAGE_TAG: latest
+    cmds:
+      - docker build -f docker/Dockerfile.build -t {{.IMAGE_NAME}}:{{.IMAGE_TAG}} .
+
+  "docker:run":
+    desc: Run Docker container (runtime image)
+    vars:
+      IMAGE_NAME: reticulum-go
+      IMAGE_TAG: latest
+      CONTAINER_NAME: reticulum-go
+    cmds:
+      - |
+        docker run --rm -it \
+          --name {{.CONTAINER_NAME}} \
+          -p 4242:4242 \
+          {{.IMAGE_NAME}}:{{.IMAGE_TAG}}
+
+  "docker:run:detached":
+    desc: Run Docker container in detached mode
+    vars:
+      IMAGE_NAME: reticulum-go
+      IMAGE_TAG: latest
+      CONTAINER_NAME: reticulum-go
+    cmds:
+      - |
+        docker run -d \
+          --name {{.CONTAINER_NAME}} \
+          -p 4242:4242 \
+          {{.IMAGE_NAME}}:{{.IMAGE_TAG}}
+
+  "docker:stop":
+    desc: Stop running Docker container
+    vars:
+      CONTAINER_NAME: reticulum-go
+    cmds:
+      - docker stop {{.CONTAINER_NAME}} || true
+      - docker rm {{.CONTAINER_NAME}} || true
+
+  "docker:extract":
+    desc: Extract binary from build container
+    vars:
+      IMAGE_NAME: reticulum-go-build
+      IMAGE_TAG: latest
+      BINARY_NAME: reticulum-go
+    cmds:
+      - |
+        CONTAINER_ID=$(docker create {{.IMAGE_NAME}}:{{.IMAGE_TAG}})
+        docker cp $CONTAINER_ID:/dist/{{.BINARY_NAME}} {{.BUILD_DIR}}/{{.BINARY_NAME}}
+        docker rm $CONTAINER_ID
+        echo "Binary extracted to {{.BUILD_DIR}}/{{.BINARY_NAME}}"
+
+  "docker:buildx:setup":
+    desc: Setup Docker buildx for multi-platform builds
+    cmds:
+      - docker buildx create --name reticulum-builder --use || docker buildx use reticulum-builder
+      - docker buildx inspect --bootstrap
+
+  "docker:buildx:build":
+    desc: Build multi-platform Docker image
+    vars:
+      IMAGE_NAME: reticulum-go
+      IMAGE_TAG: latest
+      PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7
+    cmds:
+      - |
+        docker buildx build \
+          --platform {{.PLATFORMS}} \
+          -f docker/Dockerfile \
+          -t {{.IMAGE_NAME}}:{{.IMAGE_TAG}} \
+          --load \
+          .
+
+  "docker:buildx:build:push":
+    desc: Build and push multi-platform Docker image
+    vars:
+      IMAGE_NAME: reticulum-go
+      IMAGE_TAG: latest
+      PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7
+    requires:
+      vars: [DOCKER_REGISTRY]
+    cmds:
+      - |
+        docker buildx build \
+          --platform {{.PLATFORMS}} \
+          -f docker/Dockerfile \
+          -t ${DOCKER_REGISTRY}/{{.IMAGE_NAME}}:{{.IMAGE_TAG}} \
+          --push \
+          .
+
+  "docker:clean":
+    desc: Clean Docker images and containers
+    cmds:
+      - docker stop reticulum-go || true
+      - docker rm reticulum-go || true
+      - docker rmi reticulum-go:latest || true
+      - docker rmi reticulum-go-build:latest || true
