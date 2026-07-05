@@ -71,6 +71,20 @@ func GetEncoder() *Encoder {
 
 func PutEncoder(enc *Encoder) {
 	enc.w = nil
+	// See maxPooledBufSize in decode.go: bound the scratch buffers a
+	// pooled Encoder may carry forward so one exceptionally large Encode
+	// or Append call (a multi-hundred-megabyte byte array, or a caller
+	// that passed a huge dst to Append) cannot permanently inflate every
+	// unrelated future call drawn from the shared pool. enc.buf is reset
+	// to its original NewEncoder capacity rather than nil because write1
+	// through write8 slice it unconditionally and expect it to already
+	// be non-nil with at least 9 bytes of capacity.
+	if cap(enc.buf) > maxPooledBufSize {
+		enc.buf = make([]byte, 9)
+	}
+	if cap(enc.appendBuf.b) > maxPooledBufSize {
+		enc.appendBuf.b = nil
+	}
 	encPool.Put(enc)
 }
 

@@ -6,10 +6,10 @@ package i2p
 import "errors"
 
 var (
-	ErrSAMOffline       = errors.New("i2p: SAM API offline")
-	ErrInvalidResponse  = errors.New("i2p: invalid SAM response")
-	ErrTunnelSetup      = errors.New("i2p: tunnel setup failed")
-	ErrTunnelTimeout    = errors.New("i2p: tunnel setup timed out")
+	ErrSAMOffline      = errors.New("i2p: SAM API offline")
+	ErrInvalidResponse = errors.New("i2p: invalid SAM response")
+	ErrTunnelSetup     = errors.New("i2p: tunnel setup failed")
+	ErrTunnelTimeout   = errors.New("i2p: tunnel setup timed out")
 )
 
 type SAMError struct {

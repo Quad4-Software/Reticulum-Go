@@ -43,42 +43,42 @@ type FromConfigContext struct {
 // server tunnel publication.
 type I2PInterface struct {
 	BaseInterface
-	controller   *i2p.Controller
-	connectable  bool
-	samAddress   string
-	b32          string
-	bindPort     int
-	listener     net.Listener
-	spawned      []*I2PInterfacePeer
-	spawnMu      sync.Mutex
-	ctx          *FromConfigContext
-	transportID  []byte
-	serverDone   chan struct{}
-	serverStop   sync.Once
-	acceptDone   chan struct{}
-	acceptStop   sync.Once
+	controller  *i2p.Controller
+	connectable bool
+	samAddress  string
+	b32         string
+	bindPort    int
+	listener    net.Listener
+	spawned     []*I2PInterfacePeer
+	spawnMu     sync.Mutex
+	ctx         *FromConfigContext
+	transportID []byte
+	serverDone  chan struct{}
+	serverStop  sync.Once
+	acceptDone  chan struct{}
+	acceptStop  sync.Once
 }
 
 // I2PInterfacePeer is a logical Reticulum interface over one I2P stream.
 type I2PInterfacePeer struct {
 	BaseInterface
-	parent           *I2PInterface
-	conn             net.Conn
-	targetDest       string
-	initiator        bool
-	reconnecting     bool
-	neverConnected   bool
-	awaitingTunnel   bool
-	localPort        int
-	kissFraming      bool
+	parent            *I2PInterface
+	conn              net.Conn
+	targetDest        string
+	initiator         bool
+	reconnecting      bool
+	neverConnected    bool
+	awaitingTunnel    bool
+	localPort         int
+	kissFraming       bool
 	maxReconnectTries int
-	writing          bool
-	lastRead         time.Time
-	lastWrite        time.Time
-	tunnelState      atomic.Uint32
-	wdReset          atomic.Bool
-	done             chan struct{}
-	stopOnce         sync.Once
+	writing           bool
+	lastRead          time.Time
+	lastWrite         time.Time
+	tunnelState       atomic.Uint32
+	wdReset           atomic.Bool
+	done              chan struct{}
+	stopOnce          sync.Once
 }
 
 func NewI2PInterface(name string, cfg *common.InterfaceConfig, ctx *FromConfigContext) (*I2PInterface, error) {
@@ -184,6 +184,10 @@ func (p *I2PInterface) Clients() int {
 	p.spawnMu.Lock()
 	defer p.spawnMu.Unlock()
 	return len(p.spawned)
+}
+
+func (p *I2PInterface) LocalAddr() string {
+	return net.JoinHostPort("127.0.0.1", strconv.Itoa(p.bindPort))
 }
 
 func (p *I2PInterface) Base32() string {
@@ -538,7 +542,7 @@ func (peer *I2PInterfacePeer) readLoop() {
 		peer.lastRead = time.Now()
 		peer.Mutex.Unlock()
 
-		for i := 0; i < n; i++ {
+		for i := range n {
 			b := buf[i]
 			if peer.kissFraming {
 				if inFrame && b == KISSFend {

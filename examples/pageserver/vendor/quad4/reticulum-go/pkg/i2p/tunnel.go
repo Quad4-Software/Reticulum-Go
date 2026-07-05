@@ -26,14 +26,14 @@ type TunnelStatus struct {
 
 // ClientTunnel proxies a local TCP port to a remote I2P destination via SAM.
 type ClientTunnel struct {
-	client      *Client
-	sessionID   string
-	localAddr   string
-	remoteDest  string
-	status      atomic.Value // TunnelStatus
-	listener    net.Listener
-	cancel      context.CancelFunc
-	wg          sync.WaitGroup
+	client     *Client
+	session    *Session
+	localAddr  string
+	remoteDest string
+	status     atomic.Value // TunnelStatus
+	listener   net.Listener
+	cancel     context.CancelFunc
+	wg         sync.WaitGroup
 }
 
 func NewClientTunnel(client *Client, remoteDest string, localPort int) (*ClientTunnel, error) {
@@ -49,7 +49,6 @@ func NewClientTunnel(client *Client, remoteDest string, localPort int) (*ClientT
 	}
 	return &ClientTunnel{
 		client:     client,
-		sessionID:  GenerateSessionID(),
 		localAddr:  net.JoinHostPort("127.0.0.1", strconv.Itoa(localPort)),
 		remoteDest: remoteDest,
 	}, nil
@@ -76,10 +75,12 @@ func (t *ClientTunnel) Run(ctx context.Context) error {
 		t.setStatus(true, true, err)
 		return err
 	}
-	if err := t.client.CreateSession(setupCtx, t.sessionID, transientDest); err != nil {
+	sess, err := t.client.OpenSession(setupCtx, GenerateSessionID(), transientDest)
+	if err != nil {
 		t.setStatus(true, true, err)
 		return err
 	}
+	t.session = sess
 	ln, err := net.Listen("tcp", t.localAddr)
 	if err != nil {
 		t.setStatus(true, true, err)
@@ -120,7 +121,7 @@ func (t *ClientTunnel) handleClient(ctx context.Context, local net.Conn, destB64
 	defer local.Close()
 	streamCtx, cancel := context.WithTimeout(ctx, defaultSetupTimeout)
 	defer cancel()
-	remote, err := t.client.StreamConnect(streamCtx, t.sessionID, destB64)
+	remote, err := t.client.StreamConnect(streamCtx, t.session.ID, destB64)
 	if err != nil {
 		debug.Log(debug.DebugError, "I2P stream connect failed", "error", err)
 		return
@@ -137,6 +138,10 @@ func (t *ClientTunnel) Stop() {
 	if t.listener != nil {
 		_ = t.listener.Close()
 	}
+	if t.session != nil {
+		_ = t.session.Close()
+		t.session = nil
+	}
 	t.wg.Wait()
 }
 
@@ -147,7 +152,7 @@ func (t *ClientTunnel) setStatus(ran, failed bool, err error) {
 // ServerTunnel accepts inbound I2P connections and forwards to a local service.
 type ServerTunnel struct {
 	client      *Client
-	sessionID   string
+	session     *Session
 	localAddr   string
 	destination *Destination
 	status      atomic.Value
@@ -168,7 +173,6 @@ func NewServerTunnel(client *Client, destination *Destination, localPort int) (*
 	}
 	return &ServerTunnel{
 		client:      client,
-		sessionID:   GenerateSessionID(),
 		localAddr:   net.JoinHostPort("127.0.0.1", strconv.Itoa(localPort)),
 		destination: destination,
 	}, nil
@@ -177,6 +181,10 @@ func NewServerTunnel(client *Client, destination *Destination, localPort int) (*
 func (t *ServerTunnel) Stop() {
 	if t.cancel != nil {
 		t.cancel()
+	}
+	if t.session != nil {
+		_ = t.session.Close()
+		t.session = nil
 	}
 	t.wg.Wait()
 }
@@ -212,10 +220,12 @@ func (t *ServerTunnel) Run(ctx context.Context) error {
 	if t.destination != nil && t.destination.PrivateKeyB64() != "" {
 		dest = t.destination.PrivateKeyB64()
 	}
-	if err := t.client.CreateSession(setupCtx, t.sessionID, dest); err != nil {
+	sess, err := t.client.OpenSession(setupCtx, GenerateSessionID(), dest)
+	if err != nil {
 		t.setStatus(true, true, err)
 		return err
 	}
+	t.session = sess
 	if t.destination == nil {
 		t.setStatus(true, true, ErrTunnelSetup)
 		return ErrTunnelSetup
@@ -235,7 +245,7 @@ func (t *ServerTunnel) acceptLoop(ctx context.Context) {
 			return
 		}
 		acceptCtx, cancel := context.WithTimeout(ctx, defaultSetupTimeout)
-		incoming, err := t.client.StreamAccept(acceptCtx, t.sessionID)
+		incoming, err := t.client.StreamAccept(acceptCtx, t.session.ID)
 		cancel()
 		if err != nil {
 			if ctx.Err() != nil {

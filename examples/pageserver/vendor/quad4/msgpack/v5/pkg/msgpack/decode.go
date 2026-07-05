@@ -55,9 +55,28 @@ func GetDecoder() *Decoder {
 	return decPool.Get().(*Decoder)
 }
 
+// maxPooledBufSize bounds the scratch-buffer capacity a pooled Decoder or
+// Encoder may carry across a Put/Get cycle. Decoding or encoding one
+// legitimately large payload (a multi-hundred-megabyte byte string, for
+// example) grows the relevant buffer to match; without this cap that
+// capacity would sit pinned inside the shared sync.Pool, inflating
+// memory for every unrelated, typically much smaller call drawn from the
+// pool afterward, until the runtime's opportunistic (roughly two-GC-cycle)
+// pool eviction happens to run. Buffers above the cap are dropped instead
+// of pooled so worst-case pool memory stays bounded; the next call that
+// needs a bigger buffer simply reallocates one, same as a fresh Decoder
+// or Encoder would.
+const maxPooledBufSize = bytesAllocLimit
+
 func PutDecoder(dec *Decoder) {
 	dec.r = nil
 	dec.s = nil
+	if cap(dec.buf) > maxPooledBufSize {
+		dec.buf = nil
+	}
+	if cap(dec.rec) > maxPooledBufSize {
+		dec.rec = nil
+	}
 	decPool.Put(dec)
 }
 
@@ -642,12 +661,19 @@ func (d *Decoder) leaveDepth() {
 
 func (d *Decoder) DecodeRaw() (RawMessage, error) {
 	d.rec = make([]byte, 0)
+	// Clear the recording buffer on every exit path, not just the success
+	// path. Without the defer, a Skip error left d.rec set on the
+	// Decoder: every later readCode/readFull call on this instance would
+	// then silently keep appending into that stale buffer (it is only
+	// ever cleared here or at the start of the next DecodeRaw call),
+	// growing without bound for the remaining lifetime of a decoder drawn
+	// from the shared pool.
+	defer func() { d.rec = nil }()
+
 	if err := d.Skip(); err != nil {
 		return nil, err
 	}
-	msg := RawMessage(d.rec)
-	d.rec = nil
-	return msg, nil
+	return RawMessage(d.rec), nil
 }
 
 // PeekCode returns the next MessagePack code without advancing the reader.
@@ -704,7 +730,6 @@ func (d *Decoder) readN(n int) ([]byte, error) {
 		return nil, err
 	}
 	if d.rec != nil {
-		// TODO: read directly into d.rec?
 		d.rec = append(d.rec, d.buf...)
 	}
 	return d.buf, nil

@@ -2,7 +2,7 @@
 ## explicit; go 1.25.0
 golang.org/x/crypto/curve25519
 golang.org/x/crypto/hkdf
-# quad4/msgpack/v5 v5.0.0 => ../../../../Reticulum-Go-Projects/msgpack
+# quad4/msgpack/v5 v5.8.0 => ../../../../Reticulum-Go-Projects/msgpack
 ## explicit; go 1.26.2
 quad4/msgpack/v5/pkg/msgpack
 quad4/msgpack/v5/pkg/msgpack/msgpcode

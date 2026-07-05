@@ -1,36 +1,23 @@
 package msgpack
 
-import (
-	"reflect"
-	"sync"
-)
+import "reflect"
 
-// valuePools maps reflect.Type to a *sync.Pool that lazily produces
-// reflect.New(t) instances. The previous implementation spawned one
-// goroutine per distinct type that filled a buffered channel with
-// preallocated values forever; those goroutines were never reaped, so
-// the goroutine count and resident set grew monotonically with the
-// number of distinct Go types ever decoded. sync.Pool gives the same
-// amortized allocation pattern (per-P caching) while letting the GC
-// drain entries during quiescent periods, and removes the leak.
-var valuePools sync.Map
-
-func cachedValue(t reflect.Type) reflect.Value {
-	if p, ok := valuePools.Load(t); ok {
-		return p.(*sync.Pool).Get().(reflect.Value)
-	}
-	p, _ := valuePools.LoadOrStore(t, &sync.Pool{
-		New: func() interface{} {
-			return reflect.New(t)
-		},
-	})
-	return p.(*sync.Pool).Get().(reflect.Value)
-}
-
+// newValue allocates a new addressable zero value of type t, boxed as a
+// reflect.Value, for use as a decode destination (a map key/value, the
+// pointee of a nil *T, or an ext type instance).
+//
+// UsePreallocateValues previously routed through a sync.Map of
+// *sync.Pool, one pool per distinct reflect.Type, intended to amortize
+// allocation for types decoded repeatedly. That pool could never pay off:
+// every value it produced was immediately handed to the caller as part of
+// a map, struct field, or interface{} and was never returned to the
+// decoder, so a Put never happened and every Get was a guaranteed miss
+// that fell through to reflect.New(t) regardless. The sync.Map lookup
+// (plus the *sync.Pool allocation on first sight of each type, held for
+// the life of the process) was pure overhead on top of the same
+// reflect.New(t) call, with no amortization ever realized. newValue now
+// allocates directly. UsePreallocateValues and its flag bit are kept for
+// API compatibility; they no longer change behavior.
 func (d *Decoder) newValue(t reflect.Type) reflect.Value {
-	if d.flags&usePreallocateValues == 0 {
-		return reflect.New(t)
-	}
-
-	return cachedValue(t)
+	return reflect.New(t)
 }

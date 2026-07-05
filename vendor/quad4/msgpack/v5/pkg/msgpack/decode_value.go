@@ -217,17 +217,19 @@ func decodeCustomValue(d *Decoder, v reflect.Value) error {
 }
 
 func unmarshalValue(d *Decoder, v reflect.Value) error {
-	var b []byte
-
 	d.rec = make([]byte, 0, 64)
+	// See the matching comment in (*Decoder).DecodeRaw: clear d.rec on
+	// every exit path so a Skip error cannot leave it set, which would
+	// otherwise make every subsequent read on this Decoder silently and
+	// unboundedly append into the abandoned buffer.
+	defer func() { d.rec = nil }()
+
 	if err := d.Skip(); err != nil {
 		return err
 	}
-	b = d.rec
-	d.rec = nil
 
 	unmarshaler := v.Interface().(Unmarshaler)
-	return unmarshaler.UnmarshalMsgpack(b)
+	return unmarshaler.UnmarshalMsgpack(d.rec)
 }
 
 func unmarshalBinaryValue(d *Decoder, v reflect.Value) error {

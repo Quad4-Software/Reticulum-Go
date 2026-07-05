@@ -405,7 +405,7 @@ func indirectNil(v reflect.Value) (reflect.Value, bool) {
 			if elemType.Kind() != reflect.Struct {
 				return v, false
 			}
-			v.Set(cachedValue(elemType))
+			v.Set(reflect.New(elemType))
 		}
 		v = v.Elem()
 	}

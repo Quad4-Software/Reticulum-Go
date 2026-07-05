@@ -8,6 +8,19 @@ import (
 	"quad4/msgpack/v5/pkg/msgpack/msgpcode"
 )
 
+// negFixedNumLowByte and negFixedNumLow reinterpret msgpcode.NegFixedNumLow
+// (0xe0) as the signed 8-bit fixnum it represents on the wire (-32).
+// msgpcode.NegFixedNumLow is a compile-time constant, so int8(msgpcode.NegFixedNumLow)
+// is itself a constant expression and the Go compiler rejects it outright:
+// constant conversions require the value to be representable in the
+// destination type, and 224 is not representable as int8, even though the
+// runtime, non-constant narrowing conversion below performs the intended
+// two's-complement reinterpretation. Copying the constant into a package
+// variable first, then converting that variable, forces the second step
+// to be a non-constant (runtime) conversion, evaluated once at init.
+var negFixedNumLowByte byte = msgpcode.NegFixedNumLow
+var negFixedNumLow = int8(negFixedNumLowByte)
+
 // EncodeUint8 encodes an uint8 in 2 bytes preserving type of the number.
 func (e *Encoder) EncodeUint8(n uint8) error {
 	return e.write1(msgpcode.Uint8, n)
@@ -128,7 +141,7 @@ func (e *Encoder) EncodeInt(n int64) error {
 	if n >= 0 {
 		return e.EncodeUint(uint64(n))
 	}
-	if n >= int64(int8(msgpcode.NegFixedNumLow)) {
+	if n >= int64(negFixedNumLow) {
 		return e.w.WriteByte(byte(n))
 	}
 	if n >= math.MinInt8 {

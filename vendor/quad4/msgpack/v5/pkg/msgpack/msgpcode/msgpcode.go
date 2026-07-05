@@ -1,6 +1,17 @@
 package msgpcode
 
-var (
+// Wire-format opcodes are compile-time constants, not variables.
+//
+// Every decode/encode hot path compares against these values (readCode
+// dispatch, IsFixed* predicates, Skip, DecodeInterface). As const values
+// the compiler can fold the comparisons, build jump tables for the larger
+// switch statements in decode.go, and inline the IsFixed* helpers below.
+// As package-level vars they were also externally mutable: any importer
+// (or a bug in this package) could reassign, say, msgpcode.Nil at runtime
+// and silently corrupt decoding for the lifetime of the process. Nothing
+// in this module or its tests ever took the address of or assigned to one
+// of these identifiers, so the const conversion is behavior-preserving.
+const (
 	PosFixedNumHigh byte = 0x7f
 	NegFixedNumLow  byte = 0xe0
 

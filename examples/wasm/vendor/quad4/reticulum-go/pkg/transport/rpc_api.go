@@ -20,19 +20,19 @@ type PathTableEntry struct {
 
 // InterfaceStat mirrors the subset of Python get_interface_stats() used by tools.
 type InterfaceStat struct {
-	Name             string  `msgpack:"name"`
-	ShortName        string  `msgpack:"short_name"`
-	Hash             []byte  `msgpack:"hash"`
-	Type             string  `msgpack:"type"`
-	RXB              uint64  `msgpack:"rxb"`
-	TXB              uint64  `msgpack:"txb"`
-	Status           bool    `msgpack:"status"`
-	Mode             byte    `msgpack:"mode"`
-	Clients          *int    `msgpack:"clients"`
-	Bitrate          int64   `msgpack:"bitrate"`
-	I2PConnectable   *bool   `msgpack:"i2p_connectable,omitempty"`
-	I2PB32           *string `msgpack:"i2p_b32,omitempty"`
-	TunnelState      *string `msgpack:"tunnelstate,omitempty"`
+	Name           string  `msgpack:"name"`
+	ShortName      string  `msgpack:"short_name"`
+	Hash           []byte  `msgpack:"hash"`
+	Type           string  `msgpack:"type"`
+	RXB            uint64  `msgpack:"rxb"`
+	TXB            uint64  `msgpack:"txb"`
+	Status         bool    `msgpack:"status"`
+	Mode           byte    `msgpack:"mode"`
+	Clients        *int    `msgpack:"clients"`
+	Bitrate        int64   `msgpack:"bitrate"`
+	I2PConnectable *bool   `msgpack:"i2p_connectable,omitempty"`
+	I2PB32         *string `msgpack:"i2p_b32,omitempty"`
+	TunnelState    *string `msgpack:"tunnelstate,omitempty"`
 }
 
 // InterfaceStatsResponse mirrors Python get_interface_stats() top-level map.

@@ -24,8 +24,8 @@ const (
 
 var (
 	i2pEncoding = base64.NewEncoding("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-~")
-	validB32      = regexp.MustCompile(`^([a-zA-Z0-9]{52})\.b32\.i2p$`)
-	validB64      = regexp.MustCompile(`^([a-zA-Z0-9\-~=]{516,528})$`)
+	validB32    = regexp.MustCompile(`^([a-zA-Z0-9]{52})\.b32\.i2p$`)
+	validB64    = regexp.MustCompile(`^([a-zA-Z0-9\-~=]{516,528})$`)
 )
 
 func i2pB64Encode(b []byte) string {

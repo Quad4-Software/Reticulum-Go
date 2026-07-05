@@ -6,7 +6,7 @@ golang.org/x/crypto/hkdf
 ## explicit; go 1.26.2
 quad4/bzip2/internal/enc
 quad4/bzip2/pkg/bzip2
-# quad4/msgpack/v5 v5.0.0 => ../../../../Reticulum-Go-Projects/msgpack
+# quad4/msgpack/v5 v5.8.0 => ../../../../Reticulum-Go-Projects/msgpack
 ## explicit; go 1.26.2
 quad4/msgpack/v5/pkg/msgpack
 quad4/msgpack/v5/pkg/msgpack/msgpcode
