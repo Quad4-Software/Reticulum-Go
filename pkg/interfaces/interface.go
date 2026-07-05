@@ -347,6 +347,7 @@ func (i *BaseInterface) updateBandwidthStats(bytes uint64) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
 
+	i.TxBytes += bytes
 	i.lastTx = time.Now()
 
 	debug.Log(debug.DebugVerbose, "Interface updated bandwidth stats", "name", i.Name, "tx_bytes", i.TxBytes, "last_tx", i.lastTx)

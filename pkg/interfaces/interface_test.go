@@ -153,6 +153,20 @@ func TestBaseInterfaceStats(t *testing.T) {
 	}
 }
 
+func TestUpdateBandwidthStatsAccumulatesTxBytes(t *testing.T) {
+	bi := NewBaseInterface("txStatsTest", common.IFTypeUDP, true)
+
+	bi.updateBandwidthStats(128)
+	bi.updateBandwidthStats(64)
+
+	if bi.TxBytes != 192 {
+		t.Errorf("TxBytes = %d; want 192 after updateBandwidthStats calls", bi.TxBytes)
+	}
+	if bi.GetTxBytes() != 192 {
+		t.Errorf("GetTxBytes() = %d; want 192", bi.GetTxBytes())
+	}
+}
+
 // Helper function to wait for a WaitGroup with a timeout
 func waitTimeout(wg *sync.WaitGroup, timeout time.Duration, t *testing.T) {
 	c := make(chan struct{})
