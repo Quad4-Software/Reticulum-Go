@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 )
 
@@ -84,7 +85,7 @@ func AuthenticateClient(conn net.Conn, authkey []byte) error {
 }
 
 func sendBytes(w io.Writer, buf []byte) error {
-	if len(buf) > 0xFFFFFFFF {
+	if uint64(len(buf)) > math.MaxUint32 {
 		return fmt.Errorf("message too large: %d", len(buf))
 	}
 	header := make([]byte, 4)
