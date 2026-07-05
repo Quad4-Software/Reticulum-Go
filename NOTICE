@@ -10,8 +10,8 @@ quad4/bzip2                    v0.0.0    0BSD                  vendor/quad4/bzip
 quad4/msgpack/v5               v5.0.0    BSD 2-Clause          vendor/quad4/msgpack/v5/LICENSE
 quad4/tagparser                v0.0.0    BSD 2-Clause          vendor/quad4/tagparser/LICENSE
 quad4/pbt                      v0.0.0    0BSD                  vendor/quad4/pbt/LICENSE
-golang.org/x/crypto                     v0.50.0   BSD 3-Clause          vendor/golang.org/x/crypto/LICENSE
-golang.org/x/sys                        v0.43.0   BSD 3-Clause          vendor/golang.org/x/sys/LICENSE
+golang.org/x/crypto                     v0.52.0   BSD 3-Clause          vendor/golang.org/x/crypto/LICENSE
+golang.org/x/sys                        v0.45.0   BSD 3-Clause          vendor/golang.org/x/sys/LICENSE
 
 golang.org/x/crypto and golang.org/x/sys also include a patent grant; see the respective PATENTS files in vendor/.
 

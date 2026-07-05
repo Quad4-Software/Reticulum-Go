@@ -3,8 +3,8 @@ module quad4/reticulum-go
 go 1.26.4
 
 require (
-	golang.org/x/crypto v0.50.0
-	golang.org/x/sys v0.43.0
+	golang.org/x/crypto v0.52.0
+	golang.org/x/sys v0.45.0
 	quad4/bzip2 v0.0.0
 	quad4/msgpack/v5 v5.8.0
 	quad4/pbt v0.0.0

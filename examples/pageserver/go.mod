@@ -8,7 +8,7 @@ require (
 )
 
 require (
-	golang.org/x/crypto v0.50.0 // indirect
+	golang.org/x/crypto v0.52.0 // indirect
 	quad4/bzip2 v0.0.0 // indirect
 	quad4/tagparser v0.0.0 // indirect
 )

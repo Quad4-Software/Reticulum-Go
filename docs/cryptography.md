@@ -25,7 +25,7 @@ Implementation code lives primarily in `pkg/cryptography`, `pkg/identity`, `pkg/
 **Go modules (pinned in `go.mod`)**
 
 - Standard library: `crypto/ed25519`, `crypto/sha256`, `crypto/rand`, `crypto/aes`, `crypto/cipher`, `crypto/hmac`, and related types.
-- Extended: `golang.org/x/crypto` (HKDF, curve25519), version as locked in `go.mod` (currently `v0.50.0`).
+- Extended: `golang.org/x/crypto` (HKDF, curve25519), version as locked in `go.mod` (currently `v0.52.0`).
 
 ## Identity keys and public fingerprint
 
