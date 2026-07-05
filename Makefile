@@ -80,11 +80,11 @@ lint:
 	revive -config revive.toml -formatter friendly ./pkg/* ./cmd/* ./internal/*
 
 vulncheck:
-	env GOFLAGS= GOPROXY=https://proxy.golang.org,direct $(GOCMD) run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VER) ./...
+	env GOFLAGS= GOPROXY=https://proxy.golang.org,direct $(GOCMD) run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VER) ./pkg/... ./cmd/... ./internal/... ./tests/...
 
 # Scope packages so module cache under .cache/ is not scanned (avoids false positives from dependencies).
 gosec:
-	env GOFLAGS= GOPROXY=https://proxy.golang.org,direct CGO_ENABLED=0 $(GOCMD) run github.com/securego/gosec/v2/cmd/gosec@latest -quiet ./pkg/... ./cmd/... ./internal/... ./tests/...
+	env GOFLAGS= GOPROXY=https://proxy.golang.org,direct CGO_ENABLED=0 $(GOCMD) run github.com/securego/gosec/v2/cmd/gosec@latest -quiet -exclude-dir=vendor -exclude-dir=.cache ./pkg/... ./cmd/... ./internal/... ./tests/...
 
 check: fmt vet lint test-short vulncheck gosec
 

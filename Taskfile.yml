@@ -12,6 +12,8 @@ vars:
   BINARY_NAME: reticulum-go
   BUILD_DIR: bin
   MAIN_PACKAGE: ./cmd/reticulum-go
+  SCAN_GO_PACKAGES: ./pkg/... ./cmd/... ./internal/... ./tests/...
+  TRIVY_SKIP_DIR_FLAGS: --skip-dirs vendor --skip-dirs .cache
 
 includes:
   build:
@@ -69,7 +71,7 @@ tasks:
   scan:
     desc: Run gosec security scanner
     cmds:
-      - gosec ./pkg/... ./cmd/... ./internal/... ./tests/...
+      - gosec -exclude-dir=vendor -exclude-dir=.cache {{.SCAN_GO_PACKAGES}}
 
   vulncheck:
     desc: Run govulncheck (Go vulnerability database)
@@ -77,7 +79,7 @@ tasks:
       GOFLAGS: ''
       GOPROXY: 'https://proxy.golang.org,direct'
     cmds:
-      - go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+      - go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 {{.SCAN_GO_PACKAGES}}
 
   check:
     desc: Run fmt-check, vet, lint, test-short, scan, vulncheck with summary
