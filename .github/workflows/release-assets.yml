@@ -1,0 +1,337 @@
+# Pinned first-party actions (bump tag and SHA together when upgrading):
+#   actions/checkout@v6.0.1            8e8c483db84b4bee98b60c0593521ed34d9990e8
+#   actions/upload-artifact@v5.0.0     330a01c490aca151604b8cf639adc76d48f6c5d4
+#   actions/download-artifact@v5.0.0   634f93cb2916e3fdff6788551b99b062d0335ce0
+#
+name: Release assets
+
+on:
+  workflow_call:
+    inputs:
+      tag_name:
+        description: Git tag and release name
+        required: true
+        type: string
+      prerelease:
+        description: Publish as a GitHub prerelease (preview)
+        required: false
+        type: boolean
+        default: false
+      target_commitish:
+        description: Commit SHA or branch for the release tag (preview builds)
+        required: false
+        type: string
+        default: ""
+    secrets:
+      COSIGN_PRIVATE_KEY:
+        required: true
+      COSIGN_PASSWORD:
+        required: false
+
+permissions:
+  contents: write
+
+env:
+  CI_GO_NO_TELEMETRY_VERSION: "1.26.4"
+  CI_GO_LEGACY_WIN7_VERSION: "1.26.4-1"
+  CI_TASK_VERSION: "3.46.3"
+  CI_COSIGN_VERSION: "3.0.5"
+  CI_TRIVY_VERSION: "0.69.3"
+  GOFLAGS: -mod=vendor
+  GOPROXY: "off"
+  GOTOOLCHAIN: local
+
+jobs:
+  build:
+    name: Build (${{ matrix.goos }}, ${{ matrix.goarch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        goos: [linux, windows, darwin, freebsd]
+        goarch: [amd64, arm64, arm]
+        include:
+          - goos: js
+            goarch: wasm
+        exclude:
+          - goos: darwin
+            goarch: arm
+          - goos: windows
+            goarch: arm
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarch == 'arm' && '6' || '' }}
+          CGO_ENABLED: "0"
+        run: |
+          output_name="reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}"
+          if [ "${{ matrix.goos }}" = "js" ] && [ "${{ matrix.goarch }}" = "wasm" ]; then
+            task build-wasm
+            output_name+=".wasm"
+            mv bin/reticulum-go.wasm "${output_name}"
+          else
+            task build
+            if [ "${{ matrix.goos }}" = "windows" ]; then
+              output_name+=".exe"
+            fi
+            mv bin/reticulum-go "${output_name}"
+          fi
+          echo "Built: ${output_name}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}*
+
+  build-windows-legacy:
+    name: Build (windows, ${{ matrix.goarch }}, win7)
+    strategy:
+      fail-fast: false
+      matrix:
+        goarch: [amd64, arm64]
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Set up go-legacy-win7
+        run: sh scripts/ci/setup-go-legacy-win7.sh "${{ env.CI_GO_LEGACY_WIN7_VERSION }}"
+
+      - name: Setup Task
+        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
+
+      - name: Build
+        env:
+          GOOS: windows
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          output_name="reticulum-go-windows-${{ matrix.goarch }}-win7.exe"
+          go build -ldflags="-s -w" -o "${output_name}" ./cmd/reticulum-go
+          echo "Built: ${output_name}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: reticulum-go-windows-${{ matrix.goarch }}-win7
+          path: reticulum-go-windows-${{ matrix.goarch }}-win7.exe
+
+  sbom:
+    name: SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Apt update (for Trivy .deb)
+        run: sh scripts/ci/exec-priv.sh apt-get update -qq
+
+      - name: Install Trivy
+        run: sh scripts/ci/setup-trivy.sh "${{ env.CI_TRIVY_VERSION }}"
+
+      - name: Generate SBOM
+        run: task sbom
+
+      - name: Stage SBOM files for release
+        run: |
+          set -euo pipefail
+          cp sbom/sbom.spdx.json reticulum-go-sbom.spdx.json
+          cp sbom/sbom.cyclonedx.json reticulum-go-sbom.cyclonedx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: sbom-release
+          path: |
+            reticulum-go-sbom.spdx.json
+            reticulum-go-sbom.cyclonedx.json
+
+  examples:
+    name: Examples (pageserver, wasm)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Build pageserver (linux/amd64)
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          cd examples/pageserver
+          go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-amd64 .
+
+      - name: Build pageserver (linux/arm64)
+        env:
+          GOOS: linux
+          GOARCH: arm64
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          cd examples/pageserver
+          go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-arm64 .
+
+      - name: Build pageserver (linux/arm v6)
+        env:
+          GOOS: linux
+          GOARCH: arm
+          GOARM: "6"
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          cd examples/pageserver
+          go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-arm .
+
+      - name: Build wasm example
+        run: task example:wasm:build
+
+      - name: Stage wasm artifact
+        run: cp examples/wasm/public/static/reticulum-go.wasm reticulum-go-example-wasm.wasm
+
+      - name: Upload examples artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: reticulum-go-examples
+          path: |
+            reticulum-go-example-pageserver-linux-amd64
+            reticulum-go-example-pageserver-linux-arm64
+            reticulum-go-example-pageserver-linux-arm
+            reticulum-go-example-wasm.wasm
+
+  release:
+    name: Cosign attest and publish release
+    runs-on: ubuntu-latest
+    needs: [build, build-windows-legacy, sbom, examples]
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Download workflow artifacts
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          path: merged
+          merge-multiple: true
+
+      - name: Install cosign
+        run: sh scripts/ci/setup-cosign.sh "${{ env.CI_COSIGN_VERSION }}"
+
+      - name: Write cosign private key
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${COSIGN_PRIVATE_KEY:-}" ]; then
+            echo "Missing repository secret COSIGN_PRIVATE_KEY (PEM for cosign key; keep cosign.pub in repo)." >&2
+            exit 1
+          fi
+          printf '%s\n' "$COSIGN_PRIVATE_KEY" > "${RUNNER_TEMP}/cosign-release.key"
+          chmod 600 "${RUNNER_TEMP}/cosign-release.key"
+
+      - name: Cosign attest release assets
+        env:
+          COSIGN_KEY_PATH: ${{ runner.temp }}/cosign-release.key
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        run: sh scripts/ci/attest-release-assets.sh merged
+
+      - name: Create release with assets and notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag_name }}
+          RELEASE_PRERELEASE: ${{ inputs.prerelease }}
+          RELEASE_TARGET: ${{ inputs.target_commitish }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${RELEASE_TAG}"
+          shopt -s nullglob
+          mapfile -t assets < <(find merged -type f | LC_ALL=C sort)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "no release files under merged/" >&2
+            find merged -type f -print >&2 || true
+            exit 1
+          fi
+          notes="$(mktemp)"
+          trap 'rm -f "$notes"' EXIT
+          gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+            -f tag_name="${tag}" \
+            -f target_commitish="${RELEASE_TARGET:-${GITHUB_SHA}}" \
+            --jq .body > "${notes}.gen" || true
+          {
+            if [ "${RELEASE_PRERELEASE}" = "true" ]; then
+              echo "**Preview release** — automated weekly snapshot from \`master\`. Not a stable release; use tagged \`v*\` releases for production."
+              echo
+              echo "Tag: \`${tag}\`"
+              echo "Commit: [\`${GITHUB_SHA:0:7}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})"
+              echo
+            fi
+            if [ -s "${notes}.gen" ]; then
+              cat "${notes}.gen"
+            else
+              echo "Release ${tag}"
+            fi
+            echo
+            echo "## SHA256 digests (backup only)"
+            echo
+            echo "Prefer verification with cosign: each release file has a matching \`*.cosign.bundle\` signed for this repo; use \`cosign.pub\` and \`scripts/ci/verify-release-attestation.sh\` (or \`cosign verify-blob-attestation\`)."
+            echo
+            echo '```'
+            find merged -type f ! -name '*.cosign.bundle' -print0 | LC_ALL=C sort -z | xargs -0 sha256sum
+            echo '```'
+          } > "$notes"
+          rm -f "${notes}.gen"
+          args=(
+            --repo "${GITHUB_REPOSITORY}"
+            --title "${tag}"
+            --notes-file "$notes"
+          )
+          if [ "${RELEASE_PRERELEASE}" = "true" ]; then
+            args+=(--prerelease)
+          fi
+          if [ -n "${RELEASE_TARGET}" ]; then
+            args+=(--target "${RELEASE_TARGET}")
+          elif [ "${RELEASE_PRERELEASE}" != "true" ]; then
+            args+=(--verify-tag)
+          fi
+          gh release create "${tag}" "${args[@]}" "${assets[@]}"
