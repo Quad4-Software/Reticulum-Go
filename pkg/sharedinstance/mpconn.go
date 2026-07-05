@@ -5,7 +5,7 @@ package sharedinstance
 
 import (
 	"crypto/hmac"
-	"crypto/md5"
+	"crypto/md5" // #nosec G501 -- HMAC-MD5 required for Python multiprocessing.connection auth
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -84,8 +84,11 @@ func AuthenticateClient(conn net.Conn, authkey []byte) error {
 }
 
 func sendBytes(w io.Writer, buf []byte) error {
+	if len(buf) > 0xFFFFFFFF {
+		return fmt.Errorf("message too large: %d", len(buf))
+	}
 	header := make([]byte, 4)
-	binary.BigEndian.PutUint32(header, uint32(len(buf)))
+	binary.BigEndian.PutUint32(header, uint32(len(buf))) // #nosec G115 -- guarded by max length check above
 	if _, err := w.Write(header); err != nil {
 		return err
 	}
@@ -98,7 +101,7 @@ func recvBytes(r io.Reader, maxSize int) ([]byte, error) {
 	if _, err := io.ReadFull(r, header); err != nil {
 		return nil, err
 	}
-	size := int32(binary.BigEndian.Uint32(header))
+	size := int32(binary.BigEndian.Uint32(header)) // #nosec G115 -- Python multiprocessing.connection length prefix
 	var n int64
 	switch {
 	case size == -1:
@@ -106,7 +109,7 @@ func recvBytes(r io.Reader, maxSize int) ([]byte, error) {
 		if _, err := io.ReadFull(r, ext); err != nil {
 			return nil, err
 		}
-		n = int64(binary.BigEndian.Uint64(ext))
+		n = int64(binary.BigEndian.Uint64(ext)) // #nosec G115 -- wire-format 64-bit length after -1 sentinel
 	default:
 		n = int64(size)
 	}

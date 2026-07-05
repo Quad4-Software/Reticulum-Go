@@ -75,11 +75,15 @@ tasks:
 
   vulncheck:
     desc: Run govulncheck (Go vulnerability database)
-    env:
-      GOFLAGS: ''
-      GOPROXY: 'https://proxy.golang.org,direct'
     cmds:
-      - go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 {{.SCAN_GO_PACKAGES}}
+      - |
+        if command -v govulncheck >/dev/null 2>&1; then
+          env GOFLAGS= GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct \
+            govulncheck {{.SCAN_GO_PACKAGES}}
+        else
+          env GOFLAGS= GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct \
+            go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 {{.SCAN_GO_PACKAGES}}
+        fi
 
   check:
     desc: Run fmt-check, vet, lint, test-short, scan, vulncheck with summary

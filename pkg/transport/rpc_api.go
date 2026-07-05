@@ -106,7 +106,7 @@ func (t *Transport) GetPathTable(maxHops *int) []PathTableEntry {
 			continue
 		}
 		hops := path.HopCount
-		if maxHops != nil && hops > uint8(*maxHops) {
+		if maxHops != nil && int(hops) > *maxHops {
 			continue
 		}
 		hash := append([]byte(nil), key[:truncLen]...)
