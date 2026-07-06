@@ -39,7 +39,7 @@ configuration file. Default path:
 
 Override with `-config /path/to/config`. If the file does not exist it is
 created with a single `Auto Discovery` (`AutoInterface`) entry using
-`pkg/reticulumconfig`. No external TCP hubs are baked in; add your own.
+`pkg/reticulumconfig`. No external TCP hubs are baked in. Add your own.
 
 The format is the standard Reticulum INI-style layout:
 
@@ -90,7 +90,7 @@ file for that run.
 
 | Level | Name     | What you see |
 |:-----:|----------|--------------|
-| 1 | critical | Fatal-style messages from this tool; default when no `-debug` / `-log-level` |
+| 1 | critical | Fatal-style messages from this tool, default when no `-debug` / `-log-level` |
 | 2 | error    | Errors and above |
 | 3 | info     | General informational logs (includes much Reticulum stack output) |
 | 4 | verbose  | More detail |
@@ -104,7 +104,7 @@ file for that run.
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-config` / `-c` | `""` | Reticulum config path (default `~/.reticulum-go/config`; created if missing). |
+| `-config` / `-c` | `""` | Reticulum config path (default `~/.reticulum-go/config`, created if missing). |
 | `-pages-dir` / `-p` | `pages` | Pages directory for `/page/`. |
 | `-files-dir` / `-f` | `files` | Files directory for `/file/`. |
 | `-node-name` / `-n` | built-in name | Node display name in announces. |
@@ -113,7 +113,7 @@ file for that run.
 | `-file-refresh` / `-files-refresh-interval` | `0` | Rescan files dir every N **seconds** (`0` = startup only). |
 | `-identity` / `-identity-path` | `""` | Identity file path (default `~/.reticulum-go/storage/identity`). |
 | `-debug` | (see `pkg/debug`) | Same scale as `-log-level` when passed on the CLI. |
-| `-log-level` | `-1` | Sets level `1`–`7`; `-1` uses config. Overrides config and `-debug` when set. |
+| `-log-level` | `-1` | Sets level `1`–`7`. `-1` uses config. Overrides config and `-debug` when set. |
 
 Constants such as announce rate targets are compiled into the binary (see
-`main.go`); they are not CLI flags.
+`main.go`). They are not CLI flags.

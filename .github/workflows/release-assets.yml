@@ -300,7 +300,7 @@ jobs:
             --jq .body > "${notes}.gen" || true
           {
             if [ "${RELEASE_PRERELEASE}" = "true" ]; then
-              echo "**Preview release** — automated weekly snapshot from \`master\`. Not a stable release; use tagged \`v*\` releases for production."
+              echo "**Preview release**: automated weekly snapshot from \`master\`. Not a stable release; use tagged \`v*\` releases for production."
               echo
               echo "Tag: \`${tag}\`"
               echo "Commit: [\`${GITHUB_SHA:0:7}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})"

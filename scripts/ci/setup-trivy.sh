@@ -5,8 +5,8 @@
 #   version: e.g. 0.69.3
 #
 # Optional overrides:
-#   TRIVY_DEB_URL     — direct .deb URL (default: official GitHub release asset)
-#   TRIVY_DEB_SHA256  — expected SHA256 of the .deb (default: pinned per version)
+#   TRIVY_DEB_URL     direct .deb URL (default: official GitHub release asset)
+#   TRIVY_DEB_SHA256  expected SHA256 of the .deb (default: pinned per version)
 set -eu
 
 . "$(dirname "$0")/priv.sh"

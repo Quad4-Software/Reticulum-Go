@@ -23,5 +23,5 @@ By adding a `Signed-off-by` line to your commit and submitting the contribution 
 
 Send issues, suggestions, `.patch` files, or any feedback to one of the following:
 
-- **Reticulum LXMF:** `f489752fbef161c64d65e385a4e9fc74` — Ivan (Lead Maintainer)
+- **Reticulum LXMF:** `f489752fbef161c64d65e385a4e9fc74` (Ivan, Lead Maintainer)
 - **Email:** `team@quad4.io`

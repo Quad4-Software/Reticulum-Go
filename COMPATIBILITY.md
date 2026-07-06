@@ -78,7 +78,7 @@ Public samples live under [examples/](examples/). Planned examples are tracked f
 |-----------|:------:|-------|
 | wasm | Public | //go:build js,wasm. JS bridge via pkg/wasm. |
 | pageserver | Public | Pages and static files over Reticulum. |
-| announce, echo, filetransfer, link, minimal, page-downloader | Planned | — |
+| announce, echo, filetransfer, link, minimal, page-downloader | Planned | N/A |
 
 ## Configuration
 
