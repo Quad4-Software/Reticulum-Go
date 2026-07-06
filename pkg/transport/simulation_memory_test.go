@@ -16,7 +16,7 @@ const (
 )
 
 type simHeapDelta struct {
-	heapAlloc uint64
+	heapAlloc  uint64
 	goroutines int
 }
 
