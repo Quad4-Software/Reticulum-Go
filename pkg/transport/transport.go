@@ -950,19 +950,10 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 		return nil
 	}
 
-	var delay time.Duration
-	b := make([]byte, 8)
-	_, err := rand.Read(b)
-	if err != nil {
-		debug.Log(debug.DebugAll, "Failed to generate random delay", "error", err)
-		delay = 0
-	} else {
-		windowMs := max(int64(PathfinderRW*1000.0), 1)
-		delay = time.Duration(int64(binary.BigEndian.Uint64(b)%uint64(windowMs))) * time.Millisecond // #nosec G115
-	}
+	delay := pathfinderRebroadcastDelay()
 	time.Sleep(delay)
 
-	if !t.announceRate.Allow() {
+	if !t.announceRateAllow() {
 		debug.Log(debug.DebugAll, "Announce rate limit exceeded, queuing")
 		return nil
 	}
@@ -1390,22 +1381,13 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		return nil
 	}
 
-	if !t.announceRate.Allow() {
+	if !t.announceRateAllow() {
 		debug.Log(debug.DebugInfo, "Announce rate limit exceeded, not forwarding")
 		return nil
 	}
 	debug.Log(debug.DebugInfo, "Bandwidth check passed")
 
-	var delay time.Duration
-	b := make([]byte, 8)
-	_, err := rand.Read(b)
-	if err != nil {
-		debug.Log(debug.DebugAll, "Failed to generate random delay", "error", err)
-		delay = 0
-	} else {
-		windowMs := max(int64(PathfinderRW*1000.0), 1)
-		delay = time.Duration(int64(binary.BigEndian.Uint64(b)%uint64(windowMs))) * time.Millisecond // #nosec G115
-	}
+	delay := pathfinderRebroadcastDelay()
 	time.Sleep(delay)
 
 	data[1]++
