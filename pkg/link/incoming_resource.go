@@ -415,7 +415,8 @@ func (l *Link) deliverIncomingResource(inner []byte, adv *resource.ResourceAdver
 	l.incomingMu.Unlock()
 
 	if pending != nil {
-		l.completeRequestWithResourcePayload(pending, payload)
+		responsePayload, metadata := splitResourceMetadata(payload, adv)
+		l.completeRequestWithResourcePayload(pending, responsePayload, metadata)
 		return nil
 	}
 
@@ -425,22 +426,46 @@ func (l *Link) deliverIncomingResource(inner []byte, adv *resource.ResourceAdver
 	return nil
 }
 
-func (l *Link) completeRequestWithResourcePayload(req *RequestReceipt, payload []byte) {
-	var unpacked []any
+func splitResourceMetadata(payload []byte, adv *resource.ResourceAdvertisement) ([]byte, map[string]any) {
+	if adv == nil || !adv.HasMetadata {
+		return payload, nil
+	}
+	if len(payload) < 3 {
+		debug.Log(debug.DebugInfo, "Incoming resource metadata flagged but payload too short")
+		return payload, nil
+	}
+	metaSize := int(payload[0])<<16 | int(payload[1])<<8 | int(payload[2])
+	if metaSize < 0 || 3+metaSize > len(payload) {
+		debug.Log(debug.DebugInfo, "Incoming resource metadata size invalid", "meta_size", metaSize, "payload_len", len(payload))
+		return payload, nil
+	}
+	var meta map[string]any
+	if err := msgpack.Unmarshal(payload[3:3+metaSize], &meta); err != nil {
+		debug.Log(debug.DebugInfo, "Failed to unpack incoming resource metadata", "error", err)
+		return payload, nil
+	}
+	return payload[3+metaSize:], meta
+}
+
+func (l *Link) completeRequestWithResourcePayload(req *RequestReceipt, payload []byte, metadata map[string]any) {
 	respBytes := payload
-	if err := msgpack.Unmarshal(payload, &unpacked); err == nil && len(unpacked) >= 2 {
-		if rawResp, ok := unpacked[1].([]byte); ok {
-			respBytes = rawResp
-		} else if str, ok := unpacked[1].(string); ok {
-			respBytes = []byte(str)
-		} else if reMarshaled, err := msgpack.Marshal(unpacked[1]); err == nil {
-			respBytes = reMarshaled
+	if metadata == nil {
+		var unpacked []any
+		if err := msgpack.Unmarshal(payload, &unpacked); err == nil && len(unpacked) >= 2 {
+			if rawResp, ok := unpacked[1].([]byte); ok {
+				respBytes = rawResp
+			} else if str, ok := unpacked[1].(string); ok {
+				respBytes = []byte(str)
+			} else if reMarshaled, err := msgpack.Marshal(unpacked[1]); err == nil {
+				respBytes = reMarshaled
+			}
 		}
 	}
 
 	req.mutex.Lock()
 	req.status = StatusActive
 	req.response = respBytes
+	req.metadata = metadata
 	req.receivedAt = time.Now()
 	req.mutex.Unlock()
 

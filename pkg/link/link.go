@@ -320,7 +320,7 @@ func (l *Link) HandleIdentification(data []byte) error {
 	return nil
 }
 
-func (l *Link) Request(path string, data []byte, timeout time.Duration) (*RequestReceipt, error) {
+func (l *Link) Request(path string, data any, timeout time.Duration) (*RequestReceipt, error) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -403,6 +403,7 @@ type RequestReceipt struct {
 	sentAt     time.Time
 	receivedAt time.Time
 	response   []byte
+	metadata   map[string]any
 	timeout    time.Duration
 	responseCb func(*RequestReceipt)
 	failedCb   func(*RequestReceipt)
@@ -428,6 +429,15 @@ func (r *RequestReceipt) GetResponse() []byte {
 		return nil
 	}
 	return append([]byte{}, r.response...)
+}
+
+// GetMetadata returns the metadata attached to a response delivered as a
+// resource transfer (e.g. a file's name in nomadnetwork /file/ requests).
+// It returns nil if the response carried no metadata.
+func (r *RequestReceipt) GetMetadata() map[string]any {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	return r.metadata
 }
 
 func (r *RequestReceipt) GetResponseTime() float64 {
