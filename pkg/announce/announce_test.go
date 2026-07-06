@@ -146,7 +146,7 @@ func TestRandomHashTimestampEncoding(t *testing.T) {
 	got := int64(binary.BigEndian.Uint64(padded)) // #nosec G115
 
 	if got < before || got > after {
-		t.Fatalf("decoded announce timestamp %d outside expected window [%d,%d]; raw bytes=%x — encoding bug would yield %d",
+		t.Fatalf("decoded announce timestamp %d outside expected window [%d,%d]; raw bytes=%x (encoding bug would yield %d)",
 			got, before, after, tsBytes, int64(tsBytes[0]))
 	}
 }
