@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math/rand/v2"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -173,12 +172,16 @@ func (n *simNode) originateAnnounce(t testing.TB) {
 // close() exactly once after each network is no longer needed.
 type simNetwork struct {
 	nodes     []*simNode
+	adj       [][]int
 	closeOnce sync.Once
 }
 
 func newSimNetwork(t testing.TB, n int) *simNetwork {
 	t.Helper()
-	net := &simNetwork{nodes: make([]*simNode, n)}
+	net := &simNetwork{
+		nodes: make([]*simNode, n),
+		adj:   make([][]int, n),
+	}
 	for i := range n {
 		net.nodes[i] = newSimNode(t, i)
 	}
@@ -222,6 +225,12 @@ func (s *simNetwork) link(t testing.TB, a, b int) {
 	nb.tr.ifaceStates.put(right.GetName(), &ifaceState{})
 	na.ifaces = append(na.ifaces, left)
 	nb.ifaces = append(nb.ifaces, right)
+	s.addEdge(a, b)
+}
+
+func (s *simNetwork) addEdge(a, b int) {
+	s.adj[a] = append(s.adj[a], b)
+	s.adj[b] = append(s.adj[b], a)
 }
 
 // Topology builders. Each returns a populated simNetwork; the caller
@@ -479,39 +488,7 @@ func TestSimLineDataRelay(t *testing.T) {
 	}
 }
 
-// TestSimMemoryFootprintAcrossNodes reports the average resident
-// path-table cost per (node, destination) pair in a fully populated
-// fabric. Useful as a budget guard for embedded deployments.
-func TestSimMemoryFootprintAcrossNodes(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping memory footprint test in -short mode")
-	}
-	const n = 32
-	net := buildLine(t, n)
-	t.Cleanup(net.close)
-
-	var m1, m2 runtime.MemStats
-	runtime.GC()
-	runtime.ReadMemStats(&m1)
-
-	for _, src := range net.nodes {
-		ifaceName := src.ifaces[0].GetName()
-		for _, dst := range net.nodes {
-			if dst == src {
-				continue
-			}
-			src.tr.UpdatePath(dst.destHash, dst.destHash, ifaceName, 1)
-		}
-	}
-
-	runtime.GC()
-	runtime.ReadMemStats(&m2)
-
-	entries := uint64(n) * uint64(n-1)
-	used := m2.Alloc - m1.Alloc
-	t.Logf("nodes=%d entries=%d total=%d KB per_entry=%d B",
-		n, entries, used/1024, used/entries)
-}
+// TestSimMemoryFootprintAcrossNodes lives in simulation_memory_test.go.
 
 // BenchmarkSimAnnounceConvergence reports wall-clock time for an
 // announce originated at one end of a line topology to reach every
@@ -521,14 +498,15 @@ func TestSimMemoryFootprintAcrossNodes(t *testing.T) {
 // the next so transport and interface goroutines never accumulate.
 func BenchmarkSimAnnounceConvergence(b *testing.B) {
 	muteDebugLogsForBenchmark(b)
-	for _, n := range []int{4, 8, 16} {
+	enableSimFastPath(b)
+	for _, n := range []int{4, 8, 16, 32} {
 		b.Run(fmt.Sprintf("Line-%d", n), func(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
 				net := buildLine(b, n)
 				src := net.nodes[0]
 				src.originateAnnounce(b)
-				took, ok := waitForPaths(net.nodes[1:], src.destHash, 30*time.Second)
+				took, ok := waitForPaths(net.nodes[1:], src.destHash, simConvergenceTimeout(n-1))
 				if ok != n-1 {
 					net.close()
 					b.Fatalf("only %d/%d converged in %v", ok, n-1, took)
@@ -576,7 +554,8 @@ func BenchmarkSimPathLookupAcrossNodes(b *testing.B) {
 // inboxes caps in-flight memory.
 func BenchmarkSimLineRelayThroughput(b *testing.B) {
 	muteDebugLogsForBenchmark(b)
-	for _, hops := range []int{2, 4, 8} {
+	enableSimFastPath(b)
+	for _, hops := range []int{2, 4, 8, 16} {
 		b.Run(fmt.Sprintf("Hops-%d", hops), func(b *testing.B) {
 			b.StopTimer()
 			n := hops + 1
@@ -670,5 +649,45 @@ func BenchmarkSimConcurrentLineRelay(b *testing.B) {
 			}
 			wg.Wait()
 		})
+	}
+}
+
+func BenchmarkSimRandomGraphRelay(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
+	enableSimFastPath(b)
+	b.StopTimer()
+	const n = 16
+	net := buildRandom(b, n, 0.12, 0xbeec)
+	b.Cleanup(net.close)
+	srcIdx := 0
+	dstIdx := n - 1
+	target := net.nodes[dstIdx].destHash
+	path, ok := net.pathNodes(srcIdx, dstIdx)
+	if !ok || len(path) < 2 {
+		b.Fatalf("no path from %d to %d", srcIdx, dstIdx)
+	}
+	preloadPathNodes(net.nodes, path, target)
+	secondHop := net.nodes[path[1]].id.Hash()
+	tail := net.nodes[dstIdx].ifaces[0]
+	src := net.nodes[srcIdx].ifaces[0]
+	pkt := buildHT2(secondHop, target, 0, make([]byte, 64))
+	const batch = 100
+
+	b.StartTimer()
+	b.ReportAllocs()
+	startRx := tail.GetRxPackets()
+	for i := 0; i < b.N; i++ {
+		for range batch {
+			_ = src.Send(pkt, "")
+		}
+	}
+	want := startRx + uint64(b.N*batch)
+	deadline := time.Now().Add(time.Duration(b.N)*batch*200*time.Microsecond + 10*time.Second)
+	for tail.GetRxPackets() < want && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	b.StopTimer()
+	if got := tail.GetRxPackets() - startRx; got < want {
+		b.Logf("random graph relay shortfall: got=%d want=%d", got, want)
 	}
 }

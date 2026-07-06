@@ -74,6 +74,7 @@ func linkLossy(t testing.TB, s *simNetwork, a, b int, dropAtoB, dropBtoA float64
 	nb.tr.ifaceStates.put(rightBase.GetName(), &ifaceState{})
 	na.ifaces = append(na.ifaces, leftBase)
 	nb.ifaces = append(nb.ifaces, rightBase)
+	s.addEdge(a, b)
 	return left, right
 }
 
@@ -85,10 +86,7 @@ func TestSimAsymmetricLink(t *testing.T) {
 		t.Skip("skipping multi-node simulation in -short mode")
 	}
 	const n = 4
-	net := &simNetwork{nodes: make([]*simNode, n)}
-	for i := range n {
-		net.nodes[i] = newSimNode(t, i)
-	}
+	net := newSimNetwork(t, n)
 	t.Cleanup(net.close)
 
 	net.link(t, 0, 1)
