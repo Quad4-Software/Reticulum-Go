@@ -21,6 +21,11 @@ type PipeInterface struct {
 	peer   *PipeInterface
 	tr     *transport.Transport
 	online bool
+
+	// dropOnce, if set, is consulted for every outbound packet; returning
+	// true drops that packet instead of delivering it. Used by tests that
+	// simulate packet loss on a lossy mesh path.
+	dropOnce func(data []byte) bool
 }
 
 func NewPipeInterface(name string) *PipeInterface {
@@ -37,6 +42,9 @@ func NewPipeInterface(name string) *PipeInterface {
 
 func (p *PipeInterface) Send(data []byte, address string) error {
 	if !p.online || p.peer == nil || !p.peer.online {
+		return nil
+	}
+	if p.dropOnce != nil && p.dropOnce(data) {
 		return nil
 	}
 	// Deliver to peer's transport

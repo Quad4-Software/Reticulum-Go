@@ -21,6 +21,16 @@ import (
 const (
 	hashmapNotExhausted = 0x00
 	hashmapExhausted    = 0xff
+
+	// incomingResourceRetryInterval controls how often the receive-side
+	// watchdog nudges a stalled transfer by re-sending the current part (or
+	// HMU) request. sendIncomingResourceReqNext is otherwise only driven by
+	// arriving packets, so if a request packet or every part in the
+	// requested window is lost in transit -- routine on lossy, multi-hop
+	// mesh paths -- the receiver would otherwise wait silently until the
+	// much longer outer Link.Request timeout gives up on the whole
+	// transfer.
+	incomingResourceRetryInterval = 4 * time.Second
 )
 
 type incomingResourceAsm struct {
@@ -33,6 +43,7 @@ type incomingResourceAsm struct {
 	totalParts           int
 	consecutiveCompleted int
 	waitingForHmu        bool
+	lastProgressAt       time.Time
 }
 
 func (rx *incomingResourceAsm) applyHashmapSegment(segment int, hashmapBytes []byte) int {
@@ -86,6 +97,7 @@ func (l *Link) beginIncomingResource(adv *resource.ResourceAdvertisement) error 
 		mapHashes:            make([][]byte, adv.Parts),
 		totalParts:           adv.Parts,
 		consecutiveCompleted: -1,
+		lastProgressAt:       time.Now(),
 	}
 	rx.applyHashmapSegment(0, adv.Hashmap)
 	debug.Log(
@@ -104,7 +116,67 @@ func (l *Link) beginIncomingResource(adv *resource.ResourceAdvertisement) error 
 	l.incomingMu.Lock()
 	l.incomingRx = rx
 	l.incomingMu.Unlock()
+	go l.watchIncomingResource(rx)
 	return l.sendIncomingResourceReqNext()
+}
+
+// watchIncomingResource re-issues the current part/HMU request for rx
+// whenever the transfer has made no progress for incomingResourceRetryInterval.
+// It exits as soon as rx is no longer the link's active incoming transfer,
+// i.e. once it completes, is superseded, or the link is torn down.
+func (l *Link) watchIncomingResource(rx *incomingResourceAsm) {
+	ticker := time.NewTicker(incomingResourceRetryInterval)
+	defer ticker.Stop()
+	for range ticker.C {
+		if !l.tickIncomingResourceWatchdog(rx) {
+			return
+		}
+	}
+}
+
+// tickIncomingResourceWatchdog runs a single watchdog check for rx,
+// re-issuing the current part/HMU request if no progress has been made for
+// at least incomingResourceRetryInterval. It returns false once the caller
+// should stop watching rx: either it is no longer the link's active
+// incoming transfer (completed, superseded, or torn down), or a retry
+// attempt hard-failed (e.g. the link has gone down).
+func (l *Link) tickIncomingResourceWatchdog(rx *incomingResourceAsm) bool {
+	l.incomingMu.Lock()
+	if l.incomingRx != rx {
+		l.incomingMu.Unlock()
+		return false
+	}
+	idle := time.Since(rx.lastProgressAt)
+	if idle < incomingResourceRetryInterval {
+		l.incomingMu.Unlock()
+		return true
+	}
+	stalledOnHmu := rx.waitingForHmu
+	rx.waitingForHmu = false
+	l.incomingMu.Unlock()
+
+	debug.Log(
+		debug.DebugInfo,
+		"Incoming resource stalled, re-requesting",
+		"link_id",
+		fmt.Sprintf("%x", l.linkID),
+		"idle",
+		idle,
+		"was_waiting_for_hmu",
+		stalledOnHmu,
+	)
+	if err := l.sendIncomingResourceReqNext(); err != nil {
+		debug.Log(
+			debug.DebugInfo,
+			"Incoming resource re-request failed",
+			"link_id",
+			fmt.Sprintf("%x", l.linkID),
+			"error",
+			err,
+		)
+		return false
+	}
+	return true
 }
 
 func (l *Link) sendIncomingResourceReqNext() error {
@@ -220,6 +292,9 @@ func (l *Link) applyIncomingHashmapUpdate(resHash []byte, segment int, hashmapBy
 		return nil
 	}
 	added := rx.applyHashmapSegment(segment, hashmapBytes)
+	if added > 0 {
+		rx.lastProgressAt = time.Now()
+	}
 	if added == 0 {
 		debug.Log(
 			debug.DebugVerbose,
@@ -331,6 +406,7 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 		return errors.New("incoming resource part map hash mismatch")
 	}
 	rx.partSlots[idx] = append([]byte(nil), data...)
+	rx.lastProgressAt = time.Now()
 
 	rx.consecutiveCompleted = consecutivePrefix(rx.partSlots)
 	debug.Log(
