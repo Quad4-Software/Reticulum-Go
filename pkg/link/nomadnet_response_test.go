@@ -218,4 +218,39 @@ func TestLinkRequestPassesMapDataAsDict(t *testing.T) {
 	if receivedMap["field_message"] != "hi" {
 		t.Errorf("field_message mismatch: %#v", receivedMap["field_message"])
 	}
+	if received, total := receipt.Progress(); received == 0 || received != total {
+		t.Errorf("expected fully-received progress for a small response, got %d/%d", received, total)
+	}
+}
+
+func TestReportIncomingResourceProgress_UpdatesPendingRequest(t *testing.T) {
+	l := &Link{}
+	req := &RequestReceipt{requestID: []byte("req-progress"), status: StatusPending, totalBytes: 30}
+	l.incomingResourceRequest = req
+
+	rx := &incomingResourceAsm{
+		partSlots:  make([][]byte, 3),
+		totalParts: 3,
+	}
+	rx.partSlots[0] = make([]byte, 10)
+	l.reportIncomingResourceProgress(rx)
+
+	if received, total := req.Progress(); received != 10 || total != 30 {
+		t.Fatalf("progress after 1 part = %d/%d; want 10/30", received, total)
+	}
+
+	rx.partSlots[1] = make([]byte, 10)
+	rx.partSlots[2] = make([]byte, 10)
+	l.reportIncomingResourceProgress(rx)
+
+	if received, total := req.Progress(); received != 30 || total != 30 {
+		t.Fatalf("progress after all parts = %d/%d; want 30/30", received, total)
+	}
+}
+
+func TestReportIncomingResourceProgress_NoPendingRequestIsNoop(t *testing.T) {
+	l := &Link{}
+	rx := &incomingResourceAsm{partSlots: make([][]byte, 1), totalParts: 1}
+	rx.partSlots[0] = make([]byte, 5)
+	l.reportIncomingResourceProgress(rx)
 }

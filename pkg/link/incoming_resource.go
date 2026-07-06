@@ -343,6 +343,7 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 		"consecutive_completed",
 		rx.consecutiveCompleted,
 	)
+	l.reportIncomingResourceProgress(rx)
 
 	if l.incomingTransferComplete(rx) {
 		inner := l.concatIncomingParts(rx)
@@ -365,6 +366,25 @@ func consecutivePrefix(slots [][]byte) int {
 		h = i
 	}
 	return h
+}
+
+// reportIncomingResourceProgress updates the bytes-received counter on the
+// pending request receipt (if this incoming resource is a response to a
+// Link.Request call) so callers can surface download progress/speed/ETA
+// while a large multi-part transfer is still in flight. Must be called with
+// l.incomingMu held.
+func (l *Link) reportIncomingResourceProgress(rx *incomingResourceAsm) {
+	pending := l.incomingResourceRequest
+	if pending == nil {
+		return
+	}
+	var received int64
+	for i := 0; i < rx.totalParts; i++ {
+		received += int64(len(rx.partSlots[i]))
+	}
+	pending.mutex.Lock()
+	pending.bytesReceived = received
+	pending.mutex.Unlock()
 }
 
 func (l *Link) incomingTransferComplete(rx *incomingResourceAsm) bool {
