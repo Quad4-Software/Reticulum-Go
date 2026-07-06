@@ -619,7 +619,11 @@ func (l *Link) Teardown() {
 	defer l.mutex.Unlock()
 
 	if l.status.Load() == int32(StatusActive) {
+		_ = l.sendTeardownPacket() // #nosec G104 - best effort notification to peer
 		l.status.Store(int32(StatusClosed))
+		if l.transport != nil && len(l.linkID) > 0 {
+			l.transport.UnregisterLink(l.linkID)
+		}
 		if l.closedCallback != nil {
 			l.closedCallback(l)
 		}
