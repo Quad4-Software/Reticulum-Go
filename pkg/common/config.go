@@ -92,6 +92,13 @@ type ReticulumConfig struct {
 	AppAspect           string
 	EnableSandbox       bool
 
+	// EnableControlAPI turns on the localhost JSON control API (pkg/controlapi)
+	// that lets non-Go applications use destinations, links, and announces
+	// without embedding the Reticulum stack.
+	EnableControlAPI bool
+	ControlAPIHost   string
+	ControlAPIPort   int
+
 	// ConnectedToSharedInstance is set at runtime when this process attaches
 	// to an existing local shared instance instead of owning one.
 	ConnectedToSharedInstance bool
@@ -108,6 +115,8 @@ func NewReticulumConfig() *ReticulumConfig {
 		PanicOnInterfaceErr: false,
 		LogLevel:            DefaultLogLevel,
 		Interfaces:          make(map[string]*InterfaceConfig),
+		ControlAPIHost:      DefaultControlAPIHost,
+		ControlAPIPort:      DefaultControlAPIPort,
 	}
 }
 
@@ -118,6 +127,14 @@ func (c *ReticulumConfig) Validate() error {
 	}
 	if c.InstanceControlPort < MinPort || c.InstanceControlPort > MaxPort {
 		return fmt.Errorf("invalid instance control port: %d", c.InstanceControlPort)
+	}
+	if c.EnableControlAPI {
+		if c.ControlAPIPort < MinPort || c.ControlAPIPort > MaxPort {
+			return fmt.Errorf("invalid control api port: %d", c.ControlAPIPort)
+		}
+		if len(c.RPCKey) == 0 {
+			return fmt.Errorf("control api requires rpc_key to be set")
+		}
 	}
 	return nil
 }
@@ -135,5 +152,7 @@ func DefaultConfig() *ReticulumConfig {
 		AppName:             "Go Client",
 		AppAspect:           "node",
 		EnableSandbox:       true,
+		ControlAPIHost:      DefaultControlAPIHost,
+		ControlAPIPort:      DefaultControlAPIPort,
 	}
 }

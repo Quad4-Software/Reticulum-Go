@@ -16,6 +16,7 @@ import (
 	"quad4/reticulum-go/pkg/buffer"
 	"quad4/reticulum-go/pkg/channel"
 	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/controlapi"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/interfaces"
@@ -29,6 +30,7 @@ type Reticulum struct {
 	config            *common.ReticulumConfig
 	transport         *transport.Transport
 	sharedInstance    *sharedinstance.Instance
+	controlAPI        *controlapi.Server
 	interfaces        []interfaces.Interface
 	channels          map[string]*channel.Channel
 	buffers           map[string]*buffer.Buffer
@@ -197,6 +199,10 @@ func main() {
 			os.Exit(1)
 		}
 	}
+
+	// Start the control API after the sandbox is applied so it only ever
+	// runs with the daemon's reduced runtime privileges.
+	r.StartControlAPI()
 
 	if runtime.GOOS != "windows" {
 		go func() {
@@ -405,6 +411,26 @@ func (r *Reticulum) Start() error {
 	return nil
 }
 
+// StartControlAPI starts the localhost control API in the background when
+// enable_control_api is set in the node configuration. Failures are logged
+// rather than fatal: the daemon still runs the mesh side without it.
+func (r *Reticulum) StartControlAPI() {
+	if !r.config.EnableControlAPI {
+		return
+	}
+	api, err := controlapi.New(r.transport, r.config)
+	if err != nil {
+		debug.Log(debug.DebugCritical, "Failed to initialize control API", "error", err)
+		return
+	}
+	r.controlAPI = api
+	go func() {
+		if err := api.Serve(); err != nil {
+			debug.Log(debug.DebugCritical, "Control API stopped", "error", err)
+		}
+	}()
+}
+
 func (r *Reticulum) hasOnlineInterface() bool {
 	for _, iface := range r.interfaces {
 		if iface != nil && iface.IsOnline() && iface.IsEnabled() {
@@ -419,6 +445,13 @@ func (r *Reticulum) Stop() error {
 	defer r.reloadMu.Unlock()
 
 	debug.Log(debug.DebugError, "Stopping Reticulum...")
+
+	if r.controlAPI != nil {
+		if err := r.controlAPI.Close(); err != nil {
+			debug.Log(debug.DebugCritical, "Error closing control API", "error", err)
+		}
+		r.controlAPI = nil
+	}
 
 	if r.sharedInstance != nil {
 		r.sharedInstance.Close()

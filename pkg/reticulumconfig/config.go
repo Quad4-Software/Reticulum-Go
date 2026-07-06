@@ -23,6 +23,8 @@ import (
 const (
 	DefaultSharedInstancePort  = 37428
 	DefaultInstanceControlPort = 37429
+	DefaultControlAPIPort      = 37430
+	DefaultControlAPIHost      = "127.0.0.1"
 	DefaultLogLevel            = 4
 	DefaultConfigDirName       = ".reticulum-go"
 	DefaultConfigFileName      = "config"
@@ -56,6 +58,8 @@ func DefaultConfig() *common.ReticulumConfig {
 		LogLevel:            DefaultLogLevel,
 		Interfaces:          make(map[string]*common.InterfaceConfig),
 		EnableSandbox:       true,
+		ControlAPIHost:      DefaultControlAPIHost,
+		ControlAPIPort:      DefaultControlAPIPort,
 	}
 }
 
@@ -274,6 +278,12 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		setInt(value, &cfg.LogLevel)
 	case "enable_sandbox":
 		cfg.EnableSandbox = parseBool(value)
+	case "enable_control_api":
+		cfg.EnableControlAPI = parseBool(value)
+	case "control_api_host":
+		cfg.ControlAPIHost = value
+	case "control_api_port":
+		setInt(value, &cfg.ControlAPIPort)
 	}
 }
 
@@ -444,7 +454,10 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	fmt.Fprintf(&b, "  shared_instance_port = %d\n", cfg.SharedInstancePort)
 	fmt.Fprintf(&b, "  instance_control_port = %d\n", cfg.InstanceControlPort)
 	fmt.Fprintf(&b, "  panic_on_interface_error = %s\n", boolStr(cfg.PanicOnInterfaceErr))
-	fmt.Fprintf(&b, "  enable_sandbox = %s\n\n", boolStr(cfg.EnableSandbox))
+	fmt.Fprintf(&b, "  enable_sandbox = %s\n", boolStr(cfg.EnableSandbox))
+	fmt.Fprintf(&b, "  enable_control_api = %s\n", boolStr(cfg.EnableControlAPI))
+	fmt.Fprintf(&b, "  control_api_host = %s\n", controlAPIHostOrDefault(cfg.ControlAPIHost))
+	fmt.Fprintf(&b, "  control_api_port = %d\n\n", controlAPIPortOrDefault(cfg.ControlAPIPort))
 
 	b.WriteString("[logging]\n")
 	fmt.Fprintf(&b, "  loglevel = %d\n\n", cfg.LogLevel)
@@ -553,6 +566,23 @@ func boolStr(v bool) string {
 		return "yes"
 	}
 	return "no"
+}
+
+// controlAPIHostOrDefault fills in the default bind host for configs created
+// before control_api_host existed or left blank on disk.
+func controlAPIHostOrDefault(host string) string {
+	if host == "" {
+		return DefaultControlAPIHost
+	}
+	return host
+}
+
+// controlAPIPortOrDefault mirrors controlAPIHostOrDefault for the port.
+func controlAPIPortOrDefault(port int) int {
+	if port == 0 {
+		return DefaultControlAPIPort
+	}
+	return port
 }
 
 // sortedInterfaceNames returns the interface map keys in lexicographic order

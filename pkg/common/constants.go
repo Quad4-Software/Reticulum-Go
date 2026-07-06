@@ -95,6 +95,12 @@ const (
 	DefaultLogLevel            = 20
 )
 
+// Defaults for the localhost control API (pkg/controlapi).
+const (
+	DefaultControlAPIHost = "127.0.0.1"
+	DefaultControlAPIPort = 37430
+)
+
 // Destination type discriminators encoded in packet headers.
 const (
 	DestinationSingle = 0x00
