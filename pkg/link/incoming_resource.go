@@ -37,6 +37,18 @@ type incomingResourceAsm struct {
 	adv *resource.ResourceAdvertisement
 	sdu int
 
+	// hashmapSegLen is the number of hash entries per hashmap/HMU segment.
+	// It must be computed from the link MDU, matching both
+	// ResourceAdvertisement.Pack (the initial segment 0) and
+	// chooseHashmapUpdateSegment/HashmapSegment on the sending side
+	// (subsequent HMU segments) -- NOT from the resource part SDU (sdu
+	// above), which is a different, smaller value used purely for sizing
+	// actual part payloads. Using the wrong value here silently
+	// desynchronizes every segment offset beyond the first (whose offset
+	// is always zero regardless of segment size), permanently gapping the
+	// receiver's hashmap and stalling the transfer forever.
+	hashmapSegLen int
+
 	partSlots            [][]byte
 	mapHashes            [][]byte
 	hashmapHeight        int
@@ -47,7 +59,7 @@ type incomingResourceAsm struct {
 }
 
 func (rx *incomingResourceAsm) applyHashmapSegment(segment int, hashmapBytes []byte) int {
-	segLen := resource.HashmapEntriesPerSegment(rx.sdu)
+	segLen := rx.hashmapSegLen
 	if segLen <= 0 {
 		segLen = 1
 	}
@@ -73,6 +85,9 @@ func (l *Link) beginIncomingResource(adv *resource.ResourceAdvertisement) error 
 	if sdu <= 0 {
 		return errors.New("invalid mdu for incoming resource")
 	}
+	l.mutex.RLock()
+	hashmapSegLen := resource.HashmapEntriesPerSegment(l.mdu)
+	l.mutex.RUnlock()
 	if adv.Parts <= 0 {
 		return errors.New("invalid parts in advertisement")
 	}
@@ -93,6 +108,7 @@ func (l *Link) beginIncomingResource(adv *resource.ResourceAdvertisement) error 
 	rx := &incomingResourceAsm{
 		adv:                  adv,
 		sdu:                  sdu,
+		hashmapSegLen:        hashmapSegLen,
 		partSlots:            make([][]byte, adv.Parts),
 		mapHashes:            make([][]byte, adv.Parts),
 		totalParts:           adv.Parts,

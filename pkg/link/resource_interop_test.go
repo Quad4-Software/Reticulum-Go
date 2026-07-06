@@ -85,6 +85,21 @@ func TestResourceInterop_PlaintextMultiSegment(t *testing.T) {
 	sendResourceAndWait(t, initLink, respLink, payload, false, "plaintext_multi_segment")
 }
 
+// TestResourceInterop_PlaintextMultiHMUSegment sends a plaintext payload
+// large enough that the resource's hashmap spans several hashmap-update
+// (HMU) segments beyond the one included in the initial advertisement. This
+// specifically exercises chooseHashmapUpdateSegment/HashmapSegment on the
+// sending side and applyHashmapSegment on the receiving side agreeing on
+// identical segment boundaries: the very first segment's offset is always
+// zero regardless of any per-side SDU/MDU mismatch, so only a transfer with
+// at least one HMU round trip beyond it can catch a desync there.
+func TestResourceInterop_PlaintextMultiHMUSegment(t *testing.T) {
+	initLink, respLink, cleanup := establishInteropLink(t)
+	defer cleanup()
+	payload := bytes.Repeat([]byte{0x5A, 0xC3, 0x91, 0x7E}, 100000)
+	sendResourceAndWait(t, initLink, respLink, payload, false, "plaintext_multi_hmu_segment")
+}
+
 func TestResourceInterop_CompressedHighlyRedundant(t *testing.T) {
 	initLink, respLink, cleanup := establishInteropLink(t)
 	defer cleanup()
