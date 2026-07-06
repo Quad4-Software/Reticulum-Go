@@ -1,0 +1,42 @@
+# Pinned actions (bump tag and SHA together when upgrading):
+#   actions/checkout@v6.0.1            8e8c483db84b4bee98b60c0593521ed34d9990e8
+#
+name: Simulation Heavy
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: sim-heavy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  CI_GO_NO_TELEMETRY_VERSION: "1.26.4"
+  CI_TASK_VERSION: "3.46.3"
+  GOFLAGS: -mod=vendor
+  GOPROXY: "off"
+  GOTOOLCHAIN: local
+
+jobs:
+  sim-heavy:
+    name: Heavy simulation
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Run heavy simulation tests
+        run: task test-sim-heavy

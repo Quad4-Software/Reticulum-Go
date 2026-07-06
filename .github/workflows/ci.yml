@@ -93,7 +93,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [race, leaks, network, fuzz, wasm]
+        suite: [race, leaks, sim, fuzz, wasm]
 
     steps:
       - name: Checkout
@@ -123,7 +123,8 @@ jobs:
           case "${{ matrix.suite }}" in
             race) task test-race ;;
             leaks) task test-leaks ;;
-            network) task test-network ;;
+            sim) task test-sim ;;
+            network) task test-sim ;;
             fuzz) task test-fuzz ;;
             wasm) task test-wasm ;;
             *) echo "unknown suite: ${{ matrix.suite }}" >&2; exit 1 ;;

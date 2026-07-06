@@ -39,9 +39,24 @@ tasks:
       - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/transport -run TestTransportLeak'
 
   test-network:
-    desc: Run network simulation tests
+    desc: Run network simulation tests (alias for test-sim)
     cmds:
-      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/transport -run TestTransportNetworkSimulation'
+      - task: test-sim
+
+  test-sim:
+    desc: Run in-process multi-node simulation tests
+    cmds:
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/transport -run TestSim -timeout 20m'
+
+  test-sim-heavy:
+    desc: Run large-scale simulation tests (build tag heavy)
+    cmds:
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -tags=heavy -v ./pkg/transport -run TestSimHeavy -timeout 45m'
+
+  test-sim-bench:
+    desc: Run simulation benchmarks
+    cmds:
+      - '{{.GOCMD}} test -run=^$ -bench=BenchmarkSim -benchmem ./pkg/transport'
 
   coverage:
     desc: Generate test coverage report
