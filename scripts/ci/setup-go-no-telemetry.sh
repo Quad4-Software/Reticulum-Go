@@ -67,7 +67,17 @@ install_bootstrap() {
     esac
 }
 
-build_at_version() {
+patch_fork_for_platform() {
+    case "$GOOS" in
+    darwin)
+        f="$WORK_DIR/scripts/strip-vendor-telemetry.sh"
+        if [ -f "$f" ]; then
+            sed -i '' 's/sed -i /sed -i '"''"' /g' "$f"
+        fi
+        ;;
+    esac
+}
+
     root="$1"
     cd "$root"
 
@@ -106,7 +116,8 @@ if ! ci_bootstrap_valid "$BOOTSTRAP_ROOT"; then
 fi
 
 export PATH="${BOOTSTRAP_ROOT}/bin:$PATH"
-"${BOOTSTRAP_ROOT}/bin/go" version
+GO_BIN="$(ci_go_bin "$BOOTSTRAP_ROOT")"
+"$GO_BIN" version
 
 rm -rf "$WORK_DIR"
 if [ -n "${CI_GO_NO_TELEMETRY_SRC:-}" ] && [ -d "${CI_GO_NO_TELEMETRY_SRC}/.git" ]; then
@@ -116,6 +127,7 @@ else
 fi
 
 cd "$WORK_DIR"
+patch_fork_for_platform
 if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
     git checkout -f "v${VERSION}"
     cd src
@@ -133,7 +145,7 @@ else
 fi
 
 cd "$WORK_DIR"
-GO="${WORK_DIR}/bin/go"
+GO="$(ci_go_bin "$WORK_DIR")"
 
 if [ ! -x "$GO" ]; then
     echo "missing ${GO} after build" >&2

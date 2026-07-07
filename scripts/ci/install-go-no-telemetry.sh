@@ -36,17 +36,18 @@ export_paths() {
 }
 
 verify_toolchain() {
-    if [ ! -x "${INSTALL_ROOT}/bin/go" ]; then
+    go_bin="$(ci_go_bin "$INSTALL_ROOT")"
+    if [ ! -x "$go_bin" ]; then
         return 1
     fi
-    if ! GOROOT="$INSTALL_ROOT" "${INSTALL_ROOT}/bin/go" version >/dev/null 2>&1; then
+    if ! GOROOT="$INSTALL_ROOT" "$go_bin" version >/dev/null 2>&1; then
         return 1
     fi
-    if [ "$(GOROOT="$INSTALL_ROOT" "${INSTALL_ROOT}/bin/go" telemetry)" != "off" ]; then
+    if [ "$(GOROOT="$INSTALL_ROOT" "$go_bin" telemetry)" != "off" ]; then
         echo "go telemetry is not off" >&2
         return 1
     fi
-    GO_VER="$(GOROOT="$INSTALL_ROOT" "${INSTALL_ROOT}/bin/go" version | awk '{print $3}')"
+    GO_VER="$(GOROOT="$INSTALL_ROOT" "$go_bin" version | awk '{print $3}')"
     case "$GO_VER" in
         go${VERSION}*) return 0 ;;
         *)

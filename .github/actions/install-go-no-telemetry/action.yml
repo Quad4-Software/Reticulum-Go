@@ -35,11 +35,31 @@ runs:
         key: ${{ steps.platform.outputs.key }}
 
     - name: Install toolchain
+      id: install
       if: steps.cache.outputs.cache-hit != 'true'
       shell: sh
+      continue-on-error: ${{ runner.os != 'Linux' }}
       env:
         CI_GO_NO_TELEMETRY_ROOT: ${{ runner.os != 'Linux' && format('{0}/go-no-telemetry', runner.tool_cache) || '' }}
       run: sh scripts/ci/install-go-no-telemetry.sh "${{ inputs.version }}"
+
+    - name: Install stock Go fallback
+      if: steps.cache.outputs.cache-hit != 'true' && steps.install.outcome == 'failure'
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+      with:
+        go-version: ${{ inputs.version }}
+        check-latest: false
+        cache: false
+
+    - name: Disable telemetry on stock Go
+      if: steps.cache.outputs.cache-hit != 'true' && steps.install.outcome == 'failure'
+      shell: bash
+      run: |
+          set -euo pipefail
+          go telemetry off
+          test "$(go telemetry)" = "off"
+          echo "GOROOT=$(go env GOROOT)" >> "$GITHUB_ENV"
+          echo "GOTOOLCHAIN=local" >> "$GITHUB_ENV"
 
     - name: Verify cached toolchain
       if: steps.cache.outputs.cache-hit == 'true'
@@ -47,23 +67,25 @@ runs:
       run: |
           set -euo pipefail
           for root in /usr/local/go-no-telemetry "${{ runner.tool_cache }}/go-no-telemetry"; do
-            if [ -x "$root/bin/go" ] && GOROOT="$root" "$root/bin/go" version >/dev/null 2>&1; then
-              export GOROOT="$root"
-              export PATH="$root/bin:$PATH"
-              export GOTOOLCHAIN=local
-              go version
-              test "$(go telemetry)" = "off"
-              echo "GOROOT=$root" >> "$GITHUB_ENV"
-              echo "GOTOOLCHAIN=local" >> "$GITHUB_ENV"
-              echo "$root/bin" >> "$GITHUB_PATH"
-              exit 0
-            fi
+            for gobin in "$root/bin/go" "$root/bin/go.exe"; do
+              if [ -x "$gobin" ] && GOROOT="$root" "$gobin" version >/dev/null 2>&1; then
+                export GOROOT="$root"
+                export PATH="$root/bin:$PATH"
+                export GOTOOLCHAIN=local
+                go version
+                test "$(go telemetry)" = "off"
+                echo "GOROOT=$root" >> "$GITHUB_ENV"
+                echo "GOTOOLCHAIN=local" >> "$GITHUB_ENV"
+                echo "$root/bin" >> "$GITHUB_PATH"
+                exit 0
+              fi
+            done
           done
           echo "cached toolchain is missing or wrong architecture" >&2
           exit 1
 
     - name: Export toolchain paths
-      if: steps.cache.outputs.cache-hit != 'true'
+      if: steps.cache.outputs.cache-hit != 'true' && steps.install.outcome == 'success'
       shell: bash
       run: |
           set -euo pipefail
@@ -74,7 +96,7 @@ runs:
           echo "${root}/bin" >> "$GITHUB_PATH"
 
     - name: Save toolchain cache
-      if: steps.cache.outputs.cache-hit != 'true'
+      if: steps.cache.outputs.cache-hit != 'true' && steps.install.outcome == 'success'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |

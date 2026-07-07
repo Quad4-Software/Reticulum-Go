@@ -42,5 +42,17 @@ ci_go_no_telemetry_root() {
 
 ci_bootstrap_valid() {
 	root="$1"
-	[ -x "${root}/bin/go" ] && "${root}/bin/go" version >/dev/null 2>&1
+	go_bin="$(ci_go_bin "$root")"
+	[ -x "$go_bin" ] && GOROOT="$root" "$go_bin" version >/dev/null 2>&1
+}
+
+ci_go_bin() {
+	root="$1"
+	if [ -x "${root}/bin/go" ]; then
+		echo "${root}/bin/go"
+	elif [ -x "${root}/bin/go.exe" ]; then
+		echo "${root}/bin/go.exe"
+	else
+		echo "${root}/bin/go"
+	fi
 }
