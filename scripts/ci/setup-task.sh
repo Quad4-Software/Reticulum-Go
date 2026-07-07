@@ -7,9 +7,9 @@ TASK_VERSION="${1:-3.49.1}"
 
 ARCH="$(uname -m)"
 case "$ARCH" in
-    x86_64)  ARCH="amd64" ;;
-    aarch64) ARCH="arm64" ;;
-    *)       echo "Unsupported architecture: $ARCH" >&2; exit 1 ;;
+    x86_64 | amd64) ARCH="amd64" ;;
+    aarch64 | arm64) ARCH="arm64" ;;
+    *) echo "Unsupported architecture: $ARCH" >&2; exit 1 ;;
 esac
 
 BASE_URL="https://github.com/go-task/task/releases/download/v${TASK_VERSION}"
@@ -85,4 +85,8 @@ if [ -n "${GITEA_PATH:-}" ]; then
     echo "$INSTALL_DIR" >> "$GITEA_PATH"
 fi
 
-task --version
+TASK_BIN="${INSTALL_DIR}/task"
+if [ -f "${INSTALL_DIR}/task.exe" ]; then
+    TASK_BIN="${INSTALL_DIR}/task.exe"
+fi
+"$TASK_BIN" --version

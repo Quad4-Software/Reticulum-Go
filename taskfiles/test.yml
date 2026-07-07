@@ -58,6 +58,11 @@ tasks:
     cmds:
       - sh scripts/ci/run-os-tests.sh
 
+  test-binary-smoke:
+    desc: Build native binary and smoke-test --version, --help, and short daemon run
+    cmds:
+      - sh scripts/ci/run-binary-smoke.sh
+
   test-leaks:
     desc: Run resource leak tests
     cmds:

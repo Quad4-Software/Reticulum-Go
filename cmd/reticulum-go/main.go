@@ -68,6 +68,13 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 }
 
 func main() {
+	if run, code := parseCLI(os.Args[1:]); !run {
+		os.Exit(code)
+	}
+	runDaemon()
+}
+
+func runDaemon() {
 	debug.Init()
 	debug.Log(debug.DebugCritical, "Initializing Reticulum", "debug_level", debug.GetDebugLevel())
 
