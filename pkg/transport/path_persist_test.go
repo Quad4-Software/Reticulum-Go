@@ -281,15 +281,15 @@ func TestDecodePathTableEntries_SkipsMalformedEntriesButKeepsGoodOnes(t *testing
 
 	cases := []any{
 		"not an array at all",
-		[]any{},                                    // too short
-		[]any{[]byte{0x01}, 0.0, []byte{}, uint8(0), 0.0, []any{}, []byte{}, []byte{}}, // bad dest hash length
-		[]any{goodDest, "not-a-float", []byte{}, uint8(0), 0.0, []any{}, []byte{}, []byte{}},       // bad timestamp type
-		[]any{goodDest, 0.0, "not-bytes", uint8(0), 0.0, []any{}, []byte{}, []byte{}},              // bad next hop type
-		[]any{goodDest, 0.0, []byte{}, "not-a-number", 0.0, []any{}, []byte{}, []byte{}},           // bad hops type
-		[]any{goodDest, 0.0, []byte{}, uint8(0), "not-a-float", []any{}, []byte{}, []byte{}},       // bad expires type
-		[]any{goodDest, 0.0, []byte{}, uint8(0), 0.0, []any{}, "not-bytes", []byte{}},               // bad iface key type
-		[]any{goodDest, 0.0, []byte{}, int64(-1), 0.0, []any{}, []byte{}, []byte{}},                 // negative hops
-		[]any{goodDest, 0.0, []byte{}, int64(999), 0.0, []any{}, []byte{}, []byte{}},                // out of range hops
+		[]any{}, // too short
+		[]any{[]byte{0x01}, 0.0, []byte{}, uint8(0), 0.0, []any{}, []byte{}, []byte{}},       // bad dest hash length
+		[]any{goodDest, "not-a-float", []byte{}, uint8(0), 0.0, []any{}, []byte{}, []byte{}}, // bad timestamp type
+		[]any{goodDest, 0.0, "not-bytes", uint8(0), 0.0, []any{}, []byte{}, []byte{}},        // bad next hop type
+		[]any{goodDest, 0.0, []byte{}, "not-a-number", 0.0, []any{}, []byte{}, []byte{}},     // bad hops type
+		[]any{goodDest, 0.0, []byte{}, uint8(0), "not-a-float", []any{}, []byte{}, []byte{}}, // bad expires type
+		[]any{goodDest, 0.0, []byte{}, uint8(0), 0.0, []any{}, "not-bytes", []byte{}},        // bad iface key type
+		[]any{goodDest, 0.0, []byte{}, int64(-1), 0.0, []any{}, []byte{}, []byte{}},          // negative hops
+		[]any{goodDest, 0.0, []byte{}, int64(999), 0.0, []any{}, []byte{}, []byte{}},         // out of range hops
 		good,
 	}
 

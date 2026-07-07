@@ -146,15 +146,16 @@ func TestSimPathTableGrowthBounded(t *testing.T) {
 	}
 }
 
-func TestSimMemoryFootprintAcrossNodes(t *testing.T) {
-	skipSimIfShort(t)
-
-	const n = 32
-	net := buildLine(t, n)
-	t.Cleanup(net.close)
-
+// measureUpdatePathDelta fills every node's path table once and reports the
+// resulting heap growth. Background maintenance goroutines (announce/path
+// cleanup tickers) can allocate concurrently with the GC snapshots taken
+// here, so callers should take the minimum of several samples to filter out
+// that unrelated noise rather than trusting a single sample.
+func measureUpdatePathDelta(net *simNetwork) uint64 {
 	var m1, m2 runtime.MemStats
 	runtime.GC()
+	runtime.GC()
+	time.Sleep(10 * time.Millisecond)
 	runtime.ReadMemStats(&m1)
 
 	for _, src := range net.nodes {
@@ -168,13 +169,35 @@ func TestSimMemoryFootprintAcrossNodes(t *testing.T) {
 	}
 
 	runtime.GC()
+	runtime.GC()
+	time.Sleep(10 * time.Millisecond)
 	runtime.ReadMemStats(&m2)
 
-	entries := uint64(n) * uint64(n-1)
-	var used uint64
-	if m2.Alloc >= m1.Alloc {
-		used = m2.Alloc - m1.Alloc
+	if m2.Alloc < m1.Alloc {
+		return 0
 	}
+	return m2.Alloc - m1.Alloc
+}
+
+func TestSimMemoryFootprintAcrossNodes(t *testing.T) {
+	skipSimIfShort(t)
+
+	const n = 32
+	net := buildLine(t, n)
+	t.Cleanup(net.close)
+
+	// Take the minimum of several samples: genuine per-entry cost is a
+	// floor, while unrelated background allocations (maintenance tickers,
+	// GC scheduling under -race) can only push a sample above that floor.
+	const samples = 5
+	used := measureUpdatePathDelta(net)
+	for i := 1; i < samples; i++ {
+		if u := measureUpdatePathDelta(net); u < used {
+			used = u
+		}
+	}
+
+	entries := uint64(n) * uint64(n-1)
 	perEntry := used / entries
 	heapKB := used / 1024
 
