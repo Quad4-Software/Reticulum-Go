@@ -250,8 +250,22 @@ func (s *Stream) QueueSend(payload []byte) {
 	}
 	s.mu.Unlock()
 	if needOut {
-		_ = s.hub.poller.Mod(s.fd, evRead|evWrite)
+		s.hub.pollerMod(s.fd, evRead|evWrite)
 	}
+}
+
+func (h *Hub) pollerMod(fd int, events int) {
+	if h.poller == nil {
+		return
+	}
+	_ = h.poller.Mod(fd, events)
+}
+
+func (h *Hub) pollerDel(fd int) {
+	if h.poller == nil {
+		return
+	}
+	_ = h.poller.Del(fd)
 }
 
 // Close removes the stream from the hub and closes the socket.
@@ -276,7 +290,7 @@ func (h *Hub) removeStream(fd int) {
 	delete(h.streams, fd)
 	h.mu.Unlock()
 	if !h.goMode {
-		_ = h.poller.Del(fd)
+		h.pollerDel(fd)
 	}
 }
 
@@ -284,7 +298,7 @@ func (h *Hub) removeListener(fd int) {
 	h.mu.Lock()
 	delete(h.listeners, fd)
 	h.mu.Unlock()
-	_ = h.poller.Del(fd)
+	h.pollerDel(fd)
 }
 
 // Close shuts down the hub event loop.
@@ -332,6 +346,9 @@ func (h *Hub) loop() {
 		case <-h.stop:
 			return
 		default:
+		}
+		if h.poller == nil {
+			return
 		}
 		events, err := h.poller.Wait(1)
 		if err != nil {
@@ -388,7 +405,7 @@ func (h *Hub) writeStream(s *Stream) {
 	if len(s.txBuf) == 0 {
 		s.wantOut = false
 		s.mu.Unlock()
-		_ = h.poller.Mod(s.fd, evRead)
+		h.pollerMod(s.fd, evRead)
 		return
 	}
 	buf := append([]byte(nil), s.txBuf...)
@@ -408,7 +425,7 @@ func (h *Hub) writeStream(s *Stream) {
 	if len(s.txBuf) == 0 {
 		s.wantOut = false
 		s.mu.Unlock()
-		_ = h.poller.Mod(s.fd, evRead)
+		h.pollerMod(s.fd, evRead)
 		return
 	}
 	s.mu.Unlock()
