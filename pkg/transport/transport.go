@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"maps"
 	"net"
+	"path/filepath"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -187,10 +188,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		done:                  make(chan struct{}),
 	}
 
-	transportIdent, err := identity.LoadOrCreateTransportIdentity("")
-	if cfg != nil {
-		transportIdent, err = identity.LoadOrCreateTransportIdentity(cfg.ConfigPath)
-	}
+	transportIdent, err := identity.LoadOrCreateTransportIdentity(transportStoragePath(cfg))
 	if err == nil {
 		t.transportIdentity = transportIdent
 	}
@@ -206,6 +204,13 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 	identity.InitKnownDestinationsPersistence(configPath(cfg), inMemoryKnown)
 
 	return t
+}
+
+func transportStoragePath(cfg *common.ReticulumConfig) string {
+	if cfg == nil || cfg.ConfigPath == "" {
+		return ""
+	}
+	return filepath.Join(filepath.Dir(cfg.ConfigPath), "storage")
 }
 
 func (t *Transport) startMaintenanceJobs() {
