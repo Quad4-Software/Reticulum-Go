@@ -525,6 +525,15 @@ func writeInterface(b *strings.Builder, name string, iface *common.InterfaceConf
 	if iface.I2PTunneled {
 		fmt.Fprintf(b, "    i2p_tunneled = %s\n", boolStr(iface.I2PTunneled))
 	}
+	if iface.I2PConnectable {
+		fmt.Fprintf(b, "    connectable = %s\n", boolStr(iface.I2PConnectable))
+	}
+	if iface.I2PSAMAddress != "" {
+		fmt.Fprintf(b, "    sam_address = %s\n", iface.I2PSAMAddress)
+	}
+	if len(iface.I2PPeers) > 0 {
+		fmt.Fprintf(b, "    peers = %s\n", strings.Join(iface.I2PPeers, ", "))
+	}
 	if iface.PreferIPv6 {
 		fmt.Fprintf(b, "    prefer_ipv6 = %s\n", boolStr(iface.PreferIPv6))
 	}

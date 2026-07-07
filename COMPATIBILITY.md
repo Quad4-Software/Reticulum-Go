@@ -30,7 +30,7 @@ On the Python side, see [RNS/Interfaces](https://github.com/markqvist/Reticulum/
 | TCPClientInterface | Yes | [tcp.go](pkg/interfaces/tcp.go), tcp_common.go, HDLC, OS-specific keepalives (tcp_*_*.go). |
 | TCPServerInterface | Yes | tcp.go accept loop, HDLC, IFAC. |
 | AutoInterface | Yes | [auto.go](pkg/interfaces/auto.go). IPv6 link-local multicast, group hash, peer aging. |
-| I2PInterface | Partial | [i2p.go](pkg/interfaces/i2p.go) with SAM bridge in [pkg/i2p](pkg/i2p/). Inbound listener, outbound peers (`peers`), and optional connectable server tunnel. Requires a running I2P router with SAM. |
+| I2PInterface | Yes | [i2p.go](pkg/interfaces/i2p.go) with SAM bridge in [pkg/i2p](pkg/i2p/). Parent listener, outbound peers (`peers`), connectable server tunnel, spawned per-stream peers with HDLC, IFAC, ingress control, and tunnel synthesis. Requires a running I2P router with SAM. Live tests: `RUN_LIVE_I2P=1`. |
 | BackboneInterface | Yes | Server: [backbone.go](pkg/interfaces/backbone.go) listens and spawns per-connection [BackboneClientInterface](pkg/interfaces/backbone_client.go) children (Python model). Client: outbound dial when `target_host` is set. Process-wide multiplexed I/O via [pkg/backbone](pkg/backbone/) (epoll on Linux, kqueue on BSD/macOS, `go` fallback). Optional `io_uring` backend probes the kernel and uses epoll-based multiplexing (no dedicated ring I/O yet). HDLC framing and backbone MTU/bitrate match Python. Live interop: [tests/interop/backbone_live_test.go](tests/interop/backbone_live_test.go). |
 | RNodeInterface | No | Not implemented. There is no RNode serial driver. |
 | RNodeMultiInterface | No | Depends on the RNode driver. |

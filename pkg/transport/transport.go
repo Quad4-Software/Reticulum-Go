@@ -23,6 +23,7 @@ import (
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/interfaces"
 	"quad4/reticulum-go/pkg/packet"
 	"quad4/reticulum-go/pkg/pathfinder"
 	"quad4/reticulum-go/pkg/rate"
@@ -111,6 +112,10 @@ type Transport struct {
 	pendingPathEntries    []pendingPathEntry
 	done                  chan struct{}
 	stopOnce              sync.Once
+
+	tunnelMu           sync.Mutex
+	tunnels            map[[32]byte]*tunnelEntry
+	tunnelSynthOutHash []byte
 }
 
 // SetBlackholeTable sets the blackhole table. HandleAnnounce drops blackholed
@@ -209,6 +214,7 @@ func (t *Transport) startMaintenanceJobs() {
 		select {
 		case <-ticker.C:
 			t.cleanupExpiredPaths()
+			t.cleanupExpiredTunnels()
 			t.cleanupExpiredDiscoveryRequests()
 			t.cleanupExpiredAnnounces()
 			t.cleanupExpiredReceipts()
@@ -464,6 +470,11 @@ func (t *Transport) registerInterfaceLocked(name string, iface common.NetworkInt
 	})
 	t.interfaces[name] = iface
 	cfg := t.interfaceConfig(name)
+	if p, ok := iface.(interfaces.InterfaceConfigProvider); ok {
+		if pc := p.InterfaceConfig(); pc != nil {
+			cfg = pc
+		}
+	}
 	t.ifaceStates.put(name, buildIfaceState(cfg))
 	applyIfacePRConfig(iface, cfg)
 }
@@ -1376,6 +1387,9 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		t.updatePathUnlocked(destinationHash, nextHop, iface.GetName(), hopCount+1)
 		t.mutex.Unlock()
 		debug.Log(debug.DebugInfo, "Registered path", "hash", fmt.Sprintf("%x", destinationHash), "interface", iface.GetName(), "hops", hopCount+1, "nextHop", fmt.Sprintf("%x", nextHop))
+		if tun, ok := iface.(TunnelInterface); ok && len(tun.TunnelID()) == 32 {
+			t.associateTunnelPath(tun, destinationHash, receivedFrom, announceHash[:], hopCount+1)
+		}
 	}
 
 	debug.Log(debug.DebugInfo, "Notifying announce handlers", "destHash", fmt.Sprintf("%x", destinationHash), "appDataLen", len(appData))
@@ -1658,6 +1672,10 @@ func (t *Transport) InitializePathRequestHandler() error {
 	pathRequestDest.AcceptsLinks(true)
 	t.pathRequestDest = pathRequestDest
 	t.RegisterDestination(pathRequestDest.GetHash(), pathRequestDest)
+
+	if err := t.InitializeTunnelHandler(); err != nil {
+		return fmt.Errorf("tunnel handler: %w", err)
+	}
 
 	debug.Log(debug.DebugInfo, "Path request handler initialized")
 	return nil

@@ -105,9 +105,10 @@ func (r *Reticulum) interfaceFromConfigContext() *interfaces.FromConfigContext {
 	}
 	storage := filepath.Join(homeDir, ".reticulum-go", "storage")
 	return &interfaces.FromConfigContext{
-		I2PStoragePath: storage,
-		TransportID:    r.transport.TransportIdentityHash(),
-		BackboneHub:    backbone.Get(),
+		I2PStoragePath:        storage,
+		TransportID:           r.transport.TransportIdentityHash(),
+		PanicOnInterfaceError: r.config != nil && r.config.PanicOnInterfaceErr,
+		BackboneHub:           backbone.Get(),
 		SpawnBackbone: func(client *interfaces.BackboneClientInterface) {
 			if err := r.transport.RegisterInterface(client.GetName(), client); err != nil {
 				debug.Log(debug.DebugCritical, "Failed to register spawned backbone client", "error", err)
@@ -118,7 +119,17 @@ func (r *Reticulum) interfaceFromConfigContext() *interfaces.FromConfigContext {
 		RegisterPeer: func(name string, peer common.NetworkInterface) error {
 			return r.transport.RegisterInterface(name, peer)
 		},
+		UnregisterPeer: func(name string) {
+			r.transport.UnregisterInterface(name)
+			r.unregisterInterfaceBuffers(name)
+		},
 		SetupPeer: r.handleInterface,
+		SynthesizeTunnel: func(peer interfaces.TunnelPeer) {
+			_ = r.transport.SynthesizeTunnel(peer)
+		},
+		VoidTunnel: func(peer interfaces.TunnelPeer) {
+			r.transport.VoidTunnel(peer)
+		},
 	}
 }
 
@@ -147,6 +158,11 @@ func (r *Reticulum) handleInterface(iface common.NetworkInterface) {
 	r.buffers[iface.GetName()] = &buffer.Buffer{
 		ReadWriter: rw,
 	}
+}
+
+func (r *Reticulum) unregisterInterfaceBuffers(name string) {
+	delete(r.channels, name)
+	delete(r.buffers, name)
 }
 
 func (r *Reticulum) monitorInterfaces() {
@@ -355,6 +371,9 @@ func (r *Reticulum) Start() error {
 
 	if err := r.transport.Start(); err != nil {
 		return fmt.Errorf("failed to start transport: %v", err)
+	}
+	if err := r.transport.InitializePathRequestHandler(); err != nil {
+		return fmt.Errorf("path request handler: %w", err)
 	}
 	debug.Log(debug.DebugInfo, "Transport started successfully")
 

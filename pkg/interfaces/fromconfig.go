@@ -74,7 +74,7 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 		for _, peerAddr := range cfg.I2PPeers {
 			peerName := name + " to " + peerAddr
 			maxTries := cfg.MaxReconnTries
-			peer := NewI2PInterfacePeer(parent, peerName, peerAddr, maxTries)
+			peer := NewI2PInterfacePeer(parent, peerName, peerAddr, maxTries, cfg)
 			parent.registerSpawnedPeer(peer)
 		}
 		iface = parent
