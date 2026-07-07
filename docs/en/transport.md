@@ -1,0 +1,137 @@
+# Transport
+
+| Field | Value |
+|-------|-------|
+| Document version | 1.0 |
+| Last updated | 2026-07-07 |
+| Author | Ivan |
+
+## Role
+
+`pkg/transport` is the routing engine. It learns paths from signed announces, forwards packets across interfaces, maintains link table state, and delivers data packets to registered destinations.
+
+Transport sits between interfaces and application destinations. Every enabled interface registers with `Transport.RegisterInterface`, which sets a callback from inbound frames to `HandlePacket`.
+
+## Path table
+
+The path table maps a 16-byte destination hash to:
+
+- Next-hop interface name
+- Hop count and timestamps
+- Transport ID for multi-hop type-2 headers
+- Interface-specific metadata
+
+Paths are learned from:
+
+- Signed announces received on interfaces
+- Path response packets
+- Explicit path requests from applications or the control API
+
+### Path selection
+
+When multiple paths exist, transport uses random-blob selection aligned with Python 1.3.4 deduplication behavior (`pkg/transport/path_selection.go`).
+
+### Path requests
+
+Applications call `RequestPath` on transport or use destination helpers. Ingress and egress controls (`pkg/rate`, `pkg/transport/ingress.go`) limit announce and path-request rates per interface configuration.
+
+### Persistence
+
+By default the path table can persist to `storage/destination_table` as msgpack with a layout compatible with Python. Set `in_memory_path_table = yes` to keep paths in RAM only.
+
+Known destinations persist under `storage/known_destinations/`. Set `in_memory_known_destinations = yes` for RAM-only mode.
+
+## Packet handling
+
+Inbound packets enter `HandlePacket` and branch on packet type:
+
+```
+HandlePacket
+  |
+  +-- Announce  -> handleAnnouncePacket
+  |                 update path table, invoke announce handlers
+  |
+  +-- Link      -> handleLinkPacket
+  |                 link setup, identify, keepalive
+  |
+  +-- Proof     -> handleProofPacket
+  |
+  +-- Data      -> handleTransportPacket
+                    |
+                    +-- ContextPathResponse -> handlePathResponse
+                    +-- forwardTransportPacket (type-2 relay)
+                    +-- forwardLinkData
+                    +-- deliver to Destination.Receive
+```
+
+### Header type 2 relay
+
+When transport mode is enabled and the local node acts as a relay, data packets may be rewrapped with header type 2 if the transport ID in the path matches. This matches Python transport relay semantics.
+
+### Announce deduplication
+
+If a destination is already present in the path table, duplicate announces may be dropped per Python 1.3.4 behavior.
+
+## Links at the transport layer
+
+Transport maintains a link table for active sessions. Link packets are routed to the correct `pkg/link` instance. Incoming link requests are dispatched to `link.HandleIncomingLinkRequest` (there is no full Python `Transport.CreateIncomingLink` helper in Go).
+
+## Blackhole interaction
+
+When `pkg/blackhole` has an entry for an identity hash, announces from that identity are dropped. Link teardown at LINKIDENTIFY for blackholed identities is not implemented (gap vs Python 1.3.2). See [Compatibility](compatibility.md).
+
+## Transport identity
+
+When `enable_transport = yes`, transport may use a dedicated transport identity stored at `storage/transport_identity`. This identity participates in transport-mode relay and proofs as defined by the protocol.
+
+## Registration API
+
+Typical embedder sequence:
+
+```go
+tr := transport.NewTransport(cfg)
+tr.Start()
+
+iface, err := interfaces.NewFromConfigWithContext(ctx, name, ifaceCfg)
+tr.RegisterInterface(name, iface)
+iface.Start()
+```
+
+`RegisterInterface` binds the interface packet callback to `HandlePacket`.
+
+Outbound send path:
+
+```go
+err := tr.SendPacket(pkt)
+```
+
+`SendPacket` looks up the path, may rewrap for relay, serializes, and calls `Interface.Send` on the chosen interface.
+
+## Rate limiting and ingress control
+
+Per-interface `ingress_control` and `announce_rate_*` settings map to token buckets in `pkg/rate`. This mirrors Python 1.2.5 path-request and announce controls.
+
+## Probes
+
+Python supports transport probe responses via `respond_to_probes` and `allow_probes`. These keys are ignored in Reticulum-Go. Probe handling is not ported.
+
+## Debugging
+
+Raise `loglevel` in config. Transport logs at debug levels 5 and above include path updates and forwarding decisions via `pkg/debug`.
+
+## Testing
+
+| Test area | Location |
+|-----------|----------|
+| Wire parity | `tests/crossref` (path requests, announces, relay) |
+| Live relay | `tests/interop/transport_relay_live_test.go` (`RUN_LIVE_INTEROP=1`) |
+| Live paths | `tests/interop/transport_path_live_test.go` |
+| Property tests | `pkg/transport/*_pbt_test.go` |
+| Race tests | `pkg/transport/*_race_test.go` |
+
+## Related documents
+
+- [Architecture](architecture.md) for end-to-end flow
+- [Interfaces](interfaces.md) for physical egress
+- [Links, channels, and resources](links-channels-and-resources.md) for session layer
+- [Configuration](configuration.md) for transport-related keys

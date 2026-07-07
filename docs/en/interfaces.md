@@ -1,0 +1,180 @@
+# Interfaces
+
+| Field | Value |
+|-------|-------|
+| Document version | 1.0 |
+| Last updated | 2026-07-07 |
+| Author | Ivan |
+
+## Role
+
+Interfaces move Reticulum packets between the transport layer and a physical or virtual medium. All implementations live in `pkg/interfaces` and conform to the `Interface` contract defined in `interface.go`.
+
+Factory entry point:
+
+```go
+iface, err := interfaces.NewFromConfigWithContext(ctx, name, cfg)
+```
+
+## Interface contract
+
+Each interface implements:
+
+- `Start` and `Stop` for lifecycle
+- `Send` for outbound data
+- `ProcessIncoming` and `ProcessOutgoing` for IFAC and framing
+- Statistics hooks used by the daemon and control API
+
+Inbound path:
+
+```
+raw bytes -> ProcessIncoming -> packetCallback -> Transport.HandlePacket
+```
+
+Outbound path:
+
+```
+Transport.SendPacket -> Send -> ProcessOutgoing -> wire
+```
+
+## Supported types
+
+| Config `type` | Status | File |
+|---------------|--------|------|
+| `UDPInterface` | Complete | `udp.go` |
+| `TCPClientInterface` | Complete | `tcp.go` |
+| `TCPServerInterface` | Complete | `tcp.go` |
+| `AutoInterface` | Complete | `auto.go`, `auto_rescan.go`, `auto_roam.go` |
+| `I2PInterface` | Complete | `i2p.go` (SAM in `pkg/i2p`) |
+| `BackboneInterface` | Complete | `backbone.go` |
+| `BackboneClientInterface` | Complete | `backbone_client.go` |
+| `WebSocketInterface` | Go-only | `websocket_native.go`, `websocket_wasm.go` |
+
+## Not implemented
+
+These Python interface types have no driver in Reticulum-Go:
+
+- RNodeInterface, RNodeMultiInterface
+- SerialInterface, KISSInterface, AX25KISSInterface
+- PipeInterface, WeaveInterface
+- Android-specific KISS, RNode, Serial variants
+
+Local shared access is available through `share_instance` and `pkg/sharedinstance`, not a separate LocalInterface type.
+
+## UDPInterface
+
+Connects to a configured peer over UDP.
+
+Requirements:
+
+- Explicit `target_address` or `target_host` (same policy as Python `forward_ip`)
+- Open binds do not adopt the source address of the first inbound packet
+
+Optional reconnect when `max_reconnect_tries > 0` is a Go extension. Python does not reconnect UDP by default.
+
+## TCP client and server
+
+TCP uses HDLC framing with a maximum frame size cap (`maxHDLC` in `tcp.go`). Client interfaces support:
+
+- Keepalives
+- Reconnect via `reconnect.go`
+- Tunnel re-synthesis on reconnect (`SetTunnelSynth` / `onConnected`)
+- Optional I2P tunneling (`i2p_tunneled`)
+
+Server interfaces accept inbound connections and apply IFAC on each session.
+
+## AutoInterface
+
+AutoInterface discovers peers on a local link using IPv6 link-local multicast.
+
+Features:
+
+- Peer aging and timeout
+- Configurable discovery and data ports
+- NIC binding via `interface` key
+- Rescan when `watch_interfaces = yes` (`auto_rescan.go`)
+- Listener replacement on Wi-Fi roam (`auto_roam.go`, aligned with Python 1.3.5)
+
+## I2PInterface
+
+Uses I2P SAM (`pkg/i2p`) for inbound and outbound tunnels.
+
+Configuration keys: `sam_address`, `peers`, `connectable`, `i2p_tunneled`.
+
+Live tests require `RUN_LIVE_I2P=1` and a running SAM bridge.
+
+## Backbone
+
+Backbone interfaces multiplex many TCP streams through `pkg/backbone` hubs. Select poller backend with `backbone_io` in `[reticulum]`:
+
+| Value | Platform |
+|-------|----------|
+| auto | Best available |
+| epoll | Linux |
+| kqueue | BSD, macOS |
+| io_uring | Linux (when available) |
+| go | Portable fallback |
+
+## WebSocketInterface
+
+Go-only transport for browser WASM clients. Native builds use `websocket_native.go`. WASM builds use `websocket_wasm.go`.
+
+## Interface Access Code (IFAC)
+
+When `network_name` and `passphrase` are set on an interface, frames are masked on egress and verified on ingress.
+
+Policy:
+
+- Wrong or missing IFAC on a configured interface results in silent drop on ingress
+- Applied on UDP, TCP, Auto, and other supported types via `pkg/common.ApplyIFACInbound` and `ApplyIFACOutbound`
+
+Details: [Cryptography](cryptography.md#ifac).
+
+## Reconnect behavior
+
+| Aspect | Python RNS | Reticulum-Go |
+|--------|------------|--------------|
+| TCP / backbone client | Yes, 5 s wait | Yes via `reconnect.go` |
+| I2P | Yes, 15 s wait | Yes in `i2p.go` |
+| UDP | No | Yes when `max_reconnect_tries > 0` (opt-in) |
+| Default max tries | Unlimited (`None`) | Unlimited (`-1` or omitted) |
+| After exhaustion | Teardown | Teardown (`Stop`) |
+
+`ConnectivityNotifier` hooks allow embedders to observe reconnect state (Go-only).
+
+## Hot reload
+
+`node.ReloadInterfaces` swaps interface blocks without restarting the process. On Unix, `SIGHUP` triggers reload in the daemon.
+
+On unregister, transport scrubs paths, discovery state, announce bookkeeping, relay rows, and link-table entries for the removed interface.
+
+Equality checks in `pkg/node/reload.go` cover type, addresses, I2P settings, IFAC, and Auto ports. MTU, bitrate, `prefer_ipv6`, announce-rate, and ingress-control changes may not force a rebuild.
+
+Tests: `interface_lifecycle_test.go`, `reload_e2e_test.go`.
+
+## Rate and ingress settings
+
+Per-interface keys `announce_cap`, `announce_rate_*`, `ingress_control`, and `ic_*` feed `pkg/rate` limiters consumed by transport ingress handlers.
+
+## Operational notes
+
+**MTU.** Default Reticulum packet MTU is 500 bytes (`pkg/packet.MTU`). Interface `mtu` should be consistent with the physical path.
+
+**IPv6.** `prefer_ipv6` affects TCP and Auto binding and discovery.
+
+**Panic on error.** `panic_on_interface_error = yes` can crash the daemon on fatal interface errors. Default is no.
+
+## Testing
+
+| Test | Env |
+|------|-----|
+| IFAC live | `RUN_LIVE_INTEROP=1`, `tests/interop/ifac_live_test.go` |
+| Auto live | `tests/interop/auto_live_test.go` |
+| Backbone live | `tests/interop/backbone_live_test.go` |
+| I2P live | `RUN_LIVE_I2P=1` |
+
+## Related documents
+
+- [Configuration](configuration.md) for interface block keys
+- [Transport](transport.md) for registration and forwarding
+- [Compatibility](compatibility.md) for Python interface matrix
