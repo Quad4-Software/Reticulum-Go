@@ -41,13 +41,15 @@ type Hub struct {
 	poller  poller
 	goMode  bool
 
-	mu        sync.Mutex
-	listeners map[int]*listenerSlot
-	streams   map[int]*Stream
+	mu             sync.Mutex
+	listeners      map[int]*listenerSlot
+	streams        map[int]*Stream
+	acceptListeners []net.Listener
 
-	stop     chan struct{}
-	stopOnce sync.Once
-	wg       sync.WaitGroup
+	stop         chan struct{}
+	stopOnce     sync.Once
+	shutdownOnce sync.Once
+	wg           sync.WaitGroup
 }
 
 func newHub(backend Backend) (*Hub, error) {
@@ -78,13 +80,61 @@ func (h *Hub) Backend() Backend {
 // RegisterListener adds a TCP/unix listener. Accept runs in a dedicated goroutine.
 // established connections are multiplexed on the hub event loop.
 func (h *Hub) RegisterListener(ln net.Listener, accept func(net.Conn)) error {
-	h.wg.Add(1)
+	if err := h.errIfClosed(); err != nil {
+		return err
+	}
+	h.mu.Lock()
+	h.acceptListeners = append(h.acceptListeners, ln)
+	h.mu.Unlock()
+	if !h.beginWorker() {
+		h.mu.Lock()
+		h.removeAcceptListener(ln)
+		h.mu.Unlock()
+		return h.errIfClosed()
+	}
 	go h.acceptLoop(ln, accept)
 	return nil
 }
 
+func (h *Hub) removeAcceptListener(ln net.Listener) {
+	for i, l := range h.acceptListeners {
+		if l == ln {
+			h.acceptListeners = append(h.acceptListeners[:i], h.acceptListeners[i+1:]...)
+			return
+		}
+	}
+}
+
+func (h *Hub) errIfClosed() error {
+	select {
+	case <-h.stop:
+		return fmt.Errorf("backbone hub closed")
+	default:
+		return nil
+	}
+}
+
+func (h *Hub) beginWorker() bool {
+	if err := h.errIfClosed(); err != nil {
+		return false
+	}
+	h.wg.Add(1)
+	select {
+	case <-h.stop:
+		h.wg.Done()
+		return false
+	default:
+		return true
+	}
+}
+
 func (h *Hub) acceptLoop(ln net.Listener, accept func(net.Conn)) {
 	defer h.wg.Done()
+	defer func() {
+		h.mu.Lock()
+		h.removeAcceptListener(ln)
+		h.mu.Unlock()
+	}()
 	for {
 		select {
 		case <-h.stop:
@@ -108,6 +158,9 @@ func (h *Hub) acceptLoop(ln net.Listener, accept func(net.Conn)) {
 
 // RegisterStream attaches a connected socket to the hub for HDLC I/O.
 func (h *Hub) RegisterStream(conn net.Conn, mtu int, onFrame func([]byte), onClose func()) (*Stream, error) {
+	if err := h.errIfClosed(); err != nil {
+		return nil, err
+	}
 	fd, err := connFD(conn)
 	if err != nil {
 		fd = -1
@@ -127,7 +180,14 @@ func (h *Hub) RegisterStream(conn net.Conn, mtu int, onFrame func([]byte), onClo
 			h.streams[fd] = s
 		}
 		h.mu.Unlock()
-		h.wg.Add(1)
+		if !h.beginWorker() {
+			h.mu.Lock()
+			if fd >= 0 {
+				delete(h.streams, fd)
+			}
+			h.mu.Unlock()
+			return nil, h.errIfClosed()
+		}
 		go h.goReadLoop(s)
 		return s, nil
 	}
@@ -229,11 +289,39 @@ func (h *Hub) removeListener(fd int) {
 
 // Close shuts down the hub event loop.
 func (h *Hub) Close() {
-	h.stopOnce.Do(func() {
-		close(h.stop)
+	h.shutdownOnce.Do(func() {
+		h.stopOnce.Do(func() { close(h.stop) })
+		h.closeAllAcceptListeners()
+		h.closeAllStreams()
+		h.wg.Wait()
+		if h.poller != nil {
+			_ = h.poller.Close()
+			h.poller = nil
+		}
 	})
-	h.wg.Wait()
-	_ = h.poller.Close()
+}
+
+func (h *Hub) closeAllAcceptListeners() {
+	h.mu.Lock()
+	lns := h.acceptListeners
+	h.acceptListeners = nil
+	h.mu.Unlock()
+	for _, ln := range lns {
+		_ = ln.Close()
+	}
+}
+
+func (h *Hub) closeAllStreams() {
+	h.mu.Lock()
+	streams := make([]*Stream, 0, len(h.streams))
+	for _, s := range h.streams {
+		streams = append(streams, s)
+	}
+	h.streams = make(map[int]*Stream)
+	h.mu.Unlock()
+	for _, s := range streams {
+		s.Close()
+	}
 }
 
 func (h *Hub) loop() {
