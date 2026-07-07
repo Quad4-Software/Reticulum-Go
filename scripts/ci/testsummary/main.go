@@ -3,6 +3,9 @@
 // Usage:
 //
 //	go run ./scripts/ci/testsummary [go test args...]
+//
+// Set TESTSUMMARY_QUIET=1 (or CI_QUIET_TESTS=1) to suppress per-test log noise in CI.
+// Passing packages print a single "ok  import/path" line. Failures still print full output.
 package main
 
 import (
@@ -17,14 +20,19 @@ import (
 )
 
 type testEvent struct {
-	Action  string `json:"Action"`
-	Package string `json:"Package"`
-	Test    string `json:"Test"`
-	Output  string `json:"Output"`
+	Action  string  `json:"Action"`
+	Package string  `json:"Package"`
+	Test    string  `json:"Test"`
+	Output  string  `json:"Output"`
+	Elapsed float64 `json:"Elapsed"`
 }
 
 func main() {
 	os.Exit(run())
+}
+
+func quietMode() bool {
+	return os.Getenv("TESTSUMMARY_QUIET") != "" || os.Getenv("CI_QUIET_TESTS") != ""
 }
 
 func run() int {
@@ -44,22 +52,23 @@ func run() int {
 		return 1
 	}
 
+	quiet := quietMode()
 	failedTests := make(map[string]map[string]struct{})
 	testOutputs := make(map[string]map[string][]string)
 	pkgOutputs := make(map[string][]string)
 	failedPackages := make(map[string]struct{})
+	passedPackages := make(map[string]float64)
+	emitOutput := make(map[string]map[string]bool)
 
 	sc := bufio.NewScanner(stdout)
 	for sc.Scan() {
 		line := strings.TrimSuffix(sc.Text(), "\n")
 		var ev testEvent
 		if err := json.Unmarshal([]byte(line), &ev); err != nil {
-			fmt.Println(line)
+			if !quiet {
+				fmt.Println(line)
+			}
 			continue
-		}
-
-		if ev.Output != "" {
-			fmt.Print(ev.Output)
 		}
 
 		switch ev.Action {
@@ -69,12 +78,35 @@ func run() int {
 					failedTests[ev.Package] = make(map[string]struct{})
 				}
 				failedTests[ev.Package][ev.Test] = struct{}{}
+				if emitOutput[ev.Package] == nil {
+					emitOutput[ev.Package] = make(map[string]bool)
+				}
+				emitOutput[ev.Package][ev.Test] = true
+				if quiet {
+					fmt.Printf("\n=== FAIL %s  %s ===\n", ev.Package, ev.Test)
+				}
 			} else {
 				failedPackages[ev.Package] = struct{}{}
+				if quiet {
+					fmt.Printf("\n=== FAIL %s ===\n", ev.Package)
+				}
+			}
+			if ev.Output != "" {
+				fmt.Print(ev.Output)
 			}
 		case "output":
 			if ev.Output == "" {
 				continue
+			}
+			shouldPrint := !quiet
+			if quiet && ev.Test != "" {
+				shouldPrint = emitOutput[ev.Package] != nil && emitOutput[ev.Package][ev.Test]
+			}
+			if quiet && ev.Test == "" {
+				_, shouldPrint = failedPackages[ev.Package]
+			}
+			if shouldPrint {
+				fmt.Print(ev.Output)
 			}
 			if ev.Test != "" {
 				if testOutputs[ev.Package] == nil {
@@ -83,6 +115,12 @@ func run() int {
 				testOutputs[ev.Package][ev.Test] = append(testOutputs[ev.Package][ev.Test], ev.Output)
 			} else {
 				pkgOutputs[ev.Package] = append(pkgOutputs[ev.Package], ev.Output)
+			}
+		case "pass":
+			if quiet && ev.Test == "" && ev.Package != "" {
+				passedPackages[ev.Package] = ev.Elapsed
+			} else if !quiet && ev.Output != "" {
+				fmt.Print(ev.Output)
 			}
 		}
 	}
@@ -105,6 +143,18 @@ func run() int {
 			exit = ee.ExitCode()
 		} else {
 			exit = 1
+		}
+	}
+
+	if quiet {
+		for _, pkg := range sortedKeysFloat(passedPackages) {
+			if _, failed := failedPackages[pkg]; failed {
+				continue
+			}
+			if tests, ok := failedTests[pkg]; ok && len(tests) > 0 {
+				continue
+			}
+			fmt.Printf("ok  %s  %.3fs\n", pkg, passedPackages[pkg])
 		}
 	}
 
@@ -139,8 +189,7 @@ func printSummary(
 
 	if len(failedPackages) > 0 {
 		fmt.Println("\nFailed packages:")
-		pkgs := sortedKeysSet(failedPackages)
-		for _, pkg := range pkgs {
+		for _, pkg := range sortedKeysSet(failedPackages) {
 			fmt.Printf("  - %s\n", pkg)
 		}
 	}
@@ -159,31 +208,29 @@ func printSummary(
 		}
 	}
 
-	fmt.Println("\n" + strings.Repeat("-", 60))
-	fmt.Println("FAILURE DETAILS")
-	fmt.Println(strings.Repeat("-", 60))
+	if len(pkgOutputs) > 0 || len(testOutputs) > 0 {
+		fmt.Println("\n" + strings.Repeat("-", 60))
+		fmt.Println("FAILURE DETAILS")
+		fmt.Println(strings.Repeat("-", 60))
 
-	for _, pkg := range sortedKeysSet(failedPackages) {
-		fmt.Printf("\n=== %s (package failure) ===\n", pkg)
-		for _, line := range pkgOutputs[pkg] {
-			fmt.Print(line)
-		}
-	}
-
-	for _, pkg := range sortedKeysMap(failedTests) {
-		names := make([]string, 0, len(failedTests[pkg]))
-		for t := range failedTests[pkg] {
-			names = append(names, t)
-		}
-		slices.Sort(names)
-		for _, test := range names {
-			fmt.Printf("\n=== %s  %s ===\n", pkg, test)
-			var lines []string
-			if byTest := testOutputs[pkg]; byTest != nil {
-				lines = byTest[test]
-			}
-			for _, line := range lines {
+		for _, pkg := range sortedKeysSet(failedPackages) {
+			fmt.Printf("\n=== %s (package failure) ===\n", pkg)
+			for _, line := range pkgOutputs[pkg] {
 				fmt.Print(line)
+			}
+		}
+
+		for _, pkg := range sortedKeysMap(failedTests) {
+			names := make([]string, 0, len(failedTests[pkg]))
+			for t := range failedTests[pkg] {
+				names = append(names, t)
+			}
+			slices.Sort(names)
+			for _, test := range names {
+				fmt.Printf("\n=== %s  %s ===\n", pkg, test)
+				for _, line := range testOutputs[pkg][test] {
+					fmt.Print(line)
+				}
 			}
 		}
 	}
@@ -203,6 +250,15 @@ func sortedKeysSet(m map[string]struct{}) []string {
 }
 
 func sortedKeysMap[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
+func sortedKeysFloat(m map[string]float64) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
