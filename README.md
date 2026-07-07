@@ -22,7 +22,7 @@ Full documentation (English): [docs/en/](docs/en/README.md). Additional language
 | Identity (software + optional hardware-bound signing) | Yes | `pkg/identity`, `LoadIdentityFile`, `NewIdentityWithSigner`, RHB1 descriptor |
 | IFAC (interface access code) | Yes | `pkg/ifac`, masks UDP/TCP/Auto frames per reference |
 | Discovery / blackhole | Partial | `pkg/discovery`, `pkg/blackhole` (see compatibility table) |
-| Interfaces | Partial | UDP, TCP client/server, Auto, WebSocket (native/WASM). See [COMPATIBILITY.md](COMPATIBILITY.md#interfaces) |
+| Interfaces | Partial | UDP, TCP, Auto, Pipe, Local, WebSocket (native/WASM). See [COMPATIBILITY.md](COMPATIBILITY.md#interfaces) |
 | Interface hot reload | Yes | `ReloadInterfaces`, `SIGHUP` (Unix), not in Python `rns` |
 | WASM / browser | Yes | `cmd/reticulum-wasm`, `pkg/wasm` |
 | Runtime sandbox | Yes | `pkg/sandbox`, enabled by default. See [SECURITY.md](SECURITY.md#runtime-sandbox) |
