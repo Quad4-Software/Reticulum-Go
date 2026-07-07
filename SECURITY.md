@@ -1,6 +1,6 @@
 # Security policy
 
-This document explains how we think about security for Reticulum-Go, how to report problems, and supply-chain and CI practices. For cryptography primitives, key formats, and protocol-aligned behavior, see [docs/cryptography.md](docs/cryptography.md).
+This document explains how we think about security for Reticulum-Go, how to report problems, and supply-chain and CI practices. For cryptography primitives, key formats, and protocol-aligned behavior, see [docs/en/cryptography.md](docs/en/cryptography.md). Full English docs: [docs/en/](docs/en/README.md).
 
 ## Reporting a vulnerability
 
@@ -74,4 +74,4 @@ This is **defense in depth**, not a substitute for correct cryptography, interfa
 
 ## Cryptography
 
-Algorithms, key formats, identity encryption, IFAC, links, ratchets, operational handling, and verification pointers are documented in **[docs/cryptography.md](docs/cryptography.md)**. That file is the canonical cryptography reference for this repository. This `SECURITY.md` focuses on reporting, supply chain, and automation.
+Algorithms, key formats, identity encryption, IFAC, links, ratchets, operational handling, and verification pointers are documented in **[docs/en/cryptography.md](docs/en/cryptography.md)**. That file is the canonical cryptography reference for this repository. This `SECURITY.md` focuses on reporting, supply chain, and automation.
