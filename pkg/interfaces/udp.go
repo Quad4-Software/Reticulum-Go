@@ -59,8 +59,10 @@ func NewUDPInterfaceWithRetries(name string, addr string, target string, enabled
 }
 
 func (ui *UDPInterface) SetConnectivityHooks(onDown, onUp func()) {
+	ui.Mutex.Lock()
 	ui.onDown = onDown
 	ui.onUp = onUp
+	ui.Mutex.Unlock()
 }
 
 func (ui *UDPInterface) initReconnectDriver() {
@@ -73,8 +75,11 @@ func (ui *UDPInterface) initReconnectDriver() {
 			_ = udpConn.Close()
 			return
 		}
-		if ui.onUp != nil {
-			ui.onUp()
+		ui.Mutex.RLock()
+		onUp := ui.onUp
+		ui.Mutex.RUnlock()
+		if onUp != nil {
+			onUp()
 		}
 		go ui.readLoop()
 	})
@@ -309,8 +314,11 @@ func (ui *UDPInterface) readLoop() {
 			if stillOnline && !detached {
 				debug.Log(debug.DebugError, "Error reading from UDP interface", "name", ui.Name, "error", err)
 				ui.closeConn()
-				if ui.onDown != nil {
-					ui.onDown()
+				ui.Mutex.RLock()
+				onDown := ui.onDown
+				ui.Mutex.RUnlock()
+				if onDown != nil {
+					onDown()
 				}
 				if ui.reconnect != nil {
 					ui.reconnect.notifyFailure()
