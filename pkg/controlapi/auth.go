@@ -32,7 +32,7 @@ func (s *Server) authorized(r *http.Request) bool {
 		return false
 	}
 	token, err := hex.DecodeString(strings.TrimPrefix(header, bearerPrefix))
-	if err != nil || len(token) == 0 {
+	if err != nil || len(token) == 0 || len(token) != len(s.authKey) {
 		return false
 	}
 	return subtle.ConstantTimeCompare(token, s.authKey) == 1

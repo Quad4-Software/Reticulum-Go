@@ -23,6 +23,7 @@ func TestAuthMiddlewareRejectsMissingOrWrongToken(t *testing.T) {
 		{"wrong scheme", "Token " + hex.EncodeToString(key)},
 		{"not hex", "Bearer not-hex"},
 		{"wrong key", "Bearer " + hex.EncodeToString([]byte("the-wrong-key-entirely!"))},
+		{"wrong length", "Bearer " + hex.EncodeToString(key[:len(key)-1])},
 	}
 
 	for _, tc := range cases {

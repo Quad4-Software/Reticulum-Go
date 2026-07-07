@@ -14,14 +14,18 @@ var simFastAnnounceBypass = 0.0
 
 func enableSimFastPath(t testing.TB) {
 	t.Helper()
+	simHooksMu.Lock()
 	simPathfinderRW = &simFastPathfinderRW
 	simAnnounceRateKbps = &simFastAnnounceBypass
+	simHooksMu.Unlock()
 	t.Cleanup(disableSimFastPath)
 }
 
 func disableSimFastPath() {
+	simHooksMu.Lock()
 	simPathfinderRW = nil
 	simAnnounceRateKbps = nil
+	simHooksMu.Unlock()
 }
 
 func simConvergenceTimeout(diameter int) time.Duration {

@@ -5,17 +5,24 @@ package transport
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"sync"
 	"time"
 )
 
 // simPathfinderRW and simAnnounceRateKbps are optional overrides set only
 // from _test.go helpers. nil keeps production PathfinderRW / AnnounceRateKbps.
-var simPathfinderRW *float64
-var simAnnounceRateKbps *float64
+var (
+	simHooksMu            sync.Mutex
+	simPathfinderRW       *float64
+	simAnnounceRateKbps   *float64
+)
 
 func effectivePathfinderRW() float64 {
-	if simPathfinderRW != nil {
-		return *simPathfinderRW
+	simHooksMu.Lock()
+	rw := simPathfinderRW
+	simHooksMu.Unlock()
+	if rw != nil {
+		return *rw
 	}
 	return PathfinderRW
 }
@@ -34,12 +41,18 @@ func pathfinderRebroadcastDelay() time.Duration {
 }
 
 func (t *Transport) announceRateAllow() bool {
-	if simAnnounceRateKbps != nil && *simAnnounceRateKbps <= 0 {
+	simHooksMu.Lock()
+	bypass := simAnnounceRateKbps
+	simHooksMu.Unlock()
+	if bypass != nil && *bypass <= 0 {
 		return true
 	}
 	return t.announceRate.Allow()
 }
 
 func simFastPathActive() bool {
-	return simPathfinderRW != nil && *simPathfinderRW <= 0
+	simHooksMu.Lock()
+	rw := simPathfinderRW
+	simHooksMu.Unlock()
+	return rw != nil && *rw <= 0
 }
