@@ -16,7 +16,7 @@ Report security issues privately before public disclosure.
 
 | Channel | Contact |
 |---------|---------|
-| Reticulum LXMF | `7cc8d66b4f6a0e0e49d34af7f6077b5a` |
+| Reticulum LXMF | `f489752fbef161c64d65e385a4e9fc74` |
 | Email | `security@quad4.io` |
 
 Include enough detail to reproduce the issue: component, expected behavior, actual behavior, and environment.

@@ -8,7 +8,7 @@ If you believe you have found a security issue, please tell us privately first s
 
 **How to reach us**
 
-- Reticulum LXMF: `7cc8d66b4f6a0e0e49d34af7f6077b5a`
+- Reticulum LXMF: `f489752fbef161c64d65e385a4e9fc74`
 - Email: `security@quad4.io`
 
 Include enough detail to reproduce or understand the issue (what component, what you expected, what happened). We will treat reports seriously and work with you on a sensible timeline for fixes and public communication.
