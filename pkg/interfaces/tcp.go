@@ -59,14 +59,30 @@ func NewTCPClientInterfaceWithRetries(name string, targetHost string, targetPort
 func (tc *TCPClientInterface) initReconnectDriver() {
 	label := net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort))
 	tc.reconnect = newReconnectDriver(label, tc.maxReconnectTries, tc.done, tcpDialTarget(tc.targetAddr, tc.targetPort), func(conn net.Conn) {
-		tc.Mutex.Lock()
-		tc.conn = conn
-		tc.Online = true
-		tc.neverConnected = false
-		tc.Mutex.Unlock()
+		if !tc.adoptConn(conn) {
+			_ = conn.Close()
+			return
+		}
 		applyClientTCPTimeouts(tc)
 		go tc.readLoop()
 	})
+}
+
+func (tc *TCPClientInterface) adoptConn(conn net.Conn) bool {
+	tc.Mutex.Lock()
+	defer tc.Mutex.Unlock()
+	if tc.Detached {
+		return false
+	}
+	select {
+	case <-tc.done:
+		return false
+	default:
+	}
+	tc.conn = conn
+	tc.Online = true
+	tc.neverConnected = false
+	return true
 }
 
 func (tc *TCPClientInterface) SetConnectivityHooks(onDown, onUp func()) {
@@ -292,10 +308,12 @@ func (tc *TCPClientInterface) handlePacket(data []byte) {
 }
 
 func (tc *TCPClientInterface) teardownConn() {
+	tc.Mutex.Lock()
 	if tc.conn != nil {
 		_ = tc.conn.Close()
 		tc.conn = nil
 	}
+	tc.Mutex.Unlock()
 }
 
 func (tc *TCPClientInterface) teardown() {

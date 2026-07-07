@@ -69,15 +69,31 @@ func (ui *UDPInterface) initReconnectDriver() {
 		if !ok {
 			return
 		}
-		ui.Mutex.Lock()
-		ui.conn = udpConn
-		ui.Online = true
-		ui.Mutex.Unlock()
+		if !ui.adoptConn(udpConn) {
+			_ = udpConn.Close()
+			return
+		}
 		if ui.onUp != nil {
 			ui.onUp()
 		}
 		go ui.readLoop()
 	})
+}
+
+func (ui *UDPInterface) adoptConn(conn *net.UDPConn) bool {
+	ui.Mutex.Lock()
+	defer ui.Mutex.Unlock()
+	if ui.Detached {
+		return false
+	}
+	select {
+	case <-ui.done:
+		return false
+	default:
+	}
+	ui.conn = conn
+	ui.Online = true
+	return true
 }
 
 func (ui *UDPInterface) dialUDP() (net.Conn, error) {
@@ -118,12 +134,13 @@ func (ui *UDPInterface) IsDetached() bool {
 
 func (ui *UDPInterface) Detach() {
 	ui.Mutex.Lock()
-	defer ui.Mutex.Unlock()
 	ui.Detached = true
 	ui.Online = false
 	if ui.conn != nil {
-		ui.conn.Close() // #nosec G104
+		_ = ui.conn.Close()
+		ui.conn = nil
 	}
+	ui.Mutex.Unlock()
 	ui.stopOnce.Do(func() {
 		if ui.done != nil {
 			close(ui.done)
@@ -162,7 +179,15 @@ func (ui *UDPInterface) ProcessOutgoing(data []byte) error {
 		return fmt.Errorf("no target address configured")
 	}
 
-	_, err := ui.conn.WriteToUDP(data, ui.targetAddr)
+	ui.Mutex.RLock()
+	conn := ui.conn
+	target := ui.targetAddr
+	ui.Mutex.RUnlock()
+	if conn == nil {
+		return fmt.Errorf("connection closed")
+	}
+
+	_, err := conn.WriteToUDP(data, target)
 	if err != nil {
 		return fmt.Errorf("UDP write failed: %v", err)
 	}
@@ -189,6 +214,8 @@ func (ui *UDPInterface) Send(data []byte, address string) error {
 }
 
 func (ui *UDPInterface) GetConn() net.Conn {
+	ui.Mutex.RLock()
+	defer ui.Mutex.RUnlock()
 	return ui.conn
 }
 
