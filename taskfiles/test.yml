@@ -33,6 +33,7 @@ tasks:
     cmds:
       - '{{.GOCMD}} run ./scripts/ci/testsummary -fuzz=FuzzPacketUnpack -fuzztime=30s ./pkg/packet'
       - '{{.GOCMD}} run ./scripts/ci/testsummary -fuzz=FuzzDecodePathTableEntries -fuzztime=30s ./pkg/transport'
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -fuzz=FuzzShouldUpdateAnnouncePath -fuzztime=15s ./pkg/transport'
       - '{{.GOCMD}} run ./scripts/ci/testsummary -fuzz=FuzzDecodeKnownDestinations -fuzztime=30s ./pkg/identity'
 
   test-leaks:
