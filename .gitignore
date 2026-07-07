@@ -49,4 +49,7 @@ __pycache__/
 
 .reticulum-go/
 
+# Local Go build/test tmpdir override
+.gotmp/
+
 *.test
