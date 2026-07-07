@@ -85,6 +85,42 @@ func descopeLinkLocal(addr string) string {
 	return addr
 }
 
+func canBindLinkLocalUDP(iface *net.Interface, ip string, port int) bool {
+	addr := &net.UDPAddr{
+		IP:   net.ParseIP(ip),
+		Port: port,
+		Zone: iface.Name,
+	}
+	conn, err := net.ListenUDP("udp6", addr)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
+}
+
+func selectLinkLocalAddr(iface *net.Interface, port int) string {
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return ""
+	}
+	var fallback string
+	for _, addr := range addrs {
+		ipnet, ok := addr.(*net.IPNet)
+		if !ok || ipnet.IP.To4() != nil || !ipnet.IP.IsLinkLocalUnicast() {
+			continue
+		}
+		candidate := descopeLinkLocal(ipnet.IP.String())
+		if fallback == "" {
+			fallback = candidate
+		}
+		if canBindLinkLocalUDP(iface, candidate, port) {
+			return candidate
+		}
+	}
+	return fallback
+}
+
 func NewAutoInterface(name string, config *common.InterfaceConfig) (*AutoInterface, error) {
 	groupID := DefaultGroupID
 	if config.GroupID != "" {
@@ -285,21 +321,7 @@ func (ai *AutoInterface) configureInterface(iface *net.Interface) error {
 		return fmt.Errorf("loopback interface")
 	}
 
-	addrs, err := iface.Addrs()
-	if err != nil {
-		return err
-	}
-
-	var linkLocalAddr string
-	for _, addr := range addrs {
-		if ipnet, ok := addr.(*net.IPNet); ok {
-			if ipnet.IP.To4() == nil && ipnet.IP.IsLinkLocalUnicast() {
-				linkLocalAddr = descopeLinkLocal(ipnet.IP.String())
-				break
-			}
-		}
-	}
-
+	linkLocalAddr := selectLinkLocalAddr(iface, ai.unicastDiscoveryPort)
 	if linkLocalAddr == "" {
 		return fmt.Errorf("no link-local IPv6 address found")
 	}

@@ -34,6 +34,25 @@ func AuthenticateServer(conn net.Conn, authkey []byte) error {
 	if len(authkey) == 0 {
 		return errors.New("empty authkey")
 	}
+	if err := deliverChallenge(conn, authkey); err != nil {
+		return err
+	}
+	return answerChallenge(conn, authkey)
+}
+
+// AuthenticateClient performs the multiprocessing.connection client-side
+// handshake on conn, matching Python Client().
+func AuthenticateClient(conn net.Conn, authkey []byte) error {
+	if len(authkey) == 0 {
+		return errors.New("empty authkey")
+	}
+	if err := answerChallenge(conn, authkey); err != nil {
+		return err
+	}
+	return deliverChallenge(conn, authkey)
+}
+
+func deliverChallenge(conn net.Conn, authkey []byte) error {
 	payload := make([]byte, messageLength)
 	if _, err := rand.Read(payload); err != nil {
 		return err
@@ -53,12 +72,7 @@ func AuthenticateServer(conn net.Conn, authkey []byte) error {
 	return sendBytes(conn, []byte(welcomePrefix))
 }
 
-// AuthenticateClient performs the multiprocessing.connection client-side
-// handshake on conn, matching Python Client().
-func AuthenticateClient(conn net.Conn, authkey []byte) error {
-	if len(authkey) == 0 {
-		return errors.New("empty authkey")
-	}
+func answerChallenge(conn net.Conn, authkey []byte) error {
 	buf, err := recvBytes(conn, 256)
 	if err != nil {
 		return err
