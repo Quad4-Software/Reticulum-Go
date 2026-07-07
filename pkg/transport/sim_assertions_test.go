@@ -70,13 +70,37 @@ func assertNoPath(t testing.TB, nodes []*simNode, dest []byte) {
 	}
 }
 
+// assertHopCounts checks that every node in want eventually settles on the
+// expected shortest-path hop count. A node can briefly hold a longer path
+// while a lower-hop announce is still in flight (e.g. propagating the other
+// way around a ring), so this polls for convergence instead of checking
+// immediately, since "has a path" and "has the shortest path" can land at
+// different times, especially under scheduling jitter (e.g. -race).
 func assertHopCounts(t testing.TB, net *simNetwork, srcIdx int, dest []byte, want map[int]uint8) {
 	t.Helper()
 	src := net.nodes[srcIdx]
+
+	const pollTimeout = 5 * time.Second
+	deadline := time.Now().Add(pollTimeout)
+	got := make(map[int]uint8, len(want))
+	for {
+		mismatch := false
+		for idx, wantHops := range want {
+			g := net.nodes[idx].tr.HopsTo(dest)
+			got[idx] = g
+			if g != wantHops {
+				mismatch = true
+			}
+		}
+		if !mismatch || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
 	for idx, wantHops := range want {
-		got := net.nodes[idx].tr.HopsTo(dest)
-		if got != wantHops {
-			t.Errorf("node%d hopsTo(%s) = %d, want %d", idx, src.name, got, wantHops)
+		if got[idx] != wantHops {
+			t.Errorf("node%d hopsTo(%s) = %d, want %d", idx, src.name, got[idx], wantHops)
 		}
 	}
 }

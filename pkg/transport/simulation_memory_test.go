@@ -76,7 +76,11 @@ func TestSimEmbeddedPathTableBudget(t *testing.T) {
 	if heapKB > embeddedProfileWarnHeapKB {
 		t.Logf("WARNING: heap %d KB exceeds warn budget %d KB", heapKB, embeddedProfileWarnHeapKB)
 	}
-	if heapKB > embeddedProfileMaxHeapKB {
+	// The race detector's instrumented allocator adds per-object bookkeeping
+	// that inflates runtime.MemStats.Alloc independently of actual
+	// application memory efficiency, so this byte-level budget is only
+	// meaningful on a non-instrumented build.
+	if heapKB > embeddedProfileMaxHeapKB && !raceBuild {
 		t.Fatalf("heap %d KB exceeds max budget %d KB", heapKB, embeddedProfileMaxHeapKB)
 	}
 
@@ -92,7 +96,7 @@ func TestSimEmbeddedPathTableBudget(t *testing.T) {
 
 	if per := pathEntrySize(net.nodes[0].tr, net.nodes[1].destHash); per > 0 {
 		t.Logf("spot-check path entry size: ~%d bytes", per)
-		if per > embeddedMaxPathEntryBytes {
+		if per > embeddedMaxPathEntryBytes && !raceBuild {
 			t.Errorf("per-entry size %d exceeds %d B budget", per, embeddedMaxPathEntryBytes)
 		}
 	}
@@ -146,16 +150,15 @@ func TestSimPathTableGrowthBounded(t *testing.T) {
 	}
 }
 
-// measureUpdatePathDelta fills every node's path table once and reports the
-// resulting heap growth. Background maintenance goroutines (announce/path
-// cleanup tickers) can allocate concurrently with the GC snapshots taken
-// here, so callers should take the minimum of several samples to filter out
-// that unrelated noise rather than trusting a single sample.
-func measureUpdatePathDelta(net *simNetwork) uint64 {
+func TestSimMemoryFootprintAcrossNodes(t *testing.T) {
+	skipSimIfShort(t)
+
+	const n = 32
+	net := buildLine(t, n)
+	t.Cleanup(net.close)
+
 	var m1, m2 runtime.MemStats
 	runtime.GC()
-	runtime.GC()
-	time.Sleep(10 * time.Millisecond)
 	runtime.ReadMemStats(&m1)
 
 	for _, src := range net.nodes {
@@ -169,32 +172,11 @@ func measureUpdatePathDelta(net *simNetwork) uint64 {
 	}
 
 	runtime.GC()
-	runtime.GC()
-	time.Sleep(10 * time.Millisecond)
 	runtime.ReadMemStats(&m2)
 
-	if m2.Alloc < m1.Alloc {
-		return 0
-	}
-	return m2.Alloc - m1.Alloc
-}
-
-func TestSimMemoryFootprintAcrossNodes(t *testing.T) {
-	skipSimIfShort(t)
-
-	const n = 32
-	net := buildLine(t, n)
-	t.Cleanup(net.close)
-
-	// Take the minimum of several samples: genuine per-entry cost is a
-	// floor, while unrelated background allocations (maintenance tickers,
-	// GC scheduling under -race) can only push a sample above that floor.
-	const samples = 5
-	used := measureUpdatePathDelta(net)
-	for i := 1; i < samples; i++ {
-		if u := measureUpdatePathDelta(net); u < used {
-			used = u
-		}
+	var used uint64
+	if m2.Alloc >= m1.Alloc {
+		used = m2.Alloc - m1.Alloc
 	}
 
 	entries := uint64(n) * uint64(n-1)
@@ -204,11 +186,17 @@ func TestSimMemoryFootprintAcrossNodes(t *testing.T) {
 	t.Logf("nodes=%d entries=%d total=%d KB per_entry=%d B",
 		n, entries, heapKB, perEntry)
 
-	if heapKB > embeddedProfileMaxHeapKB {
-		t.Fatalf("path table footprint %d KB exceeds %d KB budget", heapKB, embeddedProfileMaxHeapKB)
-	}
-	if perEntry > embeddedMaxPathEntryBytes {
-		t.Fatalf("per-entry size %d B exceeds %d B budget", perEntry, embeddedMaxPathEntryBytes)
+	// The race detector's instrumented allocator adds per-object bookkeeping
+	// that inflates runtime.MemStats.Alloc independently of actual
+	// application memory efficiency, so these byte-level budgets are only
+	// meaningful on a non-instrumented build.
+	if !raceBuild {
+		if heapKB > embeddedProfileMaxHeapKB {
+			t.Fatalf("path table footprint %d KB exceeds %d KB budget", heapKB, embeddedProfileMaxHeapKB)
+		}
+		if perEntry > embeddedMaxPathEntryBytes {
+			t.Fatalf("per-entry size %d B exceeds %d B budget", perEntry, embeddedMaxPathEntryBytes)
+		}
 	}
 	if heapKB > embeddedProfileWarnHeapKB {
 		t.Logf("WARNING: footprint %d KB exceeds warn budget %d KB", heapKB, embeddedProfileWarnHeapKB)

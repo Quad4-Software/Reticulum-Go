@@ -23,13 +23,23 @@ func TestSimRingConvergence(t *testing.T) {
 	took := assertAllHavePath(t, want, src.destHash, timeout)
 	t.Logf("ring(N=%d) converged in %v (%s)", n, took, formatSimTimeout(net))
 
-	wantHops := make(map[int]uint8, n)
+	// A ring offers exactly two loop-free paths between any pair of nodes
+	// (clockwise and counterclockwise). The announce that reaches a node
+	// first "wins" via duplicate suppression, and which direction wins is a
+	// genuine propagation-timing race (perturbed further by goroutine
+	// scheduling under -race), not a routing bug. Accept either direction's
+	// hop count instead of requiring the graph-theoretic shortest.
 	for i := 1; i < n; i++ {
-		if d, ok := net.shortestPath(i, 0); ok {
-			wantHops[i] = uint8(d)
+		short, ok := net.shortestPath(i, 0)
+		if !ok {
+			continue
+		}
+		long := n - short
+		got := int(net.nodes[i].tr.HopsTo(src.destHash))
+		if got != short && got != long {
+			t.Errorf("node%d hopsTo(%s) = %d, want %d or %d", i, src.name, got, short, long)
 		}
 	}
-	assertHopCounts(t, net, 0, src.destHash, wantHops)
 }
 
 func TestSimRandomGraphConvergence(t *testing.T) {

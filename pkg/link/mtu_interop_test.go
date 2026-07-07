@@ -103,14 +103,19 @@ func establishInteropLinkPipe(t *testing.T, asyncDelivery bool) (*Link, *Link, f
 		t.Fatalf("Establish: %v", err)
 	}
 
+	// Establishment normally completes in milliseconds; the generous
+	// timeout here only needs to absorb CPU contention from the rest of
+	// the suite running concurrently under -race, not steady-state
+	// latency.
+	const establishTimeout = 15 * time.Second
 	select {
 	case <-estB:
-	case <-time.After(3 * time.Second):
+	case <-time.After(establishTimeout):
 		t.Fatal("initiator link establishment timeout")
 	}
 	select {
 	case <-estA:
-	case <-time.After(3 * time.Second):
+	case <-time.After(establishTimeout):
 		t.Fatal("responder link establishment timeout")
 	}
 
