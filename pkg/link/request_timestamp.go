@@ -21,7 +21,10 @@ func parseRequestedAt(v any) (time.Time, error) {
 	case int32:
 		return time.Unix(int64(t), 0), nil
 	case uint64:
-		return time.Unix(int64(t), 0), nil
+		if t > math.MaxInt64 {
+			return time.Time{}, fmt.Errorf("requested_at out of range: %d", t)
+		}
+		return time.Unix(int64(t), 0), nil // #nosec G115 -- bounds-checked above
 	case uint32:
 		return time.Unix(int64(t), 0), nil
 	default:

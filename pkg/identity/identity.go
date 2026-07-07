@@ -194,6 +194,7 @@ func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) 
 		appDataCopy,
 	}
 	knownDestinationsLock.Unlock()
+	markKnownDestinationsDirty()
 }
 
 func ValidateAnnounce(packet []byte, destHash []byte, publicKey []byte, signature []byte, appData []byte) bool {

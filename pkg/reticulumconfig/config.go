@@ -284,6 +284,10 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		cfg.ControlAPIHost = value
 	case "control_api_port":
 		setInt(value, &cfg.ControlAPIPort)
+	case "in_memory_path_table":
+		cfg.InMemoryPathTable = parseBool(value)
+	case "in_memory_known_destinations":
+		cfg.InMemoryKnownDestinations = parseBool(value)
 	}
 }
 
@@ -457,7 +461,9 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	fmt.Fprintf(&b, "  enable_sandbox = %s\n", boolStr(cfg.EnableSandbox))
 	fmt.Fprintf(&b, "  enable_control_api = %s\n", boolStr(cfg.EnableControlAPI))
 	fmt.Fprintf(&b, "  control_api_host = %s\n", controlAPIHostOrDefault(cfg.ControlAPIHost))
-	fmt.Fprintf(&b, "  control_api_port = %d\n\n", controlAPIPortOrDefault(cfg.ControlAPIPort))
+	fmt.Fprintf(&b, "  control_api_port = %d\n", controlAPIPortOrDefault(cfg.ControlAPIPort))
+	fmt.Fprintf(&b, "  in_memory_path_table = %s\n", boolStr(cfg.InMemoryPathTable))
+	fmt.Fprintf(&b, "  in_memory_known_destinations = %s\n\n", boolStr(cfg.InMemoryKnownDestinations))
 
 	b.WriteString("[logging]\n")
 	fmt.Fprintf(&b, "  loglevel = %d\n\n", cfg.LogLevel)

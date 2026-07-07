@@ -102,6 +102,12 @@ type ReticulumConfig struct {
 	// ConnectedToSharedInstance is set at runtime when this process attaches
 	// to an existing local shared instance instead of owning one.
 	ConnectedToSharedInstance bool
+
+	// InMemoryPathTable disables on-disk path table persistence when true.
+	InMemoryPathTable bool
+
+	// InMemoryKnownDestinations disables on-disk known destination persistence when true.
+	InMemoryKnownDestinations bool
 }
 
 // NewReticulumConfig creates a new ReticulumConfig with default values
