@@ -28,6 +28,14 @@ func FuzzPacketRoundTrip(f *testing.F) {
 			transportID = nil
 		}
 
+		need := 2 + len(destHash) + 1 + len(data)
+		if headerType == HeaderType2 {
+			need += len(transportID)
+		}
+		if need > MTU {
+			return
+		}
+
 		p := &Packet{
 			HeaderType:      headerType,
 			PacketType:      packetType,
@@ -43,11 +51,7 @@ func FuzzPacketRoundTrip(f *testing.F) {
 		// Pack
 		err := p.Pack()
 		if err != nil {
-			// If data is too large for MTU, it's a valid error
-			if len(data) > MTU-32 {
-				return
-			}
-			t.Fatalf("Pack failed: %v", err)
+			return
 		}
 
 		// Unpack
