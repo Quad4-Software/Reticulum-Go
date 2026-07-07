@@ -43,7 +43,7 @@ runs:
 
     - name: Verify cached toolchain
       if: steps.cache.outputs.cache-hit == 'true'
-      shell: sh
+      shell: bash
       run: |
           set -euo pipefail
           for root in /usr/local/go-no-telemetry "${{ runner.tool_cache }}/go-no-telemetry"; do
@@ -64,7 +64,7 @@ runs:
 
     - name: Export toolchain paths
       if: steps.cache.outputs.cache-hit != 'true'
-      shell: sh
+      shell: bash
       run: |
           set -euo pipefail
           . scripts/ci/platform.sh
