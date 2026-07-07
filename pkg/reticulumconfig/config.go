@@ -312,6 +312,10 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		setInt(value, &iface.Port)
 	case "target_host":
 		iface.TargetHost = value
+	case "remote":
+		if strings.TrimSpace(iface.TargetHost) == "" {
+			iface.TargetHost = value
+		}
 	case "target_port":
 		setInt(value, &iface.TargetPort)
 	case "target_address":

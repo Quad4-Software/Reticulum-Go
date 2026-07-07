@@ -12,13 +12,14 @@ import (
 )
 
 func TestNewBackboneInterfaceDefaults(t *testing.T) {
+	hub := testBackboneHub(t)
 	cfg := &common.InterfaceConfig{
 		Enabled:     true,
 		Address:     "127.0.0.1",
 		Port:        4242,
 		KISSFraming: false,
 	}
-	bi, err := NewBackboneInterface("bb", cfg)
+	bi, err := NewBackboneInterface("bb", cfg, hub, nil)
 	if err != nil {
 		t.Fatalf("NewBackboneInterface: %v", err)
 	}
@@ -37,25 +38,28 @@ func TestNewBackboneInterfaceDefaults(t *testing.T) {
 }
 
 func TestNewBackboneInterfaceNoPort(t *testing.T) {
+	hub := testBackboneHub(t)
 	cfg := &common.InterfaceConfig{Enabled: true, Address: "127.0.0.1"}
-	_, err := NewBackboneInterface("bb", cfg)
+	_, err := NewBackboneInterface("bb", cfg, hub, nil)
 	if err == nil {
 		t.Fatal("expected error for missing port")
 	}
 }
 
-func TestNewBackboneInterfaceFallbackPort(t *testing.T) {
+func TestNewBackboneInterfaceUsesListenPortOnly(t *testing.T) {
+	hub := testBackboneHub(t)
 	cfg := &common.InterfaceConfig{
 		Enabled:    true,
 		Address:    "127.0.0.1",
+		Port:       4242,
 		TargetPort: 9999,
 	}
-	bi, err := NewBackboneInterface("bb", cfg)
+	bi, err := NewBackboneInterface("bb", cfg, hub, nil)
 	if err != nil {
 		t.Fatalf("NewBackboneInterface: %v", err)
 	}
-	if bi.bindPort != 9999 {
-		t.Errorf("bindPort = %d, want 9999", bi.bindPort)
+	if bi.bindPort != 4242 {
+		t.Errorf("bindPort = %d, want 4242", bi.bindPort)
 	}
 }
 
@@ -63,7 +67,7 @@ func TestNewBackboneInterfaceResolveDevice(t *testing.T) {
 	if runtime.GOOS == "windows" || runtime.GOOS == "js" {
 		t.Skip("skipping interface resolution on this platform")
 	}
-
+	hub := testBackboneHub(t)
 	// Use loopback interface, which exists on every platform.
 	lo, err := net.InterfaceByName("lo")
 	if err != nil {
@@ -79,7 +83,7 @@ func TestNewBackboneInterfaceResolveDevice(t *testing.T) {
 		Interface: "lo",
 		Port:      4242,
 	}
-	bi, err := NewBackboneInterface("bb", cfg)
+	bi, err := NewBackboneInterface("bb", cfg, hub, nil)
 	if err != nil {
 		t.Fatalf("NewBackboneInterface: %v", err)
 	}
@@ -89,12 +93,13 @@ func TestNewBackboneInterfaceResolveDevice(t *testing.T) {
 }
 
 func TestNewBackboneInterfaceBadDevice(t *testing.T) {
+	hub := testBackboneHub(t)
 	cfg := &common.InterfaceConfig{
 		Enabled:   true,
 		Interface: "nonexistent0",
 		Port:      4242,
 	}
-	_, err := NewBackboneInterface("bb", cfg)
+	_, err := NewBackboneInterface("bb", cfg, hub, nil)
 	if err == nil {
 		t.Fatal("expected error for bad interface name")
 	}
@@ -120,12 +125,13 @@ func TestBackboneInterfaceHDLCRoundTrip(t *testing.T) {
 }
 
 func TestBackboneInterfaceStartStop(t *testing.T) {
+	hub := testBackboneHub(t)
 	cfg := &common.InterfaceConfig{
 		Enabled: true,
 		Address: "127.0.0.1",
 		Port:    4242,
 	}
-	bi, err := NewBackboneInterface("bb", cfg)
+	bi, err := NewBackboneInterface("bb", cfg, hub, nil)
 	if err != nil {
 		t.Fatalf("NewBackboneInterface: %v", err)
 	}

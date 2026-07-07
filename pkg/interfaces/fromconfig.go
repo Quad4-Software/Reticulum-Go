@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"quad4/reticulum-go/pkg/backbone"
 	"quad4/reticulum-go/pkg/common"
 )
 
@@ -42,8 +43,14 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 		)
 	case "AutoInterface":
 		iface, err = NewAutoInterface(name, cfg)
-	case "BackboneInterface":
-		iface, err = NewBackboneInterface(name, cfg)
+	case "BackboneInterface", "BackboneClientInterface":
+		var hub *backbone.Hub
+		var spawn func(*BackboneClientInterface)
+		if ctx != nil {
+			hub = ctx.BackboneHub
+			spawn = ctx.SpawnBackbone
+		}
+		iface, err = NewBackboneFromConfig(name, cfg, hub, spawn)
 	case "WebSocketInterface":
 		wsURL := cfg.Address
 		if wsURL == "" {

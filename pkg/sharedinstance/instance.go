@@ -6,6 +6,7 @@ package sharedinstance
 import (
 	"fmt"
 
+	"quad4/reticulum-go/pkg/backbone"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/interfaces"
@@ -62,7 +63,7 @@ func Attach(cfg *common.ReticulumConfig, tr *transport.Transport, hooks Hooks) (
 		hooks.HandleInterface(client)
 	}
 
-	server, err := interfaces.NewLocalServerInterface(cfg.SharedInstancePort, socketPath, useUnix, spawn)
+	server, err := interfaces.NewLocalServerInterface(cfg.SharedInstancePort, socketPath, useUnix, spawn, backbone.Get())
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +86,7 @@ func Attach(cfg *common.ReticulumConfig, tr *transport.Transport, hooks Hooks) (
 		return inst, nil
 	}
 
-	client, err := interfaces.NewLocalClientInterface(cfg.SharedInstancePort, socketPath, useUnix)
+	client, err := interfaces.NewLocalClientInterface(cfg.SharedInstancePort, socketPath, useUnix, backbone.Get())
 	if err != nil {
 		return nil, err
 	}

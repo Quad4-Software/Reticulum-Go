@@ -604,6 +604,31 @@ func TestEnsureConfigDir(t *testing.T) {
 	}
 }
 
+// TestLoadConfigBackboneRemoteAlias maps community-style remote to target_host.
+func TestLoadConfigBackboneRemoteAlias(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	body := `[interfaces]
+  [[MichMesh]]
+    type = BackboneInterface
+    enabled = yes
+    remote = michmesh.example
+    target_port = 4242
+`
+	writeFile(t, path, body)
+
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	iface := cfg.Interfaces["MichMesh"]
+	if iface == nil {
+		t.Fatal("MichMesh interface missing")
+	}
+	if iface.TargetHost != "michmesh.example" || iface.TargetPort != 4242 {
+		t.Fatalf("target = %s:%d", iface.TargetHost, iface.TargetPort)
+	}
+}
+
 // writeFile is a tiny test helper that writes content with a strict mode and
 // fails the test on IO errors.
 func writeFile(t *testing.T, path, content string) {

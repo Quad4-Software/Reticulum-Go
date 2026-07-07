@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"quad4/reticulum-go/pkg/backbone"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/i2p"
@@ -37,6 +38,8 @@ type FromConfigContext struct {
 	TransportID    []byte
 	RegisterPeer   func(name string, peer common.NetworkInterface) error
 	SetupPeer      func(peer common.NetworkInterface)
+	BackboneHub    *backbone.Hub
+	SpawnBackbone  func(client *BackboneClientInterface)
 }
 
 // I2PInterface is the parent listener for inbound I2P peers and optional SAM

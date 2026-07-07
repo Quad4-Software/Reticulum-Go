@@ -108,6 +108,10 @@ type ReticulumConfig struct {
 
 	// InMemoryKnownDestinations disables on-disk known destination persistence when true.
 	InMemoryKnownDestinations bool
+
+	// BackboneIO selects the kernel I/O multiplexer for backbone and local shared
+	// instance sockets: auto, epoll, kqueue, io_uring, or go.
+	BackboneIO string
 }
 
 // NewReticulumConfig creates a new ReticulumConfig with default values

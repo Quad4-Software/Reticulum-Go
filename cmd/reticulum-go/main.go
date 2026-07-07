@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"quad4/reticulum-go/internal/config"
+	"quad4/reticulum-go/pkg/backbone"
 	"quad4/reticulum-go/pkg/buffer"
 	"quad4/reticulum-go/pkg/channel"
 	"quad4/reticulum-go/pkg/common"
@@ -54,6 +55,10 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 		return nil, fmt.Errorf("failed to initialize directories: %v", err)
 	}
 	debug.Log(debug.DebugInfo, "Directories initialized")
+
+	if _, err := backbone.Init(backbone.ParseBackend(cfg.BackboneIO)); err != nil {
+		return nil, fmt.Errorf("backbone I/O hub: %w", err)
+	}
 
 	t := transport.NewTransport(cfg)
 	debug.Log(debug.DebugInfo, "Transport initialized")
@@ -102,6 +107,14 @@ func (r *Reticulum) interfaceFromConfigContext() *interfaces.FromConfigContext {
 	return &interfaces.FromConfigContext{
 		I2PStoragePath: storage,
 		TransportID:    r.transport.TransportIdentityHash(),
+		BackboneHub:    backbone.Get(),
+		SpawnBackbone: func(client *interfaces.BackboneClientInterface) {
+			if err := r.transport.RegisterInterface(client.GetName(), client); err != nil {
+				debug.Log(debug.DebugCritical, "Failed to register spawned backbone client", "error", err)
+				return
+			}
+			r.handleInterface(client)
+		},
 		RegisterPeer: func(name string, peer common.NetworkInterface) error {
 			return r.transport.RegisterInterface(name, peer)
 		},
@@ -479,6 +492,8 @@ func (r *Reticulum) Stop() error {
 	if err := r.transport.Close(); err != nil {
 		return fmt.Errorf("failed to close transport: %v", err)
 	}
+
+	backbone.Shutdown()
 
 	debug.Log(debug.DebugError, "Reticulum stopped successfully")
 	return nil
