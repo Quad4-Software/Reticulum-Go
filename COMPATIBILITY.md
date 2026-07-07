@@ -23,7 +23,7 @@ For crypto and storage see [docs/cryptography.md](docs/cryptography.md). For beh
 | Resource | Yes | Multi-part transfer, hashmaps, RESOURCE_PRF, bzip2. BZ2 bomb limits match Python 1.1.9. |
 | Channel | Yes | In-link reliable channel. [pkg/channel](pkg/channel/) tests. Python 1.3.0 fixed ghost envelopes. Go uses a simpler single-outlet model. |
 | Buffer | Yes | Stream buffer over channel. [pkg/buffer](pkg/buffer/) tests. |
-| Node lifecycle | Yes (Go-only) | [pkg/node](pkg/node/) embedder API: `OnNetworkAvailable`, `OnNetworkLost`, `RefreshPaths`, `ReloadInterfaces`, control API lifecycle routes. No Python equivalent. Limitations: `watch_interfaces` NIC monitor is Linux only (stub elsewhere). `OnNetworkLost` may leave reconnect goroutines running until I/O fails. `ReloadInterfaces` equality skips some keys (MTU, bitrate, announce-rate, ingress control). See [Node lifecycle](#node-lifecycle-go-only). |
+| Node lifecycle | Yes (Go-only) | [pkg/node](pkg/node/) embedder API: `OnNetworkAvailable`, `OnNetworkLost`, `RefreshPaths`, `ReloadInterfaces`, control API lifecycle routes. No Python equivalent. `watch_interfaces` polls NIC up/down and address changes via `net.Interfaces` on Linux, Android, Windows, macOS, and BSD (any CPU arch). Stub on WASM. `OnNetworkLost` may leave reconnect goroutines running until I/O fails. `ReloadInterfaces` equality skips some keys. See [Node lifecycle](#node-lifecycle-go-only). |
 
 ## Interfaces
 
@@ -81,7 +81,7 @@ Go-only embedder API in [pkg/node](pkg/node/) and the control API (`POST /v1/lif
 | `RefreshPaths` | Expires stale paths and requests fresh paths for watched destinations and explicit API args |
 | `ReloadInterfaces` | Hot-reloads `[[Interface]]` blocks from config |
 
-`watch_interfaces` (Linux) triggers `OnNetworkAvailable` on NIC up and enables AutoInterface NIC rescan. Python `discover_interfaces` starts rnstransport discovery (`StartInterfaceDiscovery`).
+`watch_interfaces` polls NIC state every 10s and calls `OnNetworkAvailable` on link or address changes (all desktop/mobile OS targets except WASM). Also enables AutoInterface NIC rescan. Python `discover_interfaces` starts rnstransport discovery (`StartInterfaceDiscovery`).
 
 ## Python 1.2.x to 1.3.5 changes vs Go
 
@@ -120,7 +120,7 @@ Intentional extensions beyond upstream *rns*:
 | Path table persistence | RAM-only when no config path. Explicit opt-in for disk. |
 | Interface hot reload | `ReloadInterfaces`, transport scrub on unregister |
 | Node lifecycle API | `OnNetworkAvailable`, `OnNetworkLost`, `RefreshPaths`, control API |
-| `watch_interfaces` | Linux NIC monitor plus AutoInterface NIC rescan |
+| `watch_interfaces` | Linux/Android/Windows/macOS/BSD NIC poll plus AutoInterface rescan |
 | UDP reconnect | Opt-in via `max_reconnect_tries > 0` |
 | Backbone I/O | epoll/kqueue/io_uring multiplexing |
 | WebSocket interface | Browser/WASM transport |
@@ -219,7 +219,7 @@ Python defaults from `RNS.Reticulum.__create_default_config` and [RNS/Reticulum.
 | in_memory_path_table | No | Yes | RAM-only path table |
 | in_memory_known_destinations | No | Yes | RAM-only known destinations |
 | discover_interfaces | Yes | Yes | Starts rnstransport listening (`StartInterfaceDiscovery`). Announcer not ported. |
-| watch_interfaces | No | Yes | Go-only. Linux NIC poll and AutoInterface rescan |
+| watch_interfaces | No | Yes | Go-only. Polls NIC changes via `net.Interfaces` (Linux, Android, Windows, macOS, BSD). WASM stub. Enables AutoInterface rescan. |
 | respond_to_probes / allow_probes | Yes | No | Probe path not ported |
 | publish_blackhole | Yes | No | Not auto-published |
 | blackhole_sources | Yes | No | Ignored |
