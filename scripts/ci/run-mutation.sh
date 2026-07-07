@@ -30,7 +30,7 @@ if [ -n "${MUTATION_PACKAGES:-}" ]; then
 	done
 else
 	run_pkg ./pkg/cryptography 55 "$MAX" || failed=1
-	run_pkg ./pkg/packet 20 "$MAX" || failed=1
+	run_pkg ./pkg/packet 50 "$MAX" || failed=1
 fi
 
 if [ "$failed" -ne 0 ]; then
