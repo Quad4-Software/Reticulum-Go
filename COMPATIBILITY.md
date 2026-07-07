@@ -42,8 +42,8 @@ Python: [RNS/Interfaces](https://github.com/markqvist/Reticulum/tree/master/RNS/
 | SerialInterface | No | Not implemented. |
 | KISSInterface | No | Not implemented. |
 | AX25KISSInterface | No | Not implemented. |
-| PipeInterface | No | Not implemented. |
-| LocalInterface | Partial | Via `share_instance = yes` in [pkg/sharedinstance](pkg/sharedinstance/), [local.go](pkg/interfaces/local.go). |
+| PipeInterface | Yes | [pipe.go](pkg/interfaces/pipe.go). Subprocess stdin/stdout with HDLC framing and respawn. |
+| LocalInterface | Yes | [local.go](pkg/interfaces/local.go), [sharedinstance](pkg/sharedinstance/). Automatic via `share_instance` or explicit `LocalInterface` / `LocalServerInterface` config blocks. |
 | WeaveInterface | No | Not implemented. |
 | Android KISS / RNode / Serial | No | Android-only. |
 | Interface base | Yes | [interface.go](pkg/interfaces/interface.go), [constants.go](pkg/interfaces/constants.go). |

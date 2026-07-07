@@ -44,7 +44,7 @@ revive -config revive.toml -formatter friendly ./pkg/* ./cmd/* ./internal/*
 make test-race
 ```
 
-Transport and interface packages include dedicated race tests.
+Transport and interface packages include dedicated race and deadlock regression tests (`interface_stress_race_test.go`, `pipe_race_test.go`, `pipe_deadlock_test.go`).
 
 ### Coverage
 
@@ -96,7 +96,7 @@ Files named `*_pbt_test.go` use `quad4/pbt` for generative testing (cryptography
 
 ### Fuzz tests
 
-Files named `*_fuzz_test.go` cover packet, link, ifac, blackhole, discovery.
+Files named `*_fuzz_test.go` cover packet, link, ifac, blackhole, discovery, and pipe HDLC framing (`pkg/interfaces/pipe_fuzz_test.go`).
 
 ### Crossref tests
 
@@ -136,6 +136,8 @@ RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
 | `transport_path_live_test.go` | Path requests |
 | `transport_relay_live_test.go` | Transport relay |
 | `backbone_live_test.go` | Backbone |
+| `pipe_live_test.go` | PipeInterface with Python echo |
+| `shared_rpc_live_test.go` | Shared-instance RPC |
 | `pageserver_live_test.go` | Pageserver example |
 | `nomadnet_crawl_live_test.go` | Nomadnet crawl |
 

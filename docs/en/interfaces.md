@@ -48,6 +48,8 @@ Transport.SendPacket -> Send -> ProcessOutgoing -> wire
 | `I2PInterface` | Complete | `i2p.go` (SAM in `pkg/i2p`) |
 | `BackboneInterface` | Complete | `backbone.go` |
 | `BackboneClientInterface` | Complete | `backbone_client.go` |
+| `PipeInterface` | Complete | `pipe.go` |
+| `LocalInterface` / `LocalServerInterface` | Complete | `local.go`, `sharedinstance` |
 | `WebSocketInterface` | Go-only | `websocket_native.go`, `websocket_wasm.go` |
 
 ## Not implemented
@@ -56,10 +58,28 @@ These Python interface types have no driver in Reticulum-Go:
 
 - RNodeInterface, RNodeMultiInterface
 - SerialInterface, KISSInterface, AX25KISSInterface
-- PipeInterface, WeaveInterface
+- WeaveInterface
 - Android-specific KISS, RNode, Serial variants
 
-Local shared access is available through `share_instance` and `pkg/sharedinstance`, not a separate LocalInterface type.
+## PipeInterface
+
+Bridges Reticulum to any external program over stdin/stdout using HDLC framing, matching Python `PipeInterface`.
+
+Configuration:
+
+- `command` (required): program and arguments, split like Python `shlex`
+- `respawn_delay` (optional): seconds before respawning after subprocess exit (default 5)
+
+## LocalInterface
+
+Local shared-instance access uses HDLC over TCP (`127.0.0.1:port`) or abstract Unix (`@rns/<name>`).
+
+Two configuration paths:
+
+1. **Automatic (Python-compatible):** `share_instance = yes` in `[reticulum]` via `pkg/sharedinstance`
+2. **Explicit interface block:** `type = LocalInterface` or `type = LocalServerInterface` in `[[...]]`
+
+Local clients set `ConnectedToSharedInstance` and skip path-request ingress limiting, matching Python behaviour.
 
 ## UDPInterface
 
@@ -169,6 +189,8 @@ Per-interface keys `announce_cap`, `announce_rate_*`, `ingress_control`, and `ic
 | Test | Env |
 |------|-----|
 | IFAC live | `RUN_LIVE_INTEROP=1`, `tests/interop/ifac_live_test.go` |
+| Pipe live | `RUN_LIVE_INTEROP=1`, `tests/interop/pipe_live_test.go` |
+| Shared RPC live | `RUN_LIVE_INTEROP=1`, `tests/interop/shared_rpc_live_test.go` |
 | Auto live | `tests/interop/auto_live_test.go` |
 | Backbone live | `tests/interop/backbone_live_test.go` |
 | I2P live | `RUN_LIVE_I2P=1` |

@@ -42,8 +42,9 @@ The detailed matrix with config key tables lives in [COMPATIBILITY.md](../../COM
 | AutoInterface | Yes (includes 1.3.5 roam listener swap) |
 | I2PInterface | Yes |
 | BackboneInterface | Yes |
-| RNode, Serial, KISS, AX25KISS, Pipe, Weave | No |
-| LocalInterface | Partial via `share_instance` |
+| RNode, Serial, KISS, AX25KISS, Weave | No |
+| PipeInterface | Yes |
+| LocalInterface | Yes via `share_instance` and config `LocalInterface` / `LocalServerInterface` |
 | WebSocket | Go-only |
 
 UDP requires explicit `target_host` or `target_address` (Python `forward_ip` policy).

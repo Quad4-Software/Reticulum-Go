@@ -121,6 +121,10 @@ Each block defines one interface. Common keys:
 | `peers` | I2P | Outbound tunnel peers |
 | `connectable` | I2P | SAM server tunnel mode |
 | `i2p_tunneled` | TCP client, backbone client | Tunnel over I2P |
+| `command` | Pipe | External program for stdin/stdout HDLC bridge |
+| `respawn_delay` / `respawn_interval` | Pipe | Seconds before respawning subprocess (default 5) |
+| `shared_instance_type` | Local | `tcp` or `unix` for explicit local interface blocks |
+| `instance_name` | Local | Unix socket name when type is unix |
 
 Keys such as `outgoing`, `selected_outgoing`, and `kiss_framing` are parsed or reserved but not wired for unsupported interface types.
 
@@ -135,6 +139,9 @@ Keys such as `outgoing`, `selected_outgoing`, and `kiss_framing` are parsed or r
 | `I2PInterface` | `pkg/interfaces/i2p.go` |
 | `BackboneInterface` | `pkg/interfaces/backbone.go` |
 | `BackboneClientInterface` | `pkg/interfaces/backbone_client.go` |
+| `PipeInterface` | `pkg/interfaces/pipe.go` |
+| `LocalInterface` | `pkg/interfaces/local.go` (client to shared instance) |
+| `LocalServerInterface` | `pkg/interfaces/local.go` (explicit server block) |
 | `WebSocketInterface` | Go-only, native or WASM |
 
 ## Example: TCP client with IFAC
@@ -168,6 +175,33 @@ data_port = 35616
 ```
 
 `watch_interfaces` rescans NICs when link state changes and helps AutoInterface follow Wi-Fi roam events.
+
+## Example: PipeInterface subprocess bridge
+
+```ini
+[[Radio Bridge]]
+type = PipeInterface
+enabled = yes
+command = /opt/mesh/radio-bridge --stdio
+respawn_delay = 5
+```
+
+Reticulum writes HDLC-framed packets to the subprocess stdin and reads frames from stdout. When the subprocess exits, the interface respawns after `respawn_delay` seconds.
+
+## Example: explicit LocalInterface client
+
+When `share_instance = no`, attach to another process that owns the shared instance:
+
+```ini
+[reticulum]
+share_instance = no
+
+[[Local]]
+type = LocalInterface
+enabled = yes
+port = 37428
+shared_instance_type = tcp
+```
 
 ## Hot reload
 

@@ -59,7 +59,8 @@ The table below summarizes major areas. For line-by-line parity with Python, see
 | Daemon and config | Complete | `cmd/reticulum-go`, `pkg/reticulumconfig` |
 | Discovery (rnstransport) | Partial | Listening works. Announcer and autoconnect loops are not auto-started |
 | Blackhole | Partial | Table and announce drop work. Link teardown at identify is not implemented |
-| RNode, KISS, Serial, Pipe, Weave | Not implemented | No driver in this tree |
+| RNode, KISS, Serial, Weave | Not implemented | No driver in this tree |
+| PipeInterface, LocalInterface | Implemented | `pipe.go`, `local.go`, `sharedinstance` |
 | Python CLI utilities (rnid, rnpath, etc.) | Not ported | Primitives exist in `pkg/` |
 | Interface hot reload | Go-only | `pkg/node/reload.go`, SIGHUP on Unix |
 | Control API | Go-only | `pkg/controlapi` |
