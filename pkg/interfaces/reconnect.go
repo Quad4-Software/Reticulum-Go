@@ -108,6 +108,10 @@ func (rd *reconnectDriver) run() {
 
 		conn, err := rd.dial()
 		if err == nil {
+			if rd.shouldStop() {
+				_ = conn.Close()
+				return
+			}
 			rd.fireUp()
 			rd.onConnected(conn)
 			return
@@ -153,6 +157,10 @@ func (rd *reconnectDriver) run() {
 		}
 		conn, err := rd.dial()
 		if err == nil {
+			if rd.shouldStop() {
+				_ = conn.Close()
+				return
+			}
 			rd.fireUp()
 			rd.onConnected(conn)
 			return
