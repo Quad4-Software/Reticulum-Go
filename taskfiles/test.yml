@@ -29,12 +29,34 @@ tasks:
       - '{{.GOCMD}} run ./scripts/ci/testsummary -race -v ./...'
 
   test-fuzz:
-    desc: Run fuzz tests for a short duration
+    desc: Run fuzz tests for a short duration (legacy alias)
     cmds:
-      - '{{.GOCMD}} run ./scripts/ci/testsummary -fuzz=FuzzPacketUnpack -fuzztime=30s ./pkg/packet'
-      - '{{.GOCMD}} run ./scripts/ci/testsummary -fuzz=FuzzDecodePathTableEntries -fuzztime=30s ./pkg/transport'
-      - '{{.GOCMD}} run ./scripts/ci/testsummary -fuzz=FuzzShouldUpdateAnnouncePath -fuzztime=15s ./pkg/transport'
-      - '{{.GOCMD}} run ./scripts/ci/testsummary -fuzz=FuzzDecodeKnownDestinations -fuzztime=30s ./pkg/identity'
+      - task: test-fuzz-guided
+
+  test-fuzz-guided:
+    desc: Coverage-guided fuzz (unit cover profile, then multi-target fuzz)
+    cmds:
+      - sh scripts/ci/run-fuzz-guided.sh
+
+  test-chaos:
+    desc: Run chaos and fault-injection simulation tests
+    cmds:
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/transport -run TestSimChaos -timeout 10m'
+
+  test-bench-gate:
+    desc: Run load/concurrency benchmarks with threshold gates
+    cmds:
+      - sh scripts/ci/bench-gate.sh
+
+  test-mutation:
+    desc: Run gomutant mutation testing on packet and cryptography
+    cmds:
+      - sh scripts/ci/run-mutation.sh
+
+  test-os-matrix:
+    desc: Short runtime tests for OS matrix CI (backbone, interfaces, node, transport)
+    cmds:
+      - sh scripts/ci/run-os-tests.sh
 
   test-leaks:
     desc: Run resource leak tests

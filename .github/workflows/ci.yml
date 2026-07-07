@@ -87,6 +87,51 @@ jobs:
       - name: Run tests
         run: task test
 
+  test-os-matrix:
+    name: OS runtime (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Python venv and RNS
+        run: sh scripts/ci/setup-venv-pip.sh rns
+
+      - name: Generate crossref vectors
+        run: task test-crossref -- generate
+
+      - name: Run OS matrix tests
+        run: task test-os-matrix
+
+  test-mutation:
+    name: Mutation testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Run mutation tests
+        run: task test-mutation
+
   test-extra:
     name: Extra (${{ matrix.suite }})
     runs-on: ubuntu-latest
@@ -94,7 +139,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [race, leaks, sim, fuzz, wasm]
+        suite: [race, leaks, sim, fuzz-guided, chaos, bench-gate, wasm]
 
     steps:
       - name: Checkout
@@ -126,7 +171,10 @@ jobs:
             leaks) task test-leaks ;;
             sim) task test-sim ;;
             network) task test-sim ;;
-            fuzz) task test-fuzz ;;
+            fuzz) task test-fuzz-guided ;;
+            fuzz-guided) task test-fuzz-guided ;;
+            chaos) task test-chaos ;;
+            bench-gate) task test-bench-gate ;;
             wasm) task test-wasm ;;
             *) echo "unknown suite: ${{ matrix.suite }}" >&2; exit 1 ;;
           esac
@@ -221,10 +269,9 @@ jobs:
         run: task reproducibility
 
   benchmark:
-    name: Benchmarks
+    name: Benchmark gate
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -235,5 +282,5 @@ jobs:
           go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
 
-      - name: Run benchmarks
-        run: task bench
+      - name: Run benchmark thresholds
+        run: task test-bench-gate

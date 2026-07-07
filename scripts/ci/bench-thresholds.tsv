@@ -1,0 +1,5 @@
+# benchmark_pattern	max_ns_per_op	max_allocs_per_op
+BenchmarkPacketThroughput.*	5000	5
+BenchmarkHubEcho.*	300000	20
+BenchmarkSimConcurrentLineRelay.*	30000	100
+BenchmarkHasPath_ParallelMixed	500	2
