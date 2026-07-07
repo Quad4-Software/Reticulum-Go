@@ -30,15 +30,15 @@ On the Python side, see [RNS/Interfaces](https://github.com/markqvist/Reticulum/
 | TCPClientInterface | Yes | [tcp.go](pkg/interfaces/tcp.go), tcp_common.go, HDLC, OS-specific keepalives (tcp_*_*.go). |
 | TCPServerInterface | Yes | tcp.go accept loop, HDLC, IFAC. |
 | AutoInterface | Yes | [auto.go](pkg/interfaces/auto.go). IPv6 link-local multicast, group hash, peer aging. |
-| I2PInterface | No | Not implemented. There is no SAM bridge in Go. |
-| BackboneInterface | No | Not implemented. Python’s epoll or kqueue backbone has no direct port. |
+| I2PInterface | Partial | [i2p.go](pkg/interfaces/i2p.go) with SAM bridge in [pkg/i2p](pkg/i2p/). Inbound listener, outbound peers (`peers`), and optional connectable server tunnel. Requires a running I2P router with SAM. |
+| BackboneInterface | Yes | Server: [backbone.go](pkg/interfaces/backbone.go) listens and spawns per-connection [BackboneClientInterface](pkg/interfaces/backbone_client.go) children (Python model). Client: outbound dial when `target_host` is set. Process-wide multiplexed I/O via [pkg/backbone](pkg/backbone/) (epoll on Linux, kqueue on BSD/macOS, `go` fallback). Optional `io_uring` backend probes the kernel and uses epoll-based multiplexing (no dedicated ring I/O yet). HDLC framing and backbone MTU/bitrate match Python. Live interop: [tests/interop/backbone_live_test.go](tests/interop/backbone_live_test.go). |
 | RNodeInterface | No | Not implemented. There is no RNode serial driver. |
 | RNodeMultiInterface | No | Depends on the RNode driver. |
 | SerialInterface | No | Not implemented. |
 | KISSInterface | No | Not implemented. |
 | AX25KISSInterface | No | Not implemented. |
 | PipeInterface | No | Not implemented (subprocess stdio bridge). |
-| LocalInterface | No | Not implemented (Unix-domain shared instance). |
+| LocalInterface | Partial | Not a `[[Interface]]` type. Enabled via `share_instance = yes` in [pkg/sharedinstance](pkg/sharedinstance/) using [local.go](pkg/interfaces/local.go) LocalServerInterface / LocalClientInterface over TCP or Unix domain sockets with HDLC. Python-compatible RPC on `instance_control_port`. |
 | WeaveInterface | No | Not implemented. |
 | Android KISS / RNode / Serial | No | Android-only. Not part of the Go build. |
 | Interface base | Yes | [interface.go](pkg/interfaces/interface.go) and [constants.go](pkg/interfaces/constants.go). |
@@ -134,11 +134,17 @@ Python tries system and home paths first. Go defaults to a single tree unless yo
 | Key | Python *rns* | Reticulum-Go | Notes |
 |-----|:------------:|:------------:|-------|
 | enable_transport | Yes | Yes | Wired to Transport |
-| share_instance | Yes | Parsed only | No shared-instance RPC server in Go |
-| shared_instance_port | Yes | Parsed only | Stored on config with no listener |
-| instance_control_port | Yes | Parsed only | Stored on config with no listener |
-| instance_name | Yes | No | Ignored. Unix multi-instance name separator. |
-| shared_instance_type | Yes | No | Ignored. TCP versus Unix selector. |
+| share_instance | Yes | Yes | Wired in daemon via [pkg/sharedinstance](pkg/sharedinstance/). Server binds first; otherwise connects as client. |
+| shared_instance_port | Yes | Yes | TCP listen/dial port for shared instance |
+| instance_control_port | Yes | Yes | RPC server when this process owns the shared instance |
+| instance_name | Yes | Yes | Unix socket name when `shared_instance_type = unix` |
+| shared_instance_type | Yes | Yes | `tcp` or `unix` |
+| backbone_io | No | Yes | Go-only. `auto`, `epoll`, `kqueue`, `io_uring`, or `go`. Selects [pkg/backbone](pkg/backbone/) multiplexer for backbone and local shared-instance sockets. |
+| rpc_key | No | Yes | Hex key for shared-instance RPC authentication |
+| enable_sandbox | No | Yes | Linux seccomp sandbox in daemon |
+| enable_control_api | No | Yes | Localhost JSON control API ([pkg/controlapi](pkg/controlapi/)) |
+| control_api_host | No | Yes | Bind address for control API |
+| control_api_port | No | Yes | Port for control API |
 | panic_on_interface_error | Yes | Yes | Honoured on interface errors |
 | in_memory_path_table | No | Yes | When true, path table stays in RAM only |
 | in_memory_known_destinations | No | Yes | When true, known destinations stay in RAM only |
@@ -157,7 +163,7 @@ Python tries system and home paths first. Go defaults to a single tree unless yo
 
 ### [[Interface Name]] keys
 
-Parsed by applyInterfaceOption in internal/config/config.go. Options not listed here (outgoing, selected_outgoing, network_name, passphrase, ifac_size, ifac_netname, ifac_netkey, and RNode, Serial, or I2P-specific keys) are ignored at parse time. IFAC and similar options still need programmatic wiring where a row says ignored.
+Parsed by applyInterfaceOption in [pkg/reticulumconfig/config.go](pkg/reticulumconfig/config.go). Options not listed here (outgoing, selected_outgoing, and RNode or Serial-specific keys) are ignored at parse time. IFAC options (`network_name`, `passphrase`, `ifac_*`) are parsed and applied via ApplyIFACFromConfig.
 
 | Key | Python *rns* | Reticulum-Go | Applies to (Go) |
 |-----|:------------:|:------------:|-----------------|
@@ -169,7 +175,10 @@ Parsed by applyInterfaceOption in internal/config/config.go. Options not listed 
 | target_address | Yes | Yes | UDP peer hint |
 | interface | Yes | Yes | AutoInterface NIC name |
 | kiss_framing | Yes | Parsed only | Reserved for KISS |
-| i2p_tunneled | Yes | Parsed only | Reserved for I2P |
+| i2p_tunneled | Yes | Yes | TCP client, backbone client |
+| peers | Yes | Yes | I2PInterface outbound peer list |
+| connectable | Yes | Yes | I2PInterface SAM server tunnel |
+| sam_address | Yes | Yes | I2PInterface SAM host:port |
 | prefer_ipv6 | Yes | Yes | TCP, Auto |
 | max_reconnect_tries | Yes | Yes | TCP client |
 | bitrate / mtu | Yes | Yes | All |
@@ -179,7 +188,7 @@ Parsed by applyInterfaceOption in internal/config/config.go. Options not listed 
 | announce_cap, announce_rate_target, announce_rate_grace, announce_rate_penalty | Yes | Yes | All |
 | ingress_control, ic_* burst/hold keys | Yes | Yes | All |
 | outgoing / selected_outgoing | Yes | No | Ignored |
-| network_name / passphrase / ifac_* | Yes | No | Ignored in INI. Use pkg/ifac in code. |
+| network_name / passphrase / ifac_* | Yes | Yes | Parsed; applied via ApplyIFACFromConfig |
 
 ## Protocol constants
 
