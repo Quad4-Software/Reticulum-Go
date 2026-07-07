@@ -126,6 +126,12 @@ func normalizeBackboneConfig(cfg *common.InterfaceConfig) {
 func (bc *BackboneClientInterface) initReconnectDriver() {
 	label := net.JoinHostPort(bc.targetAddr, fmt.Sprintf("%d", bc.targetPort))
 	bc.reconnect = newReconnectDriver(label, bc.maxReconnectTries, bc.done, tcpDialTarget(bc.targetAddr, bc.targetPort), func(conn net.Conn) {
+		select {
+		case <-bc.done:
+			_ = conn.Close()
+			return
+		default:
+		}
 		bc.Mutex.Lock()
 		bc.conn = conn
 		bc.Mutex.Unlock()
@@ -133,7 +139,17 @@ func (bc *BackboneClientInterface) initReconnectDriver() {
 		applyClientTCPTimeouts(tmp)
 		if err := bc.attachStream(); err != nil {
 			debug.Log(debug.DebugError, "backbone reconnect attach failed", "error", err)
-			bc.teardownConn()
+			_ = conn.Close()
+			bc.Mutex.Lock()
+			if bc.conn == conn {
+				bc.conn = nil
+			}
+			bc.Mutex.Unlock()
+			select {
+			case <-bc.done:
+				return
+			default:
+			}
 			bc.reconnect.notifyFailure()
 		}
 	})
@@ -220,9 +236,18 @@ func (bc *BackboneClientInterface) Stop() error {
 }
 
 func (bc *BackboneClientInterface) attachStream() error {
+	select {
+	case <-bc.done:
+		return fmt.Errorf("interface stopped")
+	default:
+	}
 	conn := bc.conn
 	if conn == nil {
 		return fmt.Errorf("no connection")
+	}
+	hub := bc.hub
+	if hub == nil {
+		return fmt.Errorf("no backbone hub")
 	}
 	onFrame := func(frame []byte) {
 		bc.Mutex.Lock()
@@ -242,13 +267,18 @@ func (bc *BackboneClientInterface) attachStream() error {
 			parent.removeSpawned(bc)
 		}
 		if initiator && !detached {
+			select {
+			case <-bc.done:
+				return
+			default:
+			}
 			bc.teardownConn()
 			if bc.reconnect != nil {
 				bc.reconnect.notifyFailure()
 			}
 		}
 	}
-	stream, err := bc.hub.RegisterStream(conn, bc.MTU, onFrame, onClose)
+	stream, err := hub.RegisterStream(conn, bc.MTU, onFrame, onClose)
 	if err != nil {
 		return err
 	}
