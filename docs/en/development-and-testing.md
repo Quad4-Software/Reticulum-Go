@@ -10,7 +10,7 @@
 
 Requirements:
 
-- Go 1.26.4 or go-no-telemetry
+- Go 1.26.4 or later
 - Make or Task
 - revive linter for `make lint`
 - Python 3 for crossref vector generation (optional)
@@ -173,7 +173,7 @@ GitHub Actions workflows in `.github/workflows/`:
 | security.yml | Gosec, govulncheck, Trivy, SBOM dispatch |
 | publish.yml | Tagged releases, cosign attestations |
 
-CI uses go-no-telemetry 1.26.4 with `GOTOOLCHAIN=local`. Install logic is in `scripts/ci/` and `.github/actions/`.
+CI uses Go 1.26.4 via `actions/setup-go` in `.github/actions/setup-ci` with `GOTOOLCHAIN=local` and vendored modules.
 
 ## Cross-compilation
 

@@ -8,7 +8,7 @@
 
 ## Requirements
 
-- Go 1.26.4 or later, or [go-no-telemetry](https://github.com/Quad4-Software/go-no-telemetry) (recommended for builds without Go telemetry)
+- Go 1.26.4 or later
 - Make or Task (optional, for convenience targets)
 - A writable home directory for `~/.reticulum-go`
 

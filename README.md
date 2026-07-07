@@ -49,7 +49,7 @@ Linux uses Landlock (kernel 5.13+) to whitelist paths the daemon needs. OpenBSD 
 
 ## Requirements
 
-- [go-no-telemetry](https://github.com/Quad4-Software/go-no-telemetry) (recommended) or Go 1.26.4 or later
+- Go 1.26.4 or later
 
 ## Quick Start
 
@@ -213,7 +213,7 @@ Or cross-compile with an explicit compiler path:
 GO_LEGACY_WIN7=/usr/local/go-legacy-win7/bin/go make build-windows-legacy
 ```
 
-CI builds [go-no-telemetry](https://github.com/Quad4-Software/go-no-telemetry) once in the **Go No Telemetry Toolchain** workflow, publishes a `linux-amd64` artifact, and other jobs install it via `.github/actions/install-go-no-telemetry` (cache restore, artifact download, source-build fallback). Pinned Go **1.26.4**, `GOTOOLCHAIN=local`, telemetry verified off. Legacy Windows builds still use `scripts/ci/setup-go-legacy-win7.sh` (SHA256-pinned release tarball).
+CI uses pinned Go **1.26.4** via `actions/setup-go` in `.github/actions/setup-ci`. Legacy Windows builds use `scripts/ci/setup-go-legacy-win7.sh` (SHA256-pinned release tarball).
 
 ## WebAssembly and Embedded
 
