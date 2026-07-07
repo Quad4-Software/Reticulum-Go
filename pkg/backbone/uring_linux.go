@@ -52,6 +52,7 @@ func probeIOUring() error {
 	if errno != 0 {
 		return fmt.Errorf("io_uring_setup: %w", errno)
 	}
-	_ = unix.Close(int(fd))
+	// #nosec G115 -- io_uring probe fd is a small kernel fd
+	_ = unix.Close(socketFD(fd))
 	return nil
 }

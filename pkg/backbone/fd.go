@@ -9,6 +9,12 @@ import (
 	"os"
 )
 
+// socketFD converts a kernel file descriptor to int for epoll and similar syscalls.
+func socketFD(ptr uintptr) int {
+	// #nosec G115 -- kernel fds are small integers well below MaxInt32 on all supported OSes
+	return int(ptr)
+}
+
 func connFD(conn net.Conn) (int, error) {
 	switch c := conn.(type) {
 	case *net.TCPConn:
@@ -18,7 +24,7 @@ func connFD(conn net.Conn) (int, error) {
 		}
 		var fd int
 		err = raw.Control(func(fdptr uintptr) {
-			fd = int(fdptr)
+			fd = socketFD(fdptr)
 		})
 		return fd, err
 	case *net.UnixConn:
@@ -28,7 +34,7 @@ func connFD(conn net.Conn) (int, error) {
 		}
 		var fd int
 		err = raw.Control(func(fdptr uintptr) {
-			fd = int(fdptr)
+			fd = socketFD(fdptr)
 		})
 		return fd, err
 	default:
@@ -43,13 +49,13 @@ func listenerFD(ln net.Listener) (int, *os.File, error) {
 		if err != nil {
 			return -1, nil, err
 		}
-		return int(f.Fd()), f, nil
+		return socketFD(f.Fd()), f, nil
 	case *net.UnixListener:
 		f, err := l.File()
 		if err != nil {
 			return -1, nil, err
 		}
-		return int(f.Fd()), f, nil
+		return socketFD(f.Fd()), f, nil
 	default:
 		return -1, nil, fmt.Errorf("unsupported listener type %T", ln)
 	}
