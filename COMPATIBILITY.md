@@ -1,88 +1,160 @@
 # Compatibility with Python Reticulum
 
-This is a practical map of how Reticulum-Go lines up with the official [Reticulum network API reference](https://reticulum.network/manual/reference.html) and the reference implementation in [markqvist/Reticulum](https://github.com/markqvist/Reticulum) (the *rns* Python package). See [docs/cryptography.md](docs/cryptography.md) for crypto and storage. See [SECURITY.md](SECURITY.md) for behaviour and the threat model.
+This document maps how Reticulum-Go compares to the official [Reticulum network API reference](https://reticulum.network/manual/reference.html) and the reference *rns* Python package (**RNS 1.3.5**).
+
+Crossref tests clone the reference from `rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum` via [rngit](https://reticulum.network/manual/git.html) (`tests/crossref/run_crossref.sh`). The GitHub mirror at [markqvist/Reticulum](https://github.com/markqvist/Reticulum) is no longer used for vectors.
+
+For crypto and storage see [docs/cryptography.md](docs/cryptography.md). For behaviour and threat model see [SECURITY.md](SECURITY.md).
 
 ## Table
 
 | Component | Reticulum-Go | Notes |
 |-----------|:------------:|-------|
-| Crypto | Yes | Curve25519 (X25519 + Ed25519), AES-256-CBC (in Python, MODE_AES256_CBC is the only Link mode enabled today), HMAC-SHA256, and HKDF. Checked against Python in [tests/crossref](tests/crossref/). |
-| Identity | Yes | Key generation, recall, sign or verify, encrypt or decrypt, and ratchets. Optional hardware-bound 72-byte descriptor (RHB1 header plus keys) through the identity package load and save paths. The on-wire Ed25519 public key matches [RNS.Identity](https://github.com/markqvist/Reticulum/blob/master/RNS/Identity.py), so Python peers verify announces unchanged. Python’s Identity.from_file today expects the 64-byte software layout only. The descriptor is documented here for future Python tooling. |
-| Destination | Yes | SINGLE, GROUP, PLAIN, and LINK types. Announce and request handlers and link in or out. |
-| Packet | Yes | Header types 1 and 2, all packet types and contexts, with byte-for-byte parity in crossref. |
-| Transport | Yes | In-process transport covers the path table, announces, RequestPath, hop counts, next-hop selection, multi-hop type-2 rewrap, and link-table forwarding for link destinations. Path and known-destination tables persist to disk by default (Python-compatible flat msgpack under `storage/`) whenever a config path or `RETICULUM_STORAGE_PATH` is resolved. Use `in_memory_path_table`, `in_memory_known_destinations`, or `RETICULUM_IN_MEMORY_*` env vars to force RAM-only tables even with a config path; ad-hoc/library callers that never resolve a config path get RAM-only tables automatically, so embedding the transport never writes into a caller's home directory without an explicit path. Disk write/permission failures at any point fall back to RAM-only for the remainder of the process. |
+| Crypto | Yes | Curve25519 (X25519 + Ed25519), AES-256-CBC, HMAC-SHA256, HKDF. Checked against Python in [tests/crossref](tests/crossref/). |
+| Identity | Yes | Key generation, recall, sign/verify, encrypt/decrypt, ratchets. Optional 72-byte hardware-bound descriptor (RHB1). On-wire Ed25519 public key matches [RNS.Identity](https://github.com/markqvist/Reticulum/blob/master/RNS/Identity.py). Python `Identity.from_file` expects the 64-byte software layout only today. |
+| Destination | Yes | SINGLE, GROUP, PLAIN, LINK. Announce and request handlers, links in and out. |
+| Packet | Yes | Header types 1 and 2, all packet types and contexts. Byte-for-byte parity in crossref. |
+| Transport | Yes | Core wire behaviour matches Python 1.3.5: path table, announces, RequestPath, hops, next-hop, type-2 rewrap, link-table forwarding, persistence, ingress control, and random-blob path selection (1.3.4 dedup). Optional gaps: transport probe responses (`respond_to_probes` / `allow_probes` config), and `Transport.CreateIncomingLink` helper stub (incoming links use `link.HandleIncomingLinkRequest` instead). |
 | Interfaces | Partial | See [Interfaces](#interfaces) below. |
-| Discovery (RNS.Discovery, rnstransport) | Partial | [pkg/discovery](pkg/discovery/) mirrors wire constants, LXStamper proof-of-work, and the msgpack info-dict and app_data layout, with tests against Python Discovery and LXStamper references. The high-level InterfaceAnnouncer and BlackholeUpdater loops from [RNS/Discovery.py](https://github.com/markqvist/Reticulum/blob/master/RNS/Discovery.py) are not auto-started. You build announces with BuildAppData and decode with ValidateAndDecode. This layer is separate from AutoInterface multicast discovery, which is supported. |
-| Blackhole | Partial | [pkg/blackhole](pkg/blackhole/) covers Transport.blackholed_identities semantics, on-disk msgpack, expiry, MergeRemote, and EncodeForRequest. Transport drops announces from listed identities. The /list handler over rnstransport.info.blackhole needs the RNS Request layer, which is not ported. Python umsgpack round-trip is covered by pkg/blackhole interop tests. |
-| IFAC | Yes | [pkg/ifac](pkg/ifac/) matches IFAC_SALT, HKDF-derived identity, and mask and unmask as in Python transmit and inbound paths. UDP, TCP, and AutoInterface apply outbound and inbound masking. Unauthenticated frames are dropped. See [tests/interop/ifac_live_test.go](tests/interop/ifac_live_test.go) for vectors and loopback against *rns*. |
-| Link | Yes | Both directions, RTT, request and response, channel and buffer carriage, resource transfer. |
-| Resource | Yes | Multi-part transfer, hashmaps, RESOURCE_PRF proofs, bzip2, accept and reject paths. |
-| Channel | Yes | In-link reliable channel. Tests live under [pkg/channel](pkg/channel/). |
-| Buffer | Yes | Stream buffer over channel. Tests live under [pkg/buffer](pkg/buffer/). |
+| Discovery (RNS.Discovery, rnstransport) | Partial | [pkg/discovery](pkg/discovery/) mirrors wire constants, LXStamper, msgpack layouts. `discover_interfaces` starts rnstransport listening via [pkg/node](pkg/node/) `StartInterfaceDiscovery`. InterfaceAnnouncer, BlackholeUpdater, and autoconnect loops are not auto-started. Build with `BuildAppData`, decode with `ValidateAndDecode`. Separate from AutoInterface multicast discovery. |
+| Blackhole | Partial | [pkg/blackhole](pkg/blackhole/) covers table semantics, msgpack, expiry, MergeRemote, EncodeForRequest. Announces from listed identities are dropped. `/list` over rnstransport needs the RNS Request layer (not ported). **Gap (1.3.2):** Python tears down links at LINKIDENTIFY for blackholed identities. Go does not check in `HandleIdentification`. `publish_blackhole`, `blackhole_sources`, `blackhole_update_interval` are ignored. |
+| IFAC | Yes | [pkg/ifac](pkg/ifac/) matches salt, HKDF identity, mask/unmask. UDP, TCP, Auto apply IFAC. Unauthenticated frames dropped. Live tests: [tests/interop/ifac_live_test.go](tests/interop/ifac_live_test.go). |
+| Link | Yes | Both directions, RTT, request/response, channel, buffer, resources. `WatchAndReconnect` and `Node.EnableLinkAutoReconnect` use `Reestablish()` on closed links. |
+| Resource | Yes | Multi-part transfer, hashmaps, RESOURCE_PRF, bzip2. BZ2 bomb limits match Python 1.1.9. |
+| Channel | Yes | In-link reliable channel. [pkg/channel](pkg/channel/) tests. Python 1.3.0 fixed ghost envelopes. Go uses a simpler single-outlet model. |
+| Buffer | Yes | Stream buffer over channel. [pkg/buffer](pkg/buffer/) tests. |
+| Node lifecycle | Yes (Go-only) | [pkg/node](pkg/node/) embedder API: `OnNetworkAvailable`, `OnNetworkLost`, `RefreshPaths`, `ReloadInterfaces`, control API lifecycle routes. No Python equivalent. Limitations: `watch_interfaces` NIC monitor is Linux only (stub elsewhere). `OnNetworkLost` may leave reconnect goroutines running until I/O fails. `ReloadInterfaces` equality skips some keys (MTU, bitrate, announce-rate, ingress control). See [Node lifecycle](#node-lifecycle-go-only). |
 
 ## Interfaces
 
-On the Python side, see [RNS/Interfaces](https://github.com/markqvist/Reticulum/tree/master/RNS/Interfaces). On the Go side, see [pkg/interfaces](pkg/interfaces/).
+Python: [RNS/Interfaces](https://github.com/markqvist/Reticulum/tree/master/RNS/Interfaces). Go: [pkg/interfaces](pkg/interfaces/).
 
 | Python Reticulum | Reticulum-Go | Where / notes |
 |------------------|:------------:|---------------|
-| UDPInterface | Yes | [udp.go](pkg/interfaces/udp.go). IFAC through [pkg/common](pkg/common/) ApplyIFAC outbound and inbound. |
-| TCPClientInterface | Yes | [tcp.go](pkg/interfaces/tcp.go), tcp_common.go, HDLC, OS-specific keepalives (tcp_*_*.go). |
-| TCPServerInterface | Yes | tcp.go accept loop, HDLC, IFAC. |
-| AutoInterface | Yes | [auto.go](pkg/interfaces/auto.go). IPv6 link-local multicast, group hash, peer aging. |
-| I2PInterface | Yes | [i2p.go](pkg/interfaces/i2p.go) with SAM bridge in [pkg/i2p](pkg/i2p/). Parent listener, outbound peers (`peers`), connectable server tunnel, spawned per-stream peers with HDLC, IFAC, ingress control, and tunnel synthesis. Requires a running I2P router with SAM. Live tests: `RUN_LIVE_I2P=1`. |
-| BackboneInterface | Yes | Server: [backbone.go](pkg/interfaces/backbone.go) listens and spawns per-connection [BackboneClientInterface](pkg/interfaces/backbone_client.go) children (Python model). Client: outbound dial when `target_host` is set. Process-wide multiplexed I/O via [pkg/backbone](pkg/backbone/) (epoll on Linux, kqueue on BSD/macOS, `go` fallback). Optional `io_uring` backend probes the kernel and uses epoll-based multiplexing (no dedicated ring I/O yet). HDLC framing and backbone MTU/bitrate match Python. Live interop: [tests/interop/backbone_live_test.go](tests/interop/backbone_live_test.go). |
-| RNodeInterface | No | Not implemented. There is no RNode serial driver. |
-| RNodeMultiInterface | No | Depends on the RNode driver. |
+| UDPInterface | Yes | [udp.go](pkg/interfaces/udp.go). IFAC via [pkg/common](pkg/common/). Requires explicit `target_host` or `target_address` (Python `forward_ip`). Open binds do not learn peers from the first packet. Optional reconnect when `max_reconnect_tries > 0` (Go extension). |
+| TCPClientInterface | Yes | [tcp.go](pkg/interfaces/tcp.go), HDLC, keepalives. Reconnect in [reconnect.go](pkg/interfaces/reconnect.go). Re-synthesizes tunnels on reconnect (`SetTunnelSynth` / `onConnected`). |
+| TCPServerInterface | Yes | Accept loop, HDLC, IFAC. |
+| AutoInterface | Yes | [auto.go](pkg/interfaces/auto.go). IPv6 link-local multicast, peer aging. NIC rescan with `watch_interfaces` ([auto_rescan.go](pkg/interfaces/auto_rescan.go)). Roam listener swap ([auto_roam.go](pkg/interfaces/auto_roam.go), 1.3.5). |
+| I2PInterface | Yes | [i2p.go](pkg/interfaces/i2p.go), SAM in [pkg/i2p](pkg/i2p/). Live tests: `RUN_LIVE_I2P=1`. |
+| BackboneInterface | Yes | [backbone.go](pkg/interfaces/backbone.go), [backbone_client.go](pkg/interfaces/backbone_client.go). Multiplexed I/O in [pkg/backbone](pkg/backbone/). Live interop: [tests/interop/backbone_live_test.go](tests/interop/backbone_live_test.go). |
+| RNodeInterface | No | No RNode serial driver. |
+| RNodeMultiInterface | No | Depends on RNode driver. |
 | SerialInterface | No | Not implemented. |
 | KISSInterface | No | Not implemented. |
 | AX25KISSInterface | No | Not implemented. |
-| PipeInterface | No | Not implemented (subprocess stdio bridge). |
-| LocalInterface | Partial | Not a `[[Interface]]` type. Enabled via `share_instance = yes` in [pkg/sharedinstance](pkg/sharedinstance/) using [local.go](pkg/interfaces/local.go) LocalServerInterface / LocalClientInterface over TCP or Unix domain sockets with HDLC. Python-compatible RPC on `instance_control_port`. |
+| PipeInterface | No | Not implemented. |
+| LocalInterface | Partial | Via `share_instance = yes` in [pkg/sharedinstance](pkg/sharedinstance/), [local.go](pkg/interfaces/local.go). |
 | WeaveInterface | No | Not implemented. |
-| Android KISS / RNode / Serial | No | Android-only. Not part of the Go build. |
-| Interface base | Yes | [interface.go](pkg/interfaces/interface.go) and [constants.go](pkg/interfaces/constants.go). |
-| WebSocket | Go-only | websocket_native.go and websocket_wasm.go. Not in upstream *rns*. |
+| Android KISS / RNode / Serial | No | Android-only. |
+| Interface base | Yes | [interface.go](pkg/interfaces/interface.go), [constants.go](pkg/interfaces/constants.go). |
+| WebSocket | Go-only | websocket_native.go, websocket_wasm.go. |
+
+### Interface reconnect
+
+| Aspect | Python *rns* | Reticulum-Go |
+|--------|--------------|---------------|
+| TCP / backbone client reconnect | Yes (`max_reconnect_tries`, 5 s wait) | Yes via [reconnect.go](pkg/interfaces/reconnect.go) |
+| I2P peer reconnect | Yes (15 s fixed wait) | Yes ([i2p.go](pkg/interfaces/i2p.go)) |
+| UDP reconnect | No | Yes when `max_reconnect_tries > 0` (Go extension, opt-in) |
+| Default when `max_reconnect_tries` omitted | Unlimited (`None`) | Unlimited (`-1` via `NormalizeMaxReconnectTries`) |
+| After max tries exhausted | Interface teardown | Teardown (`onExhausted` calls `Stop()`). Idle retry only if `allowIdleRetry` is set (off by default). |
+| Connectivity hooks | N/A | `ConnectivityNotifier` for embedders |
 
 ### Interface hot reload (Go only)
 
-Python *rns* does not expose an equivalent. This is a convenience for long-running Go daemons.
+Python has no equivalent. Convenience for long-running Go daemons.
 
-The transport API for swapping or dropping interfaces without corrupting paths or link state includes ReplaceInterface, UnregisterInterface, and SetReticulumConfig. Unregister clears paths, discovery path state, announce bookkeeping, link relay rows, and link-table entries whose bound LinkInterface matches the removed iface. That uses Link.LinkedNetworkInterface on pkg/link.Link, and mocks must implement the same contract.
+`ReplaceInterface`, `UnregisterInterface`, and `SetReticulumConfig` swap interfaces without corrupting paths or links. Unregister clears paths, discovery state, announce bookkeeping, relay rows, and link-table entries for the removed iface.
 
-The [cmd/reticulum-go](cmd/reticulum-go/) daemon wires ReloadInterfaces, config equality for keep versus rebuild, SIGHUP reload on Unix, and coordinates Stop() with reload on one mutex.
+[cmd/reticulum-go](cmd/reticulum-go/) wires `ReloadInterfaces`, config equality, SIGHUP reload, and coordinates `Stop()` with reload. Equality in [reload.go](pkg/node/reload.go) covers type, addresses, I2P, IFAC, and Auto ports. MTU, bitrate, `prefer_ipv6`, announce-rate, and ingress-control changes may not trigger rebuild.
 
-Relevant tests: pkg/transport/interface_lifecycle_test.go, interface_scrub_links_test.go, and interface_stress_race_test.go (some heavy cases skip under -short), plus cmd/reticulum-go/reload_e2e_test.go for end-to-end reload.
+Tests: `interface_lifecycle_test.go`, `interface_scrub_links_test.go`, `interface_stress_race_test.go`, `reload_e2e_test.go`.
+
+## Node lifecycle (Go only)
+
+Go-only embedder API in [pkg/node](pkg/node/) and the control API (`POST /v1/lifecycle/{resume,pause,refresh-paths}`). There is no Python equivalent. The API surface is complete for what Go ships. Platform limits are listed below.
+
+| API | Behaviour |
+|-----|-----------|
+| `OnNetworkAvailable` | Clears link pause, rescans Auto NICs, starts offline interfaces, re-registers transport, optionally re-establishes watched links |
+| `OnNetworkLost` | Sets link pause. Default mode calls `Disable()` on interfaces. Reconnect goroutines may run until I/O fails. |
+| `RefreshPaths` | Expires stale paths and requests fresh paths for watched destinations and explicit API args |
+| `ReloadInterfaces` | Hot-reloads `[[Interface]]` blocks from config |
+
+`watch_interfaces` (Linux) triggers `OnNetworkAvailable` on NIC up and enables AutoInterface NIC rescan. Python `discover_interfaces` starts rnstransport discovery (`StartInterfaceDiscovery`).
+
+## Python 1.2.x to 1.3.5 changes vs Go
+
+Wire format is unchanged in 1.2.x to 1.3.x. Most churn is utilities and transport behaviour.
+
+| Python change | Version | Go status |
+|---------------|---------|-----------|
+| BZ2 decompression bomb limits | 1.1.9 | Covered |
+| Path-request ingress/egress control | 1.2.5 | Covered (`pkg/rate`, `pkg/transport/ingress.go`) |
+| Path table random-blob selection | 1.2.x+ | Covered (`pkg/transport/path_selection.go`) |
+| Announce dedup when dest already in path table | 1.3.4 | Covered |
+| Blackhole link teardown at LINKIDENTIFY | 1.3.2 | **Gap** (announce drop only) |
+| AutoInterface link-local listener replacement on roam | 1.3.5 | Covered (`pkg/interfaces/auto_roam.go`) |
+| Channel outlet ghost envelopes | 1.3.0 | Simpler Go channel model |
+| Shared-instance RPC msgpack | 1.3.4 | Covered (`pkg/sharedinstance/rpc.go`) |
+| `rngit` / `rnid` / `rnsh` utilities | 1.2.x+ | Not ported (no wire impact) |
+
+## Security and robustness notes
+
+| Topic | Python | Reticulum-Go |
+|-------|--------|---------------|
+| IFAC unauthenticated drop | Yes | Yes |
+| Ingress/egress announce and PR rate limits | Yes (1.2.5) | Yes |
+| BZ2 bomb limits on resource/buffer | Yes (1.1.9) | Yes |
+| Blackholed identity announces | Dropped | Dropped |
+| Blackholed identity links | Torn down at LINKIDENTIFY (1.3.2) | **Not checked** |
+| UDP peer binding | Requires explicit `forward_ip` | Requires explicit `target_host` / `target_address` |
+| HDLC frame size cap | Yes | Yes (`maxHDLC` in tcp.go) |
+
+## Retained Go improvements
+
+Intentional extensions beyond upstream *rns*:
+
+| Area | Go behaviour |
+|------|--------------|
+| Path table persistence | RAM-only when no config path. Explicit opt-in for disk. |
+| Interface hot reload | `ReloadInterfaces`, transport scrub on unregister |
+| Node lifecycle API | `OnNetworkAvailable`, `OnNetworkLost`, `RefreshPaths`, control API |
+| `watch_interfaces` | Linux NIC monitor plus AutoInterface NIC rescan |
+| UDP reconnect | Opt-in via `max_reconnect_tries > 0` |
+| Backbone I/O | epoll/kqueue/io_uring multiplexing |
+| WebSocket interface | Browser/WASM transport |
+| Seccomp sandbox | Optional `enable_sandbox` in daemon |
 
 ## Utilities
 
 | Python utility | Reticulum-Go | Notes |
 |----------------|:------------:|-------|
-| rnsd | Yes | [cmd/reticulum-go](cmd/reticulum-go/) is the daemon. It loads config, brings up interfaces, runs the transport, and persists identity and destination storage. |
-| rncp | No | File copy CLI not ported. Resource primitives live in [pkg/resource](pkg/resource/). |
-| rnid | No | Identity CLI not ported. Primitives live in [pkg/identity](pkg/identity/). |
-| rnir | No | Identity recall CLI not ported. |
-| rnpath | No | Path inspect CLI not ported. The transport still exposes RequestPath and table APIs. |
-| rnprobe | No | Not ported. |
-| rnstatus | No | Not ported. |
-| rnx | No | Not ported. |
-| rnodeconf | No | Depends on the RNode driver. |
-| rnpkg | No | Not ported. |
-| WASM build | Go-only | [cmd/reticulum-wasm](cmd/reticulum-wasm/). Browser stack through [pkg/wasm](pkg/wasm/). |
+| rnsd | Yes | [cmd/reticulum-go](cmd/reticulum-go/) daemon |
+| rncp | No | Primitives in [pkg/resource](pkg/resource/) |
+| rnid | No | Primitives in [pkg/identity](pkg/identity/) |
+| rnir | No | Not ported |
+| rnpath | No | Transport exposes RequestPath and table APIs |
+| rnprobe | No | Not ported |
+| rnstatus | No | Not ported |
+| rnx | No | Not ported |
+| rnodeconf | No | Depends on RNode driver |
+| rnpkg | No | Not ported |
+| rngit | No | Git-over-Reticulum. No wire impact. |
+| rnsh | No | Not ported |
+| WASM build | Go-only | [cmd/reticulum-wasm](cmd/reticulum-wasm/), [pkg/wasm](pkg/wasm/) |
 
 ## Examples
 
-Public samples live under [examples/](examples/). Planned examples are tracked for later publication.
-
 | Directory | Status | Notes |
 |-----------|:------:|-------|
-| wasm | Public | //go:build js,wasm. JS bridge via pkg/wasm. |
+| wasm | Public | `//go:build js,wasm`. JS bridge via pkg/wasm. |
 | pageserver | Public | Pages and static files over Reticulum. |
 | announce, echo, filetransfer, link, minimal, page-downloader | Planned | N/A |
 
 ## Configuration
 
-Python defaults come from RNS.Reticulum.__create_default_config and the embedded template in [RNS/Reticulum.py](https://github.com/markqvist/Reticulum/blob/master/RNS/Reticulum.py) (search for __default_rns_config__), parsed with ConfigObj. Reticulum-Go parses the same shape in [internal/config](internal/config/config.go), which is canonical, with a thinner legacy path in [pkg/config](pkg/config/).
+Python defaults from `RNS.Reticulum.__create_default_config` and [RNS/Reticulum.py](https://github.com/markqvist/Reticulum/blob/master/RNS/Reticulum.py). Go parses the same shape in [internal/config](internal/config/config.go) (canonical) and [pkg/config](pkg/config/) (legacy).
 
 ### Config file format
 
@@ -90,16 +162,14 @@ Python defaults come from RNS.Reticulum.__create_default_config and the embedded
 |--------|--------------|---------------|
 | Parser | configobj / ConfigObj | Hand-rolled scanner in internal/config |
 | Top-level sections | [reticulum], [logging], [interfaces] | Same |
-| Nested interface header | [[Interface Name]] (depth 2) | Same. Depth follows bracket count. Depth 2 or greater starts an interface. |
-| Comments | Number sign (`#`) | Number sign and semicolon (`;`), including at end of line after a space |
-| Booleans | Yes/No/True/False | yes/no/true/false/on/off/1/0 (case-insensitive) |
-| Unknown keys / bad lines | ConfigObj errors | Ignored so a damaged file can still boot |
+| Nested interface header | [[Interface Name]] (depth 2) | Same. Depth 2+ starts an interface. |
+| Comments | Number sign (`#`) | `#` and `;` (including end-of-line after a space) |
+| Booleans | Yes/No/True/False | yes/no/true/false/on/off/1/0 |
+| Unknown keys / bad lines | ConfigObj errors | Ignored so a damaged file can boot |
 | UTF-8 BOM | Tolerated | Stripped at read |
 | Missing file | `__create_default_config__()` | `CreateDefaultConfig` in internal/config |
 
 ### Config directory search path
-
-Python tries system and home paths first. Go defaults to a single tree unless you pass --config.
 
 ```
 # Python (typical order)
@@ -108,24 +178,24 @@ Python tries system and home paths first. Go defaults to a single tree unless yo
 ~/.reticulum/config
 
 # Reticulum-Go default
-~/.reticulum-go/config    # use --config to point at a Python-style path
+~/.reticulum-go/config    # use --config for a Python-style path
 ```
 
 ### Storage layout under the config directory
 
 | Subpath | Python *rns* | Reticulum-Go |
 |---------|----------------|---------------|
-| config | Main file | Same (under ~/.reticulum-go when using the default layout) |
-| logfile | When LOG_FILE | Unused. Logs go to stderr. |
-| storage/ | Container | Same (internal/storage Manager basePath) |
+| config | Main file | Same (under ~/.reticulum-go by default) |
+| logfile | When LOG_FILE | Unused. Logs to stderr. |
+| storage/ | Container | Same |
 | storage/identities/ | Per-name blobs | Per-hash blobs |
 | storage/cache/ | General cache | Present |
 | storage/cache/announces/ | Announce cache | Present |
 | storage/resources/ | Resource scratch | Present |
-| storage/blackhole | msgpack table | [pkg/blackhole](pkg/blackhole/) (path may differ) |
+| storage/blackhole | msgpack table | [pkg/blackhole](pkg/blackhole/) |
 | storage/ratchets/ | Ratchet keys | Present |
-| storage/destination_table | Path snapshot | Yes (flat msgpack list, Python-compatible entry layout; interface resolved by truncated hash of interface name) |
-| storage/known_destinations | Known destinations | Yes (flat msgpack map; loads Python `known_destinations` byte-keyed files) |
+| storage/destination_table | Path snapshot | Yes (flat msgpack, Python-compatible layout) |
+| storage/known_destinations | Known destinations | Yes (loads Python byte-keyed files) |
 | storage/transport_identity | Transport identity | Present |
 | interfaces/ | Python plugin modules | Not supported |
 
@@ -134,36 +204,38 @@ Python tries system and home paths first. Go defaults to a single tree unless yo
 | Key | Python *rns* | Reticulum-Go | Notes |
 |-----|:------------:|:------------:|-------|
 | enable_transport | Yes | Yes | Wired to Transport |
-| share_instance | Yes | Yes | Wired in daemon via [pkg/sharedinstance](pkg/sharedinstance/). Server binds first; otherwise connects as client. |
-| shared_instance_port | Yes | Yes | TCP listen/dial port for shared instance |
-| instance_control_port | Yes | Yes | RPC server when this process owns the shared instance |
+| share_instance | Yes | Yes | [pkg/sharedinstance](pkg/sharedinstance/). Server binds first, else client. |
+| shared_instance_port | Yes | Yes | TCP port for shared instance |
+| instance_control_port | Yes | Yes | RPC when this process owns the instance |
 | instance_name | Yes | Yes | Unix socket name when `shared_instance_type = unix` |
 | shared_instance_type | Yes | Yes | `tcp` or `unix` |
-| backbone_io | No | Yes | Go-only. `auto`, `epoll`, `kqueue`, `io_uring`, or `go`. Selects [pkg/backbone](pkg/backbone/) multiplexer for backbone and local shared-instance sockets. |
-| rpc_key | No | Yes | Hex key for shared-instance RPC authentication |
-| enable_sandbox | No | Yes | Linux seccomp sandbox in daemon |
-| enable_control_api | No | Yes | Localhost JSON control API ([pkg/controlapi](pkg/controlapi/)) |
-| control_api_host | No | Yes | Bind address for control API |
-| control_api_port | No | Yes | Port for control API |
+| backbone_io | No | Yes | Go-only. `auto`, `epoll`, `kqueue`, `io_uring`, or `go`. |
+| rpc_key | No | Yes | Hex key for shared-instance RPC auth |
+| enable_sandbox | No | Yes | Linux seccomp in daemon |
+| enable_control_api | No | Yes | Localhost JSON API ([pkg/controlapi](pkg/controlapi/)) |
+| control_api_host | No | Yes | Control API bind address |
+| control_api_port | No | Yes | Control API port |
 | panic_on_interface_error | Yes | Yes | Honoured on interface errors |
-| in_memory_path_table | No | Yes | When true, path table stays in RAM only |
-| in_memory_known_destinations | No | Yes | When true, known destinations stay in RAM only |
-| discover_interfaces | Yes | No | Ignored |
+| in_memory_path_table | No | Yes | RAM-only path table |
+| in_memory_known_destinations | No | Yes | RAM-only known destinations |
+| discover_interfaces | Yes | Yes | Starts rnstransport listening (`StartInterfaceDiscovery`). Announcer not ported. |
+| watch_interfaces | No | Yes | Go-only. Linux NIC poll and AutoInterface rescan |
 | respond_to_probes / allow_probes | Yes | No | Probe path not ported |
-| publish_blackhole | Yes | No | Blackhole package does not auto-publish |
+| publish_blackhole | Yes | No | Not auto-published |
 | blackhole_sources | Yes | No | Ignored |
+| blackhole_update_interval | Yes | No | Ignored (Python 1.3.2) |
 | network_identity | Yes | No | Ignored |
 
 ### [logging] keys
 
 | Key | Python *rns* | Reticulum-Go | Notes |
 |-----|:------------:|:------------:|-------|
-| loglevel | Yes | Yes | Same 0–7 scale |
+| loglevel | Yes | Yes | Same 0 to 7 scale |
 | destination | Yes | No | Go logs to stderr only |
 
 ### [[Interface Name]] keys
 
-Parsed by applyInterfaceOption in [pkg/reticulumconfig/config.go](pkg/reticulumconfig/config.go). Options not listed here (outgoing, selected_outgoing, and RNode or Serial-specific keys) are ignored at parse time. IFAC options (`network_name`, `passphrase`, `ifac_*`) are parsed and applied via ApplyIFACFromConfig.
+Parsed in [pkg/reticulumconfig/config.go](pkg/reticulumconfig/config.go). Unlisted keys are ignored. IFAC options applied via `ApplyIFACFromConfig`.
 
 | Key | Python *rns* | Reticulum-Go | Applies to (Go) |
 |-----|:------------:|:------------:|-----------------|
@@ -172,33 +244,31 @@ Parsed by applyInterfaceOption in [pkg/reticulumconfig/config.go](pkg/reticulumc
 | address / listen_ip | Yes | Yes | UDP, TCP server |
 | port / listen_port | Yes | Yes | UDP, TCP server |
 | target_host / target_port | Yes | Yes | TCP client |
-| target_address | Yes | Yes | UDP peer hint |
+| target_address | Yes | Yes | UDP peer (`target_address` over `target_host`) |
 | interface | Yes | Yes | AutoInterface NIC name |
 | kiss_framing | Yes | Parsed only | Reserved for KISS |
 | i2p_tunneled | Yes | Yes | TCP client, backbone client |
-| peers | Yes | Yes | I2PInterface outbound peer list |
+| peers | Yes | Yes | I2PInterface outbound peers |
 | connectable | Yes | Yes | I2PInterface SAM server tunnel |
 | sam_address | Yes | Yes | I2PInterface SAM host:port |
 | prefer_ipv6 | Yes | Yes | TCP, Auto |
-| max_reconnect_tries | Yes | Yes | TCP client |
+| max_reconnect_tries | Yes | Yes | TCP, UDP, backbone. `-1` or omitted = unlimited |
 | bitrate / mtu | Yes | Yes | All |
 | discovery_port / data_port | Yes | Yes | Auto |
-| discovery_scope | Yes | Yes | Auto (link / admin / site / organisation / global) |
+| discovery_scope | Yes | Yes | Auto |
 | group_id / multicast_address_type | Yes | Yes | Auto |
-| announce_cap, announce_rate_target, announce_rate_grace, announce_rate_penalty | Yes | Yes | All |
-| ingress_control, ic_* burst/hold keys | Yes | Yes | All |
+| announce_cap, announce_rate_* | Yes | Yes | All |
+| ingress_control, ic_* | Yes | Yes | All |
 | outgoing / selected_outgoing | Yes | No | Ignored |
-| network_name / passphrase / ifac_* | Yes | Yes | Parsed; applied via ApplyIFACFromConfig |
+| network_name / passphrase / ifac_* | Yes | Yes | Parsed and applied |
 
 ## Protocol constants
-
-These match what RNS.Identity and RNS.Reticulum emit on the wire:
 
 | Item | Value |
 |------|--------|
 | Curve | Curve25519 (X25519 + Ed25519) |
 | KEYSIZE | 512 bits (256-bit encryption + 256-bit signing) |
-| TRUNCATED_HASHLENGTH | 128 bits (identity and destination addressing) |
+| TRUNCATED_HASHLENGTH | 128 bits |
 | RATCHETSIZE | 256 bits |
-| RATCHET_EXPIRY | 2 592 000 seconds (30 days) |
+| RATCHET_EXPIRY | 2 592 000 seconds (30 days) |
 | Default MTU | 500 bytes (pkg/packet.MTU) |
