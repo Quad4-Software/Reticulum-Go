@@ -31,7 +31,6 @@ permissions:
 env:
   CI_GO_NO_TELEMETRY_VERSION: "1.26.4"
   CI_GO_BOOTSTRAP_VERSION: "1.24.6"
-  CI_GO_NO_TELEMETRY_ROOT: /usr/local/go-no-telemetry
 
 jobs:
   build:
@@ -49,15 +48,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
+      - name: Resolve install root
+        id: paths
+        shell: sh
+        run: |
+            echo "root=${{ runner.tool_cache }}/go-no-telemetry" >> "$GITHUB_OUTPUT"
+            echo "key=go-no-telemetry-v2-${{ env.CI_GO_NO_TELEMETRY_VERSION }}-${{ matrix.platform }}" >> "$GITHUB_OUTPUT"
+
       - name: Restore toolchain cache
         id: cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ${{ env.CI_GO_NO_TELEMETRY_ROOT }}
-          key: go-no-telemetry-${{ env.CI_GO_NO_TELEMETRY_VERSION }}-${{ matrix.platform }}
+          path: ${{ steps.paths.outputs.root }}
+          key: ${{ steps.paths.outputs.key }}
 
       - name: Build from source
         if: steps.cache.outputs.cache-hit != 'true'
+        env:
+          CI_GO_NO_TELEMETRY_ROOT: ${{ steps.paths.outputs.root }}
         run: sh scripts/ci/setup-go-no-telemetry.sh "${{ env.CI_GO_NO_TELEMETRY_VERSION }}"
 
       - name: Package toolchain
@@ -65,7 +73,7 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           sh scripts/ci/package-go-no-telemetry.sh \
-            "${{ env.CI_GO_NO_TELEMETRY_ROOT }}" \
+            "${{ steps.paths.outputs.root }}" \
             "dist/go-no-telemetry-${{ env.CI_GO_NO_TELEMETRY_VERSION }}-${{ matrix.platform }}.tar.gz"
 
       - name: Upload toolchain artifact
@@ -82,5 +90,5 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ${{ env.CI_GO_NO_TELEMETRY_ROOT }}
-          key: go-no-telemetry-${{ env.CI_GO_NO_TELEMETRY_VERSION }}-${{ matrix.platform }}
+          path: ${{ steps.paths.outputs.root }}
+          key: ${{ steps.paths.outputs.key }}

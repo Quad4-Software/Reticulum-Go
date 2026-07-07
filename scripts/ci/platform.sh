@@ -27,12 +27,16 @@ ci_go_no_telemetry_root() {
 		echo "$CI_GO_NO_TELEMETRY_ROOT"
 		return
 	fi
+	if [ -n "${RUNNER_TOOL_CACHE:-}" ]; then
+		echo "${RUNNER_TOOL_CACHE}/go-no-telemetry"
+		return
+	fi
 	case "$(uname -s)" in
 	Darwin)
-		echo "${RUNNER_TOOL_CACHE:-${TMPDIR:-/tmp}}/go-no-telemetry"
+		echo "${TMPDIR:-/tmp}/go-no-telemetry"
 		;;
 	MINGW* | MSYS* | CYGWIN*)
-		echo "${RUNNER_TOOL_CACHE:-${TEMP:-/tmp}}/go-no-telemetry"
+		echo "${TEMP:-/tmp}/go-no-telemetry"
 		;;
 	*)
 		echo "/usr/local/go-no-telemetry"
