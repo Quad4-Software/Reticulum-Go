@@ -180,7 +180,7 @@ func (n *Node) startInterfaces() error {
 		n.wireConnectivityHooks(iface)
 	}
 	n.interfaces = started
-	if n.config != nil && (n.config.DiscoverInterfaces || n.config.WatchInterfaces) {
+	if n.config != nil && n.config.WatchInterfaces {
 		n.startInterfaceMonitor()
 	}
 	n.StartInterfaceDiscovery()

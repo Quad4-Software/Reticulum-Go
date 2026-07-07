@@ -116,7 +116,7 @@ type ReticulumConfig struct {
 	// DiscoverInterfaces enables periodic NIC rescan for AutoInterface peers.
 	DiscoverInterfaces bool
 
-	// WatchInterfaces enables OS-level interface change monitoring where supported.
+	// WatchInterfaces enables periodic NIC monitoring via net.Interfaces where supported.
 	WatchInterfaces bool
 }
 
