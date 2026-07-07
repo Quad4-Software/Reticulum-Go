@@ -4,7 +4,7 @@ This document maps how Reticulum-Go compares to the official [Reticulum network 
 
 Crossref tests clone the reference from `rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum` via [rngit](https://reticulum.network/manual/git.html) (`tests/crossref/run_crossref.sh`). The GitHub mirror at [markqvist/Reticulum](https://github.com/markqvist/Reticulum) is no longer used for vectors.
 
-For crypto and storage see [docs/cryptography.md](docs/cryptography.md). For behaviour and threat model see [SECURITY.md](SECURITY.md).
+For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). For behaviour and threat model see [SECURITY.md](SECURITY.md). Full English docs: [docs/en/](docs/en/README.md).
 
 ## Table
 
