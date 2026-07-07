@@ -19,7 +19,7 @@ permissions:
   actions: read
 
 env:
-  CI_GO_NO_TELEMETRY_VERSION: "1.26.4"
+  CI_GO_VERSION: "1.26.4"
   CI_TASK_VERSION: "3.46.3"
   CI_TINYGO_VERSION: "0.37.0"
   TINYGO_DEB_SHA256: "8f34a4aac7f1aa2ad51dc0f4eccd40da13b6f52fbac5c13887d57327e5f0a862"
@@ -50,7 +50,7 @@ jobs:
       - name: Setup CI
         uses: ./.github/actions/setup-ci
         with:
-          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Apt update (for TinyGo .deb)

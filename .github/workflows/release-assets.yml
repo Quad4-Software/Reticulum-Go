@@ -32,7 +32,7 @@ permissions:
   contents: write
 
 env:
-  CI_GO_NO_TELEMETRY_VERSION: "1.26.4"
+  CI_GO_VERSION: "1.26.4"
   CI_GO_LEGACY_WIN7_VERSION: "1.26.4-1"
   CI_TASK_VERSION: "3.46.3"
   CI_COSIGN_VERSION: "3.0.5"
@@ -68,7 +68,7 @@ jobs:
       - name: Setup CI
         uses: ./.github/actions/setup-ci
         with:
-          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Build
@@ -148,7 +148,7 @@ jobs:
       - name: Setup CI
         uses: ./.github/actions/setup-ci
         with:
-          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Apt update (for Trivy .deb)
@@ -186,7 +186,7 @@ jobs:
       - name: Setup CI
         uses: ./.github/actions/setup-ci
         with:
-          go_version: ${{ env.CI_GO_NO_TELEMETRY_VERSION }}
+          go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Build pageserver (linux/amd64)
