@@ -8,6 +8,8 @@ Reticulum-Go provides full protocol compatibility with the Python reference impl
 
 See [COMPATIBILITY.md](COMPATIBILITY.md) for how this is verified against the Python stack and the [network API reference](https://reticulum.network/manual/reference.html).
 
+Full documentation (English): [docs/en/](docs/en/README.md). Additional languages will live alongside `docs/en/` when translated.
+
 ## Features
 
 | Area | Status | Notes |
@@ -16,7 +18,7 @@ See [COMPATIBILITY.md](COMPATIBILITY.md) for how this is verified against the Py
 | Daemon | Yes | `cmd/reticulum-go`: config, interfaces, transport, identity storage |
 | Core stack | Yes | `pkg/transport`, `pkg/packet`, `pkg/destination`, `pkg/announce`, `pkg/pathfinder` |
 | Links, resources, channel, buffer | Yes | `pkg/link`, `pkg/resource`, `pkg/channel`, `pkg/buffer` |
-| Cryptography | Yes | Centralized in `pkg/cryptography`. Details in [docs/cryptography.md](docs/cryptography.md) |
+| Cryptography | Yes | Centralized in `pkg/cryptography`. Details in [docs/en/cryptography.md](docs/en/cryptography.md) |
 | Identity (software + optional hardware-bound signing) | Yes | `pkg/identity`, `LoadIdentityFile`, `NewIdentityWithSigner`, RHB1 descriptor |
 | IFAC (interface access code) | Yes | `pkg/ifac`, masks UDP/TCP/Auto frames per reference |
 | Discovery / blackhole | Partial | `pkg/discovery`, `pkg/blackhole` (see compatibility table) |
@@ -33,7 +35,7 @@ See [COMPATIBILITY.md](COMPATIBILITY.md) for how this is verified against the Py
 
 ### Cryptography
 
-Algorithms, key formats, storage, IFAC, and operational guidance are documented in [docs/cryptography.md](docs/cryptography.md). Application code should use `pkg/cryptography` and `pkg/identity` rather than ad hoc primitives.
+Algorithms, key formats, storage, IFAC, and operational guidance are documented in [docs/en/cryptography.md](docs/en/cryptography.md). Application code should use `pkg/cryptography` and `pkg/identity` rather than ad hoc primitives.
 
 ### Runtime sandbox
 
