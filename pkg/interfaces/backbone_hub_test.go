@@ -32,12 +32,8 @@ func backboneBackendsForTest(t *testing.T) []backbone.Backend {
 	switch runtime.GOOS {
 	case "linux", "android":
 		out = append(out, backbone.BackendEpoll)
-		if hub, err := backbone.Init(backbone.BackendUring); err == nil {
-			_ = hub
-			backbone.Shutdown()
+		if backbone.UringProbeAllowed() {
 			out = append(out, backbone.BackendUring)
-		} else {
-			backbone.Shutdown()
 		}
 	case "darwin", "freebsd", "netbsd", "openbsd":
 		out = append(out, backbone.BackendKqueue)

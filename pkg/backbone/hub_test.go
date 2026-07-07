@@ -268,6 +268,9 @@ func TestInitUringFallback(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("linux only")
 	}
+	if !UringProbeAllowed() {
+		t.Skip("io_uring probe disabled in CI")
+	}
 	Shutdown()
 	hub, err := Init(BackendUring)
 	if err != nil {

@@ -7,6 +7,7 @@ package backbone
 
 import (
 	"fmt"
+	"os"
 	"syscall"
 	"unsafe"
 
@@ -20,6 +21,9 @@ type uringPoller struct {
 }
 
 func newUringPoller() (poller, error) {
+	if !uringProbeAllowed() {
+		return nil, fmt.Errorf("io_uring unavailable")
+	}
 	if err := probeIOUring(); err != nil {
 		return nil, err
 	}
@@ -55,4 +59,17 @@ func probeIOUring() error {
 	// #nosec G115 -- io_uring probe fd is a small kernel fd
 	_ = unix.Close(socketFD(fd))
 	return nil
+}
+
+// UringProbeAllowed reports whether this process should attempt io_uring_setup.
+// GitHub Actions and similar CI sandboxes often deny the syscall with SIGSYS.
+func UringProbeAllowed() bool {
+	return uringProbeAllowed()
+}
+
+func uringProbeAllowed() bool {
+	if os.Getenv("CI") != "" && os.Getenv("RETICULUM_ENABLE_IO_URING") == "" {
+		return false
+	}
+	return true
 }

@@ -25,12 +25,8 @@ func testableBackends(t *testing.T) []Backend {
 	switch runtime.GOOS {
 	case "linux", "android":
 		backends = append(backends, BackendEpoll)
-		if hub, err := Init(BackendUring); err == nil {
-			_ = hub
-			Shutdown()
+		if UringProbeAllowed() {
 			backends = append(backends, BackendUring)
-		} else {
-			Shutdown()
 		}
 	case "darwin", "freebsd", "netbsd", "openbsd":
 		backends = append(backends, BackendKqueue)

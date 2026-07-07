@@ -25,8 +25,33 @@ package_low_coverage() {
 	awk -v v="$pct" -v t="$LOW_COV_THRESHOLD" 'BEGIN { exit !(v < t) }'
 }
 
+merge_cover_profile() {
+	dst="$1"
+	src="$2"
+	if [ ! -f "$dst" ]; then
+		cp "$src" "$dst"
+		return
+	fi
+	tail -n +2 "$src" >> "$dst"
+}
+
+collect_unit_coverage() {
+	out="$1"
+	log="$2"
+	rm -f "$out"
+	for pkg in $PACKAGES; do
+		partial="$COVER_DIR/$(echo "$pkg" | tr './' '_').out"
+		echo "fuzz-guided: coverage $pkg" >>"$log"
+		if ! go test -coverprofile="$partial" -covermode=atomic "$pkg" >>"$log" 2>&1; then
+			return 1
+		fi
+		merge_cover_profile "$out" "$partial"
+	done
+	return 0
+}
+
 echo "fuzz-guided: collecting unit-test coverage"
-if ! go test -p 1 -coverprofile="$UNIT_COVER" -covermode=atomic $PACKAGES >"$COVER_DIR/unit-before.log" 2>&1; then
+if ! collect_unit_coverage "$UNIT_COVER" "$COVER_DIR/unit-before.log"; then
 	tail -80 "$COVER_DIR/unit-before.log" >&2
 	exit 1
 fi
@@ -65,7 +90,7 @@ run_fuzz ./pkg/discovery FuzzDecodeAppData "$(fuzz_time_for discovery 10s)"
 run_fuzz ./pkg/blackhole FuzzDecodeBlackholeMap "$(fuzz_time_for blackhole 10s)"
 
 echo "fuzz-guided: rechecking unit coverage"
-if ! go test -p 1 -coverprofile="$UNIT_AFTER" -covermode=atomic $PACKAGES >"$COVER_DIR/unit-after.log" 2>&1; then
+if ! collect_unit_coverage "$UNIT_AFTER" "$COVER_DIR/unit-after.log"; then
 	tail -80 "$COVER_DIR/unit-after.log" >&2
 	exit 1
 fi
