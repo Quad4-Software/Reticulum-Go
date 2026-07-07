@@ -60,3 +60,30 @@ func TestMPConnAuthRejectsWrongKey(t *testing.T) {
 		t.Fatal("expected auth failure")
 	}
 }
+
+// TestMPConnAuthRejectsSingleRoundServer verifies Python clients require the
+// server to answer the client's challenge after the first round. A server that
+// only delivers one challenge (the pre-fix behaviour) must be rejected.
+func TestMPConnAuthRejectsSingleRoundServer(t *testing.T) {
+	authkey := []byte("shared-instance-authkey")
+	serverConn, clientConn := net.Pipe()
+	defer serverConn.Close()
+	defer clientConn.Close()
+
+	errCh := make(chan error, 2)
+	go func() {
+		err := deliverChallenge(serverConn, authkey)
+		_ = serverConn.Close()
+		errCh <- err
+	}()
+	go func() {
+		errCh <- AuthenticateClient(clientConn, authkey)
+	}()
+
+	if err := <-errCh; err != nil {
+		t.Fatalf("handshake: %v", err)
+	}
+	if err := <-errCh; err == nil {
+		t.Fatal("expected client to reject single-round server auth")
+	}
+}

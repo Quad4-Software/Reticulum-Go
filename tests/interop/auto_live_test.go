@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-// Live AutoInterface interop. Requires root to create veth pairs.
-// Set RUN_LIVE_INTEROP=1 to enable.
+// Live AutoInterface interop. Requires Linux and permission to create veth pairs
+// (root or user netns). Set RUN_LIVE_INTEROP=1 to enable.
 
 package interop
 
@@ -28,19 +28,18 @@ func setupVethPair(t *testing.T) (veth0, veth1 string, cleanup func()) {
 	veth0 = "rns0"
 	veth1 = "rns1"
 
-	// Create veth pair
+	_ = exec.Command("ip", "link", "del", veth0).Run()
+
 	cmd := exec.Command("ip", "link", "add", veth0, "type", "veth", "peer", "name", veth1)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("failed to create veth pair: %v\n%s", err, out)
+		t.Skipf("failed to create veth pair: %v\n%s", err, out)
 	}
 
-	// Bring up both ends
 	exec.Command("ip", "link", "set", veth0, "up").Run()
 	exec.Command("ip", "link", "set", veth1, "up").Run()
 
-	// Add link-local addresses
-	exec.Command("ip", "-6", "addr", "add", "fe80::1/64", "dev", veth0).Run()
-	exec.Command("ip", "-6", "addr", "add", "fe80::2/64", "dev", veth1).Run()
+	exec.Command("ip", "-6", "addr", "add", "fe80::1/64", "dev", veth0, "nodad").Run()
+	exec.Command("ip", "-6", "addr", "add", "fe80::2/64", "dev", veth1, "nodad").Run()
 
 	// Wait for addresses to settle
 	time.Sleep(100 * time.Millisecond)
@@ -51,20 +50,59 @@ func setupVethPair(t *testing.T) (veth0, veth1 string, cleanup func()) {
 	return veth0, veth1, cleanup
 }
 
-func hasRoot() bool {
-	return os.Getuid() == 0
+func autoVethOrSkip(t *testing.T) {
+	t.Helper()
+	liveOrSkip(t)
+	if runtime.GOOS != "linux" {
+		t.Skip("veth-based live test only supported on Linux")
+	}
+}
+
+// TestLiveInteropAutoGoToGoDiscovery verifies two Go AutoInterfaces discover
+// each other over a veth pair.
+func TestLiveInteropAutoGoToGoDiscovery(t *testing.T) {
+	autoVethOrSkip(t)
+
+	veth0, veth1, cleanupVeth := setupVethPair(t)
+	defer cleanupVeth()
+
+	ai0, err := interfaces.NewAutoInterface("auto0", &common.InterfaceConfig{
+		Enabled: true,
+		Devices: []string{veth0},
+	})
+	if err != nil {
+		t.Fatalf("NewAutoInterface 0: %v", err)
+	}
+	ai1, err := interfaces.NewAutoInterface("auto1", &common.InterfaceConfig{
+		Enabled: true,
+		Devices: []string{veth1},
+	})
+	if err != nil {
+		t.Fatalf("NewAutoInterface 1: %v", err)
+	}
+	if err := ai0.Start(); err != nil {
+		t.Fatalf("Start 0: %v", err)
+	}
+	defer ai0.Stop()
+	if err := ai1.Start(); err != nil {
+		t.Fatalf("Start 1: %v", err)
+	}
+	defer ai1.Stop()
+
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		if ai0.PeerCount() > 0 && ai1.PeerCount() > 0 {
+			return
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	t.Fatalf("Go-Go AutoInterface discovery failed: peers ai0=%d ai1=%d", ai0.PeerCount(), ai1.PeerCount())
 }
 
 // TestLiveInteropAutoInterfaceDiscovery verifies Go and Python AutoInterfaces
 // discover each other over a veth pair.
 func TestLiveInteropAutoInterfaceDiscovery(t *testing.T) {
-	liveOrSkip(t)
-	if runtime.GOOS != "linux" {
-		t.Skip("veth-based live test only supported on Linux")
-	}
-	if !hasRoot() {
-		t.Skip("live AutoInterface test requires root for veth creation")
-	}
+	autoVethOrSkip(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -132,13 +170,7 @@ func TestLiveInteropAutoInterfaceDiscovery(t *testing.T) {
 // TestLiveInteropAutoInterfaceGoSeesPythonAnnounce verifies Go learns a path
 // to a Python destination announced over AutoInterface.
 func TestLiveInteropAutoInterfaceGoSeesPythonAnnounce(t *testing.T) {
-	liveOrSkip(t)
-	if runtime.GOOS != "linux" {
-		t.Skip("veth-based live test only supported on Linux")
-	}
-	if !hasRoot() {
-		t.Skip("live AutoInterface test requires root for veth creation")
-	}
+	autoVethOrSkip(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
