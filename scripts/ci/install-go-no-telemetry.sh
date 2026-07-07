@@ -4,21 +4,17 @@
 set -eu
 
 . "$(dirname "$0")/priv.sh"
+. "$(dirname "$0")/platform.sh"
 
 VERSION="${1:?Go version required}"
 VERSION="${VERSION#go}"
 VERSION="${VERSION#v}"
-INSTALL_ROOT="${CI_GO_NO_TELEMETRY_ROOT:-/usr/local/go-no-telemetry}"
+INSTALL_ROOT="$(ci_go_no_telemetry_root)"
 WORKFLOW_FILE="${CI_GO_NO_TELEMETRY_WORKFLOW:-go-no-telemetry-toolchain.yml}"
 
-ARCH="$(uname -m)"
-case "$ARCH" in
-    x86_64)  ARCH="amd64" ;;
-    aarch64) ARCH="arm64" ;;
-    *)       echo "Unsupported architecture: $ARCH" >&2; exit 1 ;;
-esac
-
-ARTIFACT_BASE="go-no-telemetry-${VERSION}-linux-${ARCH}"
+PLATFORM_ID="$(ci_platform_id)"
+ARCH="$(ci_platform_arch)"
+ARTIFACT_BASE="go-no-telemetry-${VERSION}-${PLATFORM_ID}"
 ARCHIVE="${ARTIFACT_BASE}.tar.gz"
 ARTIFACT_DIR="${CI_GO_NO_TELEMETRY_ARTIFACT_DIR:-}"
 
@@ -41,6 +37,9 @@ export_paths() {
 
 verify_toolchain() {
     if [ ! -x "${INSTALL_ROOT}/bin/go" ]; then
+        return 1
+    fi
+    if ! GOROOT="$INSTALL_ROOT" "${INSTALL_ROOT}/bin/go" version >/dev/null 2>&1; then
         return 1
     fi
     if [ "$(GOROOT="$INSTALL_ROOT" "${INSTALL_ROOT}/bin/go" telemetry)" != "off" ]; then

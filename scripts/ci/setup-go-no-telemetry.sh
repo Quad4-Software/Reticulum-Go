@@ -6,45 +6,65 @@
 set -eu
 
 . "$(dirname "$0")/priv.sh"
+. "$(dirname "$0")/platform.sh"
 
 VERSION="${1:?Go version required}"
 VERSION="${VERSION#go}"
 VERSION="${VERSION#v}"
 BOOTSTRAP_VER="${CI_GO_BOOTSTRAP_VERSION:-1.24.6}"
-INSTALL_ROOT="${CI_GO_NO_TELEMETRY_ROOT:-/usr/local/go-no-telemetry}"
+INSTALL_ROOT="$(ci_go_no_telemetry_root)"
 REPO="${CI_GO_NO_TELEMETRY_REPO:-https://github.com/Quad4-Software/go-no-telemetry.git}"
 FORK_META_REF="${CI_GO_NO_TELEMETRY_FORK_REF:-origin/master}"
 UPSTREAM_TAG="go${VERSION}"
-BOOTSTRAP_ROOT="/tmp/go-bootstrap-${BOOTSTRAP_VER}"
+BOOTSTRAP_ROOT="/tmp/go-bootstrap-${BOOTSTRAP_VER}-$(ci_platform_id)"
 WORK_DIR="${CI_GO_NO_TELEMETRY_WORK:-/tmp/go-no-telemetry-src}"
 
-ARCH="$(uname -m)"
-case "$ARCH" in
-    x86_64)  ARCH="amd64" ;;
-    aarch64) ARCH="arm64" ;;
-    *)       echo "Unsupported architecture: $ARCH" >&2; exit 1 ;;
-esac
+GOOS="$(ci_platform_os)"
+ARCH="$(ci_platform_arch)"
 
 install_bootstrap() {
     GO_VERSION="go${BOOTSTRAP_VER#go}"
-    TARBALL="${GO_VERSION}.linux-${ARCH}.tar.gz"
-    BASE="https://dl.google.com/go"
-
-    curl -fsSL "${BASE}/${TARBALL}.sha256" | tr -d '\n\r ' > /tmp/go-bootstrap.sha256
-    EXPECTED="$(cat /tmp/go-bootstrap.sha256)"
-
-    curl -fsSL "${BASE}/${TARBALL}" -o /tmp/go-bootstrap.tar.gz
-    ACTUAL="$(sha256sum /tmp/go-bootstrap.tar.gz | awk '{print $1}')"
-    if [ "$ACTUAL" != "$EXPECTED" ]; then
-        echo "SHA256 mismatch for bootstrap ${TARBALL}" >&2
+    case "$GOOS" in
+    linux | darwin)
+        TARBALL="${GO_VERSION}.${GOOS}-${ARCH}.tar.gz"
+        BASE="https://dl.google.com/go"
+        curl -fsSL "${BASE}/${TARBALL}.sha256" | tr -d '\n\r ' > /tmp/go-bootstrap.sha256
+        EXPECTED="$(cat /tmp/go-bootstrap.sha256)"
+        curl -fsSL "${BASE}/${TARBALL}" -o /tmp/go-bootstrap.tar.gz
+        ACTUAL="$(sha256sum /tmp/go-bootstrap.tar.gz | awk '{print $1}')"
+        if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "SHA256 mismatch for bootstrap ${TARBALL}" >&2
+            rm -f /tmp/go-bootstrap.tar.gz /tmp/go-bootstrap.sha256
+            exit 1
+        fi
+        rm -rf "$BOOTSTRAP_ROOT"
+        mkdir -p "$BOOTSTRAP_ROOT"
+        tar -C "$BOOTSTRAP_ROOT" --strip-components=1 -xzf /tmp/go-bootstrap.tar.gz
         rm -f /tmp/go-bootstrap.tar.gz /tmp/go-bootstrap.sha256
+        ;;
+    windows)
+        ZIP="${GO_VERSION}.windows-${ARCH}.zip"
+        BASE="https://dl.google.com/go"
+        curl -fsSL "${BASE}/${ZIP}.sha256" | tr -d '\n\r ' > /tmp/go-bootstrap.sha256
+        EXPECTED="$(cat /tmp/go-bootstrap.sha256)"
+        curl -fsSL "${BASE}/${ZIP}" -o /tmp/go-bootstrap.zip
+        ACTUAL="$(sha256sum /tmp/go-bootstrap.zip | awk '{print $1}')"
+        if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "SHA256 mismatch for bootstrap ${ZIP}" >&2
+            rm -f /tmp/go-bootstrap.zip /tmp/go-bootstrap.sha256
+            exit 1
+        fi
+        rm -rf "$BOOTSTRAP_ROOT"
+        mkdir -p "$BOOTSTRAP_ROOT"
+        unzip -q /tmp/go-bootstrap.zip -d /tmp/go-bootstrap-extract
+        mv "/tmp/go-bootstrap-extract/go" "$BOOTSTRAP_ROOT"
+        rm -rf /tmp/go-bootstrap-extract /tmp/go-bootstrap.zip /tmp/go-bootstrap.sha256
+        ;;
+    *)
+        echo "Unsupported bootstrap OS: $GOOS" >&2
         exit 1
-    fi
-
-    rm -rf "$BOOTSTRAP_ROOT"
-    mkdir -p "$BOOTSTRAP_ROOT"
-    tar -C "$BOOTSTRAP_ROOT" --strip-components=1 -xzf /tmp/go-bootstrap.tar.gz
-    rm -f /tmp/go-bootstrap.tar.gz /tmp/go-bootstrap.sha256
+        ;;
+    esac
 }
 
 build_at_version() {
@@ -80,7 +100,8 @@ build_at_version() {
     cd "$root"
 }
 
-if [ ! -x "${BOOTSTRAP_ROOT}/bin/go" ]; then
+if ! ci_bootstrap_valid "$BOOTSTRAP_ROOT"; then
+    rm -rf "$BOOTSTRAP_ROOT"
     install_bootstrap
 fi
 
@@ -134,6 +155,7 @@ case "$GO_VER" in
 esac
 
 PARENT="$(dirname "$INSTALL_ROOT")"
+mkdir -p "$PARENT"
 if [ -w "$PARENT" ]; then
     rm -rf "$INSTALL_ROOT"
     cp -a "$WORK_DIR" "$INSTALL_ROOT"

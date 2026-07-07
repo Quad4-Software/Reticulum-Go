@@ -26,7 +26,10 @@ package_low_coverage() {
 }
 
 echo "fuzz-guided: collecting unit-test coverage"
-go test -coverprofile="$UNIT_COVER" -covermode=atomic $PACKAGES >/dev/null
+if ! go test -coverprofile="$UNIT_COVER" -covermode=atomic $PACKAGES >"$COVER_DIR/unit-before.log" 2>&1; then
+	tail -40 "$COVER_DIR/unit-before.log" >&2
+	exit 1
+fi
 echo "fuzz-guided: before"
 go tool cover -func="$UNIT_COVER" | tail -1
 
@@ -62,7 +65,10 @@ run_fuzz ./pkg/discovery FuzzDecodeAppData "$(fuzz_time_for discovery 10s)"
 run_fuzz ./pkg/blackhole FuzzDecodeBlackholeMap "$(fuzz_time_for blackhole 10s)"
 
 echo "fuzz-guided: rechecking unit coverage"
-go test -coverprofile="$UNIT_AFTER" -covermode=atomic $PACKAGES >/dev/null
+if ! go test -coverprofile="$UNIT_AFTER" -covermode=atomic $PACKAGES >"$COVER_DIR/unit-after.log" 2>&1; then
+	tail -40 "$COVER_DIR/unit-after.log" >&2
+	exit 1
+fi
 echo "fuzz-guided: after"
 go tool cover -func="$UNIT_AFTER" | tail -1
 echo "fuzz-guided: done"

@@ -65,7 +65,7 @@ jobs:
         include:
           - os: ubuntu-latest
             goarch: amd64
-          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
             goarch: arm64
 
     steps:

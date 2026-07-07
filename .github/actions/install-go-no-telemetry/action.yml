@@ -7,38 +7,77 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Resolve platform cache key
+      id: platform
+      shell: sh
+      run: |
+          arch="${{ runner.arch }}"
+          case "$arch" in
+            X64|x64) arch=amd64 ;;
+            ARM64|Arm64) arch=arm64 ;;
+          esac
+          os="${{ runner.os }}"
+          case "$os" in
+            Linux) os=linux ;;
+            macOS) os=darwin ;;
+            Windows) os=windows ;;
+          esac
+          echo "id=${os}-${arch}" >> "$GITHUB_OUTPUT"
+          echo "key=go-no-telemetry-${{ inputs.version }}-${os}-${arch}" >> "$GITHUB_OUTPUT"
+
     - name: Restore toolchain cache
       id: cache
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
-        path: /usr/local/go-no-telemetry
-        key: go-no-telemetry-${{ inputs.version }}-linux-amd64
+        path: |
+          /usr/local/go-no-telemetry
+          ${{ runner.tool_cache }}/go-no-telemetry
+        key: ${{ steps.platform.outputs.key }}
 
     - name: Install toolchain
       if: steps.cache.outputs.cache-hit != 'true'
       shell: sh
+      env:
+        CI_GO_NO_TELEMETRY_ROOT: ${{ runner.os != 'Linux' && format('{0}/go-no-telemetry', runner.tool_cache) || '' }}
       run: sh scripts/ci/install-go-no-telemetry.sh "${{ inputs.version }}"
 
     - name: Verify cached toolchain
       if: steps.cache.outputs.cache-hit == 'true'
       shell: sh
       run: |
-          export GOROOT=/usr/local/go-no-telemetry
-          export PATH="$GOROOT/bin:$PATH"
-          export GOTOOLCHAIN=local
-          go version
-          test "$(go telemetry)" = "off"
+          set -euo pipefail
+          for root in /usr/local/go-no-telemetry "${{ runner.tool_cache }}/go-no-telemetry"; do
+            if [ -x "$root/bin/go" ] && GOROOT="$root" "$root/bin/go" version >/dev/null 2>&1; then
+              export GOROOT="$root"
+              export PATH="$root/bin:$PATH"
+              export GOTOOLCHAIN=local
+              go version
+              test "$(go telemetry)" = "off"
+              echo "GOROOT=$root" >> "$GITHUB_ENV"
+              echo "GOTOOLCHAIN=local" >> "$GITHUB_ENV"
+              echo "$root/bin" >> "$GITHUB_PATH"
+              exit 0
+            fi
+          done
+          echo "cached toolchain is missing or wrong architecture" >&2
+          exit 1
 
     - name: Export toolchain paths
+      if: steps.cache.outputs.cache-hit != 'true'
       shell: sh
       run: |
-          echo "GOROOT=/usr/local/go-no-telemetry" >> "$GITHUB_ENV"
+          set -euo pipefail
+          . scripts/ci/platform.sh
+          root="$(ci_go_no_telemetry_root)"
+          echo "GOROOT=${root}" >> "$GITHUB_ENV"
           echo "GOTOOLCHAIN=local" >> "$GITHUB_ENV"
-          echo "/usr/local/go-no-telemetry/bin" >> "$GITHUB_PATH"
+          echo "${root}/bin" >> "$GITHUB_PATH"
 
     - name: Save toolchain cache
       if: steps.cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
-        path: /usr/local/go-no-telemetry
-        key: go-no-telemetry-${{ inputs.version }}-linux-amd64
+        path: |
+          /usr/local/go-no-telemetry
+          ${{ runner.tool_cache }}/go-no-telemetry
+        key: ${{ steps.platform.outputs.key }}
