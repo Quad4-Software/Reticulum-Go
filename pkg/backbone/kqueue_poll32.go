@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-//go:build darwin || freebsd || netbsd || openbsd
+//go:build (freebsd && (arm || 386)) || (openbsd && (arm || 386))
 
 package backbone
 
@@ -22,10 +22,7 @@ func newKqueuePoller() (poller, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := unix.SetCloseOnExec(fd); err != nil {
-		_ = unix.Close(fd)
-		return nil, err
-	}
+	unix.CloseOnExec(fd)
 	return &kqueuePoller{fd: fd}, nil
 }
 
@@ -34,7 +31,7 @@ func (p *kqueuePoller) control(fd int, events int, flags int) error {
 	n := 0
 	if events&evRead != 0 {
 		kevs[n] = unix.Kevent_t{
-			Ident:  uint64(fd),
+			Ident:  uint32(fd),
 			Filter: unix.EVFILT_READ,
 			Flags:  uint16(flags),
 		}
@@ -42,7 +39,7 @@ func (p *kqueuePoller) control(fd int, events int, flags int) error {
 	}
 	if events&evWrite != 0 {
 		kevs[n] = unix.Kevent_t{
-			Ident:  uint64(fd),
+			Ident:  uint32(fd),
 			Filter: unix.EVFILT_WRITE,
 			Flags:  uint16(flags),
 		}
@@ -70,10 +67,10 @@ func (p *kqueuePoller) Del(fd int) error {
 }
 
 func (p *kqueuePoller) Wait(timeoutMs int) ([]pollEvent, error) {
-	timespec := unix.Timespec{Sec: 0, Nsec: int64(timeoutMs) * int64(time.Millisecond)}
+	timespec := unix.Timespec{Sec: 0, Nsec: int32(timeoutMs) * int32(time.Millisecond)}
 	if timeoutMs >= 1000 {
 		timespec.Sec = int64(timeoutMs / 1000)
-		timespec.Nsec = int64(timeoutMs%1000) * int64(time.Millisecond)
+		timespec.Nsec = int32(timeoutMs%1000) * int32(time.Millisecond)
 	}
 	events := make([]unix.Kevent_t, 64)
 	n, err := unix.Kevent(p.fd, nil, events, &timespec)
