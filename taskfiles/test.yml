@@ -32,6 +32,8 @@ tasks:
     desc: Run fuzz tests for a short duration
     cmds:
       - '{{.GOCMD}} run ./scripts/ci/testsummary -fuzz=FuzzPacketUnpack -fuzztime=30s ./pkg/packet'
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -fuzz=FuzzDecodePathTableEntries -fuzztime=30s ./pkg/transport'
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -fuzz=FuzzDecodeKnownDestinations -fuzztime=30s ./pkg/identity'
 
   test-leaks:
     desc: Run resource leak tests
