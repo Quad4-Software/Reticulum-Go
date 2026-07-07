@@ -82,8 +82,8 @@ func TestRequestResponseBridgeDirect(t *testing.T) {
 	case <-time.After(200 * time.Millisecond):
 	}
 
-	ws.sendText(t, []byte(fmt.Sprintf(`{"type":"request.respond","request_id":%q,"data":%q}`,
-		incoming.RequestID, base64.StdEncoding.EncodeToString([]byte("pong")))))
+	ws.sendText(t, fmt.Appendf(nil, `{"type":"request.respond","request_id":%q,"data":%q}`,
+		incoming.RequestID, base64.StdEncoding.EncodeToString([]byte("pong"))))
 
 	select {
 	case result := <-resultCh:
@@ -145,7 +145,7 @@ func TestLinkOpenValidation(t *testing.T) {
 	}
 
 	unknown := hex.EncodeToString(bytes.Repeat([]byte{0xCD}, 16))
-	ws.sendText(t, []byte(fmt.Sprintf(`{"type":"link.open","destination_hash":%q}`, unknown)))
+	ws.sendText(t, fmt.Appendf(nil, `{"type":"link.open","destination_hash":%q}`, unknown))
 	raw = ws.recvText(t, 2*time.Second)
 	if err := json.Unmarshal(raw, &evt); err != nil {
 		t.Fatalf("decode event %q: %v", raw, err)
@@ -329,7 +329,7 @@ func TestLinkAndRequestLifecycle(t *testing.T) {
 	wsB := dialControlAPIWS(t, tsB.URL, fmt.Sprintf("/v1/sessions/%s/events", sessionIDB), authB)
 	defer wsB.conn.Close()
 
-	wsB.sendText(t, []byte(fmt.Sprintf(`{"type":"link.open","destination_hash":%q}`, destHashA)))
+	wsB.sendText(t, fmt.Appendf(nil, `{"type":"link.open","destination_hash":%q}`, destHashA))
 
 	establishedB := decodeEvent[linkEstablishedEvent](t, wsB, 5*time.Second)
 	if establishedB.Type != "link.established" || establishedB.LinkID == "" {
@@ -363,8 +363,8 @@ func TestLinkAndRequestLifecycle(t *testing.T) {
 		t.Fatalf("request.incoming data = %q (err %v), want %q", incoming.Data, err, "hello")
 	}
 
-	wsA.sendText(t, []byte(fmt.Sprintf(`{"type":"request.respond","request_id":%q,"data":%q}`,
-		incoming.RequestID, base64.StdEncoding.EncodeToString([]byte(pingResponse)))))
+	wsA.sendText(t, fmt.Appendf(nil, `{"type":"request.respond","request_id":%q,"data":%q}`,
+		incoming.RequestID, base64.StdEncoding.EncodeToString([]byte(pingResponse))))
 
 	deadline = time.Now().Add(5 * time.Second)
 	for !receipt.Concluded() {
@@ -378,8 +378,8 @@ func TestLinkAndRequestLifecycle(t *testing.T) {
 	}
 
 	payload := []byte("link-data-payload")
-	wsB.sendText(t, []byte(fmt.Sprintf(`{"type":"link.send","link_id":%q,"data":%q}`,
-		establishedB.LinkID, base64.StdEncoding.EncodeToString(payload))))
+	wsB.sendText(t, fmt.Appendf(nil, `{"type":"link.send","link_id":%q,"data":%q}`,
+		establishedB.LinkID, base64.StdEncoding.EncodeToString(payload)))
 
 	dataEvt := decodeEvent[linkDataEvent](t, wsA, 5*time.Second)
 	dataBytes, err := base64.StdEncoding.DecodeString(dataEvt.Data)
@@ -387,7 +387,7 @@ func TestLinkAndRequestLifecycle(t *testing.T) {
 		t.Fatalf("link.data = %q (err %v), want %q", dataEvt.Data, err, payload)
 	}
 
-	wsB.sendText(t, []byte(fmt.Sprintf(`{"type":"link.close","link_id":%q}`, establishedB.LinkID)))
+	wsB.sendText(t, fmt.Appendf(nil, `{"type":"link.close","link_id":%q}`, establishedB.LinkID))
 
 	closedB := decodeEvent[linkClosedEvent](t, wsB, 5*time.Second)
 	if closedB.LinkID != establishedB.LinkID {

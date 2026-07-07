@@ -216,11 +216,11 @@ func TestRaceBackboneConcurrentSend(t *testing.T) {
 	waitInterfaceOnline(t, client, 5*time.Second)
 
 	var wg sync.WaitGroup
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
-			for j := 0; j < 16; j++ {
+			for j := range 16 {
 				_ = client.Send([]byte{byte(n), byte(j), 0x01}, "")
 			}
 		}(i)

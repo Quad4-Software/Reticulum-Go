@@ -41,9 +41,9 @@ type Hub struct {
 	poller  poller
 	goMode  bool
 
-	mu             sync.Mutex
-	listeners      map[int]*listenerSlot
-	streams        map[int]*Stream
+	mu              sync.Mutex
+	listeners       map[int]*listenerSlot
+	streams         map[int]*Stream
 	acceptListeners []net.Listener
 
 	stop         chan struct{}

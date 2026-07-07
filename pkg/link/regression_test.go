@@ -171,9 +171,7 @@ func TestRegression_ValidateLinkProofSafeUnderConcurrentInbound(t *testing.T) {
 	const workers = 16
 	deadline := time.Now().Add(2 * time.Second)
 	for range workers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for time.Now().Before(deadline) {
 				_ = l.ValidateLinkProof(badProof, iface)
 				_ = l.HandleInbound(&packet.Packet{
@@ -184,7 +182,7 @@ func TestRegression_ValidateLinkProofSafeUnderConcurrentInbound(t *testing.T) {
 					Data:            []byte{KeepaliveRequestByte},
 				})
 			}
-		}()
+		})
 	}
 	wg.Wait()
 

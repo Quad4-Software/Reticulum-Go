@@ -31,11 +31,9 @@ func TestUDPReconnectStopRace(t *testing.T) {
 		t.Fatal(err)
 	}
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		_ = ui.Stop()
-	}()
+	})
 	time.Sleep(5 * time.Millisecond)
 	wg.Wait()
 }

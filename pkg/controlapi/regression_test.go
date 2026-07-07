@@ -87,7 +87,7 @@ func TestRegression_LinkLifecycleCompletesWithinDeadline(t *testing.T) {
 	wsB := dialControlAPIWS(t, tsB.URL, fmt.Sprintf("/v1/sessions/%s/events", sessionIDB), authB)
 	defer wsB.conn.Close()
 
-	wsB.sendText(t, []byte(fmt.Sprintf(`{"type":"link.open","destination_hash":%q}`, destHashA)))
+	wsB.sendText(t, fmt.Appendf(nil, `{"type":"link.open","destination_hash":%q}`, destHashA))
 
 	establishedB := decodeEvent[linkEstablishedEvent](t, wsB, 5*time.Second)
 	if establishedB.Type != "link.established" || establishedB.LinkID == "" {
@@ -117,8 +117,8 @@ func TestRegression_LinkLifecycleCompletesWithinDeadline(t *testing.T) {
 		t.Fatalf("request.incoming = %+v", incoming)
 	}
 
-	wsA.sendText(t, []byte(fmt.Sprintf(`{"type":"request.respond","request_id":%q,"data":%q}`,
-		incoming.RequestID, base64.StdEncoding.EncodeToString([]byte(pingResponse)))))
+	wsA.sendText(t, fmt.Appendf(nil, `{"type":"request.respond","request_id":%q,"data":%q}`,
+		incoming.RequestID, base64.StdEncoding.EncodeToString([]byte(pingResponse))))
 
 	respDeadline := time.Now().Add(5 * time.Second)
 	for !receipt.Concluded() {
@@ -131,7 +131,7 @@ func TestRegression_LinkLifecycleCompletesWithinDeadline(t *testing.T) {
 		t.Fatalf("response = %q, want %q", got, pingResponse)
 	}
 
-	wsB.sendText(t, []byte(fmt.Sprintf(`{"type":"link.close","link_id":%q}`, establishedB.LinkID)))
+	wsB.sendText(t, fmt.Appendf(nil, `{"type":"link.close","link_id":%q}`, establishedB.LinkID))
 	closedB := decodeEvent[linkClosedEvent](t, wsB, 5*time.Second)
 	if closedB.LinkID != establishedB.LinkID {
 		t.Fatalf("node B link.closed link_id = %q, want %q", closedB.LinkID, establishedB.LinkID)

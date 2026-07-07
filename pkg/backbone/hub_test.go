@@ -147,7 +147,7 @@ func testHubManyClients(t *testing.T, backend Backend, n int) {
 
 	var wg sync.WaitGroup
 	wg.Add(n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		go func(id int) {
 			defer wg.Done()
 			c, err := net.Dial("tcp", ln.Addr().String())
@@ -316,11 +316,11 @@ func TestRaceStreamConcurrentSend(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
-			for j := 0; j < 32; j++ {
+			for j := range 32 {
 				st.QueueSend([]byte{byte(n), byte(j), 0x01})
 			}
 		}(i)
@@ -330,7 +330,7 @@ func TestRaceStreamConcurrentSend(t *testing.T) {
 
 // Race: hub shutdown while clients active.
 func TestRaceHubCloseWithActiveStreams(t *testing.T) {
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		hub := testHubWithBackend(t, BackendGo)
 		ln, err := net.Listen("tcp", "127.0.0.1:0")
 		if err != nil {
@@ -342,10 +342,8 @@ func TestRaceHubCloseWithActiveStreams(t *testing.T) {
 			}, nil)
 		})
 		var wg sync.WaitGroup
-		for j := 0; j < 8; j++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+		for range 8 {
+			wg.Go(func() {
 				c, err := net.Dial("tcp", ln.Addr().String())
 				if err != nil {
 					return
@@ -355,10 +353,10 @@ func TestRaceHubCloseWithActiveStreams(t *testing.T) {
 				if err != nil {
 					return
 				}
-				for k := 0; k < 16; k++ {
+				for range 16 {
 					s.QueueSend([]byte{1, 2, 3})
 				}
-			}()
+			})
 		}
 		wg.Wait()
 		_ = ln.Close()
@@ -385,16 +383,14 @@ func TestRaceAcceptStorm(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
-	for i := 0; i < 64; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 64 {
+		wg.Go(func() {
 			c, err := net.Dial("tcp", ln.Addr().String())
 			if err != nil {
 				return
 			}
 			defer c.Close()
-		}()
+		})
 	}
 	wg.Wait()
 	time.Sleep(200 * time.Millisecond)

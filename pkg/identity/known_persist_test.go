@@ -327,11 +327,11 @@ func TestKnownDestinationsPersistence_ConcurrentRememberAndSaveNoRace(t *testing
 	// producers are done, so it cannot share their WaitGroup without
 	// creating a self-referential deadlock.
 	var producers sync.WaitGroup
-	for w := 0; w < workers; w++ {
+	for w := range workers {
 		producers.Add(1)
 		go func(id *Identity) {
 			defer producers.Done()
-			for i := 0; i < perWorker; i++ {
+			for range perWorker {
 				Remember([]byte("packet"), id.Hash(), id.GetPublicKey(), []byte("app"))
 			}
 		}(ids[w])
@@ -385,7 +385,7 @@ func TestKnownDestinationsPersistence_NoGoroutineLeak(t *testing.T) {
 
 	tmp := t.TempDir()
 	cfgPath := filepath.Join(tmp, "config")
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		InitKnownDestinationsPersistence(cfgPath, false)
 		id, err := New()
 		if err != nil {
@@ -551,7 +551,7 @@ func BenchmarkRemember_InMemoryOnly(b *testing.B) {
 func BenchmarkSaveKnownDestinations(b *testing.B) {
 	tmp := b.TempDir()
 	InitKnownDestinationsPersistence(filepath.Join(tmp, "config"), false)
-	for i := 0; i < 500; i++ {
+	for range 500 {
 		id, err := New()
 		if err != nil {
 			b.Fatalf("New: %v", err)
@@ -568,7 +568,7 @@ func BenchmarkSaveKnownDestinations(b *testing.B) {
 
 func BenchmarkDecodeKnownDestinations(b *testing.B) {
 	loaded := make(map[string]any, 500)
-	for i := 0; i < 500; i++ {
+	for range 500 {
 		id, err := New()
 		if err != nil {
 			b.Fatalf("New: %v", err)

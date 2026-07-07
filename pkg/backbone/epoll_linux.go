@@ -59,7 +59,7 @@ func (p *epollPoller) Wait(timeoutMs int) ([]pollEvent, error) {
 		return nil, err
 	}
 	out := make([]pollEvent, 0, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		ev := pollEvent{fd: int(events[i].Fd)}
 		if events[i].Events&(unix.EPOLLIN|unix.EPOLLRDHUP) != 0 {
 			ev.events |= evRead

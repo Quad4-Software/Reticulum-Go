@@ -12,17 +12,17 @@ const (
 )
 
 type mutant struct {
-	ID      int
-	Pkg     string
-	File    string
-	Line    int
-	Column  int
-	Kind    mutantKind
-	From    string
-	To      string
-	Offset  int
-	Length  int
-	Source  []byte
+	ID     int
+	Pkg    string
+	File   string
+	Line   int
+	Column int
+	Kind   mutantKind
+	From   string
+	To     string
+	Offset int
+	Length int
+	Source []byte
 }
 
 type mutantResult string

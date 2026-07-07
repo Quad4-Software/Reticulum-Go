@@ -20,9 +20,9 @@ type overlayFile struct {
 }
 
 type runner struct {
-	workDir    string
+	workDir     string
 	testTimeout time.Duration
-	verbose    bool
+	verbose     bool
 }
 
 func newRunner(verbose bool, testTimeout time.Duration) (*runner, error) {
@@ -117,13 +117,11 @@ func runMutants(ctx context.Context, mutants []mutant, workers int, verbose bool
 
 	var wg sync.WaitGroup
 	for range workers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for m := range jobs {
 				results <- r.runMutant(ctx, m)
 			}
-		}()
+		})
 	}
 
 	go func() {

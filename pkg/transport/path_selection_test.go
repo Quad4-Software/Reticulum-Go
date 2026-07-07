@@ -60,7 +60,7 @@ func TestShouldUpdateAnnouncePathRejectsReplay(t *testing.T) {
 
 func TestAppendRandomBlobCaps(t *testing.T) {
 	var blobs [][]byte
-	for i := 0; i < maxRandomBlobs+5; i++ {
+	for i := range maxRandomBlobs + 5 {
 		blob := bytes.Repeat([]byte{byte(i)}, 10)
 		blobs = appendRandomBlob(blobs, blob)
 	}

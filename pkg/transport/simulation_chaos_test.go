@@ -91,9 +91,7 @@ func (d *delaySimIface) Send(data []byte, addr string) error {
 	}
 	cp := make([]byte, len(data))
 	copy(cp, data)
-	d.wg.Add(1)
-	go func() {
-		defer d.wg.Done()
+	d.wg.Go(func() {
 		timer := time.NewTimer(d.sampleDelay())
 		defer timer.Stop()
 		select {
@@ -108,7 +106,7 @@ func (d *delaySimIface) Send(data []byte, addr string) error {
 		case <-d.peer.done:
 		case <-d.done:
 		}
-	}()
+	})
 	return nil
 }
 
@@ -195,7 +193,7 @@ func TestSimChaosPartitionHeal(t *testing.T) {
 	const n = 6
 	net := newSimNetwork(t, n)
 	var left, right *flapSimIface
-	for i := 0; i < n-1; i++ {
+	for i := range n - 1 {
 		if i == 2 {
 			left, right = linkFlap(t, net, 2, 3)
 			continue

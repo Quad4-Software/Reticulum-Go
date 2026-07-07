@@ -101,13 +101,11 @@ func TestConcurrentReloadWhileStop(t *testing.T) {
 	defer cleanup()
 	var wg sync.WaitGroup
 	for range 4 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			cfg := cloneReticulumCfg(r.config)
 			cfg.Interfaces["udpe2e"].Enabled = true
 			_ = r.ReloadInterfaces(cfg)
-		}()
+		})
 	}
 	time.Sleep(10 * time.Millisecond)
 	_ = r.StopDaemon()

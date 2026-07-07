@@ -429,11 +429,11 @@ func TestPathPersistence_ConcurrentUpdateAndSaveNoRace(t *testing.T) {
 	// producers are done, so it cannot share their WaitGroup without
 	// creating a self-referential deadlock.
 	var producers sync.WaitGroup
-	for w := 0; w < workers; w++ {
+	for w := range workers {
 		producers.Add(1)
 		go func(seed byte) {
 			defer producers.Done()
-			for i := 0; i < perWorker; i++ {
+			for i := range perWorker {
 				dest := bytes.Repeat([]byte{seed}, 16)
 				tr.UpdatePath(dest, bytes.Repeat([]byte{seed + 1}, 16), "wan", uint8(i%255))
 			}
@@ -487,7 +487,7 @@ func TestPathPersistence_CloseDoesNotDeadlockWithPendingSave(t *testing.T) {
 	tr := NewTransport(cfg)
 	iface := newPersistMockInterface("wan")
 	_ = tr.RegisterInterface("wan", iface)
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		tr.UpdatePath(bytes.Repeat([]byte{byte(i)}, 16), bytes.Repeat([]byte{byte(i + 1)}, 16), "wan", 1)
 	}
 
@@ -520,7 +520,7 @@ func TestPathPersistence_NoGoroutineLeakAcrossManyTransports(t *testing.T) {
 	baseline := runtime.NumGoroutine()
 
 	tmp := t.TempDir()
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		cfg := &common.ReticulumConfig{ConfigPath: filepath.Join(tmp, "config")}
 		tr := NewTransport(cfg)
 		iface := newPersistMockInterface("wan")
@@ -686,7 +686,7 @@ func BenchmarkSavePathTable(b *testing.B) {
 	iface := newPersistMockInterface("wan")
 	_ = tr.RegisterInterface("wan", iface)
 
-	for i := 0; i < 500; i++ {
+	for i := range 500 {
 		dest := make([]byte, 16)
 		dest[0] = byte(i)
 		dest[1] = byte(i >> 8)
