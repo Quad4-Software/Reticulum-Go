@@ -5,7 +5,7 @@ set -e
 
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 RETICULUM_REF="$ROOT_DIR/reticulum-ref"
-REPO_URL="https://github.com/markqvist/Reticulum.git"
+REPO_URL="rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum"
 
 clone_or_update() {
   if [ -d "$RETICULUM_REF" ]; then
