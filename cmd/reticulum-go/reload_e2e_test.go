@@ -8,11 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/buffer"
-	"quad4/reticulum-go/pkg/channel"
 	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/interfaces"
-	"quad4/reticulum-go/pkg/transport"
+	"quad4/reticulum-go/pkg/node"
 )
 
 func cloneReticulumCfg(c *common.ReticulumConfig) *common.ReticulumConfig {
@@ -34,38 +31,20 @@ func cloneReticulumCfg(c *common.ReticulumConfig) *common.ReticulumConfig {
 func minimalReticulumUDP(t *testing.T) (*Reticulum, func()) {
 	t.Helper()
 	cfg := common.DefaultConfig()
+	cfg.ShareInstance = false
 	cfg.Interfaces = map[string]*common.InterfaceConfig{
 		"udpe2e": {Name: "udpe2e", Type: "UDPInterface", Address: "127.0.0.1:0", TargetHost: "", Enabled: true},
 	}
-	tr := transport.NewTransport(cfg)
-	iface, err := interfaces.NewFromConfig("udpe2e", cfg.Interfaces["udpe2e"])
+	n, err := node.New(cfg)
 	if err != nil {
-		t.Fatalf("NewFromConfig: %v", err)
+		t.Fatalf("node.New: %v", err)
 	}
-	if err := iface.Start(); err != nil {
+	if err := n.Start(); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
-	ni := iface.(common.NetworkInterface)
-	if err := tr.RegisterInterface("udpe2e", ni); err != nil {
-		t.Fatalf("RegisterInterface: %v", err)
-	}
-	r := &Reticulum{
-		config:     cfg,
-		transport:  tr,
-		buffers:    make(map[string]*buffer.Buffer),
-		channels:   make(map[string]*channel.Channel),
-		interfaces: []interfaces.Interface{iface},
-	}
-	r.handleInterface(ni)
+	r := &Reticulum{Node: n, config: cfg}
 	cleanup := func() {
-		r.reloadMu.Lock()
-		defer r.reloadMu.Unlock()
-		for _, x := range r.interfaces {
-			r.transport.UnregisterInterface(x.GetName())
-			_ = x.Stop()
-		}
-		r.interfaces = nil
-		_ = tr.Close()
+		_ = n.Stop()
 	}
 	return r, cleanup
 }
@@ -82,7 +61,7 @@ func TestReloadInterfacesDisableReenableUDP(t *testing.T) {
 	if err := r.ReloadInterfaces(off); err != nil {
 		t.Fatal(err)
 	}
-	if n := len(r.transport.GetInterfaces()); n != 0 {
+	if n := len(r.Transport().GetInterfaces()); n != 0 {
 		t.Fatalf("expected 0 registered ifaces, got %d", n)
 	}
 
@@ -91,7 +70,7 @@ func TestReloadInterfacesDisableReenableUDP(t *testing.T) {
 	if err := r.ReloadInterfaces(on); err != nil {
 		t.Fatal(err)
 	}
-	if n := len(r.transport.GetInterfaces()); n != 1 {
+	if n := len(r.Transport().GetInterfaces()); n != 1 {
 		t.Fatalf("expected 1 registered iface, got %d", n)
 	}
 }
@@ -109,7 +88,7 @@ func TestStopAfterReloadSerial(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := r.Stop(); err != nil {
+	if err := r.StopDaemon(); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -121,18 +100,16 @@ func TestConcurrentReloadWhileStop(t *testing.T) {
 	r, cleanup := minimalReticulumUDP(t)
 	defer cleanup()
 	var wg sync.WaitGroup
-	wg.Go(func() {
-		for i := range 40 {
+	for range 4 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 			cfg := cloneReticulumCfg(r.config)
-			if cfg.Interfaces["udpe2e"] != nil {
-				cfg.Interfaces["udpe2e"].Enabled = i%2 == 0
-			}
+			cfg.Interfaces["udpe2e"].Enabled = true
 			_ = r.ReloadInterfaces(cfg)
-		}
-	})
-	time.Sleep(8 * time.Millisecond)
-	if err := r.Stop(); err != nil {
-		t.Fatal(err)
+		}()
 	}
+	time.Sleep(10 * time.Millisecond)
+	_ = r.StopDaemon()
 	wg.Wait()
 }

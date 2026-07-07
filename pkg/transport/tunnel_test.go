@@ -24,21 +24,21 @@ func (m *mockTunnelPeer) GetName() string { return m.name }
 func (m *mockTunnelPeer) InterfaceHash() []byte {
 	return interfaces.InterfaceHashFromName(m.name)
 }
-func (m *mockTunnelPeer) WantsTunnel() bool       { return m.wantsTunnel }
-func (m *mockTunnelPeer) SetWantsTunnel(v bool)   { m.wantsTunnel = v }
-func (m *mockTunnelPeer) TunnelID() []byte        { return append([]byte(nil), m.tunnelID...) }
-func (m *mockTunnelPeer) SetTunnelID(id []byte)   { m.tunnelID = append([]byte(nil), id...) }
+func (m *mockTunnelPeer) WantsTunnel() bool     { return m.wantsTunnel }
+func (m *mockTunnelPeer) SetWantsTunnel(v bool) { m.wantsTunnel = v }
+func (m *mockTunnelPeer) TunnelID() []byte      { return append([]byte(nil), m.tunnelID...) }
+func (m *mockTunnelPeer) SetTunnelID(id []byte) { m.tunnelID = append([]byte(nil), id...) }
 func (m *mockTunnelPeer) Send(data []byte, _ string) error {
 	m.sent = append(m.sent, append([]byte(nil), data...))
 	return nil
 }
-func (m *mockTunnelPeer) Start() error   { return nil }
-func (m *mockTunnelPeer) Stop() error    { return nil }
-func (m *mockTunnelPeer) Enable()        {}
-func (m *mockTunnelPeer) Disable()       {}
-func (m *mockTunnelPeer) Detach()        {}
+func (m *mockTunnelPeer) Start() error      { return nil }
+func (m *mockTunnelPeer) Stop() error       { return nil }
+func (m *mockTunnelPeer) Enable()           {}
+func (m *mockTunnelPeer) Disable()          {}
+func (m *mockTunnelPeer) Detach()           {}
 func (m *mockTunnelPeer) GetConn() net.Conn { return nil }
-func (m *mockTunnelPeer) GetMTU() int    { return common.DefaultMTU }
+func (m *mockTunnelPeer) GetMTU() int       { return common.DefaultMTU }
 func (m *mockTunnelPeer) GetType() common.InterfaceType {
 	return common.IFTypeI2P
 }
@@ -57,14 +57,14 @@ func (m *mockTunnelPeer) SetPacketCallback(common.PacketCallback) {}
 func (m *mockTunnelPeer) GetPacketCallback() common.PacketCallback {
 	return nil
 }
-func (m *mockTunnelPeer) GetTxBytes() uint64    { return 0 }
-func (m *mockTunnelPeer) GetRxBytes() uint64    { return 0 }
-func (m *mockTunnelPeer) GetTxPackets() uint64  { return 0 }
-func (m *mockTunnelPeer) GetRxPackets() uint64  { return 0 }
-func (m *mockTunnelPeer) SetIFAC(common.IFAC)   {}
-func (m *mockTunnelPeer) GetIFAC() common.IFAC  { return nil }
-func (m *mockTunnelPeer) ReceivedPathRequest()  {}
-func (m *mockTunnelPeer) SentPathRequest()      {}
+func (m *mockTunnelPeer) GetTxBytes() uint64         { return 0 }
+func (m *mockTunnelPeer) GetRxBytes() uint64         { return 0 }
+func (m *mockTunnelPeer) GetTxPackets() uint64       { return 0 }
+func (m *mockTunnelPeer) GetRxPackets() uint64       { return 0 }
+func (m *mockTunnelPeer) SetIFAC(common.IFAC)        {}
+func (m *mockTunnelPeer) GetIFAC() common.IFAC       { return nil }
+func (m *mockTunnelPeer) ReceivedPathRequest()       {}
+func (m *mockTunnelPeer) SentPathRequest()           {}
 func (m *mockTunnelPeer) ShouldIngressLimitPR() bool { return false }
 func (m *mockTunnelPeer) ShouldEgressLimitPR() bool  { return false }
 func (m *mockTunnelPeer) SetPRBurstConfig(float64, float64, float64, bool) {

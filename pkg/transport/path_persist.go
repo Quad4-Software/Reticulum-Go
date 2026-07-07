@@ -96,6 +96,9 @@ func decodePathTableEntries(data []byte, now time.Time) (records []pathRecord, s
 		if timestamp <= 0 {
 			lastUpdated = now
 		}
+		if now.Sub(lastUpdated) > time.Duration(PathRequestTTL)*time.Second {
+			continue
+		}
 
 		records = append(records, pathRecord{
 			destHash:    append([]byte(nil), destHash...),

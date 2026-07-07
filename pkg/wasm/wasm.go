@@ -23,6 +23,9 @@ var (
 	reticulumTransport *transport.Transport
 	reticulumDest      *destination.Destination
 	reticulumIdentity  *identity.Identity
+	wasmWSURL          string
+	watchedDestsWasm   = make(map[string][]byte)
+	lastNetworkDown    time.Time
 	stats              = struct {
 		packetsSent       int
 		packetsReceived   int
@@ -51,6 +54,9 @@ func RegisterJSFunctions() {
 		"sendData":            js.FuncOf(SendDataJS),
 		"sendMessage":         js.FuncOf(SendDataJS),
 		"announce":            js.FuncOf(SendAnnounceJS),
+		"onNetworkAvailable":  js.FuncOf(OnNetworkAvailableJS),
+		"onNetworkLost":       js.FuncOf(OnNetworkLostJS),
+		"setWatchedDestinations": js.FuncOf(SetWatchedDestinationsJS),
 	}))
 }
 
@@ -148,6 +154,7 @@ func InitReticulum(this js.Value, args []js.Value) interface{} {
 	}
 
 	wsURL := args[0].String()
+	wasmWSURL = wsURL
 	appName := "wasm_core"
 	if len(args) >= 2 && args[1].Type() == js.TypeString {
 		appName = args[1].String()

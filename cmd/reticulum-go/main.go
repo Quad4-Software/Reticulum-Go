@@ -13,32 +13,21 @@ import (
 	"time"
 
 	"quad4/reticulum-go/internal/config"
-	"quad4/reticulum-go/pkg/backbone"
-	"quad4/reticulum-go/pkg/buffer"
-	"quad4/reticulum-go/pkg/channel"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/controlapi"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/interfaces"
-	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/node"
 	"quad4/reticulum-go/pkg/sandbox"
-	"quad4/reticulum-go/pkg/sharedinstance"
-	"quad4/reticulum-go/pkg/transport"
 )
 
 type Reticulum struct {
+	*node.Node
 	config            *common.ReticulumConfig
-	transport         *transport.Transport
-	sharedInstance    *sharedinstance.Instance
 	controlAPI        *controlapi.Server
-	interfaces        []interfaces.Interface
-	channels          map[string]*channel.Channel
-	buffers           map[string]*buffer.Buffer
-	pathRequests      map[string]*common.PathRequest
 	announceHistory   map[string]announceRecord
 	announceHistoryMu sync.RWMutex
-	reloadMu          sync.Mutex
 }
 
 type announceRecord struct {
@@ -56,139 +45,26 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 	}
 	debug.Log(debug.DebugInfo, "Directories initialized")
 
-	if _, err := backbone.Init(backbone.ParseBackend(cfg.BackboneIO)); err != nil {
-		return nil, fmt.Errorf("backbone I/O hub: %w", err)
+	n, err := node.New(cfg)
+	if err != nil {
+		return nil, err
 	}
 
-	t := transport.NewTransport(cfg)
-	debug.Log(debug.DebugInfo, "Transport initialized")
-
 	r := &Reticulum{
+		Node:            n,
 		config:          cfg,
-		transport:       t,
-		interfaces:      make([]interfaces.Interface, 0),
-		channels:        make(map[string]*channel.Channel),
-		buffers:         make(map[string]*buffer.Buffer),
-		pathRequests:    make(map[string]*common.PathRequest),
 		announceHistory: make(map[string]announceRecord),
 	}
 
-	ifaceCtx := r.interfaceFromConfigContext()
-
-	// Initialize interfaces from config
 	for name, ifaceConfig := range cfg.Interfaces {
 		if !ifaceConfig.Enabled {
 			continue
 		}
-
-		iface, err := interfaces.NewFromConfigWithContext(name, ifaceConfig, ifaceCtx)
-		if err != nil {
-			if cfg.PanicOnInterfaceErr {
-				return nil, fmt.Errorf("failed to create interface %s: %v", name, err)
-			}
-			debug.Log(debug.DebugCritical, "Error creating interface", "name", name, "error", err)
-			continue
-		}
-
 		debug.Log(debug.DebugError, "Configuring interface", "name", name, "type", ifaceConfig.Type)
-		r.interfaces = append(r.interfaces, iface)
 		debug.Log(debug.DebugInfo, "Interface configured", "name", name)
 	}
 
 	return r, nil
-}
-
-func (r *Reticulum) interfaceFromConfigContext() *interfaces.FromConfigContext {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil
-	}
-	storage := filepath.Join(homeDir, ".reticulum-go", "storage")
-	return &interfaces.FromConfigContext{
-		I2PStoragePath:        storage,
-		TransportID:           r.transport.TransportIdentityHash(),
-		PanicOnInterfaceError: r.config != nil && r.config.PanicOnInterfaceErr,
-		BackboneHub:           backbone.Get(),
-		SpawnBackbone: func(client *interfaces.BackboneClientInterface) {
-			if err := r.transport.RegisterInterface(client.GetName(), client); err != nil {
-				debug.Log(debug.DebugCritical, "Failed to register spawned backbone client", "error", err)
-				return
-			}
-			r.handleInterface(client)
-		},
-		RegisterPeer: func(name string, peer common.NetworkInterface) error {
-			return r.transport.RegisterInterface(name, peer)
-		},
-		UnregisterPeer: func(name string) {
-			r.transport.UnregisterInterface(name)
-			r.unregisterInterfaceBuffers(name)
-		},
-		SetupPeer: r.handleInterface,
-		SynthesizeTunnel: func(peer interfaces.TunnelPeer) {
-			_ = r.transport.SynthesizeTunnel(peer)
-		},
-		VoidTunnel: func(peer interfaces.TunnelPeer) {
-			r.transport.VoidTunnel(peer)
-		},
-	}
-}
-
-func (r *Reticulum) handleInterface(iface common.NetworkInterface) {
-	debug.Log(debug.DebugInfo, "Setting up interface", "name", iface.GetName(), "type", fmt.Sprintf("%T", iface))
-
-	ch := channel.NewChannel(&transportWrapper{r.transport})
-	r.channels[iface.GetName()] = ch
-
-	rw := buffer.CreateBidirectionalBuffer(
-		1,
-		2,
-		ch,
-		func(size int) {
-			data := make([]byte, size)
-			debug.Log(debug.DebugPackets, "Interface reading bytes from buffer", "name", iface.GetName(), "size", size)
-			iface.ProcessIncoming(data)
-
-			if len(data) > 0 {
-				debug.Log(debug.DebugTrace, "Interface received packet type", "name", iface.GetName(), "type", fmt.Sprintf("0x%02x", data[0]))
-				r.transport.HandlePacket(data, iface)
-			}
-		},
-	)
-
-	r.buffers[iface.GetName()] = &buffer.Buffer{
-		ReadWriter: rw,
-	}
-}
-
-func (r *Reticulum) unregisterInterfaceBuffers(name string) {
-	delete(r.channels, name)
-	delete(r.buffers, name)
-}
-
-func (r *Reticulum) monitorInterfaces() {
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		for _, iface := range r.interfaces {
-			if tcpClient, ok := iface.(*interfaces.TCPClientInterface); ok {
-				stats := fmt.Sprintf("Interface %s status - Connected: %v, TX: %d bytes (%.2f Kbps), RX: %d bytes (%.2f Kbps)",
-					iface.GetName(),
-					tcpClient.IsConnected(),
-					tcpClient.GetTxBytes(),
-					float64(tcpClient.GetTxBytes()*8)/(5*1024),
-					tcpClient.GetRxBytes(),
-					float64(tcpClient.GetRxBytes()*8)/(5*1024),
-				)
-
-				if runtime.GOOS != "windows" {
-					stats = fmt.Sprintf("%s, RTT: %v", stats, tcpClient.GetRTT())
-				}
-
-				debug.Log(debug.DebugVerbose, "Interface status", "stats", stats)
-			}
-		}
-	}
 }
 
 func main() {
@@ -208,20 +84,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Start monitoring interfaces
 	go r.monitorInterfaces()
 
-	// Register announce handler
 	handler := NewAnnounceHandler(r, []string{"*"})
-	r.transport.RegisterAnnounceHandler(handler)
+	r.Transport().RegisterAnnounceHandler(handler)
 
-	// Start Reticulum
 	if err := r.Start(); err != nil {
 		debug.Log(debug.DebugCritical, "Failed to start Reticulum", "error", err)
 		os.Exit(1)
 	}
 
-	// Apply sandbox after all privileged initialization is complete.
 	if err := sandbox.Apply(cfg); err != nil {
 		debug.Log(debug.DebugCritical, "Sandbox application failed", "error", err)
 		if cfg != nil && cfg.PanicOnInterfaceErr {
@@ -229,8 +101,6 @@ func main() {
 		}
 	}
 
-	// Start the control API after the sandbox is applied so it only ever
-	// runs with the daemon's reduced runtime privileges.
 	r.StartControlAPI()
 
 	if runtime.GOOS != "windows" {
@@ -255,6 +125,7 @@ func main() {
 				if err := r.ReloadInterfaces(newCfg); err != nil {
 					debug.Log(debug.DebugCritical, "ReloadInterfaces", "error", err)
 				} else {
+					r.config = newCfg
 					debug.Log(debug.DebugInfo, "Reloaded interfaces from config", "path", path)
 				}
 			}
@@ -270,74 +141,63 @@ func main() {
 	<-sigChan
 
 	debug.Log(debug.DebugCritical, "Shutting down...")
-	if err := r.Stop(); err != nil {
+	if err := r.StopDaemon(); err != nil {
 		debug.Log(debug.DebugCritical, "Error during shutdown", "error", err)
 	}
 	debug.Log(debug.DebugCritical, "Goodbye!")
 }
 
-type transportWrapper struct {
-	*transport.Transport
-}
+func (r *Reticulum) monitorInterfaces() {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
 
-func (tw *transportWrapper) GetRTT() float64 {
-	return 0.1
-}
+	for range ticker.C {
+		for _, iface := range r.Interfaces() {
+			if tcpClient, ok := iface.(*interfaces.TCPClientInterface); ok {
+				stats := fmt.Sprintf("Interface %s status - Connected: %v, TX: %d bytes (%.2f Kbps), RX: %d bytes (%.2f Kbps)",
+					iface.GetName(),
+					tcpClient.IsConnected(),
+					tcpClient.GetTxBytes(),
+					float64(tcpClient.GetTxBytes()*8)/(5*1024),
+					tcpClient.GetRxBytes(),
+					float64(tcpClient.GetRxBytes()*8)/(5*1024),
+				)
 
-func (tw *transportWrapper) RTT() float64 {
-	return tw.GetRTT()
-}
+				if runtime.GOOS != "windows" {
+					stats = fmt.Sprintf("%s, RTT: %v", stats, tcpClient.GetRTT())
+				}
 
-func (tw *transportWrapper) GetStatus() byte {
-	return transport.StatusActive
-}
-
-func (tw *transportWrapper) Send(data []byte) any {
-	p := &packet.Packet{
-		PacketType: packet.PacketTypeData,
-		Hops:       0,
-		Data:       data,
-		HeaderType: packet.HeaderType1,
+				debug.Log(debug.DebugVerbose, "Interface status", "stats", stats)
+			}
+		}
 	}
+}
 
-	err := tw.Transport.SendPacket(p)
+func (r *Reticulum) StartControlAPI() {
+	if !r.config.EnableControlAPI {
+		return
+	}
+	api, err := controlapi.New(r.Transport(), r.Node, r.config)
 	if err != nil {
-		return nil
+		debug.Log(debug.DebugCritical, "Failed to initialize control API", "error", err)
+		return
 	}
-	return p
+	r.controlAPI = api
+	go func() {
+		if err := api.Serve(); err != nil {
+			debug.Log(debug.DebugCritical, "Control API stopped", "error", err)
+		}
+	}()
 }
 
-func (tw *transportWrapper) Resend(p any) error {
-	if pkt, ok := p.(*packet.Packet); ok {
-		return tw.Transport.SendPacket(pkt)
+func (r *Reticulum) StopDaemon() error {
+	if r.controlAPI != nil {
+		if err := r.controlAPI.Close(); err != nil {
+			debug.Log(debug.DebugCritical, "Error closing control API", "error", err)
+		}
+		r.controlAPI = nil
 	}
-	return fmt.Errorf("invalid packet type")
-}
-
-func (tw *transportWrapper) SetPacketTimeout(packet any, callback func(any), timeout time.Duration) {
-	time.AfterFunc(timeout, func() {
-		callback(packet)
-	})
-}
-
-func (tw *transportWrapper) SetPacketDelivered(packet any, callback func(any)) {
-	callback(packet)
-}
-
-func (tw *transportWrapper) GetLinkID() []byte {
-	return nil
-}
-
-func (tw *transportWrapper) HandleInbound(pkt *packet.Packet) error {
-	return nil
-}
-
-func (tw *transportWrapper) ValidateLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error {
-	return nil
-}
-
-func (tw *transportWrapper) LinkedNetworkInterface() common.NetworkInterface {
-	return nil
+	return r.Node.Stop()
 }
 
 func initializeDirectories() error {
@@ -363,158 +223,6 @@ func initializeDirectories() error {
 			return fmt.Errorf("failed to create directory %s: %v", dir, err)
 		}
 	}
-	return nil
-}
-
-func (r *Reticulum) Start() error {
-	debug.Log(debug.DebugError, "Starting Reticulum...")
-
-	if err := r.transport.Start(); err != nil {
-		return fmt.Errorf("failed to start transport: %v", err)
-	}
-	if err := r.transport.InitializePathRequestHandler(); err != nil {
-		return fmt.Errorf("path request handler: %w", err)
-	}
-	debug.Log(debug.DebugInfo, "Transport started successfully")
-
-	hooks := sharedinstance.Hooks{
-		RegisterInterface: r.transport.RegisterInterface,
-		HandleInterface:   r.handleInterface,
-	}
-	inst, err := sharedinstance.Attach(r.config, r.transport, hooks)
-	if err != nil {
-		return fmt.Errorf("shared instance: %w", err)
-	}
-	r.sharedInstance = inst
-
-	if !inst.OwnsNetworkInterfaces() {
-		debug.Log(debug.DebugInfo, "Using existing local shared Reticulum instance; skipping configured network interfaces")
-		debug.Log(debug.DebugError, "Reticulum started successfully")
-		return nil
-	}
-
-	type interfaceStartResult struct {
-		iface interfaces.Interface
-		err   error
-	}
-
-	// Start interfaces in parallel so one slow dial/listen does not
-	// delay the whole node startup.
-	results := make(chan interfaceStartResult, len(r.interfaces))
-	for _, iface := range r.interfaces {
-		go func() {
-			debug.Log(debug.DebugError, "Starting interface", "name", iface.GetName())
-			results <- interfaceStartResult{iface: iface, err: iface.Start()}
-		}()
-	}
-
-	started := make([]interfaces.Interface, 0, len(r.interfaces))
-	for range len(r.interfaces) {
-		res := <-results
-		if res.err != nil {
-			if r.config.PanicOnInterfaceErr {
-				return fmt.Errorf("failed to start interface %s: %v", res.iface.GetName(), res.err)
-			}
-			debug.Log(debug.DebugCritical, "Error starting interface", "name", res.iface.GetName(), "error", res.err)
-			continue
-		}
-		started = append(started, res.iface)
-	}
-
-	for _, iface := range started {
-		netIface, ok := iface.(common.NetworkInterface)
-		if !ok {
-			continue
-		}
-		if err := r.transport.RegisterInterface(iface.GetName(), netIface); err != nil {
-			debug.Log(debug.DebugCritical, "Failed to register interface with transport", "name", iface.GetName(), "error", err)
-			continue
-		}
-		debug.Log(debug.DebugInfo, "Registered interface with transport", "name", iface.GetName())
-		r.handleInterface(netIface)
-		debug.Log(debug.DebugInfo, "Interface started successfully", "name", iface.GetName())
-	}
-
-	if !r.hasOnlineInterface() {
-		debug.Log(debug.DebugInfo, "No interface online yet; continuing startup and waiting for dynamic bring-up")
-	}
-
-	debug.Log(debug.DebugError, "Reticulum started successfully")
-	return nil
-}
-
-// StartControlAPI starts the localhost control API in the background when
-// enable_control_api is set in the node configuration. Failures are logged
-// rather than fatal: the daemon still runs the mesh side without it.
-func (r *Reticulum) StartControlAPI() {
-	if !r.config.EnableControlAPI {
-		return
-	}
-	api, err := controlapi.New(r.transport, r.config)
-	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to initialize control API", "error", err)
-		return
-	}
-	r.controlAPI = api
-	go func() {
-		if err := api.Serve(); err != nil {
-			debug.Log(debug.DebugCritical, "Control API stopped", "error", err)
-		}
-	}()
-}
-
-func (r *Reticulum) hasOnlineInterface() bool {
-	for _, iface := range r.interfaces {
-		if iface != nil && iface.IsOnline() && iface.IsEnabled() {
-			return true
-		}
-	}
-	return false
-}
-
-func (r *Reticulum) Stop() error {
-	r.reloadMu.Lock()
-	defer r.reloadMu.Unlock()
-
-	debug.Log(debug.DebugError, "Stopping Reticulum...")
-
-	if r.controlAPI != nil {
-		if err := r.controlAPI.Close(); err != nil {
-			debug.Log(debug.DebugCritical, "Error closing control API", "error", err)
-		}
-		r.controlAPI = nil
-	}
-
-	if r.sharedInstance != nil {
-		r.sharedInstance.Close()
-		r.sharedInstance = nil
-	}
-
-	for _, buf := range r.buffers {
-		if err := buf.Close(); err != nil {
-			debug.Log(debug.DebugCritical, "Error closing buffer", "error", err)
-		}
-	}
-
-	for _, ch := range r.channels {
-		if err := ch.Close(); err != nil {
-			debug.Log(debug.DebugCritical, "Error closing channel", "error", err)
-		}
-	}
-
-	for _, iface := range r.interfaces {
-		if err := iface.Stop(); err != nil {
-			debug.Log(debug.DebugCritical, "Error stopping interface", "name", iface.GetName(), "error", err)
-		}
-	}
-
-	if err := r.transport.Close(); err != nil {
-		return fmt.Errorf("failed to close transport: %v", err)
-	}
-
-	backbone.Shutdown()
-
-	debug.Log(debug.DebugError, "Reticulum stopped successfully")
 	return nil
 }
 

@@ -31,7 +31,7 @@ func TestNewReticulum(t *testing.T) {
 		t.Fatal("NewReticulum returned nil")
 	}
 
-	if r.transport == nil {
+	if r.Transport() == nil {
 		t.Error("Reticulum transport should not be nil")
 	}
 

@@ -26,23 +26,30 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 	)
 	switch cfg.Type {
 	case "TCPClientInterface":
-		iface, err = NewTCPClientInterface(
+		iface, err = NewTCPClientInterfaceWithRetries(
 			name,
 			cfg.TargetHost,
 			cfg.TargetPort,
 			cfg.KISSFraming,
 			cfg.I2PTunneled,
 			cfg.Enabled,
+			cfg.MaxReconnTries,
 		)
 	case "UDPInterface":
-		iface, err = NewUDPInterface(
+		iface, err = NewUDPInterfaceWithRetries(
 			name,
 			cfg.Address,
 			cfg.TargetHost,
 			cfg.Enabled,
+			cfg.MaxReconnTries,
 		)
 	case "AutoInterface":
 		iface, err = NewAutoInterface(name, cfg)
+		if err == nil {
+			if auto, ok := iface.(*AutoInterface); ok && ctx != nil && ctx.DiscoverInterfaces {
+				auto.SetDiscoverInterfaces(true)
+			}
+		}
 	case "BackboneInterface", "BackboneClientInterface":
 		var hub *backbone.Hub
 		var spawn func(*BackboneClientInterface)

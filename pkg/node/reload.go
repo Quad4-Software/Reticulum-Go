@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
-package main
+
+package node
 
 import (
 	"errors"
@@ -40,7 +41,10 @@ func interfaceConfigsEqualForReload(a, b *common.InterfaceConfig) bool {
 		a.I2PTunneled == b.I2PTunneled &&
 		a.I2PConnectable == b.I2PConnectable &&
 		a.I2PSAMAddress == b.I2PSAMAddress &&
+		a.MaxReconnTries == b.MaxReconnTries &&
 		sliceEqual(a.I2PPeers, b.I2PPeers) &&
+		sliceEqual(a.Devices, b.Devices) &&
+		sliceEqual(a.IgnoredDevices, b.IgnoredDevices) &&
 		a.GroupID == b.GroupID &&
 		a.DiscoveryScope == b.DiscoveryScope &&
 		a.DiscoveryPort == b.DiscoveryPort &&
@@ -54,64 +58,55 @@ func interfaceConfigsEqualForReload(a, b *common.InterfaceConfig) bool {
 		a.IFACNetkey == b.IFACNetkey
 }
 
-func (r *Reticulum) tearDownInterface(iface interfaces.Interface) {
+func (n *Node) tearDownInterface(iface interfaces.Interface) {
 	if iface == nil {
 		return
 	}
 	name := iface.GetName()
-	r.transport.UnregisterInterface(name)
-	if buf, ok := r.buffers[name]; ok {
-		if err := buf.Close(); err != nil {
-			debug.Log(debug.DebugVerbose, "buffer close", "name", name, "error", err)
-		}
-		delete(r.buffers, name)
+	n.transport.UnregisterInterface(name)
+	if buf, ok := n.buffers[name]; ok {
+		_ = buf.Close()
+		delete(n.buffers, name)
 	}
-	if ch, ok := r.channels[name]; ok {
-		if err := ch.Close(); err != nil {
-			debug.Log(debug.DebugVerbose, "channel close", "name", name, "error", err)
-		}
-		delete(r.channels, name)
+	if ch, ok := n.channels[name]; ok {
+		_ = ch.Close()
+		delete(n.channels, name)
 	}
-	if err := iface.Stop(); err != nil {
-		debug.Log(debug.DebugVerbose, "interface stop", "name", name, "error", err)
-	}
+	_ = iface.Stop()
 }
 
-// ReloadInterfaces reconciles network interfaces against newCfg without
-// restarting the transport. Disabled or removed interfaces are
-// stopped and unregistered; unchanged enabled entries are kept; new or
-// reconfigured entries are built, started, and registered via ReplaceInterface.
-func (r *Reticulum) ReloadInterfaces(newCfg *common.ReticulumConfig) error {
+// ReloadInterfaces reconciles network interfaces against newCfg without restarting transport.
+func (n *Node) ReloadInterfaces(newCfg *common.ReticulumConfig) error {
 	if newCfg == nil {
 		return errors.New("nil config")
 	}
-	if r.sharedInstance != nil && !r.sharedInstance.OwnsNetworkInterfaces() {
-		r.config = newCfg
-		r.transport.SetReticulumConfig(newCfg)
+	if n.sharedInstance != nil && !n.sharedInstance.OwnsNetworkInterfaces() {
+		n.config = newCfg
+		n.transport.SetReticulumConfig(newCfg)
 		return nil
 	}
-	if r.transport == nil {
+	if n.transport == nil {
 		return errors.New("nil transport")
 	}
 
-	r.reloadMu.Lock()
-	defer r.reloadMu.Unlock()
+	n.reloadMu.Lock()
+	defer n.reloadMu.Unlock()
 
-	oldCfg := r.config
-	oldByName := make(map[string]interfaces.Interface, len(r.interfaces))
-	for _, x := range r.interfaces {
+	oldCfg := n.config
+	oldByName := make(map[string]interfaces.Interface, len(n.interfaces))
+	for _, x := range n.interfaces {
 		oldByName[x.GetName()] = x
 	}
 
 	for name, oldI := range oldByName {
 		ic, inNew := newCfg.Interfaces[name]
 		if !inNew || !ic.Enabled {
-			r.tearDownInterface(oldI)
+			n.tearDownInterface(oldI)
 			delete(oldByName, name)
 			continue
 		}
 		if !interfaceConfigsEqualForReload(oldCfg.Interfaces[name], ic) {
-			r.tearDownInterface(oldI)
+			n.tearDownInterface(oldI)
 			delete(oldByName, name)
 		}
 	}
@@ -125,7 +120,7 @@ func (r *Reticulum) ReloadInterfaces(newCfg *common.ReticulumConfig) error {
 			next = append(next, oldI)
 			continue
 		}
-		niface, err := interfaces.NewFromConfigWithContext(name, ic, r.interfaceFromConfigContext())
+		niface, err := interfaces.NewFromConfigWithContext(name, ic, n.fromConfigContext())
 		if err != nil {
 			if newCfg.PanicOnInterfaceErr {
 				return fmt.Errorf("interface %s: %w", name, err)
@@ -145,7 +140,7 @@ func (r *Reticulum) ReloadInterfaces(newCfg *common.ReticulumConfig) error {
 			_ = niface.Stop()
 			return fmt.Errorf("interface %s does not implement common.NetworkInterface", name)
 		}
-		if err := r.transport.ReplaceInterface(name, ni); err != nil {
+		if err := n.transport.ReplaceInterface(name, ni); err != nil {
 			_ = niface.Stop()
 			if newCfg.PanicOnInterfaceErr {
 				return err
@@ -153,12 +148,13 @@ func (r *Reticulum) ReloadInterfaces(newCfg *common.ReticulumConfig) error {
 			debug.Log(debug.DebugCritical, "ReloadInterfaces: ReplaceInterface failed", "name", name, "error", err)
 			continue
 		}
-		r.handleInterface(ni)
+		n.handleInterface(ni)
+		n.wireConnectivityHooks(niface)
 		next = append(next, niface)
 	}
 
-	r.interfaces = next
-	r.config = newCfg
-	r.transport.SetReticulumConfig(newCfg)
+	n.interfaces = next
+	n.config = newCfg
+	n.transport.SetReticulumConfig(newCfg)
 	return nil
 }

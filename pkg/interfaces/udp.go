@@ -13,15 +13,23 @@ import (
 
 type UDPInterface struct {
 	BaseInterface
-	conn       *net.UDPConn
-	addr       *net.UDPAddr
-	targetAddr *net.UDPAddr
-	readBuffer []byte
-	done       chan struct{}
-	stopOnce   sync.Once
+	conn              *net.UDPConn
+	addr              *net.UDPAddr
+	targetAddr        *net.UDPAddr
+	readBuffer        []byte
+	maxReconnectTries int
+	reconnect         *reconnectDriver
+	onDown            func()
+	onUp              func()
+	done              chan struct{}
+	stopOnce          sync.Once
 }
 
 func NewUDPInterface(name string, addr string, target string, enabled bool) (*UDPInterface, error) {
+	return NewUDPInterfaceWithRetries(name, addr, target, enabled, 0)
+}
+
+func NewUDPInterfaceWithRetries(name string, addr string, target string, enabled bool, maxReconnectTries int) (*UDPInterface, error) {
 	udpAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		return nil, err
@@ -36,16 +44,52 @@ func NewUDPInterface(name string, addr string, target string, enabled bool) (*UD
 	}
 
 	ui := &UDPInterface{
-		BaseInterface: NewBaseInterface(name, common.IFTypeUDP, enabled),
-		addr:          udpAddr,
-		targetAddr:    targetAddr,
-		readBuffer:    make([]byte, 1064),
-		done:          make(chan struct{}),
+		BaseInterface:     NewBaseInterface(name, common.IFTypeUDP, enabled),
+		addr:              udpAddr,
+		targetAddr:        targetAddr,
+		readBuffer:        make([]byte, 1064),
+		maxReconnectTries: NormalizeMaxReconnectTries(maxReconnectTries),
+		done:              make(chan struct{}),
 	}
 
 	ui.MTU = 1064
+	ui.initReconnectDriver()
 
 	return ui, nil
+}
+
+func (ui *UDPInterface) SetConnectivityHooks(onDown, onUp func()) {
+	ui.onDown = onDown
+	ui.onUp = onUp
+}
+
+func (ui *UDPInterface) initReconnectDriver() {
+	ui.reconnect = newReconnectDriver(ui.Name, ui.maxReconnectTries, ui.done, ui.dialUDP, func(conn net.Conn) {
+		udpConn, ok := conn.(*net.UDPConn)
+		if !ok {
+			return
+		}
+		ui.Mutex.Lock()
+		ui.conn = udpConn
+		ui.Online = true
+		ui.Mutex.Unlock()
+		if ui.onUp != nil {
+			ui.onUp()
+		}
+		go ui.readLoop()
+	})
+}
+
+func (ui *UDPInterface) dialUDP() (net.Conn, error) {
+	conn, err := net.ListenUDP("udp", ui.addr)
+	if err != nil {
+		return nil, err
+	}
+	if ui.targetAddr != nil {
+		_ = conn.SetReadBuffer(1064)
+		_ = conn.SetWriteBuffer(1064)
+	}
+	return conn, nil
 }
 
 func (ui *UDPInterface) GetName() string {
@@ -199,30 +243,8 @@ func (ui *UDPInterface) Start() error {
 	}
 	ui.Mutex.Unlock()
 
-	conn, err := net.ListenUDP("udp", ui.addr)
-	if err != nil {
-		return err
-	}
-	ui.conn = conn
-
-	// Enable broadcast mode if we have a target address
-	if ui.targetAddr != nil {
-		// Get the raw connection file descriptor to set SO_BROADCAST
-		if err := conn.SetReadBuffer(1064); err != nil {
-			debug.Log(debug.DebugError, "Failed to set read buffer size", "error", err)
-		}
-		if err := conn.SetWriteBuffer(1064); err != nil {
-			debug.Log(debug.DebugError, "Failed to set write buffer size", "error", err)
-		}
-	}
-
-	ui.Mutex.Lock()
-	ui.Online = true
-	ui.Mutex.Unlock()
-
-	// Start the read loop in a goroutine
-	go ui.readLoop()
-
+	ui.initReconnectDriver()
+	ui.reconnect.start()
 	return nil
 }
 
@@ -255,9 +277,17 @@ func (ui *UDPInterface) readLoop() {
 		if err != nil {
 			ui.Mutex.RLock()
 			stillOnline := ui.Online
+			detached := ui.Detached
 			ui.Mutex.RUnlock()
-			if stillOnline {
+			if stillOnline && !detached {
 				debug.Log(debug.DebugError, "Error reading from UDP interface", "name", ui.Name, "error", err)
+				ui.closeConn()
+				if ui.onDown != nil {
+					ui.onDown()
+				}
+				if ui.reconnect != nil {
+					ui.reconnect.notifyFailure()
+				}
 			}
 			return
 		}
@@ -272,6 +302,16 @@ func (ui *UDPInterface) readLoop() {
 
 		ui.ProcessIncoming(buffer[:n])
 	}
+}
+
+func (ui *UDPInterface) closeConn() {
+	ui.Mutex.Lock()
+	if ui.conn != nil {
+		_ = ui.conn.Close()
+		ui.conn = nil
+	}
+	ui.Online = false
+	ui.Mutex.Unlock()
 }
 
 func (ui *UDPInterface) IsEnabled() bool {

@@ -2190,6 +2190,10 @@ func (l *Link) startWatchdog() {
 
 func (l *Link) watchdog() {
 	for l.GetStatus() != StatusClosed {
+		if GlobalPaused() {
+			time.Sleep(time.Duration(WatchdogInterval * float64(time.Second)))
+			continue
+		}
 		l.mutex.Lock()
 		if l.watchdogLock {
 			rttWait := WatchdogMinSleep

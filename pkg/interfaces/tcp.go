@@ -21,16 +21,20 @@ type TCPClientInterface struct {
 	kissFraming       bool
 	i2pTunneled       bool
 	initiator         bool
-	reconnecting      bool
 	neverConnected    bool
 	writing           bool
 	maxReconnectTries int
 	packetBuffer      []byte
 	done              chan struct{}
 	stopOnce          sync.Once
+	reconnect         *reconnectDriver
 }
 
 func NewTCPClientInterface(name string, targetHost string, targetPort int, kissFraming bool, i2pTunneled bool, enabled bool) (*TCPClientInterface, error) {
+	return NewTCPClientInterfaceWithRetries(name, targetHost, targetPort, kissFraming, i2pTunneled, enabled, 0)
+}
+
+func NewTCPClientInterfaceWithRetries(name string, targetHost string, targetPort int, kissFraming bool, i2pTunneled bool, enabled bool, maxReconnectTries int) (*TCPClientInterface, error) {
 	tc := &TCPClientInterface{
 		BaseInterface:     NewBaseInterface(name, common.IFTypeTCP, enabled),
 		targetAddr:        targetHost,
@@ -38,19 +42,43 @@ func NewTCPClientInterface(name string, targetHost string, targetPort int, kissF
 		kissFraming:       kissFraming,
 		i2pTunneled:       i2pTunneled,
 		initiator:         true,
-		maxReconnectTries: ReconnectWait * TCPProbesCount,
+		maxReconnectTries: NormalizeMaxReconnectTries(maxReconnectTries),
 		packetBuffer:      make([]byte, 0),
 		neverConnected:    true,
 		done:              make(chan struct{}),
 	}
+	tc.initReconnectDriver()
 
 	if enabled {
-		// Startup should not block on remote reachability. Connection
-		// establishment is handled asynchronously by reconnect().
-		go tc.reconnect()
+		tc.startReconnect()
 	}
 
 	return tc, nil
+}
+
+func (tc *TCPClientInterface) initReconnectDriver() {
+	label := net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort))
+	tc.reconnect = newReconnectDriver(label, tc.maxReconnectTries, tc.done, tcpDialTarget(tc.targetAddr, tc.targetPort), func(conn net.Conn) {
+		tc.Mutex.Lock()
+		tc.conn = conn
+		tc.Online = true
+		tc.neverConnected = false
+		tc.Mutex.Unlock()
+		applyClientTCPTimeouts(tc)
+		go tc.readLoop()
+	})
+}
+
+func (tc *TCPClientInterface) SetConnectivityHooks(onDown, onUp func()) {
+	if tc.reconnect != nil {
+		tc.reconnect.setHooks(onDown, onUp)
+	}
+}
+
+func (tc *TCPClientInterface) startReconnect() {
+	if tc.reconnect != nil {
+		tc.reconnect.start()
+	}
 }
 
 func (tc *TCPClientInterface) Start() error {
@@ -78,10 +106,10 @@ func (tc *TCPClientInterface) Start() error {
 			tc.stopOnce = sync.Once{}
 		}
 	}
+	tc.initReconnectDriver()
 	tc.Mutex.Unlock()
 
-	// Do not block startup waiting on remote availability.
-	go tc.reconnect()
+	tc.startReconnect()
 	return nil
 }
 
@@ -134,6 +162,15 @@ func (tc *TCPClientInterface) ProcessOutgoing(data []byte) error {
 	_, err := conn.Write(frame)
 	if err != nil {
 		debug.Log(debug.DebugCritical, "TCP interface write failed", "name", tc.Name, "error", err)
+		tc.Mutex.Lock()
+		tc.Online = false
+		initiator := tc.initiator
+		detached := tc.Detached
+		tc.Mutex.Unlock()
+		if initiator && !detached && tc.reconnect != nil {
+			tc.teardownConn()
+			tc.reconnect.notifyFailure()
+		}
 	}
 	return err
 }
@@ -191,7 +228,10 @@ func (tc *TCPClientInterface) readLoop() {
 			tc.Mutex.Unlock()
 
 			if initiator && !detached {
-				go tc.reconnect()
+				tc.teardownConn()
+				if tc.reconnect != nil {
+					tc.reconnect.notifyFailure()
+				}
 			} else {
 				tc.teardown()
 			}
@@ -251,13 +291,18 @@ func (tc *TCPClientInterface) handlePacket(data []byte) {
 	tc.ProcessIncoming(data)
 }
 
+func (tc *TCPClientInterface) teardownConn() {
+	if tc.conn != nil {
+		_ = tc.conn.Close()
+		tc.conn = nil
+	}
+}
+
 func (tc *TCPClientInterface) teardown() {
 	tc.Online = false
 	tc.In = false
 	tc.Out = false
-	if tc.conn != nil {
-		_ = tc.conn.Close()
-	}
+	tc.teardownConn()
 }
 
 // Helper functions for escaping data
@@ -343,70 +388,11 @@ func (tc *TCPClientInterface) IsOnline() bool {
 	return tc.Online
 }
 
-func (tc *TCPClientInterface) reconnect() {
-	tc.Mutex.Lock()
-	if tc.reconnecting {
-		tc.Mutex.Unlock()
-		return
+func (tc *TCPClientInterface) IsReconnecting() bool {
+	if tc.reconnect == nil {
+		return false
 	}
-	tc.reconnecting = true
-	tc.Mutex.Unlock()
-
-	backoff := time.Second
-	maxBackoff := time.Minute * 5
-	retries := 0
-
-	for retries < tc.maxReconnectTries {
-		tc.teardown()
-
-		addr := net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort))
-
-		conn, err := net.DialTimeout("tcp", addr, TCPConnectTimeout)
-		if err == nil {
-			tc.Mutex.Lock()
-			tc.conn = conn
-			tc.Online = true
-
-			tc.neverConnected = false
-			tc.reconnecting = false
-			tc.Mutex.Unlock()
-
-			// Set platform-specific timeouts once connected.
-			switch runtime.GOOS {
-			case "linux":
-				if err := tc.setTimeoutsLinux(); err != nil {
-					debug.Log(debug.DebugError, "Failed to set Linux TCP timeouts", "error", err)
-				}
-			case "darwin":
-				if err := tc.setTimeoutsOSX(); err != nil {
-					debug.Log(debug.DebugError, "Failed to set OSX TCP timeouts", "error", err)
-				}
-			}
-
-			go tc.readLoop()
-			return
-		}
-
-		debug.Log(debug.DebugVerbose, "Failed to reconnect", "target", net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort)), "attempt", retries+1, "maxTries", tc.maxReconnectTries, "error", err)
-
-		// Wait with exponential backoff
-		time.Sleep(backoff)
-
-		// Increase backoff time exponentially
-		backoff *= 2
-		if backoff > maxBackoff {
-			backoff = maxBackoff
-		}
-
-		retries++
-	}
-
-	tc.Mutex.Lock()
-	tc.reconnecting = false
-	tc.Mutex.Unlock()
-
-	tc.teardown()
-	debug.Log(debug.DebugError, "Failed to reconnect after all attempts", "target", net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort)), "maxTries", tc.maxReconnectTries)
+	return tc.reconnect.isActive()
 }
 
 func (tc *TCPClientInterface) Enable() {
@@ -424,7 +410,7 @@ func (tc *TCPClientInterface) Disable() {
 func (tc *TCPClientInterface) IsConnected() bool {
 	tc.Mutex.RLock()
 	defer tc.Mutex.RUnlock()
-	return tc.conn != nil && tc.Online && !tc.reconnecting
+	return tc.conn != nil && tc.Online && !tc.IsReconnecting()
 }
 
 func (tc *TCPClientInterface) GetRTT() time.Duration {

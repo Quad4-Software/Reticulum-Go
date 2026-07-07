@@ -49,6 +49,8 @@ type AutoInterface struct {
 	mcastEchoTimeout        time.Duration
 	reversePeeringInterval  time.Duration
 	mifDeque                []DequeEntry
+	discoverInterfaces      bool
+	lastRescan              time.Time
 	done                    chan struct{}
 	stopOnce                sync.Once
 }
@@ -122,8 +124,10 @@ func NewAutoInterface(name string, config *common.InterfaceConfig) (*AutoInterfa
 	peerJobInterval := PeerJobInterval
 	peeringTimeout := PeeringTimeout
 	mcastEchoTimeout := McastEchoTimeout
-
-	// Android peering timeout increase is omitted here; add if platform detection is needed.
+	if runtime.GOOS == "android" {
+		peeringTimeout = PeeringTimeout * AndroidTimeoutMultiplier
+		mcastEchoTimeout = McastEchoTimeout * AndroidTimeoutMultiplier
+	}
 
 	ai := &AutoInterface{
 		BaseInterface: BaseInterface{
@@ -675,7 +679,13 @@ func (ai *AutoInterface) peerJobs() {
 				}
 			}
 
+			needRescan := len(ai.timedOutInterfaces) > 0
+			ai.maybeRescanLocked(now)
 			ai.Mutex.Unlock()
+			if needRescan {
+				_ = ai.RescanInterfaces()
+			}
+			continue
 		case <-ai.done:
 			return
 		}

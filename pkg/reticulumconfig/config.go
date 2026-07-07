@@ -288,6 +288,10 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		cfg.InMemoryPathTable = parseBool(value)
 	case "in_memory_known_destinations":
 		cfg.InMemoryKnownDestinations = parseBool(value)
+	case "discover_interfaces":
+		cfg.DiscoverInterfaces = parseBool(value)
+	case "watch_interfaces":
+		cfg.WatchInterfaces = parseBool(value)
 	case "backbone_io", "io_backend":
 		cfg.BackboneIO = strings.TrimSpace(value)
 	}
@@ -470,6 +474,8 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	fmt.Fprintf(&b, "  control_api_port = %d\n", controlAPIPortOrDefault(cfg.ControlAPIPort))
 	fmt.Fprintf(&b, "  in_memory_path_table = %s\n", boolStr(cfg.InMemoryPathTable))
 	fmt.Fprintf(&b, "  in_memory_known_destinations = %s\n", boolStr(cfg.InMemoryKnownDestinations))
+	fmt.Fprintf(&b, "  discover_interfaces = %s\n", boolStr(cfg.DiscoverInterfaces))
+	fmt.Fprintf(&b, "  watch_interfaces = %s\n", boolStr(cfg.WatchInterfaces))
 	if cfg.BackboneIO != "" {
 		fmt.Fprintf(&b, "  backbone_io = %s\n", cfg.BackboneIO)
 	}

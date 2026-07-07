@@ -245,7 +245,7 @@ func newLinkTestServer(t *testing.T) (*Server, *transport.Transport, []byte) {
 	tr := transport.NewTransport(cfg)
 	t.Cleanup(func() { _ = tr.Close() })
 
-	srv, err := New(tr, cfg)
+	srv, err := New(tr, nil, cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

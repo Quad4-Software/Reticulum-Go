@@ -753,6 +753,12 @@ func (r *Reticulum) onLinkEstablished(linkInterface any) {
 	l.SetPacketCallback(func(data []byte, pkt *packet.Packet) {
 		r.handleLinkPacket(l, data, pkt)
 	})
+
+	l.SetLinkClosedCallback(func(closed *link.Link) {
+		r.linksMutex.Lock()
+		delete(r.establishedLinks, fmt.Sprintf("%x", closed.GetLinkID()))
+		r.linksMutex.Unlock()
+	})
 }
 
 func (r *Reticulum) registerStaticHandlers() {

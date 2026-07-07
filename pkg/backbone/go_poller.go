@@ -11,9 +11,9 @@ func newGoPoller() poller {
 	return &goPoller{wake: make(chan pollEvent, 1)}
 }
 
-func (p *goPoller) Add(int, int) error  { return nil }
-func (p *goPoller) Mod(int, int) error  { return nil }
-func (p *goPoller) Del(int) error       { return nil }
+func (p *goPoller) Add(int, int) error { return nil }
+func (p *goPoller) Mod(int, int) error { return nil }
+func (p *goPoller) Del(int) error      { return nil }
 func (p *goPoller) Wait(int) ([]pollEvent, error) {
 	select {
 	case ev := <-p.wake:

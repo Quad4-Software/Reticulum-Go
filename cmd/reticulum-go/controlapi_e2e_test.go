@@ -12,12 +12,9 @@ import (
 	"time"
 
 	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/transport"
+	"quad4/reticulum-go/pkg/node"
 )
 
-// freeTCPPort finds an ephemeral port by binding to :0 and releasing it
-// immediately; controlapi.Server needs a concrete port up front rather than
-// picking one itself.
 func freeTCPPort(t *testing.T) int {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -34,15 +31,19 @@ func TestControlAPIStartStop(t *testing.T) {
 	}
 
 	cfg := common.DefaultConfig()
+	cfg.ShareInstance = false
 	cfg.RPCKey = []byte("controlapi-e2e-test-key")
 	cfg.EnableControlAPI = true
 	cfg.ControlAPIHost = "127.0.0.1"
 	cfg.ControlAPIPort = freeTCPPort(t)
 
-	tr := transport.NewTransport(cfg)
-	defer tr.Close()
+	n, err := node.New(cfg)
+	if err != nil {
+		t.Fatalf("node.New: %v", err)
+	}
+	defer n.Stop()
 
-	r := &Reticulum{config: cfg, transport: tr}
+	r := &Reticulum{Node: n, config: cfg}
 	r.StartControlAPI()
 	if r.controlAPI == nil {
 		t.Fatal("StartControlAPI did not set r.controlAPI")
@@ -53,7 +54,6 @@ func TestControlAPIStartStop(t *testing.T) {
 	token := hex.EncodeToString(cfg.RPCKey)
 
 	var resp *http.Response
-	var err error
 	for range 50 {
 		req, reqErr := http.NewRequest(http.MethodGet, url, nil)
 		if reqErr != nil {

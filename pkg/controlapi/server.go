@@ -25,10 +25,18 @@ import (
 	"quad4/reticulum-go/pkg/transport"
 )
 
+// Lifecycle coordinates network sleep/wake recovery for the control API.
+type Lifecycle interface {
+	OnNetworkAvailable() error
+	OnNetworkLost() error
+	RefreshPaths(dests ...[]byte) error
+}
+
 // Server is a localhost JSON control API bound to one Reticulum-Go
 // transport. See the package doc comment for the wire protocol.
 type Server struct {
 	transport *transport.Transport
+	lifecycle Lifecycle
 	host      string
 	port      int
 	authKey   []byte
@@ -48,7 +56,7 @@ type Server struct {
 // Callers are expected to only call New when cfg.EnableControlAPI is true;
 // common.ReticulumConfig.Validate rejects that combination when RPCKey is
 // empty.
-func New(t *transport.Transport, cfg *common.ReticulumConfig) (*Server, error) {
+func New(t *transport.Transport, lifecycle Lifecycle, cfg *common.ReticulumConfig) (*Server, error) {
 	if t == nil {
 		return nil, errors.New("controlapi: transport is required")
 	}
@@ -67,6 +75,7 @@ func New(t *transport.Transport, cfg *common.ReticulumConfig) (*Server, error) {
 
 	s := &Server{
 		transport:    t,
+		lifecycle:    lifecycle,
 		host:         host,
 		port:         port,
 		authKey:      cfg.RPCKey,
@@ -135,6 +144,9 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/sessions/{id}/destinations/{hash}/requests", s.handleRegisterRequestHandler)
 	mux.HandleFunc("POST /v1/sessions/{id}/path/request", s.handlePathRequest)
 	mux.HandleFunc("GET /v1/sessions/{id}/events", s.handleEvents)
+	mux.HandleFunc("POST /v1/lifecycle/resume", s.handleLifecycleResume)
+	mux.HandleFunc("POST /v1/lifecycle/pause", s.handleLifecyclePause)
+	mux.HandleFunc("POST /v1/lifecycle/refresh-paths", s.handleLifecycleRefreshPaths)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {

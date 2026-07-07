@@ -13,7 +13,7 @@ Environment:
 Output:
     test_vectors.json in the same directory
 
-To run full crossref test (clones/updates from github.com/markqvist/Reticulum):
+To run full crossref test (clones/updates from rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum):
     make test-crossref
     task test-crossref
     ./tests/crossref/run_crossref.sh

@@ -1,0 +1,276 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024-2026 Quad4.io
+
+package node
+
+import (
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+
+	"quad4/reticulum-go/pkg/backbone"
+	"quad4/reticulum-go/pkg/buffer"
+	"quad4/reticulum-go/pkg/channel"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/interfaces"
+	"quad4/reticulum-go/pkg/link"
+	"quad4/reticulum-go/pkg/sharedinstance"
+	"quad4/reticulum-go/pkg/transport"
+)
+
+// PauseMode controls how OnNetworkLost affects interfaces.
+type PauseMode int
+
+const (
+	PauseModeDisable PauseMode = iota
+	PauseModeStop
+)
+
+// LinkReconnectOptions configures optional automatic link re-establishment.
+type LinkReconnectOptions struct {
+	MaxAttempts int
+	Backoff     time.Duration
+}
+
+// Node orchestrates transport, interfaces, and network lifecycle for embedders.
+type Node struct {
+	config         *common.ReticulumConfig
+	transport      *transport.Transport
+	sharedInstance *sharedinstance.Instance
+	interfaces     []interfaces.Interface
+	channels       map[string]*channel.Channel
+	buffers        map[string]*buffer.Buffer
+	reloadMu       sync.Mutex
+
+	lastNetworkDown time.Time
+	networkPaused   bool
+	pauseMode       PauseMode
+	watchedDests    map[string][]byte
+	watchMu         sync.RWMutex
+	linkMgr         *linkManager
+}
+
+// New constructs a Node from configuration without starting it.
+func New(cfg *common.ReticulumConfig) (*Node, error) {
+	if cfg == nil {
+		cfg = common.DefaultConfig()
+	}
+	if _, err := backbone.Init(backbone.ParseBackend(cfg.BackboneIO)); err != nil {
+		return nil, fmt.Errorf("backbone I/O hub: %w", err)
+	}
+	t := transport.NewTransport(cfg)
+	n := &Node{
+		config:       cfg,
+		transport:    t,
+		interfaces:   make([]interfaces.Interface, 0),
+		channels:     make(map[string]*channel.Channel),
+		buffers:      make(map[string]*buffer.Buffer),
+		pauseMode:    PauseModeDisable,
+		watchedDests: make(map[string][]byte),
+	}
+	ctx := n.fromConfigContext()
+	for name, ifaceConfig := range cfg.Interfaces {
+		if !ifaceConfig.Enabled {
+			continue
+		}
+		iface, err := interfaces.NewFromConfigWithContext(name, ifaceConfig, ctx)
+		if err != nil {
+			if cfg.PanicOnInterfaceErr {
+				return nil, fmt.Errorf("failed to create interface %s: %v", name, err)
+			}
+			debug.Log(debug.DebugCritical, "Error creating interface", "name", name, "error", err)
+			continue
+		}
+		n.interfaces = append(n.interfaces, iface)
+	}
+	return n, nil
+}
+
+// Transport returns the underlying transport.
+func (n *Node) Transport() *transport.Transport {
+	return n.transport
+}
+
+// Config returns the active configuration.
+func (n *Node) Config() *common.ReticulumConfig {
+	return n.config
+}
+
+// Interfaces returns the configured interface list.
+func (n *Node) Interfaces() []interfaces.Interface {
+	return n.interfaces
+}
+
+// Start starts transport and network interfaces.
+func (n *Node) Start() error {
+	if err := n.transport.Start(); err != nil {
+		return fmt.Errorf("failed to start transport: %w", err)
+	}
+	if err := n.transport.InitializePathRequestHandler(); err != nil {
+		return fmt.Errorf("path request handler: %w", err)
+	}
+	hooks := sharedinstance.Hooks{
+		RegisterInterface: n.transport.RegisterInterface,
+		HandleInterface:   n.handleInterface,
+	}
+	inst, err := sharedinstance.Attach(n.config, n.transport, hooks)
+	if err != nil {
+		return fmt.Errorf("shared instance: %w", err)
+	}
+	n.sharedInstance = inst
+	if !inst.OwnsNetworkInterfaces() {
+		debug.Log(debug.DebugInfo, "Using existing local shared Reticulum instance; skipping configured network interfaces")
+		return nil
+	}
+	return n.startInterfaces()
+}
+
+func (n *Node) startInterfaces() error {
+	type result struct {
+		iface interfaces.Interface
+		err   error
+	}
+	results := make(chan result, len(n.interfaces))
+	for _, iface := range n.interfaces {
+		go func(iface interfaces.Interface) {
+			results <- result{iface: iface, err: iface.Start()}
+		}(iface)
+	}
+	started := make([]interfaces.Interface, 0, len(n.interfaces))
+	for range len(n.interfaces) {
+		res := <-results
+		if res.err != nil {
+			if n.config.PanicOnInterfaceErr {
+				return fmt.Errorf("failed to start interface %s: %v", res.iface.GetName(), res.err)
+			}
+			debug.Log(debug.DebugCritical, "Error starting interface", "name", res.iface.GetName(), "error", res.err)
+			continue
+		}
+		started = append(started, res.iface)
+	}
+	for _, iface := range started {
+		ni, ok := iface.(common.NetworkInterface)
+		if !ok {
+			continue
+		}
+		if err := n.transport.RegisterInterface(iface.GetName(), ni); err != nil {
+			debug.Log(debug.DebugCritical, "Failed to register interface", "name", iface.GetName(), "error", err)
+			continue
+		}
+		n.handleInterface(ni)
+		n.wireConnectivityHooks(iface)
+	}
+	n.interfaces = started
+	if n.config != nil && (n.config.DiscoverInterfaces || n.config.WatchInterfaces) {
+		n.startInterfaceMonitor()
+	}
+	return nil
+}
+
+// Stop shuts down interfaces and transport.
+func (n *Node) Stop() error {
+	n.reloadMu.Lock()
+	defer n.reloadMu.Unlock()
+	if n.sharedInstance != nil {
+		n.sharedInstance.Close()
+		n.sharedInstance = nil
+	}
+	for _, buf := range n.buffers {
+		_ = buf.Close()
+	}
+	for _, ch := range n.channels {
+		_ = ch.Close()
+	}
+	for _, iface := range n.interfaces {
+		_ = iface.Stop()
+	}
+	if n.transport != nil {
+		if err := n.transport.Close(); err != nil {
+			return err
+		}
+	}
+	backbone.Shutdown()
+	return nil
+}
+
+// WatchDestination registers a destination hash for path refresh on wake.
+func (n *Node) WatchDestination(hash []byte) error {
+	if len(hash) != 16 {
+		return errors.New("destination hash must be 16 bytes")
+	}
+	key := hex.EncodeToString(hash)
+	n.watchMu.Lock()
+	n.watchedDests[key] = append([]byte(nil), hash...)
+	n.watchMu.Unlock()
+	return nil
+}
+
+// EnableLinkAutoReconnect enables automatic link re-establishment.
+func (n *Node) EnableLinkAutoReconnect(opts LinkReconnectOptions) {
+	if n.linkMgr == nil {
+		n.linkMgr = newLinkManager(n.transport, opts)
+	}
+}
+
+func (n *Node) fromConfigContext() *interfaces.FromConfigContext {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	storage := filepath.Join(homeDir, ".reticulum-go", "storage")
+	return &interfaces.FromConfigContext{
+		I2PStoragePath:        storage,
+		TransportID:           n.transport.TransportIdentityHash(),
+		DiscoverInterfaces:    n.config != nil && n.config.DiscoverInterfaces,
+		PanicOnInterfaceError: n.config != nil && n.config.PanicOnInterfaceErr,
+		BackboneHub:           backbone.Get(),
+		SpawnBackbone: func(client *interfaces.BackboneClientInterface) {
+			if err := n.transport.RegisterInterface(client.GetName(), client); err != nil {
+				debug.Log(debug.DebugCritical, "Failed to register spawned backbone client", "error", err)
+				return
+			}
+			n.handleInterface(client)
+		},
+		RegisterPeer: func(name string, peer common.NetworkInterface) error {
+			return n.transport.RegisterInterface(name, peer)
+		},
+		UnregisterPeer: func(name string) {
+			n.transport.UnregisterInterface(name)
+			n.unregisterInterfaceBuffers(name)
+		},
+		SetupPeer: n.handleInterface,
+		SynthesizeTunnel: func(peer interfaces.TunnelPeer) {
+			_ = n.transport.SynthesizeTunnel(peer)
+		},
+		VoidTunnel: func(peer interfaces.TunnelPeer) {
+			n.transport.VoidTunnel(peer)
+		},
+	}
+}
+
+func (n *Node) wireConnectivityHooks(iface interfaces.Interface) {
+	notifier, ok := iface.(interfaces.ConnectivityNotifier)
+	if !ok {
+		return
+	}
+	notifier.SetConnectivityHooks(
+		func() { debug.Log(debug.DebugVerbose, "Interface connectivity down", "name", iface.GetName()) },
+		func() { debug.Log(debug.DebugVerbose, "Interface connectivity up", "name", iface.GetName()) },
+	)
+}
+
+func (n *Node) ownsInterfaces() bool {
+	return n.sharedInstance == nil || n.sharedInstance.OwnsNetworkInterfaces()
+}
+
+// RegisterLink registers a link for automatic re-establishment when enabled.
+func (n *Node) RegisterLink(l *link.Link) {
+	if n.linkMgr != nil {
+		n.linkMgr.Register(l)
+	}
+}

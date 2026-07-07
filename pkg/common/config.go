@@ -112,6 +112,12 @@ type ReticulumConfig struct {
 	// BackboneIO selects the kernel I/O multiplexer for backbone and local shared
 	// instance sockets: auto, epoll, kqueue, io_uring, or go.
 	BackboneIO string
+
+	// DiscoverInterfaces enables periodic NIC rescan for AutoInterface peers.
+	DiscoverInterfaces bool
+
+	// WatchInterfaces enables OS-level interface change monitoring where supported.
+	WatchInterfaces bool
 }
 
 // NewReticulumConfig creates a new ReticulumConfig with default values

@@ -34,38 +34,39 @@ const (
 // FromConfigContext carries runtime dependencies for interface types that
 // need storage paths, transport identity, or dynamic peer registration.
 type FromConfigContext struct {
-	I2PStoragePath          string
-	TransportID             []byte
-	RegisterPeer            func(name string, peer common.NetworkInterface) error
-	UnregisterPeer          func(name string)
-	SetupPeer               func(peer common.NetworkInterface)
-	SynthesizeTunnel        func(TunnelPeer)
-	VoidTunnel              func(TunnelPeer)
-	PanicOnInterfaceError   bool
-	BackboneHub             *backbone.Hub
-	SpawnBackbone           func(client *BackboneClientInterface)
+	I2PStoragePath        string
+	TransportID           []byte
+	RegisterPeer          func(name string, peer common.NetworkInterface) error
+	UnregisterPeer        func(name string)
+	SetupPeer             func(peer common.NetworkInterface)
+	SynthesizeTunnel      func(TunnelPeer)
+	VoidTunnel            func(TunnelPeer)
+	DiscoverInterfaces    bool
+	PanicOnInterfaceError bool
+	BackboneHub           *backbone.Hub
+	SpawnBackbone         func(client *BackboneClientInterface)
 }
 
 // I2PInterface is the parent listener for inbound I2P peers and optional SAM
 // server tunnel publication.
 type I2PInterface struct {
 	BaseInterface
-	controller          *i2p.Controller
-	connectable         bool
-	samAddress          string
-	b32                 string
-	bindPort            int
-	listener            net.Listener
-	spawned             []*I2PInterfacePeer
-	spawnMu             sync.Mutex
-	ctx                 *FromConfigContext
-	cfg                 *common.InterfaceConfig
-	transportID         []byte
-	supportsDiscovery   bool
-	serverDone          chan struct{}
-	serverStop          sync.Once
-	acceptDone          chan struct{}
-	acceptStop          sync.Once
+	controller        *i2p.Controller
+	connectable       bool
+	samAddress        string
+	b32               string
+	bindPort          int
+	listener          net.Listener
+	spawned           []*I2PInterfacePeer
+	spawnMu           sync.Mutex
+	ctx               *FromConfigContext
+	cfg               *common.InterfaceConfig
+	transportID       []byte
+	supportsDiscovery bool
+	serverDone        chan struct{}
+	serverStop        sync.Once
+	acceptDone        chan struct{}
+	acceptStop        sync.Once
 }
 
 // I2PInterfacePeer is a logical Reticulum interface over one I2P stream.

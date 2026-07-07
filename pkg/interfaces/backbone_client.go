@@ -33,8 +33,8 @@ type BackboneClientInterface struct {
 	targetAddr        string
 	targetPort        int
 	initiator         bool
-	reconnecting      bool
 	maxReconnectTries int
+	reconnect         *reconnectDriver
 	done              chan struct{}
 	stopOnce          sync.Once
 }
@@ -62,10 +62,7 @@ func NewBackboneClientInterface(name string, cfg *common.InterfaceConfig, hub *b
 		return nil, fmt.Errorf("target_port required for BackboneClientInterface %q", name)
 	}
 
-	maxTries := ReconnectWait * TCPProbesCount
-	if cfg.MaxReconnTries > 0 {
-		maxTries = cfg.MaxReconnTries
-	}
+	maxTries := NormalizeMaxReconnectTries(cfg.MaxReconnTries)
 
 	bc := &BackboneClientInterface{
 		BaseInterface:     NewBaseInterface(name, common.IFTypeBackbone, cfg.Enabled),
@@ -76,6 +73,7 @@ func NewBackboneClientInterface(name string, cfg *common.InterfaceConfig, hub *b
 		maxReconnectTries: maxTries,
 		done:              make(chan struct{}),
 	}
+	bc.initReconnectDriver()
 	bc.MTU = backboneHWMTU
 	bc.Bitrate = backboneClientBitrateGuess
 	bc.In = true
@@ -125,6 +123,48 @@ func normalizeBackboneConfig(cfg *common.InterfaceConfig) {
 	}
 }
 
+func (bc *BackboneClientInterface) initReconnectDriver() {
+	label := net.JoinHostPort(bc.targetAddr, fmt.Sprintf("%d", bc.targetPort))
+	bc.reconnect = newReconnectDriver(label, bc.maxReconnectTries, bc.done, tcpDialTarget(bc.targetAddr, bc.targetPort), func(conn net.Conn) {
+		bc.Mutex.Lock()
+		bc.conn = conn
+		bc.Mutex.Unlock()
+		tmp := &TCPClientInterface{conn: conn, i2pTunneled: false}
+		applyClientTCPTimeouts(tmp)
+		if err := bc.attachStream(); err != nil {
+			debug.Log(debug.DebugError, "backbone reconnect attach failed", "error", err)
+			bc.teardownConn()
+			bc.reconnect.notifyFailure()
+		}
+	})
+}
+
+func (bc *BackboneClientInterface) SetConnectivityHooks(onDown, onUp func()) {
+	if bc.reconnect != nil {
+		bc.reconnect.setHooks(onDown, onUp)
+	}
+}
+
+func (bc *BackboneClientInterface) startReconnect() {
+	if bc.reconnect != nil {
+		bc.reconnect.start()
+	}
+}
+
+func (bc *BackboneClientInterface) teardownConn() {
+	bc.Mutex.Lock()
+	stream := bc.stream
+	bc.stream = nil
+	if bc.conn != nil {
+		_ = bc.conn.Close()
+		bc.conn = nil
+	}
+	bc.Mutex.Unlock()
+	if stream != nil {
+		stream.Close()
+	}
+}
+
 func (bc *BackboneClientInterface) Start() error {
 	bc.Mutex.Lock()
 	if !bc.Enabled || bc.Detached {
@@ -142,13 +182,14 @@ func (bc *BackboneClientInterface) Start() error {
 		bc.stopOnce = sync.Once{}
 	default:
 	}
+	bc.initReconnectDriver()
 	bc.Mutex.Unlock()
 
 	if bc.conn != nil {
 		return bc.attachStream()
 	}
 	if bc.initiator {
-		go bc.reconnect()
+		bc.startReconnect()
 	}
 	return nil
 }
@@ -198,7 +239,10 @@ func (bc *BackboneClientInterface) attachStream() error {
 			parent.removeSpawned(bc)
 		}
 		if initiator && !detached {
-			go bc.reconnect()
+			bc.teardownConn()
+			if bc.reconnect != nil {
+				bc.reconnect.notifyFailure()
+			}
 		}
 	}
 	stream, err := bc.hub.RegisterStream(conn, bc.MTU, onFrame, onClose)
@@ -234,61 +278,6 @@ func (bc *BackboneClientInterface) Send(data []byte, address string) error {
 	}
 	bc.updateBandwidthStats(uint64(len(masked)))
 	return nil
-}
-
-func (bc *BackboneClientInterface) reconnect() {
-	bc.Mutex.Lock()
-	if bc.reconnecting {
-		bc.Mutex.Unlock()
-		return
-	}
-	bc.reconnecting = true
-	bc.Mutex.Unlock()
-	defer func() {
-		bc.Mutex.Lock()
-		bc.reconnecting = false
-		bc.Mutex.Unlock()
-	}()
-
-	backoff := time.Second
-	maxBackoff := 5 * time.Minute
-	retries := 0
-
-	for retries < bc.maxReconnectTries {
-		select {
-		case <-bc.done:
-			return
-		default:
-		}
-
-		addr := net.JoinHostPort(bc.targetAddr, fmt.Sprintf("%d", bc.targetPort))
-		conn, err := net.DialTimeout("tcp", addr, TCPConnectTimeout)
-		if err == nil {
-			bc.Mutex.Lock()
-			bc.conn = conn
-			bc.Mutex.Unlock()
-			switch runtime.GOOS {
-			case "linux":
-				_ = bc.setTimeoutsLinux(conn)
-			case "darwin":
-				_ = bc.setTimeoutsOSX(conn)
-			}
-			if err := bc.attachStream(); err != nil {
-				debug.Log(debug.DebugError, "backbone reconnect attach failed", "error", err)
-				_ = conn.Close()
-			} else {
-				return
-			}
-		}
-
-		time.Sleep(backoff)
-		backoff *= 2
-		if backoff > maxBackoff {
-			backoff = maxBackoff
-		}
-		retries++
-	}
-	debug.Log(debug.DebugError, "backbone reconnect exhausted", "target", bc.targetAddr)
 }
 
 func (bc *BackboneClientInterface) setTimeoutsLinux(conn net.Conn) error {

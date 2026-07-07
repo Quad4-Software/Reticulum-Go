@@ -11,12 +11,12 @@ const (
 
 // HDLCDecoder incrementally parses HDLC-framed packets from a byte stream.
 type HDLCDecoder struct {
-	mtu       int
-	inFrame   bool
-	escape    bool
-	data      []byte
-	maxFrame  int
-	onPacket  func([]byte)
+	mtu      int
+	inFrame  bool
+	escape   bool
+	data     []byte
+	maxFrame int
+	onPacket func([]byte)
 }
 
 func NewHDLCDecoder(mtu int, onPacket func([]byte)) *HDLCDecoder {

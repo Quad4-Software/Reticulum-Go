@@ -4,7 +4,7 @@
 package backbone
 
 const (
-	evRead  = 1 << iota
+	evRead = 1 << iota
 	evWrite
 	evHangup
 )
