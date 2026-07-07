@@ -45,6 +45,14 @@ const (
 	MinRequestDataLen  = 3
 	MinResponseDataLen = 2
 
+	// RequestTimestampMaxSkewPast is the maximum age of a request's
+	// requested_at field before it is rejected as a potential replay.
+	RequestTimestampMaxSkewPast = 300
+
+	// RequestTimestampMaxSkewFuture allows modest clock skew ahead of local
+	// time when validating incoming requests.
+	RequestTimestampMaxSkewFuture = 60
+
 	// Sentinel hop count meaning "unreachable" returned from
 	// Transport.HopsTo. Defined here so call-sites can compare against
 	// it without inlining a magic literal.

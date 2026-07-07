@@ -1555,15 +1555,16 @@ func (l *Link) handleRequest(plaintext []byte, pkt *packet.Packet) error {
 		return errors.New("invalid request format")
 	}
 
-	requestedAtFloat, ok := requestData[0].(float64)
-	if !ok {
-		requestedAtInt, ok := requestData[0].(int64)
-		if !ok {
-			return fmt.Errorf("invalid requested_at type: %T", requestData[0])
-		}
-		requestedAtFloat = float64(requestedAtInt)
+	requestedAt, err := parseRequestedAt(requestData[0])
+	if err != nil {
+		return err
 	}
-	requestedAt := time.Unix(int64(requestedAtFloat), 0)
+	if !requestTimestampValid(requestedAt, time.Now()) {
+		debug.Log(debug.DebugInfo, "Rejecting request with stale requested_at",
+			"requested_at", requestedAt.Unix(),
+			"request_id", fmt.Sprintf("%x", pkt.TruncatedHash()))
+		return nil
+	}
 
 	pathHash, ok := requestData[1].([]byte)
 	if !ok {
