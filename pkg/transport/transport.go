@@ -103,6 +103,12 @@ type Transport struct {
 	pendingDiscoveryPRs   []pendingDiscoveryPR
 	pendingDiscoveryPRMu  sync.Mutex
 	discoveryDraining     atomic.Bool
+	pathPersistMemory     atomic.Bool
+	pathPersistDisabled   atomic.Bool
+	pathPersistDir        string
+	pathPersistDirty      atomic.Bool
+	pathPersistSaving     sync.Mutex
+	pendingPathEntries    []pendingPathEntry
 	done                  chan struct{}
 	stopOnce              sync.Once
 }
@@ -174,12 +180,23 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		done:                  make(chan struct{}),
 	}
 
-	transportIdent, err := identity.LoadOrCreateTransportIdentity(cfg.ConfigPath)
+	transportIdent, err := identity.LoadOrCreateTransportIdentity("")
+	if cfg != nil {
+		transportIdent, err = identity.LoadOrCreateTransportIdentity(cfg.ConfigPath)
+	}
 	if err == nil {
 		t.transportIdentity = transportIdent
 	}
 
 	go t.startMaintenanceJobs()
+
+	t.initPathPersistence(cfg)
+	inMemoryKnown := false
+	if cfg != nil {
+		cfg.ApplyPersistenceEnv()
+		inMemoryKnown = cfg.InMemoryKnownDestinations || cfg.ConnectedToSharedInstance
+	}
+	identity.InitKnownDestinationsPersistence(configPath(cfg), inMemoryKnown)
 
 	return t
 }
@@ -196,6 +213,8 @@ func (t *Transport) startMaintenanceJobs() {
 			t.cleanupExpiredAnnounces()
 			t.cleanupExpiredReceipts()
 			t.cleanupSeenAnnounces()
+			t.persistPathTableIfDirty()
+			identity.PersistKnownDestinationsIfDirty()
 			if tab := t.BlackholeTable(); tab != nil {
 				tab.SweepExpired()
 			}
@@ -236,6 +255,7 @@ func (t *Transport) cleanupExpiredPaths() {
 			debug.Log(debug.DebugVerbose, "Expired path", "dest_hash", fmt.Sprintf("%x", destHash[:8]))
 		}
 	}
+	t.markPathTableDirty()
 }
 
 func (t *Transport) cleanupExpiredDiscoveryRequests() {
@@ -433,6 +453,7 @@ func (t *Transport) RegisterInterface(name string, iface common.NetworkInterface
 	}
 
 	t.registerInterfaceLocked(name, iface)
+	t.activatePendingPathsForInterface(name, iface)
 	return nil
 }
 
@@ -499,6 +520,7 @@ func (t *Transport) UnregisterInterface(name string) {
 	iface.SetPacketCallback(nil)
 	delete(t.interfaces, name)
 	t.ifaceStates.delete(name)
+	t.markPathTableDirty()
 }
 
 // ReplaceInterface swaps the registered implementation for name, scrubbing
@@ -517,6 +539,7 @@ func (t *Transport) ReplaceInterface(name string, iface common.NetworkInterface)
 		t.ifaceStates.delete(name)
 	}
 	t.registerInterfaceLocked(name, iface)
+	t.activatePendingPathsForInterface(name, iface)
 	return nil
 }
 
@@ -583,11 +606,17 @@ func (t *Transport) Close() error {
 	})
 
 	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
 	for _, iface := range t.interfaces {
 		iface.Detach()
 	}
+	t.mutex.Unlock()
+
+	// savePathTableSync/SaveKnownDestinationsSync take their own locks
+	// internally; t.mutex must be released above before calling them, or a
+	// write-lock-then-read-lock self-deadlock results (sync.RWMutex is not
+	// reentrant).
+	t.savePathTableSync()
+	identity.SaveKnownDestinationsSync()
 
 	return nil
 }
@@ -897,6 +926,7 @@ func (t *Transport) updatePathUnlocked(destinationHash []byte, nextHop []byte, i
 		LastUpdated: time.Now(),
 	}
 	t.pathStates[key] = StateUnknown
+	t.markPathTableDirty()
 }
 
 func (t *Transport) UpdatePath(destinationHash []byte, nextHop []byte, interfaceName string, hops uint8) {
