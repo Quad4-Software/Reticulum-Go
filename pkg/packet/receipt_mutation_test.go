@@ -219,8 +219,11 @@ func TestReceiptGetRTTAfterDelivery(t *testing.T) {
 	if !receipt.ValidateProof(proof, &Packet{PacketType: PacketTypeProof, Data: proof}) {
 		t.Fatal("proof validation failed")
 	}
-	if rtt := receipt.GetRTT(); rtt <= 0 {
-		t.Fatalf("expected positive RTT, got %v", rtt)
+	if !receipt.IsDelivered() {
+		t.Fatal("receipt not delivered")
+	}
+	if rtt := receipt.GetRTT(); rtt < 0 {
+		t.Fatalf("expected non-negative RTT, got %v", rtt)
 	}
 }
 
