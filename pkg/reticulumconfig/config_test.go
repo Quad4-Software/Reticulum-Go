@@ -629,6 +629,32 @@ func TestLoadConfigBackboneRemoteAlias(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_BackboneIO(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config")
+	writeFile(t, path, `[reticulum]
+  backbone_io = epoll
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.BackboneIO != "epoll" {
+		t.Fatalf("BackboneIO = %q, want epoll", cfg.BackboneIO)
+	}
+
+	writeFile(t, path, `[reticulum]
+  io_backend = kqueue
+`)
+	cfg, err = LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig io_backend: %v", err)
+	}
+	if cfg.BackboneIO != "kqueue" {
+		t.Fatalf("BackboneIO = %q, want kqueue", cfg.BackboneIO)
+	}
+}
+
 // writeFile is a tiny test helper that writes content with a strict mode and
 // fails the test on IO errors.
 func writeFile(t *testing.T, path, content string) {
