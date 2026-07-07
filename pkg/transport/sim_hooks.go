@@ -12,9 +12,9 @@ import (
 // simPathfinderRW and simAnnounceRateKbps are optional overrides set only
 // from _test.go helpers. nil keeps production PathfinderRW / AnnounceRateKbps.
 var (
-	simHooksMu            sync.Mutex
-	simPathfinderRW       *float64
-	simAnnounceRateKbps   *float64
+	simHooksMu          sync.Mutex
+	simPathfinderRW     *float64
+	simAnnounceRateKbps *float64
 )
 
 func effectivePathfinderRW() float64 {
