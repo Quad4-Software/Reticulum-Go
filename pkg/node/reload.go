@@ -55,7 +55,11 @@ func interfaceConfigsEqualForReload(a, b *common.InterfaceConfig) bool {
 		a.Passphrase == b.Passphrase &&
 		a.IFACSize == b.IFACSize &&
 		a.IFACNetname == b.IFACNetname &&
-		a.IFACNetkey == b.IFACNetkey
+		a.IFACNetkey == b.IFACNetkey &&
+		a.Command == b.Command &&
+		a.RespawnDelay == b.RespawnDelay &&
+		a.SharedInstanceType == b.SharedInstanceType &&
+		a.InstanceName == b.InstanceName
 }
 
 func (n *Node) tearDownInterface(iface interfaces.Interface) {

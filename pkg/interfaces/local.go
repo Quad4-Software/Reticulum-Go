@@ -208,6 +208,8 @@ type LocalClientInterface struct {
 	hub             *backbone.Hub
 	onDisconnect    func()
 	onReconnect     func()
+	txFrame         []byte
+	readBuf         []byte
 }
 
 // NewLocalClientInterface dials the shared instance on localhost.
@@ -220,11 +222,14 @@ func NewLocalClientInterface(port int, socketPath string, useUnix bool, hub *bac
 		hub:             hub,
 		sharedInitiator: true,
 		done:            make(chan struct{}),
+		txFrame:         make([]byte, 0, 512),
+		readBuf:         nil,
 	}
 	lc.In = true
 	lc.Out = true
 	lc.Bitrate = 1_000_000_000
 	lc.MTU = 262144
+	lc.readBuf = make([]byte, lc.MTU)
 	return lc, nil
 }
 
@@ -234,11 +239,13 @@ func newLocalClientFromConn(name string, conn net.Conn, parent *LocalServerInter
 		conn:          conn,
 		parent:        parent,
 		done:          make(chan struct{}),
+		txFrame:       make([]byte, 0, 512),
 	}
 	lc.In = true
 	lc.Out = true
 	lc.Bitrate = 1_000_000_000
 	lc.MTU = 262144
+	lc.readBuf = make([]byte, lc.MTU)
 	lc.Online = true
 	if tcpConn, ok := conn.(*net.TCPConn); ok {
 		_ = tcpConn.SetNoDelay(true)
@@ -248,6 +255,12 @@ func newLocalClientFromConn(name string, conn net.Conn, parent *LocalServerInter
 	}
 	return lc
 }
+
+func (lc *LocalClientInterface) IsSharedInstanceClient() bool {
+	return lc.sharedInitiator
+}
+
+func (lc *LocalClientInterface) ShouldIngressLimitPR() bool { return false }
 
 func (lc *LocalClientInterface) String() string {
 	if lc.useUnix || lc.parent != nil {
@@ -357,8 +370,8 @@ func (lc *LocalClientInterface) ProcessOutgoing(data []byte) error {
 		stream.QueueSend(data)
 		return nil
 	}
-	frame := append([]byte{HDLCFlag}, escapeHDLC(data)...)
-	frame = append(frame, HDLCFlag)
+	frame := appendFrameHDLC(lc.txFrame[:0], data)
+	lc.txFrame = frame
 	_, err := conn.Write(frame)
 	return err
 }
@@ -382,14 +395,11 @@ func (lc *LocalClientInterface) readLoop() {
 }
 
 func (lc *LocalClientInterface) runHDLCLoop(onFrame func([]byte)) {
-	buffer := make([]byte, lc.MTU)
-	inFrame := false
-	escape := false
-	dataBuffer := make([]byte, 0, lc.MTU)
-	maxHDLC := 2*lc.MTU + 32
-	if maxHDLC < 256 {
-		maxHDLC = 2048
+	decoder := newHDLCStreamDecoder(lc.MTU, onFrame)
+	if cap(lc.readBuf) < lc.MTU {
+		lc.readBuf = make([]byte, lc.MTU)
 	}
+	buffer := lc.readBuf[:lc.MTU]
 
 	for {
 		lc.Mutex.RLock()
@@ -405,39 +415,17 @@ func (lc *LocalClientInterface) runHDLCLoop(onFrame func([]byte)) {
 		default:
 		}
 		n, err := conn.Read(buffer)
-		if err != nil || n == 0 {
+		if n == 0 {
+			if err != nil {
+				lc.handleDisconnect()
+				return
+			}
+			continue
+		}
+		decoder.feed(buffer[:n])
+		if err != nil {
 			lc.handleDisconnect()
 			return
-		}
-		for i := range n {
-			b := buffer[i]
-			if b == HDLCFlag {
-				if inFrame && len(dataBuffer) > 0 {
-					onFrame(unescapeHDLC(dataBuffer))
-				}
-				dataBuffer = dataBuffer[:0]
-				inFrame = true
-				escape = false
-				continue
-			}
-			if !inFrame {
-				continue
-			}
-			if b == HDLCEsc {
-				escape = true
-				continue
-			}
-			if escape {
-				b ^= HDLCEscMask
-				escape = false
-			}
-			if len(dataBuffer) >= maxHDLC {
-				dataBuffer = dataBuffer[:0]
-				inFrame = false
-				escape = false
-				continue
-			}
-			dataBuffer = append(dataBuffer, b)
 		}
 	}
 }

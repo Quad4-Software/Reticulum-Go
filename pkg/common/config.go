@@ -67,6 +67,14 @@ type InterfaceConfig struct {
 	IFACNetname string
 	IFACNetkey  string
 	PublishIFAC bool
+
+	// PipeInterface subprocess command and respawn delay (seconds).
+	Command      string
+	RespawnDelay int
+
+	// LocalInterface unix socket settings (interface block).
+	SharedInstanceType string
+	InstanceName       string
 }
 
 // SharedInstanceType values for [reticulum] shared_instance_type.

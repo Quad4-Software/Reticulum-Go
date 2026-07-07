@@ -399,6 +399,14 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		setIFACSize(value, &iface.IFACSize)
 	case "publish_ifac":
 		iface.PublishIFAC = parseBool(value)
+	case "command":
+		iface.Command = value
+	case "respawn_delay", "respawn_interval":
+		setInt(value, &iface.RespawnDelay)
+	case "shared_instance_type":
+		iface.SharedInstanceType = strings.ToLower(strings.TrimSpace(value))
+	case "instance_name":
+		iface.InstanceName = value
 	}
 }
 

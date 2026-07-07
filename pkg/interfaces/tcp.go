@@ -405,6 +405,21 @@ func unescapeHDLC(data []byte) []byte {
 	return out
 }
 
+// appendFrameHDLC appends a complete HDLC frame to dst and returns the slice.
+// Reuse dst across calls via dst = appendFrameHDLC(dst[:0], payload) to avoid
+// per-packet allocations when cap(dst) is large enough.
+func appendFrameHDLC(dst []byte, payload []byte) []byte {
+	dst = append(dst, HDLCFlag)
+	for _, b := range payload {
+		if b == HDLCFlag || b == HDLCEsc {
+			dst = append(dst, HDLCEsc, b^HDLCEscMask)
+		} else {
+			dst = append(dst, b)
+		}
+	}
+	return append(dst, HDLCFlag)
+}
+
 func escapeKISS(data []byte) []byte {
 	escaped := make([]byte, 0, len(data)*2)
 	for _, b := range data {

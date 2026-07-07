@@ -178,6 +178,12 @@ func (n *Node) startInterfaces() error {
 		}
 		n.handleInterface(ni)
 		n.wireConnectivityHooks(iface)
+		if lc, ok := iface.(*interfaces.LocalClientInterface); ok && lc.IsSharedInstanceClient() {
+			n.transport.SetConnectedToSharedInstance(true)
+			if n.config != nil {
+				n.config.ConnectedToSharedInstance = true
+			}
+		}
 	}
 	n.interfaces = started
 	if n.config != nil && n.config.WatchInterfaces {
@@ -248,6 +254,13 @@ func (n *Node) fromConfigContext() *interfaces.FromConfigContext {
 		SpawnBackbone: func(client *interfaces.BackboneClientInterface) {
 			if err := n.transport.RegisterInterface(client.GetName(), client); err != nil {
 				debug.Log(debug.DebugCritical, "Failed to register spawned backbone client", "error", err)
+				return
+			}
+			n.handleInterface(client)
+		},
+		SpawnLocal: func(client *interfaces.LocalClientInterface) {
+			if err := n.transport.RegisterInterface(client.GetName(), client); err != nil {
+				debug.Log(debug.DebugCritical, "Failed to register spawned local client", "error", err)
 				return
 			}
 			n.handleInterface(client)

@@ -5,6 +5,7 @@ package interfaces
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"quad4/reticulum-go/pkg/backbone"
 	"quad4/reticulum-go/pkg/common"
@@ -94,6 +95,12 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			parent.registerSpawnedPeer(peer)
 		}
 		iface = parent
+	case "PipeInterface":
+		delay := time.Duration(cfg.RespawnDelay) * time.Second
+		panicOnErr := ctx != nil && ctx.PanicOnInterfaceError
+		iface, err = NewPipeInterface(name, cfg.Command, cfg.Enabled, delay, panicOnErr)
+	case "LocalInterface", "LocalServerInterface":
+		iface, err = NewLocalFromConfig(name, cfg, ctx)
 	default:
 		return nil, fmt.Errorf("unsupported interface type %q", cfg.Type)
 	}

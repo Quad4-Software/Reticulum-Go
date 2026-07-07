@@ -46,6 +46,7 @@ type FromConfigContext struct {
 	PanicOnInterfaceError bool
 	BackboneHub           *backbone.Hub
 	SpawnBackbone         func(client *BackboneClientInterface)
+	SpawnLocal            LocalSpawnHook
 }
 
 // I2PInterface is the parent listener for inbound I2P peers and optional SAM

@@ -13,6 +13,7 @@ const (
 	IFTypeSerial
 	IFTypeAuto
 	IFTypeBackbone
+	IFTypePipe
 )
 
 // Interface operational modes.
