@@ -133,10 +133,6 @@ func run() int {
 
 	waitErr := cmd.Wait()
 
-	if stderrBuf.Len() > 0 {
-		_, _ = os.Stderr.Write(stderrBuf.Bytes())
-	}
-
 	exit := 0
 	if waitErr != nil {
 		if ee, ok := waitErr.(*exec.ExitError); ok {
@@ -170,7 +166,15 @@ func run() int {
 	}
 
 	if totalFailed > 0 {
+		if stderrBuf.Len() > 0 {
+			fmt.Println("\n" + strings.Repeat("-", 60))
+			fmt.Println("GO TEST STDERR")
+			fmt.Println(strings.Repeat("-", 60))
+			_, _ = os.Stdout.Write(stderrBuf.Bytes())
+		}
 		printSummary(failedPackages, failedTests, pkgOutputs, testOutputs, totalFailed)
+	} else if stderrBuf.Len() > 0 {
+		_, _ = os.Stderr.Write(stderrBuf.Bytes())
 	}
 
 	return exit
