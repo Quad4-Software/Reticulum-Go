@@ -195,8 +195,8 @@ func dropAllCapabilities() error {
 	}
 
 	var dropped int
-	for cap := 0; cap <= lastCap; cap++ {
-		err := unix.Prctl(unix.PR_CAPBSET_DROP, uintptr(cap), 0, 0, 0)
+	for capIdx := 0; capIdx <= lastCap; capIdx++ {
+		err := unix.Prctl(unix.PR_CAPBSET_DROP, uintptr(capIdx), 0, 0, 0)
 		if err == nil {
 			dropped++
 		}

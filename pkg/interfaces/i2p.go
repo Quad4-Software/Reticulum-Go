@@ -405,7 +405,7 @@ func (peer *I2PInterfacePeer) String() string {
 }
 
 func (peer *I2PInterfacePeer) InterfaceHash() []byte {
-	return interfaceHashFromName(peer.Name)
+	return InterfaceHashFromName(peer.Name)
 }
 
 func (peer *I2PInterfacePeer) WantsTunnel() bool {

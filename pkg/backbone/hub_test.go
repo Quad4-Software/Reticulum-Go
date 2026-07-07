@@ -420,12 +420,12 @@ func TestHubWireFormatMatchesInterfacesPackage(t *testing.T) {
 func BenchmarkHubEcho(b *testing.B) {
 	for _, backend := range []Backend{BackendGo, DefaultBackend()} {
 		b.Run(string(backend), func(b *testing.B) {
-			benchmarkHubEcho(b, backend)
+			runHubEchoBenchmark(b, backend)
 		})
 	}
 }
 
-func benchmarkHubEcho(b *testing.B, backend Backend) {
+func runHubEchoBenchmark(b *testing.B, backend Backend) {
 	Shutdown()
 	hub, err := Init(backend)
 	if err != nil {

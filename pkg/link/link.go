@@ -1263,7 +1263,7 @@ func (l *Link) dispatchOutgoingResourceRequests(plaintext []byte) {
 	}
 }
 
-func chooseHashmapUpdateSegment(out *resource.Resource, sdu int, anchorHash []byte, receiverMinPart int) (int, int, bool) {
+func chooseHashmapUpdateSegment(out *resource.Resource, sdu int, anchorHash []byte, receiverMinPart int) (segment int, nextMin int, ok bool) {
 	if out == nil || len(anchorHash) != resource.MapHashLen {
 		return 0, 0, false
 	}
@@ -1308,11 +1308,11 @@ func chooseHashmapUpdateSegment(out *resource.Resource, sdu int, anchorHash []by
 		return 0, 0, false
 	}
 
-	segment := (target + 1) / entries
+	segment = (target + 1) / entries
 	if segment <= 0 {
 		return 0, 0, false
 	}
-	nextMin := target + 1
+	nextMin = target + 1
 	return segment, nextMin, true
 }
 

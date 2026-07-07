@@ -15,15 +15,15 @@ import (
 	"quad4/reticulum-go/pkg/transport"
 )
 
-func establishInteropLink(t *testing.T) (*Link, *Link, func()) {
+func establishInteropLink(t *testing.T) (initiator *Link, responder *Link, cleanup func()) {
 	return establishInteropLinkPipe(t, false)
 }
 
-func establishInteropLinkAsync(t *testing.T) (*Link, *Link, func()) {
+func establishInteropLinkAsync(t *testing.T) (initiator *Link, responder *Link, cleanup func()) {
 	return establishInteropLinkPipe(t, true)
 }
 
-func establishInteropLinkPipe(t *testing.T, asyncDelivery bool) (*Link, *Link, func()) {
+func establishInteropLinkPipe(t *testing.T, asyncDelivery bool) (initiator *Link, responder *Link, cleanup func()) {
 	t.Helper()
 	skipHeavyLinkTestsIfShort(t)
 
@@ -127,7 +127,7 @@ func establishInteropLinkPipe(t *testing.T, asyncDelivery bool) (*Link, *Link, f
 		t.Fatal("nil responder link")
 	}
 
-	cleanup := func() {
+	cleanup = func() {
 		trA.Close()
 		trB.Close()
 	}

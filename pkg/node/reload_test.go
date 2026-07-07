@@ -19,7 +19,7 @@ func TestInterfaceConfigsEqualForReload(t *testing.T) {
 	if interfaceConfigsEqualForReload(a, b) {
 		t.Fatal("expected not equal after address change")
 	}
-	if interfaceConfigsEqualForReload(nil, nil) != true {
+	if !interfaceConfigsEqualForReload(nil, nil) {
 		t.Fatal("nil nil")
 	}
 	if interfaceConfigsEqualForReload(a, nil) || interfaceConfigsEqualForReload(nil, a) {

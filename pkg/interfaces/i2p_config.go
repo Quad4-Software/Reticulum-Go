@@ -78,13 +78,9 @@ func applyI2PPeerConfig(peer *I2PInterfacePeer, cfg *common.InterfaceConfig) {
 	peer.SetPRBurstConfig(icPrBurstFreqNew, icPrBurstFreq, ecPrFreq, egressControl)
 }
 
-func interfaceHashFromName(name string) []byte {
-	return cryptography.Hash([]byte("I2PInterfacePeer[" + name + "]"))
-}
-
 // InterfaceHashFromName returns the tunnel interface hash for a peer name.
 func InterfaceHashFromName(name string) []byte {
-	return interfaceHashFromName(name)
+	return cryptography.Hash([]byte("I2PInterfacePeer[" + name + "]"))
 }
 
 // InterfaceConfigProvider supplies the parent [[Interface]] config for spawned peers.
