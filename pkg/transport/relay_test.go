@@ -13,7 +13,8 @@ import (
 	"quad4/reticulum-go/pkg/packet"
 )
 
-// relayIface is a tracking NetworkInterface used by the relay tests; it
+// relayIface is a tracking NetworkInterface used by the relay tests. It
+
 // captures every Send so the test can assert what the transport pushed
 // out over the wire and on which interface.
 type relayIface struct {
@@ -249,7 +250,8 @@ func TestForwardTransportPacketIgnoresOtherTransportID(t *testing.T) {
 
 // TestLinkRelayBidirectional drives a synthetic LINKREQUEST through the
 // relay table and then replays a link data packet (matching the link
-// id) from the opposite direction; the data must be forwarded back out
+// id) from the opposite direction. The data must be forwarded back out
+
 // the original receiving interface.
 func TestLinkRelayBidirectional(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
@@ -328,7 +330,8 @@ func TestLinkRelayDisabledByConfig(t *testing.T) {
 // Path request packet (header type 1, plain destination,
 // transport path.request hash). The exact byte payload of a path
 // request is a control plane responsibility we delegate to
-// RequestPath; here we only assert that exactly the non-excluded
+// RequestPath. Here we only assert that exactly the non-excluded
+
 // interfaces saw a Send call and the receive interface saw none.
 func TestRebroadcastPathRequestSkipsExcludedIface(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})

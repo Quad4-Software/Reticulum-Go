@@ -40,10 +40,12 @@
 // requestRespondCommand). See protocol.go for the full set.
 //
 // Links: registering a destination with accepts_links opens it to inbound
-// links; link.open initiates an outbound link to a destination the node
+// links. Link.open initiates an outbound link to a destination the node
+
 // has already learned about via an announce. Both report
 // linkEstablishedEvent once active, linkDataEvent for each link.send from
-// the peer, and linkClosedEvent on teardown; an outbound link.open that
+// the peer, and linkClosedEvent on teardown. An outbound link.open that
+
 // never becomes active reports linkFailedEvent instead.
 //
 // Requests: registering a path via POST .../destinations/{hash}/requests

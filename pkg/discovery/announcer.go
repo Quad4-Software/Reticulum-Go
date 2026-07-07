@@ -43,7 +43,8 @@ type ReceivedAnnounceInfo struct {
 // ValidateAndDecode parses an inbound discovery announce app_data buffer.
 // It returns the decoded Info and stamp value, validating that the stamp
 // meets requiredValue. The encrypted flag must be cleared by the caller
-// before this function is invoked when FlagEncrypted is set; pass the
+// before this function is invoked when FlagEncrypted is set. Pass the
+
 // already-decrypted payload in that case.
 func ValidateAndDecode(appData []byte, requiredValue int, expandRounds int) (*ReceivedAnnounceInfo, error) {
 	flags, packed, stamp, err := DecodeAppData(appData)

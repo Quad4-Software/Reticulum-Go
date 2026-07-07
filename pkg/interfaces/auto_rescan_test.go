@@ -21,16 +21,16 @@ func TestAutoInterfaceRescanOffline(t *testing.T) {
 	}
 }
 
-func TestAutoInterfaceDiscoverInterfacesFlag(t *testing.T) {
+func TestAutoInterfaceWatchInterfacesFlag(t *testing.T) {
 	cfg := &common.InterfaceConfig{Enabled: true}
 	ai, err := NewAutoInterface("auto", cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ai.SetDiscoverInterfaces(true)
+	ai.SetWatchInterfaces(true)
 	ai.Mutex.Lock()
-	if !ai.discoverInterfaces {
-		t.Fatal("discover flag not set")
+	if !ai.watchInterfaces {
+		t.Fatal("watch flag not set")
 	}
 	ai.lastRescan = time.Now()
 	ai.maybeRescanLocked(time.Now())

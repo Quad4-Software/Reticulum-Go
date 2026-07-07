@@ -23,7 +23,9 @@ type reconnectDriver struct {
 	onConnected       func(net.Conn)
 	onDown            func()
 	onUp              func()
+	onExhausted       func()
 	label             string
+	allowIdleRetry    bool
 }
 
 func newReconnectDriver(label string, maxTries int, done chan struct{}, dial func() (net.Conn, error), onConnected func(net.Conn)) *reconnectDriver {
@@ -40,6 +42,18 @@ func (rd *reconnectDriver) setHooks(onDown, onUp func()) {
 	rd.mu.Lock()
 	rd.onDown = onDown
 	rd.onUp = onUp
+	rd.mu.Unlock()
+}
+
+func (rd *reconnectDriver) setOnExhausted(fn func()) {
+	rd.mu.Lock()
+	rd.onExhausted = fn
+	rd.mu.Unlock()
+}
+
+func (rd *reconnectDriver) setAllowIdleRetry(allow bool) {
+	rd.mu.Lock()
+	rd.allowIdleRetry = allow
 	rd.mu.Unlock()
 }
 
@@ -82,8 +96,12 @@ func (rd *reconnectDriver) run() {
 	backoff := InitialBackoff
 	retries := 0
 	unlimited := rd.maxReconnectTries < 0
+	maxAttempts := rd.maxReconnectTries
+	if unlimited {
+		maxAttempts = 0
+	}
 
-	for unlimited || retries < rd.maxReconnectTries {
+	for unlimited || retries < maxAttempts {
 		if rd.shouldStop() {
 			return
 		}
@@ -111,9 +129,20 @@ func (rd *reconnectDriver) run() {
 		retries++
 	}
 
-	debug.Log(debug.DebugError, "Reconnect attempts exhausted, entering idle retry",
+	debug.Log(debug.DebugError, "Reconnect attempts exhausted",
 		"target", rd.label,
 		"maxTries", rd.maxReconnectTries)
+
+	rd.mu.Lock()
+	exhausted := rd.onExhausted
+	allowIdle := rd.allowIdleRetry
+	rd.mu.Unlock()
+	if exhausted != nil {
+		exhausted()
+	}
+	if !allowIdle {
+		return
+	}
 
 	for {
 		if !rd.wait(idleReconnectInterval) {

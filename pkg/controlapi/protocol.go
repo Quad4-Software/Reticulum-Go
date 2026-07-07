@@ -48,7 +48,8 @@ type pathTableEntryJSON struct {
 
 // createSessionRequest is the body of POST /v1/sessions. IdentityPath, when
 // set, is a server-local filesystem path used to load or create a
-// persistent identity; when empty a new in-memory identity is generated and
+// persistent identity. When empty a new in-memory identity is generated and
+
 // discarded on session close.
 type createSessionRequest struct {
 	IdentityPath string `json:"identity_path,omitempty"`
@@ -62,7 +63,8 @@ type createSessionResponse struct {
 
 // registerDestinationRequest is the body of
 // POST /v1/sessions/{id}/destinations. When AcceptsLinks is true, remote
-// peers may open links to this destination; establishment and teardown are
+// peers may open links to this destination. Establishment and teardown are
+
 // reported as link.established/link.failed/link.closed events on every
 // WebSocket connection attached to the session.
 type registerDestinationRequest struct {
@@ -79,9 +81,11 @@ type registerDestinationResponse struct {
 // registerRequestHandlerRequest is the body of
 // POST /v1/sessions/{id}/destinations/{hash}/requests. It registers a path
 // that, when a peer sends a link request to it, is bridged to the session's
-// WebSocket connections as a request.incoming event; the application
+// WebSocket connections as a request.incoming event. The application
+
 // answers with a request.respond command. Allow is one of "all" (default),
-// "none", or "list"; AllowedIdentities is required hex identity hashes when
+// "none", or "list". AllowedIdentities is required hex identity hashes when
+
 // Allow is "list".
 type registerRequestHandlerRequest struct {
 	Path              string   `json:"path"`
@@ -110,7 +114,8 @@ type wsCommandEnvelope struct {
 
 // subscribeAnnouncesCommand subscribes the connection to announceEvent
 // pushes. Filter is accepted for forward compatibility but is not yet used
-// to narrow delivery; every announce the node receives is currently
+// to narrow delivery. Every announce the node receives is currently
+
 // forwarded to every subscriber.
 type subscribeAnnouncesCommand struct {
 	Type   string `json:"type"`

@@ -40,7 +40,7 @@ const (
 )
 
 // wsConn is a hijacked HTTP connection speaking the WebSocket frame format.
-// Clients (the control API's callers) must mask their frames per RFC 6455;
+// Clients (the control API's callers) must mask their frames per RFC 6455.
 // the server never masks outbound frames.
 type wsConn struct {
 	conn    net.Conn

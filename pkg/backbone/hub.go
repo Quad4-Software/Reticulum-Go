@@ -75,7 +75,7 @@ func (h *Hub) Backend() Backend {
 	return h.backend
 }
 
-// RegisterListener adds a TCP/unix listener. Accept runs in a dedicated goroutine;
+// RegisterListener adds a TCP/unix listener. Accept runs in a dedicated goroutine.
 // established connections are multiplexed on the hub event loop.
 func (h *Hub) RegisterListener(ln net.Listener, accept func(net.Conn)) error {
 	h.wg.Add(1)

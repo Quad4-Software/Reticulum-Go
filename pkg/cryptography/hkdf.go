@@ -52,7 +52,8 @@ func implDeriveKey(secret, salt, info []byte, length int) ([]byte, error) {
 	return derived[:length], nil
 }
 
-// DeriveKey performs HKDF-SHA256 expansion (non-RFC 5869 extract; matches legacy use).
+// DeriveKey performs HKDF-SHA256 expansion (non-RFC 5869 extract. Matches legacy use).
+
 func DeriveKey(secret, salt, info []byte, length int) ([]byte, error) {
 	return ActiveProvider().DeriveKey(secret, salt, info, length)
 }

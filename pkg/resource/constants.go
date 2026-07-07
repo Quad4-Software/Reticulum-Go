@@ -52,7 +52,8 @@ const (
 )
 
 // ResourceAdvertisement flag bits packed into the wire `f` field.
-// Bit positions and shifts are part of the wire format; do not reorder.
+// Bit positions and shifts are part of the wire format. Do not reorder.
+
 const (
 	AdvFlagEncrypted   byte = 0x01
 	AdvFlagCompressed  byte = 0x02
@@ -69,7 +70,8 @@ const (
 )
 
 // Heuristic compression-ratio estimates used to size segment buffers
-// before transmission. These are rough guesses by file class; tune them
+// before transmission. These are rough guesses by file class. Tune them
+
 // as we collect real-world numbers.
 const (
 	// CompressionEntropyBase is the floor compression ratio applied to

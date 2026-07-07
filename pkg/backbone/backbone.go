@@ -50,7 +50,7 @@ func DefaultBackend() Backend {
 	}
 }
 
-// Init creates and starts the process-wide I/O hub. Safe to call multiple times;
+// Init creates and starts the process-wide I/O hub. Safe to call multiple times.
 // subsequent calls return the existing hub if already initialised.
 func Init(backend Backend) (*Hub, error) {
 	globalMu.Lock()

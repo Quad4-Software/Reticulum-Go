@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 //go:build js && wasm
-// +build js,wasm
 
 package wasm
 
@@ -41,21 +41,21 @@ var (
 // RegisterJSFunctions registers the Reticulum WASM API to the JavaScript global scope.
 func RegisterJSFunctions() {
 	js.Global().Set("reticulum", js.ValueOf(map[string]interface{}{
-		"init":                js.FuncOf(InitReticulum),
-		"getIdentity":         js.FuncOf(GetIdentity),
-		"getDestination":      js.FuncOf(GetDestination),
-		"connect":             js.FuncOf(ConnectWebSocket),
-		"disconnect":          js.FuncOf(DisconnectWebSocket),
-		"isConnected":         js.FuncOf(IsConnected),
-		"requestPath":         js.FuncOf(RequestPath),
-		"getStats":            js.FuncOf(GetStats),
-		"setPacketCallback":   js.FuncOf(SetPacketCallback),
-		"setAnnounceCallback": js.FuncOf(SetAnnounceCallback),
-		"sendData":            js.FuncOf(SendDataJS),
-		"sendMessage":         js.FuncOf(SendDataJS),
-		"announce":            js.FuncOf(SendAnnounceJS),
-		"onNetworkAvailable":  js.FuncOf(OnNetworkAvailableJS),
-		"onNetworkLost":       js.FuncOf(OnNetworkLostJS),
+		"init":                   js.FuncOf(InitReticulum),
+		"getIdentity":            js.FuncOf(GetIdentity),
+		"getDestination":         js.FuncOf(GetDestination),
+		"connect":                js.FuncOf(ConnectWebSocket),
+		"disconnect":             js.FuncOf(DisconnectWebSocket),
+		"isConnected":            js.FuncOf(IsConnected),
+		"requestPath":            js.FuncOf(RequestPath),
+		"getStats":               js.FuncOf(GetStats),
+		"setPacketCallback":      js.FuncOf(SetPacketCallback),
+		"setAnnounceCallback":    js.FuncOf(SetAnnounceCallback),
+		"sendData":               js.FuncOf(SendDataJS),
+		"sendMessage":            js.FuncOf(SendDataJS),
+		"announce":               js.FuncOf(SendAnnounceJS),
+		"onNetworkAvailable":     js.FuncOf(OnNetworkAvailableJS),
+		"onNetworkLost":          js.FuncOf(OnNetworkLostJS),
 		"setWatchedDestinations": js.FuncOf(SetWatchedDestinationsJS),
 	}))
 }

@@ -130,7 +130,8 @@ func sectionHeader(line string) (depth int, name string, ok bool) {
 	return depth, name, true
 }
 
-// stripInlineComment removes a trailing "# comment" or "; comment" tail from a
+// stripInlineComment removes a trailing "# comment" or ". Comment" tail from a
+
 // value, requiring whitespace before the marker so URLs and hashes stay intact.
 func stripInlineComment(value string) string {
 	for i := 1; i < len(value); i++ {
@@ -151,7 +152,8 @@ func stripBOM(s string) string {
 }
 
 // classifySection assigns a kind to a header. Depth >= 2 is always an
-// interface entry; depth 1 must match a reserved name.
+// interface entry. Depth 1 must match a reserved name.
+
 func classifySection(name string, depth int) string {
 	if depth >= 2 {
 		return sectionInterface

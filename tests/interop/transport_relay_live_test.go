@@ -109,7 +109,8 @@ func TestLiveInteropGoRelaysAnnounceBetweenPythonPeers(t *testing.T) {
 		t.Fatalf("pyA bad hash: %q err %v", hashLine, err)
 	}
 
-	// Wait for Go to learn pyA via the relay_to_a interface; this
+	// Wait for Go to learn pyA via the relay_to_a interface. This
+
 	// proves the relay's ingress path works before we even bring pyB
 	// up. We retry path requests because the announce may race with
 	// interface readiness.

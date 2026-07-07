@@ -68,7 +68,8 @@ func (t *ifaceStateTable) snapshot() []struct {
 	return out
 }
 
-// buildIfaceState builds per-iface spam state; nil cfg uses defaults
+// buildIfaceState builds per-iface spam state. Nil cfg uses defaults
+
 // (announce_cap 2%, ingress on, rate thresholds from pkg/rate).
 func buildIfaceState(cfg *common.InterfaceConfig) *ifaceState {
 	st := &ifaceState{}

@@ -124,7 +124,8 @@ func TestStressConcurrentReadersDuringUnregister(t *testing.T) {
 }
 
 // TestGoroutineBudgetAfterUnregisterStress is opt-in (set RETICULUM_STRESS_LEAK=1) because
-// NumGoroutine is noisy under parallel CI; use with: go test -race ./pkg/transport -run Budget -count=3
+// NumGoroutine is noisy under parallel CI. Use with: go test -race ./pkg/transport -run Budget -count=3
+
 func TestGoroutineBudgetAfterUnregisterStress(t *testing.T) {
 	if testing.Short() || os.Getenv("RETICULUM_STRESS_LEAK") == "" {
 		t.Skip()

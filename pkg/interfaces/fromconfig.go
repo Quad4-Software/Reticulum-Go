@@ -25,6 +25,25 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 		err   error
 	)
 	switch cfg.Type {
+	case "UDPInterface":
+		target := cfg.TargetAddress
+		if target == "" {
+			target = cfg.TargetHost
+		}
+		iface, err = NewUDPInterfaceWithRetries(
+			name,
+			cfg.Address,
+			target,
+			cfg.Enabled,
+			cfg.MaxReconnTries,
+		)
+	case "AutoInterface":
+		iface, err = NewAutoInterface(name, cfg)
+		if err == nil {
+			if auto, ok := iface.(*AutoInterface); ok && ctx != nil && ctx.WatchInterfaces {
+				auto.SetWatchInterfaces(true)
+			}
+		}
 	case "TCPClientInterface":
 		iface, err = NewTCPClientInterfaceWithRetries(
 			name,
@@ -35,19 +54,9 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			cfg.Enabled,
 			cfg.MaxReconnTries,
 		)
-	case "UDPInterface":
-		iface, err = NewUDPInterfaceWithRetries(
-			name,
-			cfg.Address,
-			cfg.TargetHost,
-			cfg.Enabled,
-			cfg.MaxReconnTries,
-		)
-	case "AutoInterface":
-		iface, err = NewAutoInterface(name, cfg)
 		if err == nil {
-			if auto, ok := iface.(*AutoInterface); ok && ctx != nil && ctx.DiscoverInterfaces {
-				auto.SetDiscoverInterfaces(true)
+			if tc, ok := iface.(*TCPClientInterface); ok && ctx != nil && ctx.SynthesizeTunnel != nil {
+				tc.SetTunnelSynth(ctx.SynthesizeTunnel)
 			}
 		}
 	case "BackboneInterface", "BackboneClientInterface":

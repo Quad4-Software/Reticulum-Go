@@ -286,7 +286,8 @@ func (t *Table) PersistLocal() error {
 }
 
 // LoadAll loads every blackhole source file in <dir>. Files named "local"
-// are credited to the locally-stored identity hash; every other file name
+// are credited to the locally-stored identity hash. Every other file name
+
 // must be a hex-encoded source identity hash. When SetEnabledSources has
 // been called with a non-empty list, source files for sources not on the
 // list are skipped, matching Reticulum.blackhole_sources().
@@ -446,14 +447,16 @@ func (t *Table) EncodeForRequest() ([]byte, error) {
 
 // MaxDecodeSize bounds the size of a msgpack payload accepted by
 // DecodeBlackholeMap. A blackhole list with even tens of thousands of
-// entries fits comfortably below this; the cap exists to defeat
+// entries fits comfortably below this. The cap exists to defeat
+
 // adversarial inputs that declare a length far larger than the buffer
 // they actually carry.
 const MaxDecodeSize = 4 * 1024 * 1024
 
 // MaxEntries bounds the number of entries we accept in a single
 // payload. The wire stack does not enforce a hard cap, but the practical upper
-// bound is <<10k; anything larger almost certainly indicates an
+// bound is <<10k. Anything larger almost certainly indicates an
+
 // attempt to allocate an unreasonable amount of memory.
 const MaxEntries = 65535
 

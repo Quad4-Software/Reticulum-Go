@@ -54,7 +54,8 @@ func FuzzMaskRoundTrip(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, raw []byte) {
 		// Need at least 1 byte of payload past the header so the masked
-		// packet is strictly longer than 2 + ifac size; empty payload
+		// packet is strictly longer than 2 + ifac size. Empty payload
+
 		// packets are not valid Reticulum packets anyway.
 		if len(raw) < 3 || len(raw) > 1<<14 {
 			t.Skip()

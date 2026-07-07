@@ -103,7 +103,8 @@ func establishInteropLinkPipe(t *testing.T, asyncDelivery bool) (initiator *Link
 		t.Fatalf("Establish: %v", err)
 	}
 
-	// Establishment normally completes in milliseconds; the generous
+	// Establishment normally completes in milliseconds. The generous
+
 	// timeout here only needs to absorb CPU contention from the rest of
 	// the suite running concurrently under -race, not steady-state
 	// latency.

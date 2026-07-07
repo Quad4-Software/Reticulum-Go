@@ -53,7 +53,7 @@ type Server struct {
 
 // New builds a control API server bound to t, using cfg.RPCKey as the
 // bearer auth token and cfg.ControlAPIHost/Port for the listen address.
-// Callers are expected to only call New when cfg.EnableControlAPI is true;
+// Callers are expected to only call New when cfg.EnableControlAPI is true.
 // common.ReticulumConfig.Validate rejects that combination when RPCKey is
 // empty.
 func New(t *transport.Transport, lifecycle Lifecycle, cfg *common.ReticulumConfig) (*Server, error) {

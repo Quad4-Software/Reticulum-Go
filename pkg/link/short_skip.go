@@ -7,7 +7,8 @@ import "testing"
 
 // skipHeavyLinkTestsIfShort skips interop-style tests that spin links, watchdogs,
 // and multi-second transfers. Use `go test ./pkg/link/` without -short for the
-// full suite; CI and local quick checks should use -short.
+// full suite. CI and local quick checks should use -short.
+
 func skipHeavyLinkTestsIfShort(t *testing.T) {
 	t.Helper()
 	if testing.Short() {

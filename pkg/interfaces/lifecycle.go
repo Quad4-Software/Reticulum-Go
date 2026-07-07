@@ -15,10 +15,10 @@ type ConnectivityNotifier interface {
 }
 
 // NormalizeMaxReconnectTries maps config values to an attempt limit.
-// Zero uses the default (ReconnectWait * TCPProbesCount). Negative means unlimited.
+// Zero means unlimited, Negative values also mean unlimited. Positive values cap reconnect attempts.
 func NormalizeMaxReconnectTries(cfgValue int) int {
-	if cfgValue == 0 {
-		return ReconnectWait * TCPProbesCount
+	if cfgValue <= 0 {
+		return -1
 	}
 	return cfgValue
 }

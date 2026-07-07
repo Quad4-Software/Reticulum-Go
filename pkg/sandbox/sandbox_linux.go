@@ -76,7 +76,8 @@ func applyLandlock(cfg *common.ReticulumConfig) error {
 		return err
 	}
 
-	// Build the whitelist. Directories get full access; files get read-only.
+	// Build the whitelist. Directories get full access. Files get read-only.
+
 	paths := []landlockRule{
 		{filepath.Join(home, ".reticulum-go"), landlockFullAccess},
 		{"/tmp", landlockFullAccess},
@@ -100,7 +101,8 @@ func applyLandlock(cfg *common.ReticulumConfig) error {
 
 	for _, rule := range paths {
 		if err := landlockAddRule(rulesetFD, rule.path, rule.access); err != nil {
-			// Skip paths that do not exist; not every system has every file.
+			// Skip paths that do not exist. Not every system has every file.
+
 			if err != unix.ENOENT {
 				debug.Log(debug.DebugError, "Landlock rule failed", "path", rule.path, "error", err)
 			}

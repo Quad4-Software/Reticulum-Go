@@ -49,7 +49,7 @@ type AutoInterface struct {
 	mcastEchoTimeout        time.Duration
 	reversePeeringInterval  time.Duration
 	mifDeque                []DequeEntry
-	discoverInterfaces      bool
+	watchInterfaces         bool
 	lastRescan              time.Time
 	done                    chan struct{}
 	stopOnce                sync.Once
@@ -682,6 +682,7 @@ func (ai *AutoInterface) peerJobs() {
 			needRescan := len(ai.timedOutInterfaces) > 0
 			ai.maybeRescanLocked(now)
 			ai.Mutex.Unlock()
+			ai.peerJobsUpdateLinkLocal()
 			if needRescan {
 				_ = ai.RescanInterfaces()
 			}

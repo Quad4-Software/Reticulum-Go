@@ -18,7 +18,8 @@ func sentCount(ti *trackingIface) int {
 	return len(ti.sent)
 }
 
-// signedAnnounce builds a valid announce; dest name must be
+// signedAnnounce builds a valid announce. Dest name must be
+
 // "reticulum-go.node" to match NewAnnouncePacket name hashing.
 func signedAnnounce(t *testing.T, tr *Transport, id *identity.Identity) (raw, destHash []byte) {
 	t.Helper()

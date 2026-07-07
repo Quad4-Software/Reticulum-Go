@@ -174,7 +174,8 @@ func (c *wsClient) handleLinkSend(raw []byte) {
 	}
 }
 
-// handleLinkClose processes a link.close command; the link's own closed
+// handleLinkClose processes a link.close command. The link's own closed
+
 // callback emits the resulting linkClosedEvent.
 func (c *wsClient) handleLinkClose(raw []byte) {
 	var cmd linkCloseCommand

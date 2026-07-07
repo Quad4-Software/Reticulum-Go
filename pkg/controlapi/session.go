@@ -89,7 +89,8 @@ func (s *session) removeLink(idHex string) {
 	delete(s.links, idHex)
 }
 
-// awaitResponse registers a channel for requestIDHex and returns it; the
+// awaitResponse registers a channel for requestIDHex and returns it. The
+
 // request handler bridge blocks on it until addResponse delivers data or
 // the caller's own timeout elapses.
 func (s *session) awaitResponse(requestIDHex string) chan []byte {

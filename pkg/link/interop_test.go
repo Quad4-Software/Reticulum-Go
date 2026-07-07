@@ -22,7 +22,8 @@ type PipeInterface struct {
 	tr     *transport.Transport
 	online bool
 
-	// dropOnce, if set, is consulted for every outbound packet; returning
+	// dropOnce, if set, is consulted for every outbound packet. Returning
+
 	// true drops that packet instead of delivering it. Used by tests that
 	// simulate packet loss on a lossy mesh path.
 	dropOnce func(data []byte) bool

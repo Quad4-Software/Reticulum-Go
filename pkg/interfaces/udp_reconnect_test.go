@@ -10,12 +10,15 @@ import (
 )
 
 func TestNewUDPInterfaceWithRetries(t *testing.T) {
-	ui, err := NewUDPInterfaceWithRetries("u", "127.0.0.1:0", "", false, -1)
+	ui, err := NewUDPInterfaceWithRetries("u", "127.0.0.1:0", "", false, 3)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ui.maxReconnectTries != -1 {
+	if ui.maxReconnectTries != 3 {
 		t.Fatalf("max tries = %d", ui.maxReconnectTries)
+	}
+	if ui.reconnect == nil {
+		t.Fatal("expected reconnect driver when max_reconnect_tries > 0")
 	}
 }
 

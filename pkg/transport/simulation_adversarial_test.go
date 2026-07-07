@@ -27,7 +27,8 @@ type lossySimIface struct {
 	dropped  uint64
 }
 
-// Send drops a packet with probability dropProb; surviving packets
+// Send drops a packet with probability dropProb. Surviving packets
+
 // follow the normal delivery path.
 func (l *lossySimIface) Send(data []byte, addr string) error {
 	l.rngMu.Lock()
@@ -214,7 +215,8 @@ func TestSimIFACFlood(t *testing.T) {
 
 // BenchmarkSimRebuildHeaderType2 isolates the per-hop allocation
 // cost of rebuilding a HeaderType2 packet. This is the inner loop of
-// every relay; surfacing it independently makes the relay-throughput
+// every relay. Surfacing it independently makes the relay-throughput
+
 // allocs/op interpretable.
 func BenchmarkSimRebuildHeaderType2(b *testing.B) {
 	muteDebugLogsForBenchmark(b)

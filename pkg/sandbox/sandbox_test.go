@@ -29,7 +29,8 @@ func TestApply_NilConfig(t *testing.T) {
 		// The full Linux path is exercised in TestLandlockFunctional.
 		t.Skip("Linux Apply path tested via TestLandlockFunctional")
 	}
-	// nil config defaults to enabled; should not panic and should apply
+	// nil config defaults to enabled. Should not panic and should apply
+
 	// platform-specific restrictions (or no-op on unsupported platforms).
 	if err := Apply(nil); err != nil {
 		t.Fatalf("Apply with nil config should return nil, got %v", err)

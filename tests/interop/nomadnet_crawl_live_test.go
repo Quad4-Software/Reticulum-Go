@@ -156,7 +156,8 @@ func waitForRequestReceipt(receipt *rlink.RequestReceipt, timeout time.Duration)
 // TestLiveNomadNetCrawlFetchMU listens for NomadNet node announces over TCP and fetches .mu pages.
 // Required: RUN_LIVE_INTEROP=1.
 // Optional env:
-//   - INTEROP_NOMADNET_TCP_HOST (default public mesh host; see test)
+// - INTEROP_NOMADNET_TCP_HOST (default public mesh host. See test)
+
 //   - INTEROP_NOMADNET_TCP_PORT (default 7822)
 //   - INTEROP_NOMADNET_TCP_NAME (default Beleth Clearnet TCP)
 //   - INTEROP_NOMADNET_ANNOUNCE_WAIT_SEC (default 45)
@@ -282,7 +283,8 @@ func TestLiveNomadNetCrawlFetchMU(t *testing.T) {
 				successes++
 				t.Logf("node=%s path=%s ok bytes=%d", nodeHashHex, path, len(resp))
 			} else {
-				// Accept non-empty responses as success; page formats vary by node.
+				// Accept non-empty responses as success. Page formats vary by node.
+
 				successes++
 				t.Logf("node=%s path=%s response bytes=%d", nodeHashHex, path, len(resp))
 			}

@@ -142,7 +142,8 @@ func TestBaseInterfaceStats(t *testing.T) {
 
 	// BaseInterface.ProcessOutgoing is now a fail-loud stub that the
 	// concrete interface type is required to override. Calling it directly
-	// must return an error and must NOT mutate TxBytes; otherwise we lose
+	// must return an error and must NOT mutate TxBytes. Otherwise we lose
+
 	// our compile/runtime guarantee that the abstract base never silently
 	// swallows packets.
 	if err := bi.ProcessOutgoing(data1); err == nil {

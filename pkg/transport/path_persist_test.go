@@ -315,7 +315,8 @@ func TestDecodePathTableEntries_SkipsMalformedEntriesButKeepsGoodOnes(t *testing
 
 func TestDecodePathTableEntries_RejectsUnparseableExpiryRatherThanKeepingForever(t *testing.T) {
 	// A record whose expiry field has been corrupted to a non-float type
-	// must not be treated as "never expires"; it should be dropped as
+	// must not be treated as "never expires". It should be dropped as
+
 	// malformed so a corrupted file can never grant an immortal route.
 	entry := []any{
 		bytes.Repeat([]byte{0x99}, 16),

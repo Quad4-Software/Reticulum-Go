@@ -17,7 +17,8 @@ type IFAC interface {
 	// Size returns the per-interface IFAC size in bytes.
 	Size() int
 	// Mask wraps a raw outbound packet with an authenticated Interface Access
-	// Code; the returned buffer is the bytes to write on the wire.
+	// Code. The returned buffer is the bytes to write on the wire.
+
 	Mask(raw []byte) ([]byte, error)
 	// Unmask validates an inbound packet's IFAC. It returns (raw, true) when
 	// the packet had a valid IFAC stripped, (raw, true) unchanged when the
@@ -324,7 +325,8 @@ func (i *BaseInterface) GetIFAC() IFAC {
 
 // ApplyIFACOutbound masks raw with the interface's IFAC, if configured. When
 // the interface has no IFAC the input is returned unchanged. Errors are
-// returned to the caller; the caller should typically drop the packet on
+// returned to the caller. The caller should typically drop the packet on
+
 // error.
 func ApplyIFACOutbound(iface NetworkInterface, raw []byte) ([]byte, error) {
 	if iface == nil {

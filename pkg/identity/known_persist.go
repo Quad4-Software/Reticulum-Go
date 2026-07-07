@@ -41,7 +41,8 @@ type knownDestRecord struct {
 // decodeKnownDestinations parses a known_destinations snapshot. Both the
 // Go-native map[string]any encoding (hex-string keys) and the reference
 // Python umsgpack encoding (raw bin/str destination-hash keys) are
-// accepted. Malformed entries are skipped and counted; a structurally
+// accepted. Malformed entries are skipped and counted. A structurally
+
 // invalid top-level payload (not a msgpack map) is returned as an error.
 func decodeKnownDestinations(data []byte) (records []knownDestRecord, skipped int, err error) {
 	var loaded map[string]any
@@ -117,7 +118,8 @@ func InitKnownDestinationsPersistence(configPath string, inMemory bool) {
 	if configPath == "" && os.Getenv("RETICULUM_STORAGE_PATH") == "" {
 		// No config path was resolved: this is either ad-hoc/library use or
 		// a test harness. Never silently write into the caller's home
-		// directory; callers that want on-disk persistence must supply a
+		// directory. Callers that want on-disk persistence must supply a
+
 		// config path (as the real reticulum-go binary always does) or set
 		// RETICULUM_STORAGE_PATH explicitly.
 		knownPersistMemory.Store(true)

@@ -53,7 +53,8 @@ func WriteHardwareBoundIdentityFile(path string, x25519Private []byte, ed25519Pu
 }
 
 // ToHardwareBoundFile writes RHB1 v1 (X25519 private + Ed25519 public on disk).
-// Requires exportable key material; fails if signing is already external-only.
+// Requires exportable key material. Fails if signing is already external-only.
+
 func (i *Identity) ToHardwareBoundFile(path string) error {
 	if i.externalSigner != nil {
 		return ErrSigningMaterialNotExportable

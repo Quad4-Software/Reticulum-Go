@@ -39,7 +39,8 @@ type Hooks struct {
 }
 
 // Attach implements Python Reticulum.__start_local_interface. When share_instance
-// is enabled it tries to bind the shared server; on failure it connects as a
+// is enabled it tries to bind the shared server. On failure it connects as a
+
 // client to an existing instance.
 func Attach(cfg *common.ReticulumConfig, tr *transport.Transport, hooks Hooks) (*Instance, error) {
 	if cfg == nil || !cfg.ShareInstance {

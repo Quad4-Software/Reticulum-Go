@@ -47,6 +47,7 @@ func probeIOUring() error {
 		sqEntries: uringProbeEntries,
 		cqEntries: uringProbeEntries * 2,
 	}
+	// #nosec G103 -- io_uring_setup requires passing a struct pointer to the syscall
 	fd, _, errno := syscall.Syscall(unix.SYS_IO_URING_SETUP, uintptr(uringProbeEntries), uintptr(unsafe.Pointer(&params)), 0)
 	if errno != 0 {
 		return fmt.Errorf("io_uring_setup: %w", errno)

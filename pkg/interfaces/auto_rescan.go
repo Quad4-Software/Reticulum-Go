@@ -13,10 +13,10 @@ import (
 
 const autoRescanInterval = 10 * time.Second
 
-// SetDiscoverInterfaces enables periodic NIC rescan from peerJobs.
-func (ai *AutoInterface) SetDiscoverInterfaces(enabled bool) {
+// SetWatchInterfaces enables periodic NIC rescan from peerJobs (watch_interfaces).
+func (ai *AutoInterface) SetWatchInterfaces(enabled bool) {
 	ai.Mutex.Lock()
-	ai.discoverInterfaces = enabled
+	ai.watchInterfaces = enabled
 	ai.Mutex.Unlock()
 }
 
@@ -106,7 +106,7 @@ func (ai *AutoInterface) removeInterface(name string) {
 }
 
 func (ai *AutoInterface) maybeRescanLocked(now time.Time) {
-	if !ai.discoverInterfaces {
+	if !ai.watchInterfaces {
 		return
 	}
 	if !ai.lastRescan.IsZero() && now.Sub(ai.lastRescan) < autoRescanInterval {

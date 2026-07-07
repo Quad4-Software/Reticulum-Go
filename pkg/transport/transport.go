@@ -119,7 +119,8 @@ type Transport struct {
 }
 
 // SetBlackholeTable sets the blackhole table. HandleAnnounce drops blackholed
-// identities; path lookups consult the same table.
+// identities. Path lookups consult the same table.
+
 func (t *Transport) SetBlackholeTable(tab *blackhole.Table) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -127,7 +128,8 @@ func (t *Transport) SetBlackholeTable(tab *blackhole.Table) {
 }
 
 // BlackholeTable returns the active table or nil. The table is internally
-// synchronized; the returned pointer is safe to use.
+// synchronized. The returned pointer is safe to use.
+
 func (t *Transport) BlackholeTable() *blackhole.Table {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
@@ -403,7 +405,8 @@ func (t *Transport) RegisterDestination(hash []byte, dest any) {
 }
 
 // CreateIncomingLink builds a link for an incoming request without importing
-// the link package (stub; returns nil until implemented).
+// the link package (stub. Returns nil until implemented).
+
 func (t *Transport) CreateIncomingLink(dest any, networkIface common.NetworkInterface) any {
 	debug.Log(debug.DebugTrace, "CreateIncomingLink called (not yet fully implemented)")
 	return nil
@@ -422,14 +425,16 @@ func SetTransportInstance(t *Transport) {
 }
 
 // abstractBaseInterfaceTypes names pointer types that must not be registered
-// alone; concrete interfaces must embed a base and override Send and related methods.
+// alone. Concrete interfaces must embed a base and override Send and related methods.
+
 var abstractBaseInterfaceTypes = map[string]struct{}{
 	"*common.BaseInterface":     {},
 	"*interfaces.BaseInterface": {},
 }
 
 // assertConcreteInterface rejects abstract base interface pointer types listed
-// in abstractBaseInterfaceTypes; wrappers that embed a base type are still allowed.
+// in abstractBaseInterfaceTypes. Wrappers that embed a base type are still allowed.
+
 func assertConcreteInterface(iface common.NetworkInterface) error {
 	if iface == nil {
 		return errors.New("nil network interface")
@@ -623,7 +628,8 @@ func (t *Transport) Close() error {
 	t.mutex.Unlock()
 
 	// savePathTableSync/SaveKnownDestinationsSync take their own locks
-	// internally; t.mutex must be released above before calling them, or a
+	// internally. T.mutex must be released above before calling them, or a
+
 	// write-lock-then-read-lock self-deadlock results (sync.RWMutex is not
 	// reentrant).
 	t.savePathTableSync()
@@ -921,7 +927,7 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 	return nil
 }
 
-func (t *Transport) updatePathUnlocked(destinationHash []byte, nextHop []byte, interfaceName string, hops uint8) {
+func (t *Transport) updatePathUnlocked(destinationHash []byte, nextHop []byte, interfaceName string, hops uint8, randomBlob []byte, packetHash []byte, now time.Time) {
 	iface, exists := t.interfaces[interfaceName]
 	if !exists {
 		debug.Log(debug.DebugInfo, "Interface not found", "name", interfaceName)
@@ -929,12 +935,22 @@ func (t *Transport) updatePathUnlocked(destinationHash []byte, nextHop []byte, i
 	}
 
 	key := pathMapKey(destinationHash)
+	var blobs [][]byte
+	if existing, ok := t.paths[key]; ok && len(existing.RandomBlobs) > 0 {
+		blobs = appendRandomBlob(existing.RandomBlobs, randomBlob)
+	} else if len(randomBlob) == 10 {
+		blobs = appendRandomBlob(nil, randomBlob)
+	}
+	expires := now.Add(pathfinderE * time.Second)
 	t.paths[key] = &common.Path{
 		NextHop:     nextHop,
 		Interface:   iface,
 		Hops:        hops,
 		HopCount:    hops,
-		LastUpdated: time.Now(),
+		LastUpdated: now,
+		RandomBlobs: blobs,
+		Expires:     expires,
+		PacketHash:  append([]byte(nil), packetHash...),
 	}
 	t.pathStates[key] = StateUnknown
 	t.markPathTableDirty()
@@ -943,7 +959,7 @@ func (t *Transport) updatePathUnlocked(destinationHash []byte, nextHop []byte, i
 func (t *Transport) UpdatePath(destinationHash []byte, nextHop []byte, interfaceName string, hops uint8) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	t.updatePathUnlocked(destinationHash, nextHop, interfaceName, hops)
+	t.updatePathUnlocked(destinationHash, nextHop, interfaceName, hops, nil, nil, time.Now())
 }
 
 func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterface) error {
@@ -1383,12 +1399,30 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		if len(nextHop) == 0 {
 			nextHop = destinationHash
 		}
+		now := time.Now()
 		t.mutex.Lock()
-		t.updatePathUnlocked(destinationHash, nextHop, iface.GetName(), hopCount+1)
+		destKey := pathMapKey(destinationHash)
+		existing := t.paths[destKey]
+		destinationKnown := existing != nil
+		pathUnresponsive := false
+		if st, ok := t.pathStates[destKey]; ok && st == StateUnresponsive {
+			pathUnresponsive = true
+		}
+		shouldAdd := shouldUpdateAnnouncePath(existing, announcePathInput{
+			destinationKnown: destinationKnown,
+			announceHops:     hopCount + 1,
+			randomBlob:       randomHash,
+			now:              now,
+		}, pathUnresponsive)
+		if shouldAdd {
+			t.updatePathUnlocked(destinationHash, nextHop, iface.GetName(), hopCount+1, randomHash, announceHash[:], now)
+		}
 		t.mutex.Unlock()
-		debug.Log(debug.DebugInfo, "Registered path", "hash", fmt.Sprintf("%x", destinationHash), "interface", iface.GetName(), "hops", hopCount+1, "nextHop", fmt.Sprintf("%x", nextHop))
-		if tun, ok := iface.(TunnelInterface); ok && len(tun.TunnelID()) == 32 {
-			t.associateTunnelPath(tun, destinationHash, receivedFrom, announceHash[:], hopCount+1)
+		if shouldAdd {
+			debug.Log(debug.DebugInfo, "Registered path", "hash", fmt.Sprintf("%x", destinationHash), "interface", iface.GetName(), "hops", hopCount+1, "nextHop", fmt.Sprintf("%x", nextHop))
+			if tun, ok := iface.(TunnelInterface); ok && len(tun.TunnelID()) == 32 {
+				t.associateTunnelPath(tun, destinationHash, receivedFrom, announceHash[:], hopCount+1)
+			}
 		}
 	}
 

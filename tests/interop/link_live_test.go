@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-// Live UDP loopback cross-stack interop; set RUN_LIVE_INTEROP=1.
+// Live UDP loopback cross-stack interop. Set RUN_LIVE_INTEROP=1.
 
 package interop
 

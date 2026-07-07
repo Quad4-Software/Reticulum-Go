@@ -6,8 +6,8 @@ package interfaces
 import "testing"
 
 func TestNormalizeMaxReconnectTries(t *testing.T) {
-	if got := NormalizeMaxReconnectTries(0); got != ReconnectWait*TCPProbesCount {
-		t.Fatalf("default = %d, want %d", got, ReconnectWait*TCPProbesCount)
+	if got := NormalizeMaxReconnectTries(0); got != -1 {
+		t.Fatalf("default = %d, want -1", got)
 	}
 	if got := NormalizeMaxReconnectTries(-1); got != -1 {
 		t.Fatalf("unlimited = %d", got)

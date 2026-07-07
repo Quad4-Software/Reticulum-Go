@@ -261,7 +261,8 @@ func TestAnnounceFanoutAndFreshness(t *testing.T) {
 
 // TestAnnounceSkipsOfflineOrDisabledInterfaces ensures a periodic
 // announcer doesn't silently disappear from the network because
-// one interface has flapped offline; it must still emit on every
+// one interface has flapped offline. It must still emit on every
+
 // other healthy interface.
 func TestAnnounceSkipsOfflineOrDisabledInterfaces(t *testing.T) {
 	id, err := identity.New()

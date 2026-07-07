@@ -152,7 +152,8 @@ func (t *Transport) initPathPersistence(cfg *common.ReticulumConfig) {
 	if configPath(cfg) == "" && os.Getenv("RETICULUM_STORAGE_PATH") == "" {
 		// No config path was resolved: this is either ad-hoc/library use or
 		// a test harness. Never silently write into the caller's home
-		// directory; callers that want on-disk persistence must supply
+		// directory. Callers that want on-disk persistence must supply
+
 		// cfg.ConfigPath (as the real reticulum-go binary always does) or
 		// set RETICULUM_STORAGE_PATH explicitly.
 		t.pathPersistMemory.Store(true)
@@ -181,7 +182,7 @@ func configPath(cfg *common.ReticulumConfig) string {
 }
 
 // interfacePersistKey derives a stable identifier for name that survives
-// process restarts. Real Reticulum uses the interface object's own hash;
+// process restarts. Real Reticulum uses the interface object's own hash.
 // Go interfaces are recreated from config on every start, so hashing the
 // configured name gives the same round-trip property.
 func interfacePersistKey(name string) []byte {

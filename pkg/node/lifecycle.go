@@ -85,7 +85,7 @@ func (n *Node) SetPauseMode(mode PauseMode) {
 	n.pauseMode = mode
 }
 
-// RefreshPaths refreshes paths for watched destinations and open links.
+// RefreshPaths refreshes paths for watched destinations and explicit arguments.
 func (n *Node) RefreshPaths(dests ...[]byte) error {
 	return n.RefreshPathsWithDownDuration(0, dests...)
 }

@@ -222,6 +222,31 @@ func (l *Link) Establish() error {
 	return nil
 }
 
+// Reestablish resets a closed or failed link and starts a new establishment attempt.
+func (l *Link) Reestablish() error {
+	l.mutex.Lock()
+	st := l.status.Load()
+	if st == int32(StatusPending) || st == int32(StatusHandshake) || st == int32(StatusActive) {
+		l.mutex.Unlock()
+		return errors.New("link already active or establishing")
+	}
+	l.resetForReconnectLocked()
+	l.mutex.Unlock()
+	return l.Establish()
+}
+
+func (l *Link) resetForReconnectLocked() {
+	l.status.Store(int32(StatusPending))
+	l.remoteIdentity = nil
+	l.sessionKey = nil
+	l.hmacKey = nil
+	l.establishedAt = time.Time{}
+	l.requestPacket = nil
+	l.requestTime = time.Time{}
+	l.teardownReason = 0
+	l.linkID = nil
+}
+
 // registerLinkPath copies the destination's transport path for this link's
 // link_id, so outgoing link packets get the same multi-hop wrapping as
 // destination-addressed packets.
@@ -445,7 +470,8 @@ func (r *RequestReceipt) GetMetadata() map[string]any {
 // Progress returns how many bytes of the response have arrived so far and
 // the total number of bytes expected, for responses delivered as a resource
 // transfer (e.g. large /file/ downloads). total is 0 until the resource
-// advertisement carrying the transfer size has been received; both values
+// advertisement carrying the transfer size has been received. Both values
+
 // are 0 for responses that never go through a resource transfer.
 func (r *RequestReceipt) Progress() (received int64, total int64) {
 	r.mutex.RLock()

@@ -28,6 +28,9 @@ type TCPClientInterface struct {
 	done              chan struct{}
 	stopOnce          sync.Once
 	reconnect         *reconnectDriver
+	wantsTunnel       bool
+	tunnelID          []byte
+	synthesizeTunnel  func(TunnelPeer)
 }
 
 func NewTCPClientInterface(name string, targetHost string, targetPort int, kissFraming bool, i2pTunneled bool, enabled bool) (*TCPClientInterface, error) {
@@ -46,6 +49,7 @@ func NewTCPClientInterfaceWithRetries(name string, targetHost string, targetPort
 		packetBuffer:      make([]byte, 0),
 		neverConnected:    true,
 		done:              make(chan struct{}),
+		wantsTunnel:       !kissFraming,
 	}
 	tc.initReconnectDriver()
 
@@ -56,15 +60,56 @@ func NewTCPClientInterfaceWithRetries(name string, targetHost string, targetPort
 	return tc, nil
 }
 
+func (tc *TCPClientInterface) SetTunnelSynth(fn func(TunnelPeer)) {
+	tc.Mutex.Lock()
+	tc.synthesizeTunnel = fn
+	tc.Mutex.Unlock()
+}
+
+func (tc *TCPClientInterface) InterfaceHash() []byte {
+	return InterfaceHashFromName(tc.Name)
+}
+
+func (tc *TCPClientInterface) WantsTunnel() bool {
+	return tc.wantsTunnel
+}
+
+func (tc *TCPClientInterface) SetWantsTunnel(v bool) {
+	tc.wantsTunnel = v
+}
+
+func (tc *TCPClientInterface) TunnelID() []byte {
+	tc.Mutex.RLock()
+	defer tc.Mutex.RUnlock()
+	return append([]byte(nil), tc.tunnelID...)
+}
+
+func (tc *TCPClientInterface) SetTunnelID(id []byte) {
+	tc.Mutex.Lock()
+	tc.tunnelID = append(tc.tunnelID[:0], id...)
+	tc.Mutex.Unlock()
+}
+
+func (tc *TCPClientInterface) onConnected(conn net.Conn) {
+	if !tc.adoptConn(conn) {
+		_ = conn.Close()
+		return
+	}
+	applyClientTCPTimeouts(tc)
+	tc.Mutex.RLock()
+	synth := tc.synthesizeTunnel
+	tc.Mutex.RUnlock()
+	if tc.WantsTunnel() && synth != nil {
+		synth(tc)
+	}
+	go tc.readLoop()
+}
+
 func (tc *TCPClientInterface) initReconnectDriver() {
 	label := net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort))
-	tc.reconnect = newReconnectDriver(label, tc.maxReconnectTries, tc.done, tcpDialTarget(tc.targetAddr, tc.targetPort), func(conn net.Conn) {
-		if !tc.adoptConn(conn) {
-			_ = conn.Close()
-			return
-		}
-		applyClientTCPTimeouts(tc)
-		go tc.readLoop()
+	tc.reconnect = newReconnectDriver(label, tc.maxReconnectTries, tc.done, tcpDialTarget(tc.targetAddr, tc.targetPort), tc.onConnected)
+	tc.reconnect.setOnExhausted(func() {
+		_ = tc.Stop()
 	})
 }
 

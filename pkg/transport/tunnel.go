@@ -184,7 +184,7 @@ func (t *Transport) handleTunnel(tunnelID []byte, iface TunnelInterface) {
 			nextHop = dest
 		}
 		t.mutex.Lock()
-		t.updatePathUnlocked(dest, nextHop, iface.GetName(), pe.hops)
+		t.updatePathUnlocked(dest, nextHop, iface.GetName(), pe.hops, nil, pe.packetHash, time.Now())
 		t.mutex.Unlock()
 	}
 }

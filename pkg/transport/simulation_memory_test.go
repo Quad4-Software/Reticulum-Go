@@ -10,8 +10,8 @@ import (
 
 const (
 	embeddedProfileNodes      = 32
-	embeddedProfileMaxHeapKB  = 1024
-	embeddedProfileWarnHeapKB = 512
+	embeddedProfileMaxHeapKB  = 2048
+	embeddedProfileWarnHeapKB = 1024
 	embeddedMaxPathEntryBytes = 256
 )
 

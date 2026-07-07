@@ -137,6 +137,9 @@ func (bc *BackboneClientInterface) initReconnectDriver() {
 			bc.reconnect.notifyFailure()
 		}
 	})
+	bc.reconnect.setOnExhausted(func() {
+		_ = bc.Stop()
+	})
 }
 
 func (bc *BackboneClientInterface) SetConnectivityHooks(onDown, onUp func()) {

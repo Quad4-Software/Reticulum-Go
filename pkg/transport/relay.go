@@ -142,7 +142,8 @@ func rewriteHopsOnly(raw []byte, hops byte) []byte {
 }
 
 // forwardTransportPacket relays HeaderType2 when TransportID matches
-// ours. Returns true if handled (forwarded or dropped); false to fall
+// ours. Returns true if handled (forwarded or dropped). False to fall
+
 // through to local handling.
 func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourceIface common.NetworkInterface) bool {
 	if pkt == nil || pkt.HeaderType != packet.HeaderType2 || len(pkt.TransportID) == 0 {

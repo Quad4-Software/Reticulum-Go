@@ -8,7 +8,8 @@ import (
 )
 
 // FuzzDecodeAppData ensures the app_data parser is panic-free for arbitrary
-// inputs. It does not assert successful decoding; bad inputs must surface as
+// inputs. It does not assert successful decoding. Bad inputs must surface as
+
 // a regular error.
 func FuzzDecodeAppData(f *testing.F) {
 	f.Add([]byte{})

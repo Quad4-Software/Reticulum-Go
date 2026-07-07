@@ -61,7 +61,7 @@ func reestablishLink(l *Link, tr TransportRef, policy ReconnectPolicy) {
 	backoff := policy.Backoff
 	for policy.MaxAttempts == 0 || attempts < policy.MaxAttempts {
 		_ = tr.PrepareFreshPathRequest(destHash)
-		if err := l.Establish(); err == nil {
+		if err := l.Reestablish(); err == nil {
 			return
 		} else if policy.OnFailed != nil {
 			policy.OnFailed(l, err)

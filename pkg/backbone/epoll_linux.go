@@ -36,10 +36,12 @@ func epollEvents(events int) uint32 {
 }
 
 func (p *epollPoller) Add(fd int, events int) error {
+	// #nosec G115 -- socket fds are bounded well below MaxInt32 on Linux
 	return unix.EpollCtl(p.fd, unix.EPOLL_CTL_ADD, fd, &unix.EpollEvent{Events: epollEvents(events), Fd: int32(fd)})
 }
 
 func (p *epollPoller) Mod(fd int, events int) error {
+	// #nosec G115 -- socket fds are bounded well below MaxInt32 on Linux
 	return unix.EpollCtl(p.fd, unix.EPOLL_CTL_MOD, fd, &unix.EpollEvent{Events: epollEvents(events), Fd: int32(fd)})
 }
 

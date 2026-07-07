@@ -41,6 +41,7 @@ type FromConfigContext struct {
 	SetupPeer             func(peer common.NetworkInterface)
 	SynthesizeTunnel      func(TunnelPeer)
 	VoidTunnel            func(TunnelPeer)
+	WatchInterfaces       bool
 	DiscoverInterfaces    bool
 	PanicOnInterfaceError bool
 	BackboneHub           *backbone.Hub

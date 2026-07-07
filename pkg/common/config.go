@@ -40,8 +40,8 @@ type InterfaceConfig struct {
 	Devices           []string
 	IgnoredDevices    []string
 
-	AnnounceCap           float64 // % of bitrate; 0 => default 2%
-	AnnounceRateTarget    float64 // min seconds between same-dest rebroadcasts; 0 => off
+	AnnounceCap           float64 // % of bitrate. 0 => default 2%
+	AnnounceRateTarget    float64 // min seconds between same-dest rebroadcasts. 0 => off
 	AnnounceRateGrace     int
 	AnnounceRatePenalty   float64
 	IngressControl        bool
@@ -63,7 +63,7 @@ type InterfaceConfig struct {
 
 	NetworkName string
 	Passphrase  string
-	IFACSize    int // bytes; config ifac_size is stored in bits and converted at parse time
+	IFACSize    int // bytes. Config ifac_size is stored in bits and converted at parse time
 	IFACNetname string
 	IFACNetkey  string
 	PublishIFAC bool

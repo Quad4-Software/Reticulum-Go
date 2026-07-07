@@ -168,7 +168,8 @@ func TestBackboneHDLCWireMatchesBackbonePackage(t *testing.T) {
 	ifaceFrame := append([]byte{HDLCFlag}, escapeHDLC(payload)...)
 	ifaceFrame = append(ifaceFrame, HDLCFlag)
 
-	// backbone.frameHDLC is unexported; rebuild via escapeHDLC parity check.
+	// backbone.frameHDLC is unexported. Rebuild via escapeHDLC parity check.
+
 	backPayload := unescapeHDLC(escapeHDLC(payload))
 	if !bytes.Equal(backPayload, payload) {
 		t.Fatal("escape parity failed")

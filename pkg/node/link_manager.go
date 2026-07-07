@@ -52,7 +52,7 @@ func (m *linkManager) onNetworkAvailable() {
 	m.mu.Unlock()
 	for _, l := range links {
 		if l.GetStatus() == link.StatusClosed || l.GetStatus() == link.StatusFailed {
-			_ = l.Establish()
+			_ = l.Reestablish()
 		}
 	}
 }

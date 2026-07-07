@@ -119,7 +119,8 @@ func TestKnownDestinationsEnvOverrideForcesInMemory(t *testing.T) {
 	inMemory := false
 	// Mirrors how transport.NewTransport wires config -> persistence: the
 	// env var is meant to be applied by common.ApplyPersistenceEnv before
-	// InitKnownDestinationsPersistence is called; here we just confirm the
+	// InitKnownDestinationsPersistence is called. Here we just confirm the
+
 	// low-level in-memory path itself behaves correctly when asked.
 	InitKnownDestinationsPersistence(cfgPath, inMemory || os.Getenv("RETICULUM_IN_MEMORY_KNOWN_DESTINATIONS") == "1")
 	if !knownPersistMemory.Load() {

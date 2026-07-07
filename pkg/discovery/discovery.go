@@ -63,7 +63,8 @@ const WorkblockExpandRounds = 20
 const StampSize = 32
 
 // Info is the high-level Go representation of a discovery info payload. Only
-// fields that were present in the msgpack map are populated; check the
+// fields that were present in the msgpack map are populated. Check the
+
 // corresponding Has* boolean before reading optional numeric fields.
 type Info struct {
 	Type        string
@@ -92,7 +93,8 @@ type Info struct {
 
 // EncodeInfo serialises an Info into the msgpack representation used as the
 // info dictionary inside an interface announce app_data payload. Numeric
-// fields are omitted when zero unless the matching Has flag is set; callers
+// fields are omitted when zero unless the matching Has flag is set. Callers
+
 // that want explicit zero-valued fields should set the appropriate flag.
 func EncodeInfo(in Info) ([]byte, error) {
 	if in.Type == "" {
@@ -160,13 +162,15 @@ func EncodeInfo(in Info) ([]byte, error) {
 }
 
 // MaxInfoSize bounds the msgpack info payload accepted by DecodeInfo.
-// Real-world Discovery info dictionaries are well below this; the cap
+// Real-world Discovery info dictionaries are well below this. The cap
+
 // defeats adversarial inputs that declare collection lengths far larger
 // than the buffer they actually carry.
 const MaxInfoSize = 64 * 1024
 
 // MaxInfoFields bounds the number of fields accepted in a single info
-// dictionary. Discovery uses ~16 fields; anything wildly larger is
+// dictionary. Discovery uses ~16 fields. Anything wildly larger is
+
 // rejected to prevent unbounded allocation.
 const MaxInfoFields = 256
 
@@ -298,7 +302,8 @@ func DecodeAppData(raw []byte) (flags byte, payload, stamp []byte, err error) {
 // safeDecodeInterface decodes a single msgpack value, refusing types whose
 // declared collection length could trigger an unbounded allocation in the
 // underlying msgpack decoder. Composite types (arrays, maps, ext) are
-// rejected; only primitives, strings and binary blobs (bounded by max)
+// rejected. Only primitives, strings and binary blobs (bounded by max)
+
 // are accepted.
 func safeDecodeInterface(dec *msgpack.Decoder, maxLen int) (any, error) {
 	c, err := dec.PeekCode()
@@ -460,7 +465,8 @@ func toInt(v any) int64 {
 		return x
 	case uint64:
 		// Clamp to int64 max instead of allowing a sign-flip on values
-		// above 2^63-1; numbers that big are not produced by conforming peers but
+		// above 2^63-1. Numbers that big are not produced by conforming peers but
+
 		// could appear in a hostile or fuzzed payload.
 		const maxInt64 = uint64(1<<63 - 1)
 		if x > maxInt64 {

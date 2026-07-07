@@ -9,14 +9,14 @@
 //
 // Extension model:
 //
-//   - [CryptoProvider] defines the full surface; [stdlibProvider] is the default.
-//   - [SetProvider] installs a replacement (for tests or future algorithms);
+//   - [CryptoProvider] defines the full surface. [stdlibProvider] is the default.
+//   - [SetProvider] installs a replacement (for tests or future algorithms).
 //     [SetProvider](nil) restores the default.
 //   - [ActiveProvider] returns the current implementation.
 //
 // On-wire formats (key sizes, packet layouts, hash truncation) are defined
-// elsewhere and assume the default provider’s behavior. Replacing the provider
-// without updating those formats will break interoperability; treat provider
+// elsewhere and assume the default provider's behavior. Replacing the provider
+// without updating those formats will break interoperability. Treat provider
 // swaps as coordinated protocol changes unless you control all peers.
 //
 // Hardware signing (HSM, PKCS#11, cloud KMS) can integrate via [Ed25519Signer]:

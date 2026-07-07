@@ -549,7 +549,8 @@ func TestSaveConfig_RequiresPath(t *testing.T) {
 
 // TestCreateDefaultConfig writes the starter file and checks the only
 // shipped default interface (Auto Discovery) is present and enabled. No
-// external TCP hubs are baked into defaults; users add their own.
+// external TCP hubs are baked into defaults. Users add their own.
+
 func TestCreateDefaultConfig(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config")
 
@@ -596,7 +597,8 @@ func TestGetConfigPath(t *testing.T) {
 	}
 }
 
-// TestEnsureConfigDir creates the configured directory; we accept the host
+// TestEnsureConfigDir creates the configured directory. We accept the host
+
 // home directory because the call is idempotent.
 func TestEnsureConfigDir(t *testing.T) {
 	if err := EnsureConfigDir(); err != nil {

@@ -48,12 +48,14 @@ func NewUDPInterfaceWithRetries(name string, addr string, target string, enabled
 		addr:              udpAddr,
 		targetAddr:        targetAddr,
 		readBuffer:        make([]byte, 1064),
-		maxReconnectTries: NormalizeMaxReconnectTries(maxReconnectTries),
+		maxReconnectTries: maxReconnectTries,
 		done:              make(chan struct{}),
 	}
 
 	ui.MTU = 1064
-	ui.initReconnectDriver()
+	if maxReconnectTries > 0 {
+		ui.initReconnectDriver()
+	}
 
 	return ui, nil
 }
@@ -262,7 +264,6 @@ func (ui *UDPInterface) Start() error {
 		ui.Mutex.Unlock()
 		return fmt.Errorf("UDP interface already started")
 	}
-	// Only recreate done if it's nil or was closed
 	select {
 	case <-ui.done:
 		ui.done = make(chan struct{})
@@ -273,10 +274,29 @@ func (ui *UDPInterface) Start() error {
 			ui.stopOnce = sync.Once{}
 		}
 	}
+	useReconnect := ui.maxReconnectTries > 0
 	ui.Mutex.Unlock()
 
-	ui.initReconnectDriver()
-	ui.reconnect.start()
+	if useReconnect {
+		ui.initReconnectDriver()
+		ui.reconnect.start()
+		return nil
+	}
+
+	conn, err := ui.dialUDP()
+	if err != nil {
+		return err
+	}
+	udpConn, ok := conn.(*net.UDPConn)
+	if !ok {
+		_ = conn.Close()
+		return fmt.Errorf("unexpected UDP connection type")
+	}
+	if !ui.adoptConn(udpConn) {
+		_ = conn.Close()
+		return fmt.Errorf("failed to adopt UDP connection")
+	}
+	go ui.readLoop()
 	return nil
 }
 
@@ -305,7 +325,7 @@ func (ui *UDPInterface) readLoop() {
 		default:
 		}
 
-		n, remoteAddr, err := conn.ReadFromUDP(buffer)
+		n, _, err := conn.ReadFromUDP(buffer)
 		if err != nil {
 			ui.Mutex.RLock()
 			stillOnline := ui.Online
@@ -326,14 +346,6 @@ func (ui *UDPInterface) readLoop() {
 			}
 			return
 		}
-
-		ui.Mutex.Lock()
-		// Auto-discover target address from first packet if not set
-		if ui.targetAddr == nil {
-			debug.Log(debug.DebugAll, "UDP interface discovered peer", "name", ui.Name, "peer", remoteAddr.String())
-			ui.targetAddr = remoteAddr
-		}
-		ui.Mutex.Unlock()
 
 		ui.ProcessIncoming(buffer[:n])
 	}

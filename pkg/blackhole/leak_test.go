@@ -11,7 +11,8 @@ import (
 
 // TestBlackholeNoGoroutineLeak repeatedly creates tables, persists them,
 // loads them back, and sweeps expired entries. The blackhole package itself
-// owns no long-running goroutines; this test guards against an accidental
+// owns no long-running goroutines. This test guards against an accidental
+
 // regression that might add one.
 func TestBlackholeNoGoroutineLeak(t *testing.T) {
 	runtime.GC()

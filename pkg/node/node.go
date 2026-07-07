@@ -17,6 +17,7 @@ import (
 	"quad4/reticulum-go/pkg/channel"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/discovery"
 	"quad4/reticulum-go/pkg/interfaces"
 	"quad4/reticulum-go/pkg/link"
 	"quad4/reticulum-go/pkg/sharedinstance"
@@ -53,6 +54,19 @@ type Node struct {
 	watchedDests    map[string][]byte
 	watchMu         sync.RWMutex
 	linkMgr         *linkManager
+	discovery       *discovery.InterfaceDiscovery
+}
+
+// StartInterfaceDiscovery enables rnstransport interface discovery listening.
+func (n *Node) StartInterfaceDiscovery() {
+	if n == nil || n.transport == nil || n.config == nil || !n.config.DiscoverInterfaces {
+		return
+	}
+	if n.discovery != nil {
+		return
+	}
+	n.discovery = discovery.NewInterfaceDiscovery(n.transport, discovery.DefaultStampValue, nil)
+	n.discovery.Start()
 }
 
 // New constructs a Node from configuration without starting it.
@@ -169,6 +183,7 @@ func (n *Node) startInterfaces() error {
 	if n.config != nil && (n.config.DiscoverInterfaces || n.config.WatchInterfaces) {
 		n.startInterfaceMonitor()
 	}
+	n.StartInterfaceDiscovery()
 	return nil
 }
 
@@ -226,6 +241,7 @@ func (n *Node) fromConfigContext() *interfaces.FromConfigContext {
 	return &interfaces.FromConfigContext{
 		I2PStoragePath:        storage,
 		TransportID:           n.transport.TransportIdentityHash(),
+		WatchInterfaces:       n.config != nil && n.config.WatchInterfaces,
 		DiscoverInterfaces:    n.config != nil && n.config.DiscoverInterfaces,
 		PanicOnInterfaceError: n.config != nil && n.config.PanicOnInterfaceErr,
 		BackboneHub:           backbone.Get(),

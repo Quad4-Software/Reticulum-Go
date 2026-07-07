@@ -157,7 +157,8 @@ func (n *simNode) announcePacket(t testing.TB) []byte {
 }
 
 // originateAnnounce broadcasts the node's announce on every attached
-// interface; receivers process it through their normal packet
+// interface. Receivers process it through their normal packet
+
 // pipeline.
 func (n *simNode) originateAnnounce(t testing.TB) {
 	t.Helper()
@@ -233,7 +234,8 @@ func (s *simNetwork) addEdge(a, b int) {
 	s.adj[b] = append(s.adj[b], a)
 }
 
-// Topology builders. Each returns a populated simNetwork; the caller
+// Topology builders. Each returns a populated simNetwork. The caller
+
 // is responsible for invoking close() once it is done with it.
 
 func buildLine(t testing.TB, n int) *simNetwork {
@@ -320,7 +322,8 @@ func waitForPaths(nodes []*simNode, dest []byte, timeout time.Duration) (time.Du
 // HeaderType2 packet sent from node 0 toward target is forwarded
 // along the chain. Each intermediate next-hop is the next relay's
 // transport identity (so the rewriter sees a recognisable
-// TransportID at every hop); the last hop falls through to the
+// TransportID at every hop). The last hop falls through to the
+
 // header-stripping branch.
 func preloadLinePaths(nodes []*simNode, target []byte) {
 	last := len(nodes) - 1
@@ -591,7 +594,8 @@ func BenchmarkSimLineRelayThroughput(b *testing.B) {
 
 // BenchmarkSimMeshAnnounceLoad measures the cost of one node
 // originating an announce inside a fully connected mesh. Every other
-// node receives N-1 copies of the same announce; all but one must be
+// node receives N-1 copies of the same announce. All but one must be
+
 // deduplicated by seenAnnounces.
 func BenchmarkSimMeshAnnounceLoad(b *testing.B) {
 	muteDebugLogsForBenchmark(b)

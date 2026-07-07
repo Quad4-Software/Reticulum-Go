@@ -125,7 +125,8 @@ func TestTickIncomingResourceWatchdog_ResetsWaitingForHmuBeforeRetry(t *testing.
 	l.incomingRx = rx
 
 	// The link is not active, so sendIncomingResourceReqNext's eventual
-	// SendPacketWithContext call fails fast with "link not active"; what
+	// SendPacketWithContext call fails fast with "link not active". What
+
 	// this asserts is that waitingForHmu was reset before that attempt, so
 	// a real (active) link would recompute and resend the HMU/part request
 	// instead of silently no-op'ing on the stale flag.
