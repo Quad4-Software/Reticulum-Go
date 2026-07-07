@@ -10,7 +10,7 @@ This is a practical map of how Reticulum-Go lines up with the official [Reticulu
 | Identity | Yes | Key generation, recall, sign or verify, encrypt or decrypt, and ratchets. Optional hardware-bound 72-byte descriptor (RHB1 header plus keys) through the identity package load and save paths. The on-wire Ed25519 public key matches [RNS.Identity](https://github.com/markqvist/Reticulum/blob/master/RNS/Identity.py), so Python peers verify announces unchanged. Python’s Identity.from_file today expects the 64-byte software layout only. The descriptor is documented here for future Python tooling. |
 | Destination | Yes | SINGLE, GROUP, PLAIN, and LINK types. Announce and request handlers and link in or out. |
 | Packet | Yes | Header types 1 and 2, all packet types and contexts, with byte-for-byte parity in crossref. |
-| Transport | Yes | In-process transport covers the path table, announces, RequestPath, hop counts, next-hop selection, multi-hop type-2 rewrap, and link-table forwarding for link destinations. |
+| Transport | Yes | In-process transport covers the path table, announces, RequestPath, hop counts, next-hop selection, multi-hop type-2 rewrap, and link-table forwarding for link destinations. Path and known-destination tables persist to disk by default (Python-compatible flat msgpack under `storage/`) whenever a config path or `RETICULUM_STORAGE_PATH` is resolved. Use `in_memory_path_table`, `in_memory_known_destinations`, or `RETICULUM_IN_MEMORY_*` env vars to force RAM-only tables even with a config path; ad-hoc/library callers that never resolve a config path get RAM-only tables automatically, so embedding the transport never writes into a caller's home directory without an explicit path. Disk write/permission failures at any point fall back to RAM-only for the remainder of the process. |
 | Interfaces | Partial | See [Interfaces](#interfaces) below. |
 | Discovery (RNS.Discovery, rnstransport) | Partial | [pkg/discovery](pkg/discovery/) mirrors wire constants, LXStamper proof-of-work, and the msgpack info-dict and app_data layout, with tests against Python Discovery and LXStamper references. The high-level InterfaceAnnouncer and BlackholeUpdater loops from [RNS/Discovery.py](https://github.com/markqvist/Reticulum/blob/master/RNS/Discovery.py) are not auto-started. You build announces with BuildAppData and decode with ValidateAndDecode. This layer is separate from AutoInterface multicast discovery, which is supported. |
 | Blackhole | Partial | [pkg/blackhole](pkg/blackhole/) covers Transport.blackholed_identities semantics, on-disk msgpack, expiry, MergeRemote, and EncodeForRequest. Transport drops announces from listed identities. The /list handler over rnstransport.info.blackhole needs the RNS Request layer, which is not ported. Python umsgpack round-trip is covered by pkg/blackhole interop tests. |
@@ -124,8 +124,8 @@ Python tries system and home paths first. Go defaults to a single tree unless yo
 | storage/resources/ | Resource scratch | Present |
 | storage/blackhole | msgpack table | [pkg/blackhole](pkg/blackhole/) (path may differ) |
 | storage/ratchets/ | Ratchet keys | Present |
-| storage/destination_table | Path snapshot | Present (flat msgpack) |
-| storage/known_destinations | Known destinations | Present |
+| storage/destination_table | Path snapshot | Yes (flat msgpack list, Python-compatible entry layout; interface resolved by truncated hash of interface name) |
+| storage/known_destinations | Known destinations | Yes (flat msgpack map; loads Python `known_destinations` byte-keyed files) |
 | storage/transport_identity | Transport identity | Present |
 | interfaces/ | Python plugin modules | Not supported |
 
@@ -140,6 +140,8 @@ Python tries system and home paths first. Go defaults to a single tree unless yo
 | instance_name | Yes | No | Ignored. Unix multi-instance name separator. |
 | shared_instance_type | Yes | No | Ignored. TCP versus Unix selector. |
 | panic_on_interface_error | Yes | Yes | Honoured on interface errors |
+| in_memory_path_table | No | Yes | When true, path table stays in RAM only |
+| in_memory_known_destinations | No | Yes | When true, known destinations stay in RAM only |
 | discover_interfaces | Yes | No | Ignored |
 | respond_to_probes / allow_probes | Yes | No | Probe path not ported |
 | publish_blackhole | Yes | No | Blackhole package does not auto-publish |
