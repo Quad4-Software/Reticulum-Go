@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"syscall/js"
+	"time"
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
