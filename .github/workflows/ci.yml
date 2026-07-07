@@ -28,6 +28,7 @@ env:
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
   GOTOOLCHAIN: local
+  TESTSUMMARY_QUIET: "1"
 
 jobs:
   lint:
