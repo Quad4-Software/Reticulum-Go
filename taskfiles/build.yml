@@ -1,0 +1,195 @@
+version: '3'
+
+vars:
+  LINUX_ARCHES: [amd64, arm64, arm, riscv64]
+  WINDOWS_ARCHES: [amd64, arm64]
+  DARWIN_ARCHES: [amd64, arm64]
+  FREEBSD_ARCHES: [amd64, 386, arm64, arm, riscv64]
+  OPENBSD_ARCHES: [amd64, 386, arm64, arm, ppc64, riscv64]
+  NETBSD_ARCHES: [amd64, 386, arm64, arm]
+
+tasks:
+  build:
+    desc: Build release binary (no debug symbols, static)
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - '{{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}'
+
+  debug:
+    desc: Build debug binary
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - '{{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}'
+
+  build-experimental:
+    desc: Build binary with experimental features (GOEXPERIMENT=greenteagc)
+    env:
+      GOEXPERIMENT: greenteagc
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - '{{.GOCMD}} build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-experimental {{.MAIN_PACKAGE}}'
+
+  experimental:
+    desc: Alias for build-experimental
+    cmds:
+      - task: build-experimental
+
+  release:
+    desc: Build stripped static binary for release (alias for build)
+    cmds:
+      - task: build
+
+  build-target:
+    internal: true
+    requires:
+      vars: [GOOS, GOARCH]
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - |
+        export GOOS="{{.GOOS}}" GOARCH="{{.GOARCH}}"
+        if [ "{{.GOARCH}}" = "arm" ]; then
+          export GOARM="${GOARM:-6}"
+        fi
+        suffix=""
+        if [ "{{.GOOS}}" = "windows" ]; then
+          suffix=".exe"
+        fi
+        {{.GOCMD}} build -ldflags="-s -w" \
+          -o "{{.BUILD_DIR}}/{{.BINARY_NAME}}-{{.GOOS}}-{{.GOARCH}}${suffix}" \
+          {{.MAIN_PACKAGE}}
+
+  build-linux:
+    desc: Build for Linux (amd64, arm64, arm, riscv64)
+    deps:
+      - for:
+          matrix:
+            GOARCH:
+              ref: .LINUX_ARCHES
+        task: build-target
+        vars:
+          GOOS: linux
+          GOARCH: '{{.ITEM.GOARCH}}'
+
+  build-windows:
+    desc: Build for Windows (amd64, arm64)
+    deps:
+      - for:
+          matrix:
+            GOARCH:
+              ref: .WINDOWS_ARCHES
+        task: build-target
+        vars:
+          GOOS: windows
+          GOARCH: '{{.ITEM.GOARCH}}'
+
+  build-windows-legacy:
+    desc: Build for Windows 7/8/8.1 using go-legacy-win7 (amd64, arm64)
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - 'GOOS=windows GOARCH=amd64 {{.GO_LEGACY_WIN7}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64-win7.exe {{.MAIN_PACKAGE}}'
+      - 'GOOS=windows GOARCH=arm64 {{.GO_LEGACY_WIN7}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-arm64-win7.exe {{.MAIN_PACKAGE}}'
+
+  build-darwin:
+    desc: Build for MacOS (amd64, arm64)
+    deps:
+      - for:
+          matrix:
+            GOARCH:
+              ref: .DARWIN_ARCHES
+        task: build-target
+        vars:
+          GOOS: darwin
+          GOARCH: '{{.ITEM.GOARCH}}'
+
+  build-freebsd:
+    desc: Build for FreeBSD (amd64, 386, arm64, arm, riscv64)
+    deps:
+      - for:
+          matrix:
+            GOARCH:
+              ref: .FREEBSD_ARCHES
+        task: build-target
+        vars:
+          GOOS: freebsd
+          GOARCH: '{{.ITEM.GOARCH}}'
+
+  build-openbsd:
+    desc: Build for OpenBSD (amd64, 386, arm64, arm, ppc64, riscv64)
+    deps:
+      - for:
+          matrix:
+            GOARCH:
+              ref: .OPENBSD_ARCHES
+        task: build-target
+        vars:
+          GOOS: openbsd
+          GOARCH: '{{.ITEM.GOARCH}}'
+
+  build-netbsd:
+    desc: Build for NetBSD (amd64, 386, arm64, arm)
+    deps:
+      - for:
+          matrix:
+            GOARCH:
+              ref: .NETBSD_ARCHES
+        task: build-target
+        vars:
+          GOOS: netbsd
+          GOARCH: '{{.ITEM.GOARCH}}'
+
+  build-all:
+    desc: Build for all platforms and architectures
+    deps: [build-linux, build-windows, build-darwin, build-freebsd, build-openbsd, build-netbsd]
+
+  build-wasm:
+    desc: Build WebAssembly binary with standard Go compiler
+    env:
+      CGO_ENABLED: '0'
+      GOOS: js
+      GOARCH: wasm
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - '{{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm ./cmd/reticulum-wasm'
+
+  tinygo-build:
+    desc: Build binary with TinyGo compiler (WASI; avoids generic bare-metal UART)
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - tinygo build -target=wasi -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-tinygo -size short -opt=z -gc=leaking -panic=trap {{.MAIN_PACKAGE}}
+
+  tinygo-build-debug:
+    desc: Build binary optimized for debugging with TinyGo compiler (WASI)
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - tinygo build -target=wasi -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-tinygo-debug -size short -opt=1 {{.MAIN_PACKAGE}}
+
+  tinygo-wasm:
+    desc: Build WebAssembly binary with TinyGo compiler
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - tinygo build -target=wasm -tags js,wasm -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm ./cmd/reticulum-wasm
+
+  tinygo-pageserver:
+    desc: Build pageserver example with TinyGo (host ELF)
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - cd examples/pageserver && GOFLAGS= GOPROXY=https://proxy.golang.org,direct tinygo build -size short -opt=z -o ../../{{.BUILD_DIR}}/example-pageserver-tinygo .
+
+  checksum:
+    desc: Generate SHA256 checksum for binary (uses BINARY_PATH env var if set, otherwise defaults to bin/reticulum-go)
+    cmds:
+      - |
+        BINARY_PATH="${BINARY_PATH:-{{.BUILD_DIR}}/{{.BINARY_NAME}}}"
+        if [ -f "$BINARY_PATH" ]; then
+          sha256sum "$BINARY_PATH" > "${BINARY_PATH}.sha256"
+          echo "Generated checksum: ${BINARY_PATH}.sha256"
+        else
+          echo "Error: Binary not found at $BINARY_PATH"
+          exit 1
+        fi

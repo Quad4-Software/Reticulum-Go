@@ -1,4 +1,4 @@
-ARG GO_VERSION=1.26.2
+ARG GO_VERSION=1.26.5
 FROM golang:${GO_VERSION}-alpine AS builder
 
 ENV CGO_ENABLED=0
@@ -6,8 +6,7 @@ ENV GOOS=linux
 ENV GOARCH=amd64
 ENV GOFLAGS=-mod=vendor
 ENV GOPROXY=off
-ENV GOPRIVATE=git.quad4.io
-ENV GONOSUMDB=git.quad4.io
+
 
 WORKDIR /build
 

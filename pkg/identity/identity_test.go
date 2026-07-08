@@ -1,11 +1,15 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024-2026 Quad4.io
+
 package identity
 
 import (
 	"bytes"
+	"encoding/hex"
 	"path/filepath"
 	"testing"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
+	"quad4/reticulum-go/pkg/cryptography"
 )
 
 func TestNewIdentity(t *testing.T) {
@@ -193,5 +197,113 @@ func TestGetRandomHash(t *testing.T) {
 	h := GetRandomHash()
 	if len(h) != TruncatedHashLength/8 {
 		t.Errorf("Expected length %d, got %d", TruncatedHashLength/8, len(h))
+	}
+}
+
+func TestRememberStoresDefensiveCopies(t *testing.T) {
+	knownDestinationsLock.Lock()
+	knownDestinations = make(map[string][]any)
+	knownDestinationsLock.Unlock()
+
+	destBacking := make([]byte, 0, 64)
+	destHash := append(destBacking, bytes.Repeat([]byte{0x11}, TruncatedHashLength/8)...)
+	packet := append([]byte{}, []byte("packet-data")...)
+	appData := append([]byte{}, []byte("app-data")...)
+	pub := make([]byte, KeySize/8)
+	key := hex.EncodeToString(destHash)
+
+	Remember(packet, destHash, pub, appData)
+
+	packet[0] ^= 0xFF
+	destHash[0] ^= 0xFF
+	appData[0] ^= 0xFF
+
+	stored, ok := GetKnownDestination(key)
+	if !ok {
+		t.Fatal("expected stored destination")
+	}
+
+	gotPacket, ok := stored[0].([]byte)
+	if !ok {
+		t.Fatal("stored packet has unexpected type")
+	}
+	gotDest, ok := stored[1].([]byte)
+	if !ok {
+		t.Fatal("stored destination hash has unexpected type")
+	}
+	gotApp, ok := stored[3].([]byte)
+	if !ok {
+		t.Fatal("stored app data has unexpected type")
+	}
+
+	if bytes.Equal(gotPacket, packet) {
+		t.Fatal("stored packet aliased caller buffer")
+	}
+	if bytes.Equal(gotDest, destHash) {
+		t.Fatal("stored destination hash aliased caller buffer")
+	}
+	if bytes.Equal(gotApp, appData) {
+		t.Fatal("stored app data aliased caller buffer")
+	}
+}
+
+func TestGetKnownDestinationReturnsDefensiveCopies(t *testing.T) {
+	knownDestinationsLock.Lock()
+	knownDestinations = make(map[string][]any)
+	knownDestinationsLock.Unlock()
+
+	destHash := bytes.Repeat([]byte{0x22}, TruncatedHashLength/8)
+	packet := []byte("packet-copy")
+	appData := []byte("app-copy")
+	pub := make([]byte, KeySize/8)
+	Remember(packet, destHash, pub, appData)
+	key := hex.EncodeToString(destHash)
+
+	first, ok := GetKnownDestination(key)
+	if !ok {
+		t.Fatal("expected stored destination")
+	}
+	firstPacket := first[0].([]byte)
+	firstPacket[0] ^= 0xFF
+
+	second, ok := GetKnownDestination(key)
+	if !ok {
+		t.Fatal("expected stored destination on second fetch")
+	}
+	secondPacket := second[0].([]byte)
+	if bytes.Equal(firstPacket, secondPacket) {
+		t.Fatal("GetKnownDestination returned aliased packet slice")
+	}
+}
+
+func TestRatchetKeyDefensiveCopies(t *testing.T) {
+	ratchetPersistLock.Lock()
+	knownRatchets = make(map[string][]byte)
+	ratchetPersistLock.Unlock()
+
+	id, err := New()
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	input := []byte("ratchet-material")
+	id.SetRatchetKey("peer", input)
+	input[0] ^= 0xFF
+
+	got, ok := id.GetRatchetKey("peer")
+	if !ok {
+		t.Fatal("expected ratchet key")
+	}
+	if bytes.Equal(got, input) {
+		t.Fatal("stored ratchet key aliased caller input")
+	}
+
+	got[0] ^= 0xFF
+	again, ok := id.GetRatchetKey("peer")
+	if !ok {
+		t.Fatal("expected ratchet key on second read")
+	}
+	if bytes.Equal(got, again) {
+		t.Fatal("GetRatchetKey returned aliased internal ratchet key")
 	}
 }

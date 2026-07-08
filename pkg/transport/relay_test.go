@@ -1,19 +1,21 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package transport
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"sync"
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/packet"
 )
 
-// relayIface is a tracking NetworkInterface used by the relay tests; it
+// relayIface is a tracking NetworkInterface used by the relay tests. It
+
 // captures every Send so the test can assert what the transport pushed
 // out over the wire and on which interface.
 type relayIface struct {
@@ -247,9 +249,152 @@ func TestForwardTransportPacketIgnoresOtherTransportID(t *testing.T) {
 	}
 }
 
+// TestRelayBridgedLinkRequestForwardsHT1 verifies HeaderType1 link requests are
+// relayed across a known path when the destination is not local.
+func TestRelayBridgedLinkRequestForwardsHT1(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+
+	in := newRelayIface("in")
+	out := newRelayIface("out")
+	_ = tr.RegisterInterface("in", in)
+	_ = tr.RegisterInterface("out", out)
+
+	destHash := bytes.Repeat([]byte{0xAA}, 16)
+	tr.UpdatePath(destHash, destHash, "out", 1)
+
+	requestData := bytes.Repeat([]byte{0x42}, packet.LinkRequestECPubSize+3)
+	flags := byte(0)
+	flags |= (packet.HeaderType1 << 6) & packet.HeaderMaskHeaderType
+	flags |= (packet.PropagationBroadcast << 4) & packet.HeaderMaskTransportType
+	flags |= (packet.DestinationSingle << 2) & packet.HeaderMaskDestinationType
+	flags |= packet.PacketTypeLinkReq & packet.HeaderMaskPacketType
+
+	raw := make([]byte, 0, 2+16+len(requestData))
+	raw = append(raw, flags, 0x00)
+	raw = append(raw, destHash...)
+	raw = append(raw, requestData...)
+
+	pkt := &packet.Packet{Raw: raw}
+	if err := pkt.Unpack(); err != nil {
+		t.Fatalf("unpack: %v", err)
+	}
+
+	if !tr.relayBridgedLinkRequest(pkt, raw, in) {
+		t.Fatal("relayBridgedLinkRequest returned false")
+	}
+	if got := out.snapshot(); len(got) != 1 {
+		t.Fatalf("expected 1 forwarded link request, got %d", len(got))
+	}
+}
+
+// TestLinkProofRelayViaLinkTable verifies LR proofs are forwarded through the
+// link relay table when no local link object exists.
+func TestLinkProofRelayViaLinkTable(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+
+	in := newRelayIface("in")
+	out := newRelayIface("out")
+
+	linkID := bytes.Repeat([]byte{0x77}, 16)
+	tr.linkTable.put(linkID, &LinkRelayEntry{
+		NextHop:        bytes.Repeat([]byte{0xBB}, 16),
+		NextHopIface:   out,
+		ReceivedIface:  in,
+		RemainingHops:  1,
+		TakenHops:      0,
+		ProofTimeout:   time.Now().Add(time.Hour),
+		Timestamp:      time.Now(),
+		OriginalLinkID: linkID,
+	})
+
+	flags := byte(0)
+	flags |= (packet.HeaderType1 << 6) & packet.HeaderMaskHeaderType
+	flags |= (packet.PropagationBroadcast << 4) & packet.HeaderMaskTransportType
+	flags |= (packet.DestinationLink << 2) & packet.HeaderMaskDestinationType
+	flags |= packet.PacketTypeProof & packet.HeaderMaskPacketType
+
+	raw := make([]byte, 0, 2+16+1+4)
+	raw = append(raw, flags, 0x00)
+	raw = append(raw, linkID...)
+	raw = append(raw, packet.ContextLRProof)
+	raw = append(raw, []byte{0x01, 0x02, 0x03, 0x04}...)
+
+	pkt := &packet.Packet{Raw: raw}
+	if err := pkt.Unpack(); err != nil {
+		t.Fatalf("unpack proof: %v", err)
+	}
+
+	tr.handleProofPacket(pkt, out)
+	if got := in.snapshot(); len(got) != 1 {
+		t.Fatalf("expected proof relayed to initiator interface, got %d packets", len(got))
+	}
+}
+
+// TestRecordLinkRelayUsesWireLinkID verifies relay registration keys match
+// endpoint link IDs derived from the link request wire format.
+func TestRecordLinkRelayUsesWireLinkID(t *testing.T) {
+	destHash := bytes.Repeat([]byte{0xAA}, 16)
+	requestData := bytes.Repeat([]byte{0x42}, packet.LinkRequestECPubSize+3)
+
+	flags := byte(0)
+	flags |= (packet.HeaderType1 << 6) & packet.HeaderMaskHeaderType
+	flags |= (packet.PropagationBroadcast << 4) & packet.HeaderMaskTransportType
+	flags |= (packet.DestinationSingle << 2) & packet.HeaderMaskDestinationType
+	flags |= packet.PacketTypeLinkReq & packet.HeaderMaskPacketType
+
+	raw := make([]byte, 0, 2+16+len(requestData))
+	raw = append(raw, flags, 0x00)
+	raw = append(raw, destHash...)
+	raw = append(raw, requestData...)
+
+	pkt := &packet.Packet{Raw: raw}
+	if err := pkt.Unpack(); err != nil {
+		t.Fatalf("unpack link request: %v", err)
+	}
+
+	want := packet.LinkIDFromLinkRequest(pkt)
+	if len(want) != 16 {
+		t.Fatalf("link id len=%d want 16", len(want))
+	}
+
+	old := sha256LinkID(destHash, requestData)
+	if bytes.Equal(want, old) {
+		t.Fatal("test vector accidentally matches deprecated sha256(dest+data) algorithm")
+	}
+
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+	in := newRelayIface("in")
+	out := newRelayIface("out")
+	_ = tr.RegisterInterface("in", in)
+	_ = tr.RegisterInterface("out", out)
+	tr.UpdatePath(destHash, destHash, "out", 1)
+
+	tr.recordLinkRelay(pkt, raw, in, &common.Path{
+		NextHop:   destHash,
+		Interface: out,
+		HopCount:  1,
+	})
+
+	entry, ok := tr.linkTable.get(want)
+	if !ok {
+		t.Fatalf("link table missing entry for wire link id %x", want)
+	}
+	if entry == nil || entry.NextHopIface != out || entry.ReceivedIface != in {
+		t.Fatalf("unexpected relay entry: %+v", entry)
+	}
+}
+
+func sha256LinkID(dest, data []byte) []byte {
+	h := sha256.Sum256(append(append([]byte(nil), dest...), data...))
+	return h[:16]
+}
+
 // TestLinkRelayBidirectional drives a synthetic LINKREQUEST through the
 // relay table and then replays a link data packet (matching the link
-// id) from the opposite direction; the data must be forwarded back out
+// id) from the opposite direction. The data must be forwarded back out
 // the original receiving interface.
 func TestLinkRelayBidirectional(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
@@ -328,7 +473,8 @@ func TestLinkRelayDisabledByConfig(t *testing.T) {
 // Path request packet (header type 1, plain destination,
 // transport path.request hash). The exact byte payload of a path
 // request is a control plane responsibility we delegate to
-// RequestPath; here we only assert that exactly the non-excluded
+// RequestPath. Here we only assert that exactly the non-excluded
+
 // interfaces saw a Send call and the receive interface saw none.
 func TestRebroadcastPathRequestSkipsExcludedIface(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
@@ -401,6 +547,33 @@ func TestRequestPathThrottle(t *testing.T) {
 	}
 	if got := len(out.snapshot()); got != first {
 		t.Fatalf("throttled RequestPath still emitted: %d != %d", got, first)
+	}
+}
+
+// TestRequestPathDoesNotMutateInputHash ensures RequestPath never appends
+// onto caller-owned destination-hash storage. This guards against
+// side-effects when the caller provides a short slice with spare capacity.
+func TestRequestPathDoesNotMutateInputHash(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+	tr.SetIdentity(mustIdentity(t))
+
+	out := newRelayIface("out")
+	if err := tr.RegisterInterface("out", out); err != nil {
+		t.Fatalf("register out: %v", err)
+	}
+
+	backing := make([]byte, 32)
+	copy(backing[:16], bytes.Repeat([]byte{0x33}, 16))
+	destHash := backing[:16]
+	before := append([]byte(nil), backing...)
+
+	if err := tr.RequestPath(destHash, "out", nil, false); err != nil {
+		t.Fatalf("RequestPath: %v", err)
+	}
+
+	if !bytes.Equal(backing, before) {
+		t.Fatalf("RequestPath mutated caller-owned destination backing: before=%x after=%x", before, backing)
 	}
 }
 

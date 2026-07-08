@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: 0BSD
-// Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024-2026 Quad4.io
 //go:build tinygo
 // +build tinygo
 
@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"quad4/reticulum-go/pkg/common"
 )
 
 const (
@@ -87,5 +87,11 @@ func (ai *AutoInterface) Stop() error {
 	ai.Mutex.Lock()
 	defer ai.Mutex.Unlock()
 	ai.Online = false
+	return nil
+}
+
+func (ai *AutoInterface) SetWatchInterfaces(enabled bool) {}
+
+func (ai *AutoInterface) RescanInterfaces() error {
 	return nil
 }

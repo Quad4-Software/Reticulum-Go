@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package transport
 
@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"testing"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"quad4/reticulum-go/pkg/common"
 )
 
 func BenchmarkRoutingTableScale(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	sizes := []int{10, 100, 1000, 10000, 100000, 1000000}
 
 	for _, size := range sizes {
@@ -47,6 +48,7 @@ func BenchmarkRoutingTableScale(b *testing.B) {
 }
 
 func BenchmarkRoutingTableUpdates(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	sizes := []int{10, 100, 1000, 10000, 100000, 1000000}
 
 	for _, size := range sizes {

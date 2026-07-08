@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
 package interop
@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,10 +16,11 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/destination"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/destination"
+	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/reticulumconfig"
+	"quad4/reticulum-go/pkg/transport"
 )
 
 func preparePageServerIdentity(t *testing.T, homeDir string) []byte {
@@ -44,6 +46,31 @@ func preparePageServerIdentity(t *testing.T, homeDir string) []byte {
 	}
 
 	return dest.GetHash()
+}
+
+func writePageServerInteropReticulumConfig(t *testing.T, home string, goListen, pyListen int) {
+	t.Helper()
+	cfgPath := filepath.Join(home, ".reticulum-go", "config")
+	if err := os.MkdirAll(filepath.Dir(cfgPath), 0o700); err != nil {
+		t.Fatalf("mkdir config dir: %v", err)
+	}
+	if err := reticulumconfig.CreateDefaultConfig(cfgPath); err != nil {
+		t.Fatalf("create default config: %v", err)
+	}
+	cfg, err := reticulumconfig.LoadConfig(cfgPath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	cfg.Interfaces["UDP"] = &common.InterfaceConfig{
+		Name:       "UDP",
+		Type:       "UDPInterface",
+		Enabled:    true,
+		Address:    fmt.Sprintf("0.0.0.0:%d", goListen),
+		TargetHost: fmt.Sprintf("127.0.0.1:%d", pyListen),
+	}
+	if err := reticulumconfig.SaveConfig(cfg); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
 }
 
 func runPythonPageRequest(
@@ -83,7 +110,7 @@ func runPythonPageRequest(
 	if err != nil {
 		t.Fatalf("wait READY: %v", err)
 	}
-	if strings.TrimSpace(line) != "READY" {
+	if !strings.HasPrefix(strings.TrimSpace(line), "READY") {
 		t.Fatalf("expected READY, got %q", line)
 	}
 
@@ -106,6 +133,7 @@ func TestLiveInteropPythonNomadNetPageServerRequests(t *testing.T) {
 
 	pageServerHome := t.TempDir()
 	goDestHash := preparePageServerIdentity(t, pageServerHome)
+	writePageServerInteropReticulumConfig(t, pageServerHome, goListen, pyListen)
 
 	pageServerDir := filepath.Join(scriptDir(t), "..", "..", "examples", "pageserver")
 	filesDir := filepath.Join(pageServerDir, "files")
@@ -121,13 +149,8 @@ func TestLiveInteropPythonNomadNetPageServerRequests(t *testing.T) {
 	cmd := exec.CommandContext(
 		ctx,
 		filepath.Join(pageServerDir, "example-pageserver"),
-		"-udp",
-		"-listen-port",
-		strconv.Itoa(goListen),
-		"-target-port",
-		strconv.Itoa(pyListen),
 		"-log-level",
-		"1",
+		"7",
 	)
 	cmd.Dir = pageServerDir
 	cmd.Env = append(os.Environ(), "HOME="+pageServerHome)
@@ -157,6 +180,7 @@ func TestLiveInteropPythonPageServerLargeFileRequest(t *testing.T) {
 
 	pageServerHome := t.TempDir()
 	goDestHash := preparePageServerIdentity(t, pageServerHome)
+	writePageServerInteropReticulumConfig(t, pageServerHome, goListen, pyListen)
 
 	pageServerDir := filepath.Join(scriptDir(t), "..", "..", "examples", "pageserver")
 	filesDir := filepath.Join(pageServerDir, "files")
@@ -174,13 +198,8 @@ func TestLiveInteropPythonPageServerLargeFileRequest(t *testing.T) {
 	cmd := exec.CommandContext(
 		ctx,
 		filepath.Join(pageServerDir, "example-pageserver"),
-		"-udp",
-		"-listen-port",
-		strconv.Itoa(goListen),
-		"-target-port",
-		strconv.Itoa(pyListen),
 		"-log-level",
-		"1",
+		"7",
 	)
 	cmd.Dir = pageServerDir
 	cmd.Env = append(os.Environ(), "HOME="+pageServerHome)
@@ -197,4 +216,52 @@ func TestLiveInteropPythonPageServerLargeFileRequest(t *testing.T) {
 	time.Sleep(4 * time.Second)
 
 	runPythonPageRequest(t, ctx, pyListen, goListen, goDestHash, "/file/interop_large_file.txt", "LARGE_INTEROP_MARKER")
+}
+
+func TestLiveInteropPythonPageServerLargePageRequest(t *testing.T) {
+	liveOrSkip(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+	defer cancel()
+
+	goListen := freeUDPPort(t)
+	pyListen := freeUDPPort(t)
+
+	pageServerHome := t.TempDir()
+	goDestHash := preparePageServerIdentity(t, pageServerHome)
+	writePageServerInteropReticulumConfig(t, pageServerHome, goListen, pyListen)
+
+	pageServerDir := filepath.Join(scriptDir(t), "..", "..", "examples", "pageserver")
+	pagesDir := filepath.Join(pageServerDir, "pages")
+	if err := os.MkdirAll(pagesDir, 0o750); err != nil {
+		t.Fatalf("mkdir pages: %v", err)
+	}
+
+	largePath := filepath.Join(pagesDir, "interop_large_page.mu")
+	largeContent := strings.Repeat("A", 18000) + "\nLARGE_PAGE_INTEROP_MARKER\n" + strings.Repeat("B", 18000) + "\n"
+	if err := os.WriteFile(largePath, []byte(largeContent), 0o640); err != nil {
+		t.Fatalf("write large interop page: %v", err)
+	}
+	defer func() { _ = os.Remove(largePath) }()
+
+	cmd := exec.CommandContext(
+		ctx,
+		filepath.Join(pageServerDir, "example-pageserver"),
+		"-log-level",
+		"7",
+	)
+	cmd.Dir = pageServerDir
+	cmd.Env = append(os.Environ(), "HOME="+pageServerHome)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start pageserver: %v", err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	}()
+
+	time.Sleep(4 * time.Second)
+
+	runPythonPageRequest(t, ctx, pyListen, goListen, goDestHash, "/page/interop_large_page.mu", "LARGE_PAGE_INTEROP_MARKER")
 }

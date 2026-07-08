@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024-2026 Quad4.io
+
 package buffer
 
 import (
@@ -7,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/channel"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
+	"quad4/reticulum-go/pkg/channel"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/transport"
 )
 
 func TestStreamDataMessage_Pack(t *testing.T) {
@@ -221,6 +224,7 @@ func (m *mockLink) HandleInbound(pkt *packet.Packet) error                { retu
 func (m *mockLink) ValidateLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error {
 	return nil
 }
+func (m *mockLink) LinkedNetworkInterface() common.NetworkInterface { return nil }
 
 func TestNewRawChannelReader(t *testing.T) {
 	link := &mockLink{status: transport.StatusActive}

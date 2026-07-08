@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
 package interop
@@ -16,12 +16,12 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/destination"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/interfaces"
-	rlink "git.quad4.io/Networks/Reticulum-Go/pkg/link"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/destination"
+	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/interfaces"
+	rlink "quad4/reticulum-go/pkg/link"
+	"quad4/reticulum-go/pkg/transport"
 )
 
 type nomadnetAnnounceCollector struct {
@@ -156,7 +156,8 @@ func waitForRequestReceipt(receipt *rlink.RequestReceipt, timeout time.Duration)
 // TestLiveNomadNetCrawlFetchMU listens for NomadNet node announces over TCP and fetches .mu pages.
 // Required: RUN_LIVE_INTEROP=1.
 // Optional env:
-//   - INTEROP_NOMADNET_TCP_HOST (default public mesh host; see test)
+// - INTEROP_NOMADNET_TCP_HOST (default public mesh host. See test)
+
 //   - INTEROP_NOMADNET_TCP_PORT (default 7822)
 //   - INTEROP_NOMADNET_TCP_NAME (default Beleth Clearnet TCP)
 //   - INTEROP_NOMADNET_ANNOUNCE_WAIT_SEC (default 45)
@@ -282,7 +283,8 @@ func TestLiveNomadNetCrawlFetchMU(t *testing.T) {
 				successes++
 				t.Logf("node=%s path=%s ok bytes=%d", nodeHashHex, path, len(resp))
 			} else {
-				// Accept non-empty responses as success; page formats vary by node.
+				// Accept non-empty responses as success. Page formats vary by node.
+
 				successes++
 				t.Logf("node=%s path=%s response bytes=%d", nodeHashHex, path, len(resp))
 			}

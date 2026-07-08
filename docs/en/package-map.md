@@ -1,0 +1,324 @@
+# Package map
+
+| Field | Value |
+|-------|-------|
+| Document version | 1.0 |
+| Last updated | 2026-07-07 |
+| Author | Ivan |
+
+## Overview
+
+Public API lives under `pkg/`. The daemon and tests import these packages. `internal/` holds daemon-specific wiring that is not a stable import path for external modules.
+
+This page maps each package to its responsibility and primary entry points.
+
+## Core protocol stack
+
+### `pkg/packet`
+
+Wire packet serialization, header types 1 and 2, hashing, receipts.
+
+| Item | Detail |
+|------|--------|
+| Key types | `Packet`, `PacketReceipt` |
+| Constants | `MTU = 500` |
+| Main files | `packet.go`, `receipt.go`, `constants.go` |
+
+### `pkg/identity`
+
+Key generation, recall, sign and verify, encrypt and decrypt, ratchets.
+
+| Item | Detail |
+|------|--------|
+| Key types | `Identity` |
+| Hardware signing | `NewIdentityWithSigner`, RHB1 descriptor in `hardware_bound.go` |
+| Main files | `identity.go`, `identity_signer.go`, `known_persist.go` |
+
+### `pkg/cryptography`
+
+Single integration point for primitives. See [Cryptography](cryptography.md).
+
+| Item | Detail |
+|------|--------|
+| Key types | `CryptoProvider`, `Ed25519Signer` |
+| Extension | `SetProvider`, `ActiveProvider` |
+| Main files | `provider.go`, `stdlib_provider.go`, curve/AES/HKDF helpers |
+
+### `pkg/destination`
+
+Application-facing destinations (SINGLE, GROUP, PLAIN, LINK).
+
+| Item | Detail |
+|------|--------|
+| Key types | `Destination`, `RequestHandler` |
+| Main files | `destination.go`, `constants.go` |
+
+### `pkg/announce`
+
+Announce construction, signing, handler registration.
+
+| Item | Detail |
+|------|--------|
+| Key types | `Announce`, `Handler` |
+| Main files | `announce.go`, `handler.go` |
+
+### `pkg/transport`
+
+Routing engine: path table, announces, forwarding, links, persistence.
+
+| Item | Detail |
+|------|--------|
+| Key types | `Transport`, `PathInfo` |
+| Main files | `transport.go`, `ingress.go`, `relay.go`, `path_selection.go`, `path_persist.go` |
+
+See [Transport](transport.md).
+
+### `pkg/link`
+
+Encrypted bidirectional links, request/response, channel and resource integration.
+
+| Item | Detail |
+|------|--------|
+| Key types | `Link` |
+| Entry points | `HandleIncomingLinkRequest`, `Reestablish`, `WatchAndReconnect` |
+| Main files | `link.go`, `link_path_recovery.go`, `reconnect.go` |
+
+### `pkg/pathfinder`
+
+Per-link path lookup table used inside links.
+
+| Item | Detail |
+|------|--------|
+| Key types | `PathFinder`, `Path` |
+| Main file | `pathfinder.go` |
+
+## Data transfer and messaging
+
+### `pkg/channel`
+
+Reliable message delivery over a link.
+
+| Item | Detail |
+|------|--------|
+| Key types | `Channel`, `Envelope` |
+| Main files | `channel.go`, `constants.go` |
+
+### `pkg/buffer`
+
+Stream buffer over channel with bzip2 compression.
+
+| Item | Detail |
+|------|--------|
+| Key types | `Buffer` |
+| Main files | `buffer.go`, `constants.go` |
+
+### `pkg/resource`
+
+Multi-part file transfer, hashmaps, RESOURCE_PRF, bzip2.
+
+| Item | Detail |
+|------|--------|
+| Key types | `Resource`, `Advertisement` |
+| Main files | `resource.go`, `advertisement.go`, `bzip2_compress.go` |
+
+## Network interfaces
+
+### `pkg/interfaces`
+
+All interface implementations and factory.
+
+| Item | Detail |
+|------|--------|
+| Key types | `Interface`, `BaseInterface` |
+| Factory | `NewFromConfigWithContext` in `fromconfig.go` |
+| Reconnect | `reconnect.go` |
+| Lifecycle | `lifecycle.go` (Enable, Disable, Detach) |
+
+See [Interfaces](interfaces.md).
+
+### `pkg/ifac`
+
+Interface Access Code mask and unmask.
+
+| Item | Detail |
+|------|--------|
+| Key types | `Identity` (IFAC identity) |
+| Main file | `ifac.go` |
+
+### `pkg/i2p`
+
+I2P SAM client, destinations, tunnels.
+
+| Item | Detail |
+|------|--------|
+| Key types | `Controller`, `Destination`, `Tunnel` |
+| Main files | `sam.go`, `controller.go`, `destination.go`, `tunnel.go` |
+
+### `pkg/backbone`
+
+Multiplexed I/O hub for backbone TCP.
+
+| Item | Detail |
+|------|--------|
+| Key types | `Hub`, `Backend` |
+| Backends | auto, epoll, kqueue, io_uring, go |
+| Main files | `backbone.go`, `hub.go`, platform pollers |
+
+## Node orchestration and embedding
+
+### `pkg/node`
+
+Embedder API: transport plus interfaces plus lifecycle.
+
+| Item | Detail |
+|------|--------|
+| Key types | `Node`, `PauseMode`, `LinkReconnectOptions` |
+| Lifecycle | `OnNetworkAvailable`, `OnNetworkLost`, `RefreshPaths`, `ReloadInterfaces` |
+| Main files | `node.go`, `lifecycle.go`, `reload.go`, `wiring.go`, `netmon.go` |
+
+### `pkg/sharedinstance`
+
+Python `share_instance` equivalent.
+
+| Item | Detail |
+|------|--------|
+| Key types | `Instance`, `Hooks` |
+| Entry | `Attach(cfg, tr, hooks)` |
+| Main files | `instance.go`, `rpc.go`, `mpconn.go` |
+
+### `pkg/wasm`
+
+JavaScript bridge for browser builds (`//go:build js && wasm`).
+
+| Item | Detail |
+|------|--------|
+| Entry | `RegisterJSFunctions` |
+| Main files | `wasm.go`, `lifecycle.go` |
+
+### `pkg/controlapi`
+
+Localhost JSON and WebSocket control plane.
+
+| Item | Detail |
+|------|--------|
+| Key types | `Server` |
+| Main files | `server.go`, `session.go`, `protocol.go`, `ws.go` |
+
+See [Control API](control-api.md).
+
+## Discovery and policy
+
+### `pkg/discovery`
+
+rnstransport wire constants, LXStamper, msgpack layouts.
+
+| Item | Detail |
+|------|--------|
+| Key types | `InterfaceDiscovery` |
+| Main files | `discovery.go`, `interface_discovery.go` |
+
+### `pkg/blackhole`
+
+Blackhole table semantics, merge, announce filtering.
+
+| Item | Detail |
+|------|--------|
+| Key types | `Table`, `Entry` |
+| Main file | `blackhole.go` |
+
+### `pkg/rate`
+
+Token-bucket limiter, ingress and egress announce controls.
+
+| Item | Detail |
+|------|--------|
+| Key types | `Limiter`, `IngressControl` |
+| Main file | `rate.go` |
+
+## Configuration and shared types
+
+### `pkg/reticulumconfig`
+
+Canonical INI parser and writer.
+
+| Item | Detail |
+|------|--------|
+| Functions | `LoadConfig`, `SaveConfig`, `DefaultConfig`, `InitConfig`, `GetConfigPath` |
+| Main file | `config.go` |
+
+### `pkg/common`
+
+Shared config structs, path types, IFAC helpers, persistence utilities.
+
+| Item | Detail |
+|------|--------|
+| Key types | `ReticulumConfig`, `InterfaceConfig`, `Path` |
+| Main files | `types.go`, `config.go`, `interfaces.go`, `persistence.go` |
+
+### `pkg/config` (legacy)
+
+Older standalone config struct. New code should use `pkg/reticulumconfig`.
+
+## Security and operations
+
+### `pkg/sandbox`
+
+Post-startup OS restrictions.
+
+| Item | Detail |
+|------|--------|
+| Entry | `Apply(cfg)` |
+| Main files | `sandbox.go`, platform-specific files |
+
+### `pkg/debug`
+
+Structured logging with debug levels 1 through 7.
+
+| Item | Detail |
+|------|--------|
+| Functions | `Init`, `Log`, `SetDebugLevel` |
+| Main file | `debug.go` |
+
+## Utilities
+
+### `pkg/resolver`
+
+Deterministic identity resolution from a full name string (SHA-256).
+
+| Item | Detail |
+|------|--------|
+| Key type | `Resolver` |
+| Main file | `resolver.go` |
+
+## Internal packages (not stable for importers)
+
+### `internal/config`
+
+Re-exports `pkg/reticulumconfig` for the daemon.
+
+### `internal/storage`
+
+Filesystem persistence under `~/.reticulum-go/storage/`.
+
+| Item | Detail |
+|------|--------|
+| Key type | `Manager` |
+| Main files | `manager.go`, `atomic.go` |
+
+## Command binaries
+
+| Path | Binary | Role |
+|------|--------|------|
+| `cmd/reticulum-go` | `reticulum-go` | Daemon |
+| `cmd/reticulum-wasm` | WASM module | Browser entry |
+
+## Suggested import paths for applications
+
+| Task | Packages |
+|------|----------|
+| Embed full node | `pkg/node`, `pkg/reticulumconfig`, `pkg/destination`, `pkg/identity` |
+| Low-level transport only | `pkg/transport`, `pkg/interfaces`, `pkg/packet` |
+| Crypto only | `pkg/cryptography`, `pkg/identity` |
+| Browser | `pkg/wasm` (compiled), WebSocket interface |
+
+Do not import `internal/` from outside this module.

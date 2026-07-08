@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package transport
 
@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/destination"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/destination"
+	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/packet"
 )
 
 func sentCount(ti *trackingIface) int {
@@ -18,7 +18,8 @@ func sentCount(ti *trackingIface) int {
 	return len(ti.sent)
 }
 
-// signedAnnounce builds a valid announce; dest name must be
+// signedAnnounce builds a valid announce. Dest name must be
+
 // "reticulum-go.node" to match NewAnnouncePacket name hashing.
 func signedAnnounce(t *testing.T, tr *Transport, id *identity.Identity) (raw, destHash []byte) {
 	t.Helper()
@@ -84,7 +85,7 @@ func TestIngressControlHoldsAnnounceFlood(t *testing.T) {
 		t.Fatal("missing in iface")
 	}
 
-	for i := 0; i < 12; i++ {
+	for range 12 {
 		id, err := identity.New()
 		if err != nil {
 			t.Fatalf("identity.New: %v", err)
@@ -142,7 +143,7 @@ func TestEgressAnnounceRateControlSuppressesRebroadcast(t *testing.T) {
 		t.Fatalf("identity.New: %v", err)
 	}
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		raw, _ := signedAnnounce(t, tr, id)
 		tr.HandlePacket(raw, in)
 		time.Sleep(50 * time.Millisecond)

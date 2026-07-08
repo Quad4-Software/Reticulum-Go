@@ -1,16 +1,23 @@
-module example-pageserver
+module quad4/reticulum-go/examples/pageserver
 
-go 1.26.2
-
-replace git.quad4.io/Networks/Reticulum-Go => ../..
+go 1.26.4
 
 require (
-	git.quad4.io/Go-Libs/msgpack/v5 v5.6.1
-	git.quad4.io/Networks/Reticulum-Go v0.9.0
+	quad4/msgpack/v5 v5.8.0
+	quad4/reticulum-go v0.0.0
 )
 
 require (
-	git.quad4.io/Go-Libs/bzip2 v1.0.0 // indirect
-	git.quad4.io/Go-Libs/tagparser/v2 v2.1.0 // indirect
-	golang.org/x/crypto v0.50.0 // indirect
+	golang.org/x/crypto v0.52.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
+	quad4/bzip2 v0.0.0 // indirect
+	quad4/tagparser v0.0.0 // indirect
+)
+
+replace (
+	quad4/bzip2 => ../../../../Reticulum-Go-Projects/bzip2
+	quad4/msgpack/v5 => ../../../../Reticulum-Go-Projects/msgpack
+	quad4/pbt => ../../../../Reticulum-Go-Projects/pbt
+	quad4/reticulum-go => ../..
+	quad4/tagparser => ../../../../Reticulum-Go-Projects/tagparser
 )

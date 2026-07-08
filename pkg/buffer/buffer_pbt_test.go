@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package buffer
 
@@ -7,7 +7,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"git.quad4.io/Go-Libs/pbt/pkg/pbt"
+	"quad4/pbt/pkg/pbt"
 )
 
 func genStreamDataMessage(r *rand.Rand, size int) StreamDataMessage {

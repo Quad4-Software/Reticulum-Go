@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package link
 
@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/destination"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/destination"
+	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/transport"
 )
 
 // PipeInterface simulates a direct connection between two nodes
@@ -21,6 +21,12 @@ type PipeInterface struct {
 	peer   *PipeInterface
 	tr     *transport.Transport
 	online bool
+
+	// dropOnce, if set, is consulted for every outbound packet. Returning
+
+	// true drops that packet instead of delivering it. Used by tests that
+	// simulate packet loss on a lossy mesh path.
+	dropOnce func(data []byte) bool
 }
 
 func NewPipeInterface(name string) *PipeInterface {
@@ -37,6 +43,9 @@ func NewPipeInterface(name string) *PipeInterface {
 
 func (p *PipeInterface) Send(data []byte, address string) error {
 	if !p.online || p.peer == nil || !p.peer.online {
+		return nil
+	}
+	if p.dropOnce != nil && p.dropOnce(data) {
 		return nil
 	}
 	// Deliver to peer's transport
@@ -56,6 +65,7 @@ func (p *PipeInterface) Stop() error     { return nil }
 func (p *PipeInterface) Detach()         {}
 
 func TestNodeInterop(t *testing.T) {
+	skipHeavyLinkTestsIfShort(t)
 	// Create Node A
 	cfgA := &common.ReticulumConfig{}
 	trA := transport.NewTransport(cfgA)
@@ -262,6 +272,7 @@ func TestNodeInterop(t *testing.T) {
 }
 
 func TestLinkRequestResponseInterop(t *testing.T) {
+	skipHeavyLinkTestsIfShort(t)
 	// Create Nodes
 	cfgA := &common.ReticulumConfig{}
 	trA := transport.NewTransport(cfgA)

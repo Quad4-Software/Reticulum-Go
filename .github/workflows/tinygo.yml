@@ -1,0 +1,81 @@
+# Pinned first-party actions (bump tag and SHA together when upgrading):
+#   actions/checkout@v6.0.1            8e8c483db84b4bee98b60c0593521ed34d9990e8
+#   actions/upload-artifact@v5.0.0     330a01c490aca151604b8cf639adc76d48f6c5d4
+#
+name: TinyGo Build
+
+on:
+  push:
+    branches: [tinygo]
+  pull_request:
+    branches: [tinygo]
+
+concurrency:
+  group: tinygo-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  CI_GO_VERSION: "1.26.5"
+  CI_TASK_VERSION: "3.46.3"
+  CI_TINYGO_VERSION: "0.41.1"
+  TINYGO_DEB_SHA256: "901fbccffc61adb111656d1f907dfc21b6c499ca841b115866a0d6de2d835fbe"
+  GOFLAGS: -mod=vendor
+  GOPROXY: "off"
+  GOTOOLCHAIN: local
+
+jobs:
+  tinygo-build:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: tinygo-default
+            task: tinygo-build
+            output: reticulum-go-tinygo
+          - name: tinygo-wasm
+            task: tinygo-wasm
+            output: reticulum-go.wasm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Apt update (for TinyGo .deb)
+        run: sh scripts/ci/exec-priv.sh apt-get update -qq
+
+      - name: Install TinyGo
+        run: sh scripts/ci/setup-tinygo.sh "${{ env.CI_TINYGO_VERSION }}"
+
+      - name: Build with TinyGo
+        run: |
+          set -euo pipefail
+          task "${{ matrix.task }}"
+          output_name="${{ matrix.output }}"
+          if [ -f "bin/${output_name}" ]; then
+            sha256sum "bin/${output_name}" | cut -d' ' -f1 > "bin/${output_name}.sha256"
+            echo "Built: ${output_name}"
+          else
+            echo "Build output not found: bin/${output_name}" >&2
+            ls -la bin/
+            exit 1
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.name }}
+          path: bin/${{ matrix.output }}*
+          if-no-files-found: error

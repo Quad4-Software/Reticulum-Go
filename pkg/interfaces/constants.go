@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package interfaces
 
@@ -49,18 +49,21 @@ const (
 	I2PProbesCount      = 5
 
 	SOKeepaliveEnable = 1
+
+	SerialDefaultBaud = 115200
 )
 
 const (
-	HWMTU                = 1196
-	DefaultDiscoveryPort = 29716
-	DefaultDataPort      = 42671
-	DefaultGroupID       = "reticulum"
-	BitrateGuess         = 10 * 1000 * 1000
-	PeeringTimeout       = 22 * time.Second
-	AnnounceInterval     = 1600 * time.Millisecond
-	PeerJobInterval      = 4 * time.Second
-	McastEchoTimeout     = 6500 * time.Millisecond
+	HWMTU                    = 1196
+	DefaultDiscoveryPort     = 29716
+	DefaultDataPort          = 42671
+	DefaultGroupID           = "reticulum"
+	BitrateGuess             = 10 * 1000 * 1000
+	PeeringTimeout           = 22 * time.Second
+	AndroidTimeoutMultiplier = 3
+	AnnounceInterval         = 1600 * time.Millisecond
+	PeerJobInterval          = 4 * time.Second
+	McastEchoTimeout         = 6500 * time.Millisecond
 
 	ScopeLink         = "2"
 	ScopeAdmin        = "4"

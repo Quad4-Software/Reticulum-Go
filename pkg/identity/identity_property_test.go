@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package identity
 
@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"testing"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
+	"quad4/reticulum-go/pkg/cryptography"
 )
 
 func FuzzIdentitySignVerify(f *testing.F) {

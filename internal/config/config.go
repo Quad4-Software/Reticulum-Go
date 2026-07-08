@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
 package config
 
 import (
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/reticulumconfig"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/reticulumconfig"
 )
 
 const (

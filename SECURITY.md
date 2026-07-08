@@ -1,83 +1,77 @@
-# Security Policy
+# Security policy
 
-## Supply Chain Security
+This document explains how we think about security for Reticulum-Go, how to report problems, and supply-chain and CI practices. For cryptography primitives, key formats, and protocol-aligned behavior, see [docs/en/cryptography.md](docs/en/cryptography.md). Full English docs: [docs/en/](docs/en/README.md).
 
-- CI is mostly shell-driven because that improves auditability (install and test steps are plain shell you can review and diff in PRs), control (no opaque marketplace-action behavior), updates (bump a pinned version in workflow `env` or adjust a script), and security (explicit tool installs and a smaller dependency surface than long action chains).
-- In practice, workflows under `.gitea/workflows/` call `scripts/ci/*.sh` installers (Go, Task, Node, cosign, gosec, govulncheck, Trivy, revive, Python venv, TinyGo, etc.) with pinned versions set in workflow `env`, then run `task` or `go` commands. Repository checkout uses inline `git` shallow-fetch steps (Gitea/GitHub-compatible env), not a third-party checkout action; `scripts/ci/checkout.sh` is available for local or `act` runs. A few steps still use forked actions from https://git.quad4.io/actions (for example artifact upload/download and the Gitea release step in `publish.yml`); those are pinned to a full commit hash, not a moving tag.
-- BOM generation using CycloneDX (see `task sbom` and `.gitea/workflows/sbom.yml`)
-- Release provenance (SHA256 sidecars, optional SLSA v1 with cosign) is described under [Release provenance](#release-provenance) below.
-- Reproducibility is checked in CI (`task reproducibility`, `.gitea/workflows/reproducibility.yml`).
+## Reporting a vulnerability
+
+If you believe you have found a security issue, please tell us privately first so we can investigate before wider disclosure.
+
+**How to reach us**
+
+- Reticulum LXMF: `f489752fbef161c64d65e385a4e9fc74`
+- Email: `security@quad4.io`
+
+Include enough detail to reproduce or understand the issue (what component, what you expected, what happened). We will treat reports seriously and work with you on a sensible timeline for fixes and public communication.
+
+## What we do in practice (overview)
+
+**Builds and automation.** Continuous integration runs tests and security-oriented checks on every change. We prefer clear, reviewable shell scripts over long chains of opaque third-party actions so that what runs in CI is easy to audit in pull requests.
+
+**Dependencies and scanning.** We run static analysis and vulnerability scanning on the codebase and dependencies (see [Static analysis](#static-analysis-sast) below).
+
+**Runtime sandbox.** The `reticulum-go` daemon applies OS-level restrictions after initialization to limit filesystem, privilege, and resource exposure if the process is compromised. See [Runtime sandbox](#runtime-sandbox).
+
+**Releases.** Tagged releases attach **cosign** provenance bundles (`*.cosign.bundle`) next to each asset, signed with a project key (public half in `cosign.pub`). Informal SHA256 digests are listed in the GitHub release notes as a backup only. Prefer cosign verification.
+
+**Supply chain.** CI and tagged-release publishing run on **GitHub Actions**, with workflow definitions in `.github/workflows/` on GitHub-hosted runners (moved from `.gitea/workflows/`). Release provenance uses **cosign** blob attestations (`scripts/ci/attest-release-assets.sh`) with a SLSA-style predicate (`scripts/ci/slsa-predicate.py`). Tool versions in CI are pinned where practical. GitHub's own actions are referenced by full commit SHA where applicable.
+
+The sections below spell out the same points with paths, tools, and verification steps for technical readers.
+
+## Supply chain and CI
+
+**In short.** All automation paths described here use `.github/workflows/` on GitHub Actions. Jobs call installers and helpers in `scripts/ci/*.sh` (Go, Task, Node, cosign, gosec, govulncheck, Trivy, revive, Python venv, TinyGo, and similar) using pinned versions declared in workflow `env` blocks, then run `task` or `go` as appropriate. That layout keeps install and test logic in ordinary shell that you can diff like any other project code.
+
+**Actions pinning.** GitHub-owned steps such as checkout, artifact upload/download, Node setup, and related actions are pinned to full commit SHAs in the YAML where this repository pins them (see the comment at the top of each workflow file).
+
+**Bill of materials.** SPDX and CycloneDX SBOMs are produced with Trivy (`task sbom`). Tagged releases attach them from `.github/workflows/publish.yml`. Ad-hoc SBOM generation is available via `workflow_dispatch` on `.github/workflows/security.yml`.
+
+**Reproducibility.** CI includes a reproducibility check (`task reproducibility`, `.github/workflows/ci.yml`).
 
 ### Release provenance
 
-Tagged releases are built and published from `.gitea/workflows/publish.yml`. CI always produces SHA256 checksum sidecars for release binaries. When the repository secret `COSIGN_PRIVATE_KEY` is set (PEM from `cosign generate-key-pair`, with `COSIGN_PASSWORD` if the key is encrypted), the same workflow also signs artifacts with cosign and attaches SLSA v1 provenance as bundle files (`*.cosign.bundle`) next to each binary.
+Tagged releases are built and published from `.github/workflows/publish.yml` on GitHub Actions. The `release` job runs only for `refs/tags/*` (not for ordinary branch pushes). The same workflow builds main binaries, **wasm** and **pageserver** examples, and SBOMs (SPDX and CycloneDX), uploads them as workflow artifacts, then runs **cosign** (`scripts/ci/setup-cosign.sh` and `scripts/ci/attest-release-assets.sh`) to emit one `*.cosign.bundle` per file. There are no separate `.sha256` sidecar files. A `sha256sum` listing is appended to the auto-generated release notes as an informal backup.
 
-The cosign public key is committed at the repository root as `cosign.pub`. Verification uses the private-infrastructure path (no Rekor transparency log), which matches self-hosted runners that do not publish to the public log.
-
-To verify a downloaded binary and its bundle with the `cosign` CLI:
-
-`sh scripts/ci/verify-release-attestation.sh path/to/reticulum-go-linux-amd64 path/to/reticulum-go-linux-amd64.cosign.bundle`
-
-Set `COSIGN_PUBLIC_KEY` if your copy of the public key is not named `cosign.pub` in the current directory.
-
-### Verifying Git commits (OpenPGP)
-
-Maintainer commits and tags may be signed with the following key. Fingerprint: `2DDE FF56 E5EB 629F 485E 31D9 7FD8 154D 9416 F101` (long form: `2DDEFF56E5EB629F485E31D97FD8154D9416F101`). User ID: `Ivan <ivan@quad4.io>`.
-
-Import the key (save the block below to a file and run `gpg --import`, or pipe it):
-
-```
------BEGIN PGP PUBLIC KEY BLOCK-----
-
-mDMEabUDFhYJKwYBBAHaRw8BAQdAM5T+cvQRuHbYXC1JVsw5QEsqhp5SuomeaYup
-HvsNC1u0FEl2YW4gPGl2YW5AcXVhZDQuaW8+iJYEExYKAD4WIQQt3v9W5etin0he
-Mdl/2BVNlBbxAQUCabUDFgIbAwUJAeEzgAULCQgHAgYVCgkICwIEFgIDAQIeAQIX
-gAAKCRB/2BVNlBbxAQzCAQCInNzdhLK8akBkDYwS3JRcwvHUR6B3w35cVTtdvB6O
-TAD/ZDO74TNn1ljyaOm0rO3nvmQwCl5S8L/eWoeGukz2gwm4OARptQMWEgorBgEE
-AZdVAQUBAQdAKGXyPhLMnDxQRRS84V0F3lGaSIGfKSymKtRXZfVtgEsDAQgHiH4E
-GBYKACYWIQQt3v9W5etin0heMdl/2BVNlBbxAQUCabUDFgIbDAUJAeEzgAAKCRB/
-2BVNlBbxAdgLAP96CEwW9eV7y4d4cs0329u7nXvJo75JBMhZPjmJ8C/yggEA7Bxm
-gOGRpVlvV8q/n8BhVZ2yAH+X1XjoLZAVaWenAAs=
-=XHma
------END PGP PUBLIC KEY BLOCK-----
-```
-
-After importing, confirm the fingerprint matches:
-
-`gpg --fingerprint 9416F101`
-
-Then verify signatures on the repository:
-
-`git log --show-signature`
-
-For a specific commit:
-
-`git verify-commit <commit-sha>`
-
-For a signed tag:
-
-`git verify-tag <tag-name>`
+**Verifying cosign bundles.** Use the committed public key `cosign.pub` and `sh scripts/ci/verify-release-attestation.sh PATH/TO/blob PATH/TO/blob.cosign.bundle`, or `cosign verify-blob-attestation` with the same key and bundle paths as in that script.
 
 ### Static analysis (SAST)
 
-CI runs Gosec (Go security linter), govulncheck (Go vulnerability database, reachable-code analysis for `go.mod` dependencies), and Trivy (filesystem and dependency vulnerability scanning) in `.gitea/workflows/scan.yml`. Gosec is installed with a pinned module version via `scripts/ci/setup-gosec.sh`. Govulncheck is installed with a pinned module version via `scripts/ci/setup-govulncheck.sh`. Trivy is not pulled from upstream GitHub Actions tags or release URLs in the workflow: the job downloads a pinned `.deb` from a repository we control (`TRIVY_DEB_URL` in that workflow), verifies it with `TRIVY_DEB_SHA256`, and installs it through `scripts/ci/setup-trivy.sh`. We bump that URL and hash manually when upgrading Trivy.
+CI runs **Gosec** (Go security linter), **govulncheck** (official Go vulnerability database with reachable-code analysis for `go.mod` dependencies), and **Trivy** (filesystem and dependency scanning) in `.github/workflows/security.yml`.
 
-That model exists because third-party distribution channels are an attractive supply-chain target. For example, in March 2026 attackers compromised the Trivy ecosystem by repointing most GitHub Action tags in `aquasecurity/trivy-action` and shipping trojanized Trivy binaries through official-looking release and registry paths, so workflows that resolved moving tags or unverified binaries could run malicious code in CI or on developer machines. Pinning a binary we host at an immutable commit URL with a recorded SHA256 avoids depending on those tag or release surfaces for our scans.
+- Gosec is installed via `scripts/ci/setup-gosec.sh` with a pinned module version.
+- Govulncheck is installed via `scripts/ci/setup-govulncheck.sh` with a pinned module version.
+- Trivy is not installed from moving GitHub Action tags or unverified release URLs in the workflow. The job downloads a pinned `.deb` from the official Aqua Security GitHub release (`scripts/ci/setup-trivy.sh`), checks it with a pinned SHA256, and installs the package. We bump the version and hash deliberately when upgrading Trivy.
 
-## Cryptography Dependencies
+**Why Trivy is pinned this way.** Third-party distribution channels are a common supply-chain risk. For example, in March 2026 attackers compromised parts of the Trivy ecosystem by repointing GitHub Action tags and distributing trojanized binaries through plausible official paths. Workflows that followed moving tags or unverified binaries could have run malicious code in CI or on developer machines. Hosting a known-good package at an immutable URL with a recorded SHA256 avoids depending on those surfaces for our scans.
 
-- golang.org/x/crypto `v0.49.0` for core cryptographic primitives
-  - hkdf
-  - curve25519
+## Runtime sandbox
 
-- go/crypto
-  - ed25519
-  - sha256
-  - rand
-  - aes
-  - cipher
-  - hmac
+The `reticulum-go` daemon (`cmd/reticulum-go`) calls `sandbox.Apply` from `pkg/sandbox` **after** config load, interface setup, and transport start so privileged initialization can complete first. Sandboxing is **enabled by default** (`enable_sandbox = yes` in the Reticulum config). Set `enable_sandbox = no` to skip it.
 
-## Reporting a Vulnerability
+Platform behavior (best-effort: failures are logged and the daemon may continue unless `panic_on_interface_err` applies to a fatal sandbox error on your platform):
 
-Please try to contact me over Reticulum LXMF: `7cc8d66b4f6a0e0e49d34af7f6077b5a` or email `security@quad4.io`.
+| OS | Mechanism | What it does |
+|----|-----------|--------------|
+| Linux | Landlock, `PR_SET_NO_NEW_PRIVS`, rlimits | Whitelists `~/.reticulum-go`, `/tmp`, DNS/TLS paths, and the config parent dir, drops caps and mounts a private namespace when running as root |
+| OpenBSD | `unveil`, `pledge` | Restricts visible paths and syscall classes to those needed by a network daemon |
+| FreeBSD | `cap_enter`, rlimits | Enters capability mode after setting conservative resource limits |
+| Darwin | rlimits | Caps memory, FDs, core dumps, stack, and process count |
+| Windows | Job object | Limits breakaway, active processes, and working set, disables mini-dumps |
+| Other / WASM | no-op | Logs that sandboxing is not supported on the platform |
+
+Landlock requires Linux kernel 5.13 or newer. On older kernels the Landlock step fails gracefully and other Linux restrictions still apply where possible.
+
+This is **defense in depth**, not a substitute for correct cryptography, interface configuration, or host hardening. It does not isolate the WASM build (`reticulum-wasm`), which runs under the browser or embedded runtime sandbox instead.
+
+## Cryptography
+
+Algorithms, key formats, identity encryption, IFAC, links, ratchets, operational handling, and verification pointers are documented in **[docs/en/cryptography.md](docs/en/cryptography.md)**. That file is the canonical cryptography reference for this repository. This `SECURITY.md` focuses on reporting, supply chain, and automation.

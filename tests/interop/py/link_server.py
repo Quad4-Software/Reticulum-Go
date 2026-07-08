@@ -59,7 +59,7 @@ def client_connected(link):
 
         def on_resource_concluded(resource):
             if resource.status != RNS.Resource.COMPLETE:
-                sys.stderr.write("resource not complete\n")
+                sys.stderr.write("resource not complete status=%s\n" % resource.status)
                 sys.stderr.flush()
                 return
             try:

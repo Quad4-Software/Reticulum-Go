@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package channel
 
@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/transport"
 )
 
 type scaleMockLink struct {
@@ -28,6 +28,7 @@ func (m *scaleMockLink) HandleInbound(pkt *packet.Packet) error                {
 func (m *scaleMockLink) ValidateLinkProof(pkt *packet.Packet, iface common.NetworkInterface) error {
 	return nil
 }
+func (m *scaleMockLink) LinkedNetworkInterface() common.NetworkInterface { return nil }
 
 func BenchmarkChannelScale(b *testing.B) {
 	sizes := []int{10, 100, 1000}
@@ -71,10 +72,18 @@ func BenchmarkChannelSendScale(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = ch.Send(msg)
 		if i%100 == 0 {
-			// Clear txRing to avoid infinite growth during benchmark
 			ch.mutex.Lock()
+			for _, env := range ch.txRing {
+				releaseEnvelope(env)
+			}
 			ch.txRing = nil
 			ch.mutex.Unlock()
 		}
 	}
+	ch.mutex.Lock()
+	for _, env := range ch.txRing {
+		releaseEnvelope(env)
+	}
+	ch.txRing = nil
+	ch.mutex.Unlock()
 }

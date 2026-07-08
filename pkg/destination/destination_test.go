@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024-2026 Quad4.io
+
 package destination
 
 import (
@@ -9,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/announce"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
+	"quad4/reticulum-go/pkg/announce"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/identity"
 )
 
 type mockTransport struct {
@@ -213,7 +216,7 @@ func TestAnnounceFanoutAndFreshness(t *testing.T) {
 
 	const announces = 4
 	before := time.Now().Unix()
-	for i := 0; i < announces; i++ {
+	for i := range announces {
 		if err := dest.Announce(false, nil, nil); err != nil {
 			t.Fatalf("Announce iter %d: %v", i, err)
 		}
@@ -258,7 +261,8 @@ func TestAnnounceFanoutAndFreshness(t *testing.T) {
 
 // TestAnnounceSkipsOfflineOrDisabledInterfaces ensures a periodic
 // announcer doesn't silently disappear from the network because
-// one interface has flapped offline; it must still emit on every
+// one interface has flapped offline. It must still emit on every
+
 // other healthy interface.
 func TestAnnounceSkipsOfflineOrDisabledInterfaces(t *testing.T) {
 	id, err := identity.New()
@@ -286,7 +290,7 @@ func TestAnnounceSkipsOfflineOrDisabledInterfaces(t *testing.T) {
 		t.Fatalf("New destination: %v", err)
 	}
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if err := dest.Announce(false, nil, nil); err != nil {
 			t.Fatalf("Announce iter %d: %v", i, err)
 		}

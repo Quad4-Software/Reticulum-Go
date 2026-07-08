@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024-2026 Quad4.io
+
 //go:build js && wasm
 // +build js,wasm
 
@@ -7,7 +10,7 @@ import (
 	"syscall/js"
 	"testing"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/wasm"
+	"quad4/reticulum-go/pkg/wasm"
 )
 
 func TestRegisterFunctions(t *testing.T) {

@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-// Live UDP loopback cross-stack interop; set RUN_LIVE_INTEROP=1.
+// Live UDP loopback cross-stack interop. Set RUN_LIVE_INTEROP=1.
 
 package interop
 
@@ -20,14 +20,14 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/destination"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/interfaces"
-	rlink "git.quad4.io/Networks/Reticulum-Go/pkg/link"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/resource"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/destination"
+	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/interfaces"
+	rlink "quad4/reticulum-go/pkg/link"
+	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/resource"
+	"quad4/reticulum-go/pkg/transport"
 )
 
 const (
@@ -532,7 +532,7 @@ func TestLiveInteropGoTwoResourcesToPythonSameLink(t *testing.T) {
 	lnk.Start()
 
 	payload := []byte("interop-resource-payload")
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		res, err := resource.New(payload, false)
 		if err != nil {
 			t.Fatalf("resource: %v", err)

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024-2026 Quad4.io
+
 package common
 
 import (
@@ -10,8 +13,8 @@ func TestNewReticulumConfig(t *testing.T) {
 	if !cfg.EnableTransport {
 		t.Errorf("NewReticulumConfig() EnableTransport = %v; want true", cfg.EnableTransport)
 	}
-	if cfg.ShareInstance {
-		t.Errorf("NewReticulumConfig() ShareInstance = %v; want false", cfg.ShareInstance)
+	if !cfg.ShareInstance {
+		t.Errorf("NewReticulumConfig() ShareInstance = %v; want true", cfg.ShareInstance)
 	}
 	if cfg.SharedInstancePort != DefaultSharedInstancePort {
 		t.Errorf("NewReticulumConfig() SharedInstancePort = %d; want %d", cfg.SharedInstancePort, DefaultSharedInstancePort)
@@ -36,8 +39,8 @@ func TestDefaultConfig(t *testing.T) {
 	if !cfg.EnableTransport {
 		t.Errorf("DefaultConfig() EnableTransport = %v; want true", cfg.EnableTransport)
 	}
-	if cfg.ShareInstance {
-		t.Errorf("DefaultConfig() ShareInstance = %v; want false", cfg.ShareInstance)
+	if !cfg.ShareInstance {
+		t.Errorf("DefaultConfig() ShareInstance = %v; want true", cfg.ShareInstance)
 	}
 	if cfg.SharedInstancePort != DefaultSharedInstancePort {
 		t.Errorf("DefaultConfig() SharedInstancePort = %d; want %d", cfg.SharedInstancePort, DefaultSharedInstancePort)

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package identity
 
@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/reticulumconfig"
+	"quad4/reticulum-go/internal/pathutil"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/cryptography"
+	"quad4/reticulum-go/pkg/debug"
 )
 
 // Ed25519Signer is re-exported for identity callers configuring HSM-backed signing.
@@ -25,7 +25,8 @@ type Ed25519Signer = cryptography.Ed25519Signer
 type Identity struct {
 	privateKey      []byte
 	publicKey       []byte
-	signingSeed     []byte // 32-byte Ed25519 seed; nil if externalSigner is set
+	signingSeed     []byte // 32-byte Ed25519 seed. Nil if externalSigner is set.
+	signingKey      ed25519.PrivateKey
 	verificationKey ed25519.PublicKey
 	externalSigner  cryptography.Ed25519Signer // if non-nil, Sign uses this instead of signingSeed
 	hash            []byte
@@ -69,6 +70,7 @@ func New() (*Identity, error) {
 	pubKeyEd := privKeyEd.Public().(ed25519.PublicKey)
 
 	i.signingSeed = ed25519Seed[:]
+	i.signingKey = privKeyEd
 	i.verificationKey = pubKeyEd
 
 	return i, nil
@@ -99,11 +101,10 @@ func (i *Identity) Sign(data []byte) ([]byte, error) {
 	if i.externalSigner != nil {
 		return i.externalSigner.Sign(data)
 	}
-	if len(i.signingSeed) != ed25519.SeedSize {
+	if len(i.signingKey) != ed25519.PrivateKeySize {
 		return nil, errors.New("identity has no signing key")
 	}
-	privKey := ed25519.NewKeyFromSeed(i.signingSeed)
-	return cryptography.Sign(privKey, data), nil
+	return cryptography.Sign(i.signingKey, data), nil
 }
 
 func (i *Identity) Verify(data []byte, signature []byte) bool {
@@ -179,17 +180,22 @@ func GetRandomHash() []byte {
 
 func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) {
 	hashStr := hex.EncodeToString(destHash)
+	packetCopy := append([]byte(nil), packet...)
+	destHashCopy := append([]byte(nil), destHash...)
+	publicKeyCopy := append([]byte(nil), publicKey...)
+	appDataCopy := append([]byte(nil), appData...)
 
 	// Store destination data as [packet, destHash, identity, appData]
-	id := FromPublicKey(publicKey)
+	id := FromPublicKey(publicKeyCopy)
 	knownDestinationsLock.Lock()
 	knownDestinations[hashStr] = []any{
-		packet,
-		destHash,
+		packetCopy,
+		destHashCopy,
 		id,
-		appData,
+		appDataCopy,
 	}
 	knownDestinationsLock.Unlock()
+	markKnownDestinationsDirty()
 }
 
 func ValidateAnnounce(packet []byte, destHash []byte, publicKey []byte, signature []byte, appData []byte) bool {
@@ -204,7 +210,9 @@ func ValidateAnnounce(packet []byte, destHash []byte, publicKey []byte, signatur
 	}
 
 	// Verify signature
-	signedData := append(destHash, publicKey...)
+	signedData := make([]byte, 0, len(destHash)+len(publicKey)+len(appData))
+	signedData = append(signedData, destHash...)
+	signedData = append(signedData, publicKey...)
 	signedData = append(signedData, appData...)
 
 	if !announced.Verify(signedData, signature) {
@@ -498,7 +506,8 @@ func (i *Identity) ToFile(path string) error {
 	copy(privateKeyBytes[32:], i.signingSeed)
 
 	// Write raw bytes to file
-	// #nosec G304 G703 -- path is caller-chosen identity storage; not derived from network input here
+	// #nosec G304 G703 -- path is caller-chosen identity storage. Not derived from network input here
+
 	file, err := os.Create(path)
 	if err != nil {
 		debug.Log(debug.DebugCritical, "Failed to create identity file", "error", err)
@@ -519,7 +528,8 @@ func FromFile(path string) (*Identity, error) {
 	debug.Log(debug.DebugAll, "Loading identity from file", "path", path)
 
 	// Read the private key bytes from file
-	// #nosec G304 G703 -- path is caller-chosen identity storage; not derived from network input here
+	// #nosec G304 G703 -- path is caller-chosen identity storage. Not derived from network input here
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read identity file: %w", err)
@@ -556,10 +566,11 @@ func LoadOrCreateTransportIdentity(customPath string) (*Identity, error) {
 	}
 
 	if storagePath == "" {
-		storagePath = fmt.Sprintf("%s/.reticulum/storage", reticulumconfig.ConfigHomeDir())
+		storagePath = fmt.Sprintf("%s/.reticulum/storage", pathutil.ConfigHomeDir())
 	}
 
-	// #nosec G703 -- storage path from RETICULUM_STORAGE_PATH or ~/.reticulum/storage; operator-controlled, not remote taint
+	// #nosec G703 -- storage path from RETICULUM_STORAGE_PATH or ~/.reticulum/storage. Operator-controlled, not remote taint
+
 	if err := os.MkdirAll(storagePath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create storage directory: %w", err)
 	}
@@ -605,6 +616,7 @@ func (i *Identity) loadPrivateKey(privateKey, signingSeed []byte) error {
 	}
 
 	signingKey := ed25519.NewKeyFromSeed(i.signingSeed)
+	i.signingKey = signingKey
 	i.verificationKey = signingKey.Public().(ed25519.PublicKey)
 
 	publicKeyBytes := make([]byte, 0, len(i.publicKey)+len(i.verificationKey))
@@ -655,6 +667,7 @@ func RecallIdentity(path string) (*Identity, error) {
 		privateKey:      x25519PrivKey,
 		publicKey:       x25519PubKey,
 		signingSeed:     ed25519Seed,
+		signingKey:      ed25519PrivKey,
 		verificationKey: ed25519PubKey,
 		ratchets:        make(map[string][]byte),
 		ratchetExpiry:   make(map[string]int64),
@@ -680,7 +693,12 @@ func HashFromString(hash string) ([]byte, error) {
 }
 
 func (i *Identity) GetSalt() []byte {
-	return i.hash
+	if i.hash == nil {
+		return nil
+	}
+	out := make([]byte, len(i.hash))
+	copy(out, i.hash)
+	return out
 }
 
 func (i *Identity) GetContext() []byte {
@@ -697,7 +715,14 @@ func GetKnownDestination(hash string) ([]any, bool) {
 	data, exists := knownDestinations[hash]
 	knownDestinationsLock.RUnlock()
 	if exists {
-		return data, true
+		copied := make([]any, len(data))
+		copy(copied, data)
+		for i := range copied {
+			if b, ok := copied[i].([]byte); ok {
+				copied[i] = append([]byte(nil), b...)
+			}
+		}
+		return copied, true
 	}
 	return nil, false
 }
@@ -714,14 +739,17 @@ func (i *Identity) GetRatchetKey(id string) ([]byte, bool) {
 	defer ratchetPersistLock.Unlock()
 
 	key, exists := knownRatchets[id]
-	return key, exists
+	if !exists {
+		return nil, false
+	}
+	return append([]byte(nil), key...), true
 }
 
 func (i *Identity) SetRatchetKey(id string, key []byte) {
 	ratchetPersistLock.Lock()
 	defer ratchetPersistLock.Unlock()
 
-	knownRatchets[id] = key
+	knownRatchets[id] = append([]byte(nil), key...)
 }
 
 // NewIdentity creates a new Identity instance with fresh keys
@@ -751,6 +779,7 @@ func NewIdentity() (*Identity, error) {
 		privateKey:      encPrivKey[:],
 		publicKey:       encPubKey,
 		signingSeed:     ed25519Seed[:],
+		signingKey:      privKey,
 		verificationKey: pubKey,
 		ratchets:        make(map[string][]byte),
 		ratchetExpiry:   make(map[string]int64),

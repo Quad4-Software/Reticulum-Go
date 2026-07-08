@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package transport
 
@@ -9,11 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/packet"
 )
 
 func BenchmarkSeenAnnouncesScale(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	sizes := []int{1000, 10000, 100000, 1000000}
 
 	for _, size := range sizes {
@@ -42,6 +43,7 @@ func BenchmarkSeenAnnouncesScale(b *testing.B) {
 }
 
 func BenchmarkReceiptRegistryScale(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	sizes := []int{1000, 10000, 100000}
 
 	for _, size := range sizes {

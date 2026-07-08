@@ -1,10 +1,11 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
 package reticulumconfig
 
 import (
 	"bufio"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -13,7 +14,9 @@ import (
 	"strconv"
 	"strings"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"quad4/reticulum-go/internal/pathutil"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/ifac"
 )
 
 // Default values used when a fresh configuration is created or fields are
@@ -21,6 +24,8 @@ import (
 const (
 	DefaultSharedInstancePort  = 37428
 	DefaultInstanceControlPort = 37429
+	DefaultControlAPIPort      = 37430
+	DefaultControlAPIHost      = "127.0.0.1"
 	DefaultLogLevel            = 4
 	DefaultConfigDirName       = ".reticulum-go"
 	DefaultConfigFileName      = "config"
@@ -53,54 +58,28 @@ func DefaultConfig() *common.ReticulumConfig {
 		PanicOnInterfaceErr: false,
 		LogLevel:            DefaultLogLevel,
 		Interfaces:          make(map[string]*common.InterfaceConfig),
+		EnableSandbox:       true,
+		ControlAPIHost:      DefaultControlAPIHost,
+		ControlAPIPort:      DefaultControlAPIPort,
 	}
-}
-
-// usableConfigRoot rejects "/" so we do not create /.reticulum-go on WASI,
-// where UserHomeDir or Getwd may return "/" inside the sandbox.
-func usableConfigRoot(s string) bool {
-	return s != "" && s != "/"
-}
-
-// configHomeDir returns a base directory for Reticulum config (normally the
-// user home). WASI and some test environments do not define a home directory;
-// we fall back to $HOME, $XDG_CONFIG_HOME, the working directory, then /tmp.
-func configHomeDir() string {
-	if home, err := os.UserHomeDir(); err == nil && usableConfigRoot(home) {
-		return home
-	}
-	if h := os.Getenv("HOME"); usableConfigRoot(h) {
-		return h
-	}
-	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		return xdg
-	}
-	if wd, err := os.Getwd(); err == nil && usableConfigRoot(wd) {
-		return wd
-	}
-	// WASI: / may be the only "cwd", /tmp may not exist in the guest; a
-	// relative .reticulum-go next to the mapped working directory works with
-	// `wasmtime run` without extra --dir flags.
-	return "."
 }
 
 // ConfigHomeDir returns the parent directory of the ".reticulum-go" config
-// folder (same rules as configHomeDir). Other packages use this for storage
-// paths so they match InitConfig on WASI and bare-metal smoke builds.
+// folder. Other packages use this for storage paths on WASI and embedded builds.
 func ConfigHomeDir() string {
-	return configHomeDir()
+	return pathutil.ConfigHomeDir()
 }
 
 // GetConfigPath returns ~/.reticulum-go/config.
 func GetConfigPath() (string, error) {
-	homeDir := configHomeDir()
+	homeDir := pathutil.ConfigHomeDir()
 	return filepath.Join(homeDir, DefaultConfigDirName, DefaultConfigFileName), nil
 }
 
 // EnsureConfigDir creates ~/.reticulum-go with restrictive permissions if it
 // does not already exist.
 func EnsureConfigDir() error {
-	homeDir := configHomeDir()
+	homeDir := pathutil.ConfigHomeDir()
 	return os.MkdirAll(filepath.Join(homeDir, DefaultConfigDirName), 0o700) // #nosec G301
 }
 
@@ -152,7 +131,8 @@ func sectionHeader(line string) (depth int, name string, ok bool) {
 	return depth, name, true
 }
 
-// stripInlineComment removes a trailing "# comment" or "; comment" tail from a
+// stripInlineComment removes a trailing "# comment" or ". Comment" tail from a
+
 // value, requiring whitespace before the marker so URLs and hashes stay intact.
 func stripInlineComment(value string) string {
 	for i := 1; i < len(value); i++ {
@@ -173,7 +153,8 @@ func stripBOM(s string) string {
 }
 
 // classifySection assigns a kind to a header. Depth >= 2 is always an
-// interface entry; depth 1 must match a reserved name.
+// interface entry. Depth 1 must match a reserved name.
+
 func classifySection(name string, depth int) string {
 	if depth >= 2 {
 		return sectionInterface
@@ -283,10 +264,39 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		setInt(value, &cfg.SharedInstancePort)
 	case "instance_control_port":
 		setInt(value, &cfg.InstanceControlPort)
+	case "shared_instance_type":
+		v := strings.ToLower(strings.TrimSpace(value))
+		if v == common.SharedInstanceTCP || v == common.SharedInstanceUnix {
+			cfg.SharedInstanceType = v
+		}
+	case "instance_name":
+		cfg.InstanceName = value
+	case "rpc_key":
+		if b, err := decodeRPCKey(value); err == nil {
+			cfg.RPCKey = b
+		}
 	case "panic_on_interface_error":
 		cfg.PanicOnInterfaceErr = parseBool(value)
 	case "loglevel":
 		setInt(value, &cfg.LogLevel)
+	case "enable_sandbox":
+		cfg.EnableSandbox = parseBool(value)
+	case "enable_control_api":
+		cfg.EnableControlAPI = parseBool(value)
+	case "control_api_host":
+		cfg.ControlAPIHost = value
+	case "control_api_port":
+		setInt(value, &cfg.ControlAPIPort)
+	case "in_memory_path_table":
+		cfg.InMemoryPathTable = parseBool(value)
+	case "in_memory_known_destinations":
+		cfg.InMemoryKnownDestinations = parseBool(value)
+	case "discover_interfaces":
+		cfg.DiscoverInterfaces = parseBool(value)
+	case "watch_interfaces":
+		cfg.WatchInterfaces = parseBool(value)
+	case "backbone_io", "io_backend":
+		cfg.BackboneIO = strings.TrimSpace(value)
 	}
 }
 
@@ -311,6 +321,10 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		setInt(value, &iface.Port)
 	case "target_host":
 		iface.TargetHost = value
+	case "remote":
+		if strings.TrimSpace(iface.TargetHost) == "" {
+			iface.TargetHost = value
+		}
 	case "target_port":
 		setInt(value, &iface.TargetPort)
 	case "target_address":
@@ -321,6 +335,12 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		iface.KISSFraming = parseBool(value)
 	case "i2p_tunneled":
 		iface.I2PTunneled = parseBool(value)
+	case "peers":
+		iface.I2PPeers = parseStringList(value)
+	case "connectable":
+		iface.I2PConnectable = parseBool(value)
+	case "sam_address":
+		iface.I2PSAMAddress = value
 	case "prefer_ipv6":
 		iface.PreferIPv6 = parseBool(value)
 	case "max_reconnect_tries":
@@ -339,6 +359,10 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		iface.GroupID = value
 	case "multicast_address_type":
 		iface.MulticastAddrType = value
+	case "devices":
+		iface.Devices = parseStringList(value)
+	case "ignored_devices":
+		iface.IgnoredDevices = parseStringList(value)
 	case "announce_cap":
 		setFloat(value, &iface.AnnounceCap)
 	case "announce_rate_target":
@@ -374,6 +398,26 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		setUint8(value, &iface.CR)
 	case "tx_power":
 		setUint8(value, &iface.TXPower)
+	case "network_name", "networkname":
+		iface.NetworkName = value
+	case "passphrase", "pass_phrase":
+		iface.Passphrase = value
+	case "ifac_netname":
+		iface.IFACNetname = value
+	case "ifac_netkey":
+		iface.IFACNetkey = value
+	case "ifac_size":
+		setIFACSize(value, &iface.IFACSize)
+	case "publish_ifac":
+		iface.PublishIFAC = parseBool(value)
+	case "command":
+		iface.Command = value
+	case "respawn_delay", "respawn_interval":
+		setInt(value, &iface.RespawnDelay)
+	case "shared_instance_type":
+		iface.SharedInstanceType = strings.ToLower(strings.TrimSpace(value))
+	case "instance_name":
+		iface.InstanceName = value
 	}
 }
 
@@ -410,6 +454,34 @@ func setUint8(value string, dst *uint8) {
 	}
 }
 
+func parseStringList(value string) []string {
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func setIFACSize(value string, dst *int) {
+	v, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || v < ifac.MinSize*8 {
+		return
+	}
+	*dst = v / 8
+}
+
+func decodeRPCKey(value string) ([]byte, error) {
+	s := strings.TrimSpace(value)
+	if s == "" {
+		return nil, errors.New("empty rpc_key")
+	}
+	return hex.DecodeString(s)
+}
+
 // SaveConfig writes cfg to cfg.ConfigPath using the nested [reticulum] /
 // [logging] / [interfaces] layout that LoadConfig understands.
 func SaveConfig(cfg *common.ReticulumConfig) error {
@@ -428,7 +500,19 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	fmt.Fprintf(&b, "  share_instance = %s\n", boolStr(cfg.ShareInstance))
 	fmt.Fprintf(&b, "  shared_instance_port = %d\n", cfg.SharedInstancePort)
 	fmt.Fprintf(&b, "  instance_control_port = %d\n", cfg.InstanceControlPort)
-	fmt.Fprintf(&b, "  panic_on_interface_error = %s\n\n", boolStr(cfg.PanicOnInterfaceErr))
+	fmt.Fprintf(&b, "  panic_on_interface_error = %s\n", boolStr(cfg.PanicOnInterfaceErr))
+	fmt.Fprintf(&b, "  enable_sandbox = %s\n", boolStr(cfg.EnableSandbox))
+	fmt.Fprintf(&b, "  enable_control_api = %s\n", boolStr(cfg.EnableControlAPI))
+	fmt.Fprintf(&b, "  control_api_host = %s\n", controlAPIHostOrDefault(cfg.ControlAPIHost))
+	fmt.Fprintf(&b, "  control_api_port = %d\n", controlAPIPortOrDefault(cfg.ControlAPIPort))
+	fmt.Fprintf(&b, "  in_memory_path_table = %s\n", boolStr(cfg.InMemoryPathTable))
+	fmt.Fprintf(&b, "  in_memory_known_destinations = %s\n", boolStr(cfg.InMemoryKnownDestinations))
+	fmt.Fprintf(&b, "  discover_interfaces = %s\n", boolStr(cfg.DiscoverInterfaces))
+	fmt.Fprintf(&b, "  watch_interfaces = %s\n", boolStr(cfg.WatchInterfaces))
+	if cfg.BackboneIO != "" {
+		fmt.Fprintf(&b, "  backbone_io = %s\n", cfg.BackboneIO)
+	}
+	fmt.Fprintln(&b)
 
 	b.WriteString("[logging]\n")
 	fmt.Fprintf(&b, "  loglevel = %d\n\n", cfg.LogLevel)
@@ -480,6 +564,15 @@ func writeInterface(b *strings.Builder, name string, iface *common.InterfaceConf
 	if iface.I2PTunneled {
 		fmt.Fprintf(b, "    i2p_tunneled = %s\n", boolStr(iface.I2PTunneled))
 	}
+	if iface.I2PConnectable {
+		fmt.Fprintf(b, "    connectable = %s\n", boolStr(iface.I2PConnectable))
+	}
+	if iface.I2PSAMAddress != "" {
+		fmt.Fprintf(b, "    sam_address = %s\n", iface.I2PSAMAddress)
+	}
+	if len(iface.I2PPeers) > 0 {
+		fmt.Fprintf(b, "    peers = %s\n", strings.Join(iface.I2PPeers, ", "))
+	}
 	if iface.PreferIPv6 {
 		fmt.Fprintf(b, "    prefer_ipv6 = %s\n", boolStr(iface.PreferIPv6))
 	}
@@ -506,6 +599,12 @@ func writeInterface(b *strings.Builder, name string, iface *common.InterfaceConf
 	}
 	if iface.MulticastAddrType != "" {
 		fmt.Fprintf(b, "    multicast_address_type = %s\n", iface.MulticastAddrType)
+	}
+	if len(iface.Devices) > 0 {
+		fmt.Fprintf(b, "    devices = %s\n", strings.Join(iface.Devices, ", "))
+	}
+	if len(iface.IgnoredDevices) > 0 {
+		fmt.Fprintf(b, "    ignored_devices = %s\n", strings.Join(iface.IgnoredDevices, ", "))
 	}
 	if iface.AnnounceCap != 0 {
 		fmt.Fprintf(b, "    announce_cap = %g\n", iface.AnnounceCap)
@@ -546,6 +645,23 @@ func boolStr(v bool) string {
 		return "yes"
 	}
 	return "no"
+}
+
+// controlAPIHostOrDefault fills in the default bind host for configs created
+// before control_api_host existed or left blank on disk.
+func controlAPIHostOrDefault(host string) string {
+	if host == "" {
+		return DefaultControlAPIHost
+	}
+	return host
+}
+
+// controlAPIPortOrDefault mirrors controlAPIHostOrDefault for the port.
+func controlAPIPortOrDefault(port int) int {
+	if port == 0 {
+		return DefaultControlAPIPort
+	}
+	return port
 }
 
 // sortedInterfaceNames returns the interface map keys in lexicographic order

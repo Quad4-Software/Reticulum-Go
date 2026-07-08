@@ -29,7 +29,7 @@ find "$DIR" -type f ! -name '*.sha256' ! -name '*.cosign.bundle' | while IFS= re
         --predicate "$PRED" \
         --type slsaprovenance1 \
         --bundle "${f}.cosign.bundle" \
-        --tlog-upload=false \
+        --use-signing-config=false \
         "$f" >/dev/null
 done
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 //go:build js && wasm
 // +build js,wasm
@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"syscall/js"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/wasm"
-	"git.quad4.io/RNS-Things/reticulum-go-mf/pkg/mf"
+	"quad4/reticulum-go-mf/pkg/mf"
+	"quad4/reticulum-go/pkg/wasm"
 )
 
 var messenger *mf.Messenger

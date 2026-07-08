@@ -1,12 +1,15 @@
 .PHONY: all build install uninstall clean test fmt vet lint vulncheck gosec check deps run
-.PHONY: build-linux build-windows build-darwin build-all tinygo-build tinygo-wasm tinygo-pageserver
+.PHONY: build-linux build-windows build-windows-legacy build-darwin build-all tinygo-build tinygo-wasm tinygo-pageserver
 .PHONY: test-short test-race test-crossref test-wasm test-all coverage bench debug release
 
 GOCMD := go
+GO_LEGACY_WIN7 ?= /usr/local/go-legacy-win7/bin/go
 # Use committed vendor/ for builds and tests; targets that fetch modules or tools clear these.
 GOFLAGS := -mod=vendor
 GOPROXY := off
-export GOFLAGS GOPROXY
+GOSUMDB := off
+export GOFLAGS GOPROXY GOSUMDB
+LIBS_ROOT ?= ../../Reticulum-Go-Projects
 GOVULNCHECK_VER ?= v1.1.4
 BINARY_NAME := reticulum-go
 BUILD_DIR := bin
@@ -40,17 +43,16 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 deps:
-	env GOFLAGS= GOPROXY=https://proxy.golang.org,direct $(GOCMD) mod download
-	env GOFLAGS= GOPROXY=https://proxy.golang.org,direct $(GOCMD) mod verify
+	sh scripts/vendor-sync.sh "$(LIBS_ROOT)"
 
 test:
-	$(GOCMD) test -v ./...
+	$(GOCMD) run ./scripts/ci/testsummary -v ./...
 
 test-short:
-	$(GOCMD) test -short -v ./...
+	$(GOCMD) run ./scripts/ci/testsummary -short -v ./...
 
 test-race:
-	$(GOCMD) test -race -v ./...
+	CGO_ENABLED=1 $(GOCMD) run ./scripts/ci/testsummary -race -v ./...
 
 test-crossref:
 	@bash tests/crossref/run_crossref.sh
@@ -78,11 +80,11 @@ lint:
 	revive -config revive.toml -formatter friendly ./pkg/* ./cmd/* ./internal/*
 
 vulncheck:
-	env GOFLAGS= GOPROXY=https://proxy.golang.org,direct $(GOCMD) run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VER) ./...
+	env GOFLAGS= GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct $(GOCMD) run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VER) ./pkg/... ./cmd/... ./internal/... ./tests/...
 
 # Scope packages so module cache under .cache/ is not scanned (avoids false positives from dependencies).
 gosec:
-	env GOFLAGS= GOPROXY=https://proxy.golang.org,direct CGO_ENABLED=0 $(GOCMD) run github.com/securego/gosec/v2/cmd/gosec@latest -quiet ./pkg/... ./cmd/... ./internal/... ./tests/...
+	env GOFLAGS= GOPROXY=https://proxy.golang.org,direct CGO_ENABLED=0 $(GOCMD) run github.com/securego/gosec/v2/cmd/gosec@latest -quiet -exclude-dir=vendor -exclude-dir=.cache ./pkg/... ./cmd/... ./internal/... ./tests/...
 
 check: fmt vet lint test-short vulncheck gosec
 
@@ -101,6 +103,11 @@ build-windows:
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_PACKAGE)
 	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64.exe $(MAIN_PACKAGE)
 
+build-windows-legacy:
+	@mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO_LEGACY_WIN7) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64-win7.exe $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 $(GO_LEGACY_WIN7) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64-win7.exe $(MAIN_PACKAGE)
+
 build-darwin:
 	@mkdir -p $(BUILD_DIR)
 	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PACKAGE)
@@ -117,7 +124,7 @@ tinygo-build:
 
 tinygo-wasm:
 	@mkdir -p $(BUILD_DIR)
-	$(TINYGO) build -target=wasm -o $(BUILD_DIR)/$(BINARY_NAME).wasm ./cmd/reticulum-wasm
+	$(TINYGO) build -target=wasm -tags js,wasm -o $(BUILD_DIR)/$(BINARY_NAME).wasm ./cmd/reticulum-wasm
 
 # Host Linux/amd64 ELF (no -target). Other OS: set TINYGO and build on that host or use a JSON target.
 # Clear GOFLAGS: examples/pageserver has no vendor/; root -mod=vendor breaks TinyGo there.

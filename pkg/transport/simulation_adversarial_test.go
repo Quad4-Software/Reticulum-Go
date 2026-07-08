@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package transport
 
@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/ifac"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/ifac"
 )
 
 // lossySimIface wraps simIface delivery with a per-direction packet
@@ -27,7 +27,8 @@ type lossySimIface struct {
 	dropped  uint64
 }
 
-// Send drops a packet with probability dropProb; surviving packets
+// Send drops a packet with probability dropProb. Surviving packets
+
 // follow the normal delivery path.
 func (l *lossySimIface) Send(data []byte, addr string) error {
 	l.rngMu.Lock()
@@ -74,6 +75,7 @@ func linkLossy(t testing.TB, s *simNetwork, a, b int, dropAtoB, dropBtoA float64
 	nb.tr.ifaceStates.put(rightBase.GetName(), &ifaceState{})
 	na.ifaces = append(na.ifaces, leftBase)
 	nb.ifaces = append(nb.ifaces, rightBase)
+	s.addEdge(a, b)
 	return left, right
 }
 
@@ -85,10 +87,7 @@ func TestSimAsymmetricLink(t *testing.T) {
 		t.Skip("skipping multi-node simulation in -short mode")
 	}
 	const n = 4
-	net := &simNetwork{nodes: make([]*simNode, n)}
-	for i := range n {
-		net.nodes[i] = newSimNode(t, i)
-	}
+	net := newSimNetwork(t, n)
 	t.Cleanup(net.close)
 
 	net.link(t, 0, 1)
@@ -162,12 +161,10 @@ func TestSimPathRequestStorm(t *testing.T) {
 	for _, ifc := range requester.ifaces {
 		startTx += ifc.GetTxPackets()
 	}
-	for i := 0; i < callers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range callers {
+		wg.Go(func() {
 			_ = requester.tr.RequestPath(target, "", nil, true)
-		}()
+		})
 	}
 	wg.Wait()
 
@@ -218,9 +215,11 @@ func TestSimIFACFlood(t *testing.T) {
 
 // BenchmarkSimRebuildHeaderType2 isolates the per-hop allocation
 // cost of rebuilding a HeaderType2 packet. This is the inner loop of
-// every relay; surfacing it independently makes the relay-throughput
+// every relay. Surfacing it independently makes the relay-throughput
+
 // allocs/op interpretable.
 func BenchmarkSimRebuildHeaderType2(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	for _, payload := range []int{16, 256, 1024} {
 		b.Run(fmt.Sprintf("Payload-%d", payload), func(b *testing.B) {
 			transportID := make([]byte, 16)
@@ -248,6 +247,7 @@ func BenchmarkSimRebuildHeaderType2(b *testing.B) {
 // cost for a single packet. Identifies how much of a hop's CPU
 // budget IFAC consumes vs the bare relay rewrite.
 func BenchmarkSimIFACMaskUnmask(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	id, err := ifac.New(0, "bench-net", "bench-pass")
 	if err != nil {
 		b.Fatalf("ifac.New: %v", err)
@@ -276,6 +276,7 @@ func BenchmarkSimIFACMaskUnmask(b *testing.B) {
 // IFAC enabled on every iface, so the delta isolates the IFAC tax
 // per hop end-to-end.
 func BenchmarkSimIFACLineRelay(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	id, err := ifac.New(0, "bench-net", "bench-pass")
 	if err != nil {
 		b.Fatalf("ifac.New: %v", err)
@@ -321,6 +322,7 @@ func BenchmarkSimIFACLineRelay(b *testing.B) {
 // RequestPath calls for the same destination, exposing throttle and
 // dedup overhead under contention.
 func BenchmarkSimPathRequestStormCost(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	for _, callers := range []int{1, 16, 64} {
 		b.Run(fmt.Sprintf("Callers-%d", callers), func(b *testing.B) {
 			b.StopTimer()
@@ -333,12 +335,10 @@ func BenchmarkSimPathRequestStormCost(b *testing.B) {
 
 			for i := 0; i < b.N; i++ {
 				var wg sync.WaitGroup
-				for c := 0; c < callers; c++ {
-					wg.Add(1)
-					go func() {
-						defer wg.Done()
+				for range callers {
+					wg.Go(func() {
 						_ = requester.tr.RequestPath(target, "", nil, true)
-					}()
+					})
 				}
 				wg.Wait()
 			}
@@ -358,7 +358,7 @@ func TestSimNoGoroutineLeakAfterClose(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	baseline := runtime.NumGoroutine()
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		net := buildMesh(t, 6)
 		net.nodes[0].originateAnnounce(t)
 		time.Sleep(50 * time.Millisecond)

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024-2026 Quad4.io
+
 package channel
 
 import (
@@ -5,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/packet"
 )
 
 type mockLink struct {
@@ -43,6 +46,7 @@ func (m *mockLink) HandleInbound(pkt *packet.Packet) error { return nil }
 func (m *mockLink) ValidateLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error {
 	return nil
 }
+func (m *mockLink) LinkedNetworkInterface() common.NetworkInterface { return nil }
 
 type testMessage struct {
 	data []byte
@@ -63,6 +67,7 @@ func TestNewChannel(t *testing.T) {
 func TestChannelSend(t *testing.T) {
 	link := &mockLink{status: 1} // StatusActive
 	c := NewChannel(link)
+	defer func() { _ = c.Close() }()
 
 	msg := &testMessage{data: []byte("test")}
 	err := c.Send(msg)

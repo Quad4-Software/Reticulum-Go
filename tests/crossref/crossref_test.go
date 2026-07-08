@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package crossref
 
@@ -12,17 +12,18 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
-	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
+	"quad4/msgpack/v5/pkg/msgpack"
 
-	"git.quad4.io/Go-Libs/bzip2/pkg/bzip2"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/buffer"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/channel"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/cryptography"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/resource"
+	"quad4/bzip2/pkg/bzip2"
+	"quad4/reticulum-go/pkg/buffer"
+	"quad4/reticulum-go/pkg/channel"
+	"quad4/reticulum-go/pkg/cryptography"
+	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/resource"
 )
 
 type TestVectors struct {
@@ -540,17 +541,18 @@ func TestDestinationHash(t *testing.T) {
 	for i, vec := range v.DestinationHash {
 		t.Run(fmt.Sprintf("dest_%d_%s", i, vec.AppName), func(t *testing.T) {
 			// Reconstruct the expand name: app_name[.aspect1[.aspect2...]]
-			expandName := vec.AppName
+			var expandName strings.Builder
+			expandName.WriteString(vec.AppName)
 			for _, aspect := range vec.Aspects {
-				expandName += "." + aspect
+				expandName.WriteString("." + aspect)
 			}
 
-			if expandName != vec.ExpandName {
-				t.Errorf("Expand name mismatch:\n  got:  %s\n  want: %s", expandName, vec.ExpandName)
+			if expandName.String() != vec.ExpandName {
+				t.Errorf("Expand name mismatch:\n  got:  %s\n  want: %s", expandName.String(), vec.ExpandName)
 			}
 
 			// Compute name_hash_10
-			nameHashFull := sha256.Sum256([]byte(expandName))
+			nameHashFull := sha256.Sum256([]byte(expandName.String()))
 			nameHash10 := nameHashFull[:10]
 			if hex.EncodeToString(nameHash10) != vec.NameHash10Hex {
 				t.Errorf("Name hash (10 bytes) mismatch:\n  got:  %x\n  want: %s", nameHash10, vec.NameHash10Hex)

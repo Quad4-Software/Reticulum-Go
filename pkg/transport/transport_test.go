@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024-2026 Quad4.io
+
 package transport
 
 import (
@@ -5,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/destination"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/destination"
+	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/packet"
 )
 
 type mockInterface struct {
@@ -95,10 +98,10 @@ func TestDestinationRegistration(t *testing.T) {
 	tr.RegisterDestination(destHash, "test-dest")
 
 	tr.mutex.RLock()
-	dest, ok := tr.destinations[string(destHash)]
+	dest, ok := tr.destinations[hash16FromSlice(destHash)]
 	tr.mutex.RUnlock()
 
-	if !ok || dest != "test-dest" {
+	if !ok || dest.raw != "test-dest" {
 		t.Error("Destination not registered correctly")
 	}
 }
@@ -154,7 +157,7 @@ func TestUpdatePathResetsState(t *testing.T) {
 	tr.UpdatePath(destHash, nextHop, "iface-A", 4)
 
 	tr.mutex.RLock()
-	st, exists := tr.pathStates[string(destHash)]
+	st, exists := tr.pathStates[pathMapKey(destHash)]
 	tr.mutex.RUnlock()
 	if !exists || st != StateUnknown {
 		t.Fatalf("path state must be StateUnknown after update; got exists=%v state=%d", exists, st)

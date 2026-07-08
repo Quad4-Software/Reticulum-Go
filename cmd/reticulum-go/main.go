@@ -1,58 +1,33 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package main
 
 import (
-	"encoding/binary"
 	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime"
 	"sync"
-	"syscall"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/internal/config"
-	"git.quad4.io/Networks/Reticulum-Go/internal/storage"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/buffer"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/channel"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/destination"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/interfaces"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/reticulumconfig"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/transport"
-)
-
-const (
-	AnnounceRateTarget  = 3600
-	AnnounceRateGrace   = 3
-	AnnounceRatePenalty = 7200
-	MaxAnnounceHops     = 128
-	AppName             = "Reticulum-Go Test Node"
-	AppAspect           = "node"
+	"quad4/reticulum-go/internal/config"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/controlapi"
+	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/interfaces"
+	"quad4/reticulum-go/pkg/node"
+	"quad4/reticulum-go/pkg/reticulumconfig"
+	"quad4/reticulum-go/pkg/sandbox"
 )
 
 type Reticulum struct {
+	*node.Node
 	config            *common.ReticulumConfig
-	transport         *transport.Transport
-	interfaces        []interfaces.Interface
-	channels          map[string]*channel.Channel
-	buffers           map[string]*buffer.Buffer
-	pathRequests      map[string]*common.PathRequest
+	controlAPI        *controlapi.Server
 	announceHistory   map[string]announceRecord
 	announceHistoryMu sync.RWMutex
-	identity          *identity.Identity
-	destination       *destination.Destination
-	storage           *storage.Manager
-
-	// Node-specific information
-	maxTransferSize int16 // Max transfer size in KB
-	nodeEnabled     bool  // Whether this node is enabled
-	nodeTimestamp   int64 // Last node announcement timestamp
 }
 
 type announceRecord struct {
@@ -65,225 +40,87 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 		cfg = config.DefaultConfig()
 	}
 
-	// Set default app name and aspect if not provided
-	if cfg.AppName == "" {
-		cfg.AppName = AppName
-	}
-	if cfg.AppAspect == "" {
-		cfg.AppAspect = AppAspect
-	}
-
 	if err := initializeDirectories(); err != nil {
 		return nil, fmt.Errorf("failed to initialize directories: %v", err)
 	}
 	debug.Log(debug.DebugInfo, "Directories initialized")
 
-	// Initialize storage manager
-	storageMgr, err := storage.NewManager()
+	n, err := node.New(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize storage manager: %v", err)
+		return nil, err
 	}
-	debug.Log(debug.DebugInfo, "Storage manager initialized")
-
-	t := transport.NewTransport(cfg)
-	debug.Log(debug.DebugInfo, "Transport initialized")
-
-	// Load or create identity
-	identityPath := storageMgr.GetIdentityPath()
-
-	var ident *identity.Identity
-
-	if _, err := os.Stat(identityPath); err == nil {
-		// Identity file exists, load it
-		ident, err = identity.FromFile(identityPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load identity: %v", err)
-		}
-		debug.Log(debug.DebugError, "Loaded existing identity", "hash", fmt.Sprintf("%x", ident.Hash()))
-	} else {
-		// Create new identity
-		ident, err = identity.NewIdentity()
-		if err != nil {
-			return nil, fmt.Errorf("failed to create identity: %v", err)
-		}
-		debug.Log(debug.DebugError, "Created new identity", "hash", fmt.Sprintf("%x", ident.Hash()))
-
-		// Save it to disk
-		if err := ident.ToFile(identityPath); err != nil {
-			debug.Log(debug.DebugError, "Failed to save identity to file", "error", err)
-		} else {
-			debug.Log(debug.DebugInfo, "Identity saved to file", "path", identityPath)
-		}
-	}
-
-	// Create destination
-	debug.Log(debug.DebugInfo, "Creating destination...")
-	dest, err := destination.New(
-		ident,
-		destination.In,
-		destination.Single,
-		"nomadnetwork",
-		t,
-		"node",
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create destination: %v", err)
-	}
-	debug.Log(debug.DebugInfo, "Created destination with hash", "hash", fmt.Sprintf("%x", dest.GetHash()))
-
-	// Set node metadata
-	nodeTimestamp := time.Now().Unix()
 
 	r := &Reticulum{
+		Node:            n,
 		config:          cfg,
-		transport:       t,
-		interfaces:      make([]interfaces.Interface, 0),
-		channels:        make(map[string]*channel.Channel),
-		buffers:         make(map[string]*buffer.Buffer),
-		pathRequests:    make(map[string]*common.PathRequest),
 		announceHistory: make(map[string]announceRecord),
-		identity:        ident,
-		destination:     dest,
-		storage:         storageMgr,
-
-		// Node-specific information
-		maxTransferSize: 500,  // Default 500KB
-		nodeEnabled:     true, // Enabled by default
-		nodeTimestamp:   nodeTimestamp,
 	}
 
-	// Enable destination features
-	dest.AcceptsLinks(true)
-	ratchetPath := filepath.Join(storageMgr.GetRatchetsPath(), r.identity.GetHexHash())
-	dest.EnableRatchets(ratchetPath)
-	dest.SetProofStrategy(destination.ProveApp)
-
-	debug.Log(debug.DebugVerbose, "Configured destination features")
-
-	// Initialize interfaces from config
 	for name, ifaceConfig := range cfg.Interfaces {
 		if !ifaceConfig.Enabled {
 			continue
 		}
-
-		var iface interfaces.Interface
-		var err error
-
-		switch ifaceConfig.Type {
-		case "TCPClientInterface":
-			iface, err = interfaces.NewTCPClientInterface(
-				name,
-				ifaceConfig.TargetHost,
-				ifaceConfig.TargetPort,
-				ifaceConfig.KISSFraming,
-				ifaceConfig.I2PTunneled,
-				ifaceConfig.Enabled,
-			)
-		case "UDPInterface":
-			iface, err = interfaces.NewUDPInterface(
-				name,
-				ifaceConfig.Address,
-				ifaceConfig.TargetHost,
-				ifaceConfig.Enabled,
-			)
-		case "AutoInterface":
-			iface, err = interfaces.NewAutoInterface(name, ifaceConfig)
-		case "WebSocketInterface":
-			wsURL := ifaceConfig.Address
-			if wsURL == "" {
-				wsURL = ifaceConfig.TargetHost
-			}
-			debug.Log(debug.DebugInfo, "Creating WebSocket interface", "name", name, "url", wsURL, "enabled", ifaceConfig.Enabled)
-			iface, err = interfaces.NewWebSocketInterface(name, wsURL, ifaceConfig.Enabled)
-			if err != nil {
-				debug.Log(debug.DebugError, "Failed to create WebSocket interface", "name", name, "error", err)
-			} else {
-				debug.Log(debug.DebugInfo, "WebSocket interface created successfully", "name", name)
-			}
-		case "SerialInterface":
-			iface, err = interfaces.NewSerialInterface(
-				name,
-				ifaceConfig.Interface,
-				uint32(ifaceConfig.Bitrate), // #nosec G115
-				ifaceConfig.Enabled,
-			)
-		case "RNodeInterface":
-			// RNode usually runs over Serial
-			serial, sErr := interfaces.NewSerialInterface(
-				name+"_serial",
-				ifaceConfig.Interface,
-				uint32(ifaceConfig.Bitrate), // #nosec G115
-				ifaceConfig.Enabled,
-			)
-			if sErr != nil {
-				err = sErr
-			} else {
-				iface, err = interfaces.NewRNodeInterface(
-					name,
-					serial,
-					ifaceConfig.Frequency,
-					ifaceConfig.Bandwidth,
-					ifaceConfig.SF,
-					ifaceConfig.CR,
-					ifaceConfig.TXPower,
-				)
-			}
-		default:
-			debug.Log(debug.DebugCritical, "Unknown interface type", "type", ifaceConfig.Type)
-			continue
-		}
-
-		if err != nil {
-			if cfg.PanicOnInterfaceErr {
-				return nil, fmt.Errorf("failed to create interface %s: %v", name, err)
-			}
-			debug.Log(debug.DebugCritical, "Error creating interface", "name", name, "error", err)
-			continue
-		}
-
-		// Set packet callback
-		iface.SetPacketCallback(func(data []byte, ni common.NetworkInterface) {
-			debug.Log(debug.DebugInfo, "Packet callback called for interface", "name", ni.GetName(), "data_len", len(data))
-			if r.transport != nil {
-				r.transport.HandlePacket(data, ni)
-			} else {
-				debug.Log(debug.DebugCritical, "Transport is nil in packet callback")
-			}
-		})
-
 		debug.Log(debug.DebugError, "Configuring interface", "name", name, "type", ifaceConfig.Type)
-		r.interfaces = append(r.interfaces, iface)
-		debug.Log(debug.DebugInfo, "Interface started successfully", "name", name)
+		debug.Log(debug.DebugInfo, "Interface configured", "name", name)
 	}
 
 	return r, nil
 }
 
-func (r *Reticulum) handleInterface(iface common.NetworkInterface) {
-	debug.Log(debug.DebugInfo, "Setting up interface", "name", iface.GetName(), "type", fmt.Sprintf("%T", iface))
-
-	ch := channel.NewChannel(&transportWrapper{r.transport})
-	r.channels[iface.GetName()] = ch
-
-	rw := buffer.CreateBidirectionalBuffer(
-		1,
-		2,
-		ch,
-		func(size int) {
-			data := make([]byte, size)
-			debug.Log(debug.DebugPackets, "Interface reading bytes from buffer", "name", iface.GetName(), "size", size)
-			iface.ProcessIncoming(data)
-
-			if len(data) > 0 {
-				debug.Log(debug.DebugTrace, "Interface received packet type", "name", iface.GetName(), "type", fmt.Sprintf("0x%02x", data[0]))
-				r.transport.HandlePacket(data, iface)
-			}
-		},
-	)
-
-	r.buffers[iface.GetName()] = &buffer.Buffer{
-		ReadWriter: rw,
+func main() {
+	if run, code := parseCLI(os.Args[1:]); !run {
+		os.Exit(code)
 	}
+	runDaemon()
+}
+
+func runDaemon() {
+	debug.Init()
+	debug.Log(debug.DebugCritical, "Initializing Reticulum", "debug_level", debug.GetDebugLevel())
+
+	cfg, err := config.InitConfig()
+	if err != nil {
+		debug.Log(debug.DebugCritical, "Failed to initialize config", "error", err)
+		os.Exit(1)
+	}
+	debug.Log(debug.DebugInfo, "Configuration loaded", "path", cfg.ConfigPath)
+
+	r, err := NewReticulum(cfg)
+	if err != nil {
+		debug.Log(debug.DebugCritical, "Failed to create Reticulum instance", "error", err)
+		os.Exit(1)
+	}
+
+	go r.monitorInterfaces()
+
+	handler := NewAnnounceHandler(r, []string{"*"})
+	r.Transport().RegisterAnnounceHandler(handler)
+
+	if err := r.Start(); err != nil {
+		debug.Log(debug.DebugCritical, "Failed to start Reticulum", "error", err)
+		os.Exit(1)
+	}
+
+	if err := sandbox.Apply(cfg); err != nil {
+		debug.Log(debug.DebugCritical, "Sandbox application failed", "error", err)
+		if cfg != nil && cfg.PanicOnInterfaceErr {
+			os.Exit(1)
+		}
+	}
+
+	r.StartControlAPI()
+
+	startSIGHUPReload(r)
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, shutdownSignals()...)
+	<-sigChan
+
+	debug.Log(debug.DebugCritical, "Shutting down...")
+	if err := r.StopDaemon(); err != nil {
+		debug.Log(debug.DebugCritical, "Error during shutdown", "error", err)
+	}
+	debug.Log(debug.DebugCritical, "Goodbye!")
 }
 
 func (r *Reticulum) monitorInterfaces() {
@@ -291,7 +128,7 @@ func (r *Reticulum) monitorInterfaces() {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		for _, iface := range r.interfaces {
+		for _, iface := range r.Interfaces() {
 			if tcpClient, ok := iface.(*interfaces.TCPClientInterface); ok {
 				stats := fmt.Sprintf("Interface %s status - Connected: %v, TX: %d bytes (%.2f Kbps), RX: %d bytes (%.2f Kbps)",
 					iface.GetName(),
@@ -312,109 +149,31 @@ func (r *Reticulum) monitorInterfaces() {
 	}
 }
 
-func main() {
-	debug.Init()
-	debug.Log(debug.DebugCritical, "Initializing Reticulum", "debug_level", debug.GetDebugLevel())
-
-	cfg, err := config.InitConfig()
+func (r *Reticulum) StartControlAPI() {
+	if !r.config.EnableControlAPI {
+		return
+	}
+	api, err := controlapi.New(r.Transport(), r.Node, r.config)
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to initialize config", "error", err)
-		os.Exit(1)
+		debug.Log(debug.DebugCritical, "Failed to initialize control API", "error", err)
+		return
 	}
-	debug.Log(debug.DebugInfo, "Configuration loaded", "path", cfg.ConfigPath)
+	r.controlAPI = api
+	go func() {
+		if err := api.Serve(); err != nil {
+			debug.Log(debug.DebugCritical, "Control API stopped", "error", err)
+		}
+	}()
+}
 
-	r, err := NewReticulum(cfg)
-	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to create Reticulum instance", "error", err)
-		os.Exit(1)
+func (r *Reticulum) StopDaemon() error {
+	if r.controlAPI != nil {
+		if err := r.controlAPI.Close(); err != nil {
+			debug.Log(debug.DebugCritical, "Error closing control API", "error", err)
+		}
+		r.controlAPI = nil
 	}
-
-	// Start monitoring interfaces
-	go r.monitorInterfaces()
-
-	// Register announce handler
-	handler := NewAnnounceHandler(r, []string{"*"})
-	r.transport.RegisterAnnounceHandler(handler)
-
-	// Start Reticulum
-	if err := r.Start(); err != nil {
-		debug.Log(debug.DebugCritical, "Failed to start Reticulum", "error", err)
-		os.Exit(1)
-	}
-
-	sigChan := make(chan os.Signal, 1)
-	sigs := []os.Signal{os.Interrupt}
-	if runtime.GOOS != "windows" {
-		sigs = append(sigs, syscall.SIGTERM)
-	}
-	signal.Notify(sigChan, sigs...)
-	<-sigChan
-
-	debug.Log(debug.DebugCritical, "Shutting down...")
-	if err := r.Stop(); err != nil {
-		debug.Log(debug.DebugCritical, "Error during shutdown", "error", err)
-	}
-	debug.Log(debug.DebugCritical, "Goodbye!")
-}
-
-type transportWrapper struct {
-	*transport.Transport
-}
-
-func (tw *transportWrapper) GetRTT() float64 {
-	return 0.1
-}
-
-func (tw *transportWrapper) RTT() float64 {
-	return tw.GetRTT()
-}
-
-func (tw *transportWrapper) GetStatus() byte {
-	return transport.StatusActive
-}
-
-func (tw *transportWrapper) Send(data []byte) any {
-	p := &packet.Packet{
-		PacketType: packet.PacketTypeData,
-		Hops:       0,
-		Data:       data,
-		HeaderType: packet.HeaderType1,
-	}
-
-	err := tw.Transport.SendPacket(p)
-	if err != nil {
-		return nil
-	}
-	return p
-}
-
-func (tw *transportWrapper) Resend(p any) error {
-	if pkt, ok := p.(*packet.Packet); ok {
-		return tw.Transport.SendPacket(pkt)
-	}
-	return fmt.Errorf("invalid packet type")
-}
-
-func (tw *transportWrapper) SetPacketTimeout(packet any, callback func(any), timeout time.Duration) {
-	time.AfterFunc(timeout, func() {
-		callback(packet)
-	})
-}
-
-func (tw *transportWrapper) SetPacketDelivered(packet any, callback func(any)) {
-	callback(packet)
-}
-
-func (tw *transportWrapper) GetLinkID() []byte {
-	return nil
-}
-
-func (tw *transportWrapper) HandleInbound(pkt *packet.Packet) error {
-	return nil
-}
-
-func (tw *transportWrapper) ValidateLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error {
-	return nil
+	return r.Node.Stop()
 }
 
 func initializeDirectories() error {
@@ -438,99 +197,6 @@ func initializeDirectories() error {
 	return nil
 }
 
-func (r *Reticulum) Start() error {
-	debug.Log(debug.DebugError, "Starting Reticulum...")
-
-	if err := r.transport.Start(); err != nil {
-		return fmt.Errorf("failed to start transport: %v", err)
-	}
-	debug.Log(debug.DebugInfo, "Transport started successfully")
-
-	// Start interfaces
-	for _, iface := range r.interfaces {
-		debug.Log(debug.DebugError, "Starting interface", "name", iface.GetName())
-		if err := iface.Start(); err != nil {
-			if r.config.PanicOnInterfaceErr {
-				return fmt.Errorf("failed to start interface %s: %v", iface.GetName(), err)
-			}
-			debug.Log(debug.DebugCritical, "Error starting interface", "name", iface.GetName(), "error", err)
-			continue
-		}
-
-		if netIface, ok := iface.(common.NetworkInterface); ok {
-			// Register interface with transport
-			if err := r.transport.RegisterInterface(iface.GetName(), netIface); err != nil {
-				debug.Log(debug.DebugCritical, "Failed to register interface with transport", "name", iface.GetName(), "error", err)
-			} else {
-				debug.Log(debug.DebugInfo, "Registered interface with transport", "name", iface.GetName())
-			}
-			r.handleInterface(netIface)
-		}
-		debug.Log(debug.DebugInfo, "Interface started successfully", "name", iface.GetName())
-	}
-
-	// Wait for interfaces to initialize
-	time.Sleep(2 * time.Second)
-
-	// Send initial announce
-	debug.Log(debug.DebugError, "Sending initial announce")
-	nodeName := "Reticulum-Go Test Node"
-	r.destination.SetDefaultAppData([]byte(nodeName))
-	if err := r.destination.Announce(false, nil, nil); err != nil {
-		debug.Log(debug.DebugCritical, "Failed to send initial announce", "error", err)
-	}
-
-	// Start periodic announce goroutine
-	go func() {
-		// Wait a bit before the first announce
-		time.Sleep(5 * time.Second)
-
-		for {
-			debug.Log(debug.DebugInfo, "Announcing destination...")
-			err := r.destination.Announce(false, nil, nil)
-			if err != nil {
-				debug.Log(debug.DebugCritical, "Could not send announce", "error", err)
-			}
-
-			time.Sleep(60 * time.Second)
-		}
-	}()
-
-	go r.monitorInterfaces()
-
-	debug.Log(debug.DebugError, "Reticulum started successfully")
-	return nil
-}
-
-func (r *Reticulum) Stop() error {
-	debug.Log(debug.DebugError, "Stopping Reticulum...")
-
-	for _, buf := range r.buffers {
-		if err := buf.Close(); err != nil {
-			debug.Log(debug.DebugCritical, "Error closing buffer", "error", err)
-		}
-	}
-
-	for _, ch := range r.channels {
-		if err := ch.Close(); err != nil {
-			debug.Log(debug.DebugCritical, "Error closing channel", "error", err)
-		}
-	}
-
-	for _, iface := range r.interfaces {
-		if err := iface.Stop(); err != nil {
-			debug.Log(debug.DebugCritical, "Error stopping interface", "name", iface.GetName(), "error", err)
-		}
-	}
-
-	if err := r.transport.Close(); err != nil {
-		return fmt.Errorf("failed to close transport: %v", err)
-	}
-
-	debug.Log(debug.DebugError, "Reticulum stopped successfully")
-	return nil
-}
-
 type AnnounceHandler struct {
 	aspectFilter []string
 	reticulum    *Reticulum
@@ -548,76 +214,18 @@ func (h *AnnounceHandler) AspectFilter() []string {
 }
 
 func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id any, appData []byte, hops uint8) error {
-	debug.Log(debug.DebugInfo, "Received announce", "hash", fmt.Sprintf("%x", destHash), "hops", hops)
-	debug.Log(debug.DebugPackets, "Raw announce data", "data", fmt.Sprintf("%x", appData))
-	debug.Log(debug.DebugInfo, "MAIN HANDLER: Received announce", "hash", fmt.Sprintf("%x", destHash), "appData_len", len(appData), "hops", hops)
+	debug.Log(debug.DebugInfo, "Received announce", "hash", fmt.Sprintf("%x", destHash), "appData_len", len(appData), "hops", hops)
+	debug.Log(debug.DebugPackets, "Announce appData", "data", fmt.Sprintf("%x", appData))
 
-	var isNode bool
-	var nodeEnabled bool
-	var nodeTimestamp int64
-	var nodeMaxSize int16
-
-	// Parse msgpack appData from transport announce format
-	if len(appData) > 0 {
-		// appData is msgpack array [name, customData]
-		if appData[0] == 0x92 { // array of 2 elements
-			// Skip array header and first element (name)
-			pos := 1
-			if pos < len(appData) && appData[pos] == 0xC4 { // bin 8
-				nameLen := int(appData[pos+1])
-				pos += 2 + nameLen
-				if pos < len(appData) && appData[pos] == 0xC4 { // bin 8
-					dataLen := int(appData[pos+1])
-					if pos+2+dataLen <= len(appData) {
-						customData := appData[pos+2 : pos+2+dataLen]
-						nodeName := string(customData)
-						debug.Log(debug.DebugInfo, "Parsed node name", "name", nodeName)
-						debug.Log(debug.DebugInfo, "Announced node", "name", nodeName)
-					}
-				}
-			}
-		} else {
-			// Fallback: treat as raw node name
-			nodeName := string(appData)
-			debug.Log(debug.DebugInfo, "Raw node name", "name", nodeName)
-			debug.Log(debug.DebugInfo, "Announced node", "name", nodeName)
-		}
-	} else {
-		debug.Log(debug.DebugInfo, "No appData (empty announce)")
-	}
-
-	// Type assert and log identity details
-	if identity, ok := id.(*identity.Identity); ok {
-		debug.Log(debug.DebugAll, "Identity details")
-		debug.Log(debug.DebugAll, "Identity hash", "hash", identity.GetHexHash())
-		debug.Log(debug.DebugAll, "Identity public key", "key", fmt.Sprintf("%x", identity.GetPublicKey()))
-
-		ratchets := identity.GetRatchets()
-		debug.Log(debug.DebugAll, "Active ratchets", "count", len(ratchets))
-
-		if len(ratchets) > 0 {
-			ratchetKey := identity.GetCurrentRatchetKey()
-			if ratchetKey != nil {
-				ratchetID := identity.GetRatchetID(ratchetKey)
-				debug.Log(debug.DebugAll, "Current ratchet ID", "id", fmt.Sprintf("%x", ratchetID))
-			}
-		}
-
-		// Create a better record with more info
-		recordType := "peer"
-		if isNode {
-			recordType = "node"
-			debug.Log(debug.DebugInfo, "Storing node in announce history", "enabled", nodeEnabled, "timestamp", nodeTimestamp, "maxsize", fmt.Sprintf("%dKB", nodeMaxSize))
-		}
+	if annID, ok := id.(*identity.Identity); ok {
+		debug.Log(debug.DebugAll, "Announce identity", "hash", annID.GetHexHash(), "pubkey", fmt.Sprintf("%x", annID.GetPublicKey()))
 
 		h.reticulum.announceHistoryMu.Lock()
-		h.reticulum.announceHistory[identity.GetHexHash()] = announceRecord{
+		h.reticulum.announceHistory[annID.GetHexHash()] = announceRecord{
 			timestamp: time.Now().Unix(),
 			appData:   appData,
 		}
 		h.reticulum.announceHistoryMu.Unlock()
-
-		debug.Log(debug.DebugVerbose, "Stored announce in history", "type", recordType, "identity", identity.GetHexHash())
 	}
 
 	return nil
@@ -625,37 +233,4 @@ func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id any, appData []by
 
 func (h *AnnounceHandler) ReceivePathResponses() bool {
 	return true
-}
-
-func (r *Reticulum) GetDestination() *destination.Destination {
-	return r.destination
-}
-
-func (r *Reticulum) createNodeAppData() []byte {
-	// Create a msgpack array with 3 elements
-	// [Bool, Int32, Int16] for [enable, timestamp, max_transfer_size]
-	appData := []byte{0x93} // Array with 3 elements
-
-	// Element 0: Boolean for enable/disable peer
-	if r.nodeEnabled {
-		appData = append(appData, 0xC3) // true
-	} else {
-		appData = append(appData, 0xC2) // false
-	}
-
-	// Element 1: Int32 timestamp (current time)
-	r.nodeTimestamp = time.Now().Unix()
-	appData = append(appData, 0xD2) // int32 format
-	timeBytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(timeBytes, uint32(r.nodeTimestamp)) // #nosec G115
-	appData = append(appData, timeBytes...)
-
-	// Element 2: Int16 max transfer size in KB
-	appData = append(appData, 0xD1) // int16 format
-	sizeBytes := make([]byte, 2)
-	binary.BigEndian.PutUint16(sizeBytes, uint16(r.maxTransferSize)) // #nosec G115
-	appData = append(appData, sizeBytes...)
-
-	debug.Log(debug.DebugAll, "Created node appData", "enable", r.nodeEnabled, "timestamp", r.nodeTimestamp, "maxsize", r.maxTransferSize, "data", fmt.Sprintf("%x", appData))
-	return appData
 }

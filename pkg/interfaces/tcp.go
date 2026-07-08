@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package interfaces
 
@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/debug"
 )
 
 type TCPClientInterface struct {
@@ -21,16 +21,25 @@ type TCPClientInterface struct {
 	kissFraming       bool
 	i2pTunneled       bool
 	initiator         bool
-	reconnecting      bool
 	neverConnected    bool
 	writing           bool
 	maxReconnectTries int
 	packetBuffer      []byte
 	done              chan struct{}
 	stopOnce          sync.Once
+	reconnect         *reconnectDriver
+	wantsTunnel       bool
+	tunnelID          []byte
+	synthesizeTunnel  func(TunnelPeer)
+	txFrame           []byte
+	readBuf           []byte
 }
 
 func NewTCPClientInterface(name string, targetHost string, targetPort int, kissFraming bool, i2pTunneled bool, enabled bool) (*TCPClientInterface, error) {
+	return NewTCPClientInterfaceWithRetries(name, targetHost, targetPort, kissFraming, i2pTunneled, enabled, 0)
+}
+
+func NewTCPClientInterfaceWithRetries(name string, targetHost string, targetPort int, kissFraming bool, i2pTunneled bool, enabled bool, maxReconnectTries int) (*TCPClientInterface, error) {
 	tc := &TCPClientInterface{
 		BaseInterface:     NewBaseInterface(name, common.IFTypeTCP, enabled),
 		targetAddr:        targetHost,
@@ -38,24 +47,102 @@ func NewTCPClientInterface(name string, targetHost string, targetPort int, kissF
 		kissFraming:       kissFraming,
 		i2pTunneled:       i2pTunneled,
 		initiator:         true,
-		maxReconnectTries: ReconnectWait * TCPProbesCount,
+		maxReconnectTries: NormalizeMaxReconnectTries(maxReconnectTries),
 		packetBuffer:      make([]byte, 0),
 		neverConnected:    true,
 		done:              make(chan struct{}),
+		wantsTunnel:       !kissFraming,
+		txFrame:           make([]byte, 0, DefaultMTU*2+4),
 	}
+	tc.initReconnectDriver()
 
 	if enabled {
-		addr := net.JoinHostPort(targetHost, fmt.Sprintf("%d", targetPort))
-		conn, err := net.Dial("tcp", addr)
-		if err != nil {
-			return nil, err
-		}
-		tc.conn = conn
-		tc.Online = true
-		go tc.readLoop()
+		tc.startReconnect()
 	}
 
 	return tc, nil
+}
+
+func (tc *TCPClientInterface) SetTunnelSynth(fn func(TunnelPeer)) {
+	tc.Mutex.Lock()
+	tc.synthesizeTunnel = fn
+	tc.Mutex.Unlock()
+}
+
+func (tc *TCPClientInterface) InterfaceHash() []byte {
+	return InterfaceHashFromName(tc.Name)
+}
+
+func (tc *TCPClientInterface) WantsTunnel() bool {
+	return tc.wantsTunnel
+}
+
+func (tc *TCPClientInterface) SetWantsTunnel(v bool) {
+	tc.wantsTunnel = v
+}
+
+func (tc *TCPClientInterface) TunnelID() []byte {
+	tc.Mutex.RLock()
+	defer tc.Mutex.RUnlock()
+	return append([]byte(nil), tc.tunnelID...)
+}
+
+func (tc *TCPClientInterface) SetTunnelID(id []byte) {
+	tc.Mutex.Lock()
+	tc.tunnelID = append(tc.tunnelID[:0], id...)
+	tc.Mutex.Unlock()
+}
+
+func (tc *TCPClientInterface) onConnected(conn net.Conn) {
+	if !tc.adoptConn(conn) {
+		_ = conn.Close()
+		return
+	}
+	applyClientTCPTimeouts(tc)
+	tc.Mutex.RLock()
+	synth := tc.synthesizeTunnel
+	tc.Mutex.RUnlock()
+	if tc.WantsTunnel() && synth != nil {
+		synth(tc)
+	}
+	go tc.readLoop()
+}
+
+func (tc *TCPClientInterface) initReconnectDriver() {
+	label := net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort))
+	tc.reconnect = newReconnectDriver(label, tc.maxReconnectTries, tc.done, tcpDialTarget(tc.targetAddr, tc.targetPort), tc.onConnected)
+	tc.reconnect.setOnExhausted(func() {
+		_ = tc.Stop()
+	})
+}
+
+func (tc *TCPClientInterface) adoptConn(conn net.Conn) bool {
+	tc.Mutex.Lock()
+	defer tc.Mutex.Unlock()
+	if tc.Detached {
+		return false
+	}
+	select {
+	case <-tc.done:
+		return false
+	default:
+	}
+	tc.conn = conn
+	tc.Online = true
+	tc.neverConnected = false
+	return true
+}
+
+func (tc *TCPClientInterface) SetConnectivityHooks(onDown, onUp func()) {
+	if tc.reconnect != nil {
+		tc.reconnect.setHooks(onDown, onUp)
+	}
+}
+
+func (tc *TCPClientInterface) startReconnect() {
+	if tc.reconnect != nil {
+		tc.reconnect.start()
+	}
 }
 
 func (tc *TCPClientInterface) Start() error {
@@ -83,35 +170,10 @@ func (tc *TCPClientInterface) Start() error {
 			tc.stopOnce = sync.Once{}
 		}
 	}
+	tc.initReconnectDriver()
 	tc.Mutex.Unlock()
 
-	addr := net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort))
-	conn, err := net.DialTimeout("tcp", addr, TCPConnectTimeout)
-	if err != nil {
-		return err
-	}
-
-	tc.Mutex.Lock()
-	tc.conn = conn
-	tc.Mutex.Unlock()
-
-	// Set platform-specific timeouts
-	switch runtime.GOOS {
-	case "linux":
-		if err := tc.setTimeoutsLinux(); err != nil {
-			debug.Log(debug.DebugError, "Failed to set Linux TCP timeouts", "error", err)
-		}
-	case "darwin":
-		if err := tc.setTimeoutsOSX(); err != nil {
-			debug.Log(debug.DebugError, "Failed to set OSX TCP timeouts", "error", err)
-		}
-	}
-
-	tc.Mutex.Lock()
-	tc.Online = true
-	tc.Mutex.Unlock()
-
-	go tc.readLoop()
+	tc.startReconnect()
 	return nil
 }
 
@@ -147,9 +209,8 @@ func (tc *TCPClientInterface) ProcessOutgoing(data []byte) error {
 	defer func() { tc.writing = false }()
 
 	// For TCP connections, use HDLC framing
-	var frame []byte
-	frame = append([]byte{HDLCFlag}, escapeHDLC(data)...)
-	frame = append(frame, HDLCFlag)
+	frame := appendFrameHDLC(tc.txFrame[:0], data)
+	tc.txFrame = frame
 
 	debug.Log(debug.DebugAll, "TCP interface writing to network", "name", tc.Name, "bytes", len(frame))
 
@@ -164,6 +225,15 @@ func (tc *TCPClientInterface) ProcessOutgoing(data []byte) error {
 	_, err := conn.Write(frame)
 	if err != nil {
 		debug.Log(debug.DebugCritical, "TCP interface write failed", "name", tc.Name, "error", err)
+		tc.Mutex.Lock()
+		tc.Online = false
+		initiator := tc.initiator
+		detached := tc.Detached
+		tc.Mutex.Unlock()
+		if initiator && !detached && tc.reconnect != nil {
+			tc.teardownConn()
+			tc.reconnect.notifyFailure()
+		}
 	}
 	return err
 }
@@ -187,14 +257,11 @@ func (tc *TCPClientInterface) Send(data []byte, address string) error {
 }
 
 func (tc *TCPClientInterface) readLoop() {
-	buffer := make([]byte, tc.MTU)
-	inFrame := false
-	escape := false
-	dataBuffer := make([]byte, 0)
-	maxHDLC := 2*tc.MTU + 32
-	if maxHDLC < 256 {
-		maxHDLC = 2048
+	decoder := newHDLCToggleStreamDecoder(tc.MTU, tc.handlePacket)
+	if cap(tc.readBuf) < tc.MTU {
+		tc.readBuf = make([]byte, tc.MTU)
 	}
+	buffer := tc.readBuf[:tc.MTU]
 
 	for {
 		tc.Mutex.RLock()
@@ -213,6 +280,27 @@ func (tc *TCPClientInterface) readLoop() {
 		}
 
 		n, err := conn.Read(buffer)
+		if n == 0 {
+			if err != nil {
+				tc.Mutex.Lock()
+				tc.Online = false
+				detached := tc.Detached
+				initiator := tc.initiator
+				tc.Mutex.Unlock()
+
+				if initiator && !detached {
+					tc.teardownConn()
+					if tc.reconnect != nil {
+						tc.reconnect.notifyFailure()
+					}
+				} else {
+					tc.teardown()
+				}
+				return
+			}
+			continue
+		}
+		decoder.feed(buffer[:n])
 		if err != nil {
 			tc.Mutex.Lock()
 			tc.Online = false
@@ -221,42 +309,14 @@ func (tc *TCPClientInterface) readLoop() {
 			tc.Mutex.Unlock()
 
 			if initiator && !detached {
-				go tc.reconnect()
+				tc.teardownConn()
+				if tc.reconnect != nil {
+					tc.reconnect.notifyFailure()
+				}
 			} else {
 				tc.teardown()
 			}
 			return
-		}
-
-		for i := range n {
-			b := buffer[i]
-
-			if b == HDLCFlag {
-				if inFrame && len(dataBuffer) > 0 {
-					tc.handlePacket(dataBuffer)
-					dataBuffer = dataBuffer[:0]
-				}
-				inFrame = !inFrame
-				continue
-			}
-
-			if inFrame {
-				if b == HDLCEsc {
-					escape = true
-				} else {
-					if escape {
-						b ^= HDLCEscMask
-						escape = false
-					}
-					if len(dataBuffer) >= maxHDLC {
-						dataBuffer = dataBuffer[:0]
-						inFrame = false
-						escape = false
-						continue
-					}
-					dataBuffer = append(dataBuffer, b)
-				}
-			}
 		}
 	}
 }
@@ -277,18 +337,31 @@ func (tc *TCPClientInterface) handlePacket(data []byte) {
 	tc.ProcessIncoming(data)
 }
 
+func (tc *TCPClientInterface) teardownConn() {
+	tc.Mutex.Lock()
+	if tc.conn != nil {
+		_ = tc.conn.Close()
+		tc.conn = nil
+	}
+	tc.Mutex.Unlock()
+}
+
 func (tc *TCPClientInterface) teardown() {
 	tc.Online = false
 	tc.In = false
 	tc.Out = false
-	if tc.conn != nil {
-		_ = tc.conn.Close()
-	}
+	tc.teardownConn()
 }
 
 // Helper functions for escaping data
 func escapeHDLC(data []byte) []byte {
-	escaped := make([]byte, 0, len(data)*2)
+	need := len(data)
+	for _, b := range data {
+		if b == HDLCFlag || b == HDLCEsc {
+			need++
+		}
+	}
+	escaped := make([]byte, 0, need)
 	for _, b := range data {
 		if b == HDLCFlag || b == HDLCEsc {
 			escaped = append(escaped, HDLCEsc, b^HDLCEscMask)
@@ -297,6 +370,40 @@ func escapeHDLC(data []byte) []byte {
 		}
 	}
 	return escaped
+}
+
+
+func unescapeHDLC(data []byte) []byte {
+	out := make([]byte, 0, len(data))
+	escape := false
+	for _, b := range data {
+		if escape {
+			out = append(out, b^HDLCEscMask)
+			escape = false
+			continue
+		}
+		if b == HDLCEsc {
+			escape = true
+			continue
+		}
+		out = append(out, b)
+	}
+	return out
+}
+
+// appendFrameHDLC appends a complete HDLC frame to dst and returns the slice.
+// Reuse dst across calls via dst = appendFrameHDLC(dst[:0], payload) to avoid
+// per-packet allocations when cap(dst) is large enough.
+func appendFrameHDLC(dst []byte, payload []byte) []byte {
+	dst = append(dst, HDLCFlag)
+	for _, b := range payload {
+		if b == HDLCFlag || b == HDLCEsc {
+			dst = append(dst, HDLCEsc, b^HDLCEscMask)
+		} else {
+			dst = append(dst, b)
+		}
+	}
+	return append(dst, HDLCFlag)
 }
 
 func (tc *TCPClientInterface) SetPacketCallback(cb common.PacketCallback) {
@@ -331,58 +438,11 @@ func (tc *TCPClientInterface) IsOnline() bool {
 	return tc.Online
 }
 
-func (tc *TCPClientInterface) reconnect() {
-	tc.Mutex.Lock()
-	if tc.reconnecting {
-		tc.Mutex.Unlock()
-		return
+func (tc *TCPClientInterface) IsReconnecting() bool {
+	if tc.reconnect == nil {
+		return false
 	}
-	tc.reconnecting = true
-	tc.Mutex.Unlock()
-
-	backoff := time.Second
-	maxBackoff := time.Minute * 5
-	retries := 0
-
-	for retries < tc.maxReconnectTries {
-		tc.teardown()
-
-		addr := net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort))
-
-		conn, err := net.Dial("tcp", addr)
-		if err == nil {
-			tc.Mutex.Lock()
-			tc.conn = conn
-			tc.Online = true
-
-			tc.neverConnected = false
-			tc.reconnecting = false
-			tc.Mutex.Unlock()
-
-			go tc.readLoop()
-			return
-		}
-
-		debug.Log(debug.DebugVerbose, "Failed to reconnect", "target", net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort)), "attempt", retries+1, "maxTries", tc.maxReconnectTries, "error", err)
-
-		// Wait with exponential backoff
-		time.Sleep(backoff)
-
-		// Increase backoff time exponentially
-		backoff *= 2
-		if backoff > maxBackoff {
-			backoff = maxBackoff
-		}
-
-		retries++
-	}
-
-	tc.Mutex.Lock()
-	tc.reconnecting = false
-	tc.Mutex.Unlock()
-
-	tc.teardown()
-	debug.Log(debug.DebugError, "Failed to reconnect after all attempts", "target", net.JoinHostPort(tc.targetAddr, fmt.Sprintf("%d", tc.targetPort)), "maxTries", tc.maxReconnectTries)
+	return tc.reconnect.isActive()
 }
 
 func (tc *TCPClientInterface) Enable() {
@@ -400,7 +460,7 @@ func (tc *TCPClientInterface) Disable() {
 func (tc *TCPClientInterface) IsConnected() bool {
 	tc.Mutex.RLock()
 	defer tc.Mutex.RUnlock()
-	return tc.conn != nil && tc.Online && !tc.reconnecting
+	return tc.conn != nil && tc.Online && !tc.IsReconnecting()
 }
 
 func (tc *TCPClientInterface) GetRTT() time.Duration {
@@ -439,6 +499,7 @@ type TCPServerInterface struct {
 	i2pTunneled bool
 	done        chan struct{}
 	stopOnce    sync.Once
+	txFrame     []byte
 }
 
 func NewTCPServerInterface(name string, bindAddr string, bindPort int, kissFraming bool, i2pTunneled bool, preferIPv6 bool) (*TCPServerInterface, error) {
@@ -459,6 +520,7 @@ func NewTCPServerInterface(name string, bindAddr string, bindPort int, kissFrami
 		kissFraming: kissFraming,
 		i2pTunneled: i2pTunneled,
 		done:        make(chan struct{}),
+		txFrame:     make([]byte, 0, DefaultMTU*2+4),
 	}
 
 	return ts, nil
@@ -625,14 +687,8 @@ func (ts *TCPServerInterface) handleConnection(conn net.Conn) {
 }
 
 func (ts *TCPServerInterface) readHDLCLoop(conn net.Conn) {
-	buffer := make([]byte, ts.MTU)
-	inFrame := false
-	escape := false
-	dataBuffer := make([]byte, 0)
-	maxHDLC := 2*ts.MTU + 32
-	if maxHDLC < 256 {
-		maxHDLC = 2048
-	}
+	decoder := newHDLCToggleStreamDecoder(ts.MTU, ts.ProcessIncoming)
+	buf := make([]byte, ts.MTU)
 
 	for {
 		ts.Mutex.RLock()
@@ -645,40 +701,16 @@ func (ts *TCPServerInterface) readHDLCLoop(conn net.Conn) {
 		default:
 		}
 
-		n, err := conn.Read(buffer)
+		n, err := conn.Read(buf)
+		if n == 0 {
+			if err != nil {
+				return
+			}
+			continue
+		}
+		decoder.feed(buf[:n])
 		if err != nil {
 			return
-		}
-
-		for i := range n {
-			b := buffer[i]
-
-			if b == HDLCFlag {
-				if inFrame && len(dataBuffer) > 0 {
-					ts.ProcessIncoming(dataBuffer)
-					dataBuffer = dataBuffer[:0]
-				}
-				inFrame = !inFrame
-				continue
-			}
-
-			if inFrame {
-				if b == HDLCEsc {
-					escape = true
-				} else {
-					if escape {
-						b ^= HDLCEscMask
-						escape = false
-					}
-					if len(dataBuffer) >= maxHDLC {
-						dataBuffer = dataBuffer[:0]
-						inFrame = false
-						escape = false
-						continue
-					}
-					dataBuffer = append(dataBuffer, b)
-				}
-			}
 		}
 	}
 }
@@ -697,8 +729,8 @@ func (ts *TCPServerInterface) ProcessOutgoing(data []byte) error {
 		frame = append([]byte{KISSFend}, escapeKISS(data)...)
 		frame = append(frame, KISSFend)
 	} else {
-		frame = append([]byte{HDLCFlag}, escapeHDLC(data)...)
-		frame = append(frame, HDLCFlag)
+		frame = appendFrameHDLC(ts.txFrame[:0], data)
+		ts.txFrame = frame
 	}
 
 	ts.Mutex.Lock()

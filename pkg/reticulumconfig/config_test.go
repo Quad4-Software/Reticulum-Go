@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024-2026 Quad4.io
+
 package reticulumconfig
 
 import (
@@ -6,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"quad4/reticulum-go/pkg/common"
 )
 
 // TestDefaultConfig sanity-checks the built-in defaults exposed by
@@ -27,6 +30,9 @@ func TestDefaultConfig(t *testing.T) {
 	}
 	if cfg.Interfaces == nil {
 		t.Error("Interfaces map must be initialised")
+	}
+	if !cfg.EnableSandbox {
+		t.Error("EnableSandbox should be true by default")
 	}
 }
 
@@ -241,6 +247,37 @@ func TestLoadConfig_SpamProtectionKnobs(t *testing.T) {
 	}
 }
 
+// TestLoadConfig_AutoInterfaceDevices covers AutoInterface devices and
+// ignored_devices list parsing.
+func TestLoadConfig_AutoInterfaceDevices(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	body := `[interfaces]
+  [[auto]]
+    type = AutoInterface
+    enabled = yes
+    devices = eth0, eth1
+    ignored_devices = wlan0, dummy0
+`
+	writeFile(t, path, body)
+
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	iface, ok := cfg.Interfaces["auto"]
+	if !ok {
+		t.Fatal("auto interface missing")
+	}
+	wantDevices := []string{"eth0", "eth1"}
+	wantIgnored := []string{"wlan0", "dummy0"}
+	if len(iface.Devices) != len(wantDevices) || iface.Devices[0] != wantDevices[0] || iface.Devices[1] != wantDevices[1] {
+		t.Errorf("Devices: got %v, want %v", iface.Devices, wantDevices)
+	}
+	if len(iface.IgnoredDevices) != len(wantIgnored) || iface.IgnoredDevices[0] != wantIgnored[0] || iface.IgnoredDevices[1] != wantIgnored[1] {
+		t.Errorf("IgnoredDevices: got %v, want %v", iface.IgnoredDevices, wantIgnored)
+	}
+}
+
 // TestLoadConfig_InlineComments verifies trailing comment markers do not leak
 // into string values.
 func TestLoadConfig_InlineComments(t *testing.T) {
@@ -444,6 +481,59 @@ func TestSaveConfig_RoundTrip(t *testing.T) {
 	if hub.TargetHost != "hub.example.com" || hub.TargetPort != 4242 || !hub.Enabled {
 		t.Errorf("Hub round-trip mismatch: %+v", hub)
 	}
+	if !loaded.EnableSandbox {
+		t.Error("EnableSandbox should round-trip as true (default)")
+	}
+}
+
+// TestLoadConfig_EnableSandbox verifies the parser recognises the
+// enable_sandbox key and that both truthy and falsy values are handled.
+func TestLoadConfig_EnableSandbox(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+
+	writeFile(t, path, `[reticulum]
+  enable_sandbox = no
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.EnableSandbox {
+		t.Error("enable_sandbox = no should set EnableSandbox to false")
+	}
+
+	writeFile(t, path, `[reticulum]
+  enable_sandbox = yes
+`)
+	cfg, err = LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if !cfg.EnableSandbox {
+		t.Error("enable_sandbox = yes should set EnableSandbox to true")
+	}
+}
+
+// TestSaveConfig_EnableSandboxRoundTrip writes enable_sandbox = no and
+// reloads it to ensure the field persists.
+func TestSaveConfig_EnableSandboxRoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+
+	cfg := DefaultConfig()
+	cfg.ConfigPath = path
+	cfg.EnableSandbox = false
+
+	if err := SaveConfig(cfg); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+
+	loaded, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if loaded.EnableSandbox {
+		t.Error("EnableSandbox should round-trip as false")
+	}
 }
 
 // TestSaveConfig_RequiresPath verifies SaveConfig refuses to write without a
@@ -459,7 +549,8 @@ func TestSaveConfig_RequiresPath(t *testing.T) {
 
 // TestCreateDefaultConfig writes the starter file and checks the only
 // shipped default interface (Auto Discovery) is present and enabled. No
-// external TCP hubs are baked into defaults; users add their own.
+// external TCP hubs are baked into defaults. Users add their own.
+
 func TestCreateDefaultConfig(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config")
 
@@ -506,11 +597,63 @@ func TestGetConfigPath(t *testing.T) {
 	}
 }
 
-// TestEnsureConfigDir creates the configured directory; we accept the host
+// TestEnsureConfigDir creates the configured directory. We accept the host
+
 // home directory because the call is idempotent.
 func TestEnsureConfigDir(t *testing.T) {
 	if err := EnsureConfigDir(); err != nil {
 		t.Errorf("EnsureConfigDir: %v", err)
+	}
+}
+
+// TestLoadConfigBackboneRemoteAlias maps community-style remote to target_host.
+func TestLoadConfigBackboneRemoteAlias(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	body := `[interfaces]
+  [[MichMesh]]
+    type = BackboneInterface
+    enabled = yes
+    remote = michmesh.example
+    target_port = 4242
+`
+	writeFile(t, path, body)
+
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	iface := cfg.Interfaces["MichMesh"]
+	if iface == nil {
+		t.Fatal("MichMesh interface missing")
+	}
+	if iface.TargetHost != "michmesh.example" || iface.TargetPort != 4242 {
+		t.Fatalf("target = %s:%d", iface.TargetHost, iface.TargetPort)
+	}
+}
+
+func TestLoadConfig_BackboneIO(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config")
+	writeFile(t, path, `[reticulum]
+  backbone_io = epoll
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.BackboneIO != "epoll" {
+		t.Fatalf("BackboneIO = %q, want epoll", cfg.BackboneIO)
+	}
+
+	writeFile(t, path, `[reticulum]
+  io_backend = kqueue
+`)
+	cfg, err = LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig io_backend: %v", err)
+	}
+	if cfg.BackboneIO != "kqueue" {
+		t.Fatalf("BackboneIO = %q, want kqueue", cfg.BackboneIO)
 	}
 }
 

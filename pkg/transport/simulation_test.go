@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package transport
 
@@ -6,15 +6,14 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math/rand/v2"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/announce"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
+	"quad4/reticulum-go/pkg/announce"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/packet"
 )
 
 // simInboxSize bounds in-flight packets per duplex side. The sender
@@ -158,7 +157,8 @@ func (n *simNode) announcePacket(t testing.TB) []byte {
 }
 
 // originateAnnounce broadcasts the node's announce on every attached
-// interface; receivers process it through their normal packet
+// interface. Receivers process it through their normal packet
+
 // pipeline.
 func (n *simNode) originateAnnounce(t testing.TB) {
 	t.Helper()
@@ -173,12 +173,16 @@ func (n *simNode) originateAnnounce(t testing.TB) {
 // close() exactly once after each network is no longer needed.
 type simNetwork struct {
 	nodes     []*simNode
+	adj       [][]int
 	closeOnce sync.Once
 }
 
 func newSimNetwork(t testing.TB, n int) *simNetwork {
 	t.Helper()
-	net := &simNetwork{nodes: make([]*simNode, n)}
+	net := &simNetwork{
+		nodes: make([]*simNode, n),
+		adj:   make([][]int, n),
+	}
 	for i := range n {
 		net.nodes[i] = newSimNode(t, i)
 	}
@@ -222,9 +226,16 @@ func (s *simNetwork) link(t testing.TB, a, b int) {
 	nb.tr.ifaceStates.put(right.GetName(), &ifaceState{})
 	na.ifaces = append(na.ifaces, left)
 	nb.ifaces = append(nb.ifaces, right)
+	s.addEdge(a, b)
 }
 
-// Topology builders. Each returns a populated simNetwork; the caller
+func (s *simNetwork) addEdge(a, b int) {
+	s.adj[a] = append(s.adj[a], b)
+	s.adj[b] = append(s.adj[b], a)
+}
+
+// Topology builders. Each returns a populated simNetwork. The caller
+
 // is responsible for invoking close() once it is done with it.
 
 func buildLine(t testing.TB, n int) *simNetwork {
@@ -237,7 +248,7 @@ func buildLine(t testing.TB, n int) *simNetwork {
 
 func buildRing(t testing.TB, n int) *simNetwork {
 	net := newSimNetwork(t, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		net.link(t, i, (i+1)%n)
 	}
 	return net
@@ -253,7 +264,7 @@ func buildStar(t testing.TB, n int) *simNetwork {
 
 func buildMesh(t testing.TB, n int) *simNetwork {
 	net := newSimNetwork(t, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		for j := i + 1; j < n; j++ {
 			net.link(t, i, j)
 		}
@@ -270,7 +281,7 @@ func buildRandom(t testing.TB, n int, p float64, seed uint64) *simNetwork {
 	for i := 0; i < n-1; i++ {
 		net.link(t, i, i+1)
 	}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		for j := i + 2; j < n; j++ {
 			if rng.Float64() < p {
 				net.link(t, i, j)
@@ -311,11 +322,12 @@ func waitForPaths(nodes []*simNode, dest []byte, timeout time.Duration) (time.Du
 // HeaderType2 packet sent from node 0 toward target is forwarded
 // along the chain. Each intermediate next-hop is the next relay's
 // transport identity (so the rewriter sees a recognisable
-// TransportID at every hop); the last hop falls through to the
+// TransportID at every hop). The last hop falls through to the
+
 // header-stripping branch.
 func preloadLinePaths(nodes []*simNode, target []byte) {
 	last := len(nodes) - 1
-	for i := 0; i < last; i++ {
+	for i := range last {
 		ifc := nodes[i].ifaces[len(nodes[i].ifaces)-1]
 		nextHop := nodes[i+1].id.Hash()
 		hops := uint8(last - i)
@@ -416,7 +428,7 @@ func TestSimPartitionIsolation(t *testing.T) {
 	}
 	net := newSimNetwork(t, 6)
 	t.Cleanup(net.close)
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		net.link(t, i, i+1)
 	}
 	for i := 3; i < 5; i++ {
@@ -479,39 +491,7 @@ func TestSimLineDataRelay(t *testing.T) {
 	}
 }
 
-// TestSimMemoryFootprintAcrossNodes reports the average resident
-// path-table cost per (node, destination) pair in a fully populated
-// fabric. Useful as a budget guard for embedded deployments.
-func TestSimMemoryFootprintAcrossNodes(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping memory footprint test in -short mode")
-	}
-	const n = 32
-	net := buildLine(t, n)
-	t.Cleanup(net.close)
-
-	var m1, m2 runtime.MemStats
-	runtime.GC()
-	runtime.ReadMemStats(&m1)
-
-	for _, src := range net.nodes {
-		ifaceName := src.ifaces[0].GetName()
-		for _, dst := range net.nodes {
-			if dst == src {
-				continue
-			}
-			src.tr.UpdatePath(dst.destHash, dst.destHash, ifaceName, 1)
-		}
-	}
-
-	runtime.GC()
-	runtime.ReadMemStats(&m2)
-
-	entries := uint64(n) * uint64(n-1)
-	used := m2.Alloc - m1.Alloc
-	t.Logf("nodes=%d entries=%d total=%d KB per_entry=%d B",
-		n, entries, used/1024, used/entries)
-}
+// TestSimMemoryFootprintAcrossNodes lives in simulation_memory_test.go.
 
 // BenchmarkSimAnnounceConvergence reports wall-clock time for an
 // announce originated at one end of a line topology to reach every
@@ -520,14 +500,16 @@ func TestSimMemoryFootprintAcrossNodes(t *testing.T) {
 // The whole network is rebuilt every iteration and torn down before
 // the next so transport and interface goroutines never accumulate.
 func BenchmarkSimAnnounceConvergence(b *testing.B) {
-	for _, n := range []int{4, 8, 16} {
+	muteDebugLogsForBenchmark(b)
+	enableSimFastPath(b)
+	for _, n := range []int{4, 8, 16, 32} {
 		b.Run(fmt.Sprintf("Line-%d", n), func(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
 				net := buildLine(b, n)
 				src := net.nodes[0]
 				src.originateAnnounce(b)
-				took, ok := waitForPaths(net.nodes[1:], src.destHash, 30*time.Second)
+				took, ok := waitForPaths(net.nodes[1:], src.destHash, simConvergenceTimeout(n-1))
 				if ok != n-1 {
 					net.close()
 					b.Fatalf("only %d/%d converged in %v", ok, n-1, took)
@@ -543,6 +525,7 @@ func BenchmarkSimAnnounceConvergence(b *testing.B) {
 // across the whole network. The network is built once per
 // sub-benchmark and torn down via b.Cleanup.
 func BenchmarkSimPathLookupAcrossNodes(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	for _, n := range []int{8, 32, 128} {
 		b.Run(fmt.Sprintf("N-%d", n), func(b *testing.B) {
 			b.StopTimer()
@@ -573,7 +556,9 @@ func BenchmarkSimPathLookupAcrossNodes(b *testing.B) {
 // per-iteration end-to-end delivery cost. Backpressure on simIface
 // inboxes caps in-flight memory.
 func BenchmarkSimLineRelayThroughput(b *testing.B) {
-	for _, hops := range []int{2, 4, 8} {
+	muteDebugLogsForBenchmark(b)
+	enableSimFastPath(b)
+	for _, hops := range []int{2, 4, 8, 16} {
 		b.Run(fmt.Sprintf("Hops-%d", hops), func(b *testing.B) {
 			b.StopTimer()
 			n := hops + 1
@@ -609,9 +594,11 @@ func BenchmarkSimLineRelayThroughput(b *testing.B) {
 
 // BenchmarkSimMeshAnnounceLoad measures the cost of one node
 // originating an announce inside a fully connected mesh. Every other
-// node receives N-1 copies of the same announce; all but one must be
+// node receives N-1 copies of the same announce. All but one must be
+
 // deduplicated by seenAnnounces.
 func BenchmarkSimMeshAnnounceLoad(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	for _, n := range []int{4, 8} {
 		b.Run(fmt.Sprintf("N-%d", n), func(b *testing.B) {
 			b.ReportAllocs()
@@ -634,6 +621,7 @@ func BenchmarkSimMeshAnnounceLoad(b *testing.B) {
 // the same line. Useful for spotting lock contention along the
 // transport's per-packet path.
 func BenchmarkSimConcurrentLineRelay(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
 	for _, workers := range []int{1, 4, 16} {
 		b.Run(fmt.Sprintf("Workers-%d", workers), func(b *testing.B) {
 			b.StopTimer()
@@ -656,16 +644,54 @@ func BenchmarkSimConcurrentLineRelay(b *testing.B) {
 			b.ReportAllocs()
 
 			var wg sync.WaitGroup
-			for w := 0; w < workers; w++ {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
+			for range workers {
+				wg.Go(func() {
 					for i := 0; i < perWorker; i++ {
 						_ = src.Send(pkt, "")
 					}
-				}()
+				})
 			}
 			wg.Wait()
 		})
+	}
+}
+
+func BenchmarkSimRandomGraphRelay(b *testing.B) {
+	muteDebugLogsForBenchmark(b)
+	enableSimFastPath(b)
+	b.StopTimer()
+	const n = 16
+	net := buildRandom(b, n, 0.12, 0xbeec)
+	b.Cleanup(net.close)
+	srcIdx := 0
+	dstIdx := n - 1
+	target := net.nodes[dstIdx].destHash
+	path, ok := net.pathNodes(srcIdx, dstIdx)
+	if !ok || len(path) < 2 {
+		b.Fatalf("no path from %d to %d", srcIdx, dstIdx)
+	}
+	preloadPathNodes(net.nodes, path, target)
+	secondHop := net.nodes[path[1]].id.Hash()
+	tail := net.nodes[dstIdx].ifaces[0]
+	src := net.nodes[srcIdx].ifaces[0]
+	pkt := buildHT2(secondHop, target, 0, make([]byte, 64))
+	const batch = 100
+
+	b.StartTimer()
+	b.ReportAllocs()
+	startRx := tail.GetRxPackets()
+	for i := 0; i < b.N; i++ {
+		for range batch {
+			_ = src.Send(pkt, "")
+		}
+	}
+	want := startRx + uint64(b.N*batch)
+	deadline := time.Now().Add(time.Duration(b.N)*batch*200*time.Microsecond + 10*time.Second)
+	for tail.GetRxPackets() < want && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	b.StopTimer()
+	if got := tail.GetRxPackets() - startRx; got < want {
+		b.Logf("random graph relay shortfall: got=%d want=%d", got, want)
 	}
 }

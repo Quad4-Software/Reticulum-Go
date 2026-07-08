@@ -10,7 +10,7 @@ import (
 	"net"
 	"sync"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"quad4/reticulum-go/pkg/common"
 )
 
 type UDPInterface struct {
@@ -48,6 +48,11 @@ func NewUDPInterface(name string, addr string, target string, enabled bool) (*UD
 	ui.MTU = 1064
 
 	return ui, nil
+}
+
+func NewUDPInterfaceWithRetries(name string, addr string, target string, enabled bool, maxReconnectTries int) (*UDPInterface, error) {
+	_ = maxReconnectTries
+	return NewUDPInterface(name, addr, target, enabled)
 }
 
 func (ui *UDPInterface) Start() error {

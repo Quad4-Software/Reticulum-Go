@@ -1,14 +1,19 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024-2026 Quad4.io
+
 package link
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/destination"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/packet"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/destination"
+	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/resource"
 )
 
 type mockTransport struct {
@@ -134,5 +139,138 @@ func TestLinkResponseHandling(t *testing.T) {
 
 	if receipt.status != StatusActive {
 		t.Errorf("Expected status ACTIVE after response, got %d", receipt.status)
+	}
+}
+
+func TestSelectRequestedPartIndexes_HandlesDuplicateMapHashes(t *testing.T) {
+	const sdu = 32
+	payload := bytes.Repeat([]byte{0x4D}, 320)
+
+	res, err := resource.New(payload, false)
+	if err != nil {
+		t.Fatalf("resource.New: %v", err)
+	}
+	identityEncrypt := func(plain []byte) ([]byte, error) {
+		return bytes.Repeat([]byte{0x7C}, len(plain)), nil
+	}
+	if err := res.PrepareOutboundForLink(identityEncrypt, sdu); err != nil {
+		t.Fatalf("PrepareOutboundForLink: %v", err)
+	}
+
+	firstPart := res.OutboundCiphertextSlice(0, sdu)
+	hashSum := sha256.Sum256(append(append([]byte{}, firstPart...), res.GetRandomHash()...))
+	mapHash := hashSum[:resource.MapHashLen]
+	candidates := res.PartIndicesForMapHash(mapHash)
+	if len(candidates) < 2 {
+		t.Fatalf("expected duplicate map-hash candidates, got %d", len(candidates))
+	}
+
+	var reqHashes []byte
+	for range candidates {
+		reqHashes = append(reqHashes, mapHash...)
+	}
+
+	indexes := selectRequestedPartIndexes(res, reqHashes, 0)
+	if len(indexes) != len(candidates) {
+		t.Fatalf("expected %d selected indexes, got %d", len(candidates), len(indexes))
+	}
+
+	seen := make(map[int]struct{}, len(indexes))
+	for _, idx := range indexes {
+		seen[idx] = struct{}{}
+	}
+	if len(seen) != len(candidates) {
+		t.Fatalf("expected %d unique indexes, got %d", len(candidates), len(seen))
+	}
+}
+
+func TestSelectRequestedPartIndexes_PrefersUnsentAcrossBatches(t *testing.T) {
+	const sdu = 32
+	payload := bytes.Repeat([]byte{0x7F}, 320)
+
+	res, err := resource.New(payload, false)
+	if err != nil {
+		t.Fatalf("resource.New: %v", err)
+	}
+	identityEncrypt := func(plain []byte) ([]byte, error) {
+		return bytes.Repeat([]byte{0x22}, len(plain)), nil
+	}
+	if err := res.PrepareOutboundForLink(identityEncrypt, sdu); err != nil {
+		t.Fatalf("PrepareOutboundForLink: %v", err)
+	}
+
+	firstPart := res.OutboundCiphertextSlice(0, sdu)
+	hashSum := sha256.Sum256(append(append([]byte{}, firstPart...), res.GetRandomHash()...))
+	mapHash := hashSum[:resource.MapHashLen]
+	candidates := res.PartIndicesForMapHash(mapHash)
+	if len(candidates) < 8 {
+		t.Fatalf("expected at least 8 duplicate candidates, got %d", len(candidates))
+	}
+
+	reqHashes := make([]byte, 0, resource.Window*resource.MapHashLen)
+	for range resource.Window {
+		reqHashes = append(reqHashes, mapHash...)
+	}
+
+	firstBatch := selectRequestedPartIndexes(res, reqHashes, 0)
+	if len(firstBatch) != resource.Window {
+		t.Fatalf("expected first batch size %d, got %d", resource.Window, len(firstBatch))
+	}
+	for _, idx := range firstBatch {
+		_ = res.MarkOutboundPartSent(idx)
+	}
+
+	secondBatch := selectRequestedPartIndexes(res, reqHashes, 0)
+	if len(secondBatch) != resource.Window {
+		t.Fatalf("expected second batch size %d, got %d", resource.Window, len(secondBatch))
+	}
+
+	for _, idx := range secondBatch {
+		for _, already := range firstBatch {
+			if idx == already {
+				t.Fatalf("expected second batch to avoid already-sent index %d", idx)
+			}
+		}
+	}
+}
+
+func TestChooseHashmapUpdateSegment_SelectsNextSegmentBoundary(t *testing.T) {
+	const sdu = 384
+	payload := bytes.Repeat([]byte{0x52}, 40000)
+
+	res, err := resource.New(payload, false)
+	if err != nil {
+		t.Fatalf("resource.New: %v", err)
+	}
+	identityEncrypt := func(plain []byte) ([]byte, error) {
+		return append([]byte(nil), plain...), nil
+	}
+	if err := res.PrepareOutboundForLink(identityEncrypt, sdu); err != nil {
+		t.Fatalf("PrepareOutboundForLink: %v", err)
+	}
+
+	entries := resource.HashmapEntriesPerSegment(sdu)
+	if entries <= 0 {
+		t.Fatalf("expected positive hashmap entries per segment, got %d", entries)
+	}
+	totalParts := int(res.GetSegments())
+	if totalParts <= entries {
+		t.Fatalf("expected total parts > entries, got parts=%d entries=%d", totalParts, entries)
+	}
+
+	boundaryIndex := entries - 1
+	boundarySlice := res.OutboundCiphertextSlice(boundaryIndex, sdu)
+	if len(boundarySlice) == 0 {
+		t.Fatal("boundary slice empty")
+	}
+	sum := sha256.Sum256(append(append([]byte{}, boundarySlice...), res.GetRandomHash()...))
+	anchor := sum[:resource.MapHashLen]
+
+	segment, _, ok := chooseHashmapUpdateSegment(res, sdu, anchor, 0)
+	if !ok {
+		t.Fatal("expected chooseHashmapUpdateSegment to succeed")
+	}
+	if segment != 1 {
+		t.Fatalf("expected next segment index 1, got %d", segment)
 	}
 }

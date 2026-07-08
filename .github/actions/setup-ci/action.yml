@@ -1,0 +1,33 @@
+name: Setup CI
+description: Install pinned Go, Task, and optional CI tools
+inputs:
+  go_version:
+    description: Go toolchain version
+    required: true
+  task_version:
+    description: Task version
+    required: false
+    default: "3.46.3"
+  revive_version:
+    description: When set, install revive at this version
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Setup Go
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+      with:
+        go-version: ${{ inputs.go_version }}
+        check-latest: false
+        cache: true
+        cache-dependency-path: go.sum
+
+    - name: Setup Task
+      shell: sh
+      run: sh scripts/ci/setup-task.sh "${{ inputs.task_version }}"
+
+    - name: Install revive
+      if: inputs.revive_version != ''
+      shell: sh
+      run: sh scripts/ci/setup-revive.sh "${{ inputs.revive_version }}"

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package packet
 
@@ -27,18 +27,40 @@ func BenchmarkPacketThroughput(b *testing.B) {
 			b.ResetTimer()
 			b.ReportAllocs()
 
+			p2 := &Packet{}
 			for i := 0; i < b.N; i++ {
-				p.Packed = false // Reset packed state
+				p.Packed = false
 				if err := p.Pack(); err != nil {
 					b.Fatalf("Pack failed: %v", err)
 				}
 
-				p2 := &Packet{Raw: p.Raw}
+				p2.Raw = p.Raw
 				if err := p2.Unpack(); err != nil {
 					b.Fatalf("Unpack failed: %v", err)
 				}
 			}
 		})
+	}
+}
+
+func BenchmarkPacketPackWarm(b *testing.B) {
+	data := make([]byte, 256)
+	p := &Packet{
+		HeaderType:      HeaderType1,
+		PacketType:      PacketTypeData,
+		DestinationHash: make([]byte, 16),
+		Data:            data,
+	}
+	if err := p.Pack(); err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		p.Packed = false
+		if err := p.Pack(); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 

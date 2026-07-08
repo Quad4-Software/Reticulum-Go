@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024-2026 Quad4.io
+
 package interfaces
 
 import (
@@ -7,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
+	"quad4/reticulum-go/pkg/common"
 )
 
 func TestBaseInterfaceStateChanges(t *testing.T) {
@@ -139,7 +142,8 @@ func TestBaseInterfaceStats(t *testing.T) {
 
 	// BaseInterface.ProcessOutgoing is now a fail-loud stub that the
 	// concrete interface type is required to override. Calling it directly
-	// must return an error and must NOT mutate TxBytes; otherwise we lose
+	// must return an error and must NOT mutate TxBytes. Otherwise we lose
+
 	// our compile/runtime guarantee that the abstract base never silently
 	// swallows packets.
 	if err := bi.ProcessOutgoing(data1); err == nil {
@@ -147,6 +151,20 @@ func TestBaseInterfaceStats(t *testing.T) {
 	}
 	if bi.TxBytes != 0 {
 		t.Errorf("TxBytes = %d; want 0 (BaseInterface.ProcessOutgoing must not update stats)", bi.TxBytes)
+	}
+}
+
+func TestUpdateBandwidthStatsAccumulatesTxBytes(t *testing.T) {
+	bi := NewBaseInterface("txStatsTest", common.IFTypeUDP, true)
+
+	bi.updateBandwidthStats(128)
+	bi.updateBandwidthStats(64)
+
+	if bi.TxBytes != 192 {
+		t.Errorf("TxBytes = %d; want 192 after updateBandwidthStats calls", bi.TxBytes)
+	}
+	if bi.GetTxBytes() != 192 {
+		t.Errorf("GetTxBytes() = %d; want 192", bi.GetTxBytes())
 	}
 }
 

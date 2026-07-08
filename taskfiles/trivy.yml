@@ -1,0 +1,116 @@
+version: '3'
+
+tasks:
+  _trivy-require:
+    internal: true
+    preconditions:
+      - sh: command -v trivy
+        msg: "Trivy not found. Run 'task trivy:install' first."
+
+  "trivy:install":
+    desc: Install Trivy scanner
+    cmds:
+      - |
+        if ! command -v trivy &> /dev/null; then
+          sh scripts/ci/setup-trivy.sh 0.69.3
+        else
+          echo "Trivy is already installed: $(trivy --version)"
+        fi
+
+  "trivy:scan":
+    desc: Run Trivy vulnerability scan
+    deps: [_trivy-require]
+    cmds:
+      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --scanners vuln --severity HIGH,CRITICAL --timeout 90m .
+
+  "trivy:scan-all":
+    desc: Run Trivy full scan (vulnerabilities, secrets, misconfig)
+    deps: [_trivy-require]
+    cmds:
+      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --scanners vuln,secret,misconfig .
+
+  sbom:
+    desc: Generate SBOM files (SPDX and CycloneDX formats)
+    deps: [_trivy-require]
+    cmds:
+      - mkdir -p sbom
+      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --format spdx-json --include-dev-deps --output sbom/sbom.spdx.json .
+      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --format cyclonedx --include-dev-deps --output sbom/sbom.cyclonedx.json .
+      - echo 'SBOM files generated in sbom/ directory'
+
+  "sbom:spdx":
+    desc: Generate SPDX JSON SBOM
+    deps: [_trivy-require]
+    cmds:
+      - mkdir -p sbom
+      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --format spdx-json --include-dev-deps --output sbom/sbom.spdx.json .
+      - |
+        echo 'SPDX SBOM generated at sbom/sbom.spdx.json'
+
+  "sbom:cyclonedx":
+    desc: Generate CycloneDX SBOM
+    deps: [_trivy-require]
+    cmds:
+      - mkdir -p sbom
+      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --format cyclonedx --include-dev-deps --output sbom/sbom.cyclonedx.json .
+      - |
+        echo 'CycloneDX SBOM generated at sbom/sbom.cyclonedx.json'
+
+  "trivy:scan:json":
+    desc: Run Trivy vulnerability scan with JSON output
+    deps: [_trivy-require]
+    cmds:
+      - mkdir -p reports
+      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --scanners vuln --format json --output reports/trivy-vuln.json --timeout 90m .
+
+  "trivy:scan:sarif":
+    desc: Run Trivy scan with SARIF output (for GitHub/GitLab integration)
+    deps: [_trivy-require]
+    cmds:
+      - mkdir -p reports
+      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --scanners vuln,secret --format sarif --output reports/trivy.sarif --timeout 90m .
+
+  "trivy:scan:secrets":
+    desc: Scan for hardcoded secrets
+    deps: [_trivy-require]
+    cmds:
+      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --scanners secret .
+
+  "trivy:scan:licenses":
+    desc: Scan for licenses in dependencies
+    deps: [_trivy-require]
+    cmds:
+      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --scanners license .
+
+  "trivy:scan:misconfig":
+    desc: Scan for misconfigurations in config files
+    deps: [_trivy-require]
+    cmds:
+      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --scanners misconfig .
+
+  "trivy:db-update":
+    desc: Update Trivy vulnerability database
+    deps: [_trivy-require]
+    cmds:
+      - trivy image --download-db-only
+
+  "trivy:cache-clean":
+    desc: Clean Trivy cache
+    deps: [_trivy-require]
+    cmds:
+      - trivy clean --cache
+
+  "trivy:compliance":
+    desc: "Generate compliance report (specify COMPLIANCE env var: docker-bench-cis, k8s-nsa, etc.)"
+    deps: [_trivy-require]
+    requires:
+      vars: [COMPLIANCE]
+    cmds:
+      - mkdir -p reports
+      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --compliance "${COMPLIANCE}" --format json --output "reports/compliance-${COMPLIANCE}.json" .
+
+  "trivy:ci":
+    desc: Run Trivy scan for CI (exits with non-zero code on findings)
+    deps: [_trivy-require]
+    cmds:
+      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --timeout 90m .

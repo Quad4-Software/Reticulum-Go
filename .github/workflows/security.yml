@@ -1,0 +1,116 @@
+# Pinned actions (bump tag and SHA together when upgrading):
+#   actions/checkout@v6.0.1            8e8c483db84b4bee98b60c0593521ed34d9990e8
+#   actions/upload-artifact@v5.0.0     330a01c490aca151604b8cf639adc76d48f6c5d4
+#
+name: Security
+
+on:
+  push:
+    branches: [master, dev]
+  schedule:
+    - cron: "30 12 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  CI_GO_VERSION: "1.26.5"
+  CI_TASK_VERSION: "3.46.3"
+  CI_TRIVY_VERSION: "0.69.3"
+  GOFLAGS: -mod=vendor
+  GOPROXY: "off"
+  GOTOOLCHAIN: local
+
+jobs:
+  static-scan:
+    name: ${{ matrix.scanner }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - scanner: gosec
+            setup: setup-gosec.sh
+            version: v2.24.5
+            task: scan
+          - scanner: govulncheck
+            setup: setup-govulncheck.sh
+            version: v1.1.4
+            task: vulncheck
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Install ${{ matrix.scanner }}
+        run: sh scripts/ci/${{ matrix.setup }} "${{ matrix.version }}"
+
+      - name: Run ${{ matrix.scanner }}
+        run: task ${{ matrix.task }}
+
+  trivy:
+    name: Trivy
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Apt update (for Trivy .deb)
+        run: sh scripts/ci/exec-priv.sh apt-get update -qq
+
+      - name: Install Trivy
+        run: sh scripts/ci/setup-trivy.sh "${{ env.CI_TRIVY_VERSION }}"
+
+      - name: Filesystem scan
+        run: task trivy:ci
+
+  sbom:
+    name: SBOM
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Apt update (for Trivy .deb)
+        run: sh scripts/ci/exec-priv.sh apt-get update -qq
+
+      - name: Install Trivy
+        run: sh scripts/ci/setup-trivy.sh "${{ env.CI_TRIVY_VERSION }}"
+
+      - name: Generate SBOM
+        run: task sbom
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom-${{ github.ref_name }}
+          path: sbom/
+          if-no-files-found: error

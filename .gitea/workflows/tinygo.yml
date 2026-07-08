@@ -7,13 +7,11 @@ on:
     branches: [ "tinygo" ]
 
 env:
-  CI_GO_VERSION: "1.26.2"
-  CI_TINYGO_VERSION: "0.41.0"
-  TINYGO_DEB_SHA256: "52d57d46f03a8b8e68dd49298aff3b9bb79e1d9b7b2cdf0fa0b0f30b6bac89ec"
+  CI_GO_VERSION: "1.26.5"
+  CI_TINYGO_VERSION: "0.41.1"
+  TINYGO_DEB_SHA256: "901fbccffc61adb111656d1f907dfc21b6c499ca841b115866a0d6de2d835fbe"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
-  GOPRIVATE: git.quad4.io
-  GONOSUMDB: git.quad4.io
 
 jobs:
   tinygo-build:

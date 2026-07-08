@@ -39,7 +39,7 @@ configuration file. Default path:
 
 Override with `-config /path/to/config`. If the file does not exist it is
 created with a single `Auto Discovery` (`AutoInterface`) entry using
-`pkg/reticulumconfig`. No external TCP hubs are baked in; add your own.
+`pkg/reticulumconfig`. No external TCP hubs are baked in. Add your own.
 
 The format is the standard Reticulum INI-style layout:
 
@@ -72,12 +72,9 @@ The format is the standard Reticulum INI-style layout:
 
 Edit the file to enable or disable individual interfaces, change target
 hosts, or add new ones. Supported interface types: `AutoInterface`,
-`TCPClientInterface`, `UDPInterface`.
-
-The `-udp` flag adds an additional `UDP` overlay interface on top of whatever
-the file declares (useful for one-off local testing without editing the
-config). `-no-auto-discovery` disables the `Auto Discovery` interface for
-the current run only.
+`TCPClientInterface`, `UDPInterface`. For local interop tests, the Go side
+loads a config that adds a `UDPInterface` with the chosen listen and target
+ports.
 
 ## Logging and verbosity
 
@@ -93,7 +90,7 @@ file for that run.
 
 | Level | Name     | What you see |
 |:-----:|----------|--------------|
-| 1 | critical | Fatal-style messages from this tool; default when no `-debug` / `-log-level` |
+| 1 | critical | Fatal-style messages from this tool, default when no `-debug` / `-log-level` |
 | 2 | error    | Errors and above |
 | 3 | info     | General informational logs (includes much Reticulum stack output) |
 | 4 | verbose  | More detail |
@@ -107,22 +104,16 @@ file for that run.
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-config` | `""` | Path to Reticulum config file. Empty uses `~/.reticulum-go/config`. Created with default interfaces if missing. |
-| `-udp` | `false` | Add a local UDP overlay interface on top of the loaded config. |
-| `-listen-port` | `4242` | UDP listen port when `-udp` is set. |
-| `-target-port` | `0` | UDP peer port when `-udp` is set (`0` = no target). |
-| `-no-auto-discovery` | `false` | Disable the `Auto Discovery` interface for this run. |
-| `-debug` | `3` in `pkg/debug` | Same scale as `-log-level`. Only applies when you pass `-debug` on the command line; otherwise verbosity follows config `loglevel` (unless `-log-level` is set). |
-| `-log-level` | `-1` (unset) | Sets level `1`–`7`. If set, overrides config and `-debug`. |
-| `-fresh-identity` | `false` | Delete the on-disk identity before start (new destination hash). |
-| `-identity-path` | `""` | Identity file path (default: `~/.reticulum-go/storage/identity`). |
-| `-announce-interval` | `6h` | Period for repeated announces; `0` disables repeats (initial announce still sent). |
-| `-pages-dir` | `pages` | Directory of pages served under `/page/`. |
-| `-files-dir` | `files` | Directory of files served under `/file/`. |
-| `-pages-refresh-interval` | `0` | Rescan `pages-dir` on this interval; `0` = scan only at startup. |
-| `-files-refresh-interval` | `0` | Rescan `files-dir` on this interval; `0` = scan only at startup. |
-| `-intercept-packets` | `false` | Log raw packets to a file (debugging). |
-| `-intercept-output` | `packets.log` | Output path when `-intercept-packets` is set. |
+| `-config` / `-c` | `""` | Reticulum config path (default `~/.reticulum-go/config`, created if missing). |
+| `-pages-dir` / `-p` | `pages` | Pages directory for `/page/`. |
+| `-files-dir` / `-f` | `files` | Files directory for `/file/`. |
+| `-node-name` / `-n` | built-in name | Node display name in announces. |
+| `-announce-interval` / `-a` | `360` | Periodic announces every N **whole minutes** (`0` = off after initial announce). Default 360 = 6 hours. |
+| `-page-refresh` / `-pages-refresh-interval` | `0` | Rescan pages dir every N **seconds** (`0` = startup only). |
+| `-file-refresh` / `-files-refresh-interval` | `0` | Rescan files dir every N **seconds** (`0` = startup only). |
+| `-identity` / `-identity-path` | `""` | Identity file path (default `~/.reticulum-go/storage/identity`). |
+| `-debug` | (see `pkg/debug`) | Same scale as `-log-level` when passed on the CLI. |
+| `-log-level` | `-1` | Sets level `1`–`7`. `-1` uses config. Overrides config and `-debug` when set. |
 
 Constants such as announce rate targets are compiled into the binary (see
-`main.go`); they are not CLI flags.
+`main.go`). They are not CLI flags.

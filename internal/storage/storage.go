@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package storage
 
@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"git.quad4.io/Go-Libs/msgpack/v5/pkg/msgpack"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/debug"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/reticulumconfig"
+	"quad4/msgpack/v5/pkg/msgpack"
+	"quad4/reticulum-go/internal/pathutil"
+	"quad4/reticulum-go/pkg/debug"
 )
 
 type Manager struct {
@@ -31,7 +31,7 @@ type RatchetData struct {
 }
 
 func NewManager() (*Manager, error) {
-	basePath := filepath.Join(reticulumconfig.ConfigHomeDir(), ".reticulum-go", "storage")
+	basePath := filepath.Join(pathutil.ConfigHomeDir(), ".reticulum-go", "storage")
 
 	m := &Manager{
 		basePath:          basePath,

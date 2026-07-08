@@ -1,0 +1,252 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024-2026 Quad4.io
+
+// Live NomadNet link test through a Go transport relay. Python peers over UDP
+// while the relay maintains TCP mesh uplinks. RUN_LIVE_INTEROP=1.
+
+package interop
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/interfaces"
+	"quad4/reticulum-go/pkg/transport"
+)
+
+type directoryPeer struct {
+	Name string
+	Host string
+	Port int
+}
+
+func defaultMeshPeers() []directoryPeer {
+	return []directoryPeer{
+		{Name: "Beleth", Host: "rns.beleth.net", Port: 4242},
+		{Name: "MichMesh", Host: "rns.michmesh.net", Port: 7822},
+		{Name: "Quortal", Host: "reticulum.qortal.link", Port: 4242},
+		{Name: "StoppedCold", Host: "rns.stoppedcold.com", Port: 4242},
+		{Name: "Sydney", Host: "sydney.reticulum.au", Port: 4242},
+	}
+}
+
+func meshPeersFromEnv(t *testing.T) []directoryPeer {
+	t.Helper()
+	raw := strings.TrimSpace(os.Getenv("INTEROP_NOMADNET_MESH_PEERS"))
+	if raw == "" {
+		return defaultMeshPeers()
+	}
+	var peers []directoryPeer
+	for part := range strings.SplitSeq(raw, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		fields := strings.Split(part, ":")
+		if len(fields) != 3 {
+			t.Fatalf("invalid INTEROP_NOMADNET_MESH_PEERS entry %q, want name:host:port", part)
+		}
+		port, err := strconv.Atoi(strings.TrimSpace(fields[2]))
+		if err != nil {
+			t.Fatalf("invalid port in %q: %v", part, err)
+		}
+		peers = append(peers, directoryPeer{
+			Name: strings.TrimSpace(fields[0]),
+			Host: strings.TrimSpace(fields[1]),
+			Port: port,
+		})
+	}
+	if len(peers) == 0 {
+		return defaultMeshPeers()
+	}
+	return peers
+}
+
+func setupGoTransportRelay(t *testing.T, pyListen, pyForward int, peers []directoryPeer) (*transport.Transport, func()) {
+	t.Helper()
+	cfg := &common.ReticulumConfig{EnableTransport: true}
+	tr := transport.NewTransport(cfg)
+
+	relayAddr := "127.0.0.1:" + strconv.Itoa(pyForward)
+	targetAddr := "127.0.0.1:" + strconv.Itoa(pyListen)
+	udpIface, err := interfaces.NewUDPInterface("relay_udp", relayAddr, targetAddr, true)
+	if err != nil {
+		t.Fatalf("udp relay iface: %v", err)
+	}
+	if err := tr.RegisterInterface("relay_udp", udpIface); err != nil {
+		t.Fatalf("register relay_udp: %v", err)
+	}
+	if err := udpIface.Start(); err != nil {
+		t.Fatalf("start relay_udp: %v", err)
+	}
+
+	connected := 0
+	for _, peer := range peers {
+		iface, err := interfaces.NewTCPClientInterface(peer.Name, peer.Host, peer.Port, false, false, true)
+		if err != nil {
+			t.Logf("skip mesh peer %s (%s:%d): %v", peer.Name, peer.Host, peer.Port, err)
+			continue
+		}
+		if err := tr.RegisterInterface(peer.Name, iface); err != nil {
+			t.Logf("skip mesh peer %s register: %v", peer.Name, err)
+			continue
+		}
+		connected++
+		t.Logf("connected mesh peer %s (%s:%d)", peer.Name, peer.Host, peer.Port)
+	}
+	if connected == 0 {
+		t.Fatal("no mesh TCP peers connected")
+	}
+
+	if err := tr.InitializePathRequestHandler(); err != nil {
+		t.Fatalf("path handler: %v", err)
+	}
+
+	return tr, func() { tr.Close() }
+}
+
+// TestLiveNomadNetLinkThroughGoRelay exercises the meshchatx-style topology:
+// Python client over UDP to a Go transport relay with multiple TCP mesh uplinks.
+//
+// Required: RUN_LIVE_INTEROP=1
+// Optional:
+//   - INTEROP_NOMADNET_MESH_PEERS=name:host:port,... (default: 5 public nodes)
+//   - INTEROP_NOMADNET_ANNOUNCE_WAIT_SEC (default 120)
+//   - INTEROP_NOMADNET_LINK_TIMEOUT_SEC (default 120)
+func TestLiveNomadNetLinkThroughGoRelay(t *testing.T) {
+	liveOrSkip(t)
+
+	announceWait := envDurationSeconds("INTEROP_NOMADNET_ANNOUNCE_WAIT_SEC", 120*time.Second)
+	linkTimeout := envDurationSeconds("INTEROP_NOMADNET_LINK_TIMEOUT_SEC", 120*time.Second)
+
+	ctx, cancel := context.WithTimeout(context.Background(), announceWait+linkTimeout+2*time.Minute)
+	defer cancel()
+
+	pyListen := freeUDPPort(t)
+	pyForward := freeUDPPort(t)
+	peers := meshPeersFromEnv(t)
+
+	tr, cleanup := setupGoTransportRelay(t, pyListen, pyForward, peers)
+	defer cleanup()
+	_ = tr
+
+	scriptDirPath := scriptDir(t)
+	pyCmd := exec.CommandContext(ctx, pythonExe(), filepath.Join(scriptDirPath, "py", "nomadnet_relay_probe.py"))
+	pyCmd.Env = append(os.Environ(),
+		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
+		"INTEROP_FORWARD_PORT="+strconv.Itoa(pyForward),
+		"INTEROP_NOMADNET_ANNOUNCE_WAIT_SEC="+strconv.Itoa(int(announceWait.Seconds())),
+		"INTEROP_NOMADNET_LINK_TIMEOUT_SEC="+strconv.Itoa(int(linkTimeout.Seconds())),
+	)
+	pyCmd.Stderr = os.Stderr
+	pyOut, err := pyCmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("python stdout pipe: %v", err)
+	}
+	if err := pyCmd.Start(); err != nil {
+		t.Fatalf("start python probe: %v", err)
+	}
+	defer func() {
+		_ = pyCmd.Process.Kill()
+		_ = pyCmd.Wait()
+	}()
+
+	br := bufio.NewReader(pyOut)
+	if line, err := readLineTimeout(ctx, br, 30*time.Second); err != nil {
+		t.Fatalf("python READY: %v", err)
+	} else if strings.TrimSpace(line) != "READY" {
+		t.Fatalf("python expected READY, got %q", line)
+	}
+
+	deadline := time.Now().Add(announceWait + linkTimeout)
+	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			t.Fatalf("context expired: %v", ctx.Err())
+		default:
+		}
+		line, err := readLineTimeout(ctx, br, 5*time.Second)
+		if err != nil {
+			if ctx.Err() != nil {
+				t.Fatalf("python probe: %v", ctx.Err())
+			}
+			continue
+		}
+		line = strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(line, "NODE "):
+			t.Logf("python selected nomadnet node %s", strings.TrimPrefix(line, "NODE "))
+		case line == "PATH_OK":
+			t.Log("python learned path to nomadnet node through Go relay")
+		case line == "NOMADNET_LINK_OK":
+			t.Log("python established nomadnet link and fetched a page through Go relay")
+			return
+		default:
+			t.Logf("python: %s", line)
+		}
+	}
+	t.Fatal("timed out waiting for NOMADNET_LINK_OK from python probe")
+}
+
+// TestDirectoryMeshPeersOnline is a lightweight sanity check that the default
+// directory peers used by the relay test are reachable over TCP.
+func TestDirectoryMeshPeersOnline(t *testing.T) {
+	if os.Getenv("RUN_LIVE_INTEROP") == "" {
+		t.Skip("set RUN_LIVE_INTEROP=1 to query directory and probe mesh peers")
+	}
+
+	resp, err := http.Get("https://directory.rns.recipes/api/directory/submitted?search=&type=&status=online")
+	if err != nil {
+		t.Fatalf("directory fetch: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("directory status = %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read directory body: %v", err)
+	}
+
+	var parsed struct {
+		Data []struct {
+			Name   string `json:"name"`
+			Host   string `json:"host"`
+			Port   int    `json:"port"`
+			Status string `json:"status"`
+			Type   string `json:"type"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		t.Fatalf("decode directory json: %v", err)
+	}
+	if len(parsed.Data) == 0 {
+		t.Fatal("directory returned no online peers")
+	}
+
+	onlineTCP := 0
+	for _, entry := range parsed.Data {
+		if entry.Type != "tcp" && entry.Type != "backbone" {
+			continue
+		}
+		if strings.ToLower(entry.Status) != "online" {
+			continue
+		}
+		onlineTCP++
+	}
+	t.Logf("directory reports %d online tcp/backbone peers", onlineTCP)
+	if onlineTCP < 3 {
+		t.Fatalf("expected at least 3 online tcp/backbone peers, got %d", onlineTCP)
+	}
+}

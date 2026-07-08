@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package packet
 
@@ -7,7 +7,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"git.quad4.io/Go-Libs/pbt/pkg/pbt"
+	"quad4/pbt/pkg/pbt"
 )
 
 func randomHash16(r *rand.Rand) []byte {
@@ -34,10 +34,7 @@ func genValidPacket(r *rand.Rand, size int) *Packet {
 	if headerType == HeaderType2 {
 		overhead = 35
 	}
-	maxData := MTU - overhead
-	if maxData < 0 {
-		maxData = 0
-	}
+	maxData := max(MTU-overhead, 0)
 	if size > 0 && size < maxData {
 		maxData = size
 	}

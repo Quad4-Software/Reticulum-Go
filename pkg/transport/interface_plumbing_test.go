@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package transport
 
@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/interfaces"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/interfaces"
 )
 
 const tcpPlumbingEnvVar = "RETICULUM_RUN_TCP_PLUMBING"

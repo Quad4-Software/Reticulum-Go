@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 package blackhole
 
@@ -11,13 +11,14 @@ import (
 
 // TestBlackholeNoGoroutineLeak repeatedly creates tables, persists them,
 // loads them back, and sweeps expired entries. The blackhole package itself
-// owns no long-running goroutines; this test guards against an accidental
+// owns no long-running goroutines. This test guards against an accidental
+
 // regression that might add one.
 func TestBlackholeNoGoroutineLeak(t *testing.T) {
 	runtime.GC()
 	baseline := runtime.NumGoroutine()
 
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		dir := t.TempDir()
 		newLocal(t)
 		tab := New(dir)

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024-2026 Quad4.io
+
 package announce
 
 import (
@@ -7,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/Networks/Reticulum-Go/pkg/common"
-	"git.quad4.io/Networks/Reticulum-Go/pkg/identity"
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/identity"
 )
 
 type mockAnnounceHandler struct {
@@ -143,7 +146,7 @@ func TestRandomHashTimestampEncoding(t *testing.T) {
 	got := int64(binary.BigEndian.Uint64(padded)) // #nosec G115
 
 	if got < before || got > after {
-		t.Fatalf("decoded announce timestamp %d outside expected window [%d,%d]; raw bytes=%x — encoding bug would yield %d",
+		t.Fatalf("decoded announce timestamp %d outside expected window [%d,%d]; raw bytes=%x (encoding bug would yield %d)",
 			got, before, after, tsBytes, int64(tsBytes[0]))
 	}
 }
@@ -165,7 +168,7 @@ func TestRandomHashChangesPerAnnounce(t *testing.T) {
 	const iterations = 8
 
 	prev := make(map[string]struct{}, iterations)
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		ann, err := New(id, destHash, "testapp", []byte("appdata"), false, cfg)
 		if err != nil {
 			t.Fatalf("New: %v", err)
