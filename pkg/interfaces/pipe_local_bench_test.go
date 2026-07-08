@@ -106,3 +106,68 @@ func BenchmarkLocalHDLCDecode(b *testing.B) {
 		decoder.feed(frame)
 	}
 }
+
+func BenchmarkTCPClientProcessOutgoing(b *testing.B) {
+	server, client := net.Pipe()
+	tc := newTestTCPClient()
+	tc.Mutex.Lock()
+	tc.conn = client
+	tc.Mutex.Unlock()
+	go func() {
+		buf := make([]byte, DefaultMTU*2+4)
+		for {
+			if _, err := server.Read(buf); err != nil {
+				return
+			}
+		}
+	}()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if err := tc.ProcessOutgoing(benchPayload); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkTCPHDLCDecode(b *testing.B) {
+	frame := appendFrameHDLC(nil, benchPayload)
+	decoder := newHDLCToggleStreamDecoder(DefaultMTU, func([]byte) {})
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		decoder.reset()
+		decoder.feed(frame)
+	}
+}
+
+func BenchmarkTCPServerProcessOutgoing(b *testing.B) {
+	server, client := net.Pipe()
+	ts := &TCPServerInterface{
+		BaseInterface: NewBaseInterface("bench-tcp-server", common.IFTypeTCP, true),
+		connections:   make(map[string]net.Conn),
+		txFrame:       make([]byte, 0, DefaultMTU*2+4),
+	}
+	ts.MTU = DefaultMTU
+	ts.Online = true
+	ts.Mutex.Lock()
+	ts.connections["bench"] = client
+	ts.Mutex.Unlock()
+	go func() {
+		buf := make([]byte, DefaultMTU*2+4)
+		for {
+			if _, err := server.Read(buf); err != nil {
+				return
+			}
+		}
+	}()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if err := ts.ProcessOutgoing(benchPayload); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

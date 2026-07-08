@@ -51,6 +51,29 @@ func FuzzHDLCStreamDecoder(f *testing.F) {
 	})
 }
 
+func FuzzHDLCToggleStreamDecoder(f *testing.F) {
+	f.Add([]byte{0x01, 0x02, 0x03})
+	f.Add([]byte{0x7e, 0x7d, 0x5e})
+	f.Add([]byte{})
+	f.Fuzz(func(t *testing.T, data []byte) {
+		if len(data) > DefaultMTU {
+			data = data[:DefaultMTU]
+		}
+		frame := appendFrameHDLC(nil, data)
+		var got []byte
+		d := newHDLCToggleStreamDecoder(DefaultMTU, func(payload []byte) {
+			got = append([]byte(nil), payload...)
+		})
+		d.feed(frame)
+		if len(data) < 2 {
+			return
+		}
+		if !bytes.Equal(got, data) {
+			t.Fatalf("toggle round-trip failed: in=%x out=%x", data, got)
+		}
+	})
+}
+
 func FuzzPipeHDLCFrameDecode(f *testing.F) {
 	f.Add([]byte{0x01, 0x02, 0x03})
 	f.Add([]byte{0x7e, 0x7d, 0x5e})

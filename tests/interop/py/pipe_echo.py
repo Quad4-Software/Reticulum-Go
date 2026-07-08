@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # HDLC echo helper for PipeInterface interop tests.
 
+import os
 import sys
 
 FLAG = 0x7E
@@ -38,7 +39,7 @@ def main() -> None:
     buf = b""
     in_frame = False
     while True:
-        chunk = sys.stdin.buffer.read(4096)
+        chunk = os.read(0, 4096)
         if not chunk:
             break
         for b in chunk:

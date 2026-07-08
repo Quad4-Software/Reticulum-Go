@@ -31,6 +31,8 @@ type TCPClientInterface struct {
 	wantsTunnel       bool
 	tunnelID          []byte
 	synthesizeTunnel  func(TunnelPeer)
+	txFrame           []byte
+	readBuf           []byte
 }
 
 func NewTCPClientInterface(name string, targetHost string, targetPort int, kissFraming bool, i2pTunneled bool, enabled bool) (*TCPClientInterface, error) {
@@ -50,6 +52,7 @@ func NewTCPClientInterfaceWithRetries(name string, targetHost string, targetPort
 		neverConnected:    true,
 		done:              make(chan struct{}),
 		wantsTunnel:       !kissFraming,
+		txFrame:           make([]byte, 0, DefaultMTU*2+4),
 	}
 	tc.initReconnectDriver()
 
@@ -206,9 +209,8 @@ func (tc *TCPClientInterface) ProcessOutgoing(data []byte) error {
 	defer func() { tc.writing = false }()
 
 	// For TCP connections, use HDLC framing
-	var frame []byte
-	frame = append([]byte{HDLCFlag}, escapeHDLC(data)...)
-	frame = append(frame, HDLCFlag)
+	frame := appendFrameHDLC(tc.txFrame[:0], data)
+	tc.txFrame = frame
 
 	debug.Log(debug.DebugAll, "TCP interface writing to network", "name", tc.Name, "bytes", len(frame))
 
@@ -255,14 +257,11 @@ func (tc *TCPClientInterface) Send(data []byte, address string) error {
 }
 
 func (tc *TCPClientInterface) readLoop() {
-	buffer := make([]byte, tc.MTU)
-	inFrame := false
-	escape := false
-	dataBuffer := make([]byte, 0, tc.MTU)
-	maxHDLC := 2*tc.MTU + 32
-	if maxHDLC < 256 {
-		maxHDLC = 2048
+	decoder := newHDLCToggleStreamDecoder(tc.MTU, tc.handlePacket)
+	if cap(tc.readBuf) < tc.MTU {
+		tc.readBuf = make([]byte, tc.MTU)
 	}
+	buffer := tc.readBuf[:tc.MTU]
 
 	for {
 		tc.Mutex.RLock()
@@ -281,6 +280,27 @@ func (tc *TCPClientInterface) readLoop() {
 		}
 
 		n, err := conn.Read(buffer)
+		if n == 0 {
+			if err != nil {
+				tc.Mutex.Lock()
+				tc.Online = false
+				detached := tc.Detached
+				initiator := tc.initiator
+				tc.Mutex.Unlock()
+
+				if initiator && !detached {
+					tc.teardownConn()
+					if tc.reconnect != nil {
+						tc.reconnect.notifyFailure()
+					}
+				} else {
+					tc.teardown()
+				}
+				return
+			}
+			continue
+		}
+		decoder.feed(buffer[:n])
 		if err != nil {
 			tc.Mutex.Lock()
 			tc.Online = false
@@ -297,41 +317,6 @@ func (tc *TCPClientInterface) readLoop() {
 				tc.teardown()
 			}
 			return
-		}
-
-		for i := range n {
-			b := buffer[i]
-
-			if b == HDLCFlag {
-				if inFrame && len(dataBuffer) > 0 {
-					tc.handlePacket(dataBuffer)
-					dataBuffer = dataBuffer[:0]
-				}
-				inFrame = !inFrame
-				continue
-			}
-
-			if !inFrame {
-				continue
-			}
-
-			if b == HDLCEsc {
-				escape = true
-				continue
-			}
-
-			if escape {
-				b ^= HDLCEscMask
-				escape = false
-			}
-
-			if len(dataBuffer) >= maxHDLC {
-				dataBuffer = dataBuffer[:0]
-				inFrame = false
-				escape = false
-				continue
-			}
-			dataBuffer = append(dataBuffer, b)
 		}
 	}
 }
@@ -527,6 +512,7 @@ type TCPServerInterface struct {
 	i2pTunneled bool
 	done        chan struct{}
 	stopOnce    sync.Once
+	txFrame     []byte
 }
 
 func NewTCPServerInterface(name string, bindAddr string, bindPort int, kissFraming bool, i2pTunneled bool, preferIPv6 bool) (*TCPServerInterface, error) {
@@ -547,6 +533,7 @@ func NewTCPServerInterface(name string, bindAddr string, bindPort int, kissFrami
 		kissFraming: kissFraming,
 		i2pTunneled: i2pTunneled,
 		done:        make(chan struct{}),
+		txFrame:     make([]byte, 0, DefaultMTU*2+4),
 	}
 
 	return ts, nil
@@ -713,14 +700,8 @@ func (ts *TCPServerInterface) handleConnection(conn net.Conn) {
 }
 
 func (ts *TCPServerInterface) readHDLCLoop(conn net.Conn) {
-	buffer := make([]byte, ts.MTU)
-	inFrame := false
-	escape := false
-	dataBuffer := make([]byte, 0, ts.MTU)
-	maxHDLC := 2*ts.MTU + 32
-	if maxHDLC < 256 {
-		maxHDLC = 2048
-	}
+	decoder := newHDLCToggleStreamDecoder(ts.MTU, ts.ProcessIncoming)
+	buf := make([]byte, ts.MTU)
 
 	for {
 		ts.Mutex.RLock()
@@ -733,44 +714,16 @@ func (ts *TCPServerInterface) readHDLCLoop(conn net.Conn) {
 		default:
 		}
 
-		n, err := conn.Read(buffer)
+		n, err := conn.Read(buf)
+		if n == 0 {
+			if err != nil {
+				return
+			}
+			continue
+		}
+		decoder.feed(buf[:n])
 		if err != nil {
 			return
-		}
-
-		for i := range n {
-			b := buffer[i]
-
-			if b == HDLCFlag {
-				if inFrame && len(dataBuffer) > 0 {
-					ts.ProcessIncoming(dataBuffer)
-					dataBuffer = dataBuffer[:0]
-				}
-				inFrame = !inFrame
-				continue
-			}
-
-			if !inFrame {
-				continue
-			}
-
-			if b == HDLCEsc {
-				escape = true
-				continue
-			}
-
-			if escape {
-				b ^= HDLCEscMask
-				escape = false
-			}
-
-			if len(dataBuffer) >= maxHDLC {
-				dataBuffer = dataBuffer[:0]
-				inFrame = false
-				escape = false
-				continue
-			}
-			dataBuffer = append(dataBuffer, b)
 		}
 	}
 }
@@ -789,8 +742,8 @@ func (ts *TCPServerInterface) ProcessOutgoing(data []byte) error {
 		frame = append([]byte{KISSFend}, escapeKISS(data)...)
 		frame = append(frame, KISSFend)
 	} else {
-		frame = append([]byte{HDLCFlag}, escapeHDLC(data)...)
-		frame = append(frame, HDLCFlag)
+		frame = appendFrameHDLC(ts.txFrame[:0], data)
+		ts.txFrame = frame
 	}
 
 	ts.Mutex.Lock()

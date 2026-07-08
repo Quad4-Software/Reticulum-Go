@@ -9,18 +9,29 @@ type hdlcStreamDecoder struct {
 	mtu      int
 	inFrame  bool
 	escape   bool
+	toggle   bool
 	data     []byte
 	maxFrame int
 	onFrame  func([]byte)
 }
 
 func newHDLCStreamDecoder(mtu int, onFrame func([]byte)) *hdlcStreamDecoder {
+	return newHDLCStreamDecoderOpts(mtu, false, onFrame)
+}
+
+// newHDLCToggleStreamDecoder uses PPP-style flag toggling, matching TCP read loops.
+func newHDLCToggleStreamDecoder(mtu int, onFrame func([]byte)) *hdlcStreamDecoder {
+	return newHDLCStreamDecoderOpts(mtu, true, onFrame)
+}
+
+func newHDLCStreamDecoderOpts(mtu int, toggle bool, onFrame func([]byte)) *hdlcStreamDecoder {
 	maxFrame := 2*mtu + 32
 	if maxFrame < 256 {
 		maxFrame = 2048
 	}
 	return &hdlcStreamDecoder{
 		mtu:      mtu,
+		toggle:   toggle,
 		maxFrame: maxFrame,
 		data:     make([]byte, 0, mtu),
 		onFrame:  onFrame,
@@ -47,7 +58,11 @@ func (d *hdlcStreamDecoder) feedByte(b byte) {
 			}
 		}
 		d.data = d.data[:0]
-		d.inFrame = true
+		if d.toggle {
+			d.inFrame = !d.inFrame
+		} else {
+			d.inFrame = true
+		}
 		d.escape = false
 		return
 	}
