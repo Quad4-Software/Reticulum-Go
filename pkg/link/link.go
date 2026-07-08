@@ -866,10 +866,11 @@ func (l *Link) signalOutgoingResourceComplete() {
 }
 
 func (l *Link) handleResourceProof(pkt *packet.Packet) error {
-	if len(pkt.Data) < sha256.Size {
+	if len(pkt.Data) < sha256.Size*2 {
 		return nil
 	}
 	resourceHash := pkt.Data[:sha256.Size]
+	receivedProof := pkt.Data[sha256.Size : sha256.Size*2]
 
 	l.outgoingMu.Lock()
 	out := l.outgoingRes
@@ -878,6 +879,16 @@ func (l *Link) handleResourceProof(pkt *packet.Packet) error {
 		return nil
 	}
 	if !bytes.Equal(out.GetHash(), resourceHash) {
+		return nil
+	}
+	expectedProof, ok := out.ExpectedProof()
+	if !ok || !bytes.Equal(receivedProof, expectedProof) {
+		debug.Log(
+			debug.DebugVerbose,
+			"Ignoring invalid outgoing resource proof",
+			"resource_hash",
+			fmt.Sprintf("%x", resourceHash),
+		)
 		return nil
 	}
 
@@ -1281,11 +1292,6 @@ func (l *Link) dispatchOutgoingResourceRequests(plaintext []byte) {
 			return
 		}
 		_ = out.MarkOutboundPartSent(pi)
-	}
-	if out.OutboundTransferComplete() {
-		if err := l.SendPacketWithContext(nil, packet.ContextResource); err != nil {
-			return
-		}
 	}
 }
 
