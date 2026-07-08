@@ -192,13 +192,15 @@ func (l *Link) Establish() error {
 	l.status.Store(int32(StatusPending))
 	l.requestTime = time.Now()
 
-	if err := l.SendLinkRequest(); err != nil {
-		l.markInitiatorEstablishmentFailedLocked()
-		debug.Log(debug.DebugError, "Failed to send link request", "error", err, "elapsed", time.Since(startTime).Seconds())
+	if err := l.prepareLinkRequestLocked(); err != nil {
+		debug.Log(debug.DebugError, "Failed to prepare link request", "error", err, "elapsed", time.Since(startTime).Seconds())
 		l.mutex.Unlock()
 		return err
 	}
 
+	// Register before sending so an immediate link proof cannot race and miss.
+	// The mutex is released before SendPacket because synchronous interfaces
+	// may deliver the proof back into ValidateLinkProof on this goroutine.
 	if l.transport != nil {
 		l.transport.RegisterLink(l.linkID, l)
 
@@ -216,6 +218,14 @@ func (l *Link) Establish() error {
 	}
 
 	l.mutex.Unlock()
+
+	if err := l.sendPreparedLinkRequest(); err != nil {
+		l.mutex.Lock()
+		l.markInitiatorEstablishmentFailedLocked()
+		l.mutex.Unlock()
+		debug.Log(debug.DebugError, "Failed to send link request", "error", err, "elapsed", time.Since(startTime).Seconds())
+		return err
+	}
 	go l.startWatchdog()
 
 	debug.Log(debug.DebugInfo, "Link establishment initiated", "link_id", fmt.Sprintf("%x", l.linkID), "elapsed", time.Since(startTime).Seconds())
@@ -2435,7 +2445,9 @@ func signallingBytes(mtu int, mode byte) []byte {
 	return bytes
 }
 
-func (l *Link) SendLinkRequest() error {
+// prepareLinkRequestLocked builds the outbound link request and derives linkID.
+// The link mutex must be held by the caller.
+func (l *Link) prepareLinkRequestLocked() error {
 	if err := l.generateEphemeralKeys(); err != nil {
 		return err
 	}
@@ -2471,6 +2483,17 @@ func (l *Link) SendLinkRequest() error {
 	l.requestPacket = pkt
 	l.requestTime = time.Now()
 	l.status.Store(int32(StatusPending))
+	return nil
+}
+
+func (l *Link) sendPreparedLinkRequest() error {
+	pkt := l.requestPacket
+	if pkt == nil {
+		return errors.New("link request not prepared")
+	}
+	if l.transport == nil {
+		return errors.New("transport is nil")
+	}
 
 	sendStartTime := time.Now()
 	if err := l.transport.SendPacket(pkt); err != nil {
