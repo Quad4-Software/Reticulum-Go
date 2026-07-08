@@ -23,6 +23,8 @@ import (
 const (
 	DefaultSharedInstancePort  = 37428
 	DefaultInstanceControlPort = 37429
+	DefaultControlAPIPort      = 37430
+	DefaultControlAPIHost      = "127.0.0.1"
 	DefaultLogLevel            = 4
 	DefaultConfigDirName       = ".reticulum-go"
 	DefaultConfigFileName      = "config"
@@ -56,6 +58,8 @@ func DefaultConfig() *common.ReticulumConfig {
 		LogLevel:            DefaultLogLevel,
 		Interfaces:          make(map[string]*common.InterfaceConfig),
 		EnableSandbox:       true,
+		ControlAPIHost:      DefaultControlAPIHost,
+		ControlAPIPort:      DefaultControlAPIPort,
 	}
 }
 
@@ -126,7 +130,8 @@ func sectionHeader(line string) (depth int, name string, ok bool) {
 	return depth, name, true
 }
 
-// stripInlineComment removes a trailing "# comment" or "; comment" tail from a
+// stripInlineComment removes a trailing "# comment" or ". Comment" tail from a
+
 // value, requiring whitespace before the marker so URLs and hashes stay intact.
 func stripInlineComment(value string) string {
 	for i := 1; i < len(value); i++ {
@@ -147,7 +152,8 @@ func stripBOM(s string) string {
 }
 
 // classifySection assigns a kind to a header. Depth >= 2 is always an
-// interface entry; depth 1 must match a reserved name.
+// interface entry. Depth 1 must match a reserved name.
+
 func classifySection(name string, depth int) string {
 	if depth >= 2 {
 		return sectionInterface
@@ -274,6 +280,22 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		setInt(value, &cfg.LogLevel)
 	case "enable_sandbox":
 		cfg.EnableSandbox = parseBool(value)
+	case "enable_control_api":
+		cfg.EnableControlAPI = parseBool(value)
+	case "control_api_host":
+		cfg.ControlAPIHost = value
+	case "control_api_port":
+		setInt(value, &cfg.ControlAPIPort)
+	case "in_memory_path_table":
+		cfg.InMemoryPathTable = parseBool(value)
+	case "in_memory_known_destinations":
+		cfg.InMemoryKnownDestinations = parseBool(value)
+	case "discover_interfaces":
+		cfg.DiscoverInterfaces = parseBool(value)
+	case "watch_interfaces":
+		cfg.WatchInterfaces = parseBool(value)
+	case "backbone_io", "io_backend":
+		cfg.BackboneIO = strings.TrimSpace(value)
 	}
 }
 
@@ -298,6 +320,10 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		setInt(value, &iface.Port)
 	case "target_host":
 		iface.TargetHost = value
+	case "remote":
+		if strings.TrimSpace(iface.TargetHost) == "" {
+			iface.TargetHost = value
+		}
 	case "target_port":
 		setInt(value, &iface.TargetPort)
 	case "target_address":
@@ -373,6 +399,14 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		setIFACSize(value, &iface.IFACSize)
 	case "publish_ifac":
 		iface.PublishIFAC = parseBool(value)
+	case "command":
+		iface.Command = value
+	case "respawn_delay", "respawn_interval":
+		setInt(value, &iface.RespawnDelay)
+	case "shared_instance_type":
+		iface.SharedInstanceType = strings.ToLower(strings.TrimSpace(value))
+	case "instance_name":
+		iface.InstanceName = value
 	}
 }
 
@@ -444,7 +478,18 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	fmt.Fprintf(&b, "  shared_instance_port = %d\n", cfg.SharedInstancePort)
 	fmt.Fprintf(&b, "  instance_control_port = %d\n", cfg.InstanceControlPort)
 	fmt.Fprintf(&b, "  panic_on_interface_error = %s\n", boolStr(cfg.PanicOnInterfaceErr))
-	fmt.Fprintf(&b, "  enable_sandbox = %s\n\n", boolStr(cfg.EnableSandbox))
+	fmt.Fprintf(&b, "  enable_sandbox = %s\n", boolStr(cfg.EnableSandbox))
+	fmt.Fprintf(&b, "  enable_control_api = %s\n", boolStr(cfg.EnableControlAPI))
+	fmt.Fprintf(&b, "  control_api_host = %s\n", controlAPIHostOrDefault(cfg.ControlAPIHost))
+	fmt.Fprintf(&b, "  control_api_port = %d\n", controlAPIPortOrDefault(cfg.ControlAPIPort))
+	fmt.Fprintf(&b, "  in_memory_path_table = %s\n", boolStr(cfg.InMemoryPathTable))
+	fmt.Fprintf(&b, "  in_memory_known_destinations = %s\n", boolStr(cfg.InMemoryKnownDestinations))
+	fmt.Fprintf(&b, "  discover_interfaces = %s\n", boolStr(cfg.DiscoverInterfaces))
+	fmt.Fprintf(&b, "  watch_interfaces = %s\n", boolStr(cfg.WatchInterfaces))
+	if cfg.BackboneIO != "" {
+		fmt.Fprintf(&b, "  backbone_io = %s\n", cfg.BackboneIO)
+	}
+	fmt.Fprintln(&b)
 
 	b.WriteString("[logging]\n")
 	fmt.Fprintf(&b, "  loglevel = %d\n\n", cfg.LogLevel)
@@ -495,6 +540,15 @@ func writeInterface(b *strings.Builder, name string, iface *common.InterfaceConf
 	}
 	if iface.I2PTunneled {
 		fmt.Fprintf(b, "    i2p_tunneled = %s\n", boolStr(iface.I2PTunneled))
+	}
+	if iface.I2PConnectable {
+		fmt.Fprintf(b, "    connectable = %s\n", boolStr(iface.I2PConnectable))
+	}
+	if iface.I2PSAMAddress != "" {
+		fmt.Fprintf(b, "    sam_address = %s\n", iface.I2PSAMAddress)
+	}
+	if len(iface.I2PPeers) > 0 {
+		fmt.Fprintf(b, "    peers = %s\n", strings.Join(iface.I2PPeers, ", "))
 	}
 	if iface.PreferIPv6 {
 		fmt.Fprintf(b, "    prefer_ipv6 = %s\n", boolStr(iface.PreferIPv6))
@@ -553,6 +607,23 @@ func boolStr(v bool) string {
 		return "yes"
 	}
 	return "no"
+}
+
+// controlAPIHostOrDefault fills in the default bind host for configs created
+// before control_api_host existed or left blank on disk.
+func controlAPIHostOrDefault(host string) string {
+	if host == "" {
+		return DefaultControlAPIHost
+	}
+	return host
+}
+
+// controlAPIPortOrDefault mirrors controlAPIHostOrDefault for the port.
+func controlAPIPortOrDefault(port int) int {
+	if port == 0 {
+		return DefaultControlAPIPort
+	}
+	return port
 }
 
 // sortedInterfaceNames returns the interface map keys in lexicographic order

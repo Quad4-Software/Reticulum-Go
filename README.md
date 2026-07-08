@@ -213,7 +213,7 @@ Or cross-compile with an explicit compiler path:
 GO_LEGACY_WIN7=/usr/local/go-legacy-win7/bin/go make build-windows-legacy
 ```
 
-CI uses pinned Go **1.26.4** via `actions/setup-go` in `.github/actions/setup-ci`. Legacy Windows builds use `scripts/ci/setup-go-legacy-win7.sh` (SHA256-pinned release tarball).
+CI uses pinned Go **1.26.5** via `actions/setup-go` in `.github/actions/setup-ci`. Legacy Windows builds use `scripts/ci/setup-go-legacy-win7.sh` (SHA256-pinned release tarball).
 
 ## WebAssembly and Embedded
 

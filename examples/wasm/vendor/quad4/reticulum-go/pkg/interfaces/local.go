@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"quad4/reticulum-go/pkg/backbone"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
 )
@@ -28,6 +29,7 @@ type LocalServerInterface struct {
 	bindPort   int
 	socketPath string
 	useUnix    bool
+	hub        *backbone.Hub
 	clients    atomic.Int32
 	spawnHook  LocalSpawnHook
 	done       chan struct{}
@@ -36,15 +38,19 @@ type LocalServerInterface struct {
 
 // NewLocalServerInterface binds a shared-instance listener on 127.0.0.1:port
 // or on an abstract Unix socket @rns/<name> when useUnix is true.
-func NewLocalServerInterface(port int, socketPath string, useUnix bool, spawn LocalSpawnHook) (*LocalServerInterface, error) {
+func NewLocalServerInterface(port int, socketPath string, useUnix bool, spawn LocalSpawnHook, hub *backbone.Hub) (*LocalServerInterface, error) {
 	if spawn == nil {
 		return nil, fmt.Errorf("local server requires spawn hook")
+	}
+	if hub == nil {
+		hub = backbone.Get()
 	}
 	ls := &LocalServerInterface{
 		BaseInterface: NewBaseInterface("Reticulum", common.IFTypeUnix, true),
 		bindPort:      port,
 		socketPath:    socketPath,
 		useUnix:       useUnix,
+		hub:           hub,
 		spawnHook:     spawn,
 		done:          make(chan struct{}),
 	}
@@ -100,6 +106,9 @@ func (ls *LocalServerInterface) Start() error {
 	ls.Online = true
 	ls.Mutex.Unlock()
 
+	if ls.hub != nil {
+		return ls.hub.RegisterListener(ln, ls.handleConnection)
+	}
 	go ls.acceptLoop()
 	return nil
 }
@@ -160,6 +169,10 @@ func (ls *LocalServerInterface) handleConnection(conn net.Conn) {
 	client.Bitrate = ls.Bitrate
 	client.MTU = ls.MTU
 	ls.spawnHook(client)
+	if ls.hub != nil {
+		_ = client.attachToHub(ls.hub)
+		return
+	}
 	go client.readLoop()
 }
 
@@ -183,6 +196,7 @@ func (ls *LocalServerInterface) GetBandwidthAvailable() bool { return true }
 type LocalClientInterface struct {
 	BaseInterface
 	conn            net.Conn
+	stream          *backbone.Stream
 	parent          *LocalServerInterface
 	sharedInitiator bool
 	reconnecting    bool
@@ -191,24 +205,31 @@ type LocalClientInterface struct {
 	targetPort      int
 	socketPath      string
 	useUnix         bool
+	hub             *backbone.Hub
 	onDisconnect    func()
 	onReconnect     func()
+	txFrame         []byte
+	readBuf         []byte
 }
 
 // NewLocalClientInterface dials the shared instance on localhost.
-func NewLocalClientInterface(port int, socketPath string, useUnix bool) (*LocalClientInterface, error) {
+func NewLocalClientInterface(port int, socketPath string, useUnix bool, hub *backbone.Hub) (*LocalClientInterface, error) {
 	lc := &LocalClientInterface{
 		BaseInterface:   NewBaseInterface("Local shared instance", common.IFTypeUnix, true),
 		targetPort:      port,
 		socketPath:      socketPath,
 		useUnix:         useUnix,
+		hub:             hub,
 		sharedInitiator: true,
 		done:            make(chan struct{}),
+		txFrame:         make([]byte, 0, 512),
+		readBuf:         nil,
 	}
 	lc.In = true
 	lc.Out = true
 	lc.Bitrate = 1_000_000_000
 	lc.MTU = 262144
+	lc.readBuf = make([]byte, lc.MTU)
 	return lc, nil
 }
 
@@ -218,11 +239,13 @@ func newLocalClientFromConn(name string, conn net.Conn, parent *LocalServerInter
 		conn:          conn,
 		parent:        parent,
 		done:          make(chan struct{}),
+		txFrame:       make([]byte, 0, 512),
 	}
 	lc.In = true
 	lc.Out = true
 	lc.Bitrate = 1_000_000_000
 	lc.MTU = 262144
+	lc.readBuf = make([]byte, lc.MTU)
 	lc.Online = true
 	if tcpConn, ok := conn.(*net.TCPConn); ok {
 		_ = tcpConn.SetNoDelay(true)
@@ -232,6 +255,12 @@ func newLocalClientFromConn(name string, conn net.Conn, parent *LocalServerInter
 	}
 	return lc
 }
+
+func (lc *LocalClientInterface) IsSharedInstanceClient() bool {
+	return lc.sharedInitiator
+}
+
+func (lc *LocalClientInterface) ShouldIngressLimitPR() bool { return false }
 
 func (lc *LocalClientInterface) String() string {
 	if lc.useUnix || lc.parent != nil {
@@ -246,13 +275,38 @@ func (lc *LocalClientInterface) String() string {
 
 func (lc *LocalClientInterface) Start() error {
 	if lc.conn != nil {
+		if lc.hub != nil {
+			return lc.attachToHub(lc.hub)
+		}
 		go lc.readLoop()
 		return nil
 	}
 	if err := lc.connect(); err != nil {
 		return err
 	}
+	if lc.hub != nil {
+		return lc.attachToHub(lc.hub)
+	}
 	go lc.readLoop()
+	return nil
+}
+
+func (lc *LocalClientInterface) attachToHub(hub *backbone.Hub) error {
+	conn := lc.conn
+	if conn == nil {
+		return fmt.Errorf("local client has no connection")
+	}
+	onFrame := func(frame []byte) {
+		lc.ProcessIncoming(frame)
+	}
+	onClose := func() {
+		lc.handleDisconnect()
+	}
+	stream, err := hub.RegisterStream(conn, lc.MTU, onFrame, onClose)
+	if err != nil {
+		return err
+	}
+	lc.stream = stream
 	return nil
 }
 
@@ -287,11 +341,16 @@ func (lc *LocalClientInterface) Stop() error {
 	lc.Mutex.Lock()
 	lc.Enabled = false
 	lc.Online = false
+	stream := lc.stream
+	lc.stream = nil
 	if lc.conn != nil {
 		_ = lc.conn.Close()
 		lc.conn = nil
 	}
 	lc.Mutex.Unlock()
+	if stream != nil {
+		stream.Close()
+	}
 	lc.stopOnce.Do(func() {
 		close(lc.done)
 	})
@@ -301,13 +360,18 @@ func (lc *LocalClientInterface) Stop() error {
 func (lc *LocalClientInterface) ProcessOutgoing(data []byte) error {
 	lc.Mutex.RLock()
 	conn := lc.conn
+	stream := lc.stream
 	online := lc.Online
 	lc.Mutex.RUnlock()
 	if !online || conn == nil {
 		return fmt.Errorf("local interface offline")
 	}
-	frame := append([]byte{HDLCFlag}, escapeHDLC(data)...)
-	frame = append(frame, HDLCFlag)
+	if stream != nil {
+		stream.QueueSend(data)
+		return nil
+	}
+	frame := appendFrameHDLC(lc.txFrame[:0], data)
+	lc.txFrame = frame
 	_, err := conn.Write(frame)
 	return err
 }
@@ -331,14 +395,11 @@ func (lc *LocalClientInterface) readLoop() {
 }
 
 func (lc *LocalClientInterface) runHDLCLoop(onFrame func([]byte)) {
-	buffer := make([]byte, lc.MTU)
-	inFrame := false
-	escape := false
-	dataBuffer := make([]byte, 0, lc.MTU)
-	maxHDLC := 2*lc.MTU + 32
-	if maxHDLC < 256 {
-		maxHDLC = 2048
+	decoder := newHDLCStreamDecoder(lc.MTU, onFrame)
+	if cap(lc.readBuf) < lc.MTU {
+		lc.readBuf = make([]byte, lc.MTU)
 	}
+	buffer := lc.readBuf[:lc.MTU]
 
 	for {
 		lc.Mutex.RLock()
@@ -354,39 +415,17 @@ func (lc *LocalClientInterface) runHDLCLoop(onFrame func([]byte)) {
 		default:
 		}
 		n, err := conn.Read(buffer)
-		if err != nil || n == 0 {
+		if n == 0 {
+			if err != nil {
+				lc.handleDisconnect()
+				return
+			}
+			continue
+		}
+		decoder.feed(buffer[:n])
+		if err != nil {
 			lc.handleDisconnect()
 			return
-		}
-		for i := range n {
-			b := buffer[i]
-			if b == HDLCFlag {
-				if inFrame && len(dataBuffer) > 0 {
-					onFrame(unescapeHDLC(dataBuffer))
-				}
-				dataBuffer = dataBuffer[:0]
-				inFrame = true
-				escape = false
-				continue
-			}
-			if !inFrame {
-				continue
-			}
-			if b == HDLCEsc {
-				escape = true
-				continue
-			}
-			if escape {
-				b ^= HDLCEscMask
-				escape = false
-			}
-			if len(dataBuffer) >= maxHDLC {
-				dataBuffer = dataBuffer[:0]
-				inFrame = false
-				escape = false
-				continue
-			}
-			dataBuffer = append(dataBuffer, b)
 		}
 	}
 }
@@ -423,6 +462,13 @@ func (lc *LocalClientInterface) reconnect() {
 		debug.Log(debug.DebugInfo, "Reconnected to local shared instance")
 		if lc.onReconnect != nil {
 			lc.onReconnect()
+		}
+		if lc.hub != nil {
+			if err := lc.attachToHub(lc.hub); err != nil {
+				debug.Log(debug.DebugError, "local reconnect hub attach failed", "error", err)
+				continue
+			}
+			return
 		}
 		lc.readLoop()
 		return

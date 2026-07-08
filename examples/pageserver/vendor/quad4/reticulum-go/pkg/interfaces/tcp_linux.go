@@ -19,7 +19,7 @@ func linuxFdToInt(fd uintptr) (int, bool) {
 	if fd > uintptr(maxInt) {
 		return 0, false
 	}
-	// #nosec G115 -- fd is bounded above by max int; invalid fds rejected above
+	// #nosec G115 -- fd is bounded above by max int, invalid fds rejected above
 	return int(fd), true
 }
 

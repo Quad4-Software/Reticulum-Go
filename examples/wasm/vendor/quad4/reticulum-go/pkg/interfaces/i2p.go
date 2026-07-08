@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"quad4/reticulum-go/pkg/backbone"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/i2p"
@@ -33,30 +34,41 @@ const (
 // FromConfigContext carries runtime dependencies for interface types that
 // need storage paths, transport identity, or dynamic peer registration.
 type FromConfigContext struct {
-	I2PStoragePath string
-	TransportID    []byte
-	RegisterPeer   func(name string, peer common.NetworkInterface) error
-	SetupPeer      func(peer common.NetworkInterface)
+	I2PStoragePath        string
+	TransportID           []byte
+	RegisterPeer          func(name string, peer common.NetworkInterface) error
+	UnregisterPeer        func(name string)
+	SetupPeer             func(peer common.NetworkInterface)
+	SynthesizeTunnel      func(TunnelPeer)
+	VoidTunnel            func(TunnelPeer)
+	WatchInterfaces       bool
+	DiscoverInterfaces    bool
+	PanicOnInterfaceError bool
+	BackboneHub           *backbone.Hub
+	SpawnBackbone         func(client *BackboneClientInterface)
+	SpawnLocal            LocalSpawnHook
 }
 
 // I2PInterface is the parent listener for inbound I2P peers and optional SAM
 // server tunnel publication.
 type I2PInterface struct {
 	BaseInterface
-	controller  *i2p.Controller
-	connectable bool
-	samAddress  string
-	b32         string
-	bindPort    int
-	listener    net.Listener
-	spawned     []*I2PInterfacePeer
-	spawnMu     sync.Mutex
-	ctx         *FromConfigContext
-	transportID []byte
-	serverDone  chan struct{}
-	serverStop  sync.Once
-	acceptDone  chan struct{}
-	acceptStop  sync.Once
+	controller        *i2p.Controller
+	connectable       bool
+	samAddress        string
+	b32               string
+	bindPort          int
+	listener          net.Listener
+	spawned           []*I2PInterfacePeer
+	spawnMu           sync.Mutex
+	ctx               *FromConfigContext
+	cfg               *common.InterfaceConfig
+	transportID       []byte
+	supportsDiscovery bool
+	serverDone        chan struct{}
+	serverStop        sync.Once
+	acceptDone        chan struct{}
+	acceptStop        sync.Once
 }
 
 // I2PInterfacePeer is a logical Reticulum interface over one I2P stream.
@@ -66,11 +78,14 @@ type I2PInterfacePeer struct {
 	conn              net.Conn
 	targetDest        string
 	initiator         bool
+	parentCount       bool
 	reconnecting      bool
 	neverConnected    bool
 	awaitingTunnel    bool
 	localPort         int
 	kissFraming       bool
+	wantsTunnel       bool
+	tunnelID          []byte
 	maxReconnectTries int
 	writing           bool
 	lastRead          time.Time
@@ -101,21 +116,24 @@ func NewI2PInterface(name string, cfg *common.InterfaceConfig, ctx *FromConfigCo
 		return nil, err
 	}
 	parent := &I2PInterface{
-		BaseInterface: NewBaseInterface(name, common.IFTypeI2P, cfg.Enabled),
-		controller:    ctrl,
-		connectable:   cfg.I2PConnectable,
-		samAddress:    sam,
-		bindPort:      port,
-		ctx:           ctx,
-		transportID:   transportID,
-		serverDone:    make(chan struct{}),
-		acceptDone:    make(chan struct{}),
+		BaseInterface:     NewBaseInterface(name, common.IFTypeI2P, cfg.Enabled),
+		controller:        ctrl,
+		connectable:       cfg.I2PConnectable,
+		samAddress:        sam,
+		bindPort:          port,
+		ctx:               ctx,
+		cfg:               cfg,
+		transportID:       transportID,
+		supportsDiscovery: true,
+		serverDone:        make(chan struct{}),
+		acceptDone:        make(chan struct{}),
 	}
 	parent.In = true
 	parent.Out = false
 	parent.MTU = DefaultMTU
 	parent.Bitrate = i2pBitrateGuess
 	parent.Mode = common.IFModeFull
+	applyI2PParentConfig(parent, cfg)
 	return parent, nil
 }
 
@@ -162,9 +180,15 @@ func (p *I2PInterface) Stop() error {
 	p.Mutex.Unlock()
 	p.controller.Stop()
 	p.spawnMu.Lock()
-	for _, peer := range p.spawned {
+	peers := append([]*I2PInterfacePeer(nil), p.spawned...)
+	p.spawnMu.Unlock()
+	for _, peer := range peers {
+		if p.ctx != nil && p.ctx.UnregisterPeer != nil {
+			p.ctx.UnregisterPeer(peer.GetName())
+		}
 		_ = peer.Stop()
 	}
+	p.spawnMu.Lock()
 	p.spawned = nil
 	p.spawnMu.Unlock()
 	return nil
@@ -196,6 +220,14 @@ func (p *I2PInterface) Base32() string {
 
 func (p *I2PInterface) Connectable() bool {
 	return p.connectable
+}
+
+func (p *I2PInterface) SupportsDiscovery() bool {
+	return p.supportsDiscovery
+}
+
+func (p *I2PInterface) InterfaceConfig() *common.InterfaceConfig {
+	return p.cfg
 }
 
 func (p *I2PInterface) acceptLoop() {
@@ -263,6 +295,11 @@ func (p *I2PInterface) serverTunnelLoop() {
 }
 
 func (p *I2PInterface) registerSpawnedPeer(peer *I2PInterfacePeer) {
+	if p.cfg != nil {
+		if err := ApplyIFACFromConfig(peer, p.cfg); err != nil {
+			debug.Log(debug.DebugError, "Failed to apply IFAC to I2P peer", "name", peer.GetName(), "error", err)
+		}
+	}
 	p.spawnMu.Lock()
 	p.spawned = append(p.spawned, peer)
 	p.spawnMu.Unlock()
@@ -280,7 +317,7 @@ func (p *I2PInterface) registerSpawnedPeer(peer *I2PInterfacePeer) {
 	}
 }
 
-func NewI2PInterfacePeer(parent *I2PInterface, name, targetDest string, maxReconnect int) *I2PInterfacePeer {
+func NewI2PInterfacePeer(parent *I2PInterface, name, targetDest string, maxReconnect int, cfg *common.InterfaceConfig) *I2PInterfacePeer {
 	if maxReconnect == 0 {
 		maxReconnect = -1
 	}
@@ -289,6 +326,7 @@ func NewI2PInterfacePeer(parent *I2PInterface, name, targetDest string, maxRecon
 		parent:            parent,
 		targetDest:        targetDest,
 		initiator:         true,
+		parentCount:       false,
 		awaitingTunnel:    true,
 		neverConnected:    true,
 		maxReconnectTries: maxReconnect,
@@ -299,6 +337,7 @@ func NewI2PInterfacePeer(parent *I2PInterface, name, targetDest string, maxRecon
 	peer.MTU = DefaultMTU
 	peer.Bitrate = i2pBitrateGuess
 	peer.Mode = common.IFModeFull
+	applyI2PPeerConfig(peer, cfg)
 	go peer.tunnelSetupLoop()
 	return peer
 }
@@ -309,13 +348,15 @@ func newI2PInterfacePeerAccepted(parent *I2PInterface, name string, conn net.Con
 		parent:        parent,
 		conn:          conn,
 		initiator:     false,
+		parentCount:   true,
 		done:          make(chan struct{}),
 	}
 	peer.In = true
 	peer.Out = true
-	peer.MTU = DefaultMTU
-	peer.Bitrate = i2pBitrateGuess
+	peer.MTU = parent.MTU
+	peer.Bitrate = parent.Bitrate
 	peer.Mode = common.IFModeFull
+	applyI2PPeerConfig(peer, parent.cfg)
 	peer.Online = true
 	_ = setI2PConnTimeouts(conn)
 	return peer
@@ -359,6 +400,47 @@ func (peer *I2PInterfacePeer) GetConn() net.Conn {
 
 func (peer *I2PInterfacePeer) TunnelState() uint32 {
 	return peer.tunnelState.Load()
+}
+
+func (peer *I2PInterfacePeer) String() string {
+	return "I2PInterfacePeer[" + peer.Name + "]"
+}
+
+func (peer *I2PInterfacePeer) InterfaceHash() []byte {
+	return InterfaceHashFromName(peer.Name)
+}
+
+func (peer *I2PInterfacePeer) WantsTunnel() bool {
+	return peer.wantsTunnel
+}
+
+func (peer *I2PInterfacePeer) SetWantsTunnel(v bool) {
+	peer.wantsTunnel = v
+}
+
+func (peer *I2PInterfacePeer) TunnelID() []byte {
+	peer.Mutex.RLock()
+	defer peer.Mutex.RUnlock()
+	return append([]byte(nil), peer.tunnelID...)
+}
+
+func (peer *I2PInterfacePeer) SetTunnelID(id []byte) {
+	peer.Mutex.Lock()
+	defer peer.Mutex.Unlock()
+	peer.tunnelID = append(peer.tunnelID[:0], id...)
+}
+
+func (peer *I2PInterfacePeer) InterfaceConfig() *common.InterfaceConfig {
+	if peer.parent == nil {
+		return nil
+	}
+	return peer.parent.cfg
+}
+
+func (peer *I2PInterfacePeer) onConnected() {
+	if peer.wantsTunnel && peer.parent != nil && peer.parent.ctx != nil && peer.parent.ctx.SynthesizeTunnel != nil {
+		peer.parent.ctx.SynthesizeTunnel(peer)
+	}
 }
 
 func (peer *I2PInterfacePeer) tunnelSetupLoop() {
@@ -406,6 +488,7 @@ func (peer *I2PInterfacePeer) connect(initial bool) bool {
 	peer.writing = false
 	peer.neverConnected = false
 	peer.Mutex.Unlock()
+	peer.onConnected()
 	return true
 }
 
@@ -445,11 +528,13 @@ func (peer *I2PInterfacePeer) reconnect() {
 			return
 		}
 		if peer.connect(false) {
+			peer.onConnected()
 			break
 		}
 	}
 	if !peer.neverConnected {
 		debug.Log(debug.DebugInfo, "I2P peer re-established connection", "name", peer.Name)
+		peer.wantsTunnel = !peer.kissFraming
 	}
 	go peer.readLoop()
 }
@@ -462,6 +547,12 @@ func (peer *I2PInterfacePeer) ProcessOutgoing(data []byte) error {
 	if !online || conn == nil {
 		return fmt.Errorf("interface offline")
 	}
+	masked, err := common.ApplyIFACOutbound(peer, data)
+	if err != nil {
+		return err
+	}
+	data = masked
+
 	for peer.writing {
 		time.Sleep(time.Millisecond)
 	}
@@ -476,14 +567,14 @@ func (peer *I2PInterfacePeer) ProcessOutgoing(data []byte) error {
 		frame = append([]byte{HDLCFlag}, escapeHDLC(data)...)
 		frame = append(frame, HDLCFlag)
 	}
-	_, err := conn.Write(frame)
+	_, err = conn.Write(frame)
 	if err == nil {
 		peer.Mutex.Lock()
 		peer.lastWrite = time.Now()
 		peer.TxBytes += uint64(len(frame))
 		peer.TxPackets++
 		peer.Mutex.Unlock()
-		if peer.parent != nil {
+		if peer.parentCount && peer.parent != nil {
 			peer.parent.Mutex.Lock()
 			peer.parent.TxBytes += uint64(len(frame))
 			peer.parent.TxPackets++
@@ -610,7 +701,7 @@ func (peer *I2PInterfacePeer) deliverFrame(data []byte) {
 	peer.RxBytes += uint64(len(data))
 	peer.RxPackets++
 	peer.Mutex.Unlock()
-	if peer.parent != nil {
+	if peer.parentCount && peer.parent != nil {
 		peer.parent.Mutex.Lock()
 		peer.parent.RxBytes += uint64(len(data))
 		peer.parent.RxPackets++
@@ -652,12 +743,38 @@ func (peer *I2PInterfacePeer) readWatchdog() {
 func (peer *I2PInterfacePeer) teardown() {
 	if peer.initiator && !peer.Detached {
 		debug.Log(debug.DebugError, "I2P peer unrecoverable error", "name", peer.Name)
+		if peer.parent != nil && peer.parent.ctx != nil && peer.parent.ctx.PanicOnInterfaceError {
+			panic("I2P interface unrecoverable error: " + peer.Name)
+		}
 	}
 	peer.Mutex.Lock()
 	peer.Online = false
 	peer.Out = false
 	peer.In = false
 	peer.Mutex.Unlock()
+
+	if peer.parent != nil {
+		peer.parent.removeSpawnedPeer(peer)
+	}
+	if !peer.initiator && peer.parent != nil && peer.parent.ctx != nil {
+		if peer.parent.ctx.VoidTunnel != nil {
+			peer.parent.ctx.VoidTunnel(peer)
+		}
+		if peer.parent.ctx.UnregisterPeer != nil {
+			peer.parent.ctx.UnregisterPeer(peer.GetName())
+		}
+	}
+}
+
+func (p *I2PInterface) removeSpawnedPeer(peer *I2PInterfacePeer) {
+	p.spawnMu.Lock()
+	defer p.spawnMu.Unlock()
+	for i, sp := range p.spawned {
+		if sp == peer {
+			p.spawned = append(p.spawned[:i], p.spawned[i+1:]...)
+			return
+		}
+	}
 }
 
 const KISSCmdData = 0x00

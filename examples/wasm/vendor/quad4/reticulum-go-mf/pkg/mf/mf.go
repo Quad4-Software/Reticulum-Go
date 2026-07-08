@@ -11,15 +11,23 @@ import (
 )
 
 // Message is a compact MF wire format: sender hash plus UTF-8 text.
+// An optional group hash routes fan-out group traffic on 1:1 MF destinations.
 type Message struct {
 	SenderHash []byte
+	GroupHash  []byte
 	Text       string
 }
 
 // NewMessage validates and returns a Message.
 func NewMessage(senderHash []byte, text string) (*Message, error) {
+	return NewMessageWithGroup(senderHash, nil, text)
+}
+
+// NewMessageWithGroup validates and returns a Message optionally tagged with a group hash.
+func NewMessageWithGroup(senderHash, groupHash []byte, text string) (*Message, error) {
 	m := &Message{
 		SenderHash: senderHash,
+		GroupHash:  groupHash,
 		Text:       text,
 	}
 	if err := m.Validate(); err != nil {
@@ -42,14 +50,20 @@ func (m *Message) Validate() error {
 	if len(m.SenderHash) != SenderHashLength {
 		return fmt.Errorf(errFmtExpected, ErrInvalidHashLength, SenderHashLength, len(m.SenderHash))
 	}
+	if len(m.GroupHash) > 0 && len(m.GroupHash) != SenderHashLength {
+		return fmt.Errorf(errFmtExpected, ErrInvalidHashLength, SenderHashLength, len(m.GroupHash))
+	}
 	if len(m.Text) > MaxMessageSize {
 		return fmt.Errorf("%w: max %d, got %d", ErrMessageTooLong, MaxMessageSize, len(m.Text))
 	}
 	return nil
 }
 
-// Len returns packed size: SenderHashLength + len(text).
+// Len returns packed size.
 func (m *Message) Len() int {
+	if len(m.GroupHash) > 0 {
+		return SenderHashLength + 1 + SenderHashLength + len(m.Text)
+	}
 	return SenderHashLength + len(m.Text)
 }
 
@@ -81,10 +95,18 @@ func (m *Message) Equal(other *Message) bool {
 	return true
 }
 
-// Pack returns [16-byte sender hash][UTF-8 text].
+// Pack returns [16-byte sender][UTF-8 text] or [16-byte sender][0x01][16-byte group][UTF-8 text].
 func (m *Message) Pack() ([]byte, error) {
 	if err := m.Validate(); err != nil {
 		return nil, err
+	}
+	if len(m.GroupHash) > 0 {
+		payload := make([]byte, m.Len())
+		copy(payload[:SenderHashLength], m.SenderHash)
+		payload[SenderHashLength] = groupFlagPresent
+		copy(payload[SenderHashLength+1:SenderHashLength+1+SenderHashLength], m.GroupHash)
+		copy(payload[SenderHashLength+1+SenderHashLength:], []byte(m.Text))
+		return payload, nil
 	}
 	payload := make([]byte, m.Len())
 	copy(payload[:SenderHashLength], m.SenderHash)
@@ -100,9 +122,17 @@ func Unpack(data []byte) (*Message, error) {
 
 	senderHash := make([]byte, SenderHashLength)
 	copy(senderHash, data[:SenderHashLength])
-	text := string(data[SenderHashLength:])
-
-	return NewMessage(senderHash, text)
+	rest := data[SenderHashLength:]
+	if len(rest) > 0 && rest[0] == groupFlagPresent {
+		if len(rest) < 1+SenderHashLength {
+			return nil, fmt.Errorf("%w: truncated group payload", ErrMessageTooShort)
+		}
+		groupHash := make([]byte, SenderHashLength)
+		copy(groupHash, rest[1:1+SenderHashLength])
+		text := string(rest[1+SenderHashLength:])
+		return NewMessageWithGroup(senderHash, groupHash, text)
+	}
+	return NewMessage(senderHash, string(rest))
 }
 
 // Peer is a discovered peer hash plus app data string.
@@ -172,7 +202,36 @@ func (m *Messenger) SendMessage(destHash []byte, text string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create message: %w", err)
 	}
+	return m.sendPacked(destHash, targetDest, msg)
+}
 
+// SendGroupMessage sends one MF packet to destHash tagged with groupHash.
+func (m *Messenger) SendGroupMessage(destHash, groupHash []byte, text string) error {
+	if len(destHash) != SenderHashLength {
+		return fmt.Errorf("invalid destination hash: %w", ErrInvalidHashLength)
+	}
+	if len(groupHash) != SenderHashLength {
+		return fmt.Errorf("invalid group hash: %w", ErrInvalidHashLength)
+	}
+
+	remoteIdentity, err := identity.Recall(destHash)
+	if err != nil {
+		return fmt.Errorf("identity not found: %w", err)
+	}
+
+	targetDest, err := destination.FromHash(destHash, remoteIdentity, destination.Single, m.transport)
+	if err != nil {
+		return fmt.Errorf("failed to create target destination: %w", err)
+	}
+
+	msg, err := NewMessageWithGroup(m.GetDestinationHash(), groupHash, text)
+	if err != nil {
+		return fmt.Errorf("failed to create message: %w", err)
+	}
+	return m.sendPacked(destHash, targetDest, msg)
+}
+
+func (m *Messenger) sendPacked(destHash []byte, targetDest *destination.Destination, msg *Message) error {
 	payload, err := msg.Pack()
 	if err != nil {
 		return fmt.Errorf("failed to pack message: %w", err)

@@ -68,7 +68,8 @@ func (t *Transport) NudgePathRequest(destinationHash []byte) error {
 
 // ExpirePath drops the cached path entry (and path state / throttle hints) for this
 // destination so HasPath returns false until the next successful path update.
-// It does not send a packet; pair with RequestPath or PrepareFreshPathRequest.
+// It does not send a packet. Pair with RequestPath or PrepareFreshPathRequest.
+
 func (t *Transport) ExpirePath(destinationHash []byte) {
 	if t == nil || len(destinationHash) != 16 {
 		return

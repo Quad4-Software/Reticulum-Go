@@ -24,7 +24,7 @@ type Ed25519Signer = cryptography.Ed25519Signer
 type Identity struct {
 	privateKey      []byte
 	publicKey       []byte
-	signingSeed     []byte // 32-byte Ed25519 seed; nil if externalSigner is set
+	signingSeed     []byte // 32-byte Ed25519 seed. Nil if externalSigner is set.
 	signingKey      ed25519.PrivateKey
 	verificationKey ed25519.PublicKey
 	externalSigner  cryptography.Ed25519Signer // if non-nil, Sign uses this instead of signingSeed
@@ -194,6 +194,7 @@ func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) 
 		appDataCopy,
 	}
 	knownDestinationsLock.Unlock()
+	markKnownDestinationsDirty()
 }
 
 func ValidateAnnounce(packet []byte, destHash []byte, publicKey []byte, signature []byte, appData []byte) bool {
@@ -504,7 +505,8 @@ func (i *Identity) ToFile(path string) error {
 	copy(privateKeyBytes[32:], i.signingSeed)
 
 	// Write raw bytes to file
-	// #nosec G304 G703 -- path is caller-chosen identity storage; not derived from network input here
+	// #nosec G304 G703 -- path is caller-chosen identity storage. Not derived from network input here
+
 	file, err := os.Create(path)
 	if err != nil {
 		debug.Log(debug.DebugCritical, "Failed to create identity file", "error", err)
@@ -525,7 +527,8 @@ func FromFile(path string) (*Identity, error) {
 	debug.Log(debug.DebugAll, "Loading identity from file", "path", path)
 
 	// Read the private key bytes from file
-	// #nosec G304 G703 -- path is caller-chosen identity storage; not derived from network input here
+	// #nosec G304 G703 -- path is caller-chosen identity storage. Not derived from network input here
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read identity file: %w", err)
@@ -569,7 +572,8 @@ func LoadOrCreateTransportIdentity(customPath string) (*Identity, error) {
 		storagePath = fmt.Sprintf("%s/.reticulum/storage", homeDir)
 	}
 
-	// #nosec G703 -- storage path from RETICULUM_STORAGE_PATH or ~/.reticulum/storage; operator-controlled, not remote taint
+	// #nosec G703 -- storage path from RETICULUM_STORAGE_PATH or ~/.reticulum/storage. Operator-controlled, not remote taint
+
 	if err := os.MkdirAll(storagePath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create storage directory: %w", err)
 	}

@@ -17,7 +17,7 @@ permissions:
   actions: read
 
 env:
-  CI_GO_VERSION: "1.26.4"
+  CI_GO_VERSION: "1.26.5"
   CI_TASK_VERSION: "3.46.3"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"

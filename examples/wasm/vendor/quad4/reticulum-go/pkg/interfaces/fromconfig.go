@@ -5,7 +5,9 @@ package interfaces
 import (
 	"errors"
 	"fmt"
+	"time"
 
+	"quad4/reticulum-go/pkg/backbone"
 	"quad4/reticulum-go/pkg/common"
 )
 
@@ -24,26 +26,48 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 		err   error
 	)
 	switch cfg.Type {
+	case "UDPInterface":
+		target := cfg.TargetAddress
+		if target == "" {
+			target = cfg.TargetHost
+		}
+		iface, err = NewUDPInterfaceWithRetries(
+			name,
+			cfg.Address,
+			target,
+			cfg.Enabled,
+			cfg.MaxReconnTries,
+		)
+	case "AutoInterface":
+		iface, err = NewAutoInterface(name, cfg)
+		if err == nil {
+			if auto, ok := iface.(*AutoInterface); ok && ctx != nil && ctx.WatchInterfaces {
+				auto.SetWatchInterfaces(true)
+			}
+		}
 	case "TCPClientInterface":
-		iface, err = NewTCPClientInterface(
+		iface, err = NewTCPClientInterfaceWithRetries(
 			name,
 			cfg.TargetHost,
 			cfg.TargetPort,
 			cfg.KISSFraming,
 			cfg.I2PTunneled,
 			cfg.Enabled,
+			cfg.MaxReconnTries,
 		)
-	case "UDPInterface":
-		iface, err = NewUDPInterface(
-			name,
-			cfg.Address,
-			cfg.TargetHost,
-			cfg.Enabled,
-		)
-	case "AutoInterface":
-		iface, err = NewAutoInterface(name, cfg)
-	case "BackboneInterface":
-		iface, err = NewBackboneInterface(name, cfg)
+		if err == nil {
+			if tc, ok := iface.(*TCPClientInterface); ok && ctx != nil && ctx.SynthesizeTunnel != nil {
+				tc.SetTunnelSynth(ctx.SynthesizeTunnel)
+			}
+		}
+	case "BackboneInterface", "BackboneClientInterface":
+		var hub *backbone.Hub
+		var spawn func(*BackboneClientInterface)
+		if ctx != nil {
+			hub = ctx.BackboneHub
+			spawn = ctx.SpawnBackbone
+		}
+		iface, err = NewBackboneFromConfig(name, cfg, hub, spawn)
 	case "WebSocketInterface":
 		wsURL := cfg.Address
 		if wsURL == "" {
@@ -67,10 +91,16 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 		for _, peerAddr := range cfg.I2PPeers {
 			peerName := name + " to " + peerAddr
 			maxTries := cfg.MaxReconnTries
-			peer := NewI2PInterfacePeer(parent, peerName, peerAddr, maxTries)
+			peer := NewI2PInterfacePeer(parent, peerName, peerAddr, maxTries, cfg)
 			parent.registerSpawnedPeer(peer)
 		}
 		iface = parent
+	case "PipeInterface":
+		delay := time.Duration(cfg.RespawnDelay) * time.Second
+		panicOnErr := ctx != nil && ctx.PanicOnInterfaceError
+		iface, err = NewPipeInterface(name, cfg.Command, cfg.Enabled, delay, panicOnErr)
+	case "LocalInterface", "LocalServerInterface":
+		iface, err = NewLocalFromConfig(name, cfg, ctx)
 	default:
 		return nil, fmt.Errorf("unsupported interface type %q", cfg.Type)
 	}

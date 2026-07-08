@@ -29,7 +29,8 @@ func SetExtraWriter(w io.Writer) {
 	}
 }
 
-// Init builds the underlying slog logger. Safe to call repeatedly; only
+// Init builds the underlying slog logger. Safe to call repeatedly. Only
+
 // the first call wires it up. SetDebugLevel rebuilds the handler so the
 // active level can change at runtime.
 func Init() {

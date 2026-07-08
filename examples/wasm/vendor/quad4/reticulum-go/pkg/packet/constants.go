@@ -20,6 +20,9 @@ const (
 	TruncatedHashLength = 16
 	MinPacketSize       = 3
 
+	// LinkRequestECPubSize is the combined X25519 + Ed25519 public key size in link requests.
+	LinkRequestECPubSize = 64
+
 	ReceiptTimeoutBaseSec   = 15
 	ReceiptTimeoutPerHopSec = 3
 )

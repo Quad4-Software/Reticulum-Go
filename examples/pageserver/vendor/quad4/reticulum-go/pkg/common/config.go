@@ -40,8 +40,8 @@ type InterfaceConfig struct {
 	Devices           []string
 	IgnoredDevices    []string
 
-	AnnounceCap           float64 // % of bitrate; 0 => default 2%
-	AnnounceRateTarget    float64 // min seconds between same-dest rebroadcasts; 0 => off
+	AnnounceCap           float64 // % of bitrate. 0 => default 2%
+	AnnounceRateTarget    float64 // min seconds between same-dest rebroadcasts. 0 => off
 	AnnounceRateGrace     int
 	AnnounceRatePenalty   float64
 	IngressControl        bool
@@ -63,10 +63,18 @@ type InterfaceConfig struct {
 
 	NetworkName string
 	Passphrase  string
-	IFACSize    int // bytes; config ifac_size is stored in bits and converted at parse time
+	IFACSize    int // bytes. Config ifac_size is stored in bits and converted at parse time
 	IFACNetname string
 	IFACNetkey  string
 	PublishIFAC bool
+
+	// PipeInterface subprocess command and respawn delay (seconds).
+	Command      string
+	RespawnDelay int
+
+	// LocalInterface unix socket settings (interface block).
+	SharedInstanceType string
+	InstanceName       string
 }
 
 // SharedInstanceType values for [reticulum] shared_instance_type.
@@ -92,9 +100,32 @@ type ReticulumConfig struct {
 	AppAspect           string
 	EnableSandbox       bool
 
+	// EnableControlAPI turns on the localhost JSON control API (pkg/controlapi)
+	// that lets non-Go applications use destinations, links, and announces
+	// without embedding the Reticulum stack.
+	EnableControlAPI bool
+	ControlAPIHost   string
+	ControlAPIPort   int
+
 	// ConnectedToSharedInstance is set at runtime when this process attaches
 	// to an existing local shared instance instead of owning one.
 	ConnectedToSharedInstance bool
+
+	// InMemoryPathTable disables on-disk path table persistence when true.
+	InMemoryPathTable bool
+
+	// InMemoryKnownDestinations disables on-disk known destination persistence when true.
+	InMemoryKnownDestinations bool
+
+	// BackboneIO selects the kernel I/O multiplexer for backbone and local shared
+	// instance sockets: auto, epoll, kqueue, io_uring, or go.
+	BackboneIO string
+
+	// DiscoverInterfaces enables periodic NIC rescan for AutoInterface peers.
+	DiscoverInterfaces bool
+
+	// WatchInterfaces enables periodic NIC monitoring via net.Interfaces where supported.
+	WatchInterfaces bool
 }
 
 // NewReticulumConfig creates a new ReticulumConfig with default values
@@ -108,6 +139,8 @@ func NewReticulumConfig() *ReticulumConfig {
 		PanicOnInterfaceErr: false,
 		LogLevel:            DefaultLogLevel,
 		Interfaces:          make(map[string]*InterfaceConfig),
+		ControlAPIHost:      DefaultControlAPIHost,
+		ControlAPIPort:      DefaultControlAPIPort,
 	}
 }
 
@@ -118,6 +151,14 @@ func (c *ReticulumConfig) Validate() error {
 	}
 	if c.InstanceControlPort < MinPort || c.InstanceControlPort > MaxPort {
 		return fmt.Errorf("invalid instance control port: %d", c.InstanceControlPort)
+	}
+	if c.EnableControlAPI {
+		if c.ControlAPIPort < MinPort || c.ControlAPIPort > MaxPort {
+			return fmt.Errorf("invalid control api port: %d", c.ControlAPIPort)
+		}
+		if len(c.RPCKey) == 0 {
+			return fmt.Errorf("control api requires rpc_key to be set")
+		}
 	}
 	return nil
 }
@@ -135,5 +176,7 @@ func DefaultConfig() *ReticulumConfig {
 		AppName:             "Go Client",
 		AppAspect:           "node",
 		EnableSandbox:       true,
+		ControlAPIHost:      DefaultControlAPIHost,
+		ControlAPIPort:      DefaultControlAPIPort,
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"maps"
 	"net"
+	"path/filepath"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -23,6 +24,7 @@ import (
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/interfaces"
 	"quad4/reticulum-go/pkg/packet"
 	"quad4/reticulum-go/pkg/pathfinder"
 	"quad4/reticulum-go/pkg/rate"
@@ -103,12 +105,23 @@ type Transport struct {
 	pendingDiscoveryPRs   []pendingDiscoveryPR
 	pendingDiscoveryPRMu  sync.Mutex
 	discoveryDraining     atomic.Bool
+	pathPersistMemory     atomic.Bool
+	pathPersistDisabled   atomic.Bool
+	pathPersistDir        string
+	pathPersistDirty      atomic.Bool
+	pathPersistSaving     sync.Mutex
+	pendingPathEntries    []pendingPathEntry
 	done                  chan struct{}
 	stopOnce              sync.Once
+
+	tunnelMu           sync.Mutex
+	tunnels            map[[32]byte]*tunnelEntry
+	tunnelSynthOutHash []byte
 }
 
 // SetBlackholeTable sets the blackhole table. HandleAnnounce drops blackholed
-// identities; path lookups consult the same table.
+// identities. Path lookups consult the same table.
+
 func (t *Transport) SetBlackholeTable(tab *blackhole.Table) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -116,7 +129,8 @@ func (t *Transport) SetBlackholeTable(tab *blackhole.Table) {
 }
 
 // BlackholeTable returns the active table or nil. The table is internally
-// synchronized; the returned pointer is safe to use.
+// synchronized. The returned pointer is safe to use.
+
 func (t *Transport) BlackholeTable() *blackhole.Table {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
@@ -174,14 +188,29 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		done:                  make(chan struct{}),
 	}
 
-	transportIdent, err := identity.LoadOrCreateTransportIdentity(cfg.ConfigPath)
+	transportIdent, err := identity.LoadOrCreateTransportIdentity(transportStoragePath(cfg))
 	if err == nil {
 		t.transportIdentity = transportIdent
 	}
 
 	go t.startMaintenanceJobs()
 
+	t.initPathPersistence(cfg)
+	inMemoryKnown := false
+	if cfg != nil {
+		cfg.ApplyPersistenceEnv()
+		inMemoryKnown = cfg.InMemoryKnownDestinations || cfg.ConnectedToSharedInstance
+	}
+	identity.InitKnownDestinationsPersistence(configPath(cfg), inMemoryKnown)
+
 	return t
+}
+
+func transportStoragePath(cfg *common.ReticulumConfig) string {
+	if cfg == nil || cfg.ConfigPath == "" {
+		return ""
+	}
+	return filepath.Join(filepath.Dir(cfg.ConfigPath), "storage")
 }
 
 func (t *Transport) startMaintenanceJobs() {
@@ -192,10 +221,13 @@ func (t *Transport) startMaintenanceJobs() {
 		select {
 		case <-ticker.C:
 			t.cleanupExpiredPaths()
+			t.cleanupExpiredTunnels()
 			t.cleanupExpiredDiscoveryRequests()
 			t.cleanupExpiredAnnounces()
 			t.cleanupExpiredReceipts()
 			t.cleanupSeenAnnounces()
+			t.persistPathTableIfDirty()
+			identity.PersistKnownDestinationsIfDirty()
 			if tab := t.BlackholeTable(); tab != nil {
 				tab.SweepExpired()
 			}
@@ -236,6 +268,7 @@ func (t *Transport) cleanupExpiredPaths() {
 			debug.Log(debug.DebugVerbose, "Expired path", "dest_hash", fmt.Sprintf("%x", destHash[:8]))
 		}
 	}
+	t.markPathTableDirty()
 }
 
 func (t *Transport) cleanupExpiredDiscoveryRequests() {
@@ -377,7 +410,8 @@ func (t *Transport) RegisterDestination(hash []byte, dest any) {
 }
 
 // CreateIncomingLink builds a link for an incoming request without importing
-// the link package (stub; returns nil until implemented).
+// the link package (stub. Returns nil until implemented).
+
 func (t *Transport) CreateIncomingLink(dest any, networkIface common.NetworkInterface) any {
 	debug.Log(debug.DebugTrace, "CreateIncomingLink called (not yet fully implemented)")
 	return nil
@@ -396,14 +430,16 @@ func SetTransportInstance(t *Transport) {
 }
 
 // abstractBaseInterfaceTypes names pointer types that must not be registered
-// alone; concrete interfaces must embed a base and override Send and related methods.
+// alone. Concrete interfaces must embed a base and override Send and related methods.
+
 var abstractBaseInterfaceTypes = map[string]struct{}{
 	"*common.BaseInterface":     {},
 	"*interfaces.BaseInterface": {},
 }
 
 // assertConcreteInterface rejects abstract base interface pointer types listed
-// in abstractBaseInterfaceTypes; wrappers that embed a base type are still allowed.
+// in abstractBaseInterfaceTypes. Wrappers that embed a base type are still allowed.
+
 func assertConcreteInterface(iface common.NetworkInterface) error {
 	if iface == nil {
 		return errors.New("nil network interface")
@@ -433,6 +469,7 @@ func (t *Transport) RegisterInterface(name string, iface common.NetworkInterface
 	}
 
 	t.registerInterfaceLocked(name, iface)
+	t.activatePendingPathsForInterface(name, iface)
 	return nil
 }
 
@@ -443,6 +480,11 @@ func (t *Transport) registerInterfaceLocked(name string, iface common.NetworkInt
 	})
 	t.interfaces[name] = iface
 	cfg := t.interfaceConfig(name)
+	if p, ok := iface.(interfaces.InterfaceConfigProvider); ok {
+		if pc := p.InterfaceConfig(); pc != nil {
+			cfg = pc
+		}
+	}
 	t.ifaceStates.put(name, buildIfaceState(cfg))
 	applyIfacePRConfig(iface, cfg)
 }
@@ -499,6 +541,7 @@ func (t *Transport) UnregisterInterface(name string) {
 	iface.SetPacketCallback(nil)
 	delete(t.interfaces, name)
 	t.ifaceStates.delete(name)
+	t.markPathTableDirty()
 }
 
 // ReplaceInterface swaps the registered implementation for name, scrubbing
@@ -517,6 +560,7 @@ func (t *Transport) ReplaceInterface(name string, iface common.NetworkInterface)
 		t.ifaceStates.delete(name)
 	}
 	t.registerInterfaceLocked(name, iface)
+	t.activatePendingPathsForInterface(name, iface)
 	return nil
 }
 
@@ -583,11 +627,18 @@ func (t *Transport) Close() error {
 	})
 
 	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
 	for _, iface := range t.interfaces {
 		iface.Detach()
 	}
+	t.mutex.Unlock()
+
+	// savePathTableSync/SaveKnownDestinationsSync take their own locks
+	// internally. T.mutex must be released above before calling them, or a
+
+	// write-lock-then-read-lock self-deadlock results (sync.RWMutex is not
+	// reentrant).
+	t.savePathTableSync()
+	identity.SaveKnownDestinationsSync()
 
 	return nil
 }
@@ -881,7 +932,7 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 	return nil
 }
 
-func (t *Transport) updatePathUnlocked(destinationHash []byte, nextHop []byte, interfaceName string, hops uint8) {
+func (t *Transport) updatePathUnlocked(destinationHash []byte, nextHop []byte, interfaceName string, hops uint8, randomBlob []byte, packetHash []byte, now time.Time) {
 	iface, exists := t.interfaces[interfaceName]
 	if !exists {
 		debug.Log(debug.DebugInfo, "Interface not found", "name", interfaceName)
@@ -889,20 +940,31 @@ func (t *Transport) updatePathUnlocked(destinationHash []byte, nextHop []byte, i
 	}
 
 	key := pathMapKey(destinationHash)
+	var blobs [][]byte
+	if existing, ok := t.paths[key]; ok && len(existing.RandomBlobs) > 0 {
+		blobs = appendRandomBlob(existing.RandomBlobs, randomBlob)
+	} else if len(randomBlob) == 10 {
+		blobs = appendRandomBlob(nil, randomBlob)
+	}
+	expires := now.Add(pathfinderE * time.Second)
 	t.paths[key] = &common.Path{
 		NextHop:     nextHop,
 		Interface:   iface,
 		Hops:        hops,
 		HopCount:    hops,
-		LastUpdated: time.Now(),
+		LastUpdated: now,
+		RandomBlobs: blobs,
+		Expires:     expires,
+		PacketHash:  append([]byte(nil), packetHash...),
 	}
 	t.pathStates[key] = StateUnknown
+	t.markPathTableDirty()
 }
 
 func (t *Transport) UpdatePath(destinationHash []byte, nextHop []byte, interfaceName string, hops uint8) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	t.updatePathUnlocked(destinationHash, nextHop, interfaceName, hops)
+	t.updatePathUnlocked(destinationHash, nextHop, interfaceName, hops, nil, nil, time.Now())
 }
 
 func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterface) error {
@@ -950,19 +1012,10 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 		return nil
 	}
 
-	var delay time.Duration
-	b := make([]byte, 8)
-	_, err := rand.Read(b)
-	if err != nil {
-		debug.Log(debug.DebugAll, "Failed to generate random delay", "error", err)
-		delay = 0
-	} else {
-		windowMs := max(int64(PathfinderRW*1000.0), 1)
-		delay = time.Duration(int64(binary.BigEndian.Uint64(b)%uint64(windowMs))) * time.Millisecond // #nosec G115
-	}
+	delay := pathfinderRebroadcastDelay()
 	time.Sleep(delay)
 
-	if !t.announceRate.Allow() {
+	if !t.announceRateAllow() {
 		debug.Log(debug.DebugAll, "Announce rate limit exceeded, queuing")
 		return nil
 	}
@@ -1351,10 +1404,31 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		if len(nextHop) == 0 {
 			nextHop = destinationHash
 		}
+		now := time.Now()
 		t.mutex.Lock()
-		t.updatePathUnlocked(destinationHash, nextHop, iface.GetName(), hopCount+1)
+		destKey := pathMapKey(destinationHash)
+		existing := t.paths[destKey]
+		destinationKnown := existing != nil
+		pathUnresponsive := false
+		if st, ok := t.pathStates[destKey]; ok && st == StateUnresponsive {
+			pathUnresponsive = true
+		}
+		shouldAdd := shouldUpdateAnnouncePath(existing, announcePathInput{
+			destinationKnown: destinationKnown,
+			announceHops:     hopCount + 1,
+			randomBlob:       randomHash,
+			now:              now,
+		}, pathUnresponsive)
+		if shouldAdd {
+			t.updatePathUnlocked(destinationHash, nextHop, iface.GetName(), hopCount+1, randomHash, announceHash[:], now)
+		}
 		t.mutex.Unlock()
-		debug.Log(debug.DebugInfo, "Registered path", "hash", fmt.Sprintf("%x", destinationHash), "interface", iface.GetName(), "hops", hopCount+1, "nextHop", fmt.Sprintf("%x", nextHop))
+		if shouldAdd {
+			debug.Log(debug.DebugInfo, "Registered path", "hash", fmt.Sprintf("%x", destinationHash), "interface", iface.GetName(), "hops", hopCount+1, "nextHop", fmt.Sprintf("%x", nextHop))
+			if tun, ok := iface.(TunnelInterface); ok && len(tun.TunnelID()) == 32 {
+				t.associateTunnelPath(tun, destinationHash, receivedFrom, announceHash[:], hopCount+1)
+			}
+		}
 	}
 
 	debug.Log(debug.DebugInfo, "Notifying announce handlers", "destHash", fmt.Sprintf("%x", destinationHash), "appDataLen", len(appData))
@@ -1390,22 +1464,13 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		return nil
 	}
 
-	if !t.announceRate.Allow() {
+	if !t.announceRateAllow() {
 		debug.Log(debug.DebugInfo, "Announce rate limit exceeded, not forwarding")
 		return nil
 	}
 	debug.Log(debug.DebugInfo, "Bandwidth check passed")
 
-	var delay time.Duration
-	b := make([]byte, 8)
-	_, err := rand.Read(b)
-	if err != nil {
-		debug.Log(debug.DebugAll, "Failed to generate random delay", "error", err)
-		delay = 0
-	} else {
-		windowMs := max(int64(PathfinderRW*1000.0), 1)
-		delay = time.Duration(int64(binary.BigEndian.Uint64(b)%uint64(windowMs))) * time.Millisecond // #nosec G115
-	}
+	delay := pathfinderRebroadcastDelay()
 	time.Sleep(delay)
 
 	data[1]++
@@ -1476,6 +1541,9 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 		t.mutex.RUnlock()
 
 		if !exists {
+			if t.relayBridgedLinkRequest(pkt, data, iface) {
+				return
+			}
 			debug.Log(debug.DebugError, "No destination registered for hash", "hash", fmt.Sprintf("%x", destHash), "elapsed", time.Since(startTime).Seconds())
 			return
 		}
@@ -1646,6 +1714,10 @@ func (t *Transport) InitializePathRequestHandler() error {
 	pathRequestDest.AcceptsLinks(true)
 	t.pathRequestDest = pathRequestDest
 	t.RegisterDestination(pathRequestDest.GetHash(), pathRequestDest)
+
+	if err := t.InitializeTunnelHandler(); err != nil {
+		return fmt.Errorf("tunnel handler: %w", err)
+	}
 
 	debug.Log(debug.DebugInfo, "Path request handler initialized")
 	return nil
@@ -2199,6 +2271,10 @@ func (t *Transport) handleProofPacket(pkt *packet.Packet, iface common.NetworkIn
 			}
 			return
 		}
+		if len(pkt.Raw) > 0 && t.forwardLinkData(pkt.Raw, iface) {
+			debug.Log(debug.DebugInfo, "Relayed link proof via link table", "link_id", fmt.Sprintf("%x", linkID), "interface", iface.GetName())
+			return
+		}
 		debug.Log(debug.DebugInfo, "No link found for proof packet", "link_id", fmt.Sprintf("%x", linkID))
 		return
 	}
@@ -2216,6 +2292,10 @@ func (t *Transport) handleProofPacket(pkt *packet.Packet, iface common.NetworkIn
 			if err := linkObj.HandleInbound(pkt); err != nil {
 				debug.Log(debug.DebugError, "Resource proof handling failed", "error", err, "link_id", fmt.Sprintf("%x", linkID))
 			}
+			return
+		}
+		if len(pkt.Raw) > 0 && t.forwardLinkData(pkt.Raw, iface) {
+			debug.Log(debug.DebugInfo, "Relayed resource proof via link table", "link_id", fmt.Sprintf("%x", linkID), "interface", iface.GetName())
 			return
 		}
 		debug.Log(debug.DebugInfo, "No link found for resource proof packet", "link_id", fmt.Sprintf("%x", linkID))

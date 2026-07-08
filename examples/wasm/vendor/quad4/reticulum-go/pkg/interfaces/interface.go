@@ -75,7 +75,8 @@ type BaseInterface struct {
 
 	// IFACIdentity is set when the interface participates in an IFAC network.
 	// When non-nil, outbound packets are masked before transmit and inbound
-	// packets are unmasked and verified; unauthenticated packets are dropped.
+	// packets are unmasked and verified. Unauthenticated packets are dropped.
+
 	IFACIdentity common.IFAC
 
 	// Path request frequency tracking (ingress/egress burst control)
@@ -347,6 +348,7 @@ func (i *BaseInterface) updateBandwidthStats(bytes uint64) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
 
+	i.TxBytes += bytes
 	i.lastTx = time.Now()
 
 	debug.Log(debug.DebugVerbose, "Interface updated bandwidth stats", "name", i.Name, "tx_bytes", i.TxBytes, "last_tx", i.lastTx)

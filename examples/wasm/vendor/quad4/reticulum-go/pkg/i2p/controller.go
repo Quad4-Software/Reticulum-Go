@@ -148,7 +148,7 @@ func (c *Controller) loadOrCreateDestination(ifaceName string, transportID []byt
 	if _, err := os.Stat(oldFile); err == nil {
 		keyFile = oldFile
 	}
-	if data, err := os.ReadFile(keyFile); err == nil {
+	if data, err := os.ReadFile(keyFile); err == nil { // #nosec G304 -- keyFile is filepath.Join(storagePath, hex hash)
 		return NewDestinationFromPrivateB64(string(data))
 	}
 	ctx, cancel := context.WithTimeout(c.ctx, defaultSetupTimeout)

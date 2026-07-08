@@ -34,7 +34,8 @@ const (
 )
 
 // Wire-format sizes for announce packets. These mirror the on-disk layout
-// described in the Reticulum protocol specification; changing any of them is a
+// described in the Reticulum protocol specification. Changing any of them is a
+
 // protocol break.
 const (
 	HeaderSize     = 2  // flags + hop count

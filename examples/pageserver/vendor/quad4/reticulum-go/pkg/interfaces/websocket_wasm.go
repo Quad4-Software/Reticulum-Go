@@ -224,7 +224,8 @@ func (wsi *WebSocketInterface) closeWebSocket() {
 	wsi.Online = false
 }
 
-// Send routes through the concrete ProcessOutgoing; without this
+// Send routes through the concrete ProcessOutgoing. Without this
+
 // override, the embedded BaseInterface.Send dispatches to its own
 // abstract ProcessOutgoing stub.
 func (wsi *WebSocketInterface) Send(data []byte, _ string) error {

@@ -8,6 +8,8 @@ const (
 	// MaxMessageSize is max text length (MTU 500 − header 64 − SenderHashLength 16).
 	MaxMessageSize = 420
 
+	groupFlagPresent = 0x01
+
 	testHashHex    = "0123456789abcdef0123456789abcdef"
 	errFmtExpected = "%w: expected %d, got %d"
 )

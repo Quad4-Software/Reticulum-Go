@@ -267,6 +267,22 @@ func (p *Packet) TruncatedHash() []byte {
 	return hash
 }
 
+// LinkIDFromLinkRequest returns the link ID for a link request packet,
+// matching RNS.Link.link_id_from_lr_packet.
+func LinkIDFromLinkRequest(p *Packet) []byte {
+	if p == nil || len(p.Raw) == 0 {
+		return nil
+	}
+	hashable := p.hashableInto(nil)
+	if len(p.Data) > LinkRequestECPubSize {
+		diff := len(p.Data) - LinkRequestECPubSize
+		if len(hashable) >= diff {
+			hashable = hashable[:len(hashable)-diff]
+		}
+	}
+	return identity.TruncatedHash(hashable)
+}
+
 func (p *Packet) Serialize() ([]byte, error) {
 	if !p.Packed {
 		if err := p.Pack(); err != nil {

@@ -175,7 +175,7 @@ GitHub Actions workflows in `.github/workflows/`:
 | security.yml | Gosec, govulncheck, Trivy, SBOM dispatch |
 | publish.yml | Tagged releases, cosign attestations |
 
-CI uses Go 1.26.4 via `actions/setup-go` in `.github/actions/setup-ci` with `GOTOOLCHAIN=local` and vendored modules.
+CI uses Go 1.26.5 via `actions/setup-go` in `.github/actions/setup-ci` with `GOTOOLCHAIN=local` and vendored modules.
 
 ## Cross-compilation
 

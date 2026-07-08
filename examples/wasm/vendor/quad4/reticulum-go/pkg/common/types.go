@@ -16,6 +16,9 @@ type Path struct {
 	Hops        uint8
 	LastUpdated time.Time
 	HopCount    uint8
+	RandomBlobs [][]byte
+	Expires     time.Time
+	PacketHash  []byte
 }
 
 // Common callbacks
