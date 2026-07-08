@@ -30,14 +30,12 @@ func TestPipeInterfaceConcurrentSendRace(t *testing.T) {
 	const workers = 16
 	const iters = 50
 	for range workers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			payload := []byte{0x01, 0x02, 0x03, 0x04}
 			for range iters {
 				_ = pi.Send(payload, "")
 			}
-		}()
+		})
 	}
 	wg.Wait()
 }
@@ -58,7 +56,7 @@ func TestPipeInterfaceConcurrentStopSendRace(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			_ = pi.Send([]byte{0xAA}, "")
 		}
 	}()
@@ -87,14 +85,12 @@ func TestLocalClientConcurrentSendRace(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for range 8 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			frame := []byte{HDLCFlag, 0x42, HDLCFlag}
 			for range 40 {
 				_, _ = server.Write(frame)
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	_ = lc.Stop()
