@@ -97,7 +97,9 @@ func TestPipeInterfaceRespawnDoesNotDeadlock(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("readLoop blocked >5s after pipe close")
 	}
+	pi.Mutex.Lock()
 	pi.Enabled = false
+	pi.Mutex.Unlock()
 	_ = pi.Stop()
 }
 

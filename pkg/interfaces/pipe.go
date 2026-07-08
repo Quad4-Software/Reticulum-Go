@@ -35,6 +35,7 @@ type PipeInterface struct {
 	stopOnce     sync.Once
 	respawning   bool
 	panicOnError bool
+	txMu         sync.Mutex
 	txFrame      []byte
 	readBuf      []byte
 }
@@ -157,6 +158,9 @@ func (pi *PipeInterface) killLocked() {
 }
 
 func (pi *PipeInterface) ProcessOutgoing(data []byte) error {
+	pi.txMu.Lock()
+	defer pi.txMu.Unlock()
+
 	pi.Mutex.RLock()
 	online := pi.Online
 	stdin := pi.stdin
@@ -253,11 +257,18 @@ func (pi *PipeInterface) handleIOError(err error) {
 }
 
 func (pi *PipeInterface) respawnPipe() {
+	pi.Mutex.Lock()
 	if pi.respawning {
+		pi.Mutex.Unlock()
 		return
 	}
 	pi.respawning = true
-	defer func() { pi.respawning = false }()
+	pi.Mutex.Unlock()
+	defer func() {
+		pi.Mutex.Lock()
+		pi.respawning = false
+		pi.Mutex.Unlock()
+	}()
 
 	for {
 		pi.Mutex.RLock()
