@@ -698,6 +698,21 @@ func (r *Resource) GetRandomHash() []byte {
 	return append([]byte{}, r.randomHash...)
 }
 
+// ExpectedProof returns SHA256(uncompressedPayload || resourceHash), matching
+// Python Resource.prove / validate_proof wire format.
+func (r *Resource) ExpectedProof() ([]byte, bool) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	if len(r.hash) != sha256.Size {
+		return nil, false
+	}
+	if r.data == nil {
+		return nil, false
+	}
+	sum := sha256.Sum256(append(append([]byte(nil), r.data...), r.hash...))
+	return sum[:], true
+}
+
 func (r *Resource) GetOriginalHash() []byte {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
