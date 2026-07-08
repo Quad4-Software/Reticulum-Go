@@ -363,6 +363,9 @@ func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), 
 	}
 
 	uncompressed := body
+	if r.data == nil {
+		r.data = append([]byte(nil), uncompressed...)
+	}
 	randomHash := make([]byte, RandomHashSize)
 	if _, err := io.ReadFull(rand.Reader, randomHash); err != nil {
 		return err
