@@ -2506,28 +2506,7 @@ func (l *Link) sendPreparedLinkRequest() error {
 }
 
 func linkIDFromPacket(pkt *packet.Packet) []byte {
-	hashablePart := []byte{pkt.Raw[0] & 0b00001111}
-
-	if pkt.HeaderType == packet.HeaderType2 {
-		dstLen := 16
-		startIndex := dstLen + 2
-		if len(pkt.Raw) > startIndex {
-			hashablePart = append(hashablePart, pkt.Raw[startIndex:]...)
-		}
-	} else {
-		if len(pkt.Raw) > 2 {
-			hashablePart = append(hashablePart, pkt.Raw[2:]...)
-		}
-	}
-
-	if len(pkt.Data) > ECPubSize {
-		diff := len(pkt.Data) - ECPubSize
-		if len(hashablePart) >= diff {
-			hashablePart = hashablePart[:len(hashablePart)-diff]
-		}
-	}
-
-	return identity.TruncatedHash(hashablePart)
+	return packet.LinkIDFromLinkRequest(pkt)
 }
 
 func (l *Link) HandleLinkRequest(pkt *packet.Packet, ownerIdentity *identity.Identity) error {

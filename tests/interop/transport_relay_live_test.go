@@ -269,3 +269,116 @@ func TestLiveInteropGoRelayDisabledByConfig(t *testing.T) {
 		t.Fatalf("pyB learned path despite EnableTransport=false (relay leaked)")
 	}
 }
+
+// TestLiveInteropLinkThroughGoTransportRelay verifies link establishment when
+// two Python peers are bridged only by a Go transport node (meshchatx-style).
+func TestLiveInteropLinkThroughGoTransportRelay(t *testing.T) {
+	liveOrSkip(t)
+	ctx, cancel := context.WithTimeout(context.Background(), pyProcShortTimeout)
+	defer cancel()
+
+	pyAListen := freeUDPPort(t)
+	pyAForward := freeUDPPort(t)
+	pyBListen := freeUDPPort(t)
+	pyBForward := freeUDPPort(t)
+
+	tr, cleanup := setupGoUDPRelay(t,
+		pyAForward, pyAListen,
+		pyBForward, pyBListen,
+	)
+	defer cleanup()
+
+	scriptDirPath := scriptDir(t)
+
+	pyACmd := exec.CommandContext(ctx, pythonExe(),
+		filepath.Join(scriptDirPath, "py", "link_server.py"))
+	pyACmd.Env = append(os.Environ(),
+		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyAListen),
+		"INTEROP_FORWARD_PORT="+strconv.Itoa(pyAForward),
+		"INTEROP_LINK_MODE=echo",
+	)
+	pyACmd.Stderr = os.Stderr
+	pyAOut, err := pyACmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("pyA stdout pipe: %v", err)
+	}
+	if err := pyACmd.Start(); err != nil {
+		t.Fatalf("start pyA: %v", err)
+	}
+	defer func() {
+		_ = pyACmd.Process.Kill()
+		_ = pyACmd.Wait()
+	}()
+
+	pyABr := bufio.NewReader(pyAOut)
+	if line, err := readLineTimeout(ctx, pyABr, 25*time.Second); err != nil {
+		t.Fatalf("pyA READY: %v", err)
+	} else if strings.TrimSpace(line) != "READY" {
+		t.Fatalf("pyA expected READY, got %q", line)
+	}
+	hashLine, err := readLineTimeout(ctx, pyABr, 5*time.Second)
+	if err != nil {
+		t.Fatalf("pyA hash line: %v", err)
+	}
+	pyAHash, err := hex.DecodeString(strings.TrimSpace(hashLine))
+	if err != nil || len(pyAHash) != 16 {
+		t.Fatalf("pyA bad hash: %q err %v", hashLine, err)
+	}
+
+	deadline := time.Now().Add(25 * time.Second)
+	for time.Now().Before(deadline) {
+		if tr.HasPath(pyAHash) {
+			break
+		}
+		_ = tr.RequestPath(pyAHash, "relay_to_a", nil, false)
+		time.Sleep(120 * time.Millisecond)
+	}
+	if !tr.HasPath(pyAHash) {
+		t.Fatal("Go relay never learned path to Python server")
+	}
+
+	pyBCmd := exec.CommandContext(ctx, pythonExe(),
+		filepath.Join(scriptDirPath, "py", "link_client.py"))
+	pyBCmd.Env = append(os.Environ(),
+		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyBListen),
+		"INTEROP_FORWARD_PORT="+strconv.Itoa(pyBForward),
+		"INTEROP_GO_DEST_HASH="+hex.EncodeToString(pyAHash),
+		"INTEROP_LINK_CLIENT_MODE=echo",
+		"INTEROP_ECHO_EXPECT=interop-ping",
+		"INTEROP_ECHO_SEND=interop-ping",
+	)
+	pyBCmd.Stderr = os.Stderr
+	pyBOut, err := pyBCmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("pyB stdout pipe: %v", err)
+	}
+	if err := pyBCmd.Start(); err != nil {
+		t.Fatalf("start pyB: %v", err)
+	}
+	defer func() {
+		_ = pyBCmd.Process.Kill()
+		_ = pyBCmd.Wait()
+	}()
+
+	pyBBr := bufio.NewReader(pyBOut)
+	if line, err := readLineTimeout(ctx, pyBBr, 25*time.Second); err != nil {
+		t.Fatalf("pyB READY: %v", err)
+	} else if strings.TrimSpace(line) != "READY" {
+		t.Fatalf("pyB expected READY, got %q", line)
+	}
+
+	okDeadline := time.Now().Add(60 * time.Second)
+	for time.Now().Before(okDeadline) {
+		line, err := readLineTimeout(ctx, pyBBr, 5*time.Second)
+		if err != nil {
+			if ctx.Err() != nil {
+				t.Fatalf("pyB link relay: %v", ctx.Err())
+			}
+			continue
+		}
+		if strings.TrimSpace(line) == "ECHO_OK" {
+			return
+		}
+	}
+	t.Fatal("timed out waiting for ECHO_OK through Go transport relay")
+}

@@ -4,7 +4,6 @@ package transport
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"sync"
@@ -236,7 +235,7 @@ func (t *Transport) recordLinkRelay(pkt *packet.Packet, raw []byte, recvIface co
 	if t.linkTable == nil {
 		return
 	}
-	linkID := linkIDFromLinkRequest(pkt, raw)
+	linkID := packet.LinkIDFromLinkRequest(pkt)
 	if len(linkID) == 0 {
 		return
 	}
@@ -261,24 +260,6 @@ func (t *Transport) recordLinkRelay(pkt *packet.Packet, raw []byte, recvIface co
 		"remaining_hops", remaining,
 		"recv_iface", recvIface.GetName(),
 		"next_hop_iface", path.Interface.GetName())
-}
-
-func linkIDFromLinkRequest(pkt *packet.Packet, raw []byte) []byte {
-	if pkt == nil {
-		return nil
-	}
-	dest := pkt.DestinationHash
-	if len(dest) == 0 || len(pkt.Data) == 0 {
-		return nil
-	}
-	hasher := sha256.New()
-	hasher.Write(dest)
-	hasher.Write(pkt.Data)
-	h := hasher.Sum(nil)
-	if len(h) >= identity.TruncatedHashLength/8 {
-		return h[:identity.TruncatedHashLength/8]
-	}
-	return h
 }
 
 func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterface) bool {
@@ -326,6 +307,78 @@ func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterf
 			"out_iface", outIface.GetName())
 	}
 	entry.Timestamp = time.Now()
+	return true
+}
+
+// relayBridgedLinkRequest forwards a HeaderType1 link request across another
+// interface when this node has a known path but is not the destination.
+func (t *Transport) relayBridgedLinkRequest(pkt *packet.Packet, raw []byte, sourceIface common.NetworkInterface) bool {
+	if pkt == nil {
+		return false
+	}
+	if pkt.HeaderType == packet.HeaderType2 {
+		stripped, err := stripHeaderType2(append([]byte(nil), raw...), pkt.Hops+1)
+		if err != nil {
+			debug.Log(debug.DebugInfo, "Bridged link request HT2 strip failed", "error", err)
+			return false
+		}
+		pkt = &packet.Packet{Raw: stripped}
+		if err := pkt.Unpack(); err != nil {
+			debug.Log(debug.DebugInfo, "Bridged link request unpack after strip failed", "error", err)
+			return false
+		}
+		raw = stripped
+	}
+	return t.relayBridgedLinkRequestHT1(pkt, raw, sourceIface)
+}
+
+func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, sourceIface common.NetworkInterface) bool {
+	if !t.transportEnabled() {
+		return true
+	}
+
+	destHash := pkt.DestinationHash
+	if len(destHash) > identity.TruncatedHashLength/8 {
+		destHash = destHash[:identity.TruncatedHashLength/8]
+	}
+	destKey := hash16FromSlice(destHash)
+
+	t.mutex.RLock()
+	path, hasPath := t.paths[pathMapKey(destHash)]
+	_, isLocal := t.destinations[destKey]
+	t.mutex.RUnlock()
+	if isLocal || !hasPath || path == nil || path.Interface == nil {
+		debug.Log(debug.DebugVerbose, "Bridged link request not relayed",
+			"dest_hash", fmt.Sprintf("%x", destHash),
+			"is_local", isLocal,
+			"has_path", hasPath,
+			"path_iface_nil", path == nil || path.Interface == nil,
+			"source_iface", sourceIface.GetName())
+		return false
+	}
+	if path.Interface == sourceIface {
+		debug.Log(debug.DebugVerbose, "Bridged link request dropped: ingress equals egress",
+			"dest_hash", fmt.Sprintf("%x", destHash),
+			"iface", sourceIface.GetName())
+		return true
+	}
+
+	newHops := pkt.Hops + 1
+	if newHops >= MaxHops {
+		debug.Log(debug.DebugInfo, "Bridged link request exceeds MaxHops, dropping", "hops", newHops)
+		return true
+	}
+
+	out := rewriteHopsOnly(append([]byte(nil), raw...), newHops)
+	t.recordLinkRelay(pkt, out, sourceIface, path)
+
+	debug.Log(debug.DebugInfo, "Relaying bridged link request",
+		"dest_hash", fmt.Sprintf("%x", destHash),
+		"out_iface", path.Interface.GetName(),
+		"hops", newHops)
+	if err := path.Interface.Send(out, ""); err != nil {
+		debug.Log(debug.DebugError, "Failed to relay bridged link request", "error", err)
+	}
 	return true
 }
 

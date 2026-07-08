@@ -1541,6 +1541,9 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 		t.mutex.RUnlock()
 
 		if !exists {
+			if t.relayBridgedLinkRequest(pkt, data, iface) {
+				return
+			}
 			debug.Log(debug.DebugError, "No destination registered for hash", "hash", fmt.Sprintf("%x", destHash), "elapsed", time.Since(startTime).Seconds())
 			return
 		}
@@ -2268,6 +2271,10 @@ func (t *Transport) handleProofPacket(pkt *packet.Packet, iface common.NetworkIn
 			}
 			return
 		}
+		if len(pkt.Raw) > 0 && t.forwardLinkData(pkt.Raw, iface) {
+			debug.Log(debug.DebugInfo, "Relayed link proof via link table", "link_id", fmt.Sprintf("%x", linkID), "interface", iface.GetName())
+			return
+		}
 		debug.Log(debug.DebugInfo, "No link found for proof packet", "link_id", fmt.Sprintf("%x", linkID))
 		return
 	}
@@ -2285,6 +2292,10 @@ func (t *Transport) handleProofPacket(pkt *packet.Packet, iface common.NetworkIn
 			if err := linkObj.HandleInbound(pkt); err != nil {
 				debug.Log(debug.DebugError, "Resource proof handling failed", "error", err, "link_id", fmt.Sprintf("%x", linkID))
 			}
+			return
+		}
+		if len(pkt.Raw) > 0 && t.forwardLinkData(pkt.Raw, iface) {
+			debug.Log(debug.DebugInfo, "Relayed resource proof via link table", "link_id", fmt.Sprintf("%x", linkID), "interface", iface.GetName())
 			return
 		}
 		debug.Log(debug.DebugInfo, "No link found for resource proof packet", "link_id", fmt.Sprintf("%x", linkID))
