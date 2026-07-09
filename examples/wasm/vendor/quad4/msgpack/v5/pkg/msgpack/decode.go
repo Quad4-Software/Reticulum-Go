@@ -244,6 +244,39 @@ func (d *Decoder) Buffered() io.Reader {
 	return d.r
 }
 
+// remainingReadable reports how many unread bytes are still available when
+// the underlying reader exposes a Len() method (for example *bytes.Reader).
+// When the size is unknown the second return is false and callers must not
+// treat the value as authoritative.
+func (d *Decoder) remainingReadable() (int, bool) {
+	type lenReader interface {
+		Len() int
+	}
+	if r, ok := d.r.(lenReader); ok {
+		return r.Len(), true
+	}
+	return 0, false
+}
+
+// rejectOversizedContainer fails fast when a claimed array/map length cannot
+// possibly fit in the remaining input. Each element needs at least
+// minBytesPerElem bytes on the wire; forged array32/map32 headers otherwise
+// force the decoder to allocate and iterate for billions of missing values
+// before EOF, which OOMs fuzz workers and hostile clients.
+func (d *Decoder) rejectOversizedContainer(n, minBytesPerElem int, kind string) error {
+	if n <= 0 || minBytesPerElem <= 0 {
+		return nil
+	}
+	remain, ok := d.remainingReadable()
+	if !ok {
+		return nil
+	}
+	if n > remain/minBytesPerElem {
+		return fmt.Errorf("msgpack: %s length %d exceeds remaining input (%d bytes)", kind, n, remain)
+	}
+	return nil
+}
+
 //nolint:gocyclo
 func (d *Decoder) Decode(v interface{}) error {
 	var err error

@@ -80,18 +80,35 @@ func (d *Decoder) mapLen(c byte) (int, error) {
 		return -1, nil
 	}
 	if c >= msgpcode.FixedMapLow && c <= msgpcode.FixedMapHigh {
-		return int(c & msgpcode.FixedMapMask), nil
+		n := int(c & msgpcode.FixedMapMask)
+		if err := d.rejectOversizedContainer(n, 2, "map"); err != nil {
+			return 0, err
+		}
+		return n, nil
 	}
 	if c == msgpcode.Map16 {
 		size, err := d.uint16()
-		return int(size), err
+		if err != nil {
+			return 0, err
+		}
+		if err := d.rejectOversizedContainer(int(size), 2, "map"); err != nil {
+			return 0, err
+		}
+		return int(size), nil
 	}
 	if c == msgpcode.Map32 {
 		size, err := d.uint32()
 		if err != nil {
 			return 0, err
 		}
-		return uint32ToInt(size, "map length")
+		n, err := uint32ToInt(size, "map length")
+		if err != nil {
+			return 0, err
+		}
+		if err := d.rejectOversizedContainer(n, 2, "map"); err != nil {
+			return 0, err
+		}
+		return n, nil
 	}
 	return 0, unexpectedCodeError{code: c, hint: "map length"}
 }

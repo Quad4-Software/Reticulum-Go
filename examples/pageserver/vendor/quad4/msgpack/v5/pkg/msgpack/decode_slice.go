@@ -22,18 +22,35 @@ func (d *Decoder) arrayLen(c byte) (int, error) {
 	if c == msgpcode.Nil {
 		return -1, nil
 	} else if c >= msgpcode.FixedArrayLow && c <= msgpcode.FixedArrayHigh {
-		return int(c & msgpcode.FixedArrayMask), nil
+		n := int(c & msgpcode.FixedArrayMask)
+		if err := d.rejectOversizedContainer(n, 1, "array"); err != nil {
+			return 0, err
+		}
+		return n, nil
 	}
 	switch c {
 	case msgpcode.Array16:
 		n, err := d.uint16()
-		return int(n), err
+		if err != nil {
+			return 0, err
+		}
+		if err := d.rejectOversizedContainer(int(n), 1, "array"); err != nil {
+			return 0, err
+		}
+		return int(n), nil
 	case msgpcode.Array32:
 		n, err := d.uint32()
 		if err != nil {
 			return 0, err
 		}
-		return uint32ToInt(n, "array length")
+		size, err := uint32ToInt(n, "array length")
+		if err != nil {
+			return 0, err
+		}
+		if err := d.rejectOversizedContainer(size, 1, "array"); err != nil {
+			return 0, err
+		}
+		return size, nil
 	}
 	return 0, fmt.Errorf("msgpack: invalid code=%x decoding array length", c)
 }
