@@ -155,8 +155,16 @@ func buildQUICClientTLS(sni string, peerPin []byte, clientCert tls.Certificate) 
 	}
 	if len(peerPin) > 0 {
 		pin := append([]byte(nil), peerPin...)
+		// Disable tickets so VerifyPeerCertificate cannot be skipped on resume.
+		cfg.SessionTicketsDisabled = true
 		cfg.VerifyPeerCertificate = func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 			return verifyPeerKeyPin(rawCerts, pin)
+		}
+		cfg.VerifyConnection = func(cs tls.ConnectionState) error {
+			if len(cs.PeerCertificates) == 0 {
+				return fmt.Errorf("missing peer certificate")
+			}
+			return verifyPeerKeyPin([][]byte{cs.PeerCertificates[0].Raw}, pin)
 		}
 	}
 	return cfg
@@ -173,8 +181,15 @@ func buildQUICServerTLS(cert tls.Certificate, peerPin []byte) *tls.Config {
 	if len(peerPin) > 0 {
 		pin := append([]byte(nil), peerPin...)
 		cfg.ClientAuth = tls.RequireAnyClientCert
+		cfg.SessionTicketsDisabled = true
 		cfg.VerifyPeerCertificate = func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 			return verifyPeerKeyPin(rawCerts, pin)
+		}
+		cfg.VerifyConnection = func(cs tls.ConnectionState) error {
+			if len(cs.PeerCertificates) == 0 {
+				return fmt.Errorf("missing peer certificate")
+			}
+			return verifyPeerKeyPin([][]byte{cs.PeerCertificates[0].Raw}, pin)
 		}
 	}
 	return cfg

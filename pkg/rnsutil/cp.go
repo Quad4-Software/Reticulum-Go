@@ -19,6 +19,7 @@ import (
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/link"
 	"quad4/reticulum-go/pkg/resource"
+	"quad4/reticulum-go/pkg/term"
 	"quad4/reticulum-go/pkg/transport"
 )
 
@@ -103,7 +104,7 @@ func LoadAllowedIdentities(extra []string) ([][]byte, error) {
 }
 
 func readAllowedFile(path string) ([][]byte, error) {
-	f, err := os.Open(path) // #nosec G304 -- operator-configured allow list path
+	f, err := os.Open(path) // #nosec G304,G703 -- operator-configured allow list path
 	if err != nil {
 		return nil, err
 	}
@@ -354,8 +355,9 @@ func (p *ProgressPrinter) Update(label string, pct float64, got, total int64, bp
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	line := fmt.Sprintf("\r\033[2K%s %.1f%% - %s of %s - %s/s",
-		label, pct*100, SizeString(float64(got), "B"), SizeString(float64(total), "B"), SizeString(bps, "b"))
+	clear := term.ProgressClear(os.Stderr)
+	line := fmt.Sprintf("%s%s %.1f%% - %s of %s - %s/s",
+		clear, label, pct*100, SizeString(float64(got), "B"), SizeString(float64(total), "B"), SizeString(bps, "b"))
 	fmt.Fprint(os.Stderr, line)
 	p.last = line
 }
@@ -367,7 +369,7 @@ func (p *ProgressPrinter) Done(msg string) {
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	fmt.Fprint(os.Stderr, "\r\033[2K")
+	fmt.Fprint(os.Stderr, term.ProgressClear(os.Stderr))
 	if msg != "" {
 		fmt.Fprintln(os.Stderr, msg)
 	}

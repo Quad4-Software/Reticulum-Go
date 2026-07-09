@@ -126,11 +126,11 @@ func NewBaseInterface(name string, ifType common.InterfaceType, enabled bool) Ba
 		ingressControl:        true,
 		icPRBurstFreqNewV:     icPRBurstFreqNew,
 		icPRBurstFreqV:        icPRBurstFreq,
-		ecPRFreqV:         ecPRFreq,
-		TxPackets:         0,
-		RxPackets:         0,
-		lastTx:            time.Now(),
-		lastRx:            time.Now(),
+		ecPRFreqV:             ecPRFreq,
+		TxPackets:             0,
+		RxPackets:             0,
+		lastTx:                time.Now(),
+		lastRx:                time.Now(),
 	}
 }
 

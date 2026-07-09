@@ -35,6 +35,9 @@ func TestCLIHelp(t *testing.T) {
 	if !strings.Contains(buf.String(), "status") {
 		t.Fatalf("help: %q", buf.String())
 	}
+	if !strings.Contains(buf.String(), "debug") {
+		t.Fatalf("help missing debug: %q", buf.String())
+	}
 }
 
 func TestCLIUnknownArg(t *testing.T) {
@@ -46,12 +49,22 @@ func TestCLIUnknownArg(t *testing.T) {
 }
 
 func TestParseDaemonFlags(t *testing.T) {
-	run, code := parseDaemonFlags(nil)
+	opts, run, code := parseDaemonFlags(nil)
 	if !run || code != 0 {
 		t.Fatalf("empty args: run=%v code=%d", run, code)
 	}
-	run, code = parseDaemonFlags([]string{"--bogus"})
+	if opts.DebugLevel != -1 {
+		t.Fatalf("debug default: %d", opts.DebugLevel)
+	}
+	opts, run, code = parseDaemonFlags([]string{"--bogus"})
 	if run || code != 2 {
 		t.Fatalf("bogus: run=%v code=%d", run, code)
+	}
+	opts, run, code = parseDaemonFlags([]string{"-config", "/tmp/x", "-debug", "5"})
+	if !run || code != 0 {
+		t.Fatalf("config/debug: run=%v code=%d", run, code)
+	}
+	if opts.ConfigPath != "/tmp/x" || opts.DebugLevel != 5 {
+		t.Fatalf("opts=%+v", opts)
 	}
 }

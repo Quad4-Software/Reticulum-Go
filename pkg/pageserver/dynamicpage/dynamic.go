@@ -72,7 +72,7 @@ func buildScriptEnv(data []byte, linkID []byte, remoteIdentity *identity.Identit
 // ReadOrExecute returns static .mu bytes, or stdout from the page script when
 // the file is .mu, starts with a shebang, and has an execute bit set.
 func ReadOrExecute(filePath string, data []byte, linkID []byte, remoteIdentity *identity.Identity) ([]byte, error) {
-	f, err := os.Open(filePath)
+	f, err := os.Open(filePath) // #nosec G304 -- path comes from pageserver page root scan
 	if err != nil {
 		return nil, err
 	}

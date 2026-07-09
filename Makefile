@@ -90,6 +90,7 @@ install-man:
 	install -m 644 man/reticulum-go-path.1 $(INSTALL_MANDIR)/man1/reticulum-go-path.1
 	install -m 644 man/reticulum-go-cp.1 $(INSTALL_MANDIR)/man1/reticulum-go-cp.1
 	install -m 644 man/reticulum-go-pageserver.1 $(INSTALL_MANDIR)/man1/reticulum-go-pageserver.1
+	install -m 644 man/reticulum-go-debug.1 $(INSTALL_MANDIR)/man1/reticulum-go-debug.1
 	install -m 644 man/reticulum-go.8 $(INSTALL_MANDIR)/man8/reticulum-go.8
 	ln -sfn reticulum-go-status.1 $(INSTALL_MANDIR)/man1/rgostatus.1
 	ln -sfn reticulum-go-id.1 $(INSTALL_MANDIR)/man1/rgoid.1

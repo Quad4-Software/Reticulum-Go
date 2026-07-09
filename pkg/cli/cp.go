@@ -25,10 +25,10 @@ import (
 	"quad4/reticulum-go/pkg/transport"
 )
 
-
-func RunCP(args []string) int {
+func RunCP(args []string, opt ...Options) int {
+	_, stderr := cliIO(opt)
 	fs := flag.NewFlagSet("rgocp", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
+	fs.SetOutput(stderr)
 
 	configDir := fs.String("config", "", "path to config directory")
 	identityPath := fs.String("identity", "", "path to identity file (default: storage/identities/rncp)")
@@ -54,7 +54,7 @@ func RunCP(args []string) int {
 
 	cfg, err := rnsutil.LoadConfigDir(*configDir)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "config: %v\n", err)
+		fmt.Fprintf(stderr, "config: %v\n", err)
 		return 1
 	}
 	cfg.ShareInstance = true
@@ -68,7 +68,7 @@ func RunCP(args []string) int {
 	}
 	id, err := rnsutil.PrepareRNCPIdentity(idPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "identity: %v\n", err)
+		fmt.Fprintf(stderr, "identity: %v\n", err)
 		return 2
 	}
 
@@ -86,11 +86,11 @@ func RunCP(args []string) int {
 
 	n, err := node.New(cfg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "node: %v\n", err)
+		fmt.Fprintf(stderr, "node: %v\n", err)
 		return 1
 	}
 	if err := n.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "start: %v\n", err)
+		fmt.Fprintf(stderr, "start: %v\n", err)
 		return 1
 	}
 	defer n.Stop()
@@ -110,26 +110,26 @@ func RunCP(args []string) int {
 		})
 	case *fetchMode:
 		if fs.NArg() != 1 || *fetchPath == "" {
-			fmt.Fprintln(os.Stderr, "usage: rgocp -f -F <remote_path> [flags] <destination_hash>")
+			fmt.Fprintln(stderr, "usage: rgocp -f -F <remote_path> [flags] <destination_hash>")
 			return 2
 		}
 		destHash, err := rnsutil.ParseDestHash(fs.Arg(0))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
+			fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
 		return runFetch(tr, id, destHash, *fetchPath, timeout, *silent, *saveDir, *overwrite)
 	default:
 		if fs.NArg() != 2 {
-			fmt.Fprintln(os.Stderr, "usage: rgocp [flags] <file> <destination_hash>")
-			fmt.Fprintln(os.Stderr, "       rgocp -l [flags]")
-			fmt.Fprintln(os.Stderr, "       rgocp -f -F <remote_path> [flags] <destination_hash>")
+			fmt.Fprintln(stderr, "usage: rgocp [flags] <file> <destination_hash>")
+			fmt.Fprintln(stderr, "       rgocp -l [flags]")
+			fmt.Fprintln(stderr, "       rgocp -f -F <remote_path> [flags] <destination_hash>")
 			return 2
 		}
 		filePath := fs.Arg(0)
 		destHash, err := rnsutil.ParseDestHash(fs.Arg(1))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
+			fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
 		return runSend(tr, id, filePath, destHash, timeout, *silent, !*noCompress)

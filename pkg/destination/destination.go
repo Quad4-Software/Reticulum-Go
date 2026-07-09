@@ -347,6 +347,20 @@ func (d *Destination) SetProofStrategy(strategy byte) {
 	d.proofStrategy = strategy
 }
 
+// ProofStrategy returns the configured proof strategy.
+func (d *Destination) ProofStrategy() byte {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+	return d.proofStrategy
+}
+
+// ProofRequestedCallback returns the app proof callback, if any.
+func (d *Destination) ProofRequestedCallback() common.ProofRequestedCallback {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+	return d.proofCallback
+}
+
 func (d *Destination) EnableRatchets(path string) bool {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()

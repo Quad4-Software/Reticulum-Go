@@ -70,28 +70,30 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | `discover_interfaces` | no | Start rnstransport interface discovery listener |
 | `watch_interfaces` | no | Poll NIC up/down and rescan Auto interfaces (Go-only) |
 | `static_transport_identity` | no | Keep persisted transport identity on the wire when `enable_transport` is no (RNS 1.3.6+) |
-| `local_hops_delta` | no | Parsed for Python parity. Hop mangling not applied yet |
+| `local_hops_delta` | no | Mangling applied on local-origin hop-0 packets (delta 2-7) |
 | `panic_on_interface_error` | no | Panic on fatal interface errors |
 
 ### Keys present in Python but ignored in Go
 
 | Key | Notes |
 |-----|-------|
-| `respond_to_probes` | Transport probe responses not ported |
-| `allow_probes` | Same |
+| `respond_to_probes` | Registers `rnstransport.probe` with prove-all |
+| `allow_probes` | Alias for `respond_to_probes` |
 | `publish_blackhole` | Blackhole auto-publish not started |
 | `blackhole_sources` | Ignored |
 | `blackhole_update_interval` | Ignored |
 | `network_identity` | Ignored |
 
-`local_hops_delta` is parsed and stored but hop mangling is not applied on the wire yet.
+`local_hops_delta` applies a random hop field (2-7) on locally originated hop-0 packets when not connected to a shared instance.
 
 ## Section `[logging]`
 
 | Key | Supported |
 |-----|-----------|
 | `loglevel` | Yes (0 through 7) |
-| `destination` | No (logs always go to stderr) |
+| `destination` | Yes (`stderr`, `file`, `both`) |
+| `logfile` | Yes (default `{config_dir}/logfile/reticulum.log`) |
+| `format` | Yes (`text` or `json`) |
 
 ## Interface blocks `[[Name]]`
 

@@ -6,9 +6,9 @@ package cli
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"flag"
 	"fmt"
-	"os"
 	"time"
 
 	"quad4/reticulum-go/pkg/common"
@@ -17,10 +17,10 @@ import (
 	"quad4/reticulum-go/pkg/rnsutil"
 )
 
-
-func RunProbe(args []string) int {
+func RunProbe(args []string, opt ...Options) int {
+	stdout, stderr := cliIO(opt)
 	fs := flag.NewFlagSet("rgoprobe", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
+	fs.SetOutput(stderr)
 
 	configDir := fs.String("config", "", "path to config directory")
 	size := fs.Int("s", rnsutil.DefaultProbeSize, "probe payload size in bytes")
@@ -28,29 +28,30 @@ func RunProbe(args []string) int {
 	waitSec := fs.Float64("w", 0, "delay between probes in seconds")
 	count := fs.Int("n", 1, "number of probes")
 	verbose := fs.Bool("v", false, "show next-hop details")
+	jsonOut := fs.Bool("json", false, "emit JSON results")
 
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	if fs.NArg() != 2 {
-		fmt.Fprintln(os.Stderr, "usage: rgoprobe [flags] <full_name> <destination_hash_hex>")
+		fmt.Fprintln(stderr, "usage: rgoprobe [flags] <full_name> <destination_hash_hex>")
 		return 2
 	}
 	fullName := fs.Arg(0)
 	if _, _, err := destination.ParseName(fullName); err != nil {
-		fmt.Fprintf(os.Stderr, "name: %v\n", err)
+		fmt.Fprintf(stderr, "name: %v\n", err)
 		return 2
 	}
 
 	destHash, err := hex.DecodeString(fs.Arg(1))
 	if err != nil || len(destHash) != 16 {
-		fmt.Fprintln(os.Stderr, "destination hash must be 32 hex characters (16 bytes)")
+		fmt.Fprintln(stderr, "destination hash must be 32 hex characters (16 bytes)")
 		return 2
 	}
 
 	cfg, err := rnsutil.LoadConfigDir(*configDir)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "config: %v\n", err)
+		fmt.Fprintf(stderr, "config: %v\n", err)
 		return 1
 	}
 	cfg.ShareInstance = true
@@ -60,11 +61,11 @@ func RunProbe(args []string) int {
 
 	n, err := node.New(cfg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "node: %v\n", err)
+		fmt.Fprintf(stderr, "node: %v\n", err)
 		return 1
 	}
 	if err := n.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "start: %v\n", err)
+		fmt.Fprintf(stderr, "start: %v\n", err)
 		return 1
 	}
 	defer n.Stop()
@@ -79,14 +80,23 @@ func RunProbe(args []string) int {
 
 	pathCtx, cancel := context.WithTimeout(context.Background(), pathTimeout)
 	defer cancel()
-	fmt.Fprintf(os.Stdout, "Path to %s requested\n", rnsutil.PrettyHex(destHash))
+	fmt.Fprintf(stdout, "Path to %s requested\n", rnsutil.PrettyHex(destHash))
 	if err := rnsutil.WaitPath(pathCtx, tr, destHash); err != nil {
-		fmt.Fprintf(os.Stderr, "path request timed out: %v\n", err)
+		fmt.Fprintf(stderr, "path request timed out: %v\n", err)
 		return 1
 	}
 
 	wait := time.Duration(*waitSec * float64(time.Second))
 	sent, replies := 0, 0
+	type probeJSON struct {
+		Index     int     `json:"index"`
+		Delivered bool    `json:"delivered"`
+		RTTMS     float64 `json:"rtt_ms,omitempty"`
+		Hops      uint8   `json:"hops,omitempty"`
+		Error     string  `json:"error,omitempty"`
+	}
+	var jsonResults []probeJSON
+
 	for i := 0; i < *count; i++ {
 		if i > 0 && wait > 0 {
 			time.Sleep(wait)
@@ -108,21 +118,40 @@ func RunProbe(args []string) int {
 				more += " on " + ifn
 			}
 		}
-		fmt.Fprintf(os.Stdout, "Sent probe %d (%d bytes) to %s%s\n", i+1, *size, rnsutil.PrettyHex(destHash), more)
+		if !*jsonOut {
+			fmt.Fprintf(stdout, "Sent probe %d (%d bytes) to %s%s\n", i+1, *size, rnsutil.PrettyHex(destHash), more)
+		}
 		sent++
 
 		res, err := rnsutil.SendProbe(ctx, tr, destHash, *size)
 		cancelProbe()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "probe failed: %v\n", err)
+			if *jsonOut {
+				jsonResults = append(jsonResults, probeJSON{Index: i + 1, Error: err.Error()})
+			} else {
+				fmt.Fprintf(stderr, "probe failed: %v\n", err)
+			}
 			continue
 		}
 		if !res.Delivered {
-			fmt.Fprintln(os.Stdout, "Probe timed out")
+			if *jsonOut {
+				jsonResults = append(jsonResults, probeJSON{Index: i + 1, Delivered: false})
+			} else {
+				fmt.Fprintln(stdout, "Probe timed out")
+			}
 			continue
 		}
 		replies++
 		rtt := res.RTT
+		if *jsonOut {
+			jsonResults = append(jsonResults, probeJSON{
+				Index:     i + 1,
+				Delivered: true,
+				RTTMS:     float64(rtt.Microseconds()) / 1000,
+				Hops:      res.Hops,
+			})
+			continue
+		}
 		rttStr := fmt.Sprintf("%.3f milliseconds", float64(rtt.Microseconds())/1000)
 		if rtt >= time.Second {
 			rttStr = fmt.Sprintf("%.3f seconds", rtt.Seconds())
@@ -131,17 +160,37 @@ func RunProbe(args []string) int {
 		if res.Hops == 1 {
 			hopWord = "hop"
 		}
-		fmt.Fprintf(os.Stdout, "Valid reply from %s\nRound-trip time is %s over %d %s\n",
+		fmt.Fprintf(stdout, "Valid reply from %s\nRound-trip time is %s over %d %s\n",
 			rnsutil.PrettyHex(destHash), rttStr, res.Hops, hopWord)
 	}
 
+	if *jsonOut {
+		enc := json.NewEncoder(stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(map[string]any{
+			"sent":    sent,
+			"replies": replies,
+			"loss_pct": func() float64 {
+				if sent == 0 {
+					return 0
+				}
+				return (1 - float64(replies)/float64(sent)) * 100
+			}(),
+			"probes": jsonResults,
+		})
+	} else {
+		loss := 0.0
+		if sent > 0 {
+			loss = (1 - float64(replies)/float64(sent)) * 100
+		}
+		fmt.Fprintf(stdout, "Sent %d, received %d, packet loss %.2f%%\n", sent, replies, loss)
+	}
+	if replies == 0 {
+		return 1
+	}
 	loss := 0.0
 	if sent > 0 {
 		loss = (1 - float64(replies)/float64(sent)) * 100
-	}
-	fmt.Fprintf(os.Stdout, "Sent %d, received %d, packet loss %.2f%%\n", sent, replies, loss)
-	if replies == 0 {
-		return 1
 	}
 	if loss > 0 {
 		return 2

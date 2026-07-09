@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -77,28 +78,36 @@ func main() {
 }
 
 func runDaemonCLI(args []string) int {
-	if run, code := parseDaemonFlags(args); !run {
+	opts, run, code := parseDaemonFlags(args)
+	if !run {
 		return code
 	}
-	runDaemon()
-	return 0
+	return runDaemon(opts)
 }
 
-func runDaemon() {
+func runDaemon(opts daemonOptions) int {
 	debug.Init()
-	debug.Log(debug.DebugCritical, "Initializing Reticulum", "debug_level", debug.GetDebugLevel())
 
-	cfg, err := config.InitConfig()
+	var cfg *common.ReticulumConfig
+	var err error
+	if opts.ConfigPath != "" {
+		cfg, err = loadDaemonConfig(opts.ConfigPath)
+	} else {
+		cfg, err = config.InitConfig()
+	}
 	if err != nil {
 		debug.Log(debug.DebugCritical, "Failed to initialize config", "error", err)
-		os.Exit(1)
+		return 1
 	}
+
+	applyDaemonLogging(cfg, opts)
+	debug.Log(debug.DebugCritical, "Initializing Reticulum", "debug_level", debug.GetDebugLevel())
 	debug.Log(debug.DebugInfo, "Configuration loaded", "path", cfg.ConfigPath)
 
 	r, err := NewReticulum(cfg)
 	if err != nil {
 		debug.Log(debug.DebugCritical, "Failed to create Reticulum instance", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	go r.monitorInterfaces()
@@ -108,13 +117,13 @@ func runDaemon() {
 
 	if err := r.Start(); err != nil {
 		debug.Log(debug.DebugCritical, "Failed to start Reticulum", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	if err := sandbox.Apply(cfg); err != nil {
 		debug.Log(debug.DebugCritical, "Sandbox application failed", "error", err)
 		if cfg != nil && cfg.PanicOnInterfaceErr {
-			os.Exit(1)
+			return 1
 		}
 	}
 
@@ -143,6 +152,7 @@ func runDaemon() {
 					debug.Log(debug.DebugCritical, "ReloadInterfaces", "error", err)
 				} else {
 					r.config = newCfg
+					applyDaemonLogging(newCfg, daemonOptions{DebugLevel: -1, JSONLogs: opts.JSONLogs})
 					debug.Log(debug.DebugInfo, "Reloaded interfaces from config", "path", path)
 				}
 			}
@@ -160,8 +170,41 @@ func runDaemon() {
 	debug.Log(debug.DebugCritical, "Shutting down...")
 	if err := r.StopDaemon(); err != nil {
 		debug.Log(debug.DebugCritical, "Error during shutdown", "error", err)
+		return 1
 	}
 	debug.Log(debug.DebugCritical, "Goodbye!")
+	return 0
+}
+
+func loadDaemonConfig(override string) (*common.ReticulumConfig, error) {
+	path := override
+	info, err := os.Stat(path)
+	if err == nil && info.IsDir() {
+		path = filepath.Join(path, "config")
+	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if err := config.CreateDefaultConfig(path); err != nil {
+			return nil, err
+		}
+	}
+	return config.LoadConfig(path)
+}
+
+func applyDaemonLogging(cfg *common.ReticulumConfig, opts daemonOptions) {
+	if cfg == nil {
+		return
+	}
+	level := cfg.LogLevel
+	if opts.DebugLevel > 0 {
+		level = opts.DebugLevel
+	}
+	if level > 0 {
+		debug.SetDebugLevel(level)
+	}
+	if opts.JSONLogs || strings.EqualFold(cfg.LogFormat, "json") {
+		debug.SetJSONFormat(true)
+	}
+	_ = debug.ConfigureDestination(cfg)
 }
 
 func (r *Reticulum) monitorInterfaces() {

@@ -70,6 +70,10 @@ contents:
     dst: /usr/share/man/man1/reticulum-go-pageserver.1
     file_info:
       mode: 0644
+  - src: man/reticulum-go-debug.1
+    dst: /usr/share/man/man1/reticulum-go-debug.1
+    file_info:
+      mode: 0644
   - src: man/reticulum-go.8
     dst: /usr/share/man/man8/reticulum-go.8
     file_info:

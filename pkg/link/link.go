@@ -345,6 +345,16 @@ func (l *Link) HandleIdentification(data []byte) error {
 	}
 
 	debug.Log(debug.DebugVerbose, "Remote identity verified successfully", "public_key", fmt.Sprintf("%x", pubKey[:8]))
+
+	if tab := l.transport.BlackholeTable(); tab != nil {
+		if tab.Has(remoteIdentity.Hash()) {
+			debug.Log(debug.DebugInfo, "Terminating link from blackholed identity",
+				"identity", fmt.Sprintf("%x", remoteIdentity.Hash()))
+			l.Teardown()
+			return errors.New("remote identity is blackholed")
+		}
+	}
+
 	l.remoteIdentity = remoteIdentity
 
 	if l.identifiedCallback != nil {
@@ -1102,6 +1112,14 @@ func (l *Link) handleResourceAdvertisement(pkt *packet.Packet) error {
 	if err != nil {
 		debug.Log(debug.DebugInfo, "Failed to unpack resource advertisement", "error", err)
 		return err
+	}
+
+	if adv.Split {
+		debug.Log(debug.DebugInfo, "Rejecting split resource advertisement",
+			"hash", fmt.Sprintf("%x", adv.Hash),
+			"segment", adv.SegmentIndex,
+			"total", adv.TotalSegments)
+		return errors.New("split resource advertisements are not supported")
 	}
 
 	if resource.IsRequestAdvertisement(plaintext) {
@@ -2257,6 +2275,7 @@ func (l *Link) HandleProofRequest(packet *packet.Packet) bool {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
 
+	// Callers that receive proof-request contexts should consult this before sending a proof.
 	switch l.proofStrategy {
 	case ProveNone:
 		return false

@@ -21,6 +21,7 @@ const (
 	CmdPath       = "path"
 	CmdCP         = "cp"
 	CmdPageserver = "pageserver"
+	CmdDebug      = "debug"
 )
 
 // DaemonFunc starts the network daemon. Injected by cmd/reticulum-go to avoid
@@ -82,17 +83,19 @@ func Main(args []string, opt Options) int {
 		}
 		return opt.RunDaemon(rest)
 	case CmdStatus:
-		return RunStatus(rest)
+		return RunStatus(rest, opt)
 	case CmdID:
-		return RunID(rest)
+		return RunID(rest, opt)
 	case CmdProbe:
-		return RunProbe(rest)
+		return RunProbe(rest, opt)
 	case CmdPath:
-		return RunPath(rest)
+		return RunPath(rest, opt)
 	case CmdCP:
-		return RunCP(rest)
+		return RunCP(rest, opt)
 	case CmdPageserver:
-		return RunPageserver(rest)
+		return RunPageserver(rest, opt)
+	case CmdDebug:
+		return RunDebug(rest, opt)
 	default:
 		fmt.Fprintf(opt.Stderr, "unknown command %q\n\n", cmd)
 		printRootHelp(opt.Stderr)
@@ -113,7 +116,7 @@ func resolveCommand(argv0 string, args []string) (cmd string, rest []string, ok 
 	}
 
 	switch args[0] {
-	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdPageserver:
+	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdPageserver, CmdDebug:
 		return args[0], args[1:], true
 	case "rgostatus":
 		return CmdStatus, args[1:], true
@@ -149,6 +152,21 @@ func aliasFromArgv0(base string) string {
 	}
 }
 
+func cliIO(opt []Options) (stdout, stderr io.Writer) {
+	stdout, stderr = os.Stdout, os.Stderr
+	if len(opt) == 0 {
+		return stdout, stderr
+	}
+	o := opt[0]
+	if o.Stdout != nil {
+		stdout = o.Stdout
+	}
+	if o.Stderr != nil {
+		stderr = o.Stderr
+	}
+	return stdout, stderr
+}
+
 func printRootHelp(w io.Writer) {
 	fmt.Fprintf(w, `reticulum-go - Reticulum network stack (Go)
 
@@ -161,6 +179,7 @@ Usage:
   reticulum-go path [flags]             path table, drop, blackhole
   reticulum-go cp [flags]               file transfer over links
   reticulum-go pageserver [flags]       NomadNet-style page and file server
+  reticulum-go debug [flags]            effective config, rate table, RPC dump
 
 Global:
   -h, --help       print this help

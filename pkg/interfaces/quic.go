@@ -27,8 +27,8 @@ const (
 
 // quicSessionConn wraps a bidirectional QUIC stream and its parent connection as net.Conn.
 type quicSessionConn struct {
-	stream *quic.Stream
-	conn   *quic.Conn
+	stream  *quic.Stream
+	conn    *quic.Conn
 	writeMu sync.Mutex
 }
 
@@ -353,20 +353,21 @@ func (qc *QUICClientInterface) LeafSPKIPinHex() (string, error) {
 // QUICServerInterface listens for QUIC peers and fans out HDLC frames.
 type QUICServerInterface struct {
 	BaseInterface
-	connections map[string]net.Conn
-	listener    *quic.Listener
-	bindAddr    string
-	bindPort    int
-	certFile    string
-	keyFile     string
-	peerKey     string
-	peerPin     []byte
-	serverCert  tls.Certificate
-	done        chan struct{}
-	stopOnce    sync.Once
-	txFrame     []byte
+	connections  map[string]net.Conn
+	listener     *quic.Listener
+	bindAddr     string
+	bindPort     int
+	certFile     string
+	keyFile      string
+	peerKey      string
+	peerPin      []byte
+	serverCert   tls.Certificate
+	done         chan struct{}
+	stopOnce     sync.Once
+	txFrame      []byte
 	cancelAccept context.CancelFunc
 	txMu         sync.Mutex
+	acceptWg     sync.WaitGroup
 }
 
 // QUICServerOptions holds optional TLS settings for a QUIC server.
@@ -414,6 +415,7 @@ func (qs *QUICServerInterface) LeafSPKIPinHex() (string, error) {
 
 // Start listens and accepts QUIC connections.
 func (qs *QUICServerInterface) Start() error {
+	qs.acceptWg.Wait()
 	qs.Mutex.Lock()
 	if qs.listener != nil {
 		qs.Mutex.Unlock()
@@ -445,14 +447,21 @@ func (qs *QUICServerInterface) Start() error {
 	qs.Online = true
 	qs.Mutex.Unlock()
 
-	go qs.acceptLoop(ctx, ln)
+	qs.acceptWg.Add(1)
+	go func() {
+		defer qs.acceptWg.Done()
+		qs.acceptLoop(ctx, ln)
+	}()
 	return nil
 }
 
 func (qs *QUICServerInterface) acceptLoop(ctx context.Context, ln *quic.Listener) {
 	for {
+		qs.Mutex.RLock()
+		done := qs.done
+		qs.Mutex.RUnlock()
 		select {
-		case <-qs.done:
+		case <-done:
 			return
 		case <-ctx.Done():
 			return
@@ -474,12 +483,12 @@ func (qs *QUICServerInterface) acceptLoop(ctx context.Context, ln *quic.Listener
 			debug.Log(debug.DebugVerbose, "QUIC accept error", "name", qs.Name, "error", err)
 			continue
 		}
-		go qs.handleConn(conn)
+		go qs.handleConn(ctx, conn)
 	}
 }
 
-func (qs *QUICServerInterface) handleConn(conn *quic.Conn) {
-	stream, err := conn.AcceptStream(context.Background())
+func (qs *QUICServerInterface) handleConn(ctx context.Context, conn *quic.Conn) {
+	stream, err := conn.AcceptStream(ctx)
 	if err != nil {
 		_ = conn.CloseWithError(0, "accept stream failed")
 		return
@@ -560,6 +569,7 @@ func (qs *QUICServerInterface) Stop() error {
 			close(qs.done)
 		}
 	})
+	qs.acceptWg.Wait()
 	return nil
 }
 

@@ -69,15 +69,15 @@ Wire format is stable across 1.2.x to 1.3.x. Notable behavior differences:
 | Shared-instance RPC msgpack | 1.3.4 | Covered |
 | `MODE_INTERNAL` / `recursive_prs` / announce mode rules | 1.3.6 | Covered |
 | Ephemeral transport identity / `static_transport_identity` | 1.3.6 | Covered |
-| `local_hops_delta` hop mangling | 1.3.6 / 1.3.7 | **Gap** (config only) |
+| `local_hops_delta` hop mangling | 1.3.6 / 1.3.7 | Covered |
 
 ## Known gaps
 
 | Gap | Impact |
 |-----|--------|
 | Blackhole at LINKIDENTIFY | Blackholed peers may still complete link setup. Announces are still dropped |
-| Transport probes | `respond_to_probes` / `allow_probes` ignored |
-| `local_hops_delta` | Config accepted. Outbound hop mangling not implemented |
+| Transport probes | `respond_to_probes` / `allow_probes` register probe destination |
+| `local_hops_delta` | Outbound hop mangling applied |
 | `publish_blackhole` and related keys | Not auto-published |
 | RNode and radio serial drivers | Cannot speak to RNode hardware from this tree |
 | Python CLI utilities | Yes (core) | `rgostatus`, `rgoid`, `rgoprobe` with Python format/RPC interop |
@@ -121,7 +121,7 @@ These do not change the wire format:
 | rnprobe | `rgoprobe` |
 | rnpath | `rgopath` (path table, drop, blackhole; remote rnstransport not ported) |
 | rncp | `rgocp` (send/listen/fetch on `rncp.receive`) |
-| rnir, rnx, rnodeconf, rnpkg, rngit, rnsh | Not ported. Primitives in `pkg/` |
+| rnir, rnx, rnodeconf, rnpkg, rngit, rnsh | Not ported (deferred post-1.0) |
 | WASM | `reticulum-wasm` (Go-only) |
 | librns | `librns.so` + `rns.h` (Go-only, Linux first) |
 

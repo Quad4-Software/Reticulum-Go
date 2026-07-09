@@ -14,10 +14,10 @@ For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). F
 | Identity | Yes | Key generation, recall, sign/verify, encrypt/decrypt, ratchets. Optional 72-byte hardware-bound descriptor (RHB1). On-wire Ed25519 public key matches [RNS.Identity](https://github.com/markqvist/Reticulum/blob/master/RNS/Identity.py). Python `Identity.from_file` expects the 64-byte software layout only today. |
 | Destination | Yes | SINGLE, GROUP, PLAIN, LINK. Announce and request handlers, links in and out. |
 | Packet | Yes | Header types 1 and 2, all packet types and contexts. Byte-for-byte parity in crossref. |
-| Transport | Yes | Core wire behaviour matches Python 1.3.7: path table, announces, RequestPath, hops, next-hop, type-2 rewrap, link-table forwarding, persistence, ingress control, random-blob path selection (1.3.4 dedup), interface mode announce rules and `MODE_INTERNAL` (1.3.6), ephemeral transport identity when transport is off (1.3.6). Optional gaps: `local_hops_delta` hop mangling (config parsed, not applied on the wire), transport probe responses (`respond_to_probes` / `allow_probes`), and `Transport.CreateIncomingLink` helper stub (incoming links use `link.HandleIncomingLinkRequest` instead). |
+| Transport | Yes | Core wire behaviour matches Python 1.3.7: path table, announces, RequestPath, hops, next-hop, type-2 rewrap, link-table forwarding, persistence, ingress control, random-blob path selection (1.3.4 dedup), interface mode announce rules and `MODE_INTERNAL` (1.3.6), ephemeral transport identity when transport is off (1.3.6). Probe responses via `respond_to_probes` / `allow_probes`, `local_hops_delta` hop mangling, and blackhole teardown at LINKIDENTIFY are implemented. Incoming links use `link.HandleIncomingLinkRequest`. |
 | Interfaces | Partial | See [Interfaces](#interfaces) below. |
 | Discovery (RNS.Discovery, rnstransport) | Partial | [pkg/discovery](pkg/discovery/) mirrors wire constants, LXStamper, msgpack layouts. `discover_interfaces` starts rnstransport listening via [pkg/node](pkg/node/) `StartInterfaceDiscovery`. InterfaceAnnouncer, BlackholeUpdater, and autoconnect loops are not auto-started. Build with `BuildAppData`, decode with `ValidateAndDecode`. Separate from AutoInterface multicast discovery. |
-| Blackhole | Partial | [pkg/blackhole](pkg/blackhole/) covers table semantics, msgpack, expiry, MergeRemote, EncodeForRequest. Announces from listed identities are dropped. `/list` over rnstransport needs the RNS Request layer (not ported). **Gap (1.3.2):** Python tears down links at LINKIDENTIFY for blackholed identities. Go does not check in `HandleIdentification`. `publish_blackhole`, `blackhole_sources`, `blackhole_update_interval` are ignored. |
+| Blackhole | Partial | [pkg/blackhole](pkg/blackhole/) covers table semantics, msgpack, expiry, MergeRemote, EncodeForRequest. Announces from listed identities are dropped. Links from blackholed identities are torn down at LINKIDENTIFY. `/list` over rnstransport needs the RNS Request layer (not ported). `publish_blackhole`, `blackhole_sources`, `blackhole_update_interval` are ignored (deferred). |
 | IFAC | Yes | [pkg/ifac](pkg/ifac/) matches salt, HKDF identity, mask/unmask. UDP, TCP, Auto apply IFAC. Unauthenticated frames dropped. Live tests: [tests/interop/ifac_live_test.go](tests/interop/ifac_live_test.go). |
 | Link | Yes | Both directions, RTT, request/response, channel, buffer, resources. `WatchAndReconnect` and `Node.EnableLinkAutoReconnect` use `Reestablish()` on closed links. |
 | Resource | Yes | Multi-part transfer, hashmaps, RESOURCE_PRF, bzip2. BZ2 bomb limits match Python 1.1.9. |
@@ -97,14 +97,14 @@ Wire format is unchanged in 1.2.x to 1.3.x. Most churn is utilities and transpor
 | Path-request ingress/egress control | 1.2.5 | Covered (`pkg/rate`, `pkg/transport/ingress.go`) |
 | Path table random-blob selection | 1.2.x+ | Covered (`pkg/transport/path_selection.go`) |
 | Announce dedup when dest already in path table | 1.3.4 | Covered |
-| Blackhole link teardown at LINKIDENTIFY | 1.3.2 | **Gap** (announce drop only) |
+| Blackhole link teardown at LINKIDENTIFY | 1.3.2 | Covered |
 | AutoInterface link-local listener replacement on roam | 1.3.5 | Covered (`pkg/interfaces/auto_roam.go`) |
 | Channel outlet ghost envelopes | 1.3.0 | Simpler Go channel model |
 | Shared-instance RPC msgpack | 1.3.4 | Covered (`pkg/sharedinstance/rpc.go`) |
 | `MODE_INTERNAL`, `recursive_prs`, `announces_from_internal` | 1.3.6 | Covered (config, announce forward rules, path discovery gate) |
 | `static_transport_identity` / ephemeral transport identity | 1.3.6 | Covered (RPC auth keeps persisted identity) |
-| `local_hops_delta` hop mangling | 1.3.6 / 1.3.7 | **Gap** (config key parsed, mangling not applied) |
-| Shared-instance hop-delta edge cases | 1.3.7 | N/A until `local_hops_delta` is implemented |
+| `local_hops_delta` hop mangling | 1.3.6 / 1.3.7 | Covered (random delta 2-7 on local-origin hop-0 packets) |
+| Shared-instance hop-delta edge cases | 1.3.7 | Covered (delta skipped when connected to shared instance) |
 | `rngit` / `rnid` / `rnsh` utilities | 1.2.x+ | Not ported (no wire impact) |
 
 ### RNS 1.3.6 and 1.3.7 notes
@@ -123,7 +123,7 @@ PyPI ships 1.3.6 (2026-07-03) and 1.3.7 (same day). Upstream GitHub `Changelog.m
 | Ingress/egress announce and PR rate limits | Yes (1.2.5) | Yes |
 | BZ2 bomb limits on resource/buffer | Yes (1.1.9) | Yes |
 | Blackholed identity announces | Dropped | Dropped |
-| Blackholed identity links | Torn down at LINKIDENTIFY (1.3.2) | **Not checked** |
+| Blackholed identity links | Torn down at LINKIDENTIFY (1.3.2) | Torn down at LINKIDENTIFY |
 | UDP peer binding | Requires explicit `forward_ip` | Requires explicit `target_host` / `target_address` |
 | HDLC frame size cap | Yes | Yes (`maxHDLC` in tcp.go) |
 
@@ -160,6 +160,18 @@ Intentional extensions beyond upstream *rns*:
 | rngit | No | Git-over-Reticulum. No wire impact. |
 | rnsh | No | Not ported |
 | WASM build | Go-only | [cmd/reticulum-wasm](cmd/reticulum-wasm/), [pkg/wasm](pkg/wasm/) |
+
+## Deferred for post-1.0
+
+| Item | Notes |
+|------|-------|
+| RNode / KISS / Serial / Weave drivers | Hardware interface stack |
+| Discovery announcer / autoconnect loops | Listen-only discovery remains |
+| Blackhole auto-publish / `blackhole_sources` | Federation loops |
+| `rnx` / `rnsh` / `rnir` / `rnpkg` / `rngit` | Missing utilities |
+| Remote `rnpath` rnstransport modes | Local/shared-instance path tools work |
+| Split resource advertisements (`AdvFlagSplit`) | Rejected with clear error |
+| Syslog / journald | File + stderr logging only |
 
 ## Examples
 
@@ -238,8 +250,8 @@ Python defaults from `RNS.Reticulum.__create_default_config` and [RNS/Reticulum.
 | discover_interfaces | Yes | Yes | Starts rnstransport listening (`StartInterfaceDiscovery`). Announcer not ported. |
 | watch_interfaces | No | Yes | Go-only. Polls NIC changes via `net.Interfaces` (Linux, Android, Windows, macOS, BSD). WASM stub. Enables AutoInterface rescan. |
 | static_transport_identity | Yes (1.3.6+) | Yes | Keep persisted transport identity when transport is off |
-| local_hops_delta | Yes (1.3.6+) | Partial | Config parsed. Outbound hop mangling not implemented |
-| respond_to_probes / allow_probes | Yes | No | Probe path not ported |
+| local_hops_delta | Yes (1.3.6+) | Yes | Outbound hop mangling on local-origin packets |
+| respond_to_probes / allow_probes | Yes | Yes | Registers `rnstransport.probe` with PROVE_ALL |
 | publish_blackhole | Yes | No | Not auto-published |
 | blackhole_sources | Yes | No | Ignored |
 | blackhole_update_interval | Yes | No | Ignored (Python 1.3.2) |
@@ -250,7 +262,7 @@ Python defaults from `RNS.Reticulum.__create_default_config` and [RNS/Reticulum.
 | Key | Python *rns* | Reticulum-Go | Notes |
 |-----|:------------:|:------------:|-------|
 | loglevel | Yes | Yes | Same 0 to 7 scale |
-| destination | Yes | No | Go logs to stderr only |
+| destination | Yes | Yes | `stderr` (default), `file`, or `both`. Optional `logfile` path |
 
 ### [[Interface Name]] keys
 

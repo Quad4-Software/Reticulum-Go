@@ -227,6 +227,19 @@ Go extras: cleaner progress lines on stderr, `-json` is not used (transfer is bi
 | Identity load log lines on stderr | Harmless debug from loading `transport_identity` for derived auth when resolving keys. Prefer explicit `rpc_key` to avoid that path when possible. |
 | `rgocp` transfer ignored | Listener needs `-a` or an allow-list entry matching the sender identity hash. Metadata (`name`) is required on the wire. |
 
+## Debugging
+
+| Tool | Role |
+|------|------|
+| `reticulum-go status` | Interface stats over shared-instance RPC (`-json`, `-q`) |
+| `reticulum-go path -t` | Path table dump |
+| `reticulum-go debug` | Effective config path, log level, platform, RPC reachability (`-rates`, `-json`) |
+| `reticulum-go probe` | Connectivity / RTT (`-json`) |
+| Control API | HTTP `/v1/health`, `/v1/status`, `/v1/paths` when `enable_control_api = yes` |
+| Daemon `-debug N` | Override config loglevel for one run |
+
+Progress lines and status colors honor `NO_COLOR` (off) and `FORCE_COLOR` / `CLICOLOR_FORCE` (on).
+
 ## Related documents
 
 - [Configuration](configuration.md) for `share_instance`, ports, and `rpc_key`

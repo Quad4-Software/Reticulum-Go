@@ -540,9 +540,10 @@ func (r *Resource) ensureMetadataPackedLocked() error {
 	}
 	// 3-byte big-endian length prefix (high 24 bits of a 32-bit length).
 	blob := make([]byte, 3+len(packed))
-	blob[0] = byte(len(packed) >> 16)
-	blob[1] = byte(len(packed) >> 8)
-	blob[2] = byte(len(packed))
+	n := len(packed)
+	blob[0] = byte(n >> 16) // #nosec G115 -- n bounded by MetadataMaxSize
+	blob[1] = byte(n >> 8)  // #nosec G115 -- n bounded by MetadataMaxSize
+	blob[2] = byte(n)       // #nosec G115 -- n bounded by MetadataMaxSize
 	copy(blob[3:], packed)
 	r.metadataPacked = blob
 	return nil

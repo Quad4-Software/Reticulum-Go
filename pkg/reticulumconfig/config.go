@@ -300,13 +300,22 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		cfg.StaticTransportIdentity = parseBool(value)
 	case "local_hops_delta":
 		cfg.LocalHopsDelta = parseBool(value)
+	case "respond_to_probes", "allow_probes":
+		cfg.RespondToProbes = parseBool(value)
 	}
 }
 
 // applyLoggingOption handles keys under [logging].
 func applyLoggingOption(cfg *common.ReticulumConfig, key, value string) {
-	if strings.EqualFold(key, "loglevel") {
+	switch strings.ToLower(key) {
+	case "loglevel":
 		setInt(value, &cfg.LogLevel)
+	case "destination":
+		cfg.LogDestination = strings.ToLower(strings.TrimSpace(value))
+	case "logfile", "log_file":
+		cfg.LogFile = strings.TrimSpace(value)
+	case "format":
+		cfg.LogFormat = strings.ToLower(strings.TrimSpace(value))
 	}
 }
 
@@ -516,13 +525,24 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	fmt.Fprintf(&b, "  watch_interfaces = %s\n", boolStr(cfg.WatchInterfaces))
 	fmt.Fprintf(&b, "  static_transport_identity = %s\n", boolStr(cfg.StaticTransportIdentity))
 	fmt.Fprintf(&b, "  local_hops_delta = %s\n", boolStr(cfg.LocalHopsDelta))
+	fmt.Fprintf(&b, "  respond_to_probes = %s\n", boolStr(cfg.RespondToProbes))
 	if cfg.BackboneIO != "" {
 		fmt.Fprintf(&b, "  backbone_io = %s\n", cfg.BackboneIO)
 	}
 	fmt.Fprintln(&b)
 
 	b.WriteString("[logging]\n")
-	fmt.Fprintf(&b, "  loglevel = %d\n\n", cfg.LogLevel)
+	fmt.Fprintf(&b, "  loglevel = %d\n", cfg.LogLevel)
+	if cfg.LogDestination != "" {
+		fmt.Fprintf(&b, "  destination = %s\n", cfg.LogDestination)
+	}
+	if cfg.LogFile != "" {
+		fmt.Fprintf(&b, "  logfile = %s\n", cfg.LogFile)
+	}
+	if cfg.LogFormat != "" {
+		fmt.Fprintf(&b, "  format = %s\n", cfg.LogFormat)
+	}
+	fmt.Fprintln(&b)
 
 	b.WriteString("[interfaces]\n\n")
 

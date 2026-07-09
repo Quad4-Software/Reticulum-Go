@@ -5,16 +5,24 @@ package debug
 import (
 	"context"
 	"flag"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
+
+	"quad4/reticulum-go/pkg/common"
 )
 
 var (
 	debugLevel  = flag.Int("debug", 3, "debug level (1-7); 1=critical, 2=error, 3=info, 4=verbose, 5=trace, 6=packets, 7=all")
 	logger      *slog.Logger
 	extraWriter io.Writer
+	jsonFormat  bool
+	omitStderr  bool
+	logFile     *os.File
 	initialized bool
 	mu          sync.RWMutex
 )
@@ -29,9 +37,18 @@ func SetExtraWriter(w io.Writer) {
 	}
 }
 
-// Init builds the underlying slog logger. Safe to call repeatedly. Only
+// SetJSONFormat switches between text and JSON slog handlers.
+func SetJSONFormat(enabled bool) {
+	mu.Lock()
+	defer mu.Unlock()
+	jsonFormat = enabled
+	if initialized {
+		rebuildLocked()
+	}
+}
 
-// the first call wires it up. SetDebugLevel rebuilds the handler so the
+// Init builds the underlying slog logger. Safe to call repeatedly.
+// Only the first call wires it up. SetDebugLevel rebuilds the handler so the
 // active level can change at runtime.
 func Init() {
 	mu.Lock()
@@ -47,11 +64,20 @@ func Init() {
 // current *debugLevel. Caller must hold mu.
 func rebuildLocked() {
 	opts := &slog.HandlerOptions{Level: slogLevelFor(*debugLevel)}
-	out := io.Writer(os.Stderr)
-	if extraWriter != nil {
+	var out io.Writer
+	switch {
+	case omitStderr && extraWriter != nil:
+		out = extraWriter
+	case extraWriter != nil:
 		out = io.MultiWriter(os.Stderr, extraWriter)
+	default:
+		out = os.Stderr
 	}
-	logger = slog.New(slog.NewTextHandler(out, opts))
+	if jsonFormat {
+		logger = slog.New(slog.NewJSONHandler(out, opts))
+	} else {
+		logger = slog.New(slog.NewTextHandler(out, opts))
+	}
 	slog.SetDefault(logger)
 }
 
@@ -129,4 +155,65 @@ func SetDebugLevel(level int) {
 // GetDebugLevel returns the current debug level.
 func GetDebugLevel() int {
 	return *debugLevel
+}
+
+// ConfigureDestination applies [logging] destination and logfile from cfg.
+// destination values: stderr (default), file, both.
+func ConfigureDestination(cfg *common.ReticulumConfig) error {
+	if cfg == nil {
+		return nil
+	}
+	dest := strings.ToLower(strings.TrimSpace(cfg.LogDestination))
+	if dest == "" {
+		dest = "stderr"
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if logFile != nil {
+		_ = logFile.Close()
+		logFile = nil
+	}
+	extraWriter = nil
+	omitStderr = false
+
+	needFile := dest == "file" || dest == "both"
+	if needFile {
+		path := strings.TrimSpace(cfg.LogFile)
+		if path == "" {
+			base := ""
+			if cfg.ConfigPath != "" {
+				base = filepath.Dir(cfg.ConfigPath)
+			} else {
+				home, err := os.UserHomeDir()
+				if err != nil {
+					return err
+				}
+				base = filepath.Join(home, ".reticulum-go")
+			}
+			path = filepath.Join(base, "logfile", "reticulum.log")
+		}
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil { // #nosec G301
+			return fmt.Errorf("logfile dir: %w", err)
+		}
+		f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304
+		if err != nil {
+			return fmt.Errorf("open logfile: %w", err)
+		}
+		logFile = f
+		extraWriter = f
+		if dest == "file" {
+			omitStderr = true
+		}
+	}
+
+	if strings.EqualFold(cfg.LogFormat, "json") {
+		jsonFormat = true
+	}
+
+	if initialized {
+		rebuildLocked()
+	}
+	return nil
 }

@@ -252,7 +252,22 @@ func i2pTunnelStateLabel(state uint32) string {
 }
 
 func (t *Transport) GetRateTableRPC() []RateTableEntry {
-	return nil
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	if t.ifaceStates == nil {
+		return nil
+	}
+	out := make([]RateTableEntry, 0)
+	for _, e := range t.ifaceStates.snapshot() {
+		if e.state == nil || e.state.ingress == nil {
+			continue
+		}
+		out = append(out, RateTableEntry{
+			Hash: []byte(e.name),
+			Last: float64(time.Now().Unix()),
+		})
+	}
+	return out
 }
 
 func (t *Transport) DropPathRPC(destinationHash []byte) bool {

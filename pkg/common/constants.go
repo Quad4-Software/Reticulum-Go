@@ -104,7 +104,7 @@ const (
 const (
 	DefaultSharedInstancePort  = 37428
 	DefaultInstanceControlPort = 37429
-	DefaultLogLevel            = 20
+	DefaultLogLevel            = 4
 )
 
 // Defaults for the localhost control API (pkg/controlapi).

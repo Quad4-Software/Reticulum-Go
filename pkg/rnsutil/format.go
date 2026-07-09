@@ -8,10 +8,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
 
+	"quad4/reticulum-go/pkg/term"
 	"quad4/reticulum-go/pkg/transport"
 )
 
@@ -169,6 +171,13 @@ func WriteStatusHuman(w io.Writer, stats transport.InterfaceStatsResponse, linkC
 		state := "Down"
 		if st.Status {
 			state = "Up"
+		}
+		if f, ok := w.(*os.File); ok {
+			if st.Status {
+				state = term.Green(f, state)
+			} else {
+				state = term.Red(f, state)
+			}
 		}
 		if _, err := fmt.Fprintf(w, "\n%s\n  Status    : %s\n  Mode      : %s\n  RX        : %s\n  TX        : %s\n",
 			st.Name, state, ModeName(st.Mode),

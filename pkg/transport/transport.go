@@ -99,24 +99,26 @@ type Transport struct {
 	transportIdentity     *identity.Identity
 	// rpcIdentity is the persisted transport identity used for shared-instance
 	// RPC auth when an ephemeral wire identity is active.
-	rpcIdentity     *identity.Identity
-	pathRequestDest any
-	blackholeTable  *blackhole.Table
-	linkTable             *linkRelayTable
-	lastPathRequest       map[[PathMapKeySize]byte]time.Time
-	ifaceStates           *ifaceStateTable
-	pendingDiscoveryPRs   []pendingDiscoveryPR
-	pendingDiscoveryPRMu  sync.Mutex
-	discoveryDraining     atomic.Bool
-	pathPersistMemory     atomic.Bool
-	pathPersistDisabled   atomic.Bool
-	pathPersistDir        string
-	pathPersistDirty      atomic.Bool
-	pathPersistSaving     sync.Mutex
-	pendingPathEntries    []pendingPathEntry
-	done                  chan struct{}
-	stopOnce              sync.Once
-	startTime             time.Time
+	rpcIdentity          *identity.Identity
+	pathRequestDest      any
+	blackholeTable       *blackhole.Table
+	localHopsDelta       int
+	probeDestination     *destination.Destination
+	linkTable            *linkRelayTable
+	lastPathRequest      map[[PathMapKeySize]byte]time.Time
+	ifaceStates          *ifaceStateTable
+	pendingDiscoveryPRs  []pendingDiscoveryPR
+	pendingDiscoveryPRMu sync.Mutex
+	discoveryDraining    atomic.Bool
+	pathPersistMemory    atomic.Bool
+	pathPersistDisabled  atomic.Bool
+	pathPersistDir       string
+	pathPersistDirty     atomic.Bool
+	pathPersistSaving    sync.Mutex
+	pendingPathEntries   []pendingPathEntry
+	done                 chan struct{}
+	stopOnce             sync.Once
+	startTime            time.Time
 
 	tunnelMu           sync.Mutex
 	tunnels            map[[32]byte]*tunnelEntry
@@ -217,6 +219,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 
 	go t.startMaintenanceJobs()
 
+	t.initLocalHopsDelta()
 	t.initPathPersistence(cfg)
 	inMemoryKnown := false
 	if cfg != nil {
@@ -441,14 +444,6 @@ func (t *Transport) RegisterDestination(hash []byte, dest any) {
 	defer t.mutex.Unlock()
 	t.destinations[key] = registered
 	debug.Log(debug.DebugTrace, "Registered destination with transport", "hash", fmt.Sprintf("%x", hash))
-}
-
-// CreateIncomingLink builds a link for an incoming request without importing
-// the link package (stub. Returns nil until implemented).
-
-func (t *Transport) CreateIncomingLink(dest any, networkIface common.NetworkInterface) any {
-	debug.Log(debug.DebugTrace, "CreateIncomingLink called (not yet fully implemented)")
-	return nil
 }
 
 func GetTransportInstance() *Transport {
@@ -1751,6 +1746,9 @@ func (t *Transport) handleTransportPacket(data []byte, iface common.NetworkInter
 			} else {
 				debug.Log(debug.DebugVerbose, "Destination does not have Receive method")
 			}
+			if d, ok := destIface.raw.(*destination.Destination); ok {
+				t.maybeProvePacket(pkt, d, iface)
+			}
 		} else {
 			debug.Log(debug.DebugVerbose, "No destination registered for hash", "hash", fmt.Sprintf("%x", destHash))
 		}
@@ -1984,6 +1982,8 @@ func (t *Transport) SendPacket(p *packet.Packet) error {
 		p.TransportID = path.NextHop
 		p.Packed = false
 	}
+
+	t.applyLocalHopsDeltaIfNeeded(p, path.Interface)
 
 	data, err := p.Serialize()
 	if err != nil {

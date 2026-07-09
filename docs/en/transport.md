@@ -78,7 +78,7 @@ If a destination is already present in the path table, duplicate announces may b
 
 ## Links at the transport layer
 
-Transport maintains a link table for active sessions. Link packets are routed to the correct `pkg/link` instance. Incoming link requests are dispatched to `link.HandleIncomingLinkRequest` (there is no full Python `Transport.CreateIncomingLink` helper in Go).
+Transport maintains a link table for active sessions. Link packets are routed to the correct `pkg/link` instance. Incoming link requests are dispatched to `link.HandleIncomingLinkRequest` (incoming link requests use `link.HandleIncomingLinkRequest`).
 
 ## Blackhole interaction
 
@@ -117,7 +117,7 @@ Per-interface `ingress_control` and `announce_rate_*` settings map to token buck
 
 ## Probes
 
-Python supports transport probe responses via `respond_to_probes` and `allow_probes`. These keys are ignored in Reticulum-Go. Probe handling is not ported.
+Set `respond_to_probes = yes` (or `allow_probes`) to register `rnstransport.probe` with prove-all so `reticulum-go probe` can measure RTT against this node.
 
 ## Debugging
 

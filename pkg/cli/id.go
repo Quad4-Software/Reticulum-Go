@@ -6,6 +6,7 @@ package cli
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,10 +17,10 @@ import (
 
 const defaultAspects = "rns.id"
 
-
-func RunID(args []string) int {
+func RunID(args []string, opt ...Options) int {
+	stdout, stderr := cliIO(opt)
 	fs := flag.NewFlagSet("rgoid", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
+	fs.SetOutput(stderr)
 
 	identityPath := fs.String("i", "", "path to identity file or hex identity hash")
 	generate := fs.String("g", "", "generate identity and write to path")
@@ -49,24 +50,24 @@ func RunID(args []string) int {
 
 	enc, err := pickEncoding(*useB64, *useB32, *useHex)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(stderr, err)
 		return 2
 	}
 
 	ident, err := resolveIdentity(*identityPath, *generate, *importPub, *importPrv, enc)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 
 	didWork := false
 	if *generate != "" {
 		didWork = true
-		fmt.Fprintf(os.Stdout, "Generated identity %s\n", ident.GetHexHash())
+		fmt.Fprintf(stdout, "Generated identity %s\n", ident.GetHexHash())
 	}
 	if *printID {
 		if ident == nil {
-			fmt.Fprintln(os.Stderr, "no identity")
+			fmt.Fprintln(stderr, "no identity")
 			return 1
 		}
 		didWork = true
@@ -74,36 +75,36 @@ func RunID(args []string) int {
 	}
 	if *exportPub {
 		if ident == nil {
-			fmt.Fprintln(os.Stderr, "no identity")
+			fmt.Fprintln(stderr, "no identity")
 			return 1
 		}
 		didWork = true
 		out := rnsutil.EncodeBytes(ident.GetPublicKey(), enc) + "\n"
 		if err := writeOutput(*writeOut, []byte(out), *force); err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
+			fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
 	}
 	if *exportPrv {
 		if ident == nil {
-			fmt.Fprintln(os.Stderr, "no identity")
+			fmt.Fprintln(stderr, "no identity")
 			return 1
 		}
 		didWork = true
 		priv, err := ident.GetPrivateKey()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
+			fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
 		out := rnsutil.EncodeBytes(priv, enc) + "\n"
 		if err := writeOutput(*writeOut, []byte(out), *force); err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
+			fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
 	}
 	if *hashAspects != "" {
 		if ident == nil {
-			fmt.Fprintln(os.Stderr, "hash requires an identity")
+			fmt.Fprintln(stderr, "hash requires an identity")
 			return 1
 		}
 		didWork = true
@@ -113,14 +114,14 @@ func RunID(args []string) int {
 		}
 		h, err := rnsutil.DestinationHashHex(ident, name)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
+			fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		fmt.Fprintln(os.Stdout, h)
+		fmt.Fprintln(stdout, h)
 	}
 	if *signPath != "" {
 		if ident == nil {
-			fmt.Fprintln(os.Stderr, "signing requires an identity")
+			fmt.Fprintln(stderr, "signing requires an identity")
 			return 1
 		}
 		didWork = true
@@ -130,7 +131,7 @@ func RunID(args []string) int {
 	}
 	if *signMsg != "" {
 		if ident == nil {
-			fmt.Fprintln(os.Stderr, "signing requires an identity")
+			fmt.Fprintln(stderr, "signing requires an identity")
 			return 1
 		}
 		didWork = true
@@ -146,7 +147,7 @@ func RunID(args []string) int {
 	}
 	if *encryptPath != "" {
 		if ident == nil {
-			fmt.Fprintln(os.Stderr, "encrypt requires an identity")
+			fmt.Fprintln(stderr, "encrypt requires an identity")
 			return 1
 		}
 		didWork = true
@@ -156,7 +157,7 @@ func RunID(args []string) int {
 	}
 	if *decryptPath != "" {
 		if ident == nil {
-			fmt.Fprintln(os.Stderr, "decrypt requires an identity")
+			fmt.Fprintln(stderr, "decrypt requires an identity")
 			return 1
 		}
 		didWork = true
@@ -170,6 +171,13 @@ func RunID(args []string) int {
 		return 2
 	}
 	return 0
+}
+
+func readInputBytes(path string) ([]byte, error) {
+	if path == "-" {
+		return io.ReadAll(os.Stdin)
+	}
+	return os.ReadFile(path) // #nosec G304
 }
 
 func doSign(ident *identity.Identity, signPath, writeOut string, force, raw bool) int {
@@ -187,7 +195,7 @@ func doSign(ident *identity.Identity, signPath, writeOut string, force, raw bool
 	var data []byte
 	var err error
 	if raw {
-		payload, err := os.ReadFile(signPath) // #nosec G304
+		payload, err := readInputBytes(signPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			return 6

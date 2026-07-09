@@ -128,6 +128,9 @@ func (n *Node) Start() error {
 	if err := n.transport.InitializePathRequestHandler(); err != nil {
 		return fmt.Errorf("path request handler: %w", err)
 	}
+	if err := n.transport.InitializeProbeDestination(); err != nil {
+		return fmt.Errorf("probe destination: %w", err)
+	}
 	hooks := sharedinstance.Hooks{
 		RegisterInterface: n.transport.RegisterInterface,
 		HandleInterface:   n.handleInterface,

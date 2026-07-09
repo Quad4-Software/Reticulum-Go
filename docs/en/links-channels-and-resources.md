@@ -31,7 +31,7 @@ A link is a bidirectional encrypted session between two destinations.
 link.HandleIncomingLinkRequest(...)
 ```
 
-There is no full Python `Transport.CreateIncomingLink` helper stub in Go. Use `HandleIncomingLinkRequest` directly.
+There is no separate `Transport.CreateIncomingLink` helper. Incoming link requests use `HandleIncomingLinkRequest` directly. Split resource advertisements (`AdvFlagSplit`) are rejected with a clear error (full multi-segment ads deferred).
 
 ### Link lifecycle
 

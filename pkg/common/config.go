@@ -153,8 +153,21 @@ type ReticulumConfig struct {
 	StaticTransportIdentity bool
 
 	// LocalHopsDelta enables hop-field mangling for local-origin packets.
-	// Parsed for config parity. Full outbound mangling is not implemented yet.
+	// When true, outbound hop-0 packets use a random delta (2-7) instead of 0.
 	LocalHopsDelta bool
+
+	// RespondToProbes registers a transport probe destination that proves
+	// all inbound data packets (rnprobe / reticulum-go probe).
+	RespondToProbes bool
+
+	// LogDestination is stderr, file, or both (see pkg/debug and reticulumconfig).
+	LogDestination string
+
+	// LogFile is an optional path when LogDestination includes file output.
+	LogFile string
+
+	// LogFormat is text or json for structured logs.
+	LogFormat string
 }
 
 // NewReticulumConfig creates a new ReticulumConfig with default values
@@ -190,6 +203,34 @@ func (c *ReticulumConfig) Validate() error {
 		}
 	}
 	return nil
+}
+
+// GetConfigPath implements ConfigProvider.
+func (c *ReticulumConfig) GetConfigPath() string {
+	if c == nil {
+		return ""
+	}
+	return c.ConfigPath
+}
+
+// GetLogLevel implements ConfigProvider.
+func (c *ReticulumConfig) GetLogLevel() int {
+	if c == nil {
+		return DefaultLogLevel
+	}
+	return c.LogLevel
+}
+
+// GetInterfaces implements ConfigProvider.
+func (c *ReticulumConfig) GetInterfaces() map[string]InterfaceConfig {
+	out := make(map[string]InterfaceConfig, len(c.Interfaces))
+	for name, iface := range c.Interfaces {
+		if iface == nil {
+			continue
+		}
+		out[name] = *iface
+	}
+	return out
 }
 
 func DefaultConfig() *ReticulumConfig {

@@ -19,9 +19,10 @@ import (
 )
 
 // RunPageserver serves NomadNet-style pages and files over Reticulum.
-func RunPageserver(args []string) int {
+func RunPageserver(args []string, opt ...Options) int {
+	_, stderr := cliIO(opt)
 	fs := flag.NewFlagSet("pageserver", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
+	fs.SetOutput(stderr)
 
 	var (
 		configPath          string
