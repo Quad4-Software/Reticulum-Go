@@ -30,7 +30,7 @@ const (
 	SignatureSize = 64
 	// RSGHashType is the only supported content hash algorithm.
 	RSGHashType = "sha256"
-	// EncChunk is plaintext chunk size for .rfe encryption (matches Python rnid).
+	// EncChunk is plaintext chunk size for .rfe encryption.
 	EncChunk = 1024 * 1024 * 16
 	// TokenOverhead is the per-chunk ciphertext overhead (pubkey + token).
 	TokenOverhead = 96
@@ -89,7 +89,7 @@ func ContentHashSHA256(message any) ([]byte, error) {
 	return sum, nil
 }
 
-// CreateRSG builds a Python-compatible .rsg or .rsm blob.
+// CreateRSG builds a .rsg or .rsm blob.
 // When embed is true the message bytes are stored in the envelope (.rsm).
 func CreateRSG(signer *identity.Identity, message any, embed bool, meta map[string]any) ([]byte, error) {
 	if signer == nil {
@@ -298,7 +298,7 @@ func EncodeRSGText(rsg []byte, enc Encoding) string {
 	return EncodeBytes(rsg, enc)
 }
 
-// SignFileRSG signs path contents into a Python-compatible .rsg blob.
+// SignFileRSG signs path contents into a .rsg blob.
 func SignFileRSG(signer *identity.Identity, path string) ([]byte, error) {
 	f, err := os.Open(path) // #nosec G304 -- operator path
 	if err != nil {

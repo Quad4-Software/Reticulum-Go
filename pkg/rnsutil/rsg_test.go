@@ -43,6 +43,9 @@ func TestRSGRoundTripAndPythonFixture(t *testing.T) {
 
 func TestPythonRSGFixture(t *testing.T) {
 	base := filepath.Join("testdata", "python_rsg")
+	if _, err := os.Stat(filepath.Join(base, "id.rid")); err != nil {
+		t.Skip("python_rsg fixtures not present")
+	}
 	id, err := LoadIdentity(filepath.Join(base, "id.rid"))
 	if err != nil {
 		t.Fatal(err)
@@ -74,6 +77,9 @@ func TestPythonRSGFixture(t *testing.T) {
 
 func TestPythonRFEFixture(t *testing.T) {
 	base := filepath.Join("testdata", "python_rsg")
+	if _, err := os.Stat(filepath.Join(base, "id.rid")); err != nil {
+		t.Skip("python_rsg fixtures not present")
+	}
 	id, err := LoadIdentity(filepath.Join(base, "id.rid"))
 	if err != nil {
 		t.Fatal(err)

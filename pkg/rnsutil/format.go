@@ -15,7 +15,7 @@ import (
 	"quad4/reticulum-go/pkg/transport"
 )
 
-// PrettyHex formats a hash as <aabb...ccdd> matching Python prettyhexrep style.
+// PrettyHex formats a hash as <aabb...ccdd>.
 func PrettyHex(b []byte) string {
 	if len(b) == 0 {
 		return "<>"
@@ -52,16 +52,18 @@ func abs64(v float64) float64 {
 // ModeName maps interface mode bytes to display labels.
 func ModeName(mode byte) string {
 	switch mode {
-	case 0x01:
+	case 0x03:
 		return "Access Point"
 	case 0x02:
 		return "Point-to-Point"
-	case 0x03:
-		return "Roaming"
 	case 0x04:
-		return "Boundary"
+		return "Roaming"
 	case 0x05:
+		return "Boundary"
+	case 0x06:
 		return "Gateway"
+	case 0x07:
+		return "Internal"
 	default:
 		return "Full"
 	}

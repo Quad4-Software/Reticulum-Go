@@ -36,7 +36,7 @@ func StorageDir(cfg *common.ReticulumConfig) string {
 }
 
 // ResolveAuthKey returns cfg.RPCKey when set, otherwise the SHA-256 of the
-// transport identity private key (Python shared-instance authkey).
+// transport identity private key (shared-instance authkey).
 func ResolveAuthKey(cfg *common.ReticulumConfig) ([]byte, error) {
 	if cfg != nil && len(cfg.RPCKey) > 0 {
 		return append([]byte(nil), cfg.RPCKey...), nil

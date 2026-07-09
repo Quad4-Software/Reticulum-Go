@@ -3,6 +3,6 @@
 
 // Package rnsutil provides shared helpers for Reticulum-Go CLI utilities.
 //
-// Tools speak the same shared-instance msgpack RPC as Python rns clients, so
-// a Python daemon can serve Go tools and a Go daemon can serve Python tools.
+// Tools speak the shared-instance msgpack RPC protocol, so daemons and
+// clients from different implementations can interoperate on the same host.
 package rnsutil

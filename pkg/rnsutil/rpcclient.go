@@ -17,8 +17,8 @@ import (
 	"quad4/reticulum-go/pkg/transport"
 )
 
-// RPCClient is a one-shot shared-instance RPC client compatible with Python
-// multiprocessing.connection + msgpack.
+// RPCClient is a one-shot shared-instance RPC client over
+// multiprocessing.connection framing and msgpack.
 type RPCClient struct {
 	addr    string
 	network string
@@ -165,7 +165,116 @@ func (c *RPCClient) GetFirstHopTimeout(destinationHash []byte) (float64, error) 
 	return out, err
 }
 
+// DropPath removes a cached path. Returns whether the path existed.
+func (c *RPCClient) DropPath(destinationHash []byte) (bool, error) {
+	var out bool
+	err := c.Call(map[string]any{
+		"drop":             "path",
+		"destination_hash": destinationHash,
+	}, &out)
+	return out, err
+}
+
+// DropAllVia removes all paths via transportHash. Returns drop count.
+func (c *RPCClient) DropAllVia(transportHash []byte) (int, error) {
+	var out int
+	err := c.Call(map[string]any{
+		"drop":             "all_via",
+		"destination_hash": transportHash,
+	}, &out)
+	return out, err
+}
+
+// DropAnnounceQueues clears held announce queues. Returns cleared count.
+func (c *RPCClient) DropAnnounceQueues() (int, error) {
+	var out int
+	err := c.Call(map[string]any{"drop": "announce_queues"}, &out)
+	return out, err
+}
+
+// GetBlackholedIdentities returns blackhole table rows from the instance.
+// Accepts map or list shapes from the RPC payload and normalizes them.
+func (c *RPCClient) GetBlackholedIdentities() ([]map[string]any, error) {
+	var raw any
+	if err := c.Call(map[string]any{"get": "blackholed_identities"}, &raw); err != nil {
+		return nil, err
+	}
+	return flattenBlackholeRPC(raw), nil
+}
+
+func flattenBlackholeRPC(raw any) []map[string]any {
+	switch v := raw.(type) {
+	case []any:
+		out := make([]map[string]any, 0, len(v))
+		for _, item := range v {
+			if m, ok := item.(map[string]any); ok {
+				out = append(out, m)
+			}
+		}
+		return out
+	case []map[string]any:
+		return v
+	case map[string]any:
+		out := make([]map[string]any, 0, len(v))
+		for k, val := range v {
+			m, ok := val.(map[string]any)
+			if !ok {
+				continue
+			}
+			row := make(map[string]any, len(m)+1)
+			for rk, rv := range m {
+				row[rk] = rv
+			}
+			if _, has := row["identity"]; !has {
+				if b := []byte(k); len(b) == 16 {
+					row["identity"] = b
+				} else if h, err := hex.DecodeString(k); err == nil && len(h) == 16 {
+					row["identity"] = h
+				}
+			}
+			out = append(out, row)
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+// BlackholeIdentity adds an identity to the blackhole table.
+// until is a Unix timestamp (0 = indefinite). Returns true when inserted.
+func (c *RPCClient) BlackholeIdentity(identityHash []byte, until float64, reason string) (bool, error) {
+	call := map[string]any{"blackhole_identity": identityHash}
+	if until > 0 {
+		call["until"] = until
+	}
+	if reason != "" {
+		call["reason"] = reason
+	}
+	var out bool
+	err := c.Call(call, &out)
+	return out, err
+}
+
+// UnblackholeIdentity removes an identity from the blackhole table.
+func (c *RPCClient) UnblackholeIdentity(identityHash []byte) (bool, error) {
+	var out bool
+	err := c.Call(map[string]any{"unblackhole_identity": identityHash}, &out)
+	return out, err
+}
+
 // HexHash encodes b as lowercase hex with no separators.
 func HexHash(b []byte) string {
 	return hex.EncodeToString(b)
+}
+
+// ParseDestHash decodes a 32-character hex truncated hash.
+func ParseDestHash(s string) ([]byte, error) {
+	if len(s) != 32 {
+		return nil, fmt.Errorf("hash length is invalid, must be 32 hexadecimal characters (16 bytes)")
+	}
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		return nil, fmt.Errorf("invalid hash: %w", err)
+	}
+	return b, nil
 }

@@ -33,6 +33,23 @@ func TestDestinationHashMatchesDestinationNew(t *testing.T) {
 	}
 }
 
+func TestModeNameLabels(t *testing.T) {
+	cases := map[byte]string{
+		0x01: "Full",
+		0x02: "Point-to-Point",
+		0x03: "Access Point",
+		0x04: "Roaming",
+		0x05: "Boundary",
+		0x06: "Gateway",
+		0x07: "Internal",
+	}
+	for mode, want := range cases {
+		if got := ModeName(mode); got != want {
+			t.Errorf("ModeName(0x%02x) = %q, want %q", mode, got, want)
+		}
+	}
+}
+
 func TestParseName(t *testing.T) {
 	app, aspects, err := destination.ParseName("app.one.two")
 	if err != nil {
