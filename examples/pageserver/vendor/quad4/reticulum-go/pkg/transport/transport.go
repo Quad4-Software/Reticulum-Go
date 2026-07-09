@@ -1190,8 +1190,8 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 	debug.Log(debug.DebugVerbose, "TRANSPORT: Packet received", "type", fmt.Sprintf("0x%02x", packetType), "header", headerType, "context", contextFlag, "propType", propType, "destType", destType, "size", len(data))
 	debug.Log(debug.DebugTrace, "Interface and raw header", "name", iface.GetName(), "header", fmt.Sprintf("0x%02x", headerByte))
 
-	if len(data) == SuspiciousLinkPacketSize {
-		debug.Log(debug.DebugError, "67-byte packet detected", "header", fmt.Sprintf("0x%02x", headerByte), "packet_type_bits", fmt.Sprintf("0x%02x", packetType), "first_32_bytes", fmt.Sprintf("%x", data[:32]))
+	if len(data) == SuspiciousLinkPacketSize && packetType == PacketTypeLink {
+		debug.Log(debug.DebugError, "67-byte link packet detected", "header", fmt.Sprintf("0x%02x", headerByte), "packet_type_bits", fmt.Sprintf("0x%02x", packetType), "first_32_bytes", fmt.Sprintf("%x", data[:32]))
 	}
 
 	dataCopy := make([]byte, len(data))
@@ -1399,6 +1399,13 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 
 	debug.Log(debug.DebugInfo, "Processing new announce")
 
+	announceHops := int(hopCount) + 1
+	if announceHops > MaxHops {
+		debug.Log(debug.DebugInfo, "Announce exceeded max hops", "wire_hops", hopCount, "announce_hops", announceHops)
+		return nil
+	}
+	debug.Log(debug.DebugInfo, "Hop count OK", "hops", announceHops)
+
 	if iface != nil {
 		nextHop := receivedFrom
 		if len(nextHop) == 0 {
@@ -1415,24 +1422,24 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		}
 		shouldAdd := shouldUpdateAnnouncePath(existing, announcePathInput{
 			destinationKnown: destinationKnown,
-			announceHops:     hopCount + 1,
+			announceHops:     uint8(announceHops),
 			randomBlob:       randomHash,
 			now:              now,
 		}, pathUnresponsive)
 		if shouldAdd {
-			t.updatePathUnlocked(destinationHash, nextHop, iface.GetName(), hopCount+1, randomHash, announceHash[:], now)
+			t.updatePathUnlocked(destinationHash, nextHop, iface.GetName(), uint8(announceHops), randomHash, announceHash[:], now)
 		}
 		t.mutex.Unlock()
 		if shouldAdd {
-			debug.Log(debug.DebugInfo, "Registered path", "hash", fmt.Sprintf("%x", destinationHash), "interface", iface.GetName(), "hops", hopCount+1, "nextHop", fmt.Sprintf("%x", nextHop))
+			debug.Log(debug.DebugInfo, "Registered path", "hash", fmt.Sprintf("%x", destinationHash), "interface", iface.GetName(), "hops", announceHops, "nextHop", fmt.Sprintf("%x", nextHop))
 			if tun, ok := iface.(TunnelInterface); ok && len(tun.TunnelID()) == 32 {
-				t.associateTunnelPath(tun, destinationHash, receivedFrom, announceHash[:], hopCount+1)
+				t.associateTunnelPath(tun, destinationHash, receivedFrom, announceHash[:], uint8(announceHops))
 			}
 		}
 	}
 
 	debug.Log(debug.DebugInfo, "Notifying announce handlers", "destHash", fmt.Sprintf("%x", destinationHash), "appDataLen", len(appData))
-	t.notifyAnnounceHandlers(destinationHash, id, appData, hopCount+1)
+	t.notifyAnnounceHandlers(destinationHash, id, appData, uint8(announceHops))
 	debug.Log(debug.DebugInfo, "Announce handlers notified")
 
 	t.mutex.Lock()
@@ -1451,12 +1458,6 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 			}
 		}
 	}
-
-	if hopCount >= MaxHops {
-		debug.Log(debug.DebugInfo, "Announce exceeded max hops", "hops", hopCount)
-		return nil
-	}
-	debug.Log(debug.DebugInfo, "Hop count OK", "hops", hopCount)
 
 	if !t.transportEnabled() {
 		debug.Log(debug.DebugVerbose, "Not forwarding announce: transport disabled",

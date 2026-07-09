@@ -166,7 +166,7 @@ func TestLiveInteropPythonNomadNetPageServerRequests(t *testing.T) {
 
 	time.Sleep(4 * time.Second)
 
-	runPythonPageRequest(t, ctx, pyListen, goListen, goDestHash, "/page/index.mu", "Reticulum-Go Page Node")
+	runPythonPageRequest(t, ctx, pyListen, goListen, goDestHash, "/page/index.mu", "Reticulum-Go Node")
 	runPythonPageRequest(t, ctx, pyListen, goListen, goDestHash, "/file/interop_test_file.txt", "PY_FILE_TEST")
 }
 

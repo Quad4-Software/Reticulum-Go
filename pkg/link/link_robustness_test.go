@@ -427,6 +427,40 @@ func TestLinkRobustness_LargeRequestResponseResourceCompletes(t *testing.T) {
 	}
 }
 
+func TestLinkRobustness_LargeOutboundRequestAsResourceCompletes(t *testing.T) {
+	initLink, respLink, cleanup := establishInteropLink(t)
+	defer cleanup()
+
+	mdu := initLink.mdu
+	if mdu <= 0 {
+		t.Fatal("mdu must be positive")
+	}
+	largeReq := bytes.Repeat([]byte("Q"), mdu+128)
+	respLink.destination.RegisterRequestHandler("echo_req", func(_ string, data []byte, _ []byte, _ []byte, _ *identity.Identity, _ int64) []byte {
+		return append([]byte("ok:"), data...)
+	}, destination.AllowAll, nil)
+
+	receipt, err := initLink.Request("echo_req", largeReq, 30*time.Second)
+	if err != nil {
+		t.Fatalf("Request: %v", err)
+	}
+
+	respCh := make(chan []byte, 1)
+	receipt.SetResponseCallback(func(r *RequestReceipt) {
+		respCh <- append([]byte(nil), r.GetResponse()...)
+	})
+
+	want := append([]byte("ok:"), largeReq...)
+	select {
+	case got := <-respCh:
+		if !bytes.Equal(got, want) {
+			t.Fatalf("large outbound request mismatch: got=%d want=%d", len(got), len(want))
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("large outbound request timeout")
+	}
+}
+
 func TestLinkRobustness_NoInboundResetsOnReceive(t *testing.T) {
 	initLink, respLink, cleanup := establishInteropLink(t)
 	defer cleanup()

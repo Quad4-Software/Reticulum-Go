@@ -14,6 +14,7 @@ import (
 	"quad4/bzip2/pkg/bzip2"
 	"quad4/msgpack/v5/pkg/msgpack"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/packet"
 	"quad4/reticulum-go/pkg/resource"
 )
@@ -519,6 +520,12 @@ func (l *Link) deliverIncomingResource(inner []byte, adv *resource.ResourceAdver
 	)
 	if err := l.sendIncomingResourceProof(payload, adv.Hash); err != nil {
 		return err
+	}
+
+	if adv.IsRequest {
+		requestID := identity.TruncatedHash(payload)
+		debug.Log(debug.DebugInfo, "Incoming request resource complete", "request_id", fmt.Sprintf("%x", requestID), "payload_len", len(payload))
+		return l.handleRequest(payload, requestID)
 	}
 
 	l.incomingMu.Lock()

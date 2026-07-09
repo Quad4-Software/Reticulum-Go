@@ -646,6 +646,106 @@ func TestLiveInteropPythonResourceToGo(t *testing.T) {
 	}
 }
 
+func TestLiveInteropPythonLargeResourceToGo(t *testing.T) {
+	liveOrSkip(t)
+	ctx, cancel := context.WithTimeout(context.Background(), pyProcLongTimeout)
+	defer cancel()
+
+	pyListen := freeUDPPort(t)
+	pyForward := freeUDPPort(t)
+	tr, _, cleanup := setupGoUDPPeer(t, pyListen, pyForward)
+	defer cleanup()
+
+	idGo, err := identity.New()
+	if err != nil {
+		t.Fatalf("identity: %v", err)
+	}
+	destGo, err := destination.New(idGo, destination.In, destination.Single, interopApp, tr, interopAspect)
+	if err != nil {
+		t.Fatalf("destination: %v", err)
+	}
+	destGo.AcceptsLinks(true)
+
+	large := strings.Repeat("L", 18000) + "\nPY_LARGE_TO_GO\n" + strings.Repeat("M", 18000)
+	payloadCh := make(chan []byte, 1)
+	established := make(chan struct{})
+	destGo.SetLinkEstablishedCallback(func(v any) {
+		lnk := interopLink(t, v)
+		_ = lnk.SetResourceStrategy(rlink.AcceptAll)
+		lnk.SetResourceConcludedCallback(func(v any) {
+			if b, ok := v.([]byte); ok {
+				select {
+				case payloadCh <- b:
+				default:
+				}
+			}
+		})
+		lnk.Start()
+		close(established)
+	})
+
+	if err := destGo.Announce(false, nil, nil); err != nil {
+		t.Fatalf("announce: %v", err)
+	}
+
+	script := pyScript(t, "link_client.py")
+	cmd := exec.CommandContext(ctx, pythonExe(), script)
+	cmd.Env = append(os.Environ(),
+		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
+		"INTEROP_FORWARD_PORT="+strconv.Itoa(pyForward),
+		"INTEROP_GO_DEST_HASH="+hex.EncodeToString(destGo.GetHash()),
+		"INTEROP_LINK_CLIENT_MODE=resource_send",
+		"INTEROP_RESOURCE_SEND="+large,
+	)
+	cmd.Stderr = os.Stderr
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("stdout pipe: %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start python: %v", err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	}()
+
+	br := bufio.NewReader(out)
+	line, err := readLineTimeout(ctx, br, 30*time.Second)
+	if err != nil {
+		t.Fatalf("wait READY: %v", err)
+	}
+	if strings.TrimSpace(line) != "READY" {
+		t.Fatalf("expected READY, got %q", line)
+	}
+
+	select {
+	case <-established:
+	case <-time.After(90 * time.Second):
+		t.Fatal("incoming link establish timeout")
+	}
+
+	select {
+	case got := <-payloadCh:
+		if string(got) != large {
+			t.Fatalf("large payload mismatch: got=%d want=%d", len(got), len(large))
+		}
+		if !bytes.Contains(got, []byte("PY_LARGE_TO_GO")) {
+			t.Fatal("missing PY_LARGE_TO_GO marker")
+		}
+	case <-time.After(12 * time.Minute):
+		t.Fatal("no large resource payload on Go side")
+	}
+
+	line, err = readLineTimeout(ctx, br, 2*time.Minute)
+	if err != nil {
+		t.Fatalf("wait RESOURCE_SENT_OK: %v", err)
+	}
+	if strings.TrimSpace(line) != "RESOURCE_SENT_OK" {
+		t.Fatalf("expected RESOURCE_SENT_OK, got %q", line)
+	}
+}
+
 func TestLiveInteropPythonInitiatedLinkEcho(t *testing.T) {
 	liveOrSkip(t)
 	ctx, cancel := context.WithTimeout(context.Background(), pyProcShortTimeout)
