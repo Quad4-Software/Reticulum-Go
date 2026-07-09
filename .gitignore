@@ -1,5 +1,12 @@
 # Build artifacts
 bin/
+/rgostatus
+/rgoid
+/rgoprobe
+/librns.so
+*.so
+*.dylib
+*.dll
 
 # Test coverage reports
 coverage.out
@@ -24,16 +31,17 @@ cosign.key
 !/examples/pageserver/
 
 # OS / Editor files
-.DS_Store       # macOS Finder metadata
-Thumbs.db       # Windows Explorer thumbnail cache
+.DS_Store
+Thumbs.db
 
 # IDE / Editor config directories
-.idea/          # JetBrains IDEs
-.vscode/        # Visual Studio Code
+.idea/
+.vscode/
+.cursor/
 
 # Swap and test binaries
-*.swp           # Swap files (e.g. vim)
-*.test          # Go test binaries
+*.swp
+*.test
 test/compat/
 
 node_modules/
@@ -47,9 +55,19 @@ __pycache__/
 
 .tools/
 
+# Local daemon config / storage if created in-repo
 .reticulum-go/
+.reticulum/
 
 # Local Go build/test tmpdir override
 .gotmp/
 
-*.test
+# go test -fuzz corpus dumps (not seed fixtures we intentionally commit)
+**/testdata/fuzz/
+
+# Local identity and rnid-style artifacts (fixtures under pkg/*/testdata/ stay tracked)
+/*.rid
+/*.rsg
+/*.rsm
+/*.rfe
+/*.pub
