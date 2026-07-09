@@ -188,6 +188,29 @@ respawn_delay = 5
 
 Reticulum writes HDLC-framed packets to the subprocess stdin and reads frames from stdout. When the subprocess exits, the interface respawns after `respawn_delay` seconds.
 
+## Example: shared-instance RPC for Go CLI tools
+
+Python `rnsd` on Linux defaults to an abstract Unix RPC socket. Go `rgostatus` dials TCP `127.0.0.1:instance_control_port` when `shared_instance_type = tcp`. To let Go tools talk to Python (or the reverse), set the same TCP settings and preferably the same `rpc_key` in the daemon config:
+
+```ini
+[reticulum]
+share_instance = yes
+instance_name = default
+shared_instance_type = tcp
+shared_instance_port = 37428
+instance_control_port = 37429
+rpc_key = <64 hex characters>
+```
+
+Restart the daemon after changing these keys. Query with:
+
+```bash
+make build-utils
+./bin/rgostatus -config ~/.reticulum -json
+```
+
+Use `-config ~/.reticulum` for Python `rnsd` and `-config ~/.reticulum-go` for a Go shared instance. Full utility docs are in [CLI utilities](utilities.md).
+
 ## Example: explicit LocalInterface client
 
 When `share_instance = no`, attach to another process that owns the shared instance:
@@ -237,4 +260,5 @@ Optional hardware-bound descriptors (RHB1, 72 bytes) are documented in [Identity
 
 - [Interfaces](interfaces.md) for per-type behavior and reconnect policy
 - [Architecture](architecture.md) for shared instance and persistence
+- [CLI utilities](utilities.md) for `rgostatus` / `rgoid` / `rgoprobe` and RPC setup
 - [COMPATIBILITY.md](../../COMPATIBILITY.md) for full Python key comparison tables

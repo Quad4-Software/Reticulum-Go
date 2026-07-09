@@ -61,9 +61,10 @@ The table below summarizes major areas. For line-by-line parity with Python, see
 | Blackhole | Partial | Table and announce drop work. Link teardown at identify is not implemented |
 | RNode, KISS, Serial, Weave | Not implemented | No driver in this tree |
 | PipeInterface, LocalInterface | Implemented | `pipe.go`, `local.go`, `sharedinstance` |
-| Python CLI utilities (rnid, rnpath, etc.) | Not ported | Primitives exist in `pkg/` |
+| Python CLI utilities | Yes (core) | `rgostatus`, `rgoid`, `rgoprobe` via `pkg/rnsutil` |
 | Interface hot reload | Go-only | `pkg/node/reload.go`, SIGHUP on Unix |
 | Control API | Go-only | `pkg/controlapi` |
+| librns C ABI | Go-only | `pkg/librns`, `include/rns.h`, `task build-librns` |
 | Runtime sandbox | Go-only | `pkg/sandbox` |
 
 ## Repository layout
@@ -73,9 +74,15 @@ Reticulum-Go/
   cmd/
     reticulum-go/       Daemon
     reticulum-wasm/     WebAssembly entry
-  pkg/                  Public library packages
+    librns/             C shared library entry (`-buildmode=c-shared`)
+    rgostatus/          Shared-instance status (RPC)
+    rgoid/              Identity and destination hashes
+    rgoprobe/           Path probe / RTT
+  include/
+    rns.h               Public librns C header
+  pkg/                  Public library packages (includes rnsutil, librns)
   internal/             Daemon-only helpers (config re-export, storage)
-  examples/             Sample applications
+  examples/             Sample applications (includes librns-smoke)
   tests/
     crossref/           Byte-level parity with Python vectors
     interop/            Live Go/Python tests
@@ -93,15 +100,16 @@ Python Reticulum (`RNS`) is the reference implementation and defines the on-wire
 
 Configuration uses the same INI-style shape as Python (`[reticulum]`, `[logging]`, `[[Interface Name]]`). The default config directory is `~/.reticulum-go` instead of `~/.reticulum` so both stacks can coexist on one machine.
 
-Reticulum-Go adds features that Python does not ship today (control API, sandbox, interface hot reload, NIC watching). Those extensions do not change the wire format unless explicitly documented as Go-only.
+Reticulum-Go adds features that Python does not ship today (control API, librns, sandbox, interface hot reload, NIC watching). Those extensions do not change the wire format unless explicitly documented as Go-only.
 
 ## Who should read which document
 
 | Role | Start here |
 |------|------------|
 | Architect evaluating adoption | This page, then [Architecture](architecture.md) and [Compatibility](compatibility.md) |
-| Network operator | [Getting started](getting-started.md), [Configuration](configuration.md), [Interfaces](interfaces.md) |
+| Network operator | [Getting started](getting-started.md), [Configuration](configuration.md), [Interfaces](interfaces.md), [CLI utilities](utilities.md) |
 | Go application author | [Package map](package-map.md), [Embedding and WebAssembly](embedding-and-wasm.md) |
+| Native / FFI embedder | [Embedding and WebAssembly](embedding-and-wasm.md) (librns), [Compatibility](compatibility.md) |
 | Security reviewer | [Cryptography](cryptography.md), [Security](security.md) |
 | Developer | [Development and testing](development-and-testing.md) |
 

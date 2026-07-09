@@ -87,6 +87,8 @@ Factory entry point: `interfaces.NewFromConfigWithContext`.
 
 When `share_instance = yes`, only one Reticulum process on a host should own the real interfaces. Other processes connect as clients over TCP or a Unix socket and multiplex packets through the owner. This mirrors Python behavior and uses msgpack RPC compatible with RNS 1.3.4 layouts.
 
+Go CLI tools such as `rgostatus` dial this RPC. On Linux, Python `rnsd` defaults to a Unix abstract socket unless `shared_instance_type = tcp`. Setup for mixed Go and Python tooling is in [CLI utilities](utilities.md).
+
 ### Storage (`internal/storage`)
 
 The daemon persists ratchets, identity blobs, destination tables, and related artifacts under `~/.reticulum-go/storage/`. Library embedders can use the same paths or keep tables in memory with `in_memory_path_table` and `in_memory_known_destinations`.
@@ -181,6 +183,10 @@ A Go service links `pkg/node` directly. No daemon. The service loads config, sta
 
 Non-Go applications talk HTTP and WebSocket to `pkg/controlapi` on localhost while the daemon owns transport. See [Control API](control-api.md).
 
+### librns in-process
+
+Native hosts link `librns.so` and call `include/rns.h`. Same stack as `pkg/node`, no separate daemon. Linux first. See [Embedding and WebAssembly](embedding-and-wasm.md).
+
 ## Persistence and state
 
 | State | Default location | Notes |
@@ -207,7 +213,7 @@ See [Cryptography](cryptography.md) and [Security](security.md).
 | Hardware signing | `identity.NewIdentityWithSigner` with `cryptography.Ed25519Signer` |
 | Embedder lifecycle | `node.Node` hooks and control API lifecycle routes |
 | New interface types | Implement `interfaces.Interface`, register in `fromconfig.go` |
-| Non-Go clients | Control API or shared instance client pattern |
+| Non-Go clients | Control API (out-of-process) or librns (in-process C ABI) |
 
 Adding a new interface type or changing on-wire layouts requires coordinated updates across implementations and crossref vectors.
 

@@ -145,6 +145,33 @@ control_api_port = 37430
 
 Generate a random 32-byte key and encode as hex. Clients send `Authorization: Bearer <rpc_key>`. See [Control API](control-api.md).
 
+## CLI utilities (status, identity, probe)
+
+Build Go-native tools:
+
+```bash
+make build-utils
+```
+
+To query a running Python `rnsd` from `rgostatus`, both stacks need TCP shared-instance RPC. On Linux, Python defaults to a Unix abstract socket unless you set:
+
+```ini
+[reticulum]
+share_instance = yes
+shared_instance_type = tcp
+shared_instance_port = 37428
+instance_control_port = 37429
+rpc_key = <64 hex characters>
+```
+
+Restart `rnsd`, then:
+
+```bash
+./bin/rgostatus -config ~/.reticulum -json
+```
+
+Full flag reference, `.rsg` / `.rsm` / `.rfe` usage, and troubleshooting are in [CLI utilities](utilities.md).
+
 ## Disable the sandbox
 
 Sandboxing is on by default. To turn it off (not recommended for production):
@@ -165,6 +192,8 @@ See [Security](security.md) for platform behavior.
 
 **Shared instance conflicts.** Only one process should own interfaces when `share_instance = yes`. Others should connect as clients. Check `shared_instance_port` (default 37428).
 
+**rgostatus connection refused.** Point `-config` at the daemon config dir (`~/.reticulum` for `rnsd`). On Linux set `shared_instance_type = tcp` and restart the daemon. See [CLI utilities](utilities.md).
+
 **Permission errors on Linux sandbox.** Landlock requires kernel 5.13+. The config directory and storage paths must live under whitelisted locations. See [Security](security.md).
 
 ## Next steps
@@ -172,6 +201,7 @@ See [Security](security.md) for platform behavior.
 | Goal | Document |
 |------|----------|
 | Configure interfaces and rates | [Configuration](configuration.md), [Interfaces](interfaces.md) |
+| Status / identity / probe CLIs | [CLI utilities](utilities.md) |
 | Write a Go app | [Package map](package-map.md), [Embedding and WebAssembly](embedding-and-wasm.md) |
 | Use Python interop | [Compatibility](compatibility.md) |
 | Run examples | [Examples](examples.md) |

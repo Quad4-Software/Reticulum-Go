@@ -156,4 +156,5 @@ Daemon wiring: `cmd/reticulum-go/main.go` starts `controlapi.Server` when enable
 
 - [Configuration](configuration.md)
 - [Links, channels, and resources](links-channels-and-resources.md)
+- [Embedding and WebAssembly](embedding-and-wasm.md) for in-process librns
 - [Examples](examples.md)

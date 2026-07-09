@@ -78,6 +78,20 @@ rpc_key = ...
 
 See [Control API](control-api.md).
 
+## librns smoke
+
+Path: `examples/librns-smoke/`
+
+Small C program that links `bin/librns.so`, creates a node, polls once, and exits.
+
+```bash
+task build-librns
+make -C examples/librns-smoke
+./examples/librns-smoke/librns-smoke
+```
+
+See [Embedding and WebAssembly](embedding-and-wasm.md).
+
 ## Choosing an example
 
 | Goal | Start here |
@@ -86,7 +100,8 @@ See [Control API](control-api.md).
 | Browser client | `examples/wasm` |
 | HTTP-like pages over Reticulum | `examples/pageserver` |
 | File send | `examples/filetransfer` |
-| Python or other language | `examples/control-client` |
+| Python or other language (daemon) | `examples/control-client` |
+| C / FFI embed | `examples/librns-smoke` |
 | Link API | `examples/link` |
 
 ## Running against Python peers

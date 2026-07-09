@@ -184,7 +184,19 @@ Python `share_instance` equivalent.
 |------|--------|
 | Key types | `Instance`, `Hooks` |
 | Entry | `Attach(cfg, tr, hooks)` |
+| Framing | `SendFramed` / `RecvFramed` |
 | Main files | `instance.go`, `rpc.go`, `mpconn.go` |
+
+### `pkg/rnsutil`
+
+Helpers and RPC client for CLI utilities (`rgostatus`, `rgoid`, `rgoprobe`).
+
+| Item | Detail |
+|------|--------|
+| RPC | `DialRPC`, `GetInterfaceStats`, path and link helpers |
+| Identity | `.rsg` / `.rsm` / `.rfe` create and verify |
+| Probe | `WaitPath`, `SendProbe` |
+| Docs | [CLI utilities](utilities.md) |
 
 ### `pkg/wasm`
 
@@ -205,6 +217,19 @@ Localhost JSON and WebSocket control plane.
 | Main files | `server.go`, `session.go`, `protocol.go`, `ws.go` |
 
 See [Control API](control-api.md).
+
+### `pkg/librns`
+
+C ABI facade for in-process embed. Pure Go core. CGO shims in `pkg/librns/capi`.
+
+| Item | Detail |
+|------|--------|
+| Header | `include/rns.h` |
+| Shared lib | `task build-librns` produces `bin/librns.so` |
+| Smoke | `examples/librns-smoke` |
+| Main files | `node.go`, `identity.go`, `destination.go`, `link.go`, `queue.go` |
+
+See [Embedding and WebAssembly](embedding-and-wasm.md).
 
 ## Discovery and policy
 
@@ -310,6 +335,9 @@ Filesystem persistence under `~/.reticulum-go/storage/`.
 | Path | Binary | Role |
 |------|--------|------|
 | `cmd/reticulum-go` | `reticulum-go` | Daemon |
+| `cmd/rgostatus` | `rgostatus` | Shared-instance status RPC ([CLI utilities](utilities.md)) |
+| `cmd/rgoid` | `rgoid` | Identity and signing files |
+| `cmd/rgoprobe` | `rgoprobe` | Path wait and encrypted probe |
 | `cmd/reticulum-wasm` | WASM module | Browser entry |
 
 ## Suggested import paths for applications
@@ -317,8 +345,10 @@ Filesystem persistence under `~/.reticulum-go/storage/`.
 | Task | Packages |
 |------|----------|
 | Embed full node | `pkg/node`, `pkg/reticulumconfig`, `pkg/destination`, `pkg/identity` |
+| Embed from C / FFI | `pkg/librns` (or link `librns.so` + `include/rns.h`) |
 | Low-level transport only | `pkg/transport`, `pkg/interfaces`, `pkg/packet` |
 | Crypto only | `pkg/cryptography`, `pkg/identity` |
 | Browser | `pkg/wasm` (compiled), WebSocket interface |
+| Out-of-process non-Go client | Control API (`pkg/controlapi` on the daemon) |
 
 Do not import `internal/` from outside this module.

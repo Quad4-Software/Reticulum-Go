@@ -96,7 +96,7 @@ Files named `*_pbt_test.go` use `quad4/pbt` for generative testing (cryptography
 
 ### Fuzz tests
 
-Files named `*_fuzz_test.go` cover packet, link, ifac, blackhole, discovery, and pipe HDLC framing (`pkg/interfaces/pipe_fuzz_test.go`).
+Files named `*_fuzz_test.go` cover packet, link, ifac, blackhole, discovery, pipe HDLC framing (`pkg/interfaces/pipe_fuzz_test.go`), and librns (`pkg/librns`).
 
 ### Crossref tests
 
@@ -196,6 +196,16 @@ task test-wasm
 ```
 
 Requires Task. See [Embedding and WebAssembly](embedding-and-wasm.md).
+
+## librns shared library
+
+```bash
+task build-librns
+make -C examples/librns-smoke
+./examples/librns-smoke/librns-smoke
+```
+
+Needs a C toolchain and CGO. Daemon builds stay `CGO_ENABLED=0`. See [Embedding and WebAssembly](embedding-and-wasm.md).
 
 ## Adding a change safely
 

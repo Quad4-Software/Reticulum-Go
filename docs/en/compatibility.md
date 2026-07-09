@@ -2,8 +2,8 @@
 
 | Field | Value |
 |-------|-------|
-| Document version | 1.0 |
-| Last updated | 2026-07-07 |
+| Document version | 1.1 |
+| Last updated | 2026-07-09 |
 | Author | Ivan |
 
 ## Reference target
@@ -32,6 +32,7 @@ The detailed matrix with config key tables lives in [COMPATIBILITY.md](../../COM
 | Discovery | Partial | rnstransport listening works. Announcer and autoconnect not auto-started |
 | Blackhole | Partial | Table and announce drop. Link teardown at LINKIDENTIFY not implemented |
 | Node lifecycle | Go-only | `pkg/node` embedder API, no Python equivalent |
+| librns C ABI | Go-only | `pkg/librns`, `include/rns.h`, Linux `.so` via `task build-librns` |
 
 ## Interfaces
 
@@ -74,7 +75,7 @@ Wire format is stable across 1.2.x to 1.3.x. Notable behavior differences:
 | Transport probes | `respond_to_probes` / `allow_probes` ignored |
 | `publish_blackhole` and related keys | Not auto-published |
 | RNode and radio serial drivers | Cannot speak to RNode hardware from this tree |
-| Python CLI utilities | Not ported (`rnid`, `rnpath`, `rnsh`, etc.) |
+| Python CLI utilities | Yes (core) | `rgostatus`, `rgoid`, `rgoprobe` with Python format/RPC interop |
 
 ## Go-only extensions
 
@@ -89,6 +90,7 @@ These do not change the wire format:
 | Backbone I/O multiplexing | `pkg/backbone` |
 | WebSocket interface | `pkg/interfaces/websocket_*.go` |
 | Control API | `pkg/controlapi` |
+| librns C ABI | `pkg/librns`, `include/rns.h` |
 | Runtime sandbox | `pkg/sandbox` |
 | RAM-only path tables | `in_memory_path_table`, `in_memory_known_destinations` |
 
@@ -108,8 +110,14 @@ These do not change the wire format:
 | Python | Reticulum-Go |
 |--------|--------------|
 | rnsd | `reticulum-go` daemon |
-| rncp, rnid, rnir, rnpath, rnprobe, rnstatus, rnx, rnodeconf, rnpkg, rngit, rnsh | Not ported. Primitives in `pkg/` |
+| rnstatus | `rgostatus` (shared-instance RPC, announce/PR rates, JSON) |
+| rnid | `rgoid` (`.rid`/`.rsg`/`.rsm`/`.rfe` compatible) |
+| rnprobe | `rgoprobe` |
+| rncp, rnir, rnpath, rnx, rnodeconf, rnpkg, rngit, rnsh | Not ported. Primitives in `pkg/` |
 | WASM | `reticulum-wasm` (Go-only) |
+| librns | `librns.so` + `rns.h` (Go-only, Linux first) |
+
+Setup for Go tools against Python `rnsd` (TCP shared-instance RPC, `rpc_key`, `-config`) is documented in [CLI utilities](utilities.md).
 
 ## Verification workflow
 
@@ -128,9 +136,12 @@ RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
 
 Use separate config directories (`~/.reticulum-go` vs `~/.reticulum`). Point interfaces at the same peers with matching IFAC and ports. Shared instance ports must not conflict if both try to own the same interface.
 
+To let `rgostatus` query Python `rnsd`, set `shared_instance_type = tcp` and matching `instance_control_port` / `rpc_key` in the Python config, then restart `rnsd`. See [CLI utilities](utilities.md).
+
 ## Related documents
 
 - [COMPATIBILITY.md](../../COMPATIBILITY.md) full tables
+- [CLI utilities](utilities.md) for Go CLI tools and RPC setup
 - [Interfaces](interfaces.md)
 - [Cryptography](cryptography.md)
 - [Development and testing](development-and-testing.md)

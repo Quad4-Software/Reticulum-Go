@@ -2,19 +2,18 @@
 
 | Field | Value |
 |-------|-------|
-| Document version | 1.0 |
-| Last updated | 2026-07-07 |
+| Document version | 1.1 |
+| Last updated | 2026-07-09 |
 | Author | Ivan |
 
-## Two integration paths
-
-Reticulum-Go supports embedding in Go applications and running in WebAssembly for browser clients.
+## Integration paths
 
 | Path | Use when |
 |------|----------|
-| `pkg/node` | You write Go and want full transport plus interfaces in-process |
-| `pkg/wasm` | You need a browser client over WebSocket |
-| Control API | You write in another language and can talk to a local daemon |
+| `pkg/node` | Go app, full transport and interfaces in-process |
+| `pkg/librns` | Native host (C, C++, Qt, Flutter FFI) wants the same stack in-process |
+| Control API | Separate language talking to a local `reticulum-go` daemon |
+| `pkg/wasm` | Browser client over WebSocket |
 
 ## Embedding with pkg/node
 
@@ -129,9 +128,44 @@ Listen for `online` and `offline` events and call `reticulum.onNetworkAvailable(
 
 The README references a `tinygo` branch for very constrained devices. That branch targets TinyGo 0.41.0 or newer and is separate from the main module build.
 
-## Control API alternative
+## Control API
 
-If you do not embed Go, run `reticulum-go` with `enable_control_api = yes` and use HTTP/WebSocket from any language. See [Control API](control-api.md).
+Run `reticulum-go` with `enable_control_api = yes` and talk HTTP/WebSocket from any language. The daemon owns transport. See [Control API](control-api.md).
+
+## librns C ABI
+
+Thin facade over `pkg/node`, destination, and link. Same wire stack as the daemon, linked into your process.
+
+| Artifact | Role |
+|----------|------|
+| `include/rns.h` | Public header (`RNS_API_VERSION`) |
+| `bin/librns.so` | Shared library (`task build-librns`, needs CGO) |
+| `pkg/librns` | Pure Go facade (unit and fuzz without CGO) |
+
+```bash
+task build-librns
+make -C examples/librns-smoke
+./examples/librns-smoke/librns-smoke
+```
+
+### librns vs Control API
+
+| librns | Control API |
+|--------|-------------|
+| In-process | Separate daemon |
+| `rns_event_poll` queue | WebSocket events |
+| C ABI / FFI | JSON over HTTP and WS |
+| Caller-owned buffers | Base64 JSON payloads |
+
+### ABI rules
+
+- Handles are opaque `uint64_t`. Destroy them before exit.
+- Events copy into caller buffers. Set `app_data` and `app_data_cap`. Truncation sets `app_data_truncated`.
+- The event queue is bounded and drops the oldest entry on overflow.
+- `rns_last_error` holds the last failing call message.
+- Empty config path uses in-memory defaults with `share_instance` off.
+
+Daemon builds stay `CGO_ENABLED=0`. Only `build-librns` turns CGO on. Linux `.so` first. Other platforms later.
 
 ## Sandbox note
 
@@ -141,5 +175,6 @@ OS sandbox (`pkg/sandbox`) applies to the native daemon, not the WASM module. Br
 
 - [Architecture](architecture.md)
 - [Package map](package-map.md)
-- [Examples](examples.md) for wasm and pageserver
+- [Examples](examples.md)
 - [Getting started](getting-started.md)
+- [Control API](control-api.md)
