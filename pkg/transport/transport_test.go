@@ -228,3 +228,44 @@ func TestAnnounceHopCount(t *testing.T) {
 		t.Errorf("Expected 1 hop for neighbor (received 0), got %d", hops)
 	}
 }
+
+func TestAnnounceRejectsOverMaxHops(t *testing.T) {
+	config := common.DefaultConfig()
+	tr := NewTransport(config)
+	defer tr.Close()
+
+	iface := &mockInterface{}
+	iface.Name = "wasm0"
+	iface.Enabled = true
+	_ = tr.RegisterInterface("wasm0", iface)
+
+	id, _ := identity.New()
+	dest, _ := destination.New(id, destination.In, destination.Single, "reticulum-go.node", tr)
+	destHash := dest.GetHash()
+
+	transportID := make([]byte, 16)
+	annPkt, err := packet.NewAnnouncePacket(destHash, id, []byte("test"), transportID)
+	if err != nil {
+		t.Fatalf("NewAnnouncePacket failed: %v", err)
+	}
+	annRaw, err := annPkt.Serialize()
+	if err != nil {
+		t.Fatalf("Serialize failed: %v", err)
+	}
+
+	// Wire hops 128 -> announce hops 129, which must not enter the path table.
+	annRaw[1] = byte(MaxHops)
+	tr.HandlePacket(annRaw, iface)
+	time.Sleep(100 * time.Millisecond)
+	if tr.HasPath(destHash) {
+		t.Fatalf("path registered for over-max hops=%d", tr.HopsTo(destHash))
+	}
+
+	// Wire hops 255 would overflow uint8 if incremented as a byte, must still reject.
+	annRaw[1] = 255
+	tr.HandlePacket(annRaw, iface)
+	time.Sleep(100 * time.Millisecond)
+	if tr.HasPath(destHash) {
+		t.Fatalf("path registered for overflow hops=%d", tr.HopsTo(destHash))
+	}
+}
