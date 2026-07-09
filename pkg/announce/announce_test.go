@@ -153,9 +153,9 @@ func TestRandomHashTimestampEncoding(t *testing.T) {
 
 // TestRandomHashChangesPerAnnounce ensures each announce packet
 // produced by a destination carries a strictly different random
-// hash, so a peer that deduplicates by packet hash (Python RNS
-// packet_hashlist) cannot accidentally drop all follow-up
-// announces from the same destination.
+// hash, so a peer that deduplicates by packet hash cannot
+// accidentally drop all follow-up announces from the same
+// destination.
 func TestRandomHashChangesPerAnnounce(t *testing.T) {
 	id, err := identity.New()
 	if err != nil {
