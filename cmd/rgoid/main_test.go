@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"quad4/reticulum-go/pkg/cli"
 )
 
 func TestRgoidGeneratePrintSignVerify(t *testing.T) {
@@ -18,37 +20,37 @@ func TestRgoidGeneratePrintSignVerify(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if code := run([]string{"-g", idPath, "-p"}); code != 0 {
+	if code := cli.RunID([]string{"-g", idPath, "-p"}); code != 0 {
 		t.Fatalf("generate+print exit %d", code)
 	}
-	if code := run([]string{"-i", idPath, "-s", msgPath, "-f"}); code != 0 {
+	if code := cli.RunID([]string{"-i", idPath, "-s", msgPath, "-f"}); code != 0 {
 		t.Fatalf("sign exit %d", code)
 	}
 	sigPath := msgPath + ".rsg"
 	if _, err := os.Stat(sigPath); err != nil {
 		t.Fatal(err)
 	}
-	if code := run([]string{"-i", idPath, "-V", msgPath}); code != 0 {
+	if code := cli.RunID([]string{"-i", idPath, "-V", msgPath}); code != 0 {
 		t.Fatalf("verify exit %d", code)
 	}
-	if code := run([]string{"-i", idPath, "-H", "rns.id"}); code != 0 {
+	if code := cli.RunID([]string{"-i", idPath, "-H", "rns.id"}); code != 0 {
 		t.Fatalf("hash exit %d", code)
 	}
 
 	rsmPath := filepath.Join(dir, "note.rsm")
-	if code := run([]string{"-i", idPath, "-S", "hello rsm", "-w", rsmPath, "-f"}); code != 0 {
+	if code := cli.RunID([]string{"-i", idPath, "-S", "hello rsm", "-w", rsmPath, "-f"}); code != 0 {
 		t.Fatalf("sign message exit %d", code)
 	}
-	if code := run([]string{"-V", rsmPath}); code != 0 {
+	if code := cli.RunID([]string{"-V", rsmPath}); code != 0 {
 		t.Fatalf("verify rsm exit %d", code)
 	}
 
 	encPath := msgPath + ".rfe"
-	if code := run([]string{"-i", idPath, "-e", msgPath, "-w", encPath, "-f"}); code != 0 {
+	if code := cli.RunID([]string{"-i", idPath, "-e", msgPath, "-w", encPath, "-f"}); code != 0 {
 		t.Fatalf("encrypt exit %d", code)
 	}
 	decPath := filepath.Join(dir, "msg.out")
-	if code := run([]string{"-i", idPath, "-d", encPath, "-w", decPath, "-f"}); code != 0 {
+	if code := cli.RunID([]string{"-i", idPath, "-d", encPath, "-w", decPath, "-f"}); code != 0 {
 		t.Fatalf("decrypt exit %d", code)
 	}
 }
@@ -57,7 +59,7 @@ func TestRgoidMutualExclusive(t *testing.T) {
 	dir := t.TempDir()
 	a := filepath.Join(dir, "a.rid")
 	b := filepath.Join(dir, "b.rid")
-	if code := run([]string{"-g", a, "-i", b}); code == 0 {
+	if code := cli.RunID([]string{"-g", a, "-i", b}); code == 0 {
 		t.Fatal("expected failure for mutual exclusive flags")
 	}
 }
@@ -66,7 +68,7 @@ func TestRgoidHelp(t *testing.T) {
 	old := os.Stderr
 	r, w, _ := os.Pipe()
 	os.Stderr = w
-	code := run(nil)
+	code := cli.RunID(nil)
 	_ = w.Close()
 	os.Stderr = old
 	buf := make([]byte, 4096)

@@ -4,56 +4,29 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"io"
 	"os"
+
+	"quad4/reticulum-go/pkg/cli"
 )
 
-func printHelp(w io.Writer) {
-	fmt.Fprintf(w, `reticulum-go - Reticulum network stack daemon (Go)
-
-Usage:
-  reticulum-go [flags]
-
-Flags:
-  -h, --help       Print this help and exit
-  -v, --version    Print version and exit
-
-Configuration is loaded from ~/.reticulum-go/config (created on first run).
-`)
-}
-
-// parseCLI handles top-level flags. It returns true when the daemon should start.
-func parseCLI(args []string) (runDaemon bool, exitCode int) {
+// parseDaemonFlags handles flags when the daemon subcommand (or bare binary) is selected.
+func parseDaemonFlags(args []string) (run bool, exitCode int) {
 	for _, arg := range args {
 		switch arg {
-		case "-h", "-?":
-			printHelp(os.Stdout)
+		case "-h", "--help", "-?":
+			_ = cli.Main([]string{"--help"}, cli.Options{
+				Stdout:      os.Stdout,
+				VersionLine: versionLine(),
+			})
+			return false, 0
+		case "-v", "--version":
+			printVersion(os.Stdout)
 			return false, 0
 		}
 	}
-
-	fs := flag.NewFlagSet("reticulum-go", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-
-	showVersion := fs.Bool("version", false, "print version and exit")
-	showHelp := fs.Bool("help", false, "print help and exit")
-
-	if err := fs.Parse(args); err != nil {
-		return false, 2
-	}
-	if *showHelp {
-		printHelp(os.Stdout)
-		return false, 0
-	}
-	if *showVersion {
-		printVersion(os.Stdout)
-		return false, 0
-	}
-	if fs.NArg() > 0 {
-		fmt.Fprintf(os.Stderr, "unknown arguments: %q\n\n", fs.Args())
-		printHelp(os.Stderr)
+	if len(args) > 0 {
+		fmt.Fprintf(os.Stderr, "unknown daemon arguments: %q\n", args)
 		return false, 2
 	}
 	return true, 0

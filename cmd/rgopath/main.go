@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-// Command rgoprobe is a thin wrapper around reticulum-go probe.
+// Command rgopath is a thin wrapper around reticulum-go path.
 package main
 
 import (
@@ -11,5 +11,5 @@ import (
 )
 
 func main() {
-	os.Exit(cli.RunProbe(os.Args[1:]))
+	os.Exit(cli.RunPath(os.Args[1:]))
 }

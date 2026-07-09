@@ -179,7 +179,7 @@ func ParseName(full string) (appName string, aspects []string, err error) {
 	return parts[0], parts[1:], nil
 }
 
-// Hash computes a 16-byte destination hash matching Python Destination.hash.
+// Hash computes a 16-byte destination hash from identity and app name aspects.
 func Hash(id *identity.Identity, appName string, aspects ...string) []byte {
 	nameHashFull := sha256.Sum256([]byte(ExpandAppName(appName, aspects...)))
 	nameHash10 := nameHashFull[:10]

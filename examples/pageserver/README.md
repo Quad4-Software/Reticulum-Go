@@ -3,7 +3,16 @@
 Serves static pages under `/page/` and files under `/file/` over Reticulum
 request handlers, with interfaces driven by a Reticulum configuration file.
 
-## Build
+The production entrypoint is the main binary:
+
+```text
+reticulum-go pageserver [flags]
+```
+
+This directory keeps sample `pages/` / `files/` trees and a thin wrapper that
+calls the same `pkg/cli` / `pkg/pageserver` code.
+
+## Build (example wrapper)
 
 From this directory:
 
@@ -11,10 +20,12 @@ From this directory:
 go build -o example-pageserver .
 ```
 
-The example uses a local `replace` directive to point at the in-tree
-`Reticulum-Go` module, so no extra setup is required. Cross-compile with the
-usual `GOOS` / `GOARCH` environment variables (the example is **not** a WASM
-target).
+Or from the repo root:
+
+```text
+make build
+./bin/reticulum-go pageserver -h
+```
 
 ## Run
 
@@ -22,10 +33,11 @@ target).
 ./example-pageserver [flags]
 ```
 
-Or run directly without building:
+Or:
 
 ```text
 go run . [flags]
+reticulum-go pageserver [flags]
 ```
 
 ## Configuration file
@@ -115,5 +127,4 @@ file for that run.
 | `-debug` | (see `pkg/debug`) | Same scale as `-log-level` when passed on the CLI. |
 | `-log-level` | `-1` | Sets level `1`–`7`. `-1` uses config. Overrides config and `-debug` when set. |
 
-Constants such as announce rate targets are compiled into the binary (see
-`main.go`). They are not CLI flags.
+See also `man reticulum-go-pageserver`.

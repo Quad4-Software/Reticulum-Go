@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"testing"
 
+	"quad4/reticulum-go/pkg/cli"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/sharedinstance"
 	"quad4/reticulum-go/pkg/transport"
@@ -44,7 +45,7 @@ func TestRgostatusAgainstRPC(t *testing.T) {
 	oldOut := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	code := run([]string{"-config", cfgDir, "-json"})
+	code := cli.RunStatus([]string{"-config", cfgDir, "-json"})
 	_ = w.Close()
 	os.Stdout = oldOut
 	var buf bytes.Buffer

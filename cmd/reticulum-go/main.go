@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"quad4/reticulum-go/internal/config"
+	"quad4/reticulum-go/pkg/cli"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/controlapi"
 	"quad4/reticulum-go/pkg/debug"
@@ -68,10 +69,19 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 }
 
 func main() {
-	if run, code := parseCLI(os.Args[1:]); !run {
-		os.Exit(code)
+	os.Exit(cli.Main(os.Args[1:], cli.Options{
+		Argv0:       os.Args[0],
+		VersionLine: versionLine(),
+		RunDaemon:   runDaemonCLI,
+	}))
+}
+
+func runDaemonCLI(args []string) int {
+	if run, code := parseDaemonFlags(args); !run {
+		return code
 	}
 	runDaemon()
+	return 0
 }
 
 func runDaemon() {
