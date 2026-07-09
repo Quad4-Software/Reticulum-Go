@@ -5,7 +5,7 @@ package librns
 
 const (
 	// APIVersion is the librns C ABI version (major.minor).
-	APIVersion = "1.0"
+	APIVersion = "1.1"
 )
 
 // Version returns the librns API version string.

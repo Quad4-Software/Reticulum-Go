@@ -5,12 +5,15 @@ package librns
 
 import (
 	"sync"
+	"time"
 
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/link"
 	"quad4/reticulum-go/pkg/node"
 )
+
+const requestResponseTimeout = 30 * time.Second
 
 type nodeRecord struct {
 	node         *node.Node
@@ -19,6 +22,14 @@ type nodeRecord struct {
 	destinations map[uint64]*destination.Destination
 	links        map[uint64]*linkRecord
 	started      bool
+
+	pendingMu sync.Mutex
+	pending   map[string]chan []byte
+
+	cbMu     sync.Mutex
+	callback EventCallback
+	cbStop   chan struct{}
+	cbDone   chan struct{}
 }
 
 type linkRecord struct {
@@ -34,6 +45,7 @@ type identityRecord struct {
 type destinationRecord struct {
 	destination *destination.Destination
 	nodeID      uint64
+	hash        []byte
 }
 
 var (
@@ -79,11 +91,57 @@ func (n *nodeRecord) enqueue(ev Event) {
 	}
 }
 
+func (n *nodeRecord) awaitResponse(requestIDHex string) chan []byte {
+	ch := make(chan []byte, 1)
+	n.pendingMu.Lock()
+	if n.pending == nil {
+		n.pending = make(map[string]chan []byte)
+	}
+	n.pending[requestIDHex] = ch
+	n.pendingMu.Unlock()
+	return ch
+}
+
+func (n *nodeRecord) deliverResponse(requestIDHex string, data []byte) bool {
+	n.pendingMu.Lock()
+	ch, ok := n.pending[requestIDHex]
+	if ok {
+		delete(n.pending, requestIDHex)
+	}
+	n.pendingMu.Unlock()
+	if !ok {
+		return false
+	}
+	ch <- data
+	return true
+}
+
+func (n *nodeRecord) forgetResponse(requestIDHex string) {
+	n.pendingMu.Lock()
+	delete(n.pending, requestIDHex)
+	n.pendingMu.Unlock()
+}
+
+func (n *nodeRecord) stopCallback() {
+	n.cbMu.Lock()
+	stop := n.cbStop
+	done := n.cbDone
+	n.callback = nil
+	n.cbStop = nil
+	n.cbDone = nil
+	n.cbMu.Unlock()
+	if stop != nil {
+		close(stop)
+		<-done
+	}
+}
+
 func newNodeRecord(n *node.Node) *nodeRecord {
 	return &nodeRecord{
 		node:         n,
 		queue:        newEventQueue(defaultQueueCapacity),
 		destinations: make(map[uint64]*destination.Destination),
 		links:        make(map[uint64]*linkRecord),
+		pending:      make(map[string]chan []byte),
 	}
 }

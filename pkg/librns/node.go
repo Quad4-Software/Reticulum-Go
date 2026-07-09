@@ -5,6 +5,7 @@ package librns
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -110,6 +111,7 @@ func NodeDestroy(nodeHandle uint64) int {
 	if err != nil {
 		return setLastError(err)
 	}
+	rec.stopCallback()
 	if rec.started {
 		_ = rec.node.Stop()
 		rec.started = false
@@ -122,6 +124,115 @@ func NodeDestroy(nodeHandle uint64) int {
 		return setLastError(errInvalidHandle)
 	}
 	return OK
+}
+
+// NodeResume resumes interfaces after a pause (network available).
+func NodeResume(nodeHandle uint64) int {
+	rec, err := nodeByHandle(nodeHandle)
+	if err != nil {
+		return setLastError(err)
+	}
+	if err := rec.node.OnNetworkAvailable(); err != nil {
+		return setLastError(fmt.Errorf("%w: %v", errInternal, err))
+	}
+	return OK
+}
+
+// NodePause pauses interfaces (network lost).
+func NodePause(nodeHandle uint64) int {
+	rec, err := nodeByHandle(nodeHandle)
+	if err != nil {
+		return setLastError(err)
+	}
+	if err := rec.node.OnNetworkLost(); err != nil {
+		return setLastError(fmt.Errorf("%w: %v", errInternal, err))
+	}
+	return OK
+}
+
+// NodeRefreshPaths expires stale paths and requests fresh ones.
+// When destHashes is empty, watched destinations are refreshed.
+func NodeRefreshPaths(nodeHandle uint64, destHashes ...[]byte) int {
+	rec, err := nodeByHandle(nodeHandle)
+	if err != nil {
+		return setLastError(err)
+	}
+	for _, h := range destHashes {
+		if len(h) != identity.TruncatedHashLength/8 {
+			return setLastError(errInvalidArg)
+		}
+	}
+	if err := rec.node.RefreshPaths(destHashes...); err != nil {
+		return setLastError(fmt.Errorf("%w: %v", errInternal, err))
+	}
+	return OK
+}
+
+// PathTable returns a snapshot of known paths.
+// maxHops < 0 means no hop filter.
+func PathTable(nodeHandle uint64, maxHops int) ([]PathEntry, int) {
+	rec, err := nodeByHandle(nodeHandle)
+	if err != nil {
+		return nil, setLastError(err)
+	}
+	var filter *int
+	if maxHops >= 0 {
+		filter = &maxHops
+	}
+	rows := rec.node.Transport().GetPathTable(filter)
+	out := make([]PathEntry, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, PathEntry{
+			Hash:      append([]byte(nil), row.Hash...),
+			Via:       append([]byte(nil), row.Via...),
+			Hops:      row.Hops,
+			Interface: row.Interface,
+			Timestamp: row.Timestamp,
+			Expires:   row.Expires,
+		})
+	}
+	return out, OK
+}
+
+// SetEventCallback registers cb to drain the same event queue as EventPoll.
+// Pass nil to clear. Only one callback per node.
+func SetEventCallback(nodeHandle uint64, cb EventCallback) int {
+	rec, err := nodeByHandle(nodeHandle)
+	if err != nil {
+		return setLastError(err)
+	}
+	rec.stopCallback()
+	if cb == nil {
+		return OK
+	}
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	rec.cbMu.Lock()
+	rec.callback = cb
+	rec.cbStop = stop
+	rec.cbDone = done
+	rec.cbMu.Unlock()
+	go drainEvents(rec, cb, stop, done)
+	return OK
+}
+
+func drainEvents(rec *nodeRecord, cb EventCallback, stop, done chan struct{}) {
+	defer close(done)
+	for {
+		select {
+		case <-stop:
+			return
+		default:
+		}
+		ev, err := rec.queue.poll(50 * time.Millisecond)
+		if err != nil {
+			if errors.Is(err, errState) {
+				return
+			}
+			continue
+		}
+		cb(cloneEvent(ev))
+	}
 }
 
 // NodeSetIdentity attaches an identity to the node transport.

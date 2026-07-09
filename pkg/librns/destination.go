@@ -6,8 +6,10 @@ package librns
 import (
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	"quad4/reticulum-go/pkg/destination"
+	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/link"
 )
 
@@ -40,14 +42,77 @@ func DestinationCreate(nodeHandle, identityHandle uint64, appName string, aspect
 		wireInboundLinks(nodeRec, dest)
 	}
 
+	hash := append([]byte(nil), dest.GetHash()...)
 	runtimeMu.Lock()
 	destHandle := handles.insert(kindDestination, &destinationRecord{
 		destination: dest,
 		nodeID:      nodeHandle,
+		hash:        hash,
 	})
 	nodeRec.destinations[destHandle] = dest
 	runtimeMu.Unlock()
 	return destHandle, OK
+}
+
+// DestinationRegisterRequestHandler bridges path requests to EventRequestIncoming.
+// The host must call RequestRespond with the same request id.
+func DestinationRegisterRequestHandler(destHandle uint64, path string) int {
+	if path == "" {
+		return setLastError(errInvalidArg)
+	}
+	destRec, err := destinationByHandle(destHandle)
+	if err != nil {
+		return setLastError(err)
+	}
+	nodeRec, err := nodeByHandle(destRec.nodeID)
+	if err != nil {
+		return setLastError(err)
+	}
+	destHash := append([]byte(nil), destRec.hash...)
+	if err := destRec.destination.RegisterRequestHandler(path, func(p string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) []byte {
+		_ = requestedAt
+		requestIDHex := hex.EncodeToString(requestID)
+		ev := Event{
+			Kind:            EventRequestIncoming,
+			DestinationHash: append([]byte(nil), destHash...),
+			LinkID:          append([]byte(nil), linkID...),
+			RequestID:       append([]byte(nil), requestID...),
+			Path:            p,
+			AppData:         append([]byte(nil), data...),
+		}
+		if remoteIdentity != nil {
+			if h, err := hex.DecodeString(remoteIdentity.GetHexHash()); err == nil {
+				ev.IdentityHash = h
+			}
+		}
+		ch := nodeRec.awaitResponse(requestIDHex)
+		nodeRec.enqueue(ev)
+		select {
+		case resp := <-ch:
+			return resp
+		case <-time.After(requestResponseTimeout):
+			nodeRec.forgetResponse(requestIDHex)
+			return nil
+		}
+	}, destination.AllowAll, nil); err != nil {
+		return setLastError(fmt.Errorf("%w: %v", errInternal, err))
+	}
+	return OK
+}
+
+// RequestRespond delivers a response for a pending EventRequestIncoming.
+func RequestRespond(nodeHandle uint64, requestID, data []byte) int {
+	if len(requestID) == 0 {
+		return setLastError(errInvalidArg)
+	}
+	nodeRec, err := nodeByHandle(nodeHandle)
+	if err != nil {
+		return setLastError(err)
+	}
+	if !nodeRec.deliverResponse(hex.EncodeToString(requestID), append([]byte(nil), data...)) {
+		return setLastError(errNotFound)
+	}
+	return OK
 }
 
 // DestinationAnnounce sends an announce for destHandle.

@@ -5,6 +5,7 @@ package librns
 
 import (
 	"fmt"
+	"time"
 
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/identity"
@@ -139,6 +140,58 @@ func LinkID(linkHandle uint64) ([]byte, int) {
 	out := make([]byte, len(lr.id))
 	copy(out, lr.id)
 	return out, OK
+}
+
+// LinkRequest sends a request on an established link.
+// Completion arrives as EventRequestResponse or EventRequestFailed on the node queue.
+func LinkRequest(nodeHandle, linkHandle uint64, path string, data []byte, timeoutMs int) (requestID []byte, code int) {
+	if path == "" {
+		return nil, setLastError(errInvalidArg)
+	}
+	nodeRec, err := nodeByHandle(nodeHandle)
+	if err != nil {
+		return nil, setLastError(err)
+	}
+	lr, err := linkByHandle(linkHandle)
+	if err != nil {
+		return nil, setLastError(err)
+	}
+	if lr.link == nil || !lr.established {
+		return nil, setLastError(errState)
+	}
+	timeout := time.Duration(timeoutMs) * time.Millisecond
+	if timeoutMs <= 0 {
+		timeout = 0
+	}
+	var payload any
+	if data != nil {
+		payload = data
+	}
+	receipt, err := lr.link.Request(path, payload, timeout)
+	if err != nil {
+		return nil, setLastError(fmt.Errorf("%w: %v", errInternal, err))
+	}
+	id := receipt.GetRequestID()
+	linkID := append([]byte(nil), lr.id...)
+	receipt.SetResponseCallback(func(r *link.RequestReceipt) {
+		nodeRec.enqueue(Event{
+			Kind:      EventRequestResponse,
+			LinkID:    linkID,
+			RequestID: append([]byte(nil), r.GetRequestID()...),
+			Path:      path,
+			AppData:   r.GetResponse(),
+		})
+	})
+	receipt.SetFailedCallback(func(r *link.RequestReceipt) {
+		nodeRec.enqueue(Event{
+			Kind:         EventRequestFailed,
+			LinkID:       linkID,
+			RequestID:    append([]byte(nil), r.GetRequestID()...),
+			Path:         path,
+			ErrorMessage: "request failed or timed out",
+		})
+	})
+	return append([]byte(nil), id...), OK
 }
 
 func wireLinkData(nodeRec *nodeRecord, lr *linkRecord) {

@@ -106,6 +106,7 @@ func cloneEvent(ev Event) Event {
 	out := Event{
 		Kind:         ev.Kind,
 		Hops:         ev.Hops,
+		Path:         ev.Path,
 		ErrorMessage: ev.ErrorMessage,
 	}
 	if ev.LinkID != nil {
@@ -116,6 +117,9 @@ func cloneEvent(ev Event) Event {
 	}
 	if ev.IdentityHash != nil {
 		out.IdentityHash = append([]byte(nil), ev.IdentityHash...)
+	}
+	if ev.RequestID != nil {
+		out.RequestID = append([]byte(nil), ev.RequestID...)
 	}
 	if ev.AppData != nil {
 		out.AppData = append([]byte(nil), ev.AppData...)

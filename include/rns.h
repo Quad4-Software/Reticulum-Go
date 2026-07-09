@@ -27,6 +27,9 @@ extern "C" {
 #define RNS_EV_LINK_FAILED 3
 #define RNS_EV_LINK_DATA 4
 #define RNS_EV_LINK_CLOSED 5
+#define RNS_EV_REQUEST_INCOMING 6
+#define RNS_EV_REQUEST_RESPONSE 7
+#define RNS_EV_REQUEST_FAILED 8
 
 typedef struct rns_event {
 	int kind;
@@ -36,7 +39,11 @@ typedef struct rns_event {
 	size_t destination_hash_len;
 	uint8_t identity_hash[RNS_HASH_LEN];
 	size_t identity_hash_len;
+	uint8_t request_id[RNS_HASH_LEN];
+	size_t request_id_len;
 	uint8_t hops;
+	char path[256];
+	int path_truncated;
 	char error_message[256];
 	int error_message_truncated;
 	uint8_t *app_data;
@@ -44,6 +51,19 @@ typedef struct rns_event {
 	size_t app_data_cap;
 	int app_data_truncated;
 } rns_event;
+
+typedef struct rns_path_entry {
+	uint8_t hash[RNS_HASH_LEN];
+	size_t hash_len;
+	uint8_t via[RNS_HASH_LEN];
+	size_t via_len;
+	uint8_t hops;
+	char iface[64];
+	double timestamp;
+	double expires;
+} rns_path_entry;
+
+typedef void (*rns_event_callback)(const rns_event *event, void *user_data);
 
 const char *rns_version(void);
 
@@ -54,6 +74,9 @@ int rns_node_start(uint64_t node);
 int rns_node_stop(uint64_t node);
 int rns_node_destroy(uint64_t node);
 int rns_node_set_identity(uint64_t node, uint64_t identity);
+int rns_node_resume(uint64_t node);
+int rns_node_pause(uint64_t node);
+int rns_node_refresh_paths(uint64_t node, const uint8_t *dest_hashes, size_t count);
 
 uint64_t rns_identity_generate(void);
 uint64_t rns_identity_load(const char *path);
@@ -65,15 +88,24 @@ uint64_t rns_destination_create(uint64_t node, uint64_t identity, const char *ap
 int rns_destination_announce(uint64_t destination, const uint8_t *app_data, size_t app_data_len);
 int rns_destination_hash(uint64_t destination, uint8_t *hash_out, size_t hash_out_len, size_t *written);
 int rns_destination_destroy(uint64_t destination);
+int rns_destination_register_request_handler(uint64_t destination, const char *path);
 
 int rns_path_request(uint64_t node, const uint8_t *dest_hash);
+int rns_path_table(uint64_t node, rns_path_entry *out, size_t out_cap, size_t *written, int max_hops);
 
 uint64_t rns_link_open(uint64_t node, const uint8_t *dest_hash);
 int rns_link_send(uint64_t link, const uint8_t *data, size_t data_len);
 int rns_link_close(uint64_t link);
 int rns_link_id(uint64_t link, uint8_t *id_out, size_t id_out_len, size_t *written);
+int rns_link_request(uint64_t node, uint64_t link, const char *path,
+	const uint8_t *data, size_t data_len, int timeout_ms,
+	uint8_t *request_id_out, size_t request_id_out_len, size_t *written);
+
+int rns_request_respond(uint64_t node, const uint8_t *request_id, size_t request_id_len,
+	const uint8_t *data, size_t data_len);
 
 int rns_event_poll(uint64_t node, rns_event *event, int timeout_ms);
+int rns_set_event_callback(uint64_t node, rns_event_callback callback, void *user_data);
 
 #ifdef __cplusplus
 }

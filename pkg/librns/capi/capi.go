@@ -16,7 +16,11 @@ typedef struct rns_event {
 	size_t destination_hash_len;
 	uint8_t identity_hash[16];
 	size_t identity_hash_len;
+	uint8_t request_id[16];
+	size_t request_id_len;
 	uint8_t hops;
+	char path[256];
+	int path_truncated;
 	char error_message[256];
 	int error_message_truncated;
 	uint8_t *app_data;
@@ -25,17 +29,37 @@ typedef struct rns_event {
 	int app_data_truncated;
 } rns_event;
 
+typedef struct rns_path_entry {
+	uint8_t hash[16];
+	size_t hash_len;
+	uint8_t via[16];
+	size_t via_len;
+	uint8_t hops;
+	char iface[64];
+	double timestamp;
+	double expires;
+} rns_path_entry;
+
+typedef void (*rns_event_callback)(const rns_event *event, void *user_data);
+
 static inline int rns_size_as_cint(size_t n) {
 	if (n > (size_t)INT_MAX) {
 		return -1;
 	}
 	return (int)n;
 }
+
+static inline void call_rns_event_callback(rns_event_callback cb, const rns_event *event, void *user_data) {
+	if (cb != NULL) {
+		cb(event, user_data);
+	}
+}
 */
 import "C"
 
 import (
 	"math"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -45,10 +69,20 @@ import (
 
 const maxCGoBytes = math.MaxInt32
 
-var versionCString *C.char
+var (
+	versionCString *C.char
+
+	cbMu      sync.Mutex
+	cbFn      map[uint64]C.rns_event_callback
+	cbUser    map[uint64]unsafe.Pointer
+	cbScratch map[uint64][]byte
+)
 
 func init() {
 	versionCString = C.CString(librns.Version())
+	cbFn = make(map[uint64]C.rns_event_callback)
+	cbUser = make(map[uint64]unsafe.Pointer)
+	cbScratch = make(map[uint64][]byte)
 }
 
 //export rns_version
@@ -109,6 +143,36 @@ func rns_node_destroy(node C.uint64_t) C.int {
 //export rns_node_set_identity
 func rns_node_set_identity(node, identity C.uint64_t) C.int {
 	return cCode(librns.NodeSetIdentity(uint64(node), uint64(identity)))
+}
+
+//export rns_node_resume
+func rns_node_resume(node C.uint64_t) C.int {
+	return cCode(librns.NodeResume(uint64(node)))
+}
+
+//export rns_node_pause
+func rns_node_pause(node C.uint64_t) C.int {
+	return cCode(librns.NodePause(uint64(node)))
+}
+
+//export rns_node_refresh_paths
+func rns_node_refresh_paths(node C.uint64_t, destHashes *C.uint8_t, count C.size_t) C.int {
+	n, ok := sizeToInt(count)
+	if !ok {
+		return cCode(librns.ErrInvalidArg)
+	}
+	var hashes [][]byte
+	if n > 0 {
+		if destHashes == nil {
+			return cCode(librns.ErrInvalidArg)
+		}
+		raw := unsafe.Slice((*byte)(unsafe.Pointer(destHashes)), n*16)
+		hashes = make([][]byte, n)
+		for i := 0; i < n; i++ {
+			hashes[i] = append([]byte(nil), raw[i*16:(i+1)*16]...)
+		}
+	}
+	return cCode(librns.NodeRefreshPaths(uint64(node), hashes...))
 }
 
 //export rns_identity_generate
@@ -205,6 +269,14 @@ func rns_destination_destroy(destination C.uint64_t) C.int {
 	return cCode(librns.DestinationDestroy(uint64(destination)))
 }
 
+//export rns_destination_register_request_handler
+func rns_destination_register_request_handler(destination C.uint64_t, path *C.char) C.int {
+	if path == nil {
+		return cCode(librns.ErrInvalidArg)
+	}
+	return cCode(librns.DestinationRegisterRequestHandler(uint64(destination), C.GoString(path)))
+}
+
 //export rns_path_request
 func rns_path_request(node C.uint64_t, destHash *C.uint8_t) C.int {
 	if destHash == nil {
@@ -212,6 +284,42 @@ func rns_path_request(node C.uint64_t, destHash *C.uint8_t) C.int {
 	}
 	hash := C.GoBytes(unsafe.Pointer(destHash), identity.TruncatedHashLength/8)
 	return cCode(librns.PathRequest(uint64(node), hash))
+}
+
+//export rns_path_table
+func rns_path_table(node C.uint64_t, out *C.rns_path_entry, outCap C.size_t, written *C.size_t, maxHops C.int) C.int {
+	if written != nil {
+		*written = 0
+	}
+	rows, code := librns.PathTable(uint64(node), int(maxHops))
+	if code != librns.OK {
+		return cCode(code)
+	}
+	if written != nil {
+		*written = sizeFromInt(len(rows))
+	}
+	if out == nil || outCap == 0 {
+		if len(rows) > 0 {
+			return cCode(librns.ErrTruncated)
+		}
+		return cCode(librns.OK)
+	}
+	cap, ok := sizeToInt(outCap)
+	if !ok {
+		return cCode(librns.ErrInvalidArg)
+	}
+	n := len(rows)
+	if n > cap {
+		n = cap
+	}
+	slice := unsafe.Slice(out, cap)
+	for i := 0; i < n; i++ {
+		fillPathEntry(&slice[i], rows[i])
+	}
+	if len(rows) > cap {
+		return cCode(librns.ErrTruncated)
+	}
+	return cCode(librns.OK)
 }
 
 //export rns_link_open
@@ -256,6 +364,35 @@ func rns_link_id(link C.uint64_t, idOut *C.uint8_t, idOutLen C.size_t, written *
 	return copyFixedBytes(idOut, idOutLen, written, id)
 }
 
+//export rns_link_request
+func rns_link_request(node, link C.uint64_t, path *C.char, data *C.uint8_t, dataLen C.size_t, timeoutMs C.int, requestIDOut *C.uint8_t, requestIDOutLen C.size_t, written *C.size_t) C.int {
+	if path == nil {
+		return cCode(librns.ErrInvalidArg)
+	}
+	payload, code := goBytesFromC(data, dataLen)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	id, code := librns.LinkRequest(uint64(node), uint64(link), C.GoString(path), payload, int(timeoutMs))
+	if code != librns.OK {
+		return cCode(code)
+	}
+	return copyFixedBytes(requestIDOut, requestIDOutLen, written, id)
+}
+
+//export rns_request_respond
+func rns_request_respond(node C.uint64_t, requestID *C.uint8_t, requestIDLen C.size_t, data *C.uint8_t, dataLen C.size_t) C.int {
+	rid, code := goBytesFromC(requestID, requestIDLen)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	payload, code := goBytesFromC(data, dataLen)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	return cCode(librns.RequestRespond(uint64(node), rid, payload))
+}
+
 //export rns_event_poll
 func rns_event_poll(node C.uint64_t, event *C.rns_event, timeoutMs C.int) C.int {
 	if event == nil {
@@ -273,15 +410,76 @@ func rns_event_poll(node C.uint64_t, event *C.rns_event, timeoutMs C.int) C.int 
 	return cCode(librns.OK)
 }
 
+//export rns_set_event_callback
+func rns_set_event_callback(node C.uint64_t, callback C.rns_event_callback, userData unsafe.Pointer) C.int {
+	id := uint64(node)
+	if callback == nil {
+		cbMu.Lock()
+		delete(cbFn, id)
+		delete(cbUser, id)
+		delete(cbScratch, id)
+		cbMu.Unlock()
+		return cCode(librns.SetEventCallback(id, nil))
+	}
+	cbMu.Lock()
+	cbFn[id] = callback
+	cbUser[id] = userData
+	if _, ok := cbScratch[id]; !ok {
+		cbScratch[id] = make([]byte, 65536)
+	}
+	cbMu.Unlock()
+	return cCode(librns.SetEventCallback(id, func(ev librns.Event) {
+		cbMu.Lock()
+		fn := cbFn[id]
+		ud := cbUser[id]
+		buf := cbScratch[id]
+		cbMu.Unlock()
+		if fn == nil {
+			return
+		}
+		var cev C.rns_event
+		if len(ev.AppData) > 0 && len(buf) > 0 {
+			cev.app_data = (*C.uint8_t)(unsafe.Pointer(&buf[0]))
+			cev.app_data_cap = sizeFromInt(len(buf))
+		}
+		fillEvent(&cev, ev)
+		C.call_rns_event_callback(fn, &cev, ud)
+	}))
+}
+
+func fillPathEntry(dst *C.rns_path_entry, e librns.PathEntry) {
+	dst.hash_len = 0
+	dst.via_len = 0
+	dst.hops = C.uint8_t(e.Hops)
+	dst.timestamp = C.double(e.Timestamp)
+	dst.expires = C.double(e.Expires)
+	dst.iface[0] = 0
+	if len(e.Hash) > 0 {
+		n := copyToFixed((*[16]C.uint8_t)(unsafe.Pointer(&dst.hash[0])), e.Hash)
+		dst.hash_len = sizeFromInt(n)
+	}
+	if len(e.Via) > 0 {
+		n := copyToFixed((*[16]C.uint8_t)(unsafe.Pointer(&dst.via[0])), e.Via)
+		dst.via_len = sizeFromInt(n)
+	}
+	if e.Interface != "" {
+		copyCString(&dst.iface[0], C.size_t(len(dst.iface)), e.Interface)
+	}
+}
+
 func fillEvent(dst *C.rns_event, ev librns.Event) {
 	dst.kind = cCode(ev.Kind)
 	dst.hops = C.uint8_t(ev.Hops)
 	dst.link_id_len = 0
 	dst.destination_hash_len = 0
 	dst.identity_hash_len = 0
+	dst.request_id_len = 0
+	dst.path_truncated = 0
 	dst.error_message_truncated = 0
 	dst.app_data_len = 0
 	dst.app_data_truncated = 0
+	dst.path[0] = 0
+	dst.error_message[0] = 0
 
 	if len(ev.LinkID) > 0 {
 		n := copyToFixed((*[16]C.uint8_t)(unsafe.Pointer(&dst.link_id[0])), ev.LinkID)
@@ -294,6 +492,16 @@ func fillEvent(dst *C.rns_event, ev librns.Event) {
 	if len(ev.IdentityHash) > 0 {
 		n := copyToFixed((*[16]C.uint8_t)(unsafe.Pointer(&dst.identity_hash[0])), ev.IdentityHash)
 		dst.identity_hash_len = sizeFromInt(n)
+	}
+	if len(ev.RequestID) > 0 {
+		n := copyToFixed((*[16]C.uint8_t)(unsafe.Pointer(&dst.request_id[0])), ev.RequestID)
+		dst.request_id_len = sizeFromInt(n)
+	}
+	if ev.Path != "" {
+		n := copyCString(&dst.path[0], C.size_t(len(dst.path)), ev.Path)
+		if n < len(ev.Path) {
+			dst.path_truncated = 1
+		}
 	}
 	if ev.ErrorMessage != "" {
 		n := copyCString(&dst.error_message[0], C.size_t(len(dst.error_message)), ev.ErrorMessage)
