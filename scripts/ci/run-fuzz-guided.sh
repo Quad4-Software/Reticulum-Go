@@ -14,7 +14,7 @@ mkdir -p "$COVER_DIR"
 UNIT_COVER="$COVER_DIR/unit-before.out"
 UNIT_AFTER="$COVER_DIR/unit-after.out"
 
-PACKAGES="./pkg/packet ./pkg/transport ./pkg/identity ./pkg/link ./pkg/ifac ./pkg/backbone ./pkg/discovery ./pkg/blackhole"
+PACKAGES="./pkg/packet ./pkg/transport ./pkg/identity ./pkg/link ./pkg/ifac ./pkg/backbone ./pkg/discovery ./pkg/blackhole ./pkg/librns"
 
 package_low_coverage() {
 	pkg="$1"
@@ -88,6 +88,10 @@ run_fuzz ./pkg/ifac FuzzMaskRoundTrip "$(fuzz_time_for ifac 15s)"
 run_fuzz ./pkg/backbone FuzzHDLCDecoderFeed "$(fuzz_time_for backbone 15s)"
 run_fuzz ./pkg/discovery FuzzDecodeAppData "$(fuzz_time_for discovery 10s)"
 run_fuzz ./pkg/blackhole FuzzDecodeBlackholeMap "$(fuzz_time_for blackhole 10s)"
+run_fuzz ./pkg/librns FuzzHandleTable "$(fuzz_time_for librns 10s)"
+run_fuzz ./pkg/librns FuzzEventQueue "$(fuzz_time_for librns 10s)"
+run_fuzz ./pkg/librns FuzzConfigPathCreate "$(fuzz_time_for librns 10s)"
+run_fuzz ./pkg/librns FuzzValidatePath "$(fuzz_time_for librns 5s)"
 
 echo "fuzz-guided: rechecking unit coverage"
 if ! collect_unit_coverage "$UNIT_AFTER" "$COVER_DIR/unit-after.log"; then

@@ -17,6 +17,16 @@ tasks:
       - mkdir -p {{.BUILD_DIR}}
       - '{{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}'
 
+  build-utils:
+    desc: Build Go-native CLI utilities (rgostatus, rgoid, rgoprobe)
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - '{{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/rgostatus ./cmd/rgostatus'
+      - '{{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/rgoid ./cmd/rgoid'
+      - '{{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/rgoprobe ./cmd/rgoprobe'
+
   debug:
     desc: Build debug binary
     cmds:
@@ -168,6 +178,15 @@ tasks:
     cmds:
       - mkdir -p {{.BUILD_DIR}}
       - tinygo build -target wasm -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm ./cmd/reticulum-wasm
+
+  build-librns:
+    desc: Build librns shared library and C header (CGO required)
+    env:
+      CGO_ENABLED: '1'
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - '{{.GOCMD}} build -buildmode=c-shared -o {{.BUILD_DIR}}/librns.so ./cmd/librns'
+      - cp include/rns.h {{.BUILD_DIR}}/rns.h
 
   checksum:
     desc: Generate SHA256 checksum for binary (uses BINARY_PATH env var if set, otherwise defaults to bin/reticulum-go)
