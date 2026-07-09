@@ -78,6 +78,9 @@ func NewBackboneClientInterface(name string, cfg *common.InterfaceConfig, hub *b
 	bc.Bitrate = backboneClientBitrateGuess
 	bc.In = true
 	bc.Out = true
+	if cfg.Enabled {
+		bc.startReconnect()
+	}
 	return bc, nil
 }
 

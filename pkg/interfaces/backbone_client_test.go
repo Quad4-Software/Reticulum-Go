@@ -22,6 +22,7 @@ func TestNewBackboneClientInterfaceDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewBackboneClientInterface: %v", err)
 	}
+	defer func() { _ = bc.Stop() }()
 	if bc.MTU != backboneHWMTU {
 		t.Errorf("MTU = %d, want %d", bc.MTU, backboneHWMTU)
 	}
@@ -30,6 +31,9 @@ func TestNewBackboneClientInterfaceDefaults(t *testing.T) {
 	}
 	if bc.GetType() != common.IFTypeBackbone {
 		t.Errorf("Type = %v, want IFTypeBackbone", bc.GetType())
+	}
+	if bc.reconnect == nil {
+		t.Fatal("enabled client should start reconnect driver")
 	}
 }
 
@@ -56,6 +60,7 @@ func TestNewBackboneClientInterfacePortFallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() { _ = bc.Stop() }()
 	if bc.targetPort != 7822 {
 		t.Fatalf("targetPort = %d, want 7822", bc.targetPort)
 	}
@@ -75,6 +80,7 @@ func TestNewBackboneFromConfigSelectsClientMode(t *testing.T) {
 	if _, ok := iface.(*BackboneClientInterface); !ok {
 		t.Fatalf("expected BackboneClientInterface, got %T", iface)
 	}
+	defer func() { _ = iface.Stop() }()
 }
 
 func TestNewBackboneFromConfigSelectsServerMode(t *testing.T) {
