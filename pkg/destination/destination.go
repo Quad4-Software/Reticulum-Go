@@ -145,44 +145,59 @@ func FromHash(hash []byte, id *identity.Identity, destType byte, transport Trans
 }
 
 func (d *Destination) calculateHash() []byte {
-	debug.Log(debug.DebugTrace, "Calculating hash for destination", "name", d.ExpandName())
+	return Hash(d.identity, d.appName, d.aspects...)
+}
 
-	// Name hash is the FULL 32-byte SHA256, then we take first 10 bytes for concatenation
-	nameHashFull := sha256.Sum256([]byte(d.ExpandName()))
-	nameHash10 := nameHashFull[:10] // Only use 10 bytes
-
-	var combined []byte
-	if d.identity != nil {
-		// destination_hash = SHA256(name_hash_10bytes + identity_hash_16bytes)[:16]
-		// Identity hash is the truncated hash of the public key (16 bytes)
-		identityHash := identity.TruncatedHash(d.identity.GetPublicKey())
-		debug.Log(debug.DebugAll, "Identity hash", "hash", fmt.Sprintf("%x", identityHash))
-		debug.Log(debug.DebugAll, "Name hash (10 bytes)", "hash", fmt.Sprintf("%x", nameHash10))
-
-		// Concatenate name_hash (10 bytes) + identity_hash (16 bytes) = 26 bytes
-		combined = append(nameHash10, identityHash...)
-	} else {
-		// Plain destination has no identity hash
-		combined = nameHash10
-		debug.Log(debug.DebugAll, "Name hash (10 bytes)", "hash", fmt.Sprintf("%x", nameHash10))
+// ExpandAppName builds the dotted destination name used in hashing.
+func ExpandAppName(appName string, aspects ...string) string {
+	if len(aspects) == 0 {
+		return appName
 	}
+	var name strings.Builder
+	name.Grow(len(appName) + len(aspects)*8)
+	name.WriteString(appName)
+	for _, aspect := range aspects {
+		name.WriteByte('.')
+		name.WriteString(aspect)
+	}
+	return name.String()
+}
 
-	// Then hash again and truncate to 16 bytes
-	finalHashFull := sha256.Sum256(combined)
-	finalHash := finalHashFull[:16]
+// ParseName splits a dotted destination name into app name and aspects.
+func ParseName(full string) (appName string, aspects []string, err error) {
+	full = strings.TrimSpace(full)
+	if full == "" {
+		return "", nil, errors.New("empty destination name")
+	}
+	parts := strings.Split(full, ".")
+	if len(parts) < 1 || parts[0] == "" {
+		return "", nil, errors.New("invalid destination name")
+	}
+	if len(parts) == 1 {
+		return parts[0], nil, nil
+	}
+	return parts[0], parts[1:], nil
+}
 
-	debug.Log(debug.DebugVerbose, "Calculated destination hash", "hash", fmt.Sprintf("%x", finalHash))
+// Hash computes a 16-byte destination hash matching Python Destination.hash.
+func Hash(id *identity.Identity, appName string, aspects ...string) []byte {
+	nameHashFull := sha256.Sum256([]byte(ExpandAppName(appName, aspects...)))
+	nameHash10 := nameHashFull[:10]
 
-	return finalHash
+	var combined [26]byte
+	n := copy(combined[:], nameHash10)
+	if id != nil {
+		identityHash := identity.TruncatedHash(id.GetPublicKey())
+		n += copy(combined[n:], identityHash)
+	}
+	finalHashFull := sha256.Sum256(combined[:n])
+	out := make([]byte, 16)
+	copy(out, finalHashFull[:16])
+	return out
 }
 
 func (d *Destination) ExpandName() string {
-	var name strings.Builder
-	name.WriteString(d.appName)
-	for _, aspect := range d.aspects {
-		name.WriteString("." + aspect)
-	}
-	return name.String()
+	return ExpandAppName(d.appName, d.aspects...)
 }
 
 func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface common.NetworkInterface) error {

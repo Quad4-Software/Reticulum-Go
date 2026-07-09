@@ -111,6 +111,11 @@ func sendBytes(w io.Writer, buf []byte) error {
 	return err
 }
 
+// SendFramed writes a length-prefixed multiprocessing.connection frame.
+func SendFramed(w io.Writer, buf []byte) error {
+	return sendBytes(w, buf)
+}
+
 func recvBytes(r io.Reader, maxSize int) ([]byte, error) {
 	header := make([]byte, 4)
 	if _, err := io.ReadFull(r, header); err != nil {
@@ -139,6 +144,11 @@ func recvBytes(r io.Reader, maxSize int) ([]byte, error) {
 		return nil, err
 	}
 	return buf, nil
+}
+
+// RecvFramed reads a length-prefixed multiprocessing.connection frame.
+func RecvFramed(r io.Reader, maxSize int) ([]byte, error) {
+	return recvBytes(r, maxSize)
 }
 
 func createResponse(authkey, message []byte) []byte {

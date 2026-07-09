@@ -113,6 +113,7 @@ type Transport struct {
 	pendingPathEntries    []pendingPathEntry
 	done                  chan struct{}
 	stopOnce              sync.Once
+	startTime             time.Time
 
 	tunnelMu           sync.Mutex
 	tunnels            map[[32]byte]*tunnelEntry
@@ -186,6 +187,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		ifaceStates:           newIfaceStateTable(),
 		pendingDiscoveryPRs:   make([]pendingDiscoveryPR, 0, maxQueuedDiscoveryPRs),
 		done:                  make(chan struct{}),
+		startTime:             time.Now(),
 	}
 
 	transportIdent, err := identity.LoadOrCreateTransportIdentity(transportStoragePath(cfg))
@@ -236,8 +238,20 @@ func (t *Transport) startMaintenanceJobs() {
 			}
 			t.cleanupExpiredPathRequestThrottle()
 			t.releaseHeldAnnounces()
+			t.sampleInterfaceTraffic()
 		case <-t.done:
 			return
+		}
+	}
+}
+
+func (t *Transport) sampleInterfaceTraffic() {
+	for _, e := range t.snapshotRegisteredInterfaces() {
+		if e.iface == nil {
+			continue
+		}
+		if sampler, ok := e.iface.(interface{ SampleTraffic() }); ok {
+			sampler.SampleTraffic()
 		}
 	}
 }
@@ -1359,6 +1373,12 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	}
 	debug.Log(debug.DebugInfo, "Signature verification successful")
 
+	if iface != nil {
+		if ra, ok := iface.(interface{ ReceivedAnnounce() }); ok {
+			ra.ReceivedAnnounce()
+		}
+	}
+
 	hashMaterial := make([]byte, 0)
 	hashMaterial = append(hashMaterial, nameHash...)
 	hashMaterial = append(hashMaterial, id.Hash()...)
@@ -1504,6 +1524,8 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		if err := outIface.Send(data, ""); err != nil {
 			debug.Log(debug.DebugAll, "Failed to forward announce", "name", name, "error", err)
 			lastErr = err
+		} else if sa, ok := outIface.(interface{ SentAnnounce() }); ok {
+			sa.SentAnnounce()
 		}
 	}
 

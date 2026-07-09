@@ -396,6 +396,36 @@ func (i *BaseInterface) ReceivedPathRequest() {}
 // SentPathRequest records an outgoing path request.
 func (i *BaseInterface) SentPathRequest() {}
 
+// ReceivedAnnounce records an incoming announce.
+func (i *BaseInterface) ReceivedAnnounce() {}
+
+// SentAnnounce records an outgoing announce.
+func (i *BaseInterface) SentAnnounce() {}
+
+// IncomingAnnounceFrequency returns the estimated incoming announce rate in Hz.
+func (i *BaseInterface) IncomingAnnounceFrequency() float64 { return 0 }
+
+// OutgoingAnnounceFrequency returns the estimated outgoing announce rate in Hz.
+func (i *BaseInterface) OutgoingAnnounceFrequency() float64 { return 0 }
+
+// IncomingPRFrequency returns the estimated incoming path-request rate in Hz.
+func (i *BaseInterface) IncomingPRFrequency() float64 { return 0 }
+
+// OutgoingPRFrequency returns the estimated outgoing path-request rate in Hz.
+func (i *BaseInterface) OutgoingPRFrequency() float64 { return 0 }
+
+// PRBurstActive reports whether path-request ingress burst limiting is active.
+func (i *BaseInterface) PRBurstActive() bool { return false }
+
+// SampleTraffic updates current RX/TX bitrates from byte-counter deltas.
+func (i *BaseInterface) SampleTraffic() {}
+
+// GetRxSpeed returns the most recently sampled receive bitrate in bits/sec.
+func (i *BaseInterface) GetRxSpeed() float64 { return 0 }
+
+// GetTxSpeed returns the most recently sampled transmit bitrate in bits/sec.
+func (i *BaseInterface) GetTxSpeed() float64 { return 0 }
+
 // ShouldIngressLimitPR reports whether ingress path-request limiting is active.
 func (i *BaseInterface) ShouldIngressLimitPR() bool { return false }
 

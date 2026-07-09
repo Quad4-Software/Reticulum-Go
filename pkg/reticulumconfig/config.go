@@ -475,8 +475,17 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	b.WriteString("[reticulum]\n")
 	fmt.Fprintf(&b, "  enable_transport = %s\n", boolStr(cfg.EnableTransport))
 	fmt.Fprintf(&b, "  share_instance = %s\n", boolStr(cfg.ShareInstance))
+	if cfg.InstanceName != "" {
+		fmt.Fprintf(&b, "  instance_name = %s\n", cfg.InstanceName)
+	}
+	if cfg.SharedInstanceType != "" {
+		fmt.Fprintf(&b, "  shared_instance_type = %s\n", cfg.SharedInstanceType)
+	}
 	fmt.Fprintf(&b, "  shared_instance_port = %d\n", cfg.SharedInstancePort)
 	fmt.Fprintf(&b, "  instance_control_port = %d\n", cfg.InstanceControlPort)
+	if len(cfg.RPCKey) > 0 {
+		fmt.Fprintf(&b, "  rpc_key = %x\n", cfg.RPCKey)
+	}
 	fmt.Fprintf(&b, "  panic_on_interface_error = %s\n", boolStr(cfg.PanicOnInterfaceErr))
 	fmt.Fprintf(&b, "  enable_sandbox = %s\n", boolStr(cfg.EnableSandbox))
 	fmt.Fprintf(&b, "  enable_control_api = %s\n", boolStr(cfg.EnableControlAPI))

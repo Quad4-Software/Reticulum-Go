@@ -83,6 +83,8 @@ type BaseInterface struct {
 	created            time.Time
 	ipFreqDeque        []time.Time
 	opFreqDeque        []time.Time
+	iaFreqDeque        []time.Time
+	oaFreqDeque        []time.Time
 	icPRBurstActive    bool
 	icPRBurstActivated time.Time
 	ingressControl     bool
@@ -90,6 +92,12 @@ type BaseInterface struct {
 	icPRBurstFreqNewV  float64
 	icPRBurstFreqV     float64
 	ecPRFreqV          float64
+
+	currentRXS float64
+	currentTXS float64
+	sampleRXB  uint64
+	sampleTXB  uint64
+	sampleTS   time.Time
 }
 
 func NewBaseInterface(name string, ifType common.InterfaceType, enabled bool) BaseInterface {
@@ -374,6 +382,99 @@ func (i *BaseInterface) SentPathRequest() {
 	}
 }
 
+// ReceivedAnnounce records an incoming announce for frequency tracking.
+func (i *BaseInterface) ReceivedAnnounce() {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.iaFreqDeque = append(i.iaFreqDeque, time.Now())
+	if len(i.iaFreqDeque) > prFreqSamples {
+		i.iaFreqDeque = i.iaFreqDeque[1:]
+	}
+}
+
+// SentAnnounce records an outgoing announce for frequency tracking.
+func (i *BaseInterface) SentAnnounce() {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.oaFreqDeque = append(i.oaFreqDeque, time.Now())
+	if len(i.oaFreqDeque) > prFreqSamples {
+		i.oaFreqDeque = i.oaFreqDeque[1:]
+	}
+}
+
+// IncomingAnnounceFrequency returns the estimated incoming announce rate in Hz.
+func (i *BaseInterface) IncomingAnnounceFrequency() float64 {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	return i.incomingAnnounceFrequency()
+}
+
+// OutgoingAnnounceFrequency returns the estimated outgoing announce rate in Hz.
+func (i *BaseInterface) OutgoingAnnounceFrequency() float64 {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	return i.outgoingAnnounceFrequency()
+}
+
+// IncomingPRFrequency returns the estimated incoming path-request rate in Hz.
+func (i *BaseInterface) IncomingPRFrequency() float64 {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	return i.incomingPRFrequency()
+}
+
+// OutgoingPRFrequency returns the estimated outgoing path-request rate in Hz.
+func (i *BaseInterface) OutgoingPRFrequency() float64 {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	return i.outgoingPRFrequency()
+}
+
+// PRBurstActive reports whether path-request ingress burst limiting is active.
+func (i *BaseInterface) PRBurstActive() bool {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.icPRBurstActive
+}
+
+// SampleTraffic updates current RX/TX bitrates from byte-counter deltas.
+func (i *BaseInterface) SampleTraffic() {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	now := time.Now()
+	if i.sampleTS.IsZero() {
+		i.sampleRXB = i.RxBytes
+		i.sampleTXB = i.TxBytes
+		i.sampleTS = now
+		return
+	}
+	elapsed := now.Sub(i.sampleTS).Seconds()
+	if elapsed <= 0 {
+		return
+	}
+	rxDiff := i.RxBytes - i.sampleRXB
+	txDiff := i.TxBytes - i.sampleTXB
+	i.currentRXS = float64(rxDiff*8) / elapsed
+	i.currentTXS = float64(txDiff*8) / elapsed
+	i.sampleRXB = i.RxBytes
+	i.sampleTXB = i.TxBytes
+	i.sampleTS = now
+}
+
+// GetRxSpeed returns the most recently sampled receive bitrate in bits/sec.
+func (i *BaseInterface) GetRxSpeed() float64 {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.currentRXS
+}
+
+// GetTxSpeed returns the most recently sampled transmit bitrate in bits/sec.
+func (i *BaseInterface) GetTxSpeed() float64 {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.currentTXS
+}
+
 // SetPRBurstConfig configures path-request burst thresholds.
 func (i *BaseInterface) SetPRBurstConfig(icPrBurstFreqNew, icPrBurstFreq, ecPrFreq float64, egressControl bool) {
 	i.Mutex.Lock()
@@ -389,6 +490,38 @@ func (i *BaseInterface) SetIngressControl(enabled bool) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
 	i.ingressControl = enabled
+}
+
+func (i *BaseInterface) incomingAnnounceFrequency() float64 {
+	n := len(i.iaFreqDeque)
+	if n <= icDequeMinSample {
+		return 0
+	}
+	oldest := i.iaFreqDeque[0]
+	span := time.Since(oldest).Seconds()
+	if span > prFreqDecay {
+		i.iaFreqDeque = i.iaFreqDeque[1:]
+	}
+	if span <= 0 {
+		return 0
+	}
+	return float64(n) / span
+}
+
+func (i *BaseInterface) outgoingAnnounceFrequency() float64 {
+	n := len(i.oaFreqDeque)
+	if n <= 1 {
+		return 0
+	}
+	oldest := i.oaFreqDeque[0]
+	span := time.Since(oldest).Seconds()
+	if span > prFreqDecay {
+		i.oaFreqDeque = i.oaFreqDeque[1:]
+	}
+	if span <= 0 {
+		return 0
+	}
+	return float64(n) / span
 }
 
 func (i *BaseInterface) incomingPRFrequency() float64 {

@@ -4,6 +4,8 @@
 package transport
 
 import (
+	"time"
+
 	"quad4/reticulum-go/pkg/cryptography"
 	"quad4/reticulum-go/pkg/packet"
 )
@@ -20,19 +22,28 @@ type PathTableEntry struct {
 
 // InterfaceStat mirrors the subset of Python get_interface_stats() used by tools.
 type InterfaceStat struct {
-	Name           string  `msgpack:"name"`
-	ShortName      string  `msgpack:"short_name"`
-	Hash           []byte  `msgpack:"hash"`
-	Type           string  `msgpack:"type"`
-	RXB            uint64  `msgpack:"rxb"`
-	TXB            uint64  `msgpack:"txb"`
-	Status         bool    `msgpack:"status"`
-	Mode           byte    `msgpack:"mode"`
-	Clients        *int    `msgpack:"clients"`
-	Bitrate        int64   `msgpack:"bitrate"`
-	I2PConnectable *bool   `msgpack:"i2p_connectable,omitempty"`
-	I2PB32         *string `msgpack:"i2p_b32,omitempty"`
-	TunnelState    *string `msgpack:"tunnelstate,omitempty"`
+	Name                      string  `msgpack:"name"`
+	ShortName                 string  `msgpack:"short_name"`
+	Hash                      []byte  `msgpack:"hash"`
+	Type                      string  `msgpack:"type"`
+	RXB                       uint64  `msgpack:"rxb"`
+	TXB                       uint64  `msgpack:"txb"`
+	RXS                       float64 `msgpack:"rxs"`
+	TXS                       float64 `msgpack:"txs"`
+	IncomingAnnounceFrequency float64 `msgpack:"incoming_announce_frequency"`
+	OutgoingAnnounceFrequency float64 `msgpack:"outgoing_announce_frequency"`
+	IncomingPRFrequency       float64 `msgpack:"incoming_pr_frequency"`
+	OutgoingPRFrequency       float64 `msgpack:"outgoing_pr_frequency"`
+	HeldAnnounces             int     `msgpack:"held_announces"`
+	BurstActive               bool    `msgpack:"burst_active"`
+	PRBurstActive             bool    `msgpack:"pr_burst_active"`
+	Status                    bool    `msgpack:"status"`
+	Mode                      byte    `msgpack:"mode"`
+	Clients                   *int    `msgpack:"clients"`
+	Bitrate                   int64   `msgpack:"bitrate"`
+	I2PConnectable            *bool   `msgpack:"i2p_connectable,omitempty"`
+	I2PB32                    *string `msgpack:"i2p_b32,omitempty"`
+	TunnelState               *string `msgpack:"tunnelstate,omitempty"`
 }
 
 // InterfaceStatsResponse mirrors Python get_interface_stats() top-level map.
@@ -131,18 +142,38 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 	resp := InterfaceStatsResponse{
 		Interfaces: make([]InterfaceStat, 0, len(t.interfaces)),
 	}
+	var rxTotal, txTotal uint64
+	var rxsTotal, txsTotal float64
 	for _, iface := range t.interfaces {
 		if iface == nil {
 			continue
 		}
+		if sampler, ok := iface.(interface{ SampleTraffic() }); ok {
+			sampler.SampleTraffic()
+		}
+		rx := iface.GetRxBytes()
+		tx := iface.GetTxBytes()
+		rxTotal += rx
+		txTotal += tx
 		st := InterfaceStat{
 			Name:      iface.GetName(),
 			ShortName: iface.GetName(),
 			Type:      "Interface",
 			Status:    iface.IsOnline(),
 			Mode:      byte(iface.GetMode()),
-			RXB:       iface.GetRxBytes(),
-			TXB:       iface.GetTxBytes(),
+			RXB:       rx,
+			TXB:       tx,
+		}
+		if hasher, ok := iface.(interface{ InterfaceHash() []byte }); ok {
+			st.Hash = hasher.InterfaceHash()
+		}
+		switch br := iface.(type) {
+		case interface{ GetBitrate() int64 }:
+			st.Bitrate = br.GetBitrate()
+		case interface{ GetBitrate() int }:
+			st.Bitrate = int64(br.GetBitrate())
+		case interface{ GetBitrate() uint64 }:
+			st.Bitrate = int64(br.GetBitrate()) // #nosec G115 -- bitrate display only
 		}
 		if parent, ok := iface.(interface {
 			Connectable() bool
@@ -162,10 +193,46 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 			label := i2pTunnelStateLabel(peer.TunnelState())
 			st.TunnelState = &label
 		}
+		if v, ok := iface.(interface{ IncomingAnnounceFrequency() float64 }); ok {
+			st.IncomingAnnounceFrequency = v.IncomingAnnounceFrequency()
+		}
+		if v, ok := iface.(interface{ OutgoingAnnounceFrequency() float64 }); ok {
+			st.OutgoingAnnounceFrequency = v.OutgoingAnnounceFrequency()
+		}
+		if v, ok := iface.(interface{ IncomingPRFrequency() float64 }); ok {
+			st.IncomingPRFrequency = v.IncomingPRFrequency()
+		}
+		if v, ok := iface.(interface{ OutgoingPRFrequency() float64 }); ok {
+			st.OutgoingPRFrequency = v.OutgoingPRFrequency()
+		}
+		if v, ok := iface.(interface{ PRBurstActive() bool }); ok {
+			st.PRBurstActive = v.PRBurstActive()
+		}
+		if v, ok := iface.(interface{ GetRxSpeed() float64 }); ok {
+			st.RXS = v.GetRxSpeed()
+			rxsTotal += st.RXS
+		}
+		if v, ok := iface.(interface{ GetTxSpeed() float64 }); ok {
+			st.TXS = v.GetTxSpeed()
+			txsTotal += st.TXS
+		}
+		if t.ifaceStates != nil {
+			if stt := t.ifaceStates.get(iface.GetName()); stt != nil && stt.ingress != nil {
+				st.HeldAnnounces = stt.ingress.HeldCount()
+				st.BurstActive = stt.ingress.InBurst()
+			}
+		}
 		resp.Interfaces = append(resp.Interfaces, st)
 	}
+	resp.RXB = rxTotal
+	resp.TXB = txTotal
+	resp.RXS = rxsTotal
+	resp.TXS = txsTotal
 	if t.transportIdentity != nil {
 		resp.TransportID = t.transportIdentity.Hash()
+	}
+	if !t.startTime.IsZero() {
+		resp.TransportUptime = time.Since(t.startTime).Seconds()
 	}
 	return resp
 }
