@@ -99,7 +99,7 @@ Features:
 - RESOURCE_PRF proof flow
 - bzip2 compression optional (`bzip2_compress.go`)
 
-Python utility `rncp` is not ported as a CLI. The primitives are available in this package for Go applications.
+Python utility `rncp` is ported as `rgocp` ([CLI utilities](utilities.md)). The primitives remain available in this package for Go applications.
 
 Transfer flow at a high level:
 
@@ -144,7 +144,9 @@ Python 1.3.2 tears down links at LINKIDENTIFY when the remote identity is blackh
 
 ## Related documents
 
+- [API reference](api-reference.md)
 - [Identity and destinations](identity-and-destinations.md)
 - [Transport](transport.md)
 - [Control API](control-api.md) for link commands over WebSocket
 - [Examples](examples.md) for file transfer and link demos
+- [CLI utilities](utilities.md) for `rgocp`

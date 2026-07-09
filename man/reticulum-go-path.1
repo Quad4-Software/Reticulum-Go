@@ -1,0 +1,28 @@
+.Dd July 9, 2026
+.Dt RETICULUM-GO-PATH 1
+.Os
+.Sh NAME
+.Nm reticulum-go-path , rgopath
+.Nd manage Reticulum paths and blackholes
+.Sh SYNOPSIS
+.Nm reticulum-go Cm path
+.Op Fl config Ar dir
+.Op Fl t
+.Op Fl d
+.Op Fl D
+.Op Fl q
+.Op Fl blackholed
+.Op Fl blackhole
+.Op Fl unblackhole
+.Op Ar hash
+.Sh DESCRIPTION
+Shows or modifies the path table and blackhole list via shared-instance RPC,
+or performs a local path request when no RPC mode flag is set.
+.Pp
+Run with
+.Fl h
+for the full flag list.
+.Sh SEE ALSO
+.Xr reticulum-go 1
+.Sh AUTHORS
+.An Quad4.io

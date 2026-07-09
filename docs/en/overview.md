@@ -10,7 +10,7 @@
 
 Reticulum-Go is a Go implementation of the [Reticulum Network Stack](https://reticulum.network/). Reticulum is a cryptographic mesh networking protocol designed for resilient communication over heterogeneous links. It can run over UDP, TCP, radio hardware, I2P, and other transports without assuming a single global internet path.
 
-Reticulum-Go targets full wire compatibility with the official Python reference implementation (RNS 1.3.5) while using Go concurrency and static compilation for deployment on servers, desktops, embedded targets, and WebAssembly runtimes.
+Reticulum-Go targets full wire compatibility with the official Python reference implementation (RNS 1.3.7) while using Go concurrency and static compilation for deployment on servers, desktops, embedded targets, and WebAssembly runtimes.
 
 The primary deliverables are:
 
@@ -56,12 +56,13 @@ The table below summarizes major areas. For line-by-line parity with Python, see
 | IFAC | Complete | `pkg/ifac` |
 | UDP, TCP, Auto, I2P, Backbone interfaces | Complete | `pkg/interfaces` |
 | WebSocket interface | Go-only | `pkg/interfaces/websocket_*.go` |
+| QUIC interface | Go-only | `pkg/interfaces/quic.go`, `quic_tls.go` |
 | Daemon and config | Complete | `cmd/reticulum-go`, `pkg/reticulumconfig` |
 | Discovery (rnstransport) | Partial | Listening works. Announcer and autoconnect loops are not auto-started |
 | Blackhole | Partial | Table and announce drop work. Link teardown at identify is not implemented |
 | RNode, KISS, Serial, Weave | Not implemented | No driver in this tree |
 | PipeInterface, LocalInterface | Implemented | `pipe.go`, `local.go`, `sharedinstance` |
-| Python CLI utilities | Yes (core) | `rgostatus`, `rgoid`, `rgoprobe` via `pkg/rnsutil` |
+| Python CLI utilities | Yes (core) | `reticulum-go status|id|probe|path|cp` via `pkg/cli` / `pkg/rnsutil` |
 | Interface hot reload | Go-only | `pkg/node/reload.go`, SIGHUP on Unix |
 | Control API | Go-only | `pkg/controlapi` |
 | librns C ABI | Go-only | `pkg/librns`, `include/rns.h`, `task build-librns` |
@@ -72,15 +73,15 @@ The table below summarizes major areas. For line-by-line parity with Python, see
 ```
 Reticulum-Go/
   cmd/
-    reticulum-go/       Daemon
+    reticulum-go/       Daemon + tools (status, id, probe, path, cp, pageserver)
     reticulum-wasm/     WebAssembly entry
     librns/             C shared library entry (`-buildmode=c-shared`)
-    rgostatus/          Shared-instance status (RPC)
-    rgoid/              Identity and destination hashes
-    rgoprobe/           Path probe / RTT
+    rgo*/               Thin wrappers for legacy binary names
   include/
     rns.h               Public librns C header
-  pkg/                  Public library packages (includes rnsutil, librns)
+  pkg/                  Public library packages (cli, pageserver, rnsutil, …)
+  man/                  Man pages (sections 1 and 8)
+  packaging/            nfpm deb/rpm config
   internal/             Daemon-only helpers (config re-export, storage)
   examples/             Sample applications (includes librns-smoke)
   tests/
@@ -108,7 +109,7 @@ Reticulum-Go adds features that Python does not ship today (control API, librns,
 |------|------------|
 | Architect evaluating adoption | This page, then [Architecture](architecture.md) and [Compatibility](compatibility.md) |
 | Network operator | [Getting started](getting-started.md), [Configuration](configuration.md), [Interfaces](interfaces.md), [CLI utilities](utilities.md) |
-| Go application author | [Package map](package-map.md), [Embedding and WebAssembly](embedding-and-wasm.md) |
+| Go application author | [API reference](api-reference.md), [Package map](package-map.md), [Examples](examples.md), [Embedding and WebAssembly](embedding-and-wasm.md) |
 | Native / FFI embedder | [librns](librns.md), [Compatibility](compatibility.md) |
 | Security reviewer | [Cryptography](cryptography.md), [Security](security.md) |
 | Developer | [Development and testing](development-and-testing.md) |

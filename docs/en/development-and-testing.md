@@ -136,6 +136,7 @@ RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
 | `transport_path_live_test.go` | Path requests |
 | `transport_relay_live_test.go` | Transport relay |
 | `backbone_live_test.go` | Backbone |
+| `quic_live_test.go` | QUIC Go-Go echo (no Python peer) |
 | `pipe_live_test.go` | PipeInterface with Python echo |
 | `shared_rpc_live_test.go` | Shared-instance RPC |
 | `pageserver_live_test.go` | Pageserver example |

@@ -6,7 +6,7 @@ Professional documentation for architects, operators, and engineers working with
 |-------|-------|
 | Document version | 1.1 |
 | Last updated | 2026-07-09 |
-| Protocol target | Python RNS 1.3.5 |
+| Protocol target | Python RNS 1.3.7 |
 | Go toolchain | 1.26.4 |
 | Author | Ivan |
 
@@ -18,26 +18,27 @@ Documentation is organized by language under `docs/`. English lives in `docs/en/
 
 ## Document index
 
-| Document | Audience | Summary |
-|----------|----------|---------|
-| [Overview](overview.md) | All | What Reticulum-Go is, goals, feature status, relationship to Python Reticulum |
-| [Architecture](architecture.md) | Architects, senior engineers | Layered design, data flow, major components, deployment models |
-| [Getting started](getting-started.md) | Operators, developers | Requirements, build, install, first run, basic troubleshooting |
-| [Configuration](configuration.md) | Operators | Config file format, paths, keys, interface blocks |
-| [Package map](package-map.md) | Engineers | `pkg/` layout, responsibilities, entry points |
-| [Transport](transport.md) | Engineers | Routing, path table, announces, forwarding, persistence |
-| [Interfaces](interfaces.md) | Operators, engineers | UDP, TCP, Auto, I2P, Backbone, WebSocket, IFAC, reconnect |
-| [Identity and destinations](identity-and-destinations.md) | Engineers | Keys, hashes, destination types, announces, requests |
-| [Links, channels, and resources](links-channels-and-resources.md) | Engineers | Links, reliable channel, stream buffer, file transfer |
-| [Cryptography](cryptography.md) | Security reviewers, engineers | Primitives, key formats, IFAC, ratchets, verification |
-| [Security](security.md) | Security, operations | Reporting, sandbox, supply chain, release verification |
-| [Compatibility](compatibility.md) | Architects, integrators | Parity with Python RNS, gaps, Go-only extensions |
-| [Control API](control-api.md) | Application developers | Localhost JSON and WebSocket API for non-Go clients |
-| [librns](librns.md) | Native / FFI embedders | C ABI map, supported surface, events, build and smoke |
-| [CLI utilities](utilities.md) | Operators, developers | `rgostatus`, `rgoid`, `rgoprobe`, shared-instance RPC with Python |
-| [Embedding and WebAssembly](embedding-and-wasm.md) | Application developers | `pkg/node`, WASM, browser integration |
-| [Development and testing](development-and-testing.md) | Developers | Code quality, crossref tests, interop tests, CI |
-| [Examples](examples.md) | Application developers | Example programs and how to run them |
+| Document | Summary |
+|----------|---------|
+| [Overview](overview.md) | What Reticulum-Go is, goals, feature status, relationship to Python Reticulum |
+| [Architecture](architecture.md) | Layered design, data flow, major components, deployment models |
+| [Getting started](getting-started.md) | Requirements, build, install, first run, basic troubleshooting |
+| [Configuration](configuration.md) | Config file format, paths, keys, interface blocks |
+| [Package map](package-map.md) | `pkg/` layout, responsibilities, entry points |
+| [API reference](api-reference.md) | Task-first Go API: recipes, types, Python map, concurrency |
+| [Transport](transport.md) | Routing, path table, announces, forwarding, persistence |
+| [Interfaces](interfaces.md) | UDP, TCP, Auto, I2P, Backbone, WebSocket, QUIC, IFAC, reconnect |
+| [Identity and destinations](identity-and-destinations.md) | Keys, hashes, destination types, announces, requests |
+| [Links, channels, and resources](links-channels-and-resources.md) | Links, reliable channel, stream buffer, file transfer |
+| [Cryptography](cryptography.md) | Primitives, key formats, IFAC, ratchets, verification |
+| [Security](security.md) | Reporting, sandbox, supply chain, release verification |
+| [Compatibility](compatibility.md) | Parity with Python RNS, gaps, Go-only extensions |
+| [Control API](control-api.md) | Localhost JSON and WebSocket API for non-Go clients |
+| [librns](librns.md) | C ABI map, supported surface, events, build and smoke |
+| [CLI utilities](utilities.md) | `reticulum-go` subcommands (status, id, probe, path, cp, pageserver), shared-instance RPC with Python |
+| [Embedding and WebAssembly](embedding-and-wasm.md) | `pkg/node`, WASM, browser integration |
+| [Development and testing](development-and-testing.md) | Code quality, crossref tests, interop tests, CI |
+| [Examples](examples.md) | Example programs and how to run them |
 
 ## Related files in the repository root
 
@@ -50,6 +51,8 @@ Documentation is organized by language under `docs/`. English lives in `docs/en/
 
 ## External references
 
-- [Reticulum manual](https://reticulum.network/manual/reference.html)
+- [Reticulum manual](https://reticulum.network/manual/reference.html) (Python API and protocol authority)
 - [Reticulum cryptography overview](https://reticulum.network/crypto.html)
 - [Python reference implementation](https://github.com/markqvist/Reticulum)
+
+Go application authors should start with [API reference](api-reference.md) and [Examples](examples.md), then use the Python manual when comparing wire semantics.

@@ -1,0 +1,23 @@
+.Dd July 9, 2026
+.Dt RETICULUM-GO-PROBE 1
+.Os
+.Sh NAME
+.Nm reticulum-go-probe , rgoprobe
+.Nd send Reticulum probe packets and report RTT
+.Sh SYNOPSIS
+.Nm reticulum-go Cm probe
+.Op Fl config Ar dir
+.Op Fl s Ar size
+.Op Fl t Ar seconds
+.Op Fl w Ar seconds
+.Op Fl n Ar count
+.Op Fl v
+.Ar full_name destination_hash
+.Sh DESCRIPTION
+Sends encrypted probe packets to a destination and prints round-trip timing.
+.Ar destination_hash
+must be 32 hex characters (16 bytes).
+.Sh SEE ALSO
+.Xr reticulum-go 1
+.Sh AUTHORS
+.An Quad4.io

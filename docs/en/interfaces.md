@@ -51,6 +51,8 @@ Transport.SendPacket -> Send -> ProcessOutgoing -> wire
 | `PipeInterface` | Complete | `pipe.go` |
 | `LocalInterface` / `LocalServerInterface` | Complete | `local.go`, `sharedinstance` |
 | `WebSocketInterface` | Go-only | `websocket_native.go`, `websocket_wasm.go` |
+| `QUICClientInterface` | Go-only | `quic.go`, `quic_tls.go` |
+| `QUICServerInterface` | Go-only | `quic.go`, `quic_tls.go` |
 
 ## Not implemented
 
@@ -115,6 +117,19 @@ Features:
 - Rescan when `watch_interfaces = yes` (`auto_rescan.go`)
 - Listener replacement on Wi-Fi roam (`auto_roam.go`, aligned with Python 1.3.5)
 
+## Interface modes
+
+Modes match Python RNS wire values (`full` 0x01 through `internal` 0x07). Set with `mode` or `interface_mode` on an interface block.
+
+| Mode | Effect (summary) |
+|------|------------------|
+| `full` | Default. Normal announce and path behaviour |
+| `access_point` | Does not rebroadcast announces |
+| `gateway` / `roaming` / `internal` | Participate in unknown-path discovery (`DISCOVER_PATHS_FOR`) |
+| `boundary` / `roaming` / `internal` | Extra announce forward filters vs next-hop mode (RNS 1.3.6+) |
+
+`recursive_prs = yes` forces unknown-path discovery on any mode. `announces_from_internal = no` blocks rebroadcast of announces learned via an internal-mode next hop.
+
 ## I2PInterface
 
 Uses I2P SAM (`pkg/i2p`) for inbound and outbound tunnels.
@@ -139,6 +154,38 @@ Backbone interfaces multiplex many TCP streams through `pkg/backbone` hubs. Sele
 
 Go-only transport for browser WASM clients. Native builds use `websocket_native.go`. WASM builds use `websocket_wasm.go`.
 
+## QUICClientInterface / QUICServerInterface
+
+Go-only QUIC transport (not available on WASM). HDLC frames ride one bidirectional QUIC stream per connection, matching the TCP interface framing model.
+
+TLS follows a Yggdrasil-style mesh model:
+
+- Ephemeral self-signed ECDSA P-256 certificates by default
+- X.509 CA verification is skipped (`InsecureSkipVerify`)
+- Optional `peer_key` pins the remote leaf SPKI SHA-256 (hex)
+- Optional `cert_file` / `key_file` supply persistent PEM material
+- Optional `sni` sets the client TLS ServerName
+- ALPN is fixed to `rns`
+- IFAC (`network_name` / `passphrase`) still applies above QUIC
+
+```ini
+[[QUIC Hub]]
+type = QUICServerInterface
+enabled = yes
+listen_ip = 0.0.0.0
+listen_port = 4242
+
+[[QUIC Uplink]]
+type = QUICClientInterface
+enabled = yes
+target_host = hub.example.com
+target_port = 4242
+peer_key = aabbccdd...
+max_reconnect_tries = -1
+```
+
+Client reconnect uses `reconnect.go` like TCP. Server fan-out writes to all accepted sessions. Live Go-Go tests: `RUN_LIVE_INTEROP=1` with `tests/interop/quic_live_test.go`.
+
 ## Interface Access Code (IFAC)
 
 When `network_name` and `passphrase` are set on an interface, frames are masked on egress and verified on ingress.
@@ -154,7 +201,7 @@ Details: [Cryptography](cryptography.md#ifac).
 
 | Aspect | Python RNS | Reticulum-Go |
 |--------|------------|--------------|
-| TCP / backbone client | Yes, 5 s wait | Yes via `reconnect.go` |
+| TCP / backbone / QUIC client | Yes for TCP/backbone, 5 s wait | Yes via `reconnect.go` |
 | I2P | Yes, 15 s wait | Yes in `i2p.go` |
 | UDP | No | Yes when `max_reconnect_tries > 0` (opt-in) |
 | Default max tries | Unlimited (`None`) | Unlimited (`-1` or omitted) |

@@ -150,6 +150,7 @@ Integrate HSM or cloud KMS via `cryptography.NewEd25519SignerFromCryptoSigner`. 
 
 ## Related documents
 
+- [API reference](api-reference.md)
 - [Cryptography](cryptography.md)
 - [Transport](transport.md) for announce routing
 - [Links, channels, and resources](links-channels-and-resources.md) for link-mode destinations

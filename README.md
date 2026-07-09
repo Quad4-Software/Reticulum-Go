@@ -8,27 +8,27 @@ Reticulum-Go provides full protocol compatibility with the Python reference impl
 
 See [COMPATIBILITY.md](COMPATIBILITY.md) for how this is verified against the Python stack and the [network API reference](https://reticulum.network/manual/reference.html).
 
-Full documentation (English): [docs/en/](docs/en/README.md). Additional languages will live alongside `docs/en/` when translated.
+Full documentation (English): [docs/en/](docs/en/README.md). Application authors: [API reference](docs/en/api-reference.md) and [Examples](docs/en/examples.md). Additional languages will live alongside `docs/en/` when translated.
 
 ## Features
 
 | Area | Status | Notes |
 |------|:------:|-------|
 | Wire compatibility with Python [Reticulum](https://github.com/markqvist/Reticulum) | Yes | Packet and crypto paths cross-checked (`tests/crossref`, interop tests). See [COMPATIBILITY.md](COMPATIBILITY.md) |
-| Daemon | Yes | `cmd/reticulum-go`: config, interfaces, transport, identity storage |
+| Daemon and tools | Yes | Single `reticulum-go` binary: daemon (default), `status`, `id`, `probe`, `path`, `cp`, `pageserver` |
 | Core stack | Yes | `pkg/transport`, `pkg/packet`, `pkg/destination`, `pkg/announce`, `pkg/pathfinder` |
 | Links, resources, channel, buffer | Yes | `pkg/link`, `pkg/resource`, `pkg/channel`, `pkg/buffer` |
 | Cryptography | Yes | Centralized in `pkg/cryptography`. Details in [docs/en/cryptography.md](docs/en/cryptography.md) |
 | Identity (software + optional hardware-bound signing) | Yes | `pkg/identity`, `LoadIdentityFile`, `NewIdentityWithSigner`, RHB1 descriptor |
 | IFAC (interface access code) | Yes | `pkg/ifac`, masks UDP/TCP/Auto frames per reference |
 | Discovery / blackhole | Partial | `pkg/discovery`, `pkg/blackhole` (see compatibility table) |
-| Interfaces | Partial | UDP, TCP, Auto, Pipe, Local, WebSocket (native/WASM). See [COMPATIBILITY.md](COMPATIBILITY.md#interfaces) |
+| Interfaces | Partial | UDP, TCP, Auto, Pipe, Local, WebSocket (native/WASM), QUIC (native). See [COMPATIBILITY.md](COMPATIBILITY.md#interfaces) |
 | Interface hot reload | Yes | `ReloadInterfaces`, `SIGHUP` (Unix), not in Python `rns` |
 | WASM / browser | Yes | `cmd/reticulum-wasm`, `pkg/wasm` |
 | Runtime sandbox | Yes | `pkg/sandbox`, enabled by default. See [SECURITY.md](SECURITY.md#runtime-sandbox) |
 | librns C ABI | Yes | Linux shared library for in-process embed (`include/rns.h`, `task build-librns`). See [docs/en/librns.md](docs/en/librns.md) |
 | Control API | Yes | Localhost JSON and WebSocket for out-of-process clients. See [docs/en/control-api.md](docs/en/control-api.md) |
-| CLI utilities | Yes | `rgostatus`, `rgoid`, `rgoprobe` (`make build-utils`). Shared-instance RPC with Python. See [docs/en/utilities.md](docs/en/utilities.md) |
+| CLI utilities | Yes | Subcommands of `reticulum-go` (legacy `rgo*` names install as symlinks). See [docs/en/utilities.md](docs/en/utilities.md) |
 | Supply chain secure | Yes | Vendored deps, cosign attestations, CI scans. See [SECURITY.md](SECURITY.md) |
 
 **Goals:**
@@ -73,29 +73,22 @@ Output: `bin/reticulum-go`
 
 ### Install
 
-Install to system path (default `/usr/local/bin`):
+Install the binary, legacy tool symlinks (`rgostatus`, `rgoid`, …), and man pages (default prefix `/usr/local`):
 
 ```bash
 make install
 ```
 
-```bash
-mkdir -p bin
-CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
-cp bin/reticulum-go /usr/local/bin/
-```
-
-Custom install prefix:
+Custom prefix:
 
 ```bash
 make install PREFIX=/opt/reticulum
 ```
 
+Staging for packaging:
+
 ```bash
-mkdir -p /opt/reticulum/bin
-mkdir -p bin
-CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
-cp bin/reticulum-go /opt/reticulum/bin/
+make install DESTDIR=/tmp/stage PREFIX=/usr
 ```
 
 Alternatively, install into your Go toolchain binary directory (`$GOBIN` or `$(go env GOPATH)/bin`):
@@ -103,6 +96,31 @@ Alternatively, install into your Go toolchain binary directory (`$GOBIN` or `$(g
 ```bash
 CGO_ENABLED=0 go install -ldflags="-s -w" ./cmd/reticulum-go
 ```
+
+### Packages
+
+Build `.deb` / `.rpm` with [nfpm](https://nfpm.goreleaser.com/) (fetched on demand):
+
+```bash
+make package-deb
+make package-rpm
+```
+
+Artifacts land in `dist/`. Config: [packaging/nfpm.yaml](packaging/nfpm.yaml).
+
+### Usage
+
+```bash
+reticulum-go                  # daemon
+reticulum-go status           # interface stats (RPC)
+reticulum-go id -h
+reticulum-go probe ...
+reticulum-go path -t
+reticulum-go cp -l
+reticulum-go pageserver
+```
+
+Man pages: `man reticulum-go`, `man 8 reticulum-go`, `man reticulum-go-status`, …
 
 ### Run
 
@@ -129,10 +147,12 @@ go test -v ./...
 | Target | Description | Go / other |
 |--------|-------------|------------|
 | `make` / `make all` | Build release binary | same as `make build` |
-| `make build` | Build release binary (stripped, static) | `mkdir -p bin` then `CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go` |
-| `make build-utils` | Build `rgostatus`, `rgoid`, `rgoprobe` | see [docs/en/utilities.md](docs/en/utilities.md) |
-| `make install` | Build and install to PREFIX/bin | build as above, then `cp bin/reticulum-go $(PREFIX)/bin/` |
-| `make uninstall` | Remove installed binary | `rm -f $(PREFIX)/bin/reticulum-go` |
+| `make build` | Build release binary (stripped, static) | `CGO_ENABLED=0 go build … -o bin/reticulum-go ./cmd/reticulum-go` |
+| `make build-utils` | Alias for `build` (tools are subcommands) | see [docs/en/utilities.md](docs/en/utilities.md) |
+| `make install` | Binary, tool symlinks, and man pages under PREFIX | supports `DESTDIR` |
+| `make install-man` | Man pages only | `man/*.1` and `man/*.8` |
+| `make package-deb` / `package-rpm` | Linux packages via nfpm | output in `dist/` |
+| `make uninstall` | Remove binary, symlinks, and man pages | |
 | `make clean` | Remove build artifacts | `go clean` and `rm -rf bin` |
 | `make test` | Run all tests | `go test -v ./...` |
 | `make test-short` | Run short tests only | `go test -short -v ./...` |
@@ -230,7 +250,7 @@ task test-wasm
 
 ### librns (C ABI)
 
-In-process embed for C, C++, Qt, Flutter FFI, and similar hosts. The daemon stays `CGO_ENABLED=0`. Only this target needs CGO.
+In-process embed for C, C++, and similar FFI hosts. The daemon stays `CGO_ENABLED=0`. Only this target needs CGO.
 
 ```bash
 task build-librns

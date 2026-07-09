@@ -2,29 +2,40 @@
 
 | Field | Value |
 |-------|-------|
-| Document version | 1.0 |
+| Document version | 1.1 |
 | Last updated | 2026-07-09 |
 | Author | Ivan |
 
-Go-native tools that speak the same shared-instance msgpack RPC and identity file formats as Python `rnstatus`, `rnid`, and `rnprobe`. They are not Python clones. Build them with:
+Go-native tools that speak the same shared-instance msgpack RPC and identity file formats as Python `rnstatus`, `rnid`, `rnprobe`, `rnpath`, and `rncp`. They are not Python clones.
+
+They ship as **subcommands of the single `reticulum-go` binary**:
 
 ```bash
-make build-utils
+make build
+./bin/reticulum-go status
+./bin/reticulum-go id -h
+./bin/reticulum-go probe ...
+./bin/reticulum-go path -t
+./bin/reticulum-go cp -l
+./bin/reticulum-go pageserver
 ```
 
-Binaries land in `bin/rgostatus`, `bin/rgoid`, and `bin/rgoprobe`.
+`make install` also creates legacy symlinks (`rgostatus`, `rgoid`, `rgoprobe`, `rgopath`, `rgocp`, `rgopageserver`) that invoke the same binary. Man pages: `man reticulum-go`, `man reticulum-go-status`, and so on.
 
-| Tool | Python counterpart | Role |
-|------|--------------------|------|
-| `rgostatus` | `rnstatus` | Interface and transport status over shared-instance RPC |
-| `rgoid` | `rnid` | Identity generate, hash, `.rsg` / `.rsm` / `.rfe` |
-| `rgoprobe` | `rnprobe` | Path wait, encrypted probe, RTT |
+| Tool / subcommand | Python counterpart | Role |
+|-------------------|--------------------|------|
+| `reticulum-go status` (`rgostatus`) | `rnstatus` | Interface and transport status over shared-instance RPC |
+| `reticulum-go id` (`rgoid`) | `rnid` | Identity generate, hash, `.rsg` / `.rsm` / `.rfe` |
+| `reticulum-go probe` (`rgoprobe`) | `rnprobe` | Path wait, encrypted probe, RTT |
+| `reticulum-go path` (`rgopath`) | `rnpath` | Path table, drop, blackhole, path request |
+| `reticulum-go cp` (`rgocp`) | `rncp` | File send / listen / fetch over links |
+| `reticulum-go pageserver` | (example app) | NomadNet-style page and file server |
 
-Library code lives in `pkg/rnsutil`.
+Library code lives in `pkg/rnsutil` and `pkg/cli`. Pageserver logic lives in `pkg/pageserver`.
 
-## Shared-instance RPC (required for rgostatus)
+## Shared-instance RPC (required for rgostatus and rgopath table modes)
 
-`rgostatus` does not start a network stack. It dials a running shared instance (Python `rnsd` or `reticulum-go`) and calls `get: interface_stats` over the same multiprocessing.connection + msgpack protocol Python uses.
+`rgostatus` and `rgopath -t` / drop / blackhole modes dial a running shared instance (Python `rnsd` or `reticulum-go`) over the same multiprocessing.connection + msgpack protocol Python uses.
 
 ### Why connection refused is common
 
@@ -59,9 +70,10 @@ Restart `rnsd` after editing `~/.reticulum/config` so it binds TCP `127.0.0.1:37
 Then:
 
 ```bash
-./bin/rgostatus -config ~/.reticulum
-./bin/rgostatus -config ~/.reticulum -json
-./bin/rgostatus -config ~/.reticulum -l -s announce
+./bin/reticulum-go status -config ~/.reticulum
+./bin/reticulum-go status -config ~/.reticulum -json
+./bin/reticulum-go path -config ~/.reticulum -t -json
+./bin/reticulum-go path -config ~/.reticulum -t aabbccddeeff00112233445566778899
 ```
 
 If both configs share ports and `rpc_key`, `-config ~/.reticulum-go` also works against a Python `rnsd` that was started with the matching `~/.reticulum` settings.
@@ -80,7 +92,8 @@ Go and Python must agree. Prefer an explicit shared `rpc_key` when mixing stacks
 Run `reticulum-go` with `share_instance = yes` and `shared_instance_type = tcp` under `~/.reticulum-go`, then:
 
 ```bash
-./bin/rgostatus -config ~/.reticulum-go -json
+./bin/reticulum-go status -config ~/.reticulum-go -json
+./bin/reticulum-go path -config ~/.reticulum-go -t
 ```
 
 Only one process should own the shared instance ports at a time.
@@ -118,14 +131,14 @@ Identity and signing tool. Files are wire-compatible with Python:
 Examples:
 
 ```bash
-./bin/rgoid -g ~/.reticulum-go/id.rid -p
-./bin/rgoid -i ~/.reticulum-go/id.rid -H rns.id
-./bin/rgoid -i id.rid -s file.bin -f
-./bin/rgoid -i id.rid -V file.bin
-./bin/rgoid -i id.rid -S "hello" -w note -f
-./bin/rgoid -V note.rsm
-./bin/rgoid -i id.rid -e secret.txt -f
-./bin/rgoid -i id.rid -d secret.txt.rfe -f
+./bin/reticulum-go id -g ~/.reticulum-go/id.rid -p
+./bin/reticulum-go id -i ~/.reticulum-go/id.rid -H rns.id
+./bin/reticulum-go id -i id.rid -s file.bin -f
+./bin/reticulum-go id -i id.rid -V file.bin
+./bin/reticulum-go id -i id.rid -S "hello" -w note -f
+./bin/reticulum-go id -V note.rsm
+./bin/reticulum-go id -i id.rid -e secret.txt -f
+./bin/reticulum-go id -i id.rid -d secret.txt.rfe -f
 ```
 
 Go-signed `.rsg` / `.rsm` / `.rfe` validate with Python `rnid`, and the reverse also works.
@@ -139,8 +152,69 @@ rgoprobe [flags] <full_name> <destination_hash_hex>
 Attaches as a shared-instance client (or starts local transport), waits for a path, sends encrypted probes, and prints RTT. Example:
 
 ```bash
-./bin/rgoprobe -config ~/.reticulum -n 3 -v app.aspect aabbccddeeff00112233445566778899
+./bin/reticulum-go probe -config ~/.reticulum -n 3 -v app.aspect aabbccddeeff00112233445566778899
 ```
+
+## rgopath
+
+Path table and blackhole management over shared-instance RPC, plus a default path-request mode that attaches like `rgoprobe`.
+
+```bash
+rgopath [flags] [destination_hash]
+```
+
+| Flag | Meaning |
+|------|---------|
+| `-config dir` | Config directory |
+| `-t` | Show path table (optional hash filter) |
+| `-json` | JSON for `-t` / `-blackholed` |
+| `-m N` | Max hops filter for path table |
+| `-d` | Drop path to hash |
+| `-D` | Drop all paths via transport hash |
+| `-q` | Drop announce queues |
+| `-w sec` | Path request timeout (default 15) |
+| `-blackholed` | List blackholed identities |
+| `-blackhole` | Blackhole identity hash |
+| `-unblackhole` | Lift blackhole |
+| `-for hours` | Blackhole duration (0 = indefinite) |
+| `-reason str` | Blackhole reason |
+| `-filter substr` | Filter blackhole list lines |
+
+Go extras (compat preserved): `-json` on path and blackhole lists, drop-via count in the success line, clearer path-found summary after a successful request.
+
+Remote `rnstransport` management modes from Python `rnpath` are not ported yet.
+
+## rgocp
+
+File transfer over links. Destination name is `rncp.receive` so Go and Python peers interoperate.
+
+```bash
+rgocp [flags] <file> <destination_hash>     # send
+rgocp -l [flags]                            # listen
+rgocp -f -F <remote_path> [flags] <hash>    # fetch
+```
+
+| Flag | Meaning |
+|------|---------|
+| `-config dir` | Config directory |
+| `-identity path` | Identity file (default `storage/identities/rncp`) |
+| `-l` | Listen for pushes |
+| `-f` / `-F path` | Fetch remote file |
+| `-a` | Allow unauthenticated senders (listen) |
+| `-allowed hash` | Allowed identity (repeatable) |
+| `-allow-fetch` | Enable `fetch_file` requests |
+| `-jail dir` | Restrict fetch paths |
+| `-save dir` | Save directory for received files |
+| `-overwrite` | Overwrite on receive |
+| `-no-compress` | Disable auto compression |
+| `-announce sec` | Announce interval (`0` once, `<0` never) |
+| `-w sec` | Path/link timeout |
+| `-s` | Silent progress |
+| `-p` | Print identity and destination hash |
+
+Allow lists are loaded from `/etc/rncp/allowed_identities`, `~/.config/rncp/`, `~/.rncp/`, plus Go-specific `~/.config/rgocp/` and `~/.rgocp/`.
+
+Go extras: cleaner progress lines on stderr, `-json` is not used (transfer is binary), unique `.N` rename when not overwriting.
 
 ## Troubleshooting
 
@@ -151,6 +225,7 @@ Attaches as a shared-instance client (or starts local transport), waits for a pa
 | Empty or missing announce rates from Python | Field is present but may be `0` until traffic accumulates. Sorting and JSON keys still work. |
 | Top-level `rxb`/`txb` are `0` while interfaces show traffic | Python aggregate totals often omit some parent interfaces. Prefer per-interface counters. |
 | Identity load log lines on stderr | Harmless debug from loading `transport_identity` for derived auth when resolving keys. Prefer explicit `rpc_key` to avoid that path when possible. |
+| `rgocp` transfer ignored | Listener needs `-a` or an allow-list entry matching the sender identity hash. Metadata (`name`) is required on the wire. |
 
 ## Related documents
 
@@ -158,3 +233,4 @@ Attaches as a shared-instance client (or starts local transport), waits for a pa
 - [Compatibility](compatibility.md) for Python utility parity
 - [Getting started](getting-started.md) for first daemon run
 - [Package map](package-map.md) for `pkg/rnsutil`
+- [Links, channels, and resources](links-channels-and-resources.md) for resource wire details

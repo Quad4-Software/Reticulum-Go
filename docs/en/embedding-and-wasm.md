@@ -11,13 +11,13 @@
 | Path | Use when |
 |------|----------|
 | `pkg/node` | Go app, full transport and interfaces in-process |
-| `pkg/librns` / [librns](librns.md) | Native host (C, C++, Qt, Flutter FFI) wants the same stack in-process |
+| `pkg/librns` / [librns](librns.md) | Native host (C, C++, FFI) wants the same stack in-process |
 | Control API | Separate language talking to a local `reticulum-go` daemon |
 | `pkg/wasm` | Browser client over WebSocket |
 
 ## Embedding with pkg/node
 
-`Node` orchestrates transport, interfaces, shared instance, discovery, and lifecycle hooks.
+`Node` orchestrates transport, interfaces, shared instance, discovery, and lifecycle hooks. Full recipes and type tables are in [API reference](api-reference.md).
 
 ### Minimal sequence
 
@@ -142,6 +142,7 @@ OS sandbox (`pkg/sandbox`) applies to the native daemon, not the WASM module. Br
 
 ## Related documents
 
+- [API reference](api-reference.md)
 - [Architecture](architecture.md)
 - [Package map](package-map.md)
 - [Examples](examples.md)

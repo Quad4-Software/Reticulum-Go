@@ -24,7 +24,7 @@ Reticulum-Go follows the same conceptual layers as Python Reticulum:
 +-------------------------------------------------------------+
 |  Transport (routing, path table, announces, relay)        |
 +-------------------------------------------------------------+
-|  Interface (UDP, TCP, Auto, I2P, Backbone, WebSocket)       |
+|  Interface (UDP, TCP, Auto, I2P, Backbone, WebSocket, QUIC) |
 +-------------------------------------------------------------+
 |  OS sockets, SAM, multicast, shared-instance multiplexer    |
 +-------------------------------------------------------------+

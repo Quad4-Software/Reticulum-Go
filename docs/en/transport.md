@@ -35,6 +35,10 @@ When multiple paths exist, transport uses random-blob selection aligned with Pyt
 
 Applications call `RequestPath` on transport or use destination helpers. Ingress and egress controls (`pkg/rate`, `pkg/transport/ingress.go`) limit announce and path-request rates per interface configuration.
 
+Unknown-path discovery (rebroadcasting a path request when no path is known) runs only when the receiving interface is in a discover mode (`access_point`, `gateway`, `roaming`, `internal`) or has `recursive_prs = yes` (RNS 1.3.6+).
+
+Announce rebroadcast also applies interface mode filters (AP block, roaming/boundary/internal next-hop rules). See [Interfaces](interfaces.md).
+
 ### Persistence
 
 By default the path table can persist to `storage/destination_table` as msgpack with a layout compatible with Python. Set `in_memory_path_table = yes` to keep paths in RAM only.

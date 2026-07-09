@@ -154,6 +154,7 @@ Daemon wiring: `cmd/reticulum-go/main.go` starts `controlapi.Server` when enable
 
 ## Related documents
 
+- [API reference](api-reference.md) for Go embedders using destinations and links in-process
 - [Configuration](configuration.md)
 - [Links, channels, and resources](links-channels-and-resources.md)
 - [librns](librns.md) for in-process C ABI

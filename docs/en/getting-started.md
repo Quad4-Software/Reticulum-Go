@@ -14,7 +14,7 @@
 
 The repository vendors dependencies. A normal build does not contact module proxies when `GOFLAGS=-mod=vendor` is set (default in the Makefile and Taskfile).
 
-## Build the daemon
+## Build
 
 From the repository root:
 
@@ -22,7 +22,7 @@ From the repository root:
 make build
 ```
 
-This produces `bin/reticulum-go` as a static stripped binary (`CGO_ENABLED=0`).
+This produces `bin/reticulum-go` as a static stripped binary (`CGO_ENABLED=0`) with the daemon and all tools as subcommands.
 
 Equivalent manual command:
 
@@ -37,12 +37,19 @@ CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
 make install
 ```
 
-Default prefix is `/usr/local`. Override with `make install PREFIX=/opt/reticulum`.
+Default prefix is `/usr/local`. That installs `reticulum-go`, legacy tool symlinks (`rgostatus`, `rgoid`, …), and man pages. Override with `make install PREFIX=/opt/reticulum`. Staging: `make install DESTDIR=/tmp/stage PREFIX=/usr`.
 
 Or install into your Go binary directory:
 
 ```bash
 CGO_ENABLED=0 go install -ldflags="-s -w" ./cmd/reticulum-go
+```
+
+Linux packages:
+
+```bash
+make package-deb
+make package-rpm
 ```
 
 ## First run
@@ -145,15 +152,11 @@ control_api_port = 37430
 
 Generate a random 32-byte key and encode as hex. Clients send `Authorization: Bearer <rpc_key>`. See [Control API](control-api.md).
 
-## CLI utilities (status, identity, probe)
+## CLI utilities (status, identity, probe, path, copy, pageserver)
 
-Build Go-native tools:
+Tools are subcommands of the single `reticulum-go` binary (`make build`). Legacy names (`rgostatus`, …) install as symlinks via `make install`.
 
-```bash
-make build-utils
-```
-
-To query a running Python `rnsd` from `rgostatus`, both stacks need TCP shared-instance RPC. On Linux, Python defaults to a Unix abstract socket unless you set:
+To query a running Python `rnsd` from `reticulum-go status` / `path`, both stacks need TCP shared-instance RPC. On Linux, Python defaults to a Unix abstract socket unless you set:
 
 ```ini
 [reticulum]
@@ -167,10 +170,11 @@ rpc_key = <64 hex characters>
 Restart `rnsd`, then:
 
 ```bash
-./bin/rgostatus -config ~/.reticulum -json
+./bin/reticulum-go status -config ~/.reticulum -json
+./bin/reticulum-go path -config ~/.reticulum -t -json
 ```
 
-Full flag reference, `.rsg` / `.rsm` / `.rfe` usage, and troubleshooting are in [CLI utilities](utilities.md).
+Full flag reference, `.rsg` / `.rsm` / `.rfe` usage, file transfer, and troubleshooting are in [CLI utilities](utilities.md).
 
 ## Disable the sandbox
 
@@ -192,7 +196,7 @@ See [Security](security.md) for platform behavior.
 
 **Shared instance conflicts.** Only one process should own interfaces when `share_instance = yes`. Others should connect as clients. Check `shared_instance_port` (default 37428).
 
-**rgostatus connection refused.** Point `-config` at the daemon config dir (`~/.reticulum` for `rnsd`). On Linux set `shared_instance_type = tcp` and restart the daemon. See [CLI utilities](utilities.md).
+**status connection refused.** Point `-config` at the daemon config dir (`~/.reticulum` for `rnsd`). On Linux set `shared_instance_type = tcp` and restart the daemon. See [CLI utilities](utilities.md).
 
 **Permission errors on Linux sandbox.** Landlock requires kernel 5.13+. The config directory and storage paths must live under whitelisted locations. See [Security](security.md).
 
@@ -201,7 +205,7 @@ See [Security](security.md) for platform behavior.
 | Goal | Document |
 |------|----------|
 | Configure interfaces and rates | [Configuration](configuration.md), [Interfaces](interfaces.md) |
-| Status / identity / probe CLIs | [CLI utilities](utilities.md) |
-| Write a Go app | [Package map](package-map.md), [Embedding and WebAssembly](embedding-and-wasm.md) |
+| Status / identity / probe / path / copy CLIs | [CLI utilities](utilities.md) |
+| Write a Go app | [API reference](api-reference.md), [Examples](examples.md), [Embedding and WebAssembly](embedding-and-wasm.md) |
 | Use Python interop | [Compatibility](compatibility.md) |
 | Run examples | [Examples](examples.md) |

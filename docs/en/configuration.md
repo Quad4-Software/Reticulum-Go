@@ -69,6 +69,8 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | `in_memory_known_destinations` | no | Keep known destinations in RAM only |
 | `discover_interfaces` | no | Start rnstransport interface discovery listener |
 | `watch_interfaces` | no | Poll NIC up/down and rescan Auto interfaces (Go-only) |
+| `static_transport_identity` | no | Keep persisted transport identity on the wire when `enable_transport` is no (RNS 1.3.6+) |
+| `local_hops_delta` | no | Parsed for Python parity. Hop mangling not applied yet |
 | `panic_on_interface_error` | no | Panic on fatal interface errors |
 
 ### Keys present in Python but ignored in Go
@@ -81,6 +83,8 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | `blackhole_sources` | Ignored |
 | `blackhole_update_interval` | Ignored |
 | `network_identity` | Ignored |
+
+`local_hops_delta` is parsed and stored but hop mangling is not applied on the wire yet.
 
 ## Section `[logging]`
 
@@ -97,6 +101,9 @@ Each block defines one interface. Common keys:
 |-----|------------|-------------|
 | `type` | All | Interface type string (see [Interfaces](interfaces.md)) |
 | `enabled` / `interface_enabled` | All | Enable or disable |
+| `mode` / `interface_mode` | All | `full`, `gateway`, `access_point`, `roaming`, `boundary`, `ptp`, `internal` (RNS 1.3.6+) |
+| `recursive_prs` | All | Discover unknown paths on this interface (RNS 1.3.6+) |
+| `announces_from_internal` | All | Rebroadcast announces learned via internal-mode next hops (default yes) |
 | `address` / `listen_ip` | UDP, TCP server | Bind address |
 | `port` / `listen_port` | UDP, TCP server | Bind port |
 | `target_host` / `target_port` | TCP client | Remote peer |
@@ -143,6 +150,8 @@ Keys such as `outgoing`, `selected_outgoing`, and `kiss_framing` are parsed or r
 | `LocalInterface` | `pkg/interfaces/local.go` (client to shared instance) |
 | `LocalServerInterface` | `pkg/interfaces/local.go` (explicit server block) |
 | `WebSocketInterface` | Go-only, native or WASM |
+| `QUICClientInterface` | Go-only, native (`quic-go`) |
+| `QUICServerInterface` | Go-only, native (`quic-go`) |
 
 ## Example: TCP client with IFAC
 
@@ -159,6 +168,26 @@ max_reconnect_tries = 0
 ```
 
 `max_reconnect_tries = 0` means no reconnect attempts after disconnect. Omit the key or set `-1` for unlimited retries.
+
+## Example: QUIC client and server
+
+```ini
+[[QUIC Hub]]
+type = QUICServerInterface
+enabled = yes
+listen_ip = 0.0.0.0
+listen_port = 4242
+
+[[QUIC Uplink]]
+type = QUICClientInterface
+enabled = yes
+target_host = hub.example.com
+target_port = 4242
+peer_key = aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899
+max_reconnect_tries = -1
+```
+
+QUIC is Go-only. TLS uses ephemeral self-signed certificates by default. Set `peer_key` to the remote leaf SPKI SHA-256 (hex) to pin the peer. Optional `cert_file` / `key_file` and `sni` are supported. Not available on WASM.
 
 ## Example: AutoInterface on Wi-Fi
 
@@ -205,8 +234,8 @@ rpc_key = <64 hex characters>
 Restart the daemon after changing these keys. Query with:
 
 ```bash
-make build-utils
-./bin/rgostatus -config ~/.reticulum -json
+make build
+./bin/reticulum-go status -config ~/.reticulum -json
 ```
 
 Use `-config ~/.reticulum` for Python `rnsd` and `-config ~/.reticulum-go` for a Go shared instance. Full utility docs are in [CLI utilities](utilities.md).

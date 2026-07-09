@@ -1,0 +1,86 @@
+.Dd July 9, 2026
+.Dt RETICULUM-GO 1
+.Os
+.Sh NAME
+.Nm reticulum-go
+.Nd Reticulum network stack daemon and tools
+.Sh SYNOPSIS
+.Nm
+.Op Ar command
+.Op Ar flags
+.Nm
+.Cm daemon
+.Nm
+.Cm status | id | probe | path | cp | pageserver
+.Op Ar flags
+.Sh DESCRIPTION
+.Nm
+is a Go implementation of the Reticulum Network Stack.
+A single binary provides the network daemon and operator tools as subcommands.
+.Pp
+With no command, or with
+.Cm daemon ,
+the process loads configuration from
+.Pa ~/.reticulum-go/config
+(created on first run) and runs as a shared-instance owner or client according
+to that config.
+.Pp
+Legacy tool names
+.Nm rgostatus , rgoid , rgoprobe , rgopath , rgocp ,
+and
+.Nm rgopageserver
+may be installed as symlinks to this binary.
+When invoked under those names, the matching subcommand is selected automatically.
+.Sh COMMANDS
+.Bl -tag -width pageserver
+.It Cm daemon
+Run the network daemon (default).
+.It Cm status
+Interface and transport status via shared-instance RPC.
+See
+.Xr reticulum-go-status 1 .
+.It Cm id
+Identities, destination hashes, signing and encryption.
+See
+.Xr reticulum-go-id 1 .
+.It Cm probe
+Encrypted probe packets and RTT.
+See
+.Xr reticulum-go-probe 1 .
+.It Cm path
+Path table, drop, and blackhole management.
+See
+.Xr reticulum-go-path 1 .
+.It Cm cp
+File transfer over Reticulum links.
+See
+.Xr reticulum-go-cp 1 .
+.It Cm pageserver
+NomadNet-style page and file server.
+See
+.Xr reticulum-go-pageserver 1 .
+.El
+.Sh GLOBAL OPTIONS
+.Bl -tag -width "--version"
+.It Fl h , -help
+Print help and exit.
+.It Fl v , -version
+Print version and exit.
+.El
+.Sh FILES
+.Bl -tag -width "~/.reticulum-go/storage/"
+.It Pa ~/.reticulum-go/config
+Default configuration file.
+.It Pa ~/.reticulum-go/storage/
+Identities, path table, and related state.
+.El
+.Sh SEE ALSO
+.Xr reticulum-go 8 ,
+.Xr reticulum-go-status 1 ,
+.Xr reticulum-go-id 1 ,
+.Xr reticulum-go-probe 1 ,
+.Xr reticulum-go-path 1 ,
+.Xr reticulum-go-cp 1 ,
+.Xr reticulum-go-pageserver 1
+.Sh AUTHORS
+.An Quad4.io

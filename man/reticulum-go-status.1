@@ -1,0 +1,43 @@
+.Dd July 9, 2026
+.Dt RETICULUM-GO-STATUS 1
+.Os
+.Sh NAME
+.Nm reticulum-go-status , rgostatus
+.Nd show Reticulum interface and transport status
+.Sh SYNOPSIS
+.Nm reticulum-go Cm status
+.Op Fl config Ar dir
+.Op Fl json
+.Op Fl a
+.Op Fl n Ar filter
+.Op Fl l
+.Op Fl s Ar key
+.Op Fl r
+.Op Fl timeout Ar duration
+.Sh DESCRIPTION
+Queries a running shared instance over msgpack RPC and prints interface
+statistics (and optionally link count).
+.Sh OPTIONS
+.Bl -tag -width "-timeout duration"
+.It Fl config Ar dir
+Config directory (default
+.Pa ~/.reticulum-go ) .
+.It Fl json
+Emit JSON.
+.It Fl a
+Include all interfaces.
+.It Fl n Ar filter
+Filter interfaces by name substring.
+.It Fl l
+Include link count.
+.It Fl s Ar key
+Sort by rate, rx, tx, rxs, txs, traffic, announce, arx, atx, prx, ptx, or held.
+.It Fl r
+Sort ascending (default descending).
+.It Fl timeout Ar duration
+RPC timeout (default 10s).
+.El
+.Sh SEE ALSO
+.Xr reticulum-go 1
+.Sh AUTHORS
+.An Quad4.io

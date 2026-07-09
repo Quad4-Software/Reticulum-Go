@@ -10,7 +10,7 @@
 
 Public API lives under `pkg/`. The daemon and tests import these packages. `internal/` holds daemon-specific wiring that is not a stable import path for external modules.
 
-This page maps each package to its responsibility and primary entry points.
+This page maps each package to its responsibility and primary entry points. For recipes, Python migration, and concurrency rules, see [API reference](api-reference.md).
 
 ## Core protocol stack
 
@@ -133,6 +133,7 @@ All interface implementations and factory.
 | Factory | `NewFromConfigWithContext` in `fromconfig.go` |
 | Reconnect | `reconnect.go` |
 | Lifecycle | `lifecycle.go` (Enable, Disable, Detach) |
+| Go-only QUIC | `quic.go`, `quic_tls.go` (`QUICClientInterface` / `QUICServerInterface`) |
 
 See [Interfaces](interfaces.md).
 
@@ -187,9 +188,28 @@ Python `share_instance` equivalent.
 | Framing | `SendFramed` / `RecvFramed` |
 | Main files | `instance.go`, `rpc.go`, `mpconn.go` |
 
+### `pkg/cli`
+
+Subcommand dispatch for the unified `reticulum-go` binary (`Main`, `RunStatus`, `RunID`, `RunProbe`, `RunPath`, `RunCP`, `RunPageserver`).
+
+| Item | Detail |
+|------|--------|
+| Entry | `Main(opts)` from `cmd/reticulum-go` |
+| Docs | [CLI utilities](utilities.md) |
+
+### `pkg/pageserver`
+
+NomadNet-style page and file server used by `reticulum-go pageserver`.
+
+| Item | Detail |
+|------|--------|
+| Entry | `pageserver.Run` via `cli.RunPageserver` |
+| Dynamic pages | `pkg/pageserver/dynamicpage` |
+| Sample tree | `examples/pageserver/` |
+
 ### `pkg/rnsutil`
 
-Helpers and RPC client for CLI utilities (`rgostatus`, `rgoid`, `rgoprobe`).
+Helpers and RPC client for CLI utilities (`reticulum-go status`, `id`, `probe`, …).
 
 | Item | Detail |
 |------|--------|
@@ -334,11 +354,11 @@ Filesystem persistence under `~/.reticulum-go/storage/`.
 
 | Path | Binary | Role |
 |------|--------|------|
-| `cmd/reticulum-go` | `reticulum-go` | Daemon |
-| `cmd/rgostatus` | `rgostatus` | Shared-instance status RPC ([CLI utilities](utilities.md)) |
-| `cmd/rgoid` | `rgoid` | Identity and signing files |
-| `cmd/rgoprobe` | `rgoprobe` | Path wait and encrypted probe |
+| `cmd/reticulum-go` | `reticulum-go` | Daemon and tools (status, id, probe, path, cp, pageserver). Legacy `rgo*` names are thin wrappers / install symlinks. |
+| `cmd/rgostatus` … `cmd/rgocp` | (wrappers) | Call into `pkg/cli` for compatibility with old build scripts |
 | `cmd/reticulum-wasm` | WASM module | Browser entry |
+
+CLI dispatch lives in `pkg/cli`. Pageserver logic lives in `pkg/pageserver`.
 
 ## Suggested import paths for applications
 
@@ -352,3 +372,11 @@ Filesystem persistence under `~/.reticulum-go/storage/`.
 | Out-of-process non-Go client | Control API (`pkg/controlapi` on the daemon) |
 
 Do not import `internal/` from outside this module.
+
+## Related documents
+
+- [API reference](api-reference.md)
+- [Examples](examples.md)
+- [Embedding and WebAssembly](embedding-and-wasm.md)
+- [Control API](control-api.md)
+- [librns](librns.md)
