@@ -4,8 +4,8 @@ Professional documentation for architects, operators, and engineers working with
 
 | Field | Value |
 |-------|-------|
-| Document version | 1.0 |
-| Last updated | 2026-07-07 |
+| Document version | 1.1 |
+| Last updated | 2026-07-09 |
 | Protocol target | Python RNS 1.3.5 |
 | Go toolchain | 1.26.4 |
 | Author | Ivan |
@@ -33,7 +33,8 @@ Documentation is organized by language under `docs/`. English lives in `docs/en/
 | [Security](security.md) | Security, operations | Reporting, sandbox, supply chain, release verification |
 | [Compatibility](compatibility.md) | Architects, integrators | Parity with Python RNS, gaps, Go-only extensions |
 | [Control API](control-api.md) | Application developers | Localhost JSON and WebSocket API for non-Go clients |
-| [Embedding and WebAssembly](embedding-and-wasm.md) | Application developers | `pkg/node` embedder API, WASM build, browser integration |
+| [CLI utilities](utilities.md) | Operators, developers | `rgostatus`, `rgoid`, `rgoprobe`, shared-instance RPC with Python |
+| [Embedding and WebAssembly](embedding-and-wasm.md) | Application developers | `pkg/node`, librns C ABI, WASM, browser integration |
 | [Development and testing](development-and-testing.md) | Developers | Code quality, crossref tests, interop tests, CI |
 | [Examples](examples.md) | Application developers | Example programs and how to run them |
 

@@ -26,6 +26,9 @@ Full documentation (English): [docs/en/](docs/en/README.md). Additional language
 | Interface hot reload | Yes | `ReloadInterfaces`, `SIGHUP` (Unix), not in Python `rns` |
 | WASM / browser | Yes | `cmd/reticulum-wasm`, `pkg/wasm` |
 | Runtime sandbox | Yes | `pkg/sandbox`, enabled by default. See [SECURITY.md](SECURITY.md#runtime-sandbox) |
+| librns C ABI | Yes | Linux shared library for in-process embed (`include/rns.h`, `task build-librns`). See [docs/en/embedding-and-wasm.md](docs/en/embedding-and-wasm.md) |
+| Control API | Yes | Localhost JSON and WebSocket for out-of-process clients. See [docs/en/control-api.md](docs/en/control-api.md) |
+| CLI utilities | Yes | `rgostatus`, `rgoid`, `rgoprobe` (`make build-utils`). Shared-instance RPC with Python. See [docs/en/utilities.md](docs/en/utilities.md) |
 | Supply chain secure | Yes | Vendored deps, cosign attestations, CI scans. See [SECURITY.md](SECURITY.md) |
 
 **Goals:**
@@ -127,6 +130,7 @@ go test -v ./...
 |--------|-------------|------------|
 | `make` / `make all` | Build release binary | same as `make build` |
 | `make build` | Build release binary (stripped, static) | `mkdir -p bin` then `CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go` |
+| `make build-utils` | Build `rgostatus`, `rgoid`, `rgoprobe` | see [docs/en/utilities.md](docs/en/utilities.md) |
 | `make install` | Build and install to PREFIX/bin | build as above, then `cp bin/reticulum-go $(PREFIX)/bin/` |
 | `make uninstall` | Remove installed binary | `rm -f $(PREFIX)/bin/reticulum-go` |
 | `make clean` | Remove build artifacts | `go clean` and `rm -rf bin` |
@@ -224,7 +228,19 @@ task build-wasm
 task test-wasm
 ```
 
-For embedded systems and TinyGo builds, see the `tinygo` branch in your Reticulum-Go checkout. Requires TinyGo 0.41.0+.
+### librns (C ABI)
+
+In-process embed for C, C++, Qt, Flutter FFI, and similar hosts. The daemon stays `CGO_ENABLED=0`. Only this target needs CGO.
+
+```bash
+task build-librns
+make -C examples/librns-smoke
+./examples/librns-smoke/librns-smoke
+```
+
+Outputs `bin/librns.so` and `include/rns.h`. Details in [docs/en/embedding-and-wasm.md](docs/en/embedding-and-wasm.md).
+
+For TinyGo and very small devices, see the `tinygo` branch. Requires TinyGo 0.41.0 or newer.
 
 ## Vendored dependencies and offline builds
 
