@@ -30,19 +30,11 @@ func (p *kqueuePoller) control(fd int, events int, flags int) error {
 	var kevs [2]unix.Kevent_t
 	n := 0
 	if events&evRead != 0 {
-		kevs[n] = unix.Kevent_t{
-			Ident:  uint64(fd),
-			Filter: unix.EVFILT_READ,
-			Flags:  uint16(flags),
-		}
+		unix.SetKevent(&kevs[n], fd, unix.EVFILT_READ, flags)
 		n++
 	}
 	if events&evWrite != 0 {
-		kevs[n] = unix.Kevent_t{
-			Ident:  uint64(fd),
-			Filter: unix.EVFILT_WRITE,
-			Flags:  uint16(flags),
-		}
+		unix.SetKevent(&kevs[n], fd, unix.EVFILT_WRITE, flags)
 		n++
 	}
 	if n == 0 {
@@ -67,11 +59,7 @@ func (p *kqueuePoller) Del(fd int) error {
 }
 
 func (p *kqueuePoller) Wait(timeoutMs int) ([]pollEvent, error) {
-	timespec := unix.Timespec{Sec: 0, Nsec: int64(timeoutMs) * int64(time.Millisecond)}
-	if timeoutMs >= 1000 {
-		timespec.Sec = int64(timeoutMs / 1000)
-		timespec.Nsec = int64(timeoutMs%1000) * int64(time.Millisecond)
-	}
+	timespec := unix.NsecToTimespec(int64(timeoutMs) * int64(time.Millisecond))
 	events := make([]unix.Kevent_t, 64)
 	n, err := unix.Kevent(p.fd, nil, events, &timespec)
 	if err != nil {
