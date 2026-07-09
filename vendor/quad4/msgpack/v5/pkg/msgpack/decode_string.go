@@ -146,8 +146,8 @@ func (d *Decoder) bytesPtr(c byte, ptr *[]byte) error {
 	}
 
 	// Use the growth-capped reader unless limits have been explicitly
-	// disabled. Without the cap, a hostile bin32 length (for example,
-	// 0xc6 0xff 0xff 0xff 0xff) tricks the decoder into allocating a
+	// disabled. Without the cap, an oversized bin32 length such as
+	// 0xc6 0xff 0xff 0xff 0xff tricks the decoder into allocating a
 	// multi-gigabyte slice up front before the underlying short input
 	// fails. With the cap, allocation grows in bytesAllocLimit-sized
 	// chunks only as actual bytes arrive.

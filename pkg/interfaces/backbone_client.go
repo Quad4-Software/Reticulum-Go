@@ -198,8 +198,8 @@ func (bc *BackboneClientInterface) Start() error {
 		bc.Mutex.Unlock()
 		return nil
 	}
-	// New(Enabled=true) already builds a reconnect driver and may be dialing.
-	// Replacing that driver here races two dial loops on bc.conn.
+	// Construction with Enabled already builds a reconnect driver and may
+	// be dialing. Replacing that driver here races two dial loops on bc.conn.
 	select {
 	case <-bc.done:
 		bc.done = make(chan struct{})

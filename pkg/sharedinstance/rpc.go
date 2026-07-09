@@ -15,7 +15,7 @@ import (
 	"quad4/reticulum-go/pkg/transport"
 )
 
-// RPCHandler serves Python-compatible shared-instance control requests.
+// RPCHandler serves shared-instance control requests.
 type RPCHandler struct {
 	Transport *transport.Transport
 }

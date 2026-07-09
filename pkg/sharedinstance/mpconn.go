@@ -29,7 +29,7 @@ var (
 )
 
 // AuthenticateServer performs the multiprocessing.connection server-side
-// handshake on conn, matching Python Listener.accept().
+// handshake on conn.
 func AuthenticateServer(conn net.Conn, authkey []byte) error {
 	if len(authkey) == 0 {
 		return errors.New("empty authkey")
@@ -41,7 +41,7 @@ func AuthenticateServer(conn net.Conn, authkey []byte) error {
 }
 
 // AuthenticateClient performs the multiprocessing.connection client-side
-// handshake on conn, matching Python Client().
+// handshake on conn.
 func AuthenticateClient(conn net.Conn, authkey []byte) error {
 	if len(authkey) == 0 {
 		return errors.New("empty authkey")

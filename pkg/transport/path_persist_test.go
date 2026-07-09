@@ -537,23 +537,19 @@ func TestPathPersistence_NoGoroutineLeakAcrossManyTransports(t *testing.T) {
 	}
 }
 
-// --- Python wire-format interop --------------------------------------------
+// --- Wire-format interop ---------------------------------------------------
 
-// TestPathTableInterop_PythonLikeEncoding hand-encodes a destination_table
-// snapshot the way Python umsgpack.packb would (bin-typed byte strings via
-// a dynamic array, matching Transport.save_path_table's serialised_entry
-// layout: [dest_hash, timestamp, next_hop, hops, expires, random_blobs,
-// interface_hash, packet_hash]) and confirms Go's loader accepts it.
-func TestPathTableInterop_PythonLikeEncoding(t *testing.T) {
+// TestPathTableInterop_WireCompatibleEncoding hand-encodes a destination_table
+// snapshot as a msgpack array of arrays with bin-typed byte strings
+// (layout: dest_hash, timestamp, next_hop, hops, expires, random_blobs,
+// interface_hash, packet_hash) and confirms the loader accepts it.
+func TestPathTableInterop_WireCompatibleEncoding(t *testing.T) {
 	now := time.Now()
 	destHash := bytes.Repeat([]byte{0xAA}, 16)
 	nextHop := bytes.Repeat([]byte{0xBB}, 16)
 	ifaceHash := interfacePersistKey("wan")
 
-	// Build with the generic []any encoder path (same as our own writer),
-	// which is wire-compatible with Python's umsgpack array-of-arrays
-	// format: both produce a msgpack array of arrays with bin-typed byte
-	// fields.
+	// Build with the generic []any encoder path used by the on-disk writer.
 	entry := []any{
 		destHash,
 		float64(now.Unix()),

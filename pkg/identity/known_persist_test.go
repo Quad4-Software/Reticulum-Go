@@ -403,16 +403,13 @@ func TestKnownDestinationsPersistence_NoGoroutineLeak(t *testing.T) {
 	}
 }
 
-// --- Python wire-format interop --------------------------------------------
+// --- Wire-format interop ---------------------------------------------------
 
-// TestKnownDestinationsInterop_RawBinKeyWireFormat hand-builds the exact
-// byte layout Python's umsgpack.packb produces for
-// Identity.known_destinations: a fixmap whose keys are the raw
-// destination-hash bytes (bin8, since Python bytes objects are never
-// str-encoded) and whose values are 5-element arrays
-// [timestamp, packet_hash, public_key, app_data, last_used]. This exercises
-// the wire path (not just the Go-side string-key convenience path) to
-// prove real Python-written files decode correctly.
+// TestKnownDestinationsInterop_RawBinKeyWireFormat hand-builds a fixmap
+// whose keys are raw destination-hash bytes (bin8) and whose values are
+// 5-element arrays [timestamp, packet_hash, public_key, app_data,
+// last_used]. This exercises the raw-key wire path rather than the
+// hex-string key convenience path.
 func TestKnownDestinationsInterop_RawBinKeyWireFormat(t *testing.T) {
 	id, err := New()
 	if err != nil {

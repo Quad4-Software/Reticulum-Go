@@ -17,8 +17,7 @@ type InterfaceDiscovery struct {
 	handler       *interfaceAnnounceHandler
 }
 
-// NewInterfaceDiscovery creates a discovery listener matching Python
-// RNS.Discovery.InterfaceDiscovery(discover_interfaces=True).
+// NewInterfaceDiscovery creates a discovery listener for interface announces.
 func NewInterfaceDiscovery(tr *transport.Transport, requiredValue int, onDiscovered func(*ReceivedAnnounceInfo)) *InterfaceDiscovery {
 	if requiredValue <= 0 {
 		requiredValue = DefaultStampValue

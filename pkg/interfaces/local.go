@@ -22,7 +22,7 @@ const localReconnectWait = 8 * time.Second
 type LocalSpawnHook func(client *LocalClientInterface)
 
 // LocalServerInterface listens for local shared-instance clients over TCP or
-// Unix domain sockets with HDLC framing, matching Python LocalServerInterface.
+// Unix domain sockets with HDLC framing.
 type LocalServerInterface struct {
 	BaseInterface
 	listener   net.Listener

@@ -159,8 +159,8 @@ func (tc *TCPClientInterface) Start() error {
 		return nil
 	}
 
-	// New(Enabled=true) already owns a reconnect driver; replacing it races
-	// two dial loops on tc.conn. Only rebuild after Stop closed done.
+	// Construction with Enabled already owns a reconnect driver. Replacing
+	// it races two dial loops on tc.conn. Only rebuild after Stop closed done.
 	select {
 	case <-tc.done:
 		tc.done = make(chan struct{})

@@ -123,9 +123,9 @@ func decodeSliceValue(d *Decoder, v reflect.Value) error {
 
 	// noLimit is true only when the caller has explicitly disabled
 	// allocation limits via UseAllocLimitDisable. When limits are in
-	// effect, growSliceValue caps each grow step to sliceAllocLimit so a
-	// forged array32 length cannot trigger a multi-gigabyte up-front
-	// allocation; real elements still flow through as input arrives.
+	// effect, growSliceValue caps each grow step to sliceAllocLimit so an
+	// oversized array32 length cannot trigger a multi-gigabyte up-front
+	// allocation. Real elements still flow through as input arrives.
 	noLimit := d.flags&disableAllocLimitFlag != 0
 
 	if noLimit && n > v.Len() {
@@ -195,12 +195,12 @@ func (d *Decoder) decodeSlice(c byte) ([]interface{}, error) {
 		return nil, nil
 	}
 
-	// Clamp the initial backing-array allocation so a hostile or truncated
-	// header (for example, array32 with length ~4G) cannot trick the
-	// decoder into requesting an arbitrarily large slice up front. The
-	// decoder still grows the slice via append as real elements arrive, so
-	// well-formed input with more than sliceAllocLimit elements continues
-	// to round-trip correctly when the limit is disabled.
+	// Clamp the initial backing-array allocation so a truncated or
+	// oversized header such as array32 with a huge length cannot request
+	// an arbitrarily large slice up front. The decoder still grows the
+	// slice via append as real elements arrive, so well-formed input with
+	// more than sliceAllocLimit elements continues to round-trip when the
+	// limit is disabled.
 	initCap := n
 	if d.flags&disableAllocLimitFlag == 0 && initCap > sliceAllocLimit {
 		initCap = sliceAllocLimit

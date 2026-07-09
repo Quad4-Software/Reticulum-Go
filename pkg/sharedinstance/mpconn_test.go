@@ -61,9 +61,9 @@ func TestMPConnAuthRejectsWrongKey(t *testing.T) {
 	}
 }
 
-// TestMPConnAuthRejectsSingleRoundServer verifies Python clients require the
-// server to answer the client's challenge after the first round. A server that
-// only delivers one challenge (the pre-fix behaviour) must be rejected.
+// TestMPConnAuthRejectsSingleRoundServer verifies clients require the
+// server to answer the client's challenge after the first round. A server
+// that only delivers one challenge must be rejected.
 func TestMPConnAuthRejectsSingleRoundServer(t *testing.T) {
 	authkey := []byte("shared-instance-authkey")
 	serverConn, clientConn := net.Pipe()

@@ -58,12 +58,12 @@ func GetDecoder() *Decoder {
 // maxPooledBufSize bounds the scratch-buffer capacity a pooled Decoder or
 // Encoder may carry across a Put/Get cycle. Decoding or encoding one
 // legitimately large payload (a multi-hundred-megabyte byte string, for
-// example) grows the relevant buffer to match; without this cap that
+// example) grows the relevant buffer to match. Without this cap that
 // capacity would sit pinned inside the shared sync.Pool, inflating
 // memory for every unrelated, typically much smaller call drawn from the
 // pool afterward, until the runtime's opportunistic (roughly two-GC-cycle)
 // pool eviction happens to run. Buffers above the cap are dropped instead
-// of pooled so worst-case pool memory stays bounded; the next call that
+// of pooled so worst-case pool memory stays bounded. The next call that
 // needs a bigger buffer simply reallocates one, same as a fresh Decoder
 // or Encoder would.
 const maxPooledBufSize = bytesAllocLimit
@@ -226,10 +226,9 @@ func (d *Decoder) DisableAllocLimit(on bool) {
 	}
 }
 
-// SetDecodeDepthLimit caps nested decode/skip recursion depth.
+// SetDecodeDepthLimit caps nested decode and skip recursion depth.
 //
-// This is a defense-in-depth guard against hostile inputs crafted to trigger
-// stack exhaustion. Values <= 0 restore the default limit.
+// Values less than or equal to zero restore the default limit.
 func (d *Decoder) SetDecodeDepthLimit(limit int) {
 	if limit <= 0 {
 		d.maxDepth = defaultDecodeDepthLimit
@@ -245,7 +244,7 @@ func (d *Decoder) Buffered() io.Reader {
 }
 
 // remainingReadable reports how many unread bytes are still available when
-// the underlying reader exposes a Len() method (for example *bytes.Reader).
+// the underlying reader exposes a Len method such as *bytes.Reader.
 // When the size is unknown the second return is false and callers must not
 // treat the value as authoritative.
 func (d *Decoder) remainingReadable() (int, bool) {
@@ -258,11 +257,10 @@ func (d *Decoder) remainingReadable() (int, bool) {
 	return 0, false
 }
 
-// rejectOversizedContainer fails fast when a claimed array/map length cannot
-// possibly fit in the remaining input. Each element needs at least
-// minBytesPerElem bytes on the wire; forged array32/map32 headers otherwise
-// force the decoder to allocate and iterate for billions of missing values
-// before EOF, which OOMs fuzz workers and hostile clients.
+// rejectOversizedContainer fails fast when a claimed array or map length
+// cannot fit in the remaining input. Each element needs at least
+// minBytesPerElem bytes on the wire. Oversized array32 or map32 headers
+// would otherwise force large allocations and long iteration before EOF.
 func (d *Decoder) rejectOversizedContainer(n, minBytesPerElem int, kind string) error {
 	if n <= 0 || minBytesPerElem <= 0 {
 		return nil
