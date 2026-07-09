@@ -183,6 +183,7 @@ func TestProcessPathRequest_stalePathByTTLStartsDiscovery(t *testing.T) {
 	tr.SetIdentity(mustIdentity(t))
 
 	wan := mockIface("wan", true)
+	wan.Mode = common.IFModeGateway
 	if err := tr.RegisterInterface("wan", wan); err != nil {
 		t.Fatal(err)
 	}

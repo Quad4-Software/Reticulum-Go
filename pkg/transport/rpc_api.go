@@ -10,7 +10,7 @@ import (
 	"quad4/reticulum-go/pkg/packet"
 )
 
-// PathTableEntry mirrors Python get_path_table() rows for RPC interop.
+// PathTableEntry is one path-table row for shared-instance RPC.
 type PathTableEntry struct {
 	Hash      []byte  `msgpack:"hash"`
 	Timestamp float64 `msgpack:"timestamp"`
@@ -20,7 +20,7 @@ type PathTableEntry struct {
 	Interface string  `msgpack:"interface"`
 }
 
-// InterfaceStat mirrors the subset of Python get_interface_stats() used by tools.
+// InterfaceStat is the per-interface stats subset used by status tools.
 type InterfaceStat struct {
 	Name                      string  `msgpack:"name"`
 	ShortName                 string  `msgpack:"short_name"`
@@ -46,7 +46,7 @@ type InterfaceStat struct {
 	TunnelState               *string `msgpack:"tunnelstate,omitempty"`
 }
 
-// InterfaceStatsResponse mirrors Python get_interface_stats() top-level map.
+// InterfaceStatsResponse is the top-level interface stats RPC payload.
 type InterfaceStatsResponse struct {
 	Interfaces      []InterfaceStat `msgpack:"interfaces"`
 	RXB             uint64          `msgpack:"rxb"`
@@ -57,7 +57,7 @@ type InterfaceStatsResponse struct {
 	TransportUptime float64         `msgpack:"transport_uptime"`
 }
 
-// RateTableEntry mirrors Python get_rate_table() rows.
+// RateTableEntry is one rate-table row for shared-instance RPC.
 type RateTableEntry struct {
 	Hash           []byte    `msgpack:"hash"`
 	Last           float64   `msgpack:"last"`
@@ -94,7 +94,10 @@ func (t *Transport) TransportIdentityHash() []byte {
 
 func (t *Transport) RPCAuthKey() []byte {
 	t.mutex.RLock()
-	id := t.transportIdentity
+	id := t.rpcIdentity
+	if id == nil {
+		id = t.transportIdentity
+	}
 	t.mutex.RUnlock()
 	if id == nil {
 		return nil
@@ -253,8 +256,12 @@ func (t *Transport) GetRateTableRPC() []RateTableEntry {
 }
 
 func (t *Transport) DropPathRPC(destinationHash []byte) bool {
+	if t == nil || len(destinationHash) != 16 {
+		return false
+	}
+	had := t.HasPath(destinationHash)
 	t.ExpirePath(destinationHash)
-	return true
+	return had
 }
 
 func (t *Transport) DropAllViaRPC(transportHash []byte) int {
@@ -310,19 +317,23 @@ func (t *Transport) IsBlackholedRPC(identityHash []byte) bool {
 	return tab.Has(identityHash)
 }
 
-func (t *Transport) GetBlackholedIdentitiesRPC() []map[string]any {
+func (t *Transport) GetBlackholedIdentitiesRPC() map[string]any {
 	tab := t.BlackholeTable()
 	if tab == nil {
-		return nil
+		return map[string]any{}
 	}
 	snap := tab.Snapshot()
-	out := make([]map[string]any, 0, len(snap))
+	out := make(map[string]any, len(snap))
 	for _, e := range snap {
-		out = append(out, map[string]any{
-			"identity": e.Hash[:],
-			"until":    e.Entry.Until,
-			"reason":   e.Entry.Reason,
-		})
+		// Blackhole maps are keyed by raw identity hash bytes. Msgpack map
+		// keys that are binary decode as string in some clients; use hex for
+		// stable Go JSON tools and also include identity field in the value.
+		key := string(e.Hash[:])
+		out[key] = map[string]any{
+			"until":  e.Entry.Until,
+			"reason": e.Entry.Reason,
+			"source": append([]byte(nil), e.Entry.Source...),
+		}
 	}
 	return out
 }

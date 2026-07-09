@@ -104,18 +104,26 @@ type BaseInterface struct {
 
 	// IFACIdentity is set when the interface participates in an IFAC network.
 	IFACIdentity IFAC
+
+	// RecursivePRs enables unknown-path discovery on this interface.
+	RecursivePRs bool
+
+	// AnnouncesFromInternal controls rebroadcast of announces learned via an
+	// internal-mode next hop (default true).
+	AnnouncesFromInternal bool
 }
 
 // NewBaseInterface creates a new BaseInterface instance
 func NewBaseInterface(name string, ifaceType InterfaceType, enabled bool) BaseInterface {
 	return BaseInterface{
-		Name:    name,
-		Type:    ifaceType,
-		Mode:    IFModeFull,
-		Enabled: enabled,
-		MTU:     DefaultMTU,
-		Bitrate: BitrateMinimum,
-		lastTx:  time.Now(),
+		Name:                  name,
+		Type:                  ifaceType,
+		Mode:                  IFModeFull,
+		Enabled:               enabled,
+		MTU:                   DefaultMTU,
+		Bitrate:               BitrateMinimum,
+		lastTx:                time.Now(),
+		AnnouncesFromInternal: true,
 	}
 }
 
@@ -124,13 +132,14 @@ func NewBaseInterface(name string, ifaceType InterfaceType, enabled bool) BaseIn
 // prefer this constructor so they store *BaseInterface and avoid copying sync.Mutex.
 func NewBaseInterfacePtr(name string, ifaceType InterfaceType, enabled bool) *BaseInterface {
 	return &BaseInterface{
-		Name:    name,
-		Type:    ifaceType,
-		Mode:    IFModeFull,
-		Enabled: enabled,
-		MTU:     DefaultMTU,
-		Bitrate: BitrateMinimum,
-		lastTx:  time.Now(),
+		Name:                  name,
+		Type:                  ifaceType,
+		Mode:                  IFModeFull,
+		Enabled:               enabled,
+		MTU:                   DefaultMTU,
+		Bitrate:               BitrateMinimum,
+		lastTx:                time.Now(),
+		AnnouncesFromInternal: true,
 	}
 }
 
@@ -141,6 +150,17 @@ func (i *BaseInterface) GetType() InterfaceType {
 
 func (i *BaseInterface) GetMode() InterfaceMode {
 	return i.Mode
+}
+
+// RecursivePRsEnabled reports whether unknown-path discovery is enabled.
+func (i *BaseInterface) RecursivePRsEnabled() bool {
+	return i.RecursivePRs
+}
+
+// AnnouncesFromInternalFlag reports whether announces from internal next hops
+// may be rebroadcast (default true).
+func (i *BaseInterface) AnnouncesFromInternalFlag() bool {
+	return i.AnnouncesFromInternal
 }
 
 func (i *BaseInterface) GetMTU() int {

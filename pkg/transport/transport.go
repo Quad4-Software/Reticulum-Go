@@ -97,8 +97,11 @@ type Transport struct {
 	announceTable         map[string]*PathAnnounceEntry
 	heldAnnounces         map[string]*PathAnnounceEntry
 	transportIdentity     *identity.Identity
-	pathRequestDest       any
-	blackholeTable        *blackhole.Table
+	// rpcIdentity is the persisted transport identity used for shared-instance
+	// RPC auth when an ephemeral wire identity is active.
+	rpcIdentity     *identity.Identity
+	pathRequestDest any
+	blackholeTable  *blackhole.Table
 	linkTable             *linkRelayTable
 	lastPathRequest       map[[PathMapKeySize]byte]time.Time
 	ifaceStates           *ifaceStateTable
@@ -192,7 +195,24 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 
 	transportIdent, err := identity.LoadOrCreateTransportIdentity(transportStoragePath(cfg))
 	if err == nil {
+		t.rpcIdentity = transportIdent
 		t.transportIdentity = transportIdent
+		if cfg != nil && !cfg.EnableTransport && !cfg.StaticTransportIdentity {
+			ephemeral, eerr := identity.New()
+			if eerr == nil {
+				t.transportIdentity = ephemeral
+				debug.Log(debug.DebugVerbose, "Initialized ephemeral transport identity",
+					"hash", fmt.Sprintf("%x", ephemeral.Hash()))
+			}
+		}
+		blackhole.SetLocalIdentityHash(t.rpcIdentity.Hash())
+	}
+
+	if storage := transportStoragePath(cfg); storage != "" {
+		bhDir := filepath.Join(storage, "blackhole")
+		tab := blackhole.New(bhDir)
+		_ = tab.LoadAll()
+		t.blackholeTable = tab
 	}
 
 	go t.startMaintenanceJobs()
@@ -1049,6 +1069,10 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 			continue
 		}
 
+		if !t.shouldForwardAnnounceOn(destHash, iface, sourceIface) {
+			continue
+		}
+
 		debug.Log(debug.DebugAll, "Forwarding announce on interface", "name", name)
 		if err := iface.Send(data, ""); err != nil {
 			debug.Log(debug.DebugAll, "Failed to forward announce", "name", name, "error", err)
@@ -1175,9 +1199,17 @@ func SendAnnounce(packet []byte) error {
 		return errors.New("transport not initialized")
 	}
 
+	var destHash []byte
+	if len(packet) >= HeaderSize+AddrHashSize {
+		destHash = packet[HeaderSize : HeaderSize+AddrHashSize]
+	}
+
 	var lastErr error
 	for _, e := range t.snapshotRegisteredInterfaces() {
 		if !e.iface.IsEnabled() {
+			continue
+		}
+		if len(destHash) > 0 && !t.shouldForwardAnnounceOn(destHash, e.iface, nil) {
 			continue
 		}
 		if err := e.iface.Send(packet, ""); err != nil {
@@ -1497,6 +1529,7 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	data[1]++
 
 	destKey := string(destinationHash)
+	fromIface := iface
 	var lastErr error
 	for _, e := range t.snapshotRegisteredInterfaces() {
 		name := e.name
@@ -1507,6 +1540,10 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 
 		if !outIface.GetBandwidthAvailable() {
 			debug.Log(debug.DebugVerbose, "Skipping announce forwarding on interface due to bandwidth cap", "name", name)
+			continue
+		}
+
+		if !t.shouldForwardAnnounceOn(destinationHash, outIface, fromIface) {
 			continue
 		}
 
@@ -1891,6 +1928,11 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 			"dest_hash", fmt.Sprintf("%x", destHash))
 		return
 	}
+	if !ifaceDiscoversUnknownPaths(attachedIface) {
+		debug.Log(debug.DebugVerbose, "Not discovering unknown path: interface mode does not discover",
+			"dest_hash", fmt.Sprintf("%x", destHash), "iface", attachedIface.GetName())
+		return
+	}
 	if attachedIface.ShouldIngressLimitPR() {
 		debug.Log(debug.DebugVerbose, "Not rebroadcasting path request: ingress limiting active",
 			"dest_hash", fmt.Sprintf("%x", destHash), "iface", attachedIface.GetName())
@@ -1978,6 +2020,17 @@ func (t *Transport) RegisterLink(linkID []byte, linkObj LinkInterface) {
 
 	t.links[linkKey] = linkObj
 	debug.Log(debug.DebugVerbose, "Registered link", "link_id", fmt.Sprintf("%x", linkID))
+}
+
+// FindLink returns a registered link by link ID, or nil.
+func (t *Transport) FindLink(linkID []byte) LinkInterface {
+	if t == nil || len(linkID) == 0 {
+		return nil
+	}
+	linkKey := hash16FromSlice(linkID)
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	return t.links[linkKey]
 }
 
 func (t *Transport) UnregisterLink(linkID []byte) {

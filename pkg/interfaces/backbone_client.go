@@ -108,7 +108,7 @@ func newSpawnedBackboneClient(parent *BackboneInterface, conn net.Conn) *Backbon
 	return bc
 }
 
-// NewBackboneFromConfig selects backbone server or client mode like reference Reticulum.
+// NewBackboneFromConfig selects backbone server or client mode from config.
 func NewBackboneFromConfig(name string, cfg *common.InterfaceConfig, hub *backbone.Hub, spawn func(*BackboneClientInterface)) (Interface, error) {
 	normalizeBackboneConfig(cfg)
 	if strings.TrimSpace(cfg.TargetHost) != "" {

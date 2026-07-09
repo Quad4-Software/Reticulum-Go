@@ -12,7 +12,7 @@ type ConfigProvider interface {
 	GetInterfaces() map[string]InterfaceConfig
 }
 
-// InterfaceConfig is per-interface settings (announce_* / ic_* match reference Reticulum).
+// InterfaceConfig is per-interface settings (announce_* / ic_* and related keys).
 type InterfaceConfig struct {
 	Name              string
 	Type              string
@@ -75,6 +75,25 @@ type InterfaceConfig struct {
 	// LocalInterface unix socket settings (interface block).
 	SharedInstanceType string
 	InstanceName       string
+
+	// QUIC TLS settings (Go-only QUICClientInterface / QUICServerInterface).
+	CertFile string
+	KeyFile  string
+	PeerKey  string
+	SNI      string
+
+	// Mode is the interface operational mode (full, gateway, internal, ...).
+	// Empty means full.
+	Mode string
+
+	// RecursivePRs enables path discovery for unknown destinations on this
+	// interface.
+	RecursivePRs bool
+
+	// AnnouncesFromInternal controls whether announces learned via an
+	// internal-mode next hop are rebroadcast. Default true when unset.
+	AnnouncesFromInternal    bool
+	AnnouncesFromInternalSet bool
 }
 
 // SharedInstanceType values for [reticulum] shared_instance_type.
@@ -126,6 +145,16 @@ type ReticulumConfig struct {
 
 	// WatchInterfaces enables periodic NIC monitoring via net.Interfaces where supported.
 	WatchInterfaces bool
+
+	// StaticTransportIdentity keeps the persisted transport identity on the
+	// wire even when enable_transport is no. When false and transport is
+	// disabled, an ephemeral identity is used for transport while RPC auth
+	// still uses the persisted identity.
+	StaticTransportIdentity bool
+
+	// LocalHopsDelta enables hop-field mangling for local-origin packets.
+	// Parsed for config parity. Full outbound mangling is not implemented yet.
+	LocalHopsDelta bool
 }
 
 // NewReticulumConfig creates a new ReticulumConfig with default values

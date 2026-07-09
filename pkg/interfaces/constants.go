@@ -7,11 +7,12 @@ import "time"
 const (
 	BitrateMinimum = 1200
 	ModeFull       = 0x01
-
-	ModeGateway     = 0x02
+	ModePoint      = 0x02
 	ModeAccessPoint = 0x03
 	ModeRoaming     = 0x04
 	ModeBoundary    = 0x05
+	ModeGateway     = 0x06
+	ModeInternal    = 0x07
 
 	TypeUDP = 0x01
 	TypeTCP = 0x02
