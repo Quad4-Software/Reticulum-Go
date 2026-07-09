@@ -1,4 +1,4 @@
-.PHONY: all build install uninstall clean test fmt vet lint vulncheck gosec check deps run
+.PHONY: all build build-utils install uninstall clean test fmt vet lint vulncheck gosec check deps run
 .PHONY: build-linux build-windows build-windows-legacy build-darwin build-all
 .PHONY: test-short test-race test-crossref test-wasm test-all coverage bench debug release
 
@@ -17,26 +17,36 @@ MAIN_PACKAGE := ./cmd/reticulum-go
 PREFIX ?= /usr/local
 INSTALL_DIR := $(PREFIX)/bin
 
-all: build
+all: build build-utils
 
 build:
 	@mkdir -p $(BUILD_DIR)
 	CGO_ENABLED=0 $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PACKAGE)
 
+build-utils:
+	@mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=0 $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/rgostatus ./cmd/rgostatus
+	CGO_ENABLED=0 $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/rgoid ./cmd/rgoid
+	CGO_ENABLED=0 $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/rgoprobe ./cmd/rgoprobe
+
 debug:
 	@mkdir -p $(BUILD_DIR)
 	$(GOCMD) build -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PACKAGE)
 
-release: build
+release: build build-utils
 
-install: build
+install: build build-utils
 	@mkdir -p $(INSTALL_DIR)
 	@cp $(BUILD_DIR)/$(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)
-	@echo "Installed $(BINARY_NAME) to $(INSTALL_DIR)"
+	@cp $(BUILD_DIR)/rgostatus $(INSTALL_DIR)/rgostatus
+	@cp $(BUILD_DIR)/rgoid $(INSTALL_DIR)/rgoid
+	@cp $(BUILD_DIR)/rgoprobe $(INSTALL_DIR)/rgoprobe
+	@echo "Installed $(BINARY_NAME) and utilities to $(INSTALL_DIR)"
 
 uninstall:
 	@rm -f $(INSTALL_DIR)/$(BINARY_NAME)
-	@echo "Removed $(INSTALL_DIR)/$(BINARY_NAME)"
+	@rm -f $(INSTALL_DIR)/rgostatus $(INSTALL_DIR)/rgoid $(INSTALL_DIR)/rgoprobe
+	@echo "Removed $(BINARY_NAME) and utilities from $(INSTALL_DIR)"
 
 clean:
 	$(GOCMD) clean
