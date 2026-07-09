@@ -3,6 +3,7 @@ module quad4/reticulum-go
 go 1.26.4
 
 require (
+	github.com/quic-go/quic-go v0.60.0
 	golang.org/x/crypto v0.52.0
 	golang.org/x/sys v0.45.0
 	quad4/bzip2 v0.0.0
@@ -10,7 +11,10 @@ require (
 	quad4/pbt v0.0.0
 )
 
-require quad4/tagparser v0.0.0 // indirect
+require (
+	golang.org/x/net v0.55.0 // indirect
+	quad4/tagparser v0.0.0 // indirect
+)
 
 replace (
 	quad4/bzip2 => ../../Reticulum-Go-Projects/bzip2

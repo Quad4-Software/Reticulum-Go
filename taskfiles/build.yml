@@ -18,14 +18,9 @@ tasks:
       - '{{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}'
 
   build-utils:
-    desc: Build Go-native CLI utilities (rgostatus, rgoid, rgoprobe)
-    env:
-      CGO_ENABLED: '0'
+    desc: Alias for build (tools are subcommands of reticulum-go)
     cmds:
-      - mkdir -p {{.BUILD_DIR}}
-      - '{{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/rgostatus ./cmd/rgostatus'
-      - '{{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/rgoid ./cmd/rgoid'
-      - '{{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/rgoprobe ./cmd/rgoprobe'
+      - task: build
 
   debug:
     desc: Build debug binary

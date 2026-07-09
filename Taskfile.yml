@@ -12,6 +12,8 @@ vars:
   BINARY_NAME: reticulum-go
   BUILD_DIR: bin
   MAIN_PACKAGE: ./cmd/reticulum-go
+  PREFIX: '{{default "/usr/local" .PREFIX}}'
+  DESTDIR: '{{default "" .DESTDIR}}'
   SCAN_GO_PACKAGES: ./pkg/... ./cmd/... ./internal/... ./tests/...
   TRIVY_SKIP_DIR_FLAGS: --skip-dirs vendor --skip-dirs .cache
 
@@ -148,9 +150,9 @@ tasks:
       - task: vendor-sync
 
   install:
-    desc: Refresh vendored dependencies from Reticulum-Go-Projects (offline after sync)
+    desc: Install binary, tool symlinks, and man pages (PREFIX, DESTDIR)
     cmds:
-      - task: vendor-sync
+      - make install PREFIX="{{.PREFIX}}" DESTDIR="{{.DESTDIR}}"
 
   run:
     desc: Run with go run

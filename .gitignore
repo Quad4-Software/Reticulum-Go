@@ -3,6 +3,8 @@ bin/
 /rgostatus
 /rgoid
 /rgoprobe
+/rgopath
+/rgocp
 /librns.so
 *.so
 *.dylib
@@ -71,3 +73,4 @@ __pycache__/
 /*.rsm
 /*.rfe
 /*.pub
+dist/

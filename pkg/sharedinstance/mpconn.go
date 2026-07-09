@@ -5,7 +5,7 @@ package sharedinstance
 
 import (
 	"crypto/hmac"
-	"crypto/md5" // #nosec G501 -- HMAC-MD5 required for Python multiprocessing.connection auth
+	"crypto/md5" // #nosec G501 -- HMAC-MD5 required for multiprocessing.connection auth
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -121,7 +121,7 @@ func recvBytes(r io.Reader, maxSize int) ([]byte, error) {
 	if _, err := io.ReadFull(r, header); err != nil {
 		return nil, err
 	}
-	size := int32(binary.BigEndian.Uint32(header)) // #nosec G115 -- Python multiprocessing.connection length prefix
+	size := int32(binary.BigEndian.Uint32(header)) // #nosec G115 -- multiprocessing.connection length prefix
 	var n int64
 	switch {
 	case size == -1:

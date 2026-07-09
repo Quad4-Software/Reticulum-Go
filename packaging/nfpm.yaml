@@ -1,0 +1,99 @@
+# nfpm config for reticulum-go packages.
+# Build: make package-deb  or  make package-rpm
+#
+# Environment overrides:
+#   VERSION  package version (default from make)
+#   BINARY   path to built reticulum-go binary (default bin/reticulum-go)
+
+name: reticulum-go
+arch: ${ARCH}
+platform: linux
+version: ${VERSION}
+section: net
+priority: optional
+maintainer: Quad4.io <ivan@quad4.io>
+description: |
+  Reticulum network stack (Go).
+  Single binary with daemon and tools: status, id, probe, path, cp, pageserver.
+vendor: Quad4.io
+homepage: https://github.com/quad4io/Reticulum-Go
+license: Apache-2.0
+contents:
+  - src: ${BINARY}
+    dst: /usr/bin/reticulum-go
+    expand: true
+    file_info:
+      mode: 0755
+  - src: /usr/bin/reticulum-go
+    dst: /usr/bin/rgostatus
+    type: symlink
+  - src: /usr/bin/reticulum-go
+    dst: /usr/bin/rgoid
+    type: symlink
+  - src: /usr/bin/reticulum-go
+    dst: /usr/bin/rgoprobe
+    type: symlink
+  - src: /usr/bin/reticulum-go
+    dst: /usr/bin/rgopath
+    type: symlink
+  - src: /usr/bin/reticulum-go
+    dst: /usr/bin/rgocp
+    type: symlink
+  - src: /usr/bin/reticulum-go
+    dst: /usr/bin/rgopageserver
+    type: symlink
+  - src: man/reticulum-go.1
+    dst: /usr/share/man/man1/reticulum-go.1
+    file_info:
+      mode: 0644
+  - src: man/reticulum-go-status.1
+    dst: /usr/share/man/man1/reticulum-go-status.1
+    file_info:
+      mode: 0644
+  - src: man/reticulum-go-id.1
+    dst: /usr/share/man/man1/reticulum-go-id.1
+    file_info:
+      mode: 0644
+  - src: man/reticulum-go-probe.1
+    dst: /usr/share/man/man1/reticulum-go-probe.1
+    file_info:
+      mode: 0644
+  - src: man/reticulum-go-path.1
+    dst: /usr/share/man/man1/reticulum-go-path.1
+    file_info:
+      mode: 0644
+  - src: man/reticulum-go-cp.1
+    dst: /usr/share/man/man1/reticulum-go-cp.1
+    file_info:
+      mode: 0644
+  - src: man/reticulum-go-pageserver.1
+    dst: /usr/share/man/man1/reticulum-go-pageserver.1
+    file_info:
+      mode: 0644
+  - src: man/reticulum-go.8
+    dst: /usr/share/man/man8/reticulum-go.8
+    file_info:
+      mode: 0644
+  - src: /usr/share/man/man1/reticulum-go-status.1
+    dst: /usr/share/man/man1/rgostatus.1
+    type: symlink
+  - src: /usr/share/man/man1/reticulum-go-id.1
+    dst: /usr/share/man/man1/rgoid.1
+    type: symlink
+  - src: /usr/share/man/man1/reticulum-go-probe.1
+    dst: /usr/share/man/man1/rgoprobe.1
+    type: symlink
+  - src: /usr/share/man/man1/reticulum-go-path.1
+    dst: /usr/share/man/man1/rgopath.1
+    type: symlink
+  - src: /usr/share/man/man1/reticulum-go-cp.1
+    dst: /usr/share/man/man1/rgocp.1
+    type: symlink
+  - src: /usr/share/man/man1/reticulum-go-pageserver.1
+    dst: /usr/share/man/man1/rgopageserver.1
+    type: symlink
+overrides:
+  deb:
+    depends: []
+  rpm:
+    depends: []
