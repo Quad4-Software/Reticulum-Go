@@ -34,6 +34,15 @@ const (
 	incomingResourceRetryInterval = 4 * time.Second
 )
 
+// IncomingResource is delivered to resource concluded callbacks when the
+// transfer carried metadata (rncp file name). Plain transfers still deliver
+// []byte for backward compatibility with existing callbacks.
+type IncomingResource struct {
+	Data     []byte
+	Metadata map[string]any
+	Hash     []byte
+}
+
 type incomingResourceAsm struct {
 	adv *resource.ResourceAdvertisement
 	sdu int
@@ -539,8 +548,17 @@ func (l *Link) deliverIncomingResource(inner []byte, adv *resource.ResourceAdver
 		return nil
 	}
 
+	filePayload, metadata := splitResourceMetadata(payload, adv)
 	if l.resourceConcludedCallback != nil {
-		l.resourceConcludedCallback(payload)
+		if metadata != nil {
+			l.resourceConcludedCallback(IncomingResource{
+				Data:     filePayload,
+				Metadata: metadata,
+				Hash:     append([]byte(nil), adv.Hash...),
+			})
+		} else {
+			l.resourceConcludedCallback(filePayload)
+		}
 	}
 	return nil
 }
@@ -568,9 +586,11 @@ func splitResourceMetadata(payload []byte, adv *resource.ResourceAdvertisement) 
 
 func (l *Link) completeRequestWithResourcePayload(req *RequestReceipt, payload []byte, metadata map[string]any) {
 	respBytes := payload
+	var responseValue any = payload
 	if metadata == nil {
 		var unpacked []any
 		if err := msgpack.Unmarshal(payload, &unpacked); err == nil && len(unpacked) >= 2 {
+			responseValue = unpacked[1]
 			if rawResp, ok := unpacked[1].([]byte); ok {
 				respBytes = rawResp
 			} else if str, ok := unpacked[1].(string); ok {
@@ -584,6 +604,7 @@ func (l *Link) completeRequestWithResourcePayload(req *RequestReceipt, payload [
 	req.mutex.Lock()
 	req.status = StatusActive
 	req.response = respBytes
+	req.responseValue = responseValue
 	req.metadata = metadata
 	req.receivedAt = time.Now()
 	req.mutex.Unlock()

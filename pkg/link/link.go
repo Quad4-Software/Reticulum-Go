@@ -493,6 +493,7 @@ type RequestReceipt struct {
 	sentAt        time.Time
 	receivedAt    time.Time
 	response      []byte
+	responseValue any
 	metadata      map[string]any
 	timeout       time.Duration
 	bytesReceived int64
@@ -521,6 +522,20 @@ func (r *RequestReceipt) GetResponse() []byte {
 		return nil
 	}
 	return append([]byte{}, r.response...)
+}
+
+// GetResponseValue returns the decoded response payload as any (bytes, bool,
+// int, or other msgpack value). Used by fetch_file status codes from rncp.
+func (r *RequestReceipt) GetResponseValue() any {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	if r.responseValue != nil {
+		return r.responseValue
+	}
+	if r.response != nil {
+		return append([]byte{}, r.response...)
+	}
+	return nil
 }
 
 // GetMetadata returns the metadata attached to a response delivered as a
@@ -1690,16 +1705,21 @@ func (l *Link) handleResponse(plaintext []byte) error {
 	if !ok {
 		return errors.New("invalid response format: request id is not bytes")
 	}
+	requestID := requestIDRaw
+	responseValue := responseData[1]
 	var responsePayload []byte
-	switch p := responseData[1].(type) {
+	switch p := responseValue.(type) {
 	case []byte:
 		responsePayload = p
 	case string:
 		responsePayload = []byte(p)
+	case nil, bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		// Status codes (rncp fetch_file returns False / 0xF0 / True).
 	default:
-		return errors.New("invalid response format: response payload is not bytes or string")
+		if packed, err := msgpack.Marshal(responseValue); err == nil {
+			responsePayload = packed
+		}
 	}
-	requestID := requestIDRaw
 
 	l.requestMutex.Lock()
 	for i, req := range l.pendingRequests {
@@ -1707,6 +1727,7 @@ func (l *Link) handleResponse(plaintext []byte) error {
 			req.mutex.Lock()
 			req.status = StatusActive
 			req.response = responsePayload
+			req.responseValue = responseValue
 			req.receivedAt = time.Now()
 			req.bytesReceived = int64(len(responsePayload))
 			req.totalBytes = int64(len(responsePayload))
