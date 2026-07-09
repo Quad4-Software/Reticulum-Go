@@ -33,8 +33,9 @@ Documentation is organized by language under `docs/`. English lives in `docs/en/
 | [Security](security.md) | Security, operations | Reporting, sandbox, supply chain, release verification |
 | [Compatibility](compatibility.md) | Architects, integrators | Parity with Python RNS, gaps, Go-only extensions |
 | [Control API](control-api.md) | Application developers | Localhost JSON and WebSocket API for non-Go clients |
+| [librns](librns.md) | Native / FFI embedders | C ABI map, supported surface, events, build and smoke |
 | [CLI utilities](utilities.md) | Operators, developers | `rgostatus`, `rgoid`, `rgoprobe`, shared-instance RPC with Python |
-| [Embedding and WebAssembly](embedding-and-wasm.md) | Application developers | `pkg/node`, librns C ABI, WASM, browser integration |
+| [Embedding and WebAssembly](embedding-and-wasm.md) | Application developers | `pkg/node`, WASM, browser integration |
 | [Development and testing](development-and-testing.md) | Developers | Code quality, crossref tests, interop tests, CI |
 | [Examples](examples.md) | Application developers | Example programs and how to run them |
 

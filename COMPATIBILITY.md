@@ -24,7 +24,7 @@ For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). F
 | Channel | Yes | In-link reliable channel. [pkg/channel](pkg/channel/) tests. Python 1.3.0 fixed ghost envelopes. Go uses a simpler single-outlet model. |
 | Buffer | Yes | Stream buffer over channel. [pkg/buffer](pkg/buffer/) tests. |
 | Node lifecycle | Yes (Go-only) | [pkg/node](pkg/node/) embedder API: `OnNetworkAvailable`, `OnNetworkLost`, `RefreshPaths`, `ReloadInterfaces`, control API lifecycle routes. No Python equivalent. `watch_interfaces` polls NIC up/down and address changes via `net.Interfaces` on Linux, Android, Windows, macOS, and BSD (any CPU arch). Stub on WASM. `OnNetworkLost` may leave reconnect goroutines running until I/O fails. `ReloadInterfaces` equality skips some keys. See [Node lifecycle](#node-lifecycle-go-only). |
-| librns C ABI | Yes (Go-only) | [pkg/librns](pkg/librns/), [include/rns.h](include/rns.h), `task build-librns`. In-process C facade over node, destination, and link. Linux `.so` first. Same wire stack as the daemon. Not a Python API. See [docs/en/embedding-and-wasm.md](docs/en/embedding-and-wasm.md). |
+| librns C ABI | Yes (Go-only) | [pkg/librns](pkg/librns/), [include/rns.h](include/rns.h), `task build-librns`. In-process C facade over node, destination, and link. Linux `.so` first. Same wire stack as the daemon. Not a Python API. See [docs/en/librns.md](docs/en/librns.md). |
 
 ## Interfaces
 
@@ -75,7 +75,7 @@ Tests: `interface_lifecycle_test.go`, `interface_scrub_links_test.go`, `interfac
 
 Go-only embedder API in [pkg/node](pkg/node/) and the control API (`POST /v1/lifecycle/{resume,pause,refresh-paths}`). There is no Python equivalent. The API surface is complete for what Go ships. Platform limits are listed below.
 
-Native hosts that cannot import Go can use [pkg/librns](pkg/librns/) (`include/rns.h`, `bin/librns.so`) for the same in-process stack. Out-of-process clients use the control API instead.
+Native hosts that cannot import Go can use [pkg/librns](pkg/librns/) (`include/rns.h`, `bin/librns.so`) for the same in-process stack. See [docs/en/librns.md](docs/en/librns.md). Out-of-process clients use the control API instead.
 
 | API | Behaviour |
 |-----|-----------|

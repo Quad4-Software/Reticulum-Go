@@ -185,7 +185,7 @@ Non-Go applications talk HTTP and WebSocket to `pkg/controlapi` on localhost whi
 
 ### librns in-process
 
-Native hosts link `librns.so` and call `include/rns.h`. Same stack as `pkg/node`, no separate daemon. Linux first. See [Embedding and WebAssembly](embedding-and-wasm.md).
+Native hosts link `librns.so` and call `include/rns.h`. Same stack as `pkg/node`, no separate daemon. Linux first. See [librns](librns.md).
 
 ## Persistence and state
 

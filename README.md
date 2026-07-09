@@ -26,7 +26,7 @@ Full documentation (English): [docs/en/](docs/en/README.md). Additional language
 | Interface hot reload | Yes | `ReloadInterfaces`, `SIGHUP` (Unix), not in Python `rns` |
 | WASM / browser | Yes | `cmd/reticulum-wasm`, `pkg/wasm` |
 | Runtime sandbox | Yes | `pkg/sandbox`, enabled by default. See [SECURITY.md](SECURITY.md#runtime-sandbox) |
-| librns C ABI | Yes | Linux shared library for in-process embed (`include/rns.h`, `task build-librns`). See [docs/en/embedding-and-wasm.md](docs/en/embedding-and-wasm.md) |
+| librns C ABI | Yes | Linux shared library for in-process embed (`include/rns.h`, `task build-librns`). See [docs/en/librns.md](docs/en/librns.md) |
 | Control API | Yes | Localhost JSON and WebSocket for out-of-process clients. See [docs/en/control-api.md](docs/en/control-api.md) |
 | CLI utilities | Yes | `rgostatus`, `rgoid`, `rgoprobe` (`make build-utils`). Shared-instance RPC with Python. See [docs/en/utilities.md](docs/en/utilities.md) |
 | Supply chain secure | Yes | Vendored deps, cosign attestations, CI scans. See [SECURITY.md](SECURITY.md) |
@@ -238,7 +238,7 @@ make -C examples/librns-smoke
 ./examples/librns-smoke/librns-smoke
 ```
 
-Outputs `bin/librns.so` and `include/rns.h`. Details in [docs/en/embedding-and-wasm.md](docs/en/embedding-and-wasm.md).
+Outputs `bin/librns.so` and `include/rns.h`. Full map: [docs/en/librns.md](docs/en/librns.md).
 
 For TinyGo and very small devices, see the `tinygo` branch. Requires TinyGo 0.41.0 or newer.
 

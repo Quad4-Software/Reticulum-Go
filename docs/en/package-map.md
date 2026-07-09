@@ -229,7 +229,7 @@ C ABI facade for in-process embed. Pure Go core. CGO shims in `pkg/librns/capi`.
 | Smoke | `examples/librns-smoke` |
 | Main files | `node.go`, `identity.go`, `destination.go`, `link.go`, `queue.go` |
 
-See [Embedding and WebAssembly](embedding-and-wasm.md).
+See [librns](librns.md).
 
 ## Discovery and policy
 

@@ -32,7 +32,7 @@ The detailed matrix with config key tables lives in [COMPATIBILITY.md](../../COM
 | Discovery | Partial | rnstransport listening works. Announcer and autoconnect not auto-started |
 | Blackhole | Partial | Table and announce drop. Link teardown at LINKIDENTIFY not implemented |
 | Node lifecycle | Go-only | `pkg/node` embedder API, no Python equivalent |
-| librns C ABI | Go-only | `pkg/librns`, `include/rns.h`, Linux `.so` via `task build-librns` |
+| librns C ABI | Go-only | `pkg/librns`, `include/rns.h`. See [librns](librns.md) |
 
 ## Interfaces
 
@@ -90,7 +90,7 @@ These do not change the wire format:
 | Backbone I/O multiplexing | `pkg/backbone` |
 | WebSocket interface | `pkg/interfaces/websocket_*.go` |
 | Control API | `pkg/controlapi` |
-| librns C ABI | `pkg/librns`, `include/rns.h` |
+| librns C ABI | `pkg/librns`, `include/rns.h` ([librns](librns.md)) |
 | Runtime sandbox | `pkg/sandbox` |
 | RAM-only path tables | `in_memory_path_table`, `in_memory_known_destinations` |
 

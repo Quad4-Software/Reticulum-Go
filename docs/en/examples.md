@@ -90,7 +90,7 @@ make -C examples/librns-smoke
 ./examples/librns-smoke/librns-smoke
 ```
 
-See [Embedding and WebAssembly](embedding-and-wasm.md).
+See [librns](librns.md).
 
 ## Choosing an example
 

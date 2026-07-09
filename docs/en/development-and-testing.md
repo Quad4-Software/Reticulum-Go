@@ -205,7 +205,7 @@ make -C examples/librns-smoke
 ./examples/librns-smoke/librns-smoke
 ```
 
-Needs a C toolchain and CGO. Daemon builds stay `CGO_ENABLED=0`. See [Embedding and WebAssembly](embedding-and-wasm.md).
+Needs a C toolchain and CGO. Daemon builds stay `CGO_ENABLED=0`. See [librns](librns.md).
 
 ## Adding a change safely
 
