@@ -657,6 +657,109 @@ func TestLoadConfig_BackboneIO(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_RNS136Options(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	writeFile(t, path, `[reticulum]
+  enable_transport = no
+  static_transport_identity = yes
+  local_hops_delta = yes
+
+[interfaces]
+  [[mesh]]
+    type = UDPInterface
+    enabled = yes
+    mode = internal
+    recursive_prs = yes
+    announces_from_internal = no
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.EnableTransport {
+		t.Error("EnableTransport should be false")
+	}
+	if !cfg.StaticTransportIdentity {
+		t.Error("StaticTransportIdentity should be true")
+	}
+	if !cfg.LocalHopsDelta {
+		t.Error("LocalHopsDelta should be true")
+	}
+	iface := cfg.Interfaces["mesh"]
+	if iface == nil {
+		t.Fatal("mesh interface missing")
+	}
+	if iface.Mode != "internal" {
+		t.Errorf("Mode = %q, want internal", iface.Mode)
+	}
+	if !iface.RecursivePRs {
+		t.Error("RecursivePRs should be true")
+	}
+	if !iface.AnnouncesFromInternalSet || iface.AnnouncesFromInternal {
+		t.Errorf("AnnouncesFromInternal want false with set=true, got set=%v val=%v",
+			iface.AnnouncesFromInternalSet, iface.AnnouncesFromInternal)
+	}
+}
+
+func TestLoadConfigQUICKeys(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	body := `[interfaces]
+  [[QUIC Hub]]
+    type = QUICServerInterface
+    enabled = yes
+    listen_ip = 0.0.0.0
+    listen_port = 4242
+    cert_file = /tmp/cert.pem
+    key_file = /tmp/key.pem
+    peer_key = aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899
+
+  [[QUIC Uplink]]
+    type = QUICClientInterface
+    enabled = yes
+    target_host = hub.example.com
+    target_port = 4242
+    sni = hub.example.com
+    peer_key = aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899
+`
+	writeFile(t, path, body)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := cfg.Interfaces["QUIC Hub"]
+	if srv == nil || srv.Type != "QUICServerInterface" {
+		t.Fatalf("server: %+v", srv)
+	}
+	if srv.Address != "0.0.0.0" || srv.Port != 4242 {
+		t.Fatalf("listen %s:%d", srv.Address, srv.Port)
+	}
+	if srv.CertFile != "/tmp/cert.pem" || srv.KeyFile != "/tmp/key.pem" {
+		t.Fatalf("cert paths %+v", srv)
+	}
+	cli := cfg.Interfaces["QUIC Uplink"]
+	if cli == nil || cli.Type != "QUICClientInterface" {
+		t.Fatalf("client: %+v", cli)
+	}
+	if cli.SNI != "hub.example.com" || cli.PeerKey == "" {
+		t.Fatalf("client tls %+v", cli)
+	}
+	out := filepath.Join(t.TempDir(), "out")
+	cfg.ConfigPath = out
+	if err := SaveConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(raw)
+	for _, want := range []string{"cert_file", "key_file", "peer_key", "sni", "QUICClientInterface"} {
+		if !strings.Contains(s, want) {
+			t.Fatalf("SaveConfig missing %q in:\n%s", want, s)
+		}
+	}
+}
+
 // writeFile is a tiny test helper that writes content with a strict mode and
 // fails the test on IO errors.
 func writeFile(t *testing.T, path, content string) {

@@ -296,6 +296,10 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		cfg.WatchInterfaces = parseBool(value)
 	case "backbone_io", "io_backend":
 		cfg.BackboneIO = strings.TrimSpace(value)
+	case "static_transport_identity":
+		cfg.StaticTransportIdentity = parseBool(value)
+	case "local_hops_delta":
+		cfg.LocalHopsDelta = parseBool(value)
 	}
 }
 
@@ -407,6 +411,21 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		iface.SharedInstanceType = strings.ToLower(strings.TrimSpace(value))
 	case "instance_name":
 		iface.InstanceName = value
+	case "cert_file":
+		iface.CertFile = value
+	case "key_file":
+		iface.KeyFile = value
+	case "peer_key":
+		iface.PeerKey = value
+	case "sni":
+		iface.SNI = value
+	case "mode", "interface_mode":
+		iface.Mode = strings.ToLower(strings.TrimSpace(value))
+	case "recursive_prs":
+		iface.RecursivePRs = parseBool(value)
+	case "announces_from_internal":
+		iface.AnnouncesFromInternal = parseBool(value)
+		iface.AnnouncesFromInternalSet = true
 	}
 }
 
@@ -495,6 +514,8 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	fmt.Fprintf(&b, "  in_memory_known_destinations = %s\n", boolStr(cfg.InMemoryKnownDestinations))
 	fmt.Fprintf(&b, "  discover_interfaces = %s\n", boolStr(cfg.DiscoverInterfaces))
 	fmt.Fprintf(&b, "  watch_interfaces = %s\n", boolStr(cfg.WatchInterfaces))
+	fmt.Fprintf(&b, "  static_transport_identity = %s\n", boolStr(cfg.StaticTransportIdentity))
+	fmt.Fprintf(&b, "  local_hops_delta = %s\n", boolStr(cfg.LocalHopsDelta))
 	if cfg.BackboneIO != "" {
 		fmt.Fprintf(&b, "  backbone_io = %s\n", cfg.BackboneIO)
 	}
@@ -606,6 +627,27 @@ func writeInterface(b *strings.Builder, name string, iface *common.InterfaceConf
 	}
 	if iface.IngressControlSet {
 		fmt.Fprintf(b, "    ingress_control = %s\n", boolStr(iface.IngressControl))
+	}
+	if iface.Mode != "" {
+		fmt.Fprintf(b, "    mode = %s\n", iface.Mode)
+	}
+	if iface.RecursivePRs {
+		fmt.Fprintf(b, "    recursive_prs = %s\n", boolStr(iface.RecursivePRs))
+	}
+	if iface.AnnouncesFromInternalSet {
+		fmt.Fprintf(b, "    announces_from_internal = %s\n", boolStr(iface.AnnouncesFromInternal))
+	}
+	if iface.CertFile != "" {
+		fmt.Fprintf(b, "    cert_file = %s\n", iface.CertFile)
+	}
+	if iface.KeyFile != "" {
+		fmt.Fprintf(b, "    key_file = %s\n", iface.KeyFile)
+	}
+	if iface.PeerKey != "" {
+		fmt.Fprintf(b, "    peer_key = %s\n", iface.PeerKey)
+	}
+	if iface.SNI != "" {
+		fmt.Fprintf(b, "    sni = %s\n", iface.SNI)
 	}
 	b.WriteString("\n")
 }
