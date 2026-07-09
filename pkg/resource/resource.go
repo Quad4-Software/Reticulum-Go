@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"quad4/msgpack/v5/pkg/msgpack"
 )
 
 type Resource struct {
@@ -45,6 +47,8 @@ type Resource struct {
 	outboundCipher    []byte
 	outboundPartSent  []bool
 	outboundSentCount int
+	metadata          map[string]any
+	metadataPacked    []byte
 }
 
 func New(data any, autoCompress bool) (*Resource, error) {
@@ -366,18 +370,27 @@ func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), 
 	if r.data == nil {
 		r.data = append([]byte(nil), uncompressed...)
 	}
+	if err := r.ensureMetadataPackedLocked(); err != nil {
+		return err
+	}
+	// Wire body is metadata blob (3-byte size + msgpack) prepended to file bytes.
+	// Hash and compression cover the combined payload.
+	wireBody := uncompressed
+	if len(r.metadataPacked) > 0 {
+		wireBody = append(append([]byte(nil), r.metadataPacked...), uncompressed...)
+	}
 	randomHash := make([]byte, RandomHashSize)
 	if _, err := io.ReadFull(rand.Reader, randomHash); err != nil {
 		return err
 	}
 
-	payload := uncompressed
+	payload := wireBody
 	if r.autoCompress {
-		compressed, err := bzip2CompressBody(uncompressed)
+		compressed, err := bzip2CompressBody(wireBody)
 		if err != nil {
 			return err
 		}
-		if len(compressed) < len(uncompressed) {
+		if len(compressed) < len(wireBody) {
 			payload = compressed
 			r.compressed = true
 		} else {
@@ -388,7 +401,7 @@ func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), 
 	}
 
 	hb := sha256.New()
-	hb.Write(uncompressed)
+	hb.Write(wireBody)
 	hb.Write(randomHash)
 	r.hash = hb.Sum(nil)
 	r.randomHash = append([]byte(nil), randomHash...)
@@ -413,7 +426,7 @@ func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), 
 	}
 	r.segments = uint16(partCount) // #nosec G115
 	r.transferSize = int64(len(innerBlob))
-	r.dataSize = int64(len(uncompressed))
+	r.dataSize = int64(len(wireBody))
 
 	r.hashmap = make([]byte, partCount*MapHashLen)
 	for i := range partCount {
@@ -475,7 +488,64 @@ func (r *Resource) GetSize() int64 {
 func (r *Resource) HasMetadata() bool {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
-	return false
+	return len(r.metadata) > 0 || len(r.metadataPacked) > 0
+}
+
+// SetMetadata attaches a metadata map transferred ahead of the file bytes.
+// Keys and values must be msgpack-safe.
+func (r *Resource) SetMetadata(meta map[string]any) error {
+	if r == nil {
+		return errors.New("nil resource")
+	}
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	if meta == nil {
+		r.metadata = nil
+		r.metadataPacked = nil
+		return nil
+	}
+	r.metadata = meta
+	r.metadataPacked = nil
+	return r.ensureMetadataPackedLocked()
+}
+
+// Metadata returns a shallow copy of the attached metadata map.
+func (r *Resource) Metadata() map[string]any {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	if len(r.metadata) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(r.metadata))
+	for k, v := range r.metadata {
+		out[k] = v
+	}
+	return out
+}
+
+func (r *Resource) ensureMetadataPackedLocked() error {
+	if len(r.metadata) == 0 {
+		r.metadataPacked = nil
+		return nil
+	}
+	if len(r.metadataPacked) > 0 {
+		return nil
+	}
+	packed, err := msgpack.Marshal(r.metadata)
+	if err != nil {
+		return err
+	}
+	if len(packed) > MetadataMaxSize {
+		return errors.New("resource metadata size exceeded")
+	}
+	// 3-byte big-endian length prefix (high 24 bits of a 32-bit length).
+	blob := make([]byte, 3+len(packed))
+	blob[0] = byte(len(packed) >> 16)
+	blob[1] = byte(len(packed) >> 8)
+	blob[2] = byte(len(packed))
+	copy(blob[3:], packed)
+	r.metadataPacked = blob
+	return nil
 }
 
 func (r *Resource) IsRequest() bool {
@@ -701,8 +771,9 @@ func (r *Resource) GetRandomHash() []byte {
 	return append([]byte{}, r.randomHash...)
 }
 
-// ExpectedProof returns SHA256(uncompressedPayload || resourceHash), matching
-// Python Resource.prove / validate_proof wire format.
+// ExpectedProof returns SHA256(uncompressedPayload || resourceHash).
+// When metadata is present the uncompressed payload is the metadata blob
+// prepended to the file bytes.
 func (r *Resource) ExpectedProof() ([]byte, bool) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
@@ -712,7 +783,11 @@ func (r *Resource) ExpectedProof() ([]byte, bool) {
 	if r.data == nil {
 		return nil, false
 	}
-	sum := sha256.Sum256(append(append([]byte(nil), r.data...), r.hash...))
+	body := r.data
+	if len(r.metadataPacked) > 0 {
+		body = append(append([]byte(nil), r.metadataPacked...), r.data...)
+	}
+	sum := sha256.Sum256(append(append([]byte(nil), body...), r.hash...))
 	return sum[:], true
 }
 

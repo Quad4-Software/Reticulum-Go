@@ -33,6 +33,8 @@ const (
 
 	MaxEfficientSize    = 16*1024*1024 - 1
 	AutoCompressMaxSize = MaxEfficientSize
+	// MetadataMaxSize is the maximum packed metadata blob size.
+	MetadataMaxSize = 16 * 1024
 
 	PartTimeoutFactor         = 4
 	PartTimeoutFactorAfterRTT = 2
