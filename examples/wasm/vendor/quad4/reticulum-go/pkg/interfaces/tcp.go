@@ -159,18 +159,22 @@ func (tc *TCPClientInterface) Start() error {
 		return nil
 	}
 
-	// Only recreate done if it's nil or was closed
+	// Construction with Enabled already owns a reconnect driver. Replacing
+	// it races two dial loops on tc.conn. Only rebuild after Stop closed done.
 	select {
 	case <-tc.done:
 		tc.done = make(chan struct{})
 		tc.stopOnce = sync.Once{}
+		tc.initReconnectDriver()
 	default:
 		if tc.done == nil {
 			tc.done = make(chan struct{})
 			tc.stopOnce = sync.Once{}
 		}
+		if tc.reconnect == nil {
+			tc.initReconnectDriver()
+		}
 	}
-	tc.initReconnectDriver()
 	tc.Mutex.Unlock()
 
 	tc.startReconnect()

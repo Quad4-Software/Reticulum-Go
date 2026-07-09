@@ -433,7 +433,7 @@ func (l *Link) Request(path string, data any, timeout time.Duration) (*RequestRe
 	}
 	l.mutex.Unlock()
 
-	// Match Python Link.request: oversized requests transfer as a resource.
+	// Oversized requests are transferred as a resource.
 	requestID := identity.TruncatedHash(packedRequest)
 	res, err := resource.New(packedRequest, false)
 	if err != nil {
@@ -1090,7 +1090,7 @@ func (l *Link) handleResourceAdvertisement(pkt *packet.Packet) error {
 	}
 
 	if resource.IsRequestAdvertisement(plaintext) {
-		// Match Python: accept the request resource and handle it after assemble.
+		// Accept the request resource and handle it after assembly.
 		if err := l.beginIncomingResource(adv); err != nil {
 			debug.Log(debug.DebugInfo, "Failed to begin incoming request resource", "error", err)
 			return err
@@ -1310,10 +1310,10 @@ func (l *Link) dispatchOutgoingResourceRequests(plaintext []byte) {
 	hashmapMDU := l.mdu
 	l.mutex.RUnlock()
 	partSDU := l.resourceSDU()
-	// Match Python Resource.request(): select/send parts against the current
-	// receiver window first, then advance the window and emit HMU. Updating
-	// receiverMinPart before selection drops in-window hashes from the same
-	// HASHMAP_IS_EXHAUSTED request and stalls multi-HMU transfers.
+	// Select and send parts for the current receiver window first, then
+	// advance the window and emit HMU. Updating receiverMinPart before
+	// selection drops in-window hashes from the same HASHMAP_IS_EXHAUSTED
+	// request and stalls multi-HMU transfers.
 	partIndexes := selectRequestedPartIndexes(out, reqHashes, receiverMinPart)
 	debug.Log(
 		debug.DebugVerbose,
@@ -1461,10 +1461,10 @@ func selectRequestedPartIndexes(out *resource.Resource, reqHashes []byte, receiv
 	}
 	searchEnd := min(searchStart+resource.CollisionGuardSize, totalParts)
 
-	// Match Python Resource.request(): only search parts[receiver_min:receiver_min+COLLISION_GUARD].
-	// Global PartIndicesForMapHash fallbacks retransmit earlier parts whose map hashes
-	// collide with the request window; those late duplicates race Python assemble/prove
-	// and make response_resource_concluded see TRANSFERRING.
+	// Restrict map-hash lookup to parts[receiverMin:receiverMin+CollisionGuard].
+	// Global PartIndicesForMapHash fallbacks can retransmit earlier parts whose
+	// map hashes collide with the request window. Those late duplicates can
+	// reset a peer that has already assembled and proved back to TRANSFERRING.
 	usedPartIndexes := make(map[int]struct{})
 	indexes := make([]int, 0, len(reqHashes)/resource.MapHashLen)
 	for i := 0; i < len(reqHashes); i += resource.MapHashLen {
@@ -2583,8 +2583,8 @@ func (l *Link) HandleLinkRequest(pkt *packet.Packet, ownerIdentity *identity.Ide
 	l.status.Store(int32(StatusHandshake))
 	l.recordInbound(false)
 	l.requestTime = time.Now()
-	// Match reference responder behavior: establishment timeout is per-hop plus keepalive grace.
-	// This prevents WAN/backbone proof/RTT races from being closed too aggressively.
+	// Establishment timeout is per-hop plus keepalive grace so WAN and
+	// backbone proof or RTT races are not closed too aggressively.
 	hops := max(int(pkt.Hops), 1)
 	l.establishmentTimeout = time.Duration(float64(hops)*EstablishmentTimeoutPerHop*float64(time.Second)) + l.keepalive
 	debug.Log(debug.DebugInfo, "Responder establishment timeout configured", "link_id", fmt.Sprintf("%x", l.linkID), "packet_hops", pkt.Hops, "effective_hops", hops, "timeout_sec", l.establishmentTimeout.Seconds())

@@ -663,8 +663,8 @@ func entryToMsgpackMap(e Entry) map[string]any {
 	return out
 }
 
-// encodeBlackholeMap encodes the map directly so identity-hash keys are
-// emitted as msgpack bin (matching umsgpack.packb).
+// encodeBlackholeMap encodes the map so identity-hash keys are emitted as
+// msgpack bin.
 func encodeBlackholeMap(in map[string]map[string]any) ([]byte, error) {
 	keys := make([]string, 0, len(in))
 	for k := range in {

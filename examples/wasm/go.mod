@@ -11,7 +11,7 @@ require (
 	golang.org/x/crypto v0.52.0 // indirect
 	golang.org/x/sys v0.45.0 // indirect
 	quad4/bzip2 v0.0.0 // indirect
-	quad4/msgpack/v5 v5.8.0 // indirect
+	quad4/msgpack/v5 v5.8.1 // indirect
 	quad4/tagparser v0.0.0 // indirect
 )
 

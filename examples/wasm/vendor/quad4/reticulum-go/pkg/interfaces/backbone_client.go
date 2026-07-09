@@ -78,6 +78,9 @@ func NewBackboneClientInterface(name string, cfg *common.InterfaceConfig, hub *b
 	bc.Bitrate = backboneClientBitrateGuess
 	bc.In = true
 	bc.Out = true
+	if cfg.Enabled {
+		bc.startReconnect()
+	}
 	return bc, nil
 }
 
@@ -195,16 +198,22 @@ func (bc *BackboneClientInterface) Start() error {
 		bc.Mutex.Unlock()
 		return nil
 	}
+	// Construction with Enabled already builds a reconnect driver and may
+	// be dialing. Replacing that driver here races two dial loops on bc.conn.
 	select {
 	case <-bc.done:
 		bc.done = make(chan struct{})
 		bc.stopOnce = sync.Once{}
+		bc.initReconnectDriver()
 	default:
+		if bc.reconnect == nil {
+			bc.initReconnectDriver()
+		}
 	}
-	bc.initReconnectDriver()
+	conn := bc.conn
 	bc.Mutex.Unlock()
 
-	if bc.conn != nil {
+	if conn != nil {
 		return bc.attachStream()
 	}
 	if bc.initiator {
@@ -241,11 +250,13 @@ func (bc *BackboneClientInterface) attachStream() error {
 		return fmt.Errorf("interface stopped")
 	default:
 	}
+	bc.Mutex.Lock()
 	conn := bc.conn
+	hub := bc.hub
+	bc.Mutex.Unlock()
 	if conn == nil {
 		return fmt.Errorf("no connection")
 	}
-	hub := bc.hub
 	if hub == nil {
 		return fmt.Errorf("no backbone hub")
 	}

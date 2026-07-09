@@ -38,12 +38,11 @@ type knownDestRecord struct {
 	appData   []byte
 }
 
-// decodeKnownDestinations parses a known_destinations snapshot. Both the
-// Go-native map[string]any encoding (hex-string keys) and the reference
-// Python umsgpack encoding (raw bin/str destination-hash keys) are
+// decodeKnownDestinations parses a known_destinations snapshot. Both
+// hex-string map keys and raw destination-hash bin or str keys are
 // accepted. Malformed entries are skipped and counted. A structurally
-
-// invalid top-level payload (not a msgpack map) is returned as an error.
+// invalid top-level payload that is not a msgpack map is returned as an
+// error.
 func decodeKnownDestinations(data []byte) (records []knownDestRecord, skipped int, err error) {
 	var loaded map[string]any
 	if err := msgpack.Unmarshal(data, &loaded); err != nil {
@@ -89,10 +88,10 @@ func decodeKnownDestinations(data []byte) (records []knownDestRecord, skipped in
 	return records, skipped, nil
 }
 
-// resolveDestHashKey accepts either a hex-encoded key (Go's own on-disk
-// format) or a raw truncated-hash-length byte string (Python's umsgpack
-// bin/str key, which the msgpack decoder folds into a Go string of equal
-// length regardless of the original wire type).
+// resolveDestHashKey accepts either a hex-encoded key (native on-disk
+// format) or a raw truncated-hash-length byte string. The msgpack decoder
+// folds bin and str keys into a Go string of equal length regardless of
+// the original wire type.
 func resolveDestHashKey(hashKey string) ([]byte, bool) {
 	if decoded, err := hex.DecodeString(hashKey); err == nil && len(decoded) == TruncatedHashLength/8 {
 		return decoded, true
