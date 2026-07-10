@@ -19,14 +19,14 @@ func FileOf(w io.Writer) *os.File {
 // ColorEnabled reports whether ANSI colors should be used for w.
 // Honors NO_COLOR (disable), FORCE_COLOR / CLICOLOR_FORCE (enable).
 func ColorEnabled(w *os.File) bool {
+	if w == nil {
+		return false
+	}
 	if os.Getenv("NO_COLOR") != "" {
 		return false
 	}
 	if os.Getenv("FORCE_COLOR") != "" || os.Getenv("CLICOLOR_FORCE") != "" {
 		return true
-	}
-	if w == nil {
-		return false
 	}
 	fi, err := w.Stat()
 	if err != nil {
