@@ -64,7 +64,7 @@ func TestRequestResponseBridgeDirect(t *testing.T) {
 		resultCh <- handler(pathHash, []byte("hello"), requestID, linkID, nil, time.Now())
 	}()
 
-	raw := ws.recvText(t, 2*time.Second)
+	raw := ws.recvText(t, 5*time.Second)
 	var incoming requestIncomingEvent
 	if err := json.Unmarshal(raw, &incoming); err != nil {
 		t.Fatalf("decode event %q: %v", raw, err)

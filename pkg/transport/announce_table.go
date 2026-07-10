@@ -15,6 +15,10 @@ const PathRequestGrace = 400 * time.Millisecond
 
 const announceTableCheckInterval = 250 * time.Millisecond
 
+// announceForwardCheckInterval is how often delayed announce rebroadcasts are
+// drained. Must stay well below sim/line hop budgets (pathfinder delay can be 0).
+const announceForwardCheckInterval = 25 * time.Millisecond
+
 func (t *Transport) cacheAnnouncePacket(destHash []byte, pkt *packet.Packet) {
 	if t == nil || len(destHash) != packet.TruncatedHashLength || pkt == nil || len(pkt.Data) == 0 {
 		return

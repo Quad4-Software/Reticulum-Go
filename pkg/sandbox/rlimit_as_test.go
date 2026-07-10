@@ -64,8 +64,12 @@ func TestRegression_RLIMIT_AS_2GiBAbortsGo(t *testing.T) {
 		t.Fatalf("helper should have aborted under RLIMIT_AS=2GiB:\n%s", out)
 	}
 	text := string(out)
-	if !strings.Contains(text, "out of memory") && !strings.Contains(text, "fatal error") {
-		t.Fatalf("expected Go OOM fatal, got err=%v out:\n%s", err, text)
+	// Under -race, ThreadSanitizer often dies on the AS cap before the Go
+	// runtime can print "out of memory". That still proves the 2GiB limit bites.
+	if !strings.Contains(text, "out of memory") &&
+		!strings.Contains(text, "fatal error") &&
+		!strings.Contains(text, "ThreadSanitizer failed to allocate") {
+		t.Fatalf("expected Go OOM fatal or TSAN AS failure, got err=%v out:\n%s", err, text)
 	}
 }
 
