@@ -440,14 +440,17 @@ func (qs *QUICServerInterface) Start() error {
 		return fmt.Errorf("failed to start QUIC server: %w", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
 	qs.Mutex.Lock()
 	qs.listener = ln
-	qs.cancelAccept = cancel
 	qs.Online = true
 	qs.Mutex.Unlock()
 
 	qs.acceptWg.Go(func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		qs.Mutex.Lock()
+		qs.cancelAccept = cancel
+		qs.Mutex.Unlock()
 		qs.acceptLoop(ctx, ln)
 	})
 	return nil
