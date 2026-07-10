@@ -766,7 +766,7 @@ func TestAnnounceTable_ConcurrentCacheQueueProcess(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
-	for i := 0; i < n; i++ {
+	for i := range n {
 		wg.Add(3)
 		dest := dests[i]
 		go func() {
