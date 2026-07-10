@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -505,6 +506,9 @@ func asIntAny(v any) (int, error) {
 	case int64:
 		return int(x), nil
 	case uint:
+		if x > math.MaxInt {
+			return 0, fmt.Errorf("uint value %d overflows int", x)
+		}
 		return int(x), nil
 	case uint8:
 		return int(x), nil
@@ -513,6 +517,9 @@ func asIntAny(v any) (int, error) {
 	case uint32:
 		return int(x), nil
 	case uint64:
+		if x > math.MaxInt {
+			return 0, fmt.Errorf("uint64 value %d overflows int", x)
+		}
 		return int(x), nil
 	case float64:
 		return int(x), nil
