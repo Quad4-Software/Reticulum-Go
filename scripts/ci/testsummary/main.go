@@ -64,9 +64,27 @@ func childEnv() []string {
 	return out
 }
 
+// goTestArgs builds `go test` argv. The go tool requires -C to be the first
+// flag, so any user -C is placed before -json.
+func goTestArgs(user []string) []string {
+	out := make([]string, 0, len(user)+3)
+	out = append(out, "test")
+	rest := user
+	switch {
+	case len(rest) >= 2 && rest[0] == "-C":
+		out = append(out, "-C", rest[1])
+		rest = rest[2:]
+	case len(rest) >= 1 && strings.HasPrefix(rest[0], "-C="):
+		out = append(out, rest[0])
+		rest = rest[1:]
+	}
+	out = append(out, "-json")
+	out = append(out, rest...)
+	return out
+}
+
 func run() int {
-	args := append([]string{"test", "-json"}, os.Args[1:]...)
-	cmd := exec.Command("go", args...)
+	cmd := exec.Command("go", goTestArgs(os.Args[1:])...)
 	if env := childEnv(); env != nil {
 		cmd.Env = env
 	}
