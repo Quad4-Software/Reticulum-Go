@@ -64,7 +64,7 @@ Or:
 go run ./cmd/reticulum-go
 ```
 
-On first start the daemon creates `~/.reticulum-go/` with a default config if none exists. Logs go to stderr by default. Set verbosity with `[logging] loglevel` (1 through 7). Optional `[logging] destination = file|both` and `logfile` write to disk. CLI color respects `NO_COLOR` and `FORCE_COLOR`.
+On first start the daemon creates `~/.reticulum-go/` with a default config if none exists. Logs go to stderr by default. Set verbosity with `[logging] loglevel` (1 through 7). Optional `[logging] destination = file|both` and `logfile` write to disk. Daemon text logs, pageserver banner, and CLI tools color on TTY. Respect `NO_COLOR` and `FORCE_COLOR` / `CLICOLOR_FORCE`.
 
 Daemon flags:
 

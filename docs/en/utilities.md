@@ -238,7 +238,7 @@ Go extras: cleaner progress lines on stderr, `-json` is not used (transfer is bi
 | Control API | HTTP `/v1/health`, `/v1/status`, `/v1/paths` when `enable_control_api = yes` |
 | Daemon `-debug N` | Override config loglevel for one run |
 
-Progress lines and status colors honor `NO_COLOR` (off) and `FORCE_COLOR` / `CLICOLOR_FORCE` (on).
+TTY colors (status Up/Down, probe/path/cp/id outcomes, pageserver banner, daemon text log levels) honor `NO_COLOR` (off) and `FORCE_COLOR` / `CLICOLOR_FORCE` (on). JSON output and file logs stay plain.
 
 ## Related documents
 
