@@ -90,12 +90,13 @@ type Transport struct {
 	paths                 map[[PathMapKeySize]byte]*common.Path
 	receipts              []*packet.PacketReceipt
 	receiptsMutex         sync.RWMutex
-	pathRequests          map[string]time.Time
 	pathStates            map[[PathMapKeySize]byte]byte
 	discoveryPathRequests map[string]*DiscoveryPathRequest
 	discoveryPRTags       map[string]bool
 	announceTable         map[string]*PathAnnounceEntry
 	heldAnnounces         map[string]*PathAnnounceEntry
+	announcePacketCache   map[string]*packet.Packet
+	pendingLocalPathReqs  map[string]common.NetworkInterface
 	transportIdentity     *identity.Identity
 	// rpcIdentity is the persisted transport identity used for shared-instance
 	// RPC auth when an ephemeral wire identity is active.
@@ -181,12 +182,13 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		pathfinder:            pathfinder.NewPathFinder(),
 		receipts:              make([]*packet.PacketReceipt, 0),
 		receiptsMutex:         sync.RWMutex{},
-		pathRequests:          make(map[string]time.Time),
 		pathStates:            make(map[[PathMapKeySize]byte]byte),
 		discoveryPathRequests: make(map[string]*DiscoveryPathRequest),
 		discoveryPRTags:       make(map[string]bool),
 		announceTable:         make(map[string]*PathAnnounceEntry),
 		heldAnnounces:         make(map[string]*PathAnnounceEntry),
+		announcePacketCache:   make(map[string]*packet.Packet),
+		pendingLocalPathReqs:  make(map[string]common.NetworkInterface),
 		linkTable:             newLinkRelayTable(),
 		lastPathRequest:       make(map[[PathMapKeySize]byte]time.Time),
 		ifaceStates:           newIfaceStateTable(),
@@ -203,8 +205,10 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 			ephemeral, eerr := identity.New()
 			if eerr == nil {
 				t.transportIdentity = ephemeral
-				debug.Log(debug.DebugVerbose, "Initialized ephemeral transport identity",
-					"hash", fmt.Sprintf("%x", ephemeral.Hash()))
+				if debug.Enabled(debug.DebugVerbose) {
+					debug.Log(debug.DebugVerbose, "Initialized ephemeral transport identity",
+						"hash", fmt.Sprintf("%x", ephemeral.Hash()))
+				}
 			}
 		}
 		blackhole.SetLocalIdentityHash(t.rpcIdentity.Hash())
@@ -241,6 +245,8 @@ func transportStoragePath(cfg *common.ReticulumConfig) string {
 func (t *Transport) startMaintenanceJobs() {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
+	announceTicker := time.NewTicker(announceTableCheckInterval)
+	defer announceTicker.Stop()
 
 	for {
 		select {
@@ -262,6 +268,8 @@ func (t *Transport) startMaintenanceJobs() {
 			t.cleanupExpiredPathRequestThrottle()
 			t.releaseHeldAnnounces()
 			t.sampleInterfaceTraffic()
+		case <-announceTicker.C:
+			t.processAnnounceTable()
 		case <-t.done:
 			return
 		}
@@ -302,7 +310,9 @@ func (t *Transport) cleanupExpiredPaths() {
 		if now.Sub(path.LastUpdated) > pathExpiry {
 			delete(t.paths, destHash)
 			delete(t.pathStates, destHash)
-			debug.Log(debug.DebugVerbose, "Expired path", "dest_hash", fmt.Sprintf("%x", destHash[:8]))
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Expired path", "dest_hash", fmt.Sprintf("%x", destHash[:8]))
+			}
 		}
 	}
 	t.markPathTableDirty()
@@ -316,7 +326,9 @@ func (t *Transport) cleanupExpiredDiscoveryRequests() {
 	for destHash, req := range t.discoveryPathRequests {
 		if now.After(req.Timeout) {
 			delete(t.discoveryPathRequests, destHash)
-			debug.Log(debug.DebugVerbose, "Expired discovery path request", "dest_hash", fmt.Sprintf("%x", destHash[:8]))
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Expired discovery path request", "dest_hash", fmt.Sprintf("%x", destHash[:8]))
+			}
 		}
 	}
 }
@@ -330,7 +342,9 @@ func (t *Transport) cleanupExpiredAnnounces() {
 	for destHash, entry := range t.announceTable {
 		if entry != nil && time.Since(entry.CreatedAt) > announceExpiry {
 			delete(t.announceTable, destHash)
-			debug.Log(debug.DebugVerbose, "Expired announce entry", "dest_hash", fmt.Sprintf("%x", destHash[:8]))
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Expired announce entry", "dest_hash", fmt.Sprintf("%x", destHash[:8]))
+			}
 		}
 	}
 
@@ -443,7 +457,9 @@ func (t *Transport) RegisterDestination(hash []byte, dest any) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	t.destinations[key] = registered
-	debug.Log(debug.DebugTrace, "Registered destination with transport", "hash", fmt.Sprintf("%x", hash))
+	if debug.Enabled(debug.DebugTrace) {
+		debug.Log(debug.DebugTrace, "Registered destination with transport", "hash", fmt.Sprintf("%x", hash))
+	}
 }
 
 func GetTransportInstance() *Transport {
@@ -541,6 +557,11 @@ func (t *Transport) invalidateInterfaceReferencesLocked(iface common.NetworkInte
 	for k, e := range t.heldAnnounces {
 		if e != nil && (e.ReceivedFrom == iface || e.AttachedInterface == iface) {
 			delete(t.heldAnnounces, k)
+		}
+	}
+	for k, reqIface := range t.pendingLocalPathReqs {
+		if reqIface == iface {
+			delete(t.pendingLocalPathReqs, k)
 		}
 	}
 	if t.linkTable != nil {
@@ -879,9 +900,11 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 		key := pathMapKey(destinationHash)
 		if last, ok := t.lastPathRequest[key]; ok && time.Since(last) < PathRequestMI {
 			t.mutex.Unlock()
-			debug.Log(debug.DebugVerbose, "Throttling path request",
-				"dest_hash", fmt.Sprintf("%x", destinationHash),
-				"since_last", time.Since(last))
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Throttling path request",
+					"dest_hash", fmt.Sprintf("%x", destinationHash),
+					"since_last", time.Since(last))
+			}
 			return nil
 		}
 		t.lastPathRequest[key] = time.Now()
@@ -984,7 +1007,6 @@ func (t *Transport) updatePathUnlocked(destinationHash []byte, nextHop []byte, i
 		LastUpdated: now,
 		RandomBlobs: blobs,
 		Expires:     expires,
-		PacketHash:  append([]byte(nil), packetHash...),
 	}
 	t.pathStates[key] = StateUnknown
 	t.markPathTableDirty()
@@ -1010,8 +1032,10 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 	if tab := t.BlackholeTable(); tab != nil {
 		identityHash := sha256.Sum256(identity)
 		if tab.Has(identityHash[:blackhole.HashLen]) {
-			debug.Log(debug.DebugAll, "Dropping announce: identity blackholed",
-				"dest_hash", fmt.Sprintf("%x", destHash[:8]))
+			if debug.Enabled(debug.DebugAll) {
+				debug.Log(debug.DebugAll, "Dropping announce: identity blackholed",
+					"dest_hash", fmt.Sprintf("%x", destHash[:8]))
+			}
 			return nil
 		}
 	}
@@ -1024,7 +1048,9 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 	if last, ok := t.seenAnnounces[hashStr]; ok {
 		if time.Since(last) < SeenAnnounceTTL {
 			t.mutex.Unlock()
-			debug.Log(debug.DebugAll, "Ignoring duplicate announce", "hash", fmt.Sprintf("%x", announceHash[:8]))
+			if debug.Enabled(debug.DebugAll) {
+				debug.Log(debug.DebugAll, "Ignoring duplicate announce", "hash", fmt.Sprintf("%x", announceHash[:8]))
+			}
 			return nil
 		}
 	}
@@ -1041,43 +1067,36 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 		return nil
 	}
 
-	delay := pathfinderRebroadcastDelay()
-	time.Sleep(delay)
-
 	if !t.announceRateAllow() {
 		debug.Log(debug.DebugAll, "Announce rate limit exceeded, queuing")
 		return nil
 	}
 
-	data[0]++
-
-	var lastErr error
-	for _, e := range t.snapshotRegisteredInterfaces() {
-		iface := e.iface
-		name := e.name
-		if iface == sourceIface || !iface.IsEnabled() {
-			continue
+	fwd := append([]byte(nil), data...)
+	fwd[0]++
+	hops := fwd[0]
+	go func(payload []byte) {
+		delay := pathfinderRebroadcastDelay()
+		if delay > 0 {
+			time.Sleep(delay)
 		}
-
-		if !iface.GetBandwidthAvailable() {
-			debug.Log(debug.DebugVerbose, "Skipping announce forwarding on interface due to bandwidth cap", "name", name)
-			continue
+		for _, e := range t.snapshotRegisteredInterfaces() {
+			iface := e.iface
+			if iface == sourceIface || !iface.IsEnabled() {
+				continue
+			}
+			if !iface.GetBandwidthAvailable() {
+				continue
+			}
+			if !t.shouldForwardAnnounceOn(destHash, iface, sourceIface) {
+				continue
+			}
+			_ = iface.Send(payload, "")
 		}
+	}(fwd)
 
-		if !t.shouldForwardAnnounceOn(destHash, iface, sourceIface) {
-			continue
-		}
-
-		debug.Log(debug.DebugAll, "Forwarding announce on interface", "name", name)
-		if err := iface.Send(data, ""); err != nil {
-			debug.Log(debug.DebugAll, "Failed to forward announce", "name", name, "error", err)
-			lastErr = err
-		}
-	}
-
-	t.notifyAnnounceHandlers(destHash, identity, appData, data[0])
-
-	return lastErr
+	t.notifyAnnounceHandlers(destHash, identity, appData, hops)
+	return nil
 }
 
 func (t *Transport) NewDestination(identity any, direction int, destType int, appName string, aspects ...string) *Destination {
@@ -1228,29 +1247,41 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 	propType := (headerByte & HeaderPropTypeMask) >> HeaderPropTypeShift
 	destType := (headerByte & HeaderDestTypeMask) >> HeaderDestTypeShift
 
-	debug.Log(debug.DebugVerbose, "TRANSPORT: Packet received", "type", fmt.Sprintf("0x%02x", packetType), "header", headerType, "context", contextFlag, "propType", propType, "destType", destType, "size", len(data))
-	debug.Log(debug.DebugTrace, "Interface and raw header", "name", iface.GetName(), "header", fmt.Sprintf("0x%02x", headerByte))
-
-	if len(data) == SuspiciousLinkPacketSize && packetType == PacketTypeLink {
-		debug.Log(debug.DebugError, "67-byte link packet detected", "header", fmt.Sprintf("0x%02x", headerByte), "packet_type_bits", fmt.Sprintf("0x%02x", packetType), "first_32_bytes", fmt.Sprintf("%x", data[:32]))
+	if debug.Enabled(debug.DebugVerbose) {
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "TRANSPORT: Packet received",
+				"type", fmt.Sprintf("0x%02x", packetType),
+				"header", headerType, "context", contextFlag,
+				"propType", propType, "destType", destType, "size", len(data))
+		}
+	}
+	if debug.Enabled(debug.DebugTrace) {
+		if debug.Enabled(debug.DebugTrace) {
+			debug.Log(debug.DebugTrace, "Interface and raw header",
+				"name", iface.GetName(), "header", fmt.Sprintf("0x%02x", headerByte))
+		}
 	}
 
-	dataCopy := make([]byte, len(data))
-	copy(dataCopy, data)
+	if len(data) == SuspiciousLinkPacketSize && packetType == PacketTypeLink {
+		debug.Log(debug.DebugError, "67-byte link packet detected",
+			"header", fmt.Sprintf("0x%02x", headerByte),
+			"packet_type_bits", fmt.Sprintf("0x%02x", packetType),
+			"first_32_bytes", fmt.Sprintf("%x", data[:32]))
+	}
 
-	dispatch := func() {
+	dispatch := func(payload []byte) {
 		switch packetType {
 		case PacketTypeAnnounce:
 			debug.Log(debug.DebugVerbose, "Processing announce packet")
-			if err := t.handleAnnouncePacket(dataCopy, iface); err != nil {
+			if err := t.handleAnnouncePacket(payload, iface); err != nil {
 				debug.Log(debug.DebugInfo, "Announce handling failed", "error", err)
 			}
 		case PacketTypeLink:
-			debug.Log(debug.DebugVerbose, "Processing link packet (type=0x02)", "packet_size", len(dataCopy))
-			t.handleLinkPacket(dataCopy, iface, PacketTypeLink)
+			debug.Log(debug.DebugVerbose, "Processing link packet (type=0x02)", "packet_size", len(payload))
+			t.handleLinkPacket(payload, iface, PacketTypeLink)
 		case packet.PacketTypeProof:
 			debug.Log(debug.DebugVerbose, "Processing proof packet")
-			pkt := &packet.Packet{Raw: dataCopy}
+			pkt := &packet.Packet{Raw: payload}
 			if err := pkt.Unpack(); err != nil {
 				debug.Log(debug.DebugInfo, "Failed to unpack proof packet", "error", err)
 				return
@@ -1258,11 +1289,11 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 			t.handleProofPacket(pkt, iface)
 		case 0:
 			if destType == DestTypeLink {
-				debug.Log(debug.DebugVerbose, "Processing link data packet (dest_type=3)", "packet_size", len(dataCopy))
-				t.handleLinkPacket(dataCopy, iface, 0)
+				debug.Log(debug.DebugVerbose, "Processing link data packet (dest_type=3)", "packet_size", len(payload))
+				t.handleLinkPacket(payload, iface, 0)
 			} else {
-				debug.Log(debug.DebugVerbose, "Processing data packet (type 0x00)", "packet_size", len(dataCopy), "dest_type", destType, "header_type", headerType)
-				t.handleTransportPacket(dataCopy, iface)
+				debug.Log(debug.DebugVerbose, "Processing data packet (type 0x00)", "packet_size", len(payload), "dest_type", destType, "header_type", headerType)
+				t.handleTransportPacket(payload, iface)
 			}
 		default:
 			debug.Log(debug.DebugInfo, "Unknown packet type", "type", fmt.Sprintf("0x%02x", packetType), "source", iface.GetName())
@@ -1271,12 +1302,14 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 
 	select {
 	case t.packetHandleSem <- struct{}{}:
+		dataCopy := make([]byte, len(data))
+		copy(dataCopy, data)
 		go func() {
 			defer func() { <-t.packetHandleSem }()
-			dispatch()
+			dispatch(dataCopy)
 		}()
 	default:
-		dispatch()
+		dispatch(data)
 	}
 }
 
@@ -1331,8 +1364,12 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		payload = data[startIdx+DoubleAddrSize+ContextByteLen:]
 	}
 
-	debug.Log(debug.DebugInfo, "Destination hash", "hash", fmt.Sprintf("%x", destinationHash))
-	debug.Log(debug.DebugInfo, "Context and payload", "context", fmt.Sprintf("%02x", context), "payload_len", len(payload))
+	if debug.Enabled(debug.DebugInfo) {
+		debug.Log(debug.DebugInfo, "Destination hash", "hash", fmt.Sprintf("%x", destinationHash))
+	}
+	if debug.Enabled(debug.DebugInfo) {
+		debug.Log(debug.DebugInfo, "Context and payload", "context", fmt.Sprintf("%02x", context), "payload_len", len(payload))
+	}
 	debug.Log(debug.DebugInfo, "Packet total length", "length", len(data))
 
 	var id *identity.Identity
@@ -1373,7 +1410,9 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	} else {
 		ratchetHex = "(none)"
 	}
-	debug.Log(debug.DebugInfo, "Parsed announce", "pubKey", fmt.Sprintf("%x", pubKey[:8]), "nameHash", fmt.Sprintf("%x", nameHash), "randomHash", fmt.Sprintf("%x", randomHash), "ratchet", ratchetHex, "appData_len", len(appData))
+	if debug.Enabled(debug.DebugInfo) {
+		debug.Log(debug.DebugInfo, "Parsed announce", "pubKey", fmt.Sprintf("%x", pubKey[:8]), "nameHash", fmt.Sprintf("%x", nameHash), "randomHash", fmt.Sprintf("%x", randomHash), "ratchet", ratchetHex, "appData_len", len(appData))
+	}
 
 	id = identity.FromPublicKey(pubKey)
 	if id == nil {
@@ -1412,7 +1451,9 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	expectedHashFull := sha256.Sum256(hashMaterial)
 	expectedHash := expectedHashFull[:16]
 
-	debug.Log(debug.DebugInfo, "Destination hash validation", "received", fmt.Sprintf("%x", destinationHash), "expected", fmt.Sprintf("%x", expectedHash))
+	if debug.Enabled(debug.DebugInfo) {
+		debug.Log(debug.DebugInfo, "Destination hash validation", "received", fmt.Sprintf("%x", destinationHash), "expected", fmt.Sprintf("%x", expectedHash))
+	}
 
 	if !bytes.Equal(destinationHash, expectedHash) {
 		debug.Log(debug.DebugInfo, "Destination hash mismatch - announce rejected")
@@ -1421,7 +1462,9 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	debug.Log(debug.DebugInfo, "Destination hash validation successful")
 
 	if len(appData) > 0 {
-		debug.Log(debug.DebugInfo, "Accepted announce with app_data", "data", fmt.Sprintf("%x", appData), "string", string(appData))
+		if debug.Enabled(debug.DebugInfo) {
+			debug.Log(debug.DebugInfo, "Accepted announce with app_data", "data", fmt.Sprintf("%x", appData), "string", string(appData))
+		}
 	}
 
 	identity.Remember(data, destinationHash, pubKey, appData)
@@ -1430,13 +1473,24 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	announceHash := sha256.Sum256(hashData)
 	hashStr := string(announceHash[:])
 
-	debug.Log(debug.DebugInfo, "Announce hash", "hash", fmt.Sprintf("%x", announceHash[:8]))
+	if debug.Enabled(debug.DebugInfo) {
+		debug.Log(debug.DebugInfo, "Announce hash", "hash", fmt.Sprintf("%x", announceHash[:8]))
+	}
+
+	// Cache a copy of the validated announce so later path requests can be
+	// answered with a PATH_RESPONSE.
+	cachedPkt := &packet.Packet{Raw: append([]byte(nil), data...)}
+	if cachedPkt.Unpack() == nil {
+		t.cacheAnnouncePacket(destinationHash, cachedPkt)
+	}
 
 	t.mutex.Lock()
 	if last, ok := t.seenAnnounces[hashStr]; ok {
 		if time.Since(last) < SeenAnnounceTTL {
 			t.mutex.Unlock()
-			debug.Log(debug.DebugInfo, "Ignoring duplicate announce", "hash", fmt.Sprintf("%x", announceHash[:8]))
+			if debug.Enabled(debug.DebugInfo) {
+				debug.Log(debug.DebugInfo, "Ignoring duplicate announce", "hash", fmt.Sprintf("%x", announceHash[:8]))
+			}
 			return nil
 		}
 	}
@@ -1478,14 +1532,21 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		}
 		t.mutex.Unlock()
 		if shouldAdd {
-			debug.Log(debug.DebugInfo, "Registered path", "hash", fmt.Sprintf("%x", destinationHash), "interface", iface.GetName(), "hops", announceHops, "nextHop", fmt.Sprintf("%x", nextHop))
+			if debug.Enabled(debug.DebugInfo) {
+				debug.Log(debug.DebugInfo, "Registered path", "hash", fmt.Sprintf("%x", destinationHash), "interface", iface.GetName(), "hops", announceHops, "nextHop", fmt.Sprintf("%x", nextHop))
+			}
 			if tun, ok := iface.(TunnelInterface); ok && len(tun.TunnelID()) == 32 {
 				t.associateTunnelPath(tun, destinationHash, receivedFrom, announceHash[:], uint8(announceHops))
 			}
 		}
+		// Answer waiting shared-instance clients as soon as a usable announce
+		// is cached (Python discovery_path_requests immediate PATH_RESPONSE).
+		t.answerPendingLocalPathRequest(destinationHash, byte(announceHops))
 	}
 
-	debug.Log(debug.DebugInfo, "Notifying announce handlers", "destHash", fmt.Sprintf("%x", destinationHash), "appDataLen", len(appData))
+	if debug.Enabled(debug.DebugInfo) {
+		debug.Log(debug.DebugInfo, "Notifying announce handlers", "destHash", fmt.Sprintf("%x", destinationHash), "appDataLen", len(appData))
+	}
 	t.notifyAnnounceHandlers(destinationHash, id, appData, uint8(announceHops))
 	debug.Log(debug.DebugInfo, "Announce handlers notified")
 
@@ -1496,19 +1557,23 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	if iface != nil {
 		if st := t.ifaceStates.get(iface.GetName()); st != nil && st.ingress != nil {
 			if !st.ingress.ProcessAnnounce(string(announceHash[:]), data, isNewDest) {
-				debug.Log(debug.DebugVerbose,
-					"Announce held by ingress control",
-					"iface", iface.GetName(),
-					"dest_hash", fmt.Sprintf("%x", destinationHash),
-					"queue_depth", st.ingress.HeldCount())
+				if debug.Enabled(debug.DebugVerbose) {
+					debug.Log(debug.DebugVerbose,
+						"Announce held by ingress control",
+						"iface", iface.GetName(),
+						"dest_hash", fmt.Sprintf("%x", destinationHash),
+						"queue_depth", st.ingress.HeldCount())
+				}
 				return nil
 			}
 		}
 	}
 
 	if !t.transportEnabled() {
-		debug.Log(debug.DebugVerbose, "Not forwarding announce: transport disabled",
-			"dest_hash", fmt.Sprintf("%x", destinationHash))
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Not forwarding announce: transport disabled",
+				"dest_hash", fmt.Sprintf("%x", destinationHash))
+		}
 		return nil
 	}
 
@@ -1518,18 +1583,29 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	}
 	debug.Log(debug.DebugInfo, "Bandwidth check passed")
 
-	delay := pathfinderRebroadcastDelay()
-	time.Sleep(delay)
-
-	data[1]++
-
+	// Rebroadcast off the packet-handler goroutine. Sleeping here under the
+	// sync HandlePacket fallback stalls interface read loops and can wedge
+	// shared-instance clients during announce storms.
+	fwd := append([]byte(nil), data...)
+	fwd[1]++
 	destKey := string(destinationHash)
 	fromIface := iface
+	go t.forwardAnnouncePacket(fwd, destKey, destinationHash, fromIface)
+
+	return nil
+}
+
+func (t *Transport) forwardAnnouncePacket(data []byte, destKey string, destinationHash []byte, fromIface common.NetworkInterface) error {
+	delay := pathfinderRebroadcastDelay()
+	if delay > 0 {
+		time.Sleep(delay)
+	}
+
 	var lastErr error
 	for _, e := range t.snapshotRegisteredInterfaces() {
 		name := e.name
 		outIface := e.iface
-		if outIface == iface || !outIface.IsEnabled() {
+		if outIface == fromIface || !outIface.IsEnabled() {
 			continue
 		}
 
@@ -1544,10 +1620,12 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 
 		if st := t.ifaceStates.get(name); st != nil && st.egress != nil {
 			if !st.egress.AllowAnnounce(destKey) {
-				debug.Log(debug.DebugVerbose,
-					"Skipping announce forwarding due to per-destination rate target",
-					"iface", name,
-					"dest_hash", fmt.Sprintf("%x", destinationHash))
+				if debug.Enabled(debug.DebugVerbose) {
+					debug.Log(debug.DebugVerbose,
+						"Skipping announce forwarding due to per-destination rate target",
+						"iface", name,
+						"dest_hash", fmt.Sprintf("%x", destinationHash))
+				}
 				continue
 			}
 		}
@@ -1566,7 +1644,9 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 
 func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface, packetType byte) {
 	startTime := time.Now()
-	debug.Log(debug.DebugVerbose, "Handling link packet", "bytes", len(data), "packet_type", fmt.Sprintf("0x%02x", packetType), "interface", iface.GetName())
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Handling link packet", "bytes", len(data), "packet_type", fmt.Sprintf("0x%02x", packetType), "interface", iface.GetName())
+	}
 
 	pkt := &packet.Packet{Raw: data}
 
@@ -1587,7 +1667,9 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 			destHash = destHash[:16]
 		}
 
-		debug.Log(debug.DebugVerbose, "Link request for destination", "hash", fmt.Sprintf("%x", destHash), "interface", iface.GetName())
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Link request for destination", "hash", fmt.Sprintf("%x", destHash), "interface", iface.GetName())
+		}
 
 		destKey := hash16FromSlice(destHash)
 
@@ -1603,7 +1685,9 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 			return
 		}
 
-		debug.Log(debug.DebugVerbose, "Found registered destination", "hash", fmt.Sprintf("%x", destHash), "elapsed", time.Since(startTime).Seconds())
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Found registered destination", "hash", fmt.Sprintf("%x", destHash), "elapsed", time.Since(startTime).Seconds())
+		}
 
 		reqStartTime := time.Now()
 		t.handleIncomingLinkRequest(pkt, destIface, iface)
@@ -1623,7 +1707,9 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 		linkID = linkID[:16]
 	}
 
-	debug.Log(debug.DebugVerbose, "Link data for link ID", "link_id", fmt.Sprintf("%x", linkID), "context", fmt.Sprintf("0x%02x", pkt.Context), "packet_type", fmt.Sprintf("0x%02x", pkt.PacketType), "interface", iface.GetName())
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Link data for link ID", "link_id", fmt.Sprintf("%x", linkID), "context", fmt.Sprintf("0x%02x", pkt.Context), "packet_type", fmt.Sprintf("0x%02x", pkt.PacketType), "interface", iface.GetName())
+	}
 
 	linkKey := hash16FromSlice(linkID)
 
@@ -1643,7 +1729,9 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 		return
 	}
 
-	debug.Log(debug.DebugVerbose, "No established link found for link ID", "link_id", fmt.Sprintf("%x", linkID))
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "No established link found for link ID", "link_id", fmt.Sprintf("%x", linkID))
+	}
 }
 
 func (t *Transport) handleIncomingLinkRequest(pkt *packet.Packet, destIface registeredDestination, networkIface common.NetworkInterface) {
@@ -1656,7 +1744,9 @@ func (t *Transport) handleIncomingLinkRequest(pkt *packet.Packet, destIface regi
 		return
 	}
 
-	debug.Log(debug.DebugVerbose, "Link request with ID", "id", fmt.Sprintf("%x", linkID[:8]), "full_id", fmt.Sprintf("%x", linkID), "elapsed", time.Since(startTime).Seconds())
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Link request with ID", "id", fmt.Sprintf("%x", linkID[:8]), "full_id", fmt.Sprintf("%x", linkID), "elapsed", time.Since(startTime).Seconds())
+	}
 
 	if destIface.linkRequestHandler == nil {
 		debug.Log(debug.DebugError, "Destination does not have HandleIncomingLinkRequest method", "elapsed", time.Since(startTime).Seconds())
@@ -1730,7 +1820,9 @@ func (t *Transport) handleTransportPacket(data []byte, iface common.NetworkInter
 			destHash = destHash[:16]
 		}
 
-		debug.Log(debug.DebugVerbose, "Looking up destination for data packet", "hash", fmt.Sprintf("%x", destHash))
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Looking up destination for data packet", "hash", fmt.Sprintf("%x", destHash))
+		}
 
 		destKey := hash16FromSlice(destHash)
 
@@ -1750,7 +1842,9 @@ func (t *Transport) handleTransportPacket(data []byte, iface common.NetworkInter
 				t.maybeProvePacket(pkt, d, iface)
 			}
 		} else {
-			debug.Log(debug.DebugVerbose, "No destination registered for hash", "hash", fmt.Sprintf("%x", destHash))
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "No destination registered for hash", "hash", fmt.Sprintf("%x", destHash))
+			}
 		}
 	}
 }
@@ -1836,7 +1930,10 @@ func (t *Transport) handlePathRequest(data []byte, iface common.NetworkInterface
 func (t *Transport) processPathRequest(destHash []byte, attachedIface common.NetworkInterface, requestorTransportID []byte, tag []byte) {
 	destHashStr := string(destHash)
 	pathKey := pathMapKey(destHash)
-	debug.Log(debug.DebugInfo, "Processing path request", "dest_hash", fmt.Sprintf("%x", destHash))
+	isFromLocalClient := isLocalClientInterface(attachedIface)
+	debug.Log(debug.DebugInfo, "Processing path request",
+		"dest_hash", fmt.Sprintf("%x", destHash),
+		"from_local_client", isFromLocalClient)
 
 	destKey := hash16FromSlice(destHash)
 	t.mutex.RLock()
@@ -1869,9 +1966,11 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 	}
 
 	if hasPath {
-		if !t.transportEnabled() {
-			debug.Log(debug.DebugVerbose, "Not answering remote path request: transport disabled",
-				"dest_hash", fmt.Sprintf("%x", destHash))
+		if !t.transportEnabled() && !isFromLocalClient {
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Not answering remote path request: transport disabled",
+					"dest_hash", fmt.Sprintf("%x", destHash))
+			}
 			return
 		}
 		nextHop := path.NextHop
@@ -1882,37 +1981,41 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 
 		debug.Log(debug.DebugInfo, "Answering path request with known path", "dest_hash", fmt.Sprintf("%x", destHash), "hops", path.HopCount)
 
-		t.mutex.RLock()
-		announceEntry, hasAnnounce := t.announceTable[destHashStr]
-		t.mutex.RUnlock()
+		if t.queuePathResponseAnnounce(destHash, path, attachedIface, isFromLocalClient) {
+			return
+		}
+		// Known path but no cached announce payload to replay. For shared-
+		// instance clients, fall through to discovery forwarding so the
+		// request is not silently dropped.
+		if !isFromLocalClient {
+			debug.Log(debug.DebugInfo, "Not answering path request: no cached announce",
+				"dest_hash", fmt.Sprintf("%x", destHash))
+			return
+		}
+		debug.Log(debug.DebugInfo, "Known path without cached announce, forwarding local-client path request",
+			"dest_hash", fmt.Sprintf("%x", destHash))
+	}
 
-		if hasAnnounce && announceEntry != nil {
-			now := time.Now()
-			retries := 1
-			localRebroadcasts := 0
-			blockRebroadcasts := true
-			announceHops := path.HopCount
-
-			retransmitTimeout := now.Add(time.Duration(400) * time.Millisecond)
-
-			entry := &PathAnnounceEntry{
-				CreatedAt:         now,
-				RetransmitTimeout: retransmitTimeout,
-				Retries:           retries,
-				ReceivedFrom:      path.Interface,
-				AnnounceHops:      announceHops,
-				Packet:            announceEntry.Packet,
-				LocalRebroadcasts: localRebroadcasts,
-				BlockRebroadcasts: blockRebroadcasts,
-				AttachedInterface: attachedIface,
+	// Forward path requests from local (shared-instance) clients on all other
+	// interfaces unconditionally, bypassing mode/transport/ingress gates that
+	// apply to normal relayed path requests.
+	if isFromLocalClient {
+		freshTag := make([]byte, 16)
+		if _, err := rand.Read(freshTag); err != nil {
+			debug.Log(debug.DebugError, "Failed to generate path request tag", "error", err)
+			return
+		}
+		t.notePendingLocalPathRequest(destHash, attachedIface)
+		debug.Log(debug.DebugInfo, "Forwarding path request from local client",
+			"dest_hash", fmt.Sprintf("%x", destHash), "iface", attachedIface.GetName())
+		for _, e := range t.snapshotRegisteredInterfaces() {
+			if e.iface == attachedIface || !e.iface.IsEnabled() {
+				continue
 			}
-
-			t.mutex.Lock()
-			if _, held := t.announceTable[destHashStr]; held {
-				t.heldAnnounces[destHashStr] = t.announceTable[destHashStr]
+			if err := t.RequestPath(destHash, e.iface.GetName(), freshTag, false); err != nil {
+				debug.Log(debug.DebugVerbose, "Failed to forward path request from local client",
+					"iface", e.iface.GetName(), "error", err)
 			}
-			t.announceTable[destHashStr] = entry
-			t.mutex.Unlock()
 		}
 		return
 	}
@@ -1922,18 +2025,24 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 		return
 	}
 	if !t.transportEnabled() {
-		debug.Log(debug.DebugVerbose, "Not rebroadcasting path request: transport disabled",
-			"dest_hash", fmt.Sprintf("%x", destHash))
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Not rebroadcasting path request: transport disabled",
+				"dest_hash", fmt.Sprintf("%x", destHash))
+		}
 		return
 	}
 	if !ifaceDiscoversUnknownPaths(attachedIface) {
-		debug.Log(debug.DebugVerbose, "Not discovering unknown path: interface mode does not discover",
-			"dest_hash", fmt.Sprintf("%x", destHash), "iface", attachedIface.GetName())
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Not discovering unknown path: interface mode does not discover",
+				"dest_hash", fmt.Sprintf("%x", destHash), "iface", attachedIface.GetName())
+		}
 		return
 	}
 	if attachedIface.ShouldIngressLimitPR() {
-		debug.Log(debug.DebugVerbose, "Not rebroadcasting path request: ingress limiting active",
-			"dest_hash", fmt.Sprintf("%x", destHash), "iface", attachedIface.GetName())
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Not rebroadcasting path request: ingress limiting active",
+				"dest_hash", fmt.Sprintf("%x", destHash), "iface", attachedIface.GetName())
+		}
 		return
 	}
 
@@ -1961,13 +2070,17 @@ func (t *Transport) SendPacket(p *packet.Packet) error {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
-	debug.Log(debug.DebugVerbose, "Sending packet", "type", fmt.Sprintf("0x%02x", p.PacketType), "header", p.HeaderType)
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Sending packet", "type", fmt.Sprintf("0x%02x", p.PacketType), "header", p.HeaderType)
+	}
 
 	destHash := p.DestinationHash
 	if len(destHash) > 16 {
 		destHash = destHash[:16]
 	}
-	debug.Log(debug.DebugPackets, "Destination hash", "hash", fmt.Sprintf("%x", destHash))
+	if debug.Enabled(debug.DebugPackets) {
+		debug.Log(debug.DebugPackets, "Destination hash", "hash", fmt.Sprintf("%x", destHash))
+	}
 
 	path, exists := t.paths[pathMapKey(destHash)]
 	if !exists {
@@ -1976,7 +2089,9 @@ func (t *Transport) SendPacket(p *packet.Packet) error {
 	}
 
 	if p.DestinationType != DestTypeLink && path.HopCount > 1 && len(path.NextHop) > 0 && !bytes.Equal(path.NextHop, destHash) {
-		debug.Log(debug.DebugVerbose, "Rewrapping packet for transport", "destHash", fmt.Sprintf("%x", destHash), "nextHop", fmt.Sprintf("%x", path.NextHop), "hops", path.HopCount)
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Rewrapping packet for transport", "destHash", fmt.Sprintf("%x", destHash), "nextHop", fmt.Sprintf("%x", path.NextHop), "hops", path.HopCount)
+		}
 		p.HeaderType = packet.HeaderType2
 		p.TransportType = packet.PropagationTransport
 		p.TransportID = path.NextHop
@@ -1992,7 +2107,9 @@ func (t *Transport) SendPacket(p *packet.Packet) error {
 	}
 	debug.Log(debug.DebugTrace, "Serialized packet size", "bytes", len(data))
 
-	debug.Log(debug.DebugTrace, "Using path", "interface", path.Interface.GetName(), "nextHop", fmt.Sprintf("%x", path.NextHop), "hops", path.HopCount)
+	if debug.Enabled(debug.DebugTrace) {
+		debug.Log(debug.DebugTrace, "Using path", "interface", path.Interface.GetName(), "nextHop", fmt.Sprintf("%x", path.NextHop), "hops", path.HopCount)
+	}
 
 	if err := path.Interface.Send(data, ""); err != nil {
 		debug.Log(debug.DebugInfo, "Failed to send packet", "error", err)
@@ -2019,7 +2136,9 @@ func (t *Transport) RegisterLink(linkID []byte, linkObj LinkInterface) {
 	defer t.mutex.Unlock()
 
 	t.links[linkKey] = linkObj
-	debug.Log(debug.DebugVerbose, "Registered link", "link_id", fmt.Sprintf("%x", linkID))
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Registered link", "link_id", fmt.Sprintf("%x", linkID))
+	}
 }
 
 // FindLink returns a registered link by link ID, or nil.
@@ -2040,7 +2159,9 @@ func (t *Transport) UnregisterLink(linkID []byte) {
 	defer t.mutex.Unlock()
 
 	delete(t.links, linkKey)
-	debug.Log(debug.DebugVerbose, "Unregistered link", "link_id", fmt.Sprintf("%x", linkID))
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Unregistered link", "link_id", fmt.Sprintf("%x", linkID))
+	}
 }
 
 func (l *Link) OnConnected(cb func()) {
@@ -2212,32 +2333,44 @@ func CreateAnnouncePacket(destHash []byte, identity *identity.Identity, appData 
 			PacketTypeAnnounce,
 	)
 
-	debug.Log(debug.DebugAll, "Created header byte", "header", fmt.Sprintf("0x%02x", headerByte), "hops", hops)
+	if debug.Enabled(debug.DebugAll) {
+		debug.Log(debug.DebugAll, "Created header byte", "header", fmt.Sprintf("0x%02x", headerByte), "hops", hops)
+	}
 	packet := []byte{headerByte, hops}
 	debug.Log(debug.DebugAll, "Initial packet size", "bytes", len(packet))
 
 	if len(destHash) > 16 {
 		destHash = destHash[:16]
 	}
-	debug.Log(debug.DebugAll, "Adding destination hash (16 bytes)", "hash", fmt.Sprintf("%x", destHash))
+	if debug.Enabled(debug.DebugAll) {
+		debug.Log(debug.DebugAll, "Adding destination hash (16 bytes)", "hash", fmt.Sprintf("%x", destHash))
+	}
 	packet = append(packet, destHash...)
 	debug.Log(debug.DebugAll, "Packet size after adding destination hash", "bytes", len(packet))
 
 	pubKey := identity.GetPublicKey()
 	encKey := pubKey[:32]
 	signKey := pubKey[32:]
-	debug.Log(debug.DebugAll, "Full public key", "key", fmt.Sprintf("%x", pubKey))
+	if debug.Enabled(debug.DebugAll) {
+		debug.Log(debug.DebugAll, "Full public key", "key", fmt.Sprintf("%x", pubKey))
+	}
 
-	debug.Log(debug.DebugAll, "Adding encryption key (32 bytes)", "key", fmt.Sprintf("%x", encKey))
+	if debug.Enabled(debug.DebugAll) {
+		debug.Log(debug.DebugAll, "Adding encryption key (32 bytes)", "key", fmt.Sprintf("%x", encKey))
+	}
 	packet = append(packet, encKey...)
 	debug.Log(debug.DebugAll, "Packet size after adding encryption key", "bytes", len(packet))
 
-	debug.Log(debug.DebugAll, "Adding signing key (32 bytes)", "key", fmt.Sprintf("%x", signKey))
+	if debug.Enabled(debug.DebugAll) {
+		debug.Log(debug.DebugAll, "Adding signing key (32 bytes)", "key", fmt.Sprintf("%x", signKey))
+	}
 	packet = append(packet, signKey...)
 	debug.Log(debug.DebugAll, "Packet size after adding signing key", "bytes", len(packet))
 
 	nameHash := sha256.Sum256([]byte(destName))
-	debug.Log(debug.DebugAll, "Adding name hash", "destName", destName, "hash", fmt.Sprintf("%x", nameHash[:AnnounceNameHashSize]), "size", AnnounceNameHashSize)
+	if debug.Enabled(debug.DebugAll) {
+		debug.Log(debug.DebugAll, "Adding name hash", "destName", destName, "hash", fmt.Sprintf("%x", nameHash[:AnnounceNameHashSize]), "size", AnnounceNameHashSize)
+	}
 	packet = append(packet, nameHash[:AnnounceNameHashSize]...)
 	debug.Log(debug.DebugAll, "Packet size after adding name hash", "bytes", len(packet))
 
@@ -2250,7 +2383,9 @@ func CreateAnnouncePacket(destHash []byte, identity *identity.Identity, appData 
 	timeBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(timeBytes, uint64(time.Now().Unix())) // #nosec G115
 	tsSlice := timeBytes[8-AnnounceTimestampBytesLen:]
-	debug.Log(debug.DebugAll, "Adding random hash", "random", fmt.Sprintf("%x", randomBytes), "time", fmt.Sprintf("%x", tsSlice), "size", AnnounceRandomHashSize)
+	if debug.Enabled(debug.DebugAll) {
+		debug.Log(debug.DebugAll, "Adding random hash", "random", fmt.Sprintf("%x", randomBytes), "time", fmt.Sprintf("%x", tsSlice), "size", AnnounceRandomHashSize)
+	}
 	packet = append(packet, randomBytes...)
 	packet = append(packet, tsSlice...)
 	debug.Log(debug.DebugAll, "Packet size after adding random hash", "bytes", len(packet))
@@ -2275,7 +2410,9 @@ func CreateAnnouncePacket(destHash []byte, identity *identity.Identity, appData 
 	if err != nil {
 		return nil, fmt.Errorf("sign announce: %w", err)
 	}
-	debug.Log(debug.DebugAll, "Adding signature (64 bytes)", "signature", fmt.Sprintf("%x", signature))
+	if debug.Enabled(debug.DebugAll) {
+		debug.Log(debug.DebugAll, "Adding signature (64 bytes)", "signature", fmt.Sprintf("%x", signature))
+	}
 	packet = append(packet, signature...)
 	debug.Log(debug.DebugAll, "Packet size after adding signature", "bytes", len(packet))
 
@@ -2304,7 +2441,9 @@ func (t *Transport) RegisterReceipt(receipt *packet.PacketReceipt) {
 	t.receiptsMutex.Lock()
 	defer t.receiptsMutex.Unlock()
 	t.receipts = append(t.receipts, receipt)
-	debug.Log(debug.DebugPackets, "Registered packet receipt", "hash", fmt.Sprintf("%x", receipt.GetHash()[:8]))
+	if debug.Enabled(debug.DebugPackets) {
+		debug.Log(debug.DebugPackets, "Registered packet receipt", "hash", fmt.Sprintf("%x", receipt.GetHash()[:8]))
+	}
 }
 
 func (t *Transport) UnregisterReceipt(receipt *packet.PacketReceipt) {
@@ -2321,7 +2460,9 @@ func (t *Transport) UnregisterReceipt(receipt *packet.PacketReceipt) {
 }
 
 func (t *Transport) handleProofPacket(pkt *packet.Packet, iface common.NetworkInterface) {
-	debug.Log(debug.DebugPackets, "Processing proof packet", "size", len(pkt.Data), "context", fmt.Sprintf("0x%02x", pkt.Context))
+	if debug.Enabled(debug.DebugPackets) {
+		debug.Log(debug.DebugPackets, "Processing proof packet", "size", len(pkt.Data), "context", fmt.Sprintf("0x%02x", pkt.Context))
+	}
 
 	if pkt.Context == packet.ContextLRProof {
 		linkID := pkt.DestinationHash
@@ -2381,7 +2522,9 @@ func (t *Transport) handleProofPacket(pkt *packet.Packet, iface common.NetworkIn
 	var proofHash []byte
 	if len(pkt.Data) == packet.ExplicitLength {
 		proofHash = pkt.Data[:identity.HashLength/8]
-		debug.Log(debug.DebugPackets, "Explicit proof", "hash", fmt.Sprintf("%x", proofHash[:8]))
+		if debug.Enabled(debug.DebugPackets) {
+			debug.Log(debug.DebugPackets, "Explicit proof", "hash", fmt.Sprintf("%x", proofHash[:8]))
+		}
 	} else {
 		debug.Log(debug.DebugPackets, "Implicit proof")
 	}

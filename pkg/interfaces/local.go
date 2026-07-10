@@ -260,6 +260,12 @@ func (lc *LocalClientInterface) IsSharedInstanceClient() bool {
 	return lc.sharedInitiator
 }
 
+// IsLocalClientInterface reports whether this interface is a local client
+// spawned by a shared-instance server (i.e. it has a parent server).
+func (lc *LocalClientInterface) IsLocalClientInterface() bool {
+	return lc.parent != nil
+}
+
 func (lc *LocalClientInterface) ShouldIngressLimitPR() bool { return false }
 
 func (lc *LocalClientInterface) String() string {

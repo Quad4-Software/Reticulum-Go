@@ -384,8 +384,8 @@ func pathEntrySize(tr *Transport, dest []byte) int {
 		return 0
 	}
 	const overhead = 48
-	const keyBytes = 16
-	const valueBytes = 72
+	const keyBytes = 32
+	const valueBytes = 128
 	const slicePayload = 16
 	_ = dest
 	return overhead + keyBytes + valueBytes + slicePayload

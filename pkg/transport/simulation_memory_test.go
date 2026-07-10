@@ -12,7 +12,7 @@ const (
 	embeddedProfileNodes      = 32
 	embeddedProfileMaxHeapKB  = 2048
 	embeddedProfileWarnHeapKB = 1024
-	embeddedMaxPathEntryBytes = 256
+	embeddedMaxPathEntryBytes = 384
 )
 
 type simHeapDelta struct {

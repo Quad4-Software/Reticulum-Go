@@ -8,7 +8,7 @@ import (
 	"quad4/reticulum-go/pkg/packet"
 )
 
-// PathTableEntry mirrors Python get_path_table() rows for RPC interop.
+// PathTableEntry mirrors get_path_table() rows for RPC interop.
 type PathTableEntry struct {
 	Hash      []byte  `msgpack:"hash"`
 	Timestamp float64 `msgpack:"timestamp"`

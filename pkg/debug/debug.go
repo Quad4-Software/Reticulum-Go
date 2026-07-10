@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"quad4/reticulum-go/pkg/common"
 )
@@ -25,7 +26,17 @@ var (
 	logFile     *os.File
 	initialized bool
 	mu          sync.RWMutex
+
+	// levelAtomic mirrors *debugLevel in an atomic so hot-path callers can
+	// check debug.Enabled(level) without a mutex and without evaluating
+	// expensive log arguments (fmt.Sprintf, variadic slices) when the
+	// message would be filtered.
+	levelAtomic atomic.Int64
 )
+
+func init() {
+	levelAtomic.Store(int64(*debugLevel))
+}
 
 // SetExtraWriter mirrors Reticulum log output to w in addition to stderr.
 func SetExtraWriter(w io.Writer) {
@@ -56,6 +67,7 @@ func Init() {
 	if initialized {
 		return
 	}
+	levelAtomic.Store(int64(*debugLevel))
 	rebuildLocked()
 	initialized = true
 }
@@ -149,6 +161,7 @@ func SetDebugLevel(level int) {
 	mu.Lock()
 	defer mu.Unlock()
 	*debugLevel = level
+	levelAtomic.Store(int64(level))
 	if initialized {
 		rebuildLocked()
 	}
@@ -156,7 +169,15 @@ func SetDebugLevel(level int) {
 
 // GetDebugLevel returns the current debug level.
 func GetDebugLevel() int {
-	return *debugLevel
+	return int(levelAtomic.Load())
+}
+
+// Enabled reports whether messages at level would be emitted. Hot paths
+// should call this before constructing expensive log arguments (e.g.
+// fmt.Sprintf) to avoid per-call allocations on a busy network running
+// below DebugAll.
+func Enabled(level int) bool {
+	return int(levelAtomic.Load()) >= level
 }
 
 // ConfigureDestination applies [logging] destination and logfile from cfg.

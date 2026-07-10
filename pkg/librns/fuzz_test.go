@@ -72,10 +72,7 @@ func FuzzEventQueue(f *testing.F) {
 			w = -w
 		}
 		const perPollCap = 5 * time.Millisecond
-		perPoll := time.Duration(w) * time.Millisecond
-		if perPoll > perPollCap {
-			perPoll = perPollCap
-		}
+		perPoll := min(time.Duration(w)*time.Millisecond, perPollCap)
 
 		// Hard per-input budget so no input can run longer than this.
 		deadline := time.Now().Add(500 * time.Millisecond)
@@ -103,10 +100,7 @@ func FuzzEventQueue(f *testing.F) {
 				if remaining <= 0 {
 					return
 				}
-				to := perPoll
-				if to > remaining {
-					to = remaining
-				}
+				to := min(perPoll, remaining)
 				_, _ = q.poll(to)
 			}
 		}()

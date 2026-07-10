@@ -701,8 +701,7 @@ func (r *Resource) GetRandomHash() []byte {
 	return append([]byte{}, r.randomHash...)
 }
 
-// ExpectedProof returns SHA256(uncompressedPayload || resourceHash), matching
-// Python Resource.prove / validate_proof wire format.
+// ExpectedProof returns SHA256(uncompressedPayload || resourceHash).
 func (r *Resource) ExpectedProof() ([]byte, bool) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()

@@ -55,6 +55,7 @@ func NewTCPClientInterfaceWithRetries(name string, targetHost string, targetPort
 		txFrame:           make([]byte, 0, DefaultMTU*2+4),
 	}
 	tc.initReconnectDriver()
+	tc.Bitrate = BitrateGuess
 
 	if enabled {
 		tc.startReconnect()

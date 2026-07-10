@@ -25,8 +25,8 @@ func (t *Transport) initLocalHopsDelta() {
 	debug.Log(debug.DebugVerbose, "Local hops delta enabled", "delta", t.localHopsDelta)
 }
 
-// shouldApplyLocalHopsDelta mirrors Python Transport.should_apply_delta for
-// locally originated hop-0 packets leaving a non-shared-instance owner.
+// shouldApplyLocalHopsDelta applies to locally originated hop-0 packets leaving
+// a non-shared-instance owner.
 func (t *Transport) shouldApplyLocalHopsDelta(p *packet.Packet, iface common.NetworkInterface) bool {
 	if t == nil || t.localHopsDelta == 0 || p == nil {
 		return false

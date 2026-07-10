@@ -74,10 +74,14 @@ func TestProcessPathRequest_rewritesAnnounceWhenNextHopIsNotRequestor(t *testing
 	nextHop := bytes.Repeat([]byte{0x61}, 16)
 	tag := bytes.Repeat([]byte{0x72}, 16)
 
-	oldPkt := &packet.Packet{Raw: []byte{0xCC, 0xDD}}
+	oldPkt := &packet.Packet{
+		DestinationHash: append([]byte(nil), dest...),
+		Data:            []byte{0xCC, 0xDD},
+	}
 	oldEntry := &PathAnnounceEntry{
-		CreatedAt: time.Now().Add(-time.Hour),
-		Packet:    oldPkt,
+		CreatedAt:         time.Now().Add(-time.Hour),
+		Packet:            oldPkt,
+		AttachedInterface: wan, // in-flight delivery; should be held across replace
 	}
 
 	tr.mutex.Lock()
@@ -87,6 +91,7 @@ func TestProcessPathRequest_rewritesAnnounceWhenNextHopIsNotRequestor(t *testing
 		HopCount:    2,
 		LastUpdated: time.Now(),
 	}
+	tr.announcePacketCache[string(dest)] = oldPkt
 	tr.announceTable[string(dest)] = oldEntry
 	tr.mutex.Unlock()
 
@@ -94,7 +99,7 @@ func TestProcessPathRequest_rewritesAnnounceWhenNextHopIsNotRequestor(t *testing
 
 	tr.mutex.RLock()
 	cur := tr.announceTable[string(dest)]
-	_, held := tr.heldAnnounces[string(dest)]
+	heldEntry, held := tr.heldAnnounces[string(dest)]
 	tr.mutex.RUnlock()
 	if cur == nil {
 		t.Fatal("expected new announce table entry")
@@ -102,11 +107,8 @@ func TestProcessPathRequest_rewritesAnnounceWhenNextHopIsNotRequestor(t *testing
 	if cur == oldEntry {
 		t.Fatal("expected announce entry to be replaced for valid next hop")
 	}
-	if !held {
-		t.Fatal("previous announce should be moved to heldAnnounces before replace")
-	}
-	if cur.Packet != oldPkt {
-		t.Fatalf("replacement entry should carry same cached packet payload pointer: %p vs %p", cur.Packet, oldPkt)
+	if !held || heldEntry != oldEntry {
+		t.Fatal("previous in-flight announce should be moved to heldAnnounces before replace")
 	}
 	if cur.ReceivedFrom != wan {
 		t.Fatal("replacement entry should record path egress interface as ReceivedFrom")
@@ -208,5 +210,116 @@ func TestProcessPathRequest_stalePathByTTLStartsDiscovery(t *testing.T) {
 	tr.mutex.RUnlock()
 	if !ok {
 		t.Fatal("stale path by PathRequestTTL should fall through to discovery")
+	}
+}
+
+// TestProcessPathRequest_fromLocalClientForwardsOnAllInterfaces verifies that a
+// path request arriving from a local (shared-instance) client interface is
+// forwarded on all other registered interfaces, even when the local client
+// interface has IFModeFull (which is NOT in DiscoverPathsFor). This matches
+// Python RNS Transport.path_request "elif is_from_local_client" branch.
+func TestProcessPathRequest_fromLocalClientForwardsOnAllInterfaces(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+	tr.SetIdentity(mustIdentity(t))
+
+	// localClient simulates a spawned LocalClientInterface on the shared-instance
+	// server side: IFTypeUnix + IFModeFull (default). IFModeFull is NOT in
+	// DiscoverPathsFor, so without the is_from_local_client branch the PR would
+	// be dropped.
+	localClient := newRelayIface("local-client")
+	localClient.Type = common.IFTypeUnix
+	localClient.Mode = common.IFModeFull
+	if err := tr.RegisterInterface("local-client", localClient); err != nil {
+		t.Fatal(err)
+	}
+
+	wan := newRelayIface("wan")
+	if err := tr.RegisterInterface("wan", wan); err != nil {
+		t.Fatal(err)
+	}
+
+	dest := bytes.Repeat([]byte{0x99}, 16)
+	tag := bytes.Repeat([]byte{0x77}, 16)
+
+	tr.processPathRequest(dest, localClient, nil, tag)
+
+	if n := len(wan.snapshot()); n != 1 {
+		t.Fatalf("expected 1 PR forwarded to wan, got %d", n)
+	}
+	if n := len(localClient.snapshot()); n != 0 {
+		t.Fatalf("PR must not be echoed back to the local client, got %d sends", n)
+	}
+}
+
+// TestProcessPathRequest_fromLocalClientKnownPathBypassesTransportDisabled
+// verifies that a path request from a local client for a known path is answered
+// even when transport is disabled (matching Python's
+// "(transport_enabled() or is_from_local_client) and has_path" condition).
+func TestProcessPathRequest_fromLocalClientKnownPathBypassesTransportDisabled(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	defer tr.Close()
+	tr.SetIdentity(mustIdentity(t))
+
+	localClient := newRelayIface("local-client")
+	localClient.Type = common.IFTypeUnix
+	localClient.Mode = common.IFModeFull
+	if err := tr.RegisterInterface("local-client", localClient); err != nil {
+		t.Fatal(err)
+	}
+
+	dest := bytes.Repeat([]byte{0x44}, 16)
+	tag := bytes.Repeat([]byte{0x88}, 16)
+
+	oldPkt := &packet.Packet{
+		DestinationHash: append([]byte(nil), dest...),
+		Data:            []byte{0xAA, 0xBB},
+	}
+	tr.mutex.Lock()
+	tr.paths[pathMapKey(dest)] = &common.Path{
+		NextHop:     bytes.Repeat([]byte{0x62}, 16),
+		Interface:   localClient,
+		HopCount:    1,
+		LastUpdated: time.Now(),
+	}
+	tr.announcePacketCache[string(dest)] = oldPkt
+	tr.mutex.Unlock()
+
+	// With transport disabled, a normal (non-local-client) PR would be
+	// rejected. A local-client PR must still be answered.
+	tr.processPathRequest(dest, localClient, nil, tag)
+
+	if n := countSends(localClient); n < 1 {
+		t.Fatalf("local-client PR with known path must emit path response, got %d sends", n)
+	}
+}
+
+// TestProcessPathRequest_nonLocalClientDropsUnknownPathWithFullMode is a control
+// test verifying that a PR from a non-local-client interface with IFModeFull for
+// an unknown destination is still dropped (the old behavior is preserved for
+// regular relayed PRs).
+func TestProcessPathRequest_nonLocalClientDropsUnknownPathWithFullMode(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+	tr.SetIdentity(mustIdentity(t))
+
+	fullIface := newRelayIface("full")
+	fullIface.Mode = common.IFModeFull
+	if err := tr.RegisterInterface("full", fullIface); err != nil {
+		t.Fatal(err)
+	}
+
+	wan := newRelayIface("wan2")
+	if err := tr.RegisterInterface("wan2", wan); err != nil {
+		t.Fatal(err)
+	}
+
+	dest := bytes.Repeat([]byte{0x33}, 16)
+	tag := bytes.Repeat([]byte{0x55}, 16)
+
+	tr.processPathRequest(dest, fullIface, nil, tag)
+
+	if n := len(wan.snapshot()); n != 0 {
+		t.Fatalf("non-local-client PR with Full mode must NOT be forwarded, got %d sends", n)
 	}
 }

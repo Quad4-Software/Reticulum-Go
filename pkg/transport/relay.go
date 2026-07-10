@@ -153,14 +153,18 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 		return false
 	}
 	if !bytes.Equal(pkt.TransportID, ourID) {
-		debug.Log(debug.DebugVerbose, "Transport packet not for us, ignoring",
-			"transport_id", fmt.Sprintf("%x", pkt.TransportID),
-			"our_id", fmt.Sprintf("%x", ourID))
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Transport packet not for us, ignoring",
+				"transport_id", fmt.Sprintf("%x", pkt.TransportID),
+				"our_id", fmt.Sprintf("%x", ourID))
+		}
 		return false
 	}
 	if !t.transportEnabled() {
-		debug.Log(debug.DebugVerbose, "Dropping transport packet: relay disabled",
-			"dest_hash", fmt.Sprintf("%x", pkt.DestinationHash))
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Dropping transport packet: relay disabled",
+				"dest_hash", fmt.Sprintf("%x", pkt.DestinationHash))
+		}
 		return true
 	}
 
@@ -176,8 +180,10 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 	t.mutex.RUnlock()
 
 	if isLocal {
-		debug.Log(debug.DebugVerbose, "Transport packet absorbed (local destination)",
-			"dest_hash", fmt.Sprintf("%x", destHash))
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Transport packet absorbed (local destination)",
+				"dest_hash", fmt.Sprintf("%x", destHash))
+		}
 		return false
 	}
 	if !hasPath || path == nil || path.Interface == nil {
@@ -272,8 +278,10 @@ func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterf
 		return false
 	}
 	if !t.transportEnabled() {
-		debug.Log(debug.DebugVerbose, "Dropping link relay packet: transport disabled",
-			"link_id", fmt.Sprintf("%x", linkID))
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Dropping link relay packet: transport disabled",
+				"link_id", fmt.Sprintf("%x", linkID))
+		}
 		return true
 	}
 
@@ -286,8 +294,10 @@ func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterf
 	case sourceIface == entry.ReceivedIface:
 		outIface = entry.NextHopIface
 	default:
-		debug.Log(debug.DebugVerbose, "Link relay: source iface unknown, dropping",
-			"link_id", fmt.Sprintf("%x", linkID))
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Link relay: source iface unknown, dropping",
+				"link_id", fmt.Sprintf("%x", linkID))
+		}
 		return true
 	}
 	if outIface == nil || !outIface.IsEnabled() {
@@ -348,18 +358,22 @@ func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, s
 	_, isLocal := t.destinations[destKey]
 	t.mutex.RUnlock()
 	if isLocal || !hasPath || path == nil || path.Interface == nil {
-		debug.Log(debug.DebugVerbose, "Bridged link request not relayed",
-			"dest_hash", fmt.Sprintf("%x", destHash),
-			"is_local", isLocal,
-			"has_path", hasPath,
-			"path_iface_nil", path == nil || path.Interface == nil,
-			"source_iface", sourceIface.GetName())
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Bridged link request not relayed",
+				"dest_hash", fmt.Sprintf("%x", destHash),
+				"is_local", isLocal,
+				"has_path", hasPath,
+				"path_iface_nil", path == nil || path.Interface == nil,
+				"source_iface", sourceIface.GetName())
+		}
 		return false
 	}
 	if path.Interface == sourceIface {
-		debug.Log(debug.DebugVerbose, "Bridged link request dropped: ingress equals egress",
-			"dest_hash", fmt.Sprintf("%x", destHash),
-			"iface", sourceIface.GetName())
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Bridged link request dropped: ingress equals egress",
+				"dest_hash", fmt.Sprintf("%x", destHash),
+				"iface", sourceIface.GetName())
+		}
 		return true
 	}
 
@@ -393,8 +407,10 @@ func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag [
 			continue
 		}
 		if iface.ShouldEgressLimitPR() {
-			debug.Log(debug.DebugVerbose, "Skipping path-request rebroadcast due to egress limiting",
-				"iface", iface.GetName(), "dest_hash", fmt.Sprintf("%x", destHash))
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Skipping path-request rebroadcast due to egress limiting",
+					"iface", iface.GetName(), "dest_hash", fmt.Sprintf("%x", destHash))
+			}
 			continue
 		}
 		ifaces = append(ifaces, iface)
@@ -415,8 +431,10 @@ func (t *Transport) queueDiscoveryPathRequest(destHash []byte, exclude common.Ne
 	t.pendingDiscoveryPRMu.Lock()
 	if len(t.pendingDiscoveryPRs) >= maxQueuedDiscoveryPRs {
 		t.pendingDiscoveryPRMu.Unlock()
-		debug.Log(debug.DebugVerbose, "Discovery PR queue full, dropping",
-			"dest_hash", fmt.Sprintf("%x", destHash))
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Discovery PR queue full, dropping",
+				"dest_hash", fmt.Sprintf("%x", destHash))
+		}
 		return
 	}
 	t.pendingDiscoveryPRs = append(t.pendingDiscoveryPRs, pendingDiscoveryPR{

@@ -21,6 +21,8 @@ func TestInit(t *testing.T) {
 
 	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
 	debugLevel = flag.Int("debug", 3, "debug level")
+	levelAtomic.Store(int64(*debugLevel))
+	levelAtomic.Store(int64(*debugLevel))
 
 	Init()
 
@@ -42,6 +44,8 @@ func TestGetLogger(t *testing.T) {
 
 	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
 	debugLevel = flag.Int("debug", 3, "debug level")
+	levelAtomic.Store(int64(*debugLevel))
+	levelAtomic.Store(int64(*debugLevel))
 	initialized = false
 
 	logger := GetLogger()
@@ -63,6 +67,8 @@ func TestLog(t *testing.T) {
 
 	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
 	debugLevel = flag.Int("debug", 7, "debug level")
+	levelAtomic.Store(int64(*debugLevel))
+	levelAtomic.Store(int64(*debugLevel))
 	initialized = false
 
 	Log(DebugInfo, "test message", "key", "value")
@@ -77,6 +83,8 @@ func TestSetDebugLevel(t *testing.T) {
 
 	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
 	debugLevel = flag.Int("debug", 3, "debug level")
+	levelAtomic.Store(int64(*debugLevel))
+	levelAtomic.Store(int64(*debugLevel))
 	initialized = false
 
 	SetDebugLevel(5)
@@ -94,6 +102,8 @@ func TestGetDebugLevel(t *testing.T) {
 
 	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
 	debugLevel = flag.Int("debug", 4, "debug level")
+	levelAtomic.Store(int64(*debugLevel))
+	levelAtomic.Store(int64(*debugLevel))
 
 	level := GetDebugLevel()
 	if level != 4 {
@@ -110,6 +120,8 @@ func TestLog_LevelFiltering(t *testing.T) {
 
 	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
 	debugLevel = flag.Int("debug", 3, "debug level")
+	levelAtomic.Store(int64(*debugLevel))
+	levelAtomic.Store(int64(*debugLevel))
 	initialized = false
 
 	Log(DebugTrace, "trace message")
@@ -150,6 +162,7 @@ func TestLog_WithArgs(t *testing.T) {
 
 	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
 	debugLevel = flag.Int("debug", 7, "debug level")
+	levelAtomic.Store(int64(*debugLevel))
 	initialized = false
 
 	Log(DebugInfo, "test message", "key1", "value1", "key2", "value2")
@@ -164,6 +177,7 @@ func TestInit_MultipleCalls(t *testing.T) {
 
 	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
 	debugLevel = flag.Int("debug", 3, "debug level")
+	levelAtomic.Store(int64(*debugLevel))
 	initialized = false
 
 	Init()
@@ -186,6 +200,7 @@ func TestLog_DisabledLevel(t *testing.T) {
 
 	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
 	debugLevel = flag.Int("debug", 1, "debug level")
+	levelAtomic.Store(int64(*debugLevel))
 	initialized = false
 
 	Log(DebugTrace, "this should be filtered")
@@ -225,6 +240,7 @@ func TestSetDebugLevel_SilencesEverythingButCritical(t *testing.T) {
 
 	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
 	debugLevel = flag.Int("debug", DebugInfo, "debug level")
+	levelAtomic.Store(int64(*debugLevel))
 	mu.Lock()
 	initialized = false
 	mu.Unlock()
@@ -263,6 +279,7 @@ func TestSetDebugLevel_RaisesAfterInit(t *testing.T) {
 
 	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
 	debugLevel = flag.Int("debug", DebugCritical, "debug level")
+	levelAtomic.Store(int64(*debugLevel))
 	mu.Lock()
 	initialized = false
 	mu.Unlock()
