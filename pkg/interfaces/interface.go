@@ -354,20 +354,21 @@ func (i *BaseInterface) GetBandwidthAvailable() bool {
 	defer i.Mutex.RUnlock()
 
 	elapsed := time.Since(i.lastTx)
-	// Idle, no bytes yet, or a zero-width window (coarse clocks) means
-	// there is no measurable usage. Avoid 0/0 NaN which is never < max.
-	if elapsed > time.Second || elapsed <= 0 || i.TxBytes == 0 || i.Bitrate <= 0 {
+	if i.Bitrate <= 0 || elapsed > time.Second || elapsed <= 0 {
 		debug.Log(debug.DebugVerbose, "Interface bandwidth available", "name", i.Name, "idle_seconds", elapsed.Seconds())
 		return true
 	}
 
-	bytesPerSec := float64(i.TxBytes) / elapsed.Seconds()
-	currentUsage := bytesPerSec * 8
 	maxUsage := float64(i.Bitrate) * PropagationRate
-
-	available := currentUsage < maxUsage
-	debug.Log(debug.DebugVerbose, "Interface bandwidth stats", "name", i.Name, "current_bps", currentUsage, "max_bps", maxUsage, "usage_percent", (currentUsage/maxUsage)*100, "available", available)
-
+	// Use sampled TX bitrate from SampleTraffic. Lifetime TxBytes/elapsed
+	// falsely reports multi-Gbps after a few KB and permanently closes the
+	// announce forward gate under normal mesh load.
+	if i.currentTXS <= 0 {
+		debug.Log(debug.DebugVerbose, "Interface bandwidth available", "name", i.Name, "idle_seconds", elapsed.Seconds())
+		return true
+	}
+	available := i.currentTXS < maxUsage
+	debug.Log(debug.DebugVerbose, "Interface bandwidth stats", "name", i.Name, "current_bps", i.currentTXS, "max_bps", maxUsage, "usage_percent", (i.currentTXS/maxUsage)*100, "available", available)
 	return available
 }
 

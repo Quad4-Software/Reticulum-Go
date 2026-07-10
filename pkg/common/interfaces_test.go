@@ -286,14 +286,13 @@ func TestBaseInterface_GetBandwidthAvailable(t *testing.T) {
 	iface.lastTx = time.Now().Add(-500 * time.Millisecond)
 	iface.TxBytes = 1000
 	iface.Bitrate = 1000000
-
 	if !iface.GetBandwidthAvailable() {
-		t.Error("GetBandwidthAvailable() = false, want true when usage is below threshold")
+		t.Error("GetBandwidthAvailable() = false, want true without a sampled TX rate")
 	}
 
 	iface.TxBytes = 10000000
 	iface.Bitrate = 1000
-	if iface.GetBandwidthAvailable() {
-		t.Error("GetBandwidthAvailable() = true, want false when usage exceeds threshold")
+	if !iface.GetBandwidthAvailable() {
+		t.Error("GetBandwidthAvailable() = false, want true without a sampled TX rate")
 	}
 }

@@ -396,17 +396,9 @@ func (i *BaseInterface) GetBandwidthAvailable() bool {
 	i.Mutex.RLock()
 	defer i.Mutex.RUnlock()
 
-	elapsed := time.Since(i.lastTx)
-	// Idle, no bytes yet, or a zero-width window (coarse clocks) means
-	// there is no measurable usage. Avoid 0/0 NaN which is never < max.
-	if elapsed > time.Second || elapsed <= 0 || i.TxBytes == 0 || i.Bitrate <= 0 {
-		return true
-	}
-
-	bytesPerSec := float64(i.TxBytes) / elapsed.Seconds()
-	currentUsage := bytesPerSec * 8
-	maxUsage := float64(i.Bitrate) * 0.02
-	return currentUsage < maxUsage
+	// common.BaseInterface has no sampled TX rate. Never divide lifetime
+	// TxBytes by elapsed (that falsely closes announce gates). Always allow.
+	return true
 }
 
 // ReceivedPathRequest records an incoming path request.

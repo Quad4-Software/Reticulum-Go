@@ -44,3 +44,21 @@ func TestSampleTrafficSpeeds(t *testing.T) {
 		t.Fatalf("expected non-zero TX speed after byte increase, got %v", bi.GetTxSpeed())
 	}
 }
+
+func TestGetBandwidthAvailable_UsesSampledTX(t *testing.T) {
+	bi := NewBaseInterface("bw", common.IFTypeTCP, true)
+	bi.Bitrate = BitrateGuess
+	bi.lastTx = time.Now()
+	bi.TxBytes = 1 << 20 // lifetime bytes must not alone close the gate
+	if !bi.GetBandwidthAvailable() {
+		t.Fatal("expected available without a TX sample")
+	}
+	bi.currentTXS = float64(bi.Bitrate) * PropagationRate * 2
+	if bi.GetBandwidthAvailable() {
+		t.Fatal("expected unavailable when sampled TX exceeds announce cap")
+	}
+	bi.currentTXS = float64(bi.Bitrate) * PropagationRate * 0.1
+	if !bi.GetBandwidthAvailable() {
+		t.Fatal("expected available when sampled TX is under announce cap")
+	}
+}
