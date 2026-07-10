@@ -274,7 +274,8 @@ func (qc *QUICClientInterface) ProcessOutgoing(data []byte) error {
 			qc.teardownConn()
 			reconnect.notifyFailure()
 		}
-		return err
+	}
+	return err
 }
 
 // Send applies IFAC then ProcessOutgoing.
