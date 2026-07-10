@@ -85,6 +85,8 @@ type Transport struct {
 	announceRate          *rate.Limiter
 	seenAnnounces         map[string]time.Time
 	packetHandleSem       chan struct{}
+	pendingAnnounceJobs   []delayedAnnounceJob
+	pendingAnnounceMu     sync.Mutex
 	pathfinder            *pathfinder.PathFinder
 	announceHandlers      []announce.Handler
 	paths                 map[[PathMapKeySize]byte]*common.Path
@@ -160,6 +162,11 @@ type PathAnnounceEntry struct {
 	LocalRebroadcasts int
 	BlockRebroadcasts bool
 	AttachedInterface common.NetworkInterface
+}
+
+type delayedAnnounceJob struct {
+	due time.Time
+	job func()
 }
 
 type Path struct {
@@ -270,6 +277,7 @@ func (t *Transport) startMaintenanceJobs() {
 			t.sampleInterfaceTraffic()
 		case <-announceTicker.C:
 			t.processAnnounceTable()
+			t.processDelayedAnnounceJobs()
 		case <-t.done:
 			return
 		}
@@ -1075,11 +1083,8 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 	fwd := append([]byte(nil), data...)
 	fwd[0]++
 	hops := fwd[0]
-	go func(payload []byte) {
-		delay := pathfinderRebroadcastDelay()
-		if delay > 0 {
-			time.Sleep(delay)
-		}
+	destHashCopy := append([]byte(nil), destHash...)
+	t.scheduleAnnounceForwardJob(func() {
 		for _, e := range t.snapshotRegisteredInterfaces() {
 			iface := e.iface
 			if iface == sourceIface || !iface.IsEnabled() {
@@ -1088,14 +1093,14 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 			if !iface.GetBandwidthAvailable() {
 				continue
 			}
-			if !t.shouldForwardAnnounceOn(destHash, iface, sourceIface) {
+			if !t.shouldForwardAnnounceOn(destHashCopy, iface, sourceIface) {
 				continue
 			}
-			_ = iface.Send(payload, "")
+			_ = iface.Send(fwd, "")
 		}
-	}(fwd)
+	})
 
-	t.notifyAnnounceHandlers(destHash, identity, appData, hops)
+	t.notifyAnnounceHandlers(destHashCopy, identity, appData, hops)
 	return nil
 }
 
@@ -1586,21 +1591,69 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	// Rebroadcast off the packet-handler goroutine. Sleeping here under the
 	// sync HandlePacket fallback stalls interface read loops and can wedge
 	// shared-instance clients during announce storms.
+	//
+	// destinationHash must be copied: under load HandlePacket may dispatch
+	// synchronously into the HDLC decoder buffer, which is reused after return.
 	fwd := append([]byte(nil), data...)
 	fwd[1]++
 	destKey := string(destinationHash)
+	destHashCopy := append([]byte(nil), destinationHash...)
 	fromIface := iface
-	go t.forwardAnnouncePacket(fwd, destKey, destinationHash, fromIface)
+	t.scheduleAnnounceForwardJob(func() {
+		_ = t.forwardAnnouncePacket(fwd, destKey, destHashCopy, fromIface)
+	})
 
 	return nil
 }
 
-func (t *Transport) forwardAnnouncePacket(data []byte, destKey string, destinationHash []byte, fromIface common.NetworkInterface) error {
-	delay := pathfinderRebroadcastDelay()
-	if delay > 0 {
-		time.Sleep(delay)
+// scheduleAnnounceForwardJob queues job for the maintenance ticker after the
+// pathfinder rebroadcast delay. Drops when the pending queue is full.
+func (t *Transport) scheduleAnnounceForwardJob(job func()) {
+	if t == nil || job == nil {
+		return
 	}
+	due := time.Now().Add(pathfinderRebroadcastDelay())
+	t.pendingAnnounceMu.Lock()
+	if len(t.pendingAnnounceJobs) >= MaxPendingAnnounceForwards {
+		t.pendingAnnounceMu.Unlock()
+		debug.Log(debug.DebugInfo, "Announce forward backlog full, dropping rebroadcast")
+		return
+	}
+	t.pendingAnnounceJobs = append(t.pendingAnnounceJobs, delayedAnnounceJob{due: due, job: job})
+	t.pendingAnnounceMu.Unlock()
+}
 
+func (t *Transport) processDelayedAnnounceJobs() {
+	if t == nil {
+		return
+	}
+	now := time.Now()
+	t.pendingAnnounceMu.Lock()
+	if len(t.pendingAnnounceJobs) == 0 {
+		t.pendingAnnounceMu.Unlock()
+		return
+	}
+	due := make([]func(), 0, len(t.pendingAnnounceJobs))
+	keep := t.pendingAnnounceJobs[:0]
+	for _, e := range t.pendingAnnounceJobs {
+		if e.job == nil {
+			continue
+		}
+		if !now.Before(e.due) {
+			due = append(due, e.job)
+			continue
+		}
+		keep = append(keep, e)
+	}
+	t.pendingAnnounceJobs = keep
+	t.pendingAnnounceMu.Unlock()
+
+	for _, job := range due {
+		job()
+	}
+}
+
+func (t *Transport) forwardAnnouncePacket(data []byte, destKey string, destinationHash []byte, fromIface common.NetworkInterface) error {
 	var lastErr error
 	for _, e := range t.snapshotRegisteredInterfaces() {
 		name := e.name

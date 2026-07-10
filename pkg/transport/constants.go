@@ -15,6 +15,11 @@ const (
 	// MaxConcurrentPacketHandlers limits concurrent goroutines spawned by HandlePacket.
 	MaxConcurrentPacketHandlers = 512
 
+	// MaxPendingAnnounceForwards caps delayed announce rebroadcast jobs queued
+	// for the maintenance ticker. Avoids per-announce sleep goroutines that
+	// explode memory and OS threads under storms.
+	MaxPendingAnnounceForwards = 256
+
 	EstablishmentTimeoutPerHop = 6
 	KeepaliveTimeoutFactor     = 4
 	StaleGrace                 = 2
