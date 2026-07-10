@@ -172,7 +172,7 @@ func run() int {
 			fmt.Println(strings.Repeat("-", 60))
 			_, _ = os.Stdout.Write(stderrBuf.Bytes())
 		}
-		printSummary(failedPackages, failedTests, pkgOutputs, testOutputs, totalFailed)
+		printSummary(failedPackages, failedTests, pkgOutputs, testOutputs, totalFailed, quiet)
 	} else if stderrBuf.Len() > 0 {
 		_, _ = os.Stderr.Write(stderrBuf.Bytes())
 	}
@@ -186,6 +186,7 @@ func printSummary(
 	pkgOutputs map[string][]string,
 	testOutputs map[string]map[string][]string,
 	totalFailed int,
+	quiet bool,
 ) {
 	fmt.Println("\n" + strings.Repeat("=", 60))
 	fmt.Println("TEST FAILURE SUMMARY")
@@ -219,9 +220,7 @@ func printSummary(
 
 		for _, pkg := range sortedKeysSet(failedPackages) {
 			fmt.Printf("\n=== %s (package failure) ===\n", pkg)
-			for _, line := range pkgOutputs[pkg] {
-				fmt.Print(line)
-			}
+			fmt.Print(trimFailureOutput(pkgOutputs[pkg], quiet))
 		}
 
 		for _, pkg := range sortedKeysMap(failedTests) {
@@ -232,9 +231,7 @@ func printSummary(
 			slices.Sort(names)
 			for _, test := range names {
 				fmt.Printf("\n=== %s  %s ===\n", pkg, test)
-				for _, line := range testOutputs[pkg][test] {
-					fmt.Print(line)
-				}
+				fmt.Print(trimFailureOutput(testOutputs[pkg][test], quiet))
 			}
 		}
 	}
@@ -242,6 +239,38 @@ func printSummary(
 	fmt.Println("\n" + strings.Repeat("=", 60))
 	fmt.Printf("Total failures: %d\n", totalFailed)
 	fmt.Println(strings.Repeat("=", 60))
+}
+
+// trimFailureOutput keeps CI logs readable under TESTSUMMARY_QUIET by retaining
+// assertion/fatal lines and a short tail of context instead of full slog dumps.
+func trimFailureOutput(lines []string, quiet bool) string {
+	if len(lines) == 0 {
+		return ""
+	}
+	joined := strings.Join(lines, "")
+	if !quiet {
+		return joined
+	}
+	const maxTailLines = 40
+	var keep []string
+	for _, line := range lines {
+		lower := strings.ToLower(line)
+		if strings.Contains(lower, "--- fail") ||
+			strings.Contains(lower, "fatal") ||
+			strings.Contains(lower, "error:") ||
+			strings.Contains(line, "\t") && (strings.Contains(lower, "fail") || strings.Contains(lower, "timeout") || strings.Contains(lower, "want ")) {
+			keep = append(keep, line)
+		}
+	}
+	all := strings.Split(strings.TrimRight(joined, "\n"), "\n")
+	if len(all) > maxTailLines {
+		all = all[len(all)-maxTailLines:]
+	}
+	tail := strings.Join(all, "\n") + "\n"
+	if len(keep) == 0 {
+		return tail
+	}
+	return strings.Join(keep, "") + "\n--- last lines ---\n" + tail
 }
 
 func sortedKeysSet(m map[string]struct{}) []string {
