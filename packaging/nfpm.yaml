@@ -14,7 +14,7 @@ priority: optional
 maintainer: Quad4.io <ivan@quad4.io>
 description: |
   Reticulum network stack (Go).
-  Single binary with daemon and tools: status, id, probe, path, cp, pageserver.
+  Single binary with daemon and tools: status, id, probe, path, cp, x, pageserver.
 vendor: Quad4.io
 homepage: https://github.com/quad4io/Reticulum-Go
 license: Apache-2.0
@@ -38,6 +38,12 @@ contents:
     type: symlink
   - src: /usr/bin/reticulum-go
     dst: /usr/bin/rgocp
+    type: symlink
+  - src: /usr/bin/reticulum-go
+    dst: /usr/bin/rgox
+    type: symlink
+  - src: /usr/bin/reticulum-go
+    dst: /usr/bin/rnx
     type: symlink
   - src: /usr/bin/reticulum-go
     dst: /usr/bin/rgopageserver
@@ -66,6 +72,10 @@ contents:
     dst: /usr/share/man/man1/reticulum-go-cp.1
     file_info:
       mode: 0644
+  - src: man/reticulum-go-x.1
+    dst: /usr/share/man/man1/reticulum-go-x.1
+    file_info:
+      mode: 0644
   - src: man/reticulum-go-pageserver.1
     dst: /usr/share/man/man1/reticulum-go-pageserver.1
     file_info:
@@ -92,6 +102,12 @@ contents:
     type: symlink
   - src: /usr/share/man/man1/reticulum-go-cp.1
     dst: /usr/share/man/man1/rgocp.1
+    type: symlink
+  - src: /usr/share/man/man1/reticulum-go-x.1
+    dst: /usr/share/man/man1/rgox.1
+    type: symlink
+  - src: /usr/share/man/man1/reticulum-go-x.1
+    dst: /usr/share/man/man1/rnx.1
     type: symlink
   - src: /usr/share/man/man1/reticulum-go-pageserver.1
     dst: /usr/share/man/man1/rgopageserver.1

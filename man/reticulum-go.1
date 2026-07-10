@@ -11,7 +11,7 @@
 .Nm
 .Cm daemon
 .Nm
-.Cm status | id | probe | path | cp | pageserver
+.Cm status | id | probe | path | cp | x | pageserver
 .Op Ar flags
 .Sh DESCRIPTION
 .Nm
@@ -26,7 +26,7 @@ the process loads configuration from
 to that config.
 .Pp
 Legacy tool names
-.Nm rgostatus , rgoid , rgoprobe , rgopath , rgocp ,
+.Nm rgostatus , rgoid , rgoprobe , rgopath , rgocp , rgox , rnx ,
 and
 .Nm rgopageserver
 may be installed as symlinks to this binary.
@@ -55,6 +55,12 @@ See
 File transfer over Reticulum links.
 See
 .Xr reticulum-go-cp 1 .
+.It Cm x
+Remote command execution over links (Python
+.Nm rnx
+interop).
+See
+.Xr reticulum-go-x 1 .
 .It Cm pageserver
 NomadNet-style page and file server.
 See
@@ -81,6 +87,7 @@ Identities, path table, and related state.
 .Xr reticulum-go-probe 1 ,
 .Xr reticulum-go-path 1 ,
 .Xr reticulum-go-cp 1 ,
+.Xr reticulum-go-x 1 ,
 .Xr reticulum-go-pageserver 1
 .Sh AUTHORS
 .An Quad4.io

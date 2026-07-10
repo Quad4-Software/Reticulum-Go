@@ -121,7 +121,7 @@ These do not change the wire format:
 | rnprobe | `rgoprobe` |
 | rnpath | `rgopath` (path table, drop, blackhole; remote rnstransport not ported) |
 | rncp | `rgocp` (send/listen/fetch on `rncp.receive`) |
-| rnir, rnx, rnodeconf, rnpkg, rngit, rnsh | Not ported (deferred post-1.0) |
+| rnir, rnodeconf, rnpkg, rngit, rnsh | Not ported (deferred post-1.0). `rnx` is `reticulum-go x`. |
 | WASM | `reticulum-wasm` (Go-only) |
 | librns | `librns.so` + `rns.h` (Go-only, Linux first) |
 

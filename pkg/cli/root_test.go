@@ -35,8 +35,27 @@ func TestMainHelp(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("code=%d", code)
 	}
-	if !strings.Contains(out.String(), "pageserver") {
-		t.Fatalf("help missing pageserver: %s", out.String())
+	help := out.String()
+	if !strings.Contains(help, "pageserver") {
+		t.Fatalf("help missing pageserver: %s", help)
+	}
+	if !strings.Contains(help, "reticulum-go x") {
+		t.Fatalf("help missing x: %s", help)
+	}
+}
+
+func TestResolveCommandX(t *testing.T) {
+	cmd, _, ok := resolveCommand("reticulum-go", []string{"x", "-l"})
+	if !ok || cmd != CmdX {
+		t.Fatalf("subcommand ok=%v cmd=%q", ok, cmd)
+	}
+	cmd, _, ok = resolveCommand("/usr/bin/rnx", []string{"-p"})
+	if !ok || cmd != CmdX {
+		t.Fatalf("rnx alias ok=%v cmd=%q", ok, cmd)
+	}
+	cmd, _, ok = resolveCommand("rgox", nil)
+	if !ok || cmd != CmdX {
+		t.Fatalf("rgox alias ok=%v cmd=%q", ok, cmd)
 	}
 }
 

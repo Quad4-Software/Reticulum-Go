@@ -22,6 +22,7 @@ const (
 	CmdProbe      = "probe"
 	CmdPath       = "path"
 	CmdCP         = "cp"
+	CmdX          = "x"
 	CmdPageserver = "pageserver"
 	CmdDebug      = "debug"
 )
@@ -94,6 +95,8 @@ func Main(args []string, opt Options) int {
 		return RunPath(rest, opt)
 	case CmdCP:
 		return RunCP(rest, opt)
+	case CmdX:
+		return RunX(rest, opt)
 	case CmdPageserver:
 		return RunPageserver(rest, opt)
 	case CmdDebug:
@@ -118,7 +121,7 @@ func resolveCommand(argv0 string, args []string) (cmd string, rest []string, ok 
 	}
 
 	switch args[0] {
-	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdPageserver, CmdDebug:
+	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdX, CmdPageserver, CmdDebug:
 		return args[0], args[1:], true
 	case "rgostatus":
 		return CmdStatus, args[1:], true
@@ -130,6 +133,8 @@ func resolveCommand(argv0 string, args []string) (cmd string, rest []string, ok 
 		return CmdPath, args[1:], true
 	case "rgocp":
 		return CmdCP, args[1:], true
+	case "rgox", "rnx":
+		return CmdX, args[1:], true
 	default:
 		return "", nil, false
 	}
@@ -147,6 +152,8 @@ func aliasFromArgv0(base string) string {
 		return CmdPath
 	case "rgocp", "reticulum-go-cp":
 		return CmdCP
+	case "rgox", "rnx", "reticulum-go-x":
+		return CmdX
 	case "rgopageserver", "reticulum-go-pageserver":
 		return CmdPageserver
 	default:
@@ -185,6 +192,7 @@ Usage:
   reticulum-go probe [flags] <name> <hash>
   reticulum-go path [flags]             path table, drop, blackhole
   reticulum-go cp [flags]               file transfer over links
+  reticulum-go x [flags]                remote command execution (rnx)
   reticulum-go pageserver [flags]       NomadNet-style page and file server
   reticulum-go debug [flags]            effective config, rate table, RPC dump
 
@@ -192,7 +200,7 @@ Global:
   -h, --help       print this help
   -v, --version    print version
 
-Legacy tool names (rgostatus, rgoid, rgoprobe, rgopath, rgocp) work as
+Legacy tool names (rgostatus, rgoid, rgoprobe, rgopath, rgocp, rgox, rnx) work as
 subcommands or when the binary is installed under those names (symlinks).
 
 Configuration defaults to ~/.reticulum-go/config.
