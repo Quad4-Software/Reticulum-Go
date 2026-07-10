@@ -80,10 +80,15 @@ func FuzzCacheAnnouncePacket(f *testing.F) {
 func FuzzBuildPathResponseWire(f *testing.F) {
 	f.Add([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}, []byte("payload"), byte(3), true)
 	f.Add([]byte{}, []byte{}, byte(0), false)
-	f.Add(bytes.Repeat([]byte{0x11}, 16), bytes.Repeat([]byte{0x22}, 128), byte(255), true)
+	f.Add(bytes.Repeat([]byte{0x11}, 16), bytes.Repeat([]byte{0x22}, 128), byte(packet.PathfinderM-1), true)
 	f.Add([]byte("0"), []byte("0"), byte('\a'), true)
 
 	f.Fuzz(func(t *testing.T, destHash []byte, data []byte, hops byte, block bool) {
+		// RNS 1.3.8 rejects hops >= PATHFINDER_M on unpack. Keep the
+		// round-trip corpus inside the valid range.
+		if int(hops) >= packet.PathfinderM {
+			hops = byte(int(hops) % packet.PathfinderM)
+		}
 		tr := fuzzTransport(fuzzIdentity(t))
 		entry := &PathAnnounceEntry{
 			AnnounceHops:      hops,

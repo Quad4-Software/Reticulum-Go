@@ -152,6 +152,7 @@ func TestInitiatorBadLinkProofExpiresCachedPathAndClosesLink(t *testing.T) {
 	l.linkID = bytes.Repeat([]byte{0x03}, 16)
 	l.initiator = true
 	l.status.Store(int32(StatusPending))
+	l.expectedHops = transport.PathfinderM
 	tr.RegisterLink(l.linkID, l)
 
 	badProof := &packet.Packet{

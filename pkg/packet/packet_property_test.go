@@ -35,6 +35,28 @@ func FuzzPacketRoundTrip(f *testing.F) {
 		if need > MTU {
 			return
 		}
+		if int(hops) >= PathfinderM {
+			// Pack may still emit the byte, but unpack must reject it (RNS 1.3.8).
+			p := &Packet{
+				HeaderType:      headerType,
+				PacketType:      packetType,
+				TransportType:   transportType,
+				Context:         context,
+				ContextFlag:     contextFlag,
+				Hops:            hops,
+				DestinationHash: destHash,
+				TransportID:     transportID,
+				Data:            data,
+			}
+			if err := p.Pack(); err != nil {
+				return
+			}
+			p2 := &Packet{Raw: p.Raw}
+			if err := p2.Unpack(); err == nil {
+				t.Fatalf("Unpack should reject hops=%d", hops)
+			}
+			return
+		}
 
 		p := &Packet{
 			HeaderType:      headerType,

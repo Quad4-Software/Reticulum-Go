@@ -24,7 +24,7 @@ func genValidPacket(r *rand.Rand, size int) *Packet {
 	transportType := byte(r.Intn(2))
 	context := byte(r.Intn(256))
 	contextFlag := byte(r.Intn(2))
-	hops := byte(r.Intn(256))
+	hops := byte(r.Intn(PathfinderM))
 	dest := randomHash16(r)
 	var tid []byte
 	if headerType == HeaderType2 {

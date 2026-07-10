@@ -197,6 +197,29 @@ func TestUnpackTooShort(t *testing.T) {
 	}
 }
 
+// TestUnpackRejectsPathfinderMHops mirrors RNS 1.3.8 Packet.unpack hop gate.
+func TestUnpackRejectsPathfinderMHops(t *testing.T) {
+	dest := randomBytes(16)
+	for _, hops := range []byte{PathfinderM, 200, 255} {
+		raw := make([]byte, 0, MinPacketSize+len(dest))
+		raw = append(raw, 0x00, hops)
+		raw = append(raw, dest...)
+		raw = append(raw, ContextNone)
+		p := &Packet{Raw: raw}
+		if err := p.Unpack(); err == nil {
+			t.Fatalf("Unpack hops=%d: want error, got nil", hops)
+		}
+	}
+	raw := make([]byte, 0, MinPacketSize+len(dest))
+	raw = append(raw, 0x00, PathfinderM-1)
+	raw = append(raw, dest...)
+	raw = append(raw, ContextNone)
+	p := &Packet{Raw: raw}
+	if err := p.Unpack(); err != nil {
+		t.Fatalf("Unpack hops=%d: %v", PathfinderM-1, err)
+	}
+}
+
 func TestPacketHashing(t *testing.T) {
 	// Create two identical packets
 	data := randomBytes(50)
