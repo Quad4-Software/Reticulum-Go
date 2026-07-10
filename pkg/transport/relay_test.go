@@ -283,8 +283,20 @@ func TestRelayBridgedLinkRequestForwardsHT1(t *testing.T) {
 	if !tr.relayBridgedLinkRequest(pkt, raw, in) {
 		t.Fatal("relayBridgedLinkRequest returned false")
 	}
-	if got := out.snapshot(); len(got) != 1 {
+	got := out.snapshot()
+	if len(got) != 1 {
 		t.Fatalf("expected 1 forwarded link request, got %d", len(got))
+	}
+	if got[0][1] != 0x01 {
+		t.Fatalf("non-local bridged LR hops = %d, want 1", got[0][1])
+	}
+	linkID := packet.LinkIDFromLinkRequest(pkt)
+	entry, ok := tr.linkTable.get(linkID)
+	if !ok {
+		t.Fatal("missing link relay entry")
+	}
+	if entry.TakenHops != 1 {
+		t.Fatalf("TakenHops = %d, want 1 for non-local LR", entry.TakenHops)
 	}
 }
 
@@ -376,7 +388,7 @@ func TestRecordLinkRelayUsesWireLinkID(t *testing.T) {
 		NextHop:   destHash,
 		Interface: out,
 		HopCount:  1,
-	})
+	}, int(linkRelayAccountedHops(pkt.Hops, isLocalClientInterface(in))))
 
 	entry, ok := tr.linkTable.get(want)
 	if !ok {
@@ -416,24 +428,170 @@ func TestLinkRelayBidirectional(t *testing.T) {
 	}
 	tr.linkTable.put(linkID, entry)
 
+	// Non-local ingress: wire hops N become accounted N+1, which must match TakenHops.
 	raw := make([]byte, 0, 2+16+1+4)
-	raw = append(raw, 0x00, 0x05)
+	raw = append(raw, 0x00, 0x00)
 	raw = append(raw, linkID...)
 	raw = append(raw, packet.ContextNone)
 	raw = append(raw, []byte{0x01, 0x02, 0x03, 0x04}...)
+	origHops := raw[1]
 
 	if !tr.forwardLinkData(raw, in) {
 		t.Fatal("forwardLinkData returned false on known link id (in->out direction)")
 	}
-	if got := out.snapshot(); len(got) != 1 {
-		t.Fatalf("expected 1 packet forwarded out, got %d", len(got))
+	if raw[1] != origHops {
+		t.Fatalf("forwardLinkData mutated caller buffer hops: got %d want %d", raw[1], origHops)
+	}
+	gotOut := out.snapshot()
+	if len(gotOut) != 1 {
+		t.Fatalf("expected 1 packet forwarded out, got %d", len(gotOut))
+	}
+	if gotOut[0][1] != 0x01 {
+		t.Fatalf("forwarded hops = %d, want 1 (accounted)", gotOut[0][1])
 	}
 
-	if !tr.forwardLinkData(raw, out) {
+	// Return path from next-hop iface: wire 0 → accounted 1 == RemainingHops.
+	ret := make([]byte, 0, 2+16+1+4)
+	ret = append(ret, 0x00, 0x00)
+	ret = append(ret, linkID...)
+	ret = append(ret, packet.ContextNone)
+	ret = append(ret, []byte{0x01, 0x02, 0x03, 0x04}...)
+
+	if !tr.forwardLinkData(ret, out) {
 		t.Fatal("forwardLinkData returned false on known link id (out->in direction)")
 	}
-	if got := in.snapshot(); len(got) != 1 {
-		t.Fatalf("expected 1 packet forwarded in, got %d", len(got))
+	gotIn := in.snapshot()
+	if len(gotIn) != 1 {
+		t.Fatalf("expected 1 packet forwarded in, got %d", len(gotIn))
+	}
+	if gotIn[0][1] != 0x01 {
+		t.Fatalf("return hops = %d, want 1", gotIn[0][1])
+	}
+}
+
+// TestLocalClientLinkHopSpoofing ensures shared-instance local clients do not
+// consume a hop on link request or identify relay, matching Python Transport.
+func TestLocalClientLinkHopSpoofing(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+
+	in := newRelayIface("local-client")
+	in.Type = common.IFTypeUnix
+	out := newRelayIface("wan")
+	_ = tr.RegisterInterface("local-client", in)
+	_ = tr.RegisterInterface("wan", out)
+
+	destHash := bytes.Repeat([]byte{0xAA}, 16)
+	tr.UpdatePath(destHash, destHash, "wan", 4)
+
+	requestData := bytes.Repeat([]byte{0x42}, packet.LinkRequestECPubSize+3)
+	flags := byte(0)
+	flags |= (packet.HeaderType1 << 6) & packet.HeaderMaskHeaderType
+	flags |= (packet.PropagationBroadcast << 4) & packet.HeaderMaskTransportType
+	flags |= (packet.DestinationSingle << 2) & packet.HeaderMaskDestinationType
+	flags |= packet.PacketTypeLinkReq & packet.HeaderMaskPacketType
+
+	raw := make([]byte, 0, 2+16+len(requestData))
+	raw = append(raw, flags, 0x00)
+	raw = append(raw, destHash...)
+	raw = append(raw, requestData...)
+
+	pkt := &packet.Packet{Raw: raw}
+	if err := pkt.Unpack(); err != nil {
+		t.Fatalf("unpack: %v", err)
+	}
+
+	if !tr.relayBridgedLinkRequest(pkt, raw, in) {
+		t.Fatal("relayBridgedLinkRequest returned false")
+	}
+	fwd := out.snapshot()
+	if len(fwd) != 1 {
+		t.Fatalf("expected 1 forwarded link request, got %d", len(fwd))
+	}
+	if fwd[0][1] != 0x00 {
+		t.Fatalf("local-client link request hops = %d, want 0 (no hop consumed)", fwd[0][1])
+	}
+
+	linkID := packet.LinkIDFromLinkRequest(pkt)
+	entry, ok := tr.linkTable.get(linkID)
+	if !ok {
+		t.Fatal("missing link relay entry")
+	}
+	if entry.TakenHops != 0 {
+		t.Fatalf("TakenHops = %d, want 0 for local-client LR", entry.TakenHops)
+	}
+	if entry.RemainingHops != 4 {
+		t.Fatalf("RemainingHops = %d, want 4", entry.RemainingHops)
+	}
+
+	// Identify / link data from the local client must keep hops=0 and pass TakenHops.
+	ident := make([]byte, 0, 2+16+1+4)
+	ident = append(ident, 0x00, 0x00)
+	ident = append(ident, linkID...)
+	ident = append(ident, packet.ContextLinkIdentify)
+	ident = append(ident, []byte{0xde, 0xad, 0xbe, 0xef}...)
+
+	out.mu.Lock()
+	out.sent = nil
+	out.mu.Unlock()
+
+	if !tr.forwardLinkData(ident, in) {
+		t.Fatal("forwardLinkData should relay identify from local client")
+	}
+	identFwd := out.snapshot()
+	if len(identFwd) != 1 {
+		t.Fatalf("expected identify relayed, got %d", len(identFwd))
+	}
+	if identFwd[0][1] != 0x00 {
+		t.Fatalf("identify hops = %d, want 0", identFwd[0][1])
+	}
+
+	// Proof returning from WAN: wire 3 → accounted 4 == RemainingHops.
+	proof := make([]byte, 0, 2+16+1+4)
+	proof = append(proof, 0x00, 0x03)
+	proof = append(proof, linkID...)
+	proof = append(proof, packet.ContextLRProof)
+	proof = append(proof, []byte{0x01, 0x02, 0x03, 0x04}...)
+
+	if !tr.forwardLinkData(proof, out) {
+		t.Fatal("forwardLinkData should relay proof from wan")
+	}
+	proofFwd := in.snapshot()
+	if len(proofFwd) != 1 {
+		t.Fatalf("expected proof relayed to local client, got %d", len(proofFwd))
+	}
+	if proofFwd[0][1] != 0x04 {
+		t.Fatalf("proof hops = %d, want 4", proofFwd[0][1])
+	}
+}
+
+// TestLinkRelayHopMismatchDrops verifies hop-gated link relay drops bad packets.
+func TestLinkRelayHopMismatchDrops(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+
+	in := newRelayIface("in")
+	out := newRelayIface("out")
+	linkID := bytes.Repeat([]byte{0x77}, 16)
+	tr.linkTable.put(linkID, &LinkRelayEntry{
+		NextHopIface:  out,
+		ReceivedIface: in,
+		RemainingHops: 4,
+		TakenHops:     0,
+		ProofTimeout:  time.Now().Add(time.Hour),
+		Timestamp:     time.Now(),
+	})
+
+	raw := make([]byte, 0, 2+16+1)
+	raw = append(raw, 0x00, 0x05) // accounted 6 != TakenHops 0
+	raw = append(raw, linkID...)
+	raw = append(raw, packet.ContextNone)
+
+	if !tr.forwardLinkData(raw, in) {
+		t.Fatal("should claim known link id even when dropping")
+	}
+	if n := len(out.snapshot()); n != 0 {
+		t.Fatalf("hop mismatch leaked %d packets", n)
 	}
 }
 
