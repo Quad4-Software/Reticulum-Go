@@ -154,7 +154,7 @@ Intentional extensions beyond upstream *rns*:
 | rnpath | Yes | `reticulum-go path` (symlink `rgopath`). Local/shared-instance path table, drop, blackhole. Remote rnstransport modes not ported |
 | rnprobe | Yes | `reticulum-go probe` (symlink `rgoprobe`) |
 | rnstatus | Yes | `reticulum-go status` (symlink `rgostatus`). Shared-instance RPC including announce/PR rates. TCP RPC setup: [docs/en/utilities.md](docs/en/utilities.md) |
-| rnx | No | Not ported |
+| rnx | Yes | `reticulum-go x` (symlinks `rgox`, `rnx`). Destination `rnx.execute`, request path `command`. JSON stdout, Python exit codes |
 | rnodeconf | No | Depends on RNode driver |
 | rnpkg | No | Not ported |
 | rngit | No | Git-over-Reticulum. No wire impact. |
@@ -168,7 +168,7 @@ Intentional extensions beyond upstream *rns*:
 | RNode / KISS / Serial / Weave drivers | Hardware interface stack |
 | Discovery announcer / autoconnect loops | Listen-only discovery remains |
 | Blackhole auto-publish / `blackhole_sources` | Federation loops |
-| `rnx` / `rnsh` / `rnir` / `rnpkg` / `rngit` | Missing utilities |
+| `rnsh` / `rnir` / `rnpkg` / `rngit` | Missing utilities |
 | Remote `rnpath` rnstransport modes | Local/shared-instance path tools work |
 | Split resource advertisements (`AdvFlagSplit`) | Rejected with clear error |
 | Syslog / journald | File + stderr logging only |
