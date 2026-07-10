@@ -2,8 +2,8 @@
 
 | Field | Value |
 |-------|-------|
-| Document version | 1.0 |
-| Last updated | 2026-07-07 |
+| Document version | 1.1 |
+| Last updated | 2026-07-10 |
 | Author | Ivan |
 
 ## Role
@@ -12,6 +12,7 @@
 
 Transport sits between interfaces and application destinations. Every enabled interface registers with `Transport.RegisterInterface`, which sets a callback from inbound frames to `HandlePacket`.
 
+Inbound packets are unpacked in `pkg/packet`. Hop counts `>= PATHFINDER_M` (128) are rejected at unpack time (RNS 1.3.8). Transport also drops announces and relayed packets that would exceed `MaxHops` after increment.
 ## Path table
 
 The path table maps a 16-byte destination hash to:

@@ -2,8 +2,8 @@
 
 | Field | Value |
 |-------|-------|
-| Document version | 1.0 |
-| Last updated | 2026-07-07 |
+| Document version | 1.1 |
+| Last updated | 2026-07-10 |
 | Author | Ivan |
 
 ## Purpose
@@ -121,8 +121,15 @@ The control API binds to `127.0.0.1` by default. It is disabled unless `enable_c
 
 Resource and buffer decompression enforce size limits aligned with Python 1.1.9 to resist compression bombs.
 
+## Hop field validation (RNS 1.3.8)
+
+Python RNS 1.3.8 rejects packets whose hop byte is `>= PATHFINDER_M` (128) during unpack. Reticulum-Go mirrors that in `pkg/packet.Unpack`. Values 128 through 255 are dropped before transport processing.
+
+Link establishment also records `expected_hops` on both initiator and responder. Initiator LRPROOF acceptance requires the proof hop count to match (or `expected_hops == PATHFINDER_M` when the path length was unknown at link creation), matching Python `Transport` pending-link gating.
+
 ## Related documents
 
 - [Cryptography](cryptography.md)
 - [Configuration](configuration.md) for sandbox and control API keys
 - [SECURITY.md](../../SECURITY.md) full policy text
+- [Compatibility](compatibility.md) for RNS 1.3.8 parity

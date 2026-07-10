@@ -4,7 +4,7 @@
 |-------|-------|
 | Document version | 1.0 |
 | Last updated | 2026-07-09 |
-| Protocol target | Python RNS 1.3.7 |
+| Protocol target | Python RNS 1.3.8 |
 | Author | Ivan |
 
 This is the application-facing API guide for Reticulum-Go. It is not a dump of every exported symbol. It is organized the way you build programs: choose an integration path, follow a recipe, then look up types and methods.

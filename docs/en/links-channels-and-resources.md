@@ -2,8 +2,8 @@
 
 | Field | Value |
 |-------|-------|
-| Document version | 1.0 |
-| Last updated | 2026-07-07 |
+| Document version | 1.1 |
+| Last updated | 2026-07-10 |
 | Author | Ivan |
 
 ## Overview
@@ -23,13 +23,15 @@ A link is a bidirectional encrypted session between two destinations.
 
 ### Establishing links
 
-**Outbound.** Application opens a link to a destination hash that is already known from an announce or path table.
+**Outbound.** Application opens a link to a destination hash that is already known from an announce or path table. The initiator stores `expected_hops` from the path table (`PATHFINDER_M` when unknown). Link-request proofs are accepted only when the proof hop count matches, or when hops were unknown at creation (RNS 1.3.8).
 
 **Inbound.** Peer sends a link request. Transport dispatches to:
 
 ```go
 link.HandleIncomingLinkRequest(...)
 ```
+
+The responder records `expected_hops` from the RTT packet hop field when the link becomes active.
 
 There is no separate `Transport.CreateIncomingLink` helper. Incoming link requests use `HandleIncomingLinkRequest` directly. Split resource advertisements (`AdvFlagSplit`) are rejected with a clear error (full multi-segment ads deferred).
 

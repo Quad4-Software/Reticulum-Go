@@ -6,7 +6,7 @@ Professional documentation for architects, operators, and engineers working with
 |-------|-------|
 | Document version | 1.1 |
 | Last updated | 2026-07-09 |
-| Protocol target | Python RNS 1.3.7 |
+| Protocol target | Python RNS 1.3.8 |
 | Go toolchain | 1.26.4 |
 | Author | Ivan |
 

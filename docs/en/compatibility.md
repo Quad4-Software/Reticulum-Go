@@ -8,7 +8,7 @@
 
 ## Reference target
 
-Reticulum-Go is tested against **Python RNS 1.3.7** and the [official network API reference](https://reticulum.network/manual/reference.html).
+Reticulum-Go is tested against **Python RNS 1.3.8** and the [official network API reference](https://reticulum.network/manual/reference.html).
 
 Crossref vectors clone the reference from `rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum` via [rngit](https://reticulum.network/manual/git.html) (`tests/crossref/run_crossref.sh`). The GitHub mirror is not used for vectors.
 
@@ -53,7 +53,7 @@ UDP requires explicit `target_host` or `target_address` (Python `forward_ip` pol
 
 Opt-in UDP reconnect when `max_reconnect_tries > 0` is a Go extension.
 
-## Python 1.2.x to 1.3.7 changes
+## Python 1.2.x to 1.3.8 changes
 
 Wire format is stable across 1.2.x to 1.3.x. Notable behavior differences:
 
@@ -70,6 +70,8 @@ Wire format is stable across 1.2.x to 1.3.x. Notable behavior differences:
 | `MODE_INTERNAL` / `recursive_prs` / announce mode rules | 1.3.6 | Covered |
 | Ephemeral transport identity / `static_transport_identity` | 1.3.6 | Covered |
 | `local_hops_delta` hop mangling | 1.3.6 / 1.3.7 | Covered |
+| Reject unpack when hops `>= PATHFINDER_M` | 1.3.8 | Covered |
+| Link `expected_hops` on both sides / LRPROOF hop gate | 1.3.8 | Covered |
 
 ## Known gaps
 

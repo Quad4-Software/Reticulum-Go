@@ -1,6 +1,6 @@
 # Compatibility with Python Reticulum
 
-This document maps how Reticulum-Go compares to the official [Reticulum network API reference](https://reticulum.network/manual/reference.html) and the reference *rns* Python package (**RNS 1.3.7**).
+This document maps how Reticulum-Go compares to the official [Reticulum network API reference](https://reticulum.network/manual/reference.html) and the reference *rns* Python package (**RNS 1.3.8**).
 
 Crossref tests clone the reference from `rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum` via [rngit](https://reticulum.network/manual/git.html) (`tests/crossref/run_crossref.sh`). The GitHub mirror at [markqvist/Reticulum](https://github.com/markqvist/Reticulum) is no longer used for vectors.
 
@@ -14,7 +14,7 @@ For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). F
 | Identity | Yes | Key generation, recall, sign/verify, encrypt/decrypt, ratchets. Optional 72-byte hardware-bound descriptor (RHB1). On-wire Ed25519 public key matches [RNS.Identity](https://github.com/markqvist/Reticulum/blob/master/RNS/Identity.py). Python `Identity.from_file` expects the 64-byte software layout only today. |
 | Destination | Yes | SINGLE, GROUP, PLAIN, LINK. Announce and request handlers, links in and out. |
 | Packet | Yes | Header types 1 and 2, all packet types and contexts. Byte-for-byte parity in crossref. |
-| Transport | Yes | Core wire behaviour matches Python 1.3.7: path table, announces, RequestPath, hops, next-hop, type-2 rewrap, link-table forwarding, persistence, ingress control, random-blob path selection (1.3.4 dedup), interface mode announce rules and `MODE_INTERNAL` (1.3.6), ephemeral transport identity when transport is off (1.3.6). Probe responses via `respond_to_probes` / `allow_probes`, `local_hops_delta` hop mangling, and blackhole teardown at LINKIDENTIFY are implemented. Incoming links use `link.HandleIncomingLinkRequest`. |
+| Transport | Yes | Core wire behaviour matches Python 1.3.8: path table, announces, RequestPath, hops, next-hop, type-2 rewrap, link-table forwarding, persistence, ingress control, random-blob path selection (1.3.4 dedup), interface mode announce rules and `MODE_INTERNAL` (1.3.6), ephemeral transport identity when transport is off (1.3.6). Probe responses via `respond_to_probes` / `allow_probes`, `local_hops_delta` hop mangling, and blackhole teardown at LINKIDENTIFY are implemented. Incoming links use `link.HandleIncomingLinkRequest`. Unpack rejects hop counts `>= PATHFINDER_M` (1.3.8). |
 | Interfaces | Partial | See [Interfaces](#interfaces) below. |
 | Discovery (RNS.Discovery, rnstransport) | Partial | [pkg/discovery](pkg/discovery/) mirrors wire constants, LXStamper, msgpack layouts. `discover_interfaces` starts rnstransport listening via [pkg/node](pkg/node/) `StartInterfaceDiscovery`. InterfaceAnnouncer, BlackholeUpdater, and autoconnect loops are not auto-started. Build with `BuildAppData`, decode with `ValidateAndDecode`. Separate from AutoInterface multicast discovery. |
 | Blackhole | Partial | [pkg/blackhole](pkg/blackhole/) covers table semantics, msgpack, expiry, MergeRemote, EncodeForRequest. Announces from listed identities are dropped. Links from blackholed identities are torn down at LINKIDENTIFY. `/list` over rnstransport needs the RNS Request layer (not ported). `publish_blackhole`, `blackhole_sources`, `blackhole_update_interval` are ignored (deferred). |
@@ -87,7 +87,7 @@ Native hosts that cannot import Go can use [pkg/librns](pkg/librns/) (`include/r
 
 `watch_interfaces` polls NIC state every 10s and calls `OnNetworkAvailable` on link or address changes (all desktop/mobile OS targets except WASM). Also enables AutoInterface NIC rescan. Python `discover_interfaces` starts rnstransport discovery (`StartInterfaceDiscovery`).
 
-## Python 1.2.x to 1.3.7 changes vs Go
+## Python 1.2.x to 1.3.8 changes vs Go
 
 Wire format is unchanged in 1.2.x to 1.3.x. Most churn is utilities and transport behaviour.
 
@@ -105,15 +105,18 @@ Wire format is unchanged in 1.2.x to 1.3.x. Most churn is utilities and transpor
 | `static_transport_identity` / ephemeral transport identity | 1.3.6 | Covered (RPC auth keeps persisted identity) |
 | `local_hops_delta` hop mangling | 1.3.6 / 1.3.7 | Covered (random delta 2-7 on local-origin hop-0 packets) |
 | Shared-instance hop-delta edge cases | 1.3.7 | Covered (delta skipped when connected to shared instance) |
+| Reject unpack when hops `>= PATHFINDER_M` | 1.3.8 | Covered (`pkg/packet.Unpack`) |
+| Link `expected_hops` on initiator and responder | 1.3.8 | Covered (`pkg/link`, LRPROOF hop gate) |
+| Link traffic stats use ciphertext length | 1.3.8 | Covered (Go already accounts packed wire size on send) |
 | `rngit` / `rnid` / `rnsh` utilities | 1.2.x+ | Not ported (no wire impact) |
 
-### RNS 1.3.6 and 1.3.7 notes
+### RNS 1.3.6 through 1.3.8 notes
 
-PyPI ships 1.3.6 (2026-07-03) and 1.3.7 (same day). Upstream GitHub `Changelog.md` on master still ends at 1.3.5 at the time of this write-up. Diff of the published wheels:
-
-**1.3.6** adds interface `MODE_INTERNAL` (0x07), `recursive_prs` / `announces_from_internal` interface options, announce broadcast mode rules, `static_transport_identity`, `local_hops_delta` hop mangling, and ephemeral transport identity when transport is disabled (RPC key still derived from the persisted identity). Much of the wheel diff is Python style compaction.
+**1.3.6** adds interface `MODE_INTERNAL` (0x07), `recursive_prs` / `announces_from_internal` interface options, announce broadcast mode rules, `static_transport_identity`, `local_hops_delta` hop mangling, and ephemeral transport identity when transport is disabled (RPC key still derived from the persisted identity).
 
 **1.3.7** tightens shared-instance hop-delta handling when both ends of a link are local clients (`instance_local_link`). No new wire types.
+
+**1.3.8** rejects packets whose hop field is `>= PATHFINDER_M` (128) during unpack, records `expected_hops` on the link responder from the RTT packet, and keeps initiator LRPROOF acceptance gated on matching hop count (or unknown `PATHFINDER_M`). Also fixes link TX byte accounting to use ciphertext size.
 
 ## Security and robustness notes
 
@@ -122,6 +125,8 @@ PyPI ships 1.3.6 (2026-07-03) and 1.3.7 (same day). Upstream GitHub `Changelog.m
 | IFAC unauthenticated drop | Yes | Yes |
 | Ingress/egress announce and PR rate limits | Yes (1.2.5) | Yes |
 | BZ2 bomb limits on resource/buffer | Yes (1.1.9) | Yes |
+| Reject hop counts `>= PATHFINDER_M` on unpack | Yes (1.3.8) | Yes (`pkg/packet.Unpack`) |
+| LRPROOF hop count vs `expected_hops` | Yes | Yes (`pkg/link`) |
 | Blackholed identity announces | Dropped | Dropped |
 | Blackholed identity links | Torn down at LINKIDENTIFY (1.3.2) | Torn down at LINKIDENTIFY |
 | UDP peer binding | Requires explicit `forward_ip` | Requires explicit `target_host` / `target_address` |
