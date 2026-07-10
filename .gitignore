@@ -31,6 +31,8 @@ cosign.key
 /examples/*
 !/examples/wasm/
 !/examples/pageserver/
+!/examples/control-client/
+!/examples/librns-smoke/
 
 # OS / Editor files
 .DS_Store
