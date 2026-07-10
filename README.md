@@ -15,7 +15,7 @@ Full documentation (English): [docs/en/](docs/en/README.md). Application authors
 | Area | Status | Notes |
 |------|:------:|-------|
 | Wire compatibility with Python [Reticulum](https://github.com/markqvist/Reticulum) | Yes | Packet and crypto paths cross-checked (`tests/crossref`, interop tests). See [COMPATIBILITY.md](COMPATIBILITY.md) |
-| Daemon and tools | Yes | Single `reticulum-go` binary: daemon (default), `status`, `id`, `probe`, `path`, `cp`, `pageserver` |
+| Daemon and tools | Yes | Single `reticulum-go` binary: daemon (default), `status`, `id`, `probe`, `path`, `cp`, `x`, `pageserver` |
 | Core stack | Yes | `pkg/transport`, `pkg/packet`, `pkg/destination`, `pkg/announce`, `pkg/pathfinder` |
 | Links, resources, channel, buffer | Yes | `pkg/link`, `pkg/resource`, `pkg/channel`, `pkg/buffer` |
 | Cryptography | Yes | Centralized in `pkg/cryptography`. Details in [docs/en/cryptography.md](docs/en/cryptography.md) |
@@ -117,6 +117,7 @@ reticulum-go id -h
 reticulum-go probe ...
 reticulum-go path -t
 reticulum-go cp -l
+reticulum-go x -l
 reticulum-go pageserver
 ```
 
