@@ -103,20 +103,20 @@ func RunDebug(args []string, opt ...Options) int {
 		return 0
 	}
 
-	fmt.Fprintf(stdout, "config_path  : %s\n", out.ConfigPath)
-	fmt.Fprintf(stdout, "log_level    : %d\n", out.LogLevel)
-	fmt.Fprintf(stdout, "debug_level  : %d\n", out.DebugLevel)
-	fmt.Fprintf(stdout, "platform     : %s/%s\n", out.GOOS, out.GOARCH)
-	fmt.Fprintf(stdout, "rpc_addr     : %s\n", out.RPCAddr)
+	fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "config_path "), out.ConfigPath)
+	fmt.Fprintf(stdout, "%s : %d\n", infoMsg(stdout, "log_level   "), out.LogLevel)
+	fmt.Fprintf(stdout, "%s : %d\n", infoMsg(stdout, "debug_level "), out.DebugLevel)
+	fmt.Fprintf(stdout, "%s : %s/%s\n", infoMsg(stdout, "platform    "), out.GOOS, out.GOARCH)
+	fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "rpc_addr    "), out.RPCAddr)
 	if out.Error != "" {
-		fmt.Fprintf(stdout, "rpc_error    : %s\n", out.Error)
+		fmt.Fprintf(stdout, "%s : %s\n", errMsg(stdout, "rpc_error   "), out.Error)
 		return 1
 	}
-	fmt.Fprintf(stdout, "transport_id : %s\n", out.TransportID)
-	fmt.Fprintf(stdout, "uptime_sec   : %.1f\n", out.UptimeSec)
-	fmt.Fprintf(stdout, "interfaces   : %d\n", out.InterfaceN)
+	fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "transport_id"), out.TransportID)
+	fmt.Fprintf(stdout, "%s : %.1f\n", infoMsg(stdout, "uptime_sec  "), out.UptimeSec)
+	fmt.Fprintf(stdout, "%s : %d\n", infoMsg(stdout, "interfaces  "), out.InterfaceN)
 	if *rates {
-		fmt.Fprintf(stdout, "rate_table   : %d entries\n", out.RateTableLen)
+		fmt.Fprintf(stdout, "%s : %d entries\n", infoMsg(stdout, "rate_table  "), out.RateTableLen)
 	}
 	return 0
 }

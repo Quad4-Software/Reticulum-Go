@@ -63,10 +63,7 @@ func (t *Transport) applyLocalHopsDeltaIfNeeded(p *packet.Packet, iface common.N
 	if !t.shouldApplyLocalHopsDelta(p, iface) {
 		return
 	}
-	delta := t.localHopsDelta
-	if delta < 2 {
-		delta = 2
-	}
+	delta := max(t.localHopsDelta, 2)
 	if delta > 7 {
 		delta = 7
 	}

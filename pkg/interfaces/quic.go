@@ -447,11 +447,9 @@ func (qs *QUICServerInterface) Start() error {
 	qs.Online = true
 	qs.Mutex.Unlock()
 
-	qs.acceptWg.Add(1)
-	go func() {
-		defer qs.acceptWg.Done()
+	qs.acceptWg.Go(func() {
 		qs.acceptLoop(ctx, ln)
-	}()
+	})
 	return nil
 }
 

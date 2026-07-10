@@ -75,6 +75,8 @@ func rebuildLocked() {
 	}
 	if jsonFormat {
 		logger = slog.New(slog.NewJSONHandler(out, opts))
+	} else if useColorLogs() {
+		logger = slog.New(newColorHandler(out, opts))
 	} else {
 		logger = slog.New(slog.NewTextHandler(out, opts))
 	}

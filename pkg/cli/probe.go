@@ -80,9 +80,9 @@ func RunProbe(args []string, opt ...Options) int {
 
 	pathCtx, cancel := context.WithTimeout(context.Background(), pathTimeout)
 	defer cancel()
-	fmt.Fprintf(stdout, "Path to %s requested\n", rnsutil.PrettyHex(destHash))
+	fmt.Fprintln(stdout, infoMsg(stdout, fmt.Sprintf("Path to %s requested", rnsutil.PrettyHex(destHash))))
 	if err := rnsutil.WaitPath(pathCtx, tr, destHash); err != nil {
-		fmt.Fprintf(stderr, "path request timed out: %v\n", err)
+		fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "path request timed out"), err)
 		return 1
 	}
 
@@ -129,7 +129,7 @@ func RunProbe(args []string, opt ...Options) int {
 			if *jsonOut {
 				jsonResults = append(jsonResults, probeJSON{Index: i + 1, Error: err.Error()})
 			} else {
-				fmt.Fprintf(stderr, "probe failed: %v\n", err)
+				fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "probe failed"), err)
 			}
 			continue
 		}
@@ -137,7 +137,7 @@ func RunProbe(args []string, opt ...Options) int {
 			if *jsonOut {
 				jsonResults = append(jsonResults, probeJSON{Index: i + 1, Delivered: false})
 			} else {
-				fmt.Fprintln(stdout, "Probe timed out")
+				fmt.Fprintln(stdout, warnMsg(stdout, "Probe timed out"))
 			}
 			continue
 		}
@@ -160,8 +160,8 @@ func RunProbe(args []string, opt ...Options) int {
 		if res.Hops == 1 {
 			hopWord = "hop"
 		}
-		fmt.Fprintf(stdout, "Valid reply from %s\nRound-trip time is %s over %d %s\n",
-			rnsutil.PrettyHex(destHash), rttStr, res.Hops, hopWord)
+		fmt.Fprintf(stdout, "%s %s\nRound-trip time is %s over %d %s\n",
+			okMsg(stdout, "Valid reply from"), rnsutil.PrettyHex(destHash), rttStr, res.Hops, hopWord)
 	}
 
 	if *jsonOut {
@@ -183,7 +183,16 @@ func RunProbe(args []string, opt ...Options) int {
 		if sent > 0 {
 			loss = (1 - float64(replies)/float64(sent)) * 100
 		}
-		fmt.Fprintf(stdout, "Sent %d, received %d, packet loss %.2f%%\n", sent, replies, loss)
+		summary := fmt.Sprintf("Sent %d, received %d, packet loss %.2f%%", sent, replies, loss)
+		switch {
+		case replies == 0:
+			summary = errMsg(stdout, summary)
+		case loss > 0:
+			summary = warnMsg(stdout, summary)
+		default:
+			summary = okMsg(stdout, summary)
+		}
+		fmt.Fprintln(stdout, summary)
 	}
 	if replies == 0 {
 		return 1

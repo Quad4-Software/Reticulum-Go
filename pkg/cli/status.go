@@ -35,10 +35,10 @@ func RunStatus(args []string, opt ...Options) int {
 	}
 	client, err := rnsutil.DialRPC(cfg, nil)
 	if err != nil {
-		fmt.Fprintf(stderr, "rpc: %v\n", err)
+		fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
 		if !*quiet {
-			fmt.Fprintln(stderr, "hint: point -config at the daemon config dir (e.g. ~/.reticulum for rnsd)")
-			fmt.Fprintln(stderr, "hint: rnsd on Linux needs shared_instance_type = tcp to expose 127.0.0.1:37429")
+			fmt.Fprintln(stderr, warnMsg(stderr, "hint: point -config at the daemon config dir (e.g. ~/.reticulum for rnsd)"))
+			fmt.Fprintln(stderr, warnMsg(stderr, "hint: rnsd on Linux needs shared_instance_type = tcp to expose 127.0.0.1:37429"))
 		}
 		return 1
 	}
@@ -46,10 +46,10 @@ func RunStatus(args []string, opt ...Options) int {
 
 	stats, err := client.GetInterfaceStats()
 	if err != nil {
-		fmt.Fprintf(stderr, "interface stats (%s): %v\n", client.Addr(), err)
+		fmt.Fprintf(stderr, "%s (%s): %v\n", errMsg(stderr, "interface stats"), client.Addr(), err)
 		if !*quiet {
-			fmt.Fprintln(stderr, "hint: start rnsd or reticulum-go first, then retry")
-			fmt.Fprintln(stderr, "hint: for Python rnsd use: rgostatus -config ~/.reticulum")
+			fmt.Fprintln(stderr, warnMsg(stderr, "hint: start rnsd or reticulum-go first, then retry"))
+			fmt.Fprintln(stderr, warnMsg(stderr, "hint: for Python rnsd use: rgostatus -config ~/.reticulum"))
 		}
 		return 1
 	}

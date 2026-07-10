@@ -6,6 +6,7 @@ package rnsutil
 import (
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"net"
 	"strconv"
 	"time"
@@ -222,9 +223,7 @@ func flattenBlackholeRPC(raw any) []map[string]any {
 				continue
 			}
 			row := make(map[string]any, len(m)+1)
-			for rk, rv := range m {
-				row[rk] = rv
-			}
+			maps.Copy(row, m)
 			if _, has := row["identity"]; !has {
 				if b := []byte(k); len(b) == 16 {
 					row["identity"] = b

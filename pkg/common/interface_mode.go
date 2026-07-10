@@ -2,6 +2,8 @@
 // Copyright (c) 2024-2026 Quad4.io
 package common
 
+import "slices"
+
 import "strings"
 
 // ParseInterfaceMode maps config mode strings to wire InterfaceMode values.
@@ -28,10 +30,5 @@ func ParseInterfaceMode(s string) InterfaceMode {
 
 // ModeDiscoversPaths reports whether mode is in DiscoverPathsFor.
 func ModeDiscoversPaths(mode InterfaceMode) bool {
-	for _, m := range DiscoverPathsFor {
-		if m == mode {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(DiscoverPathsFor, mode)
 }

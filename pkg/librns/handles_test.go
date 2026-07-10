@@ -168,7 +168,7 @@ func TestEventQueueClosed(t *testing.T) {
 func TestEventQueueConcurrent(t *testing.T) {
 	q := newEventQueue(64)
 	var wg sync.WaitGroup
-	for i := 0; i < 32; i++ {
+	for i := range 32 {
 		wg.Add(1)
 		go func(h uint8) {
 			defer wg.Done()
@@ -178,7 +178,7 @@ func TestEventQueueConcurrent(t *testing.T) {
 	wg.Wait()
 
 	seen := make(map[uint8]bool)
-	for i := 0; i < 32; i++ {
+	for i := range 32 {
 		ev, err := q.poll(0)
 		if err != nil {
 			t.Fatalf("poll %d: %v", i, err)

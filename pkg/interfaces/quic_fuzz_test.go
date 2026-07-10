@@ -34,10 +34,7 @@ func FuzzHDLCViaQUICDecoder(f *testing.F) {
 		})
 		// Feed in chunks to stress incremental decode.
 		for i := 0; i < len(data); {
-			end := i + 17
-			if end > len(data) {
-				end = len(data)
-			}
+			end := min(i+17, len(data))
 			d.feed(data[i:end])
 			i = end
 		}

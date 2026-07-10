@@ -13,13 +13,10 @@ func TestEventQueuePropertyDropOldest(t *testing.T) {
 		queueCap := int(capRaw%32) + 1
 		n := int(pushes%200) + 1
 		q := newEventQueue(queueCap)
-		for i := 0; i < n; i++ {
+		for i := range n {
 			q.push(Event{Kind: EventAnnounce, Hops: uint8(i % 256)})
 		}
-		expected := n
-		if expected > queueCap {
-			expected = queueCap
-		}
+		expected := min(n, queueCap)
 		got := 0
 		firstHops := -1
 		for {

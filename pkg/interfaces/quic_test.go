@@ -367,7 +367,7 @@ func TestQUICReconnectAfterServerRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	var startErr error
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		startErr = srv2.Start()
 		if startErr == nil {
 			break
@@ -433,7 +433,7 @@ func TestQUICConcurrentSend(t *testing.T) {
 	const n = 50
 	var wg sync.WaitGroup
 	wg.Add(n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		go func(i int) {
 			defer wg.Done()
 			_ = cli.Send([]byte{0x00, 0x01, byte(i), 0xaa, 0xbb}, "")
@@ -462,7 +462,7 @@ func TestQUICStopStart(t *testing.T) {
 		t.Fatal(err)
 	}
 	var startErr error
-	for i := 0; i < 30; i++ {
+	for range 30 {
 		startErr = srv.Start()
 		if startErr == nil {
 			break

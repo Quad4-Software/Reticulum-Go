@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -172,12 +171,10 @@ func WriteStatusHuman(w io.Writer, stats transport.InterfaceStatsResponse, linkC
 		if st.Status {
 			state = "Up"
 		}
-		if f, ok := w.(*os.File); ok {
-			if st.Status {
-				state = term.Green(f, state)
-			} else {
-				state = term.Red(f, state)
-			}
+		if st.Status {
+			state = term.GreenW(w, state)
+		} else {
+			state = term.RedW(w, state)
 		}
 		if _, err := fmt.Fprintf(w, "\n%s\n  Status    : %s\n  Mode      : %s\n  RX        : %s\n  TX        : %s\n",
 			st.Name, state, ModeName(st.Mode),

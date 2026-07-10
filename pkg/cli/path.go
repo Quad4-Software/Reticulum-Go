@@ -98,7 +98,7 @@ func RunPath(args []string, opt ...Options) int {
 				return 1
 			}
 			if len(destHash) > 0 && n == 0 {
-				fmt.Fprintln(stdout, "No path known")
+				fmt.Fprintln(stdout, warnMsg(stdout, "No path known"))
 				return 1
 			}
 			return 0
@@ -114,10 +114,10 @@ func RunPath(args []string, opt ...Options) int {
 				return 1
 			}
 			if !ok {
-				fmt.Fprintf(stdout, "Unable to drop path to %s. Does it exist?\n", rnsutil.PrettyHex(destHash))
+				fmt.Fprintln(stdout, warnMsg(stdout, fmt.Sprintf("Unable to drop path to %s. Does it exist?", rnsutil.PrettyHex(destHash))))
 				return 1
 			}
-			fmt.Fprintf(stdout, "Dropped path to %s\n", rnsutil.PrettyHex(destHash))
+			fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Dropped path to %s", rnsutil.PrettyHex(destHash))))
 			return 0
 
 		case *dropVia:
@@ -131,10 +131,10 @@ func RunPath(args []string, opt ...Options) int {
 				return 1
 			}
 			if n == 0 {
-				fmt.Fprintf(stdout, "Unable to drop paths via %s. Does the transport instance exist?\n", rnsutil.PrettyHex(destHash))
+				fmt.Fprintln(stdout, warnMsg(stdout, fmt.Sprintf("Unable to drop paths via %s. Does the transport instance exist?", rnsutil.PrettyHex(destHash))))
 				return 1
 			}
-			fmt.Fprintf(stdout, "Dropped all paths via %s (%d)\n", rnsutil.PrettyHex(destHash), n)
+			fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Dropped all paths via %s (%d)", rnsutil.PrettyHex(destHash), n)))
 			return 0
 
 		case *dropQueues:
@@ -143,7 +143,7 @@ func RunPath(args []string, opt ...Options) int {
 				fmt.Fprintf(stderr, "drop queues: %v\n", err)
 				return 1
 			}
-			fmt.Fprintf(stdout, "Dropping announce queues on all interfaces... (%d cleared)\n", n)
+			fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Dropping announce queues on all interfaces... (%d cleared)", n)))
 			return 0
 
 		case *blackholed:
@@ -188,9 +188,9 @@ func RunPath(args []string, opt ...Options) int {
 				return 1
 			}
 			if ok {
-				fmt.Fprintf(stdout, "Blackholed identity %s\n", rnsutil.HexHash(destHash))
+				fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Blackholed identity %s", rnsutil.HexHash(destHash))))
 			} else {
-				fmt.Fprintf(stdout, "Identity %s already blackholed\n", rnsutil.HexHash(destHash))
+				fmt.Fprintln(stdout, warnMsg(stdout, fmt.Sprintf("Identity %s already blackholed", rnsutil.HexHash(destHash))))
 			}
 			return 0
 
@@ -205,9 +205,9 @@ func RunPath(args []string, opt ...Options) int {
 				return 1
 			}
 			if ok {
-				fmt.Fprintf(stdout, "Lifted blackhole for identity %s\n", rnsutil.HexHash(destHash))
+				fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Lifted blackhole for identity %s", rnsutil.HexHash(destHash))))
 			} else {
-				fmt.Fprintf(stdout, "Identity %s not blackholed\n", rnsutil.HexHash(destHash))
+				fmt.Fprintln(stdout, warnMsg(stdout, fmt.Sprintf("Identity %s not blackholed", rnsutil.HexHash(destHash))))
 			}
 			return 0
 		}
@@ -241,11 +241,11 @@ func RunPath(args []string, opt ...Options) int {
 	if timeout <= 0 {
 		timeout = 15 * time.Second
 	}
-	fmt.Fprintf(stdout, "Path to %s requested\n", rnsutil.PrettyHex(destHash))
+	fmt.Fprintln(stdout, infoMsg(stdout, fmt.Sprintf("Path to %s requested", rnsutil.PrettyHex(destHash))))
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	if err := rnsutil.WaitPath(ctx, tr, destHash); err != nil {
-		fmt.Fprintln(stdout, "Path request timed out")
+		fmt.Fprintln(stdout, errMsg(stdout, "Path request timed out"))
 		return 12
 	}
 	hops := tr.HopsTo(destHash)
@@ -255,7 +255,7 @@ func RunPath(args []string, opt ...Options) int {
 	if hops == 1 {
 		hopWord = "hop"
 	}
-	fmt.Fprintf(stdout, "Path found: %d %s via %s on %s\n",
-		hops, hopWord, rnsutil.PrettyHex(via), iface)
+	fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Path found: %d %s via %s on %s",
+		hops, hopWord, rnsutil.PrettyHex(via), iface)))
 	return 0
 }

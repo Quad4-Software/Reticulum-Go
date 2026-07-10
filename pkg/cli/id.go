@@ -63,7 +63,7 @@ func RunID(args []string, opt ...Options) int {
 	didWork := false
 	if *generate != "" {
 		didWork = true
-		fmt.Fprintf(stdout, "Generated identity %s\n", ident.GetHexHash())
+		fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Generated identity %s", ident.GetHexHash())))
 	}
 	if *printID {
 		if ident == nil {
@@ -216,7 +216,7 @@ func doSign(ident *identity.Identity, signPath, writeOut string, force, raw bool
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 253
 	}
-	fmt.Fprintf(os.Stdout, "Signed file %s with %s\n", signPath, ident.GetHexHash())
+	fmt.Fprintln(os.Stdout, okMsg(os.Stdout, fmt.Sprintf("Signed file %s with %s", signPath, ident.GetHexHash())))
 	return 0
 }
 
@@ -244,7 +244,7 @@ func doSignMessage(ident *identity.Identity, message, writeOut string, force boo
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 253
 	}
-	fmt.Fprintf(os.Stdout, "Message signed with %s saved to %s\n", ident.GetHexHash(), outPath)
+	fmt.Fprintln(os.Stdout, okMsg(os.Stdout, fmt.Sprintf("Message signed with %s saved to %s", ident.GetHexHash(), outPath)))
 	return 0
 }
 
@@ -266,17 +266,17 @@ func doVerify(ident *identity.Identity, identityArg, verifyPath string, showMeta
 		}
 		res, text, err := rnsutil.VerifyRSM(rsm, required)
 		if err != nil || !res.Valid {
-			fmt.Fprintf(os.Stderr, "Invalid signature in %s\n", verifyPath)
+			fmt.Fprintln(os.Stderr, errMsg(os.Stderr, fmt.Sprintf("Invalid signature in %s", verifyPath)))
 			return 10
 		}
 		if showMeta && res.Envelope != nil && res.Envelope.Meta != nil {
-			fmt.Fprintln(os.Stdout, "RSM Metadata")
+			fmt.Fprintln(os.Stdout, infoMsg(os.Stdout, "RSM Metadata"))
 			for k, v := range res.Envelope.Meta {
 				fmt.Fprintf(os.Stdout, "  %s=%v\n", k, v)
 			}
 		}
 		signer := res.Signer.GetHexHash()
-		fmt.Fprintf(os.Stdout, "Signature is valid, the message was signed by %s\n\n%s\n", signer, text)
+		fmt.Fprintf(os.Stdout, "%s, the message was signed by %s\n\n%s\n", okMsg(os.Stdout, "Signature is valid"), signer, text)
 		return 0
 	case strings.HasSuffix(lower, "."+rnsutil.SigExt):
 		filePath := verifyPath[:len(verifyPath)-len(rnsutil.SigExt)-1]
@@ -291,10 +291,10 @@ func doVerify(ident *identity.Identity, identityArg, verifyPath string, showMeta
 		}
 		res, err := rnsutil.VerifyFileRSG(rsg, filePath, required)
 		if err != nil || !res.Valid {
-			fmt.Fprintf(os.Stderr, "Invalid signature %s for file %s\n", verifyPath, filePath)
+			fmt.Fprintln(os.Stderr, errMsg(os.Stderr, fmt.Sprintf("Invalid signature %s for file %s", verifyPath, filePath)))
 			return 10
 		}
-		fmt.Fprintf(os.Stdout, "Signature is valid, the file %s was signed by %s\n", filePath, res.Signer.GetHexHash())
+		fmt.Fprintf(os.Stdout, "%s, the file %s was signed by %s\n", okMsg(os.Stdout, "Signature is valid"), filePath, res.Signer.GetHexHash())
 		return 0
 	default:
 		rsgPath := verifyPath + "." + rnsutil.SigExt
@@ -309,10 +309,10 @@ func doVerify(ident *identity.Identity, identityArg, verifyPath string, showMeta
 		}
 		res, err := rnsutil.VerifyFileRSG(rsg, verifyPath, required)
 		if err != nil || !res.Valid {
-			fmt.Fprintf(os.Stderr, "Invalid signature %s for file %s\n", rsgPath, verifyPath)
+			fmt.Fprintln(os.Stderr, errMsg(os.Stderr, fmt.Sprintf("Invalid signature %s for file %s", rsgPath, verifyPath)))
 			return 10
 		}
-		fmt.Fprintf(os.Stdout, "Signature is valid, the file %s was signed by %s\n", verifyPath, res.Signer.GetHexHash())
+		fmt.Fprintf(os.Stdout, "%s, the file %s was signed by %s\n", okMsg(os.Stdout, "Signature is valid"), verifyPath, res.Signer.GetHexHash())
 		return 0
 	}
 }
@@ -335,7 +335,7 @@ func doEncrypt(ident *identity.Identity, encryptPath, writeOut string, force boo
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 254
 	}
-	fmt.Fprintf(os.Stdout, "File %s encrypted for %s to %s\n", encryptPath, ident.GetHexHash(), outPath)
+	fmt.Fprintln(os.Stdout, okMsg(os.Stdout, fmt.Sprintf("File %s encrypted for %s to %s", encryptPath, ident.GetHexHash(), outPath)))
 	return 0
 }
 
@@ -361,7 +361,7 @@ func doDecrypt(ident *identity.Identity, decryptPath, writeOut string, force boo
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 12
 	}
-	fmt.Fprintf(os.Stdout, "File %s decrypted to %s\n", decryptPath, outPath)
+	fmt.Fprintln(os.Stdout, okMsg(os.Stdout, fmt.Sprintf("File %s decrypted to %s", decryptPath, outPath)))
 	return 0
 }
 
@@ -443,17 +443,17 @@ func bytesTrim(b []byte) []byte {
 }
 
 func printIdentity(id *identity.Identity, showPriv bool, enc rnsutil.Encoding) {
-	fmt.Fprintf(os.Stdout, "Identity hash : %s\n", id.GetHexHash())
-	fmt.Fprintf(os.Stdout, "Public key    : %s\n", rnsutil.EncodeBytes(id.GetPublicKey(), enc))
+	fmt.Fprintf(os.Stdout, "%s : %s\n", infoMsg(os.Stdout, "Identity hash"), id.GetHexHash())
+	fmt.Fprintf(os.Stdout, "%s : %s\n", infoMsg(os.Stdout, "Public key   "), rnsutil.EncodeBytes(id.GetPublicKey(), enc))
 	if !showPriv {
 		return
 	}
 	priv, err := id.GetPrivateKey()
 	if err != nil {
-		fmt.Fprintf(os.Stdout, "Private key   : unavailable (%v)\n", err)
+		fmt.Fprintf(os.Stdout, "%s : unavailable (%v)\n", warnMsg(os.Stdout, "Private key  "), err)
 		return
 	}
-	fmt.Fprintf(os.Stdout, "Private key   : %s\n", rnsutil.EncodeBytes(priv, enc))
+	fmt.Fprintf(os.Stdout, "%s : %s\n", infoMsg(os.Stdout, "Private key  "), rnsutil.EncodeBytes(priv, enc))
 }
 
 func writeOutput(path string, data []byte, force bool) error {

@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"quad4/reticulum-go/pkg/term"
 )
 
 // Command names accepted as subcommands or argv0 aliases.
@@ -70,7 +72,7 @@ func Main(args []string, opt Options) int {
 			}
 			return opt.RunDaemon(nil)
 		}
-		fmt.Fprintf(opt.Stderr, "unknown command %q\n\n", args[0])
+		fmt.Fprintf(opt.Stderr, "%s\n\n", errMsg(opt.Stderr, fmt.Sprintf("unknown command %q", args[0])))
 		printRootHelp(opt.Stderr)
 		return 2
 	}
@@ -166,6 +168,11 @@ func cliIO(opt []Options) (stdout, stderr io.Writer) {
 	}
 	return stdout, stderr
 }
+
+func okMsg(w io.Writer, s string) string   { return term.GreenW(w, s) }
+func errMsg(w io.Writer, s string) string  { return term.RedW(w, s) }
+func warnMsg(w io.Writer, s string) string { return term.YellowW(w, s) }
+func infoMsg(w io.Writer, s string) string { return term.CyanW(w, s) }
 
 func printRootHelp(w io.Writer) {
 	fmt.Fprintf(w, `reticulum-go - Reticulum network stack (Go)

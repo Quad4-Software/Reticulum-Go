@@ -341,11 +341,21 @@ type ProgressPrinter struct {
 	mu      sync.Mutex
 	last    string
 	enabled bool
+	out     *os.File
 }
 
-// NewProgressPrinter returns a progress printer. Silent disables output.
+// NewProgressPrinter returns a progress printer writing to stderr.
+// Silent disables output.
 func NewProgressPrinter(silent bool) *ProgressPrinter {
-	return &ProgressPrinter{enabled: !silent}
+	return NewProgressPrinterTo(silent, os.Stderr)
+}
+
+// NewProgressPrinterTo returns a progress printer writing to out.
+func NewProgressPrinterTo(silent bool, out *os.File) *ProgressPrinter {
+	if out == nil {
+		out = os.Stderr
+	}
+	return &ProgressPrinter{enabled: !silent, out: out}
 }
 
 // Update prints a progress line.
@@ -355,10 +365,10 @@ func (p *ProgressPrinter) Update(label string, pct float64, got, total int64, bp
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	clear := term.ProgressClear(os.Stderr)
+	clear := term.ProgressClear(p.out)
 	line := fmt.Sprintf("%s%s %.1f%% - %s of %s - %s/s",
-		clear, label, pct*100, SizeString(float64(got), "B"), SizeString(float64(total), "B"), SizeString(bps, "b"))
-	fmt.Fprint(os.Stderr, line)
+		clear, term.Cyan(p.out, label), pct*100, SizeString(float64(got), "B"), SizeString(float64(total), "B"), SizeString(bps, "b"))
+	fmt.Fprint(p.out, line)
 	p.last = line
 }
 
@@ -369,8 +379,8 @@ func (p *ProgressPrinter) Done(msg string) {
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	fmt.Fprint(os.Stderr, term.ProgressClear(os.Stderr))
+	fmt.Fprint(p.out, term.ProgressClear(p.out))
 	if msg != "" {
-		fmt.Fprintln(os.Stderr, msg)
+		fmt.Fprintln(p.out, msg)
 	}
 }

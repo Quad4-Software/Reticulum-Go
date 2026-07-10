@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"io"
+	"maps"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -517,9 +518,7 @@ func (r *Resource) Metadata() map[string]any {
 		return nil
 	}
 	out := make(map[string]any, len(r.metadata))
-	for k, v := range r.metadata {
-		out[k] = v
-	}
+	maps.Copy(out, r.metadata)
 	return out
 }
 
