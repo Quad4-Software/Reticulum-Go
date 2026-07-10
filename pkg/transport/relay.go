@@ -141,9 +141,13 @@ func rewriteHopsOnly(raw []byte, hops byte) []byte {
 	return out
 }
 
-// linkRelayAccountedHops mirrors Python Transport.inbound hop accounting:
-// hops are incremented on receive, then decremented again for shared-instance
-// local clients so they appear directly reachable on the wire.
+func AccountInboundHops(wireHops byte, iface common.NetworkInterface) byte {
+	if iface == nil {
+		return wireHops
+	}
+	return linkRelayAccountedHops(wireHops, isLocalClientInterface(iface))
+}
+
 func linkRelayAccountedHops(wireHops byte, fromLocalClient bool) byte {
 	if fromLocalClient {
 		return wireHops
@@ -156,7 +160,6 @@ func linkRelayAccountedHops(wireHops byte, fromLocalClient bool) byte {
 
 // forwardTransportPacket relays HeaderType2 when TransportID matches
 // ours. Returns true if handled (forwarded or dropped). False to fall
-
 // through to local handling.
 func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourceIface common.NetworkInterface) bool {
 	if pkt == nil || pkt.HeaderType != packet.HeaderType2 || len(pkt.TransportID) == 0 {
