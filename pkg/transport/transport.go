@@ -254,6 +254,8 @@ func (t *Transport) startMaintenanceJobs() {
 	defer ticker.Stop()
 	announceTicker := time.NewTicker(announceTableCheckInterval)
 	defer announceTicker.Stop()
+	announceFwdTicker := time.NewTicker(announceForwardCheckInterval)
+	defer announceFwdTicker.Stop()
 
 	for {
 		select {
@@ -277,6 +279,7 @@ func (t *Transport) startMaintenanceJobs() {
 			t.sampleInterfaceTraffic()
 		case <-announceTicker.C:
 			t.processAnnounceTable()
+		case <-announceFwdTicker.C:
 			t.processDelayedAnnounceJobs()
 		case <-t.done:
 			return
@@ -1606,8 +1609,8 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	return nil
 }
 
-// scheduleAnnounceForwardJob queues job for the maintenance ticker after the
-// pathfinder rebroadcast delay. Drops when the pending queue is full.
+// scheduleAnnounceForwardJob queues job for the announce-forward ticker after
+// the pathfinder rebroadcast delay. Drops when the pending queue is full.
 func (t *Transport) scheduleAnnounceForwardJob(job func()) {
 	if t == nil || job == nil {
 		return
