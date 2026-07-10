@@ -20,6 +20,8 @@ const (
 	TruncatedHashLength = 16
 	MinPacketSize       = 3
 
+	PathfinderM = 128
+
 	// LinkRequestECPubSize is the combined X25519 + Ed25519 public key size in link requests.
 	LinkRequestECPubSize = 64
 

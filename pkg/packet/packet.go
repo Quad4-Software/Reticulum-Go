@@ -199,6 +199,10 @@ func (p *Packet) Unpack() error {
 	flags := p.Raw[0]
 	p.Hops = p.Raw[1]
 
+	if int(p.Hops) >= PathfinderM {
+		return fmt.Errorf("invalid hop count %d", p.Hops)
+	}
+
 	p.HeaderType = (flags & HeaderMaskHeaderType) >> 6
 	p.ContextFlag = (flags & HeaderMaskContextFlag) >> 5
 	p.TransportType = (flags & HeaderMaskTransportType) >> 4

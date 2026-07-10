@@ -86,6 +86,7 @@ type Link struct {
 	keepalive            time.Duration
 	staleTime            time.Duration
 	initiator            bool
+	expectedHops uint8
 
 	prv           []byte
 	sigPriv       ed25519.PrivateKey
@@ -191,6 +192,11 @@ func (l *Link) Establish() error {
 	l.initiator = true
 	l.status.Store(int32(StatusPending))
 	l.requestTime = time.Now()
+	if l.transport != nil {
+		l.expectedHops = l.transport.HopsTo(l.destination.GetHash())
+	} else {
+		l.expectedHops = transport.PathfinderM
+	}
 
 	if err := l.prepareLinkRequestLocked(); err != nil {
 		debug.Log(debug.DebugError, "Failed to prepare link request", "error", err, "elapsed", time.Since(startTime).Seconds())
@@ -1840,6 +1846,7 @@ func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
 		l.mutex.Lock()
 		l.rtt = maxFloat(measuredRTT, rtt)
 		l.establishedAt = time.Now()
+		l.expectedHops = pkt.Hops
 		if l.rtt > 0 {
 			l.updateKeepaliveLocked()
 		}
@@ -2831,6 +2838,16 @@ func (l *Link) validateLinkProofLocked(pkt *packet.Packet, networkIface common.N
 	st := l.status.Load()
 	if st != int32(StatusPending) && st != int32(StatusHandshake) {
 		return fmt.Errorf("invalid link status for proof validation: %d", l.status.Load())
+	}
+
+	// Match Python Transport pending-link LRPROOF hop gate (RNS 1.3.8).
+	// Compare accounted inbound hops (wire+1, except local-client ifaces)
+	// against expected_hops from the path table. PATHFINDER_M means hops
+	// were unknown at link creation.
+	accounted := transport.AccountInboundHops(pkt.Hops, networkIface)
+	if l.expectedHops != transport.PathfinderM && accounted != l.expectedHops {
+		l.markInitiatorEstablishmentFailedLocked()
+		return fmt.Errorf("link proof hop count mismatch: got %d want %d", accounted, l.expectedHops)
 	}
 
 	if len(pkt.Data) < identity.SigLength/8+KeySize {
