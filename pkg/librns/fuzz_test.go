@@ -54,8 +54,32 @@ func FuzzEventQueue(f *testing.F) {
 	f.Add(uint8(0), int32(0), []byte{1, 2, 3})
 	f.Add(uint8(7), int32(maxFuzzWaitMs), []byte{0, 1, 0, 1, 0})
 	f.Fuzz(func(t *testing.T, seed uint8, waitMs int32, ops []byte) {
+		// Bound single-input runtime so the fuzz engine can't hang on a
+		// pathological input (large ops + positive per-poll timeout + no
+		// close trigger => len(ops)*timeout wall time, exceeding the fuzz
+		// deadline and producing "hung while minimizing").
+		const maxOps = 256
+		if len(ops) > maxOps {
+			ops = ops[:maxOps]
+		}
+
 		queueCap := int(seed%16) + 1
 		q := newEventQueue(queueCap)
+
+		// Derive a non-negative per-poll timeout, clamped small.
+		w := int64(waitMs) % maxFuzzWaitMs
+		if w < 0 {
+			w = -w
+		}
+		const perPollCap = 5 * time.Millisecond
+		perPoll := time.Duration(w) * time.Millisecond
+		if perPoll > perPollCap {
+			perPoll = perPollCap
+		}
+
+		// Hard per-input budget so no input can run longer than this.
+		deadline := time.Now().Add(500 * time.Millisecond)
+
 		var wg sync.WaitGroup
 		wg.Add(2)
 		go func() {
@@ -74,9 +98,16 @@ func FuzzEventQueue(f *testing.F) {
 		}()
 		go func() {
 			defer wg.Done()
-			timeout := time.Duration(waitMs%maxFuzzWaitMs) * time.Millisecond
 			for range ops {
-				_, _ = q.poll(timeout)
+				remaining := time.Until(deadline)
+				if remaining <= 0 {
+					return
+				}
+				to := perPoll
+				if to > remaining {
+					to = remaining
+				}
+				_, _ = q.poll(to)
 			}
 		}()
 		wg.Wait()
