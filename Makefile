@@ -36,7 +36,7 @@ INSTALL_BINDIR := $(DESTDIR)$(BINDIR)
 INSTALL_MANDIR := $(DESTDIR)$(MANDIR)
 
 # Legacy CLI names installed as symlinks to $(BINARY_NAME).
-TOOL_LINKS := rgostatus rgoid rgoprobe rgopath rgocp rgopageserver
+TOOL_LINKS := rgostatus rgoid rgoprobe rgopath rgocp rgox rnx rgopageserver
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 # Package version must start with a digit and avoid git describe noise.
@@ -64,7 +64,7 @@ build:
 
 # Compatibility alias: utilities live inside the main binary.
 build-utils: build
-	@echo "utilities are subcommands of $(BINARY_NAME) (status id probe path cp pageserver)"
+	@echo "utilities are subcommands of $(BINARY_NAME) (status id probe path cp x pageserver)"
 
 debug:
 	@mkdir -p $(BUILD_DIR)
@@ -89,6 +89,7 @@ install-man:
 	install -m 644 man/reticulum-go-probe.1 $(INSTALL_MANDIR)/man1/reticulum-go-probe.1
 	install -m 644 man/reticulum-go-path.1 $(INSTALL_MANDIR)/man1/reticulum-go-path.1
 	install -m 644 man/reticulum-go-cp.1 $(INSTALL_MANDIR)/man1/reticulum-go-cp.1
+	install -m 644 man/reticulum-go-x.1 $(INSTALL_MANDIR)/man1/reticulum-go-x.1
 	install -m 644 man/reticulum-go-pageserver.1 $(INSTALL_MANDIR)/man1/reticulum-go-pageserver.1
 	install -m 644 man/reticulum-go-debug.1 $(INSTALL_MANDIR)/man1/reticulum-go-debug.1
 	install -m 644 man/reticulum-go.8 $(INSTALL_MANDIR)/man8/reticulum-go.8
@@ -97,6 +98,8 @@ install-man:
 	ln -sfn reticulum-go-probe.1 $(INSTALL_MANDIR)/man1/rgoprobe.1
 	ln -sfn reticulum-go-path.1 $(INSTALL_MANDIR)/man1/rgopath.1
 	ln -sfn reticulum-go-cp.1 $(INSTALL_MANDIR)/man1/rgocp.1
+	ln -sfn reticulum-go-x.1 $(INSTALL_MANDIR)/man1/rgox.1
+	ln -sfn reticulum-go-x.1 $(INSTALL_MANDIR)/man1/rnx.1
 	ln -sfn reticulum-go-pageserver.1 $(INSTALL_MANDIR)/man1/rgopageserver.1
 
 uninstall:
@@ -105,6 +108,7 @@ uninstall:
 	@rm -f $(INSTALL_MANDIR)/man1/reticulum-go.1 \
 		$(INSTALL_MANDIR)/man1/reticulum-go-*.1 \
 		$(INSTALL_MANDIR)/man1/rgo*.1 \
+		$(INSTALL_MANDIR)/man1/rnx.1 \
 		$(INSTALL_MANDIR)/man8/reticulum-go.8
 	@echo "Removed $(BINARY_NAME), tool links, and man pages"
 
