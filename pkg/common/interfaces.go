@@ -396,17 +396,16 @@ func (i *BaseInterface) GetBandwidthAvailable() bool {
 	i.Mutex.RLock()
 	defer i.Mutex.RUnlock()
 
-	// If no transmission in last second, bandwidth is available
-	if time.Since(i.lastTx) > time.Second {
+	elapsed := time.Since(i.lastTx)
+	// Idle, no bytes yet, or a zero-width window (coarse clocks) means
+	// there is no measurable usage. Avoid 0/0 NaN which is never < max.
+	if elapsed > time.Second || elapsed <= 0 || i.TxBytes == 0 || i.Bitrate <= 0 {
 		return true
 	}
 
-	// Calculate current bandwidth usage
-	bytesPerSec := float64(i.TxBytes) / time.Since(i.lastTx).Seconds()
-	currentUsage := bytesPerSec * 8 // Convert to bits/sec
-
-	// Check if usage is below threshold (2% of total bitrate)
-	maxUsage := float64(i.Bitrate) * 0.02 // 2% propagation rate
+	bytesPerSec := float64(i.TxBytes) / elapsed.Seconds()
+	currentUsage := bytesPerSec * 8
+	maxUsage := float64(i.Bitrate) * 0.02
 	return currentUsage < maxUsage
 }
 

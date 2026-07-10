@@ -25,6 +25,7 @@ const (
 	CmdX          = "x"
 	CmdPageserver = "pageserver"
 	CmdDebug      = "debug"
+	CmdSlow       = "slow"
 )
 
 // DaemonFunc starts the network daemon. Injected by cmd/reticulum-go to avoid
@@ -101,6 +102,8 @@ func Main(args []string, opt Options) int {
 		return RunPageserver(rest, opt)
 	case CmdDebug:
 		return RunDebug(rest, opt)
+	case CmdSlow:
+		return RunSlow(rest, opt)
 	default:
 		fmt.Fprintf(opt.Stderr, "unknown command %q\n\n", cmd)
 		printRootHelp(opt.Stderr)
@@ -121,7 +124,7 @@ func resolveCommand(argv0 string, args []string) (cmd string, rest []string, ok 
 	}
 
 	switch args[0] {
-	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdX, CmdPageserver, CmdDebug:
+	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdX, CmdPageserver, CmdDebug, CmdSlow:
 		return args[0], args[1:], true
 	case "rgostatus":
 		return CmdStatus, args[1:], true
@@ -135,6 +138,8 @@ func resolveCommand(argv0 string, args []string) (cmd string, rest []string, ok 
 		return CmdCP, args[1:], true
 	case "rgox", "rnx":
 		return CmdX, args[1:], true
+	case "rgoslow":
+		return CmdSlow, args[1:], true
 	default:
 		return "", nil, false
 	}
@@ -156,6 +161,8 @@ func aliasFromArgv0(base string) string {
 		return CmdX
 	case "rgopageserver", "reticulum-go-pageserver":
 		return CmdPageserver
+	case "rgoslow", "reticulum-go-slow":
+		return CmdSlow
 	default:
 		return ""
 	}
@@ -191,6 +198,7 @@ Usage:
   reticulum-go id [flags]               identities, hashes, sign and encrypt
   reticulum-go probe [flags] <name> <hash>
   reticulum-go path [flags]             path table, drop, blackhole
+  reticulum-go slow [flags]             find slow interfaces, paths, transfers
   reticulum-go cp [flags]               file transfer over links
   reticulum-go x [flags]                remote command execution (rnx)
   reticulum-go pageserver [flags]       NomadNet-style page and file server
@@ -200,7 +208,7 @@ Global:
   -h, --help       print this help
   -v, --version    print version
 
-Legacy tool names (rgostatus, rgoid, rgoprobe, rgopath, rgocp, rgox, rnx) work as
+Legacy tool names (rgostatus, rgoid, rgoprobe, rgopath, rgocp, rgox, rnx, rgoslow) work as
 subcommands or when the binary is installed under those names (symlinks).
 
 Configuration defaults to ~/.reticulum-go/config.

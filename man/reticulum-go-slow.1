@@ -1,0 +1,66 @@
+.Dd July 10, 2026
+.Dt RETICULUM-GO-SLOW 1
+.Os
+.Sh NAME
+.Nm reticulum-go-slow , rgoslow
+.Nd find slow interfaces, paths, and transfer bottlenecks
+.Sh SYNOPSIS
+.Nm reticulum-go Cm slow
+.Op Fl config Ar dir
+.Op Fl json
+.Op Fl a
+.Op Fl n Ar filter
+.Op Fl l
+.Op Fl dest Ar hash
+.Op Fl top Ar n
+.Op Fl high-hop Ar n
+.Op Fl m
+.Op Fl I Ar duration
+.Op Fl timeout Ar duration
+.Sh DESCRIPTION
+Queries a running shared instance (Go
+.Nm reticulum-go
+or Python
+.Nm rnsd )
+over msgpack RPC and ranks congestion signals that commonly stall
+resource transfers: bitrate caps, utilization, announce and path-request
+bursts, held announces, bandwidth gates, socket RTT (Go), and high-hop
+paths.
+.Sh OPTIONS
+.Bl -tag -width "-timeout duration"
+.It Fl config Ar dir
+Config directory (default
+.Pa ~/.reticulum-go ) .
+.It Fl json
+Emit JSON report.
+.It Fl a
+Include hidden and local peer interfaces.
+.It Fl n Ar filter
+Filter interfaces by name substring.
+.It Fl l
+Include active link count.
+.It Fl dest Ar hash
+Focus analysis on a destination (32 hex characters).
+.It Fl top Ar n
+Maximum interfaces to rank (default 12).
+.It Fl high-hop Ar n
+Hop count treated as high (default 6).
+.It Fl m
+Continuously refresh the report.
+.It Fl I Ar duration
+Monitor refresh interval (default 2s).
+.It Fl timeout Ar duration
+RPC timeout (default 10s).
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+rgoslow
+rgoslow -config ~/.reticulum
+rgoslow -dest 06a54b505bb67b25ef3f8097e8001edc
+rgoslow -json -l
+.Ed
+.Sh SEE ALSO
+.Xr reticulum-go-status 1 ,
+.Xr reticulum-go-path 1 ,
+.Xr reticulum-go-probe 1 ,
+.Xr reticulum-go 8

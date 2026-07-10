@@ -99,10 +99,8 @@ tasks:
     vars:
       ROOT_DIR:
         sh: pwd
-    env:
-      GOOS: js
-      GOARCH: wasm
     cmds:
       - chmod +x {{.ROOT_DIR}}/misc/wasm/go_js_wasm_exec
-      - PATH="$PATH:{{.ROOT_DIR}}/misc/wasm" {{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/wasm/ ./cmd/reticulum-wasm/
-      - PATH="$PATH:{{.ROOT_DIR}}/misc/wasm" {{.GOCMD}} run ./scripts/ci/testsummary -C examples/wasm -v .
+      # TESTSUMMARY_GOOS/ARCH apply only to the go test child so testsummary itself stays host-native.
+      - PATH="$PATH:{{.ROOT_DIR}}/misc/wasm" TESTSUMMARY_GOOS=js TESTSUMMARY_GOARCH=wasm {{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/wasm/ ./cmd/reticulum-wasm/
+      - PATH="$PATH:{{.ROOT_DIR}}/misc/wasm" TESTSUMMARY_GOOS=js TESTSUMMARY_GOARCH=wasm {{.GOCMD}} run ./scripts/ci/testsummary -C examples/wasm -v .

@@ -275,6 +275,14 @@ func TestBaseInterface_GetBandwidthAvailable(t *testing.T) {
 		t.Error("GetBandwidthAvailable() = false, want true when TxBytes is 0")
 	}
 
+	// Coarse clocks can report a zero-width or inverted window around lastTx.
+	iface.lastTx = time.Now().Add(time.Millisecond)
+	iface.TxBytes = 1
+	iface.Bitrate = BitrateMinimum
+	if !iface.GetBandwidthAvailable() {
+		t.Error("GetBandwidthAvailable() = false, want true when elapsed window is non-positive")
+	}
+
 	iface.lastTx = time.Now().Add(-500 * time.Millisecond)
 	iface.TxBytes = 1000
 	iface.Bitrate = 1000000

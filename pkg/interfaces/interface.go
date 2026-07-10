@@ -353,15 +353,15 @@ func (i *BaseInterface) GetBandwidthAvailable() bool {
 	i.Mutex.RLock()
 	defer i.Mutex.RUnlock()
 
-	now := time.Now()
-	timeSinceLastTx := now.Sub(i.lastTx)
-
-	if timeSinceLastTx > time.Second {
-		debug.Log(debug.DebugVerbose, "Interface bandwidth available", "name", i.Name, "idle_seconds", timeSinceLastTx.Seconds())
+	elapsed := time.Since(i.lastTx)
+	// Idle, no bytes yet, or a zero-width window (coarse clocks) means
+	// there is no measurable usage. Avoid 0/0 NaN which is never < max.
+	if elapsed > time.Second || elapsed <= 0 || i.TxBytes == 0 || i.Bitrate <= 0 {
+		debug.Log(debug.DebugVerbose, "Interface bandwidth available", "name", i.Name, "idle_seconds", elapsed.Seconds())
 		return true
 	}
 
-	bytesPerSec := float64(i.TxBytes) / timeSinceLastTx.Seconds()
+	bytesPerSec := float64(i.TxBytes) / elapsed.Seconds()
 	currentUsage := bytesPerSec * 8
 	maxUsage := float64(i.Bitrate) * PropagationRate
 

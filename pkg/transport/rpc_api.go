@@ -22,28 +22,30 @@ type PathTableEntry struct {
 
 // InterfaceStat is the per-interface stats subset used by status tools.
 type InterfaceStat struct {
-	Name                      string  `msgpack:"name"`
-	ShortName                 string  `msgpack:"short_name"`
-	Hash                      []byte  `msgpack:"hash"`
-	Type                      string  `msgpack:"type"`
-	RXB                       uint64  `msgpack:"rxb"`
-	TXB                       uint64  `msgpack:"txb"`
-	RXS                       float64 `msgpack:"rxs"`
-	TXS                       float64 `msgpack:"txs"`
-	IncomingAnnounceFrequency float64 `msgpack:"incoming_announce_frequency"`
-	OutgoingAnnounceFrequency float64 `msgpack:"outgoing_announce_frequency"`
-	IncomingPRFrequency       float64 `msgpack:"incoming_pr_frequency"`
-	OutgoingPRFrequency       float64 `msgpack:"outgoing_pr_frequency"`
-	HeldAnnounces             int     `msgpack:"held_announces"`
-	BurstActive               bool    `msgpack:"burst_active"`
-	PRBurstActive             bool    `msgpack:"pr_burst_active"`
-	Status                    bool    `msgpack:"status"`
-	Mode                      byte    `msgpack:"mode"`
-	Clients                   *int    `msgpack:"clients"`
-	Bitrate                   int64   `msgpack:"bitrate"`
-	I2PConnectable            *bool   `msgpack:"i2p_connectable,omitempty"`
-	I2PB32                    *string `msgpack:"i2p_b32,omitempty"`
-	TunnelState               *string `msgpack:"tunnelstate,omitempty"`
+	Name                      string   `msgpack:"name"`
+	ShortName                 string   `msgpack:"short_name"`
+	Hash                      []byte   `msgpack:"hash"`
+	Type                      string   `msgpack:"type"`
+	RXB                       uint64   `msgpack:"rxb"`
+	TXB                       uint64   `msgpack:"txb"`
+	RXS                       float64  `msgpack:"rxs"`
+	TXS                       float64  `msgpack:"txs"`
+	IncomingAnnounceFrequency float64  `msgpack:"incoming_announce_frequency"`
+	OutgoingAnnounceFrequency float64  `msgpack:"outgoing_announce_frequency"`
+	IncomingPRFrequency       float64  `msgpack:"incoming_pr_frequency"`
+	OutgoingPRFrequency       float64  `msgpack:"outgoing_pr_frequency"`
+	HeldAnnounces             int      `msgpack:"held_announces"`
+	BurstActive               bool     `msgpack:"burst_active"`
+	PRBurstActive             bool     `msgpack:"pr_burst_active"`
+	Status                    bool     `msgpack:"status"`
+	Mode                      byte     `msgpack:"mode"`
+	Clients                   *int     `msgpack:"clients"`
+	Bitrate                   int64    `msgpack:"bitrate"`
+	RTTMs                     *float64 `msgpack:"rtt_ms,omitempty"`
+	BandwidthAvailable        *bool    `msgpack:"bandwidth_available,omitempty"`
+	I2PConnectable            *bool    `msgpack:"i2p_connectable,omitempty"`
+	I2PB32                    *string  `msgpack:"i2p_b32,omitempty"`
+	TunnelState               *string  `msgpack:"tunnelstate,omitempty"`
 }
 
 // InterfaceStatsResponse is the top-level interface stats RPC payload.
@@ -218,6 +220,16 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 		if v, ok := iface.(interface{ GetTxSpeed() float64 }); ok {
 			st.TXS = v.GetTxSpeed()
 			txsTotal += st.TXS
+		}
+		if v, ok := iface.(interface{ GetRTT() time.Duration }); ok {
+			if d := v.GetRTT(); d > 0 {
+				ms := d.Seconds() * 1000
+				st.RTTMs = &ms
+			}
+		}
+		if v, ok := iface.(interface{ GetBandwidthAvailable() bool }); ok {
+			avail := v.GetBandwidthAvailable()
+			st.BandwidthAvailable = &avail
 		}
 		if t.ifaceStates != nil {
 			if stt := t.ifaceStates.get(iface.GetName()); stt != nil && stt.ingress != nil {

@@ -35,9 +35,41 @@ func quietMode() bool {
 	return os.Getenv("TESTSUMMARY_QUIET") != "" || os.Getenv("CI_QUIET_TESTS") != ""
 }
 
+// childEnv builds the environment for the `go test` child. TESTSUMMARY_GOOS
+// and TESTSUMMARY_GOARCH are applied only to the child so this host binary
+// can still be built and run when targeting js/wasm tests.
+func childEnv() []string {
+	goos := os.Getenv("TESTSUMMARY_GOOS")
+	goarch := os.Getenv("TESTSUMMARY_GOARCH")
+	if goos == "" && goarch == "" {
+		return nil
+	}
+	out := make([]string, 0, 32)
+	for _, e := range os.Environ() {
+		switch {
+		case strings.HasPrefix(e, "GOOS="),
+			strings.HasPrefix(e, "GOARCH="),
+			strings.HasPrefix(e, "TESTSUMMARY_GOOS="),
+			strings.HasPrefix(e, "TESTSUMMARY_GOARCH="):
+			continue
+		}
+		out = append(out, e)
+	}
+	if goos != "" {
+		out = append(out, "GOOS="+goos)
+	}
+	if goarch != "" {
+		out = append(out, "GOARCH="+goarch)
+	}
+	return out
+}
+
 func run() int {
 	args := append([]string{"test", "-json"}, os.Args[1:]...)
 	cmd := exec.Command("go", args...)
+	if env := childEnv(); env != nil {
+		cmd.Env = env
+	}
 
 	var stderrBuf bytes.Buffer
 	cmd.Stderr = &stderrBuf
