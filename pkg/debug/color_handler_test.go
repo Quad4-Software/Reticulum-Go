@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -18,7 +19,7 @@ func TestColorizeLevelBytes(t *testing.T) {
 	t.Setenv("CLICOLOR_FORCE", "")
 
 	in := []byte(`time=2026-07-09T14:48:21.731-05:00 level=ERROR msg="hi"`)
-	out := colorizeLevelBytes(in, slog.LevelError, nil)
+	out := colorizeLevelBytes(in, slog.LevelError, os.Stderr)
 	if strings.Contains(string(out), `\x1b`) {
 		t.Fatalf("escaped ANSI in output: %q", out)
 	}
