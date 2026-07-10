@@ -182,14 +182,20 @@ func (qc *QUICClientInterface) adoptConn(conn net.Conn) bool {
 
 // SetConnectivityHooks registers reconnect up/down callbacks.
 func (qc *QUICClientInterface) SetConnectivityHooks(onDown, onUp func()) {
-	if qc.reconnect != nil {
-		qc.reconnect.setHooks(onDown, onUp)
+	qc.Mutex.Lock()
+	reconnect := qc.reconnect
+	qc.Mutex.Unlock()
+	if reconnect != nil {
+		reconnect.setHooks(onDown, onUp)
 	}
 }
 
 func (qc *QUICClientInterface) startReconnect() {
-	if qc.reconnect != nil {
-		qc.reconnect.start()
+	qc.Mutex.Lock()
+	reconnect := qc.reconnect
+	qc.Mutex.Unlock()
+	if reconnect != nil {
+		reconnect.start()
 	}
 }
 
@@ -262,13 +268,13 @@ func (qc *QUICClientInterface) ProcessOutgoing(data []byte) error {
 		qc.Mutex.Lock()
 		qc.Online = false
 		detached := qc.Detached
+		reconnect := qc.reconnect
 		qc.Mutex.Unlock()
-		if !detached && qc.reconnect != nil {
+		if !detached && reconnect != nil {
 			qc.teardownConn()
-			qc.reconnect.notifyFailure()
+			reconnect.notifyFailure()
 		}
-	}
-	return err
+		return err
 }
 
 // Send applies IFAC then ProcessOutgoing.
@@ -320,10 +326,11 @@ func (qc *QUICClientInterface) readLoop() {
 			qc.Mutex.Lock()
 			qc.Online = false
 			detached := qc.Detached
+			reconnect := qc.reconnect
 			qc.Mutex.Unlock()
-			if !detached && qc.reconnect != nil {
+			if !detached && reconnect != nil {
 				qc.teardownConn()
-				qc.reconnect.notifyFailure()
+				reconnect.notifyFailure()
 			} else {
 				qc.teardownConn()
 			}
