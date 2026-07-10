@@ -16,7 +16,7 @@ const (
 	MaxConcurrentPacketHandlers = 512
 
 	// MaxPendingAnnounceForwards caps delayed announce rebroadcast jobs queued
-	// for the maintenance ticker. Avoids per-announce sleep goroutines that
+	// for the announce-forward ticker. Avoids per-announce sleep goroutines that
 	// explode memory and OS threads under storms.
 	MaxPendingAnnounceForwards = 256
 
