@@ -133,7 +133,7 @@ test-crossref:
 
 # js/wasm packages are not included in `go test ./...` on native GOOS; requires Node (see GOROOT/lib/wasm/go_js_wasm_exec).
 test-wasm:
-	env -i HOME=$$HOME PATH="/usr/local/bin:/usr/bin:/bin" GOROOT=$(shell go env GOROOT) TMPDIR=/tmp GOOS=js GOARCH=wasm $(GOCMD) test -count=1 -exec="$(shell go env GOROOT)/lib/wasm/go_js_wasm_exec" ./pkg/wasm/... ./cmd/reticulum-wasm/...
+	env -i HOME=$$HOME PATH="/usr/local/bin:/usr/bin:/bin" GOROOT=$(shell go env GOROOT) TMPDIR=/tmp GOOS=js GOARCH=wasm $(GOCMD) run ./scripts/ci/testsummary -count=1 -exec="$(shell go env GOROOT)/lib/wasm/go_js_wasm_exec" ./pkg/wasm/... ./cmd/reticulum-wasm/...
 
 test-all: test test-wasm test-crossref
 

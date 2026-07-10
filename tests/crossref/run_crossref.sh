@@ -73,7 +73,7 @@ generate_vectors() {
 
 run_tests() {
 	cd "$ROOT_DIR"
-	go test -v ./tests/crossref/
+	go run ./scripts/ci/testsummary -v ./tests/crossref/
 }
 
 case "${1:-all}" in

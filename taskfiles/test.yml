@@ -14,7 +14,7 @@ tasks:
   test-interop-live:
     desc: Live Python-Go UDP interop (set PYTHON_INTEROP=.venv/bin/python when using venv)
     cmds:
-      - RUN_LIVE_INTEROP=1 {{.GOCMD}} test -v -timeout 30m ./tests/interop/...
+      - RUN_LIVE_INTEROP=1 {{.GOCMD}} run ./scripts/ci/testsummary -v -timeout 30m ./tests/interop/...
 
   test-short:
     desc: Run short tests
@@ -91,7 +91,7 @@ tasks:
   coverage:
     desc: Generate test coverage report
     cmds:
-      - '{{.GOCMD}} test -coverprofile=coverage.out ./...'
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -coverprofile=coverage.out ./...'
       - '{{.GOCMD}} tool cover -html=coverage.out'
 
   test-wasm:
@@ -104,7 +104,5 @@ tasks:
       GOARCH: wasm
     cmds:
       - chmod +x {{.ROOT_DIR}}/misc/wasm/go_js_wasm_exec
-      - PATH="$PATH:{{.ROOT_DIR}}/misc/wasm" {{.GOCMD}} test -v ./pkg/wasm/ ./cmd/reticulum-wasm/
-      - |
-        export PATH="$PATH:{{.ROOT_DIR}}/misc/wasm"
-        cd examples/wasm && {{.GOCMD}} test -v .
+      - PATH="$PATH:{{.ROOT_DIR}}/misc/wasm" {{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/wasm/ ./cmd/reticulum-wasm/
+      - PATH="$PATH:{{.ROOT_DIR}}/misc/wasm" {{.GOCMD}} run ./scripts/ci/testsummary -C examples/wasm -v .

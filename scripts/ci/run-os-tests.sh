@@ -10,4 +10,5 @@ TIMEOUT="${OS_TEST_TIMEOUT:-20m}"
 PKGS="./pkg/backbone/... ./pkg/interfaces/... ./pkg/node/... ./pkg/packet/... ./pkg/transport/... ./tests/crossref/..."
 
 echo "os-matrix: running on $(go env GOOS)/$(go env GOARCH)"
-go test -short -timeout "$TIMEOUT" $PKGS
+# Route through testsummary so CI logs stay compact (TESTSUMMARY_QUIET=1 in workflows).
+go run ./scripts/ci/testsummary -short -timeout "$TIMEOUT" $PKGS
