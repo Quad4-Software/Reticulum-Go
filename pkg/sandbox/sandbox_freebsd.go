@@ -31,10 +31,7 @@ func setResourceLimits() error {
 		debug.Log(debug.DebugError, "RLIMIT_NOFILE failed", "error", err)
 	}
 
-	const memLimit = 2 << 30 // 2 GiB
-	if err := unix.Setrlimit(unix.RLIMIT_AS, &unix.Rlimit{Cur: memLimit, Max: memLimit}); err != nil {
-		debug.Log(debug.DebugError, "RLIMIT_VMEM failed", "error", err)
-	}
+	// Do not set RLIMIT_AS/VMEM. A low address-space cap aborts Go under mesh load.
 
 	if err := unix.Setrlimit(unix.RLIMIT_CORE, &unix.Rlimit{Cur: 0, Max: 0}); err != nil {
 		debug.Log(debug.DebugError, "RLIMIT_CORE failed", "error", err)
@@ -45,7 +42,7 @@ func setResourceLimits() error {
 		debug.Log(debug.DebugError, "RLIMIT_STACK failed", "error", err)
 	}
 
-	const procLimit = 4096
+	const procLimit = 65536
 	if err := unix.Setrlimit(unix.RLIMIT_NPROC, &unix.Rlimit{Cur: procLimit, Max: procLimit}); err != nil {
 		debug.Log(debug.DebugError, "RLIMIT_NPROC failed", "error", err)
 	}
