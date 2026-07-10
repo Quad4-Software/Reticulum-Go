@@ -136,8 +136,22 @@ func rewriteHopsOnly(raw []byte, hops byte) []byte {
 	if len(raw) < 2 {
 		return raw
 	}
-	raw[1] = hops
-	return raw
+	out := append([]byte(nil), raw...)
+	out[1] = hops
+	return out
+}
+
+// linkRelayAccountedHops mirrors Python Transport.inbound hop accounting:
+// hops are incremented on receive, then decremented again for shared-instance
+// local clients so they appear directly reachable on the wire.
+func linkRelayAccountedHops(wireHops byte, fromLocalClient bool) byte {
+	if fromLocalClient {
+		return wireHops
+	}
+	if wireHops < 0xFF {
+		return wireHops + 1
+	}
+	return wireHops
 }
 
 // forwardTransportPacket relays HeaderType2 when TransportID matches
@@ -197,22 +211,24 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 		return true
 	}
 
-	newHops := pkt.Hops + 1
+	fromLocal := isLocalClientInterface(sourceIface)
+	newHops := linkRelayAccountedHops(pkt.Hops, fromLocal)
 	if newHops >= MaxHops {
 		debug.Log(debug.DebugInfo, "Transport packet exceeds MaxHops, dropping",
 			"hops", newHops)
 		return true
 	}
 
+	rawCopy := append([]byte(nil), raw...)
 	var out []byte
 	var err error
 	switch {
 	case path.HopCount > 1:
-		out, err = rebuildHeaderType2(raw, newHops, path.NextHop)
+		out, err = rebuildHeaderType2(rawCopy, newHops, path.NextHop)
 	case path.HopCount == 1:
-		out, err = stripHeaderType2(raw, newHops)
+		out, err = stripHeaderType2(rawCopy, newHops)
 	default:
-		out = rewriteHopsOnly(raw, newHops)
+		out = rewriteHopsOnly(rawCopy, newHops)
 	}
 	if err != nil {
 		debug.Log(debug.DebugError, "Failed to rewrite transport packet",
@@ -221,7 +237,7 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 	}
 
 	if pkt.PacketType == packet.PacketTypeLinkReq {
-		t.recordLinkRelay(pkt, raw, sourceIface, path)
+		t.recordLinkRelay(pkt, out, sourceIface, path, int(newHops))
 	}
 
 	debug.Log(debug.DebugInfo, "Relaying transport packet",
@@ -237,7 +253,7 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 	return true
 }
 
-func (t *Transport) recordLinkRelay(pkt *packet.Packet, raw []byte, recvIface common.NetworkInterface, path *common.Path) {
+func (t *Transport) recordLinkRelay(pkt *packet.Packet, raw []byte, recvIface common.NetworkInterface, path *common.Path, takenHops int) {
 	if t.linkTable == nil {
 		return
 	}
@@ -253,7 +269,7 @@ func (t *Transport) recordLinkRelay(pkt *packet.Packet, raw []byte, recvIface co
 		NextHopIface:    path.Interface,
 		ReceivedIface:   recvIface,
 		RemainingHops:   remaining,
-		TakenHops:       int(pkt.Hops),
+		TakenHops:       takenHops,
 		DestinationHash: append([]byte(nil), pkt.DestinationHash...),
 		Validated:       false,
 		ProofTimeout:    timeout,
@@ -285,13 +301,44 @@ func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterf
 		return true
 	}
 
+	fromLocal := isLocalClientInterface(sourceIface)
+	accounted := linkRelayAccountedHops(raw[1], fromLocal)
+
 	var outIface common.NetworkInterface
 	switch {
 	case entry.NextHopIface == entry.ReceivedIface:
+		if int(accounted) != entry.RemainingHops && int(accounted) != entry.TakenHops {
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Link relay hop mismatch on shared iface",
+					"link_id", fmt.Sprintf("%x", linkID),
+					"accounted_hops", accounted,
+					"taken", entry.TakenHops,
+					"remaining", entry.RemainingHops)
+			}
+			return true
+		}
 		outIface = entry.NextHopIface
 	case sourceIface == entry.NextHopIface:
+		if int(accounted) != entry.RemainingHops {
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Link relay hop mismatch from next-hop iface",
+					"link_id", fmt.Sprintf("%x", linkID),
+					"accounted_hops", accounted,
+					"remaining", entry.RemainingHops)
+			}
+			return true
+		}
 		outIface = entry.ReceivedIface
 	case sourceIface == entry.ReceivedIface:
+		if int(accounted) != entry.TakenHops {
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Link relay hop mismatch from receive iface",
+					"link_id", fmt.Sprintf("%x", linkID),
+					"accounted_hops", accounted,
+					"taken", entry.TakenHops)
+			}
+			return true
+		}
 		outIface = entry.NextHopIface
 	default:
 		if debug.Enabled(debug.DebugVerbose) {
@@ -304,14 +351,12 @@ func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterf
 		return true
 	}
 
-	if raw[1] < 0xFF {
-		raw[1]++
-	}
-
+	out := rewriteHopsOnly(raw, accounted)
 	debug.Log(debug.DebugInfo, "Relaying link data packet",
 		"link_id", fmt.Sprintf("%x", linkID),
-		"out_iface", outIface.GetName())
-	if err := outIface.Send(raw, ""); err != nil {
+		"out_iface", outIface.GetName(),
+		"hops", accounted)
+	if err := outIface.Send(out, ""); err != nil {
 		debug.Log(debug.DebugError, "Failed to relay link data packet",
 			"error", err,
 			"out_iface", outIface.GetName())
@@ -327,7 +372,7 @@ func (t *Transport) relayBridgedLinkRequest(pkt *packet.Packet, raw []byte, sour
 		return false
 	}
 	if pkt.HeaderType == packet.HeaderType2 {
-		stripped, err := stripHeaderType2(append([]byte(nil), raw...), pkt.Hops+1)
+		stripped, err := stripHeaderType2(append([]byte(nil), raw...), pkt.Hops)
 		if err != nil {
 			debug.Log(debug.DebugInfo, "Bridged link request HT2 strip failed", "error", err)
 			return false
@@ -377,19 +422,21 @@ func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, s
 		return true
 	}
 
-	newHops := pkt.Hops + 1
+	fromLocal := isLocalClientInterface(sourceIface)
+	newHops := linkRelayAccountedHops(pkt.Hops, fromLocal)
 	if newHops >= MaxHops {
 		debug.Log(debug.DebugInfo, "Bridged link request exceeds MaxHops, dropping", "hops", newHops)
 		return true
 	}
 
-	out := rewriteHopsOnly(append([]byte(nil), raw...), newHops)
-	t.recordLinkRelay(pkt, out, sourceIface, path)
+	out := rewriteHopsOnly(raw, newHops)
+	t.recordLinkRelay(pkt, out, sourceIface, path, int(newHops))
 
 	debug.Log(debug.DebugInfo, "Relaying bridged link request",
 		"dest_hash", fmt.Sprintf("%x", destHash),
 		"out_iface", path.Interface.GetName(),
-		"hops", newHops)
+		"hops", newHops,
+		"from_local_client", fromLocal)
 	if err := path.Interface.Send(out, ""); err != nil {
 		debug.Log(debug.DebugError, "Failed to relay bridged link request", "error", err)
 	}
