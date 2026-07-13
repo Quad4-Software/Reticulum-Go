@@ -32,12 +32,13 @@ func RunID(args []string, opt ...Options) int {
 	printPriv := fs.Bool("P", false, "allow printing private key material")
 	hashAspects := fs.String("H", "", "print destination hash for dotted aspects name")
 	signPath := fs.String("s", "", "sign file to .rsg")
-	signMsg := fs.String("S", "", "create embedded signed message (.rsm)")
+	signMsg := fs.String("S", "", "create embedded signed message (.rsm). use @path to read message from file")
 	verifyPath := fs.String("V", "", "validate .rsg/.rsm or file+signature")
 	encryptPath := fs.String("e", "", "encrypt file to .rfe")
 	decryptPath := fs.String("d", "", "decrypt .rfe file")
 	rawSign := fs.Bool("raw", false, "write legacy raw Ed25519 signature only")
 	showMeta := fs.Bool("meta", false, "display RSM metadata when validating")
+	extractMsg := fs.Bool("extract", false, "on successful RSM verify, print only the embedded message")
 	writeOut := fs.String("w", "", "write output to path")
 	force := fs.Bool("f", false, "overwrite existing output")
 	useB64 := fs.Bool("b", false, "base64 encoding")
@@ -135,13 +136,18 @@ func RunID(args []string, opt ...Options) int {
 			return 1
 		}
 		didWork = true
-		if code := doSignMessage(ident, *signMsg, *writeOut, *force); code != 0 {
+		msg, err := resolveSignMessage(*signMsg)
+		if err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+		if code := doSignMessage(ident, msg, *writeOut, *force); code != 0 {
 			return code
 		}
 	}
 	if *verifyPath != "" {
 		didWork = true
-		if code := doVerify(ident, *identityPath, *verifyPath, *showMeta); code != 0 {
+		if code := doVerify(ident, *identityPath, *verifyPath, *showMeta, *extractMsg); code != 0 {
 			return code
 		}
 	}
@@ -220,6 +226,18 @@ func doSign(ident *identity.Identity, signPath, writeOut string, force, raw bool
 	return 0
 }
 
+func resolveSignMessage(signMsg string) (string, error) {
+	if strings.HasPrefix(signMsg, "@") {
+		path := expand(signMsg[1:])
+		b, err := os.ReadFile(path) // #nosec G304 -- operator-chosen message path
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
+	}
+	return signMsg, nil
+}
+
 func doSignMessage(ident *identity.Identity, message, writeOut string, force bool) int {
 	if writeOut == "" {
 		fmt.Fprintln(os.Stderr, "signed message requires -w path")
@@ -248,7 +266,7 @@ func doSignMessage(ident *identity.Identity, message, writeOut string, force boo
 	return 0
 }
 
-func doVerify(ident *identity.Identity, identityArg, verifyPath string, showMeta bool) int {
+func doVerify(ident *identity.Identity, identityArg, verifyPath string, showMeta, extractMsg bool) int {
 	verifyPath = expand(verifyPath)
 	lower := strings.ToLower(verifyPath)
 	switch {
@@ -268,6 +286,17 @@ func doVerify(ident *identity.Identity, identityArg, verifyPath string, showMeta
 		if err != nil || !res.Valid {
 			fmt.Fprintln(os.Stderr, errMsg(os.Stderr, fmt.Sprintf("Invalid signature in %s", verifyPath)))
 			return 10
+		}
+		if extractMsg {
+			_, err := os.Stdout.WriteString(text)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%v\n", err)
+				return 253
+			}
+			if !strings.HasSuffix(text, "\n") {
+				fmt.Fprintln(os.Stdout)
+			}
+			return 0
 		}
 		if showMeta && res.Envelope != nil && res.Envelope.Meta != nil {
 			fmt.Fprintln(os.Stdout, infoMsg(os.Stdout, "RSM Metadata"))
@@ -431,6 +460,15 @@ func resolveIdentity(path, generate, importPub, importPrv string, enc rnsutil.En
 		p := expand(path)
 		if st, err := os.Stat(p); err == nil && !st.IsDir() {
 			return rnsutil.LoadIdentity(p)
+		}
+		// Allow a bare identity hash for verify-only (no private key on disk).
+		if len(path) == 32 {
+			for _, c := range path {
+				if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
+					return nil, fmt.Errorf("identity file not found: %s", p)
+				}
+			}
+			return nil, nil
 		}
 		return nil, fmt.Errorf("identity file not found: %s", p)
 	default:
