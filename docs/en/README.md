@@ -2,14 +2,6 @@
 
 Professional documentation for architects, operators, and engineers working with Reticulum-Go.
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.1 |
-| Last updated | 2026-07-09 |
-| Protocol target | Python RNS 1.3.8 |
-| Go toolchain | 1.26.4 |
-| Author | Ivan |
-
 ## About this documentation
 
 These documents describe Reticulum-Go, a Go implementation of the [Reticulum Network Stack](https://reticulum.network/). They are written for readers who need both a system-level view and enough implementation detail to integrate, operate, or extend the stack.
