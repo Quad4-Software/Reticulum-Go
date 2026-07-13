@@ -6,7 +6,7 @@ Reticulum-Go is tested against **Python RNS 1.3.8** and the [official network AP
 
 Crossref vectors clone the reference from `rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum` via [rngit](https://reticulum.network/manual/git.html) (`tests/crossref/run_crossref.sh`). The GitHub mirror is not used for vectors.
 
-The detailed matrix with config key tables lives in [COMPATIBILITY.md](../../COMPATIBILITY.md). This page summarizes decisions architects need.
+The detailed matrix with config key tables lives in [COMPATIBILITY.md](../../COMPATIBILITY.md). This page summarizes the key differences and design choices.
 
 ## Component parity
 

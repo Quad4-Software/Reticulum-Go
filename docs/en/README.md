@@ -1,6 +1,6 @@
 # Reticulum-Go Documentation (English)
 
-Professional documentation for architects, operators, and engineers working with Reticulum-Go.
+System documentation, API references, and configuration guides for Reticulum-Go.
 
 ## About this documentation
 

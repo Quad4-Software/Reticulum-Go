@@ -39,7 +39,7 @@ See [Architecture](architecture.md) for a fuller picture.
 
 ## Feature status
 
-The table below summarizes major areas. For line-by-line parity with Python, see [Compatibility](compatibility.md) and [COMPATIBILITY.md](../../COMPATIBILITY.md).
+Below is a summary of major features. For line-by-line parity with Python, see [Compatibility](compatibility.md) and [COMPATIBILITY.md](../../COMPATIBILITY.md).
 
 | Area | Status | Location |
 |------|--------|----------|
