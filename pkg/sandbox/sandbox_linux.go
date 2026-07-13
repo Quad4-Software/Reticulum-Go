@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -53,22 +54,48 @@ func applyPlatform(cfg *common.ReticulumConfig) error {
 // legitimately needs. On kernels without Landlock support it returns a
 // descriptive error and the caller logs it as a warning.
 func applyLandlock(cfg *common.ReticulumConfig) error {
-	// Superset of filesystem access rights we may grant to any path.
-	attr := unix.LandlockRulesetAttr{
-		Access_fs: landlockAccessFS,
-	}
-
-	fd, _, errno := unix.Syscall(unix.SYS_LANDLOCK_CREATE_RULESET,
-		uintptr(unsafe.Pointer(&attr)), // #nosec G103 -- required for direct Landlock syscall interface
-		uintptr(unsafe.Sizeof(attr)),
-		0)
+	// Query the supported Landlock ABI version.
+	abi, _, errno := unix.Syscall(unix.SYS_LANDLOCK_CREATE_RULESET,
+		0, 0, unix.LANDLOCK_CREATE_RULESET_VERSION)
 	if errno == unix.ENOSYS {
 		return fmt.Errorf("landlock not supported by kernel")
 	}
+	if errno == unix.EOPNOTSUPP {
+		return fmt.Errorf("landlock is currently disabled")
+	}
+	if errno != 0 {
+		return fmt.Errorf("landlock_create_ruleset version check: %w", errno)
+	}
+
+	abiVersion := int(abi)
+
+	// Mask the handled filesystem access rights based on the supported ABI version.
+	accessFS := landlockAccessFS
+	if abiVersion < 9 {
+		accessFS &= ^landlockAccessFSResolveUnix
+	}
+	if abiVersion < 5 {
+		accessFS &= ^uint64(unix.LANDLOCK_ACCESS_FS_IOCTL_DEV)
+	}
+	if abiVersion < 3 {
+		accessFS &= ^uint64(unix.LANDLOCK_ACCESS_FS_TRUNCATE)
+	}
+	if abiVersion < 2 {
+		accessFS &= ^uint64(unix.LANDLOCK_ACCESS_FS_REFER)
+	}
+
+	attr := unix.LandlockRulesetAttr{
+		Access_fs: accessFS,
+	}
+
+	fd, _, errno := unix.Syscall(unix.SYS_LANDLOCK_CREATE_RULESET,
+		uintptr(unsafe.Pointer(&attr)), // #nosec G103 - required for direct Landlock syscall interface
+		uintptr(unsafe.Sizeof(attr)),
+		0)
 	if errno != 0 {
 		return fmt.Errorf("landlock_create_ruleset: %w", errno)
 	}
-	rulesetFD := int(fd) // #nosec G115 -- syscall fd is always a small non-negative integer on Linux
+	rulesetFD := int(fd) // #nosec G115 - syscall fd is always a small non-negative integer on Linux
 	defer unix.Close(rulesetFD)
 
 	home, err := os.UserHomeDir()
@@ -89,6 +116,15 @@ func applyLandlock(cfg *common.ReticulumConfig) error {
 		{"/proc/self", landlockReadOnlyFile},
 		{"/dev/null", landlockReadOnlyFile},
 		{"/dev/urandom", landlockReadOnlyFile},
+		{"/etc/localtime", landlockReadOnlyFile},
+		{"/etc/protocols", landlockReadOnlyFile},
+		{"/etc/services", landlockReadOnlyFile},
+		{"/bin", landlockReadOnlyExecDir},
+		{"/usr/bin", landlockReadOnlyExecDir},
+		{"/usr/local/bin", landlockReadOnlyExecDir},
+		{"/lib", landlockReadOnlyExecDir},
+		{"/lib64", landlockReadOnlyExecDir},
+		{"/usr/lib", landlockReadOnlyExecDir},
 	}
 
 	// If the config lives outside ~/.reticulum-go, whitelist its parent dir.
@@ -100,7 +136,7 @@ func applyLandlock(cfg *common.ReticulumConfig) error {
 	}
 
 	for _, rule := range paths {
-		if err := landlockAddRule(rulesetFD, rule.path, rule.access); err != nil {
+		if err := landlockAddRule(rulesetFD, rule.path, rule.access, accessFS); err != nil {
 			// Skip paths that do not exist. Not every system has every file.
 
 			if err != unix.ENOENT {
@@ -109,9 +145,19 @@ func applyLandlock(cfg *common.ReticulumConfig) error {
 		}
 	}
 
-	_, _, errno = unix.Syscall(unix.SYS_LANDLOCK_RESTRICT_SELF,
-		uintptr(rulesetFD), // #nosec G115 -- converting syscall fd to uintptr for raw syscall
-		0, 0)
+	// Enforce the ruleset process-wide. If ABI version is 8 or newer, we can
+	// use TSYNC. Otherwise, we fallback to AllThreadsSyscall.
+	if abiVersion >= 8 {
+		_, _, errno = unix.Syscall(unix.SYS_LANDLOCK_RESTRICT_SELF,
+			uintptr(rulesetFD),
+			0x8, // LANDLOCK_RESTRICT_SELF_TSYNC
+			0)
+	} else {
+		_, _, errno = syscall.AllThreadsSyscall(unix.SYS_LANDLOCK_RESTRICT_SELF,
+			uintptr(rulesetFD),
+			0,
+			0)
+	}
 	if errno != 0 {
 		return fmt.Errorf("landlock_restrict_self: %w", errno)
 	}
@@ -141,17 +187,22 @@ var landlockAccessFS = uint64(
 		unix.LANDLOCK_ACCESS_FS_MAKE_BLOCK |
 		unix.LANDLOCK_ACCESS_FS_MAKE_SYM |
 		unix.LANDLOCK_ACCESS_FS_TRUNCATE |
-		unix.LANDLOCK_ACCESS_FS_REFER,
+		unix.LANDLOCK_ACCESS_FS_REFER |
+		unix.LANDLOCK_ACCESS_FS_IOCTL_DEV |
+		landlockAccessFSResolveUnix,
 )
+
+const landlockAccessFSResolveUnix = uint64(0x10000)
 
 var landlockReadOnlyFile = uint64(unix.LANDLOCK_ACCESS_FS_READ_FILE)
 var landlockReadOnlyDir = uint64(unix.LANDLOCK_ACCESS_FS_READ_FILE | unix.LANDLOCK_ACCESS_FS_READ_DIR)
+var landlockReadOnlyExecDir = uint64(unix.LANDLOCK_ACCESS_FS_READ_FILE | unix.LANDLOCK_ACCESS_FS_READ_DIR | unix.LANDLOCK_ACCESS_FS_EXECUTE)
 var landlockFullAccess = landlockAccessFS
 
 // landlockAddRule adds a single path-beneath rule to the ruleset.
 // Symlinks are resolved to their targets before the rule is added, and
 // directory-only rights are stripped when the target is a file.
-func landlockAddRule(rulesetFD int, path string, access uint64) error {
+func landlockAddRule(rulesetFD int, path string, access uint64, activeAccessFS uint64) error {
 	// Resolve symlinks so the rule applies to the real inode.
 	resolved, err := filepath.EvalSymlinks(path)
 	if err != nil {
@@ -170,20 +221,28 @@ func landlockAddRule(rulesetFD int, path string, access uint64) error {
 	if err != nil {
 		return err
 	}
-	allowed := access
+	allowed := access & activeAccessFS
 	if !info.IsDir() {
-		allowed &= uint64(unix.LANDLOCK_ACCESS_FS_READ_FILE | unix.LANDLOCK_ACCESS_FS_WRITE_FILE | unix.LANDLOCK_ACCESS_FS_TRUNCATE)
+		allowed &= uint64(unix.LANDLOCK_ACCESS_FS_READ_FILE |
+			unix.LANDLOCK_ACCESS_FS_WRITE_FILE |
+			unix.LANDLOCK_ACCESS_FS_TRUNCATE |
+			unix.LANDLOCK_ACCESS_FS_EXECUTE |
+			unix.LANDLOCK_ACCESS_FS_IOCTL_DEV |
+			landlockAccessFSResolveUnix)
+	}
+	if allowed == 0 {
+		return nil
 	}
 
 	attr := unix.LandlockPathBeneathAttr{
 		Allowed_access: allowed,
-		Parent_fd:      int32(fd), // #nosec G115 -- O_PATH fd from unix.Open is always small non-negative
+		Parent_fd:      int32(fd), // #nosec G115 - O_PATH fd from unix.Open is always small non-negative
 	}
 
 	_, _, errno := unix.Syscall(unix.SYS_LANDLOCK_ADD_RULE,
-		uintptr(rulesetFD), // #nosec G115 -- converting syscall fd to uintptr for raw syscall
+		uintptr(rulesetFD), // #nosec G115 - converting syscall fd to uintptr for raw syscall
 		uintptr(unix.LANDLOCK_RULE_PATH_BENEATH),
-		uintptr(unsafe.Pointer(&attr))) // #nosec G103 -- required for direct Landlock syscall interface
+		uintptr(unsafe.Pointer(&attr))) // #nosec G103 - required for direct Landlock syscall interface
 	if errno != 0 {
 		return errno
 	}
