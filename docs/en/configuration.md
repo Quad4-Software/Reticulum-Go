@@ -1,11 +1,5 @@
 # Configuration
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.0 |
-| Last updated | 2026-07-07 |
-| Author | Ivan |
-
 ## Overview
 
 Reticulum-Go reads the same INI-style configuration shape as Python Reticulum. The canonical parser lives in `pkg/reticulumconfig`. The daemon imports it through `internal/config`.

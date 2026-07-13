@@ -1,11 +1,5 @@
 # Cryptography
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.0 |
-| Last updated | 2026-07-07 |
-| Author | Ivan |
-
 ## Purpose
 
 This document is the canonical cryptography reference for Reticulum-Go. It supports security reviews and correct use of APIs. For vulnerability reporting and CI practices see [Security](security.md).

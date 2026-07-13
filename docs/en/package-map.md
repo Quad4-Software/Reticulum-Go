@@ -1,11 +1,5 @@
 # Package map
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.0 |
-| Last updated | 2026-07-07 |
-| Author | Ivan |
-
 ## Overview
 
 Public API lives under `pkg/`. The daemon and tests import these packages. `internal/` holds daemon-specific wiring that is not a stable import path for external modules.

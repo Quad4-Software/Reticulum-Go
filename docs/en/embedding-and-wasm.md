@@ -1,11 +1,5 @@
 # Embedding and WebAssembly
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.1 |
-| Last updated | 2026-07-09 |
-| Author | Ivan |
-
 ## Integration paths
 
 | Path | Use when |

@@ -1,11 +1,5 @@
 # Compatibility with Python Reticulum
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.1 |
-| Last updated | 2026-07-09 |
-| Author | Ivan |
-
 ## Reference target
 
 Reticulum-Go is tested against **Python RNS 1.3.8** and the [official network API reference](https://reticulum.network/manual/reference.html).

@@ -1,11 +1,5 @@
 # Examples
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.1 |
-| Last updated | 2026-07-09 |
-| Author | Ivan |
-
 Sample programs under `examples/`. They show how to use Reticulum-Go as a library, beside the daemon, from C, or from the browser. They are starting points, not production services.
 
 Pair this page with the [API reference](api-reference.md) for types and recipes.

@@ -1,12 +1,5 @@
 # librns C ABI
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.1 |
-| Last updated | 2026-07-09 |
-| Author | Ivan |
-| Header version | `RNS_API_VERSION` 1.1 |
-
 ## Purpose
 
 `librns` embeds Reticulum in-process for native hosts (C, C++, and similar FFI). It is a thin facade over `pkg/node`, destination, and link. Same wire stack as the daemon. Not a Python API and not a full Control API mirror.

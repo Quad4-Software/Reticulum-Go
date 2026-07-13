@@ -1,11 +1,5 @@
 # Security
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.1 |
-| Last updated | 2026-07-10 |
-| Author | Ivan |
-
 ## Purpose
 
 This page summarizes security practices for Reticulum-Go. The repository root [SECURITY.md](../../SECURITY.md) remains the authoritative source for reporting contacts and detailed CI paths. [Cryptography](cryptography.md) covers algorithms and key handling.

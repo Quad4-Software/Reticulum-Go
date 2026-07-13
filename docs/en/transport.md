@@ -1,11 +1,5 @@
 # Transport
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.1 |
-| Last updated | 2026-07-10 |
-| Author | Ivan |
-
 ## Role
 
 `pkg/transport` is the routing engine. It learns paths from signed announces, forwards packets across interfaces, maintains link table state, and delivers data packets to registered destinations.

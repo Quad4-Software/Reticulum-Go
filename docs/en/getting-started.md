@@ -1,11 +1,5 @@
 # Getting started
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.0 |
-| Last updated | 2026-07-07 |
-| Author | Ivan |
-
 ## Requirements
 
 - Go 1.26.4 or later

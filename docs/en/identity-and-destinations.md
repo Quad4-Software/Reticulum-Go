@@ -1,11 +1,5 @@
 # Identity and destinations
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.0 |
-| Last updated | 2026-07-07 |
-| Author | Ivan |
-
 ## Identity
 
 A Reticulum identity is the root cryptographic principal for signing announces, establishing links, and encrypting identity-layer messages.

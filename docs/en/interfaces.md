@@ -1,11 +1,5 @@
 # Interfaces
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.0 |
-| Last updated | 2026-07-07 |
-| Author | Ivan |
-
 ## Role
 
 Interfaces move Reticulum packets between the transport layer and a physical or virtual medium. All implementations live in `pkg/interfaces` and conform to the `Interface` contract defined in `interface.go`.
@@ -81,7 +75,7 @@ Two configuration paths:
 1. **Automatic (Python-compatible):** `share_instance = yes` in `[reticulum]` via `pkg/sharedinstance`
 2. **Explicit interface block:** `type = LocalInterface` or `type = LocalServerInterface` in `[[...]]`
 
-Local clients set `ConnectedToSharedInstance` and skip path-request ingress limiting, matching Python behaviour.
+Local clients set `ConnectedToSharedInstance` and skip path-request ingress limiting, matching Python behavior.
 
 ## UDPInterface
 
@@ -123,7 +117,7 @@ Modes match Python RNS wire values (`full` 0x01 through `internal` 0x07). Set wi
 
 | Mode | Effect (summary) |
 |------|------------------|
-| `full` | Default. Normal announce and path behaviour |
+| `full` | Default. Normal announce and path behavior |
 | `access_point` | Does not rebroadcast announces |
 | `gateway` / `roaming` / `internal` | Participate in unknown-path discovery (`DISCOVER_PATHS_FOR`) |
 | `boundary` / `roaming` / `internal` | Extra announce forward filters vs next-hop mode (RNS 1.3.6+) |

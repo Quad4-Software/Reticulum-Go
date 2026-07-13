@@ -1,11 +1,5 @@
 # Overview
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.0 |
-| Last updated | 2026-07-07 |
-| Author | Ivan |
-
 ## What is Reticulum-Go
 
 Reticulum-Go is a Go implementation of the [Reticulum Network Stack](https://reticulum.network/). Reticulum is a cryptographic mesh networking protocol designed for resilient communication over heterogeneous links. It can run over UDP, TCP, radio hardware, I2P, and other transports without assuming a single global internet path.

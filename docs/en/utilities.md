@@ -1,11 +1,5 @@
 # CLI utilities
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.1 |
-| Last updated | 2026-07-09 |
-| Author | Ivan |
-
 Go-native tools that speak the same shared-instance msgpack RPC and identity file formats as Python `rnstatus`, `rnid`, `rnprobe`, `rnpath`, `rncp`, and `rnx`. They are not Python clones.
 
 They ship as **subcommands of the single `reticulum-go` binary**:

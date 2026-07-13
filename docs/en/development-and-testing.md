@@ -1,11 +1,5 @@
 # Development and testing
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.0 |
-| Last updated | 2026-07-07 |
-| Author | Ivan |
-
 ## Development environment
 
 Requirements:

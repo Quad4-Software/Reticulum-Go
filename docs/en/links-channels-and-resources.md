@@ -1,11 +1,5 @@
 # Links, channels, and resources
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.1 |
-| Last updated | 2026-07-10 |
-| Author | Ivan |
-
 ## Overview
 
 Above raw destination packets, Reticulum provides encrypted links for session-oriented communication. On a link you can use:
