@@ -345,6 +345,10 @@ Ordinary source checkouts only need the `vendor/` directories to build offline. 
 
 The `examples/wasm` and `examples/pageserver` examples contain their own independent `go.mod` and `vendor/` files. The Docker configurations under `docker/` copy these folders to build matching containers offline.
 
+## AI Disclaimer
+
+Open-weight LLMs, preferebly local ones with correct harness, may be used for commit messages, documentation, drafts, translations, and tests. Everything is verified and decided by a human, LLMs do not make design choices. If this makes you uncomfortable then you should not use this stack and stick to reference implementation. 
+
 ## Credit
 
 *   [Mark Qvist](https://github.com/markqvist) for designing and implementing the reference Reticulum Network Stack.
