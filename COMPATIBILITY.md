@@ -1,10 +1,10 @@
 # Compatibility with Python Reticulum
 
-This document maps how Reticulum-Go compares to the official [Reticulum network API reference](https://reticulum.network/manual/reference.html) and the reference *rns* Python package (**RNS 1.3.8**).
+This document compares Reticulum-Go with the official [Reticulum network API reference](https://reticulum.network/manual/reference.html) and the reference *rns* Python package (**RNS 1.3.8**).
 
 Crossref tests clone the reference from `rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum` via [rngit](https://reticulum.network/manual/git.html) (`tests/crossref/run_crossref.sh`). The GitHub mirror at [markqvist/Reticulum](https://github.com/markqvist/Reticulum) is no longer used for vectors.
 
-For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). For behaviour and threat model see [SECURITY.md](SECURITY.md). Full English docs: [docs/en/](docs/en/README.md).
+For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). For behavior and threat model see [SECURITY.md](SECURITY.md). Full English docs: [docs/en/](docs/en/README.md).
 
 ## Table
 
@@ -14,7 +14,7 @@ For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). F
 | Identity | Yes | Key generation, recall, sign/verify, encrypt/decrypt, ratchets. Optional 72-byte hardware-bound descriptor (RHB1). On-wire Ed25519 public key matches [RNS.Identity](https://github.com/markqvist/Reticulum/blob/master/RNS/Identity.py). Python `Identity.from_file` expects the 64-byte software layout only today. |
 | Destination | Yes | SINGLE, GROUP, PLAIN, LINK. Announce and request handlers, links in and out. |
 | Packet | Yes | Header types 1 and 2, all packet types and contexts. Byte-for-byte parity in crossref. |
-| Transport | Yes | Core wire behaviour matches Python 1.3.8: path table, announces, RequestPath, hops, next-hop, type-2 rewrap, link-table forwarding, persistence, ingress control, random-blob path selection (1.3.4 dedup), interface mode announce rules and `MODE_INTERNAL` (1.3.6), ephemeral transport identity when transport is off (1.3.6). Probe responses via `respond_to_probes` / `allow_probes`, `local_hops_delta` hop mangling, and blackhole teardown at LINKIDENTIFY are implemented. Incoming links use `link.HandleIncomingLinkRequest`. Unpack rejects hop counts `>= PATHFINDER_M` (1.3.8). |
+| Transport | Yes | Core wire behavior matches Python 1.3.8: path table, announces, RequestPath, hops, next-hop, type-2 rewrap, link-table forwarding, persistence, ingress control, random-blob path selection (1.3.4 dedup), interface mode announce rules and `MODE_INTERNAL` (1.3.6), ephemeral transport identity when transport is off (1.3.6). Probe responses via `respond_to_probes` / `allow_probes`, `local_hops_delta` hop mangling, and blackhole teardown at LINKIDENTIFY are implemented. Incoming links use `link.HandleIncomingLinkRequest`. Unpack rejects hop counts `>= PATHFINDER_M` (1.3.8). |
 | Interfaces | Partial | See [Interfaces](#interfaces) below. |
 | Discovery (RNS.Discovery, rnstransport) | Partial | [pkg/discovery](pkg/discovery/) mirrors wire constants, LXStamper, msgpack layouts. `discover_interfaces` starts rnstransport listening via [pkg/node](pkg/node/) `StartInterfaceDiscovery`. InterfaceAnnouncer, BlackholeUpdater, and autoconnect loops are not auto-started. Build with `BuildAppData`, decode with `ValidateAndDecode`. Separate from AutoInterface multicast discovery. |
 | Blackhole | Partial | [pkg/blackhole](pkg/blackhole/) covers table semantics, msgpack, expiry, MergeRemote, EncodeForRequest. Announces from listed identities are dropped. Links from blackholed identities are torn down at LINKIDENTIFY. `/list` over rnstransport needs the RNS Request layer (not ported). `publish_blackhole`, `blackhole_sources`, `blackhole_update_interval` are ignored (deferred). |
@@ -78,7 +78,7 @@ Go-only embedder API in [pkg/node](pkg/node/) and the control API (`POST /v1/lif
 
 Native hosts that cannot import Go can use [pkg/librns](pkg/librns/) (`include/rns.h`, `bin/librns.so`) for the same in-process stack. See [docs/en/librns.md](docs/en/librns.md). Out-of-process clients use the control API instead.
 
-| API | Behaviour |
+| API | Behavior |
 |-----|-----------|
 | `OnNetworkAvailable` | Clears link pause, rescans Auto NICs, starts offline interfaces, re-registers transport, optionally re-establishes watched links |
 | `OnNetworkLost` | Sets link pause. Default mode calls `Disable()` on interfaces. Reconnect goroutines may run until I/O fails. |
@@ -89,7 +89,7 @@ Native hosts that cannot import Go can use [pkg/librns](pkg/librns/) (`include/r
 
 ## Python 1.2.x to 1.3.8 changes vs Go
 
-Wire format is unchanged in 1.2.x to 1.3.x. Most churn is utilities and transport behaviour.
+Wire format is unchanged in 1.2.x to 1.3.x. Most churn is utilities and transport behavior.
 
 | Python change | Version | Go status |
 |---------------|---------|-----------|
@@ -136,7 +136,7 @@ Wire format is unchanged in 1.2.x to 1.3.x. Most churn is utilities and transpor
 
 Intentional extensions beyond upstream *rns*:
 
-| Area | Go behaviour |
+| Area | Go behavior |
 |------|--------------|
 | Path table persistence | RAM-only when no config path. Explicit opt-in for disk. |
 | Interface hot reload | `ReloadInterfaces`, transport scrub on unregister |
