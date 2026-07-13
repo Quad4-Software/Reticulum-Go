@@ -140,7 +140,7 @@ tasks:
       - sh scripts/ci/reproducibility-build.sh
 
   tree-manifest:
-    desc: Print SHA-256 inventory of git-tracked files (excludes reticulum-go.rsm)
+    desc: Print SHA-256 inventory of git-tracked files (excludes reticulum-go.rsm and vendor/)
     cmds:
       - sh scripts/ci/tree-manifest.sh generate
 
