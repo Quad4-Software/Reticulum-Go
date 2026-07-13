@@ -90,7 +90,7 @@ func TestHandleTableProperty(t *testing.T) {
 				live = append(live[:idx], live[idx+1:]...)
 			case 3:
 				if _, err := tbl.get(uint64(op)+1, kindNode); err == nil {
-					// may legitimately exist; only fail if not in live
+					// may legitimately exist, so only fail if not in live
 					found := false
 					for _, e := range live {
 						if e.id == uint64(op)+1 {

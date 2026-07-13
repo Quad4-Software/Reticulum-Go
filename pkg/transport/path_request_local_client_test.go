@@ -1167,7 +1167,7 @@ func TestLocalClientPR_ReceivedPathRequestAccounting(t *testing.T) {
 	tag := bytes.Repeat([]byte{0xCC}, 16)
 	data := append(append([]byte{}, dest...), tag...)
 
-	// This must not panic; ReceivedPathRequest is a no-op on BaseInterface
+	// This must not panic, as ReceivedPathRequest is a no-op on BaseInterface
 	// but is still called. The forwarded PR should land on wan.
 	tr.handlePathRequest(data, lc)
 
@@ -1190,7 +1190,7 @@ func TestLiveInteropPythonSharedClientPathRequestThroughGoServer(t *testing.T) {
 		t.Skip("set RUN_LIVE_INTEROP=1 to run live Python-Go path request interop")
 	}
 
-	// This test is in the interop package; see
+	// This test is in the interop package. See
 	// tests/interop/path_request_shared_live_test.go for the full implementation.
 	t.Skip("see tests/interop/path_request_shared_live_test.go")
 }

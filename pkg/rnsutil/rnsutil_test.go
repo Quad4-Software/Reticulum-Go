@@ -195,3 +195,24 @@ func TestDialRPCRequiresConfig(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+func BenchmarkDestinationHash(b *testing.B) {
+	id, err := identity.NewIdentity()
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = destination.Hash(id, "exampleapp", "aspect")
+	}
+}
+
+func BenchmarkPrettyHex(b *testing.B) {
+	h := make([]byte, 16)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = PrettyHex(h)
+	}
+}

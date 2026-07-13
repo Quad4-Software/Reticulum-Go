@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package link
 
 import (
@@ -86,7 +87,7 @@ type Link struct {
 	keepalive            time.Duration
 	staleTime            time.Duration
 	initiator            bool
-	expectedHops uint8
+	expectedHops         uint8
 
 	prv           []byte
 	sigPriv       ed25519.PrivateKey

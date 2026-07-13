@@ -34,7 +34,7 @@ func TestEncodeInfoOmitsZeroOptionals(t *testing.T) {
 		t.Error("HasPort should be false when Port unset")
 	}
 	// EncodeInfo always emits geo fields (even when zero), so HasGeo is true
-	// after a round-trip; the values themselves should remain zero.
+	// after a round-trip, and the values themselves should remain zero.
 	if out.Latitude != 0 || out.Longitude != 0 || out.Height != 0 {
 		t.Errorf("geo fields should be zero, got %+v", out)
 	}

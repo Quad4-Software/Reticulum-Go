@@ -204,7 +204,7 @@ func TestLiveRgoxCLIAgainstGoListenerUDP(t *testing.T) {
 	destHex := hex.EncodeToString(dest.GetHash())
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
-	// -N skips identify; listener uses AllowAll
+	// -N skips identify and listener uses AllowAll
 	cmd := exec.CommandContext(ctx, rgox, "-config", cfgDirB, "-N", "-json", destHex, "echo", "cli-rnx-ok")
 	out, err := cmd.CombinedOutput()
 	if err != nil {

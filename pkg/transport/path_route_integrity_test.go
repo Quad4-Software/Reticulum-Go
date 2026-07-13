@@ -81,7 +81,7 @@ func TestProcessPathRequest_rewritesAnnounceWhenNextHopIsNotRequestor(t *testing
 	oldEntry := &PathAnnounceEntry{
 		CreatedAt:         time.Now().Add(-time.Hour),
 		Packet:            oldPkt,
-		AttachedInterface: wan, // in-flight delivery; should be held across replace
+		AttachedInterface: wan, // in-flight delivery, should be held across replace
 	}
 
 	tr.mutex.Lock()

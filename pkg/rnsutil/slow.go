@@ -518,7 +518,7 @@ func WriteSlowJSON(w io.Writer, rep SlowReport) error {
 
 // WriteSlowHuman prints a readable bottleneck report.
 func WriteSlowHuman(w io.Writer, rep SlowReport) error {
-	title := "rgoslow — transfer bottleneck report"
+	title := "rgoslow - transfer bottleneck report"
 	fmt.Fprintln(w, term.BoldW(w, title))
 	fmt.Fprintf(w, "RPC %s", rep.RPCAddr)
 	if rep.TransportID != "" {

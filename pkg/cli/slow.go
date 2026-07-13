@@ -33,7 +33,7 @@ func RunSlow(args []string, opt ...Options) int {
 	withPaths := fs.Bool("paths", false, "include full path-table analysis (can be slow on large tables)")
 
 	fs.Usage = func() {
-		fmt.Fprintf(stderr, `rgoslow — find interfaces, paths, and transports slowing transfers
+		fmt.Fprintf(stderr, `rgoslow - find interfaces, paths, and transports slowing transfers
 
 Queries a running shared instance (Go reticulum-go or Python rnsd) over RPC
 and ranks congestion signals that commonly stall resource transfers:

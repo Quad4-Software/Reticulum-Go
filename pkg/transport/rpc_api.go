@@ -353,7 +353,7 @@ func (t *Transport) GetBlackholedIdentitiesRPC() map[string]any {
 	out := make(map[string]any, len(snap))
 	for _, e := range snap {
 		// Blackhole maps are keyed by raw identity hash bytes. Msgpack map
-		// keys that are binary decode as string in some clients; use hex for
+		// keys that are binary decode as string in some clients, so use hex for
 		// stable Go JSON tools and also include identity field in the value.
 		key := string(e.Hash[:])
 		out[key] = map[string]any{

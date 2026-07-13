@@ -38,7 +38,7 @@ func TestAnalyzeSlowRanksSaturatedInterface(t *testing.T) {
 		},
 	}
 	paths := make([]transport.PathTableEntry, 0, 40)
-	for i := 0; i < 40; i++ {
+	for i := range 40 {
 		h := make([]byte, 16)
 		h[0] = byte(i)
 		paths = append(paths, transport.PathTableEntry{

@@ -4,7 +4,10 @@
 package cryptography
 
 import (
+	"bytes"
 	"testing"
+
+	"quad4/pbt/pkg/pbt"
 )
 
 func TestGenerateHMACKey(t *testing.T) {
@@ -80,4 +83,40 @@ func TestComputeAndValidateHMAC(t *testing.T) {
 	if ValidateHMAC(key, message, emptyHMAC) {
 		t.Errorf("ValidateHMAC succeeded comparing non-empty message with empty HMAC")
 	}
+}
+
+func TestPBTHMACValidate(t *testing.T) {
+	keyMsg := pbt.Tuple2(
+		"keyMsg",
+		byteSliceNonEmpty(64),
+		byteSliceMaybeEmpty(2048),
+	)
+	prop := pbt.ForAll(
+		"hmac validate accepts computed mac and rejects tamper",
+		keyMsg,
+		func(in pbt.Tuple2Value[[]byte, []byte]) bool {
+			key := in.First
+			msg := in.Second
+			mac := ComputeHMAC(key, msg)
+			if !ValidateHMAC(key, msg, mac) {
+				return false
+			}
+			if len(msg) > 0 {
+				tam := bytes.Clone(msg)
+				tam[0] ^= 0x01
+				if ValidateHMAC(key, tam, mac) {
+					return false
+				}
+			}
+			if len(mac) > 0 {
+				bad := bytes.Clone(mac)
+				bad[0] ^= 0x01
+				if ValidateHMAC(key, msg, bad) {
+					return false
+				}
+			}
+			return true
+		},
+	)
+	pbt.Check(t, prop, pbt.WithRuns(100), pbt.WithSeed(11))
 }
