@@ -10,7 +10,7 @@
 .PHONY: all build build-utils install uninstall clean test fmt vet lint vulncheck gosec check deps run help
 .PHONY: build-linux build-windows build-windows-legacy build-darwin build-all
 .PHONY: test-short test-race test-crossref test-wasm test-all coverage bench debug release
-.PHONY: man install-man package package-deb package-rpm
+.PHONY: man install-man package package-deb package-rpm package-arch
 
 .DEFAULT_GOAL := all
 
@@ -54,6 +54,7 @@ help:
 	@echo "  uninstall      Remove installed files"
 	@echo "  package-deb    Build .deb into dist/ (nfpm)"
 	@echo "  package-rpm    Build .rpm into dist/ (nfpm)"
+	@echo "  package-arch   Build .pkg.tar.zst into dist/ (nfpm)"
 	@echo "  test           Run tests"
 	@echo "  check          fmt vet lint test-short vulncheck gosec"
 	@echo "Variables: PREFIX=$(PREFIX) DESTDIR=$(DESTDIR) VERSION=$(VERSION)"
@@ -170,7 +171,7 @@ man:
 	@echo "Man pages live in man/ (installed by make install / make install-man)"
 	@ls -1 man/*.1 man/*.8
 
-package: package-deb package-rpm
+package: package-deb package-rpm package-arch
 
 package-deb: build
 	@mkdir -p dist
@@ -187,6 +188,14 @@ package-rpm: build
 		env GOFLAGS= GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct \
 		$(GOCMD) run github.com/goreleaser/nfpm/v2/cmd/nfpm@$(NFPM_VER) package \
 		--config packaging/nfpm.yaml --packager rpm --target dist/
+
+package-arch: build
+	@mkdir -p dist
+	@ARCH=$$(uname -m | sed 's/armv7l/armv7h/'); \
+		VERSION="$(PKG_VERSION)" BINARY="$(CURDIR)/$(BUILD_DIR)/$(BINARY_NAME)" ARCH="$$ARCH" \
+		env GOFLAGS= GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct \
+		$(GOCMD) run github.com/goreleaser/nfpm/v2/cmd/nfpm@$(NFPM_VER) package \
+		--config packaging/nfpm.yaml --packager archlinux --target dist/
 
 build-linux:
 	@mkdir -p $(BUILD_DIR)
