@@ -12,6 +12,10 @@ inputs:
     description: When set, install revive at this version
     required: false
     default: ""
+  skip_tree_verify:
+    description: Set to true to skip reticulum-go.rsm byte-level verify
+    required: false
+    default: "false"
 runs:
   using: composite
   steps:
@@ -31,3 +35,11 @@ runs:
       if: inputs.revive_version != ''
       shell: sh
       run: sh scripts/ci/setup-revive.sh "${{ inputs.revive_version }}"
+
+    - name: Verify tree RSM
+      if: inputs.skip_tree_verify != 'true'
+      shell: sh
+      env:
+        RNS_REQUIRED_SIGNER: e46112d44649266d71fe2193e00a4710
+        RNS_INVENTORY_OUT: ${{ runner.temp }}/reticulum-go-tree-inventory.txt
+      run: sh scripts/ci/verify-tree-rsm.sh

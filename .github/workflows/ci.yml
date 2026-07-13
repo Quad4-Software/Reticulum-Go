@@ -29,6 +29,7 @@ env:
   GOPROXY: "off"
   GOTOOLCHAIN: local
   TESTSUMMARY_QUIET: "1"
+  RNS_REQUIRED_SIGNER: e46112d44649266d71fe2193e00a4710
 
 jobs:
   lint:
@@ -54,6 +55,9 @@ jobs:
 
       - name: Revive
         run: task lint
+
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test:
     name: Test (${{ matrix.os }}, ${{ matrix.goarch }})
@@ -90,6 +94,9 @@ jobs:
       - name: Run tests
         run: task test
 
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
+
   test-os-matrix:
     name: OS runtime (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -121,6 +128,9 @@ jobs:
       - name: Run binary smoke test
         run: task test-binary-smoke
 
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
+
   test-mutation:
     name: Mutation testing
     runs-on: ubuntu-latest
@@ -137,6 +147,9 @@ jobs:
 
       - name: Run mutation tests
         run: task test-mutation
+
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-extra:
     name: Extra (${{ matrix.suite }})
@@ -185,6 +198,9 @@ jobs:
             *) echo "unknown suite: ${{ matrix.suite }}" >&2; exit 1 ;;
           esac
 
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
+
   build:
     name: Build (${{ matrix.goos }}, ${{ matrix.goarch }})
     runs-on: ubuntu-latest
@@ -226,6 +242,9 @@ jobs:
             task build
           fi
 
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
+
   build-windows-legacy:
     name: Build (windows, ${{ matrix.goarch }}, win7)
     runs-on: ubuntu-latest
@@ -257,6 +276,9 @@ jobs:
           mkdir -p bin
           go build -ldflags="-s -w" -o "bin/reticulum-go-windows-${{ matrix.goarch }}-win7.exe" ./cmd/reticulum-go
 
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
+
   reproducibility:
     name: Reproducible build
     runs-on: ubuntu-latest
@@ -274,6 +296,9 @@ jobs:
       - name: Verify byte-identical release builds
         run: task reproducibility
 
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
+
   benchmark:
     name: Benchmark gate
     runs-on: ubuntu-latest
@@ -290,3 +315,6 @@ jobs:
 
       - name: Run benchmark thresholds
         run: task test-bench-gate
+
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean

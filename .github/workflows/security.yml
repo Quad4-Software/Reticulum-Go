@@ -26,6 +26,7 @@ env:
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
   GOTOOLCHAIN: local
+  RNS_REQUIRED_SIGNER: e46112d44649266d71fe2193e00a4710
 
 jobs:
   static-scan:
@@ -61,6 +62,9 @@ jobs:
       - name: Run ${{ matrix.scanner }}
         run: task ${{ matrix.task }}
 
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
+
   trivy:
     name: Trivy
     runs-on: ubuntu-latest
@@ -83,6 +87,9 @@ jobs:
 
       - name: Filesystem scan
         run: task trivy:ci
+
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
 
   sbom:
     name: SBOM

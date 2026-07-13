@@ -139,6 +139,26 @@ tasks:
     cmds:
       - sh scripts/ci/reproducibility-build.sh
 
+  tree-manifest:
+    desc: Print SHA-256 inventory of git-tracked files (excludes reticulum-go.rsm)
+    cmds:
+      - sh scripts/ci/tree-manifest.sh generate
+
+  tree-rsm-sign:
+    desc: Sign tree inventory into reticulum-go.rsm (requires RNS_ID_PATH)
+    cmds:
+      - sh scripts/ci/sign-tree-rsm.sh
+
+  tree-rsm-verify:
+    desc: Verify reticulum-go.rsm signature and byte-level file hashes
+    cmds:
+      - sh scripts/ci/verify-tree-rsm.sh
+
+  tree-workspace-clean:
+    desc: Recheck inventory and fail on unexpected workspace changes
+    cmds:
+      - sh scripts/ci/verify-workspace-clean.sh "${RNS_INVENTORY_OUT:-/tmp/reticulum-go-tree-inventory.txt}"
+
   vendor-sync:
     desc: Refresh vendor trees from Reticulum-Go-Projects
     cmds:

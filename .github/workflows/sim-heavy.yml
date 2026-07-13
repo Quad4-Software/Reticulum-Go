@@ -23,6 +23,7 @@ env:
   GOPROXY: "off"
   GOTOOLCHAIN: local
   TESTSUMMARY_QUIET: "1"
+  RNS_REQUIRED_SIGNER: e46112d44649266d71fe2193e00a4710
 
 jobs:
   sim-heavy:
@@ -41,3 +42,6 @@ jobs:
 
       - name: Run heavy simulation tests
         run: task test-sim-heavy
+
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
