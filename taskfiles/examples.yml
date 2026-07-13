@@ -36,55 +36,7 @@ tasks:
     cmds:
       - task: test-wasm
 
-  "example:announce":
-    desc: Run announce example
-    cmds:
-      - 'cd examples/announce && {{.GOCMD}} run .'
-
-  "example:minimal":
-    desc: Run minimal example
-    cmds:
-      - 'cd examples/minimal && {{.GOCMD}} run .'
-
   "example:pageserver":
     desc: Run pageserver example
     cmds:
       - 'cd examples/pageserver && {{.GOCMD}} run .'
-
-  "example:echo-listen":
-    desc: Run echo example (waits for incoming connections, P2P peer)
-    cmds:
-      - 'cd examples/echo && {{.GOCMD}} run . --server'
-
-  "example:echo-connect":
-    desc: Run echo example (initiates connection to peer, requires DESTINATION env var)
-    requires:
-      vars: [DESTINATION]
-    cmds:
-      - 'cd examples/echo && {{.GOCMD}} run . --destination="${DESTINATION}"'
-
-  "example:link-listen":
-    desc: Run link example (waits for incoming link requests, P2P peer)
-    cmds:
-      - 'cd examples/link && {{.GOCMD}} run . --server'
-
-  "example:link-connect":
-    desc: Run link example (initiates link to peer, requires DESTINATION env var)
-    requires:
-      vars: [DESTINATION]
-    cmds:
-      - 'cd examples/link && {{.GOCMD}} run . --destination="${DESTINATION}"'
-
-  "example:filetransfer-share":
-    desc: Run filetransfer example (shares files from directory, P2P peer)
-    requires:
-      vars: [SERVE_PATH]
-    cmds:
-      - 'cd examples/filetransfer && {{.GOCMD}} run . --server --serve="${SERVE_PATH}"'
-
-  "example:filetransfer-fetch":
-    desc: Run filetransfer example (fetches files from peer, requires DESTINATION env var)
-    requires:
-      vars: [DESTINATION]
-    cmds:
-      - 'cd examples/filetransfer && {{.GOCMD}} run . --destination="${DESTINATION}"'
