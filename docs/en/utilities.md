@@ -132,10 +132,14 @@ Examples:
 ./bin/reticulum-go id -i id.rid -s file.bin -f
 ./bin/reticulum-go id -i id.rid -V file.bin
 ./bin/reticulum-go id -i id.rid -S "hello" -w note -f
+./bin/reticulum-go id -i id.rid -S @inventory.txt -w reticulum-go.rsm -f
 ./bin/reticulum-go id -V note.rsm
+./bin/reticulum-go id -i e46112d44649266d71fe2193e00a4710 -V reticulum-go.rsm -extract
 ./bin/reticulum-go id -i id.rid -e secret.txt -f
 ./bin/reticulum-go id -i id.rid -d secret.txt.rfe -f
 ```
+
+`-S @path` reads the message body from a file (needed for large tree inventories). `-extract` prints only the embedded RSM message after a successful verify. `-i` may be a 32-character identity hash when verifying (no private key required).
 
 Go-signed `.rsg` / `.rsm` / `.rfe` validate with Python `rnid`, and the reverse also works.
 

@@ -63,6 +63,8 @@ Application code should use `pkg/cryptography` and `pkg/identity`. IFAC configur
 
 **Actions pinning.** GitHub-owned actions are pinned to full commit SHAs where this repository pins them.
 
+**Tree integrity.** Root file `reticulum-go.rsm` is an rnid signed message embedding SHA-256 hashes of tracked files. CI verifies signer `e46112d44649266d71fe2193e00a4710` and rechecks bytes at job start and end (`task tree-rsm-verify`).
+
 ## Releases
 
 Tagged releases publish from `.github/workflows/publish.yml` on GitHub Actions.

@@ -39,6 +39,23 @@ We take supply chain security seriously and use pinning to protect our builds:
 *   **Third-party GitHub Actions:** We pin third-party actions to specific commit hashes instead of version tags. This prevents unexpected updates from modifying our build environments. You can see these hashes in the comments at the top of our workflow files.
 *   **Build and Security Tools:** We pin the versions of all compilers and scanners inside our workflow environment blocks.
 
+### Source tree integrity (`.rsm`)
+
+The repository root includes a signed rnid message file, `reticulum-go.rsm`. It embeds a SHA-256 inventory of every git-tracked file (except itself). CI verifies the signature against the required signer identity `e46112d44649266d71fe2193e00a4710`, then re-hashes file bytes. Jobs also recheck the inventory at the end so a compromised runner cannot silently add or modify tracked files.
+
+Verify locally:
+
+```bash
+task tree-rsm-verify
+```
+
+Maintainers regenerate the signature after intentional tree changes (requires a private identity file that hashes to the signer above, never commit `*.rid`):
+
+```bash
+export RNS_ID_PATH="$HOME/.local/share/reticulum-go/reticulum-go-release.rid"
+task tree-rsm-sign
+```
+
 ### Release Provenance and Verification
 
 When we publish a release, we build the binaries, WebAssembly targets, and pageserver examples. We also generate software bills of materials (SBOMs) using Trivy. 
