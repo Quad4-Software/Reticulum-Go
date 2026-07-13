@@ -154,6 +154,11 @@ tasks:
     cmds:
       - sh scripts/ci/verify-tree-rsm.sh
 
+  hooks:install:
+    desc: Enable tracked .githooks (pre-commit resigns reticulum-go.rsm)
+    cmds:
+      - sh scripts/ci/install-git-hooks.sh
+
   tree-workspace-clean:
     desc: Recheck inventory and fail on unexpected workspace changes
     cmds:

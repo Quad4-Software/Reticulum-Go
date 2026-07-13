@@ -56,6 +56,14 @@ export RNS_ID_PATH="$HOME/.local/share/reticulum-go/reticulum-go-release.rid"
 task tree-rsm-sign
 ```
 
+Enable the tracked pre-commit hook so commits that change inventory paths resign `reticulum-go.rsm` automatically when that identity is available:
+
+```bash
+task hooks:install
+```
+
+Skip one commit with `SKIP_TREE_RSM_HOOK=1`.
+
 ### Release Provenance and Verification
 
 When we publish a release, we build the binaries, WebAssembly targets, and pageserver examples. We also generate software bills of materials (SBOMs) using Trivy. 
