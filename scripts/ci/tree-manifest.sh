@@ -6,6 +6,9 @@
 #   <sha256-hex>  <path>
 #
 # reticulum-go.rsm is excluded from the inventory (avoids a self-hash cycle).
+# Paths under any vendor/ directory are excluded (Go module vendor trees and
+# nested example copies are refreshed by vendor-sync and are not first-party
+# inventory).
 #
 # Usage:
 #   tree-manifest.sh generate              write inventory to stdout
@@ -18,6 +21,18 @@ cd "$ROOT"
 
 MANIFEST_HEADER="# reticulum-go tree manifest v1"
 EXCLUDE_RSM="reticulum-go.rsm"
+
+# True when path is the root RSM or lives under a vendor directory.
+is_excluded_path() {
+	f="$1"
+	[ "$f" = "$EXCLUDE_RSM" ] && return 0
+	case "$f" in
+	vendor | vendor/* | */vendor | */vendor/*)
+		return 0
+		;;
+	esac
+	return 1
+}
 
 file_sha256_stream() {
 	if command -v sha256sum >/dev/null 2>&1; then
@@ -44,7 +59,9 @@ index_sha256() {
 generate() {
 	printf '%s\n' "$MANIFEST_HEADER"
 	git ls-files -z | sort -z | while IFS= read -r -d '' f; do
-		[ "$f" = "$EXCLUDE_RSM" ] && continue
+		if is_excluded_path "$f"; then
+			continue
+		fi
 		# Skip if not present in the index as a regular blob
 		if ! git cat-file -e ":$f" 2>/dev/null; then
 			continue
@@ -109,7 +126,9 @@ verify() {
 		tmp_tracked="${tmp}.tracked"
 		: >"$tmp_tracked"
 		git ls-files -z | sort -z | while IFS= read -r -d '' f; do
-			[ "$f" = "$EXCLUDE_RSM" ] && continue
+			if is_excluded_path "$f"; then
+				continue
+			fi
 			[ -f "$f" ] || continue
 			[ -L "$f" ] && continue
 			printf '%s\n' "$f"
