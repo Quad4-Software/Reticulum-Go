@@ -73,6 +73,7 @@ __pycache__/
 /*.rid
 /*.rsg
 /*.rsm
+!/reticulum-go.rsm
 /*.rfe
 /*.pub
 dist/
