@@ -2,6 +2,11 @@
 
 A high-performance and [secure](SECURITY.md) Go implementation of the [Reticulum Network Stack](https://github.com/markqvist/Reticulum).
 
+Available on rngit:
+
+NomadNet Node: `132f67e79d9b24aad014e93015fb858f:/page/index.mu`
+`git clone rns://06a54b505bb67b25ef3f8097e8001edc/public/Reticulum-Go`
+
 ## Overview
 
 Reticulum-Go provides full protocol compatibility with the Python reference implementation. It leverages the Go concurrency model to deliver improved throughput and lower latency. The implementation is designed for cross-platform deployment across both modern and legacy systems.
@@ -115,11 +120,12 @@ CGO_ENABLED=0 go install -ldflags="-s -w" ./cmd/reticulum-go
 
 ### Packaging
 
-Build `.deb` or `.rpm` packages using [nfpm](https://nfpm.goreleaser.com/). The tool is fetched on demand:
+Build `.deb`, `.rpm`, or `.pkg.tar.zst` packages using [nfpm](https://nfpm.goreleaser.com/). The tool is fetched on demand:
 
 ```bash
 make package-deb
 make package-rpm
+make package-arch
 ```
 
 The package files are placed in the `dist/` folder. The packaging options are configured in [packaging/nfpm.yaml](packaging/nfpm.yaml).
@@ -183,6 +189,7 @@ go test -v ./...
 | `make install-man` | Installs only the manual pages. | Installs `man/*.1` and `man/*.8` files. |
 | `make package-deb` | Builds a Debian package. | Output is placed in `dist/`. |
 | `make package-rpm` | Builds an RPM package. | Output is placed in `dist/`. |
+| `make package-arch` | Builds an Arch Linux package. | Output is placed in `dist/`. |
 | `make uninstall` | Removes the binary, symlinks, and man pages. | Deletes files from the installation prefix. |
 | `make clean` | Deletes build and test artifacts. | Runs `go clean` and removes the `bin` directory. |
 | `make test` | Runs the full test suite. | Runs `go test -v ./...` |
@@ -340,7 +347,7 @@ The `examples/wasm` and `examples/pageserver` examples contain their own indepen
 
 ## Credit
 
-*   [Mark Qvist](https://github.com/markqvist) for designing and implementing the original Reticulum Network Stack.
+*   [Mark Qvist](https://github.com/markqvist) for designing and implementing the reference Reticulum Network Stack.
 
 ## License
 
