@@ -347,7 +347,7 @@ The `examples/wasm` and `examples/pageserver` examples contain their own indepen
 
 ## AI Disclaimer
 
-Open-weight LLMs, preferebly local ones with correct harness, may be used for commit messages, documentation, drafts, translations, and tests. Everything is verified and decided by a human, LLMs do not make design choices. If this makes you uncomfortable then you should not use this stack and stick to reference implementation. 
+Open-weight LLMs, preferably local ones with correct harness, may be used for commit messages, documentation, drafts, translations, and tests. Everything is verified and decided by a human, LLMs do not make design choices. If this makes you uncomfortable then you should not use this stack and stick to reference implementation. 
 
 ## Credit
 
