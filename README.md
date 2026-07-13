@@ -210,6 +210,9 @@ go test -v ./...
 | `make build-windows-legacy` | Cross-compiles for legacy Windows releases. | Compiles Windows 7, 8, and 8.1 support using go-legacy-win7. |
 | `make build-darwin` | Cross-compiles for macOS. | Cross-compiles for amd64 and arm64 targets. |
 | `make build-all` | Cross-compiles for all major platforms. | Compiles Linux, Windows, and macOS binaries. |
+| `make tree-rsm-verify` | Verifies `reticulum-go.rsm` signature and file hashes. | `sh scripts/ci/verify-tree-rsm.sh` |
+| `make tree-rsm-sign` | Signs the tree inventory into `reticulum-go.rsm`. | Requires `RNS_ID_PATH`. See [SECURITY.md](SECURITY.md). |
+| `make hooks-install` | Enables the tracked pre-commit hook that resigns the RSM. | `sh scripts/ci/install-git-hooks.sh` |
 
 ## Taskfile Automation
 

@@ -11,6 +11,7 @@
 .PHONY: build-linux build-windows build-windows-legacy build-darwin build-all
 .PHONY: test-short test-race test-crossref test-wasm test-all coverage bench debug release
 .PHONY: man install-man package package-deb package-rpm package-arch
+.PHONY: tree-manifest tree-rsm-sign tree-rsm-verify hooks-install
 
 .DEFAULT_GOAL := all
 
@@ -57,6 +58,9 @@ help:
 	@echo "  package-arch   Build .pkg.tar.zst into dist/ (nfpm)"
 	@echo "  test           Run tests"
 	@echo "  check          fmt vet lint test-short vulncheck gosec"
+	@echo "  tree-rsm-verify  Verify reticulum-go.rsm signature and hashes"
+	@echo "  tree-rsm-sign    Sign tree inventory (requires RNS_ID_PATH)"
+	@echo "  hooks-install    Enable .githooks pre-commit (resigns RSM)"
 	@echo "Variables: PREFIX=$(PREFIX) DESTDIR=$(DESTDIR) VERSION=$(VERSION)"
 
 build:
@@ -220,3 +224,15 @@ build-darwin:
 	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PACKAGE)
 
 build-all: build-linux build-windows build-darwin
+
+tree-manifest:
+	sh scripts/ci/tree-manifest.sh generate
+
+tree-rsm-verify:
+	sh scripts/ci/verify-tree-rsm.sh
+
+tree-rsm-sign:
+	sh scripts/ci/sign-tree-rsm.sh
+
+hooks-install:
+	sh scripts/ci/install-git-hooks.sh
