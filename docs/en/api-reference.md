@@ -119,7 +119,7 @@ func main() {
 }
 ```
 
-Runnable variants live under `examples/minimal`, `examples/announce`, `examples/echo`, and `examples/link`. See [Examples](examples.md).
+For a guide on complete runnable examples, see [Examples](examples.md).
 
 ## Recipe: inbound link and request handler
 
