@@ -1,77 +1,95 @@
-# Security policy
+# Security Policy
 
-This document explains how we think about security for Reticulum-Go, how to report problems, and supply-chain and CI practices. For cryptography primitives, key formats, and protocol-aligned behavior, see [docs/en/cryptography.md](docs/en/cryptography.md). Full English docs: [docs/en/](docs/en/README.md).
+This document explains how we handle security for Reticulum-Go. It covers how you can report vulnerabilities, how we secure our build process, and how the runtime sandbox protects the running daemon.
 
-## Reporting a vulnerability
+For details on cryptographic primitives, key formats, and protocol behavior, please refer to the dedicated guide in [docs/en/cryptography.md](docs/en/cryptography.md). You can also find the full English documentation in [docs/en/](docs/en/README.md).
 
-If you believe you have found a security issue, please tell us privately first so we can investigate before wider disclosure.
+## Reporting a Vulnerability
 
-**How to reach us**
+If you find a security issue, please contact us privately first. This gives us a chance to investigate and fix the problem before it becomes public.
 
-- Reticulum LXMF: `f489752fbef161c64d65e385a4e9fc74`
-- Email: `security@quad4.io`
+### How to reach us
 
-Include enough detail to reproduce or understand the issue (what component, what you expected, what happened). We will treat reports seriously and work with you on a sensible timeline for fixes and public communication.
+*   **LXMF Address:** `f489752fbef161c64d65e385a4e9fc74`
+*   **Email:** `security@quad4.io`
 
-## What we do in practice (overview)
+When reporting, please include enough detail to help us reproduce or understand the issue. Useful information includes the affected component, what you expected to happen, and what actually happened. We take all reports seriously and will work with you on a reasonable timeline to resolve the issue and coordinate public disclosure.
 
-**Builds and automation.** Continuous integration runs tests and security-oriented checks on every change. We prefer clear, reviewable shell scripts over long chains of opaque third-party actions so that what runs in CI is easy to audit in pull requests.
+## Security Practices Overview
 
-**Dependencies and scanning.** We run static analysis and vulnerability scanning on the codebase and dependencies (see [Static analysis](#static-analysis-sast) below).
+Here is a quick look at how we secure the project in practice.
 
-**Runtime sandbox.** The `reticulum-go` daemon applies OS-level restrictions after initialization to limit filesystem, privilege, and resource exposure if the process is compromised. See [Runtime sandbox](#runtime-sandbox).
+*   **Builds and Automation:** Our continuous integration system runs automated tests and security checks on every change. We use clear, easy to audit shell scripts instead of complex third-party actions. This makes it straightforward to review exactly what runs during a pull request.
+*   **Scanning and Analysis:** We run static analysis and vulnerability scanning on our codebase and all dependencies.
+*   **Runtime Sandbox:** The `reticulum-go` daemon applies operating system restrictions after it starts up. This limits access to the filesystem and system resources if the process is ever compromised.
+*   **Signed Releases:** We attach official **cosign** signatures to all release files. These are signed with a project key, and you can find the public key in `cosign.pub`.
 
-**Releases.** Tagged releases attach **cosign** provenance bundles (`*.cosign.bundle`) next to each asset, signed with a project key (public half in `cosign.pub`). Informal SHA256 digests are listed in the GitHub release notes as a backup only. Prefer cosign verification.
+The sections below describe these practices in detail.
 
-**Supply chain.** CI and tagged-release publishing run on **GitHub Actions**, with workflow definitions in `.github/workflows/` on GitHub-hosted runners (moved from `.gitea/workflows/`). Release provenance uses **cosign** blob attestations (`scripts/ci/attest-release-assets.sh`) with a SLSA-style predicate (`scripts/ci/slsa-predicate.py`). Tool versions in CI are pinned where practical. GitHub's own actions are referenced by full commit SHA where applicable.
+## Supply Chain and CI
 
-The sections below spell out the same points with paths, tools, and verification steps for technical readers.
+All of our automation runs on GitHub Actions, with configuration files stored in `.github/workflows/`. 
 
-## Supply chain and CI
+To run our builds and security scans, we use helper scripts located in `scripts/ci/*.sh`. These scripts install Go, Task, Node, and our security scanners. This approach keeps the setup logic in ordinary shell scripts that you can review and diff.
 
-**In short.** All automation paths described here use `.github/workflows/` on GitHub Actions. Jobs call installers and helpers in `scripts/ci/*.sh` (Go, Task, Node, cosign, gosec, govulncheck, Trivy, revive, Python venv, TinyGo, and similar) using pinned versions declared in workflow `env` blocks, then run `task` or `go` as appropriate. That layout keeps install and test logic in ordinary shell that you can diff like any other project code.
+### Version Pinning
 
-**Actions pinning.** GitHub-owned steps such as checkout, artifact upload/download, Node setup, and related actions are pinned to full commit SHAs in the YAML where this repository pins them (see the comment at the top of each workflow file).
+We take supply chain security seriously and use pinning to protect our builds:
 
-**Bill of materials.** SPDX and CycloneDX SBOMs are produced with Trivy (`task sbom`). Tagged releases attach them from `.github/workflows/publish.yml`. Ad-hoc SBOM generation is available via `workflow_dispatch` on `.github/workflows/security.yml`.
+*   **Third-party GitHub Actions:** We pin third-party actions to specific commit hashes instead of version tags. This prevents unexpected updates from modifying our build environments. You can see these hashes in the comments at the top of our workflow files.
+*   **Build and Security Tools:** We pin the versions of all compilers and scanners inside our workflow environment blocks.
 
-**Reproducibility.** CI includes a reproducibility check (`task reproducibility`, `.github/workflows/ci.yml`).
+### Release Provenance and Verification
 
-### Release provenance
+When we publish a release, we build the binaries, WebAssembly targets, and pageserver examples. We also generate software bills of materials (SBOMs) using Trivy. 
 
-Tagged releases are built and published from `.github/workflows/publish.yml` on GitHub Actions. The `release` job runs only for `refs/tags/*` (not for ordinary branch pushes). The same workflow builds main binaries, **wasm** and **pageserver** examples, and SBOMs (SPDX and CycloneDX), uploads them as workflow artifacts, then runs **cosign** (`scripts/ci/setup-cosign.sh` and `scripts/ci/attest-release-assets.sh`) to emit one `*.cosign.bundle` per file. There are no separate `.sha256` sidecar files. A `sha256sum` listing is appended to the auto-generated release notes as an informal backup.
+For each release asset, we generate a signed provenance bundle using **cosign**. We do not use separate checksum files.
 
-**Verifying cosign bundles.** Use the committed public key `cosign.pub` and `sh scripts/ci/verify-release-attestation.sh PATH/TO/blob PATH/TO/blob.cosign.bundle`, or `cosign verify-blob-attestation` with the same key and bundle paths as in that script.
+#### Verifying Release Files
 
-### Static analysis (SAST)
+You can verify any release file using our public key and the provided verification script:
 
-CI runs **Gosec** (Go security linter), **govulncheck** (official Go vulnerability database with reachable-code analysis for `go.mod` dependencies), and **Trivy** (filesystem and dependency scanning) in `.github/workflows/security.yml`.
+```bash
+sh scripts/ci/verify-release-attestation.sh path/to/binary path/to/binary.cosign.bundle
+```
 
-- Gosec is installed via `scripts/ci/setup-gosec.sh` with a pinned module version.
-- Govulncheck is installed via `scripts/ci/setup-govulncheck.sh` with a pinned module version.
-- Trivy is not installed from moving GitHub Action tags or unverified release URLs in the workflow. The job downloads a pinned `.deb` from the official Aqua Security GitHub release (`scripts/ci/setup-trivy.sh`), checks it with a pinned SHA256, and installs the package. We bump the version and hash deliberately when upgrading Trivy.
+Alternatively, you can run the standard `cosign` command directly with the same public key and bundle.
 
-**Why Trivy is pinned this way.** Third-party distribution channels are a common supply-chain risk. For example, in March 2026 attackers compromised parts of the Trivy ecosystem by repointing GitHub Action tags and distributing trojanized binaries through plausible official paths. Workflows that followed moving tags or unverified binaries could have run malicious code in CI or on developer machines. Hosting a known-good package at an immutable URL with a recorded SHA256 avoids depending on those surfaces for our scans.
+### Static Analysis (SAST)
 
-## Runtime sandbox
+We use several security scanners to check our codebase on every commit:
 
-The `reticulum-go` daemon (`cmd/reticulum-go`) calls `sandbox.Apply` from `pkg/sandbox` **after** config load, interface setup, and transport start so privileged initialization can complete first. Sandboxing is **enabled by default** (`enable_sandbox = yes` in the Reticulum config). Set `enable_sandbox = no` to skip it.
+*   **Gosec:** Scans the Go code for security issues and unsafe coding patterns.
+*   **Govulncheck:** Checks our dependencies against the official Go vulnerability database to find reachable vulnerabilities.
+*   **Trivy:** Scans our filesystem and dependencies for known vulnerabilities.
 
-Platform behavior (best-effort: failures are logged and the daemon may continue unless `panic_on_interface_err` applies to a fatal sandbox error on your platform):
+#### Our Approach to Scanner Safety
 
-| OS | Mechanism | What it does |
-|----|-----------|--------------|
-| Linux | Landlock, `PR_SET_NO_NEW_PRIVS`, rlimits | Whitelists `~/.reticulum-go`, `/tmp`, DNS/TLS paths, and the config parent dir, drops caps and mounts a private namespace when running as root |
-| OpenBSD | `unveil`, `pledge` | Restricts visible paths and syscall classes to those needed by a network daemon |
-| FreeBSD | `cap_enter`, rlimits | Enters capability mode after setting conservative resource limits |
-| Darwin | rlimits | Caps memory, FDs, core dumps, stack, and process count |
-| Windows | Job object | Limits breakaway, active processes, and working set, disables mini-dumps |
-| Other / WASM | no-op | Logs that sandboxing is not supported on the platform |
+Third-party package managers can be a security risk. In early 2026, some distribution channels for Trivy were compromised when attackers updated workflow tags to distribute malicious binaries. 
 
-Landlock requires Linux kernel 5.13 or newer. On older kernels the Landlock step fails gracefully and other Linux restrictions still apply where possible.
+To protect our build pipeline, we do not download Trivy using moving tags or unverified URLs. Instead, our installation script downloads a specific release package directly from the Aqua Security release page. We check the package against a hardcoded SHA256 hash before installing it. We update this hash manually when we want to upgrade the scanner.
 
-This is **defense in depth**, not a substitute for correct cryptography, interface configuration, or host hardening. It does not isolate the WASM build (`reticulum-wasm`), which runs under the browser or embedded runtime sandbox instead.
+## Runtime Sandbox
+
+To protect your system, the `reticulum-go` daemon can restrict its own permissions after starting up. It does this by calling `sandbox.Apply` after it has loaded its configuration and set up its network interfaces. 
+
+This sandbox is **enabled by default** using the `enable_sandbox = yes` setting in the Reticulum configuration. If you need to disable it, you can set `enable_sandbox = no`.
+
+The level of protection depends on your operating system:
+
+| Operating System | Mechanism | Description |
+| :--- | :--- | :--- |
+| Linux | Landlock, `PR_SET_NO_NEW_PRIVS`, resource limits | Restricts access to `~/.reticulum-go`, `/tmp`, system configuration folders, and DNS paths. Drops capabilities and runs in a private namespace when started as root. |
+| OpenBSD | `unveil`, `pledge` | Restricts visible filesystem paths and limits system calls to only what is needed by a network daemon. |
+| FreeBSD | `cap_enter`, resource limits | Enters capability mode and applies conservative resource limits. |
+| macOS | Resource limits | Sets limits on memory, file descriptors, stack size, and the number of processes. |
+| Windows | Job objects | Limits process creation and memory usage, and disables mini-dumps. |
+| Other platforms / WASM | No-op | Logs a warning that sandboxing is not supported on the host platform. |
+
+Landlock requires Linux kernel version 5.13 or newer. On older kernels, Landlock will fail gracefully while other Linux restrictions still apply where possible.
+
+Please note that sandboxing is designed as defense in depth. It is not a replacement for strong cryptography, proper interface configuration, or secure hosting practices. It also does not apply to WebAssembly builds, which rely on the browser or runtime environment sandbox.
 
 ## Cryptography
 
-Algorithms, key formats, identity encryption, IFAC, links, ratchets, operational handling, and verification pointers are documented in **[docs/en/cryptography.md](docs/en/cryptography.md)**. That file is the canonical cryptography reference for this repository. This `SECURITY.md` focuses on reporting, supply chain, and automation.
+For complete details on our cryptographic algorithms, key formats, identity encryption, and packet validation, please see the guide in [docs/en/cryptography.md](docs/en/cryptography.md). This file is the primary reference for the cryptography used in this project.
