@@ -67,7 +67,7 @@ func applyLandlock(cfg *common.ReticulumConfig) error {
 		return fmt.Errorf("landlock_create_ruleset version check: %w", errno)
 	}
 
-	abiVersion := int(abi)
+	abiVersion := int(abi) // #nosec G115 - Landlock ABI version is a small non-negative integer
 
 	// Mask the handled filesystem access rights based on the supported ABI version.
 	accessFS := landlockAccessFS
@@ -149,12 +149,12 @@ func applyLandlock(cfg *common.ReticulumConfig) error {
 	// use TSYNC. Otherwise, we fallback to AllThreadsSyscall.
 	if abiVersion >= 8 {
 		_, _, errno = unix.Syscall(unix.SYS_LANDLOCK_RESTRICT_SELF,
-			uintptr(rulesetFD),
-			0x8, // LANDLOCK_RESTRICT_SELF_TSYNC
+			uintptr(rulesetFD), // #nosec G115 - converting syscall fd to uintptr for raw syscall
+			0x8,                // LANDLOCK_RESTRICT_SELF_TSYNC
 			0)
 	} else {
 		_, _, errno = syscall.AllThreadsSyscall(unix.SYS_LANDLOCK_RESTRICT_SELF,
-			uintptr(rulesetFD),
+			uintptr(rulesetFD), // #nosec G115 - converting syscall fd to uintptr for raw syscall
 			0,
 			0)
 	}
