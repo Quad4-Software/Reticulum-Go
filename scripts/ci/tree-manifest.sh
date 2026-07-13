@@ -10,6 +10,9 @@
 # nested example copies are refreshed by vendor-sync and are not first-party
 # inventory).
 #
+# Paths are listed via newline-delimited git ls-files (POSIX sh / dash safe).
+# Do not use read -d or sort -z (bash/GNU-only).
+#
 # Usage:
 #   tree-manifest.sh generate              write inventory to stdout
 #   tree-manifest.sh verify [inventory]    verify against file or stdin
@@ -56,9 +59,14 @@ index_sha256() {
 	git show ":$f" | file_sha256_stream
 }
 
+tracked_paths() {
+	git ls-files | LC_ALL=C sort
+}
+
 generate() {
 	printf '%s\n' "$MANIFEST_HEADER"
-	git ls-files -z | sort -z | while IFS= read -r -d '' f; do
+	tracked_paths | while IFS= read -r f; do
+		[ -n "$f" ] || continue
 		if is_excluded_path "$f"; then
 			continue
 		fi
@@ -101,7 +109,7 @@ verify() {
 	tmp_expect="${tmp}.expect"
 	tmp_actual="${tmp}.actual"
 	# Drop header and blank lines. normalize to "hash  path"
-	sed '1d;/^$/d;/^#/d' "$tmp" | awk 'NF>=2 {print $1 "  " substr($0, index($0,$2))}' | sort -k2 >"$tmp_expect"
+	sed '1d;/^$/d;/^#/d' "$tmp" | awk 'NF>=2 {print $1 "  " substr($0, index($0,$2))}' | LC_ALL=C sort -k2 >"$tmp_expect"
 
 	fail=0
 	while IFS= read -r line; do
@@ -125,16 +133,17 @@ verify() {
 	if [ "$check_tracked" = "1" ]; then
 		tmp_tracked="${tmp}.tracked"
 		: >"$tmp_tracked"
-		git ls-files -z | sort -z | while IFS= read -r -d '' f; do
+		tracked_paths | while IFS= read -r f; do
+			[ -n "$f" ] || continue
 			if is_excluded_path "$f"; then
 				continue
 			fi
 			[ -f "$f" ] || continue
 			[ -L "$f" ] && continue
 			printf '%s\n' "$f"
-		done | sort >"$tmp_tracked"
+		done | LC_ALL=C sort >"$tmp_tracked"
 
-		awk '{print substr($0, index($0,$2))}' "$tmp_expect" | sort >"$tmp_actual"
+		awk '{print substr($0, index($0,$2))}' "$tmp_expect" | LC_ALL=C sort >"$tmp_actual"
 		extra="$(comm -13 "$tmp_tracked" "$tmp_actual" || true)"
 		missing="$(comm -23 "$tmp_tracked" "$tmp_actual" || true)"
 		if [ -n "$extra" ]; then
