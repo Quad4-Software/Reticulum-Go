@@ -20,6 +20,7 @@ Pair this page with the [API reference](api-reference.md).
 | Browser WebSocket client | `examples/wasm` |
 | Python talking to the daemon | `examples/control-client` |
 | C / FFI smoke test | `examples/librns-smoke` |
+| Odin librns bindings | `bindings/odin` |
 | Operator CLIs | `reticulum-go status \| id \| probe \| path \| cp` then [CLI Utilities](utilities.md) |
 
 ## minimal
@@ -140,6 +141,25 @@ make -C examples/librns-smoke
 ```
 
 See [librns](librns.md).
+
+## Odin librns bindings
+
+Path: `bindings/odin/`
+
+Idiomatic Odin package over `librns.so`. Requires Odin on `PATH` and a built shared library.
+
+```bash
+task build-librns
+task test-odin
+```
+
+Import with a collection rooted at `bindings/odin`:
+
+```odin
+import rns "rns:rns"
+```
+
+Wrapped surface includes node lifecycle, identity, destination, path table, link send and request, and event poll. See [librns](librns.md#odin-bindings).
 
 ## Module Layout
 

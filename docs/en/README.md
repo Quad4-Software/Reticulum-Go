@@ -19,14 +19,14 @@ Documentation is organized by language under `docs/`. English lives in `docs/en/
 | [Package map](package-map.md) | `pkg/` layout, responsibilities, entry points |
 | [API reference](api-reference.md) | Task-first Go API: recipes, types, Python map, concurrency |
 | [Transport](transport.md) | Routing, path table, announces, forwarding, persistence |
-| [Interfaces](interfaces.md) | UDP, TCP, Auto, I2P, Backbone, WebSocket, QUIC, IFAC, reconnect |
+| [Interfaces](interfaces.md) | UDP, TCP, Auto, I2P, Backbone, Serial, WebSocket, QUIC, WebTransport, DNS rendezvous, VSOCK, HTTPS, IFAC, reconnect |
 | [Identity and destinations](identity-and-destinations.md) | Keys, hashes, destination types, announces, requests |
 | [Links, channels, and resources](links-channels-and-resources.md) | Links, reliable channel, stream buffer, file transfer |
 | [Cryptography](cryptography.md) | Primitives, key formats, IFAC, ratchets, verification |
 | [Security](security.md) | Reporting, sandbox, supply chain, release verification |
 | [Compatibility](compatibility.md) | Parity with Python RNS, gaps, Go-only extensions |
 | [Control API](control-api.md) | Localhost JSON and WebSocket API for non-Go clients |
-| [librns](librns.md) | C ABI map, supported surface, events, build and smoke |
+| [librns](librns.md) | C ABI map, supported surface, events, build and smoke, Odin bindings |
 | [CLI utilities](utilities.md) | `reticulum-go` subcommands (status, id, probe, path, cp, pageserver), shared-instance RPC with Python |
 | [Embedding and WebAssembly](embedding-and-wasm.md) | `pkg/node`, WASM, browser integration |
 | [Development and testing](development-and-testing.md) | Code quality, crossref tests, interop tests, CI |

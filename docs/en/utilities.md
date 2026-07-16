@@ -33,15 +33,25 @@ Library code lives in `pkg/rnsutil` and `pkg/cli`. Pageserver logic lives in `pk
 
 `rgostatus` and `rgopath -t` / drop / blackhole modes dial a running shared instance (Python `rnsd` or `reticulum-go`) over the same multiprocessing.connection + msgpack protocol Python uses.
 
+RPC is fully supported on **both** transports:
+
+| `shared_instance_type` | Listen / dial address |
+|------------------------|------------------------|
+| `tcp` | `127.0.0.1:<instance_control_port>` (default 37429) |
+| `unix` | Abstract socket `@rns/<instance_name>/rpc` (Linux) |
+
+Go implements both server and client for TCP and Unix. Cross-stack tool interop works on either transport when both sides agree.
+
 ### Why connection refused is common
 
-Three separate issues usually stack:
+Issues that usually stack:
 
 1. **Wrong config directory.** Python uses `~/.reticulum`. Go defaults to `~/.reticulum-go`. Point `-config` at the directory of the daemon you are querying.
-2. **Linux Python defaults to Unix RPC.** Without `shared_instance_type = tcp`, `rnsd` listens on an abstract Unix socket (`@rns/<instance_name>/rpc`), not `127.0.0.1:37429`. Go tools dial TCP by default when the config says `tcp` or when the type is unset in Go configs.
+2. **Default transport mismatch.** On Linux, Python `rnsd` defaults to **Unix** RPC when `shared_instance_type` is unset. Go defaults to **TCP**. Stock configs therefore miss each other even though both speak RPC.
 3. **Daemon not sharing.** The process that owns interfaces must have `share_instance = yes` and be running.
+4. **Auth key mismatch.** Align `rpc_key`, or share the same derived `transport_identity`.
 
-### Working config for Python rnsd + Go tools
+### Working config for Python rnsd + Go tools (TCP)
 
 Add the same block to **both** `~/.reticulum/config` and `~/.reticulum-go/config` when you want either path to reach the same daemon:
 
@@ -74,6 +84,20 @@ Then:
 
 If both configs share ports and `rpc_key`, `-config ~/.reticulum-go` also works against a Python `rnsd` that was started with the matching `~/.reticulum` settings.
 
+### Unix RPC (Linux)
+
+Both sides can use abstract Unix sockets instead:
+
+```ini
+[reticulum]
+share_instance = yes
+instance_name = default
+shared_instance_type = unix
+rpc_key = <64 hex characters>
+```
+
+Go tools with that config dial `@rns/default/rpc`. This matches stock Linux Python when it is left on Unix. Prefer TCP when you want the same recipe on every OS.
+
 ### Auth key rules
 
 | Config | Authkey used |
@@ -85,14 +109,14 @@ Go and Python must agree. Prefer an explicit shared `rpc_key` when mixing stacks
 
 ### Query a Go daemon instead
 
-Run `reticulum-go` with `share_instance = yes` and `shared_instance_type = tcp` under `~/.reticulum-go`, then:
+Run `reticulum-go` with `share_instance = yes` under `~/.reticulum-go`. Match `shared_instance_type` to how you will dial (TCP is the Go default):
 
 ```bash
 ./bin/reticulum-go status -config ~/.reticulum-go -json
 ./bin/reticulum-go path -config ~/.reticulum-go -t
 ```
 
-Only one process should own the shared instance ports at a time.
+Only one process should own the shared instance ports (or Unix RPC name) at a time.
 
 ## rgostatus
 
@@ -253,7 +277,8 @@ Exit codes match Python `rnx` (241–249 for client failures, `-m` mirrors remot
 
 | Symptom | Fix |
 |---------|-----|
-| `dial tcp 127.0.0.1:37429: connection refused` | Start the daemon. Set `shared_instance_type = tcp`. Restart after config change. Use `-config` for that daemon's config dir. |
+| `dial tcp 127.0.0.1:37429: connection refused` | Start the daemon. Match `shared_instance_type` (`tcp` vs `unix`). Restart after config change. Use `-config` for that daemon's config dir. |
+| `dial unix @rns/...: connection refused` | Daemon is on TCP, or `instance_name` differs. Align `shared_instance_type` and `instance_name`. |
 | `rpc auth` failure | Align `rpc_key`, or use the same `storage/transport_identity` when keys are derived. |
 | Empty or missing announce rates from Python | Field is present but may be `0` until traffic accumulates. Sorting and JSON keys still work. |
 | Top-level `rxb`/`txb` are `0` while interfaces show traffic | Python aggregate totals often omit some parent interfaces. Prefer per-interface counters. |

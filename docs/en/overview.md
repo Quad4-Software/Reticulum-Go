@@ -51,15 +51,21 @@ Below is a summary of major features. For line-by-line parity with Python, see [
 | UDP, TCP, Auto, I2P, Backbone interfaces | Complete | `pkg/interfaces` |
 | WebSocket interface | Go-only | `pkg/interfaces/websocket_*.go` |
 | QUIC interface | Go-only | `pkg/interfaces/quic.go`, `quic_tls.go` |
+| WebTransport interface | Go-only | `pkg/interfaces/webtransport.go` |
+| DNS rendezvous | Go-only | `pkg/interfaces/dns_rendezvous.go` |
+| VSOCK interface | Go-only (Linux) | `pkg/interfaces/vsock.go` |
+| HTTPS long-poll | Go-only | `pkg/interfaces/https.go` |
 | Daemon and config | Complete | `cmd/reticulum-go`, `pkg/reticulumconfig` |
 | Discovery (rnstransport) | Partial | Listening works. Announcer and autoconnect loops are not auto-started |
 | Blackhole | Partial | Local drop and LINKIDENTIFY teardown. No publish/federation |
-| RNode, KISS, Serial, Weave | Not implemented | No driver in this tree |
+| SerialInterface | Complete | HDLC serial with Go extensions. Live Python framing interop |
+| RNode, KISS, Weave | Not implemented | No driver in this tree |
 | PipeInterface, LocalInterface | Implemented | `pipe.go`, `local.go`, `sharedinstance` |
 | Python CLI utilities | Yes (core) | `reticulum-go status|id|probe|path|cp` via `pkg/cli` / `pkg/rnsutil` |
 | Interface hot reload | Go-only | `pkg/node/reload.go`, SIGHUP on Unix |
 | Control API | Go-only | `pkg/controlapi` |
 | librns C ABI | Go-only | `pkg/librns`, `include/rns.h`, `task build-librns` |
+| Odin librns bindings | Go-only host | `bindings/odin` (Linux, links `librns.so`). See [librns](librns.md#odin-bindings) |
 | Runtime sandbox | Go-only | `pkg/sandbox` |
 
 ## Repository layout
@@ -73,6 +79,8 @@ Reticulum-Go/
     rgo*/               Thin wrappers for legacy binary names
   include/
     rns.h               Public librns C header
+  bindings/
+    odin/               Odin bindings and tests for librns
   pkg/                  Public library packages (cli, pageserver, rnsutil, …)
   man/                  Man pages (sections 1 and 8)
   packaging/            nfpm deb/rpm config
@@ -95,7 +103,7 @@ Python Reticulum (`RNS`) is the reference implementation and defines the on-wire
 
 Configuration uses the same INI-style shape as Python (`[reticulum]`, `[logging]`, `[[Interface Name]]`). The default config directory is `~/.reticulum-go` instead of `~/.reticulum` so both stacks can coexist on one machine.
 
-Reticulum-Go adds features that Python does not ship today (control API, librns, sandbox, interface hot reload, NIC watching). Those extensions do not change the wire format unless explicitly documented as Go-only.
+Reticulum-Go adds features that Python does not ship today (control API, librns, Odin bindings, sandbox, interface hot reload, NIC watching). Those extensions do not change the wire format unless explicitly documented as Go-only.
 
 ## Who should read which document
 
@@ -105,6 +113,7 @@ Reticulum-Go adds features that Python does not ship today (control API, librns,
 | Network operator | [Getting started](getting-started.md), [Configuration](configuration.md), [Interfaces](interfaces.md), [CLI utilities](utilities.md) |
 | Go application author | [API reference](api-reference.md), [Package map](package-map.md), [Examples](examples.md), [Embedding and WebAssembly](embedding-and-wasm.md) |
 | Native / FFI embedder | [librns](librns.md), [Compatibility](compatibility.md) |
+| Odin application author | [librns](librns.md#odin-bindings), [Examples](examples.md) |
 | Security reviewer | [Cryptography](cryptography.md), [Security](security.md) |
 | Developer | [Development and testing](development-and-testing.md) |
 

@@ -99,13 +99,13 @@ Each block defines one interface. Common keys:
 | `mode` / `interface_mode` | All | `full`, `gateway`, `access_point`, `roaming`, `boundary`, `ptp`, `internal` (RNS 1.3.6+) |
 | `recursive_prs` | All | Discover unknown paths on this interface (RNS 1.3.6+) |
 | `announces_from_internal` | All | Rebroadcast announces learned via internal-mode next hops (default yes) |
-| `address` / `listen_ip` | UDP, TCP server | Bind address |
-| `port` / `listen_port` | UDP, TCP server | Bind port |
-| `target_host` / `target_port` | TCP client | Remote peer |
+| `address` / `listen_ip` | UDP, TCP/QUIC/WebTransport/HTTPS server, DNSRendezvous | Bind address |
+| `port` / `listen_port` | UDP, TCP/QUIC/WebTransport/HTTPS/VSOCK server, DNSRendezvous | Bind or VSOCK port |
+| `target_host` / `target_port` | TCP, QUIC, WebTransport, HTTPS client | Remote peer |
 | `target_address` | UDP | Remote peer (preferred over target_host) |
 | `interface` | Auto | OS network interface name |
 | `prefer_ipv6` | TCP, Auto | Prefer IPv6 when available |
-| `max_reconnect_tries` | TCP, UDP, backbone | `-1` or omitted means unlimited |
+| `max_reconnect_tries` | TCP, UDP, backbone, QUIC, WebTransport, HTTPS, VSOCK | `-1` or omitted means unlimited |
 | `bitrate` | All | Declared bitrate hint |
 | `mtu` | All | Interface MTU (default packet MTU is 500 bytes) |
 | `discovery_port` | Auto | Multicast discovery port |
@@ -127,6 +127,15 @@ Each block defines one interface. Common keys:
 | `respawn_delay` / `respawn_interval` | Pipe | Seconds before respawning subprocess (default 5) |
 | `shared_instance_type` | Local | `tcp` or `unix` for explicit local interface blocks |
 | `instance_name` | Local | Unix socket name when type is unix |
+| `cert_file` / `key_file` | QUIC, WebTransport, HTTPS | Optional TLS PEM paths |
+| `peer_key` | QUIC, WebTransport, HTTPS | Leaf SPKI SHA-256 pin (hex) |
+| `sni` | QUIC, WebTransport, HTTPS client | TLS ServerName |
+| `path` | WebTransport, HTTPS | URL path (default `/rns`) |
+| `transport_mode` | WebTransport | `datagram`, `stream`, or `dual` |
+| `domain` | DNSRendezvous | DNS name for TXT lookup |
+| `resolve_interval` | DNSRendezvous | Seconds between TXT re-queries (default 60) |
+| `context_id` / `cid` | VSOCK client | Peer AF_VSOCK context ID |
+| `long_poll_sec` | HTTPS | Long-poll timeout seconds (default 25) |
 | `outgoing` / `selected_outgoing` | All | Transmit permit (default yes). When no, interface is receive-only |
 
 Unknown `type` values load Go-native plugins from `{config_dir}/interfaces/` (JSON manifest or executable pipe driver), or from `interfaces.RegisterExternalFactory`.
@@ -148,6 +157,13 @@ Unknown `type` values load Go-native plugins from `{config_dir}/interfaces/` (JS
 | `WebSocketInterface` | Go-only, native or WASM |
 | `QUICClientInterface` | Go-only, native (`quic-go`) |
 | `QUICServerInterface` | Go-only, native (`quic-go`) |
+| `WebTransportClientInterface` | Go-only, HTTP/3 WebTransport |
+| `WebTransportServerInterface` | Go-only, HTTP/3 WebTransport |
+| `DNSRendezvousInterface` | Go-only, DNS TXT to UDP peer |
+| `VSOCKClientInterface` | Go-only Linux, AF_VSOCK HDLC |
+| `VSOCKServerInterface` | Go-only Linux, AF_VSOCK HDLC |
+| `HTTPSClientInterface` | Go-only, TLS long-poll |
+| `HTTPSServerInterface` | Go-only, TLS long-poll |
 
 ## Example: TCP client with IFAC
 

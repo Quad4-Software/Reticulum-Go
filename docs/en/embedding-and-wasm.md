@@ -6,6 +6,7 @@
 |------|----------|
 | `pkg/node` | Go app, full transport and interfaces in-process |
 | `pkg/librns` / [librns](librns.md) | Native host (C, C++, FFI) wants the same stack in-process |
+| `bindings/odin` / [librns](librns.md#odin-bindings) | Odin app linking `librns.so` in-process |
 | Control API | Separate language talking to a local `reticulum-go` daemon |
 | `pkg/wasm` | Browser client over WebSocket |
 
@@ -130,7 +131,7 @@ Run `reticulum-go` with `enable_control_api = yes` and talk HTTP/WebSocket from 
 
 ## librns
 
-For in-process C / FFI embed, see [librns](librns.md). Build with `task build-librns`. Smoke: `examples/librns-smoke`.
+For in-process C / FFI embed, see [librns](librns.md). Build with `task build-librns`. Smoke: `examples/librns-smoke`. Odin bindings: `bindings/odin` (`task test-odin`).
 
 ## Sandbox note
 

@@ -140,6 +140,18 @@ task test-wasm
 
 See [Embedding and WebAssembly](embedding-and-wasm.md).
 
+## librns and Odin bindings
+
+Build the shared library and optional Odin tests:
+
+```bash
+task build-librns
+make -C examples/librns-smoke && ./examples/librns-smoke/librns-smoke
+task test-odin
+```
+
+`task test-odin` needs the Odin compiler on `PATH`. See [librns](librns.md).
+
 ## Enable the control API
 
 Add to `[reticulum]`:
@@ -208,5 +220,7 @@ See [Security](security.md) for platform behavior.
 | Configure interfaces and rates | [Configuration](configuration.md), [Interfaces](interfaces.md) |
 | Status / identity / probe / path / copy CLIs | [CLI utilities](utilities.md) |
 | Write a Go app | [API reference](api-reference.md), [Examples](examples.md), [Embedding and WebAssembly](embedding-and-wasm.md) |
+| Embed from C or Odin | [librns](librns.md), [Examples](examples.md) |
+| Talk to a running daemon | [Control API](control-api.md) |
 | Use Python interop | [Compatibility](compatibility.md) |
 | Run examples | [Examples](examples.md) |

@@ -202,6 +202,15 @@ make -C examples/librns-smoke
 
 Needs a C toolchain and CGO. Daemon builds stay `CGO_ENABLED=0`. See [librns](librns.md).
 
+## Odin bindings
+
+```bash
+task build-librns
+task test-odin
+```
+
+Requires the Odin compiler on `PATH` (CI installs a pinned monthly release via `scripts/ci/setup-odin.sh`, job `Odin bindings`). Package lives under `bindings/odin`. See [librns](librns.md#odin-bindings).
+
 ## Adding a change safely
 
 1. Write or extend unit tests in the affected package

@@ -38,11 +38,12 @@ For details on interoperability, see [COMPATIBILITY.md](COMPATIBILITY.md). You c
 | **Identity Management** | Yes | Software identities and hardware-bound signing (using the RHB1 descriptor). |
 | **Interface Access Codes (IFAC)** | Yes | Masking support for UDP, TCP, and Auto frames matching the Python reference implementation. |
 | **Discovery and Blackholing** | Partial | Partial support implemented in `pkg/discovery` and `pkg/blackhole`. Refer to the compatibility table. |
-| **Network Interfaces** | Partial | Supports UDP, TCP, Auto, Pipe, Local, WebSocket (Native and WASM), and QUIC (Native). See [COMPATIBILITY.md](COMPATIBILITY.md#interfaces). |
+| **Network Interfaces** | Partial | UDP, TCP, Auto, Pipe, Local, Serial, WebSocket, QUIC, WebTransport, DNS rendezvous, VSOCK (Linux), HTTPS long-poll. See [COMPATIBILITY.md](COMPATIBILITY.md#interfaces) and [docs/en/interfaces.md](docs/en/interfaces.md). |
 | **Interface Hot Reload** | Yes | Support for interface reloading using `ReloadInterfaces` or via a `SIGHUP` signal on Unix. This feature is not present in Python `rns`. |
 | **WebAssembly Support** | Yes | Run in the browser or WebAssembly environments (`cmd/reticulum-wasm`, `pkg/wasm`). |
 | **Runtime Sandbox** | Yes | Automated OS-level sandboxing enabled by default. See [SECURITY.md](SECURITY.md#runtime-sandbox). |
 | **librns C ABI** | Yes | Linux shared library for embedded applications. See [docs/en/librns.md](docs/en/librns.md). |
+| **Odin librns bindings** | Yes | Idiomatic Odin package over `librns.so` (`bindings/odin`). Linux. See [docs/en/librns.md](docs/en/librns.md#odin-bindings). |
 | **Control API** | Yes | Localhost JSON and WebSocket APIs for out-of-process clients. See [docs/en/control-api.md](docs/en/control-api.md). |
 | **CLI Utilities** | Yes | Native subcommands of `reticulum-go`. Installs symlinks to match legacy `rgo*` tool names. See [docs/en/utilities.md](docs/en/utilities.md). |
 | **Supply Chain Security** | Yes | Protected by fully vendored dependencies, cosign release attestations, and automated CI security scans. See [SECURITY.md](SECURITY.md). |
@@ -70,6 +71,7 @@ Refer to [SECURITY.md](SECURITY.md#runtime-sandbox) for details and specific pla
 ## Requirements
 
 *   Go version 1.26.5 or later
+*   Optional for Odin bindings: Odin compiler on `PATH` (CI pins `dev-2026-06`), plus CGO to build `librns.so`
 
 ## Quick Start
 
@@ -323,6 +325,17 @@ make -C examples/librns-smoke
 ```
 
 This compiles the shared library to `bin/librns.so` and generates header definitions at `include/rns.h`. For details, see [docs/en/librns.md](docs/en/librns.md).
+
+### Odin Bindings
+
+Idiomatic Odin wrappers over `librns.so` live in `bindings/odin`. Requires the Odin compiler on `PATH`.
+
+```bash
+task build-librns
+task test-odin
+```
+
+Covers node lifecycle, identity, destinations, paths, links, and events. Details: [docs/en/librns.md](docs/en/librns.md#odin-bindings).
 
 If you are compiling for TinyGo and small microcontroller boards, check out our `tinygo` branch. This requires TinyGo version 0.41.0 or newer.
 

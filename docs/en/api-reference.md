@@ -47,6 +47,7 @@ Need Reticulum in my app
 | In-process Go | `pkg/node` | Default for Go services and tools |
 | Daemon + JSON | [Control API](control-api.md) | Python, Rust, scripts, multi-language hosts |
 | In-process C | [librns](librns.md) | Native hosts that cannot embed Go source |
+| In-process Odin | [librns](librns.md#odin-bindings) | `bindings/odin` over `librns.so` |
 | Browser | `pkg/wasm` | WebSocket gateway clients |
 
 Most of this page describes the **`pkg/node` happy path**. Other paths expose the same concepts with different bindings.
@@ -396,6 +397,7 @@ Python RNS is largely single-threaded asyncio. Go is multi-threaded by default. 
 |---------|----------|
 | Localhost JSON and WebSocket | [Control API](control-api.md) |
 | C ABI (`include/rns.h`) | [librns](librns.md) |
+| Odin bindings (`bindings/odin`) | [librns](librns.md#odin-bindings) |
 | Browser JS bridge | [Embedding and WebAssembly](embedding-and-wasm.md) |
 | CLI tools | [CLI utilities](utilities.md) |
 | Crypto details | [Cryptography](cryptography.md) |

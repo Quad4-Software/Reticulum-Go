@@ -241,9 +241,23 @@ C ABI facade for in-process embed. Pure Go core. CGO shims in `pkg/librns/capi`.
 | Header | `include/rns.h` |
 | Shared lib | `task build-librns` produces `bin/librns.so` |
 | Smoke | `examples/librns-smoke` |
+| Odin | `bindings/odin` (`task test-odin`) |
 | Main files | `node.go`, `identity.go`, `destination.go`, `link.go`, `queue.go` |
 
 See [librns](librns.md).
+
+### `bindings/odin`
+
+Idiomatic Odin package over `librns.so`. Not a Go import path. Use `-collection:rns=bindings/odin` and `import rns "rns:rns"`.
+
+| Item | Detail |
+|------|--------|
+| Package | `bindings/odin/rns` |
+| Tests | `bindings/odin/tests` |
+| Build | `task test-odin` or `make -C bindings/odin test` |
+| Platform | Linux (links `system:rns`) |
+
+See [librns](librns.md#odin-bindings).
 
 ## Discovery and policy
 
@@ -360,6 +374,7 @@ CLI dispatch lives in `pkg/cli`. Pageserver logic lives in `pkg/pageserver`.
 |------|----------|
 | Embed full node | `pkg/node`, `pkg/reticulumconfig`, `pkg/destination`, `pkg/identity` |
 | Embed from C / FFI | `pkg/librns` (or link `librns.so` + `include/rns.h`) |
+| Embed from Odin | `bindings/odin` (`import rns "rns:rns"`, link `librns.so`) |
 | Low-level transport only | `pkg/transport`, `pkg/interfaces`, `pkg/packet` |
 | Crypto only | `pkg/cryptography`, `pkg/identity` |
 | Browser | `pkg/wasm` (compiled), WebSocket interface |

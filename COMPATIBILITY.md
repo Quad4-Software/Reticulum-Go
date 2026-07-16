@@ -25,6 +25,7 @@ For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). F
 | Buffer | Yes | Stream buffer over channel. [pkg/buffer](pkg/buffer/) tests. |
 | Node lifecycle | Yes (Go-only) | [pkg/node](pkg/node/) embedder API: `OnNetworkAvailable`, `OnNetworkLost`, `RefreshPaths`, `ReloadInterfaces`, control API lifecycle routes. No Python equivalent. `watch_interfaces` polls NIC up/down and address changes via `net.Interfaces` on Linux, Android, Windows, macOS, and BSD (any CPU arch). Stub on WASM. `OnNetworkLost` cancels in-flight `WatchAndReconnect` loops via `link.CancelAllReconnects`. `ReloadInterfaces` equality covers MTU, bitrate, prefer_ipv6, announce-rate, ingress/egress control, mode, and outgoing. See [Node lifecycle](#node-lifecycle-go-only). |
 | librns C ABI | Yes (Go-only) | [pkg/librns](pkg/librns/), [include/rns.h](include/rns.h), `task build-librns`. In-process C facade over node, destination, and link. Linux `.so` first. Same wire stack as the daemon. Not a Python API. See [docs/en/librns.md](docs/en/librns.md). |
+| Odin librns bindings | Yes (Go-only host) | [bindings/odin](bindings/odin/). Idiomatic Odin wrappers over `librns.so`. `task test-odin`. See [docs/en/librns.md](docs/en/librns.md#odin-bindings). |
 
 ## Interfaces
 
@@ -40,7 +41,7 @@ Python: [RNS/Interfaces](https://github.com/markqvist/Reticulum/tree/master/RNS/
 | BackboneInterface | Yes | [backbone.go](pkg/interfaces/backbone.go), [backbone_client.go](pkg/interfaces/backbone_client.go). Multiplexed I/O in [pkg/backbone](pkg/backbone/). Live interop: [tests/interop/backbone_live_test.go](tests/interop/backbone_live_test.go). |
 | RNodeInterface | No | No RNode serial driver. |
 | RNodeMultiInterface | No | Depends on RNode driver. |
-| SerialInterface | No | Not implemented. |
+| SerialInterface | Yes | [serial.go](pkg/interfaces/serial.go). HDLC framing matches Python. Go adds chunked reads, frame-idle drops, reconnect limits, flow-control options, IFAC, receive-only, injectable ports, and live stats. Live: [tests/interop/serial_live_test.go](tests/interop/serial_live_test.go). |
 | KISSInterface | No | Not implemented. |
 | AX25KISSInterface | No | Not implemented. |
 | PipeInterface | Yes | [pipe.go](pkg/interfaces/pipe.go). Subprocess stdin/stdout with HDLC framing and respawn. |
@@ -51,6 +52,10 @@ Python: [RNS/Interfaces](https://github.com/markqvist/Reticulum/tree/master/RNS/
 | Interface base | Yes | [interface.go](pkg/interfaces/interface.go), [constants.go](pkg/interfaces/constants.go). |
 | WebSocket | Go-only | websocket_native.go, websocket_wasm.go. |
 | QUIC | Go-only | [quic.go](pkg/interfaces/quic.go), [quic_tls.go](pkg/interfaces/quic_tls.go). `QUICClientInterface` / `QUICServerInterface`. HDLC over one stream. Yggdrasil-style mesh TLS (ephemeral self-signed, skip-verify, optional `peer_key` SPKI pin). Not on WASM. Live: [tests/interop/quic_live_test.go](tests/interop/quic_live_test.go). |
+| WebTransport | Go-only | [webtransport.go](pkg/interfaces/webtransport.go). `WebTransportClientInterface` / `WebTransportServerInterface` over HTTP/3. Datagram (default), stream (HDLC), or dual modes. App protocol `rns`. |
+| DNSRendezvous | Go-only | [dns_rendezvous.go](pkg/interfaces/dns_rendezvous.go). Discovers UDP peers from DNS TXT (`rns=udp://host:port`). Rendezvous underlay, not a DNS tunnel. Live: [tests/interop/dns_rendezvous_live_test.go](tests/interop/dns_rendezvous_live_test.go). |
+| VSOCK | Go-only (Linux) | [vsock.go](pkg/interfaces/vsock.go). `VSOCKClientInterface` / `VSOCKServerInterface` over `AF_VSOCK` with HDLC. Live Local CID: [tests/interop/vsock_live_test.go](tests/interop/vsock_live_test.go). |
+| HTTPS | Go-only | [https.go](pkg/interfaces/https.go). `HTTPSClientInterface` / `HTTPSServerInterface` TLS long-poll packet underlay (`POST .../send`, `GET .../poll`). Live: [tests/interop/https_live_test.go](tests/interop/https_live_test.go). |
 
 ### Interface reconnect
 
@@ -77,7 +82,7 @@ Tests: `interface_lifecycle_test.go`, `interface_scrub_links_test.go`, `interfac
 
 Go-only embedder API in [pkg/node](pkg/node/) and the control API (`POST /v1/lifecycle/{resume,pause,refresh-paths}`). There is no Python equivalent. The API surface is complete for what Go ships. Platform limits are listed below.
 
-Native hosts that cannot import Go can use [pkg/librns](pkg/librns/) (`include/rns.h`, `bin/librns.so`) for the same in-process stack. See [docs/en/librns.md](docs/en/librns.md). Out-of-process clients use the control API instead.
+Native hosts that cannot import Go can use [pkg/librns](pkg/librns/) (`include/rns.h`, `bin/librns.so`) for the same in-process stack. Odin hosts use [bindings/odin](bindings/odin/). See [docs/en/librns.md](docs/en/librns.md). Out-of-process clients use the control API instead.
 
 | API | Behavior |
 |-----|-----------|
@@ -147,6 +152,10 @@ Intentional extensions beyond upstream *rns*:
 | Backbone I/O | epoll/kqueue/io_uring multiplexing |
 | WebSocket interface | Browser/WASM transport |
 | QUIC interface | `QUICClientInterface` / `QUICServerInterface`, mesh TLS + optional `peer_key` |
+| WebTransport interface | `WebTransportClientInterface` / `WebTransportServerInterface` |
+| DNS rendezvous | `DNSRendezvousInterface` TXT to UDP peer |
+| VSOCK interface | Linux `VSOCKClientInterface` / `VSOCKServerInterface` |
+| HTTPS long-poll | `HTTPSClientInterface` / `HTTPSServerInterface` |
 | Seccomp sandbox | Optional `enable_sandbox` in daemon |
 
 ## Utilities
@@ -171,7 +180,7 @@ Intentional extensions beyond upstream *rns*:
 
 | Item | Notes |
 |------|-------|
-| RNode / KISS / Serial / Weave drivers | Hardware interface stack |
+| RNode / KISS / AX25 / Weave drivers | Hardware radio interface stack |
 | Discovery announcer / autoconnect loops | Listen-only discovery remains |
 | Blackhole auto-publish / `blackhole_sources` | Federation loops |
 | `rnsh` / `rnir` / `rnpkg` / `rngit` | Missing utilities |
@@ -192,6 +201,7 @@ Intentional extensions beyond upstream *rns*:
 | wasm | Present | `//go:build js,wasm`. JS bridge via pkg/wasm |
 | control-client | Present | Python Control API client |
 | librns-smoke | Present | C ABI smoke test |
+| odin-rns | Present | Odin bindings tests over librns (`task test-odin`) |
 
 ## Configuration
 
@@ -288,9 +298,9 @@ Parsed in [pkg/reticulumconfig/config.go](pkg/reticulumconfig/config.go). Unlist
 | mode / interface_mode | Yes | Yes | All (includes `internal` 0x07, RNS 1.3.6+) |
 | recursive_prs | Yes (1.3.6+) | Yes | All |
 | announces_from_internal | Yes (1.3.6+) | Yes | All (default yes) |
-| address / listen_ip | Yes | Yes | UDP, TCP server, QUIC server |
-| port / listen_port | Yes | Yes | UDP, TCP server, QUIC server |
-| target_host / target_port | Yes | Yes | TCP client, QUIC client |
+| address / listen_ip | Yes | Yes | UDP, TCP server, QUIC/WebTransport/HTTPS server, DNSRendezvous |
+| port / listen_port | Yes | Yes | UDP, TCP server, QUIC/WebTransport/HTTPS/VSOCK server, DNSRendezvous |
+| target_host / target_port | Yes | Yes | TCP client, QUIC/WebTransport/HTTPS client |
 | target_address | Yes | Yes | UDP peer (`target_address` over `target_host`) |
 | interface | Yes | Yes | AutoInterface NIC name |
 | kiss_framing | Yes | Parsed only | Reserved for KISS |
@@ -299,7 +309,7 @@ Parsed in [pkg/reticulumconfig/config.go](pkg/reticulumconfig/config.go). Unlist
 | connectable | Yes | Yes | I2PInterface SAM server tunnel |
 | sam_address | Yes | Yes | I2PInterface SAM host:port |
 | prefer_ipv6 | Yes | Yes | TCP, Auto |
-| max_reconnect_tries | Yes | Yes | TCP, UDP, backbone, QUIC client. `-1` or omitted = unlimited |
+| max_reconnect_tries | Yes | Yes | TCP, UDP, backbone, QUIC/WebTransport/HTTPS/VSOCK client. `-1` or omitted = unlimited |
 | bitrate / mtu | Yes | Yes | All |
 | discovery_port / data_port | Yes | Yes | Auto |
 | discovery_scope | Yes | Yes | Auto |
@@ -308,9 +318,15 @@ Parsed in [pkg/reticulumconfig/config.go](pkg/reticulumconfig/config.go). Unlist
 | ingress_control, ic_* | Yes | Yes | All |
 | outgoing / selected_outgoing | Yes | Yes | Receive-only when false. selected_outgoing is an alias |
 | network_name / passphrase / ifac_* | Yes | Yes | Parsed and applied |
-| cert_file / key_file | No | Yes | QUIC TLS PEM paths (optional, else ephemeral) |
-| peer_key | No | Yes | QUIC SPKI SHA-256 pin (hex) |
-| sni | No | Yes | QUIC client TLS ServerName |
+| cert_file / key_file | No | Yes | QUIC/WebTransport/HTTPS TLS PEM paths (optional, else ephemeral) |
+| peer_key | No | Yes | QUIC/WebTransport/HTTPS SPKI SHA-256 pin (hex) |
+| sni | No | Yes | QUIC/WebTransport/HTTPS client TLS ServerName |
+| path | No | Yes | WebTransport/HTTPS URL path (default `/rns`) |
+| transport_mode | No | Yes | WebTransport: `datagram`, `stream`, or `dual` |
+| domain | No | Yes | DNSRendezvousInterface TXT lookup name |
+| resolve_interval | No | Yes | DNSRendezvous re-query interval seconds |
+| context_id / cid | No | Yes | VSOCKClientInterface peer CID |
+| long_poll_sec | No | Yes | HTTPS long-poll timeout seconds |
 
 ## Protocol constants
 

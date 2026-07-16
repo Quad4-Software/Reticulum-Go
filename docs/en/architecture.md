@@ -179,7 +179,7 @@ Non-Go applications talk HTTP and WebSocket to `pkg/controlapi` on localhost whi
 
 ### librns in-process
 
-Native hosts link `librns.so` and call `include/rns.h`. Same stack as `pkg/node`, no separate daemon. Linux first. See [librns](librns.md).
+Native hosts link `librns.so` and call `include/rns.h`. Same stack as `pkg/node`, no separate daemon. Linux first. Odin hosts can use `bindings/odin`. See [librns](librns.md).
 
 ## Persistence and state
 
@@ -207,7 +207,7 @@ See [Cryptography](cryptography.md) and [Security](security.md).
 | Hardware signing | `identity.NewIdentityWithSigner` with `cryptography.Ed25519Signer` |
 | Embedder lifecycle | `node.Node` hooks and control API lifecycle routes |
 | New interface types | Implement `interfaces.Interface`, register in `fromconfig.go` |
-| Non-Go clients | Control API (out-of-process) or librns (in-process C ABI) |
+| Non-Go clients | Control API (out-of-process), librns (in-process C ABI), or `bindings/odin` |
 
 Adding a new interface type or changing on-wire layouts requires coordinated updates across implementations and crossref vectors.
 

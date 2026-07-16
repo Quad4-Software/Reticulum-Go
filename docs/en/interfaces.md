@@ -43,19 +43,56 @@ Transport.SendPacket -> Send -> ProcessOutgoing -> wire
 | `BackboneInterface` | Complete | `backbone.go` |
 | `BackboneClientInterface` | Complete | `backbone_client.go` |
 | `PipeInterface` | Complete | `pipe.go` |
+| `SerialInterface` | Complete | `serial.go` |
 | `LocalInterface` / `LocalServerInterface` | Complete | `local.go`, `sharedinstance` |
 | `WebSocketInterface` | Go-only | `websocket_native.go`, `websocket_wasm.go` |
 | `QUICClientInterface` | Go-only | `quic.go`, `quic_tls.go` |
 | `QUICServerInterface` | Go-only | `quic.go`, `quic_tls.go` |
+| `WebTransportClientInterface` | Go-only | `webtransport.go` |
+| `WebTransportServerInterface` | Go-only | `webtransport.go` |
+| `DNSRendezvousInterface` | Go-only | `dns_rendezvous.go` |
+| `VSOCKClientInterface` | Go-only (Linux) | `vsock.go` |
+| `VSOCKServerInterface` | Go-only (Linux) | `vsock.go` |
+| `HTTPSClientInterface` | Go-only | `https.go` |
+| `HTTPSServerInterface` | Go-only | `https.go` |
 
 ## Not implemented
 
 These Python interface types have no driver in Reticulum-Go:
 
 - RNodeInterface, RNodeMultiInterface
-- SerialInterface, KISSInterface, AX25KISSInterface
+- KISSInterface, AX25KISSInterface
 - WeaveInterface
 - Android-specific KISS, RNode, Serial variants
+
+## SerialInterface
+
+HDLC-framed serial port matching Python `SerialInterface` wire framing (MTU 564, baud as bitrate, default IFAC size 8).
+
+Go extensions beyond Python:
+
+- Chunked reads instead of byte-at-a-time
+- Configurable inter-byte frame idle drop (`frame_idle_ms`, default 100)
+- `max_reconnect_tries` and reconnect delay
+- Optional RTS/CTS DSR/DTR XON/XOFF keys
+- IFAC and receive-only (`outgoing = no`)
+- Live counters (`FramesRX`/`TX`, framing errors, reconnects)
+- Injectable port opener for tests
+
+```ini
+[[Radio Serial]]
+type = SerialInterface
+enabled = yes
+port = /dev/ttyUSB0
+speed = 115200
+databits = 8
+parity = N
+stopbits = 1
+```
+
+`device =` is an alias for the TTY path. Non-numeric `port =` values are treated as device paths so Python configs load.
+
+Live Python framing interop: `RUN_LIVE_INTEROP=1` with `tests/interop/serial_live_test.go`.
 
 ## PipeInterface
 
@@ -202,6 +239,110 @@ max_reconnect_tries = -1
 
 Client reconnect uses `reconnect.go` like TCP. Server fan-out writes to all accepted sessions. Live Go-Go tests: `RUN_LIVE_INTEROP=1` with `tests/interop/quic_live_test.go`.
 
+## WebTransportClientInterface / WebTransportServerInterface
+
+Go-only HTTP/3 WebTransport transport (not on WASM). Prefer datagrams for RNS packets. Optional HDLC stream mode matches QUIC.
+
+- Default path `/rns`
+- `transport_mode = datagram` (default), `stream`, or `dual`
+- Application protocol `rns`
+- Same TLS options as QUIC (`cert_file`, `key_file`, `peer_key`, `sni`)
+- IFAC and reconnect supported
+
+```ini
+[[WT Hub]]
+type = WebTransportServerInterface
+enabled = yes
+listen_ip = 0.0.0.0
+listen_port = 4433
+path = /rns
+transport_mode = datagram
+
+[[WT Client]]
+type = WebTransportClientInterface
+enabled = yes
+target_host = hub.example.com
+target_port = 4433
+path = /rns
+transport_mode = datagram
+peer_key = aabbccdd...
+```
+
+## DNSRendezvousInterface
+
+Go-only rendezvous underlay (not a DNS tunnel). Looks up DNS TXT for peer endpoints, then carries RNS packets over UDP to the discovered address.
+
+TXT forms accepted:
+
+- `rns=udp://1.2.3.4:4242`
+- `rns proto=udp host=1.2.3.4 port=4242`
+
+Hosts must be a parseable IP or DNS name without whitespace. Only `udp` and `tcp` schemes are accepted (`udp` is used by this underlay). Invalid TXT records are ignored.
+
+```ini
+[[DNS Peer]]
+type = DNSRendezvousInterface
+enabled = yes
+domain = peers.example.com
+listen_ip = 0.0.0.0
+listen_port = 0
+resolve_interval = 60
+```
+
+`resolve_interval` is seconds between re-queries (default 60). Publish the TXT at `domain` (or a name your resolver returns for that query). Live Go-Go: `RUN_LIVE_INTEROP=1` with `tests/interop/dns_rendezvous_live_test.go`.
+
+## VSOCKClientInterface / VSOCKServerInterface
+
+Go-only Linux `AF_VSOCK` transport with HDLC framing (same pattern as TCP). Useful for host-guest and same-host Local CID paths.
+
+```ini
+[[VSOCK Hub]]
+type = VSOCKServerInterface
+enabled = yes
+port = 4242
+
+[[VSOCK Client]]
+type = VSOCKClientInterface
+enabled = yes
+context_id = 3
+port = 4242
+max_reconnect_tries = -1
+```
+
+`context_id` / `cid` is the peer CID (1 is Local on Linux). Not available on non-Linux or WASM. Live Local CID: `RUN_LIVE_INTEROP=1` with `tests/interop/vsock_live_test.go`.
+
+## HTTPSClientInterface / HTTPSServerInterface
+
+Go-only TLS long-poll packet underlay for restrictive networks where only HTTPS egress works. Not WebTransport or HTTP/3.
+
+- Default path `/rns`
+- Client `POST {path}/send` and long-poll `GET {path}/poll`
+- Peer id header `X-RNS-Peer`
+- Same TLS options as QUIC (`cert_file`, `key_file`, `peer_key`, `sni`)
+- `long_poll_sec` default 25
+
+```ini
+[[HTTPS Hub]]
+type = HTTPSServerInterface
+enabled = yes
+listen_ip = 0.0.0.0
+listen_port = 8443
+path = /rns
+cert_file = /path/to/cert.pem
+key_file = /path/to/key.pem
+
+[[HTTPS Client]]
+type = HTTPSClientInterface
+enabled = yes
+target_host = hub.example.com
+target_port = 8443
+path = /rns
+long_poll_sec = 25
+peer_key = aabbccdd...
+```
+
+Live Go-Go: `RUN_LIVE_INTEROP=1` with `tests/interop/https_live_test.go`.
+
 ## Interface Access Code (IFAC)
 
 When `network_name` and `passphrase` are set on an interface, frames are masked on egress and verified on ingress.
@@ -217,9 +358,10 @@ Details: [Cryptography](cryptography.md#ifac).
 
 | Aspect | Python RNS | Reticulum-Go |
 |--------|------------|--------------|
-| TCP / backbone / QUIC client | Yes for TCP/backbone, 5 s wait | Yes via `reconnect.go` |
+| TCP / backbone / QUIC / WebTransport / HTTPS / VSOCK client | Yes for TCP/backbone, 5 s wait | Yes via `reconnect.go` |
+| Serial | Yes, 5 s wait | Yes with `max_reconnect_tries` |
 | I2P | Yes, 15 s wait | Yes in `i2p.go` |
-| UDP | No | Yes when `max_reconnect_tries > 0` (opt-in) |
+| UDP / DNS rendezvous | No | UDP when `max_reconnect_tries > 0`. DNS re-resolves on interval |
 | Default max tries | Unlimited (`None`) | Unlimited (`-1` or omitted) |
 | After exhaustion | Teardown | Teardown (`Stop`) |
 
@@ -249,14 +391,24 @@ Per-interface keys `announce_cap`, `announce_rate_*`, `ingress_control`, and `ic
 
 ## Testing
 
-| Test | Env |
-|------|-----|
+| Test | Env / command |
+|------|---------------|
 | IFAC live | `RUN_LIVE_INTEROP=1`, `tests/interop/ifac_live_test.go` |
 | Pipe live | `RUN_LIVE_INTEROP=1`, `tests/interop/pipe_live_test.go` |
+| Serial live | `RUN_LIVE_INTEROP=1`, `tests/interop/serial_live_test.go` |
+| DNS rendezvous live | `RUN_LIVE_INTEROP=1`, `tests/interop/dns_rendezvous_live_test.go` |
+| VSOCK live | `RUN_LIVE_INTEROP=1`, `tests/interop/vsock_live_test.go` (Linux) |
+| HTTPS live | `RUN_LIVE_INTEROP=1`, `tests/interop/https_live_test.go` |
+| QUIC / WebTransport live | `RUN_LIVE_INTEROP=1`, `tests/interop/quic_live_test.go` |
 | Shared RPC live | `RUN_LIVE_INTEROP=1`, `tests/interop/shared_rpc_live_test.go` |
 | Auto live | `tests/interop/auto_live_test.go` |
 | Backbone live | `tests/interop/backbone_live_test.go` |
 | I2P live | `RUN_LIVE_I2P=1` |
+| Race (Stop vs Send) | `go test -race ./pkg/interfaces/ -run Race` plus DNS/VSOCK/HTTPS unit tests |
+| Goroutine leak | `go test ./pkg/interfaces/ -run NoGoroutineLeak` |
+| Fuzz (examples) | `go test ./pkg/interfaces/ -run '^$' -fuzz=FuzzParseRNSTXT -fuzztime=20s` |
+
+Fuzz targets cover TXT parsing (`FuzzParseRNSTXT`), HTTPS path/long-poll normalization, WebTransport path/mode, VSOCK CID and HDLC decode, Serial HDLC, and peer-key pins.
 
 ## Related documents
 
