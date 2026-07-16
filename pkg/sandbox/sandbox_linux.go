@@ -56,6 +56,12 @@ func applyPlatform(cfg *common.ReticulumConfig) error {
 // legitimately needs. On kernels without Landlock support it returns a
 // descriptive error and the caller logs it as a warning.
 func applyLandlock(cfg *common.ReticulumConfig) error {
+	// Go AllThreadsSyscall (Landlock restrict without TSYNC) fatals under
+	// qemu-user when per-thread results diverge. Skip rather than crash.
+	if os.Getenv("RETICULUM_QEMU_USER") == "1" {
+		return fmt.Errorf("landlock skipped under qemu-user")
+	}
+
 	// Query the supported Landlock ABI version.
 	abi, _, errno := unix.Syscall(unix.SYS_LANDLOCK_CREATE_RULESET,
 		0, 0, unix.LANDLOCK_CREATE_RULESET_VERSION)

@@ -63,6 +63,9 @@ func TestSeccompEnabledConfig(t *testing.T) {
 }
 
 func TestSeccompFunctional(t *testing.T) {
+	if os.Getenv("RETICULUM_QEMU_USER") == "1" {
+		t.Skip("seccomp filter install is unreliable under qemu-user")
+	}
 	switch runtime.GOARCH {
 	case "amd64", "arm64", "386", "arm", "riscv64", "ppc64", "ppc64le":
 	default:
