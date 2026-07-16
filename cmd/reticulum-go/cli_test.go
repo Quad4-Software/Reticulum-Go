@@ -42,7 +42,20 @@ func TestCLIHelp(t *testing.T) {
 
 func TestCLIUnknownArg(t *testing.T) {
 	var buf bytes.Buffer
-	code := cli.Main([]string{"--bogus"}, cli.Options{Stdout: &buf, Stderr: &buf, VersionLine: versionLine()})
+	code := cli.Main([]string{"--bogus"}, cli.Options{
+		Stdout:      &buf,
+		Stderr:      &buf,
+		VersionLine: versionLine(),
+		RunDaemon:   runDaemonCLI,
+	})
+	if code != 2 {
+		t.Fatalf("code=%d, want 2", code)
+	}
+}
+
+func TestCLIUnknownCommand(t *testing.T) {
+	var buf bytes.Buffer
+	code := cli.Main([]string{"not-a-command"}, cli.Options{Stdout: &buf, Stderr: &buf, VersionLine: versionLine()})
 	if code != 2 {
 		t.Fatalf("code=%d, want 2", code)
 	}

@@ -1,6 +1,6 @@
 # Reticulum-Go
 
-A high-performance and [secure](SECURITY.md) Go implementation of the [Reticulum Network Stack](https://github.com/markqvist/Reticulum).
+Reticulum-Go is a high-performance and [secure](SECURITY.md) Golang implementation of the [Reticulum Network Stack](https://github.com/markqvist/Reticulum).
 
 Available on rngit:
 
@@ -112,6 +112,21 @@ To stage files for package managers:
 make install DESTDIR=/tmp/stage PREFIX=/usr
 ```
 
+### Install as a service
+
+Install init service files for the detected init system (or set `INIT`):
+
+```bash
+make install-service
+make install-service INIT=systemd
+make install-service INIT=openrc
+make install-service INIT=runit
+make install-service INIT=dinit
+make install-service INIT=all
+```
+
+Service units live under [packaging/](packaging/) (`systemd`, `openrc`, `runit`, `dinit`). The install creates `/var/lib/reticulum-go/` with a sample config that logs to both stderr and `/var/lib/reticulum-go/logfile/reticulum.log`.
+
 Alternatively, install directly into your Go binary directory:
 
 ```bash
@@ -187,6 +202,7 @@ go test -v ./...
 | `make build-utils` | Alias for building the main binary. | Subcommands provide all utilities. See [docs/en/utilities.md](docs/en/utilities.md). |
 | `make install` | Installs the binary, legacy symlinks, and man pages. | Installs files under the specified `PREFIX`. Supports `DESTDIR`. |
 | `make install-man` | Installs only the manual pages. | Installs `man/*.1` and `man/*.8` files. |
+| `make install-service` | Installs systemd, openrc, runit, and/or dinit service files. | `INIT=auto|systemd|openrc|runit|dinit|all`. Sample config under `/var/lib/reticulum-go`. |
 | `make package-deb` | Builds a Debian package. | Output is placed in `dist/`. |
 | `make package-rpm` | Builds an RPM package. | Output is placed in `dist/`. |
 | `make package-arch` | Builds an Arch Linux package. | Output is placed in `dist/`. |
@@ -195,6 +211,7 @@ go test -v ./...
 | `make test` | Runs the full test suite. | Runs `go test -v ./...` |
 | `make test-short` | Runs only short unit tests. | Runs `go test -short -v ./...` |
 | `make test-race` | Runs tests with the Go race detector enabled. | Runs `go test -race -v ./...` |
+| `make test-services` | Docker tests for logfile + systemd/openrc/runit/dinit services. | Runs `scripts/ci/test-services-docker.sh`. |
 | `make coverage` | Generates and opens a test coverage report. | Runs `go test -coverprofile=coverage.out ./...` and opens it in your browser. |
 | `make bench` | Runs all benchmark tests. | Runs `go test -run=^$ -bench=. -benchmem ./...` |
 | `make fmt` | Formats all Go source files. | Runs `go fmt ./...` |

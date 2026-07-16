@@ -70,15 +70,26 @@ func TestMainVersion(t *testing.T) {
 	}
 }
 
-func TestMainDaemonDefault(t *testing.T) {
-	called := false
-	code := Main(nil, Options{
+func TestMainDaemonFlags(t *testing.T) {
+	var got []string
+	code := Main([]string{"--config", "/tmp/x"}, Options{
 		RunDaemon: func(args []string) int {
-			called = true
+			got = append([]string(nil), args...)
 			return 0
 		},
 	})
-	if code != 0 || !called {
-		t.Fatalf("code=%d called=%v", code, called)
+	if code != 0 {
+		t.Fatalf("code=%d", code)
+	}
+	if len(got) != 2 || got[0] != "--config" || got[1] != "/tmp/x" {
+		t.Fatalf("args=%v", got)
+	}
+}
+
+func TestMainUnknownCommand(t *testing.T) {
+	var out bytes.Buffer
+	code := Main([]string{"not-a-command"}, Options{Stdout: &out, Stderr: &out, VersionLine: "test"})
+	if code != 2 {
+		t.Fatalf("code=%d", code)
 	}
 }

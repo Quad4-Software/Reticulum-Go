@@ -533,9 +533,11 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 
 	b.WriteString("[logging]\n")
 	fmt.Fprintf(&b, "  loglevel = %d\n", cfg.LogLevel)
-	if cfg.LogDestination != "" {
-		fmt.Fprintf(&b, "  destination = %s\n", cfg.LogDestination)
+	dest := strings.ToLower(strings.TrimSpace(cfg.LogDestination))
+	if dest == "" {
+		dest = "stderr"
 	}
+	fmt.Fprintf(&b, "  destination = %s\n", dest)
 	if cfg.LogFile != "" {
 		fmt.Fprintf(&b, "  logfile = %s\n", cfg.LogFile)
 	}

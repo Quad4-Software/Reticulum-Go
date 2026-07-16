@@ -10,8 +10,8 @@
 .PHONY: all build build-utils install uninstall clean test fmt vet lint vulncheck gosec check deps run help
 .PHONY: build-linux build-windows build-windows-legacy build-darwin build-all
 .PHONY: test-short test-race test-crossref test-wasm test-all coverage bench debug release
-.PHONY: man install-man package package-deb package-rpm package-arch
-.PHONY: tree-manifest tree-rsm-sign tree-rsm-verify hooks-install
+.PHONY: man install-man install-service package package-deb package-rpm package-arch
+.PHONY: test-services tree-manifest tree-rsm-sign tree-rsm-verify hooks-install
 
 .DEFAULT_GOAL := all
 
@@ -35,6 +35,8 @@ BINDIR := $(PREFIX)/bin
 MANDIR := $(PREFIX)/share/man
 INSTALL_BINDIR := $(DESTDIR)$(BINDIR)
 INSTALL_MANDIR := $(DESTDIR)$(MANDIR)
+# install-service: auto|systemd|openrc|runit|dinit|all
+INIT ?= auto
 
 # Legacy CLI names installed as symlinks to $(BINARY_NAME).
 TOOL_LINKS := rgostatus rgoid rgoprobe rgopath rgocp rgox rnx rgopageserver rgoslow
@@ -52,16 +54,18 @@ help:
 	@echo "  build-utils    Alias for build"
 	@echo "  install        Install binary, tool symlinks, and man pages"
 	@echo "  install-man    Install man pages only"
+	@echo "  install-service Install init service files (INIT=$(INIT))"
 	@echo "  uninstall      Remove installed files"
 	@echo "  package-deb    Build .deb into dist/ (nfpm)"
 	@echo "  package-rpm    Build .rpm into dist/ (nfpm)"
 	@echo "  package-arch   Build .pkg.tar.zst into dist/ (nfpm)"
 	@echo "  test           Run tests"
+	@echo "  test-services  Docker tests for systemd/openrc/runit/dinit + logfile"
 	@echo "  check          fmt vet lint test-short vulncheck gosec"
 	@echo "  tree-rsm-verify  Verify reticulum-go.rsm signature and hashes"
 	@echo "  tree-rsm-sign    Sign tree inventory (requires RNS_ID_PATH)"
 	@echo "  hooks-install    Enable .githooks pre-commit (resigns RSM)"
-	@echo "Variables: PREFIX=$(PREFIX) DESTDIR=$(DESTDIR) VERSION=$(VERSION)"
+	@echo "Variables: PREFIX=$(PREFIX) DESTDIR=$(DESTDIR) INIT=$(INIT) VERSION=$(VERSION)"
 
 build:
 	@mkdir -p $(BUILD_DIR)
@@ -108,6 +112,9 @@ install-man:
 	ln -sfn reticulum-go-x.1 $(INSTALL_MANDIR)/man1/rnx.1
 	ln -sfn reticulum-go-pageserver.1 $(INSTALL_MANDIR)/man1/rgopageserver.1
 
+install-service:
+	sh scripts/install-service.sh --prefix "$(PREFIX)" --destdir "$(DESTDIR)" --bindir "$(BINDIR)" --init "$(INIT)"
+
 uninstall:
 	@rm -f $(INSTALL_BINDIR)/$(BINARY_NAME)
 	@for name in $(TOOL_LINKS); do rm -f $(INSTALL_BINDIR)/$$name; done
@@ -142,6 +149,9 @@ test-wasm:
 	env -i HOME=$$HOME PATH="/usr/local/bin:/usr/bin:/bin" GOROOT=$(shell go env GOROOT) TMPDIR=/tmp TESTSUMMARY_GOOS=js TESTSUMMARY_GOARCH=wasm $(GOCMD) run ./scripts/ci/testsummary -count=1 -exec="$(shell go env GOROOT)/lib/wasm/go_js_wasm_exec" ./pkg/wasm/... ./cmd/reticulum-wasm/...
 
 test-all: test test-wasm test-crossref
+
+test-services:
+	sh scripts/ci/test-services-docker.sh
 
 coverage:
 	$(GOCMD) test -coverprofile=coverage.out ./...

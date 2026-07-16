@@ -66,13 +66,13 @@ func Main(args []string, opt Options) int {
 				return 0
 			}
 		}
-		if len(args) == 0 {
-			// Bare binary with no args runs the daemon.
+		if len(args) == 0 || strings.HasPrefix(args[0], "-") {
+			// Bare binary, or daemon flags without an explicit "daemon" subcommand.
 			if opt.RunDaemon == nil {
 				fmt.Fprintln(opt.Stderr, "daemon entry not configured")
 				return 1
 			}
-			return opt.RunDaemon(nil)
+			return opt.RunDaemon(args)
 		}
 		fmt.Fprintf(opt.Stderr, "%s\n\n", errMsg(opt.Stderr, fmt.Sprintf("unknown command %q", args[0])))
 		printRootHelp(opt.Stderr)

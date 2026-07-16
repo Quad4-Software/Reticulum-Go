@@ -205,7 +205,9 @@ func applyDaemonLogging(cfg *common.ReticulumConfig, opts daemonOptions) {
 	if opts.JSONLogs || strings.EqualFold(cfg.LogFormat, "json") {
 		debug.SetJSONFormat(true)
 	}
-	_ = debug.ConfigureDestination(cfg)
+	if err := debug.ConfigureDestination(cfg); err != nil {
+		debug.Log(debug.DebugCritical, "Failed to configure log destination", "error", err)
+	}
 }
 
 func (r *Reticulum) monitorInterfaces() {
@@ -270,6 +272,7 @@ func initializeDirectories() error {
 	basePath := filepath.Join(homeDir, ".reticulum-go")
 	dirs := []string{
 		basePath,
+		filepath.Join(basePath, "logfile"),
 		filepath.Join(basePath, "storage"),
 		filepath.Join(basePath, "storage", "destinations"),
 		filepath.Join(basePath, "storage", "identities"),

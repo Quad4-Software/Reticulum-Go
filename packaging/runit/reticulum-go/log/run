@@ -1,0 +1,5 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2024-2026 Quad4.io
+mkdir -p /var/log/reticulum-go
+exec svlogd -tt /var/log/reticulum-go

@@ -1,0 +1,23 @@
+#!/sbin/openrc-run
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2024-2026 Quad4.io
+
+description="Reticulum-Go network daemon"
+command="@BINDIR@/reticulum-go"
+command_args="daemon --config /var/lib/reticulum-go/config"
+command_background=yes
+pidfile="/run/reticulum-go.pid"
+directory="/var/lib/reticulum-go"
+
+export HOME=/var/lib/reticulum-go
+
+depend() {
+	need localmount
+	use net dns logger
+	after firewall
+}
+
+start_pre() {
+	checkpath -d -m 0700 /var/lib/reticulum-go
+	checkpath -d -m 0700 /var/lib/reticulum-go/logfile
+}

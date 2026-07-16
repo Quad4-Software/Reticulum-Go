@@ -220,7 +220,7 @@ Python defaults from `RNS.Reticulum.__create_default_config` and [RNS/Reticulum.
 | Subpath | Python *rns* | Reticulum-Go |
 |---------|----------------|---------------|
 | config | Main file | Same (under ~/.reticulum-go by default) |
-| logfile | When LOG_FILE | Unused. Logs to stderr. |
+| logfile | When destination is file/both | Same (default `{config_dir}/logfile/reticulum.log`) |
 | storage/ | Container | Same |
 | storage/identities/ | Per-name blobs | Per-hash blobs |
 | storage/cache/ | General cache | Present |

@@ -135,6 +135,14 @@ func applyLandlock(cfg *common.ReticulumConfig) error {
 		}
 	}
 
+	// Allow an explicit logfile path outside the config directory.
+	if cfg != nil && cfg.LogFile != "" {
+		logParent := filepath.Dir(cfg.LogFile)
+		if logParent != "" && logParent != "." {
+			paths = append(paths, landlockRule{logParent, landlockFullAccess})
+		}
+	}
+
 	for _, rule := range paths {
 		if err := landlockAddRule(rulesetFD, rule.path, rule.access, accessFS); err != nil {
 			// Skip paths that do not exist. Not every system has every file.

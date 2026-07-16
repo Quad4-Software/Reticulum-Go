@@ -28,9 +28,18 @@ Graceful shutdown.
 Reload interfaces from configuration (Unix).
 .El
 .Sh FILES
-.Bl -tag -width "~/.reticulum-go/storage/"
+.Bl -tag -width "~/.reticulum-go/logfile/reticulum.log"
 .It Pa ~/.reticulum-go/config
 Daemon configuration.
+.It Pa ~/.reticulum-go/logfile/reticulum.log
+Default log file when
+.Cm destination
+is
+.Cm file
+or
+.Cm both
+under
+.Cm [logging] .
 .It Pa ~/.reticulum-go/storage/
 Persistent state.
 .El
