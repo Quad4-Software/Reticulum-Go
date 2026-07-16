@@ -179,6 +179,9 @@ test-services:
 test-self-check:
 	sh scripts/ci/run-self-check.sh
 
+test-self-check-riscv64:
+	sh scripts/ci/run-riscv64-self-check.sh
+
 coverage:
 	$(GOCMD) test -coverprofile=coverage.out ./...
 	$(GOCMD) tool cover -html=coverage.out

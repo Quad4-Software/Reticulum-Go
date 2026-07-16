@@ -209,6 +209,34 @@ jobs:
       - name: Verify workspace clean
         uses: ./.github/actions/verify-workspace-clean
 
+  test-riscv64:
+    name: Linux riscv64 self-check (qemu-user)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Install qemu-user-static
+        run: |
+          set -eu
+          sudo apt-get update -qq
+          sudo apt-get install -y qemu-user-static
+          command -v qemu-riscv64-static
+          qemu-riscv64-static --version | head -1
+
+      - name: Run riscv64 self-check
+        run: task test-self-check-riscv64
+
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
+
   test-odin:
     name: Odin bindings
     runs-on: ubuntu-latest

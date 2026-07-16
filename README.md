@@ -227,6 +227,7 @@ go test -v ./...
 | `make test-race` | Runs tests with the Go race detector enabled. | Runs `go test -race -v ./...` |
 | `make test-services` | Docker tests for logfile + systemd/openrc/runit/dinit services. | Runs `scripts/ci/test-services-docker.sh`. |
 | `make test-self-check` | Host OS preflight for reticulum-go platform features. | Runs `scripts/ci/run-self-check.sh`. |
+| `make test-self-check-riscv64` | Linux riscv64 self-check under qemu-user. | Runs `scripts/ci/run-riscv64-self-check.sh` (needs `qemu-user-static`). |
 | `make coverage` | Generates and opens a test coverage report. | Runs `go test -coverprofile=coverage.out ./...` and opens it in your browser. |
 | `make bench` | Runs all benchmark tests. | Runs `go test -run=^$ -bench=. -benchmem ./...` |
 | `make fmt` | Formats all Go source files. | Runs `go fmt ./...` |

@@ -68,6 +68,11 @@ tasks:
     cmds:
       - sh scripts/ci/run-self-check.sh
 
+  test-self-check-riscv64:
+    desc: Cross-build linux/riscv64 and run self-check under qemu-user
+    cmds:
+      - sh scripts/ci/run-riscv64-self-check.sh
+
   test-leaks:
     desc: Run resource leak tests
     cmds:
