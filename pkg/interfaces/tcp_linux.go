@@ -31,7 +31,7 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 
 	rawConn, err := tcpConn.SyscallConn()
 	if err != nil {
-		return fmt.Errorf("failed to get raw connection: %v", err)
+		return fmt.Errorf("failed to get raw connection: %w", err)
 	}
 
 	var sockoptErr error
@@ -66,7 +66,7 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 		}
 
 		if err := syscall.SetsockoptInt(fdInt, syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, SOKeepaliveEnable); err != nil {
-			sockoptErr = fmt.Errorf("failed to enable SO_KEEPALIVE: %v", err)
+			sockoptErr = fmt.Errorf("failed to enable SO_KEEPALIVE: %w", err)
 			return
 		}
 
@@ -84,7 +84,7 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("control failed: %v", err)
+		return fmt.Errorf("control failed: %w", err)
 	}
 	if sockoptErr != nil {
 		return sockoptErr

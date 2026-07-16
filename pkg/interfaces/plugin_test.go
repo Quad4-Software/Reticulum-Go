@@ -5,6 +5,7 @@ package interfaces
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,6 +27,50 @@ func TestApplyOutgoingFromConfig(t *testing.T) {
 	applyOutgoingFromConfig(ui, cfg)
 	if !ui.AllowsOutgoing() {
 		t.Fatal("expected outgoing allowed")
+	}
+}
+
+func TestApplyOutgoingFromConfigExternalFactory(t *testing.T) {
+	const typeName = "OutgoingFactoryIface"
+	defer UnregisterExternalFactory(typeName)
+
+	RegisterExternalFactory(typeName, func(name string, cfg *common.InterfaceConfig, ctx *FromConfigContext) (Interface, error) {
+		return NewUDPInterface(name, "127.0.0.1:0", "127.0.0.1:9", true)
+	})
+
+	cfg := &common.InterfaceConfig{Type: typeName, Enabled: true, Outgoing: false, OutgoingSet: true}
+	iface, err := NewFromConfigWithContext("factory", cfg, &FromConfigContext{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ui, ok := iface.(*UDPInterface)
+	if !ok {
+		t.Fatalf("got %T, want *UDPInterface", iface)
+	}
+	if ui.AllowsOutgoing() {
+		t.Fatal("expected factory-built iface to honor outgoing=no")
+	}
+}
+
+func TestPluginTypePathTraversalRejected(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &common.InterfaceConfig{Type: "../escape", Enabled: true}
+	_, err := loadExternalInterface("bad", cfg, &FromConfigContext{ConfigDir: dir})
+	if err == nil {
+		t.Fatal("expected path traversal rejection")
+	}
+}
+
+func TestUDPSendRejectsReceiveOnly(t *testing.T) {
+	ui, err := NewUDPInterface("ro", "127.0.0.1:0", "127.0.0.1:1", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ui.Online = true
+	ui.SetOutgoingAllowed(false)
+	err = ui.Send([]byte("x"), "")
+	if !errors.Is(err, common.ErrInterfaceReceiveOnly) {
+		t.Fatalf("got %v, want ErrInterfaceReceiveOnly", err)
 	}
 }
 

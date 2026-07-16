@@ -136,7 +136,7 @@ func (wsi *WebSocketInterface) Start() error {
 	u, err := url.Parse(wsi.wsURL)
 	if err != nil {
 		debug.Log(debug.DebugError, "Invalid WebSocket URL", "name", wsi.Name, "url", wsi.wsURL, "error", err)
-		return fmt.Errorf("invalid WebSocket URL: %v", err)
+		return fmt.Errorf("invalid WebSocket URL: %w", err)
 	}
 
 	var conn net.Conn
@@ -149,7 +149,7 @@ func (wsi *WebSocketInterface) Start() error {
 		}
 		tcpConn, err := net.DialTimeout("tcp", host, WSConnectTimeout)
 		if err != nil {
-			return fmt.Errorf("failed to connect: %v", err)
+			return fmt.Errorf("failed to connect: %w", err)
 		}
 		tlsConn := tls.Client(tcpConn, &tls.Config{
 			ServerName:         u.Hostname(),
@@ -159,7 +159,7 @@ func (wsi *WebSocketInterface) Start() error {
 		if err := tlsConn.Handshake(); err != nil {
 			_ = tcpConn.Close()
 			debug.Log(debug.DebugError, "TLS handshake failed", "name", wsi.Name, "host", host, "error", err)
-			return fmt.Errorf("TLS handshake failed: %v", err)
+			return fmt.Errorf("TLS handshake failed: %w", err)
 		}
 		conn = tlsConn
 	} else if u.Scheme == "ws" {
@@ -171,7 +171,7 @@ func (wsi *WebSocketInterface) Start() error {
 		tcpConn, err := net.DialTimeout("tcp", host, WSConnectTimeout)
 		if err != nil {
 			debug.Log(debug.DebugError, "Failed to connect to WebSocket server", "name", wsi.Name, "host", host, "error", err)
-			return fmt.Errorf("failed to connect: %v", err)
+			return fmt.Errorf("failed to connect: %w", err)
 		}
 		conn = tcpConn
 	} else {
@@ -182,7 +182,7 @@ func (wsi *WebSocketInterface) Start() error {
 	key, err := generateWebSocketKey()
 	if err != nil {
 		_ = conn.Close()
-		return fmt.Errorf("failed to generate key: %v", err)
+		return fmt.Errorf("failed to generate key: %w", err)
 	}
 
 	path := u.Path
@@ -196,7 +196,7 @@ func (wsi *WebSocketInterface) Start() error {
 	req, err := http.NewRequest("GET", path, nil)
 	if err != nil {
 		_ = conn.Close()
-		return fmt.Errorf("failed to create request: %v", err)
+		return fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Host = u.Host
@@ -208,13 +208,13 @@ func (wsi *WebSocketInterface) Start() error {
 
 	if err := req.Write(conn); err != nil {
 		_ = conn.Close()
-		return fmt.Errorf("failed to send handshake: %v", err)
+		return fmt.Errorf("failed to send handshake: %w", err)
 	}
 
 	resp, err := http.ReadResponse(bufio.NewReader(conn), req)
 	if err != nil {
 		_ = conn.Close()
-		return fmt.Errorf("failed to read handshake response: %v", err)
+		return fmt.Errorf("failed to read handshake response: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -440,6 +440,9 @@ func (wsi *WebSocketInterface) readFrameWithRemaining(remaining int) ([]byte, er
 }
 
 func (wsi *WebSocketInterface) Send(data []byte, addr string) error {
+	if err := common.RejectReceiveOnly(wsi); err != nil {
+		return err
+	}
 	wsi.Mutex.RLock()
 	enabled := wsi.Enabled
 	detached := wsi.Detached
@@ -493,7 +496,7 @@ func (wsi *WebSocketInterface) sendWebSocketMessage(data []byte) error {
 	wsi.Mutex.Unlock()
 
 	if err != nil {
-		return fmt.Errorf("failed to send: %v", err)
+		return fmt.Errorf("failed to send: %w", err)
 	}
 
 	debug.Log(debug.DebugInfo, "WebSocket sent packet successfully", "name", wsi.Name, "bytes", len(data), "frame_bytes", len(frame))

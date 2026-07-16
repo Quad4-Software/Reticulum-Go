@@ -19,7 +19,7 @@ The detailed matrix with config key tables lives in [COMPATIBILITY.md](../../COM
 | Transport | Complete | Path table, announces, relay, persistence, ingress control, random-blob path selection |
 | IFAC | Complete | UDP, TCP, Auto. Live tests in `tests/interop/ifac_live_test.go` |
 | Link | Complete | Both directions, RTT, request/response, channel, buffer, resources |
-| Resource | Complete | Multi-part, hashmaps, RESOURCE_PRF, bzip2 bomb limits |
+| Resource | Complete | Multi-part, hashmaps, RESOURCE_PRF, bzip2, split advertisements |
 | Channel | Complete | Ghost-envelope fix (send-before-emplace). Tests in `pkg/channel` |
 | Buffer | Complete | Stream buffer over channel |
 | Interfaces | Partial | See below |

@@ -231,42 +231,25 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 	ra.IsResponse = ra.Flags&AdvFlagIsResponse != 0
 	ra.HasMetadata = ra.Flags&AdvFlagHasMetadata != 0
 
-	if i, ok := dict["i"].(uint16); ok {
-		ra.SegmentIndex = i
-	} else if i, ok := dict["i"].(uint64); ok {
-		if i > uint64(math.MaxUint16) {
-			return nil, fmt.Errorf("segment index overflow")
+	if v, ok := dict["i"]; ok {
+		n, err := coerceUint16(v)
+		if err != nil {
+			return nil, fmt.Errorf("segment index: %w", err)
 		}
-		ra.SegmentIndex = uint16(i) // #nosec G115 - checked for overflow
-	} else if i, ok := dict["i"].(int); ok {
-		if i < 0 || i > math.MaxUint16 {
-			return nil, fmt.Errorf("segment index out of range")
-		}
-		ra.SegmentIndex = uint16(i) // #nosec G115
-	} else if i, ok := dict["i"].(int64); ok {
-		if i < 0 || i > math.MaxUint16 {
-			return nil, fmt.Errorf("segment index out of range")
-		}
-		ra.SegmentIndex = uint16(i) // #nosec G115
+		ra.SegmentIndex = n
 	}
-
-	if l, ok := dict["l"].(uint16); ok {
-		ra.TotalSegments = l
-	} else if l, ok := dict["l"].(uint64); ok {
-		if l > uint64(math.MaxUint16) {
-			return nil, fmt.Errorf("total segments overflow")
+	if v, ok := dict["l"]; ok {
+		n, err := coerceUint16(v)
+		if err != nil {
+			return nil, fmt.Errorf("total segments: %w", err)
 		}
-		ra.TotalSegments = uint16(l) // #nosec G115 - checked for overflow
-	} else if l, ok := dict["l"].(int); ok {
-		if l < 0 || l > math.MaxUint16 {
-			return nil, fmt.Errorf("total segments out of range")
-		}
-		ra.TotalSegments = uint16(l) // #nosec G115
-	} else if l, ok := dict["l"].(int64); ok {
-		if l < 0 || l > math.MaxUint16 {
-			return nil, fmt.Errorf("total segments out of range")
-		}
-		ra.TotalSegments = uint16(l) // #nosec G115
+		ra.TotalSegments = n
+	}
+	if ra.Split && ra.TotalSegments == 0 {
+		ra.TotalSegments = 1
+	}
+	if ra.Split && ra.SegmentIndex == 0 {
+		ra.SegmentIndex = 1
 	}
 
 	if q, ok := dict["q"].([]byte); ok {
@@ -274,6 +257,52 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 	}
 
 	return ra, nil
+}
+
+func coerceUint16(v any) (uint16, error) {
+	switch n := v.(type) {
+	case uint16:
+		return n, nil
+	case uint8:
+		return uint16(n), nil
+	case uint32:
+		if n > math.MaxUint16 {
+			return 0, fmt.Errorf("overflow")
+		}
+		return uint16(n), nil
+	case uint64:
+		if n > math.MaxUint16 {
+			return 0, fmt.Errorf("overflow")
+		}
+		return uint16(n), nil
+	case int:
+		if n < 0 || n > math.MaxUint16 {
+			return 0, fmt.Errorf("out of range")
+		}
+		return uint16(n), nil
+	case int8:
+		if n < 0 {
+			return 0, fmt.Errorf("out of range")
+		}
+		return uint16(n), nil
+	case int16:
+		if n < 0 {
+			return 0, fmt.Errorf("out of range")
+		}
+		return uint16(n), nil
+	case int32:
+		if n < 0 || n > math.MaxUint16 {
+			return 0, fmt.Errorf("out of range")
+		}
+		return uint16(n), nil
+	case int64:
+		if n < 0 || n > math.MaxUint16 {
+			return 0, fmt.Errorf("out of range")
+		}
+		return uint16(n), nil
+	default:
+		return 0, fmt.Errorf("unexpected type %T", v)
+	}
 }
 
 func wireFlagsFromAny(f any) (byte, error) {

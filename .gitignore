@@ -27,12 +27,11 @@ cosign.key
 # JSON assets and auto-generated exports
 *.json
 
-# Example files, not adding them just yet.
-/examples/*
-!/examples/wasm/
-!/examples/pageserver/
-!/examples/control-client/
-!/examples/librns-smoke/
+# Example build binaries (source under examples/ is tracked)
+/examples/*/example-*
+/examples/page-downloader/page-downloader
+/examples/pageserver/example-pageserver
+/examples/librns-smoke/librns-smoke
 
 # OS / Editor files
 .DS_Store

@@ -231,21 +231,30 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 	var lastErr error
 	if attachedInterface != nil {
 		if attachedInterface.IsEnabled() && attachedInterface.IsOnline() {
-			debug.Log(debug.DebugVerbose, "Sending announce to attached interface", "name", attachedInterface.GetName())
-			if err := attachedInterface.Send(packet, ""); err != nil {
-				debug.Log(debug.DebugError, "Failed to send announce on attached interface", "error", err)
-				lastErr = err
+			if !common.InterfaceAllowsOutgoing(attachedInterface) {
+				debug.Log(debug.DebugVerbose, "Skipping announce on receive-only attached interface", "name", attachedInterface.GetName())
+			} else {
+				debug.Log(debug.DebugVerbose, "Sending announce to attached interface", "name", attachedInterface.GetName())
+				if err := attachedInterface.Send(packet, ""); err != nil {
+					debug.Log(debug.DebugError, "Failed to send announce on attached interface", "error", err)
+					lastErr = err
+				}
 			}
 		}
 	} else {
 		interfaces := d.transport.GetInterfaces()
 		for name, iface := range interfaces {
-			if iface.IsEnabled() && iface.IsOnline() {
-				debug.Log(debug.DebugVerbose, "Sending announce to interface", "name", name)
-				if err := iface.Send(packet, ""); err != nil {
-					debug.Log(debug.DebugError, "Failed to send announce on interface", "name", name, "error", err)
-					lastErr = err
-				}
+			if !iface.IsEnabled() || !iface.IsOnline() {
+				continue
+			}
+			if !common.InterfaceAllowsOutgoing(iface) {
+				debug.Log(debug.DebugVerbose, "Skipping announce on receive-only interface", "name", name)
+				continue
+			}
+			debug.Log(debug.DebugVerbose, "Sending announce to interface", "name", name)
+			if err := iface.Send(packet, ""); err != nil {
+				debug.Log(debug.DebugError, "Failed to send announce on interface", "name", name, "error", err)
+				lastErr = err
 			}
 		}
 	}

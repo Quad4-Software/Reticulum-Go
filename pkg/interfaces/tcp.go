@@ -245,6 +245,9 @@ func (tc *TCPClientInterface) ProcessOutgoing(data []byte) error {
 }
 
 func (tc *TCPClientInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(tc); err != nil {
+		return err
+	}
 	debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", tc.Name, "bytes", len(data), "address", address)
 
 	masked, err := common.ApplyIFACOutbound(tc, data)
@@ -769,6 +772,9 @@ func (ts *TCPServerInterface) ProcessOutgoing(data []byte) error {
 }
 
 func (ts *TCPServerInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(ts); err != nil {
+		return err
+	}
 	debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", ts.Name, "bytes", len(data), "address", address)
 
 	masked, err := common.ApplyIFACOutbound(ts, data)

@@ -32,7 +32,7 @@ const (
 	MapHashLen     = 4
 	RandomHashSize = 4
 
-	MaxEfficientSize    = 16*1024*1024 - 1
+	MaxEfficientSize    = 1*1024*1024 - 1
 	AutoCompressMaxSize = MaxEfficientSize
 	// MetadataMaxSize is the maximum packed metadata blob size.
 	MetadataMaxSize = 16 * 1024

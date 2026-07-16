@@ -84,7 +84,7 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | Key | Supported |
 |-----|-----------|
 | `loglevel` | Yes (0 through 7) |
-| `destination` | Yes (`stderr`, `file`, `both`) |
+| `destination` | Yes (`stderr`, `file`, `both`, `syslog`, `journald`, and combinations such as `syslog+stderr`) |
 | `logfile` | Yes (default `{config_dir}/logfile/reticulum.log`) |
 | `format` | Yes (`text` or `json`) |
 

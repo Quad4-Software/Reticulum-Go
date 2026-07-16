@@ -182,7 +182,8 @@ func Enabled(level int) bool {
 }
 
 // ConfigureDestination applies [logging] destination and logfile from cfg.
-// destination values: stderr (default), file, both.
+// destination values: stderr (default), file, both, syslog, journald.
+// Combinations such as syslog+stderr and journald+file are also accepted.
 func ConfigureDestination(cfg *common.ReticulumConfig) error {
 	if cfg == nil {
 		return nil
@@ -191,6 +192,7 @@ func ConfigureDestination(cfg *common.ReticulumConfig) error {
 	if dest == "" {
 		dest = "stderr"
 	}
+	parts := splitLogDestinations(dest)
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -202,8 +204,31 @@ func ConfigureDestination(cfg *common.ReticulumConfig) error {
 	extraWriter = nil
 	omitStderr = false
 
-	needFile := dest == "file" || dest == "both"
-	if needFile {
+	var writers []io.Writer
+	wantStderr := false
+	wantFile := false
+	wantSyslog := false
+	wantJournald := false
+	for _, p := range parts {
+		switch p {
+		case "stderr", "stdout":
+			wantStderr = true
+		case "file":
+			wantFile = true
+		case "both":
+			wantStderr = true
+			wantFile = true
+		case "syslog":
+			wantSyslog = true
+		case "journald", "journal":
+			wantJournald = true
+		}
+	}
+	if !wantStderr && !wantFile && !wantSyslog && !wantJournald {
+		wantStderr = true
+	}
+
+	if wantFile {
 		path := strings.TrimSpace(cfg.LogFile)
 		if path == "" {
 			base := ""
@@ -226,9 +251,42 @@ func ConfigureDestination(cfg *common.ReticulumConfig) error {
 			return fmt.Errorf("open logfile: %w", err)
 		}
 		logFile = f
-		extraWriter = f
-		if dest == "file" {
-			omitStderr = true
+		writers = append(writers, f)
+	}
+
+	tag := "reticulum-go"
+	if wantSyslog {
+		w, err := openSyslogWriter(tag)
+		if err != nil {
+			return err
+		}
+		writers = append(writers, w)
+	}
+	if wantJournald {
+		w, err := openJournaldWriter(tag)
+		if err != nil {
+			return err
+		}
+		writers = append(writers, w)
+	}
+
+	switch {
+	case len(writers) == 0:
+		omitStderr = false
+		extraWriter = nil
+	case !wantStderr:
+		omitStderr = true
+		if len(writers) == 1 {
+			extraWriter = writers[0]
+		} else {
+			extraWriter = io.MultiWriter(writers...)
+		}
+	default:
+		omitStderr = false
+		if len(writers) == 1 {
+			extraWriter = writers[0]
+		} else if len(writers) > 1 {
+			extraWriter = io.MultiWriter(writers...)
 		}
 	}
 
@@ -240,4 +298,19 @@ func ConfigureDestination(cfg *common.ReticulumConfig) error {
 		rebuildLocked()
 	}
 	return nil
+}
+
+func splitLogDestinations(dest string) []string {
+	dest = strings.ReplaceAll(dest, "+", ",")
+	dest = strings.ReplaceAll(dest, "|", ",")
+	raw := strings.Split(dest, ",")
+	out := make([]string, 0, len(raw))
+	for _, p := range raw {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
 }

@@ -14,28 +14,9 @@ import (
 	"quad4/reticulum-go/pkg/debug"
 )
 
+// Interface is the package-local name for a network interface.
+// It matches common.NetworkInterface so transport and config share one contract.
 type Interface interface {
-	GetName() string
-	GetType() common.InterfaceType
-	GetMode() common.InterfaceMode
-	IsOnline() bool
-	IsDetached() bool
-	IsEnabled() bool
-	Detach()
-	Enable()
-	Disable()
-	Send(data []byte, addr string) error
-	SetPacketCallback(common.PacketCallback)
-	GetPacketCallback() common.PacketCallback
-	ProcessIncoming([]byte)
-	ProcessOutgoing([]byte) error
-	SendPathRequest([]byte) error
-	SendLinkPacket([]byte, []byte, time.Time) error
-	Start() error
-	Stop() error
-	GetMTU() int
-	GetConn() net.Conn
-	GetBandwidthAvailable() bool
 	common.NetworkInterface
 }
 
@@ -71,7 +52,7 @@ type BaseInterface struct {
 	lastTx    time.Time
 	lastRx    time.Time
 
-	Mutex          sync.RWMutex
+	Mutex          sync.RWMutex // exported so concrete interfaces can lock with parent fields
 	packetCallback common.PacketCallback
 
 	// IFACIdentity is set when the interface participates in an IFAC network.
@@ -112,6 +93,8 @@ type BaseInterface struct {
 	sampleTS   time.Time
 }
 
+// NewBaseInterface creates a BaseInterface value for embedding at construction.
+// Do not copy a BaseInterface after it has been used (Mutex must not be copied).
 func NewBaseInterface(name string, ifType common.InterfaceType, enabled bool) BaseInterface {
 	return BaseInterface{
 		Name:                  name,
@@ -347,6 +330,9 @@ func (i *BaseInterface) Stop() error {
 }
 
 func (i *BaseInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(i); err != nil {
+		return err
+	}
 	debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", i.Name, "bytes", len(data), "address", address)
 
 	masked, err := common.ApplyIFACOutbound(i, data)

@@ -313,6 +313,9 @@ func (bc *BackboneClientInterface) ProcessOutgoing(data []byte) error {
 }
 
 func (bc *BackboneClientInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(bc); err != nil {
+		return err
+	}
 	masked, err := common.ApplyIFACOutbound(bc, data)
 	if err != nil {
 		return err

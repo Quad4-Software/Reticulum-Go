@@ -13,6 +13,7 @@ import (
 
 	"quad4/reticulum-go/pkg/backbone"
 	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/debug"
 )
 
 // NewFromConfig constructs a logical interface from a loaded [common.InterfaceConfig].
@@ -177,15 +178,20 @@ func applyModeFromConfig(iface Interface, cfg *common.InterfaceConfig) {
 
 // applyOutgoingFromConfig sets the transmit permit from outgoing / selected_outgoing.
 func applyOutgoingFromConfig(iface Interface, cfg *common.InterfaceConfig) {
-	if cfg == nil || iface == nil {
+	if cfg == nil || iface == nil || !cfg.OutgoingSet {
 		return
 	}
-	allowed := true
-	if cfg.OutgoingSet {
-		allowed = cfg.Outgoing
+	allowed := cfg.Outgoing
+	if setter, ok := iface.(common.OutgoingController); ok {
+		setter.SetOutgoingAllowed(allowed)
+		return
 	}
 	if base := baseInterfaceOf(iface); base != nil {
 		base.ReceiveOnly = !allowed
+		return
+	}
+	if !allowed {
+		debug.Log(debug.DebugError, "outgoing=no ignored interface type lacks SetOutgoingAllowed", "type", cfg.Type)
 	}
 }
 

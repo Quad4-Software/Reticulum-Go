@@ -181,6 +181,9 @@ func (ls *LocalServerInterface) ProcessOutgoing([]byte) error {
 }
 
 func (ls *LocalServerInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(ls); err != nil {
+		return err
+	}
 	return ls.ProcessOutgoing(data)
 }
 
@@ -383,6 +386,9 @@ func (lc *LocalClientInterface) ProcessOutgoing(data []byte) error {
 }
 
 func (lc *LocalClientInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(lc); err != nil {
+		return err
+	}
 	masked, err := common.ApplyIFACOutbound(lc, data)
 	if err != nil {
 		return err

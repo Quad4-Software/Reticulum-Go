@@ -213,6 +213,9 @@ func (bi *BackboneInterface) ProcessOutgoing([]byte) error {
 }
 
 func (bi *BackboneInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(bi); err != nil {
+		return err
+	}
 	bi.spawnMu.Lock()
 	spawned := append([]*BackboneClientInterface(nil), bi.spawned...)
 	bi.spawnMu.Unlock()

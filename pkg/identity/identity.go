@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"quad4/reticulum-go/internal/storage"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/cryptography"
 	"quad4/reticulum-go/pkg/debug"
@@ -54,7 +55,7 @@ func New() (*Identity, error) {
 	// Generate keypairs using cryptography package
 	privKey, pubKey, err := cryptography.GenerateKeyPair()
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate X25519 keypair: %v", err)
+		return nil, fmt.Errorf("failed to generate X25519 keypair: %w", err)
 	}
 	i.privateKey = privKey
 	i.publicKey = pubKey
@@ -62,7 +63,7 @@ func New() (*Identity, error) {
 	// Generate 32-byte Ed25519 seed
 	var ed25519Seed [32]byte
 	if _, err := io.ReadFull(rand.Reader, ed25519Seed[:]); err != nil {
-		return nil, fmt.Errorf("failed to generate Ed25519 seed: %v", err)
+		return nil, fmt.Errorf("failed to generate Ed25519 seed: %w", err)
 	}
 
 	// Derive Ed25519 keypair from seed
@@ -367,14 +368,14 @@ func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRat
 
 	sharedKey, err := cryptography.DeriveSharedSecret(i.privateKey, peerPubBytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate shared key: %v", err)
+		return nil, fmt.Errorf("failed to generate shared key: %w", err)
 	}
 
 	salt := i.GetSalt()
 	debug.Log(debug.DebugAll, "Decrypt: using salt", "salt", fmt.Sprintf("%x", salt), "identity_hash", fmt.Sprintf("%x", i.Hash()))
 	derivedKey, err := cryptography.DeriveIdentityKeyMaterial(sharedKey, salt, i.GetContext())
 	if err != nil {
-		return nil, fmt.Errorf("failed to derive key: %v", err)
+		return nil, fmt.Errorf("failed to derive key: %w", err)
 	}
 
 	hmacKey := derivedKey[:32]
@@ -505,18 +506,9 @@ func (i *Identity) ToFile(path string) error {
 	copy(privateKeyBytes[:32], i.privateKey)
 	copy(privateKeyBytes[32:], i.signingSeed)
 
-	// Write raw bytes to file
 	// #nosec G304 G703 -- path is caller-chosen identity storage. Not derived from network input here
-
-	file, err := os.Create(path)
-	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to create identity file", "error", err)
-		return err
-	}
-	defer file.Close()
-
-	if _, err := file.Write(privateKeyBytes); err != nil {
-		debug.Log(debug.DebugCritical, "Failed to write identity data", "error", err)
+	if err := storage.AtomicWriteFile(path, privateKeyBytes, 0o600); err != nil {
+		debug.Log(debug.DebugCritical, "Failed to write identity file", "error", err)
 		return err
 	}
 
@@ -661,7 +653,7 @@ func RecallIdentity(path string) (*Identity, error) {
 
 	x25519PubKey, err := cryptography.PublicKeyFromPrivate(x25519PrivKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to derive X25519 public key: %v", err)
+		return nil, fmt.Errorf("failed to derive X25519 public key: %w", err)
 	}
 
 	ed25519PrivKey := ed25519.NewKeyFromSeed(ed25519Seed)
@@ -761,7 +753,7 @@ func NewIdentity() (*Identity, error) {
 	// Generate 32-byte Ed25519 seed
 	var ed25519Seed [32]byte
 	if _, err := io.ReadFull(rand.Reader, ed25519Seed[:]); err != nil {
-		return nil, fmt.Errorf("failed to generate Ed25519 seed: %v", err)
+		return nil, fmt.Errorf("failed to generate Ed25519 seed: %w", err)
 	}
 
 	// Derive Ed25519 keypair from seed
@@ -771,12 +763,12 @@ func NewIdentity() (*Identity, error) {
 	// Generate X25519 encryption keypair
 	var encPrivKey [32]byte
 	if _, err := io.ReadFull(rand.Reader, encPrivKey[:]); err != nil {
-		return nil, fmt.Errorf("failed to generate X25519 private key: %v", err)
+		return nil, fmt.Errorf("failed to generate X25519 private key: %w", err)
 	}
 
 	encPubKey, err := cryptography.PublicKeyFromPrivate(encPrivKey[:])
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate X25519 public key: %v", err)
+		return nil, fmt.Errorf("failed to generate X25519 public key: %w", err)
 	}
 
 	i := &Identity{

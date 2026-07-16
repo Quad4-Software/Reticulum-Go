@@ -197,13 +197,16 @@ func (ui *UDPInterface) ProcessOutgoing(data []byte) error {
 
 	_, err := conn.WriteToUDP(data, target)
 	if err != nil {
-		return fmt.Errorf("UDP write failed: %v", err)
+		return fmt.Errorf("UDP write failed: %w", err)
 	}
 
 	return nil
 }
 
 func (ui *UDPInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(ui); err != nil {
+		return err
+	}
 	debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", ui.Name, "bytes", len(data), "address", address)
 
 	masked, err := common.ApplyIFACOutbound(ui, data)

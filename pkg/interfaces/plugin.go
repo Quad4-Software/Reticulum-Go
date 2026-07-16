@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -70,6 +71,9 @@ func loadExternalInterface(name string, cfg *common.InterfaceConfig, ctx *FromCo
 	if dir == "" {
 		return nil, fmt.Errorf("unsupported interface type %q (no interfaces plugin directory)", typeName)
 	}
+	if err := validatePluginTypeName(typeName); err != nil {
+		return nil, err
+	}
 
 	for _, base := range []string{
 		filepath.Join(dir, typeName+".json"),
@@ -86,12 +90,32 @@ func loadExternalInterface(name string, cfg *common.InterfaceConfig, ctx *FromCo
 	}
 
 	execPath := filepath.Join(dir, typeName)
+	if !pluginPathContained(dir, execPath) {
+		return nil, fmt.Errorf("invalid plugin type %q", typeName)
+	}
 	if st, err := os.Stat(execPath); err == nil && !st.IsDir() && isExecutable(st) {
 		debug.Log(debug.DebugInfo, "Loading external interface from executable", "path", execPath, "name", name)
 		return newPipeFromPlugin(name, cfg, ctx, execPath, 0)
 	}
 
 	return nil, fmt.Errorf("unsupported interface type %q (no factory, manifest, or executable in %s)", typeName, dir)
+}
+
+func validatePluginTypeName(typeName string) error {
+	if typeName == "" || filepath.IsAbs(typeName) || typeName != filepath.Base(typeName) {
+		return fmt.Errorf("invalid plugin type %q", typeName)
+	}
+	return nil
+}
+
+func pluginPathContained(dir, path string) bool {
+	cleanDir := filepath.Clean(dir)
+	cleanPath := filepath.Clean(path)
+	rel, err := filepath.Rel(cleanDir, cleanPath)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator))
 }
 
 func interfacesPluginDir(ctx *FromConfigContext) string {

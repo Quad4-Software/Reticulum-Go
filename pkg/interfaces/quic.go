@@ -281,6 +281,9 @@ func (qc *QUICClientInterface) ProcessOutgoing(data []byte) error {
 // Send applies IFAC then ProcessOutgoing.
 func (qc *QUICClientInterface) Send(data []byte, address string) error {
 	_ = address
+	if err := common.RejectReceiveOnly(qc); err != nil {
+		return err
+	}
 	masked, err := common.ApplyIFACOutbound(qc, data)
 	if err != nil {
 		return err
@@ -617,6 +620,9 @@ func (qs *QUICServerInterface) ProcessOutgoing(data []byte) error {
 // Send applies IFAC then ProcessOutgoing.
 func (qs *QUICServerInterface) Send(data []byte, address string) error {
 	_ = address
+	if err := common.RejectReceiveOnly(qs); err != nil {
+		return err
+	}
 	masked, err := common.ApplyIFACOutbound(qs, data)
 	if err != nil {
 		return err

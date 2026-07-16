@@ -532,6 +532,10 @@ func (l *Link) deliverIncomingResource(inner []byte, adv *resource.ResourceAdver
 		return err
 	}
 
+	if adv.Split && adv.TotalSegments > 1 {
+		return l.handleSplitSegmentComplete(payload, adv)
+	}
+
 	if adv.IsRequest {
 		requestID := identity.TruncatedHash(payload)
 		debug.Log(debug.DebugInfo, "Incoming request resource complete", "request_id", fmt.Sprintf("%x", requestID), "payload_len", len(payload))

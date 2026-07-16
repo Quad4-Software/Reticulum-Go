@@ -77,6 +77,13 @@ func TestInitializeNetworkIdentity(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("identity file: %v", err)
 	}
+	st, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Mode().Perm()&0o077 != 0 {
+		t.Fatalf("network identity mode %o allows group/other access", st.Mode().Perm())
+	}
 
 	id2, err := identity.FromFile(path)
 	if err != nil {

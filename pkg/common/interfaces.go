@@ -99,7 +99,7 @@ type BaseInterface struct {
 	RxPackets uint64
 	lastTx    time.Time
 
-	Mutex          sync.RWMutex
+	Mutex          sync.RWMutex // exported so concrete interfaces can lock with parent fields
 	Owner          any
 	PacketCallback PacketCallback
 
@@ -117,7 +117,9 @@ type BaseInterface struct {
 	ReceiveOnly bool
 }
 
-// NewBaseInterface creates a new BaseInterface instance
+// NewBaseInterface creates a BaseInterface value for embedding at construction.
+// Prefer NewBaseInterfacePtr when holding a standalone *BaseInterface.
+// Do not copy a BaseInterface after it has been used (Mutex must not be copied).
 func NewBaseInterface(name string, ifaceType InterfaceType, enabled bool) BaseInterface {
 	return BaseInterface{
 		Name:                  name,
@@ -132,19 +134,10 @@ func NewBaseInterface(name string, ifaceType InterfaceType, enabled bool) BaseIn
 }
 
 // NewBaseInterfacePtr returns a heap-allocated BaseInterface with the same defaults
-// as NewBaseInterface. Callers that embed BaseInterface in larger structs should
-// prefer this constructor so they store *BaseInterface and avoid copying sync.Mutex.
+// as NewBaseInterface. Prefer this when storing a standalone interface pointer.
 func NewBaseInterfacePtr(name string, ifaceType InterfaceType, enabled bool) *BaseInterface {
-	return &BaseInterface{
-		Name:                  name,
-		Type:                  ifaceType,
-		Mode:                  IFModeFull,
-		Enabled:               enabled,
-		MTU:                   DefaultMTU,
-		Bitrate:               BitrateMinimum,
-		lastTx:                time.Now(),
-		AnnouncesFromInternal: true,
-	}
+	b := NewBaseInterface(name, ifaceType, enabled)
+	return &b
 }
 
 // Default implementations for BaseInterface
@@ -278,6 +271,9 @@ func (i *BaseInterface) GetConn() net.Conn {
 }
 
 func (i *BaseInterface) Send(data []byte, address string) error {
+	if err := RejectReceiveOnly(i); err != nil {
+		return err
+	}
 	id := i.GetIFAC()
 	if id != nil {
 		masked, err := id.Mask(data)

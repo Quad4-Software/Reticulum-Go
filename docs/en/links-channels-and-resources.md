@@ -27,7 +27,7 @@ link.HandleIncomingLinkRequest(...)
 
 The responder records `expected_hops` from the RTT packet hop field when the link becomes active.
 
-There is no separate `Transport.CreateIncomingLink` helper. Incoming link requests use `HandleIncomingLinkRequest` directly. Split resource advertisements (`AdvFlagSplit`) are rejected with a clear error (full multi-segment ads deferred).
+There is no separate `Transport.CreateIncomingLink` helper. Incoming link requests use `HandleIncomingLinkRequest` directly.
 
 ### Link lifecycle
 
@@ -94,8 +94,11 @@ Features:
 - Hash map of parts
 - RESOURCE_PRF proof flow
 - bzip2 compression optional (`bzip2_compress.go`)
+- Split advertisements when the payload exceeds `MaxEfficientSize` (~1 MiB), matching Python segment chaining
 
 Python utility `rncp` is ported as `rgocp` ([CLI utilities](utilities.md)). The primitives remain available in this package for Go applications.
+
+See `examples/resources` for a minimal send/receive demo and `examples/filetransfer` for a directory browser.
 
 Transfer flow at a high level:
 
@@ -106,6 +109,7 @@ Sender                           Receiver
   |<-- proof / acceptance -----------|
   |-- parts ------------------------>|
   |<-- proof ------------------------|
+  |-- next segment (if split) ------>|
   |-- completion -------------------->|
 ```
 

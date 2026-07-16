@@ -20,7 +20,7 @@ For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). F
 | Blackhole | Partial | [pkg/blackhole](pkg/blackhole/) covers table semantics, msgpack, expiry, MergeRemote, EncodeForRequest. Announces from listed identities are dropped. Links from blackholed identities are torn down at LINKIDENTIFY. `/list` over rnstransport needs the RNS Request layer (not ported). `publish_blackhole`, `blackhole_sources`, `blackhole_update_interval` are ignored (deferred). |
 | IFAC | Yes | [pkg/ifac](pkg/ifac/) matches salt, HKDF identity, mask/unmask. UDP, TCP, Auto apply IFAC. Unauthenticated frames dropped. Live tests: [tests/interop/ifac_live_test.go](tests/interop/ifac_live_test.go). |
 | Link | Yes | Both directions, RTT, request/response, channel, buffer, resources. `WatchAndReconnect` and `Node.EnableLinkAutoReconnect` use `Reestablish()` on closed links. |
-| Resource | Yes | Multi-part transfer, hashmaps, RESOURCE_PRF, bzip2. BZ2 bomb limits match Python 1.1.9. |
+| Resource | Yes | Multi-part transfer, hashmaps, RESOURCE_PRF, bzip2, split advertisements. BZ2 bomb limits match Python 1.1.9. |
 | Channel | Yes | In-link reliable channel. [pkg/channel](pkg/channel/) tests. Ghost-envelope fix: sequence and tx-ring emplace only after a successful outlet send (Python 1.3.0). Accepts both transport and link ACTIVE status values. |
 | Buffer | Yes | Stream buffer over channel. [pkg/buffer](pkg/buffer/) tests. |
 | Node lifecycle | Yes (Go-only) | [pkg/node](pkg/node/) embedder API: `OnNetworkAvailable`, `OnNetworkLost`, `RefreshPaths`, `ReloadInterfaces`, control API lifecycle routes. No Python equivalent. `watch_interfaces` polls NIC up/down and address changes via `net.Interfaces` on Linux, Android, Windows, macOS, and BSD (any CPU arch). Stub on WASM. `OnNetworkLost` cancels in-flight `WatchAndReconnect` loops via `link.CancelAllReconnects`. `ReloadInterfaces` equality covers MTU, bitrate, prefer_ipv6, announce-rate, ingress/egress control, mode, and outgoing. See [Node lifecycle](#node-lifecycle-go-only). |
@@ -156,7 +156,7 @@ Intentional extensions beyond upstream *rns*:
 | rnsd | Yes | [cmd/reticulum-go](cmd/reticulum-go/) daemon (default subcommand) |
 | rncp | Yes | `reticulum-go cp` ([pkg/cli](pkg/cli/), symlink `rgocp`). Link resource send/listen/fetch, destination `rncp.receive` |
 | rnid | Yes | `reticulum-go id` (symlink `rgoid`). `.rid`/`.rsg`/`.rsm`/`.rfe` interop with Python `rnid` |
-| rnir | No | Not ported |
+| rnir | No | Python stub identity resolver. Not ported |
 | rnpath | Yes | `reticulum-go path` (symlink `rgopath`). Local/shared-instance path table, drop, blackhole. Remote rnstransport modes not ported |
 | rnprobe | Yes | `reticulum-go probe` (symlink `rgoprobe`) |
 | rnstatus | Yes | `reticulum-go status` (symlink `rgostatus`). Shared-instance RPC including announce/PR rates. TCP RPC setup: [docs/en/utilities.md](docs/en/utilities.md) |
@@ -176,16 +176,22 @@ Intentional extensions beyond upstream *rns*:
 | Blackhole auto-publish / `blackhole_sources` | Federation loops |
 | `rnsh` / `rnir` / `rnpkg` / `rngit` | Missing utilities |
 | Remote `rnpath` rnstransport modes | Local/shared-instance path tools work |
-| Split resource advertisements (`AdvFlagSplit`) | Rejected with clear error |
-| Syslog / journald | File + stderr logging only |
 
 ## Examples
 
 | Directory | Status | Notes |
 |-----------|:------:|-------|
-| wasm | Public | `//go:build js,wasm`. JS bridge via pkg/wasm. |
-| pageserver | Public | `reticulum-go pageserver` ([pkg/pageserver](pkg/pageserver/)). Sample tree under `examples/pageserver`. |
-| announce, echo, filetransfer, link, minimal, page-downloader | Planned | N/A |
+| minimal | Present | Start transport, create destination, announce |
+| announce | Present | Announce callbacks and app_data |
+| link | Present | Client/server encrypted link and packets |
+| resources | Present | Minimal `SendResource` / conclude callback |
+| filetransfer | Present | Directory listing and file resources over a link |
+| echo | Present | Prove-all echo destination |
+| page-downloader | Present | Request pages over Reticulum |
+| pageserver | Present | `reticulum-go pageserver` sample tree |
+| wasm | Present | `//go:build js,wasm`. JS bridge via pkg/wasm |
+| control-client | Present | Python Control API client |
+| librns-smoke | Present | C ABI smoke test |
 
 ## Configuration
 
@@ -268,7 +274,8 @@ Python defaults from `RNS.Reticulum.__create_default_config` and [RNS/Reticulum.
 | Key | Python *rns* | Reticulum-Go | Notes |
 |-----|:------------:|:------------:|-------|
 | loglevel | Yes | Yes | Same 0 to 7 scale |
-| destination | Yes | Yes | `stderr` (default), `file`, or `both`. Optional `logfile` path |
+| destination | Yes | Yes | `stderr` (default), `file`, `both`, `syslog`, `journald`. Combinations such as `syslog+stderr` |
+| logfile | Yes | Yes | Used when destination includes `file` |
 
 ### [[Interface Name]] keys
 

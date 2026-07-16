@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -134,9 +135,16 @@ func TestFileOperations(t *testing.T) {
 	idPath := filepath.Join(tmpDir, "identity")
 
 	id, _ := New()
-	err := id.ToFile(idPath)
-	if err != nil {
+	if err := id.ToFile(idPath); err != nil {
 		t.Fatalf("ToFile failed: %v", err)
+	}
+
+	st, err := os.Stat(idPath)
+	if err != nil {
+		t.Fatalf("stat identity: %v", err)
+	}
+	if st.Mode().Perm()&0o077 != 0 {
+		t.Fatalf("identity file mode %o allows group/other access", st.Mode().Perm())
 	}
 
 	loadedID, err := FromFile(idPath)

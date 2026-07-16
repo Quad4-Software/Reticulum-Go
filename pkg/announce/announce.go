@@ -110,6 +110,10 @@ func (a *Announce) Propagate(interfaces []common.NetworkInterface) error {
 			debug.Log(debug.DebugTrace, "Skipping disabled interface", "name", iface.GetName())
 			continue
 		}
+		if !common.InterfaceAllowsOutgoing(iface) {
+			debug.Log(debug.DebugTrace, "Skipping receive-only interface", "name", iface.GetName())
+			continue
+		}
 		if !iface.GetBandwidthAvailable() {
 			debug.Log(debug.DebugTrace, "Skipping interface with insufficient bandwidth", "name", iface.GetName())
 			continue
@@ -272,6 +276,9 @@ func (a *Announce) RequestPath(destHash []byte, onInterface common.NetworkInterf
 	packet = append(packet, byte(0)) // Initial hop count
 
 	// Send path request
+	if !common.InterfaceAllowsOutgoing(onInterface) {
+		return common.ErrInterfaceReceiveOnly
+	}
 	return onInterface.Send(packet, "")
 }
 

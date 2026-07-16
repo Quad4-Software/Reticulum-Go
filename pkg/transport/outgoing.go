@@ -12,18 +12,12 @@ import (
 )
 
 // ErrInterfaceReceiveOnly is returned when transmit is blocked by outgoing=no.
-var ErrInterfaceReceiveOnly = errors.New("interface is receive-only")
+var ErrInterfaceReceiveOnly = common.ErrInterfaceReceiveOnly
 
 // AllowsOutgoing reports whether iface may transmit. Interfaces without an
 // explicit AllowsOutgoing method default to true (tests and minimal mocks).
 func AllowsOutgoing(iface common.NetworkInterface) bool {
-	if iface == nil {
-		return false
-	}
-	if o, ok := iface.(interface{ AllowsOutgoing() bool }); ok {
-		return o.AllowsOutgoing()
-	}
-	return true
+	return common.InterfaceAllowsOutgoing(iface)
 }
 
 // sendOnInterface transmits data when the interface is enabled and outgoing.

@@ -899,6 +899,27 @@ func (l *Link) HandleInbound(pkt *packet.Packet) error {
 		return l.handleDataPacket(pkt)
 	}
 
+	// Resource proofs prepare and advertise the next split segment which
+	// encrypts under the link mutex. Unlock first like data packets so we
+	// do not deadlock on a nested RLock.
+	if pkt.PacketType == packet.PacketTypeProof && pkt.Context == packet.ContextResourcePRF {
+		l.mutex.Lock()
+		l.watchdogLock = true
+		if l.status.Load() == int32(StatusClosed) {
+			debug.Log(debug.DebugVerbose, "Ignoring packet for closed link", "link_id", fmt.Sprintf("%x", l.linkID))
+			l.watchdogLock = false
+			l.mutex.Unlock()
+			return nil
+		}
+		l.recordInbound(true)
+		if l.status.Load() == int32(StatusStale) {
+			l.status.Store(int32(StatusActive))
+		}
+		l.watchdogLock = false
+		l.mutex.Unlock()
+		return l.handleResourceProof(pkt)
+	}
+
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -923,8 +944,6 @@ func (l *Link) HandleInbound(pkt *packet.Packet) error {
 			return l.handleLinkProof(pkt, l.networkInterface)
 		} else if pkt.Context == packet.ContextLRRTT {
 			return l.handleRTTPacket(pkt)
-		} else if pkt.Context == packet.ContextResourcePRF {
-			return l.handleResourceProof(pkt)
 		}
 	}
 
@@ -990,6 +1009,22 @@ func (l *Link) handleResourceProof(pkt *packet.Packet) error {
 	}
 
 	debug.Log(debug.DebugInfo, "Outgoing resource proof received", "resource_hash", fmt.Sprintf("%x", resourceHash))
+	if out.IsSplit() && out.GetSegmentIndex() < out.GetTotalSegments() {
+		if err := out.PrepareNextOutboundSegment(l.encrypt, l.resourceSDU()); err != nil {
+			l.signalOutgoingResourceComplete()
+			return fmt.Errorf("prepare next resource segment: %w", err)
+		}
+		out.Activate()
+		l.outgoingMu.Lock()
+		l.outgoingRes = out
+		l.outgoingReceiverMinPart = 0
+		l.outgoingMu.Unlock()
+		if err := l.sendResourceAdvertisement(out); err != nil {
+			l.signalOutgoingResourceComplete()
+			return fmt.Errorf("advertise next resource segment: %w", err)
+		}
+		return nil
+	}
 	l.signalOutgoingResourceComplete()
 	return nil
 }
@@ -1122,11 +1157,11 @@ func (l *Link) handleResourceAdvertisement(pkt *packet.Packet) error {
 	}
 
 	if adv.Split {
-		debug.Log(debug.DebugInfo, "Rejecting split resource advertisement",
+		debug.Log(debug.DebugInfo, "Accepting split resource advertisement",
 			"hash", fmt.Sprintf("%x", adv.Hash),
+			"original", fmt.Sprintf("%x", adv.OriginalHash),
 			"segment", adv.SegmentIndex,
 			"total", adv.TotalSegments)
-		return errors.New("split resource advertisements are not supported")
 	}
 
 	if resource.IsRequestAdvertisement(plaintext) {

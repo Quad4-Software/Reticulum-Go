@@ -95,7 +95,7 @@ func New(cfg *common.ReticulumConfig) (*Node, error) {
 		iface, err := interfaces.NewFromConfigWithContext(name, ifaceConfig, ctx)
 		if err != nil {
 			if cfg.PanicOnInterfaceErr {
-				return nil, fmt.Errorf("failed to create interface %s: %v", name, err)
+				return nil, fmt.Errorf("failed to create interface %s: %w", name, err)
 			}
 			debug.Log(debug.DebugCritical, "Error creating interface", "name", name, "error", err)
 			continue
@@ -166,7 +166,7 @@ func (n *Node) startInterfaces() error {
 		res := <-results
 		if res.err != nil {
 			if n.config.PanicOnInterfaceErr {
-				return fmt.Errorf("failed to start interface %s: %v", res.iface.GetName(), res.err)
+				return fmt.Errorf("failed to start interface %s: %w", res.iface.GetName(), res.err)
 			}
 			debug.Log(debug.DebugCritical, "Error starting interface", "name", res.iface.GetName(), "error", res.err)
 			continue

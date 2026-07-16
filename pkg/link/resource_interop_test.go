@@ -125,11 +125,19 @@ func TestResourceInterop_CompressedSmallBelowThreshold(t *testing.T) {
 func TestResourceInterop_PayloadNearAutoCompressMax(t *testing.T) {
 	initLink, respLink, cleanup := establishInteropLink(t)
 	defer cleanup()
-	payload := bytes.Repeat([]byte{0x33, 0x66, 0x99, 0xCC}, 256*1024)
+	n := max(resource.AutoCompressMaxSize/2, 1024)
+	payload := bytes.Repeat([]byte{0x33}, n)
 	if int64(len(payload)) >= int64(resource.AutoCompressMaxSize) {
 		t.Fatalf("test payload %d exceeds AutoCompressMaxSize=%d", len(payload), resource.AutoCompressMaxSize)
 	}
 	sendResourceAndWait(t, initLink, respLink, payload, true, "near_auto_compress_max")
+}
+
+func TestResourceInterop_SplitLargePayload(t *testing.T) {
+	initLink, respLink, cleanup := establishInteropLink(t)
+	defer cleanup()
+	payload := bytes.Repeat([]byte{0xAB}, resource.MaxEfficientSize+4096)
+	sendResourceAndWait(t, initLink, respLink, payload, false, "split_large")
 }
 
 func TestResourceInterop_BackToBackTransfers(t *testing.T) {

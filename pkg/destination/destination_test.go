@@ -308,6 +308,45 @@ func TestAnnounceSkipsOfflineOrDisabledInterfaces(t *testing.T) {
 	}
 }
 
+func TestAnnounceSkipsReceiveOnlyInterfaces(t *testing.T) {
+	id, err := identity.New()
+	if err != nil {
+		t.Fatalf("identity.New: %v", err)
+	}
+
+	tx := newRecordingInterface("tx")
+	ro := newRecordingInterface("ro")
+	ro.SetOutgoingAllowed(false)
+
+	tr := &mockTransport{
+		config: &common.ReticulumConfig{},
+		interfaces: map[string]common.NetworkInterface{
+			"tx": tx,
+			"ro": ro,
+		},
+	}
+
+	dest, err := New(id, In|Out, Single, "testapp", tr, "testaspect")
+	if err != nil {
+		t.Fatalf("New destination: %v", err)
+	}
+	if err := dest.Announce(false, nil, nil); err != nil {
+		t.Fatalf("Announce: %v", err)
+	}
+	if got := len(tx.Sent()); got != 1 {
+		t.Fatalf("tx got %d announces, want 1", got)
+	}
+	if got := len(ro.Sent()); got != 0 {
+		t.Fatalf("receive-only got %d announces, want 0", got)
+	}
+	if err := dest.Announce(false, nil, ro); err != nil {
+		t.Fatalf("Announce attached RO: %v", err)
+	}
+	if got := len(ro.Sent()); got != 0 {
+		t.Fatalf("attached receive-only got %d announces, want 0", got)
+	}
+}
+
 func TestPlainDestinationHash(t *testing.T) {
 	// A Plain destination with no identity should have a hash based only on its name
 	transport := &mockTransport{}
