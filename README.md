@@ -401,7 +401,8 @@ The `examples/wasm` and `examples/pageserver` examples contain their own indepen
 
 ## AI Disclaimer
 
-Open-weight LLMs, preferably local ones with correct harness, may be used for commit messages, documentation, drafts, translations, and tests. Everything is verified and decided by a human, LLMs do not make design choices. If this makes you uncomfortable then you should not use this stack and stick to reference implementation. 
+Open-weight LLMs, preferably operated locally under a controlled harness, may assist with non-critical tasks such as commit messages, documentation, drafts, translations, and tests. LLMs are strictly excluded from cryptography, key handling, protocol security logic, and any other security-sensitive development. All LLM output is reviewed and approved by a human. Design decisions and security-critical changes are made exclusively by humans.
+
 
 ## Credit
 
