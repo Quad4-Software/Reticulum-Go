@@ -50,6 +50,8 @@ export GOARCH="$GOARCH_TARGET"
 export GOFLAGS="${GOFLAGS:--mod=vendor}"
 export GOPROXY="${GOPROXY:-off}"
 export GOTOOLCHAIN="${GOTOOLCHAIN:-local}"
+# Package tests and helpers can skip qemu-incompatible checks.
+export RETICULUM_QEMU_USER=1
 
 TAG="qemu-${GOARCH_TARGET}-self-check"
 

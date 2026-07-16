@@ -41,6 +41,12 @@ func TestSetResourceLimits_DoesNotCapAddressSpace(t *testing.T) {
 // TestRegression_RLIMIT_AS_2GiBAbortsGo reproduces the daemon crash mode:
 // with RLIMIT_AS=2GiB, heap growth under load fatals the runtime.
 func TestRegression_RLIMIT_AS_2GiBAbortsGo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("allocates multi-GiB under a hard RLIMIT_AS")
+	}
+	if os.Getenv("RETICULUM_QEMU_USER") == "1" {
+		t.Skip("qemu-user does not reliably enforce RLIMIT_AS")
+	}
 	if os.Getenv("SANDBOX_AS_OOM_HELPER") == "1" {
 		const memLimit = 2 << 30
 		if err := unix.Setrlimit(unix.RLIMIT_AS, &unix.Rlimit{Cur: memLimit, Max: memLimit}); err != nil {
@@ -76,6 +82,12 @@ func TestRegression_RLIMIT_AS_2GiBAbortsGo(t *testing.T) {
 // TestSetResourceLimits_AllowsLargeHeap confirms current limits survive a
 // multi-GiB allocation pattern that used to kill the sandboxed daemon.
 func TestSetResourceLimits_AllowsLargeHeap(t *testing.T) {
+	if testing.Short() {
+		t.Skip("allocates about 1.5GiB of touched heap")
+	}
+	if os.Getenv("RETICULUM_QEMU_USER") == "1" {
+		t.Skip("large heap exercise is too heavy under qemu-user")
+	}
 	if os.Getenv("SANDBOX_AS_OK_HELPER") == "1" {
 		if err := setResourceLimits(); err != nil {
 			t.Fatal(err)
