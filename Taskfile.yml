@@ -133,6 +133,7 @@ tasks:
     cmds:
       - '{{.GOCMD}} clean'
       - rm -rf {{.BUILD_DIR}}
+      - make -C bindings/odin clean
 
   reproducibility:
     desc: Fail if two consecutive release builds (trimpath, no VCS stamp) are not byte-identical

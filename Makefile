@@ -9,9 +9,10 @@
 
 .PHONY: all build build-utils install uninstall clean test fmt vet lint vulncheck gosec check deps run help
 .PHONY: build-linux build-windows build-windows-legacy build-darwin build-all
-.PHONY: test-short test-race test-crossref test-wasm test-all coverage bench debug release
+.PHONY: test-short test-race test-crossref test-wasm test-odin test-all coverage bench debug release
 .PHONY: man install-man install-service package package-deb package-rpm package-arch
 .PHONY: test-services tree-manifest tree-rsm-sign tree-rsm-verify hooks-install
+.PHONY: build-librns
 
 .DEFAULT_GOAL := all
 
@@ -60,6 +61,7 @@ help:
 	@echo "  package-rpm    Build .rpm into dist/ (nfpm)"
 	@echo "  package-arch   Build .pkg.tar.zst into dist/ (nfpm)"
 	@echo "  test           Run tests"
+	@echo "  test-odin      Build librns and run Odin bindings tests"
 	@echo "  test-services  Docker tests for systemd/openrc/runit/dinit + logfile"
 	@echo "  check          fmt vet lint test-short vulncheck gosec"
 	@echo "  tree-rsm-verify  Verify reticulum-go.rsm signature and hashes"
@@ -128,6 +130,7 @@ uninstall:
 clean:
 	$(GOCMD) clean
 	rm -rf $(BUILD_DIR) dist
+	$(MAKE) -C bindings/odin clean
 
 deps:
 	sh scripts/vendor-sync.sh "$(LIBS_ROOT)"
@@ -148,7 +151,15 @@ test-crossref:
 test-wasm:
 	env -i HOME=$$HOME PATH="/usr/local/bin:/usr/bin:/bin" GOROOT=$(shell go env GOROOT) TMPDIR=/tmp TESTSUMMARY_GOOS=js TESTSUMMARY_GOARCH=wasm $(GOCMD) run ./scripts/ci/testsummary -count=1 -exec="$(shell go env GOROOT)/lib/wasm/go_js_wasm_exec" ./pkg/wasm/... ./cmd/reticulum-wasm/...
 
-test-all: test test-wasm test-crossref
+build-librns:
+	mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=1 $(GOCMD) build -buildmode=c-shared -o $(BUILD_DIR)/librns.so ./cmd/librns
+	cp include/rns.h $(BUILD_DIR)/rns.h
+
+test-odin: build-librns
+	$(MAKE) -C bindings/odin test
+
+test-all: test test-wasm test-crossref test-odin
 
 test-services:
 	sh scripts/ci/test-services-docker.sh

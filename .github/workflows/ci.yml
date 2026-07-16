@@ -25,6 +25,7 @@ env:
   CI_TASK_VERSION: "3.46.3"
   CI_REVIVE_VERSION: "v1.15.0"
   CI_NODE_MAJOR: "22"
+  CI_ODIN_VERSION: "dev-2026-06"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
   GOTOOLCHAIN: local
@@ -127,6 +128,29 @@ jobs:
 
       - name: Run binary smoke test
         run: task test-binary-smoke
+
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
+
+  test-odin:
+    name: Odin bindings
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Setup Odin
+        run: sh scripts/ci/setup-odin.sh "${{ env.CI_ODIN_VERSION }}"
+
+      - name: Run Odin bindings tests
+        run: task test-odin
 
       - name: Verify workspace clean
         uses: ./.github/actions/verify-workspace-clean
