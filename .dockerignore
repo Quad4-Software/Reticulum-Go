@@ -41,3 +41,6 @@ __pycache__/
 .tools/
 
 .reticulum-go/
+
+# Firecracker microvm build and runtime artifacts
+microvm/out/

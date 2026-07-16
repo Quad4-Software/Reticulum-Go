@@ -65,6 +65,9 @@ __pycache__/
 # Local Go build/test tmpdir override
 .gotmp/
 
+# Firecracker microvm build and runtime artifacts
+microvm/out/
+
 # go test -fuzz corpus dumps (not seed fixtures we intentionally commit)
 **/testdata/fuzz/
 
