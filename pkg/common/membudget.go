@@ -76,10 +76,7 @@ func (b *MemoryBudget) Release(n int64) {
 	}
 	for {
 		used := b.used.Load()
-		next := used - n
-		if next < 0 {
-			next = 0
-		}
+		next := max(used-n, 0)
 		if b.used.CompareAndSwap(used, next) {
 			return
 		}

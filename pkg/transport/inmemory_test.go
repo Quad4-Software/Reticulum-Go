@@ -73,7 +73,7 @@ func TestInMemoryStorage_PathEviction(t *testing.T) {
 		tr.updatePathUnlocked(h, nh, "udp0", 1, nil, nil, now.Add(time.Duration(i)*time.Second))
 	}
 	n := len(tr.paths)
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		h := make([]byte, PathMapKeySize)
 		h[0] = byte(i + 1)
 		if _, ok := tr.paths[pathMapKey(h)]; ok {
