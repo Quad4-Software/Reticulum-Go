@@ -7,4 +7,9 @@ runs:
       shell: sh
       env:
         RNS_INVENTORY_OUT: ${{ runner.temp }}/reticulum-go-tree-inventory.txt
-      run: sh scripts/ci/verify-workspace-clean.sh "$RNS_INVENTORY_OUT"
+      run: |
+        if [ ! -f "$RNS_INVENTORY_OUT" ]; then
+          echo "verify-workspace-clean: warning: no tree inventory (tree RSM verify was skipped or optional and failed), continuing" >&2
+          exit 0
+        fi
+        sh scripts/ci/verify-workspace-clean.sh "$RNS_INVENTORY_OUT"

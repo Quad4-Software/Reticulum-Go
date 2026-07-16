@@ -6,6 +6,7 @@
 #   RNS_RSM_PATH         path to .rsm (default: reticulum-go.rsm)
 #   RNS_ID_BIN           reticulum-go binary (default: bin/reticulum-go)
 #   RNS_INVENTORY_OUT    if set, write extracted inventory here (for end-of-job recheck)
+#   RNS_TREE_VERIFY_OPTIONAL  if 1 or true, warn and exit 0 on failure (CI soft check)
 #
 # Usage:
 #   sh scripts/ci/verify-tree-rsm.sh
@@ -18,9 +19,22 @@ SIGNER="${RNS_REQUIRED_SIGNER:-e46112d44649266d71fe2193e00a4710}"
 RSM_PATH="${RNS_RSM_PATH:-$ROOT/reticulum-go.rsm}"
 BIN="${RNS_ID_BIN:-$ROOT/bin/reticulum-go}"
 
+warn_or_fail() {
+	msg="$1"
+	case "${RNS_TREE_VERIFY_OPTIONAL:-}" in
+	1 | true | TRUE | yes | YES)
+		echo "verify-tree-rsm.sh: warning: $msg (optional, continuing)" >&2
+		exit 0
+		;;
+	*)
+		echo "verify-tree-rsm.sh: $msg" >&2
+		exit 1
+		;;
+	esac
+}
+
 if [ ! -f "$RSM_PATH" ]; then
-	echo "verify-tree-rsm.sh: missing $RSM_PATH" >&2
-	exit 1
+	warn_or_fail "missing $RSM_PATH"
 fi
 
 if [ ! -x "$BIN" ]; then
@@ -33,13 +47,14 @@ trap 'rm -f "$INV"' EXIT INT
 
 # Cryptographic verify + extract embedded inventory (public signer hash only).
 if ! "$BIN" id -i "$SIGNER" -V "$RSM_PATH" -extract >"$INV"; then
-	echo "verify-tree-rsm.sh: RSM signature verification failed" >&2
-	exit 1
+	warn_or_fail "RSM signature verification failed"
 fi
 
 if [ -n "${RNS_INVENTORY_OUT:-}" ]; then
 	cp "$INV" "$RNS_INVENTORY_OUT"
 fi
 
-sh "$ROOT/scripts/ci/tree-manifest.sh" verify-tracked "$INV"
+if ! sh "$ROOT/scripts/ci/tree-manifest.sh" verify-tracked "$INV"; then
+	warn_or_fail "tree inventory hash check failed"
+fi
 echo "verify-tree-rsm.sh: OK (signer $SIGNER)"

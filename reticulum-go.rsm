@@ -1,10 +1,8 @@
-ŸgôUÓžÖE‰Ô®ü3…£c–@òŠO‰>Ä"”OÜ"ˆ˜˜Y&…æ'_™Œâ?ï¡Z»ë`iÅÿ“(¨D„¤hashÄ ½ýLlô*õ1pv¡qI%ækU¹¶K–³q	ä×Ó4â¤meta‚¦signerÄäaÔFI&mqþ!“à
-G¦pubkeyÄ@wÉÉ 9nS·“(€Y¥
-æ€Ìh’!õM/ÆÂ™@ÂAu¤œßÞß®ßê(ôÕ”è^pñâÈ>_2µçþ¶Ë8Ã©§messageÅèÍ# reticulum-go tree manifest v1
+Ì3ì‘x¹ñ&¹­j*ì˜,F¿Ž®LË®œ.P™³²;¥L_µð¿¦Þî6ªR4ýµïr-Ëí s<N„§messageÅèÍ# reticulum-go tree manifest v1
 7f66c8c607131ff4cef5c5fc2c9440245f3b237a5bc9916d9dfc14e6028dd528  .dockerignore
 13f0af1c3451d4655344ec80a3881bb76739672c49750a56ac73220ea00d5176  .githooks/pre-commit
-af620800c4fc1455e2a9149b5c37e6053b9569bbd4b4d87ff5c1349ab057c441  .github/actions/setup-ci/action.yml
-401c3827cb9f92e90734404edde08e1df6e4def9d456211d28abfcc5f752150e  .github/actions/verify-workspace-clean/action.yml
+7f1e8a8b19aa771600ecafd880f3eb6e612d86f6a6b8d0590eb8573740dfbb13  .github/actions/setup-ci/action.yml
+c2128990fdb15e384daa7eb5797d5fd3f315f73b0678377175b8ee8ba067efa9  .github/actions/verify-workspace-clean/action.yml
 57b3911a68dd2bae002a60e529ca19edab82b876b5af3ab07dad5568d1297b8d  .github/workflows/ci.yml
 61e410d9f4482ae98701593389e7056650253ecabd2912d4421a52826803bf46  .github/workflows/codeql.yml
 94b1e043c9b398e637a9241a1b8696682b7dae94d6f4d0457934d62e01c0521e  .github/workflows/preview-release.yml
@@ -576,7 +574,7 @@ b4083bd9a3b0a37651cdea2680e9295cd667bab05085fd2d7a724a990361cf10  scripts/ci/tes
 8075783f9df6bccb690b16472808b17ed0b6808e0860eacae18ad767114edc7d  scripts/ci/testsummary/main_test.go
 69eaccdd9e1eae961e5f9304e6bf27a2ca28fa56f22bc3483919160449c74af1  scripts/ci/tree-manifest.sh
 e93195b97c19061333f26ba42a249d96d6d81075dcf02c12e6a9e40a3ddae485  scripts/ci/verify-release-attestation.sh
-a3dff6528a567e8d1f22efbee0fb03a84ea12240837cfabd97c2a624fcc29076  scripts/ci/verify-tree-rsm.sh
+3b18dd52fb278414ab10d9b3aa81e0011ef081c63af24a1d7864fd2e7e89a069  scripts/ci/verify-tree-rsm.sh
 fd50a296a43dcc18e986cd1aaf2c8a1daafad7f2adb499bad8140a1854d140a5  scripts/ci/verify-workspace-clean.sh
 599f99d51b3a0bdfce5f5f7e44a9377e307fe8b4c1f1bd77f3ac7b0bb239d6c0  scripts/install-service.sh
 7028b2d3d515ed7e6e00f14a7d13da436cf9ad037738e7db6d3b048834bac94e  scripts/vendor-sync.sh
@@ -631,4 +629,6 @@ a10c3c1fc5cd5a029ac95e50c64a10aac660891b196a139804e9d70c9bd00a3e  tools/gomutant
 b275571f9159dc21ae5fd29dd5186efdbd5d13db4bb3642af332024e29b62eb4  tools/gomutant/testdata/sample/sample.go
 489bdb582d6c397f14dd7cd963e70c0c1b566c3a84c918f3eea4177ad806e1f1  tools/gomutant/testdata/sample/sample_test.go
 4f5b07dd471d143ee981a76b8dda4afa72fd8d1fbc93af5da289d9bc505e2aa2  tools/gomutant/types.go
-¨hashtype¦sha256
+¨hashtype¦sha256¤hashÄ PÕ­@ô8w‹Ï³Ú”'ãDz|‹Ûh[Q¦33•L©XG·¤meta‚¦signerÄäaÔFI&mqþ!“à
+G¦pubkeyÄ@wÉÉ 9nS·“(€Y¥
+æ€Ìh’!õM/ÆÂ™@ÂAu¤œßÞß®ßê(ôÕ”è^pñâÈ>_2µçþ¶Ë8Ã©
