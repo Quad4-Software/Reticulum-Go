@@ -179,6 +179,57 @@ func TestQueuePathResponseAnnounce_RemoteUsesGrace(t *testing.T) {
 	}
 }
 
+func TestQueuePathResponseAnnounce_RemoteRetryDoesNotResetGrace(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+	tr.SetIdentity(mustIdentity(t))
+
+	wan := newRelayIface("wan")
+	if err := tr.RegisterInterface(wan.GetName(), wan); err != nil {
+		t.Fatal(err)
+	}
+
+	dest := randomDestHash(204)
+	tr.cacheAnnouncePacket(dest, cachedAnnounce(dest, 0x55))
+	path := &common.Path{
+		NextHop:     bytes.Repeat([]byte{0x03}, 16),
+		Interface:   wan,
+		HopCount:    2,
+		LastUpdated: time.Now(),
+	}
+
+	if !tr.queuePathResponseAnnounce(dest, path, wan, false) {
+		t.Fatal("expected queue success")
+	}
+	tr.mutex.RLock()
+	first := tr.announceTable[string(dest)]
+	tr.mutex.RUnlock()
+	if first == nil {
+		t.Fatal("expected pending entry")
+	}
+	firstDue := first.RetransmitTimeout
+
+	time.Sleep(50 * time.Millisecond)
+	if !tr.queuePathResponseAnnounce(dest, path, wan, false) {
+		t.Fatal("retry should still report queued")
+	}
+	tr.mutex.RLock()
+	second := tr.announceTable[string(dest)]
+	tr.mutex.RUnlock()
+	if second == nil {
+		t.Fatal("expected pending entry after retry")
+	}
+	if !second.RetransmitTimeout.Equal(firstDue) {
+		t.Fatalf("retry reset grace: first=%v second=%v", firstDue, second.RetransmitTimeout)
+	}
+
+	second.RetransmitTimeout = time.Now().Add(-time.Millisecond)
+	tr.processAnnounceTable()
+	if n := countSends(wan); n != 1 {
+		t.Fatalf("after grace expiry expected 1 send, got %d", n)
+	}
+}
+
 func TestQueuePathResponseAnnounce_NoCacheReturnsFalse(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
 	defer tr.Close()

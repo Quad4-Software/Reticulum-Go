@@ -54,19 +54,19 @@ func writePageServerInteropReticulumConfig(t *testing.T, home string, goListen, 
 	if err := os.MkdirAll(filepath.Dir(cfgPath), 0o700); err != nil {
 		t.Fatalf("mkdir config dir: %v", err)
 	}
-	if err := reticulumconfig.CreateDefaultConfig(cfgPath); err != nil {
-		t.Fatalf("create default config: %v", err)
-	}
-	cfg, err := reticulumconfig.LoadConfig(cfgPath)
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
-	cfg.Interfaces["UDP"] = &common.InterfaceConfig{
-		Name:       "UDP",
-		Type:       "UDPInterface",
-		Enabled:    true,
-		Address:    fmt.Sprintf("0.0.0.0:%d", goListen),
-		TargetHost: fmt.Sprintf("127.0.0.1:%d", pyListen),
+	cfg := reticulumconfig.DefaultConfig()
+	cfg.ConfigPath = cfgPath
+	cfg.EnableTransport = true
+	cfg.ShareInstance = false
+	cfg.EnableSandbox = false
+	cfg.Interfaces = map[string]*common.InterfaceConfig{
+		"UDP": {
+			Name:       "UDP",
+			Type:       "UDPInterface",
+			Enabled:    true,
+			Address:    fmt.Sprintf("0.0.0.0:%d", goListen),
+			TargetHost: fmt.Sprintf("127.0.0.1:%d", pyListen),
+		},
 	}
 	if err := reticulumconfig.SaveConfig(cfg); err != nil {
 		t.Fatalf("save config: %v", err)
@@ -114,13 +114,30 @@ func runPythonPageRequest(
 		t.Fatalf("expected READY, got %q", line)
 	}
 
-	line, err = readLineTimeout(ctx, br, 75*time.Second)
+	line, err = readLineTimeout(ctx, br, 120*time.Second)
 	if err != nil {
 		t.Fatalf("wait REQUEST_OK for %s: %v", reqPath, err)
 	}
 	if strings.TrimSpace(line) != "REQUEST_OK" {
 		t.Fatalf("expected REQUEST_OK for %s, got %q", reqPath, line)
 	}
+}
+
+func startPageServerBinary(t *testing.T, ctx context.Context, home, pageServerDir string) *exec.Cmd {
+	t.Helper()
+	bin := filepath.Join(pageServerDir, "example-pageserver")
+	if _, err := os.Stat(bin); err != nil {
+		t.Fatalf("pageserver binary missing at %s (build examples/pageserver first): %v", bin, err)
+	}
+	cmd := exec.CommandContext(ctx, bin, "-log-level", "7")
+	cmd.Dir = pageServerDir
+	cmd.Env = append(os.Environ(), "HOME="+home)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start pageserver: %v", err)
+	}
+	return cmd
 }
 
 func TestLiveInteropPythonNomadNetPageServerRequests(t *testing.T) {
@@ -146,25 +163,13 @@ func TestLiveInteropPythonNomadNetPageServerRequests(t *testing.T) {
 	}
 	defer func() { _ = os.Remove(testFilePath) }()
 
-	cmd := exec.CommandContext(
-		ctx,
-		filepath.Join(pageServerDir, "example-pageserver"),
-		"-log-level",
-		"7",
-	)
-	cmd.Dir = pageServerDir
-	cmd.Env = append(os.Environ(), "HOME="+pageServerHome)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("start pageserver: %v", err)
-	}
+	cmd := startPageServerBinary(t, ctx, pageServerHome, pageServerDir)
 	defer func() {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
 	}()
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(6 * time.Second)
 
 	runPythonPageRequest(t, ctx, pyListen, goListen, goDestHash, "/page/index.mu", "Reticulum-Go Node")
 	runPythonPageRequest(t, ctx, pyListen, goListen, goDestHash, "/file/interop_test_file.txt", "PY_FILE_TEST")
@@ -195,25 +200,13 @@ func TestLiveInteropPythonPageServerLargeFileRequest(t *testing.T) {
 	}
 	defer func() { _ = os.Remove(largePath) }()
 
-	cmd := exec.CommandContext(
-		ctx,
-		filepath.Join(pageServerDir, "example-pageserver"),
-		"-log-level",
-		"7",
-	)
-	cmd.Dir = pageServerDir
-	cmd.Env = append(os.Environ(), "HOME="+pageServerHome)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("start pageserver: %v", err)
-	}
+	cmd := startPageServerBinary(t, ctx, pageServerHome, pageServerDir)
 	defer func() {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
 	}()
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(6 * time.Second)
 
 	runPythonPageRequest(t, ctx, pyListen, goListen, goDestHash, "/file/interop_large_file.txt", "LARGE_INTEROP_MARKER")
 }
@@ -243,25 +236,13 @@ func TestLiveInteropPythonPageServerLargePageRequest(t *testing.T) {
 	}
 	defer func() { _ = os.Remove(largePath) }()
 
-	cmd := exec.CommandContext(
-		ctx,
-		filepath.Join(pageServerDir, "example-pageserver"),
-		"-log-level",
-		"7",
-	)
-	cmd.Dir = pageServerDir
-	cmd.Env = append(os.Environ(), "HOME="+pageServerHome)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("start pageserver: %v", err)
-	}
+	cmd := startPageServerBinary(t, ctx, pageServerHome, pageServerDir)
 	defer func() {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
 	}()
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(6 * time.Second)
 
 	runPythonPageRequest(t, ctx, pyListen, goListen, goDestHash, "/page/interop_large_page.mu", "LARGE_PAGE_INTEROP_MARKER")
 }

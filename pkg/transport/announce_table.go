@@ -119,6 +119,12 @@ func (t *Transport) queuePathResponseAnnounce(destHash []byte, path *common.Path
 
 	t.mutex.Lock()
 	if prev, ok := t.announceTable[destHashStr]; ok && prev != nil && prev.AttachedInterface != nil {
+		// A later path-request retry must not push RetransmitTimeout out, or
+		// aggressive clients never receive a PATH_RESPONSE.
+		if prev.BlockRebroadcasts && prev.AttachedInterface == attachedIface {
+			t.mutex.Unlock()
+			return true
+		}
 		t.heldAnnounces[destHashStr] = prev
 	}
 	t.announceTable[destHashStr] = entry

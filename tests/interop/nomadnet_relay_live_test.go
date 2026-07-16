@@ -9,6 +9,7 @@ package interop
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -91,7 +92,7 @@ func setupGoTransportRelay(t *testing.T, pyListen, pyForward int, peers []direct
 		t.Fatalf("start relay_udp: %v", err)
 	}
 
-	connected := 0
+	var meshIfaces []common.NetworkInterface
 	for _, peer := range peers {
 		iface, err := interfaces.NewTCPClientInterface(peer.Name, peer.Host, peer.Port, false, false, true)
 		if err != nil {
@@ -102,12 +103,31 @@ func setupGoTransportRelay(t *testing.T, pyListen, pyForward int, peers []direct
 			t.Logf("skip mesh peer %s register: %v", peer.Name, err)
 			continue
 		}
-		connected++
-		t.Logf("connected mesh peer %s (%s:%d)", peer.Name, peer.Host, peer.Port)
+		meshIfaces = append(meshIfaces, iface)
+		t.Logf("dialing mesh peer %s (%s:%d)", peer.Name, peer.Host, peer.Port)
 	}
-	if connected == 0 {
-		t.Fatal("no mesh TCP peers connected")
+	if len(meshIfaces) == 0 {
+		t.Fatal("no mesh TCP peers registered")
 	}
+
+	onlineDeadline := time.Now().Add(45 * time.Second)
+	online := 0
+	for time.Now().Before(onlineDeadline) {
+		online = 0
+		for _, iface := range meshIfaces {
+			if iface.IsOnline() {
+				online++
+			}
+		}
+		if online > 0 {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	if online == 0 {
+		t.Fatal("no mesh TCP peers came online")
+	}
+	t.Logf("mesh TCP peers online=%d/%d", online, len(meshIfaces))
 
 	if err := tr.InitializePathRequestHandler(); err != nil {
 		t.Fatalf("path handler: %v", err)
@@ -139,13 +159,36 @@ func TestLiveNomadNetLinkThroughGoRelay(t *testing.T) {
 
 	tr, cleanup := setupGoTransportRelay(t, pyListen, pyForward, peers)
 	defer cleanup()
-	_ = tr
+
+	collector := newNomadnetAnnounceCollector()
+	tr.RegisterAnnounceHandler(collector)
+	defer tr.UnregisterAnnounceHandler(collector)
+
+	deadline := time.Now().Add(announceWait)
+	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			t.Fatalf("context while waiting for announces: %v", ctx.Err())
+		default:
+		}
+		if len(collector.snapshot()) > 0 {
+			break
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	nodes := collector.snapshot()
+	if len(nodes) == 0 {
+		t.Fatalf("no nomadnet announces observed on Go relay within %s", announceWait)
+	}
+	nodeHash := nodes[0].destHash
+	t.Logf("selected nomadnet node %x hops=%d", nodeHash, nodes[0].hops)
 
 	scriptDirPath := scriptDir(t)
 	pyCmd := exec.CommandContext(ctx, pythonExe(), filepath.Join(scriptDirPath, "py", "nomadnet_relay_probe.py"))
 	pyCmd.Env = append(os.Environ(),
 		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
 		"INTEROP_FORWARD_PORT="+strconv.Itoa(pyForward),
+		"INTEROP_NOMADNET_DEST_HASH="+hex.EncodeToString(nodeHash),
 		"INTEROP_NOMADNET_ANNOUNCE_WAIT_SEC="+strconv.Itoa(int(announceWait.Seconds())),
 		"INTEROP_NOMADNET_LINK_TIMEOUT_SEC="+strconv.Itoa(int(linkTimeout.Seconds())),
 	)
@@ -157,29 +200,47 @@ func TestLiveNomadNetLinkThroughGoRelay(t *testing.T) {
 	if err := pyCmd.Start(); err != nil {
 		t.Fatalf("start python probe: %v", err)
 	}
+	pyDone := make(chan error, 1)
+	go func() { pyDone <- pyCmd.Wait() }()
 	defer func() {
 		_ = pyCmd.Process.Kill()
-		_ = pyCmd.Wait()
+		select {
+		case <-pyDone:
+		case <-time.After(3 * time.Second):
+		}
 	}()
 
-	br := bufio.NewReader(pyOut)
+	br := bufio.NewReaderSize(pyOut, 1<<20)
 	if line, err := readLineTimeout(ctx, br, 30*time.Second); err != nil {
 		t.Fatalf("python READY: %v", err)
 	} else if strings.TrimSpace(line) != "READY" {
 		t.Fatalf("python expected READY, got %q", line)
 	}
 
-	deadline := time.Now().Add(announceWait + linkTimeout)
+	deadline = time.Now().Add(linkTimeout + 2*time.Minute)
 	for time.Now().Before(deadline) {
 		select {
 		case <-ctx.Done():
 			t.Fatalf("context expired: %v", ctx.Err())
+		case err := <-pyDone:
+			if err != nil {
+				t.Fatalf("python probe exited before NOMADNET_LINK_OK: %v", err)
+			}
+			t.Fatal("python probe exited before NOMADNET_LINK_OK")
 		default:
 		}
 		line, err := readLineTimeout(ctx, br, 5*time.Second)
 		if err != nil {
 			if ctx.Err() != nil {
 				t.Fatalf("python probe: %v", ctx.Err())
+			}
+			select {
+			case err := <-pyDone:
+				if err != nil {
+					t.Fatalf("python probe exited before NOMADNET_LINK_OK: %v", err)
+				}
+				t.Fatal("python probe exited before NOMADNET_LINK_OK")
+			default:
 			}
 			continue
 		}

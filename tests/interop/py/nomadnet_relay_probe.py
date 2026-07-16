@@ -49,7 +49,8 @@ def is_nomadnet_node(identity, dest_hash: bytes) -> bool:
 
 
 class NomadnetCollector:
-    aspect_filter = [f"{NOMADNET_APP}.{NOMADNET_ASPECT}"]
+    # RNS expects a destination name string, not a list.
+    aspect_filter = f"{NOMADNET_APP}.{NOMADNET_ASPECT}"
     receive_path_responses = True
 
     def __init__(self):
@@ -87,6 +88,16 @@ def wait_for_path(dest_hash: bytes, deadline: float) -> bool:
     return False
 
 
+def wait_for_identity(dest_hash: bytes, deadline: float):
+    while time.time() < deadline:
+        identity = RNS.Identity.recall(dest_hash)
+        if identity is not None:
+            return identity
+        RNS.Transport.request_path(dest_hash)
+        time.sleep(0.2)
+    return None
+
+
 def main() -> int:
     listen_port = int(os.environ["INTEROP_LISTEN_PORT"])
     forward_port = int(os.environ["INTEROP_FORWARD_PORT"])
@@ -95,6 +106,7 @@ def main() -> int:
     page_path = os.environ.get("INTEROP_NOMADNET_PAGE_PATH", "/page/index.mu")
     link_timeout = float(os.environ.get("INTEROP_NOMADNET_LINK_TIMEOUT_SEC", "60"))
     request_timeout = float(os.environ.get("INTEROP_NOMADNET_REQUEST_TIMEOUT_SEC", "30"))
+    preset_hash_hex = os.environ.get("INTEROP_NOMADNET_DEST_HASH", "").strip()
 
     cfg_dir = os.environ.get("INTEROP_CONFIG_DIR")
     if not cfg_dir:
@@ -109,15 +121,29 @@ def main() -> int:
     sys.stdout.write("READY\n")
     sys.stdout.flush()
 
-    nodes = wait_for_nodes(collector, node_target, time.time() + announce_wait)
-    if not nodes:
-        sys.stderr.write("timeout: no nomadnet node announces observed\n")
-        return 1
-
-    node = nodes[0]
-    dest_hash = node["hash"]
-    sys.stdout.write("NODE " + dest_hash.hex() + "\n")
-    sys.stdout.flush()
+    dest_hash = None
+    identity = None
+    if preset_hash_hex:
+        dest_hash = bytes.fromhex(preset_hash_hex)
+        if len(dest_hash) != 16:
+            sys.stderr.write("invalid INTEROP_NOMADNET_DEST_HASH\n")
+            return 1
+        sys.stdout.write("NODE " + dest_hash.hex() + "\n")
+        sys.stdout.flush()
+        identity = wait_for_identity(dest_hash, time.time() + 45.0)
+        if identity is None:
+            sys.stderr.write("timeout: could not recall nomadnet identity via path response\n")
+            return 1
+    else:
+        nodes = wait_for_nodes(collector, node_target, time.time() + announce_wait)
+        if not nodes:
+            sys.stderr.write("timeout: no nomadnet node announces observed\n")
+            return 1
+        node = nodes[0]
+        dest_hash = node["hash"]
+        identity = node["identity"]
+        sys.stdout.write("NODE " + dest_hash.hex() + "\n")
+        sys.stdout.flush()
 
     if not wait_for_path(dest_hash, time.time() + 45.0):
         sys.stderr.write("timeout: no path to nomadnet node\n")
@@ -146,7 +172,7 @@ def main() -> int:
             link_result["err"] = str(exc)
 
     dest = RNS.Destination(
-        node["identity"],
+        identity,
         RNS.Destination.OUT,
         RNS.Destination.SINGLE,
         NOMADNET_APP,
