@@ -63,8 +63,10 @@ func TestSeccompEnabledConfig(t *testing.T) {
 }
 
 func TestSeccompFunctional(t *testing.T) {
-	if runtime.GOARCH != "amd64" && runtime.GOARCH != "arm64" {
-		t.Skip("seccomp policy only for amd64/arm64")
+	switch runtime.GOARCH {
+	case "amd64", "arm64", "386", "arm", "riscv64", "ppc64", "ppc64le":
+	default:
+		t.Skip("seccomp policy not defined for " + runtime.GOARCH)
 	}
 
 	cmd := exec.Command(os.Args[0], "-test.run=TestSeccompHelper", "-test.v")

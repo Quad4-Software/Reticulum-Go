@@ -209,10 +209,25 @@ jobs:
       - name: Verify workspace clean
         uses: ./.github/actions/verify-workspace-clean
 
-  test-riscv64:
-    name: Linux riscv64 self-check (qemu-user)
+  test-qemu-arch:
+    name: Linux ${{ matrix.goarch }} self-check (qemu-user)
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goarch: riscv64
+            qemu: qemu-riscv64-static
+          - goarch: "386"
+            qemu: qemu-i386-static
+          - goarch: arm
+            qemu: qemu-arm-static
+            goarm: "6"
+          - goarch: ppc64le
+            qemu: qemu-ppc64le-static
+          - goarch: ppc64
+            qemu: qemu-ppc64-static
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -228,11 +243,13 @@ jobs:
           set -eu
           sudo apt-get update -qq
           sudo apt-get install -y qemu-user-static
-          command -v qemu-riscv64-static
-          qemu-riscv64-static --version | head -1
+          command -v "${{ matrix.qemu }}"
+          "${{ matrix.qemu }}" --version | head -1
 
-      - name: Run riscv64 self-check
-        run: task test-self-check-riscv64
+      - name: Run ${{ matrix.goarch }} self-check
+        env:
+          GOARM: ${{ matrix.goarm || '' }}
+        run: sh scripts/ci/run-qemu-arch-self-check.sh "${{ matrix.goarch }}"
 
       - name: Verify workspace clean
         uses: ./.github/actions/verify-workspace-clean

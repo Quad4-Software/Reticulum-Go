@@ -1,7 +1,7 @@
 version: '3'
 
 vars:
-  LINUX_ARCHES: [amd64, arm64, arm, riscv64]
+  LINUX_ARCHES: [amd64, arm64, arm, 386, riscv64, ppc64le, ppc64]
   WINDOWS_ARCHES: [amd64, arm64]
   DARWIN_ARCHES: [amd64, arm64]
   FREEBSD_ARCHES: [amd64, 386, arm64, arm, riscv64]
@@ -68,7 +68,7 @@ tasks:
           {{.MAIN_PACKAGE}}
 
   build-linux:
-    desc: Build for Linux (amd64, arm64, arm, riscv64)
+    desc: Build for Linux (amd64, arm64, arm, 386, riscv64, ppc64le, ppc64)
     deps:
       - for:
           matrix:

@@ -227,7 +227,11 @@ go test -v ./...
 | `make test-race` | Runs tests with the Go race detector enabled. | Runs `go test -race -v ./...` |
 | `make test-services` | Docker tests for logfile + systemd/openrc/runit/dinit services. | Runs `scripts/ci/test-services-docker.sh`. |
 | `make test-self-check` | Host OS preflight for reticulum-go platform features. | Runs `scripts/ci/run-self-check.sh`. |
-| `make test-self-check-riscv64` | Linux riscv64 self-check under qemu-user. | Runs `scripts/ci/run-riscv64-self-check.sh` (needs `qemu-user-static`). |
+| `make test-self-check-386` | Linux 386 self-check under qemu-user. | Runs `scripts/ci/run-qemu-arch-self-check.sh 386` (needs `qemu-user-static`). |
+| `make test-self-check-arm` | Linux arm (GOARM=6) self-check under qemu-user. | Runs `scripts/ci/run-qemu-arch-self-check.sh arm` (needs `qemu-user-static`). |
+| `make test-self-check-riscv64` | Linux riscv64 self-check under qemu-user. | Runs `scripts/ci/run-qemu-arch-self-check.sh riscv64` (needs `qemu-user-static`). |
+| `make test-self-check-ppc64le` | Linux ppc64le self-check under qemu-user. | Runs `scripts/ci/run-qemu-arch-self-check.sh ppc64le` (needs `qemu-user-static`). |
+| `make test-self-check-ppc64` | Linux ppc64 (big-endian) self-check under qemu-user. | Runs `scripts/ci/run-qemu-arch-self-check.sh ppc64` (needs `qemu-user-static`). |
 | `make coverage` | Generates and opens a test coverage report. | Runs `go test -coverprofile=coverage.out ./...` and opens it in your browser. |
 | `make bench` | Runs all benchmark tests. | Runs `go test -run=^$ -bench=. -benchmem ./...` |
 | `make fmt` | Formats all Go source files. | Runs `go fmt ./...` |
@@ -240,7 +244,7 @@ go test -v ./...
 | `make debug` | Compiles a standard debug binary with symbols. | Runs `go build -o bin/reticulum-go ./cmd/reticulum-go` |
 | `make microvm-up` | Prepare and start Firecracker microvm + host bridge. | Runs `./microvm/up.sh`. See [docs/en/microvm.md](docs/en/microvm.md). |
 | `make microvm-stop` | Stop Firecracker microvm and host bridge. | Runs `./microvm/stop.sh`. |
-| `make build-linux` | Cross-compiles for Linux. | Cross-compiles for amd64, arm64, arm, and riscv64 targets. |
+| `make build-linux` | Cross-compiles for Linux. | Cross-compiles for amd64, arm64, arm, 386, riscv64, ppc64le, and ppc64 targets. |
 | `make build-windows` | Cross-compiles for Windows. | Cross-compiles for amd64 and arm64 targets. |
 | `make build-windows-legacy` | Cross-compiles for legacy Windows releases. | Compiles Windows 7, 8, and 8.1 support using go-legacy-win7. |
 | `make build-darwin` | Cross-compiles for macOS. | Cross-compiles for amd64 and arm64 targets. |

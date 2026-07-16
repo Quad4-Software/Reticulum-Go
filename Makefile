@@ -180,7 +180,19 @@ test-self-check:
 	sh scripts/ci/run-self-check.sh
 
 test-self-check-riscv64:
-	sh scripts/ci/run-riscv64-self-check.sh
+	sh scripts/ci/run-qemu-arch-self-check.sh riscv64
+
+test-self-check-386:
+	sh scripts/ci/run-qemu-arch-self-check.sh 386
+
+test-self-check-arm:
+	GOARM=6 sh scripts/ci/run-qemu-arch-self-check.sh arm
+
+test-self-check-ppc64le:
+	sh scripts/ci/run-qemu-arch-self-check.sh ppc64le
+
+test-self-check-ppc64:
+	sh scripts/ci/run-qemu-arch-self-check.sh ppc64
 
 coverage:
 	$(GOCMD) test -coverprofile=coverage.out ./...

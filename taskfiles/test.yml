@@ -68,10 +68,49 @@ tasks:
     cmds:
       - sh scripts/ci/run-self-check.sh
 
+  test-self-check-qemu:
+    desc: Cross-build linux/$GOARCH and run self-check under qemu-user
+    requires:
+      vars: [GOARCH]
+    cmds:
+      - sh scripts/ci/run-qemu-arch-self-check.sh {{.GOARCH}}
+
   test-self-check-riscv64:
     desc: Cross-build linux/riscv64 and run self-check under qemu-user
     cmds:
-      - sh scripts/ci/run-riscv64-self-check.sh
+      - task: test-self-check-qemu
+        vars:
+          GOARCH: riscv64
+
+  test-self-check-386:
+    desc: Cross-build linux/386 and run self-check under qemu-user
+    cmds:
+      - task: test-self-check-qemu
+        vars:
+          GOARCH: "386"
+
+  test-self-check-arm:
+    desc: Cross-build linux/arm (GOARM=6) and run self-check under qemu-user
+    env:
+      GOARM: "6"
+    cmds:
+      - task: test-self-check-qemu
+        vars:
+          GOARCH: arm
+
+  test-self-check-ppc64le:
+    desc: Cross-build linux/ppc64le and run self-check under qemu-user
+    cmds:
+      - task: test-self-check-qemu
+        vars:
+          GOARCH: ppc64le
+
+  test-self-check-ppc64:
+    desc: Cross-build linux/ppc64 and run self-check under qemu-user
+    cmds:
+      - task: test-self-check-qemu
+        vars:
+          GOARCH: ppc64
 
   test-leaks:
     desc: Run resource leak tests

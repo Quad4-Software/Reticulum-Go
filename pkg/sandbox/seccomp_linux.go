@@ -93,51 +93,9 @@ func bpfJump(code uint16, k uint32, jt, jf uint8) unix.SockFilter {
 }
 
 func seccompPolicy() (arch uint32, denied []int, err error) {
-	switch runtime.GOARCH {
-	case "amd64":
-		return unix.AUDIT_ARCH_X86_64, deniedSyscallsAMD64(), nil
-	case "arm64":
-		return unix.AUDIT_ARCH_AARCH64, deniedSyscallsARM64(), nil
-	default:
+	arch, ok := seccompAuditArch()
+	if !ok {
 		return 0, nil, fmt.Errorf("seccomp: unsupported arch %s", runtime.GOARCH)
 	}
-}
-
-// deniedSyscallsAMD64 blocks high-risk operations while allowing normal Go and mesh I/O.
-func deniedSyscallsAMD64() []int {
-	return []int{
-		unix.SYS_PTRACE,
-		unix.SYS_MOUNT,
-		unix.SYS_UMOUNT2,
-		unix.SYS_REBOOT,
-		unix.SYS_SWAPON,
-		unix.SYS_SWAPOFF,
-		unix.SYS_INIT_MODULE,
-		unix.SYS_FINIT_MODULE,
-		unix.SYS_DELETE_MODULE,
-		unix.SYS_KEXEC_LOAD,
-		unix.SYS_KEXEC_FILE_LOAD,
-		unix.SYS_USERFAULTFD,
-		unix.SYS_PERF_EVENT_OPEN,
-		unix.SYS_BPF,
-	}
-}
-
-func deniedSyscallsARM64() []int {
-	return []int{
-		unix.SYS_PTRACE,
-		unix.SYS_MOUNT,
-		unix.SYS_UMOUNT2,
-		unix.SYS_REBOOT,
-		unix.SYS_SWAPON,
-		unix.SYS_SWAPOFF,
-		unix.SYS_INIT_MODULE,
-		unix.SYS_FINIT_MODULE,
-		unix.SYS_DELETE_MODULE,
-		unix.SYS_KEXEC_LOAD,
-		unix.SYS_KEXEC_FILE_LOAD,
-		unix.SYS_USERFAULTFD,
-		unix.SYS_PERF_EVENT_OPEN,
-		unix.SYS_BPF,
-	}
+	return arch, deniedSyscalls(), nil
 }
