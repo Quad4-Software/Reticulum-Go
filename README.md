@@ -63,7 +63,7 @@ enable_sandbox = no
 ```
 
 Depending on your platform, the sandbox uses different isolation mechanisms:
-*   **Linux:** Landlock (kernel 5.13+) restricts filesystem access to only the folders the daemon needs.
+*   **Linux:** Landlock (kernel 5.13+) restricts filesystem access to the folders the daemon needs, then a soft-fail seccomp-bpf denylist blocks high-risk syscalls.
 *   **OpenBSD:** Uses `unveil` and `pledge` to limit system and file operations.
 *   **FreeBSD:** Enters capability mode to isolate the process.
 *   **Windows:** Applies job-object limits to control system resources.

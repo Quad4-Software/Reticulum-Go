@@ -41,7 +41,7 @@ Load helpers:
 id, err := identity.LoadIdentityFile(path, nil)
 ```
 
-### Identity backend (file or Secret Service)
+### Identity backend (file, Secret Service, or kernel keyring)
 
 Config key `identity_backend` in `[reticulum]`:
 
@@ -49,15 +49,19 @@ Config key `identity_backend` in `[reticulum]`:
 |-------|----------|
 | `file` (default) | 64-byte plaintext identity files |
 | `secretservice` | Freedesktop Secret Service over D-Bus (GNOME Keyring, KDE Wallet Secret Service bridge, KeePassXC with Secret Service enabled) |
+| `keyring` | Linux kernel keyring (user keyring, no D-Bus). Suitable for headless systemd user or system units |
 
-With `secretservice`, `ToFile` stores the private blob in the keyring and writes an 8-byte `RSSI` marker at the usual path. `FromFile` and `LoadIdentityFile` detect the marker and fetch the secret. If the session bus or collection is locked or missing, persistence fails with a clear error (no silent plaintext fallback).
+With `secretservice` or `keyring`, `ToFile` stores the private blob in the backend and writes an 8-byte `RSSI` marker at the usual path. `FromFile` and `LoadIdentityFile` detect the marker and fetch the secret. If the backend is unavailable, persistence fails with a clear error (no silent plaintext fallback).
 
-Headless or systemd units without a user session should keep `identity_backend = file`, or unlock a collection / KeePassXC before start.
+`keyring` is Linux-only. When a persistent user keyring is available, material can survive reboot for the same UID. Otherwise keys are cleared on reboot. Desktop sessions without D-Bus can use `keyring` instead of `secretservice`.
+
+Headless units that cannot use the kernel keyring should keep `identity_backend = file`, or unlock a Secret Service collection / KeePassXC before start when using `secretservice`.
 
 CLI migrate (path via `-i`):
 
 ```
 rgoid -i ~/.reticulum-go/storage/transport_identity -to-secretservice
+rgoid -i ~/.reticulum-go/storage/transport_identity -to-keyring
 rgoid -i ~/.reticulum-go/storage/transport_identity -to-file
 ```
 
@@ -70,6 +74,7 @@ Long-term X25519 and Ed25519 material lives in `pkg/securemem` buffers with best
 | Control | Helps against | Does not stop |
 |---------|---------------|---------------|
 | `identity_backend = secretservice` | Casual theft of the identity file path (backup copies, world-readable home dirs, malware that only reads `~/.reticulum-go/storage`). Keyring unlock policies and KeePassXC master password raise the bar for offline disk images when the collection is locked. | Root or same-user malware that can talk to an unlocked Secret Service session. Compelled unlock. Physical access while the keyring is unlocked. |
+| `identity_backend = keyring` | Same file-path theft cases without requiring D-Bus. Fits systemd units that have a user keyring. | Root or same-UID processes that can call `keyctl`. Keys may not survive reboot if persistent keyring is unavailable. |
 | `pkg/securemem` mlock + wipe | Keys lingering in swap after process exit, casual core dumps of freed heap (with `RLIMIT_CORE=0` in the sandbox), accidental retention after `Close`. | Live process memory inspection by root or a debugger attached to the running daemon. Full cold-boot attacks on RAM. |
 | File permissions `0600` + encrypted disk (operator practice) | Other local users reading plaintext identity files. Disk theft when FDE is used and the volume is locked. | Attacks after the volume is unlocked and mounted. |
 

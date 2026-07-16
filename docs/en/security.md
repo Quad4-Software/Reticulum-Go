@@ -32,20 +32,22 @@ The `reticulum-go` daemon calls `sandbox.Apply` from `pkg/sandbox` after config 
 
 Default: `enable_sandbox = yes` in `[reticulum]`. Set `enable_sandbox = no` to disable (not recommended for production).
 
+On Linux, `enable_seccomp` defaults to yes when the sandbox is enabled. Set `enable_seccomp = no` to skip the seccomp filter. Install failures soft-fail so older kernels and constrained environments keep running.
+
 | OS | Mechanism | Effect |
 |----|-----------|--------|
-| Linux | Landlock, PR_SET_NO_NEW_PRIVS, rlimits | Whitelists config and storage paths, limits caps |
+| Linux | Landlock, seccomp-bpf, PR_SET_NO_NEW_PRIVS, rlimits | Whitelists config and storage paths (including `$XDG_RUNTIME_DIR` for Secret Service), denies high-risk syscalls such as ptrace/mount/module load, limits caps |
 | OpenBSD | unveil, pledge | Restricts visible paths and syscalls |
 | FreeBSD | cap_enter, rlimits | Capability mode after resource limits |
 | Darwin | rlimits | Memory, FD, core dump, stack, process limits |
 | Windows | Job object | Limits breakaway, processes, working set |
 | Other / WASM | no-op | Logs unsupported, continues |
 
-Landlock requires Linux kernel 5.13 or newer. Older kernels skip Landlock gracefully where possible.
+Landlock requires Linux kernel 5.13 or newer. Older kernels skip Landlock gracefully where possible. Seccomp soft-fails on install error or `ENOSYS`.
 
 The WASM build (`reticulum-wasm`) does not use this sandbox. It relies on the browser or host runtime instead.
 
-Sandboxing is defense in depth. It does not fix weak passphrases, leaked identity files, or misconfigured interfaces.
+Sandboxing is defense in depth. It is not a substitute for a MicroVM or strong host isolation. It does not fix weak passphrases, leaked identity files, or misconfigured interfaces.
 
 ## Cryptography
 
@@ -108,7 +110,8 @@ make check
 - Log destination supports `stderr`, `file`, `both`, `syslog`, `journald`, and combinations such as `syslog+stderr`. Set `logfile` when using a file path.
 - High debug levels may print packet hex. Use loglevel 4 or lower in production unless diagnosing an incident.
 - `rpc_key` protects the control API and shared-instance RPC. Generate with cryptographic random bytes. Do not commit keys to version control.
-- `identity_backend = secretservice` keeps identity private blobs in the desktop keyring (Secret Service) instead of plaintext files. Requires an unlocked session collection. See [Identity and destinations](identity-and-destinations.md) for threat coverage.
+- `identity_backend = secretservice` keeps identity private blobs in the desktop keyring (Secret Service) instead of plaintext files. Requires an unlocked session collection.
+- `identity_backend = keyring` stores the same blobs in the Linux kernel keyring (no D-Bus), suitable for systemd units. See [Identity and destinations](identity-and-destinations.md) for threat coverage.
 - Identity private keys are held in locked memory when the OS allows (`pkg/securemem`). This is defense in depth, not a substitute for disk encryption or HSM signing.
 
 ## Control API exposure

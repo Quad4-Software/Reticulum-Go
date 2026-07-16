@@ -158,7 +158,7 @@ Intentional extensions beyond upstream *rns*:
 | DNS rendezvous | `DNSRendezvousInterface` TXT to UDP peer |
 | VSOCK interface | Linux `VSOCKClientInterface` / `VSOCKServerInterface` |
 | HTTPS long-poll | `HTTPSClientInterface` / `HTTPSServerInterface` |
-| Seccomp sandbox | Optional `enable_sandbox` in daemon |
+| Seccomp sandbox | Linux Landlock plus seccomp-bpf denylist (`enable_sandbox` / `enable_seccomp`) |
 
 ## Utilities
 
@@ -265,7 +265,8 @@ Python defaults from `RNS.Reticulum.__create_default_config` and [RNS/Reticulum.
 | shared_instance_type | Yes | Yes | `tcp` or `unix` |
 | backbone_io | No | Yes | Go-only. `auto`, `epoll`, `kqueue`, `io_uring`, or `go`. |
 | rpc_key | No | Yes | Hex key for shared-instance RPC auth |
-| enable_sandbox | No | Yes | Linux seccomp in daemon |
+| enable_sandbox | No | Yes | OS sandbox after startup (Landlock + seccomp on Linux) |
+| enable_seccomp | No | Yes | Linux seccomp-bpf denylist after Landlock (default yes with sandbox) |
 | enable_control_api | No | Yes | Localhost JSON API ([pkg/controlapi](pkg/controlapi/)) |
 | control_api_host | No | Yes | Control API bind address |
 | control_api_port | No | Yes | Control API port |

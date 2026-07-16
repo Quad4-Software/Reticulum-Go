@@ -98,13 +98,13 @@ To protect our build pipeline, we do not download Trivy using moving tags or unv
 
 To protect your system, the `reticulum-go` daemon can restrict its own permissions after starting up. It does this by calling `sandbox.Apply` after it has loaded its configuration and set up its network interfaces. 
 
-This sandbox is **enabled by default** using the `enable_sandbox = yes` setting in the Reticulum configuration. If you need to disable it, you can set `enable_sandbox = no`.
+This sandbox is **enabled by default** using the `enable_sandbox = yes` setting in the Reticulum configuration. If you need to disable it, you can set `enable_sandbox = no`. On Linux, `enable_seccomp = yes` is the default when the sandbox is on. Set `enable_seccomp = no` to skip the seccomp filter. Seccomp install failures soft-fail so the daemon continues.
 
 The level of protection depends on your operating system:
 
 | Operating System | Mechanism | Description |
 | :--- | :--- | :--- |
-| Linux | Landlock, `PR_SET_NO_NEW_PRIVS`, resource limits | Restricts access to `~/.reticulum-go`, `/tmp`, system configuration folders, and DNS paths. Drops capabilities and runs in a private namespace when started as root. |
+| Linux | Landlock, seccomp-bpf, `PR_SET_NO_NEW_PRIVS`, resource limits | Restricts access to `~/.reticulum-go`, `/tmp`, `$XDG_RUNTIME_DIR`, system configuration folders, and DNS paths. Denies high-risk syscalls. Drops capabilities and runs in a private namespace when started as root. |
 | OpenBSD | `unveil`, `pledge` | Restricts visible filesystem paths and limits system calls to only what is needed by a network daemon. |
 | FreeBSD | `cap_enter`, resource limits | Enters capability mode and applies conservative resource limits. |
 | macOS | Resource limits | Sets limits on memory, file descriptors, stack size, and the number of processes. |

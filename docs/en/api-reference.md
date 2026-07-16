@@ -226,7 +226,7 @@ Orchestrates transport, interfaces, shared instance, and lifecycle. Prefer this 
 |--------|------|
 | `New() (*Identity, error)` | Generate software identity (preferred) |
 | `NewIdentity()` | Alternate generator |
-| `FromFile` / `ToFile` | Persist via `identity_backend` (`file` plaintext or Secret Service + RSSI marker) |
+| `FromFile` / `ToFile` | Persist via `identity_backend` (`file`, Secret Service, or Linux kernel keyring + RSSI marker) |
 | `FromBytes` / `FromPublicKey` | Load from bytes |
 | `LoadIdentityFile(path, signer)` | Software or RHB1 hardware-bound (also resolves RSSI markers) |
 | `NewIdentityWithSigner(...)` | External Ed25519 signer (HSM) |
