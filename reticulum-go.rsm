@@ -1,4 +1,4 @@
-°/Y$$®9Ö$N/´|@÷À ^m2Ä"¨ÎÞ¥FpY`²^&~NÇ1ƒ«íõ®B‡§—„‡8\ÕK9K_¿	„¨hashtype¦sha256¤hashÄ „ÖÂ¶~o°B‡-½éÂÙä~ø¸e•¿s=ŒJ¤meta‚¦signerÄäaÔFI&mqþ!“à
+ŸgôUÓžÖE‰Ô®ü3…£c–@òŠO‰>Ä"”OÜ"ˆ˜˜Y&…æ'_™Œâ?ï¡Z»ë`iÅÿ“(¨D„¤hashÄ ½ýLlô*õ1pv¡qI%ækU¹¶K–³q	ä×Ó4â¤meta‚¦signerÄäaÔFI&mqþ!“à
 G¦pubkeyÄ@wÉÉ 9nS·“(€Y¥
 æ€Ìh’!õM/ÆÂ™@ÂAu¤œßÞß®ßê(ôÕ”è^pñâÈ>_2µçþ¶Ë8Ã©§messageÅèÍ# reticulum-go tree manifest v1
 7f66c8c607131ff4cef5c5fc2c9440245f3b237a5bc9916d9dfc14e6028dd528  .dockerignore
@@ -321,7 +321,7 @@ add6ea638040d2a23c00122a788a5646c09e207ca3438af69b7a32edb4d012af  pkg/interfaces
 f2a94beef708d388e252aafd88e8026adbafc0c239443b036212b7f3c87d9de8  pkg/interfaces/pipe_local_bench_test.go
 3ed7a6aacdea43554a691ad1a00a64ebc6f87a8ed070e3402f8fd0cfe29f5b0d  pkg/interfaces/pipe_race_test.go
 33396a65a5bc7503a5e39677d42d3902d7bcdd88af68cde072e1a33ea529a079  pkg/interfaces/pipe_test.go
-85f49a45f8b7ddd53a7c6f94882813d3ba130693e7bb685402eedc8ca904cdf1  pkg/interfaces/plugin.go
+a9858bd753d5569bdec1f81d4fd76872b9c2195b9d2c7c8ed251c6e41c269faa  pkg/interfaces/plugin.go
 86108c21bcc04c9877904ef823ec38abb148764e3c29dba8d40bd175bbada2bf  pkg/interfaces/plugin_test.go
 d07aeee945c5b0288739f29e725282f485f5545a5a43cf401c2d0b6279ff6a94  pkg/interfaces/quic.go
 6cd91c990b31994f671f704adb884ca8e54488f2c8815ba8a19c03db2b14d5d6  pkg/interfaces/quic_fuzz_test.go
@@ -631,3 +631,4 @@ a10c3c1fc5cd5a029ac95e50c64a10aac660891b196a139804e9d70c9bd00a3e  tools/gomutant
 b275571f9159dc21ae5fd29dd5186efdbd5d13db4bb3642af332024e29b62eb4  tools/gomutant/testdata/sample/sample.go
 489bdb582d6c397f14dd7cd963e70c0c1b566c3a84c918f3eea4177ad806e1f1  tools/gomutant/testdata/sample/sample_test.go
 4f5b07dd471d143ee981a76b8dda4afa72fd8d1fbc93af5da289d9bc505e2aa2  tools/gomutant/types.go
+¨hashtype¦sha256

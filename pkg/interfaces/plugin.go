@@ -79,6 +79,9 @@ func loadExternalInterface(name string, cfg *common.InterfaceConfig, ctx *FromCo
 		filepath.Join(dir, typeName+".json"),
 		filepath.Join(dir, typeName+".manifest"),
 	} {
+		if !pluginPathContained(dir, base) {
+			return nil, fmt.Errorf("invalid plugin type %q", typeName)
+		}
 		iface, err := loadManifestInterface(name, cfg, ctx, base)
 		if err == nil {
 			debug.Log(debug.DebugInfo, "Loading external interface from manifest", "path", base, "name", name)
@@ -130,7 +133,7 @@ func interfacesPluginDir(ctx *FromConfigContext) string {
 }
 
 func loadManifestInterface(name string, cfg *common.InterfaceConfig, ctx *FromConfigContext, path string) (Interface, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- path under plugin dir after validatePluginTypeName and pluginPathContained
 	if err != nil {
 		return nil, err
 	}
