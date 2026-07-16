@@ -43,6 +43,7 @@ type Server struct {
 	startedAt time.Time
 
 	httpServer *http.Server
+	listener   net.Listener
 
 	mu       sync.RWMutex
 	sessions map[string]*session
@@ -96,17 +97,34 @@ func New(t *transport.Transport, lifecycle Lifecycle, cfg *common.ReticulumConfi
 	return s, nil
 }
 
-// Serve binds the configured listen address and blocks, serving requests
-// until Close is called. Run it in its own goroutine.
-func (s *Server) Serve() error {
+// Listen binds the configured TCP address. Call before sandbox.Apply on
+// platforms where CapEnter or pledge would block a later listen.
+func (s *Server) Listen() error {
+	if s == nil {
+		return errors.New("controlapi: nil server")
+	}
+	if s.listener != nil {
+		return nil
+	}
 	addr := net.JoinHostPort(s.host, strconv.Itoa(s.port))
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("controlapi: listen on %s: %w", addr, err)
 	}
+	s.listener = ln
 	debug.Log(debug.DebugInfo, "Control API listening", "addr", addr)
+	return nil
+}
 
-	err = s.httpServer.Serve(ln)
+// Serve serves HTTP on the bound listener. If Listen was not called yet,
+// it binds first. Blocks until Close is called. Run it in its own goroutine.
+func (s *Server) Serve() error {
+	if s.listener == nil {
+		if err := s.Listen(); err != nil {
+			return err
+		}
+	}
+	err := s.httpServer.Serve(s.listener)
 	if errors.Is(err, http.ErrServerClosed) {
 		return nil
 	}

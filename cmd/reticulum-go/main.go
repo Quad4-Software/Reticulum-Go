@@ -257,6 +257,12 @@ func (r *Reticulum) StartControlAPI() {
 		debug.Log(debug.DebugCritical, "Failed to initialize control API", "error", err)
 		return
 	}
+	// Bind before sandbox.Apply so FreeBSD CapEnter cannot race the listen.
+	if err := api.Listen(); err != nil {
+		debug.Log(debug.DebugCritical, "Failed to bind control API", "error", err)
+		_ = api.Close()
+		return
+	}
 	r.controlAPI = api
 	go func() {
 		if err := api.Serve(); err != nil {
