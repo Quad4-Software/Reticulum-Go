@@ -7,6 +7,9 @@ github.com/creack/pty
 # github.com/dunglas/httpsfv v1.1.0
 ## explicit; go 1.14
 github.com/dunglas/httpsfv
+# github.com/godbus/dbus/v5 v5.1.0
+## explicit; go 1.12
+github.com/godbus/dbus/v5
 # github.com/mdlayher/socket v0.4.1
 ## explicit; go 1.20
 github.com/mdlayher/socket
