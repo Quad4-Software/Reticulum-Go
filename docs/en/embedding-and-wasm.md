@@ -45,9 +45,11 @@ n.Stop()
 - `PauseModeDisable` calls `Disable()` on interfaces (default)
 - `PauseModeStop` calls `Stop()` on interfaces
 
+It also cancels in-flight `WatchAndReconnect` loops so they do not keep calling `Reestablish` while the host is offline.
+
 ### Link auto-reconnect
 
-`LinkReconnectOptions` and `EnableLinkAutoReconnect` wire `link.WatchAndReconnect` for watched destinations.
+`LinkReconnectOptions` and `EnableLinkAutoReconnect` wire `link.WatchAndReconnect` for watched destinations. New reconnect attempts are skipped while globally paused. `OnNetworkAvailable` re-establishes registered closed links.
 
 ### Hot reload
 

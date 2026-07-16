@@ -21,9 +21,9 @@ For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). F
 | IFAC | Yes | [pkg/ifac](pkg/ifac/) matches salt, HKDF identity, mask/unmask. UDP, TCP, Auto apply IFAC. Unauthenticated frames dropped. Live tests: [tests/interop/ifac_live_test.go](tests/interop/ifac_live_test.go). |
 | Link | Yes | Both directions, RTT, request/response, channel, buffer, resources. `WatchAndReconnect` and `Node.EnableLinkAutoReconnect` use `Reestablish()` on closed links. |
 | Resource | Yes | Multi-part transfer, hashmaps, RESOURCE_PRF, bzip2. BZ2 bomb limits match Python 1.1.9. |
-| Channel | Yes | In-link reliable channel. [pkg/channel](pkg/channel/) tests. Python 1.3.0 fixed ghost envelopes. Go uses a simpler single-outlet model. |
+| Channel | Yes | In-link reliable channel. [pkg/channel](pkg/channel/) tests. Ghost-envelope fix: sequence and tx-ring emplace only after a successful outlet send (Python 1.3.0). Accepts both transport and link ACTIVE status values. |
 | Buffer | Yes | Stream buffer over channel. [pkg/buffer](pkg/buffer/) tests. |
-| Node lifecycle | Yes (Go-only) | [pkg/node](pkg/node/) embedder API: `OnNetworkAvailable`, `OnNetworkLost`, `RefreshPaths`, `ReloadInterfaces`, control API lifecycle routes. No Python equivalent. `watch_interfaces` polls NIC up/down and address changes via `net.Interfaces` on Linux, Android, Windows, macOS, and BSD (any CPU arch). Stub on WASM. `OnNetworkLost` may leave reconnect goroutines running until I/O fails. `ReloadInterfaces` equality skips some keys. See [Node lifecycle](#node-lifecycle-go-only). |
+| Node lifecycle | Yes (Go-only) | [pkg/node](pkg/node/) embedder API: `OnNetworkAvailable`, `OnNetworkLost`, `RefreshPaths`, `ReloadInterfaces`, control API lifecycle routes. No Python equivalent. `watch_interfaces` polls NIC up/down and address changes via `net.Interfaces` on Linux, Android, Windows, macOS, and BSD (any CPU arch). Stub on WASM. `OnNetworkLost` cancels in-flight `WatchAndReconnect` loops via `link.CancelAllReconnects`. `ReloadInterfaces` equality covers MTU, bitrate, prefer_ipv6, announce-rate, ingress/egress control, mode, and outgoing. See [Node lifecycle](#node-lifecycle-go-only). |
 | librns C ABI | Yes (Go-only) | [pkg/librns](pkg/librns/), [include/rns.h](include/rns.h), `task build-librns`. In-process C facade over node, destination, and link. Linux `.so` first. Same wire stack as the daemon. Not a Python API. See [docs/en/librns.md](docs/en/librns.md). |
 
 ## Interfaces
@@ -47,6 +47,7 @@ Python: [RNS/Interfaces](https://github.com/markqvist/Reticulum/tree/master/RNS/
 | LocalInterface | Yes | [local.go](pkg/interfaces/local.go), [sharedinstance](pkg/sharedinstance/). Automatic via `share_instance` or explicit `LocalInterface` / `LocalServerInterface` config blocks. |
 | WeaveInterface | No | Not implemented. |
 | Android KISS / RNode / Serial | No | Android-only. |
+| External / plugin interfaces | Yes (Go-native) | Unknown `type` values load from `{config_dir}/interfaces/`: registered factories (`RegisterExternalFactory`), JSON manifests (`{Type}.json`), or executable pipe drivers. Process-isolated via PipeInterface rather than exec of Python modules. |
 | Interface base | Yes | [interface.go](pkg/interfaces/interface.go), [constants.go](pkg/interfaces/constants.go). |
 | WebSocket | Go-only | websocket_native.go, websocket_wasm.go. |
 | QUIC | Go-only | [quic.go](pkg/interfaces/quic.go), [quic_tls.go](pkg/interfaces/quic_tls.go). `QUICClientInterface` / `QUICServerInterface`. HDLC over one stream. Yggdrasil-style mesh TLS (ephemeral self-signed, skip-verify, optional `peer_key` SPKI pin). Not on WASM. Live: [tests/interop/quic_live_test.go](tests/interop/quic_live_test.go). |
@@ -68,7 +69,7 @@ Python has no equivalent. Convenience for long-running Go daemons.
 
 `ReplaceInterface`, `UnregisterInterface`, and `SetReticulumConfig` swap interfaces without corrupting paths or links. Unregister clears paths, discovery state, announce bookkeeping, relay rows, and link-table entries for the removed iface.
 
-[cmd/reticulum-go](cmd/reticulum-go/) wires `ReloadInterfaces`, config equality, SIGHUP reload, and coordinates `Stop()` with reload. Equality in [reload.go](pkg/node/reload.go) covers type, addresses, I2P, IFAC, and Auto ports. MTU, bitrate, `prefer_ipv6`, announce-rate, and ingress-control changes may not trigger rebuild.
+[cmd/reticulum-go](cmd/reticulum-go/) wires `ReloadInterfaces`, config equality, SIGHUP reload, and coordinates `Stop()` with reload. Equality in [reload.go](pkg/node/reload.go) covers type, addresses, I2P, IFAC, Auto ports, MTU, bitrate, prefer_ipv6, announce-rate, ingress/egress control, mode, recursive_prs, announces_from_internal, and outgoing.
 
 Tests: `interface_lifecycle_test.go`, `interface_scrub_links_test.go`, `interface_stress_race_test.go`, `reload_e2e_test.go`.
 
@@ -81,7 +82,7 @@ Native hosts that cannot import Go can use [pkg/librns](pkg/librns/) (`include/r
 | API | Behavior |
 |-----|-----------|
 | `OnNetworkAvailable` | Clears link pause, rescans Auto NICs, starts offline interfaces, re-registers transport, optionally re-establishes watched links |
-| `OnNetworkLost` | Sets link pause. Default mode calls `Disable()` on interfaces. Reconnect goroutines may run until I/O fails. |
+| `OnNetworkLost` | Sets link pause and cancels in-flight reconnect loops. Default mode calls `Disable()` on interfaces. |
 | `RefreshPaths` | Expires stale paths and requests fresh paths for watched destinations and explicit API args |
 | `ReloadInterfaces` | Hot-reloads `[[Interface]]` blocks from config |
 
@@ -99,7 +100,7 @@ Wire format is unchanged in 1.2.x to 1.3.x. Most churn is utilities and transpor
 | Announce dedup when dest already in path table | 1.3.4 | Covered |
 | Blackhole link teardown at LINKIDENTIFY | 1.3.2 | Covered |
 | AutoInterface link-local listener replacement on roam | 1.3.5 | Covered (`pkg/interfaces/auto_roam.go`) |
-| Channel outlet ghost envelopes | 1.3.0 | Simpler Go channel model |
+| Channel outlet ghost envelopes | 1.3.0 | Covered (send-before-emplace, sequence rewind on failed transmit) |
 | Shared-instance RPC msgpack | 1.3.4 | Covered (`pkg/sharedinstance/rpc.go`) |
 | `MODE_INTERNAL`, `recursive_prs`, `announces_from_internal` | 1.3.6 | Covered (config, announce forward rules, path discovery gate) |
 | `static_transport_identity` / ephemeral transport identity | 1.3.6 | Covered (RPC auth keeps persisted identity) |
@@ -231,7 +232,7 @@ Python defaults from `RNS.Reticulum.__create_default_config` and [RNS/Reticulum.
 | storage/destination_table | Path snapshot | Yes (flat msgpack, Python-compatible layout) |
 | storage/known_destinations | Known destinations | Yes (loads Python byte-keyed files) |
 | storage/transport_identity | Transport identity | Present |
-| interfaces/ | Python plugin modules | Not supported |
+| interfaces/ | Python plugin modules | Go-native: factories, JSON manifests, executable pipe drivers under `{config_dir}/interfaces/` |
 
 ### [reticulum] keys
 
@@ -260,7 +261,7 @@ Python defaults from `RNS.Reticulum.__create_default_config` and [RNS/Reticulum.
 | publish_blackhole | Yes | No | Not auto-published |
 | blackhole_sources | Yes | No | Ignored |
 | blackhole_update_interval | Yes | No | Ignored (Python 1.3.2) |
-| network_identity | Yes | No | Ignored |
+| network_identity | Yes | Yes | Loads or creates identity for discovery encrypt/decrypt and rnstransport.network destinations |
 
 ### [logging] keys
 
@@ -298,7 +299,7 @@ Parsed in [pkg/reticulumconfig/config.go](pkg/reticulumconfig/config.go). Unlist
 | group_id / multicast_address_type | Yes | Yes | Auto |
 | announce_cap, announce_rate_* | Yes | Yes | All |
 | ingress_control, ic_* | Yes | Yes | All |
-| outgoing / selected_outgoing | Yes | No | Ignored |
+| outgoing / selected_outgoing | Yes | Yes | Receive-only when false. selected_outgoing is an alias |
 | network_name / passphrase / ifac_* | Yes | Yes | Parsed and applied |
 | cert_file / key_file | No | Yes | QUIC TLS PEM paths (optional, else ephemeral) |
 | peer_key | No | Yes | QUIC SPKI SHA-256 pin (hex) |

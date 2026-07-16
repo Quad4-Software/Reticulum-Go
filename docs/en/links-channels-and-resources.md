@@ -59,7 +59,7 @@ The control API bridges requests to WebSocket `requestIncomingEvent` and `reques
 | `Envelope` | Wire wrapper for channel messages |
 | `MessageBase` | Base type for message payloads |
 
-Python 1.3.0 fixed ghost envelopes on multiple outlets. Go uses a simpler single-outlet model. Wire compatibility for the supported paths is verified in crossref tests.
+Python 1.3.0 fixed ghost envelopes on failing outlets. Go matches that behavior: sequence allocation and tx-ring emplace happen only after a successful outlet send, with rewind on failure. Channel accepts both transport wrapper ACTIVE status and real link ACTIVE (`0x02`).
 
 Typical pattern:
 

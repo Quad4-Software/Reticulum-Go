@@ -20,7 +20,7 @@ The detailed matrix with config key tables lives in [COMPATIBILITY.md](../../COM
 | IFAC | Complete | UDP, TCP, Auto. Live tests in `tests/interop/ifac_live_test.go` |
 | Link | Complete | Both directions, RTT, request/response, channel, buffer, resources |
 | Resource | Complete | Multi-part, hashmaps, RESOURCE_PRF, bzip2 bomb limits |
-| Channel | Complete | Simpler single-outlet model vs Python 1.3.0 ghost fix |
+| Channel | Complete | Ghost-envelope fix (send-before-emplace). Tests in `pkg/channel` |
 | Buffer | Complete | Stream buffer over channel |
 | Interfaces | Partial | See below |
 | Discovery | Partial | rnstransport listening works. Announcer and autoconnect not auto-started |
@@ -40,6 +40,7 @@ The detailed matrix with config key tables lives in [COMPATIBILITY.md](../../COM
 | RNode, Serial, KISS, AX25KISS, Weave | No |
 | PipeInterface | Yes |
 | LocalInterface | Yes via `share_instance` and config `LocalInterface` / `LocalServerInterface` |
+| External plugins | Yes (Go-native factories, manifests, executables under `interfaces/`) |
 | WebSocket | Go-only |
 | QUIC | Go-only (`QUICClientInterface` / `QUICServerInterface`) |
 
@@ -59,7 +60,7 @@ Wire format is stable across 1.2.x to 1.3.x. Notable behavior differences:
 | Announce dedup when dest in path table | 1.3.4 | Covered |
 | Blackhole link teardown at LINKIDENTIFY | 1.3.2 | **Gap** |
 | AutoInterface roam listener replacement | 1.3.5 | Covered |
-| Channel ghost envelopes | 1.3.0 | Simpler Go model |
+| Channel ghost envelopes | 1.3.0 | Covered |
 | Shared-instance RPC msgpack | 1.3.4 | Covered |
 | `MODE_INTERNAL` / `recursive_prs` / announce mode rules | 1.3.6 | Covered |
 | Ephemeral transport identity / `static_transport_identity` | 1.3.6 | Covered |

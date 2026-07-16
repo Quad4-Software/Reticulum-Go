@@ -66,6 +66,28 @@ Configuration:
 - `command` (required): program and arguments, split like Python `shlex`
 - `respawn_delay` (optional): seconds before respawning after subprocess exit (default 5)
 
+## External interface plugins
+
+Python loads `.py` modules from `{config_dir}/interfaces/`. Reticulum-Go keeps the same discovery path but uses process isolation and in-process factories instead of executing Python:
+
+1. `interfaces.RegisterExternalFactory(typeName, factory)` for embedders
+2. `{config_dir}/interfaces/{Type}.json` (or `.manifest`) with `driver` and `command` (pipe)
+3. Executable `{config_dir}/interfaces/{Type}` used as a PipeInterface command
+
+Example manifest:
+
+```json
+{"driver": "pipe", "command": "/usr/local/bin/my-rns-iface", "respawn_delay": 5}
+```
+
+Config:
+
+```ini
+[[Custom Radio]]
+type = MyRadioIface
+enabled = yes
+```
+
 ## LocalInterface
 
 Local shared-instance access uses HDLC over TCP (`127.0.0.1:port`) or abstract Unix (`@rns/<name>`).
@@ -209,7 +231,7 @@ Details: [Cryptography](cryptography.md#ifac).
 
 On unregister, transport scrubs paths, discovery state, announce bookkeeping, relay rows, and link-table entries for the removed interface.
 
-Equality checks in `pkg/node/reload.go` cover type, addresses, I2P settings, IFAC, and Auto ports. MTU, bitrate, `prefer_ipv6`, announce-rate, and ingress-control changes may not force a rebuild.
+Equality checks in `pkg/node/reload.go` cover type, addresses, I2P settings, IFAC, Auto ports, MTU, bitrate, prefer_ipv6, announce-rate, ingress/egress control, mode, and outgoing.
 
 Tests: `interface_lifecycle_test.go`, `reload_e2e_test.go`.
 

@@ -65,18 +65,17 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | `watch_interfaces` | no | Poll NIC up/down and rescan Auto interfaces (Go-only) |
 | `static_transport_identity` | no | Keep persisted transport identity on the wire when `enable_transport` is no (RNS 1.3.6+) |
 | `local_hops_delta` | no | Mangling applied on local-origin hop-0 packets (delta 2-7) |
+| `respond_to_probes` / `allow_probes` | no | Register rnstransport.probe with prove-all |
+| `network_identity` | (empty) | Path to network identity for discovery encrypt/decrypt |
 | `panic_on_interface_error` | no | Panic on fatal interface errors |
 
 ### Keys present in Python but ignored in Go
 
 | Key | Notes |
 |-----|-------|
-| `respond_to_probes` | Registers `rnstransport.probe` with prove-all |
-| `allow_probes` | Alias for `respond_to_probes` |
 | `publish_blackhole` | Blackhole auto-publish not started |
 | `blackhole_sources` | Ignored |
 | `blackhole_update_interval` | Ignored |
-| `network_identity` | Ignored |
 
 `local_hops_delta` applies a random hop field (2-7) on locally originated hop-0 packets when not connected to a shared instance.
 
@@ -128,8 +127,9 @@ Each block defines one interface. Common keys:
 | `respawn_delay` / `respawn_interval` | Pipe | Seconds before respawning subprocess (default 5) |
 | `shared_instance_type` | Local | `tcp` or `unix` for explicit local interface blocks |
 | `instance_name` | Local | Unix socket name when type is unix |
+| `outgoing` / `selected_outgoing` | All | Transmit permit (default yes). When no, interface is receive-only |
 
-Keys such as `outgoing`, `selected_outgoing`, and `kiss_framing` are parsed or reserved but not wired for unsupported interface types.
+Unknown `type` values load Go-native plugins from `{config_dir}/interfaces/` (JSON manifest or executable pipe driver), or from `interfaces.RegisterExternalFactory`.
 
 ## Interface types
 
@@ -253,7 +253,7 @@ shared_instance_type = tcp
 
 ## Hot reload
 
-On Unix the daemon reloads interface blocks on `SIGHUP` via `node.ReloadInterfaces`. Reload compares normalized config for each interface. Changes to MTU, bitrate, or some rate limits may not trigger a rebuild. See [Interfaces](interfaces.md).
+On Unix the daemon reloads interface blocks on `SIGHUP` via `node.ReloadInterfaces`. Reload compares normalized config for each interface including MTU, bitrate, prefer_ipv6, announce-rate, ingress/egress control, mode, and outgoing. See [Interfaces](interfaces.md).
 
 ## Programmatic access
 
