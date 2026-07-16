@@ -150,7 +150,7 @@ RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
 
 ### Host self-check
 
-`reticulum-go self-check` is a host OS preflight. It validates that platform features work on the machine under test (crypto, identity file backend, sandbox, securemem, loopback interfaces, and a short daemon run).
+`reticulum-go self-check` is a host OS preflight. It validates that platform features work on the machine under test (crypto, identity file backend, sandbox, securemem, loopback interfaces, daemon with sandbox, shared-instance RPC, and on Unix a SIGHUP config/interface reload).
 
 ```bash
 make test-self-check
@@ -180,6 +180,8 @@ Environment:
 | `RETICULUM_TEST_KEYRING=1` | Require Linux keyring round-trip (fail if unavailable) |
 
 Exit code is non-zero on any `fail` result. With `--strict`, warnings also fail.
+
+Daemon checks include Control API health with sandbox enabled, shared-instance `GetInterfaceStats` RPC, and (except Windows and FreeBSD CapEnter) SIGHUP reload of a UDP interface.
 
 CI runs self-check on Linux (amd64 and arm64), macOS, Windows, FreeBSD, and OpenBSD. Android emulator self-check is a separate workflow (`selfcheck-android.yml`) on schedule or `workflow_dispatch`.
 

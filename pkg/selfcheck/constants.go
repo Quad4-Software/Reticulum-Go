@@ -9,7 +9,7 @@ const (
 	fileModePrivate  = 0o600
 	dirModePrivate   = 0o700
 	defaultTimeout   = 45 * time.Second
-	daemonMaxTimeout = 30 * time.Second
+	daemonMaxTimeout = 45 * time.Second
 	logTailLines     = 40
 	logLineMaxChars  = 120
 	logTailMaxChars  = 800

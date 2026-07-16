@@ -14,48 +14,67 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"syscall"
 	"time"
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/reticulumconfig"
+	"quad4/reticulum-go/pkg/rnsutil"
 )
 
-func checkDaemon(ctx context.Context, opts Options) Result {
+const (
+	nameDaemonRPC    = "daemon/rpc-smoke"
+	nameDaemonReload = "daemon/reload"
+	reloadIfaceName  = "selfcheck_reload_udp"
+)
+
+func checkDaemon(ctx context.Context, opts Options) []Result {
 	bin := opts.BinaryPath
 	if bin == "" {
-		return result(nameDaemonSmoke, SeveritySkip, "BinaryPath not set")
+		return []Result{
+			result(nameDaemonSmoke, SeveritySkip, "BinaryPath not set"),
+			result(nameDaemonRPC, SeveritySkip, "BinaryPath not set"),
+			result(nameDaemonReload, SeveritySkip, "BinaryPath not set"),
+		}
 	}
 	if _, err := os.Stat(bin); err != nil {
-		return result(nameDaemonSmoke, SeverityFail, err.Error())
+		fail := result(nameDaemonSmoke, SeverityFail, err.Error())
+		return []Result{fail, result(nameDaemonRPC, SeveritySkip, "daemon not started"), result(nameDaemonReload, SeveritySkip, "daemon not started")}
 	}
 
 	dir, err := os.MkdirTemp(opts.WorkDir, "rns-selfcheck-daemon-*")
 	if err != nil {
-		return result(nameDaemonSmoke, SeverityFail, err.Error())
+		fail := result(nameDaemonSmoke, SeverityFail, err.Error())
+		return []Result{fail, result(nameDaemonRPC, SeveritySkip, "setup failed"), result(nameDaemonReload, SeveritySkip, "setup failed")}
 	}
 	defer os.RemoveAll(dir)
 
 	storage := filepath.Join(dir, "storage")
 	if err := os.MkdirAll(storage, dirModePrivate); err != nil {
-		return result(nameDaemonSmoke, SeverityFail, err.Error())
+		fail := result(nameDaemonSmoke, SeverityFail, err.Error())
+		return []Result{fail, result(nameDaemonRPC, SeveritySkip, "setup failed"), result(nameDaemonReload, SeveritySkip, "setup failed")}
 	}
 
 	ctrlPort, err := freeTCPPort()
 	if err != nil {
-		return result(nameDaemonSmoke, SeverityFail, err.Error())
+		fail := result(nameDaemonSmoke, SeverityFail, err.Error())
+		return []Result{fail, result(nameDaemonRPC, SeveritySkip, "setup failed"), result(nameDaemonReload, SeveritySkip, "setup failed")}
 	}
 	sharedPort, err := freeTCPPort()
 	if err != nil {
-		return result(nameDaemonSmoke, SeverityFail, err.Error())
+		fail := result(nameDaemonSmoke, SeverityFail, err.Error())
+		return []Result{fail, result(nameDaemonRPC, SeveritySkip, "setup failed"), result(nameDaemonReload, SeveritySkip, "setup failed")}
 	}
 	rpcPort, err := freeTCPPort()
 	if err != nil {
-		return result(nameDaemonSmoke, SeverityFail, err.Error())
+		fail := result(nameDaemonSmoke, SeverityFail, err.Error())
+		return []Result{fail, result(nameDaemonRPC, SeveritySkip, "setup failed"), result(nameDaemonReload, SeveritySkip, "setup failed")}
 	}
 
 	rpcKey := make([]byte, 32)
 	if _, err := rand.Read(rpcKey); err != nil {
-		return result(nameDaemonSmoke, SeverityFail, err.Error())
+		fail := result(nameDaemonSmoke, SeverityFail, err.Error())
+		return []Result{fail, result(nameDaemonRPC, SeveritySkip, "setup failed"), result(nameDaemonReload, SeveritySkip, "setup failed")}
 	}
 
 	cfgPath := filepath.Join(dir, "config")
@@ -63,16 +82,6 @@ func checkDaemon(ctx context.Context, opts Options) Result {
 	cfg.ConfigPath = cfgPath
 	cfg.EnableSandbox = true
 	cfg.EnableSeccomp = true
-	// FreeBSD CapEnter and OpenBSD pledge run inside Apply before Control API
-	// listen in the daemon. Keep sandbox on for the child probe. Disable it for
-	// this daemon smoke so the health endpoint can bind.
-	sandboxNote := "sandbox on"
-	switch runtime.GOOS {
-	case "freebsd", "openbsd":
-		cfg.EnableSandbox = false
-		cfg.EnableSeccomp = false
-		sandboxNote = "sandbox off (" + runtime.GOOS + " CapEnter/pledge before listen)"
-	}
 	cfg.EnableControlAPI = true
 	cfg.ControlAPIHost = "127.0.0.1"
 	cfg.ControlAPIPort = ctrlPort
@@ -85,7 +94,8 @@ func checkDaemon(ctx context.Context, opts Options) Result {
 	cfg.LogLevel = 3
 	cfg.Interfaces = map[string]*common.InterfaceConfig{}
 	if err := reticulumconfig.SaveConfig(cfg); err != nil {
-		return result(nameDaemonSmoke, SeverityFail, "config: "+err.Error())
+		fail := result(nameDaemonSmoke, SeverityFail, "config: "+err.Error())
+		return []Result{fail, result(nameDaemonRPC, SeveritySkip, "setup failed"), result(nameDaemonReload, SeveritySkip, "setup failed")}
 	}
 
 	timeout := opts.timeout()
@@ -101,13 +111,15 @@ func checkDaemon(ctx context.Context, opts Options) Result {
 	logPath := filepath.Join(dir, "daemon.log")
 	logFile, err := os.Create(logPath) // #nosec G304 -- path under MkdirTemp work dir
 	if err != nil {
-		return result(nameDaemonSmoke, SeverityFail, err.Error())
+		fail := result(nameDaemonSmoke, SeverityFail, err.Error())
+		return []Result{fail, result(nameDaemonRPC, SeveritySkip, "setup failed"), result(nameDaemonReload, SeveritySkip, "setup failed")}
 	}
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 	if err := cmd.Start(); err != nil {
 		_ = logFile.Close()
-		return result(nameDaemonSmoke, SeverityFail, "start: "+err.Error())
+		fail := result(nameDaemonSmoke, SeverityFail, "start: "+err.Error())
+		return []Result{fail, result(nameDaemonRPC, SeveritySkip, "daemon not started"), result(nameDaemonReload, SeveritySkip, "daemon not started")}
 	}
 
 	defer func() {
@@ -116,15 +128,30 @@ func checkDaemon(ctx context.Context, opts Options) Result {
 		_ = logFile.Close()
 	}()
 
+	out := make([]Result, 0, 3)
+	smoke := waitControlAPI(dctx, ctrlPort, rpcKey, timeout, logPath)
+	out = append(out, smoke)
+	if smoke.Severity == SeverityFail {
+		out = append(out, result(nameDaemonRPC, SeveritySkip, "control API not healthy"))
+		out = append(out, result(nameDaemonReload, SeveritySkip, "control API not healthy"))
+		return out
+	}
+
+	out = append(out, checkDaemonRPC(dctx, cfg, rpcKey, timeout))
+	out = append(out, checkDaemonReload(dctx, cmd, cfg, rpcKey, timeout, logPath))
+	return out
+}
+
+func waitControlAPI(ctx context.Context, ctrlPort int, rpcKey []byte, timeout time.Duration, logPath string) Result {
 	url := fmt.Sprintf("http://127.0.0.1:%d/v1/health", ctrlPort)
 	token := hex.EncodeToString(rpcKey)
 	deadline := time.Now().Add(timeout)
 	var lastErr error
 	for time.Now().Before(deadline) {
-		if dctx.Err() != nil {
+		if ctx.Err() != nil {
 			break
 		}
-		req, reqErr := http.NewRequestWithContext(dctx, http.MethodGet, url, nil)
+		req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if reqErr != nil {
 			lastErr = reqErr
 			break
@@ -135,7 +162,7 @@ func checkDaemon(ctx context.Context, opts Options) Result {
 			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				return result(nameDaemonSmoke, SeverityPass,
-					fmt.Sprintf("control API healthy (%s, port %d)", sandboxNote, ctrlPort))
+					fmt.Sprintf("control API healthy (sandbox on, port %d)", ctrlPort))
 			}
 			lastErr = fmt.Errorf("health status %d", resp.StatusCode)
 		} else {
@@ -153,6 +180,107 @@ func checkDaemon(ctx context.Context, opts Options) Result {
 		detail += " log=" + logTail
 	}
 	return result(nameDaemonSmoke, SeverityFail, detail)
+}
+
+func checkDaemonRPC(ctx context.Context, cfg *common.ReticulumConfig, rpcKey []byte, timeout time.Duration) Result {
+	client, err := rnsutil.DialRPC(cfg, rpcKey)
+	if err != nil {
+		return result(nameDaemonRPC, SeverityFail, "dial: "+err.Error())
+	}
+	client.SetTimeout(timeout)
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		if ctx.Err() != nil {
+			break
+		}
+		stats, err := client.GetInterfaceStats()
+		if err == nil {
+			return result(nameDaemonRPC, SeverityPass,
+				fmt.Sprintf("GetInterfaceStats ok (interfaces=%d uptime=%.0fs)", len(stats.Interfaces), stats.TransportUptime))
+		}
+		lastErr = err
+		time.Sleep(100 * time.Millisecond)
+	}
+	detail := "GetInterfaceStats failed"
+	if lastErr != nil {
+		detail += ": " + lastErr.Error()
+	}
+	return result(nameDaemonRPC, SeverityFail, detail)
+}
+
+func checkDaemonReload(ctx context.Context, cmd *exec.Cmd, cfg *common.ReticulumConfig, rpcKey []byte, timeout time.Duration, logPath string) Result {
+	if runtime.GOOS == "windows" {
+		return result(nameDaemonReload, SeveritySkip, "SIGHUP not used on windows")
+	}
+	if runtime.GOOS == "freebsd" {
+		// CapEnter after startup blocks opening the config file and new sockets.
+		return result(nameDaemonReload, SeveritySkip, "CapEnter blocks post-sandbox reload opens")
+	}
+
+	ln, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		return result(nameDaemonReload, SeverityFail, err.Error())
+	}
+	udpPort := ln.LocalAddr().(*net.UDPAddr).Port
+	_ = ln.Close()
+
+	cfg.Interfaces = map[string]*common.InterfaceConfig{
+		reloadIfaceName: {
+			Type:       "UDPInterface",
+			Enabled:    true,
+			Address:    fmt.Sprintf("127.0.0.1:%d", udpPort),
+			TargetHost: "127.0.0.1",
+			TargetPort: 9,
+		},
+	}
+	if err := reticulumconfig.SaveConfig(cfg); err != nil {
+		return result(nameDaemonReload, SeverityFail, "rewrite config: "+err.Error())
+	}
+
+	if err := cmd.Process.Signal(syscall.SIGHUP); err != nil {
+		return result(nameDaemonReload, SeverityFail, "SIGHUP: "+err.Error())
+	}
+
+	client, err := rnsutil.DialRPC(cfg, rpcKey)
+	if err != nil {
+		return result(nameDaemonReload, SeverityFail, "dial: "+err.Error())
+	}
+	client.SetTimeout(timeout)
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		if ctx.Err() != nil {
+			break
+		}
+		stats, err := client.GetInterfaceStats()
+		if err != nil {
+			lastErr = err
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+		for _, st := range stats.Interfaces {
+			if st.Name == reloadIfaceName || st.ShortName == reloadIfaceName {
+				return result(nameDaemonReload, SeverityPass,
+					fmt.Sprintf("SIGHUP loaded %s", reloadIfaceName))
+			}
+		}
+		if len(stats.Interfaces) > 0 {
+			return result(nameDaemonReload, SeverityPass,
+				fmt.Sprintf("SIGHUP reload visible (%d interfaces)", len(stats.Interfaces)))
+		}
+		lastErr = fmt.Errorf("interface %s not listed yet", reloadIfaceName)
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	detail := "reload did not expose new interface"
+	if lastErr != nil {
+		detail += ": " + lastErr.Error()
+	}
+	if tail := readTail(logPath, logTailLines); tail != "" {
+		detail += " log=" + tail
+	}
+	return result(nameDaemonReload, SeverityFail, detail)
 }
 
 func freeTCPPort() (int, error) {

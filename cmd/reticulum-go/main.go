@@ -131,14 +131,16 @@ func runDaemon(opts daemonOptions) int {
 		return 1
 	}
 
+	// Bind Control API and shared-instance listeners before sandbox.Apply so
+	// FreeBSD CapEnter and OpenBSD pledge do not block those listens.
+	r.StartControlAPI()
+
 	if err := sandbox.Apply(cfg); err != nil {
 		debug.Log(debug.DebugCritical, "Sandbox application failed", "error", err)
 		if cfg != nil && cfg.PanicOnInterfaceErr {
 			return 1
 		}
 	}
-
-	r.StartControlAPI()
 
 	if runtime.GOOS != "windows" {
 		go func() {

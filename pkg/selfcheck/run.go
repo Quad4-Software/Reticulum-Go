@@ -71,7 +71,7 @@ func Run(ctx context.Context, opts Options) Report {
 			rep.Results = append(rep.Results, checkSerial())
 		}
 		if !opts.SkipDaemon {
-			rep.Results = append(rep.Results, checkDaemon(ctx, opts))
+			rep.Results = append(rep.Results, checkDaemon(ctx, opts)...)
 		}
 	}
 

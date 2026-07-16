@@ -16,6 +16,31 @@ import (
 )
 
 func checkUDP() Result {
+	a, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		return result("network/udp", SeverityFail, err.Error())
+	}
+	defer a.Close()
+	b, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		return result("network/udp", SeverityFail, err.Error())
+	}
+	defer b.Close()
+
+	payload := []byte("rns-selfcheck-udp")
+	if _, err := a.WriteTo(payload, b.LocalAddr()); err != nil {
+		return result("network/udp", SeverityFail, "send: "+err.Error())
+	}
+	_ = b.SetReadDeadline(time.Now().Add(2 * time.Second))
+	buf := make([]byte, 64)
+	n, _, err := b.ReadFrom(buf)
+	if err != nil {
+		return result("network/udp", SeverityFail, "recv: "+err.Error())
+	}
+	if string(buf[:n]) != string(payload) {
+		return result("network/udp", SeverityFail, "payload mismatch")
+	}
+
 	ui, err := interfaces.NewUDPInterface("selfcheck-udp", "127.0.0.1:0", "127.0.0.1:9", true)
 	if err != nil {
 		return result("network/udp", SeverityFail, err.Error())
@@ -27,7 +52,7 @@ func checkUDP() Result {
 	if !ui.IsOnline() {
 		return result("network/udp", SeverityFail, "not online after start")
 	}
-	return result("network/udp", SeverityPass, "loopback start and stop")
+	return result("network/udp", SeverityPass, "loopback send/recv and interface start")
 }
 
 func checkTCP() Result {

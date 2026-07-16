@@ -28,7 +28,7 @@ The stack provides cryptographic authentication and encryption per the Reticulum
 
 ## Runtime sandbox
 
-The `reticulum-go` daemon calls `sandbox.Apply` from `pkg/sandbox` after config load, interface setup, and transport start. Privileged initialization completes first.
+The `reticulum-go` daemon calls `sandbox.Apply` from `pkg/sandbox` after config load, transport start, shared-instance attach, and Control API bind. Privileged initialization and listeners complete first so FreeBSD CapEnter and OpenBSD pledge do not block those sockets.
 
 Default: `enable_sandbox = yes` in `[reticulum]`. Set `enable_sandbox = no` to disable (not recommended for production).
 
