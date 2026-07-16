@@ -13,6 +13,7 @@ import RNS
 INTEROP_APP = "interop_pygo"
 INTEROP_ASPECT = "linksvc"
 
+
 def write_config(cfg_dir: str, listen_port: int, forward_port: int) -> None:
     config_path = os.path.join(cfg_dir, "config")
     with open(config_path, "w", encoding="utf-8") as f:
@@ -49,6 +50,54 @@ def client_connected(link):
             RNS.Packet(link, message).send()
 
         link.set_packet_callback(server_packet_received)
+    elif mode == "channel":
+        from RNS.Channel import MessageBase
+
+        class EchoMsg(MessageBase):
+            MSGTYPE = 0x0001
+
+            def __init__(self, data=None):
+                self.data = data if data is not None else b""
+
+            def pack(self):
+                return self.data
+
+            def unpack(self, raw):
+                self.data = raw
+
+        ch = link.get_channel()
+        ch.register_message_type(EchoMsg)
+
+        def on_msg(message):
+            if isinstance(message, EchoMsg):
+                ch.send(EchoMsg(message.data))
+                return True
+            return False
+
+        ch.add_message_handler(on_msg)
+
+    elif mode == "buffer":
+        ch = link.get_channel()
+        expected = os.environ.get("INTEROP_BUFFER_EXPECT", "interop-buffer-payload").encode("utf-8")
+        state = {"reader": None, "chunks": [], "done": False}
+
+        def on_ready(_length):
+            if state["done"]:
+                return
+            r = state["reader"]
+            while True:
+                data = r.read(4096)
+                if not data:
+                    break
+                state["chunks"].append(data)
+            got = b"".join(state["chunks"])
+            if got == expected:
+                state["done"] = True
+                sys.stdout.write("BUFFER_OK\n")
+                sys.stdout.flush()
+
+        state["reader"] = RNS.Buffer.create_reader(1, ch, ready_callback=on_ready)
+
     elif mode == "resource":
 
         def server_packet_received(message, packet):

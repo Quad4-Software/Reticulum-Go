@@ -124,7 +124,9 @@ RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
 
 | Test file | Topic |
 |-----------|-------|
-| `link_live_test.go` | Link sessions |
+| `link_live_test.go` | Link sessions and resources |
+| `channel_buffer_live_test.go` | Channel messages and buffer streams |
+| `rncp_blackhole_live_test.go` | rncp file transfer and blackhole LINKIDENTIFY |
 | `auto_live_test.go` | AutoInterface |
 | `ifac_live_test.go` | IFAC |
 | `transport_path_live_test.go` | Path requests |
@@ -135,6 +137,7 @@ RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
 | `shared_rpc_live_test.go` | Shared-instance RPC |
 | `pageserver_live_test.go` | Pageserver example |
 | `nomadnet_crawl_live_test.go` | Nomadnet crawl |
+| `path_cp_live_test.go` | path and rgocp utilities |
 
 ### Package-specific live tests
 

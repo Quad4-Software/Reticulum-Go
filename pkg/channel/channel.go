@@ -4,7 +4,9 @@
 package channel
 
 import (
+	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -16,6 +18,10 @@ import (
 
 // ErrLinkNotReady is returned when a send is attempted on a non-ready outlet.
 var ErrLinkNotReady = errors.New("link not ready")
+
+// SystemMessageTypeMin is the lower bound for system-reserved MSGTYPE values.
+// Matches Python RNS Channel (MSGTYPE >= 0xf000).
+const SystemMessageTypeMin uint16 = 0xf000
 
 var envelopePool = sync.Pool{
 	New: func() any {
@@ -38,6 +44,9 @@ type MessageBase interface {
 	GetType() uint16
 }
 
+// MessageConstructor builds an empty message for inbound unpacking.
+type MessageConstructor func() MessageBase
+
 // Channel provides reliable message delivery over a transport link.
 // Sends reserve a sequence only after a successful outlet transmit, matching
 // the Python 1.3.0 ghost-envelope fix while keeping a single-outlet model.
@@ -53,6 +62,7 @@ type Channel struct {
 	maxTries        int
 	messageHandlers []messageHandlerEntry
 	nextHandlerID   int
+	factories       map[uint16]MessageConstructor
 }
 
 type messageHandlerEntry struct {
@@ -75,6 +85,7 @@ func NewChannel(link transport.LinkInterface) *Channel {
 	return &Channel{
 		link:            link,
 		messageHandlers: make([]messageHandlerEntry, InitialHandlerCapacity),
+		factories:       make(map[uint16]MessageConstructor),
 		mutex:           sync.RWMutex{},
 		windowMax:       WindowMaxSlow,
 		windowMin:       WindowMinSlow,
@@ -101,6 +112,47 @@ func packetTransmitted(pkt any) bool {
 	return true
 }
 
+// RegisterMessageType registers a user message constructor for inbound dispatch.
+// Types >= 0xf000 are system-reserved and must use RegisterSystemMessageType.
+func (c *Channel) RegisterMessageType(msgType uint16, ctor MessageConstructor) error {
+	return c.registerMessageType(msgType, ctor, false)
+}
+
+// RegisterSystemMessageType registers a system message constructor (MSGTYPE >= 0xf000).
+func (c *Channel) RegisterSystemMessageType(msgType uint16, ctor MessageConstructor) error {
+	return c.registerMessageType(msgType, ctor, true)
+}
+
+func (c *Channel) registerMessageType(msgType uint16, ctor MessageConstructor, system bool) error {
+	if ctor == nil {
+		return errors.New("channel: nil message constructor")
+	}
+	if msgType >= SystemMessageTypeMin && !system {
+		return fmt.Errorf("channel: MSGTYPE 0x%04x is system-reserved", msgType)
+	}
+	if msgType < SystemMessageTypeMin && system {
+		return fmt.Errorf("channel: MSGTYPE 0x%04x is not a system type", msgType)
+	}
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.factories[msgType] = ctor
+	return nil
+}
+
+// packEnvelope builds the Python-compatible wire envelope:
+// big-endian MSGTYPE, sequence, length, then message body.
+func packEnvelope(msgType, sequence uint16, body []byte) ([]byte, error) {
+	if len(body) > 0xffff {
+		return nil, fmt.Errorf("channel: message body too large (%d)", len(body))
+	}
+	raw := make([]byte, ChannelHeaderSize+len(body))
+	binary.BigEndian.PutUint16(raw[0:2], msgType)
+	binary.BigEndian.PutUint16(raw[2:4], sequence)
+	binary.BigEndian.PutUint16(raw[4:6], uint16(len(body))) // #nosec G115 - length bounded above
+	copy(raw[ChannelHeaderSize:], body)
+	return raw, nil
+}
+
 // Send transmits a message over the channel.
 // Sequence allocation and tx-ring emplace happen only after a successful
 // outlet send so a failing link cannot leave ghost envelopes or sequence holes.
@@ -112,7 +164,7 @@ func (c *Channel) Send(msg MessageBase) error {
 		return ErrLinkNotReady
 	}
 
-	data, err := msg.Pack()
+	body, err := msg.Pack()
 	if err != nil {
 		return err
 	}
@@ -122,7 +174,15 @@ func (c *Channel) Send(msg MessageBase) error {
 	c.nextSequence = (reserved + 1) % SeqModulus
 	c.mutex.Unlock()
 
-	packet := c.link.Send(data)
+	raw, err := packEnvelope(msg.GetType(), reserved, body)
+	if err != nil {
+		c.mutex.Lock()
+		c.nextSequence = reserved
+		c.mutex.Unlock()
+		return err
+	}
+
+	packet := c.link.Send(raw)
 	if !packetTransmitted(packet) {
 		c.mutex.Lock()
 		c.nextSequence = reserved
@@ -134,7 +194,7 @@ func (c *Channel) Send(msg MessageBase) error {
 	*env = Envelope{
 		Sequence:  reserved,
 		Message:   msg,
-		Raw:       data,
+		Raw:       raw,
 		Packet:    packet,
 		Tries:     1,
 		Timestamp: time.Now(),
@@ -233,34 +293,46 @@ func (c *Channel) RemoveMessageHandler(id int) {
 }
 
 // HandleInbound processes an inbound channel packet and dispatches to registered handlers.
-// Each handler receives the same *GenericMessage, treat it as read-only unless the
-// handler stops the chain (returns true). Data aliases the input slice.
+// Registered factories unpack into typed messages. Unknown types become GenericMessage.
 func (c *Channel) HandleInbound(data []byte) error {
 	if len(data) < ChannelHeaderSize {
 		return errors.New("channel packet too short")
 	}
 
-	msgType := uint16(data[0])<<ChannelHeaderBits | uint16(data[1])
-	sequence := uint16(data[2])<<ChannelHeaderBits | uint16(data[3])
-	length := uint16(data[4])<<ChannelHeaderBits | uint16(data[5])
+	msgType := binary.BigEndian.Uint16(data[0:2])
+	sequence := binary.BigEndian.Uint16(data[2:4])
+	length := binary.BigEndian.Uint16(data[4:6])
 
 	if len(data) < ChannelHeaderSize+int(length) {
 		return errors.New("channel packet incomplete")
 	}
 
-	msgData := data[ChannelHeaderSize : ChannelHeaderSize+length]
+	msgData := make([]byte, length)
+	copy(msgData, data[ChannelHeaderSize:ChannelHeaderSize+int(length)])
 
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	c.mutex.RLock()
+	ctor := c.factories[msgType]
+	handlers := make([]messageHandlerEntry, len(c.messageHandlers))
+	copy(handlers, c.messageHandlers)
+	c.mutex.RUnlock()
 
-	msg := GenericMessage{
-		Type: msgType,
-		Data: msgData,
-		Seq:  sequence,
+	var msg MessageBase
+	if ctor != nil {
+		msg = ctor()
+		if err := msg.Unpack(msgData); err != nil {
+			return err
+		}
+	} else {
+		msg = &GenericMessage{
+			Type: msgType,
+			Data: msgData,
+			Seq:  sequence,
+		}
 	}
-	for _, entry := range c.messageHandlers {
+
+	for _, entry := range handlers {
 		if entry.handler != nil {
-			if entry.handler(&msg) {
+			if entry.handler(msg) {
 				break
 			}
 		}

@@ -67,8 +67,16 @@ def main() -> int:
     write_config(cfg_dir, listen_port, forward_port)
     RNS.Reticulum(cfg_dir)
 
+    identity = RNS.Identity()
+
     sys.stdout.write("READY\n")
-    sys.stdout.flush()
+    if mode == "identify":
+        sys.stdout.write("IDHASH " + identity.hash.hex() + "\n")
+        sys.stdout.flush()
+        # Wait until Go has registered the blackhole entry.
+        sys.stdin.readline()
+    else:
+        sys.stdout.flush()
 
     deadline = time.time() + 60.0
     dest = None
@@ -84,6 +92,13 @@ def main() -> int:
         return 1
 
     def on_link_established(link):
+        if mode == "identify":
+            # Python only sends LINKIDENTIFY when this side is the initiator.
+            link.identify(identity)
+            sys.stdout.write("IDENTIFIED\n")
+            sys.stdout.flush()
+            return
+
         if mode == "echo":
 
             def got(message, packet):
@@ -138,6 +153,46 @@ def main() -> int:
             path = os.environ.get("INTEROP_REQUEST_PATH", "interop_req_path")
             payload = os.environ.get("INTEROP_REQUEST_PAYLOAD", "ping").encode("utf-8")
             link.request(path, payload, response_callback=on_resp)
+
+        elif mode == "channel_send":
+            from RNS.Channel import MessageBase
+
+            class EchoMsg(MessageBase):
+                MSGTYPE = 0x0001
+
+                def __init__(self, data=None):
+                    self.data = data if data is not None else b""
+
+                def pack(self):
+                    return self.data
+
+                def unpack(self, raw):
+                    self.data = raw
+
+            ch = link.get_channel()
+            ch.register_message_type(EchoMsg)
+            expect = os.environ.get("INTEROP_CHANNEL_EXPECT", "interop-channel-ping").encode("utf-8")
+
+            def on_msg(message):
+                if isinstance(message, EchoMsg) and message.data == expect:
+                    sys.stdout.write("CHANNEL_OK\n")
+                    sys.stdout.flush()
+                    return True
+                return False
+
+            ch.add_message_handler(on_msg)
+            send_payload = os.environ.get("INTEROP_CHANNEL_SEND", "interop-channel-ping").encode("utf-8")
+            ch.send(EchoMsg(send_payload))
+
+        elif mode == "buffer_send":
+            ch = link.get_channel()
+            payload = os.environ.get("INTEROP_BUFFER_SEND", "interop-buffer-payload").encode("utf-8")
+            writer = RNS.Buffer.create_writer(1, ch)
+            writer.write(payload)
+            writer.flush()
+            writer.close()
+            sys.stdout.write("BUFFER_SENT\n")
+            sys.stdout.flush()
 
         else:
             sys.stderr.write("unknown INTEROP_LINK_CLIENT_MODE\n")

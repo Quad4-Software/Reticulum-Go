@@ -7,6 +7,10 @@ vars:
   FREEBSD_ARCHES: [amd64, 386, arm64, arm, riscv64]
   OPENBSD_ARCHES: [amd64, 386, arm64, arm, ppc64, riscv64]
   NETBSD_ARCHES: [amd64, 386, arm64, arm]
+  # Prefer CLI/env VERSION (e.g. task build VERSION=v1.0.0). Do not use a
+  # dynamic sh: VERSION here: Task would export it and override CI env.
+  GIT_DESCRIBE:
+    sh: git describe --tags --always --dirty 2>/dev/null || echo dev
 
 tasks:
   build:
@@ -15,7 +19,12 @@ tasks:
       CGO_ENABLED: '0'
     cmds:
       - mkdir -p {{.BUILD_DIR}}
-      - '{{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}'
+      - |
+        V="${VERSION:-{{.VERSION}}}"
+        if [ -z "$V" ]; then
+          V="{{.GIT_DESCRIBE}}"
+        fi
+        {{.GOCMD}} build -ldflags="-s -w -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}
 
   build-utils:
     desc: Alias for build (tools are subcommands of reticulum-go)
@@ -63,7 +72,11 @@ tasks:
         if [ "{{.GOOS}}" = "windows" ]; then
           suffix=".exe"
         fi
-        {{.GOCMD}} build -ldflags="-s -w" \
+        V="${VERSION:-{{.VERSION}}}"
+        if [ -z "$V" ]; then
+          V="{{.GIT_DESCRIBE}}"
+        fi
+        {{.GOCMD}} build -ldflags="-s -w -X main.defaultVersion=${V}" \
           -o "{{.BUILD_DIR}}/{{.BINARY_NAME}}-{{.GOOS}}-{{.GOARCH}}${suffix}" \
           {{.MAIN_PACKAGE}}
 
@@ -97,8 +110,13 @@ tasks:
       CGO_ENABLED: '0'
     cmds:
       - mkdir -p {{.BUILD_DIR}}
-      - 'GOOS=windows GOARCH=amd64 {{.GO_LEGACY_WIN7}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64-win7.exe {{.MAIN_PACKAGE}}'
-      - 'GOOS=windows GOARCH=arm64 {{.GO_LEGACY_WIN7}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-arm64-win7.exe {{.MAIN_PACKAGE}}'
+      - |
+        V="${VERSION:-{{.VERSION}}}"
+        if [ -z "$V" ]; then
+          V="{{.GIT_DESCRIBE}}"
+        fi
+        GOOS=windows GOARCH=amd64 {{.GO_LEGACY_WIN7}} build -ldflags="-s -w -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64-win7.exe {{.MAIN_PACKAGE}}
+        GOOS=windows GOARCH=arm64 {{.GO_LEGACY_WIN7}} build -ldflags="-s -w -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-arm64-win7.exe {{.MAIN_PACKAGE}}
 
   build-darwin:
     desc: Build for MacOS (amd64, arm64)

@@ -2006,6 +2006,15 @@ func TestProtocolConstants(t *testing.T) {
 	if packet.ContextLRProof != 0xFF {
 		t.Errorf("ContextLRProof: got 0x%02x, want 0xFF", packet.ContextLRProof)
 	}
+	if buffer.StreamDataMessageType != 0xff00 {
+		t.Errorf("StreamDataMessageType: got 0x%04x, want 0xff00 (Python Buffer.StreamDataMessage.MSGTYPE)", buffer.StreamDataMessageType)
+	}
+	if channel.ChannelHeaderSize != 6 {
+		t.Errorf("ChannelHeaderSize: got %d, want 6 (Python Envelope >HHH)", channel.ChannelHeaderSize)
+	}
+	if channel.SystemMessageTypeMin != 0xf000 {
+		t.Errorf("SystemMessageTypeMin: got 0x%04x, want 0xf000", channel.SystemMessageTypeMin)
+	}
 }
 
 func TestResourceReqFormat(t *testing.T) {

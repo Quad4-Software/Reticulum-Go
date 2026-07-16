@@ -77,6 +77,7 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           GOARM: ${{ matrix.goarch == 'arm' && '6' || '' }}
           CGO_ENABLED: "0"
+          VERSION: ${{ inputs.tag_name }}
         run: |
           output_name="reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}"
           if [ "${{ matrix.goos }}" = "js" ] && [ "${{ matrix.goarch }}" = "wasm" ]; then
@@ -84,7 +85,7 @@ jobs:
             output_name+=".wasm"
             mv bin/reticulum-go.wasm "${output_name}"
           else
-            task build
+            task build VERSION="${VERSION}"
             if [ "${{ matrix.goos }}" = "windows" ]; then
               output_name+=".exe"
             fi
@@ -124,10 +125,11 @@ jobs:
           GOOS: windows
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
+          VERSION: ${{ inputs.tag_name }}
         run: |
           set -euo pipefail
           output_name="reticulum-go-windows-${{ matrix.goarch }}-win7.exe"
-          go build -ldflags="-s -w" -o "${output_name}" ./cmd/reticulum-go
+          go build -ldflags="-s -w -X main.defaultVersion=${VERSION}" -o "${output_name}" ./cmd/reticulum-go
           echo "Built: ${output_name}"
 
       - name: Upload artifact

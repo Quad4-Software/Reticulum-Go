@@ -74,6 +74,9 @@ func NewRawChannelReader(streamID int, ch *channel.Channel) *RawChannelReader {
 		callbacks: make(map[int]func(int)),
 	}
 
+	_ = ch.RegisterSystemMessageType(StreamDataMessageType, func() channel.MessageBase {
+		return &StreamDataMessage{}
+	})
 	reader.messageHandlerID = ch.AddMessageHandler(reader.HandleMessage)
 	return reader
 }
@@ -141,6 +144,9 @@ type RawChannelWriter struct {
 }
 
 func NewRawChannelWriter(streamID int, ch *channel.Channel) *RawChannelWriter {
+	_ = ch.RegisterSystemMessageType(StreamDataMessageType, func() channel.MessageBase {
+		return &StreamDataMessage{}
+	})
 	return &RawChannelWriter{
 		streamID: streamID,
 		channel:  ch,

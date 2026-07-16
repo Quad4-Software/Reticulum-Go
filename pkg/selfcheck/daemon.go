@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -104,10 +105,7 @@ func checkDaemon(ctx context.Context, opts Options) []Result {
 		return []Result{fail, result(nameDaemonRPC, SeveritySkip, "setup failed"), result(nameDaemonReload, SeveritySkip, "setup failed")}
 	}
 
-	timeout := opts.timeout()
-	if timeout > daemonMaxTimeout {
-		timeout = daemonMaxTimeout
-	}
+	timeout := min(opts.timeout(), daemonMaxTimeout)
 	dctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -308,20 +306,20 @@ func readTail(path string, maxLines int) string {
 	if len(lines) > maxLines {
 		lines = lines[len(lines)-maxLines:]
 	}
-	out := ""
+	var out strings.Builder
 	for i, line := range lines {
 		if i > 0 {
-			out += " | "
+			out.WriteString(" | ")
 		}
 		if len(line) > logLineMaxChars {
 			line = line[:logLineMaxChars] + "..."
 		}
-		out += line
+		out.WriteString(line)
 	}
-	if len(out) > logTailMaxChars {
-		return out[len(out)-logTailMaxChars:]
+	if len(out.String()) > logTailMaxChars {
+		return out.String()[len(out.String())-logTailMaxChars:]
 	}
-	return out
+	return out.String()
 }
 
 func splitLines(s string) []string {

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"quad4/reticulum-go/pkg/blackhole"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/identity"
@@ -326,5 +327,50 @@ func TestRegression_SendPacketWithContextUnderLock(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("SendPacketWithContext deadlocked")
+	}
+}
+
+// TestRegression_BlackholeIdentifyTearsDownLink pins HandleIdentification:
+// when the remote peer Identifys as a blackholed identity the link must close.
+// Python only sends LINKIDENTIFY as initiator so the initiator Identifys here.
+func TestRegression_BlackholeIdentifyTearsDownLink(t *testing.T) {
+	skipHeavyLinkTestsIfShort(t)
+	initLink, respLink, cleanup := establishInteropLink(t)
+	defer cleanup()
+
+	peerID, err := identity.New()
+	if err != nil {
+		t.Fatalf("identity: %v", err)
+	}
+	localID, err := identity.New()
+	if err != nil {
+		t.Fatalf("local identity: %v", err)
+	}
+	blackhole.SetLocalIdentityHash(localID.Hash())
+	tab := blackhole.New("")
+	if _, err := tab.Add(peerID.Hash(), 0, "regression"); err != nil {
+		t.Fatalf("blackhole add: %v", err)
+	}
+	respLink.transport.SetBlackholeTable(tab)
+
+	closed := make(chan struct{}, 1)
+	respLink.SetLinkClosedCallback(func(_ *Link) {
+		select {
+		case closed <- struct{}{}:
+		default:
+		}
+	})
+
+	if err := initLink.Identify(peerID); err != nil {
+		t.Fatalf("Identify: %v", err)
+	}
+
+	select {
+	case <-closed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("expected responder teardown after blackholed LINKIDENTIFY")
+	}
+	if respLink.GetStatus() != StatusClosed {
+		t.Fatalf("responder status=%d want Closed", respLink.GetStatus())
 	}
 }

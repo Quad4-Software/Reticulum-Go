@@ -132,8 +132,8 @@ func TestStreamDataMessage_Unpack(t *testing.T) {
 
 func TestStreamDataMessage_GetType(t *testing.T) {
 	msg := &StreamDataMessage{}
-	if msg.GetType() != 0x01 {
-		t.Errorf("GetType() = %d, want 0x01", msg.GetType())
+	if msg.GetType() != 0xff00 {
+		t.Errorf("GetType() = %d, want 0xff00", msg.GetType())
 	}
 }
 

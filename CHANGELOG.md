@@ -1,13 +1,5 @@
 # Changelog
 
-## Unreleased
-
-- Fully ephemeral `in_memory_storage` mode with soft memory caps, OOM-safe eviction, and no home-directory writes for library use
-- Odin bindings for librns under `bindings/odin` with Task, Makefile, and CI coverage
-- Dart Control API client under `bindings/dart` (`rns_control`) for Flutter and Dart apps
-- Align `RNS_API_VERSION` in `include/rns.h` with librns `1.1`
-- Document Odin and Dart bindings across README feature list, embedding paths, and compatibility tables
-
 ## v1.0.0
 
 First stable release of Reticulum-Go.
@@ -22,12 +14,16 @@ Wire compatible with Python RNS 1.3.8 for the software transport stack.
 - librns C ABI node lifecycle control API sandbox
 - Odin librns bindings (`bindings/odin`)
 - Dart Control API client (`bindings/dart`)
+- Fully ephemeral `in_memory_storage` mode with soft memory caps and OOM-safe eviction
+- Align `RNS_API_VERSION` in `include/rns.h` with librns `1.1`
 - Network identity outgoing flags Go interface plugins
 - Split resource advertisements for large transfers
 - Logging to stderr file syslog and journald
 - Examples: minimal announce link resources filetransfer echo and more
 - Go-only underlays: DNS TXT rendezvous, Linux VSOCK, HTTPS long-poll
 - Race, fuzz, and goroutine-leak coverage for Serial, WebTransport, DNS rendezvous, VSOCK, and HTTPS
+- Channel envelope and StreamDataMessage wire parity with Python RNS
+- Live Python-Go interop for channel buffer rncp and blackhole LINKIDENTIFY
 
 ### Not in this release
 - RNode KISS AX25 Weave radio drivers

@@ -365,10 +365,7 @@ func TestWebTransportConcurrentSend(t *testing.T) {
 	seq := 0
 	// Datagrams can be dropped under load. Keep sending until n are received or timeout.
 	for time.Now().Before(deadline) && count.Load() < int64(n) {
-		need := n - int(count.Load())
-		if need > 10 {
-			need = 10
-		}
+		need := min(n-int(count.Load()), 10)
 		var wg sync.WaitGroup
 		wg.Add(need)
 		for i := 0; i < need; i++ {

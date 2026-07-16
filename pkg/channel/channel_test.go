@@ -78,7 +78,54 @@ func TestChannelSend(t *testing.T) {
 	}
 
 	if len(link.sent) != 1 {
-		t.Errorf("Expected 1 packet sent, got %d", len(link.sent))
+		t.Fatalf("Expected 1 packet sent, got %d", len(link.sent))
+	}
+	raw := link.sent[0]
+	if len(raw) != ChannelHeaderSize+4 {
+		t.Fatalf("envelope len=%d want %d", len(raw), ChannelHeaderSize+4)
+	}
+	if raw[0] != 0 || raw[1] != 1 {
+		t.Fatalf("msgtype bytes=%x want 0001", raw[0:2])
+	}
+	if raw[2] != 0 || raw[3] != 0 {
+		t.Fatalf("sequence bytes=%x want 0000", raw[2:4])
+	}
+	if raw[4] != 0 || raw[5] != 4 {
+		t.Fatalf("length bytes=%x want 0004", raw[4:6])
+	}
+	if string(raw[ChannelHeaderSize:]) != "test" {
+		t.Fatalf("body=%q", raw[ChannelHeaderSize:])
+	}
+}
+
+func TestHandleInboundTypedFactory(t *testing.T) {
+	link := &mockLink{status: 1}
+	c := NewChannel(link)
+	defer func() { _ = c.Close() }()
+
+	if err := c.RegisterMessageType(1, func() MessageBase { return &testMessage{} }); err != nil {
+		t.Fatal(err)
+	}
+
+	var got *testMessage
+	c.AddMessageHandler(func(m MessageBase) bool {
+		tm, ok := m.(*testMessage)
+		if !ok {
+			t.Fatalf("expected *testMessage, got %T", m)
+		}
+		got = tm
+		return true
+	})
+
+	raw, err := packEnvelope(1, 7, []byte("abcd"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.HandleInbound(raw); err != nil {
+		t.Fatal(err)
+	}
+	if got == nil || string(got.data) != "abcd" {
+		t.Fatalf("got=%v", got)
 	}
 }
 

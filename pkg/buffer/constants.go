@@ -12,7 +12,7 @@ const (
 	StreamHeaderEOF        = 0x8000
 	StreamHeaderCompressed = 0x4000
 
-	StreamDataMessageType = 0x01
+	StreamDataMessageType = 0xff00
 
 	StreamHeaderSize = 2
 

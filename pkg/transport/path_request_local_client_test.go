@@ -6,9 +6,7 @@ package transport
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/hex"
 	"fmt"
-	"os"
 	"runtime"
 	"sync"
 	"testing"
@@ -1176,27 +1174,5 @@ func TestLocalClientPR_ReceivedPathRequestAccounting(t *testing.T) {
 	}
 }
 
-// ===========================================================================
-// 9. LIVE INTEROP TEST
-// ===========================================================================
-
-// TestLiveInteropPythonSharedClientPathRequestThroughGoServer verifies that a
-// Python RNS shared-instance client can send a path request through a Go
-// shared-instance server and the server forwards it on its UDP interface.
-//
-// Set RUN_LIVE_INTEROP=1 to enable. Requires python3 + RNS installed.
-func TestLiveInteropPythonSharedClientPathRequestThroughGoServer(t *testing.T) {
-	if os.Getenv("RUN_LIVE_INTEROP") != "1" {
-		t.Skip("set RUN_LIVE_INTEROP=1 to run live Python-Go path request interop")
-	}
-
-	// This test is in the interop package. See
-	// tests/interop/path_request_shared_live_test.go for the full implementation.
-	t.Skip("see tests/interop/path_request_shared_live_test.go")
-}
-
-// ---------------------------------------------------------------------------
-// Helper to suppress unused-import warnings when RUN_LIVE_INTEROP is not set.
-// ---------------------------------------------------------------------------
-var _ = hex.EncodeToString
-var _ = fmt.Sprintf
+// Live shared-client path request coverage lives in
+// tests/interop/path_request_shared_live_test.go (RUN_LIVE_INTEROP=1).

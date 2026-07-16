@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 func checkCrossref() Result {
@@ -63,9 +64,10 @@ func checkBindings() Result {
 	if len(found) == 0 {
 		return result("interop/bindings", SeveritySkip, "no binding tools detected")
 	}
-	detail := found[0]
+	var detail strings.Builder
+	detail.WriteString(found[0])
 	for i := 1; i < len(found); i++ {
-		detail += ", " + found[i]
+		detail.WriteString(", " + found[i])
 	}
-	return result("interop/bindings", SeverityPass, detail)
+	return result("interop/bindings", SeverityPass, detail.String())
 }
