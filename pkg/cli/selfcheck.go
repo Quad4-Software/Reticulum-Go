@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"quad4/reticulum-go/pkg/selfcheck"
@@ -33,6 +34,11 @@ func RunSelfCheck(args []string, opt ...Options) int {
 	if binPath == "" {
 		if exe, err := os.Executable(); err == nil {
 			binPath = exe
+		}
+	}
+	if binPath != "" {
+		if abs, err := filepath.Abs(binPath); err == nil {
+			binPath = abs
 		}
 	}
 

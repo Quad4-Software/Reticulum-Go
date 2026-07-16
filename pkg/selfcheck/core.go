@@ -162,6 +162,11 @@ func checkBinaryCLI(opts Options) Result {
 	if path == "" {
 		return result("binary/cli", SeveritySkip, "BinaryPath not set")
 	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return result("binary/cli", SeverityFail, err.Error())
+	}
+	path = abs
 	if _, err := os.Stat(path); err != nil {
 		return result("binary/cli", SeverityFail, err.Error())
 	}

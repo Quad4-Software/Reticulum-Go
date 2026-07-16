@@ -167,10 +167,10 @@ jobs:
             export GOPROXY=off
             export GOTOOLCHAIN=local
             go version
-            go test -short -count=1 -timeout 10m ./pkg/selfcheck/ ./pkg/sandbox/
+            go test -buildvcs=false -short -count=1 -timeout 10m ./pkg/selfcheck/ ./pkg/sandbox/
             mkdir -p bin
-            go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
-            ./bin/reticulum-go self-check --binary ./bin/reticulum-go --json --full
+            go build -buildvcs=false -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
+            ./bin/reticulum-go self-check --binary "$(pwd)/bin/reticulum-go" --json --full
 
       - name: Verify workspace clean
         uses: ./.github/actions/verify-workspace-clean
@@ -201,10 +201,10 @@ jobs:
             export GOPROXY=off
             export GOTOOLCHAIN=local
             go version
-            go test -short -count=1 -timeout 10m ./pkg/selfcheck/ ./pkg/sandbox/
+            go test -buildvcs=false -short -count=1 -timeout 10m ./pkg/selfcheck/ ./pkg/sandbox/
             mkdir -p bin
-            go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
-            ./bin/reticulum-go self-check --binary ./bin/reticulum-go --json --full
+            go build -buildvcs=false -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
+            ./bin/reticulum-go self-check --binary "$(pwd)/bin/reticulum-go" --json --full
 
       - name: Verify workspace clean
         uses: ./.github/actions/verify-workspace-clean

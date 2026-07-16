@@ -37,6 +37,12 @@ func checkDaemon(ctx context.Context, opts Options) []Result {
 			result(nameDaemonReload, SeveritySkip, "BinaryPath not set"),
 		}
 	}
+	absBin, err := filepath.Abs(bin)
+	if err != nil {
+		fail := result(nameDaemonSmoke, SeverityFail, "binary path: "+err.Error())
+		return []Result{fail, result(nameDaemonRPC, SeveritySkip, "daemon not started"), result(nameDaemonReload, SeveritySkip, "daemon not started")}
+	}
+	bin = absBin
 	if _, err := os.Stat(bin); err != nil {
 		fail := result(nameDaemonSmoke, SeverityFail, err.Error())
 		return []Result{fail, result(nameDaemonRPC, SeveritySkip, "daemon not started"), result(nameDaemonReload, SeveritySkip, "daemon not started")}
