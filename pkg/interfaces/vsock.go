@@ -7,6 +7,7 @@ package interfaces
 import (
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"sync"
 
@@ -19,10 +20,13 @@ import (
 const vsockBitrateGuess int64 = 1_000_000_000
 
 // ParseVSOCKContextID converts a config integer to a vsock context ID.
-// Negative values are rejected.
+// Negative values and values above math.MaxUint32 are rejected.
 func ParseVSOCKContextID(v int) (uint32, error) {
 	if v < 0 {
 		return 0, fmt.Errorf("vsock context ID must be non-negative, got %d", v)
+	}
+	if uint64(v) > math.MaxUint32 {
+		return 0, fmt.Errorf("vsock context ID overflows uint32, got %d", v)
 	}
 	return uint32(v), nil
 }
@@ -289,15 +293,15 @@ func (vc *VSOCKClientInterface) Port() uint32 {
 // VSOCKServerInterface listens for AF_VSOCK peers and fans out HDLC frames.
 type VSOCKServerInterface struct {
 	BaseInterface
-	connections    map[string]net.Conn
-	listener       net.Listener
-	listenCID      uint32
-	port           uint32
-	done           chan struct{}
-	stopOnce       sync.Once
-	txFrame        []byte
-	txMu           sync.Mutex
-	acceptWg       sync.WaitGroup
+	connections map[string]net.Conn
+	listener    net.Listener
+	listenCID   uint32
+	port        uint32
+	done        chan struct{}
+	stopOnce    sync.Once
+	txFrame     []byte
+	txMu        sync.Mutex
+	acceptWg    sync.WaitGroup
 }
 
 // NewVSOCKServerInterface constructs a VSOCK server that listens on Local CID.

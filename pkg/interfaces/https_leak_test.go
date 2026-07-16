@@ -15,7 +15,7 @@ func TestHTTPSNoGoroutineLeak(t *testing.T) {
 	runtime.GC()
 	baseline := runtime.NumGoroutine()
 
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		port := freeHTTPSPort(t)
 		srv, err := NewHTTPSServerInterface("https_leak_srv", "127.0.0.1", port, HTTPSServerOptions{
 			LongPoll: 200 * time.Millisecond,

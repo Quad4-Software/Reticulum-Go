@@ -613,14 +613,12 @@ func (hs *HTTPSServerInterface) Start() error {
 	hs.Online = true
 	hs.Mutex.Unlock()
 
-	hs.serveWg.Add(1)
-	go func() {
-		defer hs.serveWg.Done()
+	hs.serveWg.Go(func() {
 		err := srv.Serve(ln)
 		if err != nil && err != http.ErrServerClosed {
 			debug.Log(debug.DebugVerbose, "HTTPS serve ended", "name", hs.Name, "error", err)
 		}
-	}()
+	})
 	return nil
 }
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-//go:build !js
+//go:build (linux || darwin || freebsd || openbsd || windows) && !js
 
 package interfaces
 
@@ -205,10 +205,10 @@ func TestSerialConcurrentSend(t *testing.T) {
 	const each = 20
 	var wg sync.WaitGroup
 	wg.Add(workers)
-	for w := 0; w < workers; w++ {
+	for w := range workers {
 		go func(id int) {
 			defer wg.Done()
-			for i := 0; i < each; i++ {
+			for i := range each {
 				_ = a.Send([]byte{byte(id), byte(i)}, "")
 			}
 		}(w)

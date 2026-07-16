@@ -49,7 +49,7 @@ func ParseRNSTXT(txt string) (DNSRendezvousEndpoint, bool) {
 	}
 	if strings.HasPrefix(lower, "rns ") || lower == "rns" {
 		ep := DNSRendezvousEndpoint{Proto: "udp"}
-		for _, part := range strings.Fields(txt) {
+		for part := range strings.FieldsSeq(txt) {
 			kv := strings.SplitN(part, "=", 2)
 			if len(kv) != 2 {
 				continue

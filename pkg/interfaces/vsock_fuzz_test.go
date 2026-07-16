@@ -7,6 +7,7 @@ package interfaces
 
 import (
 	"encoding/binary"
+	"math"
 	"testing"
 )
 
@@ -17,9 +18,9 @@ func FuzzParseVSOCKContextID(f *testing.F) {
 	f.Add(int(0x7fffffff))
 	f.Fuzz(func(t *testing.T, v int) {
 		cid, err := ParseVSOCKContextID(v)
-		if v < 0 {
+		if v < 0 || uint64(v) > math.MaxUint32 {
 			if err == nil {
-				t.Fatal("expected error for negative context ID")
+				t.Fatal("expected error for out-of-range context ID")
 			}
 			return
 		}
@@ -47,10 +48,7 @@ func FuzzVSOCKHDLCDecoder(f *testing.F) {
 			}
 		})
 		for i := 0; i < len(data); {
-			end := i + 13
-			if end > len(data) {
-				end = len(data)
-			}
+			end := min(i+13, len(data))
 			d.feed(data[i:end])
 			i = end
 		}

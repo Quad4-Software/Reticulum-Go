@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-//go:build !js
+//go:build (linux || darwin || freebsd || openbsd || windows) && !js
 
 package interfaces
 
@@ -41,7 +41,7 @@ func TestSerialRaceStopSend(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			_ = a.Send([]byte{byte(i)}, "")
 			time.Sleep(time.Millisecond)
 		}

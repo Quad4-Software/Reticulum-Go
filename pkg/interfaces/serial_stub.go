@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-//go:build js
+//go:build js || !(linux || darwin || freebsd || openbsd || windows)
 
 package interfaces
 
 import (
-	"errors"
+	"fmt"
+	"runtime"
 	"time"
 
 	"quad4/reticulum-go/pkg/common"
@@ -14,17 +15,17 @@ import (
 
 const serialDefaultIFACSize = 8
 
-// SerialInterface is unavailable under js/wasm.
+// SerialInterface is unavailable on this platform.
 type SerialInterface struct {
 	BaseInterface
 }
 
-// NewSerialInterface returns an error on js/wasm.
+// NewSerialInterface returns an error on unsupported platforms.
 func NewSerialInterface(name string, enabled bool, opts SerialOptions) (*SerialInterface, error) {
-	return nil, errors.New("SerialInterface is not available on js/wasm")
+	return nil, fmt.Errorf("SerialInterface is not available on %s/%s", runtime.GOOS, runtime.GOARCH)
 }
 
-// SerialOptions is a stub for js builds.
+// SerialOptions is a stub for unsupported platforms.
 type SerialOptions struct {
 	Device            string
 	Speed             int

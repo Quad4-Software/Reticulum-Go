@@ -6,6 +6,7 @@ package interfaces
 
 import (
 	"bytes"
+	"math"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -36,6 +37,9 @@ func TestParseVSOCKContextID(t *testing.T) {
 	}
 	if _, err := ParseVSOCKContextID(-1); err == nil {
 		t.Fatal("expected error for negative context ID")
+	}
+	if _, err := ParseVSOCKContextID(math.MaxInt32); err != nil {
+		t.Fatalf("MaxInt32 should be accepted: %v", err)
 	}
 }
 

@@ -18,7 +18,7 @@ func TestDNSRendezvousNoGoroutineLeak(t *testing.T) {
 	lookup := func(string) ([]string, error) {
 		return []string{"rns=udp://127.0.0.1:9"}, nil
 	}
-	for i := 0; i < 40; i++ {
+	for range 40 {
 		di, err := NewDNSRendezvousInterface("dns_leak", true, DNSRendezvousOptions{
 			Domain:          "peers.leak.test",
 			ListenAddr:      "127.0.0.1:0",

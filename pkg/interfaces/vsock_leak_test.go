@@ -19,7 +19,7 @@ func TestVSOCKNoGoroutineLeak(t *testing.T) {
 	runtime.GC()
 	baseline := runtime.NumGoroutine()
 
-	for i := 0; i < 25; i++ {
+	for range 25 {
 		srv, err := NewVSOCKServerInterface("vsock_leak_srv", 0)
 		if err != nil {
 			t.Fatal(err)

@@ -39,7 +39,7 @@ func TestWebTransportRaceStopSend(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			_ = cli.Send([]byte{byte(i)}, "")
 			time.Sleep(time.Millisecond)
 		}

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-//go:build !js
+//go:build (linux || darwin || freebsd || openbsd || windows) && !js
 
 package interfaces
 
@@ -37,10 +37,7 @@ func FuzzSerialHDLCRoundTrip(f *testing.F) {
 			if n < 1 {
 				n = 1
 			}
-			end := i + n
-			if end > len(frame) {
-				end = len(frame)
-			}
+			end := min(i+n, len(frame))
 			d.feed(frame[i:end])
 			i = end
 		}

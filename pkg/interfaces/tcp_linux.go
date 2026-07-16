@@ -7,9 +7,10 @@ package interfaces
 import (
 	"fmt"
 	"net"
-	"syscall"
 	"time"
 	"unsafe"
+
+	"golang.org/x/sys/unix"
 
 	"quad4/reticulum-go/pkg/debug"
 )
@@ -61,24 +62,24 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 		const TCP_KEEPINTVL = 5
 		const TCP_KEEPCNT = 6
 
-		if err := syscall.SetsockoptInt(fdInt, syscall.IPPROTO_TCP, TCP_USER_TIMEOUT, userTimeout); err != nil {
+		if err := unix.SetsockoptInt(fdInt, unix.IPPROTO_TCP, TCP_USER_TIMEOUT, userTimeout); err != nil {
 			debug.Log(debug.DebugVerbose, "Failed to set TCP_USER_TIMEOUT", "error", err)
 		}
 
-		if err := syscall.SetsockoptInt(fdInt, syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, SOKeepaliveEnable); err != nil {
+		if err := unix.SetsockoptInt(fdInt, unix.SOL_SOCKET, unix.SO_KEEPALIVE, SOKeepaliveEnable); err != nil {
 			sockoptErr = fmt.Errorf("failed to enable SO_KEEPALIVE: %w", err)
 			return
 		}
 
-		if err := syscall.SetsockoptInt(fdInt, syscall.IPPROTO_TCP, TCP_KEEPIDLE, probeAfter); err != nil {
+		if err := unix.SetsockoptInt(fdInt, unix.IPPROTO_TCP, TCP_KEEPIDLE, probeAfter); err != nil {
 			debug.Log(debug.DebugVerbose, "Failed to set TCP_KEEPIDLE", "error", err)
 		}
 
-		if err := syscall.SetsockoptInt(fdInt, syscall.IPPROTO_TCP, TCP_KEEPINTVL, probeInterval); err != nil {
+		if err := unix.SetsockoptInt(fdInt, unix.IPPROTO_TCP, TCP_KEEPINTVL, probeInterval); err != nil {
 			debug.Log(debug.DebugVerbose, "Failed to set TCP_KEEPINTVL", "error", err)
 		}
 
-		if err := syscall.SetsockoptInt(fdInt, syscall.IPPROTO_TCP, TCP_KEEPCNT, probeCount); err != nil {
+		if err := unix.SetsockoptInt(fdInt, unix.IPPROTO_TCP, TCP_KEEPCNT, probeCount); err != nil {
 			debug.Log(debug.DebugVerbose, "Failed to set TCP_KEEPCNT", "error", err)
 		}
 	})
@@ -99,15 +100,15 @@ func (tc *TCPClientInterface) setTimeoutsOSX() error {
 }
 
 func platformGetRTT(fd uintptr) time.Duration {
-	var info syscall.TCPInfo
+	var info unix.TCPInfo
 	infoLen := uint32(unsafe.Sizeof(info))
 
 	const TCP_INFO = 11
 	// #nosec G103
-	_, _, errno := syscall.Syscall6(
-		syscall.SYS_GETSOCKOPT,
+	_, _, errno := unix.Syscall6(
+		unix.SYS_GETSOCKOPT,
 		fd,
-		syscall.IPPROTO_TCP,
+		unix.IPPROTO_TCP,
 		TCP_INFO,
 		uintptr(unsafe.Pointer(&info)),
 		uintptr(unsafe.Pointer(&infoLen)),

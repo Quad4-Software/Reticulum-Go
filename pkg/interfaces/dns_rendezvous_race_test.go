@@ -54,14 +54,14 @@ func TestDNSRendezvousRaceStopSend(t *testing.T) {
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 80; i++ {
+		for i := range 80 {
 			_ = di.Send([]byte{0x50, byte(i)}, "")
 			time.Sleep(time.Millisecond)
 		}
 	}()
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 40; i++ {
+		for range 40 {
 			_ = di.ForceResolve()
 			time.Sleep(2 * time.Millisecond)
 		}

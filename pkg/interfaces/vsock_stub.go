@@ -6,6 +6,7 @@ package interfaces
 
 import (
 	"fmt"
+	"math"
 	"net"
 
 	"quad4/reticulum-go/pkg/common"
@@ -15,6 +16,9 @@ import (
 func ParseVSOCKContextID(v int) (uint32, error) {
 	if v < 0 {
 		return 0, fmt.Errorf("vsock context ID must be non-negative, got %d", v)
+	}
+	if uint64(v) > math.MaxUint32 {
+		return 0, fmt.Errorf("vsock context ID overflows uint32, got %d", v)
 	}
 	return uint32(v), nil
 }

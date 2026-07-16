@@ -45,7 +45,7 @@ func TestHTTPSRaceStopSend(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 60; i++ {
+		for i := range 60 {
 			_ = cli.Send([]byte{0x50, byte(i)}, "")
 			time.Sleep(2 * time.Millisecond)
 		}
