@@ -226,10 +226,12 @@ Orchestrates transport, interfaces, shared instance, and lifecycle. Prefer this 
 |--------|------|
 | `New() (*Identity, error)` | Generate software identity (preferred) |
 | `NewIdentity()` | Alternate generator |
-| `FromFile` / `ToFile` | 64-byte `[X25519 priv][Ed25519 seed]` |
+| `FromFile` / `ToFile` | Persist via `identity_backend` (`file` plaintext or Secret Service + RSSI marker) |
 | `FromBytes` / `FromPublicKey` | Load from bytes |
-| `LoadIdentityFile(path, signer)` | Software or RHB1 hardware-bound |
+| `LoadIdentityFile(path, signer)` | Software or RHB1 hardware-bound (also resolves RSSI markers) |
 | `NewIdentityWithSigner(...)` | External Ed25519 signer (HSM) |
+| `SetIdentityBackend` / `ApplyIdentityBackendFromConfig` | Select `file` or `secretservice` |
+| `Close` / `Wipe` | Zero locked private key buffers |
 | `Hash() []byte` | 16-byte truncated hash |
 | `GetPublicKey() []byte` | 64-byte combined public key |
 | `Sign` / `Verify` | Ed25519 |
@@ -240,6 +242,8 @@ Orchestrates transport, interfaces, shared instance, and lifecycle. Prefer this 
 | `RotateRatchet` / `GetRatchets` | Forward secrecy material |
 
 Constants: `KeySize` (bits), `TruncatedHashLength` (bits). Hex destination or identity hashes are **32 characters**.
+
+Private key material uses `pkg/securemem` (best-effort `mlock`, wipe on `Close`). See [Identity and destinations](identity-and-destinations.md).
 
 ### Destination (`pkg/destination`)
 
@@ -345,7 +349,7 @@ Avoid `transport.Destination` and `transport.Link` placeholder types. Use `desti
 | `LoadConfig(path)` | Parse INI (unknown keys ignored) |
 | `SaveConfig` / `DefaultConfig` / `CreateDefaultConfig` | Persist defaults |
 
-Important `ReticulumConfig` fields: `EnableTransport`, `ShareInstance`, `SharedInstanceType`, ports, `RPCKey`, `Interfaces`, `EnableControlAPI`, `InMemoryPathTable`, `WatchInterfaces`, `DiscoverInterfaces`, `BackboneIO`.
+Important `ReticulumConfig` fields: `EnableTransport`, `ShareInstance`, `SharedInstanceType`, ports, `RPCKey`, `Interfaces`, `EnableControlAPI`, `InMemoryPathTable`, `InMemoryStorage`, `WatchInterfaces`, `DiscoverInterfaces`, `BackboneIO`.
 
 Default config directory is **`~/.reticulum-go`**, not `~/.reticulum`.
 

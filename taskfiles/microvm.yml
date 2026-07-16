@@ -1,0 +1,32 @@
+version: '3'
+
+tasks:
+  microvm:up:
+    desc: Prepare and start Firecracker microvm + host vsock bridge
+    cmds:
+      - ./microvm/up.sh
+
+  microvm:stop:
+    desc: Stop Firecracker microvm and host bridge
+    cmds:
+      - ./microvm/stop.sh
+
+  microvm:kernel:
+    desc: Download Firecracker guest kernel into microvm/out
+    cmds:
+      - ./microvm/fetch-kernel.sh
+
+  microvm:rootfs:
+    desc: Build static guest rootfs image
+    cmds:
+      - ./microvm/build-rootfs.sh
+
+  microvm:rebuild:
+    desc: Rebuild kernel and rootfs then start microvm
+    cmds:
+      - ./microvm/up.sh --rebuild
+
+  microvm:guest:
+    desc: Start microvm guest only (no host bridge)
+    cmds:
+      - ./microvm/up.sh --guest-only

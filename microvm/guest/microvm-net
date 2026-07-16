@@ -1,0 +1,5 @@
+# Host-side TAP addressing paired with microvm/run.sh pasta net setup.
+GUEST_IP=172.16.0.2
+GUEST_PREFIX=24
+GATEWAY=172.16.0.1
+DNS=1.1.1.1

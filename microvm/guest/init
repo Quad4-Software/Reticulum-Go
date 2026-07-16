@@ -1,0 +1,37 @@
+#!/bin/sh
+# PID 1 for the Firecracker guest rootfs.
+
+set -eu
+
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+mkdir -p /dev/pts /tmp /run /var/log /etc/reticulum/storage
+mount -t devpts devpts /dev/pts 2>/dev/null || true
+mount -t tmpfs tmpfs /tmp
+mount -t tmpfs tmpfs /run
+
+if [ -f /etc/microvm-net ]; then
+	# shellcheck disable=SC1091
+	. /etc/microvm-net
+fi
+
+GUEST_IP="${GUEST_IP:-172.16.0.2}"
+GUEST_PREFIX="${GUEST_PREFIX:-24}"
+GATEWAY="${GATEWAY:-172.16.0.1}"
+DNS="${DNS:-1.1.1.1}"
+
+printf 'nameserver %s\n' "${DNS}" >/etc/resolv.conf
+
+if command -v ip >/dev/null 2>&1; then
+	ip link set lo up 2>/dev/null || true
+	if ip link show eth0 >/dev/null 2>&1; then
+		ip link set eth0 up 2>/dev/null || true
+		ip addr add "${GUEST_IP}/${GUEST_PREFIX}" dev eth0 2>/dev/null || true
+		ip route add default via "${GATEWAY}" 2>/dev/null || true
+		echo "guest net ${GUEST_IP}/${GUEST_PREFIX} via ${GATEWAY}"
+	fi
+fi
+
+echo "reticulum-go microvm guest starting"
+exec /usr/bin/reticulum-go --config /etc/reticulum/config

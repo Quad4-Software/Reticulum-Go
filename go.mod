@@ -4,6 +4,7 @@ go 1.26.4
 
 require (
 	github.com/creack/pty v1.1.24
+	github.com/godbus/dbus/v5 v5.1.0
 	github.com/mdlayher/vsock v1.2.1
 	github.com/miekg/dns v1.1.68
 	github.com/quic-go/quic-go v0.60.0

@@ -33,6 +33,9 @@ includes:
   trivy:
     taskfile: ./taskfiles/trivy.yml
     flatten: true
+  microvm:
+    taskfile: ./taskfiles/microvm.yml
+    flatten: true
 
 tasks:
   default:

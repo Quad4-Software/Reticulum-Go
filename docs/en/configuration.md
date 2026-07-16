@@ -61,6 +61,12 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | `backbone_io` | auto | Backbone poller: auto, epoll, kqueue, io_uring, go |
 | `in_memory_path_table` | no | Keep path table in RAM only |
 | `in_memory_known_destinations` | no | Keep known destinations in RAM only |
+| `in_memory_storage` | no | Fully ephemeral mode: no disk for paths, known dests, transport identity, blackhole, or split resources. Implies both table flags |
+| `identity_backend` | file | Identity at-rest store: `file` or `secretservice` (Freedesktop Secret Service) |
+| `soft_memory_limit` | (none) | Soft heap budget (`K`/`M`/`G` or bytes) via Go `debug.SetMemoryLimit` |
+| `max_in_memory_paths` | 100000 | Path table soft cap when `in_memory_storage` is yes. Negative disables |
+| `max_in_memory_known_destinations` | 100000 | Known-dest soft cap when `in_memory_storage` is yes. Negative disables |
+| `max_in_memory_resource_bytes` | 256M | Split-resource staging budget when `in_memory_storage` is yes. Negative disables |
 | `discover_interfaces` | no | Start rnstransport interface discovery listener |
 | `watch_interfaces` | no | Poll NIC up/down and rescan Auto interfaces (Go-only) |
 | `static_transport_identity` | no | Keep persisted transport identity on the wire when `enable_transport` is no (RNS 1.3.6+) |

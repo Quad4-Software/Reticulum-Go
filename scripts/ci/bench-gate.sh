@@ -9,8 +9,8 @@ cd "$ROOT"
 THRESHOLDS="${BENCH_THRESHOLDS:-$ROOT/scripts/ci/bench-thresholds.tsv}"
 COUNT="${BENCH_COUNT:-3}"
 BENCHTIME="${BENCH_TIME:-1s}"
-PACKAGES="./pkg/packet ./pkg/backbone ./pkg/transport"
-BENCH_RE='BenchmarkPacketThroughput|BenchmarkHubEcho|BenchmarkSimConcurrentLineRelay|BenchmarkHasPath_ParallelMixed'
+PACKAGES="./pkg/packet ./pkg/backbone ./pkg/transport ./pkg/identity ./pkg/cryptography ./pkg/ifac"
+BENCH_RE='BenchmarkPacketThroughput|BenchmarkHubEcho|BenchmarkSimConcurrentLineRelay|BenchmarkSimLineRelayThroughput|BenchmarkHasPath_ParallelMixed|BenchmarkHandleAnnouncePacket_DebugCritical|BenchmarkSimIFACMaskUnmask|BenchmarkIdentityHashCached|BenchmarkDeriveKey|BenchmarkRememberUnchanged'
 
 if [ ! -f "$THRESHOLDS" ]; then
 	echo "bench-gate: thresholds file not found: $THRESHOLDS" >&2

@@ -108,6 +108,8 @@ make check
 - Log destination supports `stderr`, `file`, `both`, `syslog`, `journald`, and combinations such as `syslog+stderr`. Set `logfile` when using a file path.
 - High debug levels may print packet hex. Use loglevel 4 or lower in production unless diagnosing an incident.
 - `rpc_key` protects the control API and shared-instance RPC. Generate with cryptographic random bytes. Do not commit keys to version control.
+- `identity_backend = secretservice` keeps identity private blobs in the desktop keyring (Secret Service) instead of plaintext files. Requires an unlocked session collection. See [Identity and destinations](identity-and-destinations.md) for threat coverage.
+- Identity private keys are held in locked memory when the OS allows (`pkg/securemem`). This is defense in depth, not a substitute for disk encryption or HSM signing.
 
 ## Control API exposure
 

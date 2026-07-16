@@ -232,5 +232,6 @@ See [Security](security.md) for platform behavior.
 | Embed from C or Odin | [librns](librns.md), [Examples](examples.md) |
 | Flutter / Dart | [librns Dart FFI](librns.md#dart-ffi-bindings), [Control API](control-api.md#dart-and-flutter), [Examples](examples.md) |
 | Talk to a running daemon | [Control API](control-api.md) |
+| Run in Firecracker | [Firecracker microvm](microvm.md) (`make microvm-up`) |
 | Use Python interop | [Compatibility](compatibility.md) |
 | Run examples | [Examples](examples.md) |

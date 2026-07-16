@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fully ephemeral `in_memory_storage` mode with soft memory caps, OOM-safe eviction, and no home-directory writes for library use
 - Odin bindings for librns under `bindings/odin` with Task, Makefile, and CI coverage
 - Dart Control API client under `bindings/dart` (`rns_control`) for Flutter and Dart apps
 - Align `RNS_API_VERSION` in `include/rns.h` with librns `1.1`

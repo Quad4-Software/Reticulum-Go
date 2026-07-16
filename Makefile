@@ -13,6 +13,7 @@
 .PHONY: man install-man install-service package package-deb package-rpm package-arch
 .PHONY: test-services tree-manifest tree-rsm-sign tree-rsm-verify hooks-install
 .PHONY: build-librns
+.PHONY: microvm-up microvm-stop microvm-kernel microvm-rootfs microvm-rebuild microvm-guest
 
 .DEFAULT_GOAL := all
 
@@ -68,6 +69,12 @@ help:
 	@echo "  tree-rsm-verify  Verify reticulum-go.rsm signature and hashes"
 	@echo "  tree-rsm-sign    Sign tree inventory (requires RNS_ID_PATH)"
 	@echo "  hooks-install    Enable .githooks pre-commit (resigns RSM)"
+	@echo "  microvm-up       Prepare and start Firecracker microvm + host bridge"
+	@echo "  microvm-stop     Stop Firecracker microvm and host bridge"
+	@echo "  microvm-kernel   Download Firecracker guest kernel"
+	@echo "  microvm-rootfs   Build guest rootfs image"
+	@echo "  microvm-rebuild  Force rebuild kernel/rootfs then up"
+	@echo "  microvm-guest    Start microvm guest only"
 	@echo "Variables: PREFIX=$(PREFIX) DESTDIR=$(DESTDIR) INIT=$(INIT) VERSION=$(VERSION)"
 
 build:
@@ -262,3 +269,21 @@ tree-rsm-sign:
 
 hooks-install:
 	sh scripts/ci/install-git-hooks.sh
+
+microvm-up:
+	./microvm/up.sh
+
+microvm-stop:
+	./microvm/stop.sh
+
+microvm-kernel:
+	./microvm/fetch-kernel.sh
+
+microvm-rootfs:
+	./microvm/build-rootfs.sh
+
+microvm-rebuild:
+	./microvm/up.sh --rebuild
+
+microvm-guest:
+	./microvm/up.sh --guest-only

@@ -272,6 +272,11 @@ Python defaults from `RNS.Reticulum.__create_default_config` and [RNS/Reticulum.
 | panic_on_interface_error | Yes | Yes | Honoured on interface errors |
 | in_memory_path_table | No | Yes | RAM-only path table |
 | in_memory_known_destinations | No | Yes | RAM-only known destinations |
+| in_memory_storage | No | Yes | Fully ephemeral storage (identity, blackhole, resources, tables) |
+| soft_memory_limit | No | Yes | Soft heap limit (`K`/`M`/`G` or bytes) |
+| max_in_memory_paths | No | Yes | Soft path-table cap under `in_memory_storage` |
+| max_in_memory_known_destinations | No | Yes | Soft known-dest cap under `in_memory_storage` |
+| max_in_memory_resource_bytes | No | Yes | Soft split-resource staging budget under `in_memory_storage` |
 | discover_interfaces | Yes | Yes | Starts rnstransport listening (`StartInterfaceDiscovery`). Announcer not ported. |
 | watch_interfaces | No | Yes | Go-only. Polls NIC changes via `net.Interfaces` (Linux, Android, Windows, macOS, BSD). WASM stub. Enables AutoInterface rescan. |
 | static_transport_identity | Yes (1.3.6+) | Yes | Keep persisted transport identity when transport is off |

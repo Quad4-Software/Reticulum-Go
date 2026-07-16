@@ -227,6 +227,8 @@ go test -v ./...
 | `make deps` | Downloads and verifies Go modules. | Runs `go mod download` and `go mod verify` using the public proxy. |
 | `make run` | Compiles and runs the daemon. | Runs `go run ./cmd/reticulum-go` |
 | `make debug` | Compiles a standard debug binary with symbols. | Runs `go build -o bin/reticulum-go ./cmd/reticulum-go` |
+| `make microvm-up` | Prepare and start Firecracker microvm + host bridge. | Runs `./microvm/up.sh`. See [docs/en/microvm.md](docs/en/microvm.md). |
+| `make microvm-stop` | Stop Firecracker microvm and host bridge. | Runs `./microvm/stop.sh`. |
 | `make build-linux` | Cross-compiles for Linux. | Cross-compiles for amd64, arm64, arm, and riscv64 targets. |
 | `make build-windows` | Cross-compiles for Windows. | Cross-compiles for amd64 and arm64 targets. |
 | `make build-windows-legacy` | Cross-compiles for legacy Windows releases. | Compiles Windows 7, 8, and 8.1 support using go-legacy-win7. |

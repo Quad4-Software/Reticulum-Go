@@ -106,6 +106,7 @@ These do not change the wire format:
 | Dart Control API client | `bindings/dart` ([Control API](control-api.md#dart-and-flutter)) |
 | Runtime sandbox | `pkg/sandbox` |
 | RAM-only path tables | `in_memory_path_table`, `in_memory_known_destinations` |
+| Fully ephemeral storage | `in_memory_storage`, `RETICULUM_IN_MEMORY_STORAGE`, soft caps |
 
 ## Config differences
 
@@ -126,7 +127,7 @@ These do not change the wire format:
 | rnstatus | `rgostatus` (shared-instance RPC, announce/PR rates, JSON) |
 | rnid | `rgoid` (`.rid`/`.rsg`/`.rsm`/`.rfe` compatible) |
 | rnprobe | `rgoprobe` |
-| rnpath | `rgopath` (path table, drop, blackhole; remote rnstransport not ported) |
+| rnpath | `rgopath` (path table, drop, blackhole, remote rnstransport not ported) |
 | rncp | `rgocp` (send/listen/fetch on `rncp.receive`) |
 | rnir, rnodeconf, rnpkg, rngit, rnsh | Not ported (deferred post-1.0). `rnx` is `reticulum-go x`. |
 | WASM | `reticulum-wasm` (Go-only) |

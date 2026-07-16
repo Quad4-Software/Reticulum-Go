@@ -20,13 +20,23 @@ Wire packet serialization, header types 1 and 2, hashing, receipts.
 
 ### `pkg/identity`
 
-Key generation, recall, sign and verify, encrypt and decrypt, ratchets.
+Key generation, recall, sign and verify, encrypt and decrypt, ratchets, optional Secret Service persistence.
 
 | Item | Detail |
 |------|--------|
 | Key types | `Identity` |
 | Hardware signing | `NewIdentityWithSigner`, RHB1 descriptor in `hardware_bound.go` |
-| Main files | `identity.go`, `identity_signer.go`, `known_persist.go` |
+| At-rest store | `pkg/identity/store` (`file` or Freedesktop Secret Service), RSSI markers |
+| Main files | `identity.go`, `identity_signer.go`, `hardware_bound.go`, `known_persist.go`, `store/` |
+
+### `pkg/securemem`
+
+Best-effort locked buffers for long-term identity private keys (`mlock`, wipe on close).
+
+| Item | Detail |
+|------|--------|
+| Key types | `Buf` |
+| Main files | `buf.go`, `wipe.go`, `alloc_unix.go` |
 
 ### `pkg/cryptography`
 

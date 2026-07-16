@@ -38,8 +38,42 @@ Equivalent to Python `RNS.Identity` software persistence. Anyone with this file 
 Load helpers:
 
 ```go
-id, err := identity.LoadIdentityFile(path)
+id, err := identity.LoadIdentityFile(path, nil)
 ```
+
+### Identity backend (file or Secret Service)
+
+Config key `identity_backend` in `[reticulum]`:
+
+| Value | Behavior |
+|-------|----------|
+| `file` (default) | 64-byte plaintext identity files |
+| `secretservice` | Freedesktop Secret Service over D-Bus (GNOME Keyring, KDE Wallet Secret Service bridge, KeePassXC with Secret Service enabled) |
+
+With `secretservice`, `ToFile` stores the private blob in the keyring and writes an 8-byte `RSSI` marker at the usual path. `FromFile` and `LoadIdentityFile` detect the marker and fetch the secret. If the session bus or collection is locked or missing, persistence fails with a clear error (no silent plaintext fallback).
+
+Headless or systemd units without a user session should keep `identity_backend = file`, or unlock a collection / KeePassXC before start.
+
+CLI migrate (path via `-i`):
+
+```
+rgoid -i ~/.reticulum-go/storage/transport_identity -to-secretservice
+rgoid -i ~/.reticulum-go/storage/transport_identity -to-file
+```
+
+### In-memory key handling
+
+Long-term X25519 and Ed25519 material lives in `pkg/securemem` buffers with best-effort `mlock` and wipe on `Identity.Close`. Callers of `GetPrivateKey` should wipe the returned slice when finished.
+
+### What this protects against
+
+| Control | Helps against | Does not stop |
+|---------|---------------|---------------|
+| `identity_backend = secretservice` | Casual theft of the identity file path (backup copies, world-readable home dirs, malware that only reads `~/.reticulum-go/storage`). Keyring unlock policies and KeePassXC master password raise the bar for offline disk images when the collection is locked. | Root or same-user malware that can talk to an unlocked Secret Service session. Compelled unlock. Physical access while the keyring is unlocked. |
+| `pkg/securemem` mlock + wipe | Keys lingering in swap after process exit, casual core dumps of freed heap (with `RLIMIT_CORE=0` in the sandbox), accidental retention after `Close`. | Live process memory inspection by root or a debugger attached to the running daemon. Full cold-boot attacks on RAM. |
+| File permissions `0600` + encrypted disk (operator practice) | Other local users reading plaintext identity files. Disk theft when FDE is used and the volume is locked. | Attacks after the volume is unlocked and mounted. |
+
+None of these replace HSM-backed signing (`RHB1` / `NewIdentityWithSigner`) for high-assurance signing material, or host firewall and sandbox policy for network exposure.
 
 ### Hardware-bound descriptor (RHB1, optional)
 
