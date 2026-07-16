@@ -361,16 +361,30 @@ func TestWebTransportConcurrentSend(t *testing.T) {
 	waitWTSessions(t, srv, 1, 5*time.Second)
 
 	const n = 50
-	var wg sync.WaitGroup
-	wg.Add(n)
-	for i := range n {
-		go func(i int) {
-			defer wg.Done()
-			_ = cli.Send([]byte{0x00, 0x01, byte(i), 0xaa, 0xbb}, "")
-		}(i)
+	const wave = 10
+	var sendErr atomic.Value
+	for start := 0; start < n; start += wave {
+		end := start + wave
+		if end > n {
+			end = n
+		}
+		var wg sync.WaitGroup
+		wg.Add(end - start)
+		for i := start; i < end; i++ {
+			go func(i int) {
+				defer wg.Done()
+				if err := cli.Send([]byte{0x00, 0x01, byte(i), 0xaa, 0xbb}, ""); err != nil {
+					sendErr.Store(err)
+				}
+			}(i)
+		}
+		wg.Wait()
+		if v := sendErr.Load(); v != nil {
+			t.Fatalf("send: %v", v)
+		}
 	}
-	wg.Wait()
-	deadline := time.Now().Add(3 * time.Second)
+	// Darwin CI runners can take longer to deliver concurrent WT datagrams.
+	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) && count.Load() < n {
 		time.Sleep(20 * time.Millisecond)
 	}

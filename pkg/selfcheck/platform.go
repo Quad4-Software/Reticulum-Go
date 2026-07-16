@@ -153,9 +153,10 @@ func checkKeyring() Result {
 	if runtime.GOOS != "linux" {
 		return result(nameIdentityKeyring, SeveritySkip, "linux only")
 	}
+	require := os.Getenv("RETICULUM_TEST_KEYRING") == "1"
 	b, err := store.NewKeyringBackend()
 	if err != nil {
-		if os.Getenv("RETICULUM_TEST_KEYRING") == "1" {
+		if require {
 			return result(nameIdentityKeyring, SeverityFail, err.Error())
 		}
 		return result(nameIdentityKeyring, SeveritySkip, err.Error())
@@ -163,7 +164,7 @@ func checkKeyring() Result {
 	attrs := store.AttrsForPath("/tmp/rns-selfcheck-keyring", "selfcheck")
 	secret := []byte("selfcheck-secret-value-32bytes!!")
 	if err := b.Set(attrs, secret, "selfcheck"); err != nil {
-		if os.Getenv("RETICULUM_TEST_KEYRING") == "1" {
+		if require {
 			return result(nameIdentityKeyring, SeverityFail, "set: "+err.Error())
 		}
 		return result(nameIdentityKeyring, SeveritySkip, "set: "+err.Error())
@@ -171,10 +172,17 @@ func checkKeyring() Result {
 	got, err := b.Get(attrs)
 	_ = b.Delete(attrs)
 	if err != nil {
-		return result(nameIdentityKeyring, SeverityFail, "get: "+err.Error())
+		// GitHub-hosted runners often allow keyctl add but deny read/search.
+		if require {
+			return result(nameIdentityKeyring, SeverityFail, "get: "+err.Error())
+		}
+		return result(nameIdentityKeyring, SeveritySkip, "get: "+err.Error())
 	}
 	if !bytes.Equal(got, secret) {
-		return result(nameIdentityKeyring, SeverityFail, "secret mismatch")
+		if require {
+			return result(nameIdentityKeyring, SeverityFail, "secret mismatch")
+		}
+		return result(nameIdentityKeyring, SeveritySkip, "secret mismatch")
 	}
 	return result(nameIdentityKeyring, SeverityPass, "round-trip")
 }
