@@ -274,7 +274,7 @@ Python defaults from `RNS.Reticulum.__create_default_config` and [RNS/Reticulum.
 | Key | Python *rns* | Reticulum-Go | Notes |
 |-----|:------------:|:------------:|-------|
 | loglevel | Yes | Yes | Same 0 to 7 scale |
-| destination | Yes | Yes | `stderr` (default), `file`, `both`, `syslog`, `journald`. Combinations such as `syslog+stderr` |
+| destination | Yes | Yes | Python: stdout / file / callback. Go also accepts `syslog`, `journald`, and combinations such as `syslog+stderr` |
 | logfile | Yes | Yes | Used when destination includes `file` |
 
 ### [[Interface Name]] keys

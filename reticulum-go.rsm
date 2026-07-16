@@ -1,4 +1,4 @@
-ÛhY×´ÅÈEtoú'»…m×SëÚÉ³ûþ…TË­‚{ñkœ/ã]Áè‹Á§³Þ-ïö'@kAÛ)ÃØR„¨hashtype¦sha256¤hashÄ •wrã!S)âIŸ+ÌaI^Ãw`m±‘úˆ'óq”•ª¤meta‚¦signerÄäaÔFI&mqþ!“à
+°/Y$$®9Ö$N/´|@÷À ^m2Ä"¨ÎÞ¥FpY`²^&~NÇ1ƒ«íõ®B‡§—„‡8\ÕK9K_¿	„¨hashtype¦sha256¤hashÄ „ÖÂ¶~o°B‡-½éÂÙä~ø¸e•¿s=ŒJ¤meta‚¦signerÄäaÔFI&mqþ!“à
 G¦pubkeyÄ@wÉÉ 9nS·“(€Y¥
 æ€Ìh’!õM/ÆÂ™@ÂAu¤œßÞß®ßê(ôÕ”è^pñâÈ>_2µçþ¶Ë8Ã©§messageÅèÍ# reticulum-go tree manifest v1
 7f66c8c607131ff4cef5c5fc2c9440245f3b237a5bc9916d9dfc14e6028dd528  .dockerignore
@@ -16,7 +16,7 @@ ec1ddecedebb3b3aa9ea57f933e2c745ba0b2aa27f5227e92448bf9be345d83b  .github/workfl
 cdc3c6a4afc2f0848a9ed10914fececa479248a2414943e8f2528c1949619cd8  .gitignore
 1574b2f49fbaf4c536a6efbd5225bea7416b7e551d4af45c8dd27bfae6113a74  .trivyignore
 0ec3d7bcd84f49d2f72d923f9c774efabd1544074313e6531bb85c0dc4ff8249  CHANGELOG.md
-920c67bb7b432f9ce9737f067703430670863acbcf10153726708c2d0bc5960f  COMPATIBILITY.md
+04979d10f6a7044b01da525e2dcfad98f72239d371027d0865542390336aa041  COMPATIBILITY.md
 0ea6245e1ce3cdad5e13998012126bd0de9e5f30ed04dd4352a7fedaf000b5b4  CONTRIBUTING.md
 3d421a7403d75ee3066f76ea0ee594526c2a31ecc168be0492a3d1964334062a  CONTRIBUTORS
 ae6035b8cc908bac587a997d0581dd346a6e30e30a7187934df3aaa242325ae2  LICENSE
@@ -51,7 +51,7 @@ d7312f50f651cd81c404572ede86099d25b0ed4d5f87d3b9a4b00d49ba593179  docs/README.md
 8d4fe490f01899c3e5439f08d78a3ff3c1bcb52213333002352fe29070440519  docs/en/README.md
 2e47e107ec60a79dc2540b20f67bc0e46fec13607e0b01850ae621d915ce6f8c  docs/en/api-reference.md
 73c00e1fab59ef41cc94af3c4ef9b6777b16885d5f7f5da3e6ea97a3a1ea2f34  docs/en/architecture.md
-e6f14c80c0f4ec6b5812233c832e92fad1dede3c2353e2367ecae279b6f394f1  docs/en/compatibility.md
+f06e18db20b12f964a30075750ec850c0925ba33c4b8631f65054973deed090f  docs/en/compatibility.md
 6008b024ab824cd41c6503fba946e1d9583598cd71bda33f362e9a30b0b488db  docs/en/configuration.md
 368faae2d3e7c5c0fa0f0e3d1b8c19af9993a5a6cc7304c730fb5b4c2e0d0394  docs/en/control-api.md
 b38c03d0a5b2440a78d5e4554bade96f416d51875062798b81c1b606b8900f4c  docs/en/cryptography.md
@@ -62,11 +62,11 @@ b38c03d0a5b2440a78d5e4554bade96f416d51875062798b81c1b606b8900f4c  docs/en/crypto
 115eca58618f841c3ffbb1dbbea0f540a07b7ec977fd575cd15cdfd8611e5e4a  docs/en/identity-and-destinations.md
 383d038d0d06fee8cdf11279fd69d99f0bb8f838cc5e812b181a45586dfae6db  docs/en/interfaces.md
 4d8c084c93606a4c60bc6fa67918d3e9aed9b91e525c219ac9b483ff61d1f89e  docs/en/librns.md
-646d6fe6f55f0a0e168fee98326adec302ab7a53fbe3e000d8fc544d109594a7  docs/en/links-channels-and-resources.md
-8695e606ee30c90d2280fe8324f8f966551d70a979e42db59e032c7cf273fd1a  docs/en/overview.md
+37fad9cb8fa682a30b420f3b3ea20325352c4a0d7ba2a7b00ca24ba9d59bedfe  docs/en/links-channels-and-resources.md
+d68264edde0c5d106c76122a2621adc2c35e184e361ffe043f71482c12315886  docs/en/overview.md
 c10ff12205007cead6f6f8dd0c84944aefbf9dce0544c93ca473ead1990248b0  docs/en/package-map.md
-c1a139b6ecdd41aa87248b77c90acc9e1c60c9772656ecc99508f7dae67f970e  docs/en/security.md
-6db3f6871284e96c6afa022be53011904741468313bb229ca7a41244207411f8  docs/en/transport.md
+710fe9a7d9cd7065f1bdf272b1251f9e2a59ac04a4acfbb0e3bee2b61732b3e4  docs/en/security.md
+cc8a56778ab23eb05fa57814b4e75865a412d70d6adc47beebc5b1bc5f0b22ad  docs/en/transport.md
 d3a1eb19cf1f9f943f12979d643d31145d8067ee3888a92360b987d77d142602  docs/en/utilities.md
 24d0310af9fda29345f3b15d4bbd750cc766539a1b95b827484658e435422170  examples/announce/go.mod
 35a79db110cc5a995e7db653eb115d174e2cf2f31dbc223ccfa7af0cbf232095  examples/announce/go.sum

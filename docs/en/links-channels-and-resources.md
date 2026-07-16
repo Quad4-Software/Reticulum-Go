@@ -119,9 +119,9 @@ Link packets use `PacketTypeLink`. Data packets for link payloads use contexts h
 
 The transport link table tracks which local link object owns each session hash.
 
-## Blackhole gap
+## Blackhole
 
-Python 1.3.2 tears down links at LINKIDENTIFY when the remote identity is blackholed. Reticulum-Go drops blackholed announces but does not check blackhole status during link identify. See [Compatibility](compatibility.md).
+Python 1.3.2 tears down links at LINKIDENTIFY when the remote identity is blackholed. Reticulum-Go does the same via `pkg/blackhole` during link identify. Federation publish and remote blackhole sources are not implemented. See [Compatibility](compatibility.md).
 
 ## Testing
 

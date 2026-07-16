@@ -105,7 +105,7 @@ make check
 
 ## Logging and secrets
 
-- Logs go to stderr only. No log file destination key is honored.
+- Log destination supports `stderr`, `file`, `both`, `syslog`, `journald`, and combinations such as `syslog+stderr`. Set `logfile` when using a file path.
 - High debug levels may print packet hex. Use loglevel 4 or lower in production unless diagnosing an incident.
 - `rpc_key` protects the control API and shared-instance RPC. Generate with cryptographic random bytes. Do not commit keys to version control.
 

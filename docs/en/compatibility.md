@@ -24,7 +24,7 @@ The detailed matrix with config key tables lives in [COMPATIBILITY.md](../../COM
 | Buffer | Complete | Stream buffer over channel |
 | Interfaces | Partial | See below |
 | Discovery | Partial | rnstransport listening works. Announcer and autoconnect not auto-started |
-| Blackhole | Partial | Table and announce drop. Link teardown at LINKIDENTIFY not implemented |
+| Blackhole | Partial | Local table, announce drop, and LINKIDENTIFY teardown. No publish/federation or `/list` destination |
 | Node lifecycle | Go-only | `pkg/node` embedder API, no Python equivalent |
 | librns C ABI | Go-only | `pkg/librns`, `include/rns.h`. See [librns](librns.md) |
 
@@ -58,7 +58,7 @@ Wire format is stable across 1.2.x to 1.3.x. Notable behavior differences:
 | Path-request ingress/egress control | 1.2.5 | Covered |
 | Path table random-blob selection | 1.2.x+ | Covered |
 | Announce dedup when dest in path table | 1.3.4 | Covered |
-| Blackhole link teardown at LINKIDENTIFY | 1.3.2 | **Gap** |
+| Blackhole link teardown at LINKIDENTIFY | 1.3.2 | Covered |
 | AutoInterface roam listener replacement | 1.3.5 | Covered |
 | Channel ghost envelopes | 1.3.0 | Covered |
 | Shared-instance RPC msgpack | 1.3.4 | Covered |
@@ -72,12 +72,11 @@ Wire format is stable across 1.2.x to 1.3.x. Notable behavior differences:
 
 | Gap | Impact |
 |-----|--------|
-| Blackhole at LINKIDENTIFY | Blackholed peers may still complete link setup. Announces are still dropped |
-| Transport probes | `respond_to_probes` / `allow_probes` register probe destination |
-| `local_hops_delta` | Outbound hop mangling applied |
-| `publish_blackhole` and related keys | Not auto-published |
-| RNode and radio serial drivers | Cannot speak to RNode hardware from this tree |
-| Python CLI utilities | Yes (core) | `rgostatus`, `rgoid`, `rgoprobe` with Python format/RPC interop |
+| Discovery announcer / autoconnect | Listen and validate work. No store, announce loop, or autoconnect |
+| Blackhole federation | `publish_blackhole`, `blackhole_sources`, and updater not driven |
+| Remote management destination | No `rnstransport.remote.management` for remote `rnpath`/`rnstatus` |
+| RNode and radio serial drivers | Cannot speak to RNode / KISS / Serial / Weave hardware from this tree |
+| Utilities `rnsh` `rnir` `rnpkg` `rngit` | Not ported |
 
 ## Go-only extensions
 
@@ -106,7 +105,7 @@ These do not change the wire format:
 | Unknown keys | Errors | Ignored |
 | Comments | `#` | `#` and `;` |
 | Identity storage | Per-name blobs | Per-hash blobs (loads Python known dest files) |
-| Log destination | Configurable | stderr only |
+| Log destination | stdout / file / callback | `stderr`, `file`, `both`, `syslog`, `journald` (and combinations) |
 
 ## Utilities
 

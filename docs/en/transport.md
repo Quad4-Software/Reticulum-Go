@@ -77,7 +77,7 @@ Transport maintains a link table for active sessions. Link packets are routed to
 
 ## Blackhole interaction
 
-When `pkg/blackhole` has an entry for an identity hash, announces from that identity are dropped. Link teardown at LINKIDENTIFY for blackholed identities is not implemented (gap vs Python 1.3.2). See [Compatibility](compatibility.md).
+When `pkg/blackhole` has an entry for an identity hash, announces from that identity are dropped and links are torn down at LINKIDENTIFY. Blackhole federation (`publish_blackhole`, remote sources) is not implemented. See [Compatibility](compatibility.md).
 
 ## Transport identity
 

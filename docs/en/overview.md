@@ -53,7 +53,7 @@ Below is a summary of major features. For line-by-line parity with Python, see [
 | QUIC interface | Go-only | `pkg/interfaces/quic.go`, `quic_tls.go` |
 | Daemon and config | Complete | `cmd/reticulum-go`, `pkg/reticulumconfig` |
 | Discovery (rnstransport) | Partial | Listening works. Announcer and autoconnect loops are not auto-started |
-| Blackhole | Partial | Table and announce drop work. Link teardown at identify is not implemented |
+| Blackhole | Partial | Local drop and LINKIDENTIFY teardown. No publish/federation |
 | RNode, KISS, Serial, Weave | Not implemented | No driver in this tree |
 | PipeInterface, LocalInterface | Implemented | `pipe.go`, `local.go`, `sharedinstance` |
 | Python CLI utilities | Yes (core) | `reticulum-go status|id|probe|path|cp` via `pkg/cli` / `pkg/rnsutil` |
