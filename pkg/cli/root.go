@@ -26,6 +26,7 @@ const (
 	CmdPageserver = "pageserver"
 	CmdDebug      = "debug"
 	CmdSlow       = "slow"
+	CmdSelfCheck  = "self-check"
 )
 
 // DaemonFunc starts the network daemon. Injected by cmd/reticulum-go to avoid
@@ -104,6 +105,8 @@ func Main(args []string, opt Options) int {
 		return RunDebug(rest, opt)
 	case CmdSlow:
 		return RunSlow(rest, opt)
+	case CmdSelfCheck:
+		return RunSelfCheck(rest, opt)
 	default:
 		fmt.Fprintf(opt.Stderr, "unknown command %q\n\n", cmd)
 		printRootHelp(opt.Stderr)
@@ -124,8 +127,10 @@ func resolveCommand(argv0 string, args []string) (cmd string, rest []string, ok 
 	}
 
 	switch args[0] {
-	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdX, CmdPageserver, CmdDebug, CmdSlow:
+	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdX, CmdPageserver, CmdDebug, CmdSlow, CmdSelfCheck:
 		return args[0], args[1:], true
+	case "selfcheck", "rgoselfcheck":
+		return CmdSelfCheck, args[1:], true
 	case "rgostatus":
 		return CmdStatus, args[1:], true
 	case "rgoid":
@@ -163,6 +168,8 @@ func aliasFromArgv0(base string) string {
 		return CmdPageserver
 	case "rgoslow", "reticulum-go-slow":
 		return CmdSlow
+	case "rgoselfcheck", "reticulum-go-self-check":
+		return CmdSelfCheck
 	default:
 		return ""
 	}
@@ -203,6 +210,7 @@ Usage:
   reticulum-go x [flags]                remote command execution (rnx)
   reticulum-go pageserver [flags]       NomadNet-style page and file server
   reticulum-go debug [flags]            effective config, rate table, RPC dump
+  reticulum-go self-check [flags]       host OS preflight checklist
 
 Global:
   -h, --help       print this help

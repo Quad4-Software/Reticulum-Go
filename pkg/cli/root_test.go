@@ -42,6 +42,23 @@ func TestMainHelp(t *testing.T) {
 	if !strings.Contains(help, "reticulum-go x") {
 		t.Fatalf("help missing x: %s", help)
 	}
+	if !strings.Contains(help, "self-check") {
+		t.Fatalf("help missing self-check: %s", help)
+	}
+}
+
+func TestResolveCommandSelfCheck(t *testing.T) {
+	cmd, rest, ok := resolveCommand("reticulum-go", []string{"self-check", "--json"})
+	if !ok || cmd != CmdSelfCheck {
+		t.Fatalf("got ok=%v cmd=%q", ok, cmd)
+	}
+	if len(rest) != 1 || rest[0] != "--json" {
+		t.Fatalf("rest=%v", rest)
+	}
+	cmd, _, ok = resolveCommand("rgoselfcheck", nil)
+	if !ok || cmd != CmdSelfCheck {
+		t.Fatalf("alias ok=%v cmd=%q", ok, cmd)
+	}
 }
 
 func TestResolveCommandX(t *testing.T) {

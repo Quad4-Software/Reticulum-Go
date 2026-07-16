@@ -1,6 +1,8 @@
 # Pinned actions (bump tag and SHA together when upgrading):
-#   actions/checkout@v6.0.1            8e8c483db84b4bee98b60c0593521ed34d9990e8
-#   actions/setup-node@v6.1.0          395ad3262231945c25e8478fd5baf05154b1d79f
+#   actions/checkout@v7.0.0            9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+#   actions/setup-node@v6.4.0          48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+#   vmactions/freebsd-vm@v1.5.0        5a72679103d223925653750faa878a143340fbd0
+#   vmactions/openbsd-vm@v1.4.5        c941015845c0f0c429676840963dc63b226d4f69
 #
 name: CI
 
@@ -93,6 +95,9 @@ jobs:
       - name: Run binary smoke test
         run: task test-binary-smoke
 
+      - name: Run self-check
+        run: task test-self-check
+
       - name: Run tests
         run: task test
 
@@ -129,6 +134,77 @@ jobs:
 
       - name: Run binary smoke test
         run: task test-binary-smoke
+
+      - name: Run self-check
+        run: task test-self-check
+
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
+
+  test-freebsd:
+    name: FreeBSD self-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Run FreeBSD VM tests
+        uses: vmactions/freebsd-vm@5a72679103d223925653750faa878a143340fbd0 # v1.5.0
+        with:
+          release: "14.3"
+          usesh: true
+          prepare: |
+            set -eu
+            pkg install -y curl git
+            curl -fsSL -o /tmp/go.tgz https://go.dev/dl/go${{ env.CI_GO_VERSION }}.freebsd-amd64.tar.gz
+            rm -rf /usr/local/go
+            tar -C /usr/local -xzf /tmp/go.tgz
+          run: |
+            set -eu
+            export PATH=/usr/local/go/bin:$PATH
+            export GOFLAGS=-mod=vendor
+            export GOPROXY=off
+            export GOTOOLCHAIN=local
+            go version
+            go test -short -count=1 -timeout 10m ./pkg/selfcheck/ ./pkg/sandbox/
+            mkdir -p bin
+            go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
+            ./bin/reticulum-go self-check --binary ./bin/reticulum-go --json --full
+
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
+
+  test-openbsd:
+    name: OpenBSD self-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Run OpenBSD VM tests
+        uses: vmactions/openbsd-vm@c941015845c0f0c429676840963dc63b226d4f69 # v1.4.5
+        with:
+          release: "7.7"
+          usesh: true
+          prepare: |
+            set -eu
+            pkg_add -I curl
+            curl -fsSL -o /tmp/go.tgz https://go.dev/dl/go${{ env.CI_GO_VERSION }}.openbsd-amd64.tar.gz
+            rm -rf /usr/local/go
+            tar -C /usr/local -xzf /tmp/go.tgz
+          run: |
+            set -eu
+            export PATH=/usr/local/go/bin:$PATH
+            export GOFLAGS=-mod=vendor
+            export GOPROXY=off
+            export GOTOOLCHAIN=local
+            go version
+            go test -short -count=1 -timeout 10m ./pkg/selfcheck/ ./pkg/sandbox/
+            mkdir -p bin
+            go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
+            ./bin/reticulum-go self-check --binary ./bin/reticulum-go --json --full
 
       - name: Verify workspace clean
         uses: ./.github/actions/verify-workspace-clean

@@ -23,6 +23,7 @@ import (
 	"quad4/reticulum-go/pkg/interfaces"
 	"quad4/reticulum-go/pkg/node"
 	"quad4/reticulum-go/pkg/sandbox"
+	"quad4/reticulum-go/pkg/selfcheck"
 )
 
 type Reticulum struct {
@@ -77,6 +78,9 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 }
 
 func main() {
+	if code, ok := selfcheck.ChildExitCode(); ok {
+		os.Exit(code)
+	}
 	os.Exit(cli.Main(os.Args[1:], cli.Options{
 		Argv0:       os.Args[0],
 		VersionLine: versionLine(),

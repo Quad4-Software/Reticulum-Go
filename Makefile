@@ -41,7 +41,7 @@ INSTALL_MANDIR := $(DESTDIR)$(MANDIR)
 INIT ?= auto
 
 # Legacy CLI names installed as symlinks to $(BINARY_NAME).
-TOOL_LINKS := rgostatus rgoid rgoprobe rgopath rgocp rgox rnx rgopageserver rgoslow
+TOOL_LINKS := rgostatus rgoid rgoprobe rgopath rgocp rgox rnx rgopageserver rgoslow rgoselfcheck
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 # Package version must start with a digit and avoid git describe noise.
@@ -175,6 +175,9 @@ test-all: test test-wasm test-crossref test-odin test-dart
 
 test-services:
 	sh scripts/ci/test-services-docker.sh
+
+test-self-check:
+	sh scripts/ci/run-self-check.sh
 
 coverage:
 	$(GOCMD) test -coverprofile=coverage.out ./...

@@ -195,6 +195,12 @@ Run the full test suite:
 make test
 ```
 
+Host OS preflight (sandbox, interfaces, short daemon):
+
+```bash
+make test-self-check
+```
+
 Or run manually:
 
 ```bash
@@ -220,6 +226,7 @@ go test -v ./...
 | `make test-short` | Runs only short unit tests. | Runs `go test -short -v ./...` |
 | `make test-race` | Runs tests with the Go race detector enabled. | Runs `go test -race -v ./...` |
 | `make test-services` | Docker tests for logfile + systemd/openrc/runit/dinit services. | Runs `scripts/ci/test-services-docker.sh`. |
+| `make test-self-check` | Host OS preflight for reticulum-go platform features. | Runs `scripts/ci/run-self-check.sh`. |
 | `make coverage` | Generates and opens a test coverage report. | Runs `go test -coverprofile=coverage.out ./...` and opens it in your browser. |
 | `make bench` | Runs all benchmark tests. | Runs `go test -run=^$ -bench=. -benchmem ./...` |
 | `make fmt` | Formats all Go source files. | Runs `go fmt ./...` |

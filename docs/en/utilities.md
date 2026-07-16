@@ -27,6 +27,7 @@ make build
 | `reticulum-go cp` (`rgocp`) | `rncp` | File send / listen / fetch over links |
 | `reticulum-go x` (`rgox`, `rnx`) | `rnx` | Remote command execution over links (`rnx.execute`) |
 | `reticulum-go pageserver` | (example app) | NomadNet-style page and file server |
+| `reticulum-go self-check` (`rgoselfcheck`) | (Go-only) | Host OS preflight for sandbox, crypto, and interfaces |
 
 Library code lives in `pkg/rnsutil` and `pkg/cli`. Pageserver logic lives in `pkg/pageserver`.
 
@@ -332,6 +333,7 @@ Exit codes match Python `rnx` (241–249 for client failures, `-m` mirrors remot
 | `reticulum-go slow` | Bottleneck and local health findings (`integrity_burst`, `auth_pressure`, `link_degraded`, …) |
 | `reticulum-go path -t` | Path table dump |
 | `reticulum-go debug` | Effective config path, log level, platform, RPC reachability (`-rates`, `-json`) |
+| `reticulum-go self-check` | Host OS preflight checklist (`--json`, `--quick`, `--full`, `--strict`) |
 | `reticulum-go probe` | Connectivity / RTT (`-json`) |
 | Control API | HTTP `/v1/health` (liveness), `/v1/status` (iface stats plus integrity fields), `/v1/paths` when `enable_control_api = yes` |
 | Daemon `-debug N` | Override config loglevel for one run |

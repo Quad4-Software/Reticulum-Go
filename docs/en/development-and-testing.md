@@ -148,6 +148,43 @@ RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
 
 `cmd/reticulum-go/` contains `controlapi_e2e_test.go`, `reload_e2e_test.go`, and related tests.
 
+### Host self-check
+
+`reticulum-go self-check` is a host OS preflight. It validates that platform features work on the machine under test (crypto, identity file backend, sandbox, securemem, loopback interfaces, and a short daemon run).
+
+```bash
+make test-self-check
+# or
+task test-self-check
+# or
+./bin/reticulum-go self-check --json --full
+```
+
+Flags:
+
+| Flag | Behavior |
+|------|----------|
+| `--json` | Machine-readable report |
+| `--quick` | Core and platform only (no loopback or daemon) |
+| `--full` | Also probe QUIC, HTTPS, VSOCK, Pipe, and Serial |
+| `--interop` | Optional external tools (crossref vectors, Python RNS, binding CLIs) |
+| `--strict` | Treat warnings as failures |
+| `--binary PATH` | Binary used for CLI and daemon checks |
+
+Environment:
+
+| Variable | Behavior |
+|----------|----------|
+| `RETICULUM_SELF_CHECK=1` | Used by CI wrappers that invoke the same checklist |
+| `RETICULUM_SELF_CHECK_INTEROP=1` | Enables the interop tier |
+| `RETICULUM_TEST_KEYRING=1` | Require Linux keyring round-trip (fail if unavailable) |
+
+Exit code is non-zero on any `fail` result. With `--strict`, warnings also fail.
+
+CI runs self-check on Linux (amd64 and arm64), macOS, Windows, FreeBSD, and OpenBSD. Android emulator self-check is a separate workflow (`selfcheck-android.yml`) on schedule or `workflow_dispatch`.
+
+NetBSD is not in CI. Run `reticulum-go self-check` manually on that host.
+
 ## Vendoring
 
 Ordinary builds use vendored modules. Refresh after dependency changes:
@@ -166,7 +203,8 @@ GitHub Actions workflows in `.github/workflows/`:
 
 | Workflow | Role |
 |----------|------|
-| ci.yml | Build, test, reproducibility |
+| ci.yml | Build, test, reproducibility, OS self-check (Linux, macOS, Windows, FreeBSD, OpenBSD) |
+| selfcheck-android.yml | Android emulator self-check (nightly / manual) |
 | security.yml | Gosec, govulncheck, Trivy, SBOM dispatch |
 | publish.yml | Tagged releases, cosign attestations |
 
