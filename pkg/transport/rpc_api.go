@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"quad4/reticulum-go/pkg/cryptography"
+	"quad4/reticulum-go/pkg/health"
 	"quad4/reticulum-go/pkg/packet"
 )
 
@@ -46,6 +47,24 @@ type InterfaceStat struct {
 	I2PConnectable            *bool    `msgpack:"i2p_connectable,omitempty"`
 	I2PB32                    *string  `msgpack:"i2p_b32,omitempty"`
 	TunnelState               *string  `msgpack:"tunnelstate,omitempty"`
+	IFACFail                  uint64   `msgpack:"ifac_fail"`
+	HMACFail                  uint64   `msgpack:"hmac_fail"`
+	AnnounceSigFail           uint64   `msgpack:"announce_sig_fail"`
+	UnpackFail                uint64   `msgpack:"unpack_fail"`
+	PaddingFail               uint64   `msgpack:"padding_fail"`
+	ProofFail                 uint64   `msgpack:"proof_fail"`
+	LRProofHopMismatch        uint64   `msgpack:"lrproof_hop_mismatch"`
+	RequestSkewReject         uint64   `msgpack:"request_skew_reject"`
+	BlackholeHit              uint64   `msgpack:"blackhole_hit"`
+	LinkStaleClose            uint64   `msgpack:"link_stale_close"`
+	KeepaliveTimeout          uint64   `msgpack:"keepalive_timeout"`
+	ResourceStall             uint64   `msgpack:"resource_stall"`
+	RxOK                      uint64   `msgpack:"rx_ok"`
+	AnnounceOK                uint64   `msgpack:"announce_ok"`
+	IntegrityFailRate         float64  `msgpack:"integrity_fail_rate"`
+	IntegritySamples60        uint64   `msgpack:"integrity_samples_60s"`
+	StaleCloses               uint64   `msgpack:"stale_closes"`
+	ActiveLinks               int      `msgpack:"active_links,omitempty"`
 }
 
 // InterfaceStatsResponse is the top-level interface stats RPC payload.
@@ -57,6 +76,8 @@ type InterfaceStatsResponse struct {
 	TXS             float64         `msgpack:"txs"`
 	TransportID     []byte          `msgpack:"transport_id"`
 	TransportUptime float64         `msgpack:"transport_uptime"`
+	NetmonFlap      uint64          `msgpack:"netmon_flap"`
+	ActiveLinks     int             `msgpack:"active_links"`
 }
 
 // RateTableEntry is one rate-table row for shared-instance RPC.
@@ -241,12 +262,33 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 				st.BurstActive = stt.ingress.InBurst()
 			}
 		}
+		hs := health.Default.SnapshotIface(iface.GetName())
+		st.IFACFail = hs.IFACFail.Total
+		st.HMACFail = hs.HMACFail.Total
+		st.AnnounceSigFail = hs.AnnounceSigFail.Total
+		st.UnpackFail = hs.UnpackFail.Total
+		st.PaddingFail = hs.PaddingFail.Total
+		st.ProofFail = hs.ProofFail.Total
+		st.LRProofHopMismatch = hs.LRProofHopMismatch.Total
+		st.RequestSkewReject = hs.RequestSkewReject.Total
+		st.BlackholeHit = hs.BlackholeHit.Total
+		st.LinkStaleClose = hs.LinkStaleClose.Total
+		st.KeepaliveTimeout = hs.KeepaliveTimeout.Total
+		st.ResourceStall = hs.ResourceStall.Total
+		st.RxOK = hs.RxOK.Total
+		st.AnnounceOK = hs.AnnounceOK.Total
+		st.IntegrityFailRate = hs.IntegrityFailRate
+		st.IntegritySamples60 = hs.IFACFail.Rate60 + hs.HMACFail.Rate60 + hs.UnpackFail.Rate60 + hs.PaddingFail.Rate60 + hs.RxOK.Rate60
+		st.StaleCloses = hs.StaleCloses
 		resp.Interfaces = append(resp.Interfaces, st)
 	}
 	resp.RXB = rxTotal
 	resp.TXB = txTotal
 	resp.RXS = rxsTotal
 	resp.TXS = txsTotal
+	trHealth := health.Default.SnapshotTransport()
+	resp.NetmonFlap = trHealth.NetmonFlap.Total
+	resp.ActiveLinks = t.countActiveLinksLocked()
 	if t.transportIdentity != nil {
 		resp.TransportID = t.transportIdentity.Hash()
 	}
@@ -254,6 +296,22 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 		resp.TransportUptime = time.Since(t.startTime).Seconds()
 	}
 	return resp
+}
+
+func (t *Transport) countActiveLinksLocked() int {
+	n := 0
+	for _, l := range t.links {
+		if l == nil {
+			continue
+		}
+		if statuser, ok := l.(interface{ GetStatus() byte }); ok {
+			// Link.StatusActive is 0x02 in pkg/link.
+			if statuser.GetStatus() == 0x02 {
+				n++
+			}
+		}
+	}
+	return n
 }
 
 func i2pTunnelStateLabel(state uint32) string {

@@ -110,6 +110,15 @@ type SlowIfaceRow struct {
 	RTTMs              *float64 `json:"rtt_ms,omitempty"`
 	BandwidthAvailable *bool    `json:"bandwidth_available,omitempty"`
 	PathCount          int      `json:"path_count"`
+	IFACFail           uint64   `json:"ifac_fail"`
+	HMACFail           uint64   `json:"hmac_fail"`
+	AnnounceSigFail    uint64   `json:"announce_sig_fail"`
+	UnpackFail         uint64   `json:"unpack_fail"`
+	IntegrityFailRate  float64  `json:"integrity_fail_rate"`
+	IntegritySamples60 uint64   `json:"integrity_samples_60s"`
+	StaleCloses        uint64   `json:"stale_closes"`
+	KeepaliveTimeout   uint64   `json:"keepalive_timeout"`
+	ProofFail          uint64   `json:"proof_fail"`
 	Score              float64  `json:"score"`
 	Flags              []string `json:"flags"`
 	Why                string   `json:"why"`
@@ -125,6 +134,13 @@ type SlowAnalyzeOptions struct {
 	TopN                 int     // interfaces to keep in report (default 12)
 	NameFilter           string
 	ShowAll              bool
+	IntegrityWarnRate    float64 // default 0.05
+	IntegrityCritRate    float64 // default 0.20
+	MinIntegritySamples  uint64  // default 20 fails+ok in window proxy via totals
+	StaleWarn            uint64  // default 3
+	StaleCrit            uint64  // default 10
+	AuthFailWarn         uint64  // default 5 announce_sig+proof fails
+	AuthFailCrit         uint64  // default 25
 }
 
 func (o *SlowAnalyzeOptions) normalize() {
@@ -145,6 +161,27 @@ func (o *SlowAnalyzeOptions) normalize() {
 	}
 	if o.TopN <= 0 {
 		o.TopN = 12
+	}
+	if o.IntegrityWarnRate <= 0 {
+		o.IntegrityWarnRate = 0.05
+	}
+	if o.IntegrityCritRate <= 0 {
+		o.IntegrityCritRate = 0.20
+	}
+	if o.MinIntegritySamples == 0 {
+		o.MinIntegritySamples = 20
+	}
+	if o.StaleWarn == 0 {
+		o.StaleWarn = 3
+	}
+	if o.StaleCrit == 0 {
+		o.StaleCrit = 10
+	}
+	if o.AuthFailWarn == 0 {
+		o.AuthFailWarn = 5
+	}
+	if o.AuthFailCrit == 0 {
+		o.AuthFailCrit = 25
 	}
 }
 
@@ -282,6 +319,15 @@ func scoreInterface(st transport.InterfaceStat, paths []transport.PathTableEntry
 		RTTMs:              st.RTTMs,
 		BandwidthAvailable: st.BandwidthAvailable,
 		PathCount:          len(paths),
+		IFACFail:           st.IFACFail,
+		HMACFail:           st.HMACFail,
+		AnnounceSigFail:    st.AnnounceSigFail,
+		UnpackFail:         st.UnpackFail,
+		IntegrityFailRate:  st.IntegrityFailRate,
+		IntegritySamples60: st.IntegritySamples60,
+		StaleCloses:        st.StaleCloses,
+		KeepaliveTimeout:   st.KeepaliveTimeout,
+		ProofFail:          st.ProofFail,
 	}
 
 	var flags []string
@@ -351,6 +397,41 @@ func scoreInterface(st transport.InterfaceStat, paths []transport.PathTableEntry
 		score += 15
 	}
 
+	integritySamples := st.IntegritySamples60
+	if integritySamples >= opts.MinIntegritySamples && st.IntegrityFailRate >= opts.IntegrityWarnRate {
+		flags = append(flags, "integrity")
+		reasons = append(reasons, fmt.Sprintf("integrity fail rate %.0f%%", st.IntegrityFailRate*100))
+		if st.IntegrityFailRate >= opts.IntegrityCritRate {
+			score += 45
+		} else {
+			score += 25
+		}
+		// Quiet low-bitrate links need more failures before sounding critical.
+		if st.Bitrate > 0 && st.Bitrate < opts.MinBitrateForUtil && st.IntegrityFailRate < opts.IntegrityCritRate {
+			score -= 10
+		}
+	}
+	authFails := st.AnnounceSigFail + st.ProofFail
+	if authFails >= opts.AuthFailWarn {
+		flags = append(flags, "auth-pressure")
+		reasons = append(reasons, fmt.Sprintf("%d auth rejects (announce/proof)", authFails))
+		if authFails >= opts.AuthFailCrit {
+			score += 40
+		} else {
+			score += 22
+		}
+	}
+	staleScore := st.StaleCloses + st.KeepaliveTimeout
+	if staleScore >= opts.StaleWarn {
+		flags = append(flags, "link-degraded")
+		reasons = append(reasons, fmt.Sprintf("%d stale/keepalive closes", staleScore))
+		if staleScore >= opts.StaleCrit {
+			score += 35
+		} else {
+			score += 18
+		}
+	}
+
 	row.Flags = flags
 	row.Score = score
 	if len(reasons) == 0 {
@@ -360,7 +441,7 @@ func scoreInterface(st transport.InterfaceStat, paths []transport.PathTableEntry
 			row.Why = "ok · no bitrate cap reported"
 		}
 	} else {
-		row.Why = strings.Join(reasons, "; ")
+		row.Why = strings.Join(reasons, ", ")
 	}
 	return row
 }
@@ -386,6 +467,7 @@ func buildFindings(rep SlowReport, opts SlowAnalyzeOptions) []SlowFinding {
 				row.UtilPct, row.PathCount),
 			Hints: interfaceHints(row),
 		})
+		out = append(out, healthFindingsForRow(row, opts)...)
 	}
 	if rep.PathStats.VeryHigh > 0 {
 		out = append(out, SlowFinding{
@@ -444,6 +526,85 @@ func buildFindings(rep SlowReport, opts SlowAnalyzeOptions) []SlowFinding {
 	return out
 }
 
+func healthFindingsForRow(row SlowIfaceRow, opts SlowAnalyzeOptions) []SlowFinding {
+	var out []SlowFinding
+	integritySamples := row.IntegritySamples60
+	if integritySamples >= opts.MinIntegritySamples && row.IntegrityFailRate >= opts.IntegrityWarnRate {
+		sev := SeverityWarn
+		score := 40.0
+		if row.IntegrityFailRate >= opts.IntegrityCritRate {
+			sev = SeverityCritical
+			score = 70
+		}
+		out = append(out, SlowFinding{
+			Kind:     "integrity_burst",
+			Name:     row.Name,
+			Severity: sev,
+			Score:    score,
+			Summary:  fmt.Sprintf("integrity fail rate %.0f%% on %s", row.IntegrityFailRate*100, row.Name),
+			Detail: fmt.Sprintf("ifac=%d hmac=%d unpack=%d fail_rate=%.3f",
+				row.IFACFail, row.HMACFail, row.UnpackFail, row.IntegrityFailRate),
+			Hints: []string{
+				"Check IFAC netname/netkey match on this interface",
+				"On radio links elevated HMAC/IFAC fails can mean RF noise or bit flips",
+			},
+		})
+	}
+	authFails := row.AnnounceSigFail + row.ProofFail
+	if authFails >= opts.AuthFailWarn {
+		sev := SeverityWarn
+		score := 35.0
+		if authFails >= opts.AuthFailCrit {
+			sev = SeverityCritical
+			score = 65
+		}
+		out = append(out, SlowFinding{
+			Kind:     "auth_pressure",
+			Name:     row.Name,
+			Severity: sev,
+			Score:    score,
+			Summary:  fmt.Sprintf("%d announce/proof rejects on %s", authFails, row.Name),
+			Detail:   fmt.Sprintf("announce_sig=%d proof=%d", row.AnnounceSigFail, row.ProofFail),
+			Hints: []string{
+				"Forged or corrupt announces and proofs are dropped. Review who can reach this interface",
+			},
+		})
+	}
+	staleScore := row.StaleCloses + row.KeepaliveTimeout
+	if staleScore >= opts.StaleWarn {
+		sev := SeverityWarn
+		score := 30.0
+		if staleScore >= opts.StaleCrit {
+			sev = SeverityCritical
+			score = 55
+		}
+		out = append(out, SlowFinding{
+			Kind:     "link_degraded",
+			Name:     row.Name,
+			Severity: sev,
+			Score:    score,
+			Summary:  fmt.Sprintf("%d stale or keepalive closes via %s", staleScore, row.Name),
+			Detail:   fmt.Sprintf("stale_closes=%d keepalive_timeout=%d", row.StaleCloses, row.KeepaliveTimeout),
+			Hints: []string{
+				"Rising stale closes often means loss, extreme latency, or a peer that went away",
+			},
+		})
+	}
+	if row.BurstActive || row.HeldAnnounces > 0 || row.PRBurstActive {
+		out = append(out, SlowFinding{
+			Kind:     "ingress_pressure",
+			Name:     row.Name,
+			Severity: SeverityWarn,
+			Score:    28,
+			Summary:  fmt.Sprintf("ingress pressure on %s (held=%d burst=%v pr_burst=%v)", row.Name, row.HeldAnnounces, row.BurstActive, row.PRBurstActive),
+			Hints: []string{
+				"Ingress hold and burst limiters are protecting this node from announce floods",
+			},
+		})
+	}
+	return out
+}
+
 func interfaceHints(row SlowIfaceRow) []string {
 	var hints []string
 	if row.Bitrate > 0 && row.UtilPct >= 60 {
@@ -460,6 +621,15 @@ func interfaceHints(row SlowIfaceRow) []string {
 	}
 	if !row.Online {
 		hints = append(hints, "Reconnect or disable this interface so paths can move to a live egress")
+	}
+	if row.IntegrityFailRate >= 0.05 {
+		hints = append(hints, "Integrity failures are elevated. Verify IFAC keys and physical link quality")
+	}
+	if row.AnnounceSigFail+row.ProofFail >= 5 {
+		hints = append(hints, "Auth rejects are elevated. Unexpected peers may be probing this segment")
+	}
+	if row.StaleCloses+row.KeepaliveTimeout >= 3 {
+		hints = append(hints, "Links are going stale. Check latency, loss, and peer uptime on this path")
 	}
 	return hints
 }

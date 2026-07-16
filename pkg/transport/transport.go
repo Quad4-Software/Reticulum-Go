@@ -23,6 +23,7 @@ import (
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/destination"
+	"quad4/reticulum-go/pkg/health"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/interfaces"
 	"quad4/reticulum-go/pkg/packet"
@@ -1118,6 +1119,11 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 				debug.Log(debug.DebugAll, "Dropping announce: identity blackholed",
 					"dest_hash", fmt.Sprintf("%x", destHash[:8]))
 			}
+			ifaceName := ""
+			if sourceIface != nil {
+				ifaceName = sourceIface.GetName()
+			}
+			health.Inc(ifaceName, health.KindBlackholeHit)
 			return nil
 		}
 	}
@@ -1366,6 +1372,11 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 			pkt := &packet.Packet{Raw: payload}
 			if err := pkt.Unpack(); err != nil {
 				debug.Log(debug.DebugInfo, "Failed to unpack proof packet", "error", err)
+				ifaceName := ""
+				if iface != nil {
+					ifaceName = iface.GetName()
+				}
+				health.Inc(ifaceName, health.KindUnpackFail)
 				return
 			}
 			t.handleProofPacket(pkt, iface)
@@ -1533,6 +1544,11 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		if debug.Enabled(debug.DebugInfo) {
 			debug.Log(debug.DebugInfo, "Signature verification failed - announce rejected")
 		}
+		ifaceName := ""
+		if iface != nil {
+			ifaceName = iface.GetName()
+		}
+		health.Inc(ifaceName, health.KindAnnounceSigFail)
 		return fmt.Errorf("invalid announce signature")
 	}
 	if debug.Enabled(debug.DebugInfo) {
@@ -1543,6 +1559,7 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		if ra, ok := iface.(interface{ ReceivedAnnounce() }); ok {
 			ra.ReceivedAnnounce()
 		}
+		health.Inc(iface.GetName(), health.KindAnnounceOK)
 	}
 
 	hashMaterial := make([]byte, 0, len(nameHash)+identity.TruncatedHashLength/8)
@@ -1817,6 +1834,7 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 
 		if err := pkt.Unpack(); err != nil {
 			debug.Log(debug.DebugError, "Failed to unpack link request", "error", err, "elapsed", time.Since(startTime).Seconds())
+			health.Inc(iface.GetName(), health.KindUnpackFail)
 			return
 		}
 
@@ -1861,6 +1879,7 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 
 	if err := pkt.Unpack(); err != nil {
 		debug.Log(debug.DebugError, "Failed to unpack link data packet", "error", err, "interface", iface.GetName())
+		health.Inc(iface.GetName(), health.KindUnpackFail)
 		return
 	}
 
@@ -1948,6 +1967,11 @@ func (t *Transport) handleTransportPacket(data []byte, iface common.NetworkInter
 	pkt := &packet.Packet{Raw: data}
 	if err := pkt.Unpack(); err != nil {
 		debug.Log(debug.DebugInfo, "Failed to unpack transport packet", "error", err)
+		ifaceName := ""
+		if iface != nil {
+			ifaceName = iface.GetName()
+		}
+		health.Inc(ifaceName, health.KindUnpackFail)
 		return
 	}
 

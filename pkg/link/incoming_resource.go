@@ -15,6 +15,7 @@ import (
 	"quad4/bzip2/pkg/bzip2"
 	"quad4/msgpack/v5/pkg/msgpack"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/health"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/packet"
 	"quad4/reticulum-go/pkg/resource"
@@ -192,6 +193,7 @@ func (l *Link) tickIncomingResourceWatchdog(rx *incomingResourceAsm) bool {
 		"was_waiting_for_hmu",
 		stalledOnHmu,
 	)
+	health.Inc(l.attachedIfaceName(), health.KindResourceStall)
 	if err := l.sendIncomingResourceReqNext(); err != nil {
 		debug.Log(
 			debug.DebugInfo,

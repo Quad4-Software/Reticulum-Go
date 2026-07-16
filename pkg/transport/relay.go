@@ -12,6 +12,7 @@ import (
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/health"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/packet"
 )
@@ -395,6 +396,11 @@ func (t *Transport) relayBridgedLinkRequest(pkt *packet.Packet, raw []byte, sour
 		pkt = &packet.Packet{Raw: stripped}
 		if err := pkt.Unpack(); err != nil {
 			debug.Log(debug.DebugInfo, "Bridged link request unpack after strip failed", "error", err)
+			ifaceName := ""
+			if sourceIface != nil {
+				ifaceName = sourceIface.GetName()
+			}
+			health.Inc(ifaceName, health.KindUnpackFail)
 			return false
 		}
 		raw = stripped

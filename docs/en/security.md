@@ -114,6 +114,26 @@ make check
 - `identity_backend = keyring` stores the same blobs in the Linux kernel keyring (no D-Bus), suitable for systemd units. See [Identity and destinations](identity-and-destinations.md) for threat coverage.
 - Identity private keys are held in locked memory when the OS allows (`pkg/securemem`). This is defense in depth, not a substitute for disk encryption or HSM signing.
 
+## Local mesh health (observe only)
+
+Reticulum-Go keeps node-local integrity and link-health counters in `pkg/health`. They stay on this node. Nothing is flooded to the mesh or sent to a cloud collector.
+
+Counters increment at existing drop and fail sites (IFAC verify, link HMAC, unpack errors, announce signature rejects, link proof rejects, request timestamp skew, blackhole hits, link stale closes, resource stalls, NIC flaps). Accept and reject behavior is unchanged.
+
+Operators see the numbers through:
+
+| Surface | What you get |
+|---------|----------------|
+| `reticulum-go status` | Per-interface integrity totals and fail rate when non-zero |
+| `reticulum-go status -json` | Same fields in JSON (`ifac_fail`, `hmac_fail`, `integrity_fail_rate`, `stale_closes`, …) |
+| `reticulum-go slow` | Scored findings such as `integrity_burst`, `auth_pressure`, `link_degraded`, `ingress_pressure` |
+| Control API `GET /v1/status` | Integrity fields on each interface object |
+| Shared-instance RPC `interface_stats` | Same msgpack keys (Go daemon only populates them) |
+
+Scoring prefers fail ratios and bitrate-aware thresholds. High latency alone on a low-bitrate radio is not treated as critical. There is no auto blackhole or auto interface offline in this release. The operator decides whether to adjust IFAC keys, enable ingress control, blackhole an identity, or take an interface down.
+
+See [CLI utilities](utilities.md) for `status` and `slow`, and [Control API](control-api.md) for HTTP fields.
+
 ## Control API exposure
 
 The control API binds to `127.0.0.1` by default. It is disabled unless `enable_control_api = yes`. Do not expose it to untrusted networks without additional TLS and auth layers (not provided by this package).
@@ -132,5 +152,6 @@ Link establishment also records `expected_hops` on both initiator and responder.
 
 - [Cryptography](cryptography.md)
 - [Configuration](configuration.md) for sandbox and control API keys
+- [CLI utilities](utilities.md) for status and slow health findings
 - [SECURITY.md](../../SECURITY.md) full policy text
 - [Compatibility](compatibility.md) for RNS 1.3.8 parity

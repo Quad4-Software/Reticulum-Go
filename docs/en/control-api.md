@@ -38,8 +38,8 @@ Requests without a valid bearer token are rejected.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/v1/health` | Node health |
-| GET | `/v1/status` | Interface statistics |
+| GET | `/v1/health` | Liveness probe (process up, transport id, uptime). Not mesh integrity scoring |
+| GET | `/v1/status` | Interface statistics, including Go local integrity counters when present |
 | GET | `/v1/paths` | Path table snapshot |
 | POST | `/v1/sessions` | Create session (identity) |
 | DELETE | `/v1/sessions/{id}` | Tear down session |
@@ -58,6 +58,23 @@ Lifecycle routes (Go node integration):
 | POST | `/v1/lifecycle/refresh-paths` | Refresh stale paths |
 
 Binary fields (hashes, app data, link payloads) are hex- or base64-encoded as documented in `pkg/controlapi/protocol.go`.
+
+### Status integrity fields (Go daemon)
+
+`GET /v1/status` mirrors shared-instance interface stats. Against a Reticulum-Go daemon each interface object may include:
+
+| JSON field | Meaning |
+|------------|---------|
+| `ifac_fail` | IFAC verify failures |
+| `hmac_fail` | Link HMAC failures |
+| `announce_sig_fail` | Invalid announce signatures |
+| `unpack_fail` | Packet unpack failures |
+| `integrity_fail_rate` | Windowed fails / (fails + accepted) |
+| `stale_closes` | Links closed after going stale |
+| `link_stale_close` | Same lifetime total as exposed on the iface |
+| `keepalive_timeout` | Transitions into keepalive stale |
+
+These counters are local observability only. They do not change packet accept or reject policy. For scored findings use `reticulum-go slow`. See [Security](security.md#local-mesh-health-observe-only) and [CLI utilities](utilities.md#rgoslow).
 
 ## Sessions
 

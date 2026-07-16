@@ -23,11 +23,11 @@ Documentation is organized by language under `docs/`. English lives in `docs/en/
 | [Identity and destinations](identity-and-destinations.md) | Keys, hashes, destination types, announces, requests |
 | [Links, channels, and resources](links-channels-and-resources.md) | Links, reliable channel, stream buffer, file transfer |
 | [Cryptography](cryptography.md) | Primitives, key formats, IFAC, ratchets, verification |
-| [Security](security.md) | Reporting, sandbox, supply chain, release verification |
+| [Security](security.md) | Reporting, sandbox, supply chain, release verification, local mesh health |
 | [Compatibility](compatibility.md) | Parity with Python RNS, gaps, Go-only extensions |
 | [Control API](control-api.md) | Localhost JSON and WebSocket API for non-Go clients, Dart and Flutter |
 | [librns](librns.md) | C ABI map, supported surface, events, build and smoke, Odin bindings |
-| [CLI utilities](utilities.md) | `reticulum-go` subcommands (status, id, probe, path, cp, pageserver), shared-instance RPC with Python |
+| [CLI utilities](utilities.md) | `reticulum-go` subcommands (status, slow, id, probe, path, cp, pageserver), shared-instance RPC with Python |
 | [Embedding and WebAssembly](embedding-and-wasm.md) | `pkg/node`, WASM, browser integration |
 | [Firecracker microvm](microvm.md) | Guest rootfs, VSOCK host bridge, nested VM networking |
 | [Development and testing](development-and-testing.md) | Code quality, crossref tests, interop tests, CI |

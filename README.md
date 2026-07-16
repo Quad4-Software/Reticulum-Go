@@ -1,6 +1,6 @@
 # Reticulum-Go
 
-Reticulum-Go is a high-performance and [secure](SECURITY.md) Golang implementation of the [Reticulum Network Stack](https://github.com/markqvist/Reticulum).
+Reticulum-Go is a high-performance and [secure](SECURITY.md) Golang implementation of the [Reticulum Network Stack](https://github.com/markqvist/Reticulum). It is intended to strengthen the existing networks and bring Reticulum to more devices.
 
 Available on rngit:
 
@@ -25,6 +25,8 @@ For details on interoperability, see [COMPATIBILITY.md](COMPATIBILITY.md). You c
 *   Clear auditability and supply chain security
 *   Full protocol interoperability with the Python reference implementation and its standard utilities
 *   High performance using modern Go concurrency patterns and optimized code
+*   High security with native sandboxing and firecracker microvm support
+*   Reliable operation with reconnect, NIC watching, and interface hot reload
 
 ## Features
 
@@ -157,6 +159,7 @@ Run the main daemon or query status and paths:
 ```bash
 reticulum-go                  # Starts the background daemon
 reticulum-go status           # Displays interface statistics
+reticulum-go slow             # Bottleneck and local health findings
 reticulum-go id -h            # Shows identity options
 reticulum-go probe ...        # Proves path reachability
 reticulum-go path -t          # Inspects known paths
@@ -169,7 +172,7 @@ You can view the documentation by running manual commands:
 *   `man reticulum-go`
 *   `man 8 reticulum-go`
 *   `man reticulum-go-status`
-
+*   `man reticulum-go-slow`
 ### Run from Source
 
 Run the daemon directly from the source code:

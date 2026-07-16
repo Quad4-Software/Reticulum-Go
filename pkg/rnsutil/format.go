@@ -208,6 +208,14 @@ func WriteStatusHuman(w io.Writer, stats transport.InterfaceStatsResponse, linkC
 				return err
 			}
 		}
+		integrityFails := st.IFACFail + st.HMACFail + st.UnpackFail + st.PaddingFail + st.AnnounceSigFail
+		if integrityFails > 0 || st.StaleCloses > 0 || st.IntegrityFailRate > 0 {
+			if _, err := fmt.Fprintf(w, "  Integrity : fail_rate=%.2f ifac=%d hmac=%d unpack=%d announce_sig=%d stale_closes=%d\n",
+				st.IntegrityFailRate, st.IFACFail, st.HMACFail, st.UnpackFail, st.AnnounceSigFail, st.StaleCloses,
+			); err != nil {
+				return err
+			}
+		}
 		if st.Clients != nil {
 			if _, err := fmt.Fprintf(w, "  Clients   : %d\n", *st.Clients); err != nil {
 				return err
@@ -281,6 +289,13 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 		HeldAnnounces             int     `json:"held_announces"`
 		BurstActive               bool    `json:"burst_active"`
 		PRBurstActive             bool    `json:"pr_burst_active"`
+		IFACFail                  uint64  `json:"ifac_fail"`
+		HMACFail                  uint64  `json:"hmac_fail"`
+		AnnounceSigFail           uint64  `json:"announce_sig_fail"`
+		UnpackFail                uint64  `json:"unpack_fail"`
+		IntegrityFailRate         float64 `json:"integrity_fail_rate"`
+		StaleCloses               uint64  `json:"stale_closes"`
+		KeepaliveTimeout          uint64  `json:"keepalive_timeout"`
 		I2PB32                    *string `json:"i2p_b32,omitempty"`
 		Tunnel                    *string `json:"tunnelstate,omitempty"`
 	}
@@ -292,6 +307,8 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 		TXS             float64     `json:"txs"`
 		TransportID     string      `json:"transport_id"`
 		TransportUptime float64     `json:"transport_uptime"`
+		NetmonFlap      uint64      `json:"netmon_flap"`
+		ActiveLinks     int         `json:"active_links"`
 	}{
 		Interfaces:      make([]ifaceJSON, 0, len(stats.Interfaces)),
 		RXB:             stats.RXB,
@@ -300,6 +317,8 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 		TXS:             stats.TXS,
 		TransportID:     hex.EncodeToString(stats.TransportID),
 		TransportUptime: stats.TransportUptime,
+		NetmonFlap:      stats.NetmonFlap,
+		ActiveLinks:     stats.ActiveLinks,
 	}
 	for i := range stats.Interfaces {
 		st := &stats.Interfaces[i]
@@ -323,6 +342,13 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 			HeldAnnounces:             st.HeldAnnounces,
 			BurstActive:               st.BurstActive,
 			PRBurstActive:             st.PRBurstActive,
+			IFACFail:                  st.IFACFail,
+			HMACFail:                  st.HMACFail,
+			AnnounceSigFail:           st.AnnounceSigFail,
+			UnpackFail:                st.UnpackFail,
+			IntegrityFailRate:         st.IntegrityFailRate,
+			StaleCloses:               st.StaleCloses,
+			KeepaliveTimeout:          st.KeepaliveTimeout,
 			I2PB32:                    st.I2PB32,
 			Tunnel:                    st.TunnelState,
 		})

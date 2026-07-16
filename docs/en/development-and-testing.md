@@ -90,7 +90,7 @@ Files named `*_pbt_test.go` use `quad4/pbt` for generative testing (cryptography
 
 ### Fuzz tests
 
-Files named `*_fuzz_test.go` cover packet, link, ifac, blackhole, discovery, pipe HDLC framing (`pkg/interfaces/pipe_fuzz_test.go`), and librns (`pkg/librns`).
+Files named `*_fuzz_test.go` cover packet, link, ifac, blackhole, discovery, health counters (`pkg/health`), pipe HDLC framing (`pkg/interfaces/pipe_fuzz_test.go`), and librns (`pkg/librns`).
 
 ### Crossref tests
 

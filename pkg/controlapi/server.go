@@ -165,12 +165,20 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, ifc := range stats.Interfaces {
 		resp.Interfaces = append(resp.Interfaces, interfaceStatJSON{
-			Name:    ifc.Name,
-			Type:    ifc.Type,
-			Status:  ifc.Status,
-			RXBytes: ifc.RXB,
-			TXBytes: ifc.TXB,
-			Bitrate: ifc.Bitrate,
+			Name:              ifc.Name,
+			Type:              ifc.Type,
+			Status:            ifc.Status,
+			RXBytes:           ifc.RXB,
+			TXBytes:           ifc.TXB,
+			Bitrate:           ifc.Bitrate,
+			IFACFail:          ifc.IFACFail,
+			HMACFail:          ifc.HMACFail,
+			AnnounceSigFail:   ifc.AnnounceSigFail,
+			UnpackFail:        ifc.UnpackFail,
+			IntegrityFailRate: ifc.IntegrityFailRate,
+			StaleCloses:       ifc.StaleCloses,
+			LinkStaleClose:    ifc.LinkStaleClose,
+			KeepaliveTimeout:  ifc.KeepaliveTimeout,
 		})
 	}
 	writeJSON(w, http.StatusOK, resp)

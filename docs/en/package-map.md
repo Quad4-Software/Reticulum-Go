@@ -211,15 +211,27 @@ NomadNet-style page and file server used by `reticulum-go pageserver`.
 | Dynamic pages | `pkg/pageserver/dynamicpage` |
 | Sample tree | `examples/pageserver/` |
 
+### `pkg/health`
+
+Node-local mesh integrity and link-health counters. Used by drop-site instrumentation and ops surfaces. Counters never leave the node unless the operator exports them via status RPC or the control API.
+
+| Item | Detail |
+|------|--------|
+| Key types | `Registry`, `Snapshot`, `Kind` |
+| Entry | `health.Inc`, `health.Default` |
+| Main files | `registry.go`, `kind.go`, `window.go` |
+| Docs | [Security](security.md#local-mesh-health-observe-only), [CLI utilities](utilities.md#rgoslow) |
+
 ### `pkg/rnsutil`
 
-Helpers and RPC client for CLI utilities (`reticulum-go status`, `id`, `probe`, …).
+Helpers and RPC client for CLI utilities (`reticulum-go status`, `slow`, `id`, `probe`, …).
 
 | Item | Detail |
 |------|--------|
 | RPC | `DialRPC`, `GetInterfaceStats`, path and link helpers |
 | Identity | `.rsg` / `.rsm` / `.rfe` create and verify |
 | Probe | `WaitPath`, `SendProbe` |
+| Slow report | `AnalyzeSlow`, integrity and bottleneck findings |
 | Docs | [CLI utilities](utilities.md) |
 
 ### `pkg/wasm`

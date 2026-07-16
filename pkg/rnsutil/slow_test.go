@@ -74,3 +74,81 @@ func TestAnalyzeSlowRanksSaturatedInterface(t *testing.T) {
 		t.Fatalf("human output missing expected sections:\n%s", out)
 	}
 }
+
+func TestAnalyzeSlowIntegrityAndAuthFindings(t *testing.T) {
+	stats := transport.InterfaceStatsResponse{
+		Interfaces: []transport.InterfaceStat{
+			{
+				Name:               "Radio0",
+				Status:             true,
+				Bitrate:            50_000,
+				IFACFail:           40,
+				HMACFail:           10,
+				RxOK:               50,
+				IntegrityFailRate:  0.50,
+				IntegritySamples60: 100,
+				AnnounceSigFail:    12,
+				ProofFail:          4,
+				StaleCloses:        5,
+				KeepaliveTimeout:   2,
+			},
+		},
+	}
+	rep := AnalyzeSlow(stats, nil, nil, "local", SlowAnalyzeOptions{
+		MinIntegritySamples: 20,
+		IntegrityWarnRate:   0.05,
+		AuthFailWarn:        5,
+		StaleWarn:           3,
+	})
+	kinds := map[string]bool{}
+	for _, f := range rep.Findings {
+		kinds[f.Kind] = true
+	}
+	for _, want := range []string{"integrity_burst", "auth_pressure", "link_degraded"} {
+		if !kinds[want] {
+			t.Fatalf("missing finding kind %q in %#v", want, rep.Findings)
+		}
+	}
+	if rep.Interfaces[0].Score < 40 {
+		t.Fatalf("Radio0 score=%.1f want elevated", rep.Interfaces[0].Score)
+	}
+}
+
+func TestAnalyzeSlowQuietLowBitrateNotCriticalOnRTTAlone(t *testing.T) {
+	rtt := 800.0
+	stats := transport.InterfaceStatsResponse{
+		Interfaces: []transport.InterfaceStat{
+			{
+				Name:    "LoRa0",
+				Status:  true,
+				Bitrate: 1200,
+				RTTMs:   &rtt,
+			},
+		},
+	}
+	rep := AnalyzeSlow(stats, nil, nil, "local", SlowAnalyzeOptions{})
+	for _, f := range rep.Findings {
+		if f.Kind == "integrity_burst" || f.Kind == "auth_pressure" || f.Kind == "link_degraded" {
+			t.Fatalf("unexpected health finding on quiet radio: %#v", f)
+		}
+	}
+}
+
+func TestHealthFindingsForRowIngress(t *testing.T) {
+	opts := SlowAnalyzeOptions{}
+	opts.normalize()
+	out := healthFindingsForRow(SlowIfaceRow{
+		Name:          "tcp0",
+		HeldAnnounces: 3,
+		BurstActive:   true,
+	}, opts)
+	found := false
+	for _, f := range out {
+		if f.Kind == "ingress_pressure" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("want ingress_pressure, got %#v", out)
+	}
+}

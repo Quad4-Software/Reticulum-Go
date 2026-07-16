@@ -131,6 +131,7 @@ Wire format is unchanged in 1.2.x to 1.3.x. Most churn is utilities and transpor
 | Topic | Python | Reticulum-Go |
 |-------|--------|---------------|
 | IFAC unauthenticated drop | Yes | Yes |
+| Local integrity / health counters | No | Yes (`pkg/health`, observe only) |
 | Ingress/egress announce and PR rate limits | Yes (1.2.5) | Yes |
 | BZ2 bomb limits on resource/buffer | Yes (1.1.9) | Yes |
 | Reject hop counts `>= PATHFINDER_M` on unpack | Yes (1.3.8) | Yes (`pkg/packet.Unpack`) |
@@ -159,6 +160,7 @@ Intentional extensions beyond upstream *rns*:
 | VSOCK interface | Linux `VSOCKClientInterface` / `VSOCKServerInterface` |
 | HTTPS long-poll | `HTTPSClientInterface` / `HTTPSServerInterface` |
 | Seccomp sandbox | Linux Landlock plus seccomp-bpf denylist (`enable_sandbox` / `enable_seccomp`) |
+| Local mesh health | `pkg/health` counters at drop sites, integrity fields on `interface_stats` / status CLI / control API, `reticulum-go slow` findings. Observe only. No wire change. |
 
 ## Utilities
 
@@ -170,7 +172,8 @@ Intentional extensions beyond upstream *rns*:
 | rnir | No | Python stub identity resolver. Not ported |
 | rnpath | Yes | `reticulum-go path` (symlink `rgopath`). Local/shared-instance path table, drop, blackhole. Remote rnstransport modes not ported |
 | rnprobe | Yes | `reticulum-go probe` (symlink `rgoprobe`) |
-| rnstatus | Yes | `reticulum-go status` (symlink `rgostatus`). Shared-instance RPC including announce/PR rates. TCP RPC setup: [docs/en/utilities.md](docs/en/utilities.md) |
+| rnstatus | Yes | `reticulum-go status` (symlink `rgostatus`). Shared-instance RPC including announce/PR rates. Go daemons also expose local integrity counters. TCP RPC setup: [docs/en/utilities.md](docs/en/utilities.md) |
+| (Go-only) | Yes | `reticulum-go slow` (symlink `rgoslow`). Bottleneck and local health findings. See [docs/en/utilities.md](docs/en/utilities.md#rgoslow) |
 | rnx | Yes | `reticulum-go x` (symlinks `rgox`, `rnx`). Destination `rnx.execute`, request path `command`. JSON stdout, Python exit codes |
 | rnodeconf | No | Depends on RNode driver |
 | rnpkg | No | Not ported |

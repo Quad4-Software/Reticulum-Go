@@ -20,6 +20,7 @@ make build
 | Tool / subcommand | Python counterpart | Role |
 |-------------------|--------------------|------|
 | `reticulum-go status` (`rgostatus`) | `rnstatus` | Interface and transport status over shared-instance RPC |
+| `reticulum-go slow` (`rgoslow`) | (Go-only) | Bottleneck and local health findings from interface/path stats |
 | `reticulum-go id` (`rgoid`) | `rnid` | Identity generate, hash, `.rsg` / `.rsm` / `.rfe` |
 | `reticulum-go probe` (`rgoprobe`) | `rnprobe` | Path wait, encrypted probe, RTT |
 | `reticulum-go path` (`rgopath`) | `rnpath` | Path table, drop, blackhole, path request |
@@ -136,6 +137,44 @@ rgostatus [flags]
 | `-timeout dur` | RPC timeout (default 10s) |
 
 JSON includes per-interface announce and path-request frequencies, held announces, burst flags, and traffic counters when the daemon provides them.
+
+Against a Go daemon, human and JSON output also include local mesh health fields when counters are non-zero: `ifac_fail`, `hmac_fail`, `announce_sig_fail`, `unpack_fail`, `integrity_fail_rate`, `stale_closes`, `keepalive_timeout`, and related totals. Python `rnsd` does not populate these keys. Missing fields mean zero or unknown, not a protocol error.
+
+## rgoslow
+
+```bash
+reticulum-go slow [flags]
+# legacy: rgoslow
+```
+
+Ranks congestion and local health signals that commonly explain stalled transfers or noisy interfaces. Uses the same shared-instance RPC as `status` (`interface_stats` plus path table).
+
+| Flag | Meaning |
+|------|---------|
+| `-config dir` | Config directory (default: `~/.reticulum-go`) |
+| `-json` | Emit full JSON report |
+| `-a` | Include all interfaces |
+| `-n substr` | Filter interface names |
+| `-l` | Include link count |
+| `-dest hash` | Focus analysis on a destination (32 hex) |
+| `-top n` | Max interfaces to rank (default 12) |
+| `-high-hop n` | Hop count treated as high (default 6) |
+| `-m` | Continuously refresh |
+| `-I dur` | Monitor interval (default 2s) |
+| `-timeout dur` | RPC timeout (default 10s) |
+
+Bottleneck findings cover bitrate utilization, announce/PR bursts, held announces, bandwidth gates, socket RTT, and high-hop paths.
+
+When talking to a Go daemon, health findings can also appear:
+
+| Kind | Meaning |
+|------|---------|
+| `integrity_burst` | Elevated IFAC/HMAC/unpack fail rate vs accepted frames |
+| `auth_pressure` | Announce signature or link proof rejects clustered on an iface |
+| `link_degraded` | Rising stale closes or keepalive timeouts |
+| `ingress_pressure` | Held announces or burst limiters active |
+
+Counters stay local to the node. `slow` only observes and scores. It does not change ingress policy or blackhole tables.
 
 ## rgoid
 
@@ -289,11 +328,12 @@ Exit codes match Python `rnx` (241–249 for client failures, `-m` mirrors remot
 
 | Tool | Role |
 |------|------|
-| `reticulum-go status` | Interface stats over shared-instance RPC (`-json`, `-q`) |
+| `reticulum-go status` | Interface stats over shared-instance RPC (`-json`, `-q`), including Go integrity counters when present |
+| `reticulum-go slow` | Bottleneck and local health findings (`integrity_burst`, `auth_pressure`, `link_degraded`, …) |
 | `reticulum-go path -t` | Path table dump |
 | `reticulum-go debug` | Effective config path, log level, platform, RPC reachability (`-rates`, `-json`) |
 | `reticulum-go probe` | Connectivity / RTT (`-json`) |
-| Control API | HTTP `/v1/health`, `/v1/status`, `/v1/paths` when `enable_control_api = yes` |
+| Control API | HTTP `/v1/health` (liveness), `/v1/status` (iface stats plus integrity fields), `/v1/paths` when `enable_control_api = yes` |
 | Daemon `-debug N` | Override config loglevel for one run |
 
 TTY colors (status Up/Down, probe/path/cp/id outcomes, pageserver banner, daemon text log levels) honor `NO_COLOR` (off) and `FORCE_COLOR` / `CLICOLOR_FORCE` (on). JSON output and file logs stay plain.

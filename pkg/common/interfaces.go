@@ -9,6 +9,8 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"quad4/reticulum-go/pkg/health"
 )
 
 // IFAC is the subset of pkg/ifac.Identity that interfaces and transport need
@@ -382,7 +384,12 @@ func ApplyIFACOutbound(iface NetworkInterface, raw []byte) ([]byte, error) {
 // AND the IFAC must verify, otherwise drop. If the interface has no IFAC
 // configured, packets with the IFAC flag set are dropped.
 func ApplyIFACInbound(iface NetworkInterface, raw []byte) ([]byte, bool) {
+	ifaceName := ""
+	if iface != nil {
+		ifaceName = iface.GetName()
+	}
 	if len(raw) < 2 {
+		health.Inc(ifaceName, health.KindIFACFail)
 		return raw, false
 	}
 	hasFlag := raw[0]&0x80 == 0x80
@@ -392,17 +399,22 @@ func ApplyIFACInbound(iface NetworkInterface, raw []byte) ([]byte, bool) {
 	}
 	if id == nil {
 		if hasFlag {
+			health.Inc(ifaceName, health.KindIFACFail)
 			return nil, false
 		}
+		health.Inc(ifaceName, health.KindRxOK)
 		return raw, true
 	}
 	if !hasFlag {
+		health.Inc(ifaceName, health.KindIFACFail)
 		return nil, false
 	}
 	stripped, ok, err := id.Unmask(raw)
 	if err != nil || !ok {
+		health.Inc(ifaceName, health.KindIFACFail)
 		return nil, false
 	}
+	health.Inc(ifaceName, health.KindRxOK)
 	return stripped, true
 }
 

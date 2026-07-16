@@ -17,6 +17,11 @@
 .Sh DESCRIPTION
 Queries a running shared instance over msgpack RPC and prints interface
 statistics (and optionally link count).
+Against a Go daemon, output may include local mesh health counters such as
+IFAC and HMAC failures, announce signature rejects, unpack failures,
+integrity fail rate, and stale link closes. Python
+.Nm rnsd
+does not populate those fields.
 .Sh OPTIONS
 .Bl -tag -width "-timeout duration"
 .It Fl config Ar dir

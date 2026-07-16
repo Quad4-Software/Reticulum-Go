@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/health"
 )
 
 const interfaceMonitorInterval = 10 * time.Second
@@ -27,6 +28,7 @@ func (n *Node) startInterfaceMonitor() {
 				continue
 			}
 			last = cur
+			health.Inc("", health.KindNetmonFlap)
 			if err := n.OnNetworkAvailable(); err != nil {
 				debug.Log(debug.DebugVerbose, "interface monitor refresh", "error", err)
 			}

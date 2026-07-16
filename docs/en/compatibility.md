@@ -105,6 +105,7 @@ These do not change the wire format:
 | Dart librns FFI | `bindings/dart` ([librns](librns.md#dart-ffi-bindings)) |
 | Dart Control API client | `bindings/dart` ([Control API](control-api.md#dart-and-flutter)) |
 | Runtime sandbox | `pkg/sandbox` |
+| Local mesh health counters | `pkg/health`, status RPC fields, `reticulum-go slow` findings |
 | RAM-only path tables | `in_memory_path_table`, `in_memory_known_destinations` |
 | Fully ephemeral storage | `in_memory_storage`, `RETICULUM_IN_MEMORY_STORAGE`, soft caps |
 
@@ -124,7 +125,8 @@ These do not change the wire format:
 | Python | Reticulum-Go |
 |--------|--------------|
 | rnsd | `reticulum-go` daemon |
-| rnstatus | `rgostatus` (shared-instance RPC, announce/PR rates, JSON) |
+| rnstatus | `rgostatus` (shared-instance RPC, announce/PR rates, JSON, Go integrity fields) |
+| (none) | `rgoslow` / `reticulum-go slow` (bottleneck and local health findings, Go-only) |
 | rnid | `rgoid` (`.rid`/`.rsg`/`.rsm`/`.rfe` compatible) |
 | rnprobe | `rgoprobe` |
 | rnpath | `rgopath` (path table, drop, blackhole, remote rnstransport not ported) |

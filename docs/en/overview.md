@@ -69,6 +69,7 @@ Below is a summary of major features. For line-by-line parity with Python, see [
 | Dart librns FFI | Go-only host | `bindings/dart` (`ffi.dart`). Linux, Android, Windows. See [librns](librns.md#dart-ffi-bindings) |
 | Dart Control API client | Go-only host | `bindings/dart` (`rns_control`). See [Control API](control-api.md#dart-and-flutter) |
 | Runtime sandbox | Go-only | `pkg/sandbox` |
+| Local mesh health | Go-only | `pkg/health` counters, status RPC fields, `reticulum-go slow` findings |
 
 ## Repository layout
 
@@ -106,7 +107,7 @@ Python Reticulum (`RNS`) is the reference implementation and defines the on-wire
 
 Configuration uses the same INI-style shape as Python (`[reticulum]`, `[logging]`, `[[Interface Name]]`). The default config directory is `~/.reticulum-go` instead of `~/.reticulum` so both stacks can coexist on one machine.
 
-Reticulum-Go adds features that Python does not ship today (control API, librns, Odin bindings, Dart FFI and Control API client, sandbox, interface hot reload, NIC watching). Those extensions do not change the wire format unless explicitly documented as Go-only.
+Reticulum-Go adds features that Python does not ship today (control API, librns, Odin bindings, Dart FFI and Control API client, sandbox, interface hot reload, NIC watching, local mesh health counters). Those extensions do not change the wire format unless explicitly documented as Go-only.
 
 ## Who should read which document
 

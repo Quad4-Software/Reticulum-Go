@@ -24,6 +24,7 @@ import (
 	"quad4/reticulum-go/pkg/cryptography"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/destination"
+	"quad4/reticulum-go/pkg/health"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/packet"
 	"quad4/reticulum-go/pkg/pathfinder"
@@ -41,6 +42,8 @@ func init() {
 		return HandleIncomingLinkRequest(pkt, dest, transportObj, networkIface)
 	})
 }
+
+var errHMACVerificationFailed = errors.New("HMAC verification failed")
 
 type Link struct {
 	mutex              sync.RWMutex
@@ -1714,6 +1717,7 @@ func (l *Link) handleRequest(plaintext []byte, requestID []byte) error {
 		debug.Log(debug.DebugInfo, "Rejecting request with stale requested_at",
 			"requested_at", requestedAt.Unix(),
 			"request_id", fmt.Sprintf("%x", requestID))
+		health.Inc(l.attachedIfaceName(), health.KindRequestSkewReject)
 		return nil
 	}
 
@@ -2045,7 +2049,7 @@ func decryptWithKeys(sessionKey, hmacKey, data []byte) ([]byte, error) {
 	h.Write(signedParts)
 	expectedMac := h.Sum(nil)
 	if !hmac.Equal(receivedMac, expectedMac) {
-		return nil, errors.New("HMAC verification failed")
+		return nil, errHMACVerificationFailed
 	}
 
 	return cryptography.DecryptAES256CBC(sessionKey, signedParts)
@@ -2085,10 +2089,38 @@ func (l *Link) decrypt(data []byte) ([]byte, error) {
 
 	plaintext, err := decryptWithKeys(sessionKey, hmacKey, data)
 	if err != nil {
+		ifaceName := l.attachedIfaceName()
+		switch {
+		case errors.Is(err, errHMACVerificationFailed):
+			health.Inc(ifaceName, health.KindHMACFail)
+		case cryptography.IsPaddingError(err):
+			health.Inc(ifaceName, health.KindPaddingFail)
+		}
 		debug.Log(debug.DebugError, "Decrypt failed", "link_id", fmt.Sprintf("%x", l.linkID), "error", err)
 		return nil, err
 	}
 	return plaintext, nil
+}
+
+func (l *Link) attachedIfaceName() string {
+	if l == nil {
+		return ""
+	}
+	l.mutex.RLock()
+	iface := l.networkInterface
+	l.mutex.RUnlock()
+	if iface == nil {
+		return ""
+	}
+	return iface.GetName()
+}
+
+func incProofFail(networkIface common.NetworkInterface) {
+	ifaceName := ""
+	if networkIface != nil {
+		ifaceName = networkIface.GetName()
+	}
+	health.Inc(ifaceName, health.KindProofFail)
 }
 
 func (l *Link) GetRTT() float64 {
@@ -2444,6 +2476,13 @@ func (l *Link) watchdog() {
 
 				if now.After(lastActivity.Add(l.staleTime)) {
 					sleepTime = l.rtt*KeepaliveTimeoutFactor + StaleGrace
+					if l.status.Load() != int32(StatusStale) {
+						ifaceName := ""
+						if l.networkInterface != nil {
+							ifaceName = l.networkInterface.GetName()
+						}
+						health.Inc(ifaceName, health.KindKeepaliveTimeout)
+					}
 					l.status.Store(int32(StatusStale))
 				} else {
 					sleepTime = float64(l.keepalive) / float64(time.Second)
@@ -2455,6 +2494,11 @@ func (l *Link) watchdog() {
 		} else if l.status.Load() == int32(StatusStale) {
 			sleepTime = 0.001
 			debug.Log(debug.DebugInfo, "Link marked stale, closing", "link_id", fmt.Sprintf("%x", l.linkID))
+			ifaceName := ""
+			if l.networkInterface != nil {
+				ifaceName = l.networkInterface.GetName()
+			}
+			health.Inc(ifaceName, health.KindLinkStaleClose)
 			_ = l.sendTeardownPacket() // #nosec G104 - best effort teardown
 			l.status.Store(int32(StatusClosed))
 			l.teardownReason = StatusFailed
@@ -2924,11 +2968,18 @@ func (l *Link) validateLinkProofLocked(pkt *packet.Packet, networkIface common.N
 	accounted := transport.AccountInboundHops(pkt.Hops, networkIface)
 	if l.expectedHops != transport.PathfinderM && accounted != l.expectedHops {
 		l.markInitiatorEstablishmentFailedLocked()
+		ifaceName := ""
+		if networkIface != nil {
+			ifaceName = networkIface.GetName()
+		}
+		health.Inc(ifaceName, health.KindLRProofHopMismatch)
+		health.Inc(ifaceName, health.KindProofFail)
 		return fmt.Errorf("link proof hop count mismatch: got %d want %d", accounted, l.expectedHops)
 	}
 
 	if len(pkt.Data) < identity.SigLength/8+KeySize {
 		l.markInitiatorEstablishmentFailedLocked()
+		incProofFail(networkIface)
 		return errors.New("link proof data too short")
 	}
 
@@ -2971,6 +3022,7 @@ func (l *Link) validateLinkProofLocked(pkt *packet.Packet, networkIface common.N
 	if !l.destination.GetIdentity().Verify(signedData, signature) {
 		debug.Log(debug.DebugError, "Link proof signature validation failed", "link_id", fmt.Sprintf("%x", l.linkID[:8]), "signature", fmt.Sprintf("%x", signature[:8]), "signed_data", fmt.Sprintf("%x", signedData))
 		l.markInitiatorEstablishmentFailedLocked()
+		incProofFail(networkIface)
 		return errors.New("link proof signature validation failed")
 	}
 	debug.Log(debug.DebugInfo, "Link proof signature validated successfully", "link_id", fmt.Sprintf("%x", l.linkID[:8]))

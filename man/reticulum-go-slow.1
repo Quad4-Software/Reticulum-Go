@@ -26,6 +26,9 @@ over msgpack RPC and ranks congestion signals that commonly stall
 resource transfers: bitrate caps, utilization, announce and path-request
 bursts, held announces, bandwidth gates, socket RTT (Go), and high-hop
 paths.
+Against a Go daemon the report can also include local mesh health findings
+such as integrity bursts, auth pressure, link degradation, and ingress
+pressure. Counters stay on the node. This tool observes and scores only.
 .Sh OPTIONS
 .Bl -tag -width "-timeout duration"
 .It Fl config Ar dir
