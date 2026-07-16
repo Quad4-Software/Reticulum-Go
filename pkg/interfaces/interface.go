@@ -87,6 +87,10 @@ type BaseInterface struct {
 	// internal-mode next hop (default true).
 	AnnouncesFromInternal bool
 
+	// ReceiveOnly blocks transmit when true (Python outgoing = no).
+	// Zero value is false so unset interfaces still transmit.
+	ReceiveOnly bool
+
 	// Path request frequency tracking (ingress/egress burst control)
 	created            time.Time
 	ipFreqDeque        []time.Time
@@ -278,6 +282,20 @@ func (i *BaseInterface) RecursivePRsEnabled() bool {
 // may be rebroadcast (default true).
 func (i *BaseInterface) AnnouncesFromInternalFlag() bool {
 	return i.AnnouncesFromInternal
+}
+
+// AllowsOutgoing reports whether this interface may transmit (config OUT).
+func (i *BaseInterface) AllowsOutgoing() bool {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return !i.ReceiveOnly
+}
+
+// SetOutgoingAllowed sets the config-driven transmit permit.
+func (i *BaseInterface) SetOutgoingAllowed(allowed bool) {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.ReceiveOnly = !allowed
 }
 
 func (i *BaseInterface) GetMTU() int {

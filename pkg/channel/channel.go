@@ -10,8 +10,12 @@ import (
 	"time"
 
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/packet"
 	"quad4/reticulum-go/pkg/transport"
 )
+
+// ErrLinkNotReady is returned when a send is attempted on a non-ready outlet.
+var ErrLinkNotReady = errors.New("link not ready")
 
 var envelopePool = sync.Pool{
 	New: func() any {
@@ -35,8 +39,11 @@ type MessageBase interface {
 }
 
 // Channel provides reliable message delivery over a transport link.
+// Sends reserve a sequence only after a successful outlet transmit, matching
+// the Python 1.3.0 ghost-envelope fix while keeping a single-outlet model.
 type Channel struct {
 	link            transport.LinkInterface
+	sendMu          sync.Mutex
 	mutex           sync.RWMutex
 	txRing          []*Envelope
 	window          int
@@ -76,42 +83,66 @@ func NewChannel(link transport.LinkInterface) *Channel {
 	}
 }
 
-// Send transmits a message over the channel
+// outletReady reports whether the link may accept channel traffic.
+// Accepts both transport.StatusActive (wrappers and tests) and link ACTIVE
+// (0x02) used by real pkg/link sessions.
+func outletReady(status byte) bool {
+	return status == transport.StatusActive || status == 0x02
+}
+
+// packetTransmitted reports whether outlet.Send produced a usable packet.
+func packetTransmitted(pkt any) bool {
+	if pkt == nil {
+		return false
+	}
+	if p, ok := pkt.(*packet.Packet); ok {
+		return p != nil && len(p.Raw) > 0
+	}
+	return true
+}
+
+// Send transmits a message over the channel.
+// Sequence allocation and tx-ring emplace happen only after a successful
+// outlet send so a failing link cannot leave ghost envelopes or sequence holes.
 func (c *Channel) Send(msg MessageBase) error {
-	if c.link.GetStatus() != transport.StatusActive {
-		return errors.New("link not ready")
+	c.sendMu.Lock()
+	defer c.sendMu.Unlock()
+
+	if !outletReady(c.link.GetStatus()) {
+		return ErrLinkNotReady
+	}
+
+	data, err := msg.Pack()
+	if err != nil {
+		return err
+	}
+
+	c.mutex.Lock()
+	reserved := c.nextSequence
+	c.nextSequence = (reserved + 1) % SeqModulus
+	c.mutex.Unlock()
+
+	packet := c.link.Send(data)
+	if !packetTransmitted(packet) {
+		c.mutex.Lock()
+		c.nextSequence = reserved
+		c.mutex.Unlock()
+		return ErrLinkNotReady
 	}
 
 	env := envelopePool.Get().(*Envelope)
 	*env = Envelope{
+		Sequence:  reserved,
 		Message:   msg,
+		Raw:       data,
+		Packet:    packet,
+		Tries:     1,
 		Timestamp: time.Now(),
 	}
 
 	c.mutex.Lock()
-	env.Sequence = c.nextSequence
-	c.nextSequence = (c.nextSequence + 1) % SeqModulus
 	c.txRing = append(c.txRing, env)
 	c.mutex.Unlock()
-
-	data, err := msg.Pack()
-	if err != nil {
-		c.mutex.Lock()
-		for i, e := range c.txRing {
-			if e == env {
-				c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
-				break
-			}
-		}
-		c.mutex.Unlock()
-		releaseEnvelope(env)
-		return err
-	}
-
-	env.Raw = data
-	packet := c.link.Send(data)
-	env.Packet = packet
-	env.Tries++
 
 	timeout := c.getPacketTimeout(env.Tries)
 	c.link.SetPacketTimeout(packet, c.handleTimeout, timeout)
@@ -122,12 +153,15 @@ func (c *Channel) Send(msg MessageBase) error {
 
 // handleTimeout handles packet timeout events
 func (c *Channel) handleTimeout(packet any) {
+	if packet == nil {
+		return
+	}
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	for i := 0; i < len(c.txRing); i++ {
 		env := c.txRing[i]
-		if env.Packet != packet {
+		if env == nil || env.Packet == nil || env.Packet != packet {
 			continue
 		}
 		if env.Tries >= c.maxTries {
@@ -136,7 +170,7 @@ func (c *Channel) handleTimeout(packet any) {
 			return
 		}
 		env.Tries++
-		if err := c.link.Resend(packet); err != nil { // #nosec G104
+		if err := c.link.Resend(packet); err != nil {
 			debug.Log(debug.DebugInfo, "Failed to resend packet", "error", err)
 			c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
 			releaseEnvelope(env)
@@ -150,15 +184,19 @@ func (c *Channel) handleTimeout(packet any) {
 
 // handleDelivered handles packet delivery confirmations
 func (c *Channel) handleDelivered(packet any) {
+	if packet == nil {
+		return
+	}
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	for i, env := range c.txRing {
-		if env.Packet == packet {
-			c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
-			releaseEnvelope(env)
-			break
+		if env == nil || env.Packet == nil || env.Packet != packet {
+			continue
 		}
+		c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
+		releaseEnvelope(env)
+		break
 	}
 }
 
@@ -252,6 +290,20 @@ func (g *GenericMessage) Unpack(data []byte) error {
 // GetType returns the message type.
 func (g *GenericMessage) GetType() uint16 {
 	return g.Type
+}
+
+// TxRingLen returns the number of outstanding envelopes (tests and diagnostics).
+func (c *Channel) TxRingLen() int {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	return len(c.txRing)
+}
+
+// NextSequence returns the next sequence that would be assigned (tests).
+func (c *Channel) NextSequence() uint16 {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	return c.nextSequence
 }
 
 // Close releases channel resources.

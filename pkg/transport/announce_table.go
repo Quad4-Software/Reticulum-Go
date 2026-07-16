@@ -233,7 +233,7 @@ func (t *Transport) emitAnnounceTableEntry(destHashStr string, entry *PathAnnoun
 			"iface", entry.AttachedInterface.GetName())
 	}
 
-	if err := entry.AttachedInterface.Send(raw, ""); err != nil {
+	if err := sendOnInterface(entry.AttachedInterface, raw, ""); err != nil {
 		debug.Log(debug.DebugVerbose, "Failed to send path response announce",
 			"iface", entry.AttachedInterface.GetName(), "error", err)
 		return

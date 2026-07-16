@@ -47,6 +47,8 @@ type FromConfigContext struct {
 	BackboneHub           *backbone.Hub
 	SpawnBackbone         func(client *BackboneClientInterface)
 	SpawnLocal            LocalSpawnHook
+	// ConfigDir is the directory containing config and the interfaces/ plugin tree.
+	ConfigDir string
 }
 
 // I2PInterface is the parent listener for inbound I2P peers and optional SAM

@@ -140,6 +140,9 @@ func (n *Node) Start() error {
 		return fmt.Errorf("shared instance: %w", err)
 	}
 	n.sharedInstance = inst
+	if err := n.transport.InitializeNetworkIdentity(); err != nil {
+		return fmt.Errorf("network identity: %w", err)
+	}
 	if !inst.OwnsNetworkInterfaces() {
 		debug.Log(debug.DebugInfo, "Using existing local shared Reticulum instance; skipping configured network interfaces")
 		return nil
@@ -246,9 +249,14 @@ func (n *Node) fromConfigContext() *interfaces.FromConfigContext {
 	if err != nil {
 		return nil
 	}
-	storage := filepath.Join(homeDir, ".reticulum-go", "storage")
+	configDir := filepath.Join(homeDir, ".reticulum-go")
+	if n.config != nil && n.config.ConfigPath != "" {
+		configDir = filepath.Dir(n.config.ConfigPath)
+	}
+	storage := filepath.Join(configDir, "storage")
 	return &interfaces.FromConfigContext{
 		I2PStoragePath:        storage,
+		ConfigDir:             configDir,
 		TransportID:           n.transport.TransportIdentityHash(),
 		WatchInterfaces:       n.config != nil && n.config.WatchInterfaces,
 		DiscoverInterfaces:    n.config != nil && n.config.DiscoverInterfaces,

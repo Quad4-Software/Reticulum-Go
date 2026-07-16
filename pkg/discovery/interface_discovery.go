@@ -6,6 +6,7 @@ package discovery
 import (
 	"quad4/reticulum-go/pkg/announce"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/transport"
 )
 
@@ -37,6 +38,7 @@ func (d *InterfaceDiscovery) Start() {
 	d.handler = &interfaceAnnounceHandler{
 		requiredValue: d.requiredValue,
 		onDiscovered:  d.onDiscovered,
+		networkID:     func() *identity.Identity { return d.transport.NetworkIdentity() },
 	}
 	d.transport.RegisterAnnounceHandler(d.handler)
 }
@@ -53,6 +55,7 @@ func (d *InterfaceDiscovery) Stop() {
 type interfaceAnnounceHandler struct {
 	requiredValue int
 	onDiscovered  func(*ReceivedAnnounceInfo)
+	networkID     func() *identity.Identity
 }
 
 func (h *interfaceAnnounceHandler) AspectFilter() []string {
@@ -67,7 +70,11 @@ func (h *interfaceAnnounceHandler) ReceivedAnnounce(_ []byte, _ any, appData []b
 	if len(appData) == 0 {
 		return nil
 	}
-	info, err := ValidateAndDecode(appData, h.requiredValue, WorkblockExpandRounds)
+	var netID *identity.Identity
+	if h.networkID != nil {
+		netID = h.networkID()
+	}
+	info, err := ValidateAndDecodeWithIdentity(appData, h.requiredValue, WorkblockExpandRounds, netID)
 	if err != nil {
 		debug.Log(debug.DebugVerbose, "Ignored interface discovery announce", "error", err)
 		return nil

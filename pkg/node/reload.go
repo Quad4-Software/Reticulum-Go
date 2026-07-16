@@ -24,6 +24,15 @@ func sliceEqual(a, b []string) bool {
 	return true
 }
 
+func floatEqual(a, b float64) bool {
+	const eps = 1e-9
+	d := a - b
+	if d < 0 {
+		d = -d
+	}
+	return d < eps
+}
+
 func interfaceConfigsEqualForReload(a, b *common.InterfaceConfig) bool {
 	if a == nil && b == nil {
 		return true
@@ -36,12 +45,16 @@ func interfaceConfigsEqualForReload(a, b *common.InterfaceConfig) bool {
 		a.Address == b.Address &&
 		a.TargetHost == b.TargetHost &&
 		a.TargetPort == b.TargetPort &&
+		a.TargetAddress == b.TargetAddress &&
 		a.Port == b.Port &&
 		a.KISSFraming == b.KISSFraming &&
 		a.I2PTunneled == b.I2PTunneled &&
 		a.I2PConnectable == b.I2PConnectable &&
 		a.I2PSAMAddress == b.I2PSAMAddress &&
+		a.PreferIPv6 == b.PreferIPv6 &&
 		a.MaxReconnTries == b.MaxReconnTries &&
+		a.Bitrate == b.Bitrate &&
+		a.MTU == b.MTU &&
 		sliceEqual(a.I2PPeers, b.I2PPeers) &&
 		sliceEqual(a.Devices, b.Devices) &&
 		sliceEqual(a.IgnoredDevices, b.IgnoredDevices) &&
@@ -51,11 +64,30 @@ func interfaceConfigsEqualForReload(a, b *common.InterfaceConfig) bool {
 		a.DataPort == b.DataPort &&
 		a.MulticastAddrType == b.MulticastAddrType &&
 		a.Interface == b.Interface &&
+		floatEqual(a.AnnounceCap, b.AnnounceCap) &&
+		floatEqual(a.AnnounceRateTarget, b.AnnounceRateTarget) &&
+		a.AnnounceRateGrace == b.AnnounceRateGrace &&
+		floatEqual(a.AnnounceRatePenalty, b.AnnounceRatePenalty) &&
+		a.IngressControl == b.IngressControl &&
+		a.IngressControlSet == b.IngressControlSet &&
+		a.ICNewTime == b.ICNewTime &&
+		floatEqual(a.ICBurstFreqNew, b.ICBurstFreqNew) &&
+		floatEqual(a.ICBurstFreq, b.ICBurstFreq) &&
+		a.ICMaxHeldAnnounces == b.ICMaxHeldAnnounces &&
+		a.ICBurstHold == b.ICBurstHold &&
+		a.ICBurstPenalty == b.ICBurstPenalty &&
+		a.ICHeldReleaseInterval == b.ICHeldReleaseInterval &&
+		floatEqual(a.ICPRBurstFreqNew, b.ICPRBurstFreqNew) &&
+		floatEqual(a.ICPRBurstFreq, b.ICPRBurstFreq) &&
+		floatEqual(a.ECPRFreq, b.ECPRFreq) &&
+		a.EgressControl == b.EgressControl &&
+		a.EgressControlSet == b.EgressControlSet &&
 		a.NetworkName == b.NetworkName &&
 		a.Passphrase == b.Passphrase &&
 		a.IFACSize == b.IFACSize &&
 		a.IFACNetname == b.IFACNetname &&
 		a.IFACNetkey == b.IFACNetkey &&
+		a.PublishIFAC == b.PublishIFAC &&
 		a.Command == b.Command &&
 		a.RespawnDelay == b.RespawnDelay &&
 		a.SharedInstanceType == b.SharedInstanceType &&
@@ -63,7 +95,13 @@ func interfaceConfigsEqualForReload(a, b *common.InterfaceConfig) bool {
 		a.CertFile == b.CertFile &&
 		a.KeyFile == b.KeyFile &&
 		a.PeerKey == b.PeerKey &&
-		a.SNI == b.SNI
+		a.SNI == b.SNI &&
+		a.Mode == b.Mode &&
+		a.RecursivePRs == b.RecursivePRs &&
+		a.AnnouncesFromInternal == b.AnnouncesFromInternal &&
+		a.AnnouncesFromInternalSet == b.AnnouncesFromInternalSet &&
+		a.Outgoing == b.Outgoing &&
+		a.OutgoingSet == b.OutgoingSet
 }
 
 func (n *Node) tearDownInterface(iface interfaces.Interface) {

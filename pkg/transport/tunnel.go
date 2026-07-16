@@ -111,7 +111,7 @@ func (t *Transport) SynthesizeTunnel(iface TunnelInterface) error {
 	if err := pkt.Pack(); err != nil {
 		return err
 	}
-	if err := iface.Send(pkt.Raw, ""); err != nil {
+	if err := sendOnInterface(iface, pkt.Raw, ""); err != nil {
 		return err
 	}
 	iface.SetWantsTunnel(false)

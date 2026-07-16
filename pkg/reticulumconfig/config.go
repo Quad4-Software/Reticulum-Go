@@ -302,6 +302,8 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		cfg.LocalHopsDelta = parseBool(value)
 	case "respond_to_probes", "allow_probes":
 		cfg.RespondToProbes = parseBool(value)
+	case "network_identity":
+		cfg.NetworkIdentityPath = strings.TrimSpace(value)
 	}
 }
 
@@ -435,6 +437,9 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 	case "announces_from_internal":
 		iface.AnnouncesFromInternal = parseBool(value)
 		iface.AnnouncesFromInternalSet = true
+	case "outgoing", "selected_outgoing":
+		iface.Outgoing = parseBool(value)
+		iface.OutgoingSet = true
 	}
 }
 

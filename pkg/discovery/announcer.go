@@ -6,6 +6,8 @@ package discovery
 import (
 	"errors"
 	"fmt"
+
+	"quad4/reticulum-go/pkg/identity"
 )
 
 // BuildAppData composes the full app_data payload that should be carried in
@@ -29,6 +31,33 @@ func BuildAppData(info Info, stampCost int, expandRounds int) ([]byte, error) {
 	return EncodeAppData(0x00, packed, stamp)
 }
 
+// BuildEncryptedAppData builds discovery app_data encrypted with networkID.
+// Wire layout matches Python: flags || encrypt(packed||stamp).
+func BuildEncryptedAppData(info Info, stampCost int, expandRounds int, networkID *identity.Identity) ([]byte, error) {
+	if networkID == nil {
+		return nil, errors.New("discovery: network identity required for encrypted announce")
+	}
+	packed, err := EncodeInfo(info)
+	if err != nil {
+		return nil, err
+	}
+	stamp, _, err := GenerateStamp(InfoHash(packed), stampCost, expandRounds)
+	if err != nil {
+		return nil, err
+	}
+	plain := make([]byte, 0, len(packed)+len(stamp))
+	plain = append(plain, packed...)
+	plain = append(plain, stamp...)
+	cipher, err := networkID.Encrypt(plain, nil)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]byte, 0, 1+len(cipher))
+	out = append(out, FlagEncrypted)
+	out = append(out, cipher...)
+	return out, nil
+}
+
 // ReceivedAnnounceInfo is the value yielded by an InterfaceAnnounceHandler
 // after successful validation, matching the dict produced by
 // InterfaceAnnounceHandler.received_announce.
@@ -42,19 +71,43 @@ type ReceivedAnnounceInfo struct {
 }
 
 // ValidateAndDecode parses an inbound discovery announce app_data buffer.
-// It returns the decoded Info and stamp value, validating that the stamp
-// meets requiredValue. The encrypted flag must be cleared by the caller
-// before this function is invoked when FlagEncrypted is set. Pass the
-
-// already-decrypted payload in that case.
+// Encrypted announces require ValidateAndDecodeWithIdentity.
 func ValidateAndDecode(appData []byte, requiredValue int, expandRounds int) (*ReceivedAnnounceInfo, error) {
-	flags, packed, stamp, err := DecodeAppData(appData)
-	if err != nil {
-		return nil, err
+	return ValidateAndDecodeWithIdentity(appData, requiredValue, expandRounds, nil)
+}
+
+// ValidateAndDecodeWithIdentity decrypts FlagEncrypted announces with
+// networkID before stamp validation.
+func ValidateAndDecodeWithIdentity(appData []byte, requiredValue int, expandRounds int, networkID *identity.Identity) (*ReceivedAnnounceInfo, error) {
+	if len(appData) <= 1+StampSize {
+		return nil, fmt.Errorf("discovery: app_data too short (%d bytes)", len(appData))
 	}
+	flags := appData[0]
+	rest := appData[1:]
+
+	var packed, stamp []byte
 	if flags&FlagEncrypted != 0 {
-		return nil, errors.New("discovery: encrypted announce; decrypt before calling ValidateAndDecode")
+		if networkID == nil {
+			return nil, errors.New("discovery: encrypted announce requires network identity")
+		}
+		plain, err := networkID.Decrypt(rest, nil, false, nil)
+		if err != nil {
+			return nil, fmt.Errorf("discovery: decrypt announce: %w", err)
+		}
+		if len(plain) < StampSize {
+			return nil, errors.New("discovery: decrypted announce too short")
+		}
+		stamp = plain[len(plain)-StampSize:]
+		packed = plain[:len(plain)-StampSize]
+		flags &^= FlagEncrypted
+	} else {
+		var err error
+		flags, packed, stamp, err = DecodeAppData(appData)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	infoHash := InfoHash(packed)
 	wb, err := StampWorkblock(infoHash, expandRounds)
 	if err != nil {

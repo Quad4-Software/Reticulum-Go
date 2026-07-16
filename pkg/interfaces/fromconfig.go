@@ -144,7 +144,7 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 	case "LocalInterface", "LocalServerInterface":
 		iface, err = NewLocalFromConfig(name, cfg, ctx)
 	default:
-		return nil, fmt.Errorf("unsupported interface type %q", cfg.Type)
+		iface, err = loadExternalInterface(name, cfg, ctx)
 	}
 	if err != nil {
 		return nil, err
@@ -154,6 +154,7 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 		return nil, fmt.Errorf("interface %q does not implement common.NetworkInterface", name)
 	}
 	applyModeFromConfig(iface, cfg)
+	applyOutgoingFromConfig(iface, cfg)
 	if err := ApplyIFACFromConfig(ni, cfg); err != nil {
 		return nil, err
 	}
@@ -171,6 +172,20 @@ func applyModeFromConfig(iface Interface, cfg *common.InterfaceConfig) {
 		base.Mode = mode
 		base.RecursivePRs = cfg.RecursivePRs
 		base.AnnouncesFromInternal = afi
+	}
+}
+
+// applyOutgoingFromConfig sets the transmit permit from outgoing / selected_outgoing.
+func applyOutgoingFromConfig(iface Interface, cfg *common.InterfaceConfig) {
+	if cfg == nil || iface == nil {
+		return
+	}
+	allowed := true
+	if cfg.OutgoingSet {
+		allowed = cfg.Outgoing
+	}
+	if base := baseInterfaceOf(iface); base != nil {
+		base.ReceiveOnly = !allowed
 	}
 }
 

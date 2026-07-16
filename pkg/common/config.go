@@ -95,6 +95,11 @@ type InterfaceConfig struct {
 	// internal-mode next hop are rebroadcast. Default true when unset.
 	AnnouncesFromInternal    bool
 	AnnouncesFromInternalSet bool
+
+	// Outgoing allows the interface to transmit. Default true when unset.
+	// When false the interface is receive-only (Python OUT = False).
+	Outgoing    bool
+	OutgoingSet bool
 }
 
 // SharedInstanceType values for [reticulum] shared_instance_type.
@@ -160,6 +165,10 @@ type ReticulumConfig struct {
 	// RespondToProbes registers a transport probe destination that proves
 	// all inbound data packets (rnprobe / reticulum-go probe).
 	RespondToProbes bool
+
+	// NetworkIdentityPath is the path to the network identity file used to
+	// sign and encrypt interface discovery announces (Python network_identity).
+	NetworkIdentityPath string
 
 	// LogDestination is stderr, file, or both (see pkg/debug and reticulumconfig).
 	LogDestination string

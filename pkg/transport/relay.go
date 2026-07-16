@@ -249,7 +249,7 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 		"out_iface", path.Interface.GetName(),
 		"hops_remaining", path.HopCount,
 		"new_hops", newHops)
-	if sendErr := path.Interface.Send(out, ""); sendErr != nil {
+	if sendErr := sendOnInterface(path.Interface, out, ""); sendErr != nil {
 		debug.Log(debug.DebugError, "Failed to relay transport packet",
 			"error", sendErr,
 			"out_iface", path.Interface.GetName())
@@ -360,7 +360,7 @@ func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterf
 		"link_id", fmt.Sprintf("%x", linkID),
 		"out_iface", outIface.GetName(),
 		"hops", accounted)
-	if err := outIface.Send(out, ""); err != nil {
+	if err := sendOnInterface(outIface, out, ""); err != nil {
 		debug.Log(debug.DebugError, "Failed to relay link data packet",
 			"error", err,
 			"out_iface", outIface.GetName())
@@ -441,7 +441,7 @@ func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, s
 		"out_iface", path.Interface.GetName(),
 		"hops", newHops,
 		"from_local_client", fromLocal)
-	if err := path.Interface.Send(out, ""); err != nil {
+	if err := sendOnInterface(path.Interface, out, ""); err != nil {
 		debug.Log(debug.DebugError, "Failed to relay bridged link request", "error", err)
 	}
 	return true

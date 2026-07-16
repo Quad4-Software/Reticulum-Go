@@ -109,7 +109,7 @@ func (t *Transport) sendPacketProof(pkt *packet.Packet, id interface {
 	}
 
 	if iface != nil {
-		return iface.Send(raw, "")
+		return sendOnInterface(iface, raw, "")
 	}
 	return t.SendPacket(proofPkt)
 }

@@ -103,6 +103,9 @@ type Transport struct {
 	// rpcIdentity is the persisted transport identity used for shared-instance
 	// RPC auth when an ephemeral wire identity is active.
 	rpcIdentity          *identity.Identity
+	networkIdentity      *identity.Identity
+	networkDestination   *destination.Destination
+	networkInstanceDest  *destination.Destination
 	pathRequestDest      any
 	blackholeTable       *blackhole.Table
 	localHopsDelta       int
@@ -974,7 +977,7 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 		if !iface.IsEnabled() {
 			return fmt.Errorf("interface offline or disabled: %s", onInterface)
 		}
-		if err := iface.Send(pkt.Raw, ""); err != nil {
+		if err := sendOnInterface(iface, pkt.Raw, ""); err != nil {
 			return err
 		}
 		iface.SentPathRequest()
@@ -985,7 +988,10 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 		if !e.iface.IsEnabled() {
 			continue
 		}
-		if err := e.iface.Send(pkt.Raw, ""); err != nil {
+		if err := sendOnInterface(e.iface, pkt.Raw, ""); err != nil {
+			if errors.Is(err, ErrInterfaceReceiveOnly) {
+				continue
+			}
 			debug.Log(debug.DebugError, "Failed to send path request on interface", "interface", e.iface.GetName(), "error", err)
 		} else {
 			e.iface.SentPathRequest()
@@ -1099,7 +1105,7 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 			if !t.shouldForwardAnnounceOn(destHashCopy, iface, sourceIface) {
 				continue
 			}
-			_ = iface.Send(fwd, "")
+			_ = sendOnInterface(iface, fwd, "")
 		}
 	})
 
@@ -1163,7 +1169,7 @@ func (p *LinkPacket) send() error {
 		return errors.New("interface not found")
 	}
 
-	return iface.Send(packet, "")
+	return sendOnInterface(iface, packet, "")
 }
 
 func (t *Transport) sendPathRequest(req *PathRequest, interfaceName string) error {
@@ -1196,7 +1202,7 @@ func (t *Transport) sendPathRequest(req *PathRequest, interfaceName string) erro
 		return errors.New("interface not found")
 	}
 
-	return iface.Send(buf, "")
+	return sendOnInterface(iface, buf, "")
 }
 
 type PathRequestPacket struct {
@@ -1234,7 +1240,10 @@ func SendAnnounce(packet []byte) error {
 		if len(destHash) > 0 && !t.shouldForwardAnnounceOn(destHash, e.iface, nil) {
 			continue
 		}
-		if err := e.iface.Send(packet, ""); err != nil {
+		if err := sendOnInterface(e.iface, packet, ""); err != nil {
+			if errors.Is(err, ErrInterfaceReceiveOnly) {
+				continue
+			}
 			lastErr = err
 		}
 	}
@@ -1687,7 +1696,7 @@ func (t *Transport) forwardAnnouncePacket(data []byte, destKey string, destinati
 		}
 
 		debug.Log(debug.DebugAll, "Forwarding announce on interface", "name", name)
-		if err := outIface.Send(data, ""); err != nil {
+		if err := sendOnInterface(outIface, data, ""); err != nil {
 			debug.Log(debug.DebugAll, "Failed to forward announce", "name", name, "error", err)
 			lastErr = err
 		} else if sa, ok := outIface.(interface{ SentAnnounce() }); ok {
@@ -2167,7 +2176,7 @@ func (t *Transport) SendPacket(p *packet.Packet) error {
 		debug.Log(debug.DebugTrace, "Using path", "interface", path.Interface.GetName(), "nextHop", fmt.Sprintf("%x", path.NextHop), "hops", path.HopCount)
 	}
 
-	if err := path.Interface.Send(data, ""); err != nil {
+	if err := sendOnInterface(path.Interface, data, ""); err != nil {
 		debug.Log(debug.DebugInfo, "Failed to send packet", "error", err)
 		return fmt.Errorf("failed to send packet: %w", err)
 	}
