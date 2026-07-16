@@ -332,7 +332,42 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 	case "address", "listen_ip":
 		iface.Address = value
 	case "port", "listen_port":
-		setInt(value, &iface.Port)
+		// Serial uses a device path in port=. Numeric values stay listen ports.
+		if isNonNumericPort(value) {
+			iface.Device = value
+		} else {
+			setInt(value, &iface.Port)
+		}
+	case "device":
+		iface.Device = value
+	case "speed", "baud":
+		setInt(value, &iface.Speed)
+	case "databits":
+		setInt(value, &iface.DataBits)
+	case "parity":
+		iface.Parity = value
+	case "stopbits":
+		setInt(value, &iface.StopBits)
+	case "rtscts":
+		iface.RTSCTS = parseBool(value)
+	case "dsrdtr":
+		iface.DSRDTR = parseBool(value)
+	case "xonxoff":
+		iface.XONXOFF = parseBool(value)
+	case "frame_idle_ms":
+		setInt(value, &iface.SerialFrameIdleMs)
+	case "path":
+		iface.Path = value
+	case "transport_mode":
+		iface.TransportMode = value
+	case "domain":
+		iface.Domain = value
+	case "resolve_interval":
+		setInt(value, &iface.ResolveIntervalSec)
+	case "context_id", "cid":
+		setInt(value, &iface.ContextID)
+	case "long_poll_sec":
+		setInt(value, &iface.LongPollSec)
 	case "target_host":
 		iface.TargetHost = value
 	case "remote":
@@ -448,6 +483,15 @@ func setInt(value string, dst *int) {
 	if v, err := strconv.Atoi(strings.TrimSpace(value)); err == nil {
 		*dst = v
 	}
+}
+
+func isNonNumericPort(value string) bool {
+	s := strings.TrimSpace(value)
+	if s == "" {
+		return false
+	}
+	_, err := strconv.Atoi(s)
+	return err != nil
 }
 
 // setInt64 mirrors setInt for int64 fields.
@@ -675,6 +719,24 @@ func writeInterface(b *strings.Builder, name string, iface *common.InterfaceConf
 	}
 	if iface.SNI != "" {
 		fmt.Fprintf(b, "    sni = %s\n", iface.SNI)
+	}
+	if iface.Path != "" {
+		fmt.Fprintf(b, "    path = %s\n", iface.Path)
+	}
+	if iface.TransportMode != "" {
+		fmt.Fprintf(b, "    transport_mode = %s\n", iface.TransportMode)
+	}
+	if iface.Domain != "" {
+		fmt.Fprintf(b, "    domain = %s\n", iface.Domain)
+	}
+	if iface.ResolveIntervalSec != 0 {
+		fmt.Fprintf(b, "    resolve_interval = %d\n", iface.ResolveIntervalSec)
+	}
+	if iface.ContextID != 0 {
+		fmt.Fprintf(b, "    context_id = %d\n", iface.ContextID)
+	}
+	if iface.LongPollSec != 0 {
+		fmt.Fprintf(b, "    long_poll_sec = %d\n", iface.LongPollSec)
 	}
 	b.WriteString("\n")
 }

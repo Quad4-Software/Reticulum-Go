@@ -16,6 +16,10 @@ const (
 	IFTypeBackbone
 	IFTypePipe
 	IFTypeQUIC
+	IFTypeWebTransport
+	IFTypeDNSRendezvous
+	IFTypeVSOCK
+	IFTypeHTTPS
 )
 
 // Interface operational modes (wire values).

@@ -142,6 +142,121 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 		delay := time.Duration(cfg.RespawnDelay) * time.Second
 		panicOnErr := ctx != nil && ctx.PanicOnInterfaceError
 		iface, err = NewPipeInterface(name, cfg.Command, cfg.Enabled, delay, panicOnErr)
+	case "SerialInterface":
+		frameIdle := time.Duration(cfg.SerialFrameIdleMs) * time.Millisecond
+		device := cfg.Device
+		if device == "" {
+			device = cfg.Address
+		}
+		iface, err = NewSerialInterface(name, cfg.Enabled, SerialOptions{
+			Device:            device,
+			Speed:             cfg.Speed,
+			DataBits:          cfg.DataBits,
+			Parity:            cfg.Parity,
+			StopBits:          cfg.StopBits,
+			RTSCTS:            cfg.RTSCTS,
+			DSRDTR:            cfg.DSRDTR,
+			XONXOFF:           cfg.XONXOFF,
+			FrameIdle:         frameIdle,
+			MaxReconnectTries: cfg.MaxReconnTries,
+			MTU:               cfg.MTU,
+			Bitrate:           cfg.Bitrate,
+		})
+	case "WebTransportClientInterface":
+		iface, err = NewWebTransportClientInterfaceWithRetries(
+			name,
+			cfg.TargetHost,
+			cfg.TargetPort,
+			cfg.Path,
+			cfg.Enabled,
+			cfg.MaxReconnTries,
+			WebTransportClientOptions{
+				CertFile:      cfg.CertFile,
+				KeyFile:       cfg.KeyFile,
+				PeerKey:       cfg.PeerKey,
+				SNI:           cfg.SNI,
+				TransportMode: cfg.TransportMode,
+			},
+		)
+	case "WebTransportServerInterface":
+		iface, err = NewWebTransportServerInterface(
+			name,
+			cfg.Address,
+			cfg.Port,
+			cfg.Path,
+			WebTransportServerOptions{
+				CertFile:      cfg.CertFile,
+				KeyFile:       cfg.KeyFile,
+				PeerKey:       cfg.PeerKey,
+				TransportMode: cfg.TransportMode,
+			},
+		)
+	case "DNSRendezvousInterface":
+		interval := time.Duration(cfg.ResolveIntervalSec) * time.Second
+		listen := cfg.Address
+		if cfg.Port != 0 {
+			host := cfg.Address
+			if host == "" {
+				host = "0.0.0.0"
+			}
+			if !strings.Contains(host, ":") {
+				listen = net.JoinHostPort(host, strconv.Itoa(cfg.Port))
+			}
+		}
+		iface, err = NewDNSRendezvousInterface(name, cfg.Enabled, DNSRendezvousOptions{
+			Domain:          cfg.Domain,
+			ListenAddr:      listen,
+			ResolveInterval: interval,
+		})
+	case "VSOCKClientInterface":
+		cid := uint32(1)
+		if cfg.ContextID != 0 {
+			parsed, perr := ParseVSOCKContextID(cfg.ContextID)
+			if perr != nil {
+				return nil, perr
+			}
+			cid = parsed
+		}
+		iface, err = NewVSOCKClientInterfaceWithRetries(
+			name,
+			cid,
+			uint32(cfg.Port), // #nosec G115
+			cfg.Enabled,
+			cfg.MaxReconnTries,
+		)
+	case "VSOCKServerInterface":
+		iface, err = NewVSOCKServerInterface(name, uint32(cfg.Port)) // #nosec G115
+	case "HTTPSClientInterface":
+		lp := time.Duration(cfg.LongPollSec) * time.Second
+		iface, err = NewHTTPSClientInterfaceWithRetries(
+			name,
+			cfg.TargetHost,
+			cfg.TargetPort,
+			cfg.Enabled,
+			cfg.MaxReconnTries,
+			HTTPSClientOptions{
+				CertFile: cfg.CertFile,
+				KeyFile:  cfg.KeyFile,
+				PeerKey:  cfg.PeerKey,
+				SNI:      cfg.SNI,
+				Path:     cfg.Path,
+				LongPoll: lp,
+			},
+		)
+	case "HTTPSServerInterface":
+		lp := time.Duration(cfg.LongPollSec) * time.Second
+		iface, err = NewHTTPSServerInterface(
+			name,
+			cfg.Address,
+			cfg.Port,
+			HTTPSServerOptions{
+				CertFile: cfg.CertFile,
+				KeyFile:  cfg.KeyFile,
+				PeerKey:  cfg.PeerKey,
+				Path:     cfg.Path,
+				LongPoll: lp,
+			},
+		)
 	case "LocalInterface", "LocalServerInterface":
 		iface, err = NewLocalFromConfig(name, cfg, ctx)
 	default:
@@ -232,6 +347,22 @@ func baseInterfaceOf(iface Interface) *BaseInterface {
 	case *QUICClientInterface:
 		return &v.BaseInterface
 	case *QUICServerInterface:
+		return &v.BaseInterface
+	case *SerialInterface:
+		return &v.BaseInterface
+	case *WebTransportClientInterface:
+		return &v.BaseInterface
+	case *WebTransportServerInterface:
+		return &v.BaseInterface
+	case *DNSRendezvousInterface:
+		return &v.BaseInterface
+	case *VSOCKClientInterface:
+		return &v.BaseInterface
+	case *VSOCKServerInterface:
+		return &v.BaseInterface
+	case *HTTPSClientInterface:
+		return &v.BaseInterface
+	case *HTTPSServerInterface:
 		return &v.BaseInterface
 	default:
 		return nil

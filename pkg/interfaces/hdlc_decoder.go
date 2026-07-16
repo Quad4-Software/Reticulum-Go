@@ -50,6 +50,20 @@ func (d *hdlcStreamDecoder) feed(buf []byte) {
 	}
 }
 
+// dropPartial clears an incomplete frame. Used when a serial inter-byte idle
+// timeout expires so noise does not stick forever in the assembler.
+func (d *hdlcStreamDecoder) dropPartial() bool {
+	if !d.inFrame && len(d.data) == 0 && !d.escape {
+		return false
+	}
+	had := d.inFrame || len(d.data) > 0 || d.escape
+	d.reset()
+	if !d.toggle {
+		d.inFrame = false
+	}
+	return had
+}
+
 func (d *hdlcStreamDecoder) feedByte(b byte) {
 	if b == HDLCFlag {
 		if d.inFrame && len(d.data) > 0 {

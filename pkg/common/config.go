@@ -73,15 +73,45 @@ type InterfaceConfig struct {
 	Command      string
 	RespawnDelay int
 
+	// SerialInterface device settings. Device holds the TTY path. Python uses
+	// port=/dev/ttyUSB0 which Go also accepts when port is non-numeric.
+	Device            string
+	Speed             int
+	DataBits          int
+	Parity            string
+	StopBits          int
+	RTSCTS            bool
+	DSRDTR            bool
+	XONXOFF           bool
+	SerialFrameIdleMs int
+
 	// LocalInterface unix socket settings (interface block).
 	SharedInstanceType string
 	InstanceName       string
 
-	// QUIC TLS settings (Go-only QUICClientInterface / QUICServerInterface).
+	// QUIC / WebTransport TLS settings.
 	CertFile string
 	KeyFile  string
 	PeerKey  string
 	SNI      string
+
+	// Path is the WebTransport URL path (default /rns).
+	Path string
+
+	// TransportMode selects WebTransport datagram, stream, or dual carriage.
+	TransportMode string
+
+	// Domain is the DNS name for DNSRendezvousInterface TXT lookups.
+	Domain string
+
+	// ResolveIntervalSec is how often DNSRendezvous re-queries (default 60).
+	ResolveIntervalSec int
+
+	// ContextID is the AF_VSOCK peer context ID (CID). 1 is local/host on Linux.
+	ContextID int
+
+	// LongPollSec is HTTPS long-poll timeout seconds (default 25).
+	LongPollSec int
 
 	// Mode is the interface operational mode (full, gateway, internal, ...).
 	// Empty means full.
