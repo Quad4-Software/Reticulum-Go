@@ -9,7 +9,7 @@
 
 .PHONY: all build build-utils install uninstall clean test fmt vet lint vulncheck gosec check deps run help
 .PHONY: build-linux build-windows build-windows-legacy build-darwin build-all
-.PHONY: test-short test-race test-crossref test-wasm test-odin test-all coverage bench debug release
+.PHONY: test-short test-race test-crossref test-wasm test-odin test-dart test-all coverage bench debug release
 .PHONY: man install-man install-service package package-deb package-rpm package-arch
 .PHONY: test-services tree-manifest tree-rsm-sign tree-rsm-verify hooks-install
 .PHONY: build-librns
@@ -62,6 +62,7 @@ help:
 	@echo "  package-arch   Build .pkg.tar.zst into dist/ (nfpm)"
 	@echo "  test           Run tests"
 	@echo "  test-odin      Build librns and run Odin bindings tests"
+	@echo "  test-dart      Run Dart Control API client tests"
 	@echo "  test-services  Docker tests for systemd/openrc/runit/dinit + logfile"
 	@echo "  check          fmt vet lint test-short vulncheck gosec"
 	@echo "  tree-rsm-verify  Verify reticulum-go.rsm signature and hashes"
@@ -131,6 +132,7 @@ clean:
 	$(GOCMD) clean
 	rm -rf $(BUILD_DIR) dist
 	$(MAKE) -C bindings/odin clean
+	$(MAKE) -C bindings/dart clean
 
 deps:
 	sh scripts/vendor-sync.sh "$(LIBS_ROOT)"
@@ -159,7 +161,10 @@ build-librns:
 test-odin: build-librns
 	$(MAKE) -C bindings/odin test
 
-test-all: test test-wasm test-crossref test-odin
+test-dart:
+	$(MAKE) -C bindings/dart test
+
+test-all: test test-wasm test-crossref test-odin test-dart
 
 test-services:
 	sh scripts/ci/test-services-docker.sh

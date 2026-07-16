@@ -3,8 +3,9 @@
 ## Unreleased
 
 - Odin bindings for librns under `bindings/odin` with Task, Makefile, and CI coverage
+- Dart Control API client under `bindings/dart` (`rns_control`) for Flutter and Dart apps
 - Align `RNS_API_VERSION` in `include/rns.h` with librns `1.1`
-- Document Odin bindings across README feature list, embedding paths, and compatibility tables
+- Document Odin and Dart bindings across README feature list, embedding paths, and compatibility tables
 
 ## v1.0.0
 
@@ -19,6 +20,7 @@ Wire compatible with Python RNS 1.3.8 for the software transport stack.
 - Daemon utilities: status id probe path cp x pageserver
 - librns C ABI node lifecycle control API sandbox
 - Odin librns bindings (`bindings/odin`)
+- Dart Control API client (`bindings/dart`)
 - Network identity outgoing flags Go interface plugins
 - Split resource advertisements for large transfers
 - Logging to stderr file syslog and journald

@@ -207,7 +207,7 @@ See [Cryptography](cryptography.md) and [Security](security.md).
 | Hardware signing | `identity.NewIdentityWithSigner` with `cryptography.Ed25519Signer` |
 | Embedder lifecycle | `node.Node` hooks and control API lifecycle routes |
 | New interface types | Implement `interfaces.Interface`, register in `fromconfig.go` |
-| Non-Go clients | Control API (out-of-process), librns (in-process C ABI), or `bindings/odin` |
+| Non-Go clients | Control API (out-of-process), librns (in-process C ABI), `bindings/odin`, or `bindings/dart` (FFI and Control API) |
 
 Adding a new interface type or changing on-wire layouts requires coordinated updates across implementations and crossref vectors.
 

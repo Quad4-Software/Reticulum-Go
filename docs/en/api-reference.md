@@ -48,6 +48,9 @@ Need Reticulum in my app
 | Daemon + JSON | [Control API](control-api.md) | Python, Rust, scripts, multi-language hosts |
 | In-process C | [librns](librns.md) | Native hosts that cannot embed Go source |
 | In-process Odin | [librns](librns.md#odin-bindings) | `bindings/odin` over `librns.so` |
+| Out-of-process Dart / Flutter | [Control API](control-api.md#dart-and-flutter) | `bindings/dart` (`rns_control`) |
+| In-process Dart / Flutter FFI | [librns Dart FFI](librns.md#dart-ffi-bindings) | `bindings/dart` (`ffi.dart`), Linux / Android / Windows |
+| Out-of-process any language | [Control API](control-api.md) | HTTP and WebSocket |
 | Browser | `pkg/wasm` | WebSocket gateway clients |
 
 Most of this page describes the **`pkg/node` happy path**. Other paths expose the same concepts with different bindings.
@@ -398,6 +401,7 @@ Python RNS is largely single-threaded asyncio. Go is multi-threaded by default. 
 | Localhost JSON and WebSocket | [Control API](control-api.md) |
 | C ABI (`include/rns.h`) | [librns](librns.md) |
 | Odin bindings (`bindings/odin`) | [librns](librns.md#odin-bindings) |
+| Dart FFI and Control API (`bindings/dart`) | [librns](librns.md#dart-ffi-bindings), [Control API](control-api.md#dart-and-flutter) |
 | Browser JS bridge | [Embedding and WebAssembly](embedding-and-wasm.md) |
 | CLI tools | [CLI utilities](utilities.md) |
 | Crypto details | [Cryptography](cryptography.md) |

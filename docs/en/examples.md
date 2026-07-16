@@ -21,6 +21,7 @@ Pair this page with the [API reference](api-reference.md).
 | Python talking to the daemon | `examples/control-client` |
 | C / FFI smoke test | `examples/librns-smoke` |
 | Odin librns bindings | `bindings/odin` |
+| Dart librns FFI and Control API | `bindings/dart` |
 | Operator CLIs | `reticulum-go status \| id \| probe \| path \| cp` then [CLI Utilities](utilities.md) |
 
 ## minimal
@@ -160,6 +161,26 @@ import rns "rns:rns"
 ```
 
 Wrapped surface includes node lifecycle, identity, destination, path table, link send and request, and event poll. See [librns](librns.md#odin-bindings).
+
+## Dart bindings
+
+Path: `bindings/dart/`
+
+Package `rns_control` includes librns FFI (`ffi.dart`) and a Control API client.
+
+```bash
+task build-librns
+task test-dart
+task build-librns-targets -- linux android windows
+```
+
+```yaml
+dependencies:
+  rns_control:
+    path: /path/to/Reticulum-Go/bindings/dart
+```
+
+See [librns Dart FFI](librns.md#dart-ffi-bindings) and [Control API](control-api.md#dart-and-flutter).
 
 ## Module Layout
 

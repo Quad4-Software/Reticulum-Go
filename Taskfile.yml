@@ -53,7 +53,7 @@ tasks:
     desc: Check if code is formatted (useful for CI)
     cmds:
       - |
-        UNFORMATTED=$(gofmt -l $(git ls-files '*.go'))
+        UNFORMATTED=$(gofmt -l $(git ls-files '*.go' ':!:vendor/**' ':!:**/vendor/**'))
         if [ -n "$UNFORMATTED" ]; then
           echo "Code is not formatted. Run 'task fmt' to fix."
           echo "$UNFORMATTED"
@@ -134,6 +134,7 @@ tasks:
       - '{{.GOCMD}} clean'
       - rm -rf {{.BUILD_DIR}}
       - make -C bindings/odin clean
+      - make -C bindings/dart clean
 
   reproducibility:
     desc: Fail if two consecutive release builds (trimpath, no VCS stamp) are not byte-identical

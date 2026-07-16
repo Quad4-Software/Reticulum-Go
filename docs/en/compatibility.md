@@ -28,6 +28,8 @@ The detailed matrix with config key tables lives in [COMPATIBILITY.md](../../COM
 | Node lifecycle | Go-only | `pkg/node` embedder API, no Python equivalent |
 | librns C ABI | Go-only | `pkg/librns`, `include/rns.h`. See [librns](librns.md) |
 | Odin librns bindings | Go-only host | `bindings/odin` (Linux). See [librns](librns.md#odin-bindings) |
+| Dart librns FFI | Go-only host | `bindings/dart`. Linux, Android, Windows. See [librns](librns.md#dart-ffi-bindings) |
+| Dart Control API client | Go-only host | `bindings/dart`. See [Control API](control-api.md#dart-and-flutter) |
 
 ## Interfaces
 
@@ -100,6 +102,8 @@ These do not change the wire format:
 | Control API | `pkg/controlapi` |
 | librns C ABI | `pkg/librns`, `include/rns.h` ([librns](librns.md)) |
 | Odin librns bindings | `bindings/odin` ([librns](librns.md#odin-bindings)) |
+| Dart librns FFI | `bindings/dart` ([librns](librns.md#dart-ffi-bindings)) |
+| Dart Control API client | `bindings/dart` ([Control API](control-api.md#dart-and-flutter)) |
 | Runtime sandbox | `pkg/sandbox` |
 | RAM-only path tables | `in_memory_path_table`, `in_memory_known_destinations` |
 
@@ -128,6 +132,7 @@ These do not change the wire format:
 | WASM | `reticulum-wasm` (Go-only) |
 | librns | `librns.so` + `rns.h` (Go-only, Linux first) |
 | Odin bindings | `bindings/odin` (links `librns.so`, [librns](librns.md#odin-bindings)) |
+| Dart client | `bindings/dart` (`rns_control` FFI and Control API) |
 
 Setup for Go tools against Python `rnsd` (TCP shared-instance RPC, `rpc_key`, `-config`) is documented in [CLI utilities](utilities.md).
 

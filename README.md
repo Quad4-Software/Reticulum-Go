@@ -44,6 +44,8 @@ For details on interoperability, see [COMPATIBILITY.md](COMPATIBILITY.md). You c
 | **Runtime Sandbox** | Yes | Automated OS-level sandboxing enabled by default. See [SECURITY.md](SECURITY.md#runtime-sandbox). |
 | **librns C ABI** | Yes | Linux shared library for embedded applications. See [docs/en/librns.md](docs/en/librns.md). |
 | **Odin librns bindings** | Yes | Idiomatic Odin package over `librns.so` (`bindings/odin`). Linux. See [docs/en/librns.md](docs/en/librns.md#odin-bindings). |
+| **Dart librns FFI** | Yes | In-process `dart:ffi` over `librns` on Linux, Android, and Windows (`bindings/dart`, `package:rns_control/ffi.dart`). See [docs/en/librns.md](docs/en/librns.md#dart-ffi-bindings). |
+| **Dart Control API client** | Yes | Flutter-ready Dart package over the Control API (`bindings/dart`). See [docs/en/control-api.md](docs/en/control-api.md#dart-and-flutter). |
 | **Control API** | Yes | Localhost JSON and WebSocket APIs for out-of-process clients. See [docs/en/control-api.md](docs/en/control-api.md). |
 | **CLI Utilities** | Yes | Native subcommands of `reticulum-go`. Installs symlinks to match legacy `rgo*` tool names. See [docs/en/utilities.md](docs/en/utilities.md). |
 | **Supply Chain Security** | Yes | Protected by fully vendored dependencies, cosign release attestations, and automated CI security scans. See [SECURITY.md](SECURITY.md). |
@@ -72,6 +74,7 @@ Refer to [SECURITY.md](SECURITY.md#runtime-sandbox) for details and specific pla
 
 *   Go version 1.26.5 or later
 *   Optional for Odin bindings: Odin compiler on `PATH` (CI pins `dev-2026-06`), plus CGO to build `librns.so`
+*   Optional for Dart / Flutter bindings: Dart SDK on `PATH` (CI pins `3.11.4`). FFI tests also need CGO to build `librns.so`
 
 ## Quick Start
 
@@ -336,6 +339,22 @@ task test-odin
 ```
 
 Covers node lifecycle, identity, destinations, paths, links, and events. Details: [docs/en/librns.md](docs/en/librns.md#odin-bindings).
+
+### Dart / Flutter Bindings
+
+Package `rns_control` in `bindings/dart` provides:
+
+- In-process librns FFI (`package:rns_control/ffi.dart`) on Linux, Android, and Windows
+- Control API HTTP and WebSocket client for a running daemon
+
+```bash
+task build-librns
+task test-dart
+# cross-build native libraries
+task build-librns-targets -- linux android windows
+```
+
+Details: [docs/en/librns.md](docs/en/librns.md#dart-ffi-bindings) and [docs/en/control-api.md](docs/en/control-api.md#dart-and-flutter).
 
 If you are compiling for TinyGo and small microcontroller boards, check out our `tinygo` branch. This requires TinyGo version 0.41.0 or newer.
 

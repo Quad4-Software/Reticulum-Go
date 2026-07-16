@@ -154,3 +154,41 @@ Daemon wiring: `cmd/reticulum-go/main.go` starts `controlapi.Server` when enable
 - [librns](librns.md) for in-process C ABI
 - [librns](librns.md#odin-bindings) for in-process Odin bindings
 - [Examples](examples.md)
+
+## Dart and Flutter
+
+Path: `bindings/dart/` (package `rns_control`).
+
+### Control API client
+
+HTTP and WebSocket client for a local or LAN `reticulum-go` daemon. Import `package:rns_control/rns_control.dart`.
+
+```dart
+import 'package:rns_control/rns_control.dart';
+
+final client = ControlClient(rpcKey: rpcKey);
+final session = await client.createSession();
+final events = client.openEvents(session.sessionId);
+events.subscribeAnnounces();
+```
+
+Coverage includes health, status, paths, sessions, destinations, announce, request handlers, lifecycle, and WebSocket commands or events. Authenticated WebSocket upgrades require `dart:io` (Flutter mobile or desktop). Browser clients cannot set the Authorization header on WebSocket.
+
+### In-process FFI
+
+For embedding without a daemon, use `package:rns_control/ffi.dart` over `librns` on Linux, Android, and Windows. See [librns Dart FFI](librns.md#dart-ffi-bindings).
+
+```bash
+task build-librns
+task test-dart
+# or
+make -C bindings/dart test
+```
+
+Add to a Flutter app with a path dependency:
+
+```yaml
+dependencies:
+  rns_control:
+    path: ../Reticulum-Go/bindings/dart
+```

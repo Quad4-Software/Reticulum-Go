@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"quad4/reticulum-go/pkg/common"
@@ -81,7 +82,7 @@ func TestInitializeNetworkIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st.Mode().Perm()&0o077 != 0 {
+	if runtime.GOOS != "windows" && st.Mode().Perm()&0o077 != 0 {
 		t.Fatalf("network identity mode %o allows group/other access", st.Mode().Perm())
 	}
 

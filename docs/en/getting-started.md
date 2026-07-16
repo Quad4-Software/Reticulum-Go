@@ -152,6 +152,15 @@ task test-odin
 
 `task test-odin` needs the Odin compiler on `PATH`. See [librns](librns.md).
 
+## Dart bindings
+
+```bash
+task build-librns
+task test-dart
+```
+
+Needs the Dart SDK on `PATH`. FFI uses `librns` on Linux, Android, and Windows. See [librns](librns.md#dart-ffi-bindings) and [Control API](control-api.md#dart-and-flutter).
+
 ## Enable the control API
 
 Add to `[reticulum]`:
@@ -221,6 +230,7 @@ See [Security](security.md) for platform behavior.
 | Status / identity / probe / path / copy CLIs | [CLI utilities](utilities.md) |
 | Write a Go app | [API reference](api-reference.md), [Examples](examples.md), [Embedding and WebAssembly](embedding-and-wasm.md) |
 | Embed from C or Odin | [librns](librns.md), [Examples](examples.md) |
+| Flutter / Dart | [librns Dart FFI](librns.md#dart-ffi-bindings), [Control API](control-api.md#dart-and-flutter), [Examples](examples.md) |
 | Talk to a running daemon | [Control API](control-api.md) |
 | Use Python interop | [Compatibility](compatibility.md) |
 | Run examples | [Examples](examples.md) |

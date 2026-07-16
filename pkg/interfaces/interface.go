@@ -359,7 +359,9 @@ func (i *BaseInterface) GetBandwidthAvailable() bool {
 	defer i.Mutex.RUnlock()
 
 	elapsed := time.Since(i.lastTx)
-	if i.Bitrate <= 0 || elapsed > time.Second || elapsed <= 0 {
+	// Coarse clocks (notably Windows) can report elapsed <= 0 on the same
+	// tick as lastTx. Still apply the sampled TX gate in that case.
+	if i.Bitrate <= 0 || elapsed > time.Second {
 		debug.Log(debug.DebugVerbose, "Interface bandwidth available", "name", i.Name, "idle_seconds", elapsed.Seconds())
 		return true
 	}

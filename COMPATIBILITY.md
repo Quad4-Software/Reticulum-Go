@@ -26,6 +26,8 @@ For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). F
 | Node lifecycle | Yes (Go-only) | [pkg/node](pkg/node/) embedder API: `OnNetworkAvailable`, `OnNetworkLost`, `RefreshPaths`, `ReloadInterfaces`, control API lifecycle routes. No Python equivalent. `watch_interfaces` polls NIC up/down and address changes via `net.Interfaces` on Linux, Android, Windows, macOS, and BSD (any CPU arch). Stub on WASM. `OnNetworkLost` cancels in-flight `WatchAndReconnect` loops via `link.CancelAllReconnects`. `ReloadInterfaces` equality covers MTU, bitrate, prefer_ipv6, announce-rate, ingress/egress control, mode, and outgoing. See [Node lifecycle](#node-lifecycle-go-only). |
 | librns C ABI | Yes (Go-only) | [pkg/librns](pkg/librns/), [include/rns.h](include/rns.h), `task build-librns`. In-process C facade over node, destination, and link. Linux `.so` first. Same wire stack as the daemon. Not a Python API. See [docs/en/librns.md](docs/en/librns.md). |
 | Odin librns bindings | Yes (Go-only host) | [bindings/odin](bindings/odin/). Idiomatic Odin wrappers over `librns.so`. `task test-odin`. See [docs/en/librns.md](docs/en/librns.md#odin-bindings). |
+| Dart librns FFI | Yes (Go-only host) | [bindings/dart](bindings/dart/) `ffi.dart`. Linux, Android, Windows. `task build-librns-targets`. See [docs/en/librns.md](docs/en/librns.md#dart-ffi-bindings). |
+| Dart Control API client | Yes (Go-only host) | [bindings/dart](bindings/dart/). Flutter-ready Dart client for the Control API. `task test-dart`. See [docs/en/control-api.md](docs/en/control-api.md#dart-and-flutter). |
 
 ## Interfaces
 
@@ -202,6 +204,7 @@ Intentional extensions beyond upstream *rns*:
 | control-client | Present | Python Control API client |
 | librns-smoke | Present | C ABI smoke test |
 | odin-rns | Present | Odin bindings tests over librns (`task test-odin`) |
+| rns_control | Present | Dart FFI and Control API client tests (`task test-dart`) |
 
 ## Configuration
 

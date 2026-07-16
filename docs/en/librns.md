@@ -17,6 +17,7 @@ For Go apps, prefer `pkg/node` directly. For a separate daemon and JSON/WebSocke
 | `cmd/librns` | `-buildmode=c-shared` entry |
 | `examples/librns-smoke` | Minimal C smoke program |
 | `bindings/odin` | Idiomatic Odin bindings and tests over `librns.so` |
+| `bindings/dart` | Dart FFI (`ffi.dart`) plus Control API client |
 
 Daemon builds stay `CGO_ENABLED=0`. Only `build-librns` turns CGO on.
 
@@ -221,6 +222,38 @@ make -C bindings/odin smoke
 CI runs the same suite (`test-odin` job, pinned Odin `dev-2026-06`).
 
 Tests cover version and node lifecycle, identity and destination helpers, and a live UDP announce, link, and send round trip through `librns.so`.
+
+## Dart FFI bindings
+
+Path: `bindings/dart/` (import `package:rns_control/ffi.dart`).
+
+In-process `dart:ffi` wrappers over the same C ABI. First platforms: Linux desktop, Android (`arm64-v8a`, `armeabi-v7a`, `x86_64`), and Windows amd64.
+
+```dart
+import 'package:rns_control/ffi.dart';
+
+final rns = Rns();
+final node = rns.nodeCreate();
+rns.nodeStart(node);
+```
+
+### Artifacts
+
+| Platform | Output |
+|----------|--------|
+| Linux | `bin/librns.so` |
+| Android | `bin/android/<abi>/librns.so` |
+| Windows | `bin/windows/amd64/librns.dll` |
+
+```bash
+task build-librns
+task build-librns-targets -- linux android windows
+task test-dart
+```
+
+Android builds need an NDK (`ANDROID_NDK_HOME`). Windows cross-builds need mingw-w64 or Zig (`scripts/cc-windows-zig.sh`). Flutter apps copy Android ABIs into `jniLibs` and ship `librns.dll` beside the Windows runner.
+
+For out-of-process Dart or Flutter without shipping native code, use the [Control API client](control-api.md#dart-and-flutter) in the same package.
 
 ## Related documents
 

@@ -279,7 +279,9 @@ func TestSampleTrafficSpeeds(t *testing.T) {
 func TestGetBandwidthAvailable_UsesSampledTX(t *testing.T) {
 	bi := NewBaseInterface("bw", common.IFTypeTCP, true)
 	bi.Bitrate = BitrateGuess
-	bi.lastTx = time.Now()
+	// Use a recent lastTx within the 1s window. Same-tick Now() on Windows
+	// previously skipped the sampled-TX gate via elapsed <= 0.
+	bi.lastTx = time.Now().Add(-5 * time.Millisecond)
 	bi.TxBytes = 1 << 20 // lifetime bytes must not alone close the gate
 	if !bi.GetBandwidthAvailable() {
 		t.Fatal("expected available without a TX sample")

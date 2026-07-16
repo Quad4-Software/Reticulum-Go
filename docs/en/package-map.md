@@ -259,6 +259,19 @@ Idiomatic Odin package over `librns.so`. Not a Go import path. Use `-collection:
 
 See [librns](librns.md#odin-bindings).
 
+### `bindings/dart`
+
+Dart package `rns_control` with librns FFI (`ffi.dart`) and a Control API client. Path dependency for Flutter apps.
+
+| Item | Detail |
+|------|--------|
+| Package | `bindings/dart` (`name: rns_control`) |
+| FFI | Linux, Android, Windows via `librns` (`package:rns_control/ffi.dart`) |
+| Tests | `dart test` / `task test-dart` |
+| Platforms | Flutter mobile and desktop (events need `dart:io`). FFI needs shipped native libs |
+
+See [Control API](control-api.md#dart-and-flutter).
+
 ## Discovery and policy
 
 ### `pkg/discovery`
@@ -375,6 +388,8 @@ CLI dispatch lives in `pkg/cli`. Pageserver logic lives in `pkg/pageserver`.
 | Embed full node | `pkg/node`, `pkg/reticulumconfig`, `pkg/destination`, `pkg/identity` |
 | Embed from C / FFI | `pkg/librns` (or link `librns.so` + `include/rns.h`) |
 | Embed from Odin | `bindings/odin` (`import rns "rns:rns"`, link `librns.so`) |
+| Flutter / Dart FFI | `bindings/dart` (`package:rns_control/ffi.dart`) |
+| Flutter / Dart Control API | `bindings/dart` (`package:rns_control`) |
 | Low-level transport only | `pkg/transport`, `pkg/interfaces`, `pkg/packet` |
 | Crypto only | `pkg/cryptography`, `pkg/identity` |
 | Browser | `pkg/wasm` (compiled), WebSocket interface |

@@ -143,7 +143,7 @@ func TestFileOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat identity: %v", err)
 	}
-	if st.Mode().Perm()&0o077 != 0 {
+	if runtime.GOOS != "windows" && st.Mode().Perm()&0o077 != 0 {
 		t.Fatalf("identity file mode %o allows group/other access", st.Mode().Perm())
 	}
 

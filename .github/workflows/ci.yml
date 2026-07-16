@@ -26,6 +26,7 @@ env:
   CI_REVIVE_VERSION: "v1.15.0"
   CI_NODE_MAJOR: "22"
   CI_ODIN_VERSION: "dev-2026-06"
+  CI_DART_VERSION: "3.11.4"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
   GOTOOLCHAIN: local
@@ -151,6 +152,31 @@ jobs:
 
       - name: Run Odin bindings tests
         run: task test-odin
+
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
+
+  test-dart:
+    name: Dart bindings
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
+        with:
+          sdk: ${{ env.CI_DART_VERSION }}
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Run Dart bindings tests
+        run: task test-dart
 
       - name: Verify workspace clean
         uses: ./.github/actions/verify-workspace-clean

@@ -211,6 +211,15 @@ task test-odin
 
 Requires the Odin compiler on `PATH` (CI installs a pinned monthly release via `scripts/ci/setup-odin.sh`, job `Odin bindings`). Package lives under `bindings/odin`. See [librns](librns.md#odin-bindings).
 
+## Dart bindings
+
+```bash
+task build-librns
+task test-dart
+```
+
+Requires the Dart SDK on `PATH` (CI pins `3.11.4`, job `Dart bindings`) and CGO for `librns.so` FFI smoke tests. Package lives under `bindings/dart`. See [librns Dart FFI](librns.md#dart-ffi-bindings) and [Control API](control-api.md#dart-and-flutter).
+
 ## Adding a change safely
 
 1. Write or extend unit tests in the affected package

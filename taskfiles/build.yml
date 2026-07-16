@@ -183,6 +183,11 @@ tasks:
       - '{{.GOCMD}} build -buildmode=c-shared -o {{.BUILD_DIR}}/librns.so ./cmd/librns'
       - cp include/rns.h {{.BUILD_DIR}}/rns.h
 
+  build-librns-targets:
+    desc: Cross-build librns for Linux, Android, and Windows (needs NDK and/or mingw/zig)
+    cmds:
+      - sh scripts/build-librns-targets.sh {{.CLI_ARGS}}
+
   checksum:
     desc: Generate SHA256 checksum for binary (uses BINARY_PATH env var if set, otherwise defaults to bin/reticulum-go)
     cmds:

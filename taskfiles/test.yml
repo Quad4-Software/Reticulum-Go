@@ -109,3 +109,8 @@ tasks:
     desc: Build librns and run Odin bindings tests (requires odin on PATH)
     cmds:
       - sh scripts/ci/run-odin-bindings.sh
+
+  test-dart:
+    desc: Run Dart bindings tests (Control API + librns FFI, requires dart and CGO)
+    cmds:
+      - sh scripts/ci/run-dart-bindings.sh

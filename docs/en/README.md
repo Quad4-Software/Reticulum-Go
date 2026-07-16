@@ -25,7 +25,7 @@ Documentation is organized by language under `docs/`. English lives in `docs/en/
 | [Cryptography](cryptography.md) | Primitives, key formats, IFAC, ratchets, verification |
 | [Security](security.md) | Reporting, sandbox, supply chain, release verification |
 | [Compatibility](compatibility.md) | Parity with Python RNS, gaps, Go-only extensions |
-| [Control API](control-api.md) | Localhost JSON and WebSocket API for non-Go clients |
+| [Control API](control-api.md) | Localhost JSON and WebSocket API for non-Go clients, Dart and Flutter |
 | [librns](librns.md) | C ABI map, supported surface, events, build and smoke, Odin bindings |
 | [CLI utilities](utilities.md) | `reticulum-go` subcommands (status, id, probe, path, cp, pageserver), shared-instance RPC with Python |
 | [Embedding and WebAssembly](embedding-and-wasm.md) | `pkg/node`, WASM, browser integration |

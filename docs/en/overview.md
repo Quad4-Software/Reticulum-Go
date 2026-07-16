@@ -66,6 +66,8 @@ Below is a summary of major features. For line-by-line parity with Python, see [
 | Control API | Go-only | `pkg/controlapi` |
 | librns C ABI | Go-only | `pkg/librns`, `include/rns.h`, `task build-librns` |
 | Odin librns bindings | Go-only host | `bindings/odin` (Linux, links `librns.so`). See [librns](librns.md#odin-bindings) |
+| Dart librns FFI | Go-only host | `bindings/dart` (`ffi.dart`). Linux, Android, Windows. See [librns](librns.md#dart-ffi-bindings) |
+| Dart Control API client | Go-only host | `bindings/dart` (`rns_control`). See [Control API](control-api.md#dart-and-flutter) |
 | Runtime sandbox | Go-only | `pkg/sandbox` |
 
 ## Repository layout
@@ -81,6 +83,7 @@ Reticulum-Go/
     rns.h               Public librns C header
   bindings/
     odin/               Odin bindings and tests for librns
+    dart/               Dart librns FFI and Control API client
   pkg/                  Public library packages (cli, pageserver, rnsutil, …)
   man/                  Man pages (sections 1 and 8)
   packaging/            nfpm deb/rpm config
@@ -103,7 +106,7 @@ Python Reticulum (`RNS`) is the reference implementation and defines the on-wire
 
 Configuration uses the same INI-style shape as Python (`[reticulum]`, `[logging]`, `[[Interface Name]]`). The default config directory is `~/.reticulum-go` instead of `~/.reticulum` so both stacks can coexist on one machine.
 
-Reticulum-Go adds features that Python does not ship today (control API, librns, Odin bindings, sandbox, interface hot reload, NIC watching). Those extensions do not change the wire format unless explicitly documented as Go-only.
+Reticulum-Go adds features that Python does not ship today (control API, librns, Odin bindings, Dart FFI and Control API client, sandbox, interface hot reload, NIC watching). Those extensions do not change the wire format unless explicitly documented as Go-only.
 
 ## Who should read which document
 
@@ -114,6 +117,7 @@ Reticulum-Go adds features that Python does not ship today (control API, librns,
 | Go application author | [API reference](api-reference.md), [Package map](package-map.md), [Examples](examples.md), [Embedding and WebAssembly](embedding-and-wasm.md) |
 | Native / FFI embedder | [librns](librns.md), [Compatibility](compatibility.md) |
 | Odin application author | [librns](librns.md#odin-bindings), [Examples](examples.md) |
+| Flutter / Dart application author | [librns Dart FFI](librns.md#dart-ffi-bindings), [Control API](control-api.md#dart-and-flutter), [Examples](examples.md) |
 | Security reviewer | [Cryptography](cryptography.md), [Security](security.md) |
 | Developer | [Development and testing](development-and-testing.md) |
 
