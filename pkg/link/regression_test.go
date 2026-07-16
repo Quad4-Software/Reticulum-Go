@@ -253,8 +253,8 @@ func TestRegression_SessionKeysNotAliasedToDerivedKeyBuffer(t *testing.T) {
 		t.Fatalf("encrypt before mutation: %v", err)
 	}
 
-	for i := range l.derivedKey {
-		l.derivedKey[i] ^= 0xFF
+	for i := range l.derivedKey.Bytes() {
+		l.derivedKey.Bytes()[i] ^= 0xFF
 	}
 
 	pt, err := l.decrypt(ct)

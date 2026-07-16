@@ -155,6 +155,10 @@ type ReticulumConfig struct {
 	AppAspect           string
 	EnableSandbox       bool
 
+	// EnableSeccomp installs a Linux seccomp denylist after Landlock when the
+	// sandbox is enabled. Default true. Soft-fails if the kernel rejects the filter.
+	EnableSeccomp bool
+
 	// EnableControlAPI turns on the localhost JSON control API (pkg/controlapi)
 	// that lets non-Go applications use destinations, links, and announces
 	// without embedding the Reticulum stack.
@@ -185,9 +189,9 @@ type ReticulumConfig struct {
 	// growing unbounded. Zero leaves the runtime default (unlimited).
 	SoftMemoryLimitBytes int64
 
-	// IdentityBackend selects identity at-rest storage: "file" (default) or
-	// "secretservice" (Freedesktop Secret Service / GNOME Keyring / KWallet /
-	// KeePassXC). When secretservice fails, persistence returns an error.
+	// IdentityBackend selects identity at-rest storage: "file" (default),
+	// "secretservice" (Freedesktop Secret Service), or "keyring" (Linux kernel
+	// keyring, no D-Bus). When a non-file backend fails, persistence returns an error.
 	IdentityBackend string
 
 	// MaxInMemoryPaths caps the live path table when in-memory storage is
@@ -318,6 +322,7 @@ func DefaultConfig() *ReticulumConfig {
 		AppName:             "Go Client",
 		AppAspect:           "node",
 		EnableSandbox:       true,
+		EnableSeccomp:       true,
 		ControlAPIHost:      DefaultControlAPIHost,
 		ControlAPIPort:      DefaultControlAPIPort,
 	}

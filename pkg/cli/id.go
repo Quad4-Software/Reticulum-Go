@@ -47,26 +47,40 @@ func RunID(args []string, opt ...Options) int {
 	useB32 := fs.Bool("B", false, "base32 encoding")
 	useHex := fs.Bool("hex", false, "hex encoding (default)")
 	toSecretService := fs.Bool("to-secretservice", false, "migrate identity file into Freedesktop Secret Service (writes RSSI marker)")
-	toFile := fs.Bool("to-file", false, "migrate secretservice-backed identity back to a plaintext identity file")
+	toKeyring := fs.Bool("to-keyring", false, "migrate identity file into Linux kernel keyring (writes RSSI marker)")
+	toFile := fs.Bool("to-file", false, "migrate marker-backed identity back to a plaintext identity file")
 
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 
-	if *toSecretService || *toFile {
+	migrateCount := 0
+	if *toSecretService {
+		migrateCount++
+	}
+	if *toKeyring {
+		migrateCount++
+	}
+	if *toFile {
+		migrateCount++
+	}
+	if migrateCount > 0 {
 		path := expand(*identityPath)
 		if path == "" {
 			fmt.Fprintln(stderr, "migrate requires -i path")
 			return 2
 		}
-		if *toSecretService && *toFile {
-			fmt.Fprintln(stderr, "use only one of -to-secretservice or -to-file")
+		if migrateCount > 1 {
+			fmt.Fprintln(stderr, "use only one of -to-secretservice, -to-keyring, or -to-file")
 			return 2
 		}
 		var err error
-		if *toSecretService {
+		switch {
+		case *toSecretService:
 			err = store.MigrateToSecretService(path, "")
-		} else {
+		case *toKeyring:
+			err = store.MigrateToKeyring(path, "")
+		default:
 			err = store.MigrateToFile(path)
 		}
 		if err != nil {

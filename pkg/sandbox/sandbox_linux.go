@@ -45,6 +45,8 @@ func applyPlatform(cfg *common.ReticulumConfig) error {
 		debug.Log(debug.DebugError, "Setrlimit failed", "error", err)
 	}
 
+	applySeccomp(cfg)
+
 	debug.Log(debug.DebugInfo, "Sandbox applied", "platform", "linux")
 	return nil
 }
@@ -125,6 +127,12 @@ func applyLandlock(cfg *common.ReticulumConfig) error {
 		{"/lib", landlockReadOnlyExecDir},
 		{"/lib64", landlockReadOnlyExecDir},
 		{"/usr/lib", landlockReadOnlyExecDir},
+	}
+
+	if runtimeDir := os.Getenv("XDG_RUNTIME_DIR"); runtimeDir != "" {
+		paths = append(paths, landlockRule{runtimeDir, landlockFullAccess})
+	} else if uid := os.Getuid(); uid >= 0 {
+		paths = append(paths, landlockRule{fmt.Sprintf("/run/user/%d", uid), landlockFullAccess})
 	}
 
 	// If the config lives outside ~/.reticulum-go, whitelist its parent dir.

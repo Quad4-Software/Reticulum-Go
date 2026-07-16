@@ -36,7 +36,7 @@ type Identity struct {
 	hash            []byte
 	hexHash         string
 
-	ratchets      map[string][]byte
+	ratchets      map[string]*securemem.Buf
 	ratchetExpiry map[string]int64
 	mutex         *sync.RWMutex
 }
@@ -50,7 +50,7 @@ var (
 
 func New() (*Identity, error) {
 	i := &Identity{
-		ratchets:      make(map[string][]byte),
+		ratchets:      make(map[string]*securemem.Buf),
 		ratchetExpiry: make(map[string]int64),
 		mutex:         &sync.RWMutex{},
 	}
@@ -190,7 +190,7 @@ func (i *Identity) cachePublicHash() {
 
 func (i *Identity) ensureRatchetMaps() {
 	if i.ratchets == nil {
-		i.ratchets = make(map[string][]byte)
+		i.ratchets = make(map[string]*securemem.Buf)
 	}
 	if i.ratchetExpiry == nil {
 		i.ratchetExpiry = make(map[string]int64)
@@ -384,10 +384,7 @@ func (i *Identity) GetCurrentRatchetKey() []byte {
 	defer i.mutex.RUnlock()
 
 	if len(i.ratchets) == 0 {
-		// If no ratchets exist, generate one.
-		// This should ideally be handled by an explicit setup process.
 		debug.Log(debug.DebugTrace, "No ratchets found, generating a new one on-the-fly")
-		// Temporarily unlock to call RotateRatchet, which locks internally.
 		i.mutex.RUnlock()
 		newRatchet, err := i.RotateRatchet()
 		i.mutex.RLock()
@@ -398,13 +395,14 @@ func (i *Identity) GetCurrentRatchetKey() []byte {
 		return newRatchet
 	}
 
-	// Return the most recently generated ratchet key
 	var latestKey []byte
 	var latestTime int64
 	for id, expiry := range i.ratchetExpiry {
 		if expiry > latestTime {
 			latestTime = expiry
-			latestKey = i.ratchets[id]
+			if buf := i.ratchets[id]; buf != nil {
+				latestKey = buf.CopyOut()
+			}
 		}
 	}
 
@@ -626,7 +624,7 @@ func FromFile(path string) (*Identity, error) {
 	signingSeed := data[32:64]
 
 	ident := &Identity{
-		ratchets:      make(map[string][]byte),
+		ratchets:      make(map[string]*securemem.Buf),
 		ratchetExpiry: make(map[string]int64),
 		mutex:         &sync.RWMutex{},
 	}
@@ -728,7 +726,7 @@ func RecallIdentity(path string) (*Identity, error) {
 	securemem.WipeBytes(privateKeyBytes)
 
 	id := &Identity{
-		ratchets:      make(map[string][]byte),
+		ratchets:      make(map[string]*securemem.Buf),
 		ratchetExpiry: make(map[string]int64),
 		mutex:         &sync.RWMutex{},
 	}
@@ -834,7 +832,7 @@ func NewIdentity() (*Identity, error) {
 
 	i := &Identity{
 		publicKey:     encPubKey,
-		ratchets:      make(map[string][]byte),
+		ratchets:      make(map[string]*securemem.Buf),
 		ratchetExpiry: make(map[string]int64),
 		mutex:         &sync.RWMutex{},
 	}
@@ -870,7 +868,7 @@ func FromBytes(data []byte) (*Identity, error) {
 	signingSeed := data[32:64]
 
 	ident := &Identity{
-		ratchets:      make(map[string][]byte),
+		ratchets:      make(map[string]*securemem.Buf),
 		ratchetExpiry: make(map[string]int64),
 		mutex:         &sync.RWMutex{},
 	}
@@ -889,7 +887,6 @@ func (i *Identity) RotateRatchet() ([]byte, error) {
 
 	debug.Log(debug.DebugAll, "Rotating ratchet for identity", "hash", i.GetHexHash())
 
-	// Generate new ratchet key
 	newRatchet := make([]byte, RatchetSize/8)
 	if _, err := io.ReadFull(rand.Reader, newRatchet); err != nil {
 		debug.Log(debug.DebugCritical, "Failed to generate new ratchet", "error", err)
@@ -898,6 +895,7 @@ func (i *Identity) RotateRatchet() ([]byte, error) {
 
 	ratchetPub, err := cryptography.PublicKeyFromPrivate(newRatchet)
 	if err != nil {
+		securemem.WipeBytes(newRatchet)
 		debug.Log(debug.DebugCritical, "Failed to generate ratchet public key", "error", err)
 		return nil, err
 	}
@@ -905,13 +903,24 @@ func (i *Identity) RotateRatchet() ([]byte, error) {
 	ratchetID := i.GetRatchetID(ratchetPub)
 	expiry := time.Now().Unix() + RatchetExpiry
 
-	// Store new ratchet
-	i.ratchets[string(ratchetID)] = newRatchet
+	buf, err := securemem.New(len(newRatchet))
+	if err != nil {
+		securemem.WipeBytes(newRatchet)
+		return nil, err
+	}
+	if err := buf.CopyFrom(newRatchet); err != nil {
+		_ = buf.Close()
+		securemem.WipeBytes(newRatchet)
+		return nil, err
+	}
+	i.ratchets[string(ratchetID)] = buf
 	i.ratchetExpiry[string(ratchetID)] = expiry
+
+	out := append([]byte(nil), newRatchet...)
+	securemem.WipeBytes(newRatchet)
 
 	debug.Log(debug.DebugAll, "New ratchet generated", "id", fmt.Sprintf("%x", ratchetID), "expiry", expiry)
 
-	// Cleanup old ratchets if we exceed max retained
 	if len(i.ratchets) > MaxRetainedRatchets {
 		var oldestID string
 		oldestTime := time.Now().Unix()
@@ -923,13 +932,16 @@ func (i *Identity) RotateRatchet() ([]byte, error) {
 			}
 		}
 
+		if old := i.ratchets[oldestID]; old != nil {
+			_ = old.Close()
+		}
 		delete(i.ratchets, oldestID)
 		delete(i.ratchetExpiry, oldestID)
 		debug.Log(debug.DebugAll, "Cleaned up oldest ratchet", "id", fmt.Sprintf("%x", []byte(oldestID)))
 	}
 
 	debug.Log(debug.DebugAll, "Current number of active ratchets", "count", len(i.ratchets))
-	return newRatchet, nil
+	return out, nil
 }
 
 func (i *Identity) GetRatchets() [][]byte {
@@ -942,12 +954,15 @@ func (i *Identity) GetRatchets() [][]byte {
 	now := time.Now().Unix()
 	expired := 0
 
-	// Return only non-expired ratchets
 	for id, expiry := range i.ratchetExpiry {
 		if expiry > now {
-			ratchets = append(ratchets, i.ratchets[id])
+			if buf := i.ratchets[id]; buf != nil {
+				ratchets = append(ratchets, buf.CopyOut())
+			}
 		} else {
-			// Clean up expired ratchets
+			if buf := i.ratchets[id]; buf != nil {
+				_ = buf.Close()
+			}
 			delete(i.ratchets, id)
 			delete(i.ratchetExpiry, id)
 			expired++
@@ -968,6 +983,9 @@ func (i *Identity) CleanupExpiredRatchets() {
 	cleaned := 0
 	for id, expiry := range i.ratchetExpiry {
 		if expiry <= now {
+			if buf := i.ratchets[id]; buf != nil {
+				_ = buf.Close()
+			}
 			delete(i.ratchets, id)
 			delete(i.ratchetExpiry, id)
 			cleaned++

@@ -21,6 +21,7 @@ import (
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/securemem"
 )
 
 type PacketCallback = common.PacketCallback
@@ -74,7 +75,7 @@ type Destination struct {
 	enforceRatchets   bool
 	latestRatchetTime time.Time
 	latestRatchetID   []byte
-	ratchets          [][]byte
+	ratchets          []*securemem.Buf
 	ratchetFileLock   sync.Mutex
 
 	defaultAppData []byte
@@ -388,7 +389,7 @@ func (d *Destination) EnableRatchets(path string) bool {
 	if err := d.reloadRatchets(); err != nil {
 		debug.Log(debug.DebugError, "Failed to load ratchets", "error", err)
 		// Initialize empty ratchet list
-		d.ratchets = make([][]byte, 0)
+		d.ratchets = make([]*securemem.Buf, 0)
 		if err := d.persistRatchets(); err != nil {
 			debug.Log(debug.DebugError, "Failed to create initial ratchet file", "error", err)
 			return false
@@ -408,7 +409,7 @@ func (d *Destination) EnableRatchetsInMemory() bool {
 	d.ratchetsEnabled = true
 	d.ratchetPath = ""
 	d.latestRatchetTime = time.Time{}
-	d.ratchets = make([][]byte, 0)
+	d.ratchets = make([]*securemem.Buf, 0)
 
 	debug.Log(debug.DebugInfo, "Ratchets enabled in memory")
 	return true
@@ -584,7 +585,7 @@ func (d *Destination) Encrypt(plaintext []byte) ([]byte, error) {
 			debug.Log(debug.DebugInfo, "Cannot encrypt: no ratchet key available")
 			return nil, errors.New("no ratchet key available")
 		}
-		debug.Log(debug.DebugVerbose, "Encrypting for group with ratchet key", "key", fmt.Sprintf("%x", key[:8]))
+		debug.Log(debug.DebugVerbose, "Encrypting for group destination")
 		return d.identity.EncryptWithHMAC(plaintext, key)
 	default:
 		debug.Log(debug.DebugInfo, "Unsupported destination type for encryption", "destType", d.destType)
@@ -661,8 +662,20 @@ func (d *Destination) persistRatchets() error {
 
 	debug.Log(debug.DebugPackets, "Persisting ratchets", "count", len(d.ratchets), "path", d.ratchetPath)
 
-	// Pack ratchets using msgpack
-	packedRatchets, err := msgpack.Marshal(d.ratchets)
+	raw := make([][]byte, 0, len(d.ratchets))
+	for _, buf := range d.ratchets {
+		if buf == nil {
+			continue
+		}
+		raw = append(raw, buf.CopyOut())
+	}
+	defer func() {
+		for _, b := range raw {
+			securemem.WipeBytes(b)
+		}
+	}()
+
+	packedRatchets, err := msgpack.Marshal(raw)
 	if err != nil {
 		return fmt.Errorf("failed to pack ratchets: %w", err)
 	}
@@ -725,14 +738,14 @@ func (d *Destination) reloadRatchets() error {
 
 	if d.ratchetPath == "" {
 		if d.ratchets == nil {
-			d.ratchets = make([][]byte, 0)
+			d.ratchets = make([]*securemem.Buf, 0)
 		}
 		return nil
 	}
 
 	if _, err := os.Stat(d.ratchetPath); os.IsNotExist(err) {
 		debug.Log(debug.DebugInfo, "No existing ratchet data found, initializing new ratchet file")
-		d.ratchets = make([][]byte, 0)
+		d.ratchets = make([]*securemem.Buf, 0)
 		return nil
 	}
 
@@ -766,9 +779,30 @@ func (d *Destination) reloadRatchets() error {
 		return fmt.Errorf("invalid ratchet file signature")
 	}
 
-	// Unpack ratchet list
-	if err := msgpack.Unmarshal(packedRatchets, &d.ratchets); err != nil {
+	// Unpack ratchet list into locked buffers
+	var raw [][]byte
+	if err := msgpack.Unmarshal(packedRatchets, &raw); err != nil {
 		return fmt.Errorf("failed to unpack ratchet list: %w", err)
+	}
+	for _, old := range d.ratchets {
+		if old != nil {
+			_ = old.Close()
+		}
+	}
+	d.ratchets = make([]*securemem.Buf, 0, len(raw))
+	for _, r := range raw {
+		buf, err := securemem.New(len(r))
+		if err != nil {
+			securemem.WipeBytes(r)
+			return err
+		}
+		if err := buf.CopyFrom(r); err != nil {
+			_ = buf.Close()
+			securemem.WipeBytes(r)
+			return err
+		}
+		securemem.WipeBytes(r)
+		d.ratchets = append(d.ratchets, buf)
 	}
 
 	debug.Log(debug.DebugInfo, "Ratchets reloaded successfully", "count", len(d.ratchets))
@@ -791,26 +825,32 @@ func (d *Destination) RotateRatchets() error {
 
 	debug.Log(debug.DebugInfo, "Rotating ratchets", "destination", d.ExpandName())
 
-	// Generate new ratchet key (32 bytes for X25519 private key)
 	newRatchet := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, newRatchet); err != nil {
 		return fmt.Errorf("failed to generate new ratchet: %w", err)
 	}
+	buf, err := securemem.New(len(newRatchet))
+	if err != nil {
+		securemem.WipeBytes(newRatchet)
+		return err
+	}
+	if err := buf.CopyFrom(newRatchet); err != nil {
+		_ = buf.Close()
+		securemem.WipeBytes(newRatchet)
+		return err
+	}
 
-	// Insert at beginning (most recent first)
-	d.ratchets = append([][]byte{newRatchet}, d.ratchets...)
+	d.ratchets = append([]*securemem.Buf{buf}, d.ratchets...)
 	d.latestRatchetTime = now
 
-	// Get ratchet public key for ID
 	ratchetPub, err := cryptography.PublicKeyFromPrivate(newRatchet)
+	securemem.WipeBytes(newRatchet)
 	if err == nil {
 		d.latestRatchetID = identity.TruncatedHash(ratchetPub)[:identity.NameHashLength/8]
 	}
 
-	// Clean old ratchets
 	d.cleanRatchets()
 
-	// Persist to disk
 	if err := d.persistRatchets(); err != nil {
 		debug.Log(debug.DebugError, "Failed to persist ratchets after rotation", "error", err)
 		return err
@@ -823,6 +863,11 @@ func (d *Destination) RotateRatchets() error {
 func (d *Destination) cleanRatchets() {
 	if len(d.ratchets) > d.ratchetCount {
 		debug.Log(debug.DebugTrace, "Cleaning old ratchets", "before", len(d.ratchets), "keeping", d.ratchetCount)
+		for _, old := range d.ratchets[d.ratchetCount:] {
+			if old != nil {
+				_ = old.Close()
+			}
+		}
 		d.ratchets = d.ratchets[:d.ratchetCount]
 	}
 }
@@ -835,8 +880,11 @@ func (d *Destination) GetRatchets() [][]byte {
 		return nil
 	}
 
-	// Return copy to prevent external modification
-	ratchetsCopy := make([][]byte, len(d.ratchets))
-	copy(ratchetsCopy, d.ratchets)
+	ratchetsCopy := make([][]byte, 0, len(d.ratchets))
+	for _, buf := range d.ratchets {
+		if buf != nil {
+			ratchetsCopy = append(ratchetsCopy, buf.CopyOut())
+		}
+	}
 	return ratchetsCopy
 }

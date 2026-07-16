@@ -58,6 +58,7 @@ func DefaultConfig() *common.ReticulumConfig {
 		LogLevel:            DefaultLogLevel,
 		Interfaces:          make(map[string]*common.InterfaceConfig),
 		EnableSandbox:       true,
+		EnableSeccomp:       true,
 		ControlAPIHost:      DefaultControlAPIHost,
 		ControlAPIPort:      DefaultControlAPIPort,
 	}
@@ -281,6 +282,8 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		setInt(value, &cfg.LogLevel)
 	case "enable_sandbox":
 		cfg.EnableSandbox = parseBool(value)
+	case "enable_seccomp":
+		cfg.EnableSeccomp = parseBool(value)
 	case "enable_control_api":
 		cfg.EnableControlAPI = parseBool(value)
 	case "control_api_host":
@@ -582,6 +585,7 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	}
 	fmt.Fprintf(&b, "  panic_on_interface_error = %s\n", boolStr(cfg.PanicOnInterfaceErr))
 	fmt.Fprintf(&b, "  enable_sandbox = %s\n", boolStr(cfg.EnableSandbox))
+	fmt.Fprintf(&b, "  enable_seccomp = %s\n", boolStr(cfg.EnableSeccomp))
 	fmt.Fprintf(&b, "  enable_control_api = %s\n", boolStr(cfg.EnableControlAPI))
 	fmt.Fprintf(&b, "  control_api_host = %s\n", controlAPIHostOrDefault(cfg.ControlAPIHost))
 	fmt.Fprintf(&b, "  control_api_port = %d\n", controlAPIPortOrDefault(cfg.ControlAPIPort))

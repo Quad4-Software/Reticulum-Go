@@ -108,6 +108,17 @@ func (i *Identity) Close() {
 		i.privateKey = nil
 	}
 	clearSigningMaterial(i)
+	if i.mutex != nil {
+		i.mutex.Lock()
+		for id, buf := range i.ratchets {
+			if buf != nil {
+				_ = buf.Close()
+			}
+			delete(i.ratchets, id)
+			delete(i.ratchetExpiry, id)
+		}
+		i.mutex.Unlock()
+	}
 }
 
 // Wipe is an alias for Close.

@@ -15,6 +15,7 @@ import (
 const (
 	BackendFile          = "file"
 	BackendSecretService = "secretservice"
+	BackendKeyring       = "keyring"
 )
 
 var (
@@ -24,9 +25,12 @@ var (
 	ssFactory             = func() (Backend, error) {
 		return NewSecretServiceBackend()
 	}
+	keyringFactory = func() (Backend, error) {
+		return NewKeyringBackend()
+	}
 )
 
-// SetBackendName selects file or secretservice as the process default.
+// SetBackendName selects file, secretservice, or keyring as the process default.
 func SetBackendName(name string) error {
 	name = strings.ToLower(strings.TrimSpace(name))
 	if name == "" {
@@ -46,6 +50,16 @@ func SetBackendName(name string) error {
 			return err
 		}
 		b = ss
+	case BackendKeyring:
+		kr, err := keyringFactory()
+		if err != nil {
+			backendMu.Lock()
+			activeName = BackendKeyring
+			activeBackend = failingBackend{err: err}
+			backendMu.Unlock()
+			return err
+		}
+		b = kr
 	default:
 		return fmt.Errorf("identity store: unknown backend %q", name)
 	}
@@ -86,8 +100,12 @@ func SetActiveBackend(name string, b Backend) {
 	backendMu.Unlock()
 }
 
+func usesMarker(name string) bool {
+	return name == BackendSecretService || name == BackendKeyring
+}
+
 // SaveIdentityBlob persists secret using the active backend.
-// For secretservice, writes an RSSI marker at path and stores bytes in the keyring.
+// For secretservice and keyring, writes an RSSI marker at path and stores bytes off-disk.
 func SaveIdentityBlob(path string, secret []byte, kind string) error {
 	abs, err := AbsolutePath(path)
 	if err != nil {
@@ -99,19 +117,17 @@ func SaveIdentityBlob(path string, secret []byte, kind string) error {
 	b := activeBackend
 	backendMu.RUnlock()
 
-	switch name {
-	case BackendSecretService:
+	if usesMarker(name) {
 		if err := b.Set(attrs, secret, ""); err != nil {
 			return err
 		}
 		return WriteMarkerFile(path)
-	default:
-		return b.Set(attrs, secret, "")
 	}
+	return b.Set(attrs, secret, "")
 }
 
 // LoadIdentityBlob loads identity bytes from path.
-// RSSI markers resolve through Secret Service (or the active secretservice backend).
+// RSSI markers resolve through the active marker backend or by probing keyring then secretservice.
 func LoadIdentityBlob(path string) ([]byte, error) {
 	data, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
@@ -133,8 +149,14 @@ func LoadIdentityBlob(path string) ([]byte, error) {
 	name := activeName
 	b := activeBackend
 	backendMu.RUnlock()
-	if name == BackendSecretService {
+	if usesMarker(name) {
 		return b.Get(attrs)
+	}
+
+	if kr, err := keyringFactory(); err == nil {
+		if secret, err := kr.Get(attrs); err == nil {
+			return secret, nil
+		}
 	}
 	ss, err := ssFactory()
 	if err != nil {
@@ -143,8 +165,8 @@ func LoadIdentityBlob(path string) ([]byte, error) {
 	return ss.Get(attrs)
 }
 
-// MigrateToSecretService moves a plaintext identity file into Secret Service.
-func MigrateToSecretService(path, kind string) error {
+// MigrateToBackend moves a plaintext identity file into the named marker backend.
+func MigrateToBackend(path, kind, backendName string) error {
 	data, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
 		return err
@@ -155,18 +177,27 @@ func MigrateToSecretService(path, kind string) error {
 	defer securemem.WipeBytes(data)
 	prevName := BackendName()
 	prev := Active()
-	if err := SetBackendName(BackendSecretService); err != nil {
+	if err := SetBackendName(backendName); err != nil {
 		return err
 	}
-	err = SaveIdentityBlob(path, data, kind)
-	if err != nil {
+	if err := SaveIdentityBlob(path, data, kind); err != nil {
 		SetActiveBackend(prevName, prev)
 		return err
 	}
 	return nil
 }
 
-// MigrateToFile exports a secretservice-backed identity back to a 64/72-byte file.
+// MigrateToSecretService moves a plaintext identity file into Secret Service.
+func MigrateToSecretService(path, kind string) error {
+	return MigrateToBackend(path, kind, BackendSecretService)
+}
+
+// MigrateToKeyring moves a plaintext identity file into the kernel keyring.
+func MigrateToKeyring(path, kind string) error {
+	return MigrateToBackend(path, kind, BackendKeyring)
+}
+
+// MigrateToFile exports a marker-backed identity back to a plaintext file.
 func MigrateToFile(path string) error {
 	data, err := LoadIdentityBlob(path)
 	if err != nil {
@@ -177,11 +208,21 @@ func MigrateToFile(path string) error {
 	if err != nil {
 		return err
 	}
-	ss, err := ssFactory()
-	if err != nil {
-		return err
+	attrs := AttrsForPath(abs, "")
+	backendMu.RLock()
+	name := activeName
+	b := activeBackend
+	backendMu.RUnlock()
+	if usesMarker(name) {
+		_ = b.Delete(attrs)
+	} else {
+		if kr, err := keyringFactory(); err == nil {
+			_ = kr.Delete(attrs)
+		}
+		if ss, err := ssFactory(); err == nil {
+			_ = ss.Delete(attrs)
+		}
 	}
-	_ = ss.Delete(AttrsForPath(abs, ""))
 	fb := FileBackend{}
-	return fb.Set(AttrsForPath(abs, ""), data, "")
+	return fb.Set(attrs, data, "")
 }

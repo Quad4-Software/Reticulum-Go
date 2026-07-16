@@ -28,6 +28,7 @@ import (
 	"quad4/reticulum-go/pkg/packet"
 	"quad4/reticulum-go/pkg/pathfinder"
 	"quad4/reticulum-go/pkg/resource"
+	"quad4/reticulum-go/pkg/securemem"
 	"quad4/reticulum-go/pkg/transport"
 )
 
@@ -54,7 +55,7 @@ type Link struct {
 	pathFinder         *pathfinder.PathFinder
 
 	remoteIdentity *identity.Identity
-	sessionKey     []byte
+	sessionKey     *securemem.Buf
 	linkID         []byte
 
 	rtt               float64
@@ -67,7 +68,7 @@ type Link struct {
 	identifiedCallback  func(*Link, *identity.Identity)
 
 	teardownReason byte
-	hmacKey        []byte
+	hmacKey        *securemem.Buf
 	transport      *transport.Transport
 
 	rssi                      float64
@@ -89,14 +90,14 @@ type Link struct {
 	initiator            bool
 	expectedHops         uint8
 
-	prv           []byte
-	sigPriv       ed25519.PrivateKey
+	prv           *securemem.Buf
+	sigPriv       *securemem.Buf
 	pub           []byte
 	sigPub        ed25519.PublicKey
 	peerPub       []byte
 	peerSigPub    ed25519.PublicKey
-	sharedKey     []byte
-	derivedKey    []byte
+	sharedKey     *securemem.Buf
+	derivedKey    *securemem.Buf
 	mode          byte
 	mtu           int
 	mdu           int
@@ -255,13 +256,16 @@ func (l *Link) Reestablish() error {
 func (l *Link) resetForReconnectLocked() {
 	l.status.Store(int32(StatusPending))
 	l.remoteIdentity = nil
-	l.sessionKey = nil
-	l.hmacKey = nil
+	l.closeAllSecretKeys()
 	l.establishedAt = time.Time{}
 	l.requestPacket = nil
 	l.requestTime = time.Time{}
 	l.teardownReason = 0
 	l.linkID = nil
+	l.pub = nil
+	l.sigPub = nil
+	l.peerPub = nil
+	l.peerSigPub = nil
 }
 
 // registerLinkPath copies the destination's transport path for this link's
@@ -1978,10 +1982,10 @@ func maxFloat(a, b float64) float64 {
 
 func (l *Link) copySessionKeysLocked() (sessionKey, hmacKey []byte) {
 	if l.sessionKey != nil {
-		sessionKey = append([]byte(nil), l.sessionKey...)
+		sessionKey = l.sessionKey.CopyOut()
 	}
 	if l.hmacKey != nil {
-		hmacKey = append([]byte(nil), l.hmacKey...)
+		hmacKey = l.hmacKey.CopyOut()
 	}
 	return sessionKey, hmacKey
 }
@@ -2051,12 +2055,16 @@ func (l *Link) encrypt(data []byte) ([]byte, error) {
 	l.mutex.RLock()
 	sessionKey, hmacKey := l.copySessionKeysLocked()
 	l.mutex.RUnlock()
+	defer securemem.WipeBytes(sessionKey)
+	defer securemem.WipeBytes(hmacKey)
 	return encryptWithKeys(sessionKey, hmacKey, data)
 }
 
 // encryptLocked encrypts data while the link mutex is already held by the caller.
 func (l *Link) encryptLocked(data []byte) ([]byte, error) {
 	sessionKey, hmacKey := l.copySessionKeysLocked()
+	defer securemem.WipeBytes(sessionKey)
+	defer securemem.WipeBytes(hmacKey)
 	return encryptWithKeys(sessionKey, hmacKey, data)
 }
 
@@ -2064,6 +2072,8 @@ func (l *Link) decrypt(data []byte) ([]byte, error) {
 	l.mutex.RLock()
 	sessionKey, hmacKey := l.copySessionKeysLocked()
 	l.mutex.RUnlock()
+	defer securemem.WipeBytes(sessionKey)
+	defer securemem.WipeBytes(hmacKey)
 	if sessionKey == nil || hmacKey == nil {
 		debug.Log(debug.DebugError, "Decrypt failed: no session keys", "link_id", fmt.Sprintf("%x", l.linkID))
 		return nil, errors.New("no session keys available")
@@ -2534,14 +2544,22 @@ func (l *Link) generateEphemeralKeys() error {
 	if err != nil {
 		return fmt.Errorf("failed to generate X25519 keypair: %w", err)
 	}
-	l.prv = priv
+	if err := setSecBuf(&l.prv, priv); err != nil {
+		securemem.WipeBytes(priv)
+		return err
+	}
+	securemem.WipeBytes(priv)
 	l.pub = pub
 
 	pubKey, privKey, err := cryptography.GenerateSigningKeyPair()
 	if err != nil {
 		return fmt.Errorf("failed to generate Ed25519 keypair: %w", err)
 	}
-	l.sigPriv = privKey
+	if err := setSecBuf(&l.sigPriv, privKey); err != nil {
+		securemem.WipeBytes(privKey)
+		return err
+	}
+	securemem.WipeBytes(privKey)
 	l.sigPub = pubKey
 
 	return nil
@@ -2737,12 +2755,19 @@ func (l *Link) performHandshakeLocked() error {
 	if len(l.peerPub) != KeySize {
 		return errors.New("invalid peer public key length")
 	}
+	if l.prv == nil {
+		return errors.New("missing ephemeral private key")
+	}
 
-	sharedSecret, err := cryptography.DeriveSharedSecret(l.prv, l.peerPub)
+	sharedSecret, err := cryptography.DeriveSharedSecret(l.prv.Bytes(), l.peerPub)
 	if err != nil {
 		return fmt.Errorf("ECDH failed: %w", err)
 	}
-	l.sharedKey = sharedSecret
+	if err := setSecBuf(&l.sharedKey, sharedSecret); err != nil {
+		securemem.WipeBytes(sharedSecret)
+		return err
+	}
+	securemem.WipeBytes(sharedSecret)
 
 	var derivedKeyLength int
 	if l.mode == ModeAES128CBC {
@@ -2753,23 +2778,39 @@ func (l *Link) performHandshakeLocked() error {
 		return fmt.Errorf("invalid link mode: %d", l.mode)
 	}
 
-	derivedKey, err := cryptography.DeriveKey(l.sharedKey, l.linkID, nil, derivedKeyLength)
+	derivedKey, err := cryptography.DeriveKey(l.sharedKey.Bytes(), l.linkID, nil, derivedKeyLength)
 	if err != nil {
 		return fmt.Errorf("HKDF failed: %w", err)
 	}
-	l.derivedKey = derivedKey
-
-	if len(derivedKey) >= 64 {
-		l.hmacKey = append([]byte(nil), derivedKey[0:32]...)
-		l.sessionKey = append([]byte(nil), derivedKey[32:64]...)
-		debug.Log(debug.DebugInfo, "Session keys derived", "link_id", fmt.Sprintf("%x", l.linkID), "mode", l.mode, "initiator", l.initiator, "hmac_key", fmt.Sprintf("%x", l.hmacKey[:8]), "session_key", fmt.Sprintf("%x", l.sessionKey[:8]))
-	} else if len(derivedKey) >= 32 {
-		l.hmacKey = append([]byte(nil), derivedKey[0:16]...)
-		l.sessionKey = append([]byte(nil), derivedKey[16:32]...)
+	if err := setSecBuf(&l.derivedKey, derivedKey); err != nil {
+		securemem.WipeBytes(derivedKey)
+		return err
 	}
 
+	if len(derivedKey) >= 64 {
+		if err := setSecBuf(&l.hmacKey, derivedKey[0:32]); err != nil {
+			securemem.WipeBytes(derivedKey)
+			return err
+		}
+		if err := setSecBuf(&l.sessionKey, derivedKey[32:64]); err != nil {
+			securemem.WipeBytes(derivedKey)
+			return err
+		}
+		debug.Log(debug.DebugInfo, "Session keys derived", "link_id", fmt.Sprintf("%x", l.linkID), "mode", l.mode, "initiator", l.initiator, "key_material_bytes", len(derivedKey))
+	} else if len(derivedKey) >= 32 {
+		if err := setSecBuf(&l.hmacKey, derivedKey[0:16]); err != nil {
+			securemem.WipeBytes(derivedKey)
+			return err
+		}
+		if err := setSecBuf(&l.sessionKey, derivedKey[16:32]); err != nil {
+			securemem.WipeBytes(derivedKey)
+			return err
+		}
+	}
+	securemem.WipeBytes(derivedKey)
+
 	l.status.Store(int32(StatusHandshake))
-	debug.Log(debug.DebugVerbose, "Handshake completed", "key_material_bytes", len(derivedKey), "shared_key", fmt.Sprintf("%x", l.sharedKey[:8]), "link_id", fmt.Sprintf("%x", l.linkID))
+	debug.Log(debug.DebugVerbose, "Handshake completed", "key_material_bytes", derivedKeyLength, "link_id", fmt.Sprintf("%x", l.linkID))
 	return nil
 }
 
@@ -2975,6 +3016,8 @@ func (l *Link) validateLinkProofLocked(pkt *packet.Packet, networkIface common.N
 
 	sessionKey, hmacKey := l.copySessionKeysLocked()
 	encrypted, err := encryptWithKeys(sessionKey, hmacKey, rttData)
+	securemem.WipeBytes(sessionKey)
+	securemem.WipeBytes(hmacKey)
 	if err != nil {
 		debug.Log(debug.DebugError, "Failed to encrypt RTT packet", "error", err, "link_id", fmt.Sprintf("%x", l.linkID))
 	} else {

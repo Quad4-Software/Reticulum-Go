@@ -56,10 +56,10 @@ func TestLinkRobustness_SymmetricKeysAfterEstablish(t *testing.T) {
 	initLink, respLink, cleanup := establishInteropLink(t)
 	defer cleanup()
 
-	if !bytes.Equal(initLink.sessionKey, respLink.sessionKey) {
+	if !bytes.Equal(bufBytes(initLink.sessionKey), bufBytes(respLink.sessionKey)) {
 		t.Fatalf("session keys differ between peers")
 	}
-	if !bytes.Equal(initLink.hmacKey, respLink.hmacKey) {
+	if !bytes.Equal(bufBytes(initLink.hmacKey), bufBytes(respLink.hmacKey)) {
 		t.Fatalf("hmac keys differ between peers")
 	}
 }

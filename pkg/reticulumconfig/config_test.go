@@ -528,6 +528,32 @@ func TestLoadConfig_EnableSandbox(t *testing.T) {
 	}
 }
 
+// TestLoadConfig_EnableSeccomp verifies enable_seccomp parsing and default.
+func TestLoadConfig_EnableSeccomp(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+
+	writeFile(t, path, `[reticulum]
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if !cfg.EnableSeccomp {
+		t.Error("omitted enable_seccomp should default to true")
+	}
+
+	writeFile(t, path, `[reticulum]
+  enable_seccomp = no
+`)
+	cfg, err = LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.EnableSeccomp {
+		t.Error("enable_seccomp = no should set EnableSeccomp to false")
+	}
+}
+
 // TestSaveConfig_EnableSandboxRoundTrip writes enable_sandbox = no and
 // reloads it to ensure the field persists.
 func TestSaveConfig_EnableSandboxRoundTrip(t *testing.T) {

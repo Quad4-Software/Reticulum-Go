@@ -24,7 +24,8 @@ func FuzzLinkHandleData(f *testing.F) {
 	l := NewLink(dest, tr, nil, nil, nil)
 	l.status.Store(int32(StatusActive))
 	l.linkID = make([]byte, 16)
-	l.sessionKey = make([]byte, 32) // Dummy session key to trigger decryption logic
+	_ = setSecBuf(&l.sessionKey, make([]byte, 32)) // Dummy session key to trigger decryption logic
+	_ = setSecBuf(&l.hmacKey, make([]byte, 32))
 
 	// Add seeds
 	p := &packet.Packet{

@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"quad4/reticulum-go/pkg/cryptography"
+	"quad4/reticulum-go/pkg/securemem"
 )
 
 // NewIdentityWithSigner builds an identity whose Ed25519 operations go through
@@ -37,7 +38,7 @@ func NewIdentityWithSigner(x25519Private []byte, signer cryptography.Ed25519Sign
 		signingSeed:     nil,
 		verificationKey: append(ed25519.PublicKey(nil), vk...),
 		externalSigner:  signer,
-		ratchets:        make(map[string][]byte),
+		ratchets:        make(map[string]*securemem.Buf),
 		ratchetExpiry:   make(map[string]int64),
 		mutex:           &sync.RWMutex{},
 	}
