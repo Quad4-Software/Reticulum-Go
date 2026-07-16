@@ -102,7 +102,10 @@ func (t *Transport) ourTransportID() []byte {
 	if t.transportIdentity == nil {
 		return nil
 	}
-	return t.transportIdentity.Hash()
+	if len(t.transportIDCache) == 0 {
+		t.transportIDCache = t.transportIdentity.Hash()
+	}
+	return t.transportIDCache
 }
 
 func rebuildHeaderType2(raw []byte, hops byte, nextHop []byte) ([]byte, error) {
@@ -205,21 +208,27 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 		return false
 	}
 	if !hasPath || path == nil || path.Interface == nil {
-		debug.Log(debug.DebugInfo, "No path for relayed transport packet, dropping",
-			"dest_hash", fmt.Sprintf("%x", destHash))
+		if debug.Enabled(debug.DebugInfo) {
+			debug.Log(debug.DebugInfo, "No path for relayed transport packet, dropping",
+				"dest_hash", fmt.Sprintf("%x", destHash))
+		}
 		return true
 	}
 	if path.Interface == sourceIface {
-		debug.Log(debug.DebugVerbose, "Refusing to relay back onto receiving interface",
-			"iface", sourceIface.GetName())
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Refusing to relay back onto receiving interface",
+				"iface", sourceIface.GetName())
+		}
 		return true
 	}
 
 	fromLocal := isLocalClientInterface(sourceIface)
 	newHops := linkRelayAccountedHops(pkt.Hops, fromLocal)
 	if newHops >= MaxHops {
-		debug.Log(debug.DebugInfo, "Transport packet exceeds MaxHops, dropping",
-			"hops", newHops)
+		if debug.Enabled(debug.DebugInfo) {
+			debug.Log(debug.DebugInfo, "Transport packet exceeds MaxHops, dropping",
+				"hops", newHops)
+		}
 		return true
 	}
 
@@ -244,11 +253,13 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 		t.recordLinkRelay(pkt, out, sourceIface, path, int(newHops))
 	}
 
-	debug.Log(debug.DebugInfo, "Relaying transport packet",
-		"dest_hash", fmt.Sprintf("%x", destHash),
-		"out_iface", path.Interface.GetName(),
-		"hops_remaining", path.HopCount,
-		"new_hops", newHops)
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Relaying transport packet",
+			"dest_hash", fmt.Sprintf("%x", destHash),
+			"out_iface", path.Interface.GetName(),
+			"hops_remaining", path.HopCount,
+			"new_hops", newHops)
+	}
 	if sendErr := sendOnInterface(path.Interface, out, ""); sendErr != nil {
 		debug.Log(debug.DebugError, "Failed to relay transport packet",
 			"error", sendErr,

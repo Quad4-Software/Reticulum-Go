@@ -4,6 +4,7 @@
 package transport
 
 import (
+	"bytes"
 	"fmt"
 	"time"
 
@@ -24,6 +25,15 @@ func (t *Transport) cacheAnnouncePacket(destHash []byte, pkt *packet.Packet) {
 	if t == nil || len(destHash) != packet.TruncatedHashLength || pkt == nil || len(pkt.Data) == 0 {
 		return
 	}
+	key := string(destHash)
+	t.mutex.Lock()
+	if existing := t.announcePacketCache[key]; existing != nil &&
+		bytes.Equal(existing.Data, pkt.Data) &&
+		existing.Hops == pkt.Hops &&
+		existing.ContextFlag == pkt.ContextFlag {
+		t.mutex.Unlock()
+		return
+	}
 	cached := &packet.Packet{
 		HeaderType:      pkt.HeaderType,
 		PacketType:      pkt.PacketType,
@@ -35,8 +45,6 @@ func (t *Transport) cacheAnnouncePacket(destHash []byte, pkt *packet.Packet) {
 		DestinationHash: append([]byte(nil), destHash...),
 		Data:            append([]byte(nil), pkt.Data...),
 	}
-	key := string(destHash)
-	t.mutex.Lock()
 	t.announcePacketCache[key] = cached
 	t.mutex.Unlock()
 }

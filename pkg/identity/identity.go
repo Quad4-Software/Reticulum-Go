@@ -4,6 +4,7 @@
 package identity
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
@@ -73,6 +74,7 @@ func New() (*Identity, error) {
 	i.signingSeed = ed25519Seed[:]
 	i.signingKey = privKeyEd
 	i.verificationKey = pubKeyEd
+	i.cachePublicHash()
 
 	return i, nil
 }
@@ -160,8 +162,50 @@ func (i *Identity) Encrypt(plaintext []byte, ratchet []byte) ([]byte, error) {
 }
 
 func (i *Identity) Hash() []byte {
-	hash := cryptography.Hash(i.GetPublicKey())
-	return hash[:TruncatedHashLength/8]
+	if i == nil {
+		return nil
+	}
+	if len(i.hash) != TruncatedHashLength/8 {
+		i.cachePublicHash()
+	}
+	out := make([]byte, TruncatedHashLength/8)
+	copy(out, i.hash)
+	return out
+}
+
+// cachePublicHash stores the truncated destination hash of the public key material.
+func (i *Identity) cachePublicHash() {
+	if i == nil {
+		return
+	}
+	var full [64]byte
+	copy(full[:32], i.publicKey)
+	copy(full[32:], i.verificationKey)
+	sum := cryptography.Hash(full[:])
+	i.hash = append([]byte(nil), sum[:TruncatedHashLength/8]...)
+}
+
+func (i *Identity) ensureRatchetMaps() {
+	if i.ratchets == nil {
+		i.ratchets = make(map[string][]byte)
+	}
+	if i.ratchetExpiry == nil {
+		i.ratchetExpiry = make(map[string]int64)
+	}
+}
+
+func (i *Identity) publicKeyEqual(publicKey []byte) bool {
+	if i == nil || len(publicKey) != KeySize/8 {
+		return false
+	}
+	return bytes.Equal(i.publicKey, publicKey[:KeySize/16]) &&
+		bytes.Equal(i.verificationKey, publicKey[KeySize/16:])
+}
+
+func knownDestKey(destHash []byte) string {
+	var buf [64]byte
+	n := hex.Encode(buf[:], destHash)
+	return string(buf[:n])
 }
 
 func TruncatedHash(data []byte) []byte {
@@ -180,22 +224,37 @@ func GetRandomHash() []byte {
 }
 
 func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) {
-	hashStr := hex.EncodeToString(destHash)
+	hashStr := knownDestKey(destHash)
+
+	knownDestinationsLock.Lock()
+	defer knownDestinationsLock.Unlock()
+
+	if existing, ok := knownDestinations[hashStr]; ok && len(existing) >= 4 {
+		if id, ok := existing[2].(*Identity); ok && id.publicKeyEqual(publicKey) {
+			prevPkt, _ := existing[0].([]byte)
+			prevApp, _ := existing[3].([]byte)
+			if bytes.Equal(prevPkt, packet) && bytes.Equal(prevApp, appData) {
+				return
+			}
+			existing[0] = append([]byte(nil), packet...)
+			existing[3] = append([]byte(nil), appData...)
+			markKnownDestinationsDirty()
+			return
+		}
+	}
+
 	packetCopy := append([]byte(nil), packet...)
 	destHashCopy := append([]byte(nil), destHash...)
 	publicKeyCopy := append([]byte(nil), publicKey...)
 	appDataCopy := append([]byte(nil), appData...)
 
-	// Store destination data as [packet, destHash, identity, appData]
 	id := FromPublicKey(publicKeyCopy)
-	knownDestinationsLock.Lock()
 	knownDestinations[hashStr] = []any{
 		packetCopy,
 		destHashCopy,
 		id,
 		appDataCopy,
 	}
-	knownDestinationsLock.Unlock()
 	markKnownDestinationsDirty()
 }
 
@@ -230,16 +289,17 @@ func FromPublicKey(publicKey []byte) *Identity {
 		return nil
 	}
 
+	pub := make([]byte, KeySize/16)
+	ver := make([]byte, KeySize/16)
+	copy(pub, publicKey[:KeySize/16])
+	copy(ver, publicKey[KeySize/16:])
+
 	id := &Identity{
-		publicKey:       publicKey[:KeySize/16],
-		verificationKey: publicKey[KeySize/16:],
-		ratchets:        make(map[string][]byte),
-		ratchetExpiry:   make(map[string]int64),
+		publicKey:       pub,
+		verificationKey: ver,
 		mutex:           &sync.RWMutex{},
 	}
-
-	hash := cryptography.Hash(id.GetPublicKey())
-	id.hash = hash[:TruncatedHashLength/8]
+	id.cachePublicHash()
 
 	return id
 }
@@ -253,7 +313,7 @@ func (i *Identity) String() string {
 }
 
 func Recall(hash []byte) (*Identity, error) {
-	hashStr := hex.EncodeToString(hash)
+	hashStr := knownDestKey(hash)
 
 	knownDestinationsLock.RLock()
 	data, exists := knownDestinations[hashStr]
@@ -816,6 +876,7 @@ func FromBytes(data []byte) (*Identity, error) {
 func (i *Identity) RotateRatchet() ([]byte, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
+	i.ensureRatchetMaps()
 
 	debug.Log(debug.DebugAll, "Rotating ratchet for identity", "hash", i.GetHexHash())
 
