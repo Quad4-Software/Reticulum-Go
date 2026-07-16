@@ -5,7 +5,7 @@
 #   RNS_REQUIRED_SIGNER  identity hash (default: e46112d44649266d71fe2193e00a4710)
 #   RNS_RSM_PATH         path to .rsm (default: reticulum-go.rsm)
 #   RNS_ID_BIN           reticulum-go binary (default: bin/reticulum-go)
-#   RNS_INVENTORY_OUT    if set, write extracted inventory here (for end-of-job recheck)
+#   RNS_INVENTORY_OUT    if set, write inventory here only after hash verify succeeds
 #   RNS_TREE_VERIFY_OPTIONAL  if 1 or true, warn and exit 0 on failure (CI soft check)
 #
 # Usage:
@@ -50,11 +50,15 @@ if ! "$BIN" id -i "$SIGNER" -V "$RSM_PATH" -extract >"$INV"; then
 	warn_or_fail "RSM signature verification failed"
 fi
 
-if [ -n "${RNS_INVENTORY_OUT:-}" ]; then
-	cp "$INV" "$RNS_INVENTORY_OUT"
+if ! sh "$ROOT/scripts/ci/tree-manifest.sh" verify-tracked "$INV"; then
+	# Do not leave RNS_INVENTORY_OUT on failure. End-of-job
+	# verify-workspace-clean treats a missing inventory as soft skip
+	# when tree verify ran optional (Windows CRLF hash mismatches etc).
+	warn_or_fail "tree inventory hash check failed"
 fi
 
-if ! sh "$ROOT/scripts/ci/tree-manifest.sh" verify-tracked "$INV"; then
-	warn_or_fail "tree inventory hash check failed"
+# Persist only after hashes match so optional failures soft-skip the recheck.
+if [ -n "${RNS_INVENTORY_OUT:-}" ]; then
+	cp "$INV" "$RNS_INVENTORY_OUT"
 fi
 echo "verify-tree-rsm.sh: OK (signer $SIGNER)"
