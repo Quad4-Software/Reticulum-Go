@@ -182,6 +182,17 @@ type Path struct {
 }
 
 func NewTransport(cfg *common.ReticulumConfig) *Transport {
+	if cfg != nil {
+		cfg.ApplyPersistenceEnv()
+		cfg.NormalizeInMemoryFlags()
+		if cfg.SoftMemoryLimitBytes > 0 {
+			common.ApplySoftMemoryLimit(cfg.SoftMemoryLimitBytes)
+		}
+		if err := identity.ApplyIdentityBackendFromConfig(cfg.IdentityBackend); err != nil {
+			debug.Log(debug.DebugError, "identity_backend unavailable", "backend", cfg.IdentityBackend, "error", err)
+		}
+	}
+
 	t := &Transport{
 		interfaces:            make(map[string]common.NetworkInterface),
 		paths:                 make(map[[PathMapKeySize]byte]*common.Path),
@@ -210,7 +221,13 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		startTime:             time.Now(),
 	}
 
-	transportIdent, err := identity.LoadOrCreateTransportIdentity(transportStoragePath(cfg))
+	inMemory := cfg == nil || cfg.UseInMemoryStorage()
+	storagePath := ""
+	if !inMemory {
+		storagePath = transportStoragePath(cfg)
+	}
+
+	transportIdent, err := identity.LoadOrCreateTransportIdentity(storagePath)
 	if err == nil {
 		t.rpcIdentity = transportIdent
 		t.setTransportIdentityLocked(transportIdent)
@@ -227,11 +244,20 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		blackhole.SetLocalIdentityHash(t.rpcIdentity.Hash())
 	}
 
-	if storage := transportStoragePath(cfg); storage != "" {
-		bhDir := filepath.Join(storage, "blackhole")
-		tab := blackhole.New(bhDir)
+	// Always keep a blackhole table. Empty dir means RAM-only persistence.
+	bhDir := ""
+	if storagePath != "" {
+		bhDir = filepath.Join(storagePath, "blackhole")
+	}
+	tab := blackhole.New(bhDir)
+	if bhDir != "" {
 		_ = tab.LoadAll()
-		t.blackholeTable = tab
+	}
+	t.blackholeTable = tab
+
+	identity.SetKnownDestinationsMaxEntries(0)
+	if cfg != nil {
+		identity.SetKnownDestinationsMaxEntries(cfg.EffectiveMaxInMemoryKnownDestinations())
 	}
 
 	go t.startMaintenanceJobs()
@@ -240,8 +266,9 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 	t.initPathPersistence(cfg)
 	inMemoryKnown := false
 	if cfg != nil {
-		cfg.ApplyPersistenceEnv()
-		inMemoryKnown = cfg.InMemoryKnownDestinations || cfg.ConnectedToSharedInstance
+		inMemoryKnown = cfg.InMemoryKnownDestinations || cfg.ConnectedToSharedInstance || cfg.UseInMemoryStorage()
+	} else {
+		inMemoryKnown = true
 	}
 	identity.InitKnownDestinationsPersistence(configPath(cfg), inMemoryKnown)
 
@@ -249,7 +276,10 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 }
 
 func transportStoragePath(cfg *common.ReticulumConfig) string {
-	if cfg == nil || cfg.ConfigPath == "" {
+	if cfg == nil || cfg.UseInMemoryStorage() {
+		return ""
+	}
+	if cfg.ConfigPath == "" {
 		return ""
 	}
 	return filepath.Join(filepath.Dir(cfg.ConfigPath), "storage")
@@ -513,7 +543,7 @@ func assertConcreteInterface(iface common.NetworkInterface) error {
 	name := "*" + rt.Elem().PkgPath() + "." + rt.Elem().Name()
 	short := "*" + rt.Elem().String()
 	if _, bad := abstractBaseInterfaceTypes[short]; bad {
-		return fmt.Errorf("refusing to register abstract base interface type %s; embed it in a concrete interface that overrides Send/ProcessOutgoing", name)
+		return fmt.Errorf("refusing to register abstract base interface type %s, embed it in a concrete interface that overrides Send/ProcessOutgoing", name)
 	}
 	return nil
 }
@@ -1029,7 +1059,39 @@ func (t *Transport) updatePathUnlocked(destinationHash []byte, nextHop []byte, i
 		Expires:     expires,
 	}
 	t.pathStates[key] = StateUnknown
+	t.evictPathsIfNeededUnlocked(now)
 	t.markPathTableDirty()
+}
+
+// evictPathsIfNeededUnlocked drops oldest paths when the in-memory soft cap
+// is exceeded. Caller must hold t.mutex. Uses repeated linear scans so a
+// single insert past the cap stays O(n) rather than sorting the whole table.
+func (t *Transport) evictPathsIfNeededUnlocked(now time.Time) {
+	max := 0
+	if t.config != nil {
+		max = t.config.EffectiveMaxInMemoryPaths()
+	}
+	if max <= 0 || len(t.paths) <= max {
+		return
+	}
+	for len(t.paths) > max {
+		var oldestKey [PathMapKeySize]byte
+		var oldestTime time.Time
+		first := true
+		for k, p := range t.paths {
+			when := now
+			if p != nil && !p.LastUpdated.IsZero() {
+				when = p.LastUpdated
+			}
+			if first || when.Before(oldestTime) {
+				first = false
+				oldestKey = k
+				oldestTime = when
+			}
+		}
+		delete(t.paths, oldestKey)
+		delete(t.pathStates, oldestKey)
+	}
 }
 
 func (t *Transport) UpdatePath(destinationHash []byte, nextHop []byte, interfaceName string, hops uint8) {

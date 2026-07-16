@@ -57,5 +57,9 @@ func ResolveAuthKey(cfg *common.ReticulumConfig) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return cryptography.Hash(priv), nil
+	sum := cryptography.Hash(priv)
+	for i := range priv {
+		priv[i] = 0
+	}
+	return sum, nil
 }

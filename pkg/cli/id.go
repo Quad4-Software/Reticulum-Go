@@ -12,7 +12,9 @@ import (
 	"strings"
 
 	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/identity/store"
 	"quad4/reticulum-go/pkg/rnsutil"
+	"quad4/reticulum-go/pkg/securemem"
 )
 
 const defaultAspects = "rns.id"
@@ -44,9 +46,35 @@ func RunID(args []string, opt ...Options) int {
 	useB64 := fs.Bool("b", false, "base64 encoding")
 	useB32 := fs.Bool("B", false, "base32 encoding")
 	useHex := fs.Bool("hex", false, "hex encoding (default)")
+	toSecretService := fs.Bool("to-secretservice", false, "migrate identity file into Freedesktop Secret Service (writes RSSI marker)")
+	toFile := fs.Bool("to-file", false, "migrate secretservice-backed identity back to a plaintext identity file")
 
 	if err := fs.Parse(args); err != nil {
 		return 2
+	}
+
+	if *toSecretService || *toFile {
+		path := expand(*identityPath)
+		if path == "" {
+			fmt.Fprintln(stderr, "migrate requires -i path")
+			return 2
+		}
+		if *toSecretService && *toFile {
+			fmt.Fprintln(stderr, "use only one of -to-secretservice or -to-file")
+			return 2
+		}
+		var err error
+		if *toSecretService {
+			err = store.MigrateToSecretService(path, "")
+		} else {
+			err = store.MigrateToFile(path)
+		}
+		if err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+		fmt.Fprintln(stdout, okMsg(stdout, "Identity storage migrated"))
+		return 0
 	}
 
 	enc, err := pickEncoding(*useB64, *useB32, *useHex)
@@ -98,6 +126,7 @@ func RunID(args []string, opt ...Options) int {
 			return 1
 		}
 		out := rnsutil.EncodeBytes(priv, enc) + "\n"
+		securemem.WipeBytes(priv)
 		if err := writeOutput(*writeOut, []byte(out), *force); err != nil {
 			fmt.Fprintf(stderr, "%v\n", err)
 			return 1

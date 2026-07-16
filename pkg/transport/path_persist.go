@@ -145,8 +145,9 @@ func decodeHops(v any) (uint8, bool) {
 func (t *Transport) initPathPersistence(cfg *common.ReticulumConfig) {
 	if cfg != nil {
 		cfg.ApplyPersistenceEnv()
+		cfg.NormalizeInMemoryFlags()
 	}
-	t.pathPersistMemory.Store(cfg != nil && cfg.InMemoryPathTable)
+	t.pathPersistMemory.Store(cfg != nil && (cfg.InMemoryPathTable || cfg.UseInMemoryStorage()))
 	if cfg != nil && cfg.ConnectedToSharedInstance {
 		t.pathPersistMemory.Store(true)
 	}
@@ -165,7 +166,7 @@ func (t *Transport) initPathPersistence(cfg *common.ReticulumConfig) {
 
 	dir, err := storage.EnsureDataDir(configPath(cfg))
 	if err != nil {
-		debug.Log(debug.DebugInfo, "Path table persistence disabled; storage unavailable", "error", err)
+		debug.Log(debug.DebugInfo, "Path table persistence disabled, storage unavailable", "error", err)
 		t.pathPersistMemory.Store(true)
 		t.pathPersistDisabled.Store(true)
 		return
@@ -233,7 +234,7 @@ func (t *Transport) loadPathTableFromDisk() {
 	data, err := os.ReadFile(path) // #nosec G304 -- operator-controlled storage path
 	if err != nil {
 		if !os.IsNotExist(err) {
-			debug.Log(debug.DebugInfo, "Path table load failed; using in-memory table", "error", err)
+			debug.Log(debug.DebugInfo, "Path table load failed, using in-memory table", "error", err)
 			t.pathPersistMemory.Store(true)
 			t.pathPersistDisabled.Store(true)
 		}
@@ -245,7 +246,7 @@ func (t *Transport) loadPathTableFromDisk() {
 
 	records, skipped, err := decodePathTableEntries(data, time.Now())
 	if err != nil {
-		debug.Log(debug.DebugInfo, "Path table decode failed; using in-memory table", "error", err)
+		debug.Log(debug.DebugInfo, "Path table decode failed, using in-memory table", "error", err)
 		t.pathPersistMemory.Store(true)
 		t.pathPersistDisabled.Store(true)
 		return
@@ -394,7 +395,7 @@ func (t *Transport) savePathTable(force bool) {
 }
 
 func (t *Transport) disablePathPersistence(err error) {
-	debug.Log(debug.DebugInfo, "Path table persistence disabled; continuing in-memory", "error", err)
+	debug.Log(debug.DebugInfo, "Path table persistence disabled, continuing in-memory", "error", err)
 	t.pathPersistMemory.Store(true)
 	t.pathPersistDisabled.Store(true)
 	t.pathPersistDirty.Store(false)

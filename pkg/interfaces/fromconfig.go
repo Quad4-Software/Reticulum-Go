@@ -225,7 +225,18 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			cfg.MaxReconnTries,
 		)
 	case "VSOCKServerInterface":
-		iface, err = NewVSOCKServerInterface(name, uint32(cfg.Port)) // #nosec G115
+		srv, serr := NewVSOCKServerInterface(name, uint32(cfg.Port)) // #nosec G115
+		if serr != nil {
+			return nil, serr
+		}
+		if cfg.ContextID != 0 {
+			parsed, perr := ParseVSOCKContextID(cfg.ContextID)
+			if perr != nil {
+				return nil, perr
+			}
+			srv.SetListenContextID(parsed)
+		}
+		iface = srv
 	case "HTTPSClientInterface":
 		lp := time.Duration(cfg.LongPollSec) * time.Second
 		iface, err = NewHTTPSClientInterfaceWithRetries(

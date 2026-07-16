@@ -33,14 +33,16 @@ func NewIdentityWithSigner(x25519Private []byte, signer cryptography.Ed25519Sign
 	}
 
 	i := &Identity{
-		privateKey:      append([]byte(nil), x25519Private...),
 		publicKey:       pub,
 		signingSeed:     nil,
-		verificationKey: vk,
+		verificationKey: append(ed25519.PublicKey(nil), vk...),
 		externalSigner:  signer,
 		ratchets:        make(map[string][]byte),
 		ratchetExpiry:   make(map[string]int64),
 		mutex:           &sync.RWMutex{},
+	}
+	if err := storeX25519(i, x25519Private); err != nil {
+		return nil, err
 	}
 
 	combinedPub := make([]byte, KeySize/8)

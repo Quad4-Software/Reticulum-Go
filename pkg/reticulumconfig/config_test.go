@@ -486,6 +486,20 @@ func TestSaveConfig_RoundTrip(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_IdentityBackend(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	writeFile(t, path, `[reticulum]
+  identity_backend = secretservice
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.IdentityBackend != "secretservice" {
+		t.Fatalf("IdentityBackend=%q", cfg.IdentityBackend)
+	}
+}
+
 // TestLoadConfig_EnableSandbox verifies the parser recognises the
 // enable_sandbox key and that both truthy and falsy values are handled.
 func TestLoadConfig_EnableSandbox(t *testing.T) {

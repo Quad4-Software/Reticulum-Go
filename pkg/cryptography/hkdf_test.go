@@ -6,6 +6,7 @@ package cryptography
 import (
 	"bytes"
 	"math/rand"
+	"strconv"
 	"testing"
 
 	"quad4/pbt/pkg/pbt"
@@ -160,4 +161,43 @@ func TestPBTHKDFDeterministic(t *testing.T) {
 		},
 	)
 	pbt.Check(t, prop, pbt.WithRuns(100), pbt.WithSeed(7), pbt.WithMaxSize(64))
+}
+
+func BenchmarkDeriveKey(b *testing.B) {
+	secret := []byte("bench-secret-material")
+	salt := []byte("bench-salt")
+	info := []byte{}
+	for _, length := range []int{64, 256, 1024} {
+		b.Run("Len-"+strconv.Itoa(length), func(b *testing.B) {
+			b.ReportAllocs()
+			b.SetBytes(int64(length))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				out, err := DeriveKey(secret, salt, info, length)
+				if err != nil {
+					b.Fatal(err)
+				}
+				if len(out) != length {
+					b.Fatalf("len=%d want %d", len(out), length)
+				}
+			}
+		})
+	}
+}
+
+// TestDeriveKeyAllocBudget keeps HKDF expand from allocating a new HMAC per
+// output block (the pre-fix pattern scaled with length).
+func TestDeriveKeyAllocBudget(t *testing.T) {
+	secret := []byte("budget-secret")
+	salt := []byte("budget-salt")
+	allocs := testing.AllocsPerRun(200, func() {
+		_, err := DeriveKey(secret, salt, nil, 1024)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+	// Extract HMAC + expand HMAC + PRK + output + a few small temps.
+	if allocs > 25 {
+		t.Fatalf("DeriveKey(1024) allocs=%.1f want <= 25", allocs)
+	}
 }

@@ -42,11 +42,17 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 	if cfg == nil {
 		cfg = config.DefaultConfig()
 	}
+	cfg.ApplyPersistenceEnv()
+	cfg.NormalizeInMemoryFlags()
 
-	if err := initializeDirectories(); err != nil {
-		return nil, fmt.Errorf("failed to initialize directories: %v", err)
+	if !cfg.UseInMemoryStorage() {
+		if err := initializeDirectories(); err != nil {
+			return nil, fmt.Errorf("failed to initialize directories: %v", err)
+		}
+		debug.Log(debug.DebugInfo, "Directories initialized")
+	} else {
+		debug.Log(debug.DebugInfo, "In-memory storage enabled, skipping directory bootstrap")
 	}
-	debug.Log(debug.DebugInfo, "Directories initialized")
 
 	n, err := node.New(cfg)
 	if err != nil {

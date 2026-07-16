@@ -17,6 +17,28 @@ import (
 	"quad4/reticulum-go/pkg/cryptography"
 )
 
+func TestIdentityCloseWipesPrivate(t *testing.T) {
+	id, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	priv, err := id.GetPrivateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(priv) != 64 {
+		t.Fatalf("len %d", len(priv))
+	}
+	id.Close()
+	if id.privateKey != nil || id.signingSeed != nil || id.signingKey != nil {
+		t.Fatal("private buffers still set after Close")
+	}
+	_, err = id.GetPrivateKey()
+	if err == nil {
+		t.Fatal("GetPrivateKey should fail after Close")
+	}
+}
+
 func TestNewIdentity(t *testing.T) {
 	id, err := New()
 	if err != nil {

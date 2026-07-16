@@ -248,6 +248,7 @@ func LoadConfig(path string) (*common.ReticulumConfig, error) {
 		return nil, fmt.Errorf("read config %q: %w", path, err)
 	}
 
+	cfg.NormalizeInMemoryFlags()
 	return cfg, nil
 }
 
@@ -290,6 +291,22 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		cfg.InMemoryPathTable = parseBool(value)
 	case "in_memory_known_destinations":
 		cfg.InMemoryKnownDestinations = parseBool(value)
+	case "in_memory_storage":
+		cfg.InMemoryStorage = parseBool(value)
+	case "identity_backend":
+		cfg.IdentityBackend = strings.TrimSpace(value)
+	case "soft_memory_limit":
+		if n, err := common.ParseByteSize(value); err == nil {
+			cfg.SoftMemoryLimitBytes = n
+		}
+	case "max_in_memory_paths":
+		setInt(value, &cfg.MaxInMemoryPaths)
+	case "max_in_memory_known_destinations":
+		setInt(value, &cfg.MaxInMemoryKnownDestinations)
+	case "max_in_memory_resource_bytes":
+		if n, err := common.ParseByteSize(value); err == nil {
+			cfg.MaxInMemoryResourceBytes = n
+		}
 	case "discover_interfaces":
 		cfg.DiscoverInterfaces = parseBool(value)
 	case "watch_interfaces":
@@ -570,6 +587,22 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	fmt.Fprintf(&b, "  control_api_port = %d\n", controlAPIPortOrDefault(cfg.ControlAPIPort))
 	fmt.Fprintf(&b, "  in_memory_path_table = %s\n", boolStr(cfg.InMemoryPathTable))
 	fmt.Fprintf(&b, "  in_memory_known_destinations = %s\n", boolStr(cfg.InMemoryKnownDestinations))
+	fmt.Fprintf(&b, "  in_memory_storage = %s\n", boolStr(cfg.InMemoryStorage))
+	if cfg.IdentityBackend != "" {
+		fmt.Fprintf(&b, "  identity_backend = %s\n", cfg.IdentityBackend)
+	}
+	if cfg.SoftMemoryLimitBytes > 0 {
+		fmt.Fprintf(&b, "  soft_memory_limit = %d\n", cfg.SoftMemoryLimitBytes)
+	}
+	if cfg.MaxInMemoryPaths != 0 {
+		fmt.Fprintf(&b, "  max_in_memory_paths = %d\n", cfg.MaxInMemoryPaths)
+	}
+	if cfg.MaxInMemoryKnownDestinations != 0 {
+		fmt.Fprintf(&b, "  max_in_memory_known_destinations = %d\n", cfg.MaxInMemoryKnownDestinations)
+	}
+	if cfg.MaxInMemoryResourceBytes != 0 {
+		fmt.Fprintf(&b, "  max_in_memory_resource_bytes = %d\n", cfg.MaxInMemoryResourceBytes)
+	}
 	fmt.Fprintf(&b, "  discover_interfaces = %s\n", boolStr(cfg.DiscoverInterfaces))
 	fmt.Fprintf(&b, "  watch_interfaces = %s\n", boolStr(cfg.WatchInterfaces))
 	fmt.Fprintf(&b, "  static_transport_identity = %s\n", boolStr(cfg.StaticTransportIdentity))

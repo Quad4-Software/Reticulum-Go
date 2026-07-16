@@ -399,6 +399,21 @@ func (d *Destination) EnableRatchets(path string) bool {
 	return true
 }
 
+// EnableRatchetsInMemory enables forward-secrecy ratchets without writing to
+// disk. Suitable for InMemoryStorage and ephemeral embedders.
+func (d *Destination) EnableRatchetsInMemory() bool {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	d.ratchetsEnabled = true
+	d.ratchetPath = ""
+	d.latestRatchetTime = time.Time{}
+	d.ratchets = make([][]byte, 0)
+
+	debug.Log(debug.DebugInfo, "Ratchets enabled in memory")
+	return true
+}
+
 func (d *Destination) EnforceRatchets() {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -637,8 +652,11 @@ func (d *Destination) persistRatchets() error {
 	d.ratchetFileLock.Lock()
 	defer d.ratchetFileLock.Unlock()
 
-	if !d.ratchetsEnabled || d.ratchetPath == "" {
-		return errors.New("ratchets not enabled or no path specified")
+	if !d.ratchetsEnabled {
+		return errors.New("ratchets not enabled")
+	}
+	if d.ratchetPath == "" {
+		return nil
 	}
 
 	debug.Log(debug.DebugPackets, "Persisting ratchets", "count", len(d.ratchets), "path", d.ratchetPath)
@@ -704,6 +722,13 @@ func (d *Destination) persistRatchets() error {
 func (d *Destination) reloadRatchets() error {
 	d.ratchetFileLock.Lock()
 	defer d.ratchetFileLock.Unlock()
+
+	if d.ratchetPath == "" {
+		if d.ratchets == nil {
+			d.ratchets = make([][]byte, 0)
+		}
+		return nil
+	}
 
 	if _, err := os.Stat(d.ratchetPath); os.IsNotExist(err) {
 		debug.Log(debug.DebugInfo, "No existing ratchet data found, initializing new ratchet file")

@@ -313,5 +313,20 @@ func setResourceLimits() error {
 		debug.Log(debug.DebugError, "RLIMIT_NPROC failed", "error", err)
 	}
 
+	// Raise soft MEMLOCK so identity securemem pages can mlock (a few KB).
+	var memlock unix.Rlimit
+	if err := unix.Getrlimit(unix.RLIMIT_MEMLOCK, &memlock); err == nil {
+		const want = 64 << 10 // 64 KiB
+		if memlock.Cur < want {
+			memlock.Cur = want
+			if memlock.Max < want && memlock.Max != unix.RLIM_INFINITY {
+				memlock.Max = want
+			}
+			if err := unix.Setrlimit(unix.RLIMIT_MEMLOCK, &memlock); err != nil {
+				debug.Log(debug.DebugVerbose, "RLIMIT_MEMLOCK raise failed", "error", err)
+			}
+		}
+	}
+
 	return nil
 }

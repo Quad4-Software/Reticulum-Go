@@ -27,6 +27,7 @@ func resetKnownDestinations(t *testing.T) {
 	knownPersistMemory.Store(false)
 	knownPersistDisabled.Store(false)
 	knownPersistDirty.Store(false)
+	SetKnownDestinationsMaxEntries(0)
 }
 
 // --- Round trip / basic behaviour -----------------------------------------

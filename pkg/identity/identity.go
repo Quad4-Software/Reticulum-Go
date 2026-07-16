@@ -13,22 +13,24 @@ import (
 	"io"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"quad4/reticulum-go/internal/storage"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/cryptography"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/identity/store"
+	"quad4/reticulum-go/pkg/securemem"
 )
 
 // Ed25519Signer is re-exported for identity callers configuring HSM-backed signing.
 type Ed25519Signer = cryptography.Ed25519Signer
 
 type Identity struct {
-	privateKey      []byte
+	privateKey      *securemem.Buf // 32-byte X25519 private scalar
 	publicKey       []byte
-	signingSeed     []byte // 32-byte Ed25519 seed. Nil if externalSigner is set.
-	signingKey      ed25519.PrivateKey
+	signingSeed     *securemem.Buf // 32-byte Ed25519 seed. Nil if externalSigner is set.
+	signingKey      *securemem.Buf // 64-byte expanded Ed25519 private key
 	verificationKey ed25519.PublicKey
 	externalSigner  cryptography.Ed25519Signer // if non-nil, Sign uses this instead of signingSeed
 	hash            []byte
@@ -53,27 +55,28 @@ func New() (*Identity, error) {
 		mutex:         &sync.RWMutex{},
 	}
 
-	// Generate keypairs using cryptography package
 	privKey, pubKey, err := cryptography.GenerateKeyPair()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate X25519 keypair: %w", err)
 	}
-	i.privateKey = privKey
+	if err := storeX25519(i, privKey); err != nil {
+		securemem.WipeBytes(privKey)
+		return nil, err
+	}
+	securemem.WipeBytes(privKey)
 	i.publicKey = pubKey
 
-	// Generate 32-byte Ed25519 seed
 	var ed25519Seed [32]byte
 	if _, err := io.ReadFull(rand.Reader, ed25519Seed[:]); err != nil {
+		i.Close()
 		return nil, fmt.Errorf("failed to generate Ed25519 seed: %w", err)
 	}
-
-	// Derive Ed25519 keypair from seed
-	privKeyEd := ed25519.NewKeyFromSeed(ed25519Seed[:])
-	pubKeyEd := privKeyEd.Public().(ed25519.PublicKey)
-
-	i.signingSeed = ed25519Seed[:]
-	i.signingKey = privKeyEd
-	i.verificationKey = pubKeyEd
+	if err := storeSigningMaterial(i, ed25519Seed[:]); err != nil {
+		securemem.WipeBytes(ed25519Seed[:])
+		i.Close()
+		return nil, err
+	}
+	securemem.WipeBytes(ed25519Seed[:])
 	i.cachePublicHash()
 
 	return i, nil
@@ -91,12 +94,12 @@ func (i *Identity) GetPrivateKey() ([]byte, error) {
 	if i.externalSigner != nil {
 		return nil, ErrSigningMaterialNotExportable
 	}
-	if i.privateKey == nil || len(i.signingSeed) != ed25519.SeedSize {
+	if !i.hasExportablePrivate() {
 		return nil, errors.New("identity has no exportable private key material")
 	}
 	out := make([]byte, 64)
-	copy(out[:32], i.privateKey)
-	copy(out[32:], i.signingSeed)
+	copy(out[:32], i.privateKey.Bytes())
+	copy(out[32:], i.signingSeed.Bytes())
 	return out, nil
 }
 
@@ -104,10 +107,10 @@ func (i *Identity) Sign(data []byte) ([]byte, error) {
 	if i.externalSigner != nil {
 		return i.externalSigner.Sign(data)
 	}
-	if len(i.signingKey) != ed25519.PrivateKeySize {
+	if i.signingKey == nil || i.signingKey.Len() != ed25519.PrivateKeySize {
 		return nil, errors.New("identity has no signing key")
 	}
-	return cryptography.Sign(i.signingKey, data), nil
+	return cryptography.Sign(i.signingKey.Bytes(), data), nil
 }
 
 func (i *Identity) Verify(data []byte, signature []byte) bool {
@@ -255,7 +258,36 @@ func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) 
 		id,
 		appDataCopy,
 	}
+	evictKnownDestinationsIfNeededLocked()
 	markKnownDestinationsDirty()
+}
+
+// knownDestMaxEntries is the soft cap applied while in-memory storage is
+// active. Zero means unlimited. Set via SetKnownDestinationsMaxEntries.
+var knownDestMaxEntries atomic.Int64
+
+// SetKnownDestinationsMaxEntries installs a soft cap on known destinations.
+// Zero or negative disables the cap.
+func SetKnownDestinationsMaxEntries(max int) {
+	if max < 0 {
+		max = 0
+	}
+	knownDestMaxEntries.Store(int64(max))
+}
+
+func evictKnownDestinationsIfNeededLocked() {
+	max := int(knownDestMaxEntries.Load())
+	if max <= 0 || len(knownDestinations) <= max {
+		return
+	}
+	excess := len(knownDestinations) - max
+	for key := range knownDestinations {
+		if excess <= 0 {
+			return
+		}
+		delete(knownDestinations, key)
+		excess--
+	}
 }
 
 func ValidateAnnounce(packet []byte, destHash []byte, publicKey []byte, signature []byte, appData []byte) bool {
@@ -384,7 +416,7 @@ func (i *Identity) GetCurrentRatchetKey() []byte {
 }
 
 func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRatchets bool, ratchetIDReceiver *common.RatchetIDReceiver) ([]byte, error) {
-	if i.privateKey == nil {
+	if !i.hasDecryptPrivate() {
 		debug.Log(debug.DebugCritical, "Decryption failed: identity has no private key")
 		return nil, errors.New("decryption failed because identity does not hold a private key")
 	}
@@ -426,7 +458,7 @@ func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRat
 		}
 	}
 
-	sharedKey, err := cryptography.DeriveSharedSecret(i.privateKey, peerPubBytes)
+	sharedKey, err := cryptography.DeriveSharedSecret(i.privateKey.Bytes(), peerPubBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate shared key: %w", err)
 	}
@@ -558,16 +590,16 @@ func (i *Identity) ToFile(path string) error {
 	if i.externalSigner != nil {
 		return ErrSigningMaterialNotExportable
 	}
-	if i.privateKey == nil || len(i.signingSeed) != ed25519.SeedSize {
+	if !i.hasExportablePrivate() {
 		return errors.New("cannot save identity without private keys")
 	}
 
 	privateKeyBytes := make([]byte, 64)
-	copy(privateKeyBytes[:32], i.privateKey)
-	copy(privateKeyBytes[32:], i.signingSeed)
+	copy(privateKeyBytes[:32], i.privateKey.Bytes())
+	copy(privateKeyBytes[32:], i.signingSeed.Bytes())
+	defer securemem.WipeBytes(privateKeyBytes)
 
-	// #nosec G304 G703 -- path is caller-chosen identity storage. Not derived from network input here
-	if err := storage.AtomicWriteFile(path, privateKeyBytes, 0o600); err != nil {
+	if err := store.SaveIdentityBlob(path, privateKeyBytes, ""); err != nil {
 		debug.Log(debug.DebugCritical, "Failed to write identity file", "error", err)
 		return err
 	}
@@ -579,24 +611,20 @@ func (i *Identity) ToFile(path string) error {
 func FromFile(path string) (*Identity, error) {
 	debug.Log(debug.DebugAll, "Loading identity from file", "path", path)
 
-	// Read the private key bytes from file
-	// #nosec G304 G703 -- path is caller-chosen identity storage. Not derived from network input here
-
-	data, err := os.ReadFile(path)
+	data, err := store.LoadIdentityBlob(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read identity file: %w", err)
 	}
 
 	if len(data) != 64 {
+		securemem.WipeBytes(data)
 		return nil, fmt.Errorf("invalid identity file: expected 64 bytes, got %d", len(data))
 	}
+	defer securemem.WipeBytes(data)
 
-	// Parse the private keys
-	// Format: [X25519 PrivKey (32 bytes)][Ed25519 PrivKey (32 bytes)]
 	privateKey := data[:32]
 	signingSeed := data[32:64]
 
-	// Create identity with initialized maps and mutex
 	ident := &Identity{
 		ratchets:      make(map[string][]byte),
 		ratchetExpiry: make(map[string]int64),
@@ -617,15 +645,18 @@ func LoadOrCreateTransportIdentity(customPath string) (*Identity, error) {
 		storagePath = os.Getenv("RETICULUM_STORAGE_PATH")
 	}
 
+	// Empty storage path means fully ephemeral: never write into the operator
+	// home directory from library or test callers.
 	if storagePath == "" {
-		homeDir, err := os.UserHomeDir()
+		ident, err := New()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get home directory: %w", err)
+			return nil, fmt.Errorf("failed to create ephemeral transport identity: %w", err)
 		}
-		storagePath = fmt.Sprintf("%s/.reticulum/storage", homeDir)
+		debug.Log(debug.DebugInfo, "Created ephemeral transport identity")
+		return ident, nil
 	}
 
-	// #nosec G703 -- storage path from RETICULUM_STORAGE_PATH or ~/.reticulum/storage. Operator-controlled, not remote taint
+	// #nosec G703 -- storage path from RETICULUM_STORAGE_PATH or caller. Operator-controlled, not remote taint
 
 	if err := os.MkdirAll(storagePath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create storage directory: %w", err)
@@ -653,27 +684,9 @@ func LoadOrCreateTransportIdentity(customPath string) (*Identity, error) {
 }
 
 func (i *Identity) loadPrivateKey(privateKey, signingSeed []byte) error {
-	if len(privateKey) != 32 || len(signingSeed) != 32 {
-		return errors.New("invalid private key length")
+	if err := loadPrivateInto(i, privateKey, signingSeed); err != nil {
+		return err
 	}
-
-	// Load X25519 private key
-	i.privateKey = make([]byte, 32)
-	copy(i.privateKey, privateKey)
-
-	// Load Ed25519 signing seed
-	i.signingSeed = make([]byte, 32)
-	copy(i.signingSeed, signingSeed)
-
-	var err error
-	i.publicKey, err = cryptography.PublicKeyFromPrivate(i.privateKey)
-	if err != nil {
-		return fmt.Errorf("failed to derive X25519 public key: %w", err)
-	}
-
-	signingKey := ed25519.NewKeyFromSeed(i.signingSeed)
-	i.signingKey = signingKey
-	i.verificationKey = signingKey.Public().(ed25519.PublicKey)
 
 	publicKeyBytes := make([]byte, 0, len(i.publicKey)+len(i.verificationKey))
 	publicKeyBytes = append(publicKeyBytes, i.publicKey...)
@@ -708,33 +721,24 @@ func RecallIdentity(path string) (*Identity, error) {
 	}
 
 	// Extract keys
-	x25519PrivKey := privateKeyBytes[:32]
-	ed25519Seed := privateKeyBytes[32:]
-
-	x25519PubKey, err := cryptography.PublicKeyFromPrivate(x25519PrivKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to derive X25519 public key: %w", err)
-	}
-
-	ed25519PrivKey := ed25519.NewKeyFromSeed(ed25519Seed)
-	ed25519PubKey := ed25519PrivKey.Public().(ed25519.PublicKey)
+	x25519PrivKey := make([]byte, 32)
+	ed25519Seed := make([]byte, 32)
+	copy(x25519PrivKey, privateKeyBytes[:32])
+	copy(ed25519Seed, privateKeyBytes[32:])
+	securemem.WipeBytes(privateKeyBytes)
 
 	id := &Identity{
-		privateKey:      x25519PrivKey,
-		publicKey:       x25519PubKey,
-		signingSeed:     ed25519Seed,
-		signingKey:      ed25519PrivKey,
-		verificationKey: ed25519PubKey,
-		ratchets:        make(map[string][]byte),
-		ratchetExpiry:   make(map[string]int64),
-		mutex:           &sync.RWMutex{},
+		ratchets:      make(map[string][]byte),
+		ratchetExpiry: make(map[string]int64),
+		mutex:         &sync.RWMutex{},
 	}
-
-	combinedPub := make([]byte, KeySize/8)
-	copy(combinedPub[:KeySize/16], id.publicKey)
-	copy(combinedPub[KeySize/16:], id.verificationKey)
-	fullHash := cryptography.Hash(combinedPub)
-	id.hash = fullHash[:TruncatedHashLength/8]
+	if err := id.loadPrivateKey(x25519PrivKey, ed25519Seed); err != nil {
+		securemem.WipeBytes(x25519PrivKey)
+		securemem.WipeBytes(ed25519Seed)
+		return nil, err
+	}
+	securemem.WipeBytes(x25519PrivKey)
+	securemem.WipeBytes(ed25519Seed)
 
 	debug.Log(debug.DebugAll, "Successfully recalled identity", "hash", id.GetHexHash())
 	return id, nil
@@ -810,37 +814,42 @@ func (i *Identity) SetRatchetKey(id string, key []byte) {
 
 // NewIdentity creates a new Identity instance with fresh keys
 func NewIdentity() (*Identity, error) {
-	// Generate 32-byte Ed25519 seed
 	var ed25519Seed [32]byte
 	if _, err := io.ReadFull(rand.Reader, ed25519Seed[:]); err != nil {
 		return nil, fmt.Errorf("failed to generate Ed25519 seed: %w", err)
 	}
 
-	// Derive Ed25519 keypair from seed
-	privKey := ed25519.NewKeyFromSeed(ed25519Seed[:])
-	pubKey := privKey.Public().(ed25519.PublicKey)
-
-	// Generate X25519 encryption keypair
 	var encPrivKey [32]byte
 	if _, err := io.ReadFull(rand.Reader, encPrivKey[:]); err != nil {
+		securemem.WipeBytes(ed25519Seed[:])
 		return nil, fmt.Errorf("failed to generate X25519 private key: %w", err)
 	}
 
 	encPubKey, err := cryptography.PublicKeyFromPrivate(encPrivKey[:])
 	if err != nil {
+		securemem.WipeBytes(ed25519Seed[:])
+		securemem.WipeBytes(encPrivKey[:])
 		return nil, fmt.Errorf("failed to generate X25519 public key: %w", err)
 	}
 
 	i := &Identity{
-		privateKey:      encPrivKey[:],
-		publicKey:       encPubKey,
-		signingSeed:     ed25519Seed[:],
-		signingKey:      privKey,
-		verificationKey: pubKey,
-		ratchets:        make(map[string][]byte),
-		ratchetExpiry:   make(map[string]int64),
-		mutex:           &sync.RWMutex{},
+		publicKey:     encPubKey,
+		ratchets:      make(map[string][]byte),
+		ratchetExpiry: make(map[string]int64),
+		mutex:         &sync.RWMutex{},
 	}
+	if err := storeX25519(i, encPrivKey[:]); err != nil {
+		securemem.WipeBytes(ed25519Seed[:])
+		securemem.WipeBytes(encPrivKey[:])
+		return nil, err
+	}
+	securemem.WipeBytes(encPrivKey[:])
+	if err := storeSigningMaterial(i, ed25519Seed[:]); err != nil {
+		securemem.WipeBytes(ed25519Seed[:])
+		i.Close()
+		return nil, err
+	}
+	securemem.WipeBytes(ed25519Seed[:])
 
 	combinedPub := make([]byte, KeySize/8)
 	copy(combinedPub[:KeySize/16], i.publicKey)

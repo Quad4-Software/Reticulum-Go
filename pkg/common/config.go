@@ -172,6 +172,38 @@ type ReticulumConfig struct {
 	// InMemoryKnownDestinations disables on-disk known destination persistence when true.
 	InMemoryKnownDestinations bool
 
+	// InMemoryStorage runs the stack fully ephemeral: no disk writes for path
+	// tables, known destinations, transport identity, blackhole entries, or
+	// split-resource staging. Implies both InMemoryPathTable and
+	// InMemoryKnownDestinations. Library use with an empty ConfigPath and no
+	// RETICULUM_STORAGE_PATH also behaves as in-memory storage.
+	InMemoryStorage bool
+
+	// SoftMemoryLimitBytes installs a Go soft heap limit via
+	// runtime/debug.SetMemoryLimit when greater than zero. Near the limit the
+	// runtime GCs more aggressively and large allocations may fail instead of
+	// growing unbounded. Zero leaves the runtime default (unlimited).
+	SoftMemoryLimitBytes int64
+
+	// IdentityBackend selects identity at-rest storage: "file" (default) or
+	// "secretservice" (Freedesktop Secret Service / GNOME Keyring / KWallet /
+	// KeePassXC). When secretservice fails, persistence returns an error.
+	IdentityBackend string
+
+	// MaxInMemoryPaths caps the live path table when in-memory storage is
+	// active. Zero uses DefaultMaxInMemoryPaths. Negative disables the cap.
+	MaxInMemoryPaths int
+
+	// MaxInMemoryKnownDestinations caps known destinations when in-memory
+	// storage is active. Zero uses DefaultMaxInMemoryKnownDestinations.
+	// Negative disables the cap.
+	MaxInMemoryKnownDestinations int
+
+	// MaxInMemoryResourceBytes caps staged split-resource bytes when
+	// in-memory storage is active. Zero uses DefaultMaxInMemoryResourceBytes.
+	// Negative disables the cap.
+	MaxInMemoryResourceBytes int64
+
 	// BackboneIO selects the kernel I/O multiplexer for backbone and local shared
 	// instance sockets: auto, epoll, kqueue, io_uring, or go.
 	BackboneIO string

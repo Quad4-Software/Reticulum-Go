@@ -108,7 +108,11 @@ func (t *Transport) RPCAuthKey() []byte {
 	if err != nil {
 		return nil
 	}
-	return cryptography.Hash(priv)
+	sum := cryptography.Hash(priv)
+	for i := range priv {
+		priv[i] = 0
+	}
+	return sum
 }
 
 func (t *Transport) GetPathTable(maxHops *int) []PathTableEntry {
