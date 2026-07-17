@@ -49,7 +49,7 @@ For details on interoperability, see [COMPATIBILITY.md](COMPATIBILITY.md). You c
 | **Dart librns FFI** | Yes | In-process `dart:ffi` over `librns` on Linux, Android, and Windows (`bindings/dart`, `package:rns_control/ffi.dart`). See [docs/en/librns.md](docs/en/librns.md#dart-ffi-bindings). |
 | **Dart Control API client** | Yes | Flutter-ready Dart package over the Control API (`bindings/dart`). See [docs/en/control-api.md](docs/en/control-api.md#dart-and-flutter). |
 | **Control API** | Yes | Localhost JSON and WebSocket APIs for out-of-process clients. See [docs/en/control-api.md](docs/en/control-api.md). |
-| **CLI Utilities** | Yes | Native subcommands of `reticulum-go`. Installs symlinks to match legacy `rgo*` tool names. See [docs/en/utilities.md](docs/en/utilities.md). |
+| **CLI Utilities** | Yes | Native subcommands of `reticulum-go`. Installs symlinks to match legacy `rgo*` tool names. See [docs/en/utilities.md](docs/en/utilities.md). Packet dump and Wireshark notes: [docs/en/packet-debug.md](docs/en/packet-debug.md). |
 | **Supply Chain Security** | Yes | Protected by fully vendored dependencies, cosign release attestations, and automated CI security scans. See [SECURITY.md](SECURITY.md). |
 
 ### Cryptography

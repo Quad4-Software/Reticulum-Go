@@ -174,6 +174,7 @@ Intentional extensions beyond upstream *rns*:
 | rnprobe | Yes | `reticulum-go probe` (symlink `rgoprobe`) |
 | rnstatus | Yes | `reticulum-go status` (symlink `rgostatus`). Shared-instance RPC including announce/PR rates. Go daemons also expose local integrity counters. TCP RPC setup: [docs/en/utilities.md](docs/en/utilities.md) |
 | (Go-only) | Yes | `reticulum-go slow` (symlink `rgoslow`). Bottleneck and local health findings. See [docs/en/utilities.md](docs/en/utilities.md#rgoslow) |
+| Speedtest.py | Yes | `reticulum-go speedtest` (symlink `rgospeed`). Loopback link throughput smoke / liveness floor. See [docs/en/utilities.md](docs/en/utilities.md#rgospeed) |
 | rnx | Yes | `reticulum-go x` (symlinks `rgox`, `rnx`). Destination `rnx.execute`, request path `command`. JSON stdout, Python exit codes |
 | rnodeconf | No | Depends on RNode driver |
 | rnpkg | No | Not ported |

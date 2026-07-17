@@ -4,7 +4,7 @@
 
 First stable release of Reticulum-Go.
 
-Wire compatible with Python RNS 1.3.8 for the software transport stack.
+Wire compatible with Python RNS 1.3.8
 
 ### Included
 - Crypto identity destinations packets transport links channels buffers resources
@@ -24,6 +24,7 @@ Wire compatible with Python RNS 1.3.8 for the software transport stack.
 - Race, fuzz, and goroutine-leak coverage for Serial, WebTransport, DNS rendezvous, VSOCK, and HTTPS
 - Channel envelope and StreamDataMessage wire parity with Python RNS
 - Live Python-Go interop for channel buffer rncp and blackhole LINKIDENTIFY
+- Health drop counters for announce dup, path response suppressions, path request dedup, and link relay unknown iface
 
 ### Not in this release
 - RNode KISS AX25 Weave radio drivers
