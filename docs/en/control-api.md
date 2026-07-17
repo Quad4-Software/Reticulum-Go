@@ -101,6 +101,11 @@ Binary fields (hashes, app data, link payloads) are hex- or base64-encoded as do
 | `stale_closes` | Links closed after going stale |
 | `link_stale_close` | Same lifetime total as exposed on the iface |
 | `keepalive_timeout` | Transitions into keepalive stale |
+| `clients` | Spawned peer count (I2P parent) |
+| `i2p_connectable` | Connectable I2P server tunnel enabled |
+| `i2p_b32` | Published `*.b32.i2p` endpoint when connectable |
+| `tunnelstate` | I2P peer tunnel label (`Creating Tunnel`, `Tunnel Active`, `Tunnel Unresponsive`) |
+| `i2p_last_error` | Last SAM dial or stream error text for an I2P peer |
 
 These counters are local observability only. They do not change packet accept or reject policy. For scored findings use `reticulum-go slow`. For a full path and health dump use `reticulum-go snapshot`. See [Security](security.md#local-mesh-health-observe-only), [packet-debug](packet-debug.md), and [CLI utilities](utilities.md#rgoslow).
 

@@ -198,12 +198,14 @@ INTEROP_ARTIFACTS=1 INTEROP_ARTIFACT_ROOT=/tmp/rns-interop \
 | `nomadnet_crawl_live_test.go` | Nomadnet crawl |
 | `nomadnet_relay_live_test.go` | NomadNet through Go mesh relay |
 | `path_cp_live_test.go` | path and rgocp utilities |
+| `i2p_live_test.go` | I2PInterface Go and Python (needs SAM) |
+| `directory_outgoing_live_test.go` | Public directory clearnet TCP peers |
 
 ### Package-specific live tests
 
 | Package | Env var |
 |---------|---------|
-| `pkg/i2p`, `pkg/interfaces` I2P | `RUN_LIVE_I2P=1` |
+| `pkg/i2p`, `pkg/interfaces` I2P | `RUN_LIVE_I2P=1` (optional `I2P_SAM_ADDRESS`, `I2P_DIRECTORY_URL`) |
 | `pkg/blackhole` | `RUN_PY_INTEROP=1` |
 | `pkg/discovery` | `RUN_PY_INTEROP=1` |
 

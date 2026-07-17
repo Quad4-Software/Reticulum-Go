@@ -20,6 +20,8 @@ const (
 	defaultSAMMaxVer  = "3.1"
 	defaultSAMAddress = "127.0.0.1:7656"
 	defaultSAMTimeout = 30
+	// DefaultSessionOptions enables encrypted LeaseSets for modern peers.
+	DefaultSessionOptions = "i2cp.leaseSetEncType=6,4"
 )
 
 var (

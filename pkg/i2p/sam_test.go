@@ -249,10 +249,204 @@ func TestResolveDestinationNonB64Passthrough(t *testing.T) {
 	}
 }
 
-func TestSAMErrorText(t *testing.T) {
-	e := &SAMError{Code: "I2P_ERROR"}
-	if e.Error() != "i2p: SAM I2P_ERROR" {
-		t.Errorf("unexpected error text: %q", e.Error())
+func TestParseMessageQuotedMessage(t *testing.T) {
+	m, err := parseMessage(`STREAM STATUS RESULT=CANT_REACH_PEER MESSAGE="LeaseSet not found"`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Opts["RESULT"] != "CANT_REACH_PEER" {
+		t.Fatalf("RESULT: %q", m.Opts["RESULT"])
+	}
+	if m.Opts["MESSAGE"] != "LeaseSet not found" {
+		t.Fatalf("MESSAGE: %q", m.Opts["MESSAGE"])
+	}
+	err = m.ResultError()
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "LeaseSet not found") {
+		t.Fatalf("error missing MESSAGE: %v", err)
+	}
+}
+
+func TestSAMErrorWithMessage(t *testing.T) {
+	e := &SAMError{Code: "TIMEOUT", Message: "slow peer"}
+	if e.Error() != "i2p: SAM TIMEOUT slow peer" {
+		t.Fatalf("got %q", e.Error())
+	}
+}
+
+func TestFormatSessionCreateIncludesOptions(t *testing.T) {
+	cmd := formatSessionCreate("sid1", "TRANSIENT", DefaultSessionOptions)
+	if !strings.Contains(cmd, "i2cp.leaseSetEncType=6,4") {
+		t.Fatalf("missing leaseSetEncType: %q", cmd)
+	}
+	if !strings.HasSuffix(cmd, "\n") {
+		t.Fatal("command must end with newline")
+	}
+}
+
+func TestOpenSessionSendsDefaultOptions(t *testing.T) {
+	var saw string
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		br := bufio.NewReader(conn)
+		_, _ = br.ReadString('\n') // HELLO
+		_, _ = conn.Write([]byte("HELLO REPLY RESULT=OK\n"))
+		line, _ := br.ReadString('\n')
+		saw = line
+		_, _ = conn.Write([]byte("SESSION STATUS RESULT=OK\n"))
+	}()
+
+	c := NewClient(ln.Addr().String())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	sess, err := c.OpenSession(ctx, "optsid", "TRANSIENT")
+	if err != nil {
+		t.Fatalf("OpenSession: %v", err)
+	}
+	_ = sess.Close()
+	<-done
+	if !strings.Contains(saw, "i2cp.leaseSetEncType=6,4") {
+		t.Fatalf("SESSION CREATE missing options: %q", saw)
+	}
+}
+
+func TestDialStreamSuccessAndFail(t *testing.T) {
+	addr, cleanup := fakeSAM(t, map[string]string{
+		"HELLO":          "HELLO REPLY RESULT=OK\n",
+		"SESSION CREATE": "SESSION STATUS RESULT=OK\n",
+		"STREAM CONNECT": "STREAM STATUS RESULT=OK\n",
+	})
+	defer cleanup()
+	ctrl := NewController("", addr)
+	defer ctrl.Stop()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	conn, sess, err := ctrl.DialStream(ctx, "abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst.b32.i2p")
+	if err != nil {
+		t.Fatalf("DialStream: %v", err)
+	}
+	_ = conn.Close()
+	ctrl.ReleaseDialSession(sess)
+
+	addr2, cleanup2 := fakeSAM(t, map[string]string{
+		"HELLO":          "HELLO REPLY RESULT=OK\n",
+		"SESSION CREATE": "SESSION STATUS RESULT=OK\n",
+		"STREAM CONNECT": "STREAM STATUS RESULT=CANT_REACH_PEER MESSAGE=\"LeaseSet not found\"\n",
+	})
+	defer cleanup2()
+	ctrl2 := NewController("", addr2)
+	defer ctrl2.Stop()
+	_, _, err = ctrl2.DialStream(ctx, "abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst.b32.i2p")
+	if err == nil {
+		t.Fatal("expected DialStream failure")
+	}
+	if !strings.Contains(err.Error(), "CANT_REACH_PEER") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDialStreamEmptyDestination(t *testing.T) {
+	ctrl := NewController("", "127.0.0.1:1")
+	defer ctrl.Stop()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	_, _, err := ctrl.DialStream(ctx, "   ")
+	if err == nil {
+		t.Fatal("expected empty destination error")
+	}
+}
+
+func TestReleaseDialSessionNilSafe(t *testing.T) {
+	ctrl := NewController("", "127.0.0.1:1")
+	defer ctrl.Stop()
+	ctrl.ReleaseDialSession(nil)
+}
+
+func TestControllerStopClosesDialSessions(t *testing.T) {
+	addr, cleanup := fakeSAM(t, map[string]string{
+		"HELLO":          "HELLO REPLY RESULT=OK\n",
+		"SESSION CREATE": "SESSION STATUS RESULT=OK\n",
+		"STREAM CONNECT": "STREAM STATUS RESULT=OK\n",
+	})
+	defer cleanup()
+	ctrl := NewController("", addr)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	conn, sess, err := ctrl.DialStream(ctx, "abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst.b32.i2p")
+	if err != nil {
+		t.Fatalf("DialStream: %v", err)
+	}
+	ctrl.Stop()
+	_ = conn.Close()
+	if sess == nil || sess.ID == "" {
+		t.Fatal("expected session")
+	}
+	ctrl.mu.Lock()
+	n := len(ctrl.dialSess)
+	ctrl.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("dial sessions after Stop: %d", n)
+	}
+}
+
+func TestFormatSessionCreateEmptyOptions(t *testing.T) {
+	cmd := formatSessionCreate("sid", "TRANSIENT", "  ")
+	if strings.Contains(cmd, "i2cp.") {
+		t.Fatalf("unexpected options: %q", cmd)
+	}
+	want := "SESSION CREATE STYLE=STREAM ID=sid DESTINATION=TRANSIENT\n"
+	if cmd != want {
+		t.Fatalf("got %q want %q", cmd, want)
+	}
+}
+
+func TestParseMessageUnclosedQuote(t *testing.T) {
+	m, err := parseMessage(`STREAM STATUS RESULT=TIMEOUT MESSAGE="still open`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Opts["MESSAGE"] != "still open" {
+		t.Fatalf("MESSAGE: %q", m.Opts["MESSAGE"])
+	}
+}
+
+func TestResolveDestinationInvariants(t *testing.T) {
+	lookups := 0
+	lookup := func(string) (string, error) {
+		lookups++
+		return "lookup-value", nil
+	}
+	b32 := "abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst.b32.i2p"
+	got, err := ResolveDestination(b32, lookup)
+	if err != nil || got != b32 || lookups != 0 {
+		t.Fatalf("b32 passthrough failed got=%q lookups=%d err=%v", got, lookups, err)
+	}
+	raw := "abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst"
+	got, err = ResolveDestination(raw, lookup)
+	if err != nil || got != raw+".b32.i2p" || lookups != 0 {
+		t.Fatalf("bare b32 failed got=%q lookups=%d err=%v", got, lookups, err)
+	}
+	got, err = ResolveDestination("example.i2p", lookup)
+	if err != nil || got != "lookup-value" || lookups != 1 {
+		t.Fatalf("hostname lookup failed got=%q lookups=%d err=%v", got, lookups, err)
+	}
+	upper := "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRST.b32.i2p"
+	got, err = ResolveDestination(upper, lookup)
+	if err != nil || got != strings.ToLower(upper) || lookups != 1 {
+		t.Fatalf("uppercase b32 failed got=%q lookups=%d err=%v", got, lookups, err)
 	}
 }
 
@@ -263,7 +457,7 @@ func TestSamErrorFromResult(t *testing.T) {
 		"PEER_NOT_FOUND", "TIMEOUT", "UNKNOWN_CODE",
 	}
 	for _, c := range cases {
-		err := samErrorFromResult(c)
+		err := samErrorFromResult(c, "")
 		if err == nil {
 			t.Errorf("samErrorFromResult(%q) returned nil", c)
 			continue

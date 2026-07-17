@@ -47,6 +47,7 @@ type InterfaceStat struct {
 	I2PConnectable            *bool    `msgpack:"i2p_connectable,omitempty"`
 	I2PB32                    *string  `msgpack:"i2p_b32,omitempty"`
 	TunnelState               *string  `msgpack:"tunnelstate,omitempty"`
+	I2PLastError              *string  `msgpack:"i2p_last_error,omitempty"`
 	IFACFail                  uint64   `msgpack:"ifac_fail"`
 	HMACFail                  uint64   `msgpack:"hmac_fail"`
 	AnnounceSigFail           uint64   `msgpack:"announce_sig_fail"`
@@ -232,6 +233,11 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 		if peer, ok := iface.(interface{ TunnelState() uint32 }); ok {
 			label := i2pTunnelStateLabel(peer.TunnelState())
 			st.TunnelState = &label
+		}
+		if peer, ok := iface.(interface{ LastError() string }); ok {
+			if errText := peer.LastError(); errText != "" {
+				st.I2PLastError = &errText
+			}
 		}
 		if v, ok := iface.(interface{ IncomingAnnounceFrequency() float64 }); ok {
 			st.IncomingAnnounceFrequency = v.IncomingAnnounceFrequency()

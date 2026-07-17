@@ -185,11 +185,15 @@ Modes match Python RNS wire values (`full` 0x01 through `internal` 0x07). Set wi
 
 ## I2PInterface
 
-Uses I2P SAM (`pkg/i2p`) for inbound and outbound tunnels.
+Uses I2P SAM (`pkg/i2p`) for inbound and outbound streams.
+
+Outbound peers dial with a direct SAM `STREAM CONNECT` (no local TCP proxy hop). The peer is marked online only after that connect succeeds. Reconnect closes the prior SAM session and opens a new one. Stream sessions use `i2cp.leaseSetEncType=6,4` by default.
 
 Configuration keys: `sam_address`, `peers`, `connectable`, `i2p_tunneled`.
 
-Live tests require `RUN_LIVE_I2P=1` and a running SAM bridge.
+Live SAM tests require `RUN_LIVE_I2P=1` and a running SAM bridge (`I2P_SAM_ADDRESS`, default `127.0.0.1:7656`). Directory peer smoke fetches online I2P hosts from `directory.rns.recipes` at runtime (override with `I2P_DIRECTORY_URL` or `INTEROP_DIRECTORY_URL`). Do not hardcode public b32 addresses in the tree.
+
+Go and Python interop lives in `tests/interop/i2p_live_test.go` (`RUN_LIVE_INTEROP=1` plus a reachable SAM).
 
 ## Backbone
 
@@ -403,12 +407,13 @@ Per-interface keys `announce_cap`, `announce_rate_*`, `ingress_control`, and `ic
 | Shared RPC live | `RUN_LIVE_INTEROP=1`, `tests/interop/shared_rpc_live_test.go` |
 | Auto live | `tests/interop/auto_live_test.go` |
 | Backbone live | `tests/interop/backbone_live_test.go` |
-| I2P live | `RUN_LIVE_I2P=1` |
-| Race (Stop vs Send) | `go test -race ./pkg/interfaces/ -run Race` plus DNS/VSOCK/HTTPS unit tests |
+| I2P live | `RUN_LIVE_I2P=1` (directory peers fetched at runtime) |
+| I2P Go and Python interop | `RUN_LIVE_INTEROP=1` plus reachable SAM, `tests/interop/i2p_live_test.go` |
+| Race (Stop vs Send) | `go test -race ./pkg/interfaces/ -run Race` plus DNS/VSOCK/HTTPS/I2P unit tests |
 | Goroutine leak | `go test ./pkg/interfaces/ -run NoGoroutineLeak` |
 | Fuzz (examples) | `go test ./pkg/interfaces/ -run '^$' -fuzz=FuzzParseRNSTXT -fuzztime=20s` |
 
-Fuzz targets cover TXT parsing (`FuzzParseRNSTXT`), HTTPS path/long-poll normalization, WebTransport path/mode, VSOCK CID and HDLC decode, Serial HDLC, and peer-key pins.
+Fuzz targets cover TXT parsing (`FuzzParseRNSTXT`), HTTPS path/long-poll normalization, WebTransport path/mode, VSOCK CID and HDLC decode, Serial HDLC, peer-key pins, and I2P SAM message or destination resolve (`pkg/i2p`).
 
 ## Related documents
 

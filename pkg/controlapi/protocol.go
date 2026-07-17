@@ -29,6 +29,11 @@ type interfaceStatJSON struct {
 	RXBytes               uint64  `json:"rx_bytes"`
 	TXBytes               uint64  `json:"tx_bytes"`
 	Bitrate               int64   `json:"bitrate"`
+	Clients               *int    `json:"clients,omitempty"`
+	I2PConnectable        *bool   `json:"i2p_connectable,omitempty"`
+	I2PB32                *string `json:"i2p_b32,omitempty"`
+	TunnelState           *string `json:"tunnelstate,omitempty"`
+	I2PLastError          *string `json:"i2p_last_error,omitempty"`
 	IFACFail              uint64  `json:"ifac_fail"`
 	HMACFail              uint64  `json:"hmac_fail"`
 	AnnounceSigFail       uint64  `json:"announce_sig_fail"`

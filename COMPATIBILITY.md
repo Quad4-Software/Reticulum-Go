@@ -41,7 +41,7 @@ Python: [RNS/Interfaces](https://github.com/markqvist/Reticulum/tree/master/RNS/
 | TCPClientInterface | Yes | [tcp.go](pkg/interfaces/tcp.go), HDLC, keepalives. Reconnect in [reconnect.go](pkg/interfaces/reconnect.go). Re-synthesizes tunnels on reconnect (`SetTunnelSynth` / `onConnected`). |
 | TCPServerInterface | Yes | Accept loop, HDLC, IFAC. |
 | AutoInterface | Yes | [auto.go](pkg/interfaces/auto.go). IPv6 link-local multicast, peer aging. NIC rescan with `watch_interfaces` ([auto_rescan.go](pkg/interfaces/auto_rescan.go)). Roam listener swap ([auto_roam.go](pkg/interfaces/auto_roam.go), 1.3.5). |
-| I2PInterface | Yes | [i2p.go](pkg/interfaces/i2p.go), SAM in [pkg/i2p](pkg/i2p/). Live tests: `RUN_LIVE_I2P=1`. |
+| I2PInterface | Yes | [i2p.go](pkg/interfaces/i2p.go), SAM in [pkg/i2p](pkg/i2p/). Direct STREAM CONNECT for outbound peers, `i2cp.leaseSetEncType=6,4`. Live: `RUN_LIVE_I2P=1`. Go/Python interop: `tests/interop/i2p_live_test.go`. |
 | BackboneInterface | Yes | [backbone.go](pkg/interfaces/backbone.go), [backbone_client.go](pkg/interfaces/backbone_client.go). Multiplexed I/O in [pkg/backbone](pkg/backbone/). Live interop: [tests/interop/backbone_live_test.go](tests/interop/backbone_live_test.go). |
 | RNodeInterface | No | No RNode serial driver. |
 | RNodeMultiInterface | No | Depends on RNode driver. |

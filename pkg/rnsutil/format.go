@@ -307,7 +307,9 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 		StaleCloses               uint64  `json:"stale_closes"`
 		KeepaliveTimeout          uint64  `json:"keepalive_timeout"`
 		I2PB32                    *string `json:"i2p_b32,omitempty"`
+		I2PConnectable            *bool   `json:"i2p_connectable,omitempty"`
 		Tunnel                    *string `json:"tunnelstate,omitempty"`
+		I2PLastError              *string `json:"i2p_last_error,omitempty"`
 	}
 	out := struct {
 		Interfaces      []ifaceJSON `json:"interfaces"`
@@ -360,7 +362,9 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 			StaleCloses:               st.StaleCloses,
 			KeepaliveTimeout:          st.KeepaliveTimeout,
 			I2PB32:                    st.I2PB32,
+			I2PConnectable:            st.I2PConnectable,
 			Tunnel:                    st.TunnelState,
+			I2PLastError:              st.I2PLastError,
 		})
 	}
 	enc := json.NewEncoder(w)
