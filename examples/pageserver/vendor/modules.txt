@@ -14,7 +14,7 @@ quad4/bzip2/pkg/bzip2
 quad4/msgpack/v5/pkg/msgpack
 quad4/msgpack/v5/pkg/msgpack/msgpcode
 # quad4/reticulum-go v0.0.0 => ../..
-## explicit; go 1.26.4
+## explicit; go 1.26.5
 quad4/reticulum-go/internal/storage
 quad4/reticulum-go/pkg/announce
 quad4/reticulum-go/pkg/backbone

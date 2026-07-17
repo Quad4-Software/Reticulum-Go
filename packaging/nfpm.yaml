@@ -51,6 +51,15 @@ contents:
   - src: /usr/bin/reticulum-go
     dst: /usr/bin/rgoslow
     type: symlink
+  - src: /usr/bin/reticulum-go
+    dst: /usr/bin/rgospeed
+    type: symlink
+  - src: /usr/bin/reticulum-go
+    dst: /usr/bin/rgodump
+    type: symlink
+  - src: /usr/bin/reticulum-go
+    dst: /usr/bin/rgosnap
+    type: symlink
   - src: man/reticulum-go.1
     dst: /usr/share/man/man1/reticulum-go.1
     file_info:
@@ -91,6 +100,14 @@ contents:
     dst: /usr/share/man/man1/reticulum-go-slow.1
     file_info:
       mode: 0644
+  - src: man/reticulum-go-dump.1
+    dst: /usr/share/man/man1/reticulum-go-dump.1
+    file_info:
+      mode: 0644
+  - src: man/reticulum-go-snapshot.1
+    dst: /usr/share/man/man1/reticulum-go-snapshot.1
+    file_info:
+      mode: 0644
   - src: man/reticulum-go.8
     dst: /usr/share/man/man8/reticulum-go.8
     file_info:
@@ -121,6 +138,12 @@ contents:
     type: symlink
   - src: /usr/share/man/man1/reticulum-go-pageserver.1
     dst: /usr/share/man/man1/rgopageserver.1
+    type: symlink
+  - src: /usr/share/man/man1/reticulum-go-dump.1
+    dst: /usr/share/man/man1/rgodump.1
+    type: symlink
+  - src: /usr/share/man/man1/reticulum-go-snapshot.1
+    dst: /usr/share/man/man1/rgosnap.1
     type: symlink
 overrides:
   deb:

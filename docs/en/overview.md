@@ -114,7 +114,7 @@ Reticulum-Go adds features that Python does not ship today (control API, librns,
 | Role | Start here |
 |------|------------|
 | Architect evaluating adoption | This page, then [Architecture](architecture.md) and [Compatibility](compatibility.md) |
-| Network operator | [Getting started](getting-started.md), [Configuration](configuration.md), [Interfaces](interfaces.md), [CLI utilities](utilities.md) |
+| Network operator | [Getting started](getting-started.md), [Configuration](configuration.md), [Interfaces](interfaces.md), [CLI utilities](utilities.md), [Packet debug](packet-debug.md) |
 | Go application author | [API reference](api-reference.md), [Package map](package-map.md), [Examples](examples.md), [Embedding and WebAssembly](embedding-and-wasm.md) |
 | Native / FFI embedder | [librns](librns.md), [Compatibility](compatibility.md) |
 | Odin application author | [librns](librns.md#odin-bindings), [Examples](examples.md) |

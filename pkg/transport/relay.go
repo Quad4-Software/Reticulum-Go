@@ -361,6 +361,7 @@ func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterf
 			debug.Log(debug.DebugVerbose, "Link relay: source iface unknown, dropping",
 				"link_id", fmt.Sprintf("%x", linkID))
 		}
+		health.Inc("", health.KindLinkRelayUnknownIface)
 		return true
 	}
 	if outIface == nil || !outIface.IsEnabled() {

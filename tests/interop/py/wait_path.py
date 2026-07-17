@@ -4,6 +4,9 @@ import sys
 import tempfile
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import interop_events
+
 _reticulum_path = os.environ.get("RETICULUM_PATH")
 if _reticulum_path:
     sys.path.insert(0, os.path.abspath(_reticulum_path))
@@ -49,16 +52,20 @@ def main() -> int:
 
     sys.stdout.write("READY\n")
     sys.stdout.flush()
+    interop_events.emit("ready")
 
     deadline = time.time() + 45.0
+    interop_events.emit("path_wait", detail=go_hash_hex)
     while time.time() < deadline:
         if RNS.Transport.has_path(go_hash):
             sys.stdout.write("OK\n")
             sys.stdout.flush()
+            interop_events.emit("path_ok")
             return 0
         RNS.Transport.request_path(go_hash)
         time.sleep(0.15)
 
+    interop_events.emit("fail", kind="path", detail="timeout waiting for path to Go destination")
     sys.stderr.write("timeout waiting for path to Go destination\n")
     return 1
 

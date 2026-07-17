@@ -4,6 +4,9 @@ import sys
 import tempfile
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import interop_events
+
 _reticulum_path = os.environ.get("RETICULUM_PATH")
 if _reticulum_path:
     sys.path.insert(0, os.path.abspath(_reticulum_path))
@@ -73,13 +76,16 @@ def main() -> int:
     if mode == "identify":
         sys.stdout.write("IDHASH " + identity.hash.hex() + "\n")
         sys.stdout.flush()
+        interop_events.emit("ready", detail="identify")
         # Wait until Go has registered the blackhole entry.
         sys.stdin.readline()
     else:
         sys.stdout.flush()
+        interop_events.emit("ready", detail=mode)
 
     deadline = time.time() + 60.0
     dest = None
+    interop_events.emit("path_wait", detail=go_hash_hex)
     while time.time() < deadline:
         dest = peer_destination(go_hash)
         if dest is not None:
@@ -88,10 +94,16 @@ def main() -> int:
         time.sleep(0.12)
 
     if dest is None:
+        interop_events.emit(
+            "fail",
+            kind="identity",
+            detail="timeout could not recall identity for Go destination",
+        )
         sys.stderr.write("timeout: could not recall identity for Go destination\n")
         return 1
 
     def on_link_established(link):
+        interop_events.emit("link_up", detail=mode)
         if mode == "identify":
             # Python only sends LINKIDENTIFY when this side is the initiator.
             link.identify(identity)
@@ -106,6 +118,7 @@ def main() -> int:
                 if message == expect:
                     sys.stdout.write("ECHO_OK\n")
                     sys.stdout.flush()
+                    interop_events.emit("request_ok", detail="echo")
 
             link.set_packet_callback(got)
             send_payload = os.environ.get("INTEROP_ECHO_SEND", "interop-ping").encode("utf-8")
@@ -123,10 +136,13 @@ def main() -> int:
                 if resource.status == RNS.Resource.COMPLETE:
                     sys.stdout.write("RESOURCE_SENT_OK\n")
                     sys.stdout.flush()
+                    interop_events.emit("request_ok", detail="resource_send")
                 elif resource.status == RNS.Resource.REJECTED:
                     sys.stdout.write("RESOURCE_REJECTED\n")
                     sys.stdout.flush()
+                    interop_events.emit("fail", kind="request", detail="resource rejected")
                 elif resource.status == RNS.Resource.FAILED:
+                    interop_events.emit("fail", kind="request", detail="resource send failed")
                     sys.stderr.write("resource send failed\n")
                     sys.stderr.flush()
 
@@ -146,7 +162,9 @@ def main() -> int:
                     if receipt.response == b"PONG_FROM_GO":
                         sys.stdout.write("REQUEST_OK\n")
                         sys.stdout.flush()
+                        interop_events.emit("request_ok", detail="request")
                 except Exception as exc:
+                    interop_events.emit("fail", kind="request", detail=str(exc))
                     sys.stderr.write("request callback: " + str(exc) + "\n")
                     sys.stderr.flush()
 
@@ -177,6 +195,7 @@ def main() -> int:
                 if isinstance(message, EchoMsg) and message.data == expect:
                     sys.stdout.write("CHANNEL_OK\n")
                     sys.stdout.flush()
+                    interop_events.emit("request_ok", detail="channel_send")
                     return True
                 return False
 
@@ -193,8 +212,10 @@ def main() -> int:
             writer.close()
             sys.stdout.write("BUFFER_SENT\n")
             sys.stdout.flush()
+            interop_events.emit("request_ok", detail="buffer_send")
 
         else:
+            interop_events.emit("fail", kind="harness", detail="unknown INTEROP_LINK_CLIENT_MODE")
             sys.stderr.write("unknown INTEROP_LINK_CLIENT_MODE\n")
             return 1
 

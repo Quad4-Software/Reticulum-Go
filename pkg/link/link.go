@@ -1409,6 +1409,20 @@ func (l *Link) dispatchOutgoingResourceRequests(plaintext []byte) {
 		"receiver_min_part",
 		receiverMinPart,
 	)
+	if len(reqHashes) > 0 && len(partIndexes) == 0 {
+		debug.Log(
+			debug.DebugVerbose,
+			"Outgoing resource request matched no parts",
+			"resource_hash",
+			fmt.Sprintf("%x", resourceHash),
+			"requested_hashes",
+			len(reqHashes)/resource.MapHashLen,
+			"receiver_min_part",
+			receiverMinPart,
+			"hmu_request",
+			len(hmuAnchorHash) == resource.MapHashLen,
+		)
+	}
 	for _, pi := range partIndexes {
 		slice := out.OutboundCiphertextSlice(pi, partSDU)
 		if len(slice) == 0 {
@@ -1456,11 +1470,18 @@ func chooseHashmapUpdateSegment(out *resource.Resource, sdu int, anchorHash []by
 	if receiverMinPart < 0 {
 		receiverMinPart = 0
 	}
-	searchStart := receiverMinPart
+	// Look back one hashmap segment so a lost HMU can be resent after
+	// outgoingReceiverMinPart was already advanced on the prior send.
+	// Without this, the receiver stalls forever re-requesting an HMU whose
+	// anchor now sits below receiverMinPart.
+	searchStart := max(receiverMinPart-entries, 0)
 	if searchStart >= totalParts {
 		searchStart = 0
 	}
-	searchEnd := min(searchStart+resource.CollisionGuardSize, totalParts)
+	searchEnd := min(receiverMinPart+resource.CollisionGuardSize, totalParts)
+	if searchEnd < searchStart+entries {
+		searchEnd = min(searchStart+resource.CollisionGuardSize, totalParts)
+	}
 
 	target := -1
 	fallback := -1
@@ -1567,6 +1588,22 @@ func selectRequestedPartIndexes(out *resource.Resource, reqHashes []byte, receiv
 		}
 		if pi < 0 {
 			for idx := searchStart; idx < searchEnd; idx++ {
+				if _, used := usedPartIndexes[idx]; used {
+					continue
+				}
+				mapHash := out.MapHashAt(idx)
+				if len(mapHash) == resource.MapHashLen && bytes.Equal(mapHash, mh) {
+					pi = idx
+					break
+				}
+			}
+		}
+		// If the receiver is still asking for hashes that sit just below
+		// receiverMinPart (lost HMU / partial window), allow a one-guard
+		// lookback so the transfer can recover instead of matching nothing.
+		if pi < 0 && receiverMinPart > 0 {
+			backStart := max(receiverMinPart-resource.CollisionGuardSize, 0)
+			for idx := backStart; idx < searchStart; idx++ {
 				if _, used := usedPartIndexes[idx]; used {
 					continue
 				}
@@ -1984,16 +2021,6 @@ func maxFloat(a, b float64) float64 {
 	return b
 }
 
-func (l *Link) copySessionKeysLocked() (sessionKey, hmacKey []byte) {
-	if l.sessionKey != nil {
-		sessionKey = l.sessionKey.CopyOut()
-	}
-	if l.hmacKey != nil {
-		hmacKey = l.hmacKey.CopyOut()
-	}
-	return sessionKey, hmacKey
-}
-
 func encryptWithKeys(sessionKey, hmacKey, data []byte) ([]byte, error) {
 	if sessionKey == nil || hmacKey == nil {
 		return nil, errors.New("no session keys available")
@@ -2055,39 +2082,78 @@ func decryptWithKeys(sessionKey, hmacKey, data []byte) ([]byte, error) {
 	return cryptography.DecryptAES256CBC(sessionKey, signedParts)
 }
 
+// snapshotSessionKeysLocked copies session/hmac key bytes into dst while the
+// link mutex is held. Prefer this over retaining securemem.Bytes() across the
+// unlocked AES work so handshake writers are not starved and closed buffers
+// cannot be used after unlock.
+func snapshotSessionKeysLocked(l *Link, sessionDst, hmacDst []byte) bool {
+	if l.sessionKey == nil || l.hmacKey == nil {
+		return false
+	}
+	sk := bufBytes(l.sessionKey)
+	hk := bufBytes(l.hmacKey)
+	if len(sk) == 0 || len(hk) == 0 || len(sessionDst) < len(sk) || len(hmacDst) < len(hk) {
+		return false
+	}
+	copy(sessionDst, sk)
+	copy(hmacDst, hk)
+	return true
+}
+
 func (l *Link) encrypt(data []byte) ([]byte, error) {
+	var sessionKey, hmacKey [32]byte
 	l.mutex.RLock()
-	sessionKey, hmacKey := l.copySessionKeysLocked()
+	ok := snapshotSessionKeysLocked(l, sessionKey[:], hmacKey[:])
+	mode := l.mode
 	l.mutex.RUnlock()
-	defer securemem.WipeBytes(sessionKey)
-	defer securemem.WipeBytes(hmacKey)
-	return encryptWithKeys(sessionKey, hmacKey, data)
+	if !ok {
+		return nil, errors.New("no session keys available")
+	}
+	defer securemem.WipeBytes(sessionKey[:])
+	defer securemem.WipeBytes(hmacKey[:])
+	if mode == ModeAES128CBC {
+		return encryptWithKeys(sessionKey[:16], hmacKey[:16], data)
+	}
+	return encryptWithKeys(sessionKey[:], hmacKey[:], data)
 }
 
 // encryptLocked encrypts data while the link mutex is already held by the caller.
 func (l *Link) encryptLocked(data []byte) ([]byte, error) {
-	sessionKey, hmacKey := l.copySessionKeysLocked()
-	defer securemem.WipeBytes(sessionKey)
-	defer securemem.WipeBytes(hmacKey)
-	return encryptWithKeys(sessionKey, hmacKey, data)
+	var sessionKey, hmacKey [32]byte
+	if !snapshotSessionKeysLocked(l, sessionKey[:], hmacKey[:]) {
+		return nil, errors.New("no session keys available")
+	}
+	defer securemem.WipeBytes(sessionKey[:])
+	defer securemem.WipeBytes(hmacKey[:])
+	if l.mode == ModeAES128CBC {
+		return encryptWithKeys(sessionKey[:16], hmacKey[:16], data)
+	}
+	return encryptWithKeys(sessionKey[:], hmacKey[:], data)
 }
 
 func (l *Link) decrypt(data []byte) ([]byte, error) {
-	l.mutex.RLock()
-	sessionKey, hmacKey := l.copySessionKeysLocked()
-	l.mutex.RUnlock()
-	defer securemem.WipeBytes(sessionKey)
-	defer securemem.WipeBytes(hmacKey)
-	if sessionKey == nil || hmacKey == nil {
-		debug.Log(debug.DebugError, "Decrypt failed: no session keys", "link_id", fmt.Sprintf("%x", l.linkID))
-		return nil, errors.New("no session keys available")
-	}
 	if len(data) < aes.BlockSize+aes.BlockSize+32 {
 		debug.Log(debug.DebugError, "Decrypt failed: data too short", "length", len(data))
 		return nil, errors.New("data too short")
 	}
+	var sessionKey, hmacKey [32]byte
+	l.mutex.RLock()
+	ok := snapshotSessionKeysLocked(l, sessionKey[:], hmacKey[:])
+	mode := l.mode
+	l.mutex.RUnlock()
+	if !ok {
+		debug.Log(debug.DebugError, "Decrypt failed: no session keys", "link_id", fmt.Sprintf("%x", l.linkID))
+		return nil, errors.New("no session keys available")
+	}
+	defer securemem.WipeBytes(sessionKey[:])
+	defer securemem.WipeBytes(hmacKey[:])
 
-	plaintext, err := decryptWithKeys(sessionKey, hmacKey, data)
+	sk, hk := sessionKey[:], hmacKey[:]
+	if mode == ModeAES128CBC {
+		sk = sessionKey[:16]
+		hk = hmacKey[:16]
+	}
+	plaintext, err := decryptWithKeys(sk, hk, data)
 	if err != nil {
 		ifaceName := l.attachedIfaceName()
 		switch {
@@ -3066,10 +3132,7 @@ func (l *Link) validateLinkProofLocked(pkt *packet.Packet, networkIface common.N
 		}
 	}
 
-	sessionKey, hmacKey := l.copySessionKeysLocked()
-	encrypted, err := encryptWithKeys(sessionKey, hmacKey, rttData)
-	securemem.WipeBytes(sessionKey)
-	securemem.WipeBytes(hmacKey)
+	encrypted, err := l.encryptLocked(rttData)
 	if err != nil {
 		debug.Log(debug.DebugError, "Failed to encrypt RTT packet", "error", err, "link_id", fmt.Sprintf("%x", l.linkID))
 	} else {

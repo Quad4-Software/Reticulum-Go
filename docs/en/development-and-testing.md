@@ -4,7 +4,7 @@
 
 Requirements:
 
-- Go 1.26.4 or later
+- Go 1.26.5 or later
 - Make or Task
 - revive linter for `make lint`
 - Python 3 for crossref vector generation (optional)
@@ -52,7 +52,17 @@ Opens HTML coverage from `coverage.out`.
 
 ```bash
 make bench
+task test-bench-gate
 ```
+
+Loopback link throughput smoke (RNS Speedtest-style liveness floor):
+
+```bash
+task test-link-speed
+reticulum-go speedtest
+```
+
+Nightly `sim-heavy` also runs `test-link-speed`.
 
 ## Project layout for contributors
 
@@ -110,6 +120,21 @@ Vectors are JSON with format version 5 (`generate_vectors.py`). The reference tr
 
 Coverage includes identity, HKDF, HMAC, packet wire, announces, encryption, links, resources, channel envelopes, buffers, path requests.
 
+Handshake decode trees for porters also live in `pkg/packet/testdata/handshake_vectors.json` (see [packet-debug.md](packet-debug.md)).
+
+### Packet debug tools
+
+- Wireshark Lua dissector: `tools/wireshark/rns.lua`
+- `reticulum-go dump` / `rgodump` for hex and pcap
+- `reticulum-go snapshot` / `rgosnap` for path and health JSON
+- Timeline convention: [interop-timeline.md](interop-timeline.md)
+
+```bash
+go test ./pkg/packet/ -run 'TestHandshakeVector|TestTshark|TestDecode|TestPCAP'
+go test ./pkg/health/ -run TestDrop
+go test ./pkg/cli/ -run TestRunDump
+```
+
 ### Interop tests
 
 Location: `tests/interop/`
@@ -120,6 +145,39 @@ Enable:
 
 ```bash
 RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
+```
+
+Optional Python interpreter:
+
+```bash
+PYTHON_INTEROP=.venv/bin/python RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
+```
+
+#### Debug harness
+
+NomadNet relay, pageserver, and shared helpers use `tests/interop/harness/`.
+
+| Variable | Behavior |
+|----------|----------|
+| `INTEROP_ARTIFACTS=1` | Always keep artifact dirs (default: only when the test fails) |
+| `INTEROP_EVENTS=1` | Force event logging (also on when artifacts are enabled) |
+| `INTEROP_ARTIFACT_ROOT` | Parent directory for durable artifact folders |
+
+On failure (or with `INTEROP_ARTIFACTS=1`) the test logs the artifact path and the last events. Typical files:
+
+| File | Contents |
+|------|----------|
+| `events.jsonl` | One JSON object per line (`ts`, `src`, `event`, `kind`, `detail`) |
+| `stderr.txt` | Captured Python stderr (human RNS logs plus `INTEROP_EVENT` lines) |
+| `env.json` | Selected interop env keys |
+
+Python peers emit `INTEROP_EVENT {...}` on stderr via `tests/interop/py/interop_events.py`. Stdout tokens such as `READY` and `REQUEST_OK` are unchanged.
+
+Example:
+
+```bash
+INTEROP_ARTIFACTS=1 INTEROP_ARTIFACT_ROOT=/tmp/rns-interop \
+  RUN_LIVE_INTEROP=1 go test -v ./tests/interop/ -run 'TestLiveNomadNetLinkThroughGoRelay|TestLiveInteropPythonPageServerLargePageRequest'
 ```
 
 | Test file | Topic |
@@ -137,6 +195,7 @@ RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
 | `shared_rpc_live_test.go` | Shared-instance RPC |
 | `pageserver_live_test.go` | Pageserver example |
 | `nomadnet_crawl_live_test.go` | Nomadnet crawl |
+| `nomadnet_relay_live_test.go` | NomadNet through Go mesh relay |
 | `path_cp_live_test.go` | path and rgocp utilities |
 
 ### Package-specific live tests

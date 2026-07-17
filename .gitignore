@@ -26,6 +26,7 @@ cosign.key
 
 # JSON assets and auto-generated exports
 *.json
+!pkg/packet/testdata/handshake_vectors.json
 
 # Example build binaries (source under examples/ is tracked)
 /examples/*/example-*
@@ -64,6 +65,8 @@ __pycache__/
 
 # Local Go build/test tmpdir override
 .gotmp/
+.gocache/
+.tmp/
 
 # Firecracker microvm build and runtime artifacts
 microvm/out/

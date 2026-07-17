@@ -25,15 +25,13 @@ const (
 	hashmapNotExhausted = 0x00
 	hashmapExhausted    = 0xff
 
-	// incomingResourceRetryInterval controls how often the receive-side
-	// watchdog nudges a stalled transfer by re-sending the current part (or
-	// HMU) request. sendIncomingResourceReqNext is otherwise only driven by
-	// arriving packets, so if a request packet or every part in the
-	// requested window is lost in transit -- routine on lossy, multi-hop
-	// mesh paths -- the receiver would otherwise wait silently until the
-	// much longer outer Link.Request timeout gives up on the whole
-	// transfer.
-	incomingResourceRetryInterval = 4 * time.Second
+	// incomingResourceRetryInterval is how often the receive-side watchdog
+	// polls for a stalled transfer.
+	incomingResourceRetryInterval = 100 * time.Millisecond
+
+	// incomingResourceStallGrace is the minimum idle time after the last
+	// accepted part or HMU before a re-request.
+	incomingResourceStallGrace = 100 * time.Millisecond
 )
 
 // IncomingResource is delivered to resource concluded callbacks when the
@@ -63,10 +61,16 @@ type incomingResourceAsm struct {
 
 	partSlots            [][]byte
 	mapHashes            [][]byte
+	inflight             []bool
 	hashmapHeight        int
 	totalParts           int
 	consecutiveCompleted int
 	waitingForHmu        bool
+	outstandingParts     int
+	window               int
+	windowMin            int
+	windowMax            int
+	consecutiveStalls    int
 	lastProgressAt       time.Time
 }
 
@@ -123,8 +127,12 @@ func (l *Link) beginIncomingResource(adv *resource.ResourceAdvertisement) error 
 		hashmapSegLen:        hashmapSegLen,
 		partSlots:            make([][]byte, adv.Parts),
 		mapHashes:            make([][]byte, adv.Parts),
+		inflight:             make([]bool, adv.Parts),
 		totalParts:           adv.Parts,
 		consecutiveCompleted: -1,
+		window:               resource.WindowMaxSlow,
+		windowMin:            resource.WindowMin,
+		windowMax:            resource.WindowMaxFast,
 		lastProgressAt:       time.Now(),
 	}
 	rx.applyHashmapSegment(0, adv.Hashmap)
@@ -145,7 +153,26 @@ func (l *Link) beginIncomingResource(adv *resource.ResourceAdvertisement) error 
 	l.incomingRx = rx
 	l.incomingMu.Unlock()
 	go l.watchIncomingResource(rx)
-	return l.sendIncomingResourceReqNext()
+	return l.queueIncomingResourceReqNext()
+}
+
+// queueIncomingResourceReqNext sends the next part/HMU request from a fresh
+// goroutine so inbound packet handlers can return and keep reading the UDP
+// socket instead of nesting ProcessIncoming around an encrypted REQ send.
+func (l *Link) queueIncomingResourceReqNext() error {
+	go func() {
+		if err := l.sendIncomingResourceReqNext(); err != nil {
+			debug.Log(
+				debug.DebugInfo,
+				"Incoming resource request failed",
+				"link_id",
+				fmt.Sprintf("%x", l.linkID),
+				"error",
+				err,
+			)
+		}
+	}()
+	return nil
 }
 
 // watchIncomingResource re-issues the current part/HMU request for rx
@@ -175,12 +202,30 @@ func (l *Link) tickIncomingResourceWatchdog(rx *incomingResourceAsm) bool {
 		return false
 	}
 	idle := time.Since(rx.lastProgressAt)
-	if idle < incomingResourceRetryInterval {
+	if idle < incomingResourceStallGrace {
 		l.incomingMu.Unlock()
 		return true
 	}
 	stalledOnHmu := rx.waitingForHmu
 	rx.waitingForHmu = false
+	// Drop in-flight reservations so the re-request can ask for the same
+	// missing parts again. Only shrink the window after repeated stalls so
+	// a single lost REQ on an otherwise healthy path does not collapse
+	// throughput.
+	for i := range rx.inflight {
+		rx.inflight[i] = false
+	}
+	rx.outstandingParts = 0
+	rx.consecutiveStalls++
+	if rx.consecutiveStalls >= 2 && rx.window > rx.windowMin && rx.windowMin > 0 {
+		rx.window--
+		if rx.windowMax > rx.windowMin {
+			rx.windowMax--
+			if (rx.windowMax - rx.window) > (resource.WindowFlexibility - 1) {
+				rx.windowMax--
+			}
+		}
+	}
 	l.incomingMu.Unlock()
 
 	debug.Log(
@@ -192,6 +237,10 @@ func (l *Link) tickIncomingResourceWatchdog(rx *incomingResourceAsm) bool {
 		idle,
 		"was_waiting_for_hmu",
 		stalledOnHmu,
+		"window",
+		rx.window,
+		"consecutive_stalls",
+		rx.consecutiveStalls,
 	)
 	health.Inc(l.attachedIfaceName(), health.KindResourceStall)
 	if err := l.sendIncomingResourceReqNext(); err != nil {
@@ -226,11 +275,21 @@ func (l *Link) sendIncomingResourceReqNext() error {
 		return nil
 	}
 
-	end := min(searchStart+resource.Window, rx.totalParts)
+	win := rx.window
+	if win <= 0 {
+		win = resource.Window
+	}
+	// Stop-and-wait windows like Python: only request when outstanding is
+	// zero, filling up to `window` new hashes from consecutive_completed.
+	if rx.outstandingParts > 0 {
+		l.incomingMu.Unlock()
+		return nil
+	}
+	end := min(searchStart+win, rx.totalParts)
 
-	requestedHashes := make([]byte, 0, resource.Window*resource.MapHashLen)
+	requestedHashes := make([]byte, 0, win*resource.MapHashLen)
+	requestedIdx := make([]int, 0, win)
 	exhausted := false
-	batch := 0
 	for pn := searchStart; pn < end; pn++ {
 		if rx.partSlots[pn] != nil {
 			continue
@@ -238,8 +297,8 @@ func (l *Link) sendIncomingResourceReqNext() error {
 		mh := rx.mapHashes[pn]
 		if mh != nil {
 			requestedHashes = append(requestedHashes, mh...)
-			batch++
-			if batch >= resource.Window {
+			requestedIdx = append(requestedIdx, pn)
+			if len(requestedIdx) >= win {
 				break
 			}
 			continue
@@ -280,6 +339,10 @@ func (l *Link) sendIncomingResourceReqNext() error {
 		prefix = []byte{hashmapNotExhausted}
 	}
 
+	for _, pn := range requestedIdx {
+		rx.inflight[pn] = true
+	}
+	rx.outstandingParts = len(requestedIdx)
 	reqBody := append(prefix, rx.adv.Hash...)
 	reqBody = append(reqBody, requestedHashes...)
 	debug.Log(
@@ -289,16 +352,34 @@ func (l *Link) sendIncomingResourceReqNext() error {
 		fmt.Sprintf("%x", l.linkID),
 		"search_start",
 		searchStart,
-		"window_end",
-		end,
+		"window",
+		win,
 		"requested_parts",
-		len(requestedHashes)/resource.MapHashLen,
+		len(requestedIdx),
+		"outstanding_parts",
+		rx.outstandingParts,
 		"waiting_for_hmu",
 		exhausted,
 	)
 	l.incomingMu.Unlock()
 
-	return l.SendPacketWithContext(reqBody, packet.ContextResourceReq)
+	if err := l.SendPacketWithContext(reqBody, packet.ContextResourceReq); err != nil {
+		l.incomingMu.Lock()
+		if l.incomingRx == rx {
+			for _, pn := range requestedIdx {
+				if pn >= 0 && pn < len(rx.inflight) {
+					rx.inflight[pn] = false
+				}
+			}
+			rx.outstandingParts = 0
+			if exhausted {
+				rx.waitingForHmu = false
+			}
+		}
+		l.incomingMu.Unlock()
+		return err
+	}
+	return nil
 }
 
 func (l *Link) resetIncomingResource() {
@@ -321,13 +402,12 @@ func (l *Link) applyIncomingHashmapUpdate(resHash []byte, segment int, hashmapBy
 		return nil
 	}
 	added := rx.applyHashmapSegment(segment, hashmapBytes)
-	if added > 0 {
-		rx.lastProgressAt = time.Now()
-	}
+	rx.lastProgressAt = time.Now()
+	rx.waitingForHmu = false
 	if added == 0 {
 		debug.Log(
 			debug.DebugVerbose,
-			"Incoming duplicate HMU ignored",
+			"Incoming duplicate HMU applied",
 			"link_id",
 			fmt.Sprintf("%x", l.linkID),
 			"segment",
@@ -337,24 +417,22 @@ func (l *Link) applyIncomingHashmapUpdate(resHash []byte, segment int, hashmapBy
 			"hashmap_height",
 			rx.hashmapHeight,
 		)
-		l.incomingMu.Unlock()
-		return nil
+	} else {
+		debug.Log(
+			debug.DebugVerbose,
+			"Incoming HMU applied",
+			"link_id",
+			fmt.Sprintf("%x", l.linkID),
+			"segment",
+			segment,
+			"entries",
+			len(hashmapBytes)/resource.MapHashLen,
+			"hashmap_height",
+			rx.hashmapHeight,
+		)
 	}
-	rx.waitingForHmu = false
-	debug.Log(
-		debug.DebugVerbose,
-		"Incoming HMU applied",
-		"link_id",
-		fmt.Sprintf("%x", l.linkID),
-		"segment",
-		segment,
-		"entries",
-		len(hashmapBytes)/resource.MapHashLen,
-		"hashmap_height",
-		rx.hashmapHeight,
-	)
 	l.incomingMu.Unlock()
-	return l.sendIncomingResourceReqNext()
+	return l.queueIncomingResourceReqNext()
 }
 
 func (l *Link) appendIncomingResourcePart(data []byte) error {
@@ -389,7 +467,17 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 	mh := sum[:resource.MapHashLen]
 
 	idx := -1
-	for i := 0; i < rx.totalParts; i++ {
+	// Match Python: only consider map hashes inside the active receive
+	// window starting at consecutive_completed. A global scan lets 4-byte
+	// map-hash collisions steal an earlier empty slot and leave the
+	// transfer permanently short one outstanding part.
+	windowStart := max(rx.consecutiveCompleted+1, 0)
+	win := rx.window
+	if win <= 0 {
+		win = resource.Window
+	}
+	windowEnd := min(windowStart+win, rx.totalParts)
+	for i := windowStart; i < windowEnd; i++ {
 		if rx.partSlots[i] != nil {
 			continue
 		}
@@ -399,6 +487,23 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 		if bytes.Equal(rx.mapHashes[i], mh) {
 			idx = i
 			break
+		}
+	}
+	if idx < 0 {
+		// Fall back to a collision-guard range so slightly out-of-window
+		// retransmits from a prior request can still land.
+		guardEnd := min(windowStart+resource.CollisionGuardSize, rx.totalParts)
+		for i := windowStart; i < guardEnd; i++ {
+			if rx.partSlots[i] != nil {
+				continue
+			}
+			if len(rx.mapHashes[i]) != resource.MapHashLen {
+				continue
+			}
+			if bytes.Equal(rx.mapHashes[i], mh) {
+				idx = i
+				break
+			}
 		}
 	}
 	if idx < 0 {
@@ -436,6 +541,13 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 	}
 	rx.partSlots[idx] = append([]byte(nil), data...)
 	rx.lastProgressAt = time.Now()
+	rx.consecutiveStalls = 0
+	if idx >= 0 && idx < len(rx.inflight) && rx.inflight[idx] {
+		rx.inflight[idx] = false
+	}
+	if rx.outstandingParts > 0 {
+		rx.outstandingParts--
+	}
 
 	rx.consecutiveCompleted = consecutivePrefix(rx.partSlots)
 	debug.Log(
@@ -447,6 +559,8 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 		idx,
 		"consecutive_completed",
 		rx.consecutiveCompleted,
+		"outstanding_parts",
+		rx.outstandingParts,
 	)
 	l.reportIncomingResourceProgress(rx)
 
@@ -458,8 +572,36 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 		return l.deliverIncomingResource(inner, adv)
 	}
 
+	// Match Python: only open the next request window once the current
+	// outstanding set is drained. Refilling on every part re-enters the
+	// send path from within inbound handling and can deadlock pipe-style
+	// interfaces under nested ProcessIncoming.
+	if rx.waitingForHmu || rx.outstandingParts > 0 {
+		l.incomingMu.Unlock()
+		return nil
+	}
+	growIncomingResourceWindow(rx)
 	l.incomingMu.Unlock()
-	return l.sendIncomingResourceReqNext()
+	return l.queueIncomingResourceReqNext()
+}
+
+// growIncomingResourceWindow advances the receive window toward windowMax
+// after a completed outstanding set, matching Python Resource.request_next
+// pacing (WINDOW -> WINDOW_MAX_FAST on healthy paths).
+func growIncomingResourceWindow(rx *incomingResourceAsm) {
+	if rx == nil {
+		return
+	}
+	if rx.window < rx.windowMax {
+		step := max(rx.window/4, 1)
+		rx.window += step
+		if rx.window > rx.windowMax {
+			rx.window = rx.windowMax
+		}
+		if (rx.window - rx.windowMin) > (resource.WindowFlexibility - 1) {
+			rx.windowMin++
+		}
+	}
 }
 
 func consecutivePrefix(slots [][]byte) int {

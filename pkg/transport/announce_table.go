@@ -10,6 +10,7 @@ import (
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/health"
 	"quad4/reticulum-go/pkg/packet"
 )
 
@@ -123,6 +124,11 @@ func (t *Transport) queuePathResponseAnnounce(destHash []byte, path *common.Path
 		// aggressive clients never receive a PATH_RESPONSE.
 		if prev.BlockRebroadcasts && prev.AttachedInterface == attachedIface {
 			t.mutex.Unlock()
+			ifaceName := ""
+			if attachedIface != nil {
+				ifaceName = attachedIface.GetName()
+			}
+			health.Inc(ifaceName, health.KindPathRespQueuedSkip)
 			return true
 		}
 		t.heldAnnounces[destHashStr] = prev

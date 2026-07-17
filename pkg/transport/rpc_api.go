@@ -61,6 +61,12 @@ type InterfaceStat struct {
 	ResourceStall             uint64   `msgpack:"resource_stall"`
 	RxOK                      uint64   `msgpack:"rx_ok"`
 	AnnounceOK                uint64   `msgpack:"announce_ok"`
+	AnnounceDup               uint64   `msgpack:"announce_dup"`
+	PathRespSuppressed        uint64   `msgpack:"path_resp_suppressed"`
+	PathReqDup                uint64   `msgpack:"path_req_dup"`
+	PathReqNoCache            uint64   `msgpack:"path_req_no_cache"`
+	PathRespQueuedSkip        uint64   `msgpack:"path_resp_queued_skip"`
+	LinkRelayUnknownIface     uint64   `msgpack:"link_relay_unknown_iface"`
 	IntegrityFailRate         float64  `msgpack:"integrity_fail_rate"`
 	IntegritySamples60        uint64   `msgpack:"integrity_samples_60s"`
 	StaleCloses               uint64   `msgpack:"stale_closes"`
@@ -78,6 +84,7 @@ type InterfaceStatsResponse struct {
 	TransportUptime float64         `msgpack:"transport_uptime"`
 	NetmonFlap      uint64          `msgpack:"netmon_flap"`
 	ActiveLinks     int             `msgpack:"active_links"`
+	Health          health.Snapshot `msgpack:"health"`
 }
 
 // RateTableEntry is one rate-table row for shared-instance RPC.
@@ -277,6 +284,12 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 		st.ResourceStall = hs.ResourceStall.Total
 		st.RxOK = hs.RxOK.Total
 		st.AnnounceOK = hs.AnnounceOK.Total
+		st.AnnounceDup = hs.AnnounceDup.Total
+		st.PathRespSuppressed = hs.PathRespSuppressed.Total
+		st.PathReqDup = hs.PathReqDup.Total
+		st.PathReqNoCache = hs.PathReqNoCache.Total
+		st.PathRespQueuedSkip = hs.PathRespQueuedSkip.Total
+		st.LinkRelayUnknownIface = hs.LinkRelayUnknownIface.Total
 		st.IntegrityFailRate = hs.IntegrityFailRate
 		st.IntegritySamples60 = hs.IFACFail.Rate60 + hs.HMACFail.Rate60 + hs.UnpackFail.Rate60 + hs.PaddingFail.Rate60 + hs.RxOK.Rate60
 		st.StaleCloses = hs.StaleCloses
@@ -287,6 +300,7 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 	resp.RXS = rxsTotal
 	resp.TXS = txsTotal
 	trHealth := health.Default.SnapshotTransport()
+	resp.Health = trHealth
 	resp.NetmonFlap = trHealth.NetmonFlap.Total
 	resp.ActiveLinks = t.countActiveLinksLocked()
 	if t.transportIdentity != nil {

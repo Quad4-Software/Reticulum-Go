@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"quad4/reticulum-go/tests/interop/harness"
 )
 
 func TestReadLineTimeoutNoConcurrentPanic(t *testing.T) {
@@ -17,8 +19,6 @@ func TestReadLineTimeoutNoConcurrentPanic(t *testing.T) {
 	br := bufio.NewReader(r)
 	ctx := context.Background()
 
-	// Time out before any newline arrives. Previously this left a stuck
-	// ReadString goroutine that raced the next call and panics.
 	if _, err := readLineTimeout(ctx, br, 20*time.Millisecond); err != context.DeadlineExceeded {
 		t.Fatalf("first wait err=%v want deadline exceeded", err)
 	}
@@ -33,6 +33,22 @@ func TestReadLineTimeoutNoConcurrentPanic(t *testing.T) {
 		t.Fatalf("second wait: %v", err)
 	}
 	if strings.TrimSpace(line) != "hello" {
+		t.Fatalf("got %q", line)
+	}
+}
+
+func TestHarnessReadLineTimeoutWrapper(t *testing.T) {
+	r, w := io.Pipe()
+	br := bufio.NewReader(r)
+	go func() {
+		_, _ = io.WriteString(w, "wrapper\n")
+		_ = w.Close()
+	}()
+	line, err := harness.ReadLineTimeout(context.Background(), br, time.Second)
+	if err != nil {
+		t.Fatalf("harness read: %v", err)
+	}
+	if strings.TrimSpace(line) != "wrapper" {
 		t.Fatalf("got %q", line)
 	}
 }

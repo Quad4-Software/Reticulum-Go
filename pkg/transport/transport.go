@@ -1139,6 +1139,11 @@ func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterf
 			if debug.Enabled(debug.DebugAll) {
 				debug.Log(debug.DebugAll, "Ignoring duplicate announce", "hash", fmt.Sprintf("%x", announceHash[:8]))
 			}
+			ifaceName := ""
+			if sourceIface != nil {
+				ifaceName = sourceIface.GetName()
+			}
+			health.Inc(ifaceName, health.KindAnnounceDup)
 			return nil
 		}
 	}
@@ -1610,6 +1615,11 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 			if debug.Enabled(debug.DebugInfo) {
 				debug.Log(debug.DebugInfo, "Ignoring duplicate announce", "hash", fmt.Sprintf("%x", announceHash[:8]))
 			}
+			ifaceName := ""
+			if iface != nil {
+				ifaceName = iface.GetName()
+			}
+			health.Inc(ifaceName, health.KindAnnounceDup)
 			return nil
 		}
 	}
@@ -2100,6 +2110,11 @@ func (t *Transport) handlePathRequest(data []byte, iface common.NetworkInterface
 	if t.discoveryPRTags[tagStr] {
 		t.mutex.Unlock()
 		debug.Log(debug.DebugInfo, "Ignoring duplicate path request", "dest_hash", fmt.Sprintf("%x", destHash), "tag", fmt.Sprintf("%x", tag))
+		ifaceName := ""
+		if iface != nil {
+			ifaceName = iface.GetName()
+		}
+		health.Inc(ifaceName, health.KindPathReqDup)
 		return
 	}
 	t.discoveryPRTags[tagStr] = true
@@ -2164,6 +2179,11 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 		nextHop := path.NextHop
 		if requestorTransportID != nil && bytes.Equal(nextHop, requestorTransportID) {
 			debug.Log(debug.DebugInfo, "Not answering path request, next hop is requestor", "dest_hash", fmt.Sprintf("%x", destHash))
+			ifaceName := ""
+			if attachedIface != nil {
+				ifaceName = attachedIface.GetName()
+			}
+			health.Inc(ifaceName, health.KindPathRespSuppressed)
 			return
 		}
 
@@ -2178,6 +2198,11 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 		if !isFromLocalClient {
 			debug.Log(debug.DebugInfo, "Not answering path request: no cached announce",
 				"dest_hash", fmt.Sprintf("%x", destHash))
+			ifaceName := ""
+			if attachedIface != nil {
+				ifaceName = attachedIface.GetName()
+			}
+			health.Inc(ifaceName, health.KindPathReqNoCache)
 			return
 		}
 		debug.Log(debug.DebugInfo, "Known path without cached announce, forwarding local-client path request",

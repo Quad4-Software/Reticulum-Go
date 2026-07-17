@@ -123,6 +123,7 @@ func (i *Identity) Encrypt(plaintext []byte, ratchet []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer securemem.WipeBytes(ephemeralPrivKey)
 
 	// Use ratchet key if provided, otherwise use identity public key
 	targetKey := i.publicKey
@@ -135,6 +136,7 @@ func (i *Identity) Encrypt(plaintext []byte, ratchet []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer securemem.WipeBytes(sharedSecret)
 
 	salt := i.GetSalt()
 	debug.Log(debug.DebugAll, "Encrypt: using salt", "salt", fmt.Sprintf("%x", salt), "identity_hash", fmt.Sprintf("%x", i.Hash()))
@@ -142,6 +144,7 @@ func (i *Identity) Encrypt(plaintext []byte, ratchet []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer securemem.WipeBytes(key)
 
 	hmacKey := key[:32]
 	encryptionKey := key[32:64]

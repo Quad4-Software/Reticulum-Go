@@ -5,6 +5,7 @@ package cli
 
 import (
 	"context"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"io"
@@ -59,7 +60,6 @@ func RunCP(args []string, opt ...Options) int {
 		fmt.Fprintf(stderr, "config: %v\n", err)
 		return 1
 	}
-	cfg.ShareInstance = true
 	if cfg.SharedInstanceType == "" {
 		cfg.SharedInstanceType = common.SharedInstanceTCP
 	}
@@ -81,8 +81,8 @@ func RunCP(args []string, opt ...Options) int {
 
 	if *printID {
 		destHash := destination.Hash(id, rnsutil.RNCPAppName, rnsutil.RNCPAspect)
-		fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Identity"), rnsutil.PrettyHex(id.Hash()))
-		fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), rnsutil.PrettyHex(destHash))
+		fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Identity"), hex.EncodeToString(id.Hash()))
+		fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), hex.EncodeToString(destHash))
 		return 0
 	}
 

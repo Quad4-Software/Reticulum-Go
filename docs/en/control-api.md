@@ -69,12 +69,18 @@ Binary fields (hashes, app data, link payloads) are hex- or base64-encoded as do
 | `hmac_fail` | Link HMAC failures |
 | `announce_sig_fail` | Invalid announce signatures |
 | `unpack_fail` | Packet unpack failures |
+| `announce_dup` | Duplicate announce ignored |
+| `path_resp_suppressed` | PATH_RESPONSE skipped (next hop is requestor) |
+| `path_req_dup` | Duplicate path request tag ignored |
+| `path_req_no_cache` | Known path without cached announce |
+| `path_resp_queued_skip` | PATH_RESPONSE already queued for iface |
+| `link_relay_unknown_iface` | Link relay dropped unknown source iface |
 | `integrity_fail_rate` | Windowed fails / (fails + accepted) |
 | `stale_closes` | Links closed after going stale |
 | `link_stale_close` | Same lifetime total as exposed on the iface |
 | `keepalive_timeout` | Transitions into keepalive stale |
 
-These counters are local observability only. They do not change packet accept or reject policy. For scored findings use `reticulum-go slow`. See [Security](security.md#local-mesh-health-observe-only) and [CLI utilities](utilities.md#rgoslow).
+These counters are local observability only. They do not change packet accept or reject policy. For scored findings use `reticulum-go slow`. For a full path and health dump use `reticulum-go snapshot`. See [Security](security.md#local-mesh-health-observe-only), [packet-debug](packet-debug.md), and [CLI utilities](utilities.md#rgoslow).
 
 ## Sessions
 

@@ -11,10 +11,10 @@ tasks:
     cmds:
       - bash tests/crossref/run_crossref.sh {{.CLI_ARGS}}
 
-  test-interop-live:
-    desc: Live Python-Go UDP interop (set PYTHON_INTEROP=.venv/bin/python when using venv)
+  test-packet-debug:
+    desc: Packet decode, handshake vectors, pcap, and tshark dissector tests
     cmds:
-      - RUN_LIVE_INTEROP=1 {{.GOCMD}} run ./scripts/ci/testsummary -v -timeout 30m ./tests/interop/...
+      - '{{.GOCMD}} test ./pkg/packet/ ./pkg/health/ ./pkg/cli/ ./pkg/timeline/ -count=1 -run "TestDecode|TestPCAP|TestHandshake|TestTshark|TestRunDump|TestDrop|TestPacketType"'
 
   test-short:
     desc: Run short tests
@@ -131,6 +131,11 @@ tasks:
     desc: Run large-scale simulation tests (build tag heavy)
     cmds:
       - '{{.GOCMD}} run ./scripts/ci/testsummary -tags=heavy -v ./pkg/transport -run TestSimHeavy -timeout 45m'
+
+  test-link-speed:
+    desc: Loopback link speedtest liveness floor (RNS Speedtest-style)
+    cmds:
+      - '{{.GOCMD}} test -count=1 -timeout 5m ./pkg/link -run TestLinkSpeedSmoke'
 
   test-sim-bench:
     desc: Run simulation benchmarks

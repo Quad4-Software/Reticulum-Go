@@ -1,6 +1,6 @@
 module example-announce
 
-go 1.26.4
+go 1.26.5
 
 require quad4/reticulum-go v0.0.0
 

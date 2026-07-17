@@ -5,6 +5,9 @@ import sys
 import tempfile
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import interop_events
+
 _reticulum_path = os.environ.get("RETICULUM_PATH")
 if _reticulum_path:
     sys.path.insert(0, os.path.abspath(_reticulum_path))
@@ -120,23 +123,32 @@ def main() -> int:
 
     sys.stdout.write("READY\n")
     sys.stdout.flush()
+    interop_events.emit("ready")
 
     dest_hash = None
     identity = None
     if preset_hash_hex:
         dest_hash = bytes.fromhex(preset_hash_hex)
         if len(dest_hash) != 16:
+            interop_events.emit("fail", kind="identity", detail="invalid INTEROP_NOMADNET_DEST_HASH")
             sys.stderr.write("invalid INTEROP_NOMADNET_DEST_HASH\n")
             return 1
         sys.stdout.write("NODE " + dest_hash.hex() + "\n")
         sys.stdout.flush()
+        interop_events.emit("node", detail=dest_hash.hex())
         identity = wait_for_identity(dest_hash, time.time() + 45.0)
         if identity is None:
+            interop_events.emit(
+                "fail",
+                kind="identity",
+                detail="timeout could not recall nomadnet identity via path response",
+            )
             sys.stderr.write("timeout: could not recall nomadnet identity via path response\n")
             return 1
     else:
         nodes = wait_for_nodes(collector, node_target, time.time() + announce_wait)
         if not nodes:
+            interop_events.emit("fail", kind="announce", detail="timeout no nomadnet node announces observed")
             sys.stderr.write("timeout: no nomadnet node announces observed\n")
             return 1
         node = nodes[0]
@@ -144,13 +156,16 @@ def main() -> int:
         identity = node["identity"]
         sys.stdout.write("NODE " + dest_hash.hex() + "\n")
         sys.stdout.flush()
+        interop_events.emit("node", detail=dest_hash.hex())
 
     if not wait_for_path(dest_hash, time.time() + 45.0):
+        interop_events.emit("fail", kind="path", detail="timeout no path to nomadnet node")
         sys.stderr.write("timeout: no path to nomadnet node\n")
         return 1
 
     sys.stdout.write("PATH_OK\n")
     sys.stdout.flush()
+    interop_events.emit("path_ok")
 
     link_result = {"ok": False, "err": ""}
 
@@ -161,6 +176,7 @@ def main() -> int:
                     link_result["ok"] = True
                     sys.stdout.write("NOMADNET_LINK_OK\n")
                     sys.stdout.flush()
+                    interop_events.emit("link_ok")
                 else:
                     link_result["err"] = "empty page response"
             except Exception as exc:
@@ -187,8 +203,10 @@ def main() -> int:
     if link_result["ok"]:
         return 0
     if link_result["err"]:
+        interop_events.emit("fail", kind="request", detail=link_result["err"])
         sys.stderr.write(link_result["err"] + "\n")
         return 1
+    interop_events.emit("fail", kind="timeout", detail="link or page request did not complete")
     sys.stderr.write("timeout: link or page request did not complete\n")
     return 1
 

@@ -4,6 +4,9 @@ import sys
 import tempfile
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import interop_events
+
 _reticulum_path = os.environ.get("RETICULUM_PATH")
 if _reticulum_path:
     sys.path.insert(0, os.path.abspath(_reticulum_path))
@@ -74,9 +77,11 @@ def main() -> int:
 
     sys.stdout.write("READY rns_log=" + log_path + "\n")
     sys.stdout.flush()
+    interop_events.emit("ready", detail=log_path)
 
     deadline = time.time() + timeout_sec
     dest = None
+    interop_events.emit("path_wait", detail=go_hash.hex())
     while time.time() < deadline:
         dest = peer_destination(go_hash)
         if dest is not None:
@@ -85,6 +90,11 @@ def main() -> int:
         time.sleep(0.12)
 
     if dest is None:
+        interop_events.emit(
+            "fail",
+            kind="identity",
+            detail="timeout could not recall pageserver identity",
+        )
         sys.stderr.write("timeout: could not recall pageserver identity\n")
         sys.stderr.write("rns_log=" + log_path + "\n")
         return 1
@@ -108,9 +118,15 @@ def main() -> int:
                 state["done"] = True
                 sys.stdout.write("REQUEST_OK\n")
                 sys.stdout.flush()
+                interop_events.emit("request_ok", detail=request_path)
             else:
                 state["ok"] = False
                 state["done"] = True
+                interop_events.emit(
+                    "fail",
+                    kind="request",
+                    detail="response mismatch for path " + request_path,
+                )
                 sys.stderr.write(
                     "response mismatch for path "
                     + request_path
@@ -123,6 +139,7 @@ def main() -> int:
         except Exception as exc:
             state["ok"] = False
             state["done"] = True
+            interop_events.emit("fail", kind="request", detail=str(exc))
             sys.stderr.write("response callback error: " + str(exc) + "\n")
             sys.stderr.write("rns_log=" + log_path + "\n")
             sys.stderr.flush()
@@ -133,6 +150,7 @@ def main() -> int:
         except Exception as exc:
             state["ok"] = False
             state["done"] = True
+            interop_events.emit("fail", kind="request", detail=str(exc))
             sys.stderr.write("request send error: " + str(exc) + "\n")
             sys.stderr.write("rns_log=" + log_path + "\n")
             sys.stderr.flush()
@@ -144,6 +162,11 @@ def main() -> int:
             return 0 if state["ok"] else 1
         time.sleep(0.1)
 
+    interop_events.emit(
+        "fail",
+        kind="timeout",
+        detail="timeout waiting for request response after " + str(timeout_sec) + " seconds",
+    )
     sys.stderr.write(
         "timeout waiting for request response after " + str(timeout_sec) + " seconds\n"
     )

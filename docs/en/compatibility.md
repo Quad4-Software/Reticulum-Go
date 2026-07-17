@@ -127,6 +127,7 @@ These do not change the wire format:
 | rnsd | `reticulum-go` daemon |
 | rnstatus | `rgostatus` (shared-instance RPC, announce/PR rates, JSON, Go integrity fields) |
 | (none) | `rgoslow` / `reticulum-go slow` (bottleneck and local health findings, Go-only) |
+| `Examples/Speedtest.py` | `rgospeed` / `reticulum-go speedtest` (loopback link throughput smoke) |
 | rnid | `rgoid` (`.rid`/`.rsg`/`.rsm`/`.rfe` compatible) |
 | rnprobe | `rgoprobe` |
 | rnpath | `rgopath` (path table, drop, blackhole, remote rnstransport not ported) |

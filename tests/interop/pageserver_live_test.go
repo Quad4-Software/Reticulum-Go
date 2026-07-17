@@ -4,7 +4,6 @@
 package interop
 
 import (
-	"bufio"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -21,6 +20,7 @@ import (
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/reticulumconfig"
 	"quad4/reticulum-go/pkg/transport"
+	"quad4/reticulum-go/tests/interop/harness"
 )
 
 func preparePageServerIdentity(t *testing.T, homeDir string) []byte {
@@ -76,51 +76,30 @@ func writePageServerInteropReticulumConfig(t *testing.T, home string, goListen, 
 func runPythonPageRequest(
 	t *testing.T,
 	ctx context.Context,
+	sess *harness.Session,
 	pyListen, pyForward int,
 	goDestHash []byte,
 	reqPath, expectContains string,
 ) {
 	t.Helper()
 
-	script := pyScript(t, "pageserver_client.py")
-	cmd := exec.CommandContext(ctx, pythonExe(), script)
-	cmd.Env = append(os.Environ(),
-		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
-		"INTEROP_FORWARD_PORT="+strconv.Itoa(pyForward),
-		"INTEROP_GO_DEST_HASH="+hex.EncodeToString(goDestHash),
-		"INTEROP_REQUEST_PATH="+reqPath,
-		"INTEROP_EXPECT_CONTAINS="+expectContains,
-	)
-	cmd.Stderr = os.Stderr
+	probe := harness.StartPython(t, harness.ProbeOpts{
+		Ctx:          ctx,
+		Script:       pyScript(t, "pageserver_client.py"),
+		Events:       sess.Events,
+		ArtifactsDir: sess.Dir,
+		Env: []string{
+			"INTEROP_LISTEN_PORT=" + strconv.Itoa(pyListen),
+			"INTEROP_FORWARD_PORT=" + strconv.Itoa(pyForward),
+			"INTEROP_GO_DEST_HASH=" + hex.EncodeToString(goDestHash),
+			"INTEROP_REQUEST_PATH=" + reqPath,
+			"INTEROP_EXPECT_CONTAINS=" + expectContains,
+		},
+	})
 
-	out, err := cmd.StdoutPipe()
-	if err != nil {
-		t.Fatalf("stdout pipe: %v", err)
-	}
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("start python client: %v", err)
-	}
-	defer func() {
-		_ = cmd.Process.Kill()
-		_ = cmd.Wait()
-	}()
-
-	br := bufio.NewReader(out)
-	line, err := readLineTimeout(ctx, br, 20*time.Second)
-	if err != nil {
-		t.Fatalf("wait READY: %v", err)
-	}
-	if !strings.HasPrefix(strings.TrimSpace(line), "READY") {
-		t.Fatalf("expected READY, got %q", line)
-	}
-
-	line, err = readLineTimeout(ctx, br, 120*time.Second)
-	if err != nil {
-		t.Fatalf("wait REQUEST_OK for %s: %v", reqPath, err)
-	}
-	if strings.TrimSpace(line) != "REQUEST_OK" {
-		t.Fatalf("expected REQUEST_OK for %s, got %q", reqPath, line)
-	}
+	probe.WaitExact(t, ctx, "READY", 20*time.Second, harness.KindReady)
+	probe.WaitExact(t, ctx, "REQUEST_OK", 120*time.Second, harness.KindRequest)
+	sess.Emit("request_ok", harness.KindRequest, reqPath)
 }
 
 func startPageServerBinary(t *testing.T, ctx context.Context, home, pageServerDir string) *exec.Cmd {
@@ -142,6 +121,7 @@ func startPageServerBinary(t *testing.T, ctx context.Context, home, pageServerDi
 
 func TestLiveInteropPythonNomadNetPageServerRequests(t *testing.T) {
 	liveOrSkip(t)
+	sess := harness.Begin(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
@@ -171,12 +151,13 @@ func TestLiveInteropPythonNomadNetPageServerRequests(t *testing.T) {
 
 	time.Sleep(6 * time.Second)
 
-	runPythonPageRequest(t, ctx, pyListen, goListen, goDestHash, "/page/index.mu", "Reticulum-Go Node")
-	runPythonPageRequest(t, ctx, pyListen, goListen, goDestHash, "/file/interop_test_file.txt", "PY_FILE_TEST")
+	runPythonPageRequest(t, ctx, sess, pyListen, goListen, goDestHash, "/page/index.mu", "Reticulum-Go Node")
+	runPythonPageRequest(t, ctx, sess, pyListen, goListen, goDestHash, "/file/interop_test_file.txt", "PY_FILE_TEST")
 }
 
 func TestLiveInteropPythonPageServerLargeFileRequest(t *testing.T) {
 	liveOrSkip(t)
+	sess := harness.Begin(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer cancel()
 
@@ -208,11 +189,12 @@ func TestLiveInteropPythonPageServerLargeFileRequest(t *testing.T) {
 
 	time.Sleep(6 * time.Second)
 
-	runPythonPageRequest(t, ctx, pyListen, goListen, goDestHash, "/file/interop_large_file.txt", "LARGE_INTEROP_MARKER")
+	runPythonPageRequest(t, ctx, sess, pyListen, goListen, goDestHash, "/file/interop_large_file.txt", "LARGE_INTEROP_MARKER")
 }
 
 func TestLiveInteropPythonPageServerLargePageRequest(t *testing.T) {
 	liveOrSkip(t)
+	sess := harness.Begin(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer cancel()
 
@@ -244,5 +226,5 @@ func TestLiveInteropPythonPageServerLargePageRequest(t *testing.T) {
 
 	time.Sleep(6 * time.Second)
 
-	runPythonPageRequest(t, ctx, pyListen, goListen, goDestHash, "/page/interop_large_page.mu", "LARGE_PAGE_INTEROP_MARKER")
+	runPythonPageRequest(t, ctx, sess, pyListen, goListen, goDestHash, "/page/interop_large_page.mu", "LARGE_PAGE_INTEROP_MARKER")
 }

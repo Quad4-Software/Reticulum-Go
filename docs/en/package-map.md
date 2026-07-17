@@ -220,7 +220,7 @@ Node-local mesh integrity and link-health counters. Used by drop-site instrument
 | Key types | `Registry`, `Snapshot`, `Kind` |
 | Entry | `health.Inc`, `health.Default` |
 | Main files | `registry.go`, `kind.go`, `window.go` |
-| Docs | [Security](security.md#local-mesh-health-observe-only), [CLI utilities](utilities.md#rgoslow) |
+| Docs | [Security](security.md#local-mesh-health-observe-only), [CLI utilities](utilities.md#rgoslow), [packet-debug](packet-debug.md) |
 
 ### `pkg/rnsutil`
 

@@ -45,6 +45,55 @@ func TestMainHelp(t *testing.T) {
 	if !strings.Contains(help, "self-check") {
 		t.Fatalf("help missing self-check: %s", help)
 	}
+	if !strings.Contains(help, "speedtest") {
+		t.Fatalf("help missing speedtest: %s", help)
+	}
+	if !strings.Contains(help, "dump") {
+		t.Fatalf("help missing dump: %s", help)
+	}
+	if !strings.Contains(help, "snapshot") {
+		t.Fatalf("help missing snapshot: %s", help)
+	}
+}
+
+func TestResolveCommandDumpAndSnapshot(t *testing.T) {
+	cmd, rest, ok := resolveCommand("reticulum-go", []string{"dump", "-hex", "00"})
+	if !ok || cmd != CmdDump {
+		t.Fatalf("dump subcommand ok=%v cmd=%q", ok, cmd)
+	}
+	if len(rest) != 2 || rest[0] != "-hex" {
+		t.Fatalf("rest=%v", rest)
+	}
+	cmd, _, ok = resolveCommand("rgodump", nil)
+	if !ok || cmd != CmdDump {
+		t.Fatalf("rgodump alias ok=%v cmd=%q", ok, cmd)
+	}
+
+	cmd, rest, ok = resolveCommand("reticulum-go", []string{"snapshot", "-q"})
+	if !ok || cmd != CmdSnapshot {
+		t.Fatalf("snapshot subcommand ok=%v cmd=%q", ok, cmd)
+	}
+	if len(rest) != 1 || rest[0] != "-q" {
+		t.Fatalf("rest=%v", rest)
+	}
+	cmd, _, ok = resolveCommand("rgosnap", nil)
+	if !ok || cmd != CmdSnapshot {
+		t.Fatalf("rgosnap alias ok=%v cmd=%q", ok, cmd)
+	}
+}
+
+func TestResolveCommandSpeedtest(t *testing.T) {
+	cmd, rest, ok := resolveCommand("reticulum-go", []string{"speedtest", "-json"})
+	if !ok || cmd != CmdSpeedtest {
+		t.Fatalf("got ok=%v cmd=%q", ok, cmd)
+	}
+	if len(rest) != 1 || rest[0] != "-json" {
+		t.Fatalf("rest=%v", rest)
+	}
+	cmd, _, ok = resolveCommand("rgospeed", nil)
+	if !ok || cmd != CmdSpeedtest {
+		t.Fatalf("alias ok=%v cmd=%q", ok, cmd)
+	}
 }
 
 func TestResolveCommandSelfCheck(t *testing.T) {

@@ -75,21 +75,27 @@ type KindTotals struct {
 
 // Snapshot is a point-in-time view of counters for one scope.
 type Snapshot struct {
-	IFACFail           KindTotals `json:"ifac_fail" msgpack:"ifac_fail"`
-	HMACFail           KindTotals `json:"hmac_fail" msgpack:"hmac_fail"`
-	UnpackFail         KindTotals `json:"unpack_fail" msgpack:"unpack_fail"`
-	PaddingFail        KindTotals `json:"padding_fail" msgpack:"padding_fail"`
-	AnnounceSigFail    KindTotals `json:"announce_sig_fail" msgpack:"announce_sig_fail"`
-	ProofFail          KindTotals `json:"proof_fail" msgpack:"proof_fail"`
-	LRProofHopMismatch KindTotals `json:"lrproof_hop_mismatch" msgpack:"lrproof_hop_mismatch"`
-	RequestSkewReject  KindTotals `json:"request_skew_reject" msgpack:"request_skew_reject"`
-	BlackholeHit       KindTotals `json:"blackhole_hit" msgpack:"blackhole_hit"`
-	LinkStaleClose     KindTotals `json:"link_stale_close" msgpack:"link_stale_close"`
-	KeepaliveTimeout   KindTotals `json:"keepalive_timeout" msgpack:"keepalive_timeout"`
-	ResourceStall      KindTotals `json:"resource_stall" msgpack:"resource_stall"`
-	NetmonFlap         KindTotals `json:"netmon_flap" msgpack:"netmon_flap"`
-	RxOK               KindTotals `json:"rx_ok" msgpack:"rx_ok"`
-	AnnounceOK         KindTotals `json:"announce_ok" msgpack:"announce_ok"`
+	IFACFail              KindTotals `json:"ifac_fail" msgpack:"ifac_fail"`
+	HMACFail              KindTotals `json:"hmac_fail" msgpack:"hmac_fail"`
+	UnpackFail            KindTotals `json:"unpack_fail" msgpack:"unpack_fail"`
+	PaddingFail           KindTotals `json:"padding_fail" msgpack:"padding_fail"`
+	AnnounceSigFail       KindTotals `json:"announce_sig_fail" msgpack:"announce_sig_fail"`
+	ProofFail             KindTotals `json:"proof_fail" msgpack:"proof_fail"`
+	LRProofHopMismatch    KindTotals `json:"lrproof_hop_mismatch" msgpack:"lrproof_hop_mismatch"`
+	RequestSkewReject     KindTotals `json:"request_skew_reject" msgpack:"request_skew_reject"`
+	BlackholeHit          KindTotals `json:"blackhole_hit" msgpack:"blackhole_hit"`
+	LinkStaleClose        KindTotals `json:"link_stale_close" msgpack:"link_stale_close"`
+	KeepaliveTimeout      KindTotals `json:"keepalive_timeout" msgpack:"keepalive_timeout"`
+	ResourceStall         KindTotals `json:"resource_stall" msgpack:"resource_stall"`
+	NetmonFlap            KindTotals `json:"netmon_flap" msgpack:"netmon_flap"`
+	RxOK                  KindTotals `json:"rx_ok" msgpack:"rx_ok"`
+	AnnounceOK            KindTotals `json:"announce_ok" msgpack:"announce_ok"`
+	AnnounceDup           KindTotals `json:"announce_dup" msgpack:"announce_dup"`
+	PathRespSuppressed    KindTotals `json:"path_resp_suppressed" msgpack:"path_resp_suppressed"`
+	PathReqDup            KindTotals `json:"path_req_dup" msgpack:"path_req_dup"`
+	PathReqNoCache        KindTotals `json:"path_req_no_cache" msgpack:"path_req_no_cache"`
+	PathRespQueuedSkip    KindTotals `json:"path_resp_queued_skip" msgpack:"path_resp_queued_skip"`
+	LinkRelayUnknownIface KindTotals `json:"link_relay_unknown_iface" msgpack:"link_relay_unknown_iface"`
 	// IntegrityFailRate is fails/(fails+ok) over the 60s window when sample size allows.
 	IntegrityFailRate float64 `json:"integrity_fail_rate" msgpack:"integrity_fail_rate"`
 	StaleCloses       uint64  `json:"stale_closes" msgpack:"stale_closes"`
@@ -120,21 +126,27 @@ func (r *Registry) SnapshotIface(iface string) Snapshot {
 func (r *Registry) snapshotArray(arr *[kindCount]windowedCounter) Snapshot {
 	now := time.Now().Unix()
 	s := Snapshot{
-		IFACFail:           snapKind(arr, KindIFACFail, now),
-		HMACFail:           snapKind(arr, KindHMACFail, now),
-		UnpackFail:         snapKind(arr, KindUnpackFail, now),
-		PaddingFail:        snapKind(arr, KindPaddingFail, now),
-		AnnounceSigFail:    snapKind(arr, KindAnnounceSigFail, now),
-		ProofFail:          snapKind(arr, KindProofFail, now),
-		LRProofHopMismatch: snapKind(arr, KindLRProofHopMismatch, now),
-		RequestSkewReject:  snapKind(arr, KindRequestSkewReject, now),
-		BlackholeHit:       snapKind(arr, KindBlackholeHit, now),
-		LinkStaleClose:     snapKind(arr, KindLinkStaleClose, now),
-		KeepaliveTimeout:   snapKind(arr, KindKeepaliveTimeout, now),
-		ResourceStall:      snapKind(arr, KindResourceStall, now),
-		NetmonFlap:         snapKind(arr, KindNetmonFlap, now),
-		RxOK:               snapKind(arr, KindRxOK, now),
-		AnnounceOK:         snapKind(arr, KindAnnounceOK, now),
+		IFACFail:              snapKind(arr, KindIFACFail, now),
+		HMACFail:              snapKind(arr, KindHMACFail, now),
+		UnpackFail:            snapKind(arr, KindUnpackFail, now),
+		PaddingFail:           snapKind(arr, KindPaddingFail, now),
+		AnnounceSigFail:       snapKind(arr, KindAnnounceSigFail, now),
+		ProofFail:             snapKind(arr, KindProofFail, now),
+		LRProofHopMismatch:    snapKind(arr, KindLRProofHopMismatch, now),
+		RequestSkewReject:     snapKind(arr, KindRequestSkewReject, now),
+		BlackholeHit:          snapKind(arr, KindBlackholeHit, now),
+		LinkStaleClose:        snapKind(arr, KindLinkStaleClose, now),
+		KeepaliveTimeout:      snapKind(arr, KindKeepaliveTimeout, now),
+		ResourceStall:         snapKind(arr, KindResourceStall, now),
+		NetmonFlap:            snapKind(arr, KindNetmonFlap, now),
+		RxOK:                  snapKind(arr, KindRxOK, now),
+		AnnounceOK:            snapKind(arr, KindAnnounceOK, now),
+		AnnounceDup:           snapKind(arr, KindAnnounceDup, now),
+		PathRespSuppressed:    snapKind(arr, KindPathRespSuppressed, now),
+		PathReqDup:            snapKind(arr, KindPathReqDup, now),
+		PathReqNoCache:        snapKind(arr, KindPathReqNoCache, now),
+		PathRespQueuedSkip:    snapKind(arr, KindPathRespQueuedSkip, now),
+		LinkRelayUnknownIface: snapKind(arr, KindLinkRelayUnknownIface, now),
 	}
 	s.StaleCloses = s.LinkStaleClose.Total
 	fails := s.IFACFail.Rate60 + s.HMACFail.Rate60 + s.UnpackFail.Rate60 + s.PaddingFail.Rate60

@@ -17,7 +17,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -29,6 +28,7 @@ import (
 	"quad4/reticulum-go/pkg/packet"
 	"quad4/reticulum-go/pkg/resource"
 	"quad4/reticulum-go/pkg/transport"
+	"quad4/reticulum-go/tests/interop/harness"
 )
 
 const (
@@ -73,10 +73,7 @@ func freeUDPPort(t *testing.T) int {
 }
 
 func pythonExe() string {
-	if p := os.Getenv("PYTHON_INTEROP"); p != "" {
-		return p
-	}
-	return "python3"
+	return harness.PythonExe()
 }
 
 func scriptDir(t *testing.T) string {
@@ -116,58 +113,8 @@ func setupGoUDPPeer(t *testing.T, pyListen, pyForward int) (*transport.Transport
 	return tr, iface, cleanup
 }
 
-type lineMsg struct {
-	s   string
-	err error
-}
-
-// lineWaiter ensures at most one ReadString is in flight per bufio.Reader.
-// Timed-out waits leave the in-flight result buffered for the next caller,
-// avoiding concurrent bufio use (which panics).
-type lineWaiter struct {
-	mu      sync.Mutex
-	reading bool
-	ch      chan lineMsg
-}
-
-var lineWaiters sync.Map // *bufio.Reader -> *lineWaiter
-
 func readLineTimeout(ctx context.Context, br *bufio.Reader, d time.Duration) (string, error) {
-	if br == nil {
-		return "", context.DeadlineExceeded
-	}
-	v, _ := lineWaiters.LoadOrStore(br, &lineWaiter{ch: make(chan lineMsg, 1)})
-	w := v.(*lineWaiter)
-
-	w.mu.Lock()
-	select {
-	case r := <-w.ch:
-		w.mu.Unlock()
-		return r.s, r.err
-	default:
-	}
-	if !w.reading {
-		w.reading = true
-		go func() {
-			s, err := br.ReadString('\n')
-			w.ch <- lineMsg{s: s, err: err}
-			w.mu.Lock()
-			w.reading = false
-			w.mu.Unlock()
-		}()
-	}
-	w.mu.Unlock()
-
-	timer := time.NewTimer(d)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return "", ctx.Err()
-	case r := <-w.ch:
-		return r.s, r.err
-	case <-timer.C:
-		return "", context.DeadlineExceeded
-	}
+	return harness.ReadLineTimeout(ctx, br, d)
 }
 
 func waitPath(ctx context.Context, tr *transport.Transport, destHash []byte, total time.Duration) error {

@@ -388,13 +388,13 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		setInt(value, &iface.ContextID)
 	case "long_poll_sec":
 		setInt(value, &iface.LongPollSec)
-	case "target_host":
+	case "target_host", "forward_ip":
 		iface.TargetHost = value
 	case "remote":
 		if strings.TrimSpace(iface.TargetHost) == "" {
 			iface.TargetHost = value
 		}
-	case "target_port":
+	case "target_port", "forward_port":
 		setInt(value, &iface.TargetPort)
 	case "target_address":
 		iface.TargetAddress = value

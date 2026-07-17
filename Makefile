@@ -41,7 +41,7 @@ INSTALL_MANDIR := $(DESTDIR)$(MANDIR)
 INIT ?= auto
 
 # Legacy CLI names installed as symlinks to $(BINARY_NAME).
-TOOL_LINKS := rgostatus rgoid rgoprobe rgopath rgocp rgox rnx rgopageserver rgoslow rgoselfcheck
+TOOL_LINKS := rgostatus rgoid rgoprobe rgopath rgocp rgox rnx rgopageserver rgoslow rgoselfcheck rgospeed rgodump rgosnap
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 # Package version must start with a digit and avoid git describe noise.
@@ -112,6 +112,8 @@ install-man:
 	install -m 644 man/reticulum-go-pageserver.1 $(INSTALL_MANDIR)/man1/reticulum-go-pageserver.1
 	install -m 644 man/reticulum-go-debug.1 $(INSTALL_MANDIR)/man1/reticulum-go-debug.1
 	install -m 644 man/reticulum-go-slow.1 $(INSTALL_MANDIR)/man1/reticulum-go-slow.1
+	install -m 644 man/reticulum-go-dump.1 $(INSTALL_MANDIR)/man1/reticulum-go-dump.1
+	install -m 644 man/reticulum-go-snapshot.1 $(INSTALL_MANDIR)/man1/reticulum-go-snapshot.1
 	install -m 644 man/reticulum-go.8 $(INSTALL_MANDIR)/man8/reticulum-go.8
 	ln -sfn reticulum-go-status.1 $(INSTALL_MANDIR)/man1/rgostatus.1
 	ln -sfn reticulum-go-id.1 $(INSTALL_MANDIR)/man1/rgoid.1
@@ -121,6 +123,8 @@ install-man:
 	ln -sfn reticulum-go-x.1 $(INSTALL_MANDIR)/man1/rgox.1
 	ln -sfn reticulum-go-x.1 $(INSTALL_MANDIR)/man1/rnx.1
 	ln -sfn reticulum-go-pageserver.1 $(INSTALL_MANDIR)/man1/rgopageserver.1
+	ln -sfn reticulum-go-dump.1 $(INSTALL_MANDIR)/man1/rgodump.1
+	ln -sfn reticulum-go-snapshot.1 $(INSTALL_MANDIR)/man1/rgosnap.1
 
 install-service:
 	sh scripts/install-service.sh --prefix "$(PREFIX)" --destdir "$(DESTDIR)" --bindir "$(BINDIR)" --init "$(INIT)"

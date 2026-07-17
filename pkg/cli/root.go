@@ -27,6 +27,9 @@ const (
 	CmdDebug      = "debug"
 	CmdSlow       = "slow"
 	CmdSelfCheck  = "self-check"
+	CmdSpeedtest  = "speedtest"
+	CmdDump       = "dump"
+	CmdSnapshot   = "snapshot"
 )
 
 // DaemonFunc starts the network daemon. Injected by cmd/reticulum-go to avoid
@@ -107,6 +110,12 @@ func Main(args []string, opt Options) int {
 		return RunSlow(rest, opt)
 	case CmdSelfCheck:
 		return RunSelfCheck(rest, opt)
+	case CmdSpeedtest:
+		return RunSpeedtest(rest, opt)
+	case CmdDump:
+		return RunDump(rest, opt)
+	case CmdSnapshot:
+		return RunSnapshot(rest, opt)
 	default:
 		fmt.Fprintf(opt.Stderr, "unknown command %q\n\n", cmd)
 		printRootHelp(opt.Stderr)
@@ -127,7 +136,7 @@ func resolveCommand(argv0 string, args []string) (cmd string, rest []string, ok 
 	}
 
 	switch args[0] {
-	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdX, CmdPageserver, CmdDebug, CmdSlow, CmdSelfCheck:
+	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdX, CmdPageserver, CmdDebug, CmdSlow, CmdSelfCheck, CmdSpeedtest, CmdDump, CmdSnapshot:
 		return args[0], args[1:], true
 	case "selfcheck", "rgoselfcheck":
 		return CmdSelfCheck, args[1:], true
@@ -145,6 +154,12 @@ func resolveCommand(argv0 string, args []string) (cmd string, rest []string, ok 
 		return CmdX, args[1:], true
 	case "rgoslow":
 		return CmdSlow, args[1:], true
+	case "rgospeed":
+		return CmdSpeedtest, args[1:], true
+	case "rgodump":
+		return CmdDump, args[1:], true
+	case "rgosnap":
+		return CmdSnapshot, args[1:], true
 	default:
 		return "", nil, false
 	}
@@ -170,6 +185,12 @@ func aliasFromArgv0(base string) string {
 		return CmdSlow
 	case "rgoselfcheck", "reticulum-go-self-check":
 		return CmdSelfCheck
+	case "rgospeed", "reticulum-go-speedtest":
+		return CmdSpeedtest
+	case "rgodump", "reticulum-go-dump":
+		return CmdDump
+	case "rgosnap", "reticulum-go-snapshot":
+		return CmdSnapshot
 	default:
 		return ""
 	}
@@ -206,6 +227,9 @@ Usage:
   reticulum-go probe [flags] <name> <hash>
   reticulum-go path [flags]             path table, drop, blackhole
   reticulum-go slow [flags]             find slow interfaces, paths, transfers
+  reticulum-go speedtest [flags]        loopback link throughput smoke
+  reticulum-go dump [flags]             decode RNS packets from hex or pcap
+  reticulum-go snapshot [flags]         path table, links, and health JSON (RPC)
   reticulum-go cp [flags]               file transfer over links
   reticulum-go x [flags]                remote command execution (rnx)
   reticulum-go pageserver [flags]       NomadNet-style page and file server
@@ -216,7 +240,7 @@ Global:
   -h, --help       print this help
   -v, --version    print version
 
-Legacy tool names (rgostatus, rgoid, rgoprobe, rgopath, rgocp, rgox, rnx, rgoslow) work as
+Legacy tool names (rgostatus, rgoid, rgoprobe, rgopath, rgocp, rgox, rnx, rgoslow, rgospeed, rgodump, rgosnap) work as
 subcommands or when the binary is installed under those names (symlinks).
 
 Configuration defaults to ~/.reticulum-go/config.

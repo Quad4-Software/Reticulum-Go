@@ -671,6 +671,36 @@ func TestLoadConfigBackboneRemoteAlias(t *testing.T) {
 	}
 }
 
+// TestLoadConfigUDPForwardAliases maps Python UDP forward_* to target_*.
+func TestLoadConfigUDPForwardAliases(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	body := `[interfaces]
+  [[udp]]
+    type = UDPInterface
+    enabled = yes
+    listen_ip = 127.0.0.1
+    listen_port = 4242
+    forward_ip = 127.0.0.1
+    forward_port = 4243
+`
+	writeFile(t, path, body)
+
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	iface := cfg.Interfaces["udp"]
+	if iface == nil {
+		t.Fatal("udp interface missing")
+	}
+	if iface.TargetHost != "127.0.0.1" || iface.TargetPort != 4243 {
+		t.Fatalf("forward aliases: got %s:%d", iface.TargetHost, iface.TargetPort)
+	}
+	if iface.Address != "127.0.0.1" || iface.Port != 4242 {
+		t.Fatalf("listen: got %s:%d", iface.Address, iface.Port)
+	}
+}
+
 func TestLoadConfig_BackboneIO(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config")

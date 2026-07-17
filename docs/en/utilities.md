@@ -28,8 +28,13 @@ make build
 | `reticulum-go x` (`rgox`, `rnx`) | `rnx` | Remote command execution over links (`rnx.execute`) |
 | `reticulum-go pageserver` | (example app) | NomadNet-style page and file server |
 | `reticulum-go self-check` (`rgoselfcheck`) | (Go-only) | Host OS preflight for sandbox, crypto, and interfaces |
+| `reticulum-go speedtest` (`rgospeed`) | `Examples/Speedtest.py` | Loopback smoke plus cross-host / docker daemon (`-daemon`, `-iface`) |
+| `reticulum-go dump` (`rgodump`) | (Go-only) | Decode RNS packets from hex or pcap to JSONL |
+| `reticulum-go snapshot` (`rgosnap`) | (Go-only) | Path table, links, and health drop counters as JSON |
 
 Library code lives in `pkg/rnsutil` and `pkg/cli`. Pageserver logic lives in `pkg/pageserver`.
+
+Packet capture and Wireshark docs live in [packet-debug.md](packet-debug.md). The cross-stack `INTEROP_EVENT` timeline is in [interop-timeline.md](interop-timeline.md).
 
 ## Shared-instance RPC (required for rgostatus and rgopath table modes)
 
@@ -176,6 +181,73 @@ When talking to a Go daemon, health findings can also appear:
 | `ingress_pressure` | Held announces or burst limiters active |
 
 Counters stay local to the node. `slow` only observes and scores. It does not change ingress policy or blackhole tables.
+
+## rgospeed
+
+```bash
+reticulum-go speedtest [flags]
+# legacy: rgospeed
+```
+
+Link throughput test modeled on Python `Examples/Speedtest.py`.
+
+| Mode | Command |
+|------|---------|
+| Loopback smoke (default / CI) | `reticulum-go speedtest` or `-loopback` |
+| Server (oneshot) | `reticulum-go speedtest -l` |
+| Daemon (VPS / docker) | `reticulum-go speedtest -daemon` |
+| Client (cross-host) | `reticulum-go speedtest <server_dest_hash>` |
+
+Destination is `speedtest.server`. Server and client must use the same `-bytes` size. After the transfer the server sends a `SPEEDOK` ack with the confirmed RX count. Networked clients pace sends (100 µs per packet by default) so UDP sockets are not overrun; loopback does not pace.
+
+Every run prints a grep-friendly `speedtest_result ...` line on stdout (visible in `docker logs`). With `-json`, a JSON object follows on stdout as well.
+
+Use a real config with UDP/TCP (or a shared path). `share_instance` is forced off so the tool owns its interfaces. Python-style `forward_ip` / `forward_port` are accepted as aliases for `target_host` / `target_port`.
+
+| Flag | Meaning |
+|------|---------|
+| `-loopback` | In-process pipe (CI liveness, default when no args) |
+| `-l` | Listen as server (one client then exit) |
+| `-daemon` | Listen forever (implies `-l -m`, default announce every 120s) |
+| `-m` | Listen: serve multiple clients |
+| `-iface` | `all` (default) or comma-separated config section names |
+| `-p` | Print identity / destination hash and exit |
+| `-config dir` | Config directory (default `~/.reticulum-go`) |
+| `-identity path` | Persistent identity for listen mode |
+| `-bytes n` | Plaintext bytes to transfer (default 2 MiB) |
+| `-min-bps n` | Fail below this rate (`0` disables; loopback defaults to 1e6) |
+| `-timeout sec` | Overall timeout (default 60) |
+| `-announce sec` | Listen announce interval (`0` once, `<0` never) |
+| `-json` | Emit JSON after each `speedtest_result` line |
+| `-q` | Quieter debug |
+
+Cross-host example (two machines / configs with a shared path):
+
+```bash
+# server
+reticulum-go speedtest -daemon -iface tcp -bytes 4194304
+# client (paste the 32-hex hash printed by the server)
+reticulum-go speedtest -iface tcp -bytes 4194304 <hash_from_server>
+```
+
+### Docker VPS reference
+
+Build and run a persistent public TCP listener:
+
+```bash
+task docker:build:speedtest
+docker run -d --name rgo-speedtest -p 4242:4242 \
+  -e SPEEDTEST_IFACE=tcp \
+  -v reticulum-go-speedtest:/data \
+  reticulum-go-speedtest:latest
+docker logs -f rgo-speedtest
+```
+
+Env knobs: `SPEEDTEST_IFACE` (`all` or names), `SPEEDTEST_BYTES`, `SPEEDTEST_ANNOUNCE`, `SPEEDTEST_PORT`, `SPEEDTEST_JSON`, `RNS_CONFIG`. Persist `/data` so the identity (and thus dest hash) stays stable for CI secrets.
+
+CI client config needs a `TCPClientInterface` to the VPS host:port and the printed dest hash. Treat measured rates as a path floor (runner to VPS), not a lab loopback number.
+
+Nightly CI runs `task test-link-speed` (`TestLinkSpeedSmoke`) with a 512 KiB loopback cap and a 1 MB/s floor.
 
 ## rgoid
 

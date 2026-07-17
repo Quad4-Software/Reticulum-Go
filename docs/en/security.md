@@ -118,21 +118,22 @@ make check
 
 Reticulum-Go keeps node-local integrity and link-health counters in `pkg/health`. They stay on this node. Nothing is flooded to the mesh or sent to a cloud collector.
 
-Counters increment at existing drop and fail sites (IFAC verify, link HMAC, unpack errors, announce signature rejects, link proof rejects, request timestamp skew, blackhole hits, link stale closes, resource stalls, NIC flaps). Accept and reject behavior is unchanged.
+Counters increment at existing drop and fail sites (IFAC verify, link HMAC, unpack errors, announce signature rejects, link proof rejects, request timestamp skew, blackhole hits, link stale closes, resource stalls, NIC flaps, duplicate announces, suppressed PATH_RESPONSE answers, duplicate path requests, missing announce cache for path answers, and unknown-iface link relay drops). Accept and reject behavior is unchanged.
 
 Operators see the numbers through:
 
 | Surface | What you get |
 |---------|----------------|
 | `reticulum-go status` | Per-interface integrity totals and fail rate when non-zero |
-| `reticulum-go status -json` | Same fields in JSON (`ifac_fail`, `hmac_fail`, `integrity_fail_rate`, `stale_closes`, …) |
+| `reticulum-go status -json` | Same fields in JSON (`ifac_fail`, `hmac_fail`, `integrity_fail_rate`, `stale_closes`, `announce_dup`, …) |
+| `reticulum-go snapshot` (`rgosnap`) | Paths, active links, and full transport health JSON including path drop counters |
 | `reticulum-go slow` | Scored findings such as `integrity_burst`, `auth_pressure`, `link_degraded`, `ingress_pressure` |
-| Control API `GET /v1/status` | Integrity fields on each interface object |
+| Control API `GET /v1/status` | Integrity and drop fields on each interface object |
 | Shared-instance RPC `interface_stats` | Same msgpack keys (Go daemon only populates them) |
 
 Scoring prefers fail ratios and bitrate-aware thresholds. High latency alone on a low-bitrate radio is not treated as critical. There is no auto blackhole or auto interface offline in this release. The operator decides whether to adjust IFAC keys, enable ingress control, blackhole an identity, or take an interface down.
 
-See [CLI utilities](utilities.md) for `status` and `slow`, and [Control API](control-api.md) for HTTP fields.
+See [CLI utilities](utilities.md) for `status` and `slow`, [packet-debug](packet-debug.md) for dump and snapshot, and [Control API](control-api.md) for HTTP fields.
 
 ## Control API exposure
 
@@ -153,5 +154,6 @@ Link establishment also records `expected_hops` on both initiator and responder.
 - [Cryptography](cryptography.md)
 - [Configuration](configuration.md) for sandbox and control API keys
 - [CLI utilities](utilities.md) for status and slow health findings
+- [Packet debug](packet-debug.md) for dump, snapshot, and Wireshark
 - [SECURITY.md](../../SECURITY.md) full policy text
 - [Compatibility](compatibility.md) for RNS 1.3.8 parity

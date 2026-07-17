@@ -22,6 +22,12 @@ const (
 	KindNetmonFlap
 	KindRxOK
 	KindAnnounceOK
+	KindAnnounceDup
+	KindPathRespSuppressed
+	KindPathReqDup
+	KindPathReqNoCache
+	KindPathRespQueuedSkip
+	KindLinkRelayUnknownIface
 	kindCount
 )
 
@@ -58,6 +64,18 @@ func (k Kind) String() string {
 		return "rx_ok"
 	case KindAnnounceOK:
 		return "announce_ok"
+	case KindAnnounceDup:
+		return "announce_dup"
+	case KindPathRespSuppressed:
+		return "path_resp_suppressed"
+	case KindPathReqDup:
+		return "path_req_dup"
+	case KindPathReqNoCache:
+		return "path_req_no_cache"
+	case KindPathRespQueuedSkip:
+		return "path_resp_queued_skip"
+	case KindLinkRelayUnknownIface:
+		return "link_relay_unknown_iface"
 	default:
 		return "unknown"
 	}

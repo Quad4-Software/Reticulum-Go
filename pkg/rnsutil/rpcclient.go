@@ -9,6 +9,7 @@ import (
 	"maps"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"quad4/msgpack/v5/pkg/msgpack"
@@ -267,7 +268,11 @@ func HexHash(b []byte) string {
 }
 
 // ParseDestHash decodes a 32-character hex truncated hash.
+// Angle brackets from pretty-printed output are accepted.
 func ParseDestHash(s string) ([]byte, error) {
+	s = strings.TrimSpace(s)
+	s = strings.TrimPrefix(s, "<")
+	s = strings.TrimSuffix(s, ">")
 	if len(s) != 32 {
 		return nil, fmt.Errorf("hash length is invalid, must be 32 hexadecimal characters (16 bytes)")
 	}

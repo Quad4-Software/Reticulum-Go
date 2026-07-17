@@ -23,20 +23,26 @@ type healthResponse struct {
 // interfaceStatJSON mirrors the subset of transport.InterfaceStat exposed
 // over the control API.
 type interfaceStatJSON struct {
-	Name              string  `json:"name"`
-	Type              string  `json:"type"`
-	Status            bool    `json:"status"`
-	RXBytes           uint64  `json:"rx_bytes"`
-	TXBytes           uint64  `json:"tx_bytes"`
-	Bitrate           int64   `json:"bitrate"`
-	IFACFail          uint64  `json:"ifac_fail"`
-	HMACFail          uint64  `json:"hmac_fail"`
-	AnnounceSigFail   uint64  `json:"announce_sig_fail"`
-	UnpackFail        uint64  `json:"unpack_fail"`
-	IntegrityFailRate float64 `json:"integrity_fail_rate"`
-	StaleCloses       uint64  `json:"stale_closes"`
-	LinkStaleClose    uint64  `json:"link_stale_close"`
-	KeepaliveTimeout  uint64  `json:"keepalive_timeout"`
+	Name                  string  `json:"name"`
+	Type                  string  `json:"type"`
+	Status                bool    `json:"status"`
+	RXBytes               uint64  `json:"rx_bytes"`
+	TXBytes               uint64  `json:"tx_bytes"`
+	Bitrate               int64   `json:"bitrate"`
+	IFACFail              uint64  `json:"ifac_fail"`
+	HMACFail              uint64  `json:"hmac_fail"`
+	AnnounceSigFail       uint64  `json:"announce_sig_fail"`
+	UnpackFail            uint64  `json:"unpack_fail"`
+	AnnounceDup           uint64  `json:"announce_dup"`
+	PathRespSuppressed    uint64  `json:"path_resp_suppressed"`
+	PathReqDup            uint64  `json:"path_req_dup"`
+	PathReqNoCache        uint64  `json:"path_req_no_cache"`
+	PathRespQueuedSkip    uint64  `json:"path_resp_queued_skip"`
+	LinkRelayUnknownIface uint64  `json:"link_relay_unknown_iface"`
+	IntegrityFailRate     float64 `json:"integrity_fail_rate"`
+	StaleCloses           uint64  `json:"stale_closes"`
+	LinkStaleClose        uint64  `json:"link_stale_close"`
+	KeepaliveTimeout      uint64  `json:"keepalive_timeout"`
 }
 
 // statusResponse is the body of GET /v1/status.

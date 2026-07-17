@@ -1,0 +1,88 @@
+{
+  "format_version": 1,
+  "vectors": [
+    {
+      "name": "announce_h2",
+      "raw_hex": "4100abababababababababababababababab2f6722c3285af6665ef558862b591a0f00c1a276bdce0838b2cc9a4ed49300ec3598f1175b9a8a19a3b8153aaff8666024dd62c0de3c70e545266d0cdafde19de33b648a9a122443b01a8c366c8976226e72ea66915f2f5fedf916e353b967c9006a59e714ce9a972d27174ebf855a4d1d890d9d2a8b599d3fa4daba8be6cb42ad6dd17cf9fce3f72c474278e7d9a4a0291a5b88f4c614d85b293e4d6055d3abed61fb8d090102",
+      "packet_type_name": "ANNOUNCE",
+      "context_name": "NONE",
+      "header_type": 1,
+      "destination_type_name": "SINGLE",
+      "tree": {
+        "ok": true,
+        "raw_hex": "4100abababababababababababababababab2f6722c3285af6665ef558862b591a0f00c1a276bdce0838b2cc9a4ed49300ec3598f1175b9a8a19a3b8153aaff8666024dd62c0de3c70e545266d0cdafde19de33b648a9a122443b01a8c366c8976226e72ea66915f2f5fedf916e353b967c9006a59e714ce9a972d27174ebf855a4d1d890d9d2a8b599d3fa4daba8be6cb42ad6dd17cf9fce3f72c474278e7d9a4a0291a5b88f4c614d85b293e4d6055d3abed61fb8d090102",
+        "raw_len": 185,
+        "flags": 65,
+        "hops": 0,
+        "header_type": 1,
+        "context_flag": false,
+        "transport_type": 0,
+        "destination_type": 0,
+        "packet_type": 1,
+        "packet_type_name": "ANNOUNCE",
+        "destination_type_name": "SINGLE",
+        "context": 0,
+        "context_name": "NONE",
+        "destination_hash": "2f6722c3285af6665ef558862b591a0f",
+        "transport_id": "abababababababababababababababab",
+        "data_len": 150,
+        "data_hex_prefix": "c1a276bdce0838b2cc9a4ed49300ec3598f1175b9a8a19a3b8153aaff8666024"
+      }
+    },
+    {
+      "name": "path_response_announce",
+      "raw_hex": "5100abababababababababababababababab2f6722c3285af6665ef558862b591a0f0bc1a276bdce0838b2cc9a4ed49300ec3598f1175b9a8a19a3b8153aaff8666024dd62c0de3c70e545266d0cdafde19de33b648a9a122443b01a8c366c8976226e72ea66915f2f5fedf916e353b967c9006a59e714ce9a972d27174ebf855a4d1d890d9d2a8b599d3fa4daba8be6cb42ad6dd17cf9fce3f72c474278e7d9a4a0291a5b88f4c614d85b293e4d6055d3abed61fb8d090102",
+      "packet_type_name": "ANNOUNCE",
+      "context_name": "PATH_RESPONSE",
+      "header_type": 1,
+      "destination_type_name": "SINGLE",
+      "tree": {
+        "ok": true,
+        "raw_hex": "5100abababababababababababababababab2f6722c3285af6665ef558862b591a0f0bc1a276bdce0838b2cc9a4ed49300ec3598f1175b9a8a19a3b8153aaff8666024dd62c0de3c70e545266d0cdafde19de33b648a9a122443b01a8c366c8976226e72ea66915f2f5fedf916e353b967c9006a59e714ce9a972d27174ebf855a4d1d890d9d2a8b599d3fa4daba8be6cb42ad6dd17cf9fce3f72c474278e7d9a4a0291a5b88f4c614d85b293e4d6055d3abed61fb8d090102",
+        "raw_len": 185,
+        "flags": 81,
+        "hops": 0,
+        "header_type": 1,
+        "context_flag": false,
+        "transport_type": 1,
+        "destination_type": 0,
+        "packet_type": 1,
+        "packet_type_name": "ANNOUNCE",
+        "destination_type_name": "SINGLE",
+        "context": 11,
+        "context_name": "PATH_RESPONSE",
+        "destination_hash": "2f6722c3285af6665ef558862b591a0f",
+        "transport_id": "abababababababababababababababab",
+        "data_len": 150,
+        "data_hex_prefix": "c1a276bdce0838b2cc9a4ed49300ec3598f1175b9a8a19a3b8153aaff8666024"
+      }
+    },
+    {
+      "name": "link_request",
+      "raw_hex": "02002f6722c3285af6665ef558862b591a0f00cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+      "packet_type_name": "LINKREQUEST",
+      "context_name": "NONE",
+      "header_type": 0,
+      "destination_type_name": "SINGLE",
+      "tree": {
+        "ok": true,
+        "raw_hex": "02002f6722c3285af6665ef558862b591a0f00cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "raw_len": 83,
+        "flags": 2,
+        "hops": 0,
+        "header_type": 0,
+        "context_flag": false,
+        "transport_type": 0,
+        "destination_type": 0,
+        "packet_type": 2,
+        "packet_type_name": "LINKREQUEST",
+        "destination_type_name": "SINGLE",
+        "context": 0,
+        "context_name": "NONE",
+        "destination_hash": "2f6722c3285af6665ef558862b591a0f",
+        "data_len": 64,
+        "data_hex_prefix": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+      }
+    }
+  ]
+}

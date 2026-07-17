@@ -368,7 +368,7 @@ func TestWebTransportConcurrentSend(t *testing.T) {
 		need := min(n-int(count.Load()), 10)
 		var wg sync.WaitGroup
 		wg.Add(need)
-		for i := 0; i < need; i++ {
+		for range need {
 			seq++
 			go func(i int) {
 				defer wg.Done()
