@@ -1,0 +1,37 @@
+# Default reviewers for pull requests.
+# GitHub usernames. Update when ownership changes.
+
+* @Sudo-Ivan
+
+# Core stack
+/pkg/ @Sudo-Ivan
+/cmd/ @Sudo-Ivan
+/internal/ @Sudo-Ivan
+/include/ @Sudo-Ivan
+
+# Interfaces and underlays
+/pkg/interfaces/ @Sudo-Ivan
+/pkg/i2p/ @Sudo-Ivan
+/pkg/backbone/ @Sudo-Ivan
+/pkg/sharedinstance/ @Sudo-Ivan
+
+# Embed and language bindings
+/bindings/ @Sudo-Ivan
+/include/rns.h @Sudo-Ivan
+/pkg/librns/ @Sudo-Ivan
+/pkg/controlapi/ @Sudo-Ivan
+
+# Crypto and identity
+/pkg/cryptography/ @Sudo-Ivan
+/pkg/identity/ @Sudo-Ivan
+/pkg/ifac/ @Sudo-Ivan
+
+# Docs, release, security
+/docs/ @Sudo-Ivan
+/SECURITY.md @Sudo-Ivan
+/COMPATIBILITY.md @Sudo-Ivan
+/CHANGELOG.md @Sudo-Ivan
+/.github/ @Sudo-Ivan
+/scripts/ @Sudo-Ivan
+/packaging/ @Sudo-Ivan
+/docker/ @Sudo-Ivan
