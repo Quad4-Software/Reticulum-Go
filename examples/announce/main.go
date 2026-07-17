@@ -19,9 +19,8 @@ import (
 	"quad4/reticulum-go/pkg/transport"
 )
 
-// This RNS example demonstrates setting up announce
-// callbacks, which will let an application receive a
-// notification when an announce relevant for it arrives
+// Announce registers a filtered announce handler and publishes
+// two destinations with random app_data on each enter keypress.
 
 const APP_NAME = "example_utilities"
 
@@ -31,9 +30,9 @@ var (
 	targetPort = flag.Int("target-port", 4242, "UDP interface target port (for sending to peers)")
 )
 
-// We initialize two lists of strings to use as app_data
-var fruits = []string{"Peach", "Quince", "Date", "Tangerine", "Pomelo", "Carambola", "Grape"}
-var nobleGases = []string{"Helium", "Neon", "Argon", "Krypton", "Xenon", "Radon", "Oganesson"}
+// Sample app_data payloads attached to announces.
+var colors = []string{"Crimson", "Teal", "Amber", "Indigo", "Olive", "Slate", "Coral"}
+var metals = []string{"Iron", "Copper", "Tin", "Zinc", "Nickel", "Cobalt", "Titanium"}
 
 func main() {
 	flag.Parse()
@@ -46,26 +45,15 @@ func main() {
 }
 
 func programSetup(configpath string) error {
-	// Initialize config
 	cfg := loadConfig(configpath)
-
-	// Initialize Reticulum
 	t := transport.NewTransport(cfg)
 
-	// Randomly create a new identity for our example
 	id, err := identity.NewIdentity()
 	if err != nil {
 		return err
 	}
 
-	// Using the identity we just created, we create two destinations
-	// in the "example_utilities.announcesample" application space.
-	//
-	// Destinations are endpoints in Reticulum, that can be addressed
-	// and communicated with. Destinations can also announce their
-	// existence, which will let the network know they are reachable
-	// and automatically create paths to them, from anywhere else
-	// in the network.
+	// Two destinations under announcesample with different aspects.
 	destination1, err := destination.New(
 		id,
 		destination.In,
@@ -73,7 +61,7 @@ func programSetup(configpath string) error {
 		APP_NAME,
 		t,
 		"announcesample",
-		"fruits",
+		"colors",
 	)
 	if err != nil {
 		return err
@@ -86,51 +74,37 @@ func programSetup(configpath string) error {
 		APP_NAME,
 		t,
 		"announcesample",
-		"noble_gases",
+		"metals",
 	)
 	if err != nil {
 		return err
 	}
 
-	// We configure the destinations to automatically prove all
-	// packets addressed to it. By doing this, RNS will automatically
-	// generate a proof for each incoming packet and transmit it
-	// back to the sender of that packet. This will let anyone that
-	// tries to communicate with the destination know whether their
-	// communication was received correctly.
 	destination1.SetProofStrategy(destination.ProveAll)
 	destination2.SetProofStrategy(destination.ProveAll)
 
-	// We create an announce handler and configure it to only ask for
-	// announces from "example_utilities.announcesample.fruits".
-	// Try changing the filter and see what happens.
+	// Only color-aspect announces are delivered to this handler.
 	announceHandler := NewExampleAnnounceHandler(
-		[]string{"example_utilities.announcesample.fruits"},
+		[]string{"example_utilities.announcesample.colors"},
 	)
 
-	// Start transport
 	if err := t.Start(); err != nil {
 		return err
 	}
 
-	// Register the announce handler with Transport
 	t.RegisterAnnounceHandler(announceHandler)
 
-	// Initialize interfaces
 	if err := initializeInterfaces(cfg, t); err != nil {
 		return err
 	}
 
-	// Everything's ready!
-	// Let's hand over control to the announce loop
 	announceLoop(destination1, destination2)
 
 	return nil
 }
 
 func announceLoop(destination1, destination2 *destination.Destination) {
-	// Let the user know that everything is ready
-	debug.Log(debug.DebugInfo, "Announce example running, hit enter to manually send an announce (Ctrl-C to quit)")
+	debug.Log(debug.DebugInfo, "Announce example ready. Press enter to announce, Ctrl-C to quit")
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -149,21 +123,15 @@ func announceLoop(destination1, destination2 *destination.Destination) {
 		}
 	}()
 
-	// We enter a loop that runs until the users exits.
-	// If the user hits enter, we will announce our server
-	// destination on the network, which will let clients
-	// know how to create messages directed towards it.
 	for {
 		select {
 		case <-sigChan:
 			debug.Log(debug.DebugInfo, "Shutting down...")
 			return
 		case <-inputChan:
-			// Randomly select a fruit
-			fruit := fruits[rand.Intn(len(fruits))] // #nosec G404 -- Using math/rand for non-security demo data selection
+			color := colors[rand.Intn(len(colors))] // #nosec G404 -- demo payload only
 
-			// Send the announce including the app data
-			destination1.SetDefaultAppData([]byte(fruit))
+			destination1.SetDefaultAppData([]byte(color))
 			if err := destination1.Announce(false, nil, nil); err != nil {
 				debug.Log(debug.DebugError, "Failed to send announce from destination 1", "error", err)
 			} else {
@@ -175,11 +143,9 @@ func announceLoop(destination1, destination2 *destination.Destination) {
 				)
 			}
 
-			// Randomly select a noble gas
-			nobleGas := nobleGases[rand.Intn(len(nobleGases))] // #nosec G404 -- Using math/rand for non-security demo data selection
+			metal := metals[rand.Intn(len(metals))] // #nosec G404 -- demo payload only
 
-			// Send the announce including the app data
-			destination2.SetDefaultAppData([]byte(nobleGas))
+			destination2.SetDefaultAppData([]byte(metal))
 			if err := destination2.Announce(false, nil, nil); err != nil {
 				debug.Log(debug.DebugError, "Failed to send announce from destination 2", "error", err)
 			} else {
@@ -196,38 +162,36 @@ func announceLoop(destination1, destination2 *destination.Destination) {
 
 // ========== Announce Handler ==========
 
-// ExampleAnnounceHandler defines a handler for announce messages
+// ExampleAnnounceHandler filters announces by aspect name.
 type ExampleAnnounceHandler struct {
 	aspectFilter []string
 }
 
-// NewExampleAnnounceHandler creates a new announce handler with optional aspect filter
+// NewExampleAnnounceHandler builds a handler with an optional aspect filter.
 func NewExampleAnnounceHandler(aspectFilter []string) *ExampleAnnounceHandler {
 	return &ExampleAnnounceHandler{
 		aspectFilter: aspectFilter,
 	}
 }
 
-// AspectFilter returns the aspect filter for this handler
+// AspectFilter returns the aspect filter for this handler.
 func (h *ExampleAnnounceHandler) AspectFilter() []string {
 	return h.aspectFilter
 }
 
-// ReceivedAnnounce is called by Reticulum's Transport
-// system when an announce arrives that matches the
-// configured aspect filter. Filters must be specific,
-// and cannot use wildcards.
+// ReceivedAnnounce runs for matching announces.
+// Aspect filters are exact names, not wildcards.
 func (h *ExampleAnnounceHandler) ReceivedAnnounce(destHash []byte, announcedIdentity interface{}, appData []byte, hops uint8) error {
 	debug.Log(debug.DebugInfo, "Received an announce", "hash", fmt.Sprintf("%x", destHash))
 
 	if len(appData) > 0 {
-		debug.Log(debug.DebugInfo, "The announce contained app data", "data", string(appData))
+		debug.Log(debug.DebugInfo, "Announce included app data", "data", string(appData))
 	}
 
 	return nil
 }
 
-// ReceivePathResponses indicates whether this handler wants to receive path responses
+// ReceivePathResponses reports whether path responses should be delivered.
 func (h *ExampleAnnounceHandler) ReceivePathResponses() bool {
 	return true
 }
@@ -237,11 +201,9 @@ func (h *ExampleAnnounceHandler) ReceivePathResponses() bool {
 func loadConfig(configpath string) *common.ReticulumConfig {
 	cfg := common.DefaultConfig()
 
-	// Add default interface if none configured
 	if len(cfg.Interfaces) == 0 {
 		cfg.Interfaces = make(map[string]*common.InterfaceConfig)
 
-		// Build target address if target port is different from listen port
 		targetHost := ""
 		if *targetPort != *listenPort {
 			targetHost = fmt.Sprintf("127.0.0.1:%d", *targetPort)

@@ -208,13 +208,11 @@ func (a *Announce) HandleAnnounce(data []byte) error {
 		debug.Log(debug.DebugTrace, "Header type 1 announce", "destHash", fmt.Sprintf("%x", destHash), "context", contextByte)
 	}
 
-	// Now parse the data portion according to the spec:
-	// Public Key + Signing Key + Name Hash + Random Hash + Ratchet + Signature + App Data
+	// Payload field order: enc key, sign key, name hash, random hash, ratchet, signature, app data.
 	if len(packetData) < MinAnnounceDataSize {
 		return errors.New("announce data too short")
 	}
 
-	// Extract the components
 	encKey := packetData[AnnounceEncKeyOffset:AnnounceSignKeyOffset]
 	signKey := packetData[AnnounceSignKeyOffset:AnnounceNameHashOffset]
 	nameHash := packetData[AnnounceNameHashOffset:AnnounceRandomOffset]
@@ -270,53 +268,44 @@ func (a *Announce) RequestPath(destHash []byte, onInterface common.NetworkInterf
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	// Create path request packet
 	packet := make([]byte, 0)
 	packet = append(packet, destHash...)
-	packet = append(packet, byte(0)) // Initial hop count
+	packet = append(packet, byte(0))
 
-	// Send path request
 	if !common.InterfaceAllowsOutgoing(onInterface) {
 		return common.ErrInterfaceReceiveOnly
 	}
 	return onInterface.Send(packet, "")
 }
 
-// CreateHeader creates a Reticulum packet header according to spec
+// CreateHeader packs the two-byte packet header (flag byte + hop count).
 func CreateHeader(ifacFlag byte, headerType byte, contextFlag byte, propType byte, destType byte, packetType byte, hops byte) []byte {
 	header := make([]byte, 2)
 
-	// First byte: [IFAC Flag], [Header Type], [Context Flag], [Propagation Type], [Destination Type] and [Packet Type]
+	// Byte 0 holds IFAC, header type, context, propagation, destination, and packet type bits.
 	header[0] = ifacFlag | (headerType << 6) | (contextFlag << 5) |
 		(propType << 4) | (destType << 2) | packetType
 
-	// Second byte: Number of hops
 	header[1] = hops
 
 	return header
 }
 
 func (a *Announce) CreatePacket() ([]byte, error) {
-	// This function creates the complete announce packet according to the Reticulum specification.
-	// Announce Packet Structure:
-	// [Header (2 bytes)][Dest Hash (16 bytes)][Context (1 byte)][Announce Data]
-	// Announce Data Structure:
-	// [Public Key (64 bytes)][Name Hash (10 bytes)][Random Hash (10 bytes)][Ratchet (32 bytes optional)][Signature (64 bytes)][App Data]
+	// Layout: 2-byte header, 16-byte dest hash, 1-byte context, then announce payload.
+	// Payload: 64-byte public key, 10-byte name hash, 10-byte random hash,
+	// optional 32-byte ratchet, 64-byte signature, then app data.
 
-	// 2. Destination Hash
 	destHash := a.destinationHash
 	if len(destHash) > 16 {
 		destHash = destHash[:16]
 	}
 
-	// 3. Announce Data
-	// 3.1 Public Key (full 64 bytes - not split into enc/sign keys in packet)
 	pubKey := a.identity.GetPublicKey()
 	if len(pubKey) != 64 {
 		debug.Log(debug.DebugTrace, "Invalid public key length", "expected", 64, "got", len(pubKey))
 	}
 
-	// 3.2 Name Hash
 	nameHash := sha256.Sum256([]byte(a.destinationName))
 	nameHash10 := nameHash[:10]
 
@@ -329,7 +318,6 @@ func (a *Announce) CreatePacket() ([]byte, error) {
 	binary.BigEndian.PutUint64(timeBytes, uint64(time.Now().Unix()))
 	copy(randomHash[5:], timeBytes[3:8])
 
-	// 3.4 Ratchet (only include if exists)
 	var ratchetData []byte
 	currentRatchetKey := a.identity.GetCurrentRatchetKey()
 	if currentRatchetKey != nil {
@@ -345,7 +333,6 @@ func (a *Announce) CreatePacket() ([]byte, error) {
 		contextFlag = 1
 	}
 
-	// 1. Create Header - Use HeaderType1
 	header := CreateHeader(
 		IFACNone,
 		HeaderType1,
@@ -361,8 +348,7 @@ func (a *Announce) CreatePacket() ([]byte, error) {
 		contextByte = 0x0B
 	}
 
-	// 3.5 Signature
-	// The signature is calculated over: Dest Hash + Public Key (64 bytes) + Name Hash + Random Hash + Ratchet (if exists) + App Data
+	// Sign dest hash, public key, name hash, random hash, optional ratchet, and app data.
 	validationData := make([]byte, 0)
 	validationData = append(validationData, destHash...)
 	validationData = append(validationData, pubKey...)
@@ -379,7 +365,7 @@ func (a *Announce) CreatePacket() ([]byte, error) {
 
 	debug.Log(debug.DebugTrace, "Creating announce packet", "destHash", fmt.Sprintf("%x", destHash), "pubKeyLen", len(pubKey), "nameHash", fmt.Sprintf("%x", nameHash10), "randomHash", fmt.Sprintf("%x", randomHash), "ratchetLen", len(ratchetData), "sigLen", len(signature), "appDataLen", len(a.appData))
 
-	// 5. Assemble the packet (HeaderType1 format)
+	// HeaderType1 assembly: header, dest hash, context, then payload fields.
 	packet := make([]byte, 0)
 	packet = append(packet, header...)
 	packet = append(packet, destHash...)

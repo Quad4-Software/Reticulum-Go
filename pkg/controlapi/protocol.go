@@ -127,10 +127,9 @@ type wsCommandEnvelope struct {
 }
 
 // subscribeAnnouncesCommand subscribes the connection to announceEvent
-// pushes. Filter is accepted for forward compatibility but is not yet used
-// to narrow delivery. Every announce the node receives is currently
-
-// forwarded to every subscriber.
+// pushes. Empty Filter delivers every announce. A non-empty Filter must be
+// an exact 16-byte destination hash as hex and only matching announces are
+// forwarded.
 type subscribeAnnouncesCommand struct {
 	Type   string `json:"type"`
 	Filter string `json:"filter,omitempty"`
@@ -168,10 +167,84 @@ type linkCloseCommand struct {
 }
 
 // requestRespondCommand answers a pending requestIncomingEvent.
+// When Filename is set the response is NomadNet-style [filename, bytes].
 type requestRespondCommand struct {
 	Type      string `json:"type"`
 	RequestID string `json:"request_id"`
 	Data      string `json:"data,omitempty"`
+	Filename  string `json:"filename,omitempty"`
+}
+
+// linkRequestCommand sends an outbound request on an established link.
+type linkRequestCommand struct {
+	Type      string `json:"type"`
+	LinkID    string `json:"link_id"`
+	Path      string `json:"path"`
+	Data      string `json:"data,omitempty"`
+	TimeoutMs int    `json:"timeout_ms,omitempty"`
+}
+
+// linkSendResourceCommand transfers a payload as a link resource.
+type linkSendResourceCommand struct {
+	Type   string `json:"type"`
+	LinkID string `json:"link_id"`
+	Data   string `json:"data"`
+	Name   string `json:"name,omitempty"`
+}
+
+// linkIdentifyCommand identifies the session identity on an established link.
+type linkIdentifyCommand struct {
+	Type   string `json:"type"`
+	LinkID string `json:"link_id"`
+}
+
+// commandErrorEvent reports a WebSocket command that could not be applied.
+type commandErrorEvent struct {
+	Type    string `json:"type"`
+	Command string `json:"command,omitempty"`
+	Error   string `json:"error"`
+}
+
+// requestResponseEvent reports a successful outbound link.request.
+type requestResponseEvent struct {
+	Type      string `json:"type"`
+	LinkID    string `json:"link_id"`
+	RequestID string `json:"request_id"`
+	Path      string `json:"path,omitempty"`
+	Data      string `json:"data,omitempty"`
+}
+
+// requestFailedEvent reports an outbound link.request that failed or timed out.
+type requestFailedEvent struct {
+	Type      string `json:"type"`
+	LinkID    string `json:"link_id"`
+	RequestID string `json:"request_id,omitempty"`
+	Path      string `json:"path,omitempty"`
+	Error     string `json:"error,omitempty"`
+}
+
+// resourceStartedEvent reports a resource transfer beginning on a link.
+type resourceStartedEvent struct {
+	Type   string `json:"type"`
+	LinkID string `json:"link_id"`
+}
+
+// resourceConcludedEvent reports a finished resource transfer.
+type resourceConcludedEvent struct {
+	Type    string `json:"type"`
+	LinkID  string `json:"link_id"`
+	Name    string `json:"name,omitempty"`
+	Hash    string `json:"hash,omitempty"`
+	Data    string `json:"data,omitempty"`
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
+}
+
+// linkRemoteIdentifiedEvent reports a peer identity learned via link identify.
+type linkRemoteIdentifiedEvent struct {
+	Type         string `json:"type"`
+	LinkID       string `json:"link_id"`
+	IdentityHash string `json:"identity_hash"`
 }
 
 // linkEstablishedEvent reports a link (outbound or inbound) becoming

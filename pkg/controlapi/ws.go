@@ -8,6 +8,7 @@ import (
 	"crypto/sha1" // #nosec G505 -- RFC 6455 mandates SHA-1 for the handshake accept key
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -215,6 +216,9 @@ type wsClient struct {
 	outbox    chan []byte
 	done      chan struct{}
 	closeOnce sync.Once
+
+	announceFilterMu sync.Mutex
+	announceFilter   string // empty = all, else exact 16-byte dest hash hex
 }
 
 const wsClientOutboxSize = 32
@@ -264,23 +268,59 @@ func (c *wsClient) readLoop() {
 func (c *wsClient) handleCommand(raw []byte) {
 	var env wsCommandEnvelope
 	if err := json.Unmarshal(raw, &env); err != nil {
-		debug.Log(debug.DebugError, "controlapi: invalid websocket command", "error", err)
+		c.send(commandErrorEvent{Type: "command.error", Error: "invalid command json"})
 		return
 	}
 	switch env.Type {
 	case "subscribe_announces":
-		c.server.subscribeAnnounces(c)
+		c.handleSubscribeAnnounces(raw)
 	case "link.open":
 		c.handleLinkOpen(raw)
 	case "link.send":
 		c.handleLinkSend(raw)
 	case "link.close":
 		c.handleLinkClose(raw)
+	case "link.request":
+		c.handleLinkRequest(raw)
+	case "link.send_resource":
+		c.handleLinkSendResource(raw)
+	case "link.identify":
+		c.handleLinkIdentify(raw)
 	case "request.respond":
 		c.handleRequestRespond(raw)
 	default:
-		debug.Log(debug.DebugError, "controlapi: unknown websocket command", "type", env.Type)
+		c.send(commandErrorEvent{Type: "command.error", Command: env.Type, Error: "unknown command"})
 	}
+}
+
+func (c *wsClient) handleSubscribeAnnounces(raw []byte) {
+	var cmd subscribeAnnouncesCommand
+	if err := json.Unmarshal(raw, &cmd); err != nil {
+		c.send(commandErrorEvent{Type: "command.error", Command: "subscribe_announces", Error: "invalid command json"})
+		return
+	}
+	if cmd.Filter != "" {
+		b, err := hex.DecodeString(cmd.Filter)
+		if err != nil || len(b) != 16 {
+			c.send(commandErrorEvent{Type: "command.error", Command: "subscribe_announces", Error: "filter must be 16 hex-encoded bytes or empty"})
+			return
+		}
+		cmd.Filter = hex.EncodeToString(b)
+	}
+	c.announceFilterMu.Lock()
+	c.announceFilter = cmd.Filter
+	c.announceFilterMu.Unlock()
+	c.server.subscribeAnnounces(c)
+}
+
+func (c *wsClient) matchesAnnounceFilter(destHashHex string) bool {
+	c.announceFilterMu.Lock()
+	filter := c.announceFilter
+	c.announceFilterMu.Unlock()
+	if filter == "" {
+		return true
+	}
+	return filter == destHashHex
 }
 
 // send enqueues v for delivery, dropping it if the client is not draining

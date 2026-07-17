@@ -160,6 +160,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/sessions/{id}/destinations", s.handleRegisterDestination)
 	mux.HandleFunc("POST /v1/sessions/{id}/destinations/{hash}/announce", s.handleAnnounce)
 	mux.HandleFunc("POST /v1/sessions/{id}/destinations/{hash}/requests", s.handleRegisterRequestHandler)
+	mux.HandleFunc("DELETE /v1/sessions/{id}/destinations/{hash}/requests", s.handleDeregisterRequestHandler)
 	mux.HandleFunc("POST /v1/sessions/{id}/path/request", s.handlePathRequest)
 	mux.HandleFunc("GET /v1/sessions/{id}/events", s.handleEvents)
 	mux.HandleFunc("POST /v1/lifecycle/resume", s.handleLifecycleResume)
@@ -361,7 +362,9 @@ func (s *Server) broadcastAnnounce(evt announceEvent) {
 	s.announceMu.RLock()
 	defer s.announceMu.RUnlock()
 	for c := range s.announceSubs {
-		c.send(evt)
+		if c.matchesAnnounceFilter(evt.DestinationHash) {
+			c.send(evt)
+		}
 	}
 }
 

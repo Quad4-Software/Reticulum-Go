@@ -28,7 +28,7 @@ import (
 // newTestServer builds a Server bound to a real, otherwise-idle Transport.
 // No network interfaces are registered, so nothing on these tests ever
 // touches the network.
-func newTestServer(t *testing.T) (*Server, []byte) {
+func newTestServer(t testing.TB) (*Server, []byte) {
 	t.Helper()
 
 	key := make([]byte, 32)
@@ -49,7 +49,7 @@ func newTestServer(t *testing.T) (*Server, []byte) {
 	return srv, key
 }
 
-func doJSON(t *testing.T, method, url, authKeyHex string, body any) (*http.Response, map[string]any) {
+func doJSON(t testing.TB, method, url, authKeyHex string, body any) (*http.Response, map[string]any) {
 	t.Helper()
 
 	var reader io.Reader
@@ -189,7 +189,7 @@ type testWSClient struct {
 	reader *bufio.Reader
 }
 
-func dialControlAPIWS(t *testing.T, httpURL, path, authKeyHex string) *testWSClient {
+func dialControlAPIWS(t testing.TB, httpURL, path, authKeyHex string) *testWSClient {
 	t.Helper()
 
 	addr := strings.TrimPrefix(httpURL, "http://")
@@ -233,24 +233,33 @@ func dialControlAPIWS(t *testing.T, httpURL, path, authKeyHex string) *testWSCli
 	return &testWSClient{conn: conn, reader: reader}
 }
 
-func (c *testWSClient) sendText(t *testing.T, payload []byte) {
+func (c *testWSClient) sendText(t testing.TB, payload []byte) {
 	t.Helper()
 	mask := []byte{0x11, 0x22, 0x33, 0x44}
 	masked := make([]byte, len(payload))
 	for i, b := range payload {
 		masked[i] = b ^ mask[i%4]
 	}
-	if len(payload) >= 126 {
-		t.Fatalf("test helper only supports short payloads, got %d bytes", len(payload))
+	var header []byte
+	switch {
+	case len(payload) < 126:
+		header = []byte{0x81, byte(0x80 | len(payload))}
+	case len(payload) <= 65535:
+		header = make([]byte, 4)
+		header[0] = 0x81
+		header[1] = 0x80 | 126
+		binary.BigEndian.PutUint16(header[2:], uint16(len(payload)))
+	default:
+		t.Fatalf("test helper payload too large: %d", len(payload))
 	}
-	frame := append([]byte{0x81, byte(0x80 | len(payload))}, mask...)
+	frame := append(header, mask...)
 	frame = append(frame, masked...)
 	if _, err := c.conn.Write(frame); err != nil {
 		t.Fatalf("write frame: %v", err)
 	}
 }
 
-func (c *testWSClient) recvText(t *testing.T, timeout time.Duration) []byte {
+func (c *testWSClient) recvText(t testing.TB, timeout time.Duration) []byte {
 	t.Helper()
 	_ = c.conn.SetReadDeadline(time.Now().Add(timeout))
 	header := make([]byte, 2)

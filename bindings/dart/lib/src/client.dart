@@ -170,6 +170,23 @@ class ControlClient {
     );
   }
 
+  Future<void> deregisterRequestHandler(
+    String sessionId,
+    String destinationHash, {
+    required String path,
+  }) async {
+    final uri = _httpUri(
+      '/v1/sessions/$sessionId/destinations/$destinationHash/requests',
+    ).replace(queryParameters: {'path': path});
+    final response = await _http.delete(uri, headers: _headers);
+    if (response.statusCode >= 400) {
+      throw ControlApiException(
+        response.body.isEmpty ? 'request failed' : response.body,
+        statusCode: response.statusCode,
+      );
+    }
+  }
+
   Future<void> requestPath(String sessionId, String destinationHash) async {
     await _request(
       'POST',
@@ -255,11 +272,51 @@ class EventSession {
     });
   }
 
-  void requestRespond(String requestId, {List<int>? data}) {
+  void requestRespond(
+    String requestId, {
+    List<int>? data,
+    String? filename,
+  }) {
     sendCommand({
       'type': 'request.respond',
       'request_id': requestId,
       if (data != null) 'data': encodeBase64(data),
+      if (filename != null) 'filename': filename,
+    });
+  }
+
+  void linkRequest(
+    String linkId,
+    String path, {
+    List<int>? data,
+    int? timeoutMs,
+  }) {
+    sendCommand({
+      'type': 'link.request',
+      'link_id': linkId,
+      'path': path,
+      if (data != null) 'data': encodeBase64(data),
+      if (timeoutMs != null) 'timeout_ms': timeoutMs,
+    });
+  }
+
+  void linkSendResource(
+    String linkId,
+    List<int> data, {
+    String? name,
+  }) {
+    sendCommand({
+      'type': 'link.send_resource',
+      'link_id': linkId,
+      'data': encodeBase64(data),
+      if (name != null) 'name': name,
+    });
+  }
+
+  void linkIdentify(String linkId) {
+    sendCommand({
+      'type': 'link.identify',
+      'link_id': linkId,
     });
   }
 

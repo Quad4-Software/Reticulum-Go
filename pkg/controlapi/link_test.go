@@ -399,7 +399,7 @@ func TestLinkAndRequestLifecycle(t *testing.T) {
 	}
 }
 
-func decodeEvent[T any](t *testing.T, ws *testWSClient, timeout time.Duration) T {
+func decodeEvent[T any](t testing.TB, ws *testWSClient, timeout time.Duration) T {
 	t.Helper()
 	raw := ws.recvText(t, timeout)
 	var v T

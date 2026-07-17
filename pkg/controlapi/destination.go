@@ -125,7 +125,7 @@ func parseAllowMode(allow string, identities []string) (byte, [][]byte, error) {
 // matching request.respond command arrives or requestResponseTimeout
 // elapses.
 func wireRequestHandler(sess *session, dest *destination.Destination, destHashHex, path string, allow byte, allowedList [][]byte) error {
-	return dest.RegisterRequestHandler(path, func(p string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) []byte {
+	return dest.RegisterRequestHandlerAny(path, func(p string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) any {
 		requestIDHex := hex.EncodeToString(requestID)
 		evt := requestIncomingEvent{
 			Type:            "request.incoming",
@@ -155,25 +155,53 @@ func wireRequestHandler(sess *session, dest *destination.Destination, destHashHe
 
 // handleRequestRespond processes a request.respond command, delivering its
 // data to the goroutine blocked in wireRequestHandler for the same
-// request_id.
+// request_id. When Filename is set the payload is [filename, bytes].
 func (c *wsClient) handleRequestRespond(raw []byte) {
 	var cmd requestRespondCommand
 	if err := json.Unmarshal(raw, &cmd); err != nil {
-		debug.Log(debug.DebugError, "controlapi: invalid request.respond command", "error", err)
+		c.send(commandErrorEvent{Type: "command.error", Command: "request.respond", Error: "invalid command json"})
 		return
 	}
 	var data []byte
 	if cmd.Data != "" {
 		decoded, err := base64.StdEncoding.DecodeString(cmd.Data)
 		if err != nil {
-			debug.Log(debug.DebugError, "controlapi: request.respond data is not base64", "request_id", cmd.RequestID)
+			c.send(commandErrorEvent{Type: "command.error", Command: "request.respond", Error: "data must be base64"})
 			return
 		}
 		data = decoded
 	}
-	if !c.session.deliverResponse(cmd.RequestID, data) {
-		debug.Log(debug.DebugError, "controlapi: request.respond for unknown or expired request_id", "request_id", cmd.RequestID)
+	var payload any = data
+	if cmd.Filename != "" {
+		payload = []any{cmd.Filename, data}
 	}
+	if !c.session.deliverResponse(cmd.RequestID, payload) {
+		c.send(commandErrorEvent{Type: "command.error", Command: "request.respond", Error: "unknown or expired request_id"})
+	}
+}
+
+func (s *Server) handleDeregisterRequestHandler(w http.ResponseWriter, r *http.Request) {
+	sess, ok := s.session(r.PathValue("id"))
+	if !ok {
+		writeError(w, http.StatusNotFound, "session not found")
+		return
+	}
+	destHashHex := r.PathValue("hash")
+	dest, ok := sess.destination(destHashHex)
+	if !ok {
+		writeError(w, http.StatusNotFound, "destination not found")
+		return
+	}
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		writeError(w, http.StatusBadRequest, "path query parameter is required")
+		return
+	}
+	if !dest.DeregisterRequestHandler(path) {
+		writeError(w, http.StatusNotFound, "request handler not found")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) handleAnnounce(w http.ResponseWriter, r *http.Request) {

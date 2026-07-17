@@ -51,6 +51,51 @@ void main() {
       expect(utf8.decode(incoming.data!), 'hello');
     });
 
+    test('parses request.response and command.error', () {
+      final response = ControlEvent.fromJson({
+        'type': 'request.response',
+        'link_id': 'l1',
+        'request_id': 'r1',
+        'path': '/ping',
+        'data': base64.encode(utf8.encode('pong')),
+      });
+      expect(response, isA<RequestResponseEvent>());
+      expect(utf8.decode((response as RequestResponseEvent).data!), 'pong');
+
+      final err = ControlEvent.fromJson({
+        'type': 'command.error',
+        'command': 'link.send',
+        'error': 'unknown link_id',
+      });
+      expect(err, isA<CommandErrorEvent>());
+      expect((err as CommandErrorEvent).command, 'link.send');
+    });
+
+    test('parses resource and identify events', () {
+      final started = ControlEvent.fromJson({
+        'type': 'resource.started',
+        'link_id': 'l1',
+      });
+      expect(started, isA<ResourceStartedEvent>());
+
+      final concluded = ControlEvent.fromJson({
+        'type': 'resource.concluded',
+        'link_id': 'l1',
+        'success': true,
+        'name': 'a.txt',
+        'data': base64.encode(utf8.encode('x')),
+      });
+      expect(concluded, isA<ResourceConcludedEvent>());
+      expect((concluded as ResourceConcludedEvent).name, 'a.txt');
+
+      final identified = ControlEvent.fromJson({
+        'type': 'link.remote_identified',
+        'link_id': 'l1',
+        'identity_hash': 'abcd',
+      });
+      expect(identified, isA<LinkRemoteIdentifiedEvent>());
+    });
+
     test('unknown types are preserved', () {
       final event = ControlEvent.fromJson({'type': 'future.event', 'x': 1});
       expect(event, isA<UnknownEvent>());
@@ -70,13 +115,21 @@ void main() {
       expect(health.transportUptimeSeconds, 12.5);
     });
 
-    test('SessionInfo.fromJson', () {
-      final session = SessionInfo.fromJson({
-        'session_id': 's1',
-        'identity_hash': 'id1',
+    test('InterfaceStat maps integrity fields', () {
+      final stat = InterfaceStat.fromJson({
+        'name': 'udp',
+        'type': 'UDP',
+        'status': true,
+        'rx_bytes': 1,
+        'tx_bytes': 2,
+        'bitrate': 3,
+        'ifac_fail': 4,
+        'hmac_fail': 5,
+        'integrity_fail_rate': 0.25,
       });
-      expect(session.sessionId, 's1');
-      expect(session.identityHash, 'id1');
+      expect(stat.ifacFail, 4);
+      expect(stat.hmacFail, 5);
+      expect(stat.integrityFailRate, 0.25);
     });
   });
 }

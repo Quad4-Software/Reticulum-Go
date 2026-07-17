@@ -32,7 +32,8 @@ Pass --accept-links to also accept inbound links on the destination and
 register a "/ping" request handler that echoes any request payload back
 prefixed with "pong:". Pass --link-to <hex destination hash> to instead (or
 additionally) open an outbound link to a destination the daemon has already
-seen an announce from, send it a "/ping" request, and print the response.
+seen an announce from, send it a "/ping" request via link.request, and print
+the response.
 """
 
 import argparse
@@ -166,7 +167,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--link-to", metavar="HEX_DESTINATION_HASH",
-        help="open an outbound link to a destination already seen in an announce, then send it one /ping request",
+        help="open an outbound link to a destination already seen in an announce, then send it one /ping via link.request",
     )
     args = parser.parse_args()
 
@@ -218,7 +219,7 @@ def main() -> int:
                         continue
                     event = json.loads(payload.decode())
                     print("event:", event)
-                    handle_event(sock, event)
+                    handle_event(sock, event, link_to=args.link_to)
             except socket.timeout:
                 print("no more events; exiting")
         finally:
@@ -229,10 +230,10 @@ def main() -> int:
     return 0
 
 
-def handle_event(sock: socket.socket, event: dict) -> None:
+def handle_event(sock: socket.socket, event: dict, link_to=None) -> None:
     """React to one WebSocket event: auto-answer request.incoming with a
-    canned reply, and once an outbound link is established, send it one
-    demo payload over link.send."""
+    canned reply, and once an outbound link is established, either send
+    link.request (/ping) when --link-to was used or a demo link.send."""
     event_type = event.get("type")
     if event_type == "request.incoming":
         data = base64.b64decode(event["data"]) if event.get("data") else b""
@@ -244,13 +245,31 @@ def handle_event(sock: socket.socket, event: dict) -> None:
         }).encode())
         print(f"  -> replied to request.incoming on {event['path']!r}")
     elif event_type == "link.established":
-        payload = base64.b64encode(b"hello over control-api link").decode()
-        ws_send_text(sock, json.dumps({
-            "type": "link.send",
-            "link_id": event["link_id"],
-            "data": payload,
-        }).encode())
-        print(f"  -> link.send queued on link {event['link_id']}")
+        link_id = event["link_id"]
+        if link_to:
+            ws_send_text(sock, json.dumps({
+                "type": "link.request",
+                "link_id": link_id,
+                "path": "/ping",
+                "data": base64.b64encode(b"hello").decode(),
+                "timeout_ms": 5000,
+            }).encode())
+            print(f"  -> link.request /ping on link {link_id}")
+        else:
+            payload = base64.b64encode(b"hello over control-api link").decode()
+            ws_send_text(sock, json.dumps({
+                "type": "link.send",
+                "link_id": link_id,
+                "data": payload,
+            }).encode())
+            print(f"  -> link.send queued on link {link_id}")
+    elif event_type == "request.response":
+        data = base64.b64decode(event["data"]) if event.get("data") else b""
+        print(f"  -> request.response on {event.get('path')!r}: {data!r}")
+    elif event_type == "request.failed":
+        print(f"  -> request.failed: {event.get('error')}")
+    elif event_type == "command.error":
+        print(f"  -> command.error ({event.get('command')}): {event.get('error')}")
 
 
 if __name__ == "__main__":

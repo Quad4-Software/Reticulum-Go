@@ -21,10 +21,8 @@ import (
 	"quad4/reticulum-go/pkg/transport"
 )
 
-// This RNS example demonstrates a simple client/server
-// echo utility. A client can send an echo request to the
-// server, and the server will respond by proving receipt
-// of the packet.
+// Echo is a small client/server demo. The client sends a
+// packet and the server answers with a proof of receipt.
 
 const APP_NAME = "example_utilities"
 
@@ -70,24 +68,15 @@ func main() {
 // ========== Server Part ==========
 
 func server(configpath string) error {
-	// Initialize config
 	cfg := loadConfig(configpath)
-
-	// Initialize Reticulum
 	t := transport.NewTransport(cfg)
 
-	// Randomly create a new identity for our echo server
 	serverIdentity, err := identity.NewIdentity()
 	if err != nil {
 		return fmt.Errorf("failed to create server identity: %w", err)
 	}
 
-	// We create a destination that clients can query. We want
-	// to be able to verify echo replies to our clients, so we
-	// create a "single" destination that can receive encrypted
-	// messages. This way the client can send a request and be
-	// certain that no-one else than this destination was able
-	// to read it.
+	// Single destination so requests are encrypted to this identity only.
 	echoDestination, err := destination.New(
 		serverIdentity,
 		destination.In,
@@ -101,15 +90,9 @@ func server(configpath string) error {
 		return fmt.Errorf("failed to create destination: %w", err)
 	}
 
-	// We configure the destination to automatically prove all
-	// packets addressed to it. By doing this, RNS will automatically
-	// generate a proof for each incoming packet and transmit it
-	// back to the sender of that packet.
+	// ProveAll makes Transport return a proof for every inbound packet.
 	echoDestination.SetProofStrategy(destination.ProveAll)
 
-	// Tell the destination which function in our program to
-	// run when a packet is received. We do this so we can
-	// print a log message when the server receives a request
 	echoDestination.SetPacketCallback(func(data []byte, iface common.NetworkInterface) {
 		serverCallback(data, iface)
 	})
@@ -120,23 +103,19 @@ func server(configpath string) error {
 		destination: echoDestination,
 	}
 
-	// Start transport
 	if err := t.Start(); err != nil {
 		return fmt.Errorf("failed to start transport: %w", err)
 	}
 
-	// Initialize interfaces
 	if err := initializeInterfaces(cfg, t); err != nil {
 		return fmt.Errorf("failed to initialize interfaces: %w", err)
 	}
 
 	debug.Log(debug.DebugInfo,
-		"Echo server running, hit enter to manually send an announce (Ctrl-C to quit)",
+		"Echo server ready. Press enter to announce, Ctrl-C to quit",
 		"hash", fmt.Sprintf("%x", echoDestination.GetHash()),
 	)
 
-	// Everything's ready!
-	// Let's wait for client requests or user input
 	announceLoop(echoDestination)
 
 	return nil
@@ -186,8 +165,6 @@ func announceLoop(dest *destination.Destination) {
 // ========== Client Part ==========
 
 func client(destinationHexHash string, configpath string, timeout float64) error {
-	// We need a binary representation of the destination
-	// hash that was entered on the command line
 	destLen := (identity.TruncatedHashLength / 8) * 2
 	if len(destinationHexHash) != destLen {
 		return fmt.Errorf(
@@ -201,20 +178,17 @@ func client(destinationHexHash string, configpath string, timeout float64) error
 		return fmt.Errorf("invalid destination hash: %w", err)
 	}
 
-	// Initialize config
 	cfg := loadConfig(configpath)
 
-	// For local client/server testing, we must set a target for the client.
+	// Point UDP at the peer for local loopback tests.
 	if ifaceCfg, ok := cfg.Interfaces["UDPInterface"]; ok {
 		if ifaceCfg.TargetHost == "" {
 			ifaceCfg.TargetHost = fmt.Sprintf("127.0.0.1:%d", *targetPort)
 		}
 	}
 
-	// Initialize Reticulum
 	t := transport.NewTransport(cfg)
 
-	// Create client identity
 	clientIdentity, err := identity.NewIdentity()
 	if err != nil {
 		return fmt.Errorf("failed to create client identity: %w", err)
@@ -225,21 +199,18 @@ func client(destinationHexHash string, configpath string, timeout float64) error
 		identity:  clientIdentity,
 	}
 
-	// Start transport
 	if err := t.Start(); err != nil {
 		return fmt.Errorf("failed to start transport: %w", err)
 	}
 
-	// Initialize interfaces
 	if err := initializeInterfaces(cfg, t); err != nil {
 		return fmt.Errorf("failed to initialize interfaces: %w", err)
 	}
 
-	debug.Log(debug.DebugInfo, "Echo client ready, hit enter to send echo request (Ctrl-C to quit)",
+	debug.Log(debug.DebugInfo, "Echo client ready. Press enter to send a request, Ctrl-C to quit",
 		"destination", destinationHexHash,
 	)
 
-	// Client loop
 	return clientLoop(destinationHash, t, timeout)
 }
 
@@ -267,25 +238,21 @@ func clientLoop(destHash []byte, t *transport.Transport, timeout float64) error 
 			debug.Log(debug.DebugInfo, "Shutting down...")
 			return nil
 		case <-inputChan:
-			// Check if RNS knows a path to the destination
 			if !t.HasPath(destHash) {
-				debug.Log(debug.DebugInfo, "Destination is not yet known. Requesting path...")
-				// RequestPath(destinationHash, onInterface, tag, recursive)
+				debug.Log(debug.DebugInfo, "No path yet, requesting one")
 				if err := t.RequestPath(destHash, "", nil, false); err != nil {
 					debug.Log(debug.DebugError, "Failed to request path", "error", err)
 				}
-				debug.Log(debug.DebugInfo, "Hit enter to manually retry once an announce is received.")
+				debug.Log(debug.DebugInfo, "Press enter again after an announce arrives")
 				continue
 			}
 
-			// Recall the server identity
 			serverIdentity, err := identity.Recall(destHash)
 			if err != nil {
 				debug.Log(debug.DebugError, "Failed to recall identity", "error", err)
 				continue
 			}
 
-			// Create request destination
 			requestDestination, err := destination.New(
 				serverIdentity,
 				destination.Out,
@@ -300,7 +267,6 @@ func clientLoop(destHash []byte, t *transport.Transport, timeout float64) error 
 				continue
 			}
 
-			// Create echo request packet with random data
 			echoRequest := packet.NewPacket(
 				destination.Single,
 				identity.GetRandomHash(),
@@ -314,7 +280,6 @@ func clientLoop(destHash []byte, t *transport.Transport, timeout float64) error 
 			)
 			echoRequest.DestinationHash = requestDestination.GetHash()
 
-			// Pack and send
 			if err := echoRequest.Pack(); err != nil {
 				debug.Log(debug.DebugError, "Failed to pack packet", "error", err)
 				continue
@@ -327,7 +292,6 @@ func clientLoop(destHash []byte, t *transport.Transport, timeout float64) error 
 
 			debug.Log(debug.DebugInfo, "Sent echo request", "hash", fmt.Sprintf("%x", requestDestination.GetHash()))
 
-			// Handle timeout if specified
 			if timeout > 0 {
 				go func() {
 					time.Sleep(time.Duration(timeout * float64(time.Second)))
@@ -343,7 +307,6 @@ func clientLoop(destHash []byte, t *transport.Transport, timeout float64) error 
 func loadConfig(configpath string) *common.ReticulumConfig {
 	cfg := common.DefaultConfig()
 
-	// Add default interface if none configured
 	if len(cfg.Interfaces) == 0 {
 		cfg.Interfaces = make(map[string]*common.InterfaceConfig)
 		cfg.Interfaces["UDPInterface"] = &common.InterfaceConfig{

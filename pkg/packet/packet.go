@@ -349,8 +349,7 @@ func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []b
 	// Prepare ratchet ID if available (not yet implemented)
 	var ratchetID []byte
 
-	// Prepare data for signature
-	// Signature consists of destination hash, public keys, name hash, random hash, and app data
+	// Sign over dest hash, keys, name hash, random hash, and app data.
 	signedData := make([]byte, 0, len(destHash)+len(encKey)+len(signKey)+len(nameHash10)+len(randomHash)+len(appData))
 	signedData = append(signedData, destHash...)
 	signedData = append(signedData, encKey...)
@@ -366,22 +365,20 @@ func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []b
 	}
 	debug.Log(debug.DebugPackets, "Generated signature", "signature", fmt.Sprintf("%x", signature))
 
-	// Combine all fields according to spec
-	// Data structure: Public Key (32) + Signing Key (32) + Name Hash (10) + Random Hash (10) + Ratchet (optional) + Signature (64) + App Data
+	// Combine fields: enc key, sign key, name hash, random hash, optional ratchet, signature, app data.
 	data := make([]byte, 0, 32+32+10+10+64+len(appData))
-	data = append(data, encKey...)     // Encryption key (32 bytes)
-	data = append(data, signKey...)    // Signing key (32 bytes)
-	data = append(data, nameHash10...) // Name hash (10 bytes)
-	data = append(data, randomHash...) // Random hash (10 bytes)
+	data = append(data, encKey...)
+	data = append(data, signKey...)
+	data = append(data, nameHash10...)
+	data = append(data, randomHash...)
 	if ratchetID != nil {
-		data = append(data, ratchetID...) // Ratchet ID (32 bytes if present)
+		data = append(data, ratchetID...)
 	}
-	data = append(data, signature...) // Signature (64 bytes)
-	data = append(data, appData...)   // Application data (variable)
+	data = append(data, signature...)
+	data = append(data, appData...)
 
 	debug.Log(debug.DebugTrace, "Combined packet data", "bytes", len(data))
 
-	// Create the packet with header type 2 (two address fields)
 	p := &Packet{
 		HeaderType:      HeaderType2,
 		PacketType:      PacketTypeAnnounce,

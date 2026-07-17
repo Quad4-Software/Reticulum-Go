@@ -27,7 +27,7 @@ type session struct {
 	links   map[string]*linkSession // key: hex link ID
 
 	pendingMu       sync.Mutex
-	pendingRequests map[string]chan []byte // key: hex request ID
+	pendingRequests map[string]chan any // key: hex request ID
 
 	clientsMu sync.Mutex
 	clients   map[*wsClient]struct{}
@@ -52,7 +52,7 @@ func newSession(id string, ident *identity.Identity) *session {
 		identity:        ident,
 		destinations:    make(map[string]*destination.Destination),
 		links:           make(map[string]*linkSession),
-		pendingRequests: make(map[string]chan []byte),
+		pendingRequests: make(map[string]chan any),
 		clients:         make(map[*wsClient]struct{}),
 	}
 }
@@ -89,12 +89,11 @@ func (s *session) removeLink(idHex string) {
 	delete(s.links, idHex)
 }
 
-// awaitResponse registers a channel for requestIDHex and returns it. The
-
-// request handler bridge blocks on it until addResponse delivers data or
-// the caller's own timeout elapses.
-func (s *session) awaitResponse(requestIDHex string) chan []byte {
-	ch := make(chan []byte, 1)
+// awaitResponse registers a channel for requestIDHex and returns it.
+// The request handler bridge blocks on it until deliverResponse sends data
+// or the caller's own timeout elapses.
+func (s *session) awaitResponse(requestIDHex string) chan any {
+	ch := make(chan any, 1)
 	s.pendingMu.Lock()
 	s.pendingRequests[requestIDHex] = ch
 	s.pendingMu.Unlock()
@@ -104,7 +103,7 @@ func (s *session) awaitResponse(requestIDHex string) chan []byte {
 // deliverResponse hands data to the goroutine blocked in awaitResponse for
 // requestIDHex, if one is still waiting. It reports whether a waiter was
 // found.
-func (s *session) deliverResponse(requestIDHex string, data []byte) bool {
+func (s *session) deliverResponse(requestIDHex string, data any) bool {
 	s.pendingMu.Lock()
 	ch, ok := s.pendingRequests[requestIDHex]
 	if ok {
