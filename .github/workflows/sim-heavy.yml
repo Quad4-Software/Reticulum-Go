@@ -43,5 +43,8 @@ jobs:
       - name: Run heavy simulation tests
         run: task test-sim-heavy
 
+      - name: Run link speedtest smoke
+        run: task test-link-speed
+
       - name: Verify workspace clean
         uses: ./.github/actions/verify-workspace-clean
