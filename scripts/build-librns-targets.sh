@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2024-2026 Quad4.io
 #
-# Cross-build librns for Linux host, Android ABIs, and Windows amd64.
+# Cross-build librns for Linux host, Android ABIs, Windows amd64, and macOS.
 # Usage:
-#   sh scripts/build-librns-targets.sh [linux] [android] [windows] [all]
+#   sh scripts/build-librns-targets.sh [linux] [android] [windows] [darwin] [all]
 # Default: all targets that the local toolchain can support.
 
 set -eu
@@ -110,6 +110,61 @@ build_windows() {
 	cp include/rns.h "$BUILD_DIR/windows/amd64/rns.h"
 }
 
+darwin_cc() {
+	if command -v o64-clang >/dev/null 2>&1; then
+		printf '%s\n' "o64-clang"
+		return 0
+	fi
+	if command -v x86_64-apple-darwin-clang >/dev/null 2>&1; then
+		printf '%s\n' "x86_64-apple-darwin-clang"
+		return 0
+	fi
+	if [ "$(uname -s)" = "Darwin" ] && command -v clang >/dev/null 2>&1; then
+		printf '%s\n' "clang"
+		return 0
+	fi
+	if command -v zig >/dev/null 2>&1; then
+		printf '%s\n' "$ROOT/scripts/cc-darwin-zig.sh"
+		return 0
+	fi
+	return 1
+}
+
+build_darwin_arch() {
+	goarch="$1"
+	cc="$2"
+	out="$BUILD_DIR/darwin/$goarch/librns.dylib"
+	echo "==> darwin $goarch (CC=$cc) -> $out"
+	mkdir -p "$(dirname "$out")"
+	# shellcheck disable=SC2086
+	env CGO_ENABLED=1 GOOS=darwin GOARCH="$goarch" CC="$cc" \
+		"$GOCMD" build -buildmode=c-shared -o "$out" ./cmd/librns
+	cp include/rns.h "$BUILD_DIR/darwin/$goarch/rns.h"
+}
+
+build_darwin() {
+	cc="$(darwin_cc)" || {
+		echo "skip darwin: need macOS clang, osxcross, or zig" >&2
+		return 0
+	}
+	case "$cc" in
+	*/cc-darwin-zig.sh)
+		build_darwin_arch amd64 "$cc"
+		build_darwin_arch arm64 "$cc"
+		;;
+	clang)
+		host_arch="$(uname -m)"
+		case "$host_arch" in
+		arm64|aarch64) build_darwin_arch arm64 "$cc" ;;
+		*) build_darwin_arch amd64 "$cc" ;;
+		esac
+		;;
+	*)
+		build_darwin_arch amd64 "$cc"
+		;;
+	esac
+}
+
 if want linux; then
 	build_linux
 fi
@@ -118,6 +173,9 @@ if want android; then
 fi
 if want windows; then
 	build_windows
+fi
+if want darwin; then
+	build_darwin
 fi
 
 echo "done"

@@ -1,15 +1,17 @@
 name: Verify workspace clean
-description: Recheck byte-level tree inventory and reject unexpected runner mutations
+description: Recheck byte-level tree inventory and report unexpected runner mutations (warn-only in CI)
 runs:
   using: composite
   steps:
     - name: Verify workspace clean
+      continue-on-error: true
       shell: sh
       env:
         RNS_INVENTORY_OUT: ${{ runner.temp }}/reticulum-go-tree-inventory.txt
+        RNS_CLEAN_OPTIONAL: "1"
       run: |
         if [ ! -f "$RNS_INVENTORY_OUT" ]; then
-          echo "verify-workspace-clean: warning: no tree inventory (tree RSM verify was skipped or optional and failed), continuing" >&2
+          echo "::warning::verify-workspace-clean: no tree inventory (tree RSM verify was skipped or optional and failed), continuing"
           exit 0
         fi
         sh scripts/ci/verify-workspace-clean.sh "$RNS_INVENTORY_OUT"

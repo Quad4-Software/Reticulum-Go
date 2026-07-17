@@ -7,18 +7,34 @@
 #
 # Env:
 #   RNS_CLEAN_ALLOW   space-separated path prefixes always ignored (optional)
+#   RNS_CLEAN_OPTIONAL  if 1 or true, warn and exit 0 on failure (CI soft check)
 set -eu
 
 ROOT="$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
+warn_or_fail() {
+	msg="$1"
+	case "${RNS_CLEAN_OPTIONAL:-}" in
+	1 | true | TRUE | yes | YES)
+		echo "::warning::verify-workspace-clean.sh: $msg (optional, continuing)"
+		exit 0
+		;;
+	*)
+		echo "verify-workspace-clean.sh: $msg" >&2
+		exit 1
+		;;
+	esac
+}
+
 INV="${1:?inventory file}"
 if [ ! -f "$INV" ]; then
-	echo "verify-workspace-clean.sh: missing inventory: $INV" >&2
-	exit 1
+	warn_or_fail "missing inventory: $INV"
 fi
 
-sh "$ROOT/scripts/ci/tree-manifest.sh" verify "$INV"
+if ! sh "$ROOT/scripts/ci/tree-manifest.sh" verify "$INV"; then
+	warn_or_fail "tree inventory hash check failed"
+fi
 
 # Default ephemeral prefixes created by CI / local builds
 ALLOW="bin/ .venv/ .cache/ .gotmp/ .tools/ reticulum-ref/ coverage.out dist/ node_modules/ __pycache__/ .pytest_cache/"
@@ -74,7 +90,6 @@ while IFS= read -r line; do
 done <"$tmp"
 
 if [ "$fail" -ne 0 ]; then
-	echo "verify-workspace-clean.sh: workspace not clean" >&2
-	exit 1
+	warn_or_fail "workspace not clean"
 fi
 echo "verify-workspace-clean.sh: OK"

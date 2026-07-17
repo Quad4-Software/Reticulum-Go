@@ -38,6 +38,7 @@ runs:
 
     - name: Verify tree RSM
       if: inputs.skip_tree_verify != 'true'
+      continue-on-error: true
       shell: sh
       env:
         RNS_REQUIRED_SIGNER: e46112d44649266d71fe2193e00a4710

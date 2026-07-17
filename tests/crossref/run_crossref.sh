@@ -5,6 +5,8 @@ ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 RETICULUM_REF="$ROOT_DIR/reticulum-ref"
 REPO_URL_RNS="rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum"
 REPO_URL_GITHUB="https://github.com/markqvist/Reticulum.git"
+# Wire-compat target for crossref vectors and interop.
+RNS_REF_TAG="${RNS_REF_TAG:-1.3.8}"
 
 pip_reticulum_path() {
 	python3 - <<'PY'
@@ -22,8 +24,18 @@ PY
 
 clone_repo() {
 	local url="$1"
-	echo "Cloning Python Reticulum from $url..."
-	git clone --depth 1 "$url" "$RETICULUM_REF"
+	echo "Cloning Python Reticulum $RNS_REF_TAG from $url..."
+	git clone --depth 1 --branch "$RNS_REF_TAG" "$url" "$RETICULUM_REF"
+}
+
+checkout_ref_tag() {
+	(
+		cd "$RETICULUM_REF"
+		git fetch --tags --force origin "refs/tags/${RNS_REF_TAG}:refs/tags/${RNS_REF_TAG}" 2>/dev/null \
+			|| git fetch --depth 1 origin tag "$RNS_REF_TAG"
+		git checkout -q "tags/${RNS_REF_TAG}" 2>/dev/null || git checkout -q "$RNS_REF_TAG"
+		git reset --hard "tags/${RNS_REF_TAG}" 2>/dev/null || git reset --hard "$RNS_REF_TAG"
+	)
 }
 
 clone_or_update() {
@@ -33,15 +45,18 @@ clone_or_update() {
 			echo "reticulum-ref remote changed; re-cloning..."
 			rm -rf "$RETICULUM_REF"
 		else
-			echo "Updating reticulum-ref..."
-			(cd "$RETICULUM_REF" && git fetch --depth 1 origin && git reset --hard FETCH_HEAD)
-			return 0
+			echo "Updating reticulum-ref to $RNS_REF_TAG..."
+			if checkout_ref_tag; then
+				return 0
+			fi
+			echo "tag checkout failed; re-cloning..."
+			rm -rf "$RETICULUM_REF"
 		fi
 	elif [ -d "$RETICULUM_REF" ]; then
 		rm -rf "$RETICULUM_REF"
 	fi
 
-	if git clone --depth 1 "$REPO_URL_RNS" "$RETICULUM_REF" 2>/dev/null; then
+	if git clone --depth 1 --branch "$RNS_REF_TAG" "$REPO_URL_RNS" "$RETICULUM_REF" 2>/dev/null; then
 		return 0
 	fi
 

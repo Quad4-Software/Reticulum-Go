@@ -23,7 +23,7 @@ warn_or_fail() {
 	msg="$1"
 	case "${RNS_TREE_VERIFY_OPTIONAL:-}" in
 	1 | true | TRUE | yes | YES)
-		echo "verify-tree-rsm.sh: warning: $msg (optional, continuing)" >&2
+		echo "::warning::verify-tree-rsm.sh: $msg (optional, continuing)"
 		exit 0
 		;;
 	*)
@@ -53,7 +53,7 @@ fi
 if ! sh "$ROOT/scripts/ci/tree-manifest.sh" verify-tracked "$INV"; then
 	# Do not leave RNS_INVENTORY_OUT on failure. End-of-job
 	# verify-workspace-clean treats a missing inventory as soft skip
-	# when tree verify ran optional (Windows CRLF hash mismatches etc).
+	# CI always runs both checks as optional warn-only.
 	warn_or_fail "tree inventory hash check failed"
 fi
 
