@@ -381,7 +381,7 @@ reticulum-go x -x [flags] <destination_hash>      # interactive
 
 Allow lists: `/etc/rnx/`, `~/.config/rnx/`, `~/.rnx/`, plus `~/.config/rgox/` and `~/.rgox/`.
 
-Exit codes match Python `rnx` (241–249 for client failures, `-m` mirrors remote).
+Exit codes match Python `rnx` (241-249 for client failures, `-m` mirrors remote).
 
 ## Troubleshooting
 
