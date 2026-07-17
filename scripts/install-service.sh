@@ -17,7 +17,7 @@ BINDIR="${BINDIR:-}"
 INIT="${INIT:-auto}"
 STATE_DIR="/var/lib/reticulum-go"
 
-ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 PKG="$ROOT/packaging"
 
 usage() {

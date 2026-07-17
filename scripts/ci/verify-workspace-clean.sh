@@ -10,7 +10,7 @@
 #   RNS_CLEAN_OPTIONAL  if 1 or true, warn and exit 0 on failure (CI soft check)
 set -eu
 
-ROOT="$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)"
+ROOT="$(CDPATH='' cd -- "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 warn_or_fail() {

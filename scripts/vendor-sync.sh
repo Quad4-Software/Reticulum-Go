@@ -5,8 +5,8 @@
 #   libs_root defaults to ../../Reticulum-Go-Projects relative to this repository.
 set -eu
 
-ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
-LIBS_ROOT="${1:-$(CDPATH= cd -- "$ROOT/../../Reticulum-Go-Projects" 2>/dev/null && pwd || true)}"
+ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
+LIBS_ROOT="${1:-$(CDPATH='' cd -- "$ROOT/../../Reticulum-Go-Projects" 2>/dev/null && pwd || true)}"
 
 if [ -z "$LIBS_ROOT" ] || [ ! -d "$LIBS_ROOT" ]; then
 	echo "vendor-sync.sh: libs root not found; pass path to Reticulum-Go-Projects" >&2

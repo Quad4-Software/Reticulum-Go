@@ -9,7 +9,7 @@
 
 set -eu
 
-ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 GOCMD="${GOCMD:-go}"
@@ -42,11 +42,11 @@ android_ndk_root() {
 	fi
 	if [ -n "${ANDROID_HOME:-}" ] && [ -d "$ANDROID_HOME/ndk" ]; then
 		# Prefer the highest installed NDK version.
-		ls -1d "$ANDROID_HOME/ndk"/* 2>/dev/null | sort -V | tail -n1
+		find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sort -V | tail -n1
 		return 0
 	fi
 	if [ -d "$HOME/Android/Sdk/ndk" ]; then
-		ls -1d "$HOME/Android/Sdk/ndk"/* 2>/dev/null | sort -V | tail -n1
+		find "$HOME/Android/Sdk/ndk" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sort -V | tail -n1
 		return 0
 	fi
 	return 1

@@ -6,7 +6,7 @@
 
 set -eu
 
-ROOT="$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)"
+ROOT="$(CDPATH='' cd -- "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 if ! command -v odin >/dev/null 2>&1; then

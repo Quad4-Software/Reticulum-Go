@@ -253,7 +253,7 @@ go test -v ./...
 | `make build-all` | Cross-compiles for all major platforms. | Compiles Linux, Windows, and macOS binaries. |
 | `make tree-rsm-verify` | Verifies `reticulum-go.rsm` signature and file hashes. | `sh scripts/ci/verify-tree-rsm.sh` |
 | `make tree-rsm-sign` | Signs the tree inventory into `reticulum-go.rsm`. | Requires `RNS_ID_PATH`. See [SECURITY.md](SECURITY.md). |
-| `make hooks-install` | Enables the tracked pre-commit hook that resigns the RSM. | `sh scripts/ci/install-git-hooks.sh` |
+| `make hooks-install` | Enables the tracked pre-commit hook (YAML/shellcheck + RSM resign). | `sh scripts/ci/install-git-hooks.sh` |
 
 ## Taskfile Automation
 

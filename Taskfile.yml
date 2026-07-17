@@ -161,7 +161,7 @@ tasks:
       - sh scripts/ci/verify-tree-rsm.sh
 
   hooks:install:
-    desc: Enable tracked .githooks (pre-commit resigns reticulum-go.rsm)
+    desc: Enable tracked .githooks (YAML/shellcheck + RSM resign)
     cmds:
       - sh scripts/ci/install-git-hooks.sh
 

@@ -68,7 +68,7 @@ help:
 	@echo "  check          fmt vet lint test-short vulncheck gosec"
 	@echo "  tree-rsm-verify  Verify reticulum-go.rsm signature and hashes"
 	@echo "  tree-rsm-sign    Sign tree inventory (requires RNS_ID_PATH)"
-	@echo "  hooks-install    Enable .githooks pre-commit (resigns RSM)"
+	@echo "  hooks-install    Enable .githooks pre-commit (YAML/shellcheck + RSM)"
 	@echo "  microvm-up       Prepare and start Firecracker microvm + host bridge"
 	@echo "  microvm-stop     Stop Firecracker microvm and host bridge"
 	@echo "  microvm-kernel   Download Firecracker guest kernel"

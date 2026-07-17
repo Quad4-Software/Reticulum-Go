@@ -19,7 +19,7 @@
 #   tree-manifest.sh verify-tracked [inv]  also fail if tracked files are missing from inv
 set -eu
 
-ROOT="$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)"
+ROOT="$(CDPATH='' cd -- "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 MANIFEST_HEADER="# reticulum-go tree manifest v1"

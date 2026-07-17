@@ -13,7 +13,7 @@
 #   sh scripts/ci/sign-tree-rsm.sh -i /path/to.rid
 set -eu
 
-ROOT="$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)"
+ROOT="$(CDPATH='' cd -- "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 ID_PATH="${RNS_ID_PATH:-}"
