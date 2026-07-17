@@ -113,6 +113,31 @@ func TestAssembleIncomingPayload_RejectsBz2Bomb(t *testing.T) {
 	}
 }
 
+func TestAssembleIncomingPayload_RejectsBz2BombAtAutoCompressCap(t *testing.T) {
+	// Claiming DataSize at AutoCompressMaxSize still must not expand past it.
+	const actualHugeSize = 8 * 1024 * 1024
+	bomb := bz2Bomb(t, actualHugeSize)
+	randomHash := bytes.Repeat([]byte{0xBC}, resource.RandomHashSize)
+	inner := append(append([]byte(nil), randomHash...), bomb...)
+
+	adv := &resource.ResourceAdvertisement{
+		Compressed: true,
+		Encrypted:  false,
+		DataSize:   int64(resource.AutoCompressMaxSize),
+		RandomHash: randomHash,
+		Hash:       bytes.Repeat([]byte{0x00}, sha256.Size),
+	}
+
+	l := &Link{}
+	out, err := l.assembleIncomingPayload(inner, adv)
+	if err == nil {
+		t.Fatalf("expected bomb past AutoCompressMaxSize expansion to be rejected, got %d bytes", len(out))
+	}
+	if !strings.Contains(err.Error(), "exceeds advertised data_size") {
+		t.Fatalf("expected size-cap error, got: %v", err)
+	}
+}
+
 func TestAssembleIncomingPayload_RejectsAutoCompressMaxSize(t *testing.T) {
 	tinyBomb := bz2Bomb(t, 1024)
 	randomHash := bytes.Repeat([]byte{0xCD}, resource.RandomHashSize)

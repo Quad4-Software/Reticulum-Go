@@ -8,6 +8,7 @@ package interop
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/hex"
 	"os"
@@ -224,6 +225,112 @@ func TestLiveInteropGoBufferToPython(t *testing.T) {
 	raw := buffer.NewRawChannelWriter(1, ch)
 	if _, err := raw.Write(payload); err != nil {
 		t.Fatalf("buffer write: %v", err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatalf("buffer close: %v", err)
+	}
+
+	line, err = readLineTimeout(ctx, br, 30*time.Second)
+	if err != nil {
+		t.Fatalf("wait BUFFER_OK: %v", err)
+	}
+	if strings.TrimSpace(line) != "BUFFER_OK" {
+		t.Fatalf("expected BUFFER_OK, got %q", line)
+	}
+}
+
+// Go sends a compressible buffer stream (> CompressThreshold) so the bz2
+// wire path is exercised against Python RNS.Buffer.
+func TestLiveInteropGoCompressedBufferToPython(t *testing.T) {
+	liveOrSkip(t)
+	ctx, cancel := context.WithTimeout(context.Background(), pyProcShortTimeout)
+	defer cancel()
+
+	pyListen := freeUDPPort(t)
+	pyForward := freeUDPPort(t)
+	tr, iface, cleanup := setupGoUDPPeer(t, pyListen, pyForward)
+	defer cleanup()
+
+	payload := bytes.Repeat([]byte("interop-buffer-compressed-payload-"), 8)
+	if len(payload) <= buffer.CompressThreshold {
+		t.Fatalf("payload %d must exceed CompressThreshold %d", len(payload), buffer.CompressThreshold)
+	}
+
+	script := pyScript(t, "link_server.py")
+	cmd := exec.CommandContext(ctx, pythonExe(), script)
+	cmd.Env = append(os.Environ(),
+		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
+		"INTEROP_FORWARD_PORT="+strconv.Itoa(pyForward),
+		"INTEROP_LINK_MODE=buffer",
+		"INTEROP_BUFFER_EXPECT="+string(payload),
+	)
+	cmd.Stderr = os.Stderr
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("stdout pipe: %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start python: %v", err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	}()
+
+	br := bufio.NewReader(out)
+	line, err := readLineTimeout(ctx, br, 25*time.Second)
+	if err != nil {
+		t.Fatalf("wait READY: %v", err)
+	}
+	if strings.TrimSpace(line) != "READY" {
+		t.Fatalf("expected READY, got %q", line)
+	}
+	hashLine, err := readLineTimeout(ctx, br, 5*time.Second)
+	if err != nil {
+		t.Fatalf("wait hash: %v", err)
+	}
+	pyHash, err := hex.DecodeString(strings.TrimSpace(hashLine))
+	if err != nil || len(pyHash) != 16 {
+		t.Fatalf("bad python destination hash: %q err %v", hashLine, err)
+	}
+	if err := waitPath(ctx, tr, pyHash, 40*time.Second); err != nil {
+		t.Fatalf("path to python: %v", err)
+	}
+
+	srvID, err := identity.Recall(pyHash)
+	if err != nil {
+		t.Fatalf("recall: %v", err)
+	}
+	destOut, err := destination.FromHash(pyHash, srvID, destination.Single, tr)
+	if err != nil {
+		t.Fatalf("from hash: %v", err)
+	}
+
+	established := make(chan struct{})
+	lnk := rlink.NewLink(destOut, tr, iface, func(_ *rlink.Link) {
+		close(established)
+	}, nil)
+	defer lnk.Teardown()
+	lnk.SetPacketCallback(func(_ []byte, _ *packet.Packet) {})
+
+	if err := lnk.Establish(); err != nil {
+		t.Fatalf("establish: %v", err)
+	}
+	select {
+	case <-established:
+	case <-time.After(45 * time.Second):
+		t.Fatal("link establish timeout")
+	}
+	lnk.Start()
+
+	ch := lnk.GetChannel()
+	raw := buffer.NewRawChannelWriter(1, ch)
+	n, err := raw.Write(payload)
+	if err != nil {
+		t.Fatalf("buffer write: %v", err)
+	}
+	if n != len(payload) {
+		t.Fatalf("buffer write processed %d, want %d (compression should cover full chunk)", n, len(payload))
 	}
 	if err := raw.Close(); err != nil {
 		t.Fatalf("buffer close: %v", err)

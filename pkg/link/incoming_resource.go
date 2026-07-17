@@ -272,10 +272,7 @@ func (l *Link) beginIncomingResource(adv *resource.ResourceAdvertisement) error 
 		return errors.New("invalid parts in advertisement")
 	}
 	maxSegmentBytes := int64(resource.MaxEfficientSize) + 4096
-	maxParts := max(int(maxSegmentBytes/int64(sdu))+8, 1)
-	if maxParts > int(resource.MaxSegments) {
-		maxParts = int(resource.MaxSegments)
-	}
+	maxParts := min(max(int(maxSegmentBytes/int64(sdu))+8, 1), int(resource.MaxSegments))
 	if adv.Parts > maxParts {
 		return errors.New("incoming resource parts exceed MaxSegments")
 	}
@@ -1137,6 +1134,16 @@ func (l *Link) assembleIncomingPayload(inner []byte, adv *resource.ResourceAdver
 	}
 
 	return data, nil
+}
+
+// AssembleIncomingResourcePayload decompresses and validates an assembled
+// resource inner blob. Live security tests use this to exercise bz2 bomb
+// rejection without a full multi-part transfer.
+func AssembleIncomingResourcePayload(l *Link, inner []byte, adv *resource.ResourceAdvertisement) ([]byte, error) {
+	if l == nil {
+		l = &Link{}
+	}
+	return l.assembleIncomingPayload(inner, adv)
 }
 
 func wireInt(v any) (int, bool) {
