@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"time"
 
+	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/identity"
@@ -50,6 +51,8 @@ func (s *Server) handleRegisterDestination(w http.ResponseWriter, r *http.Reques
 
 	if req.AcceptsLinks {
 		wireInboundLinks(sess, dest)
+	} else {
+		debug.Log(debug.DebugInfo, common.MsgControlAPINoAcceptsLinks, "hash", hashHex)
 	}
 
 	writeJSON(w, http.StatusCreated, registerDestinationResponse{DestinationHash: hashHex})
@@ -228,7 +231,7 @@ func (s *Server) handleAnnounce(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Announce app_data must fit packet.MTU after fixed fields.
-		// HEADER1 without ratchet leaves 333 bytes; with ratchet 301.
+		// HEADER1 without ratchet leaves 333 bytes, with ratchet 301.
 		// Allow the no-ratchet budget and let CreatePacket reject if a
 		// ratchet is attached and the payload no longer fits.
 		const maxAnnounceAppData = 333

@@ -241,6 +241,15 @@ func TestFacadeNodeDestinationAnnounce(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = NodeStop(nodeHandle) })
 
+	rec, err := nodeByHandle(nodeHandle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sink := newPipeInterface("announce-sink")
+	if err := rec.node.Transport().RegisterInterface(sink.GetName(), sink); err != nil {
+		t.Fatal(err)
+	}
+
 	destHandle, code := DestinationCreate(nodeHandle, 0, "librns-ann", []string{"test"}, true)
 	if code != OK {
 		t.Fatalf("dest create: %d %q", code, LastError())
@@ -248,7 +257,7 @@ func TestFacadeNodeDestinationAnnounce(t *testing.T) {
 	t.Cleanup(func() { _ = DestinationDestroy(destHandle) })
 
 	if code := DestinationAnnounce(destHandle, []byte("appdata")); code != OK {
-		t.Fatal(code)
+		t.Fatal(code, LastError())
 	}
 
 	hash, code := DestinationHash(destHandle)

@@ -493,6 +493,14 @@ func (t *Transport) PathIsUnresponsive(destHash []byte) bool {
 
 // RegisterDestination registers a destination to receive incoming link requests.
 func (t *Transport) RegisterDestination(hash []byte, dest any) {
+	if dest == nil {
+		debug.Log(debug.DebugError, common.MsgTransportNilDestination)
+		return
+	}
+	if len(hash) == 0 {
+		debug.Log(debug.DebugError, common.MsgTransportEmptyDestinationHash)
+		return
+	}
 	key := hash16FromSlice(hash)
 	registered := registeredDestination{raw: dest}
 	if recv, ok := dest.(destinationPacketReceiver); ok {
@@ -1234,7 +1242,7 @@ func (p *LinkPacket) send() error {
 
 	nextHop := t.NextHop(p.Destination)
 	if nextHop == nil {
-		return errors.New("no path to destination")
+		return common.ErrNoPathToDestinationf(p.Destination)
 	}
 
 	ifaceName := t.NextHopInterface(p.Destination)
@@ -1871,7 +1879,7 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 			if t.relayBridgedLinkRequest(pkt, data, iface) {
 				return
 			}
-			debug.Log(debug.DebugError, "No destination registered for hash", "hash", fmt.Sprintf("%x", destHash), "elapsed", time.Since(startTime).Seconds())
+			debug.Log(debug.DebugError, common.MsgTransportNoDestForLinkRequest, "hash", fmt.Sprintf("%x", destHash), "elapsed", time.Since(startTime).Seconds())
 			return
 		}
 
@@ -2040,9 +2048,7 @@ func (t *Transport) handleTransportPacket(data []byte, iface common.NetworkInter
 				t.maybeProvePacket(pkt, d, iface)
 			}
 		} else {
-			if debug.Enabled(debug.DebugVerbose) {
-				debug.Log(debug.DebugVerbose, "No destination registered for hash", "hash", fmt.Sprintf("%x", destHash))
-			}
+			debug.Log(debug.DebugInfo, common.MsgTransportNoDestForData, "hash", fmt.Sprintf("%x", destHash))
 		}
 	}
 }
@@ -2298,7 +2304,7 @@ func (t *Transport) SendPacket(p *packet.Packet) error {
 	path, exists := t.paths[pathMapKey(destHash)]
 	if !exists {
 		debug.Log(debug.DebugInfo, "No path found for destination", "hash", fmt.Sprintf("%x", destHash))
-		return errors.New("no path to destination")
+		return common.ErrNoPathToDestinationf(destHash)
 	}
 
 	if p.DestinationType != DestTypeLink && path.HopCount > 1 && len(path.NextHop) > 0 && !bytes.Equal(path.NextHop, destHash) {

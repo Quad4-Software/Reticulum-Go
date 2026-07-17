@@ -6,7 +6,6 @@ package discovery
 import (
 	"os"
 	"os/exec"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -376,24 +375,24 @@ func isSanMap(c byte) bool {
 }
 
 func resolveReachableOn(raw string) (string, error) {
-	reachable := sanitize(raw)
-	if reachable == "" {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
 		return "", nil
 	}
-	execPath := os.ExpandEnv(reachable)
+	execPath := os.ExpandEnv(raw)
 	if st, err := os.Stat(execPath); err == nil && !st.IsDir() && st.Mode()&0o111 != 0 {
 		cmd := exec.Command(execPath) // #nosec G204 -- operator-configured reachable_on script
 		out, err := cmd.Output()
 		if err != nil {
 			return "", err
 		}
-		reachable = sanitize(string(out))
+		reachable := sanitize(string(out))
 		if reachable == "" {
 			return "", errString("discovery: reachable_on script produced empty output")
 		}
-		_ = filepath.Base(execPath)
+		return reachable, nil
 	}
-	return reachable, nil
+	return sanitize(raw), nil
 }
 
 // applyDiscoveryLocationCmd runs location_cmd when set and fills geo fields.

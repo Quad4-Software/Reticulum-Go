@@ -5,6 +5,7 @@ package transport
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 	"time"
 
@@ -103,6 +104,40 @@ func TestDestinationRegistration(t *testing.T) {
 
 	if !ok || dest.raw != "test-dest" {
 		t.Error("Destination not registered correctly")
+	}
+}
+
+func TestRegisterDestinationRejectsNilAndEmptyHash(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{})
+	defer tr.Close()
+
+	tr.mutex.RLock()
+	before := len(tr.destinations)
+	tr.mutex.RUnlock()
+
+	tr.RegisterDestination([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}, nil)
+	tr.RegisterDestination(nil, "ignored")
+	tr.RegisterDestination([]byte{}, "ignored")
+
+	tr.mutex.RLock()
+	after := len(tr.destinations)
+	tr.mutex.RUnlock()
+	if after != before {
+		t.Fatalf("nil dest or empty hash should not register, got %d entries", after)
+	}
+}
+
+func TestSendPacketNoPathUsesErrNoPathToDestination(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{})
+	defer tr.Close()
+
+	destHash := make([]byte, 16)
+	for i := range destHash {
+		destHash[i] = byte(i + 1)
+	}
+	err := tr.SendPacket(&packet.Packet{DestinationHash: destHash})
+	if !errors.Is(err, common.ErrNoPathToDestination) {
+		t.Fatalf("got %v, want ErrNoPathToDestination", err)
 	}
 }
 

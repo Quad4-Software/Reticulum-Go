@@ -135,6 +135,34 @@ func TestMemoryBudgetUnlimited(t *testing.T) {
 	}
 }
 
+func TestMemoryBudgetSetLimitAndApplySoft(t *testing.T) {
+	b := NewMemoryBudget(10)
+	if b.Limit() != 10 {
+		t.Fatalf("Limit = %d, want 10", b.Limit())
+	}
+	if err := b.TryReserve(8); err != nil {
+		t.Fatal(err)
+	}
+	b.SetLimit(5)
+	if b.Limit() != 5 {
+		t.Fatalf("Limit after SetLimit = %d, want 5", b.Limit())
+	}
+	if err := b.TryReserve(1); !errors.Is(err, ErrMemoryBudgetExceeded) {
+		t.Fatalf("after shrinking limit, reserve should fail with ErrMemoryBudgetExceeded, got %v", err)
+	}
+	b.SetLimit(0)
+	if err := b.TryReserve(100); err != nil {
+		t.Fatalf("unlimited after SetLimit(0): %v", err)
+	}
+
+	prev := ApplySoftMemoryLimit(32 << 20)
+	t.Cleanup(func() { ApplySoftMemoryLimit(prev) })
+	disabled := ApplySoftMemoryLimit(0)
+	if disabled != 32<<20 {
+		t.Fatalf("ApplySoftMemoryLimit(0) should restore unlimited and return prior limit, got %d", disabled)
+	}
+}
+
 func TestEffectiveCaps(t *testing.T) {
 	t.Setenv("RETICULUM_STORAGE_PATH", "")
 	cfg := &ReticulumConfig{InMemoryStorage: true}
@@ -153,5 +181,30 @@ func TestEffectiveCaps(t *testing.T) {
 	cfg.ConfigPath = ""
 	if cfg.EffectiveMaxInMemoryPaths() != 0 {
 		t.Fatal("auto ephemeral mode without InMemoryStorage has no path cap")
+	}
+
+	cfg = &ReticulumConfig{InMemoryStorage: true}
+	if cfg.EffectiveMaxInMemoryKnownDestinations() != DefaultMaxInMemoryKnownDestinations {
+		t.Fatal("default known-dest cap")
+	}
+	if cfg.EffectiveMaxInMemoryResourceBytes() != DefaultMaxInMemoryResourceBytes {
+		t.Fatal("default resource budget")
+	}
+	cfg.MaxInMemoryKnownDestinations = 7
+	cfg.MaxInMemoryResourceBytes = 9
+	if cfg.EffectiveMaxInMemoryKnownDestinations() != 7 {
+		t.Fatal("explicit known-dest cap")
+	}
+	if cfg.EffectiveMaxInMemoryResourceBytes() != 9 {
+		t.Fatal("explicit resource budget")
+	}
+	cfg.MaxInMemoryKnownDestinations = -1
+	cfg.MaxInMemoryResourceBytes = -1
+	if cfg.EffectiveMaxInMemoryKnownDestinations() != 0 || cfg.EffectiveMaxInMemoryResourceBytes() != 0 {
+		t.Fatal("negative should disable caps")
+	}
+	cfg.InMemoryStorage = false
+	if cfg.EffectiveMaxInMemoryKnownDestinations() != 0 || cfg.EffectiveMaxInMemoryResourceBytes() != 0 {
+		t.Fatal("caps require InMemoryStorage")
 	}
 }

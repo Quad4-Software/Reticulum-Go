@@ -78,7 +78,7 @@ func TestRememberUnchangedAllocBudget(t *testing.T) {
 	allocs := testing.AllocsPerRun(1000, func() {
 		Remember(pkt, dest, pub, app)
 	})
-	// hex map key string is one alloc; allow a little headroom for GC noise.
+	// hex map key string is one alloc. Allow a little headroom for GC noise.
 	if allocs > 2 {
 		t.Fatalf("Remember unchanged allocs=%.1f want <= 2", allocs)
 	}

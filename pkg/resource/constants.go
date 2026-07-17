@@ -54,7 +54,7 @@ const (
 	CollisionGuardSize = 2*WindowMax + 100
 )
 
-// ResourceAdvertisement flag bits packed into the wire `f` field.
+// ResourceAdvertisement flag bits packed into the wire f field.
 // Bit positions and shifts are part of the wire format. Do not reorder.
 
 const (

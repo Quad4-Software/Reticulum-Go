@@ -232,7 +232,7 @@ func TestHandleAnnounceAllocBudget(t *testing.T) {
 		tr.mutex.Unlock()
 		_ = tr.handleAnnouncePacket(pkt, iface)
 	})
-	// ed25519 verify path still allocates; gate is relative to the optimized steady state (~19).
+	// ed25519 verify path still allocates. Gate is relative to the optimized steady state (~19).
 	if allocs > 30 {
 		t.Fatalf("handleAnnouncePacket steady allocs=%.1f want <= 30", allocs)
 	}

@@ -107,7 +107,7 @@ func (ui *UDPInterface) adoptConn(conn *net.UDPConn) bool {
 func (ui *UDPInterface) dialUDP() (net.Conn, error) {
 	conn, err := net.ListenUDP("udp", ui.addr)
 	if err != nil {
-		return nil, err
+		return nil, common.WrapListenError(err)
 	}
 	if ui.targetAddr != nil {
 		_ = conn.SetReadBuffer(1064)

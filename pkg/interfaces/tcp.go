@@ -628,7 +628,7 @@ func (ts *TCPServerInterface) Start() error {
 	addr := net.JoinHostPort(ts.bindAddr, fmt.Sprintf("%d", ts.bindPort))
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		return fmt.Errorf("failed to start TCP server: %w", err)
+		return fmt.Errorf("failed to start TCP server: %w", common.WrapListenError(err))
 	}
 
 	ts.Mutex.Lock()

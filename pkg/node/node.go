@@ -167,7 +167,7 @@ func (n *Node) Start() error {
 		return fmt.Errorf("network identity: %w", err)
 	}
 	if !inst.OwnsNetworkInterfaces() {
-		debug.Log(debug.DebugInfo, "Using existing local shared Reticulum instance; skipping configured network interfaces")
+		debug.Log(debug.DebugInfo, "Using existing local shared Reticulum instance, skipping configured network interfaces")
 		return nil
 	}
 	return n.startInterfaces()

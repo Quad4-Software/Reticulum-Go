@@ -599,7 +599,7 @@ func (hs *HTTPSServerInterface) Start() error {
 	addr := net.JoinHostPort(hs.bindAddr, fmt.Sprintf("%d", hs.bindPort))
 	ln, err := tls.Listen("tcp", addr, tlsConf)
 	if err != nil {
-		return fmt.Errorf("failed to start HTTPS server: %w", err)
+		return fmt.Errorf("failed to start HTTPS server: %w", common.WrapListenError(err))
 	}
 	srv := &http.Server{
 		Handler:           mux,

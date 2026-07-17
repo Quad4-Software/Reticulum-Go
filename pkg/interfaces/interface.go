@@ -179,7 +179,7 @@ func (i *BaseInterface) ProcessIncoming(data []byte) {
 // (e.g. a *BaseInterface pointer leaking through a callback closure)
 // instead of letting the transport silently swallow every outgoing packet.
 func (i *BaseInterface) ProcessOutgoing(data []byte) error {
-	debug.Log(debug.DebugCritical, "BaseInterface.ProcessOutgoing called directly; concrete interface type must override it", "name", i.Name, "bytes", len(data))
+	debug.Log(debug.DebugCritical, "BaseInterface.ProcessOutgoing called directly, concrete interface type must override it", "name", i.Name, "bytes", len(data))
 	return fmt.Errorf("ProcessOutgoing not implemented on abstract interfaces.BaseInterface (name=%q, %d bytes); concrete interface type must override it", i.Name, len(data))
 }
 

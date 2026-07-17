@@ -129,6 +129,12 @@ type Link struct {
 }
 
 func NewLink(dest *destination.Destination, transport *transport.Transport, networkIface common.NetworkInterface, establishedCallback func(*Link), closedCallback func(*Link)) *Link {
+	if dest == nil {
+		debug.Log(debug.DebugError, common.MsgLinkNilDestination)
+	}
+	if transport == nil {
+		debug.Log(debug.DebugError, common.MsgLinkNilTransport)
+	}
 	return &Link{
 		destination:         dest,
 		transport:           transport,
@@ -184,7 +190,6 @@ func HandleIncomingLinkRequest(pkt *packet.Packet, dest *destination.Destination
 func (l *Link) Establish() error {
 	l.mutex.Lock()
 	startTime := time.Now()
-	debug.Log(debug.DebugInfo, "Establishing link", "dest_hash", fmt.Sprintf("%x", l.destination.GetHash()))
 
 	if l.status.Load() != int32(StatusPending) {
 		debug.Log(debug.DebugInfo, "Cannot establish link: invalid status", "status", l.status.Load())
@@ -194,17 +199,26 @@ func (l *Link) Establish() error {
 
 	if l.destination == nil {
 		l.mutex.Unlock()
-		return errors.New("destination is nil")
+		return common.ErrLinkDestinationRequired
+	}
+
+	debug.Log(debug.DebugInfo, "Establishing link", "dest_hash", fmt.Sprintf("%x", l.destination.GetHash()))
+
+	if l.transport == nil {
+		l.mutex.Unlock()
+		return common.ErrLinkTransportRequired
+	}
+
+	if !l.transport.HasPath(l.destination.GetHash()) {
+		destHash := l.destination.GetHash()
+		l.mutex.Unlock()
+		return common.ErrLinkNoPathf(destHash)
 	}
 
 	l.initiator = true
 	l.status.Store(int32(StatusPending))
 	l.requestTime = time.Now()
-	if l.transport != nil {
-		l.expectedHops = l.transport.HopsTo(l.destination.GetHash())
-	} else {
-		l.expectedHops = transport.PathfinderM
-	}
+	l.expectedHops = l.transport.HopsTo(l.destination.GetHash())
 
 	if err := l.prepareLinkRequestLocked(); err != nil {
 		debug.Log(debug.DebugError, "Failed to prepare link request", "error", err, "elapsed", time.Since(startTime).Seconds())
@@ -215,20 +229,18 @@ func (l *Link) Establish() error {
 	// Register before sending so an immediate link proof cannot race and miss.
 	// The mutex is released before SendPacket because synchronous interfaces
 	// may deliver the proof back into ValidateLinkProof on this goroutine.
-	if l.transport != nil {
-		l.transport.RegisterLink(l.linkID, l)
+	l.transport.RegisterLink(l.linkID, l)
 
-		if l.networkInterface == nil {
-			if ifaceName := l.transport.NextHopInterface(l.destination.GetHash()); ifaceName != "" {
-				if iface, err := l.transport.GetInterface(ifaceName); err == nil {
-					l.networkInterface = iface
-				}
+	if l.networkInterface == nil {
+		if ifaceName := l.transport.NextHopInterface(l.destination.GetHash()); ifaceName != "" {
+			if iface, err := l.transport.GetInterface(ifaceName); err == nil {
+				l.networkInterface = iface
 			}
 		}
+	}
 
-		if l.networkInterface != nil {
-			l.registerLinkPath()
-		}
+	if l.networkInterface != nil {
+		l.registerLinkPath()
 	}
 
 	l.mutex.Unlock()
@@ -974,8 +986,14 @@ func (l *Link) deliverOrQueuePlainPacket(plaintext []byte, pkt *packet.Packet) {
 		return
 	}
 	l.pendingPlainMu.Lock()
+	dropped := len(l.pendingPlainData) > 0
 	l.pendingPlainData = append([]byte(nil), plaintext...)
 	l.pendingPlainMu.Unlock()
+	if dropped {
+		debug.Log(debug.DebugInfo, common.MsgLinkNoPacketCallbackDropped)
+	} else {
+		debug.Log(debug.DebugInfo, common.MsgLinkNoPacketCallback)
+	}
 }
 
 func (l *Link) signalOutgoingResourceComplete() {

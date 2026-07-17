@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"testing"
 
 	"quad4/pbt/pkg/pbt"
+	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/cryptography"
 )
 
@@ -216,6 +218,27 @@ func TestRecallIdentity(t *testing.T) {
 
 	if !bytes.Equal(id.GetPublicKey(), recalledID.GetPublicKey()) {
 		t.Error("Recalled identity public key doesn't match original")
+	}
+}
+
+func TestRecallMissingHashUsesErrIdentityNotFound(t *testing.T) {
+	knownDestinationsLock.Lock()
+	prev := knownDestinations
+	knownDestinations = make(map[string][]any)
+	knownDestinationsLock.Unlock()
+	t.Cleanup(func() {
+		knownDestinationsLock.Lock()
+		knownDestinations = prev
+		knownDestinationsLock.Unlock()
+	})
+
+	hash := make([]byte, TruncatedHashLength/8)
+	for i := range hash {
+		hash[i] = byte(0xa0 + i)
+	}
+	_, err := Recall(hash)
+	if !errors.Is(err, common.ErrIdentityNotFound) {
+		t.Fatalf("got %v, want ErrIdentityNotFound", err)
 	}
 }
 

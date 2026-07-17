@@ -3,14 +3,14 @@
   "vectors": [
     {
       "name": "announce_h2",
-      "raw_hex": "4100abababababababababababababababab08888a5dd488b882c7373e881eac56fc00e2be3eb84ca84c15123f9f2d4200693797d3277baedc3be9e6a21eefcc96274511a82735f49087477cb4e48e5e08ec811d9eec6a2ab8253a8e27802019595b2b72ea66915f2f5fedf916bbba019b99006a5a52cf097132321d3e889a4c9638a06bb9dabedafc539f2b57ef2b02d72a3263d5898434ad71b194cf1ded82d85dd7977b9c2cafe47fd1750714a800cda4b10469420e0102",
+      "raw_hex": "4100abababababababababababababababab778fd7ca88ef023ef5427fc62add23830084a0ecb2771113380649fb488924fe7bafac8f9d69b1743150f14c734a8d9c1b1997d5fcbc283d7b8ba278cd4a700229ad19e6ee4953f6eaef076444e6a2296172ea66915f2f5fedf916a34f3bc2e2006a5aaaee1a5516338d8b58377a89f7ef1a802d4e497a3f34a77a5a612df9d46336a3a1d6b079450b2f930c46e9efcd42e3c483ba1ad13b5ea82cdd424d0e522c6bfa0c090102",
       "packet_type_name": "ANNOUNCE",
       "context_name": "NONE",
       "header_type": 1,
       "destination_type_name": "SINGLE",
       "tree": {
         "ok": true,
-        "raw_hex": "4100abababababababababababababababab08888a5dd488b882c7373e881eac56fc00e2be3eb84ca84c15123f9f2d4200693797d3277baedc3be9e6a21eefcc96274511a82735f49087477cb4e48e5e08ec811d9eec6a2ab8253a8e27802019595b2b72ea66915f2f5fedf916bbba019b99006a5a52cf097132321d3e889a4c9638a06bb9dabedafc539f2b57ef2b02d72a3263d5898434ad71b194cf1ded82d85dd7977b9c2cafe47fd1750714a800cda4b10469420e0102",
+        "raw_hex": "4100abababababababababababababababab778fd7ca88ef023ef5427fc62add23830084a0ecb2771113380649fb488924fe7bafac8f9d69b1743150f14c734a8d9c1b1997d5fcbc283d7b8ba278cd4a700229ad19e6ee4953f6eaef076444e6a2296172ea66915f2f5fedf916a34f3bc2e2006a5aaaee1a5516338d8b58377a89f7ef1a802d4e497a3f34a77a5a612df9d46336a3a1d6b079450b2f930c46e9efcd42e3c483ba1ad13b5ea82cdd424d0e522c6bfa0c090102",
         "raw_len": 185,
         "flags": 65,
         "hops": 0,
@@ -23,22 +23,22 @@
         "destination_type_name": "SINGLE",
         "context": 0,
         "context_name": "NONE",
-        "destination_hash": "08888a5dd488b882c7373e881eac56fc",
+        "destination_hash": "778fd7ca88ef023ef5427fc62add2383",
         "transport_id": "abababababababababababababababab",
         "data_len": 150,
-        "data_hex_prefix": "e2be3eb84ca84c15123f9f2d4200693797d3277baedc3be9e6a21eefcc962745"
+        "data_hex_prefix": "84a0ecb2771113380649fb488924fe7bafac8f9d69b1743150f14c734a8d9c1b"
       }
     },
     {
       "name": "path_response_announce",
-      "raw_hex": "5100abababababababababababababababab08888a5dd488b882c7373e881eac56fc0be2be3eb84ca84c15123f9f2d4200693797d3277baedc3be9e6a21eefcc96274511a82735f49087477cb4e48e5e08ec811d9eec6a2ab8253a8e27802019595b2b72ea66915f2f5fedf916bbba019b99006a5a52cf097132321d3e889a4c9638a06bb9dabedafc539f2b57ef2b02d72a3263d5898434ad71b194cf1ded82d85dd7977b9c2cafe47fd1750714a800cda4b10469420e0102",
+      "raw_hex": "5100abababababababababababababababab778fd7ca88ef023ef5427fc62add23830b84a0ecb2771113380649fb488924fe7bafac8f9d69b1743150f14c734a8d9c1b1997d5fcbc283d7b8ba278cd4a700229ad19e6ee4953f6eaef076444e6a2296172ea66915f2f5fedf916a34f3bc2e2006a5aaaee1a5516338d8b58377a89f7ef1a802d4e497a3f34a77a5a612df9d46336a3a1d6b079450b2f930c46e9efcd42e3c483ba1ad13b5ea82cdd424d0e522c6bfa0c090102",
       "packet_type_name": "ANNOUNCE",
       "context_name": "PATH_RESPONSE",
       "header_type": 1,
       "destination_type_name": "SINGLE",
       "tree": {
         "ok": true,
-        "raw_hex": "5100abababababababababababababababab08888a5dd488b882c7373e881eac56fc0be2be3eb84ca84c15123f9f2d4200693797d3277baedc3be9e6a21eefcc96274511a82735f49087477cb4e48e5e08ec811d9eec6a2ab8253a8e27802019595b2b72ea66915f2f5fedf916bbba019b99006a5a52cf097132321d3e889a4c9638a06bb9dabedafc539f2b57ef2b02d72a3263d5898434ad71b194cf1ded82d85dd7977b9c2cafe47fd1750714a800cda4b10469420e0102",
+        "raw_hex": "5100abababababababababababababababab778fd7ca88ef023ef5427fc62add23830b84a0ecb2771113380649fb488924fe7bafac8f9d69b1743150f14c734a8d9c1b1997d5fcbc283d7b8ba278cd4a700229ad19e6ee4953f6eaef076444e6a2296172ea66915f2f5fedf916a34f3bc2e2006a5aaaee1a5516338d8b58377a89f7ef1a802d4e497a3f34a77a5a612df9d46336a3a1d6b079450b2f930c46e9efcd42e3c483ba1ad13b5ea82cdd424d0e522c6bfa0c090102",
         "raw_len": 185,
         "flags": 81,
         "hops": 0,
@@ -51,22 +51,22 @@
         "destination_type_name": "SINGLE",
         "context": 11,
         "context_name": "PATH_RESPONSE",
-        "destination_hash": "08888a5dd488b882c7373e881eac56fc",
+        "destination_hash": "778fd7ca88ef023ef5427fc62add2383",
         "transport_id": "abababababababababababababababab",
         "data_len": 150,
-        "data_hex_prefix": "e2be3eb84ca84c15123f9f2d4200693797d3277baedc3be9e6a21eefcc962745"
+        "data_hex_prefix": "84a0ecb2771113380649fb488924fe7bafac8f9d69b1743150f14c734a8d9c1b"
       }
     },
     {
       "name": "link_request",
-      "raw_hex": "020008888a5dd488b882c7373e881eac56fc00cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+      "raw_hex": "0200778fd7ca88ef023ef5427fc62add238300cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
       "packet_type_name": "LINKREQUEST",
       "context_name": "NONE",
       "header_type": 0,
       "destination_type_name": "SINGLE",
       "tree": {
         "ok": true,
-        "raw_hex": "020008888a5dd488b882c7373e881eac56fc00cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "raw_hex": "0200778fd7ca88ef023ef5427fc62add238300cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
         "raw_len": 83,
         "flags": 2,
         "hops": 0,
@@ -79,7 +79,7 @@
         "destination_type_name": "SINGLE",
         "context": 0,
         "context_name": "NONE",
-        "destination_hash": "08888a5dd488b882c7373e881eac56fc",
+        "destination_hash": "778fd7ca88ef023ef5427fc62add2383",
         "data_len": 64,
         "data_hex_prefix": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
       }

@@ -10,7 +10,8 @@ import (
 )
 
 // ErrMemoryBudgetExceeded is returned when an in-memory allocation would
-// exceed the configured soft budget.
+// exceed the configured soft budget. Callers may also treat this as ErrOOM
+// via IsOOM.
 var ErrMemoryBudgetExceeded = errors.New("in-memory storage budget exceeded")
 
 // MemoryBudget tracks a soft byte budget for ephemeral staging (resources).

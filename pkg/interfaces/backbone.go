@@ -126,7 +126,7 @@ func (bi *BackboneInterface) Start() error {
 	addr := net.JoinHostPort(bi.bindAddr, fmt.Sprintf("%d", bi.bindPort))
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		return fmt.Errorf("backbone listen: %w", err)
+		return fmt.Errorf("backbone listen: %w", common.WrapListenError(err))
 	}
 
 	bi.Mutex.Lock()

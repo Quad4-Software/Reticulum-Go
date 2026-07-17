@@ -23,7 +23,7 @@ import (
 const DefaultSpeedtestDataCap int64 = 2 << 20 // 2 MiB
 
 // DefaultSpeedtestMinBytesPerSec is a soft loopback liveness floor. Real
-// hardware and CI runners vary; this only catches catastrophic regressions.
+// hardware and CI runners vary. This only catches catastrophic regressions.
 const DefaultSpeedtestMinBytesPerSec = 1e6 // 1 MB/s
 
 // SpeedtestOptions configures a link packet blast (RNS Speedtest-style).
@@ -31,7 +31,7 @@ type SpeedtestOptions struct {
 	// DataCap is plaintext bytes to deliver (default DefaultSpeedtestDataCap).
 	DataCap int64
 	// MinBytesPerSec fails the run when sustained RX rate is below this
-	// (0 disables the floor; default DefaultSpeedtestMinBytesPerSec when
+	// (0 disables the floor, default DefaultSpeedtestMinBytesPerSec when
 	// EnforceFloor is true).
 	MinBytesPerSec float64
 	// EnforceFloor applies MinBytesPerSec (default true for smoke/CLI).
@@ -39,7 +39,7 @@ type SpeedtestOptions struct {
 	// Timeout bounds establish + transfer (default 30s).
 	Timeout time.Duration
 	// SendPace sleeps after each outbound packet. Zero means no pacing
-	// (fine for in-process pipes; UDP needs a small delay to avoid drops).
+	// (fine for in-process pipes, UDP needs a small delay to avoid drops).
 	SendPace time.Duration
 	// Ready, if non-nil, receives one value after the packet callback is installed
 	// so a peer blast can start without racing the first packets.

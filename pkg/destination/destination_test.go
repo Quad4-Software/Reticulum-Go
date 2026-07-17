@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -340,8 +341,8 @@ func TestAnnounceSkipsReceiveOnlyInterfaces(t *testing.T) {
 	if got := len(ro.Sent()); got != 0 {
 		t.Fatalf("receive-only got %d announces, want 0", got)
 	}
-	if err := dest.Announce(false, nil, ro); err != nil {
-		t.Fatalf("Announce attached RO: %v", err)
+	if err := dest.Announce(false, nil, ro); err == nil {
+		t.Fatal("Announce attached receive-only should fail with 0 writable interfaces")
 	}
 	if got := len(ro.Sent()); got != 0 {
 		t.Fatalf("attached receive-only got %d announces, want 0", got)
@@ -491,15 +492,23 @@ func TestReceiveLinkRequestWithoutHandler(t *testing.T) {
 	RegisterIncomingLinkHandler(nil)
 	id, _ := identity.New()
 	d, _ := New(id, In, Single, "app", &mockTransport{})
-	called := false
-	d.SetPacketCallback(func(data []byte, iface common.NetworkInterface) {
-		called = true
-	})
-	// No incoming link handler registered yet: error is logged, callback not
-	// invoked for link requests.
+	// Link requests are handled without requiring SetPacketCallback.
 	d.Receive(&packet.Packet{PacketType: packet.PacketTypeLinkReq}, nil)
-	if called {
-		t.Fatal("data callback should not fire for link request without handler")
+}
+
+func TestReceiveLinkRequestWithoutPacketCallback(t *testing.T) {
+	handlerCalled := false
+	RegisterIncomingLinkHandler(func(pkt *packet.Packet, dest *Destination, transport any, iface common.NetworkInterface) (any, error) {
+		handlerCalled = true
+		return struct{}{}, nil
+	})
+	defer RegisterIncomingLinkHandler(nil)
+
+	id, _ := identity.New()
+	d, _ := New(id, In, Single, "app", &mockTransport{})
+	d.Receive(&packet.Packet{PacketType: packet.PacketTypeLinkReq}, nil)
+	if !handlerCalled {
+		t.Fatal("link request should be handled without a packet callback")
 	}
 }
 
@@ -841,5 +850,106 @@ func TestSignAndGetPublicKeyAndIdentity(t *testing.T) {
 	}
 	if d.GetIdentity() != id {
 		t.Error("GetIdentity mismatch")
+	}
+}
+
+func TestNewRequiresTransportForIn(t *testing.T) {
+	id, _ := identity.New()
+	_, err := New(id, In, Single, "app", nil)
+	if !errors.Is(err, common.ErrDestTransportRequiredForIn) {
+		t.Fatalf("got %v, want ErrDestTransportRequiredForIn", err)
+	}
+	if _, err := New(id, Out, Single, "app", nil); err != nil {
+		t.Fatalf("Out destination with nil transport should succeed: %v", err)
+	}
+}
+
+func TestAnnounceFailsWithNoInterfaces(t *testing.T) {
+	id, err := identity.New()
+	if err != nil {
+		t.Fatalf("identity.New: %v", err)
+	}
+	tr := &mockTransport{
+		config:     &common.ReticulumConfig{},
+		interfaces: map[string]common.NetworkInterface{},
+	}
+	dest, err := New(id, In|Out, Single, "testapp", tr, "aspect")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	err = dest.Announce(false, nil, nil)
+	if !errors.Is(err, common.ErrDestAnnounceNoInterfaces) {
+		t.Fatalf("got %v, want ErrDestAnnounceNoInterfaces", err)
+	}
+}
+
+func TestAnnounceFailsWhenAllInterfacesUnusable(t *testing.T) {
+	id, err := identity.New()
+	if err != nil {
+		t.Fatalf("identity.New: %v", err)
+	}
+	offline := newRecordingInterface("offline")
+	offline.online = false
+	tr := &mockTransport{
+		config: &common.ReticulumConfig{},
+		interfaces: map[string]common.NetworkInterface{
+			"offline": offline,
+		},
+	}
+	dest, err := New(id, In|Out, Single, "testapp", tr, "aspect")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	err = dest.Announce(false, nil, nil)
+	if !errors.Is(err, common.ErrDestAnnounceNoWritable) {
+		t.Fatalf("got %v, want ErrDestAnnounceNoWritable", err)
+	}
+}
+
+func TestAnnounceRequiresTransport(t *testing.T) {
+	id, err := identity.New()
+	if err != nil {
+		t.Fatalf("identity.New: %v", err)
+	}
+	dest, err := New(id, Out, Single, "testapp", nil, "aspect")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	err = dest.Announce(false, nil, nil)
+	if !errors.Is(err, common.ErrDestTransportNotSet) {
+		t.Fatalf("got %v, want ErrDestTransportNotSet", err)
+	}
+}
+
+func TestHandleIncomingLinkRequestMissingHandlerMessage(t *testing.T) {
+	RegisterIncomingLinkHandler(nil)
+	id, _ := identity.New()
+	d, _ := New(id, In, Single, "app", &mockTransport{})
+	err := d.HandleIncomingLinkRequest(&packet.Packet{PacketType: packet.PacketTypeLinkReq}, nil, nil)
+	if !errors.Is(err, common.ErrDestNoIncomingLinkHandler) {
+		t.Fatalf("got %v, want ErrDestNoIncomingLinkHandler", err)
+	}
+	if !strings.Contains(err.Error(), "pkg/link") {
+		t.Fatalf("error should mention pkg/link import: %v", err)
+	}
+}
+
+func TestParseName(t *testing.T) {
+	app, aspects, err := ParseName("app.aspect.extra")
+	if err != nil {
+		t.Fatalf("ParseName: %v", err)
+	}
+	if app != "app" || len(aspects) != 2 || aspects[0] != "aspect" || aspects[1] != "extra" {
+		t.Fatalf("got app=%q aspects=%v", app, aspects)
+	}
+	app, aspects, err = ParseName("solo")
+	if err != nil || app != "solo" || aspects != nil {
+		t.Fatalf("solo: app=%q aspects=%v err=%v", app, aspects, err)
+	}
+	if _, _, err := ParseName(""); err == nil {
+		t.Fatal("empty name should error")
+	}
+	if _, _, err := ParseName("   "); err == nil {
+		t.Fatal("whitespace-only name should error")
 	}
 }

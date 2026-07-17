@@ -339,14 +339,18 @@ func FromPublicKey(publicKey []byte) *Identity {
 	return id
 }
 
+// Hex returns the truncated identity hash as lowercase hex.
 func (i *Identity) Hex() string {
 	return fmt.Sprintf("%x", i.Hash())
 }
 
+// String returns the truncated identity hash as lowercase hex.
 func (i *Identity) String() string {
 	return i.Hex()
 }
 
+// Recall returns a previously remembered public identity for hash.
+// Misses return ErrIdentityNotFound.
 func Recall(hash []byte) (*Identity, error) {
 	hashStr := knownDestKey(hash)
 
@@ -363,9 +367,10 @@ func Recall(hash []byte) (*Identity, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("identity not found for hash %x", hash)
+	return nil, common.ErrIdentityNotFoundf(hash)
 }
 
+// GenerateHMACKey returns a fresh KeySize/8-byte HMAC key, or nil on RNG failure.
 func (i *Identity) GenerateHMACKey() []byte {
 	hmacKey := make([]byte, KeySize/8)
 	if _, err := io.ReadFull(rand.Reader, hmacKey); err != nil {
@@ -374,10 +379,12 @@ func (i *Identity) GenerateHMACKey() []byte {
 	return hmacKey
 }
 
+// ComputeHMAC returns the HMAC-SHA256 of message under key.
 func (i *Identity) ComputeHMAC(key, message []byte) []byte {
 	return cryptography.ComputeHMAC(key, message)
 }
 
+// ValidateHMAC reports whether messageHMAC is the HMAC-SHA256 of message under key.
 func (i *Identity) ValidateHMAC(key, message, messageHMAC []byte) bool {
 	return cryptography.ValidateHMAC(key, message, messageHMAC)
 }
@@ -531,6 +538,8 @@ func (i *Identity) tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet [
 	return plaintext, ratchetID, nil
 }
 
+// EncryptWithHMAC AES-CBC encrypts plaintext and appends an HMAC over the ciphertext.
+// key must be 32 bytes (expanded) or 64 bytes (hmac||enc material).
 func (i *Identity) EncryptWithHMAC(plaintext []byte, key []byte) ([]byte, error) {
 	var hmacKey, encryptionKey []byte
 	var err error
@@ -555,6 +564,8 @@ func (i *Identity) EncryptWithHMAC(plaintext []byte, key []byte) ([]byte, error)
 	return append(ciphertext, mac...), nil
 }
 
+// DecryptWithHMAC verifies the trailing HMAC then AES-CBC decrypts.
+// key must match the material used by EncryptWithHMAC.
 func (i *Identity) DecryptWithHMAC(data []byte, key []byte) ([]byte, error) {
 	if len(data) < cryptography.SHA256Size {
 		return nil, errors.New("data too short")

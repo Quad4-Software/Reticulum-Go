@@ -5,6 +5,7 @@ package transport
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -244,22 +245,24 @@ func TestDecodePathTableEntries_CorruptTopLevelType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)
 	}
-	if _, _, err := decodePathTableEntries(data, time.Now()); err == nil {
-		t.Fatal("expected decode error for non-array top level")
+	_, _, err = decodePathTableEntries(data, time.Now())
+	if !errors.Is(err, common.ErrCorruption) {
+		t.Fatalf("got %v, want ErrCorruption", err)
 	}
 }
 
 func TestDecodePathTableEntries_TruncatedGarbage(t *testing.T) {
 	garbage := []byte{0x93, 0x01, 0x02} // claims array len 3, only 2 elements follow
-	if _, _, err := decodePathTableEntries(garbage, time.Now()); err == nil {
-		t.Fatal("expected decode error for truncated garbage")
+	_, _, err := decodePathTableEntries(garbage, time.Now())
+	if !errors.Is(err, common.ErrCorruption) {
+		t.Fatalf("got %v, want ErrCorruption", err)
 	}
 }
 
 func TestDecodePathTableEntries_EmptyInput(t *testing.T) {
 	records, skipped, err := decodePathTableEntries([]byte{}, time.Now())
-	if err == nil {
-		t.Fatal("expected decode error for empty input (not a valid msgpack value)")
+	if !errors.Is(err, common.ErrCorruption) {
+		t.Fatalf("got %v, want ErrCorruption", err)
 	}
 	if records != nil || skipped != 0 {
 		t.Fatal("expected no partial results on decode error")

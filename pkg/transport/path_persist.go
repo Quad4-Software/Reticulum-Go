@@ -42,7 +42,7 @@ type pendingPathEntry struct {
 func decodePathTableEntries(data []byte, now time.Time) (records []pathRecord, skipped int, err error) {
 	var entries []any
 	if err := msgpack.Unmarshal(data, &entries); err != nil {
-		return nil, 0, err
+		return nil, 0, common.ErrCorruptionf("destination_table: %v", err)
 	}
 
 	truncLen := packet.TruncatedHashLength

@@ -91,6 +91,10 @@ func doJSON(t testing.TB, method, url, authKeyHex string, body any) (*http.Respo
 
 func TestSessionDestinationAnnounceLifecycle(t *testing.T) {
 	srv, key := newTestServer(t)
+	iface := newPipeInterface("announce-test")
+	if err := srv.transport.RegisterInterface(iface.GetName(), iface); err != nil {
+		t.Fatalf("RegisterInterface: %v", err)
+	}
 	ts := httptest.NewServer(srv.httpServer.Handler)
 	defer ts.Close()
 	authKey := hex.EncodeToString(key)

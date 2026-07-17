@@ -3,10 +3,6 @@
 
 package common
 
-import (
-	"fmt"
-)
-
 type ConfigProvider interface {
 	GetConfigPath() string
 	GetLogLevel() int
@@ -291,17 +287,17 @@ func NewReticulumConfig() *ReticulumConfig {
 // Validate checks if the configuration is valid
 func (c *ReticulumConfig) Validate() error {
 	if c.SharedInstancePort < MinPort || c.SharedInstancePort > MaxPort {
-		return fmt.Errorf("invalid shared instance port: %d", c.SharedInstancePort)
+		return ErrConfigf("invalid shared instance port: %d", c.SharedInstancePort)
 	}
 	if c.InstanceControlPort < MinPort || c.InstanceControlPort > MaxPort {
-		return fmt.Errorf("invalid instance control port: %d", c.InstanceControlPort)
+		return ErrConfigf("invalid instance control port: %d", c.InstanceControlPort)
 	}
 	if c.EnableControlAPI {
 		if c.ControlAPIPort < MinPort || c.ControlAPIPort > MaxPort {
-			return fmt.Errorf("invalid control api port: %d", c.ControlAPIPort)
+			return ErrConfigf("invalid control api port: %d", c.ControlAPIPort)
 		}
 		if len(c.RPCKey) == 0 {
-			return fmt.Errorf("control api requires rpc_key to be set")
+			return ErrConfigf("control api requires rpc_key to be set")
 		}
 	}
 	return nil
@@ -325,6 +321,9 @@ func (c *ReticulumConfig) GetLogLevel() int {
 
 // GetInterfaces implements ConfigProvider.
 func (c *ReticulumConfig) GetInterfaces() map[string]InterfaceConfig {
+	if c == nil {
+		return map[string]InterfaceConfig{}
+	}
 	out := make(map[string]InterfaceConfig, len(c.Interfaces))
 	for name, iface := range c.Interfaces {
 		if iface == nil {
@@ -335,6 +334,7 @@ func (c *ReticulumConfig) GetInterfaces() map[string]InterfaceConfig {
 	return out
 }
 
+// DefaultConfig returns a ReticulumConfig with built-in defaults.
 func DefaultConfig() *ReticulumConfig {
 	return &ReticulumConfig{
 		EnableTransport:     true,

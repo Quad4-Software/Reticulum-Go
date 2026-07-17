@@ -157,7 +157,7 @@ func (p *I2PInterface) Start() error {
 
 	ln, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(p.bindPort)))
 	if err != nil {
-		return err
+		return common.WrapListenError(err)
 	}
 	p.Mutex.Lock()
 	p.listener = ln

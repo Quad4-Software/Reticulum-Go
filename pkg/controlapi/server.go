@@ -109,7 +109,7 @@ func (s *Server) Listen() error {
 	addr := net.JoinHostPort(s.host, strconv.Itoa(s.port))
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		return fmt.Errorf("controlapi: listen on %s: %w", addr, err)
+		return fmt.Errorf("controlapi: listen on %s: %w", addr, common.WrapListenError(err))
 	}
 	s.listener = ln
 	debug.Log(debug.DebugInfo, "Control API listening", "addr", addr)

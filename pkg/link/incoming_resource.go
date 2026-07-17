@@ -461,8 +461,8 @@ func (l *Link) sendIncomingResourceReqNext() error {
 		win = resource.Window
 	}
 	// Half-window refill: when outstanding has drained to window/2 or below,
-	// request additional hashes up to `window` total outstanding. Full
-	// refill-on-every-part remains forbidden (pipe deadlock).
+	// request additional hashes up to the configured window total outstanding.
+	// Full refill-on-every-part remains forbidden (pipe deadlock).
 	if rx.outstandingParts > 0 && rx.outstandingParts > win/2 {
 		l.incomingMu.Unlock()
 		return nil

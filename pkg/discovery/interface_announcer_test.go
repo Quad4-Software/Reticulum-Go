@@ -91,6 +91,17 @@ func TestInterfaceAnnouncerAnnounceDue(t *testing.T) {
 		t.Fatal(err)
 	}
 	tr.SetIdentity(id)
+	sink := &announceSinkInterface{
+		BaseInterface: common.BaseInterface{
+			Name:    "sink",
+			Type:    common.IFTypeUDP,
+			Enabled: true,
+			Online:  true,
+		},
+	}
+	if err := tr.RegisterInterface("sink", sink); err != nil {
+		t.Fatal(err)
+	}
 	cfg := &common.ReticulumConfig{
 		EnableTransport: true,
 		Interfaces: map[string]*common.InterfaceConfig{
@@ -117,6 +128,9 @@ func TestInterfaceAnnouncerAnnounceDue(t *testing.T) {
 	if !ok {
 		t.Fatal("expected lastAnnounce for pub")
 	}
+	if sink.sent == 0 {
+		t.Fatal("expected announce bytes on sink interface")
+	}
 	ann.announceDue()
 	ann.mu.Lock()
 	last := ann.lastAnnounce["pub"]
@@ -125,6 +139,22 @@ func TestInterfaceAnnouncerAnnounceDue(t *testing.T) {
 		t.Fatalf("interval should suppress second announce, last=%v", last)
 	}
 }
+
+type announceSinkInterface struct {
+	common.BaseInterface
+	sent int
+}
+
+func (a *announceSinkInterface) Send(data []byte, _ string) error {
+	a.sent++
+	return nil
+}
+func (a *announceSinkInterface) IsEnabled() bool { return a.Enabled }
+func (a *announceSinkInterface) IsOnline() bool  { return a.Online }
+func (a *announceSinkInterface) GetName() string { return a.Name }
+func (a *announceSinkInterface) Start() error    { return nil }
+func (a *announceSinkInterface) Stop() error     { return nil }
+func (a *announceSinkInterface) Detach()         {}
 
 func TestApplyDiscoveryLocationCmd(t *testing.T) {
 	dir := t.TempDir()

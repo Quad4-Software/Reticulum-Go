@@ -24,12 +24,19 @@ import (
 	"quad4/reticulum-go/pkg/securemem"
 )
 
+// PacketCallback handles plaintext delivered to a destination.
 type PacketCallback = common.PacketCallback
+
+// ProofRequestedCallback is invoked when the stack requests an app-level proof.
 type ProofRequestedCallback = common.ProofRequestedCallback
+
+// LinkEstablishedCallback is invoked when an inbound or outbound link is ready.
 type LinkEstablishedCallback = common.LinkEstablishedCallback
 
+// ResponseGeneratorFunc builds a request-handler response payload.
 type ResponseGeneratorFunc func(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) any
 
+// RequestHandler binds a path to a response generator and allow policy.
 type RequestHandler struct {
 	Path              string
 	ResponseGenerator ResponseGeneratorFunc
@@ -38,20 +45,25 @@ type RequestHandler struct {
 	AutoCompress      bool
 }
 
+// Transport is the subset of transport.Transport needed by Destination.
 type Transport interface {
 	GetConfig() *common.ReticulumConfig
 	GetInterfaces() map[string]common.NetworkInterface
 	RegisterDestination(hash []byte, dest any)
 }
 
+// IncomingLinkHandler builds a link from an inbound link-request packet.
 type IncomingLinkHandler func(pkt *packet.Packet, dest *Destination, transport any, networkIface common.NetworkInterface) (any, error)
 
 var incomingLinkHandler IncomingLinkHandler
 
+// RegisterIncomingLinkHandler installs the package-level inbound link handler.
+// Pass nil to clear it (tests and destinations without link support).
 func RegisterIncomingLinkHandler(handler IncomingLinkHandler) {
 	incomingLinkHandler = handler
 }
 
+// Destination is a named Reticulum endpoint bound to an identity.
 type Destination struct {
 	identity  *identity.Identity
 	direction byte
@@ -84,6 +96,8 @@ type Destination struct {
 	requestHandlers map[string]*RequestHandler
 }
 
+// New creates a Destination for appName and optional aspects.
+// Direction In requires a non-nil transport so inbound packets can register.
 func New(id *identity.Identity, direction byte, destType byte, appName string, transport Transport, aspects ...string) (*Destination, error) {
 	debug.Log(debug.DebugInfo, "Creating new destination", "app", appName, "type", destType, "direction", direction)
 
@@ -93,6 +107,9 @@ func New(id *identity.Identity, direction byte, destType byte, appName string, t
 	}
 	if err := ValidateNameParts(appName, aspects...); err != nil {
 		return nil, err
+	}
+	if (direction&In) != 0 && transport == nil {
+		return nil, common.ErrDestTransportRequiredForIn
 	}
 
 	d := &Destination{
@@ -218,15 +235,23 @@ func Hash(id *identity.Identity, appName string, aspects ...string) []byte {
 	return out
 }
 
+// ExpandName returns appName joined with aspects using dots.
 func (d *Destination) ExpandName() string {
 	return ExpandAppName(d.appName, d.aspects...)
 }
 
+// Announce builds and sends an announce packet on registered interfaces.
+// Returns ErrDestTransportNotSet, ErrDestAnnounceNoInterfaces, or
+// ErrDestAnnounceNoWritable when no usable outbound path exists.
 func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface common.NetworkInterface) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
 	debug.Log(debug.DebugVerbose, "Announcing destination", "name", d.ExpandName(), "path_response", pathResponse)
+
+	if d.transport == nil {
+		return common.ErrDestTransportNotSet
+	}
 
 	appData := d.defaultAppData
 
@@ -245,11 +270,8 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 		debug.Log(debug.DebugInfo, "Sending path response announce", "tag", fmt.Sprintf("%x", tag))
 	}
 
-	if d.transport == nil {
-		return errors.New("transport not initialized")
-	}
-
 	var lastErr error
+	sent := 0
 	if attachedInterface != nil {
 		if attachedInterface.IsEnabled() && attachedInterface.IsOnline() {
 			if !common.InterfaceAllowsOutgoing(attachedInterface) {
@@ -259,11 +281,16 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 				if err := attachedInterface.Send(packet, ""); err != nil {
 					debug.Log(debug.DebugError, "Failed to send announce on attached interface", "error", err)
 					lastErr = err
+				} else {
+					sent++
 				}
 			}
 		}
 	} else {
 		interfaces := d.transport.GetInterfaces()
+		if len(interfaces) == 0 {
+			return common.ErrDestAnnounceNoInterfaces
+		}
 		for name, iface := range interfaces {
 			if !iface.IsEnabled() || !iface.IsOnline() {
 				continue
@@ -276,22 +303,37 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 			if err := iface.Send(packet, ""); err != nil {
 				debug.Log(debug.DebugError, "Failed to send announce on interface", "name", name, "error", err)
 				lastErr = err
+				continue
 			}
+			sent++
 		}
 	}
 
-	return lastErr
+	if lastErr != nil {
+		return lastErr
+	}
+	if sent == 0 {
+		return common.ErrDestAnnounceNoWritable
+	}
+	return nil
 }
 
+// AcceptsLinks marks whether this destination should accept incoming links.
+// AcceptsLinks(true) registers the destination with transport if one is set.
+// Direction In already auto-registers in New. AcceptsLinks(false) only clears
+// the flag and does not unregister from transport.
 func (d *Destination) AcceptsLinks(accepts bool) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	d.acceptsLinks = accepts
 
-	// Register with transport if accepting links
 	if accepts && d.transport != nil {
 		d.transport.RegisterDestination(d.hashValue, d)
 		debug.Log(debug.DebugVerbose, "Destination registered with transport for link requests", "hash", fmt.Sprintf("%x", d.hashValue))
+		return
+	}
+	if !accepts {
+		debug.Log(debug.DebugInfo, common.MsgDestAcceptsLinksFalseOnly)
 	}
 }
 
@@ -316,7 +358,7 @@ func (d *Destination) HandleIncomingLinkRequest(pkt any, transport any, networkI
 	}
 
 	if incomingLinkHandler == nil {
-		return errors.New("no incoming link handler registered")
+		return common.ErrDestNoIncomingLinkHandler
 	}
 
 	_, err := incomingLinkHandler(pktObj, d, transport, networkIface)
@@ -338,20 +380,20 @@ func (d *Destination) SetPacketCallback(callback common.PacketCallback) {
 }
 
 func (d *Destination) Receive(pkt *packet.Packet, iface common.NetworkInterface) {
+	if pkt != nil && pkt.PacketType == packet.PacketTypeLinkReq {
+		debug.Log(debug.DebugInfo, "Received link request for destination")
+		if err := d.HandleIncomingLinkRequest(pkt, d.transport, iface); err != nil {
+			debug.Log(debug.DebugError, "Failed to handle incoming link request", "error", err)
+		}
+		return
+	}
+
 	d.mutex.RLock()
 	callback := d.packetCallback
 	d.mutex.RUnlock()
 
 	if callback == nil {
-		debug.Log(debug.DebugVerbose, "No packet callback set for destination")
-		return
-	}
-
-	if pkt.PacketType == packet.PacketTypeLinkReq {
-		debug.Log(debug.DebugInfo, "Received link request for destination")
-		if err := d.HandleIncomingLinkRequest(pkt, d.transport, iface); err != nil {
-			debug.Log(debug.DebugError, "Failed to handle incoming link request", "error", err)
-		}
+		debug.Log(debug.DebugInfo, common.MsgDestNoPacketCallback, "hash", fmt.Sprintf("%x", d.GetHash()))
 		return
 	}
 
@@ -561,7 +603,7 @@ func (d *Destination) HandleRequest(path string, data []byte, requestID []byte, 
 	d.mutex.RUnlock()
 
 	if !exists {
-		debug.Log(debug.DebugInfo, "No handler registered for path", "path", path)
+		debug.Log(debug.DebugInfo, common.MsgDestNoRequestHandler, "path", path)
 		return []byte(">Not Found\n\nThe requested resource was not found.")
 	}
 
