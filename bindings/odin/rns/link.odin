@@ -24,6 +24,21 @@ link_send :: proc(link: Link, data: []u8) -> Error {
 	return Error(rns_link_send(u64(link), raw_data(data), c.size_t(len(data))))
 }
 
+link_send_resource :: proc(link: Link, data: []u8, name: string = "") -> Error {
+	name_cstr: cstring
+	if name != "" {
+		name_cstr = strings.clone_to_cstring(name)
+		defer delete(name_cstr)
+	}
+	data_ptr: [^]u8
+	data_len: c.size_t
+	if len(data) > 0 {
+		data_ptr = raw_data(data)
+		data_len = c.size_t(len(data))
+	}
+	return Error(rns_link_send_resource(u64(link), data_ptr, data_len, name_cstr))
+}
+
 link_close :: proc(link: Link) -> Error {
 	return Error(rns_link_close(u64(link)))
 }
@@ -92,6 +107,28 @@ request_respond :: proc(node: Node, request_id: []u8, data: []u8 = nil) -> Error
 		u64(node),
 		raw_data(request_id),
 		c.size_t(len(request_id)),
+		data_ptr,
+		data_len,
+	))
+}
+
+request_respond_file :: proc(node: Node, request_id: []u8, filename: string, data: []u8 = nil) -> Error {
+	if len(request_id) == 0 || filename == "" {
+		return .Invalid_Arg
+	}
+	filename_cstr := strings.clone_to_cstring(filename)
+	defer delete(filename_cstr)
+	data_ptr: [^]u8
+	data_len: c.size_t
+	if len(data) > 0 {
+		data_ptr = raw_data(data)
+		data_len = c.size_t(len(data))
+	}
+	return Error(rns_request_respond_file(
+		u64(node),
+		raw_data(request_id),
+		c.size_t(len(request_id)),
+		filename_cstr,
 		data_ptr,
 		data_len,
 	))

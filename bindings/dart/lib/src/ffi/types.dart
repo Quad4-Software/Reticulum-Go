@@ -7,7 +7,7 @@ import 'dart:ffi';
 import 'dart:typed_data';
 
 const rnsHashLen = 16;
-const rnsApiVersion = '1.1';
+const rnsApiVersion = '1.3';
 
 abstract final class RnsError {
   static const ok = 0;
@@ -56,6 +56,8 @@ abstract final class RnsEventKind {
   static const requestIncoming = 6;
   static const requestResponse = 7;
   static const requestFailed = 8;
+  static const resourceStarted = 9;
+  static const resourceConcluded = 10;
 }
 
 final class RnsEventNative extends Struct {

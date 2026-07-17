@@ -17,6 +17,17 @@ pub fn send(link: types.Link, data: []const u8) types.Error!void {
     try types.mapCode(c.rns_link_send(types.asU64(link), data.ptr, data.len));
 }
 
+pub fn sendResource(link: types.Link, data: []const u8, name: []const u8) types.Error!void {
+    var name_buf: [256]u8 = undefined;
+    const name_z = if (name.len == 0) null else try util.requireCString(name, &name_buf);
+    try types.mapCode(c.rns_link_send_resource(
+        types.asU64(link),
+        if (data.len == 0) null else data.ptr,
+        data.len,
+        name_z,
+    ));
+}
+
 pub fn close(link: types.Link) types.Error!void {
     try types.mapCode(c.rns_link_close(types.asU64(link)));
 }
@@ -61,6 +72,20 @@ pub fn respond(node: types.Node, request_id: []const u8, data: []const u8) types
         types.asU64(node),
         request_id.ptr,
         request_id.len,
+        if (data.len == 0) null else data.ptr,
+        data.len,
+    ));
+}
+
+pub fn respondFile(node: types.Node, request_id: []const u8, filename: []const u8, data: []const u8) types.Error!void {
+    if (request_id.len == 0 or filename.len == 0) return error.InvalidArg;
+    var name_buf: [256]u8 = undefined;
+    const name_z = try util.requireCString(filename, &name_buf);
+    try types.mapCode(c.rns_request_respond_file(
+        types.asU64(node),
+        request_id.ptr,
+        request_id.len,
+        name_z,
         if (data.len == 0) null else data.ptr,
         data.len,
     ));

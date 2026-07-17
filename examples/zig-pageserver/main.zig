@@ -203,10 +203,10 @@ fn run(
                             printLastError(allocator, "rns.requestRespond failed");
                         }
                     } else if (std.mem.eql(u8, path, file_path)) {
-                        if (rns.requestRespond(node, req_id, file_body)) |_| {
+                        if (rns.requestRespondFile(node, req_id, "test.txt", file_body)) |_| {
                             std.debug.print("served {s} ({d} bytes)\n", .{ file_path, file_body.len });
                         } else |_| {
-                            printLastError(allocator, "rns.requestRespond failed");
+                            printLastError(allocator, "rns.requestRespondFile failed");
                         }
                     } else {
                         rns.requestRespond(node, req_id, "page not found\n") catch {

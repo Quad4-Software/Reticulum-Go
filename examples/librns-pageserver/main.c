@@ -368,9 +368,9 @@ int main(int argc, char **argv) {
 					fprintf(stderr, "served %s (%zu bytes)\n", request_path, page_len);
 				}
 			} else if (strcmp(ev.path, file_path) == 0) {
-				if (rns_request_respond(node, ev.request_id, ev.request_id_len,
-						file_body, file_len) != RNS_OK) {
-					print_last_error("rns_request_respond failed");
+				if (rns_request_respond_file(node, ev.request_id, ev.request_id_len,
+						"test.txt", file_body, file_len) != RNS_OK) {
+					print_last_error("rns_request_respond_file failed");
 				} else {
 					fprintf(stderr, "served %s (%zu bytes)\n", file_path, file_len);
 				}

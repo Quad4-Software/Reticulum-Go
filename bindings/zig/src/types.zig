@@ -3,7 +3,7 @@
 
 const c = @import("c.zig");
 
-pub const api_version = "1.2";
+pub const api_version = "1.3";
 pub const hash_len = c.RNS_HASH_LEN;
 
 pub const Node = enum(u64) { _ };
@@ -32,6 +32,8 @@ pub const EventKind = enum(c_int) {
     request_incoming = c.RNS_EV_REQUEST_INCOMING,
     request_response = c.RNS_EV_REQUEST_RESPONSE,
     request_failed = c.RNS_EV_REQUEST_FAILED,
+    resource_started = c.RNS_EV_RESOURCE_STARTED,
+    resource_concluded = c.RNS_EV_RESOURCE_CONCLUDED,
 };
 
 pub const Event = c.Event;

@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#define RNS_API_VERSION "1.2"
+#define RNS_API_VERSION "1.3"
 
 #define RNS_HASH_LEN 16
 
@@ -30,6 +30,8 @@ extern "C" {
 #define RNS_EV_REQUEST_INCOMING 6
 #define RNS_EV_REQUEST_RESPONSE 7
 #define RNS_EV_REQUEST_FAILED 8
+#define RNS_EV_RESOURCE_STARTED 9
+#define RNS_EV_RESOURCE_CONCLUDED 10
 
 typedef struct rns_event {
 	int kind;
@@ -96,6 +98,7 @@ int rns_path_table(uint64_t node, rns_path_entry *out, size_t out_cap, size_t *w
 
 uint64_t rns_link_open(uint64_t node, const uint8_t *dest_hash);
 int rns_link_send(uint64_t link, const uint8_t *data, size_t data_len);
+int rns_link_send_resource(uint64_t link, const uint8_t *data, size_t data_len, const char *name);
 int rns_link_close(uint64_t link);
 int rns_link_id(uint64_t link, uint8_t *id_out, size_t id_out_len, size_t *written);
 int rns_link_request(uint64_t node, uint64_t link, const char *path,
@@ -104,6 +107,8 @@ int rns_link_request(uint64_t node, uint64_t link, const char *path,
 
 int rns_request_respond(uint64_t node, const uint8_t *request_id, size_t request_id_len,
 	const uint8_t *data, size_t data_len);
+int rns_request_respond_file(uint64_t node, const uint8_t *request_id, size_t request_id_len,
+	const char *filename, const uint8_t *data, size_t data_len);
 
 int rns_event_poll(uint64_t node, rns_event *event, int timeout_ms);
 int rns_set_event_callback(uint64_t node, rns_event_callback callback, void *user_data);

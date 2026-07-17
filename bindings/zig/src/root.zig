@@ -117,10 +117,12 @@ pub const pathTable = path.table;
 
 pub const linkOpen = link.open;
 pub const linkSend = link.send;
+pub const linkSendResource = link.sendResource;
 pub const linkClose = link.close;
 pub const linkId = link.id;
 pub const linkRequest = link.request;
 pub const requestRespond = link.respond;
+pub const requestRespondFile = link.respondFile;
 
 pub const eventPoll = event.poll;
 pub const setEventCallback = event.setCallback;

@@ -29,6 +29,8 @@ pub const RNS_EV_LINK_CLOSED: c_int = 5;
 pub const RNS_EV_REQUEST_INCOMING: c_int = 6;
 pub const RNS_EV_REQUEST_RESPONSE: c_int = 7;
 pub const RNS_EV_REQUEST_FAILED: c_int = 8;
+pub const RNS_EV_RESOURCE_STARTED: c_int = 9;
+pub const RNS_EV_RESOURCE_CONCLUDED: c_int = 10;
 
 pub const Event = extern struct {
     kind: c_int,
@@ -100,6 +102,7 @@ pub extern fn rns_path_table(node: u64, out: ?[*]PathEntry, out_cap: usize, writ
 
 pub extern fn rns_link_open(node: u64, dest_hash: [*]const u8) u64;
 pub extern fn rns_link_send(link: u64, data: [*]const u8, data_len: usize) c_int;
+pub extern fn rns_link_send_resource(link: u64, data: ?[*]const u8, data_len: usize, name: ?[*:0]const u8) c_int;
 pub extern fn rns_link_close(link: u64) c_int;
 pub extern fn rns_link_id(link: u64, id_out: ?[*]u8, id_out_len: usize, written: ?*usize) c_int;
 pub extern fn rns_link_request(
@@ -118,6 +121,15 @@ pub extern fn rns_request_respond(
     node: u64,
     request_id: [*]const u8,
     request_id_len: usize,
+    data: ?[*]const u8,
+    data_len: usize,
+) c_int;
+
+pub extern fn rns_request_respond_file(
+    node: u64,
+    request_id: [*]const u8,
+    request_id_len: usize,
+    filename: [*:0]const u8,
     data: ?[*]const u8,
     data_len: usize,
 ) c_int;

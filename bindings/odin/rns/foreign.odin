@@ -61,6 +61,7 @@ foreign lib {
 
 	rns_link_open :: proc(node: u64, dest_hash: [^]u8) -> u64 ---
 	rns_link_send :: proc(link: u64, data: [^]u8, data_len: c.size_t) -> c.int ---
+	rns_link_send_resource :: proc(link: u64, data: [^]u8, data_len: c.size_t, name: cstring) -> c.int ---
 	rns_link_close :: proc(link: u64) -> c.int ---
 	rns_link_id :: proc(link: u64, id_out: [^]u8, id_out_len: c.size_t, written: ^c.size_t) -> c.int ---
 	rns_link_request :: proc(
@@ -79,6 +80,15 @@ foreign lib {
 		node: u64,
 		request_id: [^]u8,
 		request_id_len: c.size_t,
+		data: [^]u8,
+		data_len: c.size_t,
+	) -> c.int ---
+
+	rns_request_respond_file :: proc(
+		node: u64,
+		request_id: [^]u8,
+		request_id_len: c.size_t,
+		filename: cstring,
 		data: [^]u8,
 		data_len: c.size_t,
 	) -> c.int ---

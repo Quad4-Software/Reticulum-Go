@@ -5,7 +5,7 @@ package rns
 
 import "core:c"
 
-API_VERSION :: "1.2"
+API_VERSION :: "1.3"
 HASH_LEN :: 16
 
 Node :: distinct u64
@@ -35,6 +35,8 @@ Event_Kind :: enum c.int {
 	Request_Incoming   = 6,
 	Request_Response   = 7,
 	Request_Failed     = 8,
+	Resource_Started   = 9,
+	Resource_Concluded = 10,
 }
 
 Event :: struct {

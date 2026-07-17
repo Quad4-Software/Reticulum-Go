@@ -221,8 +221,8 @@ run :: proc(config_path, identity_path, page_file, file_file, request_path, file
 					fmt.eprintf("served %s (%d bytes)\n", request_path, len(page_body))
 				}
 			} else if path == file_path {
-				if rns.request_respond(node, req_id, file_body) != .Ok {
-					print_last_error("rns.request_respond failed")
+				if rns.request_respond_file(node, req_id, "test.txt", file_body) != .Ok {
+					print_last_error("rns.request_respond_file failed")
 				} else {
 					fmt.eprintf("served %s (%d bytes)\n", file_path, len(file_body))
 				}
