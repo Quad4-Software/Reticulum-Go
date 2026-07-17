@@ -67,6 +67,7 @@ Below is a summary of major features. For line-by-line parity with Python, see [
 | librns C ABI | Go-only | `pkg/librns`, `include/rns.h`, `task build-librns` |
 | Odin librns bindings | Go-only host | `bindings/odin` (Linux, links `librns.so`). See [librns](librns.md#odin-bindings) |
 | Zig librns bindings | Go-only host | `bindings/zig` (Linux, links `librns.so`). See [librns](librns.md#zig-bindings) |
+| C++ librns bindings | Go-only host | `bindings/cpp` (Linux, C++17, links `librns.so`). See [librns](librns.md#c-bindings) |
 | Dart librns FFI | Go-only host | `bindings/dart` (`ffi.dart`). Linux, Android, Windows. See [librns](librns.md#dart-ffi-bindings) |
 | Dart Control API client | Go-only host | `bindings/dart` (`rns_control`). See [Control API](control-api.md#dart-and-flutter) |
 | Runtime sandbox | Go-only | `pkg/sandbox` |
@@ -85,6 +86,8 @@ Reticulum-Go/
     rns.h               Public librns C header
   bindings/
     odin/               Odin bindings and tests for librns
+    zig/                Zig bindings and tests for librns
+    cpp/                C++17 bindings and tests for librns
     dart/               Dart librns FFI and Control API client
   pkg/                  Public library packages (cli, pageserver, rnsutil, …)
   man/                  Man pages (sections 1 and 8)

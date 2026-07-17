@@ -23,11 +23,15 @@ Pair this page with the [API reference](api-reference.md).
 | C librns page fetch | `examples/librns-page-fetch` |
 | Odin librns page fetch | `examples/odin-page-fetch` |
 | Zig librns page fetch | `examples/zig-page-fetch` |
+| C++ librns smoke | `examples/cpp-smoke` |
+| C++ librns page fetch | `examples/cpp-page-fetch` |
 | C librns pageserver | `examples/librns-pageserver` |
 | Odin librns pageserver | `examples/odin-pageserver` |
 | Zig librns pageserver | `examples/zig-pageserver` |
+| C++ librns pageserver | `examples/cpp-pageserver` |
 | Odin librns bindings | `bindings/odin` |
 | Zig librns bindings | `bindings/zig` |
+| C++ librns bindings | `bindings/cpp` |
 | Dart librns FFI and Control API | `bindings/dart` |
 | Operator CLIs | `reticulum-go status \| id \| probe \| path \| cp` then [CLI Utilities](utilities.md) |
 
@@ -193,7 +197,7 @@ make -C examples/librns-pageserver
   -c /path/to/config
 ```
 
-Prints `DEST_HASH=...` on startup. Fetch with the C, Odin, or Zig page-fetch example.
+Prints `DEST_HASH=...` on startup. Fetch with the C, Odin, Zig, or C++ page-fetch example.
 
 Run helpers (Go is the default demo pageserver):
 
@@ -204,6 +208,7 @@ make -C examples/pageserver run
 task example:pageserver:c
 task example:pageserver:odin
 task example:pageserver:zig
+task example:pageserver:cpp
 ```
 
 ## Odin pageserver
@@ -246,6 +251,45 @@ make -C examples/zig-pageserver
   -c /path/to/config
 ```
 
+## C++ smoke
+
+Path: `examples/cpp-smoke/`
+
+Minimal C++17 lifecycle check against `librns.so` via `bindings/cpp`.
+
+```bash
+task build-librns
+make -C examples/cpp-smoke
+./examples/cpp-smoke/cpp-smoke
+```
+
+## C++ page fetch
+
+Path: `examples/cpp-page-fetch/`
+
+Same flow as the C page-fetch example, using the C++ wrappers in `bindings/cpp`.
+
+```bash
+task build-librns
+make -C examples/cpp-page-fetch
+./examples/cpp-page-fetch/cpp-page-fetch \
+  -c /path/to/config \
+  92798ea245a0afcfa559348e42d628c6:/page/index.mu
+```
+
+## C++ pageserver
+
+Path: `examples/cpp-pageserver/`
+
+Same pageserver flow using the C++ bindings.
+
+```bash
+task build-librns
+make -C examples/cpp-pageserver
+./examples/cpp-pageserver/cpp-pageserver \
+  -c /path/to/config
+```
+
 ## Odin librns bindings
 
 Path: `bindings/odin/`
@@ -277,6 +321,27 @@ task test-zig
 ```
 
 Import as `@import("rns")` from a `build.zig` dependency on `bindings/zig`. See [librns](librns.md#zig-bindings).
+
+## C++ librns bindings
+
+Path: `bindings/cpp/`
+
+Idiomatic C++17 RAII package over `librns.so`. Requires CMake and a C++17 compiler, plus a built shared library.
+
+```bash
+task build-librns
+task test-cpp
+```
+
+```cpp
+#include <rns/rns.hpp>
+
+auto node_r = rns::Node::create("");
+auto node = std::move(node_r).value();
+node.start();
+```
+
+Wrapped surface matches the Odin and Zig bindings. See [librns](librns.md#c-bindings).
 
 ## Dart bindings
 

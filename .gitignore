@@ -42,12 +42,19 @@ cosign.key
 /examples/zig-page-fetch/zig-page-fetch
 /examples/zig-pageserver/zig-pageserver
 /examples/zig-pageserver/identity
+/examples/cpp-smoke/cpp-smoke
+/examples/cpp-page-fetch/cpp-page-fetch
+/examples/cpp-pageserver/cpp-pageserver
+/examples/cpp-pageserver/identity
 /examples/page-downloader/page-downloader
 
 # Zig build caches
 **/.zig-cache/
 **/zig-cache/
 **/zig-out/
+
+# C++ binding build tree
+bindings/cpp/build/
 
 # OS / Editor files
 .DS_Store

@@ -149,9 +149,10 @@ task build-librns
 make -C examples/librns-smoke && ./examples/librns-smoke/librns-smoke
 task test-odin
 task test-zig
+task test-cpp
 ```
 
-`task test-odin` needs the Odin compiler on `PATH`. `task test-zig` needs Zig 0.16.0 or later on `PATH`. See [librns](librns.md).
+`task test-odin` needs the Odin compiler on `PATH`. `task test-zig` needs Zig 0.16.0 or later on `PATH`. `task test-cpp` needs CMake and a C++17 compiler. See [librns](librns.md).
 
 ## Dart bindings
 

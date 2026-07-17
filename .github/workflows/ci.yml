@@ -301,6 +301,29 @@ jobs:
       - name: Verify workspace clean
         uses: ./.github/actions/verify-workspace-clean
 
+  test-cpp:
+    name: C++ bindings
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Install C++ toolchain
+        run: sudo apt-get update && sudo apt-get install -y cmake g++
+
+      - name: Run C++ bindings tests
+        run: task test-cpp
+
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
+
   test-dart:
     name: Dart bindings
     runs-on: ubuntu-latest

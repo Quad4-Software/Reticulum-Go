@@ -65,3 +65,8 @@ tasks:
     desc: Build and run Zig librns pageserver
     cmds:
       - make -C examples/zig-pageserver run ARGS='{{.CLI_ARGS}}'
+
+  "example:pageserver:cpp":
+    desc: Build and run C++ librns pageserver
+    cmds:
+      - make -C examples/cpp-pageserver run ARGS='{{.CLI_ARGS}}'

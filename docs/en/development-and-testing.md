@@ -323,6 +323,15 @@ task test-zig
 
 Requires Zig 0.16.0 or later on `PATH` (CI installs a pinned release via `scripts/ci/setup-zig.sh`, job `Zig bindings`). Package lives under `bindings/zig`. See [librns](librns.md#zig-bindings).
 
+## C++ bindings
+
+```bash
+task build-librns
+task test-cpp
+```
+
+Requires CMake and a C++17 compiler on `PATH` (CI job `C++ bindings`). Package lives under `bindings/cpp`. See [librns](librns.md#c-bindings).
+
 ## Dart bindings
 
 ```bash

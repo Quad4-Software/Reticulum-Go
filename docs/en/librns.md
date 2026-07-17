@@ -24,8 +24,12 @@ For Go apps, prefer `pkg/node` directly. For a separate daemon and JSON/WebSocke
 | `examples/librns-pageserver` | C NomadNet-style pageserver over librns |
 | `examples/odin-pageserver` | Odin NomadNet-style pageserver over librns |
 | `examples/zig-pageserver` | Zig NomadNet-style pageserver over librns |
+| `examples/cpp-smoke` | Minimal C++ smoke program over librns |
+| `examples/cpp-page-fetch` | C++ NomadNet-style page fetch over librns |
+| `examples/cpp-pageserver` | C++ NomadNet-style pageserver over librns |
 | `bindings/odin` | Idiomatic Odin bindings and tests over `librns.so` |
 | `bindings/zig` | Idiomatic Zig bindings and tests over `librns.so` |
+| `bindings/cpp` | Idiomatic C++17 bindings and tests over `librns.so` |
 | `bindings/dart` | Dart FFI (`ffi.dart`) plus Control API client |
 
 Daemon builds stay `CGO_ENABLED=0`. Only `build-librns` turns CGO on.
@@ -55,6 +59,11 @@ make -C examples/zig-page-fetch
 ./examples/zig-page-fetch/zig-page-fetch \
   -c /path/to/config \
   <dest_hash>:/page/index.mu
+
+make -C examples/cpp-page-fetch
+./examples/cpp-page-fetch/cpp-page-fetch \
+  -c /path/to/config \
+  <dest_hash>:/page/index.mu
 ```
 
 Configs need an online TCP or Backbone hub from [directory.rns.recipes](https://directory.rns.recipes/). `config.example` only has AutoInterface.
@@ -73,9 +82,13 @@ make -C examples/odin-pageserver
 make -C examples/zig-pageserver
 ./examples/zig-pageserver/zig-pageserver \
   -c /path/to/config
+
+make -C examples/cpp-pageserver
+./examples/cpp-pageserver/cpp-pageserver \
+  -c /path/to/config
 ```
 
-Needs a C toolchain and CGO. Output: `bin/librns.so` and a copy of the header under `bin/rns.h`. The Odin examples also need `odin` on `PATH`. The Zig examples need `zig` on `PATH`.
+Needs a C/C++ toolchain and CGO. Output: `bin/librns.so` and a copy of the header under `bin/rns.h`. The Odin examples also need `odin` on `PATH`. The Zig examples need `zig` on `PATH`. The C++ examples need a C++17 compiler.
 
 ## librns vs Control API
 
@@ -244,6 +257,7 @@ rns_node_destroy
 | C smoke | `examples/librns-smoke` |
 | Odin bindings | `bindings/odin` (`task test-odin`) |
 | Zig bindings | `bindings/zig` (`task test-zig`) |
+| C++ bindings | `bindings/cpp` (`task test-cpp`) |
 
 ```bash
 go test ./pkg/librns
@@ -251,6 +265,7 @@ task build-librns
 make -C examples/librns-smoke && ./examples/librns-smoke/librns-smoke
 task test-odin
 task test-zig
+task test-cpp
 ```
 
 ## Odin bindings
@@ -327,6 +342,49 @@ make -C bindings/zig test
 ```
 
 CI runs the same suite (`test-zig` job, pinned Zig `0.16.0`).
+
+Tests cover version and node lifecycle, identity and destination helpers, and a live UDP announce, link, and send round trip through `librns.so`.
+
+## C++ bindings
+
+Path: `bindings/cpp/`.
+
+Idiomatic C++17 RAII wrappers over the same C ABI (`include/rns.h`). Include the umbrella header and link `librns.so` (plus `bindings/cpp/src/event.cpp` for the event callback trampoline, or the `rns_cpp` CMake target):
+
+```cpp
+#include <rns/rns.hpp>
+
+auto node_r = rns::Node::create(config_path);
+if (!node_r.ok()) {
+  return 1;
+}
+auto node = std::move(node_r).value();
+```
+
+### Coverage
+
+| Area | C++ surface |
+|------|-------------|
+| Version and errors | `version`, `last_error`, `error_string`, `Error`, `Result` |
+| Node lifecycle | `Node::create`, `start`, `stop`, `pause`, `resume`, `set_identity`, `refresh_paths` |
+| Identity | `Identity::generate`, `load`, `save`, `hash` |
+| Destination | `Destination::create`, `announce`, `hash`, `register_request_handler` |
+| Path | `path_request`, `path_table` |
+| Link and requests | `Link::open`, `send`, `close`, `id`, `request`, `request_respond` |
+| Events | `Node::poll`, `set_event_callback`, `Event` accessors |
+
+Linux only (matches `librns.so`). Requires CMake and a C++17 compiler, plus a built shared library.
+
+### Build and test
+
+```bash
+task build-librns
+task test-cpp
+# or
+make -C bindings/cpp test
+```
+
+CI runs the same suite (`test-cpp` job).
 
 Tests cover version and node lifecycle, identity and destination helpers, and a live UDP announce, link, and send round trip through `librns.so`.
 

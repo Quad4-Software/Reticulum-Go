@@ -265,6 +265,7 @@ C ABI facade for in-process embed. Pure Go core. CGO shims in `pkg/librns/capi`.
 | Smoke | `examples/librns-smoke` |
 | Odin | `bindings/odin` (`task test-odin`) |
 | Zig | `bindings/zig` (`task test-zig`) |
+| C++ | `bindings/cpp` (`task test-cpp`) |
 | Main files | `node.go`, `identity.go`, `destination.go`, `link.go`, `queue.go` |
 
 See [librns](librns.md).
@@ -294,6 +295,20 @@ Idiomatic Zig package over `librns.so`. Not a Go import path. Depend on `binding
 | Platform | Linux (links `-lrns`) |
 
 See [librns](librns.md#zig-bindings).
+
+### `bindings/cpp`
+
+Idiomatic C++17 RAII package over `librns.so`. Not a Go import path. Include `rns/rns.hpp` and link `librns` plus the event trampoline (or the `rns_cpp` CMake target).
+
+| Item | Detail |
+|------|--------|
+| Package | `bindings/cpp/include/rns` |
+| Tests | `bindings/cpp/tests` |
+| Build | `task test-cpp` or `make -C bindings/cpp test` |
+| Platform | Linux (links `-lrns`) |
+| Standard | C++17 and up |
+
+See [librns](librns.md#c-bindings).
 
 ### `bindings/dart`
 

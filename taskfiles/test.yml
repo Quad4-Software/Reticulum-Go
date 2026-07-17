@@ -169,6 +169,11 @@ tasks:
     cmds:
       - sh scripts/ci/run-zig-bindings.sh
 
+  test-cpp:
+    desc: Build librns and run C++ bindings tests (requires cmake and a C++17 compiler)
+    cmds:
+      - sh scripts/ci/run-cpp-bindings.sh
+
   test-dart:
     desc: Run Dart bindings tests (Control API + librns FFI, requires dart and CGO)
     cmds:
