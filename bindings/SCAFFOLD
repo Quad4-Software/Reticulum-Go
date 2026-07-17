@@ -1,0 +1,261 @@
+Binding scaffold for Reticulum-Go
+=================================
+
+Use this file to add a new language binding under bindings/<lang>/.
+It is language-neutral. Follow an existing binding for idioms.
+
+Choose one integration path (or both, as Dart does)
+---------------------------------------------------
+
+1. librns (in-process)
+   - Link or load the shared library built by task build-librns
+   - Authoritative C ABI: include/rns.h (copy also under bin/rns.h after build)
+   - Artifacts: bin/librns.so (Linux), bin/darwin/*/librns.dylib, bin/windows/amd64/librns.dll
+   - Best when the app embeds the stack in the same process
+
+2. Control API (out-of-process)
+   - Talk HTTP and WebSocket to a running reticulum-go daemon
+   - Authoritative docs: docs/en/control-api.md
+   - Types and wire shapes: pkg/controlapi/protocol.go
+   - Best when the app stays outside the Go process
+
+Do not invent a third wire protocol. Prefer peer destinations and links for
+application traffic. The Control API is a local front end, not the mesh.
+
+Reference bindings already in tree
+----------------------------------
+
+  bindings/odin   librns wrappers (foreign import)
+  bindings/zig    librns wrappers (@extern)
+  bindings/cpp    librns wrappers (C++ RAII)
+  bindings/dart   librns FFI plus Control API client
+
+Read docs/en/librns.md and docs/en/control-api.md before coding.
+For product design constraints on the Control API, read the Architecture notes
+in docs/en/control-api.md.
+
+Suggested directory layout
+--------------------------
+
+  bindings/<lang>/
+    Makefile or native build file
+    <package>/ or src/
+      raw ABI or HTTP client layer (thin)
+      errors
+      types / hashes / constants
+      identity
+      node
+      destination
+      link
+      path
+      event
+      util (string and buffer helpers)
+    tests/
+    optional example/
+
+Keep a thin raw layer that mirrors include/rns.h or the Control API routes.
+Put idiomatic ownership and Result/error types above that layer.
+
+librns module map (required surface)
+------------------------------------
+
+Mirror these C entry points. Names may be idiomatic in the host language.
+Handles are opaque uint64. Destroy before process exit.
+
+Version and errors
+  rns_version
+  rns_last_error
+  RNS_API_VERSION string must match the header you compiled or loaded against
+  Error codes: OK, INVALID_ARG, INVALID_HANDLE, NOT_FOUND, STATE, IO,
+  INTERNAL, TIMEOUT, TRUNCATED
+
+Node
+  rns_node_create (empty config path means in-memory defaults, share_instance off)
+  rns_node_start / rns_node_stop / rns_node_destroy
+  rns_node_set_identity
+  rns_node_pause / rns_node_resume
+  rns_node_refresh_paths
+
+Identity
+  rns_identity_generate / rns_identity_load / rns_identity_save
+  rns_identity_destroy
+  rns_identity_hash (32 hex chars)
+
+Destination
+  rns_destination_create (app name required, optional aspects, accepts_links)
+  rns_destination_announce
+  rns_destination_hash (16 bytes, RNS_HASH_LEN)
+  rns_destination_destroy
+  rns_destination_register_request_handler
+
+Path and link
+  rns_path_request
+  rns_path_table
+  rns_link_open / rns_link_send / rns_link_send_resource / rns_link_close
+  rns_link_id
+  rns_link_request
+  rns_request_respond / rns_request_respond_file
+
+Events
+  rns_event_poll (caller owns app_data buffer capacity)
+  rns_set_event_callback (optional, same queue as poll)
+  Prefer one consumer style at a time (poll or callback, not both)
+
+Event kinds
+  ANNOUNCE
+  LINK_ESTABLISHED / LINK_FAILED / LINK_DATA / LINK_CLOSED
+  REQUEST_INCOMING / REQUEST_RESPONSE / REQUEST_FAILED
+  RESOURCE_STARTED / RESOURCE_CONCLUDED
+
+ABI rules that bindings must preserve
+-------------------------------------
+
+- Never hold Go pointers across the ABI. Always copy bytes.
+- Paths are operator-chosen. Reject empty paths and embedded NUL where the C API does.
+- Incoming request handlers block the link until respond or timeout (about 30s).
+- Event queue is bounded and drops oldest on overflow.
+- Set app_data and app_data_cap before poll for variable payloads.
+- Truncation flags on path, error_message, and app_data must be visible to callers.
+
+Typical librns flow
+-------------------
+
+  node_create("")
+  identity_generate or identity_load
+  node_set_identity
+  node_start
+  destination_create(..., accepts_links=true)
+  destination_register_request_handler(dest, "/ping")
+  destination_announce
+  peer: poll -> ANNOUNCE
+  peer: link_open(dest_hash)
+  poll -> LINK_ESTABLISHED
+  link_send / LINK_DATA
+  link_request / REQUEST_RESPONSE
+  link_close / LINK_CLOSED
+  node_stop
+  node_destroy
+
+Control API module map (if building a daemon client)
+----------------------------------------------------
+
+Auth
+  Authorization: Bearer <hex rpc_key> on every /v1 route
+  Default host 127.0.0.1 port 37430 (config may change)
+
+HTTP
+  GET  /v1/health
+  GET  /v1/status
+  GET  /v1/paths
+  POST /v1/sessions
+  DELETE /v1/sessions/{id}
+  POST /v1/sessions/{id}/destinations
+  POST /v1/sessions/{id}/destinations/{hash}/announce
+  POST /v1/sessions/{id}/destinations/{hash}/requests
+  DELETE /v1/sessions/{id}/destinations/{hash}/requests?path=
+  POST /v1/sessions/{id}/path/request
+  GET  /v1/sessions/{id}/events   (WebSocket upgrade)
+  POST /v1/lifecycle/resume
+  POST /v1/lifecycle/pause
+  POST /v1/lifecycle/refresh-paths
+
+WebSocket server -> client event types
+  announce
+  link.established / link.failed / link.data / link.closed / link.remote_identified
+  request.incoming / request.response / request.failed
+  resource.started / resource.concluded
+  command.error
+
+WebSocket client -> server command types
+  subscribe_announces
+  link.open / link.send / link.close / link.request / link.send_resource / link.identify
+  request.respond
+
+Binary fields use hex or base64 as documented in pkg/controlapi/protocol.go.
+WebSocket event delivery is best-effort. A full outbox drops events.
+Browser clients often cannot set Authorization on WebSocket upgrades.
+
+Typical Control API flow
+------------------------
+
+  POST /v1/sessions
+  POST /v1/sessions/{id}/destinations
+  POST /v1/sessions/{id}/destinations/{hash}/announce
+  GET  /v1/sessions/{id}/events (WebSocket)
+  subscribe_announces
+  link.open after path exists
+  link.send / request.respond as needed
+
+Idiomatic wrapper checklist
+---------------------------
+
+- Map error codes to host Result / exception / error union types
+- Own handles with destroy on drop / finalizer / defer (language-appropriate)
+- Disallow copy of handle owners unless the language makes sharing explicit
+- Expose Hash as fixed 16-byte value, not free-form string, at the idiomatic layer
+- Hex helpers at the boundary only
+- Document library load order if dynamic: argument, env (e.g. RNS_LIB_PATH), then defaults under bin/
+- Call version() early and compare to the ABI the binding was written against
+
+Tests to include
+----------------
+
+Minimum
+  version string non-empty
+  node create / start / stop / destroy
+  identity generate and hash length
+  destination create and hash length
+  event poll timeout returns TIMEOUT (librns)
+
+Stronger (match existing bindings where feasible)
+  link open / send / close over local UDP or Auto config
+  request register / incoming / respond
+  path table snapshot
+  callback vs poll mutual exclusion behavior
+
+Build and smoke
+---------------
+
+From repository root:
+
+  task build-librns
+  make -C examples/librns-smoke
+  ./examples/librns-smoke/librns-smoke
+
+Add a bindings/<lang> Makefile (or equivalent) with at least:
+  test
+  optional smoke
+
+Wire CI later using the pattern in docs/en/development-and-testing.md
+(existing jobs: Odin, Zig, Dart).
+
+What not to put in a binding
+----------------------------
+
+- A reimplementation of the wire protocol
+- Public Control API exposure guidance that fights loopback-first security notes
+- Large file transfer via base64 link.send_resource when rncp or in-process is available
+- New ABI symbols without growing include/rns.h and RNS_API_VERSION
+
+Acceptance criteria for a new binding
+-------------------------------------
+
+1. Lives under bindings/<lang>/
+2. Thin raw layer matches include/rns.h and/or Control API /v1
+3. Idiomatic layer covers node, identity, destination, link, path, events, errors
+4. Ownership of handles is safe for the host language
+5. Tests run via make or the language package tool from that directory
+6. Short note added under the matching section of docs/en/librns.md and/or
+   docs/en/control-api.md when the binding is ready to advertise
+
+Authoritative sources (read these, do not guess)
+------------------------------------------------
+
+  include/rns.h
+  docs/en/librns.md
+  docs/en/control-api.md
+  pkg/controlapi/protocol.go
+  examples/librns-smoke
+  examples/control-client/client.py
+  bindings/odin , bindings/zig , bindings/cpp , bindings/dart
+)
