@@ -79,6 +79,8 @@ func RunProbe(args []string, opt ...Options) int {
 	fmt.Fprintln(stdout, infoMsg(stdout, fmt.Sprintf("Path to %s requested", rnsutil.PrettyHex(destHash))))
 	if err := rnsutil.WaitPath(pathCtx, tr, destHash); err != nil {
 		fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "path request timed out"), err)
+		report := rnsutil.DiagnoseReachability(tr, destHash)
+		_ = rnsutil.WriteReachReportHuman(stderr, report)
 		return 1
 	}
 

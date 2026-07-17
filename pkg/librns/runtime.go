@@ -16,6 +16,7 @@ import (
 const requestResponseTimeout = 30 * time.Second
 
 type nodeRecord struct {
+	handle       uint64
 	node         *node.Node
 	identity     *identity.Identity
 	queue        *eventQueue
@@ -24,7 +25,7 @@ type nodeRecord struct {
 	started      bool
 
 	pendingMu sync.Mutex
-	pending   map[string]chan []byte
+	pending   map[string]chan any
 
 	cbMu     sync.Mutex
 	callback EventCallback
@@ -35,6 +36,7 @@ type nodeRecord struct {
 type linkRecord struct {
 	link        *link.Link
 	id          []byte
+	nodeID      uint64
 	established bool
 }
 
@@ -91,18 +93,18 @@ func (n *nodeRecord) enqueue(ev Event) {
 	}
 }
 
-func (n *nodeRecord) awaitResponse(requestIDHex string) chan []byte {
-	ch := make(chan []byte, 1)
+func (n *nodeRecord) awaitResponse(requestIDHex string) chan any {
+	ch := make(chan any, 1)
 	n.pendingMu.Lock()
 	if n.pending == nil {
-		n.pending = make(map[string]chan []byte)
+		n.pending = make(map[string]chan any)
 	}
 	n.pending[requestIDHex] = ch
 	n.pendingMu.Unlock()
 	return ch
 }
 
-func (n *nodeRecord) deliverResponse(requestIDHex string, data []byte) bool {
+func (n *nodeRecord) deliverResponse(requestIDHex string, data any) bool {
 	n.pendingMu.Lock()
 	ch, ok := n.pending[requestIDHex]
 	if ok {
@@ -142,6 +144,6 @@ func newNodeRecord(n *node.Node) *nodeRecord {
 		queue:        newEventQueue(defaultQueueCapacity),
 		destinations: make(map[uint64]*destination.Destination),
 		links:        make(map[uint64]*linkRecord),
-		pending:      make(map[string]chan []byte),
+		pending:      make(map[string]chan any),
 	}
 }

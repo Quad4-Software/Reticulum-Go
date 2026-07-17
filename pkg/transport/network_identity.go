@@ -40,6 +40,16 @@ func (t *Transport) NetworkIdentity() *identity.Identity {
 	return t.networkIdentity
 }
 
+// TransportIdentity returns the transport identity, or nil.
+func (t *Transport) TransportIdentity() *identity.Identity {
+	if t == nil {
+		return nil
+	}
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	return t.transportIdentity
+}
+
 // HasNetworkIdentity reports whether a network identity is configured.
 func (t *Transport) HasNetworkIdentity() bool {
 	return t.NetworkIdentity() != nil

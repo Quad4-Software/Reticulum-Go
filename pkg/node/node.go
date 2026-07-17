@@ -55,18 +55,41 @@ type Node struct {
 	watchMu         sync.RWMutex
 	linkMgr         *linkManager
 	discovery       *discovery.InterfaceDiscovery
+	announcer       *discovery.InterfaceAnnouncer
 }
 
-// StartInterfaceDiscovery enables rnstransport interface discovery listening.
+// StartInterfaceDiscovery enables rnstransport interface discovery listening
+// and starts the InterfaceAnnouncer when discoverable interfaces are configured.
 func (n *Node) StartInterfaceDiscovery() {
-	if n == nil || n.transport == nil || n.config == nil || !n.config.DiscoverInterfaces {
+	if n == nil || n.transport == nil || n.config == nil {
 		return
 	}
-	if n.discovery != nil {
+	listen := n.config.DiscoverInterfaces || discovery.HasDiscoverableInterfaces(n.config)
+	if !listen {
 		return
 	}
-	n.discovery = discovery.NewInterfaceDiscovery(n.transport, discovery.DefaultStampValue, nil)
-	n.discovery.Start()
+	if n.discovery == nil {
+		n.discovery = discovery.NewInterfaceDiscovery(n.transport, discovery.DefaultStampValue, nil)
+		n.discovery.Start()
+	}
+	if n.announcer != nil || !discovery.HasDiscoverableInterfaces(n.config) {
+		return
+	}
+	id := n.transport.NetworkIdentity()
+	if id == nil {
+		id = n.transport.TransportIdentity()
+	}
+	if id == nil {
+		debug.Log(debug.DebugError, "Interface discovery announcer skipped: no identity")
+		return
+	}
+	ann, err := discovery.NewInterfaceAnnouncer(n.transport, n.config, id)
+	if err != nil {
+		debug.Log(debug.DebugError, "Interface discovery announcer failed", "error", err)
+		return
+	}
+	n.announcer = ann
+	n.announcer.Start()
 }
 
 // New constructs a Node from configuration without starting it.
@@ -203,6 +226,14 @@ func (n *Node) startInterfaces() error {
 func (n *Node) Stop() error {
 	n.reloadMu.Lock()
 	defer n.reloadMu.Unlock()
+	if n.announcer != nil {
+		n.announcer.Stop()
+		n.announcer = nil
+	}
+	if n.discovery != nil {
+		n.discovery.Stop()
+		n.discovery = nil
+	}
 	if n.sharedInstance != nil {
 		n.sharedInstance.Close()
 		n.sharedInstance = nil

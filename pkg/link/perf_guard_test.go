@@ -10,7 +10,7 @@ import (
 
 func primedSessionLink(t testing.TB) *Link {
 	t.Helper()
-	l := &Link{}
+	l := &Link{mode: ModeDefault}
 	session := make([]byte, 32)
 	hmac := make([]byte, 32)
 	if _, err := rand.Read(session); err != nil {

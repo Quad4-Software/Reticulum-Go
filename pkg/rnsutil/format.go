@@ -216,6 +216,16 @@ func WriteStatusHuman(w io.Writer, stats transport.InterfaceStatsResponse, linkC
 				return err
 			}
 		}
+		healthBits := st.BlackholeHit + st.PathReqDup + st.PathReqNoCache + st.PathRespSuppressed +
+			st.ResourceStall + st.LinkStaleClose + st.KeepaliveTimeout + st.AnnounceDup
+		if healthBits > 0 {
+			if _, err := fmt.Fprintf(w, "  Health    : blackhole=%d path_dup=%d path_nocache=%d path_suppress=%d resource_stall=%d link_stale=%d keepalive=%d announce_dup=%d\n",
+				st.BlackholeHit, st.PathReqDup, st.PathReqNoCache, st.PathRespSuppressed,
+				st.ResourceStall, st.LinkStaleClose, st.KeepaliveTimeout, st.AnnounceDup,
+			); err != nil {
+				return err
+			}
+		}
 		if st.Clients != nil {
 			if _, err := fmt.Fprintf(w, "  Clients   : %d\n", *st.Clients); err != nil {
 				return err

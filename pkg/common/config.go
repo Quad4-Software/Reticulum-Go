@@ -130,6 +130,26 @@ type InterfaceConfig struct {
 	// When false the interface is receive-only (Python OUT = False).
 	Outgoing    bool
 	OutgoingSet bool
+
+	// Discoverable enables rnstransport interface discovery announces.
+	Discoverable bool
+	// DiscoveryName is the human-readable name published in discovery announces.
+	DiscoveryName string
+	// ReachableOn is the public hostname or IP peers should dial.
+	ReachableOn string
+	// DiscoveryAnnounceIntervalSec is seconds between discovery announces.
+	// Zero means the Python default of 6 hours. Config key announce_interval
+	// is minutes and is converted at parse time.
+	DiscoveryAnnounceIntervalSec int
+	// DiscoveryStampValue overrides the proof-of-work cost (default 14).
+	DiscoveryStampValue int
+	// DiscoveryEncrypt encrypts announces with the network identity.
+	DiscoveryEncrypt bool
+	// DiscoveryLatitude Longitude Height are optional geo fields.
+	DiscoveryLatitude  float64
+	DiscoveryLongitude float64
+	DiscoveryHeight    float64
+	HasDiscoveryGeo    bool
 }
 
 // SharedInstanceType values for [reticulum] shared_instance_type.
@@ -214,7 +234,8 @@ type ReticulumConfig struct {
 	// instance sockets: auto, epoll, kqueue, io_uring, or go.
 	BackboneIO string
 
-	// DiscoverInterfaces enables periodic NIC rescan for AutoInterface peers.
+	// DiscoverInterfaces enables rnstransport discovery listening and
+	// AutoInterface NIC rescan when supported.
 	DiscoverInterfaces bool
 
 	// WatchInterfaces enables periodic NIC monitoring via net.Interfaces where supported.

@@ -242,6 +242,8 @@ func RunPath(args []string, opt ...Options) int {
 	defer cancel()
 	if err := rnsutil.WaitPath(ctx, tr, destHash); err != nil {
 		fmt.Fprintln(stdout, errMsg(stdout, "Path request timed out"))
+		report := rnsutil.DiagnoseReachability(tr, destHash)
+		_ = rnsutil.WriteReachReportHuman(stdout, report)
 		return 12
 	}
 	hops := tr.HopsTo(destHash)

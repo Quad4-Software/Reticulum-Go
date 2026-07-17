@@ -86,6 +86,17 @@ func TestRequestRespondUnknown(t *testing.T) {
 	}
 }
 
+func TestRequestRespondFileUnknown(t *testing.T) {
+	node := mustCreateNode(t)
+	rid := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+	if code := RequestRespondFile(node, rid, "test.txt", []byte("hi")); code != ErrNotFound {
+		t.Fatalf("got %d want not found", code)
+	}
+	if code := RequestRespondFile(node, rid, "", []byte("hi")); code != ErrInvalidArg {
+		t.Fatalf("empty name: %d", code)
+	}
+}
+
 func TestDestinationRegisterRequestHandler(t *testing.T) {
 	node := mustCreateNode(t)
 	id := mustIdentity(t)

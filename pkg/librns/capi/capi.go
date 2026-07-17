@@ -355,6 +355,22 @@ func rns_link_send(link C.uint64_t, data *C.uint8_t, dataLen C.size_t) C.int {
 	return cCode(librns.LinkSend(uint64(link), payload))
 }
 
+//export rns_link_send_resource
+func rns_link_send_resource(link C.uint64_t, data *C.uint8_t, dataLen C.size_t, name *C.char) C.int {
+	if data == nil && dataLen > 0 {
+		return cCode(librns.ErrInvalidArg)
+	}
+	payload, code := goBytesFromC(data, dataLen)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	var fileName string
+	if name != nil {
+		fileName = C.GoString(name)
+	}
+	return cCode(librns.LinkSendResource(uint64(link), payload, fileName))
+}
+
 //export rns_link_close
 func rns_link_close(link C.uint64_t) C.int {
 	return cCode(librns.LinkClose(uint64(link)))
@@ -399,6 +415,22 @@ func rns_request_respond(node C.uint64_t, requestID *C.uint8_t, requestIDLen C.s
 		return cCode(code)
 	}
 	return cCode(librns.RequestRespond(uint64(node), rid, payload))
+}
+
+//export rns_request_respond_file
+func rns_request_respond_file(node C.uint64_t, requestID *C.uint8_t, requestIDLen C.size_t, filename *C.char, data *C.uint8_t, dataLen C.size_t) C.int {
+	if filename == nil {
+		return cCode(librns.ErrInvalidArg)
+	}
+	rid, code := goBytesFromC(requestID, requestIDLen)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	payload, code := goBytesFromC(data, dataLen)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	return cCode(librns.RequestRespondFile(uint64(node), rid, C.GoString(filename), payload))
 }
 
 //export rns_event_poll

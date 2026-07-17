@@ -495,6 +495,35 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 	case "outgoing", "selected_outgoing":
 		iface.Outgoing = parseBool(value)
 		iface.OutgoingSet = true
+	case "discoverable":
+		iface.Discoverable = parseBool(value)
+	case "discovery_name":
+		iface.DiscoveryName = value
+	case "reachable_on":
+		iface.ReachableOn = value
+	case "announce_interval":
+		// Discovery announce interval is configured in minutes.
+		minutes := 0
+		setInt(value, &minutes)
+		if minutes > 0 {
+			if minutes < 5 {
+				minutes = 5
+			}
+			iface.DiscoveryAnnounceIntervalSec = minutes * 60
+		}
+	case "discovery_stamp_value":
+		setInt(value, &iface.DiscoveryStampValue)
+	case "discovery_encrypt":
+		iface.DiscoveryEncrypt = parseBool(value)
+	case "latitude":
+		setFloat(value, &iface.DiscoveryLatitude)
+		iface.HasDiscoveryGeo = true
+	case "longitude":
+		setFloat(value, &iface.DiscoveryLongitude)
+		iface.HasDiscoveryGeo = true
+	case "height":
+		setFloat(value, &iface.DiscoveryHeight)
+		iface.HasDiscoveryGeo = true
 	}
 }
 
@@ -774,6 +803,29 @@ func writeInterface(b *strings.Builder, name string, iface *common.InterfaceConf
 	}
 	if iface.LongPollSec != 0 {
 		fmt.Fprintf(b, "    long_poll_sec = %d\n", iface.LongPollSec)
+	}
+	if iface.Discoverable {
+		fmt.Fprintf(b, "    discoverable = %s\n", boolStr(iface.Discoverable))
+	}
+	if iface.DiscoveryName != "" {
+		fmt.Fprintf(b, "    discovery_name = %s\n", iface.DiscoveryName)
+	}
+	if iface.ReachableOn != "" {
+		fmt.Fprintf(b, "    reachable_on = %s\n", iface.ReachableOn)
+	}
+	if iface.DiscoveryAnnounceIntervalSec > 0 {
+		fmt.Fprintf(b, "    announce_interval = %d\n", iface.DiscoveryAnnounceIntervalSec/60)
+	}
+	if iface.DiscoveryStampValue != 0 {
+		fmt.Fprintf(b, "    discovery_stamp_value = %d\n", iface.DiscoveryStampValue)
+	}
+	if iface.DiscoveryEncrypt {
+		fmt.Fprintf(b, "    discovery_encrypt = %s\n", boolStr(iface.DiscoveryEncrypt))
+	}
+	if iface.HasDiscoveryGeo {
+		fmt.Fprintf(b, "    latitude = %g\n", iface.DiscoveryLatitude)
+		fmt.Fprintf(b, "    longitude = %g\n", iface.DiscoveryLongitude)
+		fmt.Fprintf(b, "    height = %g\n", iface.DiscoveryHeight)
 	}
 	b.WriteString("\n")
 }

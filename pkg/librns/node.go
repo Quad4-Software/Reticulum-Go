@@ -69,6 +69,7 @@ func NodeCreate(configPath string) (uint64, int) {
 
 	runtimeMu.Lock()
 	id := handles.insert(kindNode, rec)
+	rec.handle = id
 	runtimeMu.Unlock()
 	return id, OK
 }

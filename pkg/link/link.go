@@ -2081,7 +2081,22 @@ func decryptWithKeys(sessionKey, hmacKey, data []byte) ([]byte, error) {
 		return nil, errHMACVerificationFailed
 	}
 
-	return cryptography.DecryptAES256CBC(sessionKey, signedParts)
+	block, err := aes.NewCipher(sessionKey)
+	if err != nil {
+		return nil, err
+	}
+	if len(signedParts) < aes.BlockSize {
+		return nil, errors.New("ciphertext is too short")
+	}
+	iv := signedParts[:aes.BlockSize]
+	ciphertext := signedParts[aes.BlockSize:]
+	if len(ciphertext)%aes.BlockSize != 0 {
+		return nil, errors.New("ciphertext is not a multiple of the block size")
+	}
+	mode := cipher.NewCBCDecrypter(block, iv)
+	plaintext := make([]byte, len(ciphertext))
+	mode.CryptBlocks(plaintext, ciphertext)
+	return cryptography.RemovePKCS7Padding(plaintext)
 }
 
 // snapshotSessionKeysLocked copies session/hmac key bytes into dst while the

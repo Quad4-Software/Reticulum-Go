@@ -55,7 +55,7 @@ func DestinationCreate(nodeHandle, identityHandle uint64, appName string, aspect
 }
 
 // DestinationRegisterRequestHandler bridges path requests to EventRequestIncoming.
-// The host must call RequestRespond with the same request id.
+// The host must call RequestRespond or RequestRespondFile with the same request id.
 func DestinationRegisterRequestHandler(destHandle uint64, path string) int {
 	if path == "" {
 		return setLastError(errInvalidArg)
@@ -69,7 +69,7 @@ func DestinationRegisterRequestHandler(destHandle uint64, path string) int {
 		return setLastError(err)
 	}
 	destHash := append([]byte(nil), destRec.hash...)
-	if err := destRec.destination.RegisterRequestHandler(path, func(p string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) []byte {
+	if err := destRec.destination.RegisterRequestHandlerAny(path, func(p string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) any {
 		_ = requestedAt
 		requestIDHex := hex.EncodeToString(requestID)
 		ev := Event{
@@ -110,6 +110,23 @@ func RequestRespond(nodeHandle uint64, requestID, data []byte) int {
 		return setLastError(err)
 	}
 	if !nodeRec.deliverResponse(hex.EncodeToString(requestID), append([]byte(nil), data...)) {
+		return setLastError(errNotFound)
+	}
+	return OK
+}
+
+// RequestRespondFile delivers a NomadNet-style file response [filename, content].
+// Oversized payloads transfer as link resources automatically.
+func RequestRespondFile(nodeHandle uint64, requestID []byte, filename string, data []byte) int {
+	if len(requestID) == 0 || filename == "" {
+		return setLastError(errInvalidArg)
+	}
+	nodeRec, err := nodeByHandle(nodeHandle)
+	if err != nil {
+		return setLastError(err)
+	}
+	payload := []any{filename, append([]byte(nil), data...)}
+	if !nodeRec.deliverResponse(hex.EncodeToString(requestID), payload) {
 		return setLastError(errNotFound)
 	}
 	return OK
@@ -167,7 +184,7 @@ func wireInboundLinks(nodeRec *nodeRecord, dest *destination.Destination) {
 			return
 		}
 		id := lnk.GetLinkID()
-		lr := &linkRecord{link: lnk, id: append([]byte(nil), id...), established: true}
+		lr := &linkRecord{link: lnk, id: append([]byte(nil), id...), nodeID: nodeRec.handle, established: true}
 		runtimeMu.Lock()
 		linkHandle := handles.insert(kindLink, lr)
 		nodeRec.links[linkHandle] = lr

@@ -5,14 +5,16 @@ package librns
 
 // Event kinds delivered through EventPoll and optional callbacks.
 const (
-	EventAnnounce        = 1
-	EventLinkEstablished = 2
-	EventLinkFailed      = 3
-	EventLinkData        = 4
-	EventLinkClosed      = 5
-	EventRequestIncoming = 6
-	EventRequestResponse = 7
-	EventRequestFailed   = 8
+	EventAnnounce          = 1
+	EventLinkEstablished   = 2
+	EventLinkFailed        = 3
+	EventLinkData          = 4
+	EventLinkClosed        = 5
+	EventRequestIncoming   = 6
+	EventRequestResponse   = 7
+	EventRequestFailed     = 8
+	EventResourceStarted   = 9
+	EventResourceConcluded = 10
 )
 
 // Event is one pollable librns notification.

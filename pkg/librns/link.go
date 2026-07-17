@@ -11,6 +11,7 @@ import (
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/link"
 	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/resource"
 )
 
 // LinkOpen starts an outbound link to destHash on nodeHandle.
@@ -46,7 +47,7 @@ func LinkOpen(nodeHandle uint64, destHash []byte) (uint64, int) {
 		return 0, setLastError(fmt.Errorf("%w: %v", errInternal, err))
 	}
 
-	lr := &linkRecord{}
+	lr := &linkRecord{nodeID: nodeHandle}
 	established := func(l *link.Link) {
 		lr.link = l
 		lr.id = append([]byte(nil), l.GetLinkID()...)
@@ -113,6 +114,40 @@ func LinkSend(linkHandle uint64, data []byte) int {
 	if err := lr.link.SendPacket(data); err != nil {
 		return setLastError(fmt.Errorf("%w: %v", errInternal, err))
 	}
+	return OK
+}
+
+// LinkSendResource transfers data as a link resource.
+// When name is non-empty it is attached as rncp-compatible metadata.
+func LinkSendResource(linkHandle uint64, data []byte, name string) int {
+	lr, err := linkByHandle(linkHandle)
+	if err != nil {
+		return setLastError(err)
+	}
+	if lr.link == nil || !lr.established {
+		return setLastError(errState)
+	}
+	res, err := resource.New(append([]byte(nil), data...), false)
+	if err != nil {
+		return setLastError(fmt.Errorf("%w: %v", errInternal, err))
+	}
+	if name != "" {
+		if err := res.SetMetadata(map[string]any{"name": []byte(name)}); err != nil {
+			return setLastError(fmt.Errorf("%w: %v", errInternal, err))
+		}
+	}
+	go func() {
+		if err := lr.link.SendResource(res); err != nil {
+			if nodeRec, nerr := nodeByHandle(lr.nodeID); nerr == nil {
+				nodeRec.enqueue(Event{
+					Kind:         EventRequestFailed,
+					LinkID:       append([]byte(nil), lr.id...),
+					ErrorMessage: err.Error(),
+					Path:         "resource",
+				})
+			}
+		}
+	}()
 	return OK
 }
 
@@ -206,4 +241,48 @@ func wireLinkData(nodeRec *nodeRecord, lr *linkRecord) {
 			AppData: append([]byte(nil), data...),
 		})
 	})
+	_ = lr.link.SetResourceStrategy(link.AcceptAll)
+	lr.link.SetResourceStartedCallback(func(_ any) {
+		nodeRec.enqueue(Event{
+			Kind:   EventResourceStarted,
+			LinkID: append([]byte(nil), id...),
+		})
+	})
+	lr.link.SetResourceConcludedCallback(func(v any) {
+		ev := Event{
+			Kind:   EventResourceConcluded,
+			LinkID: append([]byte(nil), id...),
+		}
+		switch r := v.(type) {
+		case link.IncomingResource:
+			ev.AppData = append([]byte(nil), r.Data...)
+			if name, ok := resourceName(r.Metadata); ok {
+				ev.Path = name
+			}
+			if len(r.Hash) > 0 {
+				ev.RequestID = append([]byte(nil), r.Hash...)
+			}
+		case []byte:
+			ev.AppData = append([]byte(nil), r...)
+		}
+		nodeRec.enqueue(ev)
+	})
+}
+
+func resourceName(meta map[string]any) (string, bool) {
+	if meta == nil {
+		return "", false
+	}
+	raw, ok := meta["name"]
+	if !ok {
+		return "", false
+	}
+	switch v := raw.(type) {
+	case string:
+		return v, v != ""
+	case []byte:
+		return string(v), len(v) > 0
+	default:
+		return "", false
+	}
 }
