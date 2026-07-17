@@ -6,6 +6,27 @@
 
 The server is optional and disabled by default.
 
+## Architecture notes
+
+The mesh is destinations, announces, and links between peers. No node is privileged on the wire. Upstream design intent: [Zen of Reticulum](https://reticulum.network/manual/zen.html).
+
+The Control API is a local HTTP/WebSocket front end for one `reticulum-go` process. It is not the mesh. Apps that treat this API as a required remote service reintroduce a single control host even when RNS routing stays peer-to-peer.
+
+**Appropriate uses**
+
+- Tools and UIs on the same host as the daemon
+- App logic in another language while the daemon owns transport
+- Lab or ops access on loopback (or a private network you fully control)
+
+**Avoid**
+
+- A public Control API endpoint that clients must use to participate
+- Putting identity, routing, or app policy behind one always-on control host
+- Large transfers via base64 `link.send_resource` when `rncp` or in-process librns is available
+- Binding off loopback and describing the result as decentralized because RNS is underneath
+
+If the product fails when the Control API host is unreachable, the product depends on that host. Prefer peer destinations and links for application traffic. Keep this API on the machine that runs the node.
+
 ## Enable in config
 
 ```ini
@@ -46,6 +67,7 @@ Requests without a valid bearer token are rejected.
 | POST | `/v1/sessions/{id}/destinations` | Register destination |
 | POST | `/v1/sessions/{id}/destinations/{hash}/announce` | Send announce |
 | POST | `/v1/sessions/{id}/destinations/{hash}/requests` | Bridge request path to WebSocket |
+| DELETE | `/v1/sessions/{id}/destinations/{hash}/requests?path=` | Deregister request path |
 | POST | `/v1/sessions/{id}/path/request` | Request path to destination |
 | GET | `/v1/sessions/{id}/events` | WebSocket event stream |
 
@@ -108,26 +130,35 @@ GET /v1/sessions/{id}/events (WebSocket)
 
 ## WebSocket events
 
-Server to client JSON events include:
+Server to client JSON event `type` values:
 
 | Event | Meaning |
 |-------|---------|
-| `announceEvent` | Remote announce received |
-| `linkEstablishedEvent` | Link is active |
-| `linkFailedEvent` | Outbound link failed |
-| `linkDataEvent` | Data received on link |
-| `linkClosedEvent` | Link closed |
-| `requestIncomingEvent` | Request arrived on registered path |
+| `announce` | Remote announce received |
+| `link.established` | Link is active |
+| `link.failed` | Outbound link failed |
+| `link.data` | Data received on link |
+| `link.closed` | Link closed |
+| `link.remote_identified` | Peer identified on link |
+| `request.incoming` | Request arrived on registered path |
+| `request.response` | Outbound `link.request` succeeded |
+| `request.failed` | Outbound `link.request` failed or timed out |
+| `resource.started` | Resource transfer started |
+| `resource.concluded` | Resource transfer finished |
+| `command.error` | WebSocket command could not be applied |
 
-Client to server commands include:
+Client to server command `type` values:
 
 | Command | Meaning |
 |---------|---------|
-| `subscribeAnnouncesCommand` | Filter announces |
-| `linkOpenCommand` | Open outbound link |
-| `linkSendCommand` | Send on link |
-| `linkCloseCommand` | Close link |
-| `requestRespondCommand` | Answer a request |
+| `subscribe_announces` | Subscribe to announces. Empty `filter` means all. Non-empty `filter` must be an exact 16-byte dest hash hex |
+| `link.open` | Open outbound link |
+| `link.send` | Send on link |
+| `link.close` | Close link |
+| `link.request` | Outbound request on established link |
+| `link.send_resource` | Send payload as a link resource (base64). Keep payloads small |
+| `link.identify` | Identify session identity on link |
+| `request.respond` | Answer a request. Optional `filename` for NomadNet `[name, bytes]` |
 
 Full type definitions: `pkg/controlapi/protocol.go`.
 
@@ -135,15 +166,35 @@ Full type definitions: `pkg/controlapi/protocol.go`.
 
 Register a destination with link acceptance enabled for inbound links.
 
-Outbound: send `linkOpenCommand` over the events WebSocket after the path exists (from announce or path request).
+Outbound: send `link.open` over the events WebSocket after the path exists (from announce or path request).
 
-Both directions receive `linkEstablishedEvent` when ready, then `linkDataEvent` for peer data.
+Both directions receive `link.established` when ready, then `link.data` for peer data.
+
+Use `link.identify` after the link is active. The peer receives `link.remote_identified`.
 
 ## Requests via API
 
-Register a request path with `POST .../destinations/{hash}/requests`. Incoming requests appear as `requestIncomingEvent`. Respond with `requestRespondCommand` before the handler timeout.
+Register a request path with `POST .../destinations/{hash}/requests`. Incoming requests appear as `request.incoming`. Respond with `request.respond` before the handler timeout.
+
+Outbound: after `link.established`, send `link.request`. Completion arrives as `request.response` or `request.failed`.
 
 Handlers block the underlying link goroutine until response or timeout. Keep processing short.
+
+Deregister with `DELETE .../requests?path=/your/path`.
+
+## Resources via API
+
+`link.send_resource` mirrors librns minimal resource send. Expect `resource.started` and `resource.concluded` on the peer. Payloads are base64 over WebSocket, so large files are memory-heavy. Prefer `rncp` or in-process librns for bulk transfers.
+
+## Scope and caveats
+
+This API is an application contract for destinations, announces, links, requests, identify, and minimal resources. It is not a full mirror of channels, stream buffers, resource cancel/progress, or mesh-admin ops (drop path, blackhole). Those stay on shared-instance RPC and CLI.
+
+Control API `/v1` is independent of librns `RNS_API_VERSION`. Additive JSON fields and new `type` strings are the compatibility model.
+
+WebSocket event delivery is best-effort. A full client outbox drops events.
+
+See [Architecture notes](#architecture-notes) when designing a product on top of this API.
 
 ## Example client
 
@@ -154,6 +205,7 @@ Handlers block the underlying link goroutine until response or timeout. Keep pro
 - Default bind is loopback only
 - Do not expose the control API to untrusted networks without additional protection
 - Treat `rpc_key` as a secret comparable to an API token
+- Binding off loopback for convenience fights the model in [Architecture notes](#architecture-notes)
 - See [Security](security.md)
 
 ## Implementation files
@@ -171,6 +223,7 @@ Daemon wiring: `cmd/reticulum-go/main.go` starts `controlapi.Server` when enable
 
 ## Related documents
 
+- [Zen of Reticulum](https://reticulum.network/manual/zen.html) (upstream design intent)
 - [API reference](api-reference.md) for Go embedders using destinations and links in-process
 - [Configuration](configuration.md)
 - [Links, channels, and resources](links-channels-and-resources.md)
@@ -195,7 +248,7 @@ final events = client.openEvents(session.sessionId);
 events.subscribeAnnounces();
 ```
 
-Coverage includes health, status, paths, sessions, destinations, announce, request handlers, lifecycle, and WebSocket commands or events. Authenticated WebSocket upgrades require `dart:io` (Flutter mobile or desktop). Browser clients cannot set the Authorization header on WebSocket.
+Coverage includes health, status (with integrity counters), paths, sessions, destinations, announce, request handlers (register and deregister), lifecycle, outbound requests, resources, identify, and WebSocket commands or events. Authenticated WebSocket upgrades require `dart:io` (Flutter mobile or desktop). Browser clients cannot set the Authorization header on WebSocket.
 
 ### In-process FFI
 

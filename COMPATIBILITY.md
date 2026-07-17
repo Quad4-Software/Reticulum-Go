@@ -28,7 +28,7 @@ For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). F
 | Odin librns bindings | Yes (Go-only host) | [bindings/odin](bindings/odin/). Idiomatic Odin wrappers over `librns.so`. `task test-odin`. See [docs/en/librns.md](docs/en/librns.md#odin-bindings). |
 | Zig librns bindings | Yes (Go-only host) | [bindings/zig](bindings/zig/). Idiomatic Zig wrappers over `librns.so`. `task test-zig`. See [docs/en/librns.md](docs/en/librns.md#zig-bindings). |
 | Dart librns FFI | Yes (Go-only host) | [bindings/dart](bindings/dart/) `ffi.dart`. Linux, Android, Windows. `task build-librns-targets`. See [docs/en/librns.md](docs/en/librns.md#dart-ffi-bindings). |
-| Dart Control API client | Yes (Go-only host) | [bindings/dart](bindings/dart/). Flutter-ready Dart client for the Control API. `task test-dart`. See [docs/en/control-api.md](docs/en/control-api.md#dart-and-flutter). |
+| Dart Control API client | Yes (Go-only host) | [bindings/dart](bindings/dart/). Flutter-ready Dart client for the Control API (requests, resources, identify). `task test-dart`. See [docs/en/control-api.md](docs/en/control-api.md#dart-and-flutter). |
 
 ## Interfaces
 

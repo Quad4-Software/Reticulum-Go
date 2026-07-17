@@ -1,6 +1,6 @@
 # Reticulum-Go
 
-Reticulum-Go is a high-performance and [secure](SECURITY.md) Golang implementation of the [Reticulum Network Stack](https://github.com/markqvist/Reticulum). It is intended to strengthen the existing networks and bring Reticulum to more devices.
+Reticulum-Go is a high-performance and [secure](SECURITY.md) Golang implementation of the [Reticulum Network Stack](https://github.com/markqvist/Reticulum). It is intended to strengthen the existing networks and bring Reticulum to more devices not to replace the python reference implementation. 
 
 Available on rngit:
 
