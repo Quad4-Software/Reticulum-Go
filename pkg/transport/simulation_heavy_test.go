@@ -34,6 +34,9 @@ func TestSimHeavyRandomConvergence(t *testing.T) {
 	assertAllHavePath(t, net.nodes[1:], net.nodes[0].destHash, timeout)
 	assertAllHavePath(t, net.nodes[:n-1], net.nodes[n-1].destHash, timeout)
 
+	// Flooding every node does not mean every destination has finished
+	// propagating when paths to node 0 / n-1 first appear. Sample pairs must
+	// wait for their own destinations under CI scheduling load.
 	rng := rand.New(rand.NewPCG(0x1eaf002, 0x1eaf003))
 	for range 20 {
 		src := rng.IntN(n)
@@ -41,8 +44,9 @@ func TestSimHeavyRandomConvergence(t *testing.T) {
 		if src == dst {
 			continue
 		}
-		if !net.nodes[dst].tr.HasPath(net.nodes[src].destHash) {
-			t.Fatalf("node %d missing path to node %d after flood", dst, src)
+		took, ok := waitForPaths([]*simNode{net.nodes[dst]}, net.nodes[src].destHash, timeout)
+		if ok != 1 {
+			t.Fatalf("node %d missing path to node %d after flood (waited %v)", dst, src, took)
 		}
 	}
 	t.Logf("heavy random(N=%d) sample pairs ok (%s)", n, formatSimTimeout(net))
