@@ -313,7 +313,10 @@ func TestI2PPeerMaxReconnectExhausted(t *testing.T) {
 
 	deadline := time.Now().Add(40 * time.Second)
 	for time.Now().Before(deadline) {
-		if !peer.In && !peer.Out {
+		peer.Mutex.RLock()
+		done := !peer.In && !peer.Out
+		peer.Mutex.RUnlock()
+		if done {
 			break
 		}
 		time.Sleep(200 * time.Millisecond)

@@ -91,6 +91,9 @@ func New(id *identity.Identity, direction byte, destType byte, appName string, t
 		debug.Log(debug.DebugError, "Cannot create destination: identity is nil for non-Plain destination")
 		return nil, errors.New("identity cannot be nil for non-Plain destination")
 	}
+	if err := ValidateNameParts(appName, aspects...); err != nil {
+		return nil, err
+	}
 
 	d := &Destination{
 		identity:        id,
@@ -163,6 +166,23 @@ func ExpandAppName(appName string, aspects ...string) string {
 		name.WriteString(aspect)
 	}
 	return name.String()
+}
+
+// ValidateNameParts rejects dots in app names and aspects, matching Python
+// RNS.Destination. Dots would otherwise make expand_name / ParseName ambiguous.
+func ValidateNameParts(appName string, aspects ...string) error {
+	if appName == "" {
+		return errors.New("app name required")
+	}
+	if strings.Contains(appName, ".") {
+		return errors.New("dots can't be used in app names")
+	}
+	for _, aspect := range aspects {
+		if strings.Contains(aspect, ".") {
+			return errors.New("dots can't be used in aspects")
+		}
+	}
+	return nil
 }
 
 // ParseName splits a dotted destination name into app name and aspects.

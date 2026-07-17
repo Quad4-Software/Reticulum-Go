@@ -372,11 +372,13 @@ func (l *Link) HandleIdentification(data []byte) error {
 		}
 	}
 
-	l.remoteIdentity = remoteIdentity
-
-	if l.identifiedCallback != nil {
-		debug.Log(debug.DebugVerbose, "Executing identified callback for remote identity", "public_key", fmt.Sprintf("%x", pubKey[:8]))
-		l.identifiedCallback(l, remoteIdentity)
+	// Match Python 1.3.9: set remote identity and fire the callback only once.
+	if l.remoteIdentity == nil {
+		l.remoteIdentity = remoteIdentity
+		if l.identifiedCallback != nil {
+			debug.Log(debug.DebugVerbose, "Executing identified callback for remote identity", "public_key", fmt.Sprintf("%x", pubKey[:8]))
+			l.identifiedCallback(l, remoteIdentity)
+		}
 	}
 
 	return nil
@@ -1704,19 +1706,36 @@ func (l *Link) handleResourceHashmapUpdate(pkt *packet.Packet) error {
 }
 
 func (l *Link) handleResourceCancel(pkt *packet.Packet) error {
-	_, err := l.decrypt(pkt.Data)
+	plaintext, err := l.decrypt(pkt.Data)
 	if err != nil {
 		return err
 	}
 	l.resetIncomingResource()
+	// Match Python 1.3.9 resource.cancel on the receiver: notify the initiator
+	// with RESOURCE_RCL after cancelling the incoming transfer.
+	if l.status.Load() == int32(StatusActive) && len(plaintext) >= sha256.Size {
+		_ = l.rejectResource(plaintext[:sha256.Size]) // #nosec G104 - best effort
+	}
 	return nil
 }
 
 func (l *Link) handleResourceReject(pkt *packet.Packet) error {
-	_, err := l.decrypt(pkt.Data)
+	plaintext, err := l.decrypt(pkt.Data)
 	if err != nil {
 		return err
 	}
+	if len(plaintext) < sha256.Size {
+		return nil
+	}
+	resourceHash := plaintext[:sha256.Size]
+	l.outgoingMu.Lock()
+	out := l.outgoingRes
+	l.outgoingMu.Unlock()
+	if out == nil || !bytes.Equal(out.GetHash(), resourceHash) {
+		return nil
+	}
+	out.Cancel()
+	l.signalOutgoingResourceComplete()
 	return nil
 }
 

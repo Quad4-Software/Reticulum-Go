@@ -4,6 +4,8 @@
 package discovery
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -121,5 +123,35 @@ func TestInterfaceAnnouncerAnnounceDue(t *testing.T) {
 	ann.mu.Unlock()
 	if !last.Equal(now) {
 		t.Fatalf("interval should suppress second announce, last=%v", last)
+	}
+}
+
+func TestApplyDiscoveryLocationCmd(t *testing.T) {
+	dir := t.TempDir()
+	script := filepath.Join(dir, "loc.sh")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\necho '12.5, -45.25, 100'\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	iface := &common.InterfaceConfig{DiscoveryLocationCmd: script}
+	if err := applyDiscoveryLocationCmd(iface); err != nil {
+		t.Fatal(err)
+	}
+	if !iface.HasDiscoveryGeo {
+		t.Fatal("expected geo from location_cmd")
+	}
+	if iface.DiscoveryLatitude != 12.5 || iface.DiscoveryLongitude != -45.25 || iface.DiscoveryHeight != 100 {
+		t.Fatalf("geo=%v,%v,%v", iface.DiscoveryLatitude, iface.DiscoveryLongitude, iface.DiscoveryHeight)
+	}
+}
+
+func TestApplyDiscoveryLocationCmdRejectsBadRange(t *testing.T) {
+	dir := t.TempDir()
+	script := filepath.Join(dir, "loc.sh")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\necho '999,0,0'\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	iface := &common.InterfaceConfig{DiscoveryLocationCmd: script}
+	if err := applyDiscoveryLocationCmd(iface); err == nil {
+		t.Fatal("expected latitude range error")
 	}
 }

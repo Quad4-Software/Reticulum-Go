@@ -379,6 +379,10 @@ func (a *Announce) CreatePacket() ([]byte, error) {
 	packet = append(packet, signature...)
 	packet = append(packet, a.appData...)
 
+	if len(packet) > PacketMTU {
+		return nil, fmt.Errorf("announce packet size %d exceeds MTU %d", len(packet), PacketMTU)
+	}
+
 	debug.Log(debug.DebugTrace, "Final announce packet", "totalBytes", len(packet), "ratchetLen", len(ratchetData), "appDataLen", len(a.appData))
 
 	return packet, nil

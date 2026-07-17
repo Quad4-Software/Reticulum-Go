@@ -515,6 +515,8 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		setInt(value, &iface.DiscoveryStampValue)
 	case "discovery_encrypt":
 		iface.DiscoveryEncrypt = parseBool(value)
+	case "location_cmd":
+		iface.DiscoveryLocationCmd = value
 	case "latitude":
 		setFloat(value, &iface.DiscoveryLatitude)
 		iface.HasDiscoveryGeo = true
@@ -821,6 +823,9 @@ func writeInterface(b *strings.Builder, name string, iface *common.InterfaceConf
 	}
 	if iface.DiscoveryEncrypt {
 		fmt.Fprintf(b, "    discovery_encrypt = %s\n", boolStr(iface.DiscoveryEncrypt))
+	}
+	if iface.DiscoveryLocationCmd != "" {
+		fmt.Fprintf(b, "    location_cmd = %s\n", iface.DiscoveryLocationCmd)
 	}
 	if iface.HasDiscoveryGeo {
 		fmt.Fprintf(b, "    latitude = %g\n", iface.DiscoveryLatitude)

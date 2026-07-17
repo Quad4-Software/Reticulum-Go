@@ -551,14 +551,17 @@ func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id any, appData []by
 			}
 
 			if nodeName, ok := extractNodeName(decoded); ok {
-				debug.Log(debug.DebugInfo, "Parsed node name", "name", nodeName)
-				debug.Log(debug.DebugInfo, "Announced node", "name", nodeName)
+				nodeName = ClampDisplayName(nodeName, "")
+				if nodeName != "" {
+					debug.Log(debug.DebugInfo, "Parsed node name", "name", nodeName)
+					debug.Log(debug.DebugInfo, "Announced node", "name", nodeName)
+				}
 			} else if !isNode {
 				debug.Log(debug.DebugInfo, "Parsed structured appData", "value", fmt.Sprintf("%v", decoded))
 			}
 		} else {
 			if utf8.Valid(appData) {
-				nodeName := strings.TrimSpace(string(appData))
+				nodeName := ClampDisplayName(string(appData), "")
 				if nodeName != "" {
 					debug.Log(debug.DebugInfo, "Raw node name", "name", nodeName)
 					debug.Log(debug.DebugInfo, "Announced node", "name", nodeName)

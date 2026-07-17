@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -612,6 +613,42 @@ func TestGetRatchetsDisabled(t *testing.T) {
 	d, _ := New(id, In|Out, Single, "app", &mockTransport{})
 	if got := d.GetRatchets(); got != nil {
 		t.Errorf("expected nil ratchets when disabled, got %v", got)
+	}
+}
+
+func TestNew_RejectsDotsInAppName(t *testing.T) {
+	id, err := identity.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr := &mockTransport{}
+	_, err = New(id, In|Out, Single, "bad.app", tr, "aspect")
+	if err == nil || !strings.Contains(err.Error(), "app names") {
+		t.Fatalf("expected dots-in-app-name rejection, got: %v", err)
+	}
+}
+
+func TestNew_RejectsDotsInAspect(t *testing.T) {
+	id, err := identity.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr := &mockTransport{}
+	_, err = New(id, In|Out, Single, "app", tr, "bad.aspect")
+	if err == nil || !strings.Contains(err.Error(), "aspects") {
+		t.Fatalf("expected dots-in-aspect rejection, got: %v", err)
+	}
+}
+
+func TestValidateNameParts(t *testing.T) {
+	if err := ValidateNameParts("app", "one", "two"); err != nil {
+		t.Fatalf("honest name rejected: %v", err)
+	}
+	if err := ValidateNameParts("a.b"); err == nil {
+		t.Fatal("expected app name rejection")
+	}
+	if err := ValidateNameParts("app", "x.y"); err == nil {
+		t.Fatal("expected aspect rejection")
 	}
 }
 

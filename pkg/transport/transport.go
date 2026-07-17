@@ -2660,6 +2660,10 @@ func CreateAnnouncePacket(destHash []byte, identity *identity.Identity, appData 
 	debug.Log(debug.DebugInfo, "Final packet size", "bytes", len(packet))
 	debug.Log(debug.DebugInfo, "appDataMsg", "data", fmt.Sprintf("%x", appDataMsg), "len", len(appDataMsg))
 
+	if len(packet) > announce.PacketMTU {
+		return nil, fmt.Errorf("announce packet size %d exceeds MTU %d", len(packet), announce.PacketMTU)
+	}
+
 	return packet, nil
 }
 

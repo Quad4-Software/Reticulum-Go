@@ -41,7 +41,7 @@ func (s *Server) handleRegisterDestination(w http.ResponseWriter, r *http.Reques
 
 	dest, err := destination.New(sess.identity, destination.In, destination.Single, req.AppName, s.transport, req.Aspects...)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("register destination: %v", err))
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("register destination: %v", err))
 		return
 	}
 
@@ -225,6 +225,15 @@ func (s *Server) handleAnnounce(w http.ResponseWriter, r *http.Request) {
 		appData, err := base64.StdEncoding.DecodeString(req.AppData)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "app_data must be base64-encoded")
+			return
+		}
+		// Announce app_data must fit packet.MTU after fixed fields.
+		// HEADER1 without ratchet leaves 333 bytes; with ratchet 301.
+		// Allow the no-ratchet budget and let CreatePacket reject if a
+		// ratchet is attached and the payload no longer fits.
+		const maxAnnounceAppData = 333
+		if len(appData) > maxAnnounceAppData {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("app_data exceeds announce MTU budget (%d > %d)", len(appData), maxAnnounceAppData))
 			return
 		}
 		dest.SetDefaultAppData(appData)

@@ -121,6 +121,12 @@ func packInt64Compact(v int64) any {
 }
 
 func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
+	// Link advertisements are MDU-sized. Cap far above that to reject
+	// adversarial offline blobs without changing honest transfers.
+	const maxAdvertisementBytes = 64 * 1024
+	if len(data) > maxAdvertisementBytes {
+		return nil, fmt.Errorf("advertisement too large (%d > %d)", len(data), maxAdvertisementBytes)
+	}
 	var dict map[string]any
 	if err := msgpack.Unmarshal(data, &dict); err != nil {
 		return nil, fmt.Errorf("failed to unpack advertisement: %w", err)

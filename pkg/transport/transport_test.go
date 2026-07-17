@@ -178,8 +178,11 @@ func TestAnnounceHopCount(t *testing.T) {
 	id, _ := identity.New()
 
 	// Create a destination to get a valid hash for this identity
-	// NewAnnouncePacket uses "reticulum-go.node" by default
-	dest, _ := destination.New(id, destination.In, destination.Single, "reticulum-go.node", tr)
+	// NewAnnouncePacket hashes expand name "reticulum-go.node"
+	dest, err := destination.New(id, destination.In, destination.Single, "reticulum-go", tr, "node")
+	if err != nil {
+		t.Fatalf("destination.New: %v", err)
+	}
 	destHash := dest.GetHash()
 
 	// Create a raw announce packet manually to control hop count
@@ -240,7 +243,10 @@ func TestAnnounceRejectsOverMaxHops(t *testing.T) {
 	_ = tr.RegisterInterface("wasm0", iface)
 
 	id, _ := identity.New()
-	dest, _ := destination.New(id, destination.In, destination.Single, "reticulum-go.node", tr)
+	dest, err := destination.New(id, destination.In, destination.Single, "reticulum-go", tr, "node")
+	if err != nil {
+		t.Fatalf("destination.New: %v", err)
+	}
 	destHash := dest.GetHash()
 
 	transportID := make([]byte, 16)

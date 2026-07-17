@@ -19,12 +19,11 @@ func sentCount(ti *trackingIface) int {
 	return len(ti.sent)
 }
 
-// signedAnnounce builds a valid announce. Dest name must be
-
+// signedAnnounce builds a valid announce. Dest expand name must be
 // "reticulum-go.node" to match NewAnnouncePacket name hashing.
 func signedAnnounce(t *testing.T, tr *Transport, id *identity.Identity) (raw, destHash []byte) {
 	t.Helper()
-	dest, err := destination.New(id, destination.In, destination.Single, "reticulum-go.node", tr)
+	dest, err := destination.New(id, destination.In, destination.Single, "reticulum-go", tr, "node")
 	if err != nil {
 		t.Fatalf("destination.New: %v", err)
 	}

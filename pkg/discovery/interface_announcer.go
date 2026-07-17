@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -241,6 +242,9 @@ func (a *InterfaceAnnouncer) infoForInterface(iface *common.InterfaceConfig) (*I
 	if len(transportID) == 0 {
 		return nil, errString("discovery: transport identity unavailable")
 	}
+	if err := applyDiscoveryLocationCmd(iface); err != nil {
+		return nil, err
+	}
 	ifaceType := normalizeIfaceType(iface.Type)
 	info := &Info{
 		Type:        ifaceType,
@@ -333,9 +337,42 @@ func sanitize(in string) string {
 	if in == "" {
 		return ""
 	}
-	out := strings.ReplaceAll(in, "\n", "")
-	out = strings.ReplaceAll(out, "\r", "")
-	return strings.TrimSpace(out)
+	// Match Python InterfaceAnnounceHandler.sanitize_name: ASCII alnum edges,
+	// strip CR/LF, collapse multi-spaces.
+	var b strings.Builder
+	b.Grow(len(in))
+	for _, r := range in {
+		if r == '\n' || r == '\r' {
+			continue
+		}
+		if r > 127 {
+			continue
+		}
+		b.WriteRune(r)
+	}
+	out := strings.TrimSpace(b.String())
+	for _, n := range []int{5, 3, 2} {
+		out = strings.ReplaceAll(out, strings.Repeat(" ", n), " ")
+	}
+	for len(out) > 0 && !isSanMap(out[0]) {
+		out = out[1:]
+	}
+	for len(out) > 0 {
+		last := out[len(out)-1]
+		if isSanMap(last) || last == ')' {
+			break
+		}
+		out = out[:len(out)-1]
+	}
+	const maxDiscoveryName = 255
+	if len(out) > maxDiscoveryName {
+		out = out[:maxDiscoveryName]
+	}
+	return out
+}
+
+func isSanMap(c byte) bool {
+	return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
 }
 
 func resolveReachableOn(raw string) (string, error) {
@@ -357,6 +394,54 @@ func resolveReachableOn(raw string) (string, error) {
 		_ = filepath.Base(execPath)
 	}
 	return reachable, nil
+}
+
+// applyDiscoveryLocationCmd runs location_cmd when set and fills geo fields.
+func applyDiscoveryLocationCmd(iface *common.InterfaceConfig) error {
+	if iface == nil || iface.DiscoveryLocationCmd == "" {
+		return nil
+	}
+	execPath := os.ExpandEnv(strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(iface.DiscoveryLocationCmd, "\n", ""), "\r", "")))
+	st, err := os.Stat(execPath)
+	if err != nil || st.IsDir() || st.Mode()&0o111 == 0 {
+		return errString("discovery: location_cmd is not an executable file")
+	}
+	cmd := exec.Command(execPath) // #nosec G204 -- operator-configured location_cmd
+	out, err := cmd.Output()
+	if err != nil {
+		return errString("discovery: location_cmd failed")
+	}
+	location := strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(string(out), "\n", ""), "\r", ""))
+	parts := strings.Split(strings.ReplaceAll(location, " ", ""), ",")
+	if len(parts) != 3 {
+		return errString("discovery: location_cmd must print lat,lon,height")
+	}
+	dlat, err := strconv.ParseFloat(parts[0], 64)
+	if err != nil {
+		return errString("discovery: invalid location_cmd latitude")
+	}
+	dlon, err := strconv.ParseFloat(parts[1], 64)
+	if err != nil {
+		return errString("discovery: invalid location_cmd longitude")
+	}
+	dhgt, err := strconv.ParseFloat(parts[2], 64)
+	if err != nil {
+		return errString("discovery: invalid location_cmd height")
+	}
+	if dlat < -90 || dlat > 90 {
+		return errString("discovery: invalid location_cmd latitude range")
+	}
+	if dlon < -180 || dlon > 180 {
+		return errString("discovery: invalid location_cmd longitude range")
+	}
+	if dhgt < -4000 || dhgt > 1e6 {
+		return errString("discovery: invalid location_cmd height range")
+	}
+	iface.DiscoveryLatitude = dlat
+	iface.DiscoveryLongitude = dlon
+	iface.DiscoveryHeight = dhgt
+	iface.HasDiscoveryGeo = true
+	return nil
 }
 
 // HasDiscoverableInterfaces reports whether cfg lists any discoverable iface.

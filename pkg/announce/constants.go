@@ -32,6 +32,9 @@ const (
 	PropagationRate = 0.02
 	RetryInterval   = 300
 	MaxRetries      = 3
+
+	// PacketMTU matches packet.MTU. Announce CreatePacket rejects larger wires.
+	PacketMTU = 500
 )
 
 // Wire-format sizes for announce packets. These mirror the on-disk layout

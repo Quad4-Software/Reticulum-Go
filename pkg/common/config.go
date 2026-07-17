@@ -145,6 +145,9 @@ type InterfaceConfig struct {
 	DiscoveryStampValue int
 	// DiscoveryEncrypt encrypts announces with the network identity.
 	DiscoveryEncrypt bool
+	// DiscoveryLocationCmd is an optional executable that prints
+	// "lat,lon,height" used for discovery geo fields.
+	DiscoveryLocationCmd string
 	// DiscoveryLatitude Longitude Height are optional geo fields.
 	DiscoveryLatitude  float64
 	DiscoveryLongitude float64
