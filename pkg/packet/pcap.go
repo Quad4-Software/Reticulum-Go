@@ -163,7 +163,9 @@ func WritePCAPEthernetUDPv4(w io.Writer, payload []byte, srcPort, dstPort uint16
 	udpLen := 8 + len(payload)
 	ipLen := 20 + udpLen
 	frameLen := 14 + ipLen
-	if udpLen > 0xffff || ipLen > 0xffff || frameLen > 0xffffffff {
+	// Cap at uint16 so IP/UDP length fields and the uint32 pcap header stay in range
+	// on both 32-bit and 64-bit ints (0xffffffff is not a valid 32-bit int constant).
+	if udpLen > 0xffff || ipLen > 0xffff {
 		return errors.New("pcap: frame too large for UDP/IPv4 headers")
 	}
 	frame := make([]byte, frameLen)
