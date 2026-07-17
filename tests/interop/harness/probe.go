@@ -105,7 +105,7 @@ func StartPython(t *testing.T, opts ProbeOpts) *Probe {
 		t.Fatal("harness.StartPython: Script is required")
 	}
 
-	cmd := exec.CommandContext(opts.Ctx, opts.Python, opts.Script)
+	cmd := exec.CommandContext(opts.Ctx, opts.Python, opts.Script) // #nosec G204 -- interop harness uses controlled PYTHON_INTEROP and script paths
 	if opts.Dir != "" {
 		cmd.Dir = opts.Dir
 	}

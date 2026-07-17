@@ -5,6 +5,7 @@ package packet
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 )
@@ -162,6 +163,9 @@ func WritePCAPEthernetUDPv4(w io.Writer, payload []byte, srcPort, dstPort uint16
 	udpLen := 8 + len(payload)
 	ipLen := 20 + udpLen
 	frameLen := 14 + ipLen
+	if udpLen > 0xffff || ipLen > 0xffff || frameLen > 0xffffffff {
+		return errors.New("pcap: frame too large for UDP/IPv4 headers")
+	}
 	frame := make([]byte, frameLen)
 	// Ethernet: dest, src, type IPv4
 	copy(frame[0:6], []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
@@ -169,7 +173,7 @@ func WritePCAPEthernetUDPv4(w io.Writer, payload []byte, srcPort, dstPort uint16
 	frame[12], frame[13] = 0x08, 0x00
 	ip := frame[14:]
 	ip[0] = 0x45
-	binary.BigEndian.PutUint16(ip[2:4], uint16(ipLen))
+	binary.BigEndian.PutUint16(ip[2:4], uint16(ipLen)) // #nosec G115 -- bounded above
 	ip[8] = 64
 	ip[9] = 17
 	copy(ip[12:16], []byte{127, 0, 0, 1})
@@ -178,12 +182,12 @@ func WritePCAPEthernetUDPv4(w io.Writer, payload []byte, srcPort, dstPort uint16
 	udp := ip[20:]
 	binary.BigEndian.PutUint16(udp[0:2], srcPort)
 	binary.BigEndian.PutUint16(udp[2:4], dstPort)
-	binary.BigEndian.PutUint16(udp[4:6], uint16(udpLen))
+	binary.BigEndian.PutUint16(udp[4:6], uint16(udpLen)) // #nosec G115 -- bounded above
 	copy(udp[8:], payload)
 
 	ph := make([]byte, 16)
-	binary.LittleEndian.PutUint32(ph[8:12], uint32(frameLen))
-	binary.LittleEndian.PutUint32(ph[12:16], uint32(frameLen))
+	binary.LittleEndian.PutUint32(ph[8:12], uint32(frameLen))  // #nosec G115 -- bounded above
+	binary.LittleEndian.PutUint32(ph[12:16], uint32(frameLen)) // #nosec G115 -- bounded above
 	if _, err := w.Write(ph); err != nil {
 		return err
 	}

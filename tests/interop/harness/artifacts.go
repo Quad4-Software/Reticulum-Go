@@ -27,7 +27,7 @@ func ArtifactsDir(t *testing.T) string {
 		return base
 	}
 	base = filepath.Join(base, sanitizeName(t.Name()))
-	_ = os.MkdirAll(base, 0o700)
+	_ = os.MkdirAll(base, 0o700) // #nosec G703 -- path under INTEROP_ARTIFACT_ROOT plus sanitized test name
 	return base
 }
 

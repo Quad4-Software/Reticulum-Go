@@ -301,19 +301,19 @@ func RunLoopbackSpeedtest(opt SpeedtestOptions) (SpeedtestResult, error) {
 	pb.tr = trB
 
 	if err := trA.RegisterInterface(pa.Name, pa); err != nil {
-		trA.Close()
-		trB.Close()
+		_ = trA.Close()
+		_ = trB.Close()
 		return SpeedtestResult{}, err
 	}
 	if err := trB.RegisterInterface(pb.Name, pb); err != nil {
-		trA.Close()
-		trB.Close()
+		_ = trA.Close()
+		_ = trB.Close()
 		return SpeedtestResult{}, err
 	}
 
 	cleanup := func() {
-		trA.Close()
-		trB.Close()
+		_ = trA.Close()
+		_ = trB.Close()
 	}
 	defer cleanup()
 

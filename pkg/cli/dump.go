@@ -57,7 +57,7 @@ func RunDump(args []string, opt ...Options) int {
 		frames = append(frames, packet.DecodeFrame(raw))
 	case fs.NArg() > 0:
 		for _, p := range fs.Args() {
-			b, err := os.ReadFile(p)
+			b, err := os.ReadFile(p) // #nosec G304 -- operator-chosen input path
 			if err != nil {
 				fmt.Fprintf(stderr, "read %s: %v\n", p, err)
 				return 1

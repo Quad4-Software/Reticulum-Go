@@ -34,7 +34,7 @@ func NewEventLog(dir string) (*EventLog, error) {
 		return nil, err
 	}
 	path := filepath.Join(dir, "events.jsonl")
-	f, err := os.Create(path)
+	f, err := os.Create(path) // #nosec G304 -- dir is ArtifactsDir or TempDir from the test harness
 	if err != nil {
 		return nil, err
 	}

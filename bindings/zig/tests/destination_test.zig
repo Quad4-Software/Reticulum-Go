@@ -4,9 +4,19 @@
 const std = @import("std");
 const rns = @import("rns");
 const testing = std.testing;
+const helpers = @import("helpers.zig");
 
 test "destination create announce hash" {
-    const node = try rns.nodeCreate("");
+    const port = try helpers.freeUdpPort();
+
+    var tmp = testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try helpers.writeUdpPeerConfig(tmp.dir, port, port);
+
+    const cfg = try helpers.configPath(tmp, testing.allocator);
+    defer testing.allocator.free(cfg);
+
+    const node = try rns.nodeCreate(cfg);
     defer rns.nodeDestroy(node) catch {};
 
     const id = try rns.identityGenerate();

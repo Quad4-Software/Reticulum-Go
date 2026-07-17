@@ -5,8 +5,20 @@
 
 #include <rns/rns.hpp>
 
+#include "helpers.hpp"
+
 TEST_CASE("destination create announce hash", "[destination]") {
-	auto node_r = rns::Node::create("");
+	auto port = rns_test::free_udp_port();
+	REQUIRE(port != 0);
+	auto dir = rns_test::make_temp_dir();
+	REQUIRE_FALSE(dir.empty());
+	struct Cleanup {
+		std::string path;
+		~Cleanup() { rns_test::remove_temp_dir(path); }
+	} cleanup{dir};
+	REQUIRE(rns_test::write_udp_peer_config(dir, port, port));
+
+	auto node_r = rns::Node::create(rns_test::config_path(dir));
 	REQUIRE(node_r.ok());
 	auto node = std::move(node_r).value();
 

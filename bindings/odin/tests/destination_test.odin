@@ -3,13 +3,25 @@
 
 package rns_tests
 
+import "core:path/filepath"
 import "core:testing"
 
 import rns "rns:rns"
 
 @(test)
 test_destination_create_announce_hash :: proc(t: ^testing.T) {
-	node, nerr := rns.node_create("")
+	port, ok := free_udp_port()
+	if !testing.expect(t, ok) {
+		return
+	}
+	dir := make_temp_dir(t)
+	if !testing.expect(t, write_udp_peer_config(dir, port, port)) {
+		return
+	}
+	cfg, _ := filepath.join({dir, "config"})
+	defer delete(cfg)
+
+	node, nerr := rns.node_create(cfg)
 	if !expect_ok(t, nerr) {
 		return
 	}
