@@ -271,11 +271,19 @@ func (l *Link) beginIncomingResource(adv *resource.ResourceAdvertisement) error 
 	if adv.Parts <= 0 {
 		return errors.New("invalid parts in advertisement")
 	}
-	if adv.Parts > int(resource.MaxSegments) {
+	maxSegmentBytes := int64(resource.MaxEfficientSize) + 4096
+	maxParts := max(int(maxSegmentBytes/int64(sdu))+8, 1)
+	if maxParts > int(resource.MaxSegments) {
+		maxParts = int(resource.MaxSegments)
+	}
+	if adv.Parts > maxParts {
 		return errors.New("incoming resource parts exceed MaxSegments")
 	}
 	if adv.TransferSize < 0 {
 		return errors.New("incoming resource has negative transfer_size")
+	}
+	if adv.TransferSize > maxSegmentBytes {
+		return errors.New("incoming resource transfer_size exceeds MaxEfficientSize")
 	}
 	maxTransfer := int64(adv.Parts) * int64(sdu)
 	if adv.TransferSize > maxTransfer {

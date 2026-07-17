@@ -886,3 +886,12 @@ func FuzzPacketUnpack(f *testing.F) {
 		_ = p.Unpack()
 	})
 }
+
+func TestUnpackRejectsOversizedInbound(t *testing.T) {
+	p := &Packet{Raw: make([]byte, MaxInboundPacketSize+1)}
+	p.Raw[0] = 0
+	p.Raw[1] = 0
+	if err := p.Unpack(); err == nil {
+		t.Fatal("expected oversized inbound rejection")
+	}
+}

@@ -25,9 +25,7 @@ func fakeSAMForDial(t *testing.T, failConnect bool, sessionCreates *atomic.Int32
 	}
 	var wg sync.WaitGroup
 	done := make(chan struct{})
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			conn, err := ln.Accept()
 			if err != nil {
@@ -75,7 +73,7 @@ func fakeSAMForDial(t *testing.T, failConnect bool, sessionCreates *atomic.Int32
 				}
 			}(conn)
 		}
-	}()
+	})
 	return ln.Addr().String(), func() {
 		close(done)
 		_ = ln.Close()
@@ -240,9 +238,7 @@ func TestI2PPeerStopCancelsDial(t *testing.T) {
 	}
 	var wg sync.WaitGroup
 	done := make(chan struct{})
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			c, err := ln.Accept()
 			if err != nil {
@@ -273,7 +269,7 @@ func TestI2PPeerStopCancelsDial(t *testing.T) {
 				}
 			}(c)
 		}
-	}()
+	})
 
 	parent, err := NewI2PInterface("i2p_cancel", &common.InterfaceConfig{
 		Type:          "I2PInterface",

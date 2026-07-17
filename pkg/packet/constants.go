@@ -78,5 +78,7 @@ const (
 	HeaderMaxSize = 64
 	MTU           = 500
 
+	MaxInboundPacketSize = 262144
+
 	AddressSize = 32
 )

@@ -2354,6 +2354,22 @@ func (t *Transport) RegisterLink(linkID []byte, linkObj LinkInterface) {
 	}
 }
 
+func (t *Transport) LinkCount() int {
+	if t == nil {
+		return 0
+	}
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	return len(t.links)
+}
+
+func (t *Transport) CanAcceptIncomingLink() bool {
+	if t == nil {
+		return false
+	}
+	return t.LinkCount() < MaxRegisteredLinks
+}
+
 // FindLink returns a registered link by link ID, or nil.
 func (t *Transport) FindLink(linkID []byte) LinkInterface {
 	if t == nil || len(linkID) == 0 {

@@ -151,11 +151,14 @@ func HandleIncomingLinkRequest(pkt *packet.Packet, dest *destination.Destination
 	startTime := time.Now()
 	debug.Log(debug.DebugInfo, "Creating link for incoming request", "dest_hash", fmt.Sprintf("%x", dest.GetHash()), "interface", networkIface.GetName())
 
+	if transport != nil && !transport.CanAcceptIncomingLink() {
+		return nil, errors.New("incoming link limit reached")
+	}
+
 	l := NewLink(dest, transport, networkIface, nil, nil)
 	l.status.Store(int32(StatusPending))
-	l.initiator = false // This is a responder link
+	l.initiator = false
 
-	// Set the established callback from the destination if it exists
 	if dest.GetLinkCallback() != nil {
 		l.SetEstablishedCallback(func(lnk *Link) {
 			dest.GetLinkCallback()(lnk)

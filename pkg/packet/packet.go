@@ -196,6 +196,9 @@ func (p *Packet) Unpack() error {
 	if len(p.Raw) < MinPacketSize {
 		return errors.New("packet too short")
 	}
+	if len(p.Raw) > MaxInboundPacketSize {
+		return errors.New("packet exceeds maximum inbound size")
+	}
 
 	flags := p.Raw[0]
 	p.Hops = p.Raw[1]
