@@ -16,6 +16,10 @@ For Go apps, prefer `pkg/node` directly. For a separate daemon and JSON/WebSocke
 | `pkg/librns/capi` | CGO `//export` shims |
 | `cmd/librns` | `-buildmode=c-shared` entry |
 | `examples/librns-smoke` | Minimal C smoke program |
+| `examples/librns-page-fetch` | C NomadNet-style page fetch over librns |
+| `examples/odin-page-fetch` | Odin NomadNet-style page fetch over librns |
+| `examples/librns-pageserver` | C NomadNet-style pageserver over librns |
+| `examples/odin-pageserver` | Odin NomadNet-style pageserver over librns |
 | `bindings/odin` | Idiomatic Odin bindings and tests over `librns.so` |
 | `bindings/dart` | Dart FFI (`ffi.dart`) plus Control API client |
 
@@ -29,7 +33,35 @@ make -C examples/librns-smoke
 ./examples/librns-smoke/librns-smoke
 ```
 
-Needs a C toolchain and CGO. Output: `bin/librns.so` and a copy of the header under `bin/rns.h`.
+Page fetch against a live NomadNet or pageserver peer:
+
+```bash
+make -C examples/librns-page-fetch
+./examples/librns-page-fetch/librns-page-fetch \
+  -c /path/to/config \
+  <dest_hash>:/page/index.mu
+
+make -C examples/odin-page-fetch
+./examples/odin-page-fetch/odin-page-fetch \
+  -c /path/to/config \
+  <dest_hash>:/page/index.mu
+```
+
+Configs need an online TCP or Backbone hub from [directory.rns.recipes](https://directory.rns.recipes/). `config.example` only has AutoInterface.
+
+Pageserver peers (announce `nomadnetwork.node` and serve `/page/index.mu`):
+
+```bash
+make -C examples/librns-pageserver
+./examples/librns-pageserver/librns-pageserver \
+  -c /path/to/config
+
+make -C examples/odin-pageserver
+./examples/odin-pageserver/odin-pageserver \
+  -c /path/to/config
+```
+
+Needs a C toolchain and CGO. Output: `bin/librns.so` and a copy of the header under `bin/rns.h`. The Odin examples also need `odin` on `PATH`.
 
 ## librns vs Control API
 
@@ -82,6 +114,7 @@ Authoritative names live in `include/rns.h`. Summary below.
 |----------|-------|
 | `rns_identity_generate` | New software identity |
 | `rns_identity_load` | Path from operator config. Rejects empty and NUL |
+| `rns_identity_save` | Write identity to path (standard file layout) |
 | `rns_identity_destroy` | Release handle |
 | `rns_identity_hash` | Truncated hash as 32 hex chars |
 
@@ -200,7 +233,7 @@ import rns "rns:rns"
 |------|----------------|
 | Version and errors | `version`, `last_error`, `error_string`, `Error` |
 | Node lifecycle | `node_create`, `node_start`, `node_stop`, `node_destroy`, `node_pause`, `node_resume`, `node_set_identity`, `node_refresh_paths` |
-| Identity | `identity_generate`, `identity_load`, `identity_destroy`, `identity_hash` |
+| Identity | `identity_generate`, `identity_load`, `identity_save`, `identity_destroy`, `identity_hash` |
 | Destination | `destination_create`, `destination_announce`, `destination_hash`, destroy, request handler register |
 | Path | `path_request`, `path_table` |
 | Link and requests | `link_open`, `link_send`, `link_close`, `link_id`, `link_request`, `request_respond` |

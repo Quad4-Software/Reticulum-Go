@@ -117,6 +117,32 @@ func TestIdentityLoadRoundTrip(t *testing.T) {
 	}
 }
 
+func TestIdentitySaveRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/saved"
+	id, code := IdentityGenerate()
+	if code != OK {
+		t.Fatal(code)
+	}
+	t.Cleanup(func() { _ = IdentityDestroy(id) })
+	want, code := IdentityHashHex(id)
+	if code != OK {
+		t.Fatal(code)
+	}
+	if code := IdentitySave(id, path); code != OK {
+		t.Fatal(code, LastError())
+	}
+	loaded, code := IdentityLoad(path)
+	if code != OK {
+		t.Fatal(code, LastError())
+	}
+	t.Cleanup(func() { _ = IdentityDestroy(loaded) })
+	got, code := IdentityHashHex(loaded)
+	if code != OK || got != want {
+		t.Fatalf("got %q want %q code %d", got, want, code)
+	}
+}
+
 func TestEventQueueOverflowDropOldest(t *testing.T) {
 	q := newEventQueue(2)
 	q.push(Event{Kind: EventAnnounce, Hops: 1})
@@ -237,7 +263,7 @@ func TestDecodeHexHash(t *testing.T) {
 }
 
 func TestVersion(t *testing.T) {
-	if Version() != APIVersion || APIVersion != "1.1" {
+	if Version() != APIVersion || APIVersion != "1.2" {
 		t.Fatalf("version %q", Version())
 	}
 }

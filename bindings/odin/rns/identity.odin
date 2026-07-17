@@ -26,6 +26,14 @@ identity_load :: proc(path: string) -> (identity: Identity, err: Error) {
 	return Identity(h), .Ok
 }
 
+identity_save :: proc(identity: Identity, path: string) -> Error {
+	if path == "" {
+		return .Invalid_Arg
+	}
+	path_c := strings.clone_to_cstring(path, context.temp_allocator)
+	return Error(rns_identity_save(u64(identity), path_c))
+}
+
 identity_destroy :: proc(identity: Identity) -> Error {
 	return Error(rns_identity_destroy(u64(identity)))
 }

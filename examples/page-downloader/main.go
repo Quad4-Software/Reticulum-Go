@@ -11,18 +11,21 @@ import (
 	"syscall"
 	"time"
 
+	"quad4/reticulum-go/pkg/backbone"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/interfaces"
 	"quad4/reticulum-go/pkg/link"
+	"quad4/reticulum-go/pkg/reticulumconfig"
 	"quad4/reticulum-go/pkg/transport"
 )
 
 var (
 	timeout    = flag.Int("timeout", 30, "Timeout in seconds for link establishment and request")
 	logLevel   = flag.Int("log-level", -1, "Log level override (1-7). Alias for -debug")
+	configPath = flag.String("config", "", "Reticulum config file (required unless -udp)")
 	useUDP     = flag.Bool("udp", false, "Use local UDP interface mode")
 	listenPort = flag.Int("listen-port", 4243, "UDP listen port when -udp is enabled")
 	targetPort = flag.Int("target-port", 4242, "UDP target port when -udp is enabled")
@@ -40,7 +43,14 @@ func main() {
 		fmt.Println("\nOptions:")
 		flag.PrintDefaults()
 		fmt.Println("\nExample:")
-		fmt.Println("  page-downloader 92798ea245a0afcfa559348e42d628c6:/page/index.mu")
+		fmt.Println("  page-downloader -config /path/to/config \\")
+		fmt.Println("    92798ea245a0afcfa559348e42d628c6:/page/index.mu")
+		os.Exit(1)
+	}
+
+	if !*useUDP && strings.TrimSpace(*configPath) == "" {
+		debug.Log(debug.DebugCritical, "Error: -config is required unless -udp is set")
+		fmt.Println("Pick a TCP or Backbone hub from https://directory.rns.recipes/")
 		os.Exit(1)
 	}
 
@@ -67,31 +77,30 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg := common.DefaultConfig()
-	cfg.Interfaces = make(map[string]*common.InterfaceConfig)
-
+	var cfg *common.ReticulumConfig
 	if *useUDP {
-		cfg.Interfaces["UDP"] = &common.InterfaceConfig{
-			Type:       "UDPInterface",
-			Enabled:    true,
-			Address:    fmt.Sprintf("0.0.0.0:%d", *listenPort),
-			TargetHost: fmt.Sprintf("127.0.0.1:%d", *targetPort),
-			Name:       "UDP",
+		cfg = common.DefaultConfig()
+		cfg.ShareInstance = false
+		cfg.Interfaces = map[string]*common.InterfaceConfig{
+			"UDP": {
+				Type:       "UDPInterface",
+				Enabled:    true,
+				Address:    fmt.Sprintf("0.0.0.0:%d", *listenPort),
+				TargetHost: fmt.Sprintf("127.0.0.1:%d", *targetPort),
+				Name:       "UDP",
+			},
 		}
 	} else {
-		cfg.Interfaces["Quad4 TCP"] = &common.InterfaceConfig{
-			Type:       "TCPClientInterface",
-			Enabled:    true,
-			TargetHost: "193.26.158.230",
-			TargetPort: 4965,
-			Name:       "Quad4 TCP",
+		cfg, err = reticulumconfig.LoadConfig(*configPath)
+		if err != nil {
+			debug.Log(debug.DebugCritical, "Error loading config", "error", err)
+			os.Exit(1)
 		}
+	}
 
-		cfg.Interfaces["Auto Discovery"] = &common.InterfaceConfig{
-			Type:    "AutoInterface",
-			Enabled: true,
-			Name:    "Auto Discovery",
-		}
+	if _, err := backbone.Init(backbone.ParseBackend(cfg.BackboneIO)); err != nil {
+		debug.Log(debug.DebugCritical, "Error initialising backbone hub", "error", err)
+		os.Exit(1)
 	}
 
 	trans := transport.NewTransport(cfg)
@@ -102,37 +111,13 @@ func main() {
 	debug.Log(debug.DebugInfo, "Transport started")
 
 	for name, ifaceConfig := range cfg.Interfaces {
-		if !ifaceConfig.Enabled {
+		if ifaceConfig == nil || !ifaceConfig.Enabled {
 			continue
 		}
-
-		var iface interfaces.Interface
-		switch ifaceConfig.Type {
-		case "UDPInterface":
-			iface, err = interfaces.NewUDPInterface(
-				name,
-				ifaceConfig.Address,
-				ifaceConfig.TargetHost,
-				ifaceConfig.Enabled,
-			)
-		case "TCPClientInterface":
-			iface, err = interfaces.NewTCPClientInterface(
-				name,
-				ifaceConfig.TargetHost,
-				ifaceConfig.TargetPort,
-				ifaceConfig.KISSFraming,
-				ifaceConfig.I2PTunneled,
-				ifaceConfig.Enabled,
-			)
-		case "AutoInterface":
-			iface, err = interfaces.NewAutoInterface(name, ifaceConfig)
-		default:
-			debug.Log(debug.DebugError, "Unknown interface type", "type", ifaceConfig.Type)
-			continue
-		}
-
-		if err != nil {
-			debug.Log(debug.DebugError, "Failed to create interface", "name", name, "error", err)
+		ifaceConfig.Name = name
+		iface, ierr := interfaces.NewFromConfig(name, ifaceConfig)
+		if ierr != nil {
+			debug.Log(debug.DebugError, "Failed to create interface", "name", name, "error", ierr)
 			continue
 		}
 

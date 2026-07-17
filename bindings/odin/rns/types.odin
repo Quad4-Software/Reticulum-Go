@@ -5,7 +5,7 @@ package rns
 
 import "core:c"
 
-API_VERSION :: "1.1"
+API_VERSION :: "1.2"
 HASH_LEN :: 16
 
 Node :: distinct u64

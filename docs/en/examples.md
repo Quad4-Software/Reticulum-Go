@@ -20,6 +20,10 @@ Pair this page with the [API reference](api-reference.md).
 | Browser WebSocket client | `examples/wasm` |
 | Python talking to the daemon | `examples/control-client` |
 | C / FFI smoke test | `examples/librns-smoke` |
+| C librns page fetch | `examples/librns-page-fetch` |
+| Odin librns page fetch | `examples/odin-page-fetch` |
+| C librns pageserver | `examples/librns-pageserver` |
+| Odin librns pageserver | `examples/odin-pageserver` |
 | Odin librns bindings | `bindings/odin` |
 | Dart librns FFI and Control API | `bindings/dart` |
 | Operator CLIs | `reticulum-go status \| id \| probe \| path \| cp` then [CLI Utilities](utilities.md) |
@@ -142,6 +146,64 @@ make -C examples/librns-smoke
 ```
 
 See [librns](librns.md).
+
+## librns page fetch (C)
+
+Path: `examples/librns-page-fetch/`
+
+NomadNet / pageserver style page request over the C ABI. Opens a path, waits for an announce, establishes a link, and prints the `/page/...` response.
+
+```bash
+task build-librns
+make -C examples/librns-page-fetch
+./examples/librns-page-fetch/librns-page-fetch \
+  -c /path/to/config \
+  92798ea245a0afcfa559348e42d628c6:/page/index.mu
+```
+
+Add a TCP or Backbone hub from [directory.rns.recipes](https://directory.rns.recipes/) to the config.
+
+## Odin page fetch
+
+Path: `examples/odin-page-fetch/`
+
+Same flow as the C page-fetch example, using the Odin wrappers in `bindings/odin`.
+
+```bash
+task build-librns
+make -C examples/odin-page-fetch
+./examples/odin-page-fetch/odin-page-fetch \
+  -c /path/to/config \
+  92798ea245a0afcfa559348e42d628c6:/page/index.mu
+```
+
+## librns pageserver (C)
+
+Path: `examples/librns-pageserver/`
+
+NomadNet-compatible `nomadnetwork.node` destination that serves `/page/index.mu` over librns request handlers.
+
+```bash
+task build-librns
+make -C examples/librns-pageserver
+./examples/librns-pageserver/librns-pageserver \
+  -c /path/to/config
+```
+
+Prints `DEST_HASH=...` on startup. Fetch with the C or Odin page-fetch example.
+
+## Odin pageserver
+
+Path: `examples/odin-pageserver/`
+
+Same pageserver flow using the Odin bindings.
+
+```bash
+task build-librns
+make -C examples/odin-pageserver
+./examples/odin-pageserver/odin-pageserver \
+  -c /path/to/config
+```
 
 ## Odin librns bindings
 

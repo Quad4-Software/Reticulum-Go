@@ -28,6 +28,7 @@ foreign lib {
 
 	rns_identity_generate :: proc() -> u64 ---
 	rns_identity_load     :: proc(path: cstring) -> u64 ---
+	rns_identity_save     :: proc(identity: u64, path: cstring) -> c.int ---
 	rns_identity_destroy  :: proc(identity: u64) -> c.int ---
 	rns_identity_hash     :: proc(identity: u64, hex_buf: [^]u8, hex_buf_len: c.size_t, written: ^c.size_t) -> c.int ---
 

@@ -33,6 +33,13 @@ cosign.key
 /examples/page-downloader/page-downloader
 /examples/pageserver/example-pageserver
 /examples/librns-smoke/librns-smoke
+/examples/librns-page-fetch/librns-page-fetch
+/examples/odin-page-fetch/odin-page-fetch
+/examples/librns-pageserver/librns-pageserver
+/examples/librns-pageserver/identity
+/examples/odin-pageserver/odin-pageserver
+/examples/odin-pageserver/identity
+/examples/page-downloader/page-downloader
 
 # OS / Editor files
 .DS_Store

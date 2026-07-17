@@ -36,6 +36,21 @@ func IdentityLoad(path string) (uint64, int) {
 	return handle, OK
 }
 
+// IdentitySave writes identityHandle to path in the standard identity file layout.
+func IdentitySave(identityHandle uint64, path string) int {
+	if err := validatePath(path); err != nil {
+		return setLastError(err)
+	}
+	rec, err := identityByHandle(identityHandle)
+	if err != nil {
+		return setLastError(err)
+	}
+	if err := rec.identity.ToFile(path); err != nil {
+		return setLastError(fmt.Errorf("%w: %v", errIO, err))
+	}
+	return OK
+}
+
 // IdentityDestroy releases an identity handle.
 func IdentityDestroy(identityHandle uint64) int {
 	runtimeMu.Lock()

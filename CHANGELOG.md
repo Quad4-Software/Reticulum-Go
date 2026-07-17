@@ -15,11 +15,10 @@ Wire compatible with Python RNS 1.3.8
 - Odin librns bindings (`bindings/odin`)
 - Dart Control API client (`bindings/dart`)
 - Fully ephemeral `in_memory_storage` mode with soft memory caps and OOM-safe eviction
-- Align `RNS_API_VERSION` in `include/rns.h` with librns `1.1`
-- Network identity outgoing flags Go interface plugins
-- Split resource advertisements for large transfers
-- Logging to stderr file syslog and journald
+- Align `RNS_API_VERSION` in `include/rns.h` with librns `1.2`
+- `rns_identity_save` for persistent identities in librns hosts
 - Examples: minimal announce link resources filetransfer echo and more
+- librns C/Odin pageserver and page-fetch examples with persistent identities
 - Go-only underlays: DNS TXT rendezvous, Linux VSOCK, HTTPS long-poll
 - Race, fuzz, and goroutine-leak coverage for Serial, WebTransport, DNS rendezvous, VSOCK, and HTTPS
 - Channel envelope and StreamDataMessage wire parity with Python RNS

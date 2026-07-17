@@ -196,6 +196,14 @@ func rns_identity_load(path *C.char) C.uint64_t {
 	return C.uint64_t(id)
 }
 
+//export rns_identity_save
+func rns_identity_save(identity C.uint64_t, path *C.char) C.int {
+	if path == nil {
+		return cCode(librns.ErrInvalidArg)
+	}
+	return cCode(librns.IdentitySave(uint64(identity), C.GoString(path)))
+}
+
 //export rns_identity_destroy
 func rns_identity_destroy(identity C.uint64_t) C.int {
 	return cCode(librns.IdentityDestroy(uint64(identity)))
