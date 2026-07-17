@@ -36,7 +36,7 @@ func TestResolveDestinationLookup(t *testing.T) {
 
 func TestResolveDestinationB32Passthrough(t *testing.T) {
 	lookupCalled := false
-	dest := "gdludub7eejnh3hhdtofakibaxmkivm5zjfl2zdxxd7btt6l4rkq.b32.i2p"
+	dest := "abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst.b32.i2p"
 	got, err := ResolveDestination(dest, func(string) (string, error) {
 		lookupCalled = true
 		return "", nil
@@ -53,7 +53,7 @@ func TestResolveDestinationB32Passthrough(t *testing.T) {
 }
 
 func TestResolveDestinationBareB32(t *testing.T) {
-	raw := "gdludub7eejnh3hhdtofakibaxmkivm5zjfl2zdxxd7btt6l4rkq"
+	raw := "abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst"
 	got, err := ResolveDestination(raw, nil)
 	if err != nil {
 		t.Fatal(err)
