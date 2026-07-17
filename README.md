@@ -370,6 +370,17 @@ task test-zig
 
 Covers the same ABI surface as the Odin bindings. Details: [docs/en/librns.md](docs/en/librns.md#zig-bindings).
 
+### C++ Bindings
+
+Idiomatic C++17 RAII wrappers over `librns.so` live in `bindings/cpp`. Requires CMake and a C++17 compiler.
+
+```bash
+task build-librns
+task test-cpp
+```
+
+Covers the same ABI surface as the Odin and Zig bindings. Details: [docs/en/librns.md](docs/en/librns.md#c-bindings).
+
 ### Dart / Flutter Bindings
 
 Package `rns_control` in `bindings/dart` provides:

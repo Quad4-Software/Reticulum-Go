@@ -27,6 +27,7 @@ For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). F
 | librns C ABI | Yes (Go-only) | [pkg/librns](pkg/librns/), [include/rns.h](include/rns.h), `task build-librns`. In-process C facade over node, destination, and link. Linux `.so` first. Same wire stack as the daemon. Not a Python API. See [docs/en/librns.md](docs/en/librns.md). |
 | Odin librns bindings | Yes (Go-only host) | [bindings/odin](bindings/odin/). Idiomatic Odin wrappers over `librns.so`. `task test-odin`. See [docs/en/librns.md](docs/en/librns.md#odin-bindings). |
 | Zig librns bindings | Yes (Go-only host) | [bindings/zig](bindings/zig/). Idiomatic Zig wrappers over `librns.so`. `task test-zig`. See [docs/en/librns.md](docs/en/librns.md#zig-bindings). |
+| C++ librns bindings | Yes (Go-only host) | [bindings/cpp](bindings/cpp/). Idiomatic C++17 RAII wrappers over `librns.so`. `task test-cpp`. See [docs/en/librns.md](docs/en/librns.md#c-bindings). |
 | Dart librns FFI | Yes (Go-only host) | [bindings/dart](bindings/dart/) `ffi.dart`. Linux, Android, Windows. `task build-librns-targets`. See [docs/en/librns.md](docs/en/librns.md#dart-ffi-bindings). |
 | Dart Control API client | Yes (Go-only host) | [bindings/dart](bindings/dart/). Flutter-ready Dart client for the Control API (requests, resources, identify). `task test-dart`. See [docs/en/control-api.md](docs/en/control-api.md#dart-and-flutter). |
 
@@ -210,6 +211,7 @@ Intentional extensions beyond upstream *rns*:
 | librns-smoke | Present | C ABI smoke test |
 | odin-rns | Present | Odin bindings tests over librns (`task test-odin`) |
 | zig-rns | Present | Zig bindings tests over librns (`task test-zig`) |
+| cpp-rns | Present | C++ bindings tests over librns (`task test-cpp`) |
 | rns_control | Present | Dart FFI and Control API client tests (`task test-dart`) |
 
 ## Configuration
