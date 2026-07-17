@@ -46,21 +46,50 @@ RPC is fully supported on **both** transports:
 |------------------------|------------------------|
 | `tcp` | `127.0.0.1:<instance_control_port>` (default 37429) |
 | `unix` | Abstract socket `@rns/<instance_name>/rpc` (Linux) |
+| unset | Platform default: **unix** on Linux, **tcp** elsewhere (matches Python RNS) |
 
-Go implements both server and client for TCP and Unix. Cross-stack tool interop works on either transport when both sides agree.
+Go implements both server and client for TCP and Unix. When the type is unset, utilities try the platform default first, then the other transport, so stock Linux Python `rnsd` works without forcing TCP.
 
 ### Why connection refused is common
 
 Issues that usually stack:
 
 1. **Wrong config directory.** Python uses `~/.reticulum`. Go defaults to `~/.reticulum-go`. Point `-config` at the directory of the daemon you are querying.
-2. **Default transport mismatch.** On Linux, Python `rnsd` defaults to **Unix** RPC when `shared_instance_type` is unset. Go defaults to **TCP**. Stock configs therefore miss each other even though both speak RPC.
+2. **Explicit transport mismatch.** If one side sets `shared_instance_type = tcp` and the other `unix`, dials miss. Leave the key unset on Linux, or set the same value on both.
 3. **Daemon not sharing.** The process that owns interfaces must have `share_instance = yes` and be running.
 4. **Auth key mismatch.** Align `rpc_key`, or share the same derived `transport_identity`.
 
-### Working config for Python rnsd + Go tools (TCP)
+### Working config for Python rnsd + Go tools (Unix on Linux)
 
-Add the same block to **both** `~/.reticulum/config` and `~/.reticulum-go/config` when you want either path to reach the same daemon:
+Stock Linux Python already uses abstract Unix sockets. Point Go tools at that config directory:
+
+```bash
+./bin/reticulum-go status -config ~/.reticulum
+./bin/reticulum-go status -config ~/.reticulum -json
+./bin/reticulum-go path -config ~/.reticulum -t -json
+```
+
+Optional shared auth key in **both** configs (recommended when mixing stacks):
+
+```ini
+[reticulum]
+share_instance = yes
+instance_name = default
+shared_instance_type = unix
+rpc_key = <64 hex characters>
+```
+
+Generate a key once:
+
+```bash
+python3 -c 'import secrets; print(secrets.token_hex(32))'
+```
+
+Restart `rnsd` after editing `rpc_key`. Go tools with unset or `unix` type dial `@rns/default/rpc`.
+
+### TCP RPC (all platforms)
+
+Use TCP when you want the same recipe on every OS, or when mixing with an older Go daemon that bound TCP:
 
 ```ini
 [reticulum]
@@ -72,38 +101,7 @@ instance_control_port = 37429
 rpc_key = <64 hex characters>
 ```
 
-Generate a key once:
-
-```bash
-python3 -c 'import secrets; print(secrets.token_hex(32))'
-```
-
-Restart `rnsd` after editing `~/.reticulum/config` so it binds TCP `127.0.0.1:37429`.
-
-Then:
-
-```bash
-./bin/reticulum-go status -config ~/.reticulum
-./bin/reticulum-go status -config ~/.reticulum -json
-./bin/reticulum-go path -config ~/.reticulum -t -json
-./bin/reticulum-go path -config ~/.reticulum -t aabbccddeeff00112233445566778899
-```
-
-If both configs share ports and `rpc_key`, `-config ~/.reticulum-go` also works against a Python `rnsd` that was started with the matching `~/.reticulum` settings.
-
-### Unix RPC (Linux)
-
-Both sides can use abstract Unix sockets instead:
-
-```ini
-[reticulum]
-share_instance = yes
-instance_name = default
-shared_instance_type = unix
-rpc_key = <64 hex characters>
-```
-
-Go tools with that config dial `@rns/default/rpc`. This matches stock Linux Python when it is left on Unix. Prefer TCP when you want the same recipe on every OS.
+Restart the daemon after editing so it binds TCP `127.0.0.1:37429`.
 
 ### Auth key rules
 
@@ -116,7 +114,7 @@ Go and Python must agree. Prefer an explicit shared `rpc_key` when mixing stacks
 
 ### Query a Go daemon instead
 
-Run `reticulum-go` with `share_instance = yes` under `~/.reticulum-go`. Match `shared_instance_type` to how you will dial (TCP is the Go default):
+Run `reticulum-go` with `share_instance = yes` under `~/.reticulum-go`. Unset type follows the platform default (Unix on Linux):
 
 ```bash
 ./bin/reticulum-go status -config ~/.reticulum-go -json
@@ -389,8 +387,8 @@ Exit codes match Python `rnx` (241–249 for client failures, `-m` mirrors remot
 
 | Symptom | Fix |
 |---------|-----|
-| `dial tcp 127.0.0.1:37429: connection refused` | Start the daemon. Match `shared_instance_type` (`tcp` vs `unix`). Restart after config change. Use `-config` for that daemon's config dir. |
-| `dial unix @rns/...: connection refused` | Daemon is on TCP, or `instance_name` differs. Align `shared_instance_type` and `instance_name`. |
+| `dial tcp 127.0.0.1:37429: connection refused` | Start the daemon. If type is explicit `tcp`, the daemon must also be TCP. With unset type, utilities also try Unix. Use `-config` for that daemon's config dir. |
+| `dial unix @rns/...: connection refused` | Daemon is on TCP only, or `instance_name` differs. Align `shared_instance_type` and `instance_name`, or leave type unset so tools try both. |
 | `rpc auth` failure | Align `rpc_key`, or use the same `storage/transport_identity` when keys are derived. |
 | Empty or missing announce rates from Python | Field is present but may be `0` until traffic accumulates. Sorting and JSON keys still work. |
 | Top-level `rxb`/`txb` are `0` while interfaces show traffic | Python aggregate totals often omit some parent interfaces. Prefer per-interface counters. |

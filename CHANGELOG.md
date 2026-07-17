@@ -24,6 +24,7 @@ Wire compatible with Python RNS 1.3.8
 - Channel envelope and StreamDataMessage wire parity with Python RNS
 - Live Python-Go interop for channel buffer rncp and blackhole LINKIDENTIFY
 - Health drop counters for announce dup, path response suppressions, path request dedup, and link relay unknown iface
+- Shared-instance Unix defaults on Linux (matching Python RNS) with TCP fallback when `shared_instance_type` is unset
 
 ### Not in this release
 - RNode KISS AX25 Weave radio drivers

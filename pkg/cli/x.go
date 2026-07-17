@@ -16,7 +16,6 @@ import (
 	"syscall"
 	"time"
 
-	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/link"
@@ -60,9 +59,6 @@ func RunX(args []string, opt ...Options) int {
 		return 1
 	}
 	cfg.ShareInstance = true
-	if cfg.SharedInstanceType == "" {
-		cfg.SharedInstanceType = common.SharedInstanceTCP
-	}
 
 	idPath := *identityPath
 	if idPath == "" {

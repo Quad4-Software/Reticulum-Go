@@ -5,6 +5,7 @@ package sharedinstance
 
 import (
 	"fmt"
+	"strings"
 
 	"quad4/reticulum-go/pkg/backbone"
 	"quad4/reticulum-go/pkg/common"
@@ -39,18 +40,49 @@ type Hooks struct {
 }
 
 // Attach starts or joins a shared local instance when share_instance is
-// enabled. It tries to bind the shared server first. On failure it connects
-// as a client to an existing instance.
+// enabled.
+//
+// With an explicit shared_instance_type it binds as server first, then falls
+// back to client (Python behavior).
+//
+// When the type is unset it matches Python platform defaults (Unix on Linux,
+// TCP elsewhere). Before binding, it tries client dials on the primary then
+// alternate transport so utilities can join stock Python Unix or a TCP Go
+// daemon without rewriting config.
 func Attach(cfg *common.ReticulumConfig, tr *transport.Transport, hooks Hooks) (*Instance, error) {
 	if cfg == nil || !cfg.ShareInstance {
 		return &Instance{Mode: ModeDisabled}, nil
 	}
-	useUnix := cfg.SharedInstanceType == common.SharedInstanceUnix
+	auto := strings.TrimSpace(cfg.SharedInstanceType) == ""
+	typ := common.ResolveSharedInstanceType(cfg.SharedInstanceType)
+	useUnix := typ == common.SharedInstanceUnix
 	socketPath := cfg.InstanceName
 	if socketPath == "" && useUnix {
 		socketPath = "default"
 	}
 
+	if auto {
+		order := []bool{useUnix}
+		if useUnix {
+			order = append(order, false)
+		} else {
+			order = append(order, true)
+		}
+		for _, unix := range order {
+			path := socketPath
+			if unix && path == "" {
+				path = "default"
+			}
+			if inst, err := attachClient(cfg, tr, hooks, cfg.SharedInstancePort, path, unix); err == nil {
+				return inst, nil
+			}
+		}
+	}
+
+	return attachServerOrClient(cfg, tr, hooks, cfg.SharedInstancePort, socketPath, useUnix)
+}
+
+func attachServerOrClient(cfg *common.ReticulumConfig, tr *transport.Transport, hooks Hooks, port int, socketPath string, useUnix bool) (*Instance, error) {
 	inst := &Instance{}
 	spawn := func(client *interfaces.LocalClientInterface) {
 		if hooks.RegisterInterface == nil || hooks.HandleInterface == nil {
@@ -63,7 +95,7 @@ func Attach(cfg *common.ReticulumConfig, tr *transport.Transport, hooks Hooks) (
 		hooks.HandleInterface(client)
 	}
 
-	server, err := interfaces.NewLocalServerInterface(cfg.SharedInstancePort, socketPath, useUnix, spawn, backbone.Get())
+	server, err := interfaces.NewLocalServerInterface(port, socketPath, useUnix, spawn, backbone.Get())
 	if err != nil {
 		return nil, err
 	}
@@ -76,17 +108,29 @@ func Attach(cfg *common.ReticulumConfig, tr *transport.Transport, hooks Hooks) (
 				return nil, fmt.Errorf("register shared server: %w", err)
 			}
 		}
+		// Persist resolved transport so RPC listen matches the data plane.
+		if strings.TrimSpace(cfg.SharedInstanceType) == "" {
+			if useUnix {
+				cfg.SharedInstanceType = common.SharedInstanceUnix
+			} else {
+				cfg.SharedInstanceType = common.SharedInstanceTCP
+			}
+		}
 		rpc, err := StartRPCServer(cfg, tr)
 		if err != nil {
 			_ = server.Stop()
 			return nil, err
 		}
 		inst.RPC = rpc
-		debug.Log(debug.DebugInfo, "Started shared instance server", "port", cfg.SharedInstancePort)
+		debug.Log(debug.DebugInfo, "Started shared instance server", "port", port, "unix", useUnix)
 		return inst, nil
 	}
 
-	client, err := interfaces.NewLocalClientInterface(cfg.SharedInstancePort, socketPath, useUnix, backbone.Get())
+	return attachClient(cfg, tr, hooks, port, socketPath, useUnix)
+}
+
+func attachClient(cfg *common.ReticulumConfig, tr *transport.Transport, hooks Hooks, port int, socketPath string, useUnix bool) (*Instance, error) {
+	client, err := interfaces.NewLocalClientInterface(port, socketPath, useUnix, backbone.Get())
 	if err != nil {
 		return nil, err
 	}
@@ -99,8 +143,7 @@ func Attach(cfg *common.ReticulumConfig, tr *transport.Transport, hooks Hooks) (
 	}
 	tr.SetConnectedToSharedInstance(true)
 	cfg.ConnectedToSharedInstance = true
-	inst.Mode = ModeClient
-	inst.Client = client
+	inst := &Instance{Mode: ModeClient, Client: client}
 	if hooks.RegisterInterface != nil {
 		if err := hooks.RegisterInterface(client.GetName(), client); err != nil {
 			_ = client.Stop()
@@ -113,7 +156,7 @@ func Attach(cfg *common.ReticulumConfig, tr *transport.Transport, hooks Hooks) (
 	if hooks.OnClientAttach != nil {
 		hooks.OnClientAttach()
 	}
-	debug.Log(debug.DebugInfo, "Connected to existing local shared instance")
+	debug.Log(debug.DebugInfo, "Connected to existing local shared instance", "unix", useUnix)
 	return inst, nil
 }
 

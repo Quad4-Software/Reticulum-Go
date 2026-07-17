@@ -266,7 +266,7 @@ Python defaults from `RNS.Reticulum.__create_default_config` and [RNS/Reticulum.
 | shared_instance_port | Yes | Yes | TCP port for shared instance |
 | instance_control_port | Yes | Yes | RPC when this process owns the instance |
 | instance_name | Yes | Yes | Unix socket name when `shared_instance_type = unix` |
-| shared_instance_type | Yes | Yes | `tcp` or `unix` |
+| shared_instance_type | Yes | Yes | `tcp` or `unix` (unset: unix on Linux, tcp elsewhere, matching Python) |
 | backbone_io | No | Yes | Go-only. `auto`, `epoll`, `kqueue`, `io_uring`, or `go`. |
 | rpc_key | No | Yes | Hex key for shared-instance RPC auth |
 | enable_sandbox | No | Yes | OS sandbox after startup (Landlock + seccomp on Linux) |

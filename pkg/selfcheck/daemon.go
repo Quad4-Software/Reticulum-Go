@@ -93,6 +93,7 @@ func checkDaemon(ctx context.Context, opts Options) []Result {
 	cfg.ControlAPIHost = "127.0.0.1"
 	cfg.ControlAPIPort = ctrlPort
 	cfg.ShareInstance = true
+	cfg.SharedInstanceType = common.SharedInstanceTCP
 	cfg.SharedInstancePort = sharedPort
 	cfg.InstanceControlPort = rpcPort
 	cfg.RPCKey = rpcKey

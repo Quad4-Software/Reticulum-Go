@@ -138,7 +138,7 @@ These do not change the wire format:
 | Odin bindings | `bindings/odin` (links `librns.so`, [librns](librns.md#odin-bindings)) |
 | Dart client | `bindings/dart` (`rns_control` FFI and Control API) |
 
-Setup for Go tools against Python `rnsd` (TCP shared-instance RPC, `rpc_key`, `-config`) is documented in [CLI utilities](utilities.md).
+Setup for Go tools against Python `rnsd` (Unix or TCP shared-instance RPC, `rpc_key`, `-config`) is documented in [CLI utilities](utilities.md).
 
 ## Verification workflow
 
@@ -157,7 +157,7 @@ RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
 
 Use separate config directories (`~/.reticulum-go` vs `~/.reticulum`). Point interfaces at the same peers with matching IFAC and ports. Shared instance ports must not conflict if both try to own the same interface.
 
-To let `rgostatus` query Python `rnsd`, align `shared_instance_type` (`tcp` or `unix`), `instance_name` / `instance_control_port`, and `rpc_key`, then restart `rnsd`. Stock Linux Python defaults to Unix RPC while Go defaults to TCP. See [CLI utilities](utilities.md).
+To let `rgostatus` query Python `rnsd`, point `-config` at `~/.reticulum` and align `rpc_key` when set. On Linux both stacks default to Unix RPC when `shared_instance_type` is unset. Go tools also fall back to TCP when the type is unset. See [CLI utilities](utilities.md).
 
 ## Related documents
 

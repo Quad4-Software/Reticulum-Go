@@ -22,14 +22,35 @@ import (
 // RPCClient is a one-shot shared-instance RPC client over
 // multiprocessing.connection framing and msgpack.
 type RPCClient struct {
-	addr    string
-	network string
-	authkey []byte
-	timeout time.Duration
+	addr       string
+	network    string
+	altAddr    string
+	altNetwork string
+	authkey    []byte
+	timeout    time.Duration
+}
+
+func rpcDialTarget(cfg *common.ReticulumConfig, typ string) (network, addr string) {
+	name := cfg.InstanceName
+	if name == "" {
+		name = "default"
+	}
+	if typ == common.SharedInstanceUnix {
+		return "unix", "@" + "rns/" + name + "/rpc"
+	}
+	port := cfg.InstanceControlPort
+	if port == 0 {
+		port = reticulumconfig.DefaultInstanceControlPort
+	}
+	return "tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
 }
 
 // DialRPC connects using cfg ports and authkey. Authkey may be nil to resolve
 // from cfg.RPCKey or transport_identity.
+//
+// When shared_instance_type is unset, the platform default is used (Unix on
+// Linux, TCP elsewhere). On dial failure the other transport is tried so Go
+// tools can reach stock Python rnsd without forcing TCP.
 func DialRPC(cfg *common.ReticulumConfig, authkey []byte) (*RPCClient, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("nil config")
@@ -41,23 +62,21 @@ func DialRPC(cfg *common.ReticulumConfig, authkey []byte) (*RPCClient, error) {
 			return nil, err
 		}
 	}
-	port := cfg.InstanceControlPort
-	if port == 0 {
-		port = reticulumconfig.DefaultInstanceControlPort
-	}
+	auto := strings.TrimSpace(cfg.SharedInstanceType) == ""
+	typ := common.ResolveSharedInstanceType(cfg.SharedInstanceType)
+	network, addr := rpcDialTarget(cfg, typ)
 	c := &RPCClient{
 		authkey: append([]byte(nil), authkey...),
 		timeout: 10 * time.Second,
-		network: "tcp",
-		addr:    net.JoinHostPort("127.0.0.1", strconv.Itoa(port)),
+		network: network,
+		addr:    addr,
 	}
-	if cfg.SharedInstanceType == common.SharedInstanceUnix {
-		name := cfg.InstanceName
-		if name == "" {
-			name = "default"
+	if auto {
+		altTyp := common.SharedInstanceTCP
+		if typ == common.SharedInstanceTCP {
+			altTyp = common.SharedInstanceUnix
 		}
-		c.network = "unix"
-		c.addr = "@" + "rns/" + name + "/rpc"
+		c.altNetwork, c.altAddr = rpcDialTarget(cfg, altTyp)
 	}
 	return c, nil
 }
@@ -86,6 +105,15 @@ func (c *RPCClient) Call(call map[string]any, dest any) error {
 		return fmt.Errorf("nil rpc client")
 	}
 	conn, err := net.DialTimeout(c.network, c.addr, c.timeout)
+	if err != nil && c.altNetwork != "" {
+		alt, altErr := net.DialTimeout(c.altNetwork, c.altAddr, c.timeout)
+		if altErr == nil {
+			conn = alt
+			err = nil
+			c.network, c.addr = c.altNetwork, c.altAddr
+			c.altNetwork, c.altAddr = "", ""
+		}
+	}
 	if err != nil {
 		return fmt.Errorf("dial shared instance rpc: %w", err)
 	}

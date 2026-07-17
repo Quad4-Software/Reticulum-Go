@@ -75,7 +75,7 @@ Examples:
 		fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
 		if !*quiet {
 			fmt.Fprintln(stderr, warnMsg(stderr, "hint: point -config at the daemon config dir (e.g. ~/.reticulum for rnsd)"))
-			fmt.Fprintln(stderr, warnMsg(stderr, "hint: rnsd on Linux needs shared_instance_type = tcp for 127.0.0.1:37429"))
+			fmt.Fprintln(stderr, warnMsg(stderr, "hint: align shared_instance_type (unix on Linux by default, or tcp) and instance_name / ports"))
 		}
 		return 1
 	}

@@ -178,23 +178,14 @@ Generate a random 32-byte key and encode as hex. Clients send `Authorization: Be
 
 Tools are subcommands of the single `reticulum-go` binary (`make build`). Legacy names (`rgostatus`, …) install as symlinks via `make install`.
 
-To query a running Python `rnsd` from `reticulum-go status` / `path`, both stacks need TCP shared-instance RPC. On Linux, Python defaults to a Unix abstract socket unless you set:
-
-```ini
-[reticulum]
-share_instance = yes
-shared_instance_type = tcp
-shared_instance_port = 37428
-instance_control_port = 37429
-rpc_key = <64 hex characters>
-```
-
-Restart `rnsd`, then:
+To query a running Python `rnsd` from `reticulum-go status` / `path`, point `-config` at `~/.reticulum`. On Linux both stacks default to abstract Unix sockets when `shared_instance_type` is unset, so no TCP rewrite is required:
 
 ```bash
 ./bin/reticulum-go status -config ~/.reticulum -json
 ./bin/reticulum-go path -config ~/.reticulum -t -json
 ```
+
+Prefer an explicit shared `rpc_key` when mixing stacks. Use `shared_instance_type = tcp` only when you want the same recipe on every OS.
 
 Full flag reference, `.rsg` / `.rsm` / `.rfe` usage, file transfer, and troubleshooting are in [CLI utilities](utilities.md).
 
@@ -218,7 +209,7 @@ See [Security](security.md) for platform behavior.
 
 **Shared instance conflicts.** Only one process should own interfaces when `share_instance = yes`. Others should connect as clients. Check `shared_instance_port` (default 37428).
 
-**status connection refused.** Point `-config` at the daemon config dir (`~/.reticulum` for `rnsd`). On Linux set `shared_instance_type = tcp` and restart the daemon. See [CLI utilities](utilities.md).
+**status connection refused.** Point `-config` at the daemon config dir (`~/.reticulum` for `rnsd`). Align `shared_instance_type` and `instance_name` / ports, or leave the type unset on Linux for Unix. See [CLI utilities](utilities.md).
 
 **Permission errors on Linux sandbox.** Landlock requires kernel 5.13+. The config directory and storage paths must live under whitelisted locations. See [Security](security.md).
 

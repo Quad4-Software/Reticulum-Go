@@ -17,7 +17,6 @@ import (
 	"syscall"
 	"time"
 
-	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/link"
@@ -60,10 +59,6 @@ func RunCP(args []string, opt ...Options) int {
 		fmt.Fprintf(stderr, "config: %v\n", err)
 		return 1
 	}
-	if cfg.SharedInstanceType == "" {
-		cfg.SharedInstanceType = common.SharedInstanceTCP
-	}
-
 	idPath := *identityPath
 	if idPath == "" {
 		idPath = rnsutil.RNCPIdentityPath(rnsutil.StorageDir(cfg))

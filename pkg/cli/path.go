@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"time"
 
-	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/node"
 	"quad4/reticulum-go/pkg/rnsutil"
 )
@@ -222,9 +221,6 @@ func RunPath(args []string, opt ...Options) int {
 	}
 
 	cfg.ShareInstance = true
-	if cfg.SharedInstanceType == "" {
-		cfg.SharedInstanceType = common.SharedInstanceTCP
-	}
 	n, err := node.New(cfg)
 	if err != nil {
 		fmt.Fprintf(stderr, "node: %v\n", err)

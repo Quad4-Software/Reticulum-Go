@@ -20,6 +20,7 @@ func TestRPCServerLinkCountAfterAuth(t *testing.T) {
 
 	port := freeTCPPort(t)
 	cfg.InstanceControlPort = port
+	cfg.SharedInstanceType = common.SharedInstanceTCP
 
 	srv, err := StartRPCServer(cfg, tr)
 	if err != nil {

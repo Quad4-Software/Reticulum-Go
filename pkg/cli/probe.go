@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"time"
 
-	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/node"
 	"quad4/reticulum-go/pkg/rnsutil"
@@ -55,9 +54,6 @@ func RunProbe(args []string, opt ...Options) int {
 		return 1
 	}
 	cfg.ShareInstance = true
-	if cfg.SharedInstanceType == "" {
-		cfg.SharedInstanceType = common.SharedInstanceTCP
-	}
 
 	n, err := node.New(cfg)
 	if err != nil {

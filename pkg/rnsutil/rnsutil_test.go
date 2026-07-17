@@ -109,6 +109,7 @@ func TestRPCClientInterfaceStats(t *testing.T) {
 
 	port := freeTCPPort(t)
 	cfg.InstanceControlPort = port
+	cfg.SharedInstanceType = common.SharedInstanceTCP
 	srv, err := sharedinstance.StartRPCServer(cfg, tr)
 	if err != nil {
 		t.Fatalf("StartRPCServer: %v", err)

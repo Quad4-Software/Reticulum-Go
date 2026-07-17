@@ -124,7 +124,7 @@ func StartRPCServer(cfg *common.ReticulumConfig, tr *transport.Transport) (*RPCS
 		ln  net.Listener
 		err error
 	)
-	useUnix := cfg.SharedInstanceType == common.SharedInstanceUnix
+	useUnix := common.SharedInstanceUsesUnix(cfg.SharedInstanceType)
 	if useUnix {
 		name := cfg.InstanceName
 		if name == "" {

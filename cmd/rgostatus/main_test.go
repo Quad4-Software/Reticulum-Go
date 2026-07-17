@@ -26,6 +26,7 @@ func TestRgostatusAgainstRPC(t *testing.T) {
 
 	port := freePort(t)
 	cfg.InstanceControlPort = port
+	cfg.SharedInstanceType = common.SharedInstanceTCP
 	srv, err := sharedinstance.StartRPCServer(cfg, tr)
 	if err != nil {
 		t.Fatal(err)
@@ -36,6 +37,7 @@ func TestRgostatusAgainstRPC(t *testing.T) {
 	configBody := "[reticulum]\n" +
 		"enable_transport = no\n" +
 		"share_instance = yes\n" +
+		"shared_instance_type = tcp\n" +
 		"instance_control_port = " + strconv.Itoa(port) + "\n" +
 		"rpc_key = " + hexKey(auth) + "\n"
 	if err := os.WriteFile(filepath.Join(cfgDir, "config"), []byte(configBody), 0o600); err != nil {

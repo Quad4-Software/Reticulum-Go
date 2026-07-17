@@ -192,7 +192,7 @@ INTEROP_ARTIFACTS=1 INTEROP_ARTIFACT_ROOT=/tmp/rns-interop \
 | `backbone_live_test.go` | Backbone |
 | `quic_live_test.go` | QUIC Go-Go echo (no Python peer) |
 | `pipe_live_test.go` | PipeInterface with Python echo |
-| `shared_rpc_live_test.go` | Shared-instance RPC |
+| `shared_rpc_live_test.go` | Shared-instance RPC (TCP and Unix on Linux) |
 | `pageserver_live_test.go` | Pageserver example |
 | `nomadnet_crawl_live_test.go` | Nomadnet crawl |
 | `nomadnet_relay_live_test.go` | NomadNet through Go mesh relay |

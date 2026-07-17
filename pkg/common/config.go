@@ -133,6 +133,8 @@ type InterfaceConfig struct {
 }
 
 // SharedInstanceType values for [reticulum] shared_instance_type.
+// Empty config values resolve via ResolveSharedInstanceType (Unix on Linux,
+// TCP elsewhere) to match Python RNS platform defaults.
 const (
 	SharedInstanceTCP  = "tcp"
 	SharedInstanceUnix = "unix"
@@ -253,7 +255,7 @@ func NewReticulumConfig() *ReticulumConfig {
 		ShareInstance:       true,
 		SharedInstancePort:  DefaultSharedInstancePort,
 		InstanceControlPort: DefaultInstanceControlPort,
-		SharedInstanceType:  SharedInstanceTCP,
+		SharedInstanceType:  DefaultSharedInstanceType(),
 		PanicOnInterfaceErr: false,
 		LogLevel:            DefaultLogLevel,
 		Interfaces:          make(map[string]*InterfaceConfig),
@@ -315,7 +317,7 @@ func DefaultConfig() *ReticulumConfig {
 		ShareInstance:       true,
 		SharedInstancePort:  DefaultSharedInstancePort,
 		InstanceControlPort: DefaultInstanceControlPort,
-		SharedInstanceType:  SharedInstanceTCP,
+		SharedInstanceType:  DefaultSharedInstanceType(),
 		PanicOnInterfaceErr: false,
 		LogLevel:            DefaultLogLevel,
 		Interfaces:          make(map[string]*InterfaceConfig),

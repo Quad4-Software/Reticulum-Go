@@ -51,7 +51,7 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | `share_instance` | yes | Use shared instance multiplexing |
 | `shared_instance_port` | 37428 | TCP port for shared instance |
 | `instance_control_port` | 37429 | Control port when this process owns the instance |
-| `shared_instance_type` | tcp | `tcp` or `unix` |
+| `shared_instance_type` | unix on Linux, tcp elsewhere | `tcp` or `unix` (unset uses platform default, matching Python RNS) |
 | `instance_name` | (empty) | Unix socket name when type is unix |
 | `rpc_key` | (empty) | Hex key for shared-instance RPC and control API auth |
 | `enable_sandbox` | yes | Apply OS sandbox after startup (Go-only) |
@@ -238,26 +238,24 @@ Reticulum writes HDLC-framed packets to the subprocess stdin and reads frames fr
 
 ## Example: shared-instance RPC for Go CLI tools
 
-Python `rnsd` on Linux defaults to an abstract Unix RPC socket. Go `rgostatus` dials TCP `127.0.0.1:instance_control_port` when `shared_instance_type = tcp`. To let Go tools talk to Python (or the reverse), set the same TCP settings and preferably the same `rpc_key` in the daemon config:
-
-```ini
-[reticulum]
-share_instance = yes
-instance_name = default
-shared_instance_type = tcp
-shared_instance_port = 37428
-instance_control_port = 37429
-rpc_key = <64 hex characters>
-```
-
-Restart the daemon after changing these keys. Query with:
+On Linux, unset `shared_instance_type` uses abstract Unix sockets (`@rns/<instance_name>/rpc`), matching stock Python `rnsd`. Go utilities try that default first, then fall back to TCP when the type is unset.
 
 ```bash
 make build
 ./bin/reticulum-go status -config ~/.reticulum -json
 ```
 
-Use `-config ~/.reticulum` for Python `rnsd` and `-config ~/.reticulum-go` for a Go shared instance. Full utility docs are in [CLI utilities](utilities.md).
+Optional shared auth (recommended when mixing stacks):
+
+```ini
+[reticulum]
+share_instance = yes
+instance_name = default
+shared_instance_type = unix
+rpc_key = <64 hex characters>
+```
+
+Use `shared_instance_type = tcp` with `instance_control_port` when you want TCP on every OS. Use `-config ~/.reticulum` for Python `rnsd` and `-config ~/.reticulum-go` for a Go shared instance. Full utility docs are in [CLI utilities](utilities.md).
 
 ## Example: explicit LocalInterface client
 
