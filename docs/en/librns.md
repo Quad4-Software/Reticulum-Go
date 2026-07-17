@@ -11,7 +11,9 @@ For Go apps, prefer `pkg/node` directly. For a separate daemon and JSON/WebSocke
 | Artifact | Role |
 |----------|------|
 | `include/rns.h` | Public C header |
-| `bin/librns.so` | Shared library (Linux first) |
+| `bin/librns.so` | Shared library (Linux) |
+| `bin/darwin/*/librns.dylib` | Shared library (macOS) |
+| `bin/windows/amd64/librns.dll` | Shared library (Windows) |
 | `pkg/librns` | Pure Go facade (tests and fuzz without CGO) |
 | `pkg/librns/capi` | CGO `//export` shims |
 | `cmd/librns` | `-buildmode=c-shared` entry |
@@ -148,10 +150,12 @@ Authoritative names live in `include/rns.h`. Summary below.
 | `rns_path_table` | Snapshot into caller array. `max_hops < 0` means no filter |
 | `rns_link_open` | Outbound link to dest hash (identity must be known from announce) |
 | `rns_link_send` | On established link |
+| `rns_link_send_resource` | Transfer bytes as a link resource (optional rncp `name`) |
 | `rns_link_close` | Teardown |
 | `rns_link_id` | 16-byte link id |
 | `rns_link_request` | Outbound request. Completion via response or failed events |
-| `rns_request_respond` | Answer a pending `RNS_EV_REQUEST_INCOMING` |
+| `rns_request_respond` | Answer a pending `RNS_EV_REQUEST_INCOMING` with raw bytes |
+| `rns_request_respond_file` | NomadNet `/file/` response `[filename, content]` (auto resource when large) |
 
 ### Events
 
@@ -167,9 +171,11 @@ Authoritative names live in `include/rns.h`. Summary below.
 | `RNS_EV_LINK_FAILED` | Open failed or timed out |
 | `RNS_EV_LINK_DATA` | Payload on link |
 | `RNS_EV_LINK_CLOSED` | Link torn down |
-| `RNS_EV_REQUEST_INCOMING` | Inbound request. Call `rns_request_respond` |
+| `RNS_EV_REQUEST_INCOMING` | Inbound request. Call `rns_request_respond` or `rns_request_respond_file` |
 | `RNS_EV_REQUEST_RESPONSE` | Outbound request succeeded |
 | `RNS_EV_REQUEST_FAILED` | Outbound request failed or timed out |
+| `RNS_EV_RESOURCE_STARTED` | Inbound resource transfer started |
+| `RNS_EV_RESOURCE_CONCLUDED` | Inbound resource assembled (`path` may hold rncp name) |
 
 `rns_event` fields are filled by copy. Set `app_data` and `app_data_cap` before poll for variable payloads. Truncation sets `app_data_truncated` (and `path_truncated` / `error_message_truncated` when those strings do not fit).
 
@@ -185,10 +191,26 @@ The per-node queue is bounded. On overflow it drops the oldest event. Poll and c
 
 ## Not in this ABI (yet)
 
-- macOS / Windows shared libs
-- Android NDK packaging
+- Full Control API surface (sessions, health JSON)
 
 Grow the header only when a real host needs it. Keep `RNS_API_VERSION` in mind.
+
+## Platform artifacts
+
+Build with `task build-librns` for the host `.so`, or:
+
+```bash
+sh scripts/build-librns-targets.sh linux windows darwin android
+```
+
+| Platform | Output |
+|----------|--------|
+| Linux | `bin/librns.so` |
+| Windows | `bin/windows/amd64/librns.dll` |
+| macOS | `bin/darwin/amd64/librns.dylib` or `bin/darwin/arm64/librns.dylib` |
+| Android | `bin/android/<abi>/librns.so` |
+
+Embedders should call `rns_version()` and compare to `RNS_API_VERSION` from the header they compiled against. Current ABI is **1.3**.
 
 ## Typical flow
 

@@ -7,31 +7,34 @@ First stable release of Reticulum-Go.
 Wire compatible with Python RNS 1.3.8
 
 ### Included
-- Crypto identity destinations packets transport links channels buffers resources
-- IFAC on UDP TCP Auto and related interfaces
-- Interfaces: UDP TCP Auto I2P Backbone Pipe Local Serial WebSocket QUIC WebTransport DNSRendezvous VSOCK HTTPS
-- Daemon utilities: status id probe path cp x pageserver
-- librns C ABI node lifecycle control API sandbox
-- Odin librns bindings (`bindings/odin`)
-- Zig librns bindings (`bindings/zig`)
-- Dart Control API client (`bindings/dart`)
-- Fully ephemeral `in_memory_storage` mode with soft memory caps and OOM-safe eviction
-- Align `RNS_API_VERSION` in `include/rns.h` with librns `1.2`
-- `rns_identity_save` for persistent identities in librns hosts
-- Examples: minimal announce link resources filetransfer echo and more
-- librns C/Odin/Zig pageserver and page-fetch examples with persistent identities
+- Crypto, identity, destinations, packets, transport, links, channels, buffers, and resources
+- IFAC on UDP, TCP, Auto, and related interfaces
+- Interfaces: UDP, TCP, Auto, I2P, Backbone, Pipe, Local, Serial, WebSocket, QUIC, WebTransport, DNS rendezvous, VSOCK, HTTPS
+- Daemon utilities: status, id, probe, path, cp, x, pageserver
+- librns C ABI with node lifecycle, control API, and sandbox
+- Odin and Zig librns bindings
+- Dart control API client
+- Fully ephemeral in-memory storage with soft memory caps and OOM-safe eviction
+- librns API version aligned to 1.3
+- Persistent identity save for librns hosts
+- librns resource transfers and resource events
+- Cross-build scripts for Windows DLL and macOS dylib
+- Interface discovery announcer for discoverable TCP, Backbone, and I2P peers
+- Path and probe reachability diagnostics with status health counters
+- Examples: minimal announce, link, resources, file transfer, echo, and more
+- librns C, Odin, and Zig pageserver and page-fetch examples with persistent identities
 - Go-only underlays: DNS TXT rendezvous, Linux VSOCK, HTTPS long-poll
 - Race, fuzz, and goroutine-leak coverage for Serial, WebTransport, DNS rendezvous, VSOCK, and HTTPS
-- Channel envelope and StreamDataMessage wire parity with Python RNS
-- Live Python-Go interop for channel buffer rncp and blackhole LINKIDENTIFY
-- Health drop counters for announce dup, path response suppressions, path request dedup, and link relay unknown iface
-- Shared-instance Unix defaults on Linux (matching Python RNS) with TCP fallback when `shared_instance_type` is unset
+- Channel envelope and stream data message wire parity with Python RNS
+- Live Python-Go interop for channel, buffer, rncp, and blackhole link identify
+- Health drop counters for announce duplicates, path response suppressions, path request dedup, and unknown link-relay interfaces
+- Shared-instance Unix defaults on Linux matching Python RNS, with TCP fallback when shared instance type is unset
 
 ### Not in this release
-- RNode KISS AX25 Weave radio drivers
-- Discovery announcer and autoconnect loops
+- RNode, KISS, AX25, and Weave radio drivers
+- Discovery autoconnect loops
 - Blackhole auto publish federation
-- Utilities: rnsh rnir rnpkg rngit
-- Remote rnpath rnstransport modes
+- Utilities: rnsh, rnir, rnpkg, rngit
+- Remote rnpath and rnstransport modes
 
 Hardware radio drivers and remaining utilities are planned for later releases.

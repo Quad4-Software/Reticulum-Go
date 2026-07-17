@@ -37,7 +37,7 @@ n.Stop()
 | `OnNetworkLost` | NIC down or airplane mode |
 | `RefreshPaths` | Stale paths, force path requests for watched destinations |
 | `ReloadInterfaces` | Config file interface blocks changed |
-| `StartInterfaceDiscovery` | rnstransport discovery when `discover_interfaces = yes` |
+| `StartInterfaceDiscovery` | rnstransport discovery when `discover_interfaces = yes` or any interface has `discoverable = yes` (also starts InterfaceAnnouncer) |
 
 `watch_interfaces = yes` in config enables NIC polling via `netmon.go` on Linux, Android, Windows, macOS, and BSD. WASM builds use a stub.
 

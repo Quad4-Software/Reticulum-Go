@@ -218,7 +218,7 @@ Orchestrates transport, interfaces, shared instance, and lifecycle. Prefer this 
 | `ReloadInterfaces(newCfg)` | Hot-reload interface blocks |
 | `EnableLinkAutoReconnect(opts)` | Re-establish registered links |
 | `RegisterLink(l)` | Track link for reconnect |
-| `StartInterfaceDiscovery()` | rnstransport discovery when configured |
+| `StartInterfaceDiscovery()` | rnstransport discovery listen + InterfaceAnnouncer when discoverable |
 
 ### Identity (`pkg/identity`)
 
