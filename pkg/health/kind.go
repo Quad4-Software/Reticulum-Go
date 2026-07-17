@@ -19,6 +19,9 @@ const (
 	KindLinkStaleClose
 	KindKeepaliveTimeout
 	KindResourceStall
+	KindResourceReq
+	KindResourceHMU
+	KindResourceComplete
 	KindNetmonFlap
 	KindRxOK
 	KindAnnounceOK
@@ -58,6 +61,12 @@ func (k Kind) String() string {
 		return "keepalive_timeout"
 	case KindResourceStall:
 		return "resource_stall"
+	case KindResourceReq:
+		return "resource_req"
+	case KindResourceHMU:
+		return "resource_hmu"
+	case KindResourceComplete:
+		return "resource_complete"
 	case KindNetmonFlap:
 		return "netmon_flap"
 	case KindRxOK:

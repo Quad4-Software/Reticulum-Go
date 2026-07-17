@@ -1423,11 +1423,13 @@ func (l *Link) dispatchOutgoingResourceRequests(plaintext []byte) {
 			len(hmuAnchorHash) == resource.MapHashLen,
 		)
 	}
+	partBuf := make([]byte, 0, partSDU)
 	for _, pi := range partIndexes {
-		slice := out.OutboundCiphertextSlice(pi, partSDU)
+		slice := out.OutboundCiphertextSliceInto(partBuf, pi, partSDU)
 		if len(slice) == 0 {
 			continue
 		}
+		partBuf = slice
 		if err := l.SendPacketWithContext(slice, packet.ContextResource); err != nil {
 			return
 		}

@@ -59,6 +59,9 @@ type InterfaceStat struct {
 	LinkStaleClose            uint64   `msgpack:"link_stale_close"`
 	KeepaliveTimeout          uint64   `msgpack:"keepalive_timeout"`
 	ResourceStall             uint64   `msgpack:"resource_stall"`
+	ResourceReq               uint64   `msgpack:"resource_req"`
+	ResourceHMU               uint64   `msgpack:"resource_hmu"`
+	ResourceComplete          uint64   `msgpack:"resource_complete"`
 	RxOK                      uint64   `msgpack:"rx_ok"`
 	AnnounceOK                uint64   `msgpack:"announce_ok"`
 	AnnounceDup               uint64   `msgpack:"announce_dup"`
@@ -282,6 +285,9 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 		st.LinkStaleClose = hs.LinkStaleClose.Total
 		st.KeepaliveTimeout = hs.KeepaliveTimeout.Total
 		st.ResourceStall = hs.ResourceStall.Total
+		st.ResourceReq = hs.ResourceReq.Total
+		st.ResourceHMU = hs.ResourceHMU.Total
+		st.ResourceComplete = hs.ResourceComplete.Total
 		st.RxOK = hs.RxOK.Total
 		st.AnnounceOK = hs.AnnounceOK.Total
 		st.AnnounceDup = hs.AnnounceDup.Total

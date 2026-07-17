@@ -13,6 +13,9 @@ func TestDropKindNames(t *testing.T) {
 		KindPathReqNoCache:        "path_req_no_cache",
 		KindPathRespQueuedSkip:    "path_resp_queued_skip",
 		KindLinkRelayUnknownIface: "link_relay_unknown_iface",
+		KindResourceReq:           "resource_req",
+		KindResourceHMU:           "resource_hmu",
+		KindResourceComplete:      "resource_complete",
 	}
 	for k, want := range cases {
 		if got := k.String(); got != want {

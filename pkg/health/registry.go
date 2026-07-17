@@ -87,6 +87,9 @@ type Snapshot struct {
 	LinkStaleClose        KindTotals `json:"link_stale_close" msgpack:"link_stale_close"`
 	KeepaliveTimeout      KindTotals `json:"keepalive_timeout" msgpack:"keepalive_timeout"`
 	ResourceStall         KindTotals `json:"resource_stall" msgpack:"resource_stall"`
+	ResourceReq           KindTotals `json:"resource_req" msgpack:"resource_req"`
+	ResourceHMU           KindTotals `json:"resource_hmu" msgpack:"resource_hmu"`
+	ResourceComplete      KindTotals `json:"resource_complete" msgpack:"resource_complete"`
 	NetmonFlap            KindTotals `json:"netmon_flap" msgpack:"netmon_flap"`
 	RxOK                  KindTotals `json:"rx_ok" msgpack:"rx_ok"`
 	AnnounceOK            KindTotals `json:"announce_ok" msgpack:"announce_ok"`
@@ -138,6 +141,9 @@ func (r *Registry) snapshotArray(arr *[kindCount]windowedCounter) Snapshot {
 		LinkStaleClose:        snapKind(arr, KindLinkStaleClose, now),
 		KeepaliveTimeout:      snapKind(arr, KindKeepaliveTimeout, now),
 		ResourceStall:         snapKind(arr, KindResourceStall, now),
+		ResourceReq:           snapKind(arr, KindResourceReq, now),
+		ResourceHMU:           snapKind(arr, KindResourceHMU, now),
+		ResourceComplete:      snapKind(arr, KindResourceComplete, now),
 		NetmonFlap:            snapKind(arr, KindNetmonFlap, now),
 		RxOK:                  snapKind(arr, KindRxOK, now),
 		AnnounceOK:            snapKind(arr, KindAnnounceOK, now),
