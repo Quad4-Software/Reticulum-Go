@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"slices"
 	"sync"
 	"time"
 
@@ -157,10 +158,8 @@ func (rx *incomingResourceAsm) indexMapHash(idx int, mh []byte) {
 	var key mapHashKey
 	copy(key[:], mh)
 	list := rx.hashIndex[key]
-	for _, existing := range list {
-		if existing == idx {
-			return
-		}
+	if slices.Contains(list, idx) {
+		return
 	}
 	rx.hashIndex[key] = append(list, idx)
 }
