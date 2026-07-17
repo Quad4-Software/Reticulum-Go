@@ -264,6 +264,7 @@ C ABI facade for in-process embed. Pure Go core. CGO shims in `pkg/librns/capi`.
 | Shared lib | `task build-librns` produces `bin/librns.so` |
 | Smoke | `examples/librns-smoke` |
 | Odin | `bindings/odin` (`task test-odin`) |
+| Zig | `bindings/zig` (`task test-zig`) |
 | Main files | `node.go`, `identity.go`, `destination.go`, `link.go`, `queue.go` |
 
 See [librns](librns.md).
@@ -280,6 +281,19 @@ Idiomatic Odin package over `librns.so`. Not a Go import path. Use `-collection:
 | Platform | Linux (links `system:rns`) |
 
 See [librns](librns.md#odin-bindings).
+
+### `bindings/zig`
+
+Idiomatic Zig package over `librns.so`. Not a Go import path. Depend on `bindings/zig` from `build.zig.zon` and `@import("rns")`.
+
+| Item | Detail |
+|------|--------|
+| Package | `bindings/zig` (module `rns`) |
+| Tests | `bindings/zig/tests` |
+| Build | `task test-zig` or `make -C bindings/zig test` |
+| Platform | Linux (links `-lrns`) |
+
+See [librns](librns.md#zig-bindings).
 
 ### `bindings/dart`
 

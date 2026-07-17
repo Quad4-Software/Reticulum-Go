@@ -46,6 +46,7 @@ For details on interoperability, see [COMPATIBILITY.md](COMPATIBILITY.md). You c
 | **Runtime Sandbox** | Yes | Automated OS-level sandboxing enabled by default. See [SECURITY.md](SECURITY.md#runtime-sandbox). |
 | **librns C ABI** | Yes | Linux shared library for embedded applications. See [docs/en/librns.md](docs/en/librns.md). |
 | **Odin librns bindings** | Yes | Idiomatic Odin package over `librns.so` (`bindings/odin`). Linux. See [docs/en/librns.md](docs/en/librns.md#odin-bindings). |
+| **Zig librns bindings** | Yes | Idiomatic Zig package over `librns.so` (`bindings/zig`). Linux. See [docs/en/librns.md](docs/en/librns.md#zig-bindings). |
 | **Dart librns FFI** | Yes | In-process `dart:ffi` over `librns` on Linux, Android, and Windows (`bindings/dart`, `package:rns_control/ffi.dart`). See [docs/en/librns.md](docs/en/librns.md#dart-ffi-bindings). |
 | **Dart Control API client** | Yes | Flutter-ready Dart package over the Control API (`bindings/dart`). See [docs/en/control-api.md](docs/en/control-api.md#dart-and-flutter). |
 | **Control API** | Yes | Localhost JSON and WebSocket APIs for out-of-process clients. See [docs/en/control-api.md](docs/en/control-api.md). |
@@ -76,6 +77,7 @@ Refer to [SECURITY.md](SECURITY.md#runtime-sandbox) for details and specific pla
 
 *   Go version 1.26.5 or later
 *   Optional for Odin bindings: Odin compiler on `PATH` (CI pins `dev-2026-06`), plus CGO to build `librns.so`
+*   Optional for Zig bindings: Zig compiler on `PATH` (CI pins `0.16.0`), plus CGO to build `librns.so`
 *   Optional for Dart / Flutter bindings: Dart SDK on `PATH` (CI pins `3.11.4`). FFI tests also need CGO to build `librns.so`
 
 ## Quick Start
@@ -356,6 +358,17 @@ task test-odin
 ```
 
 Covers node lifecycle, identity, destinations, paths, links, and events. Details: [docs/en/librns.md](docs/en/librns.md#odin-bindings).
+
+### Zig Bindings
+
+Idiomatic Zig wrappers over `librns.so` live in `bindings/zig`. Requires Zig 0.16.0 or later on `PATH`.
+
+```bash
+task build-librns
+task test-zig
+```
+
+Covers the same ABI surface as the Odin bindings. Details: [docs/en/librns.md](docs/en/librns.md#zig-bindings).
 
 ### Dart / Flutter Bindings
 

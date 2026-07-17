@@ -137,6 +137,7 @@ tasks:
       - '{{.GOCMD}} clean'
       - rm -rf {{.BUILD_DIR}}
       - make -C bindings/odin clean
+      - make -C bindings/zig clean
       - make -C bindings/dart clean
 
   reproducibility:

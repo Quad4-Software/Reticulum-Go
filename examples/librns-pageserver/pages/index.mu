@@ -1,7 +1,8 @@
-> librns C pageserver
+> C pageserver
 
-This page is served by the C librns pageserver example.
+librns via Reticulum-Go
 
 `[Home`:/page/index.mu]
+`[Download Test File`:/file/test.txt]`_`f
 
 ---

@@ -39,7 +39,15 @@ cosign.key
 /examples/librns-pageserver/identity
 /examples/odin-pageserver/odin-pageserver
 /examples/odin-pageserver/identity
+/examples/zig-page-fetch/zig-page-fetch
+/examples/zig-pageserver/zig-pageserver
+/examples/zig-pageserver/identity
 /examples/page-downloader/page-downloader
+
+# Zig build caches
+**/.zig-cache/
+**/zig-cache/
+**/zig-out/
 
 # OS / Editor files
 .DS_Store

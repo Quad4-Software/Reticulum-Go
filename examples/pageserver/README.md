@@ -29,15 +29,27 @@ make build
 
 ## Run
 
+Default demo pageserver (from this directory so `pages/` and `files/` resolve):
+
 ```text
-./example-pageserver [flags]
+make run
+task example:pageserver
 ```
 
 Or:
 
 ```text
-go run . [flags]
 reticulum-go pageserver [flags]
+./example-pageserver [flags]
+go run -mod=mod . [flags]
+```
+
+Language-specific librns pageservers:
+
+```text
+task example:pageserver:c
+task example:pageserver:odin
+task example:pageserver:zig
 ```
 
 ## Configuration file

@@ -16,8 +16,11 @@
 
 #define DEFAULT_ANNOUNCE_SEC 900
 #define DEFAULT_PAGE_PATH "/page/index.mu"
+#define DEFAULT_FILE_PATH "/file/test.txt"
 #define DEFAULT_IDENTITY_PATH "identity"
+#define DEFAULT_FILE_FILE "files/test.txt"
 #define PAGE_BODY_CAP (256 * 1024)
+#define FILE_BODY_CAP (256 * 1024)
 #define REQ_DATA_CAP (64 * 1024)
 
 static volatile sig_atomic_t g_stop = 0;
@@ -78,7 +81,7 @@ static void hex_encode(const uint8_t *in, size_t in_len, char *out, size_t out_c
 
 static void usage(const char *argv0) {
 	fprintf(stderr,
-		"Usage: %s -c config [-i identity] [-a announce_sec] [-p page_file] [-P request_path]\n"
+		"Usage: %s -c config [-i identity] [-a announce_sec] [-p page_file] [-f file] [-P request_path]\n"
 		"\n"
 		"Serve a NomadNet-compatible /page/ handler over librns.\n"
 		"Destination: nomadnetwork.node\n"
@@ -90,15 +93,18 @@ static void usage(const char *argv0) {
 		"            Loaded when present, otherwise generated and saved\n"
 		"  -a sec    Announce interval seconds (default %d, 0 = once)\n"
 		"  -p file   Micron page file to serve (default pages/index.mu)\n"
+		"  -f file   Download file to serve at /file/test.txt (default %s)\n"
 		"  -P path   Request path to register (default %s)\n",
-		argv0, DEFAULT_IDENTITY_PATH, DEFAULT_ANNOUNCE_SEC, DEFAULT_PAGE_PATH);
+		argv0, DEFAULT_IDENTITY_PATH, DEFAULT_ANNOUNCE_SEC, DEFAULT_FILE_FILE, DEFAULT_PAGE_PATH);
 }
 
 int main(int argc, char **argv) {
 	const char *config_path = NULL;
 	const char *identity_path = DEFAULT_IDENTITY_PATH;
 	const char *page_file = "pages/index.mu";
+	const char *file_file = DEFAULT_FILE_FILE;
 	const char *request_path = DEFAULT_PAGE_PATH;
+	const char *file_path = DEFAULT_FILE_PATH;
 	int announce_sec = DEFAULT_ANNOUNCE_SEC;
 
 	for (int i = 1; i < argc; i++) {
@@ -122,6 +128,10 @@ int main(int argc, char **argv) {
 			page_file = argv[++i];
 			continue;
 		}
+		if (strcmp(argv[i], "-f") == 0 && i + 1 < argc) {
+			file_file = argv[++i];
+			continue;
+		}
 		if (strcmp(argv[i], "-P") == 0 && i + 1 < argc) {
 			request_path = argv[++i];
 			continue;
@@ -141,10 +151,12 @@ int main(int argc, char **argv) {
 	}
 
 	uint8_t *page_body = malloc(PAGE_BODY_CAP);
+	uint8_t *file_body = malloc(FILE_BODY_CAP);
 	uint8_t *req_buf = malloc(REQ_DATA_CAP);
-	if (page_body == NULL || req_buf == NULL) {
+	if (page_body == NULL || file_body == NULL || req_buf == NULL) {
 		fprintf(stderr, "out of memory\n");
 		free(page_body);
+		free(file_body);
 		free(req_buf);
 		return 1;
 	}
@@ -152,9 +164,11 @@ int main(int argc, char **argv) {
 	size_t page_len = 0;
 	if (load_page_file(page_file, page_body, PAGE_BODY_CAP, &page_len) != 0) {
 		const char *fallback =
-			"> librns C pageserver\n\n"
+			"> C pageserver\n\n"
+			"librns via Reticulum-Go\n\n"
 			"Fallback page (file not found).\n\n"
-			"`[Home`:/page/index.mu]\n\n"
+			"`[Home`:/page/index.mu]\n"
+			"`[Download Test File`:/file/test.txt]`_`f\n\n"
 			"---\n";
 		page_len = strlen(fallback);
 		if (page_len > PAGE_BODY_CAP) {
@@ -164,11 +178,20 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "warning: could not read %s, using built-in page\n", page_file);
 	}
 
+	size_t file_len = 0;
+	if (load_page_file(file_file, file_body, FILE_BODY_CAP, &file_len) != 0) {
+		const char *fallback_file = "Test file from Reticulum-Go node!\n";
+		file_len = strlen(fallback_file);
+		memcpy(file_body, fallback_file, file_len);
+		fprintf(stderr, "warning: could not read %s, using built-in file\n", file_file);
+	}
+
 	const char *ver = rns_version();
 	if (ver == NULL || strcmp(ver, RNS_API_VERSION) != 0) {
 		fprintf(stderr, "librns version mismatch: got %s want %s\n",
 			ver ? ver : "(null)", RNS_API_VERSION);
 		free(page_body);
+		free(file_body);
 		free(req_buf);
 		return 1;
 	}
@@ -177,6 +200,7 @@ int main(int argc, char **argv) {
 	if (node == 0) {
 		print_last_error("rns_node_create failed");
 		free(page_body);
+		free(file_body);
 		free(req_buf);
 		return 1;
 	}
@@ -188,6 +212,7 @@ int main(int argc, char **argv) {
 			print_last_error("rns_identity_generate failed");
 			rns_node_destroy(node);
 			free(page_body);
+			free(file_body);
 			free(req_buf);
 			return 1;
 		}
@@ -196,6 +221,7 @@ int main(int argc, char **argv) {
 			rns_identity_destroy(identity);
 			rns_node_destroy(node);
 			free(page_body);
+			free(file_body);
 			free(req_buf);
 			return 1;
 		}
@@ -209,6 +235,7 @@ int main(int argc, char **argv) {
 		rns_identity_destroy(identity);
 		rns_node_destroy(node);
 		free(page_body);
+		free(file_body);
 		free(req_buf);
 		return 1;
 	}
@@ -218,6 +245,7 @@ int main(int argc, char **argv) {
 		rns_identity_destroy(identity);
 		rns_node_destroy(node);
 		free(page_body);
+		free(file_body);
 		free(req_buf);
 		return 1;
 	}
@@ -230,6 +258,7 @@ int main(int argc, char **argv) {
 		rns_identity_destroy(identity);
 		rns_node_destroy(node);
 		free(page_body);
+		free(file_body);
 		free(req_buf);
 		return 1;
 	}
@@ -241,6 +270,19 @@ int main(int argc, char **argv) {
 		rns_identity_destroy(identity);
 		rns_node_destroy(node);
 		free(page_body);
+		free(file_body);
+		free(req_buf);
+		return 1;
+	}
+
+	if (rns_destination_register_request_handler(dest, file_path) != RNS_OK) {
+		print_last_error("rns_destination_register_request_handler file failed");
+		rns_destination_destroy(dest);
+		rns_node_stop(node);
+		rns_identity_destroy(identity);
+		rns_node_destroy(node);
+		free(page_body);
+		free(file_body);
 		free(req_buf);
 		return 1;
 	}
@@ -255,6 +297,7 @@ int main(int argc, char **argv) {
 		rns_identity_destroy(identity);
 		rns_node_destroy(node);
 		free(page_body);
+		free(file_body);
 		free(req_buf);
 		return 1;
 	}
@@ -267,10 +310,12 @@ int main(int argc, char **argv) {
 
 	printf("DEST_HASH=%s\n", dest_hex);
 	printf("REQUEST_PATH=%s\n", request_path);
+	printf("FILE_PATH=%s\n", file_path);
 	fflush(stdout);
 	fprintf(stderr, "librns %s pageserver listening as nomadnetwork.node\n", ver);
 	fprintf(stderr, "announce name=librns-c-pageserver interval=%ds\n", announce_sec);
 	fprintf(stderr, "serving %zu bytes from %s\n", page_len, page_file);
+	fprintf(stderr, "serving %zu bytes from %s as %s\n", file_len, file_file, file_path);
 
 	const char *app_data = "librns-c-pageserver";
 	if (rns_destination_announce(dest, (const uint8_t *)app_data, strlen(app_data)) != RNS_OK) {
@@ -322,6 +367,13 @@ int main(int argc, char **argv) {
 				} else {
 					fprintf(stderr, "served %s (%zu bytes)\n", request_path, page_len);
 				}
+			} else if (strcmp(ev.path, file_path) == 0) {
+				if (rns_request_respond(node, ev.request_id, ev.request_id_len,
+						file_body, file_len) != RNS_OK) {
+					print_last_error("rns_request_respond failed");
+				} else {
+					fprintf(stderr, "served %s (%zu bytes)\n", file_path, file_len);
+				}
 			} else {
 				const char *msg = "page not found\n";
 				if (rns_request_respond(node, ev.request_id, ev.request_id_len,
@@ -338,6 +390,7 @@ int main(int argc, char **argv) {
 	rns_identity_destroy(identity);
 	rns_node_destroy(node);
 	free(page_body);
+	free(file_body);
 	free(req_buf);
 	return 0;
 }

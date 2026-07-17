@@ -189,4 +189,3 @@ func TestLiveGoRPCUnixSharedInstance(t *testing.T) {
 		t.Fatalf("GetLinkCount auto (unix primary): %v", err)
 	}
 }
-

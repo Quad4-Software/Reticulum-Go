@@ -1,8 +1,8 @@
-> Reticulum-Go Node                                                       
+> Go pageserver
 
-This node is serving pages using Reticulum-Go.
+librns via Reticulum-Go
 
-quad4/reticulum-go
+This node serves `/page/` and `/file/` over Reticulum.
 
 `[Download Test File`:/file/test.txt]`_`f
 

@@ -313,6 +313,15 @@ task test-odin
 
 Requires the Odin compiler on `PATH` (CI installs a pinned monthly release via `scripts/ci/setup-odin.sh`, job `Odin bindings`). Package lives under `bindings/odin`. See [librns](librns.md#odin-bindings).
 
+## Zig bindings
+
+```bash
+task build-librns
+task test-zig
+```
+
+Requires Zig 0.16.0 or later on `PATH` (CI installs a pinned release via `scripts/ci/setup-zig.sh`, job `Zig bindings`). Package lives under `bindings/zig`. See [librns](librns.md#zig-bindings).
+
 ## Dart bindings
 
 ```bash

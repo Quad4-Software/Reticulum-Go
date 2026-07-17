@@ -1,8 +1,8 @@
 # Sample config for Odin librns pageserver.
 # share_instance must be off for an in-process librns host.
 #
-# Pick an online TCP or Backbone hub from:
-#   https://directory.rns.recipes/api/directory/submitted?status=online
+# Pick a supported public interface from:
+#   https://directory.rns.recipes/ 
 # Paste one [[Interface]] block under [interfaces] below.
 
 [reticulum]

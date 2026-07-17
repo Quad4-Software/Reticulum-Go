@@ -7,6 +7,7 @@
 | `pkg/node` | Go app, full transport and interfaces in-process |
 | `pkg/librns` / [librns](librns.md) | Native host (C, C++, FFI) wants the same stack in-process |
 | `bindings/odin` / [librns](librns.md#odin-bindings) | Odin app linking `librns.so` in-process |
+| `bindings/zig` / [librns](librns.md#zig-bindings) | Zig app linking `librns.so` in-process |
 | `bindings/dart` / [librns Dart FFI](librns.md#dart-ffi-bindings) | Flutter or Dart app embedding `librns` on Linux, Android, Windows |
 | Control API / [Dart client](control-api.md#dart-and-flutter) | Separate language or Flutter app talking to a local `reticulum-go` daemon |
 | `pkg/wasm` | Browser client over WebSocket |
@@ -132,7 +133,7 @@ Run `reticulum-go` with `enable_control_api = yes` and talk HTTP/WebSocket from 
 
 ## librns
 
-For in-process C / FFI embed, see [librns](librns.md). Build with `task build-librns`. Smoke: `examples/librns-smoke`. Odin: `bindings/odin` (`task test-odin`). Dart FFI: `bindings/dart` (`task test-dart`, `task build-librns-targets`).
+For in-process C / FFI embed, see [librns](librns.md). Build with `task build-librns`. Smoke: `examples/librns-smoke`. Odin: `bindings/odin` (`task test-odin`). Zig: `bindings/zig` (`task test-zig`). Dart FFI: `bindings/dart` (`task test-dart`, `task build-librns-targets`).
 
 ## Sandbox note
 

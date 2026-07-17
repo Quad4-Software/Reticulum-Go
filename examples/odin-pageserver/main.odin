@@ -16,19 +16,25 @@ import rns "rns:rns"
 
 DEFAULT_ANNOUNCE_SEC :: 900
 DEFAULT_PAGE_PATH :: "/page/index.mu"
+DEFAULT_FILE_PATH :: "/file/test.txt"
 DEFAULT_PAGE_FILE :: "pages/index.mu"
+DEFAULT_FILE_FILE :: "files/test.txt"
 DEFAULT_IDENTITY_PATH :: "identity"
 REQ_DATA_CAP :: 64 * 1024
 
 FALLBACK_PAGE ::
-	"> librns Odin pageserver\n\n" +
+	"> Odin pageserver\n\n" +
+	"librns via Reticulum-Go\n\n" +
 	"Fallback page (file not found).\n\n" +
-	"`[Home`:/page/index.mu]\n\n" +
+	"`[Home`:/page/index.mu]\n" +
+	"`[Download Test File`:/file/test.txt]`_`f\n\n" +
 	"---\n"
+
+FALLBACK_FILE :: "Test file from Reticulum-Go node!\n"
 
 usage :: proc(argv0: string) {
 	fmt.eprintf(
-		"Usage: %s -c config [-i identity] [-a announce_sec] [-p page_file] [-P request_path]\n" +
+		"Usage: %s -c config [-i identity] [-a announce_sec] [-p page_file] [-f file] [-P request_path]\n" +
 		"\n" +
 		"Serve a NomadNet-compatible /page/ handler over librns.\n" +
 		"Destination: nomadnetwork.node\n" +
@@ -40,11 +46,13 @@ usage :: proc(argv0: string) {
 		"            Loaded when present, otherwise generated and saved\n" +
 		"  -a sec    Announce interval seconds (default %d, 0 = once)\n" +
 		"  -p file   Micron page file to serve (default %s)\n" +
+		"  -f file   Download file to serve at /file/test.txt (default %s)\n" +
 		"  -P path   Request path to register (default %s)\n",
 		argv0,
 		DEFAULT_IDENTITY_PATH,
 		DEFAULT_ANNOUNCE_SEC,
 		DEFAULT_PAGE_FILE,
+		DEFAULT_FILE_FILE,
 		DEFAULT_PAGE_PATH,
 	)
 }
@@ -68,6 +76,15 @@ load_page :: proc(path: string) -> []u8 {
 	return data
 }
 
+load_file :: proc(path: string) -> []u8 {
+	data, err := os.read_entire_file(path, context.allocator)
+	if err != nil {
+		fmt.eprintf("warning: could not read %s, using built-in file\n", path)
+		return transmute([]u8)strings.clone(FALLBACK_FILE)
+	}
+	return data
+}
+
 load_or_create_identity :: proc(path: string) -> (identity: rns.Identity, err: rns.Error) {
 	identity, err = rns.identity_load(path)
 	if err == .Ok {
@@ -86,7 +103,7 @@ load_or_create_identity :: proc(path: string) -> (identity: rns.Identity, err: r
 	return identity, .Ok
 }
 
-run :: proc(config_path, identity_path, page_file, request_path: string, announce_sec: int) -> int {
+run :: proc(config_path, identity_path, page_file, file_file, request_path, file_path: string, announce_sec: int) -> int {
 	ver := rns.version()
 	if ver != rns.API_VERSION {
 		fmt.eprintf("librns version mismatch: got %s want %s\n", ver, rns.API_VERSION)
@@ -95,6 +112,8 @@ run :: proc(config_path, identity_path, page_file, request_path: string, announc
 
 	page_body := load_page(page_file)
 	defer delete(page_body)
+	file_body := load_file(file_file)
+	defer delete(file_body)
 
 	node, nerr := rns.node_create(config_path)
 	if nerr != .Ok {
@@ -131,6 +150,10 @@ run :: proc(config_path, identity_path, page_file, request_path: string, announc
 		print_last_error("rns.destination_register_request_handler failed")
 		return 1
 	}
+	if rns.destination_register_request_handler(dest, file_path) != .Ok {
+		print_last_error("rns.destination_register_request_handler file failed")
+		return 1
+	}
 
 	dest_hash, herr := rns.destination_hash(dest)
 	if herr != .Ok {
@@ -146,9 +169,11 @@ run :: proc(config_path, identity_path, page_file, request_path: string, announc
 
 	fmt.printf("DEST_HASH=%s\n", dest_hex)
 	fmt.printf("REQUEST_PATH=%s\n", request_path)
+	fmt.printf("FILE_PATH=%s\n", file_path)
 	fmt.eprintf("librns %s pageserver listening as nomadnetwork.node\n", ver)
 	fmt.eprintf("announce name=librns-odin-pageserver interval=%ds\n", announce_sec)
 	fmt.eprintf("serving %d bytes from %s\n", len(page_body), page_file)
+	fmt.eprintf("serving %d bytes from %s as %s\n", len(file_body), file_file, file_path)
 
 	app_data := transmute([]u8)string("librns-odin-pageserver")
 	if rns.destination_announce(dest, app_data) != .Ok {
@@ -195,6 +220,12 @@ run :: proc(config_path, identity_path, page_file, request_path: string, announc
 				} else {
 					fmt.eprintf("served %s (%d bytes)\n", request_path, len(page_body))
 				}
+			} else if path == file_path {
+				if rns.request_respond(node, req_id, file_body) != .Ok {
+					print_last_error("rns.request_respond failed")
+				} else {
+					fmt.eprintf("served %s (%d bytes)\n", file_path, len(file_body))
+				}
 			} else {
 				msg := transmute([]u8)string("page not found\n")
 				if rns.request_respond(node, req_id, msg) != .Ok {
@@ -210,7 +241,9 @@ main :: proc() {
 	config_path: string
 	identity_path := DEFAULT_IDENTITY_PATH
 	page_file := DEFAULT_PAGE_FILE
+	file_file := DEFAULT_FILE_FILE
 	request_path := DEFAULT_PAGE_PATH
+	file_path := DEFAULT_FILE_PATH
 	announce_sec := DEFAULT_ANNOUNCE_SEC
 
 	args := os.args
@@ -241,6 +274,11 @@ main :: proc() {
 			page_file = args[i]
 			continue
 		}
+		if arg == "-f" && i + 1 < len(args) {
+			i += 1
+			file_file = args[i]
+			continue
+		}
 		if arg == "-P" && i + 1 < len(args) {
 			i += 1
 			request_path = args[i]
@@ -260,5 +298,5 @@ main :: proc() {
 		os.exit(1)
 	}
 
-	os.exit(run(config_path, identity_path, page_file, request_path, announce_sec))
+	os.exit(run(config_path, identity_path, page_file, file_file, request_path, file_path, announce_sec))
 }

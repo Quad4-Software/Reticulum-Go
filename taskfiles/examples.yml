@@ -37,6 +37,31 @@ tasks:
       - task: test-wasm
 
   "example:pageserver":
-    desc: Run pageserver example
+    desc: Run Go pageserver example (default)
+    dir: examples/pageserver
     cmds:
-      - 'cd examples/pageserver && {{.GOCMD}} run .'
+      - |
+        if [ ! -x ../../bin/reticulum-go ]; then
+          task -d ../.. build
+        fi
+      - ../../bin/reticulum-go pageserver {{.CLI_ARGS}}
+
+  "example:pageserver:go":
+    desc: Run Go pageserver example
+    cmds:
+      - task: example:pageserver
+
+  "example:pageserver:c":
+    desc: Build and run C librns pageserver
+    cmds:
+      - make -C examples/librns-pageserver run ARGS='{{.CLI_ARGS}}'
+
+  "example:pageserver:odin":
+    desc: Build and run Odin librns pageserver
+    cmds:
+      - make -C examples/odin-pageserver run ARGS='{{.CLI_ARGS}}'
+
+  "example:pageserver:zig":
+    desc: Build and run Zig librns pageserver
+    cmds:
+      - make -C examples/zig-pageserver run ARGS='{{.CLI_ARGS}}'

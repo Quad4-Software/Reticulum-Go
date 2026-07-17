@@ -1,7 +1,8 @@
-> librns Odin pageserver
+> Odin pageserver
 
-This page is served by the Odin librns pageserver example.
+librns via Reticulum-Go
 
 `[Home`:/page/index.mu]
+`[Download Test File`:/file/test.txt]`_`f
 
 ---

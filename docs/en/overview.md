@@ -66,6 +66,7 @@ Below is a summary of major features. For line-by-line parity with Python, see [
 | Control API | Go-only | `pkg/controlapi` |
 | librns C ABI | Go-only | `pkg/librns`, `include/rns.h`, `task build-librns` |
 | Odin librns bindings | Go-only host | `bindings/odin` (Linux, links `librns.so`). See [librns](librns.md#odin-bindings) |
+| Zig librns bindings | Go-only host | `bindings/zig` (Linux, links `librns.so`). See [librns](librns.md#zig-bindings) |
 | Dart librns FFI | Go-only host | `bindings/dart` (`ffi.dart`). Linux, Android, Windows. See [librns](librns.md#dart-ffi-bindings) |
 | Dart Control API client | Go-only host | `bindings/dart` (`rns_control`). See [Control API](control-api.md#dart-and-flutter) |
 | Runtime sandbox | Go-only | `pkg/sandbox` |

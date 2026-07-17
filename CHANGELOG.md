@@ -13,12 +13,13 @@ Wire compatible with Python RNS 1.3.8
 - Daemon utilities: status id probe path cp x pageserver
 - librns C ABI node lifecycle control API sandbox
 - Odin librns bindings (`bindings/odin`)
+- Zig librns bindings (`bindings/zig`)
 - Dart Control API client (`bindings/dart`)
 - Fully ephemeral `in_memory_storage` mode with soft memory caps and OOM-safe eviction
 - Align `RNS_API_VERSION` in `include/rns.h` with librns `1.2`
 - `rns_identity_save` for persistent identities in librns hosts
 - Examples: minimal announce link resources filetransfer echo and more
-- librns C/Odin pageserver and page-fetch examples with persistent identities
+- librns C/Odin/Zig pageserver and page-fetch examples with persistent identities
 - Go-only underlays: DNS TXT rendezvous, Linux VSOCK, HTTPS long-poll
 - Race, fuzz, and goroutine-leak coverage for Serial, WebTransport, DNS rendezvous, VSOCK, and HTTPS
 - Channel envelope and StreamDataMessage wire parity with Python RNS

@@ -22,9 +22,12 @@ Pair this page with the [API reference](api-reference.md).
 | C / FFI smoke test | `examples/librns-smoke` |
 | C librns page fetch | `examples/librns-page-fetch` |
 | Odin librns page fetch | `examples/odin-page-fetch` |
+| Zig librns page fetch | `examples/zig-page-fetch` |
 | C librns pageserver | `examples/librns-pageserver` |
 | Odin librns pageserver | `examples/odin-pageserver` |
+| Zig librns pageserver | `examples/zig-pageserver` |
 | Odin librns bindings | `bindings/odin` |
+| Zig librns bindings | `bindings/zig` |
 | Dart librns FFI and Control API | `bindings/dart` |
 | Operator CLIs | `reticulum-go status \| id \| probe \| path \| cp` then [CLI Utilities](utilities.md) |
 
@@ -190,7 +193,18 @@ make -C examples/librns-pageserver
   -c /path/to/config
 ```
 
-Prints `DEST_HASH=...` on startup. Fetch with the C or Odin page-fetch example.
+Prints `DEST_HASH=...` on startup. Fetch with the C, Odin, or Zig page-fetch example.
+
+Run helpers (Go is the default demo pageserver):
+
+```bash
+task example:pageserver
+make -C examples/pageserver run
+
+task example:pageserver:c
+task example:pageserver:odin
+task example:pageserver:zig
+```
 
 ## Odin pageserver
 
@@ -202,6 +216,33 @@ Same pageserver flow using the Odin bindings.
 task build-librns
 make -C examples/odin-pageserver
 ./examples/odin-pageserver/odin-pageserver \
+  -c /path/to/config
+```
+
+## Zig page fetch
+
+Path: `examples/zig-page-fetch/`
+
+Same flow as the C page-fetch example, using the Zig wrappers in `bindings/zig`.
+
+```bash
+task build-librns
+make -C examples/zig-page-fetch
+./examples/zig-page-fetch/zig-page-fetch \
+  -c /path/to/config \
+  92798ea245a0afcfa559348e42d628c6:/page/index.mu
+```
+
+## Zig pageserver
+
+Path: `examples/zig-pageserver/`
+
+Same pageserver flow using the Zig bindings.
+
+```bash
+task build-librns
+make -C examples/zig-pageserver
+./examples/zig-pageserver/zig-pageserver \
   -c /path/to/config
 ```
 
@@ -223,6 +264,19 @@ import rns "rns:rns"
 ```
 
 Wrapped surface includes node lifecycle, identity, destination, path table, link send and request, and event poll. See [librns](librns.md#odin-bindings).
+
+## Zig librns bindings
+
+Path: `bindings/zig/`
+
+Idiomatic Zig package over `librns.so`. Requires Zig 0.16.0 or later on `PATH` and a built shared library.
+
+```bash
+task build-librns
+task test-zig
+```
+
+Import as `@import("rns")` from a `build.zig` dependency on `bindings/zig`. See [librns](librns.md#zig-bindings).
 
 ## Dart bindings
 

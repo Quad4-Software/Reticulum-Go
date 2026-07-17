@@ -164,6 +164,11 @@ tasks:
     cmds:
       - sh scripts/ci/run-odin-bindings.sh
 
+  test-zig:
+    desc: Build librns and run Zig bindings tests (requires zig on PATH)
+    cmds:
+      - sh scripts/ci/run-zig-bindings.sh
+
   test-dart:
     desc: Run Dart bindings tests (Control API + librns FFI, requires dart and CGO)
     cmds:

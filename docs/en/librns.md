@@ -18,9 +18,12 @@ For Go apps, prefer `pkg/node` directly. For a separate daemon and JSON/WebSocke
 | `examples/librns-smoke` | Minimal C smoke program |
 | `examples/librns-page-fetch` | C NomadNet-style page fetch over librns |
 | `examples/odin-page-fetch` | Odin NomadNet-style page fetch over librns |
+| `examples/zig-page-fetch` | Zig NomadNet-style page fetch over librns |
 | `examples/librns-pageserver` | C NomadNet-style pageserver over librns |
 | `examples/odin-pageserver` | Odin NomadNet-style pageserver over librns |
+| `examples/zig-pageserver` | Zig NomadNet-style pageserver over librns |
 | `bindings/odin` | Idiomatic Odin bindings and tests over `librns.so` |
+| `bindings/zig` | Idiomatic Zig bindings and tests over `librns.so` |
 | `bindings/dart` | Dart FFI (`ffi.dart`) plus Control API client |
 
 Daemon builds stay `CGO_ENABLED=0`. Only `build-librns` turns CGO on.
@@ -45,6 +48,11 @@ make -C examples/odin-page-fetch
 ./examples/odin-page-fetch/odin-page-fetch \
   -c /path/to/config \
   <dest_hash>:/page/index.mu
+
+make -C examples/zig-page-fetch
+./examples/zig-page-fetch/zig-page-fetch \
+  -c /path/to/config \
+  <dest_hash>:/page/index.mu
 ```
 
 Configs need an online TCP or Backbone hub from [directory.rns.recipes](https://directory.rns.recipes/). `config.example` only has AutoInterface.
@@ -59,9 +67,13 @@ make -C examples/librns-pageserver
 make -C examples/odin-pageserver
 ./examples/odin-pageserver/odin-pageserver \
   -c /path/to/config
+
+make -C examples/zig-pageserver
+./examples/zig-pageserver/zig-pageserver \
+  -c /path/to/config
 ```
 
-Needs a C toolchain and CGO. Output: `bin/librns.so` and a copy of the header under `bin/rns.h`. The Odin examples also need `odin` on `PATH`.
+Needs a C toolchain and CGO. Output: `bin/librns.so` and a copy of the header under `bin/rns.h`. The Odin examples also need `odin` on `PATH`. The Zig examples need `zig` on `PATH`.
 
 ## librns vs Control API
 
@@ -209,12 +221,14 @@ rns_node_destroy
 | Fuzz | `FuzzHandleTable`, `FuzzEventQueue`, `FuzzConfigPathCreate`, `FuzzValidatePath` |
 | C smoke | `examples/librns-smoke` |
 | Odin bindings | `bindings/odin` (`task test-odin`) |
+| Zig bindings | `bindings/zig` (`task test-zig`) |
 
 ```bash
 go test ./pkg/librns
 task build-librns
 make -C examples/librns-smoke && ./examples/librns-smoke/librns-smoke
 task test-odin
+task test-zig
 ```
 
 ## Odin bindings
@@ -253,6 +267,44 @@ make -C bindings/odin smoke
 ```
 
 CI runs the same suite (`test-odin` job, pinned Odin `dev-2026-06`).
+
+Tests cover version and node lifecycle, identity and destination helpers, and a live UDP announce, link, and send round trip through `librns.so`.
+
+## Zig bindings
+
+Path: `bindings/zig/`.
+
+Idiomatic wrappers over the same C ABI (`@extern` decls in `src/c.zig`). Import with a Zig package dependency on `bindings/zig`:
+
+```zig
+const rns = @import("rns");
+```
+
+### Coverage
+
+| Area | Zig surface |
+|------|-------------|
+| Version and errors | `version`, `lastError`, `errorString`, `Error` |
+| Node lifecycle | `nodeCreate`, `nodeStart`, `nodeStop`, `nodeDestroy`, `nodePause`, `nodeResume`, `nodeSetIdentity`, `nodeRefreshPaths` |
+| Identity | `identityGenerate`, `identityLoad`, `identitySave`, `identityDestroy`, `identityHash` |
+| Destination | `destinationCreate`, `destinationAnnounce`, `destinationHash`, destroy, request handler register |
+| Path | `pathRequest`, `pathTable` |
+| Link and requests | `linkOpen`, `linkSend`, `linkClose`, `linkId`, `linkRequest`, `requestRespond` |
+| Events | `eventPoll`, `setEventCallback`, helpers for app data and hashes |
+| Raw ABI | `c.rns_*` in `bindings/zig/src/c.zig` |
+
+Linux only (matches `librns.so`). Requires Zig 0.16.0 or later on `PATH` and a built shared library.
+
+### Build and test
+
+```bash
+task build-librns
+task test-zig
+# or
+make -C bindings/zig test
+```
+
+CI runs the same suite (`test-zig` job, pinned Zig `0.16.0`).
 
 Tests cover version and node lifecycle, identity and destination helpers, and a live UDP announce, link, and send round trip through `librns.so`.
 

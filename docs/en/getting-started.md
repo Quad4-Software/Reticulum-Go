@@ -140,17 +140,18 @@ task test-wasm
 
 See [Embedding and WebAssembly](embedding-and-wasm.md).
 
-## librns and Odin bindings
+## librns and language bindings
 
-Build the shared library and optional Odin tests:
+Build the shared library and optional binding tests:
 
 ```bash
 task build-librns
 make -C examples/librns-smoke && ./examples/librns-smoke/librns-smoke
 task test-odin
+task test-zig
 ```
 
-`task test-odin` needs the Odin compiler on `PATH`. See [librns](librns.md).
+`task test-odin` needs the Odin compiler on `PATH`. `task test-zig` needs Zig 0.16.0 or later on `PATH`. See [librns](librns.md).
 
 ## Dart bindings
 

@@ -8,8 +8,9 @@ ODIN ?= odin
 COLLECTION := -collection:rns=$(ROOT)/bindings/odin
 ABS_BIN := $(abspath $(BIN))
 LINKER_FLAGS := -extra-linker-flags:"-L$(ABS_BIN) -Wl,-rpath,$(ABS_BIN)"
+CONFIG ?= config.example
 
-.PHONY: all clean librns
+.PHONY: all clean librns run
 
 all: odin-pageserver
 
@@ -22,6 +23,11 @@ odin-pageserver: main.odin $(RNS_LIB)
 	LIBRARY_PATH="$(ABS_BIN):$${LIBRARY_PATH:-}" \
 	LD_LIBRARY_PATH="$(ABS_BIN):$${LD_LIBRARY_PATH:-}" \
 	$(ODIN) build . -out:$@ $(COLLECTION) $(LINKER_FLAGS)
+
+run: odin-pageserver
+	LIBRARY_PATH="$(ABS_BIN):$${LIBRARY_PATH:-}" \
+	LD_LIBRARY_PATH="$(ABS_BIN):$${LD_LIBRARY_PATH:-}" \
+	./odin-pageserver -c $(CONFIG) $(ARGS)
 
 clean:
 	rm -f odin-pageserver
