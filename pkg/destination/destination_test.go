@@ -369,9 +369,40 @@ func TestAnnounceSkipsReceiveOnlyInterfaces(t *testing.T) {
 	}
 	if err := dest.Announce(false, nil, ro); err == nil {
 		t.Fatal("Announce attached receive-only should fail with 0 writable interfaces")
+	} else if !errors.Is(err, common.ErrDestAnnounceNoWritable) {
+		t.Fatalf("attached receive-only: got %v, want ErrDestAnnounceNoWritable", err)
 	}
 	if got := len(ro.Sent()); got != 0 {
 		t.Fatalf("attached receive-only got %d announces, want 0", got)
+	}
+}
+
+// TestAnnounceOnlyReceiveOnlyReturnsNoWritable locks the directory outgoing
+// interop contract: online outgoing=no interfaces must not TX and must
+// surface ErrDestAnnounceNoWritable (not a silent success).
+func TestAnnounceOnlyReceiveOnlyReturnsNoWritable(t *testing.T) {
+	id, err := identity.New()
+	if err != nil {
+		t.Fatalf("identity.New: %v", err)
+	}
+	ro := newRecordingInterface("ro")
+	ro.SetOutgoingAllowed(false)
+	tr := &mockTransport{
+		config: &common.ReticulumConfig{},
+		interfaces: map[string]common.NetworkInterface{
+			"ro": ro,
+		},
+	}
+	dest, err := New(id, In|Out, Single, "live_outgoing", tr, "probe")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	err = dest.Announce(false, nil, nil)
+	if !errors.Is(err, common.ErrDestAnnounceNoWritable) {
+		t.Fatalf("got %v, want ErrDestAnnounceNoWritable", err)
+	}
+	if got := len(ro.Sent()); got != 0 {
+		t.Fatalf("receive-only leaked %d announces", got)
 	}
 }
 

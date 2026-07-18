@@ -1,4 +1,4 @@
-// Command testsummary runs `go test -json` and prints a concise failure summary at the end.
+// Command testsummary runs go test -json and prints a concise failure summary at the end.
 //
 // Usage:
 //
@@ -35,7 +35,7 @@ func quietMode() bool {
 	return os.Getenv("TESTSUMMARY_QUIET") != "" || os.Getenv("CI_QUIET_TESTS") != ""
 }
 
-// childEnv builds the environment for the `go test` child. TESTSUMMARY_GOOS
+// childEnv builds the environment for the go test child. TESTSUMMARY_GOOS
 // and TESTSUMMARY_GOARCH are applied only to the child so this host binary
 // can still be built and run when targeting js/wasm tests.
 func childEnv() []string {
@@ -64,7 +64,7 @@ func childEnv() []string {
 	return out
 }
 
-// goTestArgs builds `go test` argv. The go tool requires -C to be the first
+// goTestArgs builds go test argv. The go tool requires -C to be the first
 // flag, so any user -C is placed before -json.
 func goTestArgs(user []string) []string {
 	out := make([]string, 0, len(user)+3)
