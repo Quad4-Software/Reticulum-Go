@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -662,8 +663,11 @@ func parseNodeStatusAppData(decoded any) (enabled bool, timestamp int64, maxSize
 	if !ok {
 		return false, 0, 0, false
 	}
+	if maxSizeVal < math.MinInt16 || maxSizeVal > math.MaxInt16 {
+		return false, 0, 0, false
+	}
 
-	return enabledVal, timestampVal, int16(maxSizeVal), true // #nosec G115
+	return enabledVal, timestampVal, int16(maxSizeVal), true
 }
 
 func msgpackString(v any) (string, bool) {

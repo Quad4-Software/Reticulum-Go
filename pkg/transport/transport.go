@@ -2080,30 +2080,13 @@ func (t *Transport) InitializePathRequestHandler() error {
 }
 
 func (t *Transport) handlePathRequest(data []byte, iface common.NetworkInterface) {
-	if len(data) < identity.TruncatedHashLength/8 {
-		debug.Log(debug.DebugInfo, "Path request too short")
-		return
-	}
-
-	destHash := data[:identity.TruncatedHashLength/8]
-	var requestorTransportID []byte
-	var tag []byte
-
-	if len(data) > identity.TruncatedHashLength/8*2 {
-		requestorTransportID = data[identity.TruncatedHashLength/8 : identity.TruncatedHashLength/8*2]
-		tag = data[identity.TruncatedHashLength/8*2:]
-		if len(tag) > identity.TruncatedHashLength/8 {
-			tag = tag[:identity.TruncatedHashLength/8]
+	destHash, requestorTransportID, tag, ok := parsePathRequestWire(data)
+	if !ok {
+		if len(data) < identity.TruncatedHashLength/8 {
+			debug.Log(debug.DebugInfo, "Path request too short")
+		} else {
+			debug.Log(debug.DebugInfo, "Ignoring tagless path request", "dest_hash", fmt.Sprintf("%x", destHash))
 		}
-	} else if len(data) > identity.TruncatedHashLength/8 {
-		tag = data[identity.TruncatedHashLength/8:]
-		if len(tag) > identity.TruncatedHashLength/8 {
-			tag = tag[:identity.TruncatedHashLength/8]
-		}
-	}
-
-	if tag == nil {
-		debug.Log(debug.DebugInfo, "Ignoring tagless path request", "dest_hash", fmt.Sprintf("%x", destHash))
 		return
 	}
 
@@ -2134,6 +2117,32 @@ func (t *Transport) handlePathRequest(data []byte, iface common.NetworkInterface
 	}
 
 	t.processPathRequest(destHash, iface, requestorTransportID, tag)
+}
+
+// parsePathRequestWire extracts dest hash, optional requestor transport ID,
+// and tag from a path-request payload. ok is false when the payload is too
+// short or tagless (matching Python Transport.path_request_handler).
+func parsePathRequestWire(data []byte) (destHash, requestorTransportID, tag []byte, ok bool) {
+	hashLen := identity.TruncatedHashLength / 8
+	if len(data) < hashLen {
+		return nil, nil, nil, false
+	}
+	destHash = data[:hashLen]
+	if len(data) > hashLen*2 {
+		requestorTransportID = data[hashLen : hashLen*2]
+		tag = data[hashLen*2:]
+	} else if len(data) > hashLen {
+		tag = data[hashLen:]
+	} else {
+		return destHash, nil, nil, false
+	}
+	if len(tag) > hashLen {
+		tag = tag[:hashLen]
+	}
+	if len(tag) == 0 {
+		return destHash, requestorTransportID, nil, false
+	}
+	return destHash, requestorTransportID, tag, true
 }
 
 func (t *Transport) processPathRequest(destHash []byte, attachedIface common.NetworkInterface, requestorTransportID []byte, tag []byte) {

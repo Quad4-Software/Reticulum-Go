@@ -25,9 +25,13 @@ func IsPaddingError(err error) bool {
 
 // RemovePKCS7Padding validates and removes PKCS#7 padding without early exit
 // on the first mismatched byte (reduces padding-oracle surface when used after MAC verify).
+// plaintext must be a non-empty multiple of AES block size.
 func RemovePKCS7Padding(plaintext []byte) ([]byte, error) {
 	if len(plaintext) == 0 {
 		return nil, errPaddingEmpty
+	}
+	if len(plaintext)%aes.BlockSize != 0 {
+		return nil, errPaddingSize
 	}
 
 	padding := int(plaintext[len(plaintext)-1])
