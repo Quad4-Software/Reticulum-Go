@@ -42,7 +42,7 @@ func FuzzHandleAnnounce(f *testing.F) {
 	if trunc, err := hex.DecodeString("01000100010001000100010001000100010001000100010001000100010001000100010001000100"); err == nil {
 		f.Add(trunc)
 	}
-	badHops := make([]byte, MinAnnouncePacketSize)
+	badHops := make([]byte, MinAnnouncePacketSizeNoRatchet)
 	badHops[0] = PacketTypeAnnounce
 	badHops[1] = 0xff
 	f.Add(badHops)
@@ -55,7 +55,7 @@ func FuzzHandleAnnounce(f *testing.F) {
 		err2 := ann.HandleAnnounce(data)
 		_ = err2
 
-		if len(data) < MinAnnouncePacketSize {
+		if len(data) < MinAnnouncePacketSizeNoRatchet {
 			if err1 == nil {
 				t.Fatal("truncated announce must error")
 			}

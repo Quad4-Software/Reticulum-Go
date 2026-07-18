@@ -48,7 +48,7 @@ func TestPBTCreateThenHandleAnnounce(t *testing.T) {
 }
 
 func TestPBTTruncatedAnnounceAlwaysErrors(t *testing.T) {
-	length := pbt.IntRange(0, MinAnnouncePacketSize-1)
+	length := pbt.IntRange(0, MinAnnouncePacketSizeNoRatchet-1)
 	prop := pbt.ForAll(
 		"truncated announce always errors",
 		length,
@@ -86,7 +86,7 @@ func TestPBTHopOverflowAlwaysErrors(t *testing.T) {
 			if err != nil {
 				return false
 			}
-			buf := make([]byte, MinAnnouncePacketSize)
+			buf := make([]byte, MinAnnouncePacketSizeNoRatchet)
 			buf[0] = PacketTypeAnnounce
 			buf[1] = byte(h)
 			err = ann.HandleAnnounce(buf)

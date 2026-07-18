@@ -142,7 +142,10 @@ func extractUDPv4(frame []byte, linkType uint32) (payload []byte, sport, dport u
 	sport = binary.BigEndian.Uint16(udp[0:2])
 	dport = binary.BigEndian.Uint16(udp[2:4])
 	ulen := int(binary.BigEndian.Uint16(udp[4:6]))
-	if ulen < 8 || len(udp) < ulen {
+	if ulen < 8 {
+		return nil, 0, 0, false
+	}
+	if len(udp) < ulen {
 		ulen = len(udp)
 	}
 	return append([]byte{}, udp[8:ulen]...), sport, dport, true

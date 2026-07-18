@@ -5,6 +5,7 @@ package packet
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"testing"
 
@@ -95,4 +96,25 @@ func FuzzExtractUDPv4(f *testing.F) {
 		}
 		_, _, _, _ = extractUDPv4(frame, linkType)
 	})
+}
+
+func TestExtractUDPv4RejectsUDPLengthBelowHeader(t *testing.T) {
+	var buf bytes.Buffer
+	if err := WritePCAPEthernetUDPv4(&buf, []byte{1, 2, 3}, 1, 2); err != nil {
+		t.Fatal(err)
+	}
+	raw := buf.Bytes()
+	// Patch UDP length field inside the single Ethernet frame.
+	udpLenOff := 24 + 16 + 14 + 20 + 4
+	if len(raw) <= udpLenOff+1 {
+		t.Fatalf("pcap too short: %d", len(raw))
+	}
+	binary.BigEndian.PutUint16(raw[udpLenOff:], 4)
+	caps, err := ReadPCAPUDPPayloads(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatalf("ReadPCAPUDPPayloads: %v", err)
+	}
+	if len(caps) != 0 {
+		t.Fatalf("expected invalid UDP length to be skipped, got %d captures", len(caps))
+	}
 }
