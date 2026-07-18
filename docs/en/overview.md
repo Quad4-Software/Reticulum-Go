@@ -8,7 +8,7 @@ Reticulum-Go targets full wire compatibility with the official Python reference 
 
 The primary deliverables are:
 
-- A daemon binary (`reticulum-go`) comparable to Python `rnsd`
+- A daemon binary (`reticulum-go`) comparable to Python rnsd
 - A library surface under `pkg/` for embedding Reticulum in Go applications
 - A WebAssembly build (`reticulum-wasm`) for browser clients
 - A localhost control API for applications written in other languages
@@ -60,9 +60,9 @@ Below is a summary of major features. For line-by-line parity with Python, see [
 | Blackhole | Partial | Local drop and LINKIDENTIFY teardown. No publish/federation |
 | SerialInterface | Complete | HDLC serial with Go extensions. Live framing interop |
 | Modem73Interface | Complete | KISS + JSON control to modem73. Live: `tests/interop/modem73_live_test.go` |
-| SDRInterface | Complete | Lab/testing IQ burst modem (`pkg/sdr`). Live: `RUN_LIVE_SDR=1` |
+| SDRInterface | Complete | Lab/testing IQ burst modem (pkg/sdr). Live: RUN_LIVE_SDR=1 |
 | RNode, KISS, Weave | Not implemented | No driver in this tree |
-| PipeInterface, LocalInterface | Implemented | `pipe.go`, `local.go`, `sharedinstance` |
+| PipeInterface, LocalInterface | Implemented | `pipe.go`, `local.go`, sharedinstance |
 | Python CLI utilities | Yes (core) | `reticulum-go status|id|probe|path|cp` via `pkg/cli` / `pkg/rnsutil` |
 | Interface hot reload | Go-only | `pkg/node/reload.go`, SIGHUP on Unix |
 | Control API | Go-only | `pkg/controlapi` |
@@ -71,7 +71,7 @@ Below is a summary of major features. For line-by-line parity with Python, see [
 | Zig librns bindings | Go-only host | `bindings/zig` (Linux, links `librns.so`). See [librns](librns.md#zig-bindings) |
 | C++ librns bindings | Go-only host | `bindings/cpp` (Linux, C++17, links `librns.so`). See [librns](librns.md#c-bindings) |
 | Dart librns FFI | Go-only host | `bindings/dart` (`ffi.dart`). Linux, Android, Windows. See [librns](librns.md#dart-ffi-bindings) |
-| Dart Control API client | Go-only host | `bindings/dart` (`rns_control`). See [Control API](control-api.md#dart-and-flutter) |
+| Dart Control API client | Go-only host | `bindings/dart` (rns_control). See [Control API](control-api.md#dart-and-flutter) |
 | Runtime sandbox | Go-only | `pkg/sandbox` |
 | Local mesh health | Go-only | `pkg/health` counters, status RPC fields, `reticulum-go slow` findings |
 

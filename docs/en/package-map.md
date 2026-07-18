@@ -14,7 +14,7 @@ Wire packet serialization, header types 1 and 2, hashing, receipts.
 
 | Item | Detail |
 |------|--------|
-| Key types | `Packet`, `PacketReceipt` |
+| Key types | Packet, PacketReceipt |
 | Constants | `MTU = 500` |
 | Main files | `packet.go`, `receipt.go`, `constants.go` |
 
@@ -24,18 +24,18 @@ Key generation, recall, sign and verify, encrypt and decrypt, ratchets, optional
 
 | Item | Detail |
 |------|--------|
-| Key types | `Identity` |
-| Hardware signing | `NewIdentityWithSigner`, RHB1 descriptor in `hardware_bound.go` |
-| At-rest store | `pkg/identity/store` (`file` or Freedesktop Secret Service), RSSI markers |
+| Key types | Identity |
+| Hardware signing | NewIdentityWithSigner, RHB1 descriptor in `hardware_bound.go` |
+| At-rest store | `pkg/identity/store` (file or Freedesktop Secret Service), RSSI markers |
 | Main files | `identity.go`, `identity_signer.go`, `hardware_bound.go`, `known_persist.go`, `store/` |
 
 ### `pkg/securemem`
 
-Best-effort locked buffers for long-term identity private keys (`mlock`, wipe on close).
+Best-effort locked buffers for long-term identity private keys (mlock, wipe on close).
 
 | Item | Detail |
 |------|--------|
-| Key types | `Buf` |
+| Key types | Buf |
 | Main files | `buf.go`, `wipe.go`, `alloc_unix.go` |
 
 ### `pkg/cryptography`
@@ -44,8 +44,8 @@ Single integration point for primitives. See [Cryptography](cryptography.md).
 
 | Item | Detail |
 |------|--------|
-| Key types | `CryptoProvider`, `Ed25519Signer` |
-| Extension | `SetProvider`, `ActiveProvider` |
+| Key types | CryptoProvider, Ed25519Signer |
+| Extension | SetProvider, ActiveProvider |
 | Main files | `provider.go`, `stdlib_provider.go`, curve/AES/HKDF helpers |
 
 ### `pkg/destination`
@@ -54,7 +54,7 @@ Application-facing destinations (SINGLE, GROUP, PLAIN, LINK).
 
 | Item | Detail |
 |------|--------|
-| Key types | `Destination`, `RequestHandler` |
+| Key types | Destination, RequestHandler |
 | Main files | `destination.go`, `constants.go` |
 
 ### `pkg/announce`
@@ -63,7 +63,7 @@ Announce construction, signing, handler registration.
 
 | Item | Detail |
 |------|--------|
-| Key types | `Announce`, `Handler` |
+| Key types | Announce, Handler |
 | Main files | `announce.go`, `handler.go` |
 
 ### `pkg/transport`
@@ -72,7 +72,7 @@ Routing engine: path table, announces, forwarding, links, persistence.
 
 | Item | Detail |
 |------|--------|
-| Key types | `Transport`, `PathInfo` |
+| Key types | Transport, PathInfo |
 | Main files | `transport.go`, `ingress.go`, `relay.go`, `path_selection.go`, `path_persist.go` |
 
 See [Transport](transport.md).
@@ -83,8 +83,8 @@ Encrypted bidirectional links, request/response, channel and resource integratio
 
 | Item | Detail |
 |------|--------|
-| Key types | `Link` |
-| Entry points | `HandleIncomingLinkRequest`, `Reestablish`, `WatchAndReconnect` |
+| Key types | Link |
+| Entry points | HandleIncomingLinkRequest, Reestablish, WatchAndReconnect |
 | Main files | `link.go`, `link_path_recovery.go`, `reconnect.go` |
 
 ### `pkg/pathfinder`
@@ -93,7 +93,7 @@ Per-link path lookup table used inside links.
 
 | Item | Detail |
 |------|--------|
-| Key types | `PathFinder`, `Path` |
+| Key types | PathFinder, Path |
 | Main file | `pathfinder.go` |
 
 ## Data transfer and messaging
@@ -104,7 +104,7 @@ Reliable message delivery over a link.
 
 | Item | Detail |
 |------|--------|
-| Key types | `Channel`, `Envelope` |
+| Key types | Channel, Envelope |
 | Main files | `channel.go`, `constants.go` |
 
 ### `pkg/buffer`
@@ -113,7 +113,7 @@ Stream buffer over channel with bzip2 compression.
 
 | Item | Detail |
 |------|--------|
-| Key types | `Buffer` |
+| Key types | Buffer |
 | Main files | `buffer.go`, `constants.go` |
 
 ### `pkg/resource`
@@ -122,7 +122,7 @@ Multi-part file transfer, hashmaps, RESOURCE_PRF, bzip2.
 
 | Item | Detail |
 |------|--------|
-| Key types | `Resource`, `Advertisement` |
+| Key types | Resource, Advertisement |
 | Main files | `resource.go`, `advertisement.go`, `bzip2_compress.go` |
 
 ## Network interfaces
@@ -133,11 +133,11 @@ All interface implementations and factory.
 
 | Item | Detail |
 |------|--------|
-| Key types | `Interface`, `BaseInterface` |
-| Factory | `NewFromConfigWithContext` in `fromconfig.go` |
+| Key types | Interface, BaseInterface |
+| Factory | NewFromConfigWithContext in `fromconfig.go` |
 | Reconnect | `reconnect.go` |
 | Lifecycle | `lifecycle.go` (Enable, Disable, Detach) |
-| Go-only QUIC | `quic.go`, `quic_tls.go` (`QUICClientInterface` / `QUICServerInterface`) |
+| Go-only QUIC | `quic.go`, `quic_tls.go` (QUICClientInterface / QUICServerInterface) |
 
 See [Interfaces](interfaces.md).
 
@@ -147,7 +147,7 @@ Interface Access Code mask and unmask.
 
 | Item | Detail |
 |------|--------|
-| Key types | `Identity` (IFAC identity) |
+| Key types | Identity (IFAC identity) |
 | Main file | `ifac.go` |
 
 ### `pkg/i2p`
@@ -156,7 +156,7 @@ I2P SAM client, destinations, tunnels.
 
 | Item | Detail |
 |------|--------|
-| Key types | `Controller`, `Destination`, `Tunnel` |
+| Key types | Controller, Destination, Tunnel |
 | Main files | `sam.go`, `controller.go`, `destination.go`, `tunnel.go` |
 
 ### `pkg/backbone`
@@ -165,7 +165,7 @@ Multiplexed I/O hub for backbone TCP.
 
 | Item | Detail |
 |------|--------|
-| Key types | `Hub`, `Backend` |
+| Key types | Hub, Backend |
 | Backends | auto, epoll, kqueue, io_uring, go |
 | Main files | `backbone.go`, `hub.go`, platform pollers |
 
@@ -177,24 +177,24 @@ Embedder API: transport plus interfaces plus lifecycle.
 
 | Item | Detail |
 |------|--------|
-| Key types | `Node`, `PauseMode`, `LinkReconnectOptions` |
-| Lifecycle | `OnNetworkAvailable`, `OnNetworkLost`, `RefreshPaths`, `ReloadInterfaces` |
+| Key types | Node, PauseMode, LinkReconnectOptions |
+| Lifecycle | OnNetworkAvailable, OnNetworkLost, RefreshPaths, ReloadInterfaces |
 | Main files | `node.go`, `lifecycle.go`, `reload.go`, `wiring.go`, `netmon.go` |
 
 ### `pkg/sharedinstance`
 
-Python `share_instance` equivalent.
+Python share_instance equivalent.
 
 | Item | Detail |
 |------|--------|
-| Key types | `Instance`, `Hooks` |
+| Key types | Instance, Hooks |
 | Entry | `Attach(cfg, tr, hooks)` |
-| Framing | `SendFramed` / `RecvFramed` |
+| Framing | SendFramed / RecvFramed |
 | Main files | `instance.go`, `rpc.go`, `mpconn.go` |
 
 ### `pkg/cli`
 
-Subcommand dispatch for the unified `reticulum-go` binary (`Main`, `RunStatus`, `RunID`, `RunProbe`, `RunPath`, `RunCP`, `RunPageserver`).
+Subcommand dispatch for the unified `reticulum-go` binary (Main, RunStatus, RunID, RunProbe, RunPath, RunCP, RunPageserver).
 
 | Item | Detail |
 |------|--------|
@@ -217,21 +217,21 @@ Node-local mesh integrity and link-health counters. Used by drop-site instrument
 
 | Item | Detail |
 |------|--------|
-| Key types | `Registry`, `Snapshot`, `Kind` |
+| Key types | Registry, Snapshot, Kind |
 | Entry | `health.Inc`, `health.Default` |
 | Main files | `registry.go`, `kind.go`, `window.go` |
 | Docs | [Security](security.md#local-mesh-health-observe-only), [CLI utilities](utilities.md#rgoslow), [packet-debug](packet-debug.md) |
 
 ### `pkg/rnsutil`
 
-Helpers and RPC client for CLI utilities (`reticulum-go status`, `slow`, `id`, `probe`, …).
+Helpers and RPC client for CLI utilities (`reticulum-go status`, slow, id, probe, …).
 
 | Item | Detail |
 |------|--------|
-| RPC | `DialRPC`, `GetInterfaceStats`, path and link helpers |
+| RPC | DialRPC, GetInterfaceStats, path and link helpers |
 | Identity | `.rsg` / `.rsm` / `.rfe` create and verify |
-| Probe | `WaitPath`, `SendProbe` |
-| Slow report | `AnalyzeSlow`, integrity and bottleneck findings |
+| Probe | WaitPath, SendProbe |
+| Slow report | AnalyzeSlow, integrity and bottleneck findings |
 | Docs | [CLI utilities](utilities.md) |
 
 ### `pkg/wasm`
@@ -240,7 +240,7 @@ JavaScript bridge for browser builds (`//go:build js && wasm`).
 
 | Item | Detail |
 |------|--------|
-| Entry | `RegisterJSFunctions` |
+| Entry | RegisterJSFunctions |
 | Main files | `wasm.go`, `lifecycle.go` |
 
 ### `pkg/controlapi`
@@ -249,7 +249,7 @@ Localhost JSON and WebSocket control plane.
 
 | Item | Detail |
 |------|--------|
-| Key types | `Server` |
+| Key types | Server |
 | Main files | `server.go`, `session.go`, `protocol.go`, `ws.go` |
 
 See [Control API](control-api.md).
@@ -289,7 +289,7 @@ Idiomatic Zig package over `librns.so`. Not a Go import path. Depend on `binding
 
 | Item | Detail |
 |------|--------|
-| Package | `bindings/zig` (module `rns`) |
+| Package | `bindings/zig` (module rns) |
 | Tests | `bindings/zig/tests` |
 | Build | `task test-zig` or `make -C bindings/zig test` |
 | Platform | Linux (links `-lrns`) |
@@ -298,7 +298,7 @@ See [librns](librns.md#zig-bindings).
 
 ### `bindings/cpp`
 
-Idiomatic C++17 RAII package over `librns.so`. Not a Go import path. Include `rns/rns.hpp` and link `librns` plus the event trampoline (or the `rns_cpp` CMake target).
+Idiomatic C++17 RAII package over `librns.so`. Not a Go import path. Include `rns/rns.hpp` and link librns plus the event trampoline (or the rns_cpp CMake target).
 
 | Item | Detail |
 |------|--------|
@@ -312,12 +312,12 @@ See [librns](librns.md#c-bindings).
 
 ### `bindings/dart`
 
-Dart package `rns_control` with librns FFI (`ffi.dart`) and a Control API client. Path dependency for Flutter apps.
+Dart package rns_control with librns FFI (`ffi.dart`) and a Control API client. Path dependency for Flutter apps.
 
 | Item | Detail |
 |------|--------|
 | Package | `bindings/dart` (`name: rns_control`) |
-| FFI | Linux, Android, Windows via `librns` (`package:rns_control/ffi.dart`) |
+| FFI | Linux, Android, Windows via librns (`package:rns_control/ffi.dart`) |
 | Tests | `dart test` / `task test-dart` |
 | Platforms | Flutter mobile and desktop (events need `dart:io`). FFI needs shipped native libs |
 
@@ -331,7 +331,7 @@ rnstransport wire constants, LXStamper, msgpack layouts.
 
 | Item | Detail |
 |------|--------|
-| Key types | `InterfaceDiscovery` |
+| Key types | InterfaceDiscovery |
 | Main files | `discovery.go`, `interface_discovery.go` |
 
 ### `pkg/blackhole`
@@ -340,7 +340,7 @@ Blackhole table semantics, merge, announce filtering.
 
 | Item | Detail |
 |------|--------|
-| Key types | `Table`, `Entry` |
+| Key types | Table, Entry |
 | Main file | `blackhole.go` |
 
 ### `pkg/rate`
@@ -349,7 +349,7 @@ Token-bucket limiter, ingress and egress announce controls.
 
 | Item | Detail |
 |------|--------|
-| Key types | `Limiter`, `IngressControl` |
+| Key types | Limiter, IngressControl |
 | Main file | `rate.go` |
 
 ## Configuration and shared types
@@ -360,7 +360,7 @@ Canonical INI parser and writer.
 
 | Item | Detail |
 |------|--------|
-| Functions | `LoadConfig`, `SaveConfig`, `DefaultConfig`, `InitConfig`, `GetConfigPath` |
+| Functions | LoadConfig, SaveConfig, DefaultConfig, InitConfig, GetConfigPath |
 | Main file | `config.go` |
 
 ### `pkg/common`
@@ -369,7 +369,7 @@ Shared config structs, path types, IFAC helpers, persistence utilities.
 
 | Item | Detail |
 |------|--------|
-| Key types | `ReticulumConfig`, `InterfaceConfig`, `Path` |
+| Key types | ReticulumConfig, InterfaceConfig, Path |
 | Main files | `types.go`, `config.go`, `interfaces.go`, `persistence.go` |
 
 ### `pkg/config` (legacy)
@@ -393,7 +393,7 @@ Structured logging with debug levels 1 through 7.
 
 | Item | Detail |
 |------|--------|
-| Functions | `Init`, `Log`, `SetDebugLevel` |
+| Functions | Init, Log, SetDebugLevel |
 | Main file | `debug.go` |
 
 ## Utilities
@@ -404,7 +404,7 @@ Deterministic identity resolution from a full name string (SHA-256).
 
 | Item | Detail |
 |------|--------|
-| Key type | `Resolver` |
+| Key type | Resolver |
 | Main file | `resolver.go` |
 
 ## Internal packages (not stable for importers)
@@ -419,7 +419,7 @@ Filesystem persistence under `~/.reticulum-go/storage/`.
 
 | Item | Detail |
 |------|--------|
-| Key type | `Manager` |
+| Key type | Manager |
 | Main files | `manager.go`, `atomic.go` |
 
 ## Command binaries

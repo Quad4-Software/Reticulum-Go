@@ -47,53 +47,53 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `enable_transport` | yes | Enable transport routing and path table |
-| `share_instance` | yes | Use shared instance multiplexing |
-| `shared_instance_port` | 37428 | TCP port for shared instance |
-| `instance_control_port` | 37429 | Control port when this process owns the instance |
-| `shared_instance_type` | unix on Linux, tcp elsewhere | `tcp` or `unix` (unset uses platform default, matching Python RNS) |
-| `instance_name` | (empty) | Unix socket name when type is unix |
-| `rpc_key` | (empty) | Hex key for shared-instance RPC and control API auth |
-| `enable_sandbox` | yes | Apply OS sandbox after startup (Go-only) |
-| `enable_seccomp` | yes | Linux seccomp-bpf denylist after Landlock (ignored when sandbox is off, soft-fails if unsupported) |
-| `enable_control_api` | no | Start localhost control API |
-| `control_api_host` | 127.0.0.1 | Control API bind address |
-| `control_api_port` | 37430 | Control API port |
-| `backbone_io` | auto | Backbone poller: auto, epoll, kqueue, io_uring, go |
-| `in_memory_path_table` | no | Keep path table in RAM only |
-| `in_memory_known_destinations` | no | Keep known destinations in RAM only |
-| `in_memory_storage` | no | Fully ephemeral mode: no disk for paths, known dests, transport identity, blackhole, or split resources. Implies both table flags |
-| `identity_backend` | file | Identity at-rest store: `file`, `secretservice` (Freedesktop Secret Service), or `keyring` (Linux kernel keyring) |
-| `soft_memory_limit` | (none) | Soft heap budget (`K`/`M`/`G` or bytes) via Go `debug.SetMemoryLimit` |
-| `max_in_memory_paths` | 100000 | Path table soft cap when `in_memory_storage` is yes. Negative disables |
-| `max_in_memory_known_destinations` | 100000 | Known-dest soft cap when `in_memory_storage` is yes. Negative disables |
-| `max_in_memory_resource_bytes` | 256M | Split-resource staging budget when `in_memory_storage` is yes. Negative disables |
-| `discover_interfaces` | no | Start rnstransport interface discovery listener |
-| `watch_interfaces` | no | Poll NIC up/down and rescan Auto interfaces (Go-only) |
-| `static_transport_identity` | no | Keep persisted transport identity on the wire when `enable_transport` is no (RNS 1.3.6+) |
-| `local_hops_delta` | no | Mangling applied on local-origin hop-0 packets (delta 2-7) |
-| `respond_to_probes` / `allow_probes` | no | Register rnstransport.probe with prove-all |
-| `network_identity` | (empty) | Path to network identity for discovery encrypt/decrypt |
-| `panic_on_interface_error` | no | Panic on fatal interface errors |
+| enable_transport | yes | Enable transport routing and path table |
+| share_instance | yes | Use shared instance multiplexing |
+| shared_instance_port | 37428 | TCP port for shared instance |
+| instance_control_port | 37429 | Control port when this process owns the instance |
+| shared_instance_type | unix on Linux, tcp elsewhere | tcp or unix (unset uses platform default, matching Python RNS) |
+| instance_name | (empty) | Unix socket name when type is unix |
+| rpc_key | (empty) | Hex key for shared-instance RPC and control API auth |
+| enable_sandbox | yes | Apply OS sandbox after startup (Go-only) |
+| enable_seccomp | yes | Linux seccomp-bpf denylist after Landlock (ignored when sandbox is off, soft-fails if unsupported) |
+| enable_control_api | no | Start localhost control API |
+| control_api_host | 127.0.0.1 | Control API bind address |
+| control_api_port | 37430 | Control API port |
+| backbone_io | auto | Backbone poller: auto, epoll, kqueue, io_uring, go |
+| in_memory_path_table | no | Keep path table in RAM only |
+| in_memory_known_destinations | no | Keep known destinations in RAM only |
+| in_memory_storage | no | Fully ephemeral mode: no disk for paths, known dests, transport identity, blackhole, or split resources. Implies both table flags |
+| identity_backend | file | Identity at-rest store: file, secretservice (Freedesktop Secret Service), or keyring (Linux kernel keyring) |
+| soft_memory_limit | (none) | Soft heap budget (K/M/G or bytes) via Go `debug.SetMemoryLimit` |
+| max_in_memory_paths | 100000 | Path table soft cap when in_memory_storage is yes. Negative disables |
+| max_in_memory_known_destinations | 100000 | Known-dest soft cap when in_memory_storage is yes. Negative disables |
+| max_in_memory_resource_bytes | 256M | Split-resource staging budget when in_memory_storage is yes. Negative disables |
+| discover_interfaces | no | Start rnstransport interface discovery listener |
+| watch_interfaces | no | Poll NIC up/down and rescan Auto interfaces (Go-only) |
+| static_transport_identity | no | Keep persisted transport identity on the wire when enable_transport is no (RNS 1.3.6+) |
+| local_hops_delta | no | Mangling applied on local-origin hop-0 packets (delta 2-7) |
+| respond_to_probes / allow_probes | no | Register rnstransport.probe with prove-all |
+| network_identity | (empty) | Path to network identity for discovery encrypt/decrypt |
+| panic_on_interface_error | no | Panic on fatal interface errors |
 
 ### Keys present in Python but ignored in Go
 
 | Key | Notes |
 |-----|-------|
-| `publish_blackhole` | Blackhole auto-publish not started |
-| `blackhole_sources` | Ignored |
-| `blackhole_update_interval` | Ignored |
+| publish_blackhole | Blackhole auto-publish not started |
+| blackhole_sources | Ignored |
+| blackhole_update_interval | Ignored |
 
-`local_hops_delta` applies a random hop field (2-7) on locally originated hop-0 packets when not connected to a shared instance.
+local_hops_delta applies a random hop field (2-7) on locally originated hop-0 packets when not connected to a shared instance.
 
 ## Section `[logging]`
 
 | Key | Supported |
 |-----|-----------|
-| `loglevel` | Yes (0 through 7) |
-| `destination` | Yes (`stderr`, `file`, `both`, `syslog`, `journald`, and combinations such as `syslog+stderr`) |
-| `logfile` | Yes (default `{config_dir}/logfile/reticulum.log`) |
-| `format` | Yes (`text` or `json`) |
+| loglevel | Yes (0 through 7) |
+| destination | Yes (stderr, file, both, syslog, journald, and combinations such as `syslog+stderr`) |
+| logfile | Yes (default `{config_dir}/logfile/reticulum.log`) |
+| format | Yes (text or json) |
 
 ## Interface blocks `[[Name]]`
 
@@ -101,76 +101,76 @@ Each block defines one interface. Common keys:
 
 | Key | Applies to | Description |
 |-----|------------|-------------|
-| `type` | All | Interface type string (see [Interfaces](interfaces.md)) |
-| `enabled` / `interface_enabled` | All | Enable or disable |
-| `mode` / `interface_mode` | All | `full`, `gateway`, `access_point`, `roaming`, `boundary`, `ptp`, `internal` (RNS 1.3.6+) |
-| `recursive_prs` | All | Discover unknown paths on this interface (RNS 1.3.6+) |
-| `announces_from_internal` | All | Rebroadcast announces learned via internal-mode next hops (default yes) |
-| `address` / `listen_ip` | UDP, TCP/QUIC/WebTransport/HTTPS server, DNSRendezvous | Bind address |
-| `port` / `listen_port` | UDP, TCP/QUIC/WebTransport/HTTPS/VSOCK server, DNSRendezvous | Bind or VSOCK port |
-| `target_host` / `target_port` | TCP, QUIC, WebTransport, HTTPS client | Remote peer |
-| `target_address` | UDP | Remote peer (preferred over target_host) |
-| `interface` | Auto | OS network interface name |
-| `prefer_ipv6` | TCP, Auto | Prefer IPv6 when available |
-| `max_reconnect_tries` | TCP, UDP, backbone, QUIC, WebTransport, HTTPS, VSOCK | `-1` or omitted means unlimited |
-| `bitrate` | All | Declared bitrate hint |
-| `mtu` | All | Interface MTU (default packet MTU is 500 bytes) |
-| `discovery_port` | Auto | Multicast discovery port |
-| `data_port` | Auto | Data port |
-| `discovery_scope` | Auto | Multicast scope |
-| `group_id` | Auto | Group identifier |
-| `multicast_address_type` | Auto | Multicast address type |
-| `announce_cap` | All | Cap on outbound announces |
+| type | All | Interface type string (see [Interfaces](interfaces.md)) |
+| enabled / interface_enabled | All | Enable or disable |
+| mode / interface_mode | All | full, gateway, access_point, roaming, boundary, ptp, internal (RNS 1.3.6+) |
+| recursive_prs | All | Discover unknown paths on this interface (RNS 1.3.6+) |
+| announces_from_internal | All | Rebroadcast announces learned via internal-mode next hops (default yes) |
+| address / listen_ip | UDP, TCP/QUIC/WebTransport/HTTPS server, DNSRendezvous | Bind address |
+| port / listen_port | UDP, TCP/QUIC/WebTransport/HTTPS/VSOCK server, DNSRendezvous | Bind or VSOCK port |
+| target_host / target_port | TCP, QUIC, WebTransport, HTTPS client | Remote peer |
+| target_address | UDP | Remote peer (preferred over target_host) |
+| interface | Auto | OS network interface name |
+| prefer_ipv6 | TCP, Auto | Prefer IPv6 when available |
+| max_reconnect_tries | TCP, UDP, backbone, QUIC, WebTransport, HTTPS, VSOCK | `-1` or omitted means unlimited |
+| bitrate | All | Declared bitrate hint |
+| mtu | All | Interface MTU (default packet MTU is 500 bytes) |
+| discovery_port | Auto | Multicast discovery port |
+| data_port | Auto | Data port |
+| discovery_scope | Auto | Multicast scope |
+| group_id | Auto | Group identifier |
+| multicast_address_type | Auto | Multicast address type |
+| announce_cap | All | Cap on outbound announces |
 | `announce_rate_*` | All | Announce rate control |
-| `ingress_control` / `ic_*` | All | Ingress rate limits |
-| `network_name` | IFAC | IFAC network name |
-| `passphrase` | IFAC | IFAC passphrase |
+| ingress_control / `ic_*` | All | Ingress rate limits |
+| network_name | IFAC | IFAC network name |
+| passphrase | IFAC | IFAC passphrase |
 | `ifac_*` | IFAC | Additional IFAC options |
-| `sam_address` | I2P | SAM server host:port |
-| `peers` | I2P | Outbound tunnel peers |
-| `connectable` | I2P | SAM server tunnel mode |
-| `i2p_tunneled` | TCP client, backbone client | Tunnel over I2P |
-| `command` | Pipe | External program for stdin/stdout HDLC bridge |
-| `respawn_delay` / `respawn_interval` | Pipe | Seconds before respawning subprocess (default 5) |
-| `shared_instance_type` | Local | `tcp` or `unix` for explicit local interface blocks |
-| `instance_name` | Local | Unix socket name when type is unix |
-| `cert_file` / `key_file` | QUIC, WebTransport, HTTPS | Optional TLS PEM paths |
-| `peer_key` | QUIC, WebTransport, HTTPS | Leaf SPKI SHA-256 pin (hex) |
-| `sni` | QUIC, WebTransport, HTTPS client | TLS ServerName |
-| `path` | WebTransport, HTTPS | URL path (default `/rns`) |
-| `transport_mode` | WebTransport | `datagram`, `stream`, or `dual` |
-| `domain` | DNSRendezvous | DNS name for TXT lookup |
-| `resolve_interval` | DNSRendezvous | Seconds between TXT re-queries (default 60) |
-| `context_id` / `cid` | VSOCK client | Peer AF_VSOCK context ID |
-| `long_poll_sec` | HTTPS | Long-poll timeout seconds (default 25) |
-| `outgoing` / `selected_outgoing` | All | Transmit permit (default yes). When no, interface is receive-only |
+| sam_address | I2P | SAM server host:port |
+| peers | I2P | Outbound tunnel peers |
+| connectable | I2P | SAM server tunnel mode |
+| i2p_tunneled | TCP client, backbone client | Tunnel over I2P |
+| command | Pipe | External program for stdin/stdout HDLC bridge |
+| respawn_delay / respawn_interval | Pipe | Seconds before respawning subprocess (default 5) |
+| shared_instance_type | Local | tcp or unix for explicit local interface blocks |
+| instance_name | Local | Unix socket name when type is unix |
+| cert_file / key_file | QUIC, WebTransport, HTTPS | Optional TLS PEM paths |
+| peer_key | QUIC, WebTransport, HTTPS | Leaf SPKI SHA-256 pin (hex) |
+| sni | QUIC, WebTransport, HTTPS client | TLS ServerName |
+| path | WebTransport, HTTPS | URL path (default `/rns`) |
+| transport_mode | WebTransport | datagram, stream, or dual |
+| domain | DNSRendezvous | DNS name for TXT lookup |
+| resolve_interval | DNSRendezvous | Seconds between TXT re-queries (default 60) |
+| context_id / cid | VSOCK client | Peer AF_VSOCK context ID |
+| long_poll_sec | HTTPS | Long-poll timeout seconds (default 25) |
+| outgoing / selected_outgoing | All | Transmit permit (default yes). When no, interface is receive-only |
 
-Unknown `type` values load Go-native plugins from `{config_dir}/interfaces/` (JSON manifest or executable pipe driver), or from `interfaces.RegisterExternalFactory`.
+Unknown type values load Go-native plugins from `{config_dir}/interfaces/` (JSON manifest or executable pipe driver), or from `interfaces.RegisterExternalFactory`.
 
 ## Interface types
 
-| `type` value | Implementation |
+| type value | Implementation |
 |--------------|----------------|
-| `UDPInterface` | `pkg/interfaces/udp.go` |
-| `TCPClientInterface` | `pkg/interfaces/tcp.go` |
-| `TCPServerInterface` | `pkg/interfaces/tcp.go` |
-| `AutoInterface` | `pkg/interfaces/auto.go` |
-| `I2PInterface` | `pkg/interfaces/i2p.go` |
-| `BackboneInterface` | `pkg/interfaces/backbone.go` |
-| `BackboneClientInterface` | `pkg/interfaces/backbone_client.go` |
-| `PipeInterface` | `pkg/interfaces/pipe.go` |
-| `LocalInterface` | `pkg/interfaces/local.go` (client to shared instance) |
-| `LocalServerInterface` | `pkg/interfaces/local.go` (explicit server block) |
-| `WebSocketInterface` | Go-only, native or WASM |
-| `QUICClientInterface` | Go-only, native (`quic-go`) |
-| `QUICServerInterface` | Go-only, native (`quic-go`) |
-| `WebTransportClientInterface` | Go-only, HTTP/3 WebTransport |
-| `WebTransportServerInterface` | Go-only, HTTP/3 WebTransport |
-| `DNSRendezvousInterface` | Go-only, DNS TXT to UDP peer |
-| `VSOCKClientInterface` | Go-only Linux, AF_VSOCK HDLC |
-| `VSOCKServerInterface` | Go-only Linux, AF_VSOCK HDLC |
-| `HTTPSClientInterface` | Go-only, TLS long-poll |
-| `HTTPSServerInterface` | Go-only, TLS long-poll |
+| UDPInterface | `pkg/interfaces/udp.go` |
+| TCPClientInterface | `pkg/interfaces/tcp.go` |
+| TCPServerInterface | `pkg/interfaces/tcp.go` |
+| AutoInterface | `pkg/interfaces/auto.go` |
+| I2PInterface | `pkg/interfaces/i2p.go` |
+| BackboneInterface | `pkg/interfaces/backbone.go` |
+| BackboneClientInterface | `pkg/interfaces/backbone_client.go` |
+| PipeInterface | `pkg/interfaces/pipe.go` |
+| LocalInterface | `pkg/interfaces/local.go` (client to shared instance) |
+| LocalServerInterface | `pkg/interfaces/local.go` (explicit server block) |
+| WebSocketInterface | Go-only, native or WASM |
+| QUICClientInterface | Go-only, native (`quic-go`) |
+| QUICServerInterface | Go-only, native (`quic-go`) |
+| WebTransportClientInterface | Go-only, HTTP/3 WebTransport |
+| WebTransportServerInterface | Go-only, HTTP/3 WebTransport |
+| DNSRendezvousInterface | Go-only, DNS TXT to UDP peer |
+| VSOCKClientInterface | Go-only Linux, AF_VSOCK HDLC |
+| VSOCKServerInterface | Go-only Linux, AF_VSOCK HDLC |
+| HTTPSClientInterface | Go-only, TLS long-poll |
+| HTTPSServerInterface | Go-only, TLS long-poll |
 
 ## Example: TCP client with IFAC
 
@@ -206,7 +206,7 @@ peer_key = aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899
 max_reconnect_tries = -1
 ```
 
-QUIC is Go-only. TLS uses ephemeral self-signed certificates by default. Set `peer_key` to the remote leaf SPKI SHA-256 (hex) to pin the peer. Optional `cert_file` / `key_file` and `sni` are supported. Not available on WASM.
+QUIC is Go-only. TLS uses ephemeral self-signed certificates by default. Set peer_key to the remote leaf SPKI SHA-256 (hex) to pin the peer. Optional cert_file / key_file and sni are supported. Not available on WASM.
 
 ## Example: AutoInterface on Wi-Fi
 
@@ -222,7 +222,7 @@ discovery_port = 35615
 data_port = 35616
 ```
 
-`watch_interfaces` rescans NICs when link state changes and helps AutoInterface follow Wi-Fi roam events.
+watch_interfaces rescans NICs when link state changes and helps AutoInterface follow Wi-Fi roam events.
 
 ## Example: PipeInterface subprocess bridge
 
@@ -234,11 +234,11 @@ command = /opt/mesh/radio-bridge --stdio
 respawn_delay = 5
 ```
 
-Reticulum writes HDLC-framed packets to the subprocess stdin and reads frames from stdout. When the subprocess exits, the interface respawns after `respawn_delay` seconds.
+Reticulum writes HDLC-framed packets to the subprocess stdin and reads frames from stdout. When the subprocess exits, the interface respawns after respawn_delay seconds.
 
 ## Example: shared-instance RPC for Go CLI tools
 
-On Linux, unset `shared_instance_type` uses abstract Unix sockets (`@rns/<instance_name>/rpc`), matching stock Python `rnsd`. Go utilities try that default first, then fall back to TCP when the type is unset.
+On Linux, unset shared_instance_type uses abstract Unix sockets (`@rns/<instance_name>/rpc`), matching stock Python rnsd. Go utilities try that default first, then fall back to TCP when the type is unset.
 
 ```bash
 make build
@@ -255,7 +255,7 @@ shared_instance_type = unix
 rpc_key = <64 hex characters>
 ```
 
-Use `shared_instance_type = tcp` with `instance_control_port` when you want TCP on every OS. Use `-config ~/.reticulum` for Python `rnsd` and `-config ~/.reticulum-go` for a Go shared instance. Full utility docs are in [CLI utilities](utilities.md).
+Use `shared_instance_type = tcp` with instance_control_port when you want TCP on every OS. Use `-config ~/.reticulum` for Python rnsd and `-config ~/.reticulum-go` for a Go shared instance. Full utility docs are in [CLI utilities](utilities.md).
 
 ## Example: explicit LocalInterface client
 
@@ -306,5 +306,5 @@ Optional hardware-bound descriptors (RHB1, 72 bytes) are documented in [Identity
 
 - [Interfaces](interfaces.md) for per-type behavior and reconnect policy
 - [Architecture](architecture.md) for shared instance and persistence
-- [CLI utilities](utilities.md) for `rgostatus` / `rgoid` / `rgoprobe` and RPC setup
+- [CLI utilities](utilities.md) for rgostatus / rgoid / rgoprobe and RPC setup
 - [COMPATIBILITY.md](../../COMPATIBILITY.md) for full Python key comparison tables

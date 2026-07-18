@@ -17,7 +17,7 @@ A link is a bidirectional encrypted session between two destinations.
 
 ### Establishing links
 
-**Outbound.** Application opens a link to a destination hash that is already known from an announce or path table. The initiator stores `expected_hops` from the path table (`PATHFINDER_M` when unknown). Link-request proofs are accepted only when the proof hop count matches, or when hops were unknown at creation (RNS 1.3.8).
+**Outbound.** Application opens a link to a destination hash that is already known from an announce or path table. The initiator stores expected_hops from the path table (`PATHFINDER_M` when unknown). Link-request proofs are accepted only when the proof hop count matches, or when hops were unknown at creation (RNS 1.3.8).
 
 **Inbound.** Peer sends a link request. Transport dispatches to:
 
@@ -25,9 +25,9 @@ A link is a bidirectional encrypted session between two destinations.
 link.HandleIncomingLinkRequest(...)
 ```
 
-The responder records `expected_hops` from the RTT packet hop field when the link becomes active.
+The responder records expected_hops from the RTT packet hop field when the link becomes active.
 
-There is no separate `Transport.CreateIncomingLink` helper. Incoming link requests use `HandleIncomingLinkRequest` directly.
+There is no separate `Transport.CreateIncomingLink` helper. Incoming link requests use HandleIncomingLinkRequest directly.
 
 ### Link lifecycle
 
@@ -37,13 +37,13 @@ LINKREQUEST -> LINKIDENTIFY -> LINKREADY -> data / channel / resource
                   +-> teardown -> LINKCLOSE
 ```
 
-Links track RTT, keepalive, and proof exchange per protocol rules. `Link.Reestablish` and `WatchAndReconnect` support automatic recovery when `Node.EnableLinkAutoReconnect` or equivalent options are set.
+Links track RTT, keepalive, and proof exchange per protocol rules. `Link.Reestablish` and WatchAndReconnect support automatic recovery when `Node.EnableLinkAutoReconnect` or equivalent options are set.
 
 ### Request and response
 
 Register a request path on the link or destination. Handlers receive payload bytes and return a response. Timeouts apply if the handler blocks too long.
 
-The control API bridges requests to WebSocket `requestIncomingEvent` and `requestRespondCommand`.
+The control API bridges requests to WebSocket requestIncomingEvent and requestRespondCommand.
 
 ### Path recovery
 
@@ -55,9 +55,9 @@ The control API bridges requests to WebSocket `requestIncomingEvent` and `reques
 
 | Concept | Description |
 |---------|-------------|
-| `Channel` | Session over an established link |
-| `Envelope` | Wire wrapper for channel messages |
-| `MessageBase` | Base type for message payloads |
+| Channel | Session over an established link |
+| Envelope | Wire wrapper for channel messages |
+| MessageBase | Base type for message payloads |
 
 Python 1.3.0 fixed ghost envelopes on failing outlets. Go matches that behavior: sequence allocation and tx-ring emplace happen only after a successful outlet send, with rewind on failure. Channel accepts both transport wrapper ACTIVE status and real link ACTIVE (`0x02`).
 
@@ -65,7 +65,7 @@ Typical pattern:
 
 1. Establish link
 2. Create channel on link
-3. Send and receive `Envelope` messages
+3. Send and receive Envelope messages
 
 ## Buffer
 
@@ -90,13 +90,13 @@ Decompression limits protect against malicious compressed payloads. Same limits 
 
 Features:
 
-- Advertisement phase (`Advertisement`)
+- Advertisement phase (Advertisement)
 - Hash map of parts
 - RESOURCE_PRF proof flow
 - bzip2 compression optional (`bzip2_compress.go`)
-- Split advertisements when the payload exceeds `MaxEfficientSize` (~1 MiB), matching Python segment chaining
+- Split advertisements when the payload exceeds MaxEfficientSize (~1 MiB), matching Python segment chaining
 
-Python utility `rncp` is ported as `rgocp` ([CLI utilities](utilities.md)). The primitives remain available in this package for Go applications.
+Python utility rncp is ported as rgocp ([CLI utilities](utilities.md)). The primitives remain available in this package for Go applications.
 
 See `examples/resources` for a minimal send/receive demo and `examples/filetransfer` for a directory browser.
 
@@ -115,7 +115,7 @@ Sender                           Receiver
 
 ## Interaction with transport
 
-Link packets use `PacketTypeLink`. Data packets for link payloads use contexts handled in `Transport.handleTransportPacket` and `forwardLinkData`.
+Link packets use PacketTypeLink. Data packets for link payloads use contexts handled in `Transport.handleTransportPacket` and forwardLinkData.
 
 The transport link table tracks which local link object owns each session hash.
 
@@ -149,4 +149,4 @@ Python 1.3.2 tears down links at LINKIDENTIFY when the remote identity is blackh
 - [Transport](transport.md)
 - [Control API](control-api.md) for link commands over WebSocket
 - [Examples](examples.md) for file transfer and link demos
-- [CLI utilities](utilities.md) for `rgocp`
+- [CLI utilities](utilities.md) for rgocp

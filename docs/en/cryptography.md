@@ -68,7 +68,7 @@ When encrypting to another identity public X25519 key:
 
 1. Generate ephemeral X25519 keypair
 2. ECDH with peer public encryption key (or optional ratchet public key)
-3. HKDF-SHA256 expands shared secret to 64 bytes: HMAC key (32) then AES key (32). Salt and info follow identity hash and protocol context (`DeriveIdentityKeyMaterial` in `pkg/cryptography`)
+3. HKDF-SHA256 expands shared secret to 64 bytes: HMAC key (32) then AES key (32). Salt and info follow identity hash and protocol context (DeriveIdentityKeyMaterial in `pkg/cryptography`)
 4. AES-256-CBC encrypt with PKCS#7 padding
 5. HMAC-SHA256 over ciphertext
 6. Wire token includes ephemeral public key, ciphertext, and MAC
@@ -81,7 +81,7 @@ Algorithm: Ed25519.
 
 Used for announce signatures, proofs, and related auth paths.
 
-Hardware signing via `Ed25519Signer` and `NewEd25519SignerFromCryptoSigner`. The announced Ed25519 public key must still match the 64-byte public blob.
+Hardware signing via Ed25519Signer and NewEd25519SignerFromCryptoSigner. The announced Ed25519 public key must still match the 64-byte public blob.
 
 ## Destination hashes
 
@@ -99,14 +99,14 @@ Interface Access Code is an optional outer authentication layer on interface fra
 
 Derivation:
 
-- Fixed HKDF salt in `pkg/ifac` (`SaltHex`)
-- Operator `network_name` and `passphrase`
+- Fixed HKDF salt in `pkg/ifac` (SaltHex)
+- Operator network_name and passphrase
 - Inner Reticulum identity signs a truncated tail of the frame
 
 Policy:
 
 - Configured IFAC masks outbound frames and verifies inbound frames
-- Wrong or missing IFAC is dropped (`ApplyIFACOutbound` / `ApplyIFACInbound` in `pkg/common`)
+- Wrong or missing IFAC is dropped (ApplyIFACOutbound / ApplyIFACInbound in `pkg/common`)
 
 ## Ratchets
 
@@ -119,7 +119,7 @@ Optional X25519 ratchet private keys (256 bits) for forward secrecy on identity-
 ## Operational handling
 
 - Store identity files on encrypted disks with restrictive permissions
-- Optional `identity_backend = secretservice` or `keyring` stores private blobs outside plaintext files
+- Optional `identity_backend = secretservice` or keyring stores private blobs outside plaintext files
 - Backup of the 64-byte software file or RHB1 plus signing capability equals full impersonation capability
 - Verbose debug logging may hex-dump sensitive metadata. Lower loglevel in production
 

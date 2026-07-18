@@ -22,7 +22,7 @@ The Control API is a local HTTP/WebSocket front end for one `reticulum-go` proce
 
 - A public Control API endpoint that clients must use to participate
 - Putting identity, routing, or app policy behind one always-on control host
-- Large transfers via base64 `link.send_resource` when `rncp` or in-process librns is available
+- Large transfers via base64 `link.send_resource` when rncp or in-process librns is available
 - Binding off loopback and describing the result as decentralized because RNS is underneath
 
 If the product fails when the Control API host is unreachable, the product depends on that host. Prefer peer destinations and links for application traffic. Keep this API on the machine that runs the node.
@@ -37,7 +37,7 @@ control_api_host = 127.0.0.1
 control_api_port = 37430
 ```
 
-`rpc_key` is a 32-byte value encoded as hex. The same key authenticates shared-instance RPC when configured.
+rpc_key is a 32-byte value encoded as hex. The same key authenticates shared-instance RPC when configured.
 
 Generate a key with a cryptographic random source. Example using OpenSSL:
 
@@ -87,25 +87,25 @@ Binary fields (hashes, app data, link payloads) are hex- or base64-encoded as do
 
 | JSON field | Meaning |
 |------------|---------|
-| `ifac_fail` | IFAC verify failures |
-| `hmac_fail` | Link HMAC failures |
-| `announce_sig_fail` | Invalid announce signatures |
-| `unpack_fail` | Packet unpack failures |
-| `announce_dup` | Duplicate announce ignored |
-| `path_resp_suppressed` | PATH_RESPONSE skipped (next hop is requestor) |
-| `path_req_dup` | Duplicate path request tag ignored |
-| `path_req_no_cache` | Known path without cached announce |
-| `path_resp_queued_skip` | PATH_RESPONSE already queued for iface |
-| `link_relay_unknown_iface` | Link relay dropped unknown source iface |
-| `integrity_fail_rate` | Windowed fails / (fails + accepted) |
-| `stale_closes` | Links closed after going stale |
-| `link_stale_close` | Same lifetime total as exposed on the iface |
-| `keepalive_timeout` | Transitions into keepalive stale |
-| `clients` | Spawned peer count (I2P parent) |
-| `i2p_connectable` | Connectable I2P server tunnel enabled |
-| `i2p_b32` | Published `*.b32.i2p` endpoint when connectable |
-| `tunnelstate` | I2P peer tunnel label (`Creating Tunnel`, `Tunnel Active`, `Tunnel Unresponsive`) |
-| `i2p_last_error` | Last SAM dial or stream error text for an I2P peer |
+| ifac_fail | IFAC verify failures |
+| hmac_fail | Link HMAC failures |
+| announce_sig_fail | Invalid announce signatures |
+| unpack_fail | Packet unpack failures |
+| announce_dup | Duplicate announce ignored |
+| path_resp_suppressed | PATH_RESPONSE skipped (next hop is requestor) |
+| path_req_dup | Duplicate path request tag ignored |
+| path_req_no_cache | Known path without cached announce |
+| path_resp_queued_skip | PATH_RESPONSE already queued for iface |
+| link_relay_unknown_iface | Link relay dropped unknown source iface |
+| integrity_fail_rate | Windowed fails / (fails + accepted) |
+| stale_closes | Links closed after going stale |
+| link_stale_close | Same lifetime total as exposed on the iface |
+| keepalive_timeout | Transitions into keepalive stale |
+| clients | Spawned peer count (I2P parent) |
+| i2p_connectable | Connectable I2P server tunnel enabled |
+| i2p_b32 | Published `*.b32.i2p` endpoint when connectable |
+| tunnelstate | I2P peer tunnel label (`Creating Tunnel`, `Tunnel Active`, `Tunnel Unresponsive`) |
+| i2p_last_error | Last SAM dial or stream error text for an I2P peer |
 
 These counters are local observability only. They do not change packet accept or reject policy. For scored findings use `reticulum-go slow`. For a full path and health dump use `reticulum-go snapshot`. See [Security](security.md#local-mesh-health-observe-only), [packet-debug](packet-debug.md), and [CLI utilities](utilities.md#rgoslow).
 
@@ -135,11 +135,11 @@ GET /v1/sessions/{id}/events (WebSocket)
 
 ## WebSocket events
 
-Server to client JSON event `type` values:
+Server to client JSON event type values:
 
 | Event | Meaning |
 |-------|---------|
-| `announce` | Remote announce received |
+| announce | Remote announce received |
 | `link.established` | Link is active |
 | `link.failed` | Outbound link failed |
 | `link.data` | Data received on link |
@@ -152,18 +152,18 @@ Server to client JSON event `type` values:
 | `resource.concluded` | Resource transfer finished |
 | `command.error` | WebSocket command could not be applied |
 
-Client to server command `type` values:
+Client to server command type values:
 
 | Command | Meaning |
 |---------|---------|
-| `subscribe_announces` | Subscribe to announces. Empty `filter` means all. Non-empty `filter` must be an exact 16-byte dest hash hex |
+| subscribe_announces | Subscribe to announces. Empty filter means all. Non-empty filter must be an exact 16-byte dest hash hex |
 | `link.open` | Open outbound link |
 | `link.send` | Send on link |
 | `link.close` | Close link |
 | `link.request` | Outbound request on established link |
 | `link.send_resource` | Send payload as a link resource (base64). Keep payloads small |
 | `link.identify` | Identify session identity on link |
-| `request.respond` | Answer a request. Optional `filename` for NomadNet `[name, bytes]` |
+| `request.respond` | Answer a request. Optional filename for NomadNet `[name, bytes]` |
 
 Full type definitions: `pkg/controlapi/protocol.go`.
 
@@ -189,13 +189,13 @@ Deregister with `DELETE .../requests?path=/your/path`.
 
 ## Resources via API
 
-`link.send_resource` mirrors librns minimal resource send. Expect `resource.started` and `resource.concluded` on the peer. Payloads are base64 over WebSocket, so large files are memory-heavy. Prefer `rncp` or in-process librns for bulk transfers.
+`link.send_resource` mirrors librns minimal resource send. Expect `resource.started` and `resource.concluded` on the peer. Payloads are base64 over WebSocket, so large files are memory-heavy. Prefer rncp or in-process librns for bulk transfers.
 
 ## Scope and caveats
 
 This API is an application contract for destinations, announces, links, requests, identify, and minimal resources. It is not a full mirror of channels, stream buffers, resource cancel/progress, or mesh-admin ops (drop path, blackhole). Those stay on shared-instance RPC and CLI.
 
-Control API `/v1` is independent of librns `RNS_API_VERSION`. Additive JSON fields and new `type` strings are the compatibility model.
+Control API `/v1` is independent of librns `RNS_API_VERSION`. Additive JSON fields and new type strings are the compatibility model.
 
 WebSocket event delivery is best-effort. A full client outbox drops events.
 
@@ -209,7 +209,7 @@ See [Architecture notes](#architecture-notes) when designing a product on top of
 
 - Default bind is loopback only
 - Do not expose the control API to untrusted networks without additional protection
-- Treat `rpc_key` as a secret comparable to an API token
+- Treat rpc_key as a secret comparable to an API token
 - Binding off loopback for convenience fights the model in [Architecture notes](#architecture-notes)
 - See [Security](security.md)
 
@@ -238,7 +238,7 @@ Daemon wiring: `cmd/reticulum-go/main.go` starts `controlapi.Server` when enable
 
 ## Dart and Flutter
 
-Path: `bindings/dart/` (package `rns_control`).
+Path: `bindings/dart/` (package rns_control).
 
 ### Control API client
 
@@ -257,7 +257,7 @@ Coverage includes health, status (with integrity counters), paths, sessions, des
 
 ### In-process FFI
 
-For embedding without a daemon, use `package:rns_control/ffi.dart` over `librns` on Linux, Android, and Windows. See [librns Dart FFI](librns.md#dart-ffi-bindings).
+For embedding without a daemon, use `package:rns_control/ffi.dart` over librns on Linux, Android, and Windows. See [librns Dart FFI](librns.md#dart-ffi-bindings).
 
 ```bash
 task build-librns

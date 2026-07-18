@@ -41,13 +41,13 @@ For details on interoperability, see [COMPATIBILITY.md](COMPATIBILITY.md). You c
 | **Interface Access Codes (IFAC)** | Yes | Masking support for UDP, TCP, and Auto frames matching the Python reference implementation. |
 | **Discovery and Blackholing** | Partial | Partial support implemented in `pkg/discovery` and `pkg/blackhole`. Refer to the compatibility table. |
 | **Network Interfaces** | Partial | UDP, TCP, Auto, Pipe, Local, Serial, WebSocket, QUIC, WebTransport, DNS rendezvous, VSOCK (Linux), HTTPS long-poll. See [COMPATIBILITY.md](COMPATIBILITY.md#interfaces) and [docs/en/interfaces.md](docs/en/interfaces.md). |
-| **Interface Hot Reload** | Yes | Support for interface reloading using `ReloadInterfaces` or via a `SIGHUP` signal on Unix. This feature is not present in Python `rns`. |
+| **Interface Hot Reload** | Yes | Support for interface reloading using ReloadInterfaces or via a `SIGHUP` signal on Unix. This feature is not present in Python rns. |
 | **WebAssembly Support** | Yes | Run in the browser or WebAssembly environments (`cmd/reticulum-wasm`, `pkg/wasm`). |
 | **Runtime Sandbox** | Yes | Automated OS-level sandboxing enabled by default. See [SECURITY.md](SECURITY.md#runtime-sandbox). |
 | **librns C ABI** | Yes | Linux shared library for embedded applications. See [docs/en/librns.md](docs/en/librns.md). |
 | **Odin librns bindings** | Yes | Idiomatic Odin package over `librns.so` (`bindings/odin`). Linux. See [docs/en/librns.md](docs/en/librns.md#odin-bindings). |
 | **Zig librns bindings** | Yes | Idiomatic Zig package over `librns.so` (`bindings/zig`). Linux. See [docs/en/librns.md](docs/en/librns.md#zig-bindings). |
-| **Dart librns FFI** | Yes | In-process `dart:ffi` over `librns` on Linux, Android, and Windows (`bindings/dart`, `package:rns_control/ffi.dart`). See [docs/en/librns.md](docs/en/librns.md#dart-ffi-bindings). |
+| **Dart librns FFI** | Yes | In-process `dart:ffi` over librns on Linux, Android, and Windows (`bindings/dart`, `package:rns_control/ffi.dart`). See [docs/en/librns.md](docs/en/librns.md#dart-ffi-bindings). |
 | **Dart Control API client** | Yes | Flutter-ready Dart package over the Control API (`bindings/dart`). See [docs/en/control-api.md](docs/en/control-api.md#dart-and-flutter). |
 | **Control API** | Yes | Localhost JSON and WebSocket APIs for out-of-process clients. See [docs/en/control-api.md](docs/en/control-api.md). |
 | **CLI Utilities** | Yes | Native subcommands of `reticulum-go`. Installs symlinks to match legacy `rgo*` tool names. See [docs/en/utilities.md](docs/en/utilities.md). Packet dump and Wireshark notes: [docs/en/packet-debug.md](docs/en/packet-debug.md). |
@@ -67,7 +67,7 @@ enable_sandbox = no
 
 Depending on your platform, the sandbox uses different isolation mechanisms:
 *   **Linux:** Landlock (kernel 5.13+) restricts filesystem access to the folders the daemon needs, then a soft-fail seccomp-bpf denylist blocks high-risk syscalls.
-*   **OpenBSD:** Uses `unveil` and `pledge` to limit system and file operations.
+*   **OpenBSD:** Uses unveil and pledge to limit system and file operations.
 *   **FreeBSD:** Enters capability mode to isolate the process.
 *   **Windows:** Applies job-object limits to control system resources.
 
@@ -82,7 +82,7 @@ Refer to [SECURITY.md](SECURITY.md#runtime-sandbox) for details and specific pla
 
 ## Quick Start
 
-You can use the provided [Makefile](Makefile) targets or run the equivalent `go` commands directly if you do not have Make installed.
+You can use the provided [Makefile](Makefile) targets or run the equivalent go commands directly if you do not have Make installed.
 
 ### Build
 
@@ -103,7 +103,7 @@ The output binary will be created at `bin/reticulum-go`.
 
 ### Install
 
-Install the main binary, legacy tool symlinks (such as `rgostatus` and `rgoid`), and man pages to the default prefix `/usr/local`:
+Install the main binary, legacy tool symlinks (such as rgostatus and rgoid), and man pages to the default prefix `/usr/local`:
 
 ```bash
 make install
@@ -134,7 +134,7 @@ make install-service INIT=dinit
 make install-service INIT=all
 ```
 
-Service units live under [packaging/](packaging/) (`systemd`, `openrc`, `runit`, `dinit`). The install creates `/var/lib/reticulum-go/` with a sample config that logs to both stderr and `/var/lib/reticulum-go/logfile/reticulum.log`.
+Service units live under [packaging/](packaging/) (systemd, openrc, runit, dinit). The install creates `/var/lib/reticulum-go/` with a sample config that logs to both stderr and `/var/lib/reticulum-go/logfile/reticulum.log`.
 
 Alternatively, install directly into your Go binary directory:
 
@@ -213,7 +213,7 @@ go test -v ./...
 
 | Target | Description | Equivalent Command |
 | :--- | :--- | :--- |
-| `make` / `make all` | Compiles the release binary. | Matches `make build`. |
+| make / `make all` | Compiles the release binary. | Matches `make build`. |
 | `make build` | Compiles a stripped, static release binary. | `CGO_ENABLED=0 go build ... -o bin/reticulum-go ./cmd/reticulum-go` |
 | `make build-utils` | Alias for building the main binary. | Subcommands provide all utilities. See [docs/en/utilities.md](docs/en/utilities.md). |
 | `make install` | Installs the binary, legacy symlinks, and man pages. | Installs files under the specified `PREFIX`. Supports `DESTDIR`. |
@@ -223,7 +223,7 @@ go test -v ./...
 | `make package-rpm` | Builds an RPM package. | Output is placed in `dist/`. |
 | `make package-arch` | Builds an Arch Linux package. | Output is placed in `dist/`. |
 | `make uninstall` | Removes the binary, symlinks, and man pages. | Deletes files from the installation prefix. |
-| `make clean` | Deletes build and test artifacts. | Runs `go clean` and removes the `bin` directory. |
+| `make clean` | Deletes build and test artifacts. | Runs `go clean` and removes the bin directory. |
 | `make test` | Runs the full test suite. | Runs `go test -v ./...` |
 | `make test-short` | Runs only short unit tests. | Runs `go test -short -v ./...` |
 | `make test-race` | Runs tests with the Go race detector enabled. | Runs `go test -race -v ./...` |
@@ -265,7 +265,7 @@ task install
 task test
 ```
 
-On some Linux distributions, the command is named `go-task` instead of `task`. You can add an alias to your shell profile if needed:
+On some Linux distributions, the command is named `go-task` instead of task. You can add an alias to your shell profile if needed:
 
 ```bash
 alias task='go-task'
@@ -383,7 +383,7 @@ Covers the same ABI surface as the Odin and Zig bindings. Details: [docs/en/libr
 
 ### Dart / Flutter Bindings
 
-Package `rns_control` in `bindings/dart` provides:
+Package rns_control in `bindings/dart` provides:
 
 - In-process librns FFI (`package:rns_control/ffi.dart`) on Linux, Android, and Windows
 - Control API HTTP and WebSocket client for a running daemon
@@ -397,7 +397,7 @@ task build-librns-targets -- linux android windows
 
 Details: [docs/en/librns.md](docs/en/librns.md#dart-ffi-bindings) and [docs/en/control-api.md](docs/en/control-api.md#dart-and-flutter).
 
-If you are compiling for TinyGo and small microcontroller boards, check out our `tinygo` branch. This requires TinyGo version 0.41.0 or newer.
+If you are compiling for TinyGo and small microcontroller boards, check out our tinygo branch. This requires TinyGo version 0.41.0 or newer.
 
 ## Vendored Dependencies and Offline Builds
 
@@ -416,7 +416,7 @@ Versions and checksums are still officially tracked inside the `go.mod` and `go.
 
 Both the [Makefile](Makefile) and [Taskfile](Taskfile.yaml) automatically set `GOFLAGS=-mod=vendor` and `GOPROXY=off`. Standard compilation and testing commands will not contact external networks.
 
-The continuous integration pipeline uses these identical flags. The only exception is scripts that install standalone CLI tools, such as `revive` or `gosec` in our setup scripts. These temporary installation tasks temporarily clear the environment flags to fetch the binary tools, but the actual project code is always compiled from the local `vendor/` folder.
+The continuous integration pipeline uses these identical flags. The only exception is scripts that install standalone CLI tools, such as revive or gosec in our setup scripts. These temporary installation tasks temporarily clear the environment flags to fetch the binary tools, but the actual project code is always compiled from the local `vendor/` folder.
 
 ### Synchronizing Sibling Libraries
 

@@ -31,7 +31,7 @@ CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
 make install
 ```
 
-Default prefix is `/usr/local`. That installs `reticulum-go`, legacy tool symlinks (`rgostatus`, `rgoid`, …), and man pages. Override with `make install PREFIX=/opt/reticulum`. Staging: `make install DESTDIR=/tmp/stage PREFIX=/usr`.
+Default prefix is `/usr/local`. That installs `reticulum-go`, legacy tool symlinks (rgostatus, rgoid, …), and man pages (reticulum-go(1), reticulum-go(8), and tool pages). Override with `make install PREFIX=/opt/reticulum`. Staging: `make install DESTDIR=/tmp/stage PREFIX=/usr`.
 
 Or install into your Go binary directory:
 
@@ -58,7 +58,7 @@ Or:
 go run ./cmd/reticulum-go
 ```
 
-On first start the daemon creates `~/.reticulum-go/` with a default config if none exists. Logs go to stderr by default. Set verbosity with `[logging] loglevel` (1 through 7). Set `[logging] destination = file|both` and optional `logfile` to write to disk (default `{config_dir}/logfile/reticulum.log`). Daemon text logs, pageserver banner, and CLI tools color on TTY. Respect `NO_COLOR` and `FORCE_COLOR` / `CLICOLOR_FORCE`.
+On first start the daemon creates `~/.reticulum-go/` with a default config if none exists. Logs go to stderr by default. Set verbosity with `[logging] loglevel` (1 through 7). Set `[logging] destination = file|both` and optional logfile to write to disk (default `{config_dir}/logfile/reticulum.log`). Daemon text logs, pageserver banner, and CLI tools color on TTY. Respect `NO_COLOR` and `FORCE_COLOR` / `CLICOLOR_FORCE`.
 
 Daemon flags:
 
@@ -69,7 +69,7 @@ reticulum-go --config /path/to/config-dir
 
 ### Custom config path
 
-Pass `--config` / `-config` with a config file or directory (directory uses `config` inside it).
+Pass `--config` / `-config` with a config file or directory (directory uses config inside it).
 
 ## Minimal configuration
 
@@ -92,9 +92,9 @@ target_port = 4242
 port = 4242
 ```
 
-UDP requires an explicit `target_address` or `target_host`. Open binds do not learn peers from the first inbound packet (same policy as Python `forward_ip`).
+UDP requires an explicit target_address or target_host. Open binds do not learn peers from the first inbound packet (same policy as Python forward_ip).
 
-For local mesh discovery over IPv6 link-local multicast, use `AutoInterface`. See [Interfaces](interfaces.md).
+For local mesh discovery over IPv6 link-local multicast, use AutoInterface. See [Interfaces](interfaces.md).
 
 ## Verify the build
 
@@ -161,7 +161,7 @@ task build-librns
 task test-dart
 ```
 
-Needs the Dart SDK on `PATH`. FFI uses `librns` on Linux, Android, and Windows. See [librns](librns.md#dart-ffi-bindings) and [Control API](control-api.md#dart-and-flutter).
+Needs the Dart SDK on `PATH`. FFI uses librns on Linux, Android, and Windows. See [librns](librns.md#dart-ffi-bindings) and [Control API](control-api.md#dart-and-flutter).
 
 ## Enable the control API
 
@@ -178,16 +178,16 @@ Generate a random 32-byte key and encode as hex. Clients send `Authorization: Be
 
 ## CLI utilities (status, identity, probe, path, copy, pageserver)
 
-Tools are subcommands of the single `reticulum-go` binary (`make build`). Legacy names (`rgostatus`, …) install as symlinks via `make install`.
+Tools are subcommands of the single `reticulum-go` binary (`make build`). Legacy names (rgostatus, …) install as symlinks via `make install`.
 
-To query a running Python `rnsd` from `reticulum-go status` / `path`, point `-config` at `~/.reticulum`. On Linux both stacks default to abstract Unix sockets when `shared_instance_type` is unset, so no TCP rewrite is required:
+To query a running Python rnsd from `reticulum-go status` / path, point `-config` at `~/.reticulum`. On Linux both stacks default to abstract Unix sockets when shared_instance_type is unset, so no TCP rewrite is required:
 
 ```bash
 ./bin/reticulum-go status -config ~/.reticulum -json
 ./bin/reticulum-go path -config ~/.reticulum -t -json
 ```
 
-Prefer an explicit shared `rpc_key` when mixing stacks. Use `shared_instance_type = tcp` only when you want the same recipe on every OS.
+Prefer an explicit shared rpc_key when mixing stacks. Use `shared_instance_type = tcp` only when you want the same recipe on every OS.
 
 Full flag reference, `.rsg` / `.rsm` / `.rfe` usage, file transfer, and troubleshooting are in [CLI utilities](utilities.md).
 
@@ -203,15 +203,15 @@ See [Security](security.md) for platform behavior.
 
 ## Troubleshooting
 
-**Daemon exits on config error.** Check the config path and syntax. Unknown keys are ignored so a damaged file can still boot. Fix typos in `type` and interface names.
+**Daemon exits on config error.** Check the config path and syntax. Unknown keys are ignored so a damaged file can still boot. Fix typos in type and interface names.
 
 **No paths to remote destinations.** Confirm interfaces are enabled, peers are reachable, and transport is enabled. Use debug level 5 or higher temporarily. Request paths explicitly from application code or the control API.
 
-**IFAC mismatches.** Peers must use the same `network_name` and `passphrase`. Wrong IFAC frames are dropped silently on ingress.
+**IFAC mismatches.** Peers must use the same network_name and passphrase. Wrong IFAC frames are dropped silently on ingress.
 
-**Shared instance conflicts.** Only one process should own interfaces when `share_instance = yes`. Others should connect as clients. Check `shared_instance_port` (default 37428).
+**Shared instance conflicts.** Only one process should own interfaces when `share_instance = yes`. Others should connect as clients. Check shared_instance_port (default 37428).
 
-**status connection refused.** Point `-config` at the daemon config dir (`~/.reticulum` for `rnsd`). Align `shared_instance_type` and `instance_name` / ports, or leave the type unset on Linux for Unix. See [CLI utilities](utilities.md).
+**status connection refused.** Point `-config` at the daemon config dir (`~/.reticulum` for rnsd). Align shared_instance_type and instance_name / ports, or leave the type unset on Linux for Unix. See [CLI utilities](utilities.md).
 
 **Permission errors on Linux sandbox.** Landlock requires kernel 5.13+. The config directory and storage paths must live under whitelisted locations. See [Security](security.md).
 

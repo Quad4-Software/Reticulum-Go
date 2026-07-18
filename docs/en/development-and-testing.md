@@ -125,8 +125,8 @@ Handshake decode trees for porters also live in `pkg/packet/testdata/handshake_v
 ### Packet debug tools
 
 - Wireshark Lua dissector: `tools/wireshark/rns.lua`
-- `reticulum-go dump` / `rgodump` for hex and pcap
-- `reticulum-go snapshot` / `rgosnap` for path and health JSON
+- `reticulum-go dump` / rgodump for hex and pcap
+- `reticulum-go snapshot` / rgosnap for path and health JSON
 - Timeline convention: [interop-timeline.md](interop-timeline.md)
 
 ```bash
@@ -168,7 +168,7 @@ On failure (or with `INTEROP_ARTIFACTS=1`) the test logs the artifact path and t
 
 | File | Contents |
 |------|----------|
-| `events.jsonl` | One JSON object per line (`ts`, `src`, `event`, `kind`, `detail`) |
+| `events.jsonl` | One JSON object per line (ts, src, event, kind, detail) |
 | `stderr.txt` | Captured Python stderr (human RNS logs plus `INTEROP_EVENT` lines) |
 | `env.json` | Selected interop env keys |
 
@@ -246,11 +246,11 @@ Environment:
 | `RETICULUM_SELF_CHECK_INTEROP=1` | Enables the interop tier |
 | `RETICULUM_TEST_KEYRING=1` | Require Linux keyring round-trip (fail if unavailable) |
 
-Exit code is non-zero on any `fail` result. With `--strict`, warnings also fail.
+Exit code is non-zero on any fail result. With `--strict`, warnings also fail.
 
-Daemon checks include Control API health with sandbox enabled, shared-instance `GetInterfaceStats` RPC, and (except Windows and FreeBSD CapEnter) SIGHUP reload of a UDP interface.
+Daemon checks include Control API health with sandbox enabled, shared-instance GetInterfaceStats RPC, and (except Windows and FreeBSD CapEnter) SIGHUP reload of a UDP interface.
 
-CI runs self-check on Linux (amd64 and arm64), macOS, Windows, FreeBSD, and OpenBSD. Extra Linux arches (`386`, `arm` GOARM=6, `riscv64`, `ppc64le`, `ppc64`) run via `qemu-user-static` (`task test-self-check-386`, `test-self-check-arm`, `test-self-check-riscv64`, `test-self-check-ppc64le`, `test-self-check-ppc64`). Android emulator self-check is a separate workflow (`selfcheck-android.yml`) on schedule or `workflow_dispatch`.
+CI runs self-check on Linux (amd64 and arm64), macOS, Windows, FreeBSD, and OpenBSD. Extra Linux arches (`386`, arm GOARM=6, riscv64, ppc64le, ppc64) run via `qemu-user-static` (`task test-self-check-386`, `test-self-check-arm`, `test-self-check-riscv64`, `test-self-check-ppc64le`, `test-self-check-ppc64`). Android emulator self-check is a separate workflow (`selfcheck-android.yml`) on schedule or workflow_dispatch.
 
 NetBSD is not in CI. Run `reticulum-go self-check` manually on that host.
 

@@ -70,7 +70,7 @@ go run . -destination <hash> -listen-port 4243 -target-port 4242
 
 Path: `examples/resources/`
 
-Minimal link resource transfer. Server accepts one resource and prints it. Client sends `-payload` over `SendResource`.
+Minimal link resource transfer. Server accepts one resource and prints it. Client sends `-payload` over SendResource.
 
 ```bash
 # terminal 1
@@ -347,7 +347,7 @@ Wrapped surface matches the Odin and Zig bindings. See [librns](librns.md#c-bind
 
 Path: `bindings/dart/`
 
-Package `rns_control` includes librns FFI (`ffi.dart`) and a Control API client.
+Package rns_control includes librns FFI (`ffi.dart`) and a Control API client.
 
 ```bash
 task build-librns
@@ -365,7 +365,7 @@ See [librns Dart FFI](librns.md#dart-ffi-bindings) and [Control API](control-api
 
 ## Module Layout
 
-Most examples keep their own `go.mod` with a `replace` pointing at the repository root. `examples/wasm` and `examples/pageserver` also vendor dependencies.
+Most examples keep their own `go.mod` with a replace pointing at the repository root. `examples/wasm` and `examples/pageserver` also vendor dependencies.
 
 ## Related Documents
 

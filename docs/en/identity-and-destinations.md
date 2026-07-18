@@ -43,19 +43,19 @@ id, err := identity.LoadIdentityFile(path, nil)
 
 ### Identity backend (file, Secret Service, or kernel keyring)
 
-Config key `identity_backend` in `[reticulum]`:
+Config key identity_backend in `[reticulum]`:
 
 | Value | Behavior |
 |-------|----------|
-| `file` (default) | 64-byte plaintext identity files |
-| `secretservice` | Freedesktop Secret Service over D-Bus (GNOME Keyring, KDE Wallet Secret Service bridge, KeePassXC with Secret Service enabled) |
-| `keyring` | Linux kernel keyring (user keyring, no D-Bus). Suitable for headless systemd user or system units |
+| file (default) | 64-byte plaintext identity files |
+| secretservice | Freedesktop Secret Service over D-Bus (GNOME Keyring, KDE Wallet Secret Service bridge, KeePassXC with Secret Service enabled) |
+| keyring | Linux kernel keyring (user keyring, no D-Bus). Suitable for headless systemd user or system units |
 
-With `secretservice` or `keyring`, `ToFile` stores the private blob in the backend and writes an 8-byte `RSSI` marker at the usual path. `FromFile` and `LoadIdentityFile` detect the marker and fetch the secret. If the backend is unavailable, persistence fails with a clear error (no silent plaintext fallback).
+With secretservice or keyring, ToFile stores the private blob in the backend and writes an 8-byte `RSSI` marker at the usual path. FromFile and LoadIdentityFile detect the marker and fetch the secret. If the backend is unavailable, persistence fails with a clear error (no silent plaintext fallback).
 
-`keyring` is Linux-only. When a persistent user keyring is available, material can survive reboot for the same UID. Otherwise keys are cleared on reboot. Desktop sessions without D-Bus can use `keyring` instead of `secretservice`.
+keyring is Linux-only. When a persistent user keyring is available, material can survive reboot for the same UID. Otherwise keys are cleared on reboot. Desktop sessions without D-Bus can use keyring instead of secretservice.
 
-Headless units that cannot use the kernel keyring should keep `identity_backend = file`, or unlock a Secret Service collection / KeePassXC before start when using `secretservice`.
+Headless units that cannot use the kernel keyring should keep `identity_backend = file`, or unlock a Secret Service collection / KeePassXC before start when using secretservice.
 
 CLI migrate (path via `-i`):
 
@@ -67,18 +67,18 @@ rgoid -i ~/.reticulum-go/storage/transport_identity -to-file
 
 ### In-memory key handling
 
-Long-term X25519 and Ed25519 material lives in `pkg/securemem` buffers with best-effort `mlock` and wipe on `Identity.Close`. Callers of `GetPrivateKey` should wipe the returned slice when finished.
+Long-term X25519 and Ed25519 material lives in `pkg/securemem` buffers with best-effort mlock and wipe on `Identity.Close`. Callers of GetPrivateKey should wipe the returned slice when finished.
 
 ### What this protects against
 
 | Control | Helps against | Does not stop |
 |---------|---------------|---------------|
 | `identity_backend = secretservice` | Casual theft of the identity file path (backup copies, world-readable home dirs, malware that only reads `~/.reticulum-go/storage`). Keyring unlock policies and KeePassXC master password raise the bar for offline disk images when the collection is locked. | Root or same-user malware that can talk to an unlocked Secret Service session. Compelled unlock. Physical access while the keyring is unlocked. |
-| `identity_backend = keyring` | Same file-path theft cases without requiring D-Bus. Fits systemd units that have a user keyring. | Root or same-UID processes that can call `keyctl`. Keys may not survive reboot if persistent keyring is unavailable. |
-| `pkg/securemem` mlock + wipe | Keys lingering in swap after process exit, casual core dumps of freed heap (with `RLIMIT_CORE=0` in the sandbox), accidental retention after `Close`. | Live process memory inspection by root or a debugger attached to the running daemon. Full cold-boot attacks on RAM. |
+| `identity_backend = keyring` | Same file-path theft cases without requiring D-Bus. Fits systemd units that have a user keyring. | Root or same-UID processes that can call keyctl. Keys may not survive reboot if persistent keyring is unavailable. |
+| `pkg/securemem` mlock + wipe | Keys lingering in swap after process exit, casual core dumps of freed heap (with `RLIMIT_CORE=0` in the sandbox), accidental retention after Close. | Live process memory inspection by root or a debugger attached to the running daemon. Full cold-boot attacks on RAM. |
 | File permissions `0600` + encrypted disk (operator practice) | Other local users reading plaintext identity files. Disk theft when FDE is used and the volume is locked. | Attacks after the volume is unlocked and mounted. |
 
-None of these replace HSM-backed signing (`RHB1` / `NewIdentityWithSigner`) for high-assurance signing material, or host firewall and sandbox policy for network exposure.
+None of these replace HSM-backed signing (`RHB1` / NewIdentityWithSigner) for high-assurance signing material, or host firewall and sandbox policy for network exposure.
 
 ### Hardware-bound descriptor (RHB1, optional)
 
@@ -123,7 +123,7 @@ A destination is an application endpoint on the network. Implementation: `pkg/de
 
 ### Destination hash
 
-The on-wire destination hash is derived from application name, aspects, and identity hash (for non-plain types) using a truncated SHA-256 construction in `calculateHash`. The exact byte layout matches Python and is verified in `tests/crossref`.
+The on-wire destination hash is derived from application name, aspects, and identity hash (for non-plain types) using a truncated SHA-256 construction in calculateHash. The exact byte layout matches Python and is verified in `tests/crossref`.
 
 ### Creating a destination
 
@@ -146,7 +146,7 @@ Destinations publish signed announces so the network learns paths. Handlers regi
 transport.RegisterAnnounceHandler(handler)
 ```
 
-Announce payloads can carry application-specific `app_data` visible to peers.
+Announce payloads can carry application-specific app_data visible to peers.
 
 ### Request handlers
 
@@ -154,7 +154,7 @@ Destinations can register request paths. Incoming requests block the link gorout
 
 ### Incoming links
 
-Register with `accepts_links` semantics. Incoming link requests dispatch to `link.HandleIncomingLinkRequest`.
+Register with accepts_links semantics. Incoming link requests dispatch to `link.HandleIncomingLinkRequest`.
 
 ## Resolver
 

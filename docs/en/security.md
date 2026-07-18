@@ -10,7 +10,7 @@ Report security issues privately before public disclosure.
 
 | Channel | Contact |
 |---------|---------|
-| Reticulum LXMF | `f489752fbef161c64d65e385a4e9fc74` |
+| Reticulum LXMF | f489752fbef161c64d65e385a4e9fc74 |
 | Email | `security@quad4.io` |
 
 Include enough detail to reproduce the issue: component, expected behavior, actual behavior, and environment.
@@ -32,7 +32,7 @@ The `reticulum-go` daemon calls `sandbox.Apply` from `pkg/sandbox` after config 
 
 Default: `enable_sandbox = yes` in `[reticulum]`. Set `enable_sandbox = no` to disable (not recommended for production).
 
-On Linux, `enable_seccomp` defaults to yes when the sandbox is enabled. Set `enable_seccomp = no` to skip the seccomp filter. Install failures soft-fail so older kernels and constrained environments keep running.
+On Linux, enable_seccomp defaults to yes when the sandbox is enabled. Set `enable_seccomp = no` to skip the seccomp filter. Install failures soft-fail so older kernels and constrained environments keep running.
 
 | OS | Mechanism | Effect |
 |----|-----------|--------|
@@ -65,7 +65,7 @@ Application code should use `pkg/cryptography` and `pkg/identity`. IFAC configur
 
 **Actions pinning.** GitHub-owned actions are pinned to full commit SHAs where this repository pins them.
 
-**Tree integrity.** Root file `reticulum-go.rsm` is an rnid signed message embedding SHA-256 hashes of tracked files (excluding `vendor/` trees). CI verifies signer `e46112d44649266d71fe2193e00a4710` and rechecks bytes at job start and end (`make tree-rsm-verify`).
+**Tree integrity.** Root file `reticulum-go.rsm` is an rnid signed message embedding SHA-256 hashes of tracked files (excluding `vendor/` trees). CI verifies signer e46112d44649266d71fe2193e00a4710 and rechecks bytes at job start and end (`make tree-rsm-verify`).
 
 ## Releases
 
@@ -107,9 +107,9 @@ make check
 
 ## Logging and secrets
 
-- Log destination supports `stderr`, `file`, `both`, `syslog`, `journald`, and combinations such as `syslog+stderr`. Set `logfile` when using a file path.
+- Log destination supports stderr, file, both, syslog, journald, and combinations such as `syslog+stderr`. Set logfile when using a file path.
 - High debug levels may print packet hex. Use loglevel 4 or lower in production unless diagnosing an incident.
-- `rpc_key` protects the control API and shared-instance RPC. Generate with cryptographic random bytes. Do not commit keys to version control.
+- rpc_key protects the control API and shared-instance RPC. Generate with cryptographic random bytes. Do not commit keys to version control.
 - `identity_backend = secretservice` keeps identity private blobs in the desktop keyring (Secret Service) instead of plaintext files. Requires an unlocked session collection.
 - `identity_backend = keyring` stores the same blobs in the Linux kernel keyring (no D-Bus), suitable for systemd units. See [Identity and destinations](identity-and-destinations.md) for threat coverage.
 - Identity private keys are held in locked memory when the OS allows (`pkg/securemem`). This is defense in depth, not a substitute for disk encryption or HSM signing.
@@ -125,15 +125,15 @@ Operators see the numbers through:
 | Surface | What you get |
 |---------|----------------|
 | `reticulum-go status` | Per-interface integrity totals and fail rate when non-zero |
-| `reticulum-go status -json` | Same fields in JSON (`ifac_fail`, `hmac_fail`, `integrity_fail_rate`, `stale_closes`, `announce_dup`, …) |
-| `reticulum-go snapshot` (`rgosnap`) | Paths, active links, and full transport health JSON including path drop counters |
-| `reticulum-go slow` | Scored findings such as `integrity_burst`, `auth_pressure`, `link_degraded`, `ingress_pressure` |
+| `reticulum-go status -json` | Same fields in JSON (ifac_fail, hmac_fail, integrity_fail_rate, stale_closes, announce_dup, …) |
+| `reticulum-go snapshot` (rgosnap) | Paths, active links, and full transport health JSON including path drop counters |
+| `reticulum-go slow` | Scored findings such as integrity_burst, auth_pressure, link_degraded, ingress_pressure |
 | Control API `GET /v1/status` | Integrity and drop fields on each interface object |
-| Shared-instance RPC `interface_stats` | Same msgpack keys (Go daemon only populates them) |
+| Shared-instance RPC interface_stats | Same msgpack keys (Go daemon only populates them) |
 
 Scoring prefers fail ratios and bitrate-aware thresholds. High latency alone on a low-bitrate radio is not treated as critical. There is no auto blackhole or auto interface offline in this release. The operator decides whether to adjust IFAC keys, enable ingress control, blackhole an identity, or take an interface down.
 
-See [CLI utilities](utilities.md) for `status` and `slow`, [packet-debug](packet-debug.md) for dump and snapshot, and [Control API](control-api.md) for HTTP fields.
+See [CLI utilities](utilities.md) for status and slow, [packet-debug](packet-debug.md) for dump and snapshot, and [Control API](control-api.md) for HTTP fields.
 
 ## Control API exposure
 
@@ -147,7 +147,7 @@ Resource and buffer decompression enforce size limits aligned with Python 1.1.9 
 
 Python RNS 1.3.8 rejects packets whose hop byte is `>= PATHFINDER_M` (128) during unpack. Reticulum-Go mirrors that in `pkg/packet.Unpack`. Values 128 through 255 are dropped before transport processing.
 
-Link establishment also records `expected_hops` on both initiator and responder. Initiator LRPROOF acceptance requires the proof hop count to match (or `expected_hops == PATHFINDER_M` when the path length was unknown at link creation), matching Python `Transport` pending-link gating.
+Link establishment also records expected_hops on both initiator and responder. Initiator LRPROOF acceptance requires the proof hop count to match (or `expected_hops == PATHFINDER_M` when the path length was unknown at link creation), matching Python Transport pending-link gating.
 
 ## Related documents
 

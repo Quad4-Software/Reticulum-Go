@@ -35,7 +35,7 @@ The daemon is the long-running process most operators deploy. On startup it:
 1. Loads configuration from `~/.reticulum-go/config` (or `--config`)
 2. Creates a `node.Node` which owns transport and interfaces
 3. Starts transport and registers each enabled interface
-4. Optionally attaches to a shared instance (`share_instance`)
+4. Optionally attaches to a shared instance (share_instance)
 5. Applies the runtime sandbox (`pkg/sandbox`) unless disabled
 6. Optionally starts the control API on localhost
 7. Handles `SIGHUP` on Unix to hot-reload interface blocks
@@ -44,13 +44,13 @@ Shutdown on `SIGINT` or `SIGTERM` stops interfaces and flushes path persistence 
 
 ### Node (`pkg/node`)
 
-`Node` is the embedder-facing orchestration type. It wires:
+Node is the embedder-facing orchestration type. It wires:
 
 - `transport.Transport` for routing
 - `interfaces.Interface` instances from config
 - `sharedinstance.Instance` when sharing one Reticulum process on a host
-- Optional `discovery.InterfaceDiscovery` when `discover_interfaces` is enabled
-- Network lifecycle hooks (`OnNetworkAvailable`, `OnNetworkLost`, `RefreshPaths`, `ReloadInterfaces`)
+- Optional `discovery.InterfaceDiscovery` when discover_interfaces is enabled
+- Network lifecycle hooks (OnNetworkAvailable, OnNetworkLost, RefreshPaths, ReloadInterfaces)
 
 Library authors typically construct `node.New(cfg)` and call `Start()` rather than reimplementing transport registration.
 
@@ -81,13 +81,13 @@ Factory entry point: `interfaces.NewFromConfigWithContext`.
 
 When `share_instance = yes`, only one Reticulum process on a host should own the real interfaces. Other processes connect as clients over TCP or a Unix socket and multiplex packets through the owner. This mirrors Python behavior and uses msgpack RPC compatible with RNS 1.3.4 layouts.
 
-Go CLI tools such as `rgostatus` dial this RPC. On Linux, Python `rnsd` defaults to a Unix abstract socket unless `shared_instance_type = tcp`. Setup for mixed Go and Python tooling is in [CLI utilities](utilities.md).
+Go CLI tools such as rgostatus dial this RPC. On Linux, Python rnsd defaults to a Unix abstract socket unless `shared_instance_type = tcp`. Setup for mixed Go and Python tooling is in [CLI utilities](utilities.md).
 
 ### Storage (`internal/storage`)
 
-The daemon persists ratchets, identity blobs, destination tables, and related artifacts under `~/.reticulum-go/storage/`. Library embedders can use the same paths or keep tables in memory with `in_memory_path_table` and `in_memory_known_destinations`.
+The daemon persists ratchets, identity blobs, destination tables, and related artifacts under `~/.reticulum-go/storage/`. Library embedders can use the same paths or keep tables in memory with in_memory_path_table and in_memory_known_destinations.
 
-Set `in_memory_storage = yes` (or `RETICULUM_IN_MEMORY_STORAGE=1`) for fully ephemeral operation: no transport identity file, no blackhole directory, no split-resource staging on disk, and no `~/.reticulum-go` bootstrap. Empty `ConfigPath` with no `RETICULUM_STORAGE_PATH` also stays off disk. Soft caps (`max_in_memory_*`, `soft_memory_limit`) bound RAM growth under explicit in-memory storage.
+Set `in_memory_storage = yes` (or `RETICULUM_IN_MEMORY_STORAGE=1`) for fully ephemeral operation: no transport identity file, no blackhole directory, no split-resource staging on disk, and no `~/.reticulum-go` bootstrap. Empty ConfigPath with no `RETICULUM_STORAGE_PATH` also stays off disk. Soft caps (`max_in_memory_*`, soft_memory_limit) bound RAM growth under explicit in-memory storage.
 
 ## Inbound packet flow
 
@@ -143,9 +143,9 @@ If no path exists, transport may emit path requests according to configuration a
 - Each interface runs its own read loop (or shares a backbone hub poller).
 - Transport uses internal locking and channels to serialize table updates and forwarding.
 - Links run session goroutines for keepalive, request/response, and channel outlets.
-- Hot reload takes `reloadMu` on `Node` to swap interfaces without tearing down unrelated state.
+- Hot reload takes reloadMu on Node to swap interfaces without tearing down unrelated state.
 
-Backbone I/O can consolidate many TCP sockets behind one epoll, kqueue, or io_uring hub (`pkg/backbone`). Configure with `backbone_io` in `[reticulum]`.
+Backbone I/O can consolidate many TCP sockets behind one epoll, kqueue, or io_uring hub (`pkg/backbone`). Configure with backbone_io in `[reticulum]`.
 
 ## Deployment patterns
 
@@ -169,11 +169,11 @@ App C ----/
 
 ### Embedded library
 
-A Go service links `pkg/node` directly. No daemon. The service loads config, starts `Node`, and registers destinations in-process.
+A Go service links `pkg/node` directly. No daemon. The service loads config, starts Node, and registers destinations in-process.
 
 ### Browser WASM
 
-`reticulum-wasm` compiles transport and a WebSocket interface. JavaScript calls `reticulum.init`, `connect`, `announce`, and related functions exposed by `pkg/wasm`.
+`reticulum-wasm` compiles transport and a WebSocket interface. JavaScript calls `reticulum.init`, connect, announce, and related functions exposed by `pkg/wasm`.
 
 ### Control API sidecar
 

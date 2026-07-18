@@ -2,7 +2,7 @@
 
 ## Reference target
 
-Reticulum-Go is tested against **Python RNS 1.3.9** (rngit `master`) and the last tagged release **1.3.8**, plus the [official network API reference](https://reticulum.network/manual/reference.html).
+Reticulum-Go is tested against **Python RNS 1.3.9** (rngit master) and the last tagged release **1.3.8**, plus the [official network API reference](https://reticulum.network/manual/reference.html).
 
 Crossref vectors clone the reference from `rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum` via [rngit](https://reticulum.network/manual/git.html) (`tests/crossref/run_crossref.sh`). The GitHub mirror is not used for vectors.
 
@@ -13,7 +13,7 @@ The detailed matrix with config key tables lives in [COMPATIBILITY.md](../../COM
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Crypto | Complete | Curve25519, AES-256-CBC, HMAC-SHA256, HKDF. Crossref verified |
-| Identity | Complete | Optional RHB1 hardware descriptor. Python `from_file` is 64-byte software only |
+| Identity | Complete | Optional RHB1 hardware descriptor. Python from_file is 64-byte software only |
 | Destination | Complete | SINGLE, GROUP, PLAIN, LINK |
 | Packet | Complete | Header types 1 and 2, all packet types and contexts |
 | Transport | Complete | Path table, announces, relay, persistence, ingress control, random-blob path selection |
@@ -45,16 +45,16 @@ The detailed matrix with config key tables lives in [COMPATIBILITY.md](../../COM
 | Modem73Interface | Yes |
 | SDRInterface | Yes (lab/testing Go-native burst modem, mock/rtltcp, optional tagged USB backends) |
 | PipeInterface | Yes |
-| LocalInterface | Yes via `share_instance` and config `LocalInterface` / `LocalServerInterface` |
+| LocalInterface | Yes via share_instance and config LocalInterface / LocalServerInterface |
 | External plugins | Yes (Go-native factories, manifests, executables under `interfaces/`) |
 | WebSocket | Go-only |
-| QUIC | Go-only (`QUICClientInterface` / `QUICServerInterface`) |
-| WebTransport | Go-only (`WebTransportClientInterface` / `WebTransportServerInterface`) |
-| DNSRendezvous | Go-only (`DNSRendezvousInterface`) |
-| VSOCK | Go-only Linux (`VSOCKClientInterface` / `VSOCKServerInterface`) |
-| HTTPS | Go-only (`HTTPSClientInterface` / `HTTPSServerInterface`) |
+| QUIC | Go-only (QUICClientInterface / QUICServerInterface) |
+| WebTransport | Go-only (WebTransportClientInterface / WebTransportServerInterface) |
+| DNSRendezvous | Go-only (DNSRendezvousInterface) |
+| VSOCK | Go-only Linux (VSOCKClientInterface / VSOCKServerInterface) |
+| HTTPS | Go-only (HTTPSClientInterface / HTTPSServerInterface) |
 
-UDP requires explicit `target_host` or `target_address` (Python `forward_ip` policy).
+UDP requires explicit target_host or target_address (Python forward_ip policy).
 
 Opt-in UDP reconnect when `max_reconnect_tries > 0` is a Go extension.
 
@@ -72,12 +72,12 @@ Wire format is stable across 1.2.x to 1.3.x. Notable behavior differences:
 | AutoInterface roam listener replacement | 1.3.5 | Covered |
 | Channel ghost envelopes | 1.3.0 | Covered |
 | Shared-instance RPC msgpack | 1.3.4 | Covered |
-| `MODE_INTERNAL` / `recursive_prs` / announce mode rules | 1.3.6 | Covered |
-| Ephemeral transport identity / `static_transport_identity` | 1.3.6 | Covered |
-| `local_hops_delta` hop mangling | 1.3.6 / 1.3.7 | Covered |
+| `MODE_INTERNAL` / recursive_prs / announce mode rules | 1.3.6 | Covered |
+| Ephemeral transport identity / static_transport_identity | 1.3.6 | Covered |
+| local_hops_delta hop mangling | 1.3.6 / 1.3.7 | Covered |
 | Reject unpack when hops `>= PATHFINDER_M` | 1.3.8 | Covered |
-| Link `expected_hops` on both sides / LRPROOF hop gate | 1.3.8 | Covered |
-| Discovery on `MODE_INTERNAL` / `location_cmd` | 1.3.9 | Covered |
+| Link expected_hops on both sides / LRPROOF hop gate | 1.3.8 | Covered |
+| Discovery on `MODE_INTERNAL` / location_cmd | 1.3.9 | Covered |
 | LINKIDENTIFY once / receiver `RESOURCE_RCL` | 1.3.9 | Covered |
 
 ## Known gaps
@@ -85,10 +85,10 @@ Wire format is stable across 1.2.x to 1.3.x. Notable behavior differences:
 | Gap | Impact |
 |-----|--------|
 | Discovery announcer / autoconnect | Listen and validate work. No store, announce loop, or autoconnect |
-| Blackhole federation | `publish_blackhole`, `blackhole_sources`, and updater not driven |
-| Remote management destination | No `rnstransport.remote.management` for remote `rnpath`/`rnstatus` |
+| Blackhole federation | publish_blackhole, blackhole_sources, and updater not driven |
+| Remote management destination | No `rnstransport.remote.management` for remote rnpath/rnstatus |
 | RNode and radio serial drivers | RNode / KISS / AX25 / Weave not in this tree. SerialInterface, Modem73Interface, and SDRInterface are present |
-| Utilities `rnsh` `rnir` `rnpkg` `rngit` | Not ported |
+| Utilities rnsh rnir rnpkg rngit | Not ported |
 
 ## Go-only extensions
 
@@ -97,8 +97,8 @@ These do not change the wire format:
 | Feature | Package / location |
 |---------|-------------------|
 | Interface hot reload | `pkg/node/reload.go`, SIGHUP |
-| `watch_interfaces` NIC polling | `pkg/node/netmon.go` |
-| Node lifecycle API | `OnNetworkAvailable`, `OnNetworkLost`, `RefreshPaths` |
+| watch_interfaces NIC polling | `pkg/node/netmon.go` |
+| Node lifecycle API | OnNetworkAvailable, OnNetworkLost, RefreshPaths |
 | UDP reconnect (opt-in) | `pkg/interfaces/reconnect.go` |
 | Backbone I/O multiplexing | `pkg/backbone` |
 | WebSocket interface | `pkg/interfaces/websocket_*.go` |
@@ -110,8 +110,8 @@ These do not change the wire format:
 | Dart Control API client | `bindings/dart` ([Control API](control-api.md#dart-and-flutter)) |
 | Runtime sandbox | `pkg/sandbox` |
 | Local mesh health counters | `pkg/health`, status RPC fields, `reticulum-go slow` findings |
-| RAM-only path tables | `in_memory_path_table`, `in_memory_known_destinations` |
-| Fully ephemeral storage | `in_memory_storage`, `RETICULUM_IN_MEMORY_STORAGE`, soft caps |
+| RAM-only path tables | in_memory_path_table, in_memory_known_destinations |
+| Fully ephemeral storage | in_memory_storage, `RETICULUM_IN_MEMORY_STORAGE`, soft caps |
 
 ## Config differences
 
@@ -122,27 +122,27 @@ These do not change the wire format:
 | Unknown keys | Errors | Ignored |
 | Comments | `#` | `#` and `;` |
 | Identity storage | Per-name blobs | Per-hash blobs (loads Python known dest files) |
-| Log destination | stdout / file / callback | `stderr`, `file`, `both`, `syslog`, `journald` (and combinations) |
+| Log destination | stdout / file / callback | stderr, file, both, syslog, journald (and combinations) |
 
 ## Utilities
 
 | Python | Reticulum-Go |
 |--------|--------------|
 | rnsd | `reticulum-go` daemon |
-| rnstatus | `rgostatus` (shared-instance RPC, announce/PR rates, JSON, Go integrity fields) |
-| (none) | `rgoslow` / `reticulum-go slow` (bottleneck and local health findings, Go-only) |
-| `Examples/Speedtest.py` | `rgospeed` / `reticulum-go speedtest` (loopback link throughput smoke) |
-| rnid | `rgoid` (`.rid`/`.rsg`/`.rsm`/`.rfe` compatible) |
-| rnprobe | `rgoprobe` |
-| rnpath | `rgopath` (path table, drop, blackhole, remote rnstransport not ported) |
-| rncp | `rgocp` (send/listen/fetch on `rncp.receive`) |
-| rnir, rnodeconf, rnpkg, rngit, rnsh | Not ported (deferred post-1.0). `rnx` is `reticulum-go x`. |
+| rnstatus | rgostatus (shared-instance RPC, announce/PR rates, JSON, Go integrity fields) |
+| (none) | rgoslow / `reticulum-go slow` (bottleneck and local health findings, Go-only) |
+| `Examples/Speedtest.py` | rgospeed / `reticulum-go speedtest` (loopback link throughput smoke) |
+| rnid | rgoid (`.rid`/`.rsg`/`.rsm`/`.rfe` compatible) |
+| rnprobe | rgoprobe |
+| rnpath | rgopath (path table, drop, blackhole, remote rnstransport not ported) |
+| rncp | rgocp (send/listen/fetch on `rncp.receive`) |
+| rnir, rnodeconf, rnpkg, rngit, rnsh | Not ported (deferred post-1.0). rnx is `reticulum-go x`. |
 | WASM | `reticulum-wasm` (Go-only) |
 | librns | `librns.so` + `rns.h` (Go-only, Linux first) |
 | Odin bindings | `bindings/odin` (links `librns.so`, [librns](librns.md#odin-bindings)) |
-| Dart client | `bindings/dart` (`rns_control` FFI and Control API) |
+| Dart client | `bindings/dart` (rns_control FFI and Control API) |
 
-Setup for Go tools against Python `rnsd` (Unix or TCP shared-instance RPC, `rpc_key`, `-config`) is documented in [CLI utilities](utilities.md).
+Setup for Go tools against Python rnsd (Unix or TCP shared-instance RPC, rpc_key, `-config`) is documented in [CLI utilities](utilities.md).
 
 ## Verification workflow
 
@@ -161,7 +161,7 @@ RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
 
 Use separate config directories (`~/.reticulum-go` vs `~/.reticulum`). Point interfaces at the same peers with matching IFAC and ports. Shared instance ports must not conflict if both try to own the same interface.
 
-To let `rgostatus` query Python `rnsd`, point `-config` at `~/.reticulum` and align `rpc_key` when set. On Linux both stacks default to Unix RPC when `shared_instance_type` is unset. Go tools also fall back to TCP when the type is unset. See [CLI utilities](utilities.md).
+To let rgostatus query Python rnsd, point `-config` at `~/.reticulum` and align rpc_key when set. On Linux both stacks default to Unix RPC when shared_instance_type is unset. Go tools also fall back to TCP when the type is unset. See [CLI utilities](utilities.md).
 
 ## Related documents
 
