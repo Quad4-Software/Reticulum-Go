@@ -114,6 +114,8 @@ install-man:
 	install -m 644 man/reticulum-go-slow.1 $(INSTALL_MANDIR)/man1/reticulum-go-slow.1
 	install -m 644 man/reticulum-go-dump.1 $(INSTALL_MANDIR)/man1/reticulum-go-dump.1
 	install -m 644 man/reticulum-go-snapshot.1 $(INSTALL_MANDIR)/man1/reticulum-go-snapshot.1
+	install -m 644 man/reticulum-go-speedtest.1 $(INSTALL_MANDIR)/man1/reticulum-go-speedtest.1
+	install -m 644 man/reticulum-go-self-check.1 $(INSTALL_MANDIR)/man1/reticulum-go-self-check.1
 	install -m 644 man/reticulum-go.8 $(INSTALL_MANDIR)/man8/reticulum-go.8
 	ln -sfn reticulum-go-status.1 $(INSTALL_MANDIR)/man1/rgostatus.1
 	ln -sfn reticulum-go-id.1 $(INSTALL_MANDIR)/man1/rgoid.1
@@ -123,8 +125,11 @@ install-man:
 	ln -sfn reticulum-go-x.1 $(INSTALL_MANDIR)/man1/rgox.1
 	ln -sfn reticulum-go-x.1 $(INSTALL_MANDIR)/man1/rnx.1
 	ln -sfn reticulum-go-pageserver.1 $(INSTALL_MANDIR)/man1/rgopageserver.1
+	ln -sfn reticulum-go-slow.1 $(INSTALL_MANDIR)/man1/rgoslow.1
+	ln -sfn reticulum-go-speedtest.1 $(INSTALL_MANDIR)/man1/rgospeed.1
 	ln -sfn reticulum-go-dump.1 $(INSTALL_MANDIR)/man1/rgodump.1
 	ln -sfn reticulum-go-snapshot.1 $(INSTALL_MANDIR)/man1/rgosnap.1
+	ln -sfn reticulum-go-self-check.1 $(INSTALL_MANDIR)/man1/rgoselfcheck.1
 
 install-service:
 	sh scripts/install-service.sh --prefix "$(PREFIX)" --destdir "$(DESTDIR)" --bindir "$(BINDIR)" --init "$(INIT)"
