@@ -27,6 +27,10 @@ cosign.key
 # JSON assets and auto-generated exports
 *.json
 !pkg/packet/testdata/handshake_vectors.json
+!pkg/packet/testdata/adversarial/manifest.json
+
+# Opaque binary blobs (corpus payloads live as hex in tracked JSON)
+*.bin
 
 # Example build binaries (source under examples/ is tracked)
 /examples/*/example-*
