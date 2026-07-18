@@ -334,13 +334,23 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := upgradeWebSocket(w, r)
+	pending, err := beginWebSocketUpgrade(w, r)
 	if err != nil {
 		debug.Log(debug.DebugError, "controlapi: websocket upgrade failed", "error", err)
 		return
 	}
 
-	client := newWSClient(s, sess, conn)
+	// Register before flushing 101 so a client that races ahead and triggers
+	// a broadcast cannot miss the event because the session has no clients yet.
+	client := newWSClient(s, sess, pending.Conn())
+	sess.addClient(client)
+
+	if err := pending.Flush(); err != nil {
+		debug.Log(debug.DebugError, "controlapi: websocket handshake flush failed", "error", err)
+		client.close()
+		return
+	}
+
 	client.run()
 }
 

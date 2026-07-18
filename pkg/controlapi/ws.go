@@ -49,11 +49,19 @@ type wsConn struct {
 	writeMu sync.Mutex
 }
 
-// upgradeWebSocket hijacks w's connection and completes the WebSocket
-// handshake for r. Callers must have already verified the Upgrade and
-// Sec-WebSocket-Key headers so that any earlier failure can still be
-// reported with a normal HTTP error response.
-func upgradeWebSocket(w http.ResponseWriter, r *http.Request) (*wsConn, error) {
+// wsPendingUpgrade holds a hijacked connection whose 101 response has not
+// been flushed yet. Callers register the session client before Flush so the
+// peer cannot observe a ready WebSocket before broadcast delivery works.
+type wsPendingUpgrade struct {
+	conn   net.Conn
+	rw     *bufio.ReadWriter
+	accept string
+}
+
+// beginWebSocketUpgrade hijacks w without sending the handshake response.
+// Callers must have already verified the Upgrade and Sec-WebSocket-Key
+// headers so earlier failures can still use a normal HTTP error response.
+func beginWebSocketUpgrade(w http.ResponseWriter, r *http.Request) (*wsPendingUpgrade, error) {
 	hj, ok := w.(http.Hijacker)
 	if !ok {
 		return nil, errors.New("controlapi: response writer does not support hijacking")
@@ -65,21 +73,36 @@ func upgradeWebSocket(w http.ResponseWriter, r *http.Request) (*wsConn, error) {
 		return nil, err
 	}
 
-	accept := computeWSAccept(key)
+	return &wsPendingUpgrade{
+		conn:   netConn,
+		rw:     rw,
+		accept: computeWSAccept(key),
+	}, nil
+}
+
+// Conn returns a wsConn bound to the hijacked socket. Safe to use for
+// session registration before Flush: outbound frames must wait until after
+// Flush so they cannot interleave with the HTTP 101 response.
+func (u *wsPendingUpgrade) Conn() *wsConn {
+	return &wsConn{conn: u.conn, reader: u.rw.Reader}
+}
+
+// Flush writes the WebSocket handshake response. On failure the underlying
+// connection is closed.
+func (u *wsPendingUpgrade) Flush() error {
 	response := "HTTP/1.1 101 Switching Protocols\r\n" +
 		"Upgrade: websocket\r\n" +
 		"Connection: Upgrade\r\n" +
-		"Sec-WebSocket-Accept: " + accept + "\r\n\r\n"
-	if _, err := rw.Write([]byte(response)); err != nil {
-		_ = netConn.Close()
-		return nil, err
+		"Sec-WebSocket-Accept: " + u.accept + "\r\n\r\n"
+	if _, err := u.rw.Write([]byte(response)); err != nil {
+		_ = u.conn.Close()
+		return err
 	}
-	if err := rw.Flush(); err != nil {
-		_ = netConn.Close()
-		return nil, err
+	if err := u.rw.Flush(); err != nil {
+		_ = u.conn.Close()
+		return err
 	}
-
-	return &wsConn{conn: netConn, reader: rw.Reader}, nil
+	return nil
 }
 
 func computeWSAccept(key string) string {
@@ -233,10 +256,10 @@ func newWSClient(server *Server, sess *session, conn *wsConn) *wsClient {
 	}
 }
 
-// run registers the client, then blocks in the read loop until the
-// connection closes.
+// run starts the writer and blocks in the read loop until the connection
+// closes. The caller must already have registered the client with the
+// session and flushed the WebSocket handshake.
 func (c *wsClient) run() {
-	c.session.addClient(c)
 	go c.writeLoop()
 	c.readLoop()
 	c.close()
