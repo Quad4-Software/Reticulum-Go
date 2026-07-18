@@ -34,6 +34,9 @@ const (
 	StaleGrace                 = 2
 	Keepalive                  = 360
 	StaleTime                  = 720
+	// LinkTimeout is idle lifetime for validated link-table rows
+	// (Python LINK_TIMEOUT = STALE_TIME * 1.25).
+	LinkTimeout = time.Duration(StaleTime*5/4) * time.Second
 
 	AcceptNone = 0
 	AcceptAll  = 1

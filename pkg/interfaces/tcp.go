@@ -23,7 +23,7 @@ type TCPClientInterface struct {
 	i2pTunneled       bool
 	initiator         bool
 	neverConnected    bool
-	writing           bool
+	sendMu            sync.Mutex
 	maxReconnectTries int
 	packetBuffer      []byte
 	done              chan struct{}
@@ -211,8 +211,8 @@ func (tc *TCPClientInterface) ProcessOutgoing(data []byte) error {
 		return fmt.Errorf("interface offline")
 	}
 
-	tc.writing = true
-	defer func() { tc.writing = false }()
+	tc.sendMu.Lock()
+	defer tc.sendMu.Unlock()
 
 	var frame []byte
 	if tc.kissFraming {

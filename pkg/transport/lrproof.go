@@ -5,7 +5,6 @@ package transport
 
 import (
 	"fmt"
-	"time"
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
@@ -24,9 +23,6 @@ func (t *Transport) validateAndForwardLRProof(pkt *packet.Packet, iface common.N
 	if t == nil || t.linkTable == nil || pkt == nil {
 		return false
 	}
-	if !t.transportEnabled() && !isLocalClientInterface(iface) {
-		return false
-	}
 
 	linkID := pkt.DestinationHash
 	if len(linkID) > packet.TruncatedHashLength {
@@ -34,6 +30,10 @@ func (t *Transport) validateAndForwardLRProof(pkt *packet.Packet, iface common.N
 	}
 	entry, ok := t.linkTable.get(linkID)
 	if !ok || entry == nil {
+		return false
+	}
+	forLocalClient := isLocalClientInterface(entry.ReceivedIface)
+	if !t.transportEnabled() && !isLocalClientInterface(iface) && !forLocalClient {
 		return false
 	}
 
@@ -94,8 +94,9 @@ func (t *Transport) validateAndForwardLRProof(pkt *packet.Packet, iface common.N
 		return true
 	}
 
-	entry.Validated = true
-	entry.Timestamp = time.Now()
+	if !t.linkTable.markValidated(linkID) {
+		return true
+	}
 
 	if entry.ReceivedIface == nil || !entry.ReceivedIface.IsEnabled() {
 		return true

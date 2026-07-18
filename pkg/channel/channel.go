@@ -171,7 +171,7 @@ func (c *Channel) Send(msg MessageBase) error {
 
 	c.mutex.Lock()
 	reserved := c.nextSequence
-	c.nextSequence = (reserved + 1) % SeqModulus
+	c.nextSequence = uint16((uint32(reserved) + 1) % SeqModulus)
 	c.mutex.Unlock()
 
 	raw, err := packEnvelope(msg.GetType(), reserved, body)

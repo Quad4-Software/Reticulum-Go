@@ -13,6 +13,7 @@ import (
 	"quad4/msgpack/v5/pkg/msgpack"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/resource"
 )
 
@@ -144,7 +145,7 @@ func (l *Link) handleSplitSegmentInMemory(payload []byte, adv *resource.Resource
 	}
 
 	if adv.IsRequest {
-		requestID := append([]byte(nil), adv.Hash...)
+		requestID := identity.TruncatedHash(data)
 		return l.handleRequest(data, requestID)
 	}
 
@@ -224,7 +225,7 @@ func (l *Link) handleSplitSegmentOnDisk(payload []byte, adv *resource.ResourceAd
 	_ = os.Remove(path)
 
 	if adv.IsRequest {
-		requestID := append([]byte(nil), adv.Hash...)
+		requestID := identity.TruncatedHash(data)
 		return l.handleRequest(data, requestID)
 	}
 

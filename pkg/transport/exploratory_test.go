@@ -213,7 +213,7 @@ func TestExploratoryDiscoveryPRTagCapKeepsNewest(t *testing.T) {
 	_ = tr.RegisterInterface("wan", wan)
 
 	fill := DiscoveryPRTagsCap
-	for i := 0; i < fill; i++ {
+	for i := range fill {
 		dest := bytes.Repeat([]byte{byte(i)}, 16)
 		tag := bytes.Repeat([]byte{byte(0xA0 + i%16)}, 16)
 		payload := append(append([]byte(nil), dest...), tag...)
@@ -480,5 +480,103 @@ func TestExploratoryLRProofTransitRequiresValidSignature(t *testing.T) {
 	_ = tr.validateAndForwardLRProof(badPkt, out)
 	if got := in.snapshot(); len(got) != 0 {
 		t.Fatalf("forged LRPROOF forwarded %d packets", len(got))
+	}
+}
+
+// TestExploratoryExpiredPathReadersAgree ensures HopsTo/NextHop match HasPath
+// expiry rather than returning stale path rows.
+func TestExploratoryExpiredPathReadersAgree(t *testing.T) {
+	tr, iface := newHasPathTransport(t)
+	dest := randomHash(t, 16)
+	tr.UpdatePath(dest, []byte("next-hop-16b!!"), iface.Name, 3)
+	backdatePath(tr, dest, time.Duration(PathfinderE)*time.Second+time.Second)
+	if tr.HasPath(dest) {
+		t.Fatal("HasPath should reject expired path")
+	}
+	if hops := tr.HopsTo(dest); hops != PathfinderM {
+		t.Fatalf("HopsTo=%d want PathfinderM for expired path", hops)
+	}
+	if nh := tr.NextHop(dest); nh != nil {
+		t.Fatalf("NextHop=%x want nil for expired path", nh)
+	}
+	if name := tr.NextHopInterface(dest); name != "" {
+		t.Fatalf("NextHopInterface=%q want empty for expired path", name)
+	}
+	if n := len(tr.GetPathTable(nil)); n != 0 {
+		t.Fatalf("GetPathTable len=%d want 0 for expired-only table", n)
+	}
+}
+
+// TestExploratoryPlainAnnounceDropped matches Python packet_filter rejection
+// of PLAIN announces.
+func TestExploratoryPlainAnnounceDropped(t *testing.T) {
+	withFastAnnounceForward(t)
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	t.Cleanup(func() { _ = tr.Close() })
+	tr.SetIdentity(mustIdentity(t))
+	in := newTrackingIface("in")
+	out := newTrackingIface("out")
+	_ = tr.RegisterInterface("in", in)
+	_ = tr.RegisterInterface("out", out)
+
+	id, err := identity.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, dest := signedAnnounceWithContext(t, tr, id, packet.ContextNone)
+	raw[0] = (raw[0] &^ packet.HeaderMaskDestinationType) | ((DestTypePlain << HeaderDestTypeShift) & HeaderDestTypeMask)
+	handler := &countingAnnounceHandler{wantPathResponses: true}
+	tr.RegisterAnnounceHandler(handler)
+	tr.HandlePacket(raw, in)
+	time.Sleep(50 * time.Millisecond)
+	tr.processDelayedAnnounceJobs()
+	if tr.HasPath(dest) {
+		t.Fatal("PLAIN announce must not create a path")
+	}
+	if handler.calls.Load() != 0 {
+		t.Fatalf("PLAIN announce invoked handlers %d times", handler.calls.Load())
+	}
+	if sentCount(out) != 0 {
+		t.Fatalf("PLAIN announce rebroadcast count=%d", sentCount(out))
+	}
+}
+
+// TestExploratoryReverseProofForLocalClientWithoutTransport ensures receipt
+// proofs still return to a shared-instance client when EnableTransport is off.
+func TestExploratoryReverseProofForLocalClientWithoutTransport(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	t.Cleanup(func() { _ = tr.Close() })
+
+	wan := newRelayIface("wan")
+	client := newRelayIface("unix")
+	client.Type = common.IFTypeUnix
+	_ = tr.RegisterInterface("wan", wan)
+	_ = tr.RegisterInterface("unix", client)
+
+	th := bytes.Repeat([]byte{0x11}, 16)
+	tr.reverseTable.put(th, &ReverseEntry{
+		ReceivedIface: client,
+		OutboundIface: wan,
+		Timestamp:     time.Now(),
+	})
+
+	flags := byte(0)
+	flags |= (packet.HeaderType1 << 6) & packet.HeaderMaskHeaderType
+	flags |= (packet.DestinationSingle << 2) & packet.HeaderMaskDestinationType
+	flags |= packet.PacketTypeProof & packet.HeaderMaskPacketType
+	proofRaw := make([]byte, 0, 2+16+1+8)
+	proofRaw = append(proofRaw, flags, 0x01)
+	proofRaw = append(proofRaw, th...)
+	proofRaw = append(proofRaw, packet.ContextNone)
+	proofRaw = append(proofRaw, []byte{1, 2, 3, 4, 5, 6, 7, 8}...)
+	proof := &packet.Packet{Raw: proofRaw}
+	if err := proof.Unpack(); err != nil {
+		t.Fatalf("unpack proof: %v", err)
+	}
+	if !tr.forwardReverseProof(proof, wan) {
+		t.Fatal("expected reverse proof forward to local client")
+	}
+	if got := client.snapshot(); len(got) != 1 {
+		t.Fatalf("local client got %d proofs want 1", len(got))
 	}
 }

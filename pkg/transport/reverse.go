@@ -108,15 +108,17 @@ func (t *Transport) forwardReverseProof(pkt *packet.Packet, iface common.Network
 	if t == nil || t.reverseTable == nil || pkt == nil {
 		return false
 	}
-	if !t.transportEnabled() && !isLocalClientInterface(iface) {
-		return false
-	}
 	dest := pkt.DestinationHash
 	if len(dest) > packet.TruncatedHashLength {
 		dest = dest[:packet.TruncatedHashLength]
 	}
 	entry, ok := t.reverseTable.pop(dest)
 	if !ok || entry == nil {
+		return false
+	}
+	proofForLocalClient := isLocalClientInterface(entry.ReceivedIface)
+	if !t.transportEnabled() && !isLocalClientInterface(iface) && !proofForLocalClient {
+		t.reverseTable.put(dest, entry)
 		return false
 	}
 	if iface != entry.OutboundIface {

@@ -311,7 +311,7 @@ func (t *Transport) startMaintenanceJobs() {
 				tab.SweepExpired()
 			}
 			if t.linkTable != nil {
-				t.linkTable.sweep(time.Duration(StaleTime) * time.Second)
+				t.linkTable.sweep(LinkTimeout)
 			}
 			if t.reverseTable != nil {
 				t.reverseTable.sweep(ReverseTimeout)
@@ -942,12 +942,21 @@ func pathExpired(path *common.Path, now time.Time) bool {
 	return now.Sub(path.LastUpdated) > time.Duration(PathfinderE)*time.Second
 }
 
+// livePath returns a non-expired path under t.mutex (caller must hold RLock or Lock).
+func (t *Transport) livePath(destinationHash []byte, now time.Time) (*common.Path, bool) {
+	path, exists := t.paths[pathMapKey(destinationHash)]
+	if !exists || path == nil || pathExpired(path, now) {
+		return nil, false
+	}
+	return path, true
+}
+
 func (t *Transport) HopsTo(destinationHash []byte) uint8 {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
-	path, exists := t.paths[pathMapKey(destinationHash)]
-	if !exists {
+	path, ok := t.livePath(destinationHash, time.Now())
+	if !ok {
 		return PathfinderM
 	}
 
@@ -958,8 +967,8 @@ func (t *Transport) NextHop(destinationHash []byte) []byte {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
-	path, exists := t.paths[pathMapKey(destinationHash)]
-	if !exists {
+	path, ok := t.livePath(destinationHash, time.Now())
+	if !ok {
 		return nil
 	}
 
@@ -970,8 +979,8 @@ func (t *Transport) NextHopInterface(destinationHash []byte) string {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
-	path, exists := t.paths[pathMapKey(destinationHash)]
-	if !exists || path == nil || path.Interface == nil {
+	path, ok := t.livePath(destinationHash, time.Now())
+	if !ok || path.Interface == nil {
 		return ""
 	}
 
@@ -1401,6 +1410,12 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	propType := (headerByte1 & HeaderPropTypeMask) >> HeaderPropTypeShift
 	destType := (headerByte1 & HeaderDestTypeMask) >> HeaderDestTypeShift
 	packetType := headerByte1 & HeaderPacketTypeMask
+
+	if destType == DestTypePlain || destType == DestTypeGroup {
+		debug.Log(debug.DebugInfo, "Dropped PLAIN/GROUP announce",
+			"dest_type", destType, "packet_type", packetType)
+		return nil
+	}
 
 	if debug.Enabled(debug.DebugTrace) {
 		debug.Log(debug.DebugTrace, "Announce header", "ifac", ifacFlag, "headerType", headerType, "context", contextFlag, "propType", propType, "destType", destType, "packetType", packetType)

@@ -258,3 +258,19 @@ func BenchmarkChannelSendScale(b *testing.B) {
 	ch.txRing = nil
 	ch.mutex.Unlock()
 }
+
+func TestSequenceWrapsAtModulus(t *testing.T) {
+	link := &mockLink{status: transport.StatusActive}
+	c := NewChannel(link)
+	defer func() { _ = c.Close() }()
+	c.nextSequence = SeqMax
+	if err := c.Send(&testMessage{data: []byte("wrap")}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if c.nextSequence != 0 {
+		t.Fatalf("nextSequence=%d want 0 after SeqMax", c.nextSequence)
+	}
+	if len(link.sent) != 1 {
+		t.Fatalf("sent=%d want 1", len(link.sent))
+	}
+}

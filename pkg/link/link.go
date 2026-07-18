@@ -1163,15 +1163,7 @@ func (l *Link) handleChannelPacket(pkt *packet.Packet) error {
 		return err
 	}
 
-	l.channelMutex.RLock()
-	ch := l.channel
-	l.channelMutex.RUnlock()
-
-	if ch != nil {
-		return ch.HandleInbound(plaintext)
-	}
-
-	return nil
+	return l.GetChannel().HandleInbound(plaintext)
 }
 
 func (l *Link) handleResourceAdvertisement(pkt *packet.Packet) error {

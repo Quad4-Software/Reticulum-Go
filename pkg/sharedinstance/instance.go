@@ -135,7 +135,7 @@ func attachClient(cfg *common.ReticulumConfig, tr *transport.Transport, hooks Ho
 		return nil, err
 	}
 	client.SetDisconnectHooks(
-		func() { tr.SetConnectedToSharedInstance(true) },
+		func() { tr.SetConnectedToSharedInstance(false) },
 		func() { tr.SetConnectedToSharedInstance(true) },
 	)
 	if err := client.Start(); err != nil {

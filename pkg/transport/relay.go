@@ -53,6 +53,26 @@ func (lt *linkRelayTable) get(linkID []byte) (*LinkRelayEntry, bool) {
 	return e, ok
 }
 
+func (lt *linkRelayTable) markValidated(linkID []byte) bool {
+	lt.mu.Lock()
+	defer lt.mu.Unlock()
+	e, ok := lt.entries[hash16FromSlice(linkID)]
+	if !ok || e == nil {
+		return false
+	}
+	e.Validated = true
+	e.Timestamp = time.Now()
+	return true
+}
+
+func (lt *linkRelayTable) touch(linkID []byte) {
+	lt.mu.Lock()
+	defer lt.mu.Unlock()
+	if e, ok := lt.entries[hash16FromSlice(linkID)]; ok && e != nil {
+		e.Timestamp = time.Now()
+	}
+}
+
 func (lt *linkRelayTable) delete(linkID []byte) {
 	lt.mu.Lock()
 	defer lt.mu.Unlock()
@@ -414,7 +434,7 @@ func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterf
 			"error", err,
 			"out_iface", outIface.GetName())
 	}
-	entry.Timestamp = time.Now()
+	t.linkTable.touch(linkID)
 	return true
 }
 

@@ -150,10 +150,11 @@ func (t *Transport) RPCAuthKey() []byte {
 func (t *Transport) GetPathTable(maxHops *int) []PathTableEntry {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
+	now := time.Now()
 	out := make([]PathTableEntry, 0, len(t.paths))
 	truncLen := packet.TruncatedHashLength
 	for key, path := range t.paths {
-		if path == nil {
+		if path == nil || pathExpired(path, now) {
 			continue
 		}
 		hops := path.HopCount

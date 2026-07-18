@@ -177,10 +177,7 @@ func TestLiveNomadNetLinkThroughGoRelay(t *testing.T) {
 	defer tr.UnregisterAnnounceHandler(collector)
 
 	deadline := time.Now().Add(announceWait)
-	minNodes := envInt("INTEROP_NOMADNET_NODE_TARGET", 3)
-	if minNodes < 1 {
-		minNodes = 1
-	}
+	minNodes := max(envInt("INTEROP_NOMADNET_NODE_TARGET", 3), 1)
 	for time.Now().Before(deadline) {
 		select {
 		case <-ctx.Done():
@@ -199,10 +196,7 @@ func TestLiveNomadNetLinkThroughGoRelay(t *testing.T) {
 		t.Fatalf("no nomadnet announces observed on Go relay within %s", announceWait)
 	}
 
-	maxAttempts := envInt("INTEROP_NOMADNET_NODE_ATTEMPTS", 3)
-	if maxAttempts < 1 {
-		maxAttempts = 1
-	}
+	maxAttempts := max(envInt("INTEROP_NOMADNET_NODE_ATTEMPTS", 3), 1)
 	if maxAttempts > len(nodes) {
 		maxAttempts = len(nodes)
 	}

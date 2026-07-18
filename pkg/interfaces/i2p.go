@@ -91,7 +91,7 @@ type I2PInterfacePeer struct {
 	wantsTunnel       bool
 	tunnelID          []byte
 	maxReconnectTries int
-	writing           bool
+	sendMu            sync.Mutex
 	lastRead          time.Time
 	lastWrite         time.Time
 	lastError         string
@@ -532,7 +532,6 @@ func (peer *I2PInterfacePeer) dialStream(initial bool) bool {
 	peer.conn = conn
 	peer.session = sess
 	peer.Online = true
-	peer.writing = false
 	peer.neverConnected = false
 	peer.awaitingTunnel = false
 	peer.lastError = ""
@@ -605,11 +604,8 @@ func (peer *I2PInterfacePeer) ProcessOutgoing(data []byte) error {
 	}
 	data = masked
 
-	for peer.writing {
-		time.Sleep(time.Millisecond)
-	}
-	peer.writing = true
-	defer func() { peer.writing = false }()
+	peer.sendMu.Lock()
+	defer peer.sendMu.Unlock()
 
 	var frame []byte
 	if peer.kissFraming {
