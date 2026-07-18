@@ -5,6 +5,7 @@ package packet
 
 import (
 	"bytes"
+	"encoding/hex"
 	"testing"
 
 	"quad4/pbt/pkg/pbt"
@@ -22,6 +23,13 @@ func FuzzReadPCAPUDPPayloads(f *testing.F) {
 	f.Add([]byte{0xa1, 0xb2, 0xc3, 0xd4})
 	f.Add(bytes.Repeat([]byte{0xff}, 64))
 	f.Add(append(append([]byte{}, good.Bytes()...), bytes.Repeat([]byte{0x00}, 128)...))
+	// Adversarial: wrong magic and empty UDP payload pcap.
+	if bad, err := hex.DecodeString("efbeadde0000000000000000000000000000000000000000"); err == nil {
+		f.Add(bad)
+	}
+	if emptyUDP, err := hex.DecodeString("d4c3b2a1020004000000000000000000ffff00000100000000000000000000002a0000002a000000ffffffffffff02000000000108004500001c00000000401100007f0000017f0000011092109200080000"); err == nil {
+		f.Add(emptyUDP)
+	}
 
 	f.Fuzz(func(t *testing.T, raw []byte) {
 		if len(raw) > 1<<18 {
@@ -35,8 +43,8 @@ func FuzzReadPCAPUDPPayloads(f *testing.F) {
 			if c.InclLen > 16<<20 {
 				t.Fatalf("incl len absurd: %d", c.InclLen)
 			}
-			if c.FromUDP && c.Payload == nil {
-				t.Fatal("FromUDP with nil payload")
+			if c.Payload == nil {
+				t.Fatal("pcap capture Payload must be non-nil")
 			}
 		}
 	})

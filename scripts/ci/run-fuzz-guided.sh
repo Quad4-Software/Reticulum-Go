@@ -14,7 +14,7 @@ mkdir -p "$COVER_DIR"
 UNIT_COVER="$COVER_DIR/unit-before.out"
 UNIT_AFTER="$COVER_DIR/unit-after.out"
 
-PACKAGES="./pkg/packet ./pkg/transport ./pkg/identity ./pkg/link ./pkg/ifac ./pkg/backbone ./pkg/discovery ./pkg/blackhole ./pkg/librns"
+PACKAGES="./pkg/packet ./pkg/transport ./pkg/identity ./pkg/link ./pkg/ifac ./pkg/backbone ./pkg/discovery ./pkg/blackhole ./pkg/librns ./pkg/announce ./pkg/destination"
 
 package_low_coverage() {
 	pkg="$1"
@@ -80,11 +80,17 @@ fuzz_time_for() {
 
 run_fuzz ./pkg/packet FuzzPacketUnpack "$(fuzz_time_for packet "$FUZZTIME")"
 run_fuzz ./pkg/packet FuzzPacketRoundTrip "$(fuzz_time_for packet 15s)"
+run_fuzz ./pkg/packet FuzzReadPCAPUDPPayloads "$(fuzz_time_for packet 15s)"
 run_fuzz ./pkg/transport FuzzDecodePathTableEntries "$(fuzz_time_for transport 25s)"
 run_fuzz ./pkg/transport FuzzShouldUpdateAnnouncePath "$(fuzz_time_for transport 15s)"
+run_fuzz ./pkg/transport FuzzHandlePathRequest "$(fuzz_time_for transport 15s)"
+run_fuzz ./pkg/transport FuzzProcessPathRequest "$(fuzz_time_for transport 15s)"
 run_fuzz ./pkg/identity FuzzDecodeKnownDestinations "$(fuzz_time_for identity 25s)"
 run_fuzz ./pkg/identity FuzzIdentitySignVerify "$(fuzz_time_for identity 15s)"
 run_fuzz ./pkg/link FuzzLinkHandleData "$(fuzz_time_for link 20s)"
+run_fuzz ./pkg/link FuzzLinkHandleInbound "$(fuzz_time_for link 15s)"
+run_fuzz ./pkg/announce FuzzHandleAnnounce "$(fuzz_time_for announce 15s)"
+run_fuzz ./pkg/destination FuzzParseName "$(fuzz_time_for destination 10s)"
 run_fuzz ./pkg/ifac FuzzUnmask "$(fuzz_time_for ifac 15s)"
 run_fuzz ./pkg/ifac FuzzMaskRoundTrip "$(fuzz_time_for ifac 15s)"
 run_fuzz ./pkg/backbone FuzzHDLCDecoderFeed "$(fuzz_time_for backbone 15s)"

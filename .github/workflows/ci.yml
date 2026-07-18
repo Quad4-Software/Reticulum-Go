@@ -376,7 +376,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [race, leaks, sim, fuzz-guided, chaos, bench-gate, wasm]
+        suite: [race, leaks, sim, fuzz-guided, chaos, soak, bench-gate, wasm]
 
     steps:
       - name: Checkout
@@ -411,6 +411,7 @@ jobs:
             fuzz) task test-fuzz-guided ;;
             fuzz-guided) task test-fuzz-guided ;;
             chaos) task test-chaos ;;
+            soak) task test-soak ;;
             bench-gate) task test-bench-gate ;;
             wasm) task test-wasm ;;
             *) echo "unknown suite: ${{ matrix.suite }}" >&2; exit 1 ;;

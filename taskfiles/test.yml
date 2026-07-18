@@ -43,6 +43,11 @@ tasks:
     cmds:
       - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/transport -run TestSimChaos -timeout 10m'
 
+  test-soak:
+    desc: Bounded transport fault-load soak (heap and goroutine budgets)
+    cmds:
+      - sh scripts/ci/run-soak.sh
+
   test-bench-gate:
     desc: Run load/concurrency benchmarks with threshold gates
     cmds:

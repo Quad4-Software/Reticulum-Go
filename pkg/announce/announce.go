@@ -348,6 +348,15 @@ func (a *Announce) CreatePacket() ([]byte, error) {
 		contextByte = 0x0B
 	}
 
+	// Wire format and HandleAnnounce require at least 3 bytes of app data
+	// (see MinAnnouncePacketSize). Pad before signing so create/handle round-trips.
+	appData := a.appData
+	if len(appData) < 3 {
+		padded := make([]byte, 3)
+		copy(padded, appData)
+		appData = padded
+	}
+
 	// Sign dest hash, public key, name hash, random hash, optional ratchet, and app data.
 	validationData := make([]byte, 0)
 	validationData = append(validationData, destHash...)
@@ -357,13 +366,13 @@ func (a *Announce) CreatePacket() ([]byte, error) {
 	if len(ratchetData) > 0 {
 		validationData = append(validationData, ratchetData...)
 	}
-	validationData = append(validationData, a.appData...)
+	validationData = append(validationData, appData...)
 	signature, err := a.identity.Sign(validationData)
 	if err != nil {
 		return nil, fmt.Errorf("sign announce packet: %w", err)
 	}
 
-	debug.Log(debug.DebugTrace, "Creating announce packet", "destHash", fmt.Sprintf("%x", destHash), "pubKeyLen", len(pubKey), "nameHash", fmt.Sprintf("%x", nameHash10), "randomHash", fmt.Sprintf("%x", randomHash), "ratchetLen", len(ratchetData), "sigLen", len(signature), "appDataLen", len(a.appData))
+	debug.Log(debug.DebugTrace, "Creating announce packet", "destHash", fmt.Sprintf("%x", destHash), "pubKeyLen", len(pubKey), "nameHash", fmt.Sprintf("%x", nameHash10), "randomHash", fmt.Sprintf("%x", randomHash), "ratchetLen", len(ratchetData), "sigLen", len(signature), "appDataLen", len(appData))
 
 	// HeaderType1 assembly: header, dest hash, context, then payload fields.
 	packet := make([]byte, 0)
@@ -377,13 +386,13 @@ func (a *Announce) CreatePacket() ([]byte, error) {
 		packet = append(packet, ratchetData...)
 	}
 	packet = append(packet, signature...)
-	packet = append(packet, a.appData...)
+	packet = append(packet, appData...)
 
 	if len(packet) > PacketMTU {
 		return nil, fmt.Errorf("announce packet size %d exceeds MTU %d", len(packet), PacketMTU)
 	}
 
-	debug.Log(debug.DebugTrace, "Final announce packet", "totalBytes", len(packet), "ratchetLen", len(ratchetData), "appDataLen", len(a.appData))
+	debug.Log(debug.DebugTrace, "Final announce packet", "totalBytes", len(packet), "ratchetLen", len(ratchetData), "appDataLen", len(appData))
 
 	return packet, nil
 }

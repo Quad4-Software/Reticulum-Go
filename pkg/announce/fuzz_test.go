@@ -4,14 +4,16 @@
 package announce
 
 import (
+	"encoding/hex"
+	"strings"
 	"testing"
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/identity"
 )
 
-// FuzzHandleAnnounce ensures announce wire parsing never panics on
-// arbitrary frames. Signature failures and length errors are expected.
+// FuzzHandleAnnounce ensures announce wire parsing never panics and enforces
+// length and hop invariants on known-hostile shapes.
 func FuzzHandleAnnounce(f *testing.F) {
 	id, err := identity.New()
 	if err != nil {
@@ -36,10 +38,36 @@ func FuzzHandleAnnounce(f *testing.F) {
 	}
 	f.Add(mut)
 
+	// Adversarial corpus seeds (truncated announce, bad hops).
+	if trunc, err := hex.DecodeString("01000100010001000100010001000100010001000100010001000100010001000100010001000100"); err == nil {
+		f.Add(trunc)
+	}
+	badHops := make([]byte, MinAnnouncePacketSize)
+	badHops[0] = PacketTypeAnnounce
+	badHops[1] = 0xff
+	f.Add(badHops)
+
 	f.Fuzz(func(t *testing.T, data []byte) {
 		if len(data) > 1<<16 {
 			t.Skip()
 		}
-		_ = ann.HandleAnnounce(data)
+		err1 := ann.HandleAnnounce(data)
+		err2 := ann.HandleAnnounce(data)
+		_ = err2
+
+		if len(data) < MinAnnouncePacketSize {
+			if err1 == nil {
+				t.Fatal("truncated announce must error")
+			}
+			return
+		}
+		if len(data) >= HeaderSize && data[0]&HeaderPacketTypeMask == PacketTypeAnnounce && data[1] > MaxHops {
+			if err1 == nil {
+				t.Fatal("announce with hop count above MaxHops must error")
+			}
+			if !strings.Contains(err1.Error(), "hop") {
+				t.Fatalf("hop overflow error %q missing hop wording", err1.Error())
+			}
+		}
 	})
 }
