@@ -98,12 +98,16 @@ case "${1:-all}" in
 	test)
 		run_tests
 		;;
+	diff)
+		generate_vectors
+		run_tests
+		;;
 	all)
 		generate_vectors
 		run_tests
 		;;
 	*)
-		echo "Usage: $0 {generate|test|all}"
+		echo "Usage: $0 {generate|test|diff|all}"
 		exit 1
 		;;
 esac

@@ -12,9 +12,9 @@ tasks:
       - bash tests/crossref/run_crossref.sh {{.CLI_ARGS}}
 
   test-packet-debug:
-    desc: Packet decode, handshake vectors, pcap, and tshark dissector tests
+    desc: Packet decode, handshake vectors, pcap, adversarial corpus, and tshark dissector tests
     cmds:
-      - '{{.GOCMD}} test ./pkg/packet/ ./pkg/health/ ./pkg/cli/ ./pkg/timeline/ -count=1 -run "TestDecode|TestPCAP|TestHandshake|TestTshark|TestRunDump|TestDrop|TestPacketType"'
+      - '{{.GOCMD}} test ./pkg/packet/ ./pkg/health/ ./pkg/cli/ ./pkg/timeline/ -count=1 -run "TestDecode|TestPCAP|TestHandshake|TestTshark|TestRunDump|TestDrop|TestPacketType|TestAdversarialCorpus"'
 
   test-short:
     desc: Run short tests
@@ -49,7 +49,7 @@ tasks:
       - sh scripts/ci/bench-gate.sh
 
   test-mutation:
-    desc: Run gomutant mutation testing on packet and cryptography
+    desc: Run gomutant mutation testing on cryptography, packet, announce, and destination
     cmds:
       - sh scripts/ci/run-mutation.sh
 

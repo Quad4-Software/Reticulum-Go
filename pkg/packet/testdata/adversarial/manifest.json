@@ -1,0 +1,60 @@
+{
+  "format_version": 1,
+  "cases": [
+    {
+      "name": "truncated_header_unpack",
+      "kind": "unpack",
+      "expect": "error",
+      "error_contains": "packet too short",
+      "raw_hex": "0000"
+    },
+    {
+      "name": "truncated_header_decode",
+      "kind": "decode",
+      "expect": "error",
+      "error_contains": "packet too short",
+      "raw_hex": "0000"
+    },
+    {
+      "name": "ifac_garbage_unpack",
+      "kind": "unpack",
+      "expect": "error",
+      "error_contains": "invalid hop count",
+      "raw_hex": "fafafafafafafafafafa"
+    },
+    {
+      "name": "wrong_magic_pcap",
+      "kind": "pcap",
+      "expect": "error",
+      "error_contains": "unsupported pcap magic",
+      "raw_hex": "efbeadde0000000000000000000000000000000000000000"
+    },
+    {
+      "name": "empty_udp_pcap",
+      "kind": "pcap_empty_udp",
+      "expect": "ok",
+      "raw_hex": "d4c3b2a1020004000000000000000000ffff00000100000000000000000000002a0000002a000000ffffffffffff02000000000108004500001c00000000401100007f0000017f0000011092109200080000"
+    },
+    {
+      "name": "announce_truncated",
+      "kind": "announce",
+      "expect": "error",
+      "error_contains": "invalid announce data length",
+      "raw_hex": "01000100010001000100010001000100010001000100010001000100010001000100010001000100"
+    },
+    {
+      "name": "announce_bad_hops",
+      "kind": "announce",
+      "expect": "error",
+      "error_contains": "announce exceeded maximum hop count",
+      "raw_hex": "01ff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "good_data_control",
+      "kind": "decode",
+      "expect": "ok",
+      "packet_type_name": "DATA",
+      "raw_hex": "00003333333333333333333333333333333300636f727075732d6f6b"
+    }
+  ]
+}

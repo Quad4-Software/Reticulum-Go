@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -59,6 +60,7 @@ type TestVectors struct {
 	ReceiptProof           []ReceiptProofVector           `json:"receipt_proof"`
 	LRProofPacket          []LRProofPacketVector          `json:"lrproof_packet"`
 	PythonPacket           []PythonPacketVector           `json:"python_packet"`
+	PythonAnnounceWire     []PythonAnnounceWireVector     `json:"python_announce_wire"`
 	ResourceContext        []ResourceContextVector        `json:"resource_context"`
 	ResourceMetadataPrefix []ResourceMetadataPrefixVector `json:"resource_metadata_prefix"`
 	BufferCompressed       []BufferCompressedVector       `json:"buffer_compressed"`
@@ -380,6 +382,27 @@ type PythonPacketVector struct {
 	DataLen     int    `json:"data_len"`
 }
 
+type PythonAnnounceWireVector struct {
+	Name           string `json:"name"`
+	RawHex         string `json:"raw_hex"`
+	DestHashHex    string `json:"dest_hash_hex"`
+	PacketType     int    `json:"packet_type"`
+	HeaderType     int    `json:"header_type"`
+	Context        int    `json:"context"`
+	Hops           int    `json:"hops"`
+	TransportIDHex string `json:"transport_id_hex"`
+	AppDataHex     string `json:"app_data_hex"`
+	PublicKeyHex   string `json:"public_key_hex"`
+	NameHashHex    string `json:"name_hash_hex"`
+	RandomHashHex  string `json:"random_hash_hex"`
+	SignatureHex   string `json:"signature_hex"`
+	SignedDataHex  string `json:"signed_data_hex"`
+	PayloadHex     string `json:"payload_hex"`
+	HasRatchet     bool   `json:"has_ratchet"`
+	VerifyOK       bool   `json:"verify_ok"`
+	PathResponse   bool   `json:"path_response"`
+}
+
 type ResourceContextVector struct {
 	Name  string `json:"name"`
 	Value int    `json:"value"`
@@ -417,7 +440,7 @@ func loadVectors(t *testing.T) *TestVectors {
 		t.Fatalf("Failed to parse test vectors: %v", err)
 	}
 
-	if v.FormatVersion < 1 || v.FormatVersion > 5 {
+	if v.FormatVersion < 1 || v.FormatVersion > 6 {
 		t.Fatalf("Unsupported test vector format version: %d", v.FormatVersion)
 	}
 
@@ -1863,6 +1886,114 @@ func TestPythonPacketUnpack(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPythonAnnounceWireUnpackAndVerify(t *testing.T) {
+	v := loadVectors(t)
+	if len(v.PythonAnnounceWire) == 0 {
+		t.Skip("python_announce_wire section missing (regenerate vectors with format_version 6)")
+	}
+
+	for _, vec := range v.PythonAnnounceWire {
+		t.Run(vec.Name, func(t *testing.T) {
+			raw := mustHex(t, vec.RawHex)
+			pkt := &packet.Packet{Raw: raw}
+			if err := pkt.Unpack(); err != nil {
+				t.Fatalf("Unpack: %v", err)
+			}
+			if int(pkt.PacketType) != vec.PacketType {
+				t.Fatalf("PacketType: got %d, want %d", pkt.PacketType, vec.PacketType)
+			}
+			if int(pkt.HeaderType) != vec.HeaderType {
+				t.Fatalf("HeaderType: got %d, want %d", pkt.HeaderType, vec.HeaderType)
+			}
+			if int(pkt.Context) != vec.Context {
+				t.Fatalf("Context: got %d, want %d", pkt.Context, vec.Context)
+			}
+			if int(pkt.Hops) != vec.Hops {
+				t.Fatalf("Hops: got %d, want %d", pkt.Hops, vec.Hops)
+			}
+			wantDest := mustHex(t, vec.DestHashHex)
+			if !bytes.Equal(pkt.DestinationHash, wantDest) {
+				t.Fatalf("dest hash mismatch got %x want %x", pkt.DestinationHash, wantDest)
+			}
+			if vec.HeaderType == 1 && vec.TransportIDHex != "" {
+				wantTID := mustHex(t, vec.TransportIDHex)
+				if !bytes.Equal(pkt.TransportID, wantTID) {
+					t.Fatalf("transport id mismatch got %x want %x", pkt.TransportID, wantTID)
+				}
+			}
+			wantPayload := mustHex(t, vec.PayloadHex)
+			if !bytes.Equal(pkt.Data, wantPayload) {
+				t.Fatalf("payload mismatch got %x want %x", pkt.Data, wantPayload)
+			}
+
+			pubID := identity.FromPublicKey(mustHex(t, vec.PublicKeyHex))
+			signed := mustHex(t, vec.SignedDataHex)
+			sig := mustHex(t, vec.SignatureHex)
+			ok := pubID.Verify(signed, sig)
+			if ok != vec.VerifyOK {
+				t.Fatalf("verify = %v, want %v", ok, vec.VerifyOK)
+			}
+			if vec.PathResponse && pkt.Context != packet.ContextPathResponse {
+				t.Fatalf("path response context = %d", pkt.Context)
+			}
+		})
+	}
+}
+
+func TestGoAnnounceVerifiedByPython(t *testing.T) {
+	v := loadVectors(t)
+	if len(v.PythonAnnounceWire) == 0 {
+		t.Skip("python_announce_wire section missing")
+	}
+	vec := v.PythonAnnounceWire[0]
+
+	priv := mustHex(t, v.Identity[0].PrivateKeyHex)
+	if _, err := identity.FromBytes(priv); err != nil {
+		t.Fatalf("FromBytes: %v", err)
+	}
+
+	payload := mustHex(t, vec.PayloadHex)
+	destHash := mustHex(t, vec.DestHashHex)
+	pkt := &packet.Packet{
+		HeaderType:      packet.HeaderType1,
+		PacketType:      packet.PacketTypeAnnounce,
+		DestinationType: packet.DestinationSingle,
+		DestinationHash: destHash,
+		Context:         packet.ContextNone,
+		Data:            payload,
+		Hops:            0,
+	}
+	if err := pkt.Pack(); err != nil {
+		t.Fatalf("Pack: %v", err)
+	}
+
+	_, thisFile, _, _ := runtime.Caller(0)
+	script := filepath.Join(filepath.Dir(thisFile), "verify_go_announce.py")
+	python := os.Getenv("PYTHON_INTEROP")
+	if python == "" {
+		python = "python3"
+	}
+	cmd := exec.Command(python, script,
+		hex.EncodeToString(pkt.Raw),
+		vec.PublicKeyHex,
+		vec.SignedDataHex,
+		vec.SignatureHex,
+	)
+	cmd.Env = append(os.Environ(), "RETICULUM_PATH="+reticulumPathEnv())
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("python verify failed: %v\n%s", err, out)
+	}
+}
+
+func reticulumPathEnv() string {
+	if p := os.Getenv("RETICULUM_PATH"); p != "" {
+		return p
+	}
+	_, thisFile, _, _ := runtime.Caller(0)
+	return filepath.Clean(filepath.Join(filepath.Dir(thisFile), "..", "..", "reticulum-ref"))
 }
 
 func TestResourceContextConstants(t *testing.T) {
