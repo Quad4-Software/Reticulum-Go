@@ -33,6 +33,33 @@ type bufReader interface {
 	io.ByteScanner
 }
 
+// lenReader is implemented by *bytes.Reader and similar sized sources.
+type lenReader interface {
+	Len() int
+}
+
+// bufferedLenReader wraps bufio.Reader while preserving remaining-byte
+// accounting from an underlying Len()-capable source. Without this, wrapping
+// a *bytes.Reader in bufio.Reader would hide Len and bypass oversized
+// container guards.
+type bufferedLenReader struct {
+	br  *bufio.Reader
+	src lenReader
+}
+
+func (r *bufferedLenReader) Read(p []byte) (int, error) { return r.br.Read(p) }
+func (r *bufferedLenReader) ReadByte() (byte, error)    { return r.br.ReadByte() }
+func (r *bufferedLenReader) UnreadByte() error          { return r.br.UnreadByte() }
+func (r *bufferedLenReader) Len() int                   { return r.br.Buffered() + r.src.Len() }
+
+func newBufferedReader(r io.Reader) bufReader {
+	br := bufio.NewReader(r)
+	if lr, ok := r.(lenReader); ok {
+		return &bufferedLenReader{br: br, src: lr}
+	}
+	return br
+}
+
 //------------------------------------------------------------------------------
 
 var decPool = sync.Pool{
@@ -162,7 +189,7 @@ func (d *Decoder) ResetReader(r io.Reader) {
 		d.r = nil
 		d.s = nil
 	} else {
-		br := bufio.NewReader(r)
+		br := newBufferedReader(r)
 		d.r = br
 		d.s = br
 	}
@@ -248,9 +275,6 @@ func (d *Decoder) Buffered() io.Reader {
 // When the size is unknown the second return is false and callers must not
 // treat the value as authoritative.
 func (d *Decoder) remainingReadable() (int, bool) {
-	type lenReader interface {
-		Len() int
-	}
 	if r, ok := d.r.(lenReader); ok {
 		return r.Len(), true
 	}
@@ -261,16 +285,48 @@ func (d *Decoder) remainingReadable() (int, bool) {
 // cannot fit in the remaining input. Each element needs at least
 // minBytesPerElem bytes on the wire. Oversized array32 or map32 headers
 // would otherwise force large allocations and long iteration before EOF.
+//
+// When remaining input size is unknown (for example a plain *bufio.Reader),
+// lengths above the soft alloc ceiling are still rejected unless the caller
+// disabled alloc limits. That closes the forged-header bypass for streaming
+// readers that do not expose Len.
 func (d *Decoder) rejectOversizedContainer(n, minBytesPerElem int, kind string) error {
 	if n <= 0 || minBytesPerElem <= 0 {
+		return nil
+	}
+	remain, ok := d.remainingReadable()
+	if ok {
+		if n > remain/minBytesPerElem {
+			return fmt.Errorf("msgpack: %s length %d exceeds remaining input (%d bytes)", kind, n, remain)
+		}
+		return nil
+	}
+	if d.flags&disableAllocLimitFlag != 0 {
+		return nil
+	}
+	limit := int(sliceAllocLimit)
+	if kind == "map" {
+		limit = int(maxMapSize)
+	}
+	if n > limit {
+		return fmt.Errorf("msgpack: %s length %d exceeds decode limit (%d)", kind, n, limit)
+	}
+	return nil
+}
+
+// rejectOversizedBytes fails fast when a claimed bin/str length cannot fit
+// in the remaining input. Without this, DecodeBytesLen returns a forged
+// MaxUint32 and callers that allocate from it pay for the lie.
+func (d *Decoder) rejectOversizedBytes(n int) error {
+	if n <= 0 {
 		return nil
 	}
 	remain, ok := d.remainingReadable()
 	if !ok {
 		return nil
 	}
-	if n > remain/minBytesPerElem {
-		return fmt.Errorf("msgpack: %s length %d exceeds remaining input (%d bytes)", kind, n, remain)
+	if n > remain {
+		return fmt.Errorf("msgpack: bytes length %d exceeds remaining input (%d bytes)", n, remain)
 	}
 	return nil
 }

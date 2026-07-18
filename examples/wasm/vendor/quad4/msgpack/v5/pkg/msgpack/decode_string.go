@@ -13,22 +13,45 @@ func (d *Decoder) bytesLen(c byte) (int, error) {
 	}
 
 	if msgpcode.IsFixedString(c) {
-		return int(c & msgpcode.FixedStrMask), nil
+		n := int(c & msgpcode.FixedStrMask)
+		if err := d.rejectOversizedBytes(n); err != nil {
+			return 0, err
+		}
+		return n, nil
 	}
 
 	switch c {
 	case msgpcode.Str8, msgpcode.Bin8:
 		n, err := d.uint8()
-		return int(n), err
+		if err != nil {
+			return 0, err
+		}
+		if err := d.rejectOversizedBytes(int(n)); err != nil {
+			return 0, err
+		}
+		return int(n), nil
 	case msgpcode.Str16, msgpcode.Bin16:
 		n, err := d.uint16()
-		return int(n), err
+		if err != nil {
+			return 0, err
+		}
+		if err := d.rejectOversizedBytes(int(n)); err != nil {
+			return 0, err
+		}
+		return int(n), nil
 	case msgpcode.Str32, msgpcode.Bin32:
 		n, err := d.uint32()
 		if err != nil {
 			return 0, err
 		}
-		return uint32ToInt(n, "string/bytes length")
+		size, err := uint32ToInt(n, "string/bytes length")
+		if err != nil {
+			return 0, err
+		}
+		if err := d.rejectOversizedBytes(size); err != nil {
+			return 0, err
+		}
+		return size, nil
 	}
 
 	return 0, fmt.Errorf("msgpack: invalid code=%x decoding string/bytes length", c)

@@ -232,16 +232,35 @@ func (d *Decoder) parseExtLen(c byte) (int, error) {
 		return 16, nil
 	case msgpcode.Ext8:
 		n, err := d.uint8()
-		return int(n), err
+		if err != nil {
+			return 0, err
+		}
+		if err := d.rejectOversizedBytes(int(n)); err != nil {
+			return 0, err
+		}
+		return int(n), nil
 	case msgpcode.Ext16:
 		n, err := d.uint16()
-		return int(n), err
+		if err != nil {
+			return 0, err
+		}
+		if err := d.rejectOversizedBytes(int(n)); err != nil {
+			return 0, err
+		}
+		return int(n), nil
 	case msgpcode.Ext32:
 		n, err := d.uint32()
 		if err != nil {
 			return 0, err
 		}
-		return uint32ToInt(n, "ext length")
+		size, err := uint32ToInt(n, "ext length")
+		if err != nil {
+			return 0, err
+		}
+		if err := d.rejectOversizedBytes(size); err != nil {
+			return 0, err
+		}
+		return size, nil
 	default:
 		return 0, fmt.Errorf("msgpack: invalid code=%x decoding ext len", c)
 	}
