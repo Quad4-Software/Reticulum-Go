@@ -26,10 +26,10 @@ const (
 	HDLCEsc     = 0x7D
 	HDLCEscMask = 0x20
 
-	KISSFend  = 0xC0
-	KISSFesc  = 0xDB
-	KISSTFend = 0xDC
-	KISSTFesc = 0xDD
+	KISSFend    = 0xC0
+	KISSFesc    = 0xDB
+	KISSTFend   = 0xDC
+	KISSTFesc   = 0xDD
 	KISSCmdData = 0x00
 
 	DefaultMTU      = 1064

@@ -776,4 +776,3 @@ func (p *I2PInterface) removeSpawnedPeer(peer *I2PInterfacePeer) {
 		}
 	}
 }
-

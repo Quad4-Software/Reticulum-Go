@@ -28,14 +28,12 @@ func TestGetCurrentRatchetKeyFromEmptyMapConcurrent(t *testing.T) {
 	var wg sync.WaitGroup
 	errs := make(chan string, 32)
 	for range 32 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			k := id.GetCurrentRatchetKey()
 			if len(k) == 0 {
 				errs <- "nil or empty ratchet"
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	close(errs)

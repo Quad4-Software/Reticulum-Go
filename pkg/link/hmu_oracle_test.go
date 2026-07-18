@@ -72,12 +72,9 @@ func TestSelectRequestedPartIndexesStaysInGuardWindow(t *testing.T) {
 	}
 
 	total := int(res.GetSegments())
-	receiverMin := min(4, total-1)
-	if receiverMin < 0 {
-		receiverMin = 0
-	}
+	receiverMin := max(min(4, total-1), 0)
 	var req []byte
-	for i := 0; i < total; i++ {
+	for i := range total {
 		req = append(req, res.MapHashAt(i)...)
 	}
 	indexes := selectRequestedPartIndexes(res, req, receiverMin)

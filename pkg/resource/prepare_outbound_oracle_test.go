@@ -63,7 +63,7 @@ func assertOutboundLayout(t *testing.T, res *Resource, sdu int) {
 		t.Fatal("expected positive part count")
 	}
 	cipherLen := 0
-	for i := 0; i < parts; i++ {
+	for i := range parts {
 		slice := res.OutboundCiphertextSlice(i, sdu)
 		if len(slice) == 0 {
 			t.Fatalf("empty ciphertext slice at part %d", i)
@@ -100,7 +100,7 @@ func assertOutboundLayout(t *testing.T, res *Resource, sdu int) {
 		if n > entries {
 			t.Fatalf("segment %d has %d entries > per-segment %d", seg, n, entries)
 		}
-		for j := 0; j < n; j++ {
+		for j := range n {
 			off := j * MapHashLen
 			idx := covered + j
 			want := res.MapHashAt(idx)
