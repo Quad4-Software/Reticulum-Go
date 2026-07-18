@@ -1,0 +1,37 @@
+.Dd July 17, 2026
+.Dt RETICULUM-GO-SELF-CHECK 1
+.Os
+.Sh NAME
+.Nm reticulum-go-self-check , rgoselfcheck
+.Nd host OS preflight checklist
+.Sh SYNOPSIS
+.Nm reticulum-go Cm self-check
+.Op Fl binary Ar path
+.Op Fl quick
+.Op Fl full
+.Op Fl interop
+.Op Fl json
+.Op Fl strict
+.Op Fl timeout Ar duration
+.Sh DESCRIPTION
+Runs a host preflight checklist for
+.Nm reticulum-go
+(platform, binaries, optional interface and interop probes).
+.Pp
+.Fl quick
+limits checks to core and platform.
+.Fl full
+includes optional interface probes.
+.Fl interop
+includes optional external tool checks.
+.Fl strict
+treats warnings as failures.
+.Pp
+Run with
+.Fl h
+for the full flag list.
+.Sh SEE ALSO
+.Xr reticulum-go 1 ,
+.Xr reticulum-go 8
+.Sh AUTHORS
+.An Quad4.io

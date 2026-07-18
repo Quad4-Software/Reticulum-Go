@@ -1,0 +1,38 @@
+.Dd July 17, 2026
+.Dt RETICULUM-GO-SPEEDTEST 1
+.Os
+.Sh NAME
+.Nm reticulum-go-speedtest , rgospeed
+.Nd link throughput smoke test
+.Sh SYNOPSIS
+.Nm reticulum-go Cm speedtest
+.Fl loopback
+.Op Ar flags
+.Nm reticulum-go Cm speedtest
+.Fl l | Fl daemon
+.Op Ar flags
+.Nm reticulum-go Cm speedtest
+.Op Ar flags
+.Ar destination_hash
+.Sh DESCRIPTION
+Measures link throughput in the style of an RNS speedtest.
+.Pp
+.Fl loopback
+runs an in-process pipe test for CI and local smoke checks.
+.Fl l
+listens as a speedtest server (one client then exit by default).
+.Fl daemon
+listens persistently (implies
+.Fl l
+and multi-client mode).
+Otherwise connect to a listening server by destination hash.
+.Pp
+Run with
+.Fl h
+for the full flag list.
+.Sh SEE ALSO
+.Xr reticulum-go 1 ,
+.Xr reticulum-go-probe 1 ,
+.Xr reticulum-go-status 1
+.Sh AUTHORS
+.An Quad4.io

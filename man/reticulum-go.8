@@ -1,4 +1,4 @@
-.Dd July 9, 2026
+.Dd July 17, 2026
 .Dt RETICULUM-GO 8
 .Os
 .Sh NAME
@@ -20,6 +20,14 @@ Configuration is loaded from
 On first run a default config is created if missing.
 .Pp
 On Unix, SIGHUP reloads interface configuration where supported.
+.Pp
+Common interface types include UDP, TCP, Auto, I2P, Backbone, Serial,
+Pipe, Local, WebSocket, QUIC, WebTransport, DNS rendezvous, VSOCK, HTTPS,
+Modem73Interface (KISS plus JSON control to an external modem73 process),
+and SDRInterface (lab and testing IQ burst modem).
+SDRInterface is for mock, simulation, and controlled lab use.
+It does not grant authority to transmit on live radio bands.
+Operators must follow local license, band, power, and interference rules.
 .Sh SIGNALS
 .Bl -tag -width SIGTERM
 .It Dv SIGINT , SIGTERM

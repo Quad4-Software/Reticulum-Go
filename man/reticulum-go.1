@@ -1,4 +1,4 @@
-.Dd July 9, 2026
+.Dd July 17, 2026
 .Dt RETICULUM-GO 1
 .Os
 .Sh NAME
@@ -11,7 +11,7 @@
 .Nm
 .Cm daemon
 .Nm
-.Cm status | id | probe | path | cp | x | pageserver
+.Cm status | id | probe | path | slow | speedtest | dump | snapshot | cp | x | pageserver | debug | self-check
 .Op Ar flags
 .Sh DESCRIPTION
 .Nm
@@ -27,8 +27,9 @@ to that config.
 .Pp
 Legacy tool names
 .Nm rgostatus , rgoid , rgoprobe , rgopath , rgocp , rgox , rnx ,
+.Nm rgopageserver , rgoslow , rgospeed , rgodump , rgosnap ,
 and
-.Nm rgopageserver
+.Nm rgoselfcheck
 may be installed as symlinks to this binary.
 When invoked under those names, the matching subcommand is selected automatically.
 .Sh COMMANDS
@@ -51,6 +52,22 @@ See
 Path table, drop, and blackhole management.
 See
 .Xr reticulum-go-path 1 .
+.It Cm slow
+Rank slow interfaces, paths, and transfer bottlenecks.
+See
+.Xr reticulum-go-slow 1 .
+.It Cm speedtest
+Link throughput smoke test (loopback, listen, or client).
+See
+.Xr reticulum-go-speedtest 1 .
+.It Cm dump
+Decode Reticulum packets from hex or pcap.
+See
+.Xr reticulum-go-dump 1 .
+.It Cm snapshot
+Path table, links, and health JSON over RPC.
+See
+.Xr reticulum-go-snapshot 1 .
 .It Cm cp
 File transfer over Reticulum links.
 See
@@ -65,6 +82,14 @@ See
 NomadNet-style page and file server.
 See
 .Xr reticulum-go-pageserver 1 .
+.It Cm debug
+Effective config, rate table, and RPC diagnostics.
+See
+.Xr reticulum-go-debug 1 .
+.It Cm self-check
+Host OS preflight checklist.
+See
+.Xr reticulum-go-self-check 1 .
 .El
 .Sh GLOBAL OPTIONS
 .Bl -tag -width "--version"
@@ -86,8 +111,14 @@ Identities, path table, and related state.
 .Xr reticulum-go-id 1 ,
 .Xr reticulum-go-probe 1 ,
 .Xr reticulum-go-path 1 ,
+.Xr reticulum-go-slow 1 ,
+.Xr reticulum-go-speedtest 1 ,
+.Xr reticulum-go-dump 1 ,
+.Xr reticulum-go-snapshot 1 ,
 .Xr reticulum-go-cp 1 ,
 .Xr reticulum-go-x 1 ,
-.Xr reticulum-go-pageserver 1
+.Xr reticulum-go-pageserver 1 ,
+.Xr reticulum-go-debug 1 ,
+.Xr reticulum-go-self-check 1
 .Sh AUTHORS
 .An Quad4.io
