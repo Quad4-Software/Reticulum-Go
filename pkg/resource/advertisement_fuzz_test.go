@@ -34,6 +34,20 @@ func FuzzUnpackResourceAdvertisement(f *testing.F) {
 	f.Add([]byte{0x80})
 	f.Add(bytes.Repeat([]byte{0xff}, 256))
 
+	req := *ra
+	req.Flags = AdvFlagIsRequest
+	req.IsRequest = true
+	req.RequestID = bytes.Repeat([]byte{0xab}, 16)
+	if packedReq, err := req.Pack(0, 500); err == nil {
+		f.Add(packedReq)
+	}
+	huge := *ra
+	huge.TransferSize = int64(MaxEfficientSize) + 8192
+	huge.DataSize = huge.TransferSize
+	if packedHuge, err := huge.Pack(0, 500); err == nil {
+		f.Add(packedHuge)
+	}
+
 	f.Fuzz(func(t *testing.T, data []byte) {
 		if len(data) > 1<<16 {
 			t.Skip()

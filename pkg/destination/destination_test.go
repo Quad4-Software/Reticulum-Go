@@ -138,6 +138,32 @@ func TestRequestHandlers(t *testing.T) {
 	if !dest.DeregisterRequestHandler(path) {
 		t.Error("DeregisterRequestHandler failed")
 	}
+
+	if dest.HasRequestHandlers() {
+		t.Error("HasRequestHandlers should be false after deregister")
+	}
+}
+
+func TestHasRequestHandlers(t *testing.T) {
+	var nilDest *Destination
+	if nilDest.HasRequestHandlers() {
+		t.Error("nil destination should report no handlers")
+	}
+
+	id, _ := identity.New()
+	dest, _ := New(id, In, Single, "test", &mockTransport{})
+	if dest.HasRequestHandlers() {
+		t.Error("new destination should have no handlers")
+	}
+
+	if err := dest.RegisterRequestHandler("p", func(string, []byte, []byte, []byte, *identity.Identity, int64) []byte {
+		return nil
+	}, AllowAll, nil); err != nil {
+		t.Fatalf("RegisterRequestHandler: %v", err)
+	}
+	if !dest.HasRequestHandlers() {
+		t.Error("expected HasRequestHandlers true after register")
+	}
 }
 
 func TestEncryptDecrypt(t *testing.T) {

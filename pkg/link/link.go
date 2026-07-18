@@ -1179,10 +1179,25 @@ func (l *Link) handleResourceAdvertisement(pkt *packet.Packet) error {
 	if err != nil {
 		return err
 	}
+	if err := l.processResourceAdvertisement(plaintext); err != nil {
+		return l.abortInvalidResourceAdvertisement(err)
+	}
+	return nil
+}
 
+// abortInvalidResourceAdvertisement tears the link down after a bad RESOURCE_ADV.
+func (l *Link) abortInvalidResourceAdvertisement(err error) error {
+	debug.Log(debug.DebugInfo, "Invalid resource advertisement", "error", err)
+	l.Teardown()
+	return err
+}
+
+// processResourceAdvertisement accepts or rejects a decrypted RESOURCE_ADV.
+// Malformed or oversized advertisements return an error so the caller can
+// close the link.
+func (l *Link) processResourceAdvertisement(plaintext []byte) error {
 	adv, err := resource.UnpackResourceAdvertisement(plaintext)
 	if err != nil {
-		debug.Log(debug.DebugInfo, "Failed to unpack resource advertisement", "error", err)
 		return err
 	}
 
@@ -1194,17 +1209,19 @@ func (l *Link) handleResourceAdvertisement(pkt *packet.Packet) error {
 			"total", adv.TotalSegments)
 	}
 
-	if resource.IsRequestAdvertisement(plaintext) {
-		// Accept the request resource and handle it after assembly.
+	if adv.IsRequest && adv.RequestID != nil {
+		if !l.destination.HasRequestHandlers() {
+			debug.Log(debug.DebugInfo, "Ignoring request resource advertisement")
+			return nil
+		}
 		if err := l.beginIncomingResource(adv); err != nil {
-			debug.Log(debug.DebugInfo, "Failed to begin incoming request resource", "error", err)
 			return err
 		}
 		return nil
 	}
 
-	if resource.IsResponseAdvertisement(plaintext) {
-		requestID := resource.ReadRequestID(plaintext)
+	if adv.IsResponse && adv.RequestID != nil {
+		requestID := adv.RequestID
 		var matched *RequestReceipt
 		l.requestMutex.RLock()
 		for _, req := range l.pendingRequests {
@@ -1229,7 +1246,6 @@ func (l *Link) handleResourceAdvertisement(pkt *packet.Packet) error {
 		matched.mutex.Unlock()
 
 		if err := l.beginIncomingResource(adv); err != nil {
-			debug.Log(debug.DebugInfo, "Failed to begin incoming response resource", "error", err)
 			l.incomingMu.Lock()
 			l.incomingResourceRequest = nil
 			l.incomingMu.Unlock()
@@ -1253,7 +1269,6 @@ func (l *Link) handleResourceAdvertisement(pkt *packet.Packet) error {
 
 	if allowed {
 		if err := l.beginIncomingResource(adv); err != nil {
-			debug.Log(debug.DebugInfo, "Failed to begin incoming resource", "error", err)
 			return err
 		}
 		if l.resourceStartedCallback != nil {

@@ -70,7 +70,16 @@ func Run(ctx context.Context, opts Options) Report {
 			rep.Results = append(rep.Results, checkPipe())
 			rep.Results = append(rep.Results, checkSerial())
 		}
-		if !opts.SkipDaemon {
+		skipDaemon := opts.SkipDaemon
+		if !skipDaemon && runtime.GOOS == "haiku" && !haikuLoopbackOK() {
+			skipDaemon = true
+			rep.Results = append(rep.Results,
+				result(nameDaemonSmoke, SeveritySkip, "haiku loopback unavailable"),
+				result(nameDaemonRPC, SeveritySkip, "haiku loopback unavailable"),
+				result(nameDaemonReload, SeveritySkip, "haiku loopback unavailable"),
+			)
+		}
+		if !skipDaemon {
 			rep.Results = append(rep.Results, checkDaemon(ctx, opts)...)
 		}
 	}

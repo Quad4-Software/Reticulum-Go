@@ -16,14 +16,20 @@ import (
 )
 
 func checkUDP() Result {
-	a, err := net.ListenPacket("udp", "127.0.0.1:0")
+	a, err := net.ListenPacket("udp4", "127.0.0.1:0")
 	if err != nil {
-		return result("network/udp", SeverityFail, err.Error())
+		a, err = net.ListenPacket("udp", "127.0.0.1:0")
+	}
+	if err != nil {
+		return loopbackResult("network/udp", err)
 	}
 	defer a.Close()
-	b, err := net.ListenPacket("udp", "127.0.0.1:0")
+	b, err := net.ListenPacket("udp4", "127.0.0.1:0")
 	if err != nil {
-		return result("network/udp", SeverityFail, err.Error())
+		b, err = net.ListenPacket("udp", "127.0.0.1:0")
+	}
+	if err != nil {
+		return loopbackResult("network/udp", err)
 	}
 	defer b.Close()
 
@@ -56,9 +62,12 @@ func checkUDP() Result {
 }
 
 func checkTCP() Result {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
-		return result("network/tcp", SeverityFail, err.Error())
+		ln, err = net.Listen("tcp", "127.0.0.1:0")
+	}
+	if err != nil {
+		return loopbackResult("network/tcp", err)
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
 	_ = ln.Close()
@@ -75,9 +84,12 @@ func checkTCP() Result {
 }
 
 func checkLocalInterface() Result {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
-		return result("network/local", SeverityFail, err.Error())
+		ln, err = net.Listen("tcp", "127.0.0.1:0")
+	}
+	if err != nil {
+		return loopbackResult("network/local", err)
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
 	_ = ln.Close()
@@ -94,9 +106,12 @@ func checkLocalInterface() Result {
 }
 
 func checkQUIC() Result {
-	ln, err := net.ListenPacket("udp", "127.0.0.1:0")
+	ln, err := net.ListenPacket("udp4", "127.0.0.1:0")
 	if err != nil {
-		return result("network/quic", SeverityFail, err.Error())
+		ln, err = net.ListenPacket("udp", "127.0.0.1:0")
+	}
+	if err != nil {
+		return loopbackResult("network/quic", err)
 	}
 	port := ln.LocalAddr().(*net.UDPAddr).Port
 	_ = ln.Close()
@@ -116,9 +131,12 @@ func checkQUIC() Result {
 }
 
 func checkHTTPS() Result {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
-		return result("network/https", SeverityFail, err.Error())
+		ln, err = net.Listen("tcp", "127.0.0.1:0")
+	}
+	if err != nil {
+		return loopbackResult("network/https", err)
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
 	_ = ln.Close()
@@ -191,4 +209,26 @@ func isUnsupported(err error) bool {
 	return strings.Contains(s, "not supported") ||
 		strings.Contains(s, "unsupported") ||
 		strings.Contains(s, "not available")
+}
+
+func loopbackResult(name string, err error) Result {
+	if err == nil {
+		return result(name, SeverityFail, "unknown loopback error")
+	}
+	if runtime.GOOS == "haiku" && isUnsupported(err) {
+		return result(name, SeveritySkip, err.Error())
+	}
+	return result(name, SeverityFail, err.Error())
+}
+
+func haikuLoopbackOK() bool {
+	ln, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		ln, err = net.Listen("tcp", "127.0.0.1:0")
+	}
+	if err != nil {
+		return false
+	}
+	_ = ln.Close()
+	return true
 }

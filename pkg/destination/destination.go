@@ -565,6 +565,16 @@ func (d *Destination) DeregisterRequestHandler(path string) bool {
 	return false
 }
 
+// HasRequestHandlers reports whether any request handlers are registered.
+func (d *Destination) HasRequestHandlers() bool {
+	if d == nil {
+		return false
+	}
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+	return len(d.requestHandlers) > 0
+}
+
 func (d *Destination) GetRequestHandler(pathHash []byte) func([]byte, []byte, []byte, []byte, *identity.Identity, time.Time) any {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()

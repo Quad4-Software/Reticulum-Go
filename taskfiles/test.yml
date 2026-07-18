@@ -73,6 +73,11 @@ tasks:
     cmds:
       - sh scripts/ci/run-self-check.sh
 
+  test-haiku-anyvm:
+    desc: Build and self-check on Haiku via anyvm Docker (QEMU/KVM)
+    cmds:
+      - sh scripts/ci/run-haiku-anyvm.sh
+
   test-self-check-qemu:
     desc: Cross-build linux/$GOARCH and run self-check under qemu-user
     requires:

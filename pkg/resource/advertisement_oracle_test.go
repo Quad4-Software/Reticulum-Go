@@ -34,6 +34,31 @@ func TestUnpackRejectsNegativeSizesAndParts(t *testing.T) {
 	}
 }
 
+// TestOracleUnpackAllowsOversizedTransfer checks that unpack accepts large
+// transfer sizes and leaves rejection to link accept-time checks.
+func TestOracleUnpackAllowsOversizedTransfer(t *testing.T) {
+	dict := map[string]any{
+		"t": int64(MaxEfficientSize) + 8192,
+		"d": int64(MaxEfficientSize) + 8192,
+		"n": 1,
+		"h": make([]byte, 32),
+		"r": []byte{1, 2, 3, 4},
+		"m": make([]byte, MapHashLen),
+		"f": 0,
+	}
+	b, err := msgpack.Marshal(dict)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adv, err := UnpackResourceAdvertisement(b)
+	if err != nil {
+		t.Fatalf("unpack: %v", err)
+	}
+	if adv.TransferSize <= int64(MaxEfficientSize)+4096 {
+		t.Fatalf("fixture transfer_size %d not past link reject bound", adv.TransferSize)
+	}
+}
+
 func TestWireFlagsFromAnyRejectsUnknownType(t *testing.T) {
 	if _, err := wireFlagsFromAny(1.5); err == nil {
 		t.Fatal("expected error for float flags")
