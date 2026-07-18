@@ -157,6 +157,9 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 		}
 		ra.TransferSize = int64(t) // #nosec G115 - checked for overflow
 	}
+	if ra.TransferSize < 0 {
+		return nil, fmt.Errorf("transfer size negative")
+	}
 
 	switch d := dict["d"].(type) {
 	case int:
@@ -181,6 +184,9 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 		}
 		ra.DataSize = int64(d) // #nosec G115 - checked for overflow
 	}
+	if ra.DataSize < 0 {
+		return nil, fmt.Errorf("data size negative")
+	}
 
 	switch n := dict["n"].(type) {
 	case int:
@@ -192,6 +198,9 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 	case int32:
 		ra.Parts = int(n)
 	case int64:
+		if n < 0 || n > math.MaxInt32 {
+			return nil, fmt.Errorf("parts count out of range")
+		}
 		ra.Parts = int(n)
 	case uint8:
 		ra.Parts = int(n)
@@ -205,8 +214,14 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 		}
 		ra.Parts = int(n) // #nosec G115 - checked for overflow
 	}
+	if ra.Parts < 0 {
+		return nil, fmt.Errorf("parts count negative")
+	}
 
 	if h, ok := dict["h"].([]byte); ok {
+		if len(h) != 0 && len(h) != 32 {
+			return nil, fmt.Errorf("hash length %d want 32", len(h))
+		}
 		ra.Hash = h
 	}
 
@@ -215,6 +230,9 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 	}
 
 	if o, ok := dict["o"].([]byte); ok {
+		if len(o) != 0 && len(o) != 32 {
+			return nil, fmt.Errorf("original hash length %d want 32", len(o))
+		}
 		ra.OriginalHash = o
 	}
 
@@ -356,7 +374,7 @@ func wireFlagsFromAny(f any) (byte, error) {
 		}
 		return byte(v), nil
 	default:
-		return 0, nil
+		return 0, fmt.Errorf("unexpected flags type %T", f)
 	}
 }
 

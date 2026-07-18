@@ -12,6 +12,9 @@ import (
 func parseRequestedAt(v any) (time.Time, error) {
 	switch t := v.(type) {
 	case float64:
+		if math.IsNaN(t) || math.IsInf(t, 0) {
+			return time.Time{}, fmt.Errorf("requested_at not finite")
+		}
 		sec := int64(t)
 		nsec := int64(math.Round((t - float64(sec)) * float64(time.Second)))
 		return time.Unix(sec, nsec), nil

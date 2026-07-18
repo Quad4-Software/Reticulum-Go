@@ -45,8 +45,24 @@ func FuzzUnpackResourceAdvertisement(f *testing.F) {
 		if adv == nil {
 			t.Fatal("nil advertisement without error")
 		}
-		_ = IsRequestAdvertisement(data)
-		_ = IsResponseAdvertisement(data)
+		if adv.TransferSize < 0 || adv.DataSize < 0 || adv.Parts < 0 {
+			t.Fatalf("negative fields after unpack t=%d d=%d n=%d", adv.TransferSize, adv.DataSize, adv.Parts)
+		}
+		if len(adv.Hash) != 0 && len(adv.Hash) != 32 {
+			t.Fatalf("hash len %d", len(adv.Hash))
+		}
+		if adv.Encrypted != (adv.Flags&AdvFlagEncrypted != 0) {
+			t.Fatal("Encrypted flag mismatch")
+		}
+		if adv.IsRequest != (adv.Flags&AdvFlagIsRequest != 0) {
+			t.Fatal("IsRequest flag mismatch")
+		}
+		if IsRequestAdvertisement(data) && (!adv.IsRequest || adv.RequestID == nil) {
+			t.Fatal("IsRequestAdvertisement inconsistent")
+		}
+		if IsResponseAdvertisement(data) && (!adv.IsResponse || adv.RequestID == nil) {
+			t.Fatal("IsResponseAdvertisement inconsistent")
+		}
 	})
 }
 

@@ -14,7 +14,7 @@ mkdir -p "$COVER_DIR"
 UNIT_COVER="$COVER_DIR/unit-before.out"
 UNIT_AFTER="$COVER_DIR/unit-after.out"
 
-PACKAGES="./pkg/packet ./pkg/transport ./pkg/identity ./pkg/link ./pkg/ifac ./pkg/backbone ./pkg/discovery ./pkg/blackhole ./pkg/librns ./pkg/announce ./pkg/destination"
+PACKAGES="./pkg/packet ./pkg/transport ./pkg/identity ./pkg/link ./pkg/ifac ./pkg/backbone ./pkg/discovery ./pkg/blackhole ./pkg/librns ./pkg/announce ./pkg/destination ./pkg/resource"
 
 package_low_coverage() {
 	pkg="$1"
@@ -91,6 +91,7 @@ run_fuzz ./pkg/link FuzzLinkHandleData "$(fuzz_time_for link 20s)"
 run_fuzz ./pkg/link FuzzLinkHandleInbound "$(fuzz_time_for link 15s)"
 run_fuzz ./pkg/announce FuzzHandleAnnounce "$(fuzz_time_for announce 15s)"
 run_fuzz ./pkg/destination FuzzParseName "$(fuzz_time_for destination 10s)"
+run_fuzz ./pkg/resource FuzzUnpackResourceAdvertisement "$(fuzz_time_for resource 15s)"
 run_fuzz ./pkg/ifac FuzzUnmask "$(fuzz_time_for ifac 15s)"
 run_fuzz ./pkg/ifac FuzzMaskRoundTrip "$(fuzz_time_for ifac 15s)"
 run_fuzz ./pkg/backbone FuzzHDLCDecoderFeed "$(fuzz_time_for backbone 15s)"
