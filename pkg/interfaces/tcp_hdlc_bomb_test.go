@@ -160,7 +160,7 @@ func TestTCPServer_HDLCFramingBombDoesNotOverflow(t *testing.T) {
 	doneRead := make(chan struct{})
 	go func() {
 		defer close(doneRead)
-		ts.readHDLCLoop(server)
+		ts.readFramedLoop(server)
 	}()
 
 	const bombSize = 4 * 1024 * 1024
@@ -182,7 +182,7 @@ func TestTCPServer_HDLCFramingBombDoesNotOverflow(t *testing.T) {
 	select {
 	case <-doneRead:
 	case <-time.After(10 * time.Second):
-		t.Fatal("readHDLCLoop did not return after pipe close")
+		t.Fatal("readFramedLoop did not return after pipe close")
 	}
 
 	memAfter := readAlloc()
@@ -193,7 +193,7 @@ func TestTCPServer_HDLCFramingBombDoesNotOverflow(t *testing.T) {
 	}
 	memBudget := max(maxHDLC*8, 1<<20)
 	if growth > memBudget {
-		t.Fatalf("readHDLCLoop retained %d bytes after %d-byte bomb (budget=%d, maxHDLC=%d)",
+		t.Fatalf("readFramedLoop retained %d bytes after %d-byte bomb (budget=%d, maxHDLC=%d)",
 			growth, bombSize, memBudget, maxHDLC)
 	}
 }

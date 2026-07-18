@@ -30,6 +30,7 @@ const (
 	KISSFesc  = 0xDB
 	KISSTFend = 0xDC
 	KISSTFesc = 0xDD
+	KISSCmdData = 0x00
 
 	DefaultMTU      = 1064
 	BitrateGuessVal = 10 * 1000 * 1000

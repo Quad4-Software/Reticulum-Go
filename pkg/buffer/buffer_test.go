@@ -635,6 +635,13 @@ func TestRawChannelReader_HandleMessage_BombCannotOverflowBuffer(t *testing.T) {
 	if reader.buffer.Len() != 0 {
 		t.Fatalf("reader buffer holds %d bytes after rejected bomb, want 0", reader.buffer.Len())
 	}
+	if !reader.eof {
+		t.Fatal("EOF flag must still be set when compressed bomb is rejected")
+	}
+	n, err := reader.Read(make([]byte, 8))
+	if n != 0 || err != io.EOF {
+		t.Fatalf("Read after rejected EOF bomb: n=%d err=%v want 0, io.EOF", n, err)
+	}
 }
 
 func TestRawChannelReader_HandleMessage_HonestCompressedFlows(t *testing.T) {

@@ -613,8 +613,7 @@ func (peer *I2PInterfacePeer) ProcessOutgoing(data []byte) error {
 
 	var frame []byte
 	if peer.kissFraming {
-		frame = append([]byte{KISSFend, KISSCmdData}, escapeKISS(data)...)
-		frame = append(frame, KISSFend)
+		frame = appendFrameKISS(nil, data)
 	} else {
 		frame = append([]byte{HDLCFlag}, escapeHDLC(data)...)
 		frame = append(frame, HDLCFlag)
@@ -646,10 +645,14 @@ func (peer *I2PInterfacePeer) readLoop() {
 	peer.lastWrite = time.Now()
 	peer.Mutex.Unlock()
 
-	inFrame := false
-	escape := false
-	dataBuffer := make([]byte, 0, peer.MTU)
-	maxFrame := 2*peer.MTU + 32
+	var feed func([]byte)
+	if peer.kissFraming {
+		decoder := newKISSStreamDecoder(peer.MTU, peer.deliverFrame)
+		feed = decoder.feed
+	} else {
+		decoder := newHDLCToggleStreamDecoder(peer.MTU, peer.deliverFrame)
+		feed = decoder.feed
+	}
 
 	for {
 		select {
@@ -685,64 +688,7 @@ func (peer *I2PInterfacePeer) readLoop() {
 		peer.Mutex.Lock()
 		peer.lastRead = time.Now()
 		peer.Mutex.Unlock()
-
-		for i := range n {
-			b := buf[i]
-			if peer.kissFraming {
-				if inFrame && b == KISSFend {
-					inFrame = false
-					peer.deliverFrame(dataBuffer)
-					dataBuffer = dataBuffer[:0]
-					continue
-				}
-				if b == KISSFend {
-					inFrame = true
-					dataBuffer = dataBuffer[:0]
-					continue
-				}
-				if inFrame && len(dataBuffer) < peer.MTU {
-					if b == KISSFesc {
-						escape = true
-						continue
-					}
-					if escape {
-						if b == KISSTFend {
-							b = KISSFend
-						} else if b == KISSTFesc {
-							b = KISSFesc
-						}
-						escape = false
-					}
-					dataBuffer = append(dataBuffer, b)
-				}
-				continue
-			}
-			if b == HDLCFlag {
-				if inFrame && len(dataBuffer) > 0 {
-					peer.deliverFrame(dataBuffer)
-					dataBuffer = dataBuffer[:0]
-				}
-				inFrame = !inFrame
-				continue
-			}
-			if !inFrame {
-				continue
-			}
-			if b == HDLCEsc {
-				escape = true
-				continue
-			}
-			if escape {
-				b ^= HDLCEscMask
-				escape = false
-			}
-			if len(dataBuffer) >= maxFrame {
-				dataBuffer = dataBuffer[:0]
-				inFrame = false
-				continue
-			}
-			dataBuffer = append(dataBuffer, b)
-		}
+		feed(buf[:n])
 	}
 }
 
@@ -831,4 +777,3 @@ func (p *I2PInterface) removeSpawnedPeer(peer *I2PInterfacePeer) {
 	}
 }
 
-const KISSCmdData = 0x00

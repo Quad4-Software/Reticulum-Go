@@ -118,19 +118,19 @@ func (r *RawChannelReader) HandleMessage(msg channel.MessageBase) bool { // #nos
 
 		if streamMsg.Compressed {
 			decompressed := decompressData(streamMsg.Data)
-			if decompressed == nil {
-				return true
+			if decompressed != nil {
+				r.buffer.Write(decompressed)
 			}
-			r.buffer.Write(decompressed)
 		} else {
 			r.buffer.Write(streamMsg.Data)
 		}
 
+		// Honor EOF even when compressed payload fails to decompress so a
+		// corrupt final chunk cannot leave the reader blocked forever.
 		if streamMsg.EOF {
 			r.eof = true
 		}
 
-		// Notify callbacks
 		for _, cb := range r.callbacks {
 			cb(r.buffer.Len())
 		}

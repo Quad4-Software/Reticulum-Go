@@ -214,8 +214,12 @@ func (tc *TCPClientInterface) ProcessOutgoing(data []byte) error {
 	tc.writing = true
 	defer func() { tc.writing = false }()
 
-	// For TCP connections, use HDLC framing
-	frame := appendFrameHDLC(tc.txFrame[:0], data)
+	var frame []byte
+	if tc.kissFraming {
+		frame = appendFrameKISS(tc.txFrame[:0], data)
+	} else {
+		frame = appendFrameHDLC(tc.txFrame[:0], data)
+	}
 	tc.txFrame = frame
 
 	debug.Log(debug.DebugAll, "TCP interface writing to network", "name", tc.Name, "bytes", len(frame))
@@ -266,7 +270,14 @@ func (tc *TCPClientInterface) Send(data []byte, address string) error {
 }
 
 func (tc *TCPClientInterface) readLoop() {
-	decoder := newHDLCToggleStreamDecoder(tc.MTU, tc.handlePacket)
+	var feed func([]byte)
+	if tc.kissFraming {
+		decoder := newKISSStreamDecoder(tc.MTU, tc.handlePacket)
+		feed = decoder.feed
+	} else {
+		decoder := newHDLCToggleStreamDecoder(tc.MTU, tc.handlePacket)
+		feed = decoder.feed
+	}
 	if cap(tc.readBuf) < tc.MTU {
 		tc.readBuf = make([]byte, tc.MTU)
 	}
@@ -309,7 +320,7 @@ func (tc *TCPClientInterface) readLoop() {
 			}
 			continue
 		}
-		decoder.feed(buffer[:n])
+		feed(buffer[:n])
 		if err != nil {
 			tc.Mutex.Lock()
 			tc.Online = false
@@ -705,11 +716,18 @@ func (ts *TCPServerInterface) handleConnection(conn net.Conn) {
 		_ = conn.Close()
 	}()
 
-	ts.readHDLCLoop(conn)
+	ts.readFramedLoop(conn)
 }
 
-func (ts *TCPServerInterface) readHDLCLoop(conn net.Conn) {
-	decoder := newHDLCToggleStreamDecoder(ts.MTU, ts.ProcessIncoming)
+func (ts *TCPServerInterface) readFramedLoop(conn net.Conn) {
+	var feed func([]byte)
+	if ts.kissFraming {
+		decoder := newKISSStreamDecoder(ts.MTU, ts.ProcessIncoming)
+		feed = decoder.feed
+	} else {
+		decoder := newHDLCToggleStreamDecoder(ts.MTU, ts.ProcessIncoming)
+		feed = decoder.feed
+	}
 	buf := make([]byte, ts.MTU)
 
 	for {
@@ -730,7 +748,7 @@ func (ts *TCPServerInterface) readHDLCLoop(conn net.Conn) {
 			}
 			continue
 		}
-		decoder.feed(buf[:n])
+		feed(buf[:n])
 		if err != nil {
 			return
 		}
@@ -748,8 +766,8 @@ func (ts *TCPServerInterface) ProcessOutgoing(data []byte) error {
 
 	var frame []byte
 	if ts.kissFraming {
-		frame = append([]byte{KISSFend}, escapeKISS(data)...)
-		frame = append(frame, KISSFend)
+		frame = appendFrameKISS(ts.txFrame[:0], data)
+		ts.txFrame = frame
 	} else {
 		frame = appendFrameHDLC(ts.txFrame[:0], data)
 		ts.txFrame = frame
