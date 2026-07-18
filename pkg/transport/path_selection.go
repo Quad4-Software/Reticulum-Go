@@ -12,7 +12,6 @@ import (
 
 const (
 	maxRandomBlobs = 64
-	pathfinderE    = 60 * 60 * 24 * 7 // one week
 )
 
 func announceEmitted(randomBlob []byte) uint32 {

@@ -377,8 +377,8 @@ func TestRelayBridgedLinkRequestInsertsHT2ForMultiHop(t *testing.T) {
 	}
 }
 
-// TestLinkProofRelayViaLinkTable verifies LR proofs are forwarded through the
-// link relay table when no local link object exists.
+// TestLinkProofRelayViaLinkTable verifies forged LR proofs are not forwarded
+// through the link relay table (signature gate).
 func TestLinkProofRelayViaLinkTable(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
 	defer tr.Close()
@@ -387,15 +387,17 @@ func TestLinkProofRelayViaLinkTable(t *testing.T) {
 	out := newRelayIface("out")
 
 	linkID := bytes.Repeat([]byte{0x77}, 16)
+	destHash := bytes.Repeat([]byte{0x88}, 16)
 	tr.linkTable.put(linkID, &LinkRelayEntry{
-		NextHop:        bytes.Repeat([]byte{0xBB}, 16),
-		NextHopIface:   out,
-		ReceivedIface:  in,
-		RemainingHops:  1,
-		TakenHops:      0,
-		ProofTimeout:   time.Now().Add(time.Hour),
-		Timestamp:      time.Now(),
-		OriginalLinkID: linkID,
+		NextHop:         bytes.Repeat([]byte{0xBB}, 16),
+		NextHopIface:    out,
+		ReceivedIface:   in,
+		RemainingHops:   1,
+		TakenHops:       0,
+		DestinationHash: destHash,
+		ProofTimeout:    time.Now().Add(time.Hour),
+		Timestamp:       time.Now(),
+		OriginalLinkID:  linkID,
 	})
 
 	flags := byte(0)
@@ -416,8 +418,8 @@ func TestLinkProofRelayViaLinkTable(t *testing.T) {
 	}
 
 	tr.handleProofPacket(pkt, out)
-	if got := in.snapshot(); len(got) != 1 {
-		t.Fatalf("expected proof relayed to initiator interface, got %d packets", len(got))
+	if got := in.snapshot(); len(got) != 0 {
+		t.Fatalf("forged LRPROOF must not relay, got %d packets", len(got))
 	}
 }
 

@@ -271,16 +271,17 @@ func TestLocalClientPR_StalePathFallsThroughToForwarding(t *testing.T) {
 		NextHop:     bytes.Repeat([]byte{0x62}, 16),
 		Interface:   wan,
 		HopCount:    1,
-		LastUpdated: time.Now().Add(-time.Duration(PathRequestTTL+10) * time.Second),
+		LastUpdated: time.Now().Add(-time.Duration(PathfinderE+10) * time.Second),
+		Expires:     time.Now().Add(-10 * time.Second),
 	}
 	tr.mutex.Unlock()
 
 	tr.processPathRequest(dest, lc, nil, tag)
 
-	// Stale path is dropped, so hasPath=false. The local-client branch
+	// Expired path is dropped, so hasPath=false. The local-client branch
 	// forwards the PR on wan.
 	if n := countSends(wan); n != 1 {
-		t.Fatalf("stale-path local-client PR should forward to wan, got %d", n)
+		t.Fatalf("expired-path local-client PR should forward to wan, got %d", n)
 	}
 }
 

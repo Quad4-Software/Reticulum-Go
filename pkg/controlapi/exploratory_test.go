@@ -15,10 +15,10 @@ import (
 	"quad4/reticulum-go/pkg/identity"
 )
 
-// FuzzWSReadMessageOracle feeds masked client frames into readMessage.
+// FuzzWSReadMessageExploratory feeds masked client frames into readMessage.
 // Oversize lengths must error, and successful payloads must stay within
 // wsMaxMessageBytes.
-func FuzzWSReadMessageOracle(f *testing.F) {
+func FuzzWSReadMessageExploratory(f *testing.F) {
 	f.Add(maskedTextFrame([]byte(`{"type":"subscribe_announces"}`)))
 	f.Add(maskedTextFrame([]byte(`{}`)))
 	f.Add([]byte{0x81, 0x80})
@@ -49,7 +49,7 @@ func TestWSOutboxDropWhenFull(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sess := newSession("oracle-outbox", ident)
+	sess := newSession("exploratory-outbox", ident)
 	c := newWSClient(srv, sess, &wsConn{conn: discardConn{}, reader: bufio.NewReader(bytes.NewReader(nil))})
 
 	for i := range wsClientOutboxSize {
@@ -67,7 +67,7 @@ func TestWSWriteLoopDoneBeforeEnable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sess := newSession("oracle-done", ident)
+	sess := newSession("exploratory-done", ident)
 	rc := newRecordConn()
 	c := newWSClient(srv, sess, &wsConn{conn: rc, reader: bufio.NewReader(rc)})
 	c.startWriter()

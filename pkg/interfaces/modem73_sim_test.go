@@ -15,7 +15,7 @@ import (
 	"quad4/reticulum-go/pkg/common"
 )
 
-func TestModem73PhyOracleRobustAirtime(t *testing.T) {
+func TestModem73PhyExploratoryRobustAirtime(t *testing.T) {
 	if math.Abs(Modem73RobustAirtime(0)-3.56) > 0.01 {
 		t.Fatalf("mode0 airtime=%v want ~3.56", Modem73RobustAirtime(0))
 	}
@@ -40,7 +40,7 @@ func TestModem73PhyOracleRobustAirtime(t *testing.T) {
 	}
 }
 
-func TestModem73PhyOracleOFDMTables(t *testing.T) {
+func TestModem73PhyExploratoryOFDMTables(t *testing.T) {
 	phy := Modem73ComputePhy(modem73TypeOFDM, 0, 0, 1, "QPSK", "1/2")
 	if phy.PayloadSize != 512 || phy.MTUBytes != 510 || phy.BitrateBPS != 1600 {
 		t.Fatalf("QPSK 1/2 normal: %+v", phy)
@@ -54,7 +54,7 @@ func TestModem73PhyOracleOFDMTables(t *testing.T) {
 	}
 }
 
-func TestModem73BEROracleMonotonic(t *testing.T) {
+func TestModem73BERExploratoryMonotonic(t *testing.T) {
 	prev := 1.0
 	for snr := -5.0; snr <= 12; snr++ {
 		ber := Modem73BPSKBER(snr)

@@ -54,7 +54,7 @@ func TestSendRecvFramedRoundTrip(t *testing.T) {
 	}
 }
 
-func TestParseDigestOracle(t *testing.T) {
+func TestParseDigestExploratory(t *testing.T) {
 	name, payload := parseDigest([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16})
 	if name != "" || len(payload) != 16 {
 		t.Fatalf("md5-sized: name=%q len=%d", name, len(payload))
@@ -73,9 +73,9 @@ func TestParseDigestOracle(t *testing.T) {
 	}
 }
 
-// FuzzRecvFramedOracle feeds arbitrary length-prefixed frames. With a
+// FuzzRecvFramedExploratory feeds arbitrary length-prefixed frames. With a
 // positive maxSize the reader must never return a buffer larger than maxSize.
-func FuzzRecvFramedOracle(f *testing.F) {
+func FuzzRecvFramedExploratory(f *testing.F) {
 	var good bytes.Buffer
 	_ = SendFramed(&good, []byte("ok"))
 	f.Add(good.Bytes(), 64)
@@ -107,7 +107,7 @@ func FuzzRecvFramedOracle(f *testing.F) {
 	})
 }
 
-func TestDecodeHashOracle(t *testing.T) {
+func TestDecodeHashExploratory(t *testing.T) {
 	if decodeHash(nil) != nil {
 		t.Fatal("nil should decode to nil")
 	}

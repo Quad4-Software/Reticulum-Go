@@ -115,6 +115,7 @@ type Transport struct {
 	localHopsDelta       int
 	probeDestination     *destination.Destination
 	linkTable            *linkRelayTable
+	reverseTable         *reverseTable
 	lastPathRequest      map[[PathMapKeySize]byte]time.Time
 	ifaceStates          *ifaceStateTable
 	pendingDiscoveryPRs  []pendingDiscoveryPR
@@ -135,9 +136,9 @@ type Transport struct {
 	tunnelSynthOutHash []byte
 }
 
-// SetBlackholeTable sets the blackhole table. HandleAnnounce drops blackholed
-// identities. Path lookups consult the same table.
-
+// SetBlackholeTable sets the blackhole table. handleAnnouncePacket drops
+// blackholed identities before path updates or rebroadcast. Path lookups
+// consult the same table via RPC helpers.
 func (t *Transport) SetBlackholeTable(tab *blackhole.Table) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -215,6 +216,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		announcePacketCache:   make(map[string]*packet.Packet),
 		pendingLocalPathReqs:  make(map[string]common.NetworkInterface),
 		linkTable:             newLinkRelayTable(),
+		reverseTable:          newReverseTable(),
 		lastPathRequest:       make(map[[PathMapKeySize]byte]time.Time),
 		ifaceStates:           newIfaceStateTable(),
 		pendingDiscoveryPRs:   make([]pendingDiscoveryPR, 0, maxQueuedDiscoveryPRs),
@@ -311,6 +313,9 @@ func (t *Transport) startMaintenanceJobs() {
 			if t.linkTable != nil {
 				t.linkTable.sweep(time.Duration(StaleTime) * time.Second)
 			}
+			if t.reverseTable != nil {
+				t.reverseTable.sweep(ReverseTimeout)
+			}
 			t.cleanupExpiredPathRequestThrottle()
 			t.releaseHeldAnnounces()
 			t.sampleInterfaceTraffic()
@@ -352,10 +357,10 @@ func (t *Transport) cleanupExpiredPaths() {
 	defer t.mutex.Unlock()
 
 	now := time.Now()
-	pathExpiry := 7 * 24 * time.Hour
+	pathExpiry := time.Duration(PathfinderE) * time.Second
 
 	for destHash, path := range t.paths {
-		if now.Sub(path.LastUpdated) > pathExpiry {
+		if pathExpired(path, now) || now.Sub(path.LastUpdated) > pathExpiry {
 			delete(t.paths, destHash)
 			delete(t.pathStates, destHash)
 			if debug.Enabled(debug.DebugVerbose) {
@@ -623,6 +628,9 @@ func (t *Transport) invalidateInterfaceReferencesLocked(iface common.NetworkInte
 	if t.linkTable != nil {
 		t.linkTable.removeEntriesReferencing(iface)
 	}
+	if t.reverseTable != nil {
+		t.reverseTable.removeEntriesReferencing(iface)
+	}
 	for k, linkObj := range t.links {
 		if linkObj == nil {
 			continue
@@ -880,12 +888,19 @@ func (t *Transport) UnregisterAnnounceHandler(handler announce.Handler) {
 }
 
 func (t *Transport) notifyAnnounceHandlers(destHash []byte, identity any, appData []byte, hops uint8) {
+	t.notifyAnnounceHandlersFiltered(destHash, identity, appData, hops, false)
+}
+
+func (t *Transport) notifyAnnounceHandlersFiltered(destHash []byte, identity any, appData []byte, hops uint8, isPathResponse bool) {
 	t.mutex.RLock()
 	handlers := make([]announce.Handler, len(t.announceHandlers))
 	copy(handlers, t.announceHandlers)
 	t.mutex.RUnlock()
 
 	for _, handler := range handlers {
+		if isPathResponse && !handler.ReceivePathResponses() {
+			continue
+		}
 		if err := handler.ReceivedAnnounce(destHash, identity, appData, hops); err != nil {
 			debug.Log(debug.DebugError, "Error in announce handler", "error", err)
 		}
@@ -894,24 +909,37 @@ func (t *Transport) notifyAnnounceHandlers(destHash []byte, identity any, appDat
 
 func (t *Transport) HasPath(destinationHash []byte) bool {
 	key := pathMapKey(destinationHash)
-	ttl := time.Duration(PathRequestTTL) * time.Second
+	now := time.Now()
 
 	t.mutex.RLock()
 	path, exists := t.paths[key]
 	t.mutex.RUnlock()
-	if !exists {
+	if !exists || path == nil {
 		return false
 	}
-	if time.Since(path.LastUpdated) <= ttl {
+	if !pathExpired(path, now) {
 		return true
 	}
 
 	t.mutex.Lock()
-	if cur, ok := t.paths[key]; ok && time.Since(cur.LastUpdated) > ttl {
+	if cur, ok := t.paths[key]; ok && pathExpired(cur, time.Now()) {
 		delete(t.paths, key)
+		delete(t.pathStates, key)
+		t.markPathTableDirty()
 	}
 	t.mutex.Unlock()
 	return false
+}
+
+// pathExpired reports whether a path row is past PATHFINDER_E / Expires.
+func pathExpired(path *common.Path, now time.Time) bool {
+	if path == nil {
+		return true
+	}
+	if !path.Expires.IsZero() {
+		return !now.Before(path.Expires)
+	}
+	return now.Sub(path.LastUpdated) > time.Duration(PathfinderE)*time.Second
 }
 
 func (t *Transport) HopsTo(destinationHash []byte) uint8 {
@@ -1057,7 +1085,7 @@ func (t *Transport) updatePathUnlocked(destinationHash []byte, nextHop []byte, i
 	} else if len(randomBlob) == 10 {
 		blobs = appendRandomBlob(nil, randomBlob)
 	}
-	expires := now.Add(pathfinderE * time.Second)
+	expires := now.Add(time.Duration(PathfinderE) * time.Second)
 	// Own NextHop bytes: HT1 announce parsing aliases destinationHash into the
 	// inbound buffer, and sync HandlePacket can reuse that buffer under load.
 	t.paths[key] = &common.Path{
@@ -1291,6 +1319,19 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 			"first_32_bytes", fmt.Sprintf("%x", data[:32]))
 	}
 
+	// Match Python Transport.packet_filter: PLAIN/GROUP payloads must not
+	// travel more than one hop after inbound hop accounting.
+	if packetType != PacketTypeAnnounce && (destType == DestTypePlain || destType == DestTypeGroup) {
+		accounted := AccountInboundHops(data[1], iface)
+		if accounted > 1 {
+			if debug.Enabled(debug.DebugInfo) {
+				debug.Log(debug.DebugInfo, "Dropped multi-hop PLAIN/GROUP packet",
+					"dest_type", destType, "wire_hops", data[1], "accounted_hops", accounted)
+			}
+			return
+		}
+	}
+
 	dispatch := func(payload []byte) {
 		switch packetType {
 		case PacketTypeAnnounce:
@@ -1492,6 +1533,14 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		debug.Log(debug.DebugInfo, "Signature verification successful")
 	}
 
+	if tab := t.BlackholeTable(); tab != nil && tab.Has(id.Hash()) {
+		if debug.Enabled(debug.DebugInfo) {
+			debug.Log(debug.DebugInfo, "Ignoring announce from blackholed identity",
+				"identity", fmt.Sprintf("%x", id.Hash()))
+		}
+		return nil
+	}
+
 	if iface != nil {
 		if ra, ok := iface.(interface{ ReceivedAnnounce() }); ok {
 			ra.ReceivedAnnounce()
@@ -1563,7 +1612,13 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		debug.Log(debug.DebugInfo, "Processing new announce")
 	}
 
+	// Python Transport.inbound always does hops += 1, then undoes that for
+	// local-client / shared-instance interfaces so client announces stay at
+	// hop count 0 in the path table.
 	announceHops := int(hopCount) + 1
+	if isLocalClientInterface(iface) {
+		announceHops = int(hopCount)
+	}
 	if announceHops > MaxHops {
 		if debug.Enabled(debug.DebugInfo) {
 			debug.Log(debug.DebugInfo, "Announce exceeded max hops", "wire_hops", hopCount, "announce_hops", announceHops)
@@ -1573,6 +1628,8 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	if debug.Enabled(debug.DebugInfo) {
 		debug.Log(debug.DebugInfo, "Hop count OK", "hops", announceHops)
 	}
+
+	isPathResponse := context == packet.ContextPathResponse
 
 	if iface != nil {
 		nextHop := receivedFrom
@@ -1614,7 +1671,7 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	if debug.Enabled(debug.DebugInfo) {
 		debug.Log(debug.DebugInfo, "Notifying announce handlers", "destHash", fmt.Sprintf("%x", destinationHash), "appDataLen", len(appData))
 	}
-	t.notifyAnnounceHandlers(destinationHash, id, appData, uint8(announceHops))
+	t.notifyAnnounceHandlersFiltered(destinationHash, id, appData, uint8(announceHops), isPathResponse)
 	if debug.Enabled(debug.DebugInfo) {
 		debug.Log(debug.DebugInfo, "Announce handlers notified")
 	}
@@ -1641,6 +1698,16 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	if !t.transportEnabled() {
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Not forwarding announce: transport disabled",
+				"dest_hash", fmt.Sprintf("%x", destinationHash))
+		}
+		return nil
+	}
+
+	// PATH_RESPONSE announces answer a requester and must not rebroadcast into
+	// the mesh (Python Transport.announce_table skip when context=PATH_RESPONSE).
+	if isPathResponse {
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Not forwarding PATH_RESPONSE announce",
 				"dest_hash", fmt.Sprintf("%x", destinationHash))
 		}
 		return nil
@@ -2022,11 +2089,19 @@ func (t *Transport) handlePathRequest(data []byte, iface common.NetworkInterface
 		return
 	}
 	t.discoveryPRTags[tagStr] = true
-	// Evict one arbitrary entry when over cap. Replacing the whole map
-	// used to clear every tag at once and reopen the door to PR replay storms.
+	// Evict one arbitrary entry when over cap. Never delete the tag just
+	// inserted or a replay of this exact request would succeed immediately.
 	for len(t.discoveryPRTags) > DiscoveryPRTagsCap {
+		evicted := false
 		for k := range t.discoveryPRTags {
+			if k == tagStr {
+				continue
+			}
 			delete(t.discoveryPRTags, k)
+			evicted = true
+			break
+		}
+		if !evicted {
 			break
 		}
 	}
@@ -2080,12 +2155,12 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 	t.mutex.RUnlock()
 
 	if hasPath && path != nil {
-		ttl := time.Duration(PathRequestTTL) * time.Second
-		if time.Since(path.LastUpdated) > ttl {
+		if pathExpired(path, time.Now()) {
 			t.mutex.Lock()
-			if cur, ok := t.paths[pathKey]; ok && cur == path && time.Since(cur.LastUpdated) > ttl {
+			if cur, ok := t.paths[pathKey]; ok && cur == path && pathExpired(cur, time.Now()) {
 				delete(t.paths, pathKey)
 				delete(t.pathStates, pathKey)
+				t.markPathTableDirty()
 			}
 			t.mutex.Unlock()
 			hasPath = false
@@ -2667,8 +2742,7 @@ func (t *Transport) handleProofPacket(pkt *packet.Packet, iface common.NetworkIn
 			}
 			return
 		}
-		if len(pkt.Raw) > 0 && t.forwardLinkData(pkt.Raw, iface) {
-			debug.Log(debug.DebugInfo, "Relayed link proof via link table", "link_id", fmt.Sprintf("%x", linkID), "interface", iface.GetName())
+		if t.validateAndForwardLRProof(pkt, iface) {
 			return
 		}
 		debug.Log(debug.DebugInfo, "No link found for proof packet", "link_id", fmt.Sprintf("%x", linkID))
@@ -2697,6 +2771,8 @@ func (t *Transport) handleProofPacket(pkt *packet.Packet, iface common.NetworkIn
 		debug.Log(debug.DebugInfo, "No link found for resource proof packet", "link_id", fmt.Sprintf("%x", linkID))
 		return
 	}
+
+	_ = t.forwardReverseProof(pkt, iface)
 
 	var proofHash []byte
 	if len(pkt.Data) == packet.ExplicitLength {

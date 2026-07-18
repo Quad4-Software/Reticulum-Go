@@ -37,10 +37,10 @@ func TestHandleMessageCorruptCompressedStillHonorsEOF(t *testing.T) {
 	}
 }
 
-// FuzzHandleMessageEOFOracle feeds packed StreamDataMessage bodies through
+// FuzzHandleMessageEOFExploratory feeds packed StreamDataMessage bodies through
 // HandleMessage. When the EOF header bit is set the reader must reach eof
 // regardless of compression success.
-func FuzzHandleMessageEOFOracle(f *testing.F) {
+func FuzzHandleMessageEOFExploratory(f *testing.F) {
 	plain := &StreamDataMessage{StreamID: 1, Data: []byte("ok"), EOF: true}
 	if raw, err := plain.Pack(); err == nil {
 		f.Add(raw)

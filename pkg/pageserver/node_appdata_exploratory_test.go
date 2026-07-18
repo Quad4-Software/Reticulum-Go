@@ -53,9 +53,9 @@ func TestCreateNodeAppDataRoundTrip(t *testing.T) {
 	}
 }
 
-// FuzzParseNodeStatusAppDataOracle requires successful parses to keep maxSize
+// FuzzParseNodeStatusAppDataExploratory requires successful parses to keep maxSize
 // inside int16 without silent truncation.
-func FuzzParseNodeStatusAppDataOracle(f *testing.F) {
+func FuzzParseNodeStatusAppDataExploratory(f *testing.F) {
 	if raw, err := msgpack.Marshal([]any{true, int64(42), int64(100)}); err == nil {
 		f.Add(raw)
 	}

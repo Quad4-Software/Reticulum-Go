@@ -10,10 +10,10 @@ import (
 	"testing"
 )
 
-// FuzzLoadConfigOracle feeds arbitrary file contents through LoadConfig.
+// FuzzLoadConfigExploratory feeds arbitrary file contents through LoadConfig.
 // The parser must not panic, and reserved section names must never appear
 // as interface entries.
-func FuzzLoadConfigOracle(f *testing.F) {
+func FuzzLoadConfigExploratory(f *testing.F) {
 	f.Add([]byte(""))
 	f.Add([]byte("[reticulum]\nenable_transport = yes\n"))
 	f.Add([]byte("[reticulum]\n[[Default Interface]]\ntype = UDPInterface\n"))
@@ -52,7 +52,7 @@ func FuzzLoadConfigOracle(f *testing.F) {
 	})
 }
 
-func TestClassifySectionOracle(t *testing.T) {
+func TestClassifySectionExploratory(t *testing.T) {
 	if got := classifySection("reticulum", 1); got != sectionReticulum {
 		t.Fatalf("got %q", got)
 	}
@@ -70,7 +70,7 @@ func TestClassifySectionOracle(t *testing.T) {
 	}
 }
 
-func TestStripInlineCommentOracle(t *testing.T) {
+func TestStripInlineCommentExploratory(t *testing.T) {
 	if got := stripInlineComment("yes #x"); got != "yes" {
 		t.Fatalf("comment strip got %q", got)
 	}

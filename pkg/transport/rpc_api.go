@@ -148,11 +148,10 @@ func (t *Transport) RPCAuthKey() []byte {
 }
 
 func (t *Transport) GetPathTable(maxHops *int) []PathTableEntry {
-	ttl := float64(PathRequestTTL)
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 	out := make([]PathTableEntry, 0, len(t.paths))
-	truncLen := packet.TruncatedHashLength / 8
+	truncLen := packet.TruncatedHashLength
 	for key, path := range t.paths {
 		if path == nil {
 			continue
@@ -162,12 +161,16 @@ func (t *Transport) GetPathTable(maxHops *int) []PathTableEntry {
 			continue
 		}
 		hash := append([]byte(nil), key[:truncLen]...)
+		expires := float64(path.LastUpdated.Unix()) + float64(PathfinderE)
+		if !path.Expires.IsZero() {
+			expires = float64(path.Expires.Unix())
+		}
 		entry := PathTableEntry{
 			Hash:      hash,
 			Timestamp: float64(path.LastUpdated.Unix()),
 			Via:       append([]byte(nil), path.NextHop...),
 			Hops:      hops,
-			Expires:   float64(path.LastUpdated.Unix()) + ttl,
+			Expires:   expires,
 		}
 		if path.Interface != nil {
 			entry.Interface = path.Interface.GetName()

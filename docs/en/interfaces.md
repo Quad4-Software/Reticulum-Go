@@ -117,7 +117,7 @@ Device values: mock (always), rtltcp, rtlsdr (build tag sdr_rtlsdr), hackrf (bui
 
 Default builds need no USB libraries. Burst modem is Go-native and is not air-compatible with Modem73 OFDM.
 
-Math-backed RF channel: pkg/sdr/channel.go (FreeSpacePathLossDB, thermal noise, AWGN via Box-Muller, SimDevice). Validated by SNR measurement and FSPL oracles.
+Math-backed RF channel: pkg/sdr/channel.go (FreeSpacePathLossDB, thermal noise, AWGN via Box-Muller, SimDevice). Validated by SNR measurement and FSPL exploratory checks.
 
 Live: `RUN_LIVE_SDR=1` with `tests/interop/sdr_live_test.go`. Optional `SDR_DEVICE` / `SDR_ADDRESS` for hardware probes.
 

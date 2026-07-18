@@ -49,9 +49,9 @@ func TestRemovePKCS7PaddingRejectsBadBytes(t *testing.T) {
 	}
 }
 
-// FuzzRemovePKCS7PaddingOracle asserts success only for valid PKCS#7 on
+// FuzzRemovePKCS7PaddingExploratory asserts success only for valid PKCS#7 on
 // AES block-aligned buffers, and that failures are padding sentinels.
-func FuzzRemovePKCS7PaddingOracle(f *testing.F) {
+func FuzzRemovePKCS7PaddingExploratory(f *testing.F) {
 	f.Add([]byte{})
 	f.Add([]byte{0x01})
 	f.Add(bytes.Repeat([]byte{0x10}, 16))

@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func TestFreeSpacePathLossOracle(t *testing.T) {
+func TestFreeSpacePathLossExploratory(t *testing.T) {
 	// 100 m at 433 MHz: FSPL ≈ 20*log10(100)+20*log10(433e6)+20*log10(4π/c)
 	got := FreeSpacePathLossDB(100, 433e6)
 	want := 20*math.Log10(100) + 20*math.Log10(433e6) + 20*math.Log10(4*math.Pi/speedOfLight)
@@ -28,7 +28,7 @@ func TestFreeSpacePathLossOracle(t *testing.T) {
 	}
 }
 
-func TestAWGNMeasuredSNROracle(t *testing.T) {
+func TestAWGNMeasuredSNRExploratory(t *testing.T) {
 	rng := rand.New(rand.NewSource(1))
 	modem := NewBurstModem()
 	clean, err := modem.Encode(bytes.Repeat([]byte{0xA5}, 64))

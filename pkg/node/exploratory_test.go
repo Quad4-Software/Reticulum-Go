@@ -9,7 +9,7 @@ import (
 	"quad4/reticulum-go/pkg/common"
 )
 
-func TestInterfaceConfigsEqualForReloadOracle(t *testing.T) {
+func TestInterfaceConfigsEqualForReloadExploratory(t *testing.T) {
 	if !interfaceConfigsEqualForReload(nil, nil) {
 		t.Fatal("nil/nil must be equal")
 	}
@@ -57,7 +57,7 @@ func TestInterfaceConfigsEqualForReloadOracle(t *testing.T) {
 	}
 }
 
-func TestFloatEqualOracle(t *testing.T) {
+func TestFloatEqualExploratory(t *testing.T) {
 	if !floatEqual(1.0, 1.0) {
 		t.Fatal("identical floats")
 	}
@@ -69,7 +69,7 @@ func TestFloatEqualOracle(t *testing.T) {
 	}
 }
 
-func TestSliceEqualOracle(t *testing.T) {
+func TestSliceEqualExploratory(t *testing.T) {
 	if !sliceEqual(nil, nil) {
 		t.Fatal("nil slices")
 	}

@@ -176,10 +176,10 @@ func TestForwardTransportPacket_dropsWhenEgressInterfaceEqualsIngress(t *testing
 	}
 }
 
-// TestProcessPathRequest_stalePathByTTLStartsDiscovery ensures path replies use the
-// same freshness window as HasPath: an over-TTL path row is dropped and the
-// request is treated as unknown (discovery state), not a silent no-op answer.
-func TestProcessPathRequest_stalePathByTTLStartsDiscovery(t *testing.T) {
+// TestProcessPathRequest_expiredPathStartsDiscovery ensures path replies use
+// PATHFINDER_E / Expires like HasPath: an expired path row is dropped and the
+// request falls through to discovery.
+func TestProcessPathRequest_expiredPathStartsDiscovery(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
@@ -199,7 +199,8 @@ func TestProcessPathRequest_stalePathByTTLStartsDiscovery(t *testing.T) {
 		NextHop:     nh,
 		Interface:   wan,
 		HopCount:    1,
-		LastUpdated: time.Now().Add(-time.Duration(PathRequestTTL+10) * time.Second),
+		LastUpdated: time.Now().Add(-time.Duration(PathfinderE+10) * time.Second),
+		Expires:     time.Now().Add(-10 * time.Second),
 	}
 	tr.mutex.Unlock()
 
@@ -209,7 +210,53 @@ func TestProcessPathRequest_stalePathByTTLStartsDiscovery(t *testing.T) {
 	_, ok := tr.discoveryPathRequests[string(dest)]
 	tr.mutex.RUnlock()
 	if !ok {
-		t.Fatal("stale path by PathRequestTTL should fall through to discovery")
+		t.Fatal("PATHFINDER_E-expired path should fall through to discovery")
+	}
+}
+
+// TestProcessPathRequest_pathRequestTTLStillAnswers ensures paths older than
+// PathRequestTTL but within PATHFINDER_E remain answerable (Python has_path).
+func TestProcessPathRequest_pathRequestTTLStillAnswers(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+	tr.SetIdentity(mustIdentity(t))
+
+	wan := mockIface("wan", true)
+	if err := tr.RegisterInterface("wan", wan); err != nil {
+		t.Fatal(err)
+	}
+
+	dest := bytes.Repeat([]byte{0x46}, 16)
+	tag := bytes.Repeat([]byte{0x92}, 16)
+	nh := bytes.Repeat([]byte{0x63}, 16)
+	now := time.Now()
+
+	tr.mutex.Lock()
+	tr.paths[pathMapKey(dest)] = &common.Path{
+		NextHop:     nh,
+		Interface:   wan,
+		HopCount:    1,
+		LastUpdated: now.Add(-time.Duration(PathRequestTTL+30) * time.Second),
+		Expires:     now.Add(time.Duration(PathfinderE) * time.Second),
+	}
+	tr.announcePacketCache[string(dest)] = &packet.Packet{
+		DestinationHash: append([]byte(nil), dest...),
+		Data:            []byte{0x01},
+		Raw:             []byte{0x01, 0x00},
+	}
+	tr.mutex.Unlock()
+
+	tr.processPathRequest(dest, wan, nil, tag)
+
+	tr.mutex.RLock()
+	_, discovering := tr.discoveryPathRequests[string(dest)]
+	_, hasPath := tr.paths[pathMapKey(dest)]
+	tr.mutex.RUnlock()
+	if discovering {
+		t.Fatal("non-expired path must not be forced into discovery by PathRequestTTL")
+	}
+	if !hasPath {
+		t.Fatal("path within PATHFINDER_E must remain")
 	}
 }
 

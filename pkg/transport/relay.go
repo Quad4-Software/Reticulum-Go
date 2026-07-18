@@ -65,7 +65,19 @@ func (lt *linkRelayTable) sweep(maxIdle time.Duration) int {
 	now := time.Now()
 	removed := 0
 	for k, e := range lt.entries {
-		if now.After(e.ProofTimeout) && now.Sub(e.Timestamp) > maxIdle {
+		if e == nil {
+			delete(lt.entries, k)
+			removed++
+			continue
+		}
+		if !e.Validated {
+			if now.After(e.ProofTimeout) {
+				delete(lt.entries, k)
+				removed++
+			}
+			continue
+		}
+		if now.Sub(e.Timestamp) > maxIdle {
 			delete(lt.entries, k)
 			removed++
 		}
@@ -274,6 +286,8 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 
 	if pkt.PacketType == packet.PacketTypeLinkReq {
 		t.recordLinkRelay(pkt, out, sourceIface, path, int(newHops))
+	} else if pkt.PacketType != packet.PacketTypeAnnounce {
+		t.recordReverseEntry(pkt, sourceIface, path.Interface)
 	}
 
 	if debug.Enabled(debug.DebugVerbose) {

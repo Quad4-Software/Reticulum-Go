@@ -34,9 +34,9 @@ func TestUnpackRejectsNegativeSizesAndParts(t *testing.T) {
 	}
 }
 
-// TestOracleUnpackAllowsOversizedTransfer checks that unpack accepts large
+// TestExploratoryUnpackAllowsOversizedTransfer checks that unpack accepts large
 // transfer sizes and leaves rejection to link accept-time checks.
-func TestOracleUnpackAllowsOversizedTransfer(t *testing.T) {
+func TestExploratoryUnpackAllowsOversizedTransfer(t *testing.T) {
 	dict := map[string]any{
 		"t": int64(MaxEfficientSize) + 8192,
 		"d": int64(MaxEfficientSize) + 8192,

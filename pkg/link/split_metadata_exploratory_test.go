@@ -53,10 +53,10 @@ func TestSplitResourceMetadataHonestRoundTrip(t *testing.T) {
 	}
 }
 
-// FuzzSplitResourceMetadataOracle locks strip-vs-passthrough rules.
+// FuzzSplitResourceMetadataExploratory locks strip-vs-passthrough rules.
 // When HasMetadata and the length prefix is in-bounds, the returned body
 // must equal payload[3+metaSize:] even if msgpack unpack fails.
-func FuzzSplitResourceMetadataOracle(f *testing.F) {
+func FuzzSplitResourceMetadataExploratory(f *testing.F) {
 	f.Add([]byte{0x00, 0x00, 0x01, 0x80, 0x41})
 	f.Add([]byte{0x00})
 	f.Add([]byte{0xff, 0xff, 0xff, 0x01})

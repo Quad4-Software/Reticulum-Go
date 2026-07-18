@@ -362,7 +362,7 @@ func TestSimChaosCorruptFrames(t *testing.T) {
 }
 
 // TestSimChaosDuplicateReorder duplicates and reorders frames. Delivery may
-// still converge. The oracle is no deadlock and some path learning.
+// still converge. The check is no deadlock and some path learning.
 func TestSimChaosDuplicateReorder(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping chaos simulation in -short mode")

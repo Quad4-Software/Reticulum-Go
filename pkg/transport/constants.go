@@ -10,6 +10,12 @@ const (
 	PathRequestTTL  = 300
 	AnnounceTimeout = 15
 
+	// PathfinderE is path table lifetime in seconds (Python PATHFINDER_E).
+	PathfinderE = 60 * 60 * 24 * 7
+
+	// ReverseTimeout is how long reverse-table proof return paths are kept.
+	ReverseTimeout = 8 * 60 * time.Second
+
 	// SeenAnnounceTTL is how long a deduplication key for an announce hash is retained.
 	SeenAnnounceTTL = 1 * time.Hour
 

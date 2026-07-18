@@ -14,37 +14,37 @@ import (
 	"quad4/reticulum-go/pkg/resource"
 )
 
-// oracleResourceAdvOutcome classifies processResourceAdvertisement results
+// resourceAdvOutcome classifies processResourceAdvertisement results
 // under AcceptAll for request gating and size checks.
-type oracleResourceAdvOutcome int
+type resourceAdvOutcome int
 
 const (
-	oracleAdvAccept oracleResourceAdvOutcome = iota
-	oracleAdvIgnore
-	oracleAdvReject
+	advAccept resourceAdvOutcome = iota
+	advIgnore
+	advReject
 )
 
-func oracleClassifyResourceAdv(adv *resource.ResourceAdvertisement, hasHandlers bool, sdu int) oracleResourceAdvOutcome {
+func classifyResourceAdv(adv *resource.ResourceAdvertisement, hasHandlers bool, sdu int) resourceAdvOutcome {
 	if adv.IsRequest && adv.RequestID != nil {
 		if !hasHandlers {
-			return oracleAdvIgnore
+			return advIgnore
 		}
-		if !oracleIncomingResourceAllowed(adv, sdu) {
-			return oracleAdvReject
+		if !incomingResourceAllowed(adv, sdu) {
+			return advReject
 		}
-		return oracleAdvAccept
+		return advAccept
 	}
 	if adv.IsResponse && adv.RequestID != nil {
-		// Unknown responses are ignored (no pending request in these oracles).
-		return oracleAdvIgnore
+		// Unknown responses are ignored (no pending request in these exploratory checks).
+		return advIgnore
 	}
-	if !oracleIncomingResourceAllowed(adv, sdu) {
-		return oracleAdvReject
+	if !incomingResourceAllowed(adv, sdu) {
+		return advReject
 	}
-	return oracleAdvAccept
+	return advAccept
 }
 
-func oracleIncomingResourceAllowed(adv *resource.ResourceAdvertisement, sdu int) bool {
+func incomingResourceAllowed(adv *resource.ResourceAdvertisement, sdu int) bool {
 	if sdu <= 0 || adv.Parts <= 0 {
 		return false
 	}
@@ -65,7 +65,7 @@ func oracleIncomingResourceAllowed(adv *resource.ResourceAdvertisement, sdu int)
 	return true
 }
 
-func TestOracleResourceAdvRequestGate(t *testing.T) {
+func TestExploratoryResourceAdvRequestGate(t *testing.T) {
 	const sdu = 384
 	honest := &resource.ResourceAdvertisement{
 		Parts:        4,
@@ -79,21 +79,21 @@ func TestOracleResourceAdvRequestGate(t *testing.T) {
 		Flags:        resource.AdvFlagIsRequest,
 	}
 
-	if got := oracleClassifyResourceAdv(honest, false, sdu); got != oracleAdvIgnore {
+	if got := classifyResourceAdv(honest, false, sdu); got != advIgnore {
 		t.Fatalf("no handlers: got %d want ignore", got)
 	}
-	if got := oracleClassifyResourceAdv(honest, true, sdu); got != oracleAdvAccept {
+	if got := classifyResourceAdv(honest, true, sdu); got != advAccept {
 		t.Fatalf("with handlers: got %d want accept", got)
 	}
 
 	bomb := *honest
 	bomb.TransferSize = int64(resource.MaxEfficientSize) + 4097
-	if got := oracleClassifyResourceAdv(&bomb, true, sdu); got != oracleAdvReject {
+	if got := classifyResourceAdv(&bomb, true, sdu); got != advReject {
 		t.Fatalf("oversized request: got %d want reject", got)
 	}
 }
 
-func TestOracleProcessResourceAdvertisementMatchesClassifier(t *testing.T) {
+func TestExploratoryProcessResourceAdvertisementMatchesClassifier(t *testing.T) {
 	id, err := identity.New()
 	if err != nil {
 		t.Fatalf("identity.New: %v", err)
@@ -112,7 +112,7 @@ func TestOracleProcessResourceAdvertisementMatchesClassifier(t *testing.T) {
 		name        string
 		handlers    bool
 		adv         *resource.ResourceAdvertisement
-		wantOutcome oracleResourceAdvOutcome
+		wantOutcome resourceAdvOutcome
 	}{
 		{
 			name:     "request_no_handlers",
@@ -125,7 +125,7 @@ func TestOracleProcessResourceAdvertisementMatchesClassifier(t *testing.T) {
 				RequestID:  bytes.Repeat([]byte{0x63}, 16),
 				IsRequest:  true, Flags: resource.AdvFlagIsRequest,
 			},
-			wantOutcome: oracleAdvIgnore,
+			wantOutcome: advIgnore,
 		},
 		{
 			name:     "request_with_handlers",
@@ -138,7 +138,7 @@ func TestOracleProcessResourceAdvertisementMatchesClassifier(t *testing.T) {
 				RequestID:  bytes.Repeat([]byte{0x66}, 16),
 				IsRequest:  true, Flags: resource.AdvFlagIsRequest,
 			},
-			wantOutcome: oracleAdvAccept,
+			wantOutcome: advAccept,
 		},
 		{
 			name:     "oversized_plain",
@@ -149,7 +149,7 @@ func TestOracleProcessResourceAdvertisementMatchesClassifier(t *testing.T) {
 				Hash:       bytes.Repeat([]byte{0x68}, 32),
 				Hashmap:    makeFakeHashmap(1),
 			},
-			wantOutcome: oracleAdvReject,
+			wantOutcome: advReject,
 		},
 		{
 			name:     "response_unknown",
@@ -162,7 +162,7 @@ func TestOracleProcessResourceAdvertisementMatchesClassifier(t *testing.T) {
 				RequestID:  bytes.Repeat([]byte{0x6B}, 16),
 				IsResponse: true, Flags: resource.AdvFlagIsResponse,
 			},
-			wantOutcome: oracleAdvIgnore,
+			wantOutcome: advIgnore,
 		},
 		{
 			name:     "honest_plain",
@@ -173,13 +173,13 @@ func TestOracleProcessResourceAdvertisementMatchesClassifier(t *testing.T) {
 				Hash:       bytes.Repeat([]byte{0x6D}, 32),
 				Hashmap:    makeFakeHashmap(1),
 			},
-			wantOutcome: oracleAdvAccept,
+			wantOutcome: advAccept,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := oracleClassifyResourceAdv(tc.adv, tc.handlers, 384); got != tc.wantOutcome {
+			if got := classifyResourceAdv(tc.adv, tc.handlers, 384); got != tc.wantOutcome {
 				t.Fatalf("classifier: got %d want %d", got, tc.wantOutcome)
 			}
 
@@ -197,7 +197,7 @@ func TestOracleProcessResourceAdvertisementMatchesClassifier(t *testing.T) {
 			l.incomingMu.Unlock()
 
 			switch tc.wantOutcome {
-			case oracleAdvIgnore:
+			case advIgnore:
 				if err != nil {
 					t.Fatalf("ignore returned error: %v", err)
 				}
@@ -207,14 +207,14 @@ func TestOracleProcessResourceAdvertisementMatchesClassifier(t *testing.T) {
 				if l.GetStatus() != StatusActive {
 					t.Fatalf("status=%d want Active", l.GetStatus())
 				}
-			case oracleAdvAccept:
+			case advAccept:
 				if err != nil {
 					t.Fatalf("accept returned error: %v", err)
 				}
 				if rx == nil {
 					t.Fatal("accept did not start incoming resource")
 				}
-			case oracleAdvReject:
+			case advReject:
 				if err == nil {
 					t.Fatal("reject expected error")
 				}
@@ -246,7 +246,7 @@ func TestPBTResourceAdvTransferSizeBound(t *testing.T) {
 				Hash:         bytes.Repeat([]byte{0x72}, 32),
 				Hashmap:      makeFakeHashmap(1),
 			}
-			wantOK := oracleIncomingResourceAllowed(adv, sdu)
+			wantOK := incomingResourceAllowed(adv, sdu)
 
 			l := &Link{mdu: sdu}
 			l.status.Store(int32(StatusActive))
@@ -293,7 +293,7 @@ func TestPBTResourceAdvRequestGate(t *testing.T) {
 				IsRequest:    true,
 				Flags:        resource.AdvFlagIsRequest,
 			}
-			want := oracleClassifyResourceAdv(adv, hasHandlers, 384)
+			want := classifyResourceAdv(adv, hasHandlers, 384)
 
 			l := &Link{mdu: 384}
 			l.status.Store(int32(StatusActive))
@@ -308,11 +308,11 @@ func TestPBTResourceAdvRequestGate(t *testing.T) {
 			l.resetIncomingResource()
 
 			switch want {
-			case oracleAdvIgnore:
+			case advIgnore:
 				return err == nil && rx == nil
-			case oracleAdvAccept:
+			case advAccept:
 				return err == nil && rx != nil
-			case oracleAdvReject:
+			case advReject:
 				return err != nil && rx == nil
 			default:
 				return false
@@ -330,9 +330,9 @@ func mustPackAdv(adv *resource.ResourceAdvertisement) []byte {
 	return b
 }
 
-// FuzzProcessResourceAdvertisementOracle feeds adversarial RESOURCE_ADV blobs
+// FuzzProcessResourceAdvertisementExploratory feeds adversarial RESOURCE_ADV blobs
 // through processResourceAdvertisement and checks status laws on success or abort.
-func FuzzProcessResourceAdvertisementOracle(f *testing.F) {
+func FuzzProcessResourceAdvertisementExploratory(f *testing.F) {
 	id, err := identity.New()
 	if err != nil {
 		f.Fatal(err)

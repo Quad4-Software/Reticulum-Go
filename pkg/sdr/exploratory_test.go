@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestBurstModemOracleInvariants(t *testing.T) {
+func TestBurstModemExploratoryInvariants(t *testing.T) {
 	m := NewBurstModem()
 	for n := 0; n <= 200; n += 7 {
 		payload := bytes.Repeat([]byte{byte(n)}, n)
@@ -32,7 +32,7 @@ func TestBurstModemOracleInvariants(t *testing.T) {
 	}
 }
 
-func TestDeviceConfigOracle(t *testing.T) {
+func TestDeviceConfigExploratory(t *testing.T) {
 	for _, rate := range []int{-1, 0, 100, 250000, 2000000, 50000000} {
 		c := ClampSampleRate(rate)
 		if c < 250000 || c > 20000000 {

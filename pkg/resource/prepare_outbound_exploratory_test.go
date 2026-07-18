@@ -115,10 +115,10 @@ func assertOutboundLayout(t *testing.T, res *Resource, sdu int) {
 	}
 }
 
-// FuzzPrepareOutboundForLinkLayoutOracle prepares outbound resources for
+// FuzzPrepareOutboundForLinkLayoutExploratory prepares outbound resources for
 // arbitrary sizes and SDUs and checks part counts, map hashes, and segment
 // coverage stay consistent.
-func FuzzPrepareOutboundForLinkLayoutOracle(f *testing.F) {
+func FuzzPrepareOutboundForLinkLayoutExploratory(f *testing.F) {
 	f.Add(10, 256, false)
 	f.Add(200, 384, true)
 	f.Add(0, 200, false)

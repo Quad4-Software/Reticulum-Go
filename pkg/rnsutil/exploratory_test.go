@@ -11,7 +11,7 @@ import (
 	"quad4/reticulum-go/pkg/identity"
 )
 
-func TestParseDestHashOracle(t *testing.T) {
+func TestParseDestHashExploratory(t *testing.T) {
 	good := "00112233445566778899aabbccddeeff"
 	b, err := ParseDestHash(good)
 	if err != nil || len(b) != 16 {
@@ -53,7 +53,7 @@ func TestValidateRSGRoundTripBitflip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	msg := []byte("oracle-rsg-payload")
+	msg := []byte("exploratory-rsg-payload")
 	rsg, err := CreateRSG(id, msg, false, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -76,9 +76,9 @@ func TestValidateRSGRoundTripBitflip(t *testing.T) {
 	}
 }
 
-// FuzzValidateRSGOracle ensures arbitrary blobs never panic and never
+// FuzzValidateRSGExploratory ensures arbitrary blobs never panic and never
 // validate without a real signature envelope.
-func FuzzValidateRSGOracle(f *testing.F) {
+func FuzzValidateRSGExploratory(f *testing.F) {
 	id, err := identity.New()
 	if err != nil {
 		f.Fatal(err)
@@ -108,7 +108,7 @@ func FuzzValidateRSGOracle(f *testing.F) {
 	})
 }
 
-func TestParseDestHashHexLenOracle(t *testing.T) {
+func TestParseDestHashHexLenExploratory(t *testing.T) {
 	for n := range 40 {
 		s := hex.EncodeToString(bytes.Repeat([]byte{0xab}, n))
 		b, err := ParseDestHash(s)
