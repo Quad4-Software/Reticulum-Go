@@ -291,6 +291,9 @@ func TestRelayBridgedLinkRequestForwardsHT1(t *testing.T) {
 	if got[0][1] != 0x01 {
 		t.Fatalf("non-local bridged LR hops = %d, want 1", got[0][1])
 	}
+	if got[0][0]>>6 != packet.HeaderType1 {
+		t.Fatalf("direct path bridged LR header = %d, want HT1", got[0][0]>>6)
+	}
 	linkID := packet.LinkIDFromLinkRequest(pkt)
 	entry, ok := tr.linkTable.get(linkID)
 	if !ok {
@@ -298,6 +301,79 @@ func TestRelayBridgedLinkRequestForwardsHT1(t *testing.T) {
 	}
 	if entry.TakenHops != 1 {
 		t.Fatalf("TakenHops = %d, want 1 for non-local LR", entry.TakenHops)
+	}
+}
+
+// TestRelayBridgedLinkRequestInsertsHT2ForMultiHop ensures multi-hop bridged
+// link requests are wrapped with HeaderType2 and the next transport hop so
+// mesh peers will accept and forward them.
+func TestRelayBridgedLinkRequestInsertsHT2ForMultiHop(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+
+	in := newRelayIface("in")
+	out := newRelayIface("out")
+	_ = tr.RegisterInterface("in", in)
+	_ = tr.RegisterInterface("out", out)
+
+	destHash := bytes.Repeat([]byte{0xAA}, 16)
+	nextHop := bytes.Repeat([]byte{0xBB}, 16)
+	tr.UpdatePath(destHash, nextHop, "out", 3)
+
+	requestData := bytes.Repeat([]byte{0x42}, packet.LinkRequestECPubSize+3)
+	flags := byte(0)
+	flags |= (packet.HeaderType1 << 6) & packet.HeaderMaskHeaderType
+	flags |= (packet.PropagationBroadcast << 4) & packet.HeaderMaskTransportType
+	flags |= (packet.DestinationSingle << 2) & packet.HeaderMaskDestinationType
+	flags |= packet.PacketTypeLinkReq & packet.HeaderMaskPacketType
+
+	raw := make([]byte, 0, 2+16+len(requestData))
+	raw = append(raw, flags, 0x00)
+	raw = append(raw, destHash...)
+	raw = append(raw, requestData...)
+
+	pkt := &packet.Packet{Raw: raw}
+	if err := pkt.Unpack(); err != nil {
+		t.Fatalf("unpack: %v", err)
+	}
+
+	if !tr.relayBridgedLinkRequest(pkt, raw, in) {
+		t.Fatal("relayBridgedLinkRequest returned false")
+	}
+	got := out.snapshot()
+	if len(got) != 1 {
+		t.Fatalf("expected 1 forwarded link request, got %d", len(got))
+	}
+	fwd := got[0]
+	if fwd[0]>>6 != packet.HeaderType2 {
+		t.Fatalf("multi-hop bridged LR header = %d, want HT2", fwd[0]>>6)
+	}
+	if (fwd[0]&packet.HeaderMaskTransportType)>>4 != packet.PropagationTransport {
+		t.Fatalf("multi-hop bridged LR transport type unset")
+	}
+	if fwd[1] != 0x01 {
+		t.Fatalf("multi-hop bridged LR hops = %d, want 1", fwd[1])
+	}
+	if !bytes.Equal(fwd[2:18], nextHop) {
+		t.Fatalf("transport id = %x, want %x", fwd[2:18], nextHop)
+	}
+	if !bytes.Equal(fwd[18:34], destHash) {
+		t.Fatalf("dest hash = %x, want %x", fwd[18:34], destHash)
+	}
+	if len(fwd) != len(raw)+16 {
+		t.Fatalf("forwarded len = %d, want %d", len(fwd), len(raw)+16)
+	}
+
+	unpacked := &packet.Packet{Raw: fwd}
+	if err := unpacked.Unpack(); err != nil {
+		t.Fatalf("unpack forwarded: %v", err)
+	}
+	if unpacked.PacketType != packet.PacketTypeLinkReq {
+		t.Fatalf("packet type = %d, want LinkReq", unpacked.PacketType)
+	}
+	linkID := packet.LinkIDFromLinkRequest(pkt)
+	if _, ok := tr.linkTable.get(linkID); !ok {
+		t.Fatal("missing link relay entry")
 	}
 }
 

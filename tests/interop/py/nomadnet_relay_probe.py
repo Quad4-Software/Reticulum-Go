@@ -59,8 +59,20 @@ class NomadnetCollector:
     def __init__(self):
         self.nodes = {}
 
-    def received_announce(self, dest_hash, announced_identity, app_data, announce_hops=0, *_args):
-        if announced_identity is None or len(dest_hash) != 16:
+    def received_announce(self, destination_hash=None, announced_identity=None, app_data=None, announce_hops=None, *args, **kwargs):
+        dest_hash = destination_hash
+        if dest_hash is None and args:
+            dest_hash = args[0]
+        if announced_identity is None and len(args) > 1:
+            announced_identity = args[1]
+        if app_data is None and len(args) > 2:
+            app_data = args[2]
+        if announce_hops is None:
+            if len(args) > 3:
+                announce_hops = args[3]
+            else:
+                announce_hops = 0
+        if announced_identity is None or dest_hash is None or len(dest_hash) != 16:
             return
         if not is_nomadnet_node(announced_identity, dest_hash):
             return

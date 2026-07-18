@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -176,6 +177,10 @@ func TestLiveNomadNetLinkThroughGoRelay(t *testing.T) {
 	defer tr.UnregisterAnnounceHandler(collector)
 
 	deadline := time.Now().Add(announceWait)
+	minNodes := envInt("INTEROP_NOMADNET_NODE_TARGET", 3)
+	if minNodes < 1 {
+		minNodes = 1
+	}
 	for time.Now().Before(deadline) {
 		select {
 		case <-ctx.Done():
@@ -183,7 +188,7 @@ func TestLiveNomadNetLinkThroughGoRelay(t *testing.T) {
 			t.Fatalf("context while waiting for announces: %v", ctx.Err())
 		default:
 		}
-		if len(collector.snapshot()) > 0 {
+		if len(collector.snapshot()) >= minNodes {
 			break
 		}
 		time.Sleep(250 * time.Millisecond)
@@ -193,73 +198,101 @@ func TestLiveNomadNetLinkThroughGoRelay(t *testing.T) {
 		sess.Emit("fail", harness.KindAnnounce, "no nomadnet announces observed")
 		t.Fatalf("no nomadnet announces observed on Go relay within %s", announceWait)
 	}
-	nodeHash := nodes[0].destHash
-	t.Logf("selected nomadnet node %x hops=%d", nodeHash, nodes[0].hops)
-	sess.Emit("node", harness.KindAnnounce, hex.EncodeToString(nodeHash))
 
-	probe := harness.StartPython(t, harness.ProbeOpts{
-		Ctx:          ctx,
-		Script:       filepath.Join(scriptDir(t), "py", "nomadnet_relay_probe.py"),
-		Events:       sess.Events,
-		ArtifactsDir: sess.Dir,
-		Env: []string{
-			"INTEROP_LISTEN_PORT=" + strconv.Itoa(pyListen),
-			"INTEROP_FORWARD_PORT=" + strconv.Itoa(pyForward),
-			"INTEROP_NOMADNET_DEST_HASH=" + hex.EncodeToString(nodeHash),
-			"INTEROP_NOMADNET_ANNOUNCE_WAIT_SEC=" + strconv.Itoa(int(announceWait.Seconds())),
-			"INTEROP_NOMADNET_LINK_TIMEOUT_SEC=" + strconv.Itoa(int(linkTimeout.Seconds())),
-		},
-	})
+	maxAttempts := envInt("INTEROP_NOMADNET_NODE_ATTEMPTS", 3)
+	if maxAttempts < 1 {
+		maxAttempts = 1
+	}
+	if maxAttempts > len(nodes) {
+		maxAttempts = len(nodes)
+	}
 
-	probe.WaitExact(t, ctx, "READY", 30*time.Second, harness.KindReady)
+	var lastErr error
+	for i := 0; i < maxAttempts; i++ {
+		nodeHash := nodes[i].destHash
+		t.Logf("attempt %d/%d nomadnet node %x hops=%d", i+1, maxAttempts, nodeHash, nodes[i].hops)
+		sess.Emit("node", harness.KindAnnounce, hex.EncodeToString(nodeHash))
 
-	deadline = time.Now().Add(linkTimeout + 2*time.Minute)
-	for time.Now().Before(deadline) {
-		select {
-		case <-ctx.Done():
-			sess.Emit("fail", harness.KindTimeout, "context expired")
-			t.Fatalf("context expired: %v", ctx.Err())
-		case err := <-probe.Done():
-			sess.Emit("fail", harness.KindLink, "python probe exited early")
-			if err != nil {
-				t.Fatalf("python probe exited before NOMADNET_LINK_OK: %v", err)
-			}
-			t.Fatal("python probe exited before NOMADNET_LINK_OK")
-		default:
-		}
-		line, err := probe.ReadLine(ctx, 5*time.Second)
-		if err != nil {
-			if ctx.Err() != nil {
-				sess.Emit("fail", harness.KindTimeout, ctx.Err().Error())
-				t.Fatalf("python probe: %v", ctx.Err())
-			}
+		probeCtx, probeCancel := context.WithTimeout(ctx, linkTimeout+2*time.Minute)
+		probe := harness.StartPython(t, harness.ProbeOpts{
+			Ctx:          probeCtx,
+			Script:       filepath.Join(scriptDir(t), "py", "nomadnet_relay_probe.py"),
+			Events:       sess.Events,
+			ArtifactsDir: sess.Dir,
+			Env: []string{
+				"INTEROP_LISTEN_PORT=" + strconv.Itoa(pyListen),
+				"INTEROP_FORWARD_PORT=" + strconv.Itoa(pyForward),
+				"INTEROP_NOMADNET_DEST_HASH=" + hex.EncodeToString(nodeHash),
+				"INTEROP_NOMADNET_ANNOUNCE_WAIT_SEC=" + strconv.Itoa(int(announceWait.Seconds())),
+				"INTEROP_NOMADNET_LINK_TIMEOUT_SEC=" + strconv.Itoa(int(linkTimeout.Seconds())),
+			},
+		})
+
+		probe.WaitExact(t, probeCtx, "READY", 30*time.Second, harness.KindReady)
+
+		ok := false
+		deadline = time.Now().Add(linkTimeout + time.Minute)
+	readLoop:
+		for time.Now().Before(deadline) {
 			select {
+			case <-probeCtx.Done():
+				lastErr = probeCtx.Err()
+				break readLoop
 			case err := <-probe.Done():
-				sess.Emit("fail", harness.KindLink, "python probe exited early")
 				if err != nil {
-					t.Fatalf("python probe exited before NOMADNET_LINK_OK: %v", err)
+					lastErr = err
+				} else {
+					lastErr = fmt.Errorf("python probe exited before NOMADNET_LINK_OK")
 				}
-				t.Fatal("python probe exited before NOMADNET_LINK_OK")
+				break readLoop
 			default:
 			}
-			continue
+			line, err := probe.ReadLine(probeCtx, 5*time.Second)
+			if err != nil {
+				if probeCtx.Err() != nil {
+					lastErr = probeCtx.Err()
+					break readLoop
+				}
+				select {
+				case err := <-probe.Done():
+					if err != nil {
+						lastErr = err
+					} else {
+						lastErr = fmt.Errorf("python probe exited before NOMADNET_LINK_OK")
+					}
+					break readLoop
+				default:
+				}
+				continue
+			}
+			line = strings.TrimSpace(line)
+			switch {
+			case strings.HasPrefix(line, "NODE "):
+				t.Logf("python selected nomadnet node %s", strings.TrimPrefix(line, "NODE "))
+			case line == "PATH_OK":
+				t.Log("python learned path to nomadnet node through Go relay")
+				sess.Emit("path_ok", harness.KindPath, "")
+			case line == "NOMADNET_LINK_OK":
+				t.Log("python established nomadnet link and fetched a page through Go relay")
+				sess.Emit("link_ok", harness.KindLink, "")
+				ok = true
+				probeCancel()
+				return
+			default:
+				t.Logf("python: %s", line)
+			}
 		}
-		line = strings.TrimSpace(line)
-		switch {
-		case strings.HasPrefix(line, "NODE "):
-			t.Logf("python selected nomadnet node %s", strings.TrimPrefix(line, "NODE "))
-		case line == "PATH_OK":
-			t.Log("python learned path to nomadnet node through Go relay")
-			sess.Emit("path_ok", harness.KindPath, "")
-		case line == "NOMADNET_LINK_OK":
-			t.Log("python established nomadnet link and fetched a page through Go relay")
-			sess.Emit("link_ok", harness.KindLink, "")
+		probeCancel()
+		probe.Kill(3 * time.Second)
+		if ok {
 			return
-		default:
-			t.Logf("python: %s", line)
 		}
+		t.Logf("node %x failed (%v), trying next candidate", nodeHash, lastErr)
 	}
 	sess.Emit("fail", harness.KindTimeout, "timed out waiting for NOMADNET_LINK_OK")
+	if lastErr != nil {
+		t.Fatalf("timed out waiting for NOMADNET_LINK_OK after %d nodes: %v", maxAttempts, lastErr)
+	}
 	t.Fatal("timed out waiting for NOMADNET_LINK_OK from python probe")
 }
 

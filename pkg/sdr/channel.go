@@ -59,7 +59,7 @@ func NewChannelModel(freqHz, distanceM, sampleRate float64, seed int64) *Channel
 		TempK:       290,
 		Seed:        seed,
 		GainDB:      0,
-		rng:         rand.New(rand.NewSource(seed)),
+		rng:         rand.New(rand.NewSource(seed)), // #nosec G404 -- AWGN channel sim seed, not crypto
 	}
 }
 
@@ -110,7 +110,7 @@ func (c *ChannelModel) Apply(tx []Complex64) []Complex64 {
 // Signal power is measured from tx. Noise variance per I/Q is N0/2.
 func AddAWGN(tx []Complex64, snrDB float64, rng *rand.Rand) []Complex64 {
 	if rng == nil {
-		rng = rand.New(rand.NewSource(1))
+		rng = rand.New(rand.NewSource(1)) // #nosec G404 -- AWGN fallback seed, not crypto
 	}
 	var sigPow float64
 	for _, s := range tx {

@@ -55,7 +55,7 @@ func (m *BurstModem) Encode(payload []byte) ([]Complex64, error) {
 	frame := make([]byte, frameLen)
 	frame[0] = burstPreamble0
 	frame[1] = burstPreamble1
-	binary.BigEndian.PutUint16(frame[2:4], uint16(len(payload)))
+	binary.BigEndian.PutUint16(frame[2:4], uint16(len(payload))) // #nosec G115 -- payload capped at burstMaxPayload
 	copy(frame[4:], payload)
 	crc := crc32.ChecksumIEEE(payload)
 	binary.BigEndian.PutUint32(frame[4+len(payload):], crc)

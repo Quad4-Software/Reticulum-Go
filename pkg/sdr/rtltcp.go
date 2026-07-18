@@ -92,12 +92,12 @@ func (d *RTLTCP) cmd(typ byte, param uint32) error {
 
 func (d *RTLTCP) Tune(freqHz int64) error {
 	d.freq = ClampFrequency(freqHz)
-	return d.cmd(0x01, uint32(d.freq))
+	return d.cmd(0x01, uint32(d.freq)) // #nosec G115 -- freq clamped to [0, MaxUint32]
 }
 
 func (d *RTLTCP) SetSampleRate(rate int) error {
 	d.rate = ClampSampleRate(rate)
-	return d.cmd(0x02, uint32(d.rate))
+	return d.cmd(0x02, uint32(d.rate)) // #nosec G115 -- rate clamped to [250k, 20M]
 }
 
 func (d *RTLTCP) SetBandwidth(int) error { return nil }
@@ -105,7 +105,7 @@ func (d *RTLTCP) SetBandwidth(int) error { return nil }
 func (d *RTLTCP) SetRXGain(db float64) error {
 	d.gain = ClampGain(db)
 	// rtl_tcp gain is tenths of dB.
-	return d.cmd(0x04, uint32(d.gain*10))
+	return d.cmd(0x04, uint32(d.gain*10)) // #nosec G115 -- gain clamped to [0, 60]
 }
 
 func (d *RTLTCP) SetTXGain(float64) error { return errRXOnly }
@@ -138,7 +138,7 @@ func (d *RTLTCP) StartRX(ctx context.Context, out chan<- []Complex64) error {
 			}
 			n -= n % 2
 			samples := make([]Complex64, n/2)
-			for i := 0; i < n; i += 2 {
+			for i := 0; i+1 < n; i += 2 {
 				samples[i/2] = Complex64{
 					I: (float32(buf[i]) - 127.5) / 127.5,
 					Q: (float32(buf[i+1]) - 127.5) / 127.5,

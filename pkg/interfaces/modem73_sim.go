@@ -61,7 +61,7 @@ func NewModem73Channel(snrDB float64, seed int64) *Modem73Channel {
 	}
 	return &Modem73Channel{
 		snrDB: snrDB,
-		rng:   rand.New(rand.NewSource(seed)),
+		rng:   rand.New(rand.NewSource(seed)), // #nosec G404 -- modem BER sim seed, not crypto
 	}
 }
 

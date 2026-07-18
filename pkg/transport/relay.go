@@ -122,6 +122,28 @@ func rebuildHeaderType2(raw []byte, hops byte, nextHop []byte) ([]byte, error) {
 	return raw, nil
 }
 
+// insertHeaderType2 upgrades a HeaderType1 wire packet to HeaderType2 by
+// inserting the next-hop transport id after the hop byte. Matches Python
+// Transport outbound wrapping when path hops > 1.
+func insertHeaderType2(raw []byte, hops byte, nextHop []byte) ([]byte, error) {
+	hopLen := identity.TruncatedHashLength / 8
+	if len(raw) < 2 {
+		return nil, errors.New("packet too short for HeaderType2 insert")
+	}
+	if len(nextHop) != hopLen {
+		return nil, fmt.Errorf("next hop must be %d bytes, got %d", hopLen, len(nextHop))
+	}
+	newFlags := byte(0)
+	newFlags |= (packet.HeaderType2 << 6) & packet.HeaderMaskHeaderType
+	newFlags |= (packet.PropagationTransport << 4) & packet.HeaderMaskTransportType
+	newFlags |= raw[0] & (packet.HeaderMaskContextFlag | 0x0F)
+	out := make([]byte, 0, len(raw)+hopLen)
+	out = append(out, newFlags, hops)
+	out = append(out, nextHop...)
+	out = append(out, raw[2:]...)
+	return out, nil
+}
+
 func stripHeaderType2(raw []byte, hops byte) ([]byte, error) {
 	tail := identity.TruncatedHashLength/8 + 2
 	if len(raw) < tail {
@@ -452,12 +474,26 @@ func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, s
 	}
 
 	out := rewriteHopsOnly(raw, newHops)
+	// Multi-hop paths need HeaderType2 with the next transport hop, matching
+	// SendPacket and Python Transport outbound wrapping. Bare HT1 LRs are
+	// dropped by mesh peers that only forward when transport_id matches.
+	if path.HopCount > 1 && len(path.NextHop) > 0 && !bytes.Equal(path.NextHop, destHash) {
+		wrapped, err := insertHeaderType2(raw, newHops, path.NextHop)
+		if err != nil {
+			debug.Log(debug.DebugError, "Failed to wrap bridged link request for transport",
+				"error", err)
+			return true
+		}
+		out = wrapped
+	}
 	t.recordLinkRelay(pkt, out, sourceIface, path, int(newHops))
 
 	debug.Log(debug.DebugInfo, "Relaying bridged link request",
 		"dest_hash", fmt.Sprintf("%x", destHash),
 		"out_iface", path.Interface.GetName(),
 		"hops", newHops,
+		"path_hops", path.HopCount,
+		"header_type", out[0]>>6,
 		"from_local_client", fromLocal)
 	if err := sendOnInterface(path.Interface, out, ""); err != nil {
 		debug.Log(debug.DebugError, "Failed to relay bridged link request", "error", err)

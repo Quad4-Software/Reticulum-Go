@@ -35,7 +35,7 @@ func modem73EncodeControl(msg any) ([]byte, error) {
 		return nil, fmt.Errorf("modem73 control message too large: %d", len(body))
 	}
 	out := make([]byte, modem73ControlHdrLen+len(body))
-	binary.BigEndian.PutUint32(out[:modem73ControlHdrLen], uint32(len(body)))
+	binary.BigEndian.PutUint32(out[:modem73ControlHdrLen], uint32(len(body))) // #nosec G115 -- body capped at modem73MaxControlJSON
 	copy(out[modem73ControlHdrLen:], body)
 	return out, nil
 }

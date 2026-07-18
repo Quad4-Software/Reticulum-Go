@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 )
@@ -131,10 +132,13 @@ func ClampSampleRate(rate int) int {
 	return rate
 }
 
-// ClampFrequency keeps frequency non-negative.
+// ClampFrequency keeps frequency in the rtl_tcp uint32 command range.
 func ClampFrequency(hz int64) int64 {
 	if hz < 0 {
 		return 0
+	}
+	if hz > math.MaxUint32 {
+		return math.MaxUint32
 	}
 	return hz
 }
