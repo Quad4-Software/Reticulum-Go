@@ -5,7 +5,6 @@ package interfaces
 
 import (
 	"bytes"
-	"context"
 	"encoding/base64"
 	"math"
 	"net"
@@ -20,7 +19,7 @@ func TestModem73PhyOracleRobustAirtime(t *testing.T) {
 	if math.Abs(Modem73RobustAirtime(0)-3.56) > 0.01 {
 		t.Fatalf("mode0 airtime=%v want ~3.56", Modem73RobustAirtime(0))
 	}
-	for mode := 0; mode < modem73RobustModeCount; mode++ {
+	for mode := range modem73RobustModeCount {
 		air := Modem73RobustAirtime(mode)
 		if air <= 0 {
 			t.Fatalf("mode %d airtime=%v", mode, air)
@@ -92,8 +91,7 @@ func TestModem73SimulatorControlAndKISS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	a.Serve(ctx)
 	b.Serve(ctx)
 	defer a.Close()
@@ -192,8 +190,7 @@ func TestModem73SimulatorWithInterface(t *testing.T) {
 	if _, _, err := sim.Listen(); err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	sim.Serve(ctx)
 	defer sim.Close()
 

@@ -69,7 +69,7 @@ func (m *BurstModem) Encode(payload []byte) ([]Complex64, error) {
 			if (b>>uint(bit))&1 == 1 {
 				phase = -1
 			}
-			for s := 0; s < spb; s++ {
+			for range spb {
 				out[idx] = Complex64{I: phase, Q: 0}
 				idx++
 			}
@@ -135,7 +135,7 @@ func burstReadByte(bits []byte, start int) (byte, bool) {
 		return 0, false
 	}
 	var b byte
-	for bit := 0; bit < 8; bit++ {
+	for bit := range 8 {
 		b <<= 1
 		if bits[start+bit] != 0 {
 			b |= 1
@@ -161,7 +161,7 @@ func burstReadUint32(bits []byte, start int) (uint32, bool) {
 		return 0, false
 	}
 	var v uint32
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		b, ok := burstReadByte(bits, start+i*8)
 		if !ok {
 			return 0, false
@@ -185,7 +185,7 @@ func (m *BurstModem) demodBits(samples []Complex64) []byte {
 	}
 	nBits := len(samples) / spb
 	bits := burstGetBits(nBits)
-	for i := 0; i < nBits; i++ {
+	for i := range nBits {
 		var sum float32
 		base := i * spb
 		end := base + spb

@@ -31,6 +31,7 @@ type session struct {
 
 	clientsMu sync.Mutex
 	clients   map[*wsClient]struct{}
+	closed    bool
 }
 
 // linkSession tracks one link.Link alongside the bookkeeping the control
@@ -125,10 +126,14 @@ func (s *session) forgetResponse(requestIDHex string) {
 	s.pendingMu.Unlock()
 }
 
-func (s *session) addClient(c *wsClient) {
+func (s *session) addClient(c *wsClient) bool {
 	s.clientsMu.Lock()
 	defer s.clientsMu.Unlock()
+	if s.closed {
+		return false
+	}
 	s.clients[c] = struct{}{}
+	return true
 }
 
 func (s *session) removeClient(c *wsClient) {
@@ -159,6 +164,7 @@ func (s *session) broadcast(v any) {
 // cmd/reticulum-go and examples/pageserver).
 func (s *session) close() {
 	s.clientsMu.Lock()
+	s.closed = true
 	clients := make([]*wsClient, 0, len(s.clients))
 	for c := range s.clients {
 		clients = append(clients, c)

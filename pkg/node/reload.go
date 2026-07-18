@@ -101,7 +101,54 @@ func interfaceConfigsEqualForReload(a, b *common.InterfaceConfig) bool {
 		a.AnnouncesFromInternal == b.AnnouncesFromInternal &&
 		a.AnnouncesFromInternalSet == b.AnnouncesFromInternalSet &&
 		a.Outgoing == b.Outgoing &&
-		a.OutgoingSet == b.OutgoingSet
+		a.OutgoingSet == b.OutgoingSet &&
+		a.Device == b.Device &&
+		a.Speed == b.Speed &&
+		a.DataBits == b.DataBits &&
+		a.Parity == b.Parity &&
+		a.StopBits == b.StopBits &&
+		a.RTSCTS == b.RTSCTS &&
+		a.DSRDTR == b.DSRDTR &&
+		a.XONXOFF == b.XONXOFF &&
+		a.SerialFrameIdleMs == b.SerialFrameIdleMs &&
+		a.Path == b.Path &&
+		a.TransportMode == b.TransportMode &&
+		a.Domain == b.Domain &&
+		a.ResolveIntervalSec == b.ResolveIntervalSec &&
+		a.ContextID == b.ContextID &&
+		a.LongPollSec == b.LongPollSec &&
+		a.Discoverable == b.Discoverable &&
+		a.DiscoveryName == b.DiscoveryName &&
+		a.ReachableOn == b.ReachableOn &&
+		a.DiscoveryAnnounceIntervalSec == b.DiscoveryAnnounceIntervalSec &&
+		a.DiscoveryStampValue == b.DiscoveryStampValue &&
+		a.DiscoveryEncrypt == b.DiscoveryEncrypt &&
+		a.DiscoveryLocationCmd == b.DiscoveryLocationCmd &&
+		floatEqual(a.DiscoveryLatitude, b.DiscoveryLatitude) &&
+		floatEqual(a.DiscoveryLongitude, b.DiscoveryLongitude) &&
+		floatEqual(a.DiscoveryHeight, b.DiscoveryHeight) &&
+		a.HasDiscoveryGeo == b.HasDiscoveryGeo &&
+		a.ControlHost == b.ControlHost &&
+		a.ControlPort == b.ControlPort &&
+		a.MTUOverhead == b.MTUOverhead &&
+		a.AutoFragmentation == b.AutoFragmentation &&
+		a.AutoFragSet == b.AutoFragSet &&
+		a.ShortFrames == b.ShortFrames &&
+		a.ShortMTU == b.ShortMTU &&
+		a.HandshakeX2 == b.HandshakeX2 &&
+		a.ProofX2 == b.ProofX2 &&
+		a.AutoBitrate == b.AutoBitrate &&
+		a.AutoBitrateSet == b.AutoBitrateSet &&
+		a.CSMAOverhead == b.CSMAOverhead &&
+		a.CSMAOverheadSet == b.CSMAOverheadSet &&
+		floatEqual(a.TimeoutMargin, b.TimeoutMargin) &&
+		a.FrequencyHz == b.FrequencyHz &&
+		a.SampleRate == b.SampleRate &&
+		a.Bandwidth == b.Bandwidth &&
+		floatEqual(a.RXGain, b.RXGain) &&
+		floatEqual(a.TXGain, b.TXGain) &&
+		a.Modem == b.Modem &&
+		a.SerialNum == b.SerialNum
 }
 
 func (n *Node) tearDownInterface(iface interfaces.Interface) {

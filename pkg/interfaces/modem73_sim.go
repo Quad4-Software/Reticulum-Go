@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"maps"
 	"math"
 	"math/rand"
 	"net"
@@ -40,10 +41,10 @@ type Modem73SimConfig struct {
 
 // Modem73Channel is a shared RF medium between simulators.
 type Modem73Channel struct {
-	mu      sync.Mutex
-	snrDB   float64
-	rng     *rand.Rand
-	subs    []chan modem73AirFrame
+	mu        sync.Mutex
+	snrDB     float64
+	rng       *rand.Rand
+	subs      []chan modem73AirFrame
 	busyUntil time.Time
 }
 
@@ -123,15 +124,15 @@ type Modem73Simulator struct {
 	mu     sync.Mutex
 	cfgMap map[string]any
 
-	rxFrames   atomic.Uint64
-	txFrames   atomic.Uint64
-	rxErrors   atomic.Uint64
-	syncCount  atomic.Uint64
-	crcErrors  atomic.Uint64
-	lastSNR    atomic.Uint64 // float bits
-	lastBER    atomic.Uint64
-	pttOn      atomic.Bool
-	state      atomic.Value // string
+	rxFrames  atomic.Uint64
+	txFrames  atomic.Uint64
+	rxErrors  atomic.Uint64
+	syncCount atomic.Uint64
+	crcErrors atomic.Uint64
+	lastSNR   atomic.Uint64 // float bits
+	lastBER   atomic.Uint64
+	pttOn     atomic.Bool
+	state     atomic.Value // string
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -191,27 +192,27 @@ func NewModem73Simulator(cfg Modem73SimConfig, ch *Modem73Channel) *Modem73Simul
 func (s *Modem73Simulator) rebuildConfig() {
 	phy := Modem73ComputePhy(s.cfg.ModemType, s.cfg.RobustMode, s.cfg.MFSKMode, s.cfg.FrameSize, s.cfg.Modulation, s.cfg.CodeRate)
 	s.cfgMap = map[string]any{
-		"ok":                     true,
-		"callsign":               s.cfg.Callsign,
-		"modem_type":             float64(s.cfg.ModemType),
-		"robust_mode":            float64(s.cfg.RobustMode),
-		"mfsk_mode":              float64(s.cfg.MFSKMode),
-		"modulation":             s.cfg.Modulation,
-		"code_rate":              s.cfg.CodeRate,
-		"short_frame":            s.cfg.FrameSize == 0,
-		"frame_size":             float64(s.cfg.FrameSize),
-		"postamble":              false,
-		"center_freq":            float64(s.cfg.CenterFreq),
-		"payload_size":           float64(phy.PayloadSize),
-		"csma_enabled":           s.cfg.CSMAEnabled,
-		"carrier_threshold_db":   s.cfg.CarrierThresh,
-		"p_persistence":          float64(s.cfg.PPersistence),
-		"slot_time_ms":           float64(s.cfg.SlotTimeMs),
-		"csma_quiet_ms":          float64(s.cfg.CSMAQuietMs),
-		"csma_cw":                float64(s.cfg.CSMACW),
-		"csma_burst":             float64(s.cfg.CSMABurst),
-		"tx_blanking_enabled":    true,
-		"fragmentation_enabled":  s.cfg.Fragmentation,
+		"ok":                    true,
+		"callsign":              s.cfg.Callsign,
+		"modem_type":            float64(s.cfg.ModemType),
+		"robust_mode":           float64(s.cfg.RobustMode),
+		"mfsk_mode":             float64(s.cfg.MFSKMode),
+		"modulation":            s.cfg.Modulation,
+		"code_rate":             s.cfg.CodeRate,
+		"short_frame":           s.cfg.FrameSize == 0,
+		"frame_size":            float64(s.cfg.FrameSize),
+		"postamble":             false,
+		"center_freq":           float64(s.cfg.CenterFreq),
+		"payload_size":          float64(phy.PayloadSize),
+		"csma_enabled":          s.cfg.CSMAEnabled,
+		"carrier_threshold_db":  s.cfg.CarrierThresh,
+		"p_persistence":         float64(s.cfg.PPersistence),
+		"slot_time_ms":          float64(s.cfg.SlotTimeMs),
+		"csma_quiet_ms":         float64(s.cfg.CSMAQuietMs),
+		"csma_cw":               float64(s.cfg.CSMACW),
+		"csma_burst":            float64(s.cfg.CSMABurst),
+		"tx_blanking_enabled":   true,
+		"fragmentation_enabled": s.cfg.Fragmentation,
 	}
 }
 
@@ -534,10 +535,7 @@ func (s *Modem73Simulator) csmaWait(airtimeS float64) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	// p-persistence slot backoff
-	slots := s.cfg.CSMACW
-	if slots < 2 {
-		slots = 2
-	}
+	slots := max(s.cfg.CSMACW, 2)
 	p := float64(s.cfg.PPersistence) / 255.0
 	for i := 0; i < slots; i++ {
 		if s.ch.randFloat() < p {
@@ -646,8 +644,6 @@ func (s *Modem73Simulator) broadcastEvent(msg map[string]any) {
 
 func copyMap(m map[string]any) map[string]any {
 	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
+	maps.Copy(out, m)
 	return out
 }

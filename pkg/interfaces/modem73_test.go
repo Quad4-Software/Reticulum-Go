@@ -135,14 +135,14 @@ func TestModem73FakeDualPort(t *testing.T) {
 	ctrlAddr := ctrlLn.Addr().(*net.TCPAddr)
 
 	m, err := NewModem73Interface("m73", true, Modem73Options{
-		TargetHost:        "127.0.0.1",
-		TargetPort:        kissAddr.Port,
-		ControlHost:       "127.0.0.1",
-		ControlPort:       ctrlAddr.Port,
-		AutoFragmentation: true,
-		AutoBitrate:       true,
-		CSMAOverhead:      true,
-		ShortFrames:       "off",
+		TargetHost:         "127.0.0.1",
+		TargetPort:         kissAddr.Port,
+		ControlHost:        "127.0.0.1",
+		ControlPort:        ctrlAddr.Port,
+		AutoFragmentation:  true,
+		AutoBitrate:        true,
+		CSMAOverhead:       true,
+		ShortFrames:        "off",
 		Dial:               (&net.Dialer{}).DialContext,
 		ControlDialTimeout: 500 * time.Millisecond,
 	})
@@ -207,7 +207,7 @@ func TestModem73DialContextCancel(t *testing.T) {
 		TargetPort:  1,
 		ControlHost: "127.0.0.1",
 		ControlPort: 1,
-		ShortFrames:        "off",
+		ShortFrames: "off",
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 			<-ctx.Done()
 			return nil, ctx.Err()

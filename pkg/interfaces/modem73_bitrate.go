@@ -25,7 +25,7 @@ var modem73RobustTimeoutBPS = modem73RobustTimeoutBPSExt
 // modem73RobustAirtime legacy slice derived from nrows formula for modes 0-9.
 var modem73RobustAirtime = func() []float64 {
 	out := make([]float64, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		out[i] = Modem73RobustAirtime(i)
 	}
 	return out
@@ -210,10 +210,7 @@ func modem73TimeoutBitrate(cfg map[string]any, csmaOverhead bool, timeoutMargin 
 	if overhead > 0 {
 		duty = prof.airtime / (prof.airtime + overhead)
 	}
-	bps := int(prof.phyBPS * duty * timeoutMargin)
-	if bps < 8 {
-		bps = 8
-	}
+	bps := max(int(prof.phyBPS*duty*timeoutMargin), 8)
 	return bps, true
 }
 

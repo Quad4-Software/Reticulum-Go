@@ -607,8 +607,8 @@ func (m *Modem73Interface) syncFromConfig(cfg map[string]any) {
 
 func (m *Modem73Interface) setFragmentation(enabled bool) bool {
 	err := m.enqueueControl(map[string]any{
-		"cmd":                    "set_config",
-		"fragmentation_enabled":  enabled,
+		"cmd":                   "set_config",
+		"fragmentation_enabled": enabled,
 	}, true)
 	return err == nil
 }

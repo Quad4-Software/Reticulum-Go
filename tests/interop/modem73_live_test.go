@@ -316,7 +316,7 @@ func parseModem73AudioDevices(bin string) (modem73AudioDevs, error) {
 	inDevs := map[string]string{}
 	outDevs := map[string]string{}
 	re := regexp.MustCompile(`^\s*(\d+)\s+-\s+(.+)$`)
-	for _, line := range strings.Split(string(out), "\n") {
+	for line := range strings.SplitSeq(string(out), "\n") {
 		if strings.HasPrefix(line, "Input") {
 			section = "in"
 			continue
@@ -356,7 +356,7 @@ func freeTCPPorts(n int) ([]int, error) {
 			_ = ln.Close()
 		}
 	}()
-	for i := 0; i < n; i++ {
+	for range n {
 		ln, err := net.Listen("tcp", "127.0.0.1:0")
 		if err != nil {
 			return nil, err

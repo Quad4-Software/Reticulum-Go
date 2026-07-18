@@ -154,7 +154,7 @@ func MeasuredSNRdB(clean, noisy []Complex64) float64 {
 		return -100
 	}
 	var sig, noise float64
-	for i := 0; i < n; i++ {
+	for i := range n {
 		si := float64(clean[i].I)
 		sq := float64(clean[i].Q)
 		sig += si*si + sq*sq
@@ -165,7 +165,7 @@ func MeasuredSNRdB(clean, noisy []Complex64) float64 {
 	if noise <= 0 {
 		return 100
 	}
-	return 10 * math.Log10(sig / noise)
+	return 10 * math.Log10(sig/noise)
 }
 
 // SimDevice is a Device that pipes TX IQ through a ChannelModel into a peer RX ring.

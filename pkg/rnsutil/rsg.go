@@ -199,6 +199,14 @@ func ValidateRSG(rsg []byte, message any, requiredSigner any) (RSGResult, error)
 			return out, errInvalidRSG
 		}
 	}
+	// meta.signer and meta.pubkey must describe the same identity. Without
+	// this check a valid signature under pubkey can carry a forged signer hash.
+	if !bytes.Equal(signerHash, signingID.Hash()) {
+		return out, errInvalidSigner
+	}
+	if !bytes.Equal(pubKey, signingID.GetPublicKey()) {
+		return out, errInvalidRSG
+	}
 	out.Signer = signingID
 	out.Envelope = &RSGEnvelope{
 		HashType: hashType,

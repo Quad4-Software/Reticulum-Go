@@ -41,10 +41,10 @@ func TestNewFromConfigModem73AndSDR(t *testing.T) {
 		t.Fatalf("type=%v", m73.GetType())
 	}
 	sdrIface, err := NewFromConfig("s", &common.InterfaceConfig{
-		Type:   "SDRInterface",
+		Type:    "SDRInterface",
 		Enabled: false,
-		Device: "mock",
-		Modem:  "burst",
+		Device:  "mock",
+		Modem:   "burst",
 	})
 	if err != nil {
 		t.Fatal(err)

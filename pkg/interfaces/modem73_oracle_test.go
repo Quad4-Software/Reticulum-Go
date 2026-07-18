@@ -21,10 +21,7 @@ func TestModem73MTUOracleInvariants(t *testing.T) {
 				// MTU must be non-decreasing once above floor
 			}
 			if ps > overhead {
-				want := ps - overhead
-				if want < floor {
-					want = floor
-				}
+				want := max(ps-overhead, floor)
 				if mtu != want {
 					t.Fatalf("ps=%d oh=%d mtu=%d want=%d", ps, overhead, mtu, want)
 				}
@@ -68,9 +65,9 @@ func TestModem73BitrateOracleInvariants(t *testing.T) {
 
 func TestModem73ShortFrameOracle(t *testing.T) {
 	cfg := map[string]any{
-		"modem_type": float64(modem73TypeOFDM),
-		"modulation": "QPSK",
-		"code_rate":  "1/2",
+		"modem_type":  float64(modem73TypeOFDM),
+		"modulation":  "QPSK",
+		"code_rate":   "1/2",
 		"short_frame": false,
 	}
 	mode, ok := modem73ShortOperMode(cfg)

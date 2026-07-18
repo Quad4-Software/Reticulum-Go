@@ -191,11 +191,9 @@ func (si *SDRInterface) Start() error {
 	si.Detached = false
 	si.Mutex.Unlock()
 
-	si.wg.Add(1)
-	go func() {
-		defer si.wg.Done()
+	si.wg.Go(func() {
 		si.rxLoop()
-	}()
+	})
 	return nil
 }
 

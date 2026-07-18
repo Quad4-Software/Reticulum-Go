@@ -125,6 +125,10 @@ func (c *wsConn) readMessage() ([]byte, error) {
 		opcode := header[0] & wsOpcodeMask
 		masked := header[1]&wsMaskedBit != 0
 		length := int(header[1] & wsLenMask)
+		// RFC 6455 section 5.1: client-to-server frames must be masked.
+		if !masked {
+			return nil, errors.New("controlapi: client frames must be masked")
+		}
 
 		switch length {
 		case wsLen16:
@@ -149,20 +153,16 @@ func (c *wsConn) readMessage() ([]byte, error) {
 		}
 
 		var maskKey [4]byte
-		if masked {
-			if _, err := io.ReadFull(c.reader, maskKey[:]); err != nil {
-				return nil, err
-			}
+		if _, err := io.ReadFull(c.reader, maskKey[:]); err != nil {
+			return nil, err
 		}
 
 		payload := make([]byte, length)
 		if _, err := io.ReadFull(c.reader, payload); err != nil {
 			return nil, err
 		}
-		if masked {
-			for i := range payload {
-				payload[i] ^= maskKey[i%4]
-			}
+		for i := range payload {
+			payload[i] ^= maskKey[i%4]
 		}
 
 		switch opcode {
@@ -236,9 +236,11 @@ type wsClient struct {
 	session *session
 	server  *Server
 
-	outbox    chan []byte
-	done      chan struct{}
-	closeOnce sync.Once
+	outbox       chan []byte
+	done         chan struct{}
+	writable     chan struct{}
+	writableOnce sync.Once
+	closeOnce    sync.Once
 
 	announceFilterMu sync.Mutex
 	announceFilter   string // empty = all, else exact 16-byte dest hash hex
@@ -248,24 +250,42 @@ const wsClientOutboxSize = 32
 
 func newWSClient(server *Server, sess *session, conn *wsConn) *wsClient {
 	return &wsClient{
-		conn:    conn,
-		session: sess,
-		server:  server,
-		outbox:  make(chan []byte, wsClientOutboxSize),
-		done:    make(chan struct{}),
+		conn:     conn,
+		session:  sess,
+		server:   server,
+		outbox:   make(chan []byte, wsClientOutboxSize),
+		done:     make(chan struct{}),
+		writable: make(chan struct{}),
 	}
 }
 
-// run starts the writer and blocks in the read loop until the connection
-// closes. The caller must already have registered the client with the
-// session and flushed the WebSocket handshake.
-func (c *wsClient) run() {
+// startWriter launches writeLoop before the handshake is flushed so the
+// writer exists by the time the peer can observe a ready socket. writeLoop
+// blocks on writable until enableWrites, so frames cannot interleave with
+// the HTTP 101 response.
+func (c *wsClient) startWriter() {
 	go c.writeLoop()
+}
+
+// enableWrites unblocks writeLoop after the handshake has been flushed.
+func (c *wsClient) enableWrites() {
+	c.writableOnce.Do(func() { close(c.writable) })
+}
+
+// run blocks in the read loop until the connection closes. The caller must
+// already have registered the client, started the writer, flushed the
+// handshake, and called enableWrites.
+func (c *wsClient) run() {
 	c.readLoop()
 	c.close()
 }
 
 func (c *wsClient) writeLoop() {
+	select {
+	case <-c.writable:
+	case <-c.done:
+		return
+	}
 	for {
 		select {
 		case msg := <-c.outbox:

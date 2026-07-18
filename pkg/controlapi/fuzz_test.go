@@ -33,10 +33,11 @@ func FuzzWSCommandDecode(f *testing.F) {
 	}
 	sess := newSession("fuzz", ident)
 	c := &wsClient{
-		session: sess,
-		server:  srv,
-		outbox:  make(chan []byte, 256),
-		done:    make(chan struct{}),
+		session:  sess,
+		server:   srv,
+		outbox:   make(chan []byte, 256),
+		done:     make(chan struct{}),
+		writable: make(chan struct{}),
 	}
 
 	f.Fuzz(func(t *testing.T, raw []byte) {

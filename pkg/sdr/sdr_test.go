@@ -89,8 +89,7 @@ func TestMockLinkRoundTrip(t *testing.T) {
 	a := NewMock(Config{RingSize: 8})
 	b := NewMock(Config{RingSize: 8})
 	LinkMocks(a, b)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	if err := a.Open(ctx); err != nil {
 		t.Fatal(err)
 	}

@@ -19,13 +19,13 @@ func init() {
 // RTLSDRStub satisfies the Device name for docs. Not constructed without the tag.
 type RTLSDRStub struct{}
 
-func (RTLSDRStub) Caps() Caps                                         { return Caps{DeviceType: "rtlsdr"} }
-func (RTLSDRStub) Open(context.Context) error                         { return errUnknownDevice }
-func (RTLSDRStub) Close() error                                       { return nil }
-func (RTLSDRStub) Tune(int64) error                                   { return errUnknownDevice }
-func (RTLSDRStub) SetSampleRate(int) error                            { return errUnknownDevice }
-func (RTLSDRStub) SetBandwidth(int) error                             { return errUnknownDevice }
-func (RTLSDRStub) SetRXGain(float64) error                            { return errUnknownDevice }
-func (RTLSDRStub) SetTXGain(float64) error                            { return errUnknownDevice }
-func (RTLSDRStub) StartRX(context.Context, chan<- []Complex64) error  { return errUnknownDevice }
-func (RTLSDRStub) StartTX(context.Context, <-chan []Complex64) error  { return errUnknownDevice }
+func (RTLSDRStub) Caps() Caps                                        { return Caps{DeviceType: "rtlsdr"} }
+func (RTLSDRStub) Open(context.Context) error                        { return errUnknownDevice }
+func (RTLSDRStub) Close() error                                      { return nil }
+func (RTLSDRStub) Tune(int64) error                                  { return errUnknownDevice }
+func (RTLSDRStub) SetSampleRate(int) error                           { return errUnknownDevice }
+func (RTLSDRStub) SetBandwidth(int) error                            { return errUnknownDevice }
+func (RTLSDRStub) SetRXGain(float64) error                           { return errUnknownDevice }
+func (RTLSDRStub) SetTXGain(float64) error                           { return errUnknownDevice }
+func (RTLSDRStub) StartRX(context.Context, chan<- []Complex64) error { return errUnknownDevice }
+func (RTLSDRStub) StartTX(context.Context, <-chan []Complex64) error { return errUnknownDevice }

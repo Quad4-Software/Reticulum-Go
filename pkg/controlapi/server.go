@@ -340,10 +340,16 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Register before flushing 101 so a client that races ahead and triggers
-	// a broadcast cannot miss the event because the session has no clients yet.
+	// Register and start the writer before flushing 101 so a peer that
+	// races ahead and triggers a broadcast cannot miss the event: the
+	// session already has a client, and writeLoop is already scheduled
+	// (gated until enableWrites so frames cannot precede the 101).
 	client := newWSClient(s, sess, pending.Conn())
-	sess.addClient(client)
+	if !sess.addClient(client) {
+		_ = pending.Conn().close()
+		return
+	}
+	client.startWriter()
 
 	if err := pending.Flush(); err != nil {
 		debug.Log(debug.DebugError, "controlapi: websocket handshake flush failed", "error", err)
@@ -351,6 +357,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	client.enableWrites()
 	client.run()
 }
 

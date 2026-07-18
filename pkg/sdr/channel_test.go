@@ -62,8 +62,7 @@ func TestSimDeviceBurstThroughChannel(t *testing.T) {
 	a := NewSimDevice(Config{RingSize: 8, Frequency: 433000000, SampleRate: 2000000}, ch)
 	b := NewSimDevice(Config{RingSize: 8, Frequency: 433000000, SampleRate: 2000000}, ch)
 	LinkSimDevices(a, b)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	if err := a.Open(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +102,7 @@ func TestSimDeviceHighNoiseDropsFrames(t *testing.T) {
 	modem := NewBurstModem()
 	okCount := 0
 	trials := 20
-	for i := 0; i < trials; i++ {
+	for i := range trials {
 		payload := []byte{byte(i), 1, 2, 3, 4, 5, 6, 7}
 		_ = a.TransmitBurst(modem, payload)
 		select {
