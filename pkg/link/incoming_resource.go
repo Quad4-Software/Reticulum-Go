@@ -1041,12 +1041,16 @@ func splitResourceMetadata(payload []byte, adv *resource.ResourceAdvertisement) 
 		debug.Log(debug.DebugInfo, "Incoming resource metadata size invalid", "meta_size", metaSize, "payload_len", len(payload))
 		return payload, nil
 	}
+	// Always strip a valid length-prefixed metadata region, matching Python
+	// Resource assembly. A failed msgpack unpack must not leave the 3-byte
+	// size prefix and packed meta attached to the file body.
+	body := payload[3+metaSize:]
 	var meta map[string]any
 	if err := msgpack.Unmarshal(payload[3:3+metaSize], &meta); err != nil {
 		debug.Log(debug.DebugInfo, "Failed to unpack incoming resource metadata", "error", err)
-		return payload, nil
+		return body, nil
 	}
-	return payload[3+metaSize:], meta
+	return body, meta
 }
 
 func (l *Link) completeRequestWithResourcePayload(req *RequestReceipt, payload []byte, metadata map[string]any) {

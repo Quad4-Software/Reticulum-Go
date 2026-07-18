@@ -382,7 +382,12 @@ func hashmapEntriesPerAdvSegment(linkMDU int) int {
 	if linkMDU <= 0 {
 		linkMDU = 384
 	}
-	return (linkMDU - Overhead) / MapHashLen
+	n := (linkMDU - Overhead) / MapHashLen
+	if n <= 0 {
+		// Tiny or adversarial MDUs must still yield a usable segment width.
+		return 1
+	}
+	return n
 }
 
 // HashmapEntriesPerSegment is the number of map-hash slots per advertisement or HMU segment for a link MDU.
