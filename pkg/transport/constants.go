@@ -13,6 +13,16 @@ const (
 	// PathfinderE is path table lifetime in seconds (Python PATHFINDER_E).
 	PathfinderE = 60 * 60 * 24 * 7
 
+	// APPathTime is path lifetime for Access Point mode interfaces.
+	APPathTime = 24 * time.Hour
+
+	// RoamingPathTime is path lifetime for Roaming mode interfaces.
+	RoamingPathTime = 6 * time.Hour
+
+	// HashlistMaxSize caps the in-memory packet hash loop filter
+	// (Python Transport.hashlist_maxsize).
+	HashlistMaxSize = 1_000_000
+
 	// ReverseTimeout is how long reverse-table proof return paths are kept.
 	ReverseTimeout = 8 * 60 * time.Second
 

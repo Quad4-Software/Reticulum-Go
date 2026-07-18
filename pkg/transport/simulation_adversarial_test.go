@@ -4,6 +4,7 @@
 package transport
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math/rand/v2"
 	"runtime"
@@ -298,12 +299,14 @@ func BenchmarkSimIFACLineRelay(b *testing.B) {
 			tail := net.nodes[n-1].ifaces[0]
 			src := net.nodes[0].ifaces[0]
 			second := net.nodes[1].id.Hash()
-			pkt := buildHT2(second, target, 0, make([]byte, 64))
 
 			b.StartTimer()
 			b.ReportAllocs()
 			startRx := tail.GetRxPackets()
 			for i := 0; i < b.N; i++ {
+				payload := make([]byte, 64)
+				binary.BigEndian.PutUint64(payload, uint64(i))
+				pkt := buildHT2(second, target, 0, payload)
 				_ = src.Send(pkt, "")
 			}
 			want := startRx + uint64(b.N)

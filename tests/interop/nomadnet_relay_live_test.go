@@ -196,10 +196,7 @@ func TestLiveNomadNetLinkThroughGoRelay(t *testing.T) {
 		t.Fatalf("no nomadnet announces observed on Go relay within %s", announceWait)
 	}
 
-	maxAttempts := max(envInt("INTEROP_NOMADNET_NODE_ATTEMPTS", 3), 1)
-	if maxAttempts > len(nodes) {
-		maxAttempts = len(nodes)
-	}
+	maxAttempts := min(max(envInt("INTEROP_NOMADNET_NODE_ATTEMPTS", 3), 1), len(nodes))
 
 	var lastErr error
 	for i := 0; i < maxAttempts; i++ {

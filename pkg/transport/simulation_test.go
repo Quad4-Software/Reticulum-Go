@@ -5,9 +5,11 @@ package transport
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"math/rand/v2"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -571,13 +573,14 @@ func BenchmarkSimLineRelayThroughput(b *testing.B) {
 			tail := net.nodes[n-1].ifaces[0]
 			src := net.nodes[0].ifaces[0]
 			second := net.nodes[1].id.Hash()
-			payload := make([]byte, 64)
-			pkt := buildHT2(second, target, 0, payload)
 
 			b.StartTimer()
 			b.ReportAllocs()
 			startRx := tail.GetRxPackets()
 			for i := 0; i < b.N; i++ {
+				payload := make([]byte, 64)
+				binary.BigEndian.PutUint64(payload, uint64(i))
+				pkt := buildHT2(second, target, 0, payload)
 				_ = src.Send(pkt, "")
 			}
 			want := startRx + uint64(b.N)
@@ -633,8 +636,6 @@ func BenchmarkSimConcurrentLineRelay(b *testing.B) {
 			target := net.nodes[n-1].id.Hash()
 			preloadLinePaths(net.nodes, target)
 			second := net.nodes[1].id.Hash()
-			payload := make([]byte, 64)
-			pkt := buildHT2(second, target, 0, payload)
 			src := net.nodes[0].ifaces[0]
 
 			perWorker := b.N / workers
@@ -644,10 +645,14 @@ func BenchmarkSimConcurrentLineRelay(b *testing.B) {
 			b.StartTimer()
 			b.ReportAllocs()
 
+			var seq atomic.Uint64
 			var wg sync.WaitGroup
 			for range workers {
 				wg.Go(func() {
 					for i := 0; i < perWorker; i++ {
+						payload := make([]byte, 64)
+						binary.BigEndian.PutUint64(payload, seq.Add(1))
+						pkt := buildHT2(second, target, 0, payload)
 						_ = src.Send(pkt, "")
 					}
 				})
@@ -675,14 +680,18 @@ func BenchmarkSimRandomGraphRelay(b *testing.B) {
 	secondHop := net.nodes[path[1]].id.Hash()
 	tail := net.nodes[dstIdx].ifaces[0]
 	src := net.nodes[srcIdx].ifaces[0]
-	pkt := buildHT2(secondHop, target, 0, make([]byte, 64))
 	const batch = 100
 
 	b.StartTimer()
 	b.ReportAllocs()
 	startRx := tail.GetRxPackets()
+	var seq uint64
 	for i := 0; i < b.N; i++ {
 		for range batch {
+			payload := make([]byte, 64)
+			binary.BigEndian.PutUint64(payload, seq)
+			seq++
+			pkt := buildHT2(secondHop, target, 0, payload)
 			_ = src.Send(pkt, "")
 		}
 	}

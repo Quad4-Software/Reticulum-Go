@@ -277,7 +277,7 @@ func TestExploratoryLinkRelayUnvalidatedExpiresUnderTraffic(t *testing.T) {
 	if _, ok := tr.linkTable.get(linkID); !ok {
 		t.Fatal("entry vanished before sweep")
 	}
-	removed := tr.linkTable.sweep(time.Duration(StaleTime) * time.Second)
+	_, removed := tr.linkTable.sweep(time.Duration(StaleTime) * time.Second)
 	if removed != 1 {
 		t.Fatalf("sweep removed %d, want 1 unvalidated timed-out entry", removed)
 	}
@@ -578,5 +578,143 @@ func TestExploratoryReverseProofForLocalClientWithoutTransport(t *testing.T) {
 	}
 	if got := client.snapshot(); len(got) != 1 {
 		t.Fatalf("local client got %d proofs want 1", len(got))
+	}
+}
+
+// TestExploratoryAPRoamingPathLifetime matches Python AP_PATH_TIME / ROAMING_PATH_TIME.
+func TestExploratoryAPRoamingPathLifetime(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{})
+	t.Cleanup(func() { _ = tr.Close() })
+
+	ap := newTrackingIface("ap")
+	ap.Mode = common.IFModeAccessPoint
+	roam := newTrackingIface("roam")
+	roam.Mode = common.IFModeRoaming
+	full := newTrackingIface("full")
+	_ = tr.RegisterInterface("ap", ap)
+	_ = tr.RegisterInterface("roam", roam)
+	_ = tr.RegisterInterface("full", full)
+
+	now := time.Now()
+	d1, d2, d3 := randomHash(t, 16), randomHash(t, 16), randomHash(t, 16)
+	tr.mutex.Lock()
+	tr.updatePathUnlocked(d1, []byte("n1"), "ap", 1, nil, nil, now)
+	tr.updatePathUnlocked(d2, []byte("n2"), "roam", 1, nil, nil, now)
+	tr.updatePathUnlocked(d3, []byte("n3"), "full", 1, nil, nil, now)
+	p1 := tr.paths[pathMapKey(d1)]
+	p2 := tr.paths[pathMapKey(d2)]
+	p3 := tr.paths[pathMapKey(d3)]
+	tr.mutex.Unlock()
+
+	if got := p1.Expires.Sub(now); got < APPathTime-time.Second || got > APPathTime+time.Second {
+		t.Fatalf("AP expires delta=%v want ~%v", got, APPathTime)
+	}
+	if got := p2.Expires.Sub(now); got < RoamingPathTime-time.Second || got > RoamingPathTime+time.Second {
+		t.Fatalf("Roaming expires delta=%v want ~%v", got, RoamingPathTime)
+	}
+	wantFull := time.Duration(PathfinderE) * time.Second
+	if got := p3.Expires.Sub(now); got < wantFull-time.Second || got > wantFull+time.Second {
+		t.Fatalf("Full expires delta=%v want ~%v", got, wantFull)
+	}
+}
+
+// TestExploratoryPacketHashFilterDropsDuplicateRelay ensures duplicate DATA is
+// not relayed twice (Python packet_hashlist).
+func TestExploratoryPacketHashFilterDropsDuplicateRelay(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	t.Cleanup(func() { _ = tr.Close() })
+	tr.SetIdentity(mustIdentity(t))
+
+	in := newRelayIface("in")
+	out := newRelayIface("out")
+	_ = tr.RegisterInterface("in", in)
+	_ = tr.RegisterInterface("out", out)
+
+	dest := bytes.Repeat([]byte{0x44}, 16)
+	nextHop := bytes.Repeat([]byte{0x55}, 16)
+	tr.UpdatePath(dest, nextHop, "out", 2)
+
+	raw := buildHT2Packet(tr.ourTransportID(), dest, 0, []byte("dup-payload"))
+	tr.HandlePacket(raw, in)
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && len(out.snapshot()) == 0 {
+		time.Sleep(10 * time.Millisecond)
+	}
+	first := len(out.snapshot())
+	if first == 0 {
+		t.Fatal("expected first relay")
+	}
+	tr.HandlePacket(append([]byte(nil), raw...), in)
+	time.Sleep(50 * time.Millisecond)
+	if got := len(out.snapshot()); got != first {
+		t.Fatalf("duplicate relayed: got %d sent want %d", got, first)
+	}
+}
+
+// TestExploratoryLinkExpiryMarksUnresponsiveAndRequestsPath covers minimal
+// Python link-table proof-timeout rediscovery.
+func TestExploratoryLinkExpiryMarksUnresponsiveAndRequestsPath(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	t.Cleanup(func() { _ = tr.Close() })
+
+	out := newRelayIface("out")
+	in := newRelayIface("in")
+	_ = tr.RegisterInterface("out", out)
+	_ = tr.RegisterInterface("in", in)
+
+	dest := bytes.Repeat([]byte{0x61}, 16)
+	tr.UpdatePath(dest, bytes.Repeat([]byte{0x62}, 16), "out", 1)
+
+	entry := &LinkRelayEntry{
+		NextHop:         bytes.Repeat([]byte{0x62}, 16),
+		NextHopIface:    out,
+		ReceivedIface:   in,
+		RemainingHops:   1,
+		TakenHops:       1,
+		DestinationHash: append([]byte(nil), dest...),
+		Validated:       false,
+		ProofTimeout:    time.Now().Add(-time.Second),
+		Timestamp:       time.Now(),
+	}
+	tr.handleUnvalidatedLinkExpiry(entry)
+	if !tr.PathIsUnresponsive(dest) {
+		t.Fatal("expected path marked unresponsive")
+	}
+	if len(out.snapshot()) == 0 && len(in.snapshot()) == 0 {
+		t.Fatal("expected path request emission after link expiry")
+	}
+}
+
+// TestExploratoryClampRelayedLinkRequestMTU clamps signalling to next-hop MTU.
+func TestExploratoryClampRelayedLinkRequestMTU(t *testing.T) {
+	recv := newRelayIface("recv")
+	out := newRelayIface("out")
+	recv.MTU = 1200
+	out.MTU = 500
+
+	flags := byte(0)
+	flags |= (packet.HeaderType1 << 6) & packet.HeaderMaskHeaderType
+	flags |= (packet.DestinationSingle << 2) & packet.HeaderMaskDestinationType
+	flags |= packet.PacketTypeLinkReq & packet.HeaderMaskPacketType
+	data := make([]byte, lrECPubSize+lrMTUSize)
+	copy(data[lrECPubSize:], signallingBytesMTU(1196, 1))
+	raw := make([]byte, 0, 2+16+1+len(data))
+	raw = append(raw, flags, 0)
+	raw = append(raw, bytes.Repeat([]byte{0x77}, 16)...)
+	raw = append(raw, packet.ContextNone)
+	raw = append(raw, data...)
+
+	pkt := &packet.Packet{Raw: raw}
+	if err := pkt.Unpack(); err != nil {
+		t.Fatal(err)
+	}
+	clamped := clampRelayedLinkRequestMTU(raw, pkt, recv, out)
+	if len(clamped) != len(raw) {
+		t.Fatalf("len=%d want %d", len(clamped), len(raw))
+	}
+	end := clamped[len(clamped)-lrMTUSize:]
+	gotMTU := (int(end[0]&0x1F) << 16) | (int(end[1]) << 8) | int(end[2])
+	if gotMTU != 500 {
+		t.Fatalf("clamped MTU=%d want 500", gotMTU)
 	}
 }

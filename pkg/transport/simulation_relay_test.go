@@ -4,10 +4,18 @@
 package transport
 
 import (
+	"encoding/binary"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
+
+func uniqueRelayPayload(seq uint64) []byte {
+	payload := make([]byte, 64)
+	binary.BigEndian.PutUint64(payload, seq)
+	return payload
+}
 
 func TestSimRelayDeliveryRatio(t *testing.T) {
 	skipSimIfShort(t)
@@ -25,10 +33,10 @@ func TestSimRelayDeliveryRatio(t *testing.T) {
 	tail := net.nodes[n-1].ifaces[0]
 	src := net.nodes[0].ifaces[0]
 	second := net.nodes[1].id.Hash()
-	pkt := buildHT2(second, target, 0, make([]byte, 64))
 
 	startRx := tail.GetRxPackets()
-	for range packets {
+	for i := range packets {
+		pkt := buildHT2(second, target, 0, uniqueRelayPayload(uint64(i)))
 		if err := src.Send(pkt, ""); err != nil {
 			t.Fatalf("send: %v", err)
 		}
@@ -50,7 +58,7 @@ func TestSimRelayDeliveryRatioConcurrent(t *testing.T) {
 	const workers = 4
 	const perWorker = 125
 	const total = workers * perWorker
-	const minDelivered = 396 // 99% of 400
+	const minDelivered = 396
 
 	net := buildLine(t, n)
 	t.Cleanup(net.close)
@@ -60,13 +68,14 @@ func TestSimRelayDeliveryRatioConcurrent(t *testing.T) {
 	tail := net.nodes[n-1].ifaces[0]
 	src := net.nodes[0].ifaces[0]
 	second := net.nodes[1].id.Hash()
-	pkt := buildHT2(second, target, 0, make([]byte, 64))
 	startRx := tail.GetRxPackets()
 
+	var seq atomic.Uint64
 	var wg sync.WaitGroup
 	for range workers {
 		wg.Go(func() {
 			for range perWorker {
+				pkt := buildHT2(second, target, 0, uniqueRelayPayload(seq.Add(1)))
 				_ = src.Send(pkt, "")
 			}
 		})
@@ -86,7 +95,7 @@ func TestSimRelayUnderLoss(t *testing.T) {
 
 	const hops = 5
 	const packets = 200
-	const minDelivered = 160 // 80%
+	const minDelivered = 160
 
 	n := hops + 1
 	net := newSimNetwork(t, n)
@@ -103,10 +112,10 @@ func TestSimRelayUnderLoss(t *testing.T) {
 	tail := net.nodes[n-1].ifaces[0]
 	src := net.nodes[0].ifaces[0]
 	second := net.nodes[1].id.Hash()
-	pkt := buildHT2(second, target, 0, make([]byte, 64))
 	startRx := tail.GetRxPackets()
 
-	for range packets {
+	for i := range packets {
+		pkt := buildHT2(second, target, 0, uniqueRelayPayload(uint64(i)))
 		_ = src.Send(pkt, "")
 	}
 

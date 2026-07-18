@@ -108,5 +108,6 @@ func (t *Transport) validateAndForwardLRProof(pkt *packet.Packet, iface common.N
 	if err := sendOnInterface(entry.ReceivedIface, out, ""); err != nil {
 		debug.Log(debug.DebugError, "Failed to transport LRPROOF", "error", err)
 	}
+	t.rememberPacketHashForced(pkt)
 	return true
 }

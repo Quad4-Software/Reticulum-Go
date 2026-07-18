@@ -79,11 +79,10 @@ func (lt *linkRelayTable) delete(linkID []byte) {
 	delete(lt.entries, hash16FromSlice(linkID))
 }
 
-func (lt *linkRelayTable) sweep(maxIdle time.Duration) int {
+func (lt *linkRelayTable) sweep(maxIdle time.Duration) (expiredUnvalidated []*LinkRelayEntry, removed int) {
 	lt.mu.Lock()
 	defer lt.mu.Unlock()
 	now := time.Now()
-	removed := 0
 	for k, e := range lt.entries {
 		if e == nil {
 			delete(lt.entries, k)
@@ -92,6 +91,7 @@ func (lt *linkRelayTable) sweep(maxIdle time.Duration) int {
 		}
 		if !e.Validated {
 			if now.After(e.ProofTimeout) {
+				expiredUnvalidated = append(expiredUnvalidated, e)
 				delete(lt.entries, k)
 				removed++
 			}
@@ -102,7 +102,7 @@ func (lt *linkRelayTable) sweep(maxIdle time.Duration) int {
 			removed++
 		}
 	}
-	return removed
+	return expiredUnvalidated, removed
 }
 
 func (lt *linkRelayTable) removeEntriesReferencing(iface common.NetworkInterface) {
@@ -305,6 +305,7 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 	}
 
 	if pkt.PacketType == packet.PacketTypeLinkReq {
+		out = clampRelayedLinkRequestMTU(out, pkt, sourceIface, path.Interface)
 		t.recordLinkRelay(pkt, out, sourceIface, path, int(newHops))
 	} else if pkt.PacketType != packet.PacketTypeAnnounce {
 		t.recordReverseEntry(pkt, sourceIface, path.Interface)

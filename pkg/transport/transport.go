@@ -116,6 +116,7 @@ type Transport struct {
 	probeDestination     *destination.Destination
 	linkTable            *linkRelayTable
 	reverseTable         *reverseTable
+	packetHashes         *packetHashList
 	lastPathRequest      map[[PathMapKeySize]byte]time.Time
 	ifaceStates          *ifaceStateTable
 	pendingDiscoveryPRs  []pendingDiscoveryPR
@@ -217,6 +218,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		pendingLocalPathReqs:  make(map[string]common.NetworkInterface),
 		linkTable:             newLinkRelayTable(),
 		reverseTable:          newReverseTable(),
+		packetHashes:          newPacketHashList(),
 		lastPathRequest:       make(map[[PathMapKeySize]byte]time.Time),
 		ifaceStates:           newIfaceStateTable(),
 		pendingDiscoveryPRs:   make([]pendingDiscoveryPR, 0, maxQueuedDiscoveryPRs),
@@ -311,7 +313,10 @@ func (t *Transport) startMaintenanceJobs() {
 				tab.SweepExpired()
 			}
 			if t.linkTable != nil {
-				t.linkTable.sweep(LinkTimeout)
+				expired, _ := t.linkTable.sweep(LinkTimeout)
+				for _, e := range expired {
+					t.handleUnvalidatedLinkExpiry(e)
+				}
 			}
 			if t.reverseTable != nil {
 				t.reverseTable.sweep(ReverseTimeout)
@@ -357,10 +362,8 @@ func (t *Transport) cleanupExpiredPaths() {
 	defer t.mutex.Unlock()
 
 	now := time.Now()
-	pathExpiry := time.Duration(PathfinderE) * time.Second
-
 	for destHash, path := range t.paths {
-		if pathExpired(path, now) || now.Sub(path.LastUpdated) > pathExpiry {
+		if pathExpired(path, now) {
 			delete(t.paths, destHash)
 			delete(t.pathStates, destHash)
 			if debug.Enabled(debug.DebugVerbose) {
@@ -1094,7 +1097,7 @@ func (t *Transport) updatePathUnlocked(destinationHash []byte, nextHop []byte, i
 	} else if len(randomBlob) == 10 {
 		blobs = appendRandomBlob(nil, randomBlob)
 	}
-	expires := now.Add(time.Duration(PathfinderE) * time.Second)
+	expires := now.Add(pathLifetimeFor(iface))
 	// Own NextHop bytes: HT1 announce parsing aliases destinationHash into the
 	// inbound buffer, and sync HandlePacket can reuse that buffer under load.
 	t.paths[key] = &common.Path{
@@ -1861,6 +1864,10 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 			health.Inc(iface.GetName(), health.KindUnpackFail)
 			return
 		}
+		if !t.packetFilter(pkt) {
+			return
+		}
+		t.maybeRememberPacketHash(pkt)
 
 		if t.forwardTransportPacket(pkt, data, iface) {
 			return
@@ -1906,6 +1913,10 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 		health.Inc(iface.GetName(), health.KindUnpackFail)
 		return
 	}
+	if !t.packetFilter(pkt) {
+		return
+	}
+	t.maybeRememberPacketHash(pkt)
 
 	linkID := pkt.DestinationHash
 	if len(linkID) > 16 {
@@ -1989,6 +2000,10 @@ func (t *Transport) handleTransportPacket(data []byte, iface common.NetworkInter
 		health.Inc(ifaceName, health.KindUnpackFail)
 		return
 	}
+	if !t.packetFilter(pkt) {
+		return
+	}
+	t.maybeRememberPacketHash(pkt)
 
 	headerByte := data[0]
 	packetType := headerByte & HeaderPacketTypeMask
@@ -2732,6 +2747,10 @@ func (t *Transport) handleProofPacket(pkt *packet.Packet, iface common.NetworkIn
 	if debug.Enabled(debug.DebugPackets) {
 		debug.Log(debug.DebugPackets, "Processing proof packet", "size", len(pkt.Data), "context", fmt.Sprintf("0x%02x", pkt.Context))
 	}
+	if !t.packetFilter(pkt) {
+		return
+	}
+	t.maybeRememberPacketHash(pkt)
 
 	if pkt.Context == packet.ContextLRProof {
 		linkID := pkt.DestinationHash

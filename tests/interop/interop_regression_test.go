@@ -149,3 +149,41 @@ func TestCLIInteropHelpersAlwaysRebuildBins(t *testing.T) {
 		t.Fatal("rgocp live test must always go build before use")
 	}
 }
+
+// TestTransportParityConstantsMatchPython locks safe deferred parity values
+// against Python RNS Transport.py (AP/Roaming TTL, hashlist size, link timeout).
+func TestTransportParityConstantsMatchPython(t *testing.T) {
+	root := repoRoot(t)
+	constPath := filepath.Join(root, "pkg", "transport", "constants.go")
+	body, err := os.ReadFile(constPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	needles := []string{
+		"APPathTime = 24 * time.Hour",
+		"RoamingPathTime = 6 * time.Hour",
+		"HashlistMaxSize = 1_000_000",
+		"LinkTimeout = time.Duration(StaleTime*5/4) * time.Second",
+	}
+	for _, n := range needles {
+		if !bytes.Contains(body, []byte(n)) {
+			t.Fatalf("%s missing %q", constPath, n)
+		}
+	}
+	lifetimePath := filepath.Join(root, "pkg", "transport", "path_lifetime.go")
+	if _, err := os.Stat(lifetimePath); err != nil {
+		t.Fatal("missing path_lifetime.go for AP/Roaming TTL")
+	}
+	hashPath := filepath.Join(root, "pkg", "transport", "packet_hashlist.go")
+	if _, err := os.Stat(hashPath); err != nil {
+		t.Fatal("missing packet_hashlist.go for duplicate filter")
+	}
+	mtuPath := filepath.Join(root, "pkg", "transport", "lr_mtu.go")
+	if _, err := os.Stat(mtuPath); err != nil {
+		t.Fatal("missing lr_mtu.go for relayed LR MTU clamp")
+	}
+	expiryPath := filepath.Join(root, "pkg", "transport", "link_expiry.go")
+	if _, err := os.Stat(expiryPath); err != nil {
+		t.Fatal("missing link_expiry.go for link proof-timeout rediscovery")
+	}
+}
