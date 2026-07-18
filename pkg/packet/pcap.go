@@ -145,7 +145,7 @@ func extractUDPv4(frame []byte, linkType uint32) (payload []byte, sport, dport u
 	if ulen < 8 || len(udp) < ulen {
 		ulen = len(udp)
 	}
-	return append([]byte(nil), udp[8:ulen]...), sport, dport, true
+	return append([]byte{}, udp[8:ulen]...), sport, dport, true
 }
 
 // WritePCAPEthernetUDPv4 writes a minimal little-endian pcap with one Ethernet/IPv4/UDP packet.
