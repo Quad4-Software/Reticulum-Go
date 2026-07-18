@@ -20,8 +20,8 @@ import (
 )
 
 // requestResponseTimeout bounds how long a request.incoming bridge blocks
-// waiting for the application's request.respond command.
-const requestResponseTimeout = 30 * time.Second
+// waiting for the application's request.respond command. Tests may shorten it.
+var requestResponseTimeout = 30 * time.Second
 
 func (s *Server) handleRegisterDestination(w http.ResponseWriter, r *http.Request) {
 	sess, ok := s.session(r.PathValue("id"))
@@ -31,7 +31,10 @@ func (s *Server) handleRegisterDestination(w http.ResponseWriter, r *http.Reques
 	}
 
 	var req registerDestinationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(w, r, &req); err != nil {
+		if isBodyTooLarge(err) {
+			return
+		}
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -76,7 +79,10 @@ func (s *Server) handleRegisterRequestHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	var req registerRequestHandlerRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(w, r, &req); err != nil {
+		if isBodyTooLarge(err) {
+			return
+		}
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -149,7 +155,13 @@ func wireRequestHandler(sess *session, dest *destination.Destination, destHashHe
 		case resp := <-ch:
 			return resp
 		case <-time.After(requestResponseTimeout):
-			sess.forgetResponse(requestIDHex)
+			// Ownership protocol: whoever removes the map entry owns the
+			// outcome. If deliverResponse already took it, wait for the
+			// buffered send instead of returning nil while the WS client
+			// was told the respond succeeded.
+			if !sess.forgetResponse(requestIDHex) {
+				return <-ch
+			}
 			debug.Log(debug.DebugError, "controlapi: request.respond timed out", "path", p, "request_id", requestIDHex)
 			return nil
 		}
@@ -220,7 +232,10 @@ func (s *Server) handleAnnounce(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req announceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+	if err := decodeJSONBody(w, r, &req); err != nil && !errors.Is(err, io.EOF) {
+		if isBodyTooLarge(err) {
+			return
+		}
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}

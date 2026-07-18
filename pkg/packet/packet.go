@@ -132,6 +132,18 @@ func (p *Packet) Pack() error {
 
 	debug.Log(debug.DebugPackets, "Packing packet", "type", p.PacketType, "header", p.HeaderType)
 
+	if n := len(p.DestinationHash); n != 0 && n != TruncatedHashLength {
+		return fmt.Errorf("destination hash must be %d bytes, got %d", TruncatedHashLength, n)
+	}
+	if p.HeaderType == HeaderType2 {
+		if p.TransportID == nil {
+			return errors.New("transport ID required for header type 2")
+		}
+		if len(p.TransportID) != TruncatedHashLength {
+			return fmt.Errorf("transport ID must be %d bytes, got %d", TruncatedHashLength, len(p.TransportID))
+		}
+	}
+
 	flags := byte(0)
 	flags |= (p.HeaderType << 6) & HeaderMaskHeaderType
 	flags |= (p.ContextFlag << 5) & HeaderMaskContextFlag
@@ -145,9 +157,6 @@ func (p *Packet) Pack() error {
 
 	need := 2 + len(p.DestinationHash) + 1 + len(p.Data)
 	if p.HeaderType == HeaderType2 {
-		if p.TransportID == nil {
-			return errors.New("transport ID required for header type 2")
-		}
 		need += len(p.TransportID)
 		if debug.GetDebugLevel() >= debug.DebugAll {
 			debug.Log(debug.DebugAll, "Added transport ID to header", "transport_id", fmt.Sprintf("%x", p.TransportID))

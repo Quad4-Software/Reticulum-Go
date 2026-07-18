@@ -67,7 +67,9 @@ func (d *hdlcStreamDecoder) dropPartial() bool {
 func (d *hdlcStreamDecoder) feedByte(b byte) {
 	if b == HDLCFlag {
 		if d.inFrame && len(d.data) > 0 {
-			if d.onFrame != nil {
+			// maxFrame allows escaped assembly headroom; delivered payload
+			// must still fit the interface MTU (matching KISS).
+			if d.onFrame != nil && (d.mtu <= 0 || len(d.data) <= d.mtu) {
 				d.onFrame(d.data)
 			}
 		}
@@ -91,7 +93,11 @@ func (d *hdlcStreamDecoder) feedByte(b byte) {
 		b ^= HDLCEscMask
 		d.escape = false
 	}
-	if len(d.data) >= d.maxFrame {
+	limit := d.maxFrame
+	if d.mtu > 0 && d.mtu < limit {
+		limit = d.mtu
+	}
+	if len(d.data) >= limit {
 		d.data = d.data[:0]
 		d.inFrame = false
 		d.escape = false

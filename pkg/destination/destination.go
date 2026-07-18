@@ -617,6 +617,23 @@ func (d *Destination) HandleRequest(path string, data []byte, requestID []byte, 
 		return []byte(">Not Found\n\nThe requested resource was not found.")
 	}
 
+	allowed := false
+	if handler.AllowMode == AllowAll {
+		allowed = true
+	} else if handler.AllowMode == AllowList && remoteIdentity != nil {
+		remoteHash := remoteIdentity.Hash()
+		for _, allowedHash := range handler.AllowedList {
+			if string(remoteHash) == string(allowedHash) {
+				allowed = true
+				break
+			}
+		}
+	}
+	if !allowed {
+		debug.Log(debug.DebugInfo, "Request denied by allow mode", "path", path)
+		return []byte(">Not Found\n\nThe requested resource was not found.")
+	}
+
 	debug.Log(debug.DebugVerbose, "Calling request handler", "path", path)
 	result := handler.ResponseGenerator(path, data, requestID, linkID, remoteIdentity, requestedAt)
 	if result == nil {

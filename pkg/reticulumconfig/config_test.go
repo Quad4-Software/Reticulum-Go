@@ -37,18 +37,28 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 // TestParseBool covers every truthy and falsy spelling accepted by the parser.
+// Unrecognized values must not apply (ok=false) so defaults stay intact.
 func TestParseBool(t *testing.T) {
 	truthy := []string{"true", "True", "TRUE", "yes", "Yes", "YES", "y", "Y", "on", "ON", "1", "  yes  "}
-	falsy := []string{"false", "no", "n", "off", "0", "", "maybe", "2", "garbage"}
+	falsy := []string{"false", "no", "n", "off", "0"}
+	unknown := []string{"", "maybe", "2", "garbage", "yeah", "enable"}
 
 	for _, v := range truthy {
-		if !parseBool(v) {
-			t.Errorf("parseBool(%q) = false, want true", v)
+		got, ok := parseBool(v)
+		if !ok || !got {
+			t.Errorf("parseBool(%q) = %v,%v want true,true", v, got, ok)
 		}
 	}
 	for _, v := range falsy {
-		if parseBool(v) {
-			t.Errorf("parseBool(%q) = true, want false", v)
+		got, ok := parseBool(v)
+		if !ok || got {
+			t.Errorf("parseBool(%q) = %v,%v want false,true", v, got, ok)
+		}
+	}
+	for _, v := range unknown {
+		got, ok := parseBool(v)
+		if ok {
+			t.Errorf("parseBool(%q) = %v,%v want ok=false", v, got, ok)
 		}
 	}
 }

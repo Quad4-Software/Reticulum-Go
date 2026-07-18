@@ -118,12 +118,16 @@ func (s *session) deliverResponse(requestIDHex string, data any) bool {
 	return true
 }
 
-// forgetResponse removes requestIDHex's waiter without delivering data,
-// used once awaitResponse's own timeout fires.
-func (s *session) forgetResponse(requestIDHex string) {
+// forgetResponse removes requestIDHex's waiter without delivering data.
+// It returns true when this call removed the entry (caller owns the timeout).
+func (s *session) forgetResponse(requestIDHex string) bool {
 	s.pendingMu.Lock()
-	delete(s.pendingRequests, requestIDHex)
-	s.pendingMu.Unlock()
+	defer s.pendingMu.Unlock()
+	_, ok := s.pendingRequests[requestIDHex]
+	if ok {
+		delete(s.pendingRequests, requestIDHex)
+	}
+	return ok
 }
 
 func (s *session) addClient(c *wsClient) bool {

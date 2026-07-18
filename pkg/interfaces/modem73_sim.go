@@ -537,7 +537,7 @@ func (s *Modem73Simulator) csmaWait(airtimeS float64) {
 	// p-persistence slot backoff
 	slots := max(s.cfg.CSMACW, 2)
 	p := float64(s.cfg.PPersistence) / 255.0
-	for i := 0; i < slots; i++ {
+	for range slots {
 		if s.ch.randFloat() < p {
 			break
 		}

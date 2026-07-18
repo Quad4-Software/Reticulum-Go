@@ -5,6 +5,8 @@ package controlapi
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 )
 
@@ -302,4 +304,34 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, errorResponse{Error: message})
+}
+
+// maxHTTPBodyBytes caps JSON request bodies on the control API HTTP surface.
+// Matches the WebSocket inbound frame cap so HTTP cannot be used as a larger
+// memory bomb than the event channel.
+const maxHTTPBodyBytes = 1 << 20
+
+// decodeJSONBody reads at most maxHTTPBodyBytes from r into dst.
+// Oversized bodies yield StatusRequestEntityTooLarge.
+func decodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) error {
+	if r.Body == nil {
+		return io.EOF
+	}
+	body := http.MaxBytesReader(w, r.Body, maxHTTPBodyBytes)
+	defer body.Close()
+	dec := json.NewDecoder(body)
+	if err := dec.Decode(dst); err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			writeError(w, http.StatusRequestEntityTooLarge, "request body too large")
+			return err
+		}
+		return err
+	}
+	return nil
+}
+
+func isBodyTooLarge(err error) bool {
+	var maxErr *http.MaxBytesError
+	return errors.As(err, &maxErr)
 }

@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -232,8 +231,10 @@ func (s *Server) handlePaths(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 	var req createSessionRequest
 	if r.Body != nil {
-		defer r.Body.Close()
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+		if err := decodeJSONBody(w, r, &req); err != nil && !errors.Is(err, io.EOF) {
+			if isBodyTooLarge(err) {
+				return
+			}
 			writeError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
@@ -306,7 +307,10 @@ func (s *Server) handlePathRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req pathRequestRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(w, r, &req); err != nil {
+		if isBodyTooLarge(err) {
+			return
+		}
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}

@@ -83,15 +83,28 @@ func EnsureConfigDir() error {
 	return os.MkdirAll(filepath.Join(homeDir, DefaultConfigDirName), 0o700) // #nosec G301
 }
 
-// parseBool accepts yes/no/true/false/on/off/1/0, case-insensitive. Anything
-// else evaluates to false.
-func parseBool(value string) bool {
+// parseBool accepts yes/no/true/false/on/off/1/0, case-insensitive.
+// Unrecognized spellings return ok=false so callers keep their defaults
+// instead of silently treating typos as false (which disabled sandbox/seccomp).
+func parseBool(value string) (bool, bool) {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "true", "yes", "y", "on", "1":
-		return true
+		return true, true
+	case "false", "no", "n", "off", "0":
+		return false, true
 	default:
-		return false
+		return false, false
 	}
+}
+
+// setBool assigns *dst when value is a recognized boolean spelling.
+// It reports whether the value was applied.
+func setBool(dst *bool, value string) bool {
+	v, ok := parseBool(value)
+	if ok {
+		*dst = v
+	}
+	return ok
 }
 
 // sectionFrame is one entry in the parser's section stack.
@@ -258,9 +271,9 @@ func LoadConfig(path string) (*common.ReticulumConfig, error) {
 func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 	switch strings.ToLower(key) {
 	case "enable_transport":
-		cfg.EnableTransport = parseBool(value)
+		setBool(&cfg.EnableTransport, value)
 	case "share_instance":
-		cfg.ShareInstance = parseBool(value)
+		setBool(&cfg.ShareInstance, value)
 	case "shared_instance_port":
 		setInt(value, &cfg.SharedInstancePort)
 	case "instance_control_port":
@@ -277,25 +290,25 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 			cfg.RPCKey = b
 		}
 	case "panic_on_interface_error":
-		cfg.PanicOnInterfaceErr = parseBool(value)
+		setBool(&cfg.PanicOnInterfaceErr, value)
 	case "loglevel":
 		setInt(value, &cfg.LogLevel)
 	case "enable_sandbox":
-		cfg.EnableSandbox = parseBool(value)
+		setBool(&cfg.EnableSandbox, value)
 	case "enable_seccomp":
-		cfg.EnableSeccomp = parseBool(value)
+		setBool(&cfg.EnableSeccomp, value)
 	case "enable_control_api":
-		cfg.EnableControlAPI = parseBool(value)
+		setBool(&cfg.EnableControlAPI, value)
 	case "control_api_host":
 		cfg.ControlAPIHost = value
 	case "control_api_port":
 		setInt(value, &cfg.ControlAPIPort)
 	case "in_memory_path_table":
-		cfg.InMemoryPathTable = parseBool(value)
+		setBool(&cfg.InMemoryPathTable, value)
 	case "in_memory_known_destinations":
-		cfg.InMemoryKnownDestinations = parseBool(value)
+		setBool(&cfg.InMemoryKnownDestinations, value)
 	case "in_memory_storage":
-		cfg.InMemoryStorage = parseBool(value)
+		setBool(&cfg.InMemoryStorage, value)
 	case "identity_backend":
 		cfg.IdentityBackend = strings.TrimSpace(value)
 	case "soft_memory_limit":
@@ -311,17 +324,17 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 			cfg.MaxInMemoryResourceBytes = n
 		}
 	case "discover_interfaces":
-		cfg.DiscoverInterfaces = parseBool(value)
+		setBool(&cfg.DiscoverInterfaces, value)
 	case "watch_interfaces":
-		cfg.WatchInterfaces = parseBool(value)
+		setBool(&cfg.WatchInterfaces, value)
 	case "backbone_io", "io_backend":
 		cfg.BackboneIO = strings.TrimSpace(value)
 	case "static_transport_identity":
-		cfg.StaticTransportIdentity = parseBool(value)
+		setBool(&cfg.StaticTransportIdentity, value)
 	case "local_hops_delta":
-		cfg.LocalHopsDelta = parseBool(value)
+		setBool(&cfg.LocalHopsDelta, value)
 	case "respond_to_probes", "allow_probes":
-		cfg.RespondToProbes = parseBool(value)
+		setBool(&cfg.RespondToProbes, value)
 	case "network_identity":
 		cfg.NetworkIdentityPath = strings.TrimSpace(value)
 	}
@@ -348,7 +361,7 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 	case "type":
 		iface.Type = value
 	case "interface_enabled", "enabled":
-		iface.Enabled = parseBool(value)
+		setBool(&iface.Enabled, value)
 	case "address", "listen_ip":
 		iface.Address = value
 	case "port", "listen_port":
@@ -369,11 +382,11 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 	case "stopbits":
 		setInt(value, &iface.StopBits)
 	case "rtscts":
-		iface.RTSCTS = parseBool(value)
+		setBool(&iface.RTSCTS, value)
 	case "dsrdtr":
-		iface.DSRDTR = parseBool(value)
+		setBool(&iface.DSRDTR, value)
 	case "xonxoff":
-		iface.XONXOFF = parseBool(value)
+		setBool(&iface.XONXOFF, value)
 	case "frame_idle_ms":
 		setInt(value, &iface.SerialFrameIdleMs)
 	case "path":
@@ -401,17 +414,17 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 	case "interface":
 		iface.Interface = value
 	case "kiss_framing":
-		iface.KISSFraming = parseBool(value)
+		setBool(&iface.KISSFraming, value)
 	case "i2p_tunneled":
-		iface.I2PTunneled = parseBool(value)
+		setBool(&iface.I2PTunneled, value)
 	case "peers":
 		iface.I2PPeers = parseStringList(value)
 	case "connectable":
-		iface.I2PConnectable = parseBool(value)
+		setBool(&iface.I2PConnectable, value)
 	case "sam_address":
 		iface.I2PSAMAddress = value
 	case "prefer_ipv6":
-		iface.PreferIPv6 = parseBool(value)
+		setBool(&iface.PreferIPv6, value)
 	case "max_reconnect_tries":
 		setInt(value, &iface.MaxReconnTries)
 	case "bitrate":
@@ -441,8 +454,9 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 	case "announce_rate_penalty":
 		setFloat(value, &iface.AnnounceRatePenalty)
 	case "ingress_control":
-		iface.IngressControl = parseBool(value)
-		iface.IngressControlSet = true
+		if setBool(&iface.IngressControl, value) {
+			iface.IngressControlSet = true
+		}
 	case "ic_new_time":
 		setInt(value, &iface.ICNewTime)
 	case "ic_burst_freq_new":
@@ -468,7 +482,7 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 	case "ifac_size":
 		setIFACSize(value, &iface.IFACSize)
 	case "publish_ifac":
-		iface.PublishIFAC = parseBool(value)
+		setBool(&iface.PublishIFAC, value)
 	case "command":
 		iface.Command = value
 	case "respawn_delay", "respawn_interval":
@@ -488,15 +502,17 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 	case "mode", "interface_mode":
 		iface.Mode = strings.ToLower(strings.TrimSpace(value))
 	case "recursive_prs":
-		iface.RecursivePRs = parseBool(value)
+		setBool(&iface.RecursivePRs, value)
 	case "announces_from_internal":
-		iface.AnnouncesFromInternal = parseBool(value)
-		iface.AnnouncesFromInternalSet = true
+		if setBool(&iface.AnnouncesFromInternal, value) {
+			iface.AnnouncesFromInternalSet = true
+		}
 	case "outgoing", "selected_outgoing":
-		iface.Outgoing = parseBool(value)
-		iface.OutgoingSet = true
+		if setBool(&iface.Outgoing, value) {
+			iface.OutgoingSet = true
+		}
 	case "discoverable":
-		iface.Discoverable = parseBool(value)
+		setBool(&iface.Discoverable, value)
 	case "discovery_name":
 		iface.DiscoveryName = value
 	case "reachable_on":
@@ -514,7 +530,7 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 	case "discovery_stamp_value":
 		setInt(value, &iface.DiscoveryStampValue)
 	case "discovery_encrypt":
-		iface.DiscoveryEncrypt = parseBool(value)
+		setBool(&iface.DiscoveryEncrypt, value)
 	case "location_cmd":
 		iface.DiscoveryLocationCmd = value
 	case "latitude":
@@ -533,22 +549,25 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 	case "mtu_overhead":
 		setInt(value, &iface.MTUOverhead)
 	case "auto_fragmentation":
-		iface.AutoFragmentation = parseBool(value)
-		iface.AutoFragSet = true
+		if setBool(&iface.AutoFragmentation, value) {
+			iface.AutoFragSet = true
+		}
 	case "short_frames":
 		iface.ShortFrames = strings.ToLower(strings.TrimSpace(value))
 	case "short_mtu":
 		setInt(value, &iface.ShortMTU)
 	case "handshake_x2":
-		iface.HandshakeX2 = parseBool(value)
+		setBool(&iface.HandshakeX2, value)
 	case "proof_x2":
-		iface.ProofX2 = parseBool(value)
+		setBool(&iface.ProofX2, value)
 	case "auto_bitrate":
-		iface.AutoBitrate = parseBool(value)
-		iface.AutoBitrateSet = true
+		if setBool(&iface.AutoBitrate, value) {
+			iface.AutoBitrateSet = true
+		}
 	case "csma_overhead":
-		iface.CSMAOverhead = parseBool(value)
-		iface.CSMAOverheadSet = true
+		if setBool(&iface.CSMAOverhead, value) {
+			iface.CSMAOverheadSet = true
+		}
 	case "timeout_margin":
 		setFloat(value, &iface.TimeoutMargin)
 	case "frequency", "frequency_hz":

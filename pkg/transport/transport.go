@@ -1058,8 +1058,10 @@ func (t *Transport) updatePathUnlocked(destinationHash []byte, nextHop []byte, i
 		blobs = appendRandomBlob(nil, randomBlob)
 	}
 	expires := now.Add(pathfinderE * time.Second)
+	// Own NextHop bytes: HT1 announce parsing aliases destinationHash into the
+	// inbound buffer, and sync HandlePacket can reuse that buffer under load.
 	t.paths[key] = &common.Path{
-		NextHop:     nextHop,
+		NextHop:     append([]byte(nil), nextHop...),
 		Interface:   iface,
 		Hops:        hops,
 		HopCount:    hops,
@@ -1110,91 +1112,10 @@ func (t *Transport) UpdatePath(destinationHash []byte, nextHop []byte, interface
 }
 
 func (t *Transport) HandleAnnounce(data []byte, sourceIface common.NetworkInterface) error {
-	if len(data) < MinAnnouncePacketSize {
-		return fmt.Errorf("announce packet too small: %d bytes", len(data))
-	}
-
-	debug.Log(debug.DebugAll, "Transport handling announce", "bytes", len(data), "source", sourceIface.GetName())
-
-	destHash := data[1 : 32+1]
-	identity := data[32+1 : 16+32+1]
-	appData := data[16+32+1:]
-
-	if tab := t.BlackholeTable(); tab != nil {
-		identityHash := sha256.Sum256(identity)
-		if tab.Has(identityHash[:blackhole.HashLen]) {
-			if debug.Enabled(debug.DebugAll) {
-				debug.Log(debug.DebugAll, "Dropping announce: identity blackholed",
-					"dest_hash", fmt.Sprintf("%x", destHash[:8]))
-			}
-			ifaceName := ""
-			if sourceIface != nil {
-				ifaceName = sourceIface.GetName()
-			}
-			health.Inc(ifaceName, health.KindBlackholeHit)
-			return nil
-		}
-	}
-
-	hashData := data[2:]
-	announceHash := sha256.Sum256(hashData)
-	hashStr := string(announceHash[:])
-
-	t.mutex.Lock()
-	if last, ok := t.seenAnnounces[hashStr]; ok {
-		if time.Since(last) < SeenAnnounceTTL {
-			t.mutex.Unlock()
-			if debug.Enabled(debug.DebugAll) {
-				debug.Log(debug.DebugAll, "Ignoring duplicate announce", "hash", fmt.Sprintf("%x", announceHash[:8]))
-			}
-			ifaceName := ""
-			if sourceIface != nil {
-				ifaceName = sourceIface.GetName()
-			}
-			health.Inc(ifaceName, health.KindAnnounceDup)
-			return nil
-		}
-	}
-	t.seenAnnounces[hashStr] = time.Now()
-	t.mutex.Unlock()
-
-	if data[0] >= MaxHops {
-		debug.Log(debug.DebugAll, "Announce exceeded max hops", "hops", data[0])
-		return nil
-	}
-
-	if !t.transportEnabled() {
-		debug.Log(debug.DebugVerbose, "Not relaying announce (HandleAnnounce): transport disabled")
-		return nil
-	}
-
-	if !t.announceRateAllow() {
-		debug.Log(debug.DebugAll, "Announce rate limit exceeded, queuing")
-		return nil
-	}
-
-	fwd := append([]byte(nil), data...)
-	fwd[0]++
-	hops := fwd[0]
-	destHashCopy := append([]byte(nil), destHash...)
-	t.scheduleAnnounceForwardJob(func() {
-		for _, e := range t.snapshotRegisteredInterfaces() {
-			iface := e.iface
-			if iface == sourceIface || !iface.IsEnabled() {
-				continue
-			}
-			if !iface.GetBandwidthAvailable() {
-				continue
-			}
-			if !t.shouldForwardAnnounceOn(destHashCopy, iface, sourceIface) {
-				continue
-			}
-			_ = sendOnInterface(iface, fwd, "")
-		}
-	})
-
-	t.notifyAnnounceHandlers(destHashCopy, identity, appData, hops)
-	return nil
+	// Delegate to the verified announce path. The old implementation
+	// incremented data[0] (header flags) as if it were the hop byte and
+	// rebroadcast without signature checks.
+	return t.handleAnnouncePacket(data, sourceIface)
 }
 
 func (t *Transport) NewDestination(identity any, direction int, destType int, appName string, aspects ...string) *Destination {
@@ -1415,7 +1336,10 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 			dispatch(dataCopy)
 		}()
 	default:
-		dispatch(data)
+		// Always copy: callers (UDP/Auto) may reuse the buffer after return.
+		dataCopy := make([]byte, len(data))
+		copy(dataCopy, data)
+		dispatch(dataCopy)
 	}
 }
 
@@ -1960,21 +1884,12 @@ func (t *Transport) handleIncomingLinkRequest(pkt *packet.Packet, destIface regi
 }
 
 func (t *Transport) handlePathResponse(data []byte, iface common.NetworkInterface) {
-	if len(data) < MinPathResponseSize {
-		return
-	}
-
-	destHash := data[:DoubleAddrSize]
-	hops := data[DoubleAddrSize]
-	var nextHop []byte
-
-	if len(data) > MinPathResponseSize {
-		nextHop = data[MinPathResponseSize:]
-	}
-
-	if iface != nil {
-		t.UpdatePath(destHash, nextHop, iface.GetName(), hops)
-	}
+	// PATH_RESPONSE is an announce context (signed, verified in
+	// handleAnnouncePacket). Unsigned Plain DATA with that context must not
+	// mutate the path table (path poisoning).
+	_ = data
+	_ = iface
+	debug.Log(debug.DebugInfo, "Ignoring unsigned DATA PATH_RESPONSE (paths come from verified announces only)")
 }
 
 func (t *Transport) handleTransportPacket(data []byte, iface common.NetworkInterface) {
@@ -2107,8 +2022,13 @@ func (t *Transport) handlePathRequest(data []byte, iface common.NetworkInterface
 		return
 	}
 	t.discoveryPRTags[tagStr] = true
-	if len(t.discoveryPRTags) > DiscoveryPRTagsCap {
-		t.discoveryPRTags = make(map[string]bool)
+	// Evict one arbitrary entry when over cap. Replacing the whole map
+	// used to clear every tag at once and reopen the door to PR replay storms.
+	for len(t.discoveryPRTags) > DiscoveryPRTagsCap {
+		for k := range t.discoveryPRTags {
+			delete(t.discoveryPRTags, k)
+			break
+		}
 	}
 	t.mutex.Unlock()
 
