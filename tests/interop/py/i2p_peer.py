@@ -22,6 +22,7 @@ import RNS
 
 
 def write_config(cfg_dir: str, mode: str, peer: str) -> None:
+    os.makedirs(cfg_dir, exist_ok=True)
     lines = [
         "[reticulum]",
         "enable_transport = false",
@@ -68,6 +69,10 @@ def main() -> int:
         cfg_dir = tempfile.mkdtemp(prefix="rns_i2p_")
     write_config(cfg_dir, mode, peer)
 
+    log_path = os.path.join(cfg_dir, "rns.log")
+    RNS.loglevel = 4
+    RNS.logdest = RNS.LOG_FILE
+    RNS.logfile = log_path
     RNS.Reticulum(cfg_dir)
     deadline = time.time() + float(os.environ.get("INTEROP_I2P_TIMEOUT", "180"))
 

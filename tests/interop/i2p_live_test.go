@@ -33,6 +33,37 @@ func liveI2PInteropOrSkip(t *testing.T) {
 	_ = conn.Close()
 }
 
+// waitStdoutToken reads lines until one equals token or has the prefix (when
+// token ends with "="), skipping RNS log noise on stdout.
+func waitStdoutToken(ctx context.Context, br *bufio.Reader, token string, d time.Duration) (string, error) {
+	deadline := time.Now().Add(d)
+	prefix := strings.HasSuffix(token, "=")
+	for time.Now().Before(deadline) {
+		remain := time.Until(deadline)
+		if remain <= 0 {
+			break
+		}
+		line, err := readLineTimeout(ctx, br, remain)
+		if err != nil {
+			return "", err
+		}
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if prefix {
+			if strings.HasPrefix(line, token) {
+				return line, nil
+			}
+			continue
+		}
+		if line == token {
+			return line, nil
+		}
+	}
+	return "", context.DeadlineExceeded
+}
+
 func TestLiveInteropI2PGoServerPythonClient(t *testing.T) {
 	liveI2PInteropOrSkip(t)
 	dir := t.TempDir()
@@ -66,12 +97,16 @@ func TestLiveInteropI2PGoServerPythonClient(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer cancel()
+	pyCfg := filepath.Join(dir, "py_client")
+	if err := os.MkdirAll(pyCfg, 0o750); err != nil {
+		t.Fatal(err)
+	}
 	script := pyScript(t, "i2p_peer.py")
 	cmd := exec.CommandContext(ctx, pythonExe(), script)
 	cmd.Env = append(os.Environ(),
 		"INTEROP_I2P_MODE=client",
 		"INTEROP_I2P_PEER="+peerDest,
-		"INTEROP_CONFIG_DIR="+filepath.Join(dir, "py_client"),
+		"INTEROP_CONFIG_DIR="+pyCfg,
 		"INTEROP_I2P_TIMEOUT=180",
 	)
 	out, err := cmd.StdoutPipe()
@@ -88,11 +123,11 @@ func TestLiveInteropI2PGoServerPythonClient(t *testing.T) {
 	}()
 
 	br := bufio.NewReader(out)
-	line, err := readLineTimeout(ctx, br, 3*time.Minute)
+	line, err := waitStdoutToken(ctx, br, "ONLINE", 3*time.Minute)
 	if err != nil {
 		t.Fatalf("waiting for Python ONLINE: %v", err)
 	}
-	if strings.TrimSpace(line) != "ONLINE" {
+	if line != "ONLINE" {
 		t.Fatalf("expected ONLINE got %q", line)
 	}
 
@@ -111,11 +146,15 @@ func TestLiveInteropI2PPythonServerGoClient(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
+	pyCfg := filepath.Join(dir, "py_server")
+	if err := os.MkdirAll(pyCfg, 0o750); err != nil {
+		t.Fatal(err)
+	}
 	script := pyScript(t, "i2p_peer.py")
 	cmd := exec.CommandContext(ctx, pythonExe(), script)
 	cmd.Env = append(os.Environ(),
 		"INTEROP_I2P_MODE=server",
-		"INTEROP_CONFIG_DIR="+filepath.Join(dir, "py_server"),
+		"INTEROP_CONFIG_DIR="+pyCfg,
 		"INTEROP_I2P_TIMEOUT=180",
 	)
 	out, err := cmd.StdoutPipe()
@@ -132,11 +171,10 @@ func TestLiveInteropI2PPythonServerGoClient(t *testing.T) {
 	}()
 
 	br := bufio.NewReader(out)
-	line, err := readLineTimeout(ctx, br, 3*time.Minute)
+	line, err := waitStdoutToken(ctx, br, "B32=", 3*time.Minute)
 	if err != nil {
 		t.Fatalf("waiting for Python B32: %v", err)
 	}
-	line = strings.TrimSpace(line)
 	if !strings.HasPrefix(line, "B32=") {
 		t.Fatalf("expected B32= got %q", line)
 	}

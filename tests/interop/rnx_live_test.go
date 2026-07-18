@@ -54,12 +54,10 @@ func writeUDPPeerConfig(t *testing.T, dir string, listen, peerPort int) {
 func ensureRgox(t *testing.T) string {
 	t.Helper()
 	bin := filepath.Join(repoRoot(t), "bin", "rgox")
-	if _, err := os.Stat(bin); err != nil {
-		cmd := exec.Command("go", "build", "-o", bin, "./cmd/rgox")
-		cmd.Dir = repoRoot(t)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("build rgox: %v\n%s", err, out)
-		}
+	cmd := exec.Command("go", "build", "-o", bin, "./cmd/rgox")
+	cmd.Dir = repoRoot(t)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("build rgox: %v\n%s", err, out)
 	}
 	return bin
 }

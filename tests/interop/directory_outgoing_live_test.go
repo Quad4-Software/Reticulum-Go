@@ -9,6 +9,7 @@ package interop
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -170,8 +171,12 @@ func TestLiveDirectoryOutgoingPolicy(t *testing.T) {
 	txPktsBefore := iface.GetTxPackets()
 	rxBefore := iface.GetRxBytes()
 
-	if err := dest.Announce(false, nil, nil); err != nil {
-		t.Fatalf("Announce on receive-only: %v", err)
+	err = dest.Announce(false, nil, nil)
+	if err == nil {
+		t.Fatal("Announce on receive-only should fail with no writable interfaces")
+	}
+	if !errors.Is(err, common.ErrDestAnnounceNoWritable) {
+		t.Fatalf("Announce on receive-only: got %v, want ErrDestAnnounceNoWritable", err)
 	}
 	time.Sleep(2 * time.Second)
 

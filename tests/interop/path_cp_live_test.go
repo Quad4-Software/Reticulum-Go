@@ -356,12 +356,10 @@ func TestLiveRgocpCLIAgainstGoListenerUDP(t *testing.T) {
 	_ = dest.Announce(false, nil, nil)
 
 	rgocp := filepath.Join(repoRoot(t), "bin", "rgocp")
-	if _, err := os.Stat(rgocp); err != nil {
-		cmd := exec.Command("go", "build", "-o", rgocp, "./cmd/rgocp")
-		cmd.Dir = repoRoot(t)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("build rgocp: %v\n%s", err, out)
-		}
+	build := exec.Command("go", "build", "-o", rgocp, "./cmd/rgocp")
+	build.Dir = repoRoot(t)
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build rgocp: %v\n%s", err, out)
 	}
 
 	src := filepath.Join(t.TempDir(), "cli.txt")

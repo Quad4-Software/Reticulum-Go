@@ -53,7 +53,6 @@ func RunProbe(args []string, opt ...Options) int {
 		fmt.Fprintf(stderr, "config: %v\n", err)
 		return 1
 	}
-	cfg.ShareInstance = true
 
 	n, err := node.New(cfg)
 	if err != nil {

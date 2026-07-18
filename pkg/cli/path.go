@@ -220,7 +220,6 @@ func RunPath(args []string, opt ...Options) int {
 		return 2
 	}
 
-	cfg.ShareInstance = true
 	n, err := node.New(cfg)
 	if err != nil {
 		fmt.Fprintf(stderr, "node: %v\n", err)

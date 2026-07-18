@@ -100,6 +100,17 @@ func runPythonPageRequest(
 	probe.WaitExact(t, ctx, "READY", 20*time.Second, harness.KindReady)
 	probe.WaitExact(t, ctx, "REQUEST_OK", 120*time.Second, harness.KindRequest)
 	sess.Emit("request_ok", harness.KindRequest, reqPath)
+	select {
+	case <-probe.Done():
+	case <-ctx.Done():
+		probe.Kill(3 * time.Second)
+		t.Fatalf("pageserver client did not exit: %v", ctx.Err())
+	case <-time.After(10 * time.Second):
+		probe.Kill(3 * time.Second)
+		t.Fatal("pageserver client did not exit after REQUEST_OK")
+	}
+	// Let the UDP listen port fully release before a follow-up client binds it.
+	time.Sleep(200 * time.Millisecond)
 }
 
 func startPageServerBinary(t *testing.T, ctx context.Context, home, pageServerDir string) *exec.Cmd {
@@ -151,7 +162,7 @@ func TestLiveInteropPythonNomadNetPageServerRequests(t *testing.T) {
 
 	time.Sleep(6 * time.Second)
 
-	runPythonPageRequest(t, ctx, sess, pyListen, goListen, goDestHash, "/page/index.mu", "Reticulum-Go Node")
+	runPythonPageRequest(t, ctx, sess, pyListen, goListen, goDestHash, "/page/index.mu", "librns via Reticulum-Go")
 	runPythonPageRequest(t, ctx, sess, pyListen, goListen, goDestHash, "/file/interop_test_file.txt", "PY_FILE_TEST")
 }
 
