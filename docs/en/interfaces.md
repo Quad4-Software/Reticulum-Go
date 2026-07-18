@@ -55,21 +55,77 @@ Transport.SendPacket -> Send -> ProcessOutgoing -> wire
 | `VSOCKServerInterface` | Go-only (Linux) | `vsock.go` |
 | `HTTPSClientInterface` | Go-only | `https.go` |
 | `HTTPSServerInterface` | Go-only | `https.go` |
+| `Modem73Interface` | Complete | `modem73.go` |
+| `SDRInterface` | Complete | `sdr.go`, `pkg/sdr` |
 
 ## Not implemented
 
-These Python interface types have no driver in Reticulum-Go:
+These interface types have no driver in Reticulum-Go:
 
 - RNodeInterface, RNodeMultiInterface
 - KISSInterface, AX25KISSInterface
 - WeaveInterface
 - Android-specific KISS, RNode, Serial variants
 
+## Modem73Interface
+
+KISS TCP data path plus length-prefixed JSON control for a modem73 process.
+
+Defaults: data `127.0.0.1:8001`, control `127.0.0.1:8073`, IFAC size 8.
+
+```ini
+[[MODEM73]]
+type = Modem73Interface
+enabled = yes
+target_host = 127.0.0.1
+target_port = 8001
+control_host = 127.0.0.1
+control_port = 8073
+mtu_overhead = 15
+bitrate = 400
+auto_fragmentation = yes
+short_frames = auto
+short_mtu = 170
+mode = boundary
+```
+
+DSP stays in the modem73 process. Live: `RUN_LIVE_INTEROP=1` with `tests/interop/modem73_live_test.go`.
+
+Math-backed TNC simulator (no radio): `Modem73Simulator` in `modem73_sim.go` with PHY tables from [modem73](https://github.com/RFnexus/modem73) (`CONTROL_PORT.md`, robust nrows airtime, OFDM payload/bitrate/duration matrices). Shared `Modem73Channel` applies SNR and BER/FER models for multi-station tests.
+
+## SDRInterface
+
+Owns an SDR front end via `pkg/sdr` and a Go burst modem over baseband IQ.
+
+**Lab / testing disclaimer.** This interface is for local mock, simulation, and controlled lab use. It is not a certified radio product and does not grant authority to transmit. Live TX (for example HackRF) can radiate on the tuned frequency. You must follow local license, band, power, and interference rules. Prefer `device = mock` or the math channel for development. The burst modem is not air-compatible with Modem73 OFDM or RNode. Everyday RF mesh should use purpose-built interfaces when those fit the link.
+
+```ini
+[[SDR0]]
+type = SDRInterface
+enabled = yes
+device = mock
+frequency = 433000000
+sample_rate = 2000000
+rx_gain = 20
+tx_gain = 10
+modem = burst
+bitrate = 1200
+mode = boundary
+```
+
+Device values: `mock` (always), `rtltcp`, `rtlsdr` (build tag `sdr_rtlsdr`), `hackrf` (build tag `sdr_hackrf`).
+
+Default builds need no USB libraries. Burst modem is Go-native and is not air-compatible with Modem73 OFDM.
+
+Math-backed RF channel: `pkg/sdr/channel.go` (`FreeSpacePathLossDB`, thermal noise, AWGN via Box-Muller, `SimDevice`). Validated by SNR measurement and FSPL oracles.
+
+Live: `RUN_LIVE_SDR=1` with `tests/interop/sdr_live_test.go`. Optional `SDR_DEVICE` / `SDR_ADDRESS` for hardware probes.
+
 ## SerialInterface
 
-HDLC-framed serial port matching Python `SerialInterface` wire framing (MTU 564, baud as bitrate, default IFAC size 8).
+HDLC-framed serial port (MTU 564, baud as bitrate, default IFAC size 8).
 
-Go extensions beyond Python:
+Go extensions:
 
 - Chunked reads instead of byte-at-a-time
 - Configurable inter-byte frame idle drop (`frame_idle_ms`, default 100)
@@ -96,7 +152,7 @@ Live Python framing interop: `RUN_LIVE_INTEROP=1` with `tests/interop/serial_liv
 
 ## PipeInterface
 
-Bridges Reticulum to any external program over stdin/stdout using HDLC framing, matching Python `PipeInterface`.
+Bridges Reticulum to any external program over stdin/stdout using HDLC framing.
 
 Configuration:
 

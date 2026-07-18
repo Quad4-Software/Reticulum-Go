@@ -149,6 +149,31 @@ type InterfaceConfig struct {
 	DiscoveryLongitude float64
 	DiscoveryHeight    float64
 	HasDiscoveryGeo    bool
+
+	// Modem73Interface control socket and modem policy.
+	ControlHost       string
+	ControlPort       int
+	MTUOverhead       int
+	AutoFragmentation bool
+	AutoFragSet       bool
+	ShortFrames       string
+	ShortMTU          int
+	HandshakeX2       bool
+	ProofX2           bool
+	AutoBitrate       bool
+	AutoBitrateSet    bool
+	CSMAOverhead      bool
+	CSMAOverheadSet   bool
+	TimeoutMargin     float64
+
+	// SDRInterface radio and modem settings.
+	FrequencyHz int64
+	SampleRate  int
+	Bandwidth   int
+	RXGain      float64
+	TXGain      float64
+	Modem       string
+	SerialNum   string
 }
 
 // SharedInstanceType values for [reticulum] shared_instance_type.

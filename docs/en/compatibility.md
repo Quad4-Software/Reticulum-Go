@@ -42,6 +42,8 @@ The detailed matrix with config key tables lives in [COMPATIBILITY.md](../../COM
 | BackboneInterface | Yes |
 | RNode, KISS, AX25KISS, Weave | No |
 | SerialInterface | Yes |
+| Modem73Interface | Yes |
+| SDRInterface | Yes (lab/testing Go-native burst modem, mock/rtltcp, optional tagged USB backends) |
 | PipeInterface | Yes |
 | LocalInterface | Yes via `share_instance` and config `LocalInterface` / `LocalServerInterface` |
 | External plugins | Yes (Go-native factories, manifests, executables under `interfaces/`) |
@@ -85,7 +87,7 @@ Wire format is stable across 1.2.x to 1.3.x. Notable behavior differences:
 | Discovery announcer / autoconnect | Listen and validate work. No store, announce loop, or autoconnect |
 | Blackhole federation | `publish_blackhole`, `blackhole_sources`, and updater not driven |
 | Remote management destination | No `rnstransport.remote.management` for remote `rnpath`/`rnstatus` |
-| RNode and radio serial drivers | RNode / KISS / AX25 / Weave not in this tree. SerialInterface is present |
+| RNode and radio serial drivers | RNode / KISS / AX25 / Weave not in this tree. SerialInterface, Modem73Interface, and SDRInterface are present |
 | Utilities `rnsh` `rnir` `rnpkg` `rngit` | Not ported |
 
 ## Go-only extensions

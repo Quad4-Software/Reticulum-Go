@@ -526,6 +526,45 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 	case "height":
 		setFloat(value, &iface.DiscoveryHeight)
 		iface.HasDiscoveryGeo = true
+	case "control_host":
+		iface.ControlHost = value
+	case "control_port":
+		setInt(value, &iface.ControlPort)
+	case "mtu_overhead":
+		setInt(value, &iface.MTUOverhead)
+	case "auto_fragmentation":
+		iface.AutoFragmentation = parseBool(value)
+		iface.AutoFragSet = true
+	case "short_frames":
+		iface.ShortFrames = strings.ToLower(strings.TrimSpace(value))
+	case "short_mtu":
+		setInt(value, &iface.ShortMTU)
+	case "handshake_x2":
+		iface.HandshakeX2 = parseBool(value)
+	case "proof_x2":
+		iface.ProofX2 = parseBool(value)
+	case "auto_bitrate":
+		iface.AutoBitrate = parseBool(value)
+		iface.AutoBitrateSet = true
+	case "csma_overhead":
+		iface.CSMAOverhead = parseBool(value)
+		iface.CSMAOverheadSet = true
+	case "timeout_margin":
+		setFloat(value, &iface.TimeoutMargin)
+	case "frequency", "frequency_hz":
+		setInt64(value, &iface.FrequencyHz)
+	case "sample_rate":
+		setInt(value, &iface.SampleRate)
+	case "bandwidth":
+		setInt(value, &iface.Bandwidth)
+	case "rx_gain":
+		setFloat(value, &iface.RXGain)
+	case "tx_gain":
+		setFloat(value, &iface.TXGain)
+	case "modem":
+		iface.Modem = strings.ToLower(strings.TrimSpace(value))
+	case "serial":
+		iface.SerialNum = value
 	}
 }
 
@@ -831,6 +870,63 @@ func writeInterface(b *strings.Builder, name string, iface *common.InterfaceConf
 		fmt.Fprintf(b, "    latitude = %g\n", iface.DiscoveryLatitude)
 		fmt.Fprintf(b, "    longitude = %g\n", iface.DiscoveryLongitude)
 		fmt.Fprintf(b, "    height = %g\n", iface.DiscoveryHeight)
+	}
+	if iface.ControlHost != "" {
+		fmt.Fprintf(b, "    control_host = %s\n", iface.ControlHost)
+	}
+	if iface.ControlPort != 0 {
+		fmt.Fprintf(b, "    control_port = %d\n", iface.ControlPort)
+	}
+	if iface.MTUOverhead != 0 {
+		fmt.Fprintf(b, "    mtu_overhead = %d\n", iface.MTUOverhead)
+	}
+	if iface.AutoFragSet {
+		fmt.Fprintf(b, "    auto_fragmentation = %s\n", boolStr(iface.AutoFragmentation))
+	}
+	if iface.ShortFrames != "" {
+		fmt.Fprintf(b, "    short_frames = %s\n", iface.ShortFrames)
+	}
+	if iface.ShortMTU != 0 {
+		fmt.Fprintf(b, "    short_mtu = %d\n", iface.ShortMTU)
+	}
+	if iface.HandshakeX2 {
+		fmt.Fprintf(b, "    handshake_x2 = %s\n", boolStr(iface.HandshakeX2))
+	}
+	if iface.ProofX2 {
+		fmt.Fprintf(b, "    proof_x2 = %s\n", boolStr(iface.ProofX2))
+	}
+	if iface.AutoBitrateSet {
+		fmt.Fprintf(b, "    auto_bitrate = %s\n", boolStr(iface.AutoBitrate))
+	}
+	if iface.CSMAOverheadSet {
+		fmt.Fprintf(b, "    csma_overhead = %s\n", boolStr(iface.CSMAOverhead))
+	}
+	if iface.TimeoutMargin != 0 {
+		fmt.Fprintf(b, "    timeout_margin = %g\n", iface.TimeoutMargin)
+	}
+	if iface.Device != "" {
+		fmt.Fprintf(b, "    device = %s\n", iface.Device)
+	}
+	if iface.SerialNum != "" {
+		fmt.Fprintf(b, "    serial = %s\n", iface.SerialNum)
+	}
+	if iface.FrequencyHz != 0 {
+		fmt.Fprintf(b, "    frequency = %d\n", iface.FrequencyHz)
+	}
+	if iface.SampleRate != 0 {
+		fmt.Fprintf(b, "    sample_rate = %d\n", iface.SampleRate)
+	}
+	if iface.Bandwidth != 0 {
+		fmt.Fprintf(b, "    bandwidth = %d\n", iface.Bandwidth)
+	}
+	if iface.RXGain != 0 {
+		fmt.Fprintf(b, "    rx_gain = %g\n", iface.RXGain)
+	}
+	if iface.TXGain != 0 {
+		fmt.Fprintf(b, "    tx_gain = %g\n", iface.TXGain)
+	}
+	if iface.Modem != "" {
+		fmt.Fprintf(b, "    modem = %s\n", iface.Modem)
 	}
 	b.WriteString("\n")
 }

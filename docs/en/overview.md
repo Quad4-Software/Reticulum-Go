@@ -58,7 +58,9 @@ Below is a summary of major features. For line-by-line parity with Python, see [
 | Daemon and config | Complete | `cmd/reticulum-go`, `pkg/reticulumconfig` |
 | Discovery (rnstransport) | Partial | Listening works. Announcer and autoconnect loops are not auto-started |
 | Blackhole | Partial | Local drop and LINKIDENTIFY teardown. No publish/federation |
-| SerialInterface | Complete | HDLC serial with Go extensions. Live Python framing interop |
+| SerialInterface | Complete | HDLC serial with Go extensions. Live framing interop |
+| Modem73Interface | Complete | KISS + JSON control to modem73. Live: `tests/interop/modem73_live_test.go` |
+| SDRInterface | Complete | Lab/testing IQ burst modem (`pkg/sdr`). Live: `RUN_LIVE_SDR=1` |
 | RNode, KISS, Weave | Not implemented | No driver in this tree |
 | PipeInterface, LocalInterface | Implemented | `pipe.go`, `local.go`, `sharedinstance` |
 | Python CLI utilities | Yes (core) | `reticulum-go status|id|probe|path|cp` via `pkg/cli` / `pkg/rnsutil` |

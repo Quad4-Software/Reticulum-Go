@@ -20,6 +20,8 @@ const (
 	IFTypeDNSRendezvous
 	IFTypeVSOCK
 	IFTypeHTTPS
+	IFTypeModem73
+	IFTypeSDR
 )
 
 // Interface operational modes (wire values).

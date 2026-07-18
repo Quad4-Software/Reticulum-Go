@@ -30,9 +30,14 @@ func ApplyIFACFromConfig(iface common.NetworkInterface, cfg *common.InterfaceCon
 	}
 	size := cfg.IFACSize
 	if size <= 0 {
-		if strings.EqualFold(cfg.Type, "SerialInterface") {
+		switch {
+		case strings.EqualFold(cfg.Type, "SerialInterface"):
 			size = serialDefaultIFACSize
-		} else {
+		case strings.EqualFold(cfg.Type, "Modem73Interface"):
+			size = modem73DefaultIFACSize
+		case strings.EqualFold(cfg.Type, "SDRInterface"):
+			size = sdrDefaultIFACSize
+		default:
 			size = ifac.DefaultSize
 		}
 	}

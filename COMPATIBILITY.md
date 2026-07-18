@@ -45,7 +45,9 @@ Python: [RNS/Interfaces](https://github.com/markqvist/Reticulum/tree/master/RNS/
 | BackboneInterface | Yes | [backbone.go](pkg/interfaces/backbone.go), [backbone_client.go](pkg/interfaces/backbone_client.go). Multiplexed I/O in [pkg/backbone](pkg/backbone/). Live interop: [tests/interop/backbone_live_test.go](tests/interop/backbone_live_test.go). |
 | RNodeInterface | No | No RNode serial driver. |
 | RNodeMultiInterface | No | Depends on RNode driver. |
-| SerialInterface | Yes | [serial.go](pkg/interfaces/serial.go). HDLC framing matches Python. Go adds chunked reads, frame-idle drops, reconnect limits, flow-control options, IFAC, receive-only, injectable ports, and live stats. Live: [tests/interop/serial_live_test.go](tests/interop/serial_live_test.go). |
+| SerialInterface | Yes | [serial.go](pkg/interfaces/serial.go). HDLC framing. Go adds chunked reads, frame-idle drops, reconnect limits, flow-control options, IFAC, receive-only, injectable ports, and live stats. Live: [tests/interop/serial_live_test.go](tests/interop/serial_live_test.go). |
+| Modem73Interface | Yes | [modem73.go](pkg/interfaces/modem73.go). KISS data TCP plus JSON control TCP for modem73. Live: [tests/interop/modem73_live_test.go](tests/interop/modem73_live_test.go). |
+| SDRInterface | Yes | Lab/testing. [sdr.go](pkg/interfaces/sdr.go), [pkg/sdr](pkg/sdr/). Mock, rtltcp, tagged rtlsdr/hackrf. Go burst modem (not air-compatible with Modem73/RNode). Live TX is operator-regulated. Live: `RUN_LIVE_SDR=1` [tests/interop/sdr_live_test.go](tests/interop/sdr_live_test.go). |
 | KISSInterface | No | Not implemented. |
 | AX25KISSInterface | No | Not implemented. |
 | PipeInterface | Yes | [pipe.go](pkg/interfaces/pipe.go). Subprocess stdin/stdout with HDLC framing and respawn. |

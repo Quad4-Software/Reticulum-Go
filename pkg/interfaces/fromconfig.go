@@ -162,6 +162,38 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			MTU:               cfg.MTU,
 			Bitrate:           cfg.Bitrate,
 		})
+	case "Modem73Interface":
+		autoFrag := true
+		if cfg.AutoFragSet {
+			autoFrag = cfg.AutoFragmentation
+		}
+		autoBitrate := true
+		if cfg.AutoBitrateSet {
+			autoBitrate = cfg.AutoBitrate
+		}
+		csma := true
+		if cfg.CSMAOverheadSet {
+			csma = cfg.CSMAOverhead
+		}
+		iface, err = NewModem73Interface(name, cfg.Enabled, Modem73Options{
+			TargetHost:        cfg.TargetHost,
+			TargetPort:        cfg.TargetPort,
+			ControlHost:       cfg.ControlHost,
+			ControlPort:       cfg.ControlPort,
+			MTUOverhead:       cfg.MTUOverhead,
+			Bitrate:           cfg.Bitrate,
+			AutoFragmentation: autoFrag,
+			ShortFrames:       cfg.ShortFrames,
+			ShortMTU:          cfg.ShortMTU,
+			HandshakeX2:       cfg.HandshakeX2,
+			ProofX2:           cfg.ProofX2,
+			AutoBitrate:       autoBitrate,
+			CSMAOverhead:      csma,
+			TimeoutMargin:     cfg.TimeoutMargin,
+			MaxReconnectTries: cfg.MaxReconnTries,
+		})
+	case "SDRInterface":
+		iface, err = NewSDRInterface(name, cfg.Enabled, SDROptionsFromConfig(cfg))
 	case "WebTransportClientInterface":
 		iface, err = NewWebTransportClientInterfaceWithRetries(
 			name,
@@ -360,6 +392,10 @@ func baseInterfaceOf(iface Interface) *BaseInterface {
 	case *QUICServerInterface:
 		return &v.BaseInterface
 	case *SerialInterface:
+		return &v.BaseInterface
+	case *Modem73Interface:
+		return &v.BaseInterface
+	case *SDRInterface:
 		return &v.BaseInterface
 	case *WebTransportClientInterface:
 		return &v.BaseInterface

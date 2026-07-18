@@ -193,6 +193,8 @@ INTEROP_ARTIFACTS=1 INTEROP_ARTIFACT_ROOT=/tmp/rns-interop \
 | `backbone_live_test.go` | Backbone |
 | `quic_live_test.go` | QUIC Go-Go echo (no Python peer) |
 | `pipe_live_test.go` | PipeInterface with Python echo |
+| `modem73_live_test.go` | Modem73Interface (fake KISS/control, optional modem73 binary audio loop via `MODEM73_BIN` + pactl) |
+| `sdr_live_test.go` | SDRInterface mock exchange (`RUN_LIVE_SDR=1`) |
 | `shared_rpc_live_test.go` | Shared-instance RPC (TCP and Unix on Linux) |
 | `pageserver_live_test.go` | Pageserver example |
 | `nomadnet_crawl_live_test.go` | Nomadnet crawl |

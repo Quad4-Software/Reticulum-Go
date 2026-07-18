@@ -23,3 +23,33 @@ func TestNewFromConfigNil(t *testing.T) {
 		t.Fatal("expected error for nil config")
 	}
 }
+
+func TestNewFromConfigModem73AndSDR(t *testing.T) {
+	m73, err := NewFromConfig("m", &common.InterfaceConfig{
+		Type:        "Modem73Interface",
+		Enabled:     false,
+		TargetHost:  "127.0.0.1",
+		TargetPort:  8001,
+		ControlHost: "127.0.0.1",
+		ControlPort: 8073,
+		ShortFrames: "off",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m73.GetType() != common.IFTypeModem73 {
+		t.Fatalf("type=%v", m73.GetType())
+	}
+	sdrIface, err := NewFromConfig("s", &common.InterfaceConfig{
+		Type:   "SDRInterface",
+		Enabled: false,
+		Device: "mock",
+		Modem:  "burst",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sdrIface.GetType() != common.IFTypeSDR {
+		t.Fatalf("type=%v", sdrIface.GetType())
+	}
+}
