@@ -66,6 +66,145 @@ typedef _IdentityHashDart = int Function(
   Pointer<Size> written,
 );
 
+typedef _IdentityBytesC = Int32 Function(
+  Uint64 identity,
+  Pointer<Uint8> out,
+  Size outLen,
+  Pointer<Size> written,
+);
+typedef _IdentityBytesDart = int Function(
+  int identity,
+  Pointer<Uint8> out,
+  int outLen,
+  Pointer<Size> written,
+);
+
+typedef _IdentityFromPublicKeyC = Uint64 Function(
+  Pointer<Uint8> pub,
+  Size pubLen,
+);
+typedef _IdentityFromPublicKeyDart = int Function(
+  Pointer<Uint8> pub,
+  int pubLen,
+);
+
+typedef _IdentitySignC = Int32 Function(
+  Uint64 identity,
+  Pointer<Uint8> data,
+  Size dataLen,
+  Pointer<Uint8> sigOut,
+  Size sigOutLen,
+  Pointer<Size> written,
+);
+typedef _IdentitySignDart = int Function(
+  int identity,
+  Pointer<Uint8> data,
+  int dataLen,
+  Pointer<Uint8> sigOut,
+  int sigOutLen,
+  Pointer<Size> written,
+);
+
+typedef _IdentityVerifyC = Int32 Function(
+  Uint64 identity,
+  Pointer<Uint8> data,
+  Size dataLen,
+  Pointer<Uint8> sig,
+  Size sigLen,
+);
+typedef _IdentityVerifyDart = int Function(
+  int identity,
+  Pointer<Uint8> data,
+  int dataLen,
+  Pointer<Uint8> sig,
+  int sigLen,
+);
+
+typedef _RsgCreateC = Int32 Function(
+  Uint64 identity,
+  Pointer<Uint8> message,
+  Size messageLen,
+  Int32 embed,
+  Pointer<Uint8> out,
+  Size outLen,
+  Pointer<Size> written,
+);
+typedef _RsgCreateDart = int Function(
+  int identity,
+  Pointer<Uint8> message,
+  int messageLen,
+  int embed,
+  Pointer<Uint8> out,
+  int outLen,
+  Pointer<Size> written,
+);
+
+typedef _RsgValidateC = Int32 Function(
+  Pointer<Uint8> rsg,
+  Size rsgLen,
+  Pointer<Uint8> message,
+  Size messageLen,
+  Pointer<Uint8> requiredSignerHash,
+  Size requiredSignerHashLen,
+);
+typedef _RsgValidateDart = int Function(
+  Pointer<Uint8> rsg,
+  int rsgLen,
+  Pointer<Uint8> message,
+  int messageLen,
+  Pointer<Uint8> requiredSignerHash,
+  int requiredSignerHashLen,
+);
+
+typedef _RsgSignFileC = Int32 Function(
+  Uint64 identity,
+  Pointer<Char> path,
+  Pointer<Uint8> out,
+  Size outLen,
+  Pointer<Size> written,
+);
+typedef _RsgSignFileDart = int Function(
+  int identity,
+  Pointer<Char> path,
+  Pointer<Uint8> out,
+  int outLen,
+  Pointer<Size> written,
+);
+
+typedef _RsgVerifyFileC = Int32 Function(
+  Pointer<Uint8> rsg,
+  Size rsgLen,
+  Pointer<Char> path,
+  Pointer<Uint8> requiredSignerHash,
+  Size requiredSignerHashLen,
+);
+typedef _RsgVerifyFileDart = int Function(
+  Pointer<Uint8> rsg,
+  int rsgLen,
+  Pointer<Char> path,
+  Pointer<Uint8> requiredSignerHash,
+  int requiredSignerHashLen,
+);
+
+typedef _RsmVerifyC = Int32 Function(
+  Pointer<Uint8> rsm,
+  Size rsmLen,
+  Pointer<Uint8> requiredSignerHash,
+  Size requiredSignerHashLen,
+  Pointer<Uint8> messageOut,
+  Size messageOutLen,
+  Pointer<Size> written,
+);
+typedef _RsmVerifyDart = int Function(
+  Pointer<Uint8> rsm,
+  int rsmLen,
+  Pointer<Uint8> requiredSignerHash,
+  int requiredSignerHashLen,
+  Pointer<Uint8> messageOut,
+  int messageOutLen,
+  Pointer<Size> written,
+);
+
 typedef _DestinationCreateC = Uint64 Function(
   Uint64 node,
   Uint64 identity,
@@ -135,6 +274,19 @@ typedef _PathTableDart = int Function(
   int outCap,
   Pointer<Size> written,
   int maxHops,
+);
+
+typedef _InterfacesC = Int32 Function(
+  Uint64 node,
+  Pointer<RnsInterfaceEntryNative> out,
+  Size outCap,
+  Pointer<Size> written,
+);
+typedef _InterfacesDart = int Function(
+  int node,
+  Pointer<RnsInterfaceEntryNative> out,
+  int outCap,
+  Pointer<Size> written,
 );
 
 typedef _LinkOpenC = Uint64 Function(Uint64 node, Pointer<Uint8> destHash);
@@ -246,6 +398,21 @@ typedef _EventPollDart = int Function(
   int timeoutMs,
 );
 
+typedef _EventCallbackC = Void Function(
+  Pointer<RnsEventNative> event,
+  Pointer<Void> userData,
+);
+typedef _SetEventCallbackC = Int32 Function(
+  Uint64 node,
+  Pointer<NativeFunction<_EventCallbackC>> callback,
+  Pointer<Void> userData,
+);
+typedef _SetEventCallbackDart = int Function(
+  int node,
+  Pointer<NativeFunction<_EventCallbackC>> callback,
+  Pointer<Void> userData,
+);
+
 class RnsBindings {
   RnsBindings(DynamicLibrary lib)
       : rns_version = lib.lookupFunction<_VersionC, _VersionDart>('rns_version'),
@@ -291,6 +458,42 @@ class RnsBindings {
             lib.lookupFunction<_IdentityHashC, _IdentityHashDart>(
           'rns_identity_hash',
         ),
+        rns_identity_hash_bytes =
+            lib.lookupFunction<_IdentityBytesC, _IdentityBytesDart>(
+          'rns_identity_hash_bytes',
+        ),
+        rns_identity_public_key =
+            lib.lookupFunction<_IdentityBytesC, _IdentityBytesDart>(
+          'rns_identity_public_key',
+        ),
+        rns_identity_from_public_key = lib.lookupFunction<
+            _IdentityFromPublicKeyC, _IdentityFromPublicKeyDart>(
+          'rns_identity_from_public_key',
+        ),
+        rns_identity_sign =
+            lib.lookupFunction<_IdentitySignC, _IdentitySignDart>(
+          'rns_identity_sign',
+        ),
+        rns_identity_verify =
+            lib.lookupFunction<_IdentityVerifyC, _IdentityVerifyDart>(
+          'rns_identity_verify',
+        ),
+        rns_rsg_create =
+            lib.lookupFunction<_RsgCreateC, _RsgCreateDart>('rns_rsg_create'),
+        rns_rsg_validate =
+            lib.lookupFunction<_RsgValidateC, _RsgValidateDart>(
+          'rns_rsg_validate',
+        ),
+        rns_rsg_sign_file =
+            lib.lookupFunction<_RsgSignFileC, _RsgSignFileDart>(
+          'rns_rsg_sign_file',
+        ),
+        rns_rsg_verify_file =
+            lib.lookupFunction<_RsgVerifyFileC, _RsgVerifyFileDart>(
+          'rns_rsg_verify_file',
+        ),
+        rns_rsm_verify =
+            lib.lookupFunction<_RsmVerifyC, _RsmVerifyDart>('rns_rsm_verify'),
         rns_destination_create =
             lib.lookupFunction<_DestinationCreateC, _DestinationCreateDart>(
           'rns_destination_create',
@@ -318,6 +521,8 @@ class RnsBindings {
         ),
         rns_path_table =
             lib.lookupFunction<_PathTableC, _PathTableDart>('rns_path_table'),
+        rns_interfaces =
+            lib.lookupFunction<_InterfacesC, _InterfacesDart>('rns_interfaces'),
         rns_link_open =
             lib.lookupFunction<_LinkOpenC, _LinkOpenDart>('rns_link_open'),
         rns_link_send =
@@ -343,7 +548,11 @@ class RnsBindings {
           'rns_request_respond_file',
         ),
         rns_event_poll =
-            lib.lookupFunction<_EventPollC, _EventPollDart>('rns_event_poll');
+            lib.lookupFunction<_EventPollC, _EventPollDart>('rns_event_poll'),
+        rns_set_event_callback =
+            lib.lookupFunction<_SetEventCallbackC, _SetEventCallbackDart>(
+          'rns_set_event_callback',
+        );
 
   final _VersionDart rns_version;
   final _LastErrorDart rns_last_error;
@@ -360,6 +569,16 @@ class RnsBindings {
   final _IdentitySaveDart rns_identity_save;
   final _IdentityDestroyDart rns_identity_destroy;
   final _IdentityHashDart rns_identity_hash;
+  final _IdentityBytesDart rns_identity_hash_bytes;
+  final _IdentityBytesDart rns_identity_public_key;
+  final _IdentityFromPublicKeyDart rns_identity_from_public_key;
+  final _IdentitySignDart rns_identity_sign;
+  final _IdentityVerifyDart rns_identity_verify;
+  final _RsgCreateDart rns_rsg_create;
+  final _RsgValidateDart rns_rsg_validate;
+  final _RsgSignFileDart rns_rsg_sign_file;
+  final _RsgVerifyFileDart rns_rsg_verify_file;
+  final _RsmVerifyDart rns_rsm_verify;
   final _DestinationCreateDart rns_destination_create;
   final _DestinationAnnounceDart rns_destination_announce;
   final _DestinationHashDart rns_destination_hash;
@@ -368,6 +587,7 @@ class RnsBindings {
       rns_destination_register_request_handler;
   final _PathRequestDart rns_path_request;
   final _PathTableDart rns_path_table;
+  final _InterfacesDart rns_interfaces;
   final _LinkOpenDart rns_link_open;
   final _LinkSendDart rns_link_send;
   final _LinkSendResourceDart rns_link_send_resource;
@@ -377,4 +597,5 @@ class RnsBindings {
   final _RequestRespondDart rns_request_respond;
   final _RequestRespondFileDart rns_request_respond_file;
   final _EventPollDart rns_event_poll;
+  final _SetEventCallbackDart rns_set_event_callback;
 }

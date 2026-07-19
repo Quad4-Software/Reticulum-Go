@@ -7,7 +7,7 @@ RNS_LIB := $(BIN)/librns.so
 ZIG ?= zig
 ABS_BIN := $(abspath $(BIN))
 
-.PHONY: all test check smoke clean librns
+.PHONY: all test check smoke examples clean librns
 
 all: test
 
@@ -28,5 +28,16 @@ smoke: $(RNS_LIB)
 	LD_LIBRARY_PATH="$(ABS_BIN):$${LD_LIBRARY_PATH:-}" \
 	$(ZIG) build test --summary all
 
+examples: $(RNS_LIB)
+	$(MAKE) -C examples/smoke
+	$(MAKE) -C examples/page-fetch
+	$(MAKE) -C examples/pageserver
+	LIBRARY_PATH="$(ABS_BIN):$${LIBRARY_PATH:-}" \
+	LD_LIBRARY_PATH="$(ABS_BIN):$${LD_LIBRARY_PATH:-}" \
+	./examples/smoke/zig-smoke
+
 clean:
 	rm -rf zig-cache zig-out .zig-cache
+	$(MAKE) -C examples/smoke clean
+	$(MAKE) -C examples/page-fetch clean
+	$(MAKE) -C examples/pageserver clean

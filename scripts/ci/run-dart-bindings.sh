@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2024-2026 Quad4.io
 #
-# Run Dart bindings tests (Control API client and librns FFI).
+# Run Dart bindings tests (Control API client and librns FFI) plus examples.
 
 set -eu
 
@@ -26,3 +26,6 @@ cd "$ROOT/bindings/dart"
 dart pub get
 dart analyze --fatal-infos
 dart test
+
+cd "$ROOT"
+make -C bindings/dart examples

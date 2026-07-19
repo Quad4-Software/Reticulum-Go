@@ -8,8 +8,10 @@ const node_mod = @import("node.zig");
 const identity_mod = @import("identity.zig");
 const destination_mod = @import("destination.zig");
 const path_mod = @import("path.zig");
+const interfaces_mod = @import("interfaces.zig");
 const link_mod = @import("link.zig");
 const event_mod = @import("event.zig");
+const rsg_mod = @import("rsg.zig");
 const util_mod = @import("util.zig");
 
 pub const c = @import("c.zig");
@@ -25,6 +27,7 @@ pub const Error = types.Error;
 pub const EventKind = types.EventKind;
 pub const Event = types.Event;
 pub const PathEntry = types.PathEntry;
+pub const InterfaceEntry = types.InterfaceEntry;
 pub const EventCallback = types.EventCallback;
 
 pub const version = errors.version;
@@ -48,6 +51,11 @@ pub const identity = struct {
     pub const save = identity_mod.save;
     pub const destroy = identity_mod.destroy;
     pub const hash = identity_mod.hash;
+    pub const hashBytes = identity_mod.hashBytes;
+    pub const publicKey = identity_mod.publicKey;
+    pub const fromPublicKey = identity_mod.fromPublicKey;
+    pub const sign = identity_mod.sign;
+    pub const verify = identity_mod.verify;
 };
 
 pub const destination = struct {
@@ -63,13 +71,21 @@ pub const path = struct {
     pub const table = path_mod.table;
 };
 
+pub const interfaces = struct {
+    pub const list = interfaces_mod.list;
+    pub const name = interfaces_mod.name;
+    pub const typeName = interfaces_mod.typeName;
+};
+
 pub const link = struct {
     pub const open = link_mod.open;
     pub const send = link_mod.send;
+    pub const sendResource = link_mod.sendResource;
     pub const close = link_mod.close;
     pub const id = link_mod.id;
     pub const request = link_mod.request;
     pub const respond = link_mod.respond;
+    pub const respondFile = link_mod.respondFile;
 };
 
 pub const event = struct {
@@ -84,13 +100,20 @@ pub const event = struct {
     pub const requestId = event_mod.requestId;
 };
 
+pub const rsg = struct {
+    pub const create = rsg_mod.create;
+    pub const validate = rsg_mod.validate;
+    pub const signFile = rsg_mod.signFile;
+    pub const verifyFile = rsg_mod.verifyFile;
+    pub const rsmVerify = rsg_mod.rsmVerify;
+};
+
 pub const util = struct {
     pub const hashToHex = util_mod.hashToHex;
     pub const hexToHash = util_mod.hexToHash;
     pub const cstringField = util_mod.cstringField;
 };
 
-// Flat aliases matching common host call sites.
 pub const nodeCreate = node.create;
 pub const nodeStart = node.start;
 pub const nodeStop = node.stop;
@@ -105,6 +128,11 @@ pub const identityLoad = identity.load;
 pub const identitySave = identity.save;
 pub const identityDestroy = identity.destroy;
 pub const identityHash = identity.hash;
+pub const identityHashBytes = identity.hashBytes;
+pub const identityPublicKey = identity.publicKey;
+pub const identityFromPublicKey = identity.fromPublicKey;
+pub const identitySign = identity.sign;
+pub const identityVerify = identity.verify;
 
 pub const destinationCreate = destination.create;
 pub const destinationAnnounce = destination.announce;
@@ -114,6 +142,7 @@ pub const destinationRegisterRequestHandler = destination.registerRequestHandler
 
 pub const pathRequest = path.request;
 pub const pathTable = path.table;
+pub const interfacesList = interfaces.list;
 
 pub const linkOpen = link.open;
 pub const linkSend = link.send;
@@ -133,6 +162,12 @@ pub const eventLinkId = event.linkId;
 pub const eventDestinationHash = event.destinationHash;
 pub const eventIdentityHash = event.identityHash;
 pub const eventRequestId = event.requestId;
+
+pub const rsgCreate = rsg.create;
+pub const rsgValidate = rsg.validate;
+pub const rsgSignFile = rsg.signFile;
+pub const rsgVerifyFile = rsg.verifyFile;
+pub const rsmVerify = rsg.rsmVerify;
 
 pub const hashToHex = util.hashToHex;
 pub const hexToHash = util.hexToHash;

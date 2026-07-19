@@ -10,7 +10,7 @@ ABS_BIN := $(abspath $(BIN))
 LINKER_FLAGS := -extra-linker-flags:"-L$(ABS_BIN) -Wl,-rpath,$(ABS_BIN)"
 TEST_FLAGS := -define:ODIN_TEST_FANCY=false -define:ODIN_TEST_THREADS=1
 
-.PHONY: all test check smoke clean librns
+.PHONY: all test check smoke examples clean librns
 
 all: test
 
@@ -32,5 +32,16 @@ smoke: $(RNS_LIB)
 	$(ODIN) test tests $(COLLECTION) $(LINKER_FLAGS) $(TEST_FLAGS) \
 		-define:ODIN_TEST_NAMES=test_version,test_node_lifecycle
 
+examples: $(RNS_LIB)
+	$(MAKE) -C examples/smoke
+	$(MAKE) -C examples/page-fetch
+	$(MAKE) -C examples/pageserver
+	LIBRARY_PATH="$(ABS_BIN):$${LIBRARY_PATH:-}" \
+	LD_LIBRARY_PATH="$(ABS_BIN):$${LD_LIBRARY_PATH:-}" \
+	./examples/smoke/odin-smoke
+
 clean:
 	rm -f tests/rns_tests
+	$(MAKE) -C examples/smoke clean
+	$(MAKE) -C examples/page-fetch clean
+	$(MAKE) -C examples/pageserver clean

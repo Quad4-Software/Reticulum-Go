@@ -17,20 +17,26 @@ For Go apps, prefer `pkg/node` directly. For a separate daemon and JSON/WebSocke
 | `pkg/librns` | Pure Go facade (tests and fuzz without CGO) |
 | `pkg/librns/capi` | CGO `//export` shims |
 | `cmd/librns` | `-buildmode=c-shared` entry |
-| `examples/librns-smoke` | Minimal C smoke program |
-| `examples/librns-page-fetch` | C NomadNet-style page fetch over librns |
-| `examples/odin-page-fetch` | Odin NomadNet-style page fetch over librns |
-| `examples/zig-page-fetch` | Zig NomadNet-style page fetch over librns |
-| `examples/librns-pageserver` | C NomadNet-style pageserver over librns |
-| `examples/odin-pageserver` | Odin NomadNet-style pageserver over librns |
-| `examples/zig-pageserver` | Zig NomadNet-style pageserver over librns |
-| `examples/cpp-smoke` | Minimal C++ smoke program over librns |
-| `examples/cpp-page-fetch` | C++ NomadNet-style page fetch over librns |
-| `examples/cpp-pageserver` | C++ NomadNet-style pageserver over librns |
+| `bindings/c/examples/smoke` | Minimal C smoke program |
+| `bindings/c/examples/page-fetch` | C NomadNet-style page fetch over librns |
+| `bindings/odin/examples/page-fetch` | Odin NomadNet-style page fetch over librns |
+| `bindings/zig/examples/page-fetch` | Zig NomadNet-style page fetch over librns |
+| `bindings/c/examples/pageserver` | C NomadNet-style pageserver over librns |
+| `bindings/odin/examples/pageserver` | Odin NomadNet-style pageserver over librns |
+| `bindings/zig/examples/pageserver` | Zig NomadNet-style pageserver over librns |
+| `bindings/cpp/examples/smoke` | Minimal C++ smoke program over librns |
+| `bindings/cpp/examples/page-fetch` | C++ NomadNet-style page fetch over librns |
+| `bindings/cpp/examples/pageserver` | C++ NomadNet-style pageserver over librns |
 | `bindings/odin` | Idiomatic Odin bindings and tests over `librns.so` |
 | `bindings/zig` | Idiomatic Zig bindings and tests over `librns.so` |
 | `bindings/cpp` | Idiomatic C++17 bindings and tests over `librns.so` |
 | `bindings/dart` | Dart FFI (`ffi.dart`) plus Control API client |
+| `bindings/rust` | Idiomatic Rust bindings and tests over `librns.so` |
+| `bindings/python` | ctypes Python bindings and tests over `librns.so` |
+| `bindings/lua` | LuaJIT FFI bindings and tests over `librns.so` |
+| `bindings/swift` | SwiftPM bindings and tests over `librns.so` |
+| `bindings/java` | JNA Java bindings and tests over `librns.so` |
+| `bindings/kotlin` | Kotlin facade over the Java JNA bindings |
 
 Daemon builds stay `CGO_ENABLED=0`. Only `build-librns` turns CGO on.
 
@@ -38,30 +44,30 @@ Daemon builds stay `CGO_ENABLED=0`. Only `build-librns` turns CGO on.
 
 ```bash
 task build-librns
-make -C examples/librns-smoke
-./examples/librns-smoke/librns-smoke
+make -C bindings/c/examples/smoke
+./bindings/c/examples/smoke/librns-smoke
 ```
 
 Page fetch against a live NomadNet or pageserver peer:
 
 ```bash
-make -C examples/librns-page-fetch
-./examples/librns-page-fetch/librns-page-fetch \
+make -C bindings/c/examples/page-fetch
+./bindings/c/examples/page-fetch/librns-page-fetch \
   -c /path/to/config \
   <dest_hash>:/page/index.mu
 
-make -C examples/odin-page-fetch
-./examples/odin-page-fetch/odin-page-fetch \
+make -C bindings/odin/examples/page-fetch
+./bindings/odin/examples/page-fetch/odin-page-fetch \
   -c /path/to/config \
   <dest_hash>:/page/index.mu
 
-make -C examples/zig-page-fetch
-./examples/zig-page-fetch/zig-page-fetch \
+make -C bindings/zig/examples/page-fetch
+./bindings/zig/examples/page-fetch/zig-page-fetch \
   -c /path/to/config \
   <dest_hash>:/page/index.mu
 
-make -C examples/cpp-page-fetch
-./examples/cpp-page-fetch/cpp-page-fetch \
+make -C bindings/cpp/examples/page-fetch
+./bindings/cpp/examples/page-fetch/cpp-page-fetch \
   -c /path/to/config \
   <dest_hash>:/page/index.mu
 ```
@@ -71,20 +77,20 @@ Configs need an online TCP or Backbone hub from [directory.rns.recipes](https://
 Pageserver peers (announce `nomadnetwork.node` and serve `/page/index.mu`):
 
 ```bash
-make -C examples/librns-pageserver
-./examples/librns-pageserver/librns-pageserver \
+make -C bindings/c/examples/pageserver
+./bindings/c/examples/pageserver/librns-pageserver \
   -c /path/to/config
 
-make -C examples/odin-pageserver
-./examples/odin-pageserver/odin-pageserver \
+make -C bindings/odin/examples/pageserver
+./bindings/odin/examples/pageserver/odin-pageserver \
   -c /path/to/config
 
-make -C examples/zig-pageserver
-./examples/zig-pageserver/zig-pageserver \
+make -C bindings/zig/examples/pageserver
+./bindings/zig/examples/pageserver/zig-pageserver \
   -c /path/to/config
 
-make -C examples/cpp-pageserver
-./examples/cpp-pageserver/cpp-pageserver \
+make -C bindings/cpp/examples/pageserver
+./bindings/cpp/examples/pageserver/cpp-pageserver \
   -c /path/to/config
 ```
 
@@ -223,7 +229,7 @@ sh scripts/build-librns-targets.sh linux windows darwin android
 | macOS | `bin/darwin/amd64/librns.dylib` or `bin/darwin/arm64/librns.dylib` |
 | Android | `bin/android/<abi>/librns.so` |
 
-Embedders should call `rns_version()` and compare to `RNS_API_VERSION` from the header they compiled against. Current ABI is **1.4**.
+Embedders should call `rns_version()` and compare to `RNS_API_VERSION` from the header they compiled against. Current ABI is **1.5**.
 
 ## Typical flow
 
@@ -254,18 +260,28 @@ rns_node_destroy
 | Lifecycle, path table, callback | `extended_test.go` |
 | Property | `testing/quick` drop-oldest and handle table |
 | Fuzz | FuzzHandleTable, FuzzEventQueue, FuzzConfigPathCreate, FuzzValidatePath |
-| C smoke | `examples/librns-smoke` |
+| C smoke | `bindings/c/examples/smoke` |
 | Odin bindings | `bindings/odin` (`task test-odin`) |
 | Zig bindings | `bindings/zig` (`task test-zig`) |
 | C++ bindings | `bindings/cpp` (`task test-cpp`) |
+| Dart FFI | `bindings/dart` (`task test-dart`) |
+| Rust bindings | `bindings/rust` (`task test-rust`) |
+| Python bindings | `bindings/python` (`task test-python`) |
+| Lua bindings | `bindings/lua` (`task test-lua`) |
+| Swift bindings | `bindings/swift` (`task test-swift`) |
+| Java bindings | `bindings/java` (`task test-java`) |
+| Kotlin bindings | `bindings/kotlin` (`task test-kotlin`) |
 
 ```bash
 go test ./pkg/librns
 task build-librns
-make -C examples/librns-smoke && ./examples/librns-smoke/librns-smoke
+make -C bindings/c/examples/smoke && ./bindings/c/examples/smoke/librns-smoke
 task test-odin
 task test-zig
 task test-cpp
+task test-dart
+task test-rust
+task test-python
 ```
 
 ## Odin bindings
@@ -284,11 +300,12 @@ import rns "rns:rns"
 |------|----------------|
 | Version and errors | version, last_error, error_string, Error |
 | Node lifecycle | node_create, node_start, node_stop, node_destroy, node_pause, node_resume, node_set_identity, node_refresh_paths |
-| Identity | identity_generate, identity_load, identity_save, identity_destroy, identity_hash |
+| Identity | identity_generate, identity_load, identity_save, identity_destroy, identity_hash, identity_hash_bytes, identity_public_key, identity_from_public_key, identity_sign, identity_verify |
+| RSG / RSM | rsg_create, rsg_validate, rsg_sign_file, rsg_verify_file, rsm_verify |
 | Destination | destination_create, destination_announce, destination_hash, destroy, request handler register |
-| Path | path_request, path_table |
+| Path / interfaces | path_request, path_table, interfaces_list |
 | Link and requests | link_open, link_send, link_close, link_id, link_request, request_respond |
-| Events | event_poll, set_event_callback, helpers for app data and hashes |
+| Events | event_poll, set_event_callback, Destination_Data, helpers for app data and hashes |
 | Raw ABI | foreign `rns_*` procs in `bindings/odin/rns/foreign.odin` |
 
 Linux only (matches `librns.so`). Requires Odin on `PATH` and a built shared library.
@@ -323,11 +340,12 @@ const rns = @import("rns");
 |------|-------------|
 | Version and errors | version, lastError, errorString, Error |
 | Node lifecycle | nodeCreate, nodeStart, nodeStop, nodeDestroy, nodePause, nodeResume, nodeSetIdentity, nodeRefreshPaths |
-| Identity | identityGenerate, identityLoad, identitySave, identityDestroy, identityHash |
+| Identity | identityGenerate, identityLoad, identitySave, identityDestroy, identityHash, identityHashBytes, identityPublicKey, identityFromPublicKey, identitySign, identityVerify |
+| RSG / RSM | rsgCreate, rsgValidate, rsgSignFile, rsgVerifyFile, rsmVerify |
 | Destination | destinationCreate, destinationAnnounce, destinationHash, destroy, request handler register |
-| Path | pathRequest, pathTable |
+| Path / interfaces | pathRequest, pathTable, interfacesList |
 | Link and requests | linkOpen, linkSend, linkClose, linkId, linkRequest, requestRespond |
-| Events | eventPoll, setEventCallback, helpers for app data and hashes |
+| Events | eventPoll, setEventCallback, destination_data, helpers for app data and hashes |
 | Raw ABI | `c.rns_*` in `bindings/zig/src/c.zig` |
 
 Linux only (matches `librns.so`). Requires Zig 0.16.0 or later on `PATH` and a built shared library.
@@ -367,11 +385,12 @@ auto node = std::move(node_r).value();
 |------|-------------|
 | Version and errors | version, last_error, error_string, Error, Result |
 | Node lifecycle | `Node::create`, start, stop, pause, resume, set_identity, refresh_paths |
-| Identity | `Identity::generate`, load, save, hash |
+| Identity | `Identity::generate`, load, save, hash, hash_bytes, public_key, from_public_key, sign, verify |
+| RSG / RSM | rsg_create, rsg_validate, rsg_sign_file, rsg_verify_file, rsm_verify |
 | Destination | `Destination::create`, announce, hash, register_request_handler |
-| Path | path_request, path_table |
+| Path / interfaces | path_request, path_table, interfaces_list |
 | Link and requests | `Link::open`, send, close, id, request, request_respond |
-| Events | `Node::poll`, set_event_callback, Event accessors |
+| Events | `Node::poll`, set_event_callback, DestinationData, Event accessors |
 
 Linux only (matches `librns.so`). Requires CMake and a C++17 compiler, plus a built shared library.
 
@@ -419,6 +438,134 @@ task test-dart
 Android builds need an NDK (`ANDROID_NDK_HOME`). Windows cross-builds need mingw-w64 or Zig (`scripts/cc-windows-zig.sh`). Flutter apps copy Android ABIs into jniLibs and ship `librns.dll` beside the Windows runner.
 
 For out-of-process Dart or Flutter without shipping native code, use the [Control API client](control-api.md#dart-and-flutter) in the same package.
+
+## Rust bindings
+
+Path: `bindings/rust/`.
+
+Safe Rust wrappers over the same C ABI (`extern "C"` in `src/ffi.rs`). Link `librns.so` via `build.rs` / `RNS_LIB_DIR`.
+
+```rust
+use rns::{version, Identity, Node, API_VERSION};
+assert_eq!(version(), API_VERSION);
+```
+
+### Coverage
+
+| Area | Rust surface |
+|------|--------------|
+| Version and errors | version, last_error, Error, Result |
+| Node lifecycle | `Node::create`, start, stop, set_identity, pause, resume, event_poll |
+| Identity | generate, load, save, hash_hex, hash_bytes, public_key, from_public_key, sign, verify |
+| RSG / RSM | rsg_create, rsg_validate, rsm_verify |
+| Interfaces | interfaces_list |
+
+```bash
+task build-librns
+task test-rust
+# or
+make -C bindings/rust test
+```
+
+## Python bindings
+
+Path: `bindings/python/`.
+
+ctypes wrappers over the same C ABI. Set `RNS_LIB_PATH` or place `bin/librns.so` on the default search path.
+
+```python
+import rns
+assert rns.version() == rns.API_VERSION
+```
+
+### Coverage
+
+| Area | Python surface |
+|------|----------------|
+| Version and errors | version, last_error, Error, map_code |
+| Node lifecycle | `Node.create`, start, stop, set_identity, pause, resume, event_poll |
+| Identity | generate, load, save, hash_hex, hash_bytes, public_key, from_public_key, sign, verify |
+| RSG / RSM | rsg_create, rsg_validate, rsm_verify |
+| Interfaces | interfaces_list |
+
+```bash
+task build-librns
+task test-python
+# or
+make -C bindings/python test
+```
+
+## Lua bindings
+
+Path: `bindings/lua/`.
+
+LuaJIT FFI wrappers over the same C ABI. Requires LuaJIT (`ffi`). Set `RNS_LIB_PATH` or place `bin/librns.so` on the default search path.
+
+```lua
+local rns = require("rns")
+assert(rns.version() == rns.API_VERSION)
+```
+
+```bash
+task build-librns
+task test-lua
+# or
+make -C bindings/lua test
+```
+
+## Swift bindings
+
+Path: `bindings/swift/`.
+
+SwiftPM library over the same C ABI (`Sources/CRNS` system module + idiomatic `RNS` target). Link `librns` via Makefile `-Xlinker` flags / `LD_LIBRARY_PATH`.
+
+```swift
+import RNS
+assert(version() == API_VERSION)
+```
+
+```bash
+task build-librns
+task test-swift
+# or
+make -C bindings/swift test
+```
+
+## Java bindings
+
+Path: `bindings/java/`.
+
+JNA wrappers over the same C ABI (`io.quad4.rns`). Downloads `jna.jar` on first build. Set `RNS_LIB_PATH` or place `bin/librns.so` on the default search path.
+
+```java
+import io.quad4.rns.Rns;
+assert Rns.version().equals(Rns.API_VERSION);
+```
+
+```bash
+task build-librns
+task test-java
+# or
+make -C bindings/java test
+```
+
+## Kotlin bindings
+
+Path: `bindings/kotlin/`.
+
+Kotlin facade over the Java JNA bindings (`io.quad4.rns.kotlin`). Requires `kotlinc` and the Java package.
+
+```kotlin
+import io.quad4.rns.kotlin.RnsKt
+check(RnsKt.version() == RnsKt.API_VERSION)
+```
+
+```bash
+task build-librns
+task test-kotlin
+# or
+make -C bindings/kotlin test
+```
 
 ## Related documents
 

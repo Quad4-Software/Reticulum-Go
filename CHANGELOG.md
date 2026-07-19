@@ -12,10 +12,10 @@ Wire compatible with Python RNS 1.3.9
 - Interfaces: UDP, TCP, Auto, I2P, Backbone, Pipe, Local, Serial, Modem73, SDR, WebSocket, QUIC, WebTransport, DNS rendezvous, VSOCK, HTTPS
 - Daemon utilities: status, id, probe, path, cp, x, pageserver, slow, speedtest, self-check
 - librns C ABI with node lifecycle, control API, and sandbox
-- Odin, Zig, and C++ librns bindings
+- Odin, Zig, C++, Dart, Rust, and Python librns bindings
 - Dart librns FFI and Dart Control API client
 - Fully ephemeral in-memory storage with soft memory caps and OOM-safe eviction
-- librns API version aligned to 1.4
+- librns API version aligned to 1.5
 - Persistent identity save for librns hosts
 - librns resource transfers and resource events
 - Cross-build scripts for Windows DLL and macOS dylib

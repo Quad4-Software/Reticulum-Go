@@ -188,3 +188,43 @@ tasks:
     desc: Run Dart bindings tests (Control API + librns FFI, requires dart and CGO)
     cmds:
       - sh scripts/ci/run-dart-bindings.sh
+
+  test-c:
+    desc: Build librns and run C ABI binding examples
+    cmds:
+      - sh scripts/ci/run-c-bindings.sh
+
+  test-rust:
+    desc: Build librns and run Rust bindings tests and examples (requires cargo)
+    cmds:
+      - sh scripts/ci/run-rust-bindings.sh
+
+  test-swift:
+    desc: Build librns and run Swift bindings tests and examples (requires swift)
+    cmds:
+      - sh scripts/ci/run-swift-bindings.sh
+
+  test-lua:
+    desc: Build librns and run LuaJIT librns tests and examples (requires luajit)
+    cmds:
+      - sh scripts/ci/run-lua-bindings.sh
+
+  test-java:
+    desc: Build librns and run Java JNA bindings tests and examples (requires javac)
+    cmds:
+      - sh scripts/ci/run-java-bindings.sh
+
+  test-kotlin:
+    desc: Build librns and run Kotlin bindings tests and examples (requires kotlinc and javac)
+    cmds:
+      - sh scripts/ci/run-kotlin-bindings.sh
+
+  test-python:
+    desc: Build librns and run Python librns ctypes tests and examples
+    cmds:
+      - sh scripts/ci/run-python-bindings.sh
+
+  test-binding-examples:
+    desc: Build examples for one binding language (c|odin|zig|cpp|dart|rust|python|lua|swift|java|kotlin)
+    cmds:
+      - sh scripts/ci/run-binding-examples.sh {{.CLI_ARGS}}

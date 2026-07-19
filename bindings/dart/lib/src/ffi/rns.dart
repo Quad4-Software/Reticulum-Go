@@ -179,6 +179,208 @@ class Rns {
     }
   }
 
+  List<int>? identityHashBytes(int identity) {
+    final out = calloc<Uint8>(rnsHashLen);
+    final written = calloc<Size>();
+    try {
+      final code =
+          _api.rns_identity_hash_bytes(identity, out, rnsHashLen, written);
+      if (code != RnsError.ok || written.value != rnsHashLen) {
+        return null;
+      }
+      return List<int>.from(out.asTypedList(rnsHashLen));
+    } finally {
+      calloc.free(out);
+      calloc.free(written);
+    }
+  }
+
+  List<int>? identityPublicKey(int identity) {
+    final out = calloc<Uint8>(64);
+    final written = calloc<Size>();
+    try {
+      final code = _api.rns_identity_public_key(identity, out, 64, written);
+      if (code != RnsError.ok) {
+        return null;
+      }
+      return List<int>.from(out.asTypedList(written.value));
+    } finally {
+      calloc.free(out);
+      calloc.free(written);
+    }
+  }
+
+  int identityFromPublicKey(List<int> pub) {
+    if (pub.isEmpty) {
+      return 0;
+    }
+    final buf = calloc<Uint8>(pub.length);
+    try {
+      buf.asTypedList(pub.length).setAll(0, pub);
+      return _api.rns_identity_from_public_key(buf, pub.length);
+    } finally {
+      calloc.free(buf);
+    }
+  }
+
+  List<int>? identitySign(int identity, List<int> data) {
+    final dataPtr = data.isEmpty ? nullptr : calloc<Uint8>(data.length);
+    final sig = calloc<Uint8>(64);
+    final written = calloc<Size>();
+    try {
+      if (data.isNotEmpty) {
+        dataPtr.asTypedList(data.length).setAll(0, data);
+      }
+      final code = _api.rns_identity_sign(
+        identity,
+        dataPtr,
+        data.length,
+        sig,
+        64,
+        written,
+      );
+      if (code != RnsError.ok) {
+        return null;
+      }
+      return List<int>.from(sig.asTypedList(written.value));
+    } finally {
+      if (dataPtr != nullptr) {
+        calloc.free(dataPtr);
+      }
+      calloc.free(sig);
+      calloc.free(written);
+    }
+  }
+
+  int identityVerify(int identity, List<int> data, List<int> signature) {
+    final dataPtr = data.isEmpty ? nullptr : calloc<Uint8>(data.length);
+    final sigPtr =
+        signature.isEmpty ? nullptr : calloc<Uint8>(signature.length);
+    try {
+      if (data.isNotEmpty) {
+        dataPtr.asTypedList(data.length).setAll(0, data);
+      }
+      if (signature.isNotEmpty) {
+        sigPtr.asTypedList(signature.length).setAll(0, signature);
+      }
+      return _api.rns_identity_verify(
+        identity,
+        dataPtr,
+        data.length,
+        sigPtr,
+        signature.length,
+      );
+    } finally {
+      if (dataPtr != nullptr) {
+        calloc.free(dataPtr);
+      }
+      if (sigPtr != nullptr) {
+        calloc.free(sigPtr);
+      }
+    }
+  }
+
+  ({List<int>? blob, int code}) rsgCreate(
+    int identity,
+    List<int> message, {
+    bool embed = true,
+  }) {
+    final msgPtr = message.isEmpty ? nullptr : calloc<Uint8>(message.length);
+    final needed = calloc<Size>();
+    try {
+      if (message.isNotEmpty) {
+        msgPtr.asTypedList(message.length).setAll(0, message);
+      }
+      var code = _api.rns_rsg_create(
+        identity,
+        msgPtr,
+        message.length,
+        embed ? 1 : 0,
+        nullptr,
+        0,
+        needed,
+      );
+      if (code != RnsError.ok && code != RnsError.truncated) {
+        return (blob: null, code: code);
+      }
+      if (needed.value == 0) {
+        return (blob: null, code: RnsError.internal);
+      }
+      final out = calloc<Uint8>(needed.value);
+      final written = calloc<Size>();
+      try {
+        code = _api.rns_rsg_create(
+          identity,
+          msgPtr,
+          message.length,
+          embed ? 1 : 0,
+          out,
+          needed.value,
+          written,
+        );
+        if (code != RnsError.ok) {
+          return (blob: null, code: code);
+        }
+        return (
+          blob: List<int>.from(out.asTypedList(written.value)),
+          code: code,
+        );
+      } finally {
+        calloc.free(out);
+        calloc.free(written);
+      }
+    } finally {
+      if (msgPtr != nullptr) {
+        calloc.free(msgPtr);
+      }
+      calloc.free(needed);
+    }
+  }
+
+  int rsgValidate(
+    List<int> rsg,
+    List<int> message, [
+    List<int> requiredSignerHash = const [],
+  ]) {
+    final rsgPtr = rsg.isEmpty ? nullptr : calloc<Uint8>(rsg.length);
+    final msgPtr = message.isEmpty ? nullptr : calloc<Uint8>(message.length);
+    final reqPtr = requiredSignerHash.isEmpty
+        ? nullptr
+        : calloc<Uint8>(requiredSignerHash.length);
+    try {
+      if (rsg.isNotEmpty) {
+        rsgPtr.asTypedList(rsg.length).setAll(0, rsg);
+      }
+      if (message.isNotEmpty) {
+        msgPtr.asTypedList(message.length).setAll(0, message);
+      }
+      if (requiredSignerHash.isNotEmpty) {
+        reqPtr.asTypedList(requiredSignerHash.length).setAll(
+              0,
+              requiredSignerHash,
+            );
+      }
+      return _api.rns_rsg_validate(
+        rsgPtr,
+        rsg.length,
+        msgPtr,
+        message.length,
+        reqPtr,
+        requiredSignerHash.length,
+      );
+    } finally {
+      if (rsgPtr != nullptr) {
+        calloc.free(rsgPtr);
+      }
+      if (msgPtr != nullptr) {
+        calloc.free(msgPtr);
+      }
+      if (reqPtr != nullptr) {
+        calloc.free(reqPtr);
+      }
+    }
+  }
+
   int destinationCreate(
     int node, {
     int identity = 0,
@@ -291,6 +493,29 @@ class Rns {
       final entries = <RnsPathEntryView>[];
       for (var i = 0; i < n; i++) {
         entries.add(RnsPathEntryView.fromNative(out[i]));
+      }
+      return (entries: entries, code: code);
+    } finally {
+      calloc.free(out);
+      calloc.free(written);
+    }
+  }
+
+  ({List<RnsInterfaceEntryView> entries, int code}) interfacesList(
+    int node, {
+    int capacity = 32,
+  }) {
+    final out = calloc<RnsInterfaceEntryNative>(capacity);
+    final written = calloc<Size>();
+    try {
+      final code = _api.rns_interfaces(node, out, capacity, written);
+      if (code != RnsError.ok && code != RnsError.truncated) {
+        return (entries: const [], code: code);
+      }
+      final n = written.value;
+      final entries = <RnsInterfaceEntryView>[];
+      for (var i = 0; i < n; i++) {
+        entries.add(RnsInterfaceEntryView.fromNative(out[i]));
       }
       return (entries: entries, code: code);
     } finally {

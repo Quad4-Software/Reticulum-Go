@@ -303,8 +303,8 @@ Requires Task. See [Embedding and WebAssembly](embedding-and-wasm.md).
 
 ```bash
 task build-librns
-make -C examples/librns-smoke
-./examples/librns-smoke/librns-smoke
+make -C bindings/c/examples/smoke
+./bindings/c/examples/smoke/librns-smoke
 ```
 
 Needs a C toolchain and CGO. Daemon builds stay `CGO_ENABLED=0`. See [librns](librns.md).
@@ -343,7 +343,70 @@ task build-librns
 task test-dart
 ```
 
-Requires the Dart SDK on `PATH` (CI pins `3.11.4`, job `Dart bindings`) and CGO for `librns.so` FFI smoke tests. Package lives under `bindings/dart`. See [librns Dart FFI](librns.md#dart-ffi-bindings) and [Control API](control-api.md#dart-and-flutter).
+Requires the Dart SDK on `PATH` (CI pins `3.11.4`, job `Dart bindings`) and CGO for `librns.so` FFI smoke tests. Package and examples live under `bindings/dart`. See [librns Dart FFI](librns.md#dart-ffi-bindings) and [Control API](control-api.md#dart-and-flutter).
+
+## Rust bindings
+
+```bash
+task build-librns
+task test-rust
+```
+
+Requires `cargo` on `PATH` (CI job `Rust bindings`). Package and examples live under `bindings/rust`.
+
+## Python bindings
+
+```bash
+task build-librns
+task test-python
+```
+
+Requires `python3` on `PATH` (CI job `Python bindings`). Package and examples live under `bindings/python`.
+
+## Lua bindings
+
+```bash
+task build-librns
+task test-lua
+```
+
+Requires LuaJIT on `PATH` (CI job `Lua bindings`). Package and examples live under `bindings/lua`.
+
+## Swift bindings
+
+```bash
+task build-librns
+task test-swift
+```
+
+Requires `swift` on `PATH` (CI pins `6.0.3` via `scripts/ci/setup-swift.sh`, job `Swift bindings`). Package and examples live under `bindings/swift`.
+
+## Java bindings
+
+```bash
+task build-librns
+task test-java
+```
+
+Requires `javac` on `PATH` (CI uses Temurin 17, job `Java bindings`). Package and examples live under `bindings/java`. JNA is fetched on first build.
+
+## Kotlin bindings
+
+```bash
+task build-librns
+task test-kotlin
+```
+
+Requires `kotlinc` and `javac` on `PATH` (CI pins Kotlin `2.1.10` via `scripts/ci/setup-kotlin.sh`, job `Kotlin bindings`). Package and examples live under `bindings/kotlin` and depend on `bindings/java`.
+
+## C ABI examples
+
+```bash
+task build-librns
+task test-c
+```
+
+Builds and runs `bindings/c/examples` (smoke plus page-fetch/pageserver compile). Binding CI jobs also run `make -C bindings/<lang> examples`.
 
 ## Adding a change safely
 

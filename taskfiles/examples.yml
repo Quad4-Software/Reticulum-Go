@@ -64,19 +64,49 @@ tasks:
   "example:pageserver:c":
     desc: Build and run C librns pageserver
     cmds:
-      - make -C examples/librns-pageserver run ARGS='{{.CLI_ARGS}}'
+      - make -C bindings/c/examples/pageserver run ARGS='{{.CLI_ARGS}}'
 
   "example:pageserver:odin":
     desc: Build and run Odin librns pageserver
     cmds:
-      - make -C examples/odin-pageserver run ARGS='{{.CLI_ARGS}}'
+      - make -C bindings/odin/examples/pageserver run ARGS='{{.CLI_ARGS}}'
 
   "example:pageserver:zig":
     desc: Build and run Zig librns pageserver
     cmds:
-      - make -C examples/zig-pageserver run ARGS='{{.CLI_ARGS}}'
+      - make -C bindings/zig/examples/pageserver run ARGS='{{.CLI_ARGS}}'
 
   "example:pageserver:cpp":
     desc: Build and run C++ librns pageserver
     cmds:
-      - make -C examples/cpp-pageserver run ARGS='{{.CLI_ARGS}}'
+      - make -C bindings/cpp/examples/pageserver run ARGS='{{.CLI_ARGS}}'
+
+  "example:pageserver:rust":
+    desc: Build and run Rust librns pageserver
+    cmds:
+      - make -C bindings/rust/examples/pageserver
+
+  "example:pageserver:python":
+    desc: Compile-check Python librns pageserver
+    cmds:
+      - make -C bindings/python/examples/pageserver
+
+  "example:pageserver:lua":
+    desc: Syntax-check Lua librns pageserver
+    cmds:
+      - make -C bindings/lua/examples/pageserver
+
+  "example:pageserver:swift":
+    desc: Build Swift librns pageserver
+    cmds:
+      - make -C bindings/swift/examples/pageserver
+
+  "example:pageserver:java":
+    desc: Compile-check Java librns pageserver
+    cmds:
+      - make -C bindings/java/examples/pageserver
+
+  "example:pageserver:kotlin":
+    desc: Compile-check Kotlin librns pageserver
+    cmds:
+      - make -C bindings/kotlin/examples/pageserver

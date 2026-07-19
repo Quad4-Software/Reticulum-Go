@@ -146,7 +146,7 @@ Build the shared library and optional binding tests:
 
 ```bash
 task build-librns
-make -C examples/librns-smoke && ./examples/librns-smoke/librns-smoke
+make -C bindings/c/examples/smoke && ./bindings/c/examples/smoke/librns-smoke
 task test-odin
 task test-zig
 task test-cpp

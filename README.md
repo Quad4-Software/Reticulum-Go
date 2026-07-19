@@ -46,10 +46,16 @@ For details on interoperability, see [COMPATIBILITY.md](COMPATIBILITY.md). You c
 | **WebAssembly Support** | Yes | Run in the browser or WebAssembly environments (`cmd/reticulum-wasm`, `pkg/wasm`). |
 | **Runtime Sandbox** | Yes | Automated OS-level sandboxing enabled by default. See [SECURITY.md](SECURITY.md#runtime-sandbox). |
 | **librns C ABI** | Yes | Linux shared library for embedded applications. See [docs/en/librns.md](docs/en/librns.md). |
-| **Odin librns bindings** | Yes | Idiomatic Odin package over `librns.so` (`bindings/odin`). Linux. See [docs/en/librns.md](docs/en/librns.md#odin-bindings). |
+| **Odin librns bindings** | Yes | Idiomatic Odin package over `librns.so` (`bindings/odin`). Linux. ABI 1.5 reference. See [docs/en/librns.md](docs/en/librns.md#odin-bindings). |
 | **Zig librns bindings** | Yes | Idiomatic Zig package over `librns.so` (`bindings/zig`). Linux. See [docs/en/librns.md](docs/en/librns.md#zig-bindings). |
 | **C++ librns bindings** | Yes | Idiomatic C++17 RAII wrappers over `librns.so` (`bindings/cpp`). Linux. See [docs/en/librns.md](docs/en/librns.md#c-bindings). |
 | **Dart librns FFI** | Yes | In-process `dart:ffi` over librns on Linux, Android, and Windows (`bindings/dart`, `package:rns_control/ffi.dart`). See [docs/en/librns.md](docs/en/librns.md#dart-ffi-bindings). |
+| **Rust librns bindings** | Yes | Safe Rust wrappers over `librns.so` (`bindings/rust`). Linux. See [docs/en/librns.md](docs/en/librns.md#rust-bindings). |
+| **Python librns bindings** | Yes | ctypes wrappers over `librns.so` (`bindings/python`). Linux. See [docs/en/librns.md](docs/en/librns.md#python-bindings). |
+| **Lua librns bindings** | Yes | LuaJIT FFI wrappers over `librns.so` (`bindings/lua`). Linux. See [docs/en/librns.md](docs/en/librns.md#lua-bindings). |
+| **Swift librns bindings** | Yes | SwiftPM wrappers over `librns.so` (`bindings/swift`). Linux/macOS. See [docs/en/librns.md](docs/en/librns.md#swift-bindings). |
+| **Java librns bindings** | Yes | JNA wrappers over `librns.so` (`bindings/java`). Linux. See [docs/en/librns.md](docs/en/librns.md#java-bindings). |
+| **Kotlin librns bindings** | Yes | Kotlin facade over the Java JNA bindings (`bindings/kotlin`). Linux. See [docs/en/librns.md](docs/en/librns.md#kotlin-bindings). |
 | **Dart Control API client** | Yes | Flutter-ready Dart package over the Control API (`bindings/dart`). See [docs/en/control-api.md](docs/en/control-api.md#dart-and-flutter). |
 | **Control API** | Yes | Localhost JSON and WebSocket APIs for out-of-process clients. See [docs/en/control-api.md](docs/en/control-api.md). |
 | **CLI Utilities** | Yes | Native subcommands of `reticulum-go`. Installs symlinks to match legacy `rgo*` tool names. See [docs/en/utilities.md](docs/en/utilities.md). Packet dump and Wireshark notes: [docs/en/packet-debug.md](docs/en/packet-debug.md). |
@@ -81,6 +87,10 @@ Refer to [SECURITY.md](SECURITY.md#runtime-sandbox) for details and specific pla
 *   Optional for Odin bindings: Odin compiler on `PATH` (CI pins `dev-2026-06`), plus CGO to build `librns.so`
 *   Optional for Zig bindings: Zig compiler on `PATH` (CI pins `0.16.0`), plus CGO to build `librns.so`
 *   Optional for Dart / Flutter bindings: Dart SDK on `PATH` (CI pins `3.11.4`). FFI tests also need CGO to build `librns.so`
+*   Optional for Lua bindings: LuaJIT on `PATH`, plus CGO to build `librns.so`
+*   Optional for Swift bindings: Swift toolchain on `PATH` (CI pins `6.0.3`), plus CGO to build `librns.so`
+*   Optional for Java bindings: JDK with `javac` on `PATH` (CI uses Temurin 17), plus CGO to build `librns.so`
+*   Optional for Kotlin bindings: `kotlinc` on `PATH` (CI pins `2.1.10`) and a JDK, plus CGO to build `librns.so`
 
 ## Quick Start
 
@@ -344,8 +354,8 @@ To build the shared library:
 
 ```bash
 task build-librns
-make -C examples/librns-smoke
-./examples/librns-smoke/librns-smoke
+make -C bindings/c/examples/smoke
+./bindings/c/examples/smoke/librns-smoke
 ```
 
 This compiles the shared library to `bin/librns.so` and generates header definitions at `include/rns.h`. For details, see [docs/en/librns.md](docs/en/librns.md).
@@ -382,6 +392,72 @@ task test-cpp
 ```
 
 Covers the same ABI surface as the Odin and Zig bindings. Details: [docs/en/librns.md](docs/en/librns.md#c-bindings).
+
+### Rust Bindings
+
+Safe Rust wrappers over `librns.so` live in `bindings/rust`. Requires `cargo` on `PATH`.
+
+```bash
+task build-librns
+task test-rust
+```
+
+Details: [docs/en/librns.md](docs/en/librns.md#rust-bindings).
+
+### Python Bindings
+
+ctypes wrappers over `librns.so` live in `bindings/python`.
+
+```bash
+task build-librns
+task test-python
+```
+
+Details: [docs/en/librns.md](docs/en/librns.md#python-bindings).
+
+### Lua Bindings
+
+LuaJIT FFI wrappers over `librns.so` live in `bindings/lua`.
+
+```bash
+task build-librns
+task test-lua
+```
+
+Details: [docs/en/librns.md](docs/en/librns.md#lua-bindings).
+
+### Swift Bindings
+
+SwiftPM wrappers over `librns.so` live in `bindings/swift`.
+
+```bash
+task build-librns
+task test-swift
+```
+
+Details: [docs/en/librns.md](docs/en/librns.md#swift-bindings).
+
+### Java Bindings
+
+JNA wrappers over `librns.so` live in `bindings/java`.
+
+```bash
+task build-librns
+task test-java
+```
+
+Details: [docs/en/librns.md](docs/en/librns.md#java-bindings).
+
+### Kotlin Bindings
+
+Kotlin facade over the Java JNA bindings lives in `bindings/kotlin`.
+
+```bash
+task build-librns
+task test-kotlin
+```
+
+Details: [docs/en/librns.md](docs/en/librns.md#kotlin-bindings).
 
 ### Dart / Flutter Bindings
 

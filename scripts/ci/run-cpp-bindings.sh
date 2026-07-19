@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2024-2026 Quad4.io
 #
-# Build librns and run C++ bindings tests.
+# Build librns and run C++ bindings tests plus examples.
 
 set -eu
 
@@ -28,3 +28,4 @@ else
 fi
 
 make -C bindings/cpp test
+make -C bindings/cpp examples

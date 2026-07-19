@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2024-2026 Quad4.io
+
+[package]
+name = "rns"
+version = "1.5.0"
+description = "ctypes bindings for the librns C ABI"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["rns*"]

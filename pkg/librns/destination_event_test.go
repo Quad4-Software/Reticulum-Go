@@ -41,7 +41,7 @@ func TestDestinationCreateSurfacesPacketEvents(t *testing.T) {
 	if librns.EventDestinationData != 11 {
 		t.Fatalf("EventDestinationData = %d want 11", librns.EventDestinationData)
 	}
-	if librns.Version() != "1.4" {
-		t.Fatalf("Version = %s want 1.4", librns.Version())
+	if librns.Version() != "1.5" {
+		t.Fatalf("Version = %s want 1.5", librns.Version())
 	}
 }

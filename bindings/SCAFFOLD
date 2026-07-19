@@ -25,10 +25,20 @@ application traffic. The Control API is a local front end, not the mesh.
 Reference bindings already in tree
 ----------------------------------
 
-  bindings/odin   librns wrappers (foreign import)
+  bindings/odin   librns wrappers (foreign import)  ABI 1.5 reference
   bindings/zig    librns wrappers (@extern)
   bindings/cpp    librns wrappers (C++ RAII)
   bindings/dart   librns FFI plus Control API client
+  bindings/rust   librns wrappers (safe Rust over extern)
+  bindings/python librns wrappers (ctypes)
+  bindings/lua    librns wrappers (LuaJIT FFI)
+  bindings/swift  librns wrappers (SwiftPM)
+  bindings/java   librns wrappers (JNA)
+  bindings/kotlin librns wrappers (Kotlin over Java JNA)
+  bindings/c      C ABI examples only (include/rns.h)
+
+Each binding keeps demos under bindings/<lang>/examples/{smoke,page-fetch,pageserver}
+where applicable. Go-only samples stay under examples/.
 
 Read docs/en/librns.md and docs/en/control-api.md before coding.
 For product design constraints on the Control API, read the Architecture notes
@@ -80,6 +90,12 @@ Identity
   rns_identity_generate / rns_identity_load / rns_identity_save
   rns_identity_destroy
   rns_identity_hash (32 hex chars)
+  rns_identity_hash_bytes / rns_identity_public_key / rns_identity_from_public_key
+  rns_identity_sign / rns_identity_verify
+
+RSG / RSM
+  rns_rsg_create / rns_rsg_validate / rns_rsg_sign_file / rns_rsg_verify_file
+  rns_rsm_verify
 
 Destination
   rns_destination_create (app name required, optional aspects, accepts_links)
@@ -91,6 +107,7 @@ Destination
 Path and link
   rns_path_request
   rns_path_table
+  rns_interfaces
   rns_link_open / rns_link_send / rns_link_send_resource / rns_link_close
   rns_link_id
   rns_link_request
@@ -106,6 +123,7 @@ Event kinds
   LINK_ESTABLISHED / LINK_FAILED / LINK_DATA / LINK_CLOSED
   REQUEST_INCOMING / REQUEST_RESPONSE / REQUEST_FAILED
   RESOURCE_STARTED / RESOURCE_CONCLUDED
+  DESTINATION_DATA
 
 ABI rules that bindings must preserve
 -------------------------------------
@@ -219,15 +237,16 @@ Build and smoke
 From repository root:
 
   task build-librns
-  make -C examples/librns-smoke
-  ./examples/librns-smoke/librns-smoke
+  make -C bindings/c/examples/smoke
+  ./bindings/c/examples/smoke/librns-smoke
 
 Add a bindings/<lang> Makefile (or equivalent) with at least:
   test
+  examples
   optional smoke
 
-Wire CI later using the pattern in docs/en/development-and-testing.md
-(existing jobs: Odin, Zig, Dart).
+Wire CI using scripts/ci/run-<lang>-bindings.sh and
+scripts/ci/run-binding-examples.sh (jobs in .github/workflows/ci.yml).
 
 What not to put in a binding
 ----------------------------
@@ -255,7 +274,9 @@ Authoritative sources (read these, do not guess)
   docs/en/librns.md
   docs/en/control-api.md
   pkg/controlapi/protocol.go
-  examples/librns-smoke
+  bindings/c/examples/smoke
   examples/control-client/client.py
-  bindings/odin , bindings/zig , bindings/cpp , bindings/dart
+  bindings/odin , bindings/zig , bindings/cpp , bindings/dart ,
+  bindings/rust , bindings/python , bindings/lua , bindings/swift ,
+  bindings/java , bindings/kotlin
 )

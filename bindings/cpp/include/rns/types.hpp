@@ -29,6 +29,7 @@ enum class EventKind : int {
 	RequestFailed = RNS_EV_REQUEST_FAILED,
 	ResourceStarted = RNS_EV_RESOURCE_STARTED,
 	ResourceConcluded = RNS_EV_RESOURCE_CONCLUDED,
+	DestinationData = RNS_EV_DESTINATION_DATA,
 };
 
 } // namespace rns

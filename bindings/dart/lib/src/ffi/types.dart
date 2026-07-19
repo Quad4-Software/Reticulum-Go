@@ -7,7 +7,7 @@ import 'dart:ffi';
 import 'dart:typed_data';
 
 const rnsHashLen = 16;
-const rnsApiVersion = '1.4';
+const rnsApiVersion = '1.5';
 
 abstract final class RnsError {
   static const ok = 0;
@@ -58,6 +58,7 @@ abstract final class RnsEventKind {
   static const requestFailed = 8;
   static const resourceStarted = 9;
   static const resourceConcluded = 10;
+  static const destinationData = 11;
 }
 
 final class RnsEventNative extends Struct {
@@ -141,6 +142,32 @@ final class RnsPathEntryNative extends Struct {
   external double expires;
 }
 
+final class RnsInterfaceEntryNative extends Struct {
+  @Array(96)
+  external Array<Uint8> name;
+
+  @Array(32)
+  external Array<Uint8> type_name;
+
+  @Int32()
+  external int online;
+
+  @Int32()
+  external int enabled;
+
+  @Uint64()
+  external int rx_bytes;
+
+  @Uint64()
+  external int tx_bytes;
+
+  @Uint64()
+  external int rx_packets;
+
+  @Uint64()
+  external int tx_packets;
+}
+
 class RnsEventView {
   RnsEventView({
     required this.kind,
@@ -218,6 +245,41 @@ class RnsPathEntryView {
   final String iface;
   final double timestamp;
   final double expires;
+}
+
+class RnsInterfaceEntryView {
+  RnsInterfaceEntryView({
+    required this.name,
+    required this.typeName,
+    required this.online,
+    required this.enabled,
+    required this.rxBytes,
+    required this.txBytes,
+    required this.rxPackets,
+    required this.txPackets,
+  });
+
+  factory RnsInterfaceEntryView.fromNative(RnsInterfaceEntryNative e) {
+    return RnsInterfaceEntryView(
+      name: _cstringFromArray(e.name, 96),
+      typeName: _cstringFromArray(e.type_name, 32),
+      online: e.online != 0,
+      enabled: e.enabled != 0,
+      rxBytes: e.rx_bytes,
+      txBytes: e.tx_bytes,
+      rxPackets: e.rx_packets,
+      txPackets: e.tx_packets,
+    );
+  }
+
+  final String name;
+  final String typeName;
+  final bool online;
+  final bool enabled;
+  final int rxBytes;
+  final int txBytes;
+  final int rxPackets;
+  final int txPackets;
 }
 
 Uint8List _copyArray(Array<Uint8> arr, int len) {

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2024-2026 Quad4.io
 #
-# Build librns and run Odin bindings tests.
+# Build librns and run Odin bindings tests plus examples.
 
 set -eu
 
@@ -23,3 +23,4 @@ else
 fi
 
 make -C bindings/odin test
+make -C bindings/odin examples

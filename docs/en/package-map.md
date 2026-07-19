@@ -262,7 +262,7 @@ C ABI facade for in-process embed. Pure Go core. CGO shims in `pkg/librns/capi`.
 |------|--------|
 | Header | `include/rns.h` |
 | Shared lib | `task build-librns` produces `bin/librns.so` |
-| Smoke | `examples/librns-smoke` |
+| Smoke | `bindings/c/examples/smoke` |
 | Odin | `bindings/odin` (`task test-odin`) |
 | Zig | `bindings/zig` (`task test-zig`) |
 | C++ | `bindings/cpp` (`task test-cpp`) |

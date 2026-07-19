@@ -458,6 +458,39 @@ func rns_destination_destroy(destination C.uint64_t) C.int {
 	return cCode(librns.DestinationDestroy(uint64(destination)))
 }
 
+//export rns_destination_encrypt
+func rns_destination_encrypt(destHash *C.uint8_t, plaintext *C.uint8_t, plaintextLen C.size_t, out *C.uint8_t, outLen C.size_t, written *C.size_t) C.int {
+	if written != nil {
+		*written = 0
+	}
+	if destHash == nil {
+		return cCode(librns.ErrInvalidArg)
+	}
+	hash := C.GoBytes(unsafe.Pointer(destHash), identity.TruncatedHashLength/8)
+	raw, code := goBytesFromC(plaintext, plaintextLen)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	ct, code := librns.DestinationEncrypt(hash, raw)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	return copyBytesResult(out, outLen, written, ct)
+}
+
+//export rns_packet_send
+func rns_packet_send(node C.uint64_t, destHash *C.uint8_t, plaintext *C.uint8_t, plaintextLen C.size_t) C.int {
+	if destHash == nil {
+		return cCode(librns.ErrInvalidArg)
+	}
+	hash := C.GoBytes(unsafe.Pointer(destHash), identity.TruncatedHashLength/8)
+	raw, code := goBytesFromC(plaintext, plaintextLen)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	return cCode(librns.PacketSend(uint64(node), hash, raw))
+}
+
 //export rns_destination_register_request_handler
 func rns_destination_register_request_handler(destination C.uint64_t, path *C.char) C.int {
 	if path == nil {

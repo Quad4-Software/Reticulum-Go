@@ -71,3 +71,52 @@ destination_register_request_handler :: proc(destination: Destination, path: str
 	path_c := strings.clone_to_cstring(path, context.temp_allocator)
 	return Error(rns_destination_register_request_handler(u64(destination), path_c))
 }
+
+// Encrypt plaintext for a recalled destination hash (LXMF prop / opportunistic).
+destination_encrypt :: proc(dest_hash: []u8, plaintext: []u8, allocator := context.allocator) -> (out: []u8, err: Error) {
+	if len(dest_hash) != HASH_LEN {
+		return nil, .Invalid_Arg
+	}
+	cap := len(plaintext) + 256
+	buf := make([]u8, cap, context.temp_allocator)
+	written: c.size_t
+	code := Error(rns_destination_encrypt(
+		raw_data(dest_hash),
+		raw_data(plaintext) if len(plaintext) > 0 else nil,
+		c.size_t(len(plaintext)),
+		raw_data(buf),
+		c.size_t(len(buf)),
+		&written,
+	))
+	if code == .Truncated {
+		buf = make([]u8, int(written) + 64, context.temp_allocator)
+		written = 0
+		code = Error(rns_destination_encrypt(
+			raw_data(dest_hash),
+			raw_data(plaintext) if len(plaintext) > 0 else nil,
+			c.size_t(len(plaintext)),
+			raw_data(buf),
+			c.size_t(len(buf)),
+			&written,
+		))
+	}
+	if code != .Ok {
+		return nil, code
+	}
+	out = make([]u8, int(written), allocator)
+	copy(out, buf[:written])
+	return out, .Ok
+}
+
+// Send an encrypted DATA packet to dest_hash (opportunistic LXMF).
+packet_send :: proc(node: Node, dest_hash: []u8, plaintext: []u8) -> Error {
+	if len(dest_hash) != HASH_LEN {
+		return .Invalid_Arg
+	}
+	return Error(rns_packet_send(
+		u64(node),
+		raw_data(dest_hash),
+		raw_data(plaintext) if len(plaintext) > 0 else nil,
+		c.size_t(len(plaintext)),
+	))
+}

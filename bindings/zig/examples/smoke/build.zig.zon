@@ -1,0 +1,16 @@
+.{
+    .name = .zig_smoke,
+    .version = "0.1.0",
+    .fingerprint = 0x708d305b0cb631d2,
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        .rns = .{
+            .path = "../..",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "main.zig",
+    },
+}

@@ -124,6 +124,9 @@ int rns_destination_announce(uint64_t destination, const uint8_t *app_data, size
 int rns_destination_hash(uint64_t destination, uint8_t *hash_out, size_t hash_out_len, size_t *written);
 int rns_destination_destroy(uint64_t destination);
 int rns_destination_register_request_handler(uint64_t destination, const char *path);
+int rns_destination_encrypt(const uint8_t *dest_hash, const uint8_t *plaintext, size_t plaintext_len,
+	uint8_t *out, size_t out_len, size_t *written);
+int rns_packet_send(uint64_t node, const uint8_t *dest_hash, const uint8_t *plaintext, size_t plaintext_len);
 
 int rns_path_request(uint64_t node, const uint8_t *dest_hash);
 int rns_path_table(uint64_t node, rns_path_entry *out, size_t out_cap, size_t *written, int max_hops);

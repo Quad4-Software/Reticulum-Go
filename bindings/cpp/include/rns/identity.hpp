@@ -8,9 +8,12 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "rns/detail/c_api.hpp"
 #include "rns/error.hpp"
+#include "rns/span.hpp"
+#include "rns/types.hpp"
 #include "rns/util.hpp"
 
 namespace rns {
@@ -78,6 +81,64 @@ class Identity {
 			written = sizeof(buf);
 		}
 		return Result<std::string>(std::string(buf, written));
+	}
+
+	Result<Hash> hash_bytes() const {
+		Hash out{};
+		std::size_t written = 0;
+		Error err = map_code(rns_identity_hash_bytes(handle_, out.data(), out.size(), &written));
+		if (err != Error::Ok) {
+			return Result<Hash>(err);
+		}
+		if (written != hash_len) {
+			return Result<Hash>(Error::Truncated);
+		}
+		return Result<Hash>(out);
+	}
+
+	Result<std::vector<std::uint8_t>> public_key() const {
+		std::uint8_t buf[64];
+		std::size_t written = 0;
+		Error err = map_code(rns_identity_public_key(handle_, buf, sizeof(buf), &written));
+		if (err != Error::Ok) {
+			return Result<std::vector<std::uint8_t>>(err);
+		}
+		if (written > sizeof(buf)) {
+			written = sizeof(buf);
+		}
+		return Result<std::vector<std::uint8_t>>(
+		    std::vector<std::uint8_t>(buf, buf + written));
+	}
+
+	static Result<Identity> from_public_key(span<const std::uint8_t> pub) {
+		if (pub.empty()) {
+			return Result<Identity>(Error::InvalidArg);
+		}
+		std::uint64_t h = rns_identity_from_public_key(pub.data(), pub.size());
+		if (h == 0) {
+			return Result<Identity>(Error::InvalidArg);
+		}
+		return Result<Identity>(Identity(h));
+	}
+
+	Result<std::vector<std::uint8_t>> sign(span<const std::uint8_t> data) const {
+		std::uint8_t buf[64];
+		std::size_t written = 0;
+		Error err = map_code(rns_identity_sign(handle_, data.data(), data.size(), buf,
+							sizeof(buf), &written));
+		if (err != Error::Ok) {
+			return Result<std::vector<std::uint8_t>>(err);
+		}
+		if (written > sizeof(buf)) {
+			written = sizeof(buf);
+		}
+		return Result<std::vector<std::uint8_t>>(
+		    std::vector<std::uint8_t>(buf, buf + written));
+	}
+
+	Error verify(span<const std::uint8_t> data, span<const std::uint8_t> signature) const {
+		return map_code(rns_identity_verify(handle_, data.data(), data.size(),
+						    signature.data(), signature.size()));
 	}
 
 	std::uint64_t handle() const noexcept { return handle_; }

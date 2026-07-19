@@ -4,7 +4,7 @@
 DART ?= dart
 ROOT := $(abspath ../..)
 
-.PHONY: all test analyze get clean test-control test-ffi
+.PHONY: all test analyze get clean test-control test-ffi examples
 
 all: test
 
@@ -23,6 +23,10 @@ test-control: analyze
 test-ffi: analyze
 	@test -f $(ROOT)/bin/librns.so || (echo "missing $(ROOT)/bin/librns.so (task build-librns)" >&2; exit 1)
 	RNS_ROOT=$(ROOT) RNS_LIB_PATH=$(ROOT)/bin/librns.so $(DART) test test/ffi_smoke_test.dart
+
+examples: get
+	@test -f $(ROOT)/bin/librns.so || (echo "missing $(ROOT)/bin/librns.so (task build-librns)" >&2; exit 1)
+	$(MAKE) -C examples/smoke
 
 clean:
 	rm -rf .dart_tool

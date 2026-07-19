@@ -31,6 +31,7 @@ pub const RNS_EV_REQUEST_RESPONSE: c_int = 7;
 pub const RNS_EV_REQUEST_FAILED: c_int = 8;
 pub const RNS_EV_RESOURCE_STARTED: c_int = 9;
 pub const RNS_EV_RESOURCE_CONCLUDED: c_int = 10;
+pub const RNS_EV_DESTINATION_DATA: c_int = 11;
 
 pub const Event = extern struct {
     kind: c_int,
@@ -64,6 +65,17 @@ pub const PathEntry = extern struct {
     expires: f64,
 };
 
+pub const InterfaceEntry = extern struct {
+    name: [96]u8,
+    type_name: [32]u8,
+    online: c_int,
+    enabled: c_int,
+    rx_bytes: u64,
+    tx_bytes: u64,
+    rx_packets: u64,
+    tx_packets: u64,
+};
+
 pub const EventCallback = *const fn (event: *const Event, user_data: ?*anyopaque) callconv(.c) void;
 
 pub extern fn rns_version() ?[*:0]const u8;
@@ -83,6 +95,65 @@ pub extern fn rns_identity_load(path: [*:0]const u8) u64;
 pub extern fn rns_identity_save(identity: u64, path: [*:0]const u8) c_int;
 pub extern fn rns_identity_destroy(identity: u64) c_int;
 pub extern fn rns_identity_hash(identity: u64, hex_buf: ?[*]u8, hex_buf_len: usize, written: ?*usize) c_int;
+pub extern fn rns_identity_hash_bytes(identity: u64, out: ?[*]u8, out_len: usize, written: ?*usize) c_int;
+pub extern fn rns_identity_public_key(identity: u64, out: ?[*]u8, out_len: usize, written: ?*usize) c_int;
+pub extern fn rns_identity_from_public_key(pub_key: ?[*]const u8, pub_len: usize) u64;
+pub extern fn rns_identity_sign(
+    identity: u64,
+    data: ?[*]const u8,
+    data_len: usize,
+    sig_out: ?[*]u8,
+    sig_out_len: usize,
+    written: ?*usize,
+) c_int;
+pub extern fn rns_identity_verify(
+    identity: u64,
+    data: ?[*]const u8,
+    data_len: usize,
+    sig: ?[*]const u8,
+    sig_len: usize,
+) c_int;
+
+pub extern fn rns_rsg_create(
+    identity: u64,
+    message: ?[*]const u8,
+    message_len: usize,
+    embed: c_int,
+    out: ?[*]u8,
+    out_len: usize,
+    written: ?*usize,
+) c_int;
+pub extern fn rns_rsg_validate(
+    rsg: ?[*]const u8,
+    rsg_len: usize,
+    message: ?[*]const u8,
+    message_len: usize,
+    required_signer_hash: ?[*]const u8,
+    required_signer_hash_len: usize,
+) c_int;
+pub extern fn rns_rsg_sign_file(
+    identity: u64,
+    path: [*:0]const u8,
+    out: ?[*]u8,
+    out_len: usize,
+    written: ?*usize,
+) c_int;
+pub extern fn rns_rsg_verify_file(
+    rsg: ?[*]const u8,
+    rsg_len: usize,
+    path: [*:0]const u8,
+    required_signer_hash: ?[*]const u8,
+    required_signer_hash_len: usize,
+) c_int;
+pub extern fn rns_rsm_verify(
+    rsm: ?[*]const u8,
+    rsm_len: usize,
+    required_signer_hash: ?[*]const u8,
+    required_signer_hash_len: usize,
+    message_out: ?[*]u8,
+    message_out_len: usize,
+    written: ?*usize,
+) c_int;
 
 pub extern fn rns_destination_create(
     node: u64,
@@ -99,6 +170,7 @@ pub extern fn rns_destination_register_request_handler(destination: u64, path: [
 
 pub extern fn rns_path_request(node: u64, dest_hash: [*]const u8) c_int;
 pub extern fn rns_path_table(node: u64, out: ?[*]PathEntry, out_cap: usize, written: ?*usize, max_hops: c_int) c_int;
+pub extern fn rns_interfaces(node: u64, out: ?[*]InterfaceEntry, out_cap: usize, written: ?*usize) c_int;
 
 pub extern fn rns_link_open(node: u64, dest_hash: [*]const u8) u64;
 pub extern fn rns_link_send(link: u64, data: [*]const u8, data_len: usize) c_int;

@@ -110,6 +110,20 @@ foreign lib {
 	) -> c.int ---
 	rns_destination_destroy :: proc(destination: u64) -> c.int ---
 	rns_destination_register_request_handler :: proc(destination: u64, path: cstring) -> c.int ---
+	rns_destination_encrypt :: proc(
+		dest_hash: [^]u8,
+		plaintext: [^]u8,
+		plaintext_len: c.size_t,
+		out: [^]u8,
+		out_len: c.size_t,
+		written: ^c.size_t,
+	) -> c.int ---
+	rns_packet_send :: proc(
+		node: u64,
+		dest_hash: [^]u8,
+		plaintext: [^]u8,
+		plaintext_len: c.size_t,
+	) -> c.int ---
 
 	rns_path_request :: proc(node: u64, dest_hash: [^]u8) -> c.int ---
 	rns_path_table :: proc(

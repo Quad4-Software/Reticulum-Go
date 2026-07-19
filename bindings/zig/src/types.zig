@@ -3,7 +3,7 @@
 
 const c = @import("c.zig");
 
-pub const api_version = "1.4";
+pub const api_version = "1.5";
 pub const hash_len = c.RNS_HASH_LEN;
 
 pub const Node = enum(u64) { _ };
@@ -34,10 +34,12 @@ pub const EventKind = enum(c_int) {
     request_failed = c.RNS_EV_REQUEST_FAILED,
     resource_started = c.RNS_EV_RESOURCE_STARTED,
     resource_concluded = c.RNS_EV_RESOURCE_CONCLUDED,
+    destination_data = c.RNS_EV_DESTINATION_DATA,
 };
 
 pub const Event = c.Event;
 pub const PathEntry = c.PathEntry;
+pub const InterfaceEntry = c.InterfaceEntry;
 pub const EventCallback = c.EventCallback;
 
 pub fn mapCode(code: c_int) Error!void {
