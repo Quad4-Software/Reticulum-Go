@@ -163,8 +163,23 @@ func (p *Packet) Pack() error {
 		}
 	}
 
+	destHash := p.DestinationHash
+	transportID := p.TransportID
+	payload := p.Data
+
 	var raw []byte
 	if cap(p.Raw) >= need {
+		// Unpack leaves DestinationHash, TransportID, and Data as views into Raw.
+		// Reusing that buffer would clobber those views while packing (especially
+		// HT1 to HT2 upgrades used by multi-hop SendPacket rewrap).
+		destHash = append([]byte(nil), destHash...)
+		if len(transportID) > 0 {
+			transportID = append([]byte(nil), transportID...)
+		}
+		payload = append([]byte(nil), payload...)
+		p.DestinationHash = destHash
+		p.TransportID = transportID
+		p.Data = payload
 		raw = p.Raw[:0]
 	} else {
 		newCap := need
@@ -175,16 +190,16 @@ func (p *Packet) Pack() error {
 	}
 	raw = append(raw, flags, p.Hops)
 	if p.HeaderType == HeaderType2 {
-		raw = append(raw, p.TransportID...)
+		raw = append(raw, transportID...)
 	}
-	raw = append(raw, p.DestinationHash...)
+	raw = append(raw, destHash...)
 	raw = append(raw, p.Context)
-	raw = append(raw, p.Data...)
+	raw = append(raw, payload...)
 	p.Raw = raw
 
-	hdrLen := 2 + len(p.DestinationHash) + 1
+	hdrLen := 2 + len(destHash) + 1
 	if p.HeaderType == HeaderType2 {
-		hdrLen += len(p.TransportID)
+		hdrLen += len(transportID)
 	}
 	debug.Log(debug.DebugPackets, "Final header length", "bytes", hdrLen)
 	debug.Log(debug.DebugTrace, "Final packet size", "bytes", len(p.Raw))

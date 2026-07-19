@@ -165,9 +165,9 @@ func (a *Announce) HandleAnnounce(data []byte) error {
 		return errors.New("not an announce packet")
 	}
 
-	// Get hop count
+	// Get hop count. Match packet.Unpack / RNS PATHFINDER_M (reject hops >= MaxHops).
 	hopCount := header[1]
-	if hopCount > MaxHops {
+	if hopCount >= MaxHops {
 		debug.Log(debug.DebugTrace, "Announce exceeded max hops", "hops", hopCount)
 		return errors.New("announce exceeded maximum hop count")
 	}
@@ -177,21 +177,22 @@ func (a *Announce) HandleAnnounce(data []byte) error {
 	hasRatchet := (header[0] & HeaderContextFlagMask) != 0
 	var contextByte byte
 	var packetData []byte
+	var destHash []byte
 
 	const (
-		destHashStart  = HeaderSize
-		destHashEnd    = HeaderSize + AddrHashSize  // 18
-		transportIDEnd = destHashEnd + AddrHashSize // 34
+		addrStart = HeaderSize
+		addrMid   = HeaderSize + AddrHashSize // 18
+		addrEnd   = addrMid + AddrHashSize    // 34
 	)
 
 	if headerType == HeaderType2 {
-		// Header type 2 format: header + desthash + transportid + context + data
+		// Header type 2 wire order matches packet.Pack: transport_id then dest hash.
 		if len(data) < MinHeaderType2Size {
 			return errors.New("header type 2 packet too short")
 		}
-		_ = data[destHashStart:destHashEnd]
-		transportID := data[destHashEnd:transportIDEnd]
-		contextByte = data[transportIDEnd]
+		transportID := data[addrStart:addrMid]
+		destHash = data[addrMid:addrEnd]
+		contextByte = data[addrEnd]
 		packetData = data[HeaderType2Offset:]
 
 		debug.Log(debug.DebugTrace, "Header type 2 announce", "transportID", fmt.Sprintf("%x", transportID), "context", contextByte)
@@ -200,7 +201,8 @@ func (a *Announce) HandleAnnounce(data []byte) error {
 		if len(data) < MinHeaderType1Size {
 			return errors.New("header type 1 packet too short")
 		}
-		contextByte = data[destHashEnd]
+		destHash = data[addrStart:addrMid]
+		contextByte = data[addrMid]
 		packetData = data[HeaderType1Offset:]
 
 		debug.Log(debug.DebugTrace, "Header type 1 announce", "context", contextByte)
@@ -246,9 +248,6 @@ func (a *Announce) HandleAnnounce(data []byte) error {
 		debug.Log(debug.DebugTrace, "Ratchet data", "ratchet", "(none)")
 	}
 	debug.Log(debug.DebugTrace, "Signature and app data", "signature", fmt.Sprintf("%x", signature[:8]), "appDataLen", len(appData))
-
-	// Destination hash sits in the same position for both header types.
-	destHash := data[destHashStart:destHashEnd]
 
 	// Combine public keys
 	pubKey := append(encKey, signKey...)

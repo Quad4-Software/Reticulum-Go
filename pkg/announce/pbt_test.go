@@ -73,7 +73,7 @@ func TestPBTTruncatedAnnounceAlwaysErrors(t *testing.T) {
 }
 
 func TestPBTHopOverflowAlwaysErrors(t *testing.T) {
-	hops := pbt.IntRange(int(MaxHops)+1, 255)
+	hops := pbt.IntRange(int(MaxHops), 255)
 	prop := pbt.ForAll(
 		"hop overflow always errors",
 		hops,

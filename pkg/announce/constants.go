@@ -51,7 +51,7 @@ const (
 	HeaderType1Offset = HeaderSize + AddrHashSize + ContextByteLen // 19
 
 	// HeaderType2Offset is the offset at which payload begins for a
-	// HeaderType2 packet (header + dest + transport id + context).
+	// HeaderType2 packet (header + transport id + dest + context).
 	HeaderType2Offset = HeaderSize + 2*AddrHashSize + ContextByteLen // 35
 
 	// MinHeaderType1Size and MinHeaderType2Size are the smallest

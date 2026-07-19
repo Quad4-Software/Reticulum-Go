@@ -61,9 +61,9 @@ func FuzzHandleAnnounce(f *testing.F) {
 			}
 			return
 		}
-		if len(data) >= HeaderSize && data[0]&HeaderPacketTypeMask == PacketTypeAnnounce && data[1] > MaxHops {
+		if len(data) >= HeaderSize && data[0]&HeaderPacketTypeMask == PacketTypeAnnounce && data[1] >= MaxHops {
 			if err1 == nil {
-				t.Fatal("announce with hop count above MaxHops must error")
+				t.Fatal("announce with hop count at or above MaxHops must error")
 			}
 			if !strings.Contains(err1.Error(), "hop") {
 				t.Fatalf("hop overflow error %q missing hop wording", err1.Error())

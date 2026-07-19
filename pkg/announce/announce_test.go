@@ -17,6 +17,8 @@ import (
 
 type mockAnnounceHandler struct {
 	received bool
+	lastHash []byte
+	lastHops uint8
 }
 
 func (m *mockAnnounceHandler) AspectFilter() []string {
@@ -25,6 +27,8 @@ func (m *mockAnnounceHandler) AspectFilter() []string {
 
 func (m *mockAnnounceHandler) ReceivedAnnounce(destinationHash []byte, announcedIdentity any, appData []byte, hops uint8) error {
 	m.received = true
+	m.lastHash = append([]byte(nil), destinationHash...)
+	m.lastHops = hops
 	return nil
 }
 
@@ -241,4 +245,81 @@ func TestHandlerRegistration(t *testing.T) {
 	if len(ann.handlers) != 0 {
 		t.Errorf("Expected 0 handlers, got %d", len(ann.handlers))
 	}
+}
+
+// TestOracle_HandleAnnounceHeaderType2 verifies HT2 wire order is
+// transport_id then destination hash (matches packet.Pack / RNS).
+func TestOracle_HandleAnnounceHeaderType2(t *testing.T) {
+	id, err := identity.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	destHash := bytes.Repeat([]byte{0x11}, AddrHashSize)
+	ann, err := New(id, destHash, "oracle.ht2", []byte("app"), false, &common.ReticulumConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ht1, err := ann.CreatePacket()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tid := bytes.Repeat([]byte{0x22}, AddrHashSize)
+	ht2 := make([]byte, 0, len(ht1)+AddrHashSize)
+	ht2 = append(ht2, ht1[0]|HeaderTypeMask, ht1[1])
+	ht2 = append(ht2, tid...)
+	ht2 = append(ht2, ht1[2:]...)
+
+	handler := &mockAnnounceHandler{}
+	recv, err := New(id, destHash, "oracle.ht2", nil, false, &common.ReticulumConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recv.RegisterHandler(handler)
+	if err := recv.HandleAnnounce(ht2); err != nil {
+		t.Fatalf("HandleAnnounce HT2: %v", err)
+	}
+	if !handler.received {
+		t.Fatal("handler did not receive HT2 announce")
+	}
+	if !bytes.Equal(handler.lastHash, destHash) {
+		t.Fatalf("handler dest=%x want %x (got transport id?)", handler.lastHash, destHash)
+	}
+}
+
+// TestOracle_HandleAnnounceRejectsPathfinderMHops aligns HandleAnnounce with
+// packet.Unpack: hops >= MaxHops (PATHFINDER_M) must fail.
+func TestOracle_HandleAnnounceRejectsPathfinderMHops(t *testing.T) {
+	id, err := identity.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	destHash := make([]byte, AddrHashSize)
+	ann, err := New(id, destHash, "oracle.hops", []byte("x"), false, &common.ReticulumConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wire, err := ann.CreatePacket()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, hops := range []byte{MaxHops, MaxHops + 1, 255} {
+		wire[1] = hops
+		if err := newAnnounceMust(t, id, destHash).HandleAnnounce(wire); err == nil {
+			t.Fatalf("HandleAnnounce hops=%d: want error", hops)
+		}
+	}
+	wire[1] = MaxHops - 1
+	if err := newAnnounceMust(t, id, destHash).HandleAnnounce(wire); err != nil {
+		t.Fatalf("HandleAnnounce hops=%d: %v", MaxHops-1, err)
+	}
+}
+
+func newAnnounceMust(t *testing.T, id *identity.Identity, destHash []byte) *Announce {
+	t.Helper()
+	ann, err := New(id, destHash, "oracle.hops", nil, false, &common.ReticulumConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ann
 }
