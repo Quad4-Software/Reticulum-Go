@@ -282,6 +282,8 @@ func (i *BaseInterface) SetOutgoingAllowed(allowed bool) {
 }
 
 func (i *BaseInterface) GetMTU() int {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
 	return i.MTU
 }
 

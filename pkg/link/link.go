@@ -2069,8 +2069,8 @@ func (l *Link) handleLinkProof(pkt *packet.Packet, networkIface common.NetworkIn
 
 func (l *Link) handleTeardown(plaintext []byte) error {
 	if len(plaintext) == len(l.linkID) && string(plaintext) == string(l.linkID) {
-		l.status.Store(int32(StatusClosed))
 		l.teardownReason = StatusFailed
+		l.status.Store(int32(StatusClosed))
 		if l.transport != nil && len(l.linkID) > 0 {
 			l.transport.UnregisterLink(l.linkID)
 		}
@@ -2561,8 +2561,8 @@ func (l *Link) watchdog() {
 			sleepTime = time.Until(nextCheck).Seconds()
 			if time.Now().After(nextCheck) {
 				debug.Log(debug.DebugInfo, "Link establishment timed out", "link_id", fmt.Sprintf("%x", l.linkID), "status", l.status.Load())
-				l.status.Store(int32(StatusClosed))
 				l.teardownReason = StatusFailed
+				l.status.Store(int32(StatusClosed))
 				if l.transport != nil && len(l.linkID) > 0 {
 					l.transport.UnregisterLink(l.linkID)
 				}
@@ -2584,8 +2584,8 @@ func (l *Link) watchdog() {
 				} else {
 					debug.Log(debug.DebugInfo, "Timeout waiting for RTT packet from link initiator", "link_id", fmt.Sprintf("%x", l.linkID), "elapsed", fmt.Sprintf("%.3fs", elapsed), "timeout", l.establishmentTimeout.Seconds())
 				}
-				l.status.Store(int32(StatusClosed))
 				l.teardownReason = StatusFailed
+				l.status.Store(int32(StatusClosed))
 				if l.transport != nil && len(l.linkID) > 0 {
 					l.transport.UnregisterLink(l.linkID)
 				}
@@ -2651,8 +2651,8 @@ func (l *Link) watchdog() {
 			}
 			health.Inc(ifaceName, health.KindLinkStaleClose)
 			_ = l.sendTeardownPacket() // #nosec G104 - best effort teardown
-			l.status.Store(int32(StatusClosed))
 			l.teardownReason = StatusFailed
+			l.status.Store(int32(StatusClosed))
 			if l.closedCallback != nil {
 				l.closedCallback(l)
 			}

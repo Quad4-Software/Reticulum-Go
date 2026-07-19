@@ -100,8 +100,11 @@ func TestLinkFSM_PendingEstablishmentTimeout(t *testing.T) {
 	l.status.Store(int32(StatusPending))
 	l.startWatchdog()
 	waitStatus(t, l, StatusClosed, 2*time.Second)
-	if l.teardownReason != StatusFailed {
-		t.Fatalf("teardownReason = %d, want Failed", l.teardownReason)
+	l.mutex.Lock()
+	reason := l.teardownReason
+	l.mutex.Unlock()
+	if reason != StatusFailed {
+		t.Fatalf("teardownReason = %d, want Failed", reason)
 	}
 }
 
@@ -114,8 +117,11 @@ func TestLinkFSM_HandshakeEstablishmentTimeout(t *testing.T) {
 	l.status.Store(int32(StatusHandshake))
 	l.startWatchdog()
 	waitStatus(t, l, StatusClosed, 2*time.Second)
-	if l.teardownReason != StatusFailed {
-		t.Fatalf("teardownReason = %d, want Failed", l.teardownReason)
+	l.mutex.Lock()
+	reason := l.teardownReason
+	l.mutex.Unlock()
+	if reason != StatusFailed {
+		t.Fatalf("teardownReason = %d, want Failed", reason)
 	}
 }
 
@@ -144,8 +150,11 @@ func TestLinkFSM_StaleToClosedViaWatchdog(t *testing.T) {
 	l.status.Store(int32(StatusStale))
 	l.startWatchdog()
 	waitStatus(t, l, StatusClosed, time.Second)
-	if l.teardownReason != StatusFailed {
-		t.Fatalf("teardownReason = %d, want Failed", l.teardownReason)
+	l.mutex.Lock()
+	reason := l.teardownReason
+	l.mutex.Unlock()
+	if reason != StatusFailed {
+		t.Fatalf("teardownReason = %d, want Failed", reason)
 	}
 }
 

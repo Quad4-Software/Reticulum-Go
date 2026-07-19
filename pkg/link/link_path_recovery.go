@@ -28,8 +28,8 @@ func (l *Link) markInitiatorEstablishmentFailedLocked() {
 	if !l.initiator {
 		return
 	}
-	l.status.Store(int32(StatusClosed))
 	l.teardownReason = StatusFailed
+	l.status.Store(int32(StatusClosed))
 	if l.transport != nil && len(l.linkID) > 0 {
 		l.transport.UnregisterLink(l.linkID)
 	}
