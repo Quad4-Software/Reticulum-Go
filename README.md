@@ -41,13 +41,14 @@ For details on interoperability, see [COMPATIBILITY.md](COMPATIBILITY.md). You c
 | **Identity Management** | Yes | Software identities and hardware-bound signing (using the RHB1 descriptor). |
 | **Interface Access Codes (IFAC)** | Yes | Masking support for UDP, TCP, and Auto frames matching the Python reference implementation. |
 | **Discovery and Blackholing** | Partial | Partial support implemented in `pkg/discovery` and `pkg/blackhole`. Refer to the compatibility table. |
-| **Network Interfaces** | Partial | UDP, TCP, Auto, Pipe, Local, Serial, WebSocket, QUIC, WebTransport, DNS rendezvous, VSOCK (Linux), HTTPS long-poll. See [COMPATIBILITY.md](COMPATIBILITY.md#interfaces) and [docs/en/interfaces.md](docs/en/interfaces.md). |
+| **Network Interfaces** | Partial | UDP, TCP, Auto, I2P, Backbone, Pipe, Local, Serial, Modem73, SDR, WebSocket, QUIC, WebTransport, DNS rendezvous, VSOCK (Linux), HTTPS long-poll. See [COMPATIBILITY.md](COMPATIBILITY.md#interfaces) and [docs/en/interfaces.md](docs/en/interfaces.md). |
 | **Interface Hot Reload** | Yes | Support for interface reloading using ReloadInterfaces or via a `SIGHUP` signal on Unix. This feature is not present in Python rns. |
 | **WebAssembly Support** | Yes | Run in the browser or WebAssembly environments (`cmd/reticulum-wasm`, `pkg/wasm`). |
 | **Runtime Sandbox** | Yes | Automated OS-level sandboxing enabled by default. See [SECURITY.md](SECURITY.md#runtime-sandbox). |
 | **librns C ABI** | Yes | Linux shared library for embedded applications. See [docs/en/librns.md](docs/en/librns.md). |
 | **Odin librns bindings** | Yes | Idiomatic Odin package over `librns.so` (`bindings/odin`). Linux. See [docs/en/librns.md](docs/en/librns.md#odin-bindings). |
 | **Zig librns bindings** | Yes | Idiomatic Zig package over `librns.so` (`bindings/zig`). Linux. See [docs/en/librns.md](docs/en/librns.md#zig-bindings). |
+| **C++ librns bindings** | Yes | Idiomatic C++17 RAII wrappers over `librns.so` (`bindings/cpp`). Linux. See [docs/en/librns.md](docs/en/librns.md#c-bindings). |
 | **Dart librns FFI** | Yes | In-process `dart:ffi` over librns on Linux, Android, and Windows (`bindings/dart`, `package:rns_control/ffi.dart`). See [docs/en/librns.md](docs/en/librns.md#dart-ffi-bindings). |
 | **Dart Control API client** | Yes | Flutter-ready Dart package over the Control API (`bindings/dart`). See [docs/en/control-api.md](docs/en/control-api.md#dart-and-flutter). |
 | **Control API** | Yes | Localhost JSON and WebSocket APIs for out-of-process clients. See [docs/en/control-api.md](docs/en/control-api.md). |

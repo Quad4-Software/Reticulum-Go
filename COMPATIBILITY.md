@@ -201,7 +201,7 @@ Intentional extensions beyond upstream *rns*:
 | Item | Notes |
 |------|-------|
 | RNode / KISS / AX25 / Weave drivers | Hardware radio interface stack |
-| Discovery announcer / autoconnect loops | Listen-only discovery remains |
+| Discovery autoconnect loops | InterfaceAnnouncer and listen/validate work. Autoconnect is not auto-started |
 | Blackhole auto-publish / blackhole_sources | Federation loops |
 | rnsh / rnir / rnpkg / rngit | Missing utilities |
 | Remote rnpath rnstransport modes | Local/shared-instance path tools work |

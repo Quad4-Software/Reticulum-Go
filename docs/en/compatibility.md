@@ -85,7 +85,7 @@ Wire format is stable across 1.2.x to 1.3.x. Notable behavior differences:
 
 | Gap | Impact |
 |-----|--------|
-| Discovery announcer / autoconnect | Listen and validate work. No store, announce loop, or autoconnect |
+| Discovery autoconnect | Listen, validate, and InterfaceAnnouncer work. Autoconnect loops are not auto-started |
 | Blackhole federation | publish_blackhole, blackhole_sources, and updater not driven |
 | Remote management destination | No `rnstransport.remote.management` for remote rnpath/rnstatus |
 | RNode and radio serial drivers | RNode / KISS / AX25 / Weave not in this tree. SerialInterface, Modem73Interface, and SDRInterface are present |
@@ -107,6 +107,8 @@ These do not change the wire format:
 | Control API | `pkg/controlapi` |
 | librns C ABI | `pkg/librns`, `include/rns.h` ([librns](librns.md)) |
 | Odin librns bindings | `bindings/odin` ([librns](librns.md#odin-bindings)) |
+| Zig librns bindings | `bindings/zig` ([librns](librns.md#zig-bindings)) |
+| C++ librns bindings | `bindings/cpp` ([librns](librns.md#c-bindings)) |
 | Dart librns FFI | `bindings/dart` ([librns](librns.md#dart-ffi-bindings)) |
 | Dart Control API client | `bindings/dart` ([Control API](control-api.md#dart-and-flutter)) |
 | Runtime sandbox | `pkg/sandbox` |
