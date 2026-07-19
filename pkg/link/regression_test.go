@@ -374,3 +374,44 @@ func TestRegression_BlackholeIdentifyTearsDownLink(t *testing.T) {
 		t.Fatalf("responder status=%d want Closed", respLink.GetStatus())
 	}
 }
+
+// TestHandleInboundLRRTTNoNestedLockDeadlock ensures LRRTT handling unlocks
+// before decrypt, matching data and resource-proof inbound paths.
+func TestHandleInboundLRRTTNoNestedLockDeadlock(t *testing.T) {
+	cfg := &common.ReticulumConfig{}
+	tr := transport.NewTransport(cfg)
+	defer tr.Close()
+	id, err := identity.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dest, err := destination.New(id, destination.In, destination.Single, "rttnest", tr, "svc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	l := NewLink(dest, tr, nil, nil, nil)
+	l.linkID = make([]byte, 16)
+	_ = setSecBuf(&l.sessionKey, make([]byte, 32))
+	_ = setSecBuf(&l.hmacKey, make([]byte, 32))
+	l.status.Store(int32(StatusHandshake))
+	l.initiator = false
+	l.requestTime = time.Now()
+
+	pkt := &packet.Packet{
+		PacketType:      packet.PacketTypeProof,
+		Context:         packet.ContextLRRTT,
+		DestinationType: DestTypeLink,
+		DestinationHash: l.linkID,
+		Data:            make([]byte, 96),
+	}
+	done := make(chan struct{})
+	go func() {
+		_ = l.HandleInbound(pkt)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("LRRTT HandleInbound deadlocked on nested mutex")
+	}
+}

@@ -944,6 +944,26 @@ func (l *Link) HandleInbound(pkt *packet.Packet) error {
 		return l.handleResourceProof(pkt)
 	}
 
+	// LRRTT decrypts under RLock then takes Lock for RTT state. Unlock first
+	// so HandleInbound does not deadlock on a nested RLock.
+	if pkt.PacketType == packet.PacketTypeProof && pkt.Context == packet.ContextLRRTT {
+		l.mutex.Lock()
+		l.watchdogLock = true
+		if l.status.Load() == int32(StatusClosed) {
+			debug.Log(debug.DebugVerbose, "Ignoring packet for closed link", "link_id", fmt.Sprintf("%x", l.linkID))
+			l.watchdogLock = false
+			l.mutex.Unlock()
+			return nil
+		}
+		l.recordInbound(true)
+		if l.status.Load() == int32(StatusStale) {
+			l.status.Store(int32(StatusActive))
+		}
+		l.watchdogLock = false
+		l.mutex.Unlock()
+		return l.handleRTTPacket(pkt)
+	}
+
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -963,12 +983,8 @@ func (l *Link) HandleInbound(pkt *packet.Packet) error {
 		l.status.Store(int32(StatusActive))
 	}
 
-	if pkt.PacketType == packet.PacketTypeProof {
-		if pkt.Context == packet.ContextLRProof {
-			return l.handleLinkProof(pkt, l.networkInterface)
-		} else if pkt.Context == packet.ContextLRRTT {
-			return l.handleRTTPacket(pkt)
-		}
+	if pkt.PacketType == packet.PacketTypeProof && pkt.Context == packet.ContextLRProof {
+		return l.handleLinkProof(pkt, l.networkInterface)
 	}
 
 	return nil
