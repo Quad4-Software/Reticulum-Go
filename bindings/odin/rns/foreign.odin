@@ -5,10 +5,12 @@ package rns
 
 import "core:c"
 
-when ODIN_OS == .Linux {
+when ODIN_OS == .Linux || ODIN_OS == .Darwin {
+	foreign import lib "system:rns"
+} else when ODIN_OS == .Windows {
 	foreign import lib "system:rns"
 } else {
-	#panic("odin rns bindings require Linux librns.so")
+	#panic("odin rns bindings require Linux, Darwin, or Windows librns")
 }
 
 @(default_calling_convention = "c")

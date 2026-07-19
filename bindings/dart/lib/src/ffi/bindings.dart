@@ -202,6 +202,36 @@ typedef _RequestRespondDart = int Function(
   int dataLen,
 );
 
+typedef _LinkSendResourceC = Int32 Function(
+  Uint64 link,
+  Pointer<Uint8> data,
+  Size dataLen,
+  Pointer<Char> name,
+);
+typedef _LinkSendResourceDart = int Function(
+  int link,
+  Pointer<Uint8> data,
+  int dataLen,
+  Pointer<Char> name,
+);
+
+typedef _RequestRespondFileC = Int32 Function(
+  Uint64 node,
+  Pointer<Uint8> requestId,
+  Size requestIdLen,
+  Pointer<Char> filename,
+  Pointer<Uint8> data,
+  Size dataLen,
+);
+typedef _RequestRespondFileDart = int Function(
+  int node,
+  Pointer<Uint8> requestId,
+  int requestIdLen,
+  Pointer<Char> filename,
+  Pointer<Uint8> data,
+  int dataLen,
+);
+
 typedef _EventPollC = Int32 Function(
   Uint64 node,
   Pointer<RnsEventNative> event,
@@ -285,6 +315,10 @@ class RnsBindings {
             lib.lookupFunction<_LinkOpenC, _LinkOpenDart>('rns_link_open'),
         rns_link_send =
             lib.lookupFunction<_LinkSendC, _LinkSendDart>('rns_link_send'),
+        rns_link_send_resource =
+            lib.lookupFunction<_LinkSendResourceC, _LinkSendResourceDart>(
+          'rns_link_send_resource',
+        ),
         rns_link_close =
             lib.lookupFunction<_LinkCloseC, _LinkCloseDart>('rns_link_close'),
         rns_link_id =
@@ -296,6 +330,10 @@ class RnsBindings {
         rns_request_respond =
             lib.lookupFunction<_RequestRespondC, _RequestRespondDart>(
           'rns_request_respond',
+        ),
+        rns_request_respond_file =
+            lib.lookupFunction<_RequestRespondFileC, _RequestRespondFileDart>(
+          'rns_request_respond_file',
         ),
         rns_event_poll =
             lib.lookupFunction<_EventPollC, _EventPollDart>('rns_event_poll');
@@ -324,9 +362,11 @@ class RnsBindings {
   final _PathTableDart rns_path_table;
   final _LinkOpenDart rns_link_open;
   final _LinkSendDart rns_link_send;
+  final _LinkSendResourceDart rns_link_send_resource;
   final _LinkCloseDart rns_link_close;
   final _LinkIdDart rns_link_id;
   final _LinkRequestDart rns_link_request;
   final _RequestRespondDart rns_request_respond;
+  final _RequestRespondFileDart rns_request_respond_file;
   final _EventPollDart rns_event_poll;
 }

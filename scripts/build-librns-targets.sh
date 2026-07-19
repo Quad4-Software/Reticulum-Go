@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2024-2026 Quad4.io
 #
-# Cross-build librns for Linux host, Android ABIs, Windows amd64, and macOS.
+# Cross-build librns for Linux host/cross arches, Android, Windows amd64, and macOS.
 # Usage:
-#   sh scripts/build-librns-targets.sh [linux] [android] [windows] [darwin] [all]
+#   sh scripts/build-librns-targets.sh [linux] [linux-arm64] [linux-386] [linux-armv7] [linux-armv6] [android] [windows] [darwin] [all]
 # Default: all targets that the local toolchain can support.
 
 set -eu
@@ -24,11 +24,46 @@ want() {
 	esac
 }
 
-build_linux() {
-	echo "==> linux amd64 (host) -> $BUILD_DIR/librns.so"
+build_linux_host() {
+	echo "==> linux host -> $BUILD_DIR/librns.so"
 	mkdir -p "$BUILD_DIR"
 	CGO_ENABLED=1 "$GOCMD" build -buildmode=c-shared -o "$BUILD_DIR/librns.so" ./cmd/librns
 	cp include/rns.h "$BUILD_DIR/rns.h"
+	host_arch="$(uname -m)"
+	case "$host_arch" in
+	x86_64|amd64)
+		mkdir -p "$BUILD_DIR/linux/amd64"
+		cp -f "$BUILD_DIR/librns.so" "$BUILD_DIR/linux/amd64/librns.so"
+		cp -f include/rns.h "$BUILD_DIR/linux/amd64/rns.h"
+		;;
+	aarch64|arm64)
+		mkdir -p "$BUILD_DIR/linux/arm64"
+		cp -f "$BUILD_DIR/librns.so" "$BUILD_DIR/linux/arm64/librns.so"
+		cp -f include/rns.h "$BUILD_DIR/linux/arm64/rns.h"
+		;;
+	esac
+}
+
+build_linux_cross() {
+	label="$1"
+	goarch="$2"
+	goarm="$3"
+	cc="$4"
+	out="$BUILD_DIR/linux/$label/librns.so"
+	if [ ! -x "$cc" ]; then
+		echo "skip linux $label: missing $cc" >&2
+		return 0
+	fi
+	if ! command -v zig >/dev/null 2>&1; then
+		echo "skip linux $label: zig not on PATH" >&2
+		return 0
+	fi
+	echo "==> linux $label (CC=$cc) -> $out"
+	mkdir -p "$(dirname "$out")"
+	# shellcheck disable=SC2086
+	env CGO_ENABLED=1 GOOS=linux GOARCH="$goarch" $goarm CC="$cc" \
+		"$GOCMD" build -buildmode=c-shared -o "$out" ./cmd/librns
+	cp include/rns.h "$BUILD_DIR/linux/$label/rns.h"
 }
 
 android_ndk_root() {
@@ -41,7 +76,6 @@ android_ndk_root() {
 		return 0
 	fi
 	if [ -n "${ANDROID_HOME:-}" ] && [ -d "$ANDROID_HOME/ndk" ]; then
-		# Prefer the highest installed NDK version.
 		find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sort -V | tail -n1
 		return 0
 	fi
@@ -166,7 +200,27 @@ build_darwin() {
 }
 
 if want linux; then
-	build_linux
+	build_linux_host
+fi
+if want linux-arm64; then
+	host_arch="$(uname -m)"
+	case "$host_arch" in
+	aarch64|arm64)
+		build_linux_host
+		;;
+	*)
+		build_linux_cross arm64 arm64 "" "$ROOT/scripts/cc-linux-arm64-zig.sh"
+		;;
+	esac
+fi
+if want linux-386; then
+	build_linux_cross 386 386 "" "$ROOT/scripts/cc-linux-386-zig.sh"
+fi
+if want linux-armv7; then
+	build_linux_cross armv7 arm "GOARM=7" "$ROOT/scripts/cc-linux-armv7-zig.sh"
+fi
+if want linux-armv6; then
+	build_linux_cross armv6 arm "GOARM=6" "$ROOT/scripts/cc-linux-armv6-zig.sh"
 fi
 if want android; then
 	build_android

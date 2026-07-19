@@ -316,6 +316,26 @@ class Rns {
     }
   }
 
+  int linkSendResource(int link, List<int> data, String name) {
+    if (data.isEmpty) {
+      return RnsError.invalidArg;
+    }
+    final buf = calloc<Uint8>(data.length);
+    final nameNative = name.toNativeUtf8();
+    try {
+      buf.asTypedList(data.length).setAll(0, data);
+      return _api.rns_link_send_resource(
+        link,
+        buf,
+        data.length,
+        nameNative.cast(),
+      );
+    } finally {
+      calloc.free(buf);
+      malloc.free(nameNative);
+    }
+  }
+
   int linkClose(int link) => _api.rns_link_close(link);
 
   List<int>? linkId(int link) {
@@ -405,6 +425,36 @@ class Rns {
       if (dataPtr != nullptr) {
         calloc.free(dataPtr);
       }
+    }
+  }
+
+  int requestRespondFile(
+    int node,
+    List<int> requestId,
+    String filename,
+    List<int> data,
+  ) {
+    if (requestId.isEmpty) {
+      return RnsError.invalidArg;
+    }
+    final idBuf = calloc<Uint8>(requestId.length);
+    final nameNative = filename.toNativeUtf8();
+    final dataPtr = calloc<Uint8>(data.length);
+    try {
+      idBuf.asTypedList(requestId.length).setAll(0, requestId);
+      dataPtr.asTypedList(data.length).setAll(0, data);
+      return _api.rns_request_respond_file(
+        node,
+        idBuf,
+        requestId.length,
+        nameNative.cast(),
+        dataPtr,
+        data.length,
+      );
+    } finally {
+      calloc.free(idBuf);
+      malloc.free(nameNative);
+      calloc.free(dataPtr);
     }
   }
 
