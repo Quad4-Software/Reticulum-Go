@@ -47,6 +47,9 @@ typedef _IdentityGenerateDart = int Function();
 typedef _IdentityLoadC = Uint64 Function(Pointer<Char> path);
 typedef _IdentityLoadDart = int Function(Pointer<Char> path);
 
+typedef _IdentitySaveC = Int32 Function(Uint64 identity, Pointer<Char> path);
+typedef _IdentitySaveDart = int Function(int identity, Pointer<Char> path);
+
 typedef _IdentityDestroyC = Int32 Function(Uint64 identity);
 typedef _IdentityDestroyDart = int Function(int identity);
 
@@ -276,6 +279,10 @@ class RnsBindings {
             lib.lookupFunction<_IdentityLoadC, _IdentityLoadDart>(
           'rns_identity_load',
         ),
+        rns_identity_save =
+            lib.lookupFunction<_IdentitySaveC, _IdentitySaveDart>(
+          'rns_identity_save',
+        ),
         rns_identity_destroy =
             lib.lookupFunction<_IdentityDestroyC, _IdentityDestroyDart>(
           'rns_identity_destroy',
@@ -350,6 +357,7 @@ class RnsBindings {
   final _NodeRefreshPathsDart rns_node_refresh_paths;
   final _IdentityGenerateDart rns_identity_generate;
   final _IdentityLoadDart rns_identity_load;
+  final _IdentitySaveDart rns_identity_save;
   final _IdentityDestroyDart rns_identity_destroy;
   final _IdentityHashDart rns_identity_hash;
   final _DestinationCreateDart rns_destination_create;

@@ -153,6 +153,15 @@ class Rns {
     }
   }
 
+  int identitySave(int identity, String path) {
+    final p = path.toNativeUtf8();
+    try {
+      return _api.rns_identity_save(identity, p.cast());
+    } finally {
+      malloc.free(p);
+    }
+  }
+
   int identityDestroy(int identity) => _api.rns_identity_destroy(identity);
 
   String? identityHash(int identity) {
