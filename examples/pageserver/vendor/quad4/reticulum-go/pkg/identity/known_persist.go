@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package identity
 
 import (
@@ -129,7 +130,7 @@ func InitKnownDestinationsPersistence(configPath string, inMemory bool) {
 	}
 
 	if _, err := storage.EnsureDataDir(configPath); err != nil {
-		debug.Log(debug.DebugInfo, "Known destinations persistence disabled; storage unavailable", "error", err)
+		debug.Log(debug.DebugInfo, "Known destinations persistence disabled, storage unavailable", "error", err)
 		knownPersistMemory.Store(true)
 		knownPersistDisabled.Store(true)
 		return
@@ -146,7 +147,7 @@ func loadKnownDestinationsFromDisk(configPath string) {
 	data, err := os.ReadFile(path) // #nosec G304 -- operator-controlled storage path
 	if err != nil {
 		if !os.IsNotExist(err) {
-			debug.Log(debug.DebugInfo, "Known destinations load failed; using in-memory table", "error", err)
+			debug.Log(debug.DebugInfo, "Known destinations load failed, using in-memory table", "error", err)
 			knownPersistMemory.Store(true)
 			knownPersistDisabled.Store(true)
 		}
@@ -158,7 +159,7 @@ func loadKnownDestinationsFromDisk(configPath string) {
 
 	records, skipped, err := decodeKnownDestinations(data)
 	if err != nil {
-		debug.Log(debug.DebugInfo, "Known destinations decode failed; using in-memory table", "error", err)
+		debug.Log(debug.DebugInfo, "Known destinations decode failed, using in-memory table", "error", err)
 		knownPersistMemory.Store(true)
 		knownPersistDisabled.Store(true)
 		return
@@ -280,7 +281,7 @@ func saveKnownDestinations(force bool) {
 }
 
 func disableKnownDestinationsPersistence(err error) {
-	debug.Log(debug.DebugInfo, "Known destinations persistence disabled; continuing in-memory", "error", err)
+	debug.Log(debug.DebugInfo, "Known destinations persistence disabled, continuing in-memory", "error", err)
 	knownPersistMemory.Store(true)
 	knownPersistDisabled.Store(true)
 	knownPersistDirty.Store(false)

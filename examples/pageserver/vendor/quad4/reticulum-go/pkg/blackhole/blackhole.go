@@ -242,13 +242,18 @@ func (t *Table) SweepExpired() int {
 }
 
 // PersistLocal writes the local-source subset of the table to <dir>/local
-// in the msgpack layout used by persist_blackhole.
+// in the msgpack layout used by persist_blackhole. When dir is empty the
+// table is RAM-only and this is a no-op.
 func (t *Table) PersistLocal() error {
 	t.mu.RLock()
 	dir := t.dir
 	mu.Lock()
 	src := append([]byte(nil), localIdentityHash...)
 	mu.Unlock()
+	if dir == "" {
+		t.mu.RUnlock()
+		return nil
+	}
 	local := make(map[string]map[string]any)
 	for k, e := range t.entries {
 		if !equalBytes(e.Source, src) {
@@ -582,6 +587,28 @@ func decodeNumeric(dec *msgpack.Decoder) (val float64, ok bool, err error) {
 	return 0, false, nil
 }
 
+// decodeUntil reads the blackhole until field. Nil means never expires
+// (Until=0). Non-numeric wire types are rejected so mistyped values cannot
+// silently become immortal bans.
+func decodeUntil(dec *msgpack.Decoder) (float64, error) {
+	c, err := dec.PeekCode()
+	if err != nil {
+		return 0, err
+	}
+	if c == msgpcode.Nil {
+		_ = dec.DecodeNil()
+		return 0, nil
+	}
+	val, ok, err := decodeNumeric(dec)
+	if err != nil {
+		return 0, err
+	}
+	if !ok {
+		return 0, fmt.Errorf("non-numeric value")
+	}
+	return val, nil
+}
+
 func decodeEntry(dec *msgpack.Decoder, maxLen int) (Entry, error) {
 	subLen, err := dec.DecodeMapLen()
 	if err != nil {
@@ -607,13 +634,11 @@ func decodeEntry(dec *msgpack.Decoder, maxLen int) (Entry, error) {
 			}
 			entry.Source = b
 		case "until":
-			val, ok, err := decodeNumeric(dec)
+			val, err := decodeUntil(dec)
 			if err != nil {
 				return Entry{}, fmt.Errorf("decode until: %w", err)
 			}
-			if ok {
-				entry.Until = val
-			}
+			entry.Until = val
 		case "reason":
 			c, err := dec.PeekCode()
 			if err != nil {

@@ -33,7 +33,7 @@ permissions:
 
 env:
   CI_GO_VERSION: "1.26.5"
-  CI_GO_LEGACY_WIN7_VERSION: "1.26.4-1"
+  CI_GO_LEGACY_WIN7_VERSION: "1.26.5-1"
   CI_TASK_VERSION: "3.46.3"
   CI_COSIGN_VERSION: "3.0.5"
   CI_TRIVY_VERSION: "0.69.3"
@@ -120,7 +120,7 @@ jobs:
       - name: Setup Task
         run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
 
-      - name: Build
+      - name: Build with go-legacy-win7
         env:
           GOOS: windows
           GOARCH: ${{ matrix.goarch }}
@@ -128,8 +128,19 @@ jobs:
           VERSION: ${{ inputs.tag_name }}
         run: |
           set -euo pipefail
+          LEGACY_GO=/usr/local/go-legacy-win7/bin/go
+          want="go${CI_GO_LEGACY_WIN7_VERSION%-*}"
+          got="$("$LEGACY_GO" env GOVERSION)"
+          echo "go-legacy: $got (want $want)"
+          case "$got" in
+            "$want"|"$want "*) ;;
+            *)
+              echo "go-legacy version mismatch: got '$got' want '$want'" >&2
+              exit 1
+              ;;
+          esac
           output_name="reticulum-go-windows-${{ matrix.goarch }}-win7.exe"
-          go build -ldflags="-s -w -X main.defaultVersion=${VERSION}" -o "${output_name}" ./cmd/reticulum-go
+          "$LEGACY_GO" build -ldflags="-s -w -X main.defaultVersion=${VERSION}" -o "${output_name}" ./cmd/reticulum-go
           echo "Built: ${output_name}"
 
       - name: Upload artifact

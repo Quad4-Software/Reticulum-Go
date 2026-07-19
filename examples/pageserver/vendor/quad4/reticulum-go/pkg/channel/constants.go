@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package channel
 
 // Window, sequence, timeout and channel sizing constants.
@@ -21,8 +22,9 @@ const (
 	RTTMedium = 0.75
 	RTTSlow   = 1.45
 
-	SeqMax     uint16 = 0xFFFF
-	SeqModulus uint16 = SeqMax
+	SeqMax uint16 = 0xFFFF
+	// SeqModulus matches Python Channel.SEQ_MODULUS (SEQ_MAX + 1).
+	SeqModulus uint32 = uint32(SeqMax) + 1
 
 	FastRateThreshold = 10
 
@@ -34,7 +36,7 @@ const (
 	ChannelHeaderSize = 6
 	ChannelHeaderBits = 8
 
-	DefaultMaxTries = 3
+	DefaultMaxTries = 5
 )
 
 // MessageState represents the delivery state of a channel message.

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package announce
 
 // Packet types, announce types, header/dest/propagation and interface auth constants.
@@ -31,6 +32,9 @@ const (
 	PropagationRate = 0.02
 	RetryInterval   = 300
 	MaxRetries      = 3
+
+	// PacketMTU matches packet.MTU. Announce CreatePacket rejects larger wires.
+	PacketMTU = 500
 )
 
 // Wire-format sizes for announce packets. These mirror the on-disk layout
@@ -74,16 +78,23 @@ const (
 
 	// MinAnnounceDataSize is the minimum length of the data portion
 	// (everything after the header + addresses + context byte): all
-	// fixed fields up to and including the signature.
+	// fixed fields up to and including the signature, with ratchet present.
 	MinAnnounceDataSize = AnnounceAppDataOffset // 180
 
-	// MinAnnouncePacketSize is the smallest valid announce packet
-	// (HeaderType1 framing + minimum data block + 3 bytes app data).
-	MinAnnouncePacketSize = MinHeaderType1Size + MinAnnounceDataSize - ContextByteLen + 3 // 170
+	// MinAnnouncePacketSize is HeaderType1 framing with ratchet and 3 bytes
+	// of app data. Prefer MinAnnouncePacketSizeNoRatchet for ingress checks.
+	MinAnnouncePacketSize = MinHeaderType1Size + MinAnnounceDataSize - ContextByteLen + 3 // 201
+
+	// MinAnnouncePacketSizeNoRatchet is the smallest valid HeaderType1 announce
+	// without a ratchet field and without app data.
+	MinAnnouncePacketSizeNoRatchet = MinHeaderType1Size + PubKeySize + NameHashSize + RandomHashSize + SignatureSize // 167
 
 	// HeaderTypeMask isolates the header-type bit (bit 6) of a header byte.
 	HeaderTypeMask  byte = 0b01000000
 	HeaderTypeShift      = 6
+
+	// HeaderContextFlagMask isolates the context/ratchet flag (bit 5).
+	HeaderContextFlagMask byte = 0b00100000
 
 	// HeaderPacketTypeMask isolates the packet-type bits (lowest 2 bits).
 	HeaderPacketTypeMask byte = 0x03

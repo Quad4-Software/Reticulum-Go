@@ -105,7 +105,7 @@ func encodeStringSliceValue(e *Encoder, v reflect.Value) error {
 	if err := e.EncodeArrayLen(l); err != nil {
 		return err
 	}
-	for i := 0; i < l; i++ {
+	for i := range l {
 		if err := e.EncodeString(v.Index(i).String()); err != nil {
 			return err
 		}
@@ -140,7 +140,7 @@ func encodeArrayValue(e *Encoder, v reflect.Value) error {
 	if err := e.EncodeArrayLen(l); err != nil {
 		return err
 	}
-	for i := 0; i < l; i++ {
+	for i := range l {
 		if err := e.EncodeValue(v.Index(i)); err != nil {
 			return err
 		}

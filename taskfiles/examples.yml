@@ -36,6 +36,16 @@ tasks:
     cmds:
       - task: test-wasm
 
+  "example:pageserver:build":
+    desc: Build pageserver example with vendored deps (release-style)
+    dir: examples/pageserver
+    env:
+      CGO_ENABLED: '0'
+      GOFLAGS: -mod=vendor
+      GOPROXY: 'off'
+    cmds:
+      - '{{.GOCMD}} build -ldflags="-s -w" -o example-pageserver .'
+
   "example:pageserver":
     desc: Run Go pageserver example (default)
     dir: examples/pageserver

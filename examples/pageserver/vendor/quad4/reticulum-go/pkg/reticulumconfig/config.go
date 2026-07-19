@@ -58,6 +58,7 @@ func DefaultConfig() *common.ReticulumConfig {
 		LogLevel:            DefaultLogLevel,
 		Interfaces:          make(map[string]*common.InterfaceConfig),
 		EnableSandbox:       true,
+		EnableSeccomp:       true,
 		ControlAPIHost:      DefaultControlAPIHost,
 		ControlAPIPort:      DefaultControlAPIPort,
 	}
@@ -82,15 +83,28 @@ func EnsureConfigDir() error {
 	return os.MkdirAll(filepath.Join(homeDir, DefaultConfigDirName), 0o700) // #nosec G301
 }
 
-// parseBool accepts yes/no/true/false/on/off/1/0, case-insensitive. Anything
-// else evaluates to false.
-func parseBool(value string) bool {
+// parseBool accepts yes/no/true/false/on/off/1/0, case-insensitive.
+// Unrecognized spellings return ok=false so callers keep their defaults
+// instead of silently treating typos as false (which disabled sandbox/seccomp).
+func parseBool(value string) (bool, bool) {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "true", "yes", "y", "on", "1":
-		return true
+		return true, true
+	case "false", "no", "n", "off", "0":
+		return false, true
 	default:
-		return false
+		return false, false
 	}
+}
+
+// setBool assigns *dst when value is a recognized boolean spelling.
+// It reports whether the value was applied.
+func setBool(dst *bool, value string) bool {
+	v, ok := parseBool(value)
+	if ok {
+		*dst = v
+	}
+	return ok
 }
 
 // sectionFrame is one entry in the parser's section stack.
@@ -248,6 +262,7 @@ func LoadConfig(path string) (*common.ReticulumConfig, error) {
 		return nil, fmt.Errorf("read config %q: %w", path, err)
 	}
 
+	cfg.NormalizeInMemoryFlags()
 	return cfg, nil
 }
 
@@ -256,9 +271,9 @@ func LoadConfig(path string) (*common.ReticulumConfig, error) {
 func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 	switch strings.ToLower(key) {
 	case "enable_transport":
-		cfg.EnableTransport = parseBool(value)
+		setBool(&cfg.EnableTransport, value)
 	case "share_instance":
-		cfg.ShareInstance = parseBool(value)
+		setBool(&cfg.ShareInstance, value)
 	case "shared_instance_port":
 		setInt(value, &cfg.SharedInstancePort)
 	case "instance_control_port":
@@ -275,34 +290,67 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 			cfg.RPCKey = b
 		}
 	case "panic_on_interface_error":
-		cfg.PanicOnInterfaceErr = parseBool(value)
+		setBool(&cfg.PanicOnInterfaceErr, value)
 	case "loglevel":
 		setInt(value, &cfg.LogLevel)
 	case "enable_sandbox":
-		cfg.EnableSandbox = parseBool(value)
+		setBool(&cfg.EnableSandbox, value)
+	case "enable_seccomp":
+		setBool(&cfg.EnableSeccomp, value)
 	case "enable_control_api":
-		cfg.EnableControlAPI = parseBool(value)
+		setBool(&cfg.EnableControlAPI, value)
 	case "control_api_host":
 		cfg.ControlAPIHost = value
 	case "control_api_port":
 		setInt(value, &cfg.ControlAPIPort)
 	case "in_memory_path_table":
-		cfg.InMemoryPathTable = parseBool(value)
+		setBool(&cfg.InMemoryPathTable, value)
 	case "in_memory_known_destinations":
-		cfg.InMemoryKnownDestinations = parseBool(value)
+		setBool(&cfg.InMemoryKnownDestinations, value)
+	case "in_memory_storage":
+		setBool(&cfg.InMemoryStorage, value)
+	case "identity_backend":
+		cfg.IdentityBackend = strings.TrimSpace(value)
+	case "soft_memory_limit":
+		if n, err := common.ParseByteSize(value); err == nil {
+			cfg.SoftMemoryLimitBytes = n
+		}
+	case "max_in_memory_paths":
+		setInt(value, &cfg.MaxInMemoryPaths)
+	case "max_in_memory_known_destinations":
+		setInt(value, &cfg.MaxInMemoryKnownDestinations)
+	case "max_in_memory_resource_bytes":
+		if n, err := common.ParseByteSize(value); err == nil {
+			cfg.MaxInMemoryResourceBytes = n
+		}
 	case "discover_interfaces":
-		cfg.DiscoverInterfaces = parseBool(value)
+		setBool(&cfg.DiscoverInterfaces, value)
 	case "watch_interfaces":
-		cfg.WatchInterfaces = parseBool(value)
+		setBool(&cfg.WatchInterfaces, value)
 	case "backbone_io", "io_backend":
 		cfg.BackboneIO = strings.TrimSpace(value)
+	case "static_transport_identity":
+		setBool(&cfg.StaticTransportIdentity, value)
+	case "local_hops_delta":
+		setBool(&cfg.LocalHopsDelta, value)
+	case "respond_to_probes", "allow_probes":
+		setBool(&cfg.RespondToProbes, value)
+	case "network_identity":
+		cfg.NetworkIdentityPath = strings.TrimSpace(value)
 	}
 }
 
 // applyLoggingOption handles keys under [logging].
 func applyLoggingOption(cfg *common.ReticulumConfig, key, value string) {
-	if strings.EqualFold(key, "loglevel") {
+	switch strings.ToLower(key) {
+	case "loglevel":
 		setInt(value, &cfg.LogLevel)
+	case "destination":
+		cfg.LogDestination = strings.ToLower(strings.TrimSpace(value))
+	case "logfile", "log_file":
+		cfg.LogFile = strings.TrimSpace(value)
+	case "format":
+		cfg.LogFormat = strings.ToLower(strings.TrimSpace(value))
 	}
 }
 
@@ -313,35 +361,70 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 	case "type":
 		iface.Type = value
 	case "interface_enabled", "enabled":
-		iface.Enabled = parseBool(value)
+		setBool(&iface.Enabled, value)
 	case "address", "listen_ip":
 		iface.Address = value
 	case "port", "listen_port":
-		setInt(value, &iface.Port)
-	case "target_host":
+		// Serial uses a device path in port=. Numeric values stay listen ports.
+		if isNonNumericPort(value) {
+			iface.Device = value
+		} else {
+			setInt(value, &iface.Port)
+		}
+	case "device":
+		iface.Device = value
+	case "speed", "baud":
+		setInt(value, &iface.Speed)
+	case "databits":
+		setInt(value, &iface.DataBits)
+	case "parity":
+		iface.Parity = value
+	case "stopbits":
+		setInt(value, &iface.StopBits)
+	case "rtscts":
+		setBool(&iface.RTSCTS, value)
+	case "dsrdtr":
+		setBool(&iface.DSRDTR, value)
+	case "xonxoff":
+		setBool(&iface.XONXOFF, value)
+	case "frame_idle_ms":
+		setInt(value, &iface.SerialFrameIdleMs)
+	case "path":
+		iface.Path = value
+	case "transport_mode":
+		iface.TransportMode = value
+	case "domain":
+		iface.Domain = value
+	case "resolve_interval":
+		setInt(value, &iface.ResolveIntervalSec)
+	case "context_id", "cid":
+		setInt(value, &iface.ContextID)
+	case "long_poll_sec":
+		setInt(value, &iface.LongPollSec)
+	case "target_host", "forward_ip":
 		iface.TargetHost = value
 	case "remote":
 		if strings.TrimSpace(iface.TargetHost) == "" {
 			iface.TargetHost = value
 		}
-	case "target_port":
+	case "target_port", "forward_port":
 		setInt(value, &iface.TargetPort)
 	case "target_address":
 		iface.TargetAddress = value
 	case "interface":
 		iface.Interface = value
 	case "kiss_framing":
-		iface.KISSFraming = parseBool(value)
+		setBool(&iface.KISSFraming, value)
 	case "i2p_tunneled":
-		iface.I2PTunneled = parseBool(value)
+		setBool(&iface.I2PTunneled, value)
 	case "peers":
 		iface.I2PPeers = parseStringList(value)
 	case "connectable":
-		iface.I2PConnectable = parseBool(value)
+		setBool(&iface.I2PConnectable, value)
 	case "sam_address":
 		iface.I2PSAMAddress = value
 	case "prefer_ipv6":
-		iface.PreferIPv6 = parseBool(value)
+		setBool(&iface.PreferIPv6, value)
 	case "max_reconnect_tries":
 		setInt(value, &iface.MaxReconnTries)
 	case "bitrate":
@@ -371,8 +454,9 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 	case "announce_rate_penalty":
 		setFloat(value, &iface.AnnounceRatePenalty)
 	case "ingress_control":
-		iface.IngressControl = parseBool(value)
-		iface.IngressControlSet = true
+		if setBool(&iface.IngressControl, value) {
+			iface.IngressControlSet = true
+		}
 	case "ic_new_time":
 		setInt(value, &iface.ICNewTime)
 	case "ic_burst_freq_new":
@@ -398,7 +482,7 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 	case "ifac_size":
 		setIFACSize(value, &iface.IFACSize)
 	case "publish_ifac":
-		iface.PublishIFAC = parseBool(value)
+		setBool(&iface.PublishIFAC, value)
 	case "command":
 		iface.Command = value
 	case "respawn_delay", "respawn_interval":
@@ -407,6 +491,109 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		iface.SharedInstanceType = strings.ToLower(strings.TrimSpace(value))
 	case "instance_name":
 		iface.InstanceName = value
+	case "cert_file":
+		iface.CertFile = value
+	case "key_file":
+		iface.KeyFile = value
+	case "peer_key":
+		iface.PeerKey = value
+	case "sni":
+		iface.SNI = value
+	case "mode", "interface_mode":
+		iface.Mode = strings.ToLower(strings.TrimSpace(value))
+	case "recursive_prs":
+		setBool(&iface.RecursivePRs, value)
+	case "announces_from_internal":
+		if setBool(&iface.AnnouncesFromInternal, value) {
+			iface.AnnouncesFromInternalSet = true
+		}
+	case "outgoing", "selected_outgoing":
+		if setBool(&iface.Outgoing, value) {
+			iface.OutgoingSet = true
+		}
+	case "discoverable":
+		setBool(&iface.Discoverable, value)
+	case "discovery_name":
+		iface.DiscoveryName = value
+	case "reachable_on":
+		iface.ReachableOn = value
+	case "announce_interval":
+		// Discovery announce interval is configured in minutes.
+		minutes := 0
+		setInt(value, &minutes)
+		if minutes > 0 {
+			if minutes < 5 {
+				minutes = 5
+			}
+			iface.DiscoveryAnnounceIntervalSec = minutes * 60
+		}
+	case "discovery_stamp_value":
+		setInt(value, &iface.DiscoveryStampValue)
+	case "discovery_encrypt":
+		setBool(&iface.DiscoveryEncrypt, value)
+	case "location_cmd":
+		iface.DiscoveryLocationCmd = value
+	case "block_fast_flapping":
+		if setBool(&iface.BlockFastFlapping, value) {
+			iface.BlockFastFlappingSet = true
+		}
+	case "fast_flapping_threshold":
+		setFloat(value, &iface.FastFlappingThreshold)
+	case "fast_flapping_grace":
+		setInt(value, &iface.FastFlappingGrace)
+	case "fast_flapping_block_time":
+		setFloat(value, &iface.FastFlappingBlockTimeMin)
+	case "latitude":
+		setFloat(value, &iface.DiscoveryLatitude)
+		iface.HasDiscoveryGeo = true
+	case "longitude":
+		setFloat(value, &iface.DiscoveryLongitude)
+		iface.HasDiscoveryGeo = true
+	case "height":
+		setFloat(value, &iface.DiscoveryHeight)
+		iface.HasDiscoveryGeo = true
+	case "control_host":
+		iface.ControlHost = value
+	case "control_port":
+		setInt(value, &iface.ControlPort)
+	case "mtu_overhead":
+		setInt(value, &iface.MTUOverhead)
+	case "auto_fragmentation":
+		if setBool(&iface.AutoFragmentation, value) {
+			iface.AutoFragSet = true
+		}
+	case "short_frames":
+		iface.ShortFrames = strings.ToLower(strings.TrimSpace(value))
+	case "short_mtu":
+		setInt(value, &iface.ShortMTU)
+	case "handshake_x2":
+		setBool(&iface.HandshakeX2, value)
+	case "proof_x2":
+		setBool(&iface.ProofX2, value)
+	case "auto_bitrate":
+		if setBool(&iface.AutoBitrate, value) {
+			iface.AutoBitrateSet = true
+		}
+	case "csma_overhead":
+		if setBool(&iface.CSMAOverhead, value) {
+			iface.CSMAOverheadSet = true
+		}
+	case "timeout_margin":
+		setFloat(value, &iface.TimeoutMargin)
+	case "frequency", "frequency_hz":
+		setInt64(value, &iface.FrequencyHz)
+	case "sample_rate":
+		setInt(value, &iface.SampleRate)
+	case "bandwidth":
+		setInt(value, &iface.Bandwidth)
+	case "rx_gain":
+		setFloat(value, &iface.RXGain)
+	case "tx_gain":
+		setFloat(value, &iface.TXGain)
+	case "modem":
+		iface.Modem = strings.ToLower(strings.TrimSpace(value))
+	case "serial":
+		iface.SerialNum = value
 	}
 }
 
@@ -415,6 +602,15 @@ func setInt(value string, dst *int) {
 	if v, err := strconv.Atoi(strings.TrimSpace(value)); err == nil {
 		*dst = v
 	}
+}
+
+func isNonNumericPort(value string) bool {
+	s := strings.TrimSpace(value)
+	if s == "" {
+		return false
+	}
+	_, err := strconv.Atoi(s)
+	return err != nil
 }
 
 // setInt64 mirrors setInt for int64 fields.
@@ -475,24 +671,65 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	b.WriteString("[reticulum]\n")
 	fmt.Fprintf(&b, "  enable_transport = %s\n", boolStr(cfg.EnableTransport))
 	fmt.Fprintf(&b, "  share_instance = %s\n", boolStr(cfg.ShareInstance))
+	if cfg.InstanceName != "" {
+		fmt.Fprintf(&b, "  instance_name = %s\n", cfg.InstanceName)
+	}
+	if cfg.SharedInstanceType != "" {
+		fmt.Fprintf(&b, "  shared_instance_type = %s\n", cfg.SharedInstanceType)
+	}
 	fmt.Fprintf(&b, "  shared_instance_port = %d\n", cfg.SharedInstancePort)
 	fmt.Fprintf(&b, "  instance_control_port = %d\n", cfg.InstanceControlPort)
+	if len(cfg.RPCKey) > 0 {
+		fmt.Fprintf(&b, "  rpc_key = %x\n", cfg.RPCKey)
+	}
 	fmt.Fprintf(&b, "  panic_on_interface_error = %s\n", boolStr(cfg.PanicOnInterfaceErr))
 	fmt.Fprintf(&b, "  enable_sandbox = %s\n", boolStr(cfg.EnableSandbox))
+	fmt.Fprintf(&b, "  enable_seccomp = %s\n", boolStr(cfg.EnableSeccomp))
 	fmt.Fprintf(&b, "  enable_control_api = %s\n", boolStr(cfg.EnableControlAPI))
 	fmt.Fprintf(&b, "  control_api_host = %s\n", controlAPIHostOrDefault(cfg.ControlAPIHost))
 	fmt.Fprintf(&b, "  control_api_port = %d\n", controlAPIPortOrDefault(cfg.ControlAPIPort))
 	fmt.Fprintf(&b, "  in_memory_path_table = %s\n", boolStr(cfg.InMemoryPathTable))
 	fmt.Fprintf(&b, "  in_memory_known_destinations = %s\n", boolStr(cfg.InMemoryKnownDestinations))
+	fmt.Fprintf(&b, "  in_memory_storage = %s\n", boolStr(cfg.InMemoryStorage))
+	if cfg.IdentityBackend != "" {
+		fmt.Fprintf(&b, "  identity_backend = %s\n", cfg.IdentityBackend)
+	}
+	if cfg.SoftMemoryLimitBytes > 0 {
+		fmt.Fprintf(&b, "  soft_memory_limit = %d\n", cfg.SoftMemoryLimitBytes)
+	}
+	if cfg.MaxInMemoryPaths != 0 {
+		fmt.Fprintf(&b, "  max_in_memory_paths = %d\n", cfg.MaxInMemoryPaths)
+	}
+	if cfg.MaxInMemoryKnownDestinations != 0 {
+		fmt.Fprintf(&b, "  max_in_memory_known_destinations = %d\n", cfg.MaxInMemoryKnownDestinations)
+	}
+	if cfg.MaxInMemoryResourceBytes != 0 {
+		fmt.Fprintf(&b, "  max_in_memory_resource_bytes = %d\n", cfg.MaxInMemoryResourceBytes)
+	}
 	fmt.Fprintf(&b, "  discover_interfaces = %s\n", boolStr(cfg.DiscoverInterfaces))
 	fmt.Fprintf(&b, "  watch_interfaces = %s\n", boolStr(cfg.WatchInterfaces))
+	fmt.Fprintf(&b, "  static_transport_identity = %s\n", boolStr(cfg.StaticTransportIdentity))
+	fmt.Fprintf(&b, "  local_hops_delta = %s\n", boolStr(cfg.LocalHopsDelta))
+	fmt.Fprintf(&b, "  respond_to_probes = %s\n", boolStr(cfg.RespondToProbes))
 	if cfg.BackboneIO != "" {
 		fmt.Fprintf(&b, "  backbone_io = %s\n", cfg.BackboneIO)
 	}
 	fmt.Fprintln(&b)
 
 	b.WriteString("[logging]\n")
-	fmt.Fprintf(&b, "  loglevel = %d\n\n", cfg.LogLevel)
+	fmt.Fprintf(&b, "  loglevel = %d\n", cfg.LogLevel)
+	dest := strings.ToLower(strings.TrimSpace(cfg.LogDestination))
+	if dest == "" {
+		dest = "stderr"
+	}
+	fmt.Fprintf(&b, "  destination = %s\n", dest)
+	if cfg.LogFile != "" {
+		fmt.Fprintf(&b, "  logfile = %s\n", cfg.LogFile)
+	}
+	if cfg.LogFormat != "" {
+		fmt.Fprintf(&b, "  format = %s\n", cfg.LogFormat)
+	}
+	fmt.Fprintln(&b)
 
 	b.WriteString("[interfaces]\n\n")
 
@@ -597,6 +834,140 @@ func writeInterface(b *strings.Builder, name string, iface *common.InterfaceConf
 	}
 	if iface.IngressControlSet {
 		fmt.Fprintf(b, "    ingress_control = %s\n", boolStr(iface.IngressControl))
+	}
+	if iface.Mode != "" {
+		fmt.Fprintf(b, "    mode = %s\n", iface.Mode)
+	}
+	if iface.RecursivePRs {
+		fmt.Fprintf(b, "    recursive_prs = %s\n", boolStr(iface.RecursivePRs))
+	}
+	if iface.AnnouncesFromInternalSet {
+		fmt.Fprintf(b, "    announces_from_internal = %s\n", boolStr(iface.AnnouncesFromInternal))
+	}
+	if iface.CertFile != "" {
+		fmt.Fprintf(b, "    cert_file = %s\n", iface.CertFile)
+	}
+	if iface.KeyFile != "" {
+		fmt.Fprintf(b, "    key_file = %s\n", iface.KeyFile)
+	}
+	if iface.PeerKey != "" {
+		fmt.Fprintf(b, "    peer_key = %s\n", iface.PeerKey)
+	}
+	if iface.SNI != "" {
+		fmt.Fprintf(b, "    sni = %s\n", iface.SNI)
+	}
+	if iface.Path != "" {
+		fmt.Fprintf(b, "    path = %s\n", iface.Path)
+	}
+	if iface.TransportMode != "" {
+		fmt.Fprintf(b, "    transport_mode = %s\n", iface.TransportMode)
+	}
+	if iface.Domain != "" {
+		fmt.Fprintf(b, "    domain = %s\n", iface.Domain)
+	}
+	if iface.ResolveIntervalSec != 0 {
+		fmt.Fprintf(b, "    resolve_interval = %d\n", iface.ResolveIntervalSec)
+	}
+	if iface.ContextID != 0 {
+		fmt.Fprintf(b, "    context_id = %d\n", iface.ContextID)
+	}
+	if iface.LongPollSec != 0 {
+		fmt.Fprintf(b, "    long_poll_sec = %d\n", iface.LongPollSec)
+	}
+	if iface.Discoverable {
+		fmt.Fprintf(b, "    discoverable = %s\n", boolStr(iface.Discoverable))
+	}
+	if iface.DiscoveryName != "" {
+		fmt.Fprintf(b, "    discovery_name = %s\n", iface.DiscoveryName)
+	}
+	if iface.ReachableOn != "" {
+		fmt.Fprintf(b, "    reachable_on = %s\n", iface.ReachableOn)
+	}
+	if iface.DiscoveryAnnounceIntervalSec > 0 {
+		fmt.Fprintf(b, "    announce_interval = %d\n", iface.DiscoveryAnnounceIntervalSec/60)
+	}
+	if iface.DiscoveryStampValue != 0 {
+		fmt.Fprintf(b, "    discovery_stamp_value = %d\n", iface.DiscoveryStampValue)
+	}
+	if iface.DiscoveryEncrypt {
+		fmt.Fprintf(b, "    discovery_encrypt = %s\n", boolStr(iface.DiscoveryEncrypt))
+	}
+	if iface.DiscoveryLocationCmd != "" {
+		fmt.Fprintf(b, "    location_cmd = %s\n", iface.DiscoveryLocationCmd)
+	}
+	if iface.BlockFastFlappingSet {
+		fmt.Fprintf(b, "    block_fast_flapping = %s\n", boolStr(iface.BlockFastFlapping))
+	}
+	if iface.FastFlappingThreshold != 0 {
+		fmt.Fprintf(b, "    fast_flapping_threshold = %g\n", iface.FastFlappingThreshold)
+	}
+	if iface.FastFlappingGrace != 0 {
+		fmt.Fprintf(b, "    fast_flapping_grace = %d\n", iface.FastFlappingGrace)
+	}
+	if iface.FastFlappingBlockTimeMin != 0 {
+		fmt.Fprintf(b, "    fast_flapping_block_time = %g\n", iface.FastFlappingBlockTimeMin)
+	}
+	if iface.HasDiscoveryGeo {
+		fmt.Fprintf(b, "    latitude = %g\n", iface.DiscoveryLatitude)
+		fmt.Fprintf(b, "    longitude = %g\n", iface.DiscoveryLongitude)
+		fmt.Fprintf(b, "    height = %g\n", iface.DiscoveryHeight)
+	}
+	if iface.ControlHost != "" {
+		fmt.Fprintf(b, "    control_host = %s\n", iface.ControlHost)
+	}
+	if iface.ControlPort != 0 {
+		fmt.Fprintf(b, "    control_port = %d\n", iface.ControlPort)
+	}
+	if iface.MTUOverhead != 0 {
+		fmt.Fprintf(b, "    mtu_overhead = %d\n", iface.MTUOverhead)
+	}
+	if iface.AutoFragSet {
+		fmt.Fprintf(b, "    auto_fragmentation = %s\n", boolStr(iface.AutoFragmentation))
+	}
+	if iface.ShortFrames != "" {
+		fmt.Fprintf(b, "    short_frames = %s\n", iface.ShortFrames)
+	}
+	if iface.ShortMTU != 0 {
+		fmt.Fprintf(b, "    short_mtu = %d\n", iface.ShortMTU)
+	}
+	if iface.HandshakeX2 {
+		fmt.Fprintf(b, "    handshake_x2 = %s\n", boolStr(iface.HandshakeX2))
+	}
+	if iface.ProofX2 {
+		fmt.Fprintf(b, "    proof_x2 = %s\n", boolStr(iface.ProofX2))
+	}
+	if iface.AutoBitrateSet {
+		fmt.Fprintf(b, "    auto_bitrate = %s\n", boolStr(iface.AutoBitrate))
+	}
+	if iface.CSMAOverheadSet {
+		fmt.Fprintf(b, "    csma_overhead = %s\n", boolStr(iface.CSMAOverhead))
+	}
+	if iface.TimeoutMargin != 0 {
+		fmt.Fprintf(b, "    timeout_margin = %g\n", iface.TimeoutMargin)
+	}
+	if iface.Device != "" {
+		fmt.Fprintf(b, "    device = %s\n", iface.Device)
+	}
+	if iface.SerialNum != "" {
+		fmt.Fprintf(b, "    serial = %s\n", iface.SerialNum)
+	}
+	if iface.FrequencyHz != 0 {
+		fmt.Fprintf(b, "    frequency = %d\n", iface.FrequencyHz)
+	}
+	if iface.SampleRate != 0 {
+		fmt.Fprintf(b, "    sample_rate = %d\n", iface.SampleRate)
+	}
+	if iface.Bandwidth != 0 {
+		fmt.Fprintf(b, "    bandwidth = %d\n", iface.Bandwidth)
+	}
+	if iface.RXGain != 0 {
+		fmt.Fprintf(b, "    rx_gain = %g\n", iface.RXGain)
+	}
+	if iface.TXGain != 0 {
+		fmt.Fprintf(b, "    tx_gain = %g\n", iface.TXGain)
+	}
+	if iface.Modem != "" {
+		fmt.Fprintf(b, "    modem = %s\n", iface.Modem)
 	}
 	b.WriteString("\n")
 }

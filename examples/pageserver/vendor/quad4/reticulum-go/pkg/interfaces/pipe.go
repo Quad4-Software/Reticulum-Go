@@ -182,6 +182,9 @@ func (pi *PipeInterface) ProcessOutgoing(data []byte) error {
 }
 
 func (pi *PipeInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(pi); err != nil {
+		return err
+	}
 	masked, err := common.ApplyIFACOutbound(pi, data)
 	if err != nil {
 		return err

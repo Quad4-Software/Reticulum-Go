@@ -181,6 +181,9 @@ func (ls *LocalServerInterface) ProcessOutgoing([]byte) error {
 }
 
 func (ls *LocalServerInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(ls); err != nil {
+		return err
+	}
 	return ls.ProcessOutgoing(data)
 }
 
@@ -258,6 +261,12 @@ func newLocalClientFromConn(name string, conn net.Conn, parent *LocalServerInter
 
 func (lc *LocalClientInterface) IsSharedInstanceClient() bool {
 	return lc.sharedInitiator
+}
+
+// IsLocalClientInterface reports whether this interface is a local client
+// spawned by a shared-instance server (i.e. it has a parent server).
+func (lc *LocalClientInterface) IsLocalClientInterface() bool {
+	return lc.parent != nil
 }
 
 func (lc *LocalClientInterface) ShouldIngressLimitPR() bool { return false }
@@ -377,6 +386,9 @@ func (lc *LocalClientInterface) ProcessOutgoing(data []byte) error {
 }
 
 func (lc *LocalClientInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(lc); err != nil {
+		return err
+	}
 	masked, err := common.ApplyIFACOutbound(lc, data)
 	if err != nil {
 		return err

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package interfaces
 
 import (
@@ -255,7 +256,7 @@ func (ai *AutoInterface) Start() error {
 
 	interfaces, err := net.Interfaces()
 	if err != nil {
-		return fmt.Errorf("failed to list interfaces: %v", err)
+		return fmt.Errorf("failed to list interfaces: %w", err)
 	}
 
 	for _, iface := range interfaces {
@@ -337,15 +338,15 @@ func (ai *AutoInterface) configureInterface(iface *net.Interface) error {
 	ai.Mutex.Unlock()
 
 	if err := ai.startDiscoveryListener(iface); err != nil {
-		return fmt.Errorf("failed to start discovery listener: %v", err)
+		return fmt.Errorf("failed to start discovery listener: %w", err)
 	}
 
 	if err := ai.startUnicastDiscoveryListener(iface); err != nil {
-		return fmt.Errorf("failed to start unicast discovery listener: %v", err)
+		return fmt.Errorf("failed to start unicast discovery listener: %w", err)
 	}
 
 	if err := ai.startDataListener(iface); err != nil {
-		return fmt.Errorf("failed to start data listener: %v", err)
+		return fmt.Errorf("failed to start data listener: %w", err)
 	}
 
 	// Create a dedicated outbound socket for this interface so multicast
@@ -357,7 +358,7 @@ func (ai *AutoInterface) configureInterface(iface *net.Interface) error {
 	}
 	outboundConn, err := net.ListenUDP("udp6", outboundAddr)
 	if err != nil {
-		return fmt.Errorf("failed to create outbound socket: %v", err)
+		return fmt.Errorf("failed to create outbound socket: %w", err)
 	}
 
 	ai.Mutex.Lock()
@@ -716,6 +717,9 @@ func (ai *AutoInterface) peerJobs() {
 }
 
 func (ai *AutoInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(ai); err != nil {
+		return err
+	}
 	if !ai.IsOnline() {
 		return fmt.Errorf("interface offline")
 	}

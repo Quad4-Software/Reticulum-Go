@@ -24,7 +24,7 @@ permissions:
 
 env:
   CI_GO_VERSION: "1.26.5"
-  CI_GO_LEGACY_WIN7_VERSION: "1.26.4-1"
+  CI_GO_LEGACY_WIN7_VERSION: "1.26.5-1"
   CI_TASK_VERSION: "3.46.3"
   CI_REVIVE_VERSION: "v1.15.0"
   CI_NODE_MAJOR: "22"
@@ -523,20 +523,92 @@ jobs:
       - name: Set up go-legacy-win7
         run: sh scripts/ci/setup-go-legacy-win7.sh "${{ env.CI_GO_LEGACY_WIN7_VERSION }}"
 
+      - name: Setup Task
+        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
+
+      - name: Build with go-legacy-win7
+        env:
+          GOOS: windows
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          LEGACY_GO=/usr/local/go-legacy-win7/bin/go
+          want="go${CI_GO_LEGACY_WIN7_VERSION%-*}"
+          got="$("$LEGACY_GO" env GOVERSION)"
+          echo "go-legacy: $got (want $want)"
+          case "$got" in
+            "$want"|"$want "*) ;;
+            *)
+              echo "go-legacy version mismatch: got '$got' want '$want'" >&2
+              exit 1
+              ;;
+          esac
+          mkdir -p bin
+          "$LEGACY_GO" build -ldflags="-s -w" \
+            -o "bin/reticulum-go-windows-${{ matrix.goarch }}-win7.exe" \
+            ./cmd/reticulum-go
+
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
+
+  examples:
+    name: Examples (pageserver, wasm)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
       - name: Setup CI
         uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
 
-      - name: Build
+      - name: Build pageserver (linux/amd64)
         env:
-          GOOS: windows
-          GOARCH: ${{ matrix.goarch }}
+          GOOS: linux
+          GOARCH: amd64
           CGO_ENABLED: "0"
         run: |
+          set -euo pipefail
           mkdir -p bin
-          go build -ldflags="-s -w" -o "bin/reticulum-go-windows-${{ matrix.goarch }}-win7.exe" ./cmd/reticulum-go
+          cd examples/pageserver
+          go build -ldflags="-s -w" -o ../../bin/reticulum-go-example-pageserver-linux-amd64 .
+
+      - name: Build pageserver (linux/arm64)
+        env:
+          GOOS: linux
+          GOARCH: arm64
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          cd examples/pageserver
+          go build -ldflags="-s -w" -o ../../bin/reticulum-go-example-pageserver-linux-arm64 .
+
+      - name: Build pageserver (linux/arm v6)
+        env:
+          GOOS: linux
+          GOARCH: arm
+          GOARM: "6"
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          cd examples/pageserver
+          go build -ldflags="-s -w" -o ../../bin/reticulum-go-example-pageserver-linux-arm .
+
+      - name: Build wasm example (vendor)
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          mkdir -p bin
+          cd examples/wasm
+          GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o ../../bin/reticulum-go-example-wasm.wasm .
+
+      - name: Build daemon wasm
+        run: task build-wasm
 
       - name: Verify workspace clean
         uses: ./.github/actions/verify-workspace-clean

@@ -18,8 +18,11 @@ func NewLocalFromConfig(name string, cfg *common.InterfaceConfig, ctx *FromConfi
 	if cfg == nil {
 		return nil, fmt.Errorf("nil interface config")
 	}
-	useUnix := cfg.SharedInstanceType == common.SharedInstanceUnix
+	useUnix := common.SharedInstanceUsesUnix(cfg.SharedInstanceType)
 	socketPath := cfg.InstanceName
+	if socketPath == "" && useUnix {
+		socketPath = "default"
+	}
 	port := cfg.Port
 	if port == 0 {
 		port = cfg.TargetPort

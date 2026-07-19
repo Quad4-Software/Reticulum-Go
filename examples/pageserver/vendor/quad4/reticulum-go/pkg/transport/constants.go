@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package transport
 
 import "time"
@@ -9,17 +10,43 @@ const (
 	PathRequestTTL  = 300
 	AnnounceTimeout = 15
 
+	// PathfinderE is path table lifetime in seconds (Python PATHFINDER_E).
+	PathfinderE = 60 * 60 * 24 * 7
+
+	// APPathTime is path lifetime for Access Point mode interfaces.
+	APPathTime = 24 * time.Hour
+
+	// RoamingPathTime is path lifetime for Roaming mode interfaces.
+	RoamingPathTime = 6 * time.Hour
+
+	// HashlistMaxSize caps the in-memory packet hash loop filter
+	// (Python Transport.hashlist_maxsize).
+	HashlistMaxSize = 1_000_000
+
+	// ReverseTimeout is how long reverse-table proof return paths are kept.
+	ReverseTimeout = 8 * 60 * time.Second
+
 	// SeenAnnounceTTL is how long a deduplication key for an announce hash is retained.
 	SeenAnnounceTTL = 1 * time.Hour
 
 	// MaxConcurrentPacketHandlers limits concurrent goroutines spawned by HandlePacket.
 	MaxConcurrentPacketHandlers = 512
 
+	MaxRegisteredLinks = 256
+
+	// MaxPendingAnnounceForwards caps delayed announce rebroadcast jobs queued
+	// for the announce-forward ticker. Avoids per-announce sleep goroutines that
+	// explode memory and OS threads under storms.
+	MaxPendingAnnounceForwards = 256
+
 	EstablishmentTimeoutPerHop = 6
 	KeepaliveTimeoutFactor     = 4
 	StaleGrace                 = 2
 	Keepalive                  = 360
 	StaleTime                  = 720
+	// LinkTimeout is idle lifetime for validated link-table rows
+	// (Python LINK_TIMEOUT = STALE_TIME * 1.25).
+	LinkTimeout = time.Duration(StaleTime*5/4) * time.Second
 
 	AcceptNone = 0
 	AcceptAll  = 1

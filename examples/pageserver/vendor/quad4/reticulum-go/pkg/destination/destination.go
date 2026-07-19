@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package destination
 
 import (
@@ -20,14 +21,22 @@ import (
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/securemem"
 )
 
+// PacketCallback handles plaintext delivered to a destination.
 type PacketCallback = common.PacketCallback
+
+// ProofRequestedCallback is invoked when the stack requests an app-level proof.
 type ProofRequestedCallback = common.ProofRequestedCallback
+
+// LinkEstablishedCallback is invoked when an inbound or outbound link is ready.
 type LinkEstablishedCallback = common.LinkEstablishedCallback
 
+// ResponseGeneratorFunc builds a request-handler response payload.
 type ResponseGeneratorFunc func(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) any
 
+// RequestHandler binds a path to a response generator and allow policy.
 type RequestHandler struct {
 	Path              string
 	ResponseGenerator ResponseGeneratorFunc
@@ -36,20 +45,25 @@ type RequestHandler struct {
 	AutoCompress      bool
 }
 
+// Transport is the subset of transport.Transport needed by Destination.
 type Transport interface {
 	GetConfig() *common.ReticulumConfig
 	GetInterfaces() map[string]common.NetworkInterface
 	RegisterDestination(hash []byte, dest any)
 }
 
+// IncomingLinkHandler builds a link from an inbound link-request packet.
 type IncomingLinkHandler func(pkt *packet.Packet, dest *Destination, transport any, networkIface common.NetworkInterface) (any, error)
 
 var incomingLinkHandler IncomingLinkHandler
 
+// RegisterIncomingLinkHandler installs the package-level inbound link handler.
+// Pass nil to clear it (tests and destinations without link support).
 func RegisterIncomingLinkHandler(handler IncomingLinkHandler) {
 	incomingLinkHandler = handler
 }
 
+// Destination is a named Reticulum endpoint bound to an identity.
 type Destination struct {
 	identity  *identity.Identity
 	direction byte
@@ -73,7 +87,7 @@ type Destination struct {
 	enforceRatchets   bool
 	latestRatchetTime time.Time
 	latestRatchetID   []byte
-	ratchets          [][]byte
+	ratchets          []*securemem.Buf
 	ratchetFileLock   sync.Mutex
 
 	defaultAppData []byte
@@ -82,12 +96,20 @@ type Destination struct {
 	requestHandlers map[string]*RequestHandler
 }
 
+// New creates a Destination for appName and optional aspects.
+// Direction In requires a non-nil transport so inbound packets can register.
 func New(id *identity.Identity, direction byte, destType byte, appName string, transport Transport, aspects ...string) (*Destination, error) {
 	debug.Log(debug.DebugInfo, "Creating new destination", "app", appName, "type", destType, "direction", direction)
 
 	if id == nil && destType != Plain {
 		debug.Log(debug.DebugError, "Cannot create destination: identity is nil for non-Plain destination")
 		return nil, errors.New("identity cannot be nil for non-Plain destination")
+	}
+	if err := ValidateNameParts(appName, aspects...); err != nil {
+		return nil, err
+	}
+	if (direction&In) != 0 && transport == nil {
+		return nil, common.ErrDestTransportRequiredForIn
 	}
 
 	d := &Destination{
@@ -145,51 +167,91 @@ func FromHash(hash []byte, id *identity.Identity, destType byte, transport Trans
 }
 
 func (d *Destination) calculateHash() []byte {
-	debug.Log(debug.DebugTrace, "Calculating hash for destination", "name", d.ExpandName())
-
-	// Name hash is the FULL 32-byte SHA256, then we take first 10 bytes for concatenation
-	nameHashFull := sha256.Sum256([]byte(d.ExpandName()))
-	nameHash10 := nameHashFull[:10] // Only use 10 bytes
-
-	var combined []byte
-	if d.identity != nil {
-		// destination_hash = SHA256(name_hash_10bytes + identity_hash_16bytes)[:16]
-		// Identity hash is the truncated hash of the public key (16 bytes)
-		identityHash := identity.TruncatedHash(d.identity.GetPublicKey())
-		debug.Log(debug.DebugAll, "Identity hash", "hash", fmt.Sprintf("%x", identityHash))
-		debug.Log(debug.DebugAll, "Name hash (10 bytes)", "hash", fmt.Sprintf("%x", nameHash10))
-
-		// Concatenate name_hash (10 bytes) + identity_hash (16 bytes) = 26 bytes
-		combined = append(nameHash10, identityHash...)
-	} else {
-		// Plain destination has no identity hash
-		combined = nameHash10
-		debug.Log(debug.DebugAll, "Name hash (10 bytes)", "hash", fmt.Sprintf("%x", nameHash10))
-	}
-
-	// Then hash again and truncate to 16 bytes
-	finalHashFull := sha256.Sum256(combined)
-	finalHash := finalHashFull[:16]
-
-	debug.Log(debug.DebugVerbose, "Calculated destination hash", "hash", fmt.Sprintf("%x", finalHash))
-
-	return finalHash
+	return Hash(d.identity, d.appName, d.aspects...)
 }
 
-func (d *Destination) ExpandName() string {
+// ExpandAppName builds the dotted destination name used in hashing.
+func ExpandAppName(appName string, aspects ...string) string {
+	if len(aspects) == 0 {
+		return appName
+	}
 	var name strings.Builder
-	name.WriteString(d.appName)
-	for _, aspect := range d.aspects {
-		name.WriteString("." + aspect)
+	name.Grow(len(appName) + len(aspects)*8)
+	name.WriteString(appName)
+	for _, aspect := range aspects {
+		name.WriteByte('.')
+		name.WriteString(aspect)
 	}
 	return name.String()
 }
 
+// ValidateNameParts rejects dots in app names and aspects, matching Python
+// RNS.Destination. Dots would otherwise make expand_name / ParseName ambiguous.
+func ValidateNameParts(appName string, aspects ...string) error {
+	if appName == "" {
+		return errors.New("app name required")
+	}
+	if strings.Contains(appName, ".") {
+		return errors.New("dots can't be used in app names")
+	}
+	for _, aspect := range aspects {
+		if strings.Contains(aspect, ".") {
+			return errors.New("dots can't be used in aspects")
+		}
+	}
+	return nil
+}
+
+// ParseName splits a dotted destination name into app name and aspects.
+func ParseName(full string) (appName string, aspects []string, err error) {
+	full = strings.TrimSpace(full)
+	if full == "" {
+		return "", nil, errors.New("empty destination name")
+	}
+	parts := strings.Split(full, ".")
+	if len(parts) < 1 || parts[0] == "" {
+		return "", nil, errors.New("invalid destination name")
+	}
+	if len(parts) == 1 {
+		return parts[0], nil, nil
+	}
+	return parts[0], parts[1:], nil
+}
+
+// Hash computes a 16-byte destination hash from identity and app name aspects.
+func Hash(id *identity.Identity, appName string, aspects ...string) []byte {
+	nameHashFull := sha256.Sum256([]byte(ExpandAppName(appName, aspects...)))
+	nameHash10 := nameHashFull[:10]
+
+	var combined [26]byte
+	n := copy(combined[:], nameHash10)
+	if id != nil {
+		identityHash := identity.TruncatedHash(id.GetPublicKey())
+		n += copy(combined[n:], identityHash)
+	}
+	finalHashFull := sha256.Sum256(combined[:n])
+	out := make([]byte, 16)
+	copy(out, finalHashFull[:16])
+	return out
+}
+
+// ExpandName returns appName joined with aspects using dots.
+func (d *Destination) ExpandName() string {
+	return ExpandAppName(d.appName, d.aspects...)
+}
+
+// Announce builds and sends an announce packet on registered interfaces.
+// Returns ErrDestTransportNotSet, ErrDestAnnounceNoInterfaces, or
+// ErrDestAnnounceNoWritable when no usable outbound path exists.
 func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface common.NetworkInterface) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
 	debug.Log(debug.DebugVerbose, "Announcing destination", "name", d.ExpandName(), "path_response", pathResponse)
+
+	if d.transport == nil {
+		return common.ErrDestTransportNotSet
+	}
 
 	appData := d.defaultAppData
 
@@ -208,44 +270,70 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 		debug.Log(debug.DebugInfo, "Sending path response announce", "tag", fmt.Sprintf("%x", tag))
 	}
 
-	if d.transport == nil {
-		return errors.New("transport not initialized")
-	}
-
 	var lastErr error
+	sent := 0
 	if attachedInterface != nil {
 		if attachedInterface.IsEnabled() && attachedInterface.IsOnline() {
-			debug.Log(debug.DebugVerbose, "Sending announce to attached interface", "name", attachedInterface.GetName())
-			if err := attachedInterface.Send(packet, ""); err != nil {
-				debug.Log(debug.DebugError, "Failed to send announce on attached interface", "error", err)
-				lastErr = err
+			if !common.InterfaceAllowsOutgoing(attachedInterface) {
+				debug.Log(debug.DebugVerbose, "Skipping announce on receive-only attached interface", "name", attachedInterface.GetName())
+			} else {
+				debug.Log(debug.DebugVerbose, "Sending announce to attached interface", "name", attachedInterface.GetName())
+				if err := attachedInterface.Send(packet, ""); err != nil {
+					debug.Log(debug.DebugError, "Failed to send announce on attached interface", "error", err)
+					lastErr = err
+				} else {
+					sent++
+				}
 			}
 		}
 	} else {
 		interfaces := d.transport.GetInterfaces()
+		if len(interfaces) == 0 {
+			return common.ErrDestAnnounceNoInterfaces
+		}
 		for name, iface := range interfaces {
-			if iface.IsEnabled() && iface.IsOnline() {
-				debug.Log(debug.DebugVerbose, "Sending announce to interface", "name", name)
-				if err := iface.Send(packet, ""); err != nil {
-					debug.Log(debug.DebugError, "Failed to send announce on interface", "name", name, "error", err)
-					lastErr = err
-				}
+			if !iface.IsEnabled() || !iface.IsOnline() {
+				continue
 			}
+			if !common.InterfaceAllowsOutgoing(iface) {
+				debug.Log(debug.DebugVerbose, "Skipping announce on receive-only interface", "name", name)
+				continue
+			}
+			debug.Log(debug.DebugVerbose, "Sending announce to interface", "name", name)
+			if err := iface.Send(packet, ""); err != nil {
+				debug.Log(debug.DebugError, "Failed to send announce on interface", "name", name, "error", err)
+				lastErr = err
+				continue
+			}
+			sent++
 		}
 	}
 
-	return lastErr
+	if lastErr != nil {
+		return lastErr
+	}
+	if sent == 0 {
+		return common.ErrDestAnnounceNoWritable
+	}
+	return nil
 }
 
+// AcceptsLinks marks whether this destination should accept incoming links.
+// AcceptsLinks(true) registers the destination with transport if one is set.
+// Direction In already auto-registers in New. AcceptsLinks(false) only clears
+// the flag and does not unregister from transport.
 func (d *Destination) AcceptsLinks(accepts bool) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	d.acceptsLinks = accepts
 
-	// Register with transport if accepting links
 	if accepts && d.transport != nil {
 		d.transport.RegisterDestination(d.hashValue, d)
 		debug.Log(debug.DebugVerbose, "Destination registered with transport for link requests", "hash", fmt.Sprintf("%x", d.hashValue))
+		return
+	}
+	if !accepts {
+		debug.Log(debug.DebugInfo, common.MsgDestAcceptsLinksFalseOnly)
 	}
 }
 
@@ -270,7 +358,7 @@ func (d *Destination) HandleIncomingLinkRequest(pkt any, transport any, networkI
 	}
 
 	if incomingLinkHandler == nil {
-		return errors.New("no incoming link handler registered")
+		return common.ErrDestNoIncomingLinkHandler
 	}
 
 	_, err := incomingLinkHandler(pktObj, d, transport, networkIface)
@@ -292,20 +380,20 @@ func (d *Destination) SetPacketCallback(callback common.PacketCallback) {
 }
 
 func (d *Destination) Receive(pkt *packet.Packet, iface common.NetworkInterface) {
+	if pkt != nil && pkt.PacketType == packet.PacketTypeLinkReq {
+		debug.Log(debug.DebugInfo, "Received link request for destination")
+		if err := d.HandleIncomingLinkRequest(pkt, d.transport, iface); err != nil {
+			debug.Log(debug.DebugError, "Failed to handle incoming link request", "error", err)
+		}
+		return
+	}
+
 	d.mutex.RLock()
 	callback := d.packetCallback
 	d.mutex.RUnlock()
 
 	if callback == nil {
-		debug.Log(debug.DebugVerbose, "No packet callback set for destination")
-		return
-	}
-
-	if pkt.PacketType == packet.PacketTypeLinkReq {
-		debug.Log(debug.DebugInfo, "Received link request for destination")
-		if err := d.HandleIncomingLinkRequest(pkt, d.transport, iface); err != nil {
-			debug.Log(debug.DebugError, "Failed to handle incoming link request", "error", err)
-		}
+		debug.Log(debug.DebugInfo, common.MsgDestNoPacketCallback, "hash", fmt.Sprintf("%x", d.GetHash()))
 		return
 	}
 
@@ -332,6 +420,20 @@ func (d *Destination) SetProofStrategy(strategy byte) {
 	d.proofStrategy = strategy
 }
 
+// ProofStrategy returns the configured proof strategy.
+func (d *Destination) ProofStrategy() byte {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+	return d.proofStrategy
+}
+
+// ProofRequestedCallback returns the app proof callback, if any.
+func (d *Destination) ProofRequestedCallback() common.ProofRequestedCallback {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+	return d.proofCallback
+}
+
 func (d *Destination) EnableRatchets(path string) bool {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -349,7 +451,7 @@ func (d *Destination) EnableRatchets(path string) bool {
 	if err := d.reloadRatchets(); err != nil {
 		debug.Log(debug.DebugError, "Failed to load ratchets", "error", err)
 		// Initialize empty ratchet list
-		d.ratchets = make([][]byte, 0)
+		d.ratchets = make([]*securemem.Buf, 0)
 		if err := d.persistRatchets(); err != nil {
 			debug.Log(debug.DebugError, "Failed to create initial ratchet file", "error", err)
 			return false
@@ -357,6 +459,21 @@ func (d *Destination) EnableRatchets(path string) bool {
 	}
 
 	debug.Log(debug.DebugInfo, "Ratchets enabled", "path", path)
+	return true
+}
+
+// EnableRatchetsInMemory enables forward-secrecy ratchets without writing to
+// disk. Suitable for InMemoryStorage and ephemeral embedders.
+func (d *Destination) EnableRatchetsInMemory() bool {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	d.ratchetsEnabled = true
+	d.ratchetPath = ""
+	d.latestRatchetTime = time.Time{}
+	d.ratchets = make([]*securemem.Buf, 0)
+
+	debug.Log(debug.DebugInfo, "Ratchets enabled in memory")
 	return true
 }
 
@@ -448,6 +565,16 @@ func (d *Destination) DeregisterRequestHandler(path string) bool {
 	return false
 }
 
+// HasRequestHandlers reports whether any request handlers are registered.
+func (d *Destination) HasRequestHandlers() bool {
+	if d == nil {
+		return false
+	}
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+	return len(d.requestHandlers) > 0
+}
+
 func (d *Destination) GetRequestHandler(pathHash []byte) func([]byte, []byte, []byte, []byte, *identity.Identity, time.Time) any {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
@@ -486,7 +613,24 @@ func (d *Destination) HandleRequest(path string, data []byte, requestID []byte, 
 	d.mutex.RUnlock()
 
 	if !exists {
-		debug.Log(debug.DebugInfo, "No handler registered for path", "path", path)
+		debug.Log(debug.DebugInfo, common.MsgDestNoRequestHandler, "path", path)
+		return []byte(">Not Found\n\nThe requested resource was not found.")
+	}
+
+	allowed := false
+	if handler.AllowMode == AllowAll {
+		allowed = true
+	} else if handler.AllowMode == AllowList && remoteIdentity != nil {
+		remoteHash := remoteIdentity.Hash()
+		for _, allowedHash := range handler.AllowedList {
+			if string(remoteHash) == string(allowedHash) {
+				allowed = true
+				break
+			}
+		}
+	}
+	if !allowed {
+		debug.Log(debug.DebugInfo, "Request denied by allow mode", "path", path)
 		return []byte(">Not Found\n\nThe requested resource was not found.")
 	}
 
@@ -530,7 +674,7 @@ func (d *Destination) Encrypt(plaintext []byte) ([]byte, error) {
 			debug.Log(debug.DebugInfo, "Cannot encrypt: no ratchet key available")
 			return nil, errors.New("no ratchet key available")
 		}
-		debug.Log(debug.DebugVerbose, "Encrypting for group with ratchet key", "key", fmt.Sprintf("%x", key[:8]))
+		debug.Log(debug.DebugVerbose, "Encrypting for group destination")
 		return d.identity.EncryptWithHMAC(plaintext, key)
 	default:
 		debug.Log(debug.DebugInfo, "Unsupported destination type for encryption", "destType", d.destType)
@@ -598,14 +742,29 @@ func (d *Destination) persistRatchets() error {
 	d.ratchetFileLock.Lock()
 	defer d.ratchetFileLock.Unlock()
 
-	if !d.ratchetsEnabled || d.ratchetPath == "" {
-		return errors.New("ratchets not enabled or no path specified")
+	if !d.ratchetsEnabled {
+		return errors.New("ratchets not enabled")
+	}
+	if d.ratchetPath == "" {
+		return nil
 	}
 
 	debug.Log(debug.DebugPackets, "Persisting ratchets", "count", len(d.ratchets), "path", d.ratchetPath)
 
-	// Pack ratchets using msgpack
-	packedRatchets, err := msgpack.Marshal(d.ratchets)
+	raw := make([][]byte, 0, len(d.ratchets))
+	for _, buf := range d.ratchets {
+		if buf == nil {
+			continue
+		}
+		raw = append(raw, buf.CopyOut())
+	}
+	defer func() {
+		for _, b := range raw {
+			securemem.WipeBytes(b)
+		}
+	}()
+
+	packedRatchets, err := msgpack.Marshal(raw)
 	if err != nil {
 		return fmt.Errorf("failed to pack ratchets: %w", err)
 	}
@@ -666,9 +825,16 @@ func (d *Destination) reloadRatchets() error {
 	d.ratchetFileLock.Lock()
 	defer d.ratchetFileLock.Unlock()
 
+	if d.ratchetPath == "" {
+		if d.ratchets == nil {
+			d.ratchets = make([]*securemem.Buf, 0)
+		}
+		return nil
+	}
+
 	if _, err := os.Stat(d.ratchetPath); os.IsNotExist(err) {
 		debug.Log(debug.DebugInfo, "No existing ratchet data found, initializing new ratchet file")
-		d.ratchets = make([][]byte, 0)
+		d.ratchets = make([]*securemem.Buf, 0)
 		return nil
 	}
 
@@ -702,9 +868,30 @@ func (d *Destination) reloadRatchets() error {
 		return fmt.Errorf("invalid ratchet file signature")
 	}
 
-	// Unpack ratchet list
-	if err := msgpack.Unmarshal(packedRatchets, &d.ratchets); err != nil {
+	// Unpack ratchet list into locked buffers
+	var raw [][]byte
+	if err := msgpack.Unmarshal(packedRatchets, &raw); err != nil {
 		return fmt.Errorf("failed to unpack ratchet list: %w", err)
+	}
+	for _, old := range d.ratchets {
+		if old != nil {
+			_ = old.Close()
+		}
+	}
+	d.ratchets = make([]*securemem.Buf, 0, len(raw))
+	for _, r := range raw {
+		buf, err := securemem.New(len(r))
+		if err != nil {
+			securemem.WipeBytes(r)
+			return err
+		}
+		if err := buf.CopyFrom(r); err != nil {
+			_ = buf.Close()
+			securemem.WipeBytes(r)
+			return err
+		}
+		securemem.WipeBytes(r)
+		d.ratchets = append(d.ratchets, buf)
 	}
 
 	debug.Log(debug.DebugInfo, "Ratchets reloaded successfully", "count", len(d.ratchets))
@@ -727,26 +914,32 @@ func (d *Destination) RotateRatchets() error {
 
 	debug.Log(debug.DebugInfo, "Rotating ratchets", "destination", d.ExpandName())
 
-	// Generate new ratchet key (32 bytes for X25519 private key)
 	newRatchet := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, newRatchet); err != nil {
 		return fmt.Errorf("failed to generate new ratchet: %w", err)
 	}
+	buf, err := securemem.New(len(newRatchet))
+	if err != nil {
+		securemem.WipeBytes(newRatchet)
+		return err
+	}
+	if err := buf.CopyFrom(newRatchet); err != nil {
+		_ = buf.Close()
+		securemem.WipeBytes(newRatchet)
+		return err
+	}
 
-	// Insert at beginning (most recent first)
-	d.ratchets = append([][]byte{newRatchet}, d.ratchets...)
+	d.ratchets = append([]*securemem.Buf{buf}, d.ratchets...)
 	d.latestRatchetTime = now
 
-	// Get ratchet public key for ID
 	ratchetPub, err := cryptography.PublicKeyFromPrivate(newRatchet)
+	securemem.WipeBytes(newRatchet)
 	if err == nil {
 		d.latestRatchetID = identity.TruncatedHash(ratchetPub)[:identity.NameHashLength/8]
 	}
 
-	// Clean old ratchets
 	d.cleanRatchets()
 
-	// Persist to disk
 	if err := d.persistRatchets(); err != nil {
 		debug.Log(debug.DebugError, "Failed to persist ratchets after rotation", "error", err)
 		return err
@@ -759,6 +952,11 @@ func (d *Destination) RotateRatchets() error {
 func (d *Destination) cleanRatchets() {
 	if len(d.ratchets) > d.ratchetCount {
 		debug.Log(debug.DebugTrace, "Cleaning old ratchets", "before", len(d.ratchets), "keeping", d.ratchetCount)
+		for _, old := range d.ratchets[d.ratchetCount:] {
+			if old != nil {
+				_ = old.Close()
+			}
+		}
 		d.ratchets = d.ratchets[:d.ratchetCount]
 	}
 }
@@ -771,8 +969,11 @@ func (d *Destination) GetRatchets() [][]byte {
 		return nil
 	}
 
-	// Return copy to prevent external modification
-	ratchetsCopy := make([][]byte, len(d.ratchets))
-	copy(ratchetsCopy, d.ratchets)
+	ratchetsCopy := make([][]byte, 0, len(d.ratchets))
+	for _, buf := range d.ratchets {
+		if buf != nil {
+			ratchetsCopy = append(ratchetsCopy, buf.CopyOut())
+		}
+	}
 	return ratchetsCopy
 }

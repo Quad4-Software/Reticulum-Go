@@ -1,17 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package interfaces
 
 import "time"
 
 const (
-	BitrateMinimum = 1200
-	ModeFull       = 0x01
-
-	ModeGateway     = 0x02
+	BitrateMinimum  = 1200
+	ModeFull        = 0x01
+	ModePoint       = 0x02
 	ModeAccessPoint = 0x03
 	ModeRoaming     = 0x04
 	ModeBoundary    = 0x05
+	ModeGateway     = 0x06
+	ModeInternal    = 0x07
+
+	// reticulumHeaderMinSize matches Python RNS.Reticulum.HEADER_MINSIZE.
+	// HDLC frames at or below this length are dropped (RNS 1.3.9).
+	reticulumHeaderMinSize = 19
 
 	TypeUDP = 0x01
 	TypeTCP = 0x02
@@ -24,10 +30,11 @@ const (
 	HDLCEsc     = 0x7D
 	HDLCEscMask = 0x20
 
-	KISSFend  = 0xC0
-	KISSFesc  = 0xDB
-	KISSTFend = 0xDC
-	KISSTFesc = 0xDD
+	KISSFend    = 0xC0
+	KISSFesc    = 0xDB
+	KISSTFend   = 0xDC
+	KISSTFesc   = 0xDD
+	KISSCmdData = 0x00
 
 	DefaultMTU      = 1064
 	BitrateGuessVal = 10 * 1000 * 1000
