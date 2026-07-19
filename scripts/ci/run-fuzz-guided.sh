@@ -65,7 +65,8 @@ run_fuzz() {
 	echo "fuzz-guided: $target ($ftime) in $pkg"
 	# Route through testsummary so CI only shows passing "ok" lines and,
 	# on failure, the full crash/failure details (TESTSUMMARY_QUIET=1 in CI).
-	go run ./scripts/ci/testsummary -fuzz="$target" -fuzztime="$ftime" "$pkg"
+	# Anchor the name so FuzzFoo does not also match FuzzFooBar.
+	go run ./scripts/ci/testsummary -fuzz="^${target}$" -fuzztime="$ftime" "$pkg"
 }
 
 fuzz_time_for() {
