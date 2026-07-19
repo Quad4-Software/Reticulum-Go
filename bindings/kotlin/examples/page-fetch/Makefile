@@ -10,7 +10,9 @@ JNA_JAR := $(JAVA_ROOT)/lib/jna.jar
 JAVA_OUT := $(JAVA_ROOT)/out
 OUT := $(KOTLIN_ROOT)/out
 KOTLINC ?= kotlinc
-KOTLIN_HOME := $(abspath $(dir $(shell command -v $(KOTLINC)))/..)
+ifeq ($(KOTLIN_HOME),)
+KOTLIN_HOME := $(abspath $(dir $(shell readlink -f "$$(command -v $(KOTLINC))" 2>/dev/null || command -v $(KOTLINC)))/..)
+endif
 KOTLIN_STDLIB := $(KOTLIN_HOME)/lib/kotlin-stdlib.jar
 CP := $(OUT):$(JAVA_OUT):$(JNA_JAR):$(KOTLIN_STDLIB)
 

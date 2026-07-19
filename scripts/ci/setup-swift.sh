@@ -8,7 +8,7 @@
 
 set -eu
 
-VERSION="${1:-${CI_SWIFT_VERSION:-6.0.3}}"
+SWIFT_VERSION="${1:-${CI_SWIFT_VERSION:-6.0.3}}"
 INSTALL_DIR="${2:-${SWIFT_INSTALL_DIR:-$HOME/.local/swift}}"
 ARCH="$(uname -m)"
 
@@ -35,6 +35,7 @@ case "$OS" in
 		;;
 esac
 
+# os-release defines VERSION and would overwrite SWIFT_VERSION if named VERSION.
 . /etc/os-release 2>/dev/null || true
 case "${VERSION_ID:-}" in
 	24.04*)
@@ -72,8 +73,8 @@ if [ "$ASSET_ARCH" = aarch64 ]; then
 	esac
 fi
 
-ASSET="swift-${VERSION}-RELEASE-${ASSET_OS}.tar.gz"
-URL="https://download.swift.org/swift-${VERSION}-release/${PLATFORM}/swift-${VERSION}-RELEASE/${ASSET}"
+ASSET="swift-${SWIFT_VERSION}-RELEASE-${ASSET_OS}.tar.gz"
+URL="https://download.swift.org/swift-${SWIFT_VERSION}-release/${PLATFORM}/swift-${SWIFT_VERSION}-RELEASE/${ASSET}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 

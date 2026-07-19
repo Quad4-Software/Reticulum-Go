@@ -205,7 +205,7 @@ run :: proc(config_path, identity_path, page_file, file_file, request_path, file
 			return 1
 		}
 
-		switch ev.kind {
+		#partial switch ev.kind {
 		case .Link_Established:
 			fmt.eprintln("inbound link established")
 		case .Link_Closed:

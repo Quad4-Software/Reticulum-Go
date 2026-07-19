@@ -52,5 +52,9 @@ if [ -n "${GITHUB_PATH:-}" ]; then
 fi
 
 export PATH="$INSTALL_DIR/bin:$BIN_DIR:$PATH"
+if [ -n "${GITHUB_ENV:-}" ]; then
+	echo "KOTLIN_HOME=$INSTALL_DIR" >>"$GITHUB_ENV"
+fi
 echo "Kotlin installed: $(command -v kotlinc)"
 kotlinc -version
+echo "KOTLIN_HOME=$INSTALL_DIR"

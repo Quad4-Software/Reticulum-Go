@@ -12,7 +12,11 @@ JAVA_OUT := $(JAVA_ROOT)/out
 OUT := $(ABS_KOTLIN)/out
 KOTLINC ?= kotlinc
 JAVA ?= java
-KOTLIN_HOME := $(abspath $(dir $(shell command -v $(KOTLINC)))/..)
+# CI exports KOTLIN_HOME. Otherwise resolve via kotlinc, following symlinks
+# so a ~/.local/bin/kotlinc link still finds lib/kotlin-stdlib.jar.
+ifeq ($(KOTLIN_HOME),)
+KOTLIN_HOME := $(abspath $(dir $(shell readlink -f "$$(command -v $(KOTLINC))" 2>/dev/null || command -v $(KOTLINC)))/..)
+endif
 KOTLIN_STDLIB := $(KOTLIN_HOME)/lib/kotlin-stdlib.jar
 CP := $(OUT):$(JAVA_OUT):$(JNA_JAR):$(KOTLIN_STDLIB)
 

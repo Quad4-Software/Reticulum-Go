@@ -197,7 +197,7 @@ run :: proc(config_path: string, target: string, timeout_sec: int) -> int {
 			print_last_error("rns.event_poll failed")
 			return 1
 		}
-		switch ev.kind {
+		#partial switch ev.kind {
 		case .Link_Established:
 			established = true
 			fmt.eprintln("link established")
@@ -239,7 +239,7 @@ run :: proc(config_path: string, target: string, timeout_sec: int) -> int {
 			return 1
 		}
 
-		switch ev.kind {
+		#partial switch ev.kind {
 		case .Request_Response:
 			data := rns.event_app_data(&ev)
 			fmt.printf("\n=== Page Content (%d bytes) ===\n", len(data))

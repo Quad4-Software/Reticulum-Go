@@ -54,7 +54,7 @@ function Node:resume()
 end
 
 function Node:event_poll(timeout_ms, app_data_cap)
-	local Event = require("rns.event")
+	local Event = require("rns.event").Event
 	return Event.poll(self, timeout_ms, app_data_cap or 65536)
 end
 
