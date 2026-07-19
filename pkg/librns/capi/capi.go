@@ -40,6 +40,17 @@ typedef struct rns_path_entry {
 	double expires;
 } rns_path_entry;
 
+typedef struct rns_interface_entry {
+	char name[96];
+	char type_name[32];
+	int online;
+	int enabled;
+	uint64_t rx_bytes;
+	uint64_t tx_bytes;
+	uint64_t rx_packets;
+	uint64_t tx_packets;
+} rns_interface_entry;
+
 typedef void (*rns_event_callback)(const rns_event *event, void *user_data);
 
 static inline int rns_size_as_cint(size_t n) {
@@ -330,6 +341,42 @@ func rns_path_table(node C.uint64_t, out *C.rns_path_entry, outCap C.size_t, wri
 	return cCode(librns.OK)
 }
 
+//export rns_interfaces
+func rns_interfaces(node C.uint64_t, out *C.rns_interface_entry, outCap C.size_t, written *C.size_t) C.int {
+	if written != nil {
+		*written = 0
+	}
+	rows, code := librns.NodeInterfaces(uint64(node))
+	if code != librns.OK {
+		return cCode(code)
+	}
+	if written != nil {
+		*written = sizeFromInt(len(rows))
+	}
+	if out == nil || outCap == 0 {
+		if len(rows) > 0 {
+			return cCode(librns.ErrTruncated)
+		}
+		return cCode(librns.OK)
+	}
+	cap, ok := sizeToInt(outCap)
+	if !ok {
+		return cCode(librns.ErrInvalidArg)
+	}
+	n := len(rows)
+	if n > cap {
+		n = cap
+	}
+	slice := unsafe.Slice(out, cap)
+	for i := 0; i < n; i++ {
+		fillInterfaceEntry(&slice[i], rows[i])
+	}
+	if len(rows) > cap {
+		return cCode(librns.ErrTruncated)
+	}
+	return cCode(librns.OK)
+}
+
 //export rns_link_open
 func rns_link_open(node C.uint64_t, destHash *C.uint8_t) C.uint64_t {
 	if destHash == nil {
@@ -504,6 +551,29 @@ func fillPathEntry(dst *C.rns_path_entry, e librns.PathEntry) {
 	}
 	if e.Interface != "" {
 		copyCString(&dst.iface[0], C.size_t(len(dst.iface)), e.Interface)
+	}
+}
+
+func fillInterfaceEntry(dst *C.rns_interface_entry, e librns.InterfaceEntry) {
+	dst.name[0] = 0
+	dst.type_name[0] = 0
+	dst.online = 0
+	dst.enabled = 0
+	if e.Online {
+		dst.online = 1
+	}
+	if e.Enabled {
+		dst.enabled = 1
+	}
+	dst.rx_bytes = C.uint64_t(e.RxBytes)
+	dst.tx_bytes = C.uint64_t(e.TxBytes)
+	dst.rx_packets = C.uint64_t(e.RxPackets)
+	dst.tx_packets = C.uint64_t(e.TxPackets)
+	if e.Name != "" {
+		copyCString(&dst.name[0], C.size_t(len(dst.name)), e.Name)
+	}
+	if e.Type != "" {
+		copyCString(&dst.type_name[0], C.size_t(len(dst.type_name)), e.Type)
 	}
 }
 

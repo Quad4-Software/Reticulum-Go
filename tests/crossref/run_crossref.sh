@@ -6,7 +6,7 @@ RETICULUM_REF="$ROOT_DIR/reticulum-ref"
 REPO_URL_RNS="rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum"
 REPO_URL_GITHUB="https://github.com/markqvist/Reticulum.git"
 # Wire-compat target for crossref vectors and interop.
-RNS_REF_TAG="${RNS_REF_TAG:-1.3.8}"
+RNS_REF_TAG="${RNS_REF_TAG:-1.3.9}"
 
 pip_reticulum_path() {
 	python3 - <<'PY'

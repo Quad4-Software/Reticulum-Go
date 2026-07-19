@@ -160,6 +160,10 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 	if ra.TransferSize < 0 {
 		return nil, fmt.Errorf("transfer size negative")
 	}
+	// Match Python ResourceAdvertisement.unpack (RNS 1.3.9).
+	if ra.TransferSize > int64(MaxEfficientSize)*3 {
+		return nil, fmt.Errorf("invalid transfer size")
+	}
 
 	switch d := dict["d"].(type) {
 	case int:

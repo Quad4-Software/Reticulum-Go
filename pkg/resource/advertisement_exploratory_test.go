@@ -34,8 +34,8 @@ func TestUnpackRejectsNegativeSizesAndParts(t *testing.T) {
 	}
 }
 
-// TestExploratoryUnpackAllowsOversizedTransfer checks that unpack accepts large
-// transfer sizes and leaves rejection to link accept-time checks.
+// TestExploratoryUnpackAllowsOversizedTransfer checks that unpack accepts sizes
+// past the link accept bound but still under Python's MAX_EFFICIENT_SIZE*3 gate.
 func TestExploratoryUnpackAllowsOversizedTransfer(t *testing.T) {
 	dict := map[string]any{
 		"t": int64(MaxEfficientSize) + 8192,
@@ -56,6 +56,25 @@ func TestExploratoryUnpackAllowsOversizedTransfer(t *testing.T) {
 	}
 	if adv.TransferSize <= int64(MaxEfficientSize)+4096 {
 		t.Fatalf("fixture transfer_size %d not past link reject bound", adv.TransferSize)
+	}
+}
+
+func TestUnpackRejectsTransferSizeAbovePythonBound(t *testing.T) {
+	dict := map[string]any{
+		"t": int64(MaxEfficientSize)*3 + 1,
+		"d": int64(1),
+		"n": 1,
+		"h": make([]byte, 32),
+		"r": []byte{1, 2, 3, 4},
+		"m": make([]byte, MapHashLen),
+		"f": 0,
+	}
+	b, err := msgpack.Marshal(dict)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := UnpackResourceAdvertisement(b); err == nil {
+		t.Fatal("expected unpack error for transfer size above MAX_EFFICIENT_SIZE*3")
 	}
 }
 

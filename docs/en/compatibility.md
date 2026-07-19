@@ -2,7 +2,7 @@
 
 ## Reference target
 
-Reticulum-Go is tested against **Python RNS 1.3.9** (rngit master) and the last tagged release **1.3.8**, plus the [official network API reference](https://reticulum.network/manual/reference.html).
+Reticulum-Go is tested against **Python RNS 1.3.9**, plus the [official network API reference](https://reticulum.network/manual/reference.html).
 
 Crossref vectors clone the reference from `rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum` via [rngit](https://reticulum.network/manual/git.html) (`tests/crossref/run_crossref.sh`). The GitHub mirror is not used for vectors.
 
@@ -79,6 +79,7 @@ Wire format is stable across 1.2.x to 1.3.x. Notable behavior differences:
 | Link expected_hops on both sides / LRPROOF hop gate | 1.3.8 | Covered |
 | Discovery on `MODE_INTERNAL` / location_cmd | 1.3.9 | Covered |
 | LINKIDENTIFY once / receiver `RESOURCE_RCL` | 1.3.9 | Covered |
+| Resource ADV size / empty HMU / Backbone flap block | 1.3.9 | Covered |
 
 ## Known gaps
 

@@ -5,7 +5,7 @@ package rns
 
 import "core:c"
 
-API_VERSION :: "1.3"
+API_VERSION :: "1.4"
 HASH_LEN :: 16
 
 Node :: distinct u64
@@ -37,6 +37,7 @@ Event_Kind :: enum c.int {
 	Request_Failed     = 8,
 	Resource_Started   = 9,
 	Resource_Concluded = 10,
+	Destination_Data   = 11,
 }
 
 Event :: struct {
@@ -69,6 +70,17 @@ Path_Entry :: struct {
 	iface:     [64]u8,
 	timestamp: f64,
 	expires:   f64,
+}
+
+Interface_Entry :: struct {
+	name:       [96]u8,
+	type_name:  [32]u8,
+	online:     c.int,
+	enabled:    c.int,
+	rx_bytes:   u64,
+	tx_bytes:   u64,
+	rx_packets: u64,
+	tx_packets: u64,
 }
 
 Event_Callback :: #type proc "c" (event: ^Event, user_data: rawptr)

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/link"
@@ -43,6 +44,17 @@ func DestinationCreate(nodeHandle, identityHandle uint64, appName string, aspect
 	}
 
 	hash := append([]byte(nil), dest.GetHash()...)
+	// Surface opportunistic / destination DATA packets to the host event queue.
+	// Without this callback, Destination.Receive decrypts nothing for the app
+	// and Python LXMF opportunistic replies never reach ren-tui.
+	dest.SetPacketCallback(func(data []byte, _ common.NetworkInterface) {
+		nodeRec.enqueue(Event{
+			Kind:            EventDestinationData,
+			DestinationHash: append([]byte(nil), hash...),
+			AppData:         append([]byte(nil), data...),
+		})
+	})
+
 	runtimeMu.Lock()
 	destHandle := handles.insert(kindDestination, &destinationRecord{
 		destination: dest,

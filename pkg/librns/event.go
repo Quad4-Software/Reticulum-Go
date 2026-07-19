@@ -15,6 +15,7 @@ const (
 	EventRequestFailed     = 8
 	EventResourceStarted   = 9
 	EventResourceConcluded = 10
+	EventDestinationData   = 11
 )
 
 // Event is one pollable librns notification.
@@ -41,4 +42,16 @@ type PathEntry struct {
 	Interface string
 	Timestamp float64
 	Expires   float64
+}
+
+// InterfaceEntry is one registered transport interface.
+type InterfaceEntry struct {
+	Name      string
+	Type      string
+	Online    bool
+	Enabled   bool
+	RxBytes   uint64
+	TxBytes   uint64
+	RxPackets uint64
+	TxPackets uint64
 }

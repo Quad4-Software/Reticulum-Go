@@ -346,7 +346,7 @@ func TestBackboneClientConnectsToServer(t *testing.T) {
 	var received sync.WaitGroup
 	received.Add(1)
 	server.SetPacketCallback(func(data []byte, _ common.NetworkInterface) {
-		if len(data) == 3 && data[0] == 0x42 {
+		if len(data) >= 3 && data[0] == 0x42 {
 			received.Done()
 		}
 	})
@@ -366,7 +366,7 @@ func TestBackboneClientConnectsToServer(t *testing.T) {
 
 	waitInterfaceOnline(t, client, 5*time.Second)
 
-	if err := client.Send([]byte{0x42, 0x43, 0x44}, ""); err != nil {
+	if err := client.Send(bytes.Repeat([]byte{0x42, 0x43, 0x44}, 8), ""); err != nil {
 		t.Fatalf("client Send: %v", err)
 	}
 
@@ -455,7 +455,7 @@ func testBackboneClientServerRoundTrip(t *testing.T, backend backbone.Backend) {
 	var received sync.WaitGroup
 	received.Add(1)
 	server.SetPacketCallback(func(data []byte, _ common.NetworkInterface) {
-		if len(data) == 3 && data[0] == 0x42 {
+		if len(data) >= 3 && data[0] == 0x42 {
 			received.Done()
 		}
 	})
@@ -474,7 +474,7 @@ func testBackboneClientServerRoundTrip(t *testing.T, backend backbone.Backend) {
 	t.Cleanup(func() { _ = client.Stop() })
 
 	waitInterfaceOnline(t, client, 5*time.Second)
-	if err := client.Send([]byte{0x42, 0x43, 0x44}, ""); err != nil {
+	if err := client.Send(bytes.Repeat([]byte{0x42, 0x43, 0x44}, 8), ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -596,7 +596,7 @@ func TestRaceBackboneConcurrentSend(t *testing.T) {
 		go func(n int) {
 			defer wg.Done()
 			for j := range 16 {
-				_ = client.Send([]byte{byte(n), byte(j), 0x01}, "")
+				_ = client.Send(bytes.Repeat([]byte{byte(n), byte(j), 0x01}, 8), "")
 			}
 		}(i)
 	}

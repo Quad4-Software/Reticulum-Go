@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#define RNS_API_VERSION "1.3"
+#define RNS_API_VERSION "1.4"
 
 #define RNS_HASH_LEN 16
 
@@ -32,6 +32,7 @@ extern "C" {
 #define RNS_EV_REQUEST_FAILED 8
 #define RNS_EV_RESOURCE_STARTED 9
 #define RNS_EV_RESOURCE_CONCLUDED 10
+#define RNS_EV_DESTINATION_DATA 11
 
 typedef struct rns_event {
 	int kind;
@@ -65,6 +66,17 @@ typedef struct rns_path_entry {
 	double expires;
 } rns_path_entry;
 
+typedef struct rns_interface_entry {
+	char name[96];
+	char type_name[32];
+	int online;
+	int enabled;
+	uint64_t rx_bytes;
+	uint64_t tx_bytes;
+	uint64_t rx_packets;
+	uint64_t tx_packets;
+} rns_interface_entry;
+
 typedef void (*rns_event_callback)(const rns_event *event, void *user_data);
 
 const char *rns_version(void);
@@ -95,6 +107,7 @@ int rns_destination_register_request_handler(uint64_t destination, const char *p
 
 int rns_path_request(uint64_t node, const uint8_t *dest_hash);
 int rns_path_table(uint64_t node, rns_path_entry *out, size_t out_cap, size_t *written, int max_hops);
+int rns_interfaces(uint64_t node, rns_interface_entry *out, size_t out_cap, size_t *written);
 
 uint64_t rns_link_open(uint64_t node, const uint8_t *dest_hash);
 int rns_link_send(uint64_t link, const uint8_t *data, size_t data_len);

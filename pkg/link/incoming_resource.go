@@ -685,6 +685,24 @@ func (l *Link) applyIncomingHashmapUpdate(resHash []byte, segment int, hashmapBy
 		l.incomingMu.Unlock()
 		return nil
 	}
+	// Match Python Resource.hashmap_update_packet (RNS 1.3.9): ignore HMU
+	// unless the receiver is waiting for one.
+	if !rx.waitingForHmu {
+		l.incomingMu.Unlock()
+		return nil
+	}
+	hashes := len(hashmapBytes) / resource.MapHashLen
+	if hashes < 1 {
+		cancelHash := append([]byte(nil), rx.adv.Hash...)
+		l.incomingMu.Unlock()
+		debug.Log(debug.DebugError, "Invalid HMU received, cancelling transfer",
+			"link_id", fmt.Sprintf("%x", l.linkID))
+		l.resetIncomingResource()
+		if l.status.Load() == int32(StatusActive) && len(cancelHash) == sha256.Size {
+			_ = l.rejectResource(cancelHash) // #nosec G104 - best effort RESOURCE_RCL
+		}
+		return errors.New("empty hashmap update")
+	}
 	added := rx.applyHashmapSegment(segment, hashmapBytes)
 	rx.lastProgressAt = time.Now()
 	rx.markHmuWaitLocked(false)
@@ -697,7 +715,7 @@ func (l *Link) applyIncomingHashmapUpdate(resHash []byte, segment int, hashmapBy
 			"segment",
 			segment,
 			"entries",
-			len(hashmapBytes)/resource.MapHashLen,
+			hashes,
 			"hashmap_height",
 			rx.hashmapHeight,
 		)
@@ -710,13 +728,13 @@ func (l *Link) applyIncomingHashmapUpdate(resHash []byte, segment int, hashmapBy
 			"segment",
 			segment,
 			"entries",
-			len(hashmapBytes)/resource.MapHashLen,
+			hashes,
 			"hashmap_height",
 			rx.hashmapHeight,
 		)
 	}
 	// Part REQs stay gated by outstandingParts in sendIncomingResourceReqNext
-	// so a prefetch HMU does not open a new part window mid-blast.
+	// so a late HMU does not open a new part window mid-blast.
 	l.incomingMu.Unlock()
 	return l.queueIncomingResourceReqNext()
 }

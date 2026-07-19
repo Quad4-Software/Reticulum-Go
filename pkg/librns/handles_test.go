@@ -263,7 +263,7 @@ func TestDecodeHexHash(t *testing.T) {
 }
 
 func TestVersion(t *testing.T) {
-	if Version() != APIVersion || APIVersion != "1.3" {
+	if Version() != APIVersion || APIVersion != "1.4" {
 		t.Fatalf("version %q", Version())
 	}
 }

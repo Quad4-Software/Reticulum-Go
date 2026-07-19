@@ -150,6 +150,14 @@ type InterfaceConfig struct {
 	DiscoveryHeight    float64
 	HasDiscoveryGeo    bool
 
+	// BackboneInterface fast-flapping client block (RNS 1.3.9).
+	// Zero/unset values use Python defaults when the interface is created.
+	BlockFastFlapping        bool
+	BlockFastFlappingSet     bool
+	FastFlappingThreshold    float64 // seconds connected under this counts as a flap
+	FastFlappingGrace        int     // flaps allowed before block
+	FastFlappingBlockTimeMin float64 // block duration in minutes
+
 	// Modem73Interface control socket and modem policy.
 	ControlHost       string
 	ControlPort       int

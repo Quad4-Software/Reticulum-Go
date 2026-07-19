@@ -59,6 +59,13 @@ foreign lib {
 		max_hops: c.int,
 	) -> c.int ---
 
+	rns_interfaces :: proc(
+		node: u64,
+		out: [^]Interface_Entry,
+		out_cap: c.size_t,
+		written: ^c.size_t,
+	) -> c.int ---
+
 	rns_link_open :: proc(node: u64, dest_hash: [^]u8) -> u64 ---
 	rns_link_send :: proc(link: u64, data: [^]u8, data_len: c.size_t) -> c.int ---
 	rns_link_send_resource :: proc(link: u64, data: [^]u8, data_len: c.size_t, name: cstring) -> c.int ---

@@ -275,7 +275,7 @@ func (tc *TCPClientInterface) readLoop() {
 		decoder := newKISSStreamDecoder(tc.MTU, tc.handlePacket)
 		feed = decoder.feed
 	} else {
-		decoder := newHDLCToggleStreamDecoder(tc.MTU, tc.handlePacket)
+		decoder := newTCPHDLCStreamDecoder(tc.MTU, tc.handlePacket)
 		feed = decoder.feed
 	}
 	if cap(tc.readBuf) < tc.MTU {
@@ -725,7 +725,7 @@ func (ts *TCPServerInterface) readFramedLoop(conn net.Conn) {
 		decoder := newKISSStreamDecoder(ts.MTU, ts.ProcessIncoming)
 		feed = decoder.feed
 	} else {
-		decoder := newHDLCToggleStreamDecoder(ts.MTU, ts.ProcessIncoming)
+		decoder := newTCPHDLCStreamDecoder(ts.MTU, ts.ProcessIncoming)
 		feed = decoder.feed
 	}
 	buf := make([]byte, ts.MTU)

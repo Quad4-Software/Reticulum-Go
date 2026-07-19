@@ -403,7 +403,7 @@ func TestRaceAcceptStorm(t *testing.T) {
 }
 
 func TestHubWireFormatMatchesInterfacesPackage(t *testing.T) {
-	payload := []byte{0x01, hdlcFlag, hdlcEsc, 0xFF}
+	payload := bytes.Repeat([]byte{0x01, hdlcFlag, hdlcEsc, 0xFF}, 6)
 	backboneFrame := frameHDLC(payload)
 	if backboneFrame[0] != hdlcFlag || backboneFrame[len(backboneFrame)-1] != hdlcFlag {
 		t.Fatal("missing frame flags")

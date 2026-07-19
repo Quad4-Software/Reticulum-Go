@@ -1554,7 +1554,12 @@ func (l *Link) sendResourceHashmapUpdate(out *resource.Resource, sdu int, anchor
 	}
 	hashmap := out.HashmapSegment(sdu, segment)
 	if len(hashmap) == 0 {
-		return -1, nil
+		// Match Python Resource.request_hashed_data_maps (RNS 1.3.9).
+		debug.Log(debug.DebugError, "Resource HMU error, cancelling transfer",
+			"resource_hash", fmt.Sprintf("%x", out.GetHash()))
+		out.Cancel()
+		l.signalOutgoingResourceComplete()
+		return -1, errors.New("empty hashmap update")
 	}
 	update, err := msgpack.Marshal([]any{segment, hashmap})
 	if err != nil {

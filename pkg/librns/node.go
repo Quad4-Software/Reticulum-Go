@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"quad4/reticulum-go/pkg/announce"
@@ -167,6 +168,75 @@ func NodeRefreshPaths(nodeHandle uint64, destHashes ...[]byte) int {
 		return setLastError(fmt.Errorf("%w: %v", errInternal, err))
 	}
 	return OK
+}
+
+// NodeInterfaces returns a snapshot of registered transport interfaces.
+func NodeInterfaces(nodeHandle uint64) ([]InterfaceEntry, int) {
+	rec, err := nodeByHandle(nodeHandle)
+	if err != nil {
+		return nil, setLastError(err)
+	}
+	ifaces := rec.node.Transport().GetInterfaces()
+	out := make([]InterfaceEntry, 0, len(ifaces))
+	for name, iface := range ifaces {
+		if iface == nil {
+			continue
+		}
+		entry := InterfaceEntry{
+			Name:      name,
+			Type:      interfaceTypeName(iface.GetType()),
+			Online:    iface.IsOnline(),
+			Enabled:   iface.IsEnabled(),
+			RxBytes:   iface.GetRxBytes(),
+			TxBytes:   iface.GetTxBytes(),
+			RxPackets: iface.GetRxPackets(),
+			TxPackets: iface.GetTxPackets(),
+		}
+		out = append(out, entry)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Name < out[j].Name
+	})
+	return out, OK
+}
+
+func interfaceTypeName(t common.InterfaceType) string {
+	switch t {
+	case common.IFTypeUDP:
+		return "UDP"
+	case common.IFTypeTCP:
+		return "TCP"
+	case common.IFTypeUnix:
+		return "Backbone (unix)"
+	case common.IFTypeI2P:
+		return "I2P"
+	case common.IFTypeBluetooth:
+		return "Bluetooth"
+	case common.IFTypeSerial:
+		return "Serial"
+	case common.IFTypeAuto:
+		return "Auto"
+	case common.IFTypeBackbone:
+		return "Backbone"
+	case common.IFTypePipe:
+		return "Pipe"
+	case common.IFTypeQUIC:
+		return "QUIC"
+	case common.IFTypeWebTransport:
+		return "WebTransport"
+	case common.IFTypeDNSRendezvous:
+		return "DNS"
+	case common.IFTypeVSOCK:
+		return "VSOCK"
+	case common.IFTypeHTTPS:
+		return "HTTPS"
+	case common.IFTypeModem73:
+		return "Modem"
+	case common.IFTypeSDR:
+		return "SDR"
+	default:
+		return "Unknown"
+	}
 }
 
 // PathTable returns a snapshot of known paths.

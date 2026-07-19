@@ -1,6 +1,6 @@
 # Compatibility with Python Reticulum
 
-This document compares Reticulum-Go with the official [Reticulum network API reference](https://reticulum.network/manual/reference.html) and the reference *rns* Python package (**RNS 1.3.9** on rngit master, last tagged release **1.3.8**).
+This document compares Reticulum-Go with the official [Reticulum network API reference](https://reticulum.network/manual/reference.html) and the reference *rns* Python package (**RNS 1.3.9**).
 
 Crossref tests clone the reference from `rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum` via [rngit](https://reticulum.network/manual/git.html) (`tests/crossref/run_crossref.sh`). The GitHub mirror at [markqvist/Reticulum](https://github.com/markqvist/Reticulum) is no longer used for vectors.
 
@@ -14,7 +14,7 @@ For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). F
 | Identity | Yes | Key generation, recall, sign/verify, encrypt/decrypt, ratchets. Optional 72-byte hardware-bound descriptor (RHB1). On-wire Ed25519 public key matches [RNS.Identity](https://github.com/markqvist/Reticulum/blob/master/RNS/Identity.py). Python `Identity.from_file` expects the 64-byte software layout only today. |
 | Destination | Yes | SINGLE, GROUP, PLAIN, LINK. Announce and request handlers, links in and out. |
 | Packet | Yes | Header types 1 and 2, all packet types and contexts. Byte-for-byte parity in crossref. |
-| Transport | Yes | Core wire behavior matches Python 1.3.8: path table, announces, RequestPath, hops, next-hop, type-2 rewrap, link-table forwarding, persistence, ingress control, random-blob path selection (1.3.4 dedup), interface mode announce rules and `MODE_INTERNAL` (1.3.6), ephemeral transport identity when transport is off (1.3.6). Probe responses via respond_to_probes / allow_probes, local_hops_delta hop mangling, and blackhole teardown at LINKIDENTIFY are implemented. Incoming links use `link.HandleIncomingLinkRequest`. Unpack rejects hop counts `>= PATHFINDER_M` (1.3.8). |
+| Transport | Yes | Core wire behavior matches Python 1.3.9: path table, announces, RequestPath, hops, next-hop, type-2 rewrap, link-table forwarding, persistence, ingress control, random-blob path selection (1.3.4 dedup), interface mode announce rules and `MODE_INTERNAL` (1.3.6), ephemeral transport identity when transport is off (1.3.6). Probe responses via respond_to_probes / allow_probes, local_hops_delta hop mangling, and blackhole teardown at LINKIDENTIFY are implemented. Incoming links use `link.HandleIncomingLinkRequest`. Unpack rejects hop counts `>= PATHFINDER_M` (1.3.8). |
 | Interfaces | Partial | See [Interfaces](#interfaces) below. |
 | Discovery (RNS.Discovery, rnstransport) | Yes | [pkg/discovery](pkg/discovery/) mirrors wire constants, LXStamper, msgpack layouts. discover_interfaces or per-interface `discoverable = yes` starts rnstransport listening via [pkg/node](pkg/node/) StartInterfaceDiscovery. InterfaceAnnouncer publishes discoverable TCP/Backbone/I2P (and related) interfaces. Autoconnect and BlackholeUpdater loops are not auto-started. Build with BuildAppData, decode with ValidateAndDecode. Separate from AutoInterface multicast discovery. |
 | Blackhole | Partial | [pkg/blackhole](pkg/blackhole/) covers table semantics, msgpack, expiry, MergeRemote, EncodeForRequest. Announces from listed identities are dropped. Links from blackholed identities are torn down at LINKIDENTIFY. `/list` over rnstransport needs the RNS Request layer (not ported). publish_blackhole, blackhole_sources, blackhole_update_interval are ignored (deferred). |
@@ -124,7 +124,11 @@ Wire format is unchanged in 1.2.x to 1.3.x. Most churn is utilities and transpor
 | location_cmd discovery geo executable | 1.3.9 | Covered (`pkg/discovery`) |
 | LINKIDENTIFY sets remote identity only once | 1.3.9 | Covered (`pkg/link`) |
 | Receiver cancel sends `RESOURCE_RCL` | 1.3.9 | Covered (`pkg/link` ICL handler / reject) |
-| rngit / rnid / rnsh utilities | 1.2.x+ | Not ported (no wire impact) |
+| Resource ADV transfer size `> MAX_EFFICIENT*3` rejected | 1.3.9 | Covered (`pkg/resource` unpack) |
+| Empty HMU cancels transfer | 1.3.9 | Covered (`pkg/link`) |
+| Backbone fast-flapping client block | 1.3.9 | Covered (`pkg/interfaces` BackboneInterface) |
+| HDLC drop frames `<= HEADER_MINSIZE` | 1.3.9 | Covered (TCP/Backbone HDLC decoders) |
+| rngit / rnid / rnsh utilities | 1.2.x+ | Not ported (no wire impact; rnsh security fix is Python-only) |
 
 ### RNS 1.3.6 through 1.3.9 notes
 
@@ -134,7 +138,7 @@ Wire format is unchanged in 1.2.x to 1.3.x. Most churn is utilities and transpor
 
 **1.3.8** rejects packets whose hop field is `>= PATHFINDER_M` (128) during unpack, records expected_hops on the link responder from the RTT packet, and keeps initiator LRPROOF acceptance gated on matching hop count (or unknown `PATHFINDER_M`). Also fixes link TX byte accounting to use ciphertext size.
 
-**1.3.9** (rngit master, not yet tagged on PyPI) allows discoverable announces on `MODE_INTERNAL`, adds location_cmd for geo fields, sets link remote identity only once at LINKIDENTIFY, and has receivers emit `RESOURCE_RCL` when cancelling an incoming resource (initiator treats that as reject).
+**1.3.9** allows discoverable announces on `MODE_INTERNAL`, adds location_cmd for geo fields, sets link remote identity only once at LINKIDENTIFY, has receivers emit `RESOURCE_RCL` when cancelling an incoming resource, rejects oversized resource advertisements at unpack (`t > MAX_EFFICIENT_SIZE*3`), cancels transfers on empty HMU, blocks fast-flapping Backbone clients, and drops HDLC frames at or below `HEADER_MINSIZE`. Also includes a critical `rnsh` security fix (Python utility only).
 
 ## Security and robustness notes
 

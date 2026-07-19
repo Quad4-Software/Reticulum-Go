@@ -533,6 +533,16 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		setBool(&iface.DiscoveryEncrypt, value)
 	case "location_cmd":
 		iface.DiscoveryLocationCmd = value
+	case "block_fast_flapping":
+		if setBool(&iface.BlockFastFlapping, value) {
+			iface.BlockFastFlappingSet = true
+		}
+	case "fast_flapping_threshold":
+		setFloat(value, &iface.FastFlappingThreshold)
+	case "fast_flapping_grace":
+		setInt(value, &iface.FastFlappingGrace)
+	case "fast_flapping_block_time":
+		setFloat(value, &iface.FastFlappingBlockTimeMin)
 	case "latitude":
 		setFloat(value, &iface.DiscoveryLatitude)
 		iface.HasDiscoveryGeo = true
@@ -884,6 +894,18 @@ func writeInterface(b *strings.Builder, name string, iface *common.InterfaceConf
 	}
 	if iface.DiscoveryLocationCmd != "" {
 		fmt.Fprintf(b, "    location_cmd = %s\n", iface.DiscoveryLocationCmd)
+	}
+	if iface.BlockFastFlappingSet {
+		fmt.Fprintf(b, "    block_fast_flapping = %s\n", boolStr(iface.BlockFastFlapping))
+	}
+	if iface.FastFlappingThreshold != 0 {
+		fmt.Fprintf(b, "    fast_flapping_threshold = %g\n", iface.FastFlappingThreshold)
+	}
+	if iface.FastFlappingGrace != 0 {
+		fmt.Fprintf(b, "    fast_flapping_grace = %d\n", iface.FastFlappingGrace)
+	}
+	if iface.FastFlappingBlockTimeMin != 0 {
+		fmt.Fprintf(b, "    fast_flapping_block_time = %g\n", iface.FastFlappingBlockTimeMin)
 	}
 	if iface.HasDiscoveryGeo {
 		fmt.Fprintf(b, "    latitude = %g\n", iface.DiscoveryLatitude)

@@ -48,7 +48,7 @@ func TestHDLCDecoderSinglePacket(t *testing.T) {
 	d := NewHDLCDecoder(4096, func(pkt []byte) {
 		got = append([]byte(nil), pkt...)
 	})
-	payload := []byte{0x01, 0x7E, 0x7D, 0xFF}
+	payload := bytes.Repeat([]byte{0x01, 0x7E, 0x7D, 0xFF}, 6) // 24 bytes > HEADER_MINSIZE
 	d.Feed(frameHDLC(payload))
 	if !bytes.Equal(got, payload) {
 		t.Fatalf("got %x want %x", got, payload)
@@ -61,9 +61,9 @@ func TestHDLCDecoderSplitDelivery(t *testing.T) {
 		packets = append(packets, append([]byte(nil), pkt...))
 	})
 	frames := [][]byte{
-		{0x01, 0x02},
-		{0x03, 0x04},
-		{0x05},
+		bytes.Repeat([]byte{0x01}, 20),
+		bytes.Repeat([]byte{0x02}, 24),
+		bytes.Repeat([]byte{0x03}, 32),
 	}
 	for _, payload := range frames {
 		frame := frameHDLC(payload)
@@ -78,6 +78,19 @@ func TestHDLCDecoderSplitDelivery(t *testing.T) {
 		if !bytes.Equal(packets[i], frames[i]) {
 			t.Fatalf("packet %d: %x != %x", i, packets[i], frames[i])
 		}
+	}
+}
+
+func TestHDLCDecoderDropsBelowHeaderMinSize(t *testing.T) {
+	var got int
+	d := NewHDLCDecoder(4096, func([]byte) { got++ })
+	d.Feed(frameHDLC(bytes.Repeat([]byte{0x01}, 19)))
+	if got != 0 {
+		t.Fatalf("expected drop of HEADER_MINSIZE frame, got=%d", got)
+	}
+	d.Feed(frameHDLC(bytes.Repeat([]byte{0x01}, 20)))
+	if got != 1 {
+		t.Fatalf("got=%d want 1", got)
 	}
 }
 
@@ -98,7 +111,7 @@ func TestHDLCDecoderReset(t *testing.T) {
 	d := NewHDLCDecoder(4096, func([]byte) { got++ })
 	d.Feed([]byte{hdlcFlag, 0x01})
 	d.Reset()
-	d.Feed(frameHDLC([]byte{0x02}))
+	d.Feed(frameHDLC(bytes.Repeat([]byte{0x02}, 20)))
 	if got != 1 {
 		t.Fatalf("got=%d want 1", got)
 	}
@@ -132,9 +145,12 @@ func FuzzHDLCDecoderFeed(f *testing.F) {
 }
 
 func FuzzFrameHDLCDecode(f *testing.F) {
-	f.Add([]byte{0x42, 0x43})
-	f.Add([]byte{hdlcFlag, 0x00})
+	f.Add(bytes.Repeat([]byte{0x42}, 20))
+	f.Add(append([]byte{hdlcFlag, 0x00}, bytes.Repeat([]byte{0x01}, 20)...))
 	f.Fuzz(func(t *testing.T, payload []byte) {
+		if len(payload) <= 19 {
+			t.Skip("below HEADER_MINSIZE")
+		}
 		frame := frameHDLC(payload)
 		var got []byte
 		d := NewHDLCDecoder(len(payload)+64, func(pkt []byte) {

@@ -4,7 +4,7 @@
 
 First stable release of Reticulum-Go.
 
-Wire compatible with Python RNS 1.3.8
+Wire compatible with Python RNS 1.3.9
 
 ### Included
 - Crypto, identity, destinations, packets, transport, links, channels, buffers, and resources

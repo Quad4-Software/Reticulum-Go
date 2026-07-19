@@ -15,6 +15,10 @@ const (
 	ModeGateway     = 0x06
 	ModeInternal    = 0x07
 
+	// reticulumHeaderMinSize matches Python RNS.Reticulum.HEADER_MINSIZE.
+	// HDLC frames at or below this length are dropped (RNS 1.3.9).
+	reticulumHeaderMinSize = 19
+
 	TypeUDP = 0x01
 	TypeTCP = 0x02
 

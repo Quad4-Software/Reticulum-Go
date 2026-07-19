@@ -68,7 +68,8 @@ func TestTCPClient_HDLCFramingBombDoesNotOverflow(t *testing.T) {
 		_, _ = client.Write(open)
 		_, _ = client.Write(bomb)
 
-		valid := []byte{HDLCFlag, 0x42, 0x43, 0x44, HDLCFlag}
+		valid := append([]byte{HDLCFlag}, bytes.Repeat([]byte{0x42}, 20)...)
+		valid = append(valid, HDLCFlag)
 		_, _ = client.Write(valid)
 		time.Sleep(50 * time.Millisecond)
 		_ = client.Close()
@@ -98,10 +99,11 @@ func TestTCPClient_HDLCFramingBombDoesNotOverflow(t *testing.T) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	if !bytes.Equal(lastPayload, []byte{0x42, 0x43, 0x44}) {
+	want := bytes.Repeat([]byte{0x42}, 20)
+	if !bytes.Equal(lastPayload, want) {
 		t.Fatalf("post-bomb frame mismatch: %x", lastPayload)
 	}
-	if lastSize.Load() != 3 {
+	if lastSize.Load() != 20 {
 		t.Fatalf("post-bomb frame size mismatch: %d", lastSize.Load())
 	}
 }
