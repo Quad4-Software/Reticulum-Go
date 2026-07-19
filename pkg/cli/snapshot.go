@@ -17,15 +17,18 @@ import (
 
 // NodeSnapshot is a path and link health dump for operators and porters.
 type NodeSnapshot struct {
-	TS              string                    `json:"ts"`
-	TransportUptime float64                   `json:"transport_uptime"`
-	TransportID     string                    `json:"transport_id,omitempty"`
-	ActiveLinks     int                       `json:"active_links"`
-	NetmonFlap      uint64                    `json:"netmon_flap"`
-	Health          health.Snapshot           `json:"health"`
-	Interfaces      []transport.InterfaceStat `json:"interfaces"`
-	Paths           []snapshotPath            `json:"paths"`
-	PathCount       int                       `json:"path_count"`
+	TS                 string                    `json:"ts"`
+	TransportUptime    float64                   `json:"transport_uptime"`
+	TransportID        string                    `json:"transport_id,omitempty"`
+	ActiveLinks        int                       `json:"active_links"`
+	NetmonFlap         uint64                    `json:"netmon_flap"`
+	Health             health.Snapshot           `json:"health"`
+	Interfaces         []transport.InterfaceStat `json:"interfaces"`
+	Paths              []snapshotPath            `json:"paths"`
+	PathCount          int                       `json:"path_count"`
+	PacketHashCount    int                       `json:"packet_hash_count,omitempty"`
+	AnnounceCacheCount int                       `json:"announce_cache_count,omitempty"`
+	SeenAnnounceCount  int                       `json:"seen_announce_count,omitempty"`
 }
 
 type snapshotPath struct {
@@ -87,14 +90,17 @@ func RunSnapshot(args []string, opt ...Options) int {
 	}
 
 	snap := NodeSnapshot{
-		TS:              time.Now().UTC().Format(time.RFC3339Nano),
-		TransportUptime: stats.TransportUptime,
-		ActiveLinks:     linkCount,
-		NetmonFlap:      stats.NetmonFlap,
-		Health:          stats.Health,
-		Interfaces:      stats.Interfaces,
-		Paths:           make([]snapshotPath, 0, len(paths)),
-		PathCount:       len(paths),
+		TS:                 time.Now().UTC().Format(time.RFC3339Nano),
+		TransportUptime:    stats.TransportUptime,
+		ActiveLinks:        linkCount,
+		NetmonFlap:         stats.NetmonFlap,
+		Health:             stats.Health,
+		Interfaces:         stats.Interfaces,
+		Paths:              make([]snapshotPath, 0, len(paths)),
+		PathCount:          len(paths),
+		PacketHashCount:    stats.PacketHashCount,
+		AnnounceCacheCount: stats.AnnounceCacheCount,
+		SeenAnnounceCount:  stats.SeenAnnounceCount,
 	}
 	if len(stats.TransportID) > 0 {
 		snap.TransportID = hex.EncodeToString(stats.TransportID)

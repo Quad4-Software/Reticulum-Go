@@ -58,6 +58,16 @@ func (hl *packetHashList) add(h []byte) {
 	}
 }
 
+// Len returns the number of hashes in the current and previous generations.
+func (hl *packetHashList) Len() int {
+	if hl == nil {
+		return 0
+	}
+	hl.mu.Lock()
+	defer hl.mu.Unlock()
+	return len(hl.cur) + len(hl.prev)
+}
+
 // packetFilter mirrors Python Transport.packet_filter for duplicate detection
 // and context allow-lists. Caller must have unpacked pkt.
 func (t *Transport) packetFilter(pkt *packet.Packet) bool {

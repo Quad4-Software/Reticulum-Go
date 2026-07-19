@@ -41,13 +41,13 @@ func TestProcessPathRequest_doesNotAnswerWhenNextHopEqualsRequestorTransportID(t
 		HopCount:    2,
 		LastUpdated: time.Now(),
 	}
-	tr.announceTable[string(dest)] = oldEntry
+	tr.announceTable[destKey(dest)] = oldEntry
 	tr.mutex.Unlock()
 
 	tr.processPathRequest(dest, wan, append([]byte(nil), requestorTID...), tag)
 
 	tr.mutex.RLock()
-	cur := tr.announceTable[string(dest)]
+	cur := tr.announceTable[destKey(dest)]
 	tr.mutex.RUnlock()
 	if cur != oldEntry {
 		t.Fatal("announce table entry must not be replaced when next hop is the requestor")
@@ -91,15 +91,15 @@ func TestProcessPathRequest_rewritesAnnounceWhenNextHopIsNotRequestor(t *testing
 		HopCount:    2,
 		LastUpdated: time.Now(),
 	}
-	tr.announcePacketCache[string(dest)] = oldPkt
-	tr.announceTable[string(dest)] = oldEntry
+	tr.announcePacketCache[destKey(dest)] = &cachedAnnounce{pkt: oldPkt, at: time.Now()}
+	tr.announceTable[destKey(dest)] = oldEntry
 	tr.mutex.Unlock()
 
 	tr.processPathRequest(dest, wan, append([]byte(nil), requestorTID...), tag)
 
 	tr.mutex.RLock()
-	cur := tr.announceTable[string(dest)]
-	heldEntry, held := tr.heldAnnounces[string(dest)]
+	cur := tr.announceTable[destKey(dest)]
+	heldEntry, held := tr.heldAnnounces[destKey(dest)]
 	tr.mutex.RUnlock()
 	if cur == nil {
 		t.Fatal("expected new announce table entry")
@@ -142,7 +142,7 @@ func TestProcessPathRequest_knownPathWithoutAnnounceDoesNotStartDiscovery(t *tes
 	tr.processPathRequest(dest, wan, nil, tag)
 
 	tr.mutex.RLock()
-	_, pending := tr.discoveryPathRequests[string(dest)]
+	_, pending := tr.discoveryPathRequests[destKey(dest)]
 	tr.mutex.RUnlock()
 	if pending {
 		t.Fatal("known path without announce must not create discoveryPathRequests")
@@ -207,7 +207,7 @@ func TestProcessPathRequest_expiredPathStartsDiscovery(t *testing.T) {
 	tr.processPathRequest(dest, wan, nil, tag)
 
 	tr.mutex.RLock()
-	_, ok := tr.discoveryPathRequests[string(dest)]
+	_, ok := tr.discoveryPathRequests[destKey(dest)]
 	tr.mutex.RUnlock()
 	if !ok {
 		t.Fatal("PATHFINDER_E-expired path should fall through to discovery")
@@ -239,17 +239,17 @@ func TestProcessPathRequest_pathRequestTTLStillAnswers(t *testing.T) {
 		LastUpdated: now.Add(-time.Duration(PathRequestTTL+30) * time.Second),
 		Expires:     now.Add(time.Duration(PathfinderE) * time.Second),
 	}
-	tr.announcePacketCache[string(dest)] = &packet.Packet{
+	tr.announcePacketCache[destKey(dest)] = &cachedAnnounce{pkt: &packet.Packet{
 		DestinationHash: append([]byte(nil), dest...),
 		Data:            []byte{0x01},
 		Raw:             []byte{0x01, 0x00},
-	}
+	}, at: time.Now()}
 	tr.mutex.Unlock()
 
 	tr.processPathRequest(dest, wan, nil, tag)
 
 	tr.mutex.RLock()
-	_, discovering := tr.discoveryPathRequests[string(dest)]
+	_, discovering := tr.discoveryPathRequests[destKey(dest)]
 	_, hasPath := tr.paths[pathMapKey(dest)]
 	tr.mutex.RUnlock()
 	if discovering {
@@ -329,7 +329,7 @@ func TestProcessPathRequest_fromLocalClientKnownPathBypassesTransportDisabled(t 
 		HopCount:    1,
 		LastUpdated: time.Now(),
 	}
-	tr.announcePacketCache[string(dest)] = oldPkt
+	tr.announcePacketCache[destKey(dest)] = &cachedAnnounce{pkt: oldPkt, at: time.Now()}
 	tr.mutex.Unlock()
 
 	// With transport disabled, a normal (non-local-client) PR would be

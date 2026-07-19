@@ -21,10 +21,10 @@ func fuzzTransport(id *identity.Identity) *Transport {
 	return &Transport{
 		interfaces:           make(map[string]common.NetworkInterface),
 		paths:                make(map[[PathMapKeySize]byte]*common.Path),
-		announceTable:        make(map[string]*PathAnnounceEntry),
-		heldAnnounces:        make(map[string]*PathAnnounceEntry),
-		announcePacketCache:  make(map[string]*packet.Packet),
-		pendingLocalPathReqs: make(map[string]common.NetworkInterface),
+		announceTable:        make(map[hash16]*PathAnnounceEntry),
+		heldAnnounces:        make(map[hash16]*PathAnnounceEntry),
+		announcePacketCache:  make(map[hash16]*cachedAnnounce),
+		pendingLocalPathReqs: make(map[hash16]common.NetworkInterface),
 		transportIdentity:    id,
 		done:                 make(chan struct{}),
 	}
@@ -172,7 +172,7 @@ func FuzzQueueAndProcessAnnounceTable(f *testing.F) {
 		}
 
 		tr.mutex.Lock()
-		if entry := tr.announceTable[string(destHash)]; entry != nil {
+		if entry := tr.announceTable[destKey(destHash)]; entry != nil {
 			entry.RetransmitTimeout = time.Now().Add(time.Duration(graceSkewMs) * time.Millisecond)
 		}
 		tr.mutex.Unlock()

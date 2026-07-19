@@ -365,6 +365,38 @@ func TestRatchetKeyDefensiveCopies(t *testing.T) {
 	}
 }
 
+func TestKnownRatchetsCap(t *testing.T) {
+	ratchetPersistLock.Lock()
+	knownRatchets = make(map[string][]byte)
+	ratchetPersistLock.Unlock()
+	t.Cleanup(func() {
+		ratchetPersistLock.Lock()
+		knownRatchets = make(map[string][]byte)
+		ratchetPersistLock.Unlock()
+	})
+
+	id, err := New()
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	for i := range MaxKnownRatchets + 32 {
+		key := fmt.Sprintf("peer-%d", i)
+		id.SetRatchetKey(key, []byte{byte(i), byte(i >> 8)})
+	}
+
+	ratchetPersistLock.Lock()
+	n := len(knownRatchets)
+	_, kept := knownRatchets[fmt.Sprintf("peer-%d", MaxKnownRatchets+31)]
+	ratchetPersistLock.Unlock()
+	if n > MaxKnownRatchets {
+		t.Fatalf("knownRatchets size = %d, want <= %d", n, MaxKnownRatchets)
+	}
+	if !kept {
+		t.Fatal("most recently inserted ratchet must not be evicted")
+	}
+}
+
 func TestPBTIdentitySignVerify(t *testing.T) {
 	msg := pbt.Map(
 		"[]byte",

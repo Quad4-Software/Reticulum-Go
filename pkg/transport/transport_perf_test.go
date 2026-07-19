@@ -5,6 +5,7 @@ package transport
 
 import (
 	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"runtime"
 	"testing"
@@ -27,16 +28,17 @@ func BenchmarkSeenAnnouncesScale(b *testing.B) {
 			for range size {
 				h := make([]byte, 32)
 				_, _ = rand.Read(h)
-				tr.seenAnnounces[string(h)] = time.Now()
+				tr.seenAnnounces[hash32FromSlice(h)] = time.Now()
 			}
 
 			b.ResetTimer()
 			b.ReportAllocs()
 
 			for i := 0; i < b.N; i++ {
-				// Use a predictable but changing string
+				var k [32]byte
+				binary.LittleEndian.PutUint64(k[:], uint64(i%size))
 				tr.mutex.Lock()
-				_ = tr.seenAnnounces[fmt.Sprint(i%size)]
+				_ = tr.seenAnnounces[k]
 				tr.mutex.Unlock()
 			}
 		})

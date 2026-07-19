@@ -822,6 +822,20 @@ func (i *Identity) SetRatchetKey(id string, key []byte) {
 	defer ratchetPersistLock.Unlock()
 
 	knownRatchets[id] = append([]byte(nil), key...)
+	if len(knownRatchets) <= MaxKnownRatchets {
+		return
+	}
+	excess := len(knownRatchets) - MaxKnownRatchets
+	for k := range knownRatchets {
+		if excess <= 0 {
+			return
+		}
+		if k == id {
+			continue
+		}
+		delete(knownRatchets, k)
+		excess--
+	}
 }
 
 // NewIdentity creates a new Identity instance with fresh keys

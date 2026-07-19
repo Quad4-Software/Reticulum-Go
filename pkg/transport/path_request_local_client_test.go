@@ -610,7 +610,7 @@ func TestLocalClientPR_ModeTypeMatrix(t *testing.T) {
 					// Non-local-client: discovery goes through async queue.
 					// Check discoveryPathRequests map for initiation.
 					tr.mutex.RLock()
-					_, hasDPR := tr.discoveryPathRequests[string(dest)]
+					_, hasDPR := tr.discoveryPathRequests[destKey(dest)]
 					tr.mutex.RUnlock()
 					if shouldForward && !hasDPR {
 						t.Fatalf("expected discoveryPathRequests entry (local=%v, mode discovers=%v)",
@@ -707,7 +707,7 @@ func TestLocalClientPR_ImmediateRetransmitForKnownPath(t *testing.T) {
 				HopCount:    1,
 				LastUpdated: time.Now(),
 			}
-			tr.announcePacketCache[string(dest)] = oldPkt
+			tr.announcePacketCache[destKey(dest)] = &cachedAnnounce{pkt: oldPkt, at: time.Now()}
 			tr.mutex.Unlock()
 
 			before := time.Now()
@@ -718,7 +718,7 @@ func TestLocalClientPR_ImmediateRetransmitForKnownPath(t *testing.T) {
 					t.Fatalf("local client: expected immediate path-response send, got %d", n)
 				}
 				tr.mutex.RLock()
-				entry := tr.announceTable[string(dest)]
+				entry := tr.announceTable[destKey(dest)]
 				tr.mutex.RUnlock()
 				if entry != nil {
 					t.Fatal("local client path response should be consumed from announce table")
@@ -727,7 +727,7 @@ func TestLocalClientPR_ImmediateRetransmitForKnownPath(t *testing.T) {
 			}
 
 			tr.mutex.RLock()
-			entry := tr.announceTable[string(dest)]
+			entry := tr.announceTable[destKey(dest)]
 			tr.mutex.RUnlock()
 			if entry == nil {
 				t.Fatal("expected announce table entry for remote grace-period answer")
@@ -805,13 +805,13 @@ func TestRegression_NonLocalClientTransportDisabledDropsKnownPath(t *testing.T) 
 		HopCount:    1,
 		LastUpdated: time.Now(),
 	}
-	tr.announceTable[string(dest)] = oldEntry
+	tr.announceTable[destKey(dest)] = oldEntry
 	tr.mutex.Unlock()
 
 	tr.processPathRequest(dest, gw, nil, tag)
 
 	tr.mutex.RLock()
-	cur := tr.announceTable[string(dest)]
+	cur := tr.announceTable[destKey(dest)]
 	tr.mutex.RUnlock()
 	if cur != oldEntry {
 		t.Fatal("transport-disabled non-local-client PR must not modify announce table")
@@ -838,7 +838,7 @@ func TestRegression_NonLocalClientGatewayForwardsUnknownPath(t *testing.T) {
 	tr.processPathRequest(dest, gw, nil, tag)
 
 	tr.mutex.RLock()
-	_, ok := tr.discoveryPathRequests[string(dest)]
+	_, ok := tr.discoveryPathRequests[destKey(dest)]
 	tr.mutex.RUnlock()
 	if !ok {
 		t.Fatal("Gateway-mode PR for unknown dest should create discoveryPathRequests entry")
@@ -873,13 +873,13 @@ func TestRegression_NextHopEqualsRequestorSuppressesAnswer(t *testing.T) {
 		HopCount:    2,
 		LastUpdated: time.Now(),
 	}
-	tr.announceTable[string(dest)] = oldEntry
+	tr.announceTable[destKey(dest)] = oldEntry
 	tr.mutex.Unlock()
 
 	tr.processPathRequest(dest, lc, requestorTID, tag)
 
 	tr.mutex.RLock()
-	cur := tr.announceTable[string(dest)]
+	cur := tr.announceTable[destKey(dest)]
 	tr.mutex.RUnlock()
 	if cur != oldEntry {
 		t.Fatal("next-hop-is-requestor must suppress answer even for local-client PRs")

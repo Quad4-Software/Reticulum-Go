@@ -245,6 +245,176 @@ func rns_identity_hash(identity C.uint64_t, hexBuf *C.char, hexBufLen C.size_t, 
 	return cCode(librns.OK)
 }
 
+//export rns_identity_hash_bytes
+func rns_identity_hash_bytes(identity C.uint64_t, out *C.uint8_t, outLen C.size_t, written *C.size_t) C.int {
+	if written != nil {
+		*written = 0
+	}
+	hash, code := librns.IdentityHashBytes(uint64(identity))
+	if code != librns.OK {
+		return cCode(code)
+	}
+	return copyBytesResult(out, outLen, written, hash)
+}
+
+//export rns_identity_public_key
+func rns_identity_public_key(identity C.uint64_t, out *C.uint8_t, outLen C.size_t, written *C.size_t) C.int {
+	if written != nil {
+		*written = 0
+	}
+	pub, code := librns.IdentityPublicKey(uint64(identity))
+	if code != librns.OK {
+		return cCode(code)
+	}
+	return copyBytesResult(out, outLen, written, pub)
+}
+
+//export rns_identity_from_public_key
+func rns_identity_from_public_key(pub *C.uint8_t, pubLen C.size_t) C.uint64_t {
+	raw, code := goBytesFromC(pub, pubLen)
+	if code != librns.OK {
+		return 0
+	}
+	id, code := librns.IdentityFromPublicKey(raw)
+	if code != librns.OK {
+		return 0
+	}
+	return C.uint64_t(id)
+}
+
+//export rns_identity_sign
+func rns_identity_sign(identity C.uint64_t, data *C.uint8_t, dataLen C.size_t, sigOut *C.uint8_t, sigOutLen C.size_t, written *C.size_t) C.int {
+	if written != nil {
+		*written = 0
+	}
+	raw, code := goBytesFromC(data, dataLen)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	sig, code := librns.IdentitySign(uint64(identity), raw)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	return copyBytesResult(sigOut, sigOutLen, written, sig)
+}
+
+//export rns_identity_verify
+func rns_identity_verify(identity C.uint64_t, data *C.uint8_t, dataLen C.size_t, sig *C.uint8_t, sigLen C.size_t) C.int {
+	raw, code := goBytesFromC(data, dataLen)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	signature, code := goBytesFromC(sig, sigLen)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	return cCode(librns.IdentityVerify(uint64(identity), raw, signature))
+}
+
+//export rns_rsg_create
+func rns_rsg_create(identity C.uint64_t, message *C.uint8_t, messageLen C.size_t, embed C.int, out *C.uint8_t, outLen C.size_t, written *C.size_t) C.int {
+	if written != nil {
+		*written = 0
+	}
+	msg, code := goBytesFromC(message, messageLen)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	blob, code := librns.RSGCreate(uint64(identity), msg, embed != 0)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	return copyBytesResult(out, outLen, written, blob)
+}
+
+//export rns_rsg_validate
+func rns_rsg_validate(rsg *C.uint8_t, rsgLen C.size_t, message *C.uint8_t, messageLen C.size_t, requiredSignerHash *C.uint8_t, requiredSignerHashLen C.size_t) C.int {
+	rsgBytes, code := goBytesFromC(rsg, rsgLen)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	msg, code := goBytesFromC(message, messageLen)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	required, code := goBytesFromC(requiredSignerHash, requiredSignerHashLen)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	return cCode(librns.RSGValidate(rsgBytes, msg, required))
+}
+
+//export rns_rsg_sign_file
+func rns_rsg_sign_file(identity C.uint64_t, path *C.char, out *C.uint8_t, outLen C.size_t, written *C.size_t) C.int {
+	if written != nil {
+		*written = 0
+	}
+	if path == nil {
+		return cCode(librns.ErrInvalidArg)
+	}
+	blob, code := librns.RSGSignFile(uint64(identity), C.GoString(path))
+	if code != librns.OK {
+		return cCode(code)
+	}
+	return copyBytesResult(out, outLen, written, blob)
+}
+
+//export rns_rsg_verify_file
+func rns_rsg_verify_file(rsg *C.uint8_t, rsgLen C.size_t, path *C.char, requiredSignerHash *C.uint8_t, requiredSignerHashLen C.size_t) C.int {
+	if path == nil {
+		return cCode(librns.ErrInvalidArg)
+	}
+	rsgBytes, code := goBytesFromC(rsg, rsgLen)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	required, code := goBytesFromC(requiredSignerHash, requiredSignerHashLen)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	return cCode(librns.RSGVerifyFile(rsgBytes, C.GoString(path), required))
+}
+
+//export rns_rsm_verify
+func rns_rsm_verify(rsm *C.uint8_t, rsmLen C.size_t, requiredSignerHash *C.uint8_t, requiredSignerHashLen C.size_t, messageOut *C.uint8_t, messageOutLen C.size_t, written *C.size_t) C.int {
+	if written != nil {
+		*written = 0
+	}
+	rsmBytes, code := goBytesFromC(rsm, rsmLen)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	required, code := goBytesFromC(requiredSignerHash, requiredSignerHashLen)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	msg, code := librns.RSMVerify(rsmBytes, required)
+	if code != librns.OK {
+		return cCode(code)
+	}
+	return copyBytesResult(messageOut, messageOutLen, written, msg)
+}
+
+func copyBytesResult(out *C.uint8_t, outLen C.size_t, written *C.size_t, src []byte) C.int {
+	if written != nil {
+		*written = sizeFromInt(len(src))
+	}
+	if out == nil || outLen == 0 {
+		if len(src) == 0 {
+			return cCode(librns.OK)
+		}
+		return cCode(librns.ErrTruncated)
+	}
+	n := copyCBytes(out, outLen, src)
+	if written != nil {
+		*written = sizeFromInt(n)
+	}
+	if n < len(src) {
+		return cCode(librns.ErrTruncated)
+	}
+	return cCode(librns.OK)
+}
+
 //export rns_destination_create
 func rns_destination_create(node, identity C.uint64_t, appName *C.char, aspects **C.char, aspectCount C.size_t, acceptsLinks C.int) C.uint64_t {
 	if appName == nil {

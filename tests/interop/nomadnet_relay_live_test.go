@@ -199,7 +199,7 @@ func TestLiveNomadNetLinkThroughGoRelay(t *testing.T) {
 	maxAttempts := min(max(envInt("INTEROP_NOMADNET_NODE_ATTEMPTS", 3), 1), len(nodes))
 
 	var lastErr error
-	for i := 0; i < maxAttempts; i++ {
+	for i := range maxAttempts {
 		nodeHash := nodes[i].destHash
 		t.Logf("attempt %d/%d nomadnet node %x hops=%d", i+1, maxAttempts, nodeHash, nodes[i].hops)
 		sess.Emit("node", harness.KindAnnounce, hex.EncodeToString(nodeHash))

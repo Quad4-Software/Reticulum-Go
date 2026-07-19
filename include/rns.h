@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#define RNS_API_VERSION "1.4"
+#define RNS_API_VERSION "1.5"
 
 #define RNS_HASH_LEN 16
 
@@ -97,6 +97,26 @@ uint64_t rns_identity_load(const char *path);
 int rns_identity_save(uint64_t identity, const char *path);
 int rns_identity_destroy(uint64_t identity);
 int rns_identity_hash(uint64_t identity, char *hex_buf, size_t hex_buf_len, size_t *written);
+int rns_identity_hash_bytes(uint64_t identity, uint8_t *out, size_t out_len, size_t *written);
+int rns_identity_public_key(uint64_t identity, uint8_t *out, size_t out_len, size_t *written);
+uint64_t rns_identity_from_public_key(const uint8_t *pub, size_t pub_len);
+int rns_identity_sign(uint64_t identity, const uint8_t *data, size_t data_len,
+	uint8_t *sig_out, size_t sig_out_len, size_t *written);
+int rns_identity_verify(uint64_t identity, const uint8_t *data, size_t data_len,
+	const uint8_t *sig, size_t sig_len);
+
+int rns_rsg_create(uint64_t identity, const uint8_t *message, size_t message_len, int embed,
+	uint8_t *out, size_t out_len, size_t *written);
+int rns_rsg_validate(const uint8_t *rsg, size_t rsg_len,
+	const uint8_t *message, size_t message_len,
+	const uint8_t *required_signer_hash, size_t required_signer_hash_len);
+int rns_rsg_sign_file(uint64_t identity, const char *path,
+	uint8_t *out, size_t out_len, size_t *written);
+int rns_rsg_verify_file(const uint8_t *rsg, size_t rsg_len, const char *path,
+	const uint8_t *required_signer_hash, size_t required_signer_hash_len);
+int rns_rsm_verify(const uint8_t *rsm, size_t rsm_len,
+	const uint8_t *required_signer_hash, size_t required_signer_hash_len,
+	uint8_t *message_out, size_t message_out_len, size_t *written);
 
 uint64_t rns_destination_create(uint64_t node, uint64_t identity, const char *app_name,
 	const char *const *aspects, size_t aspect_count, int accepts_links);

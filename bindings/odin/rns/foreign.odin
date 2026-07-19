@@ -33,6 +33,65 @@ foreign lib {
 	rns_identity_save     :: proc(identity: u64, path: cstring) -> c.int ---
 	rns_identity_destroy  :: proc(identity: u64) -> c.int ---
 	rns_identity_hash     :: proc(identity: u64, hex_buf: [^]u8, hex_buf_len: c.size_t, written: ^c.size_t) -> c.int ---
+	rns_identity_hash_bytes :: proc(identity: u64, out: [^]u8, out_len: c.size_t, written: ^c.size_t) -> c.int ---
+	rns_identity_public_key :: proc(identity: u64, out: [^]u8, out_len: c.size_t, written: ^c.size_t) -> c.int ---
+	rns_identity_from_public_key :: proc(pub: [^]u8, pub_len: c.size_t) -> u64 ---
+	rns_identity_sign :: proc(
+		identity: u64,
+		data: [^]u8,
+		data_len: c.size_t,
+		sig_out: [^]u8,
+		sig_out_len: c.size_t,
+		written: ^c.size_t,
+	) -> c.int ---
+	rns_identity_verify :: proc(
+		identity: u64,
+		data: [^]u8,
+		data_len: c.size_t,
+		sig: [^]u8,
+		sig_len: c.size_t,
+	) -> c.int ---
+
+	rns_rsg_create :: proc(
+		identity: u64,
+		message: [^]u8,
+		message_len: c.size_t,
+		embed: c.int,
+		out: [^]u8,
+		out_len: c.size_t,
+		written: ^c.size_t,
+	) -> c.int ---
+	rns_rsg_validate :: proc(
+		rsg: [^]u8,
+		rsg_len: c.size_t,
+		message: [^]u8,
+		message_len: c.size_t,
+		required_signer_hash: [^]u8,
+		required_signer_hash_len: c.size_t,
+	) -> c.int ---
+	rns_rsg_sign_file :: proc(
+		identity: u64,
+		path: cstring,
+		out: [^]u8,
+		out_len: c.size_t,
+		written: ^c.size_t,
+	) -> c.int ---
+	rns_rsg_verify_file :: proc(
+		rsg: [^]u8,
+		rsg_len: c.size_t,
+		path: cstring,
+		required_signer_hash: [^]u8,
+		required_signer_hash_len: c.size_t,
+	) -> c.int ---
+	rns_rsm_verify :: proc(
+		rsm: [^]u8,
+		rsm_len: c.size_t,
+		required_signer_hash: [^]u8,
+		required_signer_hash_len: c.size_t,
+		message_out: [^]u8,
+		message_out_len: c.size_t,
+		written: ^c.size_t,
+	) -> c.int ---
 
 	rns_destination_create :: proc(
 		node: u64,

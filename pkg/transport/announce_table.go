@@ -22,16 +22,81 @@ const announceTableCheckInterval = 250 * time.Millisecond
 // drained. Must stay well below sim/line hop budgets (pathfinder delay can be 0).
 const announceForwardCheckInterval = 25 * time.Millisecond
 
+// cachedAnnounce holds a PATH_RESPONSE-capable announce payload with insert time
+// for oldest-first eviction under the in-memory soft cap.
+type cachedAnnounce struct {
+	pkt *packet.Packet
+	at  time.Time
+}
+
+func (t *Transport) announcePacketCacheMax() int {
+	max := 0
+	if t != nil && t.config != nil {
+		max = t.config.EffectiveMaxInMemoryPaths()
+	}
+	if max <= 0 {
+		return common.DefaultMaxInMemoryPaths
+	}
+	return max
+}
+
+// evictAnnouncePacketCacheUnlocked drops oldest cache entries until at or under
+// the soft cap. Caller must hold t.mutex.
+func (t *Transport) evictAnnouncePacketCacheUnlocked() {
+	if t == nil {
+		return
+	}
+	max := t.announcePacketCacheMax()
+	for len(t.announcePacketCache) > max {
+		var oldestKey hash16
+		var oldestTime time.Time
+		first := true
+		for k, e := range t.announcePacketCache {
+			when := time.Time{}
+			if e != nil {
+				when = e.at
+			}
+			if first || when.Before(oldestTime) {
+				first = false
+				oldestKey = k
+				oldestTime = when
+			}
+		}
+		delete(t.announcePacketCache, oldestKey)
+	}
+}
+
+// cleanupAnnouncePacketCache removes entries with no live path and enforces the
+// soft cap. Called from the maintenance loop after cleanupExpiredPaths.
+func (t *Transport) cleanupAnnouncePacketCache() {
+	if t == nil {
+		return
+	}
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	now := time.Now()
+	for k := range t.announcePacketCache {
+		pathKey := pathMapKey(k.bytes[:])
+		p, ok := t.paths[pathKey]
+		if !ok || p == nil || pathExpired(p, now) {
+			delete(t.announcePacketCache, k)
+		}
+	}
+	t.evictAnnouncePacketCacheUnlocked()
+}
+
 func (t *Transport) cacheAnnouncePacket(destHash []byte, pkt *packet.Packet) {
 	if t == nil || len(destHash) != packet.TruncatedHashLength || pkt == nil || len(pkt.Data) == 0 {
 		return
 	}
-	key := string(destHash)
+	key := destKey(destHash)
 	t.mutex.Lock()
-	if existing := t.announcePacketCache[key]; existing != nil &&
-		bytes.Equal(existing.Data, pkt.Data) &&
-		existing.Hops == pkt.Hops &&
-		existing.ContextFlag == pkt.ContextFlag {
+	if existing := t.announcePacketCache[key]; existing != nil && existing.pkt != nil &&
+		bytes.Equal(existing.pkt.Data, pkt.Data) &&
+		existing.pkt.Hops == pkt.Hops &&
+		existing.pkt.ContextFlag == pkt.ContextFlag {
+		existing.at = time.Now()
 		t.mutex.Unlock()
 		return
 	}
@@ -46,7 +111,8 @@ func (t *Transport) cacheAnnouncePacket(destHash []byte, pkt *packet.Packet) {
 		DestinationHash: append([]byte(nil), destHash...),
 		Data:            append([]byte(nil), pkt.Data...),
 	}
-	t.announcePacketCache[key] = cached
+	t.announcePacketCache[key] = &cachedAnnounce{pkt: cached, at: time.Now()}
+	t.evictAnnouncePacketCacheUnlocked()
 	t.mutex.Unlock()
 }
 
@@ -55,9 +121,12 @@ func (t *Transport) getCachedAnnouncePacket(destHash []byte) *packet.Packet {
 		return nil
 	}
 	t.mutex.RLock()
-	pkt := t.announcePacketCache[string(destHash)]
+	ca := t.announcePacketCache[destKey(destHash)]
 	t.mutex.RUnlock()
-	return pkt
+	if ca == nil {
+		return nil
+	}
+	return ca.pkt
 }
 
 // queuePathResponseAnnounce inserts a path-response announce for destHash
@@ -67,10 +136,13 @@ func (t *Transport) queuePathResponseAnnounce(destHash []byte, path *common.Path
 		return false
 	}
 
-	destHashStr := string(destHash)
+	key := destKey(destHash)
 	t.mutex.RLock()
-	cached := t.announcePacketCache[destHashStr]
-	announceEntry := t.announceTable[destHashStr]
+	var cached *packet.Packet
+	if ca := t.announcePacketCache[key]; ca != nil {
+		cached = ca.pkt
+	}
+	announceEntry := t.announceTable[key]
 	t.mutex.RUnlock()
 
 	var srcPkt *packet.Packet
@@ -119,7 +191,7 @@ func (t *Transport) queuePathResponseAnnounce(destHash []byte, path *common.Path
 	}
 
 	t.mutex.Lock()
-	if prev, ok := t.announceTable[destHashStr]; ok && prev != nil && prev.AttachedInterface != nil {
+	if prev, ok := t.announceTable[key]; ok && prev != nil && prev.AttachedInterface != nil {
 		// A later path-request retry must not push RetransmitTimeout out, or
 		// aggressive clients never receive a PATH_RESPONSE.
 		if prev.BlockRebroadcasts && prev.AttachedInterface == attachedIface {
@@ -131,13 +203,13 @@ func (t *Transport) queuePathResponseAnnounce(destHash []byte, path *common.Path
 			health.Inc(ifaceName, health.KindPathRespQueuedSkip)
 			return true
 		}
-		t.heldAnnounces[destHashStr] = prev
+		t.heldAnnounces[key] = prev
 	}
-	t.announceTable[destHashStr] = entry
+	t.announceTable[key] = entry
 	t.mutex.Unlock()
 
 	if isFromLocalClient {
-		t.emitAnnounceTableEntry(destHashStr, entry)
+		t.emitAnnounceTableEntry(key, entry)
 	}
 	return true
 }
@@ -150,7 +222,7 @@ func (t *Transport) notePendingLocalPathRequest(destHash []byte, iface common.Ne
 		return
 	}
 	t.mutex.Lock()
-	t.pendingLocalPathReqs[string(destHash)] = iface
+	t.pendingLocalPathReqs[destKey(destHash)] = iface
 	t.mutex.Unlock()
 }
 
@@ -159,13 +231,16 @@ func (t *Transport) answerPendingLocalPathRequest(destHash []byte, hops byte) {
 	if t == nil || len(destHash) != packet.TruncatedHashLength {
 		return
 	}
-	key := string(destHash)
+	key := destKey(destHash)
 	t.mutex.Lock()
 	iface, ok := t.pendingLocalPathReqs[key]
 	if ok {
 		delete(t.pendingLocalPathReqs, key)
 	}
-	cached := t.announcePacketCache[key]
+	var cached *packet.Packet
+	if ca := t.announcePacketCache[key]; ca != nil {
+		cached = ca.pkt
+	}
 	path := t.paths[pathMapKey(destHash)]
 	t.mutex.Unlock()
 	if !ok || iface == nil || cached == nil {
@@ -192,11 +267,11 @@ func (t *Transport) processAnnounceTable() {
 
 	t.mutex.Lock()
 	type dueItem struct {
-		key   string
+		key   hash16
 		entry *PathAnnounceEntry
 	}
 	var due []dueItem
-	var completed []string
+	var completed []hash16
 
 	for key, entry := range t.announceTable {
 		if entry == nil {
@@ -228,13 +303,13 @@ func (t *Transport) processAnnounceTable() {
 	}
 }
 
-func (t *Transport) emitAnnounceTableEntry(destHashStr string, entry *PathAnnounceEntry) {
+func (t *Transport) emitAnnounceTableEntry(key hash16, entry *PathAnnounceEntry) {
 	if entry == nil || entry.Packet == nil || entry.AttachedInterface == nil {
 		return
 	}
 	if !entry.AttachedInterface.IsEnabled() {
 		t.mutex.Lock()
-		delete(t.announceTable, destHashStr)
+		delete(t.announceTable, key)
 		t.mutex.Unlock()
 		return
 	}
@@ -263,16 +338,16 @@ func (t *Transport) emitAnnounceTableEntry(destHashStr string, entry *PathAnnoun
 	}
 
 	t.mutex.Lock()
-	if held, ok := t.heldAnnounces[destHashStr]; ok {
-		delete(t.heldAnnounces, destHashStr)
-		t.announceTable[destHashStr] = held
+	if held, ok := t.heldAnnounces[key]; ok {
+		delete(t.heldAnnounces, key)
+		t.announceTable[key] = held
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Reinserting held announce into table",
 				"dest_hash", fmt.Sprintf("%x", entry.Packet.DestinationHash))
 		}
-	} else if cur, ok := t.announceTable[destHashStr]; ok && cur == entry && entry.BlockRebroadcasts {
+	} else if cur, ok := t.announceTable[key]; ok && cur == entry && entry.BlockRebroadcasts {
 		// Path responses are one-shot for the attached interface.
-		delete(t.announceTable, destHashStr)
+		delete(t.announceTable, key)
 	}
 	t.mutex.Unlock()
 }

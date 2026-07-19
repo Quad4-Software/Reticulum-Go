@@ -24,7 +24,7 @@ func announcePayload(seed byte, n int) []byte {
 	return out
 }
 
-func cachedAnnounce(dest []byte, seed byte) *packet.Packet {
+func announcePkt(dest []byte, seed byte) *packet.Packet {
 	return &packet.Packet{
 		DestinationHash: append([]byte(nil), dest...),
 		Data:            announcePayload(seed, 64),
@@ -37,7 +37,7 @@ func TestCacheAnnouncePacket_NilAndEmptySafe(t *testing.T) {
 	defer tr.Close()
 
 	dest := randomDestHash(101)
-	pkt := cachedAnnounce(dest, 0x11)
+	pkt := announcePkt(dest, 0x11)
 
 	tr.cacheAnnouncePacket(nil, pkt)
 	tr.cacheAnnouncePacket(dest, nil)
@@ -58,7 +58,7 @@ func TestCacheAnnouncePacket_StoresIndependentCopy(t *testing.T) {
 	defer tr.Close()
 
 	dest := randomDestHash(102)
-	pkt := cachedAnnounce(dest, 0x22)
+	pkt := announcePkt(dest, 0x22)
 	tr.cacheAnnouncePacket(dest, pkt)
 
 	pkt.Data[0] ^= 0xFF
@@ -90,7 +90,7 @@ func TestQueuePathResponseAnnounce_LocalEmitsImmediately(t *testing.T) {
 	}
 
 	dest := randomDestHash(103)
-	tr.cacheAnnouncePacket(dest, cachedAnnounce(dest, 0x33))
+	tr.cacheAnnouncePacket(dest, announcePkt(dest, 0x33))
 	path := &common.Path{
 		NextHop:     bytes.Repeat([]byte{0x01}, 16),
 		Interface:   local,
@@ -127,7 +127,7 @@ func TestQueuePathResponseAnnounce_LocalEmitsImmediately(t *testing.T) {
 	}
 
 	tr.mutex.RLock()
-	_, stillQueued := tr.announceTable[string(dest)]
+	_, stillQueued := tr.announceTable[destKey(dest)]
 	tr.mutex.RUnlock()
 	if stillQueued {
 		t.Fatal("local path response must be one-shot and leave announce table")
@@ -145,7 +145,7 @@ func TestQueuePathResponseAnnounce_RemoteUsesGrace(t *testing.T) {
 	}
 
 	dest := randomDestHash(104)
-	tr.cacheAnnouncePacket(dest, cachedAnnounce(dest, 0x44))
+	tr.cacheAnnouncePacket(dest, announcePkt(dest, 0x44))
 	path := &common.Path{
 		NextHop:     bytes.Repeat([]byte{0x02}, 16),
 		Interface:   wan,
@@ -162,7 +162,7 @@ func TestQueuePathResponseAnnounce_RemoteUsesGrace(t *testing.T) {
 	}
 
 	tr.mutex.RLock()
-	entry := tr.announceTable[string(dest)]
+	entry := tr.announceTable[destKey(dest)]
 	tr.mutex.RUnlock()
 	if entry == nil {
 		t.Fatal("expected announce table entry during grace")
@@ -190,7 +190,7 @@ func TestQueuePathResponseAnnounce_RemoteRetryDoesNotResetGrace(t *testing.T) {
 	}
 
 	dest := randomDestHash(204)
-	tr.cacheAnnouncePacket(dest, cachedAnnounce(dest, 0x55))
+	tr.cacheAnnouncePacket(dest, announcePkt(dest, 0x55))
 	path := &common.Path{
 		NextHop:     bytes.Repeat([]byte{0x03}, 16),
 		Interface:   wan,
@@ -202,7 +202,7 @@ func TestQueuePathResponseAnnounce_RemoteRetryDoesNotResetGrace(t *testing.T) {
 		t.Fatal("expected queue success")
 	}
 	tr.mutex.RLock()
-	first := tr.announceTable[string(dest)]
+	first := tr.announceTable[destKey(dest)]
 	tr.mutex.RUnlock()
 	if first == nil {
 		t.Fatal("expected pending entry")
@@ -214,7 +214,7 @@ func TestQueuePathResponseAnnounce_RemoteRetryDoesNotResetGrace(t *testing.T) {
 		t.Fatal("retry should still report queued")
 	}
 	tr.mutex.RLock()
-	second := tr.announceTable[string(dest)]
+	second := tr.announceTable[destKey(dest)]
 	tr.mutex.RUnlock()
 	if second == nil {
 		t.Fatal("expected pending entry after retry")
@@ -260,7 +260,7 @@ func TestQueuePathResponseAnnounce_HoldsInFlightEntry(t *testing.T) {
 		t.Fatal(err)
 	}
 	dest := randomDestHash(106)
-	cached := cachedAnnounce(dest, 0x55)
+	cached := announcePkt(dest, 0x55)
 	tr.cacheAnnouncePacket(dest, cached)
 
 	prev := &PathAnnounceEntry{
@@ -270,7 +270,7 @@ func TestQueuePathResponseAnnounce_HoldsInFlightEntry(t *testing.T) {
 		BlockRebroadcasts: false,
 	}
 	tr.mutex.Lock()
-	tr.announceTable[string(dest)] = prev
+	tr.announceTable[destKey(dest)] = prev
 	tr.mutex.Unlock()
 
 	path := &common.Path{Interface: wan, HopCount: 4, LastUpdated: time.Now()}
@@ -279,8 +279,8 @@ func TestQueuePathResponseAnnounce_HoldsInFlightEntry(t *testing.T) {
 	}
 
 	tr.mutex.RLock()
-	held := tr.heldAnnounces[string(dest)]
-	cur := tr.announceTable[string(dest)]
+	held := tr.heldAnnounces[destKey(dest)]
+	cur := tr.announceTable[destKey(dest)]
 	tr.mutex.RUnlock()
 	if held != prev {
 		t.Fatal("in-flight announce must move to heldAnnounces")
@@ -308,14 +308,14 @@ func TestNoteAndAnswerPendingLocalPathRequest(t *testing.T) {
 	}
 
 	tr.notePendingLocalPathRequest(dest, local)
-	tr.cacheAnnouncePacket(dest, cachedAnnounce(dest, 0x66))
+	tr.cacheAnnouncePacket(dest, announcePkt(dest, 0x66))
 	tr.answerPendingLocalPathRequest(dest, 7)
 	if n := countSends(local); n != 1 {
 		t.Fatalf("pending local answer expected 1 send, got %d", n)
 	}
 
 	tr.mutex.RLock()
-	_, stillPending := tr.pendingLocalPathReqs[string(dest)]
+	_, stillPending := tr.pendingLocalPathReqs[destKey(dest)]
 	tr.mutex.RUnlock()
 	if stillPending {
 		t.Fatal("pending local path request must be cleared after answer")
@@ -342,19 +342,19 @@ func TestProcessAnnounceTable_CleansNilAndExhaustedRetries(t *testing.T) {
 	destDue := randomDestHash(110)
 
 	tr.mutex.Lock()
-	tr.announceTable[string(destNil)] = nil
-	tr.announceTable[string(destDone)] = &PathAnnounceEntry{
+	tr.announceTable[destKey(destNil)] = nil
+	tr.announceTable[destKey(destDone)] = &PathAnnounceEntry{
 		Retries:           LocalRebroadcastsMax,
 		RetransmitTimeout: time.Now().Add(-time.Second),
-		Packet:            cachedAnnounce(destDone, 0x77),
+		Packet:            announcePkt(destDone, 0x77),
 		AttachedInterface: wan,
 		BlockRebroadcasts: true,
 	}
-	tr.announceTable[string(destDue)] = &PathAnnounceEntry{
+	tr.announceTable[destKey(destDue)] = &PathAnnounceEntry{
 		Retries:           0,
 		RetransmitTimeout: time.Now().Add(-time.Millisecond),
 		AnnounceHops:      2,
-		Packet:            cachedAnnounce(destDue, 0x88),
+		Packet:            announcePkt(destDue, 0x88),
 		AttachedInterface: wan,
 		BlockRebroadcasts: true,
 	}
@@ -363,9 +363,9 @@ func TestProcessAnnounceTable_CleansNilAndExhaustedRetries(t *testing.T) {
 	tr.processAnnounceTable()
 
 	tr.mutex.RLock()
-	_, nilLeft := tr.announceTable[string(destNil)]
-	_, doneLeft := tr.announceTable[string(destDone)]
-	_, dueLeft := tr.announceTable[string(destDue)]
+	_, nilLeft := tr.announceTable[destKey(destNil)]
+	_, doneLeft := tr.announceTable[destKey(destDone)]
+	_, dueLeft := tr.announceTable[destKey(destDue)]
 	tr.mutex.RUnlock()
 	if nilLeft || doneLeft {
 		t.Fatal("nil and exhausted entries must be removed")
@@ -387,21 +387,21 @@ func TestEmitAnnounceTableEntry_DisabledInterfaceDropsEntry(t *testing.T) {
 	wan.Disable()
 	dest := randomDestHash(111)
 	entry := &PathAnnounceEntry{
-		Packet:            cachedAnnounce(dest, 0x99),
+		Packet:            announcePkt(dest, 0x99),
 		AttachedInterface: wan,
 		BlockRebroadcasts: true,
 		AnnounceHops:      1,
 	}
 	tr.mutex.Lock()
-	tr.announceTable[string(dest)] = entry
+	tr.announceTable[destKey(dest)] = entry
 	tr.mutex.Unlock()
 
-	tr.emitAnnounceTableEntry(string(dest), entry)
+	tr.emitAnnounceTableEntry(destKey(dest), entry)
 	if n := countSends(wan); n != 0 {
 		t.Fatalf("disabled iface must not send, got %d", n)
 	}
 	tr.mutex.RLock()
-	_, left := tr.announceTable[string(dest)]
+	_, left := tr.announceTable[destKey(dest)]
 	tr.mutex.RUnlock()
 	if left {
 		t.Fatal("disabled iface emit must delete announce table entry")
@@ -420,26 +420,26 @@ func TestEmitAnnounceTableEntry_ReinsertsHeldAnnounce(t *testing.T) {
 	dest := randomDestHash(112)
 	held := &PathAnnounceEntry{
 		CreatedAt: time.Now().Add(-time.Minute),
-		Packet:    cachedAnnounce(dest, 0xAA),
+		Packet:    announcePkt(dest, 0xAA),
 	}
 	entry := &PathAnnounceEntry{
-		Packet:            cachedAnnounce(dest, 0xAB),
+		Packet:            announcePkt(dest, 0xAB),
 		AttachedInterface: wan,
 		BlockRebroadcasts: true,
 		AnnounceHops:      1,
 	}
 	tr.mutex.Lock()
-	tr.announceTable[string(dest)] = entry
-	tr.heldAnnounces[string(dest)] = held
+	tr.announceTable[destKey(dest)] = entry
+	tr.heldAnnounces[destKey(dest)] = held
 	tr.mutex.Unlock()
 
-	tr.emitAnnounceTableEntry(string(dest), entry)
+	tr.emitAnnounceTableEntry(destKey(dest), entry)
 	if n := countSends(wan); n != 1 {
 		t.Fatalf("expected path response send, got %d", n)
 	}
 	tr.mutex.RLock()
-	cur := tr.announceTable[string(dest)]
-	_, heldLeft := tr.heldAnnounces[string(dest)]
+	cur := tr.announceTable[destKey(dest)]
+	_, heldLeft := tr.heldAnnounces[destKey(dest)]
 	tr.mutex.RUnlock()
 	if heldLeft {
 		t.Fatal("held entry must be consumed on reinsert")
@@ -458,7 +458,7 @@ func TestBuildPathResponseWire_Errors(t *testing.T) {
 
 	dest := randomDestHash(113)
 	entry := &PathAnnounceEntry{
-		Packet:       cachedAnnounce(dest, 0xAC),
+		Packet:       announcePkt(dest, 0xAC),
 		AnnounceHops: 1,
 	}
 	if _, err := tr.buildPathResponseWire(entry); err == nil {
@@ -491,7 +491,7 @@ func TestBuildPathResponseWire_NonBlockedUsesContextNone(t *testing.T) {
 
 	dest := randomDestHash(114)
 	raw, err := tr.buildPathResponseWire(&PathAnnounceEntry{
-		Packet:            cachedAnnounce(dest, 0xAD),
+		Packet:            announcePkt(dest, 0xAD),
 		AnnounceHops:      2,
 		BlockRebroadcasts: false,
 	})
@@ -553,9 +553,9 @@ func TestQueuePathResponseAnnounce_UsesAnnounceTableWhenCacheEmpty(t *testing.T)
 		t.Fatal(err)
 	}
 	dest := randomDestHash(116)
-	src := cachedAnnounce(dest, 0xB1)
+	src := announcePkt(dest, 0xB1)
 	tr.mutex.Lock()
-	tr.announceTable[string(dest)] = &PathAnnounceEntry{
+	tr.announceTable[destKey(dest)] = &PathAnnounceEntry{
 		Packet:            src,
 		AttachedInterface: local,
 	}
@@ -589,7 +589,7 @@ func TestAnswerPendingLocalPathRequest_PrefersAnnounceHops(t *testing.T) {
 	tr.mutex.Unlock()
 
 	tr.notePendingLocalPathRequest(dest, local)
-	tr.cacheAnnouncePacket(dest, cachedAnnounce(dest, 0xB2))
+	tr.cacheAnnouncePacket(dest, announcePkt(dest, 0xB2))
 	tr.answerPendingLocalPathRequest(dest, 9)
 	if n := countSends(local); n != 1 {
 		t.Fatalf("expected pending answer send, got %d", n)
@@ -607,7 +607,7 @@ func TestQueuePathResponseAnnounce_FillsMissingDestHash(t *testing.T) {
 	}
 	dest := randomDestHash(118)
 	tr.mutex.Lock()
-	tr.announceTable[string(dest)] = &PathAnnounceEntry{
+	tr.announceTable[destKey(dest)] = &PathAnnounceEntry{
 		Packet: &packet.Packet{
 			Data: announcePayload(0xB3, 48),
 		},
@@ -635,7 +635,7 @@ func TestQueuePathResponseAnnounce_RawFallbackWhenUnpackFails(t *testing.T) {
 	}
 	dest := randomDestHash(119)
 	tr.mutex.Lock()
-	tr.announceTable[string(dest)] = &PathAnnounceEntry{
+	tr.announceTable[destKey(dest)] = &PathAnnounceEntry{
 		Packet: &packet.Packet{
 			Raw: announcePayload(0xB4, 40),
 		},
@@ -663,10 +663,10 @@ func TestProcessAnnounceTable_SkipsFutureTimeout(t *testing.T) {
 	}
 	dest := randomDestHash(120)
 	tr.mutex.Lock()
-	tr.announceTable[string(dest)] = &PathAnnounceEntry{
+	tr.announceTable[destKey(dest)] = &PathAnnounceEntry{
 		Retries:           0,
 		RetransmitTimeout: time.Now().Add(time.Hour),
-		Packet:            cachedAnnounce(dest, 0xB5),
+		Packet:            announcePkt(dest, 0xB5),
 		AttachedInterface: wan,
 		BlockRebroadcasts: true,
 	}
@@ -677,7 +677,7 @@ func TestProcessAnnounceTable_SkipsFutureTimeout(t *testing.T) {
 		t.Fatalf("future timeout must not emit, got %d", n)
 	}
 	tr.mutex.RLock()
-	_, left := tr.announceTable[string(dest)]
+	_, left := tr.announceTable[destKey(dest)]
 	tr.mutex.RUnlock()
 	if !left {
 		t.Fatal("future entry must remain queued")
@@ -727,7 +727,7 @@ func TestRegression_KnownPathCachedAnnounceAnswersLocalClient(t *testing.T) {
 		HopCount:    4,
 		LastUpdated: time.Now(),
 	}
-	tr.announcePacketCache[string(dest)] = cachedAnnounce(dest, 0xAE)
+	tr.announcePacketCache[destKey(dest)] = &cachedAnnounce{pkt: announcePkt(dest, 0xAE), at: time.Now()}
 	tr.mutex.Unlock()
 
 	tr.processPathRequest(dest, local, nil, bytes.Repeat([]byte{0x01}, 16))
@@ -769,7 +769,7 @@ func TestRegression_KnownPathWithoutCacheForwardsLocalClientPR(t *testing.T) {
 		t.Fatalf("local-client PR without cache must forward discovery, got %d", n)
 	}
 	tr.mutex.RLock()
-	_, pending := tr.pendingLocalPathReqs[string(dest)]
+	_, pending := tr.pendingLocalPathReqs[destKey(dest)]
 	tr.mutex.RUnlock()
 	if !pending {
 		t.Fatal("forwarded local-client PR must record pendingLocalPathReqs")
@@ -790,7 +790,7 @@ func TestRegression_UnregisterClearsPendingLocalPathRequests(t *testing.T) {
 	tr.UnregisterInterface(local.GetName())
 
 	tr.mutex.RLock()
-	_, pending := tr.pendingLocalPathReqs[string(dest)]
+	_, pending := tr.pendingLocalPathReqs[destKey(dest)]
 	tr.mutex.RUnlock()
 	if pending {
 		t.Fatal("pending local path request must be cleared on unregister")
@@ -823,7 +823,7 @@ func TestAnnounceTable_ConcurrentCacheQueueProcess(t *testing.T) {
 		dest := dests[i]
 		go func() {
 			defer wg.Done()
-			tr.cacheAnnouncePacket(dest, cachedAnnounce(dest, byte(i)))
+			tr.cacheAnnouncePacket(dest, announcePkt(dest, byte(i)))
 		}()
 		go func() {
 			defer wg.Done()
@@ -843,4 +843,98 @@ func TestAnnounceTable_ConcurrentCacheQueueProcess(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestAnnouncePacketCache_CapEviction(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{
+		EnableTransport:  true,
+		InMemoryStorage:  true,
+		MaxInMemoryPaths: 3,
+	})
+	defer tr.Close()
+
+	var keys []hash16
+	for i := range 5 {
+		dest := randomDestHash(300 + i)
+		keys = append(keys, destKey(dest))
+		tr.cacheAnnouncePacket(dest, announcePkt(dest, byte(0x40+i)))
+		time.Sleep(2 * time.Millisecond)
+	}
+
+	tr.mutex.RLock()
+	n := len(tr.announcePacketCache)
+	_, firstAlive := tr.announcePacketCache[keys[0]]
+	_, lastAlive := tr.announcePacketCache[keys[4]]
+	tr.mutex.RUnlock()
+	if n != 3 {
+		t.Fatalf("announce cache size = %d, want 3 after cap eviction", n)
+	}
+	if firstAlive {
+		t.Fatal("oldest announce cache entries must be evicted first")
+	}
+	if !lastAlive {
+		t.Fatal("newest announce cache entry must survive cap eviction")
+	}
+}
+
+func TestAnnouncePacketCache_PathExpiryCleanup(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+
+	dest := randomDestHash(310)
+	tr.cacheAnnouncePacket(dest, announcePkt(dest, 0x51))
+
+	tr.mutex.Lock()
+	tr.paths[pathMapKey(dest)] = &common.Path{
+		NextHop:     append([]byte(nil), dest...),
+		LastUpdated: time.Now().Add(-48 * time.Hour),
+		Expires:     time.Now().Add(-time.Hour),
+	}
+	tr.mutex.Unlock()
+
+	tr.cleanupExpiredPaths()
+
+	tr.mutex.RLock()
+	_, cached := tr.announcePacketCache[destKey(dest)]
+	_, pathOK := tr.paths[pathMapKey(dest)]
+	tr.mutex.RUnlock()
+	if pathOK {
+		t.Fatal("expired path should be removed")
+	}
+	if cached {
+		t.Fatal("path expiry must delete matching announcePacketCache entry")
+	}
+}
+
+func TestAnnouncePacketCache_CleanupOrphans(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+
+	dest := randomDestHash(311)
+	tr.cacheAnnouncePacket(dest, announcePkt(dest, 0x52))
+	tr.cleanupAnnouncePacketCache()
+
+	tr.mutex.RLock()
+	_, cached := tr.announcePacketCache[destKey(dest)]
+	tr.mutex.RUnlock()
+	if cached {
+		t.Fatal("cleanup must drop announce cache entries with no live path")
+	}
+}
+
+func TestMemoryStats_ReflectsAnnounceCache(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+
+	dest := randomDestHash(320)
+	tr.cacheAnnouncePacket(dest, announcePkt(dest, 0x60))
+
+	ms := tr.MemoryStats()
+	if ms.AnnouncePacketCache != 1 {
+		t.Fatalf("AnnouncePacketCache = %d, want 1", ms.AnnouncePacketCache)
+	}
+	stats := tr.GetInterfaceStatsRPC()
+	if stats.AnnounceCacheCount != 1 {
+		t.Fatalf("AnnounceCacheCount = %d, want 1", stats.AnnounceCacheCount)
+	}
 }

@@ -5,6 +5,7 @@ package interop
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/hex"
 	"net"
@@ -91,8 +92,8 @@ func TestLiveInteropBackboneHDLCEchoPython(t *testing.T) {
 	}
 	defer client.Stop()
 
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
+	onlineDeadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(onlineDeadline) {
 		if client.IsOnline() {
 			break
 		}
@@ -102,12 +103,14 @@ func TestLiveInteropBackboneHDLCEchoPython(t *testing.T) {
 		t.Fatal("client offline")
 	}
 
-	payload := []byte{0x42, 0x43, 0x44}
+	// Backbone HDLC drops frames <= HEADER_MINSIZE (19), matching RNS.
+	payload := bytes.Repeat([]byte{0x42, 0x43, 0x44}, 8)
 	if err := client.Send(payload, ""); err != nil {
 		t.Fatal(err)
 	}
 
-	for time.Now().Before(deadline) {
+	echoDeadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(echoDeadline) {
 		if len(got) == len(payload) {
 			break
 		}
@@ -176,7 +179,7 @@ func TestLiveInteropBackboneGoServerPythonHDLC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bad hex: %q", line)
 	}
-	want := []byte{0x42, 0x43, 0x44}
+	want := bytes.Repeat([]byte{0x42, 0x43, 0x44}, 8)
 	if string(got) != string(want) {
 		t.Fatalf("got %x want %x", got, want)
 	}
