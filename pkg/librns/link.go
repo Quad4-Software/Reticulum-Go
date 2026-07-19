@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"quad4/msgpack/v5/pkg/msgpack"
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/link"
@@ -54,9 +55,10 @@ func LinkOpen(nodeHandle uint64, destHash []byte) (uint64, int) {
 		lr.established = true
 		wireLinkData(nodeRec, lr)
 		nodeRec.enqueue(Event{
-			Kind:         EventLinkEstablished,
-			LinkID:       append([]byte(nil), lr.id...),
-			IdentityHash: remoteIdentityBytes(l),
+			Kind:            EventLinkEstablished,
+			LinkID:          append([]byte(nil), lr.id...),
+			DestinationHash: append([]byte(nil), destHash...),
+			IdentityHash:    remoteIdentityBytes(l),
 		})
 	}
 	closed := func(l *link.Link) {
@@ -198,10 +200,7 @@ func LinkRequest(nodeHandle, linkHandle uint64, path string, data []byte, timeou
 	if timeoutMs <= 0 {
 		timeout = 0
 	}
-	var payload any
-	if data != nil {
-		payload = data
-	}
+	payload := decodeLinkRequestPayload(data)
 	receipt, err := lr.link.Request(path, payload, timeout)
 	if err != nil {
 		return nil, setLastError(fmt.Errorf("%w: %v", errInternal, err))
@@ -284,5 +283,24 @@ func resourceName(meta map[string]any) (string, bool) {
 		return string(v), len(v) > 0
 	default:
 		return "", false
+	}
+}
+
+// decodeLinkRequestPayload turns pre-packed msgpack maps into native maps so
+// Link.Request packs [path, timeout, dict] once. Raw bytes that are not a map
+// stay as []byte (NomadNet page fetches with empty/no request data).
+func decodeLinkRequestPayload(data []byte) any {
+	if len(data) == 0 {
+		return nil
+	}
+	var decoded any
+	if err := msgpack.Unmarshal(data, &decoded); err != nil {
+		return data
+	}
+	switch decoded.(type) {
+	case map[string]any, map[any]any:
+		return decoded
+	default:
+		return data
 	}
 }

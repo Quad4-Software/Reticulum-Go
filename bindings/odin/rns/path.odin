@@ -28,8 +28,16 @@ path_table :: proc(
 		&n,
 		c.int(max_hops),
 	))
-	if code != .Ok {
+	// Truncated still filled out[:min(n,len)] with known paths. Treat as usable.
+	if code != .Ok && code != .Truncated {
 		return 0, code
 	}
-	return int(n), .Ok
+	count := int(n)
+	if count > len(out) {
+		count = len(out)
+	}
+	if count < 0 {
+		count = 0
+	}
+	return count, .Ok
 }

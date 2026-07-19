@@ -314,10 +314,10 @@ func rns_path_table(node C.uint64_t, out *C.rns_path_entry, outCap C.size_t, wri
 	if code != librns.OK {
 		return cCode(code)
 	}
-	if written != nil {
-		*written = sizeFromInt(len(rows))
-	}
 	if out == nil || outCap == 0 {
+		if written != nil {
+			*written = sizeFromInt(len(rows))
+		}
 		if len(rows) > 0 {
 			return cCode(librns.ErrTruncated)
 		}
@@ -330,6 +330,9 @@ func rns_path_table(node C.uint64_t, out *C.rns_path_entry, outCap C.size_t, wri
 	n := len(rows)
 	if n > cap {
 		n = cap
+	}
+	if written != nil {
+		*written = sizeFromInt(n)
 	}
 	slice := unsafe.Slice(out, cap)
 	for i := 0; i < n; i++ {

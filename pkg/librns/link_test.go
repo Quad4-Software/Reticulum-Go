@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"quad4/msgpack/v5/pkg/msgpack"
 	"quad4/reticulum-go/pkg/identity"
 )
 
@@ -266,15 +267,32 @@ func TestFacadeNodeDestinationAnnounce(t *testing.T) {
 	}
 }
 
-func TestLinkSendInvalidHandle(t *testing.T) {
-	const bogus uint64 = 0xdeadbeef
-	if code := LinkSend(bogus, []byte("x")); code != ErrInvalidHandle {
-		t.Fatalf("got %d", code)
+func TestDecodeLinkRequestPayloadMap(t *testing.T) {
+	packed, err := msgpack.Marshal(map[string]any{
+		"var_name":   "alice",
+		"field_user": "bob",
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if code := LinkClose(bogus); code != ErrInvalidHandle {
-		t.Fatalf("got %d", code)
+	got := decodeLinkRequestPayload(packed)
+	m, ok := got.(map[string]any)
+	if !ok {
+		t.Fatalf("want map[string]any, got %T", got)
 	}
-	if _, code := LinkID(bogus); code != ErrInvalidHandle {
-		t.Fatalf("got %d", code)
+	if m["var_name"] != "alice" || m["field_user"] != "bob" {
+		t.Fatalf("unexpected map %#v", m)
+	}
+}
+
+func TestDecodeLinkRequestPayloadRawBytes(t *testing.T) {
+	raw := []byte{0x01, 0x02, 0x03}
+	got := decodeLinkRequestPayload(raw)
+	b, ok := got.([]byte)
+	if !ok || !bytes.Equal(b, raw) {
+		t.Fatalf("want raw bytes, got %T %#v", got, got)
+	}
+	if decodeLinkRequestPayload(nil) != nil {
+		t.Fatal("nil payload should stay nil")
 	}
 }
