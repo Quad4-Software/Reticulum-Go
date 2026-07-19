@@ -259,13 +259,21 @@ What not to put in a binding
 Acceptance criteria for a new binding
 -------------------------------------
 
+See bindings/README.md "Correctness and interop" for the full bar.
+
 1. Lives under bindings/<lang>/
 2. Thin raw layer matches include/rns.h and/or Control API /v1
 3. Idiomatic layer covers node, identity, destination, link, path, events, errors
 4. Ownership of handles is safe for the host language
 5. Tests run via make or the language package tool from that directory
-6. Short note added under the matching section of docs/en/librns.md and/or
+6. Examples under bindings/<lang>/examples/ build (smoke at minimum)
+7. CI script scripts/ci/run-<lang>-bindings.sh wired from Task and ci.yml
+8. Interop verified against Go (pkg/node / pkg/librns) and Python RNS for any
+   mesh-visible surface (announce, path, link, request, resource, pageserver)
+9. Short note added under the matching section of docs/en/librns.md and/or
    docs/en/control-api.md when the binding is ready to advertise
+
+FFI-only unit tests without a real librns build or peer check are not enough.
 
 Authoritative sources (read these, do not guess)
 ------------------------------------------------
