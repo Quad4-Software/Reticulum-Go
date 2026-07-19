@@ -43,7 +43,7 @@ func TestIncomingResourceWatchdog_RecoversFromDroppedRequestPacket(t *testing.T)
 
 	var mu sync.Mutex
 	dropped := false
-	respPipe.dropOnce = func(data []byte) bool {
+	respPipe.setDropOnce(func(data []byte) bool {
 		mu.Lock()
 		defer mu.Unlock()
 		if dropped {
@@ -55,7 +55,7 @@ func TestIncomingResourceWatchdog_RecoversFromDroppedRequestPacket(t *testing.T)
 		}
 		dropped = true
 		return true
-	}
+	})
 
 	payload := bytes.Repeat([]byte{0xB7}, 4000)
 	res, err := resource.New(payload, false)

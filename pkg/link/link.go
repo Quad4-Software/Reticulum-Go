@@ -448,14 +448,6 @@ func (l *Link) Request(path string, data any, timeout time.Duration) (*RequestRe
 		}
 
 		requestID := reqPkt.TruncatedHash()
-
-		debug.Log(debug.DebugInfo, "Sending request", "path", path, "request_id", fmt.Sprintf("%x", requestID))
-		if err := l.transport.SendPacket(reqPkt); err != nil {
-			l.mutex.Unlock()
-			return nil, fmt.Errorf("failed to send request: %w", err)
-		}
-		l.mutex.Unlock()
-
 		receipt := &RequestReceipt{
 			link:      l,
 			requestID: requestID,
@@ -464,9 +456,27 @@ func (l *Link) Request(path string, data any, timeout time.Duration) (*RequestRe
 			timeout:   timeout,
 		}
 
+		// Register before send so a synchronous reply cannot arrive unmatched.
 		l.requestMutex.Lock()
 		l.pendingRequests = append(l.pendingRequests, receipt)
 		l.requestMutex.Unlock()
+		l.mutex.Unlock()
+
+		debug.Log(debug.DebugInfo, "Sending request", "path", path, "request_id", fmt.Sprintf("%x", requestID))
+		if err := l.transport.SendPacket(reqPkt); err != nil {
+			l.requestMutex.Lock()
+			for i, req := range l.pendingRequests {
+				if req == receipt {
+					l.pendingRequests = append(l.pendingRequests[:i], l.pendingRequests[i+1:]...)
+					break
+				}
+			}
+			l.requestMutex.Unlock()
+			receipt.mutex.Lock()
+			receipt.status = StatusFailed
+			receipt.mutex.Unlock()
+			return nil, fmt.Errorf("failed to send request: %w", err)
+		}
 
 		go receipt.startTimeout()
 
@@ -628,14 +638,25 @@ func (r *RequestReceipt) startTimeout() {
 
 func (r *RequestReceipt) SetResponseCallback(cb func(*RequestReceipt)) {
 	r.mutex.Lock()
-	defer r.mutex.Unlock()
+	prev := r.responseCb
 	r.responseCb = cb
+	status := r.status
+	r.mutex.Unlock()
+	// Late-fire once when attaching after the response already landed.
+	if status == StatusActive && cb != nil && prev == nil {
+		go cb(r)
+	}
 }
 
 func (r *RequestReceipt) SetFailedCallback(cb func(*RequestReceipt)) {
 	r.mutex.Lock()
-	defer r.mutex.Unlock()
+	prev := r.failedCb
 	r.failedCb = cb
+	status := r.status
+	r.mutex.Unlock()
+	if status == StatusFailed && cb != nil && prev == nil {
+		go cb(r)
+	}
 }
 
 func (r *RequestReceipt) SetProgressCallback(cb func(*RequestReceipt)) {
@@ -1906,10 +1927,11 @@ func (l *Link) handleResponse(plaintext []byte) error {
 			req.receivedAt = time.Now()
 			req.bytesReceived = int64(len(responsePayload))
 			req.totalBytes = int64(len(responsePayload))
+			cb := req.responseCb
 			req.mutex.Unlock()
 
-			if req.responseCb != nil {
-				go req.responseCb(req)
+			if cb != nil {
+				go cb(req)
 			}
 
 			l.pendingRequests = append(l.pendingRequests[:i], l.pendingRequests[i+1:]...)

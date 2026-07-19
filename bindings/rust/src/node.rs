@@ -46,10 +46,9 @@ impl Node {
         map_code(unsafe { ffi::rns_node_resume(self.handle) })
     }
 
-    pub fn event_poll(&self, timeout_ms: i32) -> Result<ffi::Event> {
-        let mut event = unsafe { std::mem::zeroed::<ffi::Event>() };
-        map_code(unsafe { ffi::rns_event_poll(self.handle, &mut event, timeout_ms) })?;
-        Ok(event)
+    pub fn event_poll(&self, timeout_ms: i32) -> Result<crate::event::Event> {
+        let mut buf = vec![0u8; 65536];
+        crate::event::Event::poll(self, timeout_ms, &mut buf)
     }
 
     pub fn handle(&self) -> u64 {

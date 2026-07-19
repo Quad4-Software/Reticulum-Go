@@ -53,10 +53,9 @@ function Node:resume()
 	errors.map_code(lib.rns_node_resume(self._box.h))
 end
 
-function Node:event_poll(timeout_ms)
-	local event = ffi.new("rns_event")
-	errors.map_code(lib.rns_event_poll(self._box.h, event, timeout_ms or 0))
-	return event
+function Node:event_poll(timeout_ms, app_data_cap)
+	local Event = require("rns.event")
+	return Event.poll(self, timeout_ms, app_data_cap or 65536)
 end
 
 function Node:handle()

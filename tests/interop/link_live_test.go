@@ -1352,3 +1352,219 @@ func TestLiveInteropGoFileResourceToPython(t *testing.T) {
 		t.Fatalf("expected RESOURCE_OK, got %q", line)
 	}
 }
+
+// TestLiveInteropGoBinaryPacketBurstEchoPython sends several binary payloads
+// (including HDLC special bytes) to a Python echo peer and checks byte-exact replies.
+func TestLiveInteropGoBinaryPacketBurstEchoPython(t *testing.T) {
+	liveOrSkip(t)
+	ctx, cancel := context.WithTimeout(context.Background(), pyProcShortTimeout)
+	defer cancel()
+
+	pyListen := freeUDPPort(t)
+	pyForward := freeUDPPort(t)
+	tr, iface, cleanup := setupGoUDPPeer(t, pyListen, pyForward)
+	defer cleanup()
+
+	script := pyScript(t, "link_server.py")
+	cmd := exec.CommandContext(ctx, pythonExe(), script)
+	cmd.Env = append(os.Environ(),
+		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
+		"INTEROP_FORWARD_PORT="+strconv.Itoa(pyForward),
+		"INTEROP_LINK_MODE=echo",
+	)
+	cmd.Stderr = os.Stderr
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("stdout pipe: %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start python: %v", err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	}()
+
+	br := bufio.NewReader(out)
+	line, err := readLineTimeout(ctx, br, 25*time.Second)
+	if err != nil {
+		t.Fatalf("wait READY: %v", err)
+	}
+	if strings.TrimSpace(line) != "READY" {
+		t.Fatalf("expected READY, got %q", line)
+	}
+	hashLine, err := readLineTimeout(ctx, br, 5*time.Second)
+	if err != nil {
+		t.Fatalf("wait hash: %v", err)
+	}
+	pyHash, err := hex.DecodeString(strings.TrimSpace(hashLine))
+	if err != nil || len(pyHash) != 16 {
+		t.Fatalf("bad python destination hash: %q err %v", hashLine, err)
+	}
+	if err := waitPath(ctx, tr, pyHash, 40*time.Second); err != nil {
+		t.Fatalf("path to python: %v", err)
+	}
+
+	srvID, err := identity.Recall(pyHash)
+	if err != nil {
+		t.Fatalf("recall python identity: %v", err)
+	}
+	destOut, err := destination.FromHash(pyHash, srvID, destination.Single, tr)
+	if err != nil {
+		t.Fatalf("from hash: %v", err)
+	}
+
+	established := make(chan struct{})
+	replyCh := make(chan []byte, 8)
+	lnk := rlink.NewLink(destOut, tr, iface, func(_ *rlink.Link) {
+		close(established)
+	}, nil)
+	defer lnk.Teardown()
+	lnk.SetPacketCallback(func(data []byte, _ *packet.Packet) {
+		replyCh <- append([]byte(nil), data...)
+	})
+
+	if err := lnk.Establish(); err != nil {
+		t.Fatalf("establish: %v", err)
+	}
+	select {
+	case <-established:
+	case <-time.After(45 * time.Second):
+		t.Fatal("link establish timeout")
+	}
+	lnk.Start()
+
+	payloads := [][]byte{
+		{0x00, 0x7E, 0x7D, 0xFF},
+		bytes.Repeat([]byte{0xA5}, 64),
+		[]byte("interop-bin\x00burst"),
+		{0x01, 0x02, 0x03, 0x04, 0x05},
+	}
+	for i, payload := range payloads {
+		if err := lnk.SendPacket(payload); err != nil {
+			t.Fatalf("send packet %d: %v", i, err)
+		}
+		select {
+		case got := <-replyCh:
+			if !bytes.Equal(got, payload) {
+				t.Fatalf("echo %d mismatch: got %x want %x", i, got, payload)
+			}
+		case <-time.After(15 * time.Second):
+			t.Fatalf("no echo reply for packet %d", i)
+		}
+	}
+}
+
+// TestLiveInteropGoLinkRequestToPython has Go open a link to Python and issue
+// a destination request that Python answers with a fixed reply.
+func TestLiveInteropGoLinkRequestToPython(t *testing.T) {
+	liveOrSkip(t)
+	ctx, cancel := context.WithTimeout(context.Background(), pyProcShortTimeout)
+	defer cancel()
+
+	pyListen := freeUDPPort(t)
+	pyForward := freeUDPPort(t)
+	tr, iface, cleanup := setupGoUDPPeer(t, pyListen, pyForward)
+	defer cleanup()
+
+	const (
+		reqPath    = "interop_go_req"
+		reqPayload = "ping-from-go"
+		reqReply   = "PONG_FROM_PY"
+	)
+
+	script := pyScript(t, "link_server.py")
+	cmd := exec.CommandContext(ctx, pythonExe(), script)
+	cmd.Env = append(os.Environ(),
+		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
+		"INTEROP_FORWARD_PORT="+strconv.Itoa(pyForward),
+		"INTEROP_LINK_MODE=echo",
+		"INTEROP_REQUEST_PATH="+reqPath,
+		"INTEROP_REQUEST_PAYLOAD="+reqPayload,
+		"INTEROP_REQUEST_REPLY="+reqReply,
+	)
+	cmd.Stderr = os.Stderr
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("stdout pipe: %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start python: %v", err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	}()
+
+	br := bufio.NewReader(out)
+	line, err := readLineTimeout(ctx, br, 25*time.Second)
+	if err != nil {
+		t.Fatalf("wait READY: %v", err)
+	}
+	if strings.TrimSpace(line) != "READY" {
+		t.Fatalf("expected READY, got %q", line)
+	}
+	hashLine, err := readLineTimeout(ctx, br, 5*time.Second)
+	if err != nil {
+		t.Fatalf("wait hash: %v", err)
+	}
+	pyHash, err := hex.DecodeString(strings.TrimSpace(hashLine))
+	if err != nil || len(pyHash) != 16 {
+		t.Fatalf("bad python destination hash: %q err %v", hashLine, err)
+	}
+	if err := waitPath(ctx, tr, pyHash, 40*time.Second); err != nil {
+		t.Fatalf("path to python: %v", err)
+	}
+
+	srvID, err := identity.Recall(pyHash)
+	if err != nil {
+		t.Fatalf("recall python identity: %v", err)
+	}
+	destOut, err := destination.FromHash(pyHash, srvID, destination.Single, tr)
+	if err != nil {
+		t.Fatalf("from hash: %v", err)
+	}
+
+	established := make(chan struct{})
+	lnk := rlink.NewLink(destOut, tr, iface, func(_ *rlink.Link) {
+		close(established)
+	}, nil)
+	defer lnk.Teardown()
+
+	if err := lnk.Establish(); err != nil {
+		t.Fatalf("establish: %v", err)
+	}
+	select {
+	case <-established:
+	case <-time.After(45 * time.Second):
+		t.Fatal("link establish timeout")
+	}
+	lnk.Start()
+
+	done := make(chan []byte, 1)
+	fail := make(chan struct{}, 1)
+	receipt, err := lnk.Request(reqPath, []byte(reqPayload), 20*time.Second)
+	if err != nil {
+		t.Fatalf("Request: %v", err)
+	}
+	receipt.SetResponseCallback(func(r *rlink.RequestReceipt) {
+		done <- append([]byte(nil), r.GetResponse()...)
+	})
+	receipt.SetFailedCallback(func(_ *rlink.RequestReceipt) {
+		select {
+		case fail <- struct{}{}:
+		default:
+		}
+	})
+
+	select {
+	case got := <-done:
+		if string(got) != reqReply {
+			t.Fatalf("request reply mismatch: %q != %q", got, reqReply)
+		}
+	case <-fail:
+		t.Fatal("request failed")
+	case <-time.After(25 * time.Second):
+		t.Fatal("request response timeout")
+	}
+}

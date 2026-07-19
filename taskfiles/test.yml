@@ -39,9 +39,9 @@ tasks:
       - sh scripts/ci/run-fuzz-guided.sh
 
   test-chaos:
-    desc: Run chaos and fault-injection simulation tests
+    desc: Run chaos and fault-injection tests (transport, link, interfaces)
     cmds:
-      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/transport -run TestSimChaos -timeout 10m'
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/transport ./pkg/link ./pkg/interfaces -run ''TestSimChaos|TestLinkChaos|TestIfaceChaos'' -timeout 15m'
 
   test-soak:
     desc: Bounded transport fault-load soak (heap and goroutine budgets)
@@ -54,9 +54,34 @@ tasks:
       - sh scripts/ci/bench-gate.sh
 
   test-mutation:
-    desc: Run gomutant mutation testing on cryptography, packet, announce, and destination
+    desc: Run gomutant mutation testing (cryptography, packet, announce, destination, identity, ifac)
     cmds:
       - sh scripts/ci/run-mutation.sh
+
+  test-property:
+    desc: Run property-based tests (quad4/pbt and testing/quick)
+    cmds:
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/announce ./pkg/link ./pkg/transport ./pkg/cryptography ./pkg/packet ./pkg/buffer ./pkg/rate ./pkg/resource ./pkg/identity ./pkg/librns ./pkg/destination -run "TestPBT|TestProperty|TestQuick" -timeout 10m'
+
+  test-acceptance:
+    desc: Run acceptance bars (librns SCAFFOLD, controlapi acceptance)
+    cmds:
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/librns ./pkg/controlapi -run "TestAcceptance|TestScaffold|TestHandleLifecycle|TestNodeStartStop" -timeout 5m'
+
+  test-oracle:
+    desc: Run oracle-backed suites (crossref vectors, health oracles, adversarial corpus, IFAC goldens)
+    cmds:
+      - '{{.GOCMD}} test ./tests/crossref/ ./pkg/health/ ./pkg/packet/ ./pkg/ifac/ -count=1 -run "TestIdentity|TestHKDF|TestHMAC|TestPacket|TestOracle|TestAdversarial|TestHandshake|TestNewMatchesPython|TestMaskMatchesPython|TestSignMatchesPython|TestUnmask|TestDrop"'
+
+  test-e2e:
+    desc: Run daemon and node end-to-end tests
+    cmds:
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./cmd/reticulum-go ./pkg/node ./pkg/transport -run "TestE2E_|TestReload|TestDaemon|UDPPathE2E" -timeout 10m'
+
+  test-blackbox:
+    desc: Run black-box CLI and control API surface tests
+    cmds:
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/cli ./pkg/controlapi ./cmd/reticulum-go -run "TestMain|TestRunDump|TestBlackBox|TestAcceptance|TestE2E" -timeout 5m'
 
   test-os-matrix:
     desc: Short runtime tests for OS matrix CI (backbone, interfaces, node, transport)

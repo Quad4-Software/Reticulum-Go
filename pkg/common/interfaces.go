@@ -298,18 +298,13 @@ func (i *BaseInterface) ProcessIncoming(data []byte) {
 	i.RxPackets++
 	i.Mutex.Unlock()
 
-	if id := i.GetIFAC(); id != nil {
-		stripped, ok, _ := id.Unmask(data)
-		if !ok || (len(data) >= 1 && data[0]&0x80 != 0x80) {
-			return
-		}
-		data = stripped
-	} else if len(data) >= 1 && data[0]&0x80 == 0x80 {
+	stripped, ok := ApplyIFACInbound(i, data)
+	if !ok {
 		return
 	}
 
 	if i.PacketCallback != nil {
-		i.PacketCallback(data, i)
+		i.PacketCallback(stripped, i)
 	}
 }
 

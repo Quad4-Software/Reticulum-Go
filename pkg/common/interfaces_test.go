@@ -233,6 +233,16 @@ func TestBaseInterface_ProcessIncoming(t *testing.T) {
 	iface.ProcessIncoming(data)
 }
 
+func TestBaseInterface_ProcessIncomingDropsIFACFlagWithoutIdentity(t *testing.T) {
+	iface := NewBaseInterface("ifac-drop", IFTypeUDP, true)
+	called := false
+	iface.SetPacketCallback(func([]byte, NetworkInterface) { called = true })
+	iface.ProcessIncoming([]byte{0x80, 0x01, 0x02})
+	if called {
+		t.Fatal("IFAC-flagged frame must be dropped when IFAC is not configured")
+	}
+}
+
 func TestBaseInterface_ProcessOutgoing(t *testing.T) {
 	iface := NewBaseInterface("test18", IFTypeUDP, true)
 	data := []byte("test data")

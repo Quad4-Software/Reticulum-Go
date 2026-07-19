@@ -80,6 +80,19 @@ Follow existing naming, error wrapping, and SPDX headers in each file.
 
 ## Testing layers
 
+| Layer | How to run | What it covers |
+|-------|------------|----------------|
+| Unit | `task test` / `task test-short` | Package `*_test.go` |
+| Property | `task test-property` | `*_pbt_test.go` and embedded `quad4/pbt` / `testing/quick` |
+| Mutation | `task test-mutation` | gomutant on cryptography, packet, announce, destination, identity, ifac |
+| Chaos | `task test-chaos` / `task test-soak` | `TestSimChaos*` / `TestLinkChaos*` / `TestIfaceChaos*` plus soak |
+| Oracle | `task test-oracle` | Crossref vectors, health `TransportOracle` deltas, adversarial corpus |
+| Smoke | `task test-binary-smoke`, binding smokes | Binary `--version`/`--help`, CLI dump via `Main`, librns smoke examples |
+| Acceptance | `task test-acceptance` | librns SCAFFOLD minimum, control API acceptance |
+| E2E | `task test-e2e` | Daemon reload, UDP path e2e, transport `TestE2E_*` |
+| Black box | `task test-blackbox` | CLI `Main` / `rgodump` surface, control API HTTP acceptance |
+| Interop | `RUN_LIVE_INTEROP=1 go test ./tests/interop/...` | Live Go↔Python (optional locally) |
+
 ### Unit tests
 
 Standard `go test` in each package. Run all:
@@ -96,11 +109,67 @@ go test -short -v ./...
 
 ### Property-based tests
 
-Files named `*_pbt_test.go` use `quad4/pbt` for generative testing (cryptography, packet, buffer, rate, resource).
+Files named `*_pbt_test.go` use `quad4/pbt` for generative testing (cryptography, packet, buffer, rate, resource, announce, link, identity). Some properties still live beside unit tests in the same package.
+
+```bash
+task test-property
+```
+
+### Mutation tests
+
+In-repo `tools/gomutant` flips same-width operators and re-runs package tests.
+
+```bash
+task test-mutation
+```
+
+Default packages: cryptography, packet, announce, destination, identity, ifac. Override with `MUTATION_PACKAGES` / `MUTATION_THRESHOLD`.
 
 ### Fuzz tests
 
 Files named `*_fuzz_test.go` cover packet, link, ifac, blackhole, discovery, health counters (`pkg/health`), pipe HDLC framing (`pkg/interfaces/pipe_fuzz_test.go`), and librns (`pkg/librns`).
+
+### Chaos and fault injection
+
+Seeded loss, reorder, corruption, and flap tests across layers:
+
+| Prefix | Package | Focus |
+|--------|---------|-------|
+| `TestSimChaos*` | `pkg/transport` | Multi-node path and announce under delay/loss/corrupt/reorder/flap (health oracle deltas on corrupt) |
+| `TestLinkChaos*` | `pkg/link` | Establish, packet under loss/reorder, resource under capped drop, mid-session flap, goroutine budget |
+| `TestIfaceChaos*` | `pkg/interfaces` | TCP HDLC corrupt/reorder, Local corrupt resync, Pipe respawn, Backbone reconnect |
+
+```bash
+task test-chaos
+task test-soak
+```
+
+Chaos suites are in-process Go only (sim pipes / HDLC fixtures). Live Go↔Python loss, reorder, and mid-session flap are not covered yet. Healthy-path cross-stack coverage lives under `tests/interop/` (`RUN_LIVE_INTEROP=1`).
+
+### Test oracles
+
+| Oracle | Location |
+|--------|----------|
+| Python crossref vectors | `tests/crossref/` |
+| Health counter deltas | `pkg/health.TransportOracle` / `OracleSnapshot.Delta` |
+| Handshake / adversarial frames | `pkg/packet/testdata/` |
+| IFAC goldens | `pkg/ifac` unit tests |
+| Sim path/hop asserts | `pkg/transport/sim_assertions_test.go` |
+
+```bash
+task test-oracle
+```
+
+### Smoke, acceptance, e2e, black box
+
+```bash
+task test-binary-smoke
+task test-acceptance
+task test-e2e
+task test-blackbox
+```
+
+Notable additions: `pkg/cli` dump smoke via `Main`, `pkg/librns.TestAcceptanceScaffoldMinimum`, `pkg/node.TestUDPPathE2E`.
 
 ### Crossref tests
 
@@ -183,7 +252,7 @@ INTEROP_ARTIFACTS=1 INTEROP_ARTIFACT_ROOT=/tmp/rns-interop \
 
 | Test file | Topic |
 |-----------|-------|
-| `link_live_test.go` | Link sessions and resources |
+| `link_live_test.go` | Link sessions, resources, binary burst echo, Go→Python request |
 | `channel_buffer_live_test.go` | Channel messages and buffer streams |
 | `rncp_blackhole_live_test.go` | rncp file transfer and blackhole LINKIDENTIFY |
 | `auto_live_test.go` | AutoInterface |

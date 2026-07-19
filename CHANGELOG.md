@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.0.1
+
+### Included
+- Rust, Python, Lua, Swift, Java, and Kotlin librns bindings with smoke, page-fetch, and pageserver examples plus CI jobs
+- Binding layout and SCAFFOLD updates with examples under each language tree and shared CI runners
+- librns ABI 1.5 with identity sign/verify/public-key helpers, RSG surface, and outbound packet send C API
+- Link and interface chaos suites wired into task test-chaos alongside transport sim chaos
+- Live Go to Python link request and binary packet-burst echo interop
+- Expanded test taxonomy covering mutation, health oracles, property suites, CLI smoke and black-box, librns acceptance, UDP path e2e, and matching Task targets
+- Docs updates for bindings, librns, examples, and testing layers
+
+### Fixed
+- Link requests register before send so fast replies are not dropped
+- Request response and failed callbacks late-fire if attached after completion
+- UDP inbound Rx byte and packet counters
+- Common base interface IFAC ingress aligned with the shared inbound IFAC policy
+- Python, Rust, and Lua node event poll allocate app data so payloads are not silently truncated
+
 ## v1.0.0
 
 First stable release of Reticulum-Go.
@@ -12,10 +30,10 @@ Wire compatible with Python RNS 1.3.9
 - Interfaces: UDP, TCP, Auto, I2P, Backbone, Pipe, Local, Serial, Modem73, SDR, WebSocket, QUIC, WebTransport, DNS rendezvous, VSOCK, HTTPS
 - Daemon utilities: status, id, probe, path, cp, x, pageserver, slow, speedtest, self-check
 - librns C ABI with node lifecycle, control API, and sandbox
-- Odin, Zig, C++, Dart, Rust, and Python librns bindings
+- Odin, Zig, and C++ librns bindings
 - Dart librns FFI and Dart Control API client
 - Fully ephemeral in-memory storage with soft memory caps and OOM-safe eviction
-- librns API version aligned to 1.5
+- librns API version aligned to 1.4
 - Persistent identity save for librns hosts
 - librns resource transfers and resource events
 - Cross-build scripts for Windows DLL and macOS dylib

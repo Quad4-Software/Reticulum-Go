@@ -33,6 +33,8 @@ else
 	run_pkg ./pkg/packet 50 "$MAX" || failed=1
 	run_pkg ./pkg/announce 40 "$MAX" || failed=1
 	run_pkg ./pkg/destination 45 "$MAX" || failed=1
+	run_pkg ./pkg/identity 50 "$MAX" || failed=1
+	run_pkg ./pkg/ifac 45 "$MAX" || failed=1
 fi
 
 if [ "$failed" -ne 0 ]; then

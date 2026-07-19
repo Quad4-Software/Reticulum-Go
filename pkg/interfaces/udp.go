@@ -169,6 +169,11 @@ func (ui *UDPInterface) GetPacketCallback() common.PacketCallback {
 }
 
 func (ui *UDPInterface) ProcessIncoming(data []byte) {
+	ui.Mutex.Lock()
+	ui.RxBytes += uint64(len(data))
+	ui.RxPackets++
+	ui.Mutex.Unlock()
+
 	stripped, ok := common.ApplyIFACInbound(ui, data)
 	if !ok {
 		return

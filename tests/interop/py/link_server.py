@@ -155,6 +155,22 @@ def main() -> int:
     )
     destination.set_link_established_callback(client_connected)
 
+    req_path = os.environ.get("INTEROP_REQUEST_PATH", "").strip()
+    if req_path:
+        expect = os.environ.get("INTEROP_REQUEST_PAYLOAD", "ping").encode("utf-8")
+        reply = os.environ.get("INTEROP_REQUEST_REPLY", "PONG_FROM_PY").encode("utf-8")
+
+        def response_generator(path, data, request_id, link_id, remote_identity, requested_at):
+            if data == expect:
+                return reply
+            return b"BAD_PAYLOAD"
+
+        destination.register_request_handler(
+            path=req_path,
+            response_generator=response_generator,
+            allow=RNS.Destination.ALLOW_ALL,
+        )
+
     h = destination.hash
     sys.stdout.write("READY\n")
     sys.stdout.write(h.hex() + "\n")

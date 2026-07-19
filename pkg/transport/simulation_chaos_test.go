@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"quad4/reticulum-go/pkg/health"
 )
 
 // delaySimIface injects per-packet latency (and optional jitter) before
@@ -326,7 +328,8 @@ func (c *corruptSimIface) stop() {
 }
 
 // TestSimChaosCorruptFrames bit-flips and truncates frames on a line and
-// asserts announce flood does not deadlock or leak goroutines.
+// asserts announce flood does not deadlock or leak goroutines. Health
+// oracles must observe either path learning or integrity-fail growth.
 func TestSimChaosCorruptFrames(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping chaos simulation in -short mode")
@@ -334,6 +337,7 @@ func TestSimChaosCorruptFrames(t *testing.T) {
 	runtime.GC()
 	time.Sleep(20 * time.Millisecond)
 	baseG := runtime.NumGoroutine()
+	oracleBefore := health.Default.TransportOracle()
 
 	const n = 5
 	net := newSimNetwork(t, n)
@@ -351,6 +355,13 @@ func TestSimChaosCorruptFrames(t *testing.T) {
 	if ok == 0 {
 		t.Fatal("corrupt frames: zero paths learned (possible deadlock or total drop)")
 	}
+
+	delta := oracleBefore.Delta(health.Default.TransportOracle())
+	if ok > 0 && delta.AnnounceOK == 0 && delta.RxOK == 0 && delta.IntegrityFails() == 0 {
+		t.Fatalf("health oracle flat after corrupt chaos: delta=%+v", delta)
+	}
+	t.Logf("health oracle delta: announce_ok=%d rx_ok=%d integrity_fails=%d",
+		delta.AnnounceOK, delta.RxOK, delta.IntegrityFails())
 
 	net.close()
 	runtime.GC()

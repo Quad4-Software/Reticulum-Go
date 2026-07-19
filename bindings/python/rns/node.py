@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-import ctypes
-
 from . import ffi
 from .errors import Error, map_code
 from .identity import Identity
@@ -36,10 +34,11 @@ class Node:
     def resume(self) -> None:
         map_code(ffi.lib.rns_node_resume(self._handle))
 
-    def event_poll(self, timeout_ms: int = 0) -> ffi.RnsEvent:
-        event = ffi.RnsEvent()
-        map_code(ffi.lib.rns_event_poll(self._handle, ctypes.byref(event), int(timeout_ms)))
-        return event
+    def event_poll(self, timeout_ms: int = 0, app_data_cap: int = 65536):
+        from .event import Event
+
+        buf = bytearray(app_data_cap) if app_data_cap > 0 else None
+        return Event.poll(self, timeout_ms, buf)
 
     @property
     def handle(self) -> int:
