@@ -16,6 +16,7 @@ import (
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/i2p"
+	"quad4/reticulum-go/pkg/protect"
 )
 
 const (
@@ -258,10 +259,18 @@ func (p *I2PInterface) acceptLoop() {
 				continue
 			}
 		}
+		d, release := protect.AdmitConn(p.Name)
+		if !d.Allow {
+			_ = conn.Close()
+			continue
+		}
 		peerName := "Connected peer on " + p.Name
 		peer := newI2PInterfacePeerAccepted(p, peerName, conn)
 		p.registerSpawnedPeer(peer)
-		go peer.readLoop()
+		go func(peerIface *I2PInterfacePeer, rel func()) {
+			defer rel()
+			peerIface.readLoop()
+		}(peer, release)
 	}
 }
 

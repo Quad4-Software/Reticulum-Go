@@ -61,6 +61,7 @@ func DefaultConfig() *common.ReticulumConfig {
 		EnableSeccomp:       true,
 		ControlAPIHost:      DefaultControlAPIHost,
 		ControlAPIPort:      DefaultControlAPIPort,
+		DoSProtection:       "auto",
 	}
 }
 
@@ -314,6 +315,21 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 	case "soft_memory_limit":
 		if n, err := common.ParseByteSize(value); err == nil {
 			cfg.SoftMemoryLimitBytes = n
+		}
+	case "dos_protection":
+		v := strings.ToLower(strings.TrimSpace(value))
+		switch v {
+		case "off", "detect", "prevent", "auto", "ids", "ips", "block", "smart":
+			if v == "ids" {
+				v = "detect"
+			}
+			if v == "ips" || v == "block" {
+				v = "prevent"
+			}
+			if v == "smart" {
+				v = "auto"
+			}
+			cfg.DoSProtection = v
 		}
 	case "max_in_memory_paths":
 		setInt(value, &cfg.MaxInMemoryPaths)
@@ -697,6 +713,11 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	if cfg.SoftMemoryLimitBytes > 0 {
 		fmt.Fprintf(&b, "  soft_memory_limit = %d\n", cfg.SoftMemoryLimitBytes)
 	}
+	dos := strings.ToLower(strings.TrimSpace(cfg.DoSProtection))
+	if dos == "" {
+		dos = "off"
+	}
+	fmt.Fprintf(&b, "  dos_protection = %s\n", dos)
 	if cfg.MaxInMemoryPaths != 0 {
 		fmt.Fprintf(&b, "  max_in_memory_paths = %d\n", cfg.MaxInMemoryPaths)
 	}

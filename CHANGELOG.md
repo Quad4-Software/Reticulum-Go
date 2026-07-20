@@ -10,6 +10,7 @@
 - Live Go to Python link request and binary packet-burst echo interop
 - Expanded test taxonomy covering mutation, health oracles, property suites, CLI smoke and black-box, librns acceptance, UDP path e2e, and matching Task targets
 - Docs updates for bindings, librns, examples, and testing layers
+- Go-only dos_protection IDS/IPS gates (off/detect/prevent/auto, default auto) with adaptive baselines, once-per-second peak sampling, msgpack-persisted learning, auto promote to prevent, relearn on network or drift change, iface cool-down, crypto and handshake budgets, health counters, rate-limited stdout trip warnings, false-positive edge suites, and live UDP/TCP/mesh protect tests
 
 ### Fixed
 - Link requests register before send so fast replies are not dropped

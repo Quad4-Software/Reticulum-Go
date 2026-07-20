@@ -115,6 +115,12 @@ Landlock requires Linux kernel version 5.13 or newer. On older kernels, Landlock
 
 Please note that sandboxing is designed as defense in depth. It is not a replacement for strong cryptography, proper interface configuration, or secure hosting practices. It also does not apply to WebAssembly builds, which rely on the browser or runtime environment sandbox.
 
+## Local DoS protection
+
+Reticulum-Go includes Go-only local overload gates (`dos_protection` in `[reticulum]`, default `auto`). Modes are off, detect, prevent, and auto. They shed floods, accept storms, crypto and handshake spam, resource pile-ups, and memory pressure on **this node** only. They do not ban peers mesh-wide.
+
+Details: [docs/en/security.md](docs/en/security.md#dos-protection-local-idsips) and [docs/en/configuration.md](docs/en/configuration.md#dos_protection-go-only).
+
 ## Cryptography
 
 For complete details on our cryptographic algorithms, key formats, identity encryption, and packet validation, please see the guide in [docs/en/cryptography.md](docs/en/cryptography.md). This file is the primary reference for the cryptography used in this project.

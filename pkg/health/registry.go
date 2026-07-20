@@ -99,6 +99,15 @@ type Snapshot struct {
 	PathReqNoCache        KindTotals `json:"path_req_no_cache" msgpack:"path_req_no_cache"`
 	PathRespQueuedSkip    KindTotals `json:"path_resp_queued_skip" msgpack:"path_resp_queued_skip"`
 	LinkRelayUnknownIface KindTotals `json:"link_relay_unknown_iface" msgpack:"link_relay_unknown_iface"`
+	DoSPPS                KindTotals `json:"dos_pps" msgpack:"dos_pps"`
+	DoSBPS                KindTotals `json:"dos_bps" msgpack:"dos_bps"`
+	DoSHandler            KindTotals `json:"dos_handler" msgpack:"dos_handler"`
+	DoSConn               KindTotals `json:"dos_conn" msgpack:"dos_conn"`
+	DoSResource           KindTotals `json:"dos_resource" msgpack:"dos_resource"`
+	DoSMemory             KindTotals `json:"dos_memory" msgpack:"dos_memory"`
+	DoSCrypto             KindTotals `json:"dos_crypto" msgpack:"dos_crypto"`
+	DoSHandshake          KindTotals `json:"dos_handshake" msgpack:"dos_handshake"`
+	DoSCoolDown           KindTotals `json:"dos_cooldown" msgpack:"dos_cooldown"`
 	// IntegrityFailRate is fails/(fails+ok) over the 60s window when sample size allows.
 	IntegrityFailRate float64 `json:"integrity_fail_rate" msgpack:"integrity_fail_rate"`
 	StaleCloses       uint64  `json:"stale_closes" msgpack:"stale_closes"`
@@ -153,6 +162,15 @@ func (r *Registry) snapshotArray(arr *[kindCount]windowedCounter) Snapshot {
 		PathReqNoCache:        snapKind(arr, KindPathReqNoCache, now),
 		PathRespQueuedSkip:    snapKind(arr, KindPathRespQueuedSkip, now),
 		LinkRelayUnknownIface: snapKind(arr, KindLinkRelayUnknownIface, now),
+		DoSPPS:                snapKind(arr, KindDoSPPS, now),
+		DoSBPS:                snapKind(arr, KindDoSBPS, now),
+		DoSHandler:            snapKind(arr, KindDoSHandler, now),
+		DoSConn:               snapKind(arr, KindDoSConn, now),
+		DoSResource:           snapKind(arr, KindDoSResource, now),
+		DoSMemory:             snapKind(arr, KindDoSMemory, now),
+		DoSCrypto:             snapKind(arr, KindDoSCrypto, now),
+		DoSHandshake:          snapKind(arr, KindDoSHandshake, now),
+		DoSCoolDown:           snapKind(arr, KindDoSCoolDown, now),
 	}
 	s.StaleCloses = s.LinkStaleClose.Total
 	fails := s.IFACFail.Rate60 + s.HMACFail.Rate60 + s.UnpackFail.Rate60 + s.PaddingFail.Rate60

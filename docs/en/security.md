@@ -114,6 +114,23 @@ make check
 - `identity_backend = keyring` stores the same blobs in the Linux kernel keyring (no D-Bus), suitable for systemd units. See [Identity and destinations](identity-and-destinations.md) for threat coverage.
 - Identity private keys are held in locked memory when the OS allows (`pkg/securemem`). This is defense in depth, not a substitute for disk encryption or HSM signing.
 
+## DoS protection (local IDS/IPS)
+
+Go-only. Config key `dos_protection` in `[reticulum]` (default `auto`). Implementation: `pkg/protect`.
+
+This is **node-local** overload control. It sheds work on this process so floods, accept storms, crypto spam, handshake spam, resource pile-ups, and memory pressure do not freeze the daemon. It is not a network-wide IDS and does not stop Sybil join storms across the mesh (for example mass fake peers on an anonymity overlay). Pair it with IFAC, careful public-face exposure, and operator policy.
+
+| Mode | Effect |
+|------|--------|
+| off | No gates |
+| detect | Observe and warn only |
+| prevent | Observe, warn, and block or shed |
+| auto | Learn baselines quietly, persist them, arm prevent, relearn on interface set change or moderate traffic drift |
+
+Adaptive baselines use EWMA of once-per-second peak pps/bps. Flood samples are ignored while learning so an attack cannot become the quiet baseline. Persistence path: `storage/dos_protect.mpack`.
+
+Trips emit rate-limited stdout warnings and increment `dos_*` health counters. Full key reference and gate table: [Configuration](configuration.md#dos_protection-go-only). Tests: [Development and testing](development-and-testing.md#dos_protection-tests).
+
 ## Local mesh health (observe only)
 
 Reticulum-Go keeps node-local integrity and link-health counters in `pkg/health`. They stay on this node. Nothing is flooded to the mesh or sent to a cloud collector.
@@ -152,8 +169,9 @@ Link establishment also records expected_hops on both initiator and responder. I
 ## Related documents
 
 - [Cryptography](cryptography.md)
-- [Configuration](configuration.md) for sandbox and control API keys
+- [Configuration](configuration.md) for sandbox, control API, and dos_protection keys
 - [CLI utilities](utilities.md) for status and slow health findings
 - [Packet debug](packet-debug.md) for dump, snapshot, and Wireshark
 - [SECURITY.md](../../SECURITY.md) full policy text
 - [Compatibility](compatibility.md) for RNS 1.3.9 interop
+- [Package map](package-map.md#pkgprotect) for `pkg/protect`

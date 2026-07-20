@@ -20,6 +20,7 @@ import (
 	"quad4/reticulum-go/pkg/cryptography"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/identity/store"
+	"quad4/reticulum-go/pkg/protect"
 	"quad4/reticulum-go/pkg/securemem"
 )
 
@@ -428,6 +429,12 @@ func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRat
 		debug.Log(debug.DebugCritical, "Decryption failed: identity has no private key")
 		return nil, errors.New("decryption failed because identity does not hold a private key")
 	}
+
+	d, release := protect.AdmitCrypto("")
+	if !d.Allow {
+		return nil, errors.New("dos_protection refused crypto")
+	}
+	defer release()
 
 	debug.Log(debug.DebugAll, "Starting decryption for identity", "hash", i.GetHexHash())
 	if len(ratchets) > 0 {

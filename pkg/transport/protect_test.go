@@ -1,0 +1,96 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024-2026 Quad4.io
+
+package transport
+
+import (
+	"bytes"
+	"testing"
+	"time"
+
+	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/health"
+	"quad4/reticulum-go/pkg/protect"
+)
+
+func TestHandlePacketProtectPreventShedsOnSemFull(t *testing.T) {
+	t.Cleanup(func() { protect.SetDefault(nil) })
+	health.Default.Reset()
+	var buf bytes.Buffer
+	e := protect.New(protect.Options{
+		Mode:         protect.ModePrevent,
+		WarnWriter:   &buf,
+		WarnInterval: time.Hour,
+	})
+
+	cfg := &common.ReticulumConfig{EnableTransport: true, DoSProtection: "off"}
+	tr := NewTransport(cfg)
+	protect.SetDefault(e)
+	t.Cleanup(func() {
+		_ = tr.Close()
+		protect.SetDefault(nil)
+	})
+
+	// Fill the handler semaphore so HandlePacket takes the overflow path.
+	for range MaxConcurrentPacketHandlers {
+		tr.packetHandleSem <- struct{}{}
+	}
+	t.Cleanup(func() {
+		for range MaxConcurrentPacketHandlers {
+			select {
+			case <-tr.packetHandleSem:
+			default:
+			}
+		}
+	})
+
+	iface := common.NewBaseInterface("flood0", common.IFTypeUDP, true)
+	pkt := []byte{0x00, 0x00, 0x01}
+	tr.HandlePacket(pkt, &iface)
+	if e.TripCount(protect.ReasonHandler) == 0 {
+		t.Fatal("expected handler trip")
+	}
+	if !bytes.Contains(buf.Bytes(), []byte("reason=handler")) {
+		t.Fatalf("warn missing %q", buf.String())
+	}
+}
+
+func TestAdversarialProtectPacketFloodBudget(t *testing.T) {
+	t.Cleanup(func() { protect.SetDefault(nil) })
+	health.Default.Reset()
+	var buf bytes.Buffer
+	clock := time.Unix(1_700_000_000, 0)
+	e := protect.New(protect.Options{
+		Mode:            protect.ModePrevent,
+		MaxPPS:          50,
+		WarnWriter:      &buf,
+		WarnInterval:    time.Hour,
+		DisableAdaptive: true,
+		DisableCoolDown: true,
+		Now:             func() time.Time { return clock },
+	})
+	protect.SetDefault(e)
+
+	iface := common.NewBaseInterface("adv0", common.IFTypeUDP, true)
+	// Use interfaces.BaseInterface path via wrapping: ProcessIncoming on common base is stub.
+	// Flood via protect admit directly for budget assertion.
+	allowed := 0
+	blocked := 0
+	for range 500 {
+		d := e.AdmitPacket(iface.GetName(), 64)
+		if d.Allow {
+			allowed++
+		} else {
+			blocked++
+		}
+	}
+	if blocked == 0 {
+		t.Fatal("expected blocked packets under prevent flood")
+	}
+	if allowed == 0 {
+		t.Fatal("expected some allowed before threshold")
+	}
+	if e.TripCount(protect.ReasonPPS) == 0 {
+		t.Fatal("expected pps trips")
+	}
+}

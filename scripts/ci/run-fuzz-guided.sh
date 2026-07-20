@@ -14,7 +14,7 @@ mkdir -p "$COVER_DIR"
 UNIT_COVER="$COVER_DIR/unit-before.out"
 UNIT_AFTER="$COVER_DIR/unit-after.out"
 
-PACKAGES="./pkg/packet ./pkg/transport ./pkg/identity ./pkg/link ./pkg/ifac ./pkg/backbone ./pkg/discovery ./pkg/blackhole ./pkg/librns ./pkg/announce ./pkg/destination ./pkg/resource ./pkg/buffer ./pkg/channel ./pkg/interfaces ./pkg/cryptography ./pkg/pageserver"
+PACKAGES="./pkg/packet ./pkg/transport ./pkg/identity ./pkg/link ./pkg/ifac ./pkg/backbone ./pkg/discovery ./pkg/blackhole ./pkg/librns ./pkg/announce ./pkg/destination ./pkg/resource ./pkg/buffer ./pkg/channel ./pkg/interfaces ./pkg/cryptography ./pkg/pageserver ./pkg/protect"
 
 package_low_coverage() {
 	pkg="$1"
@@ -110,6 +110,8 @@ run_fuzz ./pkg/buffer FuzzHandleMessageEOFExploratory "$(fuzz_time_for buffer 10
 run_fuzz ./pkg/channel FuzzHandleInboundEnvelopeExploratory "$(fuzz_time_for channel 10s)"
 run_fuzz ./pkg/channel FuzzPackHandleInboundRoundTrip "$(fuzz_time_for channel 10s)"
 run_fuzz ./pkg/interfaces FuzzKISSStreamDecoderRoundTrip "$(fuzz_time_for interfaces 10s)"
+run_fuzz ./pkg/protect FuzzParseMode "$(fuzz_time_for protect 10s)"
+run_fuzz ./pkg/protect FuzzAdmitPacket "$(fuzz_time_for protect 10s)"
 run_fuzz ./pkg/librns FuzzHandleTable "$(fuzz_time_for librns 10s)"
 run_fuzz ./pkg/librns FuzzEventQueue "$(fuzz_time_for librns 10s)"
 run_fuzz ./pkg/librns FuzzConfigPathCreate "$(fuzz_time_for librns 10s)"

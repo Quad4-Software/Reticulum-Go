@@ -15,6 +15,7 @@ import (
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/protect"
 )
 
 const vsockBitrateGuess int64 = 1_000_000_000
@@ -398,7 +399,15 @@ func (vs *VSOCKServerInterface) acceptLoop(ln net.Listener) {
 			debug.Log(debug.DebugVerbose, "VSOCK accept error", "name", vs.Name, "error", err)
 			continue
 		}
-		go vs.handleConn(conn)
+		d, release := protect.AdmitConn(vs.Name)
+		if !d.Allow {
+			_ = conn.Close()
+			continue
+		}
+		go func(c net.Conn, rel func()) {
+			defer rel()
+			vs.handleConn(c)
+		}(conn, release)
 	}
 }
 

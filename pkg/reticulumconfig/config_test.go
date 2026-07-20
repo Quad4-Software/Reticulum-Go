@@ -31,6 +31,9 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Interfaces == nil {
 		t.Error("Interfaces map must be initialised")
 	}
+	if cfg.DoSProtection != "auto" {
+		t.Errorf("DoSProtection: got %q, want auto", cfg.DoSProtection)
+	}
 	if !cfg.EnableSandbox {
 		t.Error("EnableSandbox should be true by default")
 	}
@@ -507,6 +510,33 @@ func TestLoadConfig_IdentityBackend(t *testing.T) {
 	}
 	if cfg.IdentityBackend != "secretservice" {
 		t.Fatalf("IdentityBackend=%q", cfg.IdentityBackend)
+	}
+}
+
+func TestLoadConfig_DoSProtection(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	writeFile(t, path, `[reticulum]
+  dos_protection = auto
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.DoSProtection != "auto" {
+		t.Fatalf("DoSProtection = %q", cfg.DoSProtection)
+	}
+
+	cfg.DoSProtection = "prevent"
+	cfg.ConfigPath = path
+	if err := SaveConfig(cfg); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+	loaded, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if loaded.DoSProtection != "prevent" {
+		t.Fatalf("round trip DoSProtection = %q", loaded.DoSProtection)
 	}
 }
 

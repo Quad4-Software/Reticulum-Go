@@ -16,6 +16,15 @@ func TestDropKindNames(t *testing.T) {
 		KindResourceReq:           "resource_req",
 		KindResourceHMU:           "resource_hmu",
 		KindResourceComplete:      "resource_complete",
+		KindDoSPPS:                "dos_pps",
+		KindDoSBPS:                "dos_bps",
+		KindDoSHandler:            "dos_handler",
+		KindDoSConn:               "dos_conn",
+		KindDoSResource:           "dos_resource",
+		KindDoSMemory:             "dos_memory",
+		KindDoSCrypto:             "dos_crypto",
+		KindDoSHandshake:          "dos_handshake",
+		KindDoSCoolDown:           "dos_cooldown",
 	}
 	for k, want := range cases {
 		if got := k.String(); got != want {

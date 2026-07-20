@@ -31,6 +31,15 @@ const (
 	KindPathReqNoCache
 	KindPathRespQueuedSkip
 	KindLinkRelayUnknownIface
+	KindDoSPPS
+	KindDoSBPS
+	KindDoSHandler
+	KindDoSConn
+	KindDoSResource
+	KindDoSMemory
+	KindDoSCrypto
+	KindDoSHandshake
+	KindDoSCoolDown
 	kindCount
 )
 
@@ -85,6 +94,24 @@ func (k Kind) String() string {
 		return "path_resp_queued_skip"
 	case KindLinkRelayUnknownIface:
 		return "link_relay_unknown_iface"
+	case KindDoSPPS:
+		return "dos_pps"
+	case KindDoSBPS:
+		return "dos_bps"
+	case KindDoSHandler:
+		return "dos_handler"
+	case KindDoSConn:
+		return "dos_conn"
+	case KindDoSResource:
+		return "dos_resource"
+	case KindDoSMemory:
+		return "dos_memory"
+	case KindDoSCrypto:
+		return "dos_crypto"
+	case KindDoSHandshake:
+		return "dos_handshake"
+	case KindDoSCoolDown:
+		return "dos_cooldown"
 	default:
 		return "unknown"
 	}

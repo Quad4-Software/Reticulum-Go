@@ -28,6 +28,7 @@ import (
 	"quad4/reticulum-go/pkg/interfaces"
 	"quad4/reticulum-go/pkg/packet"
 	"quad4/reticulum-go/pkg/pathfinder"
+	"quad4/reticulum-go/pkg/protect"
 	"quad4/reticulum-go/pkg/rate"
 )
 
@@ -282,6 +283,13 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 	storagePath := ""
 	if !inMemory {
 		storagePath = transportStoragePath(cfg)
+	}
+	if cfg != nil {
+		protectStore := ""
+		if storagePath != "" {
+			protectStore = filepath.Join(storagePath, protect.StoreFileName)
+		}
+		protect.ConfigureFromConfig(cfg.DoSProtection, cfg.SoftMemoryLimitBytes, protectStore)
 	}
 
 	transportIdent, err := identity.LoadOrCreateTransportIdentity(storagePath)
@@ -673,6 +681,7 @@ func (t *Transport) RegisterInterface(name string, iface common.NetworkInterface
 
 	t.registerInterfaceLocked(name, iface)
 	t.activatePendingPathsForInterface(name, iface)
+	t.notifyProtectInterfacesLocked()
 	return nil
 }
 
@@ -690,6 +699,14 @@ func (t *Transport) registerInterfaceLocked(name string, iface common.NetworkInt
 	}
 	t.ifaceStates.put(name, buildIfaceState(cfg))
 	applyIfacePRConfig(iface, cfg)
+}
+
+func (t *Transport) notifyProtectInterfacesLocked() {
+	names := make([]string, 0, len(t.interfaces))
+	for n := range t.interfaces {
+		names = append(names, n)
+	}
+	protect.Default().NotifyInterfaces(names)
 }
 
 func (t *Transport) invalidateInterfaceReferencesLocked(iface common.NetworkInterface) {
@@ -836,6 +853,10 @@ func (t *Transport) Close() error {
 	t.stopOnce.Do(func() {
 		close(t.done)
 	})
+
+	if e := protect.Default(); e != nil {
+		e.StopMemoryMonitor()
+	}
 
 	t.mutex.Lock()
 	for _, iface := range t.interfaces {
@@ -1484,6 +1505,13 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 			dispatch(pc.buf)
 		}()
 	default:
+		ifaceName := ""
+		if iface != nil {
+			ifaceName = iface.GetName()
+		}
+		if d := protect.AdmitHandler(ifaceName); !d.Allow {
+			return
+		}
 		// Always copy: callers (UDP/Auto) may reuse the buffer after return.
 		pc := getPacketCopy(len(data))
 		copy(pc.buf, data)
@@ -1634,13 +1662,19 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		debug.Log(debug.DebugInfo, "Verifying signature", "data_len", len(signData))
 	}
 
-	if !id.Verify(signData, signature) {
+	ifaceName := ""
+	if iface != nil {
+		ifaceName = iface.GetName()
+	}
+	d, release := protect.AdmitCrypto(ifaceName)
+	if !d.Allow {
+		return fmt.Errorf("dos_protection refused crypto")
+	}
+	ok := id.Verify(signData, signature)
+	release()
+	if !ok {
 		if debug.Enabled(debug.DebugInfo) {
 			debug.Log(debug.DebugInfo, "Signature verification failed - announce rejected")
-		}
-		ifaceName := ""
-		if iface != nil {
-			ifaceName = iface.GetName()
 		}
 		health.Inc(ifaceName, health.KindAnnounceSigFail)
 		return fmt.Errorf("invalid announce signature")

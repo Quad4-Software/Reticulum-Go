@@ -85,13 +85,13 @@ Follow existing naming, error wrapping, and SPDX headers in each file.
 | Unit | `task test` / `task test-short` | Package `*_test.go` |
 | Property | `task test-property` | `*_pbt_test.go` and embedded `quad4/pbt` / `testing/quick` |
 | Mutation | `task test-mutation` | gomutant on cryptography, packet, announce, destination, identity, ifac |
-| Chaos | `task test-chaos` / `task test-soak` | `TestSimChaos*` / `TestLinkChaos*` / `TestIfaceChaos*` plus soak |
+| Chaos | `task test-chaos` / `task test-soak` / `task test-soak-protect` | `TestSimChaos*` / `TestLinkChaos*` / `TestIfaceChaos*` plus soak, including dos_protection flood soak |
 | Oracle | `task test-oracle` | Crossref vectors, health `TransportOracle` deltas, adversarial corpus |
 | Smoke | `task test-binary-smoke`, binding smokes | Binary `--version`/`--help`, CLI dump via `Main`, librns smoke examples |
 | Acceptance | `task test-acceptance` | librns SCAFFOLD minimum, control API acceptance |
 | E2E | `task test-e2e` | Daemon reload, UDP path e2e, transport `TestE2E_*` |
 | Black box | `task test-blackbox` | CLI `Main` / `rgodump` surface, control API HTTP acceptance |
-| Interop | `RUN_LIVE_INTEROP=1 go test ./tests/interop/...` | Live Go↔Python (optional locally) |
+| Interop | `RUN_LIVE_INTEROP=1 go test ./tests/interop/...` | Live Go↔Python (optional locally), including dos_protection live suites |
 
 ### Unit tests
 
@@ -142,9 +142,32 @@ Seeded loss, reorder, corruption, and flap tests across layers:
 ```bash
 task test-chaos
 task test-soak
+task test-soak-protect
 ```
 
 Chaos suites are in-process Go only (sim pipes / HDLC fixtures). Live Go↔Python loss, reorder, and mid-session flap are not covered yet. Healthy-path cross-stack coverage lives under `tests/interop/` (`RUN_LIVE_INTEROP=1`).
+
+### dos_protection tests
+
+`pkg/protect` and interface hooks cover false positives, false negatives, auto learn/persist/relearn, and live sockets.
+
+| Suite | Location | Focus |
+|-------|----------|-------|
+| Unit / FP-FN | `pkg/protect/false_positive_test.go` | Quiet traffic, bursty legit, multi-iface isolation, oscillation, poisoned warmup, drift without false block |
+| Replay traces | `pkg/protect/replay_trace_test.go` | Mesh-like timelines, flood inject and recovery, auto learn then block |
+| Property / fuzz | `pkg/protect/property_test.go`, `fuzz_test.go` | Detect never blocks, prevent after threshold, mode round-trip |
+| Soak | `task test-soak-protect` | Bounded flood heap and goroutine budgets |
+| Live UDP/TCP | `pkg/interfaces/protect_*_live_test.go` | Real loopback sockets, optional non-loopback NIC, TCP accept storms |
+| Live interop | `tests/interop/dos_protect_live_test.go` | `RUN_LIVE_INTEROP=1`: quiet budget, UDP flood shed, auto learn on live UDP, transport path, public mesh peer dials |
+
+```bash
+go test ./pkg/protect -short
+go test ./pkg/interfaces -run 'LiveUDP|LiveTCP|Protect'
+task test-soak-protect
+RUN_LIVE_INTEROP=1 go test ./tests/interop -run 'DoSProtect|DoSProtection'
+```
+
+Config and threat scope: [Configuration](configuration.md#dos_protection-go-only), [Security](security.md#dos-protection-local-idsips).
 
 ### Test oracles
 

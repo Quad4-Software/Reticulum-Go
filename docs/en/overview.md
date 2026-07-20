@@ -74,6 +74,7 @@ Below is a summary of major features. For line-by-line parity with Python, see [
 | Dart Control API client | Go-only host | `bindings/dart` (rns_control). See [Control API](control-api.md#dart-and-flutter) |
 | Runtime sandbox | Go-only | `pkg/sandbox` |
 | Local mesh health | Go-only | `pkg/health` counters, status RPC fields, `reticulum-go slow` findings |
+| DoS protection | Go-only | `pkg/protect`, config `dos_protection` (default auto). See [Security](security.md#dos-protection-local-idsips) |
 
 ## Repository layout
 

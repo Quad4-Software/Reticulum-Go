@@ -113,6 +113,7 @@ These do not change the wire format:
 | Dart Control API client | `bindings/dart` ([Control API](control-api.md#dart-and-flutter)) |
 | Runtime sandbox | `pkg/sandbox` |
 | Local mesh health counters | `pkg/health`, status RPC fields, `reticulum-go slow` findings |
+| Local DoS protection | `pkg/protect`, config `dos_protection` (off/detect/prevent/auto), `storage/dos_protect.mpack` |
 | RAM-only path tables | in_memory_path_table, in_memory_known_destinations |
 | Fully ephemeral storage | in_memory_storage, `RETICULUM_IN_MEMORY_STORAGE`, soft caps |
 

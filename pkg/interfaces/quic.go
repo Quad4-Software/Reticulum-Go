@@ -17,6 +17,7 @@ import (
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/protect"
 )
 
 const (
@@ -495,7 +496,15 @@ func (qs *QUICServerInterface) acceptLoop(ctx context.Context, ln *quic.Listener
 			debug.Log(debug.DebugVerbose, "QUIC accept error", "name", qs.Name, "error", err)
 			continue
 		}
-		go qs.handleConn(ctx, conn)
+		d, release := protect.AdmitConn(qs.Name)
+		if !d.Allow {
+			_ = conn.CloseWithError(0, "dos_protection")
+			continue
+		}
+		go func(c *quic.Conn, rel func()) {
+			defer rel()
+			qs.handleConn(ctx, c)
+		}(conn, release)
 	}
 }
 

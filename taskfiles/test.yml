@@ -48,6 +48,11 @@ tasks:
     cmds:
       - sh scripts/ci/run-soak.sh
 
+  test-soak-protect:
+    desc: Bounded dos_protection flood soak (heap and goroutine budgets)
+    cmds:
+      - sh scripts/ci/run-protect-soak.sh
+
   test-bench-gate:
     desc: Run load/concurrency benchmarks with threshold gates
     cmds:
@@ -61,7 +66,7 @@ tasks:
   test-property:
     desc: Run property-based tests (quad4/pbt and testing/quick)
     cmds:
-      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/announce ./pkg/link ./pkg/transport ./pkg/cryptography ./pkg/packet ./pkg/buffer ./pkg/rate ./pkg/resource ./pkg/identity ./pkg/librns ./pkg/destination -run "TestPBT|TestProperty|TestQuick" -timeout 10m'
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/announce ./pkg/link ./pkg/transport ./pkg/cryptography ./pkg/packet ./pkg/buffer ./pkg/rate ./pkg/resource ./pkg/identity ./pkg/librns ./pkg/destination ./pkg/protect -run "TestPBT|TestProperty|TestQuick" -timeout 10m'
 
   test-acceptance:
     desc: Run acceptance bars (librns SCAFFOLD, controlapi acceptance)

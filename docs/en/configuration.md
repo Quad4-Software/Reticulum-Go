@@ -27,6 +27,7 @@ Override with `--config` on the daemon command line.
     destination_table
     known_destinations/
     transport_identity
+    dos_protect.mpack
 ```
 
 Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a separate directory so both stacks can run on one host.
@@ -65,6 +66,7 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | in_memory_storage | no | Fully ephemeral mode: no disk for paths, known dests, transport identity, blackhole, or split resources. Implies both table flags |
 | identity_backend | file | Identity at-rest store: file, secretservice (Freedesktop Secret Service), or keyring (Linux kernel keyring) |
 | soft_memory_limit | (none) | Soft heap budget (K/M/G or bytes) via Go `debug.SetMemoryLimit` |
+| dos_protection | auto | Go-only local IDS/IPS gates. Values: off, detect, prevent, auto (alias smart). See [DoS protection](#dos_protection-go-only) |
 | max_in_memory_paths | 100000 | Path table soft cap when in_memory_storage is yes. Negative disables |
 | max_in_memory_known_destinations | 100000 | Known-dest soft cap when in_memory_storage is yes. Negative disables |
 | max_in_memory_resource_bytes | 256M | Split-resource staging budget when in_memory_storage is yes. Negative disables |
@@ -75,6 +77,50 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | respond_to_probes / allow_probes | no | Register rnstransport.probe with prove-all |
 | network_identity | (empty) | Path to network identity for discovery encrypt/decrypt |
 | panic_on_interface_error | no | Panic on fatal interface errors |
+
+### dos_protection (Go-only)
+
+Local overload gates in `pkg/protect`. They keep **this node** alive under floods and resource storms. They do not ban peers mesh-wide and do not replace IFAC, link crypto, or Sybil-resistant admission policy.
+
+| Mode | Behavior |
+|------|----------|
+| off | Disabled |
+| detect (alias ids) | Trip, count, and rate-limited stdout warnings. Traffic still flows |
+| prevent (aliases block, ips) | Same as detect, and shed or block on trip |
+| auto (alias smart, default) | Learn quietly, then arm prevent. Relearn on interface fingerprint change or sustained moderate drift. Floods stay armed |
+
+Example:
+
+```
+[reticulum]
+  dos_protection = auto
+```
+
+Learning state is written as msgpack to `{config_dir}/storage/dos_protect.mpack` (atomic replace). Restarts restore armed baselines when the interface fingerprint still matches.
+
+Surfaces gated when mode is not off:
+
+| Gate | Typical attack class |
+|------|----------------------|
+| Per-iface packet pps / bps | Packet floods (adaptive EWMA baseline, once-per-second peak samples) |
+| Handler overflow | Packet handler overload |
+| Stream accepts | TCP / QUIC / VSOCK / I2P / Local connection storms |
+| Incoming resources | Resource / transfer pile-up |
+| Crypto jobs | Decrypt / verify / HMAC storms |
+| Handshakes | Link setup / proof floods |
+| Memory shed | Soft heap pressure (pairs with soft_memory_limit) |
+| Iface cool-down | Temporary hard reject after a burst of trips on one iface |
+
+Stdout trip lines look like:
+
+```
+WARNING: dos_protection prevent trip reason=pps iface=udp0
+WARNING: dos_protection auto/learning trip reason=pps iface=udp0
+WARNING: dos_protection auto promote reason=stable phase=armed
+WARNING: dos_protection auto relearn reason=network phase=learning
+```
+
+Health kinds `dos_*` increment on trips. See [Security](security.md#dos-protection-local-idsips) and [Development and testing](development-and-testing.md#dos_protection-tests).
 
 ### Keys present in Python but ignored in Go
 

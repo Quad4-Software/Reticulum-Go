@@ -243,6 +243,12 @@ type ReticulumConfig struct {
 	// growing unbounded. Zero leaves the runtime default (unlimited).
 	SoftMemoryLimitBytes int64
 
+	// DoSProtection selects IDS/IPS style flood and OOM gates off detect prevent or auto.
+	// Go-only. Default auto. Detect warns on stdout and increments health counters.
+	// Prevent also sheds ingress refuses excess accepts and drops overloaded handlers.
+	// Auto learns quietly persists baselines via msgpack then arms prevent and relearns on change.
+	DoSProtection string
+
 	// IdentityBackend selects identity at-rest storage: "file" (default),
 	// "secretservice" (Freedesktop Secret Service), or "keyring" (Linux kernel
 	// keyring, no D-Bus). When a non-file backend fails, persistence returns an error.

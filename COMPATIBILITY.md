@@ -295,6 +295,7 @@ Python defaults from `RNS.Reticulum.__create_default_config` and [RNS/Reticulum.
 | in_memory_known_destinations | No | Yes | RAM-only known destinations |
 | in_memory_storage | No | Yes | Fully ephemeral storage (identity, blackhole, resources, tables) |
 | soft_memory_limit | No | Yes | Soft heap limit (K/M/G or bytes) |
+| dos_protection | No | Yes | Go-only local IDS/IPS. off, detect, prevent, or auto (default). Adaptive baselines, msgpack store `dos_protect.mpack`, auto promote to prevent, relearn on network or drift change |
 | max_in_memory_paths | No | Yes | Soft path-table cap under in_memory_storage |
 | max_in_memory_known_destinations | No | Yes | Soft known-dest cap under in_memory_storage |
 | max_in_memory_resource_bytes | No | Yes | Soft split-resource staging budget under in_memory_storage |

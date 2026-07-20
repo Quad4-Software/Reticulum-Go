@@ -222,6 +222,18 @@ Node-local mesh integrity and link-health counters. Used by drop-site instrument
 | Main files | `registry.go`, `kind.go`, `window.go` |
 | Docs | [Security](security.md#local-mesh-health-observe-only), [CLI utilities](utilities.md#rgoslow), [packet-debug](packet-debug.md) |
 
+### `pkg/protect`
+
+Go-only local DoS / overload gates (IDS detect, IPS prevent, smart auto). Wired from transport and interfaces when `dos_protection` is set.
+
+| Item | Detail |
+|------|--------|
+| Key types | Engine, Mode, Decision, Reason, AutoPhase |
+| Entry | `protect.ConfigureFromConfig`, `protect.AdmitPacket`, `AdmitConn`, `AdmitCrypto`, `AdmitHandshake`, `AdmitResource` |
+| Persistence | `storage/dos_protect.mpack` (msgpack baselines and auto phase) |
+| Main files | `engine.go`, `adaptive.go`, `auto.go`, `store.go`, `window.go`, `mode.go` |
+| Docs | [Configuration](configuration.md#dos_protection-go-only), [Security](security.md#dos-protection-local-idsips), [Development and testing](development-and-testing.md#dos_protection-tests) |
+
 ### `pkg/rnsutil`
 
 Helpers and RPC client for CLI utilities (`reticulum-go status`, slow, id, probe, …).

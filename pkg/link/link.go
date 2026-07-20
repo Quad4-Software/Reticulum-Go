@@ -28,6 +28,7 @@ import (
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/packet"
 	"quad4/reticulum-go/pkg/pathfinder"
+	"quad4/reticulum-go/pkg/protect"
 	"quad4/reticulum-go/pkg/resource"
 	"quad4/reticulum-go/pkg/securemem"
 	"quad4/reticulum-go/pkg/transport"
@@ -160,6 +161,16 @@ func HandleIncomingLinkRequest(pkt *packet.Packet, dest *destination.Destination
 	if transport != nil && !transport.CanAcceptIncomingLink() {
 		return nil, errors.New("incoming link limit reached")
 	}
+
+	ifaceName := ""
+	if networkIface != nil {
+		ifaceName = networkIface.GetName()
+	}
+	d, release := protect.AdmitHandshake(ifaceName)
+	if !d.Allow {
+		return nil, errors.New("dos_protection refused handshake")
+	}
+	defer release()
 
 	l := NewLink(dest, transport, networkIface, nil, nil)
 	l.status.Store(int32(StatusPending))
@@ -2243,6 +2254,11 @@ func (l *Link) decrypt(data []byte) ([]byte, error) {
 		debug.Log(debug.DebugError, "Decrypt failed: data too short", "length", len(data))
 		return nil, errors.New("data too short")
 	}
+	d, release := protect.AdmitCrypto(l.attachedIfaceName())
+	if !d.Allow {
+		return nil, errors.New("dos_protection refused crypto")
+	}
+	defer release()
 	var sessionKey, hmacKey [32]byte
 	l.mutex.RLock()
 	ok := snapshotSessionKeysLocked(l, sessionKey[:], hmacKey[:])
@@ -3119,6 +3135,15 @@ func (l *Link) GenerateLinkProof(ownerIdentity *identity.Identity) (*packet.Pack
 }
 
 func (l *Link) ValidateLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error {
+	ifaceName := ""
+	if networkIface != nil {
+		ifaceName = networkIface.GetName()
+	}
+	d, release := protect.AdmitHandshake(ifaceName)
+	if !d.Allow {
+		return errors.New("dos_protection refused handshake")
+	}
+	defer release()
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 	return l.validateLinkProofLocked(pkt, networkIface)

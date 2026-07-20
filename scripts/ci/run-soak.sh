@@ -13,4 +13,6 @@ TIMEOUT="${SOAK_TIMEOUT:-5m}"
 
 echo "soak: SOAK_SECONDS=${SOAK_SECONDS} timeout=${TIMEOUT}"
 go run ./scripts/ci/testsummary -v ./pkg/transport -run TestTransportSoakFaultLoad -count=1 -timeout "$TIMEOUT"
+echo "soak: transport done"
+sh "$(dirname "$0")/run-protect-soak.sh"
 echo "soak: done"

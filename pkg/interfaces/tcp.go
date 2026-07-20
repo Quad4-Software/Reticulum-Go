@@ -12,6 +12,7 @@ import (
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/protect"
 )
 
 type TCPClientInterface struct {
@@ -672,8 +673,15 @@ func (ts *TCPServerInterface) Start() error {
 				continue
 			}
 
-			// Handle each connection in a separate goroutine
-			go ts.handleConnection(conn)
+			d, release := protect.AdmitConn(ts.Name)
+			if !d.Allow {
+				_ = conn.Close()
+				continue
+			}
+			go func(c net.Conn, rel func()) {
+				defer rel()
+				ts.handleConnection(c)
+			}(conn, release)
 		}
 	}()
 
