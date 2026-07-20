@@ -4,7 +4,7 @@
 
 Reticulum-Go is a Go implementation of the [Reticulum Network Stack](https://reticulum.network/). Reticulum is a cryptographic mesh networking protocol designed for resilient communication over heterogeneous links. It can run over UDP, TCP, radio hardware, I2P, and other transports without assuming a single global internet path.
 
-Reticulum-Go targets full wire compatibility with the official Python reference implementation (RNS 1.3.9) while using Go concurrency and static compilation for deployment on servers, desktops, embedded targets, and WebAssembly runtimes.
+Reticulum-Go targets full wire compatibility with the official Python reference implementation (RNS 1.4.0) while using Go concurrency and static compilation for deployment on servers, desktops, embedded targets, and WebAssembly runtimes.
 
 The primary deliverables are:
 

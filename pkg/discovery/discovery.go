@@ -52,7 +52,7 @@ const (
 
 // DefaultStampValue is the default proof-of-work target value applied when
 // stamping discovery announcements.
-const DefaultStampValue = 14
+const DefaultStampValue = 16
 
 // WorkblockExpandRounds controls the HKDF expansion rounds used to derive the
 // stamp workblock for discovery announcements.

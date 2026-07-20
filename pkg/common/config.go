@@ -137,7 +137,7 @@ type InterfaceConfig struct {
 	// Zero means the Python default of 6 hours. Config key announce_interval
 	// is minutes and is converted at parse time.
 	DiscoveryAnnounceIntervalSec int
-	// DiscoveryStampValue overrides the proof-of-work cost (default 14).
+	// DiscoveryStampValue overrides the proof-of-work cost (default 16).
 	DiscoveryStampValue int
 	// DiscoveryEncrypt encrypts announces with the network identity.
 	DiscoveryEncrypt bool

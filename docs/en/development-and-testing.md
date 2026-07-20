@@ -239,10 +239,10 @@ Enable:
 RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
 ```
 
-Optional Python interpreter (prefer a venv with `rns==1.3.9`):
+Optional Python interpreter (prefer a venv with `rns==1.4.0`):
 
 ```bash
-sh scripts/ci/setup-venv-pip.sh 'rns==1.3.9'
+sh scripts/ci/setup-venv-pip.sh 'rns==1.4.0'
 PYTHON_INTEROP=.venv/bin/python RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
 ```
 

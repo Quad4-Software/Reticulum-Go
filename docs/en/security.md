@@ -173,5 +173,5 @@ Link establishment also records expected_hops on both initiator and responder. I
 - [CLI utilities](utilities.md) for status and slow health findings
 - [Packet debug](packet-debug.md) for dump, snapshot, and Wireshark
 - [SECURITY.md](../../SECURITY.md) full policy text
-- [Compatibility](compatibility.md) for RNS 1.3.9 interop
+- [Compatibility](compatibility.md) for RNS 1.4.0 interop
 - [Package map](package-map.md#pkgprotect) for `pkg/protect`

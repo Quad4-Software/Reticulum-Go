@@ -1153,6 +1153,12 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 		return l.HandleIdentification(plaintext)
 	case packet.ContextKeepalive:
 		if !l.initiator && len(plaintext) == 1 && plaintext[0] == KeepaliveRequestByte {
+			// Match Python 1.4.0: only reply when outbound has been quiet
+			// for a full keepalive interval.
+			lastOutbound := nsToTime(l.lastOutboundNs.Load())
+			if time.Now().Before(lastOutbound.Add(l.keepalive)) {
+				return nil
+			}
 			keepaliveResp := []byte{KeepaliveResponseByte}
 			keepalivePkt := &packet.Packet{
 				HeaderType:      packet.HeaderType1,
@@ -2642,28 +2648,24 @@ func (l *Link) watchdog() {
 			}
 			lastInbound := nsToTime(l.lastInboundNs.Load())
 			lastOutbound := nsToTime(l.lastOutboundNs.Load())
-			lastDataSent := nsToTime(l.lastDataSentNs.Load())
-			lastActivity := lastInbound
-			if lastOutbound.After(lastActivity) {
-				lastActivity = lastOutbound
-			}
-			if lastDataSent.After(lastActivity) {
-				lastActivity = lastDataSent
-			}
-			if lastActivity.Before(activatedAt) {
-				lastActivity = activatedAt
+			inboundActivity := lastInbound
+			if inboundActivity.Before(activatedAt) {
+				inboundActivity = activatedAt
 			}
 			now := time.Now()
 
-			if now.After(lastActivity.Add(l.keepalive)) {
+			// send keepalive when inbound OR outbound
+			// is older than keepalive so initiator keepalives still fire when
+			// the remote side is continuously transmitting.
+			needKeepalive := now.After(inboundActivity.Add(l.keepalive)) || now.After(lastOutbound.Add(l.keepalive))
+			if needKeepalive {
 				if l.initiator {
-					lastKeepalive := lastOutbound
-					if now.After(lastKeepalive.Add(l.keepalive)) {
+					if now.After(lastOutbound.Add(l.keepalive)) {
 						_ = l.sendKeepalive() // #nosec G104 - best effort keepalive
 					}
 				}
 
-				if now.After(lastActivity.Add(l.staleTime)) {
+				if now.After(inboundActivity.Add(l.staleTime)) {
 					sleepTime = l.rtt*KeepaliveTimeoutFactor + StaleGrace
 					if l.status.Load() != int32(StatusStale) {
 						ifaceName := ""
@@ -2677,7 +2679,12 @@ func (l *Link) watchdog() {
 					sleepTime = float64(l.keepalive) / float64(time.Second)
 				}
 			} else {
-				nextKeepalive := lastActivity.Add(l.keepalive)
+				nextIn := inboundActivity.Add(l.keepalive)
+				nextOut := lastOutbound.Add(l.keepalive)
+				nextKeepalive := nextIn
+				if nextOut.Before(nextKeepalive) {
+					nextKeepalive = nextOut
+				}
 				sleepTime = time.Until(nextKeepalive).Seconds()
 			}
 		} else if l.status.Load() == int32(StatusStale) {

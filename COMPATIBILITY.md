@@ -1,6 +1,6 @@
 # Compatibility with Python Reticulum
 
-This document compares Reticulum-Go with the official [Reticulum network API reference](https://reticulum.network/manual/reference.html) and the reference *rns* Python package (**RNS 1.3.9**).
+This document compares Reticulum-Go with the official [Reticulum network API reference](https://reticulum.network/manual/reference.html) and the reference *rns* Python package (**RNS 1.4.0**).
 
 Crossref tests clone the reference from `rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum` via [rngit](https://reticulum.network/manual/git.html) (`tests/crossref/run_crossref.sh`). The GitHub mirror at [markqvist/Reticulum](https://github.com/markqvist/Reticulum) is no longer used for vectors.
 
@@ -14,9 +14,9 @@ For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). F
 | Identity | Yes | Key generation, recall, sign/verify, encrypt/decrypt, ratchets. Optional 72-byte hardware-bound descriptor (RHB1). On-wire Ed25519 public key matches [RNS.Identity](https://github.com/markqvist/Reticulum/blob/master/RNS/Identity.py). Python `Identity.from_file` expects the 64-byte software layout only today. |
 | Destination | Yes | SINGLE, GROUP, PLAIN, LINK. Announce and request handlers, links in and out. |
 | Packet | Yes | Header types 1 and 2, all packet types and contexts. Byte-for-byte parity in crossref. |
-| Transport | Yes | Core wire behavior matches Python 1.3.9: path table, announces, RequestPath, hops, next-hop, type-2 rewrap, link-table forwarding, persistence, ingress control, random-blob path selection (1.3.4 dedup), interface mode announce rules and `MODE_INTERNAL` (1.3.6), ephemeral transport identity when transport is off (1.3.6). Probe responses via respond_to_probes / allow_probes, local_hops_delta hop mangling, and blackhole teardown at LINKIDENTIFY are implemented. Incoming links use `link.HandleIncomingLinkRequest`. Unpack rejects hop counts `>= PATHFINDER_M` (1.3.8). |
+| Transport | Yes | Core wire behavior matches Python 1.4.0: path table, announces, RequestPath, hops, next-hop, type-2 rewrap, link-table forwarding, persistence, ingress control, random-blob path selection (1.3.4 dedup), interface mode announce rules and `MODE_INTERNAL` (1.3.6), ephemeral transport identity when transport is off (1.3.6). Probe responses via respond_to_probes / allow_probes, local_hops_delta hop mangling, and blackhole teardown at LINKIDENTIFY are implemented. Incoming links use `link.HandleIncomingLinkRequest`. Unpack rejects hop counts `>= PATHFINDER_M` (1.3.8). Link keepalive/stale timing matches 1.4.0 initiator outbound keepalives. |
 | Interfaces | Partial | See [Interfaces](#interfaces) below. |
-| Discovery (RNS.Discovery, rnstransport) | Yes | [pkg/discovery](pkg/discovery/) mirrors wire constants, LXStamper, msgpack layouts. discover_interfaces or per-interface `discoverable = yes` starts rnstransport listening via [pkg/node](pkg/node/) StartInterfaceDiscovery. InterfaceAnnouncer publishes discoverable TCP/Backbone/I2P (and related) interfaces. Autoconnect and BlackholeUpdater loops are not auto-started. Build with BuildAppData, decode with ValidateAndDecode. Separate from AutoInterface multicast discovery. |
+| Discovery (RNS.Discovery, rnstransport) | Yes | [pkg/discovery](pkg/discovery/) mirrors wire constants, LXStamper, msgpack layouts. Default discovery stamp cost is 16 (RNS 1.4.0). Valid/invalid announce stamp caches and single-flight validation match Python. discover_interfaces or per-interface `discoverable = yes` starts rnstransport listening via [pkg/node](pkg/node/) StartInterfaceDiscovery. InterfaceAnnouncer publishes discoverable TCP/Backbone/I2P (and related) interfaces. Autoconnect and BlackholeUpdater loops are not auto-started. Build with BuildAppData, decode with ValidateAndDecode. Separate from AutoInterface multicast discovery. |
 | Blackhole | Partial | [pkg/blackhole](pkg/blackhole/) covers table semantics, msgpack, expiry, MergeRemote, EncodeForRequest. Announces from listed identities are dropped. Links from blackholed identities are torn down at LINKIDENTIFY. `/list` over rnstransport needs the RNS Request layer (not ported). publish_blackhole, blackhole_sources, blackhole_update_interval are ignored (deferred). |
 | IFAC | Yes | [pkg/ifac](pkg/ifac/) matches salt, HKDF identity, mask/unmask. UDP, TCP, Auto apply IFAC. Unauthenticated frames dropped. Live tests: [tests/interop/ifac_live_test.go](tests/interop/ifac_live_test.go). |
 | Link | Yes | Both directions, RTT, request/response, channel, buffer, resources. WatchAndReconnect and `Node.EnableLinkAutoReconnect` use `Reestablish()` on closed links. |
@@ -99,9 +99,9 @@ Native hosts that cannot import Go can use [pkg/librns](pkg/librns/) (`include/r
 
 watch_interfaces polls NIC state every 10s and calls OnNetworkAvailable on link or address changes (all desktop/mobile OS targets except WASM). Also enables AutoInterface NIC rescan. Python discover_interfaces starts rnstransport discovery (StartInterfaceDiscovery).
 
-## Python 1.2.x to 1.3.9 changes vs Go
+## Python 1.2.x to 1.4.0 changes vs Go
 
-Wire format is unchanged in 1.2.x to 1.3.x. Most churn is utilities and transport behavior.
+Wire format is unchanged in 1.2.x to 1.4.x. Most churn is utilities and transport behavior.
 
 | Python change | Version | Go status |
 |---------------|---------|-----------|
@@ -128,9 +128,14 @@ Wire format is unchanged in 1.2.x to 1.3.x. Most churn is utilities and transpor
 | Empty HMU cancels transfer | 1.3.9 | Covered (`pkg/link`) |
 | Backbone fast-flapping client block | 1.3.9 | Covered (`pkg/interfaces` BackboneInterface) |
 | HDLC drop frames `<= HEADER_MINSIZE` | 1.3.9 | Covered (TCP/Backbone HDLC decoders) |
+| Default discovery stamp value 16 | 1.4.0 | Covered (`pkg/discovery` DefaultStampValue) |
+| Discovery valid/invalid stamp caches and validation lock | 1.4.0 | Covered (`pkg/discovery` InterfaceDiscovery) |
+| Initiator keepalive when outbound quiet while inbound busy | 1.4.0 | Covered (`pkg/link` watchdog) |
+| Responder keepalive reply throttle | 1.4.0 | Covered (`pkg/link` ContextKeepalive) |
+| Backbone blocked_ips in ifstats | 1.4.0 | Partial (flap block covered. blocked_ip_list export not yet) |
 | rngit / rnid / rnsh utilities | 1.2.x+ | Not ported (no wire impact; rnsh security fix is Python-only) |
 
-### RNS 1.3.6 through 1.3.9 notes
+### RNS 1.3.6 through 1.4.0 notes
 
 **1.3.6** adds interface `MODE_INTERNAL` (0x07), recursive_prs / announces_from_internal interface options, announce broadcast mode rules, static_transport_identity, local_hops_delta hop mangling, and ephemeral transport identity when transport is disabled (RPC key still derived from the persisted identity).
 
@@ -139,6 +144,8 @@ Wire format is unchanged in 1.2.x to 1.3.x. Most churn is utilities and transpor
 **1.3.8** rejects packets whose hop field is `>= PATHFINDER_M` (128) during unpack, records expected_hops on the link responder from the RTT packet, and keeps initiator LRPROOF acceptance gated on matching hop count (or unknown `PATHFINDER_M`). Also fixes link TX byte accounting to use ciphertext size.
 
 **1.3.9** allows discoverable announces on `MODE_INTERNAL`, adds location_cmd for geo fields, sets link remote identity only once at LINKIDENTIFY, has receivers emit `RESOURCE_RCL` when cancelling an incoming resource, rejects oversized resource advertisements at unpack (`t > MAX_EFFICIENT_SIZE*3`), cancels transfers on empty HMU, blocks fast-flapping Backbone clients, and drops HDLC frames at or below `HEADER_MINSIZE`. Also includes a critical `rnsh` security fix (Python utility only).
+
+**1.4.0** raises the default interface-discovery stamp cost from 14 to 16, adds valid and invalid discovery stamp caches with single-flight validation (CPU relief), and fixes link keepalive so the initiator still probes when the remote side is continuously transmitting (stale detection stays inbound-based). Responder keepalive replies are throttled to one per keepalive interval. Also includes Backbone ifstats blocked IP fields and low-power persistence/cleanup optimizations in Python (Go already uses background-friendly persistence patterns).
 
 ## Security and robustness notes
 

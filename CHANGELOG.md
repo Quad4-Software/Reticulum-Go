@@ -11,6 +11,7 @@
 - Expanded test taxonomy covering mutation, health oracles, property suites, CLI smoke and black-box, librns acceptance, UDP path e2e, and matching Task targets
 - Docs updates for bindings, librns, examples, and testing layers
 - Go-only dos_protection IDS/IPS gates (off/detect/prevent/auto, default auto) with adaptive baselines, once-per-second peak sampling, msgpack-persisted learning, auto promote to prevent, relearn on network or drift change, iface cool-down, crypto and handshake budgets, health counters, rate-limited stdout trip warnings, false-positive edge suites, and live UDP/TCP/mesh protect tests
+- Wire compatibility target raised to Python RNS 1.4.0 (discovery stamp default 16, discovery stamp caches, link keepalive parity)
 
 ### Fixed
 - Link requests register before send so fast replies are not dropped
@@ -18,6 +19,7 @@
 - UDP inbound Rx byte and packet counters
 - Common base interface IFAC ingress aligned with the shared inbound IFAC policy
 - Python, Rust, and Lua node event poll allocate app data so payloads are not silently truncated
+- Link watchdog keepalive when remote continuously transmits (RNS 1.4.0)
 
 ## v1.0.0
 

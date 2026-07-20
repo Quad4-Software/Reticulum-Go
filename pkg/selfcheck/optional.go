@@ -63,7 +63,7 @@ func checkPythonRNS() Result {
 	}
 	want := os.Getenv("RNS_REQUIRED_VERSION")
 	if want == "" {
-		want = "1.3.9"
+		want = "1.4.0"
 	}
 	cmd := exec.Command(py, "-c", "import RNS; print(getattr(RNS, '__version__', ''))") // #nosec G204,G702 -- python from PATH, .venv, or PYTHON_INTEROP
 	out, err := cmd.CombinedOutput()
