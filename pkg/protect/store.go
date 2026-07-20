@@ -47,7 +47,8 @@ func loadStore(path string) (*persistedStore, error) {
 	if path == "" {
 		return nil, nil
 	}
-	data, err := os.ReadFile(path)
+	path = filepath.Clean(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- path is transport storage dir plus fixed StoreFileName
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -71,6 +72,7 @@ func saveStore(path string, st *persistedStore) error {
 	if path == "" || st == nil {
 		return nil
 	}
+	path = filepath.Clean(path)
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
@@ -81,7 +83,7 @@ func saveStore(path string, st *persistedStore) error {
 		return err
 	}
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+	if err := os.WriteFile(tmp, data, 0o600); err != nil { // #nosec G304 -- path is transport storage dir plus fixed StoreFileName
 		return err
 	}
 	return os.Rename(tmp, path)

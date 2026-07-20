@@ -95,7 +95,8 @@ func TestLiveUDPQuietNoFalsePositive(t *testing.T) {
 	}
 }
 
-// TestLiveUDPFloodPreventSheds drops real flood datagrams under prevent.
+// TestLiveUDPFloodPreventSheds sheds on the live iface ProcessIncoming path.
+// Flood is driven in-process so OS UDP loss cannot hide protect trips (Darwin CI).
 func TestLiveUDPFloodPreventSheds(t *testing.T) {
 	t.Cleanup(func() { protect.SetDefault(nil) })
 	health.Default.Reset()
@@ -112,6 +113,7 @@ func TestLiveUDPFloodPreventSheds(t *testing.T) {
 
 	a, b, cleanup := startUDPPair(t, "flood_a", "flood_b")
 	defer cleanup()
+	_ = a
 
 	var got atomic.Int64
 	b.SetPacketCallback(func(data []byte, _ common.NetworkInterface) {
@@ -119,11 +121,11 @@ func TestLiveUDPFloodPreventSheds(t *testing.T) {
 	})
 
 	payload := make([]byte, 64)
-	for range 400 {
-		_ = a.ProcessOutgoing(payload)
+	const n = 400
+	for range n {
+		b.ProcessIncoming(payload)
 	}
-	time.Sleep(300 * time.Millisecond)
-	if got.Load() >= 400 {
+	if got.Load() >= int64(n) {
 		t.Fatalf("prevent flood should shed got=%d", got.Load())
 	}
 	if e.TripCount(protect.ReasonPPS) == 0 {
