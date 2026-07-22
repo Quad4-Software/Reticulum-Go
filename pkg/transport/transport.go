@@ -179,12 +179,14 @@ type Transport struct {
 	pathPersistDisabled     atomic.Bool
 	pathPersistDir          string
 	pathPersistDirty        atomic.Bool
+	pathPersistGen          atomic.Uint64
 	pathPersistSaving       sync.Mutex
 	pendingPathEntries      []pendingPathEntry
 	done                    chan struct{}
 	stopOnce                sync.Once
 	startTime               time.Time
 	destinationsLastCleaned atomic.Int64
+	knownDestCleaning       atomic.Bool
 
 	tunnelMu           sync.Mutex
 	tunnels            map[[32]byte]*tunnelEntry
@@ -414,11 +416,18 @@ func (t *Transport) maybeCleanKnownDestinations() {
 	if last != 0 && time.Duration(now-last) < KnownDestinationsInterval {
 		return
 	}
+	if !t.knownDestCleaning.CompareAndSwap(false, true) {
+		return
+	}
 	if !t.destinationsLastCleaned.CompareAndSwap(last, now) {
+		t.knownDestCleaning.Store(false)
 		return
 	}
 	go func() {
-		defer t.destinationsLastCleaned.Store(time.Now().UnixNano())
+		defer func() {
+			t.destinationsLastCleaned.Store(time.Now().UnixNano())
+			t.knownDestCleaning.Store(false)
+		}()
 		identity.CleanKnownDestinations(t.HasPath)
 		identity.PersistKnownDestinationsIfDirty()
 	}()

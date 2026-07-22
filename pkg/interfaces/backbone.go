@@ -212,6 +212,13 @@ func (bi *BackboneInterface) Stop() error {
 }
 
 func (bi *BackboneInterface) acceptConn(conn net.Conn) {
+	select {
+	case <-bi.done:
+		_ = conn.Close()
+		return
+	default:
+	}
+
 	remoteIP := peerIP(conn)
 	if bi.isFastFlappingBlocked(remoteIP) {
 		debug.Log(debug.DebugVerbose, "Ignoring incoming connection from fast-flapping IP", "ip", remoteIP)
@@ -221,6 +228,19 @@ func (bi *BackboneInterface) acceptConn(conn net.Conn) {
 
 	client := newSpawnedBackboneClient(bi, conn)
 	bi.spawnMu.Lock()
+	select {
+	case <-bi.done:
+		bi.spawnMu.Unlock()
+		_ = conn.Close()
+		return
+	default:
+	}
+	if bi.isFastFlappingBlocked(remoteIP) {
+		bi.spawnMu.Unlock()
+		debug.Log(debug.DebugVerbose, "Ignoring incoming connection from fast-flapping IP", "ip", remoteIP)
+		_ = conn.Close()
+		return
+	}
 	bi.spawned = append(bi.spawned, client)
 	cb := bi.callback
 	hook := bi.spawnHook

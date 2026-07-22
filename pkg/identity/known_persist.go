@@ -26,6 +26,7 @@ var (
 	knownPersistMemory   atomic.Bool
 	knownPersistDisabled atomic.Bool
 	knownPersistDirty    atomic.Bool
+	knownPersistGen      atomic.Uint64
 	knownPersistSaving   sync.Mutex
 )
 
@@ -141,6 +142,7 @@ func InitKnownDestinationsPersistence(configPath string, inMemory bool) {
 	knownPersistMemory.Store(inMemory)
 	knownPersistDisabled.Store(false)
 	knownPersistDirty.Store(false)
+	knownPersistGen.Store(0)
 
 	if configPath == "" && os.Getenv("RETICULUM_STORAGE_PATH") == "" {
 		// No config path was resolved: this is either ad-hoc/library use or
@@ -231,6 +233,7 @@ func markKnownDestinationsDirty() {
 	if knownPersistMemory.Load() || knownPersistDisabled.Load() {
 		return
 	}
+	knownPersistGen.Add(1)
 	knownPersistDirty.Store(true)
 }
 
@@ -258,6 +261,8 @@ func saveKnownDestinations(force bool) {
 		return
 	}
 	defer knownPersistSaving.Unlock()
+
+	gen := knownPersistGen.Load()
 
 	knownDestinationsLock.RLock()
 	export := make(map[string][]any, len(knownDestinations))
@@ -313,7 +318,10 @@ func saveKnownDestinations(force bool) {
 		disableKnownDestinationsPersistence(err)
 		return
 	}
-	knownPersistDirty.Store(false)
+	// Only clear dirty when no Remember/Retain landed after the snapshot gen.
+	if knownPersistGen.Load() == gen {
+		knownPersistDirty.Store(false)
+	}
 	debug.Log(debug.DebugVerbose, "Saved known destinations to storage", "count", len(export))
 }
 

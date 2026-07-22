@@ -817,15 +817,16 @@ func (l *Link) Teardown() {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	if l.status.Load() == int32(StatusActive) {
-		_ = l.sendTeardownPacket() // #nosec G104 - best effort notification to peer
-		l.status.Store(int32(StatusClosed))
-		if l.transport != nil && len(l.linkID) > 0 {
-			l.transport.UnregisterLink(l.linkID)
-		}
-		if l.closedCallback != nil {
-			l.closedCallback(l)
-		}
+	if !l.status.CompareAndSwap(int32(StatusActive), int32(StatusClosed)) {
+		l.resetIncomingResource()
+		return
+	}
+	_ = l.sendTeardownPacket() // #nosec G104 - best effort notification to peer
+	if l.transport != nil && len(l.linkID) > 0 {
+		l.transport.UnregisterLink(l.linkID)
+	}
+	if l.closedCallback != nil {
+		l.closedCallback(l)
 	}
 	l.resetIncomingResource()
 }
@@ -954,7 +955,7 @@ func (l *Link) HandleInbound(pkt *packet.Packet) error {
 		l.recordInbound(pkt.Context != packet.ContextKeepalive)
 
 		if l.status.Load() == int32(StatusStale) {
-			l.status.Store(int32(StatusActive))
+			_ = l.promoteToActive()
 		}
 
 		l.watchdogLock = false
@@ -976,7 +977,7 @@ func (l *Link) HandleInbound(pkt *packet.Packet) error {
 		}
 		l.recordInbound(true)
 		if l.status.Load() == int32(StatusStale) {
-			l.status.Store(int32(StatusActive))
+			_ = l.promoteToActive()
 		}
 		l.watchdogLock = false
 		l.mutex.Unlock()
@@ -996,7 +997,7 @@ func (l *Link) HandleInbound(pkt *packet.Packet) error {
 		}
 		l.recordInbound(true)
 		if l.status.Load() == int32(StatusStale) {
-			l.status.Store(int32(StatusActive))
+			_ = l.promoteToActive()
 		}
 		l.watchdogLock = false
 		l.mutex.Unlock()
@@ -1019,7 +1020,7 @@ func (l *Link) HandleInbound(pkt *packet.Packet) error {
 	l.recordInbound(pkt.Context != packet.ContextKeepalive)
 
 	if l.status.Load() == int32(StatusStale) {
-		l.status.Store(int32(StatusActive))
+		_ = l.promoteToActive()
 	}
 
 	if pkt.PacketType == packet.PacketTypeProof && pkt.Context == packet.ContextLRProof {
@@ -2050,7 +2051,10 @@ func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
 		logRtt := l.rtt
 		l.mutex.Unlock()
 
-		l.status.Store(int32(StatusActive))
+		if !l.promoteToActive() {
+			debug.Log(debug.DebugInfo, "Ignoring late RTT on closed link", "link_id", fmt.Sprintf("%x", l.linkID))
+			return nil
+		}
 
 		if l.transport != nil {
 			l.transport.RegisterLink(l.linkID, l)
@@ -2115,8 +2119,9 @@ func (l *Link) handleLinkProof(pkt *packet.Packet, networkIface common.NetworkIn
 
 func (l *Link) handleTeardown(plaintext []byte) error {
 	if len(plaintext) == len(l.linkID) && string(plaintext) == string(l.linkID) {
-		l.teardownReason = StatusFailed
-		l.status.Store(int32(StatusClosed))
+		if !l.closeOnce(StatusFailed) {
+			return nil
+		}
 		if l.transport != nil && len(l.linkID) > 0 {
 			l.transport.UnregisterLink(l.linkID)
 		}
@@ -2128,6 +2133,39 @@ func (l *Link) handleTeardown(plaintext []byte) error {
 		}
 	}
 	return nil
+}
+
+// closeOnce CAS-transitions any non-Closed status to Closed exactly once.
+func (l *Link) closeOnce(reason byte) bool {
+	for {
+		st := l.status.Load()
+		if st == int32(StatusClosed) {
+			return false
+		}
+		if l.status.CompareAndSwap(st, int32(StatusClosed)) {
+			l.teardownReason = reason
+			return true
+		}
+	}
+}
+
+// promoteToActive CAS-transitions Handshake/Pending/Stale to Active.
+// Returns false when the link is already Closed (or an unexpected state),
+// preventing late RTT/proof from resurrecting a timed-out link (TOCTOU).
+func (l *Link) promoteToActive() bool {
+	for {
+		st := l.status.Load()
+		switch st {
+		case int32(StatusActive):
+			return true
+		case int32(StatusHandshake), int32(StatusPending), int32(StatusStale):
+			if l.status.CompareAndSwap(st, int32(StatusActive)) {
+				return true
+			}
+		default:
+			return false
+		}
+	}
 }
 
 func maxFloat(a, b float64) float64 {
@@ -2612,17 +2650,7 @@ func (l *Link) watchdog() {
 			sleepTime = time.Until(nextCheck).Seconds()
 			if time.Now().After(nextCheck) {
 				debug.Log(debug.DebugInfo, "Link establishment timed out", "link_id", fmt.Sprintf("%x", l.linkID), "status", l.status.Load())
-				l.teardownReason = StatusFailed
-				l.status.Store(int32(StatusClosed))
-				if l.transport != nil && len(l.linkID) > 0 {
-					l.transport.UnregisterLink(l.linkID)
-				}
-				if l.initiator {
-					l.invalidateTransportPathAfterInitiatorFailure()
-				}
-				if l.closedCallback != nil {
-					l.closedCallback(l)
-				}
+				l.finishWatchdogClose(StatusFailed, true)
 				sleepTime = 0.001
 			}
 		} else if l.status.Load() == int32(StatusHandshake) {
@@ -2635,17 +2663,7 @@ func (l *Link) watchdog() {
 				} else {
 					debug.Log(debug.DebugInfo, "Timeout waiting for RTT packet from link initiator", "link_id", fmt.Sprintf("%x", l.linkID), "elapsed", fmt.Sprintf("%.3fs", elapsed), "timeout", l.establishmentTimeout.Seconds())
 				}
-				l.teardownReason = StatusFailed
-				l.status.Store(int32(StatusClosed))
-				if l.transport != nil && len(l.linkID) > 0 {
-					l.transport.UnregisterLink(l.linkID)
-				}
-				if l.initiator {
-					l.invalidateTransportPathAfterInitiatorFailure()
-				}
-				if l.closedCallback != nil {
-					l.closedCallback(l)
-				}
+				l.finishWatchdogClose(StatusFailed, true)
 				sleepTime = 0.001
 			}
 		} else if l.status.Load() == int32(StatusActive) {
@@ -2677,14 +2695,15 @@ func (l *Link) watchdog() {
 			if needKeepalive {
 				if now.After(inboundActivity.Add(l.staleTime)) {
 					sleepTime = l.rtt*KeepaliveTimeoutFactor + StaleGrace
-					if l.status.Load() != int32(StatusStale) {
+					if l.status.CompareAndSwap(int32(StatusActive), int32(StatusStale)) {
 						ifaceName := ""
 						if l.networkInterface != nil {
 							ifaceName = l.networkInterface.GetName()
 						}
 						health.Inc(ifaceName, health.KindKeepaliveTimeout)
+					} else if l.status.Load() != int32(StatusStale) {
+						sleepTime = float64(l.keepalive) / float64(time.Second)
 					}
-					l.status.Store(int32(StatusStale))
 				} else {
 					sleepTime = float64(l.keepalive) / float64(time.Second)
 				}
@@ -2706,11 +2725,7 @@ func (l *Link) watchdog() {
 			}
 			health.Inc(ifaceName, health.KindLinkStaleClose)
 			_ = l.sendTeardownPacket() // #nosec G104 - best effort teardown
-			l.teardownReason = StatusFailed
-			l.status.Store(int32(StatusClosed))
-			if l.closedCallback != nil {
-				l.closedCallback(l)
-			}
+			l.finishWatchdogClose(StatusFailed, false)
 			sleepTime = 0.001
 		}
 
@@ -2725,6 +2740,23 @@ func (l *Link) watchdog() {
 		time.Sleep(time.Duration(sleepTime * float64(time.Second)))
 	}
 	l.watchdogActive.Store(false)
+}
+
+// finishWatchdogClose CAS-closes the link once and runs close side effects.
+// invalidatePath applies initiator path invalidation for establishment timeouts.
+func (l *Link) finishWatchdogClose(reason byte, invalidatePath bool) {
+	if !l.closeOnce(reason) {
+		return
+	}
+	if l.transport != nil && len(l.linkID) > 0 {
+		l.transport.UnregisterLink(l.linkID)
+	}
+	if invalidatePath && l.initiator {
+		l.invalidateTransportPathAfterInitiatorFailure()
+	}
+	if l.closedCallback != nil {
+		l.closedCallback(l)
+	}
 }
 
 func (l *Link) sendKeepalive() error {
@@ -3282,7 +3314,10 @@ func (l *Link) validateLinkProofLocked(pkt *packet.Packet, networkIface common.N
 	}
 	logRtt := l.rtt
 
-	l.status.Store(int32(StatusActive))
+	if !l.promoteToActive() {
+		l.markInitiatorEstablishmentFailedLocked()
+		return errors.New("link closed before becoming active")
+	}
 
 	rttData, err := msgpack.Marshal(logRtt)
 	if err != nil {

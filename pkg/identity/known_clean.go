@@ -103,6 +103,9 @@ type CleanKnownDestinationsResult struct {
 // Unlike Python, never-used entries are only removed after UnusedDestinationLinger
 // (Python also compares unused_for against DESTINATION_TIMEOUT*1.25 when
 // last_use is 0, which can delete fresh announces immediately).
+//
+// Deletion re-validates retain/use/age under the write lock so a concurrent
+// Retain, Touch, or Remember cannot lose to a stale clean verdict (TOCTOU).
 func CleanKnownDestinations(hasPath func([]byte) bool) CleanKnownDestinationsResult {
 	if hasPath == nil {
 		hasPath = func([]byte) bool { return false }
@@ -170,7 +173,7 @@ func CleanKnownDestinations(hasPath func([]byte) bool) CleanKnownDestinationsRes
 
 	knownDestinationsLock.Lock()
 	for _, key := range stale {
-		if _, ok := knownDestinations[key]; !ok {
+		if !stillStaleForCleanLocked(key, hasPath, now, nowUnix) {
 			continue
 		}
 		delete(knownDestinations, key)
@@ -185,4 +188,29 @@ func CleanKnownDestinations(hasPath func([]byte) bool) CleanKnownDestinationsRes
 			"total", result.Total, "removed", result.Removed, "no_path", result.NoPath)
 	}
 	return result
+}
+
+// stillStaleForCleanLocked re-checks eligibility under the write lock.
+func stillStaleForCleanLocked(key string, hasPath func([]byte) bool, now time.Time, nowUnix int64) bool {
+	meta, metaOK := knownDestMetaByKey[key]
+	if _, exists := knownDestinations[key]; !exists {
+		return false
+	}
+	if !metaOK {
+		return false
+	}
+	if meta.lastUsed < 0 {
+		return false
+	}
+	destHash, ok := resolveDestHashKey(key)
+	if !ok {
+		return false
+	}
+	if hasPath(destHash) {
+		return false
+	}
+	if meta.lastUsed == 0 {
+		return now.Sub(time.Unix(meta.rememberedAt, 0)) > UnusedDestinationLinger
+	}
+	return nowUnix-meta.lastUsed > int64(DestinationTimeout*5/4/time.Second)
 }

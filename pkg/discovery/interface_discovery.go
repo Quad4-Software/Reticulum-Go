@@ -21,6 +21,7 @@ type InterfaceDiscovery struct {
 	requiredValue int
 	onDiscovered  func(*ReceivedAnnounceInfo)
 	handler       *interfaceAnnounceHandler
+	mu            sync.Mutex
 }
 
 // NewInterfaceDiscovery creates a discovery listener for interface announces.
@@ -37,7 +38,12 @@ func NewInterfaceDiscovery(tr *transport.Transport, requiredValue int, onDiscove
 
 // Start registers the announce handler with transport.
 func (d *InterfaceDiscovery) Start() {
-	if d == nil || d.transport == nil || d.handler != nil {
+	if d == nil || d.transport == nil {
+		return
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.handler != nil {
 		return
 	}
 	d.handler = &interfaceAnnounceHandler{
@@ -52,11 +58,17 @@ func (d *InterfaceDiscovery) Start() {
 
 // Stop unregisters the announce handler.
 func (d *InterfaceDiscovery) Stop() {
-	if d == nil || d.transport == nil || d.handler == nil {
+	if d == nil || d.transport == nil {
 		return
 	}
-	d.transport.UnregisterAnnounceHandler(d.handler)
+	d.mu.Lock()
+	handler := d.handler
 	d.handler = nil
+	d.mu.Unlock()
+	if handler == nil {
+		return
+	}
+	d.transport.UnregisterAnnounceHandler(handler)
 }
 
 type interfaceAnnounceHandler struct {
