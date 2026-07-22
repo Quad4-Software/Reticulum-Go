@@ -56,7 +56,7 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | instance_name | (empty) | Unix socket name when type is unix |
 | rpc_key | (empty) | Hex key for shared-instance RPC and control API auth |
 | enable_sandbox | yes | Apply OS sandbox after startup (Go-only) |
-| enable_seccomp | yes | Linux seccomp-bpf denylist after Landlock (ignored when sandbox is off, soft-fails if unsupported) |
+| enable_seccomp | yes | Linux seccomp-bpf denylist after Landlock (TSYNC, then all-threads, then prctl fallback, soft-fails if unsupported) |
 | enable_control_api | no | Start localhost control API |
 | control_api_host | 127.0.0.1 | Control API bind address |
 | control_api_port | 37430 | Control API port |

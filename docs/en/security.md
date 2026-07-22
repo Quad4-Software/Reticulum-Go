@@ -32,7 +32,7 @@ The `reticulum-go` daemon calls `sandbox.Apply` from `pkg/sandbox` after config 
 
 Default: `enable_sandbox = yes` in `[reticulum]`. Set `enable_sandbox = no` to disable (not recommended for production).
 
-On Linux, enable_seccomp defaults to yes when the sandbox is enabled. Set `enable_seccomp = no` to skip the seccomp filter. Install failures soft-fail so older kernels and constrained environments keep running.
+On Linux, enable_seccomp defaults to yes when the sandbox is enabled. Set `enable_seccomp = no` to skip the seccomp filter. Install prefers process-wide `SECCOMP_FILTER_FLAG_TSYNC`, then falls back to per-OS-thread install (`AllThreadsSyscall`), then `prctl(PR_SET_SECCOMP)` on kernels without the seccomp syscall. Any remaining failure soft-fails so older kernels and constrained environments keep running.
 
 | OS | Mechanism | Effect |
 |----|-----------|--------|

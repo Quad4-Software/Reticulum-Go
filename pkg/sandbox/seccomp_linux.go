@@ -7,7 +7,9 @@ package sandbox
 
 import (
 	"fmt"
+	"os"
 	"runtime"
+	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -36,21 +38,88 @@ func applySeccomp(cfg *common.ReticulumConfig) {
 		debug.Log(debug.DebugInfo, "Seccomp disabled by configuration")
 		return
 	}
-	if err := installSeccompFilter(); err != nil {
+	mode, err := installSeccompFilter()
+	if err != nil {
+		// Soft-fail: older kernels, containers without seccomp, qemu-user, or
+		// unsupported arches must not prevent the daemon from running.
 		debug.Log(debug.DebugError, "Seccomp filter install failed (continuing)", "error", err)
 		return
 	}
-	debug.Log(debug.DebugInfo, "Seccomp filter applied", "arch", runtime.GOARCH)
+	debug.Log(debug.DebugInfo, "Seccomp filter applied", "arch", runtime.GOARCH, "mode", mode)
 }
 
-func installSeccompFilter() error {
+// installSeccompFilter installs the denylist BPF filter.
+// Preference order:
+//  1. seccomp(SECCOMP_SET_MODE_FILTER, TSYNC) process-wide
+//  2. AllThreadsSyscall seccomp without TSYNC (kernels without the flag)
+//  3. AllThreadsSyscall prctl(PR_SET_SECCOMP) when the seccomp syscall is missing
+func installSeccompFilter() (string, error) {
+	if os.Getenv("RETICULUM_QEMU_USER") == "1" {
+		return "", fmt.Errorf("seccomp skipped under qemu-user")
+	}
+
+	prog, err := buildSeccompProg()
+	if err != nil {
+		return "", err
+	}
+
+	_, _, errno := unix.Syscall(
+		unix.SYS_SECCOMP,
+		uintptr(unix.SECCOMP_SET_MODE_FILTER),
+		uintptr(unix.SECCOMP_FILTER_FLAG_TSYNC),
+		uintptr(unsafe.Pointer(prog)), // #nosec G103 - required for SECCOMP_SET_MODE_FILTER
+	)
+	if errno == 0 {
+		return "tsync", nil
+	}
+
+	switch errno {
+	case unix.EINVAL, unix.ESRCH, unix.ENOSYS:
+		mode, err := installSeccompAllThreads(prog)
+		if err != nil {
+			return "", fmt.Errorf("seccomp tsync unavailable (%v), fallback failed: %w", errno, err)
+		}
+		return mode, nil
+	default:
+		return "", errno
+	}
+}
+
+func installSeccompAllThreads(prog *unix.SockFprog) (string, error) {
+	_, _, errno := syscall.AllThreadsSyscall(
+		unix.SYS_SECCOMP,
+		uintptr(unix.SECCOMP_SET_MODE_FILTER),
+		0,
+		uintptr(unsafe.Pointer(prog)), // #nosec G103 - required for SECCOMP_SET_MODE_FILTER
+	)
+	if errno == 0 {
+		return "all_threads", nil
+	}
+	if errno != unix.ENOSYS {
+		return "", errno
+	}
+
+	// Kernels without CONFIG_SECCOMP_FILTER's seccomp syscall still accept
+	// filter install through prctl on some older builds.
+	_, _, errno = syscall.AllThreadsSyscall(
+		unix.SYS_PRCTL,
+		uintptr(unix.PR_SET_SECCOMP),
+		uintptr(unix.SECCOMP_MODE_FILTER),
+		uintptr(unsafe.Pointer(prog)), // #nosec G103 - required for PR_SET_SECCOMP filter install
+	)
+	if errno != 0 {
+		return "", fmt.Errorf("prctl seccomp: %w", errno)
+	}
+	return "prctl", nil
+}
+
+func buildSeccompProg() (*unix.SockFprog, error) {
 	arch, denied, err := seccompPolicy()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	filter := make([]unix.SockFilter, 0, 8+2*len(denied))
-	// Validate architecture.
 	filter = append(filter,
 		bpfStmt(unix.BPF_LD|unix.BPF_W|unix.BPF_ABS, seccompDataArchOffset),
 		bpfJump(unix.BPF_JMP|unix.BPF_JEQ|unix.BPF_K, arch, 1, 0),
@@ -58,7 +127,6 @@ func installSeccompFilter() error {
 		bpfStmt(unix.BPF_LD|unix.BPF_W|unix.BPF_ABS, seccompDataNrOffset),
 	)
 	for _, nr := range denied {
-		// if nr == denied: return EPERM else continue
 		filter = append(filter,
 			bpfJump(unix.BPF_JMP|unix.BPF_JEQ|unix.BPF_K, uint32(nr), 0, 1), // #nosec G115 - syscall numbers are small positive constants
 			bpfStmt(unix.BPF_RET|unix.BPF_K, seccompRetErrnoEPERM),
@@ -66,22 +134,10 @@ func installSeccompFilter() error {
 	}
 	filter = append(filter, bpfStmt(unix.BPF_RET|unix.BPF_K, unix.SECCOMP_RET_ALLOW))
 
-	prog := &unix.SockFprog{
+	return &unix.SockFprog{
 		Len:    uint16(len(filter)), // #nosec G115 - BPF filter length is bounded by denied syscall table size
 		Filter: &filter[0],
-	}
-	_, _, errno := unix.Syscall(unix.SYS_SECCOMP, uintptr(unix.SECCOMP_SET_MODE_FILTER), 0, uintptr(unsafe.Pointer(prog))) // #nosec G103 - required for SECCOMP_SET_MODE_FILTER
-	if errno == unix.ENOSYS {
-		// Fall back to prctl on kernels without seccomp syscall.
-		if err := unix.Prctl(unix.PR_SET_SECCOMP, unix.SECCOMP_MODE_FILTER, uintptr(unsafe.Pointer(prog)), 0, 0); err != nil { // #nosec G103 - required for PR_SET_SECCOMP filter install
-			return fmt.Errorf("prctl seccomp: %w", err)
-		}
-		return nil
-	}
-	if errno != 0 {
-		return errno
-	}
-	return nil
+	}, nil
 }
 
 func bpfStmt(code uint16, k uint32) unix.SockFilter {

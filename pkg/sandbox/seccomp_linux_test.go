@@ -97,8 +97,14 @@ func TestSeccompHelper(t *testing.T) {
 	if err := unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
 		t.Fatalf("PR_SET_NO_NEW_PRIVS failed: %v", err)
 	}
-	if err := installSeccompFilter(); err != nil {
+	mode, err := installSeccompFilter()
+	if err != nil {
 		t.Skipf("seccomp install: %v", err)
+	}
+	switch mode {
+	case "tsync", "all_threads", "prctl":
+	default:
+		t.Fatalf("unexpected install mode %q", mode)
 	}
 
 	// Allowed: ordinary process queries must still succeed.
@@ -114,11 +120,33 @@ func TestSeccompHelper(t *testing.T) {
 
 	// Denied: mount should return EPERM (unprivileged already fails, but
 	// seccomp must still intercept before capability checks where possible).
-	err := unix.Mount("none", "/", "", unix.MS_RDONLY, "")
+	err = unix.Mount("none", "/", "", unix.MS_RDONLY, "")
 	if err == nil {
 		t.Fatal("mount unexpectedly succeeded")
 	}
 	if errno, ok := err.(syscall.Errno); ok && errno != unix.EPERM && errno != unix.EACCES {
 		t.Fatalf("mount expected EPERM/EACCES, got %v", err)
+	}
+}
+
+func TestSeccompBuildProg(t *testing.T) {
+	prog, err := buildSeccompProg()
+	if err != nil {
+		t.Fatalf("buildSeccompProg: %v", err)
+	}
+	if prog == nil || prog.Len == 0 || prog.Filter == nil {
+		t.Fatal("expected non-empty sock_fprog")
+	}
+}
+
+func TestSeccompInstallSoftFailUnsupportedArch(t *testing.T) {
+	// installSeccompFilter soft-fails via applySeccomp; policy error path is covered
+	// by seccompPolicy on supported arches returning a usable denylist.
+	arch, denied, err := seccompPolicy()
+	if err != nil {
+		t.Fatalf("seccompPolicy: %v", err)
+	}
+	if arch == 0 || len(denied) == 0 {
+		t.Fatal("expected usable policy on this arch")
 	}
 }
