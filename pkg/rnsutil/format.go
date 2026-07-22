@@ -230,6 +230,11 @@ func WriteStatusHuman(w io.Writer, stats transport.InterfaceStatsResponse, linkC
 			if _, err := fmt.Fprintf(w, "  Clients   : %d\n", *st.Clients); err != nil {
 				return err
 			}
+			if st.BlockedIPs != nil && *st.BlockedIPs > 0 {
+				if _, err := fmt.Fprintf(w, "  Blocked   : %d IPs\n", *st.BlockedIPs); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	if len(stats.TransportID) > 0 {
@@ -280,36 +285,38 @@ func formatSeconds(s float64) string {
 // WriteStatusJSON writes interface stats as JSON with bytes hex-encoded.
 func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error {
 	type ifaceJSON struct {
-		Name                      string  `json:"name"`
-		ShortName                 string  `json:"short_name"`
-		Hash                      string  `json:"hash,omitempty"`
-		Type                      string  `json:"type"`
-		RXB                       uint64  `json:"rxb"`
-		TXB                       uint64  `json:"txb"`
-		RXS                       float64 `json:"rxs"`
-		TXS                       float64 `json:"txs"`
-		Status                    bool    `json:"status"`
-		Mode                      byte    `json:"mode"`
-		Clients                   *int    `json:"clients"`
-		Bitrate                   int64   `json:"bitrate"`
-		IncomingAnnounceFrequency float64 `json:"incoming_announce_frequency"`
-		OutgoingAnnounceFrequency float64 `json:"outgoing_announce_frequency"`
-		IncomingPRFrequency       float64 `json:"incoming_pr_frequency"`
-		OutgoingPRFrequency       float64 `json:"outgoing_pr_frequency"`
-		HeldAnnounces             int     `json:"held_announces"`
-		BurstActive               bool    `json:"burst_active"`
-		PRBurstActive             bool    `json:"pr_burst_active"`
-		IFACFail                  uint64  `json:"ifac_fail"`
-		HMACFail                  uint64  `json:"hmac_fail"`
-		AnnounceSigFail           uint64  `json:"announce_sig_fail"`
-		UnpackFail                uint64  `json:"unpack_fail"`
-		IntegrityFailRate         float64 `json:"integrity_fail_rate"`
-		StaleCloses               uint64  `json:"stale_closes"`
-		KeepaliveTimeout          uint64  `json:"keepalive_timeout"`
-		I2PB32                    *string `json:"i2p_b32,omitempty"`
-		I2PConnectable            *bool   `json:"i2p_connectable,omitempty"`
-		Tunnel                    *string `json:"tunnelstate,omitempty"`
-		I2PLastError              *string `json:"i2p_last_error,omitempty"`
+		Name                      string   `json:"name"`
+		ShortName                 string   `json:"short_name"`
+		Hash                      string   `json:"hash,omitempty"`
+		Type                      string   `json:"type"`
+		RXB                       uint64   `json:"rxb"`
+		TXB                       uint64   `json:"txb"`
+		RXS                       float64  `json:"rxs"`
+		TXS                       float64  `json:"txs"`
+		Status                    bool     `json:"status"`
+		Mode                      byte     `json:"mode"`
+		Clients                   *int     `json:"clients"`
+		BlockedIPs                *int     `json:"blocked_ips,omitempty"`
+		BlockedIPList             []string `json:"blocked_ip_list,omitempty"`
+		Bitrate                   int64    `json:"bitrate"`
+		IncomingAnnounceFrequency float64  `json:"incoming_announce_frequency"`
+		OutgoingAnnounceFrequency float64  `json:"outgoing_announce_frequency"`
+		IncomingPRFrequency       float64  `json:"incoming_pr_frequency"`
+		OutgoingPRFrequency       float64  `json:"outgoing_pr_frequency"`
+		HeldAnnounces             int      `json:"held_announces"`
+		BurstActive               bool     `json:"burst_active"`
+		PRBurstActive             bool     `json:"pr_burst_active"`
+		IFACFail                  uint64   `json:"ifac_fail"`
+		HMACFail                  uint64   `json:"hmac_fail"`
+		AnnounceSigFail           uint64   `json:"announce_sig_fail"`
+		UnpackFail                uint64   `json:"unpack_fail"`
+		IntegrityFailRate         float64  `json:"integrity_fail_rate"`
+		StaleCloses               uint64   `json:"stale_closes"`
+		KeepaliveTimeout          uint64   `json:"keepalive_timeout"`
+		I2PB32                    *string  `json:"i2p_b32,omitempty"`
+		I2PConnectable            *bool    `json:"i2p_connectable,omitempty"`
+		Tunnel                    *string  `json:"tunnelstate,omitempty"`
+		I2PLastError              *string  `json:"i2p_last_error,omitempty"`
 	}
 	out := struct {
 		Interfaces      []ifaceJSON `json:"interfaces"`
@@ -346,6 +353,8 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 			Status:                    st.Status,
 			Mode:                      st.Mode,
 			Clients:                   st.Clients,
+			BlockedIPs:                st.BlockedIPs,
+			BlockedIPList:             st.BlockedIPList,
 			Bitrate:                   st.Bitrate,
 			IncomingAnnounceFrequency: st.IncomingAnnounceFrequency,
 			OutgoingAnnounceFrequency: st.OutgoingAnnounceFrequency,

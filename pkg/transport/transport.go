@@ -159,31 +159,32 @@ type Transport struct {
 	transportIDCache []byte
 	// rpcIdentity is the persisted transport identity used for shared-instance
 	// RPC auth when an ephemeral wire identity is active.
-	rpcIdentity          *identity.Identity
-	networkIdentity      *identity.Identity
-	networkDestination   *destination.Destination
-	networkInstanceDest  *destination.Destination
-	pathRequestDest      any
-	blackholeTable       *blackhole.Table
-	localHopsDelta       int
-	probeDestination     *destination.Destination
-	linkTable            *linkRelayTable
-	reverseTable         *reverseTable
-	packetHashes         *packetHashList
-	lastPathRequest      map[[PathMapKeySize]byte]time.Time
-	ifaceStates          *ifaceStateTable
-	pendingDiscoveryPRs  []pendingDiscoveryPR
-	pendingDiscoveryPRMu sync.Mutex
-	discoveryDraining    atomic.Bool
-	pathPersistMemory    atomic.Bool
-	pathPersistDisabled  atomic.Bool
-	pathPersistDir       string
-	pathPersistDirty     atomic.Bool
-	pathPersistSaving    sync.Mutex
-	pendingPathEntries   []pendingPathEntry
-	done                 chan struct{}
-	stopOnce             sync.Once
-	startTime            time.Time
+	rpcIdentity             *identity.Identity
+	networkIdentity         *identity.Identity
+	networkDestination      *destination.Destination
+	networkInstanceDest     *destination.Destination
+	pathRequestDest         any
+	blackholeTable          *blackhole.Table
+	localHopsDelta          int
+	probeDestination        *destination.Destination
+	linkTable               *linkRelayTable
+	reverseTable            *reverseTable
+	packetHashes            *packetHashList
+	lastPathRequest         map[[PathMapKeySize]byte]time.Time
+	ifaceStates             *ifaceStateTable
+	pendingDiscoveryPRs     []pendingDiscoveryPR
+	pendingDiscoveryPRMu    sync.Mutex
+	discoveryDraining       atomic.Bool
+	pathPersistMemory       atomic.Bool
+	pathPersistDisabled     atomic.Bool
+	pathPersistDir          string
+	pathPersistDirty        atomic.Bool
+	pathPersistSaving       sync.Mutex
+	pendingPathEntries      []pendingPathEntry
+	done                    chan struct{}
+	stopOnce                sync.Once
+	startTime               time.Time
+	destinationsLastCleaned atomic.Int64
 
 	tunnelMu           sync.Mutex
 	tunnels            map[[32]byte]*tunnelEntry
@@ -370,6 +371,7 @@ func (t *Transport) startMaintenanceJobs() {
 			t.cleanupSeenAnnounces()
 			t.persistPathTableIfDirty()
 			identity.PersistKnownDestinationsIfDirty()
+			t.maybeCleanKnownDestinations()
 			if tab := t.BlackholeTable(); tab != nil {
 				tab.SweepExpired()
 			}
@@ -404,6 +406,22 @@ func (t *Transport) sampleInterfaceTraffic() {
 			sampler.SampleTraffic()
 		}
 	}
+}
+
+func (t *Transport) maybeCleanKnownDestinations() {
+	last := t.destinationsLastCleaned.Load()
+	now := time.Now().UnixNano()
+	if last != 0 && time.Duration(now-last) < KnownDestinationsInterval {
+		return
+	}
+	if !t.destinationsLastCleaned.CompareAndSwap(last, now) {
+		return
+	}
+	go func() {
+		defer t.destinationsLastCleaned.Store(time.Now().UnixNano())
+		identity.CleanKnownDestinations(t.HasPath)
+		identity.PersistKnownDestinationsIfDirty()
+	}()
 }
 
 func (t *Transport) cleanupSeenAnnounces() {

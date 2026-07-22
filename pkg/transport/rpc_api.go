@@ -75,6 +75,8 @@ type InterfaceStat struct {
 	IntegritySamples60        uint64   `msgpack:"integrity_samples_60s"`
 	StaleCloses               uint64   `msgpack:"stale_closes"`
 	ActiveLinks               int      `msgpack:"active_links,omitempty"`
+	BlockedIPs                *int     `msgpack:"blocked_ips,omitempty"`
+	BlockedIPList             []string `msgpack:"blocked_ip_list,omitempty"`
 }
 
 // InterfaceStatsResponse is the top-level interface stats RPC payload.
@@ -224,10 +226,13 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 		case interface{ GetBitrate() uint64 }:
 			st.Bitrate = int64(br.GetBitrate()) // #nosec G115 -- bitrate display only
 		}
+		if clients, ok := iface.(interface{ Clients() int }); ok {
+			n := clients.Clients()
+			st.Clients = &n
+		}
 		if parent, ok := iface.(interface {
 			Connectable() bool
 			Base32() string
-			Clients() int
 		}); ok {
 			connectable := parent.Connectable()
 			st.I2PConnectable = &connectable
@@ -235,8 +240,16 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 				endpoint := b32 + ".b32.i2p"
 				st.I2PB32 = &endpoint
 			}
-			clients := parent.Clients()
-			st.Clients = &clients
+		}
+		if blocked, ok := iface.(interface {
+			BlockedIPCount() int
+			BlockedIPs() []string
+		}); ok {
+			n := blocked.BlockedIPCount()
+			st.BlockedIPs = &n
+			if list := blocked.BlockedIPs(); len(list) > 0 {
+				st.BlockedIPList = append([]string(nil), list...)
+			}
 		}
 		if peer, ok := iface.(interface{ TunnelState() uint32 }); ok {
 			label := i2pTunnelStateLabel(peer.TunnelState())

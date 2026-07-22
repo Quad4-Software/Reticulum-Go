@@ -190,6 +190,8 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 			TXBytes:               ifc.TXB,
 			Bitrate:               ifc.Bitrate,
 			Clients:               ifc.Clients,
+			BlockedIPs:            ifc.BlockedIPs,
+			BlockedIPList:         ifc.BlockedIPList,
 			I2PConnectable:        ifc.I2PConnectable,
 			I2PB32:                ifc.I2PB32,
 			TunnelState:           ifc.TunnelState,

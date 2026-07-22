@@ -13,6 +13,10 @@ const (
 	// PathfinderE is path table lifetime in seconds (Python PATHFINDER_E).
 	PathfinderE = 60 * 60 * 24 * 7
 
+	// KnownDestinationsInterval is how often known destinations are cleaned
+	// (Python known_destinations_interval).
+	KnownDestinationsInterval = 5 * time.Minute
+
 	// APPathTime is path lifetime for Access Point mode interfaces.
 	APPathTime = 24 * time.Hour
 

@@ -22,6 +22,7 @@ func resetKnownDestinations(t *testing.T) {
 	t.Helper()
 	knownDestinationsLock.Lock()
 	knownDestinations = make(map[string][]any)
+	knownDestMetaByKey = make(map[string]knownDestMeta)
 	knownDestinationsLock.Unlock()
 
 	knownPersistMemory.Store(false)
@@ -271,10 +272,11 @@ func FuzzDecodeKnownDestinations(f *testing.F) {
 	}
 	good := map[string]any{
 		hex.EncodeToString(id.Hash()): []any{
-			float64(0),
+			float64(time.Now().Unix()),
 			[]byte("packet"),
 			id.GetPublicKey(),
 			[]byte("app"),
+			float64(0),
 		},
 	}
 	if data, err := msgpack.Marshal(good); err == nil {

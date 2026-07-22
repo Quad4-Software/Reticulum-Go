@@ -236,15 +236,23 @@ func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) 
 	knownDestinationsLock.Lock()
 	defer knownDestinationsLock.Unlock()
 
+	now := time.Now().Unix()
 	if existing, ok := knownDestinations[hashStr]; ok && len(existing) >= 4 {
 		if id, ok := existing[2].(*Identity); ok && id.publicKeyEqual(publicKey) {
 			prevPkt, _ := existing[0].([]byte)
 			prevApp, _ := existing[3].([]byte)
 			if bytes.Equal(prevPkt, packet) && bytes.Equal(prevApp, appData) {
+				meta := knownDestMetaByKey[hashStr]
+				meta.rememberedAt = now
+				knownDestMetaByKey[hashStr] = meta
+				markKnownDestinationsDirty()
 				return
 			}
 			existing[0] = append([]byte(nil), packet...)
 			existing[3] = append([]byte(nil), appData...)
+			meta := knownDestMetaByKey[hashStr]
+			meta.rememberedAt = now
+			knownDestMetaByKey[hashStr] = meta
 			markKnownDestinationsDirty()
 			return
 		}
@@ -262,6 +270,14 @@ func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) 
 		id,
 		appDataCopy,
 	}
+	prev := knownDestMetaByKey[hashStr]
+	lastUsed := prev.lastUsed
+	if lastUsed < 0 {
+		lastUsed = -1
+	} else {
+		lastUsed = 0
+	}
+	setKnownDestMetaLocked(hashStr, now, lastUsed)
 	evictKnownDestinationsIfNeededLocked()
 	markKnownDestinationsDirty()
 }
@@ -290,6 +306,7 @@ func evictKnownDestinationsIfNeededLocked() {
 			return
 		}
 		delete(knownDestinations, key)
+		deleteKnownDestMetaLocked(key)
 		excess--
 	}
 }
@@ -363,6 +380,7 @@ func Recall(hash []byte) (*Identity, error) {
 		// data is [packet, destHash, identity, appData]
 		if len(data) >= 3 {
 			if id, ok := data[2].(*Identity); ok {
+				TouchKnownDestination(hash)
 				return id, nil
 			}
 		}

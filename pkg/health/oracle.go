@@ -5,14 +5,16 @@ package health
 
 // OracleSnapshot is a compact view used as a test oracle for health counters.
 type OracleSnapshot struct {
-	RxOK            uint64
-	AnnounceOK      uint64
-	AnnounceDup     uint64
-	UnpackFail      uint64
-	HMACFail        uint64
-	IFACFail        uint64
-	AnnounceSigFail uint64
-	PathReqDup      uint64
+	RxOK             uint64
+	AnnounceOK       uint64
+	AnnounceDup      uint64
+	UnpackFail       uint64
+	HMACFail         uint64
+	IFACFail         uint64
+	AnnounceSigFail  uint64
+	PathReqDup       uint64
+	KeepaliveTimeout uint64
+	LinkStaleClose   uint64
 }
 
 // TransportOracle returns lifetime totals suitable for delta assertions in tests.
@@ -22,14 +24,16 @@ func (r *Registry) TransportOracle() OracleSnapshot {
 	}
 	s := r.SnapshotTransport()
 	return OracleSnapshot{
-		RxOK:            s.RxOK.Total,
-		AnnounceOK:      s.AnnounceOK.Total,
-		AnnounceDup:     s.AnnounceDup.Total,
-		UnpackFail:      s.UnpackFail.Total,
-		HMACFail:        s.HMACFail.Total,
-		IFACFail:        s.IFACFail.Total,
-		AnnounceSigFail: s.AnnounceSigFail.Total,
-		PathReqDup:      s.PathReqDup.Total,
+		RxOK:             s.RxOK.Total,
+		AnnounceOK:       s.AnnounceOK.Total,
+		AnnounceDup:      s.AnnounceDup.Total,
+		UnpackFail:       s.UnpackFail.Total,
+		HMACFail:         s.HMACFail.Total,
+		IFACFail:         s.IFACFail.Total,
+		AnnounceSigFail:  s.AnnounceSigFail.Total,
+		PathReqDup:       s.PathReqDup.Total,
+		KeepaliveTimeout: s.KeepaliveTimeout.Total,
+		LinkStaleClose:   s.LinkStaleClose.Total,
 	}
 }
 
@@ -42,14 +46,16 @@ func (before OracleSnapshot) Delta(after OracleSnapshot) OracleSnapshot {
 		return 0
 	}
 	return OracleSnapshot{
-		RxOK:            sub(after.RxOK, before.RxOK),
-		AnnounceOK:      sub(after.AnnounceOK, before.AnnounceOK),
-		AnnounceDup:     sub(after.AnnounceDup, before.AnnounceDup),
-		UnpackFail:      sub(after.UnpackFail, before.UnpackFail),
-		HMACFail:        sub(after.HMACFail, before.HMACFail),
-		IFACFail:        sub(after.IFACFail, before.IFACFail),
-		AnnounceSigFail: sub(after.AnnounceSigFail, before.AnnounceSigFail),
-		PathReqDup:      sub(after.PathReqDup, before.PathReqDup),
+		RxOK:             sub(after.RxOK, before.RxOK),
+		AnnounceOK:       sub(after.AnnounceOK, before.AnnounceOK),
+		AnnounceDup:      sub(after.AnnounceDup, before.AnnounceDup),
+		UnpackFail:       sub(after.UnpackFail, before.UnpackFail),
+		HMACFail:         sub(after.HMACFail, before.HMACFail),
+		IFACFail:         sub(after.IFACFail, before.IFACFail),
+		AnnounceSigFail:  sub(after.AnnounceSigFail, before.AnnounceSigFail),
+		PathReqDup:       sub(after.PathReqDup, before.PathReqDup),
+		KeepaliveTimeout: sub(after.KeepaliveTimeout, before.KeepaliveTimeout),
+		LinkStaleClose:   sub(after.LinkStaleClose, before.LinkStaleClose),
 	}
 }
 

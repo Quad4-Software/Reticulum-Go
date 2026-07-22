@@ -43,6 +43,10 @@ func TestBackboneFastFlappingBlocksAfterGrace(t *testing.T) {
 	if bi.BlockedIPCount() != 1 {
 		t.Fatalf("BlockedIPCount=%d want 1", bi.BlockedIPCount())
 	}
+	list := bi.BlockedIPs()
+	if len(list) != 1 || list[0] != ip {
+		t.Fatalf("BlockedIPs=%v want [%s]", list, ip)
+	}
 }
 
 func TestBackboneFastFlappingIgnoresLongLived(t *testing.T) {

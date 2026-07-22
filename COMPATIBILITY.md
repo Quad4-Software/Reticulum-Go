@@ -10,26 +10,53 @@ For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). F
 
 | Component | Reticulum-Go | Notes |
 |-----------|:------------:|-------|
-| Crypto | Yes | Curve25519 (X25519 + Ed25519), AES-256-CBC, HMAC-SHA256, HKDF. Checked against Python in [tests/crossref](tests/crossref/). |
-| Identity | Yes | Key generation, recall, sign/verify, encrypt/decrypt, ratchets. Optional 72-byte hardware-bound descriptor (RHB1). On-wire Ed25519 public key matches [RNS.Identity](https://github.com/markqvist/Reticulum/blob/master/RNS/Identity.py). Python `Identity.from_file` expects the 64-byte software layout only today. |
-| Destination | Yes | SINGLE, GROUP, PLAIN, LINK. Announce and request handlers, links in and out. |
-| Packet | Yes | Header types 1 and 2, all packet types and contexts. Byte-for-byte parity in crossref. |
-| Transport | Yes | Core wire behavior matches Python 1.4.0: path table, announces, RequestPath, hops, next-hop, type-2 rewrap, link-table forwarding, persistence, ingress control, random-blob path selection (1.3.4 dedup), interface mode announce rules and `MODE_INTERNAL` (1.3.6), ephemeral transport identity when transport is off (1.3.6). Probe responses via respond_to_probes / allow_probes, local_hops_delta hop mangling, and blackhole teardown at LINKIDENTIFY are implemented. Incoming links use `link.HandleIncomingLinkRequest`. Unpack rejects hop counts `>= PATHFINDER_M` (1.3.8). Link keepalive/stale timing matches 1.4.0 initiator outbound keepalives. |
-| Interfaces | Partial | See [Interfaces](#interfaces) below. |
-| Discovery (RNS.Discovery, rnstransport) | Yes | [pkg/discovery](pkg/discovery/) mirrors wire constants, LXStamper, msgpack layouts. Default discovery stamp cost is 16 (RNS 1.4.0). Valid/invalid announce stamp caches and single-flight validation match Python. discover_interfaces or per-interface `discoverable = yes` starts rnstransport listening via [pkg/node](pkg/node/) StartInterfaceDiscovery. InterfaceAnnouncer publishes discoverable TCP/Backbone/I2P (and related) interfaces. Autoconnect and BlackholeUpdater loops are not auto-started. Build with BuildAppData, decode with ValidateAndDecode. Separate from AutoInterface multicast discovery. |
-| Blackhole | Partial | [pkg/blackhole](pkg/blackhole/) covers table semantics, msgpack, expiry, MergeRemote, EncodeForRequest. Announces from listed identities are dropped. Links from blackholed identities are torn down at LINKIDENTIFY. `/list` over rnstransport needs the RNS Request layer (not ported). publish_blackhole, blackhole_sources, blackhole_update_interval are ignored (deferred). |
-| IFAC | Yes | [pkg/ifac](pkg/ifac/) matches salt, HKDF identity, mask/unmask. UDP, TCP, Auto apply IFAC. Unauthenticated frames dropped. Live tests: [tests/interop/ifac_live_test.go](tests/interop/ifac_live_test.go). |
-| Link | Yes | Both directions, RTT, request/response, channel, buffer, resources. WatchAndReconnect and `Node.EnableLinkAutoReconnect` use `Reestablish()` on closed links. |
-| Resource | Yes | Multi-part transfer, hashmaps, RESOURCE_PRF, bzip2, split advertisements. BZ2 bomb limits match Python 1.1.9. |
-| Channel | Yes | In-link reliable channel. [pkg/channel](pkg/channel/) tests. Ghost-envelope fix: sequence and tx-ring emplace only after a successful outlet send (Python 1.3.0). Accepts both transport and link ACTIVE status values. |
-| Buffer | Yes | Stream buffer over channel. [pkg/buffer](pkg/buffer/) tests. |
-| Node lifecycle | Yes (Go-only) | [pkg/node](pkg/node/) embedder API: OnNetworkAvailable, OnNetworkLost, RefreshPaths, ReloadInterfaces, control API lifecycle routes. No Python equivalent. watch_interfaces polls NIC up/down and address changes via `net.Interfaces` on Linux, Android, Windows, macOS, and BSD (any CPU arch). Stub on WASM. OnNetworkLost cancels in-flight WatchAndReconnect loops via `link.CancelAllReconnects`. ReloadInterfaces equality covers MTU, bitrate, prefer_ipv6, announce-rate, ingress/egress control, mode, and outgoing. See [Node lifecycle](#node-lifecycle-go-only). |
-| librns C ABI | Yes (Go-only) | [pkg/librns](pkg/librns/), [include/rns.h](include/rns.h), `task build-librns`. In-process C facade over node, destination, and link. Linux `.so` first. Same wire stack as the daemon. Not a Python API. See [docs/en/librns.md](docs/en/librns.md). |
-| Odin librns bindings | Yes (Go-only host) | [bindings/odin](bindings/odin/). Idiomatic Odin wrappers over `librns.so`. `task test-odin`. See [docs/en/librns.md](docs/en/librns.md#odin-bindings). |
-| Zig librns bindings | Yes (Go-only host) | [bindings/zig](bindings/zig/). Idiomatic Zig wrappers over `librns.so`. `task test-zig`. See [docs/en/librns.md](docs/en/librns.md#zig-bindings). |
-| C++ librns bindings | Yes (Go-only host) | [bindings/cpp](bindings/cpp/). Idiomatic C++17 RAII wrappers over `librns.so`. `task test-cpp`. See [docs/en/librns.md](docs/en/librns.md#c-bindings). |
-| Dart librns FFI | Yes (Go-only host) | [bindings/dart](bindings/dart/) `ffi.dart`. Linux, Android, Windows. `task build-librns-targets`. See [docs/en/librns.md](docs/en/librns.md#dart-ffi-bindings). |
-| Dart Control API client | Yes (Go-only host) | [bindings/dart](bindings/dart/). Flutter-ready Dart client for the Control API (requests, resources, identify). `task test-dart`. See [docs/en/control-api.md](docs/en/control-api.md#dart-and-flutter). |
+| Crypto | Yes | Curve25519 (X25519 + Ed25519), AES-256-CBC, HMAC-SHA256, HKDF. Checked against Python in crossref tests. [1] [2] |
+| Identity | Yes | Key generation, recall, sign/verify, encrypt/decrypt, ratchets. Optional 72-byte hardware-bound descriptor (RHB1). On-wire Ed25519 public key matches RNS.Identity. Python Identity.from_file expects the 64-byte software layout only today. [3] [4] |
+| Destination | Yes | SINGLE, GROUP, PLAIN, LINK. Announce and request handlers, links in and out. [5] |
+| Packet | Yes | Header types 1 and 2, all packet types and contexts. Byte-for-byte parity in crossref. [1] [6] |
+| Transport | Yes | Core wire behavior matches Python 1.4.0: path table, announces, RequestPath, hops, next-hop, type-2 rewrap, link-table forwarding, persistence, ingress control, random-blob path selection (1.3.4 dedup), interface mode announce rules and MODE_INTERNAL (1.3.6), ephemeral transport identity when transport is off (1.3.6). Probe responses via respond_to_probes / allow_probes, local_hops_delta hop mangling, and blackhole teardown at LINKIDENTIFY are implemented. Incoming links use HandleIncomingLinkRequest. Unpack rejects hop counts at or above PATHFINDER_M (1.3.8). Link keepalive/stale timing matches 1.4.0 including initiator lastKeepaliveNs throttling. Background known-destination cleaning uses path/age rules with cooperative yields. [7] [8] [9] |
+| Interfaces | Partial | See Interfaces below. [10] |
+| Discovery (RNS.Discovery, rnstransport) | Yes | Mirrors wire constants, LXStamper, msgpack layouts. Default discovery stamp cost is 16 (RNS 1.4.0). Valid/invalid announce stamp caches and single-flight validation match Python. discover_interfaces or per-interface discoverable = yes starts rnstransport listening via StartInterfaceDiscovery. InterfaceAnnouncer publishes discoverable TCP/Backbone/I2P (and related) interfaces. Autoconnect and BlackholeUpdater loops are not auto-started. Build with BuildAppData, decode with ValidateAndDecode. Separate from AutoInterface multicast discovery. [11] [12] |
+| Blackhole | Partial | Covers table semantics, msgpack, expiry, MergeRemote, EncodeForRequest. Announces from listed identities are dropped. Links from blackholed identities are torn down at LINKIDENTIFY. /list over rnstransport needs the RNS Request layer (not ported). publish_blackhole, blackhole_sources, blackhole_update_interval are ignored (deferred). [13] |
+| IFAC | Yes | Matches salt, HKDF identity, mask/unmask. UDP, TCP, Auto apply IFAC. Unauthenticated frames dropped. [14] [15] |
+| Link | Yes | Both directions, RTT, request/response, channel, buffer, resources. WatchAndReconnect and EnableLinkAutoReconnect use Reestablish on closed links. [8] [12] |
+| Resource | Yes | Multi-part transfer, hashmaps, RESOURCE_PRF, bzip2, split advertisements. BZ2 bomb limits match Python 1.1.9. [16] |
+| Channel | Yes | In-link reliable channel. Ghost-envelope fix: sequence and tx-ring emplace only after a successful outlet send (Python 1.3.0). Accepts both transport and link ACTIVE status values. [17] |
+| Buffer | Yes | Stream buffer over channel. [18] |
+| Node lifecycle | Yes (Go-only) | Embedder API: OnNetworkAvailable, OnNetworkLost, RefreshPaths, ReloadInterfaces, control API lifecycle routes. No Python equivalent. watch_interfaces polls NIC up/down and address changes on Linux, Android, Windows, macOS, and BSD (any CPU arch). Stub on WASM. OnNetworkLost cancels in-flight WatchAndReconnect loops. ReloadInterfaces equality covers MTU, bitrate, prefer_ipv6, announce-rate, ingress/egress control, mode, and outgoing. [12] [19] |
+| librns C ABI | Yes (Go-only) | In-process C facade over node, destination, and link. Linux shared library first. Same wire stack as the daemon. Not a Python API. Build with task build-librns. [20] [21] |
+| Odin librns bindings | Yes (Go-only host) | Idiomatic Odin wrappers over librns. Build/test with task test-odin. [22] [21] |
+| Zig librns bindings | Yes (Go-only host) | Idiomatic Zig wrappers over librns. Build/test with task test-zig. [23] [21] |
+| C++ librns bindings | Yes (Go-only host) | Idiomatic C++17 RAII wrappers over librns. Build/test with task test-cpp. [24] [21] |
+| Dart librns FFI | Yes (Go-only host) | ffi.dart bindings. Linux, Android, Windows. Build with task build-librns-targets. [25] [21] |
+| Dart Control API client | Yes (Go-only host) | Flutter-ready Dart client for the Control API (requests, resources, identify). Build/test with task test-dart. [25] [26] |
+
+1. [tests/crossref](tests/crossref/)
+2. [docs/en/cryptography.md](docs/en/cryptography.md)
+3. [pkg/identity](pkg/identity/)
+4. [RNS.Identity](https://github.com/markqvist/Reticulum/blob/master/RNS/Identity.py)
+5. [pkg/destination](pkg/destination/)
+6. [pkg/packet](pkg/packet/)
+7. [pkg/transport](pkg/transport/)
+8. [pkg/link](pkg/link/)
+9. [pkg/identity/known_clean.go](pkg/identity/known_clean.go)
+10. [Interfaces](#interfaces)
+11. [pkg/discovery](pkg/discovery/)
+12. [pkg/node](pkg/node/)
+13. [pkg/blackhole](pkg/blackhole/)
+14. [pkg/ifac](pkg/ifac/)
+15. [tests/interop/ifac_live_test.go](tests/interop/ifac_live_test.go)
+16. [pkg/resource](pkg/resource/)
+17. [pkg/channel](pkg/channel/)
+18. [pkg/buffer](pkg/buffer/)
+19. [Node lifecycle](#node-lifecycle-go-only)
+20. [pkg/librns](pkg/librns/), [include/rns.h](include/rns.h)
+21. [docs/en/librns.md](docs/en/librns.md)
+22. [bindings/odin](bindings/odin/)
+23. [bindings/zig](bindings/zig/)
+24. [bindings/cpp](bindings/cpp/)
+25. [bindings/dart](bindings/dart/)
+26. [docs/en/control-api.md](docs/en/control-api.md#dart-and-flutter)
 
 ## Interfaces
 
@@ -130,9 +157,10 @@ Wire format is unchanged in 1.2.x to 1.4.x. Most churn is utilities and transpor
 | HDLC drop frames `<= HEADER_MINSIZE` | 1.3.9 | Covered (TCP/Backbone HDLC decoders) |
 | Default discovery stamp value 16 | 1.4.0 | Covered (`pkg/discovery` DefaultStampValue) |
 | Discovery valid/invalid stamp caches and validation lock | 1.4.0 | Covered (`pkg/discovery` InterfaceDiscovery) |
-| Initiator keepalive when outbound quiet while inbound busy | 1.4.0 | Covered (`pkg/link` watchdog) |
+| Initiator keepalive when outbound quiet while inbound busy | 1.4.0 | Covered (`pkg/link` watchdog, `lastKeepaliveNs`) |
 | Responder keepalive reply throttle | 1.4.0 | Covered (`pkg/link` ContextKeepalive) |
-| Backbone blocked_ips in ifstats | 1.4.0 | Partial (flap block covered. blocked_ip_list export not yet) |
+| Backbone blocked_ips in ifstats | 1.4.0 | Covered (`blocked_ips` / `blocked_ip_list` in RPC, status, control API). Go lists only IPs past grace, not every flap tracker entry |
+| Known-destination background cleaning | 1.4.0 | Covered with Go-native age/path rules (`pkg/identity` CleanKnownDestinations). Fresh never-used entries are not deleted early (Python quirk avoided) |
 | rngit / rnid / rnsh utilities | 1.2.x+ | Not ported (no wire impact; rnsh security fix is Python-only) |
 
 ### RNS 1.3.6 through 1.4.0 notes
@@ -145,7 +173,7 @@ Wire format is unchanged in 1.2.x to 1.4.x. Most churn is utilities and transpor
 
 **1.3.9** allows discoverable announces on `MODE_INTERNAL`, adds location_cmd for geo fields, sets link remote identity only once at LINKIDENTIFY, has receivers emit `RESOURCE_RCL` when cancelling an incoming resource, rejects oversized resource advertisements at unpack (`t > MAX_EFFICIENT_SIZE*3`), cancels transfers on empty HMU, blocks fast-flapping Backbone clients, and drops HDLC frames at or below `HEADER_MINSIZE`. Also includes a critical `rnsh` security fix (Python utility only).
 
-**1.4.0** raises the default interface-discovery stamp cost from 14 to 16, adds valid and invalid discovery stamp caches with single-flight validation (CPU relief), and fixes link keepalive so the initiator still probes when the remote side is continuously transmitting (stale detection stays inbound-based). Responder keepalive replies are throttled to one per keepalive interval. Also includes Backbone ifstats blocked IP fields and low-power persistence/cleanup optimizations in Python (Go already uses background-friendly persistence patterns).
+**1.4.0** raises the default interface-discovery stamp cost from 14 to 16, adds valid and invalid discovery stamp caches with single-flight validation (CPU relief), and fixes link keepalive so the initiator still probes when the remote side is continuously transmitting (stale detection stays inbound-based). Initiator probe throttling uses `lastKeepalive` / `lastKeepaliveNs` so one-way local data traffic does not suppress probes. Responder keepalive replies are throttled to one per keepalive interval. Backbone ifstats expose `blocked_ips` and `blocked_ip_list`. Go also runs background known-destination cleaning with path/age rules and cooperative yields. Persistence stays dirty-flag plus TryLock (no Python-style on-disk recombination, no `packet_hashlist.raw`).
 
 ## Security and robustness notes
 

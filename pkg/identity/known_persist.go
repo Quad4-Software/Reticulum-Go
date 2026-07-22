@@ -8,6 +8,7 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"quad4/msgpack/v5/pkg/msgpack"
 	"quad4/reticulum-go/internal/storage"
@@ -33,10 +34,12 @@ var (
 // touching the knownDestinations map, keeping the parser fuzzable and
 // unit-testable in isolation.
 type knownDestRecord struct {
-	destHash  []byte
-	publicKey []byte
-	packetRaw []byte
-	appData   []byte
+	destHash     []byte
+	publicKey    []byte
+	packetRaw    []byte
+	appData      []byte
+	rememberedAt float64
+	lastUsed     float64
 }
 
 // decodeKnownDestinations parses a known_destinations snapshot. Both
@@ -77,16 +80,40 @@ func decodeKnownDestinations(data []byte) (records []knownDestRecord, skipped in
 		if packetHash, ok := entry[1].([]byte); ok && len(packetHash) > 0 {
 			packetRaw = append([]byte(nil), packetHash...)
 		}
+		rememberedAt := asFloat64(entry[0])
+		lastUsed := float64(0)
+		if len(entry) >= 5 {
+			lastUsed = asFloat64(entry[4])
+		}
 
 		records = append(records, knownDestRecord{
-			destHash:  destHash,
-			publicKey: append([]byte(nil), publicKey...),
-			packetRaw: packetRaw,
-			appData:   appData,
+			destHash:     destHash,
+			publicKey:    append([]byte(nil), publicKey...),
+			packetRaw:    packetRaw,
+			appData:      appData,
+			rememberedAt: rememberedAt,
+			lastUsed:     lastUsed,
 		})
 	}
 
 	return records, skipped, nil
+}
+
+func asFloat64(v any) float64 {
+	switch n := v.(type) {
+	case float64:
+		return n
+	case float32:
+		return float64(n)
+	case int:
+		return float64(n)
+	case int64:
+		return float64(n)
+	case uint64:
+		return float64(n)
+	default:
+		return 0
+	}
 }
 
 // resolveDestHashKey accepts either a hex-encoded key (native on-disk
@@ -184,6 +211,11 @@ func loadKnownDestinationsFromDisk(configPath string) {
 			id,
 			rec.appData,
 		}
+		rememberedAt := int64(rec.rememberedAt)
+		if rememberedAt <= 0 {
+			rememberedAt = time.Now().Unix()
+		}
+		setKnownDestMetaLocked(canonicalKey, rememberedAt, int64(rec.lastUsed))
 		count++
 	}
 
@@ -247,12 +279,17 @@ func saveKnownDestinations(force bool) {
 		if key == "" {
 			key = hex.EncodeToString(destHash)
 		}
+		meta := knownDestMetaByKey[key]
+		rememberedAt := float64(meta.rememberedAt)
+		if rememberedAt == 0 {
+			rememberedAt = float64(time.Now().Unix())
+		}
 		export[key] = []any{
-			float64(0),
+			rememberedAt,
 			packetHash,
 			id.GetPublicKey(),
 			appData,
-			float64(0),
+			float64(meta.lastUsed),
 		}
 	}
 	knownDestinationsLock.RUnlock()

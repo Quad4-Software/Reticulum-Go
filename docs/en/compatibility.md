@@ -81,7 +81,9 @@ Wire format is stable across 1.2.x to 1.4.x. Notable behavior differences:
 | LINKIDENTIFY once / receiver `RESOURCE_RCL` | 1.3.9 | Covered |
 | Resource ADV size / empty HMU / Backbone flap block | 1.3.9 | Covered |
 | Default discovery stamp 16 / stamp caches | 1.4.0 | Covered |
-| Link keepalive when remote continuously transmits | 1.4.0 | Covered |
+| Link keepalive when remote continuously transmits | 1.4.0 | Covered (`lastKeepaliveNs`) |
+| Backbone blocked_ips / blocked_ip_list in ifstats | 1.4.0 | Covered |
+| Known-destination background cleaning | 1.4.0 | Covered (Go path/age rules) |
 
 ## Known gaps
 

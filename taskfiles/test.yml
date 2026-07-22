@@ -66,7 +66,7 @@ tasks:
   test-property:
     desc: Run property-based tests (quad4/pbt and testing/quick)
     cmds:
-      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/announce ./pkg/link ./pkg/transport ./pkg/cryptography ./pkg/packet ./pkg/buffer ./pkg/rate ./pkg/resource ./pkg/identity ./pkg/librns ./pkg/destination ./pkg/protect -run "TestPBT|TestProperty|TestQuick" -timeout 10m'
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/announce ./pkg/link ./pkg/transport ./pkg/cryptography ./pkg/packet ./pkg/buffer ./pkg/rate ./pkg/resource ./pkg/identity ./pkg/librns ./pkg/destination ./pkg/protect ./pkg/discovery ./pkg/interfaces -run "TestPBT|TestProperty|TestQuick" -timeout 10m'
 
   test-acceptance:
     desc: Run acceptance bars (librns SCAFFOLD, controlapi acceptance)
@@ -74,9 +74,9 @@ tasks:
       - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/librns ./pkg/controlapi -run "TestAcceptance|TestScaffold|TestHandleLifecycle|TestNodeStartStop" -timeout 5m'
 
   test-oracle:
-    desc: Run oracle-backed suites (crossref vectors, health oracles, adversarial corpus, IFAC goldens)
+    desc: Run oracle-backed suites (crossref vectors, health oracles, adversarial corpus, IFAC goldens, RNS 1.4.0 feature oracles)
     cmds:
-      - '{{.GOCMD}} test ./tests/crossref/ ./pkg/health/ ./pkg/packet/ ./pkg/ifac/ -count=1 -run "TestIdentity|TestHKDF|TestHMAC|TestPacket|TestOracle|TestAdversarial|TestHandshake|TestNewMatchesPython|TestMaskMatchesPython|TestSignMatchesPython|TestUnmask|TestDrop"'
+      - '{{.GOCMD}} test ./tests/crossref/ ./pkg/health/ ./pkg/packet/ ./pkg/ifac/ ./pkg/link/ ./pkg/discovery/ ./pkg/identity/ ./pkg/interfaces/ ./pkg/transport/ ./pkg/rnsutil/ -count=1 -run "TestIdentity|TestHKDF|TestHMAC|TestPacket|TestOracle|TestAdversarial|TestHandshake|TestNewMatchesPython|TestMaskMatchesPython|TestSignMatchesPython|TestUnmask|TestDrop|TestCleanKnown|TestBlocked" -timeout 15m'
 
   test-e2e:
     desc: Run daemon and node end-to-end tests

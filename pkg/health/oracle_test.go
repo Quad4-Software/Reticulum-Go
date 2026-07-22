@@ -23,8 +23,13 @@ func TestTransportOracleReflectsInc(t *testing.T) {
 	r.Inc("", KindRxOK)
 	r.Inc("", KindUnpackFail)
 	r.Inc("", KindAnnounceOK)
+	r.Inc("", KindKeepaliveTimeout)
+	r.Inc("", KindLinkStaleClose)
 	d := before.Delta(r.TransportOracle())
 	if d.RxOK != 1 || d.UnpackFail != 1 || d.AnnounceOK != 1 {
 		t.Fatalf("oracle delta=%+v", d)
+	}
+	if d.KeepaliveTimeout != 1 || d.LinkStaleClose != 1 {
+		t.Fatalf("keepalive/stale oracle delta=%+v", d)
 	}
 }

@@ -6,6 +6,7 @@ package interfaces
 import (
 	"fmt"
 	"net"
+	"sort"
 	"sync"
 	"time"
 
@@ -279,6 +280,27 @@ func (bi *BackboneInterface) BlockedIPCount() int {
 		}
 	}
 	return count
+}
+
+// BlockedIPs returns remote IPs currently blocked for fast-flapping.
+// Unlike Python's blocked_ip_list (which returns every tracked flap entry),
+// Go only exports IPs that have exceeded the grace threshold.
+func (bi *BackboneInterface) BlockedIPs() []string {
+	if !bi.blockFastFlapping {
+		return nil
+	}
+	now := time.Now()
+	bi.fastFlapMu.Lock()
+	defer bi.fastFlapMu.Unlock()
+	bi.expireFastFlapsLocked(now)
+	out := make([]string, 0)
+	for ip, ffe := range bi.fastFlapping {
+		if ffe.flaps > bi.fastFlapGrace {
+			out = append(out, ip)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 func (bi *BackboneInterface) expireFastFlapsLocked(now time.Time) {

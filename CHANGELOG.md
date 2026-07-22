@@ -12,6 +12,9 @@
 - Docs updates for bindings, librns, examples, and testing layers
 - Go-only dos_protection IDS/IPS gates (off/detect/prevent/auto, default auto) with adaptive baselines, once-per-second peak sampling, msgpack-persisted learning, auto promote to prevent, relearn on network or drift change, iface cool-down, crypto and handshake budgets, health counters, rate-limited stdout trip warnings, false-positive edge suites, and live UDP/TCP/mesh protect tests
 - Wire compatibility target raised to Python RNS 1.4.0 (discovery stamp default 16, discovery stamp caches, link keepalive parity)
+- Backbone `blocked_ips` / `blocked_ip_list` in interface stats, status, and control API
+- Background known-destination cleaning with path/age rules and cooperative yields
+- Initiator keepalive throttle on `lastKeepaliveNs` so one-way data traffic does not suppress probes
 
 ### Fixed
 - Link requests register before send so fast replies are not dropped
@@ -20,6 +23,7 @@
 - Common base interface IFAC ingress aligned with the shared inbound IFAC policy
 - Python, Rust, and Lua node event poll allocate app data so payloads are not silently truncated
 - Link watchdog keepalive when remote continuously transmits (RNS 1.4.0)
+- Backbone client count and blocked-IP fields missing from RPC interface stats
 
 ## v1.0.0
 

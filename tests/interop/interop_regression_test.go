@@ -39,6 +39,26 @@ func TestNomadNetPageExpectMatchesIndexMu(t *testing.T) {
 	}
 }
 
+func TestRNS140InteropPins(t *testing.T) {
+	root := repoRoot(t)
+	crossref := filepath.Join(root, "tests", "crossref", "run_crossref.sh")
+	body, err := os.ReadFile(crossref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(body, []byte(`RNS_REF_TAG="${RNS_REF_TAG:-1.4.0}"`)) {
+		t.Fatal("crossref must default RNS_REF_TAG to 1.4.0")
+	}
+	disc := filepath.Join(root, "pkg", "discovery", "discovery.go")
+	discBody, err := os.ReadFile(disc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(discBody, []byte("DefaultStampValue = 16")) {
+		t.Fatal("discovery DefaultStampValue must be 16 for RNS 1.4.0")
+	}
+}
+
 // TestPageRequestHelperWaitsForClientExit locks the double-request UDP bind fix:
 // the second pageserver_client must not start until the first has exited.
 func TestPageRequestHelperWaitsForClientExit(t *testing.T) {

@@ -54,6 +54,7 @@ type Link struct {
 	establishedAt      time.Time
 	lastInboundNs      atomic.Int64
 	lastOutboundNs     atomic.Int64
+	lastKeepaliveNs    atomic.Int64
 	lastDataReceivedNs atomic.Int64
 	lastDataSentNs     atomic.Int64
 	pathFinder         *pathfinder.PathFinder
@@ -786,6 +787,12 @@ func (l *Link) recordOutbound() {
 	l.lastOutboundNs.Store(time.Now().UnixNano())
 }
 
+func (l *Link) recordKeepaliveOutbound() {
+	now := time.Now().UnixNano()
+	l.lastOutboundNs.Store(now)
+	l.lastKeepaliveNs.Store(now)
+}
+
 func (l *Link) recordOutboundData() {
 	now := time.Now().UnixNano()
 	l.lastOutboundNs.Store(now)
@@ -1156,7 +1163,7 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 			// Match Python 1.4.0: only reply when outbound has been quiet
 			// for a full keepalive interval.
 			lastOutbound := nsToTime(l.lastOutboundNs.Load())
-			if time.Now().Before(lastOutbound.Add(l.keepalive)) {
+			if !responderShouldReplyKeepalive(time.Now(), lastOutbound, l.keepalive, l.initiator) {
 				return nil
 			}
 			keepaliveResp := []byte{KeepaliveResponseByte}
@@ -1175,7 +1182,7 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 			if err := keepalivePkt.Pack(); err != nil {
 				return err
 			}
-			l.recordOutbound()
+			l.recordKeepaliveOutbound()
 			return l.transport.SendPacket(keepalivePkt)
 		}
 	case packet.ContextLinkClose:
@@ -2648,23 +2655,26 @@ func (l *Link) watchdog() {
 			}
 			lastInbound := nsToTime(l.lastInboundNs.Load())
 			lastOutbound := nsToTime(l.lastOutboundNs.Load())
+			lastKeepalive := nsToTime(l.lastKeepaliveNs.Load())
+			if lastKeepalive.IsZero() {
+				lastKeepalive = lastOutbound
+			}
 			inboundActivity := lastInbound
 			if inboundActivity.Before(activatedAt) {
 				inboundActivity = activatedAt
 			}
 			now := time.Now()
 
-			// send keepalive when inbound OR outbound
-			// is older than keepalive so initiator keepalives still fire when
-			// the remote side is continuously transmitting.
-			needKeepalive := now.After(inboundActivity.Add(l.keepalive)) || now.After(lastOutbound.Add(l.keepalive))
+			// Send keepalive when inbound OR outbound is older than the
+			// keepalive interval so initiator probes still fire when the
+			// remote side is continuously transmitting (RNS 1.4.0).
+			// Throttle initiator probes on lastKeepalive so one-way local
+			// data traffic does not suppress aliveness checks.
+			if initiatorShouldSendKeepalive(now, inboundActivity, lastOutbound, lastKeepalive, l.keepalive, l.initiator) {
+				_ = l.sendKeepalive() // #nosec G104 - best effort keepalive
+			}
+			needKeepalive := keepaliveDue(now, inboundActivity, lastOutbound, l.keepalive)
 			if needKeepalive {
-				if l.initiator {
-					if now.After(lastOutbound.Add(l.keepalive)) {
-						_ = l.sendKeepalive() // #nosec G104 - best effort keepalive
-					}
-				}
-
 				if now.After(inboundActivity.Add(l.staleTime)) {
 					sleepTime = l.rtt*KeepaliveTimeoutFactor + StaleGrace
 					if l.status.Load() != int32(StatusStale) {
@@ -2739,8 +2749,34 @@ func (l *Link) sendKeepalive() error {
 	if err := keepalivePkt.Pack(); err != nil {
 		return err
 	}
-	l.recordOutbound()
+	l.recordKeepaliveOutbound()
 	return l.transport.SendPacket(keepalivePkt)
+}
+
+// keepaliveDue reports whether inbound or outbound activity is older than the
+// keepalive interval (RNS 1.4.0 needKeepalive predicate).
+func keepaliveDue(now, inboundActivity, lastOutbound time.Time, keepalive time.Duration) bool {
+	return now.After(inboundActivity.Add(keepalive)) || now.After(lastOutbound.Add(keepalive))
+}
+
+// initiatorShouldSendKeepalive is the RNS 1.4.0 initiator probe gate.
+// Probes fire when keepalive is due and lastKeepalive is older than the interval.
+func initiatorShouldSendKeepalive(now, inboundActivity, lastOutbound, lastKeepalive time.Time, keepalive time.Duration, initiator bool) bool {
+	if !initiator {
+		return false
+	}
+	if !keepaliveDue(now, inboundActivity, lastOutbound, keepalive) {
+		return false
+	}
+	return now.After(lastKeepalive.Add(keepalive))
+}
+
+// responderShouldReplyKeepalive is the RNS 1.4.0 responder reply throttle.
+func responderShouldReplyKeepalive(now, lastOutbound time.Time, keepalive time.Duration, initiator bool) bool {
+	if initiator {
+		return false
+	}
+	return !now.Before(lastOutbound.Add(keepalive))
 }
 
 func (l *Link) sendTeardownPacket() error {
