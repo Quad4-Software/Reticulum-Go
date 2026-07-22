@@ -11,14 +11,14 @@ import (
 var errArrayStruct = errors.New("msgpack: number of fields in array-encoded struct has changed")
 
 var (
-	mapStringStringPtrType = reflect.TypeOf((*map[string]string)(nil))
+	mapStringStringPtrType = reflect.TypeFor[*map[string]string]()
 	mapStringStringType    = mapStringStringPtrType.Elem()
-	mapStringBoolPtrType   = reflect.TypeOf((*map[string]bool)(nil))
+	mapStringBoolPtrType   = reflect.TypeFor[*map[string]bool]()
 	mapStringBoolType      = mapStringBoolPtrType.Elem()
 )
 
 var (
-	mapStringInterfacePtrType = reflect.TypeOf((*map[string]interface{})(nil))
+	mapStringInterfacePtrType = reflect.TypeFor[*map[string]any]()
 	mapStringInterfaceType    = mapStringInterfacePtrType.Elem()
 )
 
@@ -48,7 +48,7 @@ func decodeMapValue(d *Decoder, v reflect.Value) error {
 	return d.decodeTypedMapValue(v, n)
 }
 
-func (d *Decoder) decodeMapDefault() (interface{}, error) {
+func (d *Decoder) decodeMapDefault() (any, error) {
 	if d.mapDecoder != nil {
 		return d.mapDecoder(d)
 	}
@@ -138,7 +138,7 @@ func (d *Decoder) decodeMapStringStringPtr(ptr *map[string]string) error {
 		m = *ptr
 	}
 
-	for i := 0; i < size; i++ {
+	for range size {
 		mk, err := d.DecodeString()
 		if err != nil {
 			return err
@@ -154,11 +154,11 @@ func (d *Decoder) decodeMapStringStringPtr(ptr *map[string]string) error {
 }
 
 func decodeMapStringInterfaceValue(d *Decoder, v reflect.Value) error {
-	ptr := v.Addr().Convert(mapStringInterfacePtrType).Interface().(*map[string]interface{})
+	ptr := v.Addr().Convert(mapStringInterfacePtrType).Interface().(*map[string]any)
 	return d.decodeMapStringInterfacePtr(ptr)
 }
 
-func (d *Decoder) decodeMapStringInterfacePtr(ptr *map[string]interface{}) error {
+func (d *Decoder) decodeMapStringInterfacePtr(ptr *map[string]any) error {
 	m, err := d.DecodeMap()
 	if err != nil {
 		return err
@@ -167,7 +167,7 @@ func (d *Decoder) decodeMapStringInterfacePtr(ptr *map[string]interface{}) error
 	return nil
 }
 
-func (d *Decoder) DecodeMap() (map[string]interface{}, error) {
+func (d *Decoder) DecodeMap() (map[string]any, error) {
 	n, err := d.DecodeMapLen()
 	if err != nil {
 		return nil, err
@@ -181,9 +181,9 @@ func (d *Decoder) DecodeMap() (map[string]interface{}, error) {
 	if d.flags&disableAllocLimitFlag == 0 {
 		hint = min(hint, maxMapSize)
 	}
-	m := make(map[string]interface{}, hint)
+	m := make(map[string]any, hint)
 
-	for i := 0; i < n; i++ {
+	for range n {
 		mk, err := d.DecodeString()
 		if err != nil {
 			return nil, err
@@ -198,7 +198,7 @@ func (d *Decoder) DecodeMap() (map[string]interface{}, error) {
 	return m, nil
 }
 
-func (d *Decoder) DecodeUntypedMap() (map[interface{}]interface{}, error) {
+func (d *Decoder) DecodeUntypedMap() (map[any]any, error) {
 	n, err := d.DecodeMapLen()
 	if err != nil {
 		return nil, err
@@ -212,9 +212,9 @@ func (d *Decoder) DecodeUntypedMap() (map[interface{}]interface{}, error) {
 	if d.flags&disableAllocLimitFlag == 0 {
 		hint = min(hint, maxMapSize)
 	}
-	m := make(map[interface{}]interface{}, hint)
+	m := make(map[any]any, hint)
 
-	for i := 0; i < n; i++ {
+	for range n {
 		mk, err := d.decodeInterfaceCond()
 		if err != nil {
 			return nil, err
@@ -233,7 +233,7 @@ func (d *Decoder) DecodeUntypedMap() (map[interface{}]interface{}, error) {
 
 // DecodeTypedMap decodes a typed map. Typed map is a map that has a fixed type for keys and values.
 // Key and value types may be different.
-func (d *Decoder) DecodeTypedMap() (interface{}, error) {
+func (d *Decoder) DecodeTypedMap() (any, error) {
 	n, err := d.DecodeMapLen()
 	if err != nil {
 		return nil, err
@@ -283,7 +283,7 @@ func (d *Decoder) decodeTypedMapValue(v reflect.Value, n int) error {
 		keyType   = typ.Key()
 		valueType = typ.Elem()
 	)
-	for i := 0; i < n; i++ {
+	for range n {
 		mk := d.newValue(keyType).Elem()
 		if err := d.DecodeValue(mk); err != nil {
 			return err
@@ -305,7 +305,7 @@ func (d *Decoder) skipMap(c byte) error {
 	if err != nil {
 		return err
 	}
-	for i := 0; i < n; i++ {
+	for range n {
 		if err := d.Skip(); err != nil {
 			return err
 		}
@@ -359,7 +359,7 @@ func (d *Decoder) decodeStruct(v reflect.Value, n int) error {
 	}
 
 	fields := structs.Fields(v.Type(), d.structTag)
-	for i := 0; i < n; i++ {
+	for range n {
 		name, err := d.decodeStringTemp()
 		if err != nil {
 			return err

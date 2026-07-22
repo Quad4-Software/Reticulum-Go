@@ -63,6 +63,10 @@ func TestAdversarialTOCTOUTouchBeatsStaleCleanVerdict(t *testing.T) {
 	knownDestMetaByKey[knownDestKey(dest)] = meta
 	knownDestinationsLock.Unlock()
 
+	// Establish a successful Touch before cleans race. A clean that wins
+	// entirely before any Touch is a legitimate delete, not a TOCTOU bug.
+	TouchKnownDestination(dest)
+
 	var wg sync.WaitGroup
 	barrier := make(chan struct{})
 	for range 12 {
@@ -84,6 +88,42 @@ func TestAdversarialTOCTOUTouchBeatsStaleCleanVerdict(t *testing.T) {
 
 	if _, err := Recall(dest); err != nil {
 		t.Fatal("touched destination must survive concurrent clean")
+	}
+}
+
+func TestOracleTOCTOUTouchInvalidatesStaleCleanVerdict(t *testing.T) {
+	resetKnownForTest(t)
+	id, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dest := TruncatedHash(append([]byte{0x72}, id.GetPublicKey()...))
+	Remember([]byte("touch2"), dest, id.GetPublicKey(), nil)
+	key := knownDestKey(dest)
+	knownDestinationsLock.Lock()
+	meta := knownDestMetaByKey[key]
+	meta.rememberedAt = time.Now().Add(-UnusedDestinationLinger - time.Hour).Unix()
+	meta.lastUsed = 0
+	knownDestMetaByKey[key] = meta
+	knownDestinationsLock.Unlock()
+
+	now := time.Now()
+	nowUnix := now.Unix()
+	noPath := func([]byte) bool { return false }
+
+	knownDestinationsLock.Lock()
+	if !stillStaleForCleanLocked(key, noPath, now, nowUnix) {
+		knownDestinationsLock.Unlock()
+		t.Fatal("fixture must be stale before Touch")
+	}
+	knownDestinationsLock.Unlock()
+
+	TouchKnownDestination(dest)
+
+	knownDestinationsLock.Lock()
+	defer knownDestinationsLock.Unlock()
+	if stillStaleForCleanLocked(key, noPath, now, nowUnix) {
+		t.Fatal("Touch must invalidate stale clean verdict under write lock")
 	}
 }
 

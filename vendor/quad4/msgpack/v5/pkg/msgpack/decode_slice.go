@@ -7,7 +7,7 @@ import (
 	"quad4/msgpack/v5/pkg/msgpack/msgpcode"
 )
 
-var sliceStringPtrType = reflect.TypeOf((*[]string)(nil))
+var sliceStringPtrType = reflect.TypeFor[*[]string]()
 
 // DecodeArrayLen decodes array length. Length is -1 when array is nil.
 func (d *Decoder) DecodeArrayLen() (int, error) {
@@ -70,7 +70,7 @@ func (d *Decoder) decodeStringSlicePtr(ptr *[]string) error {
 	}
 
 	ss := makeStrings(*ptr, n, d.flags&disableAllocLimitFlag != 0)
-	for i := 0; i < n; i++ {
+	for range n {
 		s, err := d.DecodeString()
 		if err != nil {
 			return err
@@ -132,7 +132,7 @@ func decodeSliceValue(d *Decoder, v reflect.Value) error {
 		v.Set(growSliceValue(v, n, noLimit))
 	}
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if i >= v.Len() {
 			v.Set(growSliceValue(v, n, noLimit))
 		}
@@ -168,7 +168,7 @@ func decodeArrayValue(d *Decoder, v reflect.Value) error {
 		return fmt.Errorf("%s len is %d, but msgpack has %d elements", v.Type(), v.Len(), n)
 	}
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		sv := v.Index(i)
 		if err := d.DecodeValue(sv); err != nil {
 			return err
@@ -178,7 +178,7 @@ func decodeArrayValue(d *Decoder, v reflect.Value) error {
 	return nil
 }
 
-func (d *Decoder) DecodeSlice() ([]interface{}, error) {
+func (d *Decoder) DecodeSlice() ([]any, error) {
 	c, err := d.readCode()
 	if err != nil {
 		return nil, err
@@ -186,7 +186,7 @@ func (d *Decoder) DecodeSlice() ([]interface{}, error) {
 	return d.decodeSlice(c)
 }
 
-func (d *Decoder) decodeSlice(c byte) ([]interface{}, error) {
+func (d *Decoder) decodeSlice(c byte) ([]any, error) {
 	n, err := d.arrayLen(c)
 	if err != nil {
 		return nil, err
@@ -206,8 +206,8 @@ func (d *Decoder) decodeSlice(c byte) ([]interface{}, error) {
 		initCap = sliceAllocLimit
 	}
 
-	s := make([]interface{}, 0, initCap)
-	for i := 0; i < n; i++ {
+	s := make([]any, 0, initCap)
+	for range n {
 		v, err := d.decodeInterfaceCond()
 		if err != nil {
 			return nil, err
@@ -224,7 +224,7 @@ func (d *Decoder) skipSlice(c byte) error {
 		return err
 	}
 
-	for i := 0; i < n; i++ {
+	for range n {
 		if err := d.Skip(); err != nil {
 			return err
 		}
