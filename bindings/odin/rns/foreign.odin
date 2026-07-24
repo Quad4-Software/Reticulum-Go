@@ -109,6 +109,7 @@ foreign lib {
 		written: ^c.size_t,
 	) -> c.int ---
 	rns_destination_destroy :: proc(destination: u64) -> c.int ---
+	rns_destination_set_proof_strategy :: proc(destination: u64, strategy: c.int) -> c.int ---
 	rns_destination_register_request_handler :: proc(destination: u64, path: cstring) -> c.int ---
 	rns_destination_encrypt :: proc(
 		dest_hash: [^]u8,

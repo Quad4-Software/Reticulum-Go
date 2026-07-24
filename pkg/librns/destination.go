@@ -144,6 +144,23 @@ func RequestRespondFile(nodeHandle uint64, requestID []byte, filename string, da
 	return OK
 }
 
+// DestinationSetProofStrategy sets RNS Destination proof strategy
+// (0=none, 1=all, 2=app). LXMF delivery destinations need ProveAll so
+// inbound packets/resources return proofs to Python/NomadNet senders.
+func DestinationSetProofStrategy(destHandle uint64, strategy byte) int {
+	destRec, err := destinationByHandle(destHandle)
+	if err != nil {
+		return setLastError(err)
+	}
+	switch strategy {
+	case destination.ProveNone, destination.ProveAll, destination.ProveApp:
+		destRec.destination.SetProofStrategy(strategy)
+		return OK
+	default:
+		return setLastError(errInvalidArg)
+	}
+}
+
 // DestinationAnnounce sends an announce for destHandle.
 func DestinationAnnounce(destHandle uint64, appData []byte) int {
 	destRec, err := destinationByHandle(destHandle)

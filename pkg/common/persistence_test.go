@@ -13,6 +13,9 @@ func TestApplyPersistenceEnv(t *testing.T) {
 	t.Setenv("RETICULUM_IN_MEMORY_KNOWN_DESTINATIONS", "")
 	t.Setenv("RETICULUM_IN_MEMORY_STORAGE", "")
 	t.Setenv("RETICULUM_SOFT_MEMORY_LIMIT", "")
+	t.Setenv("RETICULUM_MAX_PACKET_HASHLIST", "")
+	t.Setenv("RETICULUM_MAX_IN_MEMORY_PATHS", "")
+	t.Setenv("RETICULUM_MAX_IN_MEMORY_KNOWN_DESTINATIONS", "")
 	cfg := NewReticulumConfig()
 	cfg.ApplyPersistenceEnv()
 	if !cfg.InMemoryPathTable {
@@ -37,6 +40,21 @@ func TestApplyPersistenceEnv(t *testing.T) {
 	cfg.ApplyPersistenceEnv()
 	if cfg.SoftMemoryLimitBytes != 64<<20 {
 		t.Fatalf("soft memory limit = %d, want %d", cfg.SoftMemoryLimitBytes, 64<<20)
+	}
+
+	t.Setenv("RETICULUM_MAX_PACKET_HASHLIST", "8192")
+	t.Setenv("RETICULUM_MAX_IN_MEMORY_PATHS", "1234")
+	t.Setenv("RETICULUM_MAX_IN_MEMORY_KNOWN_DESTINATIONS", "5678")
+	cfg = NewReticulumConfig()
+	cfg.ApplyPersistenceEnv()
+	if cfg.MaxPacketHashlist != 8192 {
+		t.Fatalf("MaxPacketHashlist = %d, want 8192", cfg.MaxPacketHashlist)
+	}
+	if cfg.MaxInMemoryPaths != 1234 {
+		t.Fatalf("MaxInMemoryPaths = %d, want 1234", cfg.MaxInMemoryPaths)
+	}
+	if cfg.MaxInMemoryKnownDestinations != 5678 {
+		t.Fatalf("MaxInMemoryKnownDestinations = %d, want 5678", cfg.MaxInMemoryKnownDestinations)
 	}
 }
 
@@ -178,9 +196,10 @@ func TestEffectiveCaps(t *testing.T) {
 		t.Fatal("explicit path cap")
 	}
 	cfg.InMemoryStorage = false
-	cfg.ConfigPath = ""
-	if cfg.EffectiveMaxInMemoryPaths() != 0 {
-		t.Fatal("auto ephemeral mode without InMemoryStorage has no path cap")
+	cfg.ConfigPath = "/tmp/reticulum-go/config"
+	cfg.MaxInMemoryPaths = 0
+	if cfg.EffectiveMaxInMemoryPaths() != DefaultMaxInMemoryPaths {
+		t.Fatal("disk-backed stacks still get the default path cap")
 	}
 
 	cfg = &ReticulumConfig{InMemoryStorage: true}
@@ -204,7 +223,28 @@ func TestEffectiveCaps(t *testing.T) {
 		t.Fatal("negative should disable caps")
 	}
 	cfg.InMemoryStorage = false
-	if cfg.EffectiveMaxInMemoryKnownDestinations() != 0 || cfg.EffectiveMaxInMemoryResourceBytes() != 0 {
-		t.Fatal("caps require InMemoryStorage")
+	cfg.MaxInMemoryKnownDestinations = 0
+	if cfg.EffectiveMaxInMemoryKnownDestinations() != DefaultMaxInMemoryKnownDestinations {
+		t.Fatal("disk-backed stacks still get the default known-dest cap")
+	}
+	if cfg.EffectiveMaxInMemoryResourceBytes() != 0 {
+		t.Fatal("resource budget still requires InMemoryStorage")
+	}
+
+	cfg = &ReticulumConfig{EnableTransport: true}
+	if cfg.EffectiveMaxPacketHashlist() != DefaultMaxPacketHashlist {
+		t.Fatal("transport hashlist default")
+	}
+	cfg.EnableTransport = false
+	if cfg.EffectiveMaxPacketHashlist() != DefaultMaxPacketHashlistClient {
+		t.Fatal("client hashlist default")
+	}
+	cfg.MaxPacketHashlist = 4096
+	if cfg.EffectiveMaxPacketHashlist() != 4096 {
+		t.Fatal("explicit hashlist cap")
+	}
+	cfg.MaxPacketHashlist = -1
+	if cfg.EffectiveMaxPacketHashlist() != DefaultMaxPacketHashlist {
+		t.Fatal("negative hashlist forces full transport size")
 	}
 }

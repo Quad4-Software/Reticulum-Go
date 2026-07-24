@@ -120,6 +120,7 @@ int rns_rsm_verify(const uint8_t *rsm, size_t rsm_len,
 
 uint64_t rns_destination_create(uint64_t node, uint64_t identity, const char *app_name,
 	const char *const *aspects, size_t aspect_count, int accepts_links);
+int rns_destination_set_proof_strategy(uint64_t destination, int strategy);
 int rns_destination_announce(uint64_t destination, const uint8_t *app_data, size_t app_data_len);
 int rns_destination_hash(uint64_t destination, uint8_t *hash_out, size_t hash_out_len, size_t *written);
 int rns_destination_destroy(uint64_t destination);

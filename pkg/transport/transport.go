@@ -274,7 +274,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		pendingLocalPathReqs:  make(map[hash16]common.NetworkInterface),
 		linkTable:             newLinkRelayTable(),
 		reverseTable:          newReverseTable(),
-		packetHashes:          newPacketHashList(),
+		packetHashes:          newPacketHashList(effectivePacketHashlistMax(cfg)),
 		lastPathRequest:       make(map[[PathMapKeySize]byte]time.Time),
 		ifaceStates:           newIfaceStateTable(),
 		pendingDiscoveryPRs:   make([]pendingDiscoveryPR, 0, maxQueuedDiscoveryPRs),
@@ -452,9 +452,7 @@ func (t *Transport) cleanupExpiredPaths() {
 	now := time.Now()
 	for destHash, path := range t.paths {
 		if pathExpired(path, now) {
-			delete(t.paths, destHash)
-			delete(t.pathStates, destHash)
-			delete(t.announcePacketCache, hash16FromSlice(destHash[:packet.TruncatedHashLength]))
+			t.dropPathEntryUnlocked(destHash)
 			if debug.Enabled(debug.DebugVerbose) {
 				debug.Log(debug.DebugVerbose, "Expired path", "dest_hash", fmt.Sprintf("%x", destHash[:8]))
 			}
@@ -742,8 +740,7 @@ func (t *Transport) invalidateInterfaceReferencesLocked(iface common.NetworkInte
 	}
 	for k, p := range t.paths {
 		if p != nil && p.Interface == iface {
-			delete(t.paths, k)
-			delete(t.pathStates, k)
+			t.dropPathEntryUnlocked(k)
 		}
 	}
 	for k, req := range t.discoveryPathRequests {
@@ -1256,13 +1253,23 @@ func (t *Transport) updatePathUnlocked(destinationHash []byte, nextHop []byte, i
 	t.markPathTableDirty()
 }
 
-// evictPathsIfNeededUnlocked drops oldest paths when the in-memory soft cap
+// dropPathEntryUnlocked removes one path and its announce-cache payload.
+// Caller must hold t.mutex.
+func (t *Transport) dropPathEntryUnlocked(key [PathMapKeySize]byte) {
+	delete(t.paths, key)
+	delete(t.pathStates, key)
+	delete(t.announcePacketCache, hash16FromSlice(key[:]))
+}
+
+// evictPathsIfNeededUnlocked drops oldest paths when the soft path-table cap
 // is exceeded. Caller must hold t.mutex. Uses repeated linear scans so a
 // single insert past the cap stays O(n) rather than sorting the whole table.
 func (t *Transport) evictPathsIfNeededUnlocked(now time.Time) {
 	max := 0
 	if t.config != nil {
 		max = t.config.EffectiveMaxInMemoryPaths()
+	} else {
+		max = common.DefaultMaxInMemoryPaths
 	}
 	if max <= 0 || len(t.paths) <= max {
 		return
@@ -1282,8 +1289,7 @@ func (t *Transport) evictPathsIfNeededUnlocked(now time.Time) {
 				oldestTime = when
 			}
 		}
-		delete(t.paths, oldestKey)
-		delete(t.pathStates, oldestKey)
+		t.dropPathEntryUnlocked(oldestKey)
 	}
 }
 

@@ -254,19 +254,23 @@ type ReticulumConfig struct {
 	// keyring, no D-Bus). When a non-file backend fails, persistence returns an error.
 	IdentityBackend string
 
-	// MaxInMemoryPaths caps the live path table when in-memory storage is
-	// active. Zero uses DefaultMaxInMemoryPaths. Negative disables the cap.
+	// MaxInMemoryPaths caps the live path table in RAM. Zero uses
+	// DefaultMaxInMemoryPaths. Negative disables the cap.
 	MaxInMemoryPaths int
 
-	// MaxInMemoryKnownDestinations caps known destinations when in-memory
-	// storage is active. Zero uses DefaultMaxInMemoryKnownDestinations.
-	// Negative disables the cap.
+	// MaxInMemoryKnownDestinations caps known destinations in RAM. Zero uses
+	// DefaultMaxInMemoryKnownDestinations. Negative disables the cap.
 	MaxInMemoryKnownDestinations int
 
 	// MaxInMemoryResourceBytes caps staged split-resource bytes when
 	// in-memory storage is active. Zero uses DefaultMaxInMemoryResourceBytes.
 	// Negative disables the cap.
 	MaxInMemoryResourceBytes int64
+
+	// MaxPacketHashlist caps the packet hash loop filter. Zero selects a
+	// default from EnableTransport. Negative forces the full transport-sized
+	// default. Positive is an explicit entry budget.
+	MaxPacketHashlist int
 
 	// BackboneIO selects the kernel I/O multiplexer for backbone and local shared
 	// instance sockets: auto, epoll, kqueue, io_uring, or go.

@@ -432,6 +432,11 @@ func rns_destination_create(node, identity C.uint64_t, appName *C.char, aspects 
 	return C.uint64_t(id)
 }
 
+//export rns_destination_set_proof_strategy
+func rns_destination_set_proof_strategy(destination C.uint64_t, strategy C.int) C.int {
+	return cCode(librns.DestinationSetProofStrategy(uint64(destination), byte(strategy)))
+}
+
 //export rns_destination_announce
 func rns_destination_announce(destination C.uint64_t, appData *C.uint8_t, appDataLen C.size_t) C.int {
 	data, code := goBytesFromC(appData, appDataLen)

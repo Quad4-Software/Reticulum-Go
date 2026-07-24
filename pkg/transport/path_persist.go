@@ -284,6 +284,7 @@ func (t *Transport) loadPathTableFromDisk() {
 	if loaded > 0 {
 		debug.Log(debug.DebugInfo, "Loaded path table entries from storage", "count", loaded)
 	}
+	t.evictPathsIfNeededUnlocked(time.Now())
 }
 
 // activatePendingPathsForInterface must be called with t.mutex held.
@@ -309,6 +310,7 @@ func (t *Transport) activatePendingPathsForInterface(name string, iface common.N
 		t.pathStates[destKey] = StateUnknown
 	}
 	t.pendingPathEntries = remaining
+	t.evictPathsIfNeededUnlocked(time.Now())
 }
 
 // markPathTableDirty is called from the UpdatePath / cleanup hot paths.

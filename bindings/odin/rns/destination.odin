@@ -64,6 +64,15 @@ destination_destroy :: proc(destination: Destination) -> Error {
 	return Error(rns_destination_destroy(u64(destination)))
 }
 
+// Proof strategy: 0=none, 1=all (prove every inbound packet), 2=app.
+PROVE_NONE :: 0
+PROVE_ALL :: 1
+PROVE_APP :: 2
+
+destination_set_proof_strategy :: proc(destination: Destination, strategy: int) -> Error {
+	return Error(rns_destination_set_proof_strategy(u64(destination), c.int(strategy)))
+}
+
 destination_register_request_handler :: proc(destination: Destination, path: string) -> Error {
 	if path == "" {
 		return .Invalid_Arg

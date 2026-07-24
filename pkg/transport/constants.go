@@ -24,7 +24,9 @@ const (
 	RoamingPathTime = 6 * time.Hour
 
 	// HashlistMaxSize caps the in-memory packet hash loop filter
-	// (Python Transport.hashlist_maxsize).
+	// (Python Transport.hashlist_maxsize). Prefer
+	// common.DefaultMaxPacketHashlist / EffectiveMaxPacketHashlist for
+	// runtime sizing. This constant remains the absolute ceiling default.
 	HashlistMaxSize = 1_000_000
 
 	// ReverseTimeout is how long reverse-table proof return paths are kept.

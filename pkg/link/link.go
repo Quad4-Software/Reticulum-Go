@@ -1153,6 +1153,7 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 	switch pkt.Context {
 	case packet.ContextNone:
 		l.deliverOrQueuePlainPacket(plaintext, pkt)
+		l.maybeProveInboundData(pkt)
 	case packet.ContextRequest:
 		return l.handleRequest(plaintext, pkt.TruncatedHash())
 	case packet.ContextResponse:
@@ -2594,6 +2595,78 @@ func (l *Link) SetProofCallback(callback func(*packet.Packet) bool) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 	l.proofCallback = callback
+}
+
+// maybeProveInboundData mirrors Python Link DATA handling: when the attached
+// destination asks for ProveAll (or ProveApp via callback), send a link proof
+// so the sender can mark LXMF delivery as DELIVERED.
+func (l *Link) maybeProveInboundData(pkt *packet.Packet) {
+	if pkt == nil {
+		return
+	}
+	l.mutex.RLock()
+	dest := l.destination
+	linkProofCB := l.proofCallback
+	l.mutex.RUnlock()
+	if dest == nil {
+		return
+	}
+	switch dest.ProofStrategy() {
+	case destination.ProveAll:
+		if err := l.ProvePacket(pkt); err != nil {
+			debug.Log(debug.DebugInfo, "Failed to prove inbound link packet", "error", err)
+		}
+	case destination.ProveApp:
+		if linkProofCB != nil && linkProofCB(pkt) {
+			if err := l.ProvePacket(pkt); err != nil {
+				debug.Log(debug.DebugInfo, "Failed to prove inbound link packet", "error", err)
+			}
+		}
+	}
+}
+
+// ProvePacket sends an explicit link proof for pkt (Python Link.prove_packet).
+func (l *Link) ProvePacket(pkt *packet.Packet) error {
+	if pkt == nil {
+		return errors.New("nil packet")
+	}
+	if !l.IsActive() {
+		return errors.New("link not active")
+	}
+	hash := pkt.GetHash()
+	if len(hash) == 0 {
+		return errors.New("empty packet hash")
+	}
+
+	l.mutex.RLock()
+	sigPriv := l.sigPriv
+	linkID := append([]byte(nil), l.linkID...)
+	l.mutex.RUnlock()
+	if sigPriv == nil || sigPriv.Len() == 0 {
+		return errors.New("link has no signing key")
+	}
+	priv := sigPriv.CopyOut()
+	defer securemem.WipeBytes(priv)
+	signature := ed25519.Sign(ed25519.PrivateKey(priv), hash)
+	proofData := append(append([]byte(nil), hash...), signature...)
+
+	proofPkt := &packet.Packet{
+		HeaderType:      packet.HeaderType1,
+		PacketType:      packet.PacketTypeProof,
+		TransportType:   0,
+		Context:         packet.ContextNone,
+		ContextFlag:     packet.FlagUnset,
+		Hops:            0,
+		DestinationType: DestTypeLink,
+		DestinationHash: linkID,
+		Data:            proofData,
+		CreateReceipt:   false,
+	}
+	if err := proofPkt.Pack(); err != nil {
+		return err
+	}
+	l.recordOutbound()
+	return l.transport.SendPacket(proofPkt)
 }
 
 func (l *Link) HandleProofRequest(packet *packet.Packet) bool {

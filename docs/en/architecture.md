@@ -87,7 +87,7 @@ Go CLI tools such as rgostatus dial this RPC. On Linux, Python rnsd defaults to 
 
 The daemon persists ratchets, identity blobs, destination tables, and related artifacts under `~/.reticulum-go/storage/`. Library embedders can use the same paths or keep tables in memory with in_memory_path_table and in_memory_known_destinations.
 
-Set `in_memory_storage = yes` (or `RETICULUM_IN_MEMORY_STORAGE=1`) for fully ephemeral operation: no transport identity file, no blackhole directory, no split-resource staging on disk, and no `~/.reticulum-go` bootstrap. Empty ConfigPath with no `RETICULUM_STORAGE_PATH` also stays off disk. Soft caps (`max_in_memory_*`, soft_memory_limit) bound RAM growth under explicit in-memory storage.
+Set `in_memory_storage = yes` (or `RETICULUM_IN_MEMORY_STORAGE=1`) for fully ephemeral operation: no transport identity file, no blackhole directory, no split-resource staging on disk, and no `~/.reticulum-go` bootstrap. Empty ConfigPath with no `RETICULUM_STORAGE_PATH` also stays off disk. Soft caps (`max_in_memory_paths`, `max_in_memory_known_destinations`, `max_packet_hashlist`, `soft_memory_limit`) always bound RAM for the path table, known destinations, and packet hash filter. The split-resource byte budget still applies only under explicit in-memory storage.
 
 ## Inbound packet flow
 

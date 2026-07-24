@@ -7,18 +7,24 @@ import (
 	"fmt"
 	"sync"
 
+	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/packet"
 )
 
 type packetHashList struct {
 	mu   sync.Mutex
+	max  int
 	cur  map[[32]byte]struct{}
 	prev map[[32]byte]struct{}
 }
 
-func newPacketHashList() *packetHashList {
+func newPacketHashList(max int) *packetHashList {
+	if max <= 0 {
+		max = HashlistMaxSize
+	}
 	return &packetHashList{
+		max:  max,
 		cur:  make(map[[32]byte]struct{}),
 		prev: make(map[[32]byte]struct{}),
 	}
@@ -52,7 +58,8 @@ func (hl *packetHashList) add(h []byte) {
 	hl.mu.Lock()
 	defer hl.mu.Unlock()
 	hl.cur[k] = struct{}{}
-	if len(hl.cur) > HashlistMaxSize/2 {
+	rotateAt := max(hl.max/2, 1)
+	if len(hl.cur) > rotateAt {
 		hl.prev = hl.cur
 		hl.cur = make(map[[32]byte]struct{})
 	}
@@ -66,6 +73,13 @@ func (hl *packetHashList) Len() int {
 	hl.mu.Lock()
 	defer hl.mu.Unlock()
 	return len(hl.cur) + len(hl.prev)
+}
+
+func effectivePacketHashlistMax(cfg *common.ReticulumConfig) int {
+	if cfg == nil {
+		return common.DefaultMaxPacketHashlistClient
+	}
+	return cfg.EffectiveMaxPacketHashlist()
 }
 
 // packetFilter mirrors Python Transport.packet_filter for duplicate detection

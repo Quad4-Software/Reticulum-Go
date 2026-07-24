@@ -16,6 +16,7 @@ func TestLoadConfig_InMemoryStorage(t *testing.T) {
   max_in_memory_paths = 500
   max_in_memory_known_destinations = 600
   max_in_memory_resource_bytes = 16M
+  max_packet_hashlist = 4096
 `)
 	cfg, err := LoadConfig(path)
 	if err != nil {
@@ -38,5 +39,8 @@ func TestLoadConfig_InMemoryStorage(t *testing.T) {
 	}
 	if cfg.MaxInMemoryResourceBytes != 16<<20 {
 		t.Fatalf("MaxInMemoryResourceBytes = %d", cfg.MaxInMemoryResourceBytes)
+	}
+	if cfg.MaxPacketHashlist != 4096 {
+		t.Fatalf("MaxPacketHashlist = %d", cfg.MaxPacketHashlist)
 	}
 }

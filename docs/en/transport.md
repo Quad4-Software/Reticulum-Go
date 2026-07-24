@@ -40,7 +40,7 @@ By default the path table can persist to `storage/destination_table` as msgpack 
 
 Known destinations persist under `storage/known_destinations/`. Set `in_memory_known_destinations = yes` for RAM-only mode.
 
-Set `in_memory_storage = yes` for fully ephemeral stack state (paths, known destinations, transport identity, blackhole, and split-resource staging). Optional soft_memory_limit and `max_in_memory_*` keys bound RAM under that mode.
+Set `in_memory_storage = yes` for fully ephemeral stack state (paths, known destinations, transport identity, blackhole, and split-resource staging). Soft caps (`max_in_memory_paths`, `max_in_memory_known_destinations`, `max_packet_hashlist`, `soft_memory_limit`) bound RAM for path and known-dest tables and the packet hash filter even when storage is disk-backed.
 
 ## Packet handling
 

@@ -65,11 +65,12 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | in_memory_known_destinations | no | Keep known destinations in RAM only |
 | in_memory_storage | no | Fully ephemeral mode: no disk for paths, known dests, transport identity, blackhole, or split resources. Implies both table flags |
 | identity_backend | file | Identity at-rest store: file, secretservice (Freedesktop Secret Service), or keyring (Linux kernel keyring) |
-| soft_memory_limit | (none) | Soft heap budget (K/M/G or bytes) via Go `debug.SetMemoryLimit` |
+| soft_memory_limit | (none) | Soft heap budget (K/M/G or bytes) via Go `debug.SetMemoryLimit`. Env: `RETICULUM_SOFT_MEMORY_LIMIT` |
 | dos_protection | auto | Go-only local IDS/IPS gates. Values: off, detect, prevent, auto (alias smart). See [DoS protection](#dos_protection-go-only) |
-| max_in_memory_paths | 100000 | Path table soft cap when in_memory_storage is yes. Negative disables |
-| max_in_memory_known_destinations | 100000 | Known-dest soft cap when in_memory_storage is yes. Negative disables |
+| max_in_memory_paths | 100000 | Soft cap on the live path table in RAM (disk-backed and in-memory). Zero uses default. Negative disables. Env: `RETICULUM_MAX_IN_MEMORY_PATHS` |
+| max_in_memory_known_destinations | 100000 | Soft cap on known destinations in RAM. Zero uses default. Negative disables. Env: `RETICULUM_MAX_IN_MEMORY_KNOWN_DESTINATIONS` |
 | max_in_memory_resource_bytes | 256M | Split-resource staging budget when in_memory_storage is yes. Negative disables |
+| max_packet_hashlist | auto | Packet hash loop-filter size. Zero: 1M when enable_transport is yes, else 100k. Negative forces 1M. Env: `RETICULUM_MAX_PACKET_HASHLIST` |
 | discover_interfaces | no | Start rnstransport interface discovery listener |
 | watch_interfaces | no | Poll NIC up/down and rescan Auto interfaces (Go-only) |
 | static_transport_identity | no | Keep persisted transport identity on the wire when enable_transport is no (RNS 1.3.6+) |

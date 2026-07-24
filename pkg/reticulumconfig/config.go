@@ -339,6 +339,8 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		if n, err := common.ParseByteSize(value); err == nil {
 			cfg.MaxInMemoryResourceBytes = n
 		}
+	case "max_packet_hashlist":
+		setInt(value, &cfg.MaxPacketHashlist)
 	case "discover_interfaces":
 		setBool(&cfg.DiscoverInterfaces, value)
 	case "watch_interfaces":
@@ -726,6 +728,9 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	}
 	if cfg.MaxInMemoryResourceBytes != 0 {
 		fmt.Fprintf(&b, "  max_in_memory_resource_bytes = %d\n", cfg.MaxInMemoryResourceBytes)
+	}
+	if cfg.MaxPacketHashlist != 0 {
+		fmt.Fprintf(&b, "  max_packet_hashlist = %d\n", cfg.MaxPacketHashlist)
 	}
 	fmt.Fprintf(&b, "  discover_interfaces = %s\n", boolStr(cfg.DiscoverInterfaces))
 	fmt.Fprintf(&b, "  watch_interfaces = %s\n", boolStr(cfg.WatchInterfaces))
