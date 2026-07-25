@@ -44,6 +44,13 @@ var DiscoverPathsFor = []InterfaceMode{
 	IFModeInternal,
 }
 
+// BoundarySearchModes limits recursive discovery when a boundary-mode
+// interface requests an unknown path (RNS 1.4.1 BOUNDARY_SEARCH_MODES).
+var BoundarySearchModes = []InterfaceMode{
+	IFModeBoundary,
+	IFModeGateway,
+}
+
 // Transport modes.
 const (
 	TransportModeDirect TransportMode = iota

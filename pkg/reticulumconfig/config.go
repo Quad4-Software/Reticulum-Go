@@ -50,18 +50,19 @@ var errEmptyConfigPath = errors.New("config path not set")
 // DefaultConfig returns a ReticulumConfig populated with built-in defaults.
 func DefaultConfig() *common.ReticulumConfig {
 	return &common.ReticulumConfig{
-		EnableTransport:     true,
-		ShareInstance:       true,
-		SharedInstancePort:  DefaultSharedInstancePort,
-		InstanceControlPort: DefaultInstanceControlPort,
-		PanicOnInterfaceErr: false,
-		LogLevel:            DefaultLogLevel,
-		Interfaces:          make(map[string]*common.InterfaceConfig),
-		EnableSandbox:       true,
-		EnableSeccomp:       true,
-		ControlAPIHost:      DefaultControlAPIHost,
-		ControlAPIPort:      DefaultControlAPIPort,
-		DoSProtection:       "auto",
+		EnableTransport:        true,
+		ShareInstance:          true,
+		SharedInstancePort:     DefaultSharedInstancePort,
+		InstanceControlPort:    DefaultInstanceControlPort,
+		PanicOnInterfaceErr:    false,
+		LogLevel:               DefaultLogLevel,
+		Interfaces:             make(map[string]*common.InterfaceConfig),
+		EnableSandbox:          true,
+		EnableSeccomp:          true,
+		AllowLinkPathRebalance: true,
+		ControlAPIHost:         DefaultControlAPIHost,
+		ControlAPIPort:         DefaultControlAPIPort,
+		DoSProtection:          "auto",
 	}
 }
 
@@ -298,6 +299,26 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		setBool(&cfg.EnableSandbox, value)
 	case "enable_seccomp":
 		setBool(&cfg.EnableSeccomp, value)
+	case "default_gravity":
+		if v, err := strconv.Atoi(strings.TrimSpace(value)); err == nil {
+			cfg.DefaultGravity = v
+			cfg.DefaultGravitySet = true
+		}
+	case "autoconnect_interface_gravity":
+		if v, err := strconv.Atoi(strings.TrimSpace(value)); err == nil {
+			cfg.AutoconnectInterfaceGravity = v
+			cfg.AutoconnectInterfaceGravitySet = true
+		}
+	case "autoconnect_interface_mode":
+		cfg.AutoconnectInterfaceMode = strings.ToLower(strings.TrimSpace(value))
+	case "autoconnect_announces_to_internal":
+		if setBool(&cfg.AutoconnectAnnouncesToInternal, value) {
+			cfg.AutoconnectAnnouncesToInternalSet = true
+		}
+	case "allow_link_path_rebalance":
+		if setBool(&cfg.AllowLinkPathRebalance, value) {
+			cfg.AllowLinkPathRebalanceSet = true
+		}
 	case "enable_control_api":
 		setBool(&cfg.EnableControlAPI, value)
 	case "control_api_host":
@@ -525,6 +546,15 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		if setBool(&iface.AnnouncesFromInternal, value) {
 			iface.AnnouncesFromInternalSet = true
 		}
+	case "announces_to_internal":
+		if setBool(&iface.AnnouncesToInternal, value) {
+			iface.AnnouncesToInternalSet = true
+		}
+	case "gravity":
+		if v, err := strconv.Atoi(strings.TrimSpace(value)); err == nil {
+			iface.Gravity = v
+			iface.GravitySet = true
+		}
 	case "outgoing", "selected_outgoing":
 		if setBool(&iface.Outgoing, value) {
 			iface.OutgoingSet = true
@@ -703,6 +733,21 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	fmt.Fprintf(&b, "  panic_on_interface_error = %s\n", boolStr(cfg.PanicOnInterfaceErr))
 	fmt.Fprintf(&b, "  enable_sandbox = %s\n", boolStr(cfg.EnableSandbox))
 	fmt.Fprintf(&b, "  enable_seccomp = %s\n", boolStr(cfg.EnableSeccomp))
+	if cfg.DefaultGravitySet {
+		fmt.Fprintf(&b, "  default_gravity = %d\n", cfg.DefaultGravity)
+	}
+	if cfg.AutoconnectInterfaceGravitySet {
+		fmt.Fprintf(&b, "  autoconnect_interface_gravity = %d\n", cfg.AutoconnectInterfaceGravity)
+	}
+	if cfg.AutoconnectInterfaceMode != "" {
+		fmt.Fprintf(&b, "  autoconnect_interface_mode = %s\n", cfg.AutoconnectInterfaceMode)
+	}
+	if cfg.AutoconnectAnnouncesToInternalSet {
+		fmt.Fprintf(&b, "  autoconnect_announces_to_internal = %s\n", boolStr(cfg.AutoconnectAnnouncesToInternal))
+	}
+	if cfg.AllowLinkPathRebalanceSet {
+		fmt.Fprintf(&b, "  allow_link_path_rebalance = %s\n", boolStr(cfg.AllowLinkPathRebalance))
+	}
 	fmt.Fprintf(&b, "  enable_control_api = %s\n", boolStr(cfg.EnableControlAPI))
 	fmt.Fprintf(&b, "  control_api_host = %s\n", controlAPIHostOrDefault(cfg.ControlAPIHost))
 	fmt.Fprintf(&b, "  control_api_port = %d\n", controlAPIPortOrDefault(cfg.ControlAPIPort))
@@ -864,11 +909,17 @@ func writeInterface(b *strings.Builder, name string, iface *common.InterfaceConf
 	if iface.Mode != "" {
 		fmt.Fprintf(b, "    mode = %s\n", iface.Mode)
 	}
+	if iface.GravitySet {
+		fmt.Fprintf(b, "    gravity = %d\n", iface.Gravity)
+	}
 	if iface.RecursivePRs {
 		fmt.Fprintf(b, "    recursive_prs = %s\n", boolStr(iface.RecursivePRs))
 	}
 	if iface.AnnouncesFromInternalSet {
 		fmt.Fprintf(b, "    announces_from_internal = %s\n", boolStr(iface.AnnouncesFromInternal))
+	}
+	if iface.AnnouncesToInternalSet {
+		fmt.Fprintf(b, "    announces_to_internal = %s\n", boolStr(iface.AnnouncesToInternal))
 	}
 	if iface.CertFile != "" {
 		fmt.Fprintf(b, "    cert_file = %s\n", iface.CertFile)

@@ -82,6 +82,7 @@ type Snapshot struct {
 	AnnounceSigFail       KindTotals `json:"announce_sig_fail" msgpack:"announce_sig_fail"`
 	ProofFail             KindTotals `json:"proof_fail" msgpack:"proof_fail"`
 	LRProofHopMismatch    KindTotals `json:"lrproof_hop_mismatch" msgpack:"lrproof_hop_mismatch"`
+	PathRebalance         KindTotals `json:"path_rebalance" msgpack:"path_rebalance"`
 	RequestSkewReject     KindTotals `json:"request_skew_reject" msgpack:"request_skew_reject"`
 	BlackholeHit          KindTotals `json:"blackhole_hit" msgpack:"blackhole_hit"`
 	LinkStaleClose        KindTotals `json:"link_stale_close" msgpack:"link_stale_close"`
@@ -145,6 +146,7 @@ func (r *Registry) snapshotArray(arr *[kindCount]windowedCounter) Snapshot {
 		AnnounceSigFail:       snapKind(arr, KindAnnounceSigFail, now),
 		ProofFail:             snapKind(arr, KindProofFail, now),
 		LRProofHopMismatch:    snapKind(arr, KindLRProofHopMismatch, now),
+		PathRebalance:         snapKind(arr, KindPathRebalance, now),
 		RequestSkewReject:     snapKind(arr, KindRequestSkewReject, now),
 		BlackholeHit:          snapKind(arr, KindBlackholeHit, now),
 		LinkStaleClose:        snapKind(arr, KindLinkStaleClose, now),

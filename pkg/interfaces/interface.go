@@ -69,6 +69,13 @@ type BaseInterface struct {
 	// internal-mode next hop (default true).
 	AnnouncesFromInternal bool
 
+	// AnnouncesToInternal allows boundary next hops to feed internal interfaces
+	// (RNS 1.4.1). Default false.
+	AnnouncesToInternal bool
+
+	// Gravity is configured pathing affinity (RNS 1.4.1).
+	Gravity int
+
 	// ReceiveOnly blocks transmit when true (Python outgoing = no).
 	// Zero value is false so unset interfaces still transmit.
 	ReceiveOnly bool
@@ -271,6 +278,22 @@ func (i *BaseInterface) RecursivePRsEnabled() bool {
 // may be rebroadcast (default true).
 func (i *BaseInterface) AnnouncesFromInternalFlag() bool {
 	return i.AnnouncesFromInternal
+}
+
+// AnnouncesToInternalFlag reports whether this interface may feed announces
+// onto internal-mode interfaces (RNS 1.4.1).
+func (i *BaseInterface) AnnouncesToInternalFlag() bool {
+	return i.AnnouncesToInternal
+}
+
+// GetGravity returns configured pathing affinity.
+func (i *BaseInterface) GetGravity() int {
+	return i.Gravity
+}
+
+// SetGravity sets configured pathing affinity.
+func (i *BaseInterface) SetGravity(g int) {
+	i.Gravity = g
 }
 
 // AllowsOutgoing reports whether this interface may transmit (config OUT).

@@ -50,7 +50,9 @@ type hash16 struct {
 }
 
 type destinationPacketReceiver interface {
-	Receive(pkt *packet.Packet, iface common.NetworkInterface)
+	// Receive decrypts and delivers. Returns false when decrypt or delivery fails
+	// so callers must not send opportunistic proofs for undelivered packets.
+	Receive(pkt *packet.Packet, iface common.NetworkInterface) bool
 }
 
 type destinationLinkRequestHandler interface {
@@ -187,6 +189,10 @@ type Transport struct {
 	startTime               time.Time
 	destinationsLastCleaned atomic.Int64
 	knownDestCleaning       atomic.Bool
+
+	rebalanceMu     sync.Mutex
+	rebalanceByDest map[[PathMapKeySize]byte]*rebalanceEntry
+	ifacePenalties  map[string]*ifacePenalty
 
 	tunnelMu           sync.Mutex
 	tunnels            map[[32]byte]*tunnelEntry
@@ -330,6 +336,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 
 	go t.startMaintenanceJobs()
 
+	t.ensureRebalanceState()
 	t.initLocalHopsDelta()
 	t.initPathPersistence(cfg)
 	inMemoryKnown := false
@@ -1819,8 +1826,19 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 			nextHop = destinationHash
 		}
 		now := time.Now()
-		t.mutex.Lock()
+		annAff := t.pathingAffinity(iface)
+		t.mutex.RLock()
 		destKey := pathMapKey(destinationHash)
+		existingPeek := t.paths[destKey]
+		var curIface common.NetworkInterface
+		if existingPeek != nil {
+			curIface = existingPeek.Interface
+		}
+		t.mutex.RUnlock()
+		curAff := t.pathingAffinity(curIface)
+		affKnown := existingPeek == nil || curIface != nil
+
+		t.mutex.Lock()
 		existing := t.paths[destKey]
 		destinationKnown := existing != nil
 		pathUnresponsive := false
@@ -1832,6 +1850,9 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 			announceHops:     uint8(announceHops),
 			randomBlob:       randomHash,
 			now:              now,
+			announceAffinity: annAff,
+			currentAffinity:  curAff,
+			affinityKnown:    affKnown,
 		}, pathUnresponsive)
 		if shouldAdd {
 			t.updatePathUnlocked(destinationHash, nextHop, iface.GetName(), uint8(announceHops), randomHash, announceHash[:], now)
@@ -2215,13 +2236,19 @@ func (t *Transport) handleTransportPacket(data []byte, iface common.NetworkInter
 				debug.Log(debug.DebugInfo, "Routing data packet to destination", "hash", fmt.Sprintf("%x", destHash))
 			}
 
+			delivered := false
 			if destIface.packetReceiver != nil {
-				destIface.packetReceiver.Receive(pkt, iface)
+				delivered = destIface.packetReceiver.Receive(pkt, iface)
 			} else {
 				debug.Log(debug.DebugVerbose, "Destination does not have Receive method")
 			}
-			if d, ok := destIface.raw.(*destination.Destination); ok {
-				t.maybeProvePacket(pkt, d, iface)
+			// Match Python Destination.receive: prove only after successful decrypt
+			// and local delivery. Proving on decrypt failure marks DELIVERED at the
+			// sender while ren-tui never sees Destination_Data.
+			if delivered {
+				if d, ok := destIface.raw.(*destination.Destination); ok {
+					t.maybeProvePacket(pkt, d, iface)
+				}
 			}
 		} else {
 			debug.Log(debug.DebugInfo, common.MsgTransportNoDestForData, "hash", fmt.Sprintf("%x", destHash))

@@ -11,10 +11,12 @@
 - Expanded test taxonomy covering mutation, health oracles, property suites, CLI smoke and black-box, librns acceptance, UDP path e2e, and matching Task targets
 - Docs updates for bindings, librns, examples, and testing layers
 - Go-only dos_protection IDS/IPS gates (off/detect/prevent/auto, default auto) with adaptive baselines, once-per-second peak sampling, msgpack-persisted learning, auto promote to prevent, relearn on network or drift change, iface cool-down, crypto and handshake budgets, health counters, rate-limited stdout trip warnings, false-positive edge suites, and live UDP/TCP/mesh protect tests
-- Wire compatibility target raised to Python RNS 1.4.0 (discovery stamp default 16, discovery stamp caches, link keepalive parity)
+- Wire compatibility target raised to Python RNS 1.4.1 (interface gravity, LRPROOF path rebalance, announces_to_internal, boundary search modes, request size caps)
+- Go-unique pathingAffinity (live iface penalty on gravity contests) and LRPROOF rebalance dampening / gravity-sticky hop-increase refusal
 - Backbone `blocked_ips` / `blocked_ip_list` in interface stats, status, and control API
 - Background known-destination cleaning with path/age rules and cooperative yields
 - Initiator keepalive throttle on `lastKeepaliveNs` so one-way data traffic does not suppress probes
+- Destination `SetMaxRequestSize` and Link `RequestLimited` (`max_response_size`)
 
 ### Fixed
 - Link requests register before send so fast replies are not dropped

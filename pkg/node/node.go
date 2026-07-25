@@ -275,6 +275,13 @@ func (n *Node) EnableLinkAutoReconnect(opts LinkReconnectOptions) {
 	}
 }
 
+func defaultGravityFromConfig(cfg *common.ReticulumConfig) int {
+	if cfg != nil && cfg.DefaultGravitySet {
+		return cfg.DefaultGravity
+	}
+	return 0
+}
+
 func (n *Node) fromConfigContext() *interfaces.FromConfigContext {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -292,6 +299,7 @@ func (n *Node) fromConfigContext() *interfaces.FromConfigContext {
 		WatchInterfaces:       n.config != nil && n.config.WatchInterfaces,
 		DiscoverInterfaces:    n.config != nil && n.config.DiscoverInterfaces,
 		PanicOnInterfaceError: n.config != nil && n.config.PanicOnInterfaceErr,
+		DefaultGravity:        defaultGravityFromConfig(n.config),
 		BackboneHub:           backbone.Get(),
 		SpawnBackbone: func(client *interfaces.BackboneClientInterface) {
 			if err := n.transport.RegisterInterface(client.GetName(), client); err != nil {

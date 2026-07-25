@@ -106,6 +106,11 @@ func newSpawnedBackboneClient(parent *BackboneInterface, conn net.Conn) *Backbon
 	bc.Bitrate = parent.Bitrate
 	bc.In = parent.In
 	bc.Out = parent.Out
+	bc.Mode = parent.Mode
+	bc.Gravity = parent.Gravity
+	bc.AnnouncesToInternal = parent.AnnouncesToInternal
+	bc.AnnouncesFromInternal = parent.AnnouncesFromInternal
+	bc.RecursivePRs = parent.RecursivePRs
 	bc.Online = true
 	if tcpConn, ok := conn.(*net.TCPConn); ok {
 		_ = tcpConn.SetNoDelay(true)

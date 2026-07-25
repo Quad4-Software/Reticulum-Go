@@ -91,7 +91,7 @@ Check against both stacks:
 | Peer | What to prove | Typical approach |
 |------|---------------|------------------|
 | **Go** | Same node stack via `pkg/node` / `pkg/librns` | Match Go examples under `examples/` or binding demos against Go pageserver / page-fetch. Package tests in `pkg/librns` and live suites under `tests/interop/` |
-| **Python RNS** | Official `rns` (1.4.0) / NomadNet-style peers | Live announce, path, link, request, resource, or pageserver against Python helpers in `tests/interop/py/`. Crossref vectors in `tests/crossref/` for byte-level crypto and packet parity |
+| **Python RNS** | Official `rns` (1.4.1) / NomadNet-style peers | Live announce, path, link, request, resource, or pageserver against Python helpers in `tests/interop/py/`. Crossref vectors in `tests/crossref/` for byte-level crypto and packet parity |
 
 What counts as interop evidence:
 

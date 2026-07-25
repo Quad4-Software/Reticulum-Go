@@ -100,6 +100,10 @@ func interfaceConfigsEqualForReload(a, b *common.InterfaceConfig) bool {
 		a.RecursivePRs == b.RecursivePRs &&
 		a.AnnouncesFromInternal == b.AnnouncesFromInternal &&
 		a.AnnouncesFromInternalSet == b.AnnouncesFromInternalSet &&
+		a.AnnouncesToInternal == b.AnnouncesToInternal &&
+		a.AnnouncesToInternalSet == b.AnnouncesToInternalSet &&
+		a.Gravity == b.Gravity &&
+		a.GravitySet == b.GravitySet &&
 		a.Outgoing == b.Outgoing &&
 		a.OutgoingSet == b.OutgoingSet &&
 		a.Device == b.Device &&

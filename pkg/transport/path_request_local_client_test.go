@@ -542,10 +542,10 @@ func TestLocalClientPR_DiscoveryPRTagsNoUnboundedGrowth(t *testing.T) {
 
 // TestLocalClientPR_ModeTypeMatrix is a property test verifying that local
 // client interfaces (IFTypeUnix) forward PRs regardless of their mode setting,
-// while non-local-client interfaces only forward when mode is in
-// DiscoverPathsFor. For non-local-client discover modes, the PR goes through
-// the async discovery queue, so we check discoveryPathRequests instead of
-// immediate sends.
+// while non-local-client interfaces only forward when mode discovers unknown
+// paths (DiscoverPathsFor or boundary-mode RNS 1.4.1 search). For non-local
+// discover modes, the PR goes through the async discovery queue, so we check
+// discoveryPathRequests instead of immediate sends.
 func TestLocalClientPR_ModeTypeMatrix(t *testing.T) {
 	modes := []struct {
 		mode      common.InterfaceMode
@@ -556,7 +556,7 @@ func TestLocalClientPR_ModeTypeMatrix(t *testing.T) {
 		{common.IFModeAccessPoint, "AP", true},
 		{common.IFModeRoaming, "Roaming", true},
 		{common.IFModeGateway, "Gateway", true},
-		{common.IFModeBoundary, "Boundary", false},
+		{common.IFModeBoundary, "Boundary", true},
 		{common.IFModeInternal, "Internal", true},
 	}
 

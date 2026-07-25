@@ -40,6 +40,7 @@ const (
 	KindDoSCrypto
 	KindDoSHandshake
 	KindDoSCoolDown
+	KindPathRebalance
 	kindCount
 )
 
@@ -60,6 +61,8 @@ func (k Kind) String() string {
 		return "proof_fail"
 	case KindLRProofHopMismatch:
 		return "lrproof_hop_mismatch"
+	case KindPathRebalance:
+		return "path_rebalance"
 	case KindRequestSkewReject:
 		return "request_skew_reject"
 	case KindBlackholeHit:

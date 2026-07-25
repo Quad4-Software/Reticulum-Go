@@ -40,6 +40,8 @@ type InterfaceStat struct {
 	PRBurstActive             bool     `msgpack:"pr_burst_active"`
 	Status                    bool     `msgpack:"status"`
 	Mode                      byte     `msgpack:"mode"`
+	Gravity                   int      `msgpack:"gravity"`
+	AnnouncesToInternal       bool     `msgpack:"announces_to_internal"`
 	Clients                   *int     `msgpack:"clients"`
 	Bitrate                   int64    `msgpack:"bitrate"`
 	RTTMs                     *float64 `msgpack:"rtt_ms,omitempty"`
@@ -55,6 +57,7 @@ type InterfaceStat struct {
 	PaddingFail               uint64   `msgpack:"padding_fail"`
 	ProofFail                 uint64   `msgpack:"proof_fail"`
 	LRProofHopMismatch        uint64   `msgpack:"lrproof_hop_mismatch"`
+	PathRebalance             uint64   `msgpack:"path_rebalance"`
 	RequestSkewReject         uint64   `msgpack:"request_skew_reject"`
 	BlackholeHit              uint64   `msgpack:"blackhole_hit"`
 	LinkStaleClose            uint64   `msgpack:"link_stale_close"`
@@ -212,8 +215,12 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 			Type:      "Interface",
 			Status:    iface.IsOnline(),
 			Mode:      byte(iface.GetMode()),
+			Gravity:   interfaceGravity(iface),
 			RXB:       rx,
 			TXB:       tx,
+		}
+		if v, ok := iface.(interface{ AnnouncesToInternalFlag() bool }); ok {
+			st.AnnouncesToInternal = v.AnnouncesToInternalFlag()
 		}
 		if hasher, ok := iface.(interface{ InterfaceHash() []byte }); ok {
 			st.Hash = hasher.InterfaceHash()
@@ -307,6 +314,7 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 		st.PaddingFail = hs.PaddingFail.Total
 		st.ProofFail = hs.ProofFail.Total
 		st.LRProofHopMismatch = hs.LRProofHopMismatch.Total
+		st.PathRebalance = hs.PathRebalance.Total
 		st.RequestSkewReject = hs.RequestSkewReject.Total
 		st.BlackholeHit = hs.BlackholeHit.Total
 		st.LinkStaleClose = hs.LinkStaleClose.Total

@@ -94,6 +94,11 @@ type Destination struct {
 	mutex          sync.RWMutex
 
 	requestHandlers map[string]*RequestHandler
+
+	// maxRequestSize limits accepted inbound request plaintext size when set
+	// (RNS 1.4.1). Negative means unset (unlimited).
+	maxRequestSize int
+	maxRequestSet  bool
 }
 
 // New creates a Destination for appName and optional aspects.
@@ -379,13 +384,13 @@ func (d *Destination) SetPacketCallback(callback common.PacketCallback) {
 	d.packetCallback = callback
 }
 
-func (d *Destination) Receive(pkt *packet.Packet, iface common.NetworkInterface) {
+func (d *Destination) Receive(pkt *packet.Packet, iface common.NetworkInterface) bool {
 	if pkt != nil && pkt.PacketType == packet.PacketTypeLinkReq {
 		debug.Log(debug.DebugInfo, "Received link request for destination")
 		if err := d.HandleIncomingLinkRequest(pkt, d.transport, iface); err != nil {
 			debug.Log(debug.DebugError, "Failed to handle incoming link request", "error", err)
 		}
-		return
+		return false
 	}
 
 	d.mutex.RLock()
@@ -394,18 +399,19 @@ func (d *Destination) Receive(pkt *packet.Packet, iface common.NetworkInterface)
 
 	if callback == nil {
 		debug.Log(debug.DebugInfo, common.MsgDestNoPacketCallback, "hash", fmt.Sprintf("%x", d.GetHash()))
-		return
+		return false
 	}
 
 	plaintext, err := d.Decrypt(pkt.Data)
 	if err != nil {
 		debug.Log(debug.DebugInfo, "Failed to decrypt packet data", "error", err)
-		return
+		return false
 	}
 
 	debug.Log(debug.DebugInfo, "Destination received packet", "bytes", len(plaintext))
 
 	callback(plaintext, iface)
+	return true
 }
 
 func (d *Destination) SetProofRequestedCallback(callback common.ProofRequestedCallback) {
@@ -418,6 +424,29 @@ func (d *Destination) SetProofStrategy(strategy byte) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	d.proofStrategy = strategy
+}
+
+// SetMaxRequestSize sets the maximum accepted inbound request size in bytes
+// (RNS 1.4.1 Destination.set_max_request_size). Zero allows empty requests only.
+func (d *Destination) SetMaxRequestSize(maxRequestSize int) error {
+	if maxRequestSize < 0 {
+		return errors.New("maximum request size cannot be negative")
+	}
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	d.maxRequestSize = maxRequestSize
+	d.maxRequestSet = true
+	return nil
+}
+
+// MaxRequestSize returns the configured limit and whether one was set.
+func (d *Destination) MaxRequestSize() (int, bool) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+	if !d.maxRequestSet {
+		return 0, false
+	}
+	return d.maxRequestSize, true
 }
 
 // ProofStrategy returns the configured proof strategy.

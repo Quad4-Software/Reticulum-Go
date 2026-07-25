@@ -58,6 +58,7 @@ func NewPacketReceipt(pkt *Packet) *PacketReceipt {
 		proved:           false,
 		status:           ReceiptSent,
 		destination:      pkt.Destination,
+		link:             pkt.Link,
 		timeout:          calculateTimeout(pkt),
 		timeoutCheckDone: make(chan bool, 1),
 	}
@@ -112,8 +113,14 @@ func (pr *PacketReceipt) IsFailed() bool {
 }
 
 func (pr *PacketReceipt) ValidateProofPacket(proofPacket *Packet) bool {
-	if proofPacket.Link != nil {
+	if proofPacket != nil && proofPacket.Link != nil {
 		return pr.ValidateLinkProof(proofPacket.Data, proofPacket.Link, proofPacket)
+	}
+	pr.mutex.RLock()
+	link := pr.link
+	pr.mutex.RUnlock()
+	if link != nil {
+		return pr.ValidateLinkProof(proofPacket.Data, link, proofPacket)
 	}
 	return pr.ValidateProof(proofPacket.Data, proofPacket)
 }

@@ -312,7 +312,7 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 	if !ok {
 		return nil, fmt.Errorf("interface %q does not implement common.NetworkInterface", name)
 	}
-	applyModeFromConfig(iface, cfg)
+	applyModeFromConfig(iface, cfg, ctx)
 	applyOutgoingFromConfig(iface, cfg)
 	if err := ApplyIFACFromConfig(ni, cfg); err != nil {
 		return nil, err
@@ -320,18 +320,35 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 	return iface, nil
 }
 
-// applyModeFromConfig sets Mode, RecursivePRs, and AnnouncesFromInternal from cfg.
-func applyModeFromConfig(iface Interface, cfg *common.InterfaceConfig) {
+// applyModeFromConfig sets Mode, RecursivePRs, gravity, and announce flags from cfg.
+func applyModeFromConfig(iface Interface, cfg *common.InterfaceConfig, ctx *FromConfigContext) {
 	if cfg == nil || iface == nil {
 		return
 	}
 	mode := common.ParseInterfaceMode(cfg.Mode)
 	afi := announcesFromInternal(cfg)
+	ati := announcesToInternal(cfg)
+	gravity := cfg.Gravity
+	if !cfg.GravitySet {
+		gravity = 0
+		if ctx != nil {
+			gravity = ctx.DefaultGravity
+		}
+	}
 	if base := baseInterfaceOf(iface); base != nil {
 		base.Mode = mode
 		base.RecursivePRs = cfg.RecursivePRs
 		base.AnnouncesFromInternal = afi
+		base.AnnouncesToInternal = ati
+		base.Gravity = gravity
 	}
+}
+
+func announcesToInternal(cfg *common.InterfaceConfig) bool {
+	if cfg.AnnouncesToInternalSet {
+		return cfg.AnnouncesToInternal
+	}
+	return false
 }
 
 // applyOutgoingFromConfig sets the transmit permit from outgoing / selected_outgoing.

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -61,6 +62,18 @@ func (lt *linkRelayTable) markValidated(linkID []byte) bool {
 		return false
 	}
 	e.Validated = true
+	e.Timestamp = time.Now()
+	return true
+}
+
+func (lt *linkRelayTable) setRemainingHops(linkID []byte, hops int) bool {
+	lt.mu.Lock()
+	defer lt.mu.Unlock()
+	e, ok := lt.entries[hash16FromSlice(linkID)]
+	if !ok || e == nil || e.Validated {
+		return false
+	}
+	e.RemainingHops = hops
 	e.Timestamp = time.Now()
 	return true
 }
@@ -540,10 +553,14 @@ func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag [
 	if !t.transportEnabled() {
 		return
 	}
+	modeFilter := discoverySearchModeFilter(exclude)
 	t.mutex.RLock()
 	ifaces := make([]common.NetworkInterface, 0, len(t.interfaces))
 	for _, iface := range t.interfaces {
 		if iface == exclude || !iface.IsEnabled() {
+			continue
+		}
+		if len(modeFilter) > 0 && !modeInFilter(iface.GetMode(), modeFilter) {
 			continue
 		}
 		if iface.ShouldEgressLimitPR() {
@@ -565,6 +582,10 @@ func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag [
 				"iface", iface.GetName(), "error", err)
 		}
 	}
+}
+
+func modeInFilter(mode common.InterfaceMode, filter []common.InterfaceMode) bool {
+	return slices.Contains(filter, mode)
 }
 
 func (t *Transport) queueDiscoveryPathRequest(destHash []byte, exclude common.NetworkInterface) {

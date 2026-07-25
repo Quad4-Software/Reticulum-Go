@@ -44,6 +44,7 @@ type FromConfigContext struct {
 	SetupPeer             func(peer common.NetworkInterface)
 	SynthesizeTunnel      func(TunnelPeer)
 	VoidTunnel            func(TunnelPeer)
+	DefaultGravity        int
 	WatchInterfaces       bool
 	DiscoverInterfaces    bool
 	PanicOnInterfaceError bool

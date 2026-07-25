@@ -1,6 +1,6 @@
 # Compatibility with Python Reticulum
 
-This document compares Reticulum-Go with the official [Reticulum network API reference](https://reticulum.network/manual/reference.html) and the reference *rns* Python package (**RNS 1.4.0**).
+This document compares Reticulum-Go with the official [Reticulum network API reference](https://reticulum.network/manual/reference.html) and the reference *rns* Python package (**RNS 1.4.1**).
 
 Crossref tests clone the reference from `rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum` via [rngit](https://reticulum.network/manual/git.html) (`tests/crossref/run_crossref.sh`). The GitHub mirror at [markqvist/Reticulum](https://github.com/markqvist/Reticulum) is no longer used for vectors.
 
@@ -12,18 +12,18 @@ For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). F
 |-----------|:------------:|-------|
 | Crypto | Yes | Curve25519 (X25519 + Ed25519), AES-256-CBC, HMAC-SHA256, HKDF. Checked against Python in crossref tests. [1] [2] |
 | Identity | Yes | Key generation, recall, sign/verify, encrypt/decrypt, ratchets. Optional 72-byte hardware-bound descriptor (RHB1). On-wire Ed25519 public key matches RNS.Identity. Python Identity.from_file expects the 64-byte software layout only today. [3] [4] |
-| Destination | Yes | SINGLE, GROUP, PLAIN, LINK. Announce and request handlers, links in and out. [5] |
+| Destination | Yes | SINGLE, GROUP, PLAIN, LINK. Announce and request handlers, links in and out. `SetMaxRequestSize` (1.4.1). [5] |
 | Packet | Yes | Header types 1 and 2, all packet types and contexts. Byte-for-byte parity in crossref. [1] [6] |
-| Transport | Yes | Core wire behavior matches Python 1.4.0: path table, announces, RequestPath, hops, next-hop, type-2 rewrap, link-table forwarding, persistence, ingress control, random-blob path selection (1.3.4 dedup), interface mode announce rules and MODE_INTERNAL (1.3.6), ephemeral transport identity when transport is off (1.3.6). Probe responses via respond_to_probes / allow_probes, local_hops_delta hop mangling, and blackhole teardown at LINKIDENTIFY are implemented. Incoming links use HandleIncomingLinkRequest. Unpack rejects hop counts at or above PATHFINDER_M (1.3.8). Link keepalive/stale timing matches 1.4.0 including initiator lastKeepaliveNs throttling. Background known-destination cleaning uses path/age rules with cooperative yields. [7] [8] [9] |
+| Transport | Yes | Core wire behavior matches Python 1.4.1: path table, announces, RequestPath, hops, next-hop, type-2 rewrap, link-table forwarding, persistence, ingress control, random-blob path selection (1.3.4 dedup), interface gravity contests (1.4.1), LRPROOF hop rebalancing (1.4.1), interface mode announce rules including announces_to_internal and MODE_INTERNAL (1.3.6/1.4.1), ephemeral transport identity when transport is off (1.3.6). Probe responses via respond_to_probes / allow_probes, local_hops_delta hop mangling, and blackhole teardown at LINKIDENTIFY are implemented. Incoming links use HandleIncomingLinkRequest. Unpack rejects hop counts at or above PATHFINDER_M (1.3.8). Link keepalive/stale timing matches 1.4.0 including initiator lastKeepaliveNs throttling. Background known-destination cleaning uses path/age rules with cooperative yields. [7] [8] [9] |
 | Interfaces | Partial | See Interfaces below. [10] |
 | Discovery (RNS.Discovery, rnstransport) | Yes | Mirrors wire constants, LXStamper, msgpack layouts. Default discovery stamp cost is 16 (RNS 1.4.0). Valid/invalid announce stamp caches and single-flight validation match Python. discover_interfaces or per-interface discoverable = yes starts rnstransport listening via StartInterfaceDiscovery. InterfaceAnnouncer publishes discoverable TCP/Backbone/I2P (and related) interfaces. Autoconnect and BlackholeUpdater loops are not auto-started. Build with BuildAppData, decode with ValidateAndDecode. Separate from AutoInterface multicast discovery. [11] [12] |
 | Blackhole | Partial | Covers table semantics, msgpack, expiry, MergeRemote, EncodeForRequest. Announces from listed identities are dropped. Links from blackholed identities are torn down at LINKIDENTIFY. /list over rnstransport needs the RNS Request layer (not ported). publish_blackhole, blackhole_sources, blackhole_update_interval are ignored (deferred). [13] |
 | IFAC | Yes | Matches salt, HKDF identity, mask/unmask. UDP, TCP, Auto apply IFAC. Unauthenticated frames dropped. [14] [15] |
-| Link | Yes | Both directions, RTT, request/response, channel, buffer, resources. WatchAndReconnect and EnableLinkAutoReconnect use Reestablish on closed links. [8] [12] |
+| Link | Yes | Both directions, RTT, request/response (`RequestLimited` / max_response_size 1.4.1), channel, buffer, resources. WatchAndReconnect and EnableLinkAutoReconnect use Reestablish on closed links. [8] [12] |
 | Resource | Yes | Multi-part transfer, hashmaps, RESOURCE_PRF, bzip2, split advertisements. BZ2 bomb limits match Python 1.1.9. [16] |
 | Channel | Yes | In-link reliable channel. Ghost-envelope fix: sequence and tx-ring emplace only after a successful outlet send (Python 1.3.0). Accepts both transport and link ACTIVE status values. [17] |
 | Buffer | Yes | Stream buffer over channel. [18] |
-| Node lifecycle | Yes (Go-only) | Embedder API: OnNetworkAvailable, OnNetworkLost, RefreshPaths, ReloadInterfaces, control API lifecycle routes. No Python equivalent. watch_interfaces polls NIC up/down and address changes on Linux, Android, Windows, macOS, and BSD (any CPU arch). Stub on WASM. OnNetworkLost cancels in-flight WatchAndReconnect loops. ReloadInterfaces equality covers MTU, bitrate, prefer_ipv6, announce-rate, ingress/egress control, mode, and outgoing. [12] [19] |
+| Node lifecycle | Yes (Go-only) | Embedder API: OnNetworkAvailable, OnNetworkLost, RefreshPaths, ReloadInterfaces, control API lifecycle routes. No Python equivalent. watch_interfaces polls NIC up/down and address changes on Linux, Android, Windows, macOS, and BSD (any CPU arch). Stub on WASM. OnNetworkLost cancels in-flight WatchAndReconnect loops. ReloadInterfaces equality covers MTU, bitrate, prefer_ipv6, announce-rate, ingress/egress control, mode, gravity, announces_to_internal, and outgoing. [12] [19] |
 | librns C ABI | Yes (Go-only) | In-process C facade over node, destination, and link. Linux shared library first. Same wire stack as the daemon. Not a Python API. Build with task build-librns. [20] [21] |
 | Odin librns bindings | Yes (Go-only host) | Idiomatic Odin wrappers over librns. Build/test with task test-odin. [22] [21] |
 | Zig librns bindings | Yes (Go-only host) | Idiomatic Zig wrappers over librns. Build/test with task test-zig. [23] [21] |
@@ -126,7 +126,7 @@ Native hosts that cannot import Go can use [pkg/librns](pkg/librns/) (`include/r
 
 watch_interfaces polls NIC state every 10s and calls OnNetworkAvailable on link or address changes (all desktop/mobile OS targets except WASM). Also enables AutoInterface NIC rescan. Python discover_interfaces starts rnstransport discovery (StartInterfaceDiscovery).
 
-## Python 1.2.x to 1.4.0 changes vs Go
+## Python 1.2.x to 1.4.1 changes vs Go
 
 Wire format is unchanged in 1.2.x to 1.4.x. Most churn is utilities and transport behavior.
 
@@ -161,9 +161,16 @@ Wire format is unchanged in 1.2.x to 1.4.x. Most churn is utilities and transpor
 | Responder keepalive reply throttle | 1.4.0 | Covered (`pkg/link` ContextKeepalive) |
 | Backbone blocked_ips in ifstats | 1.4.0 | Covered (`blocked_ips` / `blocked_ip_list` in RPC, status, control API). Go lists only IPs past grace, not every flap tracker entry |
 | Known-destination background cleaning | 1.4.0 | Covered with Go-native age/path rules (`pkg/identity` CleanKnownDestinations). Fresh never-used entries are not deleted early (Python quirk avoided) |
+| Interface gravity / default_gravity / autoconnect gravity | 1.4.1 | Covered (`gravity`, `default_gravity`, RPC ifstats). Go contests use effective pathingAffinity (configured gravity minus live iface penalty) |
+| announces_to_internal | 1.4.1 | Covered (boundary may feed internal when set) |
+| Boundary unknown-path search to boundary+gateway | 1.4.1 | Covered (`BoundarySearchModes`) |
+| LRPROOF dynamic path rebalance | 1.4.1 | Covered (transit RemainingHops + terminus expected_hops). Go adds per-dest dampening (max 8/min) and refuses hop-increasing rebalance onto much weaker-gravity ingress |
+| Destination set_max_request_size | 1.4.1 | Covered (`Destination.SetMaxRequestSize`) |
+| Request max_response_size | 1.4.1 | Covered (`Link.RequestLimited`) |
+| allow_link_path_rebalance | 1.4.1 | Covered (default true, config `allow_link_path_rebalance`) |
 | rngit / rnid / rnsh utilities | 1.2.x+ | Not ported (no wire impact; rnsh security fix is Python-only) |
 
-### RNS 1.3.6 through 1.4.0 notes
+### RNS 1.3.6 through 1.4.1 notes
 
 **1.3.6** adds interface `MODE_INTERNAL` (0x07), recursive_prs / announces_from_internal interface options, announce broadcast mode rules, static_transport_identity, local_hops_delta hop mangling, and ephemeral transport identity when transport is disabled (RPC key still derived from the persisted identity).
 
@@ -174,6 +181,8 @@ Wire format is unchanged in 1.2.x to 1.4.x. Most churn is utilities and transpor
 **1.3.9** allows discoverable announces on `MODE_INTERNAL`, adds location_cmd for geo fields, sets link remote identity only once at LINKIDENTIFY, has receivers emit `RESOURCE_RCL` when cancelling an incoming resource, rejects oversized resource advertisements at unpack (`t > MAX_EFFICIENT_SIZE*3`), cancels transfers on empty HMU, blocks fast-flapping Backbone clients, and drops HDLC frames at or below `HEADER_MINSIZE`. Also includes a critical `rnsh` security fix (Python utility only).
 
 **1.4.0** raises the default interface-discovery stamp cost from 14 to 16, adds valid and invalid discovery stamp caches with single-flight validation (CPU relief), and fixes link keepalive so the initiator still probes when the remote side is continuously transmitting (stale detection stays inbound-based). Initiator probe throttling uses `lastKeepalive` / `lastKeepaliveNs` so one-way local data traffic does not suppress probes. Responder keepalive replies are throttled to one per keepalive interval. Backbone ifstats expose `blocked_ips` and `blocked_ip_list`. Go also runs background known-destination cleaning with path/age rules and cooperative yields. Persistence stays dirty-flag plus TryLock (no Python-style on-disk recombination, no `packet_hashlist.raw`).
+
+**1.4.1** adds interface gravity path contests, `announces_to_internal`, boundary-mode discovery filtered to boundary+gateway, LRPROOF hop rebalancing (`allow_link_path_rebalance`), and request size caps (`set_max_request_size` / `max_response_size`). Go matches the Python config keys and wire decisions, then keeps Go-unique pathingAffinity (live iface penalty on gravity contests), rebalance dampening, and gravity-sticky refusal of hop-increasing rebalances onto weaker ingress.
 
 ## Security and robustness notes
 
@@ -210,6 +219,8 @@ Intentional extensions beyond upstream *rns*:
 | HTTPS long-poll | HTTPSClientInterface / HTTPSServerInterface |
 | Seccomp sandbox | Linux Landlock plus seccomp-bpf denylist (enable_sandbox / enable_seccomp) |
 | Local mesh health | `pkg/health` counters at drop sites, integrity fields on interface_stats / status CLI / control API, `reticulum-go slow` findings. Observe only. No wire change. |
+| Pathing affinity | Effective gravity for announce contests subtracts a bounded live iface path-failure penalty. Configured `gravity` numbers stay Python-compatible. |
+| LRPROOF rebalance dampening | Caps hop rewrites per destination (8/min) and refuses hop-increasing rebalance when current path affinity is much higher than proof ingress. |
 
 ## Utilities
 
