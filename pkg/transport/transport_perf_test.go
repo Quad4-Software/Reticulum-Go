@@ -87,7 +87,11 @@ func TestTransportMemoryUsage(t *testing.T) {
 		t.Skip("Skipping memory usage test in short mode")
 	}
 
-	tr := NewTransport(&common.ReticulumConfig{})
+	tr := NewTransport(&common.ReticulumConfig{
+		// Disable the soft path cap so this test measures table growth without
+		// O(n) eviction scans on every insert past DefaultMaxInMemoryPaths.
+		MaxInMemoryPaths: -1,
+	})
 	defer tr.Close()
 
 	// Register interface to avoid "Interface not found" logs and early return
