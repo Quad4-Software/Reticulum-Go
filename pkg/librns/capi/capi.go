@@ -434,7 +434,10 @@ func rns_destination_create(node, identity C.uint64_t, appName *C.char, aspects 
 
 //export rns_destination_set_proof_strategy
 func rns_destination_set_proof_strategy(destination C.uint64_t, strategy C.int) C.int {
-	return cCode(librns.DestinationSetProofStrategy(uint64(destination), byte(strategy)))
+	if strategy < 0 || strategy > 255 {
+		return cCode(librns.ErrInvalidArg)
+	}
+	return cCode(librns.DestinationSetProofStrategy(uint64(destination), byte(strategy))) // #nosec G115 -- range checked above, values validated in DestinationSetProofStrategy
 }
 
 //export rns_destination_announce
