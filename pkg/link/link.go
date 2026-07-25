@@ -3625,7 +3625,10 @@ func (l *Link) validateLinkProofLocked(pkt *packet.Packet, networkIface common.N
 	debug.Log(debug.DebugInfo, "Link established (initiator)", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", logRtt), "total_elapsed", fmt.Sprintf("%.3fs", establishmentElapsed), "validation_elapsed", fmt.Sprintf("%.3fs", time.Since(startTime).Seconds()))
 
 	if l.establishedCallback != nil {
-		l.establishedCallback(l)
+		// Initiator callback runs from ValidateLinkProof while the link mutex is
+		// held. Callbacks call GetLinkID and must not run on this goroutine.
+		cb := l.establishedCallback
+		go cb(l)
 	}
 
 	return nil

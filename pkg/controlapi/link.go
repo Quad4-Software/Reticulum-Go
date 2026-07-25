@@ -25,8 +25,9 @@ import (
 // callback while still holding the Link's own internal mutex, so closed
 // must never call back into locked Link accessors like GetLinkID: doing so
 // would deadlock. idHex is therefore cached on linkSession by the caller
-// (see handleLinkOpen) and by established, which the link package always
-// invokes from a fresh goroutine after releasing its lock.
+// (see handleLinkOpen) and by established on the initiator path, which the
+// link package invokes from a fresh goroutine because ValidateLinkProof holds
+// the link mutex. The responder path calls established synchronously after RTT.
 func newOutboundLinkCallbacks(sess *session, destHashHex string) (ls *linkSession, established func(*link.Link), closed func(*link.Link)) {
 	ls = &linkSession{}
 
