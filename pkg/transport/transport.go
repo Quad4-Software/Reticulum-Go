@@ -1549,7 +1549,18 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 		if iface != nil {
 			ifaceName = iface.GetName()
 		}
-		_ = protect.AdmitHandler(ifaceName)
+		d := protect.AdmitHandler(ifaceName)
+		if !d.Allow {
+			return
+		}
+		if protect.Default().Mode() == protect.ModeOff {
+			pc := getPacketCopy(len(data))
+			copy(pc.buf, data)
+			func() {
+				defer putPacketCopy(pc)
+				dispatch(pc.buf)
+			}()
+		}
 		return
 	}
 }

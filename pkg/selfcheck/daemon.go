@@ -99,6 +99,7 @@ func checkDaemon(ctx context.Context, opts Options) []Result {
 	cfg.RPCKey = rpcKey
 	cfg.PanicOnInterfaceErr = false
 	cfg.InMemoryStorage = true
+	cfg.DoSProtection = "off"
 	cfg.LogLevel = 3
 	cfg.Interfaces = map[string]*common.InterfaceConfig{}
 	if err := reticulumconfig.SaveConfig(cfg); err != nil {

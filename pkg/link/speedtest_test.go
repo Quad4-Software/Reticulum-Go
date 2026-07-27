@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/protect"
 )
 
 // TestLinkSpeedSmoke is an RNS Speedtest-style loopback liveness floor.
@@ -18,6 +19,8 @@ func TestLinkSpeedSmoke(t *testing.T) {
 	if os.Getenv("RUN_SPEEDTEST") == "0" {
 		t.Skip("RUN_SPEEDTEST=0")
 	}
+	protect.SetDefault(protect.New(protect.Options{Mode: protect.ModeOff}))
+	t.Cleanup(func() { protect.SetDefault(nil) })
 
 	prev := debug.GetDebugLevel()
 	debug.SetDebugLevel(debug.DebugCritical)

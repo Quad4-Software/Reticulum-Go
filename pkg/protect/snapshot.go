@@ -5,6 +5,7 @@ package protect
 
 import (
 	"sort"
+	"time"
 )
 
 // IfaceSnapshot is per-interface protect state for operators.
@@ -54,6 +55,10 @@ func (e *Engine) snapshot() Snapshot {
 	if e == nil {
 		return Snapshot{Mode: ModeOff.String(), Phase: AutoLearning.String(), Enforcement: ModeOff.String()}
 	}
+	nowFn := e.now
+	if nowFn == nil {
+		nowFn = time.Now
+	}
 	out := Snapshot{
 		Mode:           e.mode.String(),
 		Phase:          e.Phase().String(),
@@ -71,7 +76,7 @@ func (e *Engine) snapshot() Snapshot {
 			CoolDown:  e.TripCount(ReasonCoolDown),
 		},
 	}
-	now := e.now()
+	now := nowFn()
 	e.mu.Lock()
 	out.Fingerprint = e.fingerprint
 	names := make([]string, 0, len(e.ifaces))

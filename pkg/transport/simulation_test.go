@@ -583,12 +583,12 @@ func BenchmarkSimLineRelayThroughput(b *testing.B) {
 				pkt := buildHT2(second, target, 0, payload)
 				_ = src.Send(pkt, "")
 			}
+			b.StopTimer()
 			want := startRx + uint64(b.N)
 			deadline := time.Now().Add(time.Duration(b.N)*200*time.Microsecond + 5*time.Second)
 			for tail.GetRxPackets() < want && time.Now().Before(deadline) {
 				time.Sleep(time.Millisecond)
 			}
-			b.StopTimer()
 			if got := tail.GetRxPackets(); got < want {
 				b.Logf("delivery shortfall: got=%d want=%d (hops=%d, b.N=%d)", got, want, hops, b.N)
 			}
