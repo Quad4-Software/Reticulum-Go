@@ -153,7 +153,7 @@ func runDaemon(opts daemonOptions) int {
 						debug.Log(debug.DebugCritical, "SIGHUP re-exec: stop", "error", err)
 						continue
 					}
-					if err := syscall.Exec(os.Args[0], os.Args, os.Environ()); err != nil {
+					if err := reexecDaemon(); err != nil {
 						debug.Log(debug.DebugCritical, "SIGHUP re-exec failed", "error", err)
 					}
 					continue
@@ -355,4 +355,18 @@ func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id any, appData []by
 
 func (h *AnnounceHandler) ReceivePathResponses() bool {
 	return true
+}
+
+// reexecDaemon replaces the current process with a fresh reticulum-go instance.
+// Used on FreeBSD when CapEnter blocks in-process SIGHUP reload.
+func reexecDaemon() error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	argv := make([]string, len(os.Args))
+	copy(argv, os.Args)
+	argv[0] = exe
+	// #nosec G204,G702 -- same binary and argv as this daemon, env unchanged, operator-initiated SIGHUP reload only
+	return syscall.Exec(exe, argv, os.Environ())
 }
