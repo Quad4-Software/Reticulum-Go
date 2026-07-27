@@ -10,7 +10,6 @@ import (
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
-	"quad4/reticulum-go/pkg/protect"
 )
 
 type UDPInterface struct {
@@ -176,7 +175,7 @@ func (ui *UDPInterface) ProcessIncoming(data []byte) {
 	name := ui.Name
 	ui.Mutex.Unlock()
 
-	if d := protect.AdmitPacket(name, len(data)); !d.Allow {
+	if !admitIncoming(ui, name, data) {
 		return
 	}
 

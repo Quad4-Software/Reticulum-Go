@@ -334,7 +334,7 @@ func TestObserveMemoryShed(t *testing.T) {
 
 func TestConfigureFromConfig(t *testing.T) {
 	t.Cleanup(func() { SetDefault(nil) })
-	e := ConfigureFromConfig("detect", 0, "")
+	e := ConfigureFromConfig("detect", 0, "", nil)
 	if e.Mode() != ModeDetect {
 		t.Fatalf("mode %v", e.Mode())
 	}

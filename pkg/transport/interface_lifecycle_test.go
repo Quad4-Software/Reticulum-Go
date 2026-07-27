@@ -16,6 +16,7 @@ func mockIface(name string, enabled bool) *mockInterface {
 	m := &mockInterface{}
 	m.Name = name
 	m.Enabled = enabled
+	m.Online = enabled
 	return m
 }
 

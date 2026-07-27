@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/health"
 )
 
@@ -48,6 +49,7 @@ type Options struct {
 	AutoLearnMinDuration time.Duration
 	AutoLearnMinSamples  int
 	NetworkFingerprint   string
+	TransportNode        bool
 }
 
 type ifaceState struct {
@@ -92,6 +94,7 @@ type Engine struct {
 	storePath            string
 	autoLearnMinDuration time.Duration
 	autoLearnMinSamples  int
+	transportNode        bool
 
 	mu             sync.Mutex
 	ifaces         map[string]*ifaceState
@@ -213,6 +216,7 @@ func New(opts Options) *Engine {
 		storePath:            opts.StorePath,
 		autoLearnMinDuration: opts.AutoLearnMinDuration,
 		autoLearnMinSamples:  opts.AutoLearnMinSamples,
+		transportNode:        opts.TransportNode,
 		fingerprint:          opts.NetworkFingerprint,
 		ifaces:               make(map[string]*ifaceState),
 		conns:                make(map[string]int),
@@ -377,6 +381,10 @@ func (e *Engine) ifaceLocked(name string) *ifaceState {
 
 // AdmitPacket checks cool-down adaptive pps/bps and memory shed.
 func (e *Engine) AdmitPacket(iface string, nbytes int) Decision {
+	return e.admitPacket(iface, nbytes, AdmitOpts{})
+}
+
+func (e *Engine) admitPacket(iface string, nbytes int, opts AdmitOpts) Decision {
 	if e == nil || e.mode == ModeOff {
 		return Decision{Allow: true}
 	}
@@ -393,21 +401,33 @@ func (e *Engine) AdmitPacket(iface string, nbytes int) Decision {
 	pps, bps := st.window.add(now, nbytes)
 	sampled := false
 	samplePPS, sampleBPS := 0.0, 0.0
+	floorPPS, floorBPS := scaledFloors(opts.Bitrate, e.floorPPS, e.floorBPS, e.maxPPS, e.maxBPS)
 	if !e.disableAdaptive {
 		sampled, samplePPS, sampleBPS = st.noteAdaptive(now, pps, bps)
 	}
 	ppsLimit, bpsLimit := e.maxPPS, e.maxBPS
 	if !e.disableAdaptive {
-		ppsLimit, bpsLimit = st.adapt.tripLine(e.maxPPS, e.maxBPS, e.floorPPS, e.floorBPS)
+		ppsLimit, bpsLimit = st.adapt.tripLine(e.maxPPS, e.maxBPS, floorPPS, floorBPS)
 	}
 	e.mu.Unlock()
 
-	if pps > ppsLimit {
+	overPPS := pps > ppsLimit
+	overBPS := bps > bpsLimit
+	if overPPS || overBPS {
+		if opts.Class.preferKeep() {
+			strictPPS := ppsLimit * 2
+			strictBPS := bpsLimit * 2
+			if pps <= strictPPS && bps <= strictBPS {
+				if sampled {
+					e.maybePromoteOrDrift(iface, samplePPS, sampleBPS)
+				}
+				return Decision{Allow: true}
+			}
+		}
 		e.resetDriftLocked()
-		return e.tripWithCoolDown(iface, ReasonPPS)
-	}
-	if bps > bpsLimit {
-		e.resetDriftLocked()
+		if overPPS {
+			return e.tripWithCoolDown(iface, ReasonPPS)
+		}
 		return e.tripWithCoolDown(iface, ReasonBPS)
 	}
 	if sampled {
@@ -690,6 +710,11 @@ func AdmitPacket(iface string, nbytes int) Decision {
 	return Default().AdmitPacket(iface, nbytes)
 }
 
+// AdmitPacketOpts checks the default engine with bitrate and packet class.
+func AdmitPacketOpts(iface string, nbytes int, opts AdmitOpts) Decision {
+	return Default().admitPacket(iface, nbytes, opts)
+}
+
 // AdmitHandler checks the default engine.
 func AdmitHandler(iface string) Decision {
 	return Default().AdmitHandler(iface)
@@ -716,16 +741,47 @@ func AdmitHandshake(iface string) (Decision, func()) {
 }
 
 // ConfigureFromConfig installs a default engine from dos_protection soft memory limit and optional store path.
-func ConfigureFromConfig(modeStr string, softMemoryLimit int64, storePath string) *Engine {
+func ConfigureFromConfig(modeStr string, softMemoryLimit int64, storePath string, cfg *common.ReticulumConfig) *Engine {
 	mode, ok := ParseMode(modeStr)
 	if !ok {
 		mode = ModeOff
 	}
-	e := New(Options{
+	opts := Options{
 		Mode:            mode,
 		SoftMemoryLimit: softMemoryLimit,
 		StorePath:       storePath,
-	})
+	}
+	if cfg != nil {
+		opts.TransportNode = cfg.EnableTransport
+		if cfg.EnableTransport {
+			opts.AutoLearnMinDuration = AutoLearnMinDuration * 2
+		}
+		if cfg.DoSMaxPPS > 0 {
+			opts.MaxPPS = cfg.DoSMaxPPS
+		}
+		if cfg.DoSMaxBPS > 0 {
+			opts.MaxBPS = cfg.DoSMaxBPS
+		}
+		if cfg.DoSFloorPPS > 0 {
+			opts.FloorPPS = cfg.DoSFloorPPS
+		}
+		if cfg.DoSFloorBPS > 0 {
+			opts.FloorBPS = cfg.DoSFloorBPS
+		}
+		if cfg.DoSMaxConns > 0 {
+			opts.MaxConns = cfg.DoSMaxConns
+		}
+		if cfg.DoSMaxResources > 0 {
+			opts.MaxResources = cfg.DoSMaxResources
+		}
+		if cfg.DoSMaxCrypto > 0 {
+			opts.MaxCrypto = cfg.DoSMaxCrypto
+		}
+		if cfg.DoSMaxHandshake > 0 {
+			opts.MaxHandshake = cfg.DoSMaxHandshake
+		}
+	}
+	e := New(opts)
 	SetDefault(e)
 	if mode != ModeOff {
 		e.StartMemoryMonitor()

@@ -212,6 +212,21 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 			KeepaliveTimeout:      ifc.KeepaliveTimeout,
 		})
 	}
+	ps := stats.Protect
+	resp.Protect.Mode = ps.Mode
+	resp.Protect.Phase = ps.Phase
+	resp.Protect.Enforcement = ps.Enforcement
+	resp.Protect.Fingerprint = ps.Fingerprint
+	resp.Protect.SheddingMemory = ps.SheddingMemory
+	resp.Protect.TripCounts.PPS = ps.TripCounts.PPS
+	resp.Protect.TripCounts.BPS = ps.TripCounts.BPS
+	resp.Protect.TripCounts.Handler = ps.TripCounts.Handler
+	resp.Protect.TripCounts.Conn = ps.TripCounts.Conn
+	resp.Protect.TripCounts.Resource = ps.TripCounts.Resource
+	resp.Protect.TripCounts.Memory = ps.TripCounts.Memory
+	resp.Protect.TripCounts.Crypto = ps.TripCounts.Crypto
+	resp.Protect.TripCounts.Handshake = ps.TripCounts.Handshake
+	resp.Protect.TripCounts.CoolDown = ps.TripCounts.CoolDown
 	writeJSON(w, http.StatusOK, resp)
 }
 

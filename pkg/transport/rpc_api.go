@@ -9,6 +9,7 @@ import (
 	"quad4/reticulum-go/pkg/cryptography"
 	"quad4/reticulum-go/pkg/health"
 	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/protect"
 )
 
 // PathTableEntry is one path-table row for shared-instance RPC.
@@ -84,20 +85,21 @@ type InterfaceStat struct {
 
 // InterfaceStatsResponse is the top-level interface stats RPC payload.
 type InterfaceStatsResponse struct {
-	Interfaces         []InterfaceStat `msgpack:"interfaces"`
-	RXB                uint64          `msgpack:"rxb"`
-	TXB                uint64          `msgpack:"txb"`
-	RXS                float64         `msgpack:"rxs"`
-	TXS                float64         `msgpack:"txs"`
-	TransportID        []byte          `msgpack:"transport_id"`
-	TransportUptime    float64         `msgpack:"transport_uptime"`
-	NetmonFlap         uint64          `msgpack:"netmon_flap"`
-	ActiveLinks        int             `msgpack:"active_links"`
-	Health             health.Snapshot `msgpack:"health"`
-	PathCount          int             `msgpack:"path_count"`
-	PacketHashCount    int             `msgpack:"packet_hash_count"`
-	AnnounceCacheCount int             `msgpack:"announce_cache_count"`
-	SeenAnnounceCount  int             `msgpack:"seen_announce_count"`
+	Interfaces         []InterfaceStat  `msgpack:"interfaces"`
+	RXB                uint64           `msgpack:"rxb"`
+	TXB                uint64           `msgpack:"txb"`
+	RXS                float64          `msgpack:"rxs"`
+	TXS                float64          `msgpack:"txs"`
+	TransportID        []byte           `msgpack:"transport_id"`
+	TransportUptime    float64          `msgpack:"transport_uptime"`
+	NetmonFlap         uint64           `msgpack:"netmon_flap"`
+	ActiveLinks        int              `msgpack:"active_links"`
+	Health             health.Snapshot  `msgpack:"health"`
+	PathCount          int              `msgpack:"path_count"`
+	PacketHashCount    int              `msgpack:"packet_hash_count"`
+	AnnounceCacheCount int              `msgpack:"announce_cache_count"`
+	SeenAnnounceCount  int              `msgpack:"seen_announce_count"`
+	Protect            protect.Snapshot `msgpack:"protect"`
 }
 
 // RateTableEntry is one rate-table row for shared-instance RPC.
@@ -355,6 +357,7 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 	resp.PacketHashCount = ms.PacketHashes
 	resp.AnnounceCacheCount = ms.AnnouncePacketCache
 	resp.SeenAnnounceCount = ms.SeenAnnounces
+	resp.Protect = protect.CurrentSnapshot()
 	return resp
 }
 

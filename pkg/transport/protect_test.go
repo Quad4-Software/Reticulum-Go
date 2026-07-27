@@ -55,6 +55,77 @@ func TestHandlePacketProtectPreventShedsOnSemFull(t *testing.T) {
 	}
 }
 
+func TestHandlePacketProtectDetectShedsOnSemFull(t *testing.T) {
+	t.Cleanup(func() { protect.SetDefault(nil) })
+	health.Default.Reset()
+	var buf bytes.Buffer
+	e := protect.New(protect.Options{
+		Mode:         protect.ModeDetect,
+		WarnWriter:   &buf,
+		WarnInterval: time.Hour,
+	})
+	cfg := &common.ReticulumConfig{EnableTransport: true, DoSProtection: "detect"}
+	tr := NewTransport(cfg)
+	protect.SetDefault(e)
+	t.Cleanup(func() {
+		_ = tr.Close()
+		protect.SetDefault(nil)
+	})
+	for range MaxConcurrentPacketHandlers {
+		tr.packetHandleSem <- struct{}{}
+	}
+	t.Cleanup(func() {
+		for range MaxConcurrentPacketHandlers {
+			select {
+			case <-tr.packetHandleSem:
+			default:
+			}
+		}
+	})
+	iface := common.NewBaseInterface("flood1", common.IFTypeUDP, true)
+	tr.HandlePacket([]byte{0x00, 0x00, 0x01}, &iface)
+	if e.TripCount(protect.ReasonHandler) == 0 {
+		t.Fatal("expected handler trip in detect mode")
+	}
+}
+
+func TestHandlePacketProtectAutoLearningShedsOnSemFull(t *testing.T) {
+	t.Cleanup(func() { protect.SetDefault(nil) })
+	health.Default.Reset()
+	e := protect.New(protect.Options{
+		Mode:                 protect.ModeAuto,
+		WarnWriter:           &bytes.Buffer{},
+		WarnInterval:         time.Hour,
+		AutoLearnMinDuration: time.Hour,
+	})
+	cfg := &common.ReticulumConfig{EnableTransport: true, DoSProtection: "auto"}
+	tr := NewTransport(cfg)
+	protect.SetDefault(e)
+	t.Cleanup(func() {
+		_ = tr.Close()
+		protect.SetDefault(nil)
+	})
+	for range MaxConcurrentPacketHandlers {
+		tr.packetHandleSem <- struct{}{}
+	}
+	t.Cleanup(func() {
+		for range MaxConcurrentPacketHandlers {
+			select {
+			case <-tr.packetHandleSem:
+			default:
+			}
+		}
+	})
+	iface := common.NewBaseInterface("flood2", common.IFTypeUDP, true)
+	tr.HandlePacket([]byte{0x00, 0x00, 0x01}, &iface)
+	if e.TripCount(protect.ReasonHandler) == 0 {
+		t.Fatal("expected handler trip while auto learning")
+	}
+	if e.Phase() != protect.AutoLearning {
+		t.Fatalf("phase=%v want learning", e.Phase())
+	}
+}
+
 func TestAdversarialProtectPacketFloodBudget(t *testing.T) {
 	t.Cleanup(func() { protect.SetDefault(nil) })
 	health.Default.Reset()

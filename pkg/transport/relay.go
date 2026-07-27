@@ -557,7 +557,7 @@ func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag [
 	t.mutex.RLock()
 	ifaces := make([]common.NetworkInterface, 0, len(t.interfaces))
 	for _, iface := range t.interfaces {
-		if iface == exclude || !iface.IsEnabled() {
+		if iface == exclude || !ifaceReadyForPathRequest(iface) {
 			continue
 		}
 		if len(modeFilter) > 0 && !modeInFilter(iface.GetMode(), modeFilter) {
@@ -577,11 +577,41 @@ func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag [
 		return
 	}
 	for _, iface := range ifaces {
+		// Re-check at emit time (RNS 1.4.2 online gate). An iface may go
+		// offline or lose bitrate while the discovery PR queue drains.
+		if !ifaceReadyForPathRequest(iface) {
+			continue
+		}
 		if err := t.RequestPath(destHash, iface.GetName(), tag, true); err != nil {
 			debug.Log(debug.DebugVerbose, "Path-request rebroadcast failed",
 				"iface", iface.GetName(), "error", err)
 		}
 	}
+}
+
+// ifaceReadyForPathRequest reports whether iface may emit a path request.
+// Matches RNS 1.4.2 recursive-PR online gating. Go uniqueness: also refuse
+// interfaces that advertise a non-positive bitrate when that metric is
+// exposed (uninitialized radios) so PR emit cannot hit zero-rate timing math.
+func ifaceReadyForPathRequest(iface common.NetworkInterface) bool {
+	if iface == nil || !iface.IsEnabled() || !iface.IsOnline() {
+		return false
+	}
+	switch br := iface.(type) {
+	case interface{ GetBitrate() int64 }:
+		if br.GetBitrate() <= 0 {
+			return false
+		}
+	case interface{ GetBitrate() int }:
+		if br.GetBitrate() <= 0 {
+			return false
+		}
+	case interface{ GetBitrate() uint64 }:
+		if br.GetBitrate() == 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func modeInFilter(mode common.InterfaceMode, filter []common.InterfaceMode) bool {

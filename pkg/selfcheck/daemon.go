@@ -218,10 +218,6 @@ func checkDaemonReload(ctx context.Context, cmd *exec.Cmd, cfg *common.Reticulum
 	if runtime.GOOS == "windows" {
 		return result(nameDaemonReload, SeveritySkip, "SIGHUP not used on windows")
 	}
-	if runtime.GOOS == "freebsd" {
-		// CapEnter after startup blocks opening the config file and new sockets.
-		return result(nameDaemonReload, SeveritySkip, "CapEnter blocks post-sandbox reload opens")
-	}
 
 	ln, err := net.ListenPacket("udp", "127.0.0.1:0")
 	if err != nil {

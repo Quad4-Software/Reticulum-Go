@@ -131,6 +131,12 @@ Adaptive baselines use EWMA of once-per-second peak pps/bps. Flood samples are i
 
 Trips emit rate-limited stdout warnings and increment `dos_*` health counters. Full key reference and gate table: [Configuration](configuration.md#dos_protection-go-only). Tests: [Development and testing](development-and-testing.md#dos_protection-tests).
 
+Handler pool exhaustion always sheds packets (never sync-dispatches on the ingress thread). Priority shedding prefers established link and proof traffic over announce-class floods when slightly over the adaptive trip line.
+
+On FreeBSD with sandbox enabled, `SIGHUP` re-execs the daemon so `CapEnter` does not block config reload. Other platforms keep in-process `ReloadInterfaces`.
+
+Linux Landlock or seccomp soft-fail emits `WARNING: sandbox soft-unavailable mechanism=...` on stdout once per mechanism per 30 seconds.
+
 ## Local mesh health (observe only)
 
 Reticulum-Go keeps node-local integrity and link-health counters in `pkg/health`. They stay on this node. Nothing is flooded to the mesh or sent to a cloud collector.
@@ -173,5 +179,5 @@ Link establishment also records expected_hops on both initiator and responder. I
 - [CLI utilities](utilities.md) for status and slow health findings
 - [Packet debug](packet-debug.md) for dump, snapshot, and Wireshark
 - [SECURITY.md](../../SECURITY.md) full policy text
-- [Compatibility](compatibility.md) for RNS 1.4.1 interop
+- [Compatibility](compatibility.md) for RNS 1.4.2 interop
 - [Package map](package-map.md#pkgprotect) for `pkg/protect`

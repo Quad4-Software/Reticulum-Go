@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.0.2
+
+### Included
+- Wire compatibility target raised to Python RNS 1.4.2
+- Path-request emit skips offline interfaces (and re-checks at recursive PR emit time)
+- Discovery drops blackholed transport ids and announcer identities at announce receive time
+- Blackhole `ActiveIdentitySet` for bulk membership checks used by discovery filtering
+- Go-unique path-request readiness also refuses non-positive bitrate when exposed (uninitialized radio timing)
+- Go-unique blackhole active-identity set invalidates on mutation instead of a fixed 60s TTL
+- Go-unique discovery blackhole filtering at receive time (fail-closed) rather than list-only
+- dos_protection snapshot on status JSON, Control API, and rgoslow findings
+- dos_max_* config knobs, bitrate-scaled adaptive floors, priority ingress shedding
+- Handler pool overflow always sheds (no sync dispatch on ingress threads)
+- FreeBSD sandbox SIGHUP re-exec for config reload under CapEnter
+- Sandbox Landlock/seccomp soft-fail stdout warnings
+
+### Fixed
+- Recursive path-request fan-out no longer targets ifaces that went offline while the discovery queue drained
+
 ## v1.0.1
 
 ### Included

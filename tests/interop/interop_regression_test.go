@@ -46,8 +46,8 @@ func TestRNS140InteropPins(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(body, []byte(`RNS_REF_TAG="${RNS_REF_TAG:-1.4.0}"`)) {
-		t.Fatal("crossref must default RNS_REF_TAG to 1.4.0")
+	if !bytes.Contains(body, []byte(`RNS_REF_TAG="${RNS_REF_TAG:-1.4.2}"`)) {
+		t.Fatal("crossref must default RNS_REF_TAG to 1.4.2")
 	}
 	disc := filepath.Join(root, "pkg", "discovery", "discovery.go")
 	discBody, err := os.ReadFile(disc)

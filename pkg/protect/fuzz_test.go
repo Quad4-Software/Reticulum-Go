@@ -22,6 +22,14 @@ func FuzzParseMode(f *testing.F) {
 	})
 }
 
+func FuzzPeekPacketClass(f *testing.F) {
+	f.Add([]byte{0x01, 0x00})
+	f.Add([]byte{0x02, 0x00})
+	f.Fuzz(func(t *testing.T, data []byte) {
+		_ = PeekPacketClass(data)
+	})
+}
+
 func FuzzAdmitPacket(f *testing.F) {
 	f.Add("udp0", 64)
 	f.Add("", 0)

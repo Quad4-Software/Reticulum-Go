@@ -20,12 +20,22 @@ type InterfaceDiscovery struct {
 	transport     *transport.Transport
 	requiredValue int
 	onDiscovered  func(*ReceivedAnnounceInfo)
+	isBlackholed  func([]byte) bool
 	handler       *interfaceAnnounceHandler
 	mu            sync.Mutex
 }
 
 // NewInterfaceDiscovery creates a discovery listener for interface announces.
+// isBlackholed, when non-nil, drops announces whose transport id or announcer
+// identity (Python network_id) is blackholed (RNS 1.4.2 list filtering,
+// applied at receive time).
 func NewInterfaceDiscovery(tr *transport.Transport, requiredValue int, onDiscovered func(*ReceivedAnnounceInfo)) *InterfaceDiscovery {
+	return NewInterfaceDiscoveryWithBlackhole(tr, requiredValue, onDiscovered, nil)
+}
+
+// NewInterfaceDiscoveryWithBlackhole is like NewInterfaceDiscovery with an
+// optional blackhole membership callback.
+func NewInterfaceDiscoveryWithBlackhole(tr *transport.Transport, requiredValue int, onDiscovered func(*ReceivedAnnounceInfo), isBlackholed func([]byte) bool) *InterfaceDiscovery {
 	if requiredValue <= 0 {
 		requiredValue = DefaultStampValue
 	}
@@ -33,6 +43,7 @@ func NewInterfaceDiscovery(tr *transport.Transport, requiredValue int, onDiscove
 		transport:     tr,
 		requiredValue: requiredValue,
 		onDiscovered:  onDiscovered,
+		isBlackholed:  isBlackholed,
 	}
 }
 
@@ -49,6 +60,7 @@ func (d *InterfaceDiscovery) Start() {
 	d.handler = &interfaceAnnounceHandler{
 		requiredValue: d.requiredValue,
 		onDiscovered:  d.onDiscovered,
+		isBlackholed:  d.isBlackholed,
 		networkID:     func() *identity.Identity { return d.transport.NetworkIdentity() },
 		validCache:    make(map[string]*ReceivedAnnounceInfo),
 		invalidCache:  make(map[string]struct{}),
@@ -74,6 +86,7 @@ func (d *InterfaceDiscovery) Stop() {
 type interfaceAnnounceHandler struct {
 	requiredValue int
 	onDiscovered  func(*ReceivedAnnounceInfo)
+	isBlackholed  func([]byte) bool
 	networkID     func() *identity.Identity
 
 	mu           sync.Mutex
@@ -92,13 +105,14 @@ func (h *interfaceAnnounceHandler) ReceivePathResponses() bool {
 	return false
 }
 
-func (h *interfaceAnnounceHandler) ReceivedAnnounce(_ []byte, _ any, appData []byte, _ uint8) error {
+func (h *interfaceAnnounceHandler) ReceivedAnnounce(_ []byte, announcedIdentity any, appData []byte, _ uint8) error {
 	if len(appData) <= 1 {
 		return nil
 	}
 	body := appData[1:]
 	sum := sha256.Sum256(body)
 	fullHash := string(sum[:])
+	remoteHash := announcedIdentityHash(announcedIdentity)
 
 	h.mu.Lock()
 	if _, bad := h.invalidCache[fullHash]; bad {
@@ -108,8 +122,14 @@ func (h *interfaceAnnounceHandler) ReceivedAnnounce(_ []byte, _ any, appData []b
 	}
 	if cached, ok := h.validCache[fullHash]; ok {
 		info := cached
+		attachRemoteIdentity(info, remoteHash)
 		cb := h.onDiscovered
+		drop := discoveryInfoBlackholed(info, h.isBlackholed)
 		h.mu.Unlock()
+		if drop {
+			debug.Log(debug.DebugVerbose, "Ignored blackholed interface discovery announce")
+			return nil
+		}
 		if cb != nil {
 			cb(info)
 		}
@@ -137,14 +157,53 @@ func (h *interfaceAnnounceHandler) ReceivedAnnounce(_ []byte, _ any, appData []b
 		debug.Log(debug.DebugVerbose, "Ignored interface discovery announce", "error", err)
 		return nil
 	}
+	attachRemoteIdentity(info, remoteHash)
 	h.rememberValidLocked(fullHash, info)
 	cb := h.onDiscovered
+	drop := discoveryInfoBlackholed(info, h.isBlackholed)
 	h.mu.Unlock()
 
+	if drop {
+		debug.Log(debug.DebugVerbose, "Ignored blackholed interface discovery announce")
+		return nil
+	}
 	if cb != nil {
 		cb(info)
 	}
 	return nil
+}
+
+func announcedIdentityHash(announcedIdentity any) []byte {
+	id, ok := announcedIdentity.(*identity.Identity)
+	if !ok || id == nil {
+		return nil
+	}
+	return id.Hash()
+}
+
+func attachRemoteIdentity(info *ReceivedAnnounceInfo, remoteHash []byte) {
+	if info == nil || len(remoteHash) == 0 {
+		return
+	}
+	if len(info.RemoteIdentity) == 0 {
+		info.RemoteIdentity = append([]byte(nil), remoteHash...)
+	}
+}
+
+// discoveryInfoBlackholed mirrors RNS 1.4.2 Discovery list filtering of
+// transport_id and network_id (announcer identity hash). Applied at receive
+// time so blackholed peers never enter discovery caches.
+func discoveryInfoBlackholed(info *ReceivedAnnounceInfo, isBlackholed func([]byte) bool) bool {
+	if info == nil || isBlackholed == nil {
+		return false
+	}
+	if len(info.Info.TransportID) > 0 && isBlackholed(info.Info.TransportID) {
+		return true
+	}
+	if len(info.RemoteIdentity) > 0 && isBlackholed(info.RemoteIdentity) {
+		return true
+	}
+	return false
 }
 
 func (h *interfaceAnnounceHandler) rememberInvalidLocked(fullHash string) {

@@ -172,7 +172,8 @@ jobs:
             export GOPROXY=off
             export GOTOOLCHAIN=local
             go version
-            go test -buildvcs=false -short -count=1 -timeout 10m ./pkg/selfcheck/ ./pkg/sandbox/
+            go test -buildvcs=false -short -count=1 -timeout 10m ./pkg/selfcheck/ ./pkg/sandbox/ ./pkg/protect/
+            go test -buildvcs=false -short -count=1 -timeout 10m ./pkg/transport/ -run 'Protect|HandlePacket'
             mkdir -p bin
             go build -buildvcs=false -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
             ./bin/reticulum-go self-check --binary "$(pwd)/bin/reticulum-go" --json --full
@@ -206,7 +207,8 @@ jobs:
             export GOPROXY=off
             export GOTOOLCHAIN=local
             go version
-            go test -buildvcs=false -short -count=1 -timeout 10m ./pkg/selfcheck/ ./pkg/sandbox/
+            go test -buildvcs=false -short -count=1 -timeout 10m ./pkg/selfcheck/ ./pkg/sandbox/ ./pkg/protect/
+            go test -buildvcs=false -short -count=1 -timeout 10m ./pkg/transport/ -run 'Protect|HandlePacket'
             mkdir -p bin
             go build -buildvcs=false -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
             ./bin/reticulum-go self-check --binary "$(pwd)/bin/reticulum-go" --json --full
@@ -248,7 +250,8 @@ jobs:
             # Official go.mod targets a newer patch than korli Haiku Go 1.26.1.
             sed -i 's/^go 1\.26\.[0-9][0-9]*$/go 1.26.1/' go.mod
             sed -i 's/go 1\.26\.[2-9][0-9]*/go 1.26.1/g; s/go 1\.26\.[0-9][0-9][0-9]*/go 1.26.1/g' vendor/modules.txt
-            go test -buildvcs=false -short -count=1 -timeout 15m ./pkg/selfcheck/ ./pkg/sandbox/
+            go test -buildvcs=false -short -count=1 -timeout 15m ./pkg/selfcheck/ ./pkg/sandbox/ ./pkg/protect/
+            go test -buildvcs=false -short -count=1 -timeout 10m ./pkg/transport/ -run 'Protect|HandlePacket'
             mkdir -p bin
             go build -buildvcs=false -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
             ./bin/reticulum-go self-check --binary "$(pwd)/bin/reticulum-go" --json --full
@@ -622,7 +625,7 @@ jobs:
             fuzz) task test-fuzz-guided ;;
             fuzz-guided) task test-fuzz-guided ;;
             chaos) task test-chaos ;;
-            soak) task test-soak ;;
+            soak) task test-soak && task test-soak-protect ;;
             bench-gate) task test-bench-gate ;;
             wasm) task test-wasm ;;
             *) echo "unknown suite: ${{ matrix.suite }}" >&2; exit 1 ;;

@@ -43,6 +43,7 @@ func applySeccomp(cfg *common.ReticulumConfig) {
 		// Soft-fail: older kernels, containers without seccomp, qemu-user, or
 		// unsupported arches must not prevent the daemon from running.
 		debug.Log(debug.DebugError, "Seccomp filter install failed (continuing)", "error", err)
+		warnSoftUnavailable("seccomp", err.Error())
 		return
 	}
 	debug.Log(debug.DebugInfo, "Seccomp filter applied", "arch", runtime.GOARCH, "mode", mode)

@@ -352,6 +352,26 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 			}
 			cfg.DoSProtection = v
 		}
+	case "dos_max_pps":
+		setFloat(value, &cfg.DoSMaxPPS)
+	case "dos_max_bps":
+		if n, err := common.ParseByteSize(value); err == nil {
+			cfg.DoSMaxBPS = float64(n)
+		}
+	case "dos_floor_pps":
+		setFloat(value, &cfg.DoSFloorPPS)
+	case "dos_floor_bps":
+		if n, err := common.ParseByteSize(value); err == nil {
+			cfg.DoSFloorBPS = float64(n)
+		}
+	case "dos_max_conns":
+		setInt(value, &cfg.DoSMaxConns)
+	case "dos_max_resources":
+		setInt(value, &cfg.DoSMaxResources)
+	case "dos_max_crypto":
+		setInt(value, &cfg.DoSMaxCrypto)
+	case "dos_max_handshake":
+		setInt(value, &cfg.DoSMaxHandshake)
 	case "max_in_memory_paths":
 		setInt(value, &cfg.MaxInMemoryPaths)
 	case "max_in_memory_known_destinations":
@@ -765,6 +785,30 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 		dos = "off"
 	}
 	fmt.Fprintf(&b, "  dos_protection = %s\n", dos)
+	if cfg.DoSMaxPPS > 0 {
+		fmt.Fprintf(&b, "  dos_max_pps = %g\n", cfg.DoSMaxPPS)
+	}
+	if cfg.DoSMaxBPS > 0 {
+		fmt.Fprintf(&b, "  dos_max_bps = %g\n", cfg.DoSMaxBPS)
+	}
+	if cfg.DoSFloorPPS > 0 {
+		fmt.Fprintf(&b, "  dos_floor_pps = %g\n", cfg.DoSFloorPPS)
+	}
+	if cfg.DoSFloorBPS > 0 {
+		fmt.Fprintf(&b, "  dos_floor_bps = %g\n", cfg.DoSFloorBPS)
+	}
+	if cfg.DoSMaxConns > 0 {
+		fmt.Fprintf(&b, "  dos_max_conns = %d\n", cfg.DoSMaxConns)
+	}
+	if cfg.DoSMaxResources > 0 {
+		fmt.Fprintf(&b, "  dos_max_resources = %d\n", cfg.DoSMaxResources)
+	}
+	if cfg.DoSMaxCrypto > 0 {
+		fmt.Fprintf(&b, "  dos_max_crypto = %d\n", cfg.DoSMaxCrypto)
+	}
+	if cfg.DoSMaxHandshake > 0 {
+		fmt.Fprintf(&b, "  dos_max_handshake = %d\n", cfg.DoSMaxHandshake)
+	}
 	if cfg.MaxInMemoryPaths != 0 {
 		fmt.Fprintf(&b, "  max_in_memory_paths = %d\n", cfg.MaxInMemoryPaths)
 	}

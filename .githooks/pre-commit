@@ -65,7 +65,6 @@ if [ -z "$ID_PATH" ] || [ ! -f "$ID_PATH" ]; then
 fi
 
 export RNS_ID_PATH="$ID_PATH"
-export GOFLAGS="${GOFLAGS:--mod=vendor}"
 
 echo "pre-commit: resigning reticulum-go.rsm"
 sh "$ROOT/scripts/ci/sign-tree-rsm.sh"

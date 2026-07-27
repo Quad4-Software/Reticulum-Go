@@ -58,6 +58,26 @@ type interfaceStatJSON struct {
 type statusResponse struct {
 	TransportID string              `json:"transport_id"`
 	Interfaces  []interfaceStatJSON `json:"interfaces"`
+	Protect     protectSnapshotJSON `json:"protect"`
+}
+
+type protectSnapshotJSON struct {
+	Mode           string `json:"mode"`
+	Phase          string `json:"phase"`
+	Enforcement    string `json:"enforcement"`
+	Fingerprint    string `json:"fingerprint"`
+	SheddingMemory bool   `json:"shedding_memory"`
+	TripCounts     struct {
+		PPS       uint64 `json:"pps"`
+		BPS       uint64 `json:"bps"`
+		Handler   uint64 `json:"handler"`
+		Conn      uint64 `json:"conn"`
+		Resource  uint64 `json:"resource"`
+		Memory    uint64 `json:"memory"`
+		Crypto    uint64 `json:"crypto"`
+		Handshake uint64 `json:"handshake"`
+		CoolDown  uint64 `json:"cooldown"`
+	} `json:"trip_counts"`
 }
 
 // pathTableEntryJSON mirrors transport.PathTableEntry with hex-encoded hashes.

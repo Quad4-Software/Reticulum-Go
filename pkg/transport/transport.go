@@ -298,7 +298,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		if storagePath != "" {
 			protectStore = filepath.Join(storagePath, protect.StoreFileName)
 		}
-		protect.ConfigureFromConfig(cfg.DoSProtection, cfg.SoftMemoryLimitBytes, protectStore)
+		protect.ConfigureFromConfig(cfg.DoSProtection, cfg.SoftMemoryLimitBytes, protectStore, cfg)
 	}
 
 	transportIdent, err := identity.LoadOrCreateTransportIdentity(storagePath)
@@ -1202,8 +1202,8 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 		if !ok || iface == nil {
 			return fmt.Errorf("interface not found: %s", onInterface)
 		}
-		if !iface.IsEnabled() {
-			return fmt.Errorf("interface offline or disabled: %s", onInterface)
+		if !ifaceReadyForPathRequest(iface) {
+			return fmt.Errorf("interface offline or not ready: %s", onInterface)
 		}
 		if err := sendOnInterface(iface, pkt.Raw, ""); err != nil {
 			return err
@@ -1213,7 +1213,7 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 	}
 
 	for _, e := range t.snapshotRegisteredInterfaces() {
-		if !e.iface.IsEnabled() {
+		if !ifaceReadyForPathRequest(e.iface) {
 			continue
 		}
 		if err := sendOnInterface(e.iface, pkt.Raw, ""); err != nil {
@@ -1549,16 +1549,8 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 		if iface != nil {
 			ifaceName = iface.GetName()
 		}
-		if d := protect.AdmitHandler(ifaceName); !d.Allow {
-			return
-		}
-		// Always copy: callers (UDP/Auto) may reuse the buffer after return.
-		pc := getPacketCopy(len(data))
-		copy(pc.buf, data)
-		func() {
-			defer putPacketCopy(pc)
-			dispatch(pc.buf)
-		}()
+		_ = protect.AdmitHandler(ifaceName)
+		return
 	}
 }
 

@@ -112,6 +112,7 @@ run_fuzz ./pkg/channel FuzzPackHandleInboundRoundTrip "$(fuzz_time_for channel 1
 run_fuzz ./pkg/interfaces FuzzKISSStreamDecoderRoundTrip "$(fuzz_time_for interfaces 10s)"
 run_fuzz ./pkg/protect FuzzParseMode "$(fuzz_time_for protect 10s)"
 run_fuzz ./pkg/protect FuzzAdmitPacket "$(fuzz_time_for protect 10s)"
+run_fuzz ./pkg/protect FuzzPeekPacketClass "$(fuzz_time_for protect 5s)"
 run_fuzz ./pkg/librns FuzzHandleTable "$(fuzz_time_for librns 10s)"
 run_fuzz ./pkg/librns FuzzEventQueue "$(fuzz_time_for librns 10s)"
 run_fuzz ./pkg/librns FuzzConfigPathCreate "$(fuzz_time_for librns 10s)"

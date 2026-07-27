@@ -282,6 +282,15 @@ type ReticulumConfig struct {
 	// Auto learns quietly persists baselines via msgpack then arms prevent and relearns on change.
 	DoSProtection string
 
+	DoSMaxPPS       float64
+	DoSMaxBPS       float64
+	DoSFloorPPS     float64
+	DoSFloorBPS     float64
+	DoSMaxConns     int
+	DoSMaxResources int
+	DoSMaxCrypto    int
+	DoSMaxHandshake int
+
 	// IdentityBackend selects identity at-rest storage: "file" (default),
 	// "secretservice" (Freedesktop Secret Service), or "keyring" (Linux kernel
 	// keyring, no D-Bus). When a non-file backend fails, persistence returns an error.

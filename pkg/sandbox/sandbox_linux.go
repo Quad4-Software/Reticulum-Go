@@ -26,6 +26,7 @@ func applyPlatform(cfg *common.ReticulumConfig) error {
 
 	if err := applyLandlock(cfg); err != nil {
 		debug.Log(debug.DebugError, "Landlock failed", "error", err)
+		warnSoftUnavailable("landlock", err.Error())
 	}
 
 	if os.Geteuid() == 0 {

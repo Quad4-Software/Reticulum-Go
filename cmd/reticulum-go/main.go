@@ -147,6 +147,17 @@ func runDaemon(opts daemonOptions) int {
 			hup := make(chan os.Signal, 1)
 			signal.Notify(hup, syscall.SIGHUP)
 			for range hup {
+				if runtime.GOOS == "freebsd" && r.config != nil && r.config.EnableSandbox {
+					debug.Log(debug.DebugInfo, "SIGHUP reload: re-exec under CapEnter sandbox")
+					if err := r.StopDaemon(); err != nil {
+						debug.Log(debug.DebugCritical, "SIGHUP re-exec: stop", "error", err)
+						continue
+					}
+					if err := syscall.Exec(os.Args[0], os.Args, os.Environ()); err != nil {
+						debug.Log(debug.DebugCritical, "SIGHUP re-exec failed", "error", err)
+					}
+					continue
+				}
 				path := r.config.ConfigPath
 				if path == "" {
 					p, err := config.GetConfigPath()

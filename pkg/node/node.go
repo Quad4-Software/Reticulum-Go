@@ -69,7 +69,11 @@ func (n *Node) StartInterfaceDiscovery() {
 		return
 	}
 	if n.discovery == nil {
-		n.discovery = discovery.NewInterfaceDiscovery(n.transport, discovery.DefaultStampValue, nil)
+		isBH := func(h []byte) bool {
+			tab := n.transport.BlackholeTable()
+			return tab != nil && tab.Has(h)
+		}
+		n.discovery = discovery.NewInterfaceDiscoveryWithBlackhole(n.transport, discovery.DefaultStampValue, nil, isBH)
 		n.discovery.Start()
 	}
 	if n.announcer != nil || !discovery.HasDiscoverableInterfaces(n.config) {

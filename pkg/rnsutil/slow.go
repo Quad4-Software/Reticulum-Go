@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"quad4/reticulum-go/pkg/protect"
 	"quad4/reticulum-go/pkg/term"
 	"quad4/reticulum-go/pkg/transport"
 )
@@ -71,6 +72,7 @@ type SlowReport struct {
 	Destination     *DestFocus          `json:"destination,omitempty"`
 	PathStats       SlowPathStats       `json:"path_stats"`
 	HighHopAt       int                 `json:"high_hop_threshold"`
+	Protect         protect.Snapshot    `json:"protect"`
 }
 
 // SlowTrafficTotals summarizes transport-wide rates.
@@ -289,6 +291,7 @@ func AnalyzeSlow(
 		hotspots = hotspots[:8]
 	}
 	rep.EgressHotspots = hotspots
+	rep.Protect = stats.Protect
 
 	rep.Findings = buildFindings(rep, opts)
 	rep.Recommendations = buildRecommendations(rep, opts)
@@ -517,12 +520,55 @@ func buildFindings(rep SlowReport, opts SlowAnalyzeOptions) []SlowFinding {
 			},
 		})
 	}
+	out = append(out, protectFindings(rep.Protect)...)
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].Score == out[j].Score {
 			return out[i].Name < out[j].Name
 		}
 		return out[i].Score > out[j].Score
 	})
+	return out
+}
+
+func protectFindings(ps protect.Snapshot) []SlowFinding {
+	if ps.Mode == "off" {
+		return nil
+	}
+	var out []SlowFinding
+	if ps.CoolDownActive() {
+		out = append(out, SlowFinding{
+			Kind:     "dos_cooldown",
+			Name:     "dos_protection",
+			Severity: SeverityCritical,
+			Score:    75,
+			Summary:  "dos_protection iface cool-down is rejecting ingress",
+			Detail:   fmt.Sprintf("mode=%s phase=%s enforcement=%s", ps.Mode, ps.Phase, ps.Enforcement),
+			Hints: []string{
+				"Wait for cool-down to clear or reduce ingress load on the affected interface",
+				"Check status -json protect.trip_counts and per-iface cooldown_seconds",
+			},
+		})
+	} else if ps.Enforcement == "prevent" && ps.ActivePressure() {
+		sev := SeverityWarn
+		score := 45.0
+		if ps.SheddingMemory {
+			sev = SeverityCritical
+			score = 65
+		}
+		out = append(out, SlowFinding{
+			Kind:     "dos_armed_trips",
+			Name:     "dos_protection",
+			Severity: sev,
+			Score:    score,
+			Summary:  "dos_protection is armed and has tripped local overload gates",
+			Detail: fmt.Sprintf("mode=%s phase=%s pps_trips=%d handler_trips=%d crypto_trips=%d",
+				ps.Mode, ps.Phase, ps.TripCounts.PPS, ps.TripCounts.Handler, ps.TripCounts.Crypto),
+			Hints: []string{
+				"Legitimate bursts can trip adaptive limits on busy transport nodes",
+				"Use detect mode temporarily or tune dos_* limits in config if drops are false positives",
+			},
+		})
+	}
 	return out
 }
 

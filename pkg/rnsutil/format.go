@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"quad4/reticulum-go/pkg/protect"
 	"quad4/reticulum-go/pkg/term"
 	"quad4/reticulum-go/pkg/transport"
 )
@@ -319,15 +320,16 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 		I2PLastError              *string  `json:"i2p_last_error,omitempty"`
 	}
 	out := struct {
-		Interfaces      []ifaceJSON `json:"interfaces"`
-		RXB             uint64      `json:"rxb"`
-		TXB             uint64      `json:"txb"`
-		RXS             float64     `json:"rxs"`
-		TXS             float64     `json:"txs"`
-		TransportID     string      `json:"transport_id"`
-		TransportUptime float64     `json:"transport_uptime"`
-		NetmonFlap      uint64      `json:"netmon_flap"`
-		ActiveLinks     int         `json:"active_links"`
+		Interfaces      []ifaceJSON      `json:"interfaces"`
+		RXB             uint64           `json:"rxb"`
+		TXB             uint64           `json:"txb"`
+		RXS             float64          `json:"rxs"`
+		TXS             float64          `json:"txs"`
+		TransportID     string           `json:"transport_id"`
+		TransportUptime float64          `json:"transport_uptime"`
+		NetmonFlap      uint64           `json:"netmon_flap"`
+		ActiveLinks     int              `json:"active_links"`
+		Protect         protect.Snapshot `json:"protect"`
 	}{
 		Interfaces:      make([]ifaceJSON, 0, len(stats.Interfaces)),
 		RXB:             stats.RXB,
@@ -338,6 +340,7 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 		TransportUptime: stats.TransportUptime,
 		NetmonFlap:      stats.NetmonFlap,
 		ActiveLinks:     stats.ActiveLinks,
+		Protect:         stats.Protect,
 	}
 	for i := range stats.Interfaces {
 		st := &stats.Interfaces[i]

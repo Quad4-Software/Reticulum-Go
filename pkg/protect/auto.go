@@ -146,6 +146,9 @@ func (e *Engine) maybePromoteOrDrift(iface string, pps, bps float64) {
 		e.mu.Unlock()
 		if totalSamples >= minSamples && readyIfaces > 0 &&
 			now.Sub(learnStarted) >= minDur && stable >= AutoStableWindows {
+			if e.transportNode && !e.transportPromoteReady() {
+				return
+			}
 			e.promote()
 		}
 		return
@@ -181,6 +184,22 @@ func (e *Engine) maybePromoteOrDrift(iface string, pps, bps float64) {
 	if dw >= AutoDriftWindows {
 		e.beginRelearn("drift")
 	}
+}
+
+func (e *Engine) transportPromoteReady() bool {
+	const minTripPPS = 80.0
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for _, st := range e.ifaces {
+		if st == nil || !st.adapt.ready {
+			continue
+		}
+		pps, _ := st.adapt.tripLine(e.maxPPS, e.maxBPS, e.floorPPS, e.floorBPS)
+		if pps >= minTripPPS {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Engine) promote() {

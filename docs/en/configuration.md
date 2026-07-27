@@ -99,6 +99,23 @@ Example:
 
 Learning state is written as msgpack to `{config_dir}/storage/dos_protect.mpack` (atomic replace). Restarts restore armed baselines when the interface fingerprint still matches.
 
+Optional limits (zero or unset keeps built-in defaults):
+
+| Key | Purpose |
+|-----|---------|
+| dos_max_pps | Absolute per-iface packet rate ceiling |
+| dos_max_bps | Absolute per-iface byte rate ceiling |
+| dos_floor_pps | Minimum adaptive trip line (pps) |
+| dos_floor_bps | Minimum adaptive trip line (bps) |
+| dos_max_conns | Concurrent stream accepts per iface |
+| dos_max_resources | Concurrent incoming resources process-wide |
+| dos_max_crypto | Concurrent crypto verify jobs |
+| dos_max_handshake | Concurrent link handshake jobs |
+
+Ingress uses interface bitrate when available to scale adaptive floors. Link and proof traffic may stay admitted slightly above the trip line before announce-class traffic is shed.
+
+Operator visibility: `reticulum-go status -json` and shared-instance `interface_stats` include a `protect` object (mode, phase, trip lines, cool-down). Control API `GET /v1/status` includes the same `protect` block.
+
 Surfaces gated when mode is not off:
 
 | Gate | Typical attack class |

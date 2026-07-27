@@ -12,7 +12,6 @@ import (
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
-	"quad4/reticulum-go/pkg/protect"
 )
 
 // Interface is the package-local name for a network interface.
@@ -166,7 +165,7 @@ func (i *BaseInterface) ProcessIncoming(data []byte) {
 	name := i.Name
 	i.Mutex.Unlock()
 
-	if d := protect.AdmitPacket(name, len(data)); !d.Allow {
+	if !admitIncoming(i, name, data) {
 		return
 	}
 
