@@ -116,6 +116,10 @@ type Link struct {
 	channel      *channel.Channel
 	channelMutex sync.RWMutex
 
+	// channelReceipts tracks outstanding Channel.Send envelopes awaiting link proof.
+	channelReceiptMu sync.Mutex
+	channelReceipts  map[*packet.Packet]*packet.PacketReceipt
+
 	incomingMu              sync.Mutex
 	incomingRx              *incomingResourceAsm
 	incomingResourceRequest *RequestReceipt
@@ -1244,7 +1248,13 @@ func (l *Link) handleChannelPacket(pkt *packet.Packet) error {
 		return err
 	}
 
-	return l.GetChannel().HandleInbound(plaintext)
+	err = l.GetChannel().HandleInbound(plaintext)
+	// Channel reliability depends on link proofs so the sender can clear its
+	// TX ring only after the peer has processed the envelope.
+	if proveErr := l.ProvePacket(pkt); proveErr != nil {
+		debug.Log(debug.DebugInfo, "Failed to prove channel packet", "error", proveErr)
+	}
+	return err
 }
 
 func (l *Link) handleResourceAdvertisement(pkt *packet.Packet) error {
@@ -2475,6 +2485,7 @@ func (l *Link) Send(data []byte) any {
 		DestinationHash: l.linkID,
 		Data:            data,
 		CreateReceipt:   false,
+		Link:            l,
 	}
 
 	encrypted, err := l.encrypt(data)
@@ -2492,24 +2503,55 @@ func (l *Link) Send(data []byte) any {
 		return nil
 	}
 
+	receipt := packet.NewPacketReceipt(pkt)
+	receipt.SetLink(l)
+	if l.transport != nil {
+		l.transport.RegisterReceipt(receipt)
+	}
+	l.channelReceiptMu.Lock()
+	if l.channelReceipts == nil {
+		l.channelReceipts = make(map[*packet.Packet]*packet.PacketReceipt)
+	}
+	l.channelReceipts[pkt] = receipt
+	l.channelReceiptMu.Unlock()
+
 	return pkt
 }
 
 func (l *Link) SetPacketTimeout(pkt any, callback func(any), timeout time.Duration) {
-	if packetObj, ok := pkt.(*packet.Packet); ok {
-		go func() {
-			time.Sleep(timeout)
-			if callback != nil {
-				callback(packetObj)
-			}
-		}()
+	packetObj, ok := pkt.(*packet.Packet)
+	if !ok || callback == nil {
+		return
 	}
+	go func() {
+		time.Sleep(timeout)
+		l.channelReceiptMu.Lock()
+		receipt := l.channelReceipts[packetObj]
+		l.channelReceiptMu.Unlock()
+		if receipt != nil && receipt.IsDelivered() {
+			return
+		}
+		callback(packetObj)
+	}()
 }
 
 func (l *Link) SetPacketDelivered(pkt any, callback func(any)) {
-	if callback != nil {
-		go callback(pkt)
+	packetObj, ok := pkt.(*packet.Packet)
+	if !ok || callback == nil {
+		return
 	}
+	l.channelReceiptMu.Lock()
+	receipt := l.channelReceipts[packetObj]
+	l.channelReceiptMu.Unlock()
+	if receipt == nil {
+		return
+	}
+	receipt.SetDeliveryCallback(func(*packet.PacketReceipt) {
+		l.channelReceiptMu.Lock()
+		delete(l.channelReceipts, packetObj)
+		l.channelReceiptMu.Unlock()
+		callback(packetObj)
+	})
 }
 
 func (l *Link) Resend(pkt any) error {
@@ -2992,13 +3034,15 @@ func (l *Link) sendTeardownPacket() error {
 // peer_sig_pub. For initiators that is the destination identity signing key.
 func (l *Link) Validate(signature, message []byte) bool {
 	l.mutex.RLock()
-	defer l.mutex.RUnlock()
+	peerSig := append([]byte(nil), l.peerSigPub...)
+	remote := l.remoteIdentity
+	l.mutex.RUnlock()
 
-	if len(l.peerSigPub) == ed25519.PublicKeySize {
-		return ed25519.Verify(l.peerSigPub, message, signature)
+	if len(peerSig) == ed25519.PublicKeySize {
+		return ed25519.Verify(peerSig, message, signature)
 	}
-	if l.remoteIdentity != nil {
-		return l.remoteIdentity.Verify(message, signature)
+	if remote != nil {
+		return remote.Verify(message, signature)
 	}
 	return false
 }
@@ -3145,8 +3189,8 @@ func (l *Link) HandleLinkRequest(pkt *packet.Packet, ownerIdentity *identity.Ide
 	peerPub := pkt.Data[0:KeySize]
 	peerSigPub := pkt.Data[KeySize:ECPubSize]
 
-	l.peerPub = peerPub
-	l.peerSigPub = peerSigPub
+	l.peerPub = append([]byte(nil), peerPub...)
+	l.peerSigPub = append([]byte(nil), peerSigPub...)
 	l.linkID = linkIDFromPacket(pkt)
 	l.initiator = false
 
@@ -3530,12 +3574,12 @@ func (l *Link) validateLinkProofLocked(pkt *packet.Packet, networkIface common.N
 		debug.Log(debug.DebugVerbose, "Link proof includes MTU", "mtu", mtu, "mode", mode)
 	}
 
-	l.peerPub = peerPub
+	l.peerPub = append([]byte(nil), peerPub...)
 	if l.destination != nil && l.destination.GetIdentity() != nil {
 		destIdent := l.destination.GetIdentity()
 		pubKey := destIdent.GetPublicKey()
 		if len(pubKey) >= ECPubSize {
-			l.peerSigPub = pubKey[KeySize:ECPubSize]
+			l.peerSigPub = append([]byte(nil), pubKey[KeySize:ECPubSize]...)
 		}
 	}
 

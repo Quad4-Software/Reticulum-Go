@@ -4,6 +4,7 @@
 package rnsutil
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -89,6 +90,7 @@ func LoadRgoshAllowedIdentities(extra []string) ([][]byte, error) {
 }
 
 // EstablishRgoshLink waits for a path and opens an outbound link.
+// destHash should be the peer's rgosh (or rnsh with --compat) listening hash.
 func EstablishRgoshLink(ctx context.Context, tr *transport.Transport, destHash []byte, appName string) (*link.Link, error) {
 	if appName == "" {
 		appName = RgoshAppName
@@ -103,6 +105,15 @@ func EstablishRgoshLink(ctx context.Context, tr *transport.Transport, destHash [
 	outDest, err := destination.New(remote, destination.Out, destination.Single, appName, tr)
 	if err != nil {
 		return nil, err
+	}
+	linkHash := outDest.GetHash()
+	if !bytes.Equal(linkHash, destHash) {
+		if msg := rgoshAppMismatch(destHash, remote, appName); msg != "" {
+			return nil, fmt.Errorf("%s", msg)
+		}
+		if err := WaitPath(ctx, tr, linkHash); err != nil {
+			return nil, fmt.Errorf("path to %s %s: %w", appName, PrettyHex(linkHash), err)
+		}
 	}
 	l := link.NewLink(outDest, tr, nil, nil, nil)
 	if err := l.Establish(); err != nil {
@@ -121,4 +132,21 @@ func RgoshAppNameForMode(compat bool) string {
 		return RnshAppName
 	}
 	return RgoshAppName
+}
+
+// rgoshAppMismatch returns a user-facing error when destHash belongs to the
+// other shell app (native vs Python rnsh compat).
+func rgoshAppMismatch(destHash []byte, remote *identity.Identity, appName string) string {
+	if remote == nil || len(destHash) == 0 {
+		return ""
+	}
+	rnshHash := destination.Hash(remote, RnshAppName)
+	rgoshHash := destination.Hash(remote, RgoshAppName)
+	if appName == RgoshAppName && bytes.Equal(destHash, rnshHash) {
+		return fmt.Sprintf("destination %s is rnsh (Python/compat listener); use --compat", PrettyHex(destHash))
+	}
+	if appName == RnshAppName && bytes.Equal(destHash, rgoshHash) {
+		return fmt.Sprintf("destination %s is native rgosh; omit --compat", PrettyHex(destHash))
+	}
+	return ""
 }

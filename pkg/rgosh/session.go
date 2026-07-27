@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sync"
+	"time"
 
 	"quad4/reticulum-go/pkg/channel"
 )
@@ -68,6 +69,17 @@ type Session struct {
 
 	proc    ProcessHandle
 	spawned bool
+
+	// Early stdin can arrive before StartProcess finishes. Buffer until proc is set.
+	stdinPending []byte
+	stdinEOF     bool
+
+	// Client: Exit can reorder ahead of Stream on UDP. Hold OnExit until stream
+	// EOFs arrive or a short grace elapses.
+	clientExitCode  *int
+	clientStdoutEOF bool
+	clientStderrEOF bool
+	exitNotifyOnce  sync.Once
 }
 
 // ExecRequest is the resolved remote command.
@@ -200,8 +212,11 @@ func (s *Session) SetRemoteIdentity(hash []byte) bool {
 func (s *Session) HandleMessage(msg Message) error {
 	s.mu.Lock()
 	if s.state == StateTeardown || s.state == StateError {
-		s.mu.Unlock()
-		return nil
+		// UDP can deliver Stream after Exit. Still accept client stream data.
+		if _, ok := msg.(*StreamMessage); !ok || s.cfg.Listener {
+			s.mu.Unlock()
+			return nil
+		}
 	}
 	var err error
 	var after func()
@@ -342,17 +357,36 @@ func (s *Session) handleExecLocked(m *ExecMessage) (error, func()) {
 			return
 		}
 		s.proc = proc
+		pending := s.stdinPending
+		s.stdinPending = nil
+		eof := s.stdinEOF
+		s.stdinEOF = false
 		s.mu.Unlock()
+		if len(pending) > 0 {
+			_, _ = proc.Stdin().Write(pending)
+		}
+		if eof {
+			_ = proc.Stdin().Close()
+		}
 		go s.pumpProcess(proc)
 	}
 }
 
 func (s *Session) handleStreamLocked(m *StreamMessage) error {
 	if s.cfg.Listener {
-		if s.state != StateRunning || s.proc == nil {
+		if s.state != StateRunning {
 			return nil
 		}
 		if m.StreamID != StreamStdin {
+			return nil
+		}
+		if s.proc == nil {
+			if len(m.Data) > 0 {
+				s.stdinPending = append(s.stdinPending, m.Data...)
+			}
+			if m.EOF {
+				s.stdinEOF = true
+			}
 			return nil
 		}
 		if len(m.Data) > 0 {
@@ -375,6 +409,15 @@ func (s *Session) handleStreamLocked(m *StreamMessage) error {
 			}
 		}
 	}
+	if m.EOF {
+		switch m.StreamID {
+		case StreamStdout:
+			s.clientStdoutEOF = true
+		case StreamStderr:
+			s.clientStderrEOF = true
+		}
+		s.maybeFinishClientLocked()
+	}
 	return nil
 }
 
@@ -389,11 +432,52 @@ func (s *Session) handleExitLocked(m *ExitMessage) (error, func()) {
 	if s.cfg.Listener {
 		return nil, nil
 	}
+	code := m.ReturnCode
+	s.clientExitCode = &code
 	s.state = StateTeardown
+	delay := 100 * time.Millisecond
+	if !s.clientStdoutEOF || !s.clientStderrEOF {
+		delay = 750 * time.Millisecond
+	}
+	// Always defer OnExit briefly so reordered Stream packets can land.
+	return nil, func() {
+		time.AfterFunc(delay, func() {
+			s.mu.Lock()
+			after := s.finishClientCallbacksLocked()
+			s.mu.Unlock()
+			if after != nil {
+				after()
+			}
+		})
+	}
+}
+
+// maybeFinishClientLocked accelerates completion once Exit and both EOFs are in.
+// Caller must hold s.mu.
+func (s *Session) maybeFinishClientLocked() {
+	if s.clientExitCode == nil || !s.clientStdoutEOF || !s.clientStderrEOF {
+		return
+	}
+	after := s.finishClientCallbacksLocked()
+	if after != nil {
+		go after()
+	}
+}
+
+// finishClientCallbacksLocked returns OnExit/OnTeardown once. Caller holds s.mu.
+func (s *Session) finishClientCallbacksLocked() func() {
+	if s.clientExitCode == nil {
+		return nil
+	}
+	code := *s.clientExitCode
 	cb := s.OnExit
 	td := s.OnTeardown
-	code := m.ReturnCode
-	return nil, func() {
+	fired := false
+	s.exitNotifyOnce.Do(func() { fired = true })
+	if !fired {
+		return nil
+	}
+	return func() {
 		if cb != nil {
 			cb(code)
 		}
@@ -404,6 +488,16 @@ func (s *Session) handleExitLocked(m *ExitMessage) (error, func()) {
 }
 
 func (s *Session) pumpProcess(proc ProcessHandle) {
+	s.mu.Lock()
+	sender := s.sender
+	compat := s.cfg.Compat
+	s.mu.Unlock()
+	send := func(msg Message) {
+		if sender != nil {
+			_ = sender.Send(msg)
+		}
+	}
+
 	var wg sync.WaitGroup
 	copyStream := func(streamID int, r Reader) {
 		defer wg.Done()
@@ -413,8 +507,8 @@ func (s *Session) pumpProcess(proc ProcessHandle) {
 			if n > 0 {
 				data := append([]byte(nil), buf[:n]...)
 				payload, compressed := compressMaybe(data)
-				_ = s.Send(&StreamMessage{
-					Compat:     s.cfg.Compat,
+				send(&StreamMessage{
+					Compat:     compat,
 					StreamID:   streamID,
 					Data:       payload,
 					Compressed: compressed,
@@ -431,7 +525,7 @@ func (s *Session) pumpProcess(proc ProcessHandle) {
 				}
 			}
 			if err != nil {
-				_ = s.Send(&StreamMessage{Compat: s.cfg.Compat, StreamID: streamID, EOF: true})
+				send(&StreamMessage{Compat: compat, StreamID: streamID, EOF: true})
 				return
 			}
 		}
@@ -439,20 +533,48 @@ func (s *Session) pumpProcess(proc ProcessHandle) {
 	wg.Add(2)
 	go copyStream(StreamStdout, proc.Stdout())
 	go copyStream(StreamStderr, proc.Stderr())
-	code, _ := proc.Wait()
-	wg.Wait()
-	_ = s.Send(&ExitMessage{Compat: s.cfg.Compat, ReturnCode: code})
+	type waitRes struct {
+		code int
+	}
+	waitCh := make(chan waitRes, 1)
+	go func() {
+		code, _ := proc.Wait()
+		waitCh <- waitRes{code: code}
+	}()
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		_ = proc.Kill()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+		}
+	}
+	var wr waitRes
+	select {
+	case wr = <-waitCh:
+	case <-time.After(2 * time.Second):
+		wr.code = 1
+	}
+	send(&ExitMessage{Compat: compat, ReturnCode: wr.code})
+	if d, ok := sender.(interface{ WaitTxIdle(time.Duration) bool }); ok {
+		_ = d.WaitTxIdle(5 * time.Second)
+	}
 	s.mu.Lock()
 	s.state = StateTeardown
 	cb := s.OnExit
-	td := s.OnTeardown
 	s.mu.Unlock()
 	if cb != nil {
-		cb(code)
+		cb(wr.code)
 	}
-	if td != nil {
-		td()
-	}
+	// Do not call OnTeardown here. Closing the link immediately after Exit
+	// races the peer still receiving Exit/Stream over UDP. The initiator
+	// tears the link down after it handles Exit.
 }
 
 // SendVersion initiates version handshake.
@@ -520,11 +642,16 @@ func (s *Session) SendWinSize(rows, cols, hpix, vpix int) error {
 	})
 }
 
-// Send delivers a message through the sender.
+// Send delivers a message through the sender without holding the session lock
+// across channel IO (avoids deadlocks with pumpProcess).
 func (s *Session) Send(msg Message) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.sendLocked(msg)
+	sender := s.sender
+	s.mu.Unlock()
+	if sender == nil {
+		return fmt.Errorf("rgosh: nil sender")
+	}
+	return sender.Send(msg)
 }
 
 // Authed reports whether the session passed identity checks.
@@ -548,11 +675,17 @@ func (s *Session) MutateDefaultCmdAppend(arg string) {
 	s.cfg.DefaultCmd = append(s.cfg.DefaultCmd, arg)
 }
 
+// sendLocked sends while temporarily releasing s.mu so channel IO cannot
+// deadlock against pumpProcess. Caller must hold s.mu. On return s.mu is held.
 func (s *Session) sendLocked(msg Message) error {
 	if s.sender == nil {
 		return fmt.Errorf("rgosh: nil sender")
 	}
-	return s.sender.Send(msg)
+	sender := s.sender
+	s.mu.Unlock()
+	err := sender.Send(msg)
+	s.mu.Lock()
+	return err
 }
 
 func (s *Session) denyProtocolLocked(reason string) error {

@@ -202,9 +202,9 @@ func (c *Channel) Send(msg MessageBase) error {
 
 	c.mutex.Lock()
 	c.txRing = append(c.txRing, env)
+	timeout := c.packetTimeoutLocked(env.Tries)
 	c.mutex.Unlock()
 
-	timeout := c.getPacketTimeout(env.Tries)
 	c.link.SetPacketTimeout(packet, c.handleTimeout, timeout)
 	c.link.SetPacketDelivered(packet, c.handleDelivered)
 
@@ -236,7 +236,7 @@ func (c *Channel) handleTimeout(packet any) {
 			releaseEnvelope(env)
 			return
 		}
-		timeout := c.getPacketTimeout(env.Tries)
+		timeout := c.packetTimeoutLocked(env.Tries)
 		c.link.SetPacketTimeout(packet, c.handleTimeout, timeout)
 		return
 	}
@@ -260,7 +260,8 @@ func (c *Channel) handleDelivered(packet any) {
 	}
 }
 
-func (c *Channel) getPacketTimeout(tries int) time.Duration {
+// packetTimeoutLocked computes the retry timeout. Caller must hold c.mutex.
+func (c *Channel) packetTimeoutLocked(tries int) time.Duration {
 	rtt := c.link.GetRTT()
 	if rtt < RTTMinThreshold {
 		rtt = RTTMinThreshold
@@ -369,6 +370,24 @@ func (c *Channel) TxRingLen() int {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	return len(c.txRing)
+}
+
+// WaitTxIdle blocks until the TX ring is empty or timeout elapses.
+// Returns true when idle (safe to tear down the link after a final send).
+func (c *Channel) WaitTxIdle(timeout time.Duration) bool {
+	if timeout <= 0 {
+		return c.TxRingLen() == 0
+	}
+	deadline := time.Now().Add(timeout)
+	for {
+		if c.TxRingLen() == 0 {
+			return true
+		}
+		if time.Now().After(deadline) {
+			return c.TxRingLen() == 0
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 }
 
 // NextSequence returns the next sequence that would be assigned (tests).

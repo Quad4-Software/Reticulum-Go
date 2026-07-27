@@ -77,6 +77,7 @@ func TestE2E_RgoshPipeEcho(t *testing.T) {
 	var stdoutMu sync.Mutex
 	var stdoutBuf bytes.Buffer
 	exitCh := make(chan int, 1)
+	listenerReady := make(chan struct{}, 1)
 
 	dest.SetLinkEstablishedCallback(func(lnk any) {
 		l, ok := lnk.(*link.Link)
@@ -96,6 +97,10 @@ func TestE2E_RgoshPipeEcho(t *testing.T) {
 			_ = sess.HandleMessage(msg)
 			return true
 		})
+		select {
+		case listenerReady <- struct{}{}:
+		default:
+		}
 	})
 	_ = dest.Announce(false, nil, nil)
 	time.Sleep(100 * time.Millisecond)
@@ -107,12 +112,18 @@ func TestE2E_RgoshPipeEcho(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer l.Teardown()
+
+	select {
+	case <-listenerReady:
+	case <-time.After(5 * time.Second):
+		t.Fatal("listener session not ready")
+	}
+
 	if err := l.Identify(idClient); err != nil {
 		t.Fatal(err)
 	}
 	ch := l.GetChannel()
 	_ = RegisterNative(ch)
-	done := make(chan struct{})
 	sess := NewSession(Config{Listener: false}, ChannelSender{Ch: ch})
 	sess.OnStdout = func(b []byte) {
 		stdoutMu.Lock()
@@ -120,8 +131,10 @@ func TestE2E_RgoshPipeEcho(t *testing.T) {
 		stdoutMu.Unlock()
 	}
 	sess.OnExit = func(code int) {
-		exitCh <- code
-		close(done)
+		select {
+		case exitCh <- code:
+		default:
+		}
 	}
 	ch.AddMessageHandler(func(msg Message) bool {
 		_ = sess.HandleMessage(msg)
@@ -155,8 +168,11 @@ func TestE2E_RgoshPipeEcho(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("exit %d", code)
 		}
-	case <-time.After(15 * time.Second):
-		t.Fatal("exit timeout")
+	case <-time.After(30 * time.Second):
+		stdoutMu.Lock()
+		out := stdoutBuf.String()
+		stdoutMu.Unlock()
+		t.Fatalf("exit timeout stdout=%q state=%s", out, sess.State())
 	}
 	stdoutMu.Lock()
 	out := stdoutBuf.String()

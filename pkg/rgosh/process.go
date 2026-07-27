@@ -89,19 +89,27 @@ func (p *LocalProcess) SetWinSize(rows, cols, hpix, vpix int) error {
 }
 
 func (p *LocalProcess) Wait() (int, error) {
-	err := p.cmd.Wait()
+	if p.cmd.Process == nil {
+		return 1, fmt.Errorf("not started")
+	}
+	// Use Process.Wait rather than Cmd.Wait. Cmd.Wait closes StdoutPipe/StderrPipe
+	// parent ends and can drop unread output when the pump still needs those pipes.
+	state, err := p.cmd.Process.Wait()
 	p.once.Do(func() {
 		if p.ptyF != nil {
 			_ = p.ptyF.Close()
 		}
 	})
-	if err == nil {
-		return 0, nil
+	if state != nil {
+		p.cmd.ProcessState = state
 	}
-	if ee, ok := err.(*exec.ExitError); ok {
-		return ee.ExitCode(), err
+	if err != nil {
+		return 1, err
 	}
-	return 1, err
+	if state != nil && !state.Success() {
+		return state.ExitCode(), &exec.ExitError{ProcessState: state}
+	}
+	return 0, nil
 }
 
 func (p *LocalProcess) Kill() error {

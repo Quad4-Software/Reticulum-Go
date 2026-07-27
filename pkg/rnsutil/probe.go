@@ -31,6 +31,8 @@ type ProbeResult struct {
 }
 
 // WaitPath blocks until HasPath is true or ctx is done.
+// It issues path requests on entry and retries while waiting so a lost
+// request does not strand the caller until the context deadline.
 func WaitPath(ctx context.Context, tr *transport.Transport, destHash []byte) error {
 	if tr == nil {
 		return fmt.Errorf("nil transport")
@@ -38,7 +40,9 @@ func WaitPath(ctx context.Context, tr *transport.Transport, destHash []byte) err
 	if tr.HasPath(destHash) {
 		return nil
 	}
+	const requestEvery = 2 * time.Second
 	_ = tr.RequestPath(destHash, "", nil, false)
+	lastReq := time.Now()
 	ticker := time.NewTicker(50 * time.Millisecond)
 	defer ticker.Stop()
 	for {
@@ -49,6 +53,10 @@ func WaitPath(ctx context.Context, tr *transport.Transport, destHash []byte) err
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
+			if time.Since(lastReq) >= requestEvery {
+				_ = tr.RequestPath(destHash, "", nil, false)
+				lastReq = time.Now()
+			}
 		}
 	}
 }

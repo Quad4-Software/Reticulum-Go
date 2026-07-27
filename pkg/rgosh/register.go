@@ -4,6 +4,8 @@
 package rgosh
 
 import (
+	"time"
+
 	"quad4/reticulum-go/pkg/channel"
 )
 
@@ -54,4 +56,12 @@ type ChannelSender struct {
 
 func (s ChannelSender) Send(msg Message) error {
 	return s.Ch.Send(msg)
+}
+
+// WaitTxIdle waits until outstanding channel envelopes are acknowledged.
+func (s ChannelSender) WaitTxIdle(timeout time.Duration) bool {
+	if s.Ch == nil {
+		return true
+	}
+	return s.Ch.WaitTxIdle(timeout)
 }
