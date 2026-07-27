@@ -12,10 +12,11 @@ make build
 ./bin/reticulum-go path -t
 ./bin/reticulum-go cp -l
 ./bin/reticulum-go x -l
+./bin/reticulum-go sh -l
 ./bin/reticulum-go pageserver
 ```
 
-`make install` also creates legacy symlinks (rgostatus, rgoid, rgoprobe, rgopath, rgocp, rgox, rnx, rgopageserver, rgoslow, rgospeed, rgodump, rgosnap, rgoselfcheck) that invoke the same binary. Man pages: man reticulum-go, man reticulum-go-status, man reticulum-go-speedtest, man reticulum-go-self-check, and so on.
+`make install` also creates legacy symlinks (rgostatus, rgoid, rgoprobe, rgopath, rgocp, rgox, rnx, rgosh, rgopageserver, rgoslow, rgospeed, rgodump, rgosnap, rgoselfcheck) that invoke the same binary. Man pages: man reticulum-go, man reticulum-go-status, man reticulum-go-speedtest, man reticulum-go-self-check, and so on.
 
 | Tool / subcommand | Python counterpart | Role |
 |-------------------|--------------------|------|
@@ -26,6 +27,7 @@ make build
 | `reticulum-go path` (rgopath) | rnpath | Path table, drop, blackhole, path request |
 | `reticulum-go cp` (rgocp) | rncp | File send / listen / fetch over links |
 | `reticulum-go x` (rgox, rnx) | rnx | Remote command execution over links (`rnx.execute`) |
+| `reticulum-go sh` (rgosh) | rnsh (native + `--compat`) | Interactive remote shell over Link+Channel (PTY/pipes) |
 | `reticulum-go pageserver` | (example app) | NomadNet-style page and file server |
 | `reticulum-go self-check` (rgoselfcheck) | (Go-only) | Host OS preflight for sandbox, crypto, and interfaces |
 | `reticulum-go speedtest` (rgospeed) | `Examples/Speedtest.py` | Loopback smoke plus cross-host / docker daemon (`-daemon`, `-iface`) |
@@ -382,6 +384,42 @@ reticulum-go x -x [flags] <destination_hash>      # interactive
 Allow lists: `/etc/rnx/`, `~/.config/rnx/`, `~/.rnx/`, plus `~/.config/rgox/` and `~/.rgox/`.
 
 Exit codes match Python rnx (241-249 for client failures, `-m` mirrors remote).
+
+## rgosh
+
+Interactive remote shell over Link + Channel. Native protocol uses destination app `rgosh`. `--compat` speaks Python `rnsh` (app `rnsh`, umsgpack message bodies).
+
+```bash
+reticulum-go sh -l [flags] [command...]                 # listen
+reticulum-go sh [flags] <destination_hash> [command...] # connect
+reticulum-go sh --compat -l                             # Python rnsh wire protocol
+```
+
+| Flag | Meaning |
+|------|---------|
+| `-config dir` | Config directory |
+| `-i path` | Identity file |
+| `-s name` | Service name (identity file suffix) |
+| `-l` | Listen for sessions |
+| `-a hash` | Allowed identity (repeatable, listen) |
+| `-n` | Accept from anyone (listen) |
+| `-N` | Do not identify to listener |
+| `-b` | Skip announce on listen start |
+| `-C` | Forbid remote cmdline (forced default command) |
+| `--compat` | Python rnsh wire protocol |
+| `--line` / `--raw` | Force line-buffered or raw stdin |
+| `-m` | Mirror remote exit code |
+| `-w sec` | Path/link timeout |
+| `-p` | Print identity and destination hash |
+
+Allow lists: `/etc/rgosh/`, `~/.config/rgosh/`, `~/.rgosh/`, plus Python rnsh paths. Auto line mode engages when link RTT is high unless `--raw`.
+
+Live interop:
+
+```bash
+RUN_LIVE_INTEROP=1 PYTHON_INTEROP=python3 RETICULUM_PATH=/path/to/reticulum \
+  go test -v ./tests/interop/ -run 'Rgosh|Rnsh'
+```
 
 ## Troubleshooting
 

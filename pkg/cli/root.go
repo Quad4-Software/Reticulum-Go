@@ -23,6 +23,7 @@ const (
 	CmdPath       = "path"
 	CmdCP         = "cp"
 	CmdX          = "x"
+	CmdSH         = "sh"
 	CmdPageserver = "pageserver"
 	CmdDebug      = "debug"
 	CmdSlow       = "slow"
@@ -102,6 +103,8 @@ func Main(args []string, opt Options) int {
 		return RunCP(rest, opt)
 	case CmdX:
 		return RunX(rest, opt)
+	case CmdSH:
+		return RunSH(rest, opt)
 	case CmdPageserver:
 		return RunPageserver(rest, opt)
 	case CmdDebug:
@@ -136,7 +139,7 @@ func resolveCommand(argv0 string, args []string) (cmd string, rest []string, ok 
 	}
 
 	switch args[0] {
-	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdX, CmdPageserver, CmdDebug, CmdSlow, CmdSelfCheck, CmdSpeedtest, CmdDump, CmdSnapshot:
+	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdX, CmdSH, CmdPageserver, CmdDebug, CmdSlow, CmdSelfCheck, CmdSpeedtest, CmdDump, CmdSnapshot:
 		return args[0], args[1:], true
 	case "selfcheck", "rgoselfcheck":
 		return CmdSelfCheck, args[1:], true
@@ -152,6 +155,8 @@ func resolveCommand(argv0 string, args []string) (cmd string, rest []string, ok 
 		return CmdCP, args[1:], true
 	case "rgox", "rnx":
 		return CmdX, args[1:], true
+	case "rgosh":
+		return CmdSH, args[1:], true
 	case "rgoslow":
 		return CmdSlow, args[1:], true
 	case "rgospeed":
@@ -179,6 +184,8 @@ func aliasFromArgv0(base string) string {
 		return CmdCP
 	case "rgox", "rnx", "reticulum-go-x":
 		return CmdX
+	case "rgosh", "reticulum-go-sh":
+		return CmdSH
 	case "rgopageserver", "reticulum-go-pageserver":
 		return CmdPageserver
 	case "rgoslow", "reticulum-go-slow":
@@ -232,6 +239,7 @@ Usage:
   reticulum-go snapshot [flags]         path table, links, and health JSON (RPC)
   reticulum-go cp [flags]               file transfer over links
   reticulum-go x [flags]                remote command execution (rnx)
+  reticulum-go sh [flags]               interactive remote shell (rgosh)
   reticulum-go pageserver [flags]       NomadNet-style page and file server
   reticulum-go debug [flags]            effective config, rate table, RPC dump
   reticulum-go self-check [flags]       host OS preflight checklist
@@ -240,7 +248,7 @@ Global:
   -h, --help       print this help
   -v, --version    print version
 
-Legacy tool names (rgostatus, rgoid, rgoprobe, rgopath, rgocp, rgox, rnx, rgoslow, rgospeed, rgodump, rgosnap) work as
+Legacy tool names (rgostatus, rgoid, rgoprobe, rgopath, rgocp, rgox, rnx, rgosh, rgoslow, rgospeed, rgodump, rgosnap) work as
 subcommands or when the binary is installed under those names (symlinks).
 
 Configuration defaults to ~/.reticulum-go/config.

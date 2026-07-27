@@ -99,7 +99,8 @@ Wire format is stable across 1.2.x to 1.4.x. Notable behavior differences:
 | Blackhole federation | publish_blackhole, blackhole_sources, and updater not driven |
 | Remote management destination | No `rnstransport.remote.management` for remote rnpath/rnstatus |
 | RNode and radio serial drivers | RNode / KISS / AX25 / Weave not in this tree. SerialInterface, Modem73Interface, and SDRInterface are present |
-| Utilities rnsh rnir rnpkg rngit | Not ported |
+| Utilities rnir rnpkg rngit | Not ported |
+| Python rnsh utility | Not ported (use `reticulum-go sh` / rgosh; `--compat` for wire interop) |
 
 ## Go-only extensions
 
@@ -151,7 +152,8 @@ These do not change the wire format:
 | rnprobe | rgoprobe |
 | rnpath | rgopath (path table, drop, blackhole, remote rnstransport not ported) |
 | rncp | rgocp (send/listen/fetch on `rncp.receive`) |
-| rnir, rnodeconf, rnpkg, rngit, rnsh | Not ported (deferred post-1.0). rnx is `reticulum-go x`. |
+| rnir, rnodeconf, rnpkg, rngit | Not ported (deferred post-1.0). rnx is `reticulum-go x`. |
+| rnsh | Not ported. Go alternative is `reticulum-go sh` (rgosh), with `--compat` for Python rnsh wire protocol. |
 | WASM | `reticulum-wasm` (Go-only) |
 | librns | `librns.so` + `rns.h` (Go-only, Linux first) |
 | Odin bindings | `bindings/odin` (links `librns.so`, [librns](librns.md#odin-bindings)) |

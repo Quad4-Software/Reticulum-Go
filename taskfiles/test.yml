@@ -76,12 +76,12 @@ tasks:
   test-oracle:
     desc: Run oracle-backed suites (crossref vectors, health oracles, adversarial corpus, IFAC goldens, RNS 1.4.0 feature oracles)
     cmds:
-      - '{{.GOCMD}} test ./tests/crossref/ ./pkg/health/ ./pkg/packet/ ./pkg/ifac/ ./pkg/link/ ./pkg/discovery/ ./pkg/identity/ ./pkg/interfaces/ ./pkg/transport/ ./pkg/rnsutil/ -count=1 -run "TestIdentity|TestHKDF|TestHMAC|TestPacket|TestOracle|TestAdversarial|TestTOCTOU|TestHandshake|TestNewMatchesPython|TestMaskMatchesPython|TestSignMatchesPython|TestUnmask|TestDrop|TestCleanKnown|TestBlocked" -timeout 15m'
+      - '{{.GOCMD}} test ./tests/crossref/ ./pkg/health/ ./pkg/packet/ ./pkg/ifac/ ./pkg/link/ ./pkg/discovery/ ./pkg/identity/ ./pkg/interfaces/ ./pkg/transport/ ./pkg/rnsutil/ ./pkg/rgosh/ -count=1 -run "TestIdentity|TestHKDF|TestHMAC|TestPacket|TestOracle|TestAdversarial|TestTOCTOU|TestHandshake|TestNewMatchesPython|TestMaskMatchesPython|TestSignMatchesPython|TestUnmask|TestDrop|TestCleanKnown|TestBlocked|TestCompatMatches" -timeout 15m'
 
   test-e2e:
     desc: Run daemon and node end-to-end tests
     cmds:
-      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./cmd/reticulum-go ./pkg/node ./pkg/transport -run "TestE2E_|TestReload|TestDaemon|UDPPathE2E" -timeout 10m'
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./cmd/reticulum-go ./pkg/node ./pkg/transport ./pkg/rgosh -run "TestE2E_|TestReload|TestDaemon|UDPPathE2E" -timeout 10m'
 
   test-blackbox:
     desc: Run black-box CLI and control API surface tests

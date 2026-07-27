@@ -42,6 +42,9 @@ func TestMainHelp(t *testing.T) {
 	if !strings.Contains(help, "reticulum-go x") {
 		t.Fatalf("help missing x: %s", help)
 	}
+	if !strings.Contains(help, "reticulum-go sh") {
+		t.Fatalf("help missing sh: %s", help)
+	}
 	if !strings.Contains(help, "self-check") {
 		t.Fatalf("help missing self-check: %s", help)
 	}
@@ -122,6 +125,17 @@ func TestResolveCommandX(t *testing.T) {
 	cmd, _, ok = resolveCommand("rgox", nil)
 	if !ok || cmd != CmdX {
 		t.Fatalf("rgox alias ok=%v cmd=%q", ok, cmd)
+	}
+}
+
+func TestResolveCommandSH(t *testing.T) {
+	cmd, _, ok := resolveCommand("reticulum-go", []string{"sh", "-l"})
+	if !ok || cmd != CmdSH {
+		t.Fatalf("subcommand ok=%v cmd=%q", ok, cmd)
+	}
+	cmd, _, ok = resolveCommand("rgosh", nil)
+	if !ok || cmd != CmdSH {
+		t.Fatalf("rgosh alias ok=%v cmd=%q", ok, cmd)
 	}
 }
 

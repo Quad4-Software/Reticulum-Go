@@ -160,6 +160,17 @@ func TestCLIInteropHelpersAlwaysRebuildBins(t *testing.T) {
 	if bytes.Contains(rnx, []byte("if _, err := os.Stat(bin); err != nil")) {
 		t.Fatal("ensureRgox must always go build (not Stat-gated)")
 	}
+	rgoshPath := filepath.Join(repoRoot(t), "tests", "interop", "rgosh_live_test.go")
+	rgosh, err := os.ReadFile(rgoshPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(rgosh, []byte("func ensureRgosh")) {
+		t.Fatal("missing ensureRgosh")
+	}
+	if bytes.Contains(rgosh, []byte("if _, err := os.Stat(bin); err != nil")) {
+		t.Fatal("ensureRgosh must always go build (not Stat-gated)")
+	}
 	cpPath := filepath.Join(repoRoot(t), "tests", "interop", "path_cp_live_test.go")
 	cp, err := os.ReadFile(cpPath)
 	if err != nil {

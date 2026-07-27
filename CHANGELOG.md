@@ -15,6 +15,7 @@
 - Handler pool overflow always sheds (no sync dispatch on ingress threads)
 - FreeBSD sandbox SIGHUP re-exec for config reload under CapEnter
 - Sandbox Landlock/seccomp soft-fail stdout warnings
+- `reticulum-go sh` / rgosh interactive remote shell (native protocol plus `--compat` for Python rnsh)
 
 ### Fixed
 - Recursive path-request fan-out no longer targets ifaces that went offline while the discovery queue drained
@@ -80,7 +81,7 @@ Wire compatible with Python RNS 1.3.9
 - RNode, KISS, AX25, and Weave radio drivers
 - Discovery autoconnect loops
 - Blackhole auto publish federation
-- Utilities: rnsh, rnir, rnpkg, rngit
+- Utilities: Python rnsh (use rgosh), rnir, rnpkg, rngit
 - Remote rnpath and rnstransport modes
 
 RNode and remaining radio drivers plus deferred utilities are planned for later releases.

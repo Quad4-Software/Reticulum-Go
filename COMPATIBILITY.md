@@ -245,7 +245,7 @@ Intentional extensions beyond upstream *rns*:
 | rnodeconf | No | Depends on RNode driver |
 | rnpkg | No | Not ported |
 | rngit | No | Git-over-Reticulum. No wire impact. |
-| rnsh | No | Not ported |
+| rnsh | No | Not ported. Go alternative: `reticulum-go sh` (rgosh). `--compat` speaks rnsh wire protocol |
 | WASM build | Go-only | [cmd/reticulum-wasm](cmd/reticulum-wasm/), [pkg/wasm](pkg/wasm/) |
 
 ## Deferred for post-1.0
@@ -255,7 +255,7 @@ Intentional extensions beyond upstream *rns*:
 | RNode / KISS / AX25 / Weave drivers | Hardware radio interface stack |
 | Discovery autoconnect loops | InterfaceAnnouncer and listen/validate work. Autoconnect is not auto-started |
 | Blackhole auto-publish / blackhole_sources | Federation loops |
-| rnsh / rnir / rnpkg / rngit | Missing utilities |
+| rnsh / rnir / rnpkg / rngit | Missing Python utilities (rgosh covers interactive shell) |
 | Remote rnpath rnstransport modes | Local/shared-instance path tools work |
 
 ## Examples
