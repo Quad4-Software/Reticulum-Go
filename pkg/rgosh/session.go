@@ -65,7 +65,10 @@ type Session struct {
 	OnStdout     func(data []byte)
 	OnStderr     func(data []byte)
 	OnAuthDenied func(reason string)
+	OnError      func(msg string, fatal bool)
 	OnTeardown   func()
+
+	outboundMu sync.Mutex
 
 	proc    ProcessHandle
 	spawned bool
@@ -256,10 +259,20 @@ func (s *Session) HandleMessage(msg Message) error {
 	case *ExitMessage:
 		err, after = s.handleExitLocked(m)
 	case *ErrorMessage:
-		if m.Fatal {
+		cb := s.OnError
+		msg, fatal := m.Msg, m.Fatal
+		if fatal {
 			s.state = StateError
-			td := s.OnTeardown
-			after = td
+		}
+		td := s.OnTeardown
+		after = func() {
+			if cb != nil {
+				cb(msg, fatal)
+				return
+			}
+			if fatal && td != nil {
+				td()
+			}
 		}
 	}
 	s.mu.Unlock()
@@ -579,8 +592,16 @@ func (s *Session) pumpProcess(proc ProcessHandle) {
 
 // SendVersion initiates version handshake.
 func (s *Session) SendVersion() error {
+	s.outboundMu.Lock()
+	defer s.outboundMu.Unlock()
+
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	// Initiators must not send Version after leaving WaitVers: a late Version
+	// while the peer is in WAIT_CMD is a Python rnsh protocol error.
+	if !s.cfg.Listener && s.state != StateWaitVers {
+		s.mu.Unlock()
+		return nil
+	}
 	msg := &VersionMessage{
 		Compat:          s.cfg.Compat,
 		SoftwareVersion: s.cfg.SoftwareVersion,
@@ -590,11 +611,16 @@ func (s *Session) SendVersion() error {
 	if s.cfg.Compat {
 		msg.ProtocolVersion = CompatProtocolVersion
 	}
-	return s.sendLocked(msg)
+	err := s.sendLocked(msg)
+	s.mu.Unlock()
+	return err
 }
 
 // SendExec sends an execute request (initiator).
 func (s *Session) SendExec(req ExecRequest) error {
+	s.outboundMu.Lock()
+	defer s.outboundMu.Unlock()
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.state != StateWaitCmd && s.state != StateWaitVers {

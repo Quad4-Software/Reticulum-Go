@@ -145,12 +145,16 @@ func TestE2E_RgoshPipeEcho(t *testing.T) {
 		t.Fatal(err)
 	}
 	deadline := time.After(10 * time.Second)
+	lastVers := time.Now()
 	for sess.State() == StateWaitVers {
 		select {
 		case <-deadline:
 			t.Fatal("version timeout")
 		case <-time.After(50 * time.Millisecond):
-			_ = sess.SendVersion()
+			if sess.State() == StateWaitVers && time.Since(lastVers) >= 2*time.Second {
+				_ = sess.SendVersion()
+				lastVers = time.Now()
+			}
 		}
 	}
 	if err := sess.SendExec(ExecRequest{

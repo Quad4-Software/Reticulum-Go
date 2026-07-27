@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -143,6 +144,12 @@ func checkDaemon(ctx context.Context, opts Options) []Result {
 		return out
 	}
 
+	if err := waitRPCPort(dctx, cfg, timeout); err != nil {
+		out = append(out, result(nameDaemonRPC, SeverityFail, "rpc port: "+err.Error()))
+		out = append(out, result(nameDaemonReload, SeveritySkip, "rpc not ready"))
+		return out
+	}
+
 	out = append(out, checkDaemonRPC(dctx, cfg, rpcKey, timeout))
 	out = append(out, checkDaemonReload(dctx, cmd, cfg, rpcKey, timeout, logPath))
 	return out
@@ -186,6 +193,35 @@ func waitControlAPI(ctx context.Context, ctrlPort int, rpcKey []byte, timeout ti
 		detail += " log=" + logTail
 	}
 	return result(nameDaemonSmoke, SeverityFail, detail)
+}
+
+func waitRPCPort(ctx context.Context, cfg *common.ReticulumConfig, timeout time.Duration) error {
+	if cfg == nil {
+		return fmt.Errorf("nil config")
+	}
+	port := cfg.InstanceControlPort
+	if port == 0 {
+		port = reticulumconfig.DefaultInstanceControlPort
+	}
+	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		conn, err := net.DialTimeout("tcp", addr, 250*time.Millisecond)
+		if err == nil {
+			_ = conn.Close()
+			return nil
+		}
+		lastErr = err
+		time.Sleep(50 * time.Millisecond)
+	}
+	if lastErr != nil {
+		return lastErr
+	}
+	return fmt.Errorf("timeout")
 }
 
 func checkDaemonRPC(ctx context.Context, cfg *common.ReticulumConfig, rpcKey []byte, timeout time.Duration) Result {

@@ -9,6 +9,7 @@ package interop
 import (
 	"bufio"
 	"context"
+	"errors"
 	"net"
 	"os"
 	"os/exec"
@@ -73,6 +74,12 @@ func waitStdoutToken(ctx context.Context, br *bufio.Reader, token string, d time
 		}
 		line, err := readLineTimeout(ctx, br, remain)
 		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) && time.Now().Before(deadline) {
+				continue
+			}
+			if ctx.Err() != nil {
+				return "", ctx.Err()
+			}
 			return "", err
 		}
 		line = strings.TrimSpace(line)

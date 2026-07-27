@@ -11,9 +11,13 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
+	"golang.org/x/term"
+
+	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/link"
@@ -42,12 +46,19 @@ func RunSH(args []string, opt ...Options) int {
 	compat := fs.Bool("compat", false, "speak Python rnsh wire protocol")
 	lineMode := fs.Bool("line", false, "force line-buffered stdin")
 	rawMode := fs.Bool("raw", false, "disable stdin coalescing")
+	verbose := fs.Bool("v", false, "enable reticulum debug logs on stderr")
 	timeoutSec := fs.Float64("w", 15, "path/link timeout seconds")
 	var allowed flagStringList
 	fs.Var(&allowed, "a", "allowed identity hash (repeatable, listen)")
 
 	if err := fs.Parse(args); err != nil {
 		return 2
+	}
+
+	// Interactive shells share stderr with the remote TTY. Keep transport
+	// chatter off unless -v is set.
+	if !*verbose {
+		debug.SetDebugLevel(debug.DebugCritical)
 	}
 
 	cfg, err := rnsutil.LoadConfigDir(*configDir)
@@ -264,13 +275,6 @@ func runSHClient(tr *transport.Transport, id *identity.Identity, destHash []byte
 	}
 	defer l.Teardown()
 
-	if !opts.noid {
-		if err := l.Identify(id); err != nil {
-			fmt.Fprintln(stderr, errMsg(stderr, "identify: "+err.Error()))
-			return 1
-		}
-	}
-
 	ch := l.GetChannel()
 	if opts.compat {
 		_ = rgosh.RegisterCompat(ch)
@@ -282,12 +286,25 @@ func runSHClient(tr *transport.Transport, id *identity.Identity, destHash []byte
 	done := make(chan struct{})
 	var doneOnce sync.Once
 	closeDone := func() { doneOnce.Do(func() { close(done) }) }
+	var endMu sync.Mutex
+	var endMsg string
+	setEndMsg := func(msg string) {
+		endMu.Lock()
+		if endMsg == "" && msg != "" {
+			endMsg = msg
+		}
+		endMu.Unlock()
+	}
 
 	sess := rgosh.NewSession(rgosh.Config{
 		Compat:   opts.compat,
 		Listener: false,
 	}, rgosh.ChannelSender{Ch: ch})
+	var exited atomic.Bool
+	var userInt atomic.Bool
+	var stdinOff atomic.Bool
 	sess.OnExit = func(code int) {
+		exited.Store(true)
 		select {
 		case exitCh <- code:
 		default:
@@ -296,8 +313,14 @@ func runSHClient(tr *transport.Transport, id *identity.Identity, destHash []byte
 	}
 	sess.OnTeardown = closeDone
 	sess.OnAuthDenied = func(reason string) {
-		fmt.Fprintln(stderr, errMsg(stderr, "auth denied: "+reason))
+		setEndMsg("auth denied: " + reason)
 		closeDone()
+	}
+	sess.OnError = func(msg string, fatal bool) {
+		setEndMsg(msg)
+		if fatal {
+			closeDone()
+		}
 	}
 	sess.OnStdout = func(data []byte) { _, _ = stdout.Write(data) }
 	sess.OnStderr = func(data []byte) { _, _ = stderr.Write(data) }
@@ -306,6 +329,21 @@ func runSHClient(tr *transport.Transport, id *identity.Identity, destHash []byte
 		_ = sess.HandleMessage(msg)
 		return true
 	})
+
+	// Register handlers before Identify so peer Error/Version are not dropped.
+	l.SetLinkClosedCallback(func(*link.Link) {
+		if !exited.Load() && !userInt.Load() {
+			setEndMsg("link closed")
+		}
+		closeDone()
+	})
+
+	if !opts.noid {
+		if err := l.Identify(id); err != nil {
+			fmt.Fprintln(stderr, errMsg(stderr, "identify: "+err.Error()))
+			return 1
+		}
+	}
 
 	if !opts.compat && !opts.noid {
 		authDeadline := time.After(2 * time.Second)
@@ -327,6 +365,7 @@ afterAuth:
 	}
 
 	deadline := time.After(opts.timeout)
+	lastVers := time.Now()
 	for sess.State() == rgosh.StateWaitVers {
 		select {
 		case <-deadline:
@@ -335,25 +374,48 @@ afterAuth:
 		case <-done:
 			return 1
 		case <-time.After(50 * time.Millisecond):
-			_ = sess.SendVersion()
+			// Rare resend only: peer moves to WAIT_CMD after the first Version,
+			// so a fast retry is a protocol error (LSSTATE_WAIT_CMD).
+			if sess.State() == rgosh.StateWaitVers && time.Since(lastVers) >= 2*time.Second {
+				_ = sess.SendVersion()
+				lastVers = time.Now()
+			}
 		}
+	}
+	if st := sess.State(); st != rgosh.StateWaitCmd && st != rgosh.StateRunning {
+		fmt.Fprintln(stderr, errMsg(stderr, "session ended before exec ("+st.String()+")"))
+		return 1
 	}
 
 	pipeStdin := !isTTY(os.Stdin)
 	pipeStdout := !isTTY(os.Stdout)
 	pipeStderr := !isTTY(os.Stderr)
-	term := os.Getenv("TERM")
-	rows, cols := 24, 80
+	interactive := !pipeStdin && !pipeStdout
+	termName := os.Getenv("TERM")
+	rows, cols := ttySize()
 	cmdline := opts.cmdline
 	if len(cmdline) == 0 {
 		cmdline = nil
 	}
+
+	var restoreTTY func()
+	if interactive {
+		fd := int(os.Stdin.Fd())
+		st, err := term.MakeRaw(fd)
+		if err != nil {
+			fmt.Fprintln(stderr, errMsg(stderr, "tty raw: "+err.Error()))
+			return 1
+		}
+		restoreTTY = func() { _ = term.Restore(fd, st) }
+		defer restoreTTY()
+	}
+
 	if err := sess.SendExec(rgosh.ExecRequest{
 		Cmdline:    cmdline,
 		PipeStdin:  pipeStdin,
 		PipeStdout: pipeStdout,
 		PipeStderr: pipeStderr,
-		Term:       term,
+		Term:       termName,
 		Rows:       rows,
 		Cols:       cols,
 	}); err != nil {
@@ -363,6 +425,10 @@ afterAuth:
 
 	line := opts.lineMode
 	raw := opts.rawMode
+	if interactive && !line {
+		// Interactive TTY must send keystrokes immediately (arrow keys, menus).
+		raw = true
+	}
 	if !raw && !line {
 		if rtt := time.Duration(l.GetRTT() * float64(time.Second)); rgosh.PreferLineForRTT(rtt) {
 			line = true
@@ -380,11 +446,34 @@ afterAuth:
 		_ = sess.SendStream(rgosh.StreamStdin, b, false)
 	})
 
+	var shutOnce sync.Once
+	shutdown := func() {
+		shutOnce.Do(func() {
+			userInt.Store(true)
+			stdinOff.Store(true)
+			if restoreTTY != nil {
+				restoreTTY()
+				restoreTTY = nil
+			}
+			coal.Close()
+			_ = sess.SendStream(rgosh.StreamStdin, nil, true)
+			rgosh.ChannelSender{Ch: ch}.WaitTxIdle(2 * time.Second)
+			closeDone()
+		})
+	}
+
 	go func() {
 		buf := make([]byte, 4096)
 		for {
+			if stdinOff.Load() {
+				return
+			}
 			n, err := os.Stdin.Read(buf)
 			if n > 0 {
+				if interactive && n == 1 && buf[0] == 0x03 {
+					shutdown()
+					return
+				}
 				_, _ = coal.Write(buf[:n])
 			}
 			if err != nil {
@@ -404,40 +493,87 @@ afterAuth:
 				return
 			case s := <-sig:
 				if s == syscall.SIGWINCH {
-					_ = sess.SendWinSize(rows, cols, 0, 0)
+					r, c := ttySize()
+					_ = sess.SendWinSize(r, c, 0, 0)
 					continue
 				}
-				closeDone()
+				shutdown()
 				return
 			}
 		}
 	}()
 
-	select {
-	case code := <-exitCh:
-		if opts.mirror {
-			return code
+	finish := func(code int, timedOut bool) int {
+		if restoreTTY != nil {
+			restoreTTY()
+			restoreTTY = nil
 		}
-		return 0
-	case <-done:
-		select {
-		case code := <-exitCh:
+		if userInt.Load() {
 			if opts.mirror {
 				return code
 			}
-		default:
+			return 130
+		}
+		endMu.Lock()
+		msg := endMsg
+		endMu.Unlock()
+		if timedOut {
+			fmt.Fprintln(stderr, errMsg(stderr, "timeout waiting for remote exit"))
+			return 1
+		}
+		if msg != "" {
+			fmt.Fprintln(stderr, errMsg(stderr, msg))
+		}
+		if opts.mirror {
+			return code
+		}
+		if msg != "" {
+			return 1
 		}
 		return 0
+	}
+
+	if interactive {
+		select {
+		case code := <-exitCh:
+			return finish(code, false)
+		case <-done:
+			code := 0
+			select {
+			case code = <-exitCh:
+			case <-time.After(3 * time.Second):
+			}
+			return finish(code, false)
+		}
+	}
+
+	select {
+	case code := <-exitCh:
+		return finish(code, false)
+	case <-done:
+		code := 0
+		select {
+		case code = <-exitCh:
+		default:
+		}
+		return finish(code, false)
 	case <-time.After(opts.timeout + 30*time.Second):
-		fmt.Fprintln(stderr, errMsg(stderr, "timeout waiting for remote exit"))
-		return 1
+		return finish(1, true)
 	}
 }
 
 func isTTY(f *os.File) bool {
-	st, err := f.Stat()
-	if err != nil {
-		return false
+	return term.IsTerminal(int(f.Fd()))
+}
+
+func ttySize() (rows, cols int) {
+	rows, cols = 24, 80
+	w, h, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || w <= 0 || h <= 0 {
+		w, h, err = term.GetSize(int(os.Stdin.Fd()))
 	}
-	return st.Mode()&os.ModeCharDevice != 0
+	if err == nil && w > 0 && h > 0 {
+		cols, rows = w, h
+	}
+	return rows, cols
 }

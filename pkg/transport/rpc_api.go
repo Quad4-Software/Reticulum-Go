@@ -194,7 +194,6 @@ func (t *Transport) GetPathTable(maxHops *int) []PathTableEntry {
 
 func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 	t.mutex.RLock()
-	defer t.mutex.RUnlock()
 	resp := InterfaceStatsResponse{
 		Interfaces: make([]InterfaceStat, 0, len(t.interfaces)),
 	}
@@ -357,6 +356,7 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 	resp.PacketHashCount = ms.PacketHashes
 	resp.AnnounceCacheCount = ms.AnnouncePacketCache
 	resp.SeenAnnounceCount = ms.SeenAnnounces
+	t.mutex.RUnlock()
 	resp.Protect = protect.CurrentSnapshot()
 	return resp
 }

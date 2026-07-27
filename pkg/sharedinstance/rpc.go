@@ -6,6 +6,7 @@ package sharedinstance
 import (
 	"encoding/hex"
 	"net"
+	rdebug "runtime/debug"
 	"strconv"
 	"sync"
 
@@ -171,6 +172,12 @@ func (s *RPCServer) serve() {
 		go func(c net.Conn) {
 			defer s.wg.Done()
 			defer c.Close()
+			defer func() {
+				if r := recover(); r != nil {
+					debug.Log(debug.DebugCritical, "Shared instance RPC panic",
+						"error", r, "stack", string(rdebug.Stack()))
+				}
+			}()
 			if err := AuthenticateServer(c, s.authkey); err != nil {
 				debug.Log(debug.DebugError, "Shared instance RPC auth failed", "error", err)
 				return
