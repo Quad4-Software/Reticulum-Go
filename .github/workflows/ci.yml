@@ -293,13 +293,16 @@ jobs:
           set -eu
           sudo apt-get update -qq
           sudo apt-get install -y qemu-user-static
-          command -v "${{ matrix.qemu }}"
-          "${{ matrix.qemu }}" --version | head -1
+          command -v "${QEMU_BIN}"
+          "${QEMU_BIN}" --version | head -1
+        env:
+          QEMU_BIN: ${{ matrix.qemu }}
 
       - name: Run ${{ matrix.goarch }} self-check
         env:
           GOARM: ${{ matrix.goarm || '' }}
-        run: sh scripts/ci/run-qemu-arch-self-check.sh "${{ matrix.goarch }}"
+          GOARCH_TARGET: ${{ matrix.goarch }}
+        run: sh scripts/ci/run-qemu-arch-self-check.sh "${GOARCH_TARGET}"
 
       - name: Verify workspace clean
         uses: ./.github/actions/verify-workspace-clean
@@ -615,9 +618,11 @@ jobs:
         run: task test-crossref -- generate
 
       - name: Run suite
+        env:
+          SUITE: ${{ matrix.suite }}
         run: |
           set -euo pipefail
-          case "${{ matrix.suite }}" in
+          case "${SUITE}" in
             race) task test-race ;;
             leaks) task test-leaks ;;
             sim) task test-sim ;;
@@ -628,7 +633,7 @@ jobs:
             soak) task test-soak && task test-soak-protect ;;
             bench-gate) task test-bench-gate ;;
             wasm) task test-wasm ;;
-            *) echo "unknown suite: ${{ matrix.suite }}" >&2; exit 1 ;;
+            *) echo "unknown suite: ${SUITE}" >&2; exit 1 ;;
           esac
 
       - name: Verify workspace clean

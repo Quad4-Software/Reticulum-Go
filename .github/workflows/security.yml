@@ -1,11 +1,13 @@
 # Pinned actions (bump tag and SHA together when upgrading):
-#   actions/checkout@v6.0.1            8e8c483db84b4bee98b60c0593521ed34d9990e8
-#   actions/upload-artifact@v5.0.0     330a01c490aca151604b8cf639adc76d48f6c5d4
+#   actions/checkout@v7.0.0            9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+#   actions/upload-artifact@v7.0.1     043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
 #
 name: Security
 
 on:
   push:
+    branches: [master, dev]
+  pull_request:
     branches: [master, dev]
   schedule:
     - cron: "30 12 * * 1"

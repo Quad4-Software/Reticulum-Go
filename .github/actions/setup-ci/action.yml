@@ -29,12 +29,16 @@ runs:
 
     - name: Setup Task
       shell: sh
-      run: sh scripts/ci/setup-task.sh "${{ inputs.task_version }}"
+      env:
+        TASK_VERSION: ${{ inputs.task_version }}
+      run: sh scripts/ci/setup-task.sh "${TASK_VERSION}"
 
     - name: Install revive
       if: inputs.revive_version != ''
       shell: sh
-      run: sh scripts/ci/setup-revive.sh "${{ inputs.revive_version }}"
+      env:
+        REVIVE_VERSION: ${{ inputs.revive_version }}
+      run: sh scripts/ci/setup-revive.sh "${REVIVE_VERSION}"
 
     - name: Verify tree RSM
       if: inputs.skip_tree_verify != 'true'
