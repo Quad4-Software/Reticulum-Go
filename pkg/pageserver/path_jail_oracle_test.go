@@ -10,19 +10,6 @@ import (
 	"testing"
 )
 
-// servePageJailCheck mirrors the Clean+HasPrefix check in servePage/serveFile.
-func servePageJailCheck(pagesPath, path string) (filePath string, allowed bool) {
-	var joined string
-	if after, ok := strings.CutPrefix(path, "/page/"); ok {
-		joined = filepath.Join(pagesPath, after)
-	} else {
-		joined = filepath.Join(pagesPath, path)
-	}
-	filePath = filepath.Clean(joined)
-	pagesDir := filepath.Clean(pagesPath)
-	return filePath, strings.HasPrefix(filePath, pagesDir)
-}
-
 // Regression: path jail must reject sibling-prefix escapes (pages vs pages_secret).
 func TestOraclePageJailPrefixEscape(t *testing.T) {
 	root := t.TempDir()
@@ -39,14 +26,13 @@ func TestOraclePageJailPrefixEscape(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := "/page/../pages_secret/leak.txt"
-	got, allowed := servePageJailCheck(pages, req)
-	if allowed {
-		t.Fatalf("jail accepted prefix escape %q -> %q", req, got)
+	joined := filepath.Join(pages, "../pages_secret/leak.txt")
+	if got, allowed := resolveJailedPath(pages, joined); allowed {
+		t.Fatalf("jail accepted prefix escape %q -> %q", joined, got)
 	}
 }
 
-// Regression: symlink under pages must not open outside the jail.
+// Regression: a symlink under pages must not resolve outside the jail.
 func TestOraclePageJailSymlinkEscape(t *testing.T) {
 	root := t.TempDir()
 	pages := filepath.Join(root, "pages")
@@ -62,19 +48,74 @@ func TestOraclePageJailSymlinkEscape(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, allowed := servePageJailCheck(pages, "/page/escape.mu")
+	if got, allowed := resolveJailedPath(pages, link); allowed {
+		t.Fatalf("jail followed symlink outside pages dir: %q -> %q", link, got)
+	}
+}
+
+// Regression: a symlinked ancestor directory must not smuggle a nonexistent
+// leaf path outside the jail either.
+func TestOraclePageJailSymlinkedAncestorEscape(t *testing.T) {
+	root := t.TempDir()
+	pages := filepath.Join(root, "pages")
+	outsideDir := filepath.Join(root, "outside_dir")
+	if err := os.MkdirAll(pages, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(outsideDir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	secret := filepath.Join(outsideDir, "leak.txt")
+	if err := os.WriteFile(secret, []byte("secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	linkDir := filepath.Join(pages, "linkdir")
+	if err := os.Symlink(outsideDir, linkDir); err != nil {
+		t.Fatal(err)
+	}
+
+	joined := filepath.Join(pages, "linkdir", "leak.txt")
+	if got, allowed := resolveJailedPath(pages, joined); allowed {
+		t.Fatalf("jail followed symlinked ancestor outside pages dir: %q -> %q", joined, got)
+	}
+}
+
+// Legitimate requests for real files inside the jail must still resolve.
+func TestOraclePageJailAllowsRealFile(t *testing.T) {
+	root := t.TempDir()
+	pages := filepath.Join(root, "pages")
+	if err := os.MkdirAll(pages, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	real := filepath.Join(pages, "index.mu")
+	if err := os.WriteFile(real, []byte("hi"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	got, allowed := resolveJailedPath(pages, real)
 	if !allowed {
-		return
+		t.Fatal("jail rejected a legitimate file inside pages dir")
 	}
-	resolved, err := filepath.EvalSymlinks(got)
+	resolvedPages, err := filepath.EvalSymlinks(pages)
 	if err != nil {
-		t.Fatalf("EvalSymlinks: %v", err)
+		resolvedPages = pages
 	}
-	pagesReal, err := filepath.EvalSymlinks(pages)
-	if err != nil {
-		pagesReal = pages
+	if !strings.HasPrefix(got, resolvedPages+string(os.PathSeparator)) {
+		t.Fatalf("resolved path %q escaped pages dir %q", got, resolvedPages)
 	}
-	if resolved == outside || !strings.HasPrefix(resolved, pagesReal+string(os.PathSeparator)) {
-		t.Fatalf("jail allowed symlink escape: link=%q resolved=%q outside=%q", got, resolved, outside)
+}
+
+// A legitimate 404 for a path under a real directory must still resolve
+// (not be misreported as a jail violation).
+func TestOraclePageJailAllowsMissingLeafUnderRealDir(t *testing.T) {
+	root := t.TempDir()
+	pages := filepath.Join(root, "pages")
+	if err := os.MkdirAll(pages, 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	joined := filepath.Join(pages, "missing.mu")
+	if _, allowed := resolveJailedPath(pages, joined); !allowed {
+		t.Fatal("jail rejected a missing leaf under a real, non-symlinked directory")
 	}
 }

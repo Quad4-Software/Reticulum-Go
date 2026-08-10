@@ -720,15 +720,54 @@ func (d *Destination) Decrypt(ciphertext []byte) ([]byte, error) {
 		return nil, errors.New("no identity available for decryption")
 	}
 
-	// Create empty ratchet receiver to get latest ratchet ID if available
-	ratchetReceiver := &common.RatchetIDReceiver{}
+	d.mutex.RLock()
+	enforceRatchets := d.enforceRatchets
+	d.mutex.RUnlock()
 
-	// Call Decrypt with full parameter list:
-	// - ciphertext: the encrypted data
-	// - ratchets: nil since we're not providing specific ratchets
-	// - enforceRatchets: false to allow fallback to normal decryption
-	// - ratchetIDReceiver: to receive the latest ratchet ID used
-	return d.identity.Decrypt(ciphertext, nil, false, ratchetReceiver)
+	ratchetReceiver := &common.RatchetIDReceiver{}
+	ratchets := d.GetRatchets()
+
+	if len(ratchets) == 0 {
+		plaintext, err := d.identity.Decrypt(ciphertext, nil, enforceRatchets, ratchetReceiver)
+		if err != nil {
+			return nil, err
+		}
+		d.setLatestRatchetID(ratchetReceiver.LatestRatchetID)
+		return plaintext, nil
+	}
+
+	// Matches Python Destination.decrypt: try the ratchets on hand first, then
+	// reload from storage and retry once before giving up. This is what lets
+	// EnforceRatchets and destination.Decrypt actually validate against the
+	// announced ratchet instead of silently falling back to the identity key.
+	plaintext, err := d.identity.Decrypt(ciphertext, ratchets, enforceRatchets, ratchetReceiver)
+	if err != nil {
+		debug.Log(debug.DebugError, "Decryption with ratchets failed, reloading ratchets from storage and retrying", "error", err)
+		d.mutex.Lock()
+		reloadErr := d.reloadRatchets()
+		d.mutex.Unlock()
+		if reloadErr != nil {
+			debug.Log(debug.DebugError, "Failed to reload ratchets for retry", "error", reloadErr)
+			return nil, err
+		}
+		ratchets = d.GetRatchets()
+		plaintext, err = d.identity.Decrypt(ciphertext, ratchets, enforceRatchets, ratchetReceiver)
+		if err != nil {
+			return nil, err
+		}
+		debug.Log(debug.DebugInfo, "Decryption succeeded after ratchet reload")
+	}
+
+	d.setLatestRatchetID(ratchetReceiver.LatestRatchetID)
+	return plaintext, nil
+}
+
+// setLatestRatchetID records the ratchet ID used by the most recent successful
+// decryption, or clears it when identity-key decryption was used instead.
+func (d *Destination) setLatestRatchetID(id []byte) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	d.latestRatchetID = id
 }
 
 func (d *Destination) Sign(data []byte) ([]byte, error) {

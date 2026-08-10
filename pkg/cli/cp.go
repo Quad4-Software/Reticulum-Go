@@ -302,23 +302,72 @@ func runListen(tr *transport.Transport, id *identity.Identity, opts listenOpts) 
 
 func resolveFetchPath(req, jail string) (string, bool) {
 	req = strings.TrimSpace(req)
-	if jail != "" {
-		cleaned := strings.TrimPrefix(req, jail+"/")
-		full := filepath.Join(jail, cleaned)
-		abs, err := filepath.Abs(full)
+	if jail == "" {
+		abs, err := filepath.Abs(req)
 		if err != nil {
-			return "", false
-		}
-		if !strings.HasPrefix(abs, jail+string(os.PathSeparator)) && abs != jail {
 			return "", false
 		}
 		return abs, true
 	}
-	abs, err := filepath.Abs(req)
+
+	cleaned := strings.TrimPrefix(req, jail+"/")
+	full := filepath.Join(jail, cleaned)
+	abs, err := filepath.Abs(full)
 	if err != nil {
 		return "", false
 	}
-	return abs, true
+	if !strings.HasPrefix(abs, jail+string(os.PathSeparator)) && abs != jail {
+		return "", false
+	}
+
+	// A Clean+HasPrefix check on the unresolved string is not enough: a
+	// symlink inside jail can point outside it while the string still looks
+	// contained. Resolve symlinks on both sides before trusting abs.
+	resolvedJail, err := filepath.EvalSymlinks(jail)
+	if err != nil {
+		resolvedJail = jail
+	}
+	resolved, ok := evalExistingAncestorPath(abs)
+	if !ok {
+		return "", false
+	}
+	if resolved != resolvedJail && !strings.HasPrefix(resolved, resolvedJail+string(os.PathSeparator)) {
+		return "", false
+	}
+	return resolved, true
+}
+
+// evalExistingAncestorPath resolves symlinks in path, walking up to the
+// nearest existing ancestor when the leaf (or more) does not exist yet, then
+// reattaches the missing suffix unresolved. A symlinked ancestor still
+// cannot smuggle a request outside the jail just because the final
+// component happens not to exist yet.
+func evalExistingAncestorPath(path string) (string, bool) {
+	suffix := ""
+	cur := path
+	for {
+		resolved, err := filepath.EvalSymlinks(cur)
+		if err == nil {
+			if suffix == "" {
+				return resolved, true
+			}
+			return filepath.Join(resolved, suffix), true
+		}
+		if !os.IsNotExist(err) {
+			return "", false
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return "", false
+		}
+		base := filepath.Base(cur)
+		if suffix == "" {
+			suffix = base
+		} else {
+			suffix = filepath.Join(base, suffix)
+		}
+		cur = parent
+	}
 }
 
 func runSend(tr *transport.Transport, id *identity.Identity, filePath string, destHash []byte, timeout time.Duration, silent, compress bool, stdout, stderr io.Writer) int {

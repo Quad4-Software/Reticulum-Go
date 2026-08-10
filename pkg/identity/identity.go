@@ -472,23 +472,33 @@ func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRat
 	ciphertext := ciphertextToken[32 : len(ciphertextToken)-32]
 	mac := ciphertextToken[len(ciphertextToken)-32:]
 
-	// Try decryption with ratchets first if provided
+	// Try decryption with ratchets first if provided. Matches Python
+	// Identity.decrypt: the enforce_ratchets check runs regardless of whether
+	// ratchets was empty, so an enforcing caller can never fall through to
+	// identity-key decryption even with no ratchets on hand.
+	var plaintext, ratchetID []byte
 	if len(ratchets) > 0 {
 		for _, ratchet := range ratchets {
-			if decrypted, ratchetID, err := i.tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet); err == nil {
-				if ratchetIDReceiver != nil {
-					ratchetIDReceiver.LatestRatchetID = ratchetID
-				}
-				return decrypted, nil
+			if decrypted, id, err := i.tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet); err == nil {
+				plaintext = decrypted
+				ratchetID = id
+				break
 			}
 		}
+	}
 
-		if enforceRatchets {
-			if ratchetIDReceiver != nil {
-				ratchetIDReceiver.LatestRatchetID = nil
-			}
-			return nil, errors.New("decryption with ratchet enforcement failed")
+	if enforceRatchets && plaintext == nil {
+		if ratchetIDReceiver != nil {
+			ratchetIDReceiver.LatestRatchetID = nil
 		}
+		return nil, errors.New("decryption with ratchet enforcement failed")
+	}
+
+	if plaintext != nil {
+		if ratchetIDReceiver != nil {
+			ratchetIDReceiver.LatestRatchetID = ratchetID
+		}
+		return plaintext, nil
 	}
 
 	sharedKey, err := cryptography.DeriveSharedSecret(i.privateKey.Bytes(), peerPubBytes)
@@ -511,7 +521,7 @@ func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRat
 		return nil, errors.New("invalid HMAC")
 	}
 
-	plaintext, err := cryptography.DecryptAES256CBC(encryptionKey, ciphertext)
+	plaintext, err = cryptography.DecryptAES256CBC(encryptionKey, ciphertext)
 	if err != nil {
 		return nil, err
 	}

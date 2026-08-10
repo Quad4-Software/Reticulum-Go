@@ -894,17 +894,15 @@ func (r *Reticulum) syncFileHandlers() {
 func (r *Reticulum) servePage(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) []byte {
 	debug.Log(debug.DebugInfo, "Serving page", "path", path, "request_id", fmt.Sprintf("%x", requestID))
 
-	var filePath string
+	var joined string
 	if after, ok := strings.CutPrefix(path, "/page/"); ok {
-		filePath = filepath.Join(r.pagesPath, after)
+		joined = filepath.Join(r.pagesPath, after)
 	} else {
-		filePath = filepath.Join(r.pagesPath, path)
+		joined = filepath.Join(r.pagesPath, path)
 	}
 
-	filePath = filepath.Clean(filePath)
-	pagesDir := filepath.Clean(r.pagesPath)
-
-	if !strings.HasPrefix(filePath, pagesDir) {
+	filePath, ok := resolveJailedPath(r.pagesPath, joined)
+	if !ok {
 		debug.Log(debug.DebugError, "Path traversal attempt detected", "path", path)
 		return []byte(">Request Not Allowed\n\nYou are not authorized to access this resource.")
 	}
@@ -924,22 +922,20 @@ func (r *Reticulum) servePage(path string, data []byte, requestID []byte, linkID
 func (r *Reticulum) serveFile(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) any {
 	debug.Log(debug.DebugInfo, "Serving file", "path", path, "request_id", fmt.Sprintf("%x", requestID))
 
-	var filePath string
+	var joined string
 	if after, ok := strings.CutPrefix(path, "/file/"); ok {
-		filePath = filepath.Join(r.filesPath, after)
+		joined = filepath.Join(r.filesPath, after)
 	} else {
-		filePath = filepath.Join(r.filesPath, path)
+		joined = filepath.Join(r.filesPath, path)
 	}
 
-	filePath = filepath.Clean(filePath)
-	filesDir := filepath.Clean(r.filesPath)
-
-	if !strings.HasPrefix(filePath, filesDir) {
+	filePath, ok := resolveJailedPath(r.filesPath, joined)
+	if !ok {
 		debug.Log(debug.DebugError, "Path traversal attempt detected", "path", path)
 		return []byte(">Request Not Allowed\n\nYou are not authorized to access this resource.")
 	}
 
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) // #nosec G304 -- filePath resolved and jail-validated by resolveJailedPath
 	if err != nil {
 		debug.Log(debug.DebugError, "Failed to open file", "path", filePath, "error", err)
 		return []byte(">File Not Found\n\nThe requested file could not be found.")
