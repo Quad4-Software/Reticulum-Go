@@ -433,11 +433,12 @@ func (vs *VSOCKServerInterface) SessionCount() int {
 }
 
 func (vs *VSOCKServerInterface) readHDLCLoop(conn net.Conn) {
+	peerKey := conn.RemoteAddr().String()
 	decoder := newHDLCToggleStreamDecoder(vs.MTU, func(payload []byte) {
 		if len(payload) == 0 {
 			return
 		}
-		vs.ProcessIncoming(payload)
+		vs.ProcessIncomingFrom(payload, peerKey)
 	})
 	buf := make([]byte, vs.MTU)
 	for {

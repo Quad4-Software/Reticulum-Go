@@ -24,9 +24,21 @@ func ifaceBitrate(iface common.NetworkInterface) int64 {
 }
 
 func admitIncoming(iface common.NetworkInterface, name string, data []byte) bool {
+	return admitIncomingFrom(iface, name, data, "")
+}
+
+// admitIncomingFrom is admitIncoming plus an optional peerKey identifying
+// the remote sender on a shared local interface (for example a listener
+// accepting many client connections, or a single UDP socket serving many
+// remote peers). Passing a peerKey gives that sender its own fair-share
+// sub-bucket so it cannot exhaust the whole interface budget and cool down
+// every other peer sharing it. Pass "" for interfaces that are inherently
+// single-peer, where the interface bucket already is the peer bucket.
+func admitIncomingFrom(iface common.NetworkInterface, name string, data []byte, peerKey string) bool {
 	opts := protect.AdmitOpts{
 		Bitrate: ifaceBitrate(iface),
 		Class:   protect.PeekPacketClass(data),
+		PeerKey: peerKey,
 	}
 	return protect.AdmitPacketOpts(name, len(data), opts).Allow
 }

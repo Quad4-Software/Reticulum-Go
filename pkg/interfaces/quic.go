@@ -536,11 +536,12 @@ func (qs *QUICServerInterface) SessionCount() int {
 }
 
 func (qs *QUICServerInterface) readHDLCLoop(conn net.Conn) {
+	peerKey := conn.RemoteAddr().String()
 	decoder := newHDLCToggleStreamDecoder(qs.MTU, func(payload []byte) {
 		if len(payload) == 0 {
 			return
 		}
-		qs.ProcessIncoming(payload)
+		qs.ProcessIncomingFrom(payload, peerKey)
 	})
 	buf := make([]byte, qs.MTU)
 	for {

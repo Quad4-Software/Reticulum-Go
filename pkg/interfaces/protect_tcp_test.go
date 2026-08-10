@@ -45,6 +45,43 @@ func TestTCPServerProtectConnCap(t *testing.T) {
 	r4()
 }
 
+func TestSharedListenerPeerIsolationProtectsOtherPeers(t *testing.T) {
+	t.Cleanup(func() { protect.SetDefault(nil) })
+	health.Default.Reset()
+	var buf bytes.Buffer
+	clock := time.Unix(1_700_000_000, 0)
+	e := protect.New(protect.Options{
+		Mode:            protect.ModePrevent,
+		MaxPPS:          200,
+		WarnWriter:      &buf,
+		WarnInterval:    time.Hour,
+		DisableAdaptive: true,
+		DisableCoolDown: true,
+		Now:             func() time.Time { return clock },
+	})
+	protect.SetDefault(e)
+
+	// Simulates a TCP/QUIC/VSOCK/I2P server-style interface where many
+	// remote peers share one BaseInterface and one protect bucket by name.
+	base := NewBaseInterface("shared-listener", common.IFTypeTCP, true)
+	var delivered atomic.Int64
+	base.SetPacketCallback(func(data []byte, iface common.NetworkInterface) {
+		delivered.Add(1)
+	})
+	pkt := []byte{0x00, 0x00}
+
+	for range 400 {
+		base.ProcessIncomingFrom(pkt, "attacker:1")
+	}
+	before := delivered.Load()
+
+	base.ProcessIncomingFrom(pkt, "friend:1")
+	after := delivered.Load()
+	if after != before+1 {
+		t.Fatalf("quiet peer on the same shared listener must still be delivered despite another peer flooding: before=%d after=%d", before, after)
+	}
+}
+
 func TestIfaceChaosProtectFlood(t *testing.T) {
 	t.Cleanup(func() { protect.SetDefault(nil) })
 	health.Default.Reset()

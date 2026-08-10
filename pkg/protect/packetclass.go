@@ -23,6 +23,14 @@ func (c PacketClass) preferKeep() bool {
 type AdmitOpts struct {
 	Bitrate int64
 	Class   PacketClass
+	// PeerKey identifies the remote sender on a shared local interface (for
+	// example a remote address string). When set, the sender gets its own
+	// fair-share sub-bucket independent of the interface-wide aggregate, so
+	// one hostile peer cannot exhaust the whole interface budget and cool
+	// down every other peer sharing it. Leave empty for interfaces that are
+	// inherently single-peer, where the interface bucket already is the
+	// peer bucket.
+	PeerKey string
 }
 
 // wire header bit masks aligned with pkg/transport/wire.go.

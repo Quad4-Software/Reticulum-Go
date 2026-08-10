@@ -656,7 +656,7 @@ func (hs *HTTPSServerInterface) handleSend(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if len(body) > 0 {
-		hs.ProcessIncoming(body)
+		hs.ProcessIncomingFrom(body, peerID)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

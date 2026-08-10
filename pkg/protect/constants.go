@@ -96,4 +96,19 @@ const (
 
 	// PersistInterval is how often learning state is flushed to disk.
 	PersistInterval = 30 * time.Second
+
+	// PeerBudgetFraction is the share of the interface's effective trip
+	// line a single peer may consume before its own sub-bucket sheds,
+	// independent of the interface-wide aggregate. Keeps one hostile peer
+	// on a shared listener from exhausting the whole interface budget.
+	PeerBudgetFraction = 0.5
+
+	// MaxTrackedPeersPerIface bounds per-peer rate sub-buckets so the
+	// mitigation itself cannot become an unbounded-memory DoS vector from
+	// spoofed or churning source identities.
+	MaxTrackedPeersPerIface = 4096
+
+	// PeerIdleEvictAfter prunes a peer sub-bucket that has been quiet this
+	// long, making room for new peers once MaxTrackedPeersPerIface is hit.
+	PeerIdleEvictAfter = 5 * time.Minute
 )

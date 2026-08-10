@@ -131,7 +131,11 @@ Adaptive baselines use EWMA of once-per-second peak pps/bps. Flood samples are i
 
 Trips emit rate-limited stdout warnings and increment `dos_*` health counters. Full key reference and gate table: [Configuration](configuration.md#dos_protection-go-only). Tests: [Development and testing](development-and-testing.md#dos_protection-tests).
 
-Handler pool exhaustion always sheds packets (never sync-dispatches on the ingress thread). Priority shedding prefers established link and proof traffic over announce-class floods when slightly over the adaptive trip line.
+Handler pool exhaustion always sheds packets (never sync-dispatches on the ingress thread). Priority shedding prefers established link and proof traffic over announce-class floods when slightly over the adaptive trip line, but that leniency still counts toward the interface's cool-down accounting so sustained abuse of it still escalates instead of running indefinitely.
+
+Memory pressure shedding (heap watermark) enforces immediately in `prevent` and in `auto`, regardless of learning phase. It does not wait for `auto` to arm, since heap exhaustion is a safety valve rather than a flood-learning signal. Explicit `detect` still never blocks, matching its observe-only contract.
+
+Rate, byte, and cool-down accounting run per remote peer as well as per interface. A single sender sharing a listener (a busy TCP/QUIC/VSOCK/I2P accept loop, a UDP socket, or the HTTPS long-poll transport) is capped at half of the interface's effective trip line before its own sub-bucket sheds, so one hostile peer cannot exhaust the whole interface budget and cool down every other peer on it. Peer sub-buckets are bounded and idle ones are pruned so the mitigation cannot itself become a memory-growth vector.
 
 On FreeBSD with sandbox enabled, `SIGHUP` re-execs the daemon so `CapEnter` does not block config reload. Other platforms keep in-process `ReloadInterfaces`.
 

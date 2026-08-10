@@ -159,13 +159,20 @@ func (i *BaseInterface) GetIFAC() common.IFAC {
 }
 
 func (i *BaseInterface) ProcessIncoming(data []byte) {
+	i.ProcessIncomingFrom(data, "")
+}
+
+// ProcessIncomingFrom is ProcessIncoming plus an optional peerKey
+// identifying the remote sender on a shared local interface (for example a
+// listener accepting many client connections). See admitIncomingFrom.
+func (i *BaseInterface) ProcessIncomingFrom(data []byte, peerKey string) {
 	i.Mutex.Lock()
 	i.RxBytes += uint64(len(data))
 	i.RxPackets++
 	name := i.Name
 	i.Mutex.Unlock()
 
-	if !admitIncoming(i, name, data) {
+	if !admitIncomingFrom(i, name, data, peerKey) {
 		return
 	}
 

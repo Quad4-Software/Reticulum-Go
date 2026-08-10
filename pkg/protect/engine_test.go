@@ -5,6 +5,7 @@ package protect
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -329,6 +330,206 @@ func TestObserveMemoryShed(t *testing.T) {
 	e.ObserveMemory()
 	if e.Shedding() {
 		t.Fatal("should clear shed below 70%")
+	}
+}
+
+func TestMemoryShedEnforcedDuringAutoLearning(t *testing.T) {
+	health.Default.Reset()
+	var buf bytes.Buffer
+	var heap uint64 = 100
+	e := New(Options{
+		Mode:             ModeAuto,
+		SoftMemoryLimit:  1000,
+		WarnWriter:       &buf,
+		WarnInterval:     time.Hour,
+		DisableCoolDown:  true,
+		MemorySampleFunc: func() uint64 { return heap },
+	})
+	if e.Phase() != AutoLearning {
+		t.Fatal("expected fresh auto engine to start in learning phase")
+	}
+	heap = 900
+	e.ObserveMemory()
+	if !e.Shedding() {
+		t.Fatal("should shed at 85%")
+	}
+	d := e.AdmitPacket("udp0", 1)
+	if d.Allow {
+		t.Fatal("auto mode must enforce memory shed immediately, even while still learning a baseline")
+	}
+	if e.Phase() != AutoLearning {
+		t.Fatal("memory enforcement should not itself promote the engine to armed")
+	}
+}
+
+func TestMemoryShedStaysObserveOnlyInExplicitDetect(t *testing.T) {
+	health.Default.Reset()
+	var buf bytes.Buffer
+	var heap uint64 = 900
+	e := New(Options{
+		Mode:             ModeDetect,
+		SoftMemoryLimit:  1000,
+		WarnWriter:       &buf,
+		WarnInterval:     time.Hour,
+		DisableCoolDown:  true,
+		MemorySampleFunc: func() uint64 { return heap },
+	})
+	e.ObserveMemory()
+	if !e.Shedding() {
+		t.Fatal("should shed at 85%")
+	}
+	d := e.AdmitPacket("udp0", 1)
+	if !d.Allow {
+		t.Fatal("explicit detect mode must never block, even under memory shed")
+	}
+}
+
+func TestPreferKeepLeniencyRecordsTrip(t *testing.T) {
+	health.Default.Reset()
+	var buf bytes.Buffer
+	clock := time.Unix(1_700_000_000, 0)
+	e := New(Options{
+		Mode:            ModePrevent,
+		MaxPPS:          2,
+		WarnWriter:      &buf,
+		WarnInterval:    time.Hour,
+		DisableAdaptive: true,
+		DisableCoolDown: true,
+		Now:             func() time.Time { return clock },
+	})
+	opts := AdmitOpts{Class: ClassPreferKeep}
+	d1 := e.admitPacket("pk0", 1, opts)
+	d2 := e.admitPacket("pk0", 1, opts)
+	d3 := e.admitPacket("pk0", 1, opts) // pps=3 over MaxPPS(2) but within the 2x leniency band.
+	if !d1.Allow || !d2.Allow || !d3.Allow {
+		t.Fatalf("prefer-keep class should ride out bursts under 2x: %#v %#v %#v", d1, d2, d3)
+	}
+	if e.TripCount(ReasonPPS) == 0 {
+		t.Fatal("prefer-keep leniency use must still be visible in trip counters, not silently invisible")
+	}
+	if !strings.Contains(buf.String(), "trip reason=pps") {
+		t.Fatalf("expected a trip warning even while allowed under leniency, got %q", buf.String())
+	}
+}
+
+func TestTripCoolDownOnlyEscalatesLeniencyAbuse(t *testing.T) {
+	health.Default.Reset()
+	var buf bytes.Buffer
+	clock := time.Unix(1_700_000_000, 0)
+	e := New(Options{
+		Mode:         ModePrevent,
+		WarnWriter:   &buf,
+		WarnInterval: time.Hour,
+		Now:          func() time.Time { return clock },
+	})
+	for i := range CoolDownTripThreshold - 1 {
+		d := e.tripCoolDownOnly("pk0", ReasonPPS)
+		if !d.Allow {
+			t.Fatalf("leniency trip %d should still be allowed before threshold: %#v", i, d)
+		}
+		clock = clock.Add(10 * time.Millisecond)
+	}
+	if e.InCoolDown("pk0") {
+		t.Fatal("cool-down should not be armed yet")
+	}
+	d := e.tripCoolDownOnly("pk0", ReasonPPS)
+	if d.Allow || d.Reason != ReasonCoolDown {
+		t.Fatalf("threshold-th sustained leniency trip should arm cool-down: %#v", d)
+	}
+	if !e.InCoolDown("pk0") {
+		t.Fatal("expected iface in cool-down after sustained leniency abuse")
+	}
+	if e.TripCount(ReasonPPS) == 0 {
+		t.Fatal("leniency usage should still be visible in trip counters")
+	}
+}
+
+func TestPeerIsolationShedsOnlyTheFloodingPeer(t *testing.T) {
+	health.Default.Reset()
+	var buf bytes.Buffer
+	clock := time.Unix(1_700_000_000, 0)
+	e := New(Options{
+		Mode:            ModePrevent,
+		MaxPPS:          100,
+		WarnWriter:      &buf,
+		WarnInterval:    time.Hour,
+		DisableAdaptive: true,
+		DisableCoolDown: true,
+		Now:             func() time.Time { return clock },
+	})
+	// Peer budget is PeerBudgetFraction (0.5) of the 100 pps interface line,
+	// so a single peer sending more than 50 pps should trip its own bucket
+	// well before the interface aggregate itself is threatened.
+	floodOpts := AdmitOpts{PeerKey: "attacker:1"}
+	quietOpts := AdmitOpts{PeerKey: "friend:1"}
+
+	floodBlocked := false
+	for range 80 {
+		d := e.admitPacket("shared0", 1, floodOpts)
+		if !d.Allow {
+			floodBlocked = true
+		}
+	}
+	if !floodBlocked {
+		t.Fatal("expected the flooding peer to eventually be shed by its own sub-bucket")
+	}
+
+	// A different, quiet peer on the same shared interface must be
+	// unaffected by the flooding peer's sub-bucket trip.
+	d := e.admitPacket("shared0", 1, quietOpts)
+	if !d.Allow {
+		t.Fatalf("quiet peer should not be collaterally shed: %#v", d)
+	}
+}
+
+func TestPeerIsolationDisabledFallsBackToSharedBudget(t *testing.T) {
+	health.Default.Reset()
+	var buf bytes.Buffer
+	clock := time.Unix(1_700_000_000, 0)
+	e := New(Options{
+		Mode:                 ModePrevent,
+		MaxPPS:               5,
+		WarnWriter:           &buf,
+		WarnInterval:         time.Hour,
+		DisableAdaptive:      true,
+		DisableCoolDown:      true,
+		DisablePeerIsolation: true,
+		Now:                  func() time.Time { return clock },
+	})
+	opts := AdmitOpts{PeerKey: "attacker:1"}
+	blocked := false
+	for range 20 {
+		d := e.admitPacket("shared0", 1, opts)
+		if !d.Allow {
+			blocked = true
+		}
+	}
+	if !blocked {
+		t.Fatal("expected the shared interface aggregate to still trip when peer isolation is disabled")
+	}
+}
+
+func TestPeerSubBucketEvictionIsBounded(t *testing.T) {
+	health.Default.Reset()
+	var buf bytes.Buffer
+	clock := time.Unix(1_700_000_000, 0)
+	e := New(Options{
+		Mode:            ModePrevent,
+		MaxPPS:          1_000_000,
+		WarnWriter:      &buf,
+		WarnInterval:    time.Hour,
+		DisableAdaptive: true,
+		DisableCoolDown: true,
+		Now:             func() time.Time { return clock },
+	})
+	for i := range MaxTrackedPeersPerIface + 50 {
+		_ = e.admitPacket("shared0", 1, AdmitOpts{PeerKey: fmt.Sprintf("peer-%d", i)})
+	}
+	e.mu.Lock()
+	n := len(e.ifaces["shared0"].peers)
+	e.mu.Unlock()
+	if n > MaxTrackedPeersPerIface {
+		t.Fatalf("peer bucket map grew unbounded: %d entries", n)
 	}
 }
 

@@ -101,7 +101,14 @@ type I2PInterfacePeer struct {
 	wdReset           atomic.Bool
 	done              chan struct{}
 	stopOnce          sync.Once
+	peerKey           string
 }
+
+// i2pAcceptedPeerSeq gives each accepted I2P peer a unique protect fair-share
+// key. RemoteAddr() on a SAM-tunneled stream commonly resolves to the local
+// SAM bridge socket and is identical across accepted peers, so it cannot be
+// used alone to tell concurrent peers apart.
+var i2pAcceptedPeerSeq atomic.Uint64
 
 func NewI2PInterface(name string, cfg *common.InterfaceConfig, ctx *FromConfigContext) (*I2PInterface, error) {
 	if cfg == nil {
@@ -390,6 +397,14 @@ func newI2PInterfacePeerAccepted(parent *I2PInterface, name string, conn net.Con
 	applyI2PPeerConfig(peer, parent.cfg)
 	peer.Online = true
 	_ = setI2PConnTimeouts(conn)
+	seq := i2pAcceptedPeerSeq.Add(1)
+	remote := ""
+	if conn != nil {
+		if ra := conn.RemoteAddr(); ra != nil {
+			remote = ra.String()
+		}
+	}
+	peer.peerKey = fmt.Sprintf("%s#%d", remote, seq)
 	return peer
 }
 
@@ -712,7 +727,7 @@ func (peer *I2PInterfacePeer) deliverFrame(data []byte) {
 		peer.parent.RxPackets++
 		peer.parent.Mutex.Unlock()
 	}
-	peer.ProcessIncoming(data)
+	peer.ProcessIncomingFrom(data, peer.peerKey)
 }
 
 func (peer *I2PInterfacePeer) readWatchdog() {
