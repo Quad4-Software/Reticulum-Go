@@ -4,7 +4,7 @@ System documentation, API references, and configuration guides for Reticulum-Go.
 
 ## About this documentation
 
-These documents describe Reticulum-Go, a Go implementation of the [Reticulum Network Stack](https://reticulum.network/). They are written for readers who need both a system-level view and enough implementation detail to integrate, operate, or extend the stack.
+These documents describe Reticulum-Go, a Go implementation of the [Reticulum Network Stack](https://reticulum.network/). Use them to integrate, operate, or extend the stack.
 
 Documentation is organized by language under `docs/`. English lives in `docs/en/`. Additional languages can be added as sibling directories (for example `docs/de/`) without changing the English tree.
 

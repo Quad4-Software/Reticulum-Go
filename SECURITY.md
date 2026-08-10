@@ -17,27 +17,20 @@ When reporting, please include enough detail to help us reproduce or understand 
 
 ## Security Practices Overview
 
-Here is a quick look at how we secure the project in practice.
-
-*   **Builds and Automation:** Our continuous integration system runs automated tests and security checks on every change. We use clear, easy to audit shell scripts instead of complex third-party actions. This makes it straightforward to review exactly what runs during a pull request.
-*   **Scanning and Analysis:** We run static analysis and vulnerability scanning on our codebase and all dependencies.
-*   **Runtime Sandbox:** The `reticulum-go` daemon applies operating system restrictions after it starts up. This limits access to the filesystem and system resources if the process is ever compromised.
-*   **Signed Releases:** We attach official **cosign** signatures to all release files. These are signed with a project key, and you can find the public key in `cosign.pub`.
-
-The sections below describe these practices in detail.
+*   **Builds and Automation:** GitHub Actions runs tests and security checks on every change. Setup and scanners live in reviewable shell scripts under `scripts/ci/`.
+*   **Scanning and Analysis:** Gosec, govulncheck, Trivy, CodeQL (including Actions workflows), and PR dependency review.
+*   **Runtime Sandbox:** The `reticulum-go` daemon applies OS restrictions after startup, limiting filesystem and syscall access if the process is compromised.
+*   **Signed Releases:** Release assets get **cosign** attestations signed with the project key. Public key: `cosign.pub`.
 
 ## Supply Chain and CI
 
-All of our automation runs on GitHub Actions, with configuration files stored in `.github/workflows/`. 
+All of our automation runs on GitHub Actions, with configuration files stored in `.github/workflows/`.
 
 To run our builds and security scans, we use helper scripts located in `scripts/ci/*.sh`. These scripts install Go, Task, Node, and our security scanners. This approach keeps the setup logic in ordinary shell scripts that you can review and diff.
 
 ### Version Pinning
 
-We take supply chain security seriously and use pinning to protect our builds:
-
-*   **Third-party GitHub Actions:** We pin third-party actions to specific commit hashes instead of version tags. This prevents unexpected updates from modifying our build environments. You can see these hashes in the comments at the top of our workflow files.
-*   **Build and Security Tools:** We pin the versions of all compilers and scanners inside our workflow environment blocks.
+We pin third-party GitHub Actions to full commit SHAs, not floating tags. Compilers and scanners are pinned in workflow `env` blocks. Dependabot opens weekly PRs for Action updates (`.github/dependabot.yml`).
 
 ### Source tree integrity (`.rsm`)
 
@@ -66,7 +59,7 @@ Skip one commit with `SKIP_TREE_RSM_HOOK=1`.
 
 ### Release Provenance and Verification
 
-When we publish a release, we build the binaries, WebAssembly targets, and pageserver examples. We also generate software bills of materials (SBOMs) using Trivy. 
+When we publish a release, we build the binaries, WebAssembly targets, and pageserver examples. We also generate software bills of materials (SBOMs) using Trivy.
 
 For each release asset, we generate a signed provenance bundle using **cosign**. We do not use separate checksum files.
 
@@ -90,13 +83,13 @@ We use several security scanners to check our codebase on every commit:
 
 #### Our Approach to Scanner Safety
 
-Third-party package managers can be a security risk. In early 2026, some distribution channels for Trivy were compromised when attackers updated workflow tags to distribute malicious binaries. 
+Third-party package managers can be a security risk. In early 2026, some distribution channels for Trivy were compromised when attackers updated workflow tags to distribute malicious binaries.
 
 To protect our build pipeline, we do not download Trivy using moving tags or unverified URLs. Instead, our installation script downloads a specific release package directly from the Aqua Security release page. We check the package against a hardcoded SHA256 hash before installing it. We update this hash manually when we want to upgrade the scanner.
 
 ## Runtime Sandbox
 
-To protect your system, the `reticulum-go` daemon can restrict its own permissions after starting up. It does this by calling `sandbox.Apply` after it has loaded its configuration and set up its network interfaces. 
+To protect your system, the `reticulum-go` daemon can restrict its own permissions after starting up. It does this by calling `sandbox.Apply` after it has loaded its configuration and set up its network interfaces.
 
 This sandbox is **enabled by default** using the `enable_sandbox = yes` setting in the Reticulum configuration. If you need to disable it, you can set `enable_sandbox = no`. On Linux, `enable_seccomp = yes` is the default when the sandbox is on. Set `enable_seccomp = no` to skip the seccomp filter. Seccomp install failures soft-fail so the daemon continues.
 

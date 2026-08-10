@@ -188,7 +188,7 @@ Wire format is unchanged in 1.2.x to 1.4.x. Most churn is utilities and transpor
 
 **1.4.2** skips offline interfaces when emitting recursive path requests, and caches blackholed identities for faster discovery list filtering on mobile/RPC. Go matches the online PR gate, also refuses non-positive bitrate when that metric is exposed, re-checks readiness at emit time, rebuilds the blackhole membership set on mutation instead of a fixed 60s TTL, and applies discovery blackhole filtering at receive time so blackholed peers never enter discovery caches.
 
-## Security and robustness notes
+## Security and integrity behavior
 
 | Topic | Python | Reticulum-Go |
 |-------|--------|---------------|

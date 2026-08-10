@@ -59,11 +59,11 @@ Application code should use `pkg/cryptography` and `pkg/identity`. IFAC configur
 
 **Vendored dependencies.** Third-party source is committed in `vendor/`. Ordinary builds use `GOFLAGS=-mod=vendor` and `GOPROXY=off` so compile time does not fetch modules from the network.
 
-**CI security scans.** GitHub Actions workflows run Gosec, govulncheck, and Trivy. Trivy is installed from a pinned release with SHA256 verification (`scripts/ci/setup-trivy.sh`).
+**CI security scans.** GitHub Actions runs Gosec, govulncheck, and Trivy on pushes and pull requests to `master`/`dev`. CodeQL covers Go, JavaScript/TypeScript, Python, and Actions workflows. Pull requests also run `dependency-review.yml`. Trivy is installed from a pinned release with SHA256 verification (`scripts/ci/setup-trivy.sh`).
 
 **Reproducibility.** CI includes a reproducibility check (`task reproducibility`).
 
-**Actions pinning.** GitHub-owned actions are pinned to full commit SHAs where this repository pins them.
+**Actions pinning.** Third-party actions are pinned to full commit SHAs. Dependabot proposes weekly Action updates (`.github/dependabot.yml`).
 
 **Tree integrity.** Root file `reticulum-go.rsm` is an rnid signed message embedding SHA-256 hashes of tracked files (excluding `vendor/` trees). CI verifies signer e46112d44649266d71fe2193e00a4710 and rechecks bytes at job start and end (`make tree-rsm-verify`).
 

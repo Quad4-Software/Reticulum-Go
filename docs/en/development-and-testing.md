@@ -373,9 +373,11 @@ GitHub Actions workflows in `.github/workflows/`:
 | ci.yml | Build, test, reproducibility, OS self-check (Linux amd64/arm64 plus 386/arm/riscv64/ppc64le/ppc64 via qemu-user, macOS, Windows, FreeBSD, OpenBSD) |
 | selfcheck-android.yml | Android emulator self-check (nightly / manual) |
 | security.yml | Gosec, govulncheck, Trivy, SBOM dispatch |
+| codeql.yml | CodeQL for Go, JS/TS, Python, and Actions workflows |
+| dependency-review.yml | PR dependency and advisory gate |
 | publish.yml | Tagged releases, cosign attestations |
 
-CI uses Go 1.26.5 via `actions/setup-go` in `.github/actions/setup-ci` with `GOTOOLCHAIN=local` and vendored modules.
+CI uses Go 1.26.5 via `actions/setup-go` in `.github/actions/setup-ci` with `GOTOOLCHAIN=local` and vendored modules. Actions are SHA-pinned. Dependabot opens weekly PRs for Action bumps (`.github/dependabot.yml`).
 
 ## Cross-compilation
 
