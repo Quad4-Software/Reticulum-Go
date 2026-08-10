@@ -56,12 +56,30 @@ func ReadLineTimeout(ctx context.Context, br *bufio.Reader, d time.Duration) (st
 
 	timer := time.NewTimer(d)
 	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return "", ctx.Err()
-	case r := <-w.ch:
-		return r.s, r.err
-	case <-timer.C:
-		return "", context.DeadlineExceeded
+	for {
+		select {
+		case r := <-w.ch:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			return r.s, r.err
+		case <-timer.C:
+			select {
+			case r := <-w.ch:
+				return r.s, r.err
+			default:
+				return "", context.DeadlineExceeded
+			}
+		case <-ctx.Done():
+			select {
+			case r := <-w.ch:
+				return r.s, r.err
+			default:
+				return "", ctx.Err()
+			}
+		}
 	}
 }

@@ -78,14 +78,10 @@ func TestWaitStdoutTokenSkipsNoise(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer r.Close()
-	go func() {
-		_, _ = w.WriteString("[Error] SAM API went offline\n")
-		_, _ = w.WriteString("ONLINE\n")
-		_ = w.Close()
-	}()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	got, err := waitStdoutToken(ctx, bufio.NewReader(r), "ONLINE", 2*time.Second)
+	_, _ = w.WriteString("[Error] SAM API went offline\n")
+	_, _ = w.WriteString("ONLINE\n")
+	_ = w.Close()
+	got, err := waitStdoutToken(context.Background(), bufio.NewReader(r), "ONLINE", 2*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,14 +96,10 @@ func TestWaitStdoutTokenPrefix(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer r.Close()
-	go func() {
-		_, _ = w.WriteString("noise\n")
-		_, _ = w.WriteString("B32=abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst\n")
-		_ = w.Close()
-	}()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	got, err := waitStdoutToken(ctx, bufio.NewReader(r), "B32=", 2*time.Second)
+	_, _ = w.WriteString("noise\n")
+	_, _ = w.WriteString("B32=abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst\n")
+	_ = w.Close()
+	got, err := waitStdoutToken(context.Background(), bufio.NewReader(r), "B32=", 2*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}

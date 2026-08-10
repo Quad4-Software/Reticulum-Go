@@ -66,19 +66,21 @@ func skipI2PFlake(t *testing.T, format string, args ...any) {
 // token ends with "="), skipping RNS log noise on stdout.
 func waitStdoutToken(ctx context.Context, br *bufio.Reader, token string, d time.Duration) (string, error) {
 	deadline := time.Now().Add(d)
+	readCtx, cancel := context.WithDeadline(context.Background(), deadline)
+	defer cancel()
 	prefix := strings.HasSuffix(token, "=")
-	for time.Now().Before(deadline) {
+	for {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		remain := time.Until(deadline)
 		if remain <= 0 {
-			break
+			return "", context.DeadlineExceeded
 		}
-		line, err := readLineTimeout(ctx, br, remain)
+		line, err := readLineTimeout(readCtx, br, remain)
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) && time.Now().Before(deadline) {
 				continue
-			}
-			if ctx.Err() != nil {
-				return "", ctx.Err()
 			}
 			return "", err
 		}
@@ -96,7 +98,6 @@ func waitStdoutToken(ctx context.Context, br *bufio.Reader, token string, d time
 			return line, nil
 		}
 	}
-	return "", context.DeadlineExceeded
 }
 
 func stopPythonI2P(cmd *exec.Cmd) {
