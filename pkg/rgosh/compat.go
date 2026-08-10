@@ -5,6 +5,7 @@ package rgosh
 
 import (
 	"fmt"
+	"math"
 
 	"quad4/msgpack/v5/pkg/msgpack"
 )
@@ -156,14 +157,23 @@ func asInt(v any) int {
 	case int64:
 		return int(x)
 	case uint:
+		if x > uint(math.MaxInt) {
+			return math.MaxInt
+		}
 		return int(x)
 	case uint8:
 		return int(x)
 	case uint16:
 		return int(x)
 	case uint32:
+		if int64(x) > int64(math.MaxInt) {
+			return math.MaxInt
+		}
 		return int(x)
 	case uint64:
+		if x > uint64(math.MaxInt) {
+			return math.MaxInt
+		}
 		return int(x)
 	case float64:
 		return int(x)

@@ -63,7 +63,7 @@ func (m *VersionMessage) Pack() ([]byte, error) {
 	buf := make([]byte, 2+2+2+len(sw))
 	binary.BigEndian.PutUint16(buf[0:2], uint16(pv))
 	binary.BigEndian.PutUint16(buf[2:4], m.Capabilities)
-	binary.BigEndian.PutUint16(buf[4:6], uint16(len(sw)))
+	binary.BigEndian.PutUint16(buf[4:6], wireLenU16(len(sw)))
 	copy(buf[6:], sw)
 	return buf, nil
 }
@@ -104,7 +104,7 @@ func (m *AuthDeniedMessage) Pack() ([]byte, error) {
 		return nil, ErrOversizedField
 	}
 	buf := make([]byte, 2+len(m.Reason))
-	binary.BigEndian.PutUint16(buf[0:2], uint16(len(m.Reason)))
+	binary.BigEndian.PutUint16(buf[0:2], wireLenU16(len(m.Reason)))
 	copy(buf[2:], m.Reason)
 	return buf, nil
 }
@@ -142,10 +142,10 @@ func (m *WinSizeMessage) Pack() ([]byte, error) {
 		return packCompatWinSize(m)
 	}
 	buf := make([]byte, 8)
-	binary.BigEndian.PutUint16(buf[0:2], uint16(clampU16(m.Rows)))
-	binary.BigEndian.PutUint16(buf[2:4], uint16(clampU16(m.Cols)))
-	binary.BigEndian.PutUint16(buf[4:6], uint16(clampU16(m.HPix)))
-	binary.BigEndian.PutUint16(buf[6:8], uint16(clampU16(m.VPix)))
+	binary.BigEndian.PutUint16(buf[0:2], clampU16(m.Rows))
+	binary.BigEndian.PutUint16(buf[2:4], clampU16(m.Cols))
+	binary.BigEndian.PutUint16(buf[4:6], clampU16(m.HPix))
+	binary.BigEndian.PutUint16(buf[6:8], clampU16(m.VPix))
 	return buf, nil
 }
 
@@ -217,19 +217,19 @@ func (m *ExecMessage) Pack() ([]byte, error) {
 	}
 	buf := make([]byte, size)
 	buf[0] = flags
-	binary.BigEndian.PutUint16(buf[1:3], uint16(clampU16(m.Rows)))
-	binary.BigEndian.PutUint16(buf[3:5], uint16(clampU16(m.Cols)))
-	binary.BigEndian.PutUint16(buf[5:7], uint16(clampU16(m.HPix)))
-	binary.BigEndian.PutUint16(buf[7:9], uint16(clampU16(m.VPix)))
+	binary.BigEndian.PutUint16(buf[1:3], clampU16(m.Rows))
+	binary.BigEndian.PutUint16(buf[3:5], clampU16(m.Cols))
+	binary.BigEndian.PutUint16(buf[5:7], clampU16(m.HPix))
+	binary.BigEndian.PutUint16(buf[7:9], clampU16(m.VPix))
 	off := 9
-	binary.BigEndian.PutUint16(buf[off:off+2], uint16(len(m.Term)))
+	binary.BigEndian.PutUint16(buf[off:off+2], wireLenU16(len(m.Term)))
 	off += 2
 	copy(buf[off:], m.Term)
 	off += len(m.Term)
-	binary.BigEndian.PutUint16(buf[off:off+2], uint16(len(m.Cmdline)))
+	binary.BigEndian.PutUint16(buf[off:off+2], wireLenU16(len(m.Cmdline)))
 	off += 2
 	for _, a := range m.Cmdline {
-		binary.BigEndian.PutUint16(buf[off:off+2], uint16(len(a)))
+		binary.BigEndian.PutUint16(buf[off:off+2], wireLenU16(len(a)))
 		off += 2
 		copy(buf[off:], a)
 		off += len(a)
@@ -372,7 +372,7 @@ func (m *ErrorMessage) Pack() ([]byte, error) {
 	}
 	buf := make([]byte, 1+2+len(m.Msg))
 	buf[0] = flags
-	binary.BigEndian.PutUint16(buf[1:3], uint16(len(m.Msg)))
+	binary.BigEndian.PutUint16(buf[1:3], wireLenU16(len(m.Msg)))
 	copy(buf[3:], m.Msg)
 	return buf, nil
 }
@@ -411,7 +411,7 @@ func (m *ExitMessage) Pack() ([]byte, error) {
 		return packCompatExit(m)
 	}
 	buf := make([]byte, 4)
-	binary.BigEndian.PutUint32(buf, uint32(m.ReturnCode))
+	binary.BigEndian.PutUint32(buf, packExitCode(m.ReturnCode))
 	return buf, nil
 }
 
@@ -422,7 +422,7 @@ func (m *ExitMessage) Unpack(raw []byte) error {
 	if len(raw) < 4 {
 		return ErrShortBuffer
 	}
-	m.ReturnCode = int(int32(binary.BigEndian.Uint32(raw[0:4])))
+	m.ReturnCode = unpackExitCode(binary.BigEndian.Uint32(raw[0:4]))
 	return nil
 }
 
@@ -484,12 +484,28 @@ func UnpackMessage(msgType uint16, raw []byte) (interface {
 	return msg, nil
 }
 
-func clampU16(v int) int {
+func clampU16(v int) uint16 {
 	if v < 0 {
 		return 0
 	}
 	if v > 0xffff {
 		return 0xffff
 	}
-	return v
+	// #nosec G115 -- clamped to uint16 range
+	return uint16(v)
+}
+
+func wireLenU16(n int) uint16 {
+	// #nosec G115 -- caller enforces Max* limits before encoding
+	return uint16(n)
+}
+
+func packExitCode(code int) uint32 {
+	// #nosec G115 -- exit status wire format is signed 32-bit
+	return uint32(int32(code))
+}
+
+func unpackExitCode(raw uint32) int {
+	// #nosec G115 -- exit status wire format is signed 32-bit
+	return int(int32(raw))
 }

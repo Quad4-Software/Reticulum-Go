@@ -37,10 +37,10 @@ func StartLocalProcess(req ExecRequest) (ProcessHandle, error) {
 	lp := &LocalProcess{cmd: cmd, usePTY: usePTY}
 	if usePTY {
 		f, err := pty.StartWithSize(cmd, &pty.Winsize{
-			Rows: uint16(clampU16(req.Rows)),
-			Cols: uint16(clampU16(req.Cols)),
-			X:    uint16(clampU16(req.HPix)),
-			Y:    uint16(clampU16(req.VPix)),
+			Rows: clampU16(req.Rows),
+			Cols: clampU16(req.Cols),
+			X:    clampU16(req.HPix),
+			Y:    clampU16(req.VPix),
 		})
 		if err != nil {
 			return nil, err
@@ -81,10 +81,10 @@ func (p *LocalProcess) SetWinSize(rows, cols, hpix, vpix int) error {
 		return nil
 	}
 	return pty.Setsize(p.ptyF, &pty.Winsize{
-		Rows: uint16(clampU16(rows)),
-		Cols: uint16(clampU16(cols)),
-		X:    uint16(clampU16(hpix)),
-		Y:    uint16(clampU16(vpix)),
+		Rows: clampU16(rows),
+		Cols: clampU16(cols),
+		X:    clampU16(hpix),
+		Y:    clampU16(vpix),
 	})
 }
 

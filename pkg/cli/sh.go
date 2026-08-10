@@ -400,7 +400,7 @@ afterAuth:
 
 	var restoreTTY func()
 	if interactive {
-		fd := int(os.Stdin.Fd())
+		fd := fileFD(os.Stdin)
 		st, err := term.MakeRaw(fd)
 		if err != nil {
 			fmt.Fprintln(stderr, errMsg(stderr, "tty raw: "+err.Error()))
@@ -562,15 +562,20 @@ afterAuth:
 	}
 }
 
+func fileFD(f *os.File) int {
+	// #nosec G115 -- kernel fds are small integers well below MaxInt on all supported OSes
+	return int(f.Fd())
+}
+
 func isTTY(f *os.File) bool {
-	return term.IsTerminal(int(f.Fd()))
+	return term.IsTerminal(fileFD(f))
 }
 
 func ttySize() (rows, cols int) {
 	rows, cols = 24, 80
-	w, h, err := term.GetSize(int(os.Stdout.Fd()))
+	w, h, err := term.GetSize(fileFD(os.Stdout))
 	if err != nil || w <= 0 || h <= 0 {
-		w, h, err = term.GetSize(int(os.Stdin.Fd()))
+		w, h, err = term.GetSize(fileFD(os.Stdin))
 	}
 	if err == nil && w > 0 && h > 0 {
 		cols, rows = w, h
