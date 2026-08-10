@@ -1,0 +1,67 @@
+{
+  "format_version": 1,
+  "cases": [
+    {
+      "name": "version_truncated",
+      "msg_type_hex": "ad05",
+      "raw_hex": "0000",
+      "expect": "error",
+      "error_contains": "short buffer"
+    },
+    {
+      "name": "version_oversized_software",
+      "msg_type_hex": "ad05",
+      "raw_hex": "0001000000ff",
+      "expect": "error",
+      "error_contains": "oversized field"
+    },
+    {
+      "name": "auth_denied_truncated",
+      "msg_type_hex": "ad09",
+      "raw_hex": "00",
+      "expect": "error",
+      "error_contains": "short buffer"
+    },
+    {
+      "name": "winsize_truncated",
+      "msg_type_hex": "ad02",
+      "raw_hex": "00000000",
+      "expect": "error",
+      "error_contains": "short buffer"
+    },
+    {
+      "name": "exec_truncated",
+      "msg_type_hex": "ad03",
+      "raw_hex": "0000000000000000",
+      "expect": "error",
+      "error_contains": "short buffer"
+    },
+    {
+      "name": "stream_minimal_ok",
+      "msg_type_hex": "ad04",
+      "raw_hex": "0000",
+      "expect": "ok"
+    },
+    {
+      "name": "error_truncated",
+      "msg_type_hex": "ad06",
+      "raw_hex": "00",
+      "expect": "error",
+      "error_contains": "short buffer"
+    },
+    {
+      "name": "exit_truncated",
+      "msg_type_hex": "ad07",
+      "raw_hex": "000000",
+      "expect": "error",
+      "error_contains": "short buffer"
+    },
+    {
+      "name": "exec_oversized_term",
+      "msg_type_hex": "ad03",
+      "raw_hex": "0000000000000000012c00",
+      "expect": "error",
+      "error_contains": "oversized field"
+    }
+  ]
+}

@@ -28,6 +28,7 @@ cosign.key
 *.json
 !pkg/packet/testdata/handshake_vectors.json
 !pkg/packet/testdata/adversarial/manifest.json
+!pkg/rgosh/testdata/adversarial/manifest.json
 
 # Opaque binary blobs (corpus payloads live as hex in tracked JSON)
 *.bin
