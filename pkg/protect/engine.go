@@ -104,7 +104,7 @@ type Engine struct {
 	handshake      int
 	warns          map[warnKey]*warnState
 	shedMemory     atomic.Bool
-	tripCounts     [reasonCount]uint64
+	tripCounts     [reasonCount]atomic.Uint64
 	autoPhase      atomic.Int32
 	fingerprint    string
 	promoted       bool
@@ -367,7 +367,7 @@ func (e *Engine) TripCount(reason Reason) uint64 {
 	if e == nil || reason < 0 || int(reason) >= len(e.tripCounts) {
 		return 0
 	}
-	return atomic.LoadUint64(&e.tripCounts[reason])
+	return e.tripCounts[reason].Load()
 }
 
 func (e *Engine) ifaceLocked(name string) *ifaceState {
@@ -661,7 +661,7 @@ func (e *Engine) decide(iface string, reason Reason) Decision {
 
 func (e *Engine) recordTrip(iface string, reason Reason) {
 	if reason > ReasonNone && int(reason) < len(e.tripCounts) {
-		atomic.AddUint64(&e.tripCounts[reason], 1)
+		e.tripCounts[reason].Add(1)
 	}
 	health.Inc(iface, reason.HealthKind())
 	e.warn(iface, reason)

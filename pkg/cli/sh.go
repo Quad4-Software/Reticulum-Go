@@ -485,16 +485,17 @@ afterAuth:
 	}()
 
 	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGWINCH)
+	notifyShellSignals(sig)
 	go func() {
 		for {
 			select {
 			case <-done:
 				return
 			case s := <-sig:
-				if s == syscall.SIGWINCH {
+				if shellSignalWinch(s, func() {
 					r, c := ttySize()
 					_ = sess.SendWinSize(r, c, 0, 0)
+				}) {
 					continue
 				}
 				shutdown()
