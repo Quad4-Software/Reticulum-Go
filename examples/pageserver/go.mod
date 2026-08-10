@@ -9,19 +9,23 @@ require (
 
 require (
 	github.com/creack/goselect v0.1.2 // indirect
+	github.com/creack/pty v1.1.24 // indirect
 	github.com/dunglas/httpsfv v1.1.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
+	github.com/landlock-lsm/go-landlock v0.9.0 // indirect
 	github.com/mdlayher/socket v0.4.1 // indirect
 	github.com/mdlayher/vsock v1.2.1 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.60.0 // indirect
 	github.com/quic-go/webtransport-go v0.11.1 // indirect
 	go.bug.st/serial v1.6.2 // indirect
-	golang.org/x/crypto v0.52.0 // indirect
-	golang.org/x/net v0.55.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.45.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/crypto v0.53.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
+	golang.org/x/sync v0.21.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/term v0.44.0 // indirect
+	golang.org/x/text v0.39.0 // indirect
+	kernel.org/pub/linux/libs/security/libcap/psx v1.2.77 // indirect
 	quad4/bzip2 v0.0.0 // indirect
 	quad4/tagparser v0.0.0 // indirect
 )
