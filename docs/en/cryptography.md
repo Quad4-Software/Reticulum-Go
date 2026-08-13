@@ -119,6 +119,10 @@ Local private keys:
 
 Announces carry the current 32-byte public key when enabled. Peers persist that public key under `storage/ratchets/{destination_hash}` as `{ratchet, received}` (Python layout) unless in-memory or shared-instance mode is on. `Destination.Encrypt` for SINGLE destinations uses `Identity.GetRatchet(destHash)` when a non-expired key exists. `EnforceRatchets` rejects identity-key ciphertext. Links do not use this mechanism.
 
+## GROUP Token keys
+
+GROUP destinations share a symmetric Token key (`CreateKeys` / `LoadPrivateKey`). Default key is 64 bytes (32 HMAC + 32 AES-256), matching Python `Token.generate_key()`. Ciphertext is `IV (16) || AES-CBC || HMAC-SHA256 (32)`. GROUP packets do not use identity encryption or ratchets. They cannot be announced and are not forwarded beyond one hop.
+
 ## Pluggable CryptoProvider
 
 `cryptography.SetProvider` replaces the active provider for tests or experiments. Replacing algorithms without updating on-wire layouts breaks compatibility with Python peers and stored artifacts. Treat provider swaps as protocol forks unless all participants upgrade together.

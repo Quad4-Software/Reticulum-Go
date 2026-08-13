@@ -14,6 +14,12 @@ const (
 	AES256KeySize = 32
 	// IdentityKeyMaterialSize is the HKDF output for identity encrypt/decrypt (HMAC key + AES key).
 	IdentityKeyMaterialSize = SHA256Size + AES256KeySize
+	// TokenKeySize is the default GROUP/Token key (32 HMAC + 32 AES-256).
+	TokenKeySize = 64
+	// TokenKeySize128 is the AES-128 Token key (16 HMAC + 16 AES).
+	TokenKeySize128 = 32
+	// TokenOverhead is IV (16) plus HMAC-SHA256 (32).
+	TokenOverhead = 48
 )
 
 func implGetBasepoint() []byte {

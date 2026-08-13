@@ -696,15 +696,14 @@ func TestTokenStructure(t *testing.T) {
 			// Verify token can be decrypted in Go using the key
 			key := mustHex(t, vec.KeyHex)
 			signingKey := key[:32]
-			encryptionKey := key[32:64]
 
 			if !cryptography.ValidateHMAC(signingKey, token[:len(token)-32], mac) {
 				t.Error("HMAC validation failed on Python-generated token")
 			}
 
-			plaintext, err := cryptography.DecryptAES256CBC(encryptionKey, token[0:len(token)-32])
+			plaintext, err := cryptography.DecryptToken(key, token)
 			if err != nil {
-				t.Fatalf("AES decryption failed: %v", err)
+				t.Fatalf("DecryptToken failed: %v", err)
 			}
 
 			expectedPlaintext := mustHex(t, vec.PlaintextHex)

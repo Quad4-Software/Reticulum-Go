@@ -14,7 +14,7 @@ The detailed matrix with config key tables lives in [COMPATIBILITY.md](../../COM
 |-----------|--------|-------|
 | Crypto | Complete | Curve25519, AES-256-CBC, HMAC-SHA256, HKDF. Crossref verified |
 | Identity | Complete | Optional RHB1 hardware descriptor. Python from_file is 64-byte software only. Known-peer ratchets persist under `storage/ratchets/` |
-| Destination | Complete | SINGLE, GROUP, PLAIN, LINK. Identity ratchets opt-in via EnableRatchets / EnableRatchetsInMemory, same as Python |
+| Destination | Complete | SINGLE, GROUP, PLAIN, LINK. Identity ratchets opt-in via EnableRatchets. GROUP uses shared Token keys (`CreateKeys` / `LoadPrivateKey`) |
 | Packet | Complete | Header types 1 and 2, all packet types and contexts |
 | Transport | Complete | Path table, announces, relay, persistence, ingress control, random-blob path selection |
 | IFAC | Complete | UDP, TCP, Auto. Live tests in `tests/interop/ifac_live_test.go` |

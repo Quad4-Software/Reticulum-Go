@@ -264,6 +264,7 @@ Private key material uses `pkg/securemem` (best-effort mlock, wipe on Close). Se
 | `Announce(pathResponse, tag, iface)` | Publish reachability |
 | `AcceptsLinks(bool)` | Accept link requests |
 | Encrypt / Decrypt / Sign | Destination crypto |
+| CreateKeys / LoadPrivateKey / GetPrivateKey | GROUP Token PSK (64-byte AES-256 default) |
 | SetPacketCallback | Single-packet inbound data |
 | SetLinkEstablishedCallback | Inbound link ready (`func(any)`) |
 | RegisterRequestHandler / RegisterRequestHandlerAny | Link request paths |

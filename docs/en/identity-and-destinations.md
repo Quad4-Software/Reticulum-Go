@@ -119,7 +119,9 @@ Two kinds of material share the ratchet directory:
 
 `EnableRatchetsInMemory` keeps local private keys in RAM only. Known-peer public keys also stay in RAM when `in_memory_storage` or shared-instance client mode is on (`Identity.RememberRatchet` skips disk). Expired known-peer files are dropped after 30 days (`RATCHET_EXPIRY`). Clean skips destination-private signed files so they are not treated as peer records.
 
-`EnforceRatchets` refuses ciphertext that still uses the static identity key. Links do not use identity ratchets. They already exchange ephemeral keys at establishment. GROUP destinations still use identity HMAC, not the SINGLE announce-ratchet path.
+`EnforceRatchets` refuses ciphertext that still uses the static identity key. Links do not use identity ratchets. They already exchange ephemeral keys at establishment.
+
+GROUP destinations use a pre-shared Token key, not identity ratchets. Call `CreateKeys` or `LoadPrivateKey` with the 64-byte AES-256 Token key (or a 32-byte AES-128 key). `Encrypt` / `Decrypt` match Python `Token.encrypt` / `Token.decrypt` (`IV || ciphertext || HMAC-SHA256`). GROUP dests cannot announce. Outbound GROUP packets are broadcast on local interfaces and are dropped after one hop, same as Python.
 
 ## Destinations
 
@@ -130,7 +132,7 @@ A destination is an application endpoint on the network. Implementation: `pkg/de
 | Type | Constant | Use |
 |------|----------|-----|
 | Single | SINGLE | One-to-one application endpoint |
-| Group | GROUP | Group messaging |
+| Group | GROUP | Shared-key messaging (Token PSK, not identity ratchets) |
 | Plain | PLAIN | Unencrypted endpoint (rare) |
 | Link | LINK | Link-mode endpoint |
 

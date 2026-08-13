@@ -2518,6 +2518,10 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 }
 
 func (t *Transport) SendPacket(p *packet.Packet) error {
+	if p != nil && p.DestinationType == packet.DestinationGroup {
+		return t.sendGroupBroadcast(p)
+	}
+
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 

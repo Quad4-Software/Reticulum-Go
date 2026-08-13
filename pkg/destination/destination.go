@@ -90,6 +90,8 @@ type Destination struct {
 	ratchets          []*securemem.Buf
 	ratchetFileLock   sync.Mutex
 
+	groupKey *securemem.Buf
+
 	defaultAppData []byte
 	mutex          sync.RWMutex
 
@@ -253,6 +255,10 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 	defer d.mutex.Unlock()
 
 	debug.Log(debug.DebugVerbose, "Announcing destination", "name", d.ExpandName(), "path_response", pathResponse)
+
+	if d.destType != Single {
+		return errors.New("only SINGLE destination types can be announced")
+	}
 
 	if d.transport == nil {
 		return common.ErrDestTransportNotSet
@@ -473,6 +479,87 @@ func (d *Destination) ProofRequestedCallback() common.ProofRequestedCallback {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 	return d.proofCallback
+}
+
+// CreateKeys generates a 64-byte GROUP Token key. Matches Python Destination.create_keys.
+func (d *Destination) CreateKeys() error {
+	if d.destType == Plain {
+		return errors.New("a plain destination does not hold any keys")
+	}
+	if d.destType == Single {
+		return errors.New("a single destination holds keys through an Identity instance")
+	}
+	if d.destType != Group {
+		return errors.New("unsupported destination type for create keys")
+	}
+	key, err := cryptography.GenerateTokenKey()
+	if err != nil {
+		return err
+	}
+	defer securemem.WipeBytes(key)
+	return d.storeGroupKey(key)
+}
+
+// LoadPrivateKey loads a 32-byte or 64-byte GROUP Token key.
+// Matches Python Destination.load_private_key.
+func (d *Destination) LoadPrivateKey(key []byte) error {
+	if d.destType == Plain {
+		return errors.New("a plain destination does not hold any keys")
+	}
+	if d.destType == Single {
+		return errors.New("a single destination holds keys through an Identity instance")
+	}
+	if d.destType != Group {
+		return errors.New("unsupported destination type for load private key")
+	}
+	if len(key) != cryptography.TokenKeySize && len(key) != cryptography.TokenKeySize128 {
+		return errors.New("token key must be 32 or 64 bytes")
+	}
+	return d.storeGroupKey(key)
+}
+
+// GetPrivateKey returns a copy of the GROUP Token key.
+// Matches Python Destination.get_private_key.
+func (d *Destination) GetPrivateKey() ([]byte, error) {
+	if d.destType == Plain {
+		return nil, errors.New("a plain destination does not hold any keys")
+	}
+	if d.destType == Single {
+		return nil, errors.New("a single destination holds keys through an Identity instance")
+	}
+	key := d.groupKeyCopy()
+	if len(key) == 0 {
+		return nil, errors.New("no private key held by GROUP destination. Did you create or load one?")
+	}
+	return key, nil
+}
+
+func (d *Destination) storeGroupKey(key []byte) error {
+	buf, err := securemem.New(len(key))
+	if err != nil {
+		return err
+	}
+	if err := buf.CopyFrom(key); err != nil {
+		_ = buf.Close()
+		return err
+	}
+	d.mutex.Lock()
+	old := d.groupKey
+	d.groupKey = buf
+	d.mutex.Unlock()
+	if old != nil {
+		_ = old.Close()
+	}
+	return nil
+}
+
+func (d *Destination) groupKeyCopy() []byte {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+	if d.groupKey == nil {
+		return nil
+	}
+	return d.groupKey.CopyOut()
 }
 
 func (d *Destination) EnableRatchets(path string) bool {
@@ -716,13 +803,13 @@ func (d *Destination) Encrypt(plaintext []byte) ([]byte, error) {
 		debug.Log(debug.DebugVerbose, "Encrypting for single recipient with identity key")
 		return d.identity.Encrypt(plaintext, nil)
 	case Group:
-		key := d.identity.GetCurrentRatchetKey()
-		if key == nil {
-			debug.Log(debug.DebugInfo, "Cannot encrypt: no ratchet key available")
-			return nil, errors.New("no ratchet key available")
+		key := d.groupKeyCopy()
+		if len(key) == 0 {
+			return nil, errors.New("no private key held by GROUP destination. Did you create or load one?")
 		}
+		defer securemem.WipeBytes(key)
 		debug.Log(debug.DebugVerbose, "Encrypting for group destination")
-		return d.identity.EncryptWithHMAC(plaintext, key)
+		return cryptography.EncryptToken(key, plaintext)
 	default:
 		debug.Log(debug.DebugInfo, "Unsupported destination type for encryption", "destType", d.destType)
 		return nil, errors.New("unsupported destination type for encryption")
@@ -732,6 +819,15 @@ func (d *Destination) Encrypt(plaintext []byte) ([]byte, error) {
 func (d *Destination) Decrypt(ciphertext []byte) ([]byte, error) {
 	if d.destType == Plain {
 		return ciphertext, nil
+	}
+
+	if d.destType == Group {
+		key := d.groupKeyCopy()
+		if len(key) == 0 {
+			return nil, errors.New("no private key held by GROUP destination. Did you create or load one?")
+		}
+		defer securemem.WipeBytes(key)
+		return cryptography.DecryptToken(key, ciphertext)
 	}
 
 	if d.identity == nil {
