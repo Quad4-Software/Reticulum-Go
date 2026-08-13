@@ -38,6 +38,12 @@ const (
 	AutoLineRTT = 750 * time.Millisecond
 
 	DefaultCoalesceWindow = 40 * time.Millisecond
+
+	StreamHeaderSize   = 2
+	CompressionTries   = 6
+	MaxStdinPending    = 64 * 1024
+	DrainAfterExit     = 5 * time.Second
+	DefaultAnnounceSec = 900
 )
 
 // Native message types: 0xad00 | n

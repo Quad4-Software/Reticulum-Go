@@ -5,6 +5,7 @@ package rgosh
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"fmt"
 	"sync"
@@ -28,6 +29,7 @@ type Config struct {
 	Allowed         [][]byte
 	DefaultCmd      []string
 	ForcedCommand   bool
+	RemoteCmdAsArgs bool
 	SoftwareVersion string
 	Capabilities    uint16
 	LineMode        bool
@@ -72,6 +74,11 @@ type Session struct {
 
 	proc    ProcessHandle
 	spawned bool
+	closed  bool
+
+	ctx       context.Context
+	cancel    context.CancelFunc
+	closeOnce sync.Once
 
 	// Early stdin can arrive before StartProcess finishes. Buffer until proc is set.
 	stdinPending []byte
@@ -87,15 +94,16 @@ type Session struct {
 
 // ExecRequest is the resolved remote command.
 type ExecRequest struct {
-	Cmdline    []string
-	PipeStdin  bool
-	PipeStdout bool
-	PipeStderr bool
-	Term       string
-	Rows       int
-	Cols       int
-	HPix       int
-	VPix       int
+	Cmdline        []string
+	PipeStdin      bool
+	PipeStdout     bool
+	PipeStderr     bool
+	Term           string
+	Rows           int
+	Cols           int
+	HPix           int
+	VPix           int
+	RemoteIdentity []byte
 }
 
 // ProcessHandle is a running remote process.
@@ -128,9 +136,16 @@ func NewSession(cfg Config, sender Sender) *Session {
 	if c.Capabilities == 0 {
 		c.Capabilities = CapLineMode | CapCoalesce
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	if cs, ok := sender.(ChannelSender); ok {
+		cs.Ctx = ctx
+		sender = cs
+	}
 	s := &Session{
 		cfg:    c,
 		sender: sender,
+		ctx:    ctx,
+		cancel: cancel,
 	}
 	if c.Listener {
 		if c.AllowAll {
@@ -209,6 +224,25 @@ func (s *Session) SetRemoteIdentity(hash []byte) bool {
 	}
 	s.mu.Unlock()
 	return true
+}
+
+// Close cancels pumps and kills the remote process. Safe to call more than once.
+func (s *Session) Close() {
+	s.closeOnce.Do(func() {
+		if s.cancel != nil {
+			s.cancel()
+		}
+		s.mu.Lock()
+		s.closed = true
+		proc := s.proc
+		if s.state != StateTeardown && s.state != StateError {
+			s.state = StateTeardown
+		}
+		s.mu.Unlock()
+		if proc != nil {
+			_ = proc.Kill()
+		}
+	})
 }
 
 // HandleMessage processes one inbound protocol message.
@@ -336,22 +370,30 @@ func (s *Session) handleExecLocked(m *ExecMessage) (error, func()) {
 		return s.denyProtocolLocked("exec without auth"), nil
 	}
 	cmdline := append([]string(nil), m.Cmdline...)
-	if s.cfg.ForcedCommand || len(cmdline) == 0 {
+	if s.cfg.ForcedCommand {
+		if len(cmdline) > 0 {
+			return s.denyProtocolLocked("Remote command line not allowed by listener"), nil
+		}
+		cmdline = append([]string(nil), s.cfg.DefaultCmd...)
+	} else if s.cfg.RemoteCmdAsArgs && len(cmdline) > 0 {
+		cmdline = append(append([]string(nil), s.cfg.DefaultCmd...), cmdline...)
+	} else if len(cmdline) == 0 {
 		cmdline = append([]string(nil), s.cfg.DefaultCmd...)
 	}
 	if len(cmdline) == 0 {
 		return s.denyProtocolLocked("empty command"), nil
 	}
 	req := ExecRequest{
-		Cmdline:    cmdline,
-		PipeStdin:  m.PipeStdin,
-		PipeStdout: m.PipeStdout,
-		PipeStderr: m.PipeStderr,
-		Term:       m.Term,
-		Rows:       m.Rows,
-		Cols:       m.Cols,
-		HPix:       m.HPix,
-		VPix:       m.VPix,
+		Cmdline:        cmdline,
+		PipeStdin:      m.PipeStdin,
+		PipeStdout:     m.PipeStdout,
+		PipeStderr:     m.PipeStderr,
+		Term:           m.Term,
+		Rows:           m.Rows,
+		Cols:           m.Cols,
+		HPix:           m.HPix,
+		VPix:           m.VPix,
+		RemoteIdentity: append([]byte(nil), s.remoteHash...),
 	}
 	start := s.StartProcess
 	if start == nil {
@@ -370,6 +412,11 @@ func (s *Session) handleExecLocked(m *ExecMessage) (error, func()) {
 			return
 		}
 		s.proc = proc
+		if s.closed {
+			s.mu.Unlock()
+			_ = proc.Kill()
+			return
+		}
 		pending := s.stdinPending
 		s.stdinPending = nil
 		eof := s.stdinEOF
@@ -395,7 +442,14 @@ func (s *Session) handleStreamLocked(m *StreamMessage) error {
 		}
 		if s.proc == nil {
 			if len(m.Data) > 0 {
-				s.stdinPending = append(s.stdinPending, m.Data...)
+				room := MaxStdinPending - len(s.stdinPending)
+				if room > 0 {
+					chunk := m.Data
+					if len(chunk) > room {
+						chunk = chunk[:room]
+					}
+					s.stdinPending = append(s.stdinPending, chunk...)
+				}
 			}
 			if m.EOF {
 				s.stdinEOF = true
@@ -504,77 +558,54 @@ func (s *Session) pumpProcess(proc ProcessHandle) {
 	s.mu.Lock()
 	sender := s.sender
 	compat := s.cfg.Compat
+	ctx := s.ctx
 	s.mu.Unlock()
-	send := func(msg Message) {
-		if sender != nil {
-			_ = sender.Send(msg)
-		}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
-	var wg sync.WaitGroup
-	copyStream := func(streamID int, r Reader) {
-		defer wg.Done()
-		buf := make([]byte, 4096)
-		for {
-			n, err := r.Read(buf)
-			if n > 0 {
-				data := append([]byte(nil), buf[:n]...)
-				payload, compressed := compressMaybe(data)
-				send(&StreamMessage{
-					Compat:     compat,
-					StreamID:   streamID,
-					Data:       payload,
-					Compressed: compressed,
-				})
-				s.mu.Lock()
-				onOut := s.OnStdout
-				onErr := s.OnStderr
-				s.mu.Unlock()
-				if streamID == StreamStdout && onOut != nil {
-					onOut(data)
-				}
-				if streamID == StreamStderr && onErr != nil {
-					onErr(data)
-				}
-			}
-			if err != nil {
-				send(&StreamMessage{Compat: compat, StreamID: streamID, EOF: true})
-				return
-			}
-		}
-	}
-	wg.Add(2)
-	go copyStream(StreamStdout, proc.Stdout())
-	go copyStream(StreamStderr, proc.Stderr())
-	type waitRes struct {
-		code int
-	}
-	waitCh := make(chan waitRes, 1)
+	stdoutEOF := make(chan struct{})
+	stderrEOF := make(chan struct{})
+	go s.copyProcessStream(ctx, sender, compat, StreamStdout, proc.Stdout(), stdoutEOF)
+	go s.copyProcessStream(ctx, sender, compat, StreamStderr, proc.Stderr(), stderrEOF)
+
+	waitCh := make(chan int, 1)
 	go func() {
 		code, _ := proc.Wait()
-		waitCh <- waitRes{code: code}
+		waitCh <- code
 	}()
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
+
+	code := 1
 	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
+	case code = <-waitCh:
+	case <-ctx.Done():
 		_ = proc.Kill()
 		select {
-		case <-done:
+		case code = <-waitCh:
 		case <-time.After(2 * time.Second):
 		}
 	}
-	var wr waitRes
-	select {
-	case wr = <-waitCh:
-	case <-time.After(2 * time.Second):
-		wr.code = 1
+
+	drain := time.NewTimer(DrainAfterExit)
+	defer drain.Stop()
+	stdoutDone, stderrDone := false, false
+	for !stdoutDone || !stderrDone {
+		select {
+		case <-stdoutEOF:
+			stdoutDone = true
+			stdoutEOF = nil
+		case <-stderrEOF:
+			stderrDone = true
+			stderrEOF = nil
+		case <-drain.C:
+			stdoutDone = true
+			stderrDone = true
+		}
 	}
-	send(&ExitMessage{Compat: compat, ReturnCode: wr.code})
+
+	if sender != nil {
+		_ = sender.Send(&ExitMessage{Compat: compat, ReturnCode: code})
+	}
 	if d, ok := sender.(interface{ WaitTxIdle(time.Duration) bool }); ok {
 		_ = d.WaitTxIdle(5 * time.Second)
 	}
@@ -583,11 +614,93 @@ func (s *Session) pumpProcess(proc ProcessHandle) {
 	cb := s.OnExit
 	s.mu.Unlock()
 	if cb != nil {
-		cb(wr.code)
+		cb(code)
 	}
-	// Do not call OnTeardown here. Closing the link immediately after Exit
-	// races the peer still receiving Exit/Stream over UDP. The initiator
-	// tears the link down after it handles Exit.
+}
+
+func (s *Session) copyProcessStream(ctx context.Context, sender Sender, compat bool, streamID int, r Reader, done chan struct{}) {
+	defer close(done)
+	buf := make([]byte, 4096)
+	for {
+		if ctx.Err() != nil {
+			_ = s.sendStreamChunks(sender, compat, ctx, streamID, nil, true)
+			return
+		}
+		n, err := r.Read(buf)
+		if n > 0 {
+			data := append([]byte(nil), buf[:n]...)
+			_ = s.sendStreamChunks(sender, compat, ctx, streamID, data, false)
+			s.mu.Lock()
+			onOut := s.OnStdout
+			onErr := s.OnStderr
+			s.mu.Unlock()
+			if streamID == StreamStdout && onOut != nil {
+				onOut(data)
+			}
+			if streamID == StreamStderr && onErr != nil {
+				onErr(data)
+			}
+		}
+		if err != nil {
+			_ = s.sendStreamChunks(sender, compat, ctx, streamID, nil, true)
+			return
+		}
+	}
+}
+
+func (s *Session) sendStreamChunks(sender Sender, compat bool, ctx context.Context, streamID int, data []byte, eof bool) error {
+	if sender == nil {
+		return nil
+	}
+	mdu := MaxStreamChunk
+	if rs, ok := sender.(interface{ MDU() int }); ok {
+		if n := rs.MDU(); n > 0 {
+			mdu = n
+		}
+	}
+	for {
+		if rs, ok := sender.(interface{ WaitReady(context.Context) error }); ok {
+			waitCtx := ctx
+			if waitCtx == nil {
+				waitCtx = context.Background()
+			}
+			if err := rs.WaitReady(waitCtx); err != nil {
+				return err
+			}
+		}
+		if len(data) == 0 {
+			if eof {
+				return sender.Send(&StreamMessage{Compat: compat, StreamID: streamID, EOF: true})
+			}
+			return nil
+		}
+		if ctx != nil && ctx.Err() != nil {
+			return ctx.Err()
+		}
+		chunk, n, comp := compressAdaptive(data, mdu)
+		if n < 1 {
+			n = len(data)
+			if n > mdu {
+				n = mdu
+			}
+			chunk = data[:n]
+			comp = false
+		}
+		data = data[n:]
+		sendEOF := eof && len(data) == 0
+		if err := sender.Send(&StreamMessage{
+			Compat:     compat,
+			StreamID:   streamID,
+			Data:       chunk,
+			Compressed: comp,
+			EOF:        sendEOF,
+		}); err != nil {
+			return err
+		}
+		if sendEOF {
+			return nil
+		}
+	}
 }
 
 // SendVersion initiates version handshake.
@@ -647,14 +760,15 @@ func (s *Session) SendExec(req ExecRequest) error {
 
 // SendStream sends stream data.
 func (s *Session) SendStream(streamID int, data []byte, eof bool) error {
-	payload, compressed := compressMaybe(data)
-	return s.Send(&StreamMessage{
-		Compat:     s.cfg.Compat,
-		StreamID:   streamID,
-		Data:       payload,
-		EOF:        eof,
-		Compressed: compressed,
-	})
+	s.mu.Lock()
+	sender := s.sender
+	compat := s.cfg.Compat
+	ctx := s.ctx
+	s.mu.Unlock()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return s.sendStreamChunks(sender, compat, ctx, streamID, data, eof)
 }
 
 // SendWinSize sends a window size update.

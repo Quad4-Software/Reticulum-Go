@@ -22,3 +22,5 @@ func shellSignalWinch(s os.Signal, onWinch func()) bool {
 	}
 	return false
 }
+
+func startResizePoll(<-chan struct{}, func()) {}

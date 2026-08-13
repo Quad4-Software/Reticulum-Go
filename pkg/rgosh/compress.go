@@ -33,6 +33,50 @@ func compressMaybe(data []byte) (out []byte, compressed bool) {
 	return c, true
 }
 
+// compressAdaptive picks a prefix of buf that fits maxData after optional bz2,
+// matching Python rnsh RawChannelWriter tries.
+func compressAdaptive(buf []byte, maxData int) (chunk []byte, consumed int, compressed bool) {
+	if maxData <= StreamHeaderSize {
+		maxData = MaxStreamChunk
+	}
+	maxPayload := maxData - StreamHeaderSize
+	if maxPayload < 1 {
+		maxPayload = 1
+	}
+	if maxPayload > MaxStreamChunk {
+		maxPayload = MaxStreamChunk
+	}
+	n := len(buf)
+	if n == 0 {
+		return nil, 0, false
+	}
+	if n > MaxStreamChunk {
+		n = MaxStreamChunk
+	}
+	try := 1
+	chunkLen := n
+	for chunkLen > CompressThresh && try < CompressionTries {
+		seg := chunkLen / try
+		if seg < 1 {
+			break
+		}
+		if seg > len(buf) {
+			seg = len(buf)
+		}
+		c, ok := compressMaybe(buf[:seg])
+		if ok && len(c) < maxPayload && len(c) < seg {
+			out := append([]byte(nil), c...)
+			return out, seg, true
+		}
+		try++
+	}
+	take := len(buf)
+	if take > maxPayload {
+		take = maxPayload
+	}
+	return append([]byte(nil), buf[:take]...), take, false
+}
+
 func decompressBounded(data []byte, max int) ([]byte, error) {
 	if max <= 0 {
 		max = MaxDecompressed

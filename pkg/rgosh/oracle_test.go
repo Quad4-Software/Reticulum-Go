@@ -5,6 +5,7 @@ package rgosh
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"sync"
 	"testing"
@@ -18,6 +19,8 @@ type fakeProc struct {
 	code   int
 	cmd    []string
 	done   chan struct{}
+	mu     sync.Mutex
+	killed bool
 }
 
 type pipeBuf struct {
@@ -85,10 +88,23 @@ func (f *fakeProc) Wait() (int, error) {
 	return f.code, nil
 }
 func (f *fakeProc) Kill() error {
-	close(f.done)
+	f.mu.Lock()
+	f.killed = true
+	f.mu.Unlock()
+	select {
+	case <-f.done:
+	default:
+		close(f.done)
+	}
 	_ = f.stdout.Close()
 	_ = f.stderr.Close()
 	return nil
+}
+
+func (f *fakeProc) wasKilled() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.killed
 }
 
 func TestOracleAuthDenyNoExec(t *testing.T) {
@@ -144,35 +160,217 @@ func TestOracleForcedCommand(t *testing.T) {
 		ForcedCommand: true,
 		DefaultCmd:    []string{"/bin/forced"},
 	}, send)
-	var got []string
-	done := make(chan struct{})
+	spawned := false
 	sess.StartProcess = func(req ExecRequest) (ProcessHandle, error) {
-		got = append([]string(nil), req.Cmdline...)
+		spawned = true
+		return nil, io.EOF
+	}
+	_ = sess.HandleMessage(&VersionMessage{ProtocolVersion: 1, SoftwareVersion: "t"})
+	err := sess.HandleMessage(&ExecMessage{Cmdline: []string{"/bin/attacker", "arg"}})
+	if err == nil {
+		t.Fatal("expected reject")
+	}
+	if spawned {
+		t.Fatal("must not spawn when remote cmdline is forbidden")
+	}
+	if send.ofType(NativeError) == 0 {
+		t.Fatal("expected Error")
+	}
+	t.Log("PROVED -C rejects remote argv")
+}
+
+func TestOracleForcedCommandDefault(t *testing.T) {
+	send := &memSender{}
+	sess := NewSession(Config{
+		Listener:      true,
+		AllowAll:      true,
+		ForcedCommand: true,
+		DefaultCmd:    []string{"/bin/forced"},
+	}, send)
+	started := make(chan []string, 1)
+	sess.StartProcess = func(req ExecRequest) (ProcessHandle, error) {
+		started <- append([]string(nil), req.Cmdline...)
 		fp := &fakeProc{
-			stdin:  newPipeBuf(),
-			stdout: newPipeBuf(),
-			stderr: newPipeBuf(),
-			code:   0,
-			done:   make(chan struct{}),
+			stdin: newPipeBuf(), stdout: newPipeBuf(), stderr: newPipeBuf(),
+			code: 0, done: make(chan struct{}),
 		}
 		close(fp.done)
 		_ = fp.stdout.Close()
 		_ = fp.stderr.Close()
-		close(done)
 		return fp, nil
 	}
 	_ = sess.HandleMessage(&VersionMessage{ProtocolVersion: 1, SoftwareVersion: "t"})
-	_ = sess.HandleMessage(&ExecMessage{Cmdline: []string{"/bin/attacker", "arg"}})
+	if err := sess.HandleMessage(&ExecMessage{}); err != nil {
+		t.Fatal(err)
+	}
 	select {
-	case <-done:
+	case got := <-started:
+		if len(got) != 1 || got[0] != "/bin/forced" {
+			t.Fatalf("%v", got)
+		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("timeout")
 	}
-	if len(got) != 1 || got[0] != "/bin/forced" {
-		t.Fatalf("forced command ignored remote argv incorrectly: %#v", got)
-	}
-	t.Log("PROVED forced command ignores remote argv")
 }
+
+func TestOracleRemoteCmdAsArgs(t *testing.T) {
+	send := &memSender{}
+	sess := NewSession(Config{
+		Listener:        true,
+		AllowAll:        true,
+		RemoteCmdAsArgs: true,
+		DefaultCmd:      []string{"/bin/wrapper"},
+	}, send)
+	started := make(chan []string, 1)
+	sess.StartProcess = func(req ExecRequest) (ProcessHandle, error) {
+		started <- append([]string(nil), req.Cmdline...)
+		fp := &fakeProc{
+			stdin: newPipeBuf(), stdout: newPipeBuf(), stderr: newPipeBuf(),
+			code: 0, done: make(chan struct{}),
+		}
+		close(fp.done)
+		_ = fp.stdout.Close()
+		_ = fp.stderr.Close()
+		return fp, nil
+	}
+	_ = sess.HandleMessage(&VersionMessage{ProtocolVersion: 1, SoftwareVersion: "t"})
+	if err := sess.HandleMessage(&ExecMessage{Cmdline: []string{"a", "b"}}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case got := <-started:
+		want := []string{"/bin/wrapper", "a", "b"}
+		if len(got) != 3 || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] {
+			t.Fatalf("%v", got)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout")
+	}
+}
+
+func TestOracleLongLivedNotKilled(t *testing.T) {
+	if testing.Short() {
+		t.Skip("short")
+	}
+	send := &memSender{}
+	sess := NewSession(Config{Listener: true, AllowAll: true, DefaultCmd: []string{"sleep"}}, send)
+	fp := &fakeProc{
+		stdin: newPipeBuf(), stdout: newPipeBuf(), stderr: newPipeBuf(),
+		code: 0, done: make(chan struct{}),
+	}
+	sess.StartProcess = func(req ExecRequest) (ProcessHandle, error) {
+		return fp, nil
+	}
+	_ = sess.HandleMessage(&VersionMessage{ProtocolVersion: 1, SoftwareVersion: "t"})
+	if err := sess.HandleMessage(&ExecMessage{Cmdline: []string{"sleep"}}); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(6 * time.Second)
+	if fp.wasKilled() {
+		t.Fatal("process killed before exit")
+	}
+	if sess.State() != StateRunning {
+		t.Fatalf("state=%s", sess.State())
+	}
+	sess.Close()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if fp.wasKilled() {
+			t.Log("PROVED long-lived process survives 6s then Close kills")
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("Close did not kill process")
+}
+
+func TestOraclePacingWaitReady(t *testing.T) {
+	gate := make(chan struct{})
+	var n atomicInt
+	s := &paceSender{gate: gate, n: &n}
+	sess := NewSession(Config{Listener: true, AllowAll: true, DefaultCmd: []string{"x"}}, s)
+	fp := &fakeProc{
+		stdin: newPipeBuf(), stdout: newPipeBuf(), stderr: newPipeBuf(),
+		code: 0, done: make(chan struct{}),
+	}
+	sess.StartProcess = func(req ExecRequest) (ProcessHandle, error) {
+		return fp, nil
+	}
+	_ = sess.HandleMessage(&VersionMessage{ProtocolVersion: 1, SoftwareVersion: "t"})
+	_ = sess.HandleMessage(&ExecMessage{Cmdline: []string{"x"}, PipeStdout: true, PipeStderr: true, PipeStdin: true})
+	base := n.load()
+	_, _ = fp.stdout.Write(bytes.Repeat([]byte("a"), 200))
+	time.Sleep(150 * time.Millisecond)
+	if n.load() != base {
+		t.Fatalf("sends=%d want %d while not ready", n.load(), base)
+	}
+	close(gate)
+	_ = fp.stdout.Close()
+	_ = fp.stderr.Close()
+	close(fp.done)
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && n.load() == 0 {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if n.load() == 0 {
+		t.Fatal("no sends after ready")
+	}
+}
+
+func TestCompressAdaptiveFitsMDU(t *testing.T) {
+	buf := bytes.Repeat([]byte("hello world "), 400)
+	maxData := 80
+	chunk, n, _ := compressAdaptive(buf, maxData)
+	if n < 1 {
+		t.Fatal("consumed 0")
+	}
+	if len(chunk) > maxData-StreamHeaderSize {
+		t.Fatalf("chunk %d > payload %d", len(chunk), maxData-StreamHeaderSize)
+	}
+}
+
+type atomicInt struct {
+	mu sync.Mutex
+	v  int
+}
+
+func (a *atomicInt) add(d int) {
+	a.mu.Lock()
+	a.v += d
+	a.mu.Unlock()
+}
+
+func (a *atomicInt) load() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.v
+}
+
+type paceSender struct {
+	gate chan struct{}
+	n    *atomicInt
+	mu   sync.Mutex
+	msgs []Message
+}
+
+func (p *paceSender) Send(msg Message) error {
+	p.mu.Lock()
+	p.msgs = append(p.msgs, msg)
+	p.mu.Unlock()
+	p.n.add(1)
+	return nil
+}
+
+func (p *paceSender) WaitReady(ctx context.Context) error {
+	select {
+	case <-p.gate:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (p *paceSender) MDU() int { return 64 }
 
 func TestOracleStreamBombRejected(t *testing.T) {
 	// Directly test decompressBounded with oversize.

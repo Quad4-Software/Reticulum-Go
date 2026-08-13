@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 func notifyShellSignals(sig chan os.Signal) {
@@ -17,4 +18,28 @@ func notifyShellSignals(sig chan os.Signal) {
 
 func shellSignalWinch(os.Signal, func()) bool {
 	return false
+}
+
+func startResizePoll(done <-chan struct{}, send func()) {
+	if send == nil {
+		return
+	}
+	go func() {
+		t := time.NewTicker(500 * time.Millisecond)
+		defer t.Stop()
+		lastR, lastC := ttySize()
+		for {
+			select {
+			case <-done:
+				return
+			case <-t.C:
+				r, c := ttySize()
+				if r == lastR && c == lastC {
+					continue
+				}
+				lastR, lastC = r, c
+				send()
+			}
+		}
+	}()
 }

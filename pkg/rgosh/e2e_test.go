@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -182,6 +183,142 @@ func TestE2E_RgoshPipeEcho(t *testing.T) {
 	out := stdoutBuf.String()
 	stdoutMu.Unlock()
 	if !strings.Contains(out, "hello-rgosh") {
+		t.Fatalf("stdout=%q", out)
+	}
+}
+
+func TestE2E_RgoshLongLived(t *testing.T) {
+	if testing.Short() {
+		t.Skip("short")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("sleep shell")
+	}
+	portA := freeUDPPort(t)
+	portB := freeUDPPort(t)
+	dirA := t.TempDir()
+	dirB := t.TempDir()
+	writeUDPPeer(t, dirA, portA, portB)
+	writeUDPPeer(t, dirB, portB, portA)
+
+	cfgA, err := rnsutil.LoadConfigDir(dirA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfgB, err := rnsutil.LoadConfigDir(dirB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nA, err := node.New(cfgA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nB, err := node.New(cfgB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := nA.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer nA.Stop()
+	if err := nB.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer nB.Stop()
+
+	idListen, err := identity.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dest, err := destination.New(idListen, destination.In, destination.Single, rnsutil.RgoshAppName, nA.Transport())
+	if err != nil {
+		t.Fatal(err)
+	}
+	dest.AcceptsLinks(true)
+	var stdoutMu sync.Mutex
+	var stdoutBuf bytes.Buffer
+	exitCh := make(chan int, 1)
+	dest.SetLinkEstablishedCallback(func(lnk any) {
+		l := lnk.(*link.Link)
+		ch := l.GetChannel()
+		_ = RegisterNative(ch)
+		sess := NewSession(Config{
+			Listener:   true,
+			AllowAll:   true,
+			DefaultCmd: []string{"/bin/sh", "-c", "sleep 6; echo still-alive"},
+		}, ChannelSender{Ch: ch})
+		sess.StartProcess = StartLocalProcess
+		sess.OnTeardown = func() {
+			sess.Close()
+			l.Teardown()
+		}
+		ch.AddMessageHandler(func(msg Message) bool {
+			_ = sess.HandleMessage(msg)
+			return true
+		})
+		l.SetLinkClosedCallback(func(*link.Link) { sess.Close() })
+	})
+	_ = dest.Announce(false, nil, nil)
+	time.Sleep(100 * time.Millisecond)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+	l, err := rnsutil.EstablishRgoshLink(ctx, nB.Transport(), dest.GetHash(), rnsutil.RgoshAppName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Teardown()
+	ch := l.GetChannel()
+	_ = RegisterNative(ch)
+	sess := NewSession(Config{Listener: false}, ChannelSender{Ch: ch})
+	sess.OnStdout = func(b []byte) {
+		stdoutMu.Lock()
+		stdoutBuf.Write(b)
+		stdoutMu.Unlock()
+	}
+	sess.OnExit = func(code int) {
+		select {
+		case exitCh <- code:
+		default:
+		}
+	}
+	ch.AddMessageHandler(func(msg Message) bool {
+		_ = sess.HandleMessage(msg)
+		return true
+	})
+	start := time.Now()
+	if err := sess.SendVersion(); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.After(10 * time.Second)
+	for sess.State() == StateWaitVers {
+		select {
+		case <-deadline:
+			t.Fatal("version timeout")
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+	if err := sess.SendExec(ExecRequest{
+		Cmdline:    []string{"/bin/sh", "-c", "sleep 6; echo still-alive"},
+		PipeStdin:  true,
+		PipeStdout: true,
+		PipeStderr: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	_ = sess.SendStream(StreamStdin, nil, true)
+	select {
+	case <-exitCh:
+	case <-time.After(20 * time.Second):
+		t.Fatal("exit timeout")
+	}
+	if time.Since(start) < 6*time.Second {
+		t.Fatalf("session ended too fast: %v", time.Since(start))
+	}
+	stdoutMu.Lock()
+	out := stdoutBuf.String()
+	stdoutMu.Unlock()
+	if !strings.Contains(out, "still-alive") {
 		t.Fatalf("stdout=%q", out)
 	}
 }

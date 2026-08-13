@@ -4,10 +4,13 @@
 package rgosh
 
 import (
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"sync"
 
 	"github.com/creack/pty"
@@ -25,14 +28,21 @@ type LocalProcess struct {
 }
 
 // StartLocalProcess starts cmdline with PTY unless any pipe flag is set.
+// On Windows, or if PTY open returns pty.ErrUnsupported, it falls back to pipes.
 func StartLocalProcess(req ExecRequest) (ProcessHandle, error) {
 	if len(req.Cmdline) == 0 {
 		return nil, fmt.Errorf("empty cmdline")
 	}
 	cmd := exec.Command(req.Cmdline[0], req.Cmdline[1:]...) // #nosec G204 -- operator allow-listed remote shell
-	if req.Term != "" {
-		cmd.Env = append(os.Environ(), "TERM="+req.Term)
+	term := req.Term
+	if term == "" {
+		term = "xterm"
 	}
+	env := append(os.Environ(), "TERM="+term)
+	if len(req.RemoteIdentity) > 0 {
+		env = append(env, "RNS_REMOTE_IDENTITY=<"+hex.EncodeToString(req.RemoteIdentity)+">")
+	}
+	cmd.Env = env
 	usePTY := !req.PipeStdin && !req.PipeStdout && !req.PipeStderr
 	lp := &LocalProcess{cmd: cmd, usePTY: usePTY}
 	if usePTY {
@@ -42,14 +52,17 @@ func StartLocalProcess(req ExecRequest) (ProcessHandle, error) {
 			X:    clampU16(req.HPix),
 			Y:    clampU16(req.VPix),
 		})
-		if err != nil {
+		if err == nil {
+			lp.ptyF = f
+			lp.stdin = f
+			lp.stdout = f
+			lp.stderr = io.NopCloser(emptyReader{})
+			return lp, nil
+		}
+		if !errors.Is(err, pty.ErrUnsupported) && runtime.GOOS != "windows" {
 			return nil, err
 		}
-		lp.ptyF = f
-		lp.stdin = f
-		lp.stdout = f
-		lp.stderr = io.NopCloser(emptyReader{})
-		return lp, nil
+		lp.usePTY = false
 	}
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -123,8 +136,14 @@ type emptyReader struct{}
 
 func (emptyReader) Read([]byte) (int, error) { return 0, io.EOF }
 
-// DefaultShell returns the user shell or /bin/sh.
+// DefaultShell returns the user shell, or a platform fallback.
 func DefaultShell() []string {
+	if runtime.GOOS == "windows" {
+		if c := os.Getenv("ComSpec"); c != "" {
+			return []string{c}
+		}
+		return []string{"cmd.exe"}
+	}
 	if sh := os.Getenv("SHELL"); sh != "" {
 		return []string{sh}
 	}

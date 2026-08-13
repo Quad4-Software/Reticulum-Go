@@ -90,6 +90,18 @@ func (c *Coalescer) Close() {
 	c.mu.Unlock()
 }
 
+// SetLineMode switches line buffering. Flushes when disabling.
+func (c *Coalescer) SetLineMode(on bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.lineMode = on
+	if !on && c.buf.Len() > 0 {
+		out := append([]byte(nil), c.buf.Bytes()...)
+		c.buf.Reset()
+		c.flushUnlocked(out)
+	}
+}
+
 func (c *Coalescer) timerFlush() {
 	c.mu.Lock()
 	defer c.mu.Unlock()

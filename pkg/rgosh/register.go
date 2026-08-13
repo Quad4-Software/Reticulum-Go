@@ -4,10 +4,14 @@
 package rgosh
 
 import (
+	"context"
+	"errors"
 	"time"
 
 	"quad4/reticulum-go/pkg/channel"
 )
+
+var errNilChannel = errors.New("rgosh: nil channel")
 
 // RegisterNative registers native rgosh message constructors on ch.
 func RegisterNative(ch *channel.Channel) error {
@@ -51,11 +55,32 @@ func RegisterCompat(ch *channel.Channel) error {
 
 // ChannelSender adapts *channel.Channel to Sender.
 type ChannelSender struct {
-	Ch *channel.Channel
+	Ch  *channel.Channel
+	Ctx context.Context
 }
 
 func (s ChannelSender) Send(msg Message) error {
+	if s.Ch == nil {
+		return errNilChannel
+	}
 	return s.Ch.Send(msg)
+}
+
+func (s ChannelSender) WaitReady(ctx context.Context) error {
+	if s.Ch == nil {
+		return errNilChannel
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return s.Ch.WaitReady(ctx)
+}
+
+func (s ChannelSender) MDU() int {
+	if s.Ch == nil {
+		return channel.DefaultOutletMDU - channel.ChannelHeaderSize
+	}
+	return s.Ch.MDU()
 }
 
 // WaitTxIdle waits until outstanding channel envelopes are acknowledged.

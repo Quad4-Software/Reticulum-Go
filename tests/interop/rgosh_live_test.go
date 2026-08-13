@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"testing"
 	"time"
@@ -106,7 +107,51 @@ func TestLiveGoToGoRgoshPipe(t *testing.T) {
 
 func TestLiveGoToGoRgoshPTY(t *testing.T) {
 	liveOrSkip(t)
-	TestLiveGoToGoRgoshPipe(t)
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY")
+	}
+
+	portA := freeUDPPort(t)
+	portB := freeUDPPort(t)
+	cfgDirA := t.TempDir()
+	cfgDirB := t.TempDir()
+	writeUDPPeerConfig(t, cfgDirA, portA, portB)
+	writeUDPPeerConfig(t, cfgDirB, portB, portA)
+
+	rgoshBin := ensureRgosh(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+
+	listen := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirA, "-l", "-n", "/bin/sh", "-c", "sleep 6; echo pty-alive")
+	if err := listen.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = listen.Process.Kill() }()
+	time.Sleep(800 * time.Millisecond)
+
+	idPath := filepath.Join(cfgDirA, "storage", "identities", rnsutil.RgoshAppName)
+	id, err := identity.FromFile(idPath)
+	if err != nil {
+		time.Sleep(500 * time.Millisecond)
+		id, err = identity.FromFile(idPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	destHash := destination.Hash(id, rnsutil.RgoshAppName)
+	start := time.Now()
+	client := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "-N", "-m", "-w", "20", hex.EncodeToString(destHash), "/bin/sh", "-c", "sleep 6; echo pty-alive")
+	client.Stdin = bytes.NewReader(nil)
+	out, err := client.CombinedOutput()
+	if err != nil {
+		t.Fatalf("rgosh: %v\n%s", err, out)
+	}
+	if time.Since(start) < 6*time.Second {
+		t.Fatalf("ended too fast: %v out=%s", time.Since(start), out)
+	}
+	if !bytes.Contains(out, []byte("pty-alive")) {
+		t.Fatalf("stdout missing marker: %s", out)
+	}
 }
 
 func TestLiveGoAuthDeny(t *testing.T) {
@@ -187,9 +232,19 @@ func TestLiveGoForcedCommand(t *testing.T) {
 	destHash := destination.Hash(id, rnsutil.RgoshAppName)
 	client := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "-N", "-m", "-w", "20", hex.EncodeToString(destHash), "/bin/echo", "client-cmd")
 	client.Stdin = bytes.NewReader(nil)
-	out, err := client.CombinedOutput()
+	out, _ := client.CombinedOutput()
+	if bytes.Contains(out, []byte("client-cmd")) {
+		t.Fatalf("remote cmdline ran under -C: %s", out)
+	}
+	if bytes.Contains(out, []byte("forced-only")) {
+		t.Fatalf("forced command ran despite remote argv: %s", out)
+	}
+
+	clientOK := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "-N", "-m", "-w", "20", hex.EncodeToString(destHash))
+	clientOK.Stdin = bytes.NewReader(nil)
+	out, err := clientOK.CombinedOutput()
 	if !bytes.Contains(out, []byte("forced-only")) {
-		t.Fatalf("expected forced command output, err=%v out=%s", err, out)
+		t.Fatalf("expected default command output, err=%v out=%s", err, out)
 	}
 }
 

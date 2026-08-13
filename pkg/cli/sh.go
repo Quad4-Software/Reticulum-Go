@@ -38,11 +38,13 @@ func RunSH(args []string, opt ...Options) int {
 	service := fs.String("s", "", "service name (identity file suffix)")
 	listenMode := fs.Bool("l", false, "listen for incoming shell sessions")
 	printID := fs.Bool("p", false, "print identity and destination hash then exit")
-	noAnnounce := fs.Bool("b", false, "don't announce at start (listen)")
+	announceSec := fs.Float64("b", rgosh.DefaultAnnounceSec, "listen announce interval seconds (0 once, default 900)")
+	noAnnounce := fs.Bool("no-announce", false, "never announce (listen)")
 	noAuth := fs.Bool("n", false, "accept sessions from anyone (listen)")
 	noID := fs.Bool("N", false, "don't identify to listener")
 	mirror := fs.Bool("m", false, "mirror remote exit code")
-	forced := fs.Bool("C", false, "forbid remote cmdline (forced default command)")
+	forced := fs.Bool("C", false, "reject remote cmdline and run the default command only")
+	remoteAsArgs := fs.Bool("A", false, "append remote cmdline to the default command")
 	compat := fs.Bool("compat", false, "force Python rnsh wire protocol (auto-detected from destination hash when omitted)")
 	lineMode := fs.Bool("line", false, "force line-buffered stdin")
 	rawMode := fs.Bool("raw", false, "disable stdin coalescing")
@@ -123,9 +125,11 @@ func RunSH(args []string, opt ...Options) int {
 		return runSHListen(tr, id, shListenOpts{
 			allowAll:     *noAuth,
 			noAnnounce:   *noAnnounce,
+			announceSec:  *announceSec,
 			allowedCLI:   allowed,
 			compatForced: *compat,
 			forced:       *forced,
+			remoteAsArgs: *remoteAsArgs,
 			defaultCmd:   defaultCmd,
 			appName:      appName,
 			stderr:       stderr,
@@ -160,9 +164,11 @@ func RunSH(args []string, opt ...Options) int {
 type shListenOpts struct {
 	allowAll     bool
 	noAnnounce   bool
+	announceSec  float64
 	allowedCLI   []string
 	compatForced bool
 	forced       bool
+	remoteAsArgs bool
 	defaultCmd   []string
 	appName      string
 	stderr       io.Writer
@@ -189,14 +195,15 @@ func runSHListen(tr *transport.Transport, id *identity.Identity, opts shListenOp
 		apps = []string{rnsutil.RgoshAppName, rnsutil.RnshAppName}
 	}
 
+	var announceStops []chan struct{}
 	for _, appName := range apps {
 		baseCfg := rgosh.Config{
-			Compat:        appName == rnsutil.RnshAppName,
-			AllowAll:      opts.allowAll,
-			Allowed:       allowed,
-			DefaultCmd:    opts.defaultCmd,
-			ForcedCommand: opts.forced,
-			Listener:      true,
+			Compat:          appName == rnsutil.RnshAppName,
+			AllowAll:        opts.allowAll,
+			DefaultCmd:      opts.defaultCmd,
+			ForcedCommand:   opts.forced,
+			RemoteCmdAsArgs: opts.remoteAsArgs,
+			Listener:        true,
 		}
 
 		dest, err := destination.New(id, destination.In, destination.Single, appName, tr)
@@ -206,12 +213,19 @@ func runSHListen(tr *transport.Transport, id *identity.Identity, opts shListenOp
 		}
 		dest.AcceptsLinks(true)
 
-		cfg := baseCfg.Copy()
 		dest.SetLinkEstablishedCallback(func(lnk any) {
 			l, ok := lnk.(*link.Link)
 			if !ok || l == nil {
 				return
 			}
+			allowedNow, loadErr := rnsutil.LoadRgoshAllowedIdentities(opts.allowedCLI)
+			if loadErr != nil {
+				fmt.Fprintf(stderr, "%v\n", loadErr)
+				l.Teardown()
+				return
+			}
+			cfg := baseCfg.Copy()
+			cfg.Allowed = allowedNow
 			fmt.Fprintln(stderr, infoMsg(stderr, "Shell link established"))
 			go serveSHLink(l, cfg, stderr)
 		})
@@ -223,12 +237,31 @@ func runSHListen(tr *transport.Transport, id *identity.Identity, opts shListenOp
 		fmt.Fprintln(stderr, okMsg(stderr, fmt.Sprintf("%s listening on %s", label, rnsutil.PrettyHex(dest.GetHash()))))
 		if !opts.noAnnounce {
 			_ = dest.Announce(false, nil, nil)
+			if opts.announceSec > 0 {
+				stop := make(chan struct{})
+				announceStops = append(announceStops, stop)
+				go func(d *destination.Destination, interval float64, halt chan struct{}) {
+					t := time.NewTicker(time.Duration(interval * float64(time.Second)))
+					defer t.Stop()
+					for {
+						select {
+						case <-halt:
+							return
+						case <-t.C:
+							_ = d.Announce(false, nil, nil)
+						}
+					}
+				}(dest, opts.announceSec, stop)
+			}
 		}
 	}
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
+	for _, stop := range announceStops {
+		close(stop)
+	}
 	return 0
 }
 
@@ -241,7 +274,10 @@ func serveSHLink(l *link.Link, baseCfg rgosh.Config, stderr io.Writer) {
 	}
 	sess := rgosh.NewSession(baseCfg, rgosh.ChannelSender{Ch: ch})
 	sess.StartProcess = rgosh.StartLocalProcess
-	sess.OnTeardown = func() { l.Teardown() }
+	sess.OnTeardown = func() {
+		sess.Close()
+		l.Teardown()
+	}
 	sess.OnAuthDenied = func(reason string) {
 		fmt.Fprintln(stderr, warnMsg(stderr, "Identity not allowed: "+reason))
 	}
@@ -251,6 +287,9 @@ func serveSHLink(l *link.Link, baseCfg rgosh.Config, stderr io.Writer) {
 		return true
 	})
 
+	l.SetLinkClosedCallback(func(*link.Link) {
+		sess.Close()
+	})
 	l.SetRemoteIdentifiedCallback(func(lnk *link.Link, remote *identity.Identity) {
 		if remote == nil {
 			return
@@ -366,6 +405,7 @@ func runSHClient(tr *transport.Transport, id *identity.Identity, destHash []byte
 		if !exited.Load() && !userInt.Load() {
 			setEndMsg("link closed")
 		}
+		sess.Close()
 		closeDone()
 	})
 
@@ -476,6 +516,26 @@ afterAuth:
 	coal := rgosh.NewCoalescer(line, coalesceWindow, func(b []byte) {
 		_ = sess.SendStream(rgosh.StreamStdin, b, false)
 	})
+	esc := rgosh.NewEscapeFilter()
+	lineOn := line
+
+	var lastWinch time.Time
+	var lastWinchMu sync.Mutex
+	sendWinch := func() {
+		gap := time.Duration(l.GetRTT() * 25 * float64(time.Second))
+		if gap < 50*time.Millisecond {
+			gap = 50 * time.Millisecond
+		}
+		lastWinchMu.Lock()
+		if !lastWinch.IsZero() && time.Since(lastWinch) < gap {
+			lastWinchMu.Unlock()
+			return
+		}
+		lastWinch = time.Now()
+		lastWinchMu.Unlock()
+		r, c := ttySize()
+		_ = sess.SendWinSize(r, c, 0, 0)
+	}
 
 	var shutOnce sync.Once
 	shutdown := func() {
@@ -489,6 +549,7 @@ afterAuth:
 			coal.Close()
 			_ = sess.SendStream(rgosh.StreamStdin, nil, true)
 			rgosh.ChannelSender{Ch: ch}.WaitTxIdle(2 * time.Second)
+			sess.Close()
 			closeDone()
 		})
 	}
@@ -501,11 +562,29 @@ afterAuth:
 			}
 			n, err := os.Stdin.Read(buf)
 			if n > 0 {
-				if interactive && n == 1 && buf[0] == 0x03 {
-					shutdown()
-					return
+				chunk := buf[:n]
+				if interactive {
+					var action rgosh.EscapeAction
+					chunk, action = esc.Feed(chunk)
+					switch action {
+					case rgosh.EscapeQuit:
+						shutdown()
+						return
+					case rgosh.EscapeHelp:
+						_, _ = stdout.Write([]byte(rgosh.EscapeHelpText))
+					case rgosh.EscapeToggleLine:
+						lineOn = !lineOn
+						coal.SetLineMode(lineOn)
+						if lineOn {
+							_, _ = stdout.Write([]byte("\r\nLine-interactive mode enabled\r\n"))
+						} else {
+							_, _ = stdout.Write([]byte("\r\nLine-interactive mode disabled\r\n"))
+						}
+					}
 				}
-				_, _ = coal.Write(buf[:n])
+				if len(chunk) > 0 {
+					_, _ = coal.Write(chunk)
+				}
 			}
 			if err != nil {
 				coal.Close()
@@ -517,16 +596,14 @@ afterAuth:
 
 	sig := make(chan os.Signal, 1)
 	notifyShellSignals(sig)
+	startResizePoll(done, sendWinch)
 	go func() {
 		for {
 			select {
 			case <-done:
 				return
 			case s := <-sig:
-				if shellSignalWinch(s, func() {
-					r, c := ttySize()
-					_ = sess.SendWinSize(r, c, 0, 0)
-				}) {
+				if shellSignalWinch(s, sendWinch) {
 					continue
 				}
 				shutdown()
