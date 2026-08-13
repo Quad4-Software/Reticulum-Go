@@ -518,7 +518,9 @@ The `examples/wasm` and `examples/pageserver` examples contain their own indepen
 
 ## AI Disclaimer
 
-Open-weight LLMs, preferably operated locally under a controlled harness, may assist with non-critical tasks such as commit messages, documentation, drafts, translations, tests, examples, and language bindings. LLMs may create new bindings and examples, and update existing ones. Generated binding work is not accepted on authorship alone. See [bindings/README.md](bindings/README.md). LLMs are strictly excluded from cryptography, key handling, protocol security logic, and any other security-sensitive development. All LLM output is reviewed and approved by a human. Design decisions and security-critical changes are made exclusively by humans.
+Open-weight LLMs, preferably operated locally under a controlled harness, may assist with non-critical tasks such as commit messages, documentation, drafts, translations, tests, examples, language bindings, and CLI utilities. LLMs may create new bindings and examples, and update existing ones. Generated binding work is not accepted on authorship alone. See [bindings/README.md](bindings/README.md).
+
+Command execution and remote shell utilities (including `reticulum-go x` / rnx and `reticulum-go sh` / rgosh) may be drafted by an LLM only when a human scrutinizes the result heavily, verifies behavior, and keeps the same allowlists, sandbox, and security procedures used for production. LLMs are strictly excluded from cryptography, key handling, protocol security logic, and any other security-sensitive development. All LLM output is reviewed and approved by a human. Design decisions and security-critical changes are made exclusively by humans.
 
 
 ## Credit
