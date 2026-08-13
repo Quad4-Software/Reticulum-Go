@@ -1,19 +1,95 @@
-# golang.org/x/crypto v0.52.0
+# github.com/dunglas/httpsfv v1.1.0
+## explicit; go 1.14
+github.com/dunglas/httpsfv
+# github.com/godbus/dbus/v5 v5.2.2
+## explicit; go 1.20
+github.com/godbus/dbus/v5
+# github.com/landlock-lsm/go-landlock v0.9.0
+## explicit; go 1.24.0
+github.com/landlock-lsm/go-landlock/landlock
+github.com/landlock-lsm/go-landlock/landlock/internal
+github.com/landlock-lsm/go-landlock/landlock/syscall
+# github.com/mdlayher/socket v0.6.1
 ## explicit; go 1.25.0
+github.com/mdlayher/socket
+# github.com/mdlayher/vsock v1.3.0
+## explicit; go 1.25.0
+github.com/mdlayher/vsock
+# github.com/quic-go/qpack v0.6.0
+## explicit; go 1.24
+github.com/quic-go/qpack
+# github.com/quic-go/quic-go v0.60.0
+## explicit; go 1.25.0
+github.com/quic-go/quic-go
+github.com/quic-go/quic-go/http3
+github.com/quic-go/quic-go/http3/qlog
+github.com/quic-go/quic-go/internal/ackhandler
+github.com/quic-go/quic-go/internal/congestion
+github.com/quic-go/quic-go/internal/flowcontrol
+github.com/quic-go/quic-go/internal/handshake
+github.com/quic-go/quic-go/internal/monotime
+github.com/quic-go/quic-go/internal/protocol
+github.com/quic-go/quic-go/internal/qerr
+github.com/quic-go/quic-go/internal/utils
+github.com/quic-go/quic-go/internal/utils/linkedlist
+github.com/quic-go/quic-go/internal/utils/ringbuffer
+github.com/quic-go/quic-go/internal/wire
+github.com/quic-go/quic-go/qlog
+github.com/quic-go/quic-go/qlogwriter
+github.com/quic-go/quic-go/qlogwriter/jsontext
+github.com/quic-go/quic-go/quicvarint
+# github.com/quic-go/webtransport-go v0.11.1
+## explicit; go 1.25.0
+github.com/quic-go/webtransport-go
+# go.bug.st/serial v1.8.0
+## explicit; go 1.25.0
+go.bug.st/serial
+go.bug.st/serial/unixutils
+# golang.org/x/crypto v0.54.0
+## explicit; go 1.25.0
+golang.org/x/crypto/chacha20
+golang.org/x/crypto/chacha20poly1305
 golang.org/x/crypto/curve25519
 golang.org/x/crypto/hkdf
-# golang.org/x/sys v0.45.0
+golang.org/x/crypto/internal/alias
+golang.org/x/crypto/internal/poly1305
+# golang.org/x/net v0.57.0
 ## explicit; go 1.25.0
+golang.org/x/net/bpf
+golang.org/x/net/http/httpguts
+golang.org/x/net/http2/hpack
+golang.org/x/net/idna
+golang.org/x/net/internal/iana
+golang.org/x/net/internal/socket
+golang.org/x/net/ipv4
+golang.org/x/net/ipv6
+# golang.org/x/sync v0.22.0
+## explicit; go 1.25.0
+golang.org/x/sync/errgroup
+# golang.org/x/sys v0.47.0
+## explicit; go 1.25.0
+golang.org/x/sys/cpu
 golang.org/x/sys/unix
+golang.org/x/sys/windows
+golang.org/x/sys/windows/registry
+# golang.org/x/text v0.40.0
+## explicit; go 1.25.0
+golang.org/x/text/secure/bidirule
+golang.org/x/text/transform
+golang.org/x/text/unicode/bidi
+golang.org/x/text/unicode/norm
+# kernel.org/pub/linux/libs/security/libcap/psx v1.2.77
+## explicit; go 1.11
+kernel.org/pub/linux/libs/security/libcap/psx
 # quad4/bzip2 v0.0.0 => ../../../../Reticulum-Go-Projects/bzip2
 ## explicit; go 1.26.2
 quad4/bzip2/internal/enc
 quad4/bzip2/pkg/bzip2
-# quad4/msgpack/v5 v5.8.1 => ../../../../Reticulum-Go-Projects/msgpack
-## explicit; go 1.26.2
+# quad4/msgpack/v5 v5.8.2 => ../../../../Reticulum-Go-Projects/msgpack
+## explicit; go 1.26.5
 quad4/msgpack/v5/pkg/msgpack
 quad4/msgpack/v5/pkg/msgpack/msgpcode
-# quad4/reticulum-go v0.9.7 => ../../
+# quad4/reticulum-go v1.0.0 => ../../
 ## explicit; go 1.26.5
 quad4/reticulum-go/internal/storage
 quad4/reticulum-go/pkg/announce
@@ -24,20 +100,27 @@ quad4/reticulum-go/pkg/common
 quad4/reticulum-go/pkg/cryptography
 quad4/reticulum-go/pkg/debug
 quad4/reticulum-go/pkg/destination
+quad4/reticulum-go/pkg/health
 quad4/reticulum-go/pkg/i2p
 quad4/reticulum-go/pkg/identity
+quad4/reticulum-go/pkg/identity/store
 quad4/reticulum-go/pkg/ifac
 quad4/reticulum-go/pkg/interfaces
 quad4/reticulum-go/pkg/link
 quad4/reticulum-go/pkg/packet
 quad4/reticulum-go/pkg/pathfinder
+quad4/reticulum-go/pkg/protect
 quad4/reticulum-go/pkg/rate
 quad4/reticulum-go/pkg/resource
+quad4/reticulum-go/pkg/sandbox
+quad4/reticulum-go/pkg/sdr
+quad4/reticulum-go/pkg/securemem
+quad4/reticulum-go/pkg/term
 quad4/reticulum-go/pkg/transport
 quad4/reticulum-go/pkg/wasm
-# quad4/reticulum-go-mf v0.0.0 => ../../../../Reticulum-Go-Projects/reticulum-go-mf
+# quad4/reticulum-go-protocols v0.0.0 => ../../../../Reticulum-Go-Projects/reticulum-go-mf
 ## explicit; go 1.26.5
-quad4/reticulum-go-mf/pkg/mf
+quad4/reticulum-go-protocols/pkg/mf
 # quad4/tagparser v0.0.0 => ../../../../Reticulum-Go-Projects/tagparser
 ## explicit; go 1.26.2
 quad4/tagparser/internal
@@ -47,5 +130,5 @@ quad4/tagparser/pkg/tagparser
 # quad4/msgpack/v5 => ../../../../Reticulum-Go-Projects/msgpack
 # quad4/pbt => ../../../../Reticulum-Go-Projects/pbt
 # quad4/reticulum-go => ../../
-# quad4/reticulum-go-mf => ../../../../Reticulum-Go-Projects/reticulum-go-mf
+# quad4/reticulum-go-protocols => ../../../../Reticulum-Go-Projects/reticulum-go-mf
 # quad4/tagparser => ../../../../Reticulum-Go-Projects/tagparser

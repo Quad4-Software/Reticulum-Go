@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"syscall/js"
 
-	"quad4/reticulum-go-mf/pkg/mf"
+	"quad4/reticulum-go-protocols/pkg/mf"
 	"quad4/reticulum-go/pkg/wasm"
 )
 

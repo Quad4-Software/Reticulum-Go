@@ -14,6 +14,7 @@ import (
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/sandbox"
 )
 
 const (
@@ -55,7 +56,7 @@ func NewPipeInterface(name, command string, enabled bool, respawnDelay time.Dura
 		done:          make(chan struct{}),
 		panicOnError:  panicOnError,
 		txFrame:       make([]byte, 0, pipeHWMTU*2+4),
-		readBuf:       make([]byte, pipeHWMTU),
+		readBuf:       make([]byte, streamReadChunk),
 	}
 	pi.In = true
 	pi.Out = true
@@ -119,7 +120,7 @@ func (pi *PipeInterface) openPipe() error {
 		_ = stdin.Close()
 		return err
 	}
-	if err := cmd.Start(); err != nil {
+	if err := sandbox.StartLimited(cmd); err != nil {
 		_ = stdin.Close()
 		_ = stdout.Close()
 		return err
@@ -182,6 +183,9 @@ func (pi *PipeInterface) ProcessOutgoing(data []byte) error {
 }
 
 func (pi *PipeInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(pi); err != nil {
+		return err
+	}
 	masked, err := common.ApplyIFACOutbound(pi, data)
 	if err != nil {
 		return err
@@ -199,11 +203,13 @@ func (pi *PipeInterface) startReadLoop() {
 
 func (pi *PipeInterface) readLoop() {
 	decoder := newHDLCStreamDecoder(pi.MTU, pi.ProcessIncoming)
+	n := streamReadSize(pi.MTU)
 	buffer := pi.readBuf
-	if len(buffer) < pi.MTU {
-		buffer = make([]byte, pi.MTU)
+	if cap(buffer) < n {
+		buffer = make([]byte, n)
 		pi.readBuf = buffer
 	}
+	buffer = buffer[:n]
 
 	for {
 		pi.Mutex.RLock()

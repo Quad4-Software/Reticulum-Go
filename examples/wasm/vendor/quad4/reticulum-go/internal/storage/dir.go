@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package storage
 
 import (
@@ -35,6 +36,15 @@ func DestinationTablePath(configPath string) (string, error) {
 		return "", err
 	}
 	return filepath.Join(dir, "destination_table"), nil
+}
+
+// RatchetsDir returns the directory for announced peer ratchet public keys.
+func RatchetsDir(configPath string) (string, error) {
+	dir, err := DataDir(configPath)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "ratchets"), nil
 }
 
 // KnownDestinationsPath returns the known destinations snapshot file path.

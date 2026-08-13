@@ -37,18 +37,54 @@ func parseMessage(line string) (*Message, error) {
 		raw:    line,
 	}
 	if len(parts) == 3 {
-		for tok := range strings.SplitSeq(parts[2], " ") {
-			if tok == "" {
-				continue
-			}
-			if k, v, ok := strings.Cut(tok, "="); ok {
-				m.Opts[k] = v
-			} else {
-				m.Opts[tok] = "true"
-			}
-		}
+		m.Opts = parseOpts(parts[2])
 	}
 	return m, nil
+}
+
+// parseOpts parses SAM key=value tokens, including MESSAGE="quoted text".
+func parseOpts(s string) map[string]string {
+	opts := make(map[string]string)
+	i := 0
+	for i < len(s) {
+		for i < len(s) && s[i] == ' ' {
+			i++
+		}
+		if i >= len(s) {
+			break
+		}
+		rest := s[i:]
+		eq := strings.IndexByte(rest, '=')
+		if eq < 0 {
+			opts[rest] = "true"
+			break
+		}
+		key := rest[:eq]
+		i += eq + 1
+		if i >= len(s) {
+			opts[key] = ""
+			break
+		}
+		if s[i] == '"' {
+			i++
+			end := strings.IndexByte(s[i:], '"')
+			if end < 0 {
+				opts[key] = s[i:]
+				break
+			}
+			opts[key] = s[i : i+end]
+			i += end + 1
+			continue
+		}
+		sp := strings.IndexByte(s[i:], ' ')
+		if sp < 0 {
+			opts[key] = s[i:]
+			break
+		}
+		opts[key] = s[i : i+sp]
+		i += sp
+	}
+	return opts
 }
 
 func (m *Message) OK() bool {
@@ -71,7 +107,7 @@ func (m *Message) ResultError() error {
 	if code == "" {
 		return ErrInvalidResponse
 	}
-	return samErrorFromResult(code)
+	return samErrorFromResult(code, m.Opts["MESSAGE"])
 }
 
 // Client speaks SAM v3.1 to a local I2P router.
@@ -195,11 +231,16 @@ func (s *Session) Close() error {
 }
 
 func (c *Client) OpenSession(ctx context.Context, sessionID, destination string) (*Session, error) {
+	return c.OpenSessionWithOptions(ctx, sessionID, destination, DefaultSessionOptions)
+}
+
+// OpenSessionWithOptions creates a STREAM session with extra I2CP options.
+func (c *Client) OpenSessionWithOptions(ctx context.Context, sessionID, destination, options string) (*Session, error) {
 	conn, err := c.dial(ctx)
 	if err != nil {
 		return nil, err
 	}
-	cmd := fmt.Sprintf("SESSION CREATE STYLE=STREAM ID=%s DESTINATION=%s\n", sessionID, destination)
+	cmd := formatSessionCreate(sessionID, destination, options)
 	if _, err := conn.Write([]byte(cmd)); err != nil {
 		_ = conn.Close()
 		return nil, err
@@ -219,6 +260,14 @@ func (c *Client) OpenSession(ctx context.Context, sessionID, destination string)
 		return nil, err
 	}
 	return &Session{ID: sessionID, conn: conn, client: c}, nil
+}
+
+func formatSessionCreate(sessionID, destination, options string) string {
+	cmd := fmt.Sprintf("SESSION CREATE STYLE=STREAM ID=%s DESTINATION=%s", sessionID, destination)
+	if options = strings.TrimSpace(options); options != "" {
+		cmd += " " + options
+	}
+	return cmd + "\n"
 }
 
 func (c *Client) CreateSession(ctx context.Context, sessionID, destination string) error {

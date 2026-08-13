@@ -84,6 +84,12 @@ type Table struct {
 	entries map[[HashLen]byte]Entry
 	dir     string
 	now     func() time.Time
+
+	// activeSet caches currently blackholed hashes for bulk membership checks
+	// (RNS 1.4.2 Discovery list filtering). Invalidated on mutation.
+	activeSet    map[[HashLen]byte]struct{}
+	activeSetGen uint64
+	entriesGen   uint64
 }
 
 // New returns an empty Table whose persistence directory is dir. dir is
@@ -156,6 +162,7 @@ func (t *Table) Add(identityHash []byte, until float64, reason string) (bool, er
 		return false, nil
 	}
 	t.entries[k] = Entry{Source: src, Until: until, Reason: reason}
+	t.entriesGen++
 	t.mu.Unlock()
 	if err := t.PersistLocal(); err != nil {
 		return true, err
@@ -175,6 +182,7 @@ func (t *Table) Remove(identityHash []byte) (bool, error) {
 	_, exists := t.entries[k]
 	if exists {
 		delete(t.entries, k)
+		t.entriesGen++
 	}
 	t.mu.Unlock()
 	if !exists {
@@ -238,17 +246,63 @@ func (t *Table) SweepExpired() int {
 			removed++
 		}
 	}
+	if removed > 0 {
+		t.entriesGen++
+	}
 	return removed
 }
 
+// ActiveIdentitySet returns currently blackholed identity hashes for bulk
+// membership checks (RNS 1.4.2 Discovery list filtering). Go uniqueness:
+// the set is rebuilt on mutation (Add/Remove/Sweep) instead of a fixed 60s
+// TTL, so newly blackholed identities are never served stale for a minute.
+func (t *Table) ActiveIdentitySet() map[[HashLen]byte]struct{} {
+	if t == nil {
+		return nil
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.activeSet != nil && t.activeSetGen == t.entriesGen {
+		return t.activeSet
+	}
+	now := float64(t.now().Unix())
+	out := make(map[[HashLen]byte]struct{}, len(t.entries))
+	for k, e := range t.entries {
+		if e.Until != 0 && now >= e.Until {
+			continue
+		}
+		out[k] = struct{}{}
+	}
+	t.activeSet = out
+	t.activeSetGen = t.entriesGen
+	return out
+}
+
+// SetContains reports whether identityHash is present in a set from
+// ActiveIdentitySet.
+func SetContains(set map[[HashLen]byte]struct{}, identityHash []byte) bool {
+	if len(set) == 0 || len(identityHash) != HashLen {
+		return false
+	}
+	var k [HashLen]byte
+	copy(k[:], identityHash)
+	_, ok := set[k]
+	return ok
+}
+
 // PersistLocal writes the local-source subset of the table to <dir>/local
-// in the msgpack layout used by persist_blackhole.
+// in the msgpack layout used by persist_blackhole. When dir is empty the
+// table is RAM-only and this is a no-op.
 func (t *Table) PersistLocal() error {
 	t.mu.RLock()
 	dir := t.dir
 	mu.Lock()
 	src := append([]byte(nil), localIdentityHash...)
 	mu.Unlock()
+	if dir == "" {
+		t.mu.RUnlock()
+		return nil
+	}
 	local := make(map[string]map[string]any)
 	for k, e := range t.entries {
 		if !equalBytes(e.Source, src) {
@@ -346,6 +400,7 @@ func (t *Table) LoadAll() error {
 			continue
 		}
 		t.mu.Lock()
+		changed := false
 		for hashStr, entry := range decoded {
 			if len(hashStr) != HashLen {
 				continue
@@ -362,6 +417,10 @@ func (t *Table) LoadAll() error {
 				entry.Source = srcHash
 			}
 			t.entries[k] = entry
+			changed = true
+		}
+		if changed {
+			t.entriesGen++
 		}
 		t.mu.Unlock()
 	}
@@ -382,6 +441,7 @@ func (t *Table) MergeRemote(sourceHash []byte, decoded map[string]Entry) error {
 	mu.Unlock()
 	now := float64(t.now().Unix())
 	t.mu.Lock()
+	changed := false
 	for hashStr, entry := range decoded {
 		if len(hashStr) != HashLen {
 			continue
@@ -398,6 +458,10 @@ func (t *Table) MergeRemote(sourceHash []byte, decoded map[string]Entry) error {
 			entry.Source = append([]byte(nil), sourceHash...)
 		}
 		t.entries[k] = entry
+		changed = true
+	}
+	if changed {
+		t.entriesGen++
 	}
 	t.mu.Unlock()
 
@@ -582,6 +646,28 @@ func decodeNumeric(dec *msgpack.Decoder) (val float64, ok bool, err error) {
 	return 0, false, nil
 }
 
+// decodeUntil reads the blackhole until field. Nil means never expires
+// (Until=0). Non-numeric wire types are rejected so mistyped values cannot
+// silently become immortal bans.
+func decodeUntil(dec *msgpack.Decoder) (float64, error) {
+	c, err := dec.PeekCode()
+	if err != nil {
+		return 0, err
+	}
+	if c == msgpcode.Nil {
+		_ = dec.DecodeNil()
+		return 0, nil
+	}
+	val, ok, err := decodeNumeric(dec)
+	if err != nil {
+		return 0, err
+	}
+	if !ok {
+		return 0, fmt.Errorf("non-numeric value")
+	}
+	return val, nil
+}
+
 func decodeEntry(dec *msgpack.Decoder, maxLen int) (Entry, error) {
 	subLen, err := dec.DecodeMapLen()
 	if err != nil {
@@ -607,13 +693,11 @@ func decodeEntry(dec *msgpack.Decoder, maxLen int) (Entry, error) {
 			}
 			entry.Source = b
 		case "until":
-			val, ok, err := decodeNumeric(dec)
+			val, err := decodeUntil(dec)
 			if err != nil {
 				return Entry{}, fmt.Errorf("decode until: %w", err)
 			}
-			if ok {
-				entry.Until = val
-			}
+			entry.Until = val
 		case "reason":
 			c, err := dec.PeekCode()
 			if err != nil {

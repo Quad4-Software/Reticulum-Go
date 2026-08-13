@@ -221,7 +221,7 @@ Adding a new interface type or changing on-wire layouts requires coordinated upd
 ## What this stack does not include
 
 - IP routing or DNS replacement
-- Built-in application protocols (LXMF, Nomadnet, and similar live in separate projects)
+- Built-in application protocols (LXMF, MF, and RRC live in [reticulum-go-protocols](https://github.com/Quad4-Software/reticulum-go-protocols). NomadNet and similar stay in other projects)
 - RNode firmware or serial radio drivers
 - Post-quantum algorithms
 

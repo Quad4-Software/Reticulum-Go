@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package identity
 
 const (
@@ -17,4 +18,5 @@ const (
 
 	RatchetRotationInterval = 1800
 	MaxRetainedRatchets     = 512
+	MaxKnownRatchets        = 2048
 )

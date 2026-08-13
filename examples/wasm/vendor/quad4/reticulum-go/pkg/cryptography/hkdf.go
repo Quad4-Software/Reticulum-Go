@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package cryptography
 
 import (
@@ -7,6 +8,8 @@ import (
 	"crypto/sha256"
 	"errors"
 )
+
+var hkdfZeroSalt [32]byte
 
 func implDeriveKey(secret, salt, info []byte, length int) ([]byte, error) {
 	hashLen := 32
@@ -20,32 +23,34 @@ func implDeriveKey(secret, salt, info []byte, length int) ([]byte, error) {
 	}
 
 	if len(salt) == 0 {
-		salt = make([]byte, hashLen)
+		salt = hkdfZeroSalt[:]
 	}
 
 	if info == nil {
 		info = []byte{}
 	}
 
-	pseudorandomKey := hmac.New(sha256.New, salt)
-	pseudorandomKey.Write(secret)
-	prk := pseudorandomKey.Sum(nil)
-
-	block := make([]byte, 0, hashLen)
-	derived := make([]byte, 0, ((length+hashLen-1)/hashLen)*hashLen)
+	extract := hmac.New(sha256.New, salt)
+	extract.Write(secret)
+	prk := extract.Sum(nil)
 
 	iterations := (length + hashLen - 1) / hashLen
 	if iterations > 255 {
 		return nil, errors.New("hkdf: output length exceeds maximum")
 	}
+
+	derived := make([]byte, 0, iterations*hashLen)
+	var blockBuf [32]byte
+	block := blockBuf[:0]
+	expand := hmac.New(sha256.New, prk)
+	var counter [1]byte
 	for i := range iterations {
-		h := hmac.New(sha256.New, prk)
-		h.Write(block)
-		h.Write(info)
-		var counter [1]byte
+		expand.Reset()
+		expand.Write(block)
+		expand.Write(info)
 		counter[0] = byte(i + 1)
-		h.Write(counter[:])
-		block = h.Sum(nil)
+		expand.Write(counter[:])
+		block = expand.Sum(blockBuf[:0])
 		derived = append(derived, block...)
 	}
 

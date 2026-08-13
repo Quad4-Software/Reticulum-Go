@@ -37,6 +37,6 @@ replace (
 	quad4/bzip2 => ../../Reticulum-Go-Projects/bzip2
 	quad4/msgpack/v5 => ../../Reticulum-Go-Projects/msgpack
 	quad4/pbt => ../../Reticulum-Go-Projects/pbt
-	quad4/reticulum-go-mf => ../../Reticulum-Go-Projects/reticulum-go-mf
+	quad4/reticulum-go-protocols => ../../Reticulum-Go-Projects/reticulum-go-mf
 	quad4/tagparser => ../../Reticulum-Go-Projects/tagparser
 )

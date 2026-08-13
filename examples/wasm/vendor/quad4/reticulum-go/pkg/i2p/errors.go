@@ -12,35 +12,36 @@ var (
 	ErrTunnelTimeout   = errors.New("i2p: tunnel setup timed out")
 )
 
+// SAMError is a typed SAM RESULT failure, optionally with MESSAGE text.
 type SAMError struct {
-	Code string
+	Code    string
+	Message string
 }
 
 func (e *SAMError) Error() string {
+	if e == nil {
+		return "i2p: SAM error"
+	}
+	if e.Message != "" {
+		return "i2p: SAM " + e.Code + " " + e.Message
+	}
 	return "i2p: SAM " + e.Code
 }
 
-func samErrorFromResult(code string) error {
+func samErrorFromResult(code, message string) error {
+	e := &SAMError{Code: code, Message: message}
 	switch code {
-	case "CANT_REACH_PEER":
-		return &SAMError{Code: "CANT_REACH_PEER"}
-	case "DUPLICATED_DEST":
-		return &SAMError{Code: "DUPLICATED_DEST"}
-	case "DUPLICATED_ID":
-		return &SAMError{Code: "DUPLICATED_ID"}
-	case "I2P_ERROR":
-		return &SAMError{Code: "I2P_ERROR"}
-	case "INVALID_ID":
-		return &SAMError{Code: "INVALID_ID"}
-	case "INVALID_KEY":
-		return &SAMError{Code: "INVALID_KEY"}
-	case "KEY_NOT_FOUND":
-		return &SAMError{Code: "KEY_NOT_FOUND"}
-	case "PEER_NOT_FOUND":
-		return &SAMError{Code: "PEER_NOT_FOUND"}
-	case "TIMEOUT":
-		return &SAMError{Code: "TIMEOUT"}
+	case "CANT_REACH_PEER",
+		"DUPLICATED_DEST",
+		"DUPLICATED_ID",
+		"I2P_ERROR",
+		"INVALID_ID",
+		"INVALID_KEY",
+		"KEY_NOT_FOUND",
+		"PEER_NOT_FOUND",
+		"TIMEOUT":
+		return e
 	default:
-		return &SAMError{Code: code}
+		return e
 	}
 }

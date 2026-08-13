@@ -63,7 +63,7 @@ func newBufferedReader(r io.Reader) bufReader {
 //------------------------------------------------------------------------------
 
 var decPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return NewDecoder(nil)
 	},
 }
@@ -73,7 +73,7 @@ var decPool = sync.Pool{
 // the empty slice before being returned to the pool so it does not retain
 // a reference to the caller's data.
 var readerPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return bytes.NewReader(nil)
 	},
 }
@@ -111,7 +111,7 @@ func PutDecoder(dec *Decoder) {
 
 // Unmarshal decodes the MessagePack-encoded data and stores the result
 // in the value pointed to by v.
-func Unmarshal(data []byte, v interface{}) error {
+func Unmarshal(data []byte, v any) error {
 	dec := GetDecoder()
 	dec.UsePreallocateValues(true)
 
@@ -132,7 +132,7 @@ func Unmarshal(data []byte, v interface{}) error {
 type Decoder struct {
 	r          io.Reader
 	s          io.ByteScanner
-	mapDecoder func(*Decoder) (interface{}, error)
+	mapDecoder func(*Decoder) (any, error)
 	structTag  string
 	buf        []byte
 	rec        []byte
@@ -195,7 +195,7 @@ func (d *Decoder) ResetReader(r io.Reader) {
 	}
 }
 
-func (d *Decoder) SetMapDecoder(fn func(*Decoder) (interface{}, error)) {
+func (d *Decoder) SetMapDecoder(fn func(*Decoder) (any, error)) {
 	d.mapDecoder = fn
 }
 
@@ -332,7 +332,7 @@ func (d *Decoder) rejectOversizedBytes(n int) error {
 }
 
 //nolint:gocyclo
-func (d *Decoder) Decode(v interface{}) error {
+func (d *Decoder) Decode(v any) error {
 	var err error
 	switch v := v.(type) {
 	case *string:
@@ -413,7 +413,7 @@ func (d *Decoder) Decode(v interface{}) error {
 		return d.decodeStringSlicePtr(v)
 	case *map[string]string:
 		return d.decodeMapStringStringPtr(v)
-	case *map[string]interface{}:
+	case *map[string]any:
 		return d.decodeMapStringInterfacePtr(v)
 	case *time.Duration:
 		if v != nil {
@@ -432,7 +432,7 @@ func (d *Decoder) Decode(v interface{}) error {
 	if !vv.IsValid() {
 		return errors.New("msgpack: Decode(nil)")
 	}
-	if vv.Kind() != reflect.Ptr {
+	if vv.Kind() != reflect.Pointer {
 		return fmt.Errorf("msgpack: Decode(non-pointer %T)", v)
 	}
 	if vv.IsNil() {
@@ -443,7 +443,7 @@ func (d *Decoder) Decode(v interface{}) error {
 	if vv.Kind() == reflect.Interface {
 		if !vv.IsNil() {
 			vv = vv.Elem()
-			if vv.Kind() != reflect.Ptr {
+			if vv.Kind() != reflect.Pointer {
 				return fmt.Errorf("msgpack: Decode(non-pointer %s)", vv.Type().String())
 			}
 		}
@@ -452,7 +452,7 @@ func (d *Decoder) Decode(v interface{}) error {
 	return d.DecodeValue(vv)
 }
 
-func (d *Decoder) DecodeMulti(v ...interface{}) error {
+func (d *Decoder) DecodeMulti(v ...any) error {
 	for _, vv := range v {
 		if err := d.Decode(vv); err != nil {
 			return err
@@ -461,7 +461,7 @@ func (d *Decoder) DecodeMulti(v ...interface{}) error {
 	return nil
 }
 
-func (d *Decoder) decodeInterfaceCond() (interface{}, error) {
+func (d *Decoder) decodeInterfaceCond() (any, error) {
 	if err := d.enterDepth(); err != nil {
 		return nil, err
 	}
@@ -499,7 +499,7 @@ func (d *Decoder) decodeNilValue(v reflect.Value) error {
 	if v.IsNil() {
 		return err
 	}
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}
 	v.Set(reflect.Zero(v.Type()))
@@ -549,7 +549,7 @@ func (d *Decoder) DecodeDuration() (time.Duration, error) {
 // DecodeInterface should be used only when you don't know the type of value
 // you are decoding. For example, if you are decoding number it is better to use
 // DecodeInt64 for negative numbers and DecodeUint64 for positive numbers.
-func (d *Decoder) DecodeInterface() (interface{}, error) {
+func (d *Decoder) DecodeInterface() (any, error) {
 	c, err := d.readCode()
 	if err != nil {
 		return nil, err
@@ -622,7 +622,7 @@ func (d *Decoder) DecodeInterface() (interface{}, error) {
 //   - uint8, uint16, and uint32 are converted to uint64,
 //   - float32 is converted to float64.
 //   - []byte is converted to string.
-func (d *Decoder) DecodeInterfaceLoose() (interface{}, error) {
+func (d *Decoder) DecodeInterfaceLoose() (any, error) {
 	c, err := d.readCode()
 	if err != nil {
 		return nil, err
@@ -879,13 +879,6 @@ func readNGrow(r io.Reader, b []byte, n int) ([]byte, error) {
 	}
 
 	return b, nil
-}
-
-func min(a, b int) int { //nolint:unparam
-	if a <= b {
-		return a
-	}
-	return b
 }
 
 func uint32ToInt(n uint32, hint string) (int, error) {

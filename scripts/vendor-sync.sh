@@ -21,12 +21,23 @@ REL_LIBS="$(relpath "$LIBS_ROOT" "$ROOT")"
 REL_WASM_LIBS="$(relpath "$LIBS_ROOT" "$ROOT/examples/wasm")"
 REL_PS_LIBS="$(relpath "$LIBS_ROOT" "$ROOT/examples/pageserver")"
 
-for lib in bzip2 msgpack pbt tagparser reticulum-go-mf; do
+PROTO_DIR=""
+if [ -d "$LIBS_ROOT/reticulum-go-protocols" ]; then
+	PROTO_DIR="reticulum-go-protocols"
+elif [ -d "$LIBS_ROOT/reticulum-go-mf" ]; then
+	PROTO_DIR="reticulum-go-mf"
+fi
+
+for lib in bzip2 msgpack pbt tagparser; do
 	if [ ! -d "$LIBS_ROOT/$lib" ]; then
 		echo "vendor-sync.sh: missing $LIBS_ROOT/$lib" >&2
 		exit 1
 	fi
 done
+if [ -z "$PROTO_DIR" ]; then
+	echo "vendor-sync.sh: missing $LIBS_ROOT/reticulum-go-protocols (or reticulum-go-mf)" >&2
+	exit 1
+fi
 
 cat > "$ROOT/go.mod" <<EOF
 module quad4/reticulum-go
@@ -48,7 +59,7 @@ replace (
 	quad4/msgpack/v5 => $REL_LIBS/msgpack
 	quad4/pbt => $REL_LIBS/pbt
 	quad4/tagparser => $REL_LIBS/tagparser
-	quad4/reticulum-go-mf => $REL_LIBS/reticulum-go-mf
+	quad4/reticulum-go-protocols => $REL_LIBS/$PROTO_DIR
 )
 EOF
 
@@ -59,7 +70,7 @@ go 1.26.5
 
 require (
 	quad4/reticulum-go v0.0.0
-	quad4/reticulum-go-mf v0.0.0
+	quad4/reticulum-go-protocols v0.0.0
 )
 
 require (
@@ -70,7 +81,7 @@ require (
 
 replace (
 	quad4/reticulum-go => ../../
-	quad4/reticulum-go-mf => $REL_WASM_LIBS/reticulum-go-mf
+	quad4/reticulum-go-protocols => $REL_WASM_LIBS/$PROTO_DIR
 	quad4/bzip2 => $REL_WASM_LIBS/bzip2
 	quad4/msgpack/v5 => $REL_WASM_LIBS/msgpack
 	quad4/pbt => $REL_WASM_LIBS/pbt

@@ -16,7 +16,10 @@ import (
 	"quad4/reticulum-go/pkg/packet"
 )
 
-const tunnelTimeout = 8 * 60 * 60 // 8 hours
+const tunnelTimeout = 8 * time.Hour
+
+// maxTunnels bounds live tunnel table rows on this node.
+const maxTunnels = 256
 
 // TunnelInterface is implemented by logical interfaces that participate in
 // Reticulum tunnel establishment (I2P peers, i2p_tunneled TCP clients).
@@ -111,7 +114,7 @@ func (t *Transport) SynthesizeTunnel(iface TunnelInterface) error {
 	if err := pkt.Pack(); err != nil {
 		return err
 	}
-	if err := iface.Send(pkt.Raw, ""); err != nil {
+	if err := sendOnInterface(iface, pkt.Raw, ""); err != nil {
 		return err
 	}
 	iface.SetWantsTunnel(false)
@@ -149,15 +152,22 @@ func (t *Transport) handleTunnel(tunnelID []byte, iface TunnelInterface) {
 	}
 	var idKey [32]byte
 	copy(idKey[:], tunnelID)
-	expires := time.Now().Add(tunnelTimeout)
+	now := time.Now()
+	expires := now.Add(tunnelTimeout)
 
 	t.tunnelMu.Lock()
 	defer t.tunnelMu.Unlock()
 	if t.tunnels == nil {
 		t.tunnels = make(map[[32]byte]*tunnelEntry)
 	}
+	t.dropExpiredTunnels(now)
 	entry, exists := t.tunnels[idKey]
 	if !exists {
+		if len(t.tunnels) >= maxTunnels {
+			debug.Log(debug.DebugInfo, "Tunnel table at limit",
+				"tunnel", fmtHex(tunnelID[:8]), "held", len(t.tunnels))
+			return
+		}
 		entry = &tunnelEntry{
 			id:      idKey,
 			iface:   iface,
@@ -242,6 +252,10 @@ func (t *Transport) cleanupExpiredTunnels() {
 	now := time.Now()
 	t.tunnelMu.Lock()
 	defer t.tunnelMu.Unlock()
+	t.dropExpiredTunnels(now)
+}
+
+func (t *Transport) dropExpiredTunnels(now time.Time) {
 	for id, entry := range t.tunnels {
 		if entry == nil || now.After(entry.expires) {
 			delete(t.tunnels, id)

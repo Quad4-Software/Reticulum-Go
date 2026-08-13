@@ -14,6 +14,7 @@ import (
 	"quad4/reticulum-go/pkg/backbone"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/protect"
 )
 
 const localReconnectWait = 8 * time.Second
@@ -152,7 +153,15 @@ func (ls *LocalServerInterface) acceptLoop() {
 			debug.Log(debug.DebugError, "Local shared instance accept error", "error", err)
 			continue
 		}
-		ls.handleConnection(conn)
+		d, release := protect.AdmitConn(ls.Name)
+		if !d.Allow {
+			_ = conn.Close()
+			continue
+		}
+		func(c net.Conn, rel func()) {
+			defer rel()
+			ls.handleConnection(c)
+		}(conn, release)
 	}
 }
 
@@ -181,6 +190,9 @@ func (ls *LocalServerInterface) ProcessOutgoing([]byte) error {
 }
 
 func (ls *LocalServerInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(ls); err != nil {
+		return err
+	}
 	return ls.ProcessOutgoing(data)
 }
 
@@ -258,6 +270,12 @@ func newLocalClientFromConn(name string, conn net.Conn, parent *LocalServerInter
 
 func (lc *LocalClientInterface) IsSharedInstanceClient() bool {
 	return lc.sharedInitiator
+}
+
+// IsLocalClientInterface reports whether this interface is a local client
+// spawned by a shared-instance server (i.e. it has a parent server).
+func (lc *LocalClientInterface) IsLocalClientInterface() bool {
+	return lc.parent != nil
 }
 
 func (lc *LocalClientInterface) ShouldIngressLimitPR() bool { return false }
@@ -377,6 +395,9 @@ func (lc *LocalClientInterface) ProcessOutgoing(data []byte) error {
 }
 
 func (lc *LocalClientInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(lc); err != nil {
+		return err
+	}
 	masked, err := common.ApplyIFACOutbound(lc, data)
 	if err != nil {
 		return err
@@ -396,10 +417,11 @@ func (lc *LocalClientInterface) readLoop() {
 
 func (lc *LocalClientInterface) runHDLCLoop(onFrame func([]byte)) {
 	decoder := newHDLCStreamDecoder(lc.MTU, onFrame)
-	if cap(lc.readBuf) < lc.MTU {
-		lc.readBuf = make([]byte, lc.MTU)
+	n := streamReadSize(lc.MTU)
+	if cap(lc.readBuf) < n {
+		lc.readBuf = make([]byte, n)
 	}
-	buffer := lc.readBuf[:lc.MTU]
+	buffer := lc.readBuf[:n]
 
 	for {
 		lc.Mutex.RLock()
