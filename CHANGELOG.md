@@ -2,6 +2,8 @@
 
 ## v1.0.2
 
+Wire compatible with Python RNS 1.4.2
+
 ### Included
 - Wire compatibility target raised to Python RNS 1.4.2
 - Path-request emit skips offline interfaces (and re-checks at recursive PR emit time)
@@ -10,15 +12,37 @@
 - Go-unique path-request readiness also refuses non-positive bitrate when exposed (uninitialized radio timing)
 - Go-unique blackhole active-identity set invalidates on mutation instead of a fixed 60s TTL
 - Go-unique discovery blackhole filtering at receive time (fail-closed) rather than list-only
+- Destination identity ratchets on SINGLE announce, remember, and encrypt (`EnableRatchets` / `EnableRatchetsInMemory` / `EnforceRatchets`)
+- Known-peer ratchet public keys stored by destination hash in Python-compatible `{ratchet, received}` msgpack
+- Pageserver ratchet private-key path uses `{destination_hash}`, matching Python LXMF
+- librns `rns_destination_enable_ratchets` plus Destination ratchet helpers in C, Odin, Zig, C++, Dart, Rust, Python, Lua, Swift, Java, and Kotlin bindings
+- GROUP destinations with Token PSK (`CreateKeys` / `LoadPrivateKey`), AES-256 Token encrypt/decrypt, local broadcast, and one-hop drop
+- Live Go to Python ratchet and GROUP packet interop
+- Incoming link handshake slots count against `MaxRegisteredLinks` until register or reject
+- Tunnel table drops expired rows on insert and caps live tunnels at 256
+- Channel `WaitTxIdle` plus link receipts so channel envelopes wait for peer proof before the TX ring clears
+- `reticulum-go sh` / rgosh interactive remote shell (native protocol plus `--compat` for Python rnsh)
+- rgosh TTY handling via golang.org/x/term, Unix vs non-Unix signal files, and adversarial protocol corpus tests
 - dos_protection snapshot on status JSON, Control API, and rgoslow findings
 - dos_max_* config knobs, bitrate-scaled adaptive floors, priority ingress shedding
+- Per-peer fair-share admit buckets on shared UDP/TCP/QUIC/VSOCK/HTTPS/I2P listeners so one sender cannot cool down the whole iface
 - Handler pool overflow always sheds (no sync dispatch on ingress threads)
 - FreeBSD sandbox SIGHUP re-exec for config reload under CapEnter
+- Linux Landlock via `github.com/landlock-lsm/go-landlock` instead of hand-rolled syscalls
 - Sandbox Landlock/seccomp soft-fail stdout warnings
-- `reticulum-go sh` / rgosh interactive remote shell (native protocol plus `--compat` for Python rnsh)
+- Path jail with symlink resolution for pageserver and `rgocp` listen fetch
+- Crypto, IFAC, announce-auth, ratchet-downgrade, and RESOURCE_HMU oracle tests
+- Dependabot for GitHub Actions, PR dependency review, and CI RNS pin raised to 1.4.2
+- Tree `.rsm` inventory generator and verify/sign script updates
+- Docs updates for ratchets, GROUP Token keys, rgosh, sandbox, and dos_protection
 
 ### Fixed
 - Recursive path-request fan-out no longer targets ifaces that went offline while the discovery queue drained
+- RESOURCE_HMU negative hashmap segment no longer panics the process
+- Tunnel expiry used a bare integer (nanoseconds) instead of 8 hours
+- Channel packet timeouts no longer fire while the mutex is dropped, and delivered callbacks wait for link proof instead of running immediately
+- `Identity.GetCurrentRatchetKey` no longer auto-generates keys (on-wire SINGLE ratchets live on Destination)
+- Local `Destination.Announce` requires IN, skips access-point ifaces (Python outbound mode rules), and `Identity.Remember` rejects dest-hash public-key collisions
 
 ## v1.0.1
 
