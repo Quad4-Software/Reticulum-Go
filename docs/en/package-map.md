@@ -396,8 +396,8 @@ Post-startup OS restrictions.
 
 | Item | Detail |
 |------|--------|
-| Entry | `Apply(cfg)` |
-| Main files | `sandbox.go`, platform-specific files |
+| Entry | `Apply(cfg)`, `SetExecRlimits`, `StartLimited`, `OutputLimited` |
+| Main files | `sandbox.go`, `paths.go`, platform-specific files |
 
 ### `pkg/debug`
 

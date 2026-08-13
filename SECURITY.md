@@ -106,6 +106,10 @@ The level of protection depends on your operating system:
 
 Landlock requires Linux kernel version 5.13 or newer. On older kernels, Landlock will fail gracefully while other Linux restrictions still apply where possible.
 
+Optional Go-only keys: `sandbox_strict` (fail closed), `sandbox_profile` (`full` or `router`), `sandbox_extra_paths`, and `sandbox_exec_rlimits` (Linux child rlimits for pipe and page scripts). See [docs/en/security.md](docs/en/security.md) and [docs/en/configuration.md](docs/en/configuration.md).
+
+The packaged systemd unit sets ProtectSystem, kernel/cgroup/clock protection, LockPersonality, RestrictRealtime, RestrictSUIDSGID, and UMask=0077. It does not set User= (serial devices need extra groups). Example drop-in: `packaging/systemd/user.conf.example`.
+
 Please note that sandboxing is designed as defense in depth. It is not a replacement for strong cryptography, proper interface configuration, or secure hosting practices. It also does not apply to WebAssembly builds, which rely on the browser or runtime environment sandbox.
 
 ## Local DoS protection

@@ -59,9 +59,14 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | rpc_key | (empty) | Hex key for shared-instance RPC and control API auth |
 | enable_sandbox | yes | Apply OS sandbox after startup (Go-only) |
 | enable_seccomp | yes | Linux seccomp-bpf denylist after Landlock (TSYNC, then all-threads, then prctl fallback, soft-fails if unsupported) |
+| sandbox_strict | no | Exit if Landlock, seccomp, OpenBSD unveil lock, or FreeBSD CapEnter fail. Stub and WASM still start |
+| sandbox_profile | full | `full` keeps `/bin` for pipe and pageserver exec. `router` omits those trees on Linux Landlock only. Not tied to node_profile |
+| sandbox_extra_paths | (empty) | Comma-separated extra filesystem paths for Landlock and OpenBSD unveil (serial, custom binaries) |
+| sandbox_exec_rlimits | no | Linux only. Apply NPROC=32 and CORE=0 to pipe, discovery, and dynamic `.mu` child processes |
 | enable_control_api | no | Start localhost control API |
 | control_api_host | 127.0.0.1 | Control API bind address |
 | control_api_port | 37430 | Control API port |
+| control_api_socket | (empty) | Optional Unix socket path in addition to TCP |
 | backbone_io | auto | Backbone poller: auto, epoll, kqueue, io_uring, go |
 | in_memory_path_table | no | Keep path table in RAM only |
 | in_memory_known_destinations | no | Keep known destinations in RAM only |

@@ -39,6 +39,9 @@ Wire compatible with Python RNS 1.4.2
 - FreeBSD sandbox SIGHUP re-exec for config reload under CapEnter
 - Linux Landlock via `github.com/landlock-lsm/go-landlock` instead of hand-rolled syscalls
 - Sandbox Landlock/seccomp soft-fail stdout warnings
+- Sandbox extra path allowlisting from interface Device, pipe/discovery commands, TLS files, and `sandbox_extra_paths`
+- Opt-in `sandbox_strict`, `sandbox_profile=router`, `sandbox_exec_rlimits`, and Control API `control_api_socket`
+- systemd ProtectSystem and related hardening, plus optional User= drop-in example
 - Path jail with symlink resolution for pageserver and `rgocp` listen fetch
 - Crypto, IFAC, announce-auth, ratchet-downgrade, and RESOURCE_HMU oracle tests
 - Dependabot for GitHub Actions, PR dependency review, and CI RNS pin raised to 1.4.2

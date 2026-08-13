@@ -35,6 +35,8 @@ enable_control_api = yes
 rpc_key = <64 hex characters>
 control_api_host = 127.0.0.1
 control_api_port = 37430
+# Optional extra listener. TCP stays enabled.
+# control_api_socket = /run/reticulum-go/control.sock
 ```
 
 rpc_key is a 32-byte value encoded as hex. The same key authenticates shared-instance RPC when configured.
