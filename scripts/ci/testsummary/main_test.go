@@ -31,3 +31,18 @@ func TestGoTestArgs_NoChdir(t *testing.T) {
 		t.Fatalf("goTestArgs() = %#v, want %#v", got, want)
 	}
 }
+
+func TestValidateGoTestArgs(t *testing.T) {
+	if err := validateGoTestArgs([]string{"-v", "./...", "-count=1"}); err != nil {
+		t.Fatalf("valid args rejected: %v", err)
+	}
+	if err := validateGoTestArgs([]string{"-C", "examples/wasm", "-exec=/usr/lib/go/lib/wasm/go_js_wasm_exec"}); err != nil {
+		t.Fatalf("chdir and exec args rejected: %v", err)
+	}
+	if err := validateGoTestArgs([]string{"-v;id"}); err == nil {
+		t.Fatal("shell metacharacter was accepted")
+	}
+	if err := validateGoTestArgs([]string{"ok\n-v"}); err == nil {
+		t.Fatal("newline was accepted")
+	}
+}

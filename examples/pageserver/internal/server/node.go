@@ -932,7 +932,7 @@ func (r *Reticulum) serveFile(path string, data []byte, requestID []byte, linkID
 		return []byte(">Request Not Allowed\n\nYou are not authorized to access this resource.")
 	}
 
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) // #nosec G304 -- filePath is cleaned and prefix-checked against filesPath
 	if err != nil {
 		debug.Log(debug.DebugError, "Failed to open file", "path", filePath, "error", err)
 		return []byte(">File Not Found\n\nThe requested file could not be found.")

@@ -1,6 +1,8 @@
 package transport
 
 import (
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -42,5 +44,35 @@ func TestCanAcceptIncomingLinkLimit(t *testing.T) {
 	}
 	if tr.CanAcceptIncomingLink() {
 		t.Fatal("should reject at MaxRegisteredLinks")
+	}
+}
+
+func TestIncomingLinkReservationLimit(t *testing.T) {
+	tr := &Transport{links: make(map[hash16]LinkInterface)}
+	var accepted atomic.Int32
+	var wg sync.WaitGroup
+	n := MaxRegisteredLinks * 4
+	wg.Add(n)
+	for range n {
+		go func() {
+			defer wg.Done()
+			if tr.BeginIncomingHandshake() {
+				accepted.Add(1)
+			}
+		}()
+	}
+	wg.Wait()
+	got := int(accepted.Load())
+	if got != MaxRegisteredLinks {
+		t.Fatalf("accepted %d reservations, want %d", got, MaxRegisteredLinks)
+	}
+	if tr.CanAcceptIncomingLink() {
+		t.Fatal("open reservations must count toward the incoming link limit")
+	}
+	for range got {
+		tr.EndIncomingHandshake()
+	}
+	if !tr.CanAcceptIncomingLink() {
+		t.Fatal("released reservations should accept again")
 	}
 }

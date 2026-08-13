@@ -83,8 +83,29 @@ func goTestArgs(user []string) []string {
 	return out
 }
 
+func validGoTestArg(arg string) bool {
+	if arg == "" || strings.ContainsAny(arg, "\x00\n\r;|&`$") {
+		return false
+	}
+	return true
+}
+
+func validateGoTestArgs(user []string) error {
+	for _, arg := range user {
+		if !validGoTestArg(arg) {
+			return fmt.Errorf("invalid go test argument")
+		}
+	}
+	return nil
+}
+
 func run() int {
-	cmd := exec.Command("go", goTestArgs(os.Args[1:])...)
+	user := os.Args[1:]
+	if err := validateGoTestArgs(user); err != nil {
+		fmt.Fprintf(os.Stderr, "testsummary: %v\n", err)
+		return 2
+	}
+	cmd := exec.Command("go", goTestArgs(user)...) // #nosec G204,G702 -- go binary is fixed, argv is go test flags checked by validateGoTestArgs
 	if env := childEnv(); env != nil {
 		cmd.Env = env
 	}

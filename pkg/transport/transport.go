@@ -137,6 +137,7 @@ type Transport struct {
 	config                *common.ReticulumConfig
 	interfaces            map[string]common.NetworkInterface
 	links                 map[hash16]LinkInterface
+	incomingHandshakes    int
 	destinations          map[hash16]registeredDestination
 	announceRate          *rate.Limiter
 	seenAnnounces         map[[32]byte]time.Time
@@ -2601,7 +2602,37 @@ func (t *Transport) CanAcceptIncomingLink() bool {
 	if t == nil {
 		return false
 	}
-	return t.LinkCount() < MaxRegisteredLinks
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	return len(t.links)+t.incomingHandshakes < MaxRegisteredLinks
+}
+
+// BeginIncomingHandshake reserves one incoming handshake slot under
+// MaxRegisteredLinks. Pair with EndIncomingHandshake after RegisterLink
+// or when the request is rejected.
+func (t *Transport) BeginIncomingHandshake() bool {
+	if t == nil {
+		return false
+	}
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	if len(t.links)+t.incomingHandshakes >= MaxRegisteredLinks {
+		return false
+	}
+	t.incomingHandshakes++
+	return true
+}
+
+// EndIncomingHandshake releases a slot taken by BeginIncomingHandshake.
+func (t *Transport) EndIncomingHandshake() {
+	if t == nil {
+		return
+	}
+	t.mutex.Lock()
+	if t.incomingHandshakes > 0 {
+		t.incomingHandshakes--
+	}
+	t.mutex.Unlock()
 }
 
 // FindLink returns a registered link by link ID, or nil.

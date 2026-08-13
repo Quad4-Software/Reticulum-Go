@@ -164,8 +164,11 @@ func HandleIncomingLinkRequest(pkt *packet.Packet, dest *destination.Destination
 	startTime := time.Now()
 	debug.Log(debug.DebugInfo, "Creating link for incoming request", "dest_hash", fmt.Sprintf("%x", dest.GetHash()), "interface", networkIface.GetName())
 
-	if transport != nil && !transport.CanAcceptIncomingLink() {
-		return nil, errors.New("incoming link limit reached")
+	if transport != nil {
+		if !transport.BeginIncomingHandshake() {
+			return nil, errors.New("incoming link limit reached")
+		}
+		defer transport.EndIncomingHandshake()
 	}
 
 	ifaceName := ""
