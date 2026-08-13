@@ -600,9 +600,7 @@ func (s *Session) pumpProcess(proc ProcessHandle) {
 		}
 	}
 
-	if sender != nil {
-		_ = sender.Send(&ExitMessage{Compat: compat, ReturnCode: code})
-	}
+	sendWhenReady(sender, &ExitMessage{Compat: compat, ReturnCode: code}, 5*time.Second)
 	if d, ok := sender.(interface{ WaitTxIdle(time.Duration) bool }); ok {
 		_ = d.WaitTxIdle(5 * time.Second)
 	}
@@ -807,6 +805,20 @@ func (s *Session) MutateDefaultCmdAppend(arg string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.cfg.DefaultCmd = append(s.cfg.DefaultCmd, arg)
+}
+
+// sendWhenReady waits up to wait for a ready outlet, then sends. Exit uses
+// this so a full TX window cannot drop the final status.
+func sendWhenReady(sender Sender, msg Message, wait time.Duration) {
+	if sender == nil {
+		return
+	}
+	if rs, ok := sender.(interface{ WaitReady(context.Context) error }); ok && wait > 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), wait)
+		_ = rs.WaitReady(ctx)
+		cancel()
+	}
+	_ = sender.Send(msg)
 }
 
 // sendLocked sends while temporarily releasing s.mu so channel IO cannot

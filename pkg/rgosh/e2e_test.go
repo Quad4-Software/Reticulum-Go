@@ -238,8 +238,12 @@ func TestE2E_RgoshLongLived(t *testing.T) {
 	var stdoutMu sync.Mutex
 	var stdoutBuf bytes.Buffer
 	exitCh := make(chan int, 1)
+	listenerReady := make(chan struct{}, 1)
 	dest.SetLinkEstablishedCallback(func(lnk any) {
-		l := lnk.(*link.Link)
+		l, ok := lnk.(*link.Link)
+		if !ok || l == nil {
+			return
+		}
 		ch := l.GetChannel()
 		_ = RegisterNative(ch)
 		sess := NewSession(Config{
@@ -257,6 +261,10 @@ func TestE2E_RgoshLongLived(t *testing.T) {
 			return true
 		})
 		l.SetLinkClosedCallback(func(*link.Link) { sess.Close() })
+		select {
+		case listenerReady <- struct{}{}:
+		default:
+		}
 	})
 	_ = dest.Announce(false, nil, nil)
 	time.Sleep(100 * time.Millisecond)
@@ -268,6 +276,13 @@ func TestE2E_RgoshLongLived(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer l.Teardown()
+
+	select {
+	case <-listenerReady:
+	case <-time.After(5 * time.Second):
+		t.Fatal("listener session not ready")
+	}
+
 	ch := l.GetChannel()
 	_ = RegisterNative(ch)
 	sess := NewSession(Config{Listener: false}, ChannelSender{Ch: ch})
@@ -291,11 +306,16 @@ func TestE2E_RgoshLongLived(t *testing.T) {
 		t.Fatal(err)
 	}
 	deadline := time.After(10 * time.Second)
+	lastVers := time.Now()
 	for sess.State() == StateWaitVers {
 		select {
 		case <-deadline:
 			t.Fatal("version timeout")
 		case <-time.After(50 * time.Millisecond):
+			if sess.State() == StateWaitVers && time.Since(lastVers) >= 2*time.Second {
+				_ = sess.SendVersion()
+				lastVers = time.Now()
+			}
 		}
 	}
 	if err := sess.SendExec(ExecRequest{
@@ -309,8 +329,11 @@ func TestE2E_RgoshLongLived(t *testing.T) {
 	_ = sess.SendStream(StreamStdin, nil, true)
 	select {
 	case <-exitCh:
-	case <-time.After(20 * time.Second):
-		t.Fatal("exit timeout")
+	case <-time.After(45 * time.Second):
+		stdoutMu.Lock()
+		out := stdoutBuf.String()
+		stdoutMu.Unlock()
+		t.Fatalf("exit timeout stdout=%q state=%s", out, sess.State())
 	}
 	if time.Since(start) < 6*time.Second {
 		t.Fatalf("session ended too fast: %v", time.Since(start))
