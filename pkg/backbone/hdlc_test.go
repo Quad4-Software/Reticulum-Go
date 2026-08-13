@@ -30,6 +30,51 @@ func TestEscapeHDLCRoundTrip(t *testing.T) {
 	}
 }
 
+func TestAppendFrameHDLCEqualsFrameHDLC(t *testing.T) {
+	payloads := [][]byte{
+		bytes.Repeat([]byte{0x01}, 20),
+		{0x42, hdlcFlag, hdlcEsc, 0x00},
+		bytes.Repeat([]byte{0x7E, 0x7D, 0x01}, 40),
+	}
+	for i, p := range payloads {
+		got := appendFrameHDLC(nil, p)
+		want := frameHDLC(p)
+		if !bytes.Equal(got, want) {
+			t.Fatalf("case %d: append != frame\n got=%x\nwant=%x", i, got, want)
+		}
+		reuse := make([]byte, 8)
+		got = appendFrameHDLC(reuse[:0], p)
+		if !bytes.Equal(got, want) {
+			t.Fatalf("case %d reuse: append != frame", i)
+		}
+	}
+}
+
+func TestHDLCDecoderBatchManyFrames(t *testing.T) {
+	const n = 64
+	var got [][]byte
+	d := NewHDLCDecoder(4096, func(pkt []byte) {
+		got = append(got, append([]byte(nil), pkt...))
+	})
+	var blob []byte
+	want := make([][]byte, n)
+	for i := range n {
+		p := bytes.Repeat([]byte{byte(i + 1)}, 24)
+		p[0], p[1] = hdlcFlag, hdlcEsc
+		want[i] = p
+		blob = append(blob, frameHDLC(p)...)
+	}
+	d.Feed(blob)
+	if len(got) != n {
+		t.Fatalf("got %d frames want %d", len(got), n)
+	}
+	for i := range n {
+		if !bytes.Equal(got[i], want[i]) {
+			t.Fatalf("frame %d mismatch", i)
+		}
+	}
+}
+
 func TestFrameHDLCBoundaries(t *testing.T) {
 	payload := []byte{0x42, hdlcFlag, hdlcEsc, 0x00}
 	frame := frameHDLC(payload)

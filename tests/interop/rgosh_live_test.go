@@ -242,7 +242,7 @@ func TestLiveGoForcedCommand(t *testing.T) {
 
 	clientOK := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "-N", "-m", "-w", "20", hex.EncodeToString(destHash))
 	clientOK.Stdin = bytes.NewReader(nil)
-	out, err := clientOK.CombinedOutput()
+	out, err = clientOK.CombinedOutput()
 	if !bytes.Contains(out, []byte("forced-only")) {
 		t.Fatalf("expected default command output, err=%v out=%s", err, out)
 	}

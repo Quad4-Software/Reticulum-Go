@@ -6,6 +6,7 @@ package backbone
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net"
 	"runtime"
 	"sync"
@@ -416,6 +417,83 @@ func TestHubWireFormatMatchesInterfacesPackage(t *testing.T) {
 	}
 }
 
+func TestHubBurstManyFramesOneWrite(t *testing.T) {
+	hub := testHubWithBackend(t, BackendGo)
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = ln.Close() })
+
+	const n = 128
+	got := make(chan []byte, n)
+	if err := hub.RegisterListener(ln, func(conn net.Conn) {
+		_, err := hub.RegisterStream(conn, 500, func(frame []byte) {
+			got <- append([]byte(nil), frame...)
+		}, nil)
+		if err != nil {
+			t.Errorf("register: %v", err)
+		}
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	c, err := net.Dial("tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+
+	var blob []byte
+	want := make([][]byte, n)
+	for i := range n {
+		p := bytes.Repeat([]byte{byte(i + 20)}, 24)
+		p[2], p[3] = hdlcFlag, hdlcEsc
+		want[i] = p
+		blob = append(blob, frameHDLC(p)...)
+	}
+	if _, err := c.Write(blob); err != nil {
+		t.Fatal(err)
+	}
+
+	deadline := time.After(3 * time.Second)
+	var frames [][]byte
+	for len(frames) < n {
+		select {
+		case f := <-got:
+			frames = append(frames, f)
+		case <-deadline:
+			t.Fatalf("got %d frames want %d", len(frames), n)
+		}
+	}
+	for i := range n {
+		if !bytes.Equal(frames[i], want[i]) {
+			t.Fatalf("frame %d mismatch", i)
+		}
+	}
+}
+
+func TestRequeueUnwrittenCompactsRemainder(t *testing.T) {
+	s := &Stream{}
+	s.requeueUnwritten([]byte{1, 2, 3, 4, 5}, 2, nil)
+	if !bytes.Equal(s.txBuf, []byte{3, 4, 5}) {
+		t.Fatalf("partial write remainder=%v", s.txBuf)
+	}
+	s.requeueUnwritten([]byte{9, 8}, 2, nil)
+	if !bytes.Equal(s.txBuf, []byte{3, 4, 5}) {
+		t.Fatalf("full write must keep queued %v", s.txBuf)
+	}
+	s.txBuf = nil
+	s.requeueUnwritten([]byte{1, 2, 3}, 3, nil)
+	if s.txBuf == nil || len(s.txBuf) != 0 {
+		t.Fatalf("full write with empty queue should reuse cap, len=%d", len(s.txBuf))
+	}
+	s.requeueUnwritten([]byte{7, 8, 9}, 0, io.ErrShortWrite)
+	if !bytes.Equal(s.txBuf, []byte{7, 8, 9}) {
+		t.Fatalf("zero-write error should requeue all %v", s.txBuf)
+	}
+}
+
 func BenchmarkHubEcho(b *testing.B) {
 	for _, backend := range []Backend{BackendGo, DefaultBackend()} {
 		b.Run(string(backend), func(b *testing.B) {
@@ -508,6 +586,18 @@ func BenchmarkFrameHDLC(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		_ = frameHDLC(data)
+	}
+}
+
+func BenchmarkAppendFrameHDLC(b *testing.B) {
+	data := make([]byte, 1024)
+	for i := range data {
+		data[i] = byte(i)
+	}
+	dst := make([]byte, 0, 2048)
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		dst = appendFrameHDLC(dst[:0], data)
 	}
 }
 

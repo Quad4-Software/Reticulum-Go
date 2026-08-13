@@ -13,6 +13,15 @@ import (
 	"quad4/reticulum-go/pkg/protect"
 )
 
+func occupyHandlerPool(t *testing.T, tr *Transport) {
+	t.Helper()
+	hold := make(chan struct{})
+	if n := tr.occupyHandlerPoolForTest(hold); n == 0 {
+		t.Fatal("handler pool not occupied")
+	}
+	t.Cleanup(func() { close(hold) })
+}
+
 func TestHandlePacketProtectPreventShedsOnSemFull(t *testing.T) {
 	t.Cleanup(func() { protect.SetDefault(nil) })
 	health.Default.Reset()
@@ -23,7 +32,7 @@ func TestHandlePacketProtectPreventShedsOnSemFull(t *testing.T) {
 		WarnInterval: time.Hour,
 	})
 
-	cfg := &common.ReticulumConfig{EnableTransport: true, DoSProtection: "off"}
+	cfg := &common.ReticulumConfig{EnableTransport: true, DoSProtection: "off", MaxPacketHandlers: 4}
 	tr := NewTransport(cfg)
 	protect.SetDefault(e)
 	t.Cleanup(func() {
@@ -31,18 +40,7 @@ func TestHandlePacketProtectPreventShedsOnSemFull(t *testing.T) {
 		protect.SetDefault(nil)
 	})
 
-	// Fill the handler semaphore so HandlePacket takes the overflow path.
-	for range MaxConcurrentPacketHandlers {
-		tr.packetHandleSem <- struct{}{}
-	}
-	t.Cleanup(func() {
-		for range MaxConcurrentPacketHandlers {
-			select {
-			case <-tr.packetHandleSem:
-			default:
-			}
-		}
-	})
+	occupyHandlerPool(t, tr)
 
 	iface := common.NewBaseInterface("flood0", common.IFTypeUDP, true)
 	pkt := []byte{0x00, 0x00, 0x01}
@@ -64,24 +62,14 @@ func TestHandlePacketProtectDetectShedsOnSemFull(t *testing.T) {
 		WarnWriter:   &buf,
 		WarnInterval: time.Hour,
 	})
-	cfg := &common.ReticulumConfig{EnableTransport: true, DoSProtection: "detect"}
+	cfg := &common.ReticulumConfig{EnableTransport: true, DoSProtection: "detect", MaxPacketHandlers: 4}
 	tr := NewTransport(cfg)
 	protect.SetDefault(e)
 	t.Cleanup(func() {
 		_ = tr.Close()
 		protect.SetDefault(nil)
 	})
-	for range MaxConcurrentPacketHandlers {
-		tr.packetHandleSem <- struct{}{}
-	}
-	t.Cleanup(func() {
-		for range MaxConcurrentPacketHandlers {
-			select {
-			case <-tr.packetHandleSem:
-			default:
-			}
-		}
-	})
+	occupyHandlerPool(t, tr)
 	iface := common.NewBaseInterface("flood1", common.IFTypeUDP, true)
 	tr.HandlePacket([]byte{0x00, 0x00, 0x01}, &iface)
 	if e.TripCount(protect.ReasonHandler) == 0 {
@@ -98,24 +86,14 @@ func TestHandlePacketProtectAutoLearningShedsOnSemFull(t *testing.T) {
 		WarnInterval:         time.Hour,
 		AutoLearnMinDuration: time.Hour,
 	})
-	cfg := &common.ReticulumConfig{EnableTransport: true, DoSProtection: "auto"}
+	cfg := &common.ReticulumConfig{EnableTransport: true, DoSProtection: "auto", MaxPacketHandlers: 4}
 	tr := NewTransport(cfg)
 	protect.SetDefault(e)
 	t.Cleanup(func() {
 		_ = tr.Close()
 		protect.SetDefault(nil)
 	})
-	for range MaxConcurrentPacketHandlers {
-		tr.packetHandleSem <- struct{}{}
-	}
-	t.Cleanup(func() {
-		for range MaxConcurrentPacketHandlers {
-			select {
-			case <-tr.packetHandleSem:
-			default:
-			}
-		}
-	})
+	occupyHandlerPool(t, tr)
 	iface := common.NewBaseInterface("flood2", common.IFTypeUDP, true)
 	tr.HandlePacket([]byte{0x00, 0x00, 0x01}, &iface)
 	if e.TripCount(protect.ReasonHandler) == 0 {

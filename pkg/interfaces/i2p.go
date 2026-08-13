@@ -675,6 +675,7 @@ func (peer *I2PInterfacePeer) readLoop() {
 		feed = decoder.feed
 	}
 
+	buf := make([]byte, streamReadSize(peer.MTU))
 	for {
 		select {
 		case <-peer.done:
@@ -687,7 +688,6 @@ func (peer *I2PInterfacePeer) readLoop() {
 		if conn == nil {
 			return
 		}
-		buf := make([]byte, peer.MTU)
 		n, err := conn.Read(buf)
 		if err != nil || n == 0 {
 			peer.Mutex.Lock()

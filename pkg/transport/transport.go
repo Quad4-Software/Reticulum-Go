@@ -141,7 +141,10 @@ type Transport struct {
 	destinations          map[hash16]registeredDestination
 	announceRate          *rate.Limiter
 	seenAnnounces         map[[32]byte]time.Time
-	packetHandleSem       chan struct{}
+	packetQ               chan packetJob
+	handlerN              int
+	handlerOnce           sync.Once
+	handlerWG             sync.WaitGroup
 	pendingAnnounceJobs   []delayedAnnounceJob
 	pendingAnnounceMu     sync.Mutex
 	pathfinder            *pathfinder.PathFinder
@@ -266,7 +269,6 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		interfaces:            make(map[string]common.NetworkInterface),
 		paths:                 make(map[[PathMapKeySize]byte]*common.Path),
 		seenAnnounces:         make(map[[32]byte]time.Time),
-		packetHandleSem:       make(chan struct{}, MaxConcurrentPacketHandlers),
 		announceRate:          rate.NewLimiter(rate.DefaultBurstFreq, AnnounceRateKbps),
 		mutex:                 sync.RWMutex{},
 		config:                cfg,
@@ -351,6 +353,13 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		inMemoryKnown = true
 	}
 	identity.InitKnownDestinationsPersistence(configPath(cfg), inMemoryKnown)
+
+	handlers := common.DefaultMaxPacketHandlers
+	if cfg != nil {
+		handlers = cfg.EffectiveMaxPacketHandlers()
+	}
+	t.handlerN = handlers
+	t.packetQ = make(chan packetJob, handlers)
 
 	return t
 }
@@ -890,6 +899,8 @@ func (t *Transport) Close() error {
 	t.stopOnce.Do(func() {
 		close(t.done)
 	})
+	t.handlerOnce.Do(func() {})
+	t.handlerWG.Wait()
 
 	if e := protect.Default(); e != nil {
 		e.StopMemoryMonitor()
@@ -1508,70 +1519,20 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 		}
 	}
 
-	dispatch := func(payload []byte) {
-		switch packetType {
-		case PacketTypeAnnounce:
-			debug.Log(debug.DebugVerbose, "Processing announce packet")
-			if err := t.handleAnnouncePacket(payload, iface); err != nil {
-				debug.Log(debug.DebugInfo, "Announce handling failed", "error", err)
-			}
-		case PacketTypeLink:
-			debug.Log(debug.DebugVerbose, "Processing link packet (type=0x02)", "packet_size", len(payload))
-			t.handleLinkPacket(payload, iface, PacketTypeLink)
-		case packet.PacketTypeProof:
-			debug.Log(debug.DebugVerbose, "Processing proof packet")
-			pkt := &packet.Packet{Raw: payload}
-			if err := pkt.Unpack(); err != nil {
-				debug.Log(debug.DebugInfo, "Failed to unpack proof packet", "error", err)
-				ifaceName := ""
-				if iface != nil {
-					ifaceName = iface.GetName()
-				}
-				health.Inc(ifaceName, health.KindUnpackFail)
-				return
-			}
-			t.handleProofPacket(pkt, iface)
-		case 0:
-			if destType == DestTypeLink {
-				debug.Log(debug.DebugVerbose, "Processing link data packet (dest_type=3)", "packet_size", len(payload))
-				t.handleLinkPacket(payload, iface, 0)
-			} else {
-				debug.Log(debug.DebugVerbose, "Processing data packet (type 0x00)", "packet_size", len(payload), "dest_type", destType, "header_type", headerType)
-				t.handleTransportPacket(payload, iface)
-			}
-		default:
-			debug.Log(debug.DebugInfo, "Unknown packet type", "type", fmt.Sprintf("0x%02x", packetType), "source", iface.GetName())
-		}
+	pc := getPacketCopy(len(data))
+	copy(pc.buf, data)
+	job := packetJob{
+		pc:         pc,
+		iface:      iface,
+		packetType: packetType,
+		destType:   destType,
+		headerType: headerType,
 	}
-
-	select {
-	case t.packetHandleSem <- struct{}{}:
-		pc := getPacketCopy(len(data))
-		copy(pc.buf, data)
-		go func() {
-			defer func() { <-t.packetHandleSem }()
-			defer putPacketCopy(pc)
-			dispatch(pc.buf)
-		}()
-	default:
-		ifaceName := ""
-		if iface != nil {
-			ifaceName = iface.GetName()
-		}
-		d := protect.AdmitHandler(ifaceName)
-		if !d.Allow {
-			return
-		}
-		if protect.Default().Mode() == protect.ModeOff {
-			pc := getPacketCopy(len(data))
-			copy(pc.buf, data)
-			func() {
-				defer putPacketCopy(pc)
-				dispatch(pc.buf)
-			}()
-		}
+	if t.enqueuePacket(job) {
 		return
 	}
+	putPacketCopy(pc)
+	t.shedHandlerOverflow(iface, data, packetType, destType, headerType)
 }
 
 func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterface) error {

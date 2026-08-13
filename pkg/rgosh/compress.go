@@ -39,10 +39,7 @@ func compressAdaptive(buf []byte, maxData int) (chunk []byte, consumed int, comp
 	if maxData <= StreamHeaderSize {
 		maxData = MaxStreamChunk
 	}
-	maxPayload := max(maxData-StreamHeaderSize, 1)
-	if maxPayload > MaxStreamChunk {
-		maxPayload = MaxStreamChunk
-	}
+	maxPayload := min(max(maxData-StreamHeaderSize, 1), MaxStreamChunk)
 	n := len(buf)
 	if n == 0 {
 		return nil, 0, false

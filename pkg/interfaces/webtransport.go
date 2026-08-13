@@ -475,10 +475,11 @@ func (wc *WebTransportClientInterface) streamReadLoop() {
 		wc.StreamFramesRX.Add(1)
 		wc.ProcessIncoming(payload)
 	})
-	if cap(wc.readBuf) < wc.MTU {
-		wc.readBuf = make([]byte, wc.MTU)
+	n := streamReadSize(wc.MTU)
+	if cap(wc.readBuf) < n {
+		wc.readBuf = make([]byte, n)
 	}
-	buffer := wc.readBuf[:wc.MTU]
+	buffer := wc.readBuf[:n]
 	for {
 		wc.Mutex.RLock()
 		conn := wc.conn
@@ -590,7 +591,7 @@ func (wc *WebTransportClientInterface) readHDLCStream(stream *webtransport.Strea
 		wc.StreamFramesRX.Add(1)
 		wc.ProcessIncoming(payload)
 	})
-	buf := make([]byte, wc.MTU)
+	buf := make([]byte, streamReadSize(wc.MTU))
 	for {
 		wc.Mutex.RLock()
 		done := wc.done
@@ -897,7 +898,7 @@ func (ws *WebTransportServerInterface) readHDLCStream(stream *webtransport.Strea
 		ws.StreamFramesRX.Add(1)
 		ws.ProcessIncoming(payload)
 	})
-	buf := make([]byte, ws.MTU)
+	buf := make([]byte, streamReadSize(ws.MTU))
 	for {
 		ws.Mutex.RLock()
 		done := ws.done

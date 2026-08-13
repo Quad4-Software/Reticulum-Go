@@ -282,6 +282,9 @@ type ReticulumConfig struct {
 	// Auto learns quietly persists baselines via msgpack then arms prevent and relearns on change.
 	DoSProtection string
 
+	// DoSProtectionSet is true when dos_protection appeared in the config file.
+	DoSProtectionSet bool
+
 	DoSMaxPPS       float64
 	DoSMaxBPS       float64
 	DoSFloorPPS     float64
@@ -298,11 +301,13 @@ type ReticulumConfig struct {
 
 	// MaxInMemoryPaths caps the live path table in RAM. Zero uses
 	// DefaultMaxInMemoryPaths. Negative disables the cap.
-	MaxInMemoryPaths int
+	MaxInMemoryPaths    int
+	MaxInMemoryPathsSet bool
 
 	// MaxInMemoryKnownDestinations caps known destinations in RAM. Zero uses
 	// DefaultMaxInMemoryKnownDestinations. Negative disables the cap.
-	MaxInMemoryKnownDestinations int
+	MaxInMemoryKnownDestinations    int
+	MaxInMemoryKnownDestinationsSet bool
 
 	// MaxInMemoryResourceBytes caps staged split-resource bytes when
 	// in-memory storage is active. Zero uses DefaultMaxInMemoryResourceBytes.
@@ -312,18 +317,30 @@ type ReticulumConfig struct {
 	// MaxPacketHashlist caps the packet hash loop filter. Zero selects a
 	// default from EnableTransport. Negative forces the full transport-sized
 	// default. Positive is an explicit entry budget.
-	MaxPacketHashlist int
+	MaxPacketHashlist    int
+	MaxPacketHashlistSet bool
+
+	// MaxPacketHandlers is the HandlePacket worker count and queue depth.
+	// Zero uses DefaultMaxPacketHandlers (512).
+	MaxPacketHandlers    int
+	MaxPacketHandlersSet bool
+
+	// NodeProfile selects a Go-only overlay that fills unset knobs:
+	// default, core_router, or embedded.
+	NodeProfile string
 
 	// BackboneIO selects the kernel I/O multiplexer for backbone and local shared
 	// instance sockets: auto, epoll, kqueue, io_uring, or go.
-	BackboneIO string
+	BackboneIO    string
+	BackboneIOSet bool
 
 	// DiscoverInterfaces enables rnstransport discovery listening and
 	// AutoInterface NIC rescan when supported.
 	DiscoverInterfaces bool
 
 	// WatchInterfaces enables periodic NIC monitoring via net.Interfaces where supported.
-	WatchInterfaces bool
+	WatchInterfaces    bool
+	WatchInterfacesSet bool
 
 	// StaticTransportIdentity keeps the persisted transport identity on the
 	// wire even when enable_transport is no. When false and transport is

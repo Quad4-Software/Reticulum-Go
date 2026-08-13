@@ -29,6 +29,22 @@ const (
 	// DefaultMaxPacketHashlistClient is the hashlist cap when transport is off.
 	// Client nodes still see mesh traffic but do not need a million-entry filter.
 	DefaultMaxPacketHashlistClient = 100_000
+
+	// DefaultMaxPacketHandlers is the HandlePacket worker count and queue depth.
+	DefaultMaxPacketHandlers = 512
+
+	// CoreRouterMaxInMemoryPaths is the path-table cap applied by node_profile=core_router
+	// when max_in_memory_paths is unset.
+	CoreRouterMaxInMemoryPaths = 500_000
+
+	// EmbeddedMaxPacketHandlers is the handler pool size for node_profile=embedded.
+	EmbeddedMaxPacketHandlers = 32
+	// EmbeddedMaxInMemoryPaths is the path-table cap for node_profile=embedded.
+	EmbeddedMaxInMemoryPaths = 4096
+	// EmbeddedMaxInMemoryKnownDestinations is the known-dest cap for embedded.
+	EmbeddedMaxInMemoryKnownDestinations = 4096
+	// EmbeddedMaxPacketHashlist is the hashlist cap for embedded.
+	EmbeddedMaxPacketHashlist = 10_000
 )
 
 // ApplyPersistenceEnv overrides persistence-related config from environment
@@ -164,6 +180,15 @@ func (c *ReticulumConfig) EffectiveMaxPacketHashlist() int {
 		return DefaultMaxPacketHashlist
 	}
 	return DefaultMaxPacketHashlistClient
+}
+
+// EffectiveMaxPacketHandlers returns the HandlePacket worker count and queue
+// depth. Zero uses DefaultMaxPacketHandlers. Negative also uses the default.
+func (c *ReticulumConfig) EffectiveMaxPacketHandlers() int {
+	if c == nil || c.MaxPacketHandlers <= 0 {
+		return DefaultMaxPacketHandlers
+	}
+	return c.MaxPacketHandlers
 }
 
 // ParseByteSize parses a decimal byte count with an optional K, M, or G suffix

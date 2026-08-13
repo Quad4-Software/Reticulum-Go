@@ -279,10 +279,11 @@ func (tc *TCPClientInterface) readLoop() {
 		decoder := newTCPHDLCStreamDecoder(tc.MTU, tc.handlePacket)
 		feed = decoder.feed
 	}
-	if cap(tc.readBuf) < tc.MTU {
-		tc.readBuf = make([]byte, tc.MTU)
+	n := streamReadSize(tc.MTU)
+	if cap(tc.readBuf) < n {
+		tc.readBuf = make([]byte, n)
 	}
-	buffer := tc.readBuf[:tc.MTU]
+	buffer := tc.readBuf[:n]
 
 	for {
 		tc.Mutex.RLock()
@@ -740,7 +741,7 @@ func (ts *TCPServerInterface) readFramedLoop(conn net.Conn) {
 		decoder := newTCPHDLCStreamDecoder(ts.MTU, onFrame)
 		feed = decoder.feed
 	}
-	buf := make([]byte, ts.MTU)
+	buf := make([]byte, streamReadSize(ts.MTU))
 
 	for {
 		ts.Mutex.RLock()

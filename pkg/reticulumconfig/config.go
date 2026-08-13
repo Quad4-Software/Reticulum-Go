@@ -265,6 +265,7 @@ func LoadConfig(path string) (*common.ReticulumConfig, error) {
 	}
 
 	cfg.NormalizeInMemoryFlags()
+	cfg.ApplyNodeProfile()
 	return cfg, nil
 }
 
@@ -351,6 +352,7 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 				v = "auto"
 			}
 			cfg.DoSProtection = v
+			cfg.DoSProtectionSet = true
 		}
 	case "dos_max_pps":
 		setFloat(value, &cfg.DoSMaxPPS)
@@ -374,20 +376,35 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		setInt(value, &cfg.DoSMaxHandshake)
 	case "max_in_memory_paths":
 		setInt(value, &cfg.MaxInMemoryPaths)
+		cfg.MaxInMemoryPathsSet = true
 	case "max_in_memory_known_destinations":
 		setInt(value, &cfg.MaxInMemoryKnownDestinations)
+		cfg.MaxInMemoryKnownDestinationsSet = true
 	case "max_in_memory_resource_bytes":
 		if n, err := common.ParseByteSize(value); err == nil {
 			cfg.MaxInMemoryResourceBytes = n
 		}
 	case "max_packet_hashlist":
 		setInt(value, &cfg.MaxPacketHashlist)
+		cfg.MaxPacketHashlistSet = true
+	case "max_packet_handlers":
+		setInt(value, &cfg.MaxPacketHandlers)
+		cfg.MaxPacketHandlersSet = true
+	case "node_profile":
+		v := strings.ToLower(strings.TrimSpace(value))
+		switch v {
+		case common.NodeProfileDefault, common.NodeProfileCoreRouter, common.NodeProfileEmbedded, "":
+			cfg.NodeProfile = v
+		}
 	case "discover_interfaces":
 		setBool(&cfg.DiscoverInterfaces, value)
 	case "watch_interfaces":
-		setBool(&cfg.WatchInterfaces, value)
+		if setBool(&cfg.WatchInterfaces, value) {
+			cfg.WatchInterfacesSet = true
+		}
 	case "backbone_io", "io_backend":
 		cfg.BackboneIO = strings.TrimSpace(value)
+		cfg.BackboneIOSet = true
 	case "static_transport_identity":
 		setBool(&cfg.StaticTransportIdentity, value)
 	case "local_hops_delta":
@@ -794,6 +811,9 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	fmt.Fprintf(&b, "  in_memory_path_table = %s\n", boolStr(cfg.InMemoryPathTable))
 	fmt.Fprintf(&b, "  in_memory_known_destinations = %s\n", boolStr(cfg.InMemoryKnownDestinations))
 	fmt.Fprintf(&b, "  in_memory_storage = %s\n", boolStr(cfg.InMemoryStorage))
+	if cfg.NodeProfile != "" && cfg.NodeProfile != common.NodeProfileDefault {
+		fmt.Fprintf(&b, "  node_profile = %s\n", cfg.NodeProfile)
+	}
 	if cfg.IdentityBackend != "" {
 		fmt.Fprintf(&b, "  identity_backend = %s\n", cfg.IdentityBackend)
 	}
@@ -840,6 +860,9 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	}
 	if cfg.MaxPacketHashlist != 0 {
 		fmt.Fprintf(&b, "  max_packet_hashlist = %d\n", cfg.MaxPacketHashlist)
+	}
+	if cfg.MaxPacketHandlers != 0 {
+		fmt.Fprintf(&b, "  max_packet_handlers = %d\n", cfg.MaxPacketHandlers)
 	}
 	fmt.Fprintf(&b, "  discover_interfaces = %s\n", boolStr(cfg.DiscoverInterfaces))
 	fmt.Fprintf(&b, "  watch_interfaces = %s\n", boolStr(cfg.WatchInterfaces))

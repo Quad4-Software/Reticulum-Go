@@ -303,10 +303,11 @@ func (qc *QUICClientInterface) readLoop() {
 		}
 		qc.ProcessIncoming(payload)
 	})
-	if cap(qc.readBuf) < qc.MTU {
-		qc.readBuf = make([]byte, qc.MTU)
+	n := streamReadSize(qc.MTU)
+	if cap(qc.readBuf) < n {
+		qc.readBuf = make([]byte, n)
 	}
-	buffer := qc.readBuf[:qc.MTU]
+	buffer := qc.readBuf[:n]
 	for {
 		qc.Mutex.RLock()
 		conn := qc.conn
@@ -543,7 +544,7 @@ func (qs *QUICServerInterface) readHDLCLoop(conn net.Conn) {
 		}
 		qs.ProcessIncomingFrom(payload, peerKey)
 	})
-	buf := make([]byte, qs.MTU)
+	buf := make([]byte, streamReadSize(qs.MTU))
 	for {
 		qs.Mutex.RLock()
 		done := qs.done

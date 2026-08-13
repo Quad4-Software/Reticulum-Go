@@ -417,10 +417,11 @@ func (lc *LocalClientInterface) readLoop() {
 
 func (lc *LocalClientInterface) runHDLCLoop(onFrame func([]byte)) {
 	decoder := newHDLCStreamDecoder(lc.MTU, onFrame)
-	if cap(lc.readBuf) < lc.MTU {
-		lc.readBuf = make([]byte, lc.MTU)
+	n := streamReadSize(lc.MTU)
+	if cap(lc.readBuf) < n {
+		lc.readBuf = make([]byte, n)
 	}
-	buffer := lc.readBuf[:lc.MTU]
+	buffer := lc.readBuf[:n]
 
 	for {
 		lc.Mutex.RLock()

@@ -94,15 +94,25 @@ func escapeHDLC(data []byte) []byte {
 			need++
 		}
 	}
-	escaped := make([]byte, 0, need)
+	return appendEscapeHDLC(make([]byte, 0, need), data)
+}
+
+func appendEscapeHDLC(dst, data []byte) []byte {
 	for _, b := range data {
 		if b == hdlcFlag || b == hdlcEsc {
-			escaped = append(escaped, hdlcEsc, b^hdlcEscMask)
+			dst = append(dst, hdlcEsc, b^hdlcEscMask)
 		} else {
-			escaped = append(escaped, b)
+			dst = append(dst, b)
 		}
 	}
-	return escaped
+	return dst
+}
+
+// appendFrameHDLC appends a complete HDLC frame to dst.
+func appendFrameHDLC(dst, payload []byte) []byte {
+	dst = append(dst, hdlcFlag)
+	dst = appendEscapeHDLC(dst, payload)
+	return append(dst, hdlcFlag)
 }
 
 func unescapeHDLC(data []byte) []byte {
@@ -124,9 +134,5 @@ func unescapeHDLC(data []byte) []byte {
 }
 
 func frameHDLC(payload []byte) []byte {
-	frame := make([]byte, 0, len(payload)+2)
-	frame = append(frame, hdlcFlag)
-	frame = append(frame, escapeHDLC(payload)...)
-	frame = append(frame, hdlcFlag)
-	return frame
+	return appendFrameHDLC(make([]byte, 0, len(payload)*2+2), payload)
 }

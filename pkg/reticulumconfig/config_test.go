@@ -541,6 +541,48 @@ func TestLoadConfig_DoSProtection(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_NodeProfileCoreRouterDoesNotOverrideDos(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	writeFile(t, path, `[reticulum]
+  node_profile = core_router
+  dos_protection = detect
+  max_packet_handlers = 9
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.NodeProfile != common.NodeProfileCoreRouter {
+		t.Fatalf("NodeProfile=%q", cfg.NodeProfile)
+	}
+	if cfg.DoSProtection != "detect" {
+		t.Fatalf("explicit dos overwritten to %q", cfg.DoSProtection)
+	}
+	if cfg.MaxPacketHandlers != 9 {
+		t.Fatalf("handlers=%d want 9", cfg.MaxPacketHandlers)
+	}
+	if !cfg.WatchInterfaces {
+		t.Fatal("core_router should enable watch_interfaces when unset")
+	}
+}
+
+func TestLoadConfig_NodeProfileCoreRouterFillsDos(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	writeFile(t, path, `[reticulum]
+  node_profile = core_router
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.DoSProtection != "prevent" {
+		t.Fatalf("dos=%q want prevent", cfg.DoSProtection)
+	}
+	if cfg.MaxPacketHandlers < common.DefaultMaxPacketHandlers {
+		t.Fatalf("handlers=%d", cfg.MaxPacketHandlers)
+	}
+}
+
 // TestLoadConfig_EnableSandbox verifies the parser recognises the
 // enable_sandbox key and that both truthy and falsy values are handled.
 func TestLoadConfig_EnableSandbox(t *testing.T) {

@@ -208,10 +208,7 @@ func (h *Hub) RegisterStream(conn net.Conn, mtu int, onFrame func([]byte), onClo
 
 func (h *Hub) goReadLoop(s *Stream) {
 	defer h.wg.Done()
-	buf := make([]byte, s.mtu)
-	if len(buf) == 0 {
-		buf = make([]byte, 1<<20)
-	}
+	buf := make([]byte, streamReadSize(s.mtu))
 	for !s.closed.Load() {
 		select {
 		case <-h.stop:
@@ -232,18 +229,18 @@ func (s *Stream) QueueSend(payload []byte) {
 	if s == nil || s.closed.Load() {
 		return
 	}
-	frame := frameHDLC(payload)
 	if s.hub.goMode {
 		s.mu.Lock()
-		s.txBuf = append(s.txBuf, frame...)
-		buf := append([]byte(nil), s.txBuf...)
-		s.txBuf = s.txBuf[:0]
+		s.txBuf = appendFrameHDLC(s.txBuf, payload)
+		buf := s.txBuf
+		s.txBuf = nil
 		s.mu.Unlock()
-		_, _ = s.conn.Write(buf)
+		written, err := s.conn.Write(buf)
+		s.requeueUnwritten(buf, written, err)
 		return
 	}
 	s.mu.Lock()
-	s.txBuf = append(s.txBuf, frame...)
+	s.txBuf = appendFrameHDLC(s.txBuf, payload)
 	needOut := !s.wantOut && len(s.txBuf) > 0
 	if needOut {
 		s.wantOut = true
@@ -251,6 +248,28 @@ func (s *Stream) QueueSend(payload []byte) {
 	s.mu.Unlock()
 	if needOut {
 		s.hub.pollerMod(s.fd, evRead|evWrite)
+	}
+}
+
+func (s *Stream) requeueUnwritten(buf []byte, written int, err error) {
+	if s == nil {
+		return
+	}
+	if written < 0 {
+		written = 0
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err != nil && written == 0 {
+		s.txBuf = append(buf, s.txBuf...)
+		return
+	}
+	if written < len(buf) {
+		s.txBuf = append(buf[written:], s.txBuf...)
+		return
+	}
+	if s.txBuf == nil {
+		s.txBuf = buf[:0]
 	}
 }
 
@@ -384,11 +403,7 @@ func (h *Hub) readStream(s *Stream, buf []byte) {
 	if s.closed.Load() {
 		return
 	}
-	n := len(buf)
-	if s.mtu > 0 && s.mtu < n {
-		n = s.mtu
-	}
-	readN, err := s.conn.Read(buf[:n])
+	readN, err := s.conn.Read(buf)
 	if err != nil {
 		if err == io.EOF {
 			s.Close()
@@ -408,22 +423,32 @@ func (h *Hub) writeStream(s *Stream) {
 		h.pollerMod(s.fd, evRead)
 		return
 	}
-	buf := append([]byte(nil), s.txBuf...)
+	buf := s.txBuf
+	s.txBuf = nil
 	s.mu.Unlock()
 
 	written, err := s.conn.Write(buf)
+	if written < 0 {
+		written = 0
+	}
 	if err != nil && written == 0 {
+		s.mu.Lock()
+		s.txBuf = append(buf, s.txBuf...)
+		s.mu.Unlock()
 		return
 	}
 
 	s.mu.Lock()
-	if written >= len(s.txBuf) {
-		s.txBuf = s.txBuf[:0]
-	} else if written > 0 {
-		s.txBuf = append(s.txBuf[:0], s.txBuf[written:]...)
+	if written < len(buf) {
+		s.txBuf = append(buf[written:], s.txBuf...)
+	} else if s.txBuf == nil {
+		s.txBuf = buf[:0]
 	}
 	if len(s.txBuf) == 0 {
 		s.wantOut = false
+		if s.txBuf == nil {
+			s.txBuf = buf[:0]
+		}
 		s.mu.Unlock()
 		h.pollerMod(s.fd, evRead)
 		return

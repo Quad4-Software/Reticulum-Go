@@ -62,7 +62,7 @@ func TestSendRefusesFullWindow(t *testing.T) {
 	c := NewChannel(link)
 	defer func() { _ = c.Close() }()
 
-	for i := 0; i < WindowInitial; i++ {
+	for i := range WindowInitial {
 		if err := c.Send(&testMessage{data: []byte{byte(i)}}); err != nil {
 			t.Fatalf("setup send %d: %v", i, err)
 		}

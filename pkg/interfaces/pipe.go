@@ -55,7 +55,7 @@ func NewPipeInterface(name, command string, enabled bool, respawnDelay time.Dura
 		done:          make(chan struct{}),
 		panicOnError:  panicOnError,
 		txFrame:       make([]byte, 0, pipeHWMTU*2+4),
-		readBuf:       make([]byte, pipeHWMTU),
+		readBuf:       make([]byte, streamReadChunk),
 	}
 	pi.In = true
 	pi.Out = true
@@ -202,11 +202,13 @@ func (pi *PipeInterface) startReadLoop() {
 
 func (pi *PipeInterface) readLoop() {
 	decoder := newHDLCStreamDecoder(pi.MTU, pi.ProcessIncoming)
+	n := streamReadSize(pi.MTU)
 	buffer := pi.readBuf
-	if len(buffer) < pi.MTU {
-		buffer = make([]byte, pi.MTU)
+	if cap(buffer) < n {
+		buffer = make([]byte, n)
 		pi.readBuf = buffer
 	}
+	buffer = buffer[:n]
 
 	for {
 		pi.Mutex.RLock()

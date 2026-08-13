@@ -514,10 +514,7 @@ func (c *Channel) outletMDU() int {
 // MDU is bytes available for a channel message body, matching Python
 // Channel.mdu (outlet MDU minus 6-byte envelope header).
 func (c *Channel) MDU() int {
-	mdu := c.outletMDU() - ChannelHeaderSize
-	if mdu > 0xFFFF {
-		mdu = 0xFFFF
-	}
+	mdu := min(c.outletMDU()-ChannelHeaderSize, 0xFFFF)
 	if mdu < 1 {
 		mdu = 1
 	}
