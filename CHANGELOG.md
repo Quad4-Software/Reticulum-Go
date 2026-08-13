@@ -31,6 +31,9 @@ Wire compatible with Python RNS 1.4.2
 - Handler pool overflow always sheds (no sync dispatch on ingress threads)
 - Fixed HandlePacket worker pool (`max_packet_handlers`, default 512) instead of a goroutine per packet
 - 64 KiB stream reads on TCP/QUIC/VSOCK/WebTransport/I2P/Local/Pipe/backbone with packet-MTU HDLC framing unchanged
+- Announce ingest at default Info matches Critical (~5 allocs, ~50 µs) after demoting per-packet success logs
+- Known destinations stored as structs in RAM (hex msgpack keys only on disk), Identity reused on re-announce
+- Link encrypt uses one result buffer (~9 allocs). Backbone HDLC assembler idle cap is 64 KiB at 1 MiB iface MTU
 - `node_profile` overlay (`core_router` / `embedded`) fills unset knobs only
 - HDLC burst and Unpack hop-gate live Go/Python oracles
 - FreeBSD sandbox SIGHUP re-exec for config reload under CapEnter
