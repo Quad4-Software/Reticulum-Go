@@ -102,10 +102,10 @@ func TestModem73SimulatorControlAndKISS(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer ctrlConn.Close()
-	if err := modem73WriteControl(ctrlConn, map[string]any{"cmd": "get_config"}); err != nil {
+	if err := writeModem73Control(ctrlConn, map[string]any{"cmd": "get_config"}); err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := modem73ReadControl(ctrlConn)
+	cfg, err := readModem73Control(ctrlConn)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,14 +113,14 @@ func TestModem73SimulatorControlAndKISS(t *testing.T) {
 	if !ok || ps != 512 {
 		t.Fatalf("payload_size=%v cfg=%v", ps, cfg)
 	}
-	if err := modem73WriteControl(ctrlConn, map[string]any{"cmd": "get_status"}); err != nil {
+	if err := writeModem73Control(ctrlConn, map[string]any{"cmd": "get_status"}); err != nil {
 		t.Fatal(err)
 	}
-	st, err := modem73ReadControl(ctrlConn)
+	st, err := readModem73Control(ctrlConn)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st["audio_connected"] != true {
+	if connected, _ := st["audio_connected"].(bool); !connected {
 		t.Fatalf("status=%v", st)
 	}
 
@@ -138,17 +138,17 @@ func TestModem73SimulatorControlAndKISS(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer aCtrl.Close()
-	if err := modem73WriteControl(aCtrl, map[string]any{
+	if err := writeModem73Control(aCtrl, map[string]any{
 		"cmd":  "tx",
 		"data": base64.StdEncoding.EncodeToString(payload),
 	}); err != nil {
 		t.Fatal(err)
 	}
-	resp, err := modem73ReadControl(aCtrl)
+	resp, err := readModem73Control(aCtrl)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp["ok"] != true {
+	if ok, _ := resp["ok"].(bool); !ok {
 		t.Fatalf("tx resp=%v", resp)
 	}
 
@@ -244,13 +244,13 @@ func TestModem73SimulatorWithInterface(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer ctrl.Close()
-	if err := modem73WriteControl(ctrl, map[string]any{
+	if err := writeModem73Control(ctrl, map[string]any{
 		"cmd":  "tx",
 		"data": base64.StdEncoding.EncodeToString(payload),
 	}); err != nil {
 		t.Fatal(err)
 	}
-	_, _ = modem73ReadControl(ctrl)
+	_, _ = readModem73Control(ctrl)
 
 	deadline = time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {

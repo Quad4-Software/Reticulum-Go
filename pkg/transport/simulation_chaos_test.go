@@ -26,7 +26,7 @@ type delaySimIface struct {
 	wg        sync.WaitGroup
 }
 
-func linkDelay(t testing.TB, s *simNetwork, a, b int, delayAtoB, delayBtoA time.Duration, jitter time.Duration, seed uint64) (*delaySimIface, *delaySimIface) {
+func linkDelay(t testing.TB, s *simNetwork, a, b int, delayAtoB, delayBtoA time.Duration, jitter time.Duration, seed uint64) (ifaceA, ifaceB *delaySimIface) {
 	t.Helper()
 	if a == b {
 		t.Fatalf("cannot link node %d to itself", a)
@@ -125,7 +125,7 @@ type flapSimIface struct {
 	down atomic.Bool
 }
 
-func linkFlap(t testing.TB, s *simNetwork, a, b int) (*flapSimIface, *flapSimIface) {
+func linkFlap(t testing.TB, s *simNetwork, a, b int) (ifaceA, ifaceB *flapSimIface) {
 	t.Helper()
 	if a == b {
 		t.Fatalf("cannot link node %d to itself", a)
@@ -185,7 +185,7 @@ type corruptSimIface struct {
 	mutated  uint64
 }
 
-func linkCorrupt(t testing.TB, s *simNetwork, a, b int, mode corruptMode, prob float64, seed uint64) (*corruptSimIface, *corruptSimIface) {
+func linkCorrupt(t testing.TB, s *simNetwork, a, b int, mode corruptMode, prob float64, seed uint64) (ifaceA, ifaceB *corruptSimIface) {
 	t.Helper()
 	if a == b {
 		t.Fatalf("cannot link node %d to itself", a)

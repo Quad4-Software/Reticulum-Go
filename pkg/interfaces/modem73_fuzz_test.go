@@ -15,7 +15,7 @@ func FuzzModem73ControlFrame(f *testing.F) {
 	frame, _ := modem73EncodeControl(map[string]any{"cmd": "get_config"})
 	f.Add(frame)
 	f.Fuzz(func(t *testing.T, data []byte) {
-		_, _ = modem73ReadControl(bytes.NewReader(data))
+		_, _ = readModem73Control(bytes.NewReader(data))
 		if len(data) >= 4 {
 			n := binary.BigEndian.Uint32(data[:4])
 			if n > modem73MaxControlJSON {

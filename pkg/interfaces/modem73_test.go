@@ -20,7 +20,7 @@ func TestModem73ControlRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := modem73ReadControl(bytes.NewReader(frame))
+	got, err := readModem73Control(bytes.NewReader(frame))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,12 +95,12 @@ func TestModem73FakeDualPort(t *testing.T) {
 			go func(conn net.Conn) {
 				defer conn.Close()
 				for {
-					msg, err := modem73ReadControl(conn)
+					msg, err := readModem73Control(conn)
 					if err != nil {
 						return
 					}
 					if msg["cmd"] == "get_config" {
-						_ = modem73WriteControl(conn, map[string]any{
+						_ = writeModem73Control(conn, map[string]any{
 							"ok":            true,
 							"payload_size":  float64(600),
 							"modem_type":    float64(0),

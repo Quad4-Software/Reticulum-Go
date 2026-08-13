@@ -98,16 +98,16 @@ func TestSendRefusesOversizeEnvelope(t *testing.T) {
 }
 
 func TestStaleRXSequenceWrapWindow(t *testing.T) {
-	if staleRXSequence(5, 10) != true {
+	if !staleRXSequence(5, 10) {
 		t.Fatal("seq 5 must be stale when next is 10")
 	}
-	if staleRXSequence(10, 10) != false {
+	if staleRXSequence(10, 10) {
 		t.Fatal("current next sequence is not stale")
 	}
-	if staleRXSequence(0, 65530) != false {
+	if staleRXSequence(0, 65530) {
 		t.Fatal("seq 0 after wrap must be accepted while next is 65530")
 	}
-	if staleRXSequence(100, 65530) != true {
+	if !staleRXSequence(100, 65530) {
 		t.Fatal("seq 100 must be stale when next is 65530")
 	}
 }

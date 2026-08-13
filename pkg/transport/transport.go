@@ -1289,16 +1289,16 @@ func (t *Transport) dropPathEntryUnlocked(key [PathMapKeySize]byte) {
 // is exceeded. Caller must hold t.mutex. Uses repeated linear scans so a
 // single insert past the cap stays O(n) rather than sorting the whole table.
 func (t *Transport) evictPathsIfNeededUnlocked(now time.Time) {
-	max := 0
+	limit := 0
 	if t.config != nil {
-		max = t.config.EffectiveMaxInMemoryPaths()
+		limit = t.config.EffectiveMaxInMemoryPaths()
 	} else {
-		max = common.DefaultMaxInMemoryPaths
+		limit = common.DefaultMaxInMemoryPaths
 	}
-	if max <= 0 || len(t.paths) <= max {
+	if limit <= 0 || len(t.paths) <= limit {
 		return
 	}
-	for len(t.paths) > max {
+	for len(t.paths) > limit {
 		var oldestKey [PathMapKeySize]byte
 		var oldestTime time.Time
 		first := true

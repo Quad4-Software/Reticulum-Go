@@ -212,7 +212,7 @@ func TestLinkSendResource(t *testing.T) {
 
 	_ = waitEventType(t, wsA, "resource.started", 10*time.Second)
 	concluded := waitEventType(t, wsA, "resource.concluded", 15*time.Second)
-	if concluded["success"] != true {
+	if success, _ := concluded["success"].(bool); !success {
 		t.Fatalf("resource.concluded = %#v", concluded)
 	}
 	if name, _ := concluded["name"].(string); name != "note.txt" {

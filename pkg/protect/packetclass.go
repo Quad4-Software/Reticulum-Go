@@ -68,7 +68,7 @@ func PeekPacketClass(data []byte) PacketClass {
 const refBitrateBPS = 1_000_000
 
 // scaledFloors raises floors on high-bitrate interfaces and lowers them on slow radios.
-func scaledFloors(bitrate int64, floorPPS, floorBPS, maxPPS, maxBPS float64) (float64, float64) {
+func scaledFloors(bitrate int64, floorPPS, floorBPS, maxPPS, maxBPS float64) (pps, bps float64) {
 	if bitrate <= 0 {
 		return floorPPS, floorBPS
 	}
@@ -79,8 +79,8 @@ func scaledFloors(bitrate int64, floorPPS, floorBPS, maxPPS, maxBPS float64) (fl
 	if ratio > 50 {
 		ratio = 50
 	}
-	pps := floorPPS * ratio
-	bps := floorBPS * ratio
+	pps = floorPPS * ratio
+	bps = floorBPS * ratio
 	if pps > maxPPS*0.9 {
 		pps = maxPPS * 0.9
 	}

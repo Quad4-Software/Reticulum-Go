@@ -18,7 +18,7 @@ func TestModem73MTUExploratoryInvariants(t *testing.T) {
 				t.Fatalf("mtu %d below floor", mtu)
 			}
 			if ps >= overhead && mtu < prev && ps-overhead >= floor {
-				// MTU must be non-decreasing once above floor
+				t.Fatalf("mtu decreased: ps=%d oh=%d mtu=%d prev=%d", ps, overhead, mtu, prev)
 			}
 			if ps > overhead {
 				want := max(ps-overhead, floor)
@@ -97,7 +97,7 @@ func TestModem73ControlFuzzSeeds(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := modem73ReadControl(bytes.NewReader(frame)); err != nil {
+		if _, err := readModem73Control(bytes.NewReader(frame)); err != nil {
 			t.Fatal(err)
 		}
 	}

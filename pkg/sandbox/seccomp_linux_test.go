@@ -48,7 +48,7 @@ func TestSeccompPolicyBuilds(t *testing.T) {
 }
 
 func TestSeccompEnabledConfig(t *testing.T) {
-	if seccompEnabled(nil) != true {
+	if !seccompEnabled(nil) {
 		t.Fatal("nil config should enable seccomp")
 	}
 	if seccompEnabled(&common.ReticulumConfig{EnableSandbox: false, EnableSeccomp: true}) {

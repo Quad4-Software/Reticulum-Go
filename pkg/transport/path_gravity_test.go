@@ -58,11 +58,11 @@ func TestRebalancePathHopsDampening(t *testing.T) {
 	tr.mutex.Unlock()
 
 	for i := range rebalanceMaxPerDest {
-		if !tr.rebalancePathHops(dest, uint8(3+i%2), iface) {
+		if !tr.applyPathHopRebalance(dest, uint8(3+i%2), iface) {
 			t.Fatalf("expected rebalance %d to succeed", i)
 		}
 	}
-	if tr.rebalancePathHops(dest, 5, iface) {
+	if tr.applyPathHopRebalance(dest, 5, iface) {
 		t.Fatal("expected dampening to refuse further rebalances in window")
 	}
 }
@@ -90,7 +90,7 @@ func TestRebalancePathHopsRefusesHopIncreaseOntoWeakerGravity(t *testing.T) {
 	tr.updatePathUnlocked(dest, dest, strong.GetName(), 1, nil, nil, now)
 	tr.mutex.Unlock()
 
-	if tr.rebalancePathHops(dest, 4, weak) {
+	if tr.applyPathHopRebalance(dest, 4, weak) {
 		t.Fatal("hop-increasing rebalance onto much weaker gravity should be refused")
 	}
 	tr.mutex.RLock()

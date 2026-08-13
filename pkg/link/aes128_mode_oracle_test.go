@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func oraclePairedLinks(t *testing.T, modeA, modeB byte) (*Link, *Link) {
+func oraclePairedLinks(t *testing.T, modeA, modeB byte) (linkA, linkB *Link) {
 	t.Helper()
 	a := &Link{linkID: bytes.Repeat([]byte{0x0D}, 16)}
 	b := &Link{linkID: bytes.Repeat([]byte{0x0D}, 16)}

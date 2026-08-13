@@ -132,15 +132,15 @@ func packetTransmitted(pkt any) bool {
 // RegisterMessageType registers a user message constructor for inbound dispatch.
 // Types >= 0xf000 are system-reserved and must use RegisterSystemMessageType.
 func (c *Channel) RegisterMessageType(msgType uint16, ctor MessageConstructor) error {
-	return c.registerMessageType(msgType, ctor, false)
+	return c.bindMessageFactory(msgType, ctor, false)
 }
 
 // RegisterSystemMessageType registers a system message constructor (MSGTYPE >= 0xf000).
 func (c *Channel) RegisterSystemMessageType(msgType uint16, ctor MessageConstructor) error {
-	return c.registerMessageType(msgType, ctor, true)
+	return c.bindMessageFactory(msgType, ctor, true)
 }
 
-func (c *Channel) registerMessageType(msgType uint16, ctor MessageConstructor, system bool) error {
+func (c *Channel) bindMessageFactory(msgType uint16, ctor MessageConstructor, system bool) error {
 	if ctor == nil {
 		return errors.New("channel: nil message constructor")
 	}
@@ -514,10 +514,7 @@ func (c *Channel) outletMDU() int {
 // MDU is bytes available for a channel message body, matching Python
 // Channel.mdu (outlet MDU minus 6-byte envelope header).
 func (c *Channel) MDU() int {
-	mdu := min(c.outletMDU()-ChannelHeaderSize, 0xFFFF)
-	if mdu < 1 {
-		mdu = 1
-	}
+	mdu := max(min(c.outletMDU()-ChannelHeaderSize, 0xFFFF), 1)
 	return mdu
 }
 

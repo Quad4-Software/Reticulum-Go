@@ -87,12 +87,12 @@ func TestOraclePageJailAllowsRealFile(t *testing.T) {
 	if err := os.MkdirAll(pages, 0o750); err != nil {
 		t.Fatal(err)
 	}
-	real := filepath.Join(pages, "index.mu")
-	if err := os.WriteFile(real, []byte("hi"), 0o600); err != nil {
+	realFile := filepath.Join(pages, "index.mu")
+	if err := os.WriteFile(realFile, []byte("hi"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
-	got, allowed := resolveJailedPath(pages, real)
+	got, allowed := resolveJailedPath(pages, realFile)
 	if !allowed {
 		t.Fatal("jail rejected a legitimate file inside pages dir")
 	}

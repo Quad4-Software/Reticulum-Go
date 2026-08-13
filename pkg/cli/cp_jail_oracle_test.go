@@ -44,12 +44,12 @@ func TestOracleCPJailAllowsRealFile(t *testing.T) {
 	if err := os.MkdirAll(jail, 0o750); err != nil {
 		t.Fatal(err)
 	}
-	real := filepath.Join(jail, "data.txt")
-	if err := os.WriteFile(real, []byte("hi"), 0o600); err != nil {
+	realFile := filepath.Join(jail, "data.txt")
+	if err := os.WriteFile(realFile, []byte("hi"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
-	got, ok := resolveFetchPath(real, jail)
+	got, ok := resolveFetchPath(realFile, jail)
 	if !ok {
 		t.Fatal("jail rejected a legitimate file inside jail dir")
 	}

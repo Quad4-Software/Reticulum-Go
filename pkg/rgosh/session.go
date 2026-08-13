@@ -267,9 +267,6 @@ func (s *Session) HandleMessage(msg Message) error {
 	case *AuthOKMessage:
 		if !s.cfg.Listener && !s.cfg.Compat {
 			s.authed = true
-			if s.state == StateWaitVers || s.state == StateWaitCmd {
-				// stay in current wait state until version completes
-			}
 		}
 	case *AuthDeniedMessage:
 		s.state = StateTeardown
@@ -285,13 +282,13 @@ func (s *Session) HandleMessage(msg Message) error {
 			}
 		}
 	case *ExecMessage:
-		err, after = s.handleExecLocked(m)
+		after, err = s.handleExecLocked(m)
 	case *StreamMessage:
 		err = s.handleStreamLocked(m)
 	case *WinSizeMessage:
 		err = s.handleWinSizeLocked(m)
 	case *ExitMessage:
-		err, after = s.handleExitLocked(m)
+		after, err = s.handleExitLocked(m)
 	case *ErrorMessage:
 		cb := s.OnError
 		msg, fatal := m.Msg, m.Fatal
@@ -359,20 +356,20 @@ func (s *Session) handleVersionLocked(m *VersionMessage) error {
 	return nil
 }
 
-func (s *Session) handleExecLocked(m *ExecMessage) (error, func()) {
+func (s *Session) handleExecLocked(m *ExecMessage) (func(), error) {
 	if !s.cfg.Listener {
 		return nil, nil
 	}
 	if s.state != StateWaitCmd {
-		return s.denyProtocolLocked("exec before ready"), nil
+		return nil, s.denyProtocolLocked("exec before ready")
 	}
 	if !s.authed && !s.cfg.AllowAll {
-		return s.denyProtocolLocked("exec without auth"), nil
+		return nil, s.denyProtocolLocked("exec without auth")
 	}
 	cmdline := append([]string(nil), m.Cmdline...)
 	if s.cfg.ForcedCommand {
 		if len(cmdline) > 0 {
-			return s.denyProtocolLocked("Remote command line not allowed by listener"), nil
+			return nil, s.denyProtocolLocked("Remote command line not allowed by listener")
 		}
 		cmdline = append([]string(nil), s.cfg.DefaultCmd...)
 	} else if s.cfg.RemoteCmdAsArgs && len(cmdline) > 0 {
@@ -381,7 +378,7 @@ func (s *Session) handleExecLocked(m *ExecMessage) (error, func()) {
 		cmdline = append([]string(nil), s.cfg.DefaultCmd...)
 	}
 	if len(cmdline) == 0 {
-		return s.denyProtocolLocked("empty command"), nil
+		return nil, s.denyProtocolLocked("empty command")
 	}
 	req := ExecRequest{
 		Cmdline:        cmdline,
@@ -397,11 +394,11 @@ func (s *Session) handleExecLocked(m *ExecMessage) (error, func()) {
 	}
 	start := s.StartProcess
 	if start == nil {
-		return s.denyProtocolLocked("no process starter"), nil
+		return nil, s.denyProtocolLocked("no process starter")
 	}
 	s.spawned = true
 	s.state = StateRunning
-	return nil, func() {
+	return func() {
 		proc, err := start(req)
 		s.mu.Lock()
 		if err != nil {
@@ -429,7 +426,7 @@ func (s *Session) handleExecLocked(m *ExecMessage) (error, func()) {
 			_ = proc.Stdin().Close()
 		}
 		go s.pumpProcess(proc)
-	}
+	}, nil
 }
 
 func (s *Session) handleStreamLocked(m *StreamMessage) error {
@@ -495,7 +492,7 @@ func (s *Session) handleWinSizeLocked(m *WinSizeMessage) error {
 	return s.proc.SetWinSize(m.Rows, m.Cols, m.HPix, m.VPix)
 }
 
-func (s *Session) handleExitLocked(m *ExitMessage) (error, func()) {
+func (s *Session) handleExitLocked(m *ExitMessage) (func(), error) {
 	if s.cfg.Listener {
 		return nil, nil
 	}
@@ -507,7 +504,7 @@ func (s *Session) handleExitLocked(m *ExitMessage) (error, func()) {
 		delay = 750 * time.Millisecond
 	}
 	// Always defer OnExit briefly so reordered Stream packets can land.
-	return nil, func() {
+	return func() {
 		time.AfterFunc(delay, func() {
 			s.mu.Lock()
 			after := s.finishClientCallbacksLocked()
@@ -516,7 +513,7 @@ func (s *Session) handleExitLocked(m *ExitMessage) (error, func()) {
 				after()
 			}
 		})
-	}
+	}, nil
 }
 
 // maybeFinishClientLocked accelerates completion once Exit and both EOFs are in.
@@ -623,13 +620,13 @@ func (s *Session) copyProcessStream(ctx context.Context, sender Sender, compat b
 	buf := make([]byte, 4096)
 	for {
 		if ctx.Err() != nil {
-			_ = s.sendStreamChunks(sender, compat, ctx, streamID, nil, true)
+			_ = s.sendStreamChunks(ctx, sender, compat, streamID, nil, true)
 			return
 		}
 		n, err := r.Read(buf)
 		if n > 0 {
 			data := append([]byte(nil), buf[:n]...)
-			_ = s.sendStreamChunks(sender, compat, ctx, streamID, data, false)
+			_ = s.sendStreamChunks(ctx, sender, compat, streamID, data, false)
 			s.mu.Lock()
 			onOut := s.OnStdout
 			onErr := s.OnStderr
@@ -642,13 +639,13 @@ func (s *Session) copyProcessStream(ctx context.Context, sender Sender, compat b
 			}
 		}
 		if err != nil {
-			_ = s.sendStreamChunks(sender, compat, ctx, streamID, nil, true)
+			_ = s.sendStreamChunks(ctx, sender, compat, streamID, nil, true)
 			return
 		}
 	}
 }
 
-func (s *Session) sendStreamChunks(sender Sender, compat bool, ctx context.Context, streamID int, data []byte, eof bool) error {
+func (s *Session) sendStreamChunks(ctx context.Context, sender Sender, compat bool, streamID int, data []byte, eof bool) error {
 	if sender == nil {
 		return nil
 	}
@@ -765,7 +762,7 @@ func (s *Session) SendStream(streamID int, data []byte, eof bool) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	return s.sendStreamChunks(sender, compat, ctx, streamID, data, eof)
+	return s.sendStreamChunks(ctx, sender, compat, streamID, data, eof)
 }
 
 // SendWinSize sends a window size update.

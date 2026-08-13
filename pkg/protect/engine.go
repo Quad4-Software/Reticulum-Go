@@ -395,10 +395,10 @@ func (e *Engine) ifaceLocked(name string) *ifaceState {
 
 // AdmitPacket checks cool-down adaptive pps/bps and memory shed.
 func (e *Engine) AdmitPacket(iface string, nbytes int) Decision {
-	return e.admitPacket(iface, nbytes, AdmitOpts{})
+	return e.admitWithOpts(iface, nbytes, AdmitOpts{})
 }
 
-func (e *Engine) admitPacket(iface string, nbytes int, opts AdmitOpts) Decision {
+func (e *Engine) admitWithOpts(iface string, nbytes int, opts AdmitOpts) Decision {
 	if e == nil || e.mode == ModeOff {
 		return Decision{Allow: true}
 	}
@@ -616,7 +616,7 @@ func (e *Engine) evictStalePeerLocked(st *ifaceState, now time.Time) {
 }
 
 // checkPeer enforces a fair-share budget for a single remote peer sharing
-// iface, independent of the interface-wide aggregate check in admitPacket.
+// iface, independent of the interface-wide aggregate check in admitWithOpts.
 // It is what stops one hostile peer on a shared listener from exhausting
 // the whole interface budget and cooling down every other peer on it.
 // Returns deny=true when the caller should return the decision immediately
@@ -806,7 +806,7 @@ func (e *Engine) AdmitHandshake(iface string) (Decision, func()) {
 	return e.admitSlot(iface, ReasonHandshake, &e.handshake, e.maxHandshake)
 }
 
-func (e *Engine) admitSlot(iface string, reason Reason, slot *int, max int) (Decision, func()) {
+func (e *Engine) admitSlot(iface string, reason Reason, slot *int, limit int) (Decision, func()) {
 	noop := func() {}
 	if e == nil || e.mode == ModeOff {
 		return Decision{Allow: true}, noop
@@ -818,7 +818,7 @@ func (e *Engine) admitSlot(iface string, reason Reason, slot *int, max int) (Dec
 		}
 	}
 	e.mu.Lock()
-	over := *slot >= max
+	over := *slot >= limit
 	if over && e.enforcementMode() == ModePrevent {
 		e.mu.Unlock()
 		return e.decide(iface, reason), noop
@@ -907,7 +907,7 @@ func AdmitPacket(iface string, nbytes int) Decision {
 
 // AdmitPacketOpts checks the default engine with bitrate and packet class.
 func AdmitPacketOpts(iface string, nbytes int, opts AdmitOpts) Decision {
-	return Default().admitPacket(iface, nbytes, opts)
+	return Default().admitWithOpts(iface, nbytes, opts)
 }
 
 // AdmitHandler checks the default engine.

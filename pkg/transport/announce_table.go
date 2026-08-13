@@ -30,14 +30,14 @@ type cachedAnnounce struct {
 }
 
 func (t *Transport) announcePacketCacheMax() int {
-	max := 0
+	limit := 0
 	if t != nil && t.config != nil {
-		max = t.config.EffectiveMaxInMemoryPaths()
+		limit = t.config.EffectiveMaxInMemoryPaths()
 	}
-	if max <= 0 {
+	if limit <= 0 {
 		return common.DefaultMaxInMemoryPaths
 	}
-	return max
+	return limit
 }
 
 // evictAnnouncePacketCacheUnlocked drops oldest cache entries until at or under
@@ -46,8 +46,8 @@ func (t *Transport) evictAnnouncePacketCacheUnlocked() {
 	if t == nil {
 		return
 	}
-	max := t.announcePacketCacheMax()
-	for len(t.announcePacketCache) > max {
+	limit := t.announcePacketCacheMax()
+	for len(t.announcePacketCache) > limit {
 		var oldestKey hash16
 		var oldestTime time.Time
 		first := true

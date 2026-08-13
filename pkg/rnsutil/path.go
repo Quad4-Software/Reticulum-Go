@@ -206,12 +206,12 @@ func formatUnixTimestamp(ts float64) string {
 	return time.Unix(int64(ts), 0).UTC().Format("2006-01-02 15:04:05")
 }
 
-func truncateRunes(s string, max int) string {
+func truncateRunes(s string, maxRunes int) string {
 	r := []rune(s)
-	if len(r) <= max {
+	if len(r) <= maxRunes {
 		return s
 	}
-	return string(r[:max-1]) + "…"
+	return string(r[:maxRunes-1]) + "…"
 }
 
 func containsFold(hay, needle string) bool {

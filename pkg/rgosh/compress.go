@@ -68,17 +68,17 @@ func compressAdaptive(buf []byte, maxData int) (chunk []byte, consumed int, comp
 	return append([]byte(nil), buf[:take]...), take, false
 }
 
-func decompressBounded(data []byte, max int) ([]byte, error) {
-	if max <= 0 {
-		max = MaxDecompressed
+func decompressBounded(data []byte, maxBytes int) ([]byte, error) {
+	if maxBytes <= 0 {
+		maxBytes = MaxDecompressed
 	}
 	reader := bzip2.NewReader(bytes.NewReader(data))
-	limited := io.LimitReader(reader, int64(max)+1)
+	limited := io.LimitReader(reader, int64(maxBytes)+1)
 	out, err := io.ReadAll(limited)
 	if err != nil {
 		return nil, err
 	}
-	if len(out) > max {
+	if len(out) > maxBytes {
 		return nil, ErrDecompressBomb
 	}
 	return out, nil

@@ -294,12 +294,12 @@ func (m *Modem73Interface) probeInitialMTU() {
 		return
 	}
 	defer conn.Close()
-	if err := modem73WriteControl(conn, map[string]any{"cmd": "get_config"}); err != nil {
+	if err := writeModem73Control(conn, map[string]any{"cmd": "get_config"}); err != nil {
 		m.applyMTU(modem73MTUFloor)
 		return
 	}
 	_ = conn.SetReadDeadline(time.Now().Add(m.opts.ControlDialTimeout))
-	msg, err := modem73ReadControl(conn)
+	msg, err := readModem73Control(conn)
 	if err != nil {
 		m.applyMTU(modem73MTUFloor)
 		return
@@ -456,7 +456,7 @@ func (m *Modem73Interface) controlLoop() {
 		_ = m.enqueueControl(map[string]any{"cmd": "get_config"}, false)
 
 		for {
-			msg, err := modem73ReadControl(conn)
+			msg, err := readModem73Control(conn)
 			if err != nil {
 				break
 			}
@@ -491,7 +491,7 @@ func (m *Modem73Interface) controlWriter() {
 			if conn == nil {
 				err = errors.New("modem73 control not connected")
 			} else {
-				err = modem73WriteControl(conn, cmd.msg)
+				err = writeModem73Control(conn, cmd.msg)
 			}
 			if cmd.done != nil {
 				cmd.done <- err

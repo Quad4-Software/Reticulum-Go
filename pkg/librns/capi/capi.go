@@ -548,22 +548,22 @@ func rns_path_table(node C.uint64_t, out *C.rns_path_entry, outCap C.size_t, wri
 		}
 		return cCode(librns.OK)
 	}
-	cap, ok := sizeToInt(outCap)
+	capacity, ok := sizeToInt(outCap)
 	if !ok {
 		return cCode(librns.ErrInvalidArg)
 	}
 	n := len(rows)
-	if n > cap {
-		n = cap
+	if n > capacity {
+		n = capacity
 	}
 	if written != nil {
 		*written = sizeFromInt(n)
 	}
-	slice := unsafe.Slice(out, cap)
+	slice := unsafe.Slice(out, capacity)
 	for i := 0; i < n; i++ {
 		fillPathEntry(&slice[i], rows[i])
 	}
-	if len(rows) > cap {
+	if len(rows) > capacity {
 		return cCode(librns.ErrTruncated)
 	}
 	return cCode(librns.OK)
@@ -587,19 +587,19 @@ func rns_interfaces(node C.uint64_t, out *C.rns_interface_entry, outCap C.size_t
 		}
 		return cCode(librns.OK)
 	}
-	cap, ok := sizeToInt(outCap)
+	capacity, ok := sizeToInt(outCap)
 	if !ok {
 		return cCode(librns.ErrInvalidArg)
 	}
 	n := len(rows)
-	if n > cap {
-		n = cap
+	if n > capacity {
+		n = capacity
 	}
-	slice := unsafe.Slice(out, cap)
+	slice := unsafe.Slice(out, capacity)
 	for i := 0; i < n; i++ {
 		fillInterfaceEntry(&slice[i], rows[i])
 	}
-	if len(rows) > cap {
+	if len(rows) > capacity {
 		return cCode(librns.ErrTruncated)
 	}
 	return cCode(librns.OK)

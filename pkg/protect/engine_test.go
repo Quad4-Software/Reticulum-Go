@@ -398,9 +398,9 @@ func TestPreferKeepLeniencyRecordsTrip(t *testing.T) {
 		Now:             func() time.Time { return clock },
 	})
 	opts := AdmitOpts{Class: ClassPreferKeep}
-	d1 := e.admitPacket("pk0", 1, opts)
-	d2 := e.admitPacket("pk0", 1, opts)
-	d3 := e.admitPacket("pk0", 1, opts) // pps=3 over MaxPPS(2) but within the 2x leniency band.
+	d1 := e.admitWithOpts("pk0", 1, opts)
+	d2 := e.admitWithOpts("pk0", 1, opts)
+	d3 := e.admitWithOpts("pk0", 1, opts) // pps=3 over MaxPPS(2) but within the 2x leniency band.
 	if !d1.Allow || !d2.Allow || !d3.Allow {
 		t.Fatalf("prefer-keep class should ride out bursts under 2x: %#v %#v %#v", d1, d2, d3)
 	}
@@ -465,7 +465,7 @@ func TestPeerIsolationShedsOnlyTheFloodingPeer(t *testing.T) {
 
 	floodBlocked := false
 	for range 80 {
-		d := e.admitPacket("shared0", 1, floodOpts)
+		d := e.admitWithOpts("shared0", 1, floodOpts)
 		if !d.Allow {
 			floodBlocked = true
 		}
@@ -476,7 +476,7 @@ func TestPeerIsolationShedsOnlyTheFloodingPeer(t *testing.T) {
 
 	// A different, quiet peer on the same shared interface must be
 	// unaffected by the flooding peer's sub-bucket trip.
-	d := e.admitPacket("shared0", 1, quietOpts)
+	d := e.admitWithOpts("shared0", 1, quietOpts)
 	if !d.Allow {
 		t.Fatalf("quiet peer should not be collaterally shed: %#v", d)
 	}
@@ -499,7 +499,7 @@ func TestPeerIsolationDisabledFallsBackToSharedBudget(t *testing.T) {
 	opts := AdmitOpts{PeerKey: "attacker:1"}
 	blocked := false
 	for range 20 {
-		d := e.admitPacket("shared0", 1, opts)
+		d := e.admitWithOpts("shared0", 1, opts)
 		if !d.Allow {
 			blocked = true
 		}
@@ -523,7 +523,7 @@ func TestPeerSubBucketEvictionIsBounded(t *testing.T) {
 		Now:             func() time.Time { return clock },
 	})
 	for i := range MaxTrackedPeersPerIface + 50 {
-		_ = e.admitPacket("shared0", 1, AdmitOpts{PeerKey: fmt.Sprintf("peer-%d", i)})
+		_ = e.admitWithOpts("shared0", 1, AdmitOpts{PeerKey: fmt.Sprintf("peer-%d", i)})
 	}
 	e.mu.Lock()
 	n := len(e.ifaces["shared0"].peers)

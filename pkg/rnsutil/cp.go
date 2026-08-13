@@ -365,9 +365,9 @@ func (p *ProgressPrinter) Update(label string, pct float64, got, total int64, bp
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	clear := term.ProgressClear(p.out)
+	clearSeq := term.ProgressClear(p.out)
 	line := fmt.Sprintf("%s%s %.1f%% - %s of %s - %s/s",
-		clear, term.Cyan(p.out, label), pct*100, SizeString(float64(got), "B"), SizeString(float64(total), "B"), SizeString(bps, "b"))
+		clearSeq, term.Cyan(p.out, label), pct*100, SizeString(float64(got), "B"), SizeString(float64(total), "B"), SizeString(bps, "b"))
 	fmt.Fprint(p.out, line)
 	p.last = line
 }

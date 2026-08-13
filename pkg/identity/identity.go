@@ -295,19 +295,19 @@ var knownDestMaxEntries atomic.Int64
 
 // SetKnownDestinationsMaxEntries installs a soft cap on known destinations.
 // Zero or negative disables the cap.
-func SetKnownDestinationsMaxEntries(max int) {
-	if max < 0 {
-		max = 0
+func SetKnownDestinationsMaxEntries(maxEntries int) {
+	if maxEntries < 0 {
+		maxEntries = 0
 	}
-	knownDestMaxEntries.Store(int64(max))
+	knownDestMaxEntries.Store(int64(maxEntries))
 }
 
 func evictKnownDestinationsIfNeededLocked() {
-	max := int(knownDestMaxEntries.Load())
-	if max <= 0 || len(knownDestinations) <= max {
+	maxEntries := int(knownDestMaxEntries.Load())
+	if maxEntries <= 0 || len(knownDestinations) <= maxEntries {
 		return
 	}
-	excess := len(knownDestinations) - max
+	excess := len(knownDestinations) - maxEntries
 	for key := range knownDestinations {
 		if excess <= 0 {
 			return

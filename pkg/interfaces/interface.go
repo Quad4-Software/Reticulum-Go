@@ -470,28 +470,28 @@ func (i *BaseInterface) SentAnnounce() {
 func (i *BaseInterface) IncomingAnnounceFrequency() float64 {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
-	return i.incomingAnnounceFrequency()
+	return i.incomingAnnounceHz()
 }
 
 // OutgoingAnnounceFrequency returns the estimated outgoing announce rate in Hz.
 func (i *BaseInterface) OutgoingAnnounceFrequency() float64 {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
-	return i.outgoingAnnounceFrequency()
+	return i.outgoingAnnounceHz()
 }
 
 // IncomingPRFrequency returns the estimated incoming path-request rate in Hz.
 func (i *BaseInterface) IncomingPRFrequency() float64 {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
-	return i.incomingPRFrequency()
+	return i.incomingPRHz()
 }
 
 // OutgoingPRFrequency returns the estimated outgoing path-request rate in Hz.
 func (i *BaseInterface) OutgoingPRFrequency() float64 {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
-	return i.outgoingPRFrequency()
+	return i.outgoingPRHz()
 }
 
 // PRBurstActive reports whether path-request ingress burst limiting is active.
@@ -556,7 +556,7 @@ func (i *BaseInterface) SetIngressControl(enabled bool) {
 	i.ingressControl = enabled
 }
 
-func (i *BaseInterface) incomingAnnounceFrequency() float64 {
+func (i *BaseInterface) incomingAnnounceHz() float64 {
 	n := len(i.iaFreqDeque)
 	if n <= icDequeMinSample {
 		return 0
@@ -572,7 +572,7 @@ func (i *BaseInterface) incomingAnnounceFrequency() float64 {
 	return float64(n) / span
 }
 
-func (i *BaseInterface) outgoingAnnounceFrequency() float64 {
+func (i *BaseInterface) outgoingAnnounceHz() float64 {
 	n := len(i.oaFreqDeque)
 	if n <= 1 {
 		return 0
@@ -588,7 +588,7 @@ func (i *BaseInterface) outgoingAnnounceFrequency() float64 {
 	return float64(n) / span
 }
 
-func (i *BaseInterface) incomingPRFrequency() float64 {
+func (i *BaseInterface) incomingPRHz() float64 {
 	n := len(i.ipFreqDeque)
 	if n <= icDequeMinSample {
 		return 0
@@ -604,7 +604,7 @@ func (i *BaseInterface) incomingPRFrequency() float64 {
 	return float64(n) / span
 }
 
-func (i *BaseInterface) outgoingPRFrequency() float64 {
+func (i *BaseInterface) outgoingPRHz() float64 {
 	n := len(i.opFreqDeque)
 	if n <= 1 {
 		return 0
@@ -632,7 +632,7 @@ func (i *BaseInterface) ShouldIngressLimitPR() bool {
 	if time.Since(i.created).Seconds() < icNewTime {
 		freqThreshold = i.icPRBurstFreqNewV
 	}
-	ipFreq := i.incomingPRFrequency()
+	ipFreq := i.incomingPRHz()
 
 	if i.icPRBurstActive {
 		if ipFreq < freqThreshold && time.Since(i.icPRBurstActivated).Seconds() > icBurstHold {
@@ -657,7 +657,7 @@ func (i *BaseInterface) ShouldEgressLimitPR() bool {
 		return false
 	}
 
-	opFreq := i.outgoingPRFrequency()
+	opFreq := i.outgoingPRHz()
 	if opFreq > i.ecPRFreqV {
 		if len(i.opFreqDeque) >= icBurstMinSamples {
 			return true

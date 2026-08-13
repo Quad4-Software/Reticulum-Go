@@ -1174,9 +1174,9 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 		l.maybeProveInboundData(pkt)
 	case packet.ContextRequest:
 		if l.destination != nil {
-			if max, ok := l.destination.MaxRequestSize(); ok && len(plaintext) > max {
+			if maxSize, ok := l.destination.MaxRequestSize(); ok && len(plaintext) > maxSize {
 				debug.Log(debug.DebugInfo, "Ignored request with excessive size",
-					"bytes", len(plaintext), "max", max)
+					"bytes", len(plaintext), "max", maxSize)
 				return nil
 			}
 		}
@@ -1300,15 +1300,12 @@ func (l *Link) processResourceAdvertisement(plaintext []byte) error {
 			debug.Log(debug.DebugInfo, "Ignoring request resource advertisement")
 			return nil
 		}
-		if max, ok := l.destination.MaxRequestSize(); ok && int(adv.TransferSize) > max {
+		if maxSize, ok := l.destination.MaxRequestSize(); ok && int(adv.TransferSize) > maxSize {
 			debug.Log(debug.DebugInfo, "Ignored request resource with excessive size",
-				"bytes", adv.TransferSize, "max", max)
+				"bytes", adv.TransferSize, "max", maxSize)
 			return nil
 		}
-		if err := l.beginIncomingResource(adv); err != nil {
-			return err
-		}
-		return nil
+		return l.beginIncomingResource(adv)
 	}
 
 	if adv.IsResponse && adv.RequestID != nil {
@@ -1909,9 +1906,9 @@ func (l *Link) handleRequest(plaintext []byte, requestID []byte) error {
 	if l.destination == nil {
 		return errors.New("no destination for request handling")
 	}
-	if max, ok := l.destination.MaxRequestSize(); ok && len(plaintext) > max {
+	if maxSize, ok := l.destination.MaxRequestSize(); ok && len(plaintext) > maxSize {
 		debug.Log(debug.DebugInfo, "Ignored request with excessive size",
-			"bytes", len(plaintext), "max", max)
+			"bytes", len(plaintext), "max", maxSize)
 		return nil
 	}
 

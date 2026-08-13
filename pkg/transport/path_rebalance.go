@@ -23,10 +23,6 @@ type rebalanceEntry struct {
 
 // LinkPathRebalanceAllowed reports whether LRPROOF hop rebalancing is enabled.
 func (t *Transport) LinkPathRebalanceAllowed() bool {
-	return t.linkPathRebalanceAllowed()
-}
-
-func (t *Transport) linkPathRebalanceAllowed() bool {
 	if t == nil || t.config == nil {
 		return true
 	}
@@ -37,9 +33,9 @@ func (t *Transport) linkPathRebalanceAllowed() bool {
 }
 
 // RebalancePathHops updates path-table hop counts after a cryptographically
-// validated LRPROOF (RNS 1.4.1). See rebalancePathHops for Go uniqueness.
+// validated LRPROOF (RNS 1.4.1). See applyPathHopRebalance for Go uniqueness.
 func (t *Transport) RebalancePathHops(destHash []byte, newHops uint8, proofIface common.NetworkInterface) bool {
-	return t.rebalancePathHops(destHash, newHops, proofIface)
+	return t.applyPathHopRebalance(destHash, newHops, proofIface)
 }
 
 // allowRebalanceDest applies Go-unique dampening so thrashing topologies cannot
@@ -67,7 +63,7 @@ func (t *Transport) allowRebalanceDest(destHash []byte) bool {
 	return true
 }
 
-// rebalancePathHops updates path-table hop counts after a cryptographically
+// applyPathHopRebalance updates path-table hop counts after a cryptographically
 // validated LRPROOF (RNS 1.4.1). Remaining hops on the link table are updated
 // by the caller. When no path entry exists, this still returns true so transit
 // RemainingHops can be corrected (Python updates rem hops even without a path).
@@ -75,7 +71,7 @@ func (t *Transport) allowRebalanceDest(destHash []byte) bool {
 // Go uniqueness: refuse hop increases when the current path interface still
 // has substantially higher effective gravity than the proof ingress (keeps
 // high-gravity static paths sticky under chaos), and dampen thrashing.
-func (t *Transport) rebalancePathHops(destHash []byte, newHops uint8, proofIface common.NetworkInterface) bool {
+func (t *Transport) applyPathHopRebalance(destHash []byte, newHops uint8, proofIface common.NetworkInterface) bool {
 	if t == nil || len(destHash) == 0 {
 		return false
 	}

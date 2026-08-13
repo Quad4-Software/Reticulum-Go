@@ -19,12 +19,12 @@ type packetHashList struct {
 	prev map[[32]byte]struct{}
 }
 
-func newPacketHashList(max int) *packetHashList {
-	if max <= 0 {
-		max = HashlistMaxSize
+func newPacketHashList(limit int) *packetHashList {
+	if limit <= 0 {
+		limit = HashlistMaxSize
 	}
 	return &packetHashList{
-		max:  max,
+		max:  limit,
 		cur:  make(map[[32]byte]struct{}),
 		prev: make(map[[32]byte]struct{}),
 	}

@@ -84,7 +84,7 @@ func (d *duplexEnd) Close() error {
 	return nil
 }
 
-func (p *memSerialPair) ends() (SerialPort, SerialPort) {
+func (p *memSerialPair) ends() (portA, portB SerialPort) {
 	return &duplexEnd{r: p.bToA, w: p.aToB}, &duplexEnd{r: p.aToB, w: p.bToA}
 }
 

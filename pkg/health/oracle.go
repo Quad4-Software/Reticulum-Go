@@ -38,7 +38,7 @@ func (r *Registry) TransportOracle() OracleSnapshot {
 }
 
 // Delta returns after - before for each counter (saturating at zero).
-func (before OracleSnapshot) Delta(after OracleSnapshot) OracleSnapshot {
+func (s OracleSnapshot) Delta(after OracleSnapshot) OracleSnapshot {
 	sub := func(a, b uint64) uint64 {
 		if a >= b {
 			return a - b
@@ -46,20 +46,20 @@ func (before OracleSnapshot) Delta(after OracleSnapshot) OracleSnapshot {
 		return 0
 	}
 	return OracleSnapshot{
-		RxOK:             sub(after.RxOK, before.RxOK),
-		AnnounceOK:       sub(after.AnnounceOK, before.AnnounceOK),
-		AnnounceDup:      sub(after.AnnounceDup, before.AnnounceDup),
-		UnpackFail:       sub(after.UnpackFail, before.UnpackFail),
-		HMACFail:         sub(after.HMACFail, before.HMACFail),
-		IFACFail:         sub(after.IFACFail, before.IFACFail),
-		AnnounceSigFail:  sub(after.AnnounceSigFail, before.AnnounceSigFail),
-		PathReqDup:       sub(after.PathReqDup, before.PathReqDup),
-		KeepaliveTimeout: sub(after.KeepaliveTimeout, before.KeepaliveTimeout),
-		LinkStaleClose:   sub(after.LinkStaleClose, before.LinkStaleClose),
+		RxOK:             sub(after.RxOK, s.RxOK),
+		AnnounceOK:       sub(after.AnnounceOK, s.AnnounceOK),
+		AnnounceDup:      sub(after.AnnounceDup, s.AnnounceDup),
+		UnpackFail:       sub(after.UnpackFail, s.UnpackFail),
+		HMACFail:         sub(after.HMACFail, s.HMACFail),
+		IFACFail:         sub(after.IFACFail, s.IFACFail),
+		AnnounceSigFail:  sub(after.AnnounceSigFail, s.AnnounceSigFail),
+		PathReqDup:       sub(after.PathReqDup, s.PathReqDup),
+		KeepaliveTimeout: sub(after.KeepaliveTimeout, s.KeepaliveTimeout),
+		LinkStaleClose:   sub(after.LinkStaleClose, s.LinkStaleClose),
 	}
 }
 
 // IntegrityFails is the sum of common integrity-failure counters in the delta.
-func (d OracleSnapshot) IntegrityFails() uint64 {
-	return d.UnpackFail + d.HMACFail + d.IFACFail + d.AnnounceSigFail
+func (s OracleSnapshot) IntegrityFails() uint64 {
+	return s.UnpackFail + s.HMACFail + s.IFACFail + s.AnnounceSigFail
 }

@@ -46,11 +46,11 @@ func TestPriorityShedPreferKeep(t *testing.T) {
 		Now:             func() time.Time { return clock },
 	})
 	for range 20 {
-		_ = e.admitPacket("p0", 64, AdmitOpts{Class: ClassShedFirst})
+		_ = e.admitWithOpts("p0", 64, AdmitOpts{Class: ClassShedFirst})
 	}
 	allowed := 0
 	for range 30 {
-		d := e.admitPacket("p0", 64, AdmitOpts{Class: ClassPreferKeep})
+		d := e.admitWithOpts("p0", 64, AdmitOpts{Class: ClassPreferKeep})
 		if d.Allow {
 			allowed++
 		}

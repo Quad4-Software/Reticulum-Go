@@ -88,7 +88,7 @@ func EnsureConfigDir() error {
 // parseBool accepts yes/no/true/false/on/off/1/0, case-insensitive.
 // Unrecognized spellings return ok=false so callers keep their defaults
 // instead of silently treating typos as false (which disabled sandbox/seccomp).
-func parseBool(value string) (bool, bool) {
+func parseBool(value string) (parsed, ok bool) {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "true", "yes", "y", "on", "1":
 		return true, true

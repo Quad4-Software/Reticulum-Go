@@ -132,7 +132,7 @@ func (t *Transport) validateAndForwardLRProof(pkt *packet.Packet, iface common.N
 // LRPROOF. Requires correct next-hop iface, valid signature, and an
 // unvalidated link-table entry. Returns true when RemainingHops was updated.
 func (t *Transport) tryTransitLRProofRebalance(pkt *packet.Packet, iface common.NetworkInterface, linkID []byte, entry *LinkRelayEntry, accounted byte) bool {
-	if t == nil || pkt == nil || entry == nil || !t.linkPathRebalanceAllowed() {
+	if t == nil || pkt == nil || entry == nil || !t.LinkPathRebalanceAllowed() {
 		return false
 	}
 	if iface != entry.NextHopIface {
@@ -172,7 +172,7 @@ func (t *Transport) tryTransitLRProofRebalance(pkt *packet.Packet, iface common.
 			"link_id", fmt.Sprintf("%x", linkID))
 		return false
 	}
-	if !t.rebalancePathHops(entry.DestinationHash, accounted, iface) {
+	if !t.applyPathHopRebalance(entry.DestinationHash, accounted, iface) {
 		return false
 	}
 	if !t.linkTable.setRemainingHops(linkID, int(accounted)) {
