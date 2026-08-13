@@ -164,6 +164,9 @@ func InitKnownDestinationsPersistence(configPath string, inMemory bool) {
 		knownPersistDisabled.Store(true)
 		return
 	}
+	if dir, err := storage.RatchetsDir(configPath); err == nil {
+		_ = os.MkdirAll(dir, 0o700)
+	}
 
 	loadKnownDestinationsFromDisk(configPath)
 }

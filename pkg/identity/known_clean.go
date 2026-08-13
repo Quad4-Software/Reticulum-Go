@@ -168,6 +168,7 @@ func CleanKnownDestinations(hasPath func([]byte) bool) CleanKnownDestinationsRes
 	}
 
 	if len(stale) == 0 {
+		CleanKnownRatchets()
 		return result
 	}
 
@@ -187,6 +188,7 @@ func CleanKnownDestinations(hasPath func([]byte) bool) CleanKnownDestinationsRes
 		debug.Log(debug.DebugVerbose, "Cleaned known destinations",
 			"total", result.Total, "removed", result.Removed, "no_path", result.NoPath)
 	}
+	CleanKnownRatchets()
 	return result
 }
 

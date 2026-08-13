@@ -163,6 +163,8 @@ pub extern fn rns_destination_create(
     aspect_count: usize,
     accepts_links: c_int,
 ) u64;
+pub extern fn rns_destination_enable_ratchets(destination: u64, path: ?[*:0]const u8) c_int;
+pub extern fn rns_destination_enforce_ratchets(destination: u64) c_int;
 pub extern fn rns_destination_announce(destination: u64, app_data: ?[*]const u8, app_data_len: usize) c_int;
 pub extern fn rns_destination_hash(destination: u64, hash_out: ?[*]u8, hash_out_len: usize, written: ?*usize) c_int;
 pub extern fn rns_destination_destroy(destination: u64) c_int;

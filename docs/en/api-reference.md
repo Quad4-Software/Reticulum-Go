@@ -236,10 +236,11 @@ Orchestrates transport, interfaces, shared instance, and lifecycle. Prefer this 
 | `GetPublicKey() []byte` | 64-byte combined public key |
 | Sign / Verify | Ed25519 |
 | Encrypt / Decrypt | Identity tokens with optional ratchets |
+| RememberRatchet / GetRatchet / CurrentRatchetID | Announced peer ratchet public keys |
 | `Recall(destHash)` | Public identity from known destinations |
 | Remember / ValidateAnnounce | Announce storage |
 | LoadOrCreateTransportIdentity | Daemon transport identity |
-| RotateRatchet / GetRatchets | Forward secrecy material |
+| RotateRatchet / GetRatchets | Local identity ratchet private keys |
 
 Constants: KeySize (bits), TruncatedHashLength (bits). Hex destination or identity hashes are **32 characters**.
 
@@ -266,7 +267,11 @@ Private key material uses `pkg/securemem` (best-effort mlock, wipe on Close). Se
 | SetPacketCallback | Single-packet inbound data |
 | SetLinkEstablishedCallback | Inbound link ready (`func(any)`) |
 | RegisterRequestHandler / RegisterRequestHandlerAny | Link request paths |
-| EnableRatchets / RotateRatchets | Group ratchet files |
+| EnableRatchets(path) | Enable SINGLE ratchets and persist private keys at path |
+| EnableRatchetsInMemory | Same, RAM only (no ratchet file) |
+| EnforceRatchets | Reject identity-key ciphertext (opt-in, same as Python) |
+| SetRetainedRatchets / SetRatchetInterval | Retention count and rotation interval |
+| RotateRatchets / CurrentRatchetPublic / LatestRatchetID / RatchetsEnabled | Local rotation and announce public key |
 
 ### Link (`pkg/link`)
 

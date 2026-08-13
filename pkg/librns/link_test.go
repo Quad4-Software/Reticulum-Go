@@ -257,6 +257,13 @@ func TestFacadeNodeDestinationAnnounce(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = DestinationDestroy(destHandle) })
 
+	if code := DestinationEnableRatchets(destHandle, ""); code != OK {
+		t.Fatal(code, LastError())
+	}
+	if code := DestinationEnforceRatchets(destHandle); code != OK {
+		t.Fatal(code, LastError())
+	}
+
 	if code := DestinationAnnounce(destHandle, []byte("appdata")); code != OK {
 		t.Fatal(code, LastError())
 	}

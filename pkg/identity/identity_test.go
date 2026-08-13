@@ -335,7 +335,7 @@ func TestGetKnownDestinationReturnsDefensiveCopies(t *testing.T) {
 
 func TestRatchetKeyDefensiveCopies(t *testing.T) {
 	ratchetPersistLock.Lock()
-	knownRatchets = make(map[string][]byte)
+	knownRatchets = make(map[string]knownRatchetEntry)
 	ratchetPersistLock.Unlock()
 
 	id, err := New()
@@ -367,11 +367,11 @@ func TestRatchetKeyDefensiveCopies(t *testing.T) {
 
 func TestKnownRatchetsCap(t *testing.T) {
 	ratchetPersistLock.Lock()
-	knownRatchets = make(map[string][]byte)
+	knownRatchets = make(map[string]knownRatchetEntry)
 	ratchetPersistLock.Unlock()
 	t.Cleanup(func() {
 		ratchetPersistLock.Lock()
-		knownRatchets = make(map[string][]byte)
+		knownRatchets = make(map[string]knownRatchetEntry)
 		ratchetPersistLock.Unlock()
 	})
 

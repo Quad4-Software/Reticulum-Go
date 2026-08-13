@@ -37,6 +37,20 @@ pub fn create(
     return @enumFromInt(h);
 }
 
+pub fn enableRatchets(destination: types.Destination, path: ?[]const u8) types.Error!void {
+    if (path) |p| {
+        var path_buf: [4096]u8 = undefined;
+        const path_z = try util.requireCString(p, &path_buf);
+        try types.mapCode(c.rns_destination_enable_ratchets(types.asU64(destination), path_z));
+        return;
+    }
+    try types.mapCode(c.rns_destination_enable_ratchets(types.asU64(destination), null));
+}
+
+pub fn enforceRatchets(destination: types.Destination) types.Error!void {
+    try types.mapCode(c.rns_destination_enforce_ratchets(types.asU64(destination)));
+}
+
 pub fn announce(destination: types.Destination, app_data: []const u8) types.Error!void {
     if (app_data.len == 0) {
         try types.mapCode(c.rns_destination_announce(types.asU64(destination), null, 0));

@@ -319,7 +319,7 @@ Python defaults from `RNS.Reticulum.__create_default_config` and [RNS/Reticulum.
 | storage/cache/announces/ | Announce cache | Present |
 | storage/resources/ | Resource scratch | Present |
 | storage/blackhole | msgpack table | [pkg/blackhole](pkg/blackhole/) |
-| storage/ratchets/ | Ratchet keys | Present |
+| storage/ratchets/ | Known-peer public keys as `{ratchet, received}` msgpack plus destination-private signed lists at `EnableRatchets` path | Same Python known-peer layout. Local private lists use the path the app passes (pageserver: `{identity_hash}`). `EnableRatchetsInMemory` and `in_memory_storage` skip disk |
 | storage/destination_table | Path snapshot | Yes (flat msgpack, Python-compatible layout) |
 | storage/known_destinations | Known destinations | Yes (loads Python byte-keyed files) |
 | storage/transport_identity | Transport identity | Present |

@@ -101,6 +101,8 @@ foreign lib {
 		aspect_count: c.size_t,
 		accepts_links: c.int,
 	) -> u64 ---
+	rns_destination_enable_ratchets :: proc(destination: u64, path: cstring) -> c.int ---
+	rns_destination_enforce_ratchets :: proc(destination: u64) -> c.int ---
 	rns_destination_announce :: proc(destination: u64, app_data: [^]u8, app_data_len: c.size_t) -> c.int ---
 	rns_destination_hash :: proc(
 		destination: u64,

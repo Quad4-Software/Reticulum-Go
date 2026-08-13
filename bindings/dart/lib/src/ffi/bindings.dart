@@ -233,6 +233,18 @@ typedef _DestinationAnnounceDart = int Function(
   int appDataLen,
 );
 
+typedef _DestinationEnableRatchetsC = Int32 Function(
+  Uint64 destination,
+  Pointer<Char> path,
+);
+typedef _DestinationEnableRatchetsDart = int Function(
+  int destination,
+  Pointer<Char> path,
+);
+
+typedef _DestinationEnforceRatchetsC = Int32 Function(Uint64 destination);
+typedef _DestinationEnforceRatchetsDart = int Function(int destination);
+
 typedef _DestinationHashC = Int32 Function(
   Uint64 destination,
   Pointer<Uint8> hashOut,
@@ -498,6 +510,14 @@ class RnsBindings {
             lib.lookupFunction<_DestinationCreateC, _DestinationCreateDart>(
           'rns_destination_create',
         ),
+        rns_destination_enable_ratchets = lib.lookupFunction<
+            _DestinationEnableRatchetsC, _DestinationEnableRatchetsDart>(
+          'rns_destination_enable_ratchets',
+        ),
+        rns_destination_enforce_ratchets = lib.lookupFunction<
+            _DestinationEnforceRatchetsC, _DestinationEnforceRatchetsDart>(
+          'rns_destination_enforce_ratchets',
+        ),
         rns_destination_announce =
             lib.lookupFunction<_DestinationAnnounceC, _DestinationAnnounceDart>(
           'rns_destination_announce',
@@ -580,6 +600,8 @@ class RnsBindings {
   final _RsgVerifyFileDart rns_rsg_verify_file;
   final _RsmVerifyDart rns_rsm_verify;
   final _DestinationCreateDart rns_destination_create;
+  final _DestinationEnableRatchetsDart rns_destination_enable_ratchets;
+  final _DestinationEnforceRatchetsDart rns_destination_enforce_ratchets;
   final _DestinationAnnounceDart rns_destination_announce;
   final _DestinationHashDart rns_destination_hash;
   final _DestinationDestroyDart rns_destination_destroy;

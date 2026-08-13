@@ -61,6 +61,20 @@ public final class Destination {
         return Destination(handle: created)
     }
 
+    public func enableRatchets(path: String? = nil) throws {
+        if let path {
+            try path.withCString { cPath in
+                try check(rns_destination_enable_ratchets(handle, cPath))
+            }
+        } else {
+            try check(rns_destination_enable_ratchets(handle, nil))
+        }
+    }
+
+    public func enforceRatchets() throws {
+        try check(rns_destination_enforce_ratchets(handle))
+    }
+
     public func announce(appData: Data = Data()) throws {
         try appData.withUnsafeBytes { raw in
             try check(rns_destination_announce(

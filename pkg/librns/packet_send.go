@@ -69,6 +69,9 @@ func PacketSend(nodeHandle uint64, destHash, plaintext []byte) int {
 		packet.FlagUnset,
 	)
 	pkt.DestinationHash = append([]byte(nil), destHash...)
+	if rid := dest.LatestRatchetID(); len(rid) > 0 {
+		pkt.RatchetID = rid
+	}
 	if err := pkt.Pack(); err != nil {
 		return setLastError(fmt.Errorf("%w: %v", errInternal, err))
 	}

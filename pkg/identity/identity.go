@@ -45,7 +45,7 @@ type Identity struct {
 var (
 	knownDestinations     = make(map[string][]any)
 	knownDestinationsLock sync.RWMutex
-	knownRatchets         = make(map[string][]byte)
+	knownRatchets         = make(map[string]knownRatchetEntry)
 	ratchetPersistLock    sync.Mutex
 )
 
@@ -126,9 +126,9 @@ func (i *Identity) Encrypt(plaintext []byte, ratchet []byte) ([]byte, error) {
 	}
 	defer securemem.WipeBytes(ephemeralPrivKey)
 
-	// Use ratchet key if provided, otherwise use identity public key
+	// Use ratchet public key if provided, otherwise use identity public key
 	targetKey := i.publicKey
-	if ratchet != nil {
+	if len(ratchet) > 0 {
 		targetKey = ratchet
 	}
 
@@ -845,32 +845,22 @@ func (i *Identity) GetRatchetKey(id string) ([]byte, bool) {
 	ratchetPersistLock.Lock()
 	defer ratchetPersistLock.Unlock()
 
-	key, exists := knownRatchets[id]
+	e, exists := knownRatchets[id]
 	if !exists {
 		return nil, false
 	}
-	return append([]byte(nil), key...), true
+	return append([]byte(nil), e.key...), true
 }
 
 func (i *Identity) SetRatchetKey(id string, key []byte) {
 	ratchetPersistLock.Lock()
 	defer ratchetPersistLock.Unlock()
 
-	knownRatchets[id] = append([]byte(nil), key...)
-	if len(knownRatchets) <= MaxKnownRatchets {
-		return
+	knownRatchets[id] = knownRatchetEntry{
+		key:      append([]byte(nil), key...),
+		received: time.Now().Unix(),
 	}
-	excess := len(knownRatchets) - MaxKnownRatchets
-	for k := range knownRatchets {
-		if excess <= 0 {
-			return
-		}
-		if k == id {
-			continue
-		}
-		delete(knownRatchets, k)
-		excess--
-	}
+	evictKnownRatchetsLocked(id)
 }
 
 // NewIdentity creates a new Identity instance with fresh keys

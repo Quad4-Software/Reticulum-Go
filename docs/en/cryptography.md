@@ -110,7 +110,14 @@ Policy:
 
 ## Ratchets
 
-Optional X25519 ratchet private keys (256 bits) for forward secrecy on identity-encrypted traffic. Persisted per identity hash under `storage/ratchets/` with expiry per package constants.
+Optional X25519 keys (256 bits) for forward secrecy on SINGLE identity-encrypted traffic. Off until the destination enables them. Python RNS is the same: `enable_ratchets` and `enforce_ratchets` are both opt-in.
+
+Local private keys:
+
+- `EnableRatchets(path)` loads or creates a signed msgpack list at that path
+- `EnableRatchetsInMemory` keeps the list in RAM and writes nothing
+
+Announces carry the current 32-byte public key when enabled. Peers persist that public key under `storage/ratchets/{destination_hash}` as `{ratchet, received}` (Python layout) unless in-memory or shared-instance mode is on. `Destination.Encrypt` for SINGLE destinations uses `Identity.GetRatchet(destHash)` when a non-expired key exists. `EnforceRatchets` rejects identity-key ciphertext. Links do not use this mechanism.
 
 ## Pluggable CryptoProvider
 

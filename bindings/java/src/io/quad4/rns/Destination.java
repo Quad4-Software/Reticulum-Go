@@ -42,6 +42,14 @@ public final class Destination implements AutoCloseable {
         return new Destination(h);
     }
 
+    public void enableRatchets(String path) {
+        Rns.check(RnsLibrary.INSTANCE.rns_destination_enable_ratchets(handle, path));
+    }
+
+    public void enforceRatchets() {
+        Rns.check(RnsLibrary.INSTANCE.rns_destination_enforce_ratchets(handle));
+    }
+
     public void announce(byte[] appData) {
         byte[] payload = appData == null ? new byte[0] : appData;
         Rns.check(RnsLibrary.INSTANCE.rns_destination_announce(handle, payload, payload.length));

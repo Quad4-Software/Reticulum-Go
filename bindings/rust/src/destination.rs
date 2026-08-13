@@ -52,6 +52,20 @@ impl Destination {
         Ok(Self { handle: h })
     }
 
+    pub fn enable_ratchets(&self, path: Option<&str>) -> Result<()> {
+        match path {
+            None => map_code(unsafe { ffi::rns_destination_enable_ratchets(self.handle, ptr::null()) }),
+            Some(p) => {
+                let c = CString::new(p).map_err(|_| Error::InvalidArg)?;
+                map_code(unsafe { ffi::rns_destination_enable_ratchets(self.handle, c.as_ptr()) })
+            }
+        }
+    }
+
+    pub fn enforce_ratchets(&self) -> Result<()> {
+        map_code(unsafe { ffi::rns_destination_enforce_ratchets(self.handle) })
+    }
+
     pub fn announce(&self, app_data: &[u8]) -> Result<()> {
         map_code(unsafe {
             ffi::rns_destination_announce(

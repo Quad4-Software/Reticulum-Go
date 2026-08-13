@@ -260,11 +260,23 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 
 	appData := d.defaultAppData
 
+	var ratchetPub []byte
+	if d.ratchetsEnabled {
+		if err := d.rotateRatchetsLocked(); err != nil {
+			return err
+		}
+		ratchetPub = d.currentRatchetPublicLocked()
+		if len(ratchetPub) > 0 {
+			identity.RememberRatchet(append([]byte(nil), d.hashValue...), ratchetPub)
+		}
+	}
+
 	// Create announce packet using announce package
 	announceObj, err := announce.New(d.identity, d.hashValue, d.ExpandName(), appData, pathResponse, d.transport.GetConfig())
 	if err != nil {
 		return fmt.Errorf("failed to create announce: %w", err)
 	}
+	announceObj.SetRatchetPublic(ratchetPub)
 
 	packet, err := announceObj.GetPacket()
 	if err != nil {
@@ -694,9 +706,15 @@ func (d *Destination) Encrypt(plaintext []byte) ([]byte, error) {
 
 	switch d.destType {
 	case Single:
-		recipientKey := d.identity.GetEncryptionKey()
-		debug.Log(debug.DebugVerbose, "Encrypting for single recipient", "key", fmt.Sprintf("%x", recipientKey[:8]))
-		return d.identity.Encrypt(plaintext, recipientKey)
+		selectedRatchet := identity.GetRatchet(d.hashValue)
+		if len(selectedRatchet) > 0 {
+			rid := d.identity.GetRatchetID(selectedRatchet)
+			d.setLatestRatchetID(rid)
+			debug.Log(debug.DebugVerbose, "Encrypting for single recipient with ratchet", "ratchet_id", fmt.Sprintf("%x", rid))
+			return d.identity.Encrypt(plaintext, selectedRatchet)
+		}
+		debug.Log(debug.DebugVerbose, "Encrypting for single recipient with identity key")
+		return d.identity.Encrypt(plaintext, nil)
 	case Group:
 		key := d.identity.GetCurrentRatchetKey()
 		if key == nil {
@@ -969,7 +987,10 @@ func (d *Destination) reloadRatchets() error {
 func (d *Destination) RotateRatchets() error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
+	return d.rotateRatchetsLocked()
+}
 
+func (d *Destination) rotateRatchetsLocked() error {
 	if !d.ratchetsEnabled {
 		return errors.New("ratchets not enabled")
 	}
@@ -1003,7 +1024,7 @@ func (d *Destination) RotateRatchets() error {
 	ratchetPub, err := cryptography.PublicKeyFromPrivate(newRatchet)
 	securemem.WipeBytes(newRatchet)
 	if err == nil {
-		d.latestRatchetID = identity.TruncatedHash(ratchetPub)[:identity.NameHashLength/8]
+		d.latestRatchetID = d.identity.GetRatchetID(ratchetPub)
 	}
 
 	d.cleanRatchets()
@@ -1044,4 +1065,43 @@ func (d *Destination) GetRatchets() [][]byte {
 		}
 	}
 	return ratchetsCopy
+}
+
+// RatchetsEnabled reports whether this destination has ratchets turned on.
+func (d *Destination) RatchetsEnabled() bool {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+	return d.ratchetsEnabled
+}
+
+// LatestRatchetID returns the ratchet ID from the last encrypt or decrypt
+// that used a ratchet, or nil.
+func (d *Destination) LatestRatchetID() []byte {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+	if len(d.latestRatchetID) == 0 {
+		return nil
+	}
+	return append([]byte(nil), d.latestRatchetID...)
+}
+
+// CurrentRatchetPublic returns the public key of the latest local ratchet,
+// or nil if ratchets are disabled or none have been rotated yet.
+func (d *Destination) CurrentRatchetPublic() []byte {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+	return d.currentRatchetPublicLocked()
+}
+
+func (d *Destination) currentRatchetPublicLocked() []byte {
+	if !d.ratchetsEnabled || len(d.ratchets) == 0 || d.ratchets[0] == nil {
+		return nil
+	}
+	priv := d.ratchets[0].CopyOut()
+	defer securemem.WipeBytes(priv)
+	pub, err := identity.RatchetPublicBytes(priv)
+	if err != nil {
+		return nil
+	}
+	return pub
 }

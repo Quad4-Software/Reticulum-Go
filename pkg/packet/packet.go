@@ -373,10 +373,6 @@ func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []b
 	copy(randomHash[5:], timeBytes[3:8])
 	debug.Log(debug.DebugPackets, "Generated random hash", "hash", fmt.Sprintf("%x", randomHash))
 
-	// Prepare ratchet ID if available (not yet implemented)
-	var ratchetID []byte
-
-	// Sign over dest hash, keys, name hash, random hash, and app data.
 	signedData := make([]byte, 0, len(destHash)+len(encKey)+len(signKey)+len(nameHash10)+len(randomHash)+len(appData))
 	signedData = append(signedData, destHash...)
 	signedData = append(signedData, encKey...)
@@ -392,15 +388,11 @@ func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []b
 	}
 	debug.Log(debug.DebugPackets, "Generated signature", "signature", fmt.Sprintf("%x", signature))
 
-	// Combine fields: enc key, sign key, name hash, random hash, optional ratchet, signature, app data.
 	data := make([]byte, 0, 32+32+10+10+64+len(appData))
 	data = append(data, encKey...)
 	data = append(data, signKey...)
 	data = append(data, nameHash10...)
 	data = append(data, randomHash...)
-	if ratchetID != nil {
-		data = append(data, ratchetID...)
-	}
 	data = append(data, signature...)
 	data = append(data, appData...)
 

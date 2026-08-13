@@ -106,7 +106,20 @@ Outbound encrypted tokens use ephemeral X25519, HKDF-SHA256, AES-256-CBC, and HM
 
 ### Ratchets
 
-Optional X25519 ratchet keys rotate for forward secrecy on identity-encrypted traffic. Ratchets persist under `storage/ratchets/` per identity hash with expiry aligned to reference constants.
+Identity ratchets are optional, same as Python `Destination.enable_ratchets`. They are off until the destination calls `EnableRatchets` or `EnableRatchetsInMemory`. `EnforceRatchets` is a separate opt-in, same as Python `enforce_ratchets`. Python RNS does not enable or enforce ratchets by default.
+
+When enabled, the destination rotates X25519 ratchet keys and puts the current 32-byte public key in announces (header context flag set). Peers call `Identity.RememberRatchet` keyed by destination hash. `Destination.Encrypt` for SINGLE destinations uses `Identity.GetRatchet(destHash)` when a non-expired key is known, otherwise the static identity encryption key.
+
+Two kinds of material share the ratchet directory:
+
+| Kind | Path | Contents |
+|------|------|----------|
+| Local destination private keys | Path passed to `EnableRatchets` (pageserver uses `storage/ratchets/{identity_hash}`) | Signed msgpack list (`signature` + packed private keys) |
+| Known-peer public keys | `storage/ratchets/{destination_hash}` | Python-compatible msgpack `{ratchet, received}` |
+
+`EnableRatchetsInMemory` keeps local private keys in RAM only. Known-peer public keys also stay in RAM when `in_memory_storage` or shared-instance client mode is on (`Identity.RememberRatchet` skips disk). Expired known-peer files are dropped after 30 days (`RATCHET_EXPIRY`). Clean skips destination-private signed files so they are not treated as peer records.
+
+`EnforceRatchets` refuses ciphertext that still uses the static identity key. Links do not use identity ratchets. They already exchange ephemeral keys at establishment. GROUP destinations still use identity HMAC, not the SINGLE announce-ratchet path.
 
 ## Destinations
 
@@ -128,10 +141,12 @@ The on-wire destination hash is derived from application name, aspects, and iden
 ### Creating a destination
 
 ```go
-dest, err := destination.NewDestination(
+dest, err := destination.New(
     id,
-    destination.TypeSingle,
+    destination.In,
+    destination.Single,
     "myapp",
+    tr,
     "subsystem",
 )
 ```
@@ -166,7 +181,8 @@ Register with accepts_links semantics. Incoming link requests dispatch to `link.
 |----------|------|
 | Identity blobs | `storage/identities/` (per hash in Go) |
 | Known destinations | `storage/known_destinations/` |
-| Ratchets | `storage/ratchets/` |
+| Known-peer ratchet public keys | `storage/ratchets/{destination_hash}` |
+| Local destination ratchet private keys | Path from `EnableRatchets` (often under `storage/ratchets/`) |
 
 Go writes identity files keyed by hash. Python may use per-name files. Go loads Python-format known destination files for interoperability.
 

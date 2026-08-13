@@ -99,6 +99,7 @@ RSG / RSM
 
 Destination
   rns_destination_create (app name required, optional aspects, accepts_links)
+  rns_destination_enable_ratchets / rns_destination_enforce_ratchets
   rns_destination_announce
   rns_destination_hash (16 bytes, RNS_HASH_LEN)
   rns_destination_destroy

@@ -43,6 +43,13 @@ class Destination:
             raise Error(Error.INTERNAL)
         return cls(h)
 
+    def enable_ratchets(self, path: str | None = None) -> None:
+        p = path.encode("utf-8") if path else None
+        map_code(ffi.lib.rns_destination_enable_ratchets(self._handle, p))
+
+    def enforce_ratchets(self) -> None:
+        map_code(ffi.lib.rns_destination_enforce_ratchets(self._handle))
+
     def announce(self, app_data: bytes | bytearray | memoryview = b"") -> None:
         payload = bytes(app_data)
         data_ptr = (ctypes.c_uint8 * len(payload)).from_buffer_copy(payload) if payload else None

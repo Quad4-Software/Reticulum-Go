@@ -228,6 +228,10 @@ _lib.rns_destination_create.argtypes = [
     ctypes.c_int,
 ]
 _lib.rns_destination_create.restype = ctypes.c_uint64
+_lib.rns_destination_enable_ratchets.argtypes = [ctypes.c_uint64, ctypes.c_char_p]
+_lib.rns_destination_enable_ratchets.restype = ctypes.c_int
+_lib.rns_destination_enforce_ratchets.argtypes = [ctypes.c_uint64]
+_lib.rns_destination_enforce_ratchets.restype = ctypes.c_int
 _lib.rns_destination_announce.argtypes = [
     ctypes.c_uint64,
     ctypes.POINTER(ctypes.c_uint8),

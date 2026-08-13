@@ -92,6 +92,12 @@ class Destination {
 			      accepts_links);
 	}
 
+	Error enable_ratchets(const char *path = nullptr) {
+		return map_code(rns_destination_enable_ratchets(handle_, path));
+	}
+
+	Error enforce_ratchets() { return map_code(rns_destination_enforce_ratchets(handle_)); }
+
 	Error announce(const std::uint8_t *data, std::size_t len) {
 		if (data == nullptr || len == 0) {
 			return map_code(rns_destination_announce(handle_, nullptr, 0));

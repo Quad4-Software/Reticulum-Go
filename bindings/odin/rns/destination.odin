@@ -41,6 +41,17 @@ destination_create :: proc(
 	return Destination(h), .Ok
 }
 
+destination_enable_ratchets :: proc(destination: Destination, path: string = "") -> Error {
+	if path == "" {
+		return Error(rns_destination_enable_ratchets(u64(destination), nil))
+	}
+	return Error(rns_destination_enable_ratchets(u64(destination), strings.clone_to_cstring(path, context.temp_allocator)))
+}
+
+destination_enforce_ratchets :: proc(destination: Destination) -> Error {
+	return Error(rns_destination_enforce_ratchets(u64(destination)))
+}
+
 destination_announce :: proc(destination: Destination, app_data: []u8 = nil) -> Error {
 	if len(app_data) == 0 {
 		return Error(rns_destination_announce(u64(destination), nil, 0))

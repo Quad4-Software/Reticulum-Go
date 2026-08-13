@@ -440,6 +440,20 @@ func rns_destination_set_proof_strategy(destination C.uint64_t, strategy C.int) 
 	return cCode(librns.DestinationSetProofStrategy(uint64(destination), byte(strategy))) // #nosec G115 -- range checked above, values validated in DestinationSetProofStrategy
 }
 
+//export rns_destination_enable_ratchets
+func rns_destination_enable_ratchets(destination C.uint64_t, path *C.char) C.int {
+	p := ""
+	if path != nil {
+		p = C.GoString(path)
+	}
+	return cCode(librns.DestinationEnableRatchets(uint64(destination), p))
+}
+
+//export rns_destination_enforce_ratchets
+func rns_destination_enforce_ratchets(destination C.uint64_t) C.int {
+	return cCode(librns.DestinationEnforceRatchets(uint64(destination)))
+}
+
 //export rns_destination_announce
 func rns_destination_announce(destination C.uint64_t, appData *C.uint8_t, appDataLen C.size_t) C.int {
 	data, code := goBytesFromC(appData, appDataLen)

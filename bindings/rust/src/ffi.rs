@@ -174,6 +174,8 @@ unsafe extern "C" {
         aspect_count: usize,
         accepts_links: c_int,
     ) -> u64;
+    pub fn rns_destination_enable_ratchets(destination: u64, path: *const c_char) -> c_int;
+    pub fn rns_destination_enforce_ratchets(destination: u64) -> c_int;
     pub fn rns_destination_announce(
         destination: u64,
         app_data: *const u8,

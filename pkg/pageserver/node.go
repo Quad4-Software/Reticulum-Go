@@ -577,20 +577,13 @@ func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id any, appData []by
 		debug.Log(debug.DebugInfo, "No appData (empty announce)")
 	}
 
-	if identity, ok := id.(*identity.Identity); ok {
+	if announcedID, ok := id.(*identity.Identity); ok {
 		debug.Log(debug.DebugAll, "Identity details")
-		debug.Log(debug.DebugAll, "Identity hash", "hash", identity.GetHexHash())
-		debug.Log(debug.DebugAll, "Identity public key", "key", fmt.Sprintf("%x", identity.GetPublicKey()))
+		debug.Log(debug.DebugAll, "Identity hash", "hash", announcedID.GetHexHash())
+		debug.Log(debug.DebugAll, "Identity public key", "key", fmt.Sprintf("%x", announcedID.GetPublicKey()))
 
-		ratchets := identity.GetRatchets()
-		debug.Log(debug.DebugAll, "Active ratchets", "count", len(ratchets))
-
-		if len(ratchets) > 0 {
-			ratchetKey := identity.GetCurrentRatchetKey()
-			if ratchetKey != nil {
-				ratchetID := identity.GetRatchetID(ratchetKey)
-				debug.Log(debug.DebugAll, "Current ratchet ID", "id", fmt.Sprintf("%x", ratchetID))
-			}
+		if ratchetPub := identity.GetRatchet(destHash); len(ratchetPub) > 0 {
+			debug.Log(debug.DebugAll, "Announced ratchet ID", "id", fmt.Sprintf("%x", announcedID.GetRatchetID(ratchetPub)))
 		}
 
 		recordType := "peer"
@@ -600,13 +593,13 @@ func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id any, appData []by
 		}
 
 		h.reticulum.announceHistoryMu.Lock()
-		h.reticulum.announceHistory[identity.GetHexHash()] = announceRecord{
+		h.reticulum.announceHistory[announcedID.GetHexHash()] = announceRecord{
 			timestamp: time.Now().Unix(),
 			appData:   appData,
 		}
 		h.reticulum.announceHistoryMu.Unlock()
 
-		debug.Log(debug.DebugVerbose, "Stored announce in history", "type", recordType, "identity", identity.GetHexHash())
+		debug.Log(debug.DebugVerbose, "Stored announce in history", "type", recordType, "identity", announcedID.GetHexHash())
 	}
 
 	return nil

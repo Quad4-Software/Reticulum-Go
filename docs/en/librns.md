@@ -158,6 +158,8 @@ Authoritative names live in `include/rns.h`. Summary below.
 | rns_destination_create | App name required. Optional aspects. accepts_links wires inbound links |
 | rns_destination_announce | Optional app data |
 | rns_destination_hash | 16-byte truncated hash (`RNS_HASH_LEN`) |
+| rns_destination_enable_ratchets | Path required for disk persist. Empty path enables in-memory ratchets |
+| rns_destination_enforce_ratchets | Opt-in reject of identity-key ciphertext |
 | rns_destination_destroy | Release handle |
 | rns_destination_register_request_handler | Bridge path to `RNS_EV_REQUEST_INCOMING` |
 

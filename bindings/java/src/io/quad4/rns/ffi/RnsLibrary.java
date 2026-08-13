@@ -110,6 +110,10 @@ public interface RnsLibrary extends Library {
     long rns_destination_create(
             long node, long identity, String appName, Pointer aspects, long aspectCount, int acceptsLinks);
 
+    int rns_destination_enable_ratchets(long destination, String path);
+
+    int rns_destination_enforce_ratchets(long destination);
+
     int rns_destination_announce(long destination, byte[] appData, long appDataLen);
 
     int rns_destination_hash(long destination, byte[] hashOut, long hashOutLen, LongByReference written);

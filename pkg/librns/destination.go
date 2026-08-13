@@ -161,6 +161,35 @@ func DestinationSetProofStrategy(destHandle uint64, strategy byte) int {
 	}
 }
 
+// DestinationEnableRatchets turns on destination ratchets and persists them at path.
+// An empty path enables in-memory ratchets only.
+func DestinationEnableRatchets(destHandle uint64, path string) int {
+	destRec, err := destinationByHandle(destHandle)
+	if err != nil {
+		return setLastError(err)
+	}
+	ok := false
+	if path == "" {
+		ok = destRec.destination.EnableRatchetsInMemory()
+	} else {
+		ok = destRec.destination.EnableRatchets(path)
+	}
+	if !ok {
+		return setLastError(fmt.Errorf("%w: enable ratchets failed", errInternal))
+	}
+	return OK
+}
+
+// DestinationEnforceRatchets rejects identity-key ciphertext on destHandle.
+func DestinationEnforceRatchets(destHandle uint64) int {
+	destRec, err := destinationByHandle(destHandle)
+	if err != nil {
+		return setLastError(err)
+	}
+	destRec.destination.EnforceRatchets()
+	return OK
+}
+
 // DestinationAnnounce sends an announce for destHandle.
 func DestinationAnnounce(destHandle uint64, appData []byte) int {
 	destRec, err := destinationByHandle(destHandle)

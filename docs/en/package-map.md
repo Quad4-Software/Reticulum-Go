@@ -27,7 +27,7 @@ Key generation, recall, sign and verify, encrypt and decrypt, ratchets, optional
 | Key types | Identity |
 | Hardware signing | NewIdentityWithSigner, RHB1 descriptor in `hardware_bound.go` |
 | At-rest store | `pkg/identity/store` (file or Freedesktop Secret Service), RSSI markers |
-| Main files | `identity.go`, `identity_signer.go`, `hardware_bound.go`, `known_persist.go`, `store/` |
+| Main files | `identity.go`, `identity_signer.go`, `hardware_bound.go`, `known_persist.go`, `known_ratchets.go`, `store/` |
 
 ### `pkg/securemem`
 

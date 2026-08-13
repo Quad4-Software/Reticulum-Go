@@ -419,6 +419,24 @@ class Rns {
     }
   }
 
+  int destinationEnableRatchets(int destination, [String? path]) {
+    if (path == null || path.isEmpty) {
+      return _api.rns_destination_enable_ratchets(destination, nullptr);
+    }
+    final cPath = path.toNativeUtf8();
+    try {
+      return _api.rns_destination_enable_ratchets(
+        destination,
+        cPath.cast(),
+      );
+    } finally {
+      calloc.free(cPath);
+    }
+  }
+
+  int destinationEnforceRatchets(int destination) =>
+      _api.rns_destination_enforce_ratchets(destination);
+
   int destinationAnnounce(int destination, [List<int>? appData]) {
     if (appData == null || appData.isEmpty) {
       return _api.rns_destination_announce(destination, nullptr, 0);

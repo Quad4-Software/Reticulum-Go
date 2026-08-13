@@ -32,6 +32,8 @@ Override with `--config` on the daemon command line.
 
 Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a separate directory so both stacks can run on one host.
 
+`storage/ratchets/` holds known-peer public keys named by destination hash (Python `{ratchet, received}` msgpack) and destination-private signed lists at the path `EnableRatchets` was given. `EnableRatchetsInMemory` and `in_memory_storage` keep ratchet material in RAM.
+
 ## File format
 
 | Aspect | Behavior |
@@ -63,7 +65,7 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | backbone_io | auto | Backbone poller: auto, epoll, kqueue, io_uring, go |
 | in_memory_path_table | no | Keep path table in RAM only |
 | in_memory_known_destinations | no | Keep known destinations in RAM only |
-| in_memory_storage | no | Fully ephemeral mode: no disk for paths, known dests, transport identity, blackhole, or split resources. Implies both table flags |
+| in_memory_storage | no | Fully ephemeral mode: no disk for paths, known dests, known-peer ratchets, transport identity, blackhole, or split resources. Implies both table flags |
 | identity_backend | file | Identity at-rest store: file, secretservice (Freedesktop Secret Service), or keyring (Linux kernel keyring) |
 | soft_memory_limit | (none) | Soft heap budget (K/M/G or bytes) via Go `debug.SetMemoryLimit`. Env: `RETICULUM_SOFT_MEMORY_LIMIT` |
 | dos_protection | auto | Go-only local IDS/IPS gates. Values: off, detect, prevent, auto (alias smart). See [DoS protection](#dos_protection-go-only) |

@@ -1767,6 +1767,9 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	}
 
 	identity.Remember(data, destinationHash, pubKey, appData)
+	if len(ratchetData) == 32 {
+		identity.RememberRatchet(destinationHash, ratchetData)
+	}
 
 	hashData := data[2:]
 	announceHash := sha256.Sum256(hashData)

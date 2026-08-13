@@ -52,6 +52,18 @@ function Destination.create(node, identity, app_name, aspects, accepts_links)
 	return wrap(h)
 end
 
+function Destination:enable_ratchets(path)
+	local p = nil
+	if path and path ~= "" then
+		p = path
+	end
+	errors.map_code(lib.rns_destination_enable_ratchets(self._box.h, p))
+end
+
+function Destination:enforce_ratchets()
+	errors.map_code(lib.rns_destination_enforce_ratchets(self._box.h))
+end
+
 function Destination:announce(app_data)
 	local buf, n = ffi_mod.to_uint8(app_data or "")
 	errors.map_code(lib.rns_destination_announce(self._box.h, buf, n))
