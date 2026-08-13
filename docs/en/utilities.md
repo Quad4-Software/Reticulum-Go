@@ -306,7 +306,7 @@ Go-signed `.rsg` / `.rsm` / `.rfe` validate with Python rnid, and the reverse al
 rgoprobe [flags] <full_name> <destination_hash_hex>
 ```
 
-Attaches as a shared-instance client (or starts local transport), waits for a path, sends encrypted probes, and prints RTT. Example:
+Attaches as a shared-instance client (or starts local transport), waits for a path, sends encrypted probes, and prints RTT. Default path wait follows the slowest online interface bitrate instead of a flat 15s. Example:
 
 ```bash
 ./bin/reticulum-go probe -config ~/.reticulum -n 3 -v app.aspect aabbccddeeff00112233445566778899
@@ -330,7 +330,7 @@ rgopath [flags] [destination_hash]
 | `-d` | Drop path to hash |
 | `-D` | Drop all paths via transport hash |
 | `-q` | Drop announce queues |
-| `-w sec` | Path request timeout (default 15) |
+| `-w sec` | Path request timeout (`0` = adaptive from slowest online bitrate, default) |
 | `-R hash` | Transport identity hash of remote instance |
 | `-i path` | Identity file for remote management |
 | `-W sec` | Timeout for remote queries (default 15) |
@@ -373,7 +373,7 @@ rgocp -f -F <remote_path> [flags] <hash>    # fetch
 | `-overwrite` | Overwrite on receive |
 | `-no-compress` | Disable auto compression |
 | `-announce sec` | Announce interval (`0` once, `<0` never) |
-| `-w sec` | Path/link timeout |
+| `-w sec` | Path/link timeout (`0` = adaptive, default) |
 | `-s` | Silent progress |
 | `-p` | Print identity and destination hash |
 
@@ -403,7 +403,7 @@ reticulum-go x -x [flags] <destination_hash>      # interactive
 | `-b` | Skip announce on listen start |
 | `-m` | Mirror remote exit code |
 | `-d` | Detailed timing/size summary |
-| `-w sec` | Path/link/command timeout |
+| `-w sec` | Path/link/command timeout (`0` = adaptive path and link) |
 | `-W sec` | Max result download time |
 | `--stdin str` | Remote stdin |
 | `--stdout N` / `--stderr N` | Max returned bytes |
@@ -444,7 +444,7 @@ reticulum-go sh --compat -l                             # rnsh dest only
 | `--compat` | Force Python rnsh dest and wire protocol |
 | `--line` / `--raw` | Force line-buffered or raw stdin |
 | `-m` | Mirror remote exit code |
-| `-w sec` | Path/link handshake timeout |
+| `-w sec` | Path/link handshake timeout (`0` = adaptive, default) |
 | `-p` | Print identity and destination hash |
 
 Allow lists: `/etc/rgosh/`, `~/.config/rgosh/`, `~/.rgosh/`, plus Python rnsh paths. Files are re-read on each new link. Auto line mode engages when link RTT is high unless `--raw`. Stream sends wait for the channel window and compress to MDU so slow links do not flood.

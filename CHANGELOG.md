@@ -7,6 +7,8 @@ Wire compatible with Python RNS 1.4.2
 ### Included
 - Wire compatibility target raised to Python RNS 1.4.2
 - Path-request emit skips offline interfaces (and re-checks at recursive PR emit time)
+- Adaptive path-request and link-establishment waits from slowest online bitrate (5 bit/s floor) instead of a flat 15s
+- `Transport.FirstHopTimeout` matches Python next-hop airtime, including RPC `get_first_hop_timeout`
 - Discovery drops blackholed transport ids and announcer identities at announce receive time
 - Blackhole `ActiveIdentitySet` for bulk membership checks used by discovery filtering
 - Go-unique path-request readiness also refuses non-positive bitrate when exposed (uninitialized radio timing)

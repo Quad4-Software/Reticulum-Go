@@ -157,7 +157,11 @@ if err != nil {
 }
 if !n.Transport().HasPath(peerDestHash) {
 	_ = n.Transport().RequestPath(peerDestHash, "", nil, false)
-	// wait until HasPath is true
+	ctx, cancel := context.WithTimeout(context.Background(), rnsutil.PathResponseWindow(n.Transport(), peerDestHash))
+	defer cancel()
+	if err := rnsutil.WaitPath(ctx, n.Transport(), peerDestHash); err != nil {
+		log.Fatal(err)
+	}
 }
 l := link.NewLink(out, n.Transport(), nil, nil, nil)
 if err := l.Establish(); err != nil {
@@ -289,6 +293,7 @@ Private key material uses `pkg/securemem` (best-effort mlock, wipe on Close). Se
 |--------|------|
 | `NewLink(dest, transport, iface, onEst, onClose)` | Outbound link object |
 | `Establish() error` | Initiator handshake |
+| `EstablishmentTimeout()` | Handshake wait used by the link watchdog |
 | `Teardown()` | Close |
 | `Identify(id)` | Prove local identity to peer |
 | Send / SendPacket / SendPacketWithContext | Encrypted data |
@@ -330,6 +335,9 @@ Statuses: StatusPending, StatusActive, StatusComplete, StatusFailed, StatusCance
 | `HasPath(hash)` | Cached route present |
 | `RequestPath(hash, iface, tag, recursive)` | Path request (throttled) |
 | HopsTo / NextHop / NextHopInterface | Route inspection |
+| `FirstHopTimeout(hash)` | Next-hop airtime plus 6s (Python `get_first_hop_timeout`) |
+| `PathResponseWindow(hash)` | Cold path wait from slowest online bitrate |
+| `SlowestOnlineBitrate()` | Lowest advertised bitrate of an online interface |
 | ExpirePath / PrepareFreshPathRequest | Drop or refresh cache |
 | RegisterInterface / GetInterfaces | Interface table |
 | RegisterDestination | Usually automatic for In destinations |
@@ -373,10 +381,12 @@ Default config directory is **`~/.reticulum-go`**, not `~/.reticulum`.
 | `destination.set_link_established_callback` | SetLinkEstablishedCallback (`func(any)`) |
 | `destination.register_request_handler` | RegisterRequestHandler / RegisterRequestHandlerAny |
 | `RNS.Link(destination)` | `link.NewLink` + Establish |
+| `link.establishment_timeout` | `l.EstablishmentTimeout()` |
 | `link.identify(identity)` | `l.Identify(id)` |
 | `link.request(path, data=...)` | `l.Request(path, data, timeout)` |
 | `RNS.Resource(data, link, metadata=...)` | `resource.New` + SetMetadata + `l.SendResource` |
 | `RNS.Transport.has_path` / request_path | `tr.HasPath` / `tr.RequestPath` |
+| `RNS.Reticulum.get_first_hop_timeout` | `tr.FirstHopTimeout` (use `rnsutil.FirstHopTimeout` when attached to a shared instance) |
 | Shared instance master | First `share_instance = yes` process (daemon or Node) |
 | `~/.reticulum` | `~/.reticulum-go` |
 
