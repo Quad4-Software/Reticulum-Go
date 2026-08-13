@@ -94,7 +94,7 @@ Reticulum-Go/
     dart/               Dart librns FFI and Control API client
   pkg/                  Public library packages (cli, pageserver, rnsutil, …)
   man/                  Man pages (sections 1 and 8)
-  packaging/            nfpm deb/rpm config
+  packaging/            nfpm deb/rpm/arch packages plus init units
   internal/             Daemon-only helpers (config re-export, storage)
   examples/             Sample applications (includes librns-smoke)
   tests/

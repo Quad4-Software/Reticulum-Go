@@ -153,7 +153,7 @@ These do not change the wire format:
 | rnpath | rgopath (same RPC and remote `-R` dest as Python) |
 | rncp | rgocp (send/listen/fetch on `rncp.receive`) |
 | rnir, rnodeconf, rnpkg, rngit | Not ported (deferred post-1.0). rnx is `reticulum-go x`. |
-| rnsh | Python rnsh talks to a Go listener on dest app `rnsh`. `reticulum-go sh` auto-detects that dest. Native `rgosh` dest is Go-only. |
+| rnsh | Python rnsh talks to a Go listener on dest app `rnsh`. `reticulum-go sh` auto-detects that dest. Native `rgosh` dest is Go-only. Listen `-b PERIOD` / `-A` / `-C` match Python rnsh. Unix PTY. Windows listener is pipes only. |
 | WASM | `reticulum-wasm` (Go-only) |
 | librns | `librns.so` + `rns.h` (Go-only, Linux first) |
 | Odin bindings | `bindings/odin` (links `librns.so`, [librns](librns.md#odin-bindings)) |

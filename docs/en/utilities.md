@@ -418,6 +418,10 @@ Exit codes match Python rnx (241-249 for client failures, `-m` mirrors remote).
 
 Interactive remote shell over Link + Channel. Native protocol uses destination app `rgosh`. Connecting to a Python `rnsh` destination hash selects that protocol automatically. `--compat` forces the rnsh dest and wire types. Listen without `--compat` accepts both `rgosh` and `rnsh` on the same identity.
 
+Interactive sessions stay up until the remote process exits. Ctrl-C is forwarded to the remote PTY. Disconnect with `~.` (tilde then period, right after a newline). `~L` toggles line mode. `~~` sends a literal tilde. `-w` is path/link handshake only.
+
+Unix listeners (Linux, macOS, FreeBSD, OpenBSD, NetBSD, Dragonfly) use a PTY. Windows listeners fall back to pipes (`ComSpec` / `cmd.exe`) and cannot host vim-style TTY programs. A Windows client can still attach to a Unix listener. Console resize is polled on Windows (no SIGWINCH).
+
 ```bash
 reticulum-go sh -l [flags] [command...]                 # listen (rgosh + rnsh)
 reticulum-go sh [flags] <destination_hash> [command...] # connect (auto-detect)
@@ -433,15 +437,17 @@ reticulum-go sh --compat -l                             # rnsh dest only
 | `-a hash` | Allowed identity (repeatable, listen) |
 | `-n` | Accept from anyone (listen) |
 | `-N` | Do not identify to listener |
-| `-b` | Skip announce on listen start |
-| `-C` | Forbid remote cmdline (forced default command) |
+| `-b PERIOD` | Announce interval seconds (default 900, `0` once at start) |
+| `--no-announce` | Never announce (listen) |
+| `-A` | Append remote cmdline to the default command |
+| `-C` | Reject a remote cmdline. Empty cmdline still runs the default command |
 | `--compat` | Force Python rnsh dest and wire protocol |
 | `--line` / `--raw` | Force line-buffered or raw stdin |
 | `-m` | Mirror remote exit code |
-| `-w sec` | Path/link timeout |
+| `-w sec` | Path/link handshake timeout |
 | `-p` | Print identity and destination hash |
 
-Allow lists: `/etc/rgosh/`, `~/.config/rgosh/`, `~/.rgosh/`, plus Python rnsh paths. Auto line mode engages when link RTT is high unless `--raw`.
+Allow lists: `/etc/rgosh/`, `~/.config/rgosh/`, `~/.rgosh/`, plus Python rnsh paths. Files are re-read on each new link. Auto line mode engages when link RTT is high unless `--raw`. Stream sends wait for the channel window and compress to MDU so slow links do not flood.
 
 Live interop:
 
