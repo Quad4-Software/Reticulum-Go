@@ -347,6 +347,10 @@ type ReticulumConfig struct {
 	// dynamic page child processes on Linux. Default false.
 	SandboxExecRlimits bool
 
+	// SandboxSkipScoped skips Landlock V6 RestrictScoped. GUI processes that
+	// spawn WebKit helpers need abstract UNIX sockets and signals.
+	SandboxSkipScoped bool
+
 	// ControlAPISocket is an optional Unix socket path for the control API.
 	// TCP listen stays enabled when the control API is on.
 	ControlAPISocket string

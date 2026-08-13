@@ -91,13 +91,20 @@ func applyLandlock(cfg *common.ReticulumConfig) error {
 
 	// V6+ scopes abstract UNIX sockets and signals toward more privileged
 	// domains. Pathname UNIX sockets (session bus, journald) need
-	// WithResolveUnix on their path trees instead.
-	if err := landlock.V9.BestEffort().RestrictScoped(); err != nil {
-		return fmt.Errorf("landlock restrict scoped: %w", err)
+	// WithResolveUnix on their path trees instead. GUI hosts skip this
+	// because WebKitGTK helpers use abstract sockets and signals.
+	if shouldRestrictScoped(cfg) {
+		if err := landlock.V9.BestEffort().RestrictScoped(); err != nil {
+			return fmt.Errorf("landlock restrict scoped: %w", err)
+		}
 	}
 
 	debug.Log(debug.DebugInfo, "Landlock sandbox applied", "abi", "V9")
 	return nil
+}
+
+func shouldRestrictScoped(cfg *common.ReticulumConfig) bool {
+	return cfg == nil || !cfg.SandboxSkipScoped
 }
 
 func probeLandlock() error {
