@@ -17,6 +17,14 @@ const (
 	// (Python known_destinations_interval).
 	KnownDestinationsInterval = 5 * time.Minute
 
+	// MgmtAnnounceInterval is how often management destinations such as
+	// rnstransport.remote.management are re-announced (Python 2 hours).
+	MgmtAnnounceInterval = 2 * time.Hour
+
+	// MgmtAnnounceFirstDelay is the wait before the first management announce
+	// after start (Python last_mgmt_announce offset of 15 seconds).
+	MgmtAnnounceFirstDelay = 15 * time.Second
+
 	// APPathTime is path lifetime for Access Point mode interfaces.
 	APPathTime = 24 * time.Hour
 

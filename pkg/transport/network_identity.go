@@ -136,6 +136,8 @@ func (t *Transport) registerNetworkDestinations(id *identity.Identity) error {
 	t.networkDestination = networkDest
 	t.networkInstanceDest = instanceDest
 	t.mutex.Unlock()
+	t.appendMgmtDestination(networkDest)
+	t.appendMgmtDestination(instanceDest)
 
 	debug.Log(debug.DebugInfo, "Registered network destinations",
 		"network", fmt.Sprintf("%x", networkDest.GetHash()),

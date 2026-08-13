@@ -158,6 +158,13 @@ func (c *RPCClient) GetPathTable(maxHops *int) ([]transport.PathTableEntry, erro
 	return out, err
 }
 
+// GetRateTable fetches announce rate-table rows.
+func (c *RPCClient) GetRateTable() ([]transport.RateTableEntry, error) {
+	var out []transport.RateTableEntry
+	err := c.Call(map[string]any{"get": "rate_table"}, &out)
+	return out, err
+}
+
 // GetLinkCount returns the active link count.
 func (c *RPCClient) GetLinkCount() (int, error) {
 	var out int

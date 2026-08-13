@@ -78,6 +78,8 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | static_transport_identity | no | Keep persisted transport identity on the wire when enable_transport is no (RNS 1.3.6+) |
 | local_hops_delta | no | Mangling applied on local-origin hop-0 packets (delta 2-7) |
 | respond_to_probes / allow_probes | no | Register rnstransport.probe with prove-all |
+| enable_remote_management | no | Register `rnstransport.remote.management` for Python rnpath/rnstatus and Go rgopath/rgostatus `-R` |
+| remote_management_allowed | (empty) | Comma-separated identity hashes allowed to use remote management |
 | network_identity | (empty) | Path to network identity for discovery encrypt/decrypt |
 | panic_on_interface_error | no | Panic on fatal interface errors |
 

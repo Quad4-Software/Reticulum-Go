@@ -116,6 +116,10 @@ Per-interface ingress_control and `announce_rate_*` settings map to token bucket
 
 Set `respond_to_probes = yes` (or allow_probes) to register `rnstransport.probe` with prove-all so `reticulum-go probe` can measure RTT against this node.
 
+## Remote management
+
+Set `enable_remote_management = yes` and `remote_management_allowed` to a comma-separated list of identity hashes. The daemon registers `rnstransport.remote.management` with `/path` (table, rates) and `/status` handlers, announced on the same interval as other management destinations. Python rnpath/rnstatus and Go rgopath/rgostatus both use that dest. Shared-instance clients do not host it. Remote drop and blackhole mutate are not implemented.
+
 ## Debugging
 
 Raise loglevel in config. Transport logs at debug levels 5 and above include path updates and forwarding decisions via `pkg/debug`.

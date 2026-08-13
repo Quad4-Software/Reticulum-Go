@@ -174,7 +174,13 @@ func (n *Node) Start() error {
 		debug.Log(debug.DebugInfo, "Using existing local shared Reticulum instance, skipping configured network interfaces")
 		return nil
 	}
-	return n.startInterfaces()
+	if err := n.startInterfaces(); err != nil {
+		return err
+	}
+	if err := n.transport.InitializeRemoteManagement(); err != nil {
+		return fmt.Errorf("remote management: %w", err)
+	}
+	return nil
 }
 
 func (n *Node) startInterfaces() error {

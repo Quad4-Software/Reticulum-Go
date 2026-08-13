@@ -1,6 +1,6 @@
 # CLI utilities
 
-Go-native tools that speak the same shared-instance msgpack RPC and identity file formats as Python rnstatus, rnid, rnprobe, rnpath, rncp, and rnx. They are not Python clones.
+Go-native tools that speak the same shared-instance msgpack RPC, destinations, and identity file formats as Python rnstatus, rnid, rnprobe, rnpath, rncp, rnsh, and rnx. They are not Python clones. Python tools and Go tools both work against rnsd and reticulum-go.
 
 They ship as **subcommands of the single `reticulum-go` binary**:
 
@@ -24,10 +24,10 @@ make build
 | `reticulum-go slow` (rgoslow) | (Go-only) | Bottleneck and local health findings from interface/path stats |
 | `reticulum-go id` (rgoid) | rnid | Identity generate, hash, `.rsg` / `.rsm` / `.rfe` |
 | `reticulum-go probe` (rgoprobe) | rnprobe | Path wait, encrypted probe, RTT |
-| `reticulum-go path` (rgopath) | rnpath | Path table, drop, blackhole, path request |
+| `reticulum-go path` (rgopath) | rnpath | Path table, drop, blackhole, path request, remote `-R` |
 | `reticulum-go cp` (rgocp) | rncp | File send / listen / fetch over links |
 | `reticulum-go x` (rgox, rnx) | rnx | Remote command execution over links (`rnx.execute`) |
-| `reticulum-go sh` (rgosh) | rnsh (native + `--compat`) | Interactive remote shell over Link+Channel (PTY/pipes) |
+| `reticulum-go sh` (rgosh) | rnsh (native + auto rnsh) | Interactive remote shell over Link+Channel (PTY/pipes) |
 | `reticulum-go pageserver` | (example app) | NomadNet-style page and file server |
 | `reticulum-go self-check` (rgoselfcheck) | (Go-only) | Host OS preflight for sandbox, crypto, and interfaces |
 | `reticulum-go speedtest` (rgospeed) | `Examples/Speedtest.py` | Loopback smoke plus cross-host / docker daemon (`-daemon`, `-iface`) |
@@ -37,6 +37,24 @@ make build
 Library code lives in `pkg/rnsutil` and `pkg/cli`. Pageserver logic lives in `pkg/pageserver`.
 
 Packet capture and Wireshark docs live in [packet-debug.md](packet-debug.md). The cross-stack `INTEROP_EVENT` timeline is in [interop-timeline.md](interop-timeline.md).
+
+## Mixed Python and Go tools
+
+Python utilities and Go subcommands speak the same destinations, shared-instance RPC, and identity files. Use either tool against either daemon. Point `-config` at that daemon's config directory (`~/.reticulum` for Python rnsd, `~/.reticulum-go` for reticulum-go unless you aligned them). Align `rpc_key` / `instance_name` / `shared_instance_type` when querying a shared instance.
+
+| Task | Python tool | Go tool | Against rnsd | Against reticulum-go |
+|------|-------------|--------|:------------:|:--------------------:|
+| Interface status (local RPC) | rnstatus | `reticulum-go status` | Yes | Yes |
+| Path table / drop / blackhole (local RPC) | rnpath | `reticulum-go path` | Yes | Yes |
+| Remote status (`-R`) | rnstatus | `reticulum-go status` | Yes, if remote has `enable_remote_management` | Yes, same |
+| Remote path table / rates (`-R`) | rnpath | `reticulum-go path` | Yes, if remote has `enable_remote_management` | Yes, same |
+| Probe | rnprobe | `reticulum-go probe` | Yes | Yes |
+| File transfer (`rncp.receive`) | rncp | `reticulum-go cp` | Yes | Yes |
+| Remote exec (`rnx.execute`) | rnx | `reticulum-go x` | Yes | Yes |
+| Shell on dest app `rnsh` | rnsh | `reticulum-go sh` (auto) | Yes | Yes (Go listener announces `rnsh` as well) |
+| Shell on dest app `rgosh` | (no) | `reticulum-go sh` | n/a | Go native only |
+
+Remote drop, path-request, and blackhole mutate over `-R` exit 255 on both stacks. rnir, rnpkg, rngit, and rnodeconf stay Python-only. rgoslow, rgodump, rgosnap, and rgoselfcheck stay Go-only.
 
 ## Shared-instance RPC (required for rgostatus and rgopath table modes)
 
@@ -141,6 +159,9 @@ rgostatus [flags]
 | `-s key` | Sort by rate, rx, tx, rxs, txs, traffic, announce, arx, atx, prx, ptx, held |
 | `-r` | Sort ascending (default descending) |
 | `-timeout dur` | RPC timeout (default 10s) |
+| `-R hash` | Transport identity hash of remote instance |
+| `-i path` | Identity file for remote management |
+| `-W sec` | Timeout for remote queries (default 15) |
 
 JSON includes per-interface announce and path-request frequencies, held announces, burst flags, and traffic counters when the daemon provides them.
 
@@ -303,12 +324,16 @@ rgopath [flags] [destination_hash]
 |------|---------|
 | `-config dir` | Config directory |
 | `-t` | Show path table (optional hash filter) |
-| `-json` | JSON for `-t` / `-blackholed` |
+| `-r` | Show announce rate info |
+| `-json` | JSON for `-t` / `-r` / `-blackholed` |
 | `-m N` | Max hops filter for path table |
 | `-d` | Drop path to hash |
 | `-D` | Drop all paths via transport hash |
 | `-q` | Drop announce queues |
 | `-w sec` | Path request timeout (default 15) |
+| `-R hash` | Transport identity hash of remote instance |
+| `-i path` | Identity file for remote management |
+| `-W sec` | Timeout for remote queries (default 15) |
 | `-blackholed` | List blackholed identities |
 | `-blackhole` | Blackhole identity hash |
 | `-unblackhole` | Lift blackhole |
@@ -318,7 +343,11 @@ rgopath [flags] [destination_hash]
 
 Go extras (compat preserved): `-json` on path and blackhole lists, drop-via count in the success line, clearer path-found summary after a successful request.
 
-Remote rnstransport management modes from Python rnpath are not ported yet.
+Remote table and rates use the same `rnstransport.remote.management` destination as Python rnpath, so `rnpath -t -R` works against a Go daemon and `rgopath -t -R` works against Python rnsd. Enable it on the remote daemon with `enable_remote_management = yes` and `remote_management_allowed = <identity hashes>`. Remote drop, path-request, and blackhole mutate are not implemented (Python also exits 255).
+
+```bash
+rgopath -t -R <transport_identity_hash> -i ~/.reticulum-go/storage/identities/rgosh
+```
 
 ## rgocp
 
@@ -387,12 +416,12 @@ Exit codes match Python rnx (241-249 for client failures, `-m` mirrors remote).
 
 ## rgosh
 
-Interactive remote shell over Link + Channel. Native protocol uses destination app `rgosh`. `--compat` speaks Python `rnsh` (app `rnsh`, umsgpack message bodies).
+Interactive remote shell over Link + Channel. Native protocol uses destination app `rgosh`. Connecting to a Python `rnsh` destination hash selects that protocol automatically. `--compat` forces the rnsh dest and wire types. Listen without `--compat` accepts both `rgosh` and `rnsh` on the same identity.
 
 ```bash
-reticulum-go sh -l [flags] [command...]                 # listen
-reticulum-go sh [flags] <destination_hash> [command...] # connect
-reticulum-go sh --compat -l                             # Python rnsh wire protocol
+reticulum-go sh -l [flags] [command...]                 # listen (rgosh + rnsh)
+reticulum-go sh [flags] <destination_hash> [command...] # connect (auto-detect)
+reticulum-go sh --compat -l                             # rnsh dest only
 ```
 
 | Flag | Meaning |
@@ -406,7 +435,7 @@ reticulum-go sh --compat -l                             # Python rnsh wire proto
 | `-N` | Do not identify to listener |
 | `-b` | Skip announce on listen start |
 | `-C` | Forbid remote cmdline (forced default command) |
-| `--compat` | Python rnsh wire protocol |
+| `--compat` | Force Python rnsh dest and wire protocol |
 | `--line` / `--raw` | Force line-buffered or raw stdin |
 | `-m` | Mirror remote exit code |
 | `-w sec` | Path/link timeout |

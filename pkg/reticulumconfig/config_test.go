@@ -4,6 +4,7 @@
 package reticulumconfig
 
 import (
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"strings"
@@ -953,5 +954,27 @@ func TestSetIFACSizeParser(t *testing.T) {
 	setIFACSize("8", &size)
 	if size != 1 {
 		t.Fatalf("8 bits => %d bytes, want 1", size)
+	}
+}
+
+func TestLoadConfig_RemoteManagement(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	writeFile(t, path, `[reticulum]
+  enable_transport = yes
+  enable_remote_management = yes
+  remote_management_allowed = 9fb6d773498fb3feda407ed8ef2c3229, 2d882c5586e548d79b5af27bca1776dc
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.EnableRemoteManagement {
+		t.Fatal("EnableRemoteManagement")
+	}
+	if len(cfg.RemoteManagementAllowed) != 2 {
+		t.Fatalf("allowed %d", len(cfg.RemoteManagementAllowed))
+	}
+	if hex.EncodeToString(cfg.RemoteManagementAllowed[0]) != "9fb6d773498fb3feda407ed8ef2c3229" {
+		t.Fatalf("first hash %x", cfg.RemoteManagementAllowed[0])
 	}
 }

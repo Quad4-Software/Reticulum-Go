@@ -236,16 +236,16 @@ Intentional extensions beyond upstream *rns*:
 | rncp | Yes | `reticulum-go cp` ([pkg/cli](pkg/cli/), symlink rgocp). Link resource send/listen/fetch, destination `rncp.receive` |
 | rnid | Yes | `reticulum-go id` (symlink rgoid). `.rid`/`.rsg`/`.rsm`/`.rfe` interop with Python rnid |
 | rnir | No | Python stub identity resolver. Not ported |
-| rnpath | Yes | `reticulum-go path` (symlink rgopath). Local/shared-instance path table, drop, blackhole. Remote rnstransport modes not ported |
+| rnpath | Yes | `reticulum-go path` (symlink rgopath). Local/shared-instance path table, drop, blackhole. Remote `-R` table and rates over `rnstransport.remote.management` |
 | rnprobe | Yes | `reticulum-go probe` (symlink rgoprobe) |
-| rnstatus | Yes | `reticulum-go status` (symlink rgostatus). Shared-instance RPC including announce/PR rates. Go daemons also expose local integrity counters. TCP RPC setup: [docs/en/utilities.md](docs/en/utilities.md) |
+| rnstatus | Yes | `reticulum-go status` (symlink rgostatus). Shared-instance RPC including announce/PR rates. Remote `-R` over `rnstransport.remote.management`. Go daemons also expose local integrity counters. TCP RPC setup: [docs/en/utilities.md](docs/en/utilities.md) |
 | (Go-only) | Yes | `reticulum-go slow` (symlink rgoslow). Bottleneck and local health findings. See [docs/en/utilities.md](docs/en/utilities.md#rgoslow) |
 | Speedtest.py | Yes | `reticulum-go speedtest` (symlink rgospeed). Loopback link throughput smoke / liveness floor. See [docs/en/utilities.md](docs/en/utilities.md#rgospeed) |
 | rnx | Yes | `reticulum-go x` (symlinks rgox, rnx). Destination `rnx.execute`, request path command. JSON stdout, Python exit codes |
 | rnodeconf | No | Depends on RNode driver |
 | rnpkg | No | Not ported |
 | rngit | No | Git-over-Reticulum. No wire impact. |
-| rnsh | No | Not ported. Go alternative: `reticulum-go sh` (rgosh). `--compat` speaks rnsh wire protocol |
+| rnsh | Interop | Python rnsh talks to dest app `rnsh` on either stack. `reticulum-go sh` auto-detects that dest. Native `rgosh` dest is Go-only. |
 | WASM build | Go-only | [cmd/reticulum-wasm](cmd/reticulum-wasm/), [pkg/wasm](pkg/wasm/) |
 
 ## Deferred for post-1.0
@@ -255,8 +255,8 @@ Intentional extensions beyond upstream *rns*:
 | RNode / KISS / AX25 / Weave drivers | Hardware radio interface stack |
 | Discovery autoconnect loops | InterfaceAnnouncer and listen/validate work. Autoconnect is not auto-started |
 | Blackhole auto-publish / blackhole_sources | Federation loops |
-| rnsh / rnir / rnpkg / rngit | Missing Python utilities (rgosh covers interactive shell) |
-| Remote rnpath rnstransport modes | Local/shared-instance path tools work |
+| rnir / rnpkg / rngit | Missing Python utilities (rnsh interops with rgosh on dest app `rnsh`) |
+| Remote rnpath drop / path-request / blackhole mutate | Remote table, rates, and rnstatus `/status` work. Remote drop and blackhole mutate are still unimplemented (Python also exits 255) |
 
 ## Examples
 

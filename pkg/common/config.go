@@ -339,6 +339,15 @@ type ReticulumConfig struct {
 	// all inbound data packets (rnprobe / reticulum-go probe).
 	RespondToProbes bool
 
+	// EnableRemoteManagement registers rnstransport.remote.management so
+	// remote rgopath / rgostatus (and Python rnpath / rnstatus) can query
+	// path tables and interface stats over a link. Default false.
+	EnableRemoteManagement bool
+
+	// RemoteManagementAllowed is the identity-hash ACL for remote management
+	// request handlers (Python remote_management_allowed).
+	RemoteManagementAllowed [][]byte
+
 	// NetworkIdentityPath is the path to the network identity file used to
 	// sign and encrypt interface discovery announces (Python network_identity).
 	NetworkIdentityPath string

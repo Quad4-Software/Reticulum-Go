@@ -227,19 +227,40 @@ func ParseName(full string) (appName string, aspects []string, err error) {
 
 // Hash computes a 16-byte destination hash from identity and app name aspects.
 func Hash(id *identity.Identity, appName string, aspects ...string) []byte {
+	var idHash []byte
+	if id != nil {
+		idHash = identity.TruncatedHash(id.GetPublicKey())
+	}
+	return HashFromIdentityHash(idHash, appName, aspects...)
+}
+
+// HashFromIdentityHash computes a destination hash from a 16-byte identity
+// hash and app name aspects. Python Destination.hash accepts either an
+// Identity or a truncated identity hash.
+func HashFromIdentityHash(identityHash []byte, appName string, aspects ...string) []byte {
 	nameHashFull := sha256.Sum256([]byte(ExpandAppName(appName, aspects...)))
 	nameHash10 := nameHashFull[:10]
 
 	var combined [26]byte
 	n := copy(combined[:], nameHash10)
-	if id != nil {
-		identityHash := identity.TruncatedHash(id.GetPublicKey())
+	if len(identityHash) > 0 {
 		n += copy(combined[n:], identityHash)
 	}
 	finalHashFull := sha256.Sum256(combined[:n])
 	out := make([]byte, 16)
 	copy(out, finalHashFull[:16])
 	return out
+}
+
+// HashFromNameAndIdentity hashes a dotted name such as
+// rnstransport.remote.management with a truncated identity hash, matching
+// Python Destination.hash_from_name_and_identity.
+func HashFromNameAndIdentity(fullName string, identityHash []byte) []byte {
+	app, aspects, err := ParseName(fullName)
+	if err != nil {
+		return HashFromIdentityHash(identityHash, fullName)
+	}
+	return HashFromIdentityHash(identityHash, app, aspects...)
 }
 
 // ExpandName returns appName joined with aspects using dots.

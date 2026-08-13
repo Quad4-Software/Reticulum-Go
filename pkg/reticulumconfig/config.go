@@ -394,6 +394,10 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		setBool(&cfg.LocalHopsDelta, value)
 	case "respond_to_probes", "allow_probes":
 		setBool(&cfg.RespondToProbes, value)
+	case "enable_remote_management":
+		setBool(&cfg.EnableRemoteManagement, value)
+	case "remote_management_allowed":
+		cfg.RemoteManagementAllowed = parseIdentityHashes(value)
 	case "network_identity":
 		cfg.NetworkIdentityPath = strings.TrimSpace(value)
 	}
@@ -707,6 +711,22 @@ func parseStringList(value string) []string {
 	return out
 }
 
+func parseIdentityHashes(value string) [][]byte {
+	out := make([][]byte, 0)
+	for _, p := range parseStringList(value) {
+		p = strings.ReplaceAll(p, " ", "")
+		if len(p) != 32 {
+			continue
+		}
+		b, err := hex.DecodeString(p)
+		if err != nil || len(b) != 16 {
+			continue
+		}
+		out = append(out, b)
+	}
+	return out
+}
+
 func setIFACSize(value string, dst *int) {
 	v, err := strconv.Atoi(strings.TrimSpace(value))
 	if err != nil || v < ifac.MinSize*8 {
@@ -826,6 +846,16 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	fmt.Fprintf(&b, "  static_transport_identity = %s\n", boolStr(cfg.StaticTransportIdentity))
 	fmt.Fprintf(&b, "  local_hops_delta = %s\n", boolStr(cfg.LocalHopsDelta))
 	fmt.Fprintf(&b, "  respond_to_probes = %s\n", boolStr(cfg.RespondToProbes))
+	if cfg.EnableRemoteManagement {
+		fmt.Fprintf(&b, "  enable_remote_management = %s\n", boolStr(cfg.EnableRemoteManagement))
+	}
+	if len(cfg.RemoteManagementAllowed) > 0 {
+		parts := make([]string, len(cfg.RemoteManagementAllowed))
+		for i, h := range cfg.RemoteManagementAllowed {
+			parts[i] = hex.EncodeToString(h)
+		}
+		fmt.Fprintf(&b, "  remote_management_allowed = %s\n", strings.Join(parts, ", "))
+	}
 	if cfg.BackboneIO != "" {
 		fmt.Fprintf(&b, "  backbone_io = %s\n", cfg.BackboneIO)
 	}

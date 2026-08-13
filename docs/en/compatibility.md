@@ -97,10 +97,10 @@ Wire format is stable across 1.2.x to 1.4.x. Notable behavior differences:
 |-----|--------|
 | Discovery autoconnect | Listen, validate, and InterfaceAnnouncer work. Autoconnect loops are not auto-started |
 | Blackhole federation | publish_blackhole, blackhole_sources, and updater not driven |
-| Remote management destination | No `rnstransport.remote.management` for remote rnpath/rnstatus |
+| Remote management mutate | Remote `/path` table and rates plus `/status` work. Remote drop, path-request, and blackhole mutate are unimplemented (Python also exits 255) |
 | RNode and radio serial drivers | RNode / KISS / AX25 / Weave not in this tree. SerialInterface, Modem73Interface, and SDRInterface are present |
 | Utilities rnir rnpkg rngit | Not ported |
-| Python rnsh utility | Not ported (use `reticulum-go sh` / rgosh; `--compat` for wire interop) |
+| Python-only utilities | rnir, rnpkg, rngit, rnodeconf are not ported |
 
 ## Go-only extensions
 
@@ -145,21 +145,21 @@ These do not change the wire format:
 | Python | Reticulum-Go |
 |--------|--------------|
 | rnsd | `reticulum-go` daemon |
-| rnstatus | rgostatus (shared-instance RPC, announce/PR rates, JSON, Go integrity fields) |
+| rnstatus | rgostatus (same RPC and remote `-R` dest as Python, extra Go integrity fields) |
 | (none) | rgoslow / `reticulum-go slow` (bottleneck and local health findings, Go-only) |
 | `Examples/Speedtest.py` | rgospeed / `reticulum-go speedtest` (loopback link throughput smoke) |
 | rnid | rgoid (`.rid`/`.rsg`/`.rsm`/`.rfe` compatible) |
 | rnprobe | rgoprobe |
-| rnpath | rgopath (path table, drop, blackhole, remote rnstransport not ported) |
+| rnpath | rgopath (same RPC and remote `-R` dest as Python) |
 | rncp | rgocp (send/listen/fetch on `rncp.receive`) |
 | rnir, rnodeconf, rnpkg, rngit | Not ported (deferred post-1.0). rnx is `reticulum-go x`. |
-| rnsh | Not ported. Go alternative is `reticulum-go sh` (rgosh), with `--compat` for Python rnsh wire protocol. |
+| rnsh | Python rnsh talks to a Go listener on dest app `rnsh`. `reticulum-go sh` auto-detects that dest. Native `rgosh` dest is Go-only. |
 | WASM | `reticulum-wasm` (Go-only) |
 | librns | `librns.so` + `rns.h` (Go-only, Linux first) |
 | Odin bindings | `bindings/odin` (links `librns.so`, [librns](librns.md#odin-bindings)) |
 | Dart client | `bindings/dart` (rns_control FFI and Control API) |
 
-Setup for Go tools against Python rnsd (Unix or TCP shared-instance RPC, rpc_key, `-config`) is documented in [CLI utilities](utilities.md).
+Setup for mixing Python and Go tools against either daemon is documented in [CLI utilities](utilities.md#mixed-python-and-go-tools).
 
 ## Verification workflow
 

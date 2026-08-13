@@ -170,6 +170,9 @@ type Transport struct {
 	blackholeTable          *blackhole.Table
 	localHopsDelta          int
 	probeDestination        *destination.Destination
+	remoteManagementDest    *destination.Destination
+	mgmtDestinations        []*destination.Destination
+	lastMgmtAnnounce        time.Time
 	linkTable               *linkRelayTable
 	reverseTable            *reverseTable
 	packetHashes            *packetHashList
@@ -287,6 +290,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		pendingDiscoveryPRs:   make([]pendingDiscoveryPR, 0, maxQueuedDiscoveryPRs),
 		done:                  make(chan struct{}),
 		startTime:             time.Now(),
+		lastMgmtAnnounce:      time.Now().Add(-MgmtAnnounceInterval + MgmtAnnounceFirstDelay),
 	}
 
 	inMemory := cfg == nil || cfg.UseInMemoryStorage()
@@ -397,6 +401,7 @@ func (t *Transport) startMaintenanceJobs() {
 			t.cleanupExpiredPathRequestThrottle()
 			t.releaseHeldAnnounces()
 			t.sampleInterfaceTraffic()
+			t.maybeAnnounceMgmtDestinations()
 		case <-announceTicker.C:
 			t.processAnnounceTable()
 		case <-announceFwdTicker.C:

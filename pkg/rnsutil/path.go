@@ -75,6 +75,65 @@ func WritePathTableJSON(w io.Writer, table []transport.PathTableEntry) error {
 	return json.NewEncoder(w).Encode(out)
 }
 
+// WriteRateTableHuman writes announce-rate rows in rnpath style.
+func WriteRateTableHuman(w io.Writer, table []transport.RateTableEntry, filter []byte) (int, error) {
+	displayed := 0
+	now := float64(time.Now().Unix())
+	for _, e := range table {
+		if len(filter) > 0 && !bytesEqual(filter, e.Hash) {
+			continue
+		}
+		displayed++
+		lastAgo := formatSeconds(maxFloat(0, now-e.Last))
+		hourRate := 0
+		if len(e.Timestamps) > 1 {
+			span := e.Timestamps[len(e.Timestamps)-1] - e.Timestamps[0]
+			if span > 0 {
+				hourRate = int(float64(len(e.Timestamps)) * 3600 / span)
+			}
+		}
+		rv := ""
+		if e.RateViolations > 0 {
+			word := "violation"
+			if e.RateViolations != 1 {
+				word = "violations"
+			}
+			rv = fmt.Sprintf(", %d active rate %s", e.RateViolations, word)
+		}
+		bl := ""
+		if e.BlockedUntil > now {
+			bl = ", new announces allowed in " + formatSeconds(e.BlockedUntil-now)
+		}
+		if _, err := fmt.Fprintf(w, "%s last heard %s ago, %d announces/hour%s%s\n",
+			PrettyHex(e.Hash), lastAgo, hourRate, rv, bl); err != nil {
+			return displayed, err
+		}
+	}
+	return displayed, nil
+}
+
+// WriteRateTableJSON writes the rate table as JSON with hashes hex-encoded.
+func WriteRateTableJSON(w io.Writer, table []transport.RateTableEntry) error {
+	type row struct {
+		Hash           string    `json:"hash"`
+		Last           float64   `json:"last"`
+		RateViolations int       `json:"rate_violations"`
+		BlockedUntil   float64   `json:"blocked_until"`
+		Timestamps     []float64 `json:"timestamps"`
+	}
+	out := make([]row, 0, len(table))
+	for _, e := range table {
+		out = append(out, row{
+			Hash:           hex.EncodeToString(e.Hash),
+			Last:           e.Last,
+			RateViolations: e.RateViolations,
+			BlockedUntil:   e.BlockedUntil,
+			Timestamps:     e.Timestamps,
+		})
+	}
+	return json.NewEncoder(w).Encode(out)
+}
+
 // WriteBlackholeHuman writes blackhole entries in rnpath style.
 func WriteBlackholeHuman(w io.Writer, entries []BlackholeEntry, filter string) error {
 	now := float64(time.Now().Unix())
