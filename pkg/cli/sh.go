@@ -43,7 +43,7 @@ func RunSH(args []string, opt ...Options) int {
 	noID := fs.Bool("N", false, "don't identify to listener")
 	mirror := fs.Bool("m", false, "mirror remote exit code")
 	forced := fs.Bool("C", false, "forbid remote cmdline (forced default command)")
-	compat := fs.Bool("compat", false, "speak Python rnsh wire protocol")
+	compat := fs.Bool("compat", false, "force Python rnsh wire protocol (auto-detected from destination hash when omitted)")
 	lineMode := fs.Bool("line", false, "force line-buffered stdin")
 	rawMode := fs.Bool("raw", false, "disable stdin coalescing")
 	verbose := fs.Bool("v", false, "enable reticulum debug logs on stderr")
@@ -92,9 +92,13 @@ func RunSH(args []string, opt ...Options) int {
 	}
 
 	if *printID {
-		destHash := destination.Hash(id, appName)
 		fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Identity"), rnsutil.PrettyHex(id.Hash()))
-		fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), rnsutil.PrettyHex(destHash))
+		if *compat {
+			fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), rnsutil.PrettyHex(destination.Hash(id, appName)))
+			return 0
+		}
+		fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on"), rnsutil.PrettyHex(destination.Hash(id, rnsutil.RgoshAppName)))
+		fmt.Fprintf(stdout, "%s : %s\n", infoMsg(stdout, "Listening on (rnsh)"), rnsutil.PrettyHex(destination.Hash(id, rnsutil.RnshAppName)))
 		return 0
 	}
 
@@ -117,14 +121,14 @@ func RunSH(args []string, opt ...Options) int {
 
 	if *listenMode {
 		return runSHListen(tr, id, shListenOpts{
-			allowAll:   *noAuth,
-			noAnnounce: *noAnnounce,
-			allowedCLI: allowed,
-			compat:     *compat,
-			forced:     *forced,
-			defaultCmd: defaultCmd,
-			appName:    appName,
-			stderr:     stderr,
+			allowAll:     *noAuth,
+			noAnnounce:   *noAnnounce,
+			allowedCLI:   allowed,
+			compatForced: *compat,
+			forced:       *forced,
+			defaultCmd:   defaultCmd,
+			appName:      appName,
+			stderr:       stderr,
 		})
 	}
 
@@ -140,28 +144,28 @@ func RunSH(args []string, opt ...Options) int {
 	}
 	cmdline := fs.Args()[1:]
 	return runSHClient(tr, id, destHash, shClientOpts{
-		timeout:  timeout,
-		noid:     *noID,
-		mirror:   *mirror,
-		compat:   *compat,
-		lineMode: *lineMode,
-		rawMode:  *rawMode,
-		cmdline:  cmdline,
-		appName:  appName,
-		stdout:   stdout,
-		stderr:   stderr,
+		timeout:      timeout,
+		noid:         *noID,
+		mirror:       *mirror,
+		compatForced: *compat,
+		lineMode:     *lineMode,
+		rawMode:      *rawMode,
+		cmdline:      cmdline,
+		appName:      appName,
+		stdout:       stdout,
+		stderr:       stderr,
 	})
 }
 
 type shListenOpts struct {
-	allowAll   bool
-	noAnnounce bool
-	allowedCLI []string
-	compat     bool
-	forced     bool
-	defaultCmd []string
-	appName    string
-	stderr     io.Writer
+	allowAll     bool
+	noAnnounce   bool
+	allowedCLI   []string
+	compatForced bool
+	forced       bool
+	defaultCmd   []string
+	appName      string
+	stderr       io.Writer
 }
 
 func runSHListen(tr *transport.Transport, id *identity.Identity, opts shListenOpts) int {
@@ -180,34 +184,46 @@ func runSHListen(tr *transport.Transport, id *identity.Identity, opts shListenOp
 		fmt.Fprintln(stderr, warnMsg(stderr, "Warning: No allowed identities configured, rgosh will not accept sessions"))
 	}
 
-	baseCfg := rgosh.Config{
-		Compat:        opts.compat,
-		AllowAll:      opts.allowAll,
-		Allowed:       allowed,
-		DefaultCmd:    opts.defaultCmd,
-		ForcedCommand: opts.forced,
-		Listener:      true,
+	apps := []string{opts.appName}
+	if !opts.compatForced {
+		apps = []string{rnsutil.RgoshAppName, rnsutil.RnshAppName}
 	}
 
-	dest, err := destination.New(id, destination.In, destination.Single, opts.appName, tr)
-	if err != nil {
-		fmt.Fprintf(stderr, "destination: %v\n", err)
-		return 1
-	}
-	dest.AcceptsLinks(true)
-
-	dest.SetLinkEstablishedCallback(func(lnk any) {
-		l, ok := lnk.(*link.Link)
-		if !ok || l == nil {
-			return
+	for _, appName := range apps {
+		baseCfg := rgosh.Config{
+			Compat:        appName == rnsutil.RnshAppName,
+			AllowAll:      opts.allowAll,
+			Allowed:       allowed,
+			DefaultCmd:    opts.defaultCmd,
+			ForcedCommand: opts.forced,
+			Listener:      true,
 		}
-		fmt.Fprintln(stderr, infoMsg(stderr, "Shell link established"))
-		go serveSHLink(l, baseCfg, stderr)
-	})
 
-	fmt.Fprintln(stderr, okMsg(stderr, fmt.Sprintf("rgosh listening on %s", rnsutil.PrettyHex(dest.GetHash()))))
-	if !opts.noAnnounce {
-		_ = dest.Announce(false, nil, nil)
+		dest, err := destination.New(id, destination.In, destination.Single, appName, tr)
+		if err != nil {
+			fmt.Fprintf(stderr, "destination: %v\n", err)
+			return 1
+		}
+		dest.AcceptsLinks(true)
+
+		cfg := baseCfg.Copy()
+		dest.SetLinkEstablishedCallback(func(lnk any) {
+			l, ok := lnk.(*link.Link)
+			if !ok || l == nil {
+				return
+			}
+			fmt.Fprintln(stderr, infoMsg(stderr, "Shell link established"))
+			go serveSHLink(l, cfg, stderr)
+		})
+
+		label := "rgosh"
+		if appName == rnsutil.RnshAppName {
+			label = "rgosh (rnsh)"
+		}
+		fmt.Fprintln(stderr, okMsg(stderr, fmt.Sprintf("%s listening on %s", label, rnsutil.PrettyHex(dest.GetHash()))))
+		if !opts.noAnnounce {
+			_ = dest.Announce(false, nil, nil)
+		}
 	}
 
 	sig := make(chan os.Signal, 1)
@@ -251,16 +267,16 @@ func serveSHLink(l *link.Link, baseCfg rgosh.Config, stderr io.Writer) {
 }
 
 type shClientOpts struct {
-	timeout  time.Duration
-	noid     bool
-	mirror   bool
-	compat   bool
-	lineMode bool
-	rawMode  bool
-	cmdline  []string
-	appName  string
-	stdout   io.Writer
-	stderr   io.Writer
+	timeout      time.Duration
+	noid         bool
+	mirror       bool
+	compatForced bool
+	lineMode     bool
+	rawMode      bool
+	cmdline      []string
+	appName      string
+	stdout       io.Writer
+	stderr       io.Writer
 }
 
 func runSHClient(tr *transport.Transport, id *identity.Identity, destHash []byte, opts shClientOpts) int {
@@ -268,7 +284,22 @@ func runSHClient(tr *transport.Transport, id *identity.Identity, destHash []byte
 	ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
 	defer cancel()
 
-	l, err := rnsutil.EstablishRgoshLink(ctx, tr, destHash, opts.appName)
+	compat := opts.compatForced
+	appName := opts.appName
+	if !opts.compatForced {
+		if err := rnsutil.WaitPath(ctx, tr, destHash); err != nil {
+			fmt.Fprintln(stderr, errMsg(stderr, err.Error()))
+			return 1
+		}
+		if remote, err := identity.Recall(destHash); err == nil {
+			if c, name, ok := rnsutil.DetectShellMode(destHash, remote); ok {
+				compat = c
+				appName = name
+			}
+		}
+	}
+
+	l, err := rnsutil.EstablishRgoshLink(ctx, tr, destHash, appName)
 	if err != nil {
 		fmt.Fprintln(stderr, errMsg(stderr, err.Error()))
 		return 1
@@ -276,7 +307,7 @@ func runSHClient(tr *transport.Transport, id *identity.Identity, destHash []byte
 	defer l.Teardown()
 
 	ch := l.GetChannel()
-	if opts.compat {
+	if compat {
 		_ = rgosh.RegisterCompat(ch)
 	} else {
 		_ = rgosh.RegisterNative(ch)
@@ -297,7 +328,7 @@ func runSHClient(tr *transport.Transport, id *identity.Identity, destHash []byte
 	}
 
 	sess := rgosh.NewSession(rgosh.Config{
-		Compat:   opts.compat,
+		Compat:   compat,
 		Listener: false,
 	}, rgosh.ChannelSender{Ch: ch})
 	var exited atomic.Bool
@@ -345,7 +376,7 @@ func runSHClient(tr *transport.Transport, id *identity.Identity, destHash []byte
 		}
 	}
 
-	if !opts.compat && !opts.noid {
+	if !compat && !opts.noid {
 		authDeadline := time.After(2 * time.Second)
 		for !sess.Authed() {
 			select {

@@ -29,4 +29,12 @@ func TestRgoshAppMismatchDetectsRnsh(t *testing.T) {
 	if msg := rgoshAppMismatch(rnsh, id, RnshAppName); msg != "" {
 		t.Fatalf("unexpected: %s", msg)
 	}
+	compat, app, ok := DetectShellMode(rnsh, id)
+	if !ok || !compat || app != RnshAppName {
+		t.Fatalf("detect rnsh: compat=%v app=%q ok=%v", compat, app, ok)
+	}
+	compat, app, ok = DetectShellMode(rgosh, id)
+	if !ok || compat || app != RgoshAppName {
+		t.Fatalf("detect rgosh: compat=%v app=%q ok=%v", compat, app, ok)
+	}
 }

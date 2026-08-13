@@ -172,7 +172,7 @@ Resource and buffer decompression enforce size limits aligned with Python 1.1.9 
 
 ## rgosh remote shell
 
-`reticulum-go sh` / rgosh authenticates sessions with Reticulum link identity allowlists. Deny tears the link down and never starts a remote process. Per-session config copies prevent argv pollution across clients. Prefer explicit `-a` allowlists over `-n`. Use `-C` when the listener must run a fixed command only. `--compat` speaks Python rnsh for interop but keeps the same hardened auth FSM.
+`reticulum-go sh` / rgosh authenticates sessions with Reticulum link identity allowlists. Deny tears the link down and never starts a remote process. Per-session config copies prevent argv pollution across clients. Prefer explicit `-a` allowlists over `-n`. Use `-C` when the listener must run a fixed command only. Destination hashes for app `rnsh` select the Python rnsh wire protocol automatically. `--compat` forces that dest and those channel types.
 
 ## Hop field validation (RNS 1.3.8)
 

@@ -21,7 +21,7 @@ Wire compatible with Python RNS 1.4.2
 - Incoming link handshake slots count against `MaxRegisteredLinks` until register or reject
 - Tunnel table drops expired rows on insert and caps live tunnels at 256
 - Channel `WaitTxIdle` plus link receipts so channel envelopes wait for peer proof before the TX ring clears
-- `reticulum-go sh` / rgosh interactive remote shell (native protocol plus `--compat` for Python rnsh)
+- `reticulum-go sh` / rgosh interactive remote shell (native protocol, automatic rnsh dest detection, `--compat` to force Python rnsh)
 - rgosh TTY handling via golang.org/x/term, Unix vs non-Unix signal files, and adversarial protocol corpus tests
 - dos_protection snapshot on status JSON, Control API, and rgoslow findings
 - dos_max_* config knobs, bitrate-scaled adaptive floors, priority ingress shedding
