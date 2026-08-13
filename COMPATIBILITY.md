@@ -245,7 +245,7 @@ Intentional extensions beyond upstream *rns*:
 | rnodeconf | No | Depends on RNode driver |
 | rnpkg | No | Not ported |
 | rngit | No | Git-over-Reticulum. No wire impact. |
-| rnsh | Interop | Python rnsh talks to dest app `rnsh` on either stack. `reticulum-go sh` auto-detects that dest. Native `rgosh` dest is Go-only. |
+| rnsh | Interop | Python rnsh talks to dest app `rnsh` on either stack. `reticulum-go sh` auto-detects that dest. Native `rgosh` dest is Go-only. Unix PTY. Windows listener uses pipes. |
 | WASM build | Go-only | [cmd/reticulum-wasm](cmd/reticulum-wasm/), [pkg/wasm](pkg/wasm/) |
 
 ## Deferred for post-1.0
