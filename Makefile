@@ -10,7 +10,7 @@
 .PHONY: all build build-utils install uninstall clean test fmt vet lint vulncheck gosec check deps run help
 .PHONY: build-linux build-windows build-windows-legacy build-darwin build-all
 .PHONY: test-short test-race test-crossref test-wasm test-odin test-dart test-all coverage bench debug release
-.PHONY: man install-man install-service package package-deb package-rpm package-arch
+.PHONY: man install-man install-service package package-deb package-rpm package-arch stage-nfpm
 .PHONY: test-services tree-manifest tree-rsm-sign tree-rsm-verify hooks-install
 .PHONY: build-librns
 .PHONY: microvm-up microvm-stop microvm-kernel microvm-rootfs microvm-rebuild microvm-guest
@@ -239,7 +239,10 @@ man:
 
 package: package-deb package-rpm package-arch
 
-package-deb: build
+stage-nfpm:
+	sh scripts/stage-nfpm-units.sh
+
+package-deb: build stage-nfpm
 	@mkdir -p dist
 	@ARCH=$$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/;s/armv7l/armhf/'); \
 		VERSION="$(PKG_VERSION)" BINARY="$(CURDIR)/$(BUILD_DIR)/$(BINARY_NAME)" ARCH="$$ARCH" \
@@ -247,7 +250,7 @@ package-deb: build
 		$(GOCMD) run github.com/goreleaser/nfpm/v2/cmd/nfpm@$(NFPM_VER) package \
 		--config packaging/nfpm.yaml --packager deb --target dist/
 
-package-rpm: build
+package-rpm: build stage-nfpm
 	@mkdir -p dist
 	@ARCH=$$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/;s/armv7l/armhfp/'); \
 		VERSION="$(PKG_VERSION)" BINARY="$(CURDIR)/$(BUILD_DIR)/$(BINARY_NAME)" ARCH="$$ARCH" \
@@ -255,7 +258,7 @@ package-rpm: build
 		$(GOCMD) run github.com/goreleaser/nfpm/v2/cmd/nfpm@$(NFPM_VER) package \
 		--config packaging/nfpm.yaml --packager rpm --target dist/
 
-package-arch: build
+package-arch: build stage-nfpm
 	@mkdir -p dist
 	@ARCH=$$(uname -m | sed 's/armv7l/armv7h/'); \
 		VERSION="$(PKG_VERSION)" BINARY="$(CURDIR)/$(BUILD_DIR)/$(BINARY_NAME)" ARCH="$$ARCH" \
