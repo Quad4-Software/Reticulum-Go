@@ -20,7 +20,7 @@ The detailed matrix with config key tables lives in [COMPATIBILITY.md](../../COM
 | IFAC | Complete | UDP, TCP, Auto. Live tests in `tests/interop/ifac_live_test.go` |
 | Link | Complete | Both directions, RTT, request/response, channel, buffer, resources |
 | Resource | Complete | Multi-part, hashmaps, RESOURCE_PRF, bzip2, split advertisements |
-| Channel | Complete | Ghost-envelope fix (send-before-emplace). Tests in `pkg/channel` |
+| Channel | Complete | Ghost-envelope fix, RX sequence ring, TX window and MDU gates. Tests in `pkg/channel` |
 | Buffer | Complete | Stream buffer over channel |
 | Interfaces | Partial | See below |
 | Discovery | Partial | rnstransport listening works. Announcer and autoconnect not auto-started |
@@ -71,6 +71,7 @@ Wire format is stable across 1.2.x to 1.4.x. Notable behavior differences:
 | Blackhole link teardown at LINKIDENTIFY | 1.3.2 | Covered |
 | AutoInterface roam listener replacement | 1.3.5 | Covered |
 | Channel ghost envelopes | 1.3.0 | Covered |
+| Channel RX sequence ring and send window/MDU | Python Channel | Covered |
 | Shared-instance RPC msgpack | 1.3.4 | Covered |
 | `MODE_INTERNAL` / recursive_prs / announce mode rules | 1.3.6 | Covered |
 | Ephemeral transport identity / static_transport_identity | 1.3.6 | Covered |

@@ -156,7 +156,7 @@ CGO_ENABLED=0 go install -ldflags="-s -w" ./cmd/reticulum-go
 
 ### Packaging
 
-Build `.deb`, `.rpm`, or `.pkg.tar.zst` packages using [nfpm](https://nfpm.goreleaser.com/). The tool is fetched on demand:
+Build `.deb`, `.rpm`, or `.pkg.tar.zst` packages using [nfpm](https://nfpm.goreleaser.com/). The tool is fetched on demand. Packages include the binary, tool symlinks, man pages, and systemd/OpenRC/runit/dinit service files.
 
 ```bash
 make package-deb
@@ -165,6 +165,8 @@ make package-arch
 ```
 
 The package files are placed in the `dist/` folder. The packaging options are configured in [packaging/nfpm.yaml](packaging/nfpm.yaml).
+
+Arch Linux and CachyOS can also use the Quad4 pacman repository (not AUR): [quad4-arch](https://github.com/Quad4-Software/quad4-arch). That repo publishes `reticulum-go` (release binary) and `reticulum-go-git`.
 
 ### Command Usage
 

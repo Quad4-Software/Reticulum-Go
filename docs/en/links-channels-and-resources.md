@@ -59,7 +59,7 @@ The control API bridges requests to WebSocket requestIncomingEvent and requestRe
 | Envelope | Wire wrapper for channel messages |
 | MessageBase | Base type for message payloads |
 
-Python 1.3.0 fixed ghost envelopes on failing outlets. Go matches that behavior: sequence allocation and tx-ring emplace happen only after a successful outlet send, with rewind on failure. Channel accepts both transport wrapper ACTIVE status and real link ACTIVE (`0x02`).
+Python 1.3.0 fixed ghost envelopes on failing outlets. Go matches that behavior: sequence allocation and tx-ring emplace happen only after a successful outlet send, with rewind on failure. Inbound envelopes use an RX ring so handlers run in sequence order with duplicates dropped, matching Python Channel._receive. Send refuses a full TX window and packed envelopes larger than the outlet MDU, matching Python Channel.send. Channel accepts both transport wrapper ACTIVE status and real link ACTIVE (`0x02`).
 
 Typical pattern:
 

@@ -44,6 +44,9 @@ Wire compatible with Python RNS 1.4.2
 - RESOURCE_HMU negative hashmap segment no longer panics the process
 - Tunnel expiry used a bare integer (nanoseconds) instead of 8 hours
 - Channel packet timeouts no longer fire while the mutex is dropped, and delivered callbacks wait for link proof instead of running immediately
+- Channel inbound envelopes are delivered in sequence order with duplicates dropped, matching Python Channel._receive
+- Channel.Send refuses a full TX window and packed envelopes larger than the outlet MDU, matching Python Channel.send
+- RESOURCE_HMU hashmap segment indexes that overflow integer multiply no longer wrap into earlier slots
 - `Identity.GetCurrentRatchetKey` no longer auto-generates keys (on-wire SINGLE ratchets live on Destination)
 - Local `Destination.Announce` requires IN, skips access-point ifaces (Python outbound mode rules), and `Identity.Remember` rejects dest-hash public-key collisions
 
