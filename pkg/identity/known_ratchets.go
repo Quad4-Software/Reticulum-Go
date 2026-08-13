@@ -43,7 +43,7 @@ func RememberRatchet(destHash, ratchet []byte) {
 		return
 	}
 
-	key := knownDestHex(destHash)
+	key := knownDestKey(destHash)
 	ratchetPersistLock.Lock()
 	existing, ok := knownRatchets[key]
 	if ok && bytes.Equal(existing.key, ratchet) {
@@ -72,35 +72,46 @@ func RememberRatchet(destHash, ratchet []byte) {
 // GetRatchet returns the announced ratchet public key for destHash, or nil.
 // Matches Python Identity.get_ratchet: memory first, then storage/ratchets/{hex}.
 func GetRatchet(destHash []byte) []byte {
-	if len(destHash) == 0 {
+	var buf [32]byte
+	n := CopyRatchet(destHash, buf[:])
+	if n == 0 {
 		return nil
 	}
-	key := knownDestHex(destHash)
+	return append([]byte(nil), buf[:n]...)
+}
+
+// CopyRatchet writes the announced ratchet public key for destHash into dst.
+// Returns the number of bytes written (32) or 0 when missing or expired.
+func CopyRatchet(destHash, dst []byte) int {
+	if len(destHash) == 0 || len(dst) < RatchetSize/8 {
+		return 0
+	}
+	key := knownDestKey(destHash)
 	now := time.Now().Unix()
 
 	ratchetPersistLock.Lock()
 	if e, ok := knownRatchets[key]; ok {
 		if now < e.received+RatchetExpiry && len(e.key) == RatchetSize/8 {
-			out := append([]byte(nil), e.key...)
+			n := copy(dst, e.key)
 			ratchetPersistLock.Unlock()
-			return out
+			return n
 		}
 		delete(knownRatchets, key)
 		ratchetPersistLock.Unlock()
-		return nil
+		return 0
 	}
 	ratchetPersistLock.Unlock()
 
 	if knownPersistMemory.Load() || knownPersistDisabled.Load() {
-		return nil
+		return 0
 	}
 
 	loaded := loadKnownRatchetFromDisk(destHash)
 	if loaded == nil {
 		debug.Log(debug.DebugTrace, "Could not load ratchet", "destination", hex.EncodeToString(destHash))
-		return nil
+		return 0
 	}
-	return loaded
+	return copy(dst, loaded)
 }
 
 // CurrentRatchetID returns the 10-byte ratchet ID for destHash, or nil.
@@ -241,7 +252,7 @@ func loadKnownRatchetFromDisk(destHash []byte) []byte {
 		return nil
 	}
 
-	key := knownDestHex(destHash)
+	key := knownDestKey(destHash)
 	ratchetPersistLock.Lock()
 	knownRatchets[key] = knownRatchetEntry{
 		key:      append([]byte(nil), parsed.Ratchet...),
@@ -260,7 +271,17 @@ func knownRatchetsDir() (string, error) {
 	return storage.RatchetsDir(cfg)
 }
 
-func evictKnownRatchetsLocked(keep string) {
+func ratchetMapKey(id string) destMapKey {
+	raw, err := hex.DecodeString(id)
+	if err == nil && len(raw) >= TruncatedHashLength/8 {
+		return knownDestKey(raw)
+	}
+	var k destMapKey
+	copy(k[:], id)
+	return k
+}
+
+func evictKnownRatchetsLocked(keep destMapKey) {
 	if len(knownRatchets) <= MaxKnownRatchets {
 		return
 	}

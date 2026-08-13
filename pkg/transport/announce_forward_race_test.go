@@ -99,11 +99,10 @@ func TestRegression_AnnounceForwardSurvivesCallerBufferReuse(t *testing.T) {
 		dest := append([]byte(nil), buf[:16]...)
 		fwd := append([]byte(nil), buf...)
 		fwd[1]++
-		destKey := string(dest)
 		destCopy := append([]byte(nil), dest...)
 		from := in
 		tr.scheduleAnnounceForwardJob(func() {
-			_ = tr.forwardAnnouncePacket(fwd, destKey, destCopy, from)
+			_ = tr.forwardAnnouncePacket(fwd, destKey(destCopy), destCopy, from)
 		})
 		for j := range buf {
 			buf[j] = 0xFF
@@ -141,7 +140,7 @@ func TestAnnounceForwardStorm_NoGoroutineExplosion(t *testing.T) {
 		dest := append([]byte(nil), randomDestHash(300+i)...)
 		fwd := append([]byte(nil), buf...)
 		tr.scheduleAnnounceForwardJob(func() {
-			_ = tr.forwardAnnouncePacket(fwd, string(dest), dest, in)
+			_ = tr.forwardAnnouncePacket(fwd, destKey(dest), dest, in)
 		})
 	}
 	tr.pendingAnnounceMu.Lock()

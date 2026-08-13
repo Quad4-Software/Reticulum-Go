@@ -448,7 +448,7 @@ func (d *Destination) SetPacketCallback(callback common.PacketCallback) {
 
 func (d *Destination) Receive(pkt *packet.Packet, iface common.NetworkInterface) bool {
 	if pkt != nil && pkt.PacketType == packet.PacketTypeLinkReq {
-		debug.Log(debug.DebugInfo, "Received link request for destination")
+		debug.Log(debug.DebugVerbose, "Received link request for destination")
 		if err := d.HandleIncomingLinkRequest(pkt, d.transport, iface); err != nil {
 			debug.Log(debug.DebugError, "Failed to handle incoming link request", "error", err)
 		}
@@ -460,7 +460,9 @@ func (d *Destination) Receive(pkt *packet.Packet, iface common.NetworkInterface)
 	d.mutex.RUnlock()
 
 	if callback == nil {
-		debug.Log(debug.DebugInfo, common.MsgDestNoPacketCallback, "hash", fmt.Sprintf("%x", d.GetHash()))
+		if debug.Enabled(debug.DebugInfo) {
+			debug.Log(debug.DebugInfo, common.MsgDestNoPacketCallback, "hash", fmt.Sprintf("%x", d.GetHash()))
+		}
 		return false
 	}
 
@@ -470,7 +472,7 @@ func (d *Destination) Receive(pkt *packet.Packet, iface common.NetworkInterface)
 		return false
 	}
 
-	debug.Log(debug.DebugInfo, "Destination received packet", "bytes", len(plaintext))
+	debug.Log(debug.DebugVerbose, "Destination received packet", "bytes", len(plaintext))
 
 	callback(plaintext, iface)
 	return true
@@ -837,8 +839,10 @@ func (d *Destination) Encrypt(plaintext []byte) ([]byte, error) {
 
 	switch d.destType {
 	case Single:
-		selectedRatchet := identity.GetRatchet(d.hashValue)
-		if len(selectedRatchet) > 0 {
+		var ratchetBuf [identity.RatchetSize / 8]byte
+		n := identity.CopyRatchet(d.hashValue, ratchetBuf[:])
+		if n > 0 {
+			selectedRatchet := ratchetBuf[:n]
 			rid := d.identity.GetRatchetID(selectedRatchet)
 			d.setLatestRatchetID(rid)
 			debug.Log(debug.DebugVerbose, "Encrypting for single recipient with ratchet", "ratchet_id", fmt.Sprintf("%x", rid))

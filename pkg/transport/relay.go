@@ -204,6 +204,13 @@ func stripHeaderType2(raw []byte, hops byte) ([]byte, error) {
 	return raw[:len(raw)-(identity.TruncatedHashLength/8)], nil
 }
 
+func rewriteHopsInPlace(raw []byte, hops byte) []byte {
+	if len(raw) >= 2 {
+		raw[1] = hops
+	}
+	return raw
+}
+
 func rewriteHopsOnly(raw []byte, hops byte) []byte {
 	if len(raw) < 2 {
 		return raw
@@ -300,16 +307,17 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 		return true
 	}
 
-	rawCopy := append([]byte(nil), raw...)
 	var out []byte
 	var err error
 	switch {
 	case path.HopCount > 1:
-		out, err = rebuildHeaderType2(rawCopy, newHops, path.NextHop)
+		out, err = rebuildHeaderType2(raw, newHops, path.NextHop)
 	case path.HopCount == 1:
+		rawCopy := append([]byte(nil), raw...)
 		out, err = stripHeaderType2(rawCopy, newHops)
 	default:
-		out = rewriteHopsOnly(rawCopy, newHops)
+		rawCopy := append([]byte(nil), raw...)
+		out = rewriteHopsInPlace(rawCopy, newHops)
 	}
 	if err != nil {
 		debug.Log(debug.DebugError, "Failed to rewrite transport packet",
@@ -439,10 +447,12 @@ func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterf
 	}
 
 	out := rewriteHopsOnly(raw, accounted)
-	debug.Log(debug.DebugInfo, "Relaying link data packet",
-		"link_id", fmt.Sprintf("%x", linkID),
-		"out_iface", outIface.GetName(),
-		"hops", accounted)
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Relaying link data packet",
+			"link_id", fmt.Sprintf("%x", linkID),
+			"out_iface", outIface.GetName(),
+			"hops", accounted)
+	}
 	if err := sendOnInterface(outIface, out, ""); err != nil {
 		debug.Log(debug.DebugError, "Failed to relay link data packet",
 			"error", err,
@@ -554,9 +564,9 @@ func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag [
 		return
 	}
 	modeFilter := discoverySearchModeFilter(exclude)
-	t.mutex.RLock()
-	ifaces := make([]common.NetworkInterface, 0, len(t.interfaces))
-	for _, iface := range t.interfaces {
+	ifaces := make([]common.NetworkInterface, 0, 8)
+	for _, e := range t.snapshotRegisteredInterfaces() {
+		iface := e.iface
 		if iface == exclude || !ifaceReadyForPathRequest(iface) {
 			continue
 		}
@@ -572,7 +582,6 @@ func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag [
 		}
 		ifaces = append(ifaces, iface)
 	}
-	t.mutex.RUnlock()
 	if len(ifaces) == 0 {
 		return
 	}

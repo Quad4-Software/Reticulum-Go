@@ -207,3 +207,20 @@ func FuzzFrameHDLCDecode(f *testing.F) {
 		}
 	})
 }
+
+func TestHDLCAssemblerCapVsLargeMTU(t *testing.T) {
+	d := NewHDLCDecoder(1<<20, func([]byte) {})
+	if cap(d.data) > streamReadChunk {
+		t.Fatalf("assembler cap=%d want <= %d for 1MiB MTU", cap(d.data), streamReadChunk)
+	}
+	if d.mtu != 1<<20 {
+		t.Fatalf("wire MTU=%d want %d", d.mtu, 1<<20)
+	}
+	payload := bytes.Repeat([]byte{0x01}, 20)
+	var got []byte
+	d.onPacket = func(pkt []byte) { got = append([]byte(nil), pkt...) }
+	d.Feed(frameHDLC(payload))
+	if !bytes.Equal(got, payload) {
+		t.Fatalf("small frame under large MTU: %x != %x", got, payload)
+	}
+}

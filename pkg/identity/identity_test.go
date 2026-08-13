@@ -229,7 +229,7 @@ func TestRecallIdentity(t *testing.T) {
 func TestRecallMissingHashUsesErrIdentityNotFound(t *testing.T) {
 	knownDestinationsLock.Lock()
 	prev := knownDestinations
-	knownDestinations = make(map[destMapKey][]any)
+	knownDestinations = make(map[destMapKey]knownDestEntry)
 	knownDestinationsLock.Unlock()
 	t.Cleanup(func() {
 		knownDestinationsLock.Lock()
@@ -264,7 +264,7 @@ func TestGetRandomHash(t *testing.T) {
 
 func TestRememberStoresDefensiveCopies(t *testing.T) {
 	knownDestinationsLock.Lock()
-	knownDestinations = make(map[destMapKey][]any)
+	knownDestinations = make(map[destMapKey]knownDestEntry)
 	knownDestinationsLock.Unlock()
 
 	destBacking := make([]byte, 0, 64)
@@ -312,7 +312,7 @@ func TestRememberStoresDefensiveCopies(t *testing.T) {
 func TestRememberRejectsPublicKeyMismatch(t *testing.T) {
 	knownDestinationsLock.Lock()
 	prev := knownDestinations
-	knownDestinations = make(map[destMapKey][]any)
+	knownDestinations = make(map[destMapKey]knownDestEntry)
 	knownDestinationsLock.Unlock()
 	t.Cleanup(func() {
 		knownDestinationsLock.Lock()
@@ -354,7 +354,7 @@ func TestRememberRejectsPublicKeyMismatch(t *testing.T) {
 
 func TestGetKnownDestinationReturnsDefensiveCopies(t *testing.T) {
 	knownDestinationsLock.Lock()
-	knownDestinations = make(map[destMapKey][]any)
+	knownDestinations = make(map[destMapKey]knownDestEntry)
 	knownDestinationsLock.Unlock()
 
 	destHash := bytes.Repeat([]byte{0x22}, TruncatedHashLength/8)
@@ -383,7 +383,7 @@ func TestGetKnownDestinationReturnsDefensiveCopies(t *testing.T) {
 
 func TestRatchetKeyDefensiveCopies(t *testing.T) {
 	ratchetPersistLock.Lock()
-	knownRatchets = make(map[string]knownRatchetEntry)
+	knownRatchets = make(map[destMapKey]knownRatchetEntry)
 	ratchetPersistLock.Unlock()
 
 	id, err := New()
@@ -415,11 +415,11 @@ func TestRatchetKeyDefensiveCopies(t *testing.T) {
 
 func TestKnownRatchetsCap(t *testing.T) {
 	ratchetPersistLock.Lock()
-	knownRatchets = make(map[string]knownRatchetEntry)
+	knownRatchets = make(map[destMapKey]knownRatchetEntry)
 	ratchetPersistLock.Unlock()
 	t.Cleanup(func() {
 		ratchetPersistLock.Lock()
-		knownRatchets = make(map[string]knownRatchetEntry)
+		knownRatchets = make(map[destMapKey]knownRatchetEntry)
 		ratchetPersistLock.Unlock()
 	})
 
@@ -435,7 +435,7 @@ func TestKnownRatchetsCap(t *testing.T) {
 
 	ratchetPersistLock.Lock()
 	n := len(knownRatchets)
-	_, kept := knownRatchets[fmt.Sprintf("peer-%d", MaxKnownRatchets+31)]
+	_, kept := knownRatchets[ratchetMapKey(fmt.Sprintf("peer-%d", MaxKnownRatchets+31))]
 	ratchetPersistLock.Unlock()
 	if n > MaxKnownRatchets {
 		t.Fatalf("knownRatchets size = %d, want <= %d", n, MaxKnownRatchets)
@@ -643,7 +643,7 @@ func BenchmarkKnownDestinationsScale(b *testing.B) {
 		b.Run(fmt.Sprintf("Size-%d", size), func(b *testing.B) {
 			// Clear map for each run
 			knownDestinationsLock.Lock()
-			knownDestinations = make(map[destMapKey][]any)
+			knownDestinations = make(map[destMapKey]knownDestEntry)
 			knownDestinationsLock.Unlock()
 
 			// Fill cache

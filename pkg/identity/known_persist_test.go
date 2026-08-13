@@ -21,7 +21,7 @@ import (
 func resetKnownDestinations(t *testing.T) {
 	t.Helper()
 	knownDestinationsLock.Lock()
-	knownDestinations = make(map[destMapKey][]any)
+	knownDestinations = make(map[destMapKey]knownDestEntry)
 	knownDestMetaByKey = make(map[destMapKey]knownDestMeta)
 	knownDestinationsLock.Unlock()
 

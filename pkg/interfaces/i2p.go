@@ -94,6 +94,7 @@ type I2PInterfacePeer struct {
 	tunnelID          []byte
 	maxReconnectTries int
 	sendMu            sync.Mutex
+	txFrame           []byte
 	lastRead          time.Time
 	lastWrite         time.Time
 	lastError         string
@@ -369,6 +370,7 @@ func NewI2PInterfacePeer(parent *I2PInterface, name, targetDest string, maxRecon
 		neverConnected:    true,
 		maxReconnectTries: maxReconnect,
 		done:              make(chan struct{}),
+		txFrame:           make([]byte, 0, DefaultMTU*2+4),
 	}
 	peer.In = true
 	peer.Out = true
@@ -388,6 +390,7 @@ func newI2PInterfacePeerAccepted(parent *I2PInterface, name string, conn net.Con
 		initiator:     false,
 		parentCount:   true,
 		done:          make(chan struct{}),
+		txFrame:       make([]byte, 0, DefaultMTU*2+4),
 	}
 	peer.In = true
 	peer.Out = true
@@ -634,11 +637,11 @@ func (peer *I2PInterfacePeer) ProcessOutgoing(data []byte) error {
 
 	var frame []byte
 	if peer.kissFraming {
-		frame = appendFrameKISS(nil, data)
+		frame = appendFrameKISS(peer.txFrame[:0], data)
 	} else {
-		frame = append([]byte{HDLCFlag}, escapeHDLC(data)...)
-		frame = append(frame, HDLCFlag)
+		frame = appendFrameHDLC(peer.txFrame[:0], data)
 	}
+	peer.txFrame = frame
 	_, err = conn.Write(frame)
 	if err == nil {
 		peer.Mutex.Lock()

@@ -28,11 +28,11 @@ func BenchmarkIdentityHashCached(b *testing.B) {
 // destination is already known with identical packet and app data.
 func BenchmarkRememberUnchanged(b *testing.B) {
 	knownDestinationsLock.Lock()
-	knownDestinations = make(map[destMapKey][]any)
+	knownDestinations = make(map[destMapKey]knownDestEntry)
 	knownDestinationsLock.Unlock()
 	b.Cleanup(func() {
 		knownDestinationsLock.Lock()
-		knownDestinations = make(map[destMapKey][]any)
+		knownDestinations = make(map[destMapKey]knownDestEntry)
 		knownDestinationsLock.Unlock()
 	})
 
@@ -59,11 +59,11 @@ func BenchmarkRememberUnchanged(b *testing.B) {
 // starts allocating again (map key hex encode is the only expected cost).
 func TestRememberUnchangedAllocBudget(t *testing.T) {
 	knownDestinationsLock.Lock()
-	knownDestinations = make(map[destMapKey][]any)
+	knownDestinations = make(map[destMapKey]knownDestEntry)
 	knownDestinationsLock.Unlock()
 	t.Cleanup(func() {
 		knownDestinationsLock.Lock()
-		knownDestinations = make(map[destMapKey][]any)
+		knownDestinations = make(map[destMapKey]knownDestEntry)
 		knownDestinationsLock.Unlock()
 	})
 
@@ -80,6 +80,39 @@ func TestRememberUnchangedAllocBudget(t *testing.T) {
 	})
 	if allocs > 0 {
 		t.Fatalf("Remember unchanged allocs=%.1f want 0", allocs)
+	}
+}
+
+func TestRememberIdentityReuseAllocBudget(t *testing.T) {
+	knownDestinationsLock.Lock()
+	knownDestinations = make(map[destMapKey]knownDestEntry)
+	knownDestinationsLock.Unlock()
+	t.Cleanup(func() {
+		knownDestinationsLock.Lock()
+		knownDestinations = make(map[destMapKey]knownDestEntry)
+		knownDestinationsLock.Unlock()
+	})
+
+	pub := make([]byte, 64)
+	dest := make([]byte, 16)
+	pkt := []byte("pkt")
+	app := []byte("app")
+	_, _ = rand.Read(pub)
+	_, _ = rand.Read(dest)
+	id := FromPublicKey(pub)
+	if id == nil {
+		t.Fatal("FromPublicKey")
+	}
+	if !RememberIdentity(pkt, dest, pub, app, id) {
+		t.Fatal("RememberIdentity")
+	}
+
+	allocs := testing.AllocsPerRun(1000, func() {
+		_ = RememberIdentity(pkt, dest, pub, app, id)
+		_ = KnownIdentityMatching(dest, pub)
+	})
+	if allocs > 0 {
+		t.Fatalf("RememberIdentity+KnownIdentityMatching allocs=%.1f want 0", allocs)
 	}
 }
 

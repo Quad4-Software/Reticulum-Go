@@ -85,8 +85,8 @@ func TestLinkEncryptAllocBudget(t *testing.T) {
 		}
 	})
 	// copySessionKeys (2) plus AES/HMAC ciphertext and intermediates.
-	if allocs > 20 {
-		t.Fatalf("Link.encrypt allocs=%.1f want <= 20", allocs)
+	if allocs > 12 {
+		t.Fatalf("Link.encrypt allocs=%.1f want <= 12", allocs)
 	}
 }
 

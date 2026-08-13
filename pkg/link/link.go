@@ -875,6 +875,25 @@ func (l *Link) SetPacketCallback(callback func([]byte, *packet.Packet)) {
 	}
 }
 
+func (l *Link) deliverOrQueuePlainPacket(plaintext []byte, pkt *packet.Packet) {
+	l.packetCbMu.RLock()
+	cb := l.packetCallback
+	l.packetCbMu.RUnlock()
+	if cb != nil {
+		cb(plaintext, pkt)
+		return
+	}
+	l.pendingPlainMu.Lock()
+	dropped := len(l.pendingPlainData) > 0
+	l.pendingPlainData = append([]byte(nil), plaintext...)
+	l.pendingPlainMu.Unlock()
+	if dropped {
+		debug.Log(debug.DebugInfo, common.MsgLinkNoPacketCallbackDropped)
+	} else {
+		debug.Log(debug.DebugInfo, common.MsgLinkNoPacketCallback)
+	}
+}
+
 func (l *Link) SetResourceCallback(callback func(any) bool) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
@@ -1047,25 +1066,6 @@ func (l *Link) HandleInbound(pkt *packet.Packet) error {
 	}
 
 	return nil
-}
-
-func (l *Link) deliverOrQueuePlainPacket(plaintext []byte, pkt *packet.Packet) {
-	l.packetCbMu.RLock()
-	cb := l.packetCallback
-	l.packetCbMu.RUnlock()
-	if cb != nil {
-		cb(append([]byte(nil), plaintext...), pkt)
-		return
-	}
-	l.pendingPlainMu.Lock()
-	dropped := len(l.pendingPlainData) > 0
-	l.pendingPlainData = append([]byte(nil), plaintext...)
-	l.pendingPlainMu.Unlock()
-	if dropped {
-		debug.Log(debug.DebugInfo, common.MsgLinkNoPacketCallbackDropped)
-	} else {
-		debug.Log(debug.DebugInfo, common.MsgLinkNoPacketCallback)
-	}
 }
 
 func (l *Link) signalOutgoingResourceComplete() {
@@ -2261,34 +2261,25 @@ func encryptWithKeys(sessionKey, hmacKey, data []byte, block cipher.Block) ([]by
 		}
 	}
 
-	iv := make([]byte, aes.BlockSize)
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+	padding := aes.BlockSize - len(data)%aes.BlockSize
+	ctLen := len(data) + padding
+	result := make([]byte, aes.BlockSize+ctLen+sha256.Size)
+	if _, err := io.ReadFull(rand.Reader, result[:aes.BlockSize]); err != nil {
 		return nil, err
 	}
-
-	padding := aes.BlockSize - len(data)%aes.BlockSize
-	padtext := make([]byte, len(data)+padding)
-	copy(padtext, data)
-	for i := len(data); i < len(padtext); i++ {
-		padtext[i] = byte(padding)
+	copy(result[aes.BlockSize:aes.BlockSize+len(data)], data)
+	padByte := byte(padding)
+	for i := aes.BlockSize + len(data); i < aes.BlockSize+ctLen; i++ {
+		result[i] = padByte
 	}
 
-	mode := cipher.NewCBCEncrypter(block, iv) // #nosec G407
-	ciphertext := make([]byte, len(padtext))
-	mode.CryptBlocks(ciphertext, padtext)
-
-	signedParts := make([]byte, len(iv)+len(ciphertext))
-	copy(signedParts, iv)
-	copy(signedParts[len(iv):], ciphertext)
+	mode := cipher.NewCBCEncrypter(block, result[:aes.BlockSize]) // #nosec G407
+	ct := result[aes.BlockSize : aes.BlockSize+ctLen]
+	mode.CryptBlocks(ct, ct)
 
 	h := hmac.New(sha256.New, hmacKey)
-	h.Write(signedParts)
-	mac := h.Sum(nil)
-
-	result := make([]byte, len(signedParts)+len(mac))
-	copy(result, signedParts)
-	copy(result[len(signedParts):], mac)
-	return result, nil
+	h.Write(result[:aes.BlockSize+ctLen])
+	return h.Sum(result[:aes.BlockSize+ctLen]), nil
 }
 
 func decryptWithKeys(sessionKey, hmacKey, data []byte, block cipher.Block) ([]byte, error) {

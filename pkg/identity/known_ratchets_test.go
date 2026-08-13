@@ -17,11 +17,11 @@ import (
 func resetKnownRatchets(t *testing.T) {
 	t.Helper()
 	ratchetPersistLock.Lock()
-	knownRatchets = make(map[string]knownRatchetEntry)
+	knownRatchets = make(map[destMapKey]knownRatchetEntry)
 	ratchetPersistLock.Unlock()
 	t.Cleanup(func() {
 		ratchetPersistLock.Lock()
-		knownRatchets = make(map[string]knownRatchetEntry)
+		knownRatchets = make(map[destMapKey]knownRatchetEntry)
 		ratchetPersistLock.Unlock()
 	})
 }
@@ -109,7 +109,7 @@ func TestGetRatchetPersistRoundtrip(t *testing.T) {
 	}
 
 	ratchetPersistLock.Lock()
-	knownRatchets = make(map[string]knownRatchetEntry)
+	knownRatchets = make(map[destMapKey]knownRatchetEntry)
 	ratchetPersistLock.Unlock()
 
 	got := GetRatchet(destHash)
@@ -124,7 +124,7 @@ func TestGetRatchetExpired(t *testing.T) {
 
 	destHash := bytes.Repeat([]byte{0x44}, TruncatedHashLength/8)
 	pub := bytes.Repeat([]byte{0x55}, RatchetSize/8)
-	key := knownDestHex(destHash)
+	key := knownDestKey(destHash)
 	ratchetPersistLock.Lock()
 	knownRatchets[key] = knownRatchetEntry{
 		key:      append([]byte(nil), pub...),
@@ -167,5 +167,23 @@ func TestCleanKnownRatchetsSkipsDestPrivateFiles(t *testing.T) {
 	CleanKnownRatchets()
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("dest-private ratchet file was removed: %v", err)
+	}
+}
+
+func TestCopyRatchetAllocBudget(t *testing.T) {
+	resetKnownRatchets(t)
+	InitKnownDestinationsPersistence("", true)
+	destHash := bytes.Repeat([]byte{0x11}, TruncatedHashLength/8)
+	pub := bytes.Repeat([]byte{0x22}, RatchetSize/8)
+	RememberRatchet(destHash, pub)
+
+	var buf [32]byte
+	allocs := testing.AllocsPerRun(1000, func() {
+		if n := CopyRatchet(destHash, buf[:]); n != 32 {
+			t.Fatalf("CopyRatchet n=%d", n)
+		}
+	})
+	if allocs != 0 {
+		t.Fatalf("CopyRatchet allocs=%.1f want 0", allocs)
 	}
 }

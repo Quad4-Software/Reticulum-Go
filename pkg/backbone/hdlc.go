@@ -23,6 +23,17 @@ type HDLCDecoder struct {
 	onPacket func([]byte)
 }
 
+func assemblerCap(mtu int) int {
+	capn := mtu
+	if capn > streamReadChunk {
+		capn = streamReadChunk
+	}
+	if capn < 256 {
+		capn = 256
+	}
+	return capn
+}
+
 func NewHDLCDecoder(mtu int, onPacket func([]byte)) *HDLCDecoder {
 	maxFrame := 2*mtu + 32
 	if maxFrame < 256 {
@@ -31,7 +42,7 @@ func NewHDLCDecoder(mtu int, onPacket func([]byte)) *HDLCDecoder {
 	return &HDLCDecoder{
 		mtu:      mtu,
 		maxFrame: maxFrame,
-		data:     make([]byte, 0, mtu),
+		data:     make([]byte, 0, assemblerCap(mtu)),
 		onPacket: onPacket,
 	}
 }

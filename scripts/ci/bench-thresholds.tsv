@@ -10,7 +10,10 @@ BenchmarkSimLineRelayThroughput/Hops-8	30000	80
 BenchmarkSimLineRelayThroughput/Hops-16	50000	140
 BenchmarkHasPath_ParallelMixed	500	2
 # Announce ingest
-BenchmarkHandleAnnouncePacket_DebugCritical	200000	30
+BenchmarkHandleAnnouncePacket_DebugCritical	100000	12
+BenchmarkHandleAnnouncePacket_DebugInfo	100000	12
+# Link encrypt
+BenchmarkLinkEncrypt	5000	15
 # IFAC mask/unmask: HKDF reuse keeps allocs flat across payload sizes
 BenchmarkSimIFACMaskUnmask/Payload-16	150000	50
 BenchmarkSimIFACMaskUnmask/Payload-256	150000	50

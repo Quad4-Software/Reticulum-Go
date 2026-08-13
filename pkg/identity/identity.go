@@ -42,10 +42,17 @@ type Identity struct {
 	mutex         *sync.RWMutex
 }
 
+type knownDestEntry struct {
+	pkt  []byte
+	hash []byte
+	id   *Identity
+	app  []byte
+}
+
 var (
-	knownDestinations     = make(map[destMapKey][]any)
+	knownDestinations     = make(map[destMapKey]knownDestEntry)
 	knownDestinationsLock sync.RWMutex
-	knownRatchets         = make(map[string]knownRatchetEntry)
+	knownRatchets         = make(map[destMapKey]knownRatchetEntry)
 	ratchetPersistLock    sync.Mutex
 )
 
@@ -240,48 +247,65 @@ func GetRandomHash() []byte {
 // Remember stores a known destination from a validated announce.
 // Returns false when destHash is already known under a different public key.
 func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) bool {
+	return rememberKnown(packet, destHash, publicKey, appData, nil)
+}
+
+// RememberIdentity is Remember using an already-built Identity when the
+// public key matches. Avoids a second FromPublicKey on first insert.
+func RememberIdentity(packet []byte, destHash []byte, publicKey []byte, appData []byte, id *Identity) bool {
+	return rememberKnown(packet, destHash, publicKey, appData, id)
+}
+
+// KnownIdentityMatching returns the stored Identity for destHash when its
+// public key matches publicKey. The pointer is owned by the known-dest table.
+func KnownIdentityMatching(destHash, publicKey []byte) *Identity {
+	key := knownDestKey(destHash)
+	knownDestinationsLock.RLock()
+	e, ok := knownDestinations[key]
+	knownDestinationsLock.RUnlock()
+	if !ok || e.id == nil || !e.id.publicKeyEqual(publicKey) {
+		return nil
+	}
+	return e.id
+}
+
+func rememberKnown(packet []byte, destHash []byte, publicKey []byte, appData []byte, id *Identity) bool {
 	hashStr := knownDestKey(destHash)
 
 	knownDestinationsLock.Lock()
 	defer knownDestinationsLock.Unlock()
 
 	now := time.Now().Unix()
-	if existing, ok := knownDestinations[hashStr]; ok && len(existing) >= 4 {
-		if id, ok := existing[2].(*Identity); ok {
-			if !id.publicKeyEqual(publicKey) {
-				debug.Log(debug.DebugCritical, "Rejected announce: destination hash already known with a different public key")
-				return false
-			}
-			prevPkt, _ := existing[0].([]byte)
-			prevApp, _ := existing[3].([]byte)
-			if bytes.Equal(prevPkt, packet) && bytes.Equal(prevApp, appData) {
-				meta := knownDestMetaByKey[hashStr]
-				meta.rememberedAt = now
-				knownDestMetaByKey[hashStr] = meta
-				markKnownDestinationsDirty()
-				return true
-			}
-			existing[0] = append([]byte(nil), packet...)
-			existing[3] = append([]byte(nil), appData...)
+	if existing, ok := knownDestinations[hashStr]; ok && existing.id != nil {
+		if !existing.id.publicKeyEqual(publicKey) {
+			debug.Log(debug.DebugCritical, "Rejected announce: destination hash already known with a different public key")
+			return false
+		}
+		if bytes.Equal(existing.pkt, packet) && bytes.Equal(existing.app, appData) {
 			meta := knownDestMetaByKey[hashStr]
 			meta.rememberedAt = now
 			knownDestMetaByKey[hashStr] = meta
 			markKnownDestinationsDirty()
 			return true
 		}
+		existing.pkt = append([]byte(nil), packet...)
+		existing.app = append([]byte(nil), appData...)
+		knownDestinations[hashStr] = existing
+		meta := knownDestMetaByKey[hashStr]
+		meta.rememberedAt = now
+		knownDestMetaByKey[hashStr] = meta
+		markKnownDestinationsDirty()
+		return true
 	}
 
-	packetCopy := append([]byte(nil), packet...)
-	destHashCopy := append([]byte(nil), destHash...)
-	publicKeyCopy := append([]byte(nil), publicKey...)
-	appDataCopy := append([]byte(nil), appData...)
-
-	id := FromPublicKey(publicKeyCopy)
-	knownDestinations[hashStr] = []any{
-		packetCopy,
-		destHashCopy,
-		id,
-		appDataCopy,
+	if id == nil || !id.publicKeyEqual(publicKey) {
+		id = FromPublicKey(publicKey)
+	}
+	knownDestinations[hashStr] = knownDestEntry{
+		pkt:  append([]byte(nil), packet...),
+		hash: append([]byte(nil), destHash...),
+		id:   id,
+		app:  append([]byte(nil), appData...),
 	}
 	prev := knownDestMetaByKey[hashStr]
 	lastUsed := prev.lastUsed
@@ -390,14 +414,9 @@ func Recall(hash []byte) (*Identity, error) {
 	data, exists := knownDestinations[hashStr]
 	knownDestinationsLock.RUnlock()
 
-	if exists {
-		// data is [packet, destHash, identity, appData]
-		if len(data) >= 3 {
-			if id, ok := data[2].(*Identity); ok {
-				TouchKnownDestination(hash)
-				return id, nil
-			}
-		}
+	if exists && data.id != nil {
+		TouchKnownDestination(hash)
+		return data.id, nil
 	}
 
 	return nil, common.ErrIdentityNotFoundf(hash)
@@ -828,14 +847,12 @@ func GetKnownDestination(hash string) ([]any, bool) {
 	data, exists := knownDestinations[key]
 	knownDestinationsLock.RUnlock()
 	if exists {
-		copied := make([]any, len(data))
-		copy(copied, data)
-		for i := range copied {
-			if b, ok := copied[i].([]byte); ok {
-				copied[i] = append([]byte(nil), b...)
-			}
-		}
-		return copied, true
+		return []any{
+			append([]byte(nil), data.pkt...),
+			append([]byte(nil), data.hash...),
+			data.id,
+			append([]byte(nil), data.app...),
+		}, true
 	}
 	return nil, false
 }
@@ -851,7 +868,7 @@ func (i *Identity) GetRatchetKey(id string) ([]byte, bool) {
 	ratchetPersistLock.Lock()
 	defer ratchetPersistLock.Unlock()
 
-	e, exists := knownRatchets[id]
+	e, exists := knownRatchets[ratchetMapKey(id)]
 	if !exists {
 		return nil, false
 	}
@@ -862,11 +879,12 @@ func (i *Identity) SetRatchetKey(id string, key []byte) {
 	ratchetPersistLock.Lock()
 	defer ratchetPersistLock.Unlock()
 
-	knownRatchets[id] = knownRatchetEntry{
+	mapKey := ratchetMapKey(id)
+	knownRatchets[mapKey] = knownRatchetEntry{
 		key:      append([]byte(nil), key...),
 		received: time.Now().Unix(),
 	}
-	evictKnownRatchetsLocked(id)
+	evictKnownRatchetsLocked(mapKey)
 }
 
 // NewIdentity creates a new Identity instance with fresh keys

@@ -232,9 +232,30 @@ func TestHandleAnnounceAllocBudget(t *testing.T) {
 		tr.mutex.Unlock()
 		_ = tr.handleAnnouncePacket(pkt, iface)
 	})
-	// ed25519 verify path still allocates. Gate is relative to the optimized steady state (~19).
-	if allocs > 30 {
-		t.Fatalf("handleAnnouncePacket steady allocs=%.1f want <= 30", allocs)
+	// ed25519 verify path still allocates. Gate is relative to the optimized steady state.
+	if allocs > 12 {
+		t.Fatalf("handleAnnouncePacket steady allocs=%.1f want <= 12", allocs)
+	}
+}
+
+func TestHandleAnnounceAllocBudgetDebugInfo(t *testing.T) {
+	enableSimFastPath(t)
+	debug.SetDebugLevel(debug.DebugInfo)
+
+	pkt, tr, iface := buildValidAnnounceForReceiver(t)
+	defer tr.Close()
+	defer iface.stop()
+
+	_ = tr.handleAnnouncePacket(pkt, iface)
+
+	allocs := testing.AllocsPerRun(50, func() {
+		tr.mutex.Lock()
+		clear(tr.seenAnnounces)
+		tr.mutex.Unlock()
+		_ = tr.handleAnnouncePacket(pkt, iface)
+	})
+	if allocs > 12 {
+		t.Fatalf("handleAnnouncePacket DebugInfo allocs=%.1f want <= 12", allocs)
 	}
 }
 

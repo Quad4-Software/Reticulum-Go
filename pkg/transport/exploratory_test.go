@@ -225,9 +225,8 @@ func TestExploratoryDiscoveryPRTagCapKeepsNewest(t *testing.T) {
 	newestPayload := append(append([]byte(nil), newestDest...), newestTag...)
 	tr.handlePathRequest(newestPayload, wan)
 
-	unique := append(append([]byte(nil), newestDest...), newestTag...)
 	tr.mutex.RLock()
-	kept := tr.discoveryPRTags[string(unique)]
+	kept := tr.discoveryPRTags[discoveryPRTagKey(newestDest, newestTag)]
 	n := len(tr.discoveryPRTags)
 	tr.mutex.RUnlock()
 	if !kept {
