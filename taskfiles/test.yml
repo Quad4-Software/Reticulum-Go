@@ -59,7 +59,7 @@ tasks:
       - sh scripts/ci/bench-gate.sh
 
   test-mutation:
-    desc: Run gomutant mutation testing (cryptography, packet, announce, destination, identity, ifac)
+    desc: Run gomutant mutation testing (cryptography, packet, announce, destination, identity, ifac, backbone)
     cmds:
       - sh scripts/ci/run-mutation.sh
 
