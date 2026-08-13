@@ -73,7 +73,7 @@ func TestRegression_HandleInboundUsesRegisteredFactory(t *testing.T) {
 		return true
 	})
 
-	raw, err := packEnvelope(1, 3, []byte("typed"))
+	raw, err := packEnvelope(1, 0, []byte("typed"))
 	if err != nil {
 		t.Fatal(err)
 	}

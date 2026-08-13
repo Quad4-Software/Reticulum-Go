@@ -17,8 +17,13 @@ import (
 	"quad4/reticulum-go/pkg/transport"
 )
 
-// ErrLinkNotReady is returned when a send is attempted on a non-ready outlet.
+// ErrLinkNotReady is returned when a send is attempted on a non-ready outlet
+// or when the TX window is full, matching Python ChannelException ME_LINK_NOT_READY.
 var ErrLinkNotReady = errors.New("link not ready")
+
+// ErrTooBig is returned when the packed envelope exceeds the outlet MDU,
+// matching Python ChannelException ME_TOO_BIG.
+var ErrTooBig = errors.New("channel message too big")
 
 // SystemMessageTypeMin is the lower bound for system-reserved MSGTYPE values.
 // Matches Python RNS Channel (MSGTYPE >= 0xf000).
@@ -56,6 +61,7 @@ type Channel struct {
 	sendMu            sync.Mutex
 	mutex             sync.RWMutex
 	txRing            []*Envelope
+	rxRing            []rxEnvelope
 	window            int
 	windowMax         int
 	windowMin         int
@@ -63,10 +69,16 @@ type Channel struct {
 	fastRateRounds    int
 	mediumRateRounds  int
 	nextSequence      uint16
+	nextRxSequence    uint16
 	maxTries          int
 	messageHandlers   []messageHandlerEntry
 	nextHandlerID     int
 	factories         map[uint16]MessageConstructor
+}
+
+type rxEnvelope struct {
+	sequence uint16
+	message  MessageBase
 }
 
 type messageHandlerEntry struct {
@@ -161,11 +173,13 @@ func packEnvelope(msgType, sequence uint16, body []byte) ([]byte, error) {
 // Send transmits a message over the channel.
 // Sequence allocation and tx-ring emplace happen only after a successful
 // outlet send so a failing link cannot leave ghost envelopes or sequence holes.
+// A full TX window or packed envelope larger than the outlet MDU is refused,
+// matching Python Channel.send.
 func (c *Channel) Send(msg MessageBase) error {
 	c.sendMu.Lock()
 	defer c.sendMu.Unlock()
 
-	if !outletReady(c.link.GetStatus()) {
+	if !c.IsReadyToSend() {
 		return ErrLinkNotReady
 	}
 
@@ -176,16 +190,23 @@ func (c *Channel) Send(msg MessageBase) error {
 
 	c.mutex.Lock()
 	reserved := c.nextSequence
-	c.nextSequence = uint16((uint32(reserved) + 1) % SeqModulus)
 	c.mutex.Unlock()
 
 	raw, err := packEnvelope(msg.GetType(), reserved, body)
 	if err != nil {
-		c.mutex.Lock()
-		c.nextSequence = reserved
-		c.mutex.Unlock()
 		return err
 	}
+	if len(raw) > c.outletMDU() {
+		return ErrTooBig
+	}
+
+	c.mutex.Lock()
+	if c.nextSequence != reserved {
+		c.mutex.Unlock()
+		return ErrLinkNotReady
+	}
+	c.nextSequence = uint16((uint32(reserved) + 1) % SeqModulus)
+	c.mutex.Unlock()
 
 	packet := c.link.Send(raw)
 	if !packetTransmitted(packet) {
@@ -305,7 +326,8 @@ func (c *Channel) RemoveMessageHandler(id int) {
 }
 
 // HandleInbound processes an inbound channel packet and dispatches to registered handlers.
-// Registered factories unpack into typed messages. Unknown types become GenericMessage.
+// Sequences are buffered on the RX ring and delivered in order, duplicates are
+// dropped, matching Python Channel._receive.
 func (c *Channel) HandleInbound(data []byte) error {
 	if len(data) < ChannelHeaderSize {
 		return errors.New("channel packet too short")
@@ -319,14 +341,16 @@ func (c *Channel) HandleInbound(data []byte) error {
 		return errors.New("channel packet incomplete")
 	}
 
+	c.mutex.RLock()
+	stale := staleRXSequence(sequence, c.nextRxSequence)
+	ctor := c.factories[msgType]
+	c.mutex.RUnlock()
+	if stale {
+		return nil
+	}
+
 	msgData := make([]byte, length)
 	copy(msgData, data[ChannelHeaderSize:ChannelHeaderSize+int(length)])
-
-	c.mutex.RLock()
-	ctor := c.factories[msgType]
-	handlers := make([]messageHandlerEntry, len(c.messageHandlers))
-	copy(handlers, c.messageHandlers)
-	c.mutex.RUnlock()
 
 	var msg MessageBase
 	if ctor != nil {
@@ -342,15 +366,79 @@ func (c *Channel) HandleInbound(data []byte) error {
 		}
 	}
 
-	for _, entry := range handlers {
-		if entry.handler != nil {
-			if entry.handler(msg) {
+	c.mutex.Lock()
+	if staleRXSequence(sequence, c.nextRxSequence) {
+		c.mutex.Unlock()
+		return nil
+	}
+	if !c.emplaceRXLocked(rxEnvelope{sequence: sequence, message: msg}) {
+		c.mutex.Unlock()
+		return nil
+	}
+	delivered := c.drainRXLocked()
+	handlers := make([]messageHandlerEntry, len(c.messageHandlers))
+	copy(handlers, c.messageHandlers)
+	c.mutex.Unlock()
+
+	for _, m := range delivered {
+		for _, entry := range handlers {
+			if entry.handler != nil && entry.handler(m) {
 				break
 			}
 		}
 	}
 
 	return nil
+}
+
+// staleRXSequence reports whether seq is behind nextRx and outside the wrap
+// window, matching Python Channel._receive WINDOW_MAX overflow logic.
+func staleRXSequence(seq, next uint16) bool {
+	if seq >= next {
+		return false
+	}
+	windowOverflow := uint16((uint32(next) + uint32(WindowMax)) % SeqModulus)
+	if windowOverflow < next {
+		return seq > windowOverflow
+	}
+	return true
+}
+
+func (c *Channel) emplaceRXLocked(env rxEnvelope) bool {
+	for i, existing := range c.rxRing {
+		if env.sequence == existing.sequence {
+			return false
+		}
+		dist := int32(c.nextRxSequence) - int32(env.sequence)
+		if env.sequence < existing.sequence && dist <= int32(SeqMax)/2 {
+			c.rxRing = append(c.rxRing, rxEnvelope{})
+			copy(c.rxRing[i+1:], c.rxRing[i:])
+			c.rxRing[i] = env
+			return true
+		}
+	}
+	c.rxRing = append(c.rxRing, env)
+	return true
+}
+
+func (c *Channel) drainRXLocked() []MessageBase {
+	var out []MessageBase
+	for {
+		found := -1
+		for i, env := range c.rxRing {
+			if env.sequence == c.nextRxSequence {
+				found = i
+				break
+			}
+		}
+		if found < 0 {
+			return out
+		}
+		env := c.rxRing[found]
+		c.rxRing = append(c.rxRing[:found], c.rxRing[found+1:]...)
+		out = append(out, env.message)
+		c.nextRxSequence = uint16((uint32(c.nextRxSequence) + 1) % SeqModulus)
+	}
 }
 
 // GenericMessage is a default message implementation with type, data, and sequence.
@@ -411,16 +499,22 @@ type mduOutlet interface {
 	GetMDU() int
 }
 
+func (c *Channel) outletMDU() int {
+	mdu := DefaultOutletMDU
+	if c.link != nil {
+		if g, ok := c.link.(mduOutlet); ok {
+			if n := g.GetMDU(); n > 0 {
+				mdu = n
+			}
+		}
+	}
+	return mdu
+}
+
 // MDU is bytes available for a channel message body, matching Python
 // Channel.mdu (outlet MDU minus 6-byte envelope header).
 func (c *Channel) MDU() int {
-	mdu := DefaultOutletMDU
-	if g, ok := c.link.(mduOutlet); ok {
-		if n := g.GetMDU(); n > 0 {
-			mdu = n
-		}
-	}
-	mdu -= ChannelHeaderSize
+	mdu := c.outletMDU() - ChannelHeaderSize
 	if mdu > 0xFFFF {
 		mdu = 0xFFFF
 	}
@@ -522,5 +616,6 @@ func (c *Channel) Close() error {
 		releaseEnvelope(env)
 	}
 	c.txRing = nil
+	c.rxRing = nil
 	return nil
 }

@@ -223,8 +223,12 @@ func (m *mockLink) GetLinkID() []byte                                     { retu
 func (m *mockLink) Send(data []byte) any                                  { return &packet.Packet{Raw: data} }
 func (m *mockLink) Resend(p any) error                                    { return nil }
 func (m *mockLink) SetPacketTimeout(p any, cb func(any), t time.Duration) {}
-func (m *mockLink) SetPacketDelivered(p any, cb func(any))                {}
-func (m *mockLink) HandleInbound(pkt *packet.Packet) error                { return nil }
+func (m *mockLink) SetPacketDelivered(p any, cb func(any)) {
+	if cb != nil {
+		cb(p)
+	}
+}
+func (m *mockLink) HandleInbound(pkt *packet.Packet) error { return nil }
 func (m *mockLink) ValidateLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error {
 	return nil
 }

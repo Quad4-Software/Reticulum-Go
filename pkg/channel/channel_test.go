@@ -119,7 +119,7 @@ func TestHandleInboundTypedFactory(t *testing.T) {
 		return true
 	})
 
-	raw, err := packEnvelope(1, 7, []byte("abcd"))
+	raw, err := packEnvelope(1, 0, []byte("abcd"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func TestHandleInbound(t *testing.T) {
 	})
 
 	// Packet format: [type 2][seq 2][len 2][data]
-	data := []byte{0, 1, 0, 1, 0, 4, 't', 'e', 's', 't'}
+	data := []byte{0, 1, 0, 0, 0, 4, 't', 'e', 's', 't'}
 	err := c.HandleInbound(data)
 	if err != nil {
 		t.Fatalf("HandleInbound failed: %v", err)
@@ -190,6 +190,7 @@ type scaleMockLink struct {
 }
 
 func (m *scaleMockLink) GetStatus() byte                                       { return m.status }
+func (m *scaleMockLink) GetMDU() int                                           { return DefaultOutletMDU }
 func (m *scaleMockLink) GetRTT() float64                                       { return 0.1 }
 func (m *scaleMockLink) RTT() float64                                          { return 0.1 }
 func (m *scaleMockLink) GetLinkID() []byte                                     { return []byte("mocklink") }
@@ -243,14 +244,14 @@ func BenchmarkChannelSendScale(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		_ = ch.Send(msg)
-		if i%100 == 0 {
+		if err := ch.Send(msg); err != nil {
 			ch.mutex.Lock()
 			for _, env := range ch.txRing {
 				releaseEnvelope(env)
 			}
 			ch.txRing = nil
 			ch.mutex.Unlock()
+			_ = ch.Send(msg)
 		}
 	}
 	ch.mutex.Lock()

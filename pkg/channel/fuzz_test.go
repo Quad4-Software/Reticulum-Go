@@ -45,6 +45,13 @@ func FuzzHandleInboundEnvelopeExploratory(f *testing.F) {
 		if len(data) < ChannelHeaderSize+int(length) {
 			t.Fatal("HandleInbound succeeded when declared length exceeds buffer")
 		}
+		seq := binary.BigEndian.Uint16(data[2:4])
+		if seq != 0 {
+			if got != nil {
+				t.Fatal("nonzero first sequence must not dispatch")
+			}
+			return
+		}
 		gm, ok := got.(*GenericMessage)
 		if !ok {
 			return
@@ -84,6 +91,12 @@ func FuzzPackHandleInboundRoundTrip(f *testing.F) {
 		})
 		if err := ch.HandleInbound(raw); err != nil {
 			t.Fatalf("HandleInbound: %v", err)
+		}
+		if seq != 0 {
+			if got != nil {
+				t.Fatal("nonzero first sequence must not dispatch")
+			}
+			return
 		}
 		if got == nil {
 			t.Fatal("handler did not receive GenericMessage")

@@ -50,4 +50,14 @@ func TestOracleHMUOversizeSegmentDoesNotPanic(t *testing.T) {
 	if added != 0 {
 		t.Fatalf("expected 0 entries applied for oversize segment, got %d", added)
 	}
+
+	added = rx.applyHashmapSegment(1<<61, hashmapBytes)
+	if added != 0 {
+		t.Fatalf("expected 0 entries applied for overflowing segment, got %d", added)
+	}
+	for i, mh := range rx.mapHashes {
+		if mh != nil {
+			t.Fatalf("mapHashes[%d] was populated by an overflowing-segment HMU", i)
+		}
+	}
 }

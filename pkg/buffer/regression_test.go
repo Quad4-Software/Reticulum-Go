@@ -31,8 +31,12 @@ func (m *captureLink) Send(data []byte) any {
 }
 func (m *captureLink) Resend(p any) error                                    { return nil }
 func (m *captureLink) SetPacketTimeout(p any, cb func(any), t time.Duration) {}
-func (m *captureLink) SetPacketDelivered(p any, cb func(any))                {}
-func (m *captureLink) HandleInbound(pkt *packet.Packet) error                { return nil }
+func (m *captureLink) SetPacketDelivered(p any, cb func(any)) {
+	if cb != nil {
+		cb(p)
+	}
+}
+func (m *captureLink) HandleInbound(pkt *packet.Packet) error { return nil }
 func (m *captureLink) ValidateLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error {
 	return nil
 }

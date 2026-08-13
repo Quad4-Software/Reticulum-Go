@@ -129,9 +129,8 @@ type incomingResourceAsm struct {
 func (rx *incomingResourceAsm) applyHashmapSegment(segment int, hashmapBytes []byte) int {
 	// segment is parsed straight off the wire in handleResourceHashmapUpdate
 	// (wireInt(update[0])) and can be any attacker-chosen int, including
-	// negative. Reject it here rather than trusting callers, since a
-	// negative segment*segLen would otherwise produce a negative slice
-	// index below and panic the process (remote DoS).
+	// negative or so large that segment*segLen overflows int. Reject
+	// those here. A wrapping multiply would otherwise write hashmap[0].
 	if segment < 0 {
 		return 0
 	}
@@ -139,10 +138,17 @@ func (rx *incomingResourceAsm) applyHashmapSegment(segment int, hashmapBytes []b
 	if segLen <= 0 {
 		segLen = 1
 	}
+	if segment > math.MaxInt/segLen {
+		return 0
+	}
+	base := segment * segLen
 	added := 0
 	hashes := len(hashmapBytes) / resource.MapHashLen
 	for i := range hashes {
-		idx := i + segment*segLen
+		if i > math.MaxInt-base {
+			return added
+		}
+		idx := base + i
 		if idx < 0 || idx >= rx.totalParts {
 			return added
 		}
