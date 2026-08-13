@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Live interop: Python shared-instance client requests a path through a Go
+"""Live interop: Python shared-instance client requests a path through a Go
 shared-instance server to a destination that is served by a Python announce
 peer on UDP. The announce peer does NOT announce proactively; it only
 responds to path requests by announcing.
@@ -13,6 +12,7 @@ Environment:
   INTEROP_CONFIG_DIR   - Go server config directory (shared instance TCP)
   INTEROP_PEER_HASH    - Destination hash to request
 """
+
 import os
 import sys
 import time

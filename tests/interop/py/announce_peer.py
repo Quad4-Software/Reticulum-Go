@@ -5,6 +5,7 @@ Emits READY, destination hash hex, then ANNOUNCE_HEX of the packed announce
 before sending it. Set INTEROP_NO_RATCHET=1 to omit the ratchet field (context
 flag unset), matching common RNS Destination.announce wire shapes.
 """
+
 import os
 import sys
 import tempfile
@@ -23,7 +24,11 @@ INTEROP_ASPECT = "linksvc"
 def main() -> int:
     listen_port = int(os.environ["INTEROP_LISTEN_PORT"])
     forward_port = int(os.environ["INTEROP_FORWARD_PORT"])
-    no_ratchet = os.environ.get("INTEROP_NO_RATCHET", "").strip() in ("1", "true", "yes")
+    no_ratchet = os.environ.get("INTEROP_NO_RATCHET", "").strip() in (
+        "1",
+        "true",
+        "yes",
+    )
     app_data = os.environ.get("INTEROP_APP_DATA", "live-announce").encode("utf-8")
 
     cfg_dir = os.environ.get("INTEROP_CONFIG_DIR")
@@ -50,8 +55,8 @@ def main() -> int:
                     "forward_ip = 127.0.0.1",
                     f"forward_port = {forward_port}",
                     "",
-                ]
-            )
+                ],
+            ),
         )
 
     RNS.Reticulum(cfg_dir)

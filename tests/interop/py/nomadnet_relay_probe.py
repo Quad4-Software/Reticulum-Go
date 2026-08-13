@@ -39,13 +39,15 @@ def write_config(cfg_dir: str, listen_port: int, forward_port: int) -> None:
                     "forward_ip = 127.0.0.1",
                     f"forward_port = {forward_port}",
                     "",
-                ]
-            )
+                ],
+            ),
         )
 
 
 def is_nomadnet_node(identity, dest_hash: bytes) -> bool:
-    name_hash = hashlib.sha256(f"{NOMADNET_APP}.{NOMADNET_ASPECT}".encode("utf-8")).digest()[:10]
+    name_hash = hashlib.sha256(f"{NOMADNET_APP}.{NOMADNET_ASPECT}".encode()).digest()[
+        :10
+    ]
     identity_hash = RNS.Identity.truncated_hash(identity.get_public_key())
     expected = hashlib.sha256(name_hash + identity_hash).digest()[:16]
     return dest_hash == expected
@@ -59,7 +61,15 @@ class NomadnetCollector:
     def __init__(self):
         self.nodes = {}
 
-    def received_announce(self, destination_hash=None, announced_identity=None, app_data=None, announce_hops=None, *args, **kwargs):
+    def received_announce(
+        self,
+        destination_hash=None,
+        announced_identity=None,
+        app_data=None,
+        announce_hops=None,
+        *args,
+        **kwargs,
+    ):
         dest_hash = destination_hash
         if dest_hash is None and args:
             dest_hash = args[0]
@@ -120,7 +130,9 @@ def main() -> int:
     node_target = int(os.environ.get("INTEROP_NOMADNET_NODE_TARGET", "1"))
     page_path = os.environ.get("INTEROP_NOMADNET_PAGE_PATH", "/page/index.mu")
     link_timeout = float(os.environ.get("INTEROP_NOMADNET_LINK_TIMEOUT_SEC", "60"))
-    request_timeout = float(os.environ.get("INTEROP_NOMADNET_REQUEST_TIMEOUT_SEC", "30"))
+    request_timeout = float(
+        os.environ.get("INTEROP_NOMADNET_REQUEST_TIMEOUT_SEC", "30")
+    )
     preset_hash_hex = os.environ.get("INTEROP_NOMADNET_DEST_HASH", "").strip()
 
     cfg_dir = os.environ.get("INTEROP_CONFIG_DIR")
@@ -142,7 +154,9 @@ def main() -> int:
     if preset_hash_hex:
         dest_hash = bytes.fromhex(preset_hash_hex)
         if len(dest_hash) != 16:
-            interop_events.emit("fail", kind="identity", detail="invalid INTEROP_NOMADNET_DEST_HASH")
+            interop_events.emit(
+                "fail", kind="identity", detail="invalid INTEROP_NOMADNET_DEST_HASH"
+            )
             sys.stderr.write("invalid INTEROP_NOMADNET_DEST_HASH\n")
             return 1
         sys.stdout.write("NODE " + dest_hash.hex() + "\n")
@@ -155,12 +169,18 @@ def main() -> int:
                 kind="identity",
                 detail="timeout could not recall nomadnet identity via path response",
             )
-            sys.stderr.write("timeout: could not recall nomadnet identity via path response\n")
+            sys.stderr.write(
+                "timeout: could not recall nomadnet identity via path response\n"
+            )
             return 1
     else:
         nodes = wait_for_nodes(collector, node_target, time.time() + announce_wait)
         if not nodes:
-            interop_events.emit("fail", kind="announce", detail="timeout no nomadnet node announces observed")
+            interop_events.emit(
+                "fail",
+                kind="announce",
+                detail="timeout no nomadnet node announces observed",
+            )
             sys.stderr.write("timeout: no nomadnet node announces observed\n")
             return 1
         node = nodes[0]
@@ -171,7 +191,9 @@ def main() -> int:
         interop_events.emit("node", detail=dest_hash.hex())
 
     if not wait_for_path(dest_hash, time.time() + 45.0):
-        interop_events.emit("fail", kind="path", detail="timeout no path to nomadnet node")
+        interop_events.emit(
+            "fail", kind="path", detail="timeout no path to nomadnet node"
+        )
         sys.stderr.write("timeout: no path to nomadnet node\n")
         return 1
 
@@ -195,7 +217,12 @@ def main() -> int:
                 link_result["err"] = str(exc)
 
         try:
-            link.request(page_path, b"crawl", response_callback=on_response, timeout=request_timeout)
+            link.request(
+                page_path,
+                b"crawl",
+                response_callback=on_response,
+                timeout=request_timeout,
+            )
         except Exception as exc:
             link_result["err"] = str(exc)
 
@@ -218,7 +245,9 @@ def main() -> int:
         interop_events.emit("fail", kind="request", detail=link_result["err"])
         sys.stderr.write(link_result["err"] + "\n")
         return 1
-    interop_events.emit("fail", kind="timeout", detail="link or page request did not complete")
+    interop_events.emit(
+        "fail", kind="timeout", detail="link or page request did not complete"
+    )
     sys.stderr.write("timeout: link or page request did not complete\n")
     return 1
 

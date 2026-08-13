@@ -38,8 +38,8 @@ def write_config(cfg_dir: str, listen_port: int, forward_port: int) -> None:
                     "forward_ip = 127.0.0.1",
                     f"forward_port = {forward_port}",
                     "",
-                ]
-            )
+                ],
+            ),
         )
 
 
@@ -109,19 +109,23 @@ def main() -> int:
             link.identify(identity)
             sys.stdout.write("IDENTIFIED\n")
             sys.stdout.flush()
-            return
+            return None
 
         if mode == "echo":
 
             def got(message, packet):
-                expect = os.environ.get("INTEROP_ECHO_EXPECT", "interop-ping").encode("utf-8")
+                expect = os.environ.get("INTEROP_ECHO_EXPECT", "interop-ping").encode(
+                    "utf-8"
+                )
                 if message == expect:
                     sys.stdout.write("ECHO_OK\n")
                     sys.stdout.flush()
                     interop_events.emit("request_ok", detail="echo")
 
             link.set_packet_callback(got)
-            send_payload = os.environ.get("INTEROP_ECHO_SEND", "interop-ping").encode("utf-8")
+            send_payload = os.environ.get("INTEROP_ECHO_SEND", "interop-ping").encode(
+                "utf-8"
+            )
             RNS.Packet(link, send_payload).send()
 
         elif mode == "resource_send":
@@ -140,13 +144,19 @@ def main() -> int:
                 elif resource.status == RNS.Resource.REJECTED:
                     sys.stdout.write("RESOURCE_REJECTED\n")
                     sys.stdout.flush()
-                    interop_events.emit("fail", kind="request", detail="resource rejected")
+                    interop_events.emit(
+                        "fail", kind="request", detail="resource rejected"
+                    )
                 elif resource.status == RNS.Resource.FAILED:
-                    interop_events.emit("fail", kind="request", detail="resource send failed")
+                    interop_events.emit(
+                        "fail", kind="request", detail="resource send failed"
+                    )
                     sys.stderr.write("resource send failed\n")
                     sys.stderr.flush()
 
-            payload = os.environ.get("INTEROP_RESOURCE_SEND", "interop-resource-payload").encode("utf-8")
+            payload = os.environ.get(
+                "INTEROP_RESOURCE_SEND", "interop-resource-payload"
+            ).encode("utf-8")
             auto_compress = os.environ.get("INTEROP_RESOURCE_COMPRESS", "0") == "1"
             RNS.Resource(
                 payload,
@@ -189,7 +199,9 @@ def main() -> int:
 
             ch = link.get_channel()
             ch.register_message_type(EchoMsg)
-            expect = os.environ.get("INTEROP_CHANNEL_EXPECT", "interop-channel-ping").encode("utf-8")
+            expect = os.environ.get(
+                "INTEROP_CHANNEL_EXPECT", "interop-channel-ping"
+            ).encode("utf-8")
 
             def on_msg(message):
                 if isinstance(message, EchoMsg) and message.data == expect:
@@ -200,12 +212,16 @@ def main() -> int:
                 return False
 
             ch.add_message_handler(on_msg)
-            send_payload = os.environ.get("INTEROP_CHANNEL_SEND", "interop-channel-ping").encode("utf-8")
+            send_payload = os.environ.get(
+                "INTEROP_CHANNEL_SEND", "interop-channel-ping"
+            ).encode("utf-8")
             ch.send(EchoMsg(send_payload))
 
         elif mode == "buffer_send":
             ch = link.get_channel()
-            payload = os.environ.get("INTEROP_BUFFER_SEND", "interop-buffer-payload").encode("utf-8")
+            payload = os.environ.get(
+                "INTEROP_BUFFER_SEND", "interop-buffer-payload"
+            ).encode("utf-8")
             writer = RNS.Buffer.create_writer(1, ch)
             writer.write(payload)
             writer.flush()
@@ -215,7 +231,9 @@ def main() -> int:
             interop_events.emit("request_ok", detail="buffer_send")
 
         else:
-            interop_events.emit("fail", kind="harness", detail="unknown INTEROP_LINK_CLIENT_MODE")
+            interop_events.emit(
+                "fail", kind="harness", detail="unknown INTEROP_LINK_CLIENT_MODE"
+            )
             sys.stderr.write("unknown INTEROP_LINK_CLIENT_MODE\n")
             return 1
 

@@ -46,7 +46,9 @@ def main() -> None:
             if b == FLAG:
                 if in_frame and buf:
                     frame = unescape(buf)
-                    sys.stdout.buffer.write(bytes([FLAG]) + escape(frame) + bytes([FLAG]))
+                    sys.stdout.buffer.write(
+                        bytes([FLAG]) + escape(frame) + bytes([FLAG])
+                    )
                     sys.stdout.buffer.flush()
                 buf = b""
                 in_frame = True

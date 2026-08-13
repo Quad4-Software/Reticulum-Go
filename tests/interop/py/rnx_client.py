@@ -33,8 +33,8 @@ def write_config(cfg_dir: str, listen_port: int, forward_port: int) -> None:
                     "forward_ip = 127.0.0.1",
                     f"forward_port = {forward_port}",
                     "",
-                ]
-            )
+                ],
+            ),
         )
 
 
@@ -52,7 +52,9 @@ def main() -> int:
     forward_port = int(os.environ["INTEROP_FORWARD_PORT"])
     dest_hex = os.environ["INTEROP_DEST_HASH"].strip()
     command = os.environ.get("INTEROP_COMMAND", "echo ok")
-    cfg_dir = os.environ.get("INTEROP_CONFIG_DIR") or tempfile.mkdtemp(prefix="rnx_client_")
+    cfg_dir = os.environ.get("INTEROP_CONFIG_DIR") or tempfile.mkdtemp(
+        prefix="rnx_client_"
+    )
     write_config(cfg_dir, listen_port, forward_port)
 
     RNS.Reticulum(cfg_dir)
@@ -106,7 +108,10 @@ def main() -> int:
         sys.stderr.write("request failed\n")
         return 244
 
-    if not spin(lambda: done["ok"] or receipt.status == RNS.RequestReceipt.FAILED, rexec_timeout + 5):
+    if not spin(
+        lambda: done["ok"] or receipt.status == RNS.RequestReceipt.FAILED,
+        rexec_timeout + 5,
+    ):
         sys.stderr.write("timeout waiting for result\n")
         return 245
 

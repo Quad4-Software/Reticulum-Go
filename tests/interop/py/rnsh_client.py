@@ -37,8 +37,8 @@ def write_config(cfg_dir: str, listen_port: int, forward_port: int) -> None:
                     "forward_ip = 127.0.0.1",
                     f"forward_port = {forward_port}",
                     "",
-                ]
-            )
+                ],
+            ),
         )
 
 
@@ -47,7 +47,9 @@ async def main_async() -> int:
     forward_port = int(os.environ["INTEROP_FORWARD_PORT"])
     dest_hex = os.environ["INTEROP_DEST_HASH"].strip()
     command = os.environ.get("INTEROP_COMMAND", "/bin/echo py-client-ok").split()
-    cfg_dir = os.environ.get("INTEROP_CONFIG_DIR") or tempfile.mkdtemp(prefix="rnsh_client_")
+    cfg_dir = os.environ.get("INTEROP_CONFIG_DIR") or tempfile.mkdtemp(
+        prefix="rnsh_client_"
+    )
     write_config(cfg_dir, listen_port, forward_port)
     identity_path = os.path.join(cfg_dir, "rnsh_client_identity")
 

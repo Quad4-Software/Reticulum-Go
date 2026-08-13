@@ -59,8 +59,8 @@ def write_config(cfg_dir, tcp_host, tcp_port, iface_type="tcp"):
                     "",
                     *iface_block,
                     "",
-                ]
-            )
+                ],
+            ),
         )
 
 
@@ -99,7 +99,7 @@ def main():
 
     sys.stdout.write("config_dir=" + cfg_dir + "\n")
     sys.stdout.write(
-        "connecting tcp_host=" + tcp_host + " tcp_port=" + str(tcp_port) + "\n"
+        "connecting tcp_host=" + tcp_host + " tcp_port=" + str(tcp_port) + "\n",
     )
     sys.stdout.flush()
 
@@ -147,7 +147,7 @@ def main():
             state["ok"] = True
             state["done"] = True
             sys.stdout.write(
-                "RESPONSE bytes=" + str(len(response)) + "\n--- begin ---\n"
+                "RESPONSE bytes=" + str(len(response)) + "\n--- begin ---\n",
             )
             sys.stdout.write(response.decode("utf-8", errors="replace"))
             sys.stdout.write("\n--- end ---\n")
@@ -160,7 +160,7 @@ def main():
 
     def on_link_established(link):
         sys.stdout.write(
-            "link established id=" + RNS.prettyhexrep(link.link_id) + "\n"
+            "link established id=" + RNS.prettyhexrep(link.link_id) + "\n",
         )
         sys.stdout.flush()
         try:
@@ -176,7 +176,9 @@ def main():
             sys.stderr.write("link closed before response\n")
             state["done"] = True
 
-    link = RNS.Link(dest, established_callback=on_link_established, closed_callback=on_link_closed)
+    link = RNS.Link(
+        dest, established_callback=on_link_established, closed_callback=on_link_closed
+    )
     _ = link
 
     while time.time() < deadline:
@@ -185,7 +187,7 @@ def main():
         time.sleep(0.1)
 
     sys.stderr.write(
-        "timeout waiting for response after " + str(timeout_sec) + " seconds\n"
+        "timeout waiting for response after " + str(timeout_sec) + " seconds\n",
     )
     return 1
 

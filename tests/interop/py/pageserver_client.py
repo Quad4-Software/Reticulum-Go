@@ -38,8 +38,8 @@ def write_config(cfg_dir: str, listen_port: int, forward_port: int) -> None:
                     "forward_ip = 127.0.0.1",
                     f"forward_port = {forward_port}",
                     "",
-                ]
-            )
+                ],
+            ),
         )
 
 
@@ -132,7 +132,7 @@ def main() -> int:
                     + request_path
                     + " len="
                     + str(len(response))
-                    + "\n"
+                    + "\n",
                 )
                 sys.stderr.write("rns_log=" + log_path + "\n")
                 sys.stderr.flush()
@@ -165,10 +165,12 @@ def main() -> int:
     interop_events.emit(
         "fail",
         kind="timeout",
-        detail="timeout waiting for request response after " + str(timeout_sec) + " seconds",
+        detail="timeout waiting for request response after "
+        + str(timeout_sec)
+        + " seconds",
     )
     sys.stderr.write(
-        "timeout waiting for request response after " + str(timeout_sec) + " seconds\n"
+        "timeout waiting for request response after " + str(timeout_sec) + " seconds\n",
     )
     sys.stderr.write("rns_log=" + log_path + "\n")
     return 1

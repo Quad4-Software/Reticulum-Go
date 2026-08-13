@@ -44,8 +44,8 @@ def main() -> int:
                     "forward_ip = 127.0.0.1",
                     f"forward_port = {forward_port}",
                     "",
-                ]
-            )
+                ],
+            ),
         )
 
     RNS.Reticulum(cfg_dir)
@@ -65,7 +65,9 @@ def main() -> int:
         RNS.Transport.request_path(go_hash)
         time.sleep(0.15)
 
-    interop_events.emit("fail", kind="path", detail="timeout waiting for path to Go destination")
+    interop_events.emit(
+        "fail", kind="path", detail="timeout waiting for path to Go destination"
+    )
     sys.stderr.write("timeout waiting for path to Go destination\n")
     return 1
 

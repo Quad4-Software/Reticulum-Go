@@ -34,15 +34,17 @@ def write_config(cfg_dir: str, listen_port: int, forward_port: int) -> None:
                     "forward_ip = 127.0.0.1",
                     f"forward_port = {forward_port}",
                     "",
-                ]
-            )
+                ],
+            ),
         )
 
 
 def main() -> int:
     listen_port = int(os.environ["INTEROP_LISTEN_PORT"])
     forward_port = int(os.environ["INTEROP_FORWARD_PORT"])
-    cfg_dir = os.environ.get("INTEROP_CONFIG_DIR") or tempfile.mkdtemp(prefix="rnx_listen_")
+    cfg_dir = os.environ.get("INTEROP_CONFIG_DIR") or tempfile.mkdtemp(
+        prefix="rnx_listen_"
+    )
     write_config(cfg_dir, listen_port, forward_port)
 
     reticulum = RNS.Reticulum(cfg_dir)

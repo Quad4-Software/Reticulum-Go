@@ -35,8 +35,8 @@ def write_config(cfg_dir: str, listen_port: int, forward_port: int) -> None:
                     "forward_ip = 127.0.0.1",
                     f"forward_port = {forward_port}",
                     "",
-                ]
-            )
+                ],
+            ),
         )
 
 
@@ -78,7 +78,9 @@ def client_connected(link):
 
     elif mode == "buffer":
         ch = link.get_channel()
-        expected = os.environ.get("INTEROP_BUFFER_EXPECT", "interop-buffer-payload").encode("utf-8")
+        expected = os.environ.get(
+            "INTEROP_BUFFER_EXPECT", "interop-buffer-payload"
+        ).encode("utf-8")
         state = {"reader": None, "chunks": [], "done": False}
 
         def on_ready(_length):
@@ -123,7 +125,9 @@ def client_connected(link):
             except Exception as exc:
                 sys.stderr.write("resource read: " + str(exc) + "\n")
                 data = b""
-            expected = os.environ.get("INTEROP_RESOURCE_EXPECT", "interop-resource-payload").encode("utf-8")
+            expected = os.environ.get(
+                "INTEROP_RESOURCE_EXPECT", "interop-resource-payload"
+            ).encode("utf-8")
             if data == expected:
                 sys.stdout.write("RESOURCE_OK\n")
                 sys.stdout.flush()
@@ -160,7 +164,9 @@ def main() -> int:
         expect = os.environ.get("INTEROP_REQUEST_PAYLOAD", "ping").encode("utf-8")
         reply = os.environ.get("INTEROP_REQUEST_REPLY", "PONG_FROM_PY").encode("utf-8")
 
-        def response_generator(path, data, request_id, link_id, remote_identity, requested_at):
+        def response_generator(
+            path, data, request_id, link_id, remote_identity, requested_at
+        ):
             if data == expect:
                 return reply
             return b"BAD_PAYLOAD"

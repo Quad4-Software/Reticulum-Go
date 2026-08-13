@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Python I2P peer for Go interop.
+"""Python I2P peer for Go interop.
 
 Modes (INTEROP_I2P_MODE):
   client  Connect outbound to INTEROP_I2P_PEER (.b32.i2p). Prints ONLINE when
@@ -9,6 +8,7 @@ Modes (INTEROP_I2P_MODE):
 
 Requires a local SAM bridge (i2pd or Java I2P).
 """
+
 import os
 import sys
 import tempfile

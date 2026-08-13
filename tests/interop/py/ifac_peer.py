@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Python peer for the IFAC interop test. Brings up an RNS instance with an
+"""Python peer for the IFAC interop test. Brings up an RNS instance with an
 Interface Access Code configured on the loopback UDP interface, announces a
 single SINGLE destination, and stays alive until killed.
 
@@ -17,6 +16,7 @@ The script writes "READY\\n<dest_hash_hex>\\n" to stdout once the destination
 is ready, then announces every 5 seconds so a slowly-starting Go peer still
 learns the path.
 """
+
 import os
 import sys
 import tempfile
@@ -67,8 +67,8 @@ def main() -> int:
                     f"passphrase = {netkey}",
                     f"ifac_size = {ifac_size_bits}",
                     "",
-                ]
-            )
+                ],
+            ),
         )
 
     RNS.Reticulum(cfg_dir)

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Python peer for the AutoInterface live interop test. Brings up an RNS instance
+"""Python peer for the AutoInterface live interop test. Brings up an RNS instance
 with an AutoInterface on a specified device, announces a single SINGLE
 destination, and stays alive until killed.
 
@@ -12,6 +11,7 @@ Required environment:
 The script writes "READY\n" to stdout once the destination is ready, then
 announces every 3 seconds and waits until it sees the Go destination.
 """
+
 import os
 import sys
 import tempfile
@@ -55,8 +55,8 @@ def main() -> int:
                     f"devices = {device}",
                     f"group_id = {group_id}",
                     "",
-                ]
-            )
+                ],
+            ),
         )
 
     RNS.Reticulum(cfg_dir)
