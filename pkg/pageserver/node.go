@@ -28,6 +28,7 @@ import (
 	"quad4/reticulum-go/pkg/interfaces"
 	"quad4/reticulum-go/pkg/link"
 	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/sandbox"
 	"quad4/reticulum-go/pkg/transport"
 
 	"quad4/reticulum-go/pkg/pageserver/dynamicpage"
@@ -81,6 +82,7 @@ func NewReticulum(cfg *common.ReticulumConfig, opts Options) (*Reticulum, error)
 	if cfg == nil {
 		cfg = common.DefaultConfig()
 	}
+	sandbox.SetExecRlimits(cfg.SandboxExecRlimits)
 
 	if opts.NodeDisplayName == "" {
 		opts.NodeDisplayName = AppName

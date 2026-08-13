@@ -19,13 +19,21 @@ import (
 )
 
 func applyPlatform(cfg *common.ReticulumConfig) error {
+	strict := cfg != nil && cfg.SandboxStrict
+
 	if err := unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
 		debug.Log(debug.DebugError, "PR_SET_NO_NEW_PRIVS failed", "error", err)
+		if strict {
+			return err
+		}
 	}
 
 	if err := applyLandlock(cfg); err != nil {
 		debug.Log(debug.DebugError, "Landlock failed", "error", err)
 		warnSoftUnavailable("landlock", err.Error())
+		if strict {
+			return err
+		}
 	}
 
 	if os.Geteuid() == 0 {
@@ -45,7 +53,11 @@ func applyPlatform(cfg *common.ReticulumConfig) error {
 		debug.Log(debug.DebugError, "Setrlimit failed", "error", err)
 	}
 
-	applySeccomp(cfg)
+	if err := applySeccomp(cfg); err != nil {
+		if strict {
+			return err
+		}
+	}
 
 	debug.Log(debug.DebugInfo, "Sandbox applied", "platform", "linux")
 	return nil
@@ -151,15 +163,37 @@ func landlockPathRules(cfg *common.ReticulumConfig) ([]landlock.Rule, error) {
 		landlock.RODirs(
 			"/etc/ssl/certs",
 			"/proc/self",
-			"/bin",
-			"/usr/bin",
-			"/usr/local/bin",
 			"/lib",
 			"/lib64",
 			"/usr/lib",
 		).IgnoreIfMissing(),
 	}
+	if !isRouterProfile(cfg) {
+		rules = append(rules, landlock.RODirs(
+			"/bin",
+			"/usr/bin",
+			"/usr/local/bin",
+		).IgnoreIfMissing())
+	}
+	rules = append(rules, extraLandlockRules(cfg)...)
 	return rules, nil
+}
+
+func extraLandlockRules(cfg *common.ReticulumConfig) []landlock.Rule {
+	var rules []landlock.Rule
+	for _, p := range collectExtraPaths(cfg) {
+		switch p.kind {
+		case pathRWDir:
+			rules = append(rules, landlock.RWDirs(p.path).IgnoreIfMissing())
+		case pathRODir:
+			rules = append(rules, landlock.RODirs(p.path).IgnoreIfMissing())
+		case pathROFile:
+			rules = append(rules, landlock.ROFiles(p.path).IgnoreIfMissing())
+		default:
+			rules = append(rules, landlock.RWFiles(p.path).WithIoctlDev().IgnoreIfMissing())
+		}
+	}
+	return rules
 }
 
 func dropAllCapabilities() error {

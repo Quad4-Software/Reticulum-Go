@@ -12,6 +12,7 @@ import (
 )
 
 func TestWarnSoftUnavailableRateLimit(t *testing.T) {
+	lastWarn = make(map[string]time.Time)
 	old := os.Stdout
 	r, w, err := os.Pipe()
 	if err != nil {

@@ -20,6 +20,7 @@ import (
 	"quad4/reticulum-go/pkg/discovery"
 	"quad4/reticulum-go/pkg/interfaces"
 	"quad4/reticulum-go/pkg/link"
+	"quad4/reticulum-go/pkg/sandbox"
 	"quad4/reticulum-go/pkg/sharedinstance"
 	"quad4/reticulum-go/pkg/transport"
 )
@@ -101,6 +102,7 @@ func New(cfg *common.ReticulumConfig) (*Node, error) {
 	if cfg == nil {
 		cfg = common.DefaultConfig()
 	}
+	sandbox.SetExecRlimits(cfg.SandboxExecRlimits)
 	if _, err := backbone.Init(backbone.ParseBackend(cfg.BackboneIO)); err != nil {
 		return nil, fmt.Errorf("backbone I/O hub: %w", err)
 	}

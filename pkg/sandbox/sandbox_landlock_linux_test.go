@@ -130,3 +130,129 @@ func TestLandlockHelper(t *testing.T) {
 		t.Fatal("expected blocked directory listing to fail, but it succeeded")
 	}
 }
+
+func TestLandlockExtraPathFunctional(t *testing.T) {
+	if os.Getenv("RETICULUM_QEMU_USER") == "1" {
+		t.Skip("Landlock AllThreadsSyscall is unreliable under qemu-user")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	extraDir := filepath.Join(home, "sandbox-test-extra")
+	if err := os.MkdirAll(extraDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(extraDir)
+	extraFile := filepath.Join(extraDir, "extra.txt")
+	if err := os.WriteFile(extraFile, []byte("extra"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=TestLandlockExtraHelper", "-test.v")
+	cmd.Env = append(os.Environ(),
+		"SANDBOX_LANDLOCK_EXTRA_TEST=1",
+		"SANDBOX_EXTRA_FILE="+extraFile,
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		text := string(out)
+		if strings.Contains(text, "not supported") ||
+			strings.Contains(text, "operation not permitted") ||
+			strings.Contains(text, "AllThreadsSyscall") ||
+			strings.Contains(text, "runtime corrupted") {
+			t.Skip("Landlock not available in test environment")
+		}
+		t.Fatalf("Landlock extra helper failed:\n%s", out)
+	}
+	if !strings.Contains(string(out), "PASS") {
+		t.Fatalf("Landlock extra helper did not report PASS:\n%s", out)
+	}
+}
+
+func TestLandlockExtraHelper(t *testing.T) {
+	if os.Getenv("SANDBOX_LANDLOCK_EXTRA_TEST") != "1" {
+		t.Skip("helper, run via TestLandlockExtraPathFunctional")
+	}
+	extraFile := os.Getenv("SANDBOX_EXTRA_FILE")
+	if extraFile == "" {
+		t.Fatal("SANDBOX_EXTRA_FILE unset")
+	}
+	if err := unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
+		t.Fatalf("PR_SET_NO_NEW_PRIVS failed: %v", err)
+	}
+	cfg := &common.ReticulumConfig{
+		EnableSandbox:     true,
+		SandboxExtraPaths: []string{extraFile},
+	}
+	if err := applyLandlock(cfg); err != nil {
+		if strings.Contains(err.Error(), "not supported") {
+			t.Skip("Landlock not supported:", err)
+		}
+		t.Fatalf("applyLandlock failed: %v", err)
+	}
+	data, err := os.ReadFile(extraFile)
+	if err != nil {
+		t.Fatalf("expected extra path readable, got %v", err)
+	}
+	if string(data) != "extra" {
+		t.Fatalf("content=%q", data)
+	}
+}
+
+func TestLandlockRouterOmitsBin(t *testing.T) {
+	if os.Getenv("RETICULUM_QEMU_USER") == "1" {
+		t.Skip("Landlock AllThreadsSyscall is unreliable under qemu-user")
+	}
+	if _, err := os.Stat("/bin/true"); err != nil {
+		t.Skip("/bin/true missing")
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=TestLandlockRouterHelper", "-test.v")
+	cmd.Env = append(os.Environ(), "SANDBOX_LANDLOCK_ROUTER_TEST=1")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		text := string(out)
+		if strings.Contains(text, "not supported") ||
+			strings.Contains(text, "operation not permitted") ||
+			strings.Contains(text, "AllThreadsSyscall") ||
+			strings.Contains(text, "runtime corrupted") {
+			t.Skip("Landlock not available in test environment")
+		}
+		t.Fatalf("Landlock router helper failed:\n%s", out)
+	}
+	if !strings.Contains(string(out), "PASS") {
+		t.Fatalf("Landlock router helper did not report PASS:\n%s", out)
+	}
+}
+
+func TestLandlockRouterHelper(t *testing.T) {
+	if os.Getenv("SANDBOX_LANDLOCK_ROUTER_TEST") != "1" {
+		t.Skip("helper, run via TestLandlockRouterOmitsBin")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
+		t.Fatalf("PR_SET_NO_NEW_PRIVS failed: %v", err)
+	}
+	cfg := &common.ReticulumConfig{
+		EnableSandbox:  true,
+		SandboxProfile: common.SandboxProfileRouter,
+		ConfigPath:     filepath.Join(home, ".reticulum-go", "config"),
+	}
+	if err := applyLandlock(cfg); err != nil {
+		if strings.Contains(err.Error(), "not supported") {
+			t.Skip("Landlock not supported:", err)
+		}
+		t.Fatalf("applyLandlock failed: %v", err)
+	}
+	cmd := exec.Command("/bin/true")
+	if err := cmd.Run(); err == nil {
+		t.Fatal("router profile should deny /bin/true")
+	}
+	probe := filepath.Join(home, ".reticulum-go", "sandbox-router-probe")
+	if err := os.WriteFile(probe, []byte("ok"), 0o600); err != nil {
+		t.Fatalf("config dir write: %v", err)
+	}
+	_ = os.Remove(probe)
+}

@@ -12,6 +12,9 @@ const (
 	NodeProfileDefault    = "default"
 	NodeProfileCoreRouter = "core_router"
 	NodeProfileEmbedded   = "embedded"
+
+	SandboxProfileFull   = "full"
+	SandboxProfileRouter = "router"
 )
 
 // ApplyNodeProfile fills unset knobs from NodeProfile. Explicit config keys

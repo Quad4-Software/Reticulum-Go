@@ -16,7 +16,16 @@ KillMode=mixed
 # Allow Landlock sandbox and config/log writes under the state directory.
 NoNewPrivileges=true
 ProtectHome=true
+ProtectSystem=strict
 PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+UMask=0077
 ReadWritePaths=/var/lib/reticulum-go
 
 [Install]

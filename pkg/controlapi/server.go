@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -38,11 +39,13 @@ type Server struct {
 	lifecycle Lifecycle
 	host      string
 	port      int
+	unixPath  string
 	authKey   []byte
 	startedAt time.Time
 
-	httpServer *http.Server
-	listener   net.Listener
+	httpServer   *http.Server
+	listener     net.Listener
+	unixListener net.Listener
 
 	mu       sync.RWMutex
 	sessions map[string]*session
@@ -78,6 +81,7 @@ func New(t *transport.Transport, lifecycle Lifecycle, cfg *common.ReticulumConfi
 		lifecycle:    lifecycle,
 		host:         host,
 		port:         port,
+		unixPath:     strings.TrimSpace(cfg.ControlAPISocket),
 		authKey:      cfg.RPCKey,
 		startedAt:    time.Now(),
 		sessions:     make(map[string]*session),
@@ -112,6 +116,36 @@ func (s *Server) Listen() error {
 	}
 	s.listener = ln
 	debug.Log(debug.DebugInfo, "Control API listening", "addr", addr)
+	if err := s.listenUnix(); err != nil {
+		_ = ln.Close()
+		s.listener = nil
+		return err
+	}
+	return nil
+}
+
+func (s *Server) listenUnix() error {
+	if s.unixPath == "" {
+		return nil
+	}
+	if err := os.Remove(s.unixPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("controlapi: remove unix socket: %w", err)
+	}
+	if dir := filepath.Dir(s.unixPath); dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return fmt.Errorf("controlapi: unix socket dir: %w", err)
+		}
+	}
+	ln, err := net.Listen("unix", s.unixPath)
+	if err != nil {
+		return fmt.Errorf("controlapi: listen on unix %s: %w", s.unixPath, common.WrapListenError(err))
+	}
+	if err := os.Chmod(s.unixPath, 0o600); err != nil {
+		_ = ln.Close()
+		return fmt.Errorf("controlapi: chmod unix socket: %w", err)
+	}
+	s.unixListener = ln
+	debug.Log(debug.DebugInfo, "Control API unix listening", "path", s.unixPath)
 	return nil
 }
 
@@ -122,6 +156,14 @@ func (s *Server) Serve() error {
 		if err := s.Listen(); err != nil {
 			return err
 		}
+	}
+	if s.unixListener != nil {
+		go func() {
+			err := s.httpServer.Serve(s.unixListener)
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				debug.Log(debug.DebugError, "Control API unix serve", "error", err)
+			}
+		}()
 	}
 	err := s.httpServer.Serve(s.listener)
 	if errors.Is(err, http.ErrServerClosed) {

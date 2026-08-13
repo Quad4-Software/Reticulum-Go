@@ -6,6 +6,7 @@
 package sandbox
 
 import (
+	"net"
 	"os"
 	"os/exec"
 	"runtime"
@@ -127,6 +128,21 @@ func TestSeccompHelper(t *testing.T) {
 	if errno, ok := err.(syscall.Errno); ok && errno != unix.EPERM && errno != unix.EACCES {
 		t.Fatalf("mount expected EPERM/EACCES, got %v", err)
 	}
+
+	_, _, errno = unix.Syscall(unix.SYS_UNSHARE, uintptr(unix.CLONE_NEWNS), 0, 0)
+	if errno != unix.EPERM {
+		t.Fatalf("unshare expected EPERM, got %v", errno)
+	}
+
+	c, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("udp after seccomp: %v", err)
+	}
+	_ = c.Close()
+
+	done := make(chan struct{})
+	go func() { close(done) }()
+	<-done
 }
 
 func TestSeccompBuildProg(t *testing.T) {

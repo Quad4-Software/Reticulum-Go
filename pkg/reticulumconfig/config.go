@@ -109,6 +109,24 @@ func setBool(dst *bool, value string) bool {
 	return ok
 }
 
+func splitCommaPaths(value string) []string {
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	return out
+}
+
 // sectionFrame is one entry in the parser's section stack.
 type sectionFrame struct {
 	depth int
@@ -300,6 +318,20 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		setBool(&cfg.EnableSandbox, value)
 	case "enable_seccomp":
 		setBool(&cfg.EnableSeccomp, value)
+	case "sandbox_strict":
+		setBool(&cfg.SandboxStrict, value)
+	case "sandbox_profile":
+		v := strings.ToLower(strings.TrimSpace(value))
+		switch v {
+		case common.SandboxProfileFull, common.SandboxProfileRouter, "":
+			cfg.SandboxProfile = v
+		}
+	case "sandbox_extra_paths":
+		cfg.SandboxExtraPaths = splitCommaPaths(value)
+	case "sandbox_exec_rlimits":
+		setBool(&cfg.SandboxExecRlimits, value)
+	case "control_api_socket":
+		cfg.ControlAPISocket = strings.TrimSpace(value)
 	case "default_gravity":
 		if v, err := strconv.Atoi(strings.TrimSpace(value)); err == nil {
 			cfg.DefaultGravity = v
@@ -790,6 +822,17 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	fmt.Fprintf(&b, "  panic_on_interface_error = %s\n", boolStr(cfg.PanicOnInterfaceErr))
 	fmt.Fprintf(&b, "  enable_sandbox = %s\n", boolStr(cfg.EnableSandbox))
 	fmt.Fprintf(&b, "  enable_seccomp = %s\n", boolStr(cfg.EnableSeccomp))
+	fmt.Fprintf(&b, "  sandbox_strict = %s\n", boolStr(cfg.SandboxStrict))
+	if cfg.SandboxProfile != "" && cfg.SandboxProfile != common.SandboxProfileFull {
+		fmt.Fprintf(&b, "  sandbox_profile = %s\n", cfg.SandboxProfile)
+	}
+	if len(cfg.SandboxExtraPaths) > 0 {
+		fmt.Fprintf(&b, "  sandbox_extra_paths = %s\n", strings.Join(cfg.SandboxExtraPaths, ", "))
+	}
+	fmt.Fprintf(&b, "  sandbox_exec_rlimits = %s\n", boolStr(cfg.SandboxExecRlimits))
+	if cfg.ControlAPISocket != "" {
+		fmt.Fprintf(&b, "  control_api_socket = %s\n", cfg.ControlAPISocket)
+	}
 	if cfg.DefaultGravitySet {
 		fmt.Fprintf(&b, "  default_gravity = %d\n", cfg.DefaultGravity)
 	}

@@ -14,6 +14,7 @@ import (
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/sandbox"
 )
 
 const (
@@ -119,7 +120,7 @@ func (pi *PipeInterface) openPipe() error {
 		_ = stdin.Close()
 		return err
 	}
-	if err := cmd.Start(); err != nil {
+	if err := sandbox.StartLimited(cmd); err != nil {
 		_ = stdin.Close()
 		_ = stdout.Close()
 		return err

@@ -33,20 +33,22 @@ func seccompEnabled(cfg *common.ReticulumConfig) bool {
 	return cfg.EnableSeccomp
 }
 
-func applySeccomp(cfg *common.ReticulumConfig) {
+func applySeccomp(cfg *common.ReticulumConfig) error {
 	if !seccompEnabled(cfg) {
 		debug.Log(debug.DebugInfo, "Seccomp disabled by configuration")
-		return
+		return nil
 	}
 	mode, err := installSeccompFilter()
 	if err != nil {
-		// Soft-fail: older kernels, containers without seccomp, qemu-user, or
-		// unsupported arches must not prevent the daemon from running.
 		debug.Log(debug.DebugError, "Seccomp filter install failed (continuing)", "error", err)
 		warnSoftUnavailable("seccomp", err.Error())
-		return
+		if cfg != nil && cfg.SandboxStrict {
+			return err
+		}
+		return nil
 	}
 	debug.Log(debug.DebugInfo, "Seccomp filter applied", "arch", runtime.GOARCH, "mode", mode)
+	return nil
 }
 
 // installSeccompFilter installs the denylist BPF filter.

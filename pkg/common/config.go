@@ -329,6 +329,28 @@ type ReticulumConfig struct {
 	// default, core_router, or embedded.
 	NodeProfile string
 
+	// SandboxStrict makes Landlock, seccomp, OpenBSD pledge/unveil lock, and
+	// FreeBSD CapEnter failures fatal. Default false. Platforms with no
+	// sandbox mechanism still start.
+	SandboxStrict bool
+
+	// SandboxProfile selects Landlock path rules: full (default, includes
+	// /bin for pipe and pageserver exec) or router (omits /bin trees).
+	// Other OS policies are unchanged. Never inferred from NodeProfile.
+	SandboxProfile string
+
+	// SandboxExtraPaths is an operator list of extra filesystem paths to
+	// allow in Landlock and OpenBSD unveil.
+	SandboxExtraPaths []string
+
+	// SandboxExecRlimits applies conservative rlimits to pipe, discovery, and
+	// dynamic page child processes on Linux. Default false.
+	SandboxExecRlimits bool
+
+	// ControlAPISocket is an optional Unix socket path for the control API.
+	// TCP listen stays enabled when the control API is on.
+	ControlAPISocket string
+
 	// BackboneIO selects the kernel I/O multiplexer for backbone and local shared
 	// instance sockets: auto, epoll, kqueue, io_uring, or go.
 	BackboneIO    string

@@ -177,6 +177,10 @@ contents:
     dst: /usr/lib/systemd/system/reticulum-go.service
     file_info:
       mode: 0644
+  - src: packaging/systemd/user.conf.example
+    dst: /usr/share/doc/reticulum-go/reticulum-go.user.conf.example
+    file_info:
+      mode: 0644
   - src: dist/nfpm-units/openrc/reticulum-go
     dst: /etc/init.d/reticulum-go
     file_info:

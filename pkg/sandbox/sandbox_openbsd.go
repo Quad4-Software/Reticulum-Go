@@ -15,8 +15,12 @@ import (
 )
 
 func applyPlatform(cfg *common.ReticulumConfig) error {
-	if err := unveilPaths(); err != nil {
+	strict := cfg != nil && cfg.SandboxStrict
+	if err := unveilPaths(cfg); err != nil {
 		debug.Log(debug.DebugError, "Unveil failed", "error", err)
+		if strict {
+			return err
+		}
 	}
 
 	// Pledge promises appropriate for a network daemon:
@@ -38,7 +42,7 @@ func applyPlatform(cfg *common.ReticulumConfig) error {
 	return nil
 }
 
-func unveilPaths() error {
+func unveilPaths(cfg *common.ReticulumConfig) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -57,8 +61,25 @@ func unveilPaths() error {
 		{"/var/tmp", "rwc"},
 	}
 
+	for _, p := range collectExtraPaths(cfg) {
+		perm := "r"
+		switch p.kind {
+		case pathRWDir:
+			perm = "rwc"
+		case pathRODir:
+			perm = "rx"
+		case pathRWFile:
+			perm = "rw"
+		case pathROFile:
+			perm = "rx"
+		}
+		paths = append(paths, struct {
+			path string
+			perm string
+		}{p.path, perm})
+	}
+
 	for _, p := range paths {
-		// Unveil returns ENOENT for paths that do not exist
 		if err := unix.Unveil(p.path, p.perm); err != nil {
 			if err != unix.ENOENT {
 				debug.Log(debug.DebugError, "Unveil skipped", "path", p.path, "error", err)
@@ -66,6 +87,5 @@ func unveilPaths() error {
 		}
 	}
 
-	// Lock unveil so no further paths can be revealed.
 	return unix.Unveil("", "")
 }

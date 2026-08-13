@@ -105,7 +105,11 @@ install_systemd() {
 	mkdir -p "$unit_dir"
 	subst_bindir <"$PKG/systemd/reticulum-go.service" >"$unit_dir/reticulum-go.service"
 	chmod 644 "$unit_dir/reticulum-go.service"
+	example_dir="${DESTDIR}/usr/share/doc/reticulum-go"
+	mkdir -p "$example_dir"
+	install -m 644 "$PKG/systemd/user.conf.example" "$example_dir/reticulum-go.user.conf.example"
 	echo "Installed systemd unit to $unit_dir/reticulum-go.service"
+	echo "Optional User= drop-in example: $example_dir/reticulum-go.user.conf.example"
 	if [ -z "$DESTDIR" ] && command -v systemctl >/dev/null 2>&1; then
 		systemctl daemon-reload || true
 		echo "Enable with: systemctl enable --now reticulum-go"

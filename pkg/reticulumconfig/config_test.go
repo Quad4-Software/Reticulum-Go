@@ -637,6 +637,77 @@ func TestLoadConfig_EnableSeccomp(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_SandboxHardeningKeys(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	writeFile(t, path, `[reticulum]
+  sandbox_strict = yes
+  sandbox_profile = router
+  sandbox_extra_paths = /dev/ttyUSB0, /opt/rns/data
+  sandbox_exec_rlimits = yes
+  control_api_socket = /tmp/rns-control.sock
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if !cfg.SandboxStrict {
+		t.Error("sandbox_strict = yes")
+	}
+	if cfg.SandboxProfile != common.SandboxProfileRouter {
+		t.Errorf("profile=%q", cfg.SandboxProfile)
+	}
+	if len(cfg.SandboxExtraPaths) != 2 || cfg.SandboxExtraPaths[0] != "/dev/ttyUSB0" {
+		t.Errorf("extra paths=%v", cfg.SandboxExtraPaths)
+	}
+	if !cfg.SandboxExecRlimits {
+		t.Error("sandbox_exec_rlimits = yes")
+	}
+	if cfg.ControlAPISocket != "/tmp/rns-control.sock" {
+		t.Errorf("socket=%q", cfg.ControlAPISocket)
+	}
+
+	writeFile(t, path, `[reticulum]
+  sandbox_profile = nope
+`)
+	cfg, err = LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.SandboxProfile != "" {
+		t.Errorf("unknown profile should be ignored, got %q", cfg.SandboxProfile)
+	}
+}
+
+func TestSaveConfig_SandboxHardeningRoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	cfg := DefaultConfig()
+	cfg.ConfigPath = path
+	cfg.SandboxStrict = true
+	cfg.SandboxProfile = common.SandboxProfileRouter
+	cfg.SandboxExtraPaths = []string{"/opt/rns"}
+	cfg.SandboxExecRlimits = true
+	cfg.ControlAPISocket = "/run/rns/control.sock"
+	if err := SaveConfig(cfg); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+	loaded, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if !loaded.SandboxStrict || !loaded.SandboxExecRlimits {
+		t.Fatal("bools did not round-trip")
+	}
+	if loaded.SandboxProfile != common.SandboxProfileRouter {
+		t.Errorf("profile=%q", loaded.SandboxProfile)
+	}
+	if len(loaded.SandboxExtraPaths) != 1 || loaded.SandboxExtraPaths[0] != "/opt/rns" {
+		t.Errorf("extra=%v", loaded.SandboxExtraPaths)
+	}
+	if loaded.ControlAPISocket != "/run/rns/control.sock" {
+		t.Errorf("socket=%q", loaded.ControlAPISocket)
+	}
+}
+
 // TestSaveConfig_EnableSandboxRoundTrip writes enable_sandbox = no and
 // reloads it to ensure the field persists.
 func TestSaveConfig_EnableSandboxRoundTrip(t *testing.T) {

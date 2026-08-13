@@ -4,6 +4,7 @@
 package controlapi
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"net"
@@ -348,4 +349,61 @@ func TestForgetResponse(t *testing.T) {
 		t.Fatal("channel should not receive after forget")
 	default:
 	}
+}
+
+func TestListenUnixSocket(t *testing.T) {
+	key := make([]byte, 32)
+	for i := range key {
+		key[i] = byte(i + 1)
+	}
+	sock := filepath.Join(t.TempDir(), "c.sock")
+	cfg := common.DefaultConfig()
+	cfg.RPCKey = key
+	cfg.ControlAPIHost = "127.0.0.1"
+	cfg.ControlAPIPort = freeTCPPort(t)
+	cfg.ControlAPISocket = sock
+
+	tr := transport.NewTransport(cfg)
+	t.Cleanup(func() { _ = tr.Close() })
+
+	srv, err := New(tr, nil, cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if err := srv.Listen(); err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Serve() }()
+	t.Cleanup(func() {
+		_ = srv.Close()
+		<-errCh
+	})
+
+	auth := hex.EncodeToString(key)
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return net.Dial("unix", sock)
+			},
+		},
+		Timeout: 500 * time.Millisecond,
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		req, err := http.NewRequest(http.MethodGet, "http://unix/v1/health", nil)
+		if err != nil {
+			t.Fatalf("new request: %v", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+auth)
+		resp, err := client.Do(req)
+		if err == nil {
+			_ = resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("unix control API never became ready")
 }

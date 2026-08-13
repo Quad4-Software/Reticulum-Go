@@ -137,7 +137,7 @@ func runDaemon(opts daemonOptions) int {
 
 	if err := sandbox.Apply(cfg); err != nil {
 		debug.Log(debug.DebugCritical, "Sandbox application failed", "error", err)
-		if cfg != nil && cfg.PanicOnInterfaceErr {
+		if cfg != nil && (cfg.PanicOnInterfaceErr || cfg.SandboxStrict) {
 			return 1
 		}
 	}

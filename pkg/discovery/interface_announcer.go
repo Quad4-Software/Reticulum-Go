@@ -16,6 +16,7 @@ import (
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/sandbox"
 	"quad4/reticulum-go/pkg/transport"
 )
 
@@ -382,7 +383,7 @@ func resolveReachableOn(raw string) (string, error) {
 	execPath := os.ExpandEnv(raw)
 	if st, err := os.Stat(execPath); err == nil && !st.IsDir() && st.Mode()&0o111 != 0 {
 		cmd := exec.Command(execPath) // #nosec G204 -- operator-configured reachable_on script
-		out, err := cmd.Output()
+		out, err := sandbox.OutputLimited(cmd)
 		if err != nil {
 			return "", err
 		}
@@ -406,7 +407,7 @@ func applyDiscoveryLocationCmd(iface *common.InterfaceConfig) error {
 		return errString("discovery: location_cmd is not an executable file")
 	}
 	cmd := exec.Command(execPath) // #nosec G204 -- operator-configured location_cmd
-	out, err := cmd.Output()
+	out, err := sandbox.OutputLimited(cmd)
 	if err != nil {
 		return errString("discovery: location_cmd failed")
 	}
