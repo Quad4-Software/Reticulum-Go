@@ -82,7 +82,9 @@ func (d *hdlcStreamDecoder) feedByte(b byte) {
 				ok = false
 			}
 			if ok {
-				d.onFrame(d.data)
+				frame := make([]byte, len(d.data))
+				copy(frame, d.data)
+				d.onFrame(frame)
 			}
 		}
 		d.data = d.data[:0]
