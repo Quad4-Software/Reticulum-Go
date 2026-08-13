@@ -20,8 +20,9 @@ Wire compatible with Python RNS 1.4.2
 - Live Go to Python ratchet and GROUP packet interop
 - Incoming link handshake slots count against `MaxRegisteredLinks` until register or reject
 - Tunnel table drops expired rows on insert and caps live tunnels at 256
-- Channel `WaitTxIdle` plus link receipts so channel envelopes wait for peer proof before the TX ring clears
+- Channel `IsReadyToSend` / `WaitReady` / `MDU` and RTT-class window grow/shrink matching Python Channel
 - `reticulum-go sh` / rgosh interactive remote shell (native protocol, automatic rnsh dest detection, `--compat` to force Python rnsh)
+- rgosh long-lived PTY sessions, Ctrl-C forwarding, `~.` / `~L` / `~?` escapes, `-A`, `-C` reject, `-b PERIOD` announce (default 900s), Windows pipe fallback
 - Remote `rgopath` / `rgostatus` over `rnstransport.remote.management` (`-R` / `-i`, config `enable_remote_management`)
 - rgosh TTY handling via golang.org/x/term, Unix vs non-Unix signal files, and adversarial protocol corpus tests
 - dos_protection snapshot on status JSON, Control API, and rgoslow findings
@@ -38,6 +39,7 @@ Wire compatible with Python RNS 1.4.2
 - Docs updates for ratchets, GROUP Token keys, rgosh, sandbox, and dos_protection
 
 ### Fixed
+- rgosh no longer kills the remote process after 5 seconds, so interactive shells stay up
 - Recursive path-request fan-out no longer targets ifaces that went offline while the discovery queue drained
 - RESOURCE_HMU negative hashmap segment no longer panics the process
 - Tunnel expiry used a bare integer (nanoseconds) instead of 8 hours
