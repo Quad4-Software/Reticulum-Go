@@ -136,6 +136,7 @@ type Transport struct {
 	mutex                 sync.RWMutex
 	config                *common.ReticulumConfig
 	interfaces            map[string]common.NetworkInterface
+	ifaceSnap             []registeredIface
 	links                 map[hash16]LinkInterface
 	incomingHandshakes    int
 	destinations          map[hash16]registeredDestination
@@ -459,11 +460,60 @@ func (t *Transport) cleanupSeenAnnounces() {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	cutoff := time.Now().Add(-SeenAnnounceTTL)
+	now := time.Now()
+	cutoff := now.Add(-SeenAnnounceTTL)
 	for k, v := range t.seenAnnounces {
 		if v.Before(cutoff) {
 			delete(t.seenAnnounces, k)
 		}
+	}
+	t.evictSeenAnnouncesUnlocked(now)
+}
+
+func (t *Transport) rememberSeenAnnounceUnlocked(h [32]byte, now time.Time) {
+	t.seenAnnounces[h] = now
+	t.evictSeenAnnouncesUnlocked(now)
+}
+
+func (t *Transport) evictSeenAnnouncesUnlocked(now time.Time) {
+	max := common.DefaultMaxSeenAnnounces
+	if max <= 0 || len(t.seenAnnounces) <= max {
+		return
+	}
+	over := len(t.seenAnnounces) - max
+	batch := over
+	if batch < 64 {
+		batch = 64
+	}
+	if batch > len(t.seenAnnounces) {
+		batch = over
+	}
+	if batch < 1 {
+		return
+	}
+	keys := make([][32]byte, 0, batch)
+	times := make([]time.Time, 0, batch)
+	for k, v := range t.seenAnnounces {
+		if len(keys) < batch {
+			keys = append(keys, k)
+			times = append(times, v)
+			continue
+		}
+		idx := 0
+		newest := times[0]
+		for i := 1; i < batch; i++ {
+			if times[i].After(newest) {
+				newest = times[i]
+				idx = i
+			}
+		}
+		if v.Before(newest) {
+			keys[idx] = k
+			times[idx] = v
+		}
+	}
+	for _, k := range keys {
+		delete(t.seenAnnounces, k)
 	}
 }
 
@@ -738,6 +788,7 @@ func (t *Transport) registerInterfaceLocked(name string, iface common.NetworkInt
 		t.HandlePacket(data, iface)
 	})
 	t.interfaces[name] = iface
+	t.ifaceSnap = nil
 	cfg := t.interfaceConfig(name)
 	if p, ok := iface.(interfaces.InterfaceConfigProvider); ok {
 		if pc := p.InterfaceConfig(); pc != nil {
@@ -814,6 +865,7 @@ func (t *Transport) UnregisterInterface(name string) {
 	t.invalidateInterfaceReferencesLocked(iface)
 	iface.SetPacketCallback(nil)
 	delete(t.interfaces, name)
+	t.ifaceSnap = nil
 	t.ifaceStates.delete(name)
 	t.markPathTableDirty()
 }
@@ -831,6 +883,7 @@ func (t *Transport) ReplaceInterface(name string, iface common.NetworkInterface)
 		t.invalidateInterfaceReferencesLocked(old)
 		old.SetPacketCallback(nil)
 		delete(t.interfaces, name)
+		t.ifaceSnap = nil
 		t.ifaceStates.delete(name)
 	}
 	t.registerInterfaceLocked(name, iface)
@@ -881,17 +934,30 @@ type registeredIface struct {
 	iface common.NetworkInterface
 }
 
-// snapshotRegisteredInterfaces returns a shallow copy of current interfaces.
+// snapshotRegisteredInterfaces returns the cached interface list.
 // Callers may call iface methods without holding the transport mutex.
+// The slice must not be mutated.
 func (t *Transport) snapshotRegisteredInterfaces() []registeredIface {
 	t.mutex.RLock()
-	defer t.mutex.RUnlock()
+	if t.ifaceSnap != nil {
+		out := t.ifaceSnap
+		t.mutex.RUnlock()
+		return out
+	}
+	t.mutex.RUnlock()
+
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	if t.ifaceSnap != nil {
+		return t.ifaceSnap
+	}
 	out := make([]registeredIface, 0, len(t.interfaces))
 	for name, iface := range t.interfaces {
 		if iface != nil {
 			out = append(out, registeredIface{name: name, iface: iface})
 		}
 	}
+	t.ifaceSnap = out
 	return out
 }
 
@@ -1286,8 +1352,8 @@ func (t *Transport) dropPathEntryUnlocked(key [PathMapKeySize]byte) {
 }
 
 // evictPathsIfNeededUnlocked drops oldest paths when the soft path-table cap
-// is exceeded. Caller must hold t.mutex. Uses repeated linear scans so a
-// single insert past the cap stays O(n) rather than sorting the whole table.
+// is exceeded. Caller must hold t.mutex. One pass selects a batch of at
+// least 64 oldest entries when the table is large enough.
 func (t *Transport) evictPathsIfNeededUnlocked(now time.Time) {
 	limit := 0
 	if t.config != nil {
@@ -1298,22 +1364,44 @@ func (t *Transport) evictPathsIfNeededUnlocked(now time.Time) {
 	if limit <= 0 || len(t.paths) <= limit {
 		return
 	}
-	for len(t.paths) > limit {
-		var oldestKey [PathMapKeySize]byte
-		var oldestTime time.Time
-		first := true
-		for k, p := range t.paths {
-			when := now
-			if p != nil && !p.LastUpdated.IsZero() {
-				when = p.LastUpdated
-			}
-			if first || when.Before(oldestTime) {
-				first = false
-				oldestKey = k
-				oldestTime = when
+	over := len(t.paths) - limit
+	batch := over
+	if batch < 64 {
+		batch = 64
+	}
+	if batch > len(t.paths) {
+		batch = over
+	}
+	if batch < 1 {
+		return
+	}
+	keys := make([][PathMapKeySize]byte, 0, batch)
+	times := make([]time.Time, 0, batch)
+	for k, p := range t.paths {
+		when := now
+		if p != nil && !p.LastUpdated.IsZero() {
+			when = p.LastUpdated
+		}
+		if len(keys) < batch {
+			keys = append(keys, k)
+			times = append(times, when)
+			continue
+		}
+		idx := 0
+		newest := times[0]
+		for i := 1; i < batch; i++ {
+			if times[i].After(newest) {
+				newest = times[i]
+				idx = i
 			}
 		}
-		t.dropPathEntryUnlocked(oldestKey)
+		if when.Before(newest) {
+			keys[idx] = k
+			times[idx] = when
+		}
+	}
+	for _, k := range keys {
+		t.dropPathEntryUnlocked(k)
 	}
 }
 
@@ -1485,18 +1573,14 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 	destType := (headerByte & HeaderDestTypeMask) >> HeaderDestTypeShift
 
 	if debug.Enabled(debug.DebugVerbose) {
-		if debug.Enabled(debug.DebugVerbose) {
-			debug.Log(debug.DebugVerbose, "TRANSPORT: Packet received",
-				"type", fmt.Sprintf("0x%02x", packetType),
-				"header", headerType, "context", contextFlag,
-				"propType", propType, "destType", destType, "size", len(data))
-		}
+		debug.Log(debug.DebugVerbose, "TRANSPORT: Packet received",
+			"type", fmt.Sprintf("0x%02x", packetType),
+			"header", headerType, "context", contextFlag,
+			"propType", propType, "destType", destType, "size", len(data))
 	}
 	if debug.Enabled(debug.DebugTrace) {
-		if debug.Enabled(debug.DebugTrace) {
-			debug.Log(debug.DebugTrace, "Interface and raw header",
-				"name", iface.GetName(), "header", fmt.Sprintf("0x%02x", headerByte))
-		}
+		debug.Log(debug.DebugTrace, "Interface and raw header",
+			"name", iface.GetName(), "header", fmt.Sprintf("0x%02x", headerByte))
 	}
 
 	if len(data) == SuspiciousLinkPacketSize && packetType == PacketTypeLink {
@@ -1532,7 +1616,7 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 		return
 	}
 	putPacketCopy(pc)
-	t.shedHandlerOverflow(iface, data, packetType, destType, headerType)
+	t.shedHandlerOverflow(iface)
 }
 
 func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterface) error {
@@ -1861,7 +1945,7 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	}
 
 	t.mutex.Lock()
-	t.seenAnnounces[announceHash] = time.Now()
+	t.rememberSeenAnnounceUnlocked(announceHash, time.Now())
 	t.mutex.Unlock()
 
 	if iface != nil {

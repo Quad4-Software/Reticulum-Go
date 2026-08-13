@@ -28,11 +28,11 @@ func BenchmarkIdentityHashCached(b *testing.B) {
 // destination is already known with identical packet and app data.
 func BenchmarkRememberUnchanged(b *testing.B) {
 	knownDestinationsLock.Lock()
-	knownDestinations = make(map[string][]any)
+	knownDestinations = make(map[destMapKey][]any)
 	knownDestinationsLock.Unlock()
 	b.Cleanup(func() {
 		knownDestinationsLock.Lock()
-		knownDestinations = make(map[string][]any)
+		knownDestinations = make(map[destMapKey][]any)
 		knownDestinationsLock.Unlock()
 	})
 
@@ -59,11 +59,11 @@ func BenchmarkRememberUnchanged(b *testing.B) {
 // starts allocating again (map key hex encode is the only expected cost).
 func TestRememberUnchangedAllocBudget(t *testing.T) {
 	knownDestinationsLock.Lock()
-	knownDestinations = make(map[string][]any)
+	knownDestinations = make(map[destMapKey][]any)
 	knownDestinationsLock.Unlock()
 	t.Cleanup(func() {
 		knownDestinationsLock.Lock()
-		knownDestinations = make(map[string][]any)
+		knownDestinations = make(map[destMapKey][]any)
 		knownDestinationsLock.Unlock()
 	})
 
@@ -78,14 +78,13 @@ func TestRememberUnchangedAllocBudget(t *testing.T) {
 	allocs := testing.AllocsPerRun(1000, func() {
 		Remember(pkt, dest, pub, app)
 	})
-	// hex map key string is one alloc. Allow a little headroom for GC noise.
-	if allocs > 2 {
-		t.Fatalf("Remember unchanged allocs=%.1f want <= 2", allocs)
+	if allocs > 0 {
+		t.Fatalf("Remember unchanged allocs=%.1f want 0", allocs)
 	}
 }
 
-// TestIdentityHashCachedAllocBudget ensures Hash returns a copy of the cached
-// truncated hash without rehashing public key material.
+// TestIdentityHashCachedAllocBudget ensures Hash returns the cached truncated
+// hash without allocating or rehashing public key material.
 func TestIdentityHashCachedAllocBudget(t *testing.T) {
 	id, err := New()
 	if err != nil {
@@ -95,7 +94,7 @@ func TestIdentityHashCachedAllocBudget(t *testing.T) {
 	allocs := testing.AllocsPerRun(1000, func() {
 		_ = id.Hash()
 	})
-	if allocs > 1 {
-		t.Fatalf("Identity.Hash cached allocs=%.1f want <= 1", allocs)
+	if allocs != 0 {
+		t.Fatalf("Identity.Hash cached allocs=%.1f want 0", allocs)
 	}
 }

@@ -878,14 +878,12 @@ func (d *Destination) Decrypt(ciphertext []byte) ([]byte, error) {
 		return nil, errors.New("no identity available for decryption")
 	}
 
+	ratchetReceiver := &common.RatchetIDReceiver{}
 	d.mutex.RLock()
 	enforceRatchets := d.enforceRatchets
-	d.mutex.RUnlock()
-
-	ratchetReceiver := &common.RatchetIDReceiver{}
-	ratchets := d.GetRatchets()
-
+	ratchets := d.ratchetViewsLocked()
 	if len(ratchets) == 0 {
+		d.mutex.RUnlock()
 		plaintext, err := d.identity.Decrypt(ciphertext, nil, enforceRatchets, ratchetReceiver)
 		if err != nil {
 			return nil, err
@@ -893,12 +891,8 @@ func (d *Destination) Decrypt(ciphertext []byte) ([]byte, error) {
 		d.setLatestRatchetID(ratchetReceiver.LatestRatchetID)
 		return plaintext, nil
 	}
-
-	// Matches Python Destination.decrypt: try the ratchets on hand first, then
-	// reload from storage and retry once before giving up. This is what lets
-	// EnforceRatchets and destination.Decrypt actually validate against the
-	// announced ratchet instead of silently falling back to the identity key.
 	plaintext, err := d.identity.Decrypt(ciphertext, ratchets, enforceRatchets, ratchetReceiver)
+	d.mutex.RUnlock()
 	if err != nil {
 		debug.Log(debug.DebugError, "Decryption with ratchets failed, reloading ratchets from storage and retrying", "error", err)
 		d.mutex.Lock()
@@ -1205,6 +1199,19 @@ func (d *Destination) GetRatchets() [][]byte {
 		}
 	}
 	return ratchetsCopy
+}
+
+func (d *Destination) ratchetViewsLocked() [][]byte {
+	if !d.ratchetsEnabled {
+		return nil
+	}
+	views := make([][]byte, 0, len(d.ratchets))
+	for _, buf := range d.ratchets {
+		if buf != nil {
+			views = append(views, buf.Bytes())
+		}
+	}
+	return views
 }
 
 // RatchetsEnabled reports whether this destination has ratchets turned on.

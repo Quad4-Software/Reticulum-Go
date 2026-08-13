@@ -75,3 +75,17 @@ func TestOracle_UnpackRejectsTooShort(t *testing.T) {
 		t.Fatal("2-byte packet unpacked")
 	}
 }
+
+func TestGetHashAfterUnpackAllocBudget(t *testing.T) {
+	dest := bytes.Repeat([]byte{0x11}, TruncatedHashLength)
+	p := &Packet{Raw: oracleHT1(1, dest, []byte("ok"))}
+	if err := p.Unpack(); err != nil {
+		t.Fatal(err)
+	}
+	allocs := testing.AllocsPerRun(1000, func() {
+		_ = p.GetHash()
+	})
+	if allocs != 0 {
+		t.Fatalf("GetHash after Unpack allocs=%.1f want 0", allocs)
+	}
+}

@@ -16,7 +16,9 @@ BenchmarkSimIFACMaskUnmask/Payload-16	150000	50
 BenchmarkSimIFACMaskUnmask/Payload-256	150000	50
 BenchmarkSimIFACMaskUnmask/Payload-1024	200000	50
 # Identity / crypto microbenches
-BenchmarkIdentityHashCached	500	2
+BenchmarkIdentityHashCached	500	0
 BenchmarkDeriveKey/Len-64	50000	20
 BenchmarkDeriveKey/Len-1024	200000	30
-BenchmarkRememberUnchanged	2000	5
+BenchmarkRememberUnchanged	2000	1
+BenchmarkTCPHDLCDecoderBurst	80000	2
+BenchmarkHandlePacketCopy	500	2

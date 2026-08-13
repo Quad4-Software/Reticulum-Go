@@ -47,22 +47,47 @@ func (t *Transport) evictAnnouncePacketCacheUnlocked() {
 		return
 	}
 	limit := t.announcePacketCacheMax()
-	for len(t.announcePacketCache) > limit {
-		var oldestKey hash16
-		var oldestTime time.Time
-		first := true
-		for k, e := range t.announcePacketCache {
-			when := time.Time{}
-			if e != nil {
-				when = e.at
-			}
-			if first || when.Before(oldestTime) {
-				first = false
-				oldestKey = k
-				oldestTime = when
+	over := len(t.announcePacketCache) - limit
+	if over <= 0 {
+		return
+	}
+	batch := over
+	if batch < 64 {
+		batch = 64
+	}
+	if batch > len(t.announcePacketCache) {
+		batch = over
+	}
+	if batch < 1 {
+		return
+	}
+	keys := make([]hash16, 0, batch)
+	times := make([]time.Time, 0, batch)
+	for k, e := range t.announcePacketCache {
+		when := time.Time{}
+		if e != nil {
+			when = e.at
+		}
+		if len(keys) < batch {
+			keys = append(keys, k)
+			times = append(times, when)
+			continue
+		}
+		idx := 0
+		newest := times[0]
+		for i := 1; i < batch; i++ {
+			if times[i].After(newest) {
+				newest = times[i]
+				idx = i
 			}
 		}
-		delete(t.announcePacketCache, oldestKey)
+		if when.Before(newest) {
+			keys[idx] = k
+			times[idx] = when
+		}
+	}
+	for _, k := range keys {
+		delete(t.announcePacketCache, k)
 	}
 }
 

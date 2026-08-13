@@ -154,3 +154,149 @@ func TestLiveInteropHDLCBurstGoToPython(t *testing.T) {
 		t.Fatalf("got %q", countLine)
 	}
 }
+
+func listenHDLCFrames(t *testing.T, accepts int, n int) (port int, got <-chan []byte) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = ln.Close() })
+	ch := make(chan []byte, n+8)
+	go func() {
+		for range accepts {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			d := backbone.NewHDLCDecoder(4096, func(pkt []byte) {
+				ch <- append([]byte(nil), pkt...)
+			})
+			buf := make([]byte, 64*1024)
+			for {
+				nr, err := conn.Read(buf)
+				if nr > 0 {
+					d.Feed(buf[:nr])
+				}
+				if err != nil {
+					break
+				}
+			}
+			_ = conn.Close()
+		}
+	}()
+	return ln.Addr().(*net.TCPAddr).Port, ch
+}
+
+func runPythonHDLCClient(t *testing.T, port, n int, fault string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, pythonExe(), pyScript(t, "hdlc_burst.py"))
+	cmd.Env = append(os.Environ(),
+		"INTEROP_MODE=client",
+		"INTEROP_TARGET_PORT="+strconv.Itoa(port),
+		"INTEROP_FRAMES="+strconv.Itoa(n),
+		"INTEROP_FAULT="+fault,
+	)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("python client: %v", err)
+	}
+}
+
+func collectFrames(t *testing.T, got <-chan []byte, min int) [][]byte {
+	t.Helper()
+	deadline := time.After(5 * time.Second)
+	var frames [][]byte
+	for {
+		select {
+		case f := <-got:
+			frames = append(frames, f)
+			if len(frames) >= min {
+				drain := time.After(200 * time.Millisecond)
+			drainLoop:
+				for {
+					select {
+					case extra := <-got:
+						frames = append(frames, extra)
+					case <-drain:
+						break drainLoop
+					}
+				}
+				return frames
+			}
+		case <-deadline:
+			if len(frames) >= min {
+				return frames
+			}
+			t.Fatalf("got %d frames want >= %d", len(frames), min)
+		}
+	}
+}
+
+func TestLiveInteropHDLCCorruptPythonToGo(t *testing.T) {
+	liveOrSkip(t)
+	const n = 16
+	port, got := listenHDLCFrames(t, 1, n)
+	runPythonHDLCClient(t, port, n, "corrupt")
+	frames := collectFrames(t, got, n)
+	if len(frames) != n {
+		t.Fatalf("got %d want %d", len(frames), n)
+	}
+	if !bytes.Equal(frames[0], burstPayload(0)) {
+		t.Fatal("first frame lost")
+	}
+	if bytes.Equal(frames[1], burstPayload(1)) {
+		t.Fatal("flipped byte did not change frame 1")
+	}
+	if !bytes.Equal(frames[n-1], burstPayload(n-1)) {
+		t.Fatal("last good frame lost after flipped byte")
+	}
+}
+
+func TestLiveInteropHDLCDropPythonToGo(t *testing.T) {
+	liveOrSkip(t)
+	const n = 16
+	port, got := listenHDLCFrames(t, 1, n)
+	runPythonHDLCClient(t, port, n, "drop")
+	frames := collectFrames(t, got, n-1)
+	if len(frames) != n-1 {
+		t.Fatalf("got %d want %d", len(frames), n-1)
+	}
+	mid := burstPayload(n / 2)
+	for _, f := range frames {
+		if bytes.Equal(f, mid) {
+			t.Fatal("dropped frame was delivered")
+		}
+	}
+}
+
+func TestLiveInteropHDLCReorderPythonToGo(t *testing.T) {
+	liveOrSkip(t)
+	const n = 16
+	port, got := listenHDLCFrames(t, 1, n)
+	runPythonHDLCClient(t, port, n, "reorder")
+	frames := collectFrames(t, got, n)
+	if len(frames) != n {
+		t.Fatalf("got %d want %d", len(frames), n)
+	}
+	if !bytes.Equal(frames[0], burstPayload(1)) || !bytes.Equal(frames[1], burstPayload(0)) {
+		t.Fatalf("reorder not preserved: first=%x", frames[0])
+	}
+}
+
+func TestLiveInteropHDLCFlapPythonToGo(t *testing.T) {
+	liveOrSkip(t)
+	const n = 16
+	port, got := listenHDLCFrames(t, 2, n)
+	runPythonHDLCClient(t, port, n, "flap")
+	frames := collectFrames(t, got, n)
+	if len(frames) != n {
+		t.Fatalf("got %d want %d after flap", len(frames), n)
+	}
+	for i := range n {
+		if !bytes.Equal(frames[i], burstPayload(i)) {
+			t.Fatalf("frame %d mismatch after flap", i)
+		}
+	}
+}

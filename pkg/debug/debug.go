@@ -129,6 +129,9 @@ func GetLogger() *slog.Logger {
 // Log emits msg at the given RNS debug level, suppressing it when the
 // level is above the current threshold.
 func Log(level int, msg string, args ...any) {
+	if int(levelAtomic.Load()) < level {
+		return
+	}
 	mu.RLock()
 	ready := initialized
 	mu.RUnlock()

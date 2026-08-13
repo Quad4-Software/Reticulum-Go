@@ -4,8 +4,10 @@
 package transport
 
 import (
+	"encoding/binary"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -146,11 +148,42 @@ func TestPacketHashListRotatesAtConfiguredMax(t *testing.T) {
 	}
 	hl.mu.Lock()
 	defer hl.mu.Unlock()
-	if len(hl.cur) > 3 {
-		t.Fatalf("cur=%d, want <= 3", len(hl.cur))
+	if hl.cur.n > 3 {
+		t.Fatalf("cur=%d, want <= 3", hl.cur.n)
 	}
-	if len(hl.prev) > 3 {
-		t.Fatalf("prev=%d, want <= 3", len(hl.prev))
+	if hl.prev.n > 3 {
+		t.Fatalf("prev=%d, want <= 3", hl.prev.n)
+	}
+}
+
+func TestPacketHashlistRotateNoGrowth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping leak-growth test in short mode")
+	}
+	hl := newPacketHashList(1024)
+	h := make([]byte, 32)
+	fill := func(off int) {
+		for i := range 20_000 {
+			binary.LittleEndian.PutUint32(h, uint32(off+i))
+			hl.add(h)
+			_ = hl.seen(h)
+		}
+	}
+	fill(0)
+	runtime.GC()
+	runtime.GC()
+	var m1 runtime.MemStats
+	runtime.ReadMemStats(&m1)
+	fill(20_000)
+	runtime.GC()
+	runtime.GC()
+	var m2 runtime.MemStats
+	runtime.ReadMemStats(&m2)
+	if m2.HeapAlloc > m1.HeapAlloc+(2<<20) {
+		t.Errorf("hashlist heap grew %d -> %d", m1.HeapAlloc, m2.HeapAlloc)
+	}
+	if hl.Len() > 1024+512 {
+		t.Fatalf("len=%d exceeds rotate bound", hl.Len())
 	}
 }
 

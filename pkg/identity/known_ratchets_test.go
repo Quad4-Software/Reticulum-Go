@@ -124,7 +124,7 @@ func TestGetRatchetExpired(t *testing.T) {
 
 	destHash := bytes.Repeat([]byte{0x44}, TruncatedHashLength/8)
 	pub := bytes.Repeat([]byte{0x55}, RatchetSize/8)
-	key := knownDestKey(destHash)
+	key := knownDestHex(destHash)
 	ratchetPersistLock.Lock()
 	knownRatchets[key] = knownRatchetEntry{
 		key:      append([]byte(nil), pub...),

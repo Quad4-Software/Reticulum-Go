@@ -12,8 +12,8 @@ func TestCleanKnownDestinationsRemovesStaleNeverUsed(t *testing.T) {
 	knownDestinationsLock.Lock()
 	prevDest := knownDestinations
 	prevMeta := knownDestMetaByKey
-	knownDestinations = make(map[string][]any)
-	knownDestMetaByKey = make(map[string]knownDestMeta)
+	knownDestinations = make(map[destMapKey][]any)
+	knownDestMetaByKey = make(map[destMapKey]knownDestMeta)
 	knownDestinationsLock.Unlock()
 	t.Cleanup(func() {
 		knownDestinationsLock.Lock()
@@ -47,8 +47,8 @@ func TestCleanKnownDestinationsKeepsPathPresent(t *testing.T) {
 	knownDestinationsLock.Lock()
 	prevDest := knownDestinations
 	prevMeta := knownDestMetaByKey
-	knownDestinations = make(map[string][]any)
-	knownDestMetaByKey = make(map[string]knownDestMeta)
+	knownDestinations = make(map[destMapKey][]any)
+	knownDestMetaByKey = make(map[destMapKey]knownDestMeta)
 	knownDestinationsLock.Unlock()
 	t.Cleanup(func() {
 		knownDestinationsLock.Lock()
@@ -83,8 +83,8 @@ func TestCleanKnownDestinationsKeepsRetained(t *testing.T) {
 	knownDestinationsLock.Lock()
 	prevDest := knownDestinations
 	prevMeta := knownDestMetaByKey
-	knownDestinations = make(map[string][]any)
-	knownDestMetaByKey = make(map[string]knownDestMeta)
+	knownDestinations = make(map[destMapKey][]any)
+	knownDestMetaByKey = make(map[destMapKey]knownDestMeta)
 	knownDestinationsLock.Unlock()
 	t.Cleanup(func() {
 		knownDestinationsLock.Lock()
@@ -118,8 +118,8 @@ func TestCleanKnownDestinationsKeepsFreshNeverUsed(t *testing.T) {
 	knownDestinationsLock.Lock()
 	prevDest := knownDestinations
 	prevMeta := knownDestMetaByKey
-	knownDestinations = make(map[string][]any)
-	knownDestMetaByKey = make(map[string]knownDestMeta)
+	knownDestinations = make(map[destMapKey][]any)
+	knownDestMetaByKey = make(map[destMapKey]knownDestMeta)
 	knownDestinationsLock.Unlock()
 	t.Cleanup(func() {
 		knownDestinationsLock.Lock()

@@ -16,8 +16,8 @@ func resetKnownForTest(t *testing.T) {
 	knownDestinationsLock.Lock()
 	prevDest := knownDestinations
 	prevMeta := knownDestMetaByKey
-	knownDestinations = make(map[string][]any)
-	knownDestMetaByKey = make(map[string]knownDestMeta)
+	knownDestinations = make(map[destMapKey][]any)
+	knownDestMetaByKey = make(map[destMapKey]knownDestMeta)
 	knownDestinationsLock.Unlock()
 	t.Cleanup(func() {
 		knownDestinationsLock.Lock()
@@ -108,8 +108,8 @@ func TestPBTCleanKnownNeverRemovesRetained(t *testing.T) {
 				knownDestinationsLock.Lock()
 				prevDest := knownDestinations
 				prevMeta := knownDestMetaByKey
-				knownDestinations = make(map[string][]any)
-				knownDestMetaByKey = make(map[string]knownDestMeta)
+				knownDestinations = make(map[destMapKey][]any)
+				knownDestMetaByKey = make(map[destMapKey]knownDestMeta)
 				knownDestinationsLock.Unlock()
 				return func() {
 					knownDestinationsLock.Lock()

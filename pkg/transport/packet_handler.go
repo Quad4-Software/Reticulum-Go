@@ -103,15 +103,21 @@ func (t *Transport) occupyHandlerPoolForTest(hold <-chan struct{}) int {
 func (t *Transport) dispatchInboundPacket(payload []byte, iface common.NetworkInterface, packetType, destType, headerType byte) {
 	switch packetType {
 	case PacketTypeAnnounce:
-		debug.Log(debug.DebugVerbose, "Processing announce packet")
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Processing announce packet")
+		}
 		if err := t.handleAnnouncePacket(payload, iface); err != nil {
 			debug.Log(debug.DebugInfo, "Announce handling failed", "error", err)
 		}
 	case PacketTypeLink:
-		debug.Log(debug.DebugVerbose, "Processing link packet (type=0x02)", "packet_size", len(payload))
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Processing link packet (type=0x02)", "packet_size", len(payload))
+		}
 		t.handleLinkPacket(payload, iface, PacketTypeLink)
 	case packet.PacketTypeProof:
-		debug.Log(debug.DebugVerbose, "Processing proof packet")
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Processing proof packet")
+		}
 		pkt := &packet.Packet{Raw: payload}
 		if err := pkt.Unpack(); err != nil {
 			debug.Log(debug.DebugInfo, "Failed to unpack proof packet", "error", err)
@@ -125,10 +131,14 @@ func (t *Transport) dispatchInboundPacket(payload []byte, iface common.NetworkIn
 		t.handleProofPacket(pkt, iface)
 	case 0:
 		if destType == DestTypeLink {
-			debug.Log(debug.DebugVerbose, "Processing link data packet (dest_type=3)", "packet_size", len(payload))
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Processing link data packet (dest_type=3)", "packet_size", len(payload))
+			}
 			t.handleLinkPacket(payload, iface, 0)
 		} else {
-			debug.Log(debug.DebugVerbose, "Processing data packet (type 0x00)", "packet_size", len(payload), "dest_type", destType, "header_type", headerType)
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Processing data packet (type 0x00)", "packet_size", len(payload), "dest_type", destType, "header_type", headerType)
+			}
 			t.handleTransportPacket(payload, iface)
 		}
 	default:
@@ -140,21 +150,13 @@ func (t *Transport) dispatchInboundPacket(payload []byte, iface common.NetworkIn
 	}
 }
 
-func (t *Transport) shedHandlerOverflow(iface common.NetworkInterface, data []byte, packetType, destType, headerType byte) {
+func (t *Transport) shedHandlerOverflow(iface common.NetworkInterface) {
 	ifaceName := ""
 	if iface != nil {
 		ifaceName = iface.GetName()
 	}
-	d := protect.AdmitHandler(ifaceName)
-	if !d.Allow {
-		return
-	}
+	protect.AdmitHandler(ifaceName)
 	if protect.Default().Mode() == protect.ModeOff {
-		pc := getPacketCopy(len(data))
-		copy(pc.buf, data)
-		func() {
-			defer putPacketCopy(pc)
-			t.dispatchInboundPacket(pc.buf, iface, packetType, destType, headerType)
-		}()
+		health.Inc(ifaceName, health.KindDoSHandler)
 	}
 }

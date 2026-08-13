@@ -229,7 +229,7 @@ func TestRecallIdentity(t *testing.T) {
 func TestRecallMissingHashUsesErrIdentityNotFound(t *testing.T) {
 	knownDestinationsLock.Lock()
 	prev := knownDestinations
-	knownDestinations = make(map[string][]any)
+	knownDestinations = make(map[destMapKey][]any)
 	knownDestinationsLock.Unlock()
 	t.Cleanup(func() {
 		knownDestinationsLock.Lock()
@@ -264,7 +264,7 @@ func TestGetRandomHash(t *testing.T) {
 
 func TestRememberStoresDefensiveCopies(t *testing.T) {
 	knownDestinationsLock.Lock()
-	knownDestinations = make(map[string][]any)
+	knownDestinations = make(map[destMapKey][]any)
 	knownDestinationsLock.Unlock()
 
 	destBacking := make([]byte, 0, 64)
@@ -312,7 +312,7 @@ func TestRememberStoresDefensiveCopies(t *testing.T) {
 func TestRememberRejectsPublicKeyMismatch(t *testing.T) {
 	knownDestinationsLock.Lock()
 	prev := knownDestinations
-	knownDestinations = make(map[string][]any)
+	knownDestinations = make(map[destMapKey][]any)
 	knownDestinationsLock.Unlock()
 	t.Cleanup(func() {
 		knownDestinationsLock.Lock()
@@ -354,7 +354,7 @@ func TestRememberRejectsPublicKeyMismatch(t *testing.T) {
 
 func TestGetKnownDestinationReturnsDefensiveCopies(t *testing.T) {
 	knownDestinationsLock.Lock()
-	knownDestinations = make(map[string][]any)
+	knownDestinations = make(map[destMapKey][]any)
 	knownDestinationsLock.Unlock()
 
 	destHash := bytes.Repeat([]byte{0x22}, TruncatedHashLength/8)
@@ -643,7 +643,7 @@ func BenchmarkKnownDestinationsScale(b *testing.B) {
 		b.Run(fmt.Sprintf("Size-%d", size), func(b *testing.B) {
 			// Clear map for each run
 			knownDestinationsLock.Lock()
-			knownDestinations = make(map[string][]any)
+			knownDestinations = make(map[destMapKey][]any)
 			knownDestinationsLock.Unlock()
 
 			// Fill cache

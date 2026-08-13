@@ -51,3 +51,21 @@ func TestOracle_HDLCDecoderDropsInvalidFrameLen(t *testing.T) {
 		t.Fatalf("valid 20-byte payload dropped n=%d", n)
 	}
 }
+
+func TestOracle_BackboneHDLCCallbackMustCopy(t *testing.T) {
+	var aliased []byte
+	d := NewHDLCDecoder(4096, func(pkt []byte) {
+		aliased = pkt
+	})
+	first := bytes.Repeat([]byte{0x01}, 24)
+	d.Feed(frameHDLC(first))
+	if aliased == nil {
+		t.Fatal("first frame not delivered")
+	}
+	held := aliased
+	second := bytes.Repeat([]byte{0x02}, 24)
+	d.Feed(frameHDLC(second))
+	if bytes.Equal(held, first) {
+		t.Fatal("callback slice was copied, assembler reuse contract changed")
+	}
+}

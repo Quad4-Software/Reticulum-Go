@@ -272,6 +272,7 @@ func TestPacketHashing(t *testing.T) {
 
 	p2.Data = append(p2.Data, 0x99)
 	p2.Raw = append(p2.Raw, 0x99)
+	p2.hashValid = false
 	hash4 := p2.GetHash()
 	if bytes.Equal(hash1, hash4) {
 		t.Errorf("Hash did not change after modifying hashable Data field")

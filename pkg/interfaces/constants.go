@@ -99,6 +99,7 @@ const (
 
 const (
 	WSBufferSize         = 4096
+	maxWSMessageQueue    = 256
 	WSHTTPSPort          = 443
 	WSHTTPPort           = 80
 	WSVersion            = "13"
@@ -126,4 +127,12 @@ func streamReadSize(mtu int) int {
 		return mtu
 	}
 	return streamReadChunk
+}
+
+func enqueueWSMessage(q [][]byte, data []byte) [][]byte {
+	cp := append([]byte(nil), data...)
+	if len(q) >= maxWSMessageQueue {
+		q = q[1:]
+	}
+	return append(q, cp)
 }

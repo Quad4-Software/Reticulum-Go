@@ -8,6 +8,7 @@ Environment:
     INTEROP_MODE          server (default) or client
     INTEROP_TARGET_PORT   dial port when mode=client
     INTEROP_FRAMES        frame count (default 64)
+    INTEROP_FAULT         none (default), corrupt, drop, reorder, or flap
 """
 
 import os
@@ -74,6 +75,26 @@ def blob(n: int) -> bytes:
     return bytes(out)
 
 
+def blob_with_fault(n: int, fault: str) -> bytes:
+    fault = (fault or "none").strip().lower()
+    frames = [frame(payload_for(i)) for i in range(n)]
+    if fault == "drop" and n > 2:
+        del frames[n // 2]
+        return b"".join(frames)
+    if fault == "reorder" and n > 2:
+        frames[0], frames[1] = frames[1], frames[0]
+        return b"".join(frames)
+    if fault == "corrupt" and n > 2:
+        broken = bytearray(frames[1])
+        for i in range(1, len(broken) - 1):
+            if broken[i] not in (HDLC_FLAG, HDLC_ESC):
+                broken[i] ^= 0x01
+                break
+        frames[1] = bytes(broken)
+        return b"".join(frames)
+    return b"".join(frames)
+
+
 def serve(port: int, n: int) -> int:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -96,18 +117,33 @@ def serve(port: int, n: int) -> int:
     return 0 if len(got) == n else 1
 
 
-def client(target_port: int, n: int) -> int:
+def client(target_port: int, n: int, fault: str) -> int:
+    fault = (fault or "none").strip().lower()
+    if fault == "flap":
+        half = max(1, n // 2)
+        conn = socket.create_connection(("127.0.0.1", target_port), timeout=10.0)
+        conn.sendall(blob_with_fault(half, "none"))
+        conn.close()
+        conn = socket.create_connection(("127.0.0.1", target_port), timeout=10.0)
+        rest = bytearray()
+        for i in range(half, n):
+            rest.extend(frame(payload_for(i)))
+        conn.sendall(bytes(rest))
+        conn.close()
+        return 0
     conn = socket.create_connection(("127.0.0.1", target_port), timeout=10.0)
-    conn.sendall(blob(n))
+    conn.sendall(blob_with_fault(n, fault))
+    conn.close()
     return 0
 
 
 def main() -> int:
     n = int(os.environ.get("INTEROP_FRAMES", "64"))
     mode = os.environ.get("INTEROP_MODE", "server").strip().lower()
+    fault = os.environ.get("INTEROP_FAULT", "none")
     if mode == "client":
         port = int(os.environ["INTEROP_TARGET_PORT"])
-        return client(port, n)
+        return client(port, n, fault)
     port = int(os.environ["INTEROP_PORT"])
     return serve(port, n)
 

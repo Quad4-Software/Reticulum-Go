@@ -359,7 +359,7 @@ func (h *Hub) closeAllStreams() {
 
 func (h *Hub) loop() {
 	defer h.wg.Done()
-	readBuf := make([]byte, 1<<20)
+	readBuf := make([]byte, streamReadSize(0))
 	for {
 		select {
 		case <-h.stop:

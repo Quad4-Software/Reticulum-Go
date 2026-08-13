@@ -46,6 +46,8 @@ type Packet struct {
 
 	Addresses []byte
 	Link      any
+
+	hashValid bool
 }
 
 // hashableInto writes the wire bytes that participate in the packet hash into dst
@@ -209,8 +211,9 @@ func (p *Packet) Pack() error {
 	}
 
 	p.Packed = true
+	p.hashValid = false
 	p.updateHash()
-	if debug.GetDebugLevel() >= debug.DebugAll {
+	if debug.Enabled(debug.DebugAll) {
 		debug.Log(debug.DebugAll, "Packet hash", "hash", fmt.Sprintf("%x", p.PacketHash))
 	}
 	return nil
@@ -258,12 +261,15 @@ func (p *Packet) Unpack() error {
 	}
 
 	p.Packed = false
+	p.hashValid = false
 	p.updateHash()
 	return nil
 }
 
 func (p *Packet) GetHash() []byte {
-	p.updateHash()
+	if !p.hashValid {
+		p.updateHash()
+	}
 	return p.PacketHash
 }
 
@@ -285,6 +291,7 @@ func (p *Packet) updateHash() {
 		p.PacketHash = p.PacketHash[:sha256.Size]
 	}
 	copy(p.PacketHash, sum[:])
+	p.hashValid = true
 }
 
 func (p *Packet) Hash() []byte {

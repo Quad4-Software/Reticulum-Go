@@ -3,6 +3,8 @@
 
 package backbone
 
+import "bytes"
+
 const (
 	hdlcFlag    = 0x7E
 	hdlcEsc     = 0x7D
@@ -10,6 +12,8 @@ const (
 )
 
 // HDLCDecoder incrementally parses HDLC-framed packets from a byte stream.
+// onPacket receives a view of the assembler buffer that is reused after the
+// callback returns. Callers that retain the frame must copy it.
 type HDLCDecoder struct {
 	mtu      int
 	inFrame  bool
@@ -33,34 +37,78 @@ func NewHDLCDecoder(mtu int, onPacket func([]byte)) *HDLCDecoder {
 }
 
 func (d *HDLCDecoder) Feed(buf []byte) {
-	for _, b := range buf {
-		if b == hdlcFlag {
-			if d.inFrame && len(d.data) > 0 {
-				d.emit()
-			}
-			d.inFrame = !d.inFrame
-			d.escape = false
+	for len(buf) > 0 {
+		if d.escape {
+			d.feedByte(buf[0])
+			buf = buf[1:]
 			continue
 		}
 		if !d.inFrame {
+			i := bytes.IndexByte(buf, hdlcFlag)
+			if i < 0 {
+				return
+			}
+			d.feedByte(buf[i])
+			buf = buf[i+1:]
 			continue
 		}
-		if b == hdlcEsc {
-			d.escape = true
+		iFlag := bytes.IndexByte(buf, hdlcFlag)
+		iEsc := bytes.IndexByte(buf, hdlcEsc)
+		next := len(buf)
+		if iFlag >= 0 && iFlag < next {
+			next = iFlag
+		}
+		if iEsc >= 0 && iEsc < next {
+			next = iEsc
+		}
+		if next > 0 {
+			d.appendRun(buf[:next])
+			buf = buf[next:]
 			continue
 		}
-		if d.escape {
-			b ^= hdlcEscMask
-			d.escape = false
-		}
-		if len(d.data) >= d.maxFrame {
-			d.data = d.data[:0]
-			d.inFrame = false
-			d.escape = false
-			continue
-		}
-		d.data = append(d.data, b)
+		d.feedByte(buf[0])
+		buf = buf[1:]
 	}
+}
+
+func (d *HDLCDecoder) appendRun(run []byte) {
+	room := d.maxFrame - len(d.data)
+	if room <= 0 || len(run) > room {
+		d.data = d.data[:0]
+		d.inFrame = false
+		d.escape = false
+		return
+	}
+	d.data = append(d.data, run...)
+}
+
+func (d *HDLCDecoder) feedByte(b byte) {
+	if b == hdlcFlag {
+		if d.inFrame && len(d.data) > 0 {
+			d.emit()
+		}
+		d.inFrame = !d.inFrame
+		d.escape = false
+		return
+	}
+	if !d.inFrame {
+		return
+	}
+	if b == hdlcEsc {
+		d.escape = true
+		return
+	}
+	if d.escape {
+		b ^= hdlcEscMask
+		d.escape = false
+	}
+	if len(d.data) >= d.maxFrame {
+		d.data = d.data[:0]
+		d.inFrame = false
+		d.escape = false
+		return
+	}
+	d.data = append(d.data, b)
 }
 
 func (d *HDLCDecoder) emit() {
@@ -68,17 +116,14 @@ func (d *HDLCDecoder) emit() {
 		d.data = d.data[:0]
 		return
 	}
-	out := append([]byte(nil), d.data...)
-	d.data = d.data[:0]
 	// Match Python BackboneClientInterface.check_frame_len (RNS 1.3.9).
 	const headerMinSize = 19
-	if len(out) <= headerMinSize {
+	if len(d.data) <= headerMinSize || (d.mtu > 0 && len(d.data) > d.mtu) {
+		d.data = d.data[:0]
 		return
 	}
-	if d.mtu > 0 && len(out) > d.mtu {
-		return
-	}
-	d.onPacket(out)
+	d.onPacket(d.data)
+	d.data = d.data[:0]
 }
 
 func (d *HDLCDecoder) Reset() {

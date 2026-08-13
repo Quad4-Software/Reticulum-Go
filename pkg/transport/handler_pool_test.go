@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/health"
+	"quad4/reticulum-go/pkg/protect"
 )
 
 func TestHandlerPoolGoroutineBudget(t *testing.T) {
@@ -81,4 +83,29 @@ func TestHandlerPoolEnqueueCloseRace(t *testing.T) {
 	_ = tr.Close()
 	close(stop)
 	wg.Wait()
+}
+
+func TestHandlerPoolOverflowAlwaysSheds(t *testing.T) {
+	t.Cleanup(func() { protect.SetDefault(nil) })
+	health.Default.Reset()
+	protect.SetDefault(protect.New(protect.Options{Mode: protect.ModeOff}))
+
+	tr := NewTransport(&common.ReticulumConfig{
+		EnableTransport:   true,
+		MaxPacketHandlers: 2,
+	})
+	t.Cleanup(func() { _ = tr.Close() })
+	hold := make(chan struct{})
+	if n := tr.occupyHandlerPoolForTest(hold); n == 0 {
+		t.Fatal("handler pool not occupied")
+	}
+	t.Cleanup(func() { close(hold) })
+
+	iface := common.NewBaseInterface("shed0", common.IFTypeUDP, true)
+	before := health.Default.SnapshotIface("shed0").DoSHandler.Total
+	tr.HandlePacket([]byte{0x00, 0x00, 0x01}, &iface)
+	after := health.Default.SnapshotIface("shed0").DoSHandler.Total
+	if after <= before {
+		t.Fatalf("overflow did not shed: dos_handler %d -> %d", before, after)
+	}
 }

@@ -98,9 +98,9 @@ func BenchmarkHandlePacketCopy(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cp := make([]byte, len(data))
-		copy(cp, data)
-		_ = cp
+		pc := getPacketCopy(len(data))
+		copy(pc.buf, data)
+		putPacketCopy(pc)
 	}
 }
 

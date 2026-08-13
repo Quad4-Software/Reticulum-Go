@@ -30,9 +30,9 @@ type knownDestMeta struct {
 	lastUsed     int64
 }
 
-var knownDestMetaByKey = make(map[string]knownDestMeta)
+var knownDestMetaByKey = make(map[destMapKey]knownDestMeta)
 
-func setKnownDestMetaLocked(key string, rememberedAt, lastUsed int64) {
+func setKnownDestMetaLocked(key destMapKey, rememberedAt, lastUsed int64) {
 	if rememberedAt <= 0 {
 		rememberedAt = time.Now().Unix()
 	}
@@ -42,7 +42,7 @@ func setKnownDestMetaLocked(key string, rememberedAt, lastUsed int64) {
 	}
 }
 
-func deleteKnownDestMetaLocked(key string) {
+func deleteKnownDestMetaLocked(key destMapKey) {
 	delete(knownDestMetaByKey, key)
 }
 
@@ -112,7 +112,7 @@ func CleanKnownDestinations(hasPath func([]byte) bool) CleanKnownDestinationsRes
 	}
 
 	knownDestinationsLock.RLock()
-	keys := make([]string, 0, len(knownDestinations))
+	keys := make([]destMapKey, 0, len(knownDestinations))
 	for key := range knownDestinations {
 		keys = append(keys, key)
 	}
@@ -120,7 +120,7 @@ func CleanKnownDestinations(hasPath func([]byte) bool) CleanKnownDestinationsRes
 
 	now := time.Now()
 	nowUnix := now.Unix()
-	stale := make([]string, 0)
+	stale := make([]destMapKey, 0)
 	result := CleanKnownDestinationsResult{Total: len(keys)}
 
 	for i, key := range keys {
@@ -128,10 +128,7 @@ func CleanKnownDestinations(hasPath func([]byte) bool) CleanKnownDestinationsRes
 			runtime.Gosched()
 		}
 
-		destHash, ok := resolveDestHashKey(key)
-		if !ok {
-			continue
-		}
+		destHash := key[:]
 		pathPresent := hasPath(destHash)
 		if !pathPresent {
 			result.NoPath++
@@ -193,7 +190,7 @@ func CleanKnownDestinations(hasPath func([]byte) bool) CleanKnownDestinationsRes
 }
 
 // stillStaleForCleanLocked re-checks eligibility under the write lock.
-func stillStaleForCleanLocked(key string, hasPath func([]byte) bool, now time.Time, nowUnix int64) bool {
+func stillStaleForCleanLocked(key destMapKey, hasPath func([]byte) bool, now time.Time, nowUnix int64) bool {
 	meta, metaOK := knownDestMetaByKey[key]
 	if _, exists := knownDestinations[key]; !exists {
 		return false
@@ -204,10 +201,7 @@ func stillStaleForCleanLocked(key string, hasPath func([]byte) bool, now time.Ti
 	if meta.lastUsed < 0 {
 		return false
 	}
-	destHash, ok := resolveDestHashKey(key)
-	if !ok {
-		return false
-	}
+	destHash := key[:]
 	if hasPath(destHash) {
 		return false
 	}

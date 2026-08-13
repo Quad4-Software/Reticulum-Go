@@ -4,6 +4,7 @@
 package transport
 
 import (
+	"encoding/binary"
 	"os"
 	"runtime"
 	"strconv"
@@ -95,4 +96,35 @@ func TestTransportSoakFaultLoad(t *testing.T) {
 		t.Fatalf("soak goroutine delta baseline=%d final=%d", baseG, finalG)
 	}
 	t.Logf("soak ok: heap_delta=%d goroutines=%d->%d", heapDelta, baseG, finalG)
+}
+
+func TestPacketHashlistAtCapNoGrowth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping hashlist cap soak in -short mode")
+	}
+	hl := newPacketHashList(10_000)
+	h := make([]byte, 32)
+	fill := func(off int, n int) {
+		for i := range n {
+			binary.LittleEndian.PutUint32(h, uint32(off+i))
+			hl.add(h)
+			_ = hl.seen(h)
+		}
+	}
+	fill(0, 30_000)
+	runtime.GC()
+	runtime.GC()
+	var m1 runtime.MemStats
+	runtime.ReadMemStats(&m1)
+	fill(30_000, 30_000)
+	runtime.GC()
+	runtime.GC()
+	var m2 runtime.MemStats
+	runtime.ReadMemStats(&m2)
+	if m2.HeapAlloc > m1.HeapAlloc+(4<<20) {
+		t.Fatalf("hashlist at cap grew %d -> %d", m1.HeapAlloc, m2.HeapAlloc)
+	}
+	if hl.Len() > 10_000+5_000 {
+		t.Fatalf("len=%d exceeds rotate bound", hl.Len())
+	}
 }

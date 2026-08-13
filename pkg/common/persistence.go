@@ -30,6 +30,9 @@ const (
 	// Client nodes still see mesh traffic but do not need a million-entry filter.
 	DefaultMaxPacketHashlistClient = 100_000
 
+	// DefaultMaxSeenAnnounces caps announce-hash dedupe entries.
+	DefaultMaxSeenAnnounces = 100_000
+
 	// DefaultMaxPacketHandlers is the HandlePacket worker count and queue depth.
 	DefaultMaxPacketHandlers = 512
 

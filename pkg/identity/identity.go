@@ -43,7 +43,7 @@ type Identity struct {
 }
 
 var (
-	knownDestinations     = make(map[string][]any)
+	knownDestinations     = make(map[destMapKey][]any)
 	knownDestinationsLock sync.RWMutex
 	knownRatchets         = make(map[string]knownRatchetEntry)
 	ratchetPersistLock    sync.Mutex
@@ -168,6 +168,8 @@ func (i *Identity) Encrypt(plaintext []byte, ratchet []byte) ([]byte, error) {
 	return token, nil
 }
 
+// Hash returns the cached truncated public-key hash. The slice must not be
+// mutated. Callers that need a private copy should clone it.
 func (i *Identity) Hash() []byte {
 	if i == nil {
 		return nil
@@ -175,9 +177,7 @@ func (i *Identity) Hash() []byte {
 	if len(i.hash) != TruncatedHashLength/8 {
 		i.cachePublicHash()
 	}
-	out := make([]byte, TruncatedHashLength/8)
-	copy(out, i.hash)
-	return out
+	return i.hash
 }
 
 // cachePublicHash stores the truncated destination hash of the public key material.
@@ -209,10 +209,17 @@ func (i *Identity) publicKeyEqual(publicKey []byte) bool {
 		bytes.Equal(i.verificationKey, publicKey[KeySize/16:])
 }
 
-func knownDestKey(destHash []byte) string {
-	var buf [64]byte
-	n := hex.Encode(buf[:], destHash)
-	return string(buf[:n])
+type destMapKey [16]byte
+
+func knownDestKey(destHash []byte) destMapKey {
+	var k destMapKey
+	copy(k[:], destHash)
+	return k
+}
+
+func knownDestHex(destHash []byte) string {
+	k := knownDestKey(destHash)
+	return hex.EncodeToString(k[:])
 }
 
 func TruncatedHash(data []byte) []byte {
@@ -812,8 +819,13 @@ func (i *Identity) GetRatchetID(ratchetPubBytes []byte) []byte {
 }
 
 func GetKnownDestination(hash string) ([]any, bool) {
+	raw, err := hex.DecodeString(hash)
+	if err != nil || len(raw) == 0 {
+		return nil, false
+	}
+	key := knownDestKey(raw)
 	knownDestinationsLock.RLock()
-	data, exists := knownDestinations[hash]
+	data, exists := knownDestinations[key]
 	knownDestinationsLock.RUnlock()
 	if exists {
 		copied := make([]any, len(data))

@@ -6,6 +6,7 @@ package identity
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -88,5 +89,43 @@ func TestKnownDestinationsCapDisabled(t *testing.T) {
 	knownDestinationsLock.RUnlock()
 	if n != 10 {
 		t.Fatalf("known destinations = %d, want 10", n)
+	}
+}
+
+func TestKnownDestinationsCapNoGrowth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping known-dest leak-growth in short mode")
+	}
+	resetKnownDestinations(t)
+	t.Cleanup(func() { SetKnownDestinationsMaxEntries(0) })
+	SetKnownDestinationsMaxEntries(64)
+	fill := func(off int) {
+		for i := range 400 {
+			h := make([]byte, TruncatedHashLength/8)
+			h[0] = byte((off + i) >> 8)
+			h[1] = byte(off + i)
+			pk := make([]byte, KeySize/8)
+			pk[0] = byte(off + i)
+			Remember([]byte("p"), h, pk, []byte("a"))
+		}
+	}
+	fill(0)
+	runtime.GC()
+	runtime.GC()
+	var m1 runtime.MemStats
+	runtime.ReadMemStats(&m1)
+	fill(400)
+	runtime.GC()
+	runtime.GC()
+	var m2 runtime.MemStats
+	runtime.ReadMemStats(&m2)
+	if m2.HeapAlloc > m1.HeapAlloc+(4<<20) {
+		t.Fatalf("known dest heap grew %d -> %d", m1.HeapAlloc, m2.HeapAlloc)
+	}
+	knownDestinationsLock.RLock()
+	n := len(knownDestinations)
+	knownDestinationsLock.RUnlock()
+	if n > 64 {
+		t.Fatalf("known destinations = %d, want <= 64", n)
 	}
 }

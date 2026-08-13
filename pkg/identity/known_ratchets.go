@@ -43,7 +43,7 @@ func RememberRatchet(destHash, ratchet []byte) {
 		return
 	}
 
-	key := knownDestKey(destHash)
+	key := knownDestHex(destHash)
 	ratchetPersistLock.Lock()
 	existing, ok := knownRatchets[key]
 	if ok && bytes.Equal(existing.key, ratchet) {
@@ -75,7 +75,7 @@ func GetRatchet(destHash []byte) []byte {
 	if len(destHash) == 0 {
 		return nil
 	}
-	key := knownDestKey(destHash)
+	key := knownDestHex(destHash)
 	now := time.Now().Unix()
 
 	ratchetPersistLock.Lock()
@@ -241,7 +241,7 @@ func loadKnownRatchetFromDisk(destHash []byte) []byte {
 		return nil
 	}
 
-	key := knownDestKey(destHash)
+	key := knownDestHex(destHash)
 	ratchetPersistLock.Lock()
 	knownRatchets[key] = knownRatchetEntry{
 		key:      append([]byte(nil), parsed.Ratchet...),

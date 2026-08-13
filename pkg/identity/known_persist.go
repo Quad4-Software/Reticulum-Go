@@ -209,7 +209,7 @@ func loadKnownDestinationsFromDisk(configPath string) {
 		if id == nil {
 			continue
 		}
-		canonicalKey := hex.EncodeToString(rec.destHash)
+		canonicalKey := knownDestKey(rec.destHash)
 		knownDestinations[canonicalKey] = []any{
 			rec.packetRaw,
 			rec.destHash,
@@ -283,11 +283,8 @@ func saveKnownDestinations(force bool) {
 		if packetBytes, ok := data[0].([]byte); ok {
 			packetHash = packetBytes
 		}
-		key := hashKey
-		if key == "" {
-			key = hex.EncodeToString(destHash)
-		}
-		meta := knownDestMetaByKey[key]
+		key := hex.EncodeToString(hashKey[:])
+		meta := knownDestMetaByKey[hashKey]
 		rememberedAt := float64(meta.rememberedAt)
 		if rememberedAt == 0 {
 			rememberedAt = float64(time.Now().Unix())
