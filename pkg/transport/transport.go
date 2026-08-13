@@ -1435,7 +1435,10 @@ func SendAnnounce(packet []byte) error {
 
 	var lastErr error
 	for _, e := range t.snapshotRegisteredInterfaces() {
-		if !e.iface.IsEnabled() {
+		if !e.iface.IsEnabled() || !e.iface.IsOnline() {
+			continue
+		}
+		if !common.InterfaceAllowsOutgoing(e.iface) {
 			continue
 		}
 		if len(destHash) > 0 && !t.shouldForwardAnnounceOn(destHash, e.iface, nil) {
@@ -1766,7 +1769,12 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		debug.Log(debug.DebugInfo, "Accepted announce with app_data", "data", fmt.Sprintf("%x", appData), "string", string(appData))
 	}
 
-	identity.Remember(data, destinationHash, pubKey, appData)
+	if !identity.Remember(data, destinationHash, pubKey, appData) {
+		if debug.Enabled(debug.DebugInfo) {
+			debug.Log(debug.DebugInfo, "Rejected announce: destination hash already known with a different public key")
+		}
+		return fmt.Errorf("announce public key mismatch")
+	}
 	if len(ratchetData) == 32 {
 		identity.RememberRatchet(destinationHash, ratchetData)
 	}

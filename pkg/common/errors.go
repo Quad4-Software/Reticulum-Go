@@ -19,6 +19,7 @@ const (
 	MsgDestTransportNotSet        = "destination: transport not set, pass a transport to destination.New"
 	MsgDestAnnounceNoInterfaces   = "destination: announce sent on 0 interfaces (none registered with transport)"
 	MsgDestAnnounceNoWritable     = "destination: announce sent on 0 interfaces (none online, enabled, and writable)"
+	MsgDestAnnounceRequiresIn     = "destination: only IN destination types can be announced"
 	MsgDestNoIncomingLinkHandler  = `destination: no incoming link handler (import the link package, e.g. _ "quad4/reticulum-go/pkg/link")`
 	MsgDestAcceptsLinksFalseOnly  = "destination: AcceptsLinks(false) clears the flag only and does not unregister from transport"
 	MsgDestNoPacketCallback       = "destination: packet received but no packet callback set (call SetPacketCallback)"
@@ -55,6 +56,7 @@ var (
 	ErrDestTransportNotSet        = errors.New(MsgDestTransportNotSet)
 	ErrDestAnnounceNoInterfaces   = errors.New(MsgDestAnnounceNoInterfaces)
 	ErrDestAnnounceNoWritable     = errors.New(MsgDestAnnounceNoWritable)
+	ErrDestAnnounceRequiresIn     = errors.New(MsgDestAnnounceRequiresIn)
 	ErrDestNoIncomingLinkHandler  = errors.New(MsgDestNoIncomingLinkHandler)
 	ErrDestNoPacketCallback       = errors.New(MsgDestNoPacketCallback)
 	ErrDestNoRequestHandler       = errors.New(MsgDestNoRequestHandler)

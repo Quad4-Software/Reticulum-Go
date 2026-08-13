@@ -406,6 +406,67 @@ func TestAnnounceOnlyReceiveOnlyReturnsNoWritable(t *testing.T) {
 	}
 }
 
+func TestAnnounceRejectsOutOnly(t *testing.T) {
+	id, err := identity.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx := newRecordingInterface("tx")
+	tr := &mockTransport{
+		config: &common.ReticulumConfig{},
+		interfaces: map[string]common.NetworkInterface{
+			"tx": tx,
+		},
+	}
+	dest, err := New(id, Out, Single, "testapp", tr, "aspect")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = dest.Announce(false, nil, nil)
+	if !errors.Is(err, common.ErrDestAnnounceRequiresIn) {
+		t.Fatalf("got %v, want ErrDestAnnounceRequiresIn", err)
+	}
+	if got := len(tx.Sent()); got != 0 {
+		t.Fatalf("OUT dest leaked %d announces", got)
+	}
+}
+
+func TestAnnounceSkipsAccessPointInterfaces(t *testing.T) {
+	id, err := identity.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	full := newRecordingInterface("full")
+	ap := newRecordingInterface("ap")
+	ap.Mode = common.IFModeAccessPoint
+	tr := &mockTransport{
+		config: &common.ReticulumConfig{},
+		interfaces: map[string]common.NetworkInterface{
+			"full": full,
+			"ap":   ap,
+		},
+	}
+	dest, err := New(id, In, Single, "testapp", tr, "aspect")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dest.Announce(false, nil, nil); err != nil {
+		t.Fatalf("Announce: %v", err)
+	}
+	if got := len(full.Sent()); got != 1 {
+		t.Fatalf("full got %d announces, want 1", got)
+	}
+	if got := len(ap.Sent()); got != 0 {
+		t.Fatalf("access-point got %d announces, want 0", got)
+	}
+	if err := dest.Announce(false, nil, ap); err != nil {
+		t.Fatalf("attached AP path response: %v", err)
+	}
+	if got := len(ap.Sent()); got != 1 {
+		t.Fatalf("attached access-point got %d announces, want 1", got)
+	}
+}
+
 func TestPlainDestinationHash(t *testing.T) {
 	// A Plain destination with no identity should have a hash based only on its name
 	transport := &mockTransport{}
@@ -973,8 +1034,8 @@ func TestAnnounceRequiresTransport(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 	err = dest.Announce(false, nil, nil)
-	if !errors.Is(err, common.ErrDestTransportNotSet) {
-		t.Fatalf("got %v, want ErrDestTransportNotSet", err)
+	if !errors.Is(err, common.ErrDestAnnounceRequiresIn) {
+		t.Fatalf("got %v, want ErrDestAnnounceRequiresIn", err)
 	}
 }
 

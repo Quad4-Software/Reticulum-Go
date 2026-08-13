@@ -4,6 +4,7 @@
 package announce
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
@@ -70,6 +71,23 @@ func New(dest *identity.Identity, destinationHash []byte, destinationName string
 	a.signature = sig
 
 	return a, nil
+}
+
+// DestinationHash is SHA-256(name_hash || identity.hash)[:16], matching
+// Python Destination.hash for SINGLE destinations.
+func DestinationHash(id *identity.Identity, destName string) []byte {
+	if id == nil {
+		return nil
+	}
+	nameHash := sha256.Sum256([]byte(destName))
+	idHash := id.Hash()
+	material := make([]byte, 0, NameHashSize+len(idHash))
+	material = append(material, nameHash[:NameHashSize]...)
+	material = append(material, idHash...)
+	full := sha256.Sum256(material)
+	out := make([]byte, AddrHashSize)
+	copy(out, full[:AddrHashSize])
+	return out
 }
 
 // SetRatchetPublic attaches a 32-byte announced ratchet public key.
@@ -276,6 +294,19 @@ func (a *Announce) HandleAnnounce(data []byte) error {
 
 	if !announcedIdentity.Verify(signedData, signature) {
 		return errors.New("invalid announce signature")
+	}
+
+	hashMaterial := make([]byte, 0, len(nameHash)+len(announcedIdentity.Hash()))
+	hashMaterial = append(hashMaterial, nameHash...)
+	hashMaterial = append(hashMaterial, announcedIdentity.Hash()...)
+	expectedHashFull := sha256.Sum256(hashMaterial)
+	expectedHash := expectedHashFull[:AddrHashSize]
+	if !bytes.Equal(destHash, expectedHash) {
+		return errors.New("destination hash mismatch")
+	}
+
+	if !identity.Remember(data, destHash, pubKey, appData) {
+		return errors.New("announce public key mismatch")
 	}
 
 	if len(ratchetData) == RatchetSize {

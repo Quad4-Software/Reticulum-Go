@@ -309,6 +309,49 @@ func TestRememberStoresDefensiveCopies(t *testing.T) {
 	}
 }
 
+func TestRememberRejectsPublicKeyMismatch(t *testing.T) {
+	knownDestinationsLock.Lock()
+	prev := knownDestinations
+	knownDestinations = make(map[string][]any)
+	knownDestinationsLock.Unlock()
+	t.Cleanup(func() {
+		knownDestinationsLock.Lock()
+		knownDestinations = prev
+		knownDestinationsLock.Unlock()
+	})
+
+	a, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	destHash := bytes.Repeat([]byte{0x33}, TruncatedHashLength/8)
+	if !Remember([]byte("pkt-a"), destHash, a.GetPublicKey(), []byte("app-a")) {
+		t.Fatal("first Remember should accept")
+	}
+	if Remember([]byte("pkt-b"), destHash, b.GetPublicKey(), []byte("app-b")) {
+		t.Fatal("second Remember should reject different public key")
+	}
+	stored, ok := GetKnownDestination(hex.EncodeToString(destHash))
+	if !ok {
+		t.Fatal("expected original destination to remain")
+	}
+	id, ok := stored[2].(*Identity)
+	if !ok {
+		t.Fatal("stored identity has unexpected type")
+	}
+	if !bytes.Equal(id.GetPublicKey(), a.GetPublicKey()) {
+		t.Fatal("known destination public key was overwritten")
+	}
+	gotApp, ok := stored[3].([]byte)
+	if !ok || string(gotApp) != "app-a" {
+		t.Fatalf("app data = %v, want app-a", stored[3])
+	}
+}
+
 func TestGetKnownDestinationReturnsDefensiveCopies(t *testing.T) {
 	knownDestinationsLock.Lock()
 	knownDestinations = make(map[string][]any)

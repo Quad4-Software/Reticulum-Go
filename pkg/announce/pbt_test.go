@@ -32,7 +32,7 @@ func TestPBTCreateThenHandleAnnounce(t *testing.T) {
 			if err != nil {
 				return false
 			}
-			ann, err := New(id, make([]byte, 16), "pbtapp", data, false, &common.ReticulumConfig{})
+			ann, err := New(id, DestinationHash(id, "pbtapp"), "pbtapp", data, false, &common.ReticulumConfig{})
 			if err != nil {
 				return false
 			}

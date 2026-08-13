@@ -4,6 +4,7 @@
 package transport
 
 import (
+	"bytes"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -161,6 +162,54 @@ func TestOracleBadAnnounceDestHashLeavesStateClean(t *testing.T) {
 	}
 	if tr.HasPath(destHash) {
 		t.Fatal("path registered after tampered announce header")
+	}
+	if spy.calls.Load() != 0 {
+		t.Fatalf("announce handler calls=%d want 0", spy.calls.Load())
+	}
+}
+
+// Guarantee: dest hash already known under a different public key is rejected
+// and does not replace the stored key, register a path, or notify handlers.
+func TestOracleAnnouncePublicKeyMismatchLeavesStateClean(t *testing.T) {
+	tr := NewTransport(common.DefaultConfig())
+	defer tr.Close()
+
+	iface := &mockInterface{}
+	iface.Name = "oracle-mismatch"
+	iface.Enabled = true
+	if err := tr.RegisterInterface("oracle-mismatch", iface); err != nil {
+		t.Fatalf("RegisterInterface: %v", err)
+	}
+
+	spy := &announceAuthSpy{}
+	tr.RegisterAnnounceHandler(spy)
+
+	id, err := identity.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	annRaw, destHash := signedAnnounceRaw(t, tr, id)
+
+	poison, err := identity.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !identity.Remember([]byte("poison"), destHash, poison.GetPublicKey(), nil) {
+		t.Fatal("setup Remember should accept")
+	}
+
+	tr.HandlePacket(annRaw, iface)
+	time.Sleep(150 * time.Millisecond)
+
+	recalled, err := identity.Recall(destHash)
+	if err != nil {
+		t.Fatalf("Recall: %v", err)
+	}
+	if !bytes.Equal(recalled.GetPublicKey(), poison.GetPublicKey()) {
+		t.Fatal("known destination public key was replaced")
+	}
+	if tr.HasPath(destHash) {
+		t.Fatal("path registered after public key mismatch")
 	}
 	if spy.calls.Load() != 0 {
 		t.Fatalf("announce handler calls=%d want 0", spy.calls.Load())

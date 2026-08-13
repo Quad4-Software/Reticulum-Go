@@ -19,7 +19,7 @@ func FuzzHandleAnnounce(f *testing.F) {
 	if err != nil {
 		f.Fatal(err)
 	}
-	destHash := make([]byte, 16)
+	destHash := DestinationHash(id, "fuzzapp")
 	ann, err := New(id, destHash, "fuzzapp", []byte("app"), false, &common.ReticulumConfig{})
 	if err != nil {
 		f.Fatal(err)

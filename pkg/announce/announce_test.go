@@ -74,7 +74,7 @@ func TestNewAnnounce(t *testing.T) {
 
 func TestCreateAndHandleAnnounce(t *testing.T) {
 	id, _ := identity.New()
-	destHash := make([]byte, 16)
+	destHash := DestinationHash(id, "testapp")
 	config := &common.ReticulumConfig{}
 
 	ann, _ := New(id, destHash, "testapp", []byte("appdata"), false, config)
@@ -92,6 +92,26 @@ func TestCreateAndHandleAnnounce(t *testing.T) {
 
 	if !handler.received {
 		t.Error("Handler did not receive announce")
+	}
+}
+
+func TestHandleAnnounceRejectsDestHashMismatch(t *testing.T) {
+	id, err := identity.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ann, err := New(id, make([]byte, 16), "testapp", []byte("appdata"), false, &common.ReticulumConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	packet, err := ann.CreatePacket()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ann.HandleAnnounce(packet); err == nil {
+		t.Fatal("HandleAnnounce accepted dest hash that does not match name hash and identity")
+	} else if err.Error() != "destination hash mismatch" {
+		t.Fatalf("got %v, want destination hash mismatch", err)
 	}
 }
 
@@ -254,7 +274,7 @@ func TestOracle_HandleAnnounceHeaderType2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	destHash := bytes.Repeat([]byte{0x11}, AddrHashSize)
+	destHash := DestinationHash(id, "oracle.ht2")
 	ann, err := New(id, destHash, "oracle.ht2", []byte("app"), false, &common.ReticulumConfig{})
 	if err != nil {
 		t.Fatal(err)
@@ -294,7 +314,7 @@ func TestOracle_HandleAnnounceRejectsPathfinderMHops(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	destHash := make([]byte, AddrHashSize)
+	destHash := DestinationHash(id, "oracle.hops")
 	ann, err := New(id, destHash, "oracle.hops", []byte("x"), false, &common.ReticulumConfig{})
 	if err != nil {
 		t.Fatal(err)

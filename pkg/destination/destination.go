@@ -248,8 +248,10 @@ func (d *Destination) ExpandName() string {
 }
 
 // Announce builds and sends an announce packet on registered interfaces.
-// Returns ErrDestTransportNotSet, ErrDestAnnounceNoInterfaces, or
-// ErrDestAnnounceNoWritable when no usable outbound path exists.
+// Returns ErrDestTransportNotSet, ErrDestAnnounceRequiresIn,
+// ErrDestAnnounceNoInterfaces, or ErrDestAnnounceNoWritable when no usable
+// outbound path exists. Access-point interfaces are skipped on unattached
+// local origin, same as Python Transport.outbound.
 func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface common.NetworkInterface) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -258,6 +260,9 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 
 	if d.destType != Single {
 		return errors.New("only SINGLE destination types can be announced")
+	}
+	if d.direction&In == 0 {
+		return common.ErrDestAnnounceRequiresIn
 	}
 
 	if d.transport == nil {
@@ -296,18 +301,16 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 	var lastErr error
 	sent := 0
 	if attachedInterface != nil {
-		if attachedInterface.IsEnabled() && attachedInterface.IsOnline() {
-			if !common.InterfaceAllowsOutgoing(attachedInterface) {
-				debug.Log(debug.DebugVerbose, "Skipping announce on receive-only attached interface", "name", attachedInterface.GetName())
+		if localAnnounceAllowed(attachedInterface, attachedInterface) {
+			debug.Log(debug.DebugVerbose, "Sending announce to attached interface", "name", attachedInterface.GetName())
+			if err := attachedInterface.Send(packet, ""); err != nil {
+				debug.Log(debug.DebugError, "Failed to send announce on attached interface", "error", err)
+				lastErr = err
 			} else {
-				debug.Log(debug.DebugVerbose, "Sending announce to attached interface", "name", attachedInterface.GetName())
-				if err := attachedInterface.Send(packet, ""); err != nil {
-					debug.Log(debug.DebugError, "Failed to send announce on attached interface", "error", err)
-					lastErr = err
-				} else {
-					sent++
-				}
+				sent++
 			}
+		} else if !common.InterfaceAllowsOutgoing(attachedInterface) {
+			debug.Log(debug.DebugVerbose, "Skipping announce on receive-only attached interface", "name", attachedInterface.GetName())
 		}
 	} else {
 		interfaces := d.transport.GetInterfaces()
@@ -315,11 +318,12 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 			return common.ErrDestAnnounceNoInterfaces
 		}
 		for name, iface := range interfaces {
-			if !iface.IsEnabled() || !iface.IsOnline() {
-				continue
-			}
-			if !common.InterfaceAllowsOutgoing(iface) {
-				debug.Log(debug.DebugVerbose, "Skipping announce on receive-only interface", "name", name)
+			if !localAnnounceAllowed(iface, nil) {
+				if iface != nil && !common.InterfaceAllowsOutgoing(iface) {
+					debug.Log(debug.DebugVerbose, "Skipping announce on receive-only interface", "name", name)
+				} else if iface != nil && iface.GetMode() == common.IFModeAccessPoint {
+					debug.Log(debug.DebugVerbose, "Skipping announce on access-point interface", "name", name)
+				}
 				continue
 			}
 			debug.Log(debug.DebugVerbose, "Sending announce to interface", "name", name)
@@ -339,6 +343,25 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 		return common.ErrDestAnnounceNoWritable
 	}
 	return nil
+}
+
+func localAnnounceAllowed(iface, attached common.NetworkInterface) bool {
+	if iface == nil {
+		return false
+	}
+	if attached != nil && iface != attached {
+		return false
+	}
+	if !iface.IsEnabled() || !iface.IsOnline() {
+		return false
+	}
+	if !common.InterfaceAllowsOutgoing(iface) {
+		return false
+	}
+	if attached == nil && iface.GetMode() == common.IFModeAccessPoint {
+		return false
+	}
+	return true
 }
 
 // AcceptsLinks marks whether this destination should accept incoming links.

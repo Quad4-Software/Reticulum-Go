@@ -230,7 +230,9 @@ func GetRandomHash() []byte {
 	return TruncatedHash(randomData)
 }
 
-func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) {
+// Remember stores a known destination from a validated announce.
+// Returns false when destHash is already known under a different public key.
+func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) bool {
 	hashStr := knownDestKey(destHash)
 
 	knownDestinationsLock.Lock()
@@ -238,7 +240,11 @@ func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) 
 
 	now := time.Now().Unix()
 	if existing, ok := knownDestinations[hashStr]; ok && len(existing) >= 4 {
-		if id, ok := existing[2].(*Identity); ok && id.publicKeyEqual(publicKey) {
+		if id, ok := existing[2].(*Identity); ok {
+			if !id.publicKeyEqual(publicKey) {
+				debug.Log(debug.DebugCritical, "Rejected announce: destination hash already known with a different public key")
+				return false
+			}
 			prevPkt, _ := existing[0].([]byte)
 			prevApp, _ := existing[3].([]byte)
 			if bytes.Equal(prevPkt, packet) && bytes.Equal(prevApp, appData) {
@@ -246,7 +252,7 @@ func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) 
 				meta.rememberedAt = now
 				knownDestMetaByKey[hashStr] = meta
 				markKnownDestinationsDirty()
-				return
+				return true
 			}
 			existing[0] = append([]byte(nil), packet...)
 			existing[3] = append([]byte(nil), appData...)
@@ -254,7 +260,7 @@ func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) 
 			meta.rememberedAt = now
 			knownDestMetaByKey[hashStr] = meta
 			markKnownDestinationsDirty()
-			return
+			return true
 		}
 	}
 
@@ -280,6 +286,7 @@ func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) 
 	setKnownDestMetaLocked(hashStr, now, lastUsed)
 	evictKnownDestinationsIfNeededLocked()
 	markKnownDestinationsDirty()
+	return true
 }
 
 // knownDestMaxEntries is the soft cap applied while in-memory storage is
