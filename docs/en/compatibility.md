@@ -130,8 +130,9 @@ These do not change the wire format:
 | RAM-only path tables | in_memory_path_table, in_memory_known_destinations |
 | Fully ephemeral storage | in_memory_storage, `RETICULUM_IN_MEMORY_STORAGE`, soft caps |
 | Stream read chunk | 64 KiB socket reads on TCP/QUIC/VSOCK/WebTransport/I2P/Local/Pipe/backbone. Packet MTU unchanged |
-| HandlePacket worker pool | Fixed workers and bounded queue (`max_packet_handlers`). Overflow sheds |
+| HandlePacket worker pool | Fixed workers and bounded queue (`max_packet_handlers`). Overflow always sheds |
 | node_profile | `default`, `core_router`, `embedded`. Fills unset knobs only |
+| Packet hashlist | Compact open-addressing generations. Rotate at `max/2`. Default 1M when transport is on |
 
 ## Config differences
 
