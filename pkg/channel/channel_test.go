@@ -5,6 +5,7 @@ package channel
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -25,6 +26,7 @@ type mockLink struct {
 func (m *mockLink) GetStatus() byte   { return m.status }
 func (m *mockLink) GetRTT() float64   { return m.rtt }
 func (m *mockLink) RTT() float64      { return m.rtt }
+func (m *mockLink) GetMDU() int       { return 512 }
 func (m *mockLink) GetLinkID() []byte { return []byte("testlink") }
 func (m *mockLink) Send(data []byte) any {
 	m.sent = append(m.sent, data)
@@ -257,6 +259,115 @@ func BenchmarkChannelSendScale(b *testing.B) {
 	}
 	ch.txRing = nil
 	ch.mutex.Unlock()
+}
+
+func deliverOne(link *mockLink) {
+	for p, cb := range link.delivered {
+		if cb != nil {
+			cb(p)
+		}
+		delete(link.delivered, p)
+		return
+	}
+}
+
+func TestIsReadyToSendWindowFull(t *testing.T) {
+	link := &mockLink{status: transport.StatusActive, rtt: 2.0}
+	c := NewChannel(link)
+	defer func() { _ = c.Close() }()
+	if !c.IsReadyToSend() {
+		t.Fatal("empty channel should be ready")
+	}
+	if err := c.Send(&testMessage{data: []byte("a")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Send(&testMessage{data: []byte("b")}); err != nil {
+		t.Fatal(err)
+	}
+	if c.IsReadyToSend() {
+		t.Fatal("window of 2 should be full")
+	}
+	deliverOne(link)
+	if !c.IsReadyToSend() {
+		t.Fatal("delivery should open a window slot")
+	}
+}
+
+func TestWaitReadyTimeout(t *testing.T) {
+	link := &mockLink{status: transport.StatusActive, rtt: 2.0}
+	c := NewChannel(link)
+	defer func() { _ = c.Close() }()
+	_ = c.Send(&testMessage{data: []byte("a")})
+	_ = c.Send(&testMessage{data: []byte("b")})
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if err := c.WaitReady(ctx); err == nil {
+		t.Fatal("expected timeout")
+	}
+}
+
+func TestWindowGrowsFastRTT(t *testing.T) {
+	link := &mockLink{status: transport.StatusActive, rtt: 0.05}
+	c := NewChannel(link)
+	defer func() { _ = c.Close() }()
+	for i := 0; i < FastRateThreshold+2; i++ {
+		if err := c.Send(&testMessage{data: []byte{byte(i)}}); err != nil {
+			t.Fatal(err)
+		}
+		deliverOne(link)
+	}
+	if c.WindowMax() != WindowMaxFast {
+		t.Fatalf("windowMax=%d want %d", c.WindowMax(), WindowMaxFast)
+	}
+	if c.Window() < WindowInitial {
+		t.Fatalf("window=%d should have grown", c.Window())
+	}
+}
+
+func TestWindowStaysSlowOnHighRTT(t *testing.T) {
+	link := &mockLink{status: transport.StatusActive, rtt: 2.0}
+	c := NewChannel(link)
+	defer func() { _ = c.Close() }()
+	for i := 0; i < FastRateThreshold+4; i++ {
+		if err := c.Send(&testMessage{data: []byte{byte(i)}}); err != nil {
+			t.Fatal(err)
+		}
+		deliverOne(link)
+	}
+	if c.WindowMax() != WindowMaxSlow {
+		t.Fatalf("windowMax=%d want slow %d", c.WindowMax(), WindowMaxSlow)
+	}
+}
+
+func TestWindowShrinksOnTimeout(t *testing.T) {
+	link := &mockLink{status: transport.StatusActive, rtt: 0.05}
+	c := NewChannel(link)
+	defer func() { _ = c.Close() }()
+	for i := 0; i < FastRateThreshold+2; i++ {
+		_ = c.Send(&testMessage{data: []byte{byte(i)}})
+		deliverOne(link)
+	}
+	grew := c.WindowMax()
+	if grew != WindowMaxFast {
+		t.Fatalf("setup windowMax=%d", grew)
+	}
+	_ = c.Send(&testMessage{data: []byte("x")})
+	for p, cb := range link.timeouts {
+		if cb != nil {
+			cb(p)
+		}
+	}
+	if c.WindowMax() >= grew {
+		t.Fatalf("windowMax=%d should shrink from %d", c.WindowMax(), grew)
+	}
+}
+
+func TestChannelMDU(t *testing.T) {
+	link := &mockLink{status: transport.StatusActive}
+	c := NewChannel(link)
+	if got := c.MDU(); got != 512-ChannelHeaderSize {
+		t.Fatalf("MDU=%d want %d", got, 512-ChannelHeaderSize)
+	}
 }
 
 func TestSequenceWrapsAtModulus(t *testing.T) {

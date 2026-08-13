@@ -4,6 +4,7 @@
 package channel
 
 import (
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -51,18 +52,21 @@ type MessageConstructor func() MessageBase
 // Sends reserve a sequence only after a successful outlet transmit, matching
 // the Python 1.3.0 ghost-envelope fix while keeping a single-outlet model.
 type Channel struct {
-	link            transport.LinkInterface
-	sendMu          sync.Mutex
-	mutex           sync.RWMutex
-	txRing          []*Envelope
-	window          int
-	windowMax       int
-	windowMin       int
-	nextSequence    uint16
-	maxTries        int
-	messageHandlers []messageHandlerEntry
-	nextHandlerID   int
-	factories       map[uint16]MessageConstructor
+	link              transport.LinkInterface
+	sendMu            sync.Mutex
+	mutex             sync.RWMutex
+	txRing            []*Envelope
+	window            int
+	windowMax         int
+	windowMin         int
+	windowFlexibility int
+	fastRateRounds    int
+	mediumRateRounds  int
+	nextSequence      uint16
+	maxTries          int
+	messageHandlers   []messageHandlerEntry
+	nextHandlerID     int
+	factories         map[uint16]MessageConstructor
 }
 
 type messageHandlerEntry struct {
@@ -83,14 +87,15 @@ type Envelope struct {
 // NewChannel creates a new Channel for the given link.
 func NewChannel(link transport.LinkInterface) *Channel {
 	return &Channel{
-		link:            link,
-		messageHandlers: make([]messageHandlerEntry, InitialHandlerCapacity),
-		factories:       make(map[uint16]MessageConstructor),
-		mutex:           sync.RWMutex{},
-		windowMax:       WindowMaxSlow,
-		windowMin:       WindowMinSlow,
-		window:          WindowInitial,
-		maxTries:        DefaultMaxTries,
+		link:              link,
+		messageHandlers:   make([]messageHandlerEntry, InitialHandlerCapacity),
+		factories:         make(map[uint16]MessageConstructor),
+		mutex:             sync.RWMutex{},
+		windowMax:         WindowMaxSlow,
+		windowMin:         WindowMinSlow,
+		window:            WindowInitial,
+		windowFlexibility: WindowFlexibility,
+		maxTries:          DefaultMaxTries,
 	}
 }
 
@@ -224,6 +229,7 @@ func (c *Channel) handleTimeout(packet any) {
 		if env == nil || env.Packet == nil || env.Packet != packet {
 			continue
 		}
+		c.shrinkWindowOnTimeoutLocked()
 		if env.Tries >= c.maxTries {
 			c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
 			releaseEnvelope(env)
@@ -247,6 +253,10 @@ func (c *Channel) handleDelivered(packet any) {
 	if packet == nil {
 		return
 	}
+	rtt := 0.0
+	if c.link != nil {
+		rtt = c.link.GetRTT()
+	}
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -256,6 +266,7 @@ func (c *Channel) handleDelivered(packet any) {
 		}
 		c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
 		releaseEnvelope(env)
+		c.adjustWindowOnDeliveredLocked(rtt)
 		break
 	}
 }
@@ -363,6 +374,112 @@ func (g *GenericMessage) Unpack(data []byte) error {
 // GetType returns the message type.
 func (g *GenericMessage) GetType() uint16 {
 	return g.Type
+}
+
+// IsReadyToSend reports whether the TX window has room, matching Python
+// Channel.is_ready_to_send (outstanding envelopes < window).
+func (c *Channel) IsReadyToSend() bool {
+	if c.link == nil || !outletReady(c.link.GetStatus()) {
+		return false
+	}
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	return len(c.txRing) < c.window
+}
+
+// WaitReady blocks until IsReadyToSend or ctx is done.
+func (c *Channel) WaitReady(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	for {
+		if c.link != nil && !outletReady(c.link.GetStatus()) {
+			return ErrLinkNotReady
+		}
+		if c.IsReadyToSend() {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(5 * time.Millisecond):
+		}
+	}
+}
+
+type mduOutlet interface {
+	GetMDU() int
+}
+
+// MDU is bytes available for a channel message body, matching Python
+// Channel.mdu (outlet MDU minus 6-byte envelope header).
+func (c *Channel) MDU() int {
+	mdu := DefaultOutletMDU
+	if g, ok := c.link.(mduOutlet); ok {
+		if n := g.GetMDU(); n > 0 {
+			mdu = n
+		}
+	}
+	mdu -= ChannelHeaderSize
+	if mdu > 0xFFFF {
+		mdu = 0xFFFF
+	}
+	if mdu < 1 {
+		mdu = 1
+	}
+	return mdu
+}
+
+// Window is the current send window (tests and diagnostics).
+func (c *Channel) Window() int {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	return c.window
+}
+
+// WindowMax is the current maximum send window (tests and diagnostics).
+func (c *Channel) WindowMax() int {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	return c.windowMax
+}
+
+// Caller must hold c.mutex.
+func (c *Channel) adjustWindowOnDeliveredLocked(rtt float64) {
+	if c.window < c.windowMax {
+		c.window++
+	}
+	if rtt == 0 {
+		return
+	}
+	if rtt > RTTFast {
+		c.fastRateRounds = 0
+		if rtt > RTTMedium {
+			c.mediumRateRounds = 0
+			return
+		}
+		c.mediumRateRounds++
+		if c.windowMax < WindowMaxMedium && c.mediumRateRounds == FastRateThreshold {
+			c.windowMax = WindowMaxMedium
+			c.windowMin = WindowMinMedium
+		}
+		return
+	}
+	c.fastRateRounds++
+	if c.windowMax < WindowMaxFast && c.fastRateRounds == FastRateThreshold {
+		c.windowMax = WindowMaxFast
+		c.windowMin = WindowMinFast
+	}
+}
+
+// Caller must hold c.mutex.
+func (c *Channel) shrinkWindowOnTimeoutLocked() {
+	if c.window > c.windowMin {
+		c.window--
+	}
+	if c.windowMax > c.windowMin+c.windowFlexibility {
+		c.windowMax--
+	}
 }
 
 // TxRingLen returns the number of outstanding envelopes (tests and diagnostics).

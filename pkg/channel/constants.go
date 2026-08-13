@@ -37,6 +37,9 @@ const (
 	ChannelHeaderBits = 8
 
 	DefaultMaxTries = 5
+
+	// DefaultOutletMDU is used when the outlet does not expose GetMDU.
+	DefaultOutletMDU = 500
 )
 
 // MessageState represents the delivery state of a channel message.
