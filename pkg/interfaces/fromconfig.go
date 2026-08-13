@@ -313,6 +313,7 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 		return nil, fmt.Errorf("interface %q does not implement common.NetworkInterface", name)
 	}
 	applyModeFromConfig(iface, cfg, ctx)
+	applyBitrateFromConfig(iface, cfg)
 	applyOutgoingFromConfig(iface, cfg)
 	if err := ApplyIFACFromConfig(ni, cfg); err != nil {
 		return nil, err
@@ -341,6 +342,15 @@ func applyModeFromConfig(iface Interface, cfg *common.InterfaceConfig, ctx *From
 		base.AnnouncesFromInternal = afi
 		base.AnnouncesToInternal = ati
 		base.Gravity = gravity
+	}
+}
+
+func applyBitrateFromConfig(iface Interface, cfg *common.InterfaceConfig) {
+	if cfg == nil || cfg.Bitrate <= 0 {
+		return
+	}
+	if base := baseInterfaceOf(iface); base != nil {
+		base.Bitrate = cfg.Bitrate
 	}
 }
 

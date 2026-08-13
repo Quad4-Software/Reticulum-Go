@@ -10,6 +10,17 @@ const (
 	PathRequestTTL  = 300
 	AnnounceTimeout = 15
 
+	// PathRequestTimeout is the default client path-request wait in seconds
+	// (Python Transport.PATH_REQUEST_TIMEOUT).
+	PathRequestTimeout = 15
+
+	// PathExchangeBytes is a typical path-request plus path-response size
+	// including a small IFAC. Used to size cold path waits on slow radios.
+	PathExchangeBytes = 240
+
+	// PathWindowMarginSec is added after the two-way airtime estimate.
+	PathWindowMarginSec = 10
+
 	// PathfinderE is path table lifetime in seconds (Python PATHFINDER_E).
 	PathfinderE = 60 * 60 * 24 * 7
 

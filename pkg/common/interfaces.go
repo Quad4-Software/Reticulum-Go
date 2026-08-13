@@ -203,6 +203,12 @@ func (i *BaseInterface) GetMTU() int {
 	return i.MTU
 }
 
+func (i *BaseInterface) GetBitrate() int64 {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.Bitrate
+}
+
 func (i *BaseInterface) GetName() string {
 	return i.Name
 }

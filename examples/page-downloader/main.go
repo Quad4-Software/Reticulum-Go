@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -23,7 +24,7 @@ import (
 )
 
 var (
-	timeout    = flag.Int("timeout", 30, "Timeout in seconds for link establishment and request")
+	timeout    = flag.Int("timeout", 0, "Timeout in seconds for path, link, and request (0 = adaptive path and link)")
 	logLevel   = flag.Int("log-level", -1, "Log level override (1-7). Alias for -debug")
 	configPath = flag.String("config", "", "Reticulum config file (required unless -udp)")
 	useUDP     = flag.Bool("udp", false, "Use local UDP interface mode")
@@ -149,62 +150,55 @@ func main() {
 		debug.Log(debug.DebugInfo, "Seeded direct UDP path", "to", destHashHex)
 	}
 
-	pathFound := false
-	pathTimeout := time.Now().Add(time.Duration(*timeout) * time.Second)
-	lastPathRequest := time.Time{}
-
-	for time.Now().Before(pathTimeout) {
+	pathTimeout := time.Duration(*timeout) * time.Second
+	if pathTimeout <= 0 {
+		pathTimeout = trans.PathResponseWindow(destHashBytes)
+	}
+	pathCtx, cancelPath := context.WithTimeout(context.Background(), pathTimeout)
+	defer cancelPath()
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+	lastReq := time.Time{}
+	for {
 		if trans.HasPath(destHashBytes) {
-			pathFound = true
-			debug.Log(debug.DebugInfo, "Path found!")
 			break
 		}
-		if time.Since(lastPathRequest) >= 2*time.Second {
-			debug.Log(debug.DebugInfo, "No path yet, requesting path...")
+		if time.Since(lastReq) >= 2*time.Second {
 			if err := trans.RequestPath(destHashBytes, "", nil, false); err != nil {
 				debug.Log(debug.DebugError, "Failed to request path", "error", err)
 			}
-			lastPathRequest = time.Now()
+			lastReq = time.Now()
 		}
-		time.Sleep(500 * time.Millisecond)
+		select {
+		case <-pathCtx.Done():
+			debug.Log(debug.DebugCritical, "Path to destination not found", "to", destHashHex, "timeout", pathTimeout)
+			debug.Log(debug.DebugInfo, "Make sure the target destination is:")
+			debug.Log(debug.DebugInfo, "  1. Running and announcing")
+			debug.Log(debug.DebugInfo, "  2. Reachable on the network")
+			debug.Log(debug.DebugInfo, "  3. The destination hash is correct")
+			_ = trans.Close()
+			os.Exit(1)
+		case <-ticker.C:
+		}
 	}
-
-	if !pathFound {
-		debug.Log(debug.DebugCritical, "Path to destination not found", "to", destHashHex, "timeout", *timeout)
-		debug.Log(debug.DebugInfo, "Make sure the target destination is:")
-		debug.Log(debug.DebugInfo, "  1. Running and announcing")
-		debug.Log(debug.DebugInfo, "  2. Reachable on the network")
-		debug.Log(debug.DebugInfo, "  3. The destination hash is correct")
-		_ = trans.Close()
-		os.Exit(1)
-	}
+	debug.Log(debug.DebugInfo, "Path found!")
 
 	debug.Log(debug.DebugInfo, "Resolving destination identity", "hash", destHashHex)
 	var remoteIdentity *identity.Identity
-	identityTimeout := time.Now().Add(time.Duration(*timeout) * time.Second)
-	lastIdentityPathRequest := time.Time{}
-
-	for time.Now().Before(identityTimeout) {
+	for {
 		remoteIdentity, err = identity.Recall(destHashBytes)
 		if err == nil && remoteIdentity != nil {
 			debug.Log(debug.DebugInfo, "Destination identity resolved", "hash", destHashHex)
 			break
 		}
-
-		if time.Since(lastIdentityPathRequest) >= 2*time.Second {
-			if reqErr := trans.RequestPath(destHashBytes, "", nil, false); reqErr != nil {
-				debug.Log(debug.DebugError, "Failed to request path while resolving identity", "error", reqErr)
-			}
-			lastIdentityPathRequest = time.Now()
+		select {
+		case <-pathCtx.Done():
+			debug.Log(debug.DebugCritical, "Destination identity not found", "hash", destHashHex)
+			debug.Log(debug.DebugInfo, "Wait for an announce from this destination and try again")
+			_ = trans.Close()
+			os.Exit(1)
+		case <-time.After(50 * time.Millisecond):
 		}
-		time.Sleep(500 * time.Millisecond)
-	}
-
-	if remoteIdentity == nil {
-		debug.Log(debug.DebugCritical, "Destination identity not found", "hash", destHashHex)
-		debug.Log(debug.DebugInfo, "Wait for an announce from this destination and try again")
-		_ = trans.Close()
-		os.Exit(1)
 	}
 
 	dest, err := destination.FromHash(destHashBytes, remoteIdentity, destination.Single, trans)
@@ -241,6 +235,10 @@ func main() {
 	}
 
 	startTime := time.Now()
+	linkTimeout := l.EstablishmentTimeout() + 6*time.Second
+	if *timeout > 0 {
+		linkTimeout = time.Duration(*timeout) * time.Second
+	}
 	select {
 	case <-established:
 		debug.Log(debug.DebugInfo, "Link established", "elapsed", time.Since(startTime))
@@ -248,7 +246,7 @@ func main() {
 		debug.Log(debug.DebugCritical, "Link establishment failed")
 		_ = trans.Close()
 		os.Exit(1)
-	case <-time.After(time.Duration(*timeout) * time.Second):
+	case <-time.After(linkTimeout):
 		debug.Log(debug.DebugCritical, "Link establishment timeout")
 		_ = trans.Close()
 		os.Exit(1)
@@ -260,7 +258,11 @@ func main() {
 	responseChan := make(chan []byte, 1)
 	errorChan := make(chan error, 1)
 
-	receipt, err := l.Request(pagePath, nil, time.Duration(*timeout)*time.Second)
+	reqTimeout := time.Duration(*timeout) * time.Second
+	if reqTimeout <= 0 {
+		reqTimeout = time.Duration(trans.FirstHopTimeout(destHashBytes)*float64(time.Second)) + 30*time.Second
+	}
+	receipt, err := l.Request(pagePath, nil, reqTimeout)
 	if err != nil {
 		debug.Log(debug.DebugCritical, "Error sending request", "error", err)
 		l.Teardown()
@@ -292,7 +294,7 @@ func main() {
 		l.Teardown()
 		_ = trans.Close()
 		os.Exit(1)
-	case <-time.After(time.Duration(*timeout) * time.Second):
+	case <-time.After(reqTimeout):
 		debug.Log(debug.DebugCritical, "Request timeout")
 		l.Teardown()
 		_ = trans.Close()

@@ -23,7 +23,7 @@ func RunProbe(args []string, opt ...Options) int {
 
 	configDir := fs.String("config", "", "path to config directory")
 	size := fs.Int("s", rnsutil.DefaultProbeSize, "probe payload size in bytes")
-	timeoutSec := fs.Float64("t", 0, "per-probe timeout in seconds (0 = first-hop based)")
+	timeoutSec := fs.Float64("t", 0, "per-probe timeout in seconds (0 = adaptive path wait, first-hop based probe)")
 	waitSec := fs.Float64("w", 0, "delay between probes in seconds")
 	count := fs.Int("n", 1, "number of probes")
 	verbose := fs.Bool("v", false, "show next-hop details")
@@ -70,7 +70,7 @@ func RunProbe(args []string, opt ...Options) int {
 	if *timeoutSec > 0 {
 		pathTimeout = time.Duration(*timeoutSec * float64(time.Second))
 	} else {
-		pathTimeout = rnsutil.DefaultProbeTimeout + time.Duration(tr.GetFirstHopTimeoutRPC(destHash)*float64(time.Second))
+		pathTimeout = rnsutil.PathResponseWindow(tr, destHash)
 	}
 
 	pathCtx, cancel := context.WithTimeout(context.Background(), pathTimeout)
@@ -102,7 +102,7 @@ func RunProbe(args []string, opt ...Options) int {
 		if *timeoutSec > 0 {
 			probeTimeout = time.Duration(*timeoutSec * float64(time.Second))
 		} else {
-			probeTimeout = rnsutil.DefaultProbeTimeout + time.Duration(tr.GetFirstHopTimeoutRPC(destHash)*float64(time.Second))
+			probeTimeout = rnsutil.DefaultProbeTimeout + rnsutil.FirstHopTimeout(tr, destHash)
 		}
 		ctx, cancelProbe := context.WithTimeout(context.Background(), probeTimeout)
 

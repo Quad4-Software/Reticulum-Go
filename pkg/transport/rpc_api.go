@@ -454,11 +454,7 @@ func (t *Transport) GetNextHopIfNameRPC(destinationHash []byte) string {
 }
 
 func (t *Transport) GetFirstHopTimeoutRPC(destinationHash []byte) float64 {
-	hops := t.HopsTo(destinationHash)
-	if hops >= PathfinderM {
-		return float64(EstablishmentTimeoutPerHop)
-	}
-	return float64(EstablishmentTimeoutPerHop) * float64(max(1, int(hops)))
+	return t.FirstHopTimeout(destinationHash)
 }
 
 func (t *Transport) IsBlackholedRPC(identityHash []byte) bool {

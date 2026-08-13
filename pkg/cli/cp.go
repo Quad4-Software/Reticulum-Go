@@ -4,7 +4,6 @@
 package cli
 
 import (
-	"context"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -37,7 +36,7 @@ func RunCP(args []string, opt ...Options) int {
 	listenMode := fs.Bool("l", false, "listen for incoming transfers")
 	fetchMode := fs.Bool("f", false, "fetch file from remote (requires -f path and destination)")
 	fetchPath := fs.String("F", "", "remote file path to fetch (with -f)")
-	timeoutSec := fs.Float64("w", 15, "path and link timeout in seconds")
+	timeoutSec := fs.Float64("w", 0, "path and link timeout in seconds (0 = adaptive from interface bitrate)")
 	silent := fs.Bool("s", false, "silent (minimal progress)")
 	noCompress := fs.Bool("no-compress", false, "disable auto compression")
 	allowAll := fs.Bool("a", false, "allow unauthenticated senders (listen)")
@@ -70,8 +69,8 @@ func RunCP(args []string, opt ...Options) int {
 	}
 
 	timeout := time.Duration(*timeoutSec * float64(time.Second))
-	if timeout <= 0 {
-		timeout = rnsutil.DefaultRNCPTimeout
+	if timeout < 0 {
+		timeout = 0
 	}
 
 	if *printID {
@@ -381,7 +380,7 @@ func runSend(tr *transport.Transport, id *identity.Identity, filePath string, de
 		fmt.Fprintln(stdout, errMsg(stdout, "File not found"))
 		return 1
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := rnsutil.CLIWaitContext(timeout)
 	defer cancel()
 
 	fmt.Fprintln(stdout, infoMsg(stdout, fmt.Sprintf("Path to %s requested", rnsutil.PrettyHex(destHash))))
@@ -447,7 +446,7 @@ func runFetch(tr *transport.Transport, id *identity.Identity, destHash []byte, r
 		}
 		saveDir = abs
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := rnsutil.CLIWaitContext(timeout)
 	defer cancel()
 
 	fmt.Fprintln(stdout, infoMsg(stdout, fmt.Sprintf("Path to %s requested", rnsutil.PrettyHex(destHash))))

@@ -93,7 +93,7 @@ func LoadRgoshAllowedIdentities(extra []string) ([][]byte, error) {
 // destHash should be the peer's rgosh or rnsh listening hash. Empty appName
 // selects rgosh, then DetectShellMode after recall if the hash is rnsh.
 func EstablishRgoshLink(ctx context.Context, tr *transport.Transport, destHash []byte, appName string) (*link.Link, error) {
-	if err := WaitPath(ctx, tr, destHash); err != nil {
+	if err := WaitPathWindow(ctx, tr, destHash); err != nil {
 		return nil, fmt.Errorf("path: %w", err)
 	}
 	remote, err := identity.Recall(destHash)
@@ -116,16 +116,12 @@ func EstablishRgoshLink(ctx context.Context, tr *transport.Transport, destHash [
 		if msg := rgoshAppMismatch(destHash, remote, appName); msg != "" {
 			return nil, fmt.Errorf("%s", msg)
 		}
-		if err := WaitPath(ctx, tr, linkHash); err != nil {
+		if err := WaitPathWindow(ctx, tr, linkHash); err != nil {
 			return nil, fmt.Errorf("path to %s %s: %w", appName, PrettyHex(linkHash), err)
 		}
 	}
 	l := link.NewLink(outDest, tr, nil, nil, nil)
-	if err := l.Establish(); err != nil {
-		return nil, err
-	}
-	if err := WaitLinkActive(ctx, l); err != nil {
-		l.Teardown()
+	if err := activateOutboundLink(ctx, l); err != nil {
 		return nil, fmt.Errorf("link: %w", err)
 	}
 	return l, nil

@@ -4,7 +4,6 @@
 package cli
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -49,7 +48,7 @@ func RunSH(args []string, opt ...Options) int {
 	lineMode := fs.Bool("line", false, "force line-buffered stdin")
 	rawMode := fs.Bool("raw", false, "disable stdin coalescing")
 	verbose := fs.Bool("v", false, "enable reticulum debug logs on stderr")
-	timeoutSec := fs.Float64("w", 15, "path/link timeout seconds")
+	timeoutSec := fs.Float64("w", 0, "path/link timeout seconds (0 = adaptive from interface bitrate)")
 	var allowed flagStringList
 	fs.Var(&allowed, "a", "allowed identity hash (repeatable, listen)")
 
@@ -89,8 +88,8 @@ func RunSH(args []string, opt ...Options) int {
 	}
 
 	timeout := time.Duration(*timeoutSec * float64(time.Second))
-	if timeout <= 0 {
-		timeout = rnsutil.DefaultRgoshTimeout
+	if timeout < 0 {
+		timeout = 0
 	}
 
 	if *printID {
@@ -320,13 +319,13 @@ type shClientOpts struct {
 
 func runSHClient(tr *transport.Transport, id *identity.Identity, destHash []byte, opts shClientOpts) int {
 	stdout, stderr := opts.stdout, opts.stderr
-	ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
+	ctx, cancel := rnsutil.CLIWaitContext(opts.timeout)
 	defer cancel()
 
 	compat := opts.compatForced
 	appName := opts.appName
 	if !opts.compatForced {
-		if err := rnsutil.WaitPath(ctx, tr, destHash); err != nil {
+		if err := rnsutil.WaitPathWindow(ctx, tr, destHash); err != nil {
 			fmt.Fprintln(stderr, errMsg(stderr, err.Error()))
 			return 1
 		}

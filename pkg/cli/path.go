@@ -28,7 +28,7 @@ func RunPath(args []string, opt ...Options) int {
 	drop := fs.Bool("d", false, "drop path to destination")
 	dropVia := fs.Bool("D", false, "drop all paths via transport hash")
 	dropQueues := fs.Bool("q", false, "drop announce queues")
-	timeoutSec := fs.Float64("w", 15, "path request timeout in seconds")
+	timeoutSec := fs.Float64("w", 0, "path request timeout in seconds (0 = adaptive from interface bitrate)")
 	rpcTimeout := fs.Duration("timeout", 10*time.Second, "RPC timeout")
 	remoteHex := fs.String("R", "", "transport identity hash of remote instance")
 	mgmtIdent := fs.String("i", "", "identity file for remote management")
@@ -285,7 +285,7 @@ func RunPath(args []string, opt ...Options) int {
 	tr := n.Transport()
 	timeout := time.Duration(*timeoutSec * float64(time.Second))
 	if timeout <= 0 {
-		timeout = 15 * time.Second
+		timeout = rnsutil.PathResponseWindow(tr, destHash)
 	}
 	fmt.Fprintln(stdout, infoMsg(stdout, fmt.Sprintf("Path to %s requested", rnsutil.PrettyHex(destHash))))
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)

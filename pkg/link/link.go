@@ -240,6 +240,12 @@ func (l *Link) Establish() error {
 	l.status.Store(int32(StatusPending))
 	l.requestTime = time.Now()
 	l.expectedHops = l.transport.HopsTo(l.destination.GetHash())
+	hops := int(l.expectedHops)
+	if hops < 1 || l.expectedHops >= HopCountUnreachable {
+		hops = 1
+	}
+	firstHop := l.transport.FirstHopTimeout(l.destination.GetHash())
+	l.establishmentTimeout = time.Duration((firstHop + float64(hops)*EstablishmentTimeoutPerHop) * float64(time.Second))
 
 	if err := l.prepareLinkRequestLocked(); err != nil {
 		debug.Log(debug.DebugError, "Failed to prepare link request", "error", err, "elapsed", time.Since(startTime).Seconds())
@@ -2475,6 +2481,19 @@ func (l *Link) SetRTT(rtt float64) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 	l.rtt = rtt
+}
+
+// EstablishmentTimeout is the wait this link uses for proof and RTT during
+// handshake. Initiators set it from first-hop airtime plus per-hop timeout.
+// Applications that must use a timer should wait this value plus a small
+// margin instead of a flat 15 seconds.
+func (l *Link) EstablishmentTimeout() time.Duration {
+	if l == nil {
+		return time.Duration(EstablishmentTimeoutPerHop * float64(time.Second))
+	}
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	return l.establishmentTimeout
 }
 
 func (l *Link) GetStatus() byte {

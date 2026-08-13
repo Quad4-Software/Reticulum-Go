@@ -40,7 +40,7 @@ func RunX(args []string, opt ...Options) int {
 	noID := fs.Bool("N", false, "don't identify to listener")
 	detailed := fs.Bool("d", false, "show detailed result summary")
 	mirror := fs.Bool("m", false, "mirror remote exit code")
-	timeoutSec := fs.Float64("w", 15, "path/link/command timeout seconds")
+	timeoutSec := fs.Float64("w", 0, "path/link/command timeout seconds (0 = adaptive path and link)")
 	resultTimeoutSec := fs.Float64("W", 0, "max seconds to receive result (0 = unlimited)")
 	stdinStr := fs.String("stdin", "", "data passed to remote stdin")
 	stdoutLimit := fs.Int("stdout", -1, "max stdout bytes returned (-1 = unlimited)")
@@ -70,8 +70,8 @@ func RunX(args []string, opt ...Options) int {
 	}
 
 	timeout := time.Duration(*timeoutSec * float64(time.Second))
-	if timeout <= 0 {
-		timeout = rnsutil.DefaultRNXTimeout
+	if timeout < 0 {
+		timeout = 0
 	}
 
 	if *printID {
@@ -125,7 +125,11 @@ func RunX(args []string, opt ...Options) int {
 	if *stdinStr != "" {
 		stdin = []byte(*stdinStr)
 	}
-	timeoutF := timeout.Seconds()
+	var timeoutPtr *float64
+	if timeout > 0 {
+		s := timeout.Seconds()
+		timeoutPtr = &s
+	}
 
 	execOpts := xExecOpts{
 		timeout:       timeout,
@@ -137,7 +141,7 @@ func RunX(args []string, opt ...Options) int {
 		stdout:        stdout,
 		stderr:        stderr,
 		req: rnsutil.RNXRequest{
-			TimeoutSec:  &timeoutF,
+			TimeoutSec:  timeoutPtr,
 			StdoutLimit: stdoutL,
 			StderrLimit: stderrL,
 			Stdin:       stdin,
@@ -247,7 +251,7 @@ type xExecOpts struct {
 
 func runXInteractive(tr *transport.Transport, id *identity.Identity, destHash []byte, opts *xExecOpts) int {
 	stdout, stderr := opts.stdout, opts.stderr
-	ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
+	ctx, cancel := rnsutil.CLIWaitContext(opts.timeout)
 	l, err := rnsutil.EstablishRNXLink(ctx, tr, destHash)
 	cancel()
 	if err != nil {
@@ -301,7 +305,7 @@ func runXExecute(tr *transport.Transport, id *identity.Identity, destHash []byte
 		l = opts.keepLink
 	} else {
 		fmt.Fprintln(stdout, infoMsg(stdout, fmt.Sprintf("Path to %s requested", rnsutil.PrettyHex(destHash))))
-		ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
+		ctx, cancel := rnsutil.CLIWaitContext(opts.timeout)
 		l, err = rnsutil.EstablishRNXLink(ctx, tr, destHash)
 		cancel()
 		if err != nil {

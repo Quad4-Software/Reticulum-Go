@@ -54,6 +54,7 @@ func NewUDPInterfaceWithRetries(name string, addr string, target string, enabled
 	}
 
 	ui.MTU = 1064
+	ui.Bitrate = BitrateGuess
 	if maxReconnectTries > 0 {
 		ui.initReconnectDriver()
 	}

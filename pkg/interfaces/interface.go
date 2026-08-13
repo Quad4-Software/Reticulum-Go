@@ -275,6 +275,13 @@ func (i *BaseInterface) GetMode() common.InterfaceMode {
 	return i.Mode
 }
 
+// GetBitrate returns the advertised interface bitrate in bits per second.
+func (i *BaseInterface) GetBitrate() int64 {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.Bitrate
+}
+
 // RecursivePRsEnabled reports whether unknown-path discovery is enabled.
 func (i *BaseInterface) RecursivePRsEnabled() bool {
 	return i.RecursivePRs

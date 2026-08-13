@@ -72,7 +72,7 @@ func EstablishRemoteManagementLink(ctx context.Context, tr *transport.Transport,
 		return nil, fmt.Errorf("management identity required")
 	}
 	destHash := RemoteManagementDestHash(transportIdentityHash)
-	if err := WaitPath(ctx, tr, destHash); err != nil {
+	if err := WaitPathWindow(ctx, tr, destHash); err != nil {
 		return nil, fmt.Errorf("path: %w", err)
 	}
 	remote, err := identity.Recall(destHash)
@@ -84,11 +84,7 @@ func EstablishRemoteManagementLink(ctx context.Context, tr *transport.Transport,
 		return nil, err
 	}
 	l := link.NewLink(outDest, tr, nil, nil, nil)
-	if err := l.Establish(); err != nil {
-		return nil, err
-	}
-	if err := WaitLinkActive(ctx, l); err != nil {
-		l.Teardown()
+	if err := activateOutboundLink(ctx, l); err != nil {
 		return nil, fmt.Errorf("link: %w", err)
 	}
 	if err := l.Identify(authIdentity); err != nil {
