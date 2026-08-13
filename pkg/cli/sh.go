@@ -522,10 +522,7 @@ afterAuth:
 	var lastWinch time.Time
 	var lastWinchMu sync.Mutex
 	sendWinch := func() {
-		gap := time.Duration(l.GetRTT() * 25 * float64(time.Second))
-		if gap < 50*time.Millisecond {
-			gap = 50 * time.Millisecond
-		}
+		gap := max(time.Duration(l.GetRTT()*25*float64(time.Second)), 50*time.Millisecond)
 		lastWinchMu.Lock()
 		if !lastWinch.IsZero() && time.Since(lastWinch) < gap {
 			lastWinchMu.Unlock()

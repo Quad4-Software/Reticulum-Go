@@ -679,10 +679,7 @@ func (s *Session) sendStreamChunks(sender Sender, compat bool, ctx context.Conte
 		}
 		chunk, n, comp := compressAdaptive(data, mdu)
 		if n < 1 {
-			n = len(data)
-			if n > mdu {
-				n = mdu
-			}
+			n = min(len(data), mdu)
 			chunk = data[:n]
 			comp = false
 		}

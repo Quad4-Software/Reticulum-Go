@@ -310,7 +310,7 @@ func TestWindowGrowsFastRTT(t *testing.T) {
 	link := &mockLink{status: transport.StatusActive, rtt: 0.05}
 	c := NewChannel(link)
 	defer func() { _ = c.Close() }()
-	for i := 0; i < FastRateThreshold+2; i++ {
+	for i := range FastRateThreshold + 2 {
 		if err := c.Send(&testMessage{data: []byte{byte(i)}}); err != nil {
 			t.Fatal(err)
 		}
@@ -328,7 +328,7 @@ func TestWindowStaysSlowOnHighRTT(t *testing.T) {
 	link := &mockLink{status: transport.StatusActive, rtt: 2.0}
 	c := NewChannel(link)
 	defer func() { _ = c.Close() }()
-	for i := 0; i < FastRateThreshold+4; i++ {
+	for i := range FastRateThreshold + 4 {
 		if err := c.Send(&testMessage{data: []byte{byte(i)}}); err != nil {
 			t.Fatal(err)
 		}
@@ -343,7 +343,7 @@ func TestWindowShrinksOnTimeout(t *testing.T) {
 	link := &mockLink{status: transport.StatusActive, rtt: 0.05}
 	c := NewChannel(link)
 	defer func() { _ = c.Close() }()
-	for i := 0; i < FastRateThreshold+2; i++ {
+	for i := range FastRateThreshold + 2 {
 		_ = c.Send(&testMessage{data: []byte{byte(i)}})
 		deliverOne(link)
 	}
