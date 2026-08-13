@@ -443,7 +443,7 @@ Per-interface keys announce_cap, `announce_rate_*`, ingress_control, and `ic_*` 
 
 ## Operational notes
 
-**MTU.** Default Reticulum packet MTU is 500 bytes (`pkg/packet.MTU`). Interface mtu should be consistent with the physical path.
+**MTU.** Default Reticulum packet MTU is 500 bytes (`pkg/packet.MTU`). Interface mtu should be consistent with the physical path. Stream underlays still read 64 KiB from the socket so many HDLC frames can arrive in one Read. UDP and DNS rendezvous stay datagram-sized.
 
 **IPv6.** prefer_ipv6 affects TCP and Auto binding and discovery.
 

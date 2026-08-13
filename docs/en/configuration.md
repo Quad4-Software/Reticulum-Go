@@ -73,6 +73,8 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | max_in_memory_known_destinations | 100000 | Soft cap on known destinations in RAM. Zero uses default. Negative disables. Env: `RETICULUM_MAX_IN_MEMORY_KNOWN_DESTINATIONS` |
 | max_in_memory_resource_bytes | 256M | Split-resource staging budget when in_memory_storage is yes. Negative disables |
 | max_packet_hashlist | auto | Packet hash loop-filter size. Zero: 1M when enable_transport is yes, else 100k. Negative forces 1M. Env: `RETICULUM_MAX_PACKET_HASHLIST` |
+| max_packet_handlers | 512 | HandlePacket worker count and queue depth. Overflow sheds under dos_protection |
+| node_profile | default | Go-only overlay: `default`, `core_router`, or `embedded`. Fills unset knobs only. Explicit keys always win |
 | discover_interfaces | no | Start rnstransport interface discovery listener |
 | watch_interfaces | no | Poll NIC up/down and rescan Auto interfaces (Go-only) |
 | static_transport_identity | no | Keep persisted transport identity on the wire when enable_transport is no (RNS 1.3.6+) |
@@ -82,6 +84,16 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | remote_management_allowed | (empty) | Comma-separated identity hashes allowed to use remote management |
 | network_identity | (empty) | Path to network identity for discovery encrypt/decrypt |
 | panic_on_interface_error | no | Panic on fatal interface errors |
+
+### node_profile (Go-only)
+
+`node_profile` fills unset knobs. Keys present in the file are never overwritten.
+
+| Profile | Effect when unset |
+|---------|-------------------|
+| default | No overlay |
+| core_router | `dos_protection=prevent`, `backbone_io=auto`, `watch_interfaces=yes`, `max_packet_handlers=max(512, GOMAXPROCS*64)`, `max_in_memory_paths=500000` |
+| embedded | `max_packet_handlers=32`, `max_in_memory_paths=4096`, smaller known-dest and hashlist caps |
 
 ### dos_protection (Go-only)
 

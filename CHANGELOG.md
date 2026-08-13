@@ -29,6 +29,10 @@ Wire compatible with Python RNS 1.4.2
 - dos_max_* config knobs, bitrate-scaled adaptive floors, priority ingress shedding
 - Per-peer fair-share admit buckets on shared UDP/TCP/QUIC/VSOCK/HTTPS/I2P listeners so one sender cannot cool down the whole iface
 - Handler pool overflow always sheds (no sync dispatch on ingress threads)
+- Fixed HandlePacket worker pool (`max_packet_handlers`, default 512) instead of a goroutine per packet
+- 64 KiB stream reads on TCP/QUIC/VSOCK/WebTransport/I2P/Local/Pipe/backbone with packet-MTU HDLC framing unchanged
+- `node_profile` overlay (`core_router` / `embedded`) fills unset knobs only
+- HDLC burst and Unpack hop-gate live Go/Python oracles
 - FreeBSD sandbox SIGHUP re-exec for config reload under CapEnter
 - Linux Landlock via `github.com/landlock-lsm/go-landlock` instead of hand-rolled syscalls
 - Sandbox Landlock/seccomp soft-fail stdout warnings

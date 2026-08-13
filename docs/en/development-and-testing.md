@@ -84,7 +84,7 @@ Follow existing naming, error wrapping, and SPDX headers in each file.
 |-------|------------|----------------|
 | Unit | `task test` / `task test-short` | Package `*_test.go` |
 | Property | `task test-property` | `*_pbt_test.go` and embedded `quad4/pbt` / `testing/quick` |
-| Mutation | `task test-mutation` | gomutant on cryptography, packet, announce, destination, identity, ifac |
+| Mutation | `task test-mutation` | gomutant on cryptography, packet, announce, destination, identity, ifac, backbone |
 | Chaos | `task test-chaos` / `task test-soak` / `task test-soak-protect` | `TestSimChaos*` / `TestLinkChaos*` / `TestIfaceChaos*` plus soak, including dos_protection flood soak |
 | Oracle | `task test-oracle` | Crossref vectors, health `TransportOracle` deltas, adversarial corpus |
 | Smoke | `task test-binary-smoke`, binding smokes | Binary `--version`/`--help`, CLI dump via `Main`, librns smoke examples |
@@ -123,7 +123,7 @@ In-repo `tools/gomutant` flips same-width operators and re-runs package tests.
 task test-mutation
 ```
 
-Default packages: cryptography, packet, announce, destination, identity, ifac. Override with `MUTATION_PACKAGES` / `MUTATION_THRESHOLD`.
+Default packages: cryptography, packet, announce, destination, identity, ifac, backbone. Override with `MUTATION_PACKAGES` / `MUTATION_THRESHOLD`.
 
 ### Fuzz tests
 
@@ -237,7 +237,7 @@ go test ./pkg/cli/ -run TestRunDump
 
 Location: `tests/interop/`
 
-Live tests pair a Go process with Python helpers under `tests/interop/py/`.
+Live tests pair a Go process with Python helpers under `tests/interop/py/`. HDLC burst (`TestLiveInteropHDLCBurst*`) and Unpack hop-gate (`TestLiveInteropUnpackOracleMatchesPython`) cover stream coalescing and refuse-invalid parity.
 
 Enable:
 

@@ -227,6 +227,9 @@ Intentional extensions beyond upstream *rns*:
 | LRPROOF rebalance dampening | Caps hop rewrites per destination (8/min) and refuses hop-increasing rebalance when current path affinity is much higher than proof ingress. |
 | Path-request readiness | Online gate plus optional non-positive bitrate refusal and emit-time re-check (stricter than Python online-only). |
 | Blackhole membership set | Mutation-invalidated `ActiveIdentitySet` instead of a 60s TTL cache. Discovery filters at receive time. |
+| Stream read chunk | 64 KiB reads on stream underlays. HDLC frame MTU unchanged. |
+| HandlePacket pool | Fixed workers and bounded queue (`max_packet_handlers`). |
+| node_profile | `core_router` / `embedded` fill unset knobs only. |
 
 ## Utilities
 

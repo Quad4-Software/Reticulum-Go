@@ -140,8 +140,8 @@ If no path exists, transport may emit path requests according to configuration a
 
 ## Concurrency model
 
-- Each interface runs its own read loop (or shares a backbone hub poller).
-- Transport uses internal locking and channels to serialize table updates and forwarding.
+- Each interface runs its own read loop (or shares a backbone hub poller). Stream interfaces (TCP, QUIC, VSOCK, WebTransport, I2P, Local, Pipe, backbone hub) read 64 KiB at a time. HDLC still splits frames at the packet MTU.
+- Transport HandlePacket copies the frame then hands it to a fixed worker pool (`max_packet_handlers`, default 512). Overflow sheds under dos_protection instead of spawning more goroutines.
 - Links run session goroutines for keepalive, request/response, and channel outlets.
 - Hot reload takes reloadMu on Node to swap interfaces without tearing down unrelated state.
 
