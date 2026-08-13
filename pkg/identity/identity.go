@@ -408,21 +408,12 @@ func (i *Identity) ValidateHMAC(key, message, messageHMAC []byte) bool {
 	return cryptography.ValidateHMAC(key, message, messageHMAC)
 }
 
+// GetCurrentRatchetKey returns the most recently rotated identity-level
+// ratchet private key, or nil if none exist. It does not generate keys.
+// On-wire SINGLE ratchets live on Destination, not Identity.
 func (i *Identity) GetCurrentRatchetKey() []byte {
 	i.mutex.RLock()
 	defer i.mutex.RUnlock()
-
-	if len(i.ratchets) == 0 {
-		debug.Log(debug.DebugTrace, "No ratchets found, generating a new one on-the-fly")
-		i.mutex.RUnlock()
-		newRatchet, err := i.RotateRatchet()
-		i.mutex.RLock()
-		if err != nil {
-			debug.Log(debug.DebugCritical, "Failed to generate initial ratchet key", "error", err)
-			return nil
-		}
-		return newRatchet
-	}
 
 	var latestKey []byte
 	var latestTime int64
@@ -433,10 +424,6 @@ func (i *Identity) GetCurrentRatchetKey() []byte {
 				latestKey = buf.CopyOut()
 			}
 		}
-	}
-
-	if latestKey == nil {
-		debug.Log(debug.DebugError, "Could not determine the latest ratchet key", "ratchet_count", len(i.ratchets))
 	}
 
 	return latestKey
@@ -933,6 +920,8 @@ func FromBytes(data []byte) (*Identity, error) {
 	return ident, nil
 }
 
+// RotateRatchet generates an identity-level ratchet private key.
+// Announces and SINGLE encrypt use Destination.EnableRatchets instead.
 func (i *Identity) RotateRatchet() ([]byte, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()

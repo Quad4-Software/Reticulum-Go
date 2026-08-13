@@ -114,7 +114,7 @@ Two kinds of material share the ratchet directory:
 
 | Kind | Path | Contents |
 |------|------|----------|
-| Local destination private keys | Path passed to `EnableRatchets` (pageserver uses `storage/ratchets/{identity_hash}`) | Signed msgpack list (`signature` + packed private keys) |
+| Local destination private keys | Path passed to `EnableRatchets` (pageserver uses `storage/ratchets/{destination_hash}`) | Signed msgpack list (`signature` + packed private keys) |
 | Known-peer public keys | `storage/ratchets/{destination_hash}` | Python-compatible msgpack `{ratchet, received}` |
 
 `EnableRatchetsInMemory` keeps local private keys in RAM only. Known-peer public keys also stay in RAM when `in_memory_storage` or shared-instance client mode is on (`Identity.RememberRatchet` skips disk). Expired known-peer files are dropped after 30 days (`RATCHET_EXPIRY`). Clean skips destination-private signed files so they are not treated as peer records.

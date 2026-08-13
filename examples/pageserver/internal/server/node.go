@@ -5,6 +5,7 @@ package server
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -176,7 +177,7 @@ func NewReticulum(cfg *common.ReticulumConfig, opts Options) (*Reticulum, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get home directory: %w", err)
 	}
-	ratchetPath := filepath.Join(homeDir, ".reticulum-go", "storage", "ratchets", r.identity.GetHexHash())
+	ratchetPath := destPrivateRatchetPath(filepath.Join(homeDir, ".reticulum-go"), dest, ident)
 	dest.EnableRatchets(ratchetPath)
 	dest.SetProofStrategy(destination.ProveApp)
 
@@ -957,4 +958,27 @@ func (r *Reticulum) handleLinkPacket(l *link.Link, data []byte, pkt *packet.Pack
 	debug.Log(debug.DebugInfo, "Processing request", "path", requestPath, "request_id", fmt.Sprintf("%x", requestID))
 
 	r.destination.HandleRequest(requestPath, nil, requestID, l.GetLinkID(), nil, time.Now().Unix())
+}
+
+func destPrivateRatchetPath(configRoot string, dest *destination.Destination, ident *identity.Identity) string {
+	dir := filepath.Join(configRoot, "storage", "ratchets")
+	path := filepath.Join(dir, hex.EncodeToString(dest.GetHash()))
+	if ident == nil {
+		return path
+	}
+	old := filepath.Join(dir, ident.GetHexHash())
+	if path == old {
+		return path
+	}
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	if _, err := os.Stat(old); err != nil {
+		return path
+	}
+	if err := os.Rename(old, path); err != nil {
+		debug.Log(debug.DebugError, "Failed to rename ratchet file to destination hash", "error", err, "from", old, "to", path)
+		return old
+	}
+	return path
 }

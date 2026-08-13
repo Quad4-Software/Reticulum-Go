@@ -32,7 +32,7 @@ Override with `--config` on the daemon command line.
 
 Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a separate directory so both stacks can run on one host.
 
-`storage/ratchets/` holds known-peer public keys named by destination hash (Python `{ratchet, received}` msgpack) and destination-private signed lists at the path `EnableRatchets` was given. `EnableRatchetsInMemory` and `in_memory_storage` keep ratchet material in RAM.
+`storage/ratchets/` holds known-peer public keys named by destination hash (Python `{ratchet, received}` msgpack) and destination-private signed lists at the path `EnableRatchets` was given. Pageserver names that file by destination hash, same as Python LXMF. `EnableRatchetsInMemory` and `in_memory_storage` keep ratchet material in RAM.
 
 ## File format
 

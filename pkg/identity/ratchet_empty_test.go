@@ -8,9 +8,7 @@ import (
 	"testing"
 )
 
-// TestGetCurrentRatchetKeyFromEmptyMapConcurrent covers the unlock-then-rotate
-// path when ratchets are empty.
-func TestGetCurrentRatchetKeyFromEmptyMapConcurrent(t *testing.T) {
+func TestGetCurrentRatchetKeyDoesNotGenerate(t *testing.T) {
 	id, err := New()
 	if err != nil {
 		t.Fatal(err)
@@ -30,8 +28,8 @@ func TestGetCurrentRatchetKeyFromEmptyMapConcurrent(t *testing.T) {
 	for range 32 {
 		wg.Go(func() {
 			k := id.GetCurrentRatchetKey()
-			if len(k) == 0 {
-				errs <- "nil or empty ratchet"
+			if k != nil {
+				errs <- "generated a key from an empty map"
 			}
 		})
 	}
@@ -39,5 +37,12 @@ func TestGetCurrentRatchetKeyFromEmptyMapConcurrent(t *testing.T) {
 	close(errs)
 	for e := range errs {
 		t.Fatal(e)
+	}
+
+	id.mutex.Lock()
+	n := len(id.ratchets)
+	id.mutex.Unlock()
+	if n != 0 {
+		t.Fatalf("GetCurrentRatchetKey created %d identity-level ratchets", n)
 	}
 }

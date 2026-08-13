@@ -197,6 +197,11 @@ func TestRatchets(t *testing.T) {
 		t.Errorf("Expected 1 ratchet, got %d", len(ratchets))
 	}
 
+	cur := id.GetCurrentRatchetKey()
+	if !bytes.Equal(cur, ratchet) {
+		t.Error("GetCurrentRatchetKey did not return the rotated key")
+	}
+
 	id.CleanupExpiredRatchets()
 	// Should still be there since it's not expired
 	if len(id.GetRatchets()) != 1 {

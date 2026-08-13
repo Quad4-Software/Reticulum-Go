@@ -196,7 +196,7 @@ Native hosts link `librns.so` and call `include/rns.h`. Same stack as `pkg/node`
 | Known destinations | `storage/known_destinations` | Loads Python-format files |
 | Identities | `storage/identities/` | Per-hash blobs |
 | Known-peer ratchet public keys | `storage/ratchets/{destination_hash}` | Python-compatible `{ratchet, received}` |
-| Local destination ratchet private keys | Path from `EnableRatchets` | Signed msgpack list, or RAM via `EnableRatchetsInMemory` |
+| Local destination ratchet private keys | Path from `EnableRatchets` (pageserver: `{destination_hash}`) | Signed msgpack list, or RAM via `EnableRatchetsInMemory` |
 | Blackhole table | `storage/blackhole` | msgpack |
 | Transport identity | `storage/transport_identity` | Used when transport enabled |
 

@@ -240,7 +240,7 @@ Orchestrates transport, interfaces, shared instance, and lifecycle. Prefer this 
 | `Recall(destHash)` | Public identity from known destinations |
 | Remember / ValidateAnnounce | Announce storage |
 | LoadOrCreateTransportIdentity | Daemon transport identity |
-| RotateRatchet / GetRatchets | Local identity ratchet private keys |
+| RotateRatchet / GetRatchets / GetCurrentRatchetKey | Explicit identity-level keys only. Does not auto-generate. On-wire SINGLE ratchets use Destination.EnableRatchets |
 
 Constants: KeySize (bits), TruncatedHashLength (bits). Hex destination or identity hashes are **32 characters**.
 
