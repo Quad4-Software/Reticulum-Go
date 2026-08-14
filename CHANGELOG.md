@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.0.3
+## v1.0.3 [unreleased]
 
 ### Fixed
 - `BaseInterface.updateBandwidthStats` increments `TxPackets` so interface TX packet counters match transmitted bytes
