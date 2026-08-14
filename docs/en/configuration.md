@@ -50,7 +50,7 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| enable_transport | yes | Enable transport routing and path table |
+| enable_transport | yes | Enable mesh transport routing. A shared-instance owner still relays local-client path and link traffic when this is no |
 | share_instance | yes | Use shared instance multiplexing |
 | shared_instance_port | 37428 | TCP port for shared instance |
 | instance_control_port | 37429 | Control port when this process owns the instance |
