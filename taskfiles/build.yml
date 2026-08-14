@@ -2,7 +2,7 @@ version: '3'
 
 vars:
   LINUX_ARCHES: [amd64, arm64, arm, 386, riscv64, ppc64le, ppc64]
-  WINDOWS_ARCHES: [amd64, arm64]
+  WINDOWS_ARCHES: [amd64, arm64, 386]
   DARWIN_ARCHES: [amd64, arm64]
   FREEBSD_ARCHES: [amd64, 386, arm64, arm, riscv64]
   OPENBSD_ARCHES: [amd64, 386, arm64, arm, ppc64, riscv64]
@@ -93,7 +93,7 @@ tasks:
           GOARCH: '{{.ITEM.GOARCH}}'
 
   build-windows:
-    desc: Build for Windows (amd64, arm64)
+    desc: Build for Windows (amd64, arm64, 386)
     deps:
       - for:
           matrix:

@@ -261,7 +261,7 @@ go test -v ./...
 | `make microvm-up` | Prepare and start Firecracker microvm + host bridge. | Runs `./microvm/up.sh`. See [docs/en/microvm.md](docs/en/microvm.md). |
 | `make microvm-stop` | Stop Firecracker microvm and host bridge. | Runs `./microvm/stop.sh`. |
 | `make build-linux` | Cross-compiles for Linux. | Cross-compiles for amd64, arm64, arm, 386, riscv64, ppc64le, and ppc64 targets. |
-| `make build-windows` | Cross-compiles for Windows. | Cross-compiles for amd64 and arm64 targets. |
+| `make build-windows` | Cross-compiles for Windows. | Cross-compiles for amd64, arm64, and 386 targets. |
 | `make build-windows-legacy` | Cross-compiles for legacy Windows releases. | Compiles Windows 7, 8, and 8.1 support using go-legacy-win7. |
 | `make build-windows-xp` | Cross-compiles for Windows XP and Server 2003. | Uses [go-legacy-winxp](https://github.com/Quad4-Software/go-legacy-winxp) (386 and amd64). |
 | `make build-darwin` | Cross-compiles for macOS. | Cross-compiles for amd64 and arm64 targets. |
@@ -318,7 +318,7 @@ Cross-compilation uses the same optimization flags as native builds. See the [Ma
 
 Official Go 1.21 and newer releases no longer support Windows 7. To support legacy deployments, we compile our legacy Windows releases using [go-legacy-win7](https://github.com/thongtech/go-legacy-win7). This maintained fork restores compatibility with Windows 7, 8, 8.1, Server 2008 R2, and Server 2012 R2.
 
-Official tagged releases include `reticulum-go-windows-amd64-win7.exe` and `reticulum-go-windows-arm64-win7.exe` binaries. These files run on both modern and legacy Windows installations.
+Official tagged releases include `reticulum-go-linux-386`, `reticulum-go-windows-386.exe`, and `reticulum-go-freebsd-386` binaries alongside the existing amd64, arm64, and arm (GOARM=6) builds. Legacy Windows releases also ship `reticulum-go-windows-amd64-win7.exe` and `reticulum-go-windows-arm64-win7.exe` binaries. These files run on both modern and legacy Windows installations.
 
 To compile legacy Windows binaries locally, install go-legacy-win7 and run:
 
