@@ -18,6 +18,7 @@
 - Control API path-request repeats return HTTP 429 with `wait_s`
 
 ### Fixed
+- Shared-instance local clients still get path and link relay when `enable_transport = no` (Python `from_local_client` / `for_local_client_link`). PATHREQUEST already forwarded, but LINKREQUEST and link data were dropped, so rngit and other Python apps resolved a path then failed to establish a link.
 - `BaseInterface.updateBandwidthStats` increments `TxPackets` so interface TX packet counters match transmitted bytes
 - CI bench-gate no longer hangs in `transport.test` (sim Close waited on handler-pool Sends blocked on full inboxes)
 - CI fuzz-guided skips package unit tests and uses `-short` coverage so the job fits the 45m limit
