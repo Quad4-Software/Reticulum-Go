@@ -412,12 +412,17 @@ func (l *Link) HandleIdentification(data []byte) error {
 	}
 
 	// Match Python 1.3.9: set remote identity and fire the callback only once.
-	if l.remoteIdentity == nil {
-		l.remoteIdentity = remoteIdentity
-		if l.identifiedCallback != nil {
-			debug.Log(debug.DebugVerbose, "Executing identified callback for remote identity", "public_key", fmt.Sprintf("%x", pubKey[:8]))
-			l.identifiedCallback(l, remoteIdentity)
-		}
+	l.mutex.Lock()
+	if l.remoteIdentity != nil {
+		l.mutex.Unlock()
+		return nil
+	}
+	l.remoteIdentity = remoteIdentity
+	cb := l.identifiedCallback
+	l.mutex.Unlock()
+	if cb != nil {
+		debug.Log(debug.DebugVerbose, "Executing identified callback for remote identity", "public_key", fmt.Sprintf("%x", pubKey[:8]))
+		cb(l, remoteIdentity)
 	}
 
 	return nil
