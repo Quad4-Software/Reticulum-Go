@@ -166,6 +166,9 @@ func TestUpdateBandwidthStatsAccumulatesTxBytes(t *testing.T) {
 	if bi.GetTxBytes() != 192 {
 		t.Errorf("GetTxBytes() = %d; want 192", bi.GetTxBytes())
 	}
+	if bi.GetTxPackets() != 2 {
+		t.Errorf("GetTxPackets() = %d; want 2", bi.GetTxPackets())
+	}
 }
 
 // Helper function to wait for a WaitGroup with a timeout

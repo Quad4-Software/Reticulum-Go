@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.0.3
+
+### Fixed
+- `BaseInterface.updateBandwidthStats` increments `TxPackets` so interface TX packet counters match transmitted bytes
+
 ## v1.0.2
 
 Wire compatible with Python RNS 1.4.2
