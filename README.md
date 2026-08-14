@@ -356,7 +356,7 @@ task build-windows-xp
 
 This produces `reticulum-go-windows-386-winxp.exe` and `reticulum-go-windows-amd64-winxp.exe`. Prefer the 386 build on bare-metal XP when possible.
 
-Install the compiler with `scripts/ci/setup-go-legacy-winxp.sh 1.26.5-1` after the matching release is published on the fork. Release CI for XP artifacts is gated by `CI_GO_LEGACY_WINXP_ENABLED` in `.github/workflows/ci.yml` until that compiler release exists.
+Install the compiler with `scripts/ci/setup-go-legacy-winxp.sh 1.26.5-1` after the matching release is published on the fork. Set `if: true` on the `build-windows-xp` job in `.github/workflows/ci.yml` and `release-assets.yml` when that compiler release exists.
 
 ## WebAssembly and Embedded Targets
 

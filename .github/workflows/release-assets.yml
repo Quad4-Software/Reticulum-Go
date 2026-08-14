@@ -36,7 +36,6 @@ env:
   CI_GO_VERSION: "1.26.6"
   CI_GO_LEGACY_WIN7_VERSION: "1.26.5-1"
   CI_GO_LEGACY_WINXP_VERSION: "1.26.5-1"
-  CI_GO_LEGACY_WINXP_ENABLED: "false"
   CI_TASK_VERSION: "3.46.3"
   CI_COSIGN_VERSION: "3.0.5"
   CI_TRIVY_VERSION: "0.69.3"
@@ -154,7 +153,8 @@ jobs:
 
   build-windows-xp:
     name: Build (windows, ${{ matrix.goarch }}, winxp)
-    if: env.CI_GO_LEGACY_WINXP_ENABLED == 'true'
+    # Job-level if cannot use env. Set to true after go-legacy-winxp v1.26.5-1 is published.
+    if: false
     strategy:
       fail-fast: false
       matrix:
