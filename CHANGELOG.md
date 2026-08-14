@@ -8,7 +8,9 @@ Wire compatible with Python RNS 1.4.2
 - Wire compatibility target raised to Python RNS 1.4.2
 - Path-request emit skips offline interfaces (and re-checks at recursive PR emit time)
 - Adaptive path-request and link-establishment waits from slowest online bitrate (5 bit/s floor) instead of a flat 15s
+- Config `bitrate` applied when interfaces are created so adaptive timeout math sees radio timing
 - `Transport.FirstHopTimeout` matches Python next-hop airtime, including RPC `get_first_hop_timeout`
+- `Link.EstablishmentTimeout` and `rnsutil` FirstHop/PathResponse helpers wired through CLI utilities (Windows shared-instance RPC included)
 - Discovery drops blackholed transport ids and announcer identities at announce receive time
 - Blackhole `ActiveIdentitySet` for bulk membership checks used by discovery filtering
 - Go-unique path-request readiness also refuses non-positive bitrate when exposed (uninitialized radio timing)
@@ -38,15 +40,21 @@ Wire compatible with Python RNS 1.4.2
 - Link encrypt uses one result buffer (~9 allocs). Backbone HDLC assembler idle cap is 64 KiB at 1 MiB iface MTU
 - `node_profile` overlay (`core_router` / `embedded`) fills unset knobs only
 - HDLC burst and Unpack hop-gate live Go/Python oracles
+- Backbone package mutation testing in CI
 - FreeBSD sandbox SIGHUP re-exec for config reload under CapEnter
 - Linux Landlock via `github.com/landlock-lsm/go-landlock` instead of hand-rolled syscalls
 - Sandbox Landlock/seccomp soft-fail stdout warnings
 - Sandbox extra path allowlisting from interface Device, pipe/discovery commands, TLS files, and `sandbox_extra_paths`
-- Opt-in `sandbox_strict`, `sandbox_profile=router`, `sandbox_exec_rlimits`, and Control API `control_api_socket`
+- Opt-in `sandbox_strict`, `sandbox_profile=router`, `sandbox_exec_rlimits`, `sandbox_skip_scoped`, and Control API `control_api_socket`
 - systemd ProtectSystem and related hardening, plus optional User= drop-in example
 - Path jail with symlink resolution for pageserver and `rgocp` listen fetch
 - Crypto, IFAC, announce-auth, ratchet-downgrade, and RESOURCE_HMU oracle tests
 - Dependabot for GitHub Actions, PR dependency review, and CI RNS pin raised to 1.4.2
+- Builtin protocols vendor module renamed from reticulum-go-mf to reticulum-go-protocols
+- nfpm deb/rpm/arch packages with tool symlinks, man pages, post-install systemd hook, and Makefile `stage-nfpm`
+- Windows XP and Server 2003 release builds via go-legacy-winxp
+- Linux ppc64 serial special-baudrate support
+- DragonFly BSD TCP keepalive socket options
 - Tree `.rsm` inventory generator and verify/sign script updates
 - Docs updates for ratchets, GROUP Token keys, rgosh, sandbox, and dos_protection
 
@@ -61,6 +69,7 @@ Wire compatible with Python RNS 1.4.2
 - RESOURCE_HMU hashmap segment indexes that overflow integer multiply no longer wrap into earlier slots
 - `Identity.GetCurrentRatchetKey` no longer auto-generates keys (on-wire SINGLE ratchets live on Destination)
 - Local `Destination.Announce` requires IN, skips access-point ifaces (Python outbound mode rules), and `Identity.Remember` rejects dest-hash public-key collisions
+- Link identify callback mutex so concurrent identification packets do not race remote identity assignment
 
 ## v1.0.1
 
