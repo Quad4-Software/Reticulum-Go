@@ -85,6 +85,8 @@ When `pkg/blackhole` has an entry for an identity hash, announces from that iden
 
 When `enable_transport = yes`, transport may use a dedicated transport identity stored at `storage/transport_identity`. This identity participates in transport-mode relay and proofs as defined by the protocol.
 
+A process that owns the shared instance still relays path requests, link requests, and link data for local clients when `enable_transport = no`. That matches Python RNS (`from_local_client` / `for_local_client_link`). Turning transport off only refuses to be a mesh hop for other nodes.
+
 ## Registration API
 
 Typical embedder sequence:
