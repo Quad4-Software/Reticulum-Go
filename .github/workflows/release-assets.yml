@@ -50,7 +50,7 @@ jobs:
       fail-fast: false
       matrix:
         goos: [linux, windows, darwin, freebsd]
-        goarch: [amd64, arm64, arm, 386]
+        goarch: [amd64, arm64, arm, 386, riscv64]
         include:
           - goos: js
             goarch: wasm
@@ -59,8 +59,12 @@ jobs:
             goarch: arm
           - goos: darwin
             goarch: 386
+          - goos: darwin
+            goarch: riscv64
           - goos: windows
             goarch: arm
+          - goos: windows
+            goarch: riscv64
 
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -296,6 +300,16 @@ jobs:
           cd examples/pageserver
           go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-386 .
 
+      - name: Build pageserver (linux/riscv64)
+        env:
+          GOOS: linux
+          GOARCH: riscv64
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          cd examples/pageserver
+          go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-riscv64 .
+
       - name: Build wasm example
         run: task example:wasm:build
 
@@ -311,6 +325,7 @@ jobs:
             reticulum-go-example-pageserver-linux-arm64
             reticulum-go-example-pageserver-linux-arm
             reticulum-go-example-pageserver-linux-386
+            reticulum-go-example-pageserver-linux-riscv64
             reticulum-go-example-wasm.wasm
 
   release:

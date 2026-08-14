@@ -648,15 +648,21 @@ jobs:
       fail-fast: false
       matrix:
         goos: [linux, windows, darwin, freebsd]
-        goarch: [amd64, arm64, arm]
+        goarch: [amd64, arm64, arm, 386, riscv64]
         include:
           - goos: js
             goarch: wasm
         exclude:
           - goos: darwin
             goarch: arm
+          - goos: darwin
+            goarch: 386
+          - goos: darwin
+            goarch: riscv64
           - goos: windows
             goarch: arm
+          - goos: windows
+            goarch: riscv64
 
     steps:
       - name: Checkout

@@ -54,6 +54,7 @@ Wire compatible with Python RNS 1.4.2
 - nfpm deb/rpm/arch packages with tool symlinks, man pages, post-install systemd hook, and Makefile `stage-nfpm`
 - Windows XP and Server 2003 release builds via go-legacy-winxp
 - Tagged releases ship 386 binaries for Linux, Windows, and FreeBSD (arm v6 already included)
+- Tagged releases ship riscv64 binaries for Linux and FreeBSD
 - Linux ppc64 serial special-baudrate support
 - DragonFly BSD TCP keepalive socket options
 - Tree `.rsm` inventory generator and verify/sign script updates
