@@ -102,8 +102,8 @@ func collectExtraPaths(cfg *common.ReticulumConfig) []extraPath {
 		if p == "" {
 			continue
 		}
-		if strings.HasSuffix(p, "/") {
-			add(strings.TrimSuffix(p, "/"), pathRWDir)
+		if before, ok := strings.CutSuffix(p, "/"); ok {
+			add(before, pathRWDir)
 			continue
 		}
 		add(p, pathRWFile)

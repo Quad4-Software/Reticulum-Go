@@ -6,6 +6,7 @@ package transport
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -825,8 +826,8 @@ func TestRequestPathThrottle(t *testing.T) {
 	if first == 0 {
 		t.Fatal("first RequestPath emitted no packet")
 	}
-	if err := tr.RequestPath(destHash, "out", nil, false); err != nil {
-		t.Fatalf("second RequestPath: %v", err)
+	if err := tr.RequestPath(destHash, "out", nil, false); !errors.Is(err, common.ErrPathRequestThrottled) {
+		t.Fatalf("second RequestPath = %v, want ErrPathRequestThrottled", err)
 	}
 	if got := len(out.snapshot()); got != first {
 		t.Fatalf("throttled RequestPath still emitted: %d != %d", got, first)

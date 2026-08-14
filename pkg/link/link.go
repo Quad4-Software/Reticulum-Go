@@ -215,7 +215,11 @@ func (l *Link) Establish() error {
 	if l.status.Load() != int32(StatusPending) {
 		debug.Log(debug.DebugInfo, "Cannot establish link: invalid status", "status", l.status.Load())
 		l.mutex.Unlock()
-		return errors.New("link already established or failed")
+		return common.ErrLinkAlreadySettled
+	}
+	if !l.requestTime.IsZero() {
+		l.mutex.Unlock()
+		return common.ErrLinkEstablishBusy
 	}
 
 	if l.destination == nil {
@@ -230,25 +234,32 @@ func (l *Link) Establish() error {
 		return common.ErrLinkTransportRequired
 	}
 
-	if !l.transport.HasPath(l.destination.GetHash()) {
-		destHash := l.destination.GetHash()
+	destHash := l.destination.GetHash()
+	if !l.transport.HasPath(destHash) {
 		l.mutex.Unlock()
 		return common.ErrLinkNoPathf(destHash)
+	}
+
+	if err := l.transport.TryBeginOutboundEstablish(destHash); err != nil {
+		l.mutex.Unlock()
+		return err
 	}
 
 	l.initiator = true
 	l.status.Store(int32(StatusPending))
 	l.requestTime = time.Now()
-	l.expectedHops = l.transport.HopsTo(l.destination.GetHash())
+	l.expectedHops = l.transport.HopsTo(destHash)
 	hops := int(l.expectedHops)
 	if hops < 1 || l.expectedHops >= HopCountUnreachable {
 		hops = 1
 	}
-	firstHop := l.transport.FirstHopTimeout(l.destination.GetHash())
+	firstHop := l.transport.FirstHopTimeout(destHash)
 	l.establishmentTimeout = time.Duration((firstHop + float64(hops)*EstablishmentTimeoutPerHop) * float64(time.Second))
 
 	if err := l.prepareLinkRequestLocked(); err != nil {
 		debug.Log(debug.DebugError, "Failed to prepare link request", "error", err, "elapsed", time.Since(startTime).Seconds())
+		l.requestTime = time.Time{}
+		l.transport.EndOutboundEstablish(destHash)
 		l.mutex.Unlock()
 		return err
 	}
@@ -291,7 +302,7 @@ func (l *Link) Reestablish() error {
 	st := l.status.Load()
 	if st == int32(StatusPending) || st == int32(StatusHandshake) || st == int32(StatusActive) {
 		l.mutex.Unlock()
-		return errors.New("link already active or establishing")
+		return common.ErrLinkAlreadySettled
 	}
 	l.resetForReconnectLocked()
 	l.mutex.Unlock()
@@ -339,7 +350,7 @@ func (l *Link) registerLinkPath() {
 
 func (l *Link) Identify(id *identity.Identity) error {
 	if !l.IsActive() {
-		return errors.New("link not active")
+		return common.ErrLinkNotActive
 	}
 
 	pubKey := id.GetPublicKey()
@@ -438,7 +449,7 @@ func (l *Link) RequestLimited(path string, data any, timeout time.Duration, maxR
 	l.mutex.Lock()
 	if l.status.Load() != int32(StatusActive) {
 		l.mutex.Unlock()
-		return nil, errors.New("link not active")
+		return nil, common.ErrLinkNotActive
 	}
 
 	pathHash := identity.TruncatedHash([]byte(path))
@@ -489,16 +500,17 @@ func (l *Link) RequestLimited(path string, data any, timeout time.Duration, maxR
 		receipt := &RequestReceipt{
 			link:            l,
 			requestID:       requestID,
+			pathHash:        pathHash,
 			status:          StatusPending,
 			sentAt:          time.Now(),
 			timeout:         timeout,
 			maxResponseSize: maxResponseSize,
 		}
 
-		// Register before send so a synchronous reply cannot arrive unmatched.
-		l.requestMutex.Lock()
-		l.pendingRequests = append(l.pendingRequests, receipt)
-		l.requestMutex.Unlock()
+		if err := l.registerPendingRequest(receipt); err != nil {
+			l.mutex.Unlock()
+			return nil, err
+		}
 		l.mutex.Unlock()
 
 		debug.Log(debug.DebugInfo, "Sending request", "path", path, "request_id", fmt.Sprintf("%x", requestID))
@@ -535,15 +547,16 @@ func (l *Link) RequestLimited(path string, data any, timeout time.Duration, maxR
 	receipt := &RequestReceipt{
 		link:            l,
 		requestID:       requestID,
+		pathHash:        pathHash,
 		status:          StatusPending,
 		sentAt:          time.Now(),
 		timeout:         timeout,
 		maxResponseSize: maxResponseSize,
 	}
 
-	l.requestMutex.Lock()
-	l.pendingRequests = append(l.pendingRequests, receipt)
-	l.requestMutex.Unlock()
+	if err := l.registerPendingRequest(receipt); err != nil {
+		return nil, err
+	}
 
 	go receipt.startTimeout()
 
@@ -576,10 +589,37 @@ func (l *Link) RequestLimited(path string, data any, timeout time.Duration, maxR
 	return receipt, nil
 }
 
+func (l *Link) registerPendingRequest(receipt *RequestReceipt) error {
+	if l == nil || receipt == nil {
+		return common.ErrLinkRequestBusy
+	}
+	l.requestMutex.Lock()
+	defer l.requestMutex.Unlock()
+	if len(l.pendingRequests) >= MaxPendingRequests {
+		debug.Log(debug.DebugInfo, "Link request rejected, too many in flight",
+			"pending", len(l.pendingRequests),
+			"max", MaxPendingRequests,
+			"hint", "wait for receipts, do not loop Request")
+		return common.ErrLinkRequestBusy
+	}
+	if len(receipt.pathHash) > 0 {
+		for _, pending := range l.pendingRequests {
+			if pending != nil && bytes.Equal(pending.pathHash, receipt.pathHash) {
+				debug.Log(debug.DebugInfo, "Link request rejected, duplicate path in flight",
+					"hint", "wait for the receipt")
+				return common.ErrLinkRequestDuplicate
+			}
+		}
+	}
+	l.pendingRequests = append(l.pendingRequests, receipt)
+	return nil
+}
+
 type RequestReceipt struct {
 	link            *Link
 	mutex           sync.RWMutex
 	requestID       []byte
+	pathHash        []byte
 	status          byte
 	sentAt          time.Time
 	receivedAt      time.Time
@@ -950,7 +990,7 @@ func (l *Link) SendPacketWithContext(data []byte, context byte) error {
 
 	if l.status.Load() != int32(StatusActive) {
 		debug.Log(debug.DebugInfo, "Cannot send packet: link not active", "status", l.status.Load())
-		return errors.New("link not active")
+		return common.ErrLinkNotActive
 	}
 
 	debug.Log(debug.DebugVerbose, "Encrypting packet", "bytes", len(data), "context", fmt.Sprintf("0x%02x", context))
@@ -1145,7 +1185,7 @@ func (l *Link) handleResourceProof(pkt *packet.Packet) error {
 func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 	st := l.status.Load()
 	if st != int32(StatusActive) && st != int32(StatusHandshake) {
-		return errors.New("link not active")
+		return common.ErrLinkNotActive
 	}
 
 	if pkt.Context == packet.ContextLRRTT && st == int32(StatusHandshake) && !l.initiator {
@@ -2241,9 +2281,11 @@ func (l *Link) promoteToActive() bool {
 		st := l.status.Load()
 		switch st {
 		case int32(StatusActive):
+			l.releaseOutboundEstablish()
 			return true
 		case int32(StatusHandshake), int32(StatusPending), int32(StatusStale):
 			if l.status.CompareAndSwap(st, int32(StatusActive)) {
+				l.releaseOutboundEstablish()
 				return true
 			}
 		default:
@@ -2521,6 +2563,10 @@ func (l *Link) GetStatus() byte {
 }
 
 func (l *Link) Send(data []byte) any {
+	if l == nil || l.status.Load() != int32(StatusActive) {
+		debug.Log(debug.DebugInfo, common.MsgLinkNotActive)
+		return nil
+	}
 	pkt := &packet.Packet{
 		HeaderType:      packet.HeaderType1,
 		PacketType:      packet.PacketTypeData,
@@ -2635,7 +2681,7 @@ func (l *Link) SendResource(res *resource.Resource) error {
 	if l.status.Load() != int32(StatusActive) {
 		l.teardownReason = StatusFailed
 		l.mutex.Unlock()
-		return errors.New("link not active")
+		return common.ErrLinkNotActive
 	}
 	l.mutex.Unlock()
 	sdu := l.resourceSDU()
@@ -2787,7 +2833,7 @@ func (l *Link) ProvePacket(pkt *packet.Packet) error {
 		return errors.New("nil packet")
 	}
 	if !l.IsActive() {
-		return errors.New("link not active")
+		return common.ErrLinkNotActive
 	}
 	hash := pkt.GetHash()
 	if len(hash) == 0 {

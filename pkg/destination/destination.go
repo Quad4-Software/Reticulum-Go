@@ -95,6 +95,9 @@ type Destination struct {
 	defaultAppData []byte
 	mutex          sync.RWMutex
 
+	announceWindowStart time.Time
+	announceWindowCount int
+
 	requestHandlers map[string]*RequestHandler
 
 	// maxRequestSize limits accepted inbound request plaintext size when set
@@ -290,6 +293,18 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 		return common.ErrDestTransportNotSet
 	}
 
+	if !pathResponse {
+		now := time.Now()
+		if now.Sub(d.announceWindowStart) > announceBurstWindow {
+			d.announceWindowStart = now
+			d.announceWindowCount = 0
+		}
+		d.announceWindowCount++
+		if d.announceWindowCount > announceBurstMax {
+			return common.ErrDestAnnounceThrottled
+		}
+	}
+
 	appData := d.defaultAppData
 
 	var ratchetPub []byte
@@ -460,9 +475,7 @@ func (d *Destination) Receive(pkt *packet.Packet, iface common.NetworkInterface)
 	d.mutex.RUnlock()
 
 	if callback == nil {
-		if debug.Enabled(debug.DebugInfo) {
-			debug.Log(debug.DebugInfo, common.MsgDestNoPacketCallback, "hash", fmt.Sprintf("%x", d.GetHash()))
-		}
+		debug.Log(debug.DebugInfo, common.MsgDestNoPacketCallback, "hash", fmt.Sprintf("%x", d.GetHash()))
 		return false
 	}
 

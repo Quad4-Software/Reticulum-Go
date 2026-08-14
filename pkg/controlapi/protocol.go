@@ -153,6 +153,7 @@ type pathRequestRequest struct {
 // WaitS is the bitrate-sized window the caller should wait for HasPath.
 type pathRequestResponse struct {
 	WaitS float64 `json:"wait_s"`
+	Error string  `json:"error,omitempty"`
 }
 
 // wsCommandEnvelope is decoded first to dispatch an inbound WebSocket

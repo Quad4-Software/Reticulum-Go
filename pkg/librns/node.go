@@ -333,7 +333,9 @@ func PathRequest(nodeHandle uint64, destHash []byte) int {
 	if !rec.started {
 		return setLastError(errState)
 	}
-	_ = rec.node.Transport().RequestPath(destHash, "", nil, false)
+	if err := rec.node.Transport().RequestPath(destHash, "", nil, false); err != nil {
+		return setLastError(err)
+	}
 	return OK
 }
 

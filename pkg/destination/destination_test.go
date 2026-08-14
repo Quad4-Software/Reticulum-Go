@@ -1052,6 +1052,36 @@ func TestHandleIncomingLinkRequestMissingHandlerMessage(t *testing.T) {
 	}
 }
 
+func TestAnnounceThrottlesBurst(t *testing.T) {
+	id, err := identity.New()
+	if err != nil {
+		t.Fatalf("identity.New: %v", err)
+	}
+	iface := newRecordingInterface("udp")
+	tr := &mockTransport{
+		config: &common.ReticulumConfig{},
+		interfaces: map[string]common.NetworkInterface{
+			"udp": iface,
+		},
+	}
+	dest, err := New(id, In, Single, "testapp", tr, "aspect")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	for i := range announceBurstMax {
+		if err := dest.Announce(false, nil, nil); err != nil {
+			t.Fatalf("announce %d: %v", i, err)
+		}
+	}
+	err = dest.Announce(false, nil, nil)
+	if !errors.Is(err, common.ErrDestAnnounceThrottled) {
+		t.Fatalf("got %v, want ErrDestAnnounceThrottled", err)
+	}
+	if err := dest.Announce(true, nil, nil); err != nil {
+		t.Fatalf("path-response announce should skip app throttle: %v", err)
+	}
+}
+
 func TestParseName(t *testing.T) {
 	app, aspects, err := ParseName("app.aspect.extra")
 	if err != nil {

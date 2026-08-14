@@ -5,6 +5,7 @@ package transport
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 	"time"
 
@@ -95,7 +96,7 @@ func TestPrepareFreshPathRequest_UnresponsiveDropsAndRefreshes(t *testing.T) {
 	}
 }
 
-func TestNudgePathRequest_BypassesThrottle(t *testing.T) {
+func TestNudgePathRequestHonoursThrottle(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
@@ -107,17 +108,18 @@ func TestNudgePathRequest_BypassesThrottle(t *testing.T) {
 		t.Fatalf("first RequestPath: %v", err)
 	}
 	first := len(out.snapshot())
-	if err := tr.RequestPath(dest, "out", nil, false); err != nil {
-		t.Fatalf("second RequestPath: %v", err)
+	if err := tr.RequestPath(dest, "out", nil, false); !errors.Is(err, common.ErrPathRequestThrottled) {
+		t.Fatalf("second RequestPath = %v, want ErrPathRequestThrottled", err)
 	}
 	if len(out.snapshot()) != first {
 		t.Fatal("throttle should suppress second nil-tag request")
 	}
-	if err := tr.NudgePathRequest(dest); err != nil {
-		t.Fatalf("NudgePathRequest: %v", err)
+	err := tr.NudgePathRequest(dest)
+	if !errors.Is(err, common.ErrPathRequestThrottled) {
+		t.Fatalf("NudgePathRequest = %v, want ErrPathRequestThrottled", err)
 	}
-	if len(out.snapshot()) <= first {
-		t.Fatal("nudge should emit another path request")
+	if len(out.snapshot()) != first {
+		t.Fatal("nudge must not emit another path request inside PathRequestMI")
 	}
 }
 

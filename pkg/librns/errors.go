@@ -4,8 +4,11 @@
 package librns
 
 import (
+	"context"
 	"errors"
 	"sync"
+
+	"quad4/reticulum-go/pkg/common"
 )
 
 // Error codes returned across the librns API.
@@ -54,8 +57,22 @@ func mapError(err error) int {
 		return ErrState
 	case errors.Is(err, errTimeout):
 		return ErrTimeout
+	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
+		return ErrTimeout
 	case errors.Is(err, errIO):
 		return ErrIO
+	case errors.Is(err, common.ErrPathRequestThrottled),
+		errors.Is(err, common.ErrDestAnnounceThrottled),
+		errors.Is(err, common.ErrLinkRequestBusy),
+		errors.Is(err, common.ErrLinkRequestDuplicate),
+		errors.Is(err, common.ErrLinkNotActive),
+		errors.Is(err, common.ErrLinkEstablishBusy),
+		errors.Is(err, common.ErrLinkAlreadySettled):
+		return ErrState
+	case errors.Is(err, common.ErrLinkNoPath),
+		errors.Is(err, common.ErrNoPathToDestination),
+		errors.Is(err, common.ErrIdentityNotFound):
+		return ErrNotFound
 	case errors.Is(err, errInternal):
 		return ErrInternal
 	default:

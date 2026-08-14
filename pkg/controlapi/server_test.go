@@ -174,9 +174,20 @@ func TestPathRequestValidation(t *testing.T) {
 	}
 
 	valid16 := hex.EncodeToString(make([]byte, 16))
-	resp, _ = doJSON(t, http.MethodPost, pathURL, authKey, map[string]any{"destination_hash": valid16})
+	resp, body := doJSON(t, http.MethodPost, pathURL, authKey, map[string]any{"destination_hash": valid16})
 	if resp.StatusCode != http.StatusAccepted {
 		t.Errorf("valid hash status = %d, want %d", resp.StatusCode, http.StatusAccepted)
+	}
+	if _, ok := body["wait_s"]; !ok {
+		t.Errorf("accepted path request missing wait_s: %v", body)
+	}
+
+	resp, body = doJSON(t, http.MethodPost, pathURL, authKey, map[string]any{"destination_hash": valid16})
+	if resp.StatusCode != http.StatusTooManyRequests {
+		t.Errorf("throttled path request status = %d, want %d", resp.StatusCode, http.StatusTooManyRequests)
+	}
+	if body["error"] == "" {
+		t.Errorf("throttled path request missing error: %v", body)
 	}
 
 	unknownSessionURL := fmt.Sprintf("%s/v1/sessions/does-not-exist/path/request", ts.URL)

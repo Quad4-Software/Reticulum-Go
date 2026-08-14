@@ -90,7 +90,7 @@ func LinkOpen(nodeHandle uint64, destHash []byte) (uint64, int) {
 			DestinationHash: append([]byte(nil), destHash...),
 			ErrorMessage:    "path request timed out",
 		})
-		return 0, setLastError(fmt.Errorf("%w: %v", errInternal, err))
+		return 0, setLastError(err)
 	}
 	if err := lnk.Establish(); err != nil {
 		nodeRec.enqueue(Event{
@@ -98,7 +98,7 @@ func LinkOpen(nodeHandle uint64, destHash []byte) (uint64, int) {
 			DestinationHash: append([]byte(nil), destHash...),
 			ErrorMessage:    err.Error(),
 		})
-		return 0, setLastError(fmt.Errorf("%w: %v", errInternal, err))
+		return 0, setLastError(err)
 	}
 	if lr.id == nil {
 		lr.id = append([]byte(nil), lnk.GetLinkID()...)
@@ -123,7 +123,7 @@ func LinkSend(linkHandle uint64, data []byte) int {
 		return setLastError(errState)
 	}
 	if err := lr.link.SendPacket(data); err != nil {
-		return setLastError(fmt.Errorf("%w: %v", errInternal, err))
+		return setLastError(err)
 	}
 	return OK
 }
@@ -212,7 +212,7 @@ func LinkRequest(nodeHandle, linkHandle uint64, path string, data []byte, timeou
 	payload := decodeLinkRequestPayload(data)
 	receipt, err := lr.link.Request(path, payload, timeout)
 	if err != nil {
-		return nil, setLastError(fmt.Errorf("%w: %v", errInternal, err))
+		return nil, setLastError(err)
 	}
 	id := receipt.GetRequestID()
 	linkID := append([]byte(nil), lr.id...)

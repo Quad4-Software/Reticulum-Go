@@ -66,8 +66,8 @@ func pythonRoundtrip(t *testing.T, raw []byte) []byte {
 	}
 	out, err := cmd.CombinedOutput()
 	line := strings.TrimSpace(string(out))
-	if strings.HasPrefix(line, "PACKED ") {
-		got, decErr := hex.DecodeString(strings.TrimPrefix(line, "PACKED "))
+	if after, ok := strings.CutPrefix(line, "PACKED "); ok {
+		got, decErr := hex.DecodeString(after)
 		if decErr != nil {
 			t.Fatalf("packed hex: %v", decErr)
 		}

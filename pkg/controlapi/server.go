@@ -380,6 +380,13 @@ func (s *Server) handlePathRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.transport.RequestPath(destHash, "", nil, false); err != nil {
+		if errors.Is(err, common.ErrPathRequestThrottled) {
+			writeJSON(w, http.StatusTooManyRequests, pathRequestResponse{
+				WaitS: s.transport.PathRequestRetryAfter(destHash).Seconds(),
+				Error: err.Error(),
+			})
+			return
+		}
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("path request: %v", err))
 		return
 	}

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/destination"
@@ -60,5 +61,30 @@ func TestEstablishRequiresDestination(t *testing.T) {
 	err := l.Establish()
 	if !errors.Is(err, common.ErrLinkDestinationRequired) {
 		t.Fatalf("got %v, want ErrLinkDestinationRequired", err)
+	}
+}
+
+func TestEstablishRejectsInFlightAndSettled(t *testing.T) {
+	id, err := identity.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr := transport.NewTransport(nil)
+	defer tr.Close()
+	dest, err := destination.New(id, destination.Out, destination.Single, "test", tr, "link")
+	if err != nil {
+		t.Fatal(err)
+	}
+	l := NewLink(dest, tr, nil, nil, nil)
+	l.requestTime = time.Now()
+	err = l.Establish()
+	if !errors.Is(err, common.ErrLinkEstablishBusy) {
+		t.Fatalf("in-flight Establish = %v, want ErrLinkEstablishBusy", err)
+	}
+	l.requestTime = time.Time{}
+	l.status.Store(int32(StatusActive))
+	err = l.Establish()
+	if !errors.Is(err, common.ErrLinkAlreadySettled) {
+		t.Fatalf("active Establish = %v, want ErrLinkAlreadySettled", err)
 	}
 }

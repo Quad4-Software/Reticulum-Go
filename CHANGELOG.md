@@ -9,6 +9,13 @@
 - `Transport.AwaitPath` waits `PathResponseWindow` when the caller has no deadline
 - Control API `path/request` returns `wait_s` and `link.open` waits `AwaitPath` before handshake
 - librns `LinkOpen` waits `AwaitPath` before handshake
+- Nil-tag `RequestPath` repeats inside 20s return `ErrPathRequestThrottled` instead of silent success (`NudgePathRequest` no longer bypasses)
+- Local `Destination.Announce` bursts over 8 in 10s return `ErrDestAnnounceThrottled` (path-response announces are not capped)
+- Link `Request` rejects a duplicate in-flight path and caps pending requests at 8
+- `Send` / `Request` / `Identify` on a non-active link return `ErrLinkNotActive` with a callback hint
+- A second outbound `Establish` to the same destination while a handshake is still pending returns `ErrLinkEstablishBusy`
+- Calling `Establish` again on the same link returns `ErrLinkAlreadySettled` or `ErrLinkEstablishBusy`
+- Control API path-request repeats return HTTP 429 with `wait_s`
 
 ### Fixed
 - `BaseInterface.updateBandwidthStats` increments `TxPackets` so interface TX packet counters match transmitted bytes

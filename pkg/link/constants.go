@@ -43,6 +43,7 @@ const (
 
 	DestTypeLink = 0x03
 
+	MaxPendingRequests = 8
 	MinRequestDataLen  = 3
 	MinResponseDataLen = 2
 

@@ -170,6 +170,8 @@ if err != nil {
 
 Do not wait a flat 15 seconds for a path or link. `AwaitPath` sizes the wait from the slowest online outgoing interface. `Establish` still needs a path (it will error if discovery produced none). Pass `0` to `Request` so the receipt timeout follows link RTT. Prefer established and closed callbacks on `NewLink` over polling.
 
+Do not loop `RequestPath`, `Announce`, `Establish`, or `Request`. Repeats return `ErrPathRequestThrottled`, `ErrDestAnnounceThrottled`, `ErrLinkEstablishBusy` / `ErrLinkAlreadySettled`, or `ErrLinkRequestBusy` / `ErrLinkRequestDuplicate`. Wait on callbacks or `AwaitPath`.
+
 If you must use a timer around handshake, wait `l.EstablishmentTimeout()` plus a small margin (`rnsutil.LinkEstablishmentWindow`).
 
 ## Recipe: send a file resource
@@ -331,7 +333,7 @@ Statuses: StatusPending, StatusActive, StatusComplete, StatusFailed, StatusCance
 | Method | Role |
 |--------|------|
 | `HasPath(hash)` | Cached route present |
-| `RequestPath(hash, iface, tag, recursive)` | Path request (throttled, fire and forget) |
+| `RequestPath(hash, iface, tag, recursive)` | Path request. Nil-tag repeats inside 20s return `ErrPathRequestThrottled` |
 | `AwaitPath(ctx, hash)` | Request and wait. No deadline uses `PathResponseWindow` |
 | HopsTo / NextHop / NextHopInterface | Route inspection |
 | `FirstHopTimeout(hash)` | Next-hop airtime plus 6s (Python `get_first_hop_timeout`) |

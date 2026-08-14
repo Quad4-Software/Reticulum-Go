@@ -75,6 +75,25 @@ func (t *Transport) DiscoveryTimeout(attached common.NetworkInterface) time.Dura
 	return timeout
 }
 
+// PathRequestRetryAfter is how long a nil-tag RequestPath must wait before
+// the next emit for destinationHash. Zero means a request may be sent now.
+func (t *Transport) PathRequestRetryAfter(destinationHash []byte) time.Duration {
+	if t == nil || len(destinationHash) == 0 {
+		return 0
+	}
+	t.mutex.RLock()
+	last, ok := t.lastPathRequest[pathMapKey(destinationHash)]
+	t.mutex.RUnlock()
+	if !ok {
+		return 0
+	}
+	wait := PathRequestMI - time.Since(last)
+	if wait < 0 {
+		return 0
+	}
+	return wait
+}
+
 // ExtraLinkProofTimeout is one-way MTU airtime on iface, matching Python
 // Transport.extra_link_proof_timeout. Use the outbound hop, not the
 // interface the link request arrived on.
@@ -95,6 +114,9 @@ func ExtraLinkProofTimeout(iface common.NetworkInterface) time.Duration {
 func (t *Transport) AwaitPath(ctx context.Context, destinationHash []byte) error {
 	if t == nil {
 		return common.ErrNoPathToDestination
+	}
+	if len(destinationHash) != 16 {
+		return common.ErrTransportEmptyDestinationHash
 	}
 	if t.HasPath(destinationHash) {
 		return nil

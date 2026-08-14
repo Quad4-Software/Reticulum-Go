@@ -200,7 +200,7 @@ func DestinationAnnounce(destHandle uint64, appData []byte) int {
 		destRec.destination.SetDefaultAppData(appData)
 	}
 	if err := destRec.destination.Announce(false, nil, nil); err != nil {
-		return setLastError(fmt.Errorf("%w: %v", errInternal, err))
+		return setLastError(err)
 	}
 	return OK
 }

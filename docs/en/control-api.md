@@ -70,7 +70,7 @@ Requests without a valid bearer token are rejected.
 | POST | `/v1/sessions/{id}/destinations/{hash}/announce` | Send announce |
 | POST | `/v1/sessions/{id}/destinations/{hash}/requests` | Bridge request path to WebSocket |
 | DELETE | `/v1/sessions/{id}/destinations/{hash}/requests?path=` | Deregister request path |
-| POST | `/v1/sessions/{id}/path/request` | Request path to destination. Response includes `wait_s` |
+| POST | `/v1/sessions/{id}/path/request` | Request path to destination. Response includes `wait_s`. Repeats inside 20s return 429 |
 | GET | `/v1/sessions/{id}/events` | WebSocket event stream |
 
 Lifecycle routes (Go node integration):

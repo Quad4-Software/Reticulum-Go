@@ -258,6 +258,10 @@ func (s *Server) handleAnnounce(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := dest.Announce(false, nil, nil); err != nil {
+		if errors.Is(err, common.ErrDestAnnounceThrottled) {
+			writeError(w, http.StatusTooManyRequests, err.Error())
+			return
+		}
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("announce: %v", err))
 		return
 	}

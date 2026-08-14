@@ -5,10 +5,12 @@ package link
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 	"time"
 
 	"quad4/msgpack/v5/pkg/msgpack"
+	"quad4/reticulum-go/pkg/common"
 )
 
 func TestSetResponseCallbackLateFires(t *testing.T) {
@@ -60,5 +62,29 @@ func TestSetFailedCallbackLateFires(t *testing.T) {
 	case <-done:
 	case <-time.After(2 * time.Second):
 		t.Fatal("late failed callback was not fired")
+	}
+}
+
+func TestRegisterPendingRequestRejectsDuplicateAndCap(t *testing.T) {
+	l := &Link{}
+	pathHash := bytes.Repeat([]byte{0x11}, 16)
+	first := &RequestReceipt{pathHash: pathHash}
+	if err := l.registerPendingRequest(first); err != nil {
+		t.Fatalf("first register: %v", err)
+	}
+	dup := &RequestReceipt{pathHash: pathHash}
+	if err := l.registerPendingRequest(dup); !errors.Is(err, common.ErrLinkRequestDuplicate) {
+		t.Fatalf("duplicate = %v, want ErrLinkRequestDuplicate", err)
+	}
+	l.pendingRequests = nil
+	for i := range MaxPendingRequests {
+		h := bytes.Repeat([]byte{byte(i + 1)}, 16)
+		if err := l.registerPendingRequest(&RequestReceipt{pathHash: h}); err != nil {
+			t.Fatalf("fill %d: %v", i, err)
+		}
+	}
+	extra := &RequestReceipt{pathHash: bytes.Repeat([]byte{0xFF}, 16)}
+	if err := l.registerPendingRequest(extra); !errors.Is(err, common.ErrLinkRequestBusy) {
+		t.Fatalf("over cap = %v, want ErrLinkRequestBusy", err)
 	}
 }

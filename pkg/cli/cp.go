@@ -68,10 +68,7 @@ func RunCP(args []string, opt ...Options) int {
 		return 2
 	}
 
-	timeout := time.Duration(*timeoutSec * float64(time.Second))
-	if timeout < 0 {
-		timeout = 0
-	}
+	timeout := max(time.Duration(*timeoutSec*float64(time.Second)), 0)
 
 	if *printID {
 		destHash := destination.Hash(id, rnsutil.RNCPAppName, rnsutil.RNCPAspect)

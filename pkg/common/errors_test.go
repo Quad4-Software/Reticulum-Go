@@ -11,6 +11,7 @@ import (
 	"os"
 	"syscall"
 	"testing"
+	"time"
 )
 
 func TestFormattedErrorsWrapSentinels(t *testing.T) {
@@ -20,6 +21,9 @@ func TestFormattedErrorsWrapSentinels(t *testing.T) {
 	}
 	if !errors.Is(ErrNoPathToDestinationf(hash), ErrNoPathToDestination) {
 		t.Fatal("ErrNoPathToDestinationf should wrap ErrNoPathToDestination")
+	}
+	if !errors.Is(ErrPathRequestThrottledf(hash, time.Second), ErrPathRequestThrottled) {
+		t.Fatal("ErrPathRequestThrottledf should wrap ErrPathRequestThrottled")
 	}
 	if !errors.Is(ErrIdentityNotFoundf(hash), ErrIdentityNotFound) {
 		t.Fatal("ErrIdentityNotFoundf should wrap ErrIdentityNotFound")
