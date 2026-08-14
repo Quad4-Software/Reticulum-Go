@@ -310,7 +310,7 @@ func BenchmarkSimIFACLineRelay(b *testing.B) {
 				_ = src.Send(pkt, "")
 			}
 			want := startRx + uint64(b.N)
-			deadline := time.Now().Add(time.Duration(b.N)*500*time.Microsecond + 5*time.Second)
+			deadline := time.Now().Add(5 * time.Second)
 			for tail.GetRxPackets() < want && time.Now().Before(deadline) {
 				time.Sleep(time.Millisecond)
 			}

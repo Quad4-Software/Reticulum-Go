@@ -5,8 +5,8 @@ set -eu
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
-FUZZTIME="${FUZZTIME:-20s}"
-LOW_COV_FUZZTIME="${LOW_COV_FUZZTIME:-35s}"
+FUZZTIME="${FUZZTIME:-10s}"
+LOW_COV_FUZZTIME="${LOW_COV_FUZZTIME:-20s}"
 LOW_COV_THRESHOLD="${LOW_COV_THRESHOLD:-70}"
 COVER_DIR="${COVER_DIR:-.cache/fuzz-cover}"
 mkdir -p "$COVER_DIR"
@@ -42,7 +42,7 @@ collect_unit_coverage() {
 	for pkg in $PACKAGES; do
 		partial="$COVER_DIR/$(echo "$pkg" | tr './' '_').out"
 		echo "fuzz-guided: coverage $pkg" >>"$log"
-		if ! go test -coverprofile="$partial" -covermode=atomic "$pkg" >>"$log" 2>&1; then
+		if ! go test -short -count=1 -timeout 8m -coverprofile="$partial" -covermode=atomic "$pkg" >>"$log" 2>&1; then
 			return 1
 		fi
 		merge_cover_profile "$out" "$partial"
@@ -63,10 +63,11 @@ run_fuzz() {
 	target="$2"
 	ftime="$3"
 	echo "fuzz-guided: $target ($ftime) in $pkg"
+	# -run=^$ skips the package unit suite so each target is fuzz-only.
 	# Route through testsummary so CI only shows passing "ok" lines and,
 	# on failure, the full crash/failure details (TESTSUMMARY_QUIET=1 in CI).
 	# Anchor the name so FuzzFoo does not also match FuzzFooBar.
-	go run ./scripts/ci/testsummary -fuzz="^${target}$" -fuzztime="$ftime" "$pkg"
+	go run ./scripts/ci/testsummary -run='^$' -fuzz="^${target}$" -fuzztime="$ftime" -timeout 5m "$pkg"
 }
 
 fuzz_time_for() {

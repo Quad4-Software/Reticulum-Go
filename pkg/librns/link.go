@@ -4,6 +4,7 @@
 package librns
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -83,6 +84,14 @@ func LinkOpen(nodeHandle uint64, destHash []byte) (uint64, int) {
 	}
 
 	lnk := link.NewLink(destOut, nodeRec.node.Transport(), nil, established, closed)
+	if err := nodeRec.node.Transport().AwaitPath(context.Background(), destHash); err != nil {
+		nodeRec.enqueue(Event{
+			Kind:            EventLinkFailed,
+			DestinationHash: append([]byte(nil), destHash...),
+			ErrorMessage:    "path request timed out",
+		})
+		return 0, setLastError(fmt.Errorf("%w: %v", errInternal, err))
+	}
 	if err := lnk.Establish(); err != nil {
 		nodeRec.enqueue(Event{
 			Kind:            EventLinkFailed,

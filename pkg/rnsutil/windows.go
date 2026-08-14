@@ -5,6 +5,7 @@ package rnsutil
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"quad4/reticulum-go/pkg/link"
@@ -84,9 +85,10 @@ func CLIWaitContext(timeout time.Duration) (context.Context, context.CancelFunc)
 // WaitPathWindow waits for a path using PathResponseWindow when ctx has no
 // deadline.
 func WaitPathWindow(ctx context.Context, tr *transport.Transport, destHash []byte) error {
-	wait, cancel := BoundWait(ctx, PathResponseWindow(tr, destHash))
-	defer cancel()
-	return WaitPath(wait, tr, destHash)
+	if tr == nil {
+		return fmt.Errorf("nil transport")
+	}
+	return tr.AwaitPath(ctx, destHash)
 }
 
 func activateOutboundLink(ctx context.Context, l *link.Link) error {

@@ -138,7 +138,7 @@ Python 1.3.2 tears down links at LINKIDENTIFY when the remote identity is blackh
 
 **One link per peer session.** Multiplex logical streams with channel or buffer instead of opening redundant links.
 
-**Check path before link open.** Outbound links require a known path or successful path request.
+**Wait with the stack, not a flat timer.** Outbound links need a path. Call `Transport.AwaitPath` (or send Control API `link.open` / librns `LinkOpen`) so the wait follows interface bitrate. Do not sleep 15 seconds.
 
 **Resource size.** Respect MTU and part sizing. Large files use many parts over the same link.
 

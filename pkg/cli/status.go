@@ -4,7 +4,6 @@
 package cli
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -29,7 +28,7 @@ func RunStatus(args []string, opt ...Options) int {
 	timeout := fs.Duration("timeout", 10*time.Second, "RPC timeout")
 	remoteHex := fs.String("R", "", "transport identity hash of remote instance")
 	mgmtIdent := fs.String("i", "", "identity file for remote management")
-	remoteTimeoutSec := fs.Float64("W", 15, "timeout for remote queries")
+	remoteTimeoutSec := fs.Float64("W", 0, "timeout for remote queries in seconds (0 = adaptive from interface bitrate)")
 	quiet := fs.Bool("q", false, "quiet: suppress stderr hints")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -143,10 +142,7 @@ func runStatusRemote(cfg *common.ReticulumConfig, opts statusRemoteOpts) int {
 	defer n.Stop()
 
 	timeout := time.Duration(opts.timeoutSec * float64(time.Second))
-	if timeout <= 0 {
-		timeout = 15 * time.Second
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := rnsutil.CLIWaitContext(timeout)
 	defer cancel()
 
 	fmt.Fprintln(stdout, infoMsg(stdout, "Establishing link with remote transport instance..."))

@@ -2534,7 +2534,10 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 		return
 	}
 
-	debug.Log(debug.DebugInfo, "Attempting to discover unknown path", "dest_hash", fmt.Sprintf("%x", destHash))
+	discoveryTimeout := t.DiscoveryTimeout(attachedIface)
+	debug.Log(debug.DebugInfo, "Attempting to discover unknown path",
+		"dest_hash", fmt.Sprintf("%x", destHash),
+		"timeout_s", discoveryTimeout.Seconds())
 
 	t.mutex.Lock()
 	if _, exists := t.discoveryPathRequests[destHashKey]; exists {
@@ -2545,7 +2548,7 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 
 	prEntry := &DiscoveryPathRequest{
 		DestinationHash: destHash,
-		Timeout:         time.Now().Add(15 * time.Second),
+		Timeout:         time.Now().Add(discoveryTimeout),
 		RequestingIface: attachedIface,
 	}
 	t.discoveryPathRequests[destHashKey] = prEntry

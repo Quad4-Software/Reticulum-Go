@@ -383,7 +383,9 @@ func (s *Server) handlePathRequest(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("path request: %v", err))
 		return
 	}
-	w.WriteHeader(http.StatusAccepted)
+	writeJSON(w, http.StatusAccepted, pathRequestResponse{
+		WaitS: s.transport.PathResponseWindow(destHash).Seconds(),
+	})
 }
 
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {

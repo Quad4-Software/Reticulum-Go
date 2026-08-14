@@ -9,6 +9,7 @@ cd "$ROOT"
 THRESHOLDS="${BENCH_THRESHOLDS:-$ROOT/scripts/ci/bench-thresholds.tsv}"
 COUNT="${BENCH_COUNT:-3}"
 BENCHTIME="${BENCH_TIME:-1s}"
+TIMEOUT="${BENCH_TIMEOUT:-12m}"
 PACKAGES="./pkg/packet ./pkg/backbone ./pkg/transport ./pkg/identity ./pkg/cryptography ./pkg/ifac ./pkg/interfaces"
 BENCH_RE='BenchmarkPacketThroughput|BenchmarkHubEcho|BenchmarkSimConcurrentLineRelay|BenchmarkSimLineRelayThroughput|BenchmarkHasPath_ParallelMixed|BenchmarkHandleAnnouncePacket_DebugCritical|BenchmarkSimIFACMaskUnmask|BenchmarkIdentityHashCached|BenchmarkDeriveKey|BenchmarkRememberUnchanged|BenchmarkTCPHDLCDecoderBurst|BenchmarkHandlePacketCopy'
 
@@ -20,7 +21,12 @@ fi
 OUT="$(mktemp)"
 trap 'rm -f "$OUT"' EXIT
 
-go test -run=^$ -bench="$BENCH_RE" -benchmem -benchtime="$BENCHTIME" -count="$COUNT" $PACKAGES >"$OUT" 2>&1
+echo "bench-gate: timeout=$TIMEOUT benchtime=$BENCHTIME count=$COUNT"
+go test -p 1 -timeout "$TIMEOUT" -run=^$ -bench="$BENCH_RE" -benchmem -benchtime="$BENCHTIME" -count="$COUNT" $PACKAGES >"$OUT" 2>&1 || {
+	cat "$OUT"
+	exit 1
+}
+cat "$OUT"
 
 awk -v thresholds="$THRESHOLDS" '
 function median(vals, n,    i, j, tmp) {

@@ -70,7 +70,7 @@ Requests without a valid bearer token are rejected.
 | POST | `/v1/sessions/{id}/destinations/{hash}/announce` | Send announce |
 | POST | `/v1/sessions/{id}/destinations/{hash}/requests` | Bridge request path to WebSocket |
 | DELETE | `/v1/sessions/{id}/destinations/{hash}/requests?path=` | Deregister request path |
-| POST | `/v1/sessions/{id}/path/request` | Request path to destination |
+| POST | `/v1/sessions/{id}/path/request` | Request path to destination. Response includes `wait_s` |
 | GET | `/v1/sessions/{id}/events` | WebSocket event stream |
 
 Lifecycle routes (Go node integration):
@@ -173,7 +173,7 @@ Full type definitions: `pkg/controlapi/protocol.go`.
 
 Register a destination with link acceptance enabled for inbound links.
 
-Outbound: send `link.open` over the events WebSocket after the path exists (from announce or path request).
+Outbound: send `link.open` over the events WebSocket. The server waits a bitrate-sized path window, then starts handshake. `link.established` or `link.failed` follows. Do not apply a flat 15 second client timer. The `wait_s` field from `POST .../path/request` is the window to show in UI if you request a path yourself.
 
 Both directions receive `link.established` when ready, then `link.data` for peer data.
 

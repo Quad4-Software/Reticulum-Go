@@ -4,6 +4,7 @@
 package controlapi
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -189,22 +190,22 @@ func (c *wsClient) handleLinkOpen(raw []byte) {
 
 	ls, established, closed := newOutboundLinkCallbacks(c.session, cmd.DestinationHash)
 	lnk := link.NewLink(destOut, c.server.transport, nil, established, closed)
-	if err := lnk.Establish(); err != nil {
-		c.send(linkFailedEvent{Type: "link.failed", DestinationHash: cmd.DestinationHash, Error: err.Error()})
-		return
-	}
-
-	// Establish always assigns the link ID before returning, so this is
-	// safe to read here even though it is unsafe from inside closed: it
-	// guarantees an ID is cached before any establishment-timeout failure
-	// can reach closed, without ever calling back into the Link itself.
-	ls.establishedMu.Lock()
-	if ls.idHex == "" {
-		ls.idHex = hex.EncodeToString(lnk.GetLinkID())
-	}
-	ls.establishedMu.Unlock()
-
-	lnk.Start()
+	go func() {
+		if err := c.server.transport.AwaitPath(context.Background(), destHash); err != nil {
+			c.send(linkFailedEvent{Type: "link.failed", DestinationHash: cmd.DestinationHash, Error: "path request timed out"})
+			return
+		}
+		if err := lnk.Establish(); err != nil {
+			c.send(linkFailedEvent{Type: "link.failed", DestinationHash: cmd.DestinationHash, Error: err.Error()})
+			return
+		}
+		ls.establishedMu.Lock()
+		if ls.idHex == "" {
+			ls.idHex = hex.EncodeToString(lnk.GetLinkID())
+		}
+		ls.establishedMu.Unlock()
+		lnk.Start()
+	}()
 }
 
 // handleLinkSend processes a link.send command, forwarding data over an

@@ -4,6 +4,7 @@
 package transport
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -106,5 +107,131 @@ func TestSlowestOnlineBitrateSkipsOffline(t *testing.T) {
 	}
 	if got := tr.SlowestOnlineBitrate(); got != 1200 {
 		t.Fatalf("slowest = %d, want 1200", got)
+	}
+}
+
+func TestSlowestOnlineBitrateSkipsReceiveOnly(t *testing.T) {
+	tr := NewTransport(common.DefaultConfig())
+	ro := &bitrateIface{}
+	ro.BaseInterface = interfaces.NewBaseInterface("rx", common.IFTypeUDP, true)
+	ro.Online = true
+	ro.bitrate = 50
+	ro.SetOutgoingAllowed(false)
+	tx := &bitrateIface{}
+	tx.BaseInterface = interfaces.NewBaseInterface("tx", common.IFTypeUDP, true)
+	tx.Online = true
+	tx.bitrate = 1200
+	if err := tr.RegisterInterface("rx", ro); err != nil {
+		t.Fatalf("register rx: %v", err)
+	}
+	if err := tr.RegisterInterface("tx", tx); err != nil {
+		t.Fatalf("register tx: %v", err)
+	}
+	if got := tr.SlowestOnlineBitrate(); got != 1200 {
+		t.Fatalf("slowest = %d, want 1200", got)
+	}
+}
+
+func TestDiscoveryTimeoutUsesSlowestOutgoingFanout(t *testing.T) {
+	tr := NewTransport(common.DefaultConfig())
+	slow := &bitrateIface{}
+	slow.BaseInterface = interfaces.NewBaseInterface("lora", common.IFTypeUDP, true)
+	slow.Online = true
+	slow.bitrate = 125
+	fast := &bitrateIface{}
+	fast.BaseInterface = interfaces.NewBaseInterface("tcp", common.IFTypeTCP, true)
+	fast.Online = true
+	fast.bitrate = 10_000_000
+	rx := &bitrateIface{}
+	rx.BaseInterface = interfaces.NewBaseInterface("rx", common.IFTypeUDP, true)
+	rx.Online = true
+	rx.bitrate = 5
+	rx.SetOutgoingAllowed(false)
+	if err := tr.RegisterInterface("lora", slow); err != nil {
+		t.Fatalf("register slow: %v", err)
+	}
+	if err := tr.RegisterInterface("tcp", fast); err != nil {
+		t.Fatalf("register fast: %v", err)
+	}
+	if err := tr.RegisterInterface("rx", rx); err != nil {
+		t.Fatalf("register rx: %v", err)
+	}
+
+	got := tr.DiscoveryTimeout(nil)
+	want := mediumRoundTripTimeout(125)
+	if got != want {
+		t.Fatalf("discovery timeout = %s, want %s", got, want)
+	}
+	if got <= 15*time.Second {
+		t.Fatalf("125 bit/s discovery timeout %s should exceed the 15s floor", got)
+	}
+}
+
+func TestDiscoveryTimeoutFloorWhenNoFanout(t *testing.T) {
+	tr := NewTransport(common.DefaultConfig())
+	got := tr.DiscoveryTimeout(nil)
+	want := time.Duration(PathRequestTimeout) * time.Second
+	if got != want {
+		t.Fatalf("empty discovery timeout = %s, want %s", got, want)
+	}
+}
+
+func TestExtraLinkProofTimeoutOutboundAirtime(t *testing.T) {
+	out := &bitrateIface{}
+	out.BaseInterface = interfaces.NewBaseInterface("radio", common.IFTypeUDP, true)
+	out.Online = true
+	out.bitrate = 125
+	got := ExtraLinkProofTimeout(out)
+	want := time.Duration(float64(packet.MTU) * 8 / 125 * float64(time.Second))
+	if got != want {
+		t.Fatalf("extra proof timeout = %s, want %s", got, want)
+	}
+	if ExtraLinkProofTimeout(nil) != 0 {
+		t.Fatal("nil iface extra proof timeout should be 0")
+	}
+}
+
+func TestAwaitPathRespectsCallerDeadline(t *testing.T) {
+	tr := NewTransport(common.DefaultConfig())
+	dest := make([]byte, 16)
+	dest[0] = 0x22
+	ctx, cancel := context.WithTimeout(context.Background(), 80*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	err := tr.AwaitPath(ctx, dest)
+	if err == nil {
+		t.Fatal("expected timeout waiting for unknown dest")
+	}
+	if time.Since(start) > time.Second {
+		t.Fatalf("caller deadline should win, elapsed %s", time.Since(start))
+	}
+}
+
+func TestAwaitPathReturnsWhenPathLearned(t *testing.T) {
+	tr := NewTransport(common.DefaultConfig())
+	bi := &bitrateIface{}
+	bi.BaseInterface = interfaces.NewBaseInterface("udp", common.IFTypeUDP, true)
+	bi.Online = true
+	bi.bitrate = 1_000_000
+	if err := tr.RegisterInterface("udp", bi); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	dest := make([]byte, 16)
+	dest[0] = 0x33
+	done := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		done <- tr.AwaitPath(ctx, dest)
+	}()
+	time.Sleep(50 * time.Millisecond)
+	tr.UpdatePath(dest, nil, "udp", 1)
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("AwaitPath: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("AwaitPath did not return after path update")
 	}
 }

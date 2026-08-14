@@ -48,7 +48,7 @@ func TestValidateGoTestArgs(t *testing.T) {
 	if err := validateGoTestArgs([]string{"-run", "TestSimChaos|TestLinkChaos|TestIfaceChaos"}); err != nil {
 		t.Fatalf("-run alternation rejected: %v", err)
 	}
-	if err := validateGoTestArgs([]string{"-fuzz=^FuzzPacketUnpack$"}); err != nil {
-		t.Fatalf("fuzz anchor rejected: %v", err)
+	if err := validateGoTestArgs([]string{"-run", "^$", "-fuzz=^FuzzPacketUnpack$"}); err != nil {
+		t.Fatalf("fuzz skip-unit-tests args rejected: %v", err)
 	}
 }

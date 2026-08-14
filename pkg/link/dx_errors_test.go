@@ -32,8 +32,8 @@ func TestEstablishRequiresPath(t *testing.T) {
 	if !errors.Is(err, common.ErrLinkNoPath) {
 		t.Fatalf("got %v, want ErrLinkNoPath", err)
 	}
-	if !strings.Contains(err.Error(), "RequestPath") {
-		t.Fatalf("error should hint RequestPath: %v", err)
+	if !strings.Contains(err.Error(), "AwaitPath") {
+		t.Fatalf("error should hint AwaitPath: %v", err)
 	}
 }
 

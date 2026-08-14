@@ -52,6 +52,11 @@ func (t *Transport) packetWorker() {
 		select {
 		case <-t.done:
 			return
+		default:
+		}
+		select {
+		case <-t.done:
+			return
 		case job, ok := <-t.packetQ:
 			if !ok {
 				return

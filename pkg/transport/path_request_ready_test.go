@@ -34,4 +34,8 @@ func TestIfaceReadyForPathRequestOnlineAndBitrate(t *testing.T) {
 	if !ifaceReadyForPathRequest(bi) {
 		t.Fatal("online positive-bitrate iface should be ready")
 	}
+	bi.SetOutgoingAllowed(false)
+	if ifaceReadyForPathRequest(bi) {
+		t.Fatal("receive-only iface must not be ready")
+	}
 }

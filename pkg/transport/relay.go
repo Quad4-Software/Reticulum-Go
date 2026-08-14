@@ -357,7 +357,7 @@ func (t *Transport) recordLinkRelay(pkt *packet.Packet, raw []byte, recvIface co
 	}
 	now := time.Now()
 	remaining := max(int(path.HopCount), 1)
-	timeout := now.Add(LinkProofTimeoutPerHop * time.Duration(remaining))
+	timeout := now.Add(LinkProofTimeoutPerHop*time.Duration(remaining) + ExtraLinkProofTimeout(path.Interface))
 	entry := &LinkRelayEntry{
 		NextHop:         path.NextHop,
 		NextHopIface:    path.Interface,
@@ -559,10 +559,7 @@ func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, s
 	return true
 }
 
-func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag []byte, exclude common.NetworkInterface) {
-	if !t.transportEnabled() {
-		return
-	}
+func (t *Transport) discoveryFanoutIfaces(exclude common.NetworkInterface) []common.NetworkInterface {
 	modeFilter := discoverySearchModeFilter(exclude)
 	ifaces := make([]common.NetworkInterface, 0, 8)
 	for _, e := range t.snapshotRegisteredInterfaces() {
@@ -576,12 +573,20 @@ func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag [
 		if iface.ShouldEgressLimitPR() {
 			if debug.Enabled(debug.DebugVerbose) {
 				debug.Log(debug.DebugVerbose, "Skipping path-request rebroadcast due to egress limiting",
-					"iface", iface.GetName(), "dest_hash", fmt.Sprintf("%x", destHash))
+					"iface", iface.GetName())
 			}
 			continue
 		}
 		ifaces = append(ifaces, iface)
 	}
+	return ifaces
+}
+
+func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag []byte, exclude common.NetworkInterface) {
+	if !t.transportEnabled() {
+		return
+	}
+	ifaces := t.discoveryFanoutIfaces(exclude)
 	if len(ifaces) == 0 {
 		return
 	}
@@ -599,13 +604,16 @@ func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag [
 }
 
 // ifaceReadyForPathRequest reports whether iface may emit a path request.
-// Matches RNS 1.4.2 recursive-PR online gating. Go uniqueness: also refuse
-// interfaces that advertise a non-positive bitrate via GetBitrate() int
-// (uninitialized radios) so PR emit cannot hit zero-rate timing math.
-// GetBitrate() int64 on BaseInterface is the configured default and is not
-// used as a readiness gate.
+// Matches RNS 1.4.2 recursive-PR online gating. Go uniqueness: refuse
+// receive-only interfaces, and interfaces that advertise a non-positive
+// bitrate via GetBitrate() int (uninitialized radios) so PR emit cannot
+// hit zero-rate timing math. GetBitrate() int64 on BaseInterface is the
+// configured default and is not used as a readiness gate.
 func ifaceReadyForPathRequest(iface common.NetworkInterface) bool {
 	if iface == nil || !iface.IsEnabled() || !iface.IsOnline() {
+		return false
+	}
+	if !common.InterfaceAllowsOutgoing(iface) {
 		return false
 	}
 	switch br := iface.(type) {

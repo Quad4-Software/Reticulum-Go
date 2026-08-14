@@ -86,7 +86,7 @@ var (
 
 // ErrLinkNoPathf returns a path-missing establish error for destHash.
 func ErrLinkNoPathf(destHash []byte) error {
-	return fmt.Errorf("%w: %x (call RequestPath or wait for an announce)", ErrLinkNoPath, destHash)
+	return fmt.Errorf("%w: %x (use Transport.AwaitPath, not a fixed 15 second wait)", ErrLinkNoPath, destHash)
 }
 
 // ErrNoPathToDestinationf returns a send/path error for destHash.

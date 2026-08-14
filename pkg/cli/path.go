@@ -4,7 +4,6 @@
 package cli
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -32,7 +31,7 @@ func RunPath(args []string, opt ...Options) int {
 	rpcTimeout := fs.Duration("timeout", 10*time.Second, "RPC timeout")
 	remoteHex := fs.String("R", "", "transport identity hash of remote instance")
 	mgmtIdent := fs.String("i", "", "identity file for remote management")
-	remoteTimeoutSec := fs.Float64("W", 15, "timeout for remote queries")
+	remoteTimeoutSec := fs.Float64("W", 0, "timeout for remote queries in seconds (0 = adaptive from interface bitrate)")
 	blackholed := fs.Bool("blackholed", false, "list blackholed identities")
 	blackhole := fs.Bool("blackhole", false, "blackhole identity")
 	unblackhole := fs.Bool("unblackhole", false, "lift blackhole for identity")
@@ -284,11 +283,8 @@ func RunPath(args []string, opt ...Options) int {
 
 	tr := n.Transport()
 	timeout := time.Duration(*timeoutSec * float64(time.Second))
-	if timeout <= 0 {
-		timeout = rnsutil.PathResponseWindow(tr, destHash)
-	}
 	fmt.Fprintln(stdout, infoMsg(stdout, fmt.Sprintf("Path to %s requested", rnsutil.PrettyHex(destHash))))
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := rnsutil.CLIWaitContext(timeout)
 	defer cancel()
 	if err := rnsutil.WaitPath(ctx, tr, destHash); err != nil {
 		fmt.Fprintln(stdout, errMsg(stdout, "Path request timed out"))
@@ -372,10 +368,7 @@ func runPathRemote(cfg *common.ReticulumConfig, destHash []byte, opts pathRemote
 	defer n.Stop()
 
 	timeout := time.Duration(opts.timeoutSec * float64(time.Second))
-	if timeout <= 0 {
-		timeout = 15 * time.Second
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := rnsutil.CLIWaitContext(timeout)
 	defer cancel()
 
 	fmt.Fprintln(stdout, infoMsg(stdout, "Establishing link with remote transport instance..."))

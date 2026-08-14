@@ -24,7 +24,7 @@
 //	POST   /v1/sessions/{id}/destinations/{hash}/announce        send an announce
 //	POST   /v1/sessions/{id}/destinations/{hash}/requests        bridge a request path to the WebSocket
 //	DELETE /v1/sessions/{id}/destinations/{hash}/requests        deregister a request path (?path=)
-//	POST   /v1/sessions/{id}/path/request                        request a path
+//	POST   /v1/sessions/{id}/path/request                        request a path (returns wait_s)
 //	GET    /v1/sessions/{id}/events                              WebSocket event stream
 //
 // A session owns one identity, the destinations registered under it, and

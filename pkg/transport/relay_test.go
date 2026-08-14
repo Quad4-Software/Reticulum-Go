@@ -12,6 +12,7 @@ import (
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/interfaces"
 	"quad4/reticulum-go/pkg/packet"
 )
 
@@ -475,6 +476,51 @@ func TestRecordLinkRelayUsesWireLinkID(t *testing.T) {
 	}
 	if entry == nil || entry.NextHopIface != out || entry.ReceivedIface != in {
 		t.Fatalf("unexpected relay entry: %+v", entry)
+	}
+}
+
+func TestRecordLinkRelayProofTimeoutUsesOutboundBitrate(t *testing.T) {
+	destHash := bytes.Repeat([]byte{0x31}, 16)
+	requestData := bytes.Repeat([]byte{0x42}, packet.LinkRequestECPubSize+3)
+	flags := byte(0)
+	flags |= (packet.HeaderType1 << 6) & packet.HeaderMaskHeaderType
+	flags |= (packet.PropagationBroadcast << 4) & packet.HeaderMaskTransportType
+	flags |= (packet.DestinationSingle << 2) & packet.HeaderMaskDestinationType
+	flags |= packet.PacketTypeLinkReq & packet.HeaderMaskPacketType
+	raw := make([]byte, 0, 2+16+len(requestData))
+	raw = append(raw, flags, 0x00)
+	raw = append(raw, destHash...)
+	raw = append(raw, requestData...)
+	pkt := &packet.Packet{Raw: raw}
+	if err := pkt.Unpack(); err != nil {
+		t.Fatalf("unpack link request: %v", err)
+	}
+
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+	in := newRelayIface("in")
+	out := &bitrateIface{}
+	out.BaseInterface = interfaces.NewBaseInterface("radio", common.IFTypeUDP, true)
+	out.Online = true
+	out.bitrate = 125
+	_ = tr.RegisterInterface("in", in)
+	_ = tr.RegisterInterface("radio", out)
+
+	before := time.Now()
+	tr.recordLinkRelay(pkt, raw, in, &common.Path{
+		NextHop:   destHash,
+		Interface: out,
+		HopCount:  1,
+	}, 1)
+	linkID := packet.LinkIDFromLinkRequest(pkt)
+	entry, ok := tr.linkTable.get(linkID)
+	if !ok || entry == nil {
+		t.Fatal("missing relay entry")
+	}
+	want := LinkProofTimeoutPerHop + ExtraLinkProofTimeout(out)
+	got := entry.ProofTimeout.Sub(before)
+	if got < want-50*time.Millisecond || got > want+time.Second {
+		t.Fatalf("proof timeout delta %s, want ~%s", got, want)
 	}
 }
 

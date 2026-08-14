@@ -155,24 +155,22 @@ out, err := destination.FromHash(peerDestHash, remoteID, destination.Single, n.T
 if err != nil {
 	log.Fatal(err)
 }
-if !n.Transport().HasPath(peerDestHash) {
-	_ = n.Transport().RequestPath(peerDestHash, "", nil, false)
-	ctx, cancel := context.WithTimeout(context.Background(), rnsutil.PathResponseWindow(n.Transport(), peerDestHash))
-	defer cancel()
-	if err := rnsutil.WaitPath(ctx, n.Transport(), peerDestHash); err != nil {
-		log.Fatal(err)
-	}
+if err := n.Transport().AwaitPath(context.Background(), peerDestHash); err != nil {
+	log.Fatal(err)
 }
 l := link.NewLink(out, n.Transport(), nil, nil, nil)
 if err := l.Establish(); err != nil {
 	log.Fatal(err)
 }
-receipt, err := l.Request("/echo", []byte("ping"), 15*time.Second)
+receipt, err := l.Request("/echo", []byte("ping"), 0)
 if err != nil {
 	log.Fatal(err)
 }
-// poll receipt.Concluded() or set receipt.SetResponseCallback
 ```
+
+Do not wait a flat 15 seconds for a path or link. `AwaitPath` sizes the wait from the slowest online outgoing interface. `Establish` still needs a path (it will error if discovery produced none). Pass `0` to `Request` so the receipt timeout follows link RTT. Prefer established and closed callbacks on `NewLink` over polling.
+
+If you must use a timer around handshake, wait `l.EstablishmentTimeout()` plus a small margin (`rnsutil.LinkEstablishmentWindow`).
 
 ## Recipe: send a file resource
 
@@ -333,11 +331,13 @@ Statuses: StatusPending, StatusActive, StatusComplete, StatusFailed, StatusCance
 | Method | Role |
 |--------|------|
 | `HasPath(hash)` | Cached route present |
-| `RequestPath(hash, iface, tag, recursive)` | Path request (throttled) |
+| `RequestPath(hash, iface, tag, recursive)` | Path request (throttled, fire and forget) |
+| `AwaitPath(ctx, hash)` | Request and wait. No deadline uses `PathResponseWindow` |
 | HopsTo / NextHop / NextHopInterface | Route inspection |
 | `FirstHopTimeout(hash)` | Next-hop airtime plus 6s (Python `get_first_hop_timeout`) |
-| `PathResponseWindow(hash)` | Cold path wait from slowest online bitrate |
-| `SlowestOnlineBitrate()` | Lowest advertised bitrate of an online interface |
+| `PathResponseWindow(hash)` | Cold path wait from slowest online outgoing bitrate |
+| `DiscoveryTimeout(iface)` | Recursive search wait from fan-out interface airtime |
+| `SlowestOnlineBitrate()` | Lowest advertised bitrate of an online outgoing interface |
 | ExpirePath / PrepareFreshPathRequest | Drop or refresh cache |
 | RegisterInterface / GetInterfaces | Interface table |
 | RegisterDestination | Usually automatic for In destinations |
@@ -386,6 +386,7 @@ Default config directory is **`~/.reticulum-go`**, not `~/.reticulum`.
 | `link.request(path, data=...)` | `l.Request(path, data, timeout)` |
 | `RNS.Resource(data, link, metadata=...)` | `resource.New` + SetMetadata + `l.SendResource` |
 | `RNS.Transport.has_path` / request_path | `tr.HasPath` / `tr.RequestPath` |
+| `RNS.Transport.await_path` | `tr.AwaitPath` (bitrate window when ctx has no deadline, not a flat 15s) |
 | `RNS.Reticulum.get_first_hop_timeout` | `tr.FirstHopTimeout` (use `rnsutil.FirstHopTimeout` when attached to a shared instance) |
 | Shared instance master | First `share_instance = yes` process (daemon or Node) |
 | `~/.reticulum` | `~/.reticulum-go` |

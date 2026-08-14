@@ -100,7 +100,7 @@ func RemotePathRequest(ctx context.Context, l *link.Link, command string, destHa
 	if l == nil {
 		return nil, fmt.Errorf("nil link")
 	}
-	timeout := 15 * time.Second
+	timeout := time.Duration(0)
 	if deadline, ok := ctx.Deadline(); ok {
 		timeout = time.Until(deadline)
 		if timeout <= 0 {
@@ -134,7 +134,7 @@ func RemoteStatusRequest(ctx context.Context, l *link.Link, includeLinks bool) (
 	if l == nil {
 		return nil, fmt.Errorf("nil link")
 	}
-	timeout := 15 * time.Second
+	timeout := time.Duration(0)
 	if deadline, ok := ctx.Deadline(); ok {
 		timeout = time.Until(deadline)
 		if timeout <= 0 {

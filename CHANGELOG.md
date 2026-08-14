@@ -2,8 +2,18 @@
 
 ## v1.0.3 [unreleased]
 
+### Included
+- Transport discovery path-request timeout sized from slowest online outgoing fan-out bitrate instead of a flat 15s
+- Link-relay proof timeout adds outbound-interface MTU airtime (`extra_link_proof_timeout` on the next hop, not the receive iface)
+- `SlowestOnlineBitrate` and path-request emit skip receive-only interfaces
+- `Transport.AwaitPath` waits `PathResponseWindow` when the caller has no deadline
+- Control API `path/request` returns `wait_s` and `link.open` waits `AwaitPath` before handshake
+- librns `LinkOpen` waits `AwaitPath` before handshake
+
 ### Fixed
 - `BaseInterface.updateBandwidthStats` increments `TxPackets` so interface TX packet counters match transmitted bytes
+- CI bench-gate no longer hangs in `transport.test` (sim Close waited on handler-pool Sends blocked on full inboxes)
+- CI fuzz-guided skips package unit tests and uses `-short` coverage so the job fits the 45m limit
 
 ## v1.0.2
 

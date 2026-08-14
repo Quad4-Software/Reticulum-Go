@@ -149,6 +149,12 @@ type pathRequestRequest struct {
 	DestinationHash string `json:"destination_hash"`
 }
 
+// pathRequestResponse is returned after a path request is emitted.
+// WaitS is the bitrate-sized window the caller should wait for HasPath.
+type pathRequestResponse struct {
+	WaitS float64 `json:"wait_s"`
+}
+
 // wsCommandEnvelope is decoded first to dispatch an inbound WebSocket
 // message on its type field before decoding the full command.
 type wsCommandEnvelope struct {

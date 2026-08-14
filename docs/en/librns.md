@@ -169,7 +169,7 @@ Authoritative names live in `include/rns.h`. Summary below.
 |----------|-------|
 | rns_path_request | Requires started node and 16-byte dest hash |
 | rns_path_table | Snapshot into caller array. `max_hops < 0` means no filter |
-| rns_link_open | Outbound link to dest hash (identity must be known from announce) |
+| rns_link_open | Outbound link. Waits a bitrate-sized path window, then handshake. Identity must be known from announce |
 | rns_link_send | On established link |
 | rns_link_send_resource | Transfer bytes as a link resource (optional rncp name) |
 | rns_link_close | Teardown |
