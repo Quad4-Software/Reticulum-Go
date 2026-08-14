@@ -136,7 +136,7 @@ func NewSession(cfg Config, sender Sender) *Session {
 	if c.Capabilities == 0 {
 		c.Capabilities = CapLineMode | CapCoalesce
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background()) // #nosec G118 -- cancelled in Session.Close
 	if cs, ok := sender.(ChannelSender); ok {
 		cs.Ctx = ctx
 		sender = cs

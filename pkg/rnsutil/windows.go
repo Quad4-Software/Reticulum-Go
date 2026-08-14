@@ -60,18 +60,19 @@ func LinkEstablishmentWindow(l *link.Link) time.Duration {
 }
 
 // BoundWait returns a child context limited to window unless parent already
-// has a deadline (an explicit caller timeout wins).
+// has a deadline (an explicit caller timeout wins). The returned cancel must
+// be invoked by the caller when non-nil.
 func BoundWait(parent context.Context, window time.Duration) (context.Context, context.CancelFunc) {
 	if parent == nil {
 		parent = context.Background()
 	}
 	if _, ok := parent.Deadline(); ok {
-		return context.WithCancel(parent)
+		return parent, func() {}
 	}
 	if window <= 0 {
-		return context.WithCancel(parent)
+		return parent, func() {}
 	}
-	return context.WithTimeout(parent, window)
+	return context.WithTimeout(parent, window) // #nosec G118 -- caller defers cancel()
 }
 
 // CLIWaitContext applies timeout when positive. Zero means adaptive waits

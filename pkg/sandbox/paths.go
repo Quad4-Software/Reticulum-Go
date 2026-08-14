@@ -5,6 +5,7 @@ package sandbox
 
 import (
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"quad4/reticulum-go/pkg/common"
@@ -45,7 +46,7 @@ func collectExtraPaths(cfg *common.ReticulumConfig) []extraPath {
 		if !filepath.IsAbs(p) {
 			return
 		}
-		key := p + "\x00" + string(rune(kind))
+		key := p + "\x00" + strconv.Itoa(int(kind))
 		if _, ok := seen[key]; ok {
 			return
 		}

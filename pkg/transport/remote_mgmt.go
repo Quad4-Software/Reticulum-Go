@@ -6,6 +6,7 @@ package transport
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"time"
 
 	"quad4/msgpack/v5/pkg/msgpack"
@@ -231,9 +232,15 @@ func asIntPtrAny(v any) *int {
 		i := int(n)
 		return &i
 	case int64:
+		if n > int64(math.MaxInt) || n < int64(math.MinInt) {
+			return nil
+		}
 		i := int(n)
 		return &i
 	case uint:
+		if n > math.MaxInt {
+			return nil
+		}
 		i := int(n)
 		return &i
 	case uint8:
@@ -246,6 +253,9 @@ func asIntPtrAny(v any) *int {
 		i := int(n)
 		return &i
 	case uint64:
+		if n > uint64(math.MaxInt) {
+			return nil
+		}
 		i := int(n)
 		return &i
 	case float32:
