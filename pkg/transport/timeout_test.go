@@ -5,6 +5,7 @@ package transport
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -201,6 +202,9 @@ func TestAwaitPathRespectsCallerDeadline(t *testing.T) {
 	err := tr.AwaitPath(ctx, dest)
 	if err == nil {
 		t.Fatal("expected timeout waiting for unknown dest")
+	}
+	if !errors.Is(err, common.ErrNoPathToDestination) {
+		t.Fatalf("AwaitPath = %v, want ErrNoPathToDestination", err)
 	}
 	if time.Since(start) > time.Second {
 		t.Fatalf("caller deadline should win, elapsed %s", time.Since(start))

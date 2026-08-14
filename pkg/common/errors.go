@@ -43,6 +43,10 @@ const (
 	MsgTransportEmptyDestinationHash = "transport: destination hash is empty"
 	MsgTransportNoDestForLinkRequest = "transport: no destination registered for hash (create destination with direction In or call RegisterDestination / AcceptsLinks(true))"
 	MsgTransportNoDestForData        = "transport: data for unregistered destination (create destination with direction In or call RegisterDestination)"
+	MsgTransportNoPathForLinkRelay   = "transport: no path to relay link request (call Transport.AwaitPath before Link.Establish)"
+	MsgTransportLinkRelayDisabled    = "transport: link relay refused (enable_transport is off and packet is not from a shared-instance client)"
+	MsgTransportNoOutgoingForPR      = "transport: path request not sent (no online outgoing interface with positive bitrate)"
+	MsgTransportIfaceNotReadyForPR   = "transport: interface offline, receive-only, or has no bitrate"
 	MsgPathRequestThrottled          = "path request throttled (use Transport.AwaitPath, do not loop RequestPath)"
 
 	MsgControlAPINoAcceptsLinks = "controlapi: destination registered without accepts_links, inbound link events will not be emitted"
@@ -84,6 +88,10 @@ var (
 	ErrTransportEmptyDestinationHash = errors.New(MsgTransportEmptyDestinationHash)
 	ErrTransportNoDestForLinkRequest = errors.New(MsgTransportNoDestForLinkRequest)
 	ErrTransportNoDestForData        = errors.New(MsgTransportNoDestForData)
+	ErrTransportNoPathForLinkRelay   = errors.New(MsgTransportNoPathForLinkRelay)
+	ErrTransportLinkRelayDisabled    = errors.New(MsgTransportLinkRelayDisabled)
+	ErrTransportNoOutgoingForPR      = errors.New(MsgTransportNoOutgoingForPR)
+	ErrTransportIfaceNotReadyForPR   = errors.New(MsgTransportIfaceNotReadyForPR)
 	ErrNoPathToDestination           = errors.New("no path to destination")
 	ErrPathRequestThrottled          = errors.New(MsgPathRequestThrottled)
 
@@ -107,6 +115,16 @@ func ErrLinkNoPathf(destHash []byte) error {
 // ErrNoPathToDestinationf returns a send/path error for destHash.
 func ErrNoPathToDestinationf(destHash []byte) error {
 	return fmt.Errorf("%w %x (use Transport.AwaitPath, not a tight RequestPath loop)", ErrNoPathToDestination, destHash)
+}
+
+// ErrTransportIfaceNotReadyForPRf names the interface that cannot emit a path request.
+func ErrTransportIfaceNotReadyForPRf(ifaceName string) error {
+	return fmt.Errorf("%w: %s (check enabled, online, outgoing, and bitrate)", ErrTransportIfaceNotReadyForPR, ifaceName)
+}
+
+// ErrTransportNoPathForLinkRelayf returns a link-relay miss for destHash.
+func ErrTransportNoPathForLinkRelayf(destHash []byte) error {
+	return fmt.Errorf("%w: %x", ErrTransportNoPathForLinkRelay, destHash)
 }
 
 // ErrPathRequestThrottledf explains a PathRequestMI suppress with remaining wait.

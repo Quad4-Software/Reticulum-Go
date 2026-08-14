@@ -19,6 +19,12 @@ func TestFormattedErrorsWrapSentinels(t *testing.T) {
 	if !errors.Is(ErrLinkNoPathf(hash), ErrLinkNoPath) {
 		t.Fatal("ErrLinkNoPathf should wrap ErrLinkNoPath")
 	}
+	if !errors.Is(ErrTransportNoPathForLinkRelayf(hash), ErrTransportNoPathForLinkRelay) {
+		t.Fatal("ErrTransportNoPathForLinkRelayf should wrap ErrTransportNoPathForLinkRelay")
+	}
+	if !errors.Is(ErrTransportIfaceNotReadyForPRf("radio"), ErrTransportIfaceNotReadyForPR) {
+		t.Fatal("ErrTransportIfaceNotReadyForPRf should wrap ErrTransportIfaceNotReadyForPR")
+	}
 	if !errors.Is(ErrNoPathToDestinationf(hash), ErrNoPathToDestination) {
 		t.Fatal("ErrNoPathToDestinationf should wrap ErrNoPathToDestination")
 	}

@@ -71,6 +71,7 @@ func mapError(err error) int {
 		return ErrState
 	case errors.Is(err, common.ErrLinkNoPath),
 		errors.Is(err, common.ErrNoPathToDestination),
+		errors.Is(err, common.ErrTransportNoPathForLinkRelay),
 		errors.Is(err, common.ErrIdentityNotFound):
 		return ErrNotFound
 	case errors.Is(err, errInternal):

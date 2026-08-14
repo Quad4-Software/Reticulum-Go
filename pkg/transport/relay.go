@@ -272,10 +272,9 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 		return false
 	}
 	if !t.mayRelayForSharedInstanceClient(sourceIface) {
-		if debug.Enabled(debug.DebugVerbose) {
-			debug.Log(debug.DebugVerbose, "Dropping transport packet: relay disabled",
-				"dest_hash", fmt.Sprintf("%x", pkt.DestinationHash))
-		}
+		debug.Log(debug.DebugInfo, common.MsgTransportLinkRelayDisabled,
+			"dest_hash", fmt.Sprintf("%x", pkt.DestinationHash),
+			"iface", sourceIface.GetName())
 		return true
 	}
 
@@ -298,10 +297,10 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 		return false
 	}
 	if !hasPath || path == nil || path.Interface == nil {
-		if debug.Enabled(debug.DebugInfo) {
-			debug.Log(debug.DebugInfo, "No path for relayed transport packet, dropping",
-				"dest_hash", fmt.Sprintf("%x", destHash))
-		}
+		debug.Log(debug.DebugInfo, common.MsgTransportNoPathForLinkRelay,
+			"dest_hash", fmt.Sprintf("%x", destHash),
+			"iface", sourceIface.GetName(),
+			"hint", "call Transport.AwaitPath before Link.Establish")
 		return true
 	}
 	if path.Interface == sourceIface {
@@ -403,10 +402,9 @@ func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterf
 		return false
 	}
 	if !t.mayRelayForSharedInstanceClient(sourceIface, entry.ReceivedIface, entry.NextHopIface) {
-		if debug.Enabled(debug.DebugVerbose) {
-			debug.Log(debug.DebugVerbose, "Dropping link relay packet: transport disabled",
-				"link_id", fmt.Sprintf("%x", linkID))
-		}
+		debug.Log(debug.DebugInfo, common.MsgTransportLinkRelayDisabled,
+			"link_id", fmt.Sprintf("%x", linkID),
+			"iface", sourceIface.GetName())
 		return true
 	}
 
@@ -506,6 +504,9 @@ func (t *Transport) relayBridgedLinkRequest(pkt *packet.Packet, raw []byte, sour
 
 func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, sourceIface common.NetworkInterface) bool {
 	if !t.mayRelayForSharedInstanceClient(sourceIface) {
+		debug.Log(debug.DebugInfo, common.MsgTransportLinkRelayDisabled,
+			"dest_hash", fmt.Sprintf("%x", pkt.DestinationHash),
+			"iface", sourceIface.GetName())
 		return true
 	}
 
@@ -520,13 +521,12 @@ func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, s
 	_, isLocal := t.destinations[destKey]
 	t.mutex.RUnlock()
 	if isLocal || !hasPath || path == nil || path.Interface == nil {
-		if debug.Enabled(debug.DebugVerbose) {
-			debug.Log(debug.DebugVerbose, "Bridged link request not relayed",
+		if !isLocal {
+			debug.Log(debug.DebugInfo, common.MsgTransportNoPathForLinkRelay,
 				"dest_hash", fmt.Sprintf("%x", destHash),
-				"is_local", isLocal,
+				"iface", sourceIface.GetName(),
 				"has_path", hasPath,
-				"path_iface_nil", path == nil || path.Interface == nil,
-				"source_iface", sourceIface.GetName())
+				"hint", "call Transport.AwaitPath before Link.Establish")
 		}
 		return false
 	}

@@ -192,7 +192,7 @@ func (c *wsClient) handleLinkOpen(raw []byte) {
 	lnk := link.NewLink(destOut, c.server.transport, nil, established, closed)
 	go func() {
 		if err := c.server.transport.AwaitPath(context.Background(), destHash); err != nil {
-			c.send(linkFailedEvent{Type: "link.failed", DestinationHash: cmd.DestinationHash, Error: "path request timed out"})
+			c.send(linkFailedEvent{Type: "link.failed", DestinationHash: cmd.DestinationHash, Error: err.Error()})
 			return
 		}
 		if err := lnk.Establish(); err != nil {

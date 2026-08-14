@@ -5,6 +5,7 @@ package transport
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"quad4/reticulum-go/pkg/common"
@@ -134,6 +135,9 @@ func (t *Transport) AwaitPath(ctx context.Context, destinationHash []byte) error
 		}
 		select {
 		case <-wait.Done():
+			if errors.Is(wait.Err(), context.DeadlineExceeded) {
+				return common.ErrNoPathToDestinationf(destinationHash)
+			}
 			return wait.Err()
 		case <-ticker.C:
 			if time.Since(lastReq) >= requestEvery {

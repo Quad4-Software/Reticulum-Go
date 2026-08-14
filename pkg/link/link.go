@@ -213,11 +213,15 @@ func (l *Link) Establish() error {
 	startTime := time.Now()
 
 	if l.status.Load() != int32(StatusPending) {
-		debug.Log(debug.DebugInfo, "Cannot establish link: invalid status", "status", l.status.Load())
+		debug.Log(debug.DebugInfo, common.MsgLinkAlreadySettled,
+			"status", l.status.Load(),
+			"hint", "wait for the established or closed callback, do not call Establish again")
 		l.mutex.Unlock()
 		return common.ErrLinkAlreadySettled
 	}
 	if !l.requestTime.IsZero() {
+		debug.Log(debug.DebugInfo, common.MsgLinkEstablishBusy,
+			"hint", "wait for the established callback, do not loop NewLink/Establish")
 		l.mutex.Unlock()
 		return common.ErrLinkEstablishBusy
 	}

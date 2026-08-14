@@ -1248,7 +1248,7 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 	if t == nil {
 		return common.ErrNoPathToDestination
 	}
-	if len(destinationHash) != 16 {
+	if len(destinationHash) != 0 && len(destinationHash) != 16 {
 		return common.ErrTransportEmptyDestinationHash
 	}
 	if tag == nil {
@@ -1323,7 +1323,7 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 			return fmt.Errorf("interface not found: %s", onInterface)
 		}
 		if !ifaceReadyForPathRequest(iface) {
-			return fmt.Errorf("interface offline or not ready: %s", onInterface)
+			return common.ErrTransportIfaceNotReadyForPRf(onInterface)
 		}
 		if err := sendOnInterface(iface, pkt.Raw, ""); err != nil {
 			return err
@@ -1332,6 +1332,7 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 		return nil
 	}
 
+	var sent int
 	for _, e := range t.snapshotRegisteredInterfaces() {
 		if !ifaceReadyForPathRequest(e.iface) {
 			continue
@@ -1343,7 +1344,14 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 			debug.Log(debug.DebugError, "Failed to send path request on interface", "interface", e.iface.GetName(), "error", err)
 		} else {
 			e.iface.SentPathRequest()
+			sent++
 		}
+	}
+	if sent == 0 {
+		debug.Log(debug.DebugInfo, common.MsgTransportNoOutgoingForPR,
+			"dest_hash", fmt.Sprintf("%x", destinationHash),
+			"hint", "enable an online outgoing interface with positive bitrate")
+		return common.ErrTransportNoOutgoingForPR
 	}
 
 	return nil
@@ -2130,7 +2138,16 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 			if t.relayBridgedLinkRequest(pkt, data, iface) {
 				return
 			}
-			debug.Log(debug.DebugError, common.MsgTransportNoDestForLinkRequest, "hash", fmt.Sprintf("%x", destHash), "elapsed", time.Since(startTime).Seconds())
+			if isLocalClientInterface(iface) {
+				debug.Log(debug.DebugError, common.MsgTransportNoPathForLinkRelay,
+					"hash", fmt.Sprintf("%x", destHash),
+					"iface", iface.GetName(),
+					"hint", "path may have expired, call Transport.AwaitPath again")
+			} else {
+				debug.Log(debug.DebugError, common.MsgTransportNoDestForLinkRequest,
+					"hash", fmt.Sprintf("%x", destHash),
+					"elapsed", time.Since(startTime).Seconds())
+			}
 			return
 		}
 
@@ -2510,14 +2527,22 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 		t.notePendingLocalPathRequest(destHash, attachedIface)
 		debug.Log(debug.DebugInfo, "Forwarding path request from local client",
 			"dest_hash", fmt.Sprintf("%x", destHash), "iface", attachedIface.GetName())
+		var forwarded int
 		for _, e := range t.snapshotRegisteredInterfaces() {
 			if e.iface == attachedIface || !e.iface.IsEnabled() {
 				continue
 			}
 			if err := t.RequestPath(destHash, e.iface.GetName(), freshTag, false); err != nil {
-				debug.Log(debug.DebugVerbose, "Failed to forward path request from local client",
+				debug.Log(debug.DebugInfo, "Failed to forward path request from local client",
 					"iface", e.iface.GetName(), "error", err)
+			} else {
+				forwarded++
 			}
+		}
+		if forwarded == 0 {
+			debug.Log(debug.DebugInfo, common.MsgTransportNoOutgoingForPR,
+				"dest_hash", fmt.Sprintf("%x", destHash),
+				"hint", "shared-instance client path request had no egress interface")
 		}
 		return
 	}
