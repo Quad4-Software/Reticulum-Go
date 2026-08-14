@@ -691,6 +691,192 @@ func TestLocalClientLinkHopSpoofing(t *testing.T) {
 	}
 }
 
+func buildHT1LinkRequest(t *testing.T, destHash []byte) ([]byte, *packet.Packet) {
+	t.Helper()
+	requestData := bytes.Repeat([]byte{0x42}, packet.LinkRequestECPubSize+3)
+	flags := byte(0)
+	flags |= (packet.HeaderType1 << 6) & packet.HeaderMaskHeaderType
+	flags |= (packet.PropagationBroadcast << 4) & packet.HeaderMaskTransportType
+	flags |= (packet.DestinationSingle << 2) & packet.HeaderMaskDestinationType
+	flags |= packet.PacketTypeLinkReq & packet.HeaderMaskPacketType
+	raw := make([]byte, 0, 2+16+len(requestData))
+	raw = append(raw, flags, 0x00)
+	raw = append(raw, destHash...)
+	raw = append(raw, requestData...)
+	pkt := &packet.Packet{Raw: raw}
+	if err := pkt.Unpack(); err != nil {
+		t.Fatalf("unpack: %v", err)
+	}
+	return raw, pkt
+}
+
+// TestRelayBridgedLinkRequestFromLocalClientWhenTransportDisabled is the
+// rngit / Python shared-instance case: enable_transport = no must still
+// forward LINKREQUEST from a local client onto a known path.
+func TestRelayBridgedLinkRequestFromLocalClientWhenTransportDisabled(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	defer tr.Close()
+
+	in := newLocalClientRelayIface("local-client")
+	out := newRelayIface("wan")
+	_ = tr.RegisterInterface("local-client", in)
+	_ = tr.RegisterInterface("wan", out)
+
+	destHash := bytes.Repeat([]byte{0xAA}, 16)
+	tr.UpdatePath(destHash, destHash, "wan", 1)
+
+	raw, pkt := buildHT1LinkRequest(t, destHash)
+	if !tr.relayBridgedLinkRequest(pkt, raw, in) {
+		t.Fatal("relayBridgedLinkRequest returned false")
+	}
+	got := out.snapshot()
+	if len(got) != 1 {
+		t.Fatalf("local-client LR with transport disabled forwarded %d packets, want 1", len(got))
+	}
+	if got[0][1] != 0x00 {
+		t.Fatalf("local-client LR hops = %d, want 0", got[0][1])
+	}
+	linkID := packet.LinkIDFromLinkRequest(pkt)
+	if _, ok := tr.linkTable.get(linkID); !ok {
+		t.Fatal("missing link relay entry for local-client LR")
+	}
+}
+
+// TestHandleLinkRequestFromLocalClientWhenTransportDisabled drives the
+// inbound packet path Python rngit uses: a 1-hop dest is wrapped as
+// HeaderType2 toward the next hop (not this instance) and sent on the
+// local-client socket. enable_transport = no must still bridge it.
+func TestHandleLinkRequestFromLocalClientWhenTransportDisabled(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	defer tr.Close()
+	tr.SetIdentity(mustIdentity(t))
+
+	in := newLocalClientRelayIface("local-client")
+	out := newRelayIface("wan")
+	_ = tr.RegisterInterface("local-client", in)
+	_ = tr.RegisterInterface("wan", out)
+
+	destHash := bytes.Repeat([]byte{0xAA}, 16)
+	tr.UpdatePath(destHash, destHash, "wan", 1)
+
+	ht1, _ := buildHT1LinkRequest(t, destHash)
+	wrapped, err := insertHeaderType2(ht1, 0, destHash)
+	if err != nil {
+		t.Fatalf("insertHeaderType2: %v", err)
+	}
+	tr.HandlePacket(wrapped, in)
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		if len(out.snapshot()) == 1 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("local-client HT2 LINKREQUEST forwarded %d packets, want 1", len(out.snapshot()))
+}
+
+// TestRelayBridgedLinkRequestDropsWANWhenTransportDisabled confirms a
+// non-local-client LINKREQUEST is still claimed and dropped when this
+// node is not a transport.
+func TestRelayBridgedLinkRequestDropsWANWhenTransportDisabled(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	defer tr.Close()
+
+	in := newRelayIface("wan-in")
+	out := newRelayIface("wan-out")
+	_ = tr.RegisterInterface("wan-in", in)
+	_ = tr.RegisterInterface("wan-out", out)
+
+	destHash := bytes.Repeat([]byte{0xAA}, 16)
+	tr.UpdatePath(destHash, destHash, "wan-out", 1)
+
+	raw, pkt := buildHT1LinkRequest(t, destHash)
+	if !tr.relayBridgedLinkRequest(pkt, raw, in) {
+		t.Fatal("relayBridgedLinkRequest should claim WAN LR when transport disabled")
+	}
+	if n := len(out.snapshot()); n != 0 {
+		t.Fatalf("WAN LR leaked %d packets while transport disabled", n)
+	}
+}
+
+// TestLinkRelayLocalClientWhenTransportDisabled forwards identify and
+// returning link data for a relay table entry that belongs to a local
+// client, even when enable_transport is no.
+func TestLinkRelayLocalClientWhenTransportDisabled(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	defer tr.Close()
+
+	in := newLocalClientRelayIface("local-client")
+	out := newRelayIface("wan")
+	linkID := bytes.Repeat([]byte{0x77}, 16)
+	tr.linkTable.put(linkID, &LinkRelayEntry{
+		NextHopIface:  out,
+		ReceivedIface: in,
+		TakenHops:     0,
+		RemainingHops: 1,
+		ProofTimeout:  time.Now().Add(time.Hour),
+		Timestamp:     time.Now(),
+	})
+
+	ident := make([]byte, 0, 2+16+1+4)
+	ident = append(ident, 0x00, 0x00)
+	ident = append(ident, linkID...)
+	ident = append(ident, packet.ContextLinkIdentify)
+	ident = append(ident, []byte{0xde, 0xad, 0xbe, 0xef}...)
+
+	if !tr.forwardLinkData(ident, in) {
+		t.Fatal("forwardLinkData should relay identify from local client")
+	}
+	if n := len(out.snapshot()); n != 1 {
+		t.Fatalf("local-client identify forwarded %d packets, want 1", n)
+	}
+
+	proof := make([]byte, 0, 2+16+1+4)
+	proof = append(proof, 0x00, 0x00)
+	proof = append(proof, linkID...)
+	proof = append(proof, packet.ContextNone)
+	proof = append(proof, []byte{0x01, 0x02, 0x03, 0x04}...)
+
+	if !tr.forwardLinkData(proof, out) {
+		t.Fatal("forwardLinkData should relay return traffic to local client")
+	}
+	if n := len(in.snapshot()); n != 1 {
+		t.Fatalf("return traffic to local client forwarded %d packets, want 1", n)
+	}
+}
+
+// TestForwardTransportPacketFromLocalClientWhenTransportDisabled relays
+// HeaderType2 packets a Python client injects toward this instance
+// (hops==1 wrap onto the shared instance) even when we are not a
+// transport node.
+func TestForwardTransportPacketFromLocalClientWhenTransportDisabled(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	defer tr.Close()
+	id := mustIdentity(t)
+	tr.SetIdentity(id)
+
+	in := newLocalClientRelayIface("local-client")
+	out := newRelayIface("wan")
+	_ = tr.RegisterInterface("local-client", in)
+	_ = tr.RegisterInterface("wan", out)
+
+	destHash := bytes.Repeat([]byte{0xAA}, 16)
+	nextHop := bytes.Repeat([]byte{0xBB}, 16)
+	tr.UpdatePath(destHash, nextHop, "wan", 2)
+
+	raw := buildHT2Packet(id.Hash(), destHash, 0, []byte{0x09})
+	pkt := &packet.Packet{Raw: raw}
+	if err := pkt.Unpack(); err != nil {
+		t.Fatalf("unpack: %v", err)
+	}
+	if !tr.forwardTransportPacket(pkt, raw, in) {
+		t.Fatal("forwardTransportPacket returned false for local-client HT2")
+	}
+	if n := len(out.snapshot()); n != 1 {
+		t.Fatalf("local-client HT2 forwarded %d packets, want 1", n)
+	}
+}
+
 // TestLinkRelayHopMismatchDrops verifies hop-gated link relay drops bad packets.
 func TestLinkRelayHopMismatchDrops(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})

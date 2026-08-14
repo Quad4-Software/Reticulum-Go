@@ -144,6 +144,23 @@ func (t *Transport) transportEnabled() bool {
 	return t.config.EnableTransport
 }
 
+// mayRelayForSharedInstanceClient is true when transport is on or the
+// packet is to or from a shared-instance local client.
+func (t *Transport) mayRelayForSharedInstanceClient(sourceIface common.NetworkInterface, related ...common.NetworkInterface) bool {
+	if t.transportEnabled() {
+		return true
+	}
+	if isLocalClientInterface(sourceIface) {
+		return true
+	}
+	for _, iface := range related {
+		if isLocalClientInterface(iface) {
+			return true
+		}
+	}
+	return false
+}
+
 func (t *Transport) ourTransportID() []byte {
 	if t.transportIdentity == nil {
 		return nil
@@ -167,9 +184,7 @@ func rebuildHeaderType2(raw []byte, hops byte, nextHop []byte) ([]byte, error) {
 	return raw, nil
 }
 
-// insertHeaderType2 upgrades a HeaderType1 wire packet to HeaderType2 by
-// inserting the next-hop transport id after the hop byte. Matches Python
-// Transport outbound wrapping when path hops > 1.
+// insertHeaderType2 upgrades a HeaderType1 wire packet to HeaderType2 by inserting the next-hop transport id after the hop byte.
 func insertHeaderType2(raw []byte, hops byte, nextHop []byte) ([]byte, error) {
 	hopLen := identity.TruncatedHashLength / 8
 	if len(raw) < 2 {
@@ -256,7 +271,7 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 		}
 		return false
 	}
-	if !t.transportEnabled() {
+	if !t.mayRelayForSharedInstanceClient(sourceIface) {
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Dropping transport packet: relay disabled",
 				"dest_hash", fmt.Sprintf("%x", pkt.DestinationHash))
@@ -387,7 +402,7 @@ func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterf
 	if !ok {
 		return false
 	}
-	if !t.transportEnabled() {
+	if !t.mayRelayForSharedInstanceClient(sourceIface, entry.ReceivedIface, entry.NextHopIface) {
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Dropping link relay packet: transport disabled",
 				"link_id", fmt.Sprintf("%x", linkID))
@@ -490,7 +505,7 @@ func (t *Transport) relayBridgedLinkRequest(pkt *packet.Packet, raw []byte, sour
 }
 
 func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, sourceIface common.NetworkInterface) bool {
-	if !t.transportEnabled() {
+	if !t.mayRelayForSharedInstanceClient(sourceIface) {
 		return true
 	}
 
