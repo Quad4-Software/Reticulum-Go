@@ -1,6 +1,6 @@
 module quad4/reticulum-go/examples/wasm
 
-go 1.26.5
+go 1.26.6
 
 require (
 	quad4/reticulum-go v1.0.0

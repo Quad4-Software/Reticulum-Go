@@ -1,6 +1,6 @@
 module quad4/reticulum-go/examples/pageserver
 
-go 1.26.5
+go 1.26.6
 
 require (
 	quad4/msgpack/v5 v5.8.1

@@ -42,7 +42,7 @@ fi
 cat > "$ROOT/go.mod" <<EOF
 module quad4/reticulum-go
 
-go 1.26.5
+go 1.26.6
 
 require (
 	quad4/bzip2 v0.0.0
@@ -66,7 +66,7 @@ EOF
 cat > "$ROOT/examples/wasm/go.mod" <<EOF
 module quad4/reticulum-go/examples/wasm
 
-go 1.26.5
+go 1.26.6
 
 require (
 	quad4/reticulum-go v0.0.0
@@ -92,7 +92,7 @@ EOF
 cat > "$ROOT/examples/pageserver/go.mod" <<EOF
 module quad4/reticulum-go/examples/pageserver
 
-go 1.26.5
+go 1.26.6
 
 require quad4/reticulum-go v0.0.0
 

@@ -1,6 +1,6 @@
 module example-page-downloader
 
-go 1.26.5
+go 1.26.6
 
 require quad4/reticulum-go v0.0.0
 
