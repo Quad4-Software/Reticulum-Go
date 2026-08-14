@@ -19,6 +19,8 @@
 
 ### Fixed
 - Shared-instance local clients still get path and link relay when `enable_transport = no` (Python `from_local_client` / `for_local_client_link`). PATHREQUEST already forwarded, but LINKREQUEST and link data were dropped, so rngit and other Python apps resolved a path then failed to establish a link.
+- Developer errors for path/link relay: no-path link relay, transport-disabled relay, no outgoing interface for path request, and interface-not-ready path request return explicit errors instead of silent success or misleading "no destination" logs
+- `Transport.AwaitPath` returns `ErrNoPathToDestination` with hash and hint on timeout instead of bare `context.DeadlineExceeded`
 - `BaseInterface.updateBandwidthStats` increments `TxPackets` so interface TX packet counters match transmitted bytes
 - CI bench-gate no longer hangs in `transport.test` (sim Close waited on handler-pool Sends blocked on full inboxes)
 - CI fuzz-guided skips package unit tests and uses `-short` coverage so the job fits the 45m limit

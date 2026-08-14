@@ -170,7 +170,7 @@ if err != nil {
 
 Do not wait a flat 15 seconds for a path or link. `AwaitPath` sizes the wait from the slowest online outgoing interface. `Establish` still needs a path (it will error if discovery produced none). Pass `0` to `Request` so the receipt timeout follows link RTT. Prefer established and closed callbacks on `NewLink` over polling.
 
-Do not loop `RequestPath`, `Announce`, `Establish`, or `Request`. Repeats return `ErrPathRequestThrottled`, `ErrDestAnnounceThrottled`, `ErrLinkEstablishBusy` / `ErrLinkAlreadySettled`, or `ErrLinkRequestBusy` / `ErrLinkRequestDuplicate`. Wait on callbacks or `AwaitPath`.
+Do not loop `RequestPath`, `Announce`, `Establish`, or `Request`. Repeats return `ErrPathRequestThrottled`, `ErrDestAnnounceThrottled`, `ErrLinkEstablishBusy` / `ErrLinkAlreadySettled`, or `ErrLinkRequestBusy` / `ErrLinkRequestDuplicate`. `RequestPath` with no ready outgoing interface returns `ErrTransportNoOutgoingForPR`. Wait on callbacks or `AwaitPath`.
 
 If you must use a timer around handshake, wait `l.EstablishmentTimeout()` plus a small margin (`rnsutil.LinkEstablishmentWindow`).
 
