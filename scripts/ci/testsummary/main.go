@@ -84,7 +84,7 @@ func goTestArgs(user []string) []string {
 }
 
 func validGoTestArg(arg string) bool {
-	if arg == "" || strings.ContainsAny(arg, "\x00\n\r;|&`$") {
+	if arg == "" || strings.ContainsAny(arg, "\x00\n\r;`&") {
 		return false
 	}
 	return true

@@ -45,4 +45,10 @@ func TestValidateGoTestArgs(t *testing.T) {
 	if err := validateGoTestArgs([]string{"ok\n-v"}); err == nil {
 		t.Fatal("newline was accepted")
 	}
+	if err := validateGoTestArgs([]string{"-run", "TestSimChaos|TestLinkChaos|TestIfaceChaos"}); err != nil {
+		t.Fatalf("-run alternation rejected: %v", err)
+	}
+	if err := validateGoTestArgs([]string{"-fuzz=^FuzzPacketUnpack$"}); err != nil {
+		t.Fatalf("fuzz anchor rejected: %v", err)
+	}
 }
