@@ -9,6 +9,7 @@ vars:
   GOCMD: go
   LIBS_ROOT: '{{default "../../Reticulum-Go-Projects" .LIBS_ROOT}}'
   GO_LEGACY_WIN7: '{{default "/usr/local/go-legacy-win7/bin/go" .GO_LEGACY_WIN7}}'
+  GO_LEGACY_WINXP: '{{default "/usr/local/go-legacy-winxp/bin/go" .GO_LEGACY_WINXP}}'
   BINARY_NAME: reticulum-go
   BUILD_DIR: bin
   MAIN_PACKAGE: ./cmd/reticulum-go

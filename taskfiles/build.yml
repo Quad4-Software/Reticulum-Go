@@ -118,6 +118,20 @@ tasks:
         GOOS=windows GOARCH=amd64 {{.GO_LEGACY_WIN7}} build -ldflags="-s -w -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64-win7.exe {{.MAIN_PACKAGE}}
         GOOS=windows GOARCH=arm64 {{.GO_LEGACY_WIN7}} build -ldflags="-s -w -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-arm64-win7.exe {{.MAIN_PACKAGE}}
 
+  build-windows-xp:
+    desc: Build for Windows XP/2003 using go-legacy-winxp (386, amd64)
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - |
+        V="${VERSION:-{{.VERSION}}}"
+        if [ -z "$V" ]; then
+          V="{{.GIT_DESCRIBE}}"
+        fi
+        GOOS=windows GOARCH=386 {{.GO_LEGACY_WINXP}} build -ldflags="-s -w -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-386-winxp.exe {{.MAIN_PACKAGE}}
+        GOOS=windows GOARCH=amd64 {{.GO_LEGACY_WINXP}} build -ldflags="-s -w -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64-winxp.exe {{.MAIN_PACKAGE}}
+
   build-darwin:
     desc: Build for MacOS (amd64, arm64)
     deps:

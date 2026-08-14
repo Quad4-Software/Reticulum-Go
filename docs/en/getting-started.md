@@ -132,6 +132,12 @@ Legacy Windows 7, 8, and 8.1 builds use [go-legacy-win7](https://github.com/thon
 make build-windows-legacy
 ```
 
+Windows XP and Server 2003 builds use [go-legacy-winxp](https://github.com/Quad4-Software/go-legacy-winxp):
+
+```bash
+make build-windows-xp
+```
+
 ## WebAssembly
 
 Install [Task](https://taskfile.dev/) and run:

@@ -35,6 +35,8 @@ permissions:
 env:
   CI_GO_VERSION: "1.26.6"
   CI_GO_LEGACY_WIN7_VERSION: "1.26.5-1"
+  CI_GO_LEGACY_WINXP_VERSION: "1.26.5-1"
+  CI_GO_LEGACY_WINXP_ENABLED: "false"
   CI_TASK_VERSION: "3.46.3"
   CI_COSIGN_VERSION: "3.0.5"
   CI_TRIVY_VERSION: "0.69.3"
@@ -149,6 +151,56 @@ jobs:
         with:
           name: reticulum-go-windows-${{ matrix.goarch }}-win7
           path: reticulum-go-windows-${{ matrix.goarch }}-win7.exe
+
+  build-windows-xp:
+    name: Build (windows, ${{ matrix.goarch }}, winxp)
+    if: env.CI_GO_LEGACY_WINXP_ENABLED == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        goarch: [386, amd64]
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up go-legacy-winxp
+        run: sh scripts/ci/setup-go-legacy-winxp.sh "${{ env.CI_GO_LEGACY_WINXP_VERSION }}"
+
+      - name: Setup Task
+        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
+
+      - name: Build with go-legacy-winxp
+        env:
+          GOOS: windows
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+          VERSION: ${{ inputs.tag_name }}
+        run: |
+          set -euo pipefail
+          LEGACY_GO=/usr/local/go-legacy-winxp/bin/go
+          want="go${CI_GO_LEGACY_WINXP_VERSION%-*}"
+          got="$("$LEGACY_GO" env GOVERSION)"
+          echo "go-legacy-winxp: $got (want $want)"
+          case "$got" in
+            "$want"|"$want "*) ;;
+            *)
+              echo "go-legacy-winxp version mismatch: got '$got' want '$want'" >&2
+              exit 1
+              ;;
+          esac
+          output_name="reticulum-go-windows-${{ matrix.goarch }}-winxp.exe"
+          "$LEGACY_GO" build -ldflags="-s -w -X main.defaultVersion=${VERSION}" -o "${output_name}" ./cmd/reticulum-go
+          echo "Built: ${output_name}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: reticulum-go-windows-${{ matrix.goarch }}-winxp
+          path: reticulum-go-windows-${{ matrix.goarch }}-winxp.exe
 
   sbom:
     name: SBOM

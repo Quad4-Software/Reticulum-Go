@@ -22,7 +22,7 @@ For details on interoperability, see [COMPATIBILITY.md](COMPATIBILITY.md). You c
 
 ### Main Goals
 
-*   Portable builds, including legacy Windows via go-legacy-win7
+*   Portable builds, including legacy Windows via go-legacy-win7 and go-legacy-winxp
 *   Auditable CI and vendored dependencies
 *   Wire interoperability with the Python reference and its standard utilities
 *   Concurrent interface I/O and transport forwarding with Go goroutines
@@ -263,6 +263,7 @@ go test -v ./...
 | `make build-linux` | Cross-compiles for Linux. | Cross-compiles for amd64, arm64, arm, 386, riscv64, ppc64le, and ppc64 targets. |
 | `make build-windows` | Cross-compiles for Windows. | Cross-compiles for amd64 and arm64 targets. |
 | `make build-windows-legacy` | Cross-compiles for legacy Windows releases. | Compiles Windows 7, 8, and 8.1 support using go-legacy-win7. |
+| `make build-windows-xp` | Cross-compiles for Windows XP and Server 2003. | Uses [go-legacy-winxp](https://github.com/Quad4-Software/go-legacy-winxp) (386 and amd64). |
 | `make build-darwin` | Cross-compiles for macOS. | Cross-compiles for amd64 and arm64 targets. |
 | `make build-all` | Cross-compiles for all major platforms. | Compiles Linux, Windows, and macOS binaries. |
 | `make tree-rsm-verify` | Verifies `reticulum-go.rsm` signature and file hashes. | `sh scripts/ci/verify-tree-rsm.sh` |
@@ -337,7 +338,25 @@ You can also specify a custom path to your legacy Go compiler:
 GO_LEGACY_WIN7=/usr/local/go-legacy-win7/bin/go make build-windows-legacy
 ```
 
-CI uses a pinned Go **1.26.5** compiler via GitHub Actions. Legacy Windows builds use `scripts/ci/setup-go-legacy-win7.sh` to download and verify the legacy compiler.
+CI uses a pinned Go **1.26.6** compiler via GitHub Actions. Legacy Windows builds use `scripts/ci/setup-go-legacy-win7.sh` to download and verify the legacy compiler.
+
+### Windows XP and Server 2003 Support
+
+Windows XP requires PE subsystem targeting and runtime fallbacks that upstream Go no longer provides. For XP and Server 2003, build with [go-legacy-winxp](https://github.com/Quad4-Software/go-legacy-winxp) (Quad4 fork extending go-legacy-win7 down to XP while keeping Windows 7 through 11 compatibility):
+
+```bash
+make build-windows-xp
+```
+
+Or:
+
+```bash
+task build-windows-xp
+```
+
+This produces `reticulum-go-windows-386-winxp.exe` and `reticulum-go-windows-amd64-winxp.exe`. Prefer the 386 build on bare-metal XP when possible.
+
+Install the compiler with `scripts/ci/setup-go-legacy-winxp.sh 1.26.5-1` after the matching release is published on the fork. Release CI for XP artifacts is gated by `CI_GO_LEGACY_WINXP_ENABLED` in `.github/workflows/ci.yml` until that compiler release exists.
 
 ## WebAssembly and Embedded Targets
 

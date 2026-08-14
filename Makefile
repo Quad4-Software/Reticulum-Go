@@ -8,7 +8,7 @@
 # Optional legacy tool names are installed as symlinks to that binary.
 
 .PHONY: all build build-utils install uninstall clean test fmt vet lint vulncheck gosec check deps run help
-.PHONY: build-linux build-windows build-windows-legacy build-darwin build-all
+.PHONY: build-linux build-windows build-windows-legacy build-windows-xp build-darwin build-all
 .PHONY: test-short test-race test-crossref test-wasm test-odin test-dart test-all coverage bench debug release
 .PHONY: man install-man install-service package package-deb package-rpm package-arch stage-nfpm
 .PHONY: test-services tree-manifest tree-rsm-sign tree-rsm-verify hooks-install
@@ -19,6 +19,7 @@
 
 GOCMD := go
 GO_LEGACY_WIN7 ?= /usr/local/go-legacy-win7/bin/go
+GO_LEGACY_WINXP ?= /usr/local/go-legacy-winxp/bin/go
 # Use committed vendor/ for builds and tests; targets that fetch modules or tools clear these.
 GOFLAGS := -mod=vendor
 GOPROXY := off
@@ -282,6 +283,11 @@ build-windows-legacy:
 	@mkdir -p $(BUILD_DIR)
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO_LEGACY_WIN7) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64-win7.exe $(MAIN_PACKAGE)
 	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 $(GO_LEGACY_WIN7) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64-win7.exe $(MAIN_PACKAGE)
+
+build-windows-xp:
+	@mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=0 GOOS=windows GOARCH=386 $(GO_LEGACY_WINXP) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-386-winxp.exe $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO_LEGACY_WINXP) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64-winxp.exe $(MAIN_PACKAGE)
 
 build-darwin:
 	@mkdir -p $(BUILD_DIR)
