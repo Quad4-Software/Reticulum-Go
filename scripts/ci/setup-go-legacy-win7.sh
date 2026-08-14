@@ -1,7 +1,7 @@
 #!/bin/sh
 # Install go-legacy-win7 from GitHub releases with SHA256 pin.
 # Usage: setup-go-legacy-win7.sh <version>
-#   version: e.g. 1.26.5-1 (no "v" or "go-legacy-win7-" prefix)
+#   version: e.g. 1.26.6-1 (no "v" or "go-legacy-win7-" prefix)
 set -eu
 
 . "$(dirname "$0")/priv.sh"
@@ -21,8 +21,8 @@ TARBALL="go-legacy-win7-${VER}.linux_${ARCH}.tar.gz"
 URL="${BASE}/${TARBALL}"
 
 case "$ARCH" in
-    amd64) EXPECTED_SHA256="4204dcd95218f61f4ffee51d0deef05a227228ae1f494755e855414271d7c4af" ;;
-    arm64) EXPECTED_SHA256="126523010148d9c942c8bfba049d0a88c32a2a8047a3d56018549d5394a5eda2" ;;
+    amd64) EXPECTED_SHA256="a197a93c1ec009f600155d20f4c8cc388560cbc55748f99c1c0dd5b29ef52c05" ;;
+    arm64) EXPECTED_SHA256="c0d7f875d1583d99c0d3ae8da3c8ff4cc3766faabca18e5ba42939a38f9539d4" ;;
 esac
 
 curl -fsSL "$URL" -o /tmp/go-legacy-win7.tar.gz

@@ -25,8 +25,8 @@ permissions:
 
 env:
   CI_GO_VERSION: "1.26.6"
-  CI_GO_LEGACY_WIN7_VERSION: "1.26.5-1"
-  CI_GO_LEGACY_WINXP_VERSION: "1.26.5-1"
+  CI_GO_LEGACY_WIN7_VERSION: "1.26.6-1"
+  CI_GO_LEGACY_WINXP_VERSION: "1.26.6"
   CI_TASK_VERSION: "3.46.3"
   CI_REVIVE_VERSION: "v1.15.0"
   CI_NODE_MAJOR: "22"
@@ -731,8 +731,6 @@ jobs:
 
   build-windows-xp:
     name: Build (windows, ${{ matrix.goarch }}, winxp)
-    # Job-level if cannot use env. Set to true after go-legacy-winxp v1.26.5-1 is published.
-    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:

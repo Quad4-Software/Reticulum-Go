@@ -1,11 +1,7 @@
 #!/bin/sh
 # Install go-legacy-winxp from Quad4-Software GitHub releases.
 # Usage: setup-go-legacy-winxp.sh <version>
-#   version: e.g. 1.26.5-1 (no "v" or "go-legacy-winxp-" prefix)
-#
-# Optional env (pin after the first published release):
-#   GO_LEGACY_WINXP_SHA256_AMD64
-#   GO_LEGACY_WINXP_SHA256_ARM64
+#   version: e.g. 1.26.6 (no "v" or "go-legacy-winxp-" prefix)
 set -eu
 
 . "$(dirname "$0")/priv.sh"
@@ -24,22 +20,17 @@ esac
 TARBALL="go-legacy-winxp-${VER}.linux_${ARCH}.tar.gz"
 URL="${BASE}/${TARBALL}"
 
-EXPECTED_SHA256=""
 case "$ARCH" in
-    amd64) EXPECTED_SHA256="${GO_LEGACY_WINXP_SHA256_AMD64:-}" ;;
-    arm64) EXPECTED_SHA256="${GO_LEGACY_WINXP_SHA256_ARM64:-}" ;;
+    amd64) EXPECTED_SHA256="19787633c02d7c6c927fd500a548d6593447d8966133995a0055e0df00a75098" ;;
+    arm64) EXPECTED_SHA256="196c28270281acb4d30e3e39f3c521a31cec2e644d1be42e5578ff3b25a81a01" ;;
 esac
 
 curl -fsSL "$URL" -o /tmp/go-legacy-winxp.tar.gz
-if [ -n "$EXPECTED_SHA256" ]; then
-	ACTUAL_SHA256="$(sha256sum /tmp/go-legacy-winxp.tar.gz | awk '{print $1}')"
-	if [ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]; then
-		echo "SHA256 mismatch for ${TARBALL}" >&2
-		rm -f /tmp/go-legacy-winxp.tar.gz
-		exit 1
-	fi
-else
-	echo "setup-go-legacy-winxp: no SHA256 pin for ${ARCH}, add GO_LEGACY_WINXP_SHA256_${ARCH} after release" >&2
+ACTUAL_SHA256="$(sha256sum /tmp/go-legacy-winxp.tar.gz | awk '{print $1}')"
+if [ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]; then
+	echo "SHA256 mismatch for ${TARBALL}" >&2
+	rm -f /tmp/go-legacy-winxp.tar.gz
+	exit 1
 fi
 
 run_priv rm -rf "$INSTALL_ROOT"
