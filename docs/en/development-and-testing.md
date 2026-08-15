@@ -352,6 +352,21 @@ CI runs self-check on Linux (amd64 and arm64), macOS, Windows, FreeBSD, and Open
 
 NetBSD is not in CI. Run `reticulum-go self-check` manually on that host.
 
+### Static footgun scan
+
+`reticulum-go zen` scans Go sources (and optional Python with `-python`) for path and link anti-patterns: RequestPath or HasPath loops, Establish before AwaitPath, link use without callbacks, announce bursts, and legacy 15 second timeouts. It is a developer tool, not a runtime check. No daemon is required.
+
+```bash
+make build
+./bin/reticulum-go zen ./...
+./bin/reticulum-go zen -list-rules
+./bin/reticulum-go zen -fix ./pkg/myapp/...
+```
+
+`-fix` applies only safe edits (checking RequestPath errors in functions that return error). Warnings without `-fix` exit non-zero so CI can gate on the scan.
+
+Package tests live in `pkg/zenfix/`. Full flag and rule reference: [CLI utilities](utilities.md#rgozen).
+
 ## Vendoring
 
 Ordinary builds use vendored modules. Refresh after dependency changes:

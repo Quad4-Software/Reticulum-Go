@@ -27,7 +27,7 @@ Documentation is organized by language under `docs/`. English lives in `docs/en/
 | [Compatibility](compatibility.md) | Parity with Python RNS, gaps, Go-only extensions |
 | [Control API](control-api.md) | Localhost JSON and WebSocket API for non-Go clients, Dart and Flutter |
 | [librns](librns.md) | C ABI map, supported surface, events, build and smoke, Odin bindings |
-| [CLI utilities](utilities.md) | `reticulum-go` subcommands (status, slow, id, probe, path, cp, pageserver), shared-instance RPC with Python |
+| [CLI utilities](utilities.md) | `reticulum-go` subcommands (status, slow, zen, id, probe, path, cp, pageserver), shared-instance RPC with Python |
 | [Embedding and WebAssembly](embedding-and-wasm.md) | `pkg/node`, WASM, browser integration |
 | [Firecracker microvm](microvm.md) | Guest rootfs, VSOCK host bridge, nested VM networking |
 | [Development and testing](development-and-testing.md) | Code quality, crossref tests, interop tests, CI |

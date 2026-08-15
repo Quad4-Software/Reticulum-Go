@@ -194,12 +194,22 @@ Python share_instance equivalent.
 
 ### `pkg/cli`
 
-Subcommand dispatch for the unified `reticulum-go` binary (Main, RunStatus, RunID, RunProbe, RunPath, RunCP, RunPageserver).
+Subcommand dispatch for the unified `reticulum-go` binary (Main, RunStatus, RunID, RunProbe, RunPath, RunCP, RunPageserver, RunZen).
 
 | Item | Detail |
 |------|--------|
 | Entry | `Main(opts)` from `cmd/reticulum-go` |
 | Docs | [CLI utilities](utilities.md) |
+
+### `pkg/zenfix`
+
+Static analyzer for path and link footguns. Used by `reticulum-go zen`.
+
+| Item | Detail |
+|------|--------|
+| Entry | `zenfix.Run(opts)` |
+| Rules | `AllRules` in `rules.go`, checkers in `analyze.go` / `python.go` |
+| Docs | [CLI utilities](utilities.md#rgozen), [Development and testing](development-and-testing.md#static-footgun-scan) |
 
 ### `pkg/pageserver`
 

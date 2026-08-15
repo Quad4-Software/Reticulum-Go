@@ -172,6 +172,8 @@ Do not wait a flat 15 seconds for a path or link. `AwaitPath` sizes the wait fro
 
 Do not loop `RequestPath`, `Announce`, `Establish`, or `Request`. Repeats return `ErrPathRequestThrottled`, `ErrDestAnnounceThrottled`, `ErrLinkEstablishBusy` / `ErrLinkAlreadySettled`, or `ErrLinkRequestBusy` / `ErrLinkRequestDuplicate`. `RequestPath` with no ready outgoing interface returns `ErrTransportNoOutgoingForPR`. Wait on callbacks or `AwaitPath`.
 
+Run `reticulum-go zen` on your module to catch these patterns in source before they ship. See [CLI utilities](utilities.md#rgozen).
+
 If you must use a timer around handshake, wait `l.EstablishmentTimeout()` plus a small margin (`rnsutil.LinkEstablishmentWindow`).
 
 ## Recipe: send a file resource

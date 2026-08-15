@@ -16,7 +16,7 @@ make build
 ./bin/reticulum-go pageserver
 ```
 
-`make install` also creates legacy symlinks (rgostatus, rgoid, rgoprobe, rgopath, rgocp, rgox, rnx, rgosh, rgopageserver, rgoslow, rgospeed, rgodump, rgosnap, rgoselfcheck) that invoke the same binary. Man pages: man reticulum-go, man reticulum-go-status, man reticulum-go-speedtest, man reticulum-go-self-check, and so on.
+`make install` also creates legacy symlinks (rgostatus, rgoid, rgoprobe, rgopath, rgocp, rgox, rnx, rgosh, rgopageserver, rgoslow, rgospeed, rgodump, rgosnap, rgoselfcheck, rgozen) that invoke the same binary. Man pages: man reticulum-go, man reticulum-go-status, man reticulum-go-speedtest, man reticulum-go-self-check, and so on.
 
 | Tool / subcommand | Python counterpart | Role |
 |-------------------|--------------------|------|
@@ -30,6 +30,7 @@ make build
 | `reticulum-go sh` (rgosh) | rnsh (native + auto rnsh) | Interactive remote shell over Link+Channel (PTY/pipes) |
 | `reticulum-go pageserver` | (example app) | NomadNet-style page and file server |
 | `reticulum-go self-check` (rgoselfcheck) | (Go-only) | Host OS preflight for sandbox, crypto, and interfaces |
+| `reticulum-go zen` (rgozen) | (Go-only) | Static scan for path and link footguns in Go and optional Python sources |
 | `reticulum-go speedtest` (rgospeed) | `Examples/Speedtest.py` | Loopback smoke plus cross-host / docker daemon (`-daemon`, `-iface`) |
 | `reticulum-go dump` (rgodump) | (Go-only) | Decode RNS packets from hex or pcap to JSONL |
 | `reticulum-go snapshot` (rgosnap) | (Go-only) | Path table, links, and health drop counters as JSON |
@@ -54,7 +55,7 @@ Python utilities and Go subcommands speak the same destinations, shared-instance
 | Shell on dest app `rnsh` | rnsh | `reticulum-go sh` (auto) | Yes | Yes (Go listener announces `rnsh` as well) |
 | Shell on dest app `rgosh` | (no) | `reticulum-go sh` | n/a | Go native only |
 
-Remote drop, path-request, and blackhole mutate over `-R` exit 255 on both stacks. rnir, rnpkg, rngit, and rnodeconf stay Python-only. rgoslow, rgodump, rgosnap, and rgoselfcheck stay Go-only.
+Remote drop, path-request, and blackhole mutate over `-R` exit 255 on both stacks. rnir, rnpkg, rngit, and rnodeconf stay Python-only. rgoslow, rgodump, rgosnap, rgoselfcheck, and rgozen stay Go-only.
 
 ## Shared-instance RPC (required for rgostatus and rgopath table modes)
 
@@ -456,6 +457,48 @@ RUN_LIVE_INTEROP=1 PYTHON_INTEROP=python3 RETICULUM_PATH=/path/to/reticulum \
   go test -v ./tests/interop/ -run 'Rgosh|Rnsh'
 ```
 
+## rgozen
+
+```bash
+reticulum-go zen [flags] [packages...]
+# legacy: rgozen
+```
+
+Static source checker for Reticulum path and link footguns. Think go vet or go fix for common mistakes that lead to throttling, handshake storms, or path resolved but link never opens. No daemon or network access is required.
+
+Default scan is `./...` from the current module. Pass package patterns the same way as go test.
+
+| Flag | Meaning |
+|------|---------|
+| `-fix` | Apply safe automatic fixes (today: check RequestPath errors in functions that return error) |
+| `-json` | Emit a JSON report |
+| `-list-rules` | Print all rule IDs, severity, and hints, then exit |
+| `-plain` | Plain output without colors |
+| `-test` | Include `*_test.go` files |
+| `-python` | Also scan `.py` files under the module root |
+| `-C dir` | Module root directory (default: cwd) |
+
+Exit code is 0 when clean, 1 when errors are present or warnings remain without `-fix`, 2 on flag errors.
+
+### What it catches
+
+Go rules cover spinning on RequestPath, HasPath, or AwaitPath, Establish or NewLink inside loops, link use before the established callback, announce bursts, hard-coded 15 second timeouts, RequestPath with on_interface overrides, and Recall before a path wait.
+
+With `-python`, the same anti-patterns are checked in RNS Python apps: has_path and request_path loops, await_path inside retry loops, link_ready and link.status polling, request_path followed by has_path spin, Recall before await_path, on_interface overrides, and require_shared_instance without a running rnsd.
+
+Each finding prints file, line, rule ID, why it fails, a fix hint, and doc references. Run `-list-rules` for the full catalog.
+
+Example:
+
+```bash
+reticulum-go zen ./pkg/myapp/...
+reticulum-go zen -python -C ~/my-rns-app
+reticulum-go zen -fix ./...
+reticulum-go zen -json ./pkg/... | jq .
+```
+
+Use this during development and in CI before shipping apps that talk to shared instances or slow radios. See also [API reference](api-reference.md) path and link guidance and [Development and testing](development-and-testing.md#static-footgun-scan).
+
 ## Troubleshooting
 
 | Symptom | Fix |
@@ -477,6 +520,7 @@ RUN_LIVE_INTEROP=1 PYTHON_INTEROP=python3 RETICULUM_PATH=/path/to/reticulum \
 | `reticulum-go path -t` | Path table dump |
 | `reticulum-go debug` | Effective config path, log level, platform, RPC reachability (`-rates`, `-json`) |
 | `reticulum-go self-check` | Host OS preflight checklist (`--json`, `--quick`, `--full`, `--strict`) |
+| `reticulum-go zen` | Static path and link footgun scan (`-fix`, `-json`, `-list-rules`, `-python`) |
 | `reticulum-go probe` | Connectivity / RTT (`-json`) |
 | Control API | HTTP `/v1/health` (liveness), `/v1/status` (iface stats plus integrity fields), `/v1/paths` when `enable_control_api = yes` |
 | Daemon `-debug N` | Override config loglevel for one run |

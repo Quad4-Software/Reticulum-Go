@@ -154,6 +154,7 @@ These do not change the wire format:
 | rnsd | `reticulum-go` daemon |
 | rnstatus | rgostatus (same RPC and remote `-R` dest as Python, extra Go integrity fields) |
 | (none) | rgoslow / `reticulum-go slow` (bottleneck and local health findings, Go-only) |
+| (none) | rgozen / `reticulum-go zen` (static path and link footgun scan for Go and optional Python, Go-only) |
 | `Examples/Speedtest.py` | rgospeed / `reticulum-go speedtest` (loopback link throughput smoke) |
 | rnid | rgoid (`.rid`/`.rsg`/`.rsm`/`.rfe` compatible) |
 | rnprobe | rgoprobe |
