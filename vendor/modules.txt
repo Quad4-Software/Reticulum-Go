@@ -117,24 +117,23 @@ golang.org/x/tools/internal/versions
 # kernel.org/pub/linux/libs/security/libcap/psx v1.2.77
 ## explicit; go 1.11
 kernel.org/pub/linux/libs/security/libcap/psx
-# quad4/bzip2 v0.0.0 => ../../Reticulum-Go-Projects/bzip2
+# quad4/bzip2 v0.0.0 => ./vendor/quad4/bzip2
 ## explicit; go 1.26.2
 quad4/bzip2/internal/enc
 quad4/bzip2/pkg/bzip2
-# quad4/msgpack/v5 v5.8.1 => ../../Reticulum-Go-Projects/msgpack
+# quad4/msgpack/v5 v5.8.1 => ./vendor/quad4/msgpack/v5
 ## explicit; go 1.26.5
 quad4/msgpack/v5/pkg/msgpack
 quad4/msgpack/v5/pkg/msgpack/msgpcode
-# quad4/pbt v0.0.0 => ../../Reticulum-Go-Projects/pbt
+# quad4/pbt v0.0.0 => ./vendor/quad4/pbt
 ## explicit; go 1.26.2
 quad4/pbt/pkg/pbt
-# quad4/tagparser v0.0.0 => ../../Reticulum-Go-Projects/tagparser
+# quad4/tagparser v0.0.0 => ./vendor/quad4/tagparser
 ## explicit; go 1.26.2
 quad4/tagparser/internal
 quad4/tagparser/internal/parser
 quad4/tagparser/pkg/tagparser
-# quad4/bzip2 => ../../Reticulum-Go-Projects/bzip2
-# quad4/msgpack/v5 => ../../Reticulum-Go-Projects/msgpack
-# quad4/pbt => ../../Reticulum-Go-Projects/pbt
-# quad4/reticulum-go-protocols => ../../Reticulum-Go-Projects/reticulum-go-mf
-# quad4/tagparser => ../../Reticulum-Go-Projects/tagparser
+# quad4/bzip2 => ./vendor/quad4/bzip2
+# quad4/msgpack/v5 => ./vendor/quad4/msgpack/v5
+# quad4/pbt => ./vendor/quad4/pbt
+# quad4/tagparser => ./vendor/quad4/tagparser

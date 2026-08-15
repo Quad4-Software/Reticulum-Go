@@ -77,7 +77,7 @@ tasks:
   scan:
     desc: Run gosec security scanner
     cmds:
-      - gosec -exclude-dir=vendor -exclude-dir=.cache {{.SCAN_GO_PACKAGES}}
+      - gosec -exclude-dir=vendor -exclude-dir=.cache -exclude-dir=testdata {{.SCAN_GO_PACKAGES}}
 
   vulncheck:
     desc: Run govulncheck (Go vulnerability database)

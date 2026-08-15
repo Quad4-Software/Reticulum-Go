@@ -39,6 +39,5 @@ replace (
 	quad4/bzip2 => ./vendor/quad4/bzip2
 	quad4/msgpack/v5 => ./vendor/quad4/msgpack/v5
 	quad4/pbt => ./vendor/quad4/pbt
-	quad4/reticulum-go-protocols => ./vendor/quad4/reticulum-go-protocols
 	quad4/tagparser => ./vendor/quad4/tagparser
 )
