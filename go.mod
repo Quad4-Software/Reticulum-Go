@@ -16,6 +16,7 @@ require (
 	golang.org/x/crypto v0.53.0
 	golang.org/x/sys v0.46.0
 	golang.org/x/term v0.44.0
+	golang.org/x/tools v0.47.0
 	quad4/bzip2 v0.0.0
 	quad4/msgpack/v5 v5.8.1
 	quad4/pbt v0.0.0
@@ -30,15 +31,14 @@ require (
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/text v0.39.0 // indirect
-	golang.org/x/tools v0.47.0 // indirect
 	kernel.org/pub/linux/libs/security/libcap/psx v1.2.77 // indirect
 	quad4/tagparser v0.0.0 // indirect
 )
 
 replace (
-	quad4/bzip2 => ../../Reticulum-Go-Projects/bzip2
-	quad4/msgpack/v5 => ../../Reticulum-Go-Projects/msgpack
-	quad4/pbt => ../../Reticulum-Go-Projects/pbt
-	quad4/reticulum-go-protocols => ../../Reticulum-Go-Projects/reticulum-go-mf
-	quad4/tagparser => ../../Reticulum-Go-Projects/tagparser
+	quad4/bzip2 => ./vendor/quad4/bzip2
+	quad4/msgpack/v5 => ./vendor/quad4/msgpack/v5
+	quad4/pbt => ./vendor/quad4/pbt
+	quad4/reticulum-go-protocols => ./vendor/quad4/reticulum-go-protocols
+	quad4/tagparser => ./vendor/quad4/tagparser
 )
