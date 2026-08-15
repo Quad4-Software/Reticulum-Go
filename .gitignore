@@ -61,6 +61,23 @@ cosign.key
 # C++ binding build tree
 bindings/cpp/build/
 
+# Rust / Cargo (bindings and nested examples)
+bindings/**/target/
+
+# Other binding local build output (subdirs may also ship .gitignore)
+bindings/**/.build/
+bindings/**/.swiftpm/
+bindings/**/.dart_tool/
+bindings/java/lib/
+bindings/java/out/
+bindings/kotlin/out/
+bindings/**/*.egg-info/
+bindings/odin/tests/rns_tests
+bindings/**/examples/**/librns-*
+bindings/**/examples/**/odin-*
+bindings/**/examples/**/cpp-*
+bindings/**/examples/**/zig-*
+
 # OS / Editor files
 .DS_Store
 Thumbs.db
