@@ -48,4 +48,7 @@ func TestTokenRejectsBadKeySize(t *testing.T) {
 	if _, err := EncryptToken([]byte("short"), []byte("x")); err == nil {
 		t.Fatal("expected key size error")
 	}
+	if _, err := DecryptToken([]byte("short"), make([]byte, TokenOverhead+16)); err == nil {
+		t.Fatal("expected decrypt key size error")
+	}
 }

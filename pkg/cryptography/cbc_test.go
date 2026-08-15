@@ -78,4 +78,79 @@ func TestEncryptCBCRejectsBadArgs(t *testing.T) {
 	if err := EncryptCBC(block, make([]byte, 16), make([]byte, 15)); err == nil {
 		t.Fatal("expected bad buf error")
 	}
+	if err := EncryptCBC(block, nil, make([]byte, 16)); err == nil {
+		t.Fatal("expected nil iv error")
+	}
+}
+
+func TestDecryptCBCRejectsBadArgs(t *testing.T) {
+	key := make([]byte, AES256KeySize)
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	buf := make([]byte, 16)
+	if err := DecryptCBC(nil, make([]byte, 16), buf, buf); err == nil {
+		t.Fatal("expected nil block error")
+	}
+	if err := DecryptCBC(block, make([]byte, 15), buf, buf); err == nil {
+		t.Fatal("expected bad iv error")
+	}
+	if err := DecryptCBC(block, make([]byte, 16), buf, make([]byte, 32)); err == nil {
+		t.Fatal("expected length mismatch error")
+	}
+	if err := DecryptCBC(block, make([]byte, 16), make([]byte, 15), make([]byte, 15)); err == nil {
+		t.Fatal("expected unaligned error")
+	}
+}
+
+func TestEncryptCBCEmptyBuffer(t *testing.T) {
+	key := make([]byte, AES256KeySize)
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	iv := make([]byte, aes.BlockSize)
+	if err := EncryptCBC(block, iv, nil); err != nil {
+		t.Fatalf("empty encrypt: %v", err)
+	}
+	if err := DecryptCBC(block, iv, nil, nil); err != nil {
+		t.Fatalf("empty decrypt: %v", err)
+	}
+}
+
+func TestEncryptCBCDoesNotMutateIV(t *testing.T) {
+	key := bytes.Repeat([]byte{0x11}, AES256KeySize)
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	iv := bytes.Repeat([]byte{0xA5}, aes.BlockSize)
+	wantIV := append([]byte(nil), iv...)
+	buf := bytes.Repeat([]byte{0x3C}, aes.BlockSize*3)
+	if err := EncryptCBC(block, iv, buf); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(iv, wantIV) {
+		t.Fatal("EncryptCBC mutated IV")
+	}
+	if err := DecryptCBC(block, iv, buf, buf); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(iv, wantIV) {
+		t.Fatal("DecryptCBC mutated IV")
+	}
+}
+
+type oversizedBlock struct{}
+
+func (oversizedBlock) BlockSize() int          { return 33 }
+func (oversizedBlock) Encrypt(dst, src []byte) { copy(dst, src) }
+func (oversizedBlock) Decrypt(dst, src []byte) { copy(dst, src) }
+
+func TestDecryptCBCRejectsOversizedBlock(t *testing.T) {
+	buf := make([]byte, 33)
+	if err := DecryptCBC(oversizedBlock{}, buf, buf, buf); err == nil {
+		t.Fatal("expected oversized block error")
+	}
 }
