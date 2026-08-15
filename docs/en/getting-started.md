@@ -126,6 +126,8 @@ make build-darwin
 make build-all
 ```
 
+Linux amd64 always ships GOAMD64 v1 (unsuffixed and `-v1`) together with `-v3`. linux/386 is also named linux-i686. `make build-all` covers every CGO-free target listed in `scripts/build-release-targets.sh`.
+
 Legacy Windows 7, 8, and 8.1 builds use [go-legacy-win7](https://github.com/thongtech/go-legacy-win7):
 
 ```bash

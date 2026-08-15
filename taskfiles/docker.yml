@@ -109,7 +109,7 @@ tasks:
     vars:
       IMAGE_NAME: reticulum-go
       IMAGE_TAG: latest
-      PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7
+      PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7,linux/386
     cmds:
       - |
         docker buildx build \
@@ -124,7 +124,7 @@ tasks:
     vars:
       IMAGE_NAME: reticulum-go
       IMAGE_TAG: latest
-      PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7
+      PLATFORMS: linux/amd64,linux/arm64,linux/arm/v7,linux/386
     requires:
       vars: [DOCKER_REGISTRY]
     cmds:

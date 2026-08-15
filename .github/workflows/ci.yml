@@ -647,22 +647,84 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        goos: [linux, windows, darwin, freebsd]
-        goarch: [amd64, arm64, arm, 386, riscv64]
+        # Keep in sync with scripts/build-release-targets.sh
         include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: "386"
+          - goos: linux
+            goarch: arm64
+          - goos: linux
+            goarch: arm
+          - goos: linux
+            goarch: riscv64
+          - goos: linux
+            goarch: ppc64le
+          - goos: linux
+            goarch: ppc64
+          - goos: linux
+            goarch: mips
+          - goos: linux
+            goarch: mipsle
+          - goos: linux
+            goarch: mips64
+          - goos: linux
+            goarch: mips64le
+          - goos: linux
+            goarch: s390x
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+          - goos: windows
+            goarch: "386"
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: freebsd
+            goarch: amd64
+          - goos: freebsd
+            goarch: arm64
+          - goos: freebsd
+            goarch: arm
+          - goos: freebsd
+            goarch: "386"
+          - goos: freebsd
+            goarch: riscv64
+          - goos: openbsd
+            goarch: amd64
+          - goos: openbsd
+            goarch: arm64
+          - goos: openbsd
+            goarch: arm
+          - goos: openbsd
+            goarch: "386"
+          - goos: openbsd
+            goarch: ppc64
+          - goos: openbsd
+            goarch: riscv64
+          - goos: netbsd
+            goarch: amd64
+          - goos: netbsd
+            goarch: arm64
+          - goos: netbsd
+            goarch: arm
+          - goos: netbsd
+            goarch: "386"
+          - goos: dragonfly
+            goarch: amd64
+          - goos: solaris
+            goarch: amd64
+          - goos: illumos
+            goarch: amd64
+          - goos: aix
+            goarch: ppc64
+          - goos: android
+            goarch: arm64
           - goos: js
             goarch: wasm
-        exclude:
-          - goos: darwin
-            goarch: arm
-          - goos: darwin
-            goarch: 386
-          - goos: darwin
-            goarch: riscv64
-          - goos: windows
-            goarch: arm
-          - goos: windows
-            goarch: riscv64
 
     steps:
       - name: Checkout
@@ -680,12 +742,8 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           GOARM: ${{ matrix.goarch == 'arm' && '6' || '' }}
           CGO_ENABLED: "0"
-        run: |
-          if [ "${{ matrix.goos }}" = "js" ] && [ "${{ matrix.goarch }}" = "wasm" ]; then
-            task build-wasm
-          else
-            task build
-          fi
+          DEST_DIR: bin
+        run: sh scripts/ci/build-named-release-binary.sh
 
       - name: Verify workspace clean
         uses: ./.github/actions/verify-workspace-clean

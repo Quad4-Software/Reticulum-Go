@@ -1,12 +1,17 @@
 version: '3'
 
 vars:
-  LINUX_ARCHES: [amd64, arm64, arm, 386, riscv64, ppc64le, ppc64]
+  LINUX_ARCHES: [amd64, arm64, arm, 386, riscv64, ppc64le, ppc64, mips, mipsle, mips64, mips64le, s390x]
   WINDOWS_ARCHES: [amd64, arm64, 386]
   DARWIN_ARCHES: [amd64, arm64]
   FREEBSD_ARCHES: [amd64, 386, arm64, arm, riscv64]
   OPENBSD_ARCHES: [amd64, 386, arm64, arm, ppc64, riscv64]
   NETBSD_ARCHES: [amd64, 386, arm64, arm]
+  DRAGONFLY_ARCHES: [amd64]
+  SOLARIS_ARCHES: [amd64]
+  ILLUMOS_ARCHES: [amd64]
+  AIX_ARCHES: [ppc64]
+  ANDROID_ARCHES: [arm64]
   # Prefer CLI/env VERSION (e.g. task build VERSION=v1.0.0). Do not use a
   # dynamic sh: VERSION here: Task would export it and override CI env.
   GIT_DESCRIBE:
@@ -64,45 +69,22 @@ tasks:
     cmds:
       - mkdir -p {{.BUILD_DIR}}
       - |
-        export GOOS="{{.GOOS}}" GOARCH="{{.GOARCH}}"
-        if [ "{{.GOARCH}}" = "arm" ]; then
-          export GOARM="${GOARM:-6}"
+        export GOOS="{{.GOOS}}" GOARCH="{{.GOARCH}}" VERSION="${VERSION:-{{.VERSION}}}" DEST_DIR="{{.BUILD_DIR}}"
+        if [ -z "${VERSION}" ]; then
+          VERSION="{{.GIT_DESCRIBE}}"
+          export VERSION
         fi
-        suffix=""
-        if [ "{{.GOOS}}" = "windows" ]; then
-          suffix=".exe"
-        fi
-        V="${VERSION:-{{.VERSION}}}"
-        if [ -z "$V" ]; then
-          V="{{.GIT_DESCRIBE}}"
-        fi
-        {{.GOCMD}} build -ldflags="-s -w -X main.defaultVersion=${V}" \
-          -o "{{.BUILD_DIR}}/{{.BINARY_NAME}}-{{.GOOS}}-{{.GOARCH}}${suffix}" \
-          {{.MAIN_PACKAGE}}
+        sh scripts/ci/build-named-release-binary.sh
 
   build-linux:
-    desc: Build for Linux (amd64, arm64, arm, 386, riscv64, ppc64le, ppc64)
-    deps:
-      - for:
-          matrix:
-            GOARCH:
-              ref: .LINUX_ARCHES
-        task: build-target
-        vars:
-          GOOS: linux
-          GOARCH: '{{.ITEM.GOARCH}}'
+    desc: Build for Linux (amd64 v1+v3, i686/386, arm64, arm, riscv64, ppc, mips, s390x)
+    cmds:
+      - DEST_DIR="{{.BUILD_DIR}}" VERSION="${VERSION:-{{.VERSION}}}" sh scripts/build-release-targets.sh linux
 
   build-windows:
     desc: Build for Windows (amd64, arm64, 386)
-    deps:
-      - for:
-          matrix:
-            GOARCH:
-              ref: .WINDOWS_ARCHES
-        task: build-target
-        vars:
-          GOOS: windows
-          GOARCH: '{{.ITEM.GOARCH}}'
+    cmds:
+      - DEST_DIR="{{.BUILD_DIR}}" VERSION="${VERSION:-{{.VERSION}}}" sh scripts/build-release-targets.sh windows
 
   build-windows-legacy:
     desc: Build for Windows 7/8/8.1 using go-legacy-win7 (amd64, arm64)
@@ -134,55 +116,53 @@ tasks:
 
   build-darwin:
     desc: Build for MacOS (amd64, arm64)
-    deps:
-      - for:
-          matrix:
-            GOARCH:
-              ref: .DARWIN_ARCHES
-        task: build-target
-        vars:
-          GOOS: darwin
-          GOARCH: '{{.ITEM.GOARCH}}'
+    cmds:
+      - DEST_DIR="{{.BUILD_DIR}}" VERSION="${VERSION:-{{.VERSION}}}" sh scripts/build-release-targets.sh darwin
 
   build-freebsd:
     desc: Build for FreeBSD (amd64, 386, arm64, arm, riscv64)
-    deps:
-      - for:
-          matrix:
-            GOARCH:
-              ref: .FREEBSD_ARCHES
-        task: build-target
-        vars:
-          GOOS: freebsd
-          GOARCH: '{{.ITEM.GOARCH}}'
+    cmds:
+      - DEST_DIR="{{.BUILD_DIR}}" VERSION="${VERSION:-{{.VERSION}}}" sh scripts/build-release-targets.sh freebsd
 
   build-openbsd:
     desc: Build for OpenBSD (amd64, 386, arm64, arm, ppc64, riscv64)
-    deps:
-      - for:
-          matrix:
-            GOARCH:
-              ref: .OPENBSD_ARCHES
-        task: build-target
-        vars:
-          GOOS: openbsd
-          GOARCH: '{{.ITEM.GOARCH}}'
+    cmds:
+      - DEST_DIR="{{.BUILD_DIR}}" VERSION="${VERSION:-{{.VERSION}}}" sh scripts/build-release-targets.sh openbsd
 
   build-netbsd:
     desc: Build for NetBSD (amd64, 386, arm64, arm)
-    deps:
-      - for:
-          matrix:
-            GOARCH:
-              ref: .NETBSD_ARCHES
-        task: build-target
-        vars:
-          GOOS: netbsd
-          GOARCH: '{{.ITEM.GOARCH}}'
+    cmds:
+      - DEST_DIR="{{.BUILD_DIR}}" VERSION="${VERSION:-{{.VERSION}}}" sh scripts/build-release-targets.sh netbsd
+
+  build-dragonfly:
+    desc: Build for DragonFly BSD (amd64)
+    cmds:
+      - DEST_DIR="{{.BUILD_DIR}}" VERSION="${VERSION:-{{.VERSION}}}" sh scripts/build-release-targets.sh dragonfly
+
+  build-solaris:
+    desc: Build for Solaris (amd64)
+    cmds:
+      - DEST_DIR="{{.BUILD_DIR}}" VERSION="${VERSION:-{{.VERSION}}}" sh scripts/build-release-targets.sh solaris
+
+  build-illumos:
+    desc: Build for illumos (amd64)
+    cmds:
+      - DEST_DIR="{{.BUILD_DIR}}" VERSION="${VERSION:-{{.VERSION}}}" sh scripts/build-release-targets.sh illumos
+
+  build-aix:
+    desc: Build for AIX (ppc64)
+    cmds:
+      - DEST_DIR="{{.BUILD_DIR}}" VERSION="${VERSION:-{{.VERSION}}}" sh scripts/build-release-targets.sh aix
+
+  build-android:
+    desc: Build for Android (arm64, CGO_ENABLED=0)
+    cmds:
+      - DEST_DIR="{{.BUILD_DIR}}" VERSION="${VERSION:-{{.VERSION}}}" sh scripts/build-release-targets.sh android
 
   build-all:
     desc: Build for all platforms and architectures
-    deps: [build-linux, build-windows, build-darwin, build-freebsd, build-openbsd, build-netbsd]
+    cmds:
+      - DEST_DIR="{{.BUILD_DIR}}" VERSION="${VERSION:-{{.VERSION}}}" sh scripts/build-release-targets.sh
 
   build-wasm:
     desc: Build WebAssembly binary with standard Go compiler

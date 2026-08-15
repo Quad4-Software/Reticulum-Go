@@ -6,6 +6,7 @@ Wire compatible with Python RNS 1.4.2
 
 ### Added
 - reticulum-go zen (rgozen symlink): go-fix-style scanner for path and link footguns in Go and optional Python sources. Supports -fix for safe RequestPath error checks, JSON and plain output, rule listing, and test-file scanning
+- Release and local cross builds ship linux-amd64 GOAMD64 v1 and v3 together (unsuffixed linux-amd64 stays v1, never v3 alone). linux/386 is also published as linux-i686. Additional CGO-free targets: linux mips/mipsle/mips64/mips64le/ppc64/ppc64le/s390x, OpenBSD, NetBSD, DragonFly, Solaris, illumos, AIX ppc64, and Android arm64
 
 ### Transport and pathing
 - Discovery path-request timeout scales from the slowest online outgoing fan-out bitrate instead of a flat 15 second wait
@@ -21,6 +22,14 @@ Wire compatible with Python RNS 1.4.2
 - Send, Request, and Identify on a non-active link return ErrLinkNotActive with a callback hint
 - A second outbound Establish to the same destination while a handshake is pending returns ErrLinkEstablishBusy
 - Calling Establish again on the same link returns ErrLinkAlreadySettled or ErrLinkEstablishBusy
+
+### Performance
+- Link SendPacket encrypts into the packed HT1 buffer (one wire allocation) and reuses per-link AES and HMAC state
+- AES-CBC encrypt/decrypt no longer allocates cipher.NewCBCEncrypter per packet
+- Packet receipts use a single AfterFunc timer instead of a goroutine plus 1s ticker
+- Hot-path debug.Log call sites skip argument slices when the level is filtered
+- HandlePacket workers start at GOMAXPROCS (floor 4) and grow toward max_packet_handlers only when the ingress queue is full, instead of spawning 512 idle goroutines
+- reticulum-go zen scans with go/parser instead of golang.org/x/tools/go/packages so the daemon binary no longer links the go/packages toolchain
 
 ### Control API and librns
 - path/request responses include wait_s. link.open waits for AwaitPath before handshake

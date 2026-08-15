@@ -385,7 +385,7 @@ GitHub Actions workflows in `.github/workflows/`:
 
 | Workflow | Role |
 |----------|------|
-| ci.yml | Build, test, reproducibility, OS self-check (Linux amd64/arm64 plus 386/arm/riscv64/ppc64le/ppc64 via qemu-user, macOS, Windows, FreeBSD, OpenBSD) |
+| ci.yml | Build, test, reproducibility, OS self-check (Linux amd64 v1+v3, i686/386, arm64, arm, riscv64, ppc64le, ppc64, mips, s390x, plus Windows, macOS, *BSD, Solaris, illumos, AIX, Android arm64, wasm, and qemu-user self-check for 386/arm/riscv64/ppc64le/ppc64) |
 | selfcheck-android.yml | Android emulator self-check (nightly / manual) |
 | security.yml | Gosec, govulncheck, Trivy, SBOM dispatch |
 | codeql.yml | CodeQL for Go, JS/TS, Python, and Actions workflows |
@@ -402,6 +402,8 @@ make build-windows
 make build-darwin
 make build-all
 ```
+
+`make build-linux` always emits linux-amd64 v1 and v3 together, plus linux-386 and linux-i686. `make build-all` covers every CGO-free GOOS/GOARCH pair that compiles (see `scripts/build-release-targets.sh`).
 
 Legacy Windows uses go-legacy-win7 (`make build-windows-legacy`).
 

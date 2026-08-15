@@ -9,6 +9,7 @@
 
 .PHONY: all build build-utils install uninstall clean test fmt vet lint vulncheck gosec check deps run help
 .PHONY: build-linux build-windows build-windows-legacy build-windows-xp build-darwin build-all
+.PHONY: build-freebsd build-openbsd build-netbsd build-dragonfly build-solaris build-illumos build-aix build-android
 .PHONY: test-short test-race test-crossref test-wasm test-odin test-dart test-all coverage bench debug release
 .PHONY: man install-man install-service package package-deb package-rpm package-arch stage-nfpm
 .PHONY: test-services tree-manifest tree-rsm-sign tree-rsm-verify hooks-install
@@ -268,18 +269,10 @@ package-arch: build stage-nfpm
 		--config packaging/nfpm.yaml --packager archlinux --target dist/
 
 build-linux:
-	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PACKAGE)
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(MAIN_PACKAGE)
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm $(MAIN_PACKAGE)
-	CGO_ENABLED=0 GOOS=linux GOARCH=386 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-386 $(MAIN_PACKAGE)
-	CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-riscv64 $(MAIN_PACKAGE)
+	DEST_DIR=$(BUILD_DIR) VERSION="$(VERSION)" sh scripts/build-release-targets.sh linux
 
 build-windows:
-	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_PACKAGE)
-	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64.exe $(MAIN_PACKAGE)
-	CGO_ENABLED=0 GOOS=windows GOARCH=386 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-386.exe $(MAIN_PACKAGE)
+	DEST_DIR=$(BUILD_DIR) VERSION="$(VERSION)" sh scripts/build-release-targets.sh windows
 
 build-windows-legacy:
 	@mkdir -p $(BUILD_DIR)
@@ -292,11 +285,34 @@ build-windows-xp:
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO_LEGACY_WINXP) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64-winxp.exe $(MAIN_PACKAGE)
 
 build-darwin:
-	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PACKAGE)
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PACKAGE)
+	DEST_DIR=$(BUILD_DIR) VERSION="$(VERSION)" sh scripts/build-release-targets.sh darwin
 
-build-all: build-linux build-windows build-darwin
+build-freebsd:
+	DEST_DIR=$(BUILD_DIR) VERSION="$(VERSION)" sh scripts/build-release-targets.sh freebsd
+
+build-openbsd:
+	DEST_DIR=$(BUILD_DIR) VERSION="$(VERSION)" sh scripts/build-release-targets.sh openbsd
+
+build-netbsd:
+	DEST_DIR=$(BUILD_DIR) VERSION="$(VERSION)" sh scripts/build-release-targets.sh netbsd
+
+build-dragonfly:
+	DEST_DIR=$(BUILD_DIR) VERSION="$(VERSION)" sh scripts/build-release-targets.sh dragonfly
+
+build-solaris:
+	DEST_DIR=$(BUILD_DIR) VERSION="$(VERSION)" sh scripts/build-release-targets.sh solaris
+
+build-illumos:
+	DEST_DIR=$(BUILD_DIR) VERSION="$(VERSION)" sh scripts/build-release-targets.sh illumos
+
+build-aix:
+	DEST_DIR=$(BUILD_DIR) VERSION="$(VERSION)" sh scripts/build-release-targets.sh aix
+
+build-android:
+	DEST_DIR=$(BUILD_DIR) VERSION="$(VERSION)" sh scripts/build-release-targets.sh android
+
+build-all:
+	DEST_DIR=$(BUILD_DIR) VERSION="$(VERSION)" sh scripts/build-release-targets.sh
 
 tree-manifest:
 	sh scripts/ci/tree-manifest.sh generate
