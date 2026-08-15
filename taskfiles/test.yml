@@ -11,10 +11,10 @@ tasks:
     cmds:
       - bash tests/crossref/run_crossref.sh {{.CLI_ARGS}}
 
-  test-interop-live:
-    desc: Live Python-Go UDP interop (set PYTHON_INTEROP=.venv/bin/python when using venv)
+  test-packet-debug:
+    desc: Packet decode, handshake vectors, pcap, adversarial corpus, and tshark dissector tests
     cmds:
-      - RUN_LIVE_INTEROP=1 {{.GOCMD}} test -v -timeout 30m ./tests/interop/...
+      - '{{.GOCMD}} test ./pkg/packet/ ./pkg/health/ ./pkg/cli/ ./pkg/timeline/ -count=1 -run "TestDecode|TestPCAP|TestHandshake|TestTshark|TestRunDump|TestDrop|TestPacketType|TestAdversarialCorpus"'
 
   test-short:
     desc: Run short tests
@@ -39,9 +39,19 @@ tasks:
       - sh scripts/ci/run-fuzz-guided.sh
 
   test-chaos:
-    desc: Run chaos and fault-injection simulation tests
+    desc: Run chaos and fault-injection tests (transport, link, interfaces)
     cmds:
-      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/transport -run TestSimChaos -timeout 10m'
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/transport ./pkg/link ./pkg/interfaces -run ''TestSimChaos|TestLinkChaos|TestIfaceChaos'' -timeout 15m'
+
+  test-soak:
+    desc: Bounded transport fault-load soak (heap and goroutine budgets)
+    cmds:
+      - sh scripts/ci/run-soak.sh
+
+  test-soak-protect:
+    desc: Bounded dos_protection flood soak (heap and goroutine budgets)
+    cmds:
+      - sh scripts/ci/run-protect-soak.sh
 
   test-bench-gate:
     desc: Run load/concurrency benchmarks with threshold gates
@@ -49,9 +59,34 @@ tasks:
       - sh scripts/ci/bench-gate.sh
 
   test-mutation:
-    desc: Run gomutant mutation testing on packet and cryptography
+    desc: Run gomutant mutation testing (cryptography, packet, announce, destination, identity, ifac, backbone, interfaces)
     cmds:
       - sh scripts/ci/run-mutation.sh
+
+  test-property:
+    desc: Run property-based tests (quad4/pbt and testing/quick)
+    cmds:
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/announce ./pkg/link ./pkg/transport ./pkg/cryptography ./pkg/packet ./pkg/buffer ./pkg/rate ./pkg/resource ./pkg/identity ./pkg/librns ./pkg/destination ./pkg/protect ./pkg/discovery ./pkg/interfaces -run "TestPBT|TestProperty|TestQuick" -timeout 10m'
+
+  test-acceptance:
+    desc: Run acceptance bars (librns SCAFFOLD, controlapi acceptance)
+    cmds:
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/librns ./pkg/controlapi -run "TestAcceptance|TestScaffold|TestHandleLifecycle|TestNodeStartStop" -timeout 5m'
+
+  test-oracle:
+    desc: Run oracle-backed suites (crossref vectors, health oracles, adversarial corpus, IFAC goldens, RNS 1.4.0 feature oracles)
+    cmds:
+      - '{{.GOCMD}} test ./tests/crossref/ ./pkg/health/ ./pkg/packet/ ./pkg/ifac/ ./pkg/link/ ./pkg/discovery/ ./pkg/identity/ ./pkg/interfaces/ ./pkg/transport/ ./pkg/rnsutil/ ./pkg/rgosh/ -count=1 -run "TestIdentity|TestHKDF|TestHMAC|TestPacket|TestOracle|TestAdversarial|TestTOCTOU|TestHandshake|TestNewMatchesPython|TestMaskMatchesPython|TestSignMatchesPython|TestUnmask|TestDrop|TestCleanKnown|TestBlocked|TestCompatMatches" -timeout 15m'
+
+  test-e2e:
+    desc: Run daemon and node end-to-end tests
+    cmds:
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./cmd/reticulum-go ./pkg/node ./pkg/transport ./pkg/rgosh -run "TestE2E_|TestReload|TestDaemon|UDPPathE2E" -timeout 10m'
+
+  test-blackbox:
+    desc: Run black-box CLI and control API surface tests
+    cmds:
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/cli ./pkg/controlapi ./cmd/reticulum-go -run "TestMain|TestRunDump|TestBlackBox|TestAcceptance|TestE2E" -timeout 5m'
 
   test-os-matrix:
     desc: Short runtime tests for OS matrix CI (backbone, interfaces, node, transport)
@@ -62,6 +97,60 @@ tasks:
     desc: Build native binary and smoke-test --version, --help, and short daemon run
     cmds:
       - sh scripts/ci/run-binary-smoke.sh
+
+  test-self-check:
+    desc: Build native binary and run host OS self-check preflight
+    cmds:
+      - sh scripts/ci/run-self-check.sh
+
+  test-haiku-anyvm:
+    desc: Build and self-check on Haiku via anyvm Docker (QEMU/KVM)
+    cmds:
+      - sh scripts/ci/run-haiku-anyvm.sh
+
+  test-self-check-qemu:
+    desc: Cross-build linux/$GOARCH and run self-check under qemu-user
+    requires:
+      vars: [GOARCH]
+    cmds:
+      - sh scripts/ci/run-qemu-arch-self-check.sh {{.GOARCH}}
+
+  test-self-check-riscv64:
+    desc: Cross-build linux/riscv64 and run self-check under qemu-user
+    cmds:
+      - task: test-self-check-qemu
+        vars:
+          GOARCH: riscv64
+
+  test-self-check-386:
+    desc: Cross-build linux/386 and run self-check under qemu-user
+    cmds:
+      - task: test-self-check-qemu
+        vars:
+          GOARCH: "386"
+
+  test-self-check-arm:
+    desc: Cross-build linux/arm (GOARM=6) and run self-check under qemu-user
+    env:
+      GOARM: "6"
+    cmds:
+      - task: test-self-check-qemu
+        vars:
+          GOARCH: arm
+
+  test-self-check-ppc64le:
+    desc: Cross-build linux/ppc64le and run self-check under qemu-user
+    cmds:
+      - task: test-self-check-qemu
+        vars:
+          GOARCH: ppc64le
+
+  test-self-check-ppc64:
+    desc: Cross-build linux/ppc64 and run self-check under qemu-user
+    cmds:
+      - task: test-self-check-qemu
+        vars:
+          GOARCH: ppc64
 
   test-leaks:
     desc: Run resource leak tests
@@ -83,6 +172,11 @@ tasks:
     cmds:
       - '{{.GOCMD}} run ./scripts/ci/testsummary -tags=heavy -v ./pkg/transport -run TestSimHeavy -timeout 45m'
 
+  test-link-speed:
+    desc: Loopback link speedtest liveness floor (RNS Speedtest-style)
+    cmds:
+      - '{{.GOCMD}} test -count=1 -timeout 5m ./pkg/link -run TestLinkSpeedSmoke'
+
   test-sim-bench:
     desc: Run simulation benchmarks
     cmds:
@@ -91,7 +185,7 @@ tasks:
   coverage:
     desc: Generate test coverage report
     cmds:
-      - '{{.GOCMD}} test -coverprofile=coverage.out ./...'
+      - '{{.GOCMD}} run ./scripts/ci/testsummary -coverprofile=coverage.out ./...'
       - '{{.GOCMD}} tool cover -html=coverage.out'
 
   test-wasm:
@@ -99,12 +193,68 @@ tasks:
     vars:
       ROOT_DIR:
         sh: pwd
-    env:
-      GOOS: js
-      GOARCH: wasm
     cmds:
       - chmod +x {{.ROOT_DIR}}/misc/wasm/go_js_wasm_exec
-      - PATH="$PATH:{{.ROOT_DIR}}/misc/wasm" {{.GOCMD}} test -v ./pkg/wasm/ ./cmd/reticulum-wasm/
-      - |
-        export PATH="$PATH:{{.ROOT_DIR}}/misc/wasm"
-        cd examples/wasm && {{.GOCMD}} test -v .
+      # TESTSUMMARY_GOOS/ARCH apply only to the go test child so testsummary itself stays host-native.
+      - PATH="$PATH:{{.ROOT_DIR}}/misc/wasm" TESTSUMMARY_GOOS=js TESTSUMMARY_GOARCH=wasm {{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/wasm/ ./cmd/reticulum-wasm/
+      - PATH="$PATH:{{.ROOT_DIR}}/misc/wasm" TESTSUMMARY_GOOS=js TESTSUMMARY_GOARCH=wasm {{.GOCMD}} run ./scripts/ci/testsummary -C examples/wasm -v .
+
+  test-odin:
+    desc: Build librns and run Odin bindings tests (requires odin on PATH)
+    cmds:
+      - sh scripts/ci/run-odin-bindings.sh
+
+  test-zig:
+    desc: Build librns and run Zig bindings tests (requires zig on PATH)
+    cmds:
+      - sh scripts/ci/run-zig-bindings.sh
+
+  test-cpp:
+    desc: Build librns and run C++ bindings tests (requires cmake and a C++17 compiler)
+    cmds:
+      - sh scripts/ci/run-cpp-bindings.sh
+
+  test-dart:
+    desc: Run Dart bindings tests (Control API + librns FFI, requires dart and CGO)
+    cmds:
+      - sh scripts/ci/run-dart-bindings.sh
+
+  test-c:
+    desc: Build librns and run C ABI binding examples
+    cmds:
+      - sh scripts/ci/run-c-bindings.sh
+
+  test-rust:
+    desc: Build librns and run Rust bindings tests and examples (requires cargo)
+    cmds:
+      - sh scripts/ci/run-rust-bindings.sh
+
+  test-swift:
+    desc: Build librns and run Swift bindings tests and examples (requires swift)
+    cmds:
+      - sh scripts/ci/run-swift-bindings.sh
+
+  test-lua:
+    desc: Build librns and run LuaJIT librns tests and examples (requires luajit)
+    cmds:
+      - sh scripts/ci/run-lua-bindings.sh
+
+  test-java:
+    desc: Build librns and run Java JNA bindings tests and examples (requires javac)
+    cmds:
+      - sh scripts/ci/run-java-bindings.sh
+
+  test-kotlin:
+    desc: Build librns and run Kotlin bindings tests and examples (requires kotlinc and javac)
+    cmds:
+      - sh scripts/ci/run-kotlin-bindings.sh
+
+  test-python:
+    desc: Build librns and run Python librns ctypes tests and examples
+    cmds:
+      - sh scripts/ci/run-python-bindings.sh
+
+  test-binding-examples:
+    desc: Build examples for one binding language (c|odin|zig|cpp|dart|rust|python|lua|swift|java|kotlin)
+    cmds:
+      - sh scripts/ci/run-binding-examples.sh {{.CLI_ARGS}}

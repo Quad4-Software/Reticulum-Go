@@ -28,13 +28,21 @@ func (l *Link) markInitiatorEstablishmentFailedLocked() {
 	if !l.initiator {
 		return
 	}
-	l.status.Store(int32(StatusClosed))
 	l.teardownReason = StatusFailed
+	l.status.Store(int32(StatusClosed))
 	if l.transport != nil && len(l.linkID) > 0 {
 		l.transport.UnregisterLink(l.linkID)
 	}
+	l.releaseOutboundEstablish()
 	l.invalidateTransportPathAfterInitiatorFailure()
 	if l.closedCallback != nil {
 		l.closedCallback(l)
 	}
+}
+
+func (l *Link) releaseOutboundEstablish() {
+	if l == nil || !l.initiator || l.transport == nil || l.destination == nil {
+		return
+	}
+	l.transport.EndOutboundEstablish(l.destination.GetHash())
 }

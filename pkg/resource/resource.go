@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package resource
 
 import (
@@ -7,16 +8,21 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io"
+	"maps"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"quad4/msgpack/v5/pkg/msgpack"
 )
 
 type Resource struct {
 	mutex             sync.RWMutex
 	data              []byte
+	sourceData        []byte
 	fileHandle        io.ReadWriteSeeker
 	fileName          string
 	hash              []byte
@@ -45,6 +51,8 @@ type Resource struct {
 	outboundCipher    []byte
 	outboundPartSent  []bool
 	outboundSentCount int
+	metadata          map[string]any
+	metadataPacked    []byte
 }
 
 func New(data any, autoCompress bool) (*Resource, error) {
@@ -331,6 +339,8 @@ func estimateFileCompression(size int64, extension string) int64 {
 // PrepareOutboundForLink builds the inner ciphertext blob, hash, hashmap, and
 // segment counts for sending a resource compatible with Reticulum peers.
 // sdu is the maximum plaintext length per link data packet (link MDU).
+// Resources larger than MaxEfficientSize are split across multiple advertisements
+// matching Python Resource.MAX_EFFICIENT_SIZE behavior.
 func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), sdu int) error {
 	if sdu <= 0 {
 		return errors.New("invalid sdu")
@@ -345,39 +355,162 @@ func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), 
 	r.outboundPartSent = nil
 	r.outboundSentCount = 0
 
-	var body []byte
-	switch {
-	case r.data != nil:
-		body = r.data
-	case r.fileHandle != nil:
-		if _, err := r.fileHandle.Seek(0, io.SeekStart); err != nil {
-			return err
-		}
-		b, err := io.ReadAll(r.fileHandle)
+	if err := r.ensureMetadataPackedLocked(); err != nil {
+		return err
+	}
+	metaLen := len(r.metadataPacked)
+
+	fileSize, err := r.rawBodySizeLocked()
+	if err != nil {
+		return err
+	}
+	totalSize := fileSize + int64(metaLen)
+
+	if r.segmentIndex == 0 {
+		r.segmentIndex = 1
+	}
+
+	if totalSize <= int64(MaxEfficientSize) {
+		r.split = false
+		r.totalSegments = 1
+		r.segmentIndex = 1
+		body, err := r.readRawBodyLocked(0, fileSize)
 		if err != nil {
 			return err
 		}
-		body = b
-	default:
-		return errors.New("no data")
+		return r.finishPrepareSegmentLocked(encrypt, sdu, body, true)
 	}
 
-	uncompressed := body
-	if r.data == nil {
-		r.data = append([]byte(nil), uncompressed...)
+	r.split = true
+	r.totalSegments = uint16((totalSize-1)/int64(MaxEfficientSize) + 1) // #nosec G115
+	if r.segmentIndex < 1 || r.segmentIndex > r.totalSegments {
+		return fmt.Errorf("invalid segment index %d of %d", r.segmentIndex, r.totalSegments)
 	}
+
+	firstRead := int64(MaxEfficientSize) - int64(metaLen)
+	if firstRead < 0 {
+		return errors.New("metadata exceeds efficient segment size")
+	}
+
+	var offset, length int64
+	includeMeta := false
+	if r.segmentIndex == 1 {
+		offset = 0
+		length = min(firstRead, fileSize)
+		includeMeta = true
+	} else {
+		offset = firstRead + int64(r.segmentIndex-2)*int64(MaxEfficientSize)
+		length = int64(MaxEfficientSize)
+		if offset+length > fileSize {
+			length = fileSize - offset
+		}
+		if length < 0 {
+			length = 0
+		}
+	}
+
+	body, err := r.readRawBodyLocked(offset, length)
+	if err != nil {
+		return err
+	}
+	return r.finishPrepareSegmentLocked(encrypt, sdu, body, includeMeta)
+}
+
+// PrepareNextOutboundSegment advances to the next split segment and prepares it.
+func (r *Resource) PrepareNextOutboundSegment(encrypt func([]byte) ([]byte, error), sdu int) error {
+	r.mutex.Lock()
+	if !r.split || r.segmentIndex >= r.totalSegments {
+		r.mutex.Unlock()
+		return errors.New("no next segment")
+	}
+	r.segmentIndex++
+	r.mutex.Unlock()
+	return r.PrepareOutboundForLink(encrypt, sdu)
+}
+
+func (r *Resource) rawBodySizeLocked() (int64, error) {
+	src := r.data
+	if r.sourceData != nil {
+		src = r.sourceData
+	}
+	switch {
+	case src != nil:
+		return int64(len(src)), nil
+	case r.fileHandle != nil:
+		cur, err := r.fileHandle.Seek(0, io.SeekCurrent)
+		if err != nil {
+			return 0, err
+		}
+		end, err := r.fileHandle.Seek(0, io.SeekEnd)
+		if err != nil {
+			return 0, err
+		}
+		if _, err := r.fileHandle.Seek(cur, io.SeekStart); err != nil {
+			return 0, err
+		}
+		return end, nil
+	default:
+		return 0, errors.New("no data")
+	}
+}
+
+func (r *Resource) readRawBodyLocked(offset, length int64) ([]byte, error) {
+	if length < 0 {
+		return nil, errors.New("negative read length")
+	}
+	if length == 0 {
+		return []byte{}, nil
+	}
+	src := r.data
+	if r.sourceData != nil {
+		src = r.sourceData
+	}
+	switch {
+	case src != nil:
+		if offset > int64(len(src)) {
+			return nil, errors.New("segment offset past end of data")
+		}
+		end := min(offset+length, int64(len(src)))
+		return append([]byte(nil), src[offset:end]...), nil
+	case r.fileHandle != nil:
+		if _, err := r.fileHandle.Seek(offset, io.SeekStart); err != nil {
+			return nil, err
+		}
+		buf := make([]byte, length)
+		n, err := io.ReadFull(r.fileHandle, buf)
+		if err == io.ErrUnexpectedEOF || err == io.EOF {
+			return buf[:n], nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		return buf, nil
+	default:
+		return nil, errors.New("no data")
+	}
+}
+
+func (r *Resource) finishPrepareSegmentLocked(encrypt func([]byte) ([]byte, error), sdu int, segmentBody []byte, includeMeta bool) error {
+	keepOriginal := append([]byte(nil), r.originalHash...)
+
+	uncompressed := segmentBody
+	wireBody := uncompressed
+	if includeMeta && len(r.metadataPacked) > 0 {
+		wireBody = append(append([]byte(nil), r.metadataPacked...), uncompressed...)
+	}
+
 	randomHash := make([]byte, RandomHashSize)
 	if _, err := io.ReadFull(rand.Reader, randomHash); err != nil {
 		return err
 	}
 
-	payload := uncompressed
+	payload := wireBody
 	if r.autoCompress {
-		compressed, err := bzip2CompressBody(uncompressed)
+		compressed, err := bzip2CompressBody(wireBody)
 		if err != nil {
 			return err
 		}
-		if len(compressed) < len(uncompressed) {
+		if len(compressed) < len(wireBody) {
 			payload = compressed
 			r.compressed = true
 		} else {
@@ -388,11 +521,21 @@ func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), 
 	}
 
 	hb := sha256.New()
-	hb.Write(uncompressed)
+	hb.Write(wireBody)
 	hb.Write(randomHash)
 	r.hash = hb.Sum(nil)
 	r.randomHash = append([]byte(nil), randomHash...)
-	r.originalHash = append([]byte(nil), r.hash...)
+	if len(keepOriginal) == sha256.Size {
+		r.originalHash = keepOriginal
+	} else {
+		r.originalHash = append([]byte(nil), r.hash...)
+	}
+
+	// ExpectedProof prepends metadataPacked when present on segment 1.
+	if r.split && r.sourceData == nil && r.data != nil {
+		r.sourceData = r.data
+	}
+	r.data = append([]byte(nil), segmentBody...)
 
 	plain := make([]byte, len(randomHash)+len(payload))
 	copy(plain, randomHash)
@@ -403,9 +546,6 @@ func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), 
 	}
 
 	r.encrypted = true
-	r.split = false
-	r.totalSegments = 1
-	r.segmentIndex = 1
 
 	partCount := (len(innerBlob) + sdu - 1) / sdu
 	if partCount > int(MaxSegments) {
@@ -413,7 +553,7 @@ func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), 
 	}
 	r.segments = uint16(partCount) // #nosec G115
 	r.transferSize = int64(len(innerBlob))
-	r.dataSize = int64(len(uncompressed))
+	r.dataSize = int64(len(wireBody))
 
 	r.hashmap = make([]byte, partCount*MapHashLen)
 	for i := range partCount {
@@ -475,7 +615,63 @@ func (r *Resource) GetSize() int64 {
 func (r *Resource) HasMetadata() bool {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
-	return false
+	return len(r.metadata) > 0 || len(r.metadataPacked) > 0
+}
+
+// SetMetadata attaches a metadata map transferred ahead of the file bytes.
+// Keys and values must be msgpack-safe.
+func (r *Resource) SetMetadata(meta map[string]any) error {
+	if r == nil {
+		return errors.New("nil resource")
+	}
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	if meta == nil {
+		r.metadata = nil
+		r.metadataPacked = nil
+		return nil
+	}
+	r.metadata = meta
+	r.metadataPacked = nil
+	return r.ensureMetadataPackedLocked()
+}
+
+// Metadata returns a shallow copy of the attached metadata map.
+func (r *Resource) Metadata() map[string]any {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	if len(r.metadata) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(r.metadata))
+	maps.Copy(out, r.metadata)
+	return out
+}
+
+func (r *Resource) ensureMetadataPackedLocked() error {
+	if len(r.metadata) == 0 {
+		r.metadataPacked = nil
+		return nil
+	}
+	if len(r.metadataPacked) > 0 {
+		return nil
+	}
+	packed, err := msgpack.Marshal(r.metadata)
+	if err != nil {
+		return err
+	}
+	if len(packed) > MetadataMaxSize {
+		return errors.New("resource metadata size exceeded")
+	}
+	// 3-byte big-endian length prefix (high 24 bits of a 32-bit length).
+	blob := make([]byte, 3+len(packed))
+	n := len(packed)
+	blob[0] = byte(n >> 16) // #nosec G115 -- n bounded by MetadataMaxSize
+	blob[1] = byte(n >> 8)  // #nosec G115 -- n bounded by MetadataMaxSize
+	blob[2] = byte(n)       // #nosec G115 -- n bounded by MetadataMaxSize
+	copy(blob[3:], packed)
+	r.metadataPacked = blob
+	return nil
 }
 
 func (r *Resource) IsRequest() bool {
@@ -701,8 +897,9 @@ func (r *Resource) GetRandomHash() []byte {
 	return append([]byte{}, r.randomHash...)
 }
 
-// ExpectedProof returns SHA256(uncompressedPayload || resourceHash), matching
-// Python Resource.prove / validate_proof wire format.
+// ExpectedProof returns SHA256(uncompressedPayload || resourceHash).
+// When metadata is present on segment 1 the uncompressed payload is the
+// metadata blob prepended to the file bytes.
 func (r *Resource) ExpectedProof() ([]byte, bool) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
@@ -712,7 +909,11 @@ func (r *Resource) ExpectedProof() ([]byte, bool) {
 	if r.data == nil {
 		return nil, false
 	}
-	sum := sha256.Sum256(append(append([]byte(nil), r.data...), r.hash...))
+	body := r.data
+	if len(r.metadataPacked) > 0 && (r.segmentIndex == 0 || r.segmentIndex == 1) {
+		body = append(append([]byte(nil), r.metadataPacked...), r.data...)
+	}
+	sum := sha256.Sum256(append(append([]byte(nil), body...), r.hash...))
 	return sum[:], true
 }
 

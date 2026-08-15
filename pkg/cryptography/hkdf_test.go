@@ -5,7 +5,11 @@ package cryptography
 
 import (
 	"bytes"
+	"math/rand"
+	"strconv"
 	"testing"
+
+	"quad4/pbt/pkg/pbt"
 )
 
 func TestDeriveKey(t *testing.T) {
@@ -105,4 +109,95 @@ func TestDeriveKeyEdgeCases(t *testing.T) {
 			t.Errorf("DeriveKey should fail with zero length")
 		}
 	})
+}
+
+type hkdfInputs struct {
+	secret, salt, info []byte
+	length             int
+}
+
+func genHKDFInputs(r *rand.Rand, size int) hkdfInputs {
+	secLen := 1 + r.Intn(64)
+	saltLen := r.Intn(65)
+	infoLen := r.Intn(129)
+	maxOut := 64
+	if size > 0 && size < maxOut {
+		maxOut = size
+	}
+	if maxOut < 1 {
+		maxOut = 1
+	}
+	outLen := 1 + r.Intn(maxOut)
+	secret := make([]byte, secLen)
+	salt := make([]byte, saltLen)
+	info := make([]byte, infoLen)
+	for i := range secret {
+		secret[i] = byte(r.Intn(256))
+	}
+	for i := range salt {
+		salt[i] = byte(r.Intn(256))
+	}
+	for i := range info {
+		info[i] = byte(r.Intn(256))
+	}
+	return hkdfInputs{secret: secret, salt: salt, info: info, length: outLen}
+}
+
+func TestPBTHKDFDeterministic(t *testing.T) {
+	gen := pbt.NewGenerator("hkdfInputs", genHKDFInputs)
+	prop := pbt.ForAll(
+		"derive key is deterministic",
+		gen,
+		func(in hkdfInputs) bool {
+			k1, err := DeriveKey(in.secret, in.salt, in.info, in.length)
+			if err != nil {
+				panic(err)
+			}
+			k2, err := DeriveKey(in.secret, in.salt, in.info, in.length)
+			if err != nil {
+				panic(err)
+			}
+			return bytes.Equal(k1, k2) && len(k1) == in.length
+		},
+	)
+	pbt.Check(t, prop, pbt.WithRuns(100), pbt.WithSeed(7), pbt.WithMaxSize(64))
+}
+
+func BenchmarkDeriveKey(b *testing.B) {
+	secret := []byte("bench-secret-material")
+	salt := []byte("bench-salt")
+	info := []byte{}
+	for _, length := range []int{64, 256, 1024} {
+		b.Run("Len-"+strconv.Itoa(length), func(b *testing.B) {
+			b.ReportAllocs()
+			b.SetBytes(int64(length))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				out, err := DeriveKey(secret, salt, info, length)
+				if err != nil {
+					b.Fatal(err)
+				}
+				if len(out) != length {
+					b.Fatalf("len=%d want %d", len(out), length)
+				}
+			}
+		})
+	}
+}
+
+// TestDeriveKeyAllocBudget keeps HKDF expand from allocating a new HMAC per
+// output block (the pre-fix pattern scaled with length).
+func TestDeriveKeyAllocBudget(t *testing.T) {
+	secret := []byte("budget-secret")
+	salt := []byte("budget-salt")
+	allocs := testing.AllocsPerRun(200, func() {
+		_, err := DeriveKey(secret, salt, nil, 1024)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+	// Extract HMAC + expand HMAC + PRK + output + a few small temps.
+	if allocs > 25 {
+		t.Fatalf("DeriveKey(1024) allocs=%.1f want <= 25", allocs)
+	}
 }

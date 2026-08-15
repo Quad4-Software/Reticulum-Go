@@ -1,0 +1,42 @@
+.Dd July 27, 2026
+.Dt RETICULUM-GO-SH 1
+.Os
+.Sh NAME
+.Nm reticulum-go-sh , rgosh
+.Nd interactive remote shell over Reticulum
+.Sh SYNOPSIS
+.Nm reticulum-go Cm sh
+.Op Fl l
+.Op Fl compat
+.Op Fl line
+.Op Fl raw
+.Op Fl config Ar dir
+.Op Ar destination_hash command ...
+.Sh DESCRIPTION
+Provides an SSH-like interactive shell over an encrypted Reticulum link and
+channel. The default native protocol uses destination app
+.Dq rgosh .
+.Fl compat
+speaks the Python
+.Nm rnsh
+wire protocol (app
+.Dq rnsh ,
+umsgpack message bodies).
+.Pp
+Listen mode
+.Pq Fl l
+accepts sessions. Initiator mode takes a destination hash and optional remote
+command. Identity allowlists use
+.Fl a
+or allowed_identities files. Forced command mode
+.Pq Fl C
+ignores remote argv.
+.Pp
+Run with
+.Fl h
+for the full flag list.
+.Sh SEE ALSO
+.Xr reticulum-go 1 ,
+.Xr reticulum-go-x 1
+.Sh AUTHORS
+.An Quad4.io

@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package buffer
 
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/binary"
 	"io"
 	"sync"
@@ -73,6 +75,9 @@ func NewRawChannelReader(streamID int, ch *channel.Channel) *RawChannelReader {
 		callbacks: make(map[int]func(int)),
 	}
 
+	_ = ch.RegisterSystemMessageType(StreamDataMessageType, func() channel.MessageBase {
+		return &StreamDataMessage{}
+	})
 	reader.messageHandlerID = ch.AddMessageHandler(reader.HandleMessage)
 	return reader
 }
@@ -114,16 +119,19 @@ func (r *RawChannelReader) HandleMessage(msg channel.MessageBase) bool { // #nos
 
 		if streamMsg.Compressed {
 			decompressed := decompressData(streamMsg.Data)
-			r.buffer.Write(decompressed)
+			if decompressed != nil {
+				r.buffer.Write(decompressed)
+			}
 		} else {
 			r.buffer.Write(streamMsg.Data)
 		}
 
+		// Honor EOF even when compressed payload fails to decompress so a
+		// corrupt final chunk cannot leave the reader blocked forever.
 		if streamMsg.EOF {
 			r.eof = true
 		}
 
-		// Notify callbacks
 		for _, cb := range r.callbacks {
 			cb(r.buffer.Len())
 		}
@@ -140,6 +148,9 @@ type RawChannelWriter struct {
 }
 
 func NewRawChannelWriter(streamID int, ch *channel.Channel) *RawChannelWriter {
+	_ = ch.RegisterSystemMessageType(StreamDataMessageType, func() channel.MessageBase {
+		return &StreamDataMessage{}
+	})
 	return &RawChannelWriter{
 		streamID: streamID,
 		channel:  ch,
@@ -153,27 +164,38 @@ func (w *RawChannelWriter) Write(p []byte) (n int, err error) {
 
 	msg := &StreamDataMessage{
 		StreamID: uint16(w.streamID), // #nosec G115
-		Data:     p,
 		EOF:      w.eof,
 	}
+	processed := 0
 
 	if len(p) > CompressThreshold {
 		for try := 1; try < CompressTries; try++ {
 			chunkLen := len(p) / try
 			compressed := compressData(p[:chunkLen])
-			if len(compressed) < MaxDataLen && len(compressed) < chunkLen {
+			if compressed != nil && len(compressed) < MaxDataLen && len(compressed) < chunkLen {
 				msg.Data = compressed
 				msg.Compressed = true
+				processed = chunkLen
 				break
 			}
 		}
 	}
+	if !msg.Compressed {
+		if len(p) > MaxDataLen {
+			p = p[:MaxDataLen]
+		}
+		msg.Data = p
+		processed = len(p)
+	}
 
+	if err := w.channel.WaitReady(context.Background()); err != nil {
+		return 0, err
+	}
 	if err := w.channel.Send(msg); err != nil {
 		return 0, err
 	}
 
-	return len(p), nil
+	return processed, nil
 }
 
 func (w *RawChannelWriter) Close() error {
@@ -219,11 +241,15 @@ func CreateBidirectionalBuffer(receiveStreamID, sendStreamID int, ch *channel.Ch
 
 func compressData(data []byte) []byte {
 	var compressed bytes.Buffer
-	w := bytes.NewBuffer(data)
-	r := bzip2.NewReader(w)
-	_, err := io.Copy(&compressed, r) // #nosec G104 #nosec G110
+	w, err := bzip2.NewWriter(&compressed, 9)
 	if err != nil {
-		// Handle error, e.g., log it or return an error
+		return nil
+	}
+	if _, err := w.Write(data); err != nil {
+		_ = w.Close()
+		return nil
+	}
+	if err := w.Close(); err != nil {
 		return nil
 	}
 	return compressed.Bytes()
@@ -231,13 +257,14 @@ func compressData(data []byte) []byte {
 
 func decompressData(data []byte) []byte {
 	reader := bzip2.NewReader(bytes.NewReader(data))
-	var decompressed bytes.Buffer
-	// Limit the amount of data read to prevent decompression bombs
-	limitedReader := io.LimitReader(reader, MaxChunkLen) // #nosec G110
-	_, err := io.Copy(&decompressed, limitedReader)
+	// Cap at MaxChunkLen and reject streams that would expand further
+	limited := io.LimitReader(reader, int64(MaxChunkLen)+1) // #nosec G110
+	decompressed, err := io.ReadAll(limited)
 	if err != nil {
-		// Handle error, e.g., log it or return an error
 		return nil
 	}
-	return decompressed.Bytes()
+	if len(decompressed) > MaxChunkLen {
+		return nil
+	}
+	return decompressed
 }

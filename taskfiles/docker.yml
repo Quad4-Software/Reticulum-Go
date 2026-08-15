@@ -9,6 +9,32 @@ tasks:
     cmds:
       - docker build -f docker/Dockerfile -t {{.IMAGE_NAME}}:{{.IMAGE_TAG}} .
 
+  "docker:build:speedtest":
+    desc: Build public VPS speedtest daemon image
+    vars:
+      IMAGE_NAME: reticulum-go-speedtest
+      IMAGE_TAG: latest
+    cmds:
+      - docker build -f docker/Dockerfile.speedtest -t {{.IMAGE_NAME}}:{{.IMAGE_TAG}} .
+
+  "docker:run:speedtest":
+    desc: Run speedtest daemon (publish TCP 4242)
+    vars:
+      IMAGE_NAME: reticulum-go-speedtest
+      IMAGE_TAG: latest
+      CONTAINER_NAME: reticulum-go-speedtest
+      SPEEDTEST_IFACE: all
+      SPEEDTEST_PORT: 4242
+    cmds:
+      - |
+        docker run --rm -it \
+          --name {{.CONTAINER_NAME}} \
+          -p {{.SPEEDTEST_PORT}}:{{.SPEEDTEST_PORT}} \
+          -e SPEEDTEST_IFACE={{.SPEEDTEST_IFACE}} \
+          -e SPEEDTEST_PORT={{.SPEEDTEST_PORT}} \
+          -v reticulum-go-speedtest:/data \
+          {{.IMAGE_NAME}}:{{.IMAGE_TAG}}
+
   "docker:build:tag":
     desc: Build Docker image with custom tag (use IMAGE_TAG env var)
     vars:

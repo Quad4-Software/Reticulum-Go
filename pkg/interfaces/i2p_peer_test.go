@@ -17,7 +17,9 @@ func TestI2PInterfacePeerParentCount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	out := NewI2PInterfacePeer(parent, "i2p0 to peer.b32.i2p", "peer.b32.i2p", -1, parent.cfg)
+	defer parent.controller.Stop()
+	out := NewI2PInterfacePeer(parent, "i2p0 to peer.b32.i2p", "peer.b32.i2p", 0, parent.cfg)
+	defer out.Stop()
 	if out.parentCount {
 		t.Fatal("outbound peer should not roll up stats to parent")
 	}
@@ -35,15 +37,18 @@ func TestI2PInterfacePeerWantsTunnel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	peer := NewI2PInterfacePeer(parent, "i2p0 to x.b32.i2p", "x.b32.i2p", -1, &common.InterfaceConfig{
+	defer parent.controller.Stop()
+	peer := NewI2PInterfacePeer(parent, "i2p0 to x.b32.i2p", "x.b32.i2p", 0, &common.InterfaceConfig{
 		KISSFraming: false,
 	})
+	defer peer.Stop()
 	if !peer.wantsTunnel {
 		t.Fatal("HDLC peer should want tunnel synthesis")
 	}
-	kiss := NewI2PInterfacePeer(parent, "i2p0 to y.b32.i2p", "y.b32.i2p", -1, &common.InterfaceConfig{
+	kiss := NewI2PInterfacePeer(parent, "i2p0 to y.b32.i2p", "y.b32.i2p", 0, &common.InterfaceConfig{
 		KISSFraming: true,
 	})
+	defer kiss.Stop()
 	if kiss.wantsTunnel {
 		t.Fatal("KISS peer should not want tunnel synthesis")
 	}

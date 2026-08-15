@@ -20,11 +20,14 @@ const (
 	defaultSAMMaxVer  = "3.1"
 	defaultSAMAddress = "127.0.0.1:7656"
 	defaultSAMTimeout = 30
+	// DefaultSessionOptions enables encrypted LeaseSets for modern peers.
+	DefaultSessionOptions = "i2cp.leaseSetEncType=6,4"
 )
 
 var (
 	i2pEncoding = base64.NewEncoding("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-~")
 	validB32    = regexp.MustCompile(`^([a-zA-Z0-9]{52})\.b32\.i2p$`)
+	validB32Raw = regexp.MustCompile(`^[a-zA-Z0-9]{52}$`)
 	validB64    = regexp.MustCompile(`^([a-zA-Z0-9\-~=]{516,528})$`)
 )
 
@@ -96,6 +99,15 @@ func ResolveDestination(name string, lookup func(string) (string, error)) (strin
 	}
 	if validB64.MatchString(name) {
 		return name, nil
+	}
+	// SAM STREAM CONNECT accepts .b32.i2p directly. Skip NAMING LOOKUP for
+	// these because i2pd often returns INVALID_KEY when no session tunnels
+	// exist yet to fetch the LeaseSet.
+	if validB32.MatchString(strings.ToLower(name)) {
+		return strings.ToLower(name), nil
+	}
+	if validB32Raw.MatchString(name) {
+		return strings.ToLower(name) + ".b32.i2p", nil
 	}
 	if strings.HasSuffix(name, ".i2p") && lookup != nil {
 		val, err := lookup(name)

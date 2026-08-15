@@ -12,7 +12,6 @@ import (
 
 const (
 	maxRandomBlobs = 64
-	pathfinderE    = 60 * 60 * 24 * 7 // one week, matches Python PATHFINDER_E
 )
 
 func announceEmitted(randomBlob []byte) uint32 {
@@ -61,6 +60,12 @@ type announcePathInput struct {
 	announceHops     uint8
 	randomBlob       []byte
 	now              time.Time
+	// announceAffinity and currentAffinity are effective gravity values
+	// (RNS 1.4.1 gravity contests). Go uses pathingAffinity so live iface
+	// penalties can break ties without changing configured gravity.
+	announceAffinity int
+	currentAffinity  int
+	affinityKnown    bool
 }
 
 func shouldUpdateAnnouncePath(existing *common.Path, in announcePathInput, pathUnresponsive bool) bool {
@@ -71,6 +76,11 @@ func shouldUpdateAnnouncePath(existing *common.Path, in announcePathInput, pathU
 		pathTimebase := timebaseFromRandomBlobs(existing.RandomBlobs)
 		emitted := announceEmitted(in.randomBlob)
 		if !randomBlobKnown(existing.RandomBlobs, in.randomBlob) && emitted > pathTimebase {
+			return true
+		}
+		// Same emission timebase on a higher-affinity interface wins the path
+		// (Python: announce_emitted == path_timebase and announce_gravity > current).
+		if in.affinityKnown && emitted == pathTimebase && in.announceAffinity > in.currentAffinity {
 			return true
 		}
 		return false

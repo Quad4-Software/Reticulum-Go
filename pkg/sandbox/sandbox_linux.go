@@ -11,20 +11,29 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"unsafe"
 
+	"github.com/landlock-lsm/go-landlock/landlock"
 	"golang.org/x/sys/unix"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
 )
 
 func applyPlatform(cfg *common.ReticulumConfig) error {
+	strict := cfg != nil && cfg.SandboxStrict
+
 	if err := unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
 		debug.Log(debug.DebugError, "PR_SET_NO_NEW_PRIVS failed", "error", err)
+		if strict {
+			return err
+		}
 	}
 
 	if err := applyLandlock(cfg); err != nil {
 		debug.Log(debug.DebugError, "Landlock failed", "error", err)
+		warnSoftUnavailable("landlock", err.Error())
+		if strict {
+			return err
+		}
 	}
 
 	if os.Geteuid() == 0 {
@@ -44,150 +53,154 @@ func applyPlatform(cfg *common.ReticulumConfig) error {
 		debug.Log(debug.DebugError, "Setrlimit failed", "error", err)
 	}
 
+	if err := applySeccomp(cfg); err != nil {
+		if strict {
+			return err
+		}
+	}
+
 	debug.Log(debug.DebugInfo, "Sandbox applied", "platform", "linux")
 	return nil
 }
 
-// applyLandlock restricts filesystem access using the Landlock LSM
-// (kernel 5.13+). It whitelists only the directories and files the daemon
-// legitimately needs. On kernels without Landlock support it returns a
-// descriptive error and the caller logs it as a warning.
+// applyLandlock restricts filesystem access and IPC scopes with Landlock ABI
+// V9 via go-landlock. TCP port rules are intentionally omitted so the P2P
+// mesh can bind and dial arbitrary peers. BestEffort downgrades on older
+// kernels. Missing optional paths are ignored.
 func applyLandlock(cfg *common.ReticulumConfig) error {
-	// Superset of filesystem access rights we may grant to any path.
-	attr := unix.LandlockRulesetAttr{
-		Access_fs: landlockAccessFS,
+	// Go AllThreadsSyscall (Landlock restrict without TSYNC) fatals under
+	// qemu-user when per-thread results diverge. Skip rather than crash.
+	if os.Getenv("RETICULUM_QEMU_USER") == "1" {
+		return fmt.Errorf("landlock skipped under qemu-user")
 	}
 
-	fd, _, errno := unix.Syscall(unix.SYS_LANDLOCK_CREATE_RULESET,
-		uintptr(unsafe.Pointer(&attr)), // #nosec G103 -- required for direct Landlock syscall interface
-		uintptr(unsafe.Sizeof(attr)),
-		0)
+	if err := probeLandlock(); err != nil {
+		return err
+	}
+
+	rules, err := landlockPathRules(cfg)
+	if err != nil {
+		return err
+	}
+
+	// RestrictPaths only. Do not call Restrict or RestrictNet: V4+ would
+	// deny TCP bind/connect unless every mesh port is allowlisted.
+	if err := landlock.V9.BestEffort().RestrictPaths(rules...); err != nil {
+		return fmt.Errorf("landlock restrict paths: %w", err)
+	}
+
+	// V6+ scopes abstract UNIX sockets and signals toward more privileged
+	// domains. Pathname UNIX sockets (session bus, journald) need
+	// WithResolveUnix on their path trees instead. GUI hosts skip this
+	// because WebKitGTK helpers use abstract sockets and signals.
+	if shouldRestrictScoped(cfg) {
+		if err := landlock.V9.BestEffort().RestrictScoped(); err != nil {
+			return fmt.Errorf("landlock restrict scoped: %w", err)
+		}
+	}
+
+	debug.Log(debug.DebugInfo, "Landlock sandbox applied", "abi", "V9")
+	return nil
+}
+
+func shouldRestrictScoped(cfg *common.ReticulumConfig) bool {
+	return cfg == nil || !cfg.SandboxSkipScoped
+}
+
+func probeLandlock() error {
+	_, _, errno := unix.Syscall(unix.SYS_LANDLOCK_CREATE_RULESET,
+		0, 0, unix.LANDLOCK_CREATE_RULESET_VERSION)
 	if errno == unix.ENOSYS {
 		return fmt.Errorf("landlock not supported by kernel")
 	}
-	if errno != 0 {
-		return fmt.Errorf("landlock_create_ruleset: %w", errno)
+	if errno == unix.EOPNOTSUPP {
+		return fmt.Errorf("landlock is currently disabled")
 	}
-	rulesetFD := int(fd) // #nosec G115 -- syscall fd is always a small non-negative integer on Linux
-	defer unix.Close(rulesetFD)
+	if errno != 0 {
+		return fmt.Errorf("landlock_create_ruleset version check: %w", errno)
+	}
+	return nil
+}
 
+func landlockPathRules(cfg *common.ReticulumConfig) ([]landlock.Rule, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return err
+		return nil, err
 	}
+	homeCfg := filepath.Join(home, ".reticulum-go")
 
-	// Build the whitelist. Directories get full access. Files get read-only.
-
-	paths := []landlockRule{
-		{filepath.Join(home, ".reticulum-go"), landlockFullAccess},
-		{"/tmp", landlockFullAccess},
-		{"/var/tmp", landlockFullAccess},
-		{"/etc/resolv.conf", landlockReadOnlyFile},
-		{"/etc/hosts", landlockReadOnlyFile},
-		{"/etc/ssl/cert.pem", landlockReadOnlyFile},
-		{"/etc/ssl/certs", landlockReadOnlyDir},
-		{"/proc/self", landlockReadOnlyFile},
-		{"/dev/null", landlockReadOnlyFile},
-		{"/dev/urandom", landlockReadOnlyFile},
+	rwDirs := []string{homeCfg, "/tmp", "/var/tmp"}
+	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
+	if runtimeDir == "" {
+		runtimeDir = fmt.Sprintf("/run/user/%d", os.Getuid())
 	}
+	// ResolveUnix covers pathname session bus under XDG_RUNTIME_DIR (V9).
+	runtimeRule := landlock.RWDirs(runtimeDir).WithResolveUnix().IgnoreIfMissing()
 
-	// If the config lives outside ~/.reticulum-go, whitelist its parent dir.
 	if cfg != nil && cfg.ConfigPath != "" {
 		parent := filepath.Dir(cfg.ConfigPath)
-		if parent != filepath.Join(home, ".reticulum-go") {
-			paths = append(paths, landlockRule{parent, landlockFullAccess})
+		if parent != "" && parent != "." && parent != homeCfg {
+			rwDirs = append(rwDirs, parent)
+		}
+	}
+	if cfg != nil && cfg.LogFile != "" {
+		logParent := filepath.Dir(cfg.LogFile)
+		if logParent != "" && logParent != "." {
+			rwDirs = append(rwDirs, logParent)
 		}
 	}
 
-	for _, rule := range paths {
-		if err := landlockAddRule(rulesetFD, rule.path, rule.access); err != nil {
-			// Skip paths that do not exist. Not every system has every file.
+	rules := []landlock.Rule{
+		landlock.RWDirs(rwDirs...).IgnoreIfMissing(),
+		runtimeRule,
+		// Journald pathname socket (V9 resolve unix). Read-only tree.
+		landlock.RODirs("/run/systemd").WithResolveUnix().IgnoreIfMissing(),
+		landlock.ROFiles(
+			"/etc/resolv.conf",
+			"/etc/hosts",
+			"/etc/ssl/cert.pem",
+			"/dev/null",
+			"/dev/urandom",
+			"/etc/localtime",
+			"/etc/protocols",
+			"/etc/services",
+		).IgnoreIfMissing(),
+		// Syslog pathname socket (often a symlink into /run).
+		landlock.ROFiles("/dev/log").WithResolveUnix().IgnoreIfMissing(),
+		landlock.RODirs(
+			"/etc/ssl/certs",
+			"/proc/self",
+			"/lib",
+			"/lib64",
+			"/usr/lib",
+		).IgnoreIfMissing(),
+	}
+	if !isRouterProfile(cfg) {
+		rules = append(rules, landlock.RODirs(
+			"/bin",
+			"/usr/bin",
+			"/usr/local/bin",
+		).IgnoreIfMissing())
+	}
+	rules = append(rules, extraLandlockRules(cfg)...)
+	return rules, nil
+}
 
-			if err != unix.ENOENT {
-				debug.Log(debug.DebugError, "Landlock rule failed", "path", rule.path, "error", err)
-			}
+func extraLandlockRules(cfg *common.ReticulumConfig) []landlock.Rule {
+	var rules []landlock.Rule
+	for _, p := range collectExtraPaths(cfg) {
+		switch p.kind {
+		case pathRWDir:
+			rules = append(rules, landlock.RWDirs(p.path).IgnoreIfMissing())
+		case pathRODir:
+			rules = append(rules, landlock.RODirs(p.path).IgnoreIfMissing())
+		case pathROFile:
+			rules = append(rules, landlock.ROFiles(p.path).IgnoreIfMissing())
+		default:
+			rules = append(rules, landlock.RWFiles(p.path).WithIoctlDev().IgnoreIfMissing())
 		}
 	}
-
-	_, _, errno = unix.Syscall(unix.SYS_LANDLOCK_RESTRICT_SELF,
-		uintptr(rulesetFD), // #nosec G115 -- converting syscall fd to uintptr for raw syscall
-		0, 0)
-	if errno != 0 {
-		return fmt.Errorf("landlock_restrict_self: %w", errno)
-	}
-
-	debug.Log(debug.DebugInfo, "Landlock sandbox applied")
-	return nil
-}
-
-type landlockRule struct {
-	path   string
-	access uint64
-}
-
-// landlockAccessFS is the superset of filesystem rights declared when
-// creating the ruleset. Individual rules can only grant a subset.
-var landlockAccessFS = uint64(
-	unix.LANDLOCK_ACCESS_FS_READ_FILE |
-		unix.LANDLOCK_ACCESS_FS_READ_DIR |
-		unix.LANDLOCK_ACCESS_FS_WRITE_FILE |
-		unix.LANDLOCK_ACCESS_FS_REMOVE_FILE |
-		unix.LANDLOCK_ACCESS_FS_REMOVE_DIR |
-		unix.LANDLOCK_ACCESS_FS_MAKE_CHAR |
-		unix.LANDLOCK_ACCESS_FS_MAKE_DIR |
-		unix.LANDLOCK_ACCESS_FS_MAKE_REG |
-		unix.LANDLOCK_ACCESS_FS_MAKE_SOCK |
-		unix.LANDLOCK_ACCESS_FS_MAKE_FIFO |
-		unix.LANDLOCK_ACCESS_FS_MAKE_BLOCK |
-		unix.LANDLOCK_ACCESS_FS_MAKE_SYM |
-		unix.LANDLOCK_ACCESS_FS_TRUNCATE |
-		unix.LANDLOCK_ACCESS_FS_REFER,
-)
-
-var landlockReadOnlyFile = uint64(unix.LANDLOCK_ACCESS_FS_READ_FILE)
-var landlockReadOnlyDir = uint64(unix.LANDLOCK_ACCESS_FS_READ_FILE | unix.LANDLOCK_ACCESS_FS_READ_DIR)
-var landlockFullAccess = landlockAccessFS
-
-// landlockAddRule adds a single path-beneath rule to the ruleset.
-// Symlinks are resolved to their targets before the rule is added, and
-// directory-only rights are stripped when the target is a file.
-func landlockAddRule(rulesetFD int, path string, access uint64) error {
-	// Resolve symlinks so the rule applies to the real inode.
-	resolved, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return err
-	}
-
-	fd, err := unix.Open(resolved, unix.O_PATH|unix.O_CLOEXEC, 0)
-	if err != nil {
-		return err
-	}
-	defer unix.Close(fd)
-
-	// Determine whether the resolved path is a file or directory so we
-	// don't request directory rights on a file (that yields EINVAL).
-	info, err := os.Stat(resolved)
-	if err != nil {
-		return err
-	}
-	allowed := access
-	if !info.IsDir() {
-		allowed &= uint64(unix.LANDLOCK_ACCESS_FS_READ_FILE | unix.LANDLOCK_ACCESS_FS_WRITE_FILE | unix.LANDLOCK_ACCESS_FS_TRUNCATE)
-	}
-
-	attr := unix.LandlockPathBeneathAttr{
-		Allowed_access: allowed,
-		Parent_fd:      int32(fd), // #nosec G115 -- O_PATH fd from unix.Open is always small non-negative
-	}
-
-	_, _, errno := unix.Syscall(unix.SYS_LANDLOCK_ADD_RULE,
-		uintptr(rulesetFD), // #nosec G115 -- converting syscall fd to uintptr for raw syscall
-		uintptr(unix.LANDLOCK_RULE_PATH_BENEATH),
-		uintptr(unsafe.Pointer(&attr))) // #nosec G103 -- required for direct Landlock syscall interface
-	if errno != 0 {
-		return errno
-	}
-	return nil
+	return rules
 }
 
 func dropAllCapabilities() error {
@@ -229,10 +242,8 @@ func setResourceLimits() error {
 		debug.Log(debug.DebugError, "RLIMIT_NOFILE failed", "error", err)
 	}
 
-	const memLimit = 2 << 30 // 2 GiB
-	if err := unix.Setrlimit(unix.RLIMIT_AS, &unix.Rlimit{Cur: memLimit, Max: memLimit}); err != nil {
-		debug.Log(debug.DebugError, "RLIMIT_AS failed", "error", err)
-	}
+	// Do not set RLIMIT_AS. A 2GiB address-space cap aborts Go under normal
+	// mesh load (runtime: out of memory / unknown pc during GC).
 
 	if err := unix.Setrlimit(unix.RLIMIT_CORE, &unix.Rlimit{Cur: 0, Max: 0}); err != nil {
 		debug.Log(debug.DebugError, "RLIMIT_CORE failed", "error", err)
@@ -243,9 +254,24 @@ func setResourceLimits() error {
 		debug.Log(debug.DebugError, "RLIMIT_STACK failed", "error", err)
 	}
 
-	const procLimit = 4096
+	const procLimit = 65536
 	if err := unix.Setrlimit(unix.RLIMIT_NPROC, &unix.Rlimit{Cur: procLimit, Max: procLimit}); err != nil {
 		debug.Log(debug.DebugError, "RLIMIT_NPROC failed", "error", err)
+	}
+
+	// Raise soft MEMLOCK so identity securemem pages can mlock (a few KB).
+	var memlock unix.Rlimit
+	if err := unix.Getrlimit(unix.RLIMIT_MEMLOCK, &memlock); err == nil {
+		const want = 64 << 10 // 64 KiB
+		if memlock.Cur < want {
+			memlock.Cur = want
+			if memlock.Max < want && memlock.Max != unix.RLIM_INFINITY {
+				memlock.Max = want
+			}
+			if err := unix.Setrlimit(unix.RLIMIT_MEMLOCK, &memlock); err != nil {
+				debug.Log(debug.DebugVerbose, "RLIMIT_MEMLOCK raise failed", "error", err)
+			}
+		}
 	}
 
 	return nil

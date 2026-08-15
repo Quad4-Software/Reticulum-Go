@@ -5,6 +5,7 @@ package interfaces
 
 import (
 	"fmt"
+	"strings"
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/ifac"
@@ -29,7 +30,16 @@ func ApplyIFACFromConfig(iface common.NetworkInterface, cfg *common.InterfaceCon
 	}
 	size := cfg.IFACSize
 	if size <= 0 {
-		size = ifac.DefaultSize
+		switch {
+		case strings.EqualFold(cfg.Type, "SerialInterface"):
+			size = serialDefaultIFACSize
+		case strings.EqualFold(cfg.Type, "Modem73Interface"):
+			size = modem73DefaultIFACSize
+		case strings.EqualFold(cfg.Type, "SDRInterface"):
+			size = sdrDefaultIFACSize
+		default:
+			size = ifac.DefaultSize
+		}
 	}
 	id, err := ifac.New(size, netname, netkey)
 	if err != nil {

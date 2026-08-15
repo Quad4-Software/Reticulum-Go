@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package identity
 
 import (
@@ -7,6 +8,7 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"quad4/msgpack/v5/pkg/msgpack"
 	"quad4/reticulum-go/internal/storage"
@@ -24,6 +26,7 @@ var (
 	knownPersistMemory   atomic.Bool
 	knownPersistDisabled atomic.Bool
 	knownPersistDirty    atomic.Bool
+	knownPersistGen      atomic.Uint64
 	knownPersistSaving   sync.Mutex
 )
 
@@ -32,18 +35,19 @@ var (
 // touching the knownDestinations map, keeping the parser fuzzable and
 // unit-testable in isolation.
 type knownDestRecord struct {
-	destHash  []byte
-	publicKey []byte
-	packetRaw []byte
-	appData   []byte
+	destHash     []byte
+	publicKey    []byte
+	packetRaw    []byte
+	appData      []byte
+	rememberedAt float64
+	lastUsed     float64
 }
 
-// decodeKnownDestinations parses a known_destinations snapshot. Both the
-// Go-native map[string]any encoding (hex-string keys) and the reference
-// Python umsgpack encoding (raw bin/str destination-hash keys) are
+// decodeKnownDestinations parses a known_destinations snapshot. Both
+// hex-string map keys and raw destination-hash bin or str keys are
 // accepted. Malformed entries are skipped and counted. A structurally
-
-// invalid top-level payload (not a msgpack map) is returned as an error.
+// invalid top-level payload that is not a msgpack map is returned as an
+// error.
 func decodeKnownDestinations(data []byte) (records []knownDestRecord, skipped int, err error) {
 	var loaded map[string]any
 	if err := msgpack.Unmarshal(data, &loaded); err != nil {
@@ -77,22 +81,46 @@ func decodeKnownDestinations(data []byte) (records []knownDestRecord, skipped in
 		if packetHash, ok := entry[1].([]byte); ok && len(packetHash) > 0 {
 			packetRaw = append([]byte(nil), packetHash...)
 		}
+		rememberedAt := asFloat64(entry[0])
+		lastUsed := float64(0)
+		if len(entry) >= 5 {
+			lastUsed = asFloat64(entry[4])
+		}
 
 		records = append(records, knownDestRecord{
-			destHash:  destHash,
-			publicKey: append([]byte(nil), publicKey...),
-			packetRaw: packetRaw,
-			appData:   appData,
+			destHash:     destHash,
+			publicKey:    append([]byte(nil), publicKey...),
+			packetRaw:    packetRaw,
+			appData:      appData,
+			rememberedAt: rememberedAt,
+			lastUsed:     lastUsed,
 		})
 	}
 
 	return records, skipped, nil
 }
 
-// resolveDestHashKey accepts either a hex-encoded key (Go's own on-disk
-// format) or a raw truncated-hash-length byte string (Python's umsgpack
-// bin/str key, which the msgpack decoder folds into a Go string of equal
-// length regardless of the original wire type).
+func asFloat64(v any) float64 {
+	switch n := v.(type) {
+	case float64:
+		return n
+	case float32:
+		return float64(n)
+	case int:
+		return float64(n)
+	case int64:
+		return float64(n)
+	case uint64:
+		return float64(n)
+	default:
+		return 0
+	}
+}
+
+// resolveDestHashKey accepts either a hex-encoded key (native on-disk
+// format) or a raw truncated-hash-length byte string. The msgpack decoder
+// folds bin and str keys into a Go string of equal length regardless of
+// the original wire type.
 func resolveDestHashKey(hashKey string) ([]byte, bool) {
 	if decoded, err := hex.DecodeString(hashKey); err == nil && len(decoded) == TruncatedHashLength/8 {
 		return decoded, true
@@ -114,6 +142,7 @@ func InitKnownDestinationsPersistence(configPath string, inMemory bool) {
 	knownPersistMemory.Store(inMemory)
 	knownPersistDisabled.Store(false)
 	knownPersistDirty.Store(false)
+	knownPersistGen.Store(0)
 
 	if configPath == "" && os.Getenv("RETICULUM_STORAGE_PATH") == "" {
 		// No config path was resolved: this is either ad-hoc/library use or
@@ -130,10 +159,13 @@ func InitKnownDestinationsPersistence(configPath string, inMemory bool) {
 	}
 
 	if _, err := storage.EnsureDataDir(configPath); err != nil {
-		debug.Log(debug.DebugInfo, "Known destinations persistence disabled; storage unavailable", "error", err)
+		debug.Log(debug.DebugInfo, "Known destinations persistence disabled, storage unavailable", "error", err)
 		knownPersistMemory.Store(true)
 		knownPersistDisabled.Store(true)
 		return
+	}
+	if dir, err := storage.RatchetsDir(configPath); err == nil {
+		_ = os.MkdirAll(dir, 0o700)
 	}
 
 	loadKnownDestinationsFromDisk(configPath)
@@ -147,7 +179,7 @@ func loadKnownDestinationsFromDisk(configPath string) {
 	data, err := os.ReadFile(path) // #nosec G304 -- operator-controlled storage path
 	if err != nil {
 		if !os.IsNotExist(err) {
-			debug.Log(debug.DebugInfo, "Known destinations load failed; using in-memory table", "error", err)
+			debug.Log(debug.DebugInfo, "Known destinations load failed, using in-memory table", "error", err)
 			knownPersistMemory.Store(true)
 			knownPersistDisabled.Store(true)
 		}
@@ -159,7 +191,7 @@ func loadKnownDestinationsFromDisk(configPath string) {
 
 	records, skipped, err := decodeKnownDestinations(data)
 	if err != nil {
-		debug.Log(debug.DebugInfo, "Known destinations decode failed; using in-memory table", "error", err)
+		debug.Log(debug.DebugInfo, "Known destinations decode failed, using in-memory table", "error", err)
 		knownPersistMemory.Store(true)
 		knownPersistDisabled.Store(true)
 		return
@@ -177,13 +209,18 @@ func loadKnownDestinationsFromDisk(configPath string) {
 		if id == nil {
 			continue
 		}
-		canonicalKey := hex.EncodeToString(rec.destHash)
-		knownDestinations[canonicalKey] = []any{
-			rec.packetRaw,
-			rec.destHash,
-			id,
-			rec.appData,
+		canonicalKey := knownDestKey(rec.destHash)
+		knownDestinations[canonicalKey] = knownDestEntry{
+			pkt:  rec.packetRaw,
+			hash: rec.destHash,
+			id:   id,
+			app:  rec.appData,
 		}
+		rememberedAt := int64(rec.rememberedAt)
+		if rememberedAt <= 0 {
+			rememberedAt = time.Now().Unix()
+		}
+		setKnownDestMetaLocked(canonicalKey, rememberedAt, int64(rec.lastUsed))
 		count++
 	}
 
@@ -199,6 +236,7 @@ func markKnownDestinationsDirty() {
 	if knownPersistMemory.Load() || knownPersistDisabled.Load() {
 		return
 	}
+	knownPersistGen.Add(1)
 	knownPersistDirty.Store(true)
 }
 
@@ -227,32 +265,26 @@ func saveKnownDestinations(force bool) {
 	}
 	defer knownPersistSaving.Unlock()
 
+	gen := knownPersistGen.Load()
+
 	knownDestinationsLock.RLock()
 	export := make(map[string][]any, len(knownDestinations))
-	for hashKey, data := range knownDestinations {
-		if len(data) < 4 {
+	for hashKey, e := range knownDestinations {
+		if e.id == nil || len(e.hash) == 0 {
 			continue
 		}
-		destHash, _ := data[1].([]byte)
-		id, _ := data[2].(*Identity)
-		appData, _ := data[3].([]byte)
-		if id == nil || len(destHash) == 0 {
-			continue
-		}
-		var packetHash []byte
-		if packetBytes, ok := data[0].([]byte); ok {
-			packetHash = packetBytes
-		}
-		key := hashKey
-		if key == "" {
-			key = hex.EncodeToString(destHash)
+		key := hex.EncodeToString(hashKey[:])
+		meta := knownDestMetaByKey[hashKey]
+		rememberedAt := float64(meta.rememberedAt)
+		if rememberedAt == 0 {
+			rememberedAt = float64(time.Now().Unix())
 		}
 		export[key] = []any{
-			float64(0),
-			packetHash,
-			id.GetPublicKey(),
-			appData,
-			float64(0),
+			rememberedAt,
+			e.pkt,
+			e.id.GetPublicKey(),
+			e.app,
+			float64(meta.lastUsed),
 		}
 	}
 	knownDestinationsLock.RUnlock()
@@ -276,12 +308,15 @@ func saveKnownDestinations(force bool) {
 		disableKnownDestinationsPersistence(err)
 		return
 	}
-	knownPersistDirty.Store(false)
+	// Only clear dirty when no Remember/Retain landed after the snapshot gen.
+	if knownPersistGen.Load() == gen {
+		knownPersistDirty.Store(false)
+	}
 	debug.Log(debug.DebugVerbose, "Saved known destinations to storage", "count", len(export))
 }
 
 func disableKnownDestinationsPersistence(err error) {
-	debug.Log(debug.DebugInfo, "Known destinations persistence disabled; continuing in-memory", "error", err)
+	debug.Log(debug.DebugInfo, "Known destinations persistence disabled, continuing in-memory", "error", err)
 	knownPersistMemory.Store(true)
 	knownPersistDisabled.Store(true)
 	knownPersistDirty.Store(false)

@@ -6,6 +6,8 @@ package rate
 import (
 	"testing"
 	"time"
+
+	"quad4/pbt/pkg/pbt"
 )
 
 func TestNewLimiter(t *testing.T) {
@@ -240,4 +242,16 @@ func itoa(i int) string {
 		buf[pos] = '-'
 	}
 	return string(buf[pos:])
+}
+
+func TestPBTAnnounceRateControlDisabledAlwaysAllows(t *testing.T) {
+	arc := NewAnnounceRateControl(0, 0, 0)
+	prop := pbt.ForAll(
+		"zero config allows every announce key",
+		pbt.StringASCII(0, 64),
+		func(hash string) bool {
+			return arc.AllowAnnounce(hash)
+		},
+	)
+	pbt.Check(t, prop, pbt.WithRuns(80), pbt.WithSeed(88))
 }

@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package destination
+
+import "time"
 
 const (
 	In  = 0x01
@@ -21,4 +24,7 @@ const (
 
 	RatchetCount    = 512
 	RatchetInterval = 1800
+
+	announceBurstWindow = 10 * time.Second
+	announceBurstMax    = 8
 )

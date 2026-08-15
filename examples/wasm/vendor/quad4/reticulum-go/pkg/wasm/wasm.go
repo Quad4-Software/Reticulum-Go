@@ -215,7 +215,7 @@ func InitReticulum(this js.Value, args []js.Value) interface{} {
 	dest.SetPacketCallback(func(data []byte, ni common.NetworkInterface) {
 		debug.Log(debug.DebugInfo, "Destination packet callback invoked", "bytes", len(data))
 		if packetCallback.IsUndefined() || packetCallback.IsNull() {
-			debug.Log(debug.DebugError, "JS packet callback not registered; dropping packet", "bytes", len(data))
+			debug.Log(debug.DebugError, "JS packet callback not registered, dropping packet", "bytes", len(data))
 			return
 		}
 		if packetCallback.Type() != js.TypeFunction {
@@ -396,7 +396,7 @@ func (h *genericAnnounceHandler) ReceivedAnnounce(destHash []byte, ident interfa
 	stats.announcesReceived++
 
 	if announceHandler.IsUndefined() || announceHandler.IsNull() {
-		debug.Log(debug.DebugError, "JS announce callback not registered; dropping announce on the floor", "dest", hashStr)
+		debug.Log(debug.DebugError, "JS announce callback not registered, dropping announce on the floor", "dest", hashStr)
 		return nil
 	}
 	if announceHandler.Type() != js.TypeFunction {

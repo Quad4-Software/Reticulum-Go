@@ -1,0 +1,32 @@
+[Unit]
+Description=Reticulum-Go network daemon
+Documentation=man:reticulum-go(8)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=HOME=/var/lib/reticulum-go
+ExecStart=@BINDIR@/reticulum-go daemon --config /var/lib/reticulum-go/config
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillMode=mixed
+
+# Allow Landlock sandbox and config/log writes under the state directory.
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=strict
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+UMask=0077
+ReadWritePaths=/var/lib/reticulum-go
+
+[Install]
+WantedBy=multi-user.target

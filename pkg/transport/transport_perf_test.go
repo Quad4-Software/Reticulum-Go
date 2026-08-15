@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package transport
 
 import (
 	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"runtime"
 	"testing"
@@ -26,16 +28,17 @@ func BenchmarkSeenAnnouncesScale(b *testing.B) {
 			for range size {
 				h := make([]byte, 32)
 				_, _ = rand.Read(h)
-				tr.seenAnnounces[string(h)] = time.Now()
+				tr.seenAnnounces[hash32FromSlice(h)] = time.Now()
 			}
 
 			b.ResetTimer()
 			b.ReportAllocs()
 
 			for i := 0; i < b.N; i++ {
-				// Use a predictable but changing string
+				var k [32]byte
+				binary.LittleEndian.PutUint64(k[:], uint64(i%size))
 				tr.mutex.Lock()
-				_ = tr.seenAnnounces[fmt.Sprint(i%size)]
+				_ = tr.seenAnnounces[k]
 				tr.mutex.Unlock()
 			}
 		})
@@ -84,7 +87,11 @@ func TestTransportMemoryUsage(t *testing.T) {
 		t.Skip("Skipping memory usage test in short mode")
 	}
 
-	tr := NewTransport(&common.ReticulumConfig{})
+	tr := NewTransport(&common.ReticulumConfig{
+		// Disable the soft path cap so this test measures table growth without
+		// O(n) eviction scans on every insert past DefaultMaxInMemoryPaths.
+		MaxInMemoryPaths: -1,
+	})
 	defer tr.Close()
 
 	// Register interface to avoid "Interface not found" logs and early return

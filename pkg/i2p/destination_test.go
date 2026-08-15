@@ -33,3 +33,33 @@ func TestResolveDestinationLookup(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestResolveDestinationB32Passthrough(t *testing.T) {
+	lookupCalled := false
+	dest := "abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst.b32.i2p"
+	got, err := ResolveDestination(dest, func(string) (string, error) {
+		lookupCalled = true
+		return "", nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != dest {
+		t.Fatalf("got %q want %q", got, dest)
+	}
+	if lookupCalled {
+		t.Fatal("b32 destinations must not use NAMING LOOKUP")
+	}
+}
+
+func TestResolveDestinationBareB32(t *testing.T) {
+	raw := "abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst"
+	got, err := ResolveDestination(raw, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := raw + ".b32.i2p"
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}

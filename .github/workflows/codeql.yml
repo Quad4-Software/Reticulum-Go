@@ -1,7 +1,8 @@
 # Pinned first-party and CodeQL actions (bump tag and SHA together when upgrading):
-#   actions/checkout@v6.0.1                8e8c483db84b4bee98b60c0593521ed34d9990e8
-#   github/codeql-action/init@v4.35.2      95e58e9a2cdfd71adc6e0353d5c52f41a045d225
-#   github/codeql-action/analyze@v4.35.2   95e58e9a2cdfd71adc6e0353d5c52f41a045d225
+#   actions/checkout@v7.0.0                    9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+#   actions/setup-go@v5.6.0                    40f1582b2485089dde7abd97c1529aa768e1baff
+#   github/codeql-action/init@v4.36.3          54f647b7e1bb85c95cddabcd46b0c578ec92bc1a
+#   github/codeql-action/analyze@v4.36.3       54f647b7e1bb85c95cddabcd46b0c578ec92bc1a
 #
 name: CodeQL
 
@@ -20,6 +21,9 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   analyze:
@@ -41,9 +45,11 @@ jobs:
             build-mode: none
           - language: python
             build-mode: none
+          - language: actions
+            build-mode: none
 
     env:
-      CI_GO_VERSION: "1.26.5"
+      CI_GO_VERSION: "1.26.6"
       GOFLAGS: -mod=vendor
       GOPROXY: "off"
       GOTOOLCHAIN: local

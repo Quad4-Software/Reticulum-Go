@@ -70,9 +70,15 @@ func (d *HDLCDecoder) emit() {
 	}
 	out := append([]byte(nil), d.data...)
 	d.data = d.data[:0]
-	if len(out) > 0 {
-		d.onPacket(out)
+	// Match Python BackboneClientInterface.check_frame_len (RNS 1.3.9).
+	const headerMinSize = 19
+	if len(out) <= headerMinSize {
+		return
 	}
+	if d.mtu > 0 && len(out) > d.mtu {
+		return
+	}
+	d.onPacket(out)
 }
 
 func (d *HDLCDecoder) Reset() {

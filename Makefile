@@ -1,9 +1,25 @@
-.PHONY: all build install uninstall clean test fmt vet lint vulncheck gosec check deps run
-.PHONY: build-linux build-windows build-windows-legacy build-darwin build-all tinygo-build tinygo-wasm tinygo-pageserver
-.PHONY: test-short test-race test-crossref test-wasm test-all coverage bench debug release
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2024-2026 Quad4.io
+#
+# Reticulum-Go build and install.
+#
+# Primary artifact is a single binary (reticulum-go) with subcommands:
+#   daemon (default), status, id, probe, path, cp, pageserver
+# Optional legacy tool names are installed as symlinks to that binary.
+
+.PHONY: all build build-utils install uninstall clean test fmt vet lint vulncheck gosec check deps run help
+.PHONY: build-linux build-windows build-windows-legacy build-windows-xp build-darwin build-all
+.PHONY: test-short test-race test-crossref test-wasm test-odin test-dart test-all coverage bench debug release
+.PHONY: man install-man install-service package package-deb package-rpm package-arch stage-nfpm
+.PHONY: test-services tree-manifest tree-rsm-sign tree-rsm-verify hooks-install
+.PHONY: build-librns
+.PHONY: microvm-up microvm-stop microvm-kernel microvm-rootfs microvm-rebuild microvm-guest
+
+.DEFAULT_GOAL := all
 
 GOCMD := go
 GO_LEGACY_WIN7 ?= /usr/local/go-legacy-win7/bin/go
+GO_LEGACY_WINXP ?= /usr/local/go-legacy-winxp/bin/go
 # Use committed vendor/ for builds and tests; targets that fetch modules or tools clear these.
 GOFLAGS := -mod=vendor
 GOPROXY := off
@@ -11,17 +27,64 @@ GOSUMDB := off
 export GOFLAGS GOPROXY GOSUMDB
 LIBS_ROOT ?= ../../Reticulum-Go-Projects
 GOVULNCHECK_VER ?= v1.1.4
+NFPM_VER ?= v2.41.3
+
 BINARY_NAME := reticulum-go
 BUILD_DIR := bin
 MAIN_PACKAGE := ./cmd/reticulum-go
 PREFIX ?= /usr/local
-INSTALL_DIR := $(PREFIX)/bin
+DESTDIR ?=
+BINDIR := $(PREFIX)/bin
+MANDIR := $(PREFIX)/share/man
+INSTALL_BINDIR := $(DESTDIR)$(BINDIR)
+INSTALL_MANDIR := $(DESTDIR)$(MANDIR)
+# install-service: auto|systemd|openrc|runit|dinit|all
+INIT ?= auto
+
+# Legacy CLI names installed as symlinks to $(BINARY_NAME).
+TOOL_LINKS := rgostatus rgoid rgoprobe rgopath rgocp rgox rnx rgosh rgopageserver rgoslow rgoselfcheck rgospeed rgodump rgosnap rgozen
+
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+# Package version must start with a digit and avoid git describe noise.
+PKG_VERSION ?= $(shell echo "$(VERSION)" | sed 's/^v//' | sed 's/-dirty$$//' | sed 's/-\([0-9]*\)-g[0-9a-f]*/.\1/' )
+LDFLAGS := -s -w -X main.defaultVersion=$(VERSION)
 
 all: build
 
+help:
+	@echo "Targets:"
+	@echo "  build          Build $(BINARY_NAME) (daemon + tools)"
+	@echo "  build-utils    Alias for build"
+	@echo "  install        Install binary, tool symlinks, and man pages"
+	@echo "  install-man    Install man pages only"
+	@echo "  install-service Install init service files (INIT=$(INIT))"
+	@echo "  uninstall      Remove installed files"
+	@echo "  package-deb    Build .deb into dist/ (nfpm)"
+	@echo "  package-rpm    Build .rpm into dist/ (nfpm)"
+	@echo "  package-arch   Build .pkg.tar.zst into dist/ (nfpm)"
+	@echo "  test           Run tests"
+	@echo "  test-odin      Build librns and run Odin bindings tests"
+	@echo "  test-dart      Run Dart Control API client tests"
+	@echo "  test-services  Docker tests for systemd/openrc/runit/dinit + logfile"
+	@echo "  check          fmt vet lint test-short vulncheck gosec"
+	@echo "  tree-rsm-verify  Verify reticulum-go.rsm signature and hashes"
+	@echo "  tree-rsm-sign    Sign tree inventory (requires RNS_ID_PATH)"
+	@echo "  hooks-install    Enable .githooks pre-commit (YAML/shellcheck + RSM)"
+	@echo "  microvm-up       Prepare and start Firecracker microvm + host bridge"
+	@echo "  microvm-stop     Stop Firecracker microvm and host bridge"
+	@echo "  microvm-kernel   Download Firecracker guest kernel"
+	@echo "  microvm-rootfs   Build guest rootfs image"
+	@echo "  microvm-rebuild  Force rebuild kernel/rootfs then up"
+	@echo "  microvm-guest    Start microvm guest only"
+	@echo "Variables: PREFIX=$(PREFIX) DESTDIR=$(DESTDIR) INIT=$(INIT) VERSION=$(VERSION)"
+
 build:
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PACKAGE)
+	CGO_ENABLED=0 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PACKAGE)
+
+# Compatibility alias: utilities live inside the main binary.
+build-utils: build
+	@echo "utilities are subcommands of $(BINARY_NAME) (status id probe path cp x pageserver)"
 
 debug:
 	@mkdir -p $(BUILD_DIR)
@@ -29,18 +92,66 @@ debug:
 
 release: build
 
-install: build
-	@mkdir -p $(INSTALL_DIR)
-	@cp $(BUILD_DIR)/$(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)
-	@echo "Installed $(BINARY_NAME) to $(INSTALL_DIR)"
+install: build install-man
+	@mkdir -p $(INSTALL_BINDIR)
+	install -m 755 $(BUILD_DIR)/$(BINARY_NAME) $(INSTALL_BINDIR)/$(BINARY_NAME)
+	@for name in $(TOOL_LINKS); do \
+		ln -sfn $(BINARY_NAME) $(INSTALL_BINDIR)/$$name; \
+	done
+	@echo "Installed $(BINARY_NAME) and tool links to $(INSTALL_BINDIR)"
+	@echo "Man pages installed under $(INSTALL_MANDIR)"
+
+install-man:
+	@mkdir -p $(INSTALL_MANDIR)/man1 $(INSTALL_MANDIR)/man8
+	install -m 644 man/reticulum-go.1 $(INSTALL_MANDIR)/man1/reticulum-go.1
+	install -m 644 man/reticulum-go-status.1 $(INSTALL_MANDIR)/man1/reticulum-go-status.1
+	install -m 644 man/reticulum-go-id.1 $(INSTALL_MANDIR)/man1/reticulum-go-id.1
+	install -m 644 man/reticulum-go-probe.1 $(INSTALL_MANDIR)/man1/reticulum-go-probe.1
+	install -m 644 man/reticulum-go-path.1 $(INSTALL_MANDIR)/man1/reticulum-go-path.1
+	install -m 644 man/reticulum-go-cp.1 $(INSTALL_MANDIR)/man1/reticulum-go-cp.1
+	install -m 644 man/reticulum-go-x.1 $(INSTALL_MANDIR)/man1/reticulum-go-x.1
+	install -m 644 man/reticulum-go-sh.1 $(INSTALL_MANDIR)/man1/reticulum-go-sh.1
+	install -m 644 man/reticulum-go-pageserver.1 $(INSTALL_MANDIR)/man1/reticulum-go-pageserver.1
+	install -m 644 man/reticulum-go-debug.1 $(INSTALL_MANDIR)/man1/reticulum-go-debug.1
+	install -m 644 man/reticulum-go-slow.1 $(INSTALL_MANDIR)/man1/reticulum-go-slow.1
+	install -m 644 man/reticulum-go-dump.1 $(INSTALL_MANDIR)/man1/reticulum-go-dump.1
+	install -m 644 man/reticulum-go-snapshot.1 $(INSTALL_MANDIR)/man1/reticulum-go-snapshot.1
+	install -m 644 man/reticulum-go-speedtest.1 $(INSTALL_MANDIR)/man1/reticulum-go-speedtest.1
+	install -m 644 man/reticulum-go-self-check.1 $(INSTALL_MANDIR)/man1/reticulum-go-self-check.1
+	install -m 644 man/reticulum-go.8 $(INSTALL_MANDIR)/man8/reticulum-go.8
+	ln -sfn reticulum-go-status.1 $(INSTALL_MANDIR)/man1/rgostatus.1
+	ln -sfn reticulum-go-id.1 $(INSTALL_MANDIR)/man1/rgoid.1
+	ln -sfn reticulum-go-probe.1 $(INSTALL_MANDIR)/man1/rgoprobe.1
+	ln -sfn reticulum-go-path.1 $(INSTALL_MANDIR)/man1/rgopath.1
+	ln -sfn reticulum-go-cp.1 $(INSTALL_MANDIR)/man1/rgocp.1
+	ln -sfn reticulum-go-x.1 $(INSTALL_MANDIR)/man1/rgox.1
+	ln -sfn reticulum-go-x.1 $(INSTALL_MANDIR)/man1/rnx.1
+	ln -sfn reticulum-go-sh.1 $(INSTALL_MANDIR)/man1/rgosh.1
+	ln -sfn reticulum-go-pageserver.1 $(INSTALL_MANDIR)/man1/rgopageserver.1
+	ln -sfn reticulum-go-slow.1 $(INSTALL_MANDIR)/man1/rgoslow.1
+	ln -sfn reticulum-go-speedtest.1 $(INSTALL_MANDIR)/man1/rgospeed.1
+	ln -sfn reticulum-go-dump.1 $(INSTALL_MANDIR)/man1/rgodump.1
+	ln -sfn reticulum-go-snapshot.1 $(INSTALL_MANDIR)/man1/rgosnap.1
+	ln -sfn reticulum-go-self-check.1 $(INSTALL_MANDIR)/man1/rgoselfcheck.1
+
+install-service:
+	sh scripts/install-service.sh --prefix "$(PREFIX)" --destdir "$(DESTDIR)" --bindir "$(BINDIR)" --init "$(INIT)"
 
 uninstall:
-	@rm -f $(INSTALL_DIR)/$(BINARY_NAME)
-	@echo "Removed $(INSTALL_DIR)/$(BINARY_NAME)"
+	@rm -f $(INSTALL_BINDIR)/$(BINARY_NAME)
+	@for name in $(TOOL_LINKS); do rm -f $(INSTALL_BINDIR)/$$name; done
+	@rm -f $(INSTALL_MANDIR)/man1/reticulum-go.1 \
+		$(INSTALL_MANDIR)/man1/reticulum-go-*.1 \
+		$(INSTALL_MANDIR)/man1/rgo*.1 \
+		$(INSTALL_MANDIR)/man1/rnx.1 \
+		$(INSTALL_MANDIR)/man8/reticulum-go.8
+	@echo "Removed $(BINARY_NAME), tool links, and man pages"
 
 clean:
 	$(GOCMD) clean
-	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR) dist
+	$(MAKE) -C bindings/odin clean
+	$(MAKE) -C bindings/dart clean
 
 deps:
 	sh scripts/vendor-sync.sh "$(LIBS_ROOT)"
@@ -59,16 +170,48 @@ test-crossref:
 
 # js/wasm packages are not included in `go test ./...` on native GOOS; requires Node (see GOROOT/lib/wasm/go_js_wasm_exec).
 test-wasm:
-	env -i HOME=$$HOME PATH="/usr/local/bin:/usr/bin:/bin" GOROOT=$(shell go env GOROOT) TMPDIR=/tmp GOOS=js GOARCH=wasm $(GOCMD) test -count=1 -exec="$(shell go env GOROOT)/lib/wasm/go_js_wasm_exec" ./pkg/wasm/... ./cmd/reticulum-wasm/...
+	env -i HOME=$$HOME PATH="/usr/local/bin:/usr/bin:/bin" GOROOT=$(shell go env GOROOT) TMPDIR=/tmp TESTSUMMARY_GOOS=js TESTSUMMARY_GOARCH=wasm $(GOCMD) run ./scripts/ci/testsummary -count=1 -exec="$(shell go env GOROOT)/lib/wasm/go_js_wasm_exec" ./pkg/wasm/... ./cmd/reticulum-wasm/...
 
-test-all: test test-wasm test-crossref
+build-librns:
+	mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=1 $(GOCMD) build -buildmode=c-shared -o $(BUILD_DIR)/librns.so ./cmd/librns
+	cp include/rns.h $(BUILD_DIR)/rns.h
+
+test-odin: build-librns
+	$(MAKE) -C bindings/odin test
+
+test-dart:
+	$(MAKE) -C bindings/dart test
+
+test-all: test test-wasm test-crossref test-odin test-dart
+
+test-services:
+	sh scripts/ci/test-services-docker.sh
+
+test-self-check:
+	sh scripts/ci/run-self-check.sh
+
+test-self-check-riscv64:
+	sh scripts/ci/run-qemu-arch-self-check.sh riscv64
+
+test-self-check-386:
+	sh scripts/ci/run-qemu-arch-self-check.sh 386
+
+test-self-check-arm:
+	GOARM=6 sh scripts/ci/run-qemu-arch-self-check.sh arm
+
+test-self-check-ppc64le:
+	sh scripts/ci/run-qemu-arch-self-check.sh ppc64le
+
+test-self-check-ppc64:
+	sh scripts/ci/run-qemu-arch-self-check.sh ppc64
 
 coverage:
 	$(GOCMD) test -coverprofile=coverage.out ./...
 	$(GOCMD) tool cover -html=coverage.out
 
 bench:
-	$(GOCMD) test -run=^$ -bench=. -benchmem ./...
+	$(GOCMD) test -run=^$$ -bench=. -benchmem ./...
 
 fmt:
 	$(GOCMD) fmt ./...
@@ -91,43 +234,96 @@ check: fmt vet lint test-short vulncheck gosec
 run:
 	$(GOCMD) run $(MAIN_PACKAGE)
 
+man:
+	@echo "Man pages live in man/ (installed by make install / make install-man)"
+	@ls -1 man/*.1 man/*.8
+
+package: package-deb package-rpm package-arch
+
+stage-nfpm:
+	sh scripts/stage-nfpm-units.sh
+
+package-deb: build stage-nfpm
+	@mkdir -p dist
+	@ARCH=$$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/;s/armv7l/armhf/'); \
+		VERSION="$(PKG_VERSION)" BINARY="$(CURDIR)/$(BUILD_DIR)/$(BINARY_NAME)" ARCH="$$ARCH" \
+		env GOFLAGS= GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct \
+		$(GOCMD) run github.com/goreleaser/nfpm/v2/cmd/nfpm@$(NFPM_VER) package \
+		--config packaging/nfpm.yaml --packager deb --target dist/
+
+package-rpm: build stage-nfpm
+	@mkdir -p dist
+	@ARCH=$$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/;s/armv7l/armhfp/'); \
+		VERSION="$(PKG_VERSION)" BINARY="$(CURDIR)/$(BUILD_DIR)/$(BINARY_NAME)" ARCH="$$ARCH" \
+		env GOFLAGS= GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct \
+		$(GOCMD) run github.com/goreleaser/nfpm/v2/cmd/nfpm@$(NFPM_VER) package \
+		--config packaging/nfpm.yaml --packager rpm --target dist/
+
+package-arch: build stage-nfpm
+	@mkdir -p dist
+	@ARCH=$$(uname -m | sed 's/armv7l/armv7h/'); \
+		VERSION="$(PKG_VERSION)" BINARY="$(CURDIR)/$(BUILD_DIR)/$(BINARY_NAME)" ARCH="$$ARCH" \
+		env GOFLAGS= GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct \
+		$(GOCMD) run github.com/goreleaser/nfpm/v2/cmd/nfpm@$(NFPM_VER) package \
+		--config packaging/nfpm.yaml --packager archlinux --target dist/
+
 build-linux:
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PACKAGE)
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(MAIN_PACKAGE)
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm $(MAIN_PACKAGE)
-	CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-riscv64 $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=linux GOARCH=386 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-386 $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-riscv64 $(MAIN_PACKAGE)
 
 build-windows:
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_PACKAGE)
-	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64.exe $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64.exe $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=windows GOARCH=386 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-386.exe $(MAIN_PACKAGE)
 
 build-windows-legacy:
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO_LEGACY_WIN7) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64-win7.exe $(MAIN_PACKAGE)
-	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 $(GO_LEGACY_WIN7) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64-win7.exe $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO_LEGACY_WIN7) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64-win7.exe $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 $(GO_LEGACY_WIN7) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64-win7.exe $(MAIN_PACKAGE)
+
+build-windows-xp:
+	@mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=0 GOOS=windows GOARCH=386 $(GO_LEGACY_WINXP) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-386-winxp.exe $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO_LEGACY_WINXP) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64-winxp.exe $(MAIN_PACKAGE)
 
 build-darwin:
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PACKAGE)
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PACKAGE)
 
 build-all: build-linux build-windows build-darwin
 
-# TinyGo (default: WASI so CI/host builds do not use the generic bare-metal UART stubs).
-TINYGO ?= tinygo
+tree-manifest:
+	sh scripts/ci/tree-manifest.sh generate
 
-tinygo-build:
-	@mkdir -p $(BUILD_DIR)
-	$(TINYGO) build -target=wasi -o $(BUILD_DIR)/$(BINARY_NAME)-tinygo -size short -opt=z -gc=leaking -panic=trap $(MAIN_PACKAGE)
+tree-rsm-verify:
+	sh scripts/ci/verify-tree-rsm.sh
 
-tinygo-wasm:
-	@mkdir -p $(BUILD_DIR)
-	$(TINYGO) build -target=wasm -tags js,wasm -o $(BUILD_DIR)/$(BINARY_NAME).wasm ./cmd/reticulum-wasm
+tree-rsm-sign:
+	sh scripts/ci/sign-tree-rsm.sh
 
-# Host Linux/amd64 ELF (no -target). Other OS: set TINYGO and build on that host or use a JSON target.
-# Clear GOFLAGS: examples/pageserver has no vendor/; root -mod=vendor breaks TinyGo there.
-tinygo-pageserver:
-	@mkdir -p $(BUILD_DIR)
-	cd examples/pageserver && GOFLAGS= GOPROXY=https://proxy.golang.org,direct $(TINYGO) build -size short -opt=z -o ../../$(BUILD_DIR)/example-pageserver-tinygo .
+hooks-install:
+	sh scripts/ci/install-git-hooks.sh
+
+microvm-up:
+	./microvm/up.sh
+
+microvm-stop:
+	./microvm/stop.sh
+
+microvm-kernel:
+	./microvm/fetch-kernel.sh
+
+microvm-rootfs:
+	./microvm/build-rootfs.sh
+
+microvm-rebuild:
+	./microvm/up.sh --rebuild
+
+microvm-guest:
+	./microvm/up.sh --guest-only

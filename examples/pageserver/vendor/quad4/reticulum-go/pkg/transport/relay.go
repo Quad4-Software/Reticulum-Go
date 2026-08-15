@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package transport
 
 import (
@@ -11,6 +12,7 @@ import (
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/health"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/packet"
 )
@@ -51,24 +53,56 @@ func (lt *linkRelayTable) get(linkID []byte) (*LinkRelayEntry, bool) {
 	return e, ok
 }
 
+func (lt *linkRelayTable) markValidated(linkID []byte) bool {
+	lt.mu.Lock()
+	defer lt.mu.Unlock()
+	e, ok := lt.entries[hash16FromSlice(linkID)]
+	if !ok || e == nil {
+		return false
+	}
+	e.Validated = true
+	e.Timestamp = time.Now()
+	return true
+}
+
+func (lt *linkRelayTable) touch(linkID []byte) {
+	lt.mu.Lock()
+	defer lt.mu.Unlock()
+	if e, ok := lt.entries[hash16FromSlice(linkID)]; ok && e != nil {
+		e.Timestamp = time.Now()
+	}
+}
+
 func (lt *linkRelayTable) delete(linkID []byte) {
 	lt.mu.Lock()
 	defer lt.mu.Unlock()
 	delete(lt.entries, hash16FromSlice(linkID))
 }
 
-func (lt *linkRelayTable) sweep(maxIdle time.Duration) int {
+func (lt *linkRelayTable) sweep(maxIdle time.Duration) (expiredUnvalidated []*LinkRelayEntry, removed int) {
 	lt.mu.Lock()
 	defer lt.mu.Unlock()
 	now := time.Now()
-	removed := 0
 	for k, e := range lt.entries {
-		if now.After(e.ProofTimeout) && now.Sub(e.Timestamp) > maxIdle {
+		if e == nil {
+			delete(lt.entries, k)
+			removed++
+			continue
+		}
+		if !e.Validated {
+			if now.After(e.ProofTimeout) {
+				expiredUnvalidated = append(expiredUnvalidated, e)
+				delete(lt.entries, k)
+				removed++
+			}
+			continue
+		}
+		if now.Sub(e.Timestamp) > maxIdle {
 			delete(lt.entries, k)
 			removed++
 		}
 	}
-	return removed
+	return expiredUnvalidated, removed
 }
 
 func (lt *linkRelayTable) removeEntriesReferencing(iface common.NetworkInterface) {
@@ -101,7 +135,10 @@ func (t *Transport) ourTransportID() []byte {
 	if t.transportIdentity == nil {
 		return nil
 	}
-	return t.transportIdentity.Hash()
+	if len(t.transportIDCache) == 0 {
+		t.transportIDCache = t.transportIdentity.Hash()
+	}
+	return t.transportIDCache
 }
 
 func rebuildHeaderType2(raw []byte, hops byte, nextHop []byte) ([]byte, error) {
@@ -115,6 +152,28 @@ func rebuildHeaderType2(raw []byte, hops byte, nextHop []byte) ([]byte, error) {
 	raw[1] = hops
 	copy(raw[2:tail], nextHop)
 	return raw, nil
+}
+
+// insertHeaderType2 upgrades a HeaderType1 wire packet to HeaderType2 by
+// inserting the next-hop transport id after the hop byte. Matches Python
+// Transport outbound wrapping when path hops > 1.
+func insertHeaderType2(raw []byte, hops byte, nextHop []byte) ([]byte, error) {
+	hopLen := identity.TruncatedHashLength / 8
+	if len(raw) < 2 {
+		return nil, errors.New("packet too short for HeaderType2 insert")
+	}
+	if len(nextHop) != hopLen {
+		return nil, fmt.Errorf("next hop must be %d bytes, got %d", hopLen, len(nextHop))
+	}
+	newFlags := byte(0)
+	newFlags |= (packet.HeaderType2 << 6) & packet.HeaderMaskHeaderType
+	newFlags |= (packet.PropagationTransport << 4) & packet.HeaderMaskTransportType
+	newFlags |= raw[0] & (packet.HeaderMaskContextFlag | 0x0F)
+	out := make([]byte, 0, len(raw)+hopLen)
+	out = append(out, newFlags, hops)
+	out = append(out, nextHop...)
+	out = append(out, raw[2:]...)
+	return out, nil
 }
 
 func stripHeaderType2(raw []byte, hops byte) ([]byte, error) {
@@ -136,13 +195,30 @@ func rewriteHopsOnly(raw []byte, hops byte) []byte {
 	if len(raw) < 2 {
 		return raw
 	}
-	raw[1] = hops
-	return raw
+	out := append([]byte(nil), raw...)
+	out[1] = hops
+	return out
+}
+
+func AccountInboundHops(wireHops byte, iface common.NetworkInterface) byte {
+	if iface == nil {
+		return wireHops
+	}
+	return linkRelayAccountedHops(wireHops, isLocalClientInterface(iface))
+}
+
+func linkRelayAccountedHops(wireHops byte, fromLocalClient bool) byte {
+	if fromLocalClient {
+		return wireHops
+	}
+	if wireHops < 0xFF {
+		return wireHops + 1
+	}
+	return wireHops
 }
 
 // forwardTransportPacket relays HeaderType2 when TransportID matches
 // ours. Returns true if handled (forwarded or dropped). False to fall
-
 // through to local handling.
 func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourceIface common.NetworkInterface) bool {
 	if pkt == nil || pkt.HeaderType != packet.HeaderType2 || len(pkt.TransportID) == 0 {
@@ -153,14 +229,18 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 		return false
 	}
 	if !bytes.Equal(pkt.TransportID, ourID) {
-		debug.Log(debug.DebugVerbose, "Transport packet not for us, ignoring",
-			"transport_id", fmt.Sprintf("%x", pkt.TransportID),
-			"our_id", fmt.Sprintf("%x", ourID))
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Transport packet not for us, ignoring",
+				"transport_id", fmt.Sprintf("%x", pkt.TransportID),
+				"our_id", fmt.Sprintf("%x", ourID))
+		}
 		return false
 	}
 	if !t.transportEnabled() {
-		debug.Log(debug.DebugVerbose, "Dropping transport packet: relay disabled",
-			"dest_hash", fmt.Sprintf("%x", pkt.DestinationHash))
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Dropping transport packet: relay disabled",
+				"dest_hash", fmt.Sprintf("%x", pkt.DestinationHash))
+		}
 		return true
 	}
 
@@ -176,37 +256,47 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 	t.mutex.RUnlock()
 
 	if isLocal {
-		debug.Log(debug.DebugVerbose, "Transport packet absorbed (local destination)",
-			"dest_hash", fmt.Sprintf("%x", destHash))
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Transport packet absorbed (local destination)",
+				"dest_hash", fmt.Sprintf("%x", destHash))
+		}
 		return false
 	}
 	if !hasPath || path == nil || path.Interface == nil {
-		debug.Log(debug.DebugInfo, "No path for relayed transport packet, dropping",
-			"dest_hash", fmt.Sprintf("%x", destHash))
+		if debug.Enabled(debug.DebugInfo) {
+			debug.Log(debug.DebugInfo, "No path for relayed transport packet, dropping",
+				"dest_hash", fmt.Sprintf("%x", destHash))
+		}
 		return true
 	}
 	if path.Interface == sourceIface {
-		debug.Log(debug.DebugVerbose, "Refusing to relay back onto receiving interface",
-			"iface", sourceIface.GetName())
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Refusing to relay back onto receiving interface",
+				"iface", sourceIface.GetName())
+		}
 		return true
 	}
 
-	newHops := pkt.Hops + 1
+	fromLocal := isLocalClientInterface(sourceIface)
+	newHops := linkRelayAccountedHops(pkt.Hops, fromLocal)
 	if newHops >= MaxHops {
-		debug.Log(debug.DebugInfo, "Transport packet exceeds MaxHops, dropping",
-			"hops", newHops)
+		if debug.Enabled(debug.DebugInfo) {
+			debug.Log(debug.DebugInfo, "Transport packet exceeds MaxHops, dropping",
+				"hops", newHops)
+		}
 		return true
 	}
 
+	rawCopy := append([]byte(nil), raw...)
 	var out []byte
 	var err error
 	switch {
 	case path.HopCount > 1:
-		out, err = rebuildHeaderType2(raw, newHops, path.NextHop)
+		out, err = rebuildHeaderType2(rawCopy, newHops, path.NextHop)
 	case path.HopCount == 1:
-		out, err = stripHeaderType2(raw, newHops)
+		out, err = stripHeaderType2(rawCopy, newHops)
 	default:
-		out = rewriteHopsOnly(raw, newHops)
+		out = rewriteHopsOnly(rawCopy, newHops)
 	}
 	if err != nil {
 		debug.Log(debug.DebugError, "Failed to rewrite transport packet",
@@ -215,15 +305,20 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 	}
 
 	if pkt.PacketType == packet.PacketTypeLinkReq {
-		t.recordLinkRelay(pkt, raw, sourceIface, path)
+		out = clampRelayedLinkRequestMTU(out, pkt, sourceIface, path.Interface)
+		t.recordLinkRelay(pkt, out, sourceIface, path, int(newHops))
+	} else if pkt.PacketType != packet.PacketTypeAnnounce {
+		t.recordReverseEntry(pkt, sourceIface, path.Interface)
 	}
 
-	debug.Log(debug.DebugInfo, "Relaying transport packet",
-		"dest_hash", fmt.Sprintf("%x", destHash),
-		"out_iface", path.Interface.GetName(),
-		"hops_remaining", path.HopCount,
-		"new_hops", newHops)
-	if sendErr := path.Interface.Send(out, ""); sendErr != nil {
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Relaying transport packet",
+			"dest_hash", fmt.Sprintf("%x", destHash),
+			"out_iface", path.Interface.GetName(),
+			"hops_remaining", path.HopCount,
+			"new_hops", newHops)
+	}
+	if sendErr := sendOnInterface(path.Interface, out, ""); sendErr != nil {
 		debug.Log(debug.DebugError, "Failed to relay transport packet",
 			"error", sendErr,
 			"out_iface", path.Interface.GetName())
@@ -231,7 +326,7 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 	return true
 }
 
-func (t *Transport) recordLinkRelay(pkt *packet.Packet, raw []byte, recvIface common.NetworkInterface, path *common.Path) {
+func (t *Transport) recordLinkRelay(pkt *packet.Packet, raw []byte, recvIface common.NetworkInterface, path *common.Path, takenHops int) {
 	if t.linkTable == nil {
 		return
 	}
@@ -247,7 +342,7 @@ func (t *Transport) recordLinkRelay(pkt *packet.Packet, raw []byte, recvIface co
 		NextHopIface:    path.Interface,
 		ReceivedIface:   recvIface,
 		RemainingHops:   remaining,
-		TakenHops:       int(pkt.Hops),
+		TakenHops:       takenHops,
 		DestinationHash: append([]byte(nil), pkt.DestinationHash...),
 		Validated:       false,
 		ProofTimeout:    timeout,
@@ -272,41 +367,75 @@ func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterf
 		return false
 	}
 	if !t.transportEnabled() {
-		debug.Log(debug.DebugVerbose, "Dropping link relay packet: transport disabled",
-			"link_id", fmt.Sprintf("%x", linkID))
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Dropping link relay packet: transport disabled",
+				"link_id", fmt.Sprintf("%x", linkID))
+		}
 		return true
 	}
+
+	fromLocal := isLocalClientInterface(sourceIface)
+	accounted := linkRelayAccountedHops(raw[1], fromLocal)
 
 	var outIface common.NetworkInterface
 	switch {
 	case entry.NextHopIface == entry.ReceivedIface:
+		if int(accounted) != entry.RemainingHops && int(accounted) != entry.TakenHops {
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Link relay hop mismatch on shared iface",
+					"link_id", fmt.Sprintf("%x", linkID),
+					"accounted_hops", accounted,
+					"taken", entry.TakenHops,
+					"remaining", entry.RemainingHops)
+			}
+			return true
+		}
 		outIface = entry.NextHopIface
 	case sourceIface == entry.NextHopIface:
+		if int(accounted) != entry.RemainingHops {
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Link relay hop mismatch from next-hop iface",
+					"link_id", fmt.Sprintf("%x", linkID),
+					"accounted_hops", accounted,
+					"remaining", entry.RemainingHops)
+			}
+			return true
+		}
 		outIface = entry.ReceivedIface
 	case sourceIface == entry.ReceivedIface:
+		if int(accounted) != entry.TakenHops {
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Link relay hop mismatch from receive iface",
+					"link_id", fmt.Sprintf("%x", linkID),
+					"accounted_hops", accounted,
+					"taken", entry.TakenHops)
+			}
+			return true
+		}
 		outIface = entry.NextHopIface
 	default:
-		debug.Log(debug.DebugVerbose, "Link relay: source iface unknown, dropping",
-			"link_id", fmt.Sprintf("%x", linkID))
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Link relay: source iface unknown, dropping",
+				"link_id", fmt.Sprintf("%x", linkID))
+		}
+		health.Inc("", health.KindLinkRelayUnknownIface)
 		return true
 	}
 	if outIface == nil || !outIface.IsEnabled() {
 		return true
 	}
 
-	if raw[1] < 0xFF {
-		raw[1]++
-	}
-
+	out := rewriteHopsOnly(raw, accounted)
 	debug.Log(debug.DebugInfo, "Relaying link data packet",
 		"link_id", fmt.Sprintf("%x", linkID),
-		"out_iface", outIface.GetName())
-	if err := outIface.Send(raw, ""); err != nil {
+		"out_iface", outIface.GetName(),
+		"hops", accounted)
+	if err := sendOnInterface(outIface, out, ""); err != nil {
 		debug.Log(debug.DebugError, "Failed to relay link data packet",
 			"error", err,
 			"out_iface", outIface.GetName())
 	}
-	entry.Timestamp = time.Now()
+	t.linkTable.touch(linkID)
 	return true
 }
 
@@ -317,7 +446,7 @@ func (t *Transport) relayBridgedLinkRequest(pkt *packet.Packet, raw []byte, sour
 		return false
 	}
 	if pkt.HeaderType == packet.HeaderType2 {
-		stripped, err := stripHeaderType2(append([]byte(nil), raw...), pkt.Hops+1)
+		stripped, err := stripHeaderType2(append([]byte(nil), raw...), pkt.Hops)
 		if err != nil {
 			debug.Log(debug.DebugInfo, "Bridged link request HT2 strip failed", "error", err)
 			return false
@@ -325,6 +454,11 @@ func (t *Transport) relayBridgedLinkRequest(pkt *packet.Packet, raw []byte, sour
 		pkt = &packet.Packet{Raw: stripped}
 		if err := pkt.Unpack(); err != nil {
 			debug.Log(debug.DebugInfo, "Bridged link request unpack after strip failed", "error", err)
+			ifaceName := ""
+			if sourceIface != nil {
+				ifaceName = sourceIface.GetName()
+			}
+			health.Inc(ifaceName, health.KindUnpackFail)
 			return false
 		}
 		raw = stripped
@@ -348,35 +482,55 @@ func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, s
 	_, isLocal := t.destinations[destKey]
 	t.mutex.RUnlock()
 	if isLocal || !hasPath || path == nil || path.Interface == nil {
-		debug.Log(debug.DebugVerbose, "Bridged link request not relayed",
-			"dest_hash", fmt.Sprintf("%x", destHash),
-			"is_local", isLocal,
-			"has_path", hasPath,
-			"path_iface_nil", path == nil || path.Interface == nil,
-			"source_iface", sourceIface.GetName())
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Bridged link request not relayed",
+				"dest_hash", fmt.Sprintf("%x", destHash),
+				"is_local", isLocal,
+				"has_path", hasPath,
+				"path_iface_nil", path == nil || path.Interface == nil,
+				"source_iface", sourceIface.GetName())
+		}
 		return false
 	}
 	if path.Interface == sourceIface {
-		debug.Log(debug.DebugVerbose, "Bridged link request dropped: ingress equals egress",
-			"dest_hash", fmt.Sprintf("%x", destHash),
-			"iface", sourceIface.GetName())
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Bridged link request dropped: ingress equals egress",
+				"dest_hash", fmt.Sprintf("%x", destHash),
+				"iface", sourceIface.GetName())
+		}
 		return true
 	}
 
-	newHops := pkt.Hops + 1
+	fromLocal := isLocalClientInterface(sourceIface)
+	newHops := linkRelayAccountedHops(pkt.Hops, fromLocal)
 	if newHops >= MaxHops {
 		debug.Log(debug.DebugInfo, "Bridged link request exceeds MaxHops, dropping", "hops", newHops)
 		return true
 	}
 
-	out := rewriteHopsOnly(append([]byte(nil), raw...), newHops)
-	t.recordLinkRelay(pkt, out, sourceIface, path)
+	out := rewriteHopsOnly(raw, newHops)
+	// Multi-hop paths need HeaderType2 with the next transport hop, matching
+	// SendPacket and Python Transport outbound wrapping. Bare HT1 LRs are
+	// dropped by mesh peers that only forward when transport_id matches.
+	if path.HopCount > 1 && len(path.NextHop) > 0 && !bytes.Equal(path.NextHop, destHash) {
+		wrapped, err := insertHeaderType2(raw, newHops, path.NextHop)
+		if err != nil {
+			debug.Log(debug.DebugError, "Failed to wrap bridged link request for transport",
+				"error", err)
+			return true
+		}
+		out = wrapped
+	}
+	t.recordLinkRelay(pkt, out, sourceIface, path, int(newHops))
 
 	debug.Log(debug.DebugInfo, "Relaying bridged link request",
 		"dest_hash", fmt.Sprintf("%x", destHash),
 		"out_iface", path.Interface.GetName(),
-		"hops", newHops)
-	if err := path.Interface.Send(out, ""); err != nil {
+		"hops", newHops,
+		"path_hops", path.HopCount,
+		"header_type", out[0]>>6,
+		"from_local_client", fromLocal)
+	if err := sendOnInterface(path.Interface, out, ""); err != nil {
 		debug.Log(debug.DebugError, "Failed to relay bridged link request", "error", err)
 	}
 	return true
@@ -393,8 +547,10 @@ func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag [
 			continue
 		}
 		if iface.ShouldEgressLimitPR() {
-			debug.Log(debug.DebugVerbose, "Skipping path-request rebroadcast due to egress limiting",
-				"iface", iface.GetName(), "dest_hash", fmt.Sprintf("%x", destHash))
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Skipping path-request rebroadcast due to egress limiting",
+					"iface", iface.GetName(), "dest_hash", fmt.Sprintf("%x", destHash))
+			}
 			continue
 		}
 		ifaces = append(ifaces, iface)
@@ -415,8 +571,10 @@ func (t *Transport) queueDiscoveryPathRequest(destHash []byte, exclude common.Ne
 	t.pendingDiscoveryPRMu.Lock()
 	if len(t.pendingDiscoveryPRs) >= maxQueuedDiscoveryPRs {
 		t.pendingDiscoveryPRMu.Unlock()
-		debug.Log(debug.DebugVerbose, "Discovery PR queue full, dropping",
-			"dest_hash", fmt.Sprintf("%x", destHash))
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Discovery PR queue full, dropping",
+				"dest_hash", fmt.Sprintf("%x", destHash))
+		}
 		return
 	}
 	t.pendingDiscoveryPRs = append(t.pendingDiscoveryPRs, pendingDiscoveryPR{

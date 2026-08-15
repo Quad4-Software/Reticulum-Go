@@ -19,7 +19,7 @@ func (tc *TCPClientInterface) setTimeoutsLinux() error {
 	}
 
 	if err := tcpConn.SetKeepAlive(true); err != nil {
-		return fmt.Errorf("failed to enable keepalive: %v", err)
+		return fmt.Errorf("failed to enable keepalive: %w", err)
 	}
 
 	keepalivePeriod := TCPProbeIntervalSec * time.Second

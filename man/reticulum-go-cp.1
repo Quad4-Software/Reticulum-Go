@@ -1,0 +1,30 @@
+.Dd July 17, 2026
+.Dt RETICULUM-GO-CP 1
+.Os
+.Sh NAME
+.Nm reticulum-go-cp , rgocp
+.Nd copy files over Reticulum links
+.Sh SYNOPSIS
+.Nm reticulum-go Cm cp
+.Op Fl l
+.Op Fl f
+.Op Fl F Ar remote_path
+.Op Fl config Ar dir
+.Op Ar ...
+.Sh DESCRIPTION
+Transfers files over established Reticulum links.
+Listen mode
+.Pq Fl l
+receives files.
+Fetch mode
+.Pq Fl f
+requests a remote path.
+Without those flags, files are sent to a destination.
+.Pp
+Run with
+.Fl h
+for the full flag list.
+.Sh SEE ALSO
+.Xr reticulum-go 1
+.Sh AUTHORS
+.An Quad4.io

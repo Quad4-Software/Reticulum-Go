@@ -20,6 +20,7 @@ import (
 	"quad4/reticulum-go/pkg/discovery"
 	"quad4/reticulum-go/pkg/interfaces"
 	"quad4/reticulum-go/pkg/link"
+	"quad4/reticulum-go/pkg/sandbox"
 	"quad4/reticulum-go/pkg/sharedinstance"
 	"quad4/reticulum-go/pkg/transport"
 )
@@ -55,18 +56,45 @@ type Node struct {
 	watchMu         sync.RWMutex
 	linkMgr         *linkManager
 	discovery       *discovery.InterfaceDiscovery
+	announcer       *discovery.InterfaceAnnouncer
 }
 
-// StartInterfaceDiscovery enables rnstransport interface discovery listening.
+// StartInterfaceDiscovery enables rnstransport interface discovery listening
+// and starts the InterfaceAnnouncer when discoverable interfaces are configured.
 func (n *Node) StartInterfaceDiscovery() {
-	if n == nil || n.transport == nil || n.config == nil || !n.config.DiscoverInterfaces {
+	if n == nil || n.transport == nil || n.config == nil {
 		return
 	}
-	if n.discovery != nil {
+	listen := n.config.DiscoverInterfaces || discovery.HasDiscoverableInterfaces(n.config)
+	if !listen {
 		return
 	}
-	n.discovery = discovery.NewInterfaceDiscovery(n.transport, discovery.DefaultStampValue, nil)
-	n.discovery.Start()
+	if n.discovery == nil {
+		isBH := func(h []byte) bool {
+			tab := n.transport.BlackholeTable()
+			return tab != nil && tab.Has(h)
+		}
+		n.discovery = discovery.NewInterfaceDiscoveryWithBlackhole(n.transport, discovery.DefaultStampValue, nil, isBH)
+		n.discovery.Start()
+	}
+	if n.announcer != nil || !discovery.HasDiscoverableInterfaces(n.config) {
+		return
+	}
+	id := n.transport.NetworkIdentity()
+	if id == nil {
+		id = n.transport.TransportIdentity()
+	}
+	if id == nil {
+		debug.Log(debug.DebugError, "Interface discovery announcer skipped: no identity")
+		return
+	}
+	ann, err := discovery.NewInterfaceAnnouncer(n.transport, n.config, id)
+	if err != nil {
+		debug.Log(debug.DebugError, "Interface discovery announcer failed", "error", err)
+		return
+	}
+	n.announcer = ann
+	n.announcer.Start()
 }
 
 // New constructs a Node from configuration without starting it.
@@ -74,6 +102,7 @@ func New(cfg *common.ReticulumConfig) (*Node, error) {
 	if cfg == nil {
 		cfg = common.DefaultConfig()
 	}
+	sandbox.SetExecRlimits(cfg.SandboxExecRlimits)
 	if _, err := backbone.Init(backbone.ParseBackend(cfg.BackboneIO)); err != nil {
 		return nil, fmt.Errorf("backbone I/O hub: %w", err)
 	}
@@ -95,7 +124,7 @@ func New(cfg *common.ReticulumConfig) (*Node, error) {
 		iface, err := interfaces.NewFromConfigWithContext(name, ifaceConfig, ctx)
 		if err != nil {
 			if cfg.PanicOnInterfaceErr {
-				return nil, fmt.Errorf("failed to create interface %s: %v", name, err)
+				return nil, fmt.Errorf("failed to create interface %s: %w", name, err)
 			}
 			debug.Log(debug.DebugCritical, "Error creating interface", "name", name, "error", err)
 			continue
@@ -128,6 +157,9 @@ func (n *Node) Start() error {
 	if err := n.transport.InitializePathRequestHandler(); err != nil {
 		return fmt.Errorf("path request handler: %w", err)
 	}
+	if err := n.transport.InitializeProbeDestination(); err != nil {
+		return fmt.Errorf("probe destination: %w", err)
+	}
 	hooks := sharedinstance.Hooks{
 		RegisterInterface: n.transport.RegisterInterface,
 		HandleInterface:   n.handleInterface,
@@ -137,11 +169,20 @@ func (n *Node) Start() error {
 		return fmt.Errorf("shared instance: %w", err)
 	}
 	n.sharedInstance = inst
+	if err := n.transport.InitializeNetworkIdentity(); err != nil {
+		return fmt.Errorf("network identity: %w", err)
+	}
 	if !inst.OwnsNetworkInterfaces() {
-		debug.Log(debug.DebugInfo, "Using existing local shared Reticulum instance; skipping configured network interfaces")
+		debug.Log(debug.DebugInfo, "Using existing local shared Reticulum instance, skipping configured network interfaces")
 		return nil
 	}
-	return n.startInterfaces()
+	if err := n.startInterfaces(); err != nil {
+		return err
+	}
+	if err := n.transport.InitializeRemoteManagement(); err != nil {
+		return fmt.Errorf("remote management: %w", err)
+	}
+	return nil
 }
 
 func (n *Node) startInterfaces() error {
@@ -160,7 +201,7 @@ func (n *Node) startInterfaces() error {
 		res := <-results
 		if res.err != nil {
 			if n.config.PanicOnInterfaceErr {
-				return fmt.Errorf("failed to start interface %s: %v", res.iface.GetName(), res.err)
+				return fmt.Errorf("failed to start interface %s: %w", res.iface.GetName(), res.err)
 			}
 			debug.Log(debug.DebugCritical, "Error starting interface", "name", res.iface.GetName(), "error", res.err)
 			continue
@@ -197,6 +238,14 @@ func (n *Node) startInterfaces() error {
 func (n *Node) Stop() error {
 	n.reloadMu.Lock()
 	defer n.reloadMu.Unlock()
+	if n.announcer != nil {
+		n.announcer.Stop()
+		n.announcer = nil
+	}
+	if n.discovery != nil {
+		n.discovery.Stop()
+		n.discovery = nil
+	}
 	if n.sharedInstance != nil {
 		n.sharedInstance.Close()
 		n.sharedInstance = nil
@@ -238,18 +287,31 @@ func (n *Node) EnableLinkAutoReconnect(opts LinkReconnectOptions) {
 	}
 }
 
+func defaultGravityFromConfig(cfg *common.ReticulumConfig) int {
+	if cfg != nil && cfg.DefaultGravitySet {
+		return cfg.DefaultGravity
+	}
+	return 0
+}
+
 func (n *Node) fromConfigContext() *interfaces.FromConfigContext {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil
 	}
-	storage := filepath.Join(homeDir, ".reticulum-go", "storage")
+	configDir := filepath.Join(homeDir, ".reticulum-go")
+	if n.config != nil && n.config.ConfigPath != "" {
+		configDir = filepath.Dir(n.config.ConfigPath)
+	}
+	storage := filepath.Join(configDir, "storage")
 	return &interfaces.FromConfigContext{
 		I2PStoragePath:        storage,
+		ConfigDir:             configDir,
 		TransportID:           n.transport.TransportIdentityHash(),
 		WatchInterfaces:       n.config != nil && n.config.WatchInterfaces,
 		DiscoverInterfaces:    n.config != nil && n.config.DiscoverInterfaces,
 		PanicOnInterfaceError: n.config != nil && n.config.PanicOnInterfaceErr,
+		DefaultGravity:        defaultGravityFromConfig(n.config),
 		BackboneHub:           backbone.Get(),
 		SpawnBackbone: func(client *interfaces.BackboneClientInterface) {
 			if err := n.transport.RegisterInterface(client.GetName(), client); err != nil {

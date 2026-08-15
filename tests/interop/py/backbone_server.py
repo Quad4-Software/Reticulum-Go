@@ -46,8 +46,8 @@ def main() -> int:
                     "listen_ip = 127.0.0.1",
                     f"listen_port = {port}",
                     "",
-                ]
-            )
+                ],
+            ),
         )
 
     RNS.Reticulum(cfg_dir)

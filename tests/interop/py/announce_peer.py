@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""UDP announce peer for Go live interop.
+
+Emits READY, destination hash hex, then ANNOUNCE_HEX of the packed announce
+before sending it. Set INTEROP_NO_RATCHET=1 to omit the ratchet field (context
+flag unset), matching common RNS Destination.announce wire shapes.
+"""
+
 import os
 import sys
 import tempfile
@@ -17,6 +24,12 @@ INTEROP_ASPECT = "linksvc"
 def main() -> int:
     listen_port = int(os.environ["INTEROP_LISTEN_PORT"])
     forward_port = int(os.environ["INTEROP_FORWARD_PORT"])
+    no_ratchet = os.environ.get("INTEROP_NO_RATCHET", "").strip() in (
+        "1",
+        "true",
+        "yes",
+    )
+    app_data = os.environ.get("INTEROP_APP_DATA", "live-announce").encode("utf-8")
 
     cfg_dir = os.environ.get("INTEROP_CONFIG_DIR")
     if not cfg_dir:
@@ -42,8 +55,8 @@ def main() -> int:
                     "forward_ip = 127.0.0.1",
                     f"forward_port = {forward_port}",
                     "",
-                ]
-            )
+                ],
+            ),
         )
 
     RNS.Reticulum(cfg_dir)
@@ -56,13 +69,21 @@ def main() -> int:
         INTEROP_APP,
         INTEROP_ASPECT,
     )
+    if no_ratchet:
+        destination.ratchets = None
 
     h = destination.hash
     sys.stdout.write("READY\n")
     sys.stdout.write(h.hex() + "\n")
     sys.stdout.flush()
 
-    destination.announce()
+    packet = destination.announce(app_data=app_data, send=False)
+    packet.pack()
+    ctx_flag = (packet.raw[0] >> 5) & 1
+    sys.stdout.write("ANNOUNCE_HEX " + packet.raw.hex() + "\n")
+    sys.stdout.write("CONTEXT_FLAG " + str(ctx_flag) + "\n")
+    sys.stdout.flush()
+    packet.send()
 
     while True:
         time.sleep(60.0)

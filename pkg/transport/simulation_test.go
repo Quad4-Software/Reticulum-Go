@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package transport
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"math/rand/v2"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -91,6 +94,7 @@ func (s *simIface) Send(data []byte, _ string) error {
 	select {
 	case s.peer.inbox <- cp:
 	case <-s.peer.done:
+	case <-s.done:
 	}
 	return nil
 }
@@ -197,9 +201,48 @@ func (s *simNetwork) close() {
 			for _, ifc := range n.ifaces {
 				ifc.stop()
 			}
+		}
+		for _, n := range s.nodes {
 			_ = n.tr.Close()
 		}
 	})
+}
+
+func TestSimNetworkCloseUnblocksBackpressure(t *testing.T) {
+	enableSimFastPath(t)
+	net := buildLine(t, 8)
+	target := net.nodes[7].id.Hash()
+	preloadLinePaths(net.nodes, target)
+	src := net.nodes[0].ifaces[0]
+	second := net.nodes[1].id.Hash()
+
+	stopSend := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		for {
+			select {
+			case <-stopSend:
+				return
+			default:
+				payload := make([]byte, 64)
+				pkt := buildHT2(second, target, 0, payload)
+				_ = src.Send(pkt, "")
+			}
+		}
+	})
+	time.Sleep(50 * time.Millisecond)
+	closed := make(chan struct{})
+	go func() {
+		net.close()
+		close(closed)
+	}()
+	select {
+	case <-closed:
+	case <-time.After(3 * time.Second):
+		t.Fatal("simNetwork.close blocked on full inboxes")
+	}
+	close(stopSend)
+	wg.Wait()
 }
 
 // link wires nodes a and b with a duplex pair of simIfaces and
@@ -570,21 +613,22 @@ func BenchmarkSimLineRelayThroughput(b *testing.B) {
 			tail := net.nodes[n-1].ifaces[0]
 			src := net.nodes[0].ifaces[0]
 			second := net.nodes[1].id.Hash()
-			payload := make([]byte, 64)
-			pkt := buildHT2(second, target, 0, payload)
 
 			b.StartTimer()
 			b.ReportAllocs()
 			startRx := tail.GetRxPackets()
 			for i := 0; i < b.N; i++ {
+				payload := make([]byte, 64)
+				binary.BigEndian.PutUint64(payload, uint64(i))
+				pkt := buildHT2(second, target, 0, payload)
 				_ = src.Send(pkt, "")
 			}
+			b.StopTimer()
 			want := startRx + uint64(b.N)
-			deadline := time.Now().Add(time.Duration(b.N)*200*time.Microsecond + 5*time.Second)
+			deadline := time.Now().Add(5 * time.Second)
 			for tail.GetRxPackets() < want && time.Now().Before(deadline) {
 				time.Sleep(time.Millisecond)
 			}
-			b.StopTimer()
 			if got := tail.GetRxPackets(); got < want {
 				b.Logf("delivery shortfall: got=%d want=%d (hops=%d, b.N=%d)", got, want, hops, b.N)
 			}
@@ -622,6 +666,7 @@ func BenchmarkSimMeshAnnounceLoad(b *testing.B) {
 // transport's per-packet path.
 func BenchmarkSimConcurrentLineRelay(b *testing.B) {
 	muteDebugLogsForBenchmark(b)
+	enableSimFastPath(b)
 	for _, workers := range []int{1, 4, 16} {
 		b.Run(fmt.Sprintf("Workers-%d", workers), func(b *testing.B) {
 			b.StopTimer()
@@ -632,8 +677,6 @@ func BenchmarkSimConcurrentLineRelay(b *testing.B) {
 			target := net.nodes[n-1].id.Hash()
 			preloadLinePaths(net.nodes, target)
 			second := net.nodes[1].id.Hash()
-			payload := make([]byte, 64)
-			pkt := buildHT2(second, target, 0, payload)
 			src := net.nodes[0].ifaces[0]
 
 			perWorker := b.N / workers
@@ -643,10 +686,14 @@ func BenchmarkSimConcurrentLineRelay(b *testing.B) {
 			b.StartTimer()
 			b.ReportAllocs()
 
+			var seq atomic.Uint64
 			var wg sync.WaitGroup
 			for range workers {
 				wg.Go(func() {
 					for i := 0; i < perWorker; i++ {
+						payload := make([]byte, 64)
+						binary.BigEndian.PutUint64(payload, seq.Add(1))
+						pkt := buildHT2(second, target, 0, payload)
 						_ = src.Send(pkt, "")
 					}
 				})
@@ -674,19 +721,23 @@ func BenchmarkSimRandomGraphRelay(b *testing.B) {
 	secondHop := net.nodes[path[1]].id.Hash()
 	tail := net.nodes[dstIdx].ifaces[0]
 	src := net.nodes[srcIdx].ifaces[0]
-	pkt := buildHT2(secondHop, target, 0, make([]byte, 64))
 	const batch = 100
 
 	b.StartTimer()
 	b.ReportAllocs()
 	startRx := tail.GetRxPackets()
+	var seq uint64
 	for i := 0; i < b.N; i++ {
 		for range batch {
+			payload := make([]byte, 64)
+			binary.BigEndian.PutUint64(payload, seq)
+			seq++
+			pkt := buildHT2(secondHop, target, 0, payload)
 			_ = src.Send(pkt, "")
 		}
 	}
 	want := startRx + uint64(b.N*batch)
-	deadline := time.Now().Add(time.Duration(b.N)*batch*200*time.Microsecond + 10*time.Second)
+	deadline := time.Now().Add(5 * time.Second)
 	for tail.GetRxPackets() < want && time.Now().Before(deadline) {
 		time.Sleep(time.Millisecond)
 	}

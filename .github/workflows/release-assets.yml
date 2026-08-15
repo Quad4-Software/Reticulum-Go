@@ -1,7 +1,7 @@
 # Pinned first-party actions (bump tag and SHA together when upgrading):
-#   actions/checkout@v6.0.1            8e8c483db84b4bee98b60c0593521ed34d9990e8
-#   actions/upload-artifact@v5.0.0     330a01c490aca151604b8cf639adc76d48f6c5d4
-#   actions/download-artifact@v5.0.0   634f93cb2916e3fdff6788551b99b062d0335ce0
+#   actions/checkout@v7.0.0            9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+#   actions/upload-artifact@v7.0.1     043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+#   actions/download-artifact@v8.0.1   3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
 #
 name: Release assets
 
@@ -28,12 +28,14 @@ on:
       COSIGN_PASSWORD:
         required: false
 
+# Build jobs stay read-only. The publish job elevates to contents: write.
 permissions:
-  contents: write
+  contents: read
 
 env:
-  CI_GO_VERSION: "1.26.5"
-  CI_GO_LEGACY_WIN7_VERSION: "1.26.4-1"
+  CI_GO_VERSION: "1.26.6"
+  CI_GO_LEGACY_WIN7_VERSION: "1.26.6-1"
+  CI_GO_LEGACY_WINXP_VERSION: "1.26.6"
   CI_TASK_VERSION: "3.46.3"
   CI_COSIGN_VERSION: "3.0.5"
   CI_TRIVY_VERSION: "0.69.3"
@@ -48,15 +50,21 @@ jobs:
       fail-fast: false
       matrix:
         goos: [linux, windows, darwin, freebsd]
-        goarch: [amd64, arm64, arm]
+        goarch: [amd64, arm64, arm, 386, riscv64]
         include:
           - goos: js
             goarch: wasm
         exclude:
           - goos: darwin
             goarch: arm
+          - goos: darwin
+            goarch: 386
+          - goos: darwin
+            goarch: riscv64
           - goos: windows
             goarch: arm
+          - goos: windows
+            goarch: riscv64
 
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -77,6 +85,7 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           GOARM: ${{ matrix.goarch == 'arm' && '6' || '' }}
           CGO_ENABLED: "0"
+          VERSION: ${{ inputs.tag_name }}
         run: |
           output_name="reticulum-go-${{ matrix.goos }}-${{ matrix.goarch }}"
           if [ "${{ matrix.goos }}" = "js" ] && [ "${{ matrix.goarch }}" = "wasm" ]; then
@@ -84,7 +93,7 @@ jobs:
             output_name+=".wasm"
             mv bin/reticulum-go.wasm "${output_name}"
           else
-            task build
+            task build VERSION="${VERSION}"
             if [ "${{ matrix.goos }}" = "windows" ]; then
               output_name+=".exe"
             fi
@@ -119,15 +128,27 @@ jobs:
       - name: Setup Task
         run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
 
-      - name: Build
+      - name: Build with go-legacy-win7
         env:
           GOOS: windows
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
+          VERSION: ${{ inputs.tag_name }}
         run: |
           set -euo pipefail
+          LEGACY_GO=/usr/local/go-legacy-win7/bin/go
+          want="go${CI_GO_LEGACY_WIN7_VERSION%-*}"
+          got="$("$LEGACY_GO" env GOVERSION)"
+          echo "go-legacy: $got (want $want)"
+          case "$got" in
+            "$want"|"$want "*) ;;
+            *)
+              echo "go-legacy version mismatch: got '$got' want '$want'" >&2
+              exit 1
+              ;;
+          esac
           output_name="reticulum-go-windows-${{ matrix.goarch }}-win7.exe"
-          go build -ldflags="-s -w" -o "${output_name}" ./cmd/reticulum-go
+          "$LEGACY_GO" build -ldflags="-s -w -X main.defaultVersion=${VERSION}" -o "${output_name}" ./cmd/reticulum-go
           echo "Built: ${output_name}"
 
       - name: Upload artifact
@@ -135,6 +156,55 @@ jobs:
         with:
           name: reticulum-go-windows-${{ matrix.goarch }}-win7
           path: reticulum-go-windows-${{ matrix.goarch }}-win7.exe
+
+  build-windows-xp:
+    name: Build (windows, ${{ matrix.goarch }}, winxp)
+    strategy:
+      fail-fast: false
+      matrix:
+        goarch: [386, amd64]
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up go-legacy-winxp
+        run: sh scripts/ci/setup-go-legacy-winxp.sh "${{ env.CI_GO_LEGACY_WINXP_VERSION }}"
+
+      - name: Setup Task
+        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
+
+      - name: Build with go-legacy-winxp
+        env:
+          GOOS: windows
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+          VERSION: ${{ inputs.tag_name }}
+        run: |
+          set -euo pipefail
+          LEGACY_GO=/usr/local/go-legacy-winxp/bin/go
+          want="go${CI_GO_LEGACY_WINXP_VERSION%-*}"
+          got="$("$LEGACY_GO" env GOVERSION)"
+          echo "go-legacy-winxp: $got (want $want)"
+          case "$got" in
+            "$want"|"$want "*) ;;
+            *)
+              echo "go-legacy-winxp version mismatch: got '$got' want '$want'" >&2
+              exit 1
+              ;;
+          esac
+          output_name="reticulum-go-windows-${{ matrix.goarch }}-winxp.exe"
+          "$LEGACY_GO" build -ldflags="-s -w -X main.defaultVersion=${VERSION}" -o "${output_name}" ./cmd/reticulum-go
+          echo "Built: ${output_name}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: reticulum-go-windows-${{ matrix.goarch }}-winxp
+          path: reticulum-go-windows-${{ matrix.goarch }}-winxp.exe
 
   sbom:
     name: SBOM
@@ -220,6 +290,26 @@ jobs:
           cd examples/pageserver
           go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-arm .
 
+      - name: Build pageserver (linux/386)
+        env:
+          GOOS: linux
+          GOARCH: 386
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          cd examples/pageserver
+          go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-386 .
+
+      - name: Build pageserver (linux/riscv64)
+        env:
+          GOOS: linux
+          GOARCH: riscv64
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          cd examples/pageserver
+          go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-riscv64 .
+
       - name: Build wasm example
         run: task example:wasm:build
 
@@ -234,13 +324,17 @@ jobs:
             reticulum-go-example-pageserver-linux-amd64
             reticulum-go-example-pageserver-linux-arm64
             reticulum-go-example-pageserver-linux-arm
+            reticulum-go-example-pageserver-linux-386
+            reticulum-go-example-pageserver-linux-riscv64
             reticulum-go-example-wasm.wasm
 
   release:
     name: Cosign attest and publish release
     runs-on: ubuntu-latest
-    needs: [build, build-windows-legacy, sbom, examples]
+    needs: [build, build-windows-legacy, build-windows-xp, sbom, examples]
     timeout-minutes: 30
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package link
 
 const (
@@ -42,6 +43,7 @@ const (
 
 	DestTypeLink = 0x03
 
+	MaxPendingRequests = 8
 	MinRequestDataLen  = 3
 	MinResponseDataLen = 2
 

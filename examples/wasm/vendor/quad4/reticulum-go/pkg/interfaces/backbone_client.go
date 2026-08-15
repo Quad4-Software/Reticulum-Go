@@ -37,6 +37,8 @@ type BackboneClientInterface struct {
 	reconnect         *reconnectDriver
 	done              chan struct{}
 	stopOnce          sync.Once
+	spawnedAt         time.Time
+	remoteIP          string
 }
 
 // NewBackboneClientInterface dials cfg.TargetHost:cfg.TargetPort.
@@ -78,11 +80,15 @@ func NewBackboneClientInterface(name string, cfg *common.InterfaceConfig, hub *b
 	bc.Bitrate = backboneClientBitrateGuess
 	bc.In = true
 	bc.Out = true
+	if cfg.Enabled {
+		bc.startReconnect()
+	}
 	return bc, nil
 }
 
 func newSpawnedBackboneClient(parent *BackboneInterface, conn net.Conn) *BackboneClientInterface {
 	name := conn.RemoteAddr().String()
+	remoteIP := peerIP(conn)
 	if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
 		name = fmt.Sprintf("Client on %s [%d]", parent.Name, tcpAddr.Port)
 	}
@@ -93,11 +99,18 @@ func newSpawnedBackboneClient(parent *BackboneInterface, conn net.Conn) *Backbon
 		parent:        parent,
 		initiator:     false,
 		done:          make(chan struct{}),
+		spawnedAt:     time.Now(),
+		remoteIP:      remoteIP,
 	}
 	bc.MTU = parent.MTU
 	bc.Bitrate = parent.Bitrate
 	bc.In = parent.In
 	bc.Out = parent.Out
+	bc.Mode = parent.Mode
+	bc.Gravity = parent.Gravity
+	bc.AnnouncesToInternal = parent.AnnouncesToInternal
+	bc.AnnouncesFromInternal = parent.AnnouncesFromInternal
+	bc.RecursivePRs = parent.RecursivePRs
 	bc.Online = true
 	if tcpConn, ok := conn.(*net.TCPConn); ok {
 		_ = tcpConn.SetNoDelay(true)
@@ -105,7 +118,7 @@ func newSpawnedBackboneClient(parent *BackboneInterface, conn net.Conn) *Backbon
 	return bc
 }
 
-// NewBackboneFromConfig selects backbone server or client mode like reference Reticulum.
+// NewBackboneFromConfig selects backbone server or client mode from config.
 func NewBackboneFromConfig(name string, cfg *common.InterfaceConfig, hub *backbone.Hub, spawn func(*BackboneClientInterface)) (Interface, error) {
 	normalizeBackboneConfig(cfg)
 	if strings.TrimSpace(cfg.TargetHost) != "" {
@@ -195,16 +208,22 @@ func (bc *BackboneClientInterface) Start() error {
 		bc.Mutex.Unlock()
 		return nil
 	}
+	// Construction with Enabled already builds a reconnect driver and may
+	// be dialing. Replacing that driver here races two dial loops on bc.conn.
 	select {
 	case <-bc.done:
 		bc.done = make(chan struct{})
 		bc.stopOnce = sync.Once{}
+		bc.initReconnectDriver()
 	default:
+		if bc.reconnect == nil {
+			bc.initReconnectDriver()
+		}
 	}
-	bc.initReconnectDriver()
+	conn := bc.conn
 	bc.Mutex.Unlock()
 
-	if bc.conn != nil {
+	if conn != nil {
 		return bc.attachStream()
 	}
 	if bc.initiator {
@@ -241,11 +260,13 @@ func (bc *BackboneClientInterface) attachStream() error {
 		return fmt.Errorf("interface stopped")
 	default:
 	}
+	bc.Mutex.Lock()
 	conn := bc.conn
+	hub := bc.hub
+	bc.Mutex.Unlock()
 	if conn == nil {
 		return fmt.Errorf("no connection")
 	}
-	hub := bc.hub
 	if hub == nil {
 		return fmt.Errorf("no backbone hub")
 	}
@@ -261,10 +282,15 @@ func (bc *BackboneClientInterface) attachStream() error {
 		parent := bc.parent
 		initiator := bc.initiator
 		detached := bc.Detached
+		spawnedAt := bc.spawnedAt
+		remoteIP := bc.remoteIP
 		bc.stream = nil
 		bc.Mutex.Unlock()
 		if parent != nil {
 			parent.removeSpawned(bc)
+			if !initiator && !spawnedAt.IsZero() {
+				parent.recordFastFlap(remoteIP, time.Since(spawnedAt))
+			}
 		}
 		if initiator && !detached {
 			select {
@@ -302,6 +328,9 @@ func (bc *BackboneClientInterface) ProcessOutgoing(data []byte) error {
 }
 
 func (bc *BackboneClientInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(bc); err != nil {
+		return err
+	}
 	masked, err := common.ApplyIFACOutbound(bc, data)
 	if err != nil {
 		return err

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package blackhole
 
 import (
@@ -165,5 +166,46 @@ func TestLocalEntriesNotOverwrittenByRemote(t *testing.T) {
 	got := entries[k]
 	if got.Reason != "local" {
 		t.Fatalf("local reason was overwritten: %q", got.Reason)
+	}
+}
+
+func TestActiveIdentitySetInvalidatesOnMutation(t *testing.T) {
+	dir := t.TempDir()
+	newLocal(t)
+	tab := New(dir)
+	id := bytes.Repeat([]byte{0x42}, HashLen)
+	first := tab.ActiveIdentitySet()
+	if len(first) != 0 {
+		t.Fatalf("expected empty set, got %d", len(first))
+	}
+	if _, err := tab.Add(id, 0, "spam"); err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	second := tab.ActiveIdentitySet()
+	if !SetContains(second, id) {
+		t.Fatal("set must include newly added identity immediately")
+	}
+	if _, err := tab.Remove(id); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	third := tab.ActiveIdentitySet()
+	if SetContains(third, id) {
+		t.Fatal("set must drop identity after Remove")
+	}
+}
+
+func TestActiveIdentitySetInvalidatesOnMergeRemote(t *testing.T) {
+	dir := t.TempDir()
+	newLocal(t)
+	tab := New(dir)
+	_ = tab.ActiveIdentitySet()
+	id := bytes.Repeat([]byte{0x43}, HashLen)
+	src := bytes.Repeat([]byte{0xcc}, HashLen)
+	if err := tab.MergeRemote(src, map[string]Entry{string(id): {Source: src, Reason: "remote"}}); err != nil {
+		t.Fatalf("merge: %v", err)
+	}
+	set := tab.ActiveIdentitySet()
+	if !SetContains(set, id) {
+		t.Fatal("set must include merged remote identity without waiting for TTL")
 	}
 }

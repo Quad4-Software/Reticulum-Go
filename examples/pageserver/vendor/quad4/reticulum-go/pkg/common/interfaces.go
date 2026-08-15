@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package common
 
 import (
@@ -8,6 +9,8 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"quad4/reticulum-go/pkg/health"
 )
 
 // IFAC is the subset of pkg/ifac.Identity that interfaces and transport need
@@ -98,40 +101,45 @@ type BaseInterface struct {
 	RxPackets uint64
 	lastTx    time.Time
 
-	Mutex          sync.RWMutex
+	Mutex          sync.RWMutex // exported so concrete interfaces can lock with parent fields
 	Owner          any
 	PacketCallback PacketCallback
 
 	// IFACIdentity is set when the interface participates in an IFAC network.
 	IFACIdentity IFAC
+
+	// RecursivePRs enables unknown-path discovery on this interface.
+	RecursivePRs bool
+
+	// AnnouncesFromInternal controls rebroadcast of announces learned via an
+	// internal-mode next hop (default true).
+	AnnouncesFromInternal bool
+
+	// ReceiveOnly blocks transmit when true (Python outgoing = no).
+	ReceiveOnly bool
 }
 
-// NewBaseInterface creates a new BaseInterface instance
+// NewBaseInterface creates a BaseInterface value for embedding at construction.
+// Prefer NewBaseInterfacePtr when holding a standalone *BaseInterface.
+// Do not copy a BaseInterface after it has been used (Mutex must not be copied).
 func NewBaseInterface(name string, ifaceType InterfaceType, enabled bool) BaseInterface {
 	return BaseInterface{
-		Name:    name,
-		Type:    ifaceType,
-		Mode:    IFModeFull,
-		Enabled: enabled,
-		MTU:     DefaultMTU,
-		Bitrate: BitrateMinimum,
-		lastTx:  time.Now(),
+		Name:                  name,
+		Type:                  ifaceType,
+		Mode:                  IFModeFull,
+		Enabled:               enabled,
+		MTU:                   DefaultMTU,
+		Bitrate:               BitrateMinimum,
+		lastTx:                time.Now(),
+		AnnouncesFromInternal: true,
 	}
 }
 
 // NewBaseInterfacePtr returns a heap-allocated BaseInterface with the same defaults
-// as NewBaseInterface. Callers that embed BaseInterface in larger structs should
-// prefer this constructor so they store *BaseInterface and avoid copying sync.Mutex.
+// as NewBaseInterface. Prefer this when storing a standalone interface pointer.
 func NewBaseInterfacePtr(name string, ifaceType InterfaceType, enabled bool) *BaseInterface {
-	return &BaseInterface{
-		Name:    name,
-		Type:    ifaceType,
-		Mode:    IFModeFull,
-		Enabled: enabled,
-		MTU:     DefaultMTU,
-		Bitrate: BitrateMinimum,
-		lastTx:  time.Now(),
-	}
+	b := NewBaseInterface(name, ifaceType, enabled)
+	return &b
 }
 
 // Default implementations for BaseInterface
@@ -141,6 +149,31 @@ func (i *BaseInterface) GetType() InterfaceType {
 
 func (i *BaseInterface) GetMode() InterfaceMode {
 	return i.Mode
+}
+
+// RecursivePRsEnabled reports whether unknown-path discovery is enabled.
+func (i *BaseInterface) RecursivePRsEnabled() bool {
+	return i.RecursivePRs
+}
+
+// AnnouncesFromInternalFlag reports whether announces from internal next hops
+// may be rebroadcast (default true).
+func (i *BaseInterface) AnnouncesFromInternalFlag() bool {
+	return i.AnnouncesFromInternal
+}
+
+// AllowsOutgoing reports whether this interface may transmit (config OUT).
+func (i *BaseInterface) AllowsOutgoing() bool {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return !i.ReceiveOnly
+}
+
+// SetOutgoingAllowed sets the config-driven transmit permit.
+func (i *BaseInterface) SetOutgoingAllowed(allowed bool) {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.ReceiveOnly = !allowed
 }
 
 func (i *BaseInterface) GetMTU() int {
@@ -240,6 +273,9 @@ func (i *BaseInterface) GetConn() net.Conn {
 }
 
 func (i *BaseInterface) Send(data []byte, address string) error {
+	if err := RejectReceiveOnly(i); err != nil {
+		return err
+	}
 	id := i.GetIFAC()
 	if id != nil {
 		masked, err := id.Mask(data)
@@ -348,7 +384,12 @@ func ApplyIFACOutbound(iface NetworkInterface, raw []byte) ([]byte, error) {
 // AND the IFAC must verify, otherwise drop. If the interface has no IFAC
 // configured, packets with the IFAC flag set are dropped.
 func ApplyIFACInbound(iface NetworkInterface, raw []byte) ([]byte, bool) {
+	ifaceName := ""
+	if iface != nil {
+		ifaceName = iface.GetName()
+	}
 	if len(raw) < 2 {
+		health.Inc(ifaceName, health.KindIFACFail)
 		return raw, false
 	}
 	hasFlag := raw[0]&0x80 == 0x80
@@ -358,17 +399,22 @@ func ApplyIFACInbound(iface NetworkInterface, raw []byte) ([]byte, bool) {
 	}
 	if id == nil {
 		if hasFlag {
+			health.Inc(ifaceName, health.KindIFACFail)
 			return nil, false
 		}
+		health.Inc(ifaceName, health.KindRxOK)
 		return raw, true
 	}
 	if !hasFlag {
+		health.Inc(ifaceName, health.KindIFACFail)
 		return nil, false
 	}
 	stripped, ok, err := id.Unmask(raw)
 	if err != nil || !ok {
+		health.Inc(ifaceName, health.KindIFACFail)
 		return nil, false
 	}
+	health.Inc(ifaceName, health.KindRxOK)
 	return stripped, true
 }
 
@@ -376,18 +422,9 @@ func (i *BaseInterface) GetBandwidthAvailable() bool {
 	i.Mutex.RLock()
 	defer i.Mutex.RUnlock()
 
-	// If no transmission in last second, bandwidth is available
-	if time.Since(i.lastTx) > time.Second {
-		return true
-	}
-
-	// Calculate current bandwidth usage
-	bytesPerSec := float64(i.TxBytes) / time.Since(i.lastTx).Seconds()
-	currentUsage := bytesPerSec * 8 // Convert to bits/sec
-
-	// Check if usage is below threshold (2% of total bitrate)
-	maxUsage := float64(i.Bitrate) * 0.02 // 2% propagation rate
-	return currentUsage < maxUsage
+	// common.BaseInterface has no sampled TX rate. Never divide lifetime
+	// TxBytes by elapsed (that falsely closes announce gates). Always allow.
+	return true
 }
 
 // ReceivedPathRequest records an incoming path request.
@@ -395,6 +432,36 @@ func (i *BaseInterface) ReceivedPathRequest() {}
 
 // SentPathRequest records an outgoing path request.
 func (i *BaseInterface) SentPathRequest() {}
+
+// ReceivedAnnounce records an incoming announce.
+func (i *BaseInterface) ReceivedAnnounce() {}
+
+// SentAnnounce records an outgoing announce.
+func (i *BaseInterface) SentAnnounce() {}
+
+// IncomingAnnounceFrequency returns the estimated incoming announce rate in Hz.
+func (i *BaseInterface) IncomingAnnounceFrequency() float64 { return 0 }
+
+// OutgoingAnnounceFrequency returns the estimated outgoing announce rate in Hz.
+func (i *BaseInterface) OutgoingAnnounceFrequency() float64 { return 0 }
+
+// IncomingPRFrequency returns the estimated incoming path-request rate in Hz.
+func (i *BaseInterface) IncomingPRFrequency() float64 { return 0 }
+
+// OutgoingPRFrequency returns the estimated outgoing path-request rate in Hz.
+func (i *BaseInterface) OutgoingPRFrequency() float64 { return 0 }
+
+// PRBurstActive reports whether path-request ingress burst limiting is active.
+func (i *BaseInterface) PRBurstActive() bool { return false }
+
+// SampleTraffic updates current RX/TX bitrates from byte-counter deltas.
+func (i *BaseInterface) SampleTraffic() {}
+
+// GetRxSpeed returns the most recently sampled receive bitrate in bits/sec.
+func (i *BaseInterface) GetRxSpeed() float64 { return 0 }
+
+// GetTxSpeed returns the most recently sampled transmit bitrate in bits/sec.
+func (i *BaseInterface) GetTxSpeed() float64 { return 0 }
 
 // ShouldIngressLimitPR reports whether ingress path-request limiting is active.
 func (i *BaseInterface) ShouldIngressLimitPR() bool { return false }

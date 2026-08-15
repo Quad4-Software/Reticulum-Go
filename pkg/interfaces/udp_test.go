@@ -88,3 +88,28 @@ func TestUDPInterfaceState(t *testing.T) {
 	// Further tests on Send/ProcessOutgoing/readLoop would require mocking net.UDPConn
 	// or setting up a local listener.
 }
+
+func TestUDPProcessIncomingCountsRx(t *testing.T) {
+	ui, err := NewUDPInterface("udpRx", "127.0.0.1:0", "", true)
+	if err != nil {
+		t.Fatalf("NewUDPInterface: %v", err)
+	}
+	called := false
+	ui.SetPacketCallback(func(data []byte, _ common.NetworkInterface) {
+		called = true
+		if len(data) != 4 {
+			t.Errorf("callback len=%d want 4", len(data))
+		}
+	})
+	payload := []byte{0x00, 0x01, 0x02, 0x03}
+	ui.ProcessIncoming(payload)
+	if !called {
+		t.Fatal("callback not invoked")
+	}
+	if ui.GetRxBytes() != uint64(len(payload)) {
+		t.Fatalf("RxBytes=%d want %d", ui.GetRxBytes(), len(payload))
+	}
+	if ui.GetRxPackets() != 1 {
+		t.Fatalf("RxPackets=%d want 1", ui.GetRxPackets())
+	}
+}

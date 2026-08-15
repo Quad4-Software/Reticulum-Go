@@ -7,7 +7,7 @@ import (
 	"quad4/msgpack/v5/pkg/msgpack/msgpcode"
 )
 
-var sliceStringPtrType = reflect.TypeOf((*[]string)(nil))
+var sliceStringPtrType = reflect.TypeFor[*[]string]()
 
 // DecodeArrayLen decodes array length. Length is -1 when array is nil.
 func (d *Decoder) DecodeArrayLen() (int, error) {
@@ -22,18 +22,35 @@ func (d *Decoder) arrayLen(c byte) (int, error) {
 	if c == msgpcode.Nil {
 		return -1, nil
 	} else if c >= msgpcode.FixedArrayLow && c <= msgpcode.FixedArrayHigh {
-		return int(c & msgpcode.FixedArrayMask), nil
+		n := int(c & msgpcode.FixedArrayMask)
+		if err := d.rejectOversizedContainer(n, 1, "array"); err != nil {
+			return 0, err
+		}
+		return n, nil
 	}
 	switch c {
 	case msgpcode.Array16:
 		n, err := d.uint16()
-		return int(n), err
+		if err != nil {
+			return 0, err
+		}
+		if err := d.rejectOversizedContainer(int(n), 1, "array"); err != nil {
+			return 0, err
+		}
+		return int(n), nil
 	case msgpcode.Array32:
 		n, err := d.uint32()
 		if err != nil {
 			return 0, err
 		}
-		return uint32ToInt(n, "array length")
+		size, err := uint32ToInt(n, "array length")
+		if err != nil {
+			return 0, err
+		}
+		if err := d.rejectOversizedContainer(size, 1, "array"); err != nil {
+			return 0, err
+		}
+		return size, nil
 	}
 	return 0, fmt.Errorf("msgpack: invalid code=%x decoding array length", c)
 }
@@ -53,7 +70,7 @@ func (d *Decoder) decodeStringSlicePtr(ptr *[]string) error {
 	}
 
 	ss := makeStrings(*ptr, n, d.flags&disableAllocLimitFlag != 0)
-	for i := 0; i < n; i++ {
+	for range n {
 		s, err := d.DecodeString()
 		if err != nil {
 			return err
@@ -106,16 +123,16 @@ func decodeSliceValue(d *Decoder, v reflect.Value) error {
 
 	// noLimit is true only when the caller has explicitly disabled
 	// allocation limits via UseAllocLimitDisable. When limits are in
-	// effect, growSliceValue caps each grow step to sliceAllocLimit so a
-	// forged array32 length cannot trigger a multi-gigabyte up-front
-	// allocation; real elements still flow through as input arrives.
+	// effect, growSliceValue caps each grow step to sliceAllocLimit so an
+	// oversized array32 length cannot trigger a multi-gigabyte up-front
+	// allocation. Real elements still flow through as input arrives.
 	noLimit := d.flags&disableAllocLimitFlag != 0
 
 	if noLimit && n > v.Len() {
 		v.Set(growSliceValue(v, n, noLimit))
 	}
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if i >= v.Len() {
 			v.Set(growSliceValue(v, n, noLimit))
 		}
@@ -151,7 +168,7 @@ func decodeArrayValue(d *Decoder, v reflect.Value) error {
 		return fmt.Errorf("%s len is %d, but msgpack has %d elements", v.Type(), v.Len(), n)
 	}
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		sv := v.Index(i)
 		if err := d.DecodeValue(sv); err != nil {
 			return err
@@ -161,7 +178,7 @@ func decodeArrayValue(d *Decoder, v reflect.Value) error {
 	return nil
 }
 
-func (d *Decoder) DecodeSlice() ([]interface{}, error) {
+func (d *Decoder) DecodeSlice() ([]any, error) {
 	c, err := d.readCode()
 	if err != nil {
 		return nil, err
@@ -169,7 +186,7 @@ func (d *Decoder) DecodeSlice() ([]interface{}, error) {
 	return d.decodeSlice(c)
 }
 
-func (d *Decoder) decodeSlice(c byte) ([]interface{}, error) {
+func (d *Decoder) decodeSlice(c byte) ([]any, error) {
 	n, err := d.arrayLen(c)
 	if err != nil {
 		return nil, err
@@ -178,19 +195,19 @@ func (d *Decoder) decodeSlice(c byte) ([]interface{}, error) {
 		return nil, nil
 	}
 
-	// Clamp the initial backing-array allocation so a hostile or truncated
-	// header (for example, array32 with length ~4G) cannot trick the
-	// decoder into requesting an arbitrarily large slice up front. The
-	// decoder still grows the slice via append as real elements arrive, so
-	// well-formed input with more than sliceAllocLimit elements continues
-	// to round-trip correctly when the limit is disabled.
+	// Clamp the initial backing-array allocation so a truncated or
+	// oversized header such as array32 with a huge length cannot request
+	// an arbitrarily large slice up front. The decoder still grows the
+	// slice via append as real elements arrive, so well-formed input with
+	// more than sliceAllocLimit elements continues to round-trip when the
+	// limit is disabled.
 	initCap := n
 	if d.flags&disableAllocLimitFlag == 0 && initCap > sliceAllocLimit {
 		initCap = sliceAllocLimit
 	}
 
-	s := make([]interface{}, 0, initCap)
-	for i := 0; i < n; i++ {
+	s := make([]any, 0, initCap)
+	for range n {
 		v, err := d.decodeInterfaceCond()
 		if err != nil {
 			return nil, err
@@ -207,7 +224,7 @@ func (d *Decoder) skipSlice(c byte) error {
 		return err
 	}
 
-	for i := 0; i < n; i++ {
+	for range n {
 		if err := d.Skip(); err != nil {
 			return err
 		}

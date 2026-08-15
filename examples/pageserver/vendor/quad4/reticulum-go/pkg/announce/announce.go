@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package announce
 
 import (
@@ -109,6 +110,10 @@ func (a *Announce) Propagate(interfaces []common.NetworkInterface) error {
 			debug.Log(debug.DebugTrace, "Skipping disabled interface", "name", iface.GetName())
 			continue
 		}
+		if !common.InterfaceAllowsOutgoing(iface) {
+			debug.Log(debug.DebugTrace, "Skipping receive-only interface", "name", iface.GetName())
+			continue
+		}
 		if !iface.GetBandwidthAvailable() {
 			debug.Log(debug.DebugTrace, "Skipping interface with insufficient bandwidth", "name", iface.GetName())
 			continue
@@ -148,11 +153,9 @@ func (a *Announce) HandleAnnounce(data []byte) error {
 
 	debug.Log(debug.DebugTrace, "Handling announce packet", "bytes", len(data))
 
-	// Minimum packet size validation:
-	// header + desthash + context + enckey + signkey + namehash +
-	// randomhash + signature + 3 bytes of app data.
-	if len(data) < MinAnnouncePacketSize {
-		debug.Log(debug.DebugTrace, "Invalid announce data length", "bytes", len(data), "minimum", MinAnnouncePacketSize)
+	const minNoRatchet = MinAnnouncePacketSizeNoRatchet
+	if len(data) < minNoRatchet {
+		debug.Log(debug.DebugTrace, "Invalid announce data length", "bytes", len(data), "minimum", minNoRatchet)
 		return errors.New("invalid announce data length")
 	}
 
@@ -171,6 +174,7 @@ func (a *Announce) HandleAnnounce(data []byte) error {
 
 	// Parse the packet based on header type
 	headerType := (header[0] & HeaderTypeMask) >> HeaderTypeShift
+	hasRatchet := (header[0] & HeaderContextFlagMask) != 0
 	var contextByte byte
 	var packetData []byte
 
@@ -185,42 +189,62 @@ func (a *Announce) HandleAnnounce(data []byte) error {
 		if len(data) < MinHeaderType2Size {
 			return errors.New("header type 2 packet too short")
 		}
-		destHash := data[destHashStart:destHashEnd]
+		_ = data[destHashStart:destHashEnd]
 		transportID := data[destHashEnd:transportIDEnd]
 		contextByte = data[transportIDEnd]
 		packetData = data[HeaderType2Offset:]
 
-		debug.Log(debug.DebugTrace, "Header type 2 announce", "destHash", fmt.Sprintf("%x", destHash), "transportID", fmt.Sprintf("%x", transportID), "context", contextByte)
+		debug.Log(debug.DebugTrace, "Header type 2 announce", "transportID", fmt.Sprintf("%x", transportID), "context", contextByte)
 	} else {
 		// Header type 1 format: header + desthash + context + data
 		if len(data) < MinHeaderType1Size {
 			return errors.New("header type 1 packet too short")
 		}
-		destHash := data[destHashStart:destHashEnd]
 		contextByte = data[destHashEnd]
 		packetData = data[HeaderType1Offset:]
 
-		debug.Log(debug.DebugTrace, "Header type 1 announce", "destHash", fmt.Sprintf("%x", destHash), "context", contextByte)
+		debug.Log(debug.DebugTrace, "Header type 1 announce", "context", contextByte)
 	}
+	_ = contextByte
 
-	// Now parse the data portion according to the spec:
-	// Public Key + Signing Key + Name Hash + Random Hash + Ratchet + Signature + App Data
-	if len(packetData) < MinAnnounceDataSize {
+	minPayload := PubKeySize + NameHashSize + RandomHashSize + SignatureSize
+	if hasRatchet {
+		minPayload += RatchetSize
+	}
+	if len(packetData) < minPayload {
 		return errors.New("announce data too short")
 	}
 
-	// Extract the components
-	encKey := packetData[AnnounceEncKeyOffset:AnnounceSignKeyOffset]
-	signKey := packetData[AnnounceSignKeyOffset:AnnounceNameHashOffset]
-	nameHash := packetData[AnnounceNameHashOffset:AnnounceRandomOffset]
-	randomHash := packetData[AnnounceRandomOffset:AnnounceRatchetOffset]
-	ratchetData := packetData[AnnounceRatchetOffset:AnnounceSignatureOffset]
-	signature := packetData[AnnounceSignatureOffset:AnnounceAppDataOffset]
-	appData := packetData[AnnounceAppDataOffset:]
+	pos := 0
+	encKey := packetData[pos : pos+PubKeyHalfSize]
+	pos += PubKeyHalfSize
+	signKey := packetData[pos : pos+PubKeyHalfSize]
+	pos += PubKeyHalfSize
+	nameHash := packetData[pos : pos+NameHashSize]
+	pos += NameHashSize
+	randomHash := packetData[pos : pos+RandomHashSize]
+	pos += RandomHashSize
+
+	var ratchetData []byte
+	if hasRatchet {
+		if len(packetData) < pos+RatchetSize+SignatureSize {
+			return errors.New("announce data too short for ratchet")
+		}
+		ratchetData = packetData[pos : pos+RatchetSize]
+		pos += RatchetSize
+	}
+
+	signature := packetData[pos : pos+SignatureSize]
+	pos += SignatureSize
+	appData := packetData[pos:]
 
 	debug.Log(debug.DebugTrace, "Announce fields", "encKey", fmt.Sprintf("%x", encKey), "signKey", fmt.Sprintf("%x", signKey))
 	debug.Log(debug.DebugTrace, "Name and random hash", "nameHash", fmt.Sprintf("%x", nameHash), "randomHash", fmt.Sprintf("%x", randomHash))
-	debug.Log(debug.DebugTrace, "Ratchet data", "ratchet", fmt.Sprintf("%x", ratchetData[:8]))
+	if len(ratchetData) >= 8 {
+		debug.Log(debug.DebugTrace, "Ratchet data", "ratchet", fmt.Sprintf("%x", ratchetData[:8]))
+	} else {
+		debug.Log(debug.DebugTrace, "Ratchet data", "ratchet", "(none)")
+	}
 	debug.Log(debug.DebugTrace, "Signature and app data", "signature", fmt.Sprintf("%x", signature[:8]), "appDataLen", len(appData))
 
 	// Destination hash sits in the same position for both header types.
@@ -236,13 +260,15 @@ func (a *Announce) HandleAnnounce(data []byte) error {
 	}
 
 	// Verify signature
-	signedData := make([]byte, 0)
+	signedData := make([]byte, 0, len(destHash)+len(encKey)+len(signKey)+len(nameHash)+len(randomHash)+len(ratchetData)+len(appData))
 	signedData = append(signedData, destHash...)
 	signedData = append(signedData, encKey...)
 	signedData = append(signedData, signKey...)
 	signedData = append(signedData, nameHash...)
 	signedData = append(signedData, randomHash...)
-	signedData = append(signedData, ratchetData...)
+	if len(ratchetData) > 0 {
+		signedData = append(signedData, ratchetData...)
+	}
 	signedData = append(signedData, appData...)
 
 	if !announcedIdentity.Verify(signedData, signature) {
@@ -265,50 +291,44 @@ func (a *Announce) RequestPath(destHash []byte, onInterface common.NetworkInterf
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	// Create path request packet
 	packet := make([]byte, 0)
 	packet = append(packet, destHash...)
-	packet = append(packet, byte(0)) // Initial hop count
+	packet = append(packet, byte(0))
 
-	// Send path request
+	if !common.InterfaceAllowsOutgoing(onInterface) {
+		return common.ErrInterfaceReceiveOnly
+	}
 	return onInterface.Send(packet, "")
 }
 
-// CreateHeader creates a Reticulum packet header according to spec
+// CreateHeader packs the two-byte packet header (flag byte + hop count).
 func CreateHeader(ifacFlag byte, headerType byte, contextFlag byte, propType byte, destType byte, packetType byte, hops byte) []byte {
 	header := make([]byte, 2)
 
-	// First byte: [IFAC Flag], [Header Type], [Context Flag], [Propagation Type], [Destination Type] and [Packet Type]
+	// Byte 0 holds IFAC, header type, context, propagation, destination, and packet type bits.
 	header[0] = ifacFlag | (headerType << 6) | (contextFlag << 5) |
 		(propType << 4) | (destType << 2) | packetType
 
-	// Second byte: Number of hops
 	header[1] = hops
 
 	return header
 }
 
 func (a *Announce) CreatePacket() ([]byte, error) {
-	// This function creates the complete announce packet according to the Reticulum specification.
-	// Announce Packet Structure:
-	// [Header (2 bytes)][Dest Hash (16 bytes)][Context (1 byte)][Announce Data]
-	// Announce Data Structure:
-	// [Public Key (64 bytes)][Name Hash (10 bytes)][Random Hash (10 bytes)][Ratchet (32 bytes optional)][Signature (64 bytes)][App Data]
+	// Layout: 2-byte header, 16-byte dest hash, 1-byte context, then announce payload.
+	// Payload: 64-byte public key, 10-byte name hash, 10-byte random hash,
+	// optional 32-byte ratchet, 64-byte signature, then app data.
 
-	// 2. Destination Hash
 	destHash := a.destinationHash
 	if len(destHash) > 16 {
 		destHash = destHash[:16]
 	}
 
-	// 3. Announce Data
-	// 3.1 Public Key (full 64 bytes - not split into enc/sign keys in packet)
 	pubKey := a.identity.GetPublicKey()
 	if len(pubKey) != 64 {
 		debug.Log(debug.DebugTrace, "Invalid public key length", "expected", 64, "got", len(pubKey))
 	}
 
-	// 3.2 Name Hash
 	nameHash := sha256.Sum256([]byte(a.destinationName))
 	nameHash10 := nameHash[:10]
 
@@ -321,7 +341,6 @@ func (a *Announce) CreatePacket() ([]byte, error) {
 	binary.BigEndian.PutUint64(timeBytes, uint64(time.Now().Unix()))
 	copy(randomHash[5:], timeBytes[3:8])
 
-	// 3.4 Ratchet (only include if exists)
 	var ratchetData []byte
 	currentRatchetKey := a.identity.GetCurrentRatchetKey()
 	if currentRatchetKey != nil {
@@ -337,7 +356,6 @@ func (a *Announce) CreatePacket() ([]byte, error) {
 		contextFlag = 1
 	}
 
-	// 1. Create Header - Use HeaderType1
 	header := CreateHeader(
 		IFACNone,
 		HeaderType1,
@@ -353,8 +371,12 @@ func (a *Announce) CreatePacket() ([]byte, error) {
 		contextByte = 0x0B
 	}
 
-	// 3.5 Signature
-	// The signature is calculated over: Dest Hash + Public Key (64 bytes) + Name Hash + Random Hash + Ratchet (if exists) + App Data
+	appData := a.appData
+	if appData == nil {
+		appData = []byte{}
+	}
+
+	// Sign dest hash, public key, name hash, random hash, optional ratchet, and app data.
 	validationData := make([]byte, 0)
 	validationData = append(validationData, destHash...)
 	validationData = append(validationData, pubKey...)
@@ -363,15 +385,15 @@ func (a *Announce) CreatePacket() ([]byte, error) {
 	if len(ratchetData) > 0 {
 		validationData = append(validationData, ratchetData...)
 	}
-	validationData = append(validationData, a.appData...)
+	validationData = append(validationData, appData...)
 	signature, err := a.identity.Sign(validationData)
 	if err != nil {
 		return nil, fmt.Errorf("sign announce packet: %w", err)
 	}
 
-	debug.Log(debug.DebugTrace, "Creating announce packet", "destHash", fmt.Sprintf("%x", destHash), "pubKeyLen", len(pubKey), "nameHash", fmt.Sprintf("%x", nameHash10), "randomHash", fmt.Sprintf("%x", randomHash), "ratchetLen", len(ratchetData), "sigLen", len(signature), "appDataLen", len(a.appData))
+	debug.Log(debug.DebugTrace, "Creating announce packet", "destHash", fmt.Sprintf("%x", destHash), "pubKeyLen", len(pubKey), "nameHash", fmt.Sprintf("%x", nameHash10), "randomHash", fmt.Sprintf("%x", randomHash), "ratchetLen", len(ratchetData), "sigLen", len(signature), "appDataLen", len(appData))
 
-	// 5. Assemble the packet (HeaderType1 format)
+	// HeaderType1 assembly: header, dest hash, context, then payload fields.
 	packet := make([]byte, 0)
 	packet = append(packet, header...)
 	packet = append(packet, destHash...)
@@ -383,9 +405,13 @@ func (a *Announce) CreatePacket() ([]byte, error) {
 		packet = append(packet, ratchetData...)
 	}
 	packet = append(packet, signature...)
-	packet = append(packet, a.appData...)
+	packet = append(packet, appData...)
 
-	debug.Log(debug.DebugTrace, "Final announce packet", "totalBytes", len(packet), "ratchetLen", len(ratchetData), "appDataLen", len(a.appData))
+	if len(packet) > PacketMTU {
+		return nil, fmt.Errorf("announce packet size %d exceeds MTU %d", len(packet), PacketMTU)
+	}
+
+	debug.Log(debug.DebugTrace, "Final announce packet", "totalBytes", len(packet), "ratchetLen", len(ratchetData), "appDataLen", len(appData))
 
 	return packet, nil
 }

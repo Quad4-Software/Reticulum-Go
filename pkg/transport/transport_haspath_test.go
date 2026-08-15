@@ -36,6 +36,7 @@ func backdatePath(t *Transport, destHash []byte, age time.Duration) {
 	}
 	clone := *old
 	clone.LastUpdated = time.Now().Add(-age)
+	clone.Expires = clone.LastUpdated.Add(time.Duration(PathfinderE) * time.Second)
 	t.paths[pathMapKey(destHash)] = &clone
 }
 
@@ -73,9 +74,9 @@ func TestHasPath_BoundaryWithinTTL(t *testing.T) {
 	dest := randomHash(t, 16)
 	tr.UpdatePath(dest, []byte("next"), iface.Name, 1)
 
-	backdatePath(tr, dest, time.Duration(PathRequestTTL)*time.Second-time.Second)
+	backdatePath(tr, dest, time.Duration(PathfinderE)*time.Second-time.Second)
 	if !tr.HasPath(dest) {
-		t.Fatal("path within TTL should still exist")
+		t.Fatal("path within PATHFINDER_E should still exist")
 	}
 
 	tr.mutex.RLock()
@@ -91,7 +92,7 @@ func TestHasPath_ExpiredEvicted(t *testing.T) {
 	dest := randomHash(t, 16)
 	tr.UpdatePath(dest, []byte("next"), iface.Name, 1)
 
-	backdatePath(tr, dest, time.Duration(PathRequestTTL+10)*time.Second)
+	backdatePath(tr, dest, time.Duration(PathfinderE+10)*time.Second)
 	if tr.HasPath(dest) {
 		t.Fatal("expired path returned true")
 	}
@@ -104,12 +105,23 @@ func TestHasPath_ExpiredEvicted(t *testing.T) {
 	}
 }
 
+func TestHasPath_PathRequestTTLDoesNotEvict(t *testing.T) {
+	tr, iface := newHasPathTransport(t)
+	dest := randomHash(t, 16)
+	tr.UpdatePath(dest, []byte("next"), iface.Name, 1)
+
+	backdatePath(tr, dest, time.Duration(PathRequestTTL+60)*time.Second)
+	if !tr.HasPath(dest) {
+		t.Fatal("HasPath must retain paths until PATHFINDER_E, not PathRequestTTL")
+	}
+}
+
 func TestHasPath_RefreshDuringEscalationKeepsEntry(t *testing.T) {
 	tr, iface := newHasPathTransport(t)
 	dest := randomHash(t, 16)
 
 	tr.UpdatePath(dest, []byte("next"), iface.Name, 1)
-	backdatePath(tr, dest, time.Duration(PathRequestTTL+5)*time.Second)
+	backdatePath(tr, dest, time.Duration(PathfinderE+5)*time.Second)
 
 	var wg sync.WaitGroup
 	wg.Go(func() {
@@ -128,7 +140,7 @@ func TestHasPath_RefreshDuringEscalationKeepsEntry(t *testing.T) {
 	if !present {
 		t.Fatal("refreshed path must be retained when racing with HasPath escalation")
 	}
-	if time.Since(cur.LastUpdated) > time.Duration(PathRequestTTL)*time.Second {
+	if time.Since(cur.LastUpdated) > time.Duration(PathfinderE)*time.Second {
 		t.Fatalf("refreshed path looks expired: age=%v", time.Since(cur.LastUpdated))
 	}
 }
@@ -137,7 +149,7 @@ func TestHasPath_ConcurrentReadersOnSingleExpiredPath(t *testing.T) {
 	tr, iface := newHasPathTransport(t)
 	dest := randomHash(t, 16)
 	tr.UpdatePath(dest, []byte("next"), iface.Name, 1)
-	backdatePath(tr, dest, time.Duration(PathRequestTTL+5)*time.Second)
+	backdatePath(tr, dest, time.Duration(PathfinderE+5)*time.Second)
 
 	const readers = 64
 	const iters = 2000
@@ -284,7 +296,7 @@ func TestHasPath_NoEarlyExitOnSlowReader(t *testing.T) {
 	tr, iface := newHasPathTransport(t)
 	dest := randomHash(t, 16)
 	tr.UpdatePath(dest, []byte("next"), iface.Name, 1)
-	backdatePath(tr, dest, time.Duration(PathRequestTTL+1)*time.Second)
+	backdatePath(tr, dest, time.Duration(PathfinderE+1)*time.Second)
 
 	var calls int64
 	var wg sync.WaitGroup
@@ -319,7 +331,7 @@ func TestHasPath_DistinctKeysIndependent(t *testing.T) {
 
 	tr.UpdatePath(live, []byte("nh"), iface.Name, 1)
 	tr.UpdatePath(dead, []byte("nh"), iface.Name, 1)
-	backdatePath(tr, dead, time.Duration(PathRequestTTL+5)*time.Second)
+	backdatePath(tr, dead, time.Duration(PathfinderE+5)*time.Second)
 
 	if !tr.HasPath(live) {
 		t.Fatal("live path missing")

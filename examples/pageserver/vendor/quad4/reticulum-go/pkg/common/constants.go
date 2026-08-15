@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package common
 
 // Interface type discriminators.
@@ -14,17 +15,34 @@ const (
 	IFTypeAuto
 	IFTypeBackbone
 	IFTypePipe
+	IFTypeQUIC
+	IFTypeWebTransport
+	IFTypeDNSRendezvous
+	IFTypeVSOCK
+	IFTypeHTTPS
+	IFTypeModem73
+	IFTypeSDR
 )
 
-// Interface operational modes.
+// Interface operational modes (wire values).
 const (
-	IFModeFull InterfaceMode = iota
-	IFModePoint
-	IFModeGateway
-	IFModeAccessPoint
-	IFModeRoaming
-	IFModeBoundary
+	IFModeFull        InterfaceMode = 0x01
+	IFModePoint       InterfaceMode = 0x02
+	IFModeAccessPoint InterfaceMode = 0x03
+	IFModeRoaming     InterfaceMode = 0x04
+	IFModeBoundary    InterfaceMode = 0x05
+	IFModeGateway     InterfaceMode = 0x06
+	IFModeInternal    InterfaceMode = 0x07
 )
+
+// DiscoverPathsFor lists modes that trigger recursive path discovery for
+// unknown destinations.
+var DiscoverPathsFor = []InterfaceMode{
+	IFModeAccessPoint,
+	IFModeGateway,
+	IFModeRoaming,
+	IFModeInternal,
+}
 
 // Transport modes.
 const (
@@ -93,7 +111,7 @@ const (
 const (
 	DefaultSharedInstancePort  = 37428
 	DefaultInstanceControlPort = 37429
-	DefaultLogLevel            = 20
+	DefaultLogLevel            = 4
 )
 
 // Defaults for the localhost control API (pkg/controlapi).

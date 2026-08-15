@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package main
 
 import (
@@ -8,18 +9,21 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"quad4/reticulum-go/internal/config"
+	"quad4/reticulum-go/pkg/cli"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/controlapi"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/interfaces"
 	"quad4/reticulum-go/pkg/node"
-	"quad4/reticulum-go/pkg/reticulumconfig"
 	"quad4/reticulum-go/pkg/sandbox"
+	"quad4/reticulum-go/pkg/selfcheck"
 )
 
 type Reticulum struct {
@@ -39,11 +43,17 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 	if cfg == nil {
 		cfg = config.DefaultConfig()
 	}
+	cfg.ApplyPersistenceEnv()
+	cfg.NormalizeInMemoryFlags()
 
-	if err := initializeDirectories(); err != nil {
-		return nil, fmt.Errorf("failed to initialize directories: %v", err)
+	if !cfg.UseInMemoryStorage() {
+		if err := initializeDirectories(); err != nil {
+			return nil, fmt.Errorf("failed to initialize directories: %v", err)
+		}
+		debug.Log(debug.DebugInfo, "Directories initialized")
+	} else {
+		debug.Log(debug.DebugInfo, "In-memory storage enabled, skipping directory bootstrap")
 	}
-	debug.Log(debug.DebugInfo, "Directories initialized")
 
 	n, err := node.New(cfg)
 	if err != nil {
@@ -68,27 +78,47 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 }
 
 func main() {
-	if run, code := parseCLI(os.Args[1:]); !run {
+	if code, ok := selfcheck.ChildExitCode(); ok {
 		os.Exit(code)
 	}
-	runDaemon()
+	os.Exit(cli.Main(os.Args[1:], cli.Options{
+		Argv0:       os.Args[0],
+		VersionLine: versionLine(),
+		RunDaemon:   runDaemonCLI,
+	}))
 }
 
-func runDaemon() {
-	debug.Init()
-	debug.Log(debug.DebugCritical, "Initializing Reticulum", "debug_level", debug.GetDebugLevel())
+func runDaemonCLI(args []string) int {
+	opts, run, code := parseDaemonFlags(args)
+	if !run {
+		return code
+	}
+	return runDaemon(opts)
+}
 
-	cfg, err := config.InitConfig()
+func runDaemon(opts daemonOptions) int {
+	debug.Init()
+
+	var cfg *common.ReticulumConfig
+	var err error
+	if opts.ConfigPath != "" {
+		cfg, err = loadDaemonConfig(opts.ConfigPath)
+	} else {
+		cfg, err = config.InitConfig()
+	}
 	if err != nil {
 		debug.Log(debug.DebugCritical, "Failed to initialize config", "error", err)
-		os.Exit(1)
+		return 1
 	}
+
+	applyDaemonLogging(cfg, opts)
+	debug.Log(debug.DebugCritical, "Initializing Reticulum", "debug_level", debug.GetDebugLevel())
 	debug.Log(debug.DebugInfo, "Configuration loaded", "path", cfg.ConfigPath)
 
 	r, err := NewReticulum(cfg)
 	if err != nil {
 		debug.Log(debug.DebugCritical, "Failed to create Reticulum instance", "error", err)
-		os.Exit(1)
+		return 1
 	}
 
 	go r.monitorInterfaces()
@@ -98,29 +128,109 @@ func runDaemon() {
 
 	if err := r.Start(); err != nil {
 		debug.Log(debug.DebugCritical, "Failed to start Reticulum", "error", err)
-		os.Exit(1)
+		return 1
 	}
+
+	// Bind Control API and shared-instance listeners before sandbox.Apply so
+	// FreeBSD CapEnter and OpenBSD pledge do not block those listens.
+	r.StartControlAPI()
 
 	if err := sandbox.Apply(cfg); err != nil {
 		debug.Log(debug.DebugCritical, "Sandbox application failed", "error", err)
-		if cfg != nil && cfg.PanicOnInterfaceErr {
-			os.Exit(1)
+		if cfg != nil && (cfg.PanicOnInterfaceErr || cfg.SandboxStrict) {
+			return 1
 		}
 	}
 
-	r.StartControlAPI()
-
-	startSIGHUPReload(r)
+	if runtime.GOOS != "windows" {
+		go func() {
+			hup := make(chan os.Signal, 1)
+			signal.Notify(hup, syscall.SIGHUP)
+			for range hup {
+				if runtime.GOOS == "freebsd" && r.config != nil && r.config.EnableSandbox {
+					debug.Log(debug.DebugInfo, "SIGHUP reload: re-exec under CapEnter sandbox")
+					if err := r.StopDaemon(); err != nil {
+						debug.Log(debug.DebugCritical, "SIGHUP re-exec: stop", "error", err)
+						continue
+					}
+					if err := reexecDaemon(); err != nil {
+						debug.Log(debug.DebugCritical, "SIGHUP re-exec failed", "error", err)
+					}
+					continue
+				}
+				path := r.config.ConfigPath
+				if path == "" {
+					p, err := config.GetConfigPath()
+					if err != nil {
+						debug.Log(debug.DebugCritical, "SIGHUP reload: config path", "error", err)
+						continue
+					}
+					path = p
+				}
+				newCfg, err := config.LoadConfig(path)
+				if err != nil {
+					debug.Log(debug.DebugCritical, "SIGHUP reload: load config", "error", err)
+					continue
+				}
+				if err := r.ReloadInterfaces(newCfg); err != nil {
+					debug.Log(debug.DebugCritical, "ReloadInterfaces", "error", err)
+				} else {
+					r.config = newCfg
+					applyDaemonLogging(newCfg, daemonOptions{DebugLevel: -1, JSONLogs: opts.JSONLogs})
+					debug.Log(debug.DebugInfo, "Reloaded interfaces from config", "path", path)
+				}
+			}
+		}()
+	}
 
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, shutdownSignals()...)
+	sigs := []os.Signal{os.Interrupt}
+	if runtime.GOOS != "windows" {
+		sigs = append(sigs, syscall.SIGTERM)
+	}
+	signal.Notify(sigChan, sigs...)
 	<-sigChan
 
 	debug.Log(debug.DebugCritical, "Shutting down...")
 	if err := r.StopDaemon(); err != nil {
 		debug.Log(debug.DebugCritical, "Error during shutdown", "error", err)
+		return 1
 	}
 	debug.Log(debug.DebugCritical, "Goodbye!")
+	return 0
+}
+
+func loadDaemonConfig(override string) (*common.ReticulumConfig, error) {
+	path := override
+	info, err := os.Stat(path)
+	if err == nil && info.IsDir() {
+		path = filepath.Join(path, "config")
+	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if err := config.CreateDefaultConfig(path); err != nil {
+			return nil, err
+		}
+	}
+	return config.LoadConfig(path)
+}
+
+func applyDaemonLogging(cfg *common.ReticulumConfig, opts daemonOptions) {
+	if cfg == nil {
+		return
+	}
+	level := cfg.LogLevel
+	if opts.DebugLevel > 0 {
+		level = opts.DebugLevel
+	}
+	if level > 0 {
+		debug.SetDebugLevel(level)
+	}
+	if opts.JSONLogs || strings.EqualFold(cfg.LogFormat, "json") {
+		debug.SetJSONFormat(true)
+	}
+	if err := debug.ConfigureDestination(cfg); err != nil {
+		debug.Log(debug.DebugCritical, "Failed to configure log destination", "error", err)
+	}
 }
 
 func (r *Reticulum) monitorInterfaces() {
@@ -158,6 +268,12 @@ func (r *Reticulum) StartControlAPI() {
 		debug.Log(debug.DebugCritical, "Failed to initialize control API", "error", err)
 		return
 	}
+	// Bind before sandbox.Apply so FreeBSD CapEnter cannot race the listen.
+	if err := api.Listen(); err != nil {
+		debug.Log(debug.DebugCritical, "Failed to bind control API", "error", err)
+		_ = api.Close()
+		return
+	}
 	r.controlAPI = api
 	go func() {
 		if err := api.Serve(); err != nil {
@@ -177,9 +293,15 @@ func (r *Reticulum) StopDaemon() error {
 }
 
 func initializeDirectories() error {
-	basePath := filepath.Join(reticulumconfig.ConfigHomeDir(), ".reticulum-go")
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %v", err)
+	}
+
+	basePath := filepath.Join(homeDir, ".reticulum-go")
 	dirs := []string{
 		basePath,
+		filepath.Join(basePath, "logfile"),
 		filepath.Join(basePath, "storage"),
 		filepath.Join(basePath, "storage", "destinations"),
 		filepath.Join(basePath, "storage", "identities"),
@@ -233,4 +355,18 @@ func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id any, appData []by
 
 func (h *AnnounceHandler) ReceivePathResponses() bool {
 	return true
+}
+
+// reexecDaemon replaces the current process with a fresh reticulum-go instance.
+// Used on FreeBSD when CapEnter blocks in-process SIGHUP reload.
+func reexecDaemon() error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	argv := make([]string, len(os.Args))
+	copy(argv, os.Args)
+	argv[0] = exe
+	// #nosec G204,G702 -- same binary and argv as this daemon, env unchanged, operator-initiated SIGHUP reload only
+	return syscall.Exec(exe, argv, os.Environ())
 }

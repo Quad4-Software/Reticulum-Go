@@ -4,6 +4,7 @@
 package common
 
 import (
+	"errors"
 	"testing"
 )
 
@@ -75,12 +76,16 @@ func TestReticulumConfig_Validate(t *testing.T) {
 	invalidPortConfig1.SharedInstancePort = 0
 	if err := invalidPortConfig1.Validate(); err == nil {
 		t.Errorf("Validate() did not return error for invalid SharedInstancePort 0")
+	} else if !errors.Is(err, ErrConfig) {
+		t.Errorf("Validate() should wrap ErrConfig, got %v", err)
 	}
 
 	invalidPortConfig2 := DefaultConfig()
 	invalidPortConfig2.SharedInstancePort = 65536
 	if err := invalidPortConfig2.Validate(); err == nil {
 		t.Errorf("Validate() did not return error for invalid SharedInstancePort 65536")
+	} else if !errors.Is(err, ErrConfig) {
+		t.Errorf("Validate() should wrap ErrConfig, got %v", err)
 	}
 
 	invalidPortConfig3 := DefaultConfig()

@@ -4,12 +4,14 @@
 package interop
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -86,6 +88,12 @@ func (c *nomadnetAnnounceCollector) snapshot() []announcedNode {
 	for _, node := range c.announces {
 		out = append(out, node)
 	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].hops != out[j].hops {
+			return out[i].hops < out[j].hops
+		}
+		return bytes.Compare(out[i].destHash, out[j].destHash) < 0
+	})
 	return out
 }
 

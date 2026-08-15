@@ -5,11 +5,14 @@ package channel
 
 import (
 	"bytes"
+	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/transport"
 )
 
 type mockLink struct {
@@ -23,6 +26,7 @@ type mockLink struct {
 func (m *mockLink) GetStatus() byte   { return m.status }
 func (m *mockLink) GetRTT() float64   { return m.rtt }
 func (m *mockLink) RTT() float64      { return m.rtt }
+func (m *mockLink) GetMDU() int       { return 512 }
 func (m *mockLink) GetLinkID() []byte { return []byte("testlink") }
 func (m *mockLink) Send(data []byte) any {
 	m.sent = append(m.sent, data)
@@ -76,7 +80,54 @@ func TestChannelSend(t *testing.T) {
 	}
 
 	if len(link.sent) != 1 {
-		t.Errorf("Expected 1 packet sent, got %d", len(link.sent))
+		t.Fatalf("Expected 1 packet sent, got %d", len(link.sent))
+	}
+	raw := link.sent[0]
+	if len(raw) != ChannelHeaderSize+4 {
+		t.Fatalf("envelope len=%d want %d", len(raw), ChannelHeaderSize+4)
+	}
+	if raw[0] != 0 || raw[1] != 1 {
+		t.Fatalf("msgtype bytes=%x want 0001", raw[0:2])
+	}
+	if raw[2] != 0 || raw[3] != 0 {
+		t.Fatalf("sequence bytes=%x want 0000", raw[2:4])
+	}
+	if raw[4] != 0 || raw[5] != 4 {
+		t.Fatalf("length bytes=%x want 0004", raw[4:6])
+	}
+	if string(raw[ChannelHeaderSize:]) != "test" {
+		t.Fatalf("body=%q", raw[ChannelHeaderSize:])
+	}
+}
+
+func TestHandleInboundTypedFactory(t *testing.T) {
+	link := &mockLink{status: 1}
+	c := NewChannel(link)
+	defer func() { _ = c.Close() }()
+
+	if err := c.RegisterMessageType(1, func() MessageBase { return &testMessage{} }); err != nil {
+		t.Fatal(err)
+	}
+
+	var got *testMessage
+	c.AddMessageHandler(func(m MessageBase) bool {
+		tm, ok := m.(*testMessage)
+		if !ok {
+			t.Fatalf("expected *testMessage, got %T", m)
+		}
+		got = tm
+		return true
+	})
+
+	raw, err := packEnvelope(1, 0, []byte("abcd"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.HandleInbound(raw); err != nil {
+		t.Fatal(err)
+	}
+	if got == nil || string(got.data) != "abcd" {
+		t.Fatalf("got=%v", got)
 	}
 }
 
@@ -91,7 +142,7 @@ func TestHandleInbound(t *testing.T) {
 	})
 
 	// Packet format: [type 2][seq 2][len 2][data]
-	data := []byte{0, 1, 0, 1, 0, 4, 't', 'e', 's', 't'}
+	data := []byte{0, 1, 0, 0, 0, 4, 't', 'e', 's', 't'}
 	err := c.HandleInbound(data)
 	if err != nil {
 		t.Fatalf("HandleInbound failed: %v", err)
@@ -131,5 +182,207 @@ func TestGenericMessage(t *testing.T) {
 	msg.Unpack([]byte("new"))
 	if !bytes.Equal(msg.Data, []byte("new")) {
 		t.Error("Unpack failed")
+	}
+}
+
+type scaleMockLink struct {
+	status byte
+}
+
+func (m *scaleMockLink) GetStatus() byte                                       { return m.status }
+func (m *scaleMockLink) GetMDU() int                                           { return DefaultOutletMDU }
+func (m *scaleMockLink) GetRTT() float64                                       { return 0.1 }
+func (m *scaleMockLink) RTT() float64                                          { return 0.1 }
+func (m *scaleMockLink) GetLinkID() []byte                                     { return []byte("mocklink") }
+func (m *scaleMockLink) Send(data []byte) any                                  { return "packet" }
+func (m *scaleMockLink) Resend(p any) error                                    { return nil }
+func (m *scaleMockLink) SetPacketTimeout(p any, cb func(any), t time.Duration) {}
+func (m *scaleMockLink) SetPacketDelivered(p any, cb func(any))                {}
+func (m *scaleMockLink) HandleInbound(pkt *packet.Packet) error                { return nil }
+func (m *scaleMockLink) ValidateLinkProof(pkt *packet.Packet, iface common.NetworkInterface) error {
+	return nil
+}
+func (m *scaleMockLink) LinkedNetworkInterface() common.NetworkInterface { return nil }
+
+func BenchmarkChannelScale(b *testing.B) {
+	sizes := []int{10, 100, 1000}
+
+	for _, size := range sizes {
+		b.Run(fmt.Sprintf("Handlers-%d", size), func(b *testing.B) {
+			link := &scaleMockLink{status: transport.StatusActive}
+			ch := NewChannel(link)
+
+			for range size {
+				ch.AddMessageHandler(func(m MessageBase) bool {
+					return false // continue to next handler
+				})
+			}
+
+			msg := &GenericMessage{Type: 1, Data: []byte("benchmark")}
+			data := make([]byte, ChannelHeaderSize+len(msg.Data))
+			// Manual pack for speed
+			data[0], data[1] = 0, 1
+			data[4], data[5] = 0, byte(len(msg.Data))
+			copy(data[ChannelHeaderSize:], msg.Data)
+
+			b.ResetTimer()
+			b.ReportAllocs()
+
+			for i := 0; i < b.N; i++ {
+				_ = ch.HandleInbound(data)
+			}
+		})
+	}
+}
+
+func BenchmarkChannelSendScale(b *testing.B) {
+	link := &scaleMockLink{status: transport.StatusActive}
+	ch := NewChannel(link)
+	msg := &GenericMessage{Type: 1, Data: []byte("benchmark")}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		if err := ch.Send(msg); err != nil {
+			ch.mutex.Lock()
+			for _, env := range ch.txRing {
+				releaseEnvelope(env)
+			}
+			ch.txRing = nil
+			ch.mutex.Unlock()
+			_ = ch.Send(msg)
+		}
+	}
+	ch.mutex.Lock()
+	for _, env := range ch.txRing {
+		releaseEnvelope(env)
+	}
+	ch.txRing = nil
+	ch.mutex.Unlock()
+}
+
+func deliverOne(link *mockLink) {
+	for p, cb := range link.delivered {
+		if cb != nil {
+			cb(p)
+		}
+		delete(link.delivered, p)
+		return
+	}
+}
+
+func TestIsReadyToSendWindowFull(t *testing.T) {
+	link := &mockLink{status: transport.StatusActive, rtt: 2.0}
+	c := NewChannel(link)
+	defer func() { _ = c.Close() }()
+	if !c.IsReadyToSend() {
+		t.Fatal("empty channel should be ready")
+	}
+	if err := c.Send(&testMessage{data: []byte("a")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Send(&testMessage{data: []byte("b")}); err != nil {
+		t.Fatal(err)
+	}
+	if c.IsReadyToSend() {
+		t.Fatal("window of 2 should be full")
+	}
+	deliverOne(link)
+	if !c.IsReadyToSend() {
+		t.Fatal("delivery should open a window slot")
+	}
+}
+
+func TestWaitReadyTimeout(t *testing.T) {
+	link := &mockLink{status: transport.StatusActive, rtt: 2.0}
+	c := NewChannel(link)
+	defer func() { _ = c.Close() }()
+	_ = c.Send(&testMessage{data: []byte("a")})
+	_ = c.Send(&testMessage{data: []byte("b")})
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if err := c.WaitReady(ctx); err == nil {
+		t.Fatal("expected timeout")
+	}
+}
+
+func TestWindowGrowsFastRTT(t *testing.T) {
+	link := &mockLink{status: transport.StatusActive, rtt: 0.05}
+	c := NewChannel(link)
+	defer func() { _ = c.Close() }()
+	for i := range FastRateThreshold + 2 {
+		if err := c.Send(&testMessage{data: []byte{byte(i)}}); err != nil {
+			t.Fatal(err)
+		}
+		deliverOne(link)
+	}
+	if c.WindowMax() != WindowMaxFast {
+		t.Fatalf("windowMax=%d want %d", c.WindowMax(), WindowMaxFast)
+	}
+	if c.Window() < WindowInitial {
+		t.Fatalf("window=%d should have grown", c.Window())
+	}
+}
+
+func TestWindowStaysSlowOnHighRTT(t *testing.T) {
+	link := &mockLink{status: transport.StatusActive, rtt: 2.0}
+	c := NewChannel(link)
+	defer func() { _ = c.Close() }()
+	for i := range FastRateThreshold + 4 {
+		if err := c.Send(&testMessage{data: []byte{byte(i)}}); err != nil {
+			t.Fatal(err)
+		}
+		deliverOne(link)
+	}
+	if c.WindowMax() != WindowMaxSlow {
+		t.Fatalf("windowMax=%d want slow %d", c.WindowMax(), WindowMaxSlow)
+	}
+}
+
+func TestWindowShrinksOnTimeout(t *testing.T) {
+	link := &mockLink{status: transport.StatusActive, rtt: 0.05}
+	c := NewChannel(link)
+	defer func() { _ = c.Close() }()
+	for i := range FastRateThreshold + 2 {
+		_ = c.Send(&testMessage{data: []byte{byte(i)}})
+		deliverOne(link)
+	}
+	grew := c.WindowMax()
+	if grew != WindowMaxFast {
+		t.Fatalf("setup windowMax=%d", grew)
+	}
+	_ = c.Send(&testMessage{data: []byte("x")})
+	for p, cb := range link.timeouts {
+		if cb != nil {
+			cb(p)
+		}
+	}
+	if c.WindowMax() >= grew {
+		t.Fatalf("windowMax=%d should shrink from %d", c.WindowMax(), grew)
+	}
+}
+
+func TestChannelMDU(t *testing.T) {
+	link := &mockLink{status: transport.StatusActive}
+	c := NewChannel(link)
+	if got := c.MDU(); got != 512-ChannelHeaderSize {
+		t.Fatalf("MDU=%d want %d", got, 512-ChannelHeaderSize)
+	}
+}
+
+func TestSequenceWrapsAtModulus(t *testing.T) {
+	link := &mockLink{status: transport.StatusActive}
+	c := NewChannel(link)
+	defer func() { _ = c.Close() }()
+	c.nextSequence = SeqMax
+	if err := c.Send(&testMessage{data: []byte("wrap")}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if c.nextSequence != 0 {
+		t.Fatalf("nextSequence=%d want 0 after SeqMax", c.nextSequence)
+	}
+	if len(link.sent) != 1 {
+		t.Fatalf("sent=%d want 1", len(link.sent))
 	}
 }

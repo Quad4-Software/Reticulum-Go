@@ -1,11 +1,5 @@
 # Cryptography
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.0 |
-| Last updated | 2026-07-07 |
-| Author | Ivan |
-
 ## Purpose
 
 This document is the canonical cryptography reference for Reticulum-Go. It supports security reviews and correct use of APIs. For vulnerability reporting and CI practices see [Security](security.md).
@@ -74,7 +68,7 @@ When encrypting to another identity public X25519 key:
 
 1. Generate ephemeral X25519 keypair
 2. ECDH with peer public encryption key (or optional ratchet public key)
-3. HKDF-SHA256 expands shared secret to 64 bytes: HMAC key (32) then AES key (32). Salt and info follow identity hash and protocol context (`DeriveIdentityKeyMaterial` in `pkg/cryptography`)
+3. HKDF-SHA256 expands shared secret to 64 bytes: HMAC key (32) then AES key (32). Salt and info follow identity hash and protocol context (DeriveIdentityKeyMaterial in `pkg/cryptography`)
 4. AES-256-CBC encrypt with PKCS#7 padding
 5. HMAC-SHA256 over ciphertext
 6. Wire token includes ephemeral public key, ciphertext, and MAC
@@ -87,7 +81,7 @@ Algorithm: Ed25519.
 
 Used for announce signatures, proofs, and related auth paths.
 
-Hardware signing via `Ed25519Signer` and `NewEd25519SignerFromCryptoSigner`. The announced Ed25519 public key must still match the 64-byte public blob.
+Hardware signing via Ed25519Signer and NewEd25519SignerFromCryptoSigner. The announced Ed25519 public key must still match the 64-byte public blob.
 
 ## Destination hashes
 
@@ -105,18 +99,29 @@ Interface Access Code is an optional outer authentication layer on interface fra
 
 Derivation:
 
-- Fixed HKDF salt in `pkg/ifac` (`SaltHex`)
-- Operator `network_name` and `passphrase`
+- Fixed HKDF salt in `pkg/ifac` (SaltHex)
+- Operator network_name and passphrase
 - Inner Reticulum identity signs a truncated tail of the frame
 
 Policy:
 
 - Configured IFAC masks outbound frames and verifies inbound frames
-- Wrong or missing IFAC is dropped (`ApplyIFACOutbound` / `ApplyIFACInbound` in `pkg/common`)
+- Wrong or missing IFAC is dropped (ApplyIFACOutbound / ApplyIFACInbound in `pkg/common`)
 
 ## Ratchets
 
-Optional X25519 ratchet private keys (256 bits) for forward secrecy on identity-encrypted traffic. Persisted per identity hash under `storage/ratchets/` with expiry per package constants.
+Optional X25519 keys (256 bits) for forward secrecy on SINGLE identity-encrypted traffic. Off until the destination enables them. Python RNS is the same: `enable_ratchets` and `enforce_ratchets` are both opt-in.
+
+Local private keys:
+
+- `EnableRatchets(path)` loads or creates a signed msgpack list at that path
+- `EnableRatchetsInMemory` keeps the list in RAM and writes nothing
+
+Announces carry the current 32-byte public key when enabled. Peers persist that public key under `storage/ratchets/{destination_hash}` as `{ratchet, received}` (Python layout) unless in-memory or shared-instance mode is on. `Destination.Encrypt` for SINGLE destinations uses `Identity.GetRatchet(destHash)` when a non-expired key exists. `EnforceRatchets` rejects identity-key ciphertext. Links do not use this mechanism.
+
+## GROUP Token keys
+
+GROUP destinations share a symmetric Token key (`CreateKeys` / `LoadPrivateKey`). Default key is 64 bytes (32 HMAC + 32 AES-256), matching Python `Token.generate_key()`. Ciphertext is `IV (16) || AES-CBC || HMAC-SHA256 (32)`. GROUP packets do not use identity encryption or ratchets. They cannot be announced and are not forwarded beyond one hop.
 
 ## Pluggable CryptoProvider
 
@@ -125,6 +130,7 @@ Optional X25519 ratchet private keys (256 bits) for forward secrecy on identity-
 ## Operational handling
 
 - Store identity files on encrypted disks with restrictive permissions
+- Optional `identity_backend = secretservice` or keyring stores private blobs outside plaintext files
 - Backup of the 64-byte software file or RHB1 plus signing capability equals full impersonation capability
 - Verbose debug logging may hex-dump sensitive metadata. Lower loglevel in production
 

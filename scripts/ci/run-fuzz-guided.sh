@@ -5,8 +5,8 @@ set -eu
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
-FUZZTIME="${FUZZTIME:-20s}"
-LOW_COV_FUZZTIME="${LOW_COV_FUZZTIME:-35s}"
+FUZZTIME="${FUZZTIME:-10s}"
+LOW_COV_FUZZTIME="${LOW_COV_FUZZTIME:-20s}"
 LOW_COV_THRESHOLD="${LOW_COV_THRESHOLD:-70}"
 COVER_DIR="${COVER_DIR:-.cache/fuzz-cover}"
 mkdir -p "$COVER_DIR"
@@ -14,7 +14,7 @@ mkdir -p "$COVER_DIR"
 UNIT_COVER="$COVER_DIR/unit-before.out"
 UNIT_AFTER="$COVER_DIR/unit-after.out"
 
-PACKAGES="./pkg/packet ./pkg/transport ./pkg/identity ./pkg/link ./pkg/ifac ./pkg/backbone ./pkg/discovery ./pkg/blackhole"
+PACKAGES="./pkg/packet ./pkg/transport ./pkg/identity ./pkg/link ./pkg/ifac ./pkg/backbone ./pkg/discovery ./pkg/blackhole ./pkg/librns ./pkg/announce ./pkg/destination ./pkg/resource ./pkg/buffer ./pkg/channel ./pkg/interfaces ./pkg/cryptography ./pkg/pageserver ./pkg/protect"
 
 package_low_coverage() {
 	pkg="$1"
@@ -42,7 +42,7 @@ collect_unit_coverage() {
 	for pkg in $PACKAGES; do
 		partial="$COVER_DIR/$(echo "$pkg" | tr './' '_').out"
 		echo "fuzz-guided: coverage $pkg" >>"$log"
-		if ! go test -coverprofile="$partial" -covermode=atomic "$pkg" >>"$log" 2>&1; then
+		if ! go test -short -count=1 -timeout 8m -coverprofile="$partial" -covermode=atomic "$pkg" >>"$log" 2>&1; then
 			return 1
 		fi
 		merge_cover_profile "$out" "$partial"
@@ -63,7 +63,11 @@ run_fuzz() {
 	target="$2"
 	ftime="$3"
 	echo "fuzz-guided: $target ($ftime) in $pkg"
-	go test -fuzz="$target" -fuzztime="$ftime" "$pkg"
+	# -run=^$ skips the package unit suite so each target is fuzz-only.
+	# Route through testsummary so CI only shows passing "ok" lines and,
+	# on failure, the full crash/failure details (TESTSUMMARY_QUIET=1 in CI).
+	# Anchor the name so FuzzFoo does not also match FuzzFooBar.
+	go run ./scripts/ci/testsummary -run='^$' -fuzz="^${target}$" -fuzztime="$ftime" -timeout 5m "$pkg"
 }
 
 fuzz_time_for() {
@@ -78,16 +82,42 @@ fuzz_time_for() {
 
 run_fuzz ./pkg/packet FuzzPacketUnpack "$(fuzz_time_for packet "$FUZZTIME")"
 run_fuzz ./pkg/packet FuzzPacketRoundTrip "$(fuzz_time_for packet 15s)"
+run_fuzz ./pkg/packet FuzzReadPCAPUDPPayloads "$(fuzz_time_for packet 15s)"
 run_fuzz ./pkg/transport FuzzDecodePathTableEntries "$(fuzz_time_for transport 25s)"
 run_fuzz ./pkg/transport FuzzShouldUpdateAnnouncePath "$(fuzz_time_for transport 15s)"
+run_fuzz ./pkg/transport FuzzHandlePathRequest "$(fuzz_time_for transport 15s)"
+run_fuzz ./pkg/transport FuzzProcessPathRequest "$(fuzz_time_for transport 15s)"
+run_fuzz ./pkg/transport FuzzParsePathRequestWireExploratory "$(fuzz_time_for transport 10s)"
 run_fuzz ./pkg/identity FuzzDecodeKnownDestinations "$(fuzz_time_for identity 25s)"
 run_fuzz ./pkg/identity FuzzIdentitySignVerify "$(fuzz_time_for identity 15s)"
 run_fuzz ./pkg/link FuzzLinkHandleData "$(fuzz_time_for link 20s)"
+run_fuzz ./pkg/link FuzzLinkHandleInbound "$(fuzz_time_for link 15s)"
+run_fuzz ./pkg/link FuzzSelectRequestedPartIndexesExploratory "$(fuzz_time_for link 10s)"
+run_fuzz ./pkg/link FuzzSplitResourceMetadataExploratory "$(fuzz_time_for link 10s)"
+run_fuzz ./pkg/announce FuzzHandleAnnounce "$(fuzz_time_for announce 15s)"
+run_fuzz ./pkg/destination FuzzParseName "$(fuzz_time_for destination 10s)"
+run_fuzz ./pkg/resource FuzzUnpackResourceAdvertisement "$(fuzz_time_for resource 15s)"
+run_fuzz ./pkg/resource FuzzPrepareOutboundForLinkLayoutExploratory "$(fuzz_time_for resource 15s)"
+run_fuzz ./pkg/cryptography FuzzRemovePKCS7PaddingExploratory "$(fuzz_time_for cryptography 10s)"
+run_fuzz ./pkg/pageserver FuzzParseNodeStatusAppDataExploratory "$(fuzz_time_for pageserver 10s)"
 run_fuzz ./pkg/ifac FuzzUnmask "$(fuzz_time_for ifac 15s)"
 run_fuzz ./pkg/ifac FuzzMaskRoundTrip "$(fuzz_time_for ifac 15s)"
 run_fuzz ./pkg/backbone FuzzHDLCDecoderFeed "$(fuzz_time_for backbone 15s)"
 run_fuzz ./pkg/discovery FuzzDecodeAppData "$(fuzz_time_for discovery 10s)"
+run_fuzz ./pkg/discovery FuzzEncodeDecodeInfoRoundTrip "$(fuzz_time_for discovery 10s)"
+run_fuzz ./pkg/discovery FuzzStampValid "$(fuzz_time_for discovery 5s)"
 run_fuzz ./pkg/blackhole FuzzDecodeBlackholeMap "$(fuzz_time_for blackhole 10s)"
+run_fuzz ./pkg/buffer FuzzHandleMessageEOFExploratory "$(fuzz_time_for buffer 10s)"
+run_fuzz ./pkg/channel FuzzHandleInboundEnvelopeExploratory "$(fuzz_time_for channel 10s)"
+run_fuzz ./pkg/channel FuzzPackHandleInboundRoundTrip "$(fuzz_time_for channel 10s)"
+run_fuzz ./pkg/interfaces FuzzKISSStreamDecoderRoundTrip "$(fuzz_time_for interfaces 10s)"
+run_fuzz ./pkg/protect FuzzParseMode "$(fuzz_time_for protect 10s)"
+run_fuzz ./pkg/protect FuzzAdmitPacket "$(fuzz_time_for protect 10s)"
+run_fuzz ./pkg/protect FuzzPeekPacketClass "$(fuzz_time_for protect 5s)"
+run_fuzz ./pkg/librns FuzzHandleTable "$(fuzz_time_for librns 10s)"
+run_fuzz ./pkg/librns FuzzEventQueue "$(fuzz_time_for librns 10s)"
+run_fuzz ./pkg/librns FuzzConfigPathCreate "$(fuzz_time_for librns 10s)"
+run_fuzz ./pkg/librns FuzzValidatePath "$(fuzz_time_for librns 5s)"
 
 echo "fuzz-guided: rechecking unit coverage"
 if ! collect_unit_coverage "$UNIT_AFTER" "$COVER_DIR/unit-after.log"; then

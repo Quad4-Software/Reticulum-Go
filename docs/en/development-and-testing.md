@@ -1,16 +1,10 @@
 # Development and testing
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.0 |
-| Last updated | 2026-07-07 |
-| Author | Ivan |
-
 ## Development environment
 
 Requirements:
 
-- Go 1.26.4 or later
+- Go 1.26.5 or later
 - Make or Task
 - revive linter for `make lint`
 - Python 3 for crossref vector generation (optional)
@@ -58,7 +52,17 @@ Opens HTML coverage from `coverage.out`.
 
 ```bash
 make bench
+task test-bench-gate
 ```
+
+Loopback link throughput smoke (RNS Speedtest-style liveness floor):
+
+```bash
+task test-link-speed
+reticulum-go speedtest
+```
+
+Nightly `sim-heavy` also runs `test-link-speed`.
 
 ## Project layout for contributors
 
@@ -76,6 +80,19 @@ Follow existing naming, error wrapping, and SPDX headers in each file.
 
 ## Testing layers
 
+| Layer | How to run | What it covers |
+|-------|------------|----------------|
+| Unit | `task test` / `task test-short` | Package `*_test.go` |
+| Property | `task test-property` | `*_pbt_test.go` and embedded `quad4/pbt` / `testing/quick` |
+| Mutation | `task test-mutation` | gomutant on cryptography, packet, announce, destination, identity, ifac, backbone, interfaces |
+| Chaos | `task test-chaos` / `task test-soak` / `task test-soak-protect` | `TestSimChaos*` / `TestLinkChaos*` / `TestIfaceChaos*` plus soak, including dos_protection flood soak |
+| Oracle | `task test-oracle` | Crossref vectors, health `TransportOracle` deltas, adversarial corpus |
+| Smoke | `task test-binary-smoke`, binding smokes | Binary `--version`/`--help`, CLI dump via `Main`, librns smoke examples |
+| Acceptance | `task test-acceptance` | librns SCAFFOLD minimum, control API acceptance |
+| E2E | `task test-e2e` | Daemon reload, UDP path e2e, transport `TestE2E_*` |
+| Black box | `task test-blackbox` | CLI `Main` / `rgodump` surface, control API HTTP acceptance |
+| Interop | `RUN_LIVE_INTEROP=1 go test ./tests/interop/...` | Live Go↔Python (optional locally), including dos_protection live suites |
+
 ### Unit tests
 
 Standard `go test` in each package. Run all:
@@ -92,11 +109,96 @@ go test -short -v ./...
 
 ### Property-based tests
 
-Files named `*_pbt_test.go` use `quad4/pbt` for generative testing (cryptography, packet, buffer, rate, resource).
+Files named `*_pbt_test.go` use `quad4/pbt` for generative testing (cryptography, packet, buffer, rate, resource, announce, link, identity). Some properties still live beside unit tests in the same package.
+
+```bash
+task test-property
+```
+
+### Mutation tests
+
+In-repo `tools/gomutant` flips same-width operators and re-runs package tests.
+
+```bash
+task test-mutation
+```
+
+Default packages: cryptography, packet, announce, destination, identity, ifac, backbone, interfaces. Override with `MUTATION_PACKAGES` / `MUTATION_THRESHOLD`.
 
 ### Fuzz tests
 
-Files named `*_fuzz_test.go` cover packet, link, ifac, blackhole, discovery, and pipe HDLC framing (`pkg/interfaces/pipe_fuzz_test.go`).
+Files named `*_fuzz_test.go` cover packet, link, ifac, blackhole, discovery, health counters (`pkg/health`), pipe HDLC framing (`pkg/interfaces/pipe_fuzz_test.go`), and librns (`pkg/librns`).
+
+### Chaos and fault injection
+
+Seeded loss, reorder, corruption, and flap tests across layers:
+
+| Prefix | Package | Focus |
+|--------|---------|-------|
+| `TestSimChaos*` | `pkg/transport` | Multi-node path and announce under delay/loss/corrupt/reorder/flap (health oracle deltas on corrupt) |
+| `TestLinkChaos*` | `pkg/link` | Establish, packet under loss/reorder, resource under capped drop, mid-session flap, goroutine budget |
+| `TestIfaceChaos*` | `pkg/interfaces` | TCP HDLC corrupt/reorder, Local corrupt resync, Pipe respawn, Backbone reconnect |
+
+```bash
+task test-chaos
+task test-soak
+task test-soak-protect
+```
+
+Chaos suites are in-process Go only (sim pipes / HDLC fixtures). Live Go↔Python HDLC loss, reorder, corrupt, and mid-session flap live under `tests/interop/` (`TestLiveInteropHDLC*`, `RUN_LIVE_INTEROP=1`). Unpack hop-gate, HT2 truncation, oversize, and Pack/Unpack byte-identity vs Python `RNS.Packet` live in `unpack_live_test.go`. Healthy-path cross-stack coverage also lives under `tests/interop/`.
+
+### dos_protection tests
+
+`pkg/protect` and interface hooks cover false positives, false negatives, auto learn/persist/relearn, and live sockets.
+
+| Suite | Location | Focus |
+|-------|----------|-------|
+| Unit / FP-FN | `pkg/protect/false_positive_test.go` | Quiet traffic, bursty legit, multi-iface isolation, oscillation, poisoned warmup, drift without false block |
+| Snapshot / bitrate / priority | `pkg/protect/snapshot_test.go`, `bitrate_test.go`, `packetclass.go` | Status snapshot, scaled floors, prefer-keep shedding |
+| Transport handler shed | `pkg/transport/protect_test.go` | Semaphore-full always sheds in detect, prevent, and auto learning |
+| Slow findings | `pkg/rnsutil/slow_protect_test.go` | `dos_armed_trips` and cool-down findings from RPC protect block |
+| Sandbox soft-fail | `pkg/sandbox/warn_test.go` | Rate-limited stdout when Landlock or seccomp soft-fails |
+| Replay traces | `pkg/protect/replay_trace_test.go` | Mesh-like timelines, flood inject and recovery, auto learn then block |
+| Property / fuzz | `pkg/protect/property_test.go`, `fuzz_test.go` | Detect never blocks, prevent after threshold, mode round-trip |
+| Soak | `task test-soak-protect` | Bounded flood heap and goroutine budgets |
+| Live UDP/TCP | `pkg/interfaces/protect_*_live_test.go` | Real loopback sockets, optional non-loopback NIC, TCP accept storms |
+| Live interop | `tests/interop/dos_protect_live_test.go` | `RUN_LIVE_INTEROP=1`: quiet budget, UDP flood shed, auto learn on live UDP, transport path, public mesh peer dials |
+
+```bash
+go test ./pkg/protect -short
+go test ./pkg/interfaces -run 'LiveUDP|LiveTCP|Protect'
+task test-soak-protect
+RUN_LIVE_INTEROP=1 go test ./tests/interop -run 'DoSProtect|DoSProtection'
+```
+
+FreeBSD, OpenBSD, and Haiku CI jobs run `go test -short ./pkg/protect/` and transport protect tests in addition to `pkg/sandbox` and self-check. The `test-extra` soak matrix runs `task test-soak-protect`.
+
+Config and threat scope: [Configuration](configuration.md#dos_protection-go-only), [Security](security.md#dos-protection-local-idsips).
+
+### Test oracles
+
+| Oracle | Location |
+|--------|----------|
+| Python crossref vectors | `tests/crossref/` |
+| Health counter deltas | `pkg/health.TransportOracle` / `OracleSnapshot.Delta` |
+| Handshake / adversarial frames | `pkg/packet/testdata/` |
+| IFAC goldens | `pkg/ifac` unit tests |
+| Sim path/hop asserts | `pkg/transport/sim_assertions_test.go` |
+
+```bash
+task test-oracle
+```
+
+### Smoke, acceptance, e2e, black box
+
+```bash
+task test-binary-smoke
+task test-acceptance
+task test-e2e
+task test-blackbox
+```
+
+Notable additions: `pkg/cli` dump smoke via `Main`, `pkg/librns.TestAcceptanceScaffoldMinimum`, `pkg/node.TestUDPPathE2E`.
 
 ### Crossref tests
 
@@ -116,11 +218,26 @@ Vectors are JSON with format version 5 (`generate_vectors.py`). The reference tr
 
 Coverage includes identity, HKDF, HMAC, packet wire, announces, encryption, links, resources, channel envelopes, buffers, path requests.
 
+Handshake decode trees for porters also live in `pkg/packet/testdata/handshake_vectors.json` (see [packet-debug.md](packet-debug.md)).
+
+### Packet debug tools
+
+- Wireshark Lua dissector: `tools/wireshark/rns.lua`
+- `reticulum-go dump` / rgodump for hex and pcap
+- `reticulum-go snapshot` / rgosnap for path and health JSON
+- Timeline convention: [interop-timeline.md](interop-timeline.md)
+
+```bash
+go test ./pkg/packet/ -run 'TestHandshakeVector|TestTshark|TestDecode|TestPCAP'
+go test ./pkg/health/ -run TestDrop
+go test ./pkg/cli/ -run TestRunDump
+```
+
 ### Interop tests
 
 Location: `tests/interop/`
 
-Live tests pair a Go process with Python helpers under `tests/interop/py/`.
+Live tests pair a Go process with Python helpers under `tests/interop/py/`. HDLC burst (`TestLiveInteropHDLCBurst*`) and Unpack hop-gate (`TestLiveInteropUnpackOracleMatchesPython`) cover stream coalescing and refuse-invalid parity.
 
 Enable:
 
@@ -128,30 +245,127 @@ Enable:
 RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
 ```
 
+Optional Python interpreter (prefer a venv with `rns==1.4.2`):
+
+```bash
+sh scripts/ci/setup-venv-pip.sh 'rns==1.4.2'
+PYTHON_INTEROP=.venv/bin/python RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
+```
+
+#### Debug harness
+
+NomadNet relay, pageserver, and shared helpers use `tests/interop/harness/`.
+
+| Variable | Behavior |
+|----------|----------|
+| `INTEROP_ARTIFACTS=1` | Always keep artifact dirs (default: only when the test fails) |
+| `INTEROP_EVENTS=1` | Force event logging (also on when artifacts are enabled) |
+| `INTEROP_ARTIFACT_ROOT` | Parent directory for durable artifact folders |
+
+On failure (or with `INTEROP_ARTIFACTS=1`) the test logs the artifact path and the last events. Typical files:
+
+| File | Contents |
+|------|----------|
+| `events.jsonl` | One JSON object per line (ts, src, event, kind, detail) |
+| `stderr.txt` | Captured Python stderr (human RNS logs plus `INTEROP_EVENT` lines) |
+| `env.json` | Selected interop env keys |
+
+Python peers emit `INTEROP_EVENT {...}` on stderr via `tests/interop/py/interop_events.py`. Stdout tokens such as `READY` and `REQUEST_OK` are unchanged.
+
+Example:
+
+```bash
+INTEROP_ARTIFACTS=1 INTEROP_ARTIFACT_ROOT=/tmp/rns-interop \
+  RUN_LIVE_INTEROP=1 go test -v ./tests/interop/ -run 'TestLiveNomadNetLinkThroughGoRelay|TestLiveInteropPythonPageServerLargePageRequest'
+```
+
 | Test file | Topic |
 |-----------|-------|
-| `link_live_test.go` | Link sessions |
+| `link_live_test.go` | Link sessions, resources, binary burst echo, Go→Python request |
+| `channel_buffer_live_test.go` | Channel messages and buffer streams |
+| `rncp_blackhole_live_test.go` | rncp file transfer and blackhole LINKIDENTIFY |
 | `auto_live_test.go` | AutoInterface |
 | `ifac_live_test.go` | IFAC |
 | `transport_path_live_test.go` | Path requests |
 | `transport_relay_live_test.go` | Transport relay |
 | `backbone_live_test.go` | Backbone |
+| `quic_live_test.go` | QUIC Go-Go echo (no Python peer) |
 | `pipe_live_test.go` | PipeInterface with Python echo |
-| `shared_rpc_live_test.go` | Shared-instance RPC |
+| `modem73_live_test.go` | Modem73Interface (fake KISS/control, optional modem73 binary audio loop via `MODEM73_BIN` + pactl) |
+| `sdr_live_test.go` | SDRInterface mock exchange (`RUN_LIVE_SDR=1`) |
+| `shared_rpc_live_test.go` | Shared-instance RPC (TCP and Unix on Linux) |
 | `pageserver_live_test.go` | Pageserver example |
 | `nomadnet_crawl_live_test.go` | Nomadnet crawl |
+| `nomadnet_relay_live_test.go` | NomadNet through Go mesh relay |
+| `path_cp_live_test.go` | path and rgocp utilities |
+| `i2p_live_test.go` | I2PInterface Go and Python (needs SAM) |
+| `directory_outgoing_live_test.go` | Public directory clearnet TCP peers |
 
 ### Package-specific live tests
 
 | Package | Env var |
 |---------|---------|
-| `pkg/i2p`, `pkg/interfaces` I2P | `RUN_LIVE_I2P=1` |
+| `pkg/i2p`, `pkg/interfaces` I2P | `RUN_LIVE_I2P=1` (optional `I2P_SAM_ADDRESS`, `I2P_DIRECTORY_URL`) |
 | `pkg/blackhole` | `RUN_PY_INTEROP=1` |
 | `pkg/discovery` | `RUN_PY_INTEROP=1` |
 
 ### End-to-end daemon tests
 
 `cmd/reticulum-go/` contains `controlapi_e2e_test.go`, `reload_e2e_test.go`, and related tests.
+
+### Host self-check
+
+`reticulum-go self-check` is a host OS preflight. It validates that platform features work on the machine under test (crypto, identity file backend, sandbox, securemem, loopback interfaces, daemon with sandbox, shared-instance RPC, and on Unix a SIGHUP config/interface reload).
+
+```bash
+make test-self-check
+# or
+task test-self-check
+# or
+./bin/reticulum-go self-check --json --full
+```
+
+Flags:
+
+| Flag | Behavior |
+|------|----------|
+| `--json` | Machine-readable report |
+| `--quick` | Core and platform only (no loopback or daemon) |
+| `--full` | Also probe QUIC, HTTPS, VSOCK, Pipe, and Serial |
+| `--interop` | Optional external tools (crossref vectors, Python RNS, binding CLIs) |
+| `--strict` | Treat warnings as failures |
+| `--binary PATH` | Binary used for CLI and daemon checks |
+
+Environment:
+
+| Variable | Behavior |
+|----------|----------|
+| `RETICULUM_SELF_CHECK=1` | Used by CI wrappers that invoke the same checklist |
+| `RETICULUM_SELF_CHECK_INTEROP=1` | Enables the interop tier |
+| `RETICULUM_TEST_KEYRING=1` | Require Linux keyring round-trip (fail if unavailable) |
+
+Exit code is non-zero on any fail result. With `--strict`, warnings also fail.
+
+Daemon checks include Control API health with sandbox enabled, shared-instance GetInterfaceStats RPC, and (except Windows and FreeBSD CapEnter) SIGHUP reload of a UDP interface.
+
+CI runs self-check on Linux (amd64 and arm64), macOS, Windows, FreeBSD, and OpenBSD. Extra Linux arches (`386`, arm GOARM=6, riscv64, ppc64le, ppc64) run via `qemu-user-static` (`task test-self-check-386`, `test-self-check-arm`, `test-self-check-riscv64`, `test-self-check-ppc64le`, `test-self-check-ppc64`). Android emulator self-check is a separate workflow (`selfcheck-android.yml`) on schedule or workflow_dispatch.
+
+NetBSD is not in CI. Run `reticulum-go self-check` manually on that host.
+
+### Static footgun scan
+
+`reticulum-go zen` scans Go sources (and optional Python with `-python`) for path and link anti-patterns: RequestPath or HasPath loops, Establish before AwaitPath, link use without callbacks, announce bursts, and legacy 15 second timeouts. It is a developer tool, not a runtime check. No daemon is required.
+
+```bash
+make build
+./bin/reticulum-go zen ./...
+./bin/reticulum-go zen -list-rules
+./bin/reticulum-go zen -fix ./pkg/myapp/...
+```
+
+`-fix` applies only safe edits (checking RequestPath errors in functions that return error). Warnings without `-fix` exit non-zero so CI can gate on the scan.
+
+Package tests live in `pkg/zenfix/`. Full flag and rule reference: [CLI utilities](utilities.md#rgozen).
 
 ## Vendoring
 
@@ -171,11 +385,14 @@ GitHub Actions workflows in `.github/workflows/`:
 
 | Workflow | Role |
 |----------|------|
-| ci.yml | Build, test, reproducibility |
+| ci.yml | Build, test, reproducibility, OS self-check (Linux amd64/arm64 plus 386/arm/riscv64/ppc64le/ppc64 via qemu-user, macOS, Windows, FreeBSD, OpenBSD) |
+| selfcheck-android.yml | Android emulator self-check (nightly / manual) |
 | security.yml | Gosec, govulncheck, Trivy, SBOM dispatch |
+| codeql.yml | CodeQL for Go, JS/TS, Python, and Actions workflows |
+| dependency-review.yml | PR dependency and advisory gate |
 | publish.yml | Tagged releases, cosign attestations |
 
-CI uses Go 1.26.5 via `actions/setup-go` in `.github/actions/setup-ci` with `GOTOOLCHAIN=local` and vendored modules.
+CI uses Go 1.26.5 via `actions/setup-go` in `.github/actions/setup-ci` with `GOTOOLCHAIN=local` and vendored modules. Actions are SHA-pinned. Dependabot opens weekly PRs for Action bumps (`.github/dependabot.yml`).
 
 ## Cross-compilation
 
@@ -196,6 +413,115 @@ task test-wasm
 ```
 
 Requires Task. See [Embedding and WebAssembly](embedding-and-wasm.md).
+
+## librns shared library
+
+```bash
+task build-librns
+make -C bindings/c/examples/smoke
+./bindings/c/examples/smoke/librns-smoke
+```
+
+Needs a C toolchain and CGO. Daemon builds stay `CGO_ENABLED=0`. See [librns](librns.md).
+
+## Odin bindings
+
+```bash
+task build-librns
+task test-odin
+```
+
+Requires the Odin compiler on `PATH` (CI installs a pinned monthly release via `scripts/ci/setup-odin.sh`, job `Odin bindings`). Package lives under `bindings/odin`. See [librns](librns.md#odin-bindings).
+
+## Zig bindings
+
+```bash
+task build-librns
+task test-zig
+```
+
+Requires Zig 0.16.0 or later on `PATH` (CI installs a pinned release via `scripts/ci/setup-zig.sh`, job `Zig bindings`). Package lives under `bindings/zig`. See [librns](librns.md#zig-bindings).
+
+## C++ bindings
+
+```bash
+task build-librns
+task test-cpp
+```
+
+Requires CMake and a C++17 compiler on `PATH` (CI job `C++ bindings`). Package lives under `bindings/cpp`. See [librns](librns.md#c-bindings).
+
+## Dart bindings
+
+```bash
+task build-librns
+task test-dart
+```
+
+Requires the Dart SDK on `PATH` (CI pins `3.11.4`, job `Dart bindings`) and CGO for `librns.so` FFI smoke tests. Package and examples live under `bindings/dart`. See [librns Dart FFI](librns.md#dart-ffi-bindings) and [Control API](control-api.md#dart-and-flutter).
+
+## Rust bindings
+
+```bash
+task build-librns
+task test-rust
+```
+
+Requires `cargo` on `PATH` (CI job `Rust bindings`). Package and examples live under `bindings/rust`.
+
+## Python bindings
+
+```bash
+task build-librns
+task test-python
+```
+
+Requires `python3` on `PATH` (CI job `Python bindings`). Package and examples live under `bindings/python`.
+
+## Lua bindings
+
+```bash
+task build-librns
+task test-lua
+```
+
+Requires LuaJIT on `PATH` (CI job `Lua bindings`). Package and examples live under `bindings/lua`.
+
+## Swift bindings
+
+```bash
+task build-librns
+task test-swift
+```
+
+Requires `swift` on `PATH` (CI pins `6.0.3` via `scripts/ci/setup-swift.sh`, job `Swift bindings`). Package and examples live under `bindings/swift`.
+
+## Java bindings
+
+```bash
+task build-librns
+task test-java
+```
+
+Requires `javac` on `PATH` (CI uses Temurin 17, job `Java bindings`). Package and examples live under `bindings/java`. JNA is fetched on first build.
+
+## Kotlin bindings
+
+```bash
+task build-librns
+task test-kotlin
+```
+
+Requires `kotlinc` and `javac` on `PATH` (CI pins Kotlin `2.1.10` via `scripts/ci/setup-kotlin.sh`, job `Kotlin bindings`). Package and examples live under `bindings/kotlin` and depend on `bindings/java`.
+
+## C ABI examples
+
+```bash
+task build-librns
+task test-c
+```
+
+Builds and runs `bindings/c/examples` (smoke plus page-fetch/pageserver compile). Binding CI jobs also run `make -C bindings/<lang> examples`.
 
 ## Adding a change safely
 

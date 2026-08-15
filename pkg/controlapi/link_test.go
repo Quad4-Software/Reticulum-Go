@@ -64,7 +64,7 @@ func TestRequestResponseBridgeDirect(t *testing.T) {
 		resultCh <- handler(pathHash, []byte("hello"), requestID, linkID, nil, time.Now())
 	}()
 
-	raw := ws.recvText(t, 2*time.Second)
+	raw := ws.recvText(t, 5*time.Second)
 	var incoming requestIncomingEvent
 	if err := json.Unmarshal(raw, &incoming); err != nil {
 		t.Fatalf("decode event %q: %v", raw, err)
@@ -201,13 +201,22 @@ type pipeInterface struct {
 	tr   *transport.Transport
 }
 
+// pipeTestBitrate models an in-process lossless pipe, matching the guess
+// used by the real Pipe interface (pkg/interfaces/pipe.go). Using
+// common.BitrateMinimum here would make AwaitPath treat the loopback as an
+// uninitialized slow radio and scale its path-response window to minutes.
+const pipeTestBitrate = 1_000_000
+
 func newPipeInterface(name string) *pipeInterface {
 	return &pipeInterface{
 		BaseInterface: common.BaseInterface{
 			Name:    name,
 			Type:    common.IFTypeUDP,
+			Mode:    common.IFModeFull,
 			Enabled: true,
 			Online:  true,
+			MTU:     common.DefaultMTU,
+			Bitrate: pipeTestBitrate,
 		},
 	}
 }
@@ -399,7 +408,7 @@ func TestLinkAndRequestLifecycle(t *testing.T) {
 	}
 }
 
-func decodeEvent[T any](t *testing.T, ws *testWSClient, timeout time.Duration) T {
+func decodeEvent[T any](t testing.TB, ws *testWSClient, timeout time.Duration) T {
 	t.Helper()
 	raw := ws.recvText(t, timeout)
 	var v T

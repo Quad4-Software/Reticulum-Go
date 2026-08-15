@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package identity
 
 import (
@@ -10,6 +11,8 @@ import (
 	"os"
 
 	"quad4/reticulum-go/pkg/cryptography"
+	"quad4/reticulum-go/pkg/identity/store"
+	"quad4/reticulum-go/pkg/securemem"
 )
 
 const (
@@ -63,17 +66,18 @@ func (i *Identity) ToHardwareBoundFile(path string) error {
 	if err != nil {
 		return err
 	}
+	defer securemem.WipeBytes(pk)
 	return WriteHardwareBoundIdentityFile(path, pk[:32], i.verificationKey)
 }
 
 // LoadIdentityFile loads 64-byte software identity bytes or RHB1 v1 hardware-bound descriptor.
 // Hardware-bound paths need a matching signer or [OptionalIdentitySignerHook].
 func LoadIdentityFile(path string, signer cryptography.Ed25519Signer) (*Identity, error) {
-	// #nosec G304 G703 -- path is operator-chosen identity storage
-	data, err := os.ReadFile(path)
+	data, err := store.LoadIdentityBlob(path)
 	if err != nil {
 		return nil, err
 	}
+	defer securemem.WipeBytes(data)
 	if len(data) == KeySize/8 {
 		return FromBytes(data)
 	}

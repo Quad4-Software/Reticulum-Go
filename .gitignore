@@ -1,5 +1,14 @@
 # Build artifacts
 bin/
+/rgostatus
+/rgoid
+/rgoprobe
+/rgopath
+/rgocp
+/librns.so
+*.so
+*.dylib
+*.dll
 
 # Test coverage reports
 coverage.out
@@ -17,23 +26,70 @@ cosign.key
 
 # JSON assets and auto-generated exports
 *.json
+!pkg/packet/testdata/handshake_vectors.json
+!pkg/packet/testdata/adversarial/manifest.json
+!pkg/rgosh/testdata/adversarial/manifest.json
 
-# Example files, not adding them just yet.
-/examples/*
-!/examples/wasm/
-!/examples/pageserver/
+# Opaque binary blobs (corpus payloads live as hex in tracked JSON)
+*.bin
+
+# Example build binaries (source under examples/ is tracked)
+/examples/*/example-*
+/examples/page-downloader/page-downloader
+/examples/pageserver/example-pageserver
+/examples/librns-smoke/librns-smoke
+/examples/librns-page-fetch/librns-page-fetch
+/examples/odin-page-fetch/odin-page-fetch
+/examples/librns-pageserver/librns-pageserver
+/examples/librns-pageserver/identity
+/examples/odin-pageserver/odin-pageserver
+/examples/odin-pageserver/identity
+/examples/zig-page-fetch/zig-page-fetch
+/examples/zig-pageserver/zig-pageserver
+/examples/zig-pageserver/identity
+/examples/cpp-smoke/cpp-smoke
+/examples/cpp-page-fetch/cpp-page-fetch
+/examples/cpp-pageserver/cpp-pageserver
+/examples/cpp-pageserver/identity
+/examples/page-downloader/page-downloader
+
+# Zig build caches
+**/.zig-cache/
+**/zig-cache/
+**/zig-out/
+
+# C++ binding build tree
+bindings/cpp/build/
+
+# Rust / Cargo (bindings and nested examples)
+bindings/**/target/
+
+# Other binding local build output (subdirs may also ship .gitignore)
+bindings/**/.build/
+bindings/**/.swiftpm/
+bindings/**/.dart_tool/
+bindings/java/lib/
+bindings/java/out/
+bindings/kotlin/out/
+bindings/**/*.egg-info/
+bindings/odin/tests/rns_tests
+bindings/**/examples/**/librns-*
+bindings/**/examples/**/odin-*
+bindings/**/examples/**/cpp-*
+bindings/**/examples/**/zig-*
 
 # OS / Editor files
-.DS_Store       # macOS Finder metadata
-Thumbs.db       # Windows Explorer thumbnail cache
+.DS_Store
+Thumbs.db
 
 # IDE / Editor config directories
-.idea/          # JetBrains IDEs
-.vscode/        # Visual Studio Code
+.idea/
+.vscode/
+.cursor/
 
 # Swap and test binaries
-*.swp           # Swap files (e.g. vim)
-*.test          # Go test binaries
+*.swp
+*.test
 test/compat/
 
 node_modules/
@@ -47,9 +103,26 @@ __pycache__/
 
 .tools/
 
+# Local daemon config / storage if created in-repo
 .reticulum-go/
+.reticulum/
 
 # Local Go build/test tmpdir override
 .gotmp/
+.gocache/
+.tmp/
 
-*.test
+# Firecracker microvm build and runtime artifacts
+microvm/out/
+
+# go test -fuzz corpus dumps (not seed fixtures we intentionally commit)
+**/testdata/fuzz/
+
+# Local identity and rnid-style artifacts (fixtures under pkg/*/testdata/ stay tracked)
+/*.rid
+/*.rsg
+/*.rsm
+!/reticulum-go.rsm
+/*.rfe
+/*.pub
+dist/

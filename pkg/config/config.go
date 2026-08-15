@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package config
 
 import (
@@ -202,7 +203,7 @@ func EnsureConfigDir() error {
 func InitConfig() (*Config, error) {
 	// Ensure config directory exists
 	if err := EnsureConfigDir(); err != nil {
-		return nil, fmt.Errorf("failed to create config directory: %v", err)
+		return nil, fmt.Errorf("failed to create config directory: %w", err)
 	}
 
 	configPath := GetDefaultConfigPath()
@@ -257,14 +258,14 @@ func InitConfig() (*Config, error) {
 
 		// Save default config
 		if err := SaveConfig(cfg, configPath); err != nil {
-			return nil, fmt.Errorf("failed to save default config: %v", err)
+			return nil, fmt.Errorf("failed to save default config: %w", err)
 		}
 	}
 
 	// Load config
 	cfg, err := LoadConfig(configPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %v", err)
+		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
 	return cfg, nil

@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-//go:build !tinygo
-
 package sharedinstance
 
 import (
 	"encoding/hex"
 	"net"
+	rdebug "runtime/debug"
 	"strconv"
 	"sync"
 
@@ -17,7 +16,7 @@ import (
 	"quad4/reticulum-go/pkg/transport"
 )
 
-// RPCHandler serves Python-compatible shared-instance control requests.
+// RPCHandler serves shared-instance control requests.
 type RPCHandler struct {
 	Transport *transport.Transport
 }
@@ -103,11 +102,12 @@ func decodeHash(v any) []byte {
 
 // RPCServer listens for authenticated msgpack RPC calls from local clients.
 type RPCServer struct {
-	listener net.Listener
-	authkey  []byte
-	handler  *RPCHandler
-	wg       sync.WaitGroup
-	done     chan struct{}
+	listener  net.Listener
+	authkey   []byte
+	handler   *RPCHandler
+	wg        sync.WaitGroup
+	done      chan struct{}
+	closeOnce sync.Once
 }
 
 // StartRPCServer binds the instance control port and serves requests.
@@ -126,7 +126,7 @@ func StartRPCServer(cfg *common.ReticulumConfig, tr *transport.Transport) (*RPCS
 		ln  net.Listener
 		err error
 	)
-	useUnix := cfg.SharedInstanceType == common.SharedInstanceUnix
+	useUnix := common.SharedInstanceUsesUnix(cfg.SharedInstanceType)
 	if useUnix {
 		name := cfg.InstanceName
 		if name == "" {
@@ -172,6 +172,12 @@ func (s *RPCServer) serve() {
 		go func(c net.Conn) {
 			defer s.wg.Done()
 			defer c.Close()
+			defer func() {
+				if r := recover(); r != nil {
+					debug.Log(debug.DebugCritical, "Shared instance RPC panic",
+						"error", r, "stack", string(rdebug.Stack()))
+				}
+			}()
 			if err := AuthenticateServer(c, s.authkey); err != nil {
 				debug.Log(debug.DebugError, "Shared instance RPC auth failed", "error", err)
 				return
@@ -195,10 +201,12 @@ func (s *RPCServer) serve() {
 }
 
 func (s *RPCServer) Close() error {
-	close(s.done)
-	if s.listener != nil {
-		_ = s.listener.Close()
-	}
+	s.closeOnce.Do(func() {
+		close(s.done)
+		if s.listener != nil {
+			_ = s.listener.Close()
+		}
+	})
 	s.wg.Wait()
 	return nil
 }

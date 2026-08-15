@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package transport
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -243,22 +245,24 @@ func TestDecodePathTableEntries_CorruptTopLevelType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)
 	}
-	if _, _, err := decodePathTableEntries(data, time.Now()); err == nil {
-		t.Fatal("expected decode error for non-array top level")
+	_, _, err = decodePathTableEntries(data, time.Now())
+	if !errors.Is(err, common.ErrCorruption) {
+		t.Fatalf("got %v, want ErrCorruption", err)
 	}
 }
 
 func TestDecodePathTableEntries_TruncatedGarbage(t *testing.T) {
 	garbage := []byte{0x93, 0x01, 0x02} // claims array len 3, only 2 elements follow
-	if _, _, err := decodePathTableEntries(garbage, time.Now()); err == nil {
-		t.Fatal("expected decode error for truncated garbage")
+	_, _, err := decodePathTableEntries(garbage, time.Now())
+	if !errors.Is(err, common.ErrCorruption) {
+		t.Fatalf("got %v, want ErrCorruption", err)
 	}
 }
 
 func TestDecodePathTableEntries_EmptyInput(t *testing.T) {
 	records, skipped, err := decodePathTableEntries([]byte{}, time.Now())
-	if err == nil {
-		t.Fatal("expected decode error for empty input (not a valid msgpack value)")
+	if !errors.Is(err, common.ErrCorruption) {
+		t.Fatalf("got %v, want ErrCorruption", err)
 	}
 	if records != nil || skipped != 0 {
 		t.Fatal("expected no partial results on decode error")
@@ -537,23 +541,19 @@ func TestPathPersistence_NoGoroutineLeakAcrossManyTransports(t *testing.T) {
 	}
 }
 
-// --- Python wire-format interop --------------------------------------------
+// --- Wire-format interop ---------------------------------------------------
 
-// TestPathTableInterop_PythonLikeEncoding hand-encodes a destination_table
-// snapshot the way Python umsgpack.packb would (bin-typed byte strings via
-// a dynamic array, matching Transport.save_path_table's serialised_entry
-// layout: [dest_hash, timestamp, next_hop, hops, expires, random_blobs,
-// interface_hash, packet_hash]) and confirms Go's loader accepts it.
-func TestPathTableInterop_PythonLikeEncoding(t *testing.T) {
+// TestPathTableInterop_WireCompatibleEncoding hand-encodes a destination_table
+// snapshot as a msgpack array of arrays with bin-typed byte strings
+// (layout: dest_hash, timestamp, next_hop, hops, expires, random_blobs,
+// interface_hash, packet_hash) and confirms the loader accepts it.
+func TestPathTableInterop_WireCompatibleEncoding(t *testing.T) {
 	now := time.Now()
 	destHash := bytes.Repeat([]byte{0xAA}, 16)
 	nextHop := bytes.Repeat([]byte{0xBB}, 16)
 	ifaceHash := interfacePersistKey("wan")
 
-	// Build with the generic []any encoder path (same as our own writer),
-	// which is wire-compatible with Python's umsgpack array-of-arrays
-	// format: both produce a msgpack array of arrays with bin-typed byte
-	// fields.
+	// Build with the generic []any encoder path used by the on-disk writer.
 	entry := []any{
 		destHash,
 		float64(now.Unix()),

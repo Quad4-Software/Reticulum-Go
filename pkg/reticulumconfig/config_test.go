@@ -4,6 +4,7 @@
 package reticulumconfig
 
 import (
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,24 +32,37 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Interfaces == nil {
 		t.Error("Interfaces map must be initialised")
 	}
+	if cfg.DoSProtection != "auto" {
+		t.Errorf("DoSProtection: got %q, want auto", cfg.DoSProtection)
+	}
 	if !cfg.EnableSandbox {
 		t.Error("EnableSandbox should be true by default")
 	}
 }
 
 // TestParseBool covers every truthy and falsy spelling accepted by the parser.
+// Unrecognized values must not apply (ok=false) so defaults stay intact.
 func TestParseBool(t *testing.T) {
 	truthy := []string{"true", "True", "TRUE", "yes", "Yes", "YES", "y", "Y", "on", "ON", "1", "  yes  "}
-	falsy := []string{"false", "no", "n", "off", "0", "", "maybe", "2", "garbage"}
+	falsy := []string{"false", "no", "n", "off", "0"}
+	unknown := []string{"", "maybe", "2", "garbage", "yeah", "enable"}
 
 	for _, v := range truthy {
-		if !parseBool(v) {
-			t.Errorf("parseBool(%q) = false, want true", v)
+		got, ok := parseBool(v)
+		if !ok || !got {
+			t.Errorf("parseBool(%q) = %v,%v want true,true", v, got, ok)
 		}
 	}
 	for _, v := range falsy {
-		if parseBool(v) {
-			t.Errorf("parseBool(%q) = true, want false", v)
+		got, ok := parseBool(v)
+		if !ok || got {
+			t.Errorf("parseBool(%q) = %v,%v want false,true", v, got, ok)
+		}
+	}
+	for _, v := range unknown {
+		got, ok := parseBool(v)
+		if ok {
+			t.Errorf("parseBool(%q) = %v,%v want ok=false", v, got, ok)
 		}
 	}
 }
@@ -486,6 +500,89 @@ func TestSaveConfig_RoundTrip(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_IdentityBackend(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	writeFile(t, path, `[reticulum]
+  identity_backend = secretservice
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.IdentityBackend != "secretservice" {
+		t.Fatalf("IdentityBackend=%q", cfg.IdentityBackend)
+	}
+}
+
+func TestLoadConfig_DoSProtection(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	writeFile(t, path, `[reticulum]
+  dos_protection = auto
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.DoSProtection != "auto" {
+		t.Fatalf("DoSProtection = %q", cfg.DoSProtection)
+	}
+
+	cfg.DoSProtection = "prevent"
+	cfg.ConfigPath = path
+	if err := SaveConfig(cfg); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+	loaded, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if loaded.DoSProtection != "prevent" {
+		t.Fatalf("round trip DoSProtection = %q", loaded.DoSProtection)
+	}
+}
+
+func TestLoadConfig_NodeProfileCoreRouterDoesNotOverrideDos(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	writeFile(t, path, `[reticulum]
+  node_profile = core_router
+  dos_protection = detect
+  max_packet_handlers = 9
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.NodeProfile != common.NodeProfileCoreRouter {
+		t.Fatalf("NodeProfile=%q", cfg.NodeProfile)
+	}
+	if cfg.DoSProtection != "detect" {
+		t.Fatalf("explicit dos overwritten to %q", cfg.DoSProtection)
+	}
+	if cfg.MaxPacketHandlers != 9 {
+		t.Fatalf("handlers=%d want 9", cfg.MaxPacketHandlers)
+	}
+	if !cfg.WatchInterfaces {
+		t.Fatal("core_router should enable watch_interfaces when unset")
+	}
+}
+
+func TestLoadConfig_NodeProfileCoreRouterFillsDos(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	writeFile(t, path, `[reticulum]
+  node_profile = core_router
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.DoSProtection != "prevent" {
+		t.Fatalf("dos=%q want prevent", cfg.DoSProtection)
+	}
+	if cfg.MaxPacketHandlers < common.DefaultMaxPacketHandlers {
+		t.Fatalf("handlers=%d", cfg.MaxPacketHandlers)
+	}
+}
+
 // TestLoadConfig_EnableSandbox verifies the parser recognises the
 // enable_sandbox key and that both truthy and falsy values are handled.
 func TestLoadConfig_EnableSandbox(t *testing.T) {
@@ -511,6 +608,103 @@ func TestLoadConfig_EnableSandbox(t *testing.T) {
 	}
 	if !cfg.EnableSandbox {
 		t.Error("enable_sandbox = yes should set EnableSandbox to true")
+	}
+}
+
+// TestLoadConfig_EnableSeccomp verifies enable_seccomp parsing and default.
+func TestLoadConfig_EnableSeccomp(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+
+	writeFile(t, path, `[reticulum]
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if !cfg.EnableSeccomp {
+		t.Error("omitted enable_seccomp should default to true")
+	}
+
+	writeFile(t, path, `[reticulum]
+  enable_seccomp = no
+`)
+	cfg, err = LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.EnableSeccomp {
+		t.Error("enable_seccomp = no should set EnableSeccomp to false")
+	}
+}
+
+func TestLoadConfig_SandboxHardeningKeys(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	writeFile(t, path, `[reticulum]
+  sandbox_strict = yes
+  sandbox_profile = router
+  sandbox_extra_paths = /dev/ttyUSB0, /opt/rns/data
+  sandbox_exec_rlimits = yes
+  control_api_socket = /tmp/rns-control.sock
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if !cfg.SandboxStrict {
+		t.Error("sandbox_strict = yes")
+	}
+	if cfg.SandboxProfile != common.SandboxProfileRouter {
+		t.Errorf("profile=%q", cfg.SandboxProfile)
+	}
+	if len(cfg.SandboxExtraPaths) != 2 || cfg.SandboxExtraPaths[0] != "/dev/ttyUSB0" {
+		t.Errorf("extra paths=%v", cfg.SandboxExtraPaths)
+	}
+	if !cfg.SandboxExecRlimits {
+		t.Error("sandbox_exec_rlimits = yes")
+	}
+	if cfg.ControlAPISocket != "/tmp/rns-control.sock" {
+		t.Errorf("socket=%q", cfg.ControlAPISocket)
+	}
+
+	writeFile(t, path, `[reticulum]
+  sandbox_profile = nope
+`)
+	cfg, err = LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.SandboxProfile != "" {
+		t.Errorf("unknown profile should be ignored, got %q", cfg.SandboxProfile)
+	}
+}
+
+func TestSaveConfig_SandboxHardeningRoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	cfg := DefaultConfig()
+	cfg.ConfigPath = path
+	cfg.SandboxStrict = true
+	cfg.SandboxProfile = common.SandboxProfileRouter
+	cfg.SandboxExtraPaths = []string{"/opt/rns"}
+	cfg.SandboxExecRlimits = true
+	cfg.ControlAPISocket = "/run/rns/control.sock"
+	if err := SaveConfig(cfg); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+	loaded, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if !loaded.SandboxStrict || !loaded.SandboxExecRlimits {
+		t.Fatal("bools did not round-trip")
+	}
+	if loaded.SandboxProfile != common.SandboxProfileRouter {
+		t.Errorf("profile=%q", loaded.SandboxProfile)
+	}
+	if len(loaded.SandboxExtraPaths) != 1 || loaded.SandboxExtraPaths[0] != "/opt/rns" {
+		t.Errorf("extra=%v", loaded.SandboxExtraPaths)
+	}
+	if loaded.ControlAPISocket != "/run/rns/control.sock" {
+		t.Errorf("socket=%q", loaded.ControlAPISocket)
 	}
 }
 
@@ -631,6 +825,36 @@ func TestLoadConfigBackboneRemoteAlias(t *testing.T) {
 	}
 }
 
+// TestLoadConfigUDPForwardAliases maps Python UDP forward_* to target_*.
+func TestLoadConfigUDPForwardAliases(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	body := `[interfaces]
+  [[udp]]
+    type = UDPInterface
+    enabled = yes
+    listen_ip = 127.0.0.1
+    listen_port = 4242
+    forward_ip = 127.0.0.1
+    forward_port = 4243
+`
+	writeFile(t, path, body)
+
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	iface := cfg.Interfaces["udp"]
+	if iface == nil {
+		t.Fatal("udp interface missing")
+	}
+	if iface.TargetHost != "127.0.0.1" || iface.TargetPort != 4243 {
+		t.Fatalf("forward aliases: got %s:%d", iface.TargetHost, iface.TargetPort)
+	}
+	if iface.Address != "127.0.0.1" || iface.Port != 4242 {
+		t.Fatalf("listen: got %s:%d", iface.Address, iface.Port)
+	}
+}
+
 func TestLoadConfig_BackboneIO(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config")
@@ -657,11 +881,213 @@ func TestLoadConfig_BackboneIO(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_RNS136Options(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	writeFile(t, path, `[reticulum]
+  enable_transport = no
+  static_transport_identity = yes
+  local_hops_delta = yes
+
+[interfaces]
+  [[mesh]]
+    type = UDPInterface
+    enabled = yes
+    mode = internal
+    recursive_prs = yes
+    announces_from_internal = no
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.EnableTransport {
+		t.Error("EnableTransport should be false")
+	}
+	if !cfg.StaticTransportIdentity {
+		t.Error("StaticTransportIdentity should be true")
+	}
+	if !cfg.LocalHopsDelta {
+		t.Error("LocalHopsDelta should be true")
+	}
+	iface := cfg.Interfaces["mesh"]
+	if iface == nil {
+		t.Fatal("mesh interface missing")
+	}
+	if iface.Mode != "internal" {
+		t.Errorf("Mode = %q, want internal", iface.Mode)
+	}
+	if !iface.RecursivePRs {
+		t.Error("RecursivePRs should be true")
+	}
+	if !iface.AnnouncesFromInternalSet || iface.AnnouncesFromInternal {
+		t.Errorf("AnnouncesFromInternal want false with set=true, got set=%v val=%v",
+			iface.AnnouncesFromInternalSet, iface.AnnouncesFromInternal)
+	}
+}
+
+func TestLoadConfigQUICKeys(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	body := `[interfaces]
+  [[QUIC Hub]]
+    type = QUICServerInterface
+    enabled = yes
+    listen_ip = 0.0.0.0
+    listen_port = 4242
+    cert_file = /tmp/cert.pem
+    key_file = /tmp/key.pem
+    peer_key = aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899
+
+  [[QUIC Uplink]]
+    type = QUICClientInterface
+    enabled = yes
+    target_host = hub.example.com
+    target_port = 4242
+    sni = hub.example.com
+    peer_key = aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899
+`
+	writeFile(t, path, body)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := cfg.Interfaces["QUIC Hub"]
+	if srv == nil || srv.Type != "QUICServerInterface" {
+		t.Fatalf("server: %+v", srv)
+	}
+	if srv.Address != "0.0.0.0" || srv.Port != 4242 {
+		t.Fatalf("listen %s:%d", srv.Address, srv.Port)
+	}
+	if srv.CertFile != "/tmp/cert.pem" || srv.KeyFile != "/tmp/key.pem" {
+		t.Fatalf("cert paths %+v", srv)
+	}
+	cli := cfg.Interfaces["QUIC Uplink"]
+	if cli == nil || cli.Type != "QUICClientInterface" {
+		t.Fatalf("client: %+v", cli)
+	}
+	if cli.SNI != "hub.example.com" || cli.PeerKey == "" {
+		t.Fatalf("client tls %+v", cli)
+	}
+	out := filepath.Join(t.TempDir(), "out")
+	cfg.ConfigPath = out
+	if err := SaveConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(raw)
+	for _, want := range []string{"cert_file", "key_file", "peer_key", "sni", "QUICClientInterface"} {
+		if !strings.Contains(s, want) {
+			t.Fatalf("SaveConfig missing %q in:\n%s", want, s)
+		}
+	}
+}
+
 // writeFile is a tiny test helper that writes content with a strict mode and
 // fails the test on IO errors.
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write %s: %v", path, err)
+	}
+}
+
+func TestApplyInterfaceOptionI2P(t *testing.T) {
+	cfg := &common.InterfaceConfig{}
+	applyInterfaceOption(cfg, "peers", "a.b32.i2p, b.b32.i2p")
+	applyInterfaceOption(cfg, "connectable", "true")
+	applyInterfaceOption(cfg, "sam_address", "127.0.0.1:7656")
+	if len(cfg.I2PPeers) != 2 || cfg.I2PPeers[0] != "a.b32.i2p" {
+		t.Fatalf("peers: %#v", cfg.I2PPeers)
+	}
+	if !cfg.I2PConnectable {
+		t.Fatal("expected connectable")
+	}
+	if cfg.I2PSAMAddress != "127.0.0.1:7656" {
+		t.Fatalf("sam_address: %q", cfg.I2PSAMAddress)
+	}
+}
+
+func TestLoadConfigIFACAndSharedInstance(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config")
+	body := `
+[reticulum]
+  share_instance = yes
+  shared_instance_port = 37428
+  instance_control_port = 37429
+  shared_instance_type = tcp
+  instance_name = node1
+
+[interfaces]
+
+  [[Test UDP]]
+    type = UDPInterface
+    enabled = yes
+    network_name = mynet
+    passphrase = secret
+    ifac_size = 128
+`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if !cfg.ShareInstance {
+		t.Fatal("expected share_instance")
+	}
+	if cfg.SharedInstanceType != "tcp" {
+		t.Fatalf("shared_instance_type = %q", cfg.SharedInstanceType)
+	}
+	if cfg.InstanceName != "node1" {
+		t.Fatalf("instance_name = %q", cfg.InstanceName)
+	}
+	ic := cfg.Interfaces["Test UDP"]
+	if ic == nil {
+		t.Fatal("missing interface")
+	}
+	if ic.NetworkName != "mynet" || ic.Passphrase != "secret" {
+		t.Fatalf("network creds: name=%q pass=%q", ic.NetworkName, ic.Passphrase)
+	}
+	if ic.IFACSize != 16 {
+		t.Fatalf("IFACSize = %d, want 16", ic.IFACSize)
+	}
+}
+
+func TestSetIFACSizeParser(t *testing.T) {
+	var size int
+	setIFACSize("128", &size)
+	if size != 16 {
+		t.Fatalf("128 bits => %d bytes, want 16", size)
+	}
+	size = 0
+	setIFACSize("8", &size)
+	if size != 1 {
+		t.Fatalf("8 bits => %d bytes, want 1", size)
+	}
+}
+
+func TestLoadConfig_RemoteManagement(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	writeFile(t, path, `[reticulum]
+  enable_transport = yes
+  enable_remote_management = yes
+  remote_management_allowed = 9fb6d773498fb3feda407ed8ef2c3229, 2d882c5586e548d79b5af27bca1776dc
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.EnableRemoteManagement {
+		t.Fatal("EnableRemoteManagement")
+	}
+	if len(cfg.RemoteManagementAllowed) != 2 {
+		t.Fatalf("allowed %d", len(cfg.RemoteManagementAllowed))
+	}
+	if hex.EncodeToString(cfg.RemoteManagementAllowed[0]) != "9fb6d773498fb3feda407ed8ef2c3229" {
+		t.Fatalf("first hash %x", cfg.RemoteManagementAllowed[0])
 	}
 }

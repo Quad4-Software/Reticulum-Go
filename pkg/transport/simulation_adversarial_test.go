@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package transport
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math/rand/v2"
 	"runtime"
@@ -297,16 +299,18 @@ func BenchmarkSimIFACLineRelay(b *testing.B) {
 			tail := net.nodes[n-1].ifaces[0]
 			src := net.nodes[0].ifaces[0]
 			second := net.nodes[1].id.Hash()
-			pkt := buildHT2(second, target, 0, make([]byte, 64))
 
 			b.StartTimer()
 			b.ReportAllocs()
 			startRx := tail.GetRxPackets()
 			for i := 0; i < b.N; i++ {
+				payload := make([]byte, 64)
+				binary.BigEndian.PutUint64(payload, uint64(i))
+				pkt := buildHT2(second, target, 0, payload)
 				_ = src.Send(pkt, "")
 			}
 			want := startRx + uint64(b.N)
-			deadline := time.Now().Add(time.Duration(b.N)*500*time.Microsecond + 5*time.Second)
+			deadline := time.Now().Add(5 * time.Second)
 			for tail.GetRxPackets() < want && time.Now().Before(deadline) {
 				time.Sleep(time.Millisecond)
 			}
@@ -384,8 +388,8 @@ func pathEntrySize(tr *Transport, dest []byte) int {
 		return 0
 	}
 	const overhead = 48
-	const keyBytes = 16
-	const valueBytes = 72
+	const keyBytes = 32
+	const valueBytes = 128
 	const slicePayload = 16
 	_ = dest
 	return overhead + keyBytes + valueBytes + slicePayload

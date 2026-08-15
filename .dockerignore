@@ -1,5 +1,6 @@
 # Binaries and build folders
 bin/
+*.bin
 *.exe
 *.dll
 *.so
@@ -26,6 +27,14 @@ Thumbs.db
 # Example and generated files
 examples/
 *.json
+!pkg/packet/testdata/handshake_vectors.json
+!pkg/packet/testdata/adversarial/manifest.json
+
+# Language binding build trees
+bindings/cpp/build/
+**/.zig-cache/
+**/zig-cache/
+**/zig-out/
 
 # SBOM and analysis artifacts
 bom.json
@@ -41,3 +50,6 @@ __pycache__/
 .tools/
 
 .reticulum-go/
+
+# Firecracker microvm build and runtime artifacts
+microvm/out/

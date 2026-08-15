@@ -1,0 +1,71 @@
+#!/bin/sh
+# pre-commit: lint staged YAML/shell, then keep reticulum-go.rsm in sync.
+#
+# Enable once per clone:
+#   make hooks-install
+#   # or: sh scripts/ci/install-git-hooks.sh
+#
+# Skip checks for one commit:
+#   SKIP_LINT_HOOK=1 git commit ...
+#   SKIP_YAML_HOOK=1 git commit ...
+#   SKIP_SHELLCHECK_HOOK=1 git commit ...
+#   SKIP_TREE_RSM_HOOK=1 git commit ...
+#
+# Without RNS_ID_PATH (or a default identity file) the RSM step warns and
+# continues so forks without the release identity are not blocked.
+set -eu
+
+ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+sh "$ROOT/scripts/ci/pre-commit-lint.sh"
+
+if [ "${SKIP_TREE_RSM_HOOK:-0}" = "1" ]; then
+	exit 0
+fi
+
+# Only act when staged paths affect the signed inventory.
+need_resign=0
+while IFS= read -r path; do
+	[ -n "$path" ] || continue
+	case "$path" in
+	reticulum-go.rsm) continue ;;
+	vendor | vendor/* | */vendor | */vendor/*) continue ;;
+	*)
+		need_resign=1
+		break
+		;;
+	esac
+done <<EOF
+$(git diff --cached --name-only --diff-filter=ACMR)
+EOF
+
+if [ "$need_resign" -eq 0 ]; then
+	exit 0
+fi
+
+ID_PATH="${RNS_ID_PATH:-}"
+if [ -z "$ID_PATH" ]; then
+	for candidate in \
+		"$HOME/.local/share/reticulum-go/reticulum-go-release.rid" \
+		"$HOME/.rngit/client_identity"
+	do
+		if [ -f "$candidate" ]; then
+			ID_PATH="$candidate"
+			break
+		fi
+	done
+fi
+
+if [ -z "$ID_PATH" ] || [ ! -f "$ID_PATH" ]; then
+	echo "pre-commit: staged inventory paths changed but no signing identity found." >&2
+	echo "pre-commit: set RNS_ID_PATH or run: make tree-rsm-sign" >&2
+	echo "pre-commit: or skip with SKIP_TREE_RSM_HOOK=1" >&2
+	exit 0
+fi
+
+export RNS_ID_PATH="$ID_PATH"
+
+echo "pre-commit: resigning reticulum-go.rsm"
+sh "$ROOT/scripts/ci/sign-tree-rsm.sh"
+git add -- "$ROOT/reticulum-go.rsm"

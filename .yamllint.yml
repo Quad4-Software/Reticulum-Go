@@ -1,0 +1,25 @@
+# Relaxed rules for GitHub Actions workflows and Task files.
+# Used by scripts/ci/pre-commit-lint.sh when yamllint is on PATH.
+
+extends: default
+
+rules:
+  document-start: disable
+  line-length:
+    max: 160
+    allow-non-breakable-inline-mappings: true
+  truthy:
+    allowed-values: ["true", "false", "on", "off", "yes", "no"]
+  comments:
+    min-spaces-from-content: 1
+  brackets:
+    max-spaces-inside: 0
+  indentation:
+    spaces: 2
+    indent-sequences: consistent
+
+ignore: |
+  vendor/
+  **/vendor/
+  node_modules/
+  .cache/

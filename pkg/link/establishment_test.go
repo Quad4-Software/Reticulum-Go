@@ -22,16 +22,16 @@ func TestEphemeralKeyGeneration(t *testing.T) {
 		t.Fatalf("Failed to generate ephemeral keys: %v", err)
 	}
 
-	if len(link.prv) != KeySize {
-		t.Errorf("Expected private key length %d, got %d", KeySize, len(link.prv))
+	if bufLen(link.prv) != KeySize {
+		t.Errorf("Expected private key length %d, got %d", KeySize, bufLen(link.prv))
 	}
 
 	if len(link.pub) != KeySize {
 		t.Errorf("Expected public key length %d, got %d", KeySize, len(link.pub))
 	}
 
-	if len(link.sigPriv) != 64 {
-		t.Errorf("Expected signing private key length 64, got %d", len(link.sigPriv))
+	if bufLen(link.sigPriv) != 64 {
+		t.Errorf("Expected signing private key length 64, got %d", bufLen(link.sigPriv))
 	}
 
 	if len(link.sigPub) != 32 {
@@ -147,11 +147,11 @@ func TestHandshake(t *testing.T) {
 		t.Fatalf("Link2 handshake failed: %v", err)
 	}
 
-	if string(link1.sharedKey) != string(link2.sharedKey) {
+	if string(bufBytes(link1.sharedKey)) != string(bufBytes(link2.sharedKey)) {
 		t.Error("Shared keys do not match")
 	}
 
-	if string(link1.derivedKey) != string(link2.derivedKey) {
+	if string(bufBytes(link1.derivedKey)) != string(bufBytes(link2.derivedKey)) {
 		t.Error("Derived keys do not match")
 	}
 
@@ -256,7 +256,7 @@ func TestLinkEstablishment(t *testing.T) {
 		t.Error("Link IDs do not match between initiator and responder")
 	}
 
-	t.Logf("Responder handshake successful, shared_key_len=%d", len(responderLink.sharedKey))
+	t.Logf("Responder handshake successful, shared_key_len=%d", bufLen(responderLink.sharedKey))
 }
 
 func TestLinkProofValidation(t *testing.T) {
@@ -352,18 +352,18 @@ func TestLinkProofValidation(t *testing.T) {
 		t.Errorf("Expected initiator status ACTIVE, got %d", initiatorLink.status.Load())
 	}
 
-	if string(initiatorLink.sharedKey) != string(responderLink.sharedKey) {
+	if string(bufBytes(initiatorLink.sharedKey)) != string(bufBytes(responderLink.sharedKey)) {
 		t.Error("Shared keys do not match after full handshake")
 	}
 
-	if string(initiatorLink.derivedKey) != string(responderLink.derivedKey) {
+	if string(bufBytes(initiatorLink.derivedKey)) != string(bufBytes(responderLink.derivedKey)) {
 		t.Error("Derived keys do not match after full handshake")
 	}
 
 	t.Logf("Full link establishment successful")
 	t.Logf("Link ID: %x", initiatorLink.linkID)
-	t.Logf("Shared key length: %d", len(initiatorLink.sharedKey))
-	t.Logf("Derived key length: %d", len(initiatorLink.derivedKey))
+	t.Logf("Shared key length: %d", bufLen(initiatorLink.sharedKey))
+	t.Logf("Derived key length: %d", bufLen(initiatorLink.derivedKey))
 	t.Logf("RTT: %.3f seconds", initiatorLink.rtt)
 }
 
@@ -387,5 +387,89 @@ func TestParseRTTPayloadSecondsRejectsNonMsgpack(t *testing.T) {
 	payload := []byte{0x00, 0x01, 0x02, 0x03}
 	if _, err := parseRTTPayloadSeconds(payload); err == nil {
 		t.Fatal("expected parse error for non-msgpack RTT payload")
+	}
+}
+
+func TestIncomingLinkCountLimit(t *testing.T) {
+	responderIdent, err := identity.NewIdentity()
+	if err != nil {
+		t.Fatalf("identity: %v", err)
+	}
+	tr := transport.NewTransport(&common.ReticulumConfig{})
+	t.Cleanup(func() { _ = tr.Close() })
+	dest, err := destination.New(responderIdent, destination.In, destination.Single, "test", tr, "link")
+	if err != nil {
+		t.Fatalf("destination: %v", err)
+	}
+	iface := NewPipeInterface("in")
+
+	initiator := &Link{}
+	if err := initiator.generateEphemeralKeys(); err != nil {
+		t.Fatalf("ephemeral keys: %v", err)
+	}
+	initiator.mode = ModeDefault
+	initiator.mtu = 500
+	signalling := signallingBytes(initiator.mtu, initiator.mode)
+	requestData := append(append(append([]byte{}, initiator.pub...), initiator.sigPub...), signalling...)
+	pkt := &packet.Packet{
+		HeaderType:      packet.HeaderType1,
+		PacketType:      packet.PacketTypeLinkReq,
+		DestinationType: dest.GetType(),
+		DestinationHash: dest.GetHash(),
+		Data:            requestData,
+	}
+	if err := pkt.Pack(); err != nil {
+		t.Fatalf("pack: %v", err)
+	}
+
+	got, err := HandleIncomingLinkRequest(pkt, dest, tr, iface)
+	if err != nil {
+		t.Fatalf("under limit: %v", err)
+	}
+	if got == nil {
+		t.Fatal("under limit returned nil link")
+	}
+	t.Cleanup(func() {
+		got.status.Store(int32(StatusClosed))
+		if id := got.GetLinkID(); len(id) > 0 {
+			tr.UnregisterLink(id)
+		}
+	})
+	if tr.LinkCount() != 1 {
+		t.Fatalf("LinkCount=%d want 1", tr.LinkCount())
+	}
+
+	for i := 1; i < transport.MaxRegisteredLinks; i++ {
+		id := make([]byte, 16)
+		id[0] = 0xEE
+		id[1] = byte(i)
+		id[2] = byte(i >> 8)
+		placeholder := NewLink(dest, tr, iface, nil, nil)
+		placeholder.linkID = id
+		tr.RegisterLink(id, placeholder)
+	}
+	if tr.LinkCount() != transport.MaxRegisteredLinks {
+		t.Fatalf("LinkCount=%d want %d", tr.LinkCount(), transport.MaxRegisteredLinks)
+	}
+
+	pkt2Data := append([]byte(nil), requestData...)
+	pkt2Data[0] ^= 0xFF
+	pkt2 := &packet.Packet{
+		HeaderType:      packet.HeaderType1,
+		PacketType:      packet.PacketTypeLinkReq,
+		DestinationType: dest.GetType(),
+		DestinationHash: dest.GetHash(),
+		Data:            pkt2Data,
+	}
+	if err := pkt2.Pack(); err != nil {
+		t.Fatalf("pack: %v", err)
+	}
+	if _, err := HandleIncomingLinkRequest(pkt2, dest, tr, iface); err == nil {
+		t.Fatal("expected incoming link limit reached")
+	} else if err.Error() != "incoming link limit reached" {
+		t.Fatalf("got %v", err)
+	}
+	if tr.LinkCount() != transport.MaxRegisteredLinks {
+		t.Fatalf("LinkCount=%d after rejected request", tr.LinkCount())
 	}
 }

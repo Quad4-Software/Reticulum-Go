@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package storage
 
 import (
@@ -11,7 +12,6 @@ import (
 	"time"
 
 	"quad4/msgpack/v5/pkg/msgpack"
-	"quad4/reticulum-go/internal/pathutil"
 	"quad4/reticulum-go/pkg/debug"
 )
 
@@ -31,7 +31,12 @@ type RatchetData struct {
 }
 
 func NewManager() (*Manager, error) {
-	basePath := filepath.Join(pathutil.ConfigHomeDir(), ".reticulum-go", "storage")
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	basePath := filepath.Join(homeDir, ".reticulum-go", "storage")
 
 	m := &Manager{
 		basePath:          basePath,

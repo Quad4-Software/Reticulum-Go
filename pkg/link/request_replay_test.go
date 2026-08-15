@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package link
 
 import (
@@ -53,7 +54,7 @@ func TestHandleRequestRejectsStaleTimestamp(t *testing.T) {
 		t.Fatalf("pkt.Pack: %v", err)
 	}
 
-	if err := respLink.handleRequest(plaintext, pkt); err != nil {
+	if err := respLink.handleRequest(plaintext, pkt.TruncatedHash()); err != nil {
 		t.Fatalf("handleRequest: %v", err)
 	}
 	if called.Load() {
@@ -76,7 +77,7 @@ func TestHandleRequestRejectsFutureTimestamp(t *testing.T) {
 		t.Fatalf("pkt.Pack: %v", err)
 	}
 
-	if err := respLink.handleRequest(plaintext, pkt); err != nil {
+	if err := respLink.handleRequest(plaintext, pkt.TruncatedHash()); err != nil {
 		t.Fatalf("handleRequest: %v", err)
 	}
 	if called.Load() {
@@ -99,7 +100,7 @@ func TestHandleRequestAcceptsCurrentTimestamp(t *testing.T) {
 		t.Fatalf("pkt.Pack: %v", err)
 	}
 
-	if err := respLink.handleRequest(plaintext, pkt); err != nil {
+	if err := respLink.handleRequest(plaintext, pkt.TruncatedHash()); err != nil {
 		t.Fatalf("handleRequest: %v", err)
 	}
 	if !called.Load() {

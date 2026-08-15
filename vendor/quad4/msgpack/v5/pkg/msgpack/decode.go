@@ -33,10 +33,37 @@ type bufReader interface {
 	io.ByteScanner
 }
 
+// lenReader is implemented by *bytes.Reader and similar sized sources.
+type lenReader interface {
+	Len() int
+}
+
+// bufferedLenReader wraps bufio.Reader while preserving remaining-byte
+// accounting from an underlying Len()-capable source. Without this, wrapping
+// a *bytes.Reader in bufio.Reader would hide Len and bypass oversized
+// container guards.
+type bufferedLenReader struct {
+	br  *bufio.Reader
+	src lenReader
+}
+
+func (r *bufferedLenReader) Read(p []byte) (int, error) { return r.br.Read(p) }
+func (r *bufferedLenReader) ReadByte() (byte, error)    { return r.br.ReadByte() }
+func (r *bufferedLenReader) UnreadByte() error          { return r.br.UnreadByte() }
+func (r *bufferedLenReader) Len() int                   { return r.br.Buffered() + r.src.Len() }
+
+func newBufferedReader(r io.Reader) bufReader {
+	br := bufio.NewReader(r)
+	if lr, ok := r.(lenReader); ok {
+		return &bufferedLenReader{br: br, src: lr}
+	}
+	return br
+}
+
 //------------------------------------------------------------------------------
 
 var decPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return NewDecoder(nil)
 	},
 }
@@ -46,7 +73,7 @@ var decPool = sync.Pool{
 // the empty slice before being returned to the pool so it does not retain
 // a reference to the caller's data.
 var readerPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return bytes.NewReader(nil)
 	},
 }
@@ -58,12 +85,12 @@ func GetDecoder() *Decoder {
 // maxPooledBufSize bounds the scratch-buffer capacity a pooled Decoder or
 // Encoder may carry across a Put/Get cycle. Decoding or encoding one
 // legitimately large payload (a multi-hundred-megabyte byte string, for
-// example) grows the relevant buffer to match; without this cap that
+// example) grows the relevant buffer to match. Without this cap that
 // capacity would sit pinned inside the shared sync.Pool, inflating
 // memory for every unrelated, typically much smaller call drawn from the
 // pool afterward, until the runtime's opportunistic (roughly two-GC-cycle)
 // pool eviction happens to run. Buffers above the cap are dropped instead
-// of pooled so worst-case pool memory stays bounded; the next call that
+// of pooled so worst-case pool memory stays bounded. The next call that
 // needs a bigger buffer simply reallocates one, same as a fresh Decoder
 // or Encoder would.
 const maxPooledBufSize = bytesAllocLimit
@@ -84,7 +111,7 @@ func PutDecoder(dec *Decoder) {
 
 // Unmarshal decodes the MessagePack-encoded data and stores the result
 // in the value pointed to by v.
-func Unmarshal(data []byte, v interface{}) error {
+func Unmarshal(data []byte, v any) error {
 	dec := GetDecoder()
 	dec.UsePreallocateValues(true)
 
@@ -105,7 +132,7 @@ func Unmarshal(data []byte, v interface{}) error {
 type Decoder struct {
 	r          io.Reader
 	s          io.ByteScanner
-	mapDecoder func(*Decoder) (interface{}, error)
+	mapDecoder func(*Decoder) (any, error)
 	structTag  string
 	buf        []byte
 	rec        []byte
@@ -162,13 +189,13 @@ func (d *Decoder) ResetReader(r io.Reader) {
 		d.r = nil
 		d.s = nil
 	} else {
-		br := bufio.NewReader(r)
+		br := newBufferedReader(r)
 		d.r = br
 		d.s = br
 	}
 }
 
-func (d *Decoder) SetMapDecoder(fn func(*Decoder) (interface{}, error)) {
+func (d *Decoder) SetMapDecoder(fn func(*Decoder) (any, error)) {
 	d.mapDecoder = fn
 }
 
@@ -226,10 +253,9 @@ func (d *Decoder) DisableAllocLimit(on bool) {
 	}
 }
 
-// SetDecodeDepthLimit caps nested decode/skip recursion depth.
+// SetDecodeDepthLimit caps nested decode and skip recursion depth.
 //
-// This is a defense-in-depth guard against hostile inputs crafted to trigger
-// stack exhaustion. Values <= 0 restore the default limit.
+// Values less than or equal to zero restore the default limit.
 func (d *Decoder) SetDecodeDepthLimit(limit int) {
 	if limit <= 0 {
 		d.maxDepth = defaultDecodeDepthLimit
@@ -244,8 +270,69 @@ func (d *Decoder) Buffered() io.Reader {
 	return d.r
 }
 
+// remainingReadable reports how many unread bytes are still available when
+// the underlying reader exposes a Len method such as *bytes.Reader.
+// When the size is unknown the second return is false and callers must not
+// treat the value as authoritative.
+func (d *Decoder) remainingReadable() (int, bool) {
+	if r, ok := d.r.(lenReader); ok {
+		return r.Len(), true
+	}
+	return 0, false
+}
+
+// rejectOversizedContainer fails fast when a claimed array or map length
+// cannot fit in the remaining input. Each element needs at least
+// minBytesPerElem bytes on the wire. Oversized array32 or map32 headers
+// would otherwise force large allocations and long iteration before EOF.
+//
+// When remaining input size is unknown (for example a plain *bufio.Reader),
+// lengths above the soft alloc ceiling are still rejected unless the caller
+// disabled alloc limits. That closes the forged-header bypass for streaming
+// readers that do not expose Len.
+func (d *Decoder) rejectOversizedContainer(n, minBytesPerElem int, kind string) error {
+	if n <= 0 || minBytesPerElem <= 0 {
+		return nil
+	}
+	remain, ok := d.remainingReadable()
+	if ok {
+		if n > remain/minBytesPerElem {
+			return fmt.Errorf("msgpack: %s length %d exceeds remaining input (%d bytes)", kind, n, remain)
+		}
+		return nil
+	}
+	if d.flags&disableAllocLimitFlag != 0 {
+		return nil
+	}
+	limit := int(sliceAllocLimit)
+	if kind == "map" {
+		limit = int(maxMapSize)
+	}
+	if n > limit {
+		return fmt.Errorf("msgpack: %s length %d exceeds decode limit (%d)", kind, n, limit)
+	}
+	return nil
+}
+
+// rejectOversizedBytes fails fast when a claimed bin/str length cannot fit
+// in the remaining input. Without this, DecodeBytesLen returns a forged
+// MaxUint32 and callers that allocate from it pay for the lie.
+func (d *Decoder) rejectOversizedBytes(n int) error {
+	if n <= 0 {
+		return nil
+	}
+	remain, ok := d.remainingReadable()
+	if !ok {
+		return nil
+	}
+	if n > remain {
+		return fmt.Errorf("msgpack: bytes length %d exceeds remaining input (%d bytes)", n, remain)
+	}
+	return nil
+}
+
 //nolint:gocyclo
-func (d *Decoder) Decode(v interface{}) error {
+func (d *Decoder) Decode(v any) error {
 	var err error
 	switch v := v.(type) {
 	case *string:
@@ -326,7 +413,7 @@ func (d *Decoder) Decode(v interface{}) error {
 		return d.decodeStringSlicePtr(v)
 	case *map[string]string:
 		return d.decodeMapStringStringPtr(v)
-	case *map[string]interface{}:
+	case *map[string]any:
 		return d.decodeMapStringInterfacePtr(v)
 	case *time.Duration:
 		if v != nil {
@@ -345,7 +432,7 @@ func (d *Decoder) Decode(v interface{}) error {
 	if !vv.IsValid() {
 		return errors.New("msgpack: Decode(nil)")
 	}
-	if vv.Kind() != reflect.Ptr {
+	if vv.Kind() != reflect.Pointer {
 		return fmt.Errorf("msgpack: Decode(non-pointer %T)", v)
 	}
 	if vv.IsNil() {
@@ -356,7 +443,7 @@ func (d *Decoder) Decode(v interface{}) error {
 	if vv.Kind() == reflect.Interface {
 		if !vv.IsNil() {
 			vv = vv.Elem()
-			if vv.Kind() != reflect.Ptr {
+			if vv.Kind() != reflect.Pointer {
 				return fmt.Errorf("msgpack: Decode(non-pointer %s)", vv.Type().String())
 			}
 		}
@@ -365,7 +452,7 @@ func (d *Decoder) Decode(v interface{}) error {
 	return d.DecodeValue(vv)
 }
 
-func (d *Decoder) DecodeMulti(v ...interface{}) error {
+func (d *Decoder) DecodeMulti(v ...any) error {
 	for _, vv := range v {
 		if err := d.Decode(vv); err != nil {
 			return err
@@ -374,7 +461,7 @@ func (d *Decoder) DecodeMulti(v ...interface{}) error {
 	return nil
 }
 
-func (d *Decoder) decodeInterfaceCond() (interface{}, error) {
+func (d *Decoder) decodeInterfaceCond() (any, error) {
 	if err := d.enterDepth(); err != nil {
 		return nil, err
 	}
@@ -412,7 +499,7 @@ func (d *Decoder) decodeNilValue(v reflect.Value) error {
 	if v.IsNil() {
 		return err
 	}
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}
 	v.Set(reflect.Zero(v.Type()))
@@ -462,7 +549,7 @@ func (d *Decoder) DecodeDuration() (time.Duration, error) {
 // DecodeInterface should be used only when you don't know the type of value
 // you are decoding. For example, if you are decoding number it is better to use
 // DecodeInt64 for negative numbers and DecodeUint64 for positive numbers.
-func (d *Decoder) DecodeInterface() (interface{}, error) {
+func (d *Decoder) DecodeInterface() (any, error) {
 	c, err := d.readCode()
 	if err != nil {
 		return nil, err
@@ -535,7 +622,7 @@ func (d *Decoder) DecodeInterface() (interface{}, error) {
 //   - uint8, uint16, and uint32 are converted to uint64,
 //   - float32 is converted to float64.
 //   - []byte is converted to string.
-func (d *Decoder) DecodeInterfaceLoose() (interface{}, error) {
+func (d *Decoder) DecodeInterfaceLoose() (any, error) {
 	c, err := d.readCode()
 	if err != nil {
 		return nil, err
@@ -792,13 +879,6 @@ func readNGrow(r io.Reader, b []byte, n int) ([]byte, error) {
 	}
 
 	return b, nil
-}
-
-func min(a, b int) int { //nolint:unparam
-	if a <= b {
-		return a
-	}
-	return b
 }
 
 func uint32ToInt(n uint32, hint string) (int, error) {

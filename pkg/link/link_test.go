@@ -273,4 +273,17 @@ func TestChooseHashmapUpdateSegment_SelectsNextSegmentBoundary(t *testing.T) {
 	if segment != 1 {
 		t.Fatalf("expected next segment index 1, got %d", segment)
 	}
+
+	// After the sender advances receiverMinPart past the anchor (as it does
+	// once an HMU is sent), a lost HMU must still be findable via lookback.
+	segment2, nextMin, ok := chooseHashmapUpdateSegment(res, sdu, anchor, entries)
+	if !ok {
+		t.Fatal("expected HMU lookback to find anchor after receiverMinPart advanced")
+	}
+	if segment2 != 1 {
+		t.Fatalf("expected lookback segment 1, got %d", segment2)
+	}
+	if nextMin != entries {
+		t.Fatalf("expected nextMin %d, got %d", entries, nextMin)
+	}
 }

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package link
 
 import (
@@ -8,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"quad4/reticulum-go/pkg/blackhole"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/identity"
@@ -252,8 +254,8 @@ func TestRegression_SessionKeysNotAliasedToDerivedKeyBuffer(t *testing.T) {
 		t.Fatalf("encrypt before mutation: %v", err)
 	}
 
-	for i := range l.derivedKey {
-		l.derivedKey[i] ^= 0xFF
+	for i := range l.derivedKey.Bytes() {
+		l.derivedKey.Bytes()[i] ^= 0xFF
 	}
 
 	pt, err := l.decrypt(ct)
@@ -325,5 +327,91 @@ func TestRegression_SendPacketWithContextUnderLock(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("SendPacketWithContext deadlocked")
+	}
+}
+
+// TestRegression_BlackholeIdentifyTearsDownLink pins HandleIdentification:
+// when the remote peer Identifys as a blackholed identity the link must close.
+// Python only sends LINKIDENTIFY as initiator so the initiator Identifys here.
+func TestRegression_BlackholeIdentifyTearsDownLink(t *testing.T) {
+	skipHeavyLinkTestsIfShort(t)
+	initLink, respLink, cleanup := establishInteropLink(t)
+	defer cleanup()
+
+	peerID, err := identity.New()
+	if err != nil {
+		t.Fatalf("identity: %v", err)
+	}
+	localID, err := identity.New()
+	if err != nil {
+		t.Fatalf("local identity: %v", err)
+	}
+	blackhole.SetLocalIdentityHash(localID.Hash())
+	tab := blackhole.New("")
+	if _, err := tab.Add(peerID.Hash(), 0, "regression"); err != nil {
+		t.Fatalf("blackhole add: %v", err)
+	}
+	respLink.transport.SetBlackholeTable(tab)
+
+	closed := make(chan struct{}, 1)
+	respLink.SetLinkClosedCallback(func(_ *Link) {
+		select {
+		case closed <- struct{}{}:
+		default:
+		}
+	})
+
+	if err := initLink.Identify(peerID); err != nil {
+		t.Fatalf("Identify: %v", err)
+	}
+
+	select {
+	case <-closed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("expected responder teardown after blackholed LINKIDENTIFY")
+	}
+	if respLink.GetStatus() != StatusClosed {
+		t.Fatalf("responder status=%d want Closed", respLink.GetStatus())
+	}
+}
+
+// TestHandleInboundLRRTTNoNestedLockDeadlock ensures LRRTT handling unlocks
+// before decrypt, matching data and resource-proof inbound paths.
+func TestHandleInboundLRRTTNoNestedLockDeadlock(t *testing.T) {
+	cfg := &common.ReticulumConfig{}
+	tr := transport.NewTransport(cfg)
+	defer tr.Close()
+	id, err := identity.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dest, err := destination.New(id, destination.In, destination.Single, "rttnest", tr, "svc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	l := NewLink(dest, tr, nil, nil, nil)
+	l.linkID = make([]byte, 16)
+	_ = setSecBuf(&l.sessionKey, make([]byte, 32))
+	_ = setSecBuf(&l.hmacKey, make([]byte, 32))
+	l.status.Store(int32(StatusHandshake))
+	l.initiator = false
+	l.requestTime = time.Now()
+
+	pkt := &packet.Packet{
+		PacketType:      packet.PacketTypeProof,
+		Context:         packet.ContextLRRTT,
+		DestinationType: DestTypeLink,
+		DestinationHash: l.linkID,
+		Data:            make([]byte, 96),
+	}
+	done := make(chan struct{})
+	go func() {
+		_ = l.HandleInbound(pkt)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("LRRTT HandleInbound deadlocked on nested mutex")
 	}
 }

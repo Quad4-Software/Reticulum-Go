@@ -1,0 +1,14 @@
+.TH RETICULUM-GO-SNAPSHOT 1 "2026" "reticulum-go" "User Commands"
+.SH NAME
+reticulum-go snapshot, rgosnap \- path table, links, and health JSON over RPC
+.SH SYNOPSIS
+.B reticulum-go snapshot
+[\fB\-config\fR \fIdir\fR]
+[\fB\-max-hops\fR \fIn\fR]
+[\fB\-timeout\fR \fIduration\fR]
+.SH DESCRIPTION
+Query a running shared instance and print one JSON object with interface
+stats, path table rows, active link count, and transport health drop counters.
+.SH SEE ALSO
+.BR reticulum-go-status (1),
+.BR reticulum-go-path (1)

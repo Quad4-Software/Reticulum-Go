@@ -22,8 +22,8 @@ const (
 	defaultRespawnDly = 5 * time.Second
 )
 
-// PipeInterface bridges Reticulum to an external program over stdin/stdout with
-// HDLC framing, matching Python PipeInterface.
+// PipeInterface bridges Reticulum to an external program over stdin/stdout
+// with HDLC framing.
 type PipeInterface struct {
 	BaseInterface
 	command      string
@@ -182,6 +182,9 @@ func (pi *PipeInterface) ProcessOutgoing(data []byte) error {
 }
 
 func (pi *PipeInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(pi); err != nil {
+		return err
+	}
 	masked, err := common.ApplyIFACOutbound(pi, data)
 	if err != nil {
 		return err
@@ -311,7 +314,7 @@ func (pi *PipeInterface) GetBandwidthAvailable() bool {
 	return pi.Online && pi.stdin != nil
 }
 
-// splitPipeCommand splits a command string like Python shlex.split.
+// splitPipeCommand splits a command string on whitespace with quote support.
 func splitPipeCommand(command string) ([]string, error) {
 	command = strings.TrimSpace(command)
 	if command == "" {

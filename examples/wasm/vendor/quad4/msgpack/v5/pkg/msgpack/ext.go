@@ -42,7 +42,7 @@ func UnregisterExt(extID int8) {
 
 func RegisterExtEncoder(
 	extID int8,
-	value interface{},
+	value any,
 	encoder func(enc *Encoder, v reflect.Value) ([]byte, error),
 ) {
 	unregisterExtEncoder(extID)
@@ -51,7 +51,7 @@ func RegisterExtEncoder(
 	extEncoder := makeExtEncoder(extID, typ, encoder)
 	typeEncMap.Store(extID, typ)
 	typeEncMap.Store(typ, extEncoder)
-	if typ.Kind() == reflect.Ptr {
+	if typ.Kind() == reflect.Pointer {
 		typeEncMap.Store(typ.Elem(), makeExtEncoderAddr(extEncoder))
 	}
 }
@@ -64,7 +64,7 @@ func unregisterExtEncoder(extID int8) {
 	typeEncMap.Delete(extID)
 	typ := t.(reflect.Type)
 	typeEncMap.Delete(typ)
-	if typ.Kind() == reflect.Ptr {
+	if typ.Kind() == reflect.Pointer {
 		typeEncMap.Delete(typ.Elem())
 	}
 }
@@ -74,7 +74,7 @@ func makeExtEncoder(
 	typ reflect.Type,
 	encoder func(enc *Encoder, v reflect.Value) ([]byte, error),
 ) encoderFunc {
-	nilable := typ.Kind() == reflect.Ptr
+	nilable := typ.Kind() == reflect.Pointer
 
 	return func(e *Encoder, v reflect.Value) error {
 		if nilable && v.IsNil() {
@@ -105,7 +105,7 @@ func makeExtEncoderAddr(extEncoder encoderFunc) encoderFunc {
 
 func RegisterExtDecoder(
 	extID int8,
-	value interface{},
+	value any,
 	decoder func(dec *Decoder, v reflect.Value, extLen int) error,
 ) {
 	unregisterExtDecoder(extID)
@@ -119,7 +119,7 @@ func RegisterExtDecoder(
 
 	typeDecMap.Store(extID, typ)
 	typeDecMap.Store(typ, extDecoder)
-	if typ.Kind() == reflect.Ptr {
+	if typ.Kind() == reflect.Pointer {
 		typeDecMap.Store(typ.Elem(), makeExtDecoderAddr(extDecoder))
 	}
 }
@@ -133,7 +133,7 @@ func unregisterExtDecoder(extID int8) {
 	delete(extTypes, extID)
 	typ := t.(reflect.Type)
 	typeDecMap.Delete(typ)
-	if typ.Kind() == reflect.Ptr {
+	if typ.Kind() == reflect.Pointer {
 		typeDecMap.Delete(typ.Elem())
 	}
 }
@@ -232,22 +232,41 @@ func (d *Decoder) parseExtLen(c byte) (int, error) {
 		return 16, nil
 	case msgpcode.Ext8:
 		n, err := d.uint8()
-		return int(n), err
+		if err != nil {
+			return 0, err
+		}
+		if err := d.rejectOversizedBytes(int(n)); err != nil {
+			return 0, err
+		}
+		return int(n), nil
 	case msgpcode.Ext16:
 		n, err := d.uint16()
-		return int(n), err
+		if err != nil {
+			return 0, err
+		}
+		if err := d.rejectOversizedBytes(int(n)); err != nil {
+			return 0, err
+		}
+		return int(n), nil
 	case msgpcode.Ext32:
 		n, err := d.uint32()
 		if err != nil {
 			return 0, err
 		}
-		return uint32ToInt(n, "ext length")
+		size, err := uint32ToInt(n, "ext length")
+		if err != nil {
+			return 0, err
+		}
+		if err := d.rejectOversizedBytes(size); err != nil {
+			return 0, err
+		}
+		return size, nil
 	default:
 		return 0, fmt.Errorf("msgpack: invalid code=%x decoding ext len", c)
 	}
 }
 
-func (d *Decoder) decodeInterfaceExt(c byte) (interface{}, error) {
+func (d *Decoder) decodeInterfaceExt(c byte) (any, error) {
 	extID, extLen, err := d.extHeader(c)
 	if err != nil {
 		return nil, err

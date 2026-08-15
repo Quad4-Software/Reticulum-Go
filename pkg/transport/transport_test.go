@@ -5,6 +5,7 @@ package transport
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 	"time"
 
@@ -106,6 +107,40 @@ func TestDestinationRegistration(t *testing.T) {
 	}
 }
 
+func TestRegisterDestinationRejectsNilAndEmptyHash(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{})
+	defer tr.Close()
+
+	tr.mutex.RLock()
+	before := len(tr.destinations)
+	tr.mutex.RUnlock()
+
+	tr.RegisterDestination([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}, nil)
+	tr.RegisterDestination(nil, "ignored")
+	tr.RegisterDestination([]byte{}, "ignored")
+
+	tr.mutex.RLock()
+	after := len(tr.destinations)
+	tr.mutex.RUnlock()
+	if after != before {
+		t.Fatalf("nil dest or empty hash should not register, got %d entries", after)
+	}
+}
+
+func TestSendPacketNoPathUsesErrNoPathToDestination(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{})
+	defer tr.Close()
+
+	destHash := make([]byte, 16)
+	for i := range destHash {
+		destHash[i] = byte(i + 1)
+	}
+	err := tr.SendPacket(&packet.Packet{DestinationHash: destHash})
+	if !errors.Is(err, common.ErrNoPathToDestination) {
+		t.Fatalf("got %v, want ErrNoPathToDestination", err)
+	}
+}
+
 func TestTransportStatus(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{})
 	defer tr.Close()
@@ -178,8 +213,11 @@ func TestAnnounceHopCount(t *testing.T) {
 	id, _ := identity.New()
 
 	// Create a destination to get a valid hash for this identity
-	// NewAnnouncePacket uses "reticulum-go.node" by default
-	dest, _ := destination.New(id, destination.In, destination.Single, "reticulum-go.node", tr)
+	// NewAnnouncePacket hashes expand name "reticulum-go.node"
+	dest, err := destination.New(id, destination.In, destination.Single, "reticulum-go", tr, "node")
+	if err != nil {
+		t.Fatalf("destination.New: %v", err)
+	}
 	destHash := dest.GetHash()
 
 	// Create a raw announce packet manually to control hop count
@@ -226,5 +264,49 @@ func TestAnnounceHopCount(t *testing.T) {
 	hops := tr.HopsTo(destHash)
 	if hops != 1 {
 		t.Errorf("Expected 1 hop for neighbor (received 0), got %d", hops)
+	}
+}
+
+func TestAnnounceRejectsOverMaxHops(t *testing.T) {
+	config := common.DefaultConfig()
+	tr := NewTransport(config)
+	defer tr.Close()
+
+	iface := &mockInterface{}
+	iface.Name = "wasm0"
+	iface.Enabled = true
+	_ = tr.RegisterInterface("wasm0", iface)
+
+	id, _ := identity.New()
+	dest, err := destination.New(id, destination.In, destination.Single, "reticulum-go", tr, "node")
+	if err != nil {
+		t.Fatalf("destination.New: %v", err)
+	}
+	destHash := dest.GetHash()
+
+	transportID := make([]byte, 16)
+	annPkt, err := packet.NewAnnouncePacket(destHash, id, []byte("test"), transportID)
+	if err != nil {
+		t.Fatalf("NewAnnouncePacket failed: %v", err)
+	}
+	annRaw, err := annPkt.Serialize()
+	if err != nil {
+		t.Fatalf("Serialize failed: %v", err)
+	}
+
+	// Wire hops 128 -> announce hops 129, which must not enter the path table.
+	annRaw[1] = byte(MaxHops)
+	tr.HandlePacket(annRaw, iface)
+	time.Sleep(100 * time.Millisecond)
+	if tr.HasPath(destHash) {
+		t.Fatalf("path registered for over-max hops=%d", tr.HopsTo(destHash))
+	}
+
+	// Wire hops 255 would overflow uint8 if incremented as a byte, must still reject.
+	annRaw[1] = 255
+	tr.HandlePacket(annRaw, iface)
+	time.Sleep(100 * time.Millisecond)
+	if tr.HasPath(destHash) {
+		t.Fatalf("path registered for overflow hops=%d", tr.HopsTo(destHash))
 	}
 }

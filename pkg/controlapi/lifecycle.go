@@ -5,7 +5,7 @@ package controlapi
 
 import (
 	"encoding/hex"
-	"encoding/json"
+	"io"
 	"net/http"
 )
 
@@ -44,8 +44,14 @@ func (s *Server) handleLifecycleRefreshPaths(w http.ResponseWriter, r *http.Requ
 	}
 	var req refreshPathsRequest
 	if r.Body != nil {
-		defer r.Body.Close()
-		_ = json.NewDecoder(r.Body).Decode(&req)
+		err := decodeJSONBody(w, r, &req)
+		if isBodyTooLarge(err) {
+			return
+		}
+		// Optional body: ignore empty or malformed JSON, but still enforce size.
+		if err != nil && err != io.EOF {
+			req = refreshPathsRequest{}
+		}
 	}
 	dests := make([][]byte, 0, len(req.Destinations))
 	for _, h := range req.Destinations {

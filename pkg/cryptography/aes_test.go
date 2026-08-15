@@ -10,6 +10,8 @@ import (
 	"crypto/rand"
 	"fmt"
 	"testing"
+
+	"quad4/pbt/pkg/pbt"
 )
 
 func TestGenerateAES256Key(t *testing.T) {
@@ -199,4 +201,57 @@ func BenchmarkAES256CBC(b *testing.B) {
 			}
 		}
 	})
+}
+
+func byteSliceNonEmpty(maxLen int) pbt.Generator[[]byte] {
+	return pbt.Map(
+		"nonEmptyBytes",
+		pbt.SliceOf(pbt.IntRange(0, 255), 1, maxLen),
+		func(xs []int) []byte {
+			b := make([]byte, len(xs))
+			for i, v := range xs {
+				b[i] = byte(v)
+			}
+			return b
+		},
+	)
+}
+
+func byteSliceMaybeEmpty(maxLen int) pbt.Generator[[]byte] {
+	return pbt.Map(
+		"bytes",
+		pbt.SliceOf(pbt.IntRange(0, 255), 0, maxLen),
+		func(xs []int) []byte {
+			b := make([]byte, len(xs))
+			for i, v := range xs {
+				b[i] = byte(v)
+			}
+			return b
+		},
+	)
+}
+
+func TestPBTAESCBCRoundTrip(t *testing.T) {
+	ptGen := byteSliceMaybeEmpty(512)
+	prop := pbt.ForAll(
+		"aes-256-cbc encrypt decrypt",
+		ptGen,
+		func(plaintext []byte) bool {
+			key, err := GenerateAES256Key()
+			if err != nil {
+				panic(err)
+			}
+			ct, err := EncryptAES256CBC(key, plaintext)
+			if err != nil {
+				panic(err)
+			}
+			out, err := DecryptAES256CBC(key, ct)
+			if err != nil {
+				panic(err)
+			}
+			return bytes.Equal(out, plaintext)
+		},
+		pbt.WithShrinker(pbt.SliceShrinker[byte]()),
+	)
+	pbt.Check(t, prop, pbt.WithRuns(80), pbt.WithSeed(99))
 }

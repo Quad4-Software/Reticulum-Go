@@ -7,13 +7,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -39,10 +39,13 @@ type Server struct {
 	lifecycle Lifecycle
 	host      string
 	port      int
+	unixPath  string
 	authKey   []byte
 	startedAt time.Time
 
-	httpServer *http.Server
+	httpServer   *http.Server
+	listener     net.Listener
+	unixListener net.Listener
 
 	mu       sync.RWMutex
 	sessions map[string]*session
@@ -78,6 +81,7 @@ func New(t *transport.Transport, lifecycle Lifecycle, cfg *common.ReticulumConfi
 		lifecycle:    lifecycle,
 		host:         host,
 		port:         port,
+		unixPath:     strings.TrimSpace(cfg.ControlAPISocket),
 		authKey:      cfg.RPCKey,
 		startedAt:    time.Now(),
 		sessions:     make(map[string]*session),
@@ -96,17 +100,72 @@ func New(t *transport.Transport, lifecycle Lifecycle, cfg *common.ReticulumConfi
 	return s, nil
 }
 
-// Serve binds the configured listen address and blocks, serving requests
-// until Close is called. Run it in its own goroutine.
-func (s *Server) Serve() error {
+// Listen binds the configured TCP address. Call before sandbox.Apply on
+// platforms where CapEnter or pledge would block a later listen.
+func (s *Server) Listen() error {
+	if s == nil {
+		return errors.New("controlapi: nil server")
+	}
+	if s.listener != nil {
+		return nil
+	}
 	addr := net.JoinHostPort(s.host, strconv.Itoa(s.port))
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		return fmt.Errorf("controlapi: listen on %s: %w", addr, err)
+		return fmt.Errorf("controlapi: listen on %s: %w", addr, common.WrapListenError(err))
 	}
+	s.listener = ln
 	debug.Log(debug.DebugInfo, "Control API listening", "addr", addr)
+	if err := s.listenUnix(); err != nil {
+		_ = ln.Close()
+		s.listener = nil
+		return err
+	}
+	return nil
+}
 
-	err = s.httpServer.Serve(ln)
+func (s *Server) listenUnix() error {
+	if s.unixPath == "" {
+		return nil
+	}
+	if err := os.Remove(s.unixPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("controlapi: remove unix socket: %w", err)
+	}
+	if dir := filepath.Dir(s.unixPath); dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return fmt.Errorf("controlapi: unix socket dir: %w", err)
+		}
+	}
+	ln, err := net.Listen("unix", s.unixPath)
+	if err != nil {
+		return fmt.Errorf("controlapi: listen on unix %s: %w", s.unixPath, common.WrapListenError(err))
+	}
+	if err := os.Chmod(s.unixPath, 0o600); err != nil {
+		_ = ln.Close()
+		return fmt.Errorf("controlapi: chmod unix socket: %w", err)
+	}
+	s.unixListener = ln
+	debug.Log(debug.DebugInfo, "Control API unix listening", "path", s.unixPath)
+	return nil
+}
+
+// Serve serves HTTP on the bound listener. If Listen was not called yet,
+// it binds first. Blocks until Close is called. Run it in its own goroutine.
+func (s *Server) Serve() error {
+	if s.listener == nil {
+		if err := s.Listen(); err != nil {
+			return err
+		}
+	}
+	if s.unixListener != nil {
+		go func() {
+			err := s.httpServer.Serve(s.unixListener)
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				debug.Log(debug.DebugError, "Control API unix serve", "error", err)
+			}
+		}()
+	}
+	err := s.httpServer.Serve(s.listener)
 	if errors.Is(err, http.ErrServerClosed) {
 		return nil
 	}
@@ -142,6 +201,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/sessions/{id}/destinations", s.handleRegisterDestination)
 	mux.HandleFunc("POST /v1/sessions/{id}/destinations/{hash}/announce", s.handleAnnounce)
 	mux.HandleFunc("POST /v1/sessions/{id}/destinations/{hash}/requests", s.handleRegisterRequestHandler)
+	mux.HandleFunc("DELETE /v1/sessions/{id}/destinations/{hash}/requests", s.handleDeregisterRequestHandler)
 	mux.HandleFunc("POST /v1/sessions/{id}/path/request", s.handlePathRequest)
 	mux.HandleFunc("GET /v1/sessions/{id}/events", s.handleEvents)
 	mux.HandleFunc("POST /v1/lifecycle/resume", s.handleLifecycleResume)
@@ -165,14 +225,50 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, ifc := range stats.Interfaces {
 		resp.Interfaces = append(resp.Interfaces, interfaceStatJSON{
-			Name:    ifc.Name,
-			Type:    ifc.Type,
-			Status:  ifc.Status,
-			RXBytes: ifc.RXB,
-			TXBytes: ifc.TXB,
-			Bitrate: ifc.Bitrate,
+			Name:                  ifc.Name,
+			Type:                  ifc.Type,
+			Status:                ifc.Status,
+			RXBytes:               ifc.RXB,
+			TXBytes:               ifc.TXB,
+			Bitrate:               ifc.Bitrate,
+			Clients:               ifc.Clients,
+			BlockedIPs:            ifc.BlockedIPs,
+			BlockedIPList:         ifc.BlockedIPList,
+			I2PConnectable:        ifc.I2PConnectable,
+			I2PB32:                ifc.I2PB32,
+			TunnelState:           ifc.TunnelState,
+			I2PLastError:          ifc.I2PLastError,
+			IFACFail:              ifc.IFACFail,
+			HMACFail:              ifc.HMACFail,
+			AnnounceSigFail:       ifc.AnnounceSigFail,
+			UnpackFail:            ifc.UnpackFail,
+			AnnounceDup:           ifc.AnnounceDup,
+			PathRespSuppressed:    ifc.PathRespSuppressed,
+			PathReqDup:            ifc.PathReqDup,
+			PathReqNoCache:        ifc.PathReqNoCache,
+			PathRespQueuedSkip:    ifc.PathRespQueuedSkip,
+			LinkRelayUnknownIface: ifc.LinkRelayUnknownIface,
+			IntegrityFailRate:     ifc.IntegrityFailRate,
+			StaleCloses:           ifc.StaleCloses,
+			LinkStaleClose:        ifc.LinkStaleClose,
+			KeepaliveTimeout:      ifc.KeepaliveTimeout,
 		})
 	}
+	ps := stats.Protect
+	resp.Protect.Mode = ps.Mode
+	resp.Protect.Phase = ps.Phase
+	resp.Protect.Enforcement = ps.Enforcement
+	resp.Protect.Fingerprint = ps.Fingerprint
+	resp.Protect.SheddingMemory = ps.SheddingMemory
+	resp.Protect.TripCounts.PPS = ps.TripCounts.PPS
+	resp.Protect.TripCounts.BPS = ps.TripCounts.BPS
+	resp.Protect.TripCounts.Handler = ps.TripCounts.Handler
+	resp.Protect.TripCounts.Conn = ps.TripCounts.Conn
+	resp.Protect.TripCounts.Resource = ps.TripCounts.Resource
+	resp.Protect.TripCounts.Memory = ps.TripCounts.Memory
+	resp.Protect.TripCounts.Crypto = ps.TripCounts.Crypto
+	resp.Protect.TripCounts.Handshake = ps.TripCounts.Handshake
+	resp.Protect.TripCounts.CoolDown = ps.TripCounts.CoolDown
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -194,8 +290,10 @@ func (s *Server) handlePaths(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 	var req createSessionRequest
 	if r.Body != nil {
-		defer r.Body.Close()
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+		if err := decodeJSONBody(w, r, &req); err != nil && !errors.Is(err, io.EOF) {
+			if isBodyTooLarge(err) {
+				return
+			}
 			writeError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
@@ -268,7 +366,10 @@ func (s *Server) handlePathRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req pathRequestRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(w, r, &req); err != nil {
+		if isBodyTooLarge(err) {
+			return
+		}
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -279,10 +380,19 @@ func (s *Server) handlePathRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.transport.RequestPath(destHash, "", nil, false); err != nil {
+		if errors.Is(err, common.ErrPathRequestThrottled) {
+			writeJSON(w, http.StatusTooManyRequests, pathRequestResponse{
+				WaitS: s.transport.PathRequestRetryAfter(destHash).Seconds(),
+				Error: err.Error(),
+			})
+			return
+		}
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("path request: %v", err))
 		return
 	}
-	w.WriteHeader(http.StatusAccepted)
+	writeJSON(w, http.StatusAccepted, pathRequestResponse{
+		WaitS: s.transport.PathResponseWindow(destHash).Seconds(),
+	})
 }
 
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
@@ -296,13 +406,30 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := upgradeWebSocket(w, r)
+	pending, err := beginWebSocketUpgrade(w, r)
 	if err != nil {
 		debug.Log(debug.DebugError, "controlapi: websocket upgrade failed", "error", err)
 		return
 	}
 
-	client := newWSClient(s, sess, conn)
+	// Register and start the writer before flushing 101 so a peer that
+	// races ahead and triggers a broadcast cannot miss the event: the
+	// session already has a client, and writeLoop is already scheduled
+	// (gated until enableWrites so frames cannot precede the 101).
+	client := newWSClient(s, sess, pending.Conn())
+	if !sess.addClient(client) {
+		_ = pending.Conn().close()
+		return
+	}
+	client.startWriter()
+
+	if err := pending.Flush(); err != nil {
+		debug.Log(debug.DebugError, "controlapi: websocket handshake flush failed", "error", err)
+		client.close()
+		return
+	}
+
+	client.enableWrites()
 	client.run()
 }
 
@@ -329,7 +456,9 @@ func (s *Server) broadcastAnnounce(evt announceEvent) {
 	s.announceMu.RLock()
 	defer s.announceMu.RUnlock()
 	for c := range s.announceSubs {
-		c.send(evt)
+		if c.matchesAnnounceFilter(evt.DestinationHash) {
+			c.send(evt)
+		}
 	}
 }
 

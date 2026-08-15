@@ -36,55 +36,77 @@ tasks:
     cmds:
       - task: test-wasm
 
-  "example:announce":
-    desc: Run announce example
+  "example:pageserver:build":
+    desc: Build pageserver example with vendored deps (release-style)
+    dir: examples/pageserver
+    env:
+      CGO_ENABLED: '0'
+      GOFLAGS: -mod=vendor
+      GOPROXY: 'off'
     cmds:
-      - 'cd examples/announce && {{.GOCMD}} run .'
-
-  "example:minimal":
-    desc: Run minimal example
-    cmds:
-      - 'cd examples/minimal && {{.GOCMD}} run .'
+      - '{{.GOCMD}} build -ldflags="-s -w" -o example-pageserver .'
 
   "example:pageserver":
-    desc: Run pageserver example
+    desc: Run Go pageserver example (default)
+    dir: examples/pageserver
     cmds:
-      - 'cd examples/pageserver && {{.GOCMD}} run .'
+      - |
+        if [ ! -x ../../bin/reticulum-go ]; then
+          task -d ../.. build
+        fi
+      - ../../bin/reticulum-go pageserver {{.CLI_ARGS}}
 
-  "example:echo-listen":
-    desc: Run echo example (waits for incoming connections, P2P peer)
+  "example:pageserver:go":
+    desc: Run Go pageserver example
     cmds:
-      - 'cd examples/echo && {{.GOCMD}} run . --server'
+      - task: example:pageserver
 
-  "example:echo-connect":
-    desc: Run echo example (initiates connection to peer, requires DESTINATION env var)
-    requires:
-      vars: [DESTINATION]
+  "example:pageserver:c":
+    desc: Build and run C librns pageserver
     cmds:
-      - 'cd examples/echo && {{.GOCMD}} run . --destination="${DESTINATION}"'
+      - make -C bindings/c/examples/pageserver run ARGS='{{.CLI_ARGS}}'
 
-  "example:link-listen":
-    desc: Run link example (waits for incoming link requests, P2P peer)
+  "example:pageserver:odin":
+    desc: Build and run Odin librns pageserver
     cmds:
-      - 'cd examples/link && {{.GOCMD}} run . --server'
+      - make -C bindings/odin/examples/pageserver run ARGS='{{.CLI_ARGS}}'
 
-  "example:link-connect":
-    desc: Run link example (initiates link to peer, requires DESTINATION env var)
-    requires:
-      vars: [DESTINATION]
+  "example:pageserver:zig":
+    desc: Build and run Zig librns pageserver
     cmds:
-      - 'cd examples/link && {{.GOCMD}} run . --destination="${DESTINATION}"'
+      - make -C bindings/zig/examples/pageserver run ARGS='{{.CLI_ARGS}}'
 
-  "example:filetransfer-share":
-    desc: Run filetransfer example (shares files from directory, P2P peer)
-    requires:
-      vars: [SERVE_PATH]
+  "example:pageserver:cpp":
+    desc: Build and run C++ librns pageserver
     cmds:
-      - 'cd examples/filetransfer && {{.GOCMD}} run . --server --serve="${SERVE_PATH}"'
+      - make -C bindings/cpp/examples/pageserver run ARGS='{{.CLI_ARGS}}'
 
-  "example:filetransfer-fetch":
-    desc: Run filetransfer example (fetches files from peer, requires DESTINATION env var)
-    requires:
-      vars: [DESTINATION]
+  "example:pageserver:rust":
+    desc: Build and run Rust librns pageserver
     cmds:
-      - 'cd examples/filetransfer && {{.GOCMD}} run . --destination="${DESTINATION}"'
+      - make -C bindings/rust/examples/pageserver
+
+  "example:pageserver:python":
+    desc: Compile-check Python librns pageserver
+    cmds:
+      - make -C bindings/python/examples/pageserver
+
+  "example:pageserver:lua":
+    desc: Syntax-check Lua librns pageserver
+    cmds:
+      - make -C bindings/lua/examples/pageserver
+
+  "example:pageserver:swift":
+    desc: Build Swift librns pageserver
+    cmds:
+      - make -C bindings/swift/examples/pageserver
+
+  "example:pageserver:java":
+    desc: Compile-check Java librns pageserver
+    cmds:
+      - make -C bindings/java/examples/pageserver
+
+  "example:pageserver:kotlin":
+    desc: Compile-check Kotlin librns pageserver
+    cmds:
+      - make -C bindings/kotlin/examples/pageserver

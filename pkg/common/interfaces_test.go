@@ -233,6 +233,16 @@ func TestBaseInterface_ProcessIncoming(t *testing.T) {
 	iface.ProcessIncoming(data)
 }
 
+func TestBaseInterface_ProcessIncomingDropsIFACFlagWithoutIdentity(t *testing.T) {
+	iface := NewBaseInterface("ifac-drop", IFTypeUDP, true)
+	called := false
+	iface.SetPacketCallback(func([]byte, NetworkInterface) { called = true })
+	iface.ProcessIncoming([]byte{0x80, 0x01, 0x02})
+	if called {
+		t.Fatal("IFAC-flagged frame must be dropped when IFAC is not configured")
+	}
+}
+
 func TestBaseInterface_ProcessOutgoing(t *testing.T) {
 	iface := NewBaseInterface("test18", IFTypeUDP, true)
 	data := []byte("test data")
@@ -275,17 +285,24 @@ func TestBaseInterface_GetBandwidthAvailable(t *testing.T) {
 		t.Error("GetBandwidthAvailable() = false, want true when TxBytes is 0")
 	}
 
+	// Coarse clocks can report a zero-width or inverted window around lastTx.
+	iface.lastTx = time.Now().Add(time.Millisecond)
+	iface.TxBytes = 1
+	iface.Bitrate = BitrateMinimum
+	if !iface.GetBandwidthAvailable() {
+		t.Error("GetBandwidthAvailable() = false, want true when elapsed window is non-positive")
+	}
+
 	iface.lastTx = time.Now().Add(-500 * time.Millisecond)
 	iface.TxBytes = 1000
 	iface.Bitrate = 1000000
-
 	if !iface.GetBandwidthAvailable() {
-		t.Error("GetBandwidthAvailable() = false, want true when usage is below threshold")
+		t.Error("GetBandwidthAvailable() = false, want true without a sampled TX rate")
 	}
 
 	iface.TxBytes = 10000000
 	iface.Bitrate = 1000
-	if iface.GetBandwidthAvailable() {
-		t.Error("GetBandwidthAvailable() = true, want false when usage exceeds threshold")
+	if !iface.GetBandwidthAvailable() {
+		t.Error("GetBandwidthAvailable() = false, want true without a sampled TX rate")
 	}
 }

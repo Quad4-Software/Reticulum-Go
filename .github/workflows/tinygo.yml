@@ -1,6 +1,6 @@
 # Pinned first-party actions (bump tag and SHA together when upgrading):
-#   actions/checkout@v6.0.1            8e8c483db84b4bee98b60c0593521ed34d9990e8
-#   actions/upload-artifact@v5.0.0     330a01c490aca151604b8cf639adc76d48f6c5d4
+#   actions/checkout@v7.0.0            9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+#   actions/upload-artifact@v7.0.1     043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
 #
 name: TinyGo Build
 
@@ -19,10 +19,10 @@ permissions:
   actions: read
 
 env:
-  CI_GO_VERSION: "1.26.5"
+  CI_GO_VERSION: "1.26.6"
   CI_TASK_VERSION: "3.46.3"
-  CI_TINYGO_VERSION: "0.41.1"
-  TINYGO_DEB_SHA256: "901fbccffc61adb111656d1f907dfc21b6c499ca841b115866a0d6de2d835fbe"
+  CI_TINYGO_VERSION: "0.37.0"
+  TINYGO_DEB_SHA256: "8f34a4aac7f1aa2ad51dc0f4eccd40da13b6f52fbac5c13887d57327e5f0a862"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
   GOTOOLCHAIN: local
@@ -60,10 +60,13 @@ jobs:
         run: sh scripts/ci/setup-tinygo.sh "${{ env.CI_TINYGO_VERSION }}"
 
       - name: Build with TinyGo
+        env:
+          TINYGO_TASK: ${{ matrix.task }}
+          TINYGO_OUTPUT: ${{ matrix.output }}
         run: |
           set -euo pipefail
-          task "${{ matrix.task }}"
-          output_name="${{ matrix.output }}"
+          task "${TINYGO_TASK}"
+          output_name="${TINYGO_OUTPUT}"
           if [ -f "bin/${output_name}" ]; then
             sha256sum "bin/${output_name}" | cut -d' ' -f1 > "bin/${output_name}.sha256"
             echo "Built: ${output_name}"

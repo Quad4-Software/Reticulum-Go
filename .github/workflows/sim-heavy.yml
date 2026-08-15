@@ -1,5 +1,5 @@
 # Pinned actions (bump tag and SHA together when upgrading):
-#   actions/checkout@v6.0.1            8e8c483db84b4bee98b60c0593521ed34d9990e8
+#   actions/checkout@v7.0.0            9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
 #
 name: Simulation Heavy
 
@@ -17,12 +17,13 @@ permissions:
   actions: read
 
 env:
-  CI_GO_VERSION: "1.26.5"
+  CI_GO_VERSION: "1.26.6"
   CI_TASK_VERSION: "3.46.3"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
   GOTOOLCHAIN: local
   TESTSUMMARY_QUIET: "1"
+  RNS_REQUIRED_SIGNER: e46112d44649266d71fe2193e00a4710
 
 jobs:
   sim-heavy:
@@ -41,3 +42,9 @@ jobs:
 
       - name: Run heavy simulation tests
         run: task test-sim-heavy
+
+      - name: Run link speedtest smoke
+        run: task test-link-speed
+
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean

@@ -26,8 +26,26 @@ PAGE_APP = "nomadnetwork"
 PAGE_ASPECT = "node"
 
 
-def write_config(cfg_dir, tcp_host, tcp_port):
+def write_config(cfg_dir, tcp_host, tcp_port, iface_type="tcp"):
     config_path = os.path.join(cfg_dir, "config")
+    iface_name = "Directory Hub"
+    if iface_type == "backbone":
+        iface_block = [
+            f"[[{iface_name}]]",
+            "type = BackboneInterface",
+            "enabled = yes",
+            "remote = " + tcp_host,
+            "target_host = " + tcp_host,
+            "target_port = " + str(tcp_port),
+        ]
+    else:
+        iface_block = [
+            f"[[{iface_name}]]",
+            "type = TCPClientInterface",
+            "enabled = yes",
+            "target_host = " + tcp_host,
+            "target_port = " + str(tcp_port),
+        ]
     with open(config_path, "w", encoding="utf-8") as f:
         f.write(
             "\n".join(
@@ -39,14 +57,10 @@ def write_config(cfg_dir, tcp_host, tcp_port):
                     "",
                     "[interfaces]",
                     "",
-                    "[[Beleth RNS Hub]]",
-                    "type = TCPClientInterface",
-                    "enabled = yes",
-                    "target_host = " + tcp_host,
-                    "target_port = " + str(tcp_port),
+                    *iface_block,
                     "",
-                ]
-            )
+                ],
+            ),
         )
 
 
@@ -73,16 +87,19 @@ def main():
     timeout_sec = float(os.environ.get("INTEROP_TIMEOUT_SEC", "90"))
     tcp_host = os.environ.get("INTEROP_TCP_HOST", "rns.beleth.net").strip()
     tcp_port = int(os.environ.get("INTEROP_TCP_PORT", "4242"))
+    iface_type = os.environ.get("INTEROP_HUB_TYPE", "tcp").strip().lower()
+    if iface_type not in ("tcp", "backbone"):
+        iface_type = "tcp"
 
     cfg_dir = os.environ.get("INTEROP_CONFIG_DIR")
     if not cfg_dir:
         cfg_dir = tempfile.mkdtemp(prefix="rns_pageserver_tcp_")
     os.makedirs(cfg_dir, exist_ok=True)
-    write_config(cfg_dir, tcp_host, tcp_port)
+    write_config(cfg_dir, tcp_host, tcp_port, iface_type=iface_type)
 
     sys.stdout.write("config_dir=" + cfg_dir + "\n")
     sys.stdout.write(
-        "connecting tcp_host=" + tcp_host + " tcp_port=" + str(tcp_port) + "\n"
+        "connecting tcp_host=" + tcp_host + " tcp_port=" + str(tcp_port) + "\n",
     )
     sys.stdout.flush()
 
@@ -130,7 +147,7 @@ def main():
             state["ok"] = True
             state["done"] = True
             sys.stdout.write(
-                "RESPONSE bytes=" + str(len(response)) + "\n--- begin ---\n"
+                "RESPONSE bytes=" + str(len(response)) + "\n--- begin ---\n",
             )
             sys.stdout.write(response.decode("utf-8", errors="replace"))
             sys.stdout.write("\n--- end ---\n")
@@ -143,7 +160,7 @@ def main():
 
     def on_link_established(link):
         sys.stdout.write(
-            "link established id=" + RNS.prettyhexrep(link.link_id) + "\n"
+            "link established id=" + RNS.prettyhexrep(link.link_id) + "\n",
         )
         sys.stdout.flush()
         try:
@@ -159,7 +176,9 @@ def main():
             sys.stderr.write("link closed before response\n")
             state["done"] = True
 
-    link = RNS.Link(dest, established_callback=on_link_established, closed_callback=on_link_closed)
+    link = RNS.Link(
+        dest, established_callback=on_link_established, closed_callback=on_link_closed
+    )
     _ = link
 
     while time.time() < deadline:
@@ -168,7 +187,7 @@ def main():
         time.sleep(0.1)
 
     sys.stderr.write(
-        "timeout waiting for response after " + str(timeout_sec) + " seconds\n"
+        "timeout waiting for response after " + str(timeout_sec) + " seconds\n",
     )
     return 1
 

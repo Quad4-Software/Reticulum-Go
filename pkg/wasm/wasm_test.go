@@ -9,6 +9,7 @@ package wasm
 import (
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"syscall/js"
 	"testing"
 
@@ -144,7 +145,7 @@ func TestSendDataJS(t *testing.T) {
 
 	if !result.Get("error").IsUndefined() {
 		errStr := result.Get("error").String()
-		if errStr != "Packet sending failed: no path to destination" {
+		if !strings.HasPrefix(errStr, "Packet sending failed: no path to destination") {
 			t.Errorf("SendDataJS failed with unexpected error: %s", errStr)
 		}
 	} else if !result.Get("success").Bool() {

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package identity
 
 import (
@@ -20,12 +21,14 @@ import (
 func resetKnownDestinations(t *testing.T) {
 	t.Helper()
 	knownDestinationsLock.Lock()
-	knownDestinations = make(map[string][]any)
+	knownDestinations = make(map[destMapKey]knownDestEntry)
+	knownDestMetaByKey = make(map[destMapKey]knownDestMeta)
 	knownDestinationsLock.Unlock()
 
 	knownPersistMemory.Store(false)
 	knownPersistDisabled.Store(false)
 	knownPersistDirty.Store(false)
+	SetKnownDestinationsMaxEntries(0)
 }
 
 // --- Round trip / basic behaviour -----------------------------------------
@@ -269,10 +272,11 @@ func FuzzDecodeKnownDestinations(f *testing.F) {
 	}
 	good := map[string]any{
 		hex.EncodeToString(id.Hash()): []any{
-			float64(0),
+			float64(time.Now().Unix()),
 			[]byte("packet"),
 			id.GetPublicKey(),
 			[]byte("app"),
+			float64(0),
 		},
 	}
 	if data, err := msgpack.Marshal(good); err == nil {
@@ -403,16 +407,13 @@ func TestKnownDestinationsPersistence_NoGoroutineLeak(t *testing.T) {
 	}
 }
 
-// --- Python wire-format interop --------------------------------------------
+// --- Wire-format interop ---------------------------------------------------
 
-// TestKnownDestinationsInterop_RawBinKeyWireFormat hand-builds the exact
-// byte layout Python's umsgpack.packb produces for
-// Identity.known_destinations: a fixmap whose keys are the raw
-// destination-hash bytes (bin8, since Python bytes objects are never
-// str-encoded) and whose values are 5-element arrays
-// [timestamp, packet_hash, public_key, app_data, last_used]. This exercises
-// the wire path (not just the Go-side string-key convenience path) to
-// prove real Python-written files decode correctly.
+// TestKnownDestinationsInterop_RawBinKeyWireFormat hand-builds a fixmap
+// whose keys are raw destination-hash bytes (bin8) and whose values are
+// 5-element arrays [timestamp, packet_hash, public_key, app_data,
+// last_used]. This exercises the raw-key wire path rather than the
+// hex-string key convenience path.
 func TestKnownDestinationsInterop_RawBinKeyWireFormat(t *testing.T) {
 	id, err := New()
 	if err != nil {

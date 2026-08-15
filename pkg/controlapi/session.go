@@ -27,10 +27,11 @@ type session struct {
 	links   map[string]*linkSession // key: hex link ID
 
 	pendingMu       sync.Mutex
-	pendingRequests map[string]chan []byte // key: hex request ID
+	pendingRequests map[string]chan any // key: hex request ID
 
 	clientsMu sync.Mutex
 	clients   map[*wsClient]struct{}
+	closed    bool
 }
 
 // linkSession tracks one link.Link alongside the bookkeeping the control
@@ -52,7 +53,7 @@ func newSession(id string, ident *identity.Identity) *session {
 		identity:        ident,
 		destinations:    make(map[string]*destination.Destination),
 		links:           make(map[string]*linkSession),
-		pendingRequests: make(map[string]chan []byte),
+		pendingRequests: make(map[string]chan any),
 		clients:         make(map[*wsClient]struct{}),
 	}
 }
@@ -89,12 +90,11 @@ func (s *session) removeLink(idHex string) {
 	delete(s.links, idHex)
 }
 
-// awaitResponse registers a channel for requestIDHex and returns it. The
-
-// request handler bridge blocks on it until addResponse delivers data or
-// the caller's own timeout elapses.
-func (s *session) awaitResponse(requestIDHex string) chan []byte {
-	ch := make(chan []byte, 1)
+// awaitResponse registers a channel for requestIDHex and returns it.
+// The request handler bridge blocks on it until deliverResponse sends data
+// or the caller's own timeout elapses.
+func (s *session) awaitResponse(requestIDHex string) chan any {
+	ch := make(chan any, 1)
 	s.pendingMu.Lock()
 	s.pendingRequests[requestIDHex] = ch
 	s.pendingMu.Unlock()
@@ -104,7 +104,7 @@ func (s *session) awaitResponse(requestIDHex string) chan []byte {
 // deliverResponse hands data to the goroutine blocked in awaitResponse for
 // requestIDHex, if one is still waiting. It reports whether a waiter was
 // found.
-func (s *session) deliverResponse(requestIDHex string, data []byte) bool {
+func (s *session) deliverResponse(requestIDHex string, data any) bool {
 	s.pendingMu.Lock()
 	ch, ok := s.pendingRequests[requestIDHex]
 	if ok {
@@ -118,18 +118,26 @@ func (s *session) deliverResponse(requestIDHex string, data []byte) bool {
 	return true
 }
 
-// forgetResponse removes requestIDHex's waiter without delivering data,
-// used once awaitResponse's own timeout fires.
-func (s *session) forgetResponse(requestIDHex string) {
+// forgetResponse removes requestIDHex's waiter without delivering data.
+// It returns true when this call removed the entry (caller owns the timeout).
+func (s *session) forgetResponse(requestIDHex string) bool {
 	s.pendingMu.Lock()
-	delete(s.pendingRequests, requestIDHex)
-	s.pendingMu.Unlock()
+	defer s.pendingMu.Unlock()
+	_, ok := s.pendingRequests[requestIDHex]
+	if ok {
+		delete(s.pendingRequests, requestIDHex)
+	}
+	return ok
 }
 
-func (s *session) addClient(c *wsClient) {
+func (s *session) addClient(c *wsClient) bool {
 	s.clientsMu.Lock()
 	defer s.clientsMu.Unlock()
+	if s.closed {
+		return false
+	}
 	s.clients[c] = struct{}{}
+	return true
 }
 
 func (s *session) removeClient(c *wsClient) {
@@ -160,6 +168,7 @@ func (s *session) broadcast(v any) {
 // cmd/reticulum-go and examples/pageserver).
 func (s *session) close() {
 	s.clientsMu.Lock()
+	s.closed = true
 	clients := make([]*wsClient, 0, len(s.clients))
 	for c := range s.clients {
 		clients = append(clients, c)

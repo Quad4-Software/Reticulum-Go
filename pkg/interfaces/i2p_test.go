@@ -23,6 +23,7 @@ func TestNewFromConfigI2PInterface(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *I2PInterface, got %T", iface)
 	}
+	defer parent.Stop()
 	if parent.bindPort == 0 {
 		t.Fatal("expected bind port")
 	}

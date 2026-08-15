@@ -16,7 +16,7 @@ import (
 	"quad4/reticulum-go/pkg/packet"
 )
 
-const tunnelTimeout = 8 * 60 * 60 // 8 hours, matches Python Transport.TUNNEL_TIMEOUT
+const tunnelTimeout = 8 * 60 * 60 // 8 hours
 
 // TunnelInterface is implemented by logical interfaces that participate in
 // Reticulum tunnel establishment (I2P peers, i2p_tunneled TCP clients).
@@ -111,7 +111,7 @@ func (t *Transport) SynthesizeTunnel(iface TunnelInterface) error {
 	if err := pkt.Pack(); err != nil {
 		return err
 	}
-	if err := iface.Send(pkt.Raw, ""); err != nil {
+	if err := sendOnInterface(iface, pkt.Raw, ""); err != nil {
 		return err
 	}
 	iface.SetWantsTunnel(false)

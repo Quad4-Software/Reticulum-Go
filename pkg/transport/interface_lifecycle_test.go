@@ -16,6 +16,7 @@ func mockIface(name string, enabled bool) *mockInterface {
 	m := &mockInterface{}
 	m.Name = name
 	m.Enabled = enabled
+	m.Online = enabled
 	return m
 }
 
@@ -104,17 +105,19 @@ func TestUnregisterInterfaceScrubsDiscoveryAndAnnounceTables(t *testing.T) {
 	}
 
 	dest := bytes.Repeat([]byte{0x55}, 16)
+	announceKey := destKey([]byte("xxxxxxxxxxxxxxxx"))
+	heldKey := destKey([]byte("yyyyyyyyyyyyyyyy"))
 	tr.mutex.Lock()
-	tr.discoveryPathRequests[string(dest)] = &DiscoveryPathRequest{
+	tr.discoveryPathRequests[destKey(dest)] = &DiscoveryPathRequest{
 		DestinationHash: dest,
 		Timeout:         time.Now().Add(time.Hour),
 		RequestingIface: a,
 	}
-	tr.announceTable["x"] = &PathAnnounceEntry{
+	tr.announceTable[announceKey] = &PathAnnounceEntry{
 		CreatedAt:    time.Now(),
 		ReceivedFrom: a,
 	}
-	tr.heldAnnounces["y"] = &PathAnnounceEntry{
+	tr.heldAnnounces[heldKey] = &PathAnnounceEntry{
 		CreatedAt:         time.Now(),
 		AttachedInterface: a,
 	}
@@ -123,9 +126,9 @@ func TestUnregisterInterfaceScrubsDiscoveryAndAnnounceTables(t *testing.T) {
 	tr.UnregisterInterface("wan")
 
 	tr.mutex.RLock()
-	_, dOK := tr.discoveryPathRequests[string(dest)]
-	_, aOK := tr.announceTable["x"]
-	_, hOK := tr.heldAnnounces["y"]
+	_, dOK := tr.discoveryPathRequests[destKey(dest)]
+	_, aOK := tr.announceTable[announceKey]
+	_, hOK := tr.heldAnnounces[heldKey]
 	tr.mutex.RUnlock()
 
 	if dOK || aOK || hOK {

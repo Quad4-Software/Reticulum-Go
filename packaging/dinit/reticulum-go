@@ -1,0 +1,7 @@
+# dinit service for reticulum-go.
+# Install to /etc/dinit.d/reticulum-go
+
+type = process
+command = /usr/bin/env HOME=/var/lib/reticulum-go @BINDIR@/reticulum-go daemon --config /var/lib/reticulum-go/config
+restart = true
+smooth-recovery = true

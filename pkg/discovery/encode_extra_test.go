@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"testing"
+
+	"quad4/msgpack/v5/pkg/msgpack"
 )
 
 func TestEncodeInfoRequiresType(t *testing.T) {
@@ -34,7 +36,7 @@ func TestEncodeInfoOmitsZeroOptionals(t *testing.T) {
 		t.Error("HasPort should be false when Port unset")
 	}
 	// EncodeInfo always emits geo fields (even when zero), so HasGeo is true
-	// after a round-trip; the values themselves should remain zero.
+	// after a round-trip, and the values themselves should remain zero.
 	if out.Latitude != 0 || out.Longitude != 0 || out.Height != 0 {
 		t.Errorf("geo fields should be zero, got %+v", out)
 	}
@@ -139,6 +141,22 @@ func TestStampValidOutOfRange(t *testing.T) {
 	}
 	if StampValid(stamp, 257, wb) {
 		t.Error("StampValid(257) should be false")
+	}
+}
+
+func TestStampValidRejectsWrongLength(t *testing.T) {
+	wb := []byte("workblock")
+	if StampValid(nil, 0, wb) {
+		t.Error("nil stamp must be invalid even at cost 0")
+	}
+	if StampValid([]byte{0x01}, 0, wb) {
+		t.Error("short stamp must be invalid")
+	}
+	if StampValid(bytes.Repeat([]byte{0x00}, StampSize+1), 0, wb) {
+		t.Error("oversized stamp must be invalid")
+	}
+	if !StampValid(bytes.Repeat([]byte{0x00}, StampSize), 0, wb) {
+		t.Error("exact StampSize at cost 0 must be valid")
 	}
 }
 
@@ -259,6 +277,39 @@ func TestToIntClampsLargeUint64(t *testing.T) {
 	}
 	if got := toInt("not a number"); got != 0 {
 		t.Errorf("toInt(string): got %d, want 0", got)
+	}
+	if _, ok := toIntOK("not a number"); ok {
+		t.Error("toIntOK(string) should be false")
+	}
+}
+
+func TestDecodeInfoIgnoresNonNumericPortAndGeo(t *testing.T) {
+	var buf bytes.Buffer
+	enc := msgpack.NewEncoder(&buf)
+	_ = enc.EncodeMapLen(5)
+	_ = enc.Encode(byte(FieldInterfaceType))
+	_ = enc.Encode("TCPInterface")
+	_ = enc.Encode(byte(FieldTransportID))
+	_ = enc.Encode([]byte{0x01, 0x02})
+	_ = enc.Encode(byte(FieldPort))
+	_ = enc.Encode("9999")
+	_ = enc.Encode(byte(FieldLatitude))
+	_ = enc.Encode("north")
+	_ = enc.Encode(byte(FieldName))
+	_ = enc.Encode("n")
+
+	out, err := DecodeInfo(buf.Bytes())
+	if err != nil {
+		t.Fatalf("DecodeInfo: %v", err)
+	}
+	if out.HasPort {
+		t.Fatal("HasPort must stay false for string port")
+	}
+	if out.HasGeo {
+		t.Fatal("HasGeo must stay false for string latitude")
+	}
+	if out.Type != "TCPInterface" {
+		t.Fatalf("Type=%q", out.Type)
 	}
 }
 

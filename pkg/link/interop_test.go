@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package link
 
 import (
 	"bytes"
+	"math/rand/v2"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -20,45 +23,154 @@ type PipeInterface struct {
 	common.BaseInterface
 	peer   *PipeInterface
 	tr     *transport.Transport
-	online bool
+	online atomic.Bool
 
 	// dropOnce, if set, is consulted for every outbound packet. Returning
 
 	// true drops that packet instead of delivering it. Used by tests that
 	// simulate packet loss on a lossy mesh path.
-	dropOnce func(data []byte) bool
+	dropOnce atomic.Pointer[dropFn]
+
+	chaosMu      sync.Mutex
+	reorderQ     [][]byte
+	reorderCap   int
+	reorderRNG   *rand.Rand
+	reorderArmed bool
 }
 
+type dropFn func(data []byte) bool
+
 func NewPipeInterface(name string) *PipeInterface {
-	return &PipeInterface{
+	p := &PipeInterface{
 		BaseInterface: common.BaseInterface{
 			Name:    name,
 			Type:    common.IFTypeUDP,
 			Enabled: true,
 			Online:  true,
 		},
-		online: true,
+	}
+	p.online.Store(true)
+	return p
+}
+
+// setDropOnce installs an arbitrary outbound drop predicate (or clears it
+// when fn is nil). Safe to call while the pipe is in use.
+func (p *PipeInterface) setDropOnce(fn dropFn) {
+	if fn == nil {
+		p.dropOnce.Store(nil)
+		return
+	}
+	f := fn
+	p.dropOnce.Store(&f)
+}
+
+// setLossyDrop installs a seeded probabilistic drop filter on outbound Send.
+func (p *PipeInterface) setLossyDrop(prob float64, seed uint64) {
+	rng := rand.New(rand.NewPCG(seed, seed^0xdeadbeef))
+	var mu sync.Mutex
+	p.setDropOnce(func(_ []byte) bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return rng.Float64() < prob
+	})
+}
+
+// setReorderDrop buffers outbound frames and flushes them in shuffled order.
+func (p *PipeInterface) setReorderDrop(queueCap int, seed uint64) {
+	if queueCap < 2 {
+		queueCap = 2
+	}
+	p.chaosMu.Lock()
+	defer p.chaosMu.Unlock()
+	p.reorderCap = queueCap
+	p.reorderRNG = rand.New(rand.NewPCG(seed, seed^0xc0ffee))
+	p.reorderQ = nil
+	p.reorderArmed = true
+}
+
+func (p *PipeInterface) setOnline(online bool) {
+	p.online.Store(online)
+	p.Online = online
+}
+
+func (p *PipeInterface) clearChaos() {
+	p.dropOnce.Store(nil)
+	batch := p.takeReorderBatch(true)
+	for _, frame := range batch {
+		p.deliver(frame)
 	}
 }
 
+// takeReorderBatch copies and clears the reorder queue. When disarm is true
+// reorder mode is turned off. Delivery must happen without holding chaosMu so
+// a synchronous HandlePacket that re-enters Send cannot deadlock.
+func (p *PipeInterface) takeReorderBatch(disarm bool) [][]byte {
+	p.chaosMu.Lock()
+	defer p.chaosMu.Unlock()
+	if len(p.reorderQ) == 0 {
+		if disarm {
+			p.reorderArmed = false
+			p.reorderRNG = nil
+		}
+		return nil
+	}
+	batch := p.reorderQ
+	p.reorderQ = nil
+	if p.reorderRNG != nil {
+		p.reorderRNG.Shuffle(len(batch), func(i, j int) { batch[i], batch[j] = batch[j], batch[i] })
+	}
+	if disarm {
+		p.reorderArmed = false
+		p.reorderRNG = nil
+	}
+	return batch
+}
+
+func (p *PipeInterface) deliver(data []byte) {
+	if !p.online.Load() || p.peer == nil || !p.peer.online.Load() || p.peer.tr == nil {
+		return
+	}
+	dataCopy := make([]byte, len(data))
+	copy(dataCopy, data)
+	p.peer.tr.HandlePacket(dataCopy, p.peer)
+}
+
 func (p *PipeInterface) Send(data []byte, address string) error {
-	if !p.online || p.peer == nil || !p.peer.online {
+	if !p.online.Load() || p.peer == nil || !p.peer.online.Load() {
 		return nil
 	}
-	if p.dropOnce != nil && p.dropOnce(data) {
+	if fn := p.dropOnce.Load(); fn != nil && (*fn)(data) {
 		return nil
 	}
-	// Deliver to peer's transport
-	if p.peer.tr != nil {
-		dataCopy := make([]byte, len(data))
-		copy(dataCopy, data)
-		p.peer.tr.HandlePacket(dataCopy, p.peer)
+	p.chaosMu.Lock()
+	if p.reorderArmed {
+		cp := append([]byte(nil), data...)
+		p.reorderQ = append(p.reorderQ, cp)
+		flush := len(p.reorderQ) >= p.reorderCap
+		if !flush && p.reorderRNG != nil {
+			flush = p.reorderRNG.Float64() < 0.35
+		}
+		var batch [][]byte
+		if flush {
+			batch = p.reorderQ
+			p.reorderQ = nil
+			if p.reorderRNG != nil {
+				p.reorderRNG.Shuffle(len(batch), func(i, j int) { batch[i], batch[j] = batch[j], batch[i] })
+			}
+		}
+		p.chaosMu.Unlock()
+		for _, frame := range batch {
+			p.deliver(frame)
+		}
+		return nil
 	}
+	p.chaosMu.Unlock()
+	p.deliver(data)
 	return nil
 }
 
 func (p *PipeInterface) IsEnabled() bool { return p.Enabled }
-func (p *PipeInterface) IsOnline() bool  { return p.online }
+func (p *PipeInterface) IsOnline() bool  { return p.online.Load() }
 func (p *PipeInterface) GetName() string { return p.Name }
 func (p *PipeInterface) Start() error    { return nil }
 func (p *PipeInterface) Stop() error     { return nil }

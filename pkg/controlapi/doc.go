@@ -3,8 +3,8 @@
 
 // Package controlapi implements a localhost-only JSON control plane for a
 // running Reticulum-Go node. It lets applications written in any language
-// use destinations, announces, links, and request/response without
-// embedding the Go transport stack themselves.
+// use destinations, announces, links, request/response, identify, and
+// minimal link resources without embedding the Go transport stack.
 //
 // # Wire protocol
 //
@@ -23,7 +23,8 @@
 //	POST   /v1/sessions/{id}/destinations                        register a destination
 //	POST   /v1/sessions/{id}/destinations/{hash}/announce        send an announce
 //	POST   /v1/sessions/{id}/destinations/{hash}/requests        bridge a request path to the WebSocket
-//	POST   /v1/sessions/{id}/path/request                        request a path
+//	DELETE /v1/sessions/{id}/destinations/{hash}/requests        deregister a request path (?path=)
+//	POST   /v1/sessions/{id}/path/request                        request a path (returns wait_s)
 //	GET    /v1/sessions/{id}/events                              WebSocket event stream
 //
 // A session owns one identity, the destinations registered under it, and
@@ -31,32 +32,28 @@
 // link payloads) are hex- or base64-encoded as noted on each
 // request/response type in protocol.go.
 //
-// # Events
+// # Events and commands
 //
-// The /v1/sessions/{id}/events WebSocket pushes JSON events (announceEvent,
-// linkEstablishedEvent, linkFailedEvent, linkDataEvent, linkClosedEvent,
-// requestIncomingEvent) and accepts JSON commands (subscribeAnnouncesCommand,
-// linkOpenCommand, linkSendCommand, linkCloseCommand,
-// requestRespondCommand). See protocol.go for the full set.
+// The events WebSocket pushes announce, link.established, link.failed,
+// link.data, link.closed, link.remote_identified, request.incoming,
+// request.response, request.failed, resource.started, resource.concluded,
+// and command.error. It accepts subscribe_announces, link.open, link.send,
+// link.close, link.request, link.send_resource, link.identify, and
+// request.respond (optional filename for NomadNet file replies).
 //
-// Links: registering a destination with accepts_links opens it to inbound
-// links. Link.open initiates an outbound link to a destination the node
-
-// has already learned about via an announce. Both report
-// linkEstablishedEvent once active, linkDataEvent for each link.send from
-// the peer, and linkClosedEvent on teardown. An outbound link.open that
-
-// never becomes active reports linkFailedEvent instead.
-//
-// Requests: registering a path via POST .../destinations/{hash}/requests
-// bridges it to requestIncomingEvent/requestRespondCommand. The handler
-// blocks the underlying link goroutine until the application answers with
-// request.respond or a fixed timeout elapses, so it should be answered
-// promptly.
+// subscribe_announces.filter must be empty (all announces) or an exact
+// 16-byte destination hash as hex.
 //
 // # Scope
 //
 // The server binds to 127.0.0.1 by default and is disabled unless
 // enable_control_api is set in the node configuration. It is an application
-// contract over the transport, not a mirror of the internal transport API.
+// contract over the transport, not a mirror of channels, buffers, or
+// mesh-admin RPC. Large resources over base64 WebSocket frames are
+// impractical. Prefer rncp or in-process librns for bulk transfers.
+//
+// Do not treat this API as a required remote control plane for a product.
+// It fronts one local node. Application traffic should use destinations and
+// links between peers. See docs/en/control-api.md (Architecture notes) and
+// reticulum.network/manual/zen.html for upstream design intent.
 package controlapi

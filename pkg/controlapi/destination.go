@@ -13,14 +13,15 @@ import (
 	"net/http"
 	"time"
 
+	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/identity"
 )
 
 // requestResponseTimeout bounds how long a request.incoming bridge blocks
-// waiting for the application's request.respond command.
-const requestResponseTimeout = 30 * time.Second
+// waiting for the application's request.respond command. Tests may shorten it.
+var requestResponseTimeout = 30 * time.Second
 
 func (s *Server) handleRegisterDestination(w http.ResponseWriter, r *http.Request) {
 	sess, ok := s.session(r.PathValue("id"))
@@ -30,7 +31,10 @@ func (s *Server) handleRegisterDestination(w http.ResponseWriter, r *http.Reques
 	}
 
 	var req registerDestinationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(w, r, &req); err != nil {
+		if isBodyTooLarge(err) {
+			return
+		}
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -41,7 +45,7 @@ func (s *Server) handleRegisterDestination(w http.ResponseWriter, r *http.Reques
 
 	dest, err := destination.New(sess.identity, destination.In, destination.Single, req.AppName, s.transport, req.Aspects...)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("register destination: %v", err))
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("register destination: %v", err))
 		return
 	}
 
@@ -50,6 +54,8 @@ func (s *Server) handleRegisterDestination(w http.ResponseWriter, r *http.Reques
 
 	if req.AcceptsLinks {
 		wireInboundLinks(sess, dest)
+	} else {
+		debug.Log(debug.DebugInfo, common.MsgControlAPINoAcceptsLinks, "hash", hashHex)
 	}
 
 	writeJSON(w, http.StatusCreated, registerDestinationResponse{DestinationHash: hashHex})
@@ -73,7 +79,10 @@ func (s *Server) handleRegisterRequestHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	var req registerRequestHandlerRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONBody(w, r, &req); err != nil {
+		if isBodyTooLarge(err) {
+			return
+		}
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -125,7 +134,7 @@ func parseAllowMode(allow string, identities []string) (byte, [][]byte, error) {
 // matching request.respond command arrives or requestResponseTimeout
 // elapses.
 func wireRequestHandler(sess *session, dest *destination.Destination, destHashHex, path string, allow byte, allowedList [][]byte) error {
-	return dest.RegisterRequestHandler(path, func(p string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) []byte {
+	return dest.RegisterRequestHandlerAny(path, func(p string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) any {
 		requestIDHex := hex.EncodeToString(requestID)
 		evt := requestIncomingEvent{
 			Type:            "request.incoming",
@@ -146,7 +155,13 @@ func wireRequestHandler(sess *session, dest *destination.Destination, destHashHe
 		case resp := <-ch:
 			return resp
 		case <-time.After(requestResponseTimeout):
-			sess.forgetResponse(requestIDHex)
+			// Ownership protocol: whoever removes the map entry owns the
+			// outcome. If deliverResponse already took it, wait for the
+			// buffered send instead of returning nil while the WS client
+			// was told the respond succeeded.
+			if !sess.forgetResponse(requestIDHex) {
+				return <-ch
+			}
 			debug.Log(debug.DebugError, "controlapi: request.respond timed out", "path", p, "request_id", requestIDHex)
 			return nil
 		}
@@ -155,25 +170,53 @@ func wireRequestHandler(sess *session, dest *destination.Destination, destHashHe
 
 // handleRequestRespond processes a request.respond command, delivering its
 // data to the goroutine blocked in wireRequestHandler for the same
-// request_id.
+// request_id. When Filename is set the payload is [filename, bytes].
 func (c *wsClient) handleRequestRespond(raw []byte) {
 	var cmd requestRespondCommand
 	if err := json.Unmarshal(raw, &cmd); err != nil {
-		debug.Log(debug.DebugError, "controlapi: invalid request.respond command", "error", err)
+		c.send(commandErrorEvent{Type: "command.error", Command: "request.respond", Error: "invalid command json"})
 		return
 	}
 	var data []byte
 	if cmd.Data != "" {
 		decoded, err := base64.StdEncoding.DecodeString(cmd.Data)
 		if err != nil {
-			debug.Log(debug.DebugError, "controlapi: request.respond data is not base64", "request_id", cmd.RequestID)
+			c.send(commandErrorEvent{Type: "command.error", Command: "request.respond", Error: "data must be base64"})
 			return
 		}
 		data = decoded
 	}
-	if !c.session.deliverResponse(cmd.RequestID, data) {
-		debug.Log(debug.DebugError, "controlapi: request.respond for unknown or expired request_id", "request_id", cmd.RequestID)
+	var payload any = data
+	if cmd.Filename != "" {
+		payload = []any{cmd.Filename, data}
 	}
+	if !c.session.deliverResponse(cmd.RequestID, payload) {
+		c.send(commandErrorEvent{Type: "command.error", Command: "request.respond", Error: "unknown or expired request_id"})
+	}
+}
+
+func (s *Server) handleDeregisterRequestHandler(w http.ResponseWriter, r *http.Request) {
+	sess, ok := s.session(r.PathValue("id"))
+	if !ok {
+		writeError(w, http.StatusNotFound, "session not found")
+		return
+	}
+	destHashHex := r.PathValue("hash")
+	dest, ok := sess.destination(destHashHex)
+	if !ok {
+		writeError(w, http.StatusNotFound, "destination not found")
+		return
+	}
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		writeError(w, http.StatusBadRequest, "path query parameter is required")
+		return
+	}
+	if !dest.DeregisterRequestHandler(path) {
+		writeError(w, http.StatusNotFound, "request handler not found")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) handleAnnounce(w http.ResponseWriter, r *http.Request) {
@@ -189,7 +232,10 @@ func (s *Server) handleAnnounce(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req announceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+	if err := decodeJSONBody(w, r, &req); err != nil && !errors.Is(err, io.EOF) {
+		if isBodyTooLarge(err) {
+			return
+		}
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -199,10 +245,23 @@ func (s *Server) handleAnnounce(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "app_data must be base64-encoded")
 			return
 		}
+		// Announce app_data must fit packet.MTU after fixed fields.
+		// HEADER1 without ratchet leaves 333 bytes, with ratchet 301.
+		// Allow the no-ratchet budget and let CreatePacket reject if a
+		// ratchet is attached and the payload no longer fits.
+		const maxAnnounceAppData = 333
+		if len(appData) > maxAnnounceAppData {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("app_data exceeds announce MTU budget (%d > %d)", len(appData), maxAnnounceAppData))
+			return
+		}
 		dest.SetDefaultAppData(appData)
 	}
 
 	if err := dest.Announce(false, nil, nil); err != nil {
+		if errors.Is(err, common.ErrDestAnnounceThrottled) {
+			writeError(w, http.StatusTooManyRequests, err.Error())
+			return
+		}
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("announce: %v", err))
 		return
 	}

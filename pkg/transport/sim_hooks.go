@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package transport
 
 import (
@@ -32,12 +33,12 @@ func pathfinderRebroadcastDelay() time.Duration {
 	if rw <= 0 {
 		return 0
 	}
-	b := make([]byte, 8)
-	if _, err := rand.Read(b); err != nil {
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err != nil {
 		return 0
 	}
 	windowMs := max(int64(rw*1000.0), 1)
-	return time.Duration(int64(binary.BigEndian.Uint64(b)%uint64(windowMs))) * time.Millisecond // #nosec G115
+	return time.Duration(int64(binary.BigEndian.Uint64(b[:])%uint64(windowMs))) * time.Millisecond // #nosec G115
 }
 
 func (t *Transport) announceRateAllow() bool {

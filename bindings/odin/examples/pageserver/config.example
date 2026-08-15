@@ -1,0 +1,21 @@
+# Sample config for Odin librns pageserver.
+# share_instance must be off for an in-process librns host.
+#
+# Pick a supported public interface from:
+#   https://directory.rns.recipes/ 
+# Paste one [[Interface]] block under [interfaces] below.
+
+[reticulum]
+enable_transport = yes
+share_instance = no
+in_memory_storage = yes
+enable_sandbox = no
+
+[logging]
+loglevel = 3
+
+[interfaces]
+
+  [[Auto Discovery]]
+    type = AutoInterface
+    enabled = yes

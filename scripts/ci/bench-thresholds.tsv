@@ -1,5 +1,27 @@
 # benchmark_pattern	max_ns_per_op	max_allocs_per_op
+# Core wire throughput
 BenchmarkPacketThroughput.*	5000	5
 BenchmarkHubEcho.*	300000	20
-BenchmarkSimConcurrentLineRelay.*	30000	100
+# Relay / path hot paths
+BenchmarkSimConcurrentLineRelay.*	30000	50
+BenchmarkSimLineRelayThroughput/Hops-2	15000	25
+BenchmarkSimLineRelayThroughput/Hops-4	20000	45
+BenchmarkSimLineRelayThroughput/Hops-8	30000	80
+BenchmarkSimLineRelayThroughput/Hops-16	50000	140
 BenchmarkHasPath_ParallelMixed	500	2
+# Announce ingest
+BenchmarkHandleAnnouncePacket_DebugCritical	100000	12
+BenchmarkHandleAnnouncePacket_DebugInfo	100000	12
+# Link encrypt
+BenchmarkLinkEncrypt	5000	15
+# IFAC mask/unmask: HKDF reuse keeps allocs flat across payload sizes
+BenchmarkSimIFACMaskUnmask/Payload-16	150000	50
+BenchmarkSimIFACMaskUnmask/Payload-256	150000	50
+BenchmarkSimIFACMaskUnmask/Payload-1024	200000	50
+# Identity / crypto microbenches
+BenchmarkIdentityHashCached	500	0
+BenchmarkDeriveKey/Len-64	50000	20
+BenchmarkDeriveKey/Len-1024	200000	30
+BenchmarkRememberUnchanged	2000	1
+BenchmarkTCPHDLCDecoderBurst	80000	2
+BenchmarkHandlePacketCopy	500	2

@@ -154,14 +154,20 @@ func TestLiveServerClientTunnel(t *testing.T) {
 	echoDone := make(chan struct{})
 	go func() {
 		defer close(echoDone)
-		conn, err := ln.Accept()
-		if err != nil {
-			return
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			buf := make([]byte, 64)
+			n, _ := conn.Read(buf)
+			if n > 0 {
+				_, _ = conn.Write(buf[:n])
+				_ = conn.Close()
+				return
+			}
+			_ = conn.Close()
 		}
-		defer conn.Close()
-		buf := make([]byte, 64)
-		n, _ := conn.Read(buf)
-		_, _ = conn.Write(buf[:n])
 	}()
 
 	clientPort, err := ctrl.FreePort()
@@ -173,24 +179,85 @@ func TestLiveServerClientTunnel(t *testing.T) {
 		t.Fatalf("client tunnel: %v", err)
 	}
 
-	dialCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-	var conn net.Conn
-	deadline := time.Now().Add(2 * time.Minute)
+	// Local Accept can succeed before STREAM CONNECT finishes. Retry the
+	// full echo until the I2P stream is actually up.
+	msg := []byte("tunnel-echo")
+	deadline := time.Now().Add(3 * time.Minute)
+	var lastErr error
 	for time.Now().Before(deadline) {
-		d, err := (&net.Dialer{}).DialContext(dialCtx, "tcp", clientTun.LocalAddr())
-		if err == nil {
-			conn = d
-			break
+		dialCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		conn, err := (&net.Dialer{}).DialContext(dialCtx, "tcp", clientTun.LocalAddr())
+		cancel()
+		if err != nil {
+			lastErr = err
+			time.Sleep(500 * time.Millisecond)
+			continue
 		}
-		time.Sleep(500 * time.Millisecond)
+		_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
+		if _, err := conn.Write(msg); err != nil {
+			lastErr = err
+			_ = conn.Close()
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+		out := make([]byte, len(msg))
+		if _, err := io.ReadFull(conn, out); err != nil {
+			lastErr = err
+			_ = conn.Close()
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+		_ = conn.Close()
+		if string(out) != string(msg) {
+			t.Fatalf("echo mismatch: %q", out)
+		}
+		<-echoDone
+		return
 	}
-	if conn == nil {
-		t.Fatal("timed out dialing client tunnel")
+	t.Fatalf("tunnel echo failed within budget: %v", lastErr)
+}
+
+func TestLiveDialStreamToLocalServer(t *testing.T) {
+	liveI2POrSkip(t)
+	dir := t.TempDir()
+	ctrl := NewController(filepath.Join(dir, "i2p"), "")
+	defer ctrl.Stop()
+
+	localPort, err := ctrl.FreePort()
+	if err != nil {
+		t.Fatal(err)
 	}
+	tun, dest, err := ctrl.StartServerTunnel("live-dialstream", []byte("live-dialstream-id"), localPort)
+	if err != nil {
+		t.Fatalf("server tunnel: %v", err)
+	}
+	ln, err := net.Listen("tcp", tun.LocalAddr())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	go func() {
+		c, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer c.Close()
+		buf := make([]byte, 64)
+		n, _ := c.Read(buf)
+		_, _ = c.Write(buf[:n])
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	conn, sess, err := ctrl.DialStream(ctx, dest.Base32()+".b32.i2p")
+	if err != nil {
+		t.Fatalf("DialStream: %v", err)
+	}
+	defer ctrl.ReleaseDialSession(sess)
 	defer conn.Close()
 
-	msg := []byte("tunnel-echo")
+	msg := []byte("dialstream-echo")
+	_ = conn.SetDeadline(time.Now().Add(60 * time.Second))
 	if _, err := conn.Write(msg); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -201,5 +268,4 @@ func TestLiveServerClientTunnel(t *testing.T) {
 	if string(out) != string(msg) {
 		t.Fatalf("echo mismatch: %q", out)
 	}
-	<-echoDone
 }

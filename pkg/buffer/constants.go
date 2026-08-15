@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package buffer
 
 const (
@@ -11,7 +12,7 @@ const (
 	StreamHeaderEOF        = 0x8000
 	StreamHeaderCompressed = 0x4000
 
-	StreamDataMessageType = 0x01
+	StreamDataMessageType = 0xff00
 
 	StreamHeaderSize = 2
 

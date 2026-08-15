@@ -1,12 +1,16 @@
 version: '3'
 
 vars:
-  LINUX_ARCHES: [amd64, arm64, arm, riscv64]
-  WINDOWS_ARCHES: [amd64, arm64]
+  LINUX_ARCHES: [amd64, arm64, arm, 386, riscv64, ppc64le, ppc64]
+  WINDOWS_ARCHES: [amd64, arm64, 386]
   DARWIN_ARCHES: [amd64, arm64]
   FREEBSD_ARCHES: [amd64, 386, arm64, arm, riscv64]
   OPENBSD_ARCHES: [amd64, 386, arm64, arm, ppc64, riscv64]
   NETBSD_ARCHES: [amd64, 386, arm64, arm]
+  # Prefer CLI/env VERSION (e.g. task build VERSION=v1.0.0). Do not use a
+  # dynamic sh: VERSION here: Task would export it and override CI env.
+  GIT_DESCRIBE:
+    sh: git describe --tags --always --dirty 2>/dev/null || echo dev
 
 tasks:
   build:
@@ -15,7 +19,17 @@ tasks:
       CGO_ENABLED: '0'
     cmds:
       - mkdir -p {{.BUILD_DIR}}
-      - '{{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}'
+      - |
+        V="${VERSION:-{{.VERSION}}}"
+        if [ -z "$V" ]; then
+          V="{{.GIT_DESCRIBE}}"
+        fi
+        {{.GOCMD}} build -ldflags="-s -w -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}
+
+  build-utils:
+    desc: Alias for build (tools are subcommands of reticulum-go)
+    cmds:
+      - task: build
 
   debug:
     desc: Build debug binary
@@ -58,12 +72,16 @@ tasks:
         if [ "{{.GOOS}}" = "windows" ]; then
           suffix=".exe"
         fi
-        {{.GOCMD}} build -ldflags="-s -w" \
+        V="${VERSION:-{{.VERSION}}}"
+        if [ -z "$V" ]; then
+          V="{{.GIT_DESCRIBE}}"
+        fi
+        {{.GOCMD}} build -ldflags="-s -w -X main.defaultVersion=${V}" \
           -o "{{.BUILD_DIR}}/{{.BINARY_NAME}}-{{.GOOS}}-{{.GOARCH}}${suffix}" \
           {{.MAIN_PACKAGE}}
 
   build-linux:
-    desc: Build for Linux (amd64, arm64, arm, riscv64)
+    desc: Build for Linux (amd64, arm64, arm, 386, riscv64, ppc64le, ppc64)
     deps:
       - for:
           matrix:
@@ -75,7 +93,7 @@ tasks:
           GOARCH: '{{.ITEM.GOARCH}}'
 
   build-windows:
-    desc: Build for Windows (amd64, arm64)
+    desc: Build for Windows (amd64, arm64, 386)
     deps:
       - for:
           matrix:
@@ -92,8 +110,27 @@ tasks:
       CGO_ENABLED: '0'
     cmds:
       - mkdir -p {{.BUILD_DIR}}
-      - 'GOOS=windows GOARCH=amd64 {{.GO_LEGACY_WIN7}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64-win7.exe {{.MAIN_PACKAGE}}'
-      - 'GOOS=windows GOARCH=arm64 {{.GO_LEGACY_WIN7}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-arm64-win7.exe {{.MAIN_PACKAGE}}'
+      - |
+        V="${VERSION:-{{.VERSION}}}"
+        if [ -z "$V" ]; then
+          V="{{.GIT_DESCRIBE}}"
+        fi
+        GOOS=windows GOARCH=amd64 {{.GO_LEGACY_WIN7}} build -ldflags="-s -w -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64-win7.exe {{.MAIN_PACKAGE}}
+        GOOS=windows GOARCH=arm64 {{.GO_LEGACY_WIN7}} build -ldflags="-s -w -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-arm64-win7.exe {{.MAIN_PACKAGE}}
+
+  build-windows-xp:
+    desc: Build for Windows XP/2003 using go-legacy-winxp (386, amd64)
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - |
+        V="${VERSION:-{{.VERSION}}}"
+        if [ -z "$V" ]; then
+          V="{{.GIT_DESCRIBE}}"
+        fi
+        GOOS=windows GOARCH=386 {{.GO_LEGACY_WINXP}} build -ldflags="-s -w -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-386-winxp.exe {{.MAIN_PACKAGE}}
+        GOOS=windows GOARCH=amd64 {{.GO_LEGACY_WINXP}} build -ldflags="-s -w -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64-winxp.exe {{.MAIN_PACKAGE}}
 
   build-darwin:
     desc: Build for MacOS (amd64, arm64)
@@ -158,28 +195,30 @@ tasks:
       - '{{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm ./cmd/reticulum-wasm'
 
   tinygo-build:
-    desc: Build binary with TinyGo compiler (WASI; avoids generic bare-metal UART)
+    desc: Build binary with TinyGo compiler
     cmds:
       - mkdir -p {{.BUILD_DIR}}
-      - tinygo build -target=wasi -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-tinygo -size short -opt=z -gc=leaking -panic=trap {{.MAIN_PACKAGE}}
-
-  tinygo-build-debug:
-    desc: Build binary optimized for debugging with TinyGo compiler (WASI)
-    cmds:
-      - mkdir -p {{.BUILD_DIR}}
-      - tinygo build -target=wasi -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-tinygo-debug -size short -opt=1 {{.MAIN_PACKAGE}}
+      - tinygo build -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-tinygo -size short {{.MAIN_PACKAGE}}
 
   tinygo-wasm:
     desc: Build WebAssembly binary with TinyGo compiler
     cmds:
       - mkdir -p {{.BUILD_DIR}}
-      - tinygo build -target=wasm -tags js,wasm -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm ./cmd/reticulum-wasm
+      - tinygo build -target wasm -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm ./cmd/reticulum-wasm
 
-  tinygo-pageserver:
-    desc: Build pageserver example with TinyGo (host ELF)
+  build-librns:
+    desc: Build librns shared library and C header (CGO required)
+    env:
+      CGO_ENABLED: '1'
     cmds:
       - mkdir -p {{.BUILD_DIR}}
-      - cd examples/pageserver && GOFLAGS= GOPROXY=https://proxy.golang.org,direct tinygo build -size short -opt=z -o ../../{{.BUILD_DIR}}/example-pageserver-tinygo .
+      - '{{.GOCMD}} build -buildmode=c-shared -o {{.BUILD_DIR}}/librns.so ./cmd/librns'
+      - cp include/rns.h {{.BUILD_DIR}}/rns.h
+
+  build-librns-targets:
+    desc: Cross-build librns for Linux, Android, and Windows (needs NDK and/or mingw/zig)
+    cmds:
+      - sh scripts/build-librns-targets.sh {{.CLI_ARGS}}
 
   checksum:
     desc: Generate SHA256 checksum for binary (uses BINARY_PATH env var if set, otherwise defaults to bin/reticulum-go)

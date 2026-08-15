@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Sudo-Ivan / Quad4.io
+
 package transport
 
 // Wire-format constants for Reticulum packet headers.

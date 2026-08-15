@@ -1128,6 +1128,129 @@ def generate_python_packet_vectors():
     return vectors
 
 
+def _signed_announce_payload(identity, dest_hash, name_hash, random_hash, app_data, ratchet=None):
+    pub_key = identity.get_public_key()
+    signed = dest_hash + pub_key + name_hash + random_hash
+    if ratchet is not None:
+        signed += ratchet
+    signed += app_data
+    signature = identity.sign(signed)
+    payload = pub_key + name_hash + random_hash
+    if ratchet is not None:
+        payload += ratchet
+    payload += signature + app_data
+    return payload, signature, signed
+
+
+def generate_python_announce_wire_vectors():
+    """Full signed announce frames via Python Packet.pack() for Go unpack/verify."""
+    from RNS.Packet import Packet
+    from RNS.Destination import Destination
+
+    vectors = []
+    seed = hashlib.sha512(b"reticulum-crossref-test-seed-0").digest()
+    identity = Identity(create_keys=False)
+    identity.load_private_key(seed[:64])
+
+    app_name = "testapp"
+    aspects = ["echo"]
+    app_data = b"announce app data"
+    full_name = Destination.expand_name(None, app_name, *aspects)
+    name_hash = hashlib.sha256(full_name.encode("utf-8")).digest()[:10]
+    dest_hash = hashlib.sha256(name_hash + identity.hash).digest()[:16]
+    random_hash = hashlib.sha256(b"deterministic-random-hash-seed").digest()[:10]
+    payload, signature, signed = _signed_announce_payload(
+        identity, dest_hash, name_hash, random_hash, app_data
+    )
+
+    dest = Destination(identity, Destination.OUT, Destination.SINGLE, app_name, *aspects)
+    if dest.hash != dest_hash:
+        raise RuntimeError("destination hash mismatch for announce wire vectors")
+
+    # HEADER_1 signed announce
+    pkt = Packet(dest, payload, create_receipt=False)
+    pkt.packet_type = Packet.ANNOUNCE
+    pkt.flags = pkt.get_packed_flags()
+    pkt.pack()
+    vectors.append({
+        "name": "announce_header1",
+        "raw_hex": pkt.raw.hex(),
+        "dest_hash_hex": dest_hash.hex(),
+        "packet_type": int(Packet.ANNOUNCE),
+        "header_type": int(Packet.HEADER_1),
+        "context": int(pkt.context),
+        "hops": int(pkt.hops),
+        "app_data_hex": app_data.hex(),
+        "public_key_hex": identity.get_public_key().hex(),
+        "name_hash_hex": name_hash.hex(),
+        "random_hash_hex": random_hash.hex(),
+        "signature_hex": signature.hex(),
+        "signed_data_hex": signed.hex(),
+        "payload_hex": payload.hex(),
+        "has_ratchet": False,
+        "verify_ok": True,
+        "path_response": False,
+    })
+
+    # PATH_RESPONSE announce (context 0x0B)
+    pkt_pr = Packet(dest, payload, create_receipt=False)
+    pkt_pr.packet_type = Packet.ANNOUNCE
+    pkt_pr.context = Packet.PATH_RESPONSE
+    pkt_pr.flags = pkt_pr.get_packed_flags()
+    pkt_pr.pack()
+    vectors.append({
+        "name": "announce_path_response",
+        "raw_hex": pkt_pr.raw.hex(),
+        "dest_hash_hex": dest_hash.hex(),
+        "packet_type": int(Packet.ANNOUNCE),
+        "header_type": int(Packet.HEADER_1),
+        "context": int(Packet.PATH_RESPONSE),
+        "hops": int(pkt_pr.hops),
+        "app_data_hex": app_data.hex(),
+        "public_key_hex": identity.get_public_key().hex(),
+        "name_hash_hex": name_hash.hex(),
+        "random_hash_hex": random_hash.hex(),
+        "signature_hex": signature.hex(),
+        "signed_data_hex": signed.hex(),
+        "payload_hex": payload.hex(),
+        "has_ratchet": False,
+        "verify_ok": True,
+        "path_response": True,
+    })
+
+    # HEADER_2 announce with fixed transport id
+    transport_id = bytes(range(16))
+    pkt_h2 = Packet(dest, payload, create_receipt=False)
+    pkt_h2.packet_type = Packet.ANNOUNCE
+    pkt_h2.header_type = Packet.HEADER_2
+    pkt_h2.transport_id = transport_id
+    pkt_h2.transport_type = 1
+    pkt_h2.flags = pkt_h2.get_packed_flags()
+    pkt_h2.pack()
+    vectors.append({
+        "name": "announce_header2",
+        "raw_hex": pkt_h2.raw.hex(),
+        "dest_hash_hex": dest_hash.hex(),
+        "packet_type": int(Packet.ANNOUNCE),
+        "header_type": int(Packet.HEADER_2),
+        "context": int(pkt_h2.context),
+        "hops": int(pkt_h2.hops),
+        "transport_id_hex": transport_id.hex(),
+        "app_data_hex": app_data.hex(),
+        "public_key_hex": identity.get_public_key().hex(),
+        "name_hash_hex": name_hash.hex(),
+        "random_hash_hex": random_hash.hex(),
+        "signature_hex": signature.hex(),
+        "signed_data_hex": signed.hex(),
+        "payload_hex": payload.hex(),
+        "has_ratchet": False,
+        "verify_ok": True,
+        "path_response": False,
+    })
+
+    return vectors
+
+
 def generate_resource_context_vectors():
     """Generate resource context constant values."""
     from RNS.Packet import Packet
@@ -1350,7 +1473,7 @@ def generate_cache_request_vectors():
 
 def main():
     all_vectors = {
-        "format_version": 5,
+        "format_version": 6,
         "generator": "Python Reticulum reference implementation",
         "identity": generate_identity_vectors(),
         "destination_hash": generate_destination_hash_vectors(),
@@ -1381,6 +1504,7 @@ def main():
         "receipt_proof": generate_receipt_proof_vectors(),
         "lrproof_packet": generate_lrproof_packet_vectors(),
         "python_packet": generate_python_packet_vectors(),
+        "python_announce_wire": generate_python_announce_wire_vectors(),
         "resource_context": generate_resource_context_vectors(),
         "resource_metadata_prefix": generate_resource_metadata_prefix_vectors(),
         "buffer_compressed": generate_buffer_compressed_vectors(),

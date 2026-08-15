@@ -9,9 +9,12 @@ vars:
   GOCMD: go
   LIBS_ROOT: '{{default "../../Reticulum-Go-Projects" .LIBS_ROOT}}'
   GO_LEGACY_WIN7: '{{default "/usr/local/go-legacy-win7/bin/go" .GO_LEGACY_WIN7}}'
+  GO_LEGACY_WINXP: '{{default "/usr/local/go-legacy-winxp/bin/go" .GO_LEGACY_WINXP}}'
   BINARY_NAME: reticulum-go
   BUILD_DIR: bin
   MAIN_PACKAGE: ./cmd/reticulum-go
+  PREFIX: '{{default "/usr/local" .PREFIX}}'
+  DESTDIR: '{{default "" .DESTDIR}}'
   SCAN_GO_PACKAGES: ./pkg/... ./cmd/... ./internal/... ./tests/...
   TRIVY_SKIP_DIR_FLAGS: --skip-dirs vendor --skip-dirs .cache
 
@@ -30,6 +33,9 @@ includes:
     flatten: true
   trivy:
     taskfile: ./taskfiles/trivy.yml
+    flatten: true
+  microvm:
+    taskfile: ./taskfiles/microvm.yml
     flatten: true
 
 tasks:
@@ -51,7 +57,7 @@ tasks:
     desc: Check if code is formatted (useful for CI)
     cmds:
       - |
-        UNFORMATTED=$(gofmt -l $(git ls-files '*.go'))
+        UNFORMATTED=$(gofmt -l $(git ls-files '*.go' ':!:vendor/**' ':!:**/vendor/**'))
         if [ -n "$UNFORMATTED" ]; then
           echo "Code is not formatted. Run 'task fmt' to fix."
           echo "$UNFORMATTED"
@@ -71,7 +77,7 @@ tasks:
   scan:
     desc: Run gosec security scanner
     cmds:
-      - gosec -exclude-dir=vendor -exclude-dir=.cache {{.SCAN_GO_PACKAGES}}
+      - gosec -exclude-dir=vendor -exclude-dir=.cache -exclude-dir=testdata {{.SCAN_GO_PACKAGES}}
 
   vulncheck:
     desc: Run govulncheck (Go vulnerability database)
@@ -131,11 +137,39 @@ tasks:
     cmds:
       - '{{.GOCMD}} clean'
       - rm -rf {{.BUILD_DIR}}
+      - make -C bindings/odin clean
+      - make -C bindings/zig clean
+      - make -C bindings/dart clean
 
   reproducibility:
     desc: Fail if two consecutive release builds (trimpath, no VCS stamp) are not byte-identical
     cmds:
       - sh scripts/ci/reproducibility-build.sh
+
+  tree-manifest:
+    desc: Print SHA-256 inventory of git-tracked files (excludes reticulum-go.rsm and vendor/)
+    cmds:
+      - sh scripts/ci/tree-manifest.sh generate
+
+  tree-rsm-sign:
+    desc: Sign tree inventory into reticulum-go.rsm (requires RNS_ID_PATH)
+    cmds:
+      - sh scripts/ci/sign-tree-rsm.sh
+
+  tree-rsm-verify:
+    desc: Verify reticulum-go.rsm signature and byte-level file hashes
+    cmds:
+      - sh scripts/ci/verify-tree-rsm.sh
+
+  hooks:install:
+    desc: Enable tracked .githooks (YAML/shellcheck + RSM resign)
+    cmds:
+      - sh scripts/ci/install-git-hooks.sh
+
+  tree-workspace-clean:
+    desc: Recheck inventory and fail on unexpected workspace changes
+    cmds:
+      - sh scripts/ci/verify-workspace-clean.sh "${RNS_INVENTORY_OUT:-/tmp/reticulum-go-tree-inventory.txt}"
 
   vendor-sync:
     desc: Refresh vendor trees from Reticulum-Go-Projects
@@ -148,9 +182,9 @@ tasks:
       - task: vendor-sync
 
   install:
-    desc: Refresh vendored dependencies from Reticulum-Go-Projects (offline after sync)
+    desc: Install binary, tool symlinks, and man pages (PREFIX, DESTDIR)
     cmds:
-      - task: vendor-sync
+      - make install PREFIX="{{.PREFIX}}" DESTDIR="{{.DESTDIR}}"
 
   run:
     desc: Run with go run

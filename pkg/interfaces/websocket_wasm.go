@@ -229,6 +229,9 @@ func (wsi *WebSocketInterface) closeWebSocket() {
 // override, the embedded BaseInterface.Send dispatches to its own
 // abstract ProcessOutgoing stub.
 func (wsi *WebSocketInterface) Send(data []byte, _ string) error {
+	if err := common.RejectReceiveOnly(wsi); err != nil {
+		return err
+	}
 	wsi.Mutex.RLock()
 	enabled := wsi.Enabled
 	detached := wsi.Detached
@@ -246,7 +249,7 @@ func (wsi *WebSocketInterface) Send(data []byte, _ string) error {
 func (wsi *WebSocketInterface) ProcessOutgoing(data []byte) error {
 	if !wsi.connected {
 		wsi.Mutex.Lock()
-		wsi.messageQueue = append(wsi.messageQueue, data)
+		wsi.messageQueue = enqueueWSMessage(wsi.messageQueue, data)
 		wsi.Mutex.Unlock()
 		return nil
 	}

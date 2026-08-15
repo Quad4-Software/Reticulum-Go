@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package interfaces
 
 import (
@@ -25,7 +26,7 @@ func (tc *TCPClientInterface) setTimeoutsWindows() error {
 	}
 
 	if err := tcpConn.SetKeepAlive(true); err != nil {
-		return fmt.Errorf("failed to enable keepalive: %v", err)
+		return fmt.Errorf("failed to enable keepalive: %w", err)
 	}
 
 	keepalivePeriod := TCPProbeIntervalSec * time.Second

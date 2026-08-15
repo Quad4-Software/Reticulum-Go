@@ -7,9 +7,13 @@ import (
 	"bufio"
 	"bytes"
 	"io"
+	"math/rand"
+	"os/exec"
 	"testing"
 	"time"
 
+	"quad4/bzip2/pkg/bzip2"
+	"quad4/pbt/pkg/pbt"
 	"quad4/reticulum-go/pkg/channel"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/packet"
@@ -129,8 +133,8 @@ func TestStreamDataMessage_Unpack(t *testing.T) {
 
 func TestStreamDataMessage_GetType(t *testing.T) {
 	msg := &StreamDataMessage{}
-	if msg.GetType() != 0x01 {
-		t.Errorf("GetType() = %d, want 0x01", msg.GetType())
+	if msg.GetType() != 0xff00 {
+		t.Errorf("GetType() = %d, want 0xff00", msg.GetType())
 	}
 }
 
@@ -219,8 +223,12 @@ func (m *mockLink) GetLinkID() []byte                                     { retu
 func (m *mockLink) Send(data []byte) any                                  { return &packet.Packet{Raw: data} }
 func (m *mockLink) Resend(p any) error                                    { return nil }
 func (m *mockLink) SetPacketTimeout(p any, cb func(any), t time.Duration) {}
-func (m *mockLink) SetPacketDelivered(p any, cb func(any))                {}
-func (m *mockLink) HandleInbound(pkt *packet.Packet) error                { return nil }
+func (m *mockLink) SetPacketDelivered(p any, cb func(any)) {
+	if cb != nil {
+		cb(p)
+	}
+}
+func (m *mockLink) HandleInbound(pkt *packet.Packet) error { return nil }
 func (m *mockLink) ValidateLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error {
 	return nil
 }
@@ -370,13 +378,27 @@ func TestRawChannelWriter_Write(t *testing.T) {
 		t.Errorf("Write() = %d bytes, want %d", n, len(data))
 	}
 
-	largeData := make([]byte, MaxChunkLen+100)
-	n, err = writer.Write(largeData)
+	// Highly compressible: Python/Go compress the full MaxChunkLen prefix.
+	zeros := make([]byte, MaxChunkLen+100)
+	n, err = writer.Write(zeros)
 	if err != nil {
-		t.Errorf("Write() error = %v", err)
+		t.Errorf("Write() zeros error = %v", err)
 	}
 	if n != MaxChunkLen {
-		t.Errorf("Write() = %d bytes, want %d", n, MaxChunkLen)
+		t.Errorf("Write() zeros = %d bytes, want %d (compressed full chunk)", n, MaxChunkLen)
+	}
+
+	// Incompressible: falls back to MaxDataLen uncompressed slice.
+	incomp := make([]byte, MaxChunkLen)
+	for i := range incomp {
+		incomp[i] = byte(i)
+	}
+	n, err = writer.Write(incomp)
+	if err != nil {
+		t.Errorf("Write() incompressible error = %v", err)
+	}
+	if n != MaxDataLen {
+		t.Errorf("Write() incompressible = %d bytes, want MaxDataLen=%d", n, MaxDataLen)
 	}
 }
 
@@ -433,9 +455,11 @@ func TestCreateBidirectionalBuffer(t *testing.T) {
 func TestCompressData(t *testing.T) {
 	data := []byte("test data for compression")
 	compressed := compressData(data)
-
 	if compressed == nil {
-		t.Skip("compressData() returned nil (compression implementation may be incomplete)")
+		t.Fatal("compressData() returned nil")
+	}
+	if bytes.Equal(compressed, data) {
+		t.Fatal("compressData() returned uncompressed input")
 	}
 }
 
@@ -443,11 +467,209 @@ func TestDecompressData(t *testing.T) {
 	data := []byte("test data")
 	compressed := compressData(data)
 	if compressed == nil {
-		t.Skip("compression not working, skipping decompression test")
+		t.Fatal("compressData() returned nil")
 	}
 
 	decompressed := decompressData(compressed)
 	if decompressed == nil {
-		t.Error("decompressData() returned nil")
+		t.Fatal("decompressData() returned nil")
+	}
+	if !bytes.Equal(decompressed, data) {
+		t.Fatalf("roundtrip mismatch: got %q want %q", decompressed, data)
+	}
+}
+
+func genStreamDataMessage(r *rand.Rand, size int) StreamDataMessage {
+	maxData := 8192
+	if size > 0 && size*80 < maxData {
+		maxData = size * 80
+	}
+	if maxData < 0 {
+		maxData = 0
+	}
+	n := r.Intn(maxData + 1)
+	data := make([]byte, n)
+	for i := range data {
+		data[i] = byte(r.Intn(256))
+	}
+	return StreamDataMessage{
+		StreamID:   uint16(r.Intn(0x4000)),
+		Data:       data,
+		EOF:        r.Intn(2) == 1,
+		Compressed: r.Intn(2) == 1,
+	}
+}
+
+func TestPBTStreamDataMessageRoundTrip(t *testing.T) {
+	gen := pbt.NewGenerator("streamData", genStreamDataMessage)
+	prop := pbt.ForAll(
+		"pack unpack preserves stream fields",
+		gen,
+		func(orig StreamDataMessage) bool {
+			raw, err := orig.Pack()
+			if err != nil {
+				return false
+			}
+			var got StreamDataMessage
+			if err := got.Unpack(raw); err != nil {
+				return false
+			}
+			wantID := orig.StreamID & StreamIDMax
+			return got.StreamID == wantID && got.EOF == orig.EOF && got.Compressed == orig.Compressed &&
+				bytes.Equal(got.Data, orig.Data)
+		},
+	)
+	pbt.Check(t, prop, pbt.WithRuns(100), pbt.WithSeed(5), pbt.WithMaxSize(120))
+}
+
+func bz2Bomb(t *testing.T, decompressedLen int) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	w, err := bzip2.NewWriter(&buf, 9)
+	if err != nil {
+		t.Fatalf("bzip2.NewWriter: %v", err)
+	}
+	zeros := make([]byte, 64*1024)
+	remaining := decompressedLen
+	for remaining > 0 {
+		n := min(len(zeros), remaining)
+		if _, err := w.Write(zeros[:n]); err != nil {
+			t.Fatalf("bzip2 write: %v", err)
+		}
+		remaining -= n
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("bzip2 close: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func bz2Stream(t *testing.T, plaintext []byte) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	w, err := bzip2.NewWriter(&buf, 9)
+	if err != nil {
+		t.Fatalf("bzip2.NewWriter: %v", err)
+	}
+	if _, err := w.Write(plaintext); err != nil {
+		t.Fatalf("bzip2 write: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("bzip2 close: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func TestDecompressData_RejectsBombPastMaxChunkLen(t *testing.T) {
+	const huge = 8 * 1024 * 1024
+	bomb := bz2Bomb(t, huge)
+	if len(bomb) > 4096 {
+		t.Fatalf("bomb stream unexpectedly large: %d bytes", len(bomb))
+	}
+	t.Logf("bomb stream: %d bytes compressed -> %d bytes decompressed (ratio %dx)",
+		len(bomb), huge, huge/len(bomb))
+
+	out := decompressData(bomb)
+	if out != nil {
+		t.Fatalf("expected nil for bz2 bomb past MaxChunkLen, got %d bytes", len(out))
+	}
+}
+
+func TestDecompressData_RoundTripsHonestPayload(t *testing.T) {
+	plaintext := bytes.Repeat([]byte("buf-test-payload"), 64)
+	compressed := bz2Stream(t, plaintext)
+	out := decompressData(compressed)
+	if !bytes.Equal(out, plaintext) {
+		t.Fatalf("roundtrip mismatch: got %d bytes, want %d", len(out), len(plaintext))
+	}
+}
+
+func TestDecompressData_AcceptsPythonBz2Compress(t *testing.T) {
+	plaintext := bytes.Repeat([]byte("py-go-buffer-interop-"), 64)
+	cmd := exec.Command("python3", "-c",
+		"import bz2,sys; sys.stdout.buffer.write(bz2.compress(sys.stdin.buffer.read()))")
+	cmd.Stdin = bytes.NewReader(plaintext)
+	compressed, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("python bz2.compress: %v", err)
+	}
+	got := decompressData(compressed)
+	if !bytes.Equal(got, plaintext) {
+		t.Fatalf("Go decompress of Python bz2 mismatch: got %d want %d", len(got), len(plaintext))
+	}
+}
+
+func TestCompressData_PythonCanDecompress(t *testing.T) {
+	plaintext := bytes.Repeat([]byte("go-py-buffer-interop-"), 64)
+	compressed := compressData(plaintext)
+	if compressed == nil {
+		t.Fatal("compressData returned nil")
+	}
+	cmd := exec.Command("python3", "-c",
+		"import bz2,sys; sys.stdout.buffer.write(bz2.decompress(sys.stdin.buffer.read()))")
+	cmd.Stdin = bytes.NewReader(compressed)
+	got, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("python bz2.decompress of Go stream: %v", err)
+	}
+	if !bytes.Equal(got, plaintext) {
+		t.Fatalf("Python decompress of Go bz2 mismatch: got %d want %d", len(got), len(plaintext))
+	}
+}
+
+func TestRawChannelReader_HandleMessage_BombCannotOverflowBuffer(t *testing.T) {
+	const huge = 8 * 1024 * 1024
+	bomb := bz2Bomb(t, huge)
+
+	link := &mockLink{status: transport.StatusActive}
+	ch := channel.NewChannel(link)
+	reader := NewRawChannelReader(7, ch)
+
+	msg := &StreamDataMessage{
+		StreamID:   7,
+		Data:       bomb,
+		EOF:        true,
+		Compressed: true,
+	}
+
+	if !reader.HandleMessage(msg) {
+		t.Fatalf("HandleMessage returned false for matching streamID")
+	}
+
+	if reader.buffer.Len() != 0 {
+		t.Fatalf("reader buffer holds %d bytes after rejected bomb, want 0", reader.buffer.Len())
+	}
+	if !reader.eof {
+		t.Fatal("EOF flag must still be set when compressed bomb is rejected")
+	}
+	n, err := reader.Read(make([]byte, 8))
+	if n != 0 || err != io.EOF {
+		t.Fatalf("Read after rejected EOF bomb: n=%d err=%v want 0, io.EOF", n, err)
+	}
+}
+
+func TestRawChannelReader_HandleMessage_HonestCompressedFlows(t *testing.T) {
+	plaintext := []byte("hello reticulum buffered stream")
+	compressed := bz2Stream(t, plaintext)
+
+	link := &mockLink{status: transport.StatusActive}
+	ch := channel.NewChannel(link)
+	reader := NewRawChannelReader(11, ch)
+
+	msg := &StreamDataMessage{
+		StreamID:   11,
+		Data:       compressed,
+		EOF:        true,
+		Compressed: true,
+	}
+
+	if !reader.HandleMessage(msg) {
+		t.Fatalf("HandleMessage returned false")
+	}
+
+	got := make([]byte, len(plaintext)+16)
+	n, _ := reader.Read(got)
+	if !bytes.Equal(got[:n], plaintext) {
+		t.Fatalf("read mismatch: got %q, want %q", got[:n], plaintext)
 	}
 }

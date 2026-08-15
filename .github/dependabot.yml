@@ -1,0 +1,15 @@
+# Keep Actions references current while workflows pin full commit SHAs.
+# Dependabot opens PRs that bump the SHA and the trailing version comment together.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "13:00"
+      timezone: UTC
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - github-actions

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package transport
 
 import (
@@ -33,7 +34,8 @@ func simConvergenceTimeout(diameter int) time.Duration {
 		diameter = 1
 	}
 	if simFastPathActive() {
-		return time.Duration(diameter)*50*time.Millisecond + 2*time.Second
+		// One hop per announceForwardCheckInterval in the worst case, plus slack.
+		return time.Duration(diameter)*announceForwardCheckInterval*2 + 2*time.Second
 	}
 	return time.Duration(float64(diameter)*PathfinderRW*3)*time.Second + 5*time.Second
 }

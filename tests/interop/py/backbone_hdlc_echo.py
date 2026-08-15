@@ -96,7 +96,8 @@ def serve(port: int) -> int:
 
 def client(target_port: int) -> int:
     conn = socket.create_connection(("127.0.0.1", target_port), timeout=10.0)
-    payload = bytes([0x42, 0x43, 0x44])
+    # Must exceed RNS BackboneClientInterface HEADER_MINSIZE (19).
+    payload = bytes([0x42, 0x43, 0x44]) * 8
     conn.sendall(frame(payload))
     dec = HDLCDecoder()
     while True:

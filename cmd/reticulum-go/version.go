@@ -10,7 +10,12 @@ import (
 	"runtime/debug"
 )
 
-const defaultVersion = "dev"
+const fallbackVersion = "dev"
+
+// defaultVersion may be overridden at link time:
+//
+//	-ldflags "-X main.defaultVersion=1.2.3"
+var defaultVersion = fallbackVersion
 
 func versionLine() string {
 	version := defaultVersion
@@ -18,8 +23,10 @@ func versionLine() string {
 	buildTime := ""
 
 	if info, ok := debug.ReadBuildInfo(); ok {
-		if info.Main.Version != "" && info.Main.Version != "(devel)" {
-			version = info.Main.Version
+		if version == fallbackVersion || version == "" {
+			if info.Main.Version != "" && info.Main.Version != "(devel)" {
+				version = info.Main.Version
+			}
 		}
 		for _, s := range info.Settings {
 			switch s.Key {
@@ -29,6 +36,9 @@ func versionLine() string {
 				buildTime = s.Value
 			}
 		}
+	}
+	if version == "" {
+		version = fallbackVersion
 	}
 
 	line := fmt.Sprintf("reticulum-go %s %s/%s", version, runtime.GOOS, runtime.GOARCH)

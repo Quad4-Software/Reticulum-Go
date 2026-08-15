@@ -3,6 +3,8 @@
 
 package backbone
 
+import "bytes"
+
 const (
 	hdlcFlag    = 0x7E
 	hdlcEsc     = 0x7D
@@ -10,6 +12,8 @@ const (
 )
 
 // HDLCDecoder incrementally parses HDLC-framed packets from a byte stream.
+// onPacket receives a view of the assembler buffer that is reused after the
+// callback returns. Callers that retain the frame must copy it.
 type HDLCDecoder struct {
 	mtu      int
 	inFrame  bool
@@ -17,6 +21,11 @@ type HDLCDecoder struct {
 	data     []byte
 	maxFrame int
 	onPacket func([]byte)
+}
+
+func assemblerCap(mtu int) int {
+	capn := max(min(mtu, streamReadChunk), 256)
+	return capn
 }
 
 func NewHDLCDecoder(mtu int, onPacket func([]byte)) *HDLCDecoder {
@@ -27,40 +36,84 @@ func NewHDLCDecoder(mtu int, onPacket func([]byte)) *HDLCDecoder {
 	return &HDLCDecoder{
 		mtu:      mtu,
 		maxFrame: maxFrame,
-		data:     make([]byte, 0, mtu),
+		data:     make([]byte, 0, assemblerCap(mtu)),
 		onPacket: onPacket,
 	}
 }
 
 func (d *HDLCDecoder) Feed(buf []byte) {
-	for _, b := range buf {
-		if b == hdlcFlag {
-			if d.inFrame && len(d.data) > 0 {
-				d.emit()
-			}
-			d.inFrame = !d.inFrame
-			d.escape = false
+	for len(buf) > 0 {
+		if d.escape {
+			d.feedByte(buf[0])
+			buf = buf[1:]
 			continue
 		}
 		if !d.inFrame {
+			i := bytes.IndexByte(buf, hdlcFlag)
+			if i < 0 {
+				return
+			}
+			d.feedByte(buf[i])
+			buf = buf[i+1:]
 			continue
 		}
-		if b == hdlcEsc {
-			d.escape = true
+		iFlag := bytes.IndexByte(buf, hdlcFlag)
+		iEsc := bytes.IndexByte(buf, hdlcEsc)
+		next := len(buf)
+		if iFlag >= 0 && iFlag < next {
+			next = iFlag
+		}
+		if iEsc >= 0 && iEsc < next {
+			next = iEsc
+		}
+		if next > 0 {
+			d.appendRun(buf[:next])
+			buf = buf[next:]
 			continue
 		}
-		if d.escape {
-			b ^= hdlcEscMask
-			d.escape = false
-		}
-		if len(d.data) >= d.maxFrame {
-			d.data = d.data[:0]
-			d.inFrame = false
-			d.escape = false
-			continue
-		}
-		d.data = append(d.data, b)
+		d.feedByte(buf[0])
+		buf = buf[1:]
 	}
+}
+
+func (d *HDLCDecoder) appendRun(run []byte) {
+	room := d.maxFrame - len(d.data)
+	if room <= 0 || len(run) > room {
+		d.data = d.data[:0]
+		d.inFrame = false
+		d.escape = false
+		return
+	}
+	d.data = append(d.data, run...)
+}
+
+func (d *HDLCDecoder) feedByte(b byte) {
+	if b == hdlcFlag {
+		if d.inFrame && len(d.data) > 0 {
+			d.emit()
+		}
+		d.inFrame = !d.inFrame
+		d.escape = false
+		return
+	}
+	if !d.inFrame {
+		return
+	}
+	if b == hdlcEsc {
+		d.escape = true
+		return
+	}
+	if d.escape {
+		b ^= hdlcEscMask
+		d.escape = false
+	}
+	if len(d.data) >= d.maxFrame {
+		d.data = d.data[:0]
+		d.inFrame = false
+		d.escape = false
+		return
+	}
+	d.data = append(d.data, b)
 }
 
 func (d *HDLCDecoder) emit() {
@@ -68,11 +121,14 @@ func (d *HDLCDecoder) emit() {
 		d.data = d.data[:0]
 		return
 	}
-	out := append([]byte(nil), d.data...)
-	d.data = d.data[:0]
-	if len(out) > 0 {
-		d.onPacket(out)
+	// Match Python BackboneClientInterface.check_frame_len (RNS 1.3.9).
+	const headerMinSize = 19
+	if len(d.data) <= headerMinSize || (d.mtu > 0 && len(d.data) > d.mtu) {
+		d.data = d.data[:0]
+		return
 	}
+	d.onPacket(d.data)
+	d.data = d.data[:0]
 }
 
 func (d *HDLCDecoder) Reset() {
@@ -88,15 +144,25 @@ func escapeHDLC(data []byte) []byte {
 			need++
 		}
 	}
-	escaped := make([]byte, 0, need)
+	return appendEscapeHDLC(make([]byte, 0, need), data)
+}
+
+func appendEscapeHDLC(dst, data []byte) []byte {
 	for _, b := range data {
 		if b == hdlcFlag || b == hdlcEsc {
-			escaped = append(escaped, hdlcEsc, b^hdlcEscMask)
+			dst = append(dst, hdlcEsc, b^hdlcEscMask)
 		} else {
-			escaped = append(escaped, b)
+			dst = append(dst, b)
 		}
 	}
-	return escaped
+	return dst
+}
+
+// appendFrameHDLC appends a complete HDLC frame to dst.
+func appendFrameHDLC(dst, payload []byte) []byte {
+	dst = append(dst, hdlcFlag)
+	dst = appendEscapeHDLC(dst, payload)
+	return append(dst, hdlcFlag)
 }
 
 func unescapeHDLC(data []byte) []byte {
@@ -118,9 +184,5 @@ func unescapeHDLC(data []byte) []byte {
 }
 
 func frameHDLC(payload []byte) []byte {
-	frame := make([]byte, 0, len(payload)+2)
-	frame = append(frame, hdlcFlag)
-	frame = append(frame, escapeHDLC(payload)...)
-	frame = append(frame, hdlcFlag)
-	return frame
+	return appendFrameHDLC(make([]byte, 0, len(payload)*2+2), payload)
 }

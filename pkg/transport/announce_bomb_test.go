@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package transport
 
 import (
@@ -48,13 +49,40 @@ func TestCreateAnnouncePacket_AcceptsAtBin8Limit(t *testing.T) {
 	maxName := strings.Repeat("n", MsgpackBin8MaxLen)
 	maxApp := bytes.Repeat([]byte{0xDE}, MsgpackBin8MaxLen)
 
-	pkt, err := CreateAnnouncePacket(destHash, id, maxApp, maxName, 0, nil)
+	_, err = CreateAnnouncePacket(destHash, id, maxApp, maxName, 0, nil)
+	if err == nil || !strings.Contains(err.Error(), "exceeds MTU") {
+		t.Fatalf("expected MTU rejection for max bin8 name+appData, got: %v", err)
+	}
+}
+
+func TestCreateAnnouncePacket_AcceptsLargestFitWithinMTU(t *testing.T) {
+	id, err := identity.New()
 	if err != nil {
-		t.Fatalf("at-limit announce rejected: %v", err)
+		t.Fatalf("identity.New: %v", err)
 	}
-	if len(pkt) == 0 {
-		t.Fatal("empty announce packet")
+	destHash := bytes.Repeat([]byte{0xCD}, 16)
+	name := "node"
+	// Probe down from bin8 max until the wire form fits packet.MTU.
+	appLen := MsgpackBin8MaxLen
+	var pkt []byte
+	for appLen > 0 {
+		app := bytes.Repeat([]byte{0xAB}, appLen)
+		pkt, err = CreateAnnouncePacket(destHash, id, app, name, 0, nil)
+		if err == nil {
+			break
+		}
+		if !strings.Contains(err.Error(), "exceeds MTU") {
+			t.Fatalf("unexpected error at appLen=%d: %v", appLen, err)
+		}
+		appLen--
 	}
+	if err != nil {
+		t.Fatalf("no within-MTU size found: %v", err)
+	}
+	if len(pkt) > packet.MTU {
+		t.Fatalf("packet %d exceeds MTU %d", len(pkt), packet.MTU)
+	}
+	t.Logf("largest fitting app_data=%d packet=%d", appLen, len(pkt))
 }
 
 func TestCreateAnnouncePacket_RejectsAlmostBin16Size(t *testing.T) {

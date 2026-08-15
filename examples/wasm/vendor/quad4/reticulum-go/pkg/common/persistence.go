@@ -1,15 +1,61 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package common
 
 import (
 	"os"
+	"strconv"
 	"strings"
+)
+
+const (
+	// DefaultMaxInMemoryPaths is the soft path-table cap for the live path map.
+	// Applies for both disk-backed and in-memory storage. Paths live in RAM
+	// either way, so an uncapped table grows without bound on a busy mesh.
+	DefaultMaxInMemoryPaths = 100_000
+
+	// DefaultMaxInMemoryKnownDestinations is the soft known-dest cap.
+	DefaultMaxInMemoryKnownDestinations = 100_000
+
+	// DefaultMaxInMemoryResourceBytes is the soft split-resource staging budget
+	// under in-memory storage (256 MiB).
+	DefaultMaxInMemoryResourceBytes = 256 << 20
+
+	// DefaultMaxPacketHashlist is the packet hash loop-filter cap when
+	// enable_transport is yes (matches Python Transport.hashlist_maxsize).
+	DefaultMaxPacketHashlist = 1_000_000
+
+	// DefaultMaxPacketHashlistClient is the hashlist cap when transport is off.
+	// Client nodes still see mesh traffic but do not need a million-entry filter.
+	DefaultMaxPacketHashlistClient = 100_000
+
+	// DefaultMaxSeenAnnounces caps announce-hash dedupe entries.
+	DefaultMaxSeenAnnounces = 100_000
+
+	// DefaultMaxPacketHandlers is the HandlePacket worker count and queue depth.
+	DefaultMaxPacketHandlers = 512
+
+	// CoreRouterMaxInMemoryPaths is the path-table cap applied by node_profile=core_router
+	// when max_in_memory_paths is unset.
+	CoreRouterMaxInMemoryPaths = 500_000
+
+	// EmbeddedMaxPacketHandlers is the handler pool size for node_profile=embedded.
+	EmbeddedMaxPacketHandlers = 32
+	// EmbeddedMaxInMemoryPaths is the path-table cap for node_profile=embedded.
+	EmbeddedMaxInMemoryPaths = 4096
+	// EmbeddedMaxInMemoryKnownDestinations is the known-dest cap for embedded.
+	EmbeddedMaxInMemoryKnownDestinations = 4096
+	// EmbeddedMaxPacketHashlist is the hashlist cap for embedded.
+	EmbeddedMaxPacketHashlist = 10_000
 )
 
 // ApplyPersistenceEnv overrides persistence-related config from environment
 // variables. Set RETICULUM_IN_MEMORY_PATH_TABLE=1 or
 // RETICULUM_IN_MEMORY_KNOWN_DESTINATIONS=1 to force in-memory tables.
+// RETICULUM_IN_MEMORY_STORAGE=1 forces fully ephemeral storage.
+// RETICULUM_SOFT_MEMORY_LIMIT accepts a byte count or K/M/G suffix.
+// RETICULUM_MAX_PACKET_HASHLIST accepts an integer entry budget.
 func (c *ReticulumConfig) ApplyPersistenceEnv() {
 	if c == nil {
 		return
@@ -21,9 +67,163 @@ func (c *ReticulumConfig) ApplyPersistenceEnv() {
 		c.InMemoryKnownDestinations = true
 	}
 	if envBool("RETICULUM_IN_MEMORY_STORAGE") {
+		c.InMemoryStorage = true
+	}
+	if v := strings.TrimSpace(os.Getenv("RETICULUM_SOFT_MEMORY_LIMIT")); v != "" {
+		if n, err := ParseByteSize(v); err == nil && n > 0 {
+			c.SoftMemoryLimitBytes = n
+		}
+	}
+	if v := strings.TrimSpace(os.Getenv("RETICULUM_MAX_PACKET_HASHLIST")); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.MaxPacketHashlist = n
+		}
+	}
+	if v := strings.TrimSpace(os.Getenv("RETICULUM_MAX_IN_MEMORY_PATHS")); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.MaxInMemoryPaths = n
+		}
+	}
+	if v := strings.TrimSpace(os.Getenv("RETICULUM_MAX_IN_MEMORY_KNOWN_DESTINATIONS")); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.MaxInMemoryKnownDestinations = n
+		}
+	}
+	c.NormalizeInMemoryFlags()
+}
+
+// NormalizeInMemoryFlags propagates InMemoryStorage onto the per-table flags.
+func (c *ReticulumConfig) NormalizeInMemoryFlags() {
+	if c == nil {
+		return
+	}
+	if c.InMemoryStorage {
 		c.InMemoryPathTable = true
 		c.InMemoryKnownDestinations = true
 	}
+}
+
+// UseInMemoryStorage reports whether stack state must stay off disk.
+// True when InMemoryStorage is set, or when neither ConfigPath nor
+// RETICULUM_STORAGE_PATH is available (library and test defaults).
+func (c *ReticulumConfig) UseInMemoryStorage() bool {
+	if c == nil {
+		return true
+	}
+	if c.InMemoryStorage {
+		return true
+	}
+	if c.ConfigPath == "" && strings.TrimSpace(os.Getenv("RETICULUM_STORAGE_PATH")) == "" {
+		return true
+	}
+	return false
+}
+
+// EffectiveMaxInMemoryPaths returns the live path-table cap. Disk-backed
+// stacks keep the full table in RAM, so the cap always applies. Zero uses
+// DefaultMaxInMemoryPaths. Negative disables the cap.
+func (c *ReticulumConfig) EffectiveMaxInMemoryPaths() int {
+	if c == nil {
+		return DefaultMaxInMemoryPaths
+	}
+	if c.MaxInMemoryPaths < 0 {
+		return 0
+	}
+	if c.MaxInMemoryPaths == 0 {
+		return DefaultMaxInMemoryPaths
+	}
+	return c.MaxInMemoryPaths
+}
+
+// EffectiveMaxInMemoryKnownDestinations returns the known-dest cap. Always
+// applies (known destinations are held in RAM). Zero uses
+// DefaultMaxInMemoryKnownDestinations. Negative disables the cap.
+func (c *ReticulumConfig) EffectiveMaxInMemoryKnownDestinations() int {
+	if c == nil {
+		return DefaultMaxInMemoryKnownDestinations
+	}
+	if c.MaxInMemoryKnownDestinations < 0 {
+		return 0
+	}
+	if c.MaxInMemoryKnownDestinations == 0 {
+		return DefaultMaxInMemoryKnownDestinations
+	}
+	return c.MaxInMemoryKnownDestinations
+}
+
+// EffectiveMaxInMemoryResourceBytes returns the split-resource staging budget
+// when InMemoryStorage is explicitly enabled.
+func (c *ReticulumConfig) EffectiveMaxInMemoryResourceBytes() int64 {
+	if c == nil || !c.InMemoryStorage {
+		return 0
+	}
+	if c.MaxInMemoryResourceBytes < 0 {
+		return 0
+	}
+	if c.MaxInMemoryResourceBytes == 0 {
+		return DefaultMaxInMemoryResourceBytes
+	}
+	return c.MaxInMemoryResourceBytes
+}
+
+// EffectiveMaxPacketHashlist returns the packet hash loop-filter size.
+// Zero picks DefaultMaxPacketHashlist when transport is enabled, otherwise
+// DefaultMaxPacketHashlistClient. Negative uses DefaultMaxPacketHashlist.
+func (c *ReticulumConfig) EffectiveMaxPacketHashlist() int {
+	if c == nil {
+		return DefaultMaxPacketHashlistClient
+	}
+	if c.MaxPacketHashlist > 0 {
+		return c.MaxPacketHashlist
+	}
+	if c.MaxPacketHashlist < 0 {
+		return DefaultMaxPacketHashlist
+	}
+	if c.EnableTransport {
+		return DefaultMaxPacketHashlist
+	}
+	return DefaultMaxPacketHashlistClient
+}
+
+// EffectiveMaxPacketHandlers returns the HandlePacket worker count and queue
+// depth. Zero uses DefaultMaxPacketHandlers. Negative also uses the default.
+func (c *ReticulumConfig) EffectiveMaxPacketHandlers() int {
+	if c == nil || c.MaxPacketHandlers <= 0 {
+		return DefaultMaxPacketHandlers
+	}
+	return c.MaxPacketHandlers
+}
+
+// ParseByteSize parses a decimal byte count with an optional K, M, or G suffix
+// (1024-based). Empty or invalid input returns an error.
+func ParseByteSize(s string) (int64, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, strconv.ErrSyntax
+	}
+	mult := int64(1)
+	switch {
+	case strings.HasSuffix(strings.ToLower(s), "k"):
+		mult = 1 << 10
+		s = strings.TrimSpace(s[:len(s)-1])
+	case strings.HasSuffix(strings.ToLower(s), "m"):
+		mult = 1 << 20
+		s = strings.TrimSpace(s[:len(s)-1])
+	case strings.HasSuffix(strings.ToLower(s), "g"):
+		mult = 1 << 30
+		s = strings.TrimSpace(s[:len(s)-1])
+	}
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	if n < 0 {
+		return 0, strconv.ErrRange
+	}
+	if mult > 1 && n > (1<<63-1)/mult {
+		return 0, strconv.ErrRange
+	}
+	return n * mult, nil
 }
 
 func envBool(name string) bool {

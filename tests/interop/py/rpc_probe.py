@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""
-Python RPC probe for shared-instance interop. Connects as a shared-instance
+"""Python RPC probe for shared-instance interop. Connects as a shared-instance
 client to an already-running Go server and calls get_link_count/get_path_table.
 """
+
 import os
 import sys
 import tempfile

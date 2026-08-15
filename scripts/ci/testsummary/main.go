@@ -1,4 +1,4 @@
-// Command testsummary runs `go test -json` and prints a concise failure summary at the end.
+// Command testsummary runs go test -json and prints a concise failure summary at the end.
 //
 // Usage:
 //
@@ -35,9 +35,80 @@ func quietMode() bool {
 	return os.Getenv("TESTSUMMARY_QUIET") != "" || os.Getenv("CI_QUIET_TESTS") != ""
 }
 
+// childEnv builds the environment for the go test child. TESTSUMMARY_GOOS
+// and TESTSUMMARY_GOARCH are applied only to the child so this host binary
+// can still be built and run when targeting js/wasm tests.
+func childEnv() []string {
+	goos := os.Getenv("TESTSUMMARY_GOOS")
+	goarch := os.Getenv("TESTSUMMARY_GOARCH")
+	if goos == "" && goarch == "" {
+		return nil
+	}
+	out := make([]string, 0, 32)
+	for _, e := range os.Environ() {
+		switch {
+		case strings.HasPrefix(e, "GOOS="),
+			strings.HasPrefix(e, "GOARCH="),
+			strings.HasPrefix(e, "TESTSUMMARY_GOOS="),
+			strings.HasPrefix(e, "TESTSUMMARY_GOARCH="):
+			continue
+		}
+		out = append(out, e)
+	}
+	if goos != "" {
+		out = append(out, "GOOS="+goos)
+	}
+	if goarch != "" {
+		out = append(out, "GOARCH="+goarch)
+	}
+	return out
+}
+
+// goTestArgs builds go test argv. The go tool requires -C to be the first
+// flag, so any user -C is placed before -json.
+func goTestArgs(user []string) []string {
+	out := make([]string, 0, len(user)+3)
+	out = append(out, "test")
+	rest := user
+	switch {
+	case len(rest) >= 2 && rest[0] == "-C":
+		out = append(out, "-C", rest[1])
+		rest = rest[2:]
+	case len(rest) >= 1 && strings.HasPrefix(rest[0], "-C="):
+		out = append(out, rest[0])
+		rest = rest[1:]
+	}
+	out = append(out, "-json")
+	out = append(out, rest...)
+	return out
+}
+
+func validGoTestArg(arg string) bool {
+	if arg == "" || strings.ContainsAny(arg, "\x00\n\r;`&") {
+		return false
+	}
+	return true
+}
+
+func validateGoTestArgs(user []string) error {
+	for _, arg := range user {
+		if !validGoTestArg(arg) {
+			return fmt.Errorf("invalid go test argument")
+		}
+	}
+	return nil
+}
+
 func run() int {
-	args := append([]string{"test", "-json"}, os.Args[1:]...)
-	cmd := exec.Command("go", args...)
+	user := os.Args[1:]
+	if err := validateGoTestArgs(user); err != nil {
+		fmt.Fprintf(os.Stderr, "testsummary: %v\n", err)
+		return 2
+	}
+	cmd := exec.Command("go", goTestArgs(user)...) // #nosec G204,G702 -- go binary is fixed, argv is go test flags checked by validateGoTestArgs
+	if env := childEnv(); env != nil {
+		cmd.Env = env
+	}
 
 	var stderrBuf bytes.Buffer
 	cmd.Stderr = &stderrBuf
@@ -142,6 +213,18 @@ func run() int {
 		}
 	}
 
+	spuriousDeadline := exit != 0 && isSpuriousFuzzDeadline(failedTests, failedPackages, testOutputs, pkgOutputs)
+	if spuriousDeadline {
+		exit = 0
+		for pkg := range failedTests {
+			if quiet {
+				fmt.Fprintf(os.Stderr, "testsummary: %s spurious fuzz deadline (go#75804), treating as pass\n", pkg)
+			}
+			passedPackages[pkg] = 0
+		}
+		failedTests = make(map[string]map[string]struct{})
+	}
+
 	if quiet {
 		for _, pkg := range sortedKeysFloat(passedPackages) {
 			if _, failed := failedPackages[pkg]; failed {
@@ -172,7 +255,7 @@ func run() int {
 			fmt.Println(strings.Repeat("-", 60))
 			_, _ = os.Stdout.Write(stderrBuf.Bytes())
 		}
-		printSummary(failedPackages, failedTests, pkgOutputs, testOutputs, totalFailed)
+		printSummary(failedPackages, failedTests, pkgOutputs, testOutputs, totalFailed, quiet)
 	} else if stderrBuf.Len() > 0 {
 		_, _ = os.Stderr.Write(stderrBuf.Bytes())
 	}
@@ -186,6 +269,7 @@ func printSummary(
 	pkgOutputs map[string][]string,
 	testOutputs map[string]map[string][]string,
 	totalFailed int,
+	quiet bool,
 ) {
 	fmt.Println("\n" + strings.Repeat("=", 60))
 	fmt.Println("TEST FAILURE SUMMARY")
@@ -219,9 +303,7 @@ func printSummary(
 
 		for _, pkg := range sortedKeysSet(failedPackages) {
 			fmt.Printf("\n=== %s (package failure) ===\n", pkg)
-			for _, line := range pkgOutputs[pkg] {
-				fmt.Print(line)
-			}
+			fmt.Print(trimFailureOutput(pkgOutputs[pkg], quiet))
 		}
 
 		for _, pkg := range sortedKeysMap(failedTests) {
@@ -232,9 +314,7 @@ func printSummary(
 			slices.Sort(names)
 			for _, test := range names {
 				fmt.Printf("\n=== %s  %s ===\n", pkg, test)
-				for _, line := range testOutputs[pkg][test] {
-					fmt.Print(line)
-				}
+				fmt.Print(trimFailureOutput(testOutputs[pkg][test], quiet))
 			}
 		}
 	}
@@ -242,6 +322,82 @@ func printSummary(
 	fmt.Println("\n" + strings.Repeat("=", 60))
 	fmt.Printf("Total failures: %d\n", totalFailed)
 	fmt.Println(strings.Repeat("=", 60))
+}
+
+// trimFailureOutput keeps CI logs readable under TESTSUMMARY_QUIET by retaining
+// assertion/fatal lines and a short tail of context instead of full slog dumps.
+// isSpuriousFuzzDeadline reports the Go stdlib race (go.dev/issue/75804) where
+// -fuzztime expiry can leak "context deadline exceeded" with no file:line as a
+// test failure. Real assertion failures always cite _test.go:line.
+func isSpuriousFuzzDeadline(
+	failedTests map[string]map[string]struct{},
+	failedPackages map[string]struct{},
+	testOutputs map[string]map[string][]string,
+	pkgOutputs map[string][]string,
+) bool {
+	if len(failedPackages) > 0 || len(failedTests) != 1 {
+		return false
+	}
+	for pkg, tests := range failedTests {
+		if len(tests) != 1 || !sawFuzzProgress(pkgOutputs, pkg) {
+			return false
+		}
+		for test := range tests {
+			if !strings.HasPrefix(test, "Fuzz") {
+				return false
+			}
+			lines := testOutputs[pkg][test]
+			if strings.TrimSpace(strings.Join(lines, "")) != "context deadline exceeded" {
+				return false
+			}
+			for _, line := range lines {
+				if strings.Contains(line, "_test.go:") {
+					return false
+				}
+			}
+			return true
+		}
+	}
+	return false
+}
+
+func sawFuzzProgress(pkgOutputs map[string][]string, pkg string) bool {
+	for _, line := range pkgOutputs[pkg] {
+		if strings.Contains(line, "fuzz: elapsed:") {
+			return true
+		}
+	}
+	return false
+}
+
+func trimFailureOutput(lines []string, quiet bool) string {
+	if len(lines) == 0 {
+		return ""
+	}
+	joined := strings.Join(lines, "")
+	if !quiet {
+		return joined
+	}
+	const maxTailLines = 40
+	var keep []string
+	for _, line := range lines {
+		lower := strings.ToLower(line)
+		if strings.Contains(lower, "--- fail") ||
+			strings.Contains(lower, "fatal") ||
+			strings.Contains(lower, "error:") ||
+			strings.Contains(line, "\t") && (strings.Contains(lower, "fail") || strings.Contains(lower, "timeout") || strings.Contains(lower, "want ")) {
+			keep = append(keep, line)
+		}
+	}
+	all := strings.Split(strings.TrimRight(joined, "\n"), "\n")
+	if len(all) > maxTailLines {
+		all = all[len(all)-maxTailLines:]
+	}
+	tail := strings.Join(all, "\n") + "\n"
+	if len(keep) == 0 {
+		return tail
+	}
+	return strings.Join(keep, "") + "\n--- last lines ---\n" + tail
 }
 
 func sortedKeysSet(m map[string]struct{}) []string {

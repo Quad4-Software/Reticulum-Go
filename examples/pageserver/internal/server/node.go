@@ -5,6 +5,7 @@ package server
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -176,7 +177,7 @@ func NewReticulum(cfg *common.ReticulumConfig, opts Options) (*Reticulum, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get home directory: %w", err)
 	}
-	ratchetPath := filepath.Join(homeDir, ".reticulum-go", "storage", "ratchets", r.identity.GetHexHash())
+	ratchetPath := destPrivateRatchetPath(filepath.Join(homeDir, ".reticulum-go"), dest, ident)
 	dest.EnableRatchets(ratchetPath)
 	dest.SetProofStrategy(destination.ProveApp)
 
@@ -573,20 +574,13 @@ func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id any, appData []by
 		debug.Log(debug.DebugInfo, "No appData (empty announce)")
 	}
 
-	if identity, ok := id.(*identity.Identity); ok {
+	if announcedID, ok := id.(*identity.Identity); ok {
 		debug.Log(debug.DebugAll, "Identity details")
-		debug.Log(debug.DebugAll, "Identity hash", "hash", identity.GetHexHash())
-		debug.Log(debug.DebugAll, "Identity public key", "key", fmt.Sprintf("%x", identity.GetPublicKey()))
+		debug.Log(debug.DebugAll, "Identity hash", "hash", announcedID.GetHexHash())
+		debug.Log(debug.DebugAll, "Identity public key", "key", fmt.Sprintf("%x", announcedID.GetPublicKey()))
 
-		ratchets := identity.GetRatchets()
-		debug.Log(debug.DebugAll, "Active ratchets", "count", len(ratchets))
-
-		if len(ratchets) > 0 {
-			ratchetKey := identity.GetCurrentRatchetKey()
-			if ratchetKey != nil {
-				ratchetID := identity.GetRatchetID(ratchetKey)
-				debug.Log(debug.DebugAll, "Current ratchet ID", "id", fmt.Sprintf("%x", ratchetID))
-			}
+		if ratchetPub := identity.GetRatchet(destHash); len(ratchetPub) > 0 {
+			debug.Log(debug.DebugAll, "Announced ratchet ID", "id", fmt.Sprintf("%x", announcedID.GetRatchetID(ratchetPub)))
 		}
 
 		recordType := "peer"
@@ -596,13 +590,13 @@ func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id any, appData []by
 		}
 
 		h.reticulum.announceHistoryMu.Lock()
-		h.reticulum.announceHistory[identity.GetHexHash()] = announceRecord{
+		h.reticulum.announceHistory[announcedID.GetHexHash()] = announceRecord{
 			timestamp: time.Now().Unix(),
 			appData:   appData,
 		}
 		h.reticulum.announceHistoryMu.Unlock()
 
-		debug.Log(debug.DebugVerbose, "Stored announce in history", "type", recordType, "identity", identity.GetHexHash())
+		debug.Log(debug.DebugVerbose, "Stored announce in history", "type", recordType, "identity", announcedID.GetHexHash())
 	}
 
 	return nil
@@ -932,7 +926,7 @@ func (r *Reticulum) serveFile(path string, data []byte, requestID []byte, linkID
 		return []byte(">Request Not Allowed\n\nYou are not authorized to access this resource.")
 	}
 
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) // #nosec G304 -- filePath is cleaned and prefix-checked against filesPath
 	if err != nil {
 		debug.Log(debug.DebugError, "Failed to open file", "path", filePath, "error", err)
 		return []byte(">File Not Found\n\nThe requested file could not be found.")
@@ -964,4 +958,27 @@ func (r *Reticulum) handleLinkPacket(l *link.Link, data []byte, pkt *packet.Pack
 	debug.Log(debug.DebugInfo, "Processing request", "path", requestPath, "request_id", fmt.Sprintf("%x", requestID))
 
 	r.destination.HandleRequest(requestPath, nil, requestID, l.GetLinkID(), nil, time.Now().Unix())
+}
+
+func destPrivateRatchetPath(configRoot string, dest *destination.Destination, ident *identity.Identity) string {
+	dir := filepath.Join(configRoot, "storage", "ratchets")
+	path := filepath.Join(dir, hex.EncodeToString(dest.GetHash()))
+	if ident == nil {
+		return path
+	}
+	old := filepath.Join(dir, ident.GetHexHash())
+	if path == old {
+		return path
+	}
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	if _, err := os.Stat(old); err != nil {
+		return path
+	}
+	if err := os.Rename(old, path); err != nil {
+		debug.Log(debug.DebugError, "Failed to rename ratchet file to destination hash", "error", err, "from", old, "to", path)
+		return old
+	}
+	return path
 }

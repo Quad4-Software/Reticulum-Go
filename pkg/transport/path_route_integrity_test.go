@@ -41,13 +41,13 @@ func TestProcessPathRequest_doesNotAnswerWhenNextHopEqualsRequestorTransportID(t
 		HopCount:    2,
 		LastUpdated: time.Now(),
 	}
-	tr.announceTable[string(dest)] = oldEntry
+	tr.announceTable[destKey(dest)] = oldEntry
 	tr.mutex.Unlock()
 
 	tr.processPathRequest(dest, wan, append([]byte(nil), requestorTID...), tag)
 
 	tr.mutex.RLock()
-	cur := tr.announceTable[string(dest)]
+	cur := tr.announceTable[destKey(dest)]
 	tr.mutex.RUnlock()
 	if cur != oldEntry {
 		t.Fatal("announce table entry must not be replaced when next hop is the requestor")
@@ -74,10 +74,14 @@ func TestProcessPathRequest_rewritesAnnounceWhenNextHopIsNotRequestor(t *testing
 	nextHop := bytes.Repeat([]byte{0x61}, 16)
 	tag := bytes.Repeat([]byte{0x72}, 16)
 
-	oldPkt := &packet.Packet{Raw: []byte{0xCC, 0xDD}}
+	oldPkt := &packet.Packet{
+		DestinationHash: append([]byte(nil), dest...),
+		Data:            []byte{0xCC, 0xDD},
+	}
 	oldEntry := &PathAnnounceEntry{
-		CreatedAt: time.Now().Add(-time.Hour),
-		Packet:    oldPkt,
+		CreatedAt:         time.Now().Add(-time.Hour),
+		Packet:            oldPkt,
+		AttachedInterface: wan, // in-flight delivery, should be held across replace
 	}
 
 	tr.mutex.Lock()
@@ -87,14 +91,15 @@ func TestProcessPathRequest_rewritesAnnounceWhenNextHopIsNotRequestor(t *testing
 		HopCount:    2,
 		LastUpdated: time.Now(),
 	}
-	tr.announceTable[string(dest)] = oldEntry
+	tr.announcePacketCache[destKey(dest)] = &cachedAnnounce{pkt: oldPkt, at: time.Now()}
+	tr.announceTable[destKey(dest)] = oldEntry
 	tr.mutex.Unlock()
 
 	tr.processPathRequest(dest, wan, append([]byte(nil), requestorTID...), tag)
 
 	tr.mutex.RLock()
-	cur := tr.announceTable[string(dest)]
-	_, held := tr.heldAnnounces[string(dest)]
+	cur := tr.announceTable[destKey(dest)]
+	heldEntry, held := tr.heldAnnounces[destKey(dest)]
 	tr.mutex.RUnlock()
 	if cur == nil {
 		t.Fatal("expected new announce table entry")
@@ -102,11 +107,8 @@ func TestProcessPathRequest_rewritesAnnounceWhenNextHopIsNotRequestor(t *testing
 	if cur == oldEntry {
 		t.Fatal("expected announce entry to be replaced for valid next hop")
 	}
-	if !held {
-		t.Fatal("previous announce should be moved to heldAnnounces before replace")
-	}
-	if cur.Packet != oldPkt {
-		t.Fatalf("replacement entry should carry same cached packet payload pointer: %p vs %p", cur.Packet, oldPkt)
+	if !held || heldEntry != oldEntry {
+		t.Fatal("previous in-flight announce should be moved to heldAnnounces before replace")
 	}
 	if cur.ReceivedFrom != wan {
 		t.Fatal("replacement entry should record path egress interface as ReceivedFrom")
@@ -140,7 +142,7 @@ func TestProcessPathRequest_knownPathWithoutAnnounceDoesNotStartDiscovery(t *tes
 	tr.processPathRequest(dest, wan, nil, tag)
 
 	tr.mutex.RLock()
-	_, pending := tr.discoveryPathRequests[string(dest)]
+	_, pending := tr.discoveryPathRequests[destKey(dest)]
 	tr.mutex.RUnlock()
 	if pending {
 		t.Fatal("known path without announce must not create discoveryPathRequests")
@@ -174,15 +176,16 @@ func TestForwardTransportPacket_dropsWhenEgressInterfaceEqualsIngress(t *testing
 	}
 }
 
-// TestProcessPathRequest_stalePathByTTLStartsDiscovery ensures path replies use the
-// same freshness window as HasPath: an over-TTL path row is dropped and the
-// request is treated as unknown (discovery state), not a silent no-op answer.
-func TestProcessPathRequest_stalePathByTTLStartsDiscovery(t *testing.T) {
+// TestProcessPathRequest_expiredPathStartsDiscovery ensures path replies use
+// PATHFINDER_E / Expires like HasPath: an expired path row is dropped and the
+// request falls through to discovery.
+func TestProcessPathRequest_expiredPathStartsDiscovery(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
 	wan := mockIface("wan", true)
+	wan.Mode = common.IFModeGateway
 	if err := tr.RegisterInterface("wan", wan); err != nil {
 		t.Fatal(err)
 	}
@@ -196,16 +199,174 @@ func TestProcessPathRequest_stalePathByTTLStartsDiscovery(t *testing.T) {
 		NextHop:     nh,
 		Interface:   wan,
 		HopCount:    1,
-		LastUpdated: time.Now().Add(-time.Duration(PathRequestTTL+10) * time.Second),
+		LastUpdated: time.Now().Add(-time.Duration(PathfinderE+10) * time.Second),
+		Expires:     time.Now().Add(-10 * time.Second),
 	}
 	tr.mutex.Unlock()
 
 	tr.processPathRequest(dest, wan, nil, tag)
 
 	tr.mutex.RLock()
-	_, ok := tr.discoveryPathRequests[string(dest)]
+	_, ok := tr.discoveryPathRequests[destKey(dest)]
 	tr.mutex.RUnlock()
 	if !ok {
-		t.Fatal("stale path by PathRequestTTL should fall through to discovery")
+		t.Fatal("PATHFINDER_E-expired path should fall through to discovery")
+	}
+}
+
+// TestProcessPathRequest_pathRequestTTLStillAnswers ensures paths older than
+// PathRequestTTL but within PATHFINDER_E remain answerable (Python has_path).
+func TestProcessPathRequest_pathRequestTTLStillAnswers(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+	tr.SetIdentity(mustIdentity(t))
+
+	wan := mockIface("wan", true)
+	if err := tr.RegisterInterface("wan", wan); err != nil {
+		t.Fatal(err)
+	}
+
+	dest := bytes.Repeat([]byte{0x46}, 16)
+	tag := bytes.Repeat([]byte{0x92}, 16)
+	nh := bytes.Repeat([]byte{0x63}, 16)
+	now := time.Now()
+
+	tr.mutex.Lock()
+	tr.paths[pathMapKey(dest)] = &common.Path{
+		NextHop:     nh,
+		Interface:   wan,
+		HopCount:    1,
+		LastUpdated: now.Add(-time.Duration(PathRequestTTL+30) * time.Second),
+		Expires:     now.Add(time.Duration(PathfinderE) * time.Second),
+	}
+	tr.announcePacketCache[destKey(dest)] = &cachedAnnounce{pkt: &packet.Packet{
+		DestinationHash: append([]byte(nil), dest...),
+		Data:            []byte{0x01},
+		Raw:             []byte{0x01, 0x00},
+	}, at: time.Now()}
+	tr.mutex.Unlock()
+
+	tr.processPathRequest(dest, wan, nil, tag)
+
+	tr.mutex.RLock()
+	_, discovering := tr.discoveryPathRequests[destKey(dest)]
+	_, hasPath := tr.paths[pathMapKey(dest)]
+	tr.mutex.RUnlock()
+	if discovering {
+		t.Fatal("non-expired path must not be forced into discovery by PathRequestTTL")
+	}
+	if !hasPath {
+		t.Fatal("path within PATHFINDER_E must remain")
+	}
+}
+
+// TestProcessPathRequest_fromLocalClientForwardsOnAllInterfaces verifies that a
+// path request arriving from a local (shared-instance) client interface is
+// forwarded on all other registered interfaces, even when the local client
+// interface has IFModeFull (which is NOT in DiscoverPathsFor). This matches
+// Python RNS Transport.path_request "elif is_from_local_client" branch.
+func TestProcessPathRequest_fromLocalClientForwardsOnAllInterfaces(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+	tr.SetIdentity(mustIdentity(t))
+
+	// localClient simulates a spawned LocalClientInterface on the shared-instance
+	// server side: IFTypeUnix + IFModeFull (default). IFModeFull is NOT in
+	// DiscoverPathsFor, so without the is_from_local_client branch the PR would
+	// be dropped.
+	localClient := newRelayIface("local-client")
+	localClient.Type = common.IFTypeUnix
+	localClient.Mode = common.IFModeFull
+	if err := tr.RegisterInterface("local-client", localClient); err != nil {
+		t.Fatal(err)
+	}
+
+	wan := newRelayIface("wan")
+	if err := tr.RegisterInterface("wan", wan); err != nil {
+		t.Fatal(err)
+	}
+
+	dest := bytes.Repeat([]byte{0x99}, 16)
+	tag := bytes.Repeat([]byte{0x77}, 16)
+
+	tr.processPathRequest(dest, localClient, nil, tag)
+
+	if n := len(wan.snapshot()); n != 1 {
+		t.Fatalf("expected 1 PR forwarded to wan, got %d", n)
+	}
+	if n := len(localClient.snapshot()); n != 0 {
+		t.Fatalf("PR must not be echoed back to the local client, got %d sends", n)
+	}
+}
+
+// TestProcessPathRequest_fromLocalClientKnownPathBypassesTransportDisabled
+// verifies that a path request from a local client for a known path is answered
+// even when transport is disabled (matching Python's
+// "(transport_enabled() or is_from_local_client) and has_path" condition).
+func TestProcessPathRequest_fromLocalClientKnownPathBypassesTransportDisabled(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	defer tr.Close()
+	tr.SetIdentity(mustIdentity(t))
+
+	localClient := newRelayIface("local-client")
+	localClient.Type = common.IFTypeUnix
+	localClient.Mode = common.IFModeFull
+	if err := tr.RegisterInterface("local-client", localClient); err != nil {
+		t.Fatal(err)
+	}
+
+	dest := bytes.Repeat([]byte{0x44}, 16)
+	tag := bytes.Repeat([]byte{0x88}, 16)
+
+	oldPkt := &packet.Packet{
+		DestinationHash: append([]byte(nil), dest...),
+		Data:            []byte{0xAA, 0xBB},
+	}
+	tr.mutex.Lock()
+	tr.paths[pathMapKey(dest)] = &common.Path{
+		NextHop:     bytes.Repeat([]byte{0x62}, 16),
+		Interface:   localClient,
+		HopCount:    1,
+		LastUpdated: time.Now(),
+	}
+	tr.announcePacketCache[destKey(dest)] = &cachedAnnounce{pkt: oldPkt, at: time.Now()}
+	tr.mutex.Unlock()
+
+	// With transport disabled, a normal (non-local-client) PR would be
+	// rejected. A local-client PR must still be answered.
+	tr.processPathRequest(dest, localClient, nil, tag)
+
+	if n := countSends(localClient); n < 1 {
+		t.Fatalf("local-client PR with known path must emit path response, got %d sends", n)
+	}
+}
+
+// TestProcessPathRequest_nonLocalClientDropsUnknownPathWithFullMode is a control
+// test verifying that a PR from a non-local-client interface with IFModeFull for
+// an unknown destination is still dropped (the old behavior is preserved for
+// regular relayed PRs).
+func TestProcessPathRequest_nonLocalClientDropsUnknownPathWithFullMode(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+	tr.SetIdentity(mustIdentity(t))
+
+	fullIface := newRelayIface("full")
+	fullIface.Mode = common.IFModeFull
+	if err := tr.RegisterInterface("full", fullIface); err != nil {
+		t.Fatal(err)
+	}
+
+	wan := newRelayIface("wan2")
+	if err := tr.RegisterInterface("wan2", wan); err != nil {
+		t.Fatal(err)
+	}
+
+	dest := bytes.Repeat([]byte{0x33}, 16)
+	tag := bytes.Repeat([]byte{0x55}, 16)
+
+	tr.processPathRequest(dest, fullIface, nil, tag)
+
+	if n := len(wan.snapshot()); n != 0 {
+		t.Fatalf("non-local-client PR with Full mode must NOT be forwarded, got %d sends", n)
 	}
 }

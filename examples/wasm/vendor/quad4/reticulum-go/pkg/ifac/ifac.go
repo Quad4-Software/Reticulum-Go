@@ -59,7 +59,7 @@ func (i *Identity) Size() int { return i.size }
 // Key returns the 64-byte HKDF output used as the masking salt.
 func (i *Identity) Key() []byte { return append([]byte(nil), i.key...) }
 
-// Sign returns the last `size` bytes of the Ed25519 signature of `raw`.
+// Sign returns the last size bytes of the Ed25519 signature of raw.
 func (i *Identity) Sign(raw []byte) ([]byte, error) {
 	sig, err := i.identity.Sign(raw)
 	if err != nil {

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package interfaces
 
 import (
@@ -106,7 +107,7 @@ func (ui *UDPInterface) adoptConn(conn *net.UDPConn) bool {
 func (ui *UDPInterface) dialUDP() (net.Conn, error) {
 	conn, err := net.ListenUDP("udp", ui.addr)
 	if err != nil {
-		return nil, err
+		return nil, common.WrapListenError(err)
 	}
 	if ui.targetAddr != nil {
 		_ = conn.SetReadBuffer(1064)
@@ -168,6 +169,25 @@ func (ui *UDPInterface) GetPacketCallback() common.PacketCallback {
 }
 
 func (ui *UDPInterface) ProcessIncoming(data []byte) {
+	ui.ProcessIncomingFromAddr(data, "")
+}
+
+// ProcessIncomingFromAddr is ProcessIncoming plus an optional remote address
+// string. A UDP socket is commonly shared by many remote senders, so this
+// gives each sender its own fair-share sub-bucket instead of letting one
+// flooding peer exhaust the whole interface budget and cool down every
+// other peer using the same socket. See admitIncomingFrom.
+func (ui *UDPInterface) ProcessIncomingFromAddr(data []byte, peerKey string) {
+	ui.Mutex.Lock()
+	ui.RxBytes += uint64(len(data))
+	ui.RxPackets++
+	name := ui.Name
+	ui.Mutex.Unlock()
+
+	if !admitIncomingFrom(ui, name, data, peerKey) {
+		return
+	}
+
 	stripped, ok := common.ApplyIFACInbound(ui, data)
 	if !ok {
 		return
@@ -196,13 +216,16 @@ func (ui *UDPInterface) ProcessOutgoing(data []byte) error {
 
 	_, err := conn.WriteToUDP(data, target)
 	if err != nil {
-		return fmt.Errorf("UDP write failed: %v", err)
+		return fmt.Errorf("UDP write failed: %w", err)
 	}
 
 	return nil
 }
 
 func (ui *UDPInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(ui); err != nil {
+		return err
+	}
 	debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", ui.Name, "bytes", len(data), "address", address)
 
 	masked, err := common.ApplyIFACOutbound(ui, data)
@@ -325,7 +348,7 @@ func (ui *UDPInterface) readLoop() {
 		default:
 		}
 
-		n, _, err := conn.ReadFromUDP(buffer)
+		n, from, err := conn.ReadFromUDP(buffer)
 		if err != nil {
 			ui.Mutex.RLock()
 			stillOnline := ui.Online
@@ -347,7 +370,11 @@ func (ui *UDPInterface) readLoop() {
 			return
 		}
 
-		ui.ProcessIncoming(buffer[:n])
+		peerKey := ""
+		if from != nil {
+			peerKey = from.String()
+		}
+		ui.ProcessIncomingFromAddr(buffer[:n], peerKey)
 	}
 }
 

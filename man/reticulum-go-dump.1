@@ -1,0 +1,16 @@
+.TH RETICULUM-GO-DUMP 1 "2026" "reticulum-go" "User Commands"
+.SH NAME
+reticulum-go dump, rgodump \- decode Reticulum packets from hex or pcap
+.SH SYNOPSIS
+.B reticulum-go dump
+[\fB\-hex\fR \fIbytes\fR]
+[\fB\-pcap\fR \fIfile\fR]
+[\fB\-pretty\fR]
+[\fB\-n\fR \fIcount\fR]
+[\fIhexfile\fR ...]
+.SH DESCRIPTION
+Decode Reticulum wire frames to JSON lines. Input may be a hex string, hex
+lines on stdin or in a file, or UDP payloads extracted from a classic pcap.
+.SH SEE ALSO
+.BR reticulum-go (1),
+.BR tshark (1)

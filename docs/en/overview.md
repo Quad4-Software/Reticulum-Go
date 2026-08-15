@@ -1,20 +1,14 @@
 # Overview
 
-| Field | Value |
-|-------|-------|
-| Document version | 1.0 |
-| Last updated | 2026-07-07 |
-| Author | Ivan |
-
 ## What is Reticulum-Go
 
 Reticulum-Go is a Go implementation of the [Reticulum Network Stack](https://reticulum.network/). Reticulum is a cryptographic mesh networking protocol designed for resilient communication over heterogeneous links. It can run over UDP, TCP, radio hardware, I2P, and other transports without assuming a single global internet path.
 
-Reticulum-Go targets full wire compatibility with the official Python reference implementation (RNS 1.3.5) while using Go concurrency and static compilation for deployment on servers, desktops, embedded targets, and WebAssembly runtimes.
+Reticulum-Go targets full wire compatibility with the official Python reference implementation (RNS 1.4.2) while using Go concurrency and static compilation for deployment on servers, desktops, embedded targets, and WebAssembly runtimes.
 
 The primary deliverables are:
 
-- A daemon binary (`reticulum-go`) comparable to Python `rnsd`
+- A daemon binary (`reticulum-go`) comparable to Python rnsd
 - A library surface under `pkg/` for embedding Reticulum in Go applications
 - A WebAssembly build (`reticulum-wasm`) for browser clients
 - A localhost control API for applications written in other languages
@@ -45,7 +39,7 @@ See [Architecture](architecture.md) for a fuller picture.
 
 ## Feature status
 
-The table below summarizes major areas. For line-by-line parity with Python, see [Compatibility](compatibility.md) and [COMPATIBILITY.md](../../COMPATIBILITY.md).
+Below is a summary of major features. For line-by-line parity with Python, see [Compatibility](compatibility.md) and [COMPATIBILITY.md](../../COMPATIBILITY.md).
 
 | Area | Status | Location |
 |------|--------|----------|
@@ -56,26 +50,53 @@ The table below summarizes major areas. For line-by-line parity with Python, see
 | IFAC | Complete | `pkg/ifac` |
 | UDP, TCP, Auto, I2P, Backbone interfaces | Complete | `pkg/interfaces` |
 | WebSocket interface | Go-only | `pkg/interfaces/websocket_*.go` |
+| QUIC interface | Go-only | `pkg/interfaces/quic.go`, `quic_tls.go` |
+| WebTransport interface | Go-only | `pkg/interfaces/webtransport.go` |
+| DNS rendezvous | Go-only | `pkg/interfaces/dns_rendezvous.go` |
+| VSOCK interface | Go-only (Linux) | `pkg/interfaces/vsock.go` |
+| HTTPS long-poll | Go-only | `pkg/interfaces/https.go` |
 | Daemon and config | Complete | `cmd/reticulum-go`, `pkg/reticulumconfig` |
 | Discovery (rnstransport) | Partial | Listening works. Announcer and autoconnect loops are not auto-started |
-| Blackhole | Partial | Table and announce drop work. Link teardown at identify is not implemented |
-| RNode, KISS, Serial, Weave | Not implemented | No driver in this tree |
-| PipeInterface, LocalInterface | Implemented | `pipe.go`, `local.go`, `sharedinstance` |
-| Python CLI utilities (rnid, rnpath, etc.) | Not ported | Primitives exist in `pkg/` |
+| Blackhole | Partial | Local drop and LINKIDENTIFY teardown. No publish/federation |
+| SerialInterface | Complete | HDLC serial with Go extensions. Live framing interop |
+| Modem73Interface | Complete | KISS + JSON control to modem73. Live: `tests/interop/modem73_live_test.go` |
+| SDRInterface | Complete | Lab/testing IQ burst modem (pkg/sdr). Live: RUN_LIVE_SDR=1 |
+| RNode, KISS, Weave | Not implemented | No driver in this tree |
+| PipeInterface, LocalInterface | Implemented | `pipe.go`, `local.go`, sharedinstance |
+| Python CLI utilities | Yes (core) | `reticulum-go status|id|probe|path|cp` via `pkg/cli` / `pkg/rnsutil` |
 | Interface hot reload | Go-only | `pkg/node/reload.go`, SIGHUP on Unix |
 | Control API | Go-only | `pkg/controlapi` |
+| librns C ABI | Go-only | `pkg/librns`, `include/rns.h`, `task build-librns` |
+| Odin librns bindings | Go-only host | `bindings/odin` (Linux, links `librns.so`). See [librns](librns.md#odin-bindings) |
+| Zig librns bindings | Go-only host | `bindings/zig` (Linux, links `librns.so`). See [librns](librns.md#zig-bindings) |
+| C++ librns bindings | Go-only host | `bindings/cpp` (Linux, C++17, links `librns.so`). See [librns](librns.md#c-bindings) |
+| Dart librns FFI | Go-only host | `bindings/dart` (`ffi.dart`). Linux, Android, Windows. See [librns](librns.md#dart-ffi-bindings) |
+| Dart Control API client | Go-only host | `bindings/dart` (rns_control). See [Control API](control-api.md#dart-and-flutter) |
 | Runtime sandbox | Go-only | `pkg/sandbox` |
+| Local mesh health | Go-only | `pkg/health` counters, status RPC fields, `reticulum-go slow` findings |
+| DoS protection | Go-only | `pkg/protect`, config `dos_protection` (default auto). See [Security](security.md#dos-protection-local-idsips) |
 
 ## Repository layout
 
 ```
 Reticulum-Go/
   cmd/
-    reticulum-go/       Daemon
+    reticulum-go/       Daemon + tools (status, id, probe, path, cp, pageserver)
     reticulum-wasm/     WebAssembly entry
-  pkg/                  Public library packages
+    librns/             C shared library entry (`-buildmode=c-shared`)
+    rgo*/               Thin wrappers for legacy binary names
+  include/
+    rns.h               Public librns C header
+  bindings/
+    odin/               Odin bindings and tests for librns
+    zig/                Zig bindings and tests for librns
+    cpp/                C++17 bindings and tests for librns
+    dart/               Dart librns FFI and Control API client
+  pkg/                  Public library packages (cli, pageserver, rnsutil, …)
+  man/                  Man pages (sections 1 and 8)
+  packaging/            nfpm deb/rpm/arch packages plus init units
   internal/             Daemon-only helpers (config re-export, storage)
-  examples/             Sample applications
+  examples/             Sample applications (includes librns-smoke)
   tests/
     crossref/           Byte-level parity with Python vectors
     interop/            Live Go/Python tests
@@ -93,15 +114,18 @@ Python Reticulum (`RNS`) is the reference implementation and defines the on-wire
 
 Configuration uses the same INI-style shape as Python (`[reticulum]`, `[logging]`, `[[Interface Name]]`). The default config directory is `~/.reticulum-go` instead of `~/.reticulum` so both stacks can coexist on one machine.
 
-Reticulum-Go adds features that Python does not ship today (control API, sandbox, interface hot reload, NIC watching). Those extensions do not change the wire format unless explicitly documented as Go-only.
+Reticulum-Go adds features that Python does not ship today (control API, librns, Odin bindings, Dart FFI and Control API client, sandbox, interface hot reload, NIC watching, local mesh health counters). Those extensions do not change the wire format unless explicitly documented as Go-only.
 
 ## Who should read which document
 
 | Role | Start here |
 |------|------------|
 | Architect evaluating adoption | This page, then [Architecture](architecture.md) and [Compatibility](compatibility.md) |
-| Network operator | [Getting started](getting-started.md), [Configuration](configuration.md), [Interfaces](interfaces.md) |
-| Go application author | [Package map](package-map.md), [Embedding and WebAssembly](embedding-and-wasm.md) |
+| Network operator | [Getting started](getting-started.md), [Configuration](configuration.md), [Interfaces](interfaces.md), [CLI utilities](utilities.md), [Packet debug](packet-debug.md) |
+| Go application author | [API reference](api-reference.md), [Package map](package-map.md), [Examples](examples.md), [Embedding and WebAssembly](embedding-and-wasm.md) |
+| Native / FFI embedder | [librns](librns.md), [Compatibility](compatibility.md) |
+| Odin application author | [librns](librns.md#odin-bindings), [Examples](examples.md) |
+| Flutter / Dart application author | [librns Dart FFI](librns.md#dart-ffi-bindings), [Control API](control-api.md#dart-and-flutter), [Examples](examples.md) |
 | Security reviewer | [Cryptography](cryptography.md), [Security](security.md) |
 | Developer | [Development and testing](development-and-testing.md) |
 

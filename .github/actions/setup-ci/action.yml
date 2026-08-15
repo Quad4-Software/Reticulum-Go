@@ -12,6 +12,10 @@ inputs:
     description: When set, install revive at this version
     required: false
     default: ""
+  skip_tree_verify:
+    description: Set to true to skip reticulum-go.rsm verify entirely (CI otherwise runs it as optional warn-only)
+    required: false
+    default: "false"
 runs:
   using: composite
   steps:
@@ -25,9 +29,23 @@ runs:
 
     - name: Setup Task
       shell: sh
-      run: sh scripts/ci/setup-task.sh "${{ inputs.task_version }}"
+      env:
+        TASK_VERSION: ${{ inputs.task_version }}
+      run: sh scripts/ci/setup-task.sh "${TASK_VERSION}"
 
     - name: Install revive
       if: inputs.revive_version != ''
       shell: sh
-      run: sh scripts/ci/setup-revive.sh "${{ inputs.revive_version }}"
+      env:
+        REVIVE_VERSION: ${{ inputs.revive_version }}
+      run: sh scripts/ci/setup-revive.sh "${REVIVE_VERSION}"
+
+    - name: Verify tree RSM
+      if: inputs.skip_tree_verify != 'true'
+      continue-on-error: true
+      shell: sh
+      env:
+        RNS_REQUIRED_SIGNER: e46112d44649266d71fe2193e00a4710
+        RNS_INVENTORY_OUT: ${{ runner.temp }}/reticulum-go-tree-inventory.txt
+        RNS_TREE_VERIFY_OPTIONAL: "1"
+      run: sh scripts/ci/verify-tree-rsm.sh

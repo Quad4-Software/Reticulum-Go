@@ -1,0 +1,57 @@
+.Dd July 17, 2026
+.Dt RETICULUM-GO 8
+.Os
+.Sh NAME
+.Nm reticulum-go
+.Nd Reticulum network daemon
+.Sh SYNOPSIS
+.Nm
+.Nm
+.Cm daemon
+.Sh DESCRIPTION
+When started with no subcommand (or with
+.Cm daemon ) ,
+.Nm
+runs the Reticulum network stack: interfaces from configuration, transport,
+shared-instance RPC, optional control API, and optional sandbox.
+.Pp
+Configuration is loaded from
+.Pa ~/.reticulum-go/config .
+On first run a default config is created if missing.
+.Pp
+On Unix, SIGHUP reloads interface configuration where supported.
+.Pp
+Common interface types include UDP, TCP, Auto, I2P, Backbone, Serial,
+Pipe, Local, WebSocket, QUIC, WebTransport, DNS rendezvous, VSOCK, HTTPS,
+Modem73Interface (KISS plus JSON control to an external modem73 process),
+and SDRInterface (lab and testing IQ burst modem).
+SDRInterface is for mock, simulation, and controlled lab use.
+It does not grant authority to transmit on live radio bands.
+Operators must follow local license, band, power, and interference rules.
+.Sh SIGNALS
+.Bl -tag -width SIGTERM
+.It Dv SIGINT , SIGTERM
+Graceful shutdown.
+.It Dv SIGHUP
+Reload interfaces from configuration (Unix).
+.El
+.Sh FILES
+.Bl -tag -width "~/.reticulum-go/logfile/reticulum.log"
+.It Pa ~/.reticulum-go/config
+Daemon configuration.
+.It Pa ~/.reticulum-go/logfile/reticulum.log
+Default log file when
+.Cm destination
+is
+.Cm file
+or
+.Cm both
+under
+.Cm [logging] .
+.It Pa ~/.reticulum-go/storage/
+Persistent state.
+.El
+.Sh SEE ALSO
+.Xr reticulum-go 1
+.Sh AUTHORS
+.An Quad4.io

@@ -3,7 +3,16 @@
 Serves static pages under `/page/` and files under `/file/` over Reticulum
 request handlers, with interfaces driven by a Reticulum configuration file.
 
-## Build
+The production entrypoint is the main binary:
+
+```text
+reticulum-go pageserver [flags]
+```
+
+This directory keeps sample `pages/` / `files/` trees and a thin wrapper that
+calls the same `pkg/cli` / `pkg/pageserver` code.
+
+## Build (example wrapper)
 
 From this directory:
 
@@ -11,21 +20,36 @@ From this directory:
 go build -o example-pageserver .
 ```
 
-The example uses a local `replace` directive to point at the in-tree
-`Reticulum-Go` module, so no extra setup is required. Cross-compile with the
-usual `GOOS` / `GOARCH` environment variables (the example is **not** a WASM
-target).
+Or from the repo root:
+
+```text
+make build
+./bin/reticulum-go pageserver -h
+```
 
 ## Run
 
+Default demo pageserver (from this directory so `pages/` and `files/` resolve):
+
 ```text
-./example-pageserver [flags]
+make run
+task example:pageserver
 ```
 
-Or run directly without building:
+Or:
 
 ```text
-go run . [flags]
+reticulum-go pageserver [flags]
+./example-pageserver [flags]
+go run -mod=mod . [flags]
+```
+
+Language-specific librns pageservers:
+
+```text
+task example:pageserver:c
+task example:pageserver:odin
+task example:pageserver:zig
 ```
 
 ## Configuration file
@@ -79,7 +103,7 @@ ports.
 ## Logging and verbosity
 
 If you do **not** pass `-log-level` or `-debug`, verbosity comes from the
-config file `[logging]` `loglevel` (1–7), same scale as `-debug`. If that
+config file `[logging]` `loglevel` (1-7), same scale as `-debug`. If that
 value is missing or out of range, the binary falls back to **critical-only**
 (level 1).
 
@@ -113,7 +137,6 @@ file for that run.
 | `-file-refresh` / `-files-refresh-interval` | `0` | Rescan files dir every N **seconds** (`0` = startup only). |
 | `-identity` / `-identity-path` | `""` | Identity file path (default `~/.reticulum-go/storage/identity`). |
 | `-debug` | (see `pkg/debug`) | Same scale as `-log-level` when passed on the CLI. |
-| `-log-level` | `-1` | Sets level `1`–`7`. `-1` uses config. Overrides config and `-debug` when set. |
+| `-log-level` | `-1` | Sets level `1`-`7`. `-1` uses config. Overrides config and `-debug` when set. |
 
-Constants such as announce rate targets are compiled into the binary (see
-`main.go`). They are not CLI flags.
+See also `man reticulum-go-pageserver`.

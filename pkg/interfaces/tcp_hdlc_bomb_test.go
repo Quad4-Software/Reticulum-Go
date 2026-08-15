@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package interfaces
 
 import (
@@ -67,7 +68,8 @@ func TestTCPClient_HDLCFramingBombDoesNotOverflow(t *testing.T) {
 		_, _ = client.Write(open)
 		_, _ = client.Write(bomb)
 
-		valid := []byte{HDLCFlag, 0x42, 0x43, 0x44, HDLCFlag}
+		valid := append([]byte{HDLCFlag}, bytes.Repeat([]byte{0x42}, 20)...)
+		valid = append(valid, HDLCFlag)
 		_, _ = client.Write(valid)
 		time.Sleep(50 * time.Millisecond)
 		_ = client.Close()
@@ -97,10 +99,11 @@ func TestTCPClient_HDLCFramingBombDoesNotOverflow(t *testing.T) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	if !bytes.Equal(lastPayload, []byte{0x42, 0x43, 0x44}) {
+	want := bytes.Repeat([]byte{0x42}, 20)
+	if !bytes.Equal(lastPayload, want) {
 		t.Fatalf("post-bomb frame mismatch: %x", lastPayload)
 	}
-	if lastSize.Load() != 3 {
+	if lastSize.Load() != 20 {
 		t.Fatalf("post-bomb frame size mismatch: %d", lastSize.Load())
 	}
 }
@@ -159,7 +162,7 @@ func TestTCPServer_HDLCFramingBombDoesNotOverflow(t *testing.T) {
 	doneRead := make(chan struct{})
 	go func() {
 		defer close(doneRead)
-		ts.readHDLCLoop(server)
+		ts.readFramedLoop(server)
 	}()
 
 	const bombSize = 4 * 1024 * 1024
@@ -181,7 +184,7 @@ func TestTCPServer_HDLCFramingBombDoesNotOverflow(t *testing.T) {
 	select {
 	case <-doneRead:
 	case <-time.After(10 * time.Second):
-		t.Fatal("readHDLCLoop did not return after pipe close")
+		t.Fatal("readFramedLoop did not return after pipe close")
 	}
 
 	memAfter := readAlloc()
@@ -192,7 +195,7 @@ func TestTCPServer_HDLCFramingBombDoesNotOverflow(t *testing.T) {
 	}
 	memBudget := max(maxHDLC*8, 1<<20)
 	if growth > memBudget {
-		t.Fatalf("readHDLCLoop retained %d bytes after %d-byte bomb (budget=%d, maxHDLC=%d)",
+		t.Fatalf("readFramedLoop retained %d bytes after %d-byte bomb (budget=%d, maxHDLC=%d)",
 			growth, bombSize, memBudget, maxHDLC)
 	}
 }

@@ -1,0 +1,20 @@
+[reticulum]
+  enable_transport = yes
+  share_instance = no
+  enable_sandbox = no
+  storage_path = /data/storage
+  loglevel = 3
+
+[interfaces]
+
+  [[tcp]]
+    type = TCPServerInterface
+    enabled = yes
+    listen_ip = 0.0.0.0
+    listen_port = __SPEEDTEST_PORT__
+
+  [[udp]]
+    type = UDPInterface
+    enabled = no
+    listen_ip = 0.0.0.0
+    listen_port = 4243

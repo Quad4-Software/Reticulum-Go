@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package packet
 
 import (
@@ -131,6 +132,18 @@ func (p *Packet) Pack() error {
 
 	debug.Log(debug.DebugPackets, "Packing packet", "type", p.PacketType, "header", p.HeaderType)
 
+	if n := len(p.DestinationHash); n != 0 && n != TruncatedHashLength {
+		return fmt.Errorf("destination hash must be %d bytes, got %d", TruncatedHashLength, n)
+	}
+	if p.HeaderType == HeaderType2 {
+		if p.TransportID == nil {
+			return errors.New("transport ID required for header type 2")
+		}
+		if len(p.TransportID) != TruncatedHashLength {
+			return fmt.Errorf("transport ID must be %d bytes, got %d", TruncatedHashLength, len(p.TransportID))
+		}
+	}
+
 	flags := byte(0)
 	flags |= (p.HeaderType << 6) & HeaderMaskHeaderType
 	flags |= (p.ContextFlag << 5) & HeaderMaskContextFlag
@@ -144,9 +157,6 @@ func (p *Packet) Pack() error {
 
 	need := 2 + len(p.DestinationHash) + 1 + len(p.Data)
 	if p.HeaderType == HeaderType2 {
-		if p.TransportID == nil {
-			return errors.New("transport ID required for header type 2")
-		}
 		need += len(p.TransportID)
 		if debug.GetDebugLevel() >= debug.DebugAll {
 			debug.Log(debug.DebugAll, "Added transport ID to header", "transport_id", fmt.Sprintf("%x", p.TransportID))
@@ -195,9 +205,16 @@ func (p *Packet) Unpack() error {
 	if len(p.Raw) < MinPacketSize {
 		return errors.New("packet too short")
 	}
+	if len(p.Raw) > MaxInboundPacketSize {
+		return errors.New("packet exceeds maximum inbound size")
+	}
 
 	flags := p.Raw[0]
 	p.Hops = p.Raw[1]
+
+	if int(p.Hops) >= PathfinderM {
+		return fmt.Errorf("invalid hop count %d", p.Hops)
+	}
 
 	p.HeaderType = (flags & HeaderMaskHeaderType) >> 6
 	p.ContextFlag = (flags & HeaderMaskContextFlag) >> 5
@@ -344,8 +361,7 @@ func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []b
 	// Prepare ratchet ID if available (not yet implemented)
 	var ratchetID []byte
 
-	// Prepare data for signature
-	// Signature consists of destination hash, public keys, name hash, random hash, and app data
+	// Sign over dest hash, keys, name hash, random hash, and app data.
 	signedData := make([]byte, 0, len(destHash)+len(encKey)+len(signKey)+len(nameHash10)+len(randomHash)+len(appData))
 	signedData = append(signedData, destHash...)
 	signedData = append(signedData, encKey...)
@@ -361,22 +377,20 @@ func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []b
 	}
 	debug.Log(debug.DebugPackets, "Generated signature", "signature", fmt.Sprintf("%x", signature))
 
-	// Combine all fields according to spec
-	// Data structure: Public Key (32) + Signing Key (32) + Name Hash (10) + Random Hash (10) + Ratchet (optional) + Signature (64) + App Data
+	// Combine fields: enc key, sign key, name hash, random hash, optional ratchet, signature, app data.
 	data := make([]byte, 0, 32+32+10+10+64+len(appData))
-	data = append(data, encKey...)     // Encryption key (32 bytes)
-	data = append(data, signKey...)    // Signing key (32 bytes)
-	data = append(data, nameHash10...) // Name hash (10 bytes)
-	data = append(data, randomHash...) // Random hash (10 bytes)
+	data = append(data, encKey...)
+	data = append(data, signKey...)
+	data = append(data, nameHash10...)
+	data = append(data, randomHash...)
 	if ratchetID != nil {
-		data = append(data, ratchetID...) // Ratchet ID (32 bytes if present)
+		data = append(data, ratchetID...)
 	}
-	data = append(data, signature...) // Signature (64 bytes)
-	data = append(data, appData...)   // Application data (variable)
+	data = append(data, signature...)
+	data = append(data, appData...)
 
 	debug.Log(debug.DebugTrace, "Combined packet data", "bytes", len(data))
 
-	// Create the packet with header type 2 (two address fields)
 	p := &Packet{
 		HeaderType:      HeaderType2,
 		PacketType:      PacketTypeAnnounce,

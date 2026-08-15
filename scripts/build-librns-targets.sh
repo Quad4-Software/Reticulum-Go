@@ -1,0 +1,235 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2024-2026 Quad4.io
+#
+# Cross-build librns for Linux host/cross arches, Android, Windows amd64, and macOS.
+# Usage:
+#   sh scripts/build-librns-targets.sh [linux] [linux-arm64] [linux-386] [linux-armv7] [linux-armv6] [android] [windows] [darwin] [all]
+# Default: all targets that the local toolchain can support.
+
+set -eu
+
+ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+GOCMD="${GOCMD:-go}"
+BUILD_DIR="${BUILD_DIR:-bin}"
+ANDROID_API="${ANDROID_API:-24}"
+TARGETS="${*:-all}"
+
+want() {
+	case " $TARGETS " in
+	*" all "*|*" $1 "*) return 0 ;;
+	*) return 1 ;;
+	esac
+}
+
+build_linux_host() {
+	echo "==> linux host -> $BUILD_DIR/librns.so"
+	mkdir -p "$BUILD_DIR"
+	CGO_ENABLED=1 "$GOCMD" build -buildmode=c-shared -o "$BUILD_DIR/librns.so" ./cmd/librns
+	cp include/rns.h "$BUILD_DIR/rns.h"
+	host_arch="$(uname -m)"
+	case "$host_arch" in
+	x86_64|amd64)
+		mkdir -p "$BUILD_DIR/linux/amd64"
+		cp -f "$BUILD_DIR/librns.so" "$BUILD_DIR/linux/amd64/librns.so"
+		cp -f include/rns.h "$BUILD_DIR/linux/amd64/rns.h"
+		;;
+	aarch64|arm64)
+		mkdir -p "$BUILD_DIR/linux/arm64"
+		cp -f "$BUILD_DIR/librns.so" "$BUILD_DIR/linux/arm64/librns.so"
+		cp -f include/rns.h "$BUILD_DIR/linux/arm64/rns.h"
+		;;
+	esac
+}
+
+build_linux_cross() {
+	label="$1"
+	goarch="$2"
+	goarm="$3"
+	cc="$4"
+	out="$BUILD_DIR/linux/$label/librns.so"
+	if [ ! -x "$cc" ]; then
+		echo "skip linux $label: missing $cc" >&2
+		return 0
+	fi
+	if ! command -v zig >/dev/null 2>&1; then
+		echo "skip linux $label: zig not on PATH" >&2
+		return 0
+	fi
+	echo "==> linux $label (CC=$cc) -> $out"
+	mkdir -p "$(dirname "$out")"
+	# shellcheck disable=SC2086
+	env CGO_ENABLED=1 GOOS=linux GOARCH="$goarch" $goarm CC="$cc" \
+		"$GOCMD" build -buildmode=c-shared -o "$out" ./cmd/librns
+	cp include/rns.h "$BUILD_DIR/linux/$label/rns.h"
+}
+
+android_ndk_root() {
+	if [ -n "${ANDROID_NDK_HOME:-}" ] && [ -d "$ANDROID_NDK_HOME" ]; then
+		printf '%s\n' "$ANDROID_NDK_HOME"
+		return 0
+	fi
+	if [ -n "${ANDROID_NDK_ROOT:-}" ] && [ -d "$ANDROID_NDK_ROOT" ]; then
+		printf '%s\n' "$ANDROID_NDK_ROOT"
+		return 0
+	fi
+	if [ -n "${ANDROID_HOME:-}" ] && [ -d "$ANDROID_HOME/ndk" ]; then
+		find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sort -V | tail -n1
+		return 0
+	fi
+	if [ -d "$HOME/Android/Sdk/ndk" ]; then
+		find "$HOME/Android/Sdk/ndk" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sort -V | tail -n1
+		return 0
+	fi
+	return 1
+}
+
+build_android_abi() {
+	abi="$1"
+	goarch="$2"
+	triple="$3"
+	extra_env="$4"
+	ndk="$5"
+	prebuilt="$ndk/toolchains/llvm/prebuilt/linux-x86_64"
+	cc="$prebuilt/bin/${triple}${ANDROID_API}-clang"
+	if [ ! -x "$cc" ]; then
+		echo "missing Android clang: $cc" >&2
+		return 1
+	fi
+	out="$BUILD_DIR/android/$abi/librns.so"
+	echo "==> android $abi -> $out"
+	mkdir -p "$(dirname "$out")"
+	# shellcheck disable=SC2086
+	env CGO_ENABLED=1 GOOS=android GOARCH="$goarch" $extra_env CC="$cc" \
+		"$GOCMD" build -buildmode=c-shared -o "$out" ./cmd/librns
+	cp include/rns.h "$BUILD_DIR/android/$abi/rns.h"
+}
+
+build_android() {
+	ndk="$(android_ndk_root)" || {
+		echo "skip android: set ANDROID_NDK_HOME or install Android NDK" >&2
+		return 0
+	}
+	echo "using NDK: $ndk"
+	build_android_abi arm64-v8a arm64 aarch64-linux-android "" "$ndk"
+	build_android_abi armeabi-v7a arm armv7a-linux-androideabi "GOARM=7" "$ndk"
+	build_android_abi x86_64 amd64 x86_64-linux-android "" "$ndk"
+}
+
+windows_cc() {
+	if command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
+		printf '%s\n' "x86_64-w64-mingw32-gcc"
+		return 0
+	fi
+	if command -v zig >/dev/null 2>&1; then
+		printf '%s\n' "$ROOT/scripts/cc-windows-zig.sh"
+		return 0
+	fi
+	return 1
+}
+
+build_windows() {
+	cc="$(windows_cc)" || {
+		echo "skip windows: need x86_64-w64-mingw32-gcc or zig" >&2
+		return 0
+	}
+	out="$BUILD_DIR/windows/amd64/librns.dll"
+	echo "==> windows amd64 (CC=$cc) -> $out"
+	mkdir -p "$(dirname "$out")"
+	# shellcheck disable=SC2086
+	env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC="$cc" \
+		"$GOCMD" build -buildmode=c-shared -o "$out" ./cmd/librns
+	cp include/rns.h "$BUILD_DIR/windows/amd64/rns.h"
+}
+
+darwin_cc() {
+	if command -v o64-clang >/dev/null 2>&1; then
+		printf '%s\n' "o64-clang"
+		return 0
+	fi
+	if command -v x86_64-apple-darwin-clang >/dev/null 2>&1; then
+		printf '%s\n' "x86_64-apple-darwin-clang"
+		return 0
+	fi
+	if [ "$(uname -s)" = "Darwin" ] && command -v clang >/dev/null 2>&1; then
+		printf '%s\n' "clang"
+		return 0
+	fi
+	if command -v zig >/dev/null 2>&1; then
+		printf '%s\n' "$ROOT/scripts/cc-darwin-zig.sh"
+		return 0
+	fi
+	return 1
+}
+
+build_darwin_arch() {
+	goarch="$1"
+	cc="$2"
+	out="$BUILD_DIR/darwin/$goarch/librns.dylib"
+	echo "==> darwin $goarch (CC=$cc) -> $out"
+	mkdir -p "$(dirname "$out")"
+	# shellcheck disable=SC2086
+	env CGO_ENABLED=1 GOOS=darwin GOARCH="$goarch" CC="$cc" \
+		"$GOCMD" build -buildmode=c-shared -o "$out" ./cmd/librns
+	cp include/rns.h "$BUILD_DIR/darwin/$goarch/rns.h"
+}
+
+build_darwin() {
+	cc="$(darwin_cc)" || {
+		echo "skip darwin: need macOS clang, osxcross, or zig" >&2
+		return 0
+	}
+	case "$cc" in
+	*/cc-darwin-zig.sh)
+		build_darwin_arch amd64 "$cc"
+		build_darwin_arch arm64 "$cc"
+		;;
+	clang)
+		host_arch="$(uname -m)"
+		case "$host_arch" in
+		arm64|aarch64) build_darwin_arch arm64 "$cc" ;;
+		*) build_darwin_arch amd64 "$cc" ;;
+		esac
+		;;
+	*)
+		build_darwin_arch amd64 "$cc"
+		;;
+	esac
+}
+
+if want linux; then
+	build_linux_host
+fi
+if want linux-arm64; then
+	host_arch="$(uname -m)"
+	case "$host_arch" in
+	aarch64|arm64)
+		build_linux_host
+		;;
+	*)
+		build_linux_cross arm64 arm64 "" "$ROOT/scripts/cc-linux-arm64-zig.sh"
+		;;
+	esac
+fi
+if want linux-386; then
+	build_linux_cross 386 386 "" "$ROOT/scripts/cc-linux-386-zig.sh"
+fi
+if want linux-armv7; then
+	build_linux_cross armv7 arm "GOARM=7" "$ROOT/scripts/cc-linux-armv7-zig.sh"
+fi
+if want linux-armv6; then
+	build_linux_cross armv6 arm "GOARM=6" "$ROOT/scripts/cc-linux-armv6-zig.sh"
+fi
+if want android; then
+	build_android
+fi
+if want windows; then
+	build_windows
+fi
+if want darwin; then
+	build_darwin
+fi
+
+echo "done"

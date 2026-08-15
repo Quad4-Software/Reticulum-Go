@@ -1,0 +1,40 @@
+.Dd July 17, 2026
+.Dt RETICULUM-GO-X 1
+.Os
+.Sh NAME
+.Nm reticulum-go-x , rgox , rnx
+.Nd remote command execution over Reticulum
+.Sh SYNOPSIS
+.Nm reticulum-go Cm x
+.Op Fl l
+.Op Fl x
+.Op Fl json
+.Op Fl config Ar dir
+.Op Ar destination_hash command
+.Sh DESCRIPTION
+Executes commands on a remote
+.Nm rnx.execute
+listener over an established Reticulum link.
+Wire-compatible with Python
+.Nm rnx
+(request path
+.Dq command ,
+5-field request and 8-field response).
+.Pp
+Listen mode
+.Pq Fl l
+registers the handler and optionally announces.
+Execute mode takes a destination hash and command.
+.Fl json
+emits a structured result for scripting.
+.Fl m
+mirrors the remote process exit code.
+.Pp
+Run with
+.Fl h
+for the full flag list.
+.Sh SEE ALSO
+.Xr reticulum-go 1 ,
+.Xr reticulum-go-cp 1
+.Sh AUTHORS
+.An Quad4.io

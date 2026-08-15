@@ -1,0 +1,186 @@
+Interface scaffold for Reticulum-Go
+===================================
+
+Use this file to add a new network interface under pkg/interfaces/.
+Follow an existing driver for patterns. Prefer UDP, TCP, or Pipe as templates.
+
+Authoritative docs and contracts
+--------------------------------
+
+  docs/en/interfaces.md
+  pkg/interfaces/interface.go          package Interface embeds common.NetworkInterface
+  pkg/common/interfaces.go             NetworkInterface contract
+  pkg/common/config.go                 InterfaceConfig fields
+  pkg/interfaces/fromconfig.go         type switch factory
+  pkg/interfaces/plugin.go             external / pipe plugins
+  pkg/interfaces/reconnect.go          client reconnect helper
+  COMPATIBILITY.md                     Python interop status
+
+Choose how the interface is delivered
+-------------------------------------
+
+1. In-tree driver (most common)
+   - New type in pkg/interfaces
+   - Wired through NewFromConfigWithContext
+   - Documented in docs/en/interfaces.md and COMPATIBILITY.md
+
+2. External plugin (no Go rebuild for operators)
+   - RegisterExternalFactory for embedders
+   - Or {config_dir}/interfaces/{Type}.json manifest (driver pipe)
+   - Or executable {config_dir}/interfaces/{Type} as PipeInterface command
+   - See docs/en/interfaces.md External interface plugins
+
+Do not invent a parallel packet path around Transport. Interfaces hand
+raw RNS packets to the packet callback. Framing and IFAC stay on the
+interface boundary.
+
+Packet paths (must match)
+-------------------------
+
+Inbound:
+
+  wire bytes -> ProcessIncoming -> IFAC unmask -> packetCallback -> Transport
+
+Outbound:
+
+  Transport -> Send -> IFAC mask -> ProcessOutgoing -> wire
+
+BaseInterface.Send already applies IFAC outbound and updates TX stats.
+Concrete types override ProcessOutgoing to write the medium.
+ProcessIncoming on BaseInterface applies IFAC inbound then calls the callback.
+Never call BaseInterface.ProcessOutgoing for real traffic (it fails loud).
+
+Suggested file layout
+---------------------
+
+  pkg/interfaces/<name>.go              main type, Start, Stop, Send path
+  pkg/interfaces/<name>_test.go         unit tests
+  pkg/interfaces/<name>_fuzz_test.go    optional fuzz
+  pkg/interfaces/<name>_race_test.go    optional race-focused tests
+  pkg/interfaces/<name>_stub.go         build-tagged stub when unsupported
+  pkg/interfaces/<name>_<os>.go         OS-specific helpers when needed
+  tests/interop/<name>_live_test.go     optional live interop (gated)
+
+Reuse existing helpers before inventing new ones:
+
+  BaseInterface embedding
+  reconnectDriver for dial clients
+  HDLC helpers (tcp / pipe / serial patterns)
+  ConnectivityNotifier hooks for up/down
+  NormalizeMaxReconnectTries
+
+Required implementation checklist
+---------------------------------
+
+Embed and identity
+  - Embed BaseInterface (value, not pointer copy after use)
+  - Set Name, Type, Enabled via NewBaseInterface
+  - Set Mode from config (full default)
+  - Honor ReceiveOnly / outgoing = no via SetOutgoingAllowed
+
+Lifecycle
+  - Start() opens resources, sets Online, starts read loops
+  - Stop() and Detach() close cleanly, idempotent where practical
+  - Enable / Disable update Enabled and Online consistently
+  - No goroutine leaks after Stop (tests often use leak checks)
+
+IO
+  - ProcessOutgoing writes framed or raw bytes to the medium
+  - Inbound path feeds ProcessIncoming (or equivalent that ends there)
+  - Respect MTU and bitrate when the medium has limits
+  - Apply IFAC only through the BaseInterface Send / ProcessIncoming path
+
+Config factory
+  - Add case in NewFromConfigWithContext for the config type string
+  - Map InterfaceConfig fields (do not invent parallel config structs
+    unless the type needs a dedicated constructor args struct)
+  - Add type to any post-create switch that applies common options
+    (mode, IFAC, announce caps, ingress control) if required by that path
+  - Unknown types fall through to loadExternalInterface
+
+Interop and docs
+  - If matching a Python RNS interface, document keys and framing interop
+  - If Go-only, say so in docs/en/interfaces.md (see QUIC, WebTransport)
+  - Update COMPATIBILITY.md status row
+  - Add a config example to docs/en/interfaces.md
+
+Config type naming
+------------------
+
+Config `type` strings are public. Match Python names when implementing a
+Python counterpart (UDPInterface, TCPClientInterface, ...).
+
+Go-only types still use the *Interface suffix for consistency.
+
+Modes and discovery
+-------------------
+
+Modes are wire values in pkg/common (full through internal).
+gateway / roaming / internal participate in unknown-path discovery.
+recursive_prs = yes forces discovery on any mode.
+announces_from_internal = no blocks rebroadcast from internal next hops.
+
+Reconnect clients
+-----------------
+
+For dial-style clients, reuse reconnect.go:
+
+  max_reconnect_tries <= 0 means unlimited
+  positive values cap attempts
+  SetConnectivityHooks when the daemon should see down/up
+  TCP clients may SetTunnelSynth for tunnel re-synthesis on reconnect
+
+Platform and build tags
+-----------------------
+
+If the medium is unavailable on some GOOS or WASM:
+
+  - Provide a stub file with build tags that returns a clear error
+  - Document platform limits in docs/en/interfaces.md
+  - Keep NewFromConfig wired so config parse still names the type
+
+Reference drivers
+-----------------
+
+  Simple datagram:     udp.go
+  Stream + HDLC:       tcp.go, pipe.go, serial.go
+  Discovery:           auto.go
+  Reconnect client:    tcp.go + reconnect.go
+  Plugin path:         plugin.go, pipe.go
+  Shared instance:     local.go, pkg/sharedinstance
+  Go-only modern:      quic.go, webtransport.go, https.go, vsock.go
+
+Tests to include
+----------------
+
+Minimum
+  - Construct from InterfaceConfig via NewFromConfig
+  - Start / Stop without leak
+  - Send while receive-only returns error
+  - ProcessOutgoing / inbound callback round-trip with a fake peer or loopback
+
+Stronger
+  - IFAC mask/unmask drop path
+  - Reconnect success and exhausted paths
+  - Race test under -race
+  - Fuzz framing decoder if you add a parser
+  - Live interop behind RUN_LIVE_INTEROP=1 or type-specific env
+
+Acceptance criteria
+-------------------
+
+1. Implements common.NetworkInterface via package Interface
+2. Wired in fromconfig.go (or documented as plugin-only)
+3. No BaseInterface.ProcessOutgoing used as real transmit
+4. Start/Stop clean under unit tests
+5. docs/en/interfaces.md section with config example
+6. COMPATIBILITY.md updated when Python interop is claimed or deferred
+
+What not to do
+--------------
+
+- Bypass Transport with a second mesh stack
+- Hold or copy BaseInterface by value after mutex use
+- Execute arbitrary Python plugins in-process (use pipe or RegisterExternalFactory)
+- Expose a new public Control API just to carry underlay bytes
+)

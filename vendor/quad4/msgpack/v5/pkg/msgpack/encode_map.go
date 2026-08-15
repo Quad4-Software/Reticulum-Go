@@ -87,14 +87,14 @@ func encodeMapStringInterfaceValue(e *Encoder, v reflect.Value) error {
 	if v.IsNil() {
 		return e.EncodeNil()
 	}
-	m := v.Convert(mapStringInterfaceType).Interface().(map[string]interface{})
+	m := v.Convert(mapStringInterfaceType).Interface().(map[string]any)
 	if e.flags&sortMapKeysFlag != 0 {
 		return e.EncodeMapSorted(m)
 	}
 	return e.EncodeMap(m)
 }
 
-func (e *Encoder) EncodeMap(m map[string]interface{}) error {
+func (e *Encoder) EncodeMap(m map[string]any) error {
 	if m == nil {
 		return e.EncodeNil()
 	}
@@ -112,7 +112,7 @@ func (e *Encoder) EncodeMap(m map[string]interface{}) error {
 	return nil
 }
 
-func (e *Encoder) EncodeMapSorted(m map[string]interface{}) error {
+func (e *Encoder) EncodeMapSorted(m map[string]any) error {
 	if m == nil {
 		return e.EncodeNil()
 	}

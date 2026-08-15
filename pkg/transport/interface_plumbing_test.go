@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package transport
 
 import (
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/interfaces"
 )
 
@@ -113,6 +115,10 @@ func TestRegisterInterfaceRejectsAbstractBase(t *testing.T) {
 // counting GetName calls on each iface - HandlePacket calls iface.GetName
 // at the top of every dispatch.
 func TestRegisterInterfacePreservesConcreteType(t *testing.T) {
+	prevLevel := debug.GetDebugLevel()
+	debug.SetDebugLevel(debug.DebugTrace)
+	defer debug.SetDebugLevel(prevLevel)
+
 	tr := NewTransport(&common.ReticulumConfig{})
 	defer tr.Close()
 

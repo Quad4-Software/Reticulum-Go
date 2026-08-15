@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2024-2026 Quad4.io
+
+@PACKAGE_INIT@
+
+# In-tree helper: consumers set RNS_ROOT or rely on cached paths from the build.
+set(RNS_INCLUDE_DIR "@RNS_INCLUDE_DIR@")
+set(RNS_LIB_DIR "@RNS_LIB_DIR@")
+
+include(CMakeFindDependencyMacro)

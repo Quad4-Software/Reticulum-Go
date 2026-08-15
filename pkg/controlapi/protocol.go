@@ -5,6 +5,8 @@ package controlapi
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 )
 
@@ -23,18 +25,59 @@ type healthResponse struct {
 // interfaceStatJSON mirrors the subset of transport.InterfaceStat exposed
 // over the control API.
 type interfaceStatJSON struct {
-	Name    string `json:"name"`
-	Type    string `json:"type"`
-	Status  bool   `json:"status"`
-	RXBytes uint64 `json:"rx_bytes"`
-	TXBytes uint64 `json:"tx_bytes"`
-	Bitrate int64  `json:"bitrate"`
+	Name                  string   `json:"name"`
+	Type                  string   `json:"type"`
+	Status                bool     `json:"status"`
+	RXBytes               uint64   `json:"rx_bytes"`
+	TXBytes               uint64   `json:"tx_bytes"`
+	Bitrate               int64    `json:"bitrate"`
+	Clients               *int     `json:"clients,omitempty"`
+	BlockedIPs            *int     `json:"blocked_ips,omitempty"`
+	BlockedIPList         []string `json:"blocked_ip_list,omitempty"`
+	I2PConnectable        *bool    `json:"i2p_connectable,omitempty"`
+	I2PB32                *string  `json:"i2p_b32,omitempty"`
+	TunnelState           *string  `json:"tunnelstate,omitempty"`
+	I2PLastError          *string  `json:"i2p_last_error,omitempty"`
+	IFACFail              uint64   `json:"ifac_fail"`
+	HMACFail              uint64   `json:"hmac_fail"`
+	AnnounceSigFail       uint64   `json:"announce_sig_fail"`
+	UnpackFail            uint64   `json:"unpack_fail"`
+	AnnounceDup           uint64   `json:"announce_dup"`
+	PathRespSuppressed    uint64   `json:"path_resp_suppressed"`
+	PathReqDup            uint64   `json:"path_req_dup"`
+	PathReqNoCache        uint64   `json:"path_req_no_cache"`
+	PathRespQueuedSkip    uint64   `json:"path_resp_queued_skip"`
+	LinkRelayUnknownIface uint64   `json:"link_relay_unknown_iface"`
+	IntegrityFailRate     float64  `json:"integrity_fail_rate"`
+	StaleCloses           uint64   `json:"stale_closes"`
+	LinkStaleClose        uint64   `json:"link_stale_close"`
+	KeepaliveTimeout      uint64   `json:"keepalive_timeout"`
 }
 
 // statusResponse is the body of GET /v1/status.
 type statusResponse struct {
 	TransportID string              `json:"transport_id"`
 	Interfaces  []interfaceStatJSON `json:"interfaces"`
+	Protect     protectSnapshotJSON `json:"protect"`
+}
+
+type protectSnapshotJSON struct {
+	Mode           string `json:"mode"`
+	Phase          string `json:"phase"`
+	Enforcement    string `json:"enforcement"`
+	Fingerprint    string `json:"fingerprint"`
+	SheddingMemory bool   `json:"shedding_memory"`
+	TripCounts     struct {
+		PPS       uint64 `json:"pps"`
+		BPS       uint64 `json:"bps"`
+		Handler   uint64 `json:"handler"`
+		Conn      uint64 `json:"conn"`
+		Resource  uint64 `json:"resource"`
+		Memory    uint64 `json:"memory"`
+		Crypto    uint64 `json:"crypto"`
+		Handshake uint64 `json:"handshake"`
+		CoolDown  uint64 `json:"cooldown"`
+	} `json:"trip_counts"`
 }
 
 // pathTableEntryJSON mirrors transport.PathTableEntry with hex-encoded hashes.
@@ -106,6 +149,13 @@ type pathRequestRequest struct {
 	DestinationHash string `json:"destination_hash"`
 }
 
+// pathRequestResponse is returned after a path request is emitted.
+// WaitS is the bitrate-sized window the caller should wait for HasPath.
+type pathRequestResponse struct {
+	WaitS float64 `json:"wait_s"`
+	Error string  `json:"error,omitempty"`
+}
+
 // wsCommandEnvelope is decoded first to dispatch an inbound WebSocket
 // message on its type field before decoding the full command.
 type wsCommandEnvelope struct {
@@ -113,10 +163,9 @@ type wsCommandEnvelope struct {
 }
 
 // subscribeAnnouncesCommand subscribes the connection to announceEvent
-// pushes. Filter is accepted for forward compatibility but is not yet used
-// to narrow delivery. Every announce the node receives is currently
-
-// forwarded to every subscriber.
+// pushes. Empty Filter delivers every announce. A non-empty Filter must be
+// an exact 16-byte destination hash as hex and only matching announces are
+// forwarded.
 type subscribeAnnouncesCommand struct {
 	Type   string `json:"type"`
 	Filter string `json:"filter,omitempty"`
@@ -154,10 +203,84 @@ type linkCloseCommand struct {
 }
 
 // requestRespondCommand answers a pending requestIncomingEvent.
+// When Filename is set the response is NomadNet-style [filename, bytes].
 type requestRespondCommand struct {
 	Type      string `json:"type"`
 	RequestID string `json:"request_id"`
 	Data      string `json:"data,omitempty"`
+	Filename  string `json:"filename,omitempty"`
+}
+
+// linkRequestCommand sends an outbound request on an established link.
+type linkRequestCommand struct {
+	Type      string `json:"type"`
+	LinkID    string `json:"link_id"`
+	Path      string `json:"path"`
+	Data      string `json:"data,omitempty"`
+	TimeoutMs int    `json:"timeout_ms,omitempty"`
+}
+
+// linkSendResourceCommand transfers a payload as a link resource.
+type linkSendResourceCommand struct {
+	Type   string `json:"type"`
+	LinkID string `json:"link_id"`
+	Data   string `json:"data"`
+	Name   string `json:"name,omitempty"`
+}
+
+// linkIdentifyCommand identifies the session identity on an established link.
+type linkIdentifyCommand struct {
+	Type   string `json:"type"`
+	LinkID string `json:"link_id"`
+}
+
+// commandErrorEvent reports a WebSocket command that could not be applied.
+type commandErrorEvent struct {
+	Type    string `json:"type"`
+	Command string `json:"command,omitempty"`
+	Error   string `json:"error"`
+}
+
+// requestResponseEvent reports a successful outbound link.request.
+type requestResponseEvent struct {
+	Type      string `json:"type"`
+	LinkID    string `json:"link_id"`
+	RequestID string `json:"request_id"`
+	Path      string `json:"path,omitempty"`
+	Data      string `json:"data,omitempty"`
+}
+
+// requestFailedEvent reports an outbound link.request that failed or timed out.
+type requestFailedEvent struct {
+	Type      string `json:"type"`
+	LinkID    string `json:"link_id"`
+	RequestID string `json:"request_id,omitempty"`
+	Path      string `json:"path,omitempty"`
+	Error     string `json:"error,omitempty"`
+}
+
+// resourceStartedEvent reports a resource transfer beginning on a link.
+type resourceStartedEvent struct {
+	Type   string `json:"type"`
+	LinkID string `json:"link_id"`
+}
+
+// resourceConcludedEvent reports a finished resource transfer.
+type resourceConcludedEvent struct {
+	Type    string `json:"type"`
+	LinkID  string `json:"link_id"`
+	Name    string `json:"name,omitempty"`
+	Hash    string `json:"hash,omitempty"`
+	Data    string `json:"data,omitempty"`
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
+}
+
+// linkRemoteIdentifiedEvent reports a peer identity learned via link identify.
+type linkRemoteIdentifiedEvent struct {
+	Type         string `json:"type"`
+	LinkID       string `json:"link_id"`
+	IdentityHash string `json:"identity_hash"`
 }
 
 // linkEstablishedEvent reports a link (outbound or inbound) becoming
@@ -210,4 +333,34 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, errorResponse{Error: message})
+}
+
+// maxHTTPBodyBytes caps JSON request bodies on the control API HTTP surface.
+// Matches the WebSocket inbound frame cap so HTTP cannot be used as a larger
+// memory bomb than the event channel.
+const maxHTTPBodyBytes = 1 << 20
+
+// decodeJSONBody reads at most maxHTTPBodyBytes from r into dst.
+// Oversized bodies yield StatusRequestEntityTooLarge.
+func decodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) error {
+	if r.Body == nil {
+		return io.EOF
+	}
+	body := http.MaxBytesReader(w, r.Body, maxHTTPBodyBytes)
+	defer body.Close()
+	dec := json.NewDecoder(body)
+	if err := dec.Decode(dst); err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			writeError(w, http.StatusRequestEntityTooLarge, "request body too large")
+			return err
+		}
+		return err
+	}
+	return nil
+}
+
+func isBodyTooLarge(err error) bool {
+	var maxErr *http.MaxBytesError
+	return errors.As(err, &maxErr)
 }

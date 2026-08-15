@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package cryptography
 
 import (
@@ -20,9 +21,10 @@ func implGetBasepoint() []byte {
 }
 
 func implHash(data []byte) []byte {
-	h := sha256.New()
-	h.Write(data)
-	return h.Sum(nil)
+	sum := sha256.Sum256(data)
+	out := make([]byte, SHA256Size)
+	copy(out, sum[:])
+	return out
 }
 
 // GetBasepoint returns the standard Curve25519 basepoint.

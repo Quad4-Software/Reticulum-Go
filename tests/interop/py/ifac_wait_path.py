@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """IFAC variant of wait_path.py (network_name, passphrase, ifac_size)."""
+
 import os
 import sys
 import tempfile
@@ -49,8 +50,8 @@ def main() -> int:
                     f"passphrase = {netkey}",
                     f"ifac_size = {ifac_size_bits}",
                     "",
-                ]
-            )
+                ],
+            ),
         )
 
     RNS.Reticulum(cfg_dir)

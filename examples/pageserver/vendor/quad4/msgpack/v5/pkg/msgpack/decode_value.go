@@ -8,9 +8,9 @@ import (
 )
 
 var (
-	interfaceType = reflect.TypeOf((*interface{})(nil)).Elem()
-	stringType    = reflect.TypeOf((*string)(nil)).Elem()
-	boolType      = reflect.TypeOf((*bool)(nil)).Elem()
+	interfaceType = reflect.TypeFor[any]()
+	stringType    = reflect.TypeFor[string]()
+	boolType      = reflect.TypeFor[bool]()
 )
 
 var valueDecoders []decoderFunc
@@ -38,7 +38,7 @@ func init() {
 		reflect.Func:          decodeUnsupportedValue,
 		reflect.Interface:     decodeInterfaceValue,
 		reflect.Map:           decodeMapValue,
-		reflect.Ptr:           decodeUnsupportedValue,
+		reflect.Pointer:       decodeUnsupportedValue,
 		reflect.Slice:         decodeSliceValue,
 		reflect.String:        decodeStringValue,
 		reflect.Struct:        decodeStructValue,
@@ -58,7 +58,7 @@ func getDecoder(typ reflect.Type) decoderFunc {
 func _getDecoder(typ reflect.Type) decoderFunc {
 	kind := typ.Kind()
 
-	if kind == reflect.Ptr {
+	if kind == reflect.Pointer {
 		if _, ok := typeDecMap.Load(typ.Elem()); ok {
 			return ptrValueDecoder(typ)
 		}
@@ -78,8 +78,8 @@ func _getDecoder(typ reflect.Type) decoderFunc {
 	}
 
 	// Addressable struct field value.
-	if kind != reflect.Ptr {
-		ptr := reflect.PtrTo(typ)
+	if kind != reflect.Pointer {
+		ptr := reflect.PointerTo(typ)
 		if ptr.Implements(customDecoderType) {
 			return addrDecoder(nilAwareDecoder(typ, decodeCustomValue))
 		}
@@ -95,7 +95,7 @@ func _getDecoder(typ reflect.Type) decoderFunc {
 	}
 
 	switch kind {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		return ptrValueDecoder(typ)
 	case reflect.Slice:
 		elem := typ.Elem()

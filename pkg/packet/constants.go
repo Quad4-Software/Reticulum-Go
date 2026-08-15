@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package packet
 
 // Sizes and propagation/destination type constants.
@@ -19,6 +20,8 @@ const (
 
 	TruncatedHashLength = 16
 	MinPacketSize       = 3
+
+	PathfinderM = 128
 
 	// LinkRequestECPubSize is the combined X25519 + Ed25519 public key size in link requests.
 	LinkRequestECPubSize = 64
@@ -74,6 +77,8 @@ const (
 
 	HeaderMaxSize = 64
 	MTU           = 500
+
+	MaxInboundPacketSize = 262144
 
 	AddressSize = 32
 )

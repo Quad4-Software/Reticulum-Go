@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package interfaces
 
 import (
@@ -11,6 +12,7 @@ import (
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/protect"
 )
 
 type TCPClientInterface struct {
@@ -22,7 +24,7 @@ type TCPClientInterface struct {
 	i2pTunneled       bool
 	initiator         bool
 	neverConnected    bool
-	writing           bool
+	sendMu            sync.Mutex
 	maxReconnectTries int
 	packetBuffer      []byte
 	done              chan struct{}
@@ -55,6 +57,7 @@ func NewTCPClientInterfaceWithRetries(name string, targetHost string, targetPort
 		txFrame:           make([]byte, 0, DefaultMTU*2+4),
 	}
 	tc.initReconnectDriver()
+	tc.Bitrate = BitrateGuess
 
 	if enabled {
 		tc.startReconnect()
@@ -159,18 +162,22 @@ func (tc *TCPClientInterface) Start() error {
 		return nil
 	}
 
-	// Only recreate done if it's nil or was closed
+	// Construction with Enabled already owns a reconnect driver. Replacing
+	// it races two dial loops on tc.conn. Only rebuild after Stop closed done.
 	select {
 	case <-tc.done:
 		tc.done = make(chan struct{})
 		tc.stopOnce = sync.Once{}
+		tc.initReconnectDriver()
 	default:
 		if tc.done == nil {
 			tc.done = make(chan struct{})
 			tc.stopOnce = sync.Once{}
 		}
+		if tc.reconnect == nil {
+			tc.initReconnectDriver()
+		}
 	}
-	tc.initReconnectDriver()
 	tc.Mutex.Unlock()
 
 	tc.startReconnect()
@@ -205,11 +212,15 @@ func (tc *TCPClientInterface) ProcessOutgoing(data []byte) error {
 		return fmt.Errorf("interface offline")
 	}
 
-	tc.writing = true
-	defer func() { tc.writing = false }()
+	tc.sendMu.Lock()
+	defer tc.sendMu.Unlock()
 
-	// For TCP connections, use HDLC framing
-	frame := appendFrameHDLC(tc.txFrame[:0], data)
+	var frame []byte
+	if tc.kissFraming {
+		frame = appendFrameKISS(tc.txFrame[:0], data)
+	} else {
+		frame = appendFrameHDLC(tc.txFrame[:0], data)
+	}
 	tc.txFrame = frame
 
 	debug.Log(debug.DebugAll, "TCP interface writing to network", "name", tc.Name, "bytes", len(frame))
@@ -239,6 +250,9 @@ func (tc *TCPClientInterface) ProcessOutgoing(data []byte) error {
 }
 
 func (tc *TCPClientInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(tc); err != nil {
+		return err
+	}
 	debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", tc.Name, "bytes", len(data), "address", address)
 
 	masked, err := common.ApplyIFACOutbound(tc, data)
@@ -257,11 +271,19 @@ func (tc *TCPClientInterface) Send(data []byte, address string) error {
 }
 
 func (tc *TCPClientInterface) readLoop() {
-	decoder := newHDLCToggleStreamDecoder(tc.MTU, tc.handlePacket)
-	if cap(tc.readBuf) < tc.MTU {
-		tc.readBuf = make([]byte, tc.MTU)
+	var feed func([]byte)
+	if tc.kissFraming {
+		decoder := newKISSStreamDecoder(tc.MTU, tc.handlePacket)
+		feed = decoder.feed
+	} else {
+		decoder := newTCPHDLCStreamDecoder(tc.MTU, tc.handlePacket)
+		feed = decoder.feed
 	}
-	buffer := tc.readBuf[:tc.MTU]
+	n := streamReadSize(tc.MTU)
+	if cap(tc.readBuf) < n {
+		tc.readBuf = make([]byte, n)
+	}
+	buffer := tc.readBuf[:n]
 
 	for {
 		tc.Mutex.RLock()
@@ -300,7 +322,7 @@ func (tc *TCPClientInterface) readLoop() {
 			}
 			continue
 		}
-		decoder.feed(buffer[:n])
+		feed(buffer[:n])
 		if err != nil {
 			tc.Mutex.Lock()
 			tc.Online = false
@@ -372,7 +394,6 @@ func escapeHDLC(data []byte) []byte {
 	return escaped
 }
 
-
 func unescapeHDLC(data []byte) []byte {
 	out := make([]byte, 0, len(data))
 	escape := false
@@ -404,6 +425,20 @@ func appendFrameHDLC(dst []byte, payload []byte) []byte {
 		}
 	}
 	return append(dst, HDLCFlag)
+}
+
+func escapeKISS(data []byte) []byte {
+	escaped := make([]byte, 0, len(data)*2)
+	for _, b := range data {
+		if b == KISSFend {
+			escaped = append(escaped, KISSFesc, KISSTFend)
+		} else if b == KISSFesc {
+			escaped = append(escaped, KISSFesc, KISSTFesc)
+		} else {
+			escaped = append(escaped, b)
+		}
+	}
+	return escaped
 }
 
 func (tc *TCPClientInterface) SetPacketCallback(cb common.PacketCallback) {
@@ -606,7 +641,7 @@ func (ts *TCPServerInterface) Start() error {
 	addr := net.JoinHostPort(ts.bindAddr, fmt.Sprintf("%d", ts.bindPort))
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		return fmt.Errorf("failed to start TCP server: %w", err)
+		return fmt.Errorf("failed to start TCP server: %w", common.WrapListenError(err))
 	}
 
 	ts.Mutex.Lock()
@@ -639,8 +674,15 @@ func (ts *TCPServerInterface) Start() error {
 				continue
 			}
 
-			// Handle each connection in a separate goroutine
-			go ts.handleConnection(conn)
+			d, release := protect.AdmitConn(ts.Name)
+			if !d.Allow {
+				_ = conn.Close()
+				continue
+			}
+			go func(c net.Conn, rel func()) {
+				defer rel()
+				ts.handleConnection(c)
+			}(conn, release)
 		}
 	}()
 
@@ -683,12 +725,23 @@ func (ts *TCPServerInterface) handleConnection(conn net.Conn) {
 		_ = conn.Close()
 	}()
 
-	ts.readHDLCLoop(conn)
+	ts.readFramedLoop(conn)
 }
 
-func (ts *TCPServerInterface) readHDLCLoop(conn net.Conn) {
-	decoder := newHDLCToggleStreamDecoder(ts.MTU, ts.ProcessIncoming)
-	buf := make([]byte, ts.MTU)
+func (ts *TCPServerInterface) readFramedLoop(conn net.Conn) {
+	peerKey := conn.RemoteAddr().String()
+	onFrame := func(data []byte) {
+		ts.ProcessIncomingFrom(data, peerKey)
+	}
+	var feed func([]byte)
+	if ts.kissFraming {
+		decoder := newKISSStreamDecoder(ts.MTU, onFrame)
+		feed = decoder.feed
+	} else {
+		decoder := newTCPHDLCStreamDecoder(ts.MTU, onFrame)
+		feed = decoder.feed
+	}
+	buf := make([]byte, streamReadSize(ts.MTU))
 
 	for {
 		ts.Mutex.RLock()
@@ -708,7 +761,7 @@ func (ts *TCPServerInterface) readHDLCLoop(conn net.Conn) {
 			}
 			continue
 		}
-		decoder.feed(buf[:n])
+		feed(buf[:n])
 		if err != nil {
 			return
 		}
@@ -726,8 +779,8 @@ func (ts *TCPServerInterface) ProcessOutgoing(data []byte) error {
 
 	var frame []byte
 	if ts.kissFraming {
-		frame = append([]byte{KISSFend}, escapeKISS(data)...)
-		frame = append(frame, KISSFend)
+		frame = appendFrameKISS(ts.txFrame[:0], data)
+		ts.txFrame = frame
 	} else {
 		frame = appendFrameHDLC(ts.txFrame[:0], data)
 		ts.txFrame = frame
@@ -750,6 +803,9 @@ func (ts *TCPServerInterface) ProcessOutgoing(data []byte) error {
 }
 
 func (ts *TCPServerInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(ts); err != nil {
+		return err
+	}
 	debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", ts.Name, "bytes", len(data), "address", address)
 
 	masked, err := common.ApplyIFACOutbound(ts, data)

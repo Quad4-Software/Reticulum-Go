@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package resource
 
 import (
@@ -120,6 +121,12 @@ func packInt64Compact(v int64) any {
 }
 
 func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
+	// Link advertisements are MDU-sized. Cap far above that to reject
+	// adversarial offline blobs without changing honest transfers.
+	const maxAdvertisementBytes = 64 * 1024
+	if len(data) > maxAdvertisementBytes {
+		return nil, fmt.Errorf("advertisement too large (%d > %d)", len(data), maxAdvertisementBytes)
+	}
 	var dict map[string]any
 	if err := msgpack.Unmarshal(data, &dict); err != nil {
 		return nil, fmt.Errorf("failed to unpack advertisement: %w", err)
@@ -150,6 +157,13 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 		}
 		ra.TransferSize = int64(t) // #nosec G115 - checked for overflow
 	}
+	if ra.TransferSize < 0 {
+		return nil, fmt.Errorf("transfer size negative")
+	}
+	// Match Python ResourceAdvertisement.unpack (RNS 1.3.9).
+	if ra.TransferSize > int64(MaxEfficientSize)*3 {
+		return nil, fmt.Errorf("invalid transfer size")
+	}
 
 	switch d := dict["d"].(type) {
 	case int:
@@ -174,6 +188,9 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 		}
 		ra.DataSize = int64(d) // #nosec G115 - checked for overflow
 	}
+	if ra.DataSize < 0 {
+		return nil, fmt.Errorf("data size negative")
+	}
 
 	switch n := dict["n"].(type) {
 	case int:
@@ -185,6 +202,9 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 	case int32:
 		ra.Parts = int(n)
 	case int64:
+		if n < 0 || n > math.MaxInt32 {
+			return nil, fmt.Errorf("parts count out of range")
+		}
 		ra.Parts = int(n)
 	case uint8:
 		ra.Parts = int(n)
@@ -198,8 +218,14 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 		}
 		ra.Parts = int(n) // #nosec G115 - checked for overflow
 	}
+	if ra.Parts < 0 {
+		return nil, fmt.Errorf("parts count negative")
+	}
 
 	if h, ok := dict["h"].([]byte); ok {
+		if len(h) != 0 && len(h) != 32 {
+			return nil, fmt.Errorf("hash length %d want 32", len(h))
+		}
 		ra.Hash = h
 	}
 
@@ -208,6 +234,9 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 	}
 
 	if o, ok := dict["o"].([]byte); ok {
+		if len(o) != 0 && len(o) != 32 {
+			return nil, fmt.Errorf("original hash length %d want 32", len(o))
+		}
 		ra.OriginalHash = o
 	}
 
@@ -230,42 +259,25 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 	ra.IsResponse = ra.Flags&AdvFlagIsResponse != 0
 	ra.HasMetadata = ra.Flags&AdvFlagHasMetadata != 0
 
-	if i, ok := dict["i"].(uint16); ok {
-		ra.SegmentIndex = i
-	} else if i, ok := dict["i"].(uint64); ok {
-		if i > uint64(math.MaxUint16) {
-			return nil, fmt.Errorf("segment index overflow")
+	if v, ok := dict["i"]; ok {
+		n, err := coerceUint16(v)
+		if err != nil {
+			return nil, fmt.Errorf("segment index: %w", err)
 		}
-		ra.SegmentIndex = uint16(i) // #nosec G115 - checked for overflow
-	} else if i, ok := dict["i"].(int); ok {
-		if i < 0 || i > math.MaxUint16 {
-			return nil, fmt.Errorf("segment index out of range")
-		}
-		ra.SegmentIndex = uint16(i) // #nosec G115
-	} else if i, ok := dict["i"].(int64); ok {
-		if i < 0 || i > math.MaxUint16 {
-			return nil, fmt.Errorf("segment index out of range")
-		}
-		ra.SegmentIndex = uint16(i) // #nosec G115
+		ra.SegmentIndex = n
 	}
-
-	if l, ok := dict["l"].(uint16); ok {
-		ra.TotalSegments = l
-	} else if l, ok := dict["l"].(uint64); ok {
-		if l > uint64(math.MaxUint16) {
-			return nil, fmt.Errorf("total segments overflow")
+	if v, ok := dict["l"]; ok {
+		n, err := coerceUint16(v)
+		if err != nil {
+			return nil, fmt.Errorf("total segments: %w", err)
 		}
-		ra.TotalSegments = uint16(l) // #nosec G115 - checked for overflow
-	} else if l, ok := dict["l"].(int); ok {
-		if l < 0 || l > math.MaxUint16 {
-			return nil, fmt.Errorf("total segments out of range")
-		}
-		ra.TotalSegments = uint16(l) // #nosec G115
-	} else if l, ok := dict["l"].(int64); ok {
-		if l < 0 || l > math.MaxUint16 {
-			return nil, fmt.Errorf("total segments out of range")
-		}
-		ra.TotalSegments = uint16(l) // #nosec G115
+		ra.TotalSegments = n
+	}
+	if ra.Split && ra.TotalSegments == 0 {
+		ra.TotalSegments = 1
+	}
+	if ra.Split && ra.SegmentIndex == 0 {
+		ra.SegmentIndex = 1
 	}
 
 	if q, ok := dict["q"].([]byte); ok {
@@ -273,6 +285,52 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 	}
 
 	return ra, nil
+}
+
+func coerceUint16(v any) (uint16, error) {
+	switch n := v.(type) {
+	case uint16:
+		return n, nil
+	case uint8:
+		return uint16(n), nil
+	case uint32:
+		if n > math.MaxUint16 {
+			return 0, fmt.Errorf("overflow")
+		}
+		return uint16(n), nil
+	case uint64:
+		if n > math.MaxUint16 {
+			return 0, fmt.Errorf("overflow")
+		}
+		return uint16(n), nil
+	case int:
+		if n < 0 || n > math.MaxUint16 {
+			return 0, fmt.Errorf("out of range")
+		}
+		return uint16(n), nil
+	case int8:
+		if n < 0 {
+			return 0, fmt.Errorf("out of range")
+		}
+		return uint16(n), nil
+	case int16:
+		if n < 0 {
+			return 0, fmt.Errorf("out of range")
+		}
+		return uint16(n), nil
+	case int32:
+		if n < 0 || n > math.MaxUint16 {
+			return 0, fmt.Errorf("out of range")
+		}
+		return uint16(n), nil
+	case int64:
+		if n < 0 || n > math.MaxUint16 {
+			return 0, fmt.Errorf("out of range")
+		}
+		return uint16(n), nil
+	default:
+		return 0, fmt.Errorf("unexpected type %T", v)
+	}
 }
 
 func wireFlagsFromAny(f any) (byte, error) {
@@ -320,7 +378,7 @@ func wireFlagsFromAny(f any) (byte, error) {
 		}
 		return byte(v), nil
 	default:
-		return 0, nil
+		return 0, fmt.Errorf("unexpected flags type %T", f)
 	}
 }
 
@@ -328,7 +386,12 @@ func hashmapEntriesPerAdvSegment(linkMDU int) int {
 	if linkMDU <= 0 {
 		linkMDU = 384
 	}
-	return (linkMDU - Overhead) / MapHashLen
+	n := (linkMDU - Overhead) / MapHashLen
+	if n <= 0 {
+		// Tiny or adversarial MDUs must still yield a usable segment width.
+		return 1
+	}
+	return n
 }
 
 // HashmapEntriesPerSegment is the number of map-hash slots per advertisement or HMU segment for a link MDU.

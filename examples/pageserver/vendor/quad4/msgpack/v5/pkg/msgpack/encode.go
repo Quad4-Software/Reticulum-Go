@@ -60,7 +60,7 @@ func (w *appendWriter) WriteByte(c byte) error {
 //------------------------------------------------------------------------------
 
 var encPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return NewEncoder(nil)
 	},
 }
@@ -96,7 +96,7 @@ func PutEncoder(enc *Encoder) {
 const marshalInitialBufSize = 64
 
 // Marshal returns the MessagePack encoding of v.
-func Marshal(v interface{}) ([]byte, error) {
+func Marshal(v any) ([]byte, error) {
 	return AppendMarshal(nil, v)
 }
 
@@ -106,7 +106,7 @@ func Marshal(v interface{}) ([]byte, error) {
 // The returned bytes may reuse dst's backing array. This allows callers to
 // keep a reusable scratch buffer and avoid per-call output allocations in
 // hot paths.
-func AppendMarshal(dst []byte, v interface{}) ([]byte, error) {
+func AppendMarshal(dst []byte, v any) ([]byte, error) {
 	enc := GetEncoder()
 	enc.Reset(nil)
 	b, err := enc.Append(dst, v)
@@ -118,7 +118,7 @@ func AppendMarshal(dst []byte, v interface{}) ([]byte, error) {
 //
 // The returned bytes may reuse dst's backing array. Reusing both an Encoder
 // and dst allows hot paths to avoid per-call output allocations.
-func (e *Encoder) Append(dst []byte, v interface{}) ([]byte, error) {
+func (e *Encoder) Append(dst []byte, v any) ([]byte, error) {
 	aw := &e.appendBuf
 	aw.b = dst[:0]
 	if cap(dst) == 0 {
@@ -258,7 +258,7 @@ func (e *Encoder) UseInternedStrings(on bool) {
 	}
 }
 
-func (e *Encoder) Encode(v interface{}) error {
+func (e *Encoder) Encode(v any) error {
 	switch v := v.(type) {
 	case nil:
 		return e.EncodeNil()
@@ -288,7 +288,7 @@ func (e *Encoder) Encode(v interface{}) error {
 	return e.EncodeValue(reflect.ValueOf(v))
 }
 
-func (e *Encoder) EncodeMulti(v ...interface{}) error {
+func (e *Encoder) EncodeMulti(v ...any) error {
 	for _, vv := range v {
 		if err := e.Encode(vv); err != nil {
 			return err

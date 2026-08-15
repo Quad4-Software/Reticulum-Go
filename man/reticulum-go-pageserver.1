@@ -1,0 +1,31 @@
+.Dd July 17, 2026
+.Dt RETICULUM-GO-PAGESERVER 1
+.Os
+.Sh NAME
+.Nm reticulum-go-pageserver , rgopageserver
+.Nd NomadNet-style page and file server
+.Sh SYNOPSIS
+.Nm reticulum-go Cm pageserver
+.Op Fl config Ar file
+.Op Fl pages-dir Ar dir
+.Op Fl files-dir Ar dir
+.Op Fl node-name Ar name
+.Op Fl announce-interval Ar minutes
+.Op Fl identity Ar path
+.Op Fl no-page-stats
+.Sh DESCRIPTION
+Serves static pages under
+.Pa /page/
+and files under
+.Pa /file/
+over Reticulum request handlers, suitable for NomadNet-style clients.
+.Pp
+Default pages and files directories are
+.Pa pages
+and
+.Pa files
+relative to the current working directory.
+.Sh SEE ALSO
+.Xr reticulum-go 1
+.Sh AUTHORS
+.An Quad4.io

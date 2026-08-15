@@ -52,7 +52,7 @@ const (
 
 // DefaultStampValue is the default proof-of-work target value applied when
 // stamping discovery announcements.
-const DefaultStampValue = 14
+const DefaultStampValue = 16
 
 // WorkblockExpandRounds controls the HKDF expansion rounds used to derive the
 // stamp workblock for discovery announcements.
@@ -231,17 +231,25 @@ func DecodeInfo(raw []byte) (Info, error) {
 				out.ReachableOn = s
 			}
 		case FieldLatitude:
-			out.Latitude = toFloat(raw)
-			out.HasGeo = true
+			if v, ok := toFloatOK(raw); ok {
+				out.Latitude = v
+				out.HasGeo = true
+			}
 		case FieldLongitude:
-			out.Longitude = toFloat(raw)
-			out.HasGeo = true
+			if v, ok := toFloatOK(raw); ok {
+				out.Longitude = v
+				out.HasGeo = true
+			}
 		case FieldHeight:
-			out.Height = toFloat(raw)
-			out.HasGeo = true
+			if v, ok := toFloatOK(raw); ok {
+				out.Height = v
+				out.HasGeo = true
+			}
 		case FieldPort:
-			out.Port = toInt(raw)
-			out.HasPort = true
+			if v, ok := toIntOK(raw); ok {
+				out.Port = v
+				out.HasPort = true
+			}
 		case FieldIFACNetname:
 			if s, ok := raw.(string); ok {
 				out.IFACNetname = s
@@ -251,15 +259,25 @@ func DecodeInfo(raw []byte) (Info, error) {
 				out.IFACNetkey = s
 			}
 		case FieldFrequency:
-			out.Frequency = toInt(raw)
+			if v, ok := toIntOK(raw); ok {
+				out.Frequency = v
+			}
 		case FieldBandwidth:
-			out.Bandwidth = toInt(raw)
+			if v, ok := toIntOK(raw); ok {
+				out.Bandwidth = v
+			}
 		case FieldSpreadingFactor:
-			out.SpreadingFactor = toInt(raw)
+			if v, ok := toIntOK(raw); ok {
+				out.SpreadingFactor = v
+			}
 		case FieldCodingRate:
-			out.CodingRate = toInt(raw)
+			if v, ok := toIntOK(raw); ok {
+				out.CodingRate = v
+			}
 		case FieldChannel:
-			out.Channel = toInt(raw)
+			if v, ok := toIntOK(raw); ok {
+				out.Channel = v
+			}
 		case FieldModulation:
 			if s, ok := raw.(string); ok {
 				out.Modulation = s
@@ -407,7 +425,11 @@ func StampValue(workblock, stamp []byte) int {
 }
 
 // StampValid reports whether stamp meets targetCost on the given workblock.
+// Stamps must be exactly StampSize bytes matching LXStamper wire length.
 func StampValid(stamp []byte, targetCost int, workblock []byte) bool {
+	if len(stamp) != StampSize {
+		return false
+	}
 	if targetCost < 0 || targetCost > 256 {
 		return false
 	}
@@ -442,27 +464,37 @@ func InfoHash(packed []byte) []byte {
 }
 
 func toFloat(v any) float64 {
+	f, _ := toFloatOK(v)
+	return f
+}
+
+func toFloatOK(v any) (float64, bool) {
 	switch x := v.(type) {
 	case float64:
-		return x
+		return x, true
 	case float32:
-		return float64(x)
+		return float64(x), true
 	case int64:
-		return float64(x)
+		return float64(x), true
 	case uint64:
-		return float64(x)
+		return float64(x), true
 	case int:
-		return float64(x)
+		return float64(x), true
 	case int32:
-		return float64(x)
+		return float64(x), true
 	}
-	return 0
+	return 0, false
 }
 
 func toInt(v any) int64 {
+	i, _ := toIntOK(v)
+	return i
+}
+
+func toIntOK(v any) (int64, bool) {
 	switch x := v.(type) {
 	case int64:
-		return x
+		return x, true
 	case uint64:
 		// Clamp to int64 max instead of allowing a sign-flip on values
 		// above 2^63-1. Numbers that big are not produced by conforming peers but
@@ -470,15 +502,15 @@ func toInt(v any) int64 {
 		// could appear in a hostile or fuzzed payload.
 		const maxInt64 = uint64(1<<63 - 1)
 		if x > maxInt64 {
-			return int64(maxInt64) //nolint:gosec // G115: guarded above
+			return int64(maxInt64), true //nolint:gosec // G115: guarded above
 		}
-		return int64(x) //nolint:gosec // G115: guarded above
+		return int64(x), true //nolint:gosec // G115: guarded above
 	case int:
-		return int64(x)
+		return int64(x), true
 	case int32:
-		return int64(x)
+		return int64(x), true
 	case float64:
-		return int64(x)
+		return int64(x), true
 	}
-	return 0
+	return 0, false
 }

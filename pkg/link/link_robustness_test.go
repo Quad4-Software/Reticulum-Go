@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
+
 package link
 
 import (
@@ -55,10 +56,10 @@ func TestLinkRobustness_SymmetricKeysAfterEstablish(t *testing.T) {
 	initLink, respLink, cleanup := establishInteropLink(t)
 	defer cleanup()
 
-	if !bytes.Equal(initLink.sessionKey, respLink.sessionKey) {
+	if !bytes.Equal(bufBytes(initLink.sessionKey), bufBytes(respLink.sessionKey)) {
 		t.Fatalf("session keys differ between peers")
 	}
-	if !bytes.Equal(initLink.hmacKey, respLink.hmacKey) {
+	if !bytes.Equal(bufBytes(initLink.hmacKey), bufBytes(respLink.hmacKey)) {
 		t.Fatalf("hmac keys differ between peers")
 	}
 }
@@ -424,6 +425,40 @@ func TestLinkRobustness_LargeRequestResponseResourceCompletes(t *testing.T) {
 		}
 	case <-time.After(30 * time.Second):
 		t.Fatal("large request response timeout")
+	}
+}
+
+func TestLinkRobustness_LargeOutboundRequestAsResourceCompletes(t *testing.T) {
+	initLink, respLink, cleanup := establishInteropLink(t)
+	defer cleanup()
+
+	mdu := initLink.mdu
+	if mdu <= 0 {
+		t.Fatal("mdu must be positive")
+	}
+	largeReq := bytes.Repeat([]byte("Q"), mdu+128)
+	respLink.destination.RegisterRequestHandler("echo_req", func(_ string, data []byte, _ []byte, _ []byte, _ *identity.Identity, _ int64) []byte {
+		return append([]byte("ok:"), data...)
+	}, destination.AllowAll, nil)
+
+	receipt, err := initLink.Request("echo_req", largeReq, 30*time.Second)
+	if err != nil {
+		t.Fatalf("Request: %v", err)
+	}
+
+	respCh := make(chan []byte, 1)
+	receipt.SetResponseCallback(func(r *RequestReceipt) {
+		respCh <- append([]byte(nil), r.GetResponse()...)
+	})
+
+	want := append([]byte("ok:"), largeReq...)
+	select {
+	case got := <-respCh:
+		if !bytes.Equal(got, want) {
+			t.Fatalf("large outbound request mismatch: got=%d want=%d", len(got), len(want))
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("large outbound request timeout")
 	}
 }
 

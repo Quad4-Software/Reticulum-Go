@@ -4,8 +4,12 @@
 package interfaces
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"net"
+	"os/exec"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -347,4 +351,230 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 			t.Errorf("Expected all peers to timeout, got %d peers", count)
 		}
 	})
+}
+
+// pythonAutoHash runs the Python reference hash generation for the given
+// group_id and peer_ip and returns the hex-encoded hash.
+func pythonAutoHash(t *testing.T, groupID, peerIP string) string {
+	t.Helper()
+	script := fmt.Sprintf(
+		"import sys; sys.path.insert(0, 'reticulum-ref'); import RNS; "+
+			"print(RNS.Identity.full_hash(%q.encode('utf-8') + %q.encode('utf-8')).hex())",
+		groupID, peerIP,
+	)
+	cmd := exec.Command("python3", "-c", script)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Skipf("python hash failed: %v\noutput: %s", err, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// pythonAutoMcast runs the Python reference multicast address generation for
+// the given group_id, scope and addr_type.
+func pythonAutoMcast(t *testing.T, groupID, scope, addrType string) string {
+	t.Helper()
+	script := fmt.Sprintf(
+		"import sys; sys.path.insert(0, 'reticulum-ref'); import RNS; "+
+			"g = RNS.Identity.full_hash(%q.encode('utf-8')); "+
+			"gt = '0'; "+
+			"gt += ':'+'{:02x}'.format(g[3]+(g[2]<<8)); "+
+			"gt += ':'+'{:02x}'.format(g[5]+(g[4]<<8)); "+
+			"gt += ':'+'{:02x}'.format(g[7]+(g[6]<<8)); "+
+			"gt += ':'+'{:02x}'.format(g[9]+(g[8]<<8)); "+
+			"gt += ':'+'{:02x}'.format(g[11]+(g[10]<<8)); "+
+			"gt += ':'+'{:02x}'.format(g[13]+(g[12]<<8)); "+
+			"print('ff'+ %q + %q + ':' + gt)",
+		groupID, addrType, scope,
+	)
+	cmd := exec.Command("python3", "-c", script)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Skipf("python mcast failed: %v\noutput: %s", err, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// TestAutoInteropDiscoveryHash verifies that Go and Python generate the same
+// discovery authentication hash.
+func TestAutoInteropDiscoveryHash(t *testing.T) {
+	cases := []struct {
+		groupID string
+		peerIP  string
+	}{
+		{"reticulum", "fe80::1"},
+		{"reticulum", "fe80::abcd:1234"},
+		{"customGroup", "fe80::2"},
+		{"", "fe80::1"},
+	}
+
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("group=%s_peer=%s", tc.groupID, tc.peerIP), func(t *testing.T) {
+			effectiveGroup := tc.groupID
+			if effectiveGroup == "" {
+				effectiveGroup = DefaultGroupID
+			}
+			pyHash := pythonAutoHash(t, effectiveGroup, tc.peerIP)
+			if pyHash == "" {
+				t.Skip("Python reference not available")
+			}
+
+			tokenSource := append([]byte(effectiveGroup), []byte(tc.peerIP)...)
+			goHash := fmt.Sprintf("%x", sha256Hash(tokenSource))
+
+			if goHash != pyHash {
+				t.Errorf("hash mismatch: go=%s py=%s", goHash, pyHash)
+			}
+		})
+	}
+}
+
+// TestAutoInteropMcastAddress verifies that Go and Python generate the same
+// multicast discovery address.
+func TestAutoInteropMcastAddress(t *testing.T) {
+	cases := []struct {
+		groupID  string
+		scope    string
+		addrType string
+	}{
+		{"reticulum", "2", "1"},
+		{"reticulum", "2", "0"},
+		{"customGroup", "2", "1"},
+		{"reticulum", "5", "1"},
+	}
+
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("group=%s_scope=%s_type=%s", tc.groupID, tc.scope, tc.addrType), func(t *testing.T) {
+			pyMcast := pythonAutoMcast(t, tc.groupID, tc.scope, tc.addrType)
+			if pyMcast == "" {
+				t.Skip("Python reference not available")
+			}
+
+			config := &common.InterfaceConfig{
+				Enabled:           true,
+				GroupID:           tc.groupID,
+				DiscoveryScope:    tc.scope,
+				MulticastAddrType: tc.addrType,
+			}
+			ai, err := NewAutoInterface("test", config)
+			if err != nil {
+				t.Fatalf("NewAutoInterface failed: %v", err)
+			}
+
+			if ai.mcastDiscoveryAddr != pyMcast {
+				t.Errorf("mcast address mismatch: go=%s py=%s", ai.mcastDiscoveryAddr, pyMcast)
+			}
+		})
+	}
+}
+
+// sha256Hash is a thin helper so the test doesn't depend on the exact
+// crypto/sha256 import pattern used by the implementation.
+func sha256Hash(data []byte) []byte {
+	sum := sha256.Sum256(data)
+	return sum[:]
+}
+
+func setupRegressionVeth(t *testing.T, base string) (string, func()) {
+	t.Helper()
+	name := base
+	peer := base + "p"
+	_ = exec.Command("ip", "link", "del", name).Run()
+	out, err := exec.Command("ip", "link", "add", name, "type", "veth", "peer", "name", peer).CombinedOutput()
+	if err != nil {
+		t.Skipf("veth not available: %v\n%s", err, out)
+	}
+	exec.Command("ip", "link", "set", name, "up").Run()
+	exec.Command("ip", "link", "set", peer, "up").Run()
+	exec.Command("ip", "-6", "addr", "add", "fe80::1/64", "dev", name, "nodad").Run()
+	time.Sleep(100 * time.Millisecond)
+	return name, func() { _ = exec.Command("ip", "link", "del", name).Run() }
+}
+
+func TestSelectLinkLocalAddrPrefersBindable(t *testing.T) {
+	ifaceName, cleanup := setupRegressionVeth(t, "rnsll0")
+	defer cleanup()
+
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		t.Fatalf("InterfaceByName: %v", err)
+	}
+
+	selected := selectLinkLocalAddr(iface, DefaultDiscoveryPort+1)
+	if selected == "" {
+		t.Fatal("expected a link-local address")
+	}
+	if !canBindLinkLocalUDP(iface, selected, DefaultDiscoveryPort+1) {
+		t.Fatalf("selected address %q is not bindable", selected)
+	}
+	if selected != "fe80::1" {
+		t.Fatalf("selected = %q; want fe80::1 when manual nodad address is bindable", selected)
+	}
+}
+
+func TestAutoInterfaceConfiguresBindableLinkLocalOnVeth(t *testing.T) {
+	ifaceName, cleanup := setupRegressionVeth(t, "rnsll1")
+	defer cleanup()
+
+	ai, err := NewAutoInterface("auto", &common.InterfaceConfig{
+		Enabled: true,
+		Devices: []string{ifaceName},
+	})
+	if err != nil {
+		t.Fatalf("NewAutoInterface: %v", err)
+	}
+	if err := ai.Start(); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	defer ai.Stop()
+
+	ai.Mutex.RLock()
+	adopted, ok := ai.adoptedInterfaces[ifaceName]
+	hasOutbound := ai.outboundConns[ifaceName] != nil
+	ai.Mutex.RUnlock()
+
+	if !ok {
+		t.Fatal("interface not adopted")
+	}
+	if adopted.linkLocalAddr != "fe80::1" {
+		t.Fatalf("linkLocalAddr = %q; want fe80::1", adopted.linkLocalAddr)
+	}
+	if !hasOutbound {
+		t.Fatal("expected outbound socket for adopted interface")
+	}
+}
+
+func TestAutoInterfaceRescanOffline(t *testing.T) {
+	cfg := &common.InterfaceConfig{Enabled: true}
+	ai, err := NewAutoInterface("auto", cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ai.RescanInterfaces(); err == nil {
+		t.Fatal("expected error when offline")
+	}
+}
+
+func TestAutoInterfaceWatchInterfacesFlag(t *testing.T) {
+	cfg := &common.InterfaceConfig{Enabled: true}
+	ai, err := NewAutoInterface("auto", cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ai.SetWatchInterfaces(true)
+	ai.Mutex.Lock()
+	if !ai.watchInterfaces {
+		t.Fatal("watch flag not set")
+	}
+	ai.lastRescan = time.Now()
+	ai.maybeRescanLocked(time.Now())
+	ai.Mutex.Unlock()
+}
+
+func TestUpdateLinkLocalAddressesEmpty(t *testing.T) {
+	ai, err := NewAutoInterface("auto", &common.InterfaceConfig{Enabled: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ai.updateLinkLocalAddresses()
 }

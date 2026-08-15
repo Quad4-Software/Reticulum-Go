@@ -5,12 +5,41 @@ package identity
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/hex"
+	"errors"
+	"fmt"
+	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
+	"quad4/pbt/pkg/pbt"
+	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/cryptography"
 )
+
+func TestIdentityCloseWipesPrivate(t *testing.T) {
+	id, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	priv, err := id.GetPrivateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(priv) != 64 {
+		t.Fatalf("len %d", len(priv))
+	}
+	id.Close()
+	if id.privateKey != nil || id.signingSeed != nil || id.signingKey != nil {
+		t.Fatal("private buffers still set after Close")
+	}
+	_, err = id.GetPrivateKey()
+	if err == nil {
+		t.Fatal("GetPrivateKey should fail after Close")
+	}
+}
 
 func TestNewIdentity(t *testing.T) {
 	id, err := New()
@@ -130,9 +159,16 @@ func TestFileOperations(t *testing.T) {
 	idPath := filepath.Join(tmpDir, "identity")
 
 	id, _ := New()
-	err := id.ToFile(idPath)
-	if err != nil {
+	if err := id.ToFile(idPath); err != nil {
 		t.Fatalf("ToFile failed: %v", err)
+	}
+
+	st, err := os.Stat(idPath)
+	if err != nil {
+		t.Fatalf("stat identity: %v", err)
+	}
+	if runtime.GOOS != "windows" && st.Mode().Perm()&0o077 != 0 {
+		t.Fatalf("identity file mode %o allows group/other access", st.Mode().Perm())
 	}
 
 	loadedID, err := FromFile(idPath)
@@ -161,6 +197,11 @@ func TestRatchets(t *testing.T) {
 		t.Errorf("Expected 1 ratchet, got %d", len(ratchets))
 	}
 
+	cur := id.GetCurrentRatchetKey()
+	if !bytes.Equal(cur, ratchet) {
+		t.Error("GetCurrentRatchetKey did not return the rotated key")
+	}
+
 	id.CleanupExpiredRatchets()
 	// Should still be there since it's not expired
 	if len(id.GetRatchets()) != 1 {
@@ -185,6 +226,27 @@ func TestRecallIdentity(t *testing.T) {
 	}
 }
 
+func TestRecallMissingHashUsesErrIdentityNotFound(t *testing.T) {
+	knownDestinationsLock.Lock()
+	prev := knownDestinations
+	knownDestinations = make(map[destMapKey]knownDestEntry)
+	knownDestinationsLock.Unlock()
+	t.Cleanup(func() {
+		knownDestinationsLock.Lock()
+		knownDestinations = prev
+		knownDestinationsLock.Unlock()
+	})
+
+	hash := make([]byte, TruncatedHashLength/8)
+	for i := range hash {
+		hash[i] = byte(0xa0 + i)
+	}
+	_, err := Recall(hash)
+	if !errors.Is(err, common.ErrIdentityNotFound) {
+		t.Fatalf("got %v, want ErrIdentityNotFound", err)
+	}
+}
+
 func TestTruncatedHash(t *testing.T) {
 	data := []byte("some data")
 	h := TruncatedHash(data)
@@ -202,7 +264,7 @@ func TestGetRandomHash(t *testing.T) {
 
 func TestRememberStoresDefensiveCopies(t *testing.T) {
 	knownDestinationsLock.Lock()
-	knownDestinations = make(map[string][]any)
+	knownDestinations = make(map[destMapKey]knownDestEntry)
 	knownDestinationsLock.Unlock()
 
 	destBacking := make([]byte, 0, 64)
@@ -247,9 +309,52 @@ func TestRememberStoresDefensiveCopies(t *testing.T) {
 	}
 }
 
+func TestRememberRejectsPublicKeyMismatch(t *testing.T) {
+	knownDestinationsLock.Lock()
+	prev := knownDestinations
+	knownDestinations = make(map[destMapKey]knownDestEntry)
+	knownDestinationsLock.Unlock()
+	t.Cleanup(func() {
+		knownDestinationsLock.Lock()
+		knownDestinations = prev
+		knownDestinationsLock.Unlock()
+	})
+
+	a, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	destHash := bytes.Repeat([]byte{0x33}, TruncatedHashLength/8)
+	if !Remember([]byte("pkt-a"), destHash, a.GetPublicKey(), []byte("app-a")) {
+		t.Fatal("first Remember should accept")
+	}
+	if Remember([]byte("pkt-b"), destHash, b.GetPublicKey(), []byte("app-b")) {
+		t.Fatal("second Remember should reject different public key")
+	}
+	stored, ok := GetKnownDestination(hex.EncodeToString(destHash))
+	if !ok {
+		t.Fatal("expected original destination to remain")
+	}
+	id, ok := stored[2].(*Identity)
+	if !ok {
+		t.Fatal("stored identity has unexpected type")
+	}
+	if !bytes.Equal(id.GetPublicKey(), a.GetPublicKey()) {
+		t.Fatal("known destination public key was overwritten")
+	}
+	gotApp, ok := stored[3].([]byte)
+	if !ok || string(gotApp) != "app-a" {
+		t.Fatalf("app data = %v, want app-a", stored[3])
+	}
+}
+
 func TestGetKnownDestinationReturnsDefensiveCopies(t *testing.T) {
 	knownDestinationsLock.Lock()
-	knownDestinations = make(map[string][]any)
+	knownDestinations = make(map[destMapKey]knownDestEntry)
 	knownDestinationsLock.Unlock()
 
 	destHash := bytes.Repeat([]byte{0x22}, TruncatedHashLength/8)
@@ -278,7 +383,7 @@ func TestGetKnownDestinationReturnsDefensiveCopies(t *testing.T) {
 
 func TestRatchetKeyDefensiveCopies(t *testing.T) {
 	ratchetPersistLock.Lock()
-	knownRatchets = make(map[string][]byte)
+	knownRatchets = make(map[destMapKey]knownRatchetEntry)
 	ratchetPersistLock.Unlock()
 
 	id, err := New()
@@ -306,4 +411,289 @@ func TestRatchetKeyDefensiveCopies(t *testing.T) {
 	if bytes.Equal(got, again) {
 		t.Fatal("GetRatchetKey returned aliased internal ratchet key")
 	}
+}
+
+func TestKnownRatchetsCap(t *testing.T) {
+	ratchetPersistLock.Lock()
+	knownRatchets = make(map[destMapKey]knownRatchetEntry)
+	ratchetPersistLock.Unlock()
+	t.Cleanup(func() {
+		ratchetPersistLock.Lock()
+		knownRatchets = make(map[destMapKey]knownRatchetEntry)
+		ratchetPersistLock.Unlock()
+	})
+
+	id, err := New()
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	for i := range MaxKnownRatchets + 32 {
+		key := fmt.Sprintf("peer-%d", i)
+		id.SetRatchetKey(key, []byte{byte(i), byte(i >> 8)})
+	}
+
+	ratchetPersistLock.Lock()
+	n := len(knownRatchets)
+	_, kept := knownRatchets[ratchetMapKey(fmt.Sprintf("peer-%d", MaxKnownRatchets+31))]
+	ratchetPersistLock.Unlock()
+	if n > MaxKnownRatchets {
+		t.Fatalf("knownRatchets size = %d, want <= %d", n, MaxKnownRatchets)
+	}
+	if !kept {
+		t.Fatal("most recently inserted ratchet must not be evicted")
+	}
+}
+
+func TestPBTIdentitySignVerify(t *testing.T) {
+	msg := pbt.Map(
+		"[]byte",
+		pbt.SliceOf(pbt.IntRange(0, 255), 0, 4096),
+		func(xs []int) []byte {
+			b := make([]byte, len(xs))
+			for i, v := range xs {
+				b[i] = byte(v)
+			}
+			return b
+		},
+	)
+	prop := pbt.ForAll(
+		"ed25519 sign and verify",
+		msg,
+		func(data []byte) bool {
+			id, err := New()
+			if err != nil {
+				panic(err)
+			}
+			sig, err := id.Sign(data)
+			if err != nil {
+				panic(err)
+			}
+			if !id.Verify(data, sig) {
+				return false
+			}
+			if len(data) > 0 {
+				data[0] ^= 0x01
+				if id.Verify(data, sig) {
+					return false
+				}
+				data[0] ^= 0x01
+			}
+			if len(sig) > 0 {
+				sig[0] ^= 0x01
+				if id.Verify(data, sig) {
+					return false
+				}
+			}
+			return true
+		},
+		pbt.WithShrinker(pbt.SliceShrinker[byte]()),
+	)
+	pbt.Check(t, prop, pbt.WithRuns(100), pbt.WithSeed(42))
+}
+
+func TestPBTIdentityEncryptDecrypt(t *testing.T) {
+	pt := pbt.Map(
+		"plaintext",
+		pbt.SliceOf(pbt.IntRange(0, 255), 0, 4096),
+		func(xs []int) []byte {
+			b := make([]byte, len(xs))
+			for i, v := range xs {
+				b[i] = byte(v)
+			}
+			return b
+		},
+	)
+	prop := pbt.ForAll(
+		"encrypt without ratchet then decrypt",
+		pt,
+		func(plaintext []byte) bool {
+			id, err := New()
+			if err != nil {
+				panic(err)
+			}
+			ciphertext, err := id.Encrypt(plaintext, nil)
+			if err != nil {
+				panic(err)
+			}
+			decrypted, err := id.Decrypt(ciphertext, nil, false, nil)
+			if err != nil {
+				panic(err)
+			}
+			if !bytes.Equal(plaintext, decrypted) {
+				return false
+			}
+			ratchetPriv, err := id.RotateRatchet()
+			if err != nil {
+				panic(err)
+			}
+			ratchetPub, err := cryptography.PublicKeyFromPrivate(ratchetPriv)
+			if err != nil {
+				panic(err)
+			}
+			ciphertext2, err := id.Encrypt(plaintext, ratchetPub)
+			if err != nil {
+				panic(err)
+			}
+			decrypted2, err := id.Decrypt(ciphertext2, [][]byte{ratchetPriv}, true, nil)
+			if err != nil {
+				panic(err)
+			}
+			return bytes.Equal(plaintext, decrypted2)
+		},
+		pbt.WithShrinker(pbt.SliceShrinker[byte]()),
+	)
+	pbt.Check(t, prop, pbt.WithRuns(60), pbt.WithSeed(3))
+}
+
+func FuzzIdentitySignVerify(f *testing.F) {
+	f.Add([]byte("hello world"))
+	f.Add([]byte(""))
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		id, err := New()
+		if err != nil {
+			t.Fatalf("Failed to create identity: %v", err)
+		}
+
+		sig, err := id.Sign(data)
+		if err != nil {
+			t.Fatalf("Sign: %v", err)
+		}
+		if !id.Verify(data, sig) {
+			t.Error("Verification failed for valid signature")
+		}
+
+		if len(data) > 0 {
+			// Flip a bit in data
+			data[0] ^= 0x01
+			if id.Verify(data, sig) {
+				t.Error("Verification succeeded for modified data")
+			}
+			data[0] ^= 0x01 // flip back
+		}
+
+		if len(sig) > 0 {
+			// Flip a bit in signature
+			sig[0] ^= 0x01
+			if id.Verify(data, sig) {
+				t.Error("Verification succeeded for modified signature")
+			}
+		}
+	})
+}
+
+func FuzzIdentityEncryptDecrypt(f *testing.F) {
+	f.Add([]byte("secret message"))
+	f.Add([]byte(""))
+
+	f.Fuzz(func(t *testing.T, plaintext []byte) {
+		id, err := New()
+		if err != nil {
+			t.Fatalf("Failed to create identity: %v", err)
+		}
+
+		// Test without ratchet
+		ciphertext, err := id.Encrypt(plaintext, nil)
+		if err != nil {
+			t.Fatalf("Encrypt failed: %v", err)
+		}
+
+		decrypted, err := id.Decrypt(ciphertext, nil, false, nil)
+		if err != nil {
+			t.Fatalf("Decrypt failed: %v", err)
+		}
+
+		if !bytes.Equal(plaintext, decrypted) {
+			t.Errorf("Decrypted data mismatch: %x != %x", decrypted, plaintext)
+		}
+
+		// Test with ratchet
+		ratchetPriv, err := id.RotateRatchet()
+		if err != nil {
+			t.Fatalf("RotateRatchet failed: %v", err)
+		}
+
+		// Derive public key from ratchet private key
+		ratchetPub, err := cryptography.PublicKeyFromPrivate(ratchetPriv)
+		if err != nil {
+			t.Fatalf("Failed to derive ratchet public key: %v", err)
+		}
+
+		ciphertext2, err := id.Encrypt(plaintext, ratchetPub)
+		if err != nil {
+			t.Fatalf("Encrypt with ratchet failed: %v", err)
+		}
+
+		decrypted2, err := id.Decrypt(ciphertext2, [][]byte{ratchetPriv}, true, nil)
+		if err != nil {
+			t.Fatalf("Decrypt with ratchet failed: %v", err)
+		}
+
+		if !bytes.Equal(plaintext, decrypted2) {
+			t.Errorf("Decrypted data with ratchet mismatch: %x != %x", decrypted2, plaintext)
+		}
+	})
+}
+
+func BenchmarkKnownDestinationsScale(b *testing.B) {
+	sizes := []int{1000, 10000, 100000}
+
+	for _, size := range sizes {
+		b.Run(fmt.Sprintf("Size-%d", size), func(b *testing.B) {
+			// Clear map for each run
+			knownDestinationsLock.Lock()
+			knownDestinations = make(map[destMapKey]knownDestEntry)
+			knownDestinationsLock.Unlock()
+
+			// Fill cache
+			for range size {
+				h := make([]byte, 16)
+				_, _ = rand.Read(h)
+				Remember([]byte("packet"), h, make([]byte, 64), []byte("appdata"))
+			}
+
+			b.ResetTimer()
+			b.ReportAllocs()
+
+			for i := 0; i < b.N; i++ {
+				h := make([]byte, 16)
+				// We use a small subset of the size for lookups to test hit performance
+				for j := range 16 {
+					h[j] = byte((i % size) >> (j * 8))
+				}
+				_, _ = Recall(h)
+			}
+		})
+	}
+}
+
+func TestIdentityMemoryScale(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping identity memory test")
+	}
+
+	var m1, m2 runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&m1)
+
+	size := 100000
+	t.Logf("Filling knownDestinations with %d entries...", size)
+
+	for i := range size {
+		h := make([]byte, 16)
+		for j := range 16 {
+			h[j] = byte(i >> (j * 8))
+		}
+		Remember([]byte("p"), h, make([]byte, 64), []byte("a"))
+	}
+
+	runtime.GC()
+	runtime.ReadMemStats(&m2)
+
+	usedMB := float64(m2.Alloc-m1.Alloc) / 1024 / 1024
+	t.Logf("Memory used for %d destinations: %.2f MB", size, usedMB)
+
+	perEntry := (m2.Alloc - m1.Alloc) / uint64(size)
+	t.Logf("Average per destination: %d bytes", perEntry)
 }
