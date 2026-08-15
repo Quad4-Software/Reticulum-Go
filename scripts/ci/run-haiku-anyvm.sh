@@ -60,7 +60,8 @@ sed -i 's/^go 1\\.26\\.[0-9][0-9]*\$/go ${GO_HAIKU_VERSION}/' go.mod
 sed -i 's/go 1\\.26\\.[2-9][0-9]*/go ${GO_HAIKU_VERSION}/g; s/go 1\\.26\\.[0-9][0-9][0-9]*/go ${GO_HAIKU_VERSION}/g' vendor/modules.txt
 mkdir -p bin
 go build -buildvcs=false -ldflags='-s -w' -o bin/reticulum-go ./cmd/reticulum-go
-go test -buildvcs=false -short -count=1 -timeout 15m ./pkg/selfcheck/ ./pkg/sandbox/
+go test -buildvcs=false -short -count=1 -timeout 15m ./pkg/selfcheck/ ./pkg/sandbox/ ./pkg/protect/
+go test -buildvcs=false -short -count=1 -timeout 10m ./pkg/transport/ -run 'Protect|HandlePacket'
 ./bin/reticulum-go self-check --binary "\$(pwd)/bin/reticulum-go" --json --full
 echo OK
 EOF
