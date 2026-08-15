@@ -11,7 +11,7 @@ import (
 
 func analyzePython(root string) ([]Finding, error) {
 	var out []Finding
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error { // #nosec G122 -- user-supplied scan root
 		if err != nil {
 			return err
 		}
@@ -25,7 +25,7 @@ func analyzePython(root string) ([]Finding, error) {
 		if !strings.HasSuffix(path, ".py") {
 			return nil
 		}
-		data, err := os.ReadFile(path)
+		data, err := os.ReadFile(path) // #nosec G304 -- paths under user scan root
 		if err != nil {
 			return err
 		}

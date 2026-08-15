@@ -288,7 +288,7 @@ func (v *visitor) report(ruleID string, line, col int, fix *Fix) {
 
 func (v *visitor) fileRange(start, end int) string {
 	if v.src == nil {
-		data, err := os.ReadFile(v.file)
+		data, err := os.ReadFile(v.file) // #nosec G304 -- source file under scan root
 		if err != nil {
 			return ""
 		}

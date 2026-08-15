@@ -154,6 +154,13 @@ func TestSessionDestinationAnnounceLifecycle(t *testing.T) {
 
 func TestPathRequestValidation(t *testing.T) {
 	srv, key := newTestServer(t)
+	iface := newPipeInterface("path-req")
+	if err := srv.transport.RegisterInterface(iface.GetName(), iface); err != nil {
+		t.Fatalf("RegisterInterface: %v", err)
+	}
+	if err := srv.transport.InitializePathRequestHandler(); err != nil {
+		t.Fatalf("InitializePathRequestHandler: %v", err)
+	}
 	ts := httptest.NewServer(srv.httpServer.Handler)
 	defer ts.Close()
 	authKey := hex.EncodeToString(key)

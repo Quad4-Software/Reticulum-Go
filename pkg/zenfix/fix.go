@@ -19,7 +19,7 @@ func applyFixes(findings []Finding) (int, error) {
 	}
 	fixed := 0
 	for file, list := range byFile {
-		data, err := os.ReadFile(file)
+		data, err := os.ReadFile(file) // #nosec G304 -- paths from findings under scan root
 		if err != nil {
 			return fixed, fmt.Errorf("read %s: %w", file, err)
 		}
@@ -40,7 +40,7 @@ func applyFixes(findings []Finding) (int, error) {
 			if err == nil {
 				perm = info.Mode().Perm()
 			}
-			if err := os.WriteFile(file, content, perm); err != nil {
+			if err := os.WriteFile(file, content, perm); err != nil { // #nosec G703 -- paths from findings under scan root
 				return fixed, fmt.Errorf("write %s: %w", file, err)
 			}
 		}

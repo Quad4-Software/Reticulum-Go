@@ -202,13 +202,10 @@ type pipeInterface struct {
 }
 
 func newPipeInterface(name string) *pipeInterface {
+	bi := common.NewBaseInterface(name, common.IFTypeUDP, true)
+	bi.Online = true
 	return &pipeInterface{
-		BaseInterface: common.BaseInterface{
-			Name:    name,
-			Type:    common.IFTypeUDP,
-			Enabled: true,
-			Online:  true,
-		},
+		BaseInterface: bi,
 	}
 }
 
