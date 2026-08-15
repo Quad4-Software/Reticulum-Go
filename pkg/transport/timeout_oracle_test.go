@@ -181,14 +181,17 @@ print(Link.MDU)
 		}
 		t.Skip("python RNS not available")
 	}
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	normalized := strings.ReplaceAll(string(out), "\r\n", "\n")
+	normalized = strings.ReplaceAll(normalized, "\r", "\n")
+	lines := strings.Split(strings.TrimSpace(normalized), "\n")
 	if len(lines) != 11 {
 		t.Fatalf("python lines=%d output=%q", len(lines), out)
 	}
 	want := []string{"15", "0.4", "20", "128", "5", "6", "500", "6", "383", "464", "431"}
 	for i, w := range want {
-		if lines[i] != w {
-			t.Fatalf("python const[%d]=%q want %q", i, lines[i], w)
+		got := strings.TrimSpace(lines[i])
+		if got != w {
+			t.Fatalf("python const[%d]=%q want %q", i, got, w)
 		}
 	}
 }

@@ -1,0 +1,50 @@
+{
+  "identity_prv_hex": "d0834fff81d488d133cbaaeffb4ed895a8ddcbfa062ea192ad065be546ccd2d8fcd2c1c7bf98fd0badc327d6af1da2027d2f2b29226c6237a379653f7385d2c1",
+  "identity_hash": "9a2b989f37c735ed0ea3df4aec682684",
+  "identity_pub": "f4392e82d7620e8508c72bcd9bad57d49854296188df085edd8cf481cd3b71644b72a1f48b1dc07ce020e0d5fcb1b06c8a55c6991fa3222e31c1496d264b632e",
+  "single_dest_hash": "db65b9f0f579924c0d77e333077c1500",
+  "name_hash": "5218cc94ef9c19f90667",
+  "random_hash": "f15e6d763afab4226d8f",
+  "announce_sig": "46fff90eab58005519754b5c08fa4a0de694b27f9f541382787f01f4c6a636c6fcb1188b3dd7fe878b05a56f50c8bd498e80a1b153c2b9718355e2e05b8bfb0c",
+  "announce_payload": "f4392e82d7620e8508c72bcd9bad57d49854296188df085edd8cf481cd3b71644b72a1f48b1dc07ce020e0d5fcb1b06c8a55c6991fa3222e31c1496d264b632e5218cc94ef9c19f90667f15e6d763afab4226d8f46fff90eab58005519754b5c08fa4a0de694b27f9f541382787f01f4c6a636c6fcb1188b3dd7fe878b05a56f50c8bd498e80a1b153c2b9718355e2e05b8bfb0c0102",
+  "path_request_dest": "6b9f66014d9853faab220fba47d02761",
+  "resource_adv_hex": "8ba16fc0a16900a16c00a166cc27a174cd0400a164cd0800a172c0a171c0a16dc40411223344a16e03a168c420000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "packets": [
+    {
+      "name": "data_hops3",
+      "raw_hex": "0003db65b9f0f579924c0d77e333077c15000068656c6c6f20686f7073",
+      "hash_hex": "3e31d8601f4eb642509baec329c3a7458810f664581d3daf0a5a375907966eb9",
+      "hops": 3,
+      "context": 0,
+      "flags": 0,
+      "header_type": 0,
+      "packet_type": 0,
+      "destination_type": 0,
+      "transport_type": 0
+    },
+    {
+      "name": "path_request",
+      "raw_hex": "08006b9f66014d9853faab220fba47d0276100db65b9f0f579924c0d77e333077c15007ce9781d85362065d6c23e8c6a280e4d",
+      "hash_hex": "12fca4baa3268b30c20c05b9e1ee383c6f68f03a35f67f0e00aa8dd3a375468a",
+      "hops": 0,
+      "context": 0,
+      "flags": 8,
+      "header_type": 0,
+      "packet_type": 0,
+      "destination_type": 2,
+      "transport_type": 0
+    },
+    {
+      "name": "announce_ht1",
+      "raw_hex": "0100db65b9f0f579924c0d77e333077c150000f4392e82d7620e8508c72bcd9bad57d49854296188df085edd8cf481cd3b71644b72a1f48b1dc07ce020e0d5fcb1b06c8a55c6991fa3222e31c1496d264b632e5218cc94ef9c19f90667f15e6d763afab4226d8f46fff90eab58005519754b5c08fa4a0de694b27f9f541382787f01f4c6a636c6fcb1188b3dd7fe878b05a56f50c8bd498e80a1b153c2b9718355e2e05b8bfb0c0102",
+      "hash_hex": "d3b3ef5bbdf023077876b88a4a110a9fe10eb23a4505811f3909ce8e70d583d2",
+      "hops": 0,
+      "context": 0,
+      "flags": 1,
+      "header_type": 0,
+      "packet_type": 1,
+      "destination_type": 0,
+      "transport_type": 0
+    }
+  ]
+}

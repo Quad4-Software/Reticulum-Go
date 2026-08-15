@@ -27,6 +27,7 @@ cosign.key
 # JSON assets and auto-generated exports
 *.json
 !pkg/packet/testdata/handshake_vectors.json
+!pkg/packet/testdata/rns_wire_vectors.json
 !pkg/packet/testdata/adversarial/manifest.json
 !pkg/rgosh/testdata/adversarial/manifest.json
 
