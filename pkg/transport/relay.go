@@ -616,8 +616,9 @@ func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag [
 // ifaceReadyForPathRequest reports whether iface may emit a path request.
 // Matches RNS 1.4.2 recursive-PR online gating. Go uniqueness: refuse
 // receive-only interfaces, and interfaces that advertise a non-positive
-// bitrate when that metric is exposed so PR emit cannot hit zero-rate
-// timing math.
+// bitrate via GetBitrate() int (uninitialized radios) so PR emit cannot
+// hit zero-rate timing math. GetBitrate() int64 on BaseInterface is the
+// configured default and is not used as a readiness gate.
 func ifaceReadyForPathRequest(iface common.NetworkInterface) bool {
 	if iface == nil || !iface.IsEnabled() || !iface.IsOnline() {
 		return false
@@ -626,10 +627,6 @@ func ifaceReadyForPathRequest(iface common.NetworkInterface) bool {
 		return false
 	}
 	switch br := iface.(type) {
-	case interface{ GetBitrate() int64 }:
-		if br.GetBitrate() <= 0 {
-			return false
-		}
 	case interface{ GetBitrate() int }:
 		if br.GetBitrate() <= 0 {
 			return false
