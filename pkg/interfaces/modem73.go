@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
+//go:build !tinygo
+
 package interfaces
 
 import (
@@ -24,7 +26,6 @@ const (
 	modem73DefaultOverhead    = 15
 	modem73DefaultBitrate     = 400
 	modem73DefaultShortMTU    = 170
-	modem73DefaultIFACSize    = 8
 	modem73ControlReconnect   = 5 * time.Second
 	modem73ControlDialTimeout = 5 * time.Second
 	modem73ControlQueueDepth  = 32

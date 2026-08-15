@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
+//go:build !tinygo
+
 // Package selfcheck runs host OS preflight checks for reticulum-go.
 package selfcheck
 
@@ -8,7 +10,6 @@ import (
 	"context"
 	"os"
 	"runtime"
-	"runtime/debug"
 )
 
 const (
@@ -17,18 +18,6 @@ const (
 	childSandbox = "sandbox"
 )
 
-func goos() string   { return runtime.GOOS }
-func goarch() string { return runtime.GOARCH }
-
-func goVersion() string {
-	if bi, ok := debug.ReadBuildInfo(); ok && bi.GoVersion != "" {
-		return bi.GoVersion
-	}
-	return runtime.Version()
-}
-
-// ChildExitCode reports whether this process is a sandbox self-check child.
-// When handled is true, callers in main or TestMain should os.Exit(code).
 func ChildExitCode() (code int, handled bool) {
 	if os.Getenv(envChild) != childSandbox {
 		return 0, false
@@ -36,7 +25,6 @@ func ChildExitCode() (code int, handled bool) {
 	return runSandboxChild(), true
 }
 
-// Run executes the self-check catalog and returns a report.
 func Run(ctx context.Context, opts Options) Report {
 	if ctx == nil {
 		ctx = context.Background()

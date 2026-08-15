@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-//go:build linux && amd64
+//go:build (linux && amd64) && !tinygo
 
 package sandbox
 

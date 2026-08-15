@@ -8,7 +8,14 @@ import (
 	"strings"
 
 	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/cryptography"
 	"quad4/reticulum-go/pkg/ifac"
+)
+
+const (
+	serialDefaultIFACSize  = 8
+	modem73DefaultIFACSize = 8
+	sdrDefaultIFACSize     = 8
 )
 
 // ApplyIFACFromConfig derives and attaches an Interface Access Code to iface
@@ -47,4 +54,12 @@ func ApplyIFACFromConfig(iface common.NetworkInterface, cfg *common.InterfaceCon
 	}
 	iface.SetIFAC(id)
 	return nil
+}
+
+func InterfaceHashFromName(name string) []byte {
+	return cryptography.Hash([]byte("I2PInterfacePeer[" + name + "]"))
+}
+
+type InterfaceConfigProvider interface {
+	InterfaceConfig() *common.InterfaceConfig
 }

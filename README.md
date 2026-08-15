@@ -496,7 +496,7 @@ task build-librns-targets -- linux android windows
 
 Details: [docs/en/librns.md](docs/en/librns.md#dart-ffi-bindings) and [docs/en/control-api.md](docs/en/control-api.md#dart-and-flutter).
 
-If you are compiling for TinyGo and small microcontroller boards, check out our tinygo branch. This requires TinyGo version 0.41.0 or newer.
+If you are compiling for TinyGo and small microcontroller boards, check out our tinygo branch. This requires TinyGo version 0.41.1 or newer.
 
 ## Vendored Dependencies and Offline Builds
 

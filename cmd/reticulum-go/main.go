@@ -11,7 +11,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"quad4/reticulum-go/internal/config"
@@ -142,53 +141,10 @@ func runDaemon(opts daemonOptions) int {
 		}
 	}
 
-	if runtime.GOOS != "windows" {
-		go func() {
-			hup := make(chan os.Signal, 1)
-			signal.Notify(hup, syscall.SIGHUP)
-			for range hup {
-				if runtime.GOOS == "freebsd" && r.config != nil && r.config.EnableSandbox {
-					debug.Log(debug.DebugInfo, "SIGHUP reload: re-exec under CapEnter sandbox")
-					if err := r.StopDaemon(); err != nil {
-						debug.Log(debug.DebugCritical, "SIGHUP re-exec: stop", "error", err)
-						continue
-					}
-					if err := reexecDaemon(); err != nil {
-						debug.Log(debug.DebugCritical, "SIGHUP re-exec failed", "error", err)
-					}
-					continue
-				}
-				path := r.config.ConfigPath
-				if path == "" {
-					p, err := config.GetConfigPath()
-					if err != nil {
-						debug.Log(debug.DebugCritical, "SIGHUP reload: config path", "error", err)
-						continue
-					}
-					path = p
-				}
-				newCfg, err := config.LoadConfig(path)
-				if err != nil {
-					debug.Log(debug.DebugCritical, "SIGHUP reload: load config", "error", err)
-					continue
-				}
-				if err := r.ReloadInterfaces(newCfg); err != nil {
-					debug.Log(debug.DebugCritical, "ReloadInterfaces", "error", err)
-				} else {
-					r.config = newCfg
-					applyDaemonLogging(newCfg, daemonOptions{DebugLevel: -1, JSONLogs: opts.JSONLogs})
-					debug.Log(debug.DebugInfo, "Reloaded interfaces from config", "path", path)
-				}
-			}
-		}()
-	}
+	startSIGHUPReload(r, opts)
 
 	sigChan := make(chan os.Signal, 1)
-	sigs := []os.Signal{os.Interrupt}
-	if runtime.GOOS != "windows" {
-		sigs = append(sigs, syscall.SIGTERM)
-	}
-	signal.Notify(sigChan, sigs...)
+	signal.Notify(sigChan, shutdownSignals()...)
 	<-sigChan
 
 	debug.Log(debug.DebugCritical, "Shutting down...")
@@ -355,18 +311,4 @@ func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id any, appData []by
 
 func (h *AnnounceHandler) ReceivePathResponses() bool {
 	return true
-}
-
-// reexecDaemon replaces the current process with a fresh reticulum-go instance.
-// Used on FreeBSD when CapEnter blocks in-process SIGHUP reload.
-func reexecDaemon() error {
-	exe, err := os.Executable()
-	if err != nil {
-		return err
-	}
-	argv := make([]string, len(os.Args))
-	copy(argv, os.Args)
-	argv[0] = exe
-	// #nosec G204,G702 -- same binary and argv as this daemon, env unchanged, operator-initiated SIGHUP reload only
-	return syscall.Exec(exe, argv, os.Environ())
 }

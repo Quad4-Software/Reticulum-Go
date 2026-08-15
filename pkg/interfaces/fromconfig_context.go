@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
+//go:build tinygo
+
 package interfaces
 
 import (
@@ -18,10 +20,12 @@ type FromConfigContext struct {
 	SetupPeer             func(peer common.NetworkInterface)
 	SynthesizeTunnel      func(TunnelPeer)
 	VoidTunnel            func(TunnelPeer)
+	DefaultGravity        int
 	WatchInterfaces       bool
 	DiscoverInterfaces    bool
 	PanicOnInterfaceError bool
 	BackboneHub           *backbone.Hub
 	SpawnBackbone         func(client *BackboneClientInterface)
 	SpawnLocal            LocalSpawnHook
+	ConfigDir             string
 }

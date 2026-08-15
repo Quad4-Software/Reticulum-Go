@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-//go:build (linux || darwin || freebsd || openbsd || windows) && !js
+//go:build (linux || darwin || freebsd || openbsd || windows) && !js && !tinygo
 
 package interfaces
 
@@ -28,7 +28,6 @@ const (
 	serialDefaultFrameIdle = 100 * time.Millisecond
 	serialDefaultReconnect = 5 * time.Second
 	serialReadChunk        = 4096
-	serialDefaultIFACSize  = 8
 )
 
 // SerialPort is the byte stream behind SerialInterface. Tests inject pipes or

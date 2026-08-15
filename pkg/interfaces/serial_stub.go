@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-//go:build js || !(linux || darwin || freebsd || openbsd || windows)
+//go:build !tinygo && (js || !(linux || darwin || freebsd || openbsd || windows))
 
 package interfaces
 
@@ -12,8 +12,6 @@ import (
 
 	"quad4/reticulum-go/pkg/common"
 )
-
-const serialDefaultIFACSize = 8
 
 // SerialInterface is unavailable on this platform.
 type SerialInterface struct {

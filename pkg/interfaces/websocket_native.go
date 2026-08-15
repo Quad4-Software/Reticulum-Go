@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
-//go:build !js
+//go:build !js && !tinygo
 
 // WebSocketInterface is a native implementation of the WebSocket interface.
 // It is used to connect to the WebSocket server and send/receive data.

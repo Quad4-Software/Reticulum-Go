@@ -126,7 +126,7 @@ Listen for online and offline events and call `reticulum.onNetworkAvailable()` o
 
 ## TinyGo and embedded
 
-The README references a tinygo branch for very constrained devices. That branch targets TinyGo 0.41.0 or newer and is separate from the main module build.
+The README references a tinygo branch for very constrained devices. That branch targets TinyGo 0.41.1 or newer. and is separate from the main module build.
 
 ## Control API
 

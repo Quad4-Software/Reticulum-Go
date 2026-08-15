@@ -85,7 +85,7 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 				name,
 				serial,
 				cfg.Frequency,
-				cfg.Bandwidth,
+				uint32(cfg.Bandwidth), // #nosec G115
 				cfg.SF,
 				cfg.CR,
 				cfg.TXPower,

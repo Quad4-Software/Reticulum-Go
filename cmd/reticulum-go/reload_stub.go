@@ -7,8 +7,9 @@ package main
 
 import "os"
 
-func startSIGHUPReload(r *Reticulum) {
+func startSIGHUPReload(r *Reticulum, opts daemonOptions) {
 	_ = r
+	_ = opts
 }
 
 func shutdownSignals() []os.Signal {

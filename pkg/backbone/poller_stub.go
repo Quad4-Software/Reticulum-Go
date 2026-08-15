@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-//go:build !linux && !darwin && !freebsd && !netbsd && !openbsd
+//go:build (!linux && !darwin && !freebsd && !netbsd && !openbsd) || tinygo
 
 package backbone
 

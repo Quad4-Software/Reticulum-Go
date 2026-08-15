@@ -174,7 +174,8 @@ func getFields(typ reflect.Type, fallbackTag string) *fields {
 	fs := newFields(typ)
 
 	var omitEmpty bool
-	for f := range typ.Fields() {
+	for i := 0; i < typ.NumField(); i++ {
+		f := typ.Field(i)
 
 		tagStr := f.Tag.Get(defaultStructTag)
 		if tagStr == "" && fallbackTag != "" {

@@ -8,7 +8,7 @@
 # Optional legacy tool names are installed as symlinks to that binary.
 
 .PHONY: all build build-utils install uninstall clean test fmt vet lint vulncheck gosec check deps run help
-.PHONY: build-linux build-windows build-windows-legacy build-windows-xp build-darwin build-all
+.PHONY: build-linux build-windows build-windows-legacy build-windows-xp build-darwin build-all tinygo-build tinygo-wasm tinygo-pageserver
 .PHONY: test-short test-race test-crossref test-wasm test-odin test-dart test-all coverage bench debug release
 .PHONY: man install-man install-service package package-deb package-rpm package-arch stage-nfpm
 .PHONY: test-services tree-manifest tree-rsm-sign tree-rsm-verify hooks-install
@@ -297,6 +297,20 @@ build-darwin:
 	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PACKAGE)
 
 build-all: build-linux build-windows build-darwin
+
+TINYGO ?= tinygo
+
+tinygo-build:
+	@mkdir -p $(BUILD_DIR)
+	$(TINYGO) build -target=wasi -o $(BUILD_DIR)/$(BINARY_NAME)-tinygo -size short -opt=z -gc=leaking -panic=trap $(MAIN_PACKAGE)
+
+tinygo-wasm:
+	@mkdir -p $(BUILD_DIR)
+	$(TINYGO) build -target=wasm -tags js,wasm -o $(BUILD_DIR)/$(BINARY_NAME).wasm ./cmd/reticulum-wasm
+
+tinygo-pageserver:
+	@mkdir -p $(BUILD_DIR)
+	cd examples/pageserver && GOFLAGS= GOPROXY=https://proxy.golang.org,direct $(TINYGO) build -size short -opt=z -o ../../$(BUILD_DIR)/example-pageserver-tinygo .
 
 tree-manifest:
 	sh scripts/ci/tree-manifest.sh generate

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
+//go:build !tinygo
+
 package interfaces
 
 import (
@@ -17,8 +19,7 @@ import (
 )
 
 const (
-	sdrDefaultIFACSize = 8
-	sdrDefaultBitrate  = 1200
+	sdrDefaultBitrate = 1200
 	sdrRXQueue         = 16
 	sdrTXQueue         = 16
 )

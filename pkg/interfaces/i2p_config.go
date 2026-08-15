@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
+//go:build !tinygo
+
 package interfaces
 
 import (
 	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/cryptography"
 )
 
 func applyI2PParentConfig(parent *I2PInterface, cfg *common.InterfaceConfig) {
@@ -76,14 +77,4 @@ func applyI2PPeerConfig(peer *I2PInterfacePeer, cfg *common.InterfaceConfig) {
 		egressControl = cfg.EgressControl
 	}
 	peer.SetPRBurstConfig(icPrBurstFreqNew, icPrBurstFreq, ecPrFreq, egressControl)
-}
-
-// InterfaceHashFromName returns the tunnel interface hash for a peer name.
-func InterfaceHashFromName(name string) []byte {
-	return cryptography.Hash([]byte("I2PInterfacePeer[" + name + "]"))
-}
-
-// InterfaceConfigProvider supplies the parent [[Interface]] config for spawned peers.
-type InterfaceConfigProvider interface {
-	InterfaceConfig() *common.InterfaceConfig
 }

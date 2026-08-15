@@ -81,6 +81,12 @@ type InterfaceConfig struct {
 	XONXOFF           bool
 	SerialFrameIdleMs int
 
+	// LoRa / RNode radio settings used by the TinyGo serial path.
+	Frequency uint32
+	SF        uint8
+	CR        uint8
+	TXPower   uint8
+
 	// LocalInterface unix socket settings (interface block).
 	SharedInstanceType string
 	InstanceName       string
