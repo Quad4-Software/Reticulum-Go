@@ -5,6 +5,7 @@
 
 package backbone
 
-func defaultBackend() Backend {
+// DefaultBackend always uses the portable Go poller on TinyGo.
+func DefaultBackend() Backend {
 	return BackendGo
 }

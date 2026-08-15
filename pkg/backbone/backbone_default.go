@@ -7,7 +7,8 @@ package backbone
 
 import "runtime"
 
-func defaultBackend() Backend {
+// DefaultBackend picks the native multiplexer for the current platform.
+func DefaultBackend() Backend {
 	switch runtime.GOOS {
 	case "linux", "android":
 		return BackendEpoll

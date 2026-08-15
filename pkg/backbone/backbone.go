@@ -8,7 +8,6 @@ package backbone
 
 import (
 	"fmt"
-	"runtime"
 	"sync"
 )
 
@@ -47,18 +46,6 @@ func ParseBackend(s string) Backend {
 		return Backend(s)
 	default:
 		return BackendAuto
-	}
-}
-
-// DefaultBackend picks the native multiplexer for the current platform.
-func DefaultBackend() Backend {
-	switch runtime.GOOS {
-	case "linux", "android":
-		return BackendEpoll
-	case "darwin", "freebsd", "netbsd", "openbsd":
-		return BackendKqueue
-	default:
-		return BackendGo
 	}
 }
 
