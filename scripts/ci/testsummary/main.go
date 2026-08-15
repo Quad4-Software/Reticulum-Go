@@ -213,6 +213,18 @@ func run() int {
 		}
 	}
 
+	spuriousDeadline := exit != 0 && isSpuriousFuzzDeadline(failedTests, failedPackages, testOutputs, pkgOutputs)
+	if spuriousDeadline {
+		exit = 0
+		for pkg := range failedTests {
+			if quiet {
+				fmt.Fprintf(os.Stderr, "testsummary: %s spurious fuzz deadline (go#75804), treating as pass\n", pkg)
+			}
+			passedPackages[pkg] = 0
+		}
+		failedTests = make(map[string]map[string]struct{})
+	}
+
 	if quiet {
 		for _, pkg := range sortedKeysFloat(passedPackages) {
 			if _, failed := failedPackages[pkg]; failed {
@@ -314,6 +326,50 @@ func printSummary(
 
 // trimFailureOutput keeps CI logs readable under TESTSUMMARY_QUIET by retaining
 // assertion/fatal lines and a short tail of context instead of full slog dumps.
+// isSpuriousFuzzDeadline reports the Go stdlib race (go.dev/issue/75804) where
+// -fuzztime expiry can leak "context deadline exceeded" with no file:line as a
+// test failure. Real assertion failures always cite _test.go:line.
+func isSpuriousFuzzDeadline(
+	failedTests map[string]map[string]struct{},
+	failedPackages map[string]struct{},
+	testOutputs map[string]map[string][]string,
+	pkgOutputs map[string][]string,
+) bool {
+	if len(failedPackages) > 0 || len(failedTests) != 1 {
+		return false
+	}
+	for pkg, tests := range failedTests {
+		if len(tests) != 1 || !sawFuzzProgress(pkgOutputs, pkg) {
+			return false
+		}
+		for test := range tests {
+			if !strings.HasPrefix(test, "Fuzz") {
+				return false
+			}
+			lines := testOutputs[pkg][test]
+			if strings.TrimSpace(strings.Join(lines, "")) != "context deadline exceeded" {
+				return false
+			}
+			for _, line := range lines {
+				if strings.Contains(line, "_test.go:") {
+					return false
+				}
+			}
+			return true
+		}
+	}
+	return false
+}
+
+func sawFuzzProgress(pkgOutputs map[string][]string, pkg string) bool {
+	for _, line := range pkgOutputs[pkg] {
+		if strings.Contains(line, "fuzz: elapsed:") {
+			return true
+		}
+	}
+	return false
+}
+
 func trimFailureOutput(lines []string, quiet bool) string {
 	if len(lines) == 0 {
 		return ""

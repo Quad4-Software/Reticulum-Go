@@ -52,3 +52,35 @@ func TestValidateGoTestArgs(t *testing.T) {
 		t.Fatalf("fuzz skip-unit-tests args rejected: %v", err)
 	}
 }
+
+func TestIsSpuriousFuzzDeadline(t *testing.T) {
+	pkg := "quad4/reticulum-go/pkg/packet"
+	failed := map[string]map[string]struct{}{
+		pkg: {"FuzzReadPCAPUDPPayloads": {}},
+	}
+	outputs := map[string]map[string][]string{
+		pkg: {"FuzzReadPCAPUDPPayloads": {"    context deadline exceeded\n"}},
+	}
+	pkgOut := map[string][]string{
+		pkg: {"fuzz: elapsed: 20s, execs: 100 (0/sec), new interesting: 0 (total: 7)\n"},
+	}
+	if !isSpuriousFuzzDeadline(failed, nil, outputs, pkgOut) {
+		t.Fatal("expected spurious fuzz deadline")
+	}
+
+	outputs[pkg]["FuzzReadPCAPUDPPayloads"] = []string{"    pcap_fuzz_test.go:48: incl len absurd\n"}
+	if isSpuriousFuzzDeadline(failed, nil, outputs, pkgOut) {
+		t.Fatal("file:line failure must not be spurious")
+	}
+
+	outputs[pkg]["FuzzReadPCAPUDPPayloads"] = []string{"    context deadline exceeded\n"}
+	delete(pkgOut, pkg)
+	if isSpuriousFuzzDeadline(failed, nil, outputs, pkgOut) {
+		t.Fatal("missing fuzz progress must not be spurious")
+	}
+
+	failed[pkg]["TestFoo"] = struct{}{}
+	if isSpuriousFuzzDeadline(failed, nil, outputs, map[string][]string{pkg: pkgOut[pkg]}) {
+		t.Fatal("non-fuzz test failure must not be spurious")
+	}
+}
