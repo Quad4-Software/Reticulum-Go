@@ -122,7 +122,7 @@ func (t *Transport) runPacketJob(job packetJob) {
 	t.dispatchInboundPacket(job.pc.buf, job.iface, job.packetType, job.destType, job.headerType)
 }
 
-func (t *Transport) enqueuePacket(job packetJob) bool {
+func (t *Transport) enqueuePacket(job packetJob, block bool) bool {
 	t.ensurePacketWorkers()
 	select {
 	case <-t.done:
@@ -131,14 +131,29 @@ func (t *Transport) enqueuePacket(job packetJob) bool {
 	case t.packetQ <- job:
 		return true
 	default:
-		if t.growOneHandler() {
-			select {
-			case t.packetQ <- job:
-				return true
-			default:
-			}
+	}
+	if t.growOneHandler() {
+		select {
+		case t.packetQ <- job:
+			return true
+		default:
 		}
+	}
+	if !block {
 		return false
+	}
+	select {
+	case <-t.done:
+		putPacketCopy(job.pc)
+		return true
+	default:
+	}
+	select {
+	case <-t.done:
+		putPacketCopy(job.pc)
+		return true
+	case t.packetQ <- job:
+		return true
 	}
 }
 

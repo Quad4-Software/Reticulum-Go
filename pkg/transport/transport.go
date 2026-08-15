@@ -1608,6 +1608,16 @@ func SendAnnounce(packet []byte) error {
 }
 
 func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
+	t.handleInboundPacket(data, iface, false)
+}
+
+// HandlePacketBlocking queues an inbound packet and waits when the handler
+// pool is full. In-process pipes use this so a faster sender does not drop.
+func (t *Transport) HandlePacketBlocking(data []byte, iface common.NetworkInterface) {
+	t.handleInboundPacket(data, iface, true)
+}
+
+func (t *Transport) handleInboundPacket(data []byte, iface common.NetworkInterface, block bool) {
 	if len(data) < 2 {
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Dropping packet: insufficient length", "bytes", len(data))
@@ -1662,7 +1672,7 @@ func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 		destType:   destType,
 		headerType: headerType,
 	}
-	if t.enqueuePacket(job) {
+	if t.enqueuePacket(job, block) {
 		return
 	}
 	putPacketCopy(pc)
