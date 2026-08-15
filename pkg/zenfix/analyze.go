@@ -8,10 +8,6 @@ import (
 	"go/ast"
 	"go/token"
 	"os"
-	"path/filepath"
-	"strings"
-
-	"golang.org/x/tools/go/packages"
 )
 
 // Result holds findings and fix stats.
@@ -71,56 +67,20 @@ func InspectGoFile(fset *token.FileSet, path string, src any) ([]Finding, error)
 }
 
 func analyzeGo(opts Options, dir string) ([]Finding, error) {
-	cfg := &packages.Config{
-		Mode:  packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles | packages.NeedSyntax,
-		Dir:   dir,
-		Tests: opts.Tests,
-	}
-	pkgs, err := packages.Load(cfg, opts.Patterns...)
+	files, err := listGoFiles(dir, opts.Patterns, opts.Tests)
 	if err != nil {
 		return nil, err
 	}
-	if packages.PrintErrors(pkgs) > 0 {
-		return nil, fmt.Errorf("package load failed")
-	}
-
 	var out []Finding
-	for _, pkg := range pkgs {
-		if pkg.IllTyped {
+	for _, path := range files {
+		fset := token.NewFileSet()
+		file, err := parserParseFile(fset, path, nil)
+		if err != nil {
 			continue
 		}
-		fset := pkg.Fset
-		if fset == nil {
-			fset = token.NewFileSet()
-		}
-		for i, file := range pkg.Syntax {
-			if file == nil {
-				continue
-			}
-			path := filePath(pkg, i)
-			if path == "" {
-				continue
-			}
-			if !opts.Tests && strings.HasSuffix(path, "_test.go") {
-				continue
-			}
-			if strings.Contains(path, string(filepath.Separator)+"vendor"+string(filepath.Separator)) {
-				continue
-			}
-			out = append(out, inspectFile(fset, path, file)...)
-		}
+		out = append(out, inspectFile(fset, path, file)...)
 	}
 	return dedupeFindings(out), nil
-}
-
-func filePath(pkg *packages.Package, i int) string {
-	if i < len(pkg.CompiledGoFiles) {
-		return pkg.CompiledGoFiles[i]
-	}
-	if i < len(pkg.GoFiles) {
-		return pkg.GoFiles[i]
-	}
-	return ""
 }
 
 type visitor struct {

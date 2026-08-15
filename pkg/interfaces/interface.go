@@ -377,7 +377,9 @@ func (i *BaseInterface) Send(data []byte, address string) error {
 	if err := common.RejectReceiveOnly(i); err != nil {
 		return err
 	}
-	debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", i.Name, "bytes", len(data), "address", address)
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", i.Name, "bytes", len(data), "address", address)
+	}
 
 	masked, err := common.ApplyIFACOutbound(i, data)
 	if err != nil {

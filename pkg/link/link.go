@@ -13,6 +13,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -62,6 +63,10 @@ type Link struct {
 	remoteIdentity *identity.Identity
 	sessionKey     *securemem.Buf
 	aesBlock       cipher.Block
+	hmacSend       hash.Hash
+	hmacRecv       hash.Hash
+	hmacSendMu     sync.Mutex
+	hmacRecvMu     sync.Mutex
 	linkID         []byte
 
 	rtt               float64
@@ -990,24 +995,13 @@ func (l *Link) SendPacket(data []byte) error {
 
 func (l *Link) SendPacketWithContext(data []byte, context byte) error {
 	l.mutex.Lock()
-	defer l.mutex.Unlock()
 
 	if l.status.Load() != int32(StatusActive) {
-		debug.Log(debug.DebugInfo, "Cannot send packet: link not active", "status", l.status.Load())
-		return common.ErrLinkNotActive
-	}
-
-	debug.Log(debug.DebugVerbose, "Encrypting packet", "bytes", len(data), "context", fmt.Sprintf("0x%02x", context))
-	var wireData []byte
-	var err error
-	if context == packet.ContextResource || context == packet.ContextCacheReq {
-		wireData = data
-	} else {
-		wireData, err = l.encryptLocked(data)
-		if err != nil {
-			debug.Log(debug.DebugInfo, "Failed to encrypt packet", "error", err)
-			return err
+		l.mutex.Unlock()
+		if debug.Enabled(debug.DebugInfo) {
+			debug.Log(debug.DebugInfo, "Cannot send packet: link not active", "status", l.status.Load())
 		}
+		return common.ErrLinkNotActive
 	}
 
 	p := &packet.Packet{
@@ -1019,19 +1013,53 @@ func (l *Link) SendPacketWithContext(data []byte, context byte) error {
 		Hops:            0,
 		DestinationType: DestTypeLink,
 		DestinationHash: l.linkID,
-		Data:            wireData,
 		CreateReceipt:   true,
 		Link:            l,
 	}
 
-	if err := p.Pack(); err != nil {
+	var err error
+	if context == packet.ContextResource || context == packet.ContextCacheReq {
+		p.Data = data
+		err = p.Pack()
+	} else {
+		err = l.sealEncryptedHT1Locked(p, data)
+	}
+	if err != nil {
+		l.mutex.Unlock()
+		if debug.Enabled(debug.DebugInfo) {
+			debug.Log(debug.DebugInfo, "Failed to encrypt packet", "error", err)
+		}
 		return err
 	}
 
-	debug.Log(debug.DebugVerbose, "Sending encrypted packet", "bytes", len(wireData))
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Sending encrypted packet", "bytes", len(p.Data), "context", context)
+	}
 	l.recordOutboundData()
+	l.mutex.Unlock()
 
 	return l.transport.SendPacket(p)
+}
+
+func encryptedPayloadLen(plainLen int) int {
+	padding := aes.BlockSize - plainLen%aes.BlockSize
+	return aes.BlockSize + plainLen + padding + sha256.Size
+}
+
+func (l *Link) sealEncryptedHT1Locked(p *packet.Packet, data []byte) error {
+	n := encryptedPayloadLen(len(data))
+	payload, err := p.PrepareHT1Buffer(l.linkID, n)
+	if err != nil {
+		return err
+	}
+	out, err := l.encryptLockedInto(data, payload)
+	if err != nil {
+		return err
+	}
+	if len(out) != n {
+		return errors.New("encrypted payload length mismatch")
+	}
+	return p.CommitPacked()
 }
 
 func (l *Link) HandleInbound(pkt *packet.Packet) error {
@@ -2306,7 +2334,14 @@ func maxFloat(a, b float64) float64 {
 }
 
 func encryptWithKeys(sessionKey, hmacKey, data []byte, block cipher.Block) ([]byte, error) {
-	if sessionKey == nil || hmacKey == nil {
+	return encryptWithKeysInto(sessionKey, hmacKey, data, block, nil, nil)
+}
+
+func encryptWithKeysInto(sessionKey, hmacKey, data []byte, block cipher.Block, mac hash.Hash, dst []byte) ([]byte, error) {
+	if block == nil && len(sessionKey) == 0 {
+		return nil, errors.New("no session keys available")
+	}
+	if mac == nil && len(hmacKey) == 0 {
 		return nil, errors.New("no session keys available")
 	}
 
@@ -2320,27 +2355,39 @@ func encryptWithKeys(sessionKey, hmacKey, data []byte, block cipher.Block) ([]by
 
 	padding := aes.BlockSize - len(data)%aes.BlockSize
 	ctLen := len(data) + padding
-	result := make([]byte, aes.BlockSize+ctLen+sha256.Size)
-	if _, err := io.ReadFull(rand.Reader, result[:aes.BlockSize]); err != nil {
+	n := aes.BlockSize + ctLen + sha256.Size
+	if cap(dst) < n {
+		dst = make([]byte, n)
+	} else {
+		dst = dst[:n]
+	}
+	if _, err := io.ReadFull(rand.Reader, dst[:aes.BlockSize]); err != nil {
 		return nil, err
 	}
-	copy(result[aes.BlockSize:aes.BlockSize+len(data)], data)
+	copy(dst[aes.BlockSize:aes.BlockSize+len(data)], data)
 	padByte := byte(padding)
 	for i := aes.BlockSize + len(data); i < aes.BlockSize+ctLen; i++ {
-		result[i] = padByte
+		dst[i] = padByte
+	}
+	if err := cryptography.EncryptCBC(block, dst[:aes.BlockSize], dst[aes.BlockSize:aes.BlockSize+ctLen]); err != nil {
+		return nil, err
 	}
 
-	mode := cipher.NewCBCEncrypter(block, result[:aes.BlockSize]) // #nosec G407
-	ct := result[aes.BlockSize : aes.BlockSize+ctLen]
-	mode.CryptBlocks(ct, ct)
-
-	h := hmac.New(sha256.New, hmacKey)
-	h.Write(result[:aes.BlockSize+ctLen])
-	return h.Sum(result[:aes.BlockSize+ctLen]), nil
+	signed := dst[:aes.BlockSize+ctLen]
+	if mac == nil {
+		mac = hmac.New(sha256.New, hmacKey)
+	} else {
+		mac.Reset()
+	}
+	mac.Write(signed)
+	return mac.Sum(signed), nil
 }
 
-func decryptWithKeys(sessionKey, hmacKey, data []byte, block cipher.Block) ([]byte, error) {
-	if sessionKey == nil || hmacKey == nil {
+func decryptWithKeys(sessionKey, hmacKey, data []byte, block cipher.Block, mac hash.Hash) ([]byte, error) {
+	if block == nil && len(sessionKey) == 0 {
+		return nil, errors.New("no session keys available")
+	}
+	if mac == nil && len(hmacKey) == 0 {
 		return nil, errors.New("no session keys available")
 	}
 	if len(data) < aes.BlockSize+aes.BlockSize+32 {
@@ -2350,10 +2397,15 @@ func decryptWithKeys(sessionKey, hmacKey, data []byte, block cipher.Block) ([]by
 	signedParts := data[:len(data)-32]
 	receivedMac := data[len(data)-32:]
 
-	h := hmac.New(sha256.New, hmacKey)
-	h.Write(signedParts)
-	expectedMac := h.Sum(nil)
-	if !hmac.Equal(receivedMac, expectedMac) {
+	var expected [sha256.Size]byte
+	if mac == nil {
+		mac = hmac.New(sha256.New, hmacKey)
+	} else {
+		mac.Reset()
+	}
+	mac.Write(signedParts)
+	mac.Sum(expected[:0])
+	if !hmac.Equal(receivedMac, expected[:]) {
 		return nil, errHMACVerificationFailed
 	}
 
@@ -2372,9 +2424,10 @@ func decryptWithKeys(sessionKey, hmacKey, data []byte, block cipher.Block) ([]by
 	if len(ciphertext)%aes.BlockSize != 0 {
 		return nil, errors.New("ciphertext is not a multiple of the block size")
 	}
-	mode := cipher.NewCBCDecrypter(block, iv)
 	plaintext := make([]byte, len(ciphertext))
-	mode.CryptBlocks(plaintext, ciphertext)
+	if err := cryptography.DecryptCBC(block, iv, ciphertext, plaintext); err != nil {
+		return nil, err
+	}
 	return cryptography.RemovePKCS7Padding(plaintext)
 }
 
@@ -2398,16 +2451,24 @@ func snapshotSessionKeysLocked(l *Link, sessionDst, hmacDst []byte) bool {
 
 func (l *Link) refreshAESBlockLocked() {
 	l.aesBlock = nil
-	if l.sessionKey == nil {
+	l.hmacSendMu.Lock()
+	l.hmacSend = nil
+	l.hmacSendMu.Unlock()
+	l.hmacRecvMu.Lock()
+	l.hmacRecv = nil
+	l.hmacRecvMu.Unlock()
+	if l.sessionKey == nil || l.hmacKey == nil {
 		return
 	}
 	sk := bufBytes(l.sessionKey)
+	hk := bufBytes(l.hmacKey)
 	var key []byte
 	if l.mode == ModeAES128CBC {
-		if len(sk) < 16 {
+		if len(sk) < 16 || len(hk) < 16 {
 			return
 		}
 		key = sk[:16]
+		hk = hk[:16]
 	} else if len(sk) >= 32 {
 		key = sk[:32]
 	} else if len(sk) >= 16 {
@@ -2415,22 +2476,41 @@ func (l *Link) refreshAESBlockLocked() {
 	} else {
 		return
 	}
+	if len(hk) == 0 {
+		return
+	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return
 	}
 	l.aesBlock = block
+	l.hmacSendMu.Lock()
+	l.hmacSend = hmac.New(sha256.New, hk)
+	l.hmacSendMu.Unlock()
+	l.hmacRecvMu.Lock()
+	l.hmacRecv = hmac.New(sha256.New, hk)
+	l.hmacRecvMu.Unlock()
 }
 
 func (l *Link) encrypt(data []byte) ([]byte, error) {
-	var sessionKey, hmacKey [32]byte
 	l.mutex.RLock()
-	ok := snapshotSessionKeysLocked(l, sessionKey[:], hmacKey[:])
-	mode := l.mode
 	block := l.aesBlock
+	mac := l.hmacSend
+	mode := l.mode
+	var sessionKey, hmacKey [32]byte
+	ok := block != nil && mac != nil
+	if !ok {
+		ok = snapshotSessionKeysLocked(l, sessionKey[:], hmacKey[:])
+	}
 	l.mutex.RUnlock()
 	if !ok {
 		return nil, errors.New("no session keys available")
+	}
+	if block != nil && mac != nil {
+		l.hmacSendMu.Lock()
+		out, err := encryptWithKeysInto(nil, nil, data, block, mac, nil)
+		l.hmacSendMu.Unlock()
+		return out, err
 	}
 	defer securemem.WipeBytes(sessionKey[:])
 	defer securemem.WipeBytes(hmacKey[:])
@@ -2440,8 +2520,13 @@ func (l *Link) encrypt(data []byte) ([]byte, error) {
 	return encryptWithKeys(sessionKey[:], hmacKey[:], data, block)
 }
 
-// encryptLocked encrypts data while the link mutex is already held by the caller.
-func (l *Link) encryptLocked(data []byte) ([]byte, error) {
+func (l *Link) encryptLockedInto(data, dst []byte) ([]byte, error) {
+	if l.aesBlock != nil && l.hmacSend != nil {
+		l.hmacSendMu.Lock()
+		out, err := encryptWithKeysInto(nil, nil, data, l.aesBlock, l.hmacSend, dst)
+		l.hmacSendMu.Unlock()
+		return out, err
+	}
 	var sessionKey, hmacKey [32]byte
 	if !snapshotSessionKeysLocked(l, sessionKey[:], hmacKey[:]) {
 		return nil, errors.New("no session keys available")
@@ -2449,9 +2534,14 @@ func (l *Link) encryptLocked(data []byte) ([]byte, error) {
 	defer securemem.WipeBytes(sessionKey[:])
 	defer securemem.WipeBytes(hmacKey[:])
 	if l.mode == ModeAES128CBC {
-		return encryptWithKeys(sessionKey[:16], hmacKey[:16], data, l.aesBlock)
+		return encryptWithKeysInto(sessionKey[:16], hmacKey[:16], data, l.aesBlock, nil, dst)
 	}
-	return encryptWithKeys(sessionKey[:], hmacKey[:], data, l.aesBlock)
+	return encryptWithKeysInto(sessionKey[:], hmacKey[:], data, l.aesBlock, nil, dst)
+}
+
+// encryptLocked encrypts data while the link mutex is already held by the caller.
+func (l *Link) encryptLocked(data []byte) ([]byte, error) {
+	return l.encryptLockedInto(data, nil)
 }
 
 func (l *Link) decrypt(data []byte) ([]byte, error) {
@@ -2464,25 +2554,37 @@ func (l *Link) decrypt(data []byte) ([]byte, error) {
 		return nil, errors.New("dos_protection refused crypto")
 	}
 	defer release()
-	var sessionKey, hmacKey [32]byte
 	l.mutex.RLock()
-	ok := snapshotSessionKeysLocked(l, sessionKey[:], hmacKey[:])
-	mode := l.mode
 	block := l.aesBlock
+	mac := l.hmacRecv
+	mode := l.mode
+	var sessionKey, hmacKey [32]byte
+	ok := block != nil && mac != nil
+	if !ok {
+		ok = snapshotSessionKeysLocked(l, sessionKey[:], hmacKey[:])
+	}
 	l.mutex.RUnlock()
 	if !ok {
 		debug.Log(debug.DebugError, "Decrypt failed: no session keys", "link_id", fmt.Sprintf("%x", l.linkID))
 		return nil, errors.New("no session keys available")
 	}
-	defer securemem.WipeBytes(sessionKey[:])
-	defer securemem.WipeBytes(hmacKey[:])
 
-	sk, hk := sessionKey[:], hmacKey[:]
-	if mode == ModeAES128CBC {
-		sk = sessionKey[:16]
-		hk = hmacKey[:16]
+	var plaintext []byte
+	var err error
+	if block != nil && mac != nil {
+		l.hmacRecvMu.Lock()
+		plaintext, err = decryptWithKeys(nil, nil, data, block, mac)
+		l.hmacRecvMu.Unlock()
+	} else {
+		defer securemem.WipeBytes(sessionKey[:])
+		defer securemem.WipeBytes(hmacKey[:])
+		sk, hk := sessionKey[:], hmacKey[:]
+		if mode == ModeAES128CBC {
+			sk = sessionKey[:16]
+			hk = hmacKey[:16]
+		}
+		plaintext, err = decryptWithKeys(sk, hk, data, block, nil)
 	}
-	plaintext, err := decryptWithKeys(sk, hk, data, block)
 	if err != nil {
 		ifaceName := l.attachedIfaceName()
 		switch {
@@ -2580,22 +2682,23 @@ func (l *Link) Send(data []byte) any {
 		Hops:            0,
 		DestinationType: DestTypeLink,
 		DestinationHash: l.linkID,
-		Data:            data,
 		CreateReceipt:   false,
 		Link:            l,
 	}
 
-	encrypted, err := l.encrypt(data)
-	if err != nil {
+	l.mutex.Lock()
+	if l.status.Load() != int32(StatusActive) {
+		l.mutex.Unlock()
+		debug.Log(debug.DebugInfo, common.MsgLinkNotActive)
 		return nil
 	}
-	pkt.Data = encrypted
-
-	if err := pkt.Pack(); err != nil {
+	if err := l.sealEncryptedHT1Locked(pkt, data); err != nil {
+		l.mutex.Unlock()
 		return nil
 	}
-
 	l.recordOutbound()
+	l.mutex.Unlock()
+
 	if err := l.transport.SendPacket(pkt); err != nil {
 		return nil
 	}

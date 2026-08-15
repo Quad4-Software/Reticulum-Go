@@ -144,8 +144,11 @@ type Transport struct {
 	seenAnnounces         map[[32]byte]time.Time
 	packetQ               chan packetJob
 	handlerN              int
+	handlerLive           atomic.Int32
+	handlerClosed         atomic.Bool
 	handlerOnce           sync.Once
 	handlerWG             sync.WaitGroup
+	growMu                sync.Mutex
 	pendingAnnounceJobs   []delayedAnnounceJob
 	pendingAnnounceMu     sync.Mutex
 	pathfinder            *pathfinder.PathFinder
@@ -971,7 +974,10 @@ func (t *Transport) Close() error {
 	t.stopOnce.Do(func() {
 		close(t.done)
 	})
+	t.handlerClosed.Store(true)
 	t.handlerOnce.Do(func() {})
+	t.growMu.Lock()
+	t.growMu.Unlock()
 	t.handlerWG.Wait()
 
 	if e := protect.Default(); e != nil {
@@ -1603,7 +1609,9 @@ func SendAnnounce(packet []byte) error {
 
 func (t *Transport) HandlePacket(data []byte, iface common.NetworkInterface) {
 	if len(data) < 2 {
-		debug.Log(debug.DebugVerbose, "Dropping packet: insufficient length", "bytes", len(data))
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Dropping packet: insufficient length", "bytes", len(data))
+		}
 		return
 	}
 
@@ -2247,7 +2255,9 @@ func (t *Transport) handleTransportPacket(data []byte, iface common.NetworkInter
 
 	pkt := &packet.Packet{Raw: data}
 	if err := pkt.Unpack(); err != nil {
-		debug.Log(debug.DebugInfo, "Failed to unpack transport packet", "error", err)
+		if debug.Enabled(debug.DebugInfo) {
+			debug.Log(debug.DebugInfo, "Failed to unpack transport packet", "error", err)
+		}
 		ifaceName := ""
 		if iface != nil {
 			ifaceName = iface.GetName()
@@ -2639,7 +2649,9 @@ func (t *Transport) SendPacket(p *packet.Packet) error {
 		debug.Log(debug.DebugInfo, "Packet serialization failed", "error", err)
 		return fmt.Errorf("failed to serialize packet: %w", err)
 	}
-	debug.Log(debug.DebugTrace, "Serialized packet size", "bytes", len(data))
+	if debug.Enabled(debug.DebugTrace) {
+		debug.Log(debug.DebugTrace, "Serialized packet size", "bytes", len(data))
+	}
 
 	if debug.Enabled(debug.DebugTrace) {
 		debug.Log(debug.DebugTrace, "Using path", "interface", path.Interface.GetName(), "nextHop", fmt.Sprintf("%x", path.NextHop), "hops", path.HopCount)
@@ -2656,10 +2668,14 @@ func (t *Transport) SendPacket(p *packet.Packet) error {
 	if p.CreateReceipt {
 		receipt := packet.NewPacketReceipt(p)
 		t.RegisterReceipt(receipt)
-		debug.Log(debug.DebugPackets, "Created packet receipt")
+		if debug.Enabled(debug.DebugPackets) {
+			debug.Log(debug.DebugPackets, "Created packet receipt")
+		}
 	}
 
-	debug.Log(debug.DebugAll, "Packet sent successfully")
+	if debug.Enabled(debug.DebugAll) {
+		debug.Log(debug.DebugAll, "Packet sent successfully")
+	}
 	return nil
 }
 

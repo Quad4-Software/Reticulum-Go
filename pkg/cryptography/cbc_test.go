@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024-2026 Quad4.io
+
+package cryptography
+
+import (
+	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"testing"
+)
+
+func TestEncryptDecryptCBCMatchesStdlib(t *testing.T) {
+	key := make([]byte, AES256KeySize)
+	if _, err := rand.Read(key); err != nil {
+		t.Fatal(err)
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	plaintexts := [][]byte{
+		bytes.Repeat([]byte{0x11}, aes.BlockSize),
+		bytes.Repeat([]byte{0x22}, aes.BlockSize*2),
+		bytes.Repeat([]byte{0x33}, aes.BlockSize*5),
+		make([]byte, aes.BlockSize),
+	}
+	for _, pt := range plaintexts {
+		iv := make([]byte, aes.BlockSize)
+		if _, err := rand.Read(iv); err != nil {
+			t.Fatal(err)
+		}
+
+		want := make([]byte, len(pt))
+		copy(want, pt)
+		cipher.NewCBCEncrypter(block, iv).CryptBlocks(want, want)
+
+		got := append([]byte(nil), pt...)
+		if err := EncryptCBC(block, iv, got); err != nil {
+			t.Fatalf("EncryptCBC: %v", err)
+		}
+		if !bytes.Equal(got, want) {
+			t.Fatalf("encrypt mismatch\ngot  %x\nwant %x", got, want)
+		}
+
+		dec := make([]byte, len(got))
+		if err := DecryptCBC(block, iv, got, dec); err != nil {
+			t.Fatalf("DecryptCBC: %v", err)
+		}
+		if !bytes.Equal(dec, pt) {
+			t.Fatalf("decrypt mismatch\ngot  %x\nwant %x", dec, pt)
+		}
+
+		inPlace := append([]byte(nil), got...)
+		if err := DecryptCBC(block, iv, inPlace, inPlace); err != nil {
+			t.Fatalf("DecryptCBC in place: %v", err)
+		}
+		if !bytes.Equal(inPlace, pt) {
+			t.Fatalf("in-place decrypt mismatch")
+		}
+	}
+}
+
+func TestEncryptCBCRejectsBadArgs(t *testing.T) {
+	key := make([]byte, AES256KeySize)
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := EncryptCBC(nil, make([]byte, 16), make([]byte, 16)); err == nil {
+		t.Fatal("expected nil block error")
+	}
+	if err := EncryptCBC(block, make([]byte, 15), make([]byte, 16)); err == nil {
+		t.Fatal("expected bad iv error")
+	}
+	if err := EncryptCBC(block, make([]byte, 16), make([]byte, 15)); err == nil {
+		t.Fatal("expected bad buf error")
+	}
+}

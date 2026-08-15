@@ -227,7 +227,9 @@ func (ui *UDPInterface) Send(data []byte, address string) error {
 	if err := common.RejectReceiveOnly(ui); err != nil {
 		return err
 	}
-	debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", ui.Name, "bytes", len(data), "address", address)
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", ui.Name, "bytes", len(data), "address", address)
+	}
 
 	masked, err := common.ApplyIFACOutbound(ui, data)
 	if err != nil {

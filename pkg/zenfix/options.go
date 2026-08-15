@@ -5,7 +5,8 @@ package zenfix
 
 // Options configures zen analysis.
 type Options struct {
-	// Patterns are package patterns for golang.org/x/tools/go/packages (default ./...).
+	// Patterns are package or file globs relative to Dir (default ./...).
+	// ./... walks recursively. ./pkg/foo is that directory only.
 	Patterns []string
 	// Dir is the module root when Patterns are relative.
 	Dir string

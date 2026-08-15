@@ -5,6 +5,7 @@ package transport
 
 import (
 	"fmt"
+	"runtime"
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
@@ -30,20 +31,63 @@ func (t *Transport) startPacketWorkers(n int) {
 		t.packetQ = make(chan packetJob, n)
 	}
 	t.handlerWG.Add(n)
+	t.handlerLive.Add(int32(n))
 	for range n {
 		go t.packetWorker()
 	}
 }
 
+func startupHandlerCount(maxN int) int {
+	if maxN < 1 {
+		maxN = common.DefaultMaxPacketHandlers
+	}
+	boot := max(runtime.GOMAXPROCS(0), 4)
+	if maxN < boot {
+		return maxN
+	}
+	return boot
+}
+
 func (t *Transport) ensurePacketWorkers() {
 	t.handlerOnce.Do(func() {
+		if t.handlerClosed.Load() {
+			return
+		}
 		select {
 		case <-t.done:
 			return
 		default:
-			t.startPacketWorkers(t.handlerN)
+			t.startPacketWorkers(startupHandlerCount(t.handlerN))
 		}
 	})
+}
+
+func (t *Transport) growOneHandler() bool {
+	if t.handlerClosed.Load() {
+		return false
+	}
+	t.growMu.Lock()
+	defer t.growMu.Unlock()
+	if t.handlerClosed.Load() {
+		return false
+	}
+	select {
+	case <-t.done:
+		return false
+	default:
+	}
+	if int(t.handlerLive.Load()) >= t.handlerN {
+		return false
+	}
+	t.handlerWG.Add(1)
+	t.handlerLive.Add(1)
+	go t.packetWorker()
+	return true
+}
+
+func (t *Transport) growHandlersToMax() {
+	for t.growOneHandler() {
+	}
 }
 
 func (t *Transport) packetWorker() {
@@ -87,12 +131,20 @@ func (t *Transport) enqueuePacket(job packetJob) bool {
 	case t.packetQ <- job:
 		return true
 	default:
+		if t.growOneHandler() {
+			select {
+			case t.packetQ <- job:
+				return true
+			default:
+			}
+		}
 		return false
 	}
 }
 
 func (t *Transport) occupyHandlerPoolForTest(hold <-chan struct{}) int {
 	t.ensurePacketWorkers()
+	t.growHandlersToMax()
 	n := cap(t.packetQ)
 	if n < 1 {
 		return 0
@@ -125,7 +177,9 @@ func (t *Transport) dispatchInboundPacket(payload []byte, iface common.NetworkIn
 		}
 		pkt := &packet.Packet{Raw: payload}
 		if err := pkt.Unpack(); err != nil {
-			debug.Log(debug.DebugInfo, "Failed to unpack proof packet", "error", err)
+			if debug.Enabled(debug.DebugInfo) {
+				debug.Log(debug.DebugInfo, "Failed to unpack proof packet", "error", err)
+			}
 			ifaceName := ""
 			if iface != nil {
 				ifaceName = iface.GetName()

@@ -127,12 +127,24 @@ func NewPacket(destType byte, data []byte, packetType byte, context byte,
 	}
 }
 
+func (p *Packet) headerFlags() byte {
+	flags := byte(0)
+	flags |= (p.HeaderType << 6) & HeaderMaskHeaderType
+	flags |= (p.ContextFlag << 5) & HeaderMaskContextFlag
+	flags |= (p.TransportType << 4) & HeaderMaskTransportType
+	flags |= (p.DestinationType << 2) & HeaderMaskDestinationType
+	flags |= p.PacketType & HeaderMaskPacketType
+	return flags
+}
+
 func (p *Packet) Pack() error {
 	if p.Packed {
 		return nil
 	}
 
-	debug.Log(debug.DebugPackets, "Packing packet", "type", p.PacketType, "header", p.HeaderType)
+	if debug.Enabled(debug.DebugPackets) {
+		debug.Log(debug.DebugPackets, "Packing packet", "type", p.PacketType, "header", p.HeaderType)
+	}
 
 	if n := len(p.DestinationHash); n != 0 && n != TruncatedHashLength {
 		return fmt.Errorf("destination hash must be %d bytes, got %d", TruncatedHashLength, n)
@@ -146,21 +158,16 @@ func (p *Packet) Pack() error {
 		}
 	}
 
-	flags := byte(0)
-	flags |= (p.HeaderType << 6) & HeaderMaskHeaderType
-	flags |= (p.ContextFlag << 5) & HeaderMaskContextFlag
-	flags |= (p.TransportType << 4) & HeaderMaskTransportType
-	flags |= (p.DestinationType << 2) & HeaderMaskDestinationType
-	flags |= p.PacketType & HeaderMaskPacketType
+	flags := p.headerFlags()
 
-	if debug.GetDebugLevel() >= debug.DebugTrace {
+	if debug.Enabled(debug.DebugTrace) {
 		debug.Log(debug.DebugTrace, "Created packet header", "flags", fmt.Sprintf("%08b", flags), "hops", p.Hops)
 	}
 
 	need := 2 + len(p.DestinationHash) + 1 + len(p.Data)
 	if p.HeaderType == HeaderType2 {
 		need += len(p.TransportID)
-		if debug.GetDebugLevel() >= debug.DebugAll {
+		if debug.Enabled(debug.DebugAll) {
 			debug.Log(debug.DebugAll, "Added transport ID to header", "transport_id", fmt.Sprintf("%x", p.TransportID))
 		}
 	}
@@ -199,12 +206,16 @@ func (p *Packet) Pack() error {
 	raw = append(raw, payload...)
 	p.Raw = raw
 
-	hdrLen := 2 + len(destHash) + 1
-	if p.HeaderType == HeaderType2 {
-		hdrLen += len(transportID)
+	if debug.Enabled(debug.DebugPackets) {
+		hdrLen := 2 + len(destHash) + 1
+		if p.HeaderType == HeaderType2 {
+			hdrLen += len(transportID)
+		}
+		debug.Log(debug.DebugPackets, "Final header length", "bytes", hdrLen)
 	}
-	debug.Log(debug.DebugPackets, "Final header length", "bytes", hdrLen)
-	debug.Log(debug.DebugTrace, "Final packet size", "bytes", len(p.Raw))
+	if debug.Enabled(debug.DebugTrace) {
+		debug.Log(debug.DebugTrace, "Final packet size", "bytes", len(p.Raw))
+	}
 
 	if len(p.Raw) > MTU {
 		return errors.New("packet size exceeds MTU")
@@ -216,6 +227,49 @@ func (p *Packet) Pack() error {
 	if debug.Enabled(debug.DebugAll) {
 		debug.Log(debug.DebugAll, "Packet hash", "hash", fmt.Sprintf("%x", p.PacketHash))
 	}
+	return nil
+}
+
+// PrepareHT1Buffer writes the header type 1 prefix into Raw and returns the
+// payload region for in-place encryption or a copy. destHash must be
+// TruncatedHashLength bytes and must not alias Raw.
+func (p *Packet) PrepareHT1Buffer(destHash []byte, payloadLen int) ([]byte, error) {
+	if len(destHash) != TruncatedHashLength {
+		return nil, fmt.Errorf("destination hash must be %d bytes, got %d", TruncatedHashLength, len(destHash))
+	}
+	if p.HeaderType != HeaderType1 {
+		return nil, errors.New("PrepareHT1Buffer requires header type 1")
+	}
+	need := HeaderType1Overhead + payloadLen
+	if need > MTU {
+		return nil, errors.New("packet size exceeds MTU")
+	}
+	raw := p.Raw
+	if cap(raw) < need {
+		raw = make([]byte, need, nextRawWireCap(need))
+	} else {
+		raw = raw[:need]
+	}
+	raw[0] = p.headerFlags()
+	raw[1] = p.Hops
+	copy(raw[2:2+TruncatedHashLength], destHash)
+	raw[2+TruncatedHashLength] = p.Context
+	p.Raw = raw
+	p.DestinationHash = destHash
+	p.Data = raw[HeaderType1Overhead:]
+	p.Packed = false
+	p.hashValid = false
+	return p.Data, nil
+}
+
+// CommitPacked hashes a Raw buffer previously filled by PrepareHT1Buffer.
+func (p *Packet) CommitPacked() error {
+	if len(p.Raw) > MTU {
+		return errors.New("packet size exceeds MTU")
+	}
+	p.Packed = true
+	p.hashValid = false
+	p.updateHash()
 	return nil
 }
 
