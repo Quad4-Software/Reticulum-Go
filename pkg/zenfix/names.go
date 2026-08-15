@@ -87,6 +87,10 @@ func isLinkCallbackBase(base string) bool {
 	}
 }
 
+func isRecallBase(base string) bool {
+	return base == "Recall"
+}
+
 func funcReturnsError(fn *ast.FuncDecl) bool {
 	if fn == nil || fn.Type == nil || fn.Type.Results == nil {
 		return false

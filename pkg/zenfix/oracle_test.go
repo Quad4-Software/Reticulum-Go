@@ -4,6 +4,7 @@
 package zenfix
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -48,6 +49,13 @@ func TestOracleBadPackage(t *testing.T) {
 	assertFuncOracle(t, filepath.Join("testdata", "module", "bad", "bad.go"), badOracle)
 }
 
+func TestOracleBadRecallFile(t *testing.T) {
+	assertFuncOracle(t, filepath.Join("testdata", "module", "bad", "recall.go"), map[string][]string{
+		"BadRecallBeforePath": {RuleRecallBeforePath},
+		"BadOnInterface":      {RuleOnInterfaceOverride},
+	})
+}
+
 func TestOracleLinkPackage(t *testing.T) {
 	assertFuncOracle(t, filepath.Join("testdata", "module", "linkbad", "linkbad.go"), linkOracle)
 }
@@ -58,6 +66,30 @@ func TestOracleGoodPackage(t *testing.T) {
 
 func TestOracleAdversarialPackage(t *testing.T) {
 	assertFuncOracle(t, filepath.Join("testdata", "module", "adversarial", "adversarial.go"), adversarialOracle)
+}
+
+func TestOracleRNSPythonPatterns(t *testing.T) {
+	path := filepath.Join("testdata", "module", "python", "rns_patterns.py")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	findings := scanPython(path, string(b))
+	rules := ruleSet(nil)
+	for _, f := range findings {
+		rules[f.Rule]++
+	}
+	for _, id := range []string{
+		RulePythonPathThenSpin,
+		RulePythonAwaitInLoop,
+		RulePythonLinkStatusSpin,
+		RulePythonRecallBeforePath,
+		RulePythonRequireShared,
+	} {
+		if rules[id] == 0 {
+			t.Fatalf("missing %s in rns_patterns.py, got %v", id, rules)
+		}
+	}
 }
 
 func assertFuncOracle(t *testing.T, path string, oracle map[string][]string) {

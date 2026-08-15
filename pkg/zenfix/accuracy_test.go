@@ -41,9 +41,40 @@ func TestRuleDocRefsExist(t *testing.T) {
 	root := repoRoot(t)
 	for _, rule := range AllRules {
 		for _, ref := range rule.Refs {
+			if strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://") {
+				continue
+			}
 			path := filepath.Join(root, ref)
 			if _, err := os.Stat(path); err != nil {
 				t.Fatalf("rule %s ref %s: %v", rule.ID, ref, err)
+			}
+		}
+	}
+}
+
+func TestExternalRefsOfficialMarkqvistOnly(t *testing.T) {
+	allowed := []string{
+		"https://unsigned.io/",
+		"https://reticulum.network/",
+	}
+	for _, rule := range AllRules {
+		for _, ref := range rule.Refs {
+			if !strings.HasPrefix(ref, "http://") && !strings.HasPrefix(ref, "https://") {
+				continue
+			}
+			ok := false
+			for _, prefix := range allowed {
+				if strings.HasPrefix(ref, prefix) {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				t.Fatalf("rule %s external ref %q is not an official markqvist source", rule.ID, ref)
+			}
+			low := strings.ToLower(ref)
+			if strings.Contains(low, "github.com") || strings.Contains(low, "miraheze") || strings.Contains(low, "skyguy") {
+				t.Fatalf("rule %s ref %q uses a non-manual source", rule.ID, ref)
 			}
 		}
 	}
@@ -68,6 +99,14 @@ func TestCatalogIDsBidirectional(t *testing.T) {
 		RulePythonPathSpin,
 		RulePythonRequestPathLoop,
 		RulePythonFixed15s,
+		RuleOnInterfaceOverride,
+		RuleRecallBeforePath,
+		RulePythonAwaitInLoop,
+		RulePythonLinkStatusSpin,
+		RulePythonPathThenSpin,
+		RulePythonRecallBeforePath,
+		RulePythonOnInterface,
+		RulePythonRequireShared,
 	}
 	if len(AllRules) != len(want) {
 		t.Fatalf("catalog len %d want %d", len(AllRules), len(want))

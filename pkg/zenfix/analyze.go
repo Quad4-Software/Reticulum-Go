@@ -133,6 +133,7 @@ type visitor struct {
 	sawLinkCB      bool
 	establishCount int
 	newLinkCount   int
+	pathWaitPos    token.Pos
 }
 
 func inspectFile(fset *token.FileSet, path string, file *ast.File) []Finding {
@@ -151,6 +152,7 @@ func (v *visitor) visit(n ast.Node) bool {
 		v.sawLinkCB = false
 		v.establishCount = 0
 		v.newLinkCount = 0
+		v.pathWaitPos = 0
 	case *ast.ForStmt, *ast.RangeStmt:
 		v.withLoop(node, func() {
 			ast.Inspect(node, func(inner ast.Node) bool {
@@ -239,9 +241,20 @@ func (v *visitor) checkCall(call *ast.CallExpr) {
 
 	if isPathAwaitBase(base) {
 		v.sawAwait = true
+		if v.pathWaitPos == 0 {
+			v.pathWaitPos = call.Pos()
+		}
 	}
 	if isLinkCallbackBase(base) {
 		v.sawLinkCB = true
+	}
+	if isRecallBase(base) {
+		if callBeforePathWait(call.Pos(), v.pathWaitPos) {
+			v.report(RuleRecallBeforePath, pos.Line, pos.Column, nil)
+		}
+	}
+	if isPathRequestBase(base) && requestPathOnInterface(call) {
+		v.report(RuleOnInterfaceOverride, pos.Line, pos.Column, nil)
 	}
 	if isLinkEstablishBase(base) {
 		v.establishCount++
