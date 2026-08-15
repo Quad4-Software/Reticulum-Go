@@ -52,7 +52,7 @@ func NewFinding(ruleID, file string, line, col int, fix *Fix) Finding {
 		Message:  r.Title,
 		Why:      r.Why,
 		Hint:     r.Hint,
-		Refs:     append([]string(nil), r.Refs...),
+		Refs:     r.Refs,
 		Fix:      fix,
 	}
 }

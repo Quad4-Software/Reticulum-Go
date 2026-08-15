@@ -126,6 +126,7 @@ func filePath(pkg *packages.Package, i int) string {
 type visitor struct {
 	fset           *token.FileSet
 	file           string
+	src            []byte
 	findings       []Finding
 	loopDepth      int
 	fn             *ast.FuncDecl
@@ -228,7 +229,7 @@ func (v *visitor) checkDiscardedPathCall(call *ast.CallExpr) {
 	pos := v.fset.Position(call.Pos())
 	start := v.fset.Position(call.Pos())
 	end := v.fset.Position(call.End())
-	from := readFileRange(v.file, start.Offset, end.Offset)
+	from := v.fileRange(start.Offset, end.Offset)
 	if from == "" {
 		return
 	}
@@ -285,21 +286,24 @@ func (v *visitor) report(ruleID string, line, col int, fix *Fix) {
 	v.findings = append(v.findings, NewFinding(ruleID, v.file, line, col, fix))
 }
 
-func readFileRange(path string, start, end int) string {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return ""
+func (v *visitor) fileRange(start, end int) string {
+	if v.src == nil {
+		data, err := os.ReadFile(v.file)
+		if err != nil {
+			return ""
+		}
+		v.src = data
 	}
 	if start < 0 {
 		start = 0
 	}
-	if end > len(data) {
-		end = len(data)
+	if end > len(v.src) {
+		end = len(v.src)
 	}
 	if start >= end {
 		return ""
 	}
-	return string(data[start:end])
+	return string(v.src[start:end])
 }
 
 func fifteenSecondArg(call *ast.CallExpr) ast.Expr {

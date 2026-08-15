@@ -156,6 +156,9 @@ func TestFacadeLinkOpenSendClose(t *testing.T) {
 }
 
 func TestLinkOpenUnknownDestination(t *testing.T) {
+	if testing.Short() {
+		t.Skip("AwaitPath window wait")
+	}
 	node := mustCreateNode(t)
 	id := mustIdentity(t)
 	if code := NodeSetIdentity(node, id); code != OK {
@@ -165,6 +168,7 @@ func TestLinkOpenUnknownDestination(t *testing.T) {
 		t.Fatal(code)
 	}
 	t.Cleanup(func() { _ = NodeStop(node) })
+	mustRegisterOutgoingIface(t, node, "link-open-unknown")
 
 	fake := make([]byte, identity.TruncatedHashLength/8)
 	for i := range fake {
@@ -205,6 +209,7 @@ func TestPathRequestValidation(t *testing.T) {
 		t.Fatal(code)
 	}
 	t.Cleanup(func() { _ = NodeStop(node) })
+	mustRegisterOutgoingIface(t, node, "path-req")
 	if code := PathRequest(node, hash); code != OK {
 		t.Fatal(code, LastError())
 	}

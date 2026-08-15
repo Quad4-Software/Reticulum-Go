@@ -66,6 +66,21 @@ func mustIdentity(t *testing.T) uint64 {
 	return id
 }
 
+func mustRegisterOutgoingIface(t *testing.T, node uint64, name string) {
+	t.Helper()
+	rec, err := nodeByHandle(node)
+	if err != nil {
+		t.Fatal(err)
+	}
+	iface := newPipeInterface(name)
+	if err := rec.node.Transport().RegisterInterface(name, iface); err != nil {
+		t.Fatal(err)
+	}
+	if err := rec.node.Transport().InitializePathRequestHandler(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func attachPipePair(t *testing.T, nodeA, nodeB uint64) {
 	t.Helper()
 	recA, err := nodeByHandle(nodeA)
