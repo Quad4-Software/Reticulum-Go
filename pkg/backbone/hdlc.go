@@ -24,10 +24,7 @@ type HDLCDecoder struct {
 }
 
 func assemblerCap(mtu int) int {
-	capn := min(mtu, streamReadChunk)
-	if capn < 256 {
-		capn = 256
-	}
+	capn := max(min(mtu, streamReadChunk), 256)
 	return capn
 }
 

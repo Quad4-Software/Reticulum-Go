@@ -31,6 +31,7 @@ const (
 	CmdSpeedtest  = "speedtest"
 	CmdDump       = "dump"
 	CmdSnapshot   = "snapshot"
+	CmdZen        = "zen"
 )
 
 // DaemonFunc starts the network daemon. Injected by cmd/reticulum-go to avoid
@@ -119,6 +120,8 @@ func Main(args []string, opt Options) int {
 		return RunDump(rest, opt)
 	case CmdSnapshot:
 		return RunSnapshot(rest, opt)
+	case CmdZen:
+		return RunZen(rest, opt)
 	default:
 		fmt.Fprintf(opt.Stderr, "unknown command %q\n\n", cmd)
 		printRootHelp(opt.Stderr)
@@ -139,7 +142,7 @@ func resolveCommand(argv0 string, args []string) (cmd string, rest []string, ok 
 	}
 
 	switch args[0] {
-	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdX, CmdSH, CmdPageserver, CmdDebug, CmdSlow, CmdSelfCheck, CmdSpeedtest, CmdDump, CmdSnapshot:
+	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdX, CmdSH, CmdPageserver, CmdDebug, CmdSlow, CmdSelfCheck, CmdSpeedtest, CmdDump, CmdSnapshot, CmdZen:
 		return args[0], args[1:], true
 	case "selfcheck", "rgoselfcheck":
 		return CmdSelfCheck, args[1:], true
@@ -165,6 +168,8 @@ func resolveCommand(argv0 string, args []string) (cmd string, rest []string, ok 
 		return CmdDump, args[1:], true
 	case "rgosnap":
 		return CmdSnapshot, args[1:], true
+	case "rgozen", "reticulum-go-zen":
+		return CmdZen, args[1:], true
 	default:
 		return "", nil, false
 	}
@@ -198,6 +203,8 @@ func aliasFromArgv0(base string) string {
 		return CmdDump
 	case "rgosnap", "reticulum-go-snapshot":
 		return CmdSnapshot
+	case "rgozen", "reticulum-go-zen":
+		return CmdZen
 	default:
 		return ""
 	}
@@ -243,12 +250,13 @@ Usage:
   reticulum-go pageserver [flags]       NomadNet-style page and file server
   reticulum-go debug [flags]            effective config, rate table, RPC dump
   reticulum-go self-check [flags]       host OS preflight checklist
+  reticulum-go zen [flags] [packages]   scan for path/link footguns (go fix style)
 
 Global:
   -h, --help       print this help
   -v, --version    print version
 
-Legacy tool names (rgostatus, rgoid, rgoprobe, rgopath, rgocp, rgox, rnx, rgosh, rgoslow, rgospeed, rgodump, rgosnap) work as
+Legacy tool names (rgostatus, rgoid, rgoprobe, rgopath, rgocp, rgox, rnx, rgosh, rgoslow, rgospeed, rgodump, rgosnap, rgozen) work as
 subcommands or when the binary is installed under those names (symlinks).
 
 Configuration defaults to ~/.reticulum-go/config.

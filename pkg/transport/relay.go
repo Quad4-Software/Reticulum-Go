@@ -153,12 +153,7 @@ func (t *Transport) mayRelayForSharedInstanceClient(sourceIface common.NetworkIn
 	if isLocalClientInterface(sourceIface) {
 		return true
 	}
-	for _, iface := range related {
-		if isLocalClientInterface(iface) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(related, isLocalClientInterface)
 }
 
 func (t *Transport) ourTransportID() []byte {
