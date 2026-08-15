@@ -44,6 +44,7 @@ class _StubDest:
     def __init__(self, dest_hash, dest_type):
         self.hash = dest_hash
         self.type = dest_type
+        self.link_id = dest_hash
 
     def encrypt(self, data):
         return data

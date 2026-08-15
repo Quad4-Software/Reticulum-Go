@@ -11,6 +11,8 @@ import (
 	"quad4/reticulum-go/pkg/ifac"
 )
 
+const sdrDefaultIFACSize = 8
+
 // ApplyIFACFromConfig derives and attaches an Interface Access Code to iface
 // when network_name, passphrase, ifac_netname, or ifac_netkey are set in cfg.
 func ApplyIFACFromConfig(iface common.NetworkInterface, cfg *common.InterfaceConfig) error {

@@ -273,7 +273,7 @@ func deliverOne(link *mockLink) {
 }
 
 func TestIsReadyToSendWindowFull(t *testing.T) {
-	link := &mockLink{status: transport.StatusActive, rtt: 2.0}
+	link := &mockLink{status: transport.StatusActive, rtt: 0.5}
 	c := NewChannel(link)
 	defer func() { _ = c.Close() }()
 	if !c.IsReadyToSend() {
@@ -295,7 +295,7 @@ func TestIsReadyToSendWindowFull(t *testing.T) {
 }
 
 func TestWaitReadyTimeout(t *testing.T) {
-	link := &mockLink{status: transport.StatusActive, rtt: 2.0}
+	link := &mockLink{status: transport.StatusActive, rtt: 0.5}
 	c := NewChannel(link)
 	defer func() { _ = c.Close() }()
 	_ = c.Send(&testMessage{data: []byte("a")})
@@ -335,8 +335,8 @@ func TestWindowStaysSlowOnHighRTT(t *testing.T) {
 		}
 		deliverOne(link)
 	}
-	if c.WindowMax() != WindowMaxSlow {
-		t.Fatalf("windowMax=%d want slow %d", c.WindowMax(), WindowMaxSlow)
+	if c.WindowMax() != 1 || c.Window() != 1 {
+		t.Fatalf("window=%d max=%d want 1 (Python RTT_SLOW)", c.Window(), c.WindowMax())
 	}
 }
 

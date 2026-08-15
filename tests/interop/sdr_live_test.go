@@ -5,7 +5,7 @@
 // Lab and testing only. Prefer mock. Live TX is not authorized by these tests.
 // Mock path always runs. Hardware paths skip when devices are absent.
 
-//go:build !js
+//go:build !js && !rns_slim
 
 package interop
 

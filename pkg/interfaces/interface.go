@@ -129,6 +129,10 @@ func NewBaseInterface(name string, ifType common.InterfaceType, enabled bool) Ba
 	}
 }
 
+func (i *BaseInterface) base() *BaseInterface {
+	return i
+}
+
 func (i *BaseInterface) SetPacketCallback(callback common.PacketCallback) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()

@@ -98,11 +98,16 @@ const (
 
 // Timeouts and intervals (seconds unless otherwise noted).
 const (
-	EstablishTimeout  = 6
-	KeepaliveInterval = 360
-	StaleTime         = 720
-	PathRequestTTL    = 300
-	AnnounceTimeout   = 15
+	EstablishmentTimeoutPerHop = 6
+	EstablishTimeout           = EstablishmentTimeoutPerHop
+	KeepaliveTimeoutFactor     = 4
+	StaleGrace                 = 2
+	Keepalive                  = 360
+	KeepaliveInterval          = Keepalive
+	StaleTime                  = 720
+	PathRequestTTL             = 300
+	AnnounceTimeout            = 15
+	PathRequestTimeout         = 15
 )
 
 // TokenCipher overhead in bytes (IV + auth tag area).

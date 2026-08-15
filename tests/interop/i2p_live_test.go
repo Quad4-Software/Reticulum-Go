@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
+//go:build !rns_slim
+
 // Live I2P Go and Python interop. Requires RUN_LIVE_INTEROP=1 and a local SAM
 // bridge (also checked via RUN_LIVE_I2P-style SAM reachability).
 

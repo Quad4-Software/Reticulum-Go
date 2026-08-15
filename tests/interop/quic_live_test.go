@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
+//go:build !rns_slim
+
 // Live Go-Go QUIC interface interop. Set RUN_LIVE_INTEROP=1.
 
 package interop

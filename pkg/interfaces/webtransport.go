@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
-//go:build !js
+//go:build !js && !rns_slim
 
 package interfaces
 
@@ -34,6 +34,44 @@ const (
 	wtHandshakeTimeout = 10 * time.Second
 	wtIdleTimeout      = 60 * time.Second
 )
+
+func init() {
+	registerBuiltinFromConfig("WebTransportClientInterface", newWebTransportClientFromConfig)
+	registerBuiltinFromConfig("WebTransportServerInterface", newWebTransportServerFromConfig)
+}
+
+func newWebTransportClientFromConfig(name string, cfg *common.InterfaceConfig, _ *FromConfigContext) (Interface, error) {
+	return NewWebTransportClientInterfaceWithRetries(
+		name,
+		cfg.TargetHost,
+		cfg.TargetPort,
+		cfg.Path,
+		cfg.Enabled,
+		cfg.MaxReconnTries,
+		WebTransportClientOptions{
+			CertFile:      cfg.CertFile,
+			KeyFile:       cfg.KeyFile,
+			PeerKey:       cfg.PeerKey,
+			SNI:           cfg.SNI,
+			TransportMode: cfg.TransportMode,
+		},
+	)
+}
+
+func newWebTransportServerFromConfig(name string, cfg *common.InterfaceConfig, _ *FromConfigContext) (Interface, error) {
+	return NewWebTransportServerInterface(
+		name,
+		cfg.Address,
+		cfg.Port,
+		cfg.Path,
+		WebTransportServerOptions{
+			CertFile:      cfg.CertFile,
+			KeyFile:       cfg.KeyFile,
+			PeerKey:       cfg.PeerKey,
+			TransportMode: cfg.TransportMode,
+		},
+	)
+}
 
 // WebTransportClientOptions holds optional TLS and carriage settings for a client.
 type WebTransportClientOptions struct {

@@ -98,7 +98,7 @@ type Envelope struct {
 
 // NewChannel creates a new Channel for the given link.
 func NewChannel(link transport.LinkInterface) *Channel {
-	return &Channel{
+	c := &Channel{
 		link:              link,
 		messageHandlers:   make([]messageHandlerEntry, InitialHandlerCapacity),
 		factories:         make(map[uint16]MessageConstructor),
@@ -109,6 +109,13 @@ func NewChannel(link transport.LinkInterface) *Channel {
 		windowFlexibility: WindowFlexibility,
 		maxTries:          DefaultMaxTries,
 	}
+	if link != nil && link.GetRTT() > RTTSlow {
+		c.window = 1
+		c.windowMax = 1
+		c.windowMin = 1
+		c.windowFlexibility = 1
+	}
+	return c
 }
 
 // outletReady reports whether the link may accept channel traffic.
@@ -292,14 +299,25 @@ func (c *Channel) handleDelivered(packet any) {
 	}
 }
 
+// packetTimeoutSeconds matches Python Channel._get_packet_timeout_time:
+// pow(1.5, tries-1) * max(rtt*2.5, 0.025) * (tx_ring_len + 1.5).
+func packetTimeoutSeconds(tries int, rtt float64, txRingLen int) float64 {
+	if tries < 1 {
+		tries = 1
+	}
+	if txRingLen < 0 {
+		txRingLen = 0
+	}
+	return math.Pow(TimeoutBaseMultiplier, float64(tries-1)) * math.Max(rtt*TimeoutRingMultiplier, RTTMinThreshold) * (float64(txRingLen) + TimeoutRingOffset)
+}
+
 // packetTimeoutLocked computes the retry timeout. Caller must hold c.mutex.
 func (c *Channel) packetTimeoutLocked(tries int) time.Duration {
-	rtt := c.link.GetRTT()
-	if rtt < RTTMinThreshold {
-		rtt = RTTMinThreshold
+	rtt := 0.0
+	if c.link != nil {
+		rtt = c.link.GetRTT()
 	}
-
-	timeout := math.Pow(TimeoutBaseMultiplier, float64(tries-1)) * rtt * TimeoutRingMultiplier * float64(len(c.txRing)+TimeoutRingOffset)
+	timeout := packetTimeoutSeconds(tries, rtt, len(c.txRing))
 	return time.Duration(timeout * float64(time.Second))
 }
 

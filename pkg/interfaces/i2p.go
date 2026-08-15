@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
+//go:build !rns_slim
+
 package interfaces
 
 import (
@@ -12,7 +14,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"quad4/reticulum-go/pkg/backbone"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/i2p"
@@ -28,32 +29,28 @@ const (
 	i2pDialTimeout     = 2 * time.Minute
 )
 
+func init() {
+	registerBuiltinFromConfig("I2PInterface", newI2PFromConfig)
+}
+
+func newI2PFromConfig(name string, cfg *common.InterfaceConfig, ctx *FromConfigContext) (Interface, error) {
+	parent, err := NewI2PInterface(name, cfg, ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, peerAddr := range cfg.I2PPeers {
+		peerName := name + " to " + peerAddr
+		peer := NewI2PInterfacePeer(parent, peerName, peerAddr, cfg.MaxReconnTries, cfg)
+		parent.registerSpawnedPeer(peer)
+	}
+	return parent, nil
+}
+
 const (
 	i2pTunnelStateInit   = 0x00
 	i2pTunnelStateActive = 0x01
 	i2pTunnelStateStale  = 0x02
 )
-
-// FromConfigContext carries runtime dependencies for interface types that
-// need storage paths, transport identity, or dynamic peer registration.
-type FromConfigContext struct {
-	I2PStoragePath        string
-	TransportID           []byte
-	RegisterPeer          func(name string, peer common.NetworkInterface) error
-	UnregisterPeer        func(name string)
-	SetupPeer             func(peer common.NetworkInterface)
-	SynthesizeTunnel      func(TunnelPeer)
-	VoidTunnel            func(TunnelPeer)
-	DefaultGravity        int
-	WatchInterfaces       bool
-	DiscoverInterfaces    bool
-	PanicOnInterfaceError bool
-	BackboneHub           *backbone.Hub
-	SpawnBackbone         func(client *BackboneClientInterface)
-	SpawnLocal            LocalSpawnHook
-	// ConfigDir is the directory containing config and the interfaces/ plugin tree.
-	ConfigDir string
-}
 
 // I2PInterface is the parent listener for inbound I2P peers and optional SAM
 // server tunnel publication.

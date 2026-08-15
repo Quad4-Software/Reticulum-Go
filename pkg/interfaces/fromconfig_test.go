@@ -24,7 +24,7 @@ func TestNewFromConfigNil(t *testing.T) {
 	}
 }
 
-func TestNewFromConfigModem73AndSDR(t *testing.T) {
+func TestNewFromConfigModem73(t *testing.T) {
 	m73, err := NewFromConfig("m", &common.InterfaceConfig{
 		Type:        "Modem73Interface",
 		Enabled:     false,
@@ -39,17 +39,5 @@ func TestNewFromConfigModem73AndSDR(t *testing.T) {
 	}
 	if m73.GetType() != common.IFTypeModem73 {
 		t.Fatalf("type=%v", m73.GetType())
-	}
-	sdrIface, err := NewFromConfig("s", &common.InterfaceConfig{
-		Type:    "SDRInterface",
-		Enabled: false,
-		Device:  "mock",
-		Modem:   "burst",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if sdrIface.GetType() != common.IFTypeSDR {
-		t.Fatalf("type=%v", sdrIface.GetType())
 	}
 }
