@@ -15,6 +15,12 @@ import (
 	"quad4/reticulum-go/pkg/transport"
 )
 
+func TestEstablishmentTimeoutPerHopMatchesRNS(t *testing.T) {
+	if EstablishmentTimeoutPerHop != 6 {
+		t.Fatalf("EstablishmentTimeoutPerHop=%v, RNS 1.4.2 uses 6", EstablishmentTimeoutPerHop)
+	}
+}
+
 func TestEphemeralKeyGeneration(t *testing.T) {
 	link := &Link{}
 

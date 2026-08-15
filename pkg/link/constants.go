@@ -12,7 +12,7 @@ const (
 	MTUByteMask  = 0xFFFFFF
 	ModeByteMask = 0xE0
 
-	EstablishmentTimeoutPerHop = 20
+	EstablishmentTimeoutPerHop = 6
 	KeepaliveTimeoutFactor     = 4
 	StaleGrace                 = 2
 	Keepalive                  = 360
