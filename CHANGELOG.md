@@ -24,6 +24,9 @@ Wire compatible with Python RNS 1.4.2
 - Calling Establish again on the same link returns ErrLinkAlreadySettled or ErrLinkEstablishBusy
 
 ### Performance
+- Destination name hashing lives in pkg/identity so hash-only tools need not import destination ratchets and msgpack. destination.Hash and HashFromIdentityHash remain wrappers
+- Link and transport timeout numbers alias pkg/common so importers can use the values without pulling link.go
+- Optional QUIC, WebTransport, I2P, and SDR interface drivers register at init. Default builds still include them. `-tags rns_slim` omits those drivers (quic-go, I2P, SDR) from the binary
 - Link SendPacket encrypts into the packed HT1 buffer (one wire allocation) and reuses per-link AES and HMAC state
 - AES-CBC encrypt/decrypt no longer allocates cipher.NewCBCEncrypter per packet
 - Packet receipts use a single AfterFunc timer instead of a goroutine plus 1s ticker
@@ -43,9 +46,16 @@ Wire compatible with Python RNS 1.4.2
 - BaseInterface bandwidth stats now increment TxPackets so transmitted-byte and packet counters stay aligned
 - CI bench-gate no longer hangs in transport.test. sim Close waited on handler-pool Sends blocked on full inboxes
 - CI fuzz-guided skips package unit tests and uses short coverage so the job fits the 45 minute limit
+- Channel retry timeout matches Python `_get_packet_timeout_time` (max(rtt*2.5, 0.025) and tx-ring + 1.5)
+- Channel start window is 1 when link RTT is above RTT_SLOW, matching Python Channel
+- Resource hashmap default MDU and collision-guard size match Python Link.MDU / HASHMAP_MAX_LEN
+
+### Tests
+- Golden Python RNS 1.4.2 wire vectors and oracles for packet flags/contexts/MDU, announce payload and destination hashes, channel envelopes and RTT windows, resource advertisements, link MDU and establishment timeouts, and adaptive path-request windows (5 bit/s floor, receive-only skipped, discovery timeout vs 15s)
 
 ### Docs
 - Configuration, API reference, control API, transport, links, utilities, development-and-testing, compatibility, and package-map docs updated for throttling, timeouts, relay behavior, and reticulum-go zen
+
 
 ## v1.0.2
 
