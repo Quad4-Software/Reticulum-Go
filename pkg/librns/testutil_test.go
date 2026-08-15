@@ -10,6 +10,12 @@ import (
 	"quad4/reticulum-go/pkg/transport"
 )
 
+// pipeTestBitrate models an in-process lossless pipe, matching the guess
+// used by the real Pipe interface (pkg/interfaces/pipe.go). Using
+// common.BitrateMinimum here would make AwaitPath treat the loopback as an
+// uninitialized slow radio and scale its path-response window to minutes.
+const pipeTestBitrate = 1_000_000
+
 type pipeInterface struct {
 	common.BaseInterface
 	peer   *pipeInterface
@@ -26,7 +32,7 @@ func newPipeInterface(name string) *pipeInterface {
 			Enabled: true,
 			Online:  true,
 			MTU:     common.DefaultMTU,
-			Bitrate: common.BitrateMinimum,
+			Bitrate: pipeTestBitrate,
 		},
 		online: true,
 	}
