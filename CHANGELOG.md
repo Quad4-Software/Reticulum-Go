@@ -35,7 +35,7 @@ Wire compatible with Python RNS 1.4.2
 - CI fuzz-guided skips package unit tests and uses short coverage so the job fits the 45 minute limit
 
 ### Docs
-- Configuration, API reference, control API, transport, and links docs updated for throttling, timeouts, relay behavior, and zen
+- Configuration, API reference, control API, transport, links, utilities, development-and-testing, compatibility, and package-map docs updated for throttling, timeouts, relay behavior, and reticulum-go zen
 
 ## v1.0.2
 
