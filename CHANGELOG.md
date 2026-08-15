@@ -16,6 +16,7 @@ Wire compatible with Python RNS 1.4.2
 - Link-relay proof timeout adds outbound-interface MTU airtime on the next hop (extra_link_proof_timeout), not on the receive interface
 
 ### Links
+- Link establishment per-hop timeout is 6 seconds, matching RNS 1.4.2 Link.ESTABLISHMENT_TIMEOUT_PER_HOP
 - Link Request rejects a duplicate in-flight path request and caps pending requests at 8
 - Send, Request, and Identify on a non-active link return ErrLinkNotActive with a callback hint
 - A second outbound Establish to the same destination while a handshake is pending returns ErrLinkEstablishBusy
