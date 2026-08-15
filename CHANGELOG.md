@@ -2,28 +2,40 @@
 
 ## v1.0.3 [unreleased]
 
-### Included
-- Transport discovery path-request timeout sized from slowest online outgoing fan-out bitrate instead of a flat 15s
-- Link-relay proof timeout adds outbound-interface MTU airtime (`extra_link_proof_timeout` on the next hop, not the receive iface)
-- `SlowestOnlineBitrate` and path-request emit skip receive-only interfaces
-- `Transport.AwaitPath` waits `PathResponseWindow` when the caller has no deadline
-- Control API `path/request` returns `wait_s` and `link.open` waits `AwaitPath` before handshake
-- librns `LinkOpen` waits `AwaitPath` before handshake
-- Nil-tag `RequestPath` repeats inside 20s return `ErrPathRequestThrottled` instead of silent success (`NudgePathRequest` no longer bypasses)
-- Local `Destination.Announce` bursts over 8 in 10s return `ErrDestAnnounceThrottled` (path-response announces are not capped)
-- Link `Request` rejects a duplicate in-flight path and caps pending requests at 8
-- `Send` / `Request` / `Identify` on a non-active link return `ErrLinkNotActive` with a callback hint
-- A second outbound `Establish` to the same destination while a handshake is still pending returns `ErrLinkEstablishBusy`
-- Calling `Establish` again on the same link returns `ErrLinkAlreadySettled` or `ErrLinkEstablishBusy`
-- Control API path-request repeats return HTTP 429 with `wait_s`
+Wire compatible with Python RNS 1.4.2
+
+### Added
+- reticulum-go zen (rgozen symlink): go-fix-style scanner for path and link footguns in Go and optional Python sources. Supports -fix for safe RequestPath error checks, JSON and plain output, rule listing, and test-file scanning
+
+### Transport and pathing
+- Discovery path-request timeout scales from the slowest online outgoing fan-out bitrate instead of a flat 15 second wait
+- Path-request emit and slowest-bitrate helpers skip receive-only interfaces
+- AwaitPath honors the path-response window when the caller sets no deadline
+- Repeated nil-tag path requests inside 20 seconds return ErrPathRequestThrottled instead of silent success. NudgePathRequest no longer bypasses throttling
+- Local announce bursts beyond 8 in 10 seconds return ErrDestAnnounceThrottled. Path-response announces are not capped
+- Link-relay proof timeout adds outbound-interface MTU airtime on the next hop (extra_link_proof_timeout), not on the receive interface
+
+### Links
+- Link Request rejects a duplicate in-flight path request and caps pending requests at 8
+- Send, Request, and Identify on a non-active link return ErrLinkNotActive with a callback hint
+- A second outbound Establish to the same destination while a handshake is pending returns ErrLinkEstablishBusy
+- Calling Establish again on the same link returns ErrLinkAlreadySettled or ErrLinkEstablishBusy
+
+### Control API and librns
+- path/request responses include wait_s. link.open waits for AwaitPath before handshake
+- librns LinkOpen waits for AwaitPath before handshake
+- Control API path-request repeats return HTTP 429 with wait_s
 
 ### Fixed
-- Shared-instance local clients still get path and link relay when `enable_transport = no` (Python `from_local_client` / `for_local_client_link`). PATHREQUEST already forwarded, but LINKREQUEST and link data were dropped, so rngit and other Python apps resolved a path then failed to establish a link.
-- Developer errors for path/link relay: no-path link relay, transport-disabled relay, no outgoing interface for path request, and interface-not-ready path request return explicit errors instead of silent success or misleading "no destination" logs
-- `Transport.AwaitPath` returns `ErrNoPathToDestination` with hash and hint on timeout instead of bare `context.DeadlineExceeded`
-- `BaseInterface.updateBandwidthStats` increments `TxPackets` so interface TX packet counters match transmitted bytes
-- CI bench-gate no longer hangs in `transport.test` (sim Close waited on handler-pool Sends blocked on full inboxes)
-- CI fuzz-guided skips package unit tests and uses `-short` coverage so the job fits the 45m limit
+- Shared-instance local clients still receive path and link relay when enable_transport is disabled (Python from_local_client and for_local_client_link). PATHREQUEST was already forwarded, but LINKREQUEST and link data were dropped, so rngit and other Python apps resolved a path then failed to establish a link
+- Path and link relay developer errors: no-path link relay, transport-disabled relay, no outgoing interface for path request, and interface-not-ready path request now return explicit errors instead of silent success or misleading no-destination logs
+- AwaitPath timeout returns ErrNoPathToDestination with destination hash and hint instead of bare context.DeadlineExceeded
+- BaseInterface bandwidth stats now increment TxPackets so transmitted-byte and packet counters stay aligned
+- CI bench-gate no longer hangs in transport.test. sim Close waited on handler-pool Sends blocked on full inboxes
+- CI fuzz-guided skips package unit tests and uses short coverage so the job fits the 45 minute limit
+
+### Docs
+- Configuration, API reference, control API, transport, and links docs updated for throttling, timeouts, relay behavior, and zen
 
 ## v1.0.2
 
