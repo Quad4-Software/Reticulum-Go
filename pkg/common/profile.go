@@ -32,9 +32,6 @@ func (c *ReticulumConfig) ApplyNodeProfile() {
 }
 
 func (c *ReticulumConfig) applyCoreRouterProfile() {
-	if !c.DoSProtectionSet && strings.TrimSpace(c.DoSProtection) == "auto" {
-		c.DoSProtection = "prevent"
-	}
 	if !c.BackboneIOSet && strings.TrimSpace(c.BackboneIO) == "" {
 		c.BackboneIO = "auto"
 	}

@@ -8,10 +8,12 @@ import "time"
 // Default thresholds and adaptive policy for mesh nodes.
 const (
 	// DefaultMaxPPS is the absolute ceiling for per-iface packet rate.
-	DefaultMaxPPS = 2000.0
+	// Sized for a busy public transport, not a quiet endpoint.
+	DefaultMaxPPS = 10000.0
 
 	// DefaultMaxBPS is the absolute ceiling for per-iface byte rate.
-	DefaultMaxBPS = 2 * 1024 * 1024
+	// Sized for a busy public transport, not a quiet endpoint.
+	DefaultMaxBPS = 16 * 1024 * 1024
 
 	// DefaultFloorPPS is the minimum adaptive trip line while learning.
 	DefaultFloorPPS = 50.0
@@ -29,16 +31,16 @@ const (
 	EWMAAlpha = 0.2
 
 	// DefaultMaxConns caps concurrent accepted stream connections per iface.
-	DefaultMaxConns = 256
+	DefaultMaxConns = 1024
 
 	// DefaultMaxResources caps concurrent incoming resources process-wide.
-	DefaultMaxResources = 64
+	DefaultMaxResources = 256
 
 	// DefaultMaxCrypto caps concurrent crypto jobs (decrypt verify HMAC).
-	DefaultMaxCrypto = 256
+	DefaultMaxCrypto = 1024
 
 	// DefaultMaxHandshake caps concurrent link handshake jobs.
-	DefaultMaxHandshake = 32
+	DefaultMaxHandshake = 128
 
 	// BucketCount is the number of sub-buckets in the one-second rate window.
 	BucketCount = 10

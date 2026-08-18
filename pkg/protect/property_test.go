@@ -60,7 +60,7 @@ func TestPropertyPreventBlocksOnlyAfterThreshold(t *testing.T) {
 			}
 		}
 		for i := 0; i < int(extra)+1; i++ {
-			d := e.AdmitPacket("pbt", 1)
+			d := e.admitWithOpts("pbt", 1, AdmitOpts{Class: ClassShedFirst})
 			if d.Allow {
 				return false
 			}

@@ -277,9 +277,11 @@ type ReticulumConfig struct {
 	SoftMemoryLimitBytes int64
 
 	// DoSProtection selects IDS/IPS style flood and OOM gates off detect prevent or auto.
-	// Go-only. Default auto. Detect warns on stdout and increments health counters.
-	// Prevent also sheds ingress refuses excess accepts and drops overloaded handlers.
-	// Auto learns quietly persists baselines via msgpack then arms prevent and relearns on change.
+	// Go-only. Default off until the gates are proven not to drop legitimate
+	// public-mesh path requests and resource transfers. Detect warns on stdout
+	// and increments health counters. Prevent also sheds ingress refuses excess
+	// accepts and drops overloaded handlers. Auto learns quietly persists
+	// baselines via msgpack then arms prevent and relearns on change.
 	DoSProtection string
 
 	// DoSProtectionSet is true when dos_protection appeared in the config file.

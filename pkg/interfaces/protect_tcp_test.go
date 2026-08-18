@@ -68,14 +68,15 @@ func TestSharedListenerPeerIsolationProtectsOtherPeers(t *testing.T) {
 	base.SetPacketCallback(func(data []byte, iface common.NetworkInterface) {
 		delivered.Add(1)
 	})
-	pkt := []byte{0x00, 0x00}
+	floodPkt := []byte{0x01, 0x00}
+	keepPkt := []byte{0x02, 0x00}
 
 	for range 400 {
-		base.ProcessIncomingFrom(pkt, "attacker:1")
+		base.ProcessIncomingFrom(floodPkt, "attacker:1")
 	}
 	before := delivered.Load()
 
-	base.ProcessIncomingFrom(pkt, "friend:1")
+	base.ProcessIncomingFrom(keepPkt, "friend:1")
 	after := delivered.Load()
 	if after != before+1 {
 		t.Fatalf("quiet peer on the same shared listener must still be delivered despite another peer flooding: before=%d after=%d", before, after)
@@ -103,7 +104,7 @@ func TestIfaceChaosProtectFlood(t *testing.T) {
 	base.SetPacketCallback(func(data []byte, iface common.NetworkInterface) {
 		calls.Add(1)
 	})
-	pkt := []byte{0x00, 0x00}
+	pkt := []byte{0x01, 0x00}
 	for range 200 {
 		base.ProcessIncoming(pkt)
 	}

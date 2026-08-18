@@ -20,6 +20,21 @@ func TestScaledFloorsHighBitrate(t *testing.T) {
 	}
 }
 
+func TestPreferKeepCapsReachAdvertisedBitrate(t *testing.T) {
+	tripPPS, tripBPS := scaledFloors(10_000_000, DefaultFloorPPS, DefaultFloorBPS, DefaultMaxPPS, DefaultMaxBPS)
+	pps, bps := preferKeepCaps(tripPPS, tripBPS, DefaultMaxPPS, DefaultMaxBPS, 10_000_000)
+	if bps < float64(10_000_000)/8 {
+		t.Fatalf("bps=%v want at least advertised byte rate", bps)
+	}
+	if pps < tripPPS*2 {
+		t.Fatalf("pps=%v want at least 2x trip", pps)
+	}
+	slowPPS, slowBPS := preferKeepCaps(2.5, 1638, DefaultMaxPPS, DefaultMaxBPS, 1200)
+	if slowPPS > 8 || slowBPS > 4000 {
+		t.Fatalf("slow radio caps should stay near 2x trip pps=%v bps=%v", slowPPS, slowBPS)
+	}
+}
+
 func TestPeekPacketClass(t *testing.T) {
 	announce := byte(0x01)
 	linkPkt := byte(wirePacketLink)

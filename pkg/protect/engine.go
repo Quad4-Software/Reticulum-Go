@@ -28,23 +28,28 @@ type Decision struct {
 
 // Options configures an Engine.
 type Options struct {
-	Mode                 Mode
-	MaxPPS               float64
-	MaxBPS               float64
-	FloorPPS             float64
-	FloorBPS             float64
-	MaxConns             int
-	MaxResources         int
-	MaxCrypto            int
-	MaxHandshake         int
-	SoftMemoryLimit      int64
-	HeapWatermark        int64
-	WarnWriter           io.Writer
-	WarnInterval         time.Duration
-	Now                  func() time.Time
-	MemorySampleFunc     func() uint64
-	DisableAdaptive      bool
-	DisableCoolDown      bool
+	Mode             Mode
+	MaxPPS           float64
+	MaxBPS           float64
+	FloorPPS         float64
+	FloorBPS         float64
+	MaxConns         int
+	MaxResources     int
+	MaxCrypto        int
+	MaxHandshake     int
+	SoftMemoryLimit  int64
+	HeapWatermark    int64
+	WarnWriter       io.Writer
+	WarnInterval     time.Duration
+	Now              func() time.Time
+	MemorySampleFunc func() uint64
+	DisableAdaptive  bool
+	DisableCoolDown  bool
+	// EnableIfaceCoolDown opts into a 15s hard reject of every packet on
+	// an iface after a burst of trips. Off by default because that blackholes
+	// a shared public UDP or TCP listener. Peer cool-down still isolates one
+	// flooder without taking the iface down.
+	EnableIfaceCoolDown  bool
 	DisablePeerIsolation bool
 	StorePath            string
 	AutoLearnMinDuration time.Duration
@@ -103,6 +108,7 @@ type Engine struct {
 	memSample            func() uint64
 	disableAdaptive      bool
 	disableCoolDown      bool
+	enableIfaceCoolDown  bool
 	disablePeerIsolation bool
 	storePath            string
 	autoLearnMinDuration time.Duration
@@ -226,6 +232,7 @@ func New(opts Options) *Engine {
 		memSample:            opts.MemorySampleFunc,
 		disableAdaptive:      opts.DisableAdaptive,
 		disableCoolDown:      opts.DisableCoolDown,
+		enableIfaceCoolDown:  opts.EnableIfaceCoolDown,
 		disablePeerIsolation: opts.DisablePeerIsolation,
 		storePath:            opts.StorePath,
 		autoLearnMinDuration: opts.AutoLearnMinDuration,
@@ -420,7 +427,7 @@ func (e *Engine) admitWithOpts(iface string, nbytes int, opts AdmitOpts) Decisio
 	// exhausting the whole interface budget and cooling down every other
 	// peer sharing it.
 	if opts.PeerKey != "" && !e.disablePeerIsolation {
-		if d, deny := e.checkPeer(iface, opts.PeerKey, nbytes, now); deny {
+		if d, deny := e.checkPeer(iface, nbytes, now, opts); deny {
 			return d
 		}
 	}
@@ -444,26 +451,15 @@ func (e *Engine) admitWithOpts(iface string, nbytes int, opts AdmitOpts) Decisio
 	overBPS := bps > bpsLimit
 	if overPPS || overBPS {
 		if opts.Class.preferKeep() {
-			strictPPS := ppsLimit * 2
-			strictBPS := bpsLimit * 2
+			strictPPS, strictBPS := preferKeepCaps(ppsLimit, bpsLimit, e.maxPPS, e.maxBPS, opts.Bitrate)
 			if pps <= strictPPS && bps <= strictBPS {
-				// Claimed link/proof class packets ride out bursts up to 2x the
-				// trip line, but the packet class byte is unauthenticated wire
-				// data any sender controls. Still record the trip and count it
-				// toward interface cool-down so sustained abuse of this
-				// leniency escalates like any other flood instead of being
-				// invisible to health counters and cool-down forever.
 				leniencyReason := ReasonPPS
 				if overBPS && !overPPS {
 					leniencyReason = ReasonBPS
 				}
 				d := e.tripCoolDownOnly(iface, leniencyReason)
-				if d.Allow {
-					if sampled {
-						e.maybePromoteOrDrift(iface, samplePPS, sampleBPS)
-					}
-				} else {
-					e.resetDriftLocked()
+				if sampled {
+					e.maybePromoteOrDrift(iface, samplePPS, sampleBPS)
 				}
 				return d
 			}
@@ -558,20 +554,12 @@ func (e *Engine) decideMemory(iface string) Decision {
 	return Decision{Allow: true, Trip: true, Reason: ReasonMemory}
 }
 
-// tripCoolDownOnly records a trip for health counters and interface
-// cool-down accounting without applying decide()'s per-packet enforcement
-// deny. It is used by the prefer-keep leniency band so claimed link/proof
-// traffic can still ride out isolated bursts, while sustained abuse of that
-// leniency still escalates to a full interface cool-down like any other
-// flood, instead of being invisible to metrics and cool-down forever.
+// tripCoolDownOnly records a health trip for prefer-keep traffic that is over
+// the adaptive line but still inside the 2x leniency band. It does not arm
+// iface cool-down. Cooling that band dropped legitimate resource transfers
+// after a quiet baseline. Traffic above 2x still sheds through tripWithCoolDown.
 func (e *Engine) tripCoolDownOnly(iface string, reason Reason) Decision {
 	e.recordTrip(iface, reason)
-	if e.accumulateCoolDownTrip(iface) {
-		e.recordTrip(iface, ReasonCoolDown)
-		if e.enforcementMode() == ModePrevent {
-			return Decision{Allow: false, Trip: true, Reason: ReasonCoolDown}
-		}
-	}
 	return Decision{Allow: true, Trip: true, Reason: reason}
 }
 
@@ -617,34 +605,43 @@ func (e *Engine) evictStalePeerLocked(st *ifaceState, now time.Time) {
 
 // checkPeer enforces a fair-share budget for a single remote peer sharing
 // iface, independent of the interface-wide aggregate check in admitWithOpts.
-// It is what stops one hostile peer on a shared listener from exhausting
-// the whole interface budget and cooling down every other peer on it.
-// Returns deny=true when the caller should return the decision immediately
-// instead of continuing to the interface-wide check.
-func (e *Engine) checkPeer(iface, peerKey string, nbytes int, now time.Time) (Decision, bool) {
+// Announce-class traffic is capped at PeerBudgetFraction of the bitrate-scaled
+// trip line so one hostile sender cannot cool down the rest of a shared
+// listener. Established link-class traffic uses the same prefer-keep
+// headroom as the interface path, otherwise a quiet-learned UDP or TCP peer
+// doing a resource transfer is shed at a few tens of packets per second.
+func (e *Engine) checkPeer(iface string, nbytes int, now time.Time, opts AdmitOpts) (Decision, bool) {
 	e.mu.Lock()
 	st := e.ifaceLocked(iface)
 	if !e.disableCoolDown {
-		if ps := st.peers[peerKey]; ps != nil && now.Before(ps.coolUntil) {
+		if ps := st.peers[opts.PeerKey]; ps != nil && now.Before(ps.coolUntil) {
 			e.mu.Unlock()
 			return e.decide(iface, ReasonCoolDown), true
 		}
 	}
-	ps := e.peerLocked(st, peerKey, now)
+	ps := e.peerLocked(st, opts.PeerKey, now)
 	pps, bps := ps.window.add(now, nbytes)
-	ppsLimit, bpsLimit := st.adapt.tripLine(e.maxPPS, e.maxBPS, e.floorPPS, e.floorBPS)
+	floorPPS, floorBPS := scaledFloors(opts.Bitrate, e.floorPPS, e.floorBPS, e.maxPPS, e.maxBPS)
+	ppsLimit, bpsLimit := e.maxPPS, e.maxBPS
+	if !e.disableAdaptive {
+		ppsLimit, bpsLimit = st.adapt.tripLine(e.maxPPS, e.maxBPS, floorPPS, floorBPS)
+	}
 	e.mu.Unlock()
 
-	peerPPSLimit := ppsLimit * PeerBudgetFraction
-	peerBPSLimit := bpsLimit * PeerBudgetFraction
-	if pps <= peerPPSLimit && bps <= peerBPSLimit {
+	if opts.Class.preferKeep() {
+		ppsLimit, bpsLimit = preferKeepCaps(ppsLimit, bpsLimit, e.maxPPS, e.maxBPS, opts.Bitrate)
+	} else {
+		ppsLimit *= PeerBudgetFraction
+		bpsLimit *= PeerBudgetFraction
+	}
+	if pps <= ppsLimit && bps <= bpsLimit {
 		return Decision{Allow: true}, false
 	}
 	reason := ReasonPPS
-	if bps > peerBPSLimit && pps <= peerPPSLimit {
+	if bps > bpsLimit && pps <= ppsLimit {
 		reason = ReasonBPS
 	}
-	return e.tripPeerCoolDown(iface, peerKey, reason), true
+	return e.tripPeerCoolDown(iface, opts.PeerKey, reason), true
 }
 
 // tripPeerCoolDown mirrors tripWithCoolDown but scopes cool-down state to a
@@ -685,7 +682,7 @@ func (e *Engine) tripPeerCoolDown(iface, peerKey string, reason Reason) Decision
 
 func (e *Engine) tripWithCoolDown(iface string, reason Reason) Decision {
 	d := e.decide(iface, reason)
-	if e.disableCoolDown {
+	if e.disableCoolDown || !e.enableIfaceCoolDown {
 		return d
 	}
 	if e.accumulateCoolDownTrip(iface) {

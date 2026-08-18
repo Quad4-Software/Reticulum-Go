@@ -32,8 +32,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Interfaces == nil {
 		t.Error("Interfaces map must be initialised")
 	}
-	if cfg.DoSProtection != "auto" {
-		t.Errorf("DoSProtection: got %q, want auto", cfg.DoSProtection)
+	if cfg.DoSProtection != "off" {
+		t.Errorf("DoSProtection: got %q, want off", cfg.DoSProtection)
 	}
 	if !cfg.EnableSandbox {
 		t.Error("EnableSandbox should be true by default")
@@ -566,7 +566,7 @@ func TestLoadConfig_NodeProfileCoreRouterDoesNotOverrideDos(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_NodeProfileCoreRouterFillsDos(t *testing.T) {
+func TestLoadConfig_NodeProfileCoreRouterLeavesDosOff(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config")
 	writeFile(t, path, `[reticulum]
   node_profile = core_router
@@ -575,8 +575,8 @@ func TestLoadConfig_NodeProfileCoreRouterFillsDos(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
-	if cfg.DoSProtection != "prevent" {
-		t.Fatalf("dos=%q want prevent", cfg.DoSProtection)
+	if cfg.DoSProtection != "off" {
+		t.Fatalf("dos=%q want off", cfg.DoSProtection)
 	}
 	if cfg.MaxPacketHandlers < common.DefaultMaxPacketHandlers {
 		t.Fatalf("handlers=%d", cfg.MaxPacketHandlers)

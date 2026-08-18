@@ -108,7 +108,7 @@ func TestFalseNegativeFloodStillBlockedAfterQuietBaseline(t *testing.T) {
 	}
 	blocked := 0
 	for i := 0; i < int(ppsLimit)+80; i++ {
-		d := e.AdmitPacket("fn0", 32)
+		d := e.admitWithOpts("fn0", 32, AdmitOpts{Class: ClassShedFirst})
 		if !d.Allow {
 			blocked++
 		}
@@ -136,7 +136,7 @@ func TestMultiIfaceIsolationFloodOnOneQuietOnOther(t *testing.T) {
 	}
 	blocked := 0
 	for range 80 {
-		d := e.AdmitPacket("flood", 16)
+		d := e.admitWithOpts("flood", 16, AdmitOpts{Class: ClassShedFirst})
 		if !d.Allow {
 			blocked++
 		}
@@ -178,7 +178,7 @@ func TestNearThresholdOscillationUnderLineNoTrip(t *testing.T) {
 	advance(clock, time.Second)
 	blocked := 0
 	for range 40 {
-		if d := e.AdmitPacket("osc", 8); !d.Allow {
+		if d := e.admitWithOpts("osc", 8, AdmitOpts{Class: ClassShedFirst}); !d.Allow {
 			blocked++
 		}
 	}
@@ -231,8 +231,8 @@ func TestSlowPoisonUnderFloorStillBoundedTripLine(t *testing.T) {
 	}
 	advance(clock, time.Second)
 	blocked := 0
-	for range 300 {
-		if d := e.AdmitPacket("slow", 32); !d.Allow {
+	for range 500 {
+		if d := e.admitWithOpts("slow", 32, AdmitOpts{Class: ClassShedFirst}); !d.Allow {
 			blocked++
 		}
 	}
@@ -313,9 +313,10 @@ func TestDetectNeverFalseBlocksUnderFlood(t *testing.T) {
 // TestCoolDownDoesNotFalseTripOtherIface keeps cool-down scoped.
 func TestCoolDownDoesNotFalseTripOtherIface(t *testing.T) {
 	e, clock := newClockEngine(t, Options{
-		Mode:            ModePrevent,
-		MaxPPS:          5,
-		DisableAdaptive: true,
+		Mode:                ModePrevent,
+		MaxPPS:              5,
+		DisableAdaptive:     true,
+		EnableIfaceCoolDown: true,
 	})
 	for range CoolDownTripThreshold + 2 {
 		advance(clock, time.Second)

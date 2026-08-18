@@ -239,13 +239,14 @@ func TestCoolDownAfterSustainedTrips(t *testing.T) {
 	var buf bytes.Buffer
 	clock := time.Unix(1_700_000_000, 0)
 	e := New(Options{
-		Mode:            ModePrevent,
-		MaxPPS:          2,
-		WarnWriter:      &buf,
-		WarnInterval:    time.Hour,
-		DisableAdaptive: true,
-		DisableCoolDown: false,
-		Now:             func() time.Time { return clock },
+		Mode:                ModePrevent,
+		MaxPPS:              2,
+		WarnWriter:          &buf,
+		WarnInterval:        time.Hour,
+		DisableAdaptive:     true,
+		DisableCoolDown:     false,
+		EnableIfaceCoolDown: true,
+		Now:                 func() time.Time { return clock },
 	})
 	for range CoolDownTripThreshold + 5 {
 		_ = e.AdmitPacket("cd0", 1)
@@ -265,6 +266,31 @@ func TestCoolDownAfterSustainedTrips(t *testing.T) {
 	d = e.AdmitPacket("cd0", 1)
 	if d.Reason == ReasonCoolDown && !d.Allow {
 		t.Fatal("cooldown should have expired")
+	}
+}
+
+func TestIfaceCoolDownOffByDefault(t *testing.T) {
+	health.Default.Reset()
+	clock := time.Unix(1_700_000_000, 0)
+	e := New(Options{
+		Mode:            ModePrevent,
+		MaxPPS:          2,
+		WarnWriter:      &bytes.Buffer{},
+		WarnInterval:    time.Hour,
+		DisableAdaptive: true,
+		Now:             func() time.Time { return clock },
+	})
+	for range CoolDownTripThreshold + 20 {
+		_ = e.admitWithOpts("pub0", 1, AdmitOpts{Class: ClassShedFirst})
+		clock = clock.Add(time.Millisecond)
+	}
+	if e.InCoolDown("pub0") {
+		t.Fatal("default policy must not blackhole a public iface")
+	}
+	clock = clock.Add(time.Second)
+	d := e.admitWithOpts("pub0", 1, AdmitOpts{Class: ClassPreferKeep})
+	if !d.Allow {
+		t.Fatalf("quiet link packet after announce flood must still pass %#v", d)
 	}
 }
 
@@ -412,7 +438,7 @@ func TestPreferKeepLeniencyRecordsTrip(t *testing.T) {
 	}
 }
 
-func TestTripCoolDownOnlyEscalatesLeniencyAbuse(t *testing.T) {
+func TestTripCoolDownOnlyDoesNotArmIfaceCoolDown(t *testing.T) {
 	health.Default.Reset()
 	var buf bytes.Buffer
 	clock := time.Unix(1_700_000_000, 0)
@@ -422,25 +448,42 @@ func TestTripCoolDownOnlyEscalatesLeniencyAbuse(t *testing.T) {
 		WarnInterval: time.Hour,
 		Now:          func() time.Time { return clock },
 	})
-	for i := range CoolDownTripThreshold - 1 {
+	for range CoolDownTripThreshold + 8 {
 		d := e.tripCoolDownOnly("pk0", ReasonPPS)
 		if !d.Allow {
-			t.Fatalf("leniency trip %d should still be allowed before threshold: %#v", i, d)
+			t.Fatalf("prefer-keep leniency must stay allowed: %#v", d)
 		}
 		clock = clock.Add(10 * time.Millisecond)
 	}
 	if e.InCoolDown("pk0") {
-		t.Fatal("cool-down should not be armed yet")
-	}
-	d := e.tripCoolDownOnly("pk0", ReasonPPS)
-	if d.Allow || d.Reason != ReasonCoolDown {
-		t.Fatalf("threshold-th sustained leniency trip should arm cool-down: %#v", d)
-	}
-	if !e.InCoolDown("pk0") {
-		t.Fatal("expected iface in cool-down after sustained leniency abuse")
+		t.Fatal("leniency band must not arm iface cool-down (that drops resource transfers after a quiet baseline)")
 	}
 	if e.TripCount(ReasonPPS) == 0 {
 		t.Fatal("leniency usage should still be visible in trip counters")
+	}
+}
+
+func TestPreferKeepOverTwoXCoolsDown(t *testing.T) {
+	health.Default.Reset()
+	clock := time.Unix(1_700_000_000, 0)
+	e := New(Options{
+		Mode:            ModePrevent,
+		MaxPPS:          10,
+		WarnWriter:      &bytes.Buffer{},
+		WarnInterval:    time.Hour,
+		DisableAdaptive: true,
+		Now:             func() time.Time { return clock },
+	})
+	opts := AdmitOpts{Class: ClassPreferKeep}
+	blocked := 0
+	for range CoolDownTripThreshold + 20 {
+		d := e.admitWithOpts("pk1", 1, opts)
+		if !d.Allow {
+			blocked++
+		}
+	}
+	if blocked == 0 {
+		t.Fatal("prefer-keep above 2x the trip line must shed")
 	}
 }
 
@@ -460,8 +503,8 @@ func TestPeerIsolationShedsOnlyTheFloodingPeer(t *testing.T) {
 	// Peer budget is PeerBudgetFraction (0.5) of the 100 pps interface line,
 	// so a single peer sending more than 50 pps should trip its own bucket
 	// well before the interface aggregate itself is threatened.
-	floodOpts := AdmitOpts{PeerKey: "attacker:1"}
-	quietOpts := AdmitOpts{PeerKey: "friend:1"}
+	floodOpts := AdmitOpts{PeerKey: "attacker:1", Class: ClassShedFirst}
+	quietOpts := AdmitOpts{PeerKey: "friend:1", Class: ClassPreferKeep}
 
 	floodBlocked := false
 	for range 80 {
@@ -496,7 +539,7 @@ func TestPeerIsolationDisabledFallsBackToSharedBudget(t *testing.T) {
 		DisablePeerIsolation: true,
 		Now:                  func() time.Time { return clock },
 	})
-	opts := AdmitOpts{PeerKey: "attacker:1"}
+	opts := AdmitOpts{PeerKey: "attacker:1", Class: ClassShedFirst}
 	blocked := false
 	for range 20 {
 		d := e.admitWithOpts("shared0", 1, opts)

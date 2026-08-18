@@ -11,11 +11,11 @@ import (
 func TestApplyNodeProfileCoreRouterFillsUnset(t *testing.T) {
 	c := &ReticulumConfig{
 		NodeProfile:   NodeProfileCoreRouter,
-		DoSProtection: "auto",
+		DoSProtection: "off",
 	}
 	c.ApplyNodeProfile()
-	if c.DoSProtection != "prevent" {
-		t.Fatalf("dos=%q want prevent", c.DoSProtection)
+	if c.DoSProtection != "off" {
+		t.Fatalf("dos=%q want off", c.DoSProtection)
 	}
 	if !c.WatchInterfaces {
 		t.Fatal("watch_interfaces should be on")

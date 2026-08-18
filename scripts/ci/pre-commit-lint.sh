@@ -2,7 +2,7 @@
 # Staged-file checks for pre-commit (workflows, taskfiles, scripts).
 #
 # YAML: yamllint when available, else python3 + PyYAML syntax load.
-# Shell: shellcheck on staged *.sh under scripts/ and hooks under .githooks/.
+# Shell: shellcheck on staged *.sh under scripts/, root install.sh, and .githooks/.
 #
 # Skip:
 #   SKIP_LINT_HOOK=1
@@ -61,6 +61,9 @@ while IFS= read -r path; do
 		esac
 		;;
 	.githooks/*)
+		shell_targets="$shell_targets $path"
+		;;
+	install.sh)
 		shell_targets="$shell_targets $path"
 		;;
 	esac

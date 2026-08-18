@@ -7,16 +7,17 @@ package protect
 type PacketClass int
 
 const (
-	// ClassUnknown uses default shed behavior.
+	// ClassUnknown is data and path-request traffic. It uses prefer-keep
+	// leniency so a busy public mesh does not drop discovery under load.
 	ClassUnknown PacketClass = iota
 	// ClassShedFirst drops before prefer-keep traffic when over the trip line.
 	ClassShedFirst
-	// ClassPreferKeep allows up to 2x the trip line before shed unless cool-down or memory shed.
+	// ClassPreferKeep rides out bursts over the trip line up to 2x, or the advertised bitrate if higher.
 	ClassPreferKeep
 )
 
 func (c PacketClass) preferKeep() bool {
-	return c == ClassPreferKeep
+	return c != ClassShedFirst
 }
 
 // AdmitOpts carries optional ingress metadata for protect gates.
@@ -86,6 +87,37 @@ func scaledFloors(bitrate int64, floorPPS, floorBPS, maxPPS, maxBPS float64) (pp
 	}
 	if bps > maxBPS*0.9 {
 		bps = maxBPS * 0.9
+	}
+	return pps, bps
+}
+
+// preferKeepMinPacket is the smallest frame used to turn a bit-rate into a
+// packet-rate cap so a resource stream of typical link packets is not treated
+// as a flood after a quiet baseline.
+const preferKeepMinPacket = 64
+
+// preferKeepCaps is the prefer-keep leniency ceiling. It is at least 2x the
+// adaptive trip line, and on a rated interface it also reaches the advertised
+// byte rate (capped at maxPPS/maxBPS) so a UDP or TCP resource transfer can
+// fill the guessed link after a quiet learn.
+func preferKeepCaps(tripPPS, tripBPS, maxPPS, maxBPS float64, bitrate int64) (pps, bps float64) {
+	pps = tripPPS * 2
+	bps = tripBPS * 2
+	if bitrate > 0 {
+		linkBPS := float64(bitrate) / 8
+		if linkBPS > maxBPS {
+			linkBPS = maxBPS
+		}
+		if linkBPS > bps {
+			bps = linkBPS
+		}
+		linkPPS := linkBPS / preferKeepMinPacket
+		if linkPPS > maxPPS {
+			linkPPS = maxPPS
+		}
+		if linkPPS > pps {
+			pps = linkPPS
+		}
 	}
 	return pps, bps
 }

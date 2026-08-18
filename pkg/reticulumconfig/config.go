@@ -62,7 +62,7 @@ func DefaultConfig() *common.ReticulumConfig {
 		AllowLinkPathRebalance: true,
 		ControlAPIHost:         DefaultControlAPIHost,
 		ControlAPIPort:         DefaultControlAPIPort,
-		DoSProtection:          "auto",
+		DoSProtection:          "off",
 	}
 }
 
