@@ -94,6 +94,26 @@ Refer to [SECURITY.md](SECURITY.md#runtime-sandbox) for details and specific pla
 
 ## Quick Start
 
+Install a release binary (linux/amd64 uses GOAMD64=v3 when the CPU supports AVX2) and init service files for systemd, OpenRC, runit, or dinit:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Quad4-Software/Reticulum-Go/master/install.sh | sh
+```
+
+Preview detections and paths without writing files:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Quad4-Software/Reticulum-Go/master/install.sh | sh -s -- --dry-run
+```
+
+Build from source instead of downloading a binary:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Quad4-Software/Reticulum-Go/master/install.sh | sh -s -- --source
+```
+
+From a git checkout, run `./install.sh` or `./install.sh --source`. Pass `--binary` or `--source` to skip the prompt. `--init` selects systemd, openrc, runit, dinit, all, or none.
+
 You can use the provided [Makefile](Makefile) targets or run the equivalent go commands directly if you do not have Make installed.
 
 ### Build
@@ -242,6 +262,7 @@ go test -v ./...
 | `make test-short` | Runs only short unit tests. | Runs `go test -short -v ./...` |
 | `make test-race` | Runs tests with the Go race detector enabled. | Runs `go test -race -v ./...` |
 | `make test-services` | Docker tests for logfile + systemd/openrc/runit/dinit services. | Runs `scripts/ci/test-services-docker.sh`. |
+| `make test-install-script` | shellcheck and dry-run for the root installer. | Runs `scripts/ci/test-install.sh`. |
 | `make test-self-check` | Host OS preflight for reticulum-go platform features. | Runs `scripts/ci/run-self-check.sh`. |
 | `make test-self-check-386` | Linux 386 self-check under qemu-user. | Runs `scripts/ci/run-qemu-arch-self-check.sh 386` (needs `qemu-user-static`). |
 | `make test-self-check-arm` | Linux arm (GOARM=6) self-check under qemu-user. | Runs `scripts/ci/run-qemu-arch-self-check.sh arm` (needs `qemu-user-static`). |

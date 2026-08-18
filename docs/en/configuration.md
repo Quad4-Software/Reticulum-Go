@@ -73,7 +73,7 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | in_memory_storage | no | Fully ephemeral mode: no disk for paths, known dests, known-peer ratchets, transport identity, blackhole, or split resources. Implies both table flags |
 | identity_backend | file | Identity at-rest store: file, secretservice (Freedesktop Secret Service), or keyring (Linux kernel keyring) |
 | soft_memory_limit | (none) | Soft heap budget (K/M/G or bytes) via Go `debug.SetMemoryLimit`. Env: `RETICULUM_SOFT_MEMORY_LIMIT` |
-| dos_protection | auto | Go-only local IDS/IPS gates. Values: off, detect, prevent, auto (alias smart). See [DoS protection](#dos_protection-go-only) |
+| dos_protection | off | Go-only local IDS/IPS gates. Default off. Values: off, detect, prevent, auto (alias smart). See [DoS protection](#dos_protection-go-only) |
 | max_in_memory_paths | 100000 | Soft cap on the live path table in RAM (disk-backed and in-memory). Zero uses default. Negative disables. Env: `RETICULUM_MAX_IN_MEMORY_PATHS` |
 | max_in_memory_known_destinations | 100000 | Soft cap on known destinations in RAM. Zero uses default. Negative disables. Env: `RETICULUM_MAX_IN_MEMORY_KNOWN_DESTINATIONS` |
 | max_in_memory_resource_bytes | 256M | Split-resource staging budget when in_memory_storage is yes. Negative disables |
@@ -97,7 +97,7 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | Profile | Effect when unset |
 |---------|-------------------|
 | default | No overlay |
-| core_router | `dos_protection=prevent`, `backbone_io=auto`, `watch_interfaces=yes`, `max_packet_handlers=max(512, GOMAXPROCS*64)`, `max_in_memory_paths=500000` |
+| core_router | `backbone_io=auto`, `watch_interfaces=yes`, `max_packet_handlers=max(512, GOMAXPROCS*64)`, `max_in_memory_paths=500000`. Does not enable `dos_protection` |
 | embedded | `max_packet_handlers=32`, `max_in_memory_paths=4096`, smaller known-dest and hashlist caps |
 
 ### dos_protection (Go-only)
@@ -109,9 +109,11 @@ Local overload gates in `pkg/protect`. They keep **this node** alive under flood
 | off | Disabled |
 | detect (alias ids) | Trip, count, and rate-limited stdout warnings. Traffic still flows |
 | prevent (aliases block, ips) | Same as detect, and shed or block on trip |
-| auto (alias smart, default) | Learn quietly, then arm prevent. Relearn on interface fingerprint change or sustained moderate drift. Floods stay armed |
+| auto (alias smart) | Learn quietly, then arm prevent. Relearn on interface fingerprint change or sustained moderate drift. Floods stay armed |
 
-Example:
+Default is `off`. Mesh announce and path-request filtering still runs in Transport regardless of this key. Turn `detect` or `auto` on only after you have watched a busy node, and `prevent` only if you accept local shedding.
+
+Example (opt-in):
 
 ```
 [reticulum]
@@ -133,7 +135,7 @@ Optional limits (zero or unset keeps built-in defaults):
 | dos_max_crypto | Concurrent crypto verify jobs |
 | dos_max_handshake | Concurrent link handshake jobs |
 
-Ingress uses interface bitrate when available to scale adaptive floors. Link and proof traffic may stay admitted slightly above the trip line before announce-class traffic is shed.
+Ingress uses interface bitrate when available to scale adaptive floors. Announce-class traffic sheds at the adaptive trip line. Path requests, data, and established link or proof traffic may stay admitted above that line (up to 2x, or the advertised bitrate if higher). That band does not arm interface cool-down. Interface-wide cool-down is off by default so a public UDP listener is not blackholed. A single flooder can still be peer-cooled.
 
 Operator visibility: `reticulum-go status -json` and shared-instance `interface_stats` include a `protect` object (mode, phase, trip lines, cool-down). Control API `GET /v1/status` includes the same `protect` block.
 
@@ -148,7 +150,7 @@ Surfaces gated when mode is not off:
 | Crypto jobs | Decrypt / verify / HMAC storms |
 | Handshakes | Link setup / proof floods |
 | Memory shed | Soft heap pressure (pairs with soft_memory_limit) |
-| Iface cool-down | Temporary hard reject after a burst of trips on one iface |
+| Iface cool-down | Opt-in 15s hard reject after a burst of trips on one iface. Off by default so a public UDP listener is not blackholed |
 
 Stdout trip lines look like:
 

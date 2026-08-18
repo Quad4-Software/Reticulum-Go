@@ -48,7 +48,7 @@ Wire compatible with Python RNS 1.4.2
 - CI fuzz-guided skips package unit tests and uses short coverage so the job fits the 45 minute limit
 - Channel retry timeout matches Python `_get_packet_timeout_time` (max(rtt*2.5, 0.025) and tx-ring + 1.5)
 - Channel start window is 1 when link RTT is above RTT_SLOW, matching Python Channel
-- Resource hashmap default MDU and collision-guard size match Python Link.MDU / HASHMAP_MAX_LEN
+- dos_protection defaults to off. core_router no longer forces prevent. Iface-wide cool-down is opt-in so a busy public UDP listener is not blackholed. Path-request and data class ride prefer-keep leniency so discovery survives announce floods
 
 ### Tests
 - Golden Python RNS 1.4.2 wire vectors and oracles for packet flags/contexts/MDU, announce payload and destination hashes, channel envelopes and RTT windows, resource advertisements, link MDU and establishment timeouts, and adaptive path-request windows (5 bit/s floor, receive-only skipped, discovery timeout vs 15s)

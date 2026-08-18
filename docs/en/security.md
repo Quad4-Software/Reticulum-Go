@@ -124,9 +124,9 @@ make check
 
 ## DoS protection (local IDS/IPS)
 
-Go-only. Config key `dos_protection` in `[reticulum]` (default `auto`). Implementation: `pkg/protect`.
+Go-only. Config key `dos_protection` in `[reticulum]` (default `off`). Implementation: `pkg/protect`.
 
-This is **node-local** overload control. It sheds work on this process so floods, accept storms, crypto spam, handshake spam, resource pile-ups, and memory pressure do not freeze the daemon. It is not a network-wide IDS and does not stop Sybil join storms across the mesh (for example mass fake peers on an anonymity overlay). Pair it with IFAC, careful public-face exposure, and operator policy.
+This is **node-local** overload control. It is off until you opt in, because a false positive on a public transport drops path requests and can freeze a shared UDP interface. Mesh announce and path-request de-dup still run in Transport. When enabled it sheds work on this process so floods, accept storms, crypto spam, handshake spam, resource pile-ups, and memory pressure do not freeze the daemon. It is not a network-wide IDS and does not stop Sybil join storms across the mesh (for example mass fake peers on an anonymity overlay). Pair it with IFAC, careful public-face exposure, and operator policy.
 
 | Mode | Effect |
 |------|--------|
@@ -139,11 +139,11 @@ Adaptive baselines use EWMA of once-per-second peak pps/bps. Flood samples are i
 
 Trips emit rate-limited stdout warnings and increment `dos_*` health counters. Full key reference and gate table: [Configuration](configuration.md#dos_protection-go-only). Tests: [Development and testing](development-and-testing.md#dos_protection-tests).
 
-Handler pool exhaustion always sheds packets (never sync-dispatches on the ingress thread). Priority shedding prefers established link and proof traffic over announce-class floods when slightly over the adaptive trip line, but that leniency still counts toward the interface's cool-down accounting so sustained abuse of it still escalates instead of running indefinitely.
+Handler pool exhaustion always sheds packets (never sync-dispatches on the ingress thread). Announce-class floods shed at the adaptive trip line. Path requests, data, and established link or proof traffic ride out bursts over that line (up to 2x, or the advertised bitrate if higher). That band is counted in health trips but does not arm interface cool-down. Interface-wide cool-down stays off by default so a busy public listener is not blackholed. Traffic above the band still sheds. A single flooder can still be peer-cooled.
 
 Memory pressure shedding (heap watermark) enforces immediately in `prevent` and in `auto`, regardless of learning phase. It does not wait for `auto` to arm, since heap exhaustion is a safety valve rather than a flood-learning signal. Explicit `detect` still never blocks, matching its observe-only contract.
 
-Rate, byte, and cool-down accounting run per remote peer as well as per interface. A single sender sharing a listener (a busy TCP/QUIC/VSOCK/I2P accept loop, a UDP socket, or the HTTPS long-poll transport) is capped at half of the interface's effective trip line before its own sub-bucket sheds, so one hostile peer cannot exhaust the whole interface budget and cool down every other peer on it. Peer sub-buckets are bounded and idle ones are pruned so the mitigation cannot itself become a memory-growth vector.
+Rate, byte, and cool-down accounting run per remote peer as well as per interface. A single sender sharing a listener (a busy TCP/QUIC/VSOCK/I2P accept loop, a UDP socket, or the HTTPS long-poll transport) is capped at half of the bitrate-scaled trip line for announce-class traffic, so one hostile peer cannot exhaust the whole interface budget and cool down every other peer on it. Established link-class traffic from that peer uses the same prefer-keep headroom as the interface path. Peer sub-buckets are bounded and idle ones are pruned so the mitigation cannot itself become a memory-growth vector.
 
 On FreeBSD with sandbox enabled, `SIGHUP` re-execs the daemon so `CapEnter` does not block config reload. Other platforms keep in-process `ReloadInterfaces`.
 

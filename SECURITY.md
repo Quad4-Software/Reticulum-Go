@@ -114,7 +114,7 @@ Please note that sandboxing is designed as defense in depth. It is not a replace
 
 ## Local DoS protection
 
-Reticulum-Go includes Go-only local overload gates (`dos_protection` in `[reticulum]`, default `auto`). Modes are off, detect, prevent, and auto. They shed floods, accept storms, crypto and handshake spam, resource pile-ups, and memory pressure on **this node** only. They do not ban peers mesh-wide.
+Reticulum-Go includes Go-only local overload gates (`dos_protection` in `[reticulum]`, default `off`). Modes are off, detect, prevent, and auto. They shed floods, accept storms, crypto and handshake spam, resource pile-ups, and memory pressure on **this node** only. They do not ban peers mesh-wide. Leave off on public transports until you have measured a busy node.
 
 Details: [docs/en/security.md](docs/en/security.md#dos-protection-local-idsips) and [docs/en/configuration.md](docs/en/configuration.md#dos_protection-go-only).
 

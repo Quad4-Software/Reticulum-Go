@@ -155,6 +155,7 @@ Chaos suites are in-process Go only (sim pipes / HDLC fixtures). Live Go↔Pytho
 |-------|----------|-------|
 | Unit / FP-FN | `pkg/protect/false_positive_test.go` | Quiet traffic, bursty legit, multi-iface isolation, oscillation, poisoned warmup, drift without false block |
 | Snapshot / bitrate / priority | `pkg/protect/snapshot_test.go`, `bitrate_test.go`, `packetclass.go` | Status snapshot, scaled floors, prefer-keep shedding |
+| Harm / FP oracles | `pkg/protect/harm_oracle_test.go` | Quiet mesh, slow radio, bulk link after quiet learn, path requests during announce floods, massive discovery bursts, peer isolation vs resource streams, auto-learning flood contract |
 | Transport handler shed | `pkg/transport/protect_test.go` | Semaphore-full always sheds in detect, prevent, and auto learning |
 | Slow findings | `pkg/rnsutil/slow_protect_test.go` | `dos_armed_trips` and cool-down findings from RPC protect block |
 | Sandbox soft-fail | `pkg/sandbox/warn_test.go` | Rate-limited stdout when Landlock or seccomp soft-fails |
