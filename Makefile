@@ -12,7 +12,7 @@
 .PHONY: build-freebsd build-openbsd build-netbsd build-dragonfly build-solaris build-illumos build-aix build-android
 .PHONY: test-short test-race test-crossref test-wasm test-odin test-dart test-all coverage bench debug release
 .PHONY: man install-man install-service package package-deb package-rpm package-arch stage-nfpm
-.PHONY: test-services tree-manifest tree-rsm-sign tree-rsm-verify hooks-install
+.PHONY: test-services test-install-script tree-manifest tree-rsm-sign tree-rsm-verify hooks-install
 .PHONY: build-librns
 .PHONY: microvm-up microvm-stop microvm-kernel microvm-rootfs microvm-rebuild microvm-guest
 
@@ -59,6 +59,7 @@ help:
 	@echo "  install        Install binary, tool symlinks, and man pages"
 	@echo "  install-man    Install man pages only"
 	@echo "  install-service Install init service files (INIT=$(INIT))"
+	@echo "  test-install-script  shellcheck and dry-run for ./install.sh"
 	@echo "  uninstall      Remove installed files"
 	@echo "  package-deb    Build .deb into dist/ (nfpm)"
 	@echo "  package-rpm    Build .rpm into dist/ (nfpm)"
@@ -137,6 +138,9 @@ install-man:
 
 install-service:
 	sh scripts/install-service.sh --prefix "$(PREFIX)" --destdir "$(DESTDIR)" --bindir "$(BINDIR)" --init "$(INIT)"
+
+test-install-script:
+	sh scripts/ci/test-install.sh
 
 uninstall:
 	@rm -f $(INSTALL_BINDIR)/$(BINARY_NAME)
