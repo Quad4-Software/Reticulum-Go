@@ -124,7 +124,7 @@ Set `enable_remote_management = yes` and `remote_management_allowed` to a comma-
 
 ## Debugging
 
-Raise loglevel in config. Transport logs at debug levels 5 and above include path updates and forwarding decisions via `pkg/debug`.
+Raise loglevel in config. Transport logs at verbose (5) and above include path updates and forwarding decisions via `pkg/debug`.
 
 ## Testing
 

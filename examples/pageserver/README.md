@@ -102,27 +102,24 @@ ports.
 
 ## Logging and verbosity
 
-If you do **not** pass `-log-level` or `-debug`, verbosity comes from the
-config file `[logging]` `loglevel` (1-7), same scale as `-debug`. If that
-value is missing or out of range, the binary falls back to **critical-only**
-(level 1).
+If you do **not** pass `-log-level`, verbosity comes from the
+config file `[logging]` `loglevel` (0-7), same scale as the daemon `-debug`.
+Missing config uses **info** (level 4).
 
-Pass **`-log-level`** or **`-debug`** on the command line to override the
-file for that run.
+Pass **`-log-level`** on the command line to override the file for that run.
 
-### Debug levels (`-debug` / `-log-level`)
+### Debug levels (`-log-level`)
 
 | Level | Name     | What you see |
 |:-----:|----------|--------------|
-| 1 | critical | Fatal-style messages from this tool, default when no `-debug` / `-log-level` |
-| 2 | error    | Errors and above |
-| 3 | info     | General informational logs (includes much Reticulum stack output) |
-| 4 | verbose  | More detail |
-| 5 | trace    | Very chatty |
-| 6 | packets  | Packet-level detail |
-| 7 | all      | Everything |
-
-`-log-level` overrides `-debug` when both are set.
+| 0 | silent   | Nothing |
+| 1 | critical | Fatal conditions |
+| 2 | error    | Failed operations |
+| 3 | warning  | Recovered problems |
+| 4 | info     | Operator lifecycle (default) |
+| 5 | verbose  | Per-session protocol detail |
+| 6 | trace    | Per-packet headers |
+| 7 | packets  | Wire dumps and packet hex |
 
 ## Flags
 
@@ -136,7 +133,6 @@ file for that run.
 | `-page-refresh` / `-pages-refresh-interval` | `0` | Rescan pages dir every N **seconds** (`0` = startup only). |
 | `-file-refresh` / `-files-refresh-interval` | `0` | Rescan files dir every N **seconds** (`0` = startup only). |
 | `-identity` / `-identity-path` | `""` | Identity file path (default `~/.reticulum-go/storage/identity`). |
-| `-debug` | (see `pkg/debug`) | Same scale as `-log-level` when passed on the CLI. |
-| `-log-level` | `-1` | Sets level `1`-`7`. `-1` uses config. Overrides config and `-debug` when set. |
+| `-log-level` | `-1` | Sets level `0`-`7`. `-1` uses config. |
 
 See also `man reticulum-go-pageserver`.

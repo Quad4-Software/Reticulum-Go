@@ -177,10 +177,25 @@ local_hops_delta applies a random hop field (2-7) on locally originated hop-0 pa
 
 | Key | Supported |
 |-----|-----------|
-| loglevel | Yes (0 through 7) |
+| loglevel | Yes (0 silent, 1 critical, 2 error, 3 warning, 4 info, 5 verbose, 6 trace, 7 packets) |
 | destination | Yes (stderr, file, both, syslog, journald, and combinations such as `syslog+stderr`) |
 | logfile | Yes (default `{config_dir}/logfile/reticulum.log`) |
 | format | Yes (text or json) |
+
+Default `loglevel` is 4 (info). That prints start/stop, interface up/down, and link established/closed. It does not print per-packet forwarding.
+
+| loglevel | Name | Typical content |
+|----------|------|-----------------|
+| 0 | silent | nothing |
+| 1 | critical | fatal conditions |
+| 2 | error | failed operations |
+| 3 | warning | recovered problems (bad signature, timeout) |
+| 4 | info | operator lifecycle (default) |
+| 5 | verbose | per-session protocol detail |
+| 6 | trace | per-packet headers and forwarding |
+| 7 | packets | wire dumps and packet hex |
+
+CLI `-debug N` overrides config for one run (0 through 7). Hot paths skip argument formatting unless the active level would emit the line.
 
 ## Interface blocks `[[Name]]`
 

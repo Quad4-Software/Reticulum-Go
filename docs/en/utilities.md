@@ -523,7 +523,7 @@ Use this during development and in CI before shipping apps that talk to shared i
 | `reticulum-go zen` | Static path and link footgun scan (`-fix`, `-json`, `-list-rules`, `-python`) |
 | `reticulum-go probe` | Connectivity / RTT (`-json`) |
 | Control API | HTTP `/v1/health` (liveness), `/v1/status` (iface stats plus integrity fields), `/v1/paths` when `enable_control_api = yes` |
-| Daemon `-debug N` | Override config loglevel for one run |
+| Daemon `-debug N` | Override config loglevel for one run (0 silent through 7 packets) |
 
 TTY colors (status Up/Down, probe/path/cp/id outcomes, pageserver banner, daemon text log levels) honor `NO_COLOR` (off) and `FORCE_COLOR` / `CLICOLOR_FORCE` (on). JSON output and file logs stay plain.
 

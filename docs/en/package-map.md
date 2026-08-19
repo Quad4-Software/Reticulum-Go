@@ -411,7 +411,7 @@ Post-startup OS restrictions.
 
 ### `pkg/debug`
 
-Structured logging with debug levels 1 through 7.
+Structured logging with debug levels 0 (silent) through 7 (packets). Default is 4 (info).
 
 | Item | Detail |
 |------|--------|
