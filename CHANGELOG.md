@@ -30,6 +30,8 @@ Wire compatible with Python RNS 1.4.2
 - Link SendPacket encrypts into the packed HT1 buffer (one wire allocation) and reuses per-link AES and HMAC state
 - AES-CBC encrypt/decrypt no longer allocates cipher.NewCBCEncrypter per packet
 - Packet receipts use a single AfterFunc timer instead of a goroutine plus 1s ticker
+- Default loglevel 4 is info (was verbose), matching Python RNS. Per-packet and handshake traces moved to verbose/trace/packets
+- debug.Log returns after an atomic level check with no extra slice or mutex on the filtered path
 - Hot-path debug.Log call sites skip argument slices when the level is filtered
 - HandlePacket workers start at GOMAXPROCS (floor 4) and grow toward max_packet_handlers only when the ingress queue is full, instead of spawning 512 idle goroutines
 - reticulum-go zen scans with go/parser instead of golang.org/x/tools/go/packages so the daemon binary no longer links the go/packages toolchain
@@ -54,7 +56,7 @@ Wire compatible with Python RNS 1.4.2
 - Golden Python RNS 1.4.2 wire vectors and oracles for packet flags/contexts/MDU, announce payload and destination hashes, channel envelopes and RTT windows, resource advertisements, link MDU and establishment timeouts, and adaptive path-request windows (5 bit/s floor, receive-only skipped, discovery timeout vs 15s)
 
 ### Docs
-- Configuration, API reference, control API, transport, links, utilities, development-and-testing, compatibility, and package-map docs updated for throttling, timeouts, relay behavior, and reticulum-go zen
+- Configuration, API reference, control API, transport, links, utilities, development-and-testing, compatibility, and package-map docs updated for throttling, timeouts, relay behavior, reticulum-go zen, and log levels
 
 
 ## v1.0.2
