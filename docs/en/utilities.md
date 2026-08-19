@@ -157,14 +157,14 @@ rgostatus [flags]
 | `-a` | Include all interfaces (less filtering of local/client peers) |
 | `-n substr` | Filter interface names |
 | `-l` | Include link count |
-| `-s key` | Sort by rate, rx, tx, rxs, txs, traffic, announce, arx, atx, prx, ptx, held |
+| `-s key` | Sort by rate, rx, tx, rxs, txs, traffic, announce, arx, atx, prx, ptx, held, queue |
 | `-r` | Sort ascending (default descending) |
 | `-timeout dur` | RPC timeout (default 10s) |
 | `-R hash` | Transport identity hash of remote instance |
 | `-i path` | Identity file for remote management |
 | `-W sec` | Timeout for remote queries (default 15) |
 
-JSON includes per-interface announce and path-request frequencies, held announces, burst flags, and traffic counters when the daemon provides them.
+JSON includes per-interface announce and path-request frequencies, held announces, outgoing announce queue, burst flags, and traffic counters when the daemon provides them.
 
 Against a Go daemon, human and JSON output also include local mesh health fields when counters are non-zero: ifac_fail, hmac_fail, announce_sig_fail, unpack_fail, integrity_fail_rate, stale_closes, keepalive_timeout, and related totals. Python rnsd does not populate these keys. Missing fields mean zero or unknown, not a protocol error.
 
@@ -191,7 +191,7 @@ Ranks congestion and local health signals that commonly explain stalled transfer
 | `-I dur` | Monitor interval (default 2s) |
 | `-timeout dur` | RPC timeout (default 10s) |
 
-Bottleneck findings cover bitrate utilization, announce/PR bursts, held announces, bandwidth gates, socket RTT, and high-hop paths.
+Bottleneck findings cover bitrate utilization, announce/PR bursts, held announces, outgoing announce queues, bandwidth gates, socket RTT, and high-hop paths.
 
 When talking to a Go daemon, health findings can also appear:
 
@@ -201,6 +201,7 @@ When talking to a Go daemon, health findings can also appear:
 | auth_pressure | Announce signature or link proof rejects clustered on an iface |
 | link_degraded | Rising stale closes or keepalive timeouts |
 | ingress_pressure | Held announces or burst limiters active |
+| announce_queue | Outgoing announces waiting for announce_cap |
 
 Counters stay local to the node. slow only observes and scores. It does not change ingress policy or blackhole tables.
 

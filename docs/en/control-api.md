@@ -89,6 +89,9 @@ Binary fields (hashes, app data, link payloads) are hex- or base64-encoded as do
 
 | JSON field | Meaning |
 |------------|---------|
+| type | Concrete Go type name (`UDPInterface`, `TCPClientInterface`, ...) matching Python `type(interface).__name__` |
+| held_announces | Ingress-held announces (congestion hold) |
+| announce_queue | Outgoing announces waiting for announce_cap |
 | ifac_fail | IFAC verify failures |
 | hmac_fail | Link HMAC failures |
 | announce_sig_fail | Invalid announce signatures |

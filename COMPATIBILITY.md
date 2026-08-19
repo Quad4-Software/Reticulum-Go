@@ -241,7 +241,7 @@ Intentional extensions beyond upstream *rns*:
 | rnir | No | Python stub identity resolver. Not ported |
 | rnpath | Yes | `reticulum-go path` (symlink rgopath). Local/shared-instance path table, drop, blackhole. Remote `-R` table and rates over `rnstransport.remote.management` |
 | rnprobe | Yes | `reticulum-go probe` (symlink rgoprobe) |
-| rnstatus | Yes | `reticulum-go status` (symlink rgostatus). Shared-instance RPC including announce/PR rates. Remote `-R` over `rnstransport.remote.management`. Go daemons also expose local integrity counters. TCP RPC setup: [docs/en/utilities.md](docs/en/utilities.md) |
+| rnstatus | Yes | `reticulum-go status` (symlink rgostatus). Shared-instance RPC including announce/PR rates, concrete interface type names, and `announce_queue`. Remote `-R` over `rnstransport.remote.management`. Go daemons also expose local integrity counters. TCP RPC setup: [docs/en/utilities.md](docs/en/utilities.md) |
 | (Go-only) | Yes | `reticulum-go slow` (symlink rgoslow). Bottleneck and local health findings. See [docs/en/utilities.md](docs/en/utilities.md#rgoslow) |
 | Speedtest.py | Yes | `reticulum-go speedtest` (symlink rgospeed). Loopback link throughput smoke / liveness floor. See [docs/en/utilities.md](docs/en/utilities.md#rgospeed) |
 | rnx | Yes | `reticulum-go x` (symlinks rgox, rnx). Destination `rnx.execute`, request path command. JSON stdout, Python exit codes |

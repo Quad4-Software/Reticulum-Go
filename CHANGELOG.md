@@ -15,6 +15,7 @@ Wire compatible with Python RNS 1.4.2
 - Repeated nil-tag path requests inside 20 seconds return ErrPathRequestThrottled instead of silent success. NudgePathRequest no longer bypasses throttling
 - Local announce bursts beyond 8 in 10 seconds return ErrDestAnnounceThrottled. Path-response announces are not capped
 - Link-relay proof timeout adds outbound-interface MTU airtime on the next hop (extra_link_proof_timeout), not on the receive interface
+- Forwarded announces that exceed announce_cap wait on a per-interface outgoing queue instead of being dropped
 
 ### Links
 - Link establishment per-hop timeout is 6 seconds, matching RNS 1.4.2 Link.ESTABLISHMENT_TIMEOUT_PER_HOP
@@ -40,6 +41,8 @@ Wire compatible with Python RNS 1.4.2
 - path/request responses include wait_s. link.open waits for AwaitPath before handshake
 - librns LinkOpen waits for AwaitPath before handshake
 - Control API path-request repeats return HTTP 429 with wait_s
+- Interface stats `type` is the concrete driver name (UDPInterface, TCPClientInterface) matching Python class names
+- Per-interface outgoing announce queue (`announce_queue`) and `drop_announce_queues` matching Python announce_cap delay
 
 ### Fixed
 - Shared-instance local clients still receive path and link relay when enable_transport is disabled (Python from_local_client and for_local_client_link). PATHREQUEST was already forwarded, but LINKREQUEST and link data were dropped, so rngit and other Python apps resolved a path then failed to establish a link
@@ -51,6 +54,7 @@ Wire compatible with Python RNS 1.4.2
 - Channel retry timeout matches Python `_get_packet_timeout_time` (max(rtt*2.5, 0.025) and tx-ring + 1.5)
 - Channel start window is 1 when link RTT is above RTT_SLOW, matching Python Channel
 - dos_protection defaults to off. core_router no longer forces prevent. Iface-wide cool-down is opt-in so a busy public UDP listener is not blackholed. Path-request and data class ride prefer-keep leniency so discovery survives announce floods
+- `drop_announce_queues` RPC cleared the path announce cache instead of per-interface outgoing announce queues
 
 ### Tests
 - Golden Python RNS 1.4.2 wire vectors and oracles for packet flags/contexts/MDU, announce payload and destination hashes, channel envelopes and RTT windows, resource advertisements, link MDU and establishment timeouts, and adaptive path-request windows (5 bit/s floor, receive-only skipped, discovery timeout vs 15s)

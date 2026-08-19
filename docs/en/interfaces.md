@@ -439,7 +439,7 @@ Tests: `interface_lifecycle_test.go`, `reload_e2e_test.go`.
 
 ## Rate and ingress settings
 
-Per-interface keys announce_cap, `announce_rate_*`, ingress_control, and `ic_*` feed `pkg/rate` limiters consumed by transport ingress handlers.
+Per-interface keys announce_cap, `announce_rate_*`, ingress_control, and `ic_*` feed `pkg/rate` limiters consumed by transport ingress handlers. `announce_cap` also sizes the outgoing announce queue drained when bandwidth is available.
 
 ## Operational notes
 

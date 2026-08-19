@@ -222,7 +222,7 @@ Each block defines one interface. Common keys:
 | discovery_scope | Auto | Multicast scope |
 | group_id | Auto | Group identifier |
 | multicast_address_type | Auto | Multicast address type |
-| announce_cap | All | Cap on outbound announces |
+| announce_cap | All | Cap on outbound announces as a percent of bitrate (default 2). Excess announces wait on the per-interface queue |
 | `announce_rate_*` | All | Announce rate control |
 | ingress_control / `ic_*` | All | Ingress rate limits |
 | network_name | IFAC | IFAC network name |
