@@ -238,6 +238,8 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 			I2PB32:                ifc.I2PB32,
 			TunnelState:           ifc.TunnelState,
 			I2PLastError:          ifc.I2PLastError,
+			HeldAnnounces:         ifc.HeldAnnounces,
+			AnnounceQueue:         ifc.AnnounceQueue,
 			IFACFail:              ifc.IFACFail,
 			HMACFail:              ifc.HMACFail,
 			AnnounceSigFail:       ifc.AnnounceSigFail,

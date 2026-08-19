@@ -424,6 +424,7 @@ func (t *Transport) startMaintenanceJobs() {
 			t.processAnnounceTable()
 		case <-announceFwdTicker.C:
 			t.processDelayedAnnounceJobs()
+			t.processInterfaceAnnounceQueues()
 		case <-t.done:
 			return
 		}
@@ -2079,11 +2080,6 @@ func (t *Transport) forwardAnnouncePacket(data []byte, dest hash16, destinationH
 			continue
 		}
 
-		if !outIface.GetBandwidthAvailable() {
-			debug.Log(debug.DebugVerbose, "Skipping announce forwarding on interface due to bandwidth cap", "name", name)
-			continue
-		}
-
 		if !t.shouldForwardAnnounceOn(destinationHash, outIface, fromIface) {
 			continue
 		}
@@ -2101,15 +2097,67 @@ func (t *Transport) forwardAnnouncePacket(data []byte, dest hash16, destinationH
 		}
 
 		debug.Log(debug.DebugAll, "Forwarding announce on interface", "name", name)
-		if err := sendOnInterface(outIface, data, ""); err != nil {
+		if err := t.transmitOrQueueAnnounce(outIface, name, data, destinationHash); err != nil {
 			debug.Log(debug.DebugAll, "Failed to forward announce", "name", name, "error", err)
 			lastErr = err
-		} else if sa, ok := outIface.(interface{ SentAnnounce() }); ok {
-			sa.SentAnnounce()
 		}
 	}
 
 	return lastErr
+}
+
+func announceHops(data []byte) byte {
+	if len(data) < 2 {
+		return 0
+	}
+	return data[1]
+}
+
+func (t *Transport) transmitOrQueueAnnounce(outIface common.NetworkInterface, name string, data []byte, dest []byte) error {
+	hops := announceHops(data)
+	if hops > 0 {
+		if q, ok := outIface.(interfaces.OutgoingAnnounceQueue); ok {
+			if q.ShouldQueueAnnounce() {
+				q.QueueOutgoingAnnounce(data, dest, hops, 0)
+				return nil
+			}
+			q.NoteAnnounceSent(len(data))
+		} else if !outIface.GetBandwidthAvailable() {
+			debug.Log(debug.DebugVerbose, "Skipping announce forwarding on interface due to bandwidth cap", "name", name)
+			return nil
+		}
+	}
+
+	if err := sendOnInterface(outIface, data, ""); err != nil {
+		return err
+	}
+	if sa, ok := outIface.(interface{ SentAnnounce() }); ok {
+		sa.SentAnnounce()
+	}
+	return nil
+}
+
+func (t *Transport) processInterfaceAnnounceQueues() {
+	for _, e := range t.snapshotRegisteredInterfaces() {
+		if e.iface == nil {
+			continue
+		}
+		q, ok := e.iface.(interfaces.OutgoingAnnounceQueue)
+		if !ok {
+			continue
+		}
+		raw, ready := q.NextOutgoingAnnounce()
+		if !ready {
+			continue
+		}
+		if err := sendOnInterface(e.iface, raw, ""); err != nil {
+			debug.Log(debug.DebugAll, "Failed to send queued announce", "name", e.name, "error", err)
+			continue
+		}
+		if sa, ok := e.iface.(interface{ SentAnnounce() }); ok {
+			sa.SentAnnounce()
+		}
+	}
 }
 
 func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface, packetType byte) {

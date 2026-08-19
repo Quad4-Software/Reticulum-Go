@@ -98,6 +98,10 @@ type BaseInterface struct {
 	sampleRXB  uint64
 	sampleTXB  uint64
 	sampleTS   time.Time
+
+	announceQueue     []queuedAnnounce
+	announceAllowedAt time.Time
+	announceCap       float64
 }
 
 // NewBaseInterface creates a BaseInterface value for embedding at construction.

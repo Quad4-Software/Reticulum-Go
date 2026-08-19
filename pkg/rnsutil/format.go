@@ -126,6 +126,10 @@ func SortInterfaceStats(stats *transport.InterfaceStatsResponse, sortBy string, 
 		less = func(i, j int) bool {
 			return stats.Interfaces[i].HeldAnnounces < stats.Interfaces[j].HeldAnnounces
 		}
+	case "queue":
+		less = func(i, j int) bool {
+			return stats.Interfaces[i].AnnounceQueue < stats.Interfaces[j].AnnounceQueue
+		}
 	default:
 		return
 	}
@@ -197,10 +201,11 @@ func WriteStatusHuman(w io.Writer, stats transport.InterfaceStatsResponse, linkC
 				return err
 			}
 		}
-		if _, err := fmt.Fprintf(w, "  Announces : ↓%.2f/s ↑%.2f/s\n  Path reqs : ↓%.2f/s ↑%.2f/s\n  Held      : %d\n",
+		if _, err := fmt.Fprintf(w, "  Announces : ↓%.2f/s ↑%.2f/s\n  Path reqs : ↓%.2f/s ↑%.2f/s\n  Held      : %d\n  Queue     : %d\n",
 			st.IncomingAnnounceFrequency, st.OutgoingAnnounceFrequency,
 			st.IncomingPRFrequency, st.OutgoingPRFrequency,
 			st.HeldAnnounces,
+			st.AnnounceQueue,
 		); err != nil {
 			return err
 		}
@@ -305,6 +310,7 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 		IncomingPRFrequency       float64  `json:"incoming_pr_frequency"`
 		OutgoingPRFrequency       float64  `json:"outgoing_pr_frequency"`
 		HeldAnnounces             int      `json:"held_announces"`
+		AnnounceQueue             int      `json:"announce_queue"`
 		BurstActive               bool     `json:"burst_active"`
 		PRBurstActive             bool     `json:"pr_burst_active"`
 		IFACFail                  uint64   `json:"ifac_fail"`
@@ -364,6 +370,7 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 			IncomingPRFrequency:       st.IncomingPRFrequency,
 			OutgoingPRFrequency:       st.OutgoingPRFrequency,
 			HeldAnnounces:             st.HeldAnnounces,
+			AnnounceQueue:             st.AnnounceQueue,
 			BurstActive:               st.BurstActive,
 			PRBurstActive:             st.PRBurstActive,
 			IFACFail:                  st.IFACFail,

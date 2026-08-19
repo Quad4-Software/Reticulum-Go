@@ -4,8 +4,10 @@
 package transport
 
 import (
+	"reflect"
 	"time"
 
+	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/cryptography"
 	"quad4/reticulum-go/pkg/health"
 	"quad4/reticulum-go/pkg/packet"
@@ -37,6 +39,7 @@ type InterfaceStat struct {
 	IncomingPRFrequency       float64  `msgpack:"incoming_pr_frequency"`
 	OutgoingPRFrequency       float64  `msgpack:"outgoing_pr_frequency"`
 	HeldAnnounces             int      `msgpack:"held_announces"`
+	AnnounceQueue             int      `msgpack:"announce_queue"`
 	BurstActive               bool     `msgpack:"burst_active"`
 	PRBurstActive             bool     `msgpack:"pr_burst_active"`
 	Status                    bool     `msgpack:"status"`
@@ -213,7 +216,7 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 		st := InterfaceStat{
 			Name:      iface.GetName(),
 			ShortName: iface.GetName(),
-			Type:      "Interface",
+			Type:      interfaceStatusType(iface),
 			Status:    iface.IsOnline(),
 			Mode:      byte(iface.GetMode()),
 			Gravity:   interfaceGravity(iface),
@@ -306,6 +309,9 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 				st.HeldAnnounces = stt.ingress.HeldCount()
 				st.BurstActive = stt.ingress.InBurst()
 			}
+		}
+		if q, ok := iface.(interface{ AnnounceQueueLen() int }); ok {
+			st.AnnounceQueue = q.AnnounceQueueLen()
 		}
 		hs := health.Default.SnapshotIface(iface.GetName())
 		st.IFACFail = hs.IFACFail.Total
@@ -431,12 +437,39 @@ func (t *Transport) DropAllViaRPC(transportHash []byte) int {
 	return dropped
 }
 
+// DropAnnounceQueuesRPC discards per-interface outgoing announce queues.
+// Matches Python Transport.drop_announce_queues. It does not clear the
+// pathfinder held-announce cache.
 func (t *Transport) DropAnnounceQueuesRPC() int {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-	n := len(t.heldAnnounces)
-	t.heldAnnounces = make(map[hash16]*PathAnnounceEntry)
+	n := 0
+	for _, e := range t.snapshotRegisteredInterfaces() {
+		if e.iface == nil {
+			continue
+		}
+		if q, ok := e.iface.(interface{ DropAnnounceQueue() int }); ok {
+			n += q.DropAnnounceQueue()
+		}
+	}
 	return n
+}
+
+// interfaceStatusType returns the concrete Go type name, matching Python
+// type(interface).__name__ (UDPInterface, TCPClientInterface, ...).
+func interfaceStatusType(iface common.NetworkInterface) string {
+	if iface == nil {
+		return "Interface"
+	}
+	rt := reflect.TypeOf(iface)
+	for rt != nil && rt.Kind() == reflect.Pointer {
+		rt = rt.Elem()
+	}
+	if rt == nil {
+		return "Interface"
+	}
+	if name := rt.Name(); name != "" {
+		return name
+	}
+	return "Interface"
 }
 
 func (t *Transport) GetLinkCountRPC() int {

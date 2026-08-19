@@ -105,6 +105,7 @@ type SlowIfaceRow struct {
 	TXB                uint64   `json:"txb"`
 	UtilPct            float64  `json:"util_pct"`
 	HeldAnnounces      int      `json:"held_announces"`
+	AnnounceQueue      int      `json:"announce_queue"`
 	BurstActive        bool     `json:"burst_active"`
 	PRBurstActive      bool     `json:"pr_burst_active"`
 	AnnounceHz         float64  `json:"announce_hz"`
@@ -315,6 +316,7 @@ func scoreInterface(st transport.InterfaceStat, paths []transport.PathTableEntry
 		TXB:                st.TXB,
 		UtilPct:            util,
 		HeldAnnounces:      st.HeldAnnounces,
+		AnnounceQueue:      st.AnnounceQueue,
 		BurstActive:        st.BurstActive,
 		PRBurstActive:      st.PRBurstActive,
 		AnnounceHz:         st.IncomingAnnounceFrequency + st.OutgoingAnnounceFrequency,
@@ -360,6 +362,11 @@ func scoreInterface(st transport.InterfaceStat, paths []transport.PathTableEntry
 		flags = append(flags, fmt.Sprintf("held=%d", st.HeldAnnounces))
 		reasons = append(reasons, fmt.Sprintf("%d announces held (ingress congestion)", st.HeldAnnounces))
 		score += math.Min(40, float64(st.HeldAnnounces)*2)
+	}
+	if st.AnnounceQueue > 0 {
+		flags = append(flags, fmt.Sprintf("queue=%d", st.AnnounceQueue))
+		reasons = append(reasons, fmt.Sprintf("%d announces waiting on announce_cap", st.AnnounceQueue))
+		score += math.Min(30, float64(st.AnnounceQueue))
 	}
 	if st.Bitrate > 0 && st.Bitrate < 500_000 && load > float64(st.Bitrate)*0.3 {
 		flags = append(flags, "low-cap")
@@ -648,6 +655,18 @@ func healthFindingsForRow(row SlowIfaceRow, opts SlowAnalyzeOptions) []SlowFindi
 			},
 		})
 	}
+	if row.AnnounceQueue > 0 {
+		out = append(out, SlowFinding{
+			Kind:     "announce_queue",
+			Name:     row.Name,
+			Severity: SeverityWarn,
+			Score:    math.Min(30, float64(row.AnnounceQueue)),
+			Summary:  fmt.Sprintf("%d announces waiting on announce_cap on %s", row.AnnounceQueue, row.Name),
+			Hints: []string{
+				"Outgoing announces are delayed until this interface has announce_cap budget",
+			},
+		})
+	}
 	return out
 }
 
@@ -658,6 +677,9 @@ func interfaceHints(row SlowIfaceRow) []string {
 	}
 	if row.BurstActive || row.HeldAnnounces > 0 {
 		hints = append(hints, "Announce storm or slow peer: held announces delay path learning and can stall transfers")
+	}
+	if row.AnnounceQueue > 0 {
+		hints = append(hints, "Outgoing announce queue is waiting for announce_cap bandwidth")
 	}
 	if row.BandwidthAvailable != nil && !*row.BandwidthAvailable {
 		hints = append(hints, "Bandwidth gate is closed: announce/path rebroadcasts are deferred until load drops")

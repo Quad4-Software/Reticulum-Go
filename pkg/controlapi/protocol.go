@@ -38,6 +38,8 @@ type interfaceStatJSON struct {
 	I2PB32                *string  `json:"i2p_b32,omitempty"`
 	TunnelState           *string  `json:"tunnelstate,omitempty"`
 	I2PLastError          *string  `json:"i2p_last_error,omitempty"`
+	HeldAnnounces         int      `json:"held_announces"`
+	AnnounceQueue         int      `json:"announce_queue"`
 	IFACFail              uint64   `json:"ifac_fail"`
 	HMACFail              uint64   `json:"hmac_fail"`
 	AnnounceSigFail       uint64   `json:"announce_sig_fail"`

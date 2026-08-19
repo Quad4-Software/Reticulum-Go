@@ -222,7 +222,8 @@ func (c *RPCClient) DropAllVia(transportHash []byte) (int, error) {
 	return out, err
 }
 
-// DropAnnounceQueues clears held announce queues. Returns cleared count.
+// DropAnnounceQueues clears per-interface outgoing announce queues.
+// Returns the number of queued announces dropped.
 func (c *RPCClient) DropAnnounceQueues() (int, error) {
 	var out int
 	err := c.Call(map[string]any{"drop": "announce_queues"}, &out)

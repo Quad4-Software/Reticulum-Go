@@ -270,6 +270,7 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 	}
 	applyModeFromConfig(iface, cfg, ctx)
 	applyBitrateFromConfig(iface, cfg)
+	applyAnnounceCapFromConfig(iface, cfg)
 	applyOutgoingFromConfig(iface, cfg)
 	if err := ApplyIFACFromConfig(ni, cfg); err != nil {
 		return nil, err
@@ -307,6 +308,15 @@ func applyBitrateFromConfig(iface Interface, cfg *common.InterfaceConfig) {
 	}
 	if base := baseInterfaceOf(iface); base != nil {
 		base.Bitrate = cfg.Bitrate
+	}
+}
+
+func applyAnnounceCapFromConfig(iface Interface, cfg *common.InterfaceConfig) {
+	if cfg == nil {
+		return
+	}
+	if base := baseInterfaceOf(iface); base != nil {
+		base.SetAnnounceCap(cfg.AnnounceCap)
 	}
 }
 
