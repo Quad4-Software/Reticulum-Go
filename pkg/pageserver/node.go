@@ -200,11 +200,11 @@ func NewReticulum(cfg *common.ReticulumConfig, opts Options) (*Reticulum, error)
 			if cfg.PanicOnInterfaceErr {
 				return nil, fmt.Errorf("failed to create interface %s: %v", name, err)
 			}
-			debug.Log(debug.DebugCritical, "Error creating interface", "name", name, "error", err)
+			debug.Log(debug.DebugError, "Error creating interface", "name", name, "error", err)
 			continue
 		}
 
-		debug.Log(debug.DebugError, "Configuring interface", "name", name, "type", ifaceConfig.Type)
+		debug.Log(debug.DebugInfo, "Configuring interface", "name", name, "type", ifaceConfig.Type)
 		r.interfaces = append(r.interfaces, iface)
 		debug.Log(debug.DebugInfo, "Interface configured", "name", name)
 	}
@@ -248,6 +248,9 @@ func (r *Reticulum) MonitorInterfaces() {
 	defer ticker.Stop()
 
 	for range ticker.C {
+		if !debug.Enabled(debug.DebugVerbose) {
+			continue
+		}
 		for _, iface := range r.interfaces {
 			if tcpClient, ok := iface.(*interfaces.TCPClientInterface); ok {
 				stats := fmt.Sprintf("Interface %s status - Connected: %v, TX: %d bytes (%.2f Kbps), RX: %d bytes (%.2f Kbps)",
@@ -378,13 +381,13 @@ func (r *Reticulum) Start() error {
 			if r.config.PanicOnInterfaceErr {
 				return fmt.Errorf("failed to start interface %s: %v", iface.GetName(), err)
 			}
-			debug.Log(debug.DebugCritical, "Error starting interface", "name", iface.GetName(), "error", err)
+			debug.Log(debug.DebugError, "Error starting interface", "name", iface.GetName(), "error", err)
 			continue
 		}
 
 		if netIface, ok := iface.(common.NetworkInterface); ok {
 			if err := r.transport.RegisterInterface(iface.GetName(), netIface); err != nil {
-				debug.Log(debug.DebugCritical, "Failed to register interface with transport", "name", iface.GetName(), "error", err)
+				debug.Log(debug.DebugError, "Failed to register interface with transport", "name", iface.GetName(), "error", err)
 			} else {
 				debug.Log(debug.DebugInfo, "Registered interface with transport", "name", iface.GetName())
 			}
@@ -406,7 +409,7 @@ func (r *Reticulum) Start() error {
 	r.destination.SetDefaultAppData([]byte(nodeName))
 	announceStartTime := time.Now()
 	if err := r.destination.Announce(false, nil, nil); err != nil {
-		debug.Log(debug.DebugCritical, "Failed to send initial announce", "error", err, "elapsed", time.Since(announceStartTime).Seconds())
+		debug.Log(debug.DebugError, "Failed to send initial announce", "error", err, "elapsed", time.Since(announceStartTime).Seconds())
 	} else {
 		debug.Log(debug.DebugInfo, "Initial announce sent successfully", "elapsed", time.Since(announceStartTime).Seconds())
 	}
@@ -416,7 +419,7 @@ func (r *Reticulum) Start() error {
 		debug.Log(debug.DebugInfo, "Periodic announces disabled (announce-interval 0). Only the initial announce was sent")
 	} else {
 		if interval < MinAnnounceInterval {
-			debug.Log(debug.DebugCritical,
+			debug.Log(debug.DebugWarning,
 				"Configured announce-interval is below the minimum. Clamping to avoid flooding peers",
 				"requested_minutes", r.announceEveryMinutes,
 				"min", FormatDuration(MinAnnounceInterval),
@@ -435,7 +438,7 @@ func (r *Reticulum) Start() error {
 					"every", FormatDuration(period),
 				)
 				if err := r.destination.Announce(false, nil, nil); err != nil {
-					debug.Log(debug.DebugCritical, "Could not send announce", "error", err)
+					debug.Log(debug.DebugError, "Could not send announce", "error", err)
 				}
 			}
 		}(interval)
@@ -485,19 +488,19 @@ func (r *Reticulum) Stop() error {
 
 	for _, buf := range r.buffers {
 		if err := buf.Close(); err != nil {
-			debug.Log(debug.DebugCritical, "Error closing buffer", "error", err)
+			debug.Log(debug.DebugError, "Error closing buffer", "error", err)
 		}
 	}
 
 	for _, ch := range r.channels {
 		if err := ch.Close(); err != nil {
-			debug.Log(debug.DebugCritical, "Error closing channel", "error", err)
+			debug.Log(debug.DebugError, "Error closing channel", "error", err)
 		}
 	}
 
 	for _, iface := range r.interfaces {
 		if err := iface.Stop(); err != nil {
-			debug.Log(debug.DebugCritical, "Error stopping interface", "name", iface.GetName(), "error", err)
+			debug.Log(debug.DebugError, "Error stopping interface", "name", iface.GetName(), "error", err)
 		}
 	}
 

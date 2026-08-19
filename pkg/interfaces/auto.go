@@ -726,7 +726,7 @@ func (ai *AutoInterface) Send(data []byte, address string) error {
 
 	masked, err := common.ApplyIFACOutbound(ai, data)
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to mask outgoing packet for IFAC", "name", ai.Name, "error", err)
+		debug.Log(debug.DebugError, "Failed to mask outgoing packet for IFAC", "name", ai.Name, "error", err)
 		return err
 	}
 	data = masked

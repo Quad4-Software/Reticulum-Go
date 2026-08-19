@@ -179,7 +179,7 @@ func (t *Transport) dispatchInboundPacket(payload []byte, iface common.NetworkIn
 			debug.Log(debug.DebugVerbose, "Processing announce packet")
 		}
 		if err := t.handleAnnouncePacket(payload, iface); err != nil {
-			debug.Log(debug.DebugInfo, "Announce handling failed", "error", err)
+			debug.Log(debug.DebugWarning, "Announce handling failed", "error", err)
 		}
 	case PacketTypeLink:
 		if debug.Enabled(debug.DebugVerbose) {
@@ -193,7 +193,7 @@ func (t *Transport) dispatchInboundPacket(payload []byte, iface common.NetworkIn
 		pkt := &packet.Packet{Raw: payload}
 		if err := pkt.Unpack(); err != nil {
 			if debug.Enabled(debug.DebugInfo) {
-				debug.Log(debug.DebugInfo, "Failed to unpack proof packet", "error", err)
+				debug.Log(debug.DebugWarning, "Failed to unpack proof packet", "error", err)
 			}
 			ifaceName := ""
 			if iface != nil {
@@ -220,7 +220,9 @@ func (t *Transport) dispatchInboundPacket(payload []byte, iface common.NetworkIn
 		if iface != nil {
 			src = iface.GetName()
 		}
-		debug.Log(debug.DebugInfo, "Unknown packet type", "type", fmt.Sprintf("0x%02x", packetType), "source", src)
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Unknown packet type", "type", fmt.Sprintf("0x%02x", packetType), "source", src)
+		}
 	}
 }
 

@@ -25,7 +25,7 @@ import (
 
 var (
 	timeout    = flag.Int("timeout", 0, "Timeout in seconds for path, link, and request (0 = adaptive path and link)")
-	logLevel   = flag.Int("log-level", -1, "Log level override (1-7). Alias for -debug")
+	logLevel   = flag.Int("log-level", -1, "Log level override (0-7). Alias for -debug")
 	configPath = flag.String("config", "", "Reticulum config file (required unless -udp)")
 	useUDP     = flag.Bool("udp", false, "Use local UDP interface mode")
 	listenPort = flag.Int("listen-port", 4243, "UDP listen port when -udp is enabled")

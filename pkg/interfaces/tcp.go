@@ -235,7 +235,7 @@ func (tc *TCPClientInterface) ProcessOutgoing(data []byte) error {
 
 	_, err := conn.Write(frame)
 	if err != nil {
-		debug.Log(debug.DebugCritical, "TCP interface write failed", "name", tc.Name, "error", err)
+		debug.Log(debug.DebugVerbose, "TCP interface write failed", "name", tc.Name, "error", err)
 		tc.Mutex.Lock()
 		tc.Online = false
 		initiator := tc.initiator
@@ -259,12 +259,12 @@ func (tc *TCPClientInterface) Send(data []byte, address string) error {
 
 	masked, err := common.ApplyIFACOutbound(tc, data)
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to mask outgoing packet for IFAC", "name", tc.Name, "error", err)
+		debug.Log(debug.DebugError, "Failed to mask outgoing packet for IFAC", "name", tc.Name, "error", err)
 		return err
 	}
 
 	if err := tc.ProcessOutgoing(masked); err != nil {
-		debug.Log(debug.DebugCritical, "Interface failed to send data", "name", tc.Name, "error", err)
+		debug.Log(debug.DebugVerbose, "Interface failed to send data", "name", tc.Name, "error", err)
 		return err
 	}
 
@@ -814,12 +814,12 @@ func (ts *TCPServerInterface) Send(data []byte, address string) error {
 
 	masked, err := common.ApplyIFACOutbound(ts, data)
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to mask outgoing packet for IFAC", "name", ts.Name, "error", err)
+		debug.Log(debug.DebugError, "Failed to mask outgoing packet for IFAC", "name", ts.Name, "error", err)
 		return err
 	}
 
 	if err := ts.ProcessOutgoing(masked); err != nil {
-		debug.Log(debug.DebugCritical, "Interface failed to send data", "name", ts.Name, "error", err)
+		debug.Log(debug.DebugVerbose, "Interface failed to send data", "name", ts.Name, "error", err)
 		return err
 	}
 

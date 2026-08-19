@@ -233,12 +233,12 @@ func (ui *UDPInterface) Send(data []byte, address string) error {
 
 	masked, err := common.ApplyIFACOutbound(ui, data)
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to mask outgoing packet for IFAC", "name", ui.Name, "error", err)
+		debug.Log(debug.DebugError, "Failed to mask outgoing packet for IFAC", "name", ui.Name, "error", err)
 		return err
 	}
 
 	if err := ui.ProcessOutgoing(masked); err != nil {
-		debug.Log(debug.DebugCritical, "Interface failed to send data", "name", ui.Name, "error", err)
+		debug.Log(debug.DebugVerbose, "Interface failed to send data", "name", ui.Name, "error", err)
 		return err
 	}
 

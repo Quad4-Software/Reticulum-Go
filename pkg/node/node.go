@@ -126,7 +126,7 @@ func New(cfg *common.ReticulumConfig) (*Node, error) {
 			if cfg.PanicOnInterfaceErr {
 				return nil, fmt.Errorf("failed to create interface %s: %w", name, err)
 			}
-			debug.Log(debug.DebugCritical, "Error creating interface", "name", name, "error", err)
+			debug.Log(debug.DebugError, "Error creating interface", "name", name, "error", err)
 			continue
 		}
 		n.interfaces = append(n.interfaces, iface)
@@ -203,7 +203,7 @@ func (n *Node) startInterfaces() error {
 			if n.config.PanicOnInterfaceErr {
 				return fmt.Errorf("failed to start interface %s: %w", res.iface.GetName(), res.err)
 			}
-			debug.Log(debug.DebugCritical, "Error starting interface", "name", res.iface.GetName(), "error", res.err)
+			debug.Log(debug.DebugError, "Error starting interface", "name", res.iface.GetName(), "error", res.err)
 			continue
 		}
 		started = append(started, res.iface)
@@ -214,7 +214,7 @@ func (n *Node) startInterfaces() error {
 			continue
 		}
 		if err := n.transport.RegisterInterface(iface.GetName(), ni); err != nil {
-			debug.Log(debug.DebugCritical, "Failed to register interface", "name", iface.GetName(), "error", err)
+			debug.Log(debug.DebugError, "Failed to register interface", "name", iface.GetName(), "error", err)
 			continue
 		}
 		n.handleInterface(ni)
@@ -315,14 +315,14 @@ func (n *Node) fromConfigContext() *interfaces.FromConfigContext {
 		BackboneHub:           backbone.Get(),
 		SpawnBackbone: func(client *interfaces.BackboneClientInterface) {
 			if err := n.transport.RegisterInterface(client.GetName(), client); err != nil {
-				debug.Log(debug.DebugCritical, "Failed to register spawned backbone client", "error", err)
+				debug.Log(debug.DebugError, "Failed to register spawned backbone client", "error", err)
 				return
 			}
 			n.handleInterface(client)
 		},
 		SpawnLocal: func(client *interfaces.LocalClientInterface) {
 			if err := n.transport.RegisterInterface(client.GetName(), client); err != nil {
-				debug.Log(debug.DebugCritical, "Failed to register spawned local client", "error", err)
+				debug.Log(debug.DebugError, "Failed to register spawned local client", "error", err)
 				return
 			}
 			n.handleInterface(client)

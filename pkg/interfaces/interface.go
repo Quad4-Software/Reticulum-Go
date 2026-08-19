@@ -264,7 +264,7 @@ func (i *BaseInterface) Disable() {
 	defer i.Mutex.Unlock()
 	i.Enabled = false
 	i.Online = false
-	debug.Log(debug.DebugError, "Interface disabled and offline", "name", i.Name)
+	debug.Log(debug.DebugInfo, "Interface disabled and offline", "name", i.Name)
 }
 
 func (i *BaseInterface) GetName() string {
@@ -381,18 +381,18 @@ func (i *BaseInterface) Send(data []byte, address string) error {
 	if err := common.RejectReceiveOnly(i); err != nil {
 		return err
 	}
-	if debug.Enabled(debug.DebugVerbose) {
-		debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", i.Name, "bytes", len(data), "address", address)
+	if debug.Enabled(debug.DebugTrace) {
+		debug.Log(debug.DebugTrace, "Interface sending bytes", "name", i.Name, "bytes", len(data), "address", address)
 	}
 
 	masked, err := common.ApplyIFACOutbound(i, data)
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to mask outgoing packet for IFAC", "name", i.Name, "error", err)
+		debug.Log(debug.DebugError, "Failed to mask outgoing packet for IFAC", "name", i.Name, "error", err)
 		return err
 	}
 
 	if err := i.ProcessOutgoing(masked); err != nil {
-		debug.Log(debug.DebugCritical, "Interface failed to send data", "name", i.Name, "error", err)
+		debug.Log(debug.DebugVerbose, "Interface failed to send data", "name", i.Name, "error", err)
 		return err
 	}
 
@@ -412,7 +412,9 @@ func (i *BaseInterface) GetBandwidthAvailable() bool {
 	// Coarse clocks (notably Windows) can report elapsed <= 0 on the same
 	// tick as lastTx. Still apply the sampled TX gate in that case.
 	if i.Bitrate <= 0 || elapsed > time.Second {
-		debug.Log(debug.DebugVerbose, "Interface bandwidth available", "name", i.Name, "idle_seconds", elapsed.Seconds())
+		if debug.Enabled(debug.DebugTrace) {
+			debug.Log(debug.DebugTrace, "Interface bandwidth available", "name", i.Name, "idle_seconds", elapsed.Seconds())
+		}
 		return true
 	}
 
@@ -421,11 +423,15 @@ func (i *BaseInterface) GetBandwidthAvailable() bool {
 	// falsely reports multi-Gbps after a few KB and permanently closes the
 	// announce forward gate under normal mesh load.
 	if i.currentTXS <= 0 {
-		debug.Log(debug.DebugVerbose, "Interface bandwidth available", "name", i.Name, "idle_seconds", elapsed.Seconds())
+		if debug.Enabled(debug.DebugTrace) {
+			debug.Log(debug.DebugTrace, "Interface bandwidth available", "name", i.Name, "idle_seconds", elapsed.Seconds())
+		}
 		return true
 	}
 	available := i.currentTXS < maxUsage
-	debug.Log(debug.DebugVerbose, "Interface bandwidth stats", "name", i.Name, "current_bps", i.currentTXS, "max_bps", maxUsage, "usage_percent", (i.currentTXS/maxUsage)*100, "available", available)
+	if debug.Enabled(debug.DebugTrace) {
+		debug.Log(debug.DebugTrace, "Interface bandwidth stats", "name", i.Name, "current_bps", i.currentTXS, "max_bps", maxUsage, "usage_percent", (i.currentTXS/maxUsage)*100, "available", available)
+	}
 	return available
 }
 
@@ -436,8 +442,9 @@ func (i *BaseInterface) updateBandwidthStats(bytes uint64) {
 	i.TxBytes += bytes
 	i.TxPackets++
 	i.lastTx = time.Now()
-
-	debug.Log(debug.DebugVerbose, "Interface updated bandwidth stats", "name", i.Name, "tx_bytes", i.TxBytes, "last_tx", i.lastTx)
+	if debug.Enabled(debug.DebugTrace) {
+		debug.Log(debug.DebugTrace, "Interface updated bandwidth stats", "name", i.Name, "tx_bytes", i.TxBytes, "last_tx", i.lastTx)
+	}
 }
 
 // ReceivedPathRequest records an incoming path request for frequency tracking.

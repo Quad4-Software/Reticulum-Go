@@ -39,7 +39,7 @@ func (n *Node) OnNetworkAvailable() error {
 		}
 		if !iface.IsOnline() {
 			if err := iface.Start(); err != nil {
-				debug.Log(debug.DebugCritical, "OnNetworkAvailable: start failed", "name", iface.GetName(), "error", err)
+				debug.Log(debug.DebugError, "OnNetworkAvailable: start failed", "name", iface.GetName(), "error", err)
 			} else if ni, ok := iface.(common.NetworkInterface); ok {
 				if err := n.transport.RegisterInterface(iface.GetName(), ni); err != nil {
 					_ = n.transport.ReplaceInterface(iface.GetName(), ni)

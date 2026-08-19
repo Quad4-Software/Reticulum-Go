@@ -20,6 +20,7 @@ func TestConfigureDestinationFile(t *testing.T) {
 		LogLevel:       3,
 	}
 	Init()
+	SetDebugLevel(DebugInfo)
 	if err := ConfigureDestination(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +38,7 @@ func TestConfigureDestinationFile(t *testing.T) {
 func TestSetJSONFormat(t *testing.T) {
 	Init()
 	SetJSONFormat(true)
-	SetDebugLevel(3)
+	SetDebugLevel(DebugInfo)
 	Log(DebugInfo, "json line")
 	SetJSONFormat(false)
 }

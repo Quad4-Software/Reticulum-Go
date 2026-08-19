@@ -49,26 +49,26 @@ func parseDaemonFlags(args []string) (opts daemonOptions, run bool, exitCode int
 			opts.ConfigPath = strings.TrimPrefix(arg, "--config=")
 		case arg == "-debug" || arg == "--debug":
 			if i+1 >= len(args) {
-				fmt.Fprintln(os.Stderr, term.Red(os.Stderr, arg+" requires a level 1-7"))
+				fmt.Fprintln(os.Stderr, term.Red(os.Stderr, arg+" requires a level 0-7"))
 				return opts, false, 2
 			}
 			i++
 			n, err := strconv.Atoi(args[i])
-			if err != nil || n < 1 || n > 7 {
+			if err != nil || n < 0 || n > 7 {
 				fmt.Fprintln(os.Stderr, term.Red(os.Stderr, fmt.Sprintf("invalid debug level %q", args[i])))
 				return opts, false, 2
 			}
 			opts.DebugLevel = n
 		case strings.HasPrefix(arg, "-debug="):
 			n, err := strconv.Atoi(strings.TrimPrefix(arg, "-debug="))
-			if err != nil || n < 1 || n > 7 {
+			if err != nil || n < 0 || n > 7 {
 				fmt.Fprintln(os.Stderr, term.Red(os.Stderr, "invalid debug level"))
 				return opts, false, 2
 			}
 			opts.DebugLevel = n
 		case strings.HasPrefix(arg, "--debug="):
 			n, err := strconv.Atoi(strings.TrimPrefix(arg, "--debug="))
-			if err != nil || n < 1 || n > 7 {
+			if err != nil || n < 0 || n > 7 {
 				fmt.Fprintln(os.Stderr, term.Red(os.Stderr, "invalid debug level"))
 				return opts, false, 2
 			}

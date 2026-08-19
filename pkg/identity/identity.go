@@ -238,7 +238,7 @@ func GetRandomHash() []byte {
 	randomData := make([]byte, TruncatedHashLength/8)
 	_, err := rand.Read(randomData) // #nosec G104
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to read random data for hash", "error", err)
+		debug.Log(debug.DebugError, "Failed to read random data for hash", "error", err)
 		return nil // Or handle the error appropriately
 	}
 	return TruncatedHash(randomData)
@@ -278,7 +278,7 @@ func rememberKnown(packet []byte, destHash []byte, publicKey []byte, appData []b
 	now := time.Now().Unix()
 	if existing, ok := knownDestinations[hashStr]; ok && existing.id != nil {
 		if !existing.id.publicKeyEqual(publicKey) {
-			debug.Log(debug.DebugCritical, "Rejected announce: destination hash already known with a different public key")
+			debug.Log(debug.DebugWarning, "Rejected announce: destination hash already known with a different public key")
 			return false
 		}
 		if bytes.Equal(existing.pkt, packet) && bytes.Equal(existing.app, appData) {
@@ -464,7 +464,7 @@ func (i *Identity) GetCurrentRatchetKey() []byte {
 
 func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRatchets bool, ratchetIDReceiver *common.RatchetIDReceiver) ([]byte, error) {
 	if !i.hasDecryptPrivate() {
-		debug.Log(debug.DebugCritical, "Decryption failed: identity has no private key")
+		debug.Log(debug.DebugError, "Decryption failed: identity has no private key")
 		return nil, errors.New("decryption failed because identity does not hold a private key")
 	}
 
@@ -667,7 +667,7 @@ func (i *Identity) ToFile(path string) error {
 	defer securemem.WipeBytes(privateKeyBytes)
 
 	if err := store.SaveIdentityBlob(path, privateKeyBytes, ""); err != nil {
-		debug.Log(debug.DebugCritical, "Failed to write identity file", "error", err)
+		debug.Log(debug.DebugError, "Failed to write identity file", "error", err)
 		return err
 	}
 
@@ -770,7 +770,7 @@ func RecallIdentity(path string) (*Identity, error) {
 
 	file, err := os.Open(path) // #nosec G304
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to open identity file", "error", err)
+		debug.Log(debug.DebugError, "Failed to open identity file", "error", err)
 		return nil, err
 	}
 	defer file.Close()
@@ -780,7 +780,7 @@ func RecallIdentity(path string) (*Identity, error) {
 	privateKeyBytes := make([]byte, 64)
 	n, err := io.ReadFull(file, privateKeyBytes)
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to read identity data", "error", err)
+		debug.Log(debug.DebugError, "Failed to read identity data", "error", err)
 		return nil, err
 	}
 	if n != 64 {
@@ -968,14 +968,14 @@ func (i *Identity) RotateRatchet() ([]byte, error) {
 
 	newRatchet := make([]byte, RatchetSize/8)
 	if _, err := io.ReadFull(rand.Reader, newRatchet); err != nil {
-		debug.Log(debug.DebugCritical, "Failed to generate new ratchet", "error", err)
+		debug.Log(debug.DebugError, "Failed to generate new ratchet", "error", err)
 		return nil, err
 	}
 
 	ratchetPub, err := cryptography.PublicKeyFromPrivate(newRatchet)
 	if err != nil {
 		securemem.WipeBytes(newRatchet)
-		debug.Log(debug.DebugCritical, "Failed to generate ratchet public key", "error", err)
+		debug.Log(debug.DebugError, "Failed to generate ratchet public key", "error", err)
 		return nil, err
 	}
 

@@ -12,81 +12,50 @@ import (
 	"testing"
 )
 
-func TestInit(t *testing.T) {
+func resetDebugForTest(t *testing.T, defaultLevel int) {
+	t.Helper()
 	originalFlag := flag.CommandLine
-	defer func() {
+	t.Cleanup(func() {
 		flag.CommandLine = originalFlag
-		initialized = false
-	}()
-
+		initialized.Store(false)
+		logPtr.Store(nil)
+	})
 	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
-	debugLevel = flag.Int("debug", 3, "debug level")
+	debugLevel = flag.Int("debug", defaultLevel, "debug level")
 	levelAtomic.Store(int64(*debugLevel))
-	levelAtomic.Store(int64(*debugLevel))
+	initialized.Store(false)
+	logPtr.Store(nil)
+}
 
+func TestInit(t *testing.T) {
+	resetDebugForTest(t, DebugInfo)
 	Init()
-
-	if !initialized {
+	if !initialized.Load() {
 		t.Error("Init() should set initialized to true")
 	}
-
 	if GetLogger() == nil {
 		t.Error("GetLogger() should return non-nil logger after Init()")
 	}
 }
 
 func TestGetLogger(t *testing.T) {
-	originalFlag := flag.CommandLine
-	defer func() {
-		flag.CommandLine = originalFlag
-		initialized = false
-	}()
-
-	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
-	debugLevel = flag.Int("debug", 3, "debug level")
-	levelAtomic.Store(int64(*debugLevel))
-	levelAtomic.Store(int64(*debugLevel))
-	initialized = false
-
+	resetDebugForTest(t, DebugInfo)
 	logger := GetLogger()
 	if logger == nil {
 		t.Error("GetLogger() should return non-nil logger")
 	}
-
-	if !initialized {
+	if !initialized.Load() {
 		t.Error("GetLogger() should initialize if not already initialized")
 	}
 }
 
 func TestLog(t *testing.T) {
-	originalFlag := flag.CommandLine
-	defer func() {
-		flag.CommandLine = originalFlag
-		initialized = false
-	}()
-
-	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
-	debugLevel = flag.Int("debug", 7, "debug level")
-	levelAtomic.Store(int64(*debugLevel))
-	levelAtomic.Store(int64(*debugLevel))
-	initialized = false
-
+	resetDebugForTest(t, DebugAll)
 	Log(DebugInfo, "test message", "key", "value")
 }
 
 func TestSetDebugLevel(t *testing.T) {
-	originalFlag := flag.CommandLine
-	defer func() {
-		flag.CommandLine = originalFlag
-		initialized = false
-	}()
-
-	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
-	debugLevel = flag.Int("debug", 3, "debug level")
-	levelAtomic.Store(int64(*debugLevel))
-	levelAtomic.Store(int64(*debugLevel))
-	initialized = false
-
+	resetDebugForTest(t, DebugInfo)
 	SetDebugLevel(5)
 	if GetDebugLevel() != 5 {
 		t.Errorf("SetDebugLevel(5) did not set level correctly, got %d", GetDebugLevel())
@@ -94,36 +63,15 @@ func TestSetDebugLevel(t *testing.T) {
 }
 
 func TestGetDebugLevel(t *testing.T) {
-	originalFlag := flag.CommandLine
-	defer func() {
-		flag.CommandLine = originalFlag
-		initialized = false
-	}()
-
-	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
-	debugLevel = flag.Int("debug", 4, "debug level")
-	levelAtomic.Store(int64(*debugLevel))
-	levelAtomic.Store(int64(*debugLevel))
-
+	resetDebugForTest(t, DebugVerbose)
 	level := GetDebugLevel()
-	if level != 4 {
-		t.Errorf("GetDebugLevel() = %d, want 4", level)
+	if level != DebugVerbose {
+		t.Errorf("GetDebugLevel() = %d, want %d", level, DebugVerbose)
 	}
 }
 
 func TestLog_LevelFiltering(t *testing.T) {
-	originalFlag := flag.CommandLine
-	defer func() {
-		flag.CommandLine = originalFlag
-		initialized = false
-	}()
-
-	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
-	debugLevel = flag.Int("debug", 3, "debug level")
-	levelAtomic.Store(int64(*debugLevel))
-	levelAtomic.Store(int64(*debugLevel))
-	initialized = false
-
+	resetDebugForTest(t, DebugInfo)
 	Log(DebugTrace, "trace message")
 	Log(DebugInfo, "info message")
 	Log(DebugError, "error message")
@@ -136,74 +84,103 @@ func TestConstants(t *testing.T) {
 	if DebugError != 2 {
 		t.Errorf("DebugError = %d, want 2", DebugError)
 	}
-	if DebugInfo != 3 {
-		t.Errorf("DebugInfo = %d, want 3", DebugInfo)
+	if DebugWarning != 3 {
+		t.Errorf("DebugWarning = %d, want 3", DebugWarning)
 	}
-	if DebugVerbose != 4 {
-		t.Errorf("DebugVerbose = %d, want 4", DebugVerbose)
+	if DebugInfo != 4 {
+		t.Errorf("DebugInfo = %d, want 4", DebugInfo)
 	}
-	if DebugTrace != 5 {
-		t.Errorf("DebugTrace = %d, want 5", DebugTrace)
+	if DebugVerbose != 5 {
+		t.Errorf("DebugVerbose = %d, want 5", DebugVerbose)
 	}
-	if DebugPackets != 6 {
-		t.Errorf("DebugPackets = %d, want 6", DebugPackets)
+	if DebugTrace != 6 {
+		t.Errorf("DebugTrace = %d, want 6", DebugTrace)
 	}
-	if DebugAll != 7 {
-		t.Errorf("DebugAll = %d, want 7", DebugAll)
+	if DebugPackets != 7 {
+		t.Errorf("DebugPackets = %d, want 7", DebugPackets)
+	}
+	if DebugAll != DebugPackets {
+		t.Errorf("DebugAll = %d, want %d", DebugAll, DebugPackets)
+	}
+}
+
+func TestLevelName(t *testing.T) {
+	if got := LevelName(DebugInfo); got != "info" {
+		t.Errorf("LevelName(Info)=%q", got)
+	}
+	if got := LevelName(0); got != "silent" {
+		t.Errorf("LevelName(0)=%q", got)
+	}
+}
+
+func TestClampLevel(t *testing.T) {
+	if ClampLevel(-3) != 0 {
+		t.Fatalf("negative should clamp to silent")
+	}
+	if ClampLevel(99) != DebugAll {
+		t.Fatalf("oversize should clamp to packets")
+	}
+	if ClampLevel(DebugInfo) != DebugInfo {
+		t.Fatalf("info should pass through")
 	}
 }
 
 func TestLog_WithArgs(t *testing.T) {
-	originalFlag := flag.CommandLine
-	defer func() {
-		flag.CommandLine = originalFlag
-		initialized = false
-	}()
-
-	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
-	debugLevel = flag.Int("debug", 7, "debug level")
-	levelAtomic.Store(int64(*debugLevel))
-	initialized = false
-
+	resetDebugForTest(t, DebugAll)
 	Log(DebugInfo, "test message", "key1", "value1", "key2", "value2")
 }
 
 func TestInit_MultipleCalls(t *testing.T) {
-	originalFlag := flag.CommandLine
-	defer func() {
-		flag.CommandLine = originalFlag
-		initialized = false
-	}()
-
-	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
-	debugLevel = flag.Int("debug", 3, "debug level")
-	levelAtomic.Store(int64(*debugLevel))
-	initialized = false
-
+	resetDebugForTest(t, DebugInfo)
 	Init()
 	firstLogger := GetLogger()
-
 	Init()
 	secondLogger := GetLogger()
-
 	if firstLogger != secondLogger {
 		t.Error("Multiple Init() calls should not create new loggers")
 	}
 }
 
 func TestLog_DisabledLevel(t *testing.T) {
-	originalFlag := flag.CommandLine
-	defer func() {
-		flag.CommandLine = originalFlag
-		initialized = false
-	}()
-
-	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
-	debugLevel = flag.Int("debug", 1, "debug level")
-	levelAtomic.Store(int64(*debugLevel))
-	initialized = false
-
+	resetDebugForTest(t, DebugCritical)
 	Log(DebugTrace, "this should be filtered")
+}
+
+func TestLog_SilentLevel(t *testing.T) {
+	resetDebugForTest(t, DebugInfo)
+	Init()
+	SetDebugLevel(0)
+	out := captureLog(t, slog.LevelDebug, func() {
+		Log(DebugCritical, "boom")
+		Log(DebugInfo, "info")
+	})
+	if out != "" {
+		t.Fatalf("level 0 should silence all output, got %q", out)
+	}
+}
+
+func TestLog_DoesNotInjectDebugLevelAttr(t *testing.T) {
+	resetDebugForTest(t, DebugInfo)
+	Init()
+	out := captureLog(t, slog.LevelInfo, func() {
+		Log(DebugInfo, "plain")
+	})
+	if strings.Contains(out, "debug_level") {
+		t.Fatalf("Log should not append debug_level attr: %q", out)
+	}
+	if !strings.Contains(out, "plain") {
+		t.Fatalf("missing message: %q", out)
+	}
+}
+
+func TestEnabled_HotPath(t *testing.T) {
+	resetDebugForTest(t, DebugInfo)
+	if !Enabled(DebugInfo) {
+		t.Fatal("info should be enabled at default")
+	}
+	if Enabled(DebugVerbose) {
+		t.Fatal("verbose should be filtered at default info")
+	}
 }
 
 // captureLog swaps in a buffer-backed slog handler at the given level
@@ -211,15 +188,15 @@ func TestLog_DisabledLevel(t *testing.T) {
 func captureLog(t *testing.T, level slog.Level, fn func()) string {
 	t.Helper()
 	mu.Lock()
-	prev := logger
+	prev := logPtr.Load()
 	var buf bytes.Buffer
-	logger = slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: level}))
-	initialized = true
+	logPtr.Store(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: level})))
+	initialized.Store(true)
 	mu.Unlock()
 
 	defer func() {
 		mu.Lock()
-		logger = prev
+		logPtr.Store(prev)
 		mu.Unlock()
 	}()
 
@@ -227,30 +204,15 @@ func captureLog(t *testing.T, level slog.Level, fn func()) string {
 	return buf.String()
 }
 
-// TestSetDebugLevel_SilencesEverythingButCritical verifies that lowering
-// the debug level at runtime truly suppresses higher-level output.
 func TestSetDebugLevel_SilencesEverythingButCritical(t *testing.T) {
-	originalFlag := flag.CommandLine
-	defer func() {
-		flag.CommandLine = originalFlag
-		mu.Lock()
-		initialized = false
-		mu.Unlock()
-	}()
-
-	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
-	debugLevel = flag.Int("debug", DebugInfo, "debug level")
-	levelAtomic.Store(int64(*debugLevel))
-	mu.Lock()
-	initialized = false
-	mu.Unlock()
+	resetDebugForTest(t, DebugInfo)
 	Init()
-
 	SetDebugLevel(DebugCritical)
 
 	out := captureLog(t, slogLevelFor(DebugCritical), func() {
 		Log(DebugCritical, "boom")
 		Log(DebugError, "err")
+		Log(DebugWarning, "warn")
 		Log(DebugInfo, "info")
 		Log(DebugVerbose, "verbose")
 		Log(DebugTrace, "trace")
@@ -259,32 +221,16 @@ func TestSetDebugLevel_SilencesEverythingButCritical(t *testing.T) {
 	if !strings.Contains(out, "boom") {
 		t.Fatalf("critical message should pass: %q", out)
 	}
-	for _, banned := range []string{"err", "info", "verbose", "trace"} {
+	for _, banned := range []string{"err", "warn", "info", "verbose", "trace"} {
 		if strings.Contains(out, banned) {
 			t.Fatalf("debug level CRITICAL should suppress %q, got: %q", banned, out)
 		}
 	}
 }
 
-// TestSetDebugLevel_RaisesAfterInit verifies that raising the debug
-// level at runtime makes previously-suppressed messages appear.
 func TestSetDebugLevel_RaisesAfterInit(t *testing.T) {
-	originalFlag := flag.CommandLine
-	defer func() {
-		flag.CommandLine = originalFlag
-		mu.Lock()
-		initialized = false
-		mu.Unlock()
-	}()
-
-	flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
-	debugLevel = flag.Int("debug", DebugCritical, "debug level")
-	levelAtomic.Store(int64(*debugLevel))
-	mu.Lock()
-	initialized = false
-	mu.Unlock()
+	resetDebugForTest(t, DebugCritical)
 	Init()
-
 	SetDebugLevel(DebugTrace)
 
 	out := captureLog(t, slogLevelFor(DebugTrace), func() {
@@ -296,15 +242,14 @@ func TestSetDebugLevel_RaisesAfterInit(t *testing.T) {
 	}
 }
 
-// TestSlogLevelFor sanity-checks the RNS->slog level mapping so the
-// handler filter and the explicit Log filter stay consistent.
 func TestSlogLevelFor(t *testing.T) {
 	cases := []struct {
 		in   int
 		want slog.Level
 	}{
 		{DebugCritical, slog.LevelError},
-		{DebugError, slog.LevelWarn},
+		{DebugError, slog.LevelError},
+		{DebugWarning, slog.LevelWarn},
 		{DebugInfo, slog.LevelInfo},
 		{DebugVerbose, slog.LevelDebug},
 		{DebugTrace, slog.LevelDebug},

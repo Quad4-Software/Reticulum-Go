@@ -19,7 +19,7 @@ func ClampDisplayName(name, fallback string) string {
 		name = fallback
 	}
 	if len(name) > MaxNodeNameBytes {
-		debug.Log(debug.DebugCritical,
+		debug.Log(debug.DebugWarning,
 			"node name exceeds max length, truncating",
 			"max_bytes", MaxNodeNameBytes,
 			"got_bytes", len(name),

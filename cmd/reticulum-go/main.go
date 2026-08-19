@@ -70,8 +70,8 @@ func NewReticulum(cfg *common.ReticulumConfig) (*Reticulum, error) {
 		if !ifaceConfig.Enabled {
 			continue
 		}
-		debug.Log(debug.DebugError, "Configuring interface", "name", name, "type", ifaceConfig.Type)
-		debug.Log(debug.DebugInfo, "Interface configured", "name", name)
+		debug.Log(debug.DebugInfo, "Configuring interface", "name", name, "type", ifaceConfig.Type)
+		debug.Log(debug.DebugVerbose, "Interface configured", "name", name)
 	}
 
 	return r, nil
@@ -107,17 +107,17 @@ func runDaemon(opts daemonOptions) int {
 		cfg, err = config.InitConfig()
 	}
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to initialize config", "error", err)
+		debug.Log(debug.DebugError, "Failed to initialize config", "error", err)
 		return 1
 	}
 
 	applyDaemonLogging(cfg, opts)
-	debug.Log(debug.DebugCritical, "Initializing Reticulum", "debug_level", debug.GetDebugLevel())
+	debug.Log(debug.DebugInfo, "Initializing Reticulum", "level", debug.LevelName(debug.GetDebugLevel()), "debug_level", debug.GetDebugLevel())
 	debug.Log(debug.DebugInfo, "Configuration loaded", "path", cfg.ConfigPath)
 
 	r, err := NewReticulum(cfg)
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to create Reticulum instance", "error", err)
+		debug.Log(debug.DebugError, "Failed to create Reticulum instance", "error", err)
 		return 1
 	}
 
@@ -127,7 +127,7 @@ func runDaemon(opts daemonOptions) int {
 	r.Transport().RegisterAnnounceHandler(handler)
 
 	if err := r.Start(); err != nil {
-		debug.Log(debug.DebugCritical, "Failed to start Reticulum", "error", err)
+		debug.Log(debug.DebugError, "Failed to start Reticulum", "error", err)
 		return 1
 	}
 
@@ -136,7 +136,7 @@ func runDaemon(opts daemonOptions) int {
 	r.StartControlAPI()
 
 	if err := sandbox.Apply(cfg); err != nil {
-		debug.Log(debug.DebugCritical, "Sandbox application failed", "error", err)
+		debug.Log(debug.DebugError, "Sandbox application failed", "error", err)
 		if cfg != nil && (cfg.PanicOnInterfaceErr || cfg.SandboxStrict) {
 			return 1
 		}
@@ -150,11 +150,11 @@ func runDaemon(opts daemonOptions) int {
 				if runtime.GOOS == "freebsd" && r.config != nil && r.config.EnableSandbox {
 					debug.Log(debug.DebugInfo, "SIGHUP reload: re-exec under CapEnter sandbox")
 					if err := r.StopDaemon(); err != nil {
-						debug.Log(debug.DebugCritical, "SIGHUP re-exec: stop", "error", err)
+						debug.Log(debug.DebugError, "SIGHUP re-exec: stop", "error", err)
 						continue
 					}
 					if err := reexecDaemon(); err != nil {
-						debug.Log(debug.DebugCritical, "SIGHUP re-exec failed", "error", err)
+						debug.Log(debug.DebugError, "SIGHUP re-exec failed", "error", err)
 					}
 					continue
 				}
@@ -162,18 +162,18 @@ func runDaemon(opts daemonOptions) int {
 				if path == "" {
 					p, err := config.GetConfigPath()
 					if err != nil {
-						debug.Log(debug.DebugCritical, "SIGHUP reload: config path", "error", err)
+						debug.Log(debug.DebugError, "SIGHUP reload: config path", "error", err)
 						continue
 					}
 					path = p
 				}
 				newCfg, err := config.LoadConfig(path)
 				if err != nil {
-					debug.Log(debug.DebugCritical, "SIGHUP reload: load config", "error", err)
+					debug.Log(debug.DebugError, "SIGHUP reload: load config", "error", err)
 					continue
 				}
 				if err := r.ReloadInterfaces(newCfg); err != nil {
-					debug.Log(debug.DebugCritical, "ReloadInterfaces", "error", err)
+					debug.Log(debug.DebugError, "ReloadInterfaces", "error", err)
 				} else {
 					r.config = newCfg
 					applyDaemonLogging(newCfg, daemonOptions{DebugLevel: -1, JSONLogs: opts.JSONLogs})
@@ -191,12 +191,12 @@ func runDaemon(opts daemonOptions) int {
 	signal.Notify(sigChan, sigs...)
 	<-sigChan
 
-	debug.Log(debug.DebugCritical, "Shutting down...")
+	debug.Log(debug.DebugInfo, "Shutting down...")
 	if err := r.StopDaemon(); err != nil {
-		debug.Log(debug.DebugCritical, "Error during shutdown", "error", err)
+		debug.Log(debug.DebugError, "Error during shutdown", "error", err)
 		return 1
 	}
-	debug.Log(debug.DebugCritical, "Goodbye!")
+	debug.Log(debug.DebugInfo, "Goodbye!")
 	return 0
 }
 
@@ -219,17 +219,15 @@ func applyDaemonLogging(cfg *common.ReticulumConfig, opts daemonOptions) {
 		return
 	}
 	level := cfg.LogLevel
-	if opts.DebugLevel > 0 {
+	if opts.DebugLevel >= 0 {
 		level = opts.DebugLevel
 	}
-	if level > 0 {
-		debug.SetDebugLevel(level)
-	}
+	debug.SetDebugLevel(level)
 	if opts.JSONLogs || strings.EqualFold(cfg.LogFormat, "json") {
 		debug.SetJSONFormat(true)
 	}
 	if err := debug.ConfigureDestination(cfg); err != nil {
-		debug.Log(debug.DebugCritical, "Failed to configure log destination", "error", err)
+		debug.Log(debug.DebugError, "Failed to configure log destination", "error", err)
 	}
 }
 
@@ -238,6 +236,9 @@ func (r *Reticulum) monitorInterfaces() {
 	defer ticker.Stop()
 
 	for range ticker.C {
+		if !debug.Enabled(debug.DebugVerbose) {
+			continue
+		}
 		for _, iface := range r.Interfaces() {
 			if tcpClient, ok := iface.(*interfaces.TCPClientInterface); ok {
 				stats := fmt.Sprintf("Interface %s status - Connected: %v, TX: %d bytes (%.2f Kbps), RX: %d bytes (%.2f Kbps)",
@@ -265,19 +266,19 @@ func (r *Reticulum) StartControlAPI() {
 	}
 	api, err := controlapi.New(r.Transport(), r.Node, r.config)
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to initialize control API", "error", err)
+		debug.Log(debug.DebugError, "Failed to initialize control API", "error", err)
 		return
 	}
 	// Bind before sandbox.Apply so FreeBSD CapEnter cannot race the listen.
 	if err := api.Listen(); err != nil {
-		debug.Log(debug.DebugCritical, "Failed to bind control API", "error", err)
+		debug.Log(debug.DebugError, "Failed to bind control API", "error", err)
 		_ = api.Close()
 		return
 	}
 	r.controlAPI = api
 	go func() {
 		if err := api.Serve(); err != nil {
-			debug.Log(debug.DebugCritical, "Control API stopped", "error", err)
+			debug.Log(debug.DebugError, "Control API stopped", "error", err)
 		}
 	}()
 }
@@ -285,7 +286,7 @@ func (r *Reticulum) StartControlAPI() {
 func (r *Reticulum) StopDaemon() error {
 	if r.controlAPI != nil {
 		if err := r.controlAPI.Close(); err != nil {
-			debug.Log(debug.DebugCritical, "Error closing control API", "error", err)
+			debug.Log(debug.DebugError, "Error closing control API", "error", err)
 		}
 		r.controlAPI = nil
 	}
@@ -336,11 +337,17 @@ func (h *AnnounceHandler) AspectFilter() []string {
 }
 
 func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id any, appData []byte, hops uint8) error {
-	debug.Log(debug.DebugInfo, "Received announce", "hash", fmt.Sprintf("%x", destHash), "appData_len", len(appData), "hops", hops)
-	debug.Log(debug.DebugPackets, "Announce appData", "data", fmt.Sprintf("%x", appData))
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Received announce", "hash", fmt.Sprintf("%x", destHash), "appData_len", len(appData), "hops", hops)
+	}
+	if debug.Enabled(debug.DebugPackets) {
+		debug.Log(debug.DebugPackets, "Announce appData", "data", fmt.Sprintf("%x", appData))
+	}
 
 	if annID, ok := id.(*identity.Identity); ok {
-		debug.Log(debug.DebugAll, "Announce identity", "hash", annID.GetHexHash(), "pubkey", fmt.Sprintf("%x", annID.GetPublicKey()))
+		if debug.Enabled(debug.DebugAll) {
+			debug.Log(debug.DebugAll, "Announce identity", "hash", annID.GetHexHash(), "pubkey", fmt.Sprintf("%x", annID.GetPublicKey()))
+		}
 
 		h.reticulum.announceHistoryMu.Lock()
 		h.reticulum.announceHistory[annID.GetHexHash()] = announceRecord{

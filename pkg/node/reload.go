@@ -222,14 +222,14 @@ func (n *Node) ReloadInterfaces(newCfg *common.ReticulumConfig) error {
 			if newCfg.PanicOnInterfaceErr {
 				return fmt.Errorf("interface %s: %w", name, err)
 			}
-			debug.Log(debug.DebugCritical, "ReloadInterfaces: skip interface", "name", name, "error", err)
+			debug.Log(debug.DebugError, "ReloadInterfaces: skip interface", "name", name, "error", err)
 			continue
 		}
 		if err := niface.Start(); err != nil {
 			if newCfg.PanicOnInterfaceErr {
 				return fmt.Errorf("start %s: %w", name, err)
 			}
-			debug.Log(debug.DebugCritical, "ReloadInterfaces: start failed", "name", name, "error", err)
+			debug.Log(debug.DebugError, "ReloadInterfaces: start failed", "name", name, "error", err)
 			continue
 		}
 		ni, ok := niface.(common.NetworkInterface)
@@ -242,7 +242,7 @@ func (n *Node) ReloadInterfaces(newCfg *common.ReticulumConfig) error {
 			if newCfg.PanicOnInterfaceErr {
 				return err
 			}
-			debug.Log(debug.DebugCritical, "ReloadInterfaces: ReplaceInterface failed", "name", name, "error", err)
+			debug.Log(debug.DebugError, "ReloadInterfaces: ReplaceInterface failed", "name", name, "error", err)
 			continue
 		}
 		n.handleInterface(ni)

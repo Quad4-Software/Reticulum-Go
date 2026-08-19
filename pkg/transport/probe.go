@@ -40,7 +40,7 @@ func (t *Transport) InitializeProbeDestination() error {
 	t.mutex.Unlock()
 	t.appendMgmtDestination(dest)
 
-	debug.Log(debug.DebugCritical, "Transport will respond to probe requests",
+	debug.Log(debug.DebugInfo, "Transport will respond to probe requests",
 		"destination", fmt.Sprintf("%x", dest.GetHash()))
 	return nil
 }

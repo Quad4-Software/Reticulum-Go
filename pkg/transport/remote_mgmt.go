@@ -48,7 +48,7 @@ func (t *Transport) InitializeRemoteManagement() error {
 
 	allowed := copyHashList(t.config.RemoteManagementAllowed)
 	if len(allowed) == 0 {
-		debug.Log(debug.DebugCritical, "Remote management enabled with empty ACL, request handlers not registered")
+		debug.Log(debug.DebugWarning, "Remote management enabled with empty ACL, request handlers not registered")
 	} else {
 		if err := dest.RegisterRequestHandlerAny(remoteManagementPathPath, t.remotePathHandler, destination.AllowList, allowed); err != nil {
 			return fmt.Errorf("remote /path handler: %w", err)
@@ -64,7 +64,7 @@ func (t *Transport) InitializeRemoteManagement() error {
 	t.mgmtDestinations = append(t.mgmtDestinations, dest)
 	t.mutex.Unlock()
 
-	debug.Log(debug.DebugCritical, "Enabled remote management",
+	debug.Log(debug.DebugInfo, "Enabled remote management",
 		"destination", fmt.Sprintf("%x", dest.GetHash()))
 	return nil
 }
