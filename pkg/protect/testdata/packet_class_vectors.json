@@ -1,0 +1,35 @@
+{
+  "format_version": 1,
+  "vectors": [
+    {
+      "name": "announce_ht1",
+      "raw_hex": "0100db65b9f0f579924c0d77e333077c150000f4392e82d7620e8508c72bcd9bad57d49854296188df085edd8cf481cd3b71644b72a1f48b1dc07ce020e0d5fcb1b06c8a55c6991fa3222e31c1496d264b632e5218cc94ef9c19f90667f15e6d763afab4226d8f46fff90eab58005519754b5c08fa4a0de694b27f9f541382787f01f4c6a636c6fcb1188b3dd7fe878b05a56f50c8bd498e80a1b153c2b9718355e2e05b8bfb0c0102",
+      "class": "shed_first"
+    },
+    {
+      "name": "path_response_announce",
+      "raw_hex": "5100abababababababababababababababab9a3266625467ea6c226305fec2a6fdc80bb5b7a968a10ff9ac729204680cdbe7c29fcf7d24fe1f8bef0b0f4b1b99e3e343f37e2baa84244757d1bf98ff34e4e115139891c4e96ba407f2fb8c99a0868a9372ea66915f2f5fedf9161f10ec7833006a80bbec8c247d7a5b897ce2e7a8dd1eb89fd5cbe0c1a2df2e72ec2b481b57e041f7a93d951c0356af8f243f5ea3d4bceafcffced3ae44aa2b94d29cae42ea0c061b6a0d0102",
+      "class": "shed_first"
+    },
+    {
+      "name": "path_request",
+      "raw_hex": "08006b9f66014d9853faab220fba47d0276100db65b9f0f579924c0d77e333077c15007ce9781d85362065d6c23e8c6a280e4d",
+      "class": "unknown"
+    },
+    {
+      "name": "data_hops3",
+      "raw_hex": "0003db65b9f0f579924c0d77e333077c15000068656c6c6f20686f7073",
+      "class": "unknown"
+    },
+    {
+      "name": "link_packet_type",
+      "raw_hex": "0200",
+      "class": "prefer_keep"
+    },
+    {
+      "name": "link_dest_data",
+      "raw_hex": "0c00",
+      "class": "prefer_keep"
+    }
+  ]
+}

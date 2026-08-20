@@ -29,6 +29,8 @@ cosign.key
 !pkg/packet/testdata/handshake_vectors.json
 !pkg/packet/testdata/rns_wire_vectors.json
 !pkg/packet/testdata/adversarial/manifest.json
+!pkg/protect/testdata/packet_class_vectors.json
+!pkg/transport/testdata/spam_filter_vectors.json
 !pkg/rgosh/testdata/adversarial/manifest.json
 
 # Opaque binary blobs (corpus payloads live as hex in tracked JSON)

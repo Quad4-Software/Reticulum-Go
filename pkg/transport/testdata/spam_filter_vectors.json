@@ -1,0 +1,56 @@
+{
+  "format_version": 1,
+  "amplification": [
+    {
+      "name": "duplicate_announce",
+      "kind": "announce_dup",
+      "inject": 16,
+      "max_forward": 1
+    },
+    {
+      "name": "unique_announce_ingress_hold",
+      "kind": "announce_unique_flood",
+      "inject": 16,
+      "max_forward": 12,
+      "ic_burst_freq": 4,
+      "ic_burst_freq_new": 4,
+      "ic_new_time": 1
+    },
+    {
+      "name": "unsigned_announce",
+      "kind": "announce_bad_sig",
+      "inject": 4,
+      "max_forward": 0
+    },
+    {
+      "name": "path_response_not_forwarded",
+      "kind": "announce_path_response",
+      "inject": 4,
+      "max_forward": 0
+    },
+    {
+      "name": "duplicate_path_request",
+      "kind": "pr_dup",
+      "inject": 32,
+      "max_forward": 1
+    },
+    {
+      "name": "unique_path_request_flood",
+      "kind": "pr_unique_flood",
+      "inject": 80,
+      "max_forward": 32
+    },
+    {
+      "name": "tagless_path_request",
+      "kind": "pr_tagless",
+      "inject": 8,
+      "max_forward": 0
+    },
+    {
+      "name": "full_mode_unknown_pr_not_discovered",
+      "kind": "pr_full_mode_no_discover",
+      "inject": 16,
+      "max_forward": 0
+    }
+  ]
+}
