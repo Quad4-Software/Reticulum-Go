@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.0.3 [unreleased] - 2026-08-TBD
+## v1.1.0 [unreleased] - 2026-08-TBD
 
 Wire compatible with Python RNS 1.4.2
 
