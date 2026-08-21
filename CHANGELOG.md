@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.0.3 [unreleased]
+## v1.0.3 [unreleased] - 2026-08-TBD
 
 Wire compatible with Python RNS 1.4.2
 
@@ -63,7 +63,7 @@ Wire compatible with Python RNS 1.4.2
 - Configuration, API reference, control API, transport, links, utilities, development-and-testing, compatibility, and package-map docs updated for throttling, timeouts, relay behavior, reticulum-go zen, and log levels
 
 
-## v1.0.2
+## v1.0.2 - 2026-08-14
 
 Wire compatible with Python RNS 1.4.2
 
@@ -136,7 +136,7 @@ Wire compatible with Python RNS 1.4.2
 - Local `Destination.Announce` requires IN, skips access-point ifaces (Python outbound mode rules), and `Identity.Remember` rejects dest-hash public-key collisions
 - Link identify callback mutex so concurrent identification packets do not race remote identity assignment
 
-## v1.0.1
+## v1.0.1 - 2026-07-25
 
 ### Included
 - Rust, Python, Lua, Swift, Java, and Kotlin librns bindings with smoke, page-fetch, and pageserver examples plus CI jobs
@@ -163,7 +163,7 @@ Wire compatible with Python RNS 1.4.2
 - Link watchdog keepalive when remote continuously transmits (RNS 1.4.0)
 - Backbone client count and blocked-IP fields missing from RPC interface stats
 
-## v1.0.0
+## v1.0.0 - 2026-07-19
 
 First stable release of Reticulum-Go.
 
