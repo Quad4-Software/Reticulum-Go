@@ -19,6 +19,10 @@ type lineMsg struct {
 // lineWaiter ensures at most one ReadString is in flight per bufio.Reader.
 // Timed-out waits leave the in-flight result buffered for the next caller,
 // avoiding concurrent bufio use (which panics).
+//
+// reading stays true from starting ReadString until the result is consumed
+// from ch. Clearing it only after send races with the next caller, which can
+// see reading still true, skip starting a new read, and hang until timeout.
 type lineWaiter struct {
 	mu      sync.Mutex
 	reading bool
@@ -38,6 +42,7 @@ func ReadLineTimeout(ctx context.Context, br *bufio.Reader, d time.Duration) (st
 	w.mu.Lock()
 	select {
 	case r := <-w.ch:
+		w.reading = false
 		w.mu.Unlock()
 		return r.s, r.err
 	default:
@@ -47,9 +52,6 @@ func ReadLineTimeout(ctx context.Context, br *bufio.Reader, d time.Duration) (st
 		go func() {
 			s, err := br.ReadString('\n')
 			w.ch <- lineMsg{s: s, err: err}
-			w.mu.Lock()
-			w.reading = false
-			w.mu.Unlock()
 		}()
 	}
 	w.mu.Unlock()
@@ -65,10 +67,16 @@ func ReadLineTimeout(ctx context.Context, br *bufio.Reader, d time.Duration) (st
 				default:
 				}
 			}
+			w.mu.Lock()
+			w.reading = false
+			w.mu.Unlock()
 			return r.s, r.err
 		case <-timer.C:
 			select {
 			case r := <-w.ch:
+				w.mu.Lock()
+				w.reading = false
+				w.mu.Unlock()
 				return r.s, r.err
 			default:
 				return "", context.DeadlineExceeded
@@ -76,6 +84,9 @@ func ReadLineTimeout(ctx context.Context, br *bufio.Reader, d time.Duration) (st
 		case <-ctx.Done():
 			select {
 			case r := <-w.ch:
+				w.mu.Lock()
+				w.reading = false
+				w.mu.Unlock()
 				return r.s, r.err
 			default:
 				return "", ctx.Err()
