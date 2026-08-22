@@ -99,7 +99,7 @@ jobs:
           task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Python venv and RNS
-        run: sh scripts/ci/setup-venv-pip.sh 'rns==1.4.2'
+        run: sh scripts/ci/setup-venv-pip.sh 'rns==1.5.0'
 
       - name: Generate crossref vectors
         run: task test-crossref -- generate
@@ -136,7 +136,7 @@ jobs:
           task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Python venv and RNS
-        run: sh scripts/ci/setup-venv-pip.sh 'rns==1.4.2'
+        run: sh scripts/ci/setup-venv-pip.sh 'rns==1.5.0'
 
       - name: Generate crossref vectors
         run: task test-crossref -- generate
@@ -619,7 +619,7 @@ jobs:
           node-version: "${{ env.CI_NODE_MAJOR }}"
 
       - name: Python venv and RNS
-        run: sh scripts/ci/setup-venv-pip.sh 'rns==1.4.2'
+        run: sh scripts/ci/setup-venv-pip.sh 'rns==1.5.0'
 
       - name: Generate crossref vectors
         run: task test-crossref -- generate

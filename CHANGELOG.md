@@ -2,14 +2,21 @@
 
 ## v1.1.0 [unreleased] - 2026-08-TBD
 
-Wire compatible with Python RNS 1.4.2
+Wire compatible with Python RNS 1.5.0
 
 ### Added
 - reticulum-go zen (rgozen): static scanner for path and link footguns, with optional safe fixes
 - Release builds add more CGO-free Linux, BSD, Solaris, illumos, AIX, and Android targets. Linux amd64 ships v1 and v3 together
 - Local LXStamper proof-of-work for discovery announces
 - Blackhole federation via publish_blackhole, remote sources, and periodic merge
-- Discovery autoconnect for Backbone, TCP server, and I2P peers from rnstransport announces
+- Discovery operator LXMF address field (OP_ADDR 0xF0) and discovery_lxmf_address config
+- rgostatus RNS 1.5.0 flags: -A, -P, -b, -B, -t, -Q (queues), link-table active count via -l
+- Per-interface protocol, IFAC, and packet-filter violation counters in interface stats RPC
+- Per-interface announce and path-request byte and count stats in interface stats RPC
+- active_link_count shared-instance RPC (validated link-table rows)
+- RNS 1.5.0 inbound priority queues with qlen_in_* config and queue pressure in interface stats RPC
+- rgostatus -d and -D for discovered interface listing (Python rnstatus parity)
+- Discovered interface persistence keyed by discovery_hash with list_discovered_interfaces parity
 
 ### Changed
 - Path and link timeouts, throttling, and relay behavior aligned with RNS 1.4.2
@@ -18,7 +25,7 @@ Wire compatible with Python RNS 1.4.2
 - Optional slim build tag drops QUIC, WebTransport, I2P, and SDR drivers
 - Default log level is info. Hot paths avoid work when logging is filtered
 - Control API and librns path requests report wait time and honor AwaitPath before link open
-- Interface stats use concrete driver names. Per-interface announce queues match Python announce_cap
+- link_count RPC returns link-table size (Python parity). active_links in stats uses validated rows
 
 ### Fixed
 - Shared-instance clients receive path and link relay when transport is disabled
