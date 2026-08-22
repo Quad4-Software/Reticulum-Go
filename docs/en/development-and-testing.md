@@ -309,6 +309,7 @@ INTEROP_ARTIFACTS=1 INTEROP_ARTIFACT_ROOT=/tmp/rns-interop \
 | `pkg/i2p`, `pkg/interfaces` I2P | `RUN_LIVE_I2P=1` (optional `I2P_SAM_ADDRESS`, `I2P_DIRECTORY_URL`) |
 | `pkg/blackhole` | `RUN_PY_INTEROP=1` |
 | `pkg/discovery` | `RUN_PY_INTEROP=1` |
+| `pkg/lxstamper` | `RUN_PY_INTEROP=1` (LXStamper) |
 
 ### End-to-end daemon tests
 

@@ -347,18 +347,27 @@ See [Control API](control-api.md#dart-and-flutter).
 
 ## Discovery and policy
 
-### `pkg/discovery`
+### `pkg/lxstamper`
 
-rnstransport wire constants, LXStamper, msgpack layouts.
+LXStamper-compatible proof-of-work. Used by discovery (20 rounds). Delivery/propagation/peering round constants are exported for apps without importing reticulum-go-protocols.
 
 | Item | Detail |
 |------|--------|
-| Key types | InterfaceDiscovery |
-| Main files | `discovery.go`, `interface_discovery.go` |
+| Key funcs | StampWorkblock, StampValid, StampValue, MeetsCost, GenerateStamp |
+| Main file | `stamper.go` |
+
+### `pkg/discovery`
+
+rnstransport wire constants, announce codec, InterfaceDiscovery, InterfaceAnnouncer, autoconnect persist helpers. PoW via `pkg/lxstamper`.
+
+| Item | Detail |
+|------|--------|
+| Key types | InterfaceDiscovery, InterfaceAnnouncer, Info |
+| Main files | `discovery.go`, `interface_discovery.go`, `interface_announcer.go`, `autoconnect_store.go` |
 
 ### `pkg/blackhole`
 
-Blackhole table semantics, merge, announce filtering.
+Blackhole table semantics, merge, encode for `/list`, announce filtering. Federation publish and updater live in `pkg/transport` / `pkg/node`.
 
 | Item | Detail |
 |------|--------|

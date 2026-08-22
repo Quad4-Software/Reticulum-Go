@@ -23,8 +23,8 @@ The detailed matrix with config key tables lives in [COMPATIBILITY.md](../../COM
 | Channel | Complete | Ghost-envelope fix, RX sequence ring, TX window and MDU gates. Tests in `pkg/channel` |
 | Buffer | Complete | Stream buffer over channel |
 | Interfaces | Partial | See below |
-| Discovery | Partial | rnstransport listening works. Announcer and autoconnect not auto-started |
-| Blackhole | Partial | Local table, announce drop, and LINKIDENTIFY teardown. No publish/federation or `/list` destination |
+| Discovery | Complete | Wire, listen, announcer, LXStamper, autoconnect for Backbone, TCP, and I2P when autoconnect_discovered_interfaces > 0 |
+| Blackhole | Complete | Local table, announce drop, LINKIDENTIFY teardown, publish `/list`, sources updater |
 | Node lifecycle | Go-only | `pkg/node` embedder API, no Python equivalent |
 | librns C ABI | Go-only | `pkg/librns`, `include/rns.h`. See [librns](librns.md) |
 | Odin librns bindings | Go-only host | `bindings/odin` (Linux). See [librns](librns.md#odin-bindings) |
@@ -96,8 +96,7 @@ Wire format is stable across 1.2.x to 1.4.x. Notable behavior differences:
 
 | Gap | Impact |
 |-----|--------|
-| Discovery autoconnect | Listen, validate, and InterfaceAnnouncer work. Autoconnect loops are not auto-started |
-| Blackhole federation | publish_blackhole, blackhole_sources, and updater not driven |
+| Discovery TCPClient/I2P autoconnect | Go implements TCP client and I2P peer autoconnect from discovery. Python still stubs these paths |
 | Remote management mutate | Remote `/path` table and rates plus `/status` work. Remote drop, path-request, and blackhole mutate are unimplemented (Python also exits 255) |
 | RNode and radio serial drivers | RNode / KISS / AX25 / Weave not in this tree. SerialInterface, Modem73Interface, and SDRInterface are present |
 | Utilities rnir rnpkg rngit | Not ported |

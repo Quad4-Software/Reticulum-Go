@@ -81,6 +81,13 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | max_packet_handlers | 512 | HandlePacket worker count and queue depth. Overflow sheds under dos_protection |
 | node_profile | default | Go-only overlay: `default`, `core_router`, or `embedded`. Fills unset knobs only. Explicit keys always win |
 | discover_interfaces | no | Start rnstransport interface discovery listener |
+| autoconnect_discovered_interfaces | 0 | Max concurrent autoconnect peers from discovery (>0 enables) |
+| autoconnect_interface_gravity | (unset) | Gravity applied to autoconnected interfaces |
+| autoconnect_interface_mode | (unset) | Mode override for autoconnected interfaces |
+| autoconnect_announces_to_internal | (unset) | announces_to_internal on autoconnect peers |
+| publish_blackhole | no | Register rnstransport.info.blackhole with `/list` |
+| blackhole_sources | (empty) | Comma-separated transport identity hashes to pull blackhole lists from |
+| blackhole_update_interval | 60 | Minutes between blackhole source pulls (floor 2) |
 | watch_interfaces | no | Poll NIC up/down and rescan Auto interfaces (Go-only) |
 | static_transport_identity | no | Keep persisted transport identity on the wire when enable_transport is no (RNS 1.3.6+) |
 | local_hops_delta | no | Mangling applied on local-origin hop-0 packets (delta 2-7) |
@@ -165,11 +172,7 @@ Health kinds `dos_*` increment on trips. See [Security](security.md#dos-protecti
 
 ### Keys present in Python but ignored in Go
 
-| Key | Notes |
-|-----|-------|
-| publish_blackhole | Blackhole auto-publish not started |
-| blackhole_sources | Ignored |
-| blackhole_update_interval | Ignored |
+None for blackhole federation or discovery autoconnect. Those keys are driven in Go.
 
 local_hops_delta applies a random hop field (2-7) on locally originated hop-0 packets when not connected to a shared instance.
 

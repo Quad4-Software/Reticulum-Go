@@ -79,7 +79,7 @@ Transport maintains a link table for active sessions. Link packets are routed to
 
 ## Blackhole interaction
 
-When `pkg/blackhole` has an entry for an identity hash, announces from that identity are dropped and links are torn down at LINKIDENTIFY. Blackhole federation (publish_blackhole, remote sources) is not implemented. See [Compatibility](compatibility.md).
+When `pkg/blackhole` has an entry for an identity hash, announces from that identity are dropped and links are torn down at LINKIDENTIFY. With `publish_blackhole = yes`, the daemon registers `rnstransport.info.blackhole` and serves `/list`. With `blackhole_sources` set, BlackholeUpdater periodically pulls remote lists and merges them. See [Compatibility](compatibility.md).
 
 ## Transport identity
 

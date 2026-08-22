@@ -56,8 +56,8 @@ Below is a summary of major features. For line-by-line parity with Python, see [
 | VSOCK interface | Go-only (Linux) | `pkg/interfaces/vsock.go` |
 | HTTPS long-poll | Go-only | `pkg/interfaces/https.go` |
 | Daemon and config | Complete | `cmd/reticulum-go`, `pkg/reticulumconfig` |
-| Discovery (rnstransport) | Partial | Listening works. Announcer and autoconnect loops are not auto-started |
-| Blackhole | Partial | Local drop and LINKIDENTIFY teardown. No publish/federation |
+| Discovery (rnstransport) | Complete | Listen, announcer, LXStamper, autoconnect |
+| Blackhole | Complete | Local drop, LINKIDENTIFY teardown, publish `/list`, sources updater |
 | SerialInterface | Complete | HDLC serial with Go extensions. Live framing interop |
 | Modem73Interface | Complete | KISS + JSON control to modem73. Live: `tests/interop/modem73_live_test.go` |
 | SDRInterface | Complete | Lab/testing IQ burst modem (pkg/sdr). Live: RUN_LIVE_SDR=1 |
