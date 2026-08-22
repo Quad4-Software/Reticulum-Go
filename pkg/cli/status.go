@@ -7,9 +7,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"path/filepath"
 	"time"
 
 	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/discovery"
 	"quad4/reticulum-go/pkg/node"
 	"quad4/reticulum-go/pkg/rnsutil"
 )
@@ -22,8 +24,16 @@ func RunStatus(args []string, opt ...Options) int {
 	jsonOut := fs.Bool("json", false, "emit JSON")
 	all := fs.Bool("a", false, "include all interfaces")
 	nameFilter := fs.String("n", "", "filter interfaces by name substring")
-	links := fs.Bool("l", false, "include link count")
-	sortBy := fs.String("s", "", "sort by rate|rx|tx|rxs|txs|traffic|announce|arx|atx|prx|ptx|held")
+	links := fs.Bool("l", false, "include link table stats")
+	announceStats := fs.Bool("A", false, "show announce byte and count stats")
+	prStats := fs.Bool("P", false, "show path-request byte and count stats")
+	burstFilter := fs.Bool("B", false, "only show interfaces with active bursts")
+	blockedIPs := fs.Bool("b", false, "list blocked IPs per interface")
+	trafficTotals := fs.Bool("t", false, "show transport traffic totals")
+	queues := fs.Bool("Q", false, "show inbound queue pressure (RNS 1.5.0, use -Q not -q)")
+	discovered := fs.Bool("d", false, "list discovered interfaces")
+	discoveredDetail := fs.Bool("D", false, "show details and config entries for discovered interfaces")
+	sortBy := fs.String("s", "", "sort by rate|rx|tx|rxs|txs|traffic|announce|arx|atx|prx|ptx|held|pvs|ivs|flt|arxc|atxc|prxc|ptxc|gravity")
 	sortAsc := fs.Bool("r", false, "sort ascending (default descending)")
 	timeout := fs.Duration("timeout", 10*time.Second, "RPC timeout")
 	remoteHex := fs.String("R", "", "transport identity hash of remote instance")
@@ -41,10 +51,42 @@ func RunStatus(args []string, opt ...Options) int {
 	}
 
 	statusOpts := rnsutil.StatusOptions{
-		NameFilter: *nameFilter,
-		SortBy:     *sortBy,
-		SortAsc:    *sortAsc,
-		ShowAll:    *all,
+		NameFilter:     *nameFilter,
+		SortBy:         *sortBy,
+		SortAsc:        *sortAsc,
+		ShowAll:        *all,
+		AnnounceStats:  *announceStats,
+		PRStats:        *prStats,
+		ShowBlockedIPs: *blockedIPs,
+		QueueStats:     *queues,
+		TrafficTotals:  *trafficTotals,
+		BurstFilter:    *burstFilter,
+	}
+
+	if *discovered || *discoveredDetail {
+		storageDir := ""
+		if cfg.ConfigPath != "" {
+			storageDir = filepath.Join(filepath.Dir(cfg.ConfigPath), "storage")
+		}
+		list, err := discovery.ListDiscoveredInterfaces(storageDir, discovery.ListOptions{
+			NameFilter: *nameFilter,
+		})
+		if err != nil {
+			fmt.Fprintf(stderr, "discovered interfaces: %v\n", err)
+			return 1
+		}
+		if *jsonOut {
+			if err := rnsutil.WriteDiscoveredJSON(stdout, list); err != nil {
+				fmt.Fprintf(stderr, "json: %v\n", err)
+				return 1
+			}
+			return 0
+		}
+		if err := rnsutil.WriteDiscoveredHuman(stdout, list, *discoveredDetail); err != nil {
+			fmt.Fprintf(stderr, "write: %v\n", err)
+			return 1
+		}
+		return 0
 	}
 
 	if *remoteHex != "" {
@@ -82,7 +124,7 @@ func RunStatus(args []string, opt ...Options) int {
 	}
 	rnsutil.SortInterfaceStats(&stats, *sortBy, *sortAsc)
 
-	var linkCount *int
+	var linkCount, activeLinkCount *int
 	if *links {
 		n, err := client.GetLinkCount()
 		if err != nil {
@@ -90,6 +132,10 @@ func RunStatus(args []string, opt ...Options) int {
 			return 1
 		}
 		linkCount = &n
+		m, err := client.GetActiveLinkCount()
+		if err == nil {
+			activeLinkCount = &m
+		}
 	}
 
 	if *jsonOut {
@@ -99,7 +145,7 @@ func RunStatus(args []string, opt ...Options) int {
 		}
 		return 0
 	}
-	if err := rnsutil.WriteStatusHuman(stdout, stats, linkCount, statusOpts); err != nil {
+	if err := rnsutil.WriteStatusHuman(stdout, stats, linkCount, activeLinkCount, statusOpts); err != nil {
 		fmt.Fprintf(stderr, "write: %v\n", err)
 		return 1
 	}
@@ -172,7 +218,7 @@ func runStatusRemote(cfg *common.ReticulumConfig, opts statusRemoteOpts) int {
 		}
 		return 0
 	}
-	if err := rnsutil.WriteStatusHuman(stdout, stats, linkCount, opts.statusOpts); err != nil {
+	if err := rnsutil.WriteStatusHuman(stdout, stats, linkCount, nil, opts.statusOpts); err != nil {
 		fmt.Fprintf(stderr, "write: %v\n", err)
 		return 1
 	}

@@ -74,6 +74,26 @@ func TestEncodeInfoIncludesRadioFields(t *testing.T) {
 	}
 }
 
+func TestEncodeInfoIncludesOperatorLXMFAddress(t *testing.T) {
+	addr := bytes.Repeat([]byte{0xab}, 16)
+	in := Info{
+		Type:                "BackboneInterface",
+		TransportID:         []byte("transport-id-16b"),
+		OperatorLXMFAddress: addr,
+	}
+	packed, err := EncodeInfo(in)
+	if err != nil {
+		t.Fatalf("EncodeInfo: %v", err)
+	}
+	out, err := DecodeInfo(packed)
+	if err != nil {
+		t.Fatalf("DecodeInfo: %v", err)
+	}
+	if !bytes.Equal(out.OperatorLXMFAddress, addr) {
+		t.Fatalf("OperatorLXMFAddress=%x want %x", out.OperatorLXMFAddress, addr)
+	}
+}
+
 func TestDecodeInfoTooLarge(t *testing.T) {
 	raw := make([]byte, MaxInfoSize+1)
 	if _, err := DecodeInfo(raw); err == nil {

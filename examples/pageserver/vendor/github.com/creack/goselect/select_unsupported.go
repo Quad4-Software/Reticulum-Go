@@ -1,3 +1,4 @@
+//go:build plan9 || solaris
 // +build plan9 solaris
 
 package goselect

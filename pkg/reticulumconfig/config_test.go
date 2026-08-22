@@ -1101,6 +1101,23 @@ func TestLoadConfig_BlackholeDiscoveryInterop(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_QLenInbound(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	writeFile(t, path, `[reticulum]
+  qlen_in_data = 8192
+  qlen_in_announce = 512
+  qlen_in_pr = 128
+  qlen_in_il = 64
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.QLenInboundData != 8192 || cfg.QLenInboundAnnounce != 512 || cfg.QLenInboundPR != 128 || cfg.QLenInboundIL != 64 {
+		t.Fatalf("qlen cfg data=%d announce=%d pr=%d il=%d", cfg.QLenInboundData, cfg.QLenInboundAnnounce, cfg.QLenInboundPR, cfg.QLenInboundIL)
+	}
+}
+
 func TestLoadConfig_RemoteManagement(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config")
 	writeFile(t, path, `[reticulum]

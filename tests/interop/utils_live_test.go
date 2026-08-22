@@ -101,7 +101,7 @@ func TestLiveRgostatusAgainstPythonRNSD(t *testing.T) {
 		if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
 			t.Fatal(err)
 		}
-		for _, key := range []string{"interfaces", "rxb", "txb", "transport_id"} {
+		for _, key := range []string{"interfaces", "rxb", "txb", "transport_id", "rxqt", "rxqd"} {
 			if _, ok := parsed[key]; !ok {
 				t.Fatalf("missing json key %s in %s", key, buf.String())
 			}
@@ -117,6 +117,9 @@ func TestLiveRgostatusAgainstPythonRNSD(t *testing.T) {
 			"incoming_pr_frequency",
 			"outgoing_pr_frequency",
 			"held_announces",
+			"protocol_violations",
+			"ifac_violations",
+			"packet_filter_hits",
 		} {
 			if _, ok := first[key]; !ok {
 				t.Fatalf("missing interface field %s", key)
@@ -191,6 +194,9 @@ func TestLiveRgostatusAgainstGoDaemon(t *testing.T) {
 	}
 	if !bytes.Contains(buf.Bytes(), []byte("incoming_announce_frequency")) {
 		t.Fatalf("json missing announce rates: %s", buf.String())
+	}
+	if !bytes.Contains(buf.Bytes(), []byte("rxqt")) {
+		t.Fatalf("json missing inbound queue stats: %s", buf.String())
 	}
 }
 

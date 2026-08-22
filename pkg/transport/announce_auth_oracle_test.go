@@ -84,6 +84,7 @@ func TestOracleBadAnnounceSignatureLeavesStateClean(t *testing.T) {
 	iface := &mockInterface{}
 	iface.Name = "oracle-announce"
 	iface.Enabled = true
+	iface.Online = true
 	if err := tr.RegisterInterface("oracle-announce", iface); err != nil {
 		t.Fatalf("RegisterInterface: %v", err)
 	}
@@ -109,7 +110,7 @@ func TestOracleBadAnnounceSignatureLeavesStateClean(t *testing.T) {
 	badSig[sigStart] ^= 0x01
 
 	tr.HandlePacket(badSig, iface)
-	time.Sleep(150 * time.Millisecond)
+	waitInboundDrain(t, tr, 200*time.Millisecond)
 
 	if _, err := identity.Recall(destHash); err == nil {
 		t.Fatal("Remember ran after bad announce signature")
@@ -134,6 +135,7 @@ func TestOracleBadAnnounceDestHashLeavesStateClean(t *testing.T) {
 	iface := &mockInterface{}
 	iface.Name = "oracle-dest"
 	iface.Enabled = true
+	iface.Online = true
 	if err := tr.RegisterInterface("oracle-dest", iface); err != nil {
 		t.Fatalf("RegisterInterface: %v", err)
 	}
@@ -155,7 +157,7 @@ func TestOracleBadAnnounceDestHashLeavesStateClean(t *testing.T) {
 	tampered[destStart] ^= 0x01
 
 	tr.HandlePacket(tampered, iface)
-	time.Sleep(150 * time.Millisecond)
+	waitInboundDrain(t, tr, 200*time.Millisecond)
 
 	if _, err := identity.Recall(destHash); err == nil {
 		t.Fatal("Remember ran after tampered announce header")
@@ -177,6 +179,7 @@ func TestOracleAnnouncePublicKeyMismatchLeavesStateClean(t *testing.T) {
 	iface := &mockInterface{}
 	iface.Name = "oracle-mismatch"
 	iface.Enabled = true
+	iface.Online = true
 	if err := tr.RegisterInterface("oracle-mismatch", iface); err != nil {
 		t.Fatalf("RegisterInterface: %v", err)
 	}
@@ -199,7 +202,7 @@ func TestOracleAnnouncePublicKeyMismatchLeavesStateClean(t *testing.T) {
 	}
 
 	tr.HandlePacket(annRaw, iface)
-	time.Sleep(150 * time.Millisecond)
+	waitInboundDrain(t, tr, 200*time.Millisecond)
 
 	recalled, err := identity.Recall(destHash)
 	if err != nil {

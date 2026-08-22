@@ -292,6 +292,9 @@ func (a *InterfaceAnnouncer) infoForInterface(iface *common.InterfaceConfig) (*I
 		info.IFACNetname = sanitize(iface.IFACNetname)
 		info.IFACNetkey = sanitize(iface.IFACNetkey)
 	}
+	if len(iface.DiscoveryLXMFAddress) == 16 {
+		info.OperatorLXMFAddress = append([]byte(nil), iface.DiscoveryLXMFAddress...)
+	}
 	return info, nil
 }
 

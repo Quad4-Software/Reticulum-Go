@@ -87,7 +87,7 @@ func (n *Node) StartInterfaceDiscovery() {
 			return tab != nil && tab.Has(h)
 		}
 		var onDisc func(*discovery.ReceivedAnnounceInfo)
-		if n.config.AutoconnectDiscoveredInterfaces > 0 {
+		if n.config.DiscoverInterfaces || n.config.AutoconnectDiscoveredInterfaces > 0 {
 			onDisc = n.onInterfaceDiscovered
 		}
 		n.discovery = discovery.NewInterfaceDiscoveryWithBlackhole(n.transport, discovery.DefaultStampValue, onDisc, isBH)

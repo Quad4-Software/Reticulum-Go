@@ -68,6 +68,7 @@ type ReceivedAnnounceInfo struct {
 	StampValue     int
 	RequiredValue  int
 	RemoteIdentity []byte
+	Hops           uint8
 }
 
 // ValidateAndDecode parses an inbound discovery announce app_data buffer.

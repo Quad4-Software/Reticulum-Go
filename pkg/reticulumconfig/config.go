@@ -459,6 +459,14 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		cfg.BackboneIOSet = true
 	case "static_transport_identity":
 		setBool(&cfg.StaticTransportIdentity, value)
+	case "qlen_in_data":
+		setInt(value, &cfg.QLenInboundData)
+	case "qlen_in_announce":
+		setInt(value, &cfg.QLenInboundAnnounce)
+	case "qlen_in_pr":
+		setInt(value, &cfg.QLenInboundPR)
+	case "qlen_in_il":
+		setInt(value, &cfg.QLenInboundIL)
 	case "local_hops_delta":
 		setBool(&cfg.LocalHopsDelta, value)
 	case "respond_to_probes", "allow_probes":
@@ -672,6 +680,11 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		setInt(value, &iface.DiscoveryStampValue)
 	case "discovery_encrypt":
 		setBool(&iface.DiscoveryEncrypt, value)
+	case "discovery_lxmf_address":
+		b, err := hex.DecodeString(strings.TrimSpace(value))
+		if err == nil && len(b) == 16 {
+			iface.DiscoveryLXMFAddress = b
+		}
 	case "location_cmd":
 		iface.DiscoveryLocationCmd = value
 	case "block_fast_flapping":

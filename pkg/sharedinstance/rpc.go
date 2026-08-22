@@ -48,6 +48,8 @@ func (h *RPCHandler) Handle(call map[string]any) any {
 			return h.Transport.GetFirstHopTimeoutRPC(decodeHash(call["destination_hash"]))
 		case "link_count":
 			return h.Transport.GetLinkCountRPC()
+		case "active_link_count":
+			return h.Transport.GetActiveLinkCountRPC()
 		case "blackholed_identities":
 			return h.Transport.GetBlackholedIdentitiesRPC()
 		case "is_blackholed":

@@ -32,7 +32,7 @@ func TestHandlePacketProtectPreventShedsOnSemFull(t *testing.T) {
 		WarnInterval: time.Hour,
 	})
 
-	cfg := &common.ReticulumConfig{EnableTransport: true, DoSProtection: "off", MaxPacketHandlers: 4}
+	cfg := &common.ReticulumConfig{EnableTransport: true, DoSProtection: "off", MaxPacketHandlers: 4, QLenInboundData: 1}
 	tr := NewTransport(cfg)
 	protect.SetDefault(e)
 	t.Cleanup(func() {
@@ -40,11 +40,10 @@ func TestHandlePacketProtectPreventShedsOnSemFull(t *testing.T) {
 		protect.SetDefault(nil)
 	})
 
-	occupyHandlerPool(t, tr)
+	saturateInboundDataQueue(t, tr)
 
-	iface := common.NewBaseInterface("flood0", common.IFTypeUDP, true)
-	pkt := []byte{0x00, 0x00, 0x01}
-	tr.HandlePacket(pkt, &iface)
+	iface := newOnlineTestIface("flood0")
+	tr.HandlePacket(minimalDataPacket(), iface)
 	if e.TripCount(protect.ReasonHandler) == 0 {
 		t.Fatal("expected handler trip")
 	}
@@ -62,16 +61,16 @@ func TestHandlePacketProtectDetectShedsOnSemFull(t *testing.T) {
 		WarnWriter:   &buf,
 		WarnInterval: time.Hour,
 	})
-	cfg := &common.ReticulumConfig{EnableTransport: true, DoSProtection: "detect", MaxPacketHandlers: 4}
+	cfg := &common.ReticulumConfig{EnableTransport: true, DoSProtection: "detect", MaxPacketHandlers: 4, QLenInboundData: 1}
 	tr := NewTransport(cfg)
 	protect.SetDefault(e)
 	t.Cleanup(func() {
 		_ = tr.Close()
 		protect.SetDefault(nil)
 	})
-	occupyHandlerPool(t, tr)
-	iface := common.NewBaseInterface("flood1", common.IFTypeUDP, true)
-	tr.HandlePacket([]byte{0x00, 0x00, 0x01}, &iface)
+	saturateInboundDataQueue(t, tr)
+	iface := newOnlineTestIface("flood1")
+	tr.HandlePacket(minimalDataPacket(), iface)
 	if e.TripCount(protect.ReasonHandler) == 0 {
 		t.Fatal("expected handler trip in detect mode")
 	}
@@ -86,16 +85,16 @@ func TestHandlePacketProtectAutoLearningShedsOnSemFull(t *testing.T) {
 		WarnInterval:         time.Hour,
 		AutoLearnMinDuration: time.Hour,
 	})
-	cfg := &common.ReticulumConfig{EnableTransport: true, DoSProtection: "auto", MaxPacketHandlers: 4}
+	cfg := &common.ReticulumConfig{EnableTransport: true, DoSProtection: "auto", MaxPacketHandlers: 4, QLenInboundData: 1}
 	tr := NewTransport(cfg)
 	protect.SetDefault(e)
 	t.Cleanup(func() {
 		_ = tr.Close()
 		protect.SetDefault(nil)
 	})
-	occupyHandlerPool(t, tr)
-	iface := common.NewBaseInterface("flood2", common.IFTypeUDP, true)
-	tr.HandlePacket([]byte{0x00, 0x00, 0x01}, &iface)
+	saturateInboundDataQueue(t, tr)
+	iface := newOnlineTestIface("flood2")
+	tr.HandlePacket(minimalDataPacket(), iface)
 	if e.TripCount(protect.ReasonHandler) == 0 {
 		t.Fatal("expected handler trip while auto learning")
 	}

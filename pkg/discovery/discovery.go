@@ -43,6 +43,7 @@ const (
 	FieldCodingRate      byte = 0x0C
 	FieldModulation      byte = 0x0D
 	FieldChannel         byte = 0x0E
+	FieldOpAddr          byte = 0xF0
 )
 
 // Flag bits used in the announce app_data flag byte.
@@ -84,12 +85,13 @@ type Info struct {
 	IFACNetname string
 	IFACNetkey  string
 
-	Frequency       int64
-	Bandwidth       int64
-	SpreadingFactor int64
-	CodingRate      int64
-	Channel         int64
-	Modulation      string
+	Frequency           int64
+	Bandwidth           int64
+	SpreadingFactor     int64
+	CodingRate          int64
+	Channel             int64
+	Modulation          string
+	OperatorLXMFAddress []byte
 }
 
 // EncodeInfo serialises an Info into the msgpack representation used as the
@@ -144,6 +146,9 @@ func EncodeInfo(in Info) ([]byte, error) {
 	}
 	if in.Modulation != "" {
 		pairs = append(pairs, [2]any{FieldModulation, in.Modulation})
+	}
+	if len(in.OperatorLXMFAddress) == 16 {
+		pairs = append(pairs, [2]any{FieldOpAddr, in.OperatorLXMFAddress})
 	}
 
 	var buf bytes.Buffer
@@ -282,6 +287,17 @@ func DecodeInfo(raw []byte) (Info, error) {
 		case FieldModulation:
 			if s, ok := raw.(string); ok {
 				out.Modulation = s
+			}
+		case FieldOpAddr:
+			switch v := raw.(type) {
+			case []byte:
+				if len(v) == 16 {
+					out.OperatorLXMFAddress = append([]byte(nil), v...)
+				}
+			case string:
+				if len(v) == 16 {
+					out.OperatorLXMFAddress = []byte(v)
+				}
 			}
 		}
 	}

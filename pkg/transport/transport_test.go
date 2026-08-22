@@ -207,6 +207,7 @@ func TestAnnounceHopCount(t *testing.T) {
 	iface := &mockInterface{}
 	iface.Name = "wasm0"
 	iface.Enabled = true
+	iface.Online = true
 	_ = tr.RegisterInterface("wasm0", iface)
 
 	// Create an identity for the announce
@@ -252,9 +253,7 @@ func TestAnnounceHopCount(t *testing.T) {
 
 	// Handle the packet
 	tr.HandlePacket(annRaw, iface)
-
-	// Wait a bit for the async processing
-	time.Sleep(100 * time.Millisecond)
+	waitInboundDrain(t, tr, 100*time.Millisecond)
 
 	// Check stored hops
 	if !tr.HasPath(destHash) {
@@ -275,6 +274,7 @@ func TestAnnounceRejectsOverMaxHops(t *testing.T) {
 	iface := &mockInterface{}
 	iface.Name = "wasm0"
 	iface.Enabled = true
+	iface.Online = true
 	_ = tr.RegisterInterface("wasm0", iface)
 
 	id, _ := identity.New()

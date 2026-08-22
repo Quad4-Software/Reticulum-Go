@@ -105,7 +105,7 @@ func (h *interfaceAnnounceHandler) ReceivePathResponses() bool {
 	return false
 }
 
-func (h *interfaceAnnounceHandler) ReceivedAnnounce(_ []byte, announcedIdentity any, appData []byte, _ uint8) error {
+func (h *interfaceAnnounceHandler) ReceivedAnnounce(destHash []byte, announcedIdentity any, appData []byte, hops uint8) error {
 	if len(appData) <= 1 {
 		return nil
 	}
@@ -123,6 +123,7 @@ func (h *interfaceAnnounceHandler) ReceivedAnnounce(_ []byte, announcedIdentity 
 	if cached, ok := h.validCache[fullHash]; ok {
 		info := cached
 		attachRemoteIdentity(info, remoteHash)
+		info.Hops = hops
 		cb := h.onDiscovered
 		drop := discoveryInfoBlackholed(info, h.isBlackholed)
 		h.mu.Unlock()
@@ -158,6 +159,7 @@ func (h *interfaceAnnounceHandler) ReceivedAnnounce(_ []byte, announcedIdentity 
 		return nil
 	}
 	attachRemoteIdentity(info, remoteHash)
+	info.Hops = hops
 	h.rememberValidLocked(fullHash, info)
 	cb := h.onDiscovered
 	drop := discoveryInfoBlackholed(info, h.isBlackholed)

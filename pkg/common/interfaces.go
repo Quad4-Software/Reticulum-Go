@@ -124,6 +124,10 @@ type BaseInterface struct {
 
 	// ReceiveOnly blocks transmit when true (Python outgoing = no).
 	ReceiveOnly bool
+
+	// deferInboundIFAC skips ApplyIFACInbound in ProcessIncoming so transport
+	// inbound preprocessing can apply IFAC once (RNS 1.5.0).
+	deferInboundIFAC bool
 }
 
 // NewBaseInterface creates a BaseInterface value for embedding at construction.
@@ -321,19 +325,36 @@ func (i *BaseInterface) Send(data []byte, address string) error {
 	return i.ProcessOutgoing(data)
 }
 
+func (i *BaseInterface) SetDeferInboundIFAC(deferIFAC bool) {
+	i.Mutex.Lock()
+	i.deferInboundIFAC = deferIFAC
+	i.Mutex.Unlock()
+}
+
+func (i *BaseInterface) DeferInboundIFAC() bool {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.deferInboundIFAC
+}
+
 func (i *BaseInterface) ProcessIncoming(data []byte) {
 	i.Mutex.Lock()
 	i.RxBytes += uint64(len(data))
 	i.RxPackets++
+	deferInbound := i.deferInboundIFAC
 	i.Mutex.Unlock()
 
-	stripped, ok := ApplyIFACInbound(i, data)
-	if !ok {
-		return
+	payload := data
+	if !deferInbound {
+		var ok bool
+		payload, ok = ApplyIFACInbound(i, data)
+		if !ok {
+			return
+		}
 	}
 
 	if i.PacketCallback != nil {
-		i.PacketCallback(stripped, i)
+		i.PacketCallback(payload, i)
 	}
 }
 

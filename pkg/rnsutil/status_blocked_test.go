@@ -24,7 +24,7 @@ func TestWriteStatusHumanShowsBlockedIPs(t *testing.T) {
 			BlockedIPList: []string{"198.51.100.9"},
 		}},
 	}
-	if err := WriteStatusHuman(&buf, stats, nil, StatusOptions{ShowAll: true}); err != nil {
+	if err := WriteStatusHuman(&buf, stats, nil, nil, StatusOptions{ShowAll: true}); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()

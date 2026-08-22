@@ -1,4 +1,7 @@
-// +build !darwin,!netbsd,!openbsd
+//go:build !darwin && !netbsd && !openbsd && (amd64 || arm64 || ppc64 || ppc64le || mips64 || mips64le || s390x || riscv64)
+// +build !darwin
+// +build !netbsd
+// +build !openbsd
 // +build amd64 arm64 ppc64 ppc64le mips64 mips64le s390x riscv64
 
 package goselect

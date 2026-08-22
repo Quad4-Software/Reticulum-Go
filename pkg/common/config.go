@@ -154,6 +154,9 @@ type InterfaceConfig struct {
 	DiscoveryStampValue int
 	// DiscoveryEncrypt encrypts announces with the network identity.
 	DiscoveryEncrypt bool
+	// DiscoveryLXMFAddress is an optional operator LXMF address published in
+	// discovery announces (RNS 1.5.0 OP_ADDR field).
+	DiscoveryLXMFAddress []byte
 	// DiscoveryLocationCmd is an optional executable that prints
 	// "lat,lon,height" used for discovery geo fields.
 	DiscoveryLocationCmd string
@@ -425,6 +428,12 @@ type ReticulumConfig struct {
 
 	// LogFormat is text or json for structured logs.
 	LogFormat string
+
+	// Inbound queue lengths (RNS 1.5.0 qlen_in_*). Zero uses transport defaults.
+	QLenInboundData     int
+	QLenInboundAnnounce int
+	QLenInboundPR       int
+	QLenInboundIL       int
 }
 
 // NewReticulumConfig creates a new ReticulumConfig with default values

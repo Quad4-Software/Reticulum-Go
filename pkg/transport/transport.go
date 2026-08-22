@@ -212,6 +212,11 @@ type Transport struct {
 	tunnelMu           sync.Mutex
 	tunnels            map[[32]byte]*tunnelEntry
 	tunnelSynthOutHash []byte
+
+	inboundQueues       *inboundQueues
+	inboundWG           sync.WaitGroup
+	inboundQueueSizes   [inboundQueueCount]int
+	pathRequestDestHash []byte
 }
 
 // SetBlackholeTable sets the blackhole table. handleAnnouncePacket drops
@@ -373,6 +378,12 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 	}
 	t.handlerN = handlers
 	t.packetQ = make(chan packetJob, handlers)
+
+	sizes := inboundQueueSizesFromConfig(cfg)
+	t.inboundQueueSizes = sizes
+	t.inboundQueues = newInboundQueues(sizes)
+	t.pathRequestDestHash = pathRequestDestinationHash()
+	t.startInboundDrainer()
 
 	return t
 }
@@ -798,6 +809,9 @@ func (t *Transport) RegisterInterface(name string, iface common.NetworkInterface
 
 // registerInterfaceLocked registers iface under name. Transport mutex must be held.
 func (t *Transport) registerInterfaceLocked(name string, iface common.NetworkInterface) {
+	if deferrable, ok := iface.(interface{ SetDeferInboundIFAC(bool) }); ok {
+		deferrable.SetDeferInboundIFAC(true)
+	}
 	iface.SetPacketCallback(func(data []byte, _ common.NetworkInterface) {
 		t.HandlePacket(data, iface)
 	})
@@ -978,7 +992,11 @@ func (t *Transport) snapshotRegisteredInterfaces() []registeredIface {
 func (t *Transport) Close() error {
 	t.stopOnce.Do(func() {
 		close(t.done)
+		if t.inboundQueues != nil {
+			t.inboundQueues.wakeAll()
+		}
 	})
+	t.inboundWG.Wait()
 	t.handlerClosed.Store(true)
 	t.handlerOnce.Do(func() {})
 	t.growMu.Lock()
@@ -1339,7 +1357,11 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 		if err := sendOnInterface(iface, pkt.Raw, ""); err != nil {
 			return err
 		}
-		iface.SentPathRequest()
+		if sp, ok := iface.(interface{ SentPathRequestBytes(int) }); ok {
+			sp.SentPathRequestBytes(len(pkt.Raw))
+		} else {
+			iface.SentPathRequest()
+		}
 		return nil
 	}
 
@@ -1354,7 +1376,11 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 			}
 			debug.Log(debug.DebugError, "Failed to send path request on interface", "interface", e.iface.GetName(), "error", err)
 		} else {
-			e.iface.SentPathRequest()
+			if sp, ok := e.iface.(interface{ SentPathRequestBytes(int) }); ok {
+				sp.SentPathRequestBytes(len(pkt.Raw))
+			} else {
+				e.iface.SentPathRequest()
+			}
 			sent++
 		}
 	}
@@ -1664,24 +1690,16 @@ func (t *Transport) handleInboundPacket(data []byte, iface common.NetworkInterfa
 				debug.Log(debug.DebugVerbose, "Dropped multi-hop PLAIN/GROUP packet",
 					"dest_type", destType, "wire_hops", data[1], "accounted_hops", accounted)
 			}
+			ifaceProtocolViolation(iface)
 			return
 		}
 	}
 
-	pc := getPacketCopy(len(data))
-	copy(pc.buf, data)
-	job := packetJob{
-		pc:         pc,
-		iface:      iface,
-		packetType: packetType,
-		destType:   destType,
-		headerType: headerType,
-	}
-	if t.enqueuePacket(job, block) {
+	job, tc, ok := t.preprocessInboundPacket(data, iface)
+	if !ok {
 		return
 	}
-	putPacketCopy(pc)
-	t.shedHandlerOverflow(iface)
+	t.submitInboundJob(job, tc, block)
 }
 
 func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterface) error {
@@ -1705,6 +1723,7 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	if destType == DestTypePlain || destType == DestTypeGroup {
 		debug.Log(debug.DebugVerbose, "Dropped PLAIN/GROUP announce",
 			"dest_type", destType, "packet_type", packetType)
+		ifaceProtocolViolation(iface)
 		return nil
 	}
 
@@ -1847,7 +1866,9 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	}
 
 	if iface != nil {
-		if ra, ok := iface.(interface{ ReceivedAnnounce() }); ok {
+		if ra, ok := iface.(interface{ ReceivedAnnounceBytes(int) }); ok {
+			ra.ReceivedAnnounceBytes(len(data))
+		} else if ra, ok := iface.(interface{ ReceivedAnnounce() }); ok {
 			ra.ReceivedAnnounce()
 		}
 		health.Inc(iface.GetName(), health.KindAnnounceOK)
@@ -2135,7 +2156,9 @@ func (t *Transport) transmitOrQueueAnnounce(outIface common.NetworkInterface, na
 	if err := sendOnInterface(outIface, data, ""); err != nil {
 		return err
 	}
-	if sa, ok := outIface.(interface{ SentAnnounce() }); ok {
+	if sa, ok := outIface.(interface{ SentAnnounceBytes(int) }); ok {
+		sa.SentAnnounceBytes(len(data))
+	} else if sa, ok := outIface.(interface{ SentAnnounce() }); ok {
 		sa.SentAnnounce()
 	}
 	return nil
@@ -2158,7 +2181,9 @@ func (t *Transport) processInterfaceAnnounceQueues() {
 			debug.Log(debug.DebugAll, "Failed to send queued announce", "name", e.name, "error", err)
 			continue
 		}
-		if sa, ok := e.iface.(interface{ SentAnnounce() }); ok {
+		if sa, ok := e.iface.(interface{ SentAnnounceBytes(int) }); ok {
+			sa.SentAnnounceBytes(len(raw))
+		} else if sa, ok := e.iface.(interface{ SentAnnounce() }); ok {
 			sa.SentAnnounce()
 		}
 	}
@@ -2180,7 +2205,7 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 			health.Inc(iface.GetName(), health.KindUnpackFail)
 			return
 		}
-		if !t.packetFilter(pkt) {
+		if !t.applyPacketFilter(pkt, iface) {
 			return
 		}
 		t.maybeRememberPacketHash(pkt)
@@ -2238,7 +2263,7 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 		health.Inc(iface.GetName(), health.KindUnpackFail)
 		return
 	}
-	if !t.packetFilter(pkt) {
+	if !t.applyPacketFilter(pkt, iface) {
 		return
 	}
 	t.maybeRememberPacketHash(pkt)
@@ -2327,7 +2352,7 @@ func (t *Transport) handleTransportPacket(data []byte, iface common.NetworkInter
 		health.Inc(ifaceName, health.KindUnpackFail)
 		return
 	}
-	if !t.packetFilter(pkt) {
+	if !t.applyPacketFilter(pkt, iface) {
 		return
 	}
 	t.maybeRememberPacketHash(pkt)
@@ -2465,7 +2490,11 @@ func (t *Transport) handlePathRequest(data []byte, iface common.NetworkInterface
 	t.mutex.Unlock()
 
 	if iface != nil {
-		iface.ReceivedPathRequest()
+		if pr, ok := iface.(interface{ ReceivedPathRequestBytes(int) }); ok {
+			pr.ReceivedPathRequestBytes(len(data))
+		} else {
+			iface.ReceivedPathRequest()
+		}
 	}
 
 	t.processPathRequest(destHash, iface, requestorTransportID, tag)
@@ -3191,7 +3220,7 @@ func (t *Transport) handleProofPacket(pkt *packet.Packet, iface common.NetworkIn
 	if debug.Enabled(debug.DebugPackets) {
 		debug.Log(debug.DebugPackets, "Processing proof packet", "size", len(pkt.Data), "context", fmt.Sprintf("0x%02x", pkt.Context))
 	}
-	if !t.packetFilter(pkt) {
+	if !t.applyPacketFilter(pkt, iface) {
 		return
 	}
 	t.maybeRememberPacketHash(pkt)

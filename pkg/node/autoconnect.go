@@ -38,10 +38,10 @@ func (n *Node) onInterfaceDiscovered(info *discovery.ReceivedAnnounceInfo) {
 	if n == nil || info == nil || n.config == nil {
 		return
 	}
+	_ = discovery.PersistDiscoveredInterface(n.discoveryStorageDir(), info)
 	if n.config.AutoconnectDiscoveredInterfaces <= 0 {
 		return
 	}
-	_ = discovery.PersistDiscoveredInterface(n.discoveryStorageDir(), info)
 	n.autoconnect(info)
 }
 

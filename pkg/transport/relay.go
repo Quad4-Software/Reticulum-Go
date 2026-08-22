@@ -118,6 +118,21 @@ func (lt *linkRelayTable) sweep(maxIdle time.Duration) (expiredUnvalidated []*Li
 	return expiredUnvalidated, removed
 }
 
+func (lt *linkRelayTable) counts() (total, validated int) {
+	lt.mu.RLock()
+	defer lt.mu.RUnlock()
+	for _, e := range lt.entries {
+		if e == nil {
+			continue
+		}
+		total++
+		if e.Validated {
+			validated++
+		}
+	}
+	return total, validated
+}
+
 func (lt *linkRelayTable) removeEntriesReferencing(iface common.NetworkInterface) {
 	if lt == nil || iface == nil {
 		return

@@ -4,6 +4,7 @@
 package transport
 
 import (
+	"math"
 	"reflect"
 	"time"
 
@@ -84,6 +85,21 @@ type InterfaceStat struct {
 	ActiveLinks               int      `msgpack:"active_links,omitempty"`
 	BlockedIPs                *int     `msgpack:"blocked_ips,omitempty"`
 	BlockedIPList             []string `msgpack:"blocked_ip_list,omitempty"`
+	ARXB                      uint64   `msgpack:"arxb"`
+	ATXB                      uint64   `msgpack:"atxb"`
+	ARXC                      uint64   `msgpack:"arxc"`
+	ATXC                      uint64   `msgpack:"atxc"`
+	PRXB                      uint64   `msgpack:"prxb"`
+	PTXB                      uint64   `msgpack:"ptxb"`
+	PRXC                      uint64   `msgpack:"prxc"`
+	PTXC                      uint64   `msgpack:"ptxc"`
+	ARXS                      float64  `msgpack:"arxs"`
+	ATXS                      float64  `msgpack:"atxs"`
+	PRXS                      float64  `msgpack:"prxs"`
+	PTXS                      float64  `msgpack:"ptxs"`
+	ProtocolViolations        uint64   `msgpack:"protocol_violations"`
+	IFACViolations            uint64   `msgpack:"ifac_violations"`
+	PacketFilterHits          uint64   `msgpack:"packet_filter_hits"`
 }
 
 // InterfaceStatsResponse is the top-level interface stats RPC payload.
@@ -93,7 +109,36 @@ type InterfaceStatsResponse struct {
 	TXB                uint64           `msgpack:"txb"`
 	RXS                float64          `msgpack:"rxs"`
 	TXS                float64          `msgpack:"txs"`
+	ARXB               uint64           `msgpack:"arxb"`
+	ATXB               uint64           `msgpack:"atxb"`
+	ARXS               float64          `msgpack:"arxs"`
+	ATXS               float64          `msgpack:"atxs"`
+	ARXF               float64          `msgpack:"arxf"`
+	ATXF               float64          `msgpack:"atxf"`
+	PRXB               uint64           `msgpack:"prxb"`
+	PTXB               uint64           `msgpack:"ptxb"`
+	PRXS               float64          `msgpack:"prxs"`
+	PTXS               float64          `msgpack:"ptxs"`
+	PRXF               float64          `msgpack:"prxf"`
+	PTXF               float64          `msgpack:"ptxf"`
+	RXQT               int              `msgpack:"rxqt"`
+	RXQD               int              `msgpack:"rxqd"`
+	RXQA               int              `msgpack:"rxqa"`
+	RXQP               int              `msgpack:"rxqp"`
+	RXQIL              int              `msgpack:"rxqil"`
+	RXQTD              int              `msgpack:"rxqtd"`
+	RXQDD              int              `msgpack:"rxqdd"`
+	RXQAD              int              `msgpack:"rxqad"`
+	RXQPD              int              `msgpack:"rxqpd"`
+	RXQILD             int              `msgpack:"rxqild"`
+	TQPressure         float64          `msgpack:"tqpressure"`
+	DQPressure         float64          `msgpack:"dqpressure"`
+	AQPressure         float64          `msgpack:"aqpressure"`
+	PQPressure         float64          `msgpack:"pqpressure"`
+	ILQPressure        float64          `msgpack:"ilqpressure"`
 	TransportID        []byte           `msgpack:"transport_id"`
+	NetworkID          []byte           `msgpack:"network_id,omitempty"`
+	ProbeResponder     []byte           `msgpack:"probe_responder,omitempty"`
 	TransportUptime    float64          `msgpack:"transport_uptime"`
 	NetmonFlap         uint64           `msgpack:"netmon_flap"`
 	ActiveLinks        int              `msgpack:"active_links"`
@@ -341,18 +386,34 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 		st.IntegrityFailRate = hs.IntegrityFailRate
 		st.IntegritySamples60 = hs.IFACFail.Rate60 + hs.HMACFail.Rate60 + hs.UnpackFail.Rate60 + hs.PaddingFail.Rate60 + hs.RxOK.Rate60
 		st.StaleCloses = hs.StaleCloses
+		fillInterfaceAccounting(&st, iface)
 		resp.Interfaces = append(resp.Interfaces, st)
 	}
 	resp.RXB = rxTotal
 	resp.TXB = txTotal
 	resp.RXS = rxsTotal
 	resp.TXS = txsTotal
+	aggregateInterfaceStatsTotals(&resp)
 	trHealth := health.Default.SnapshotTransport()
 	resp.Health = trHealth
 	resp.NetmonFlap = trHealth.NetmonFlap.Total
-	resp.ActiveLinks = t.countActiveLinksLocked()
+	total, heights, dropped := t.inboundQueueSnapshot()
+	fillInboundQueueStats(&resp, total, heights, dropped, t.inboundQueueSizes)
+	if t.linkTable != nil {
+		total, validated := t.linkTable.counts()
+		resp.ActiveLinks = validated
+		_ = total
+	} else {
+		resp.ActiveLinks = t.countActiveLinksLocked()
+	}
 	if t.transportIdentity != nil {
 		resp.TransportID = t.transportIdentity.Hash()
+	}
+	if t.networkIdentity != nil {
+		resp.NetworkID = t.networkIdentity.Hash()
+	}
+	if t.probeDestination != nil {
+		resp.ProbeResponder = t.probeDestination.GetHash()
 	}
 	if !t.startTime.IsZero() {
 		resp.TransportUptime = time.Since(t.startTime).Seconds()
@@ -475,7 +536,144 @@ func interfaceStatusType(iface common.NetworkInterface) string {
 func (t *Transport) GetLinkCountRPC() int {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
+	if t.linkTable != nil {
+		total, _ := t.linkTable.counts()
+		return total
+	}
 	return len(t.links)
+}
+
+func (t *Transport) GetActiveLinkCountRPC() int {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	if t.linkTable != nil {
+		_, validated := t.linkTable.counts()
+		return validated
+	}
+	return t.countActiveLinksLocked()
+}
+
+func fillInterfaceAccounting(st *InterfaceStat, iface common.NetworkInterface) {
+	if st == nil || iface == nil {
+		return
+	}
+	if v, ok := iface.(interface{ ProtocolViolations() uint64 }); ok {
+		st.ProtocolViolations = v.ProtocolViolations()
+	}
+	if v, ok := iface.(interface{ IFACViolations() uint64 }); ok {
+		st.IFACViolations = v.IFACViolations()
+	}
+	if v, ok := iface.(interface{ PacketFilterHits() uint64 }); ok {
+		st.PacketFilterHits = v.PacketFilterHits()
+	}
+	if v, ok := iface.(interface{ AnnounceRXBytes() uint64 }); ok {
+		st.ARXB = v.AnnounceRXBytes()
+	}
+	if v, ok := iface.(interface{ AnnounceTXBytes() uint64 }); ok {
+		st.ATXB = v.AnnounceTXBytes()
+	}
+	if v, ok := iface.(interface{ AnnounceRXCount() uint64 }); ok {
+		st.ARXC = v.AnnounceRXCount()
+	}
+	if v, ok := iface.(interface{ AnnounceTXCount() uint64 }); ok {
+		st.ATXC = v.AnnounceTXCount()
+	}
+	if v, ok := iface.(interface{ PathRequestRXBytes() uint64 }); ok {
+		st.PRXB = v.PathRequestRXBytes()
+	}
+	if v, ok := iface.(interface{ PathRequestTXBytes() uint64 }); ok {
+		st.PTXB = v.PathRequestTXBytes()
+	}
+	if v, ok := iface.(interface{ PathRequestRXCount() uint64 }); ok {
+		st.PRXC = v.PathRequestRXCount()
+	}
+	if v, ok := iface.(interface{ PathRequestTXCount() uint64 }); ok {
+		st.PTXC = v.PathRequestTXCount()
+	}
+	if v, ok := iface.(interface{ AnnounceRXSpeed() float64 }); ok {
+		st.ARXS = v.AnnounceRXSpeed()
+	}
+	if v, ok := iface.(interface{ AnnounceTXSpeed() float64 }); ok {
+		st.ATXS = v.AnnounceTXSpeed()
+	}
+	if v, ok := iface.(interface{ PathRequestRXSpeed() float64 }); ok {
+		st.PRXS = v.PathRequestRXSpeed()
+	}
+	if v, ok := iface.(interface{ PathRequestTXSpeed() float64 }); ok {
+		st.PTXS = v.PathRequestTXSpeed()
+	}
+}
+
+func inboundDroppedToInt(v uint64) int {
+	if v > uint64(math.MaxInt) {
+		return math.MaxInt
+	}
+	return int(v)
+}
+
+func fillInboundQueueStats(resp *InterfaceStatsResponse, total int, heights [inboundQueueCount]int, dropped [inboundQueueCount]uint64, sizes [inboundQueueCount]int) {
+	if resp == nil {
+		return
+	}
+	dql := queueSizeOrDefault(sizes[TCData], defaultInboundDataQueueLen)
+	aql := queueSizeOrDefault(sizes[TCAnnounce], defaultInboundAnnounceQueueLen)
+	pql := queueSizeOrDefault(sizes[TCPathRequest], defaultInboundPRQueueLen)
+	ilql := queueSizeOrDefault(sizes[TCIngressLimited], defaultInboundILQueueLen)
+	tql := dql + aql + pql + ilql
+
+	resp.RXQT = total
+	resp.RXQD = heights[TCData]
+	resp.RXQA = heights[TCAnnounce]
+	resp.RXQP = heights[TCPathRequest]
+	resp.RXQIL = heights[TCIngressLimited]
+	resp.RXQTD = inboundDroppedToInt(dropped[TCData] + dropped[TCAnnounce] + dropped[TCPathRequest] + dropped[TCIngressLimited])
+	resp.RXQDD = inboundDroppedToInt(dropped[TCData])
+	resp.RXQAD = inboundDroppedToInt(dropped[TCAnnounce])
+	resp.RXQPD = inboundDroppedToInt(dropped[TCPathRequest])
+	resp.RXQILD = inboundDroppedToInt(dropped[TCIngressLimited])
+	if tql > 0 && total > 0 {
+		resp.TQPressure = float64(total) / float64(tql)
+	}
+	if dql > 0 && heights[TCData] > 0 {
+		resp.DQPressure = float64(heights[TCData]) / float64(dql)
+	}
+	if aql > 0 && heights[TCAnnounce] > 0 {
+		resp.AQPressure = float64(heights[TCAnnounce]) / float64(aql)
+	}
+	if pql > 0 && heights[TCPathRequest] > 0 {
+		resp.PQPressure = float64(heights[TCPathRequest]) / float64(pql)
+	}
+	if ilql > 0 && heights[TCIngressLimited] > 0 {
+		resp.ILQPressure = float64(heights[TCIngressLimited]) / float64(ilql)
+	}
+}
+
+func queueSizeOrDefault(size, def int) int {
+	if size > 0 {
+		return size
+	}
+	return def
+}
+
+func aggregateInterfaceStatsTotals(resp *InterfaceStatsResponse) {
+	if resp == nil {
+		return
+	}
+	for i := range resp.Interfaces {
+		st := &resp.Interfaces[i]
+		resp.ARXB += st.ARXB
+		resp.ATXB += st.ATXB
+		resp.ARXS += st.ARXS
+		resp.ATXS += st.ATXS
+		resp.ARXF += st.IncomingAnnounceFrequency
+		resp.ATXF += st.OutgoingAnnounceFrequency
+		resp.PRXB += st.PRXB
+		resp.PTXB += st.PTXB
+		resp.PRXS += st.PRXS
+		resp.PTXS += st.PTXS
+		resp.PRXF += st.IncomingPRFrequency
+		resp.PTXF += st.OutgoingPRFrequency
+	}
 }
 
 func (t *Transport) GetNextHopRPC(destinationHash []byte) []byte {

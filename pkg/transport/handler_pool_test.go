@@ -30,9 +30,9 @@ func TestHandlerPoolStartsSmall(t *testing.T) {
 	})
 	t.Cleanup(func() { _ = tr.Close() })
 
-	iface := common.NewBaseInterface("idle0", common.IFTypeUDP, true)
-	tr.HandlePacket([]byte{0x00, 0x00, 0x01}, &iface)
-	time.Sleep(20 * time.Millisecond)
+	iface := newOnlineTestIface("idle0")
+	tr.HandlePacket(minimalDataPacket(), iface)
+	waitInboundDrain(t, tr, 30*time.Millisecond)
 
 	live := int(tr.handlerLive.Load())
 	boot := startupHandlerCount(common.DefaultMaxPacketHandlers)
@@ -66,12 +66,12 @@ func TestHandlerPoolDoesNotRampOnLightLoad(t *testing.T) {
 	})
 	t.Cleanup(func() { _ = tr.Close() })
 
-	iface := common.NewBaseInterface("light0", common.IFTypeUDP, true)
-	pkt := []byte{0x00, 0x00, 0x01}
+	iface := newOnlineTestIface("light0")
+	pkt := minimalDataPacket()
 	for range 256 {
-		tr.HandlePacket(pkt, &iface)
+		tr.HandlePacket(pkt, iface)
 	}
-	time.Sleep(20 * time.Millisecond)
+	waitInboundDrain(t, tr, 30*time.Millisecond)
 
 	live := int(tr.handlerLive.Load())
 	boot := startupHandlerCount(common.DefaultMaxPacketHandlers)
@@ -91,12 +91,12 @@ func TestHandlerPoolGoroutineBudget(t *testing.T) {
 
 	runtime.GC()
 	base := runtime.NumGoroutine()
-	iface := common.NewBaseInterface("pool0", common.IFTypeUDP, true)
-	pkt := []byte{0x00, 0x00, 0x01}
+	iface := newOnlineTestIface("pool0")
+	pkt := minimalDataPacket()
 	for range 4000 {
-		tr.HandlePacket(pkt, &iface)
+		tr.HandlePacket(pkt, iface)
 	}
-	time.Sleep(50 * time.Millisecond)
+	waitInboundDrain(t, tr, 50*time.Millisecond)
 	runtime.GC()
 	delta := runtime.NumGoroutine() - base
 	if delta > n*4+32 {
@@ -131,8 +131,8 @@ func TestHandlerPoolEnqueueCloseRace(t *testing.T) {
 		EnableTransport:   true,
 		MaxPacketHandlers: 4,
 	})
-	iface := common.NewBaseInterface("race0", common.IFTypeUDP, true)
-	pkt := []byte{0x00, 0x00, 0x01}
+	iface := newOnlineTestIface("race0")
+	pkt := minimalDataPacket()
 	var wg sync.WaitGroup
 	stop := make(chan struct{})
 	for range 8 {
@@ -142,7 +142,7 @@ func TestHandlerPoolEnqueueCloseRace(t *testing.T) {
 				case <-stop:
 					return
 				default:
-					tr.HandlePacket(pkt, &iface)
+					tr.HandlePacket(pkt, iface)
 				}
 			}
 		})
@@ -161,17 +161,14 @@ func TestHandlerPoolOverflowAlwaysSheds(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{
 		EnableTransport:   true,
 		MaxPacketHandlers: 2,
+		QLenInboundData:   1,
 	})
 	t.Cleanup(func() { _ = tr.Close() })
-	hold := make(chan struct{})
-	if n := tr.occupyHandlerPoolForTest(hold); n == 0 {
-		t.Fatal("handler pool not occupied")
-	}
-	t.Cleanup(func() { close(hold) })
+	saturateInboundDataQueue(t, tr)
 
-	iface := common.NewBaseInterface("shed0", common.IFTypeUDP, true)
+	iface := newOnlineTestIface("shed0")
 	before := health.Default.SnapshotIface("shed0").DoSHandler.Total
-	tr.HandlePacket([]byte{0x00, 0x00, 0x01}, &iface)
+	tr.HandlePacket(minimalDataPacket(), iface)
 	after := health.Default.SnapshotIface("shed0").DoSHandler.Total
 	if after <= before {
 		t.Fatalf("overflow did not shed: dos_handler %d -> %d", before, after)

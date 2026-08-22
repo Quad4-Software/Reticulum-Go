@@ -39,8 +39,10 @@ func TestOraclePersistLoadRoundtrip(t *testing.T) {
 	if err := PersistDiscoveredInterface(dir, info); err != nil {
 		t.Fatal(err)
 	}
-	eh := EndpointHash(info)
-	oracle := persistOracle{Filename: hex.EncodeToString(eh), Transport: info.Info.Transport}
+	oracle := persistOracle{
+		Filename:  hex.EncodeToString(DiscoveryHash(info.Info.TransportID, info.Info.Name)),
+		Transport: info.Info.Transport,
+	}
 	store := filepath.Join(dir, "discovery", "interfaces")
 	entries, err := os.ReadDir(store)
 	if err != nil {
@@ -70,15 +72,24 @@ func TestOraclePersistLoadRoundtrip(t *testing.T) {
 	}
 }
 
-func TestOracleEndpointHashFilenameMatchesPersist(t *testing.T) {
+func TestOracleDiscoveryHashFilenameMatchesPersist(t *testing.T) {
 	dir := t.TempDir()
+	tid := bytes.Repeat([]byte{0xab}, 16)
 	info := &ReceivedAnnounceInfo{
-		Info: Info{Type: "BackboneInterface", ReachableOn: "198.51.100.2", Port: 7777, HasPort: true},
+		Info: Info{
+			Type:        "BackboneInterface",
+			Name:        "bb-peer",
+			ReachableOn: "198.51.100.2",
+			Port:        7777,
+			HasPort:     true,
+			TransportID: tid,
+		},
+		RemoteIdentity: bytes.Repeat([]byte{0xcd}, 16),
 	}
 	if err := PersistDiscoveredInterface(dir, info); err != nil {
 		t.Fatal(err)
 	}
-	wantName := hex.EncodeToString(EndpointHash(info))
+	wantName := hex.EncodeToString(DiscoveryHash(tid, info.Info.Name))
 	path := filepath.Join(dir, "discovery", "interfaces", wantName)
 	if st, err := os.Stat(path); err != nil || st.IsDir() {
 		t.Fatalf("persist path: %v", err)
@@ -92,7 +103,16 @@ func TestOracleLoadIgnoresCorruptPersistBlob(t *testing.T) {
 		t.Fatal(err)
 	}
 	valid := &ReceivedAnnounceInfo{
-		Info: Info{Type: "BackboneInterface", ReachableOn: "192.0.2.3", Port: 1, HasPort: true, Transport: true},
+		Info: Info{
+			Type:        "BackboneInterface",
+			Name:        "valid",
+			ReachableOn: "192.0.2.3",
+			Port:        1,
+			HasPort:     true,
+			Transport:   true,
+			TransportID: bytes.Repeat([]byte{0x01}, 16),
+		},
+		RemoteIdentity: bytes.Repeat([]byte{0x02}, 16),
 	}
 	if err := PersistDiscoveredInterface(dir, valid); err != nil {
 		t.Fatal(err)
@@ -112,19 +132,21 @@ func TestOracleLoadIgnoresCorruptPersistBlob(t *testing.T) {
 
 func TestOraclePersistMsgpackFields(t *testing.T) {
 	dir := t.TempDir()
+	tid := bytes.Repeat([]byte{0x55}, 16)
 	info := &ReceivedAnnounceInfo{
 		Info: Info{
 			Type:        "I2PInterface",
 			Name:        "i2p-oracle",
 			ReachableOn: "abc.b32.i2p",
 			Transport:   true,
+			TransportID: tid,
 		},
 		RemoteIdentity: bytes.Repeat([]byte{0x77}, 16),
 	}
 	if err := PersistDiscoveredInterface(dir, info); err != nil {
 		t.Fatal(err)
 	}
-	raw, err := os.ReadFile(filepath.Join(dir, "discovery", "interfaces", hex.EncodeToString(EndpointHash(info))))
+	raw, err := os.ReadFile(filepath.Join(dir, "discovery", "interfaces", hex.EncodeToString(DiscoveryHash(tid, info.Info.Name))))
 	if err != nil {
 		t.Fatal(err)
 	}

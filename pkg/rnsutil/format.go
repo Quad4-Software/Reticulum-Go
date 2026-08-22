@@ -4,6 +4,7 @@
 package rnsutil
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -11,7 +12,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
+	"quad4/reticulum-go/pkg/discovery"
 	"quad4/reticulum-go/pkg/protect"
 	"quad4/reticulum-go/pkg/term"
 	"quad4/reticulum-go/pkg/transport"
@@ -73,10 +76,16 @@ func ModeName(mode byte) string {
 
 // StatusOptions controls human status rendering.
 type StatusOptions struct {
-	NameFilter string
-	SortBy     string
-	SortAsc    bool
-	ShowAll    bool
+	NameFilter     string
+	SortBy         string
+	SortAsc        bool
+	ShowAll        bool
+	AnnounceStats  bool
+	PRStats        bool
+	ShowBlockedIPs bool
+	QueueStats     bool
+	TrafficTotals  bool
+	BurstFilter    bool
 }
 
 // SortInterfaceStats sorts interfaces in place by SortBy.
@@ -130,6 +139,38 @@ func SortInterfaceStats(stats *transport.InterfaceStatsResponse, sortBy string, 
 		less = func(i, j int) bool {
 			return stats.Interfaces[i].AnnounceQueue < stats.Interfaces[j].AnnounceQueue
 		}
+	case "pvs":
+		less = func(i, j int) bool {
+			return stats.Interfaces[i].ProtocolViolations < stats.Interfaces[j].ProtocolViolations
+		}
+	case "ivs":
+		less = func(i, j int) bool {
+			return stats.Interfaces[i].IFACViolations < stats.Interfaces[j].IFACViolations
+		}
+	case "flt":
+		less = func(i, j int) bool {
+			return stats.Interfaces[i].PacketFilterHits < stats.Interfaces[j].PacketFilterHits
+		}
+	case "arxc":
+		less = func(i, j int) bool {
+			return stats.Interfaces[i].ARXC < stats.Interfaces[j].ARXC
+		}
+	case "atxc":
+		less = func(i, j int) bool {
+			return stats.Interfaces[i].ATXC < stats.Interfaces[j].ATXC
+		}
+	case "prxc":
+		less = func(i, j int) bool {
+			return stats.Interfaces[i].PRXC < stats.Interfaces[j].PRXC
+		}
+	case "ptxc":
+		less = func(i, j int) bool {
+			return stats.Interfaces[i].PTXC < stats.Interfaces[j].PTXC
+		}
+	case "gravity", "g":
+		less = func(i, j int) bool {
+			return stats.Interfaces[i].Gravity < stats.Interfaces[j].Gravity
+		}
 	default:
 		return
 	}
@@ -162,12 +203,17 @@ func hideInterface(name string, showAll bool) bool {
 }
 
 // WriteStatusHuman writes a human-readable status report including announce rates.
-func WriteStatusHuman(w io.Writer, stats transport.InterfaceStatsResponse, linkCount *int, opts StatusOptions) error {
+func WriteStatusHuman(w io.Writer, stats transport.InterfaceStatsResponse, linkCount *int, activeLinkCount *int, opts StatusOptions) error {
 	filter := strings.ToLower(opts.NameFilter)
 	for i := range stats.Interfaces {
 		st := &stats.Interfaces[i]
 		if hideInterface(st.Name, opts.ShowAll) {
 			continue
+		}
+		if opts.BurstFilter && !(st.BurstActive || st.PRBurstActive) {
+			if filter == "" {
+				continue
+			}
 		}
 		if filter != "" && !strings.Contains(strings.ToLower(st.Name), filter) {
 			continue
@@ -241,6 +287,55 @@ func WriteStatusHuman(w io.Writer, stats transport.InterfaceStatsResponse, linkC
 					return err
 				}
 			}
+			if opts.ShowBlockedIPs && len(st.BlockedIPList) > 0 {
+				for _, bip := range st.BlockedIPList {
+					if _, err := fmt.Fprintf(w, "              %s\n", bip); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		if st.ProtocolViolations > 0 || st.IFACViolations > 0 {
+			pv := ""
+			if st.ProtocolViolations > 0 {
+				pv = fmt.Sprintf("%d protocol", st.ProtocolViolations)
+			}
+			iv := ""
+			if st.IFACViolations > 0 {
+				iv = fmt.Sprintf("%d IFAC", st.IFACViolations)
+			}
+			sep := ""
+			if pv != "" && iv != "" {
+				sep = ", "
+			}
+			if _, err := fmt.Fprintf(w, "  Violatns. : %s%s%s\n", pv, sep, iv); err != nil {
+				return err
+			}
+		}
+		if st.PacketFilterHits > 0 {
+			if _, err := fmt.Fprintf(w, "  Flt. Hits : %d\n", st.PacketFilterHits); err != nil {
+				return err
+			}
+		}
+		if opts.PRStats {
+			if _, err := fmt.Fprintf(w, "  Path Rqs. : ↓%s ↑%s (%.2f/s ↓ %.2f/s ↑)\n",
+				SizeString(float64(st.PRXB), "B"),
+				SizeString(float64(st.PTXB), "B"),
+				st.IncomingPRFrequency,
+				st.OutgoingPRFrequency,
+			); err != nil {
+				return err
+			}
+		}
+		if opts.AnnounceStats {
+			if _, err := fmt.Fprintf(w, "  Announces : ↓%s ↑%s (%.2f/s ↓ %.2f/s ↑)\n",
+				SizeString(float64(st.ARXB), "B"),
+				SizeString(float64(st.ATXB), "B"),
+				st.IncomingAnnounceFrequency,
+				st.OutgoingAnnounceFrequency,
+			); err != nil {
+				return err
+			}
 		}
 	}
 	if len(stats.TransportID) > 0 {
@@ -268,7 +363,74 @@ func WriteStatusHuman(w io.Writer, stats transport.InterfaceStatsResponse, linkC
 		}
 	}
 	if linkCount != nil {
-		if _, err := fmt.Fprintf(w, "Links        : %d\n", *linkCount); err != nil {
+		line := fmt.Sprintf("Links        : %d", *linkCount)
+		if activeLinkCount != nil && *activeLinkCount > 0 {
+			line += fmt.Sprintf(" (%d active)", *activeLinkCount)
+		}
+		if _, err := fmt.Fprintf(w, "%s\n", line); err != nil {
+			return err
+		}
+	}
+	if opts.TrafficTotals {
+		if _, err := fmt.Fprintf(w, "\n Traffic      : RX %s  TX %s\n",
+			SizeString(float64(stats.RXB), "B"),
+			SizeString(float64(stats.TXB), "B"),
+		); err != nil {
+			return err
+		}
+		if stats.RXS > 0 || stats.TXS > 0 {
+			if _, err := fmt.Fprintf(w, " Throughput   : ↓%s ↑%s\n",
+				SizeString(stats.RXS, "b")+"/s",
+				SizeString(stats.TXS, "b")+"/s",
+			); err != nil {
+				return err
+			}
+		}
+		if opts.AnnounceStats && (stats.ARXB > 0 || stats.ATXB > 0) {
+			if _, err := fmt.Fprintf(w, " Announces    : ↓%s ↑%s\n",
+				SizeString(float64(stats.ARXB), "B"),
+				SizeString(float64(stats.ATXB), "B"),
+			); err != nil {
+				return err
+			}
+		}
+		if opts.PRStats && (stats.PRXB > 0 || stats.PTXB > 0) {
+			if _, err := fmt.Fprintf(w, " Path Rqs.    : ↓%s ↑%s\n",
+				SizeString(float64(stats.PRXB), "B"),
+				SizeString(float64(stats.PTXB), "B"),
+			); err != nil {
+				return err
+			}
+		}
+	}
+	if opts.QueueStats {
+		tqdp := ""
+		if stats.RXQTD > 0 {
+			tqdp = fmt.Sprintf(", %d dropped", stats.RXQTD)
+		}
+		if _, err := fmt.Fprintf(w, "\n Qu. Pressure : %.1f%% total, %d pkts%s\n",
+			stats.TQPressure*100, stats.RXQT, tqdp,
+		); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(w, "                %.1f%% data, %d pkts\n",
+			stats.DQPressure*100, stats.RXQD,
+		); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(w, "                %.1f%% announce, %d pkts\n",
+			stats.AQPressure*100, stats.RXQA,
+		); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(w, "                %.1f%% path request, %d pkts\n",
+			stats.PQPressure*100, stats.RXQP,
+		); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(w, "                %.1f%% ingress limiter, %d pkts\n",
+			stats.ILQPressure*100, stats.RXQIL,
+		); err != nil {
 			return err
 		}
 	}
@@ -320,6 +482,9 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 		IntegrityFailRate         float64  `json:"integrity_fail_rate"`
 		StaleCloses               uint64   `json:"stale_closes"`
 		KeepaliveTimeout          uint64   `json:"keepalive_timeout"`
+		ProtocolViolations        uint64   `json:"protocol_violations"`
+		IFACViolations            uint64   `json:"ifac_violations"`
+		PacketFilterHits          uint64   `json:"packet_filter_hits"`
 		I2PB32                    *string  `json:"i2p_b32,omitempty"`
 		I2PConnectable            *bool    `json:"i2p_connectable,omitempty"`
 		Tunnel                    *string  `json:"tunnelstate,omitempty"`
@@ -331,6 +496,17 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 		TXB             uint64           `json:"txb"`
 		RXS             float64          `json:"rxs"`
 		TXS             float64          `json:"txs"`
+		RXQT            int              `json:"rxqt"`
+		RXQD            int              `json:"rxqd"`
+		RXQA            int              `json:"rxqa"`
+		RXQP            int              `json:"rxqp"`
+		RXQIL           int              `json:"rxqil"`
+		RXQTD           int              `json:"rxqtd"`
+		TQPressure      float64          `json:"tqpressure"`
+		DQPressure      float64          `json:"dqpressure"`
+		AQPressure      float64          `json:"aqpressure"`
+		PQPressure      float64          `json:"pqpressure"`
+		ILQPressure     float64          `json:"ilqpressure"`
 		TransportID     string           `json:"transport_id"`
 		TransportUptime float64          `json:"transport_uptime"`
 		NetmonFlap      uint64           `json:"netmon_flap"`
@@ -342,6 +518,17 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 		TXB:             stats.TXB,
 		RXS:             stats.RXS,
 		TXS:             stats.TXS,
+		RXQT:            stats.RXQT,
+		RXQD:            stats.RXQD,
+		RXQA:            stats.RXQA,
+		RXQP:            stats.RXQP,
+		RXQIL:           stats.RXQIL,
+		RXQTD:           stats.RXQTD,
+		TQPressure:      stats.TQPressure,
+		DQPressure:      stats.DQPressure,
+		AQPressure:      stats.AQPressure,
+		PQPressure:      stats.PQPressure,
+		ILQPressure:     stats.ILQPressure,
 		TransportID:     hex.EncodeToString(stats.TransportID),
 		TransportUptime: stats.TransportUptime,
 		NetmonFlap:      stats.NetmonFlap,
@@ -380,6 +567,9 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 			IntegrityFailRate:         st.IntegrityFailRate,
 			StaleCloses:               st.StaleCloses,
 			KeepaliveTimeout:          st.KeepaliveTimeout,
+			ProtocolViolations:        st.ProtocolViolations,
+			IFACViolations:            st.IFACViolations,
+			PacketFilterHits:          st.PacketFilterHits,
 			I2PB32:                    st.I2PB32,
 			I2PConnectable:            st.I2PConnectable,
 			Tunnel:                    st.TunnelState,
@@ -388,4 +578,171 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 	}
 	enc := json.NewEncoder(w)
 	return enc.Encode(out)
+}
+
+// WriteDiscoveredJSON emits discovered interface records as JSON.
+func WriteDiscoveredJSON(w io.Writer, list []*discovery.DiscoveredInterface) error {
+	type row struct {
+		Type                string   `json:"type"`
+		Name                string   `json:"name"`
+		Status              string   `json:"status"`
+		Transport           bool     `json:"transport"`
+		ReachableOn         string   `json:"reachable_on,omitempty"`
+		Port                int64    `json:"port,omitempty"`
+		Hops                uint8    `json:"hops"`
+		Value               int      `json:"value"`
+		TransportID         string   `json:"transport_id"`
+		NetworkID           string   `json:"network_id"`
+		OperatorLXMFAddress string   `json:"operator_lxmf_address,omitempty"`
+		Discovered          float64  `json:"discovered"`
+		LastHeard           float64  `json:"last_heard"`
+		HeardCount          int      `json:"heard_count"`
+		ConfigEntry         string   `json:"config_entry,omitempty"`
+		Latitude            *float64 `json:"latitude,omitempty"`
+		Longitude           *float64 `json:"longitude,omitempty"`
+		Height              *float64 `json:"height,omitempty"`
+	}
+	out := make([]row, 0, len(list))
+	for _, rec := range list {
+		if rec == nil {
+			continue
+		}
+		r := row{
+			Type:        rec.Type,
+			Name:        rec.Name,
+			Status:      rec.Status,
+			Transport:   rec.Transport,
+			ReachableOn: rec.ReachableOn,
+			Port:        rec.Port,
+			Hops:        rec.Hops,
+			Value:       rec.Value,
+			TransportID: hex.EncodeToString(rec.TransportID),
+			NetworkID:   hex.EncodeToString(rec.NetworkID),
+			Discovered:  rec.Discovered,
+			LastHeard:   rec.LastHeard,
+			HeardCount:  rec.HeardCount,
+			ConfigEntry: rec.ConfigEntry,
+			Latitude:    rec.Latitude,
+			Longitude:   rec.Longitude,
+			Height:      rec.Height,
+		}
+		if len(rec.OperatorLXMFAddress) > 0 {
+			r.OperatorLXMFAddress = hex.EncodeToString(rec.OperatorLXMFAddress)
+		}
+		out = append(out, r)
+	}
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(out)
+}
+
+// WriteDiscoveredHuman prints discovered interfaces (rnstatus -d / -D).
+func WriteDiscoveredHuman(w io.Writer, list []*discovery.DiscoveredInterface, details bool) error {
+	if len(list) == 0 {
+		_, err := fmt.Fprintln(w)
+		return err
+	}
+	now := time.Now()
+	for idx, rec := range list {
+		if rec == nil {
+			continue
+		}
+		if idx > 0 {
+			if details {
+				if _, err := fmt.Fprintln(w, "\n==============================================="); err != nil {
+					return err
+				}
+			} else if _, err := fmt.Fprintln(w); err != nil {
+				return err
+			}
+		}
+		status := rec.Status
+		switch status {
+		case "available":
+			status = "Available"
+		case "unknown":
+			status = "Unknown"
+		case "stale":
+			status = "Stale"
+		}
+		transportStr := "Disabled"
+		if rec.Transport {
+			transportStr = "Enabled"
+		}
+		if details {
+			if len(rec.NetworkID) > 0 && len(rec.TransportID) > 0 && !bytes.Equal(rec.TransportID, rec.NetworkID) {
+				if _, err := fmt.Fprintf(w, "Network   ID : %x\n", rec.NetworkID); err != nil {
+					return err
+				}
+			}
+			if _, err := fmt.Fprintf(w, "Transport ID : %x\n", rec.TransportID); err != nil {
+				return err
+			}
+			if len(rec.OperatorLXMFAddress) > 0 {
+				if _, err := fmt.Fprintf(w, "Operator LXMF: %x\n", rec.OperatorLXMFAddress); err != nil {
+					return err
+				}
+			}
+		}
+		if _, err := fmt.Fprintf(w, "Name         : %s\n", rec.Name); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(w, "Type         : %s\n", rec.Type); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(w, "Status       : %s\n", status); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(w, "Transport    : %s\n", transportStr); err != nil {
+			return err
+		}
+		if rec.ReachableOn != "" {
+			if _, err := fmt.Fprintf(w, "Reachable on : %s\n", rec.ReachableOn); err != nil {
+				return err
+			}
+		}
+		if rec.HasPort {
+			if _, err := fmt.Fprintf(w, "Port         : %d\n", rec.Port); err != nil {
+				return err
+			}
+		}
+		if _, err := fmt.Fprintf(w, "Hops         : %d\n", rec.Hops); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(w, "Stamp value  : %d\n", rec.Value); err != nil {
+			return err
+		}
+		if details {
+			dago := now.Sub(time.Unix(int64(rec.Discovered), 0))
+			hago := now.Sub(time.Unix(int64(rec.LastHeard), 0))
+			if _, err := fmt.Fprintf(w, "Discovered   : %s ago\n", prettyDuration(dago)); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(w, "Last heard   : %s ago\n", prettyDuration(hago)); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(w, "Heard count  : %d\n", rec.HeardCount); err != nil {
+				return err
+			}
+			if rec.ConfigEntry != "" {
+				if _, err := fmt.Fprintf(w, "\nConfig entry:\n%s\n", rec.ConfigEntry); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func prettyDuration(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	}
+	if d < 24*time.Hour {
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	}
+	return fmt.Sprintf("%dd", int(d.Hours()/24))
 }

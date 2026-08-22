@@ -99,6 +99,26 @@ type BaseInterface struct {
 	sampleTXB  uint64
 	sampleTS   time.Time
 
+	protocolViolations uint64
+	ifacViolations     uint64
+	packetFilterHits   uint64
+	arxb, atxb         uint64
+	prxb, ptxb         uint64
+	arxc, atxc         uint64
+
+	// deferInboundIFAC skips ApplyIFACInbound in ProcessIncoming so transport
+	// inbound preprocessing can apply IFAC once (RNS 1.5.0).
+	deferInboundIFAC bool
+	prxc, ptxc       uint64
+	sampleARXB       uint64
+	sampleATXB       uint64
+	samplePRXB       uint64
+	samplePTXB       uint64
+	currentARXS      float64
+	currentATXS      float64
+	currentPRXS      float64
+	currentPTXS      float64
+
 	announceQueue     []queuedAnnounce
 	announceAllowedAt time.Time
 	announceCap       float64
@@ -166,6 +186,18 @@ func (i *BaseInterface) GetIFAC() common.IFAC {
 	return i.IFACIdentity
 }
 
+func (i *BaseInterface) SetDeferInboundIFAC(deferIFAC bool) {
+	i.Mutex.Lock()
+	i.deferInboundIFAC = deferIFAC
+	i.Mutex.Unlock()
+}
+
+func (i *BaseInterface) DeferInboundIFAC() bool {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.deferInboundIFAC
+}
+
 func (i *BaseInterface) ProcessIncoming(data []byte) {
 	i.ProcessIncomingFrom(data, "")
 }
@@ -184,10 +216,18 @@ func (i *BaseInterface) ProcessIncomingFrom(data []byte, peerKey string) {
 		return
 	}
 
-	stripped, ok := common.ApplyIFACInbound(i, data)
-	if !ok {
-		debug.Log(debug.DebugVerbose, "Dropped packet failing IFAC policy", "name", i.Name, "size", len(data))
-		return
+	i.Mutex.RLock()
+	deferInbound := i.deferInboundIFAC
+	i.Mutex.RUnlock()
+
+	payload := data
+	if !deferInbound {
+		var ok bool
+		payload, ok = common.ApplyIFACInbound(i, data)
+		if !ok {
+			debug.Log(debug.DebugVerbose, "Dropped packet failing IFAC policy", "name", i.Name, "size", len(data))
+			return
+		}
 	}
 
 	i.Mutex.RLock()
@@ -195,7 +235,7 @@ func (i *BaseInterface) ProcessIncomingFrom(data []byte, peerKey string) {
 	i.Mutex.RUnlock()
 
 	if callback != nil {
-		callback(stripped, i)
+		callback(payload, i)
 	}
 }
 
@@ -453,8 +493,14 @@ func (i *BaseInterface) updateBandwidthStats(bytes uint64) {
 
 // ReceivedPathRequest records an incoming path request for frequency tracking.
 func (i *BaseInterface) ReceivedPathRequest() {
+	i.ReceivedPathRequestBytes(0)
+}
+
+// ReceivedPathRequestBytes records an incoming path request with byte size.
+func (i *BaseInterface) ReceivedPathRequestBytes(size int) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
+	i.receivedPathRequestBytes(size)
 	i.ipFreqDeque = append(i.ipFreqDeque, time.Now())
 	if len(i.ipFreqDeque) > prFreqSamples {
 		i.ipFreqDeque = i.ipFreqDeque[1:]
@@ -463,8 +509,14 @@ func (i *BaseInterface) ReceivedPathRequest() {
 
 // SentPathRequest records an outgoing path request for frequency tracking.
 func (i *BaseInterface) SentPathRequest() {
+	i.SentPathRequestBytes(0)
+}
+
+// SentPathRequestBytes records an outgoing path request with byte size.
+func (i *BaseInterface) SentPathRequestBytes(size int) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
+	i.sentPathRequestBytes(size)
 	i.opFreqDeque = append(i.opFreqDeque, time.Now())
 	if len(i.opFreqDeque) > prFreqSamples {
 		i.opFreqDeque = i.opFreqDeque[1:]
@@ -473,8 +525,14 @@ func (i *BaseInterface) SentPathRequest() {
 
 // ReceivedAnnounce records an incoming announce for frequency tracking.
 func (i *BaseInterface) ReceivedAnnounce() {
+	i.ReceivedAnnounceBytes(0)
+}
+
+// ReceivedAnnounceBytes records an incoming announce with byte size.
+func (i *BaseInterface) ReceivedAnnounceBytes(size int) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
+	i.receivedAnnounceBytes(size)
 	i.iaFreqDeque = append(i.iaFreqDeque, time.Now())
 	if len(i.iaFreqDeque) > prFreqSamples {
 		i.iaFreqDeque = i.iaFreqDeque[1:]
@@ -483,8 +541,14 @@ func (i *BaseInterface) ReceivedAnnounce() {
 
 // SentAnnounce records an outgoing announce for frequency tracking.
 func (i *BaseInterface) SentAnnounce() {
+	i.SentAnnounceBytes(0)
+}
+
+// SentAnnounceBytes records an outgoing announce with byte size.
+func (i *BaseInterface) SentAnnounceBytes(size int) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
+	i.sentAnnounceBytes(size)
 	i.oaFreqDeque = append(i.oaFreqDeque, time.Now())
 	if len(i.oaFreqDeque) > prFreqSamples {
 		i.oaFreqDeque = i.oaFreqDeque[1:]
@@ -534,6 +598,10 @@ func (i *BaseInterface) SampleTraffic() {
 	if i.sampleTS.IsZero() {
 		i.sampleRXB = i.RxBytes
 		i.sampleTXB = i.TxBytes
+		i.sampleARXB = i.arxb
+		i.sampleATXB = i.atxb
+		i.samplePRXB = i.prxb
+		i.samplePTXB = i.ptxb
 		i.sampleTS = now
 		return
 	}
@@ -547,6 +615,7 @@ func (i *BaseInterface) SampleTraffic() {
 	i.currentTXS = float64(txDiff*8) / elapsed
 	i.sampleRXB = i.RxBytes
 	i.sampleTXB = i.TxBytes
+	i.sampleTypedTraffic(now, elapsed)
 	i.sampleTS = now
 }
 

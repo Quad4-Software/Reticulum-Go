@@ -165,10 +165,17 @@ func (c *RPCClient) GetRateTable() ([]transport.RateTableEntry, error) {
 	return out, err
 }
 
-// GetLinkCount returns the active link count.
+// GetLinkCount returns the link-table entry count.
 func (c *RPCClient) GetLinkCount() (int, error) {
 	var out int
 	err := c.Call(map[string]any{"get": "link_count"}, &out)
+	return out, err
+}
+
+// GetActiveLinkCount returns validated link-table entries.
+func (c *RPCClient) GetActiveLinkCount() (int, error) {
+	var out int
+	err := c.Call(map[string]any{"get": "active_link_count"}, &out)
 	return out, err
 }
 

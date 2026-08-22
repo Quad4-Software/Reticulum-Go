@@ -20,7 +20,9 @@ func TestRacePersistLoadDiscoveredInterfaces(t *testing.T) {
 			Port:        4242,
 			HasPort:     true,
 			Transport:   true,
+			TransportID: bytes.Repeat([]byte{0x11}, 16),
 		},
+		RemoteIdentity: bytes.Repeat([]byte{0x22}, 16),
 	}
 	var wg sync.WaitGroup
 	var writes atomic.Int32

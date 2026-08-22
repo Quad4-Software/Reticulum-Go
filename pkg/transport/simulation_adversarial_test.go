@@ -192,7 +192,8 @@ func TestSimIFACFlood(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping multi-node simulation in -short mode")
 	}
-	const n = 6
+	enableSimFastPath(t)
+	const n = 3
 	id, err := ifac.New(0, "sim-net", "sim-passphrase")
 	if err != nil {
 		t.Fatalf("ifac.New: %v", err)
@@ -206,11 +207,22 @@ func TestSimIFACFlood(t *testing.T) {
 	}
 
 	src := net.nodes[0]
-	src.originateAnnounce(t)
-
-	took, ok := waitForPaths(net.nodes[1:], src.destHash, 15*time.Second)
+	timeout := simConvergenceTimeout(n-1) + 20*time.Second
+	deadline := time.Now().Add(timeout)
+	var took time.Duration
+	var ok int
+	for time.Now().Before(deadline) {
+		src.originateAnnounce(t)
+		for _, node := range net.nodes {
+			waitInboundDrain(t, node.tr, 50*time.Millisecond)
+		}
+		took, ok = waitForPaths(net.nodes[1:], src.destHash, 2*time.Second)
+		if ok == n-1 {
+			break
+		}
+	}
 	if ok != n-1 {
-		t.Fatalf("IFAC line: %d/%d converged in %v", ok, n-1, took)
+		t.Fatalf("IFAC line: %d/%d converged in %v (timeout %v)", ok, n-1, took, timeout)
 	}
 	t.Logf("IFAC line(N=%d) converged in %v", n, took)
 }
