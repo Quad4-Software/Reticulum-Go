@@ -44,7 +44,10 @@ func (n *Node) OnNetworkAvailable() error {
 				if err := n.transport.RegisterInterface(iface.GetName(), ni); err != nil {
 					_ = n.transport.ReplaceInterface(iface.GetName(), ni)
 				}
-				if _, ok := n.buffers[iface.GetName()]; !ok {
+				n.wiringMu.Lock()
+				_, hasBuf := n.buffers[iface.GetName()]
+				n.wiringMu.Unlock()
+				if !hasBuf {
 					n.handleInterface(ni)
 				}
 			}

@@ -161,6 +161,7 @@ func (n *Node) tearDownInterface(iface interfaces.Interface) {
 	}
 	name := iface.GetName()
 	n.transport.UnregisterInterface(name)
+	n.wiringMu.Lock()
 	if buf, ok := n.buffers[name]; ok {
 		_ = buf.Close()
 		delete(n.buffers, name)
@@ -169,6 +170,7 @@ func (n *Node) tearDownInterface(iface interfaces.Interface) {
 		_ = ch.Close()
 		delete(n.channels, name)
 	}
+	n.wiringMu.Unlock()
 	_ = iface.Stop()
 }
 

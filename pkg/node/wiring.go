@@ -30,17 +30,17 @@ func (n *Node) handleInterface(iface common.NetworkInterface) {
 			}
 		},
 	)
-	n.reloadMu.Lock()
+	n.wiringMu.Lock()
 	n.channels[iface.GetName()] = ch
 	n.buffers[iface.GetName()] = &buffer.Buffer{ReadWriter: rw}
-	n.reloadMu.Unlock()
+	n.wiringMu.Unlock()
 }
 
 func (n *Node) unregisterInterfaceBuffers(name string) {
-	n.reloadMu.Lock()
+	n.wiringMu.Lock()
 	delete(n.channels, name)
 	delete(n.buffers, name)
-	n.reloadMu.Unlock()
+	n.wiringMu.Unlock()
 }
 
 type transportWrapper struct {

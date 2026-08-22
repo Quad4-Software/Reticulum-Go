@@ -14,7 +14,7 @@ import (
 )
 
 type autoconnectLimitOracle struct {
-	Count   int
+	Count    int
 	Backbone int
 	TCP      int
 }

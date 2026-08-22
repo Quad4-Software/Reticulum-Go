@@ -48,6 +48,7 @@ type Node struct {
 	channels       map[string]*channel.Channel
 	buffers        map[string]*buffer.Buffer
 	reloadMu       sync.Mutex
+	wiringMu       sync.Mutex
 
 	lastNetworkDown time.Time
 	networkPaused   bool
@@ -273,12 +274,14 @@ func (n *Node) Stop() error {
 		n.sharedInstance.Close()
 		n.sharedInstance = nil
 	}
+	n.wiringMu.Lock()
 	for _, buf := range n.buffers {
 		_ = buf.Close()
 	}
 	for _, ch := range n.channels {
 		_ = ch.Close()
 	}
+	n.wiringMu.Unlock()
 	for _, iface := range n.interfaces {
 		_ = iface.Stop()
 	}
