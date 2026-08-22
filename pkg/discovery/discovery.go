@@ -5,7 +5,8 @@ package discovery
 
 import (
 	"bytes"
-	"crypto/rand"
+	"context"
+	cryptoRand "crypto/rand"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -13,7 +14,7 @@ import (
 
 	"quad4/msgpack/v5/pkg/msgpack"
 	"quad4/msgpack/v5/pkg/msgpack/msgpcode"
-	"quad4/reticulum-go/pkg/cryptography"
+	"quad4/reticulum-go/pkg/lxstamper"
 )
 
 // AppName is the destination app_name used by Discovery (see const value).
@@ -56,11 +57,11 @@ const DefaultStampValue = 16
 
 // WorkblockExpandRounds controls the HKDF expansion rounds used to derive the
 // stamp workblock for discovery announcements.
-const WorkblockExpandRounds = 20
+const WorkblockExpandRounds = lxstamper.DiscoveryRounds
 
 // StampSize is the size in bytes of a discovery proof-of-work stamp
 // (one identity hash).
-const StampSize = 32
+const StampSize = lxstamper.StampSize
 
 // Info is the high-level Go representation of a discovery info payload. Only
 // fields that were present in the msgpack map are populated. Check the
@@ -389,71 +390,55 @@ func StampWorkblock(material []byte, expandRounds int) ([]byte, error) {
 	if expandRounds <= 0 {
 		expandRounds = WorkblockExpandRounds
 	}
-	out := make([]byte, 0, 256*expandRounds)
-	for n := 0; n < expandRounds; n++ {
-		nPacked, err := msgpack.Marshal(n)
-		if err != nil {
-			return nil, fmt.Errorf("discovery: encode round %d: %w", n, err)
-		}
-		salt := cryptography.Hash(append(append([]byte(nil), material...), nPacked...))
-		block, err := cryptography.DeriveKey(material, salt, nil, 256)
-		if err != nil {
-			return nil, fmt.Errorf("discovery: hkdf round %d: %w", n, err)
-		}
-		out = append(out, block...)
-	}
-	return out, nil
+	return lxstamper.StampWorkblock(material, expandRounds)
 }
 
 // StampValue counts the leading-zero bits of sha256(workblock || stamp).
 func StampValue(workblock, stamp []byte) int {
-	h := sha256.Sum256(append(append([]byte(nil), workblock...), stamp...))
-	value := 0
-	for _, b := range h {
-		if b == 0 {
-			value += 8
-			continue
-		}
-		for mask := byte(0x80); mask != 0; mask >>= 1 {
-			if b&mask != 0 {
-				return value
-			}
-			value++
-		}
-	}
-	return value
+	return lxstamper.StampValue(workblock, stamp)
 }
 
-// StampValid reports whether stamp meets targetCost on the given workblock.
-// Stamps must be exactly StampSize bytes matching LXStamper wire length.
+// StampValid reports whether stamp meets the LXStamper numeric threshold for
+// targetCost. Discovery acceptance also requires StampValue >= targetCost via
+// MeetsCost / ValidateAndDecode.
 func StampValid(stamp []byte, targetCost int, workblock []byte) bool {
-	if len(stamp) != StampSize {
-		return false
-	}
 	if targetCost < 0 || targetCost > 256 {
 		return false
 	}
-	return StampValue(workblock, stamp) >= targetCost
+	if len(stamp) != StampSize {
+		return false
+	}
+	return lxstamper.StampValid(stamp, targetCost, workblock)
 }
 
-// GenerateStamp brute-forces a 32-byte stamp such that
-// StampValue(workblock, stamp) >= stampCost. The workblock is derived from
-// messageID with the same expand rounds the verifier will use (defaulting to
-// WorkblockExpandRounds).
-func GenerateStamp(messageID []byte, stampCost int, expandRounds int) (stamp []byte, value int, err error) {
-	workblock, err := StampWorkblock(messageID, expandRounds)
-	if err != nil {
-		return nil, 0, err
+// MeetsCost reports whether stamp passes both LXStamper StampValid and
+// StampValue >= targetCost, matching RNS Discovery receive gating.
+func MeetsCost(stamp []byte, targetCost int, workblock []byte) bool {
+	if targetCost < 0 || targetCost > 256 {
+		return false
 	}
-	stamp = make([]byte, StampSize)
-	for {
-		if _, err := rand.Read(stamp); err != nil {
+	return lxstamper.MeetsCost(stamp, targetCost, workblock)
+}
+
+// GenerateStamp brute-forces a 32-byte stamp meeting the LXStamper threshold
+// for stampCost. expandRounds defaults to WorkblockExpandRounds when <= 0.
+// stampCost <= 0 returns a random stamp without searching (zero cost is free).
+func GenerateStamp(messageID []byte, stampCost int, expandRounds int) (stamp []byte, value int, err error) {
+	if expandRounds <= 0 {
+		expandRounds = WorkblockExpandRounds
+	}
+	if stampCost <= 0 {
+		stamp = make([]byte, StampSize)
+		if _, err := cryptoRand.Read(stamp); err != nil {
 			return nil, 0, fmt.Errorf("discovery: read random stamp: %w", err)
 		}
-		if StampValid(stamp, stampCost, workblock) {
-			return stamp, StampValue(workblock, stamp), nil
+		wb, err := StampWorkblock(messageID, expandRounds)
+		if err != nil {
+			return nil, 0, err
 		}
+		return stamp, StampValue(wb, stamp), nil
 	}
+	return lxstamper.GenerateStamp(context.Background(), messageID, stampCost, expandRounds)
 }
 
 // InfoHash returns sha256(packedInfo), used as the message id when stamping

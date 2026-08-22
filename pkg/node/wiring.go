@@ -18,7 +18,6 @@ import (
 func (n *Node) handleInterface(iface common.NetworkInterface) {
 	debug.Log(debug.DebugInfo, "Setting up interface", "name", iface.GetName())
 	ch := channel.NewChannel(&transportWrapper{n.transport})
-	n.channels[iface.GetName()] = ch
 	rw := buffer.CreateBidirectionalBuffer(
 		1,
 		2,
@@ -31,12 +30,17 @@ func (n *Node) handleInterface(iface common.NetworkInterface) {
 			}
 		},
 	)
+	n.reloadMu.Lock()
+	n.channels[iface.GetName()] = ch
 	n.buffers[iface.GetName()] = &buffer.Buffer{ReadWriter: rw}
+	n.reloadMu.Unlock()
 }
 
 func (n *Node) unregisterInterfaceBuffers(name string) {
+	n.reloadMu.Lock()
 	delete(n.channels, name)
 	delete(n.buffers, name)
+	n.reloadMu.Unlock()
 }
 
 type transportWrapper struct {

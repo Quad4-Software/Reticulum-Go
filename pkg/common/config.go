@@ -3,6 +3,8 @@
 
 package common
 
+import "time"
+
 type ConfigProvider interface {
 	GetConfigPath() string
 	GetLogLevel() int
@@ -240,6 +242,24 @@ type ReticulumConfig struct {
 	// AutoconnectAnnouncesToInternal sets announces_to_internal on autoconnect peers.
 	AutoconnectAnnouncesToInternal    bool
 	AutoconnectAnnouncesToInternalSet bool
+
+	// AutoconnectDiscoveredInterfaces is the max number of concurrent
+	// autoconnected discovery peers from rnstransport (Backbone, TCP, I2P).
+	// Zero disables autoconnect (Python autoconnect_discovered_interfaces).
+	AutoconnectDiscoveredInterfaces int
+
+	// PublishBlackhole registers rnstransport.info.blackhole with a /list
+	// request handler so peers can fetch this instance's blackhole table.
+	PublishBlackhole bool
+
+	// BlackholeSources lists remote transport identity hashes to pull blackhole
+	// lists from (Python blackhole_sources).
+	BlackholeSources [][]byte
+
+	// BlackholeUpdateInterval is how often to pull each blackhole source.
+	// Zero means the Python default of 60 minutes. Values below 2 minutes are
+	// raised to 2 minutes when parsed from config.
+	BlackholeUpdateInterval time.Duration
 
 	// AllowLinkPathRebalance enables LRPROOF-based hop rebalancing (RNS 1.4.1).
 	// Default true. Go adds dampening and gravity-aware refusals on top.

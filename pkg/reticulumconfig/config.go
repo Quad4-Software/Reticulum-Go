@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/ifac"
@@ -347,6 +348,25 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 	case "autoconnect_announces_to_internal":
 		if setBool(&cfg.AutoconnectAnnouncesToInternal, value) {
 			cfg.AutoconnectAnnouncesToInternalSet = true
+		}
+	case "autoconnect_discovered_interfaces":
+		var n int
+		setInt(value, &n)
+		if n > 0 {
+			cfg.AutoconnectDiscoveredInterfaces = n
+		}
+	case "publish_blackhole":
+		setBool(&cfg.PublishBlackhole, value)
+	case "blackhole_sources":
+		cfg.BlackholeSources = parseIdentityHashes(value)
+	case "blackhole_update_interval":
+		var minutes float64
+		setFloat(value, &minutes)
+		if minutes > 0 {
+			if minutes < 2 {
+				minutes = 2
+			}
+			cfg.BlackholeUpdateInterval = time.Duration(minutes * float64(time.Minute))
 		}
 	case "allow_link_path_rebalance":
 		if setBool(&cfg.AllowLinkPathRebalance, value) {
@@ -844,6 +864,22 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	}
 	if cfg.AutoconnectAnnouncesToInternalSet {
 		fmt.Fprintf(&b, "  autoconnect_announces_to_internal = %s\n", boolStr(cfg.AutoconnectAnnouncesToInternal))
+	}
+	if cfg.AutoconnectDiscoveredInterfaces > 0 {
+		fmt.Fprintf(&b, "  autoconnect_discovered_interfaces = %d\n", cfg.AutoconnectDiscoveredInterfaces)
+	}
+	if cfg.PublishBlackhole {
+		fmt.Fprintf(&b, "  publish_blackhole = yes\n")
+	}
+	if len(cfg.BlackholeSources) > 0 {
+		parts := make([]string, 0, len(cfg.BlackholeSources))
+		for _, h := range cfg.BlackholeSources {
+			parts = append(parts, hex.EncodeToString(h))
+		}
+		fmt.Fprintf(&b, "  blackhole_sources = %s\n", strings.Join(parts, ", "))
+	}
+	if cfg.BlackholeUpdateInterval > 0 {
+		fmt.Fprintf(&b, "  blackhole_update_interval = %g\n", cfg.BlackholeUpdateInterval.Minutes())
 	}
 	if cfg.AllowLinkPathRebalanceSet {
 		fmt.Fprintf(&b, "  allow_link_path_rebalance = %s\n", boolStr(cfg.AllowLinkPathRebalance))

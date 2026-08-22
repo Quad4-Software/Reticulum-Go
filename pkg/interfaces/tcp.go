@@ -35,6 +35,9 @@ type TCPClientInterface struct {
 	synthesizeTunnel  func(TunnelPeer)
 	txFrame           []byte
 	readBuf           []byte
+
+	AutoconnectHash   []byte
+	AutoconnectSource []byte
 }
 
 func NewTCPClientInterface(name string, targetHost string, targetPort int, kissFraming bool, i2pTunneled bool, enabled bool) (*TCPClientInterface, error) {
@@ -498,6 +501,20 @@ func (tc *TCPClientInterface) IsConnected() bool {
 	tc.Mutex.RLock()
 	defer tc.Mutex.RUnlock()
 	return tc.conn != nil && tc.Online && !tc.IsReconnecting()
+}
+
+// TargetHost returns the configured dial host for initiator clients.
+func (tc *TCPClientInterface) TargetHost() string {
+	tc.Mutex.RLock()
+	defer tc.Mutex.RUnlock()
+	return tc.targetAddr
+}
+
+// TargetPort returns the configured dial port for initiator clients.
+func (tc *TCPClientInterface) TargetPort() int {
+	tc.Mutex.RLock()
+	defer tc.Mutex.RUnlock()
+	return tc.targetPort
 }
 
 func (tc *TCPClientInterface) GetRTT() time.Duration {

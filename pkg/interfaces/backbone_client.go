@@ -39,6 +39,12 @@ type BackboneClientInterface struct {
 	stopOnce          sync.Once
 	spawnedAt         time.Time
 	remoteIP          string
+
+	// AutoconnectHash is set when this client was created from rnstransport
+	// interface discovery (Python interface.autoconnect_hash).
+	AutoconnectHash []byte
+	// AutoconnectSource is the announcer identity hash that published the peer.
+	AutoconnectSource []byte
 }
 
 // NewBackboneClientInterface dials cfg.TargetHost:cfg.TargetPort.
@@ -389,4 +395,20 @@ func (bc *BackboneClientInterface) GetRTT() time.Duration {
 		return rtt
 	}
 	return 0
+}
+
+// TargetHost returns the configured dial host for initiator clients.
+func (bc *BackboneClientInterface) TargetHost() string {
+	if bc == nil {
+		return ""
+	}
+	return bc.targetAddr
+}
+
+// TargetPort returns the configured dial port for initiator clients.
+func (bc *BackboneClientInterface) TargetPort() int {
+	if bc == nil {
+		return 0
+	}
+	return bc.targetPort
 }

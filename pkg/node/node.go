@@ -57,6 +57,16 @@ type Node struct {
 	linkMgr         *linkManager
 	discovery       *discovery.InterfaceDiscovery
 	announcer       *discovery.InterfaceAnnouncer
+
+	bhUpdaterMu      sync.Mutex
+	bhUpdaterRunning bool
+	bhUpdaterLast    map[[16]byte]time.Time
+	bhUpdaterStop    chan struct{}
+
+	acMu             sync.Mutex
+	acEntries        []*autoconnectEntry
+	acMonitorRunning bool
+	acMonitorStop    chan struct{}
 }
 
 // StartInterfaceDiscovery enables rnstransport interface discovery listening
@@ -65,7 +75,8 @@ func (n *Node) StartInterfaceDiscovery() {
 	if n == nil || n.transport == nil || n.config == nil {
 		return
 	}
-	listen := n.config.DiscoverInterfaces || discovery.HasDiscoverableInterfaces(n.config)
+	listen := n.config.DiscoverInterfaces || discovery.HasDiscoverableInterfaces(n.config) ||
+		n.config.AutoconnectDiscoveredInterfaces > 0
 	if !listen {
 		return
 	}
@@ -74,8 +85,13 @@ func (n *Node) StartInterfaceDiscovery() {
 			tab := n.transport.BlackholeTable()
 			return tab != nil && tab.Has(h)
 		}
-		n.discovery = discovery.NewInterfaceDiscoveryWithBlackhole(n.transport, discovery.DefaultStampValue, nil, isBH)
+		var onDisc func(*discovery.ReceivedAnnounceInfo)
+		if n.config.AutoconnectDiscoveredInterfaces > 0 {
+			onDisc = n.onInterfaceDiscovered
+		}
+		n.discovery = discovery.NewInterfaceDiscoveryWithBlackhole(n.transport, discovery.DefaultStampValue, onDisc, isBH)
 		n.discovery.Start()
+		n.reconnectPersistedAutoconnect()
 	}
 	if n.announcer != nil || !discovery.HasDiscoverableInterfaces(n.config) {
 		return
@@ -182,6 +198,10 @@ func (n *Node) Start() error {
 	if err := n.transport.InitializeRemoteManagement(); err != nil {
 		return fmt.Errorf("remote management: %w", err)
 	}
+	if err := n.transport.InitializeBlackholePublish(); err != nil {
+		return fmt.Errorf("blackhole publish: %w", err)
+	}
+	n.StartBlackholeUpdater()
 	return nil
 }
 
@@ -236,6 +256,9 @@ func (n *Node) startInterfaces() error {
 
 // Stop shuts down interfaces and transport.
 func (n *Node) Stop() error {
+	n.stopBlackholeUpdater()
+	n.stopAutoconnectMonitor()
+	n.drainAutoconnectEntries()
 	n.reloadMu.Lock()
 	defer n.reloadMu.Unlock()
 	if n.announcer != nil {

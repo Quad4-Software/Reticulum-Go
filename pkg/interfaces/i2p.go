@@ -100,6 +100,9 @@ type I2PInterfacePeer struct {
 	done              chan struct{}
 	stopOnce          sync.Once
 	peerKey           string
+
+	AutoconnectHash   []byte
+	AutoconnectSource []byte
 }
 
 // i2pAcceptedPeerSeq gives each accepted I2P peer a unique protect fair-share
@@ -353,6 +356,34 @@ func (p *I2PInterface) registerSpawnedPeer(peer *I2PInterfacePeer) {
 	}
 }
 
+// ListSpawnedPeers returns outbound peers registered on this parent.
+func (p *I2PInterface) ListSpawnedPeers() []Interface {
+	p.spawnMu.Lock()
+	defer p.spawnMu.Unlock()
+	out := make([]Interface, len(p.spawned))
+	for i, peer := range p.spawned {
+		out[i] = peer
+	}
+	return out
+}
+
+// AutoconnectPeer dials dest as a new outbound peer with discovery metadata.
+func (p *I2PInterface) AutoconnectPeer(name, dest string, peerCfg *common.InterfaceConfig, endpointHash, source []byte) *I2PInterfacePeer {
+	maxReconn := -1
+	if peerCfg != nil {
+		maxReconn = peerCfg.MaxReconnTries
+	}
+	peer := NewI2PInterfacePeer(p, name, dest, maxReconn, peerCfg)
+	if len(endpointHash) > 0 {
+		peer.AutoconnectHash = append([]byte(nil), endpointHash...)
+	}
+	if len(source) > 0 {
+		peer.AutoconnectSource = append([]byte(nil), source...)
+	}
+	p.registerSpawnedPeer(peer)
+	return peer
+}
+
 func NewI2PInterfacePeer(parent *I2PInterface, name, targetDest string, maxReconnect int, cfg *common.InterfaceConfig) *I2PInterfacePeer {
 	if maxReconnect == 0 {
 		maxReconnect = -1
@@ -482,6 +513,18 @@ func (peer *I2PInterfacePeer) InterfaceConfig() *common.InterfaceConfig {
 		return nil
 	}
 	return peer.parent.cfg
+}
+
+// TargetDest returns the configured I2P destination for initiator peers.
+func (peer *I2PInterfacePeer) TargetDest() string {
+	return peer.targetDest
+}
+
+// DetachAutoconnectFromParent removes this peer from its parent spawned list.
+func (peer *I2PInterfacePeer) DetachAutoconnectFromParent() {
+	if peer.parent != nil {
+		peer.parent.removeSpawnedPeer(peer)
+	}
 }
 
 func (peer *I2PInterfacePeer) onConnected() {

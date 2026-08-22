@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"quad4/reticulum-go/pkg/common"
 )
@@ -1067,6 +1068,36 @@ func TestSetIFACSizeParser(t *testing.T) {
 	setIFACSize("8", &size)
 	if size != 1 {
 		t.Fatalf("8 bits => %d bytes, want 1", size)
+	}
+}
+
+func TestLoadConfig_BlackholeDiscoveryInterop(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	writeFile(t, path, `[reticulum]
+  publish_blackhole = yes
+  blackhole_sources = 9fb6d773498fb3feda407ed8ef2c3229
+  blackhole_update_interval = 1.5
+  autoconnect_discovered_interfaces = 3
+  discover_interfaces = yes
+`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.PublishBlackhole {
+		t.Fatal("PublishBlackhole")
+	}
+	if len(cfg.BlackholeSources) != 1 {
+		t.Fatalf("sources %d", len(cfg.BlackholeSources))
+	}
+	if cfg.BlackholeUpdateInterval != 2*time.Minute {
+		t.Fatalf("interval %s want 2m floor", cfg.BlackholeUpdateInterval)
+	}
+	if cfg.AutoconnectDiscoveredInterfaces != 3 {
+		t.Fatalf("autoconnect max %d", cfg.AutoconnectDiscoveredInterfaces)
+	}
+	if !cfg.DiscoverInterfaces {
+		t.Fatal("DiscoverInterfaces")
 	}
 }
 

@@ -179,6 +179,7 @@ type Transport struct {
 	localHopsDelta           int
 	probeDestination         *destination.Destination
 	remoteManagementDest     *destination.Destination
+	blackholeDest            *destination.Destination
 	mgmtDestinations         []*destination.Destination
 	lastMgmtAnnounce         time.Time
 	linkTable                *linkRelayTable
@@ -338,6 +339,9 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 	bhDir := ""
 	if storagePath != "" {
 		bhDir = filepath.Join(storagePath, "blackhole")
+	}
+	if cfg != nil {
+		blackhole.SetEnabledSources(cfg.BlackholeSources)
 	}
 	tab := blackhole.New(bhDir)
 	if bhDir != "" {
