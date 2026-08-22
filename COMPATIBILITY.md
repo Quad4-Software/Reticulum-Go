@@ -16,8 +16,8 @@ For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). F
 | Packet | Yes | Header types 1 and 2, all packet types and contexts. Byte-for-byte parity in crossref. [1] [6] |
 | Transport | Yes | Core wire behavior matches Python 1.4.2: path table, announces, RequestPath, hops, next-hop, type-2 rewrap, link-table forwarding, persistence, ingress control, random-blob path selection (1.3.4 dedup), interface gravity contests (1.4.1), LRPROOF hop rebalancing (1.4.1), recursive PR online gating (1.4.2), interface mode announce rules including announces_to_internal and MODE_INTERNAL (1.3.6/1.4.1), ephemeral transport identity when transport is off (1.3.6). Probe responses via respond_to_probes / allow_probes, local_hops_delta hop mangling, and blackhole teardown at LINKIDENTIFY are implemented. Incoming links use HandleIncomingLinkRequest. Unpack rejects hop counts at or above PATHFINDER_M (1.3.8). Link keepalive/stale timing matches 1.4.0 including initiator lastKeepaliveNs throttling. Background known-destination cleaning uses path/age rules with cooperative yields. [7] [8] [9] |
 | Interfaces | Partial | See Interfaces below. [10] |
-| Discovery (RNS.Discovery, rnstransport) | Yes | Mirrors wire constants, LXStamper, msgpack layouts. Default discovery stamp cost is 16 (RNS 1.4.0). Valid/invalid announce stamp caches and single-flight validation match Python. Blackholed transport_id / announcer identity (network_id) filtered at receive time (1.4.2 list filtering, fail-closed). discover_interfaces or per-interface discoverable = yes starts rnstransport listening via StartInterfaceDiscovery. InterfaceAnnouncer publishes discoverable TCP/Backbone/I2P (and related) interfaces. Autoconnect and BlackholeUpdater loops are not auto-started. Build with BuildAppData, decode with ValidateAndDecode. Separate from AutoInterface multicast discovery. [11] [12] |
-| Blackhole | Partial | Covers table semantics, msgpack, expiry, MergeRemote, EncodeForRequest. Announces from listed identities are dropped. Links from blackholed identities are torn down at LINKIDENTIFY. /list over rnstransport needs the RNS Request layer (not ported). publish_blackhole, blackhole_sources, blackhole_update_interval are ignored (deferred). [13] |
+| Discovery (RNS.Discovery, rnstransport) | Yes | Mirrors wire constants, LXStamper (`pkg/lxstamper`), msgpack layouts. Default discovery stamp cost is 16 (RNS 1.4.0). Receive path requires both StampValid threshold and StampValue >= cost. Valid/invalid announce stamp caches and single-flight validation match Python. Blackholed transport_id / announcer identity (network_id) filtered at receive time (1.4.2 list filtering, fail-closed). discover_interfaces, per-interface discoverable, or autoconnect_discovered_interfaces > 0 starts rnstransport listening via StartInterfaceDiscovery. InterfaceAnnouncer publishes discoverable TCP/Backbone/I2P (and related) interfaces. autoconnect_discovered_interfaces > 0 enables Backbone, TCP client, and I2P peer autoconnect from discovery. Build with BuildAppData, decode with ValidateAndDecode. Separate from AutoInterface multicast discovery. [11] [12] |
+| Blackhole | Yes | Table semantics, msgpack, expiry, MergeRemote, EncodeForRequest. Announces from listed identities are dropped. Links from blackholed identities are torn down at LINKIDENTIFY. publish_blackhole registers rnstransport.info.blackhole with AllowAll `/list`. blackhole_sources and blackhole_update_interval drive BlackholeUpdater (path, link, `/list`, MergeRemote, persist). [13] |
 | IFAC | Yes | Matches salt, HKDF identity, mask/unmask. UDP, TCP, Auto apply IFAC. Unauthenticated frames dropped. [14] [15] |
 | Link | Yes | Both directions, RTT, request/response (`RequestLimited` / max_response_size 1.4.1), channel, buffer, resources. WatchAndReconnect and EnableLinkAutoReconnect use Reestablish on closed links. [8] [12] |
 | Resource | Yes | Multi-part transfer, hashmaps, RESOURCE_PRF, bzip2, split advertisements. BZ2 bomb limits match Python 1.1.9. [16] |
@@ -256,8 +256,7 @@ Intentional extensions beyond upstream *rns*:
 | Item | Notes |
 |------|-------|
 | RNode / KISS / AX25 / Weave drivers | Hardware radio interface stack |
-| Discovery autoconnect loops | InterfaceAnnouncer and listen/validate work. Autoconnect is not auto-started |
-| Blackhole auto-publish / blackhole_sources | Federation loops |
+| Discovery TCPClient / I2P autoconnect | Implemented in Go (TCP client and I2P peer from discovery). Python still stubs these |
 | rnir / rnpkg / rngit | Missing Python utilities (rnsh interops with rgosh on dest app `rnsh`) |
 | Remote rnpath drop / path-request / blackhole mutate | Remote table, rates, and rnstatus `/status` work. Remote drop and blackhole mutate are still unimplemented (Python also exits 255) |
 
@@ -355,13 +354,11 @@ Python defaults from `RNS.Reticulum.__create_default_config` and [RNS/Reticulum.
 | max_in_memory_known_destinations | No | Yes | Soft known-dest cap under in_memory_storage |
 | max_in_memory_resource_bytes | No | Yes | Soft split-resource staging budget under in_memory_storage |
 | discover_interfaces | Yes | Yes | Starts rnstransport listening (StartInterfaceDiscovery). Per-interface discoverable also starts listening and the InterfaceAnnouncer. |
+| autoconnect_discovered_interfaces | Yes | Yes | Max autoconnect peers from discovery (>0 enables) |
+| publish_blackhole | Yes | Yes | Registers `rnstransport.info.blackhole` with `/list` |
+| blackhole_sources | Yes | Yes | Drives BlackholeUpdater pulls |
+| blackhole_update_interval | Yes | Yes | Minutes between pulls (floor 2, default 60) |
 | watch_interfaces | No | Yes | Go-only. Polls NIC changes via `net.Interfaces` (Linux, Android, Windows, macOS, BSD). WASM stub. Enables AutoInterface rescan. |
-| static_transport_identity | Yes (1.3.6+) | Yes | Keep persisted transport identity when transport is off |
-| local_hops_delta | Yes (1.3.6+) | Yes | Outbound hop mangling on local-origin packets |
-| respond_to_probes / allow_probes | Yes | Yes | Registers `rnstransport.probe` with PROVE_ALL |
-| publish_blackhole | Yes | No | Not auto-published |
-| blackhole_sources | Yes | No | Ignored |
-| blackhole_update_interval | Yes | No | Ignored (Python 1.3.2) |
 | network_identity | Yes | Yes | Loads or creates identity for discovery encrypt/decrypt and rnstransport.network destinations |
 
 ### [logging] keys

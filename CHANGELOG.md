@@ -5,62 +5,34 @@
 Wire compatible with Python RNS 1.4.2
 
 ### Added
-- reticulum-go zen (rgozen symlink): go-fix-style scanner for path and link footguns in Go and optional Python sources. Supports -fix for safe RequestPath error checks, JSON and plain output, rule listing, and test-file scanning
-- Release and local cross builds ship linux-amd64 GOAMD64 v1 and v3 together (unsuffixed linux-amd64 stays v1, never v3 alone). linux/386 is also published as linux-i686. Additional CGO-free targets: linux mips/mipsle/mips64/mips64le/ppc64/ppc64le/s390x, OpenBSD, NetBSD, DragonFly, Solaris, illumos, AIX ppc64, and Android arm64
+- reticulum-go zen (rgozen): static scanner for path and link footguns, with optional safe fixes
+- Release builds add more CGO-free Linux, BSD, Solaris, illumos, AIX, and Android targets. Linux amd64 ships v1 and v3 together
+- Local LXStamper proof-of-work for discovery announces
+- Blackhole federation via publish_blackhole, remote sources, and periodic merge
+- Discovery autoconnect for Backbone, TCP server, and I2P peers from rnstransport announces
 
-### Transport and pathing
-- Discovery path-request timeout scales from the slowest online outgoing fan-out bitrate instead of a flat 15 second wait
-- Path-request emit and slowest-bitrate helpers skip receive-only interfaces
-- AwaitPath honors the path-response window when the caller sets no deadline
-- Repeated nil-tag path requests inside 20 seconds return ErrPathRequestThrottled instead of silent success. NudgePathRequest no longer bypasses throttling
-- Local announce bursts beyond 8 in 10 seconds return ErrDestAnnounceThrottled. Path-response announces are not capped
-- Link-relay proof timeout adds outbound-interface MTU airtime on the next hop (extra_link_proof_timeout), not on the receive interface
-- Forwarded announces that exceed announce_cap wait on a per-interface outgoing queue instead of being dropped
-
-### Links
-- Link establishment per-hop timeout is 6 seconds, matching RNS 1.4.2 Link.ESTABLISHMENT_TIMEOUT_PER_HOP
-- Link Request rejects a duplicate in-flight path request and caps pending requests at 8
-- Send, Request, and Identify on a non-active link return ErrLinkNotActive with a callback hint
-- A second outbound Establish to the same destination while a handshake is pending returns ErrLinkEstablishBusy
-- Calling Establish again on the same link returns ErrLinkAlreadySettled or ErrLinkEstablishBusy
-
-### Performance
-- Destination name hashing lives in pkg/identity so hash-only tools need not import destination ratchets and msgpack. destination.Hash and HashFromIdentityHash remain wrappers
-- Link and transport timeout numbers alias pkg/common so importers can use the values without pulling link.go
-- Optional QUIC, WebTransport, I2P, and SDR interface drivers register at init. Default builds still include them. `-tags rns_slim` omits those drivers (quic-go, I2P, SDR) from the binary
-- Link SendPacket encrypts into the packed HT1 buffer (one wire allocation) and reuses per-link AES and HMAC state
-- AES-CBC encrypt/decrypt no longer allocates cipher.NewCBCEncrypter per packet
-- Packet receipts use a single AfterFunc timer instead of a goroutine plus 1s ticker
-- Default loglevel 4 is info (was verbose), matching Python RNS. Per-packet and handshake traces moved to verbose/trace/packets
-- debug.Log returns after an atomic level check with no extra slice or mutex on the filtered path
-- Hot-path debug.Log call sites skip argument slices when the level is filtered
-- HandlePacket workers start at GOMAXPROCS (floor 4) and grow toward max_packet_handlers only when the ingress queue is full, instead of spawning 512 idle goroutines
-- reticulum-go zen scans with go/parser instead of golang.org/x/tools/go/packages so the daemon binary no longer links the go/packages toolchain
-
-### Control API and librns
-- path/request responses include wait_s. link.open waits for AwaitPath before handshake
-- librns LinkOpen waits for AwaitPath before handshake
-- Control API path-request repeats return HTTP 429 with wait_s
-- Interface stats `type` is the concrete driver name (UDPInterface, TCPClientInterface) matching Python class names
-- Per-interface outgoing announce queue (`announce_queue`) and `drop_announce_queues` matching Python announce_cap delay
+### Changed
+- Path and link timeouts, throttling, and relay behavior aligned with RNS 1.4.2
+- Discovery path-request wait scales from slowest online interface bitrate
+- Link establishment uses 6s per-hop timeout. Duplicate or busy handshakes return explicit errors
+- Optional slim build tag drops QUIC, WebTransport, I2P, and SDR drivers
+- Default log level is info. Hot paths avoid work when logging is filtered
+- Control API and librns path requests report wait time and honor AwaitPath before link open
+- Interface stats use concrete driver names. Per-interface announce queues match Python announce_cap
 
 ### Fixed
-- Shared-instance local clients still receive path and link relay when enable_transport is disabled (Python from_local_client and for_local_client_link). PATHREQUEST was already forwarded, but LINKREQUEST and link data were dropped, so rngit and other Python apps resolved a path then failed to establish a link
-- Path and link relay developer errors: no-path link relay, transport-disabled relay, no outgoing interface for path request, and interface-not-ready path request now return explicit errors instead of silent success or misleading no-destination logs
-- AwaitPath timeout returns ErrNoPathToDestination with destination hash and hint instead of bare context.DeadlineExceeded
-- BaseInterface bandwidth stats now increment TxPackets so transmitted-byte and packet counters stay aligned
-- CI bench-gate no longer hangs in transport.test. sim Close waited on handler-pool Sends blocked on full inboxes
-- CI fuzz-guided skips package unit tests and uses short coverage so the job fits the 45 minute limit
-- Channel retry timeout matches Python `_get_packet_timeout_time` (max(rtt*2.5, 0.025) and tx-ring + 1.5)
-- Channel start window is 1 when link RTT is above RTT_SLOW, matching Python Channel
-- dos_protection defaults to off. core_router no longer forces prevent. Iface-wide cool-down is opt-in so a busy public UDP listener is not blackholed. Path-request and data class ride prefer-keep leniency so discovery survives announce floods
-- `drop_announce_queues` RPC cleared the path announce cache instead of per-interface outgoing announce queues
+- Shared-instance clients receive path and link relay when transport is disabled
+- Path and link relay failures return explicit errors instead of silent drops
+- AwaitPath timeout returns a destination-specific no-path error
+- Base interface Tx packet counters stay aligned with byte counters
+- CI bench and fuzz jobs no longer hang or overrun time limits
+- Channel retry and start window timing match Python
+- dos_protection defaults off. Core router no longer forces prevent mode
+- drop_announce_queues RPC clears interface queues, not the path announce cache
 
-### Tests
-- Golden Python RNS 1.4.2 wire vectors and oracles for packet flags/contexts/MDU, announce payload and destination hashes, channel envelopes and RTT windows, resource advertisements, link MDU and establishment timeouts, and adaptive path-request windows (5 bit/s floor, receive-only skipped, discovery timeout vs 15s)
-
-### Docs
-- Configuration, API reference, control API, transport, links, utilities, development-and-testing, compatibility, and package-map docs updated for throttling, timeouts, relay behavior, reticulum-go zen, and log levels
+### Tests and docs
+- Golden RNS 1.4.2 wire vectors and oracles for packets, announces, channels, resources, and links
+- Configuration, transport, links, compatibility, and development docs updated
 
 
 ## v1.0.2 - 2026-08-14
