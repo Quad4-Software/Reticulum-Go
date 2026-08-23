@@ -89,30 +89,20 @@ func TestPathRequestDestinationHashStable(t *testing.T) {
 	}
 }
 
-func TestTransportInboundQueueStatsRPC(t *testing.T) {
-	tr := NewTransport(nil)
-	defer tr.Close()
-	pc := getPacketCopy(4)
-	pc.buf[0] = 0x00
-	pc.buf[1] = 0x00
-	if !tr.inboundQueues.put(TCData, packetJob{pc: pc, packetType: 0}) {
-		t.Fatal("put")
+func TestFillInboundQueueStatsRPC(t *testing.T) {
+	var resp InterfaceStatsResponse
+	heights := [inboundQueueCount]int{3, 1, 0, 0}
+	dropped := [inboundQueueCount]uint64{0, 2, 0, 0}
+	sizes := [inboundQueueCount]int{8, 4, 4, 4}
+	fillInboundQueueStats(&resp, 4, heights, dropped, sizes)
+	if resp.RXQT != 4 {
+		t.Fatalf("rxqt=%d want 4", resp.RXQT)
 	}
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) {
-		stats := tr.GetInterfaceStatsRPC()
-		if stats.RXQT >= 1 {
-			return
-		}
-		pc := getPacketCopy(4)
-		pc.buf[0] = 0x00
-		pc.buf[1] = 0x00
-		_ = tr.inboundQueues.put(TCData, packetJob{pc: pc, packetType: 0})
-		time.Sleep(time.Millisecond)
+	if resp.RXQD != 3 || resp.RXQA != 1 {
+		t.Fatalf("rxqd=%d rxqa=%d", resp.RXQD, resp.RXQA)
 	}
-	stats := tr.GetInterfaceStatsRPC()
-	if stats.RXQT < 1 {
-		t.Fatalf("rxqt=%d want >=1", stats.RXQT)
+	if resp.RXQAD != 2 {
+		t.Fatalf("rxqad=%d want 2", resp.RXQAD)
 	}
 }
 
