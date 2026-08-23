@@ -257,10 +257,10 @@ func PrepareGitIdentity(path string) (*identity.Identity, error) {
 	if path == "" {
 		return nil, fmt.Errorf("empty identity path")
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil { // #nosec G301 G703 -- client identity parent dir
 		return nil, err
 	}
-	if st, err := os.Stat(path); err == nil && !st.IsDir() {
+	if st, err := os.Stat(path); err == nil && !st.IsDir() { // #nosec G703 -- client identity path
 		return identity.FromFile(path)
 	}
 	id, err := identity.New()
