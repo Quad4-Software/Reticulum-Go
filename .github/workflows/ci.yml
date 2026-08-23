@@ -1,6 +1,6 @@
 # Pinned actions (bump tag and SHA together when upgrading):
 #   actions/checkout@v7.0.0            9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-#   dorny/paths-filter@v3.0.2          45125845b8356f0cfd9f83369b74fea741c59d34
+#   dorny/paths-filter@v3.0.2          de90cc6fb38fc0963ad72b210f1f284cd68cea36
 #   actions/setup-node@v6.4.0          48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
 #   actions/setup-java@v4.7.1          c5195efecf7bdfc987ee8bae7a71cb8b11521c00
 #   vmactions/freebsd-vm@v1.5.0        5a72679103d223925653750faa878a143340fbd0
@@ -59,7 +59,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Detect changed paths
-        uses: dorny/paths-filter@45125845b8356f0cfd9f83369b74fea741c59d34 # v3.0.2
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: filter
         with:
           filters: |
