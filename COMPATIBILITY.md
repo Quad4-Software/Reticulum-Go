@@ -170,7 +170,7 @@ Wire format is unchanged in 1.2.x to 1.4.x. Most churn is utilities and transpor
 | allow_link_path_rebalance | 1.4.1 | Covered (default true, config `allow_link_path_rebalance`) |
 | Recursive path-request online gate | 1.4.2 | Covered (`ifaceReadyForPathRequest`). Go also refuses non-positive bitrate when exposed and re-checks at emit time |
 | Discovery blackhole set for list filtering | 1.4.2 | Covered (`ActiveIdentitySet` + receive-time filter). Go invalidates on mutation instead of a 60s TTL and drops at receive rather than list-only |
-| rngit / rnid / rnsh utilities | 1.2.x+ | Not ported (no wire impact; rnsh security fix is Python-only) |
+| rngit / rnid / rnsh utilities | 1.2.x+ | rngit ported (`reticulum-go git`, `git-remote-rns`). rnid via `reticulum-go id`. rnsh security fix is Python-only |
 
 ### RNS 1.3.6 through 1.4.2 notes
 
@@ -247,7 +247,7 @@ Intentional extensions beyond upstream *rns*:
 | rnx | Yes | `reticulum-go x` (symlinks rgox, rnx). Destination `rnx.execute`, request path command. JSON stdout, Python exit codes |
 | rnodeconf | No | Depends on RNode driver |
 | rnpkg | No | Not ported |
-| rngit | No | Git-over-Reticulum. No wire impact. |
+| rngit | Yes | `reticulum-go git` (rgogit), `git-remote-rns`. Interops with Python rngit |
 | rnsh | Interop | Python rnsh talks to dest app `rnsh` on either stack. `reticulum-go sh` auto-detects that dest. Native `rgosh` dest is Go-only. Unix PTY. Windows listener uses pipes. |
 | WASM build | Go-only | [cmd/reticulum-wasm](cmd/reticulum-wasm/), [pkg/wasm](pkg/wasm/) |
 
@@ -257,7 +257,7 @@ Intentional extensions beyond upstream *rns*:
 |------|-------|
 | RNode / KISS / AX25 / Weave drivers | Hardware radio interface stack |
 | Discovery TCPClient / I2P autoconnect | Implemented in Go (TCP client and I2P peer from discovery). Python still stubs these |
-| rnir / rnpkg / rngit | Missing Python utilities (rnsh interops with rgosh on dest app `rnsh`) |
+| rnir / rnpkg | Missing Python utilities (rnsh interops with rgosh on dest app `rnsh`) |
 | Remote rnpath drop / path-request / blackhole mutate | Remote table, rates, and rnstatus `/status` work. Remote drop and blackhole mutate are still unimplemented (Python also exits 255) |
 
 ## Examples

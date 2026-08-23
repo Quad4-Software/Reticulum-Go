@@ -32,6 +32,7 @@ const (
 	CmdDump       = "dump"
 	CmdSnapshot   = "snapshot"
 	CmdZen        = "zen"
+	CmdGit        = "git"
 )
 
 // DaemonFunc starts the network daemon. Injected by cmd/reticulum-go to avoid
@@ -58,6 +59,12 @@ func Main(args []string, opt Options) int {
 	}
 	if opt.Stderr == nil {
 		opt.Stderr = os.Stderr
+	}
+
+	base := strings.ToLower(filepath.Base(opt.Argv0))
+	base = strings.TrimSuffix(base, ".exe")
+	if base == "git-remote-rns" {
+		return RunGitRemoteRNS(args, opt)
 	}
 
 	cmd, rest, ok := resolveCommand(opt.Argv0, args)
@@ -122,6 +129,11 @@ func Main(args []string, opt Options) int {
 		return RunSnapshot(rest, opt)
 	case CmdZen:
 		return RunZen(rest, opt)
+	case CmdGit:
+		if len(rest) > 0 && rest[0] == "remote-rns" {
+			return RunGitRemoteRNS(rest[1:], opt)
+		}
+		return RunGit(rest, opt)
 	default:
 		fmt.Fprintf(opt.Stderr, "unknown command %q\n\n", cmd)
 		printRootHelp(opt.Stderr)
@@ -142,7 +154,7 @@ func resolveCommand(argv0 string, args []string) (cmd string, rest []string, ok 
 	}
 
 	switch args[0] {
-	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdX, CmdSH, CmdPageserver, CmdDebug, CmdSlow, CmdSelfCheck, CmdSpeedtest, CmdDump, CmdSnapshot, CmdZen:
+	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdX, CmdSH, CmdPageserver, CmdDebug, CmdSlow, CmdSelfCheck, CmdSpeedtest, CmdDump, CmdSnapshot, CmdZen, CmdGit:
 		return args[0], args[1:], true
 	case "selfcheck", "rgoselfcheck":
 		return CmdSelfCheck, args[1:], true
@@ -170,6 +182,8 @@ func resolveCommand(argv0 string, args []string) (cmd string, rest []string, ok 
 		return CmdSnapshot, args[1:], true
 	case "rgozen", "reticulum-go-zen":
 		return CmdZen, args[1:], true
+	case "rgogit", "reticulum-go-git", "git-remote-rns":
+		return CmdGit, args[1:], true
 	default:
 		return "", nil, false
 	}
@@ -205,6 +219,8 @@ func aliasFromArgv0(base string) string {
 		return CmdSnapshot
 	case "rgozen", "reticulum-go-zen":
 		return CmdZen
+	case "rgogit", "reticulum-go-git", "git-remote-rns":
+		return CmdGit
 	default:
 		return ""
 	}
@@ -247,7 +263,8 @@ Usage:
   reticulum-go cp [flags]               file transfer over links
   reticulum-go x [flags]                remote command execution (rnx)
   reticulum-go sh [flags]               interactive remote shell (rgosh)
-  reticulum-go pageserver [flags]       NomadNet-style page and file server
+  reticulum-go git [flags]                 Git-over-Reticulum node (rngit)
+  reticulum-go pageserver [flags]          NomadNet-style page and file server
   reticulum-go debug [flags]            effective config, rate table, RPC dump
   reticulum-go self-check [flags]       host OS preflight checklist
   reticulum-go zen [flags] [packages]   scan for path/link footguns (go fix style)

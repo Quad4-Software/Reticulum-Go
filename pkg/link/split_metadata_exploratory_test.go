@@ -27,6 +27,45 @@ func TestSplitResourceMetadataCorruptMsgpackStillStripsPrefix(t *testing.T) {
 	}
 }
 
+func TestSplitResourceMetadata_IntegerKeys(t *testing.T) {
+	packed := []byte{0x81, 0x01, 0x00}
+	body := []byte("bundle-bytes")
+	wire := make([]byte, 3+len(packed)+len(body))
+	wire[0] = byte(len(packed) >> 16)
+	wire[1] = byte(len(packed) >> 8)
+	wire[2] = byte(len(packed))
+	copy(wire[3:], packed)
+	copy(wire[3+len(packed):], body)
+	adv := &resource.ResourceAdvertisement{HasMetadata: true}
+	gotBody, gotMeta := splitResourceMetadata(wire, adv)
+	if !bytes.Equal(gotBody, body) {
+		t.Fatalf("body=%q", gotBody)
+	}
+	if gotMeta == nil {
+		t.Fatal("expected metadata")
+	}
+	code, ok := gotMeta["1"]
+	if !ok {
+		t.Fatalf("meta=%v", gotMeta)
+	}
+	switch v := code.(type) {
+	case int64:
+		if v != 0 {
+			t.Fatalf("code=%v", v)
+		}
+	case int:
+		if v != 0 {
+			t.Fatalf("code=%v", v)
+		}
+	case int8:
+		if v != 0 {
+			t.Fatalf("code=%v", v)
+		}
+	default:
+		t.Fatalf("code type %T", code)
+	}
+}
+
 func TestSplitResourceMetadataHonestRoundTrip(t *testing.T) {
 	adv := &resource.ResourceAdvertisement{HasMetadata: true}
 	meta := map[string]any{"name": []byte("a.bin")}

@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io/fs"
 	"math"
 	"net"
 	"os"
@@ -128,18 +129,23 @@ func persistDiscoveredRecord(storageDir string, rec *DiscoveredInterface) error 
 	if _, ok := discoverableTypes[rec.Type]; !ok {
 		return nil
 	}
-	dir := filepath.Join(storageDir, "discovery", "interfaces")
-	if err := os.MkdirAll(dir, 0o750); err != nil {
+	root, err := discoveryInterfacesRoot(storageDir)
+	if err != nil {
 		return err
 	}
+	defer root.Close()
+
 	dh := DiscoveryHash(rec.TransportID, rec.Name)
 	if len(dh) == 0 {
 		return nil
 	}
-	path := filepath.Join(dir, hex.EncodeToString(dh))
+	name := hex.EncodeToString(dh)
+	if !isSafeDiscoveryPersistName(name) {
+		return nil
+	}
 
 	var existing map[string]any
-	if raw, err := os.ReadFile(path); err == nil {
+	if raw, err := root.ReadFile(name); err == nil {
 		_ = msgpack.Unmarshal(raw, &existing)
 	}
 	now := rec.Received
@@ -151,11 +157,11 @@ func persistDiscoveredRecord(storageDir string, rec *DiscoveredInterface) error 
 	if err != nil {
 		return err
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, packed, 0o600); err != nil {
+	tmp := name + ".tmp"
+	if err := root.WriteFile(tmp, packed, 0o600); err != nil {
 		return err
 	}
-	return os.Rename(tmp, path)
+	return root.Rename(tmp, name)
 }
 
 func discoveredToMap(rec *DiscoveredInterface, existing map[string]any, now float64) map[string]any {
@@ -228,8 +234,16 @@ func ListDiscoveredInterfaces(storageDir string, opts ListOptions) ([]*Discovere
 	if storageDir == "" {
 		return nil, nil
 	}
-	dir := filepath.Join(storageDir, "discovery", "interfaces")
-	entries, err := os.ReadDir(dir)
+	root, err := discoveryInterfacesRoot(storageDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer root.Close()
+
+	entries, err := fs.ReadDir(root.FS(), ".")
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -246,18 +260,18 @@ func ListDiscoveredInterfaces(storageDir string, opts ListOptions) ([]*Discovere
 		if !isSafeDiscoveryPersistName(name) {
 			continue
 		}
-		raw, err := os.ReadFile(filepath.Join(dir, name)) // #nosec G304 -- name validated
+		raw, err := root.ReadFile(name)
 		if err != nil {
 			continue
 		}
 		var m map[string]any
 		if err := msgpack.Unmarshal(raw, &m); err != nil {
-			_ = os.Remove(filepath.Join(dir, name))
+			_ = root.Remove(name)
 			continue
 		}
 		rec, remove := normalizeDiscoveredRecord(m, now)
 		if remove {
-			_ = os.Remove(filepath.Join(dir, name))
+			_ = root.Remove(name)
 			continue
 		}
 		if opts.NameFilter != "" && !strings.Contains(strings.ToLower(rec.Name), strings.ToLower(opts.NameFilter)) {
@@ -423,6 +437,14 @@ func isReachableHost(host string) bool {
 		}
 	}
 	return true
+}
+
+func discoveryInterfacesRoot(storageDir string) (*os.Root, error) {
+	dir := filepath.Join(storageDir, "discovery", "interfaces")
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return nil, err
+	}
+	return os.OpenRoot(dir)
 }
 
 func sanitizeDiscoveryName(name string) string {

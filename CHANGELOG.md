@@ -17,6 +17,7 @@ Wire compatible with Python RNS 1.5.0
 - RNS 1.5.0 inbound priority queues with qlen_in_* config and queue pressure in interface stats RPC
 - rgostatus -d and -D for discovered interface listing (Python rnstatus parity)
 - Discovered interface persistence keyed by discovery_hash with list_discovered_interfaces parity
+- rngit-compatible Git-over-Reticulum (`reticulum-go git`, `git-remote-rns`) with Python interop tests
 
 ### Changed
 - Path and link timeouts, throttling, and relay behavior aligned with RNS 1.4.2
@@ -176,7 +177,7 @@ Wire compatible with Python RNS 1.3.9
 - RNode, KISS, AX25, and Weave radio drivers
 - Discovery autoconnect loops
 - Blackhole auto publish federation
-- Utilities: Python rnsh (use rgosh), rnir, rnpkg, rngit
+- Utilities: Python rnsh (use rgosh), rnir, rnpkg
 - Remote rnpath and rnstransport modes
 
 RNode and remaining radio drivers plus deferred utilities are planned for later releases.

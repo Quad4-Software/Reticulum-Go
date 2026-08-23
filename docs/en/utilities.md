@@ -28,6 +28,7 @@ make build
 | `reticulum-go cp` (rgocp) | rncp | File send / listen / fetch over links |
 | `reticulum-go x` (rgox, rnx) | rnx | Remote command execution over links (`rnx.execute`) |
 | `reticulum-go sh` (rgosh) | rnsh (native + auto rnsh) | Interactive remote shell over Link+Channel (PTY/pipes) |
+| `reticulum-go git` (rgogit, git-remote-rns) | rngit | Git-over-Reticulum node and git remote helper |
 | `reticulum-go pageserver` | (example app) | NomadNet-style page and file server |
 | `reticulum-go self-check` (rgoselfcheck) | (Go-only) | Host OS preflight for sandbox, crypto, and interfaces |
 | `reticulum-go zen` (rgozen) | (Go-only) | Static scan for path and link footguns in Go and optional Python sources |
@@ -54,8 +55,9 @@ Python utilities and Go subcommands speak the same destinations, shared-instance
 | Remote exec (`rnx.execute`) | rnx | `reticulum-go x` | Yes | Yes |
 | Shell on dest app `rnsh` | rnsh | `reticulum-go sh` (auto) | Yes | Yes (Go listener announces `rnsh` as well) |
 | Shell on dest app `rgosh` | (no) | `reticulum-go sh` | n/a | Go native only |
+| Git clone/fetch/push (`rns://`) | rngit / git-remote-rns | `reticulum-go git`, `git-remote-rns` | Yes | Yes |
 
-Remote drop, path-request, and blackhole mutate over `-R` exit 255 on both stacks. rnir, rnpkg, rngit, and rnodeconf stay Python-only. rgoslow, rgodump, rgosnap, rgoselfcheck, and rgozen stay Go-only.
+Remote drop, path-request, and blackhole mutate over `-R` exit 255 on both stacks. rnir, rnpkg, and rnodeconf stay Python-only. rgoslow, rgodump, rgosnap, rgoselfcheck, and rgozen stay Go-only.
 
 ## Shared-instance RPC (required for rgostatus and rgopath table modes)
 

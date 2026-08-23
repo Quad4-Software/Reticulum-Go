@@ -1110,8 +1110,8 @@ func splitResourceMetadata(payload []byte, adv *resource.ResourceAdvertisement) 
 	// Resource assembly. A failed msgpack unpack must not leave the 3-byte
 	// size prefix and packed meta attached to the file body.
 	body := payload[3+metaSize:]
-	var meta map[string]any
-	if err := msgpack.Unmarshal(payload[3:3+metaSize], &meta); err != nil {
+	meta, err := unpackResourceMetadata(payload[3 : 3+metaSize])
+	if err != nil {
 		debug.Log(debug.DebugInfo, "Failed to unpack incoming resource metadata", "error", err)
 		return body, nil
 	}

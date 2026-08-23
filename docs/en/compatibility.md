@@ -99,8 +99,9 @@ Wire format is stable across 1.2.x to 1.4.x. Notable behavior differences:
 | Discovery TCPClient/I2P autoconnect | Go implements TCP client and I2P peer autoconnect from discovery. Python still stubs these paths |
 | Remote management mutate | Remote `/path` table and rates plus `/status` work. Remote drop, path-request, and blackhole mutate are unimplemented (Python also exits 255) |
 | RNode and radio serial drivers | RNode / KISS / AX25 / Weave not in this tree. SerialInterface, Modem73Interface, and SDRInterface are present |
-| Utilities rnir rnpkg rngit | Not ported |
-| Python-only utilities | rnir, rnpkg, rngit, rnodeconf are not ported |
+| Utilities rnir rnpkg | Not ported |
+| rngit | Ported (`reticulum-go git`, `git-remote-rns`) |
+| Python-only utilities | rnir, rnpkg, rnodeconf are not ported |
 
 ## Go-only extensions
 
@@ -159,7 +160,7 @@ These do not change the wire format:
 | rnprobe | rgoprobe |
 | rnpath | rgopath (same RPC and remote `-R` dest as Python) |
 | rncp | rgocp (send/listen/fetch on `rncp.receive`) |
-| rnir, rnodeconf, rnpkg, rngit | Not ported (deferred post-1.0). rnx is `reticulum-go x`. |
+| rnir, rnodeconf, rnpkg | Not ported (deferred post-1.0). rnx is `reticulum-go x`. rngit is `reticulum-go git` |
 | rnsh | Python rnsh talks to a Go listener on dest app `rnsh`. `reticulum-go sh` auto-detects that dest. Native `rgosh` dest is Go-only. Listen `-b PERIOD` / `-A` / `-C` match Python rnsh. Unix PTY. Windows listener is pipes only. |
 | WASM | `reticulum-wasm` (Go-only) |
 | librns | `librns.so` + `rns.h` (Go-only, Linux first) |

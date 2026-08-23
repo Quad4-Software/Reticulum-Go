@@ -1993,16 +1993,10 @@ func (l *Link) handleRequest(plaintext []byte, requestID []byte) error {
 		return nil
 	}
 
-	var requestData []any
-	if err := msgpack.Unmarshal(plaintext, &requestData); err != nil {
-		return fmt.Errorf("failed to unpack request: %w", err)
-	}
-
-	if len(requestData) < MinRequestDataLen {
-		return errors.New("invalid request format")
-	}
-
-	requestedAt, err := parseRequestedAt(requestData[0])
+	var requestedAt time.Time
+	var pathHash []byte
+	var requestPayload []byte
+	requestedAt, pathHash, requestPayload, err := unpackLinkRequest(plaintext)
 	if err != nil {
 		return err
 	}
@@ -2012,27 +2006,6 @@ func (l *Link) handleRequest(plaintext []byte, requestID []byte) error {
 			"request_id", fmt.Sprintf("%x", requestID))
 		health.Inc(l.attachedIfaceName(), health.KindRequestSkewReject)
 		return nil
-	}
-
-	pathHash, ok := requestData[1].([]byte)
-	if !ok {
-		return fmt.Errorf("invalid path_hash type: %T", requestData[1])
-	}
-
-	var requestPayload []byte
-	if requestData[2] != nil {
-		switch payload := requestData[2].(type) {
-		case []byte:
-			requestPayload = payload
-		case string:
-			requestPayload = []byte(payload)
-		default:
-			packed, err := msgpack.Marshal(payload)
-			if err != nil {
-				return fmt.Errorf("failed to pack request_payload: %w", err)
-			}
-			requestPayload = packed
-		}
 	}
 
 	debug.Log(debug.DebugVerbose, "Handling request", "path_hash", fmt.Sprintf("%x", pathHash), "request_id", fmt.Sprintf("%x", requestID))
@@ -2122,7 +2095,35 @@ func (l *Link) handleResponse(plaintext []byte) error {
 	return nil
 }
 
+// FileResponse sends raw bytes as a response resource with optional metadata,
+// matching Python RNS Link file tuple responses used by rngit fetch.
+type FileResponse struct {
+	Data           []byte
+	MetadataPacked []byte
+	AutoCompress   bool
+}
+
 func (l *Link) sendResponse(requestID []byte, response any) error {
+	if fr, ok := response.(FileResponse); ok {
+		res, err := resource.New(fr.Data, fr.AutoCompress)
+		if err != nil {
+			return fmt.Errorf("failed to create file response resource: %w", err)
+		}
+		if len(fr.MetadataPacked) > 0 {
+			if err := res.SetMetadataPacked(fr.MetadataPacked); err != nil {
+				return err
+			}
+		}
+		res.SetRequestID(requestID)
+		res.SetIsResponse(true)
+		go func() {
+			if err := l.SendResource(res); err != nil {
+				debug.Log(debug.DebugError, "Failed to send file response resource", "request_id", fmt.Sprintf("%x", requestID), "error", err)
+			}
+		}()
+		return nil
+	}
+
 	responseData := []any{requestID, response}
 	packedResponse, err := msgpack.Marshal(responseData)
 	if err != nil {

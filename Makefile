@@ -43,7 +43,7 @@ INSTALL_MANDIR := $(DESTDIR)$(MANDIR)
 INIT ?= auto
 
 # Legacy CLI names installed as symlinks to $(BINARY_NAME).
-TOOL_LINKS := rgostatus rgoid rgoprobe rgopath rgocp rgox rnx rgosh rgopageserver rgoslow rgoselfcheck rgospeed rgodump rgosnap rgozen
+TOOL_LINKS := rgostatus rgoid rgoprobe rgopath rgocp rgox rnx rgosh rgopageserver rgogit git-remote-rns rgoslow rgoselfcheck rgospeed rgodump rgosnap rgozen
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 # Package version must start with a digit and avoid git describe noise.
