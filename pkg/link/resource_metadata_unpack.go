@@ -5,6 +5,7 @@ package link
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 
 	"quad4/msgpack/v5/pkg/msgpack"
@@ -51,6 +52,9 @@ func metadataMapKey(k any) string {
 	case uint32:
 		return strconv.Itoa(int(x))
 	case uint64:
+		if x > math.MaxInt {
+			return fmt.Sprint(k)
+		}
 		return strconv.Itoa(int(x))
 	default:
 		return fmt.Sprint(k)

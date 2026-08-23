@@ -168,7 +168,15 @@ func TestHandlerPoolOverflowAlwaysSheds(t *testing.T) {
 
 	iface := newOnlineTestIface("shed0")
 	before := health.Default.SnapshotIface("shed0").DoSHandler.Total
-	tr.HandlePacket(minimalDataPacket(), iface)
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		tr.HandlePacket(minimalDataPacket(), iface)
+		if health.Default.SnapshotIface("shed0").DoSHandler.Total > before {
+			return
+		}
+		saturateInboundDataQueue(t, tr)
+		time.Sleep(time.Millisecond)
+	}
 	after := health.Default.SnapshotIface("shed0").DoSHandler.Total
 	if after <= before {
 		t.Fatalf("overflow did not shed: dos_handler %d -> %d", before, after)

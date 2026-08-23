@@ -64,7 +64,7 @@ func (n *Node) Start(rnsConfig string) error {
 	n.n = nd
 	dest, err := destination.New(n.identity, destination.In, destination.Single, AppName, nd.Transport(), Aspect)
 	if err != nil {
-		nd.Stop()
+		_ = nd.Stop() // #nosec G104 -- rollback partial start
 		return err
 	}
 	n.dest = dest
@@ -94,7 +94,7 @@ func (n *Node) Stop() {
 		n.mirrorStop()
 	}
 	if n.n != nil {
-		n.n.Stop()
+		_ = n.n.Stop() // #nosec G104 -- best effort shutdown
 	}
 }
 

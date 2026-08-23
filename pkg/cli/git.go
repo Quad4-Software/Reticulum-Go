@@ -254,5 +254,5 @@ func EmitGitJSON(w io.Writer, event string, fields map[string]any) {
 
 // GitBundleVerify wraps git bundle verify for tests.
 func GitBundleVerify(path string) error {
-	return exec.Command("git", "bundle", "verify", "-q", path).Run()
+	return exec.Command("git", "bundle", "verify", "-q", path).Run() // #nosec G204 -- fixed git binary
 }

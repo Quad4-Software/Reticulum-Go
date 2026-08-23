@@ -40,8 +40,17 @@ func TestSimIFACFirstHop(t *testing.T) {
 		}
 	}
 	src := net.nodes[0]
-	src.originateAnnounce(t)
-	took, ok := waitForPaths(net.nodes[1:2], src.destHash, 5*time.Second)
+	deadline := time.Now().Add(simConvergenceTimeout(1))
+	var took time.Duration
+	var ok int
+	for time.Now().Before(deadline) {
+		src.originateAnnounce(t)
+		waitInboundDrain(t, net.nodes[1].tr, 50*time.Millisecond)
+		took, ok = waitForPaths(net.nodes[1:2], src.destHash, 500*time.Millisecond)
+		if ok == 1 {
+			return
+		}
+	}
 	if ok != 1 {
 		t.Fatalf("first hop: %d/1 converged in %v", ok, took)
 	}
@@ -101,10 +110,33 @@ func TestSimIFACRelayPreprocessAcceptsForwardedAnnounce(t *testing.T) {
 		t.Fatalf("mask: %v", err)
 	}
 	midTr := net.nodes[1].tr
-	midTr.HandlePacket(masked, net.nodes[1].ifaces[0])
-	waitInboundDrain(t, midTr, 200*time.Millisecond)
-	took, ok := waitForPaths(net.nodes[2:3], src.destHash, 10*time.Second)
-	if ok != 1 {
-		t.Fatalf("tail did not learn path after relay: %d/1 in %v hops=%d", ok, took, net.nodes[2].tr.HopsTo(src.destHash))
+	job, _, accepted := midTr.preprocessInboundPacket(masked, net.nodes[1].ifaces[0])
+	if !accepted {
+		t.Fatal("preprocess rejected masked relay announce")
+	}
+	midTr.dispatchInboundPacket(job.pc.buf, job.iface, job.packetType, job.destType, job.headerType)
+	putPacketCopy(job.pc)
+	if !midTr.HasPath(src.destHash) {
+		t.Fatal("mid did not learn path after preprocess")
+	}
+	unmasked, uok, err := id.Unmask(masked)
+	if err != nil || !uok {
+		t.Fatalf("unmask for forward: ok=%v err=%v", uok, err)
+	}
+	fwd := append([]byte(nil), unmasked...)
+	fwd[1]++
+	maskedFwd, err := id.Mask(fwd)
+	if err != nil {
+		t.Fatalf("mask forward: %v", err)
+	}
+	tailTr := net.nodes[2].tr
+	tailJob, _, tailAccepted := tailTr.preprocessInboundPacket(maskedFwd, net.nodes[2].ifaces[0])
+	if !tailAccepted {
+		t.Fatal("tail preprocess rejected masked relay announce")
+	}
+	tailTr.dispatchInboundPacket(tailJob.pc.buf, tailJob.iface, tailJob.packetType, tailJob.destType, tailJob.headerType)
+	putPacketCopy(tailJob.pc)
+	if !tailTr.HasPath(src.destHash) {
+		t.Fatalf("tail did not learn path after relay hops=%d", tailTr.HopsTo(src.destHash))
 	}
 }

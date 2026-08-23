@@ -222,10 +222,10 @@ func (n *Node) fetchReleaseArtifact(group, repo, tag, artifact string) ([]byte, 
 
 func (n *Node) createRelease(group, repo, tag, notes string) error {
 	dir := filepath.Join(n.releasesDir(group, repo), tag)
-	if err := os.MkdirAll(filepath.Join(dir, "artifacts"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, "artifacts"), 0o755); err != nil { // #nosec G301 -- release artifacts dir
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, "RELEASE.md"), []byte(notes), 0o644)
+	return os.WriteFile(filepath.Join(dir, "RELEASE.md"), []byte(notes), 0o644) // #nosec G306 -- release notes
 }
 
 func (n *Node) workDir(group string) string {
@@ -260,13 +260,13 @@ func (n *Node) readWorkDoc(group, docID string) ([]byte, error) {
 
 func (n *Node) createWorkDoc(group, title, content string, remote *identity.Identity) (string, error) {
 	dir := n.workDir(group)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil { // #nosec G301 -- work doc directory
 		return "", err
 	}
 	id := fmt.Sprintf("%d", time.Now().Unix())
 	body := title + "\n" + content + "\nauthor:" + hex.EncodeToString(remote.Hash())
 	path := filepath.Join(dir, id+".txt")
-	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil { // #nosec G306 -- work doc file
 		return "", err
 	}
 	return id, nil

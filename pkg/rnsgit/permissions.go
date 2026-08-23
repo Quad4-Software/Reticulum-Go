@@ -86,7 +86,7 @@ func NewAccessTable(cfg *ServerConfig) (*AccessTable, error) {
 		}
 		groupAllowed := filepath.Join(filepath.Dir(abs), group+".allowed")
 		applyAllowedFile(ga, groupAllowed)
-		if err := os.MkdirAll(abs, 0o755); err != nil {
+		if err := os.MkdirAll(abs, 0o755); err != nil { // #nosec G301 -- git group directory
 			return nil, err
 		}
 		entries, _ := os.ReadDir(abs)
@@ -339,7 +339,7 @@ func (ra *RepoAccess) permSet(perm int) PermissionSet {
 
 // WriteAllowedFile saves permission lines to path.
 func WriteAllowedFile(path string, content string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil { // #nosec G301 -- allowed file parent dir
 		return err
 	}
 	var buf bytes.Buffer
@@ -354,7 +354,7 @@ func WriteAllowedFile(path string, content string) error {
 		buf.WriteString(line)
 		buf.WriteByte('\n')
 	}
-	return os.WriteFile(path, buf.Bytes(), 0o644)
+	return os.WriteFile(path, buf.Bytes(), 0o644) // #nosec G306 -- allowed file
 }
 
 // ReadAllowedFile returns the contents of an allowed file.

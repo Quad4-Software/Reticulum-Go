@@ -25,7 +25,8 @@ GO_LEGACY_WINXP ?= /usr/local/go-legacy-winxp/bin/go
 GOFLAGS := -mod=vendor
 GOPROXY := off
 GOSUMDB := off
-export GOFLAGS GOPROXY GOSUMDB
+GOTOOLCHAIN ?= local
+export GOFLAGS GOPROXY GOSUMDB GOTOOLCHAIN
 LIBS_ROOT ?= ../../Reticulum-Go-Projects
 GOVULNCHECK_VER ?= v1.1.4
 NFPM_VER ?= v2.41.3

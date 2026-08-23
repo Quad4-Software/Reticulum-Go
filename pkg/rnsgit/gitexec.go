@@ -40,7 +40,7 @@ func (g *GitRunner) ListRefs(repoPath string) (string, error) {
 		return "", fmt.Errorf("git for-each-ref: %w: %s", err, strings.TrimSpace(string(stderr)))
 	}
 	headRef := "master"
-	if b, err := os.ReadFile(filepath.Join(repoPath, "HEAD")); err == nil {
+	if b, err := os.ReadFile(filepath.Join(repoPath, "HEAD")); err == nil { // #nosec G304 -- bare repo HEAD
 		s := strings.TrimSpace(string(b))
 		if after, ok := strings.CutPrefix(s, "ref: "); ok {
 			headRef = after
@@ -146,7 +146,7 @@ func (g *GitRunner) DeleteRef(repoPath, ref string) error {
 
 // InitBare creates a bare repository.
 func (g *GitRunner) InitBare(path string) error {
-	if err := os.MkdirAll(path, 0o755); err != nil {
+	if err := os.MkdirAll(path, 0o755); err != nil { // #nosec G301 -- bare git repo root
 		return err
 	}
 	_, stderr, err := g.run(path, "init", "--bare")
@@ -158,7 +158,7 @@ func (g *GitRunner) InitBare(path string) error {
 
 // CloneBare mirrors a remote into path.
 func (g *GitRunner) CloneBare(source, path string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil { // #nosec G301 -- bare git parent dir
 		return err
 	}
 	_, stderr, err := g.run("", "clone", "--bare", source, path)

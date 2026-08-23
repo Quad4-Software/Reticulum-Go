@@ -35,9 +35,10 @@ func (n *Node) syncMirrors() {
 			synced, _ := n.git.ConfigValue(ra.Path, "repository.rngit.upstream.sync")
 			if synced != "" {
 				var ts int64
-				fmt.Sscanf(synced, "%d", &ts)
-				if time.Since(time.Unix(ts, 0)) < time.Duration(n.cfg.MirrorIntervalHrs)*time.Hour {
-					continue
+				if _, err := fmt.Sscanf(synced, "%d", &ts); err == nil {
+					if time.Since(time.Unix(ts, 0)) < time.Duration(n.cfg.MirrorIntervalHrs)*time.Hour {
+						continue
+					}
 				}
 			}
 			source, err := n.git.ConfigValue(ra.Path, "repository.rngit.upstream.source")

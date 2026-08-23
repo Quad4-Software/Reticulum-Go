@@ -44,7 +44,7 @@ func DefaultClientConfigDir() string {
 	home := os.Getenv("HOME")
 	if home != "" {
 		legacy := filepath.Join(home, ".config", "rngit", "config")
-		if st, err := os.Stat(legacy); err == nil && !st.IsDir() {
+		if st, err := os.Stat(legacy); err == nil && !st.IsDir() { // #nosec G703 -- legacy config probe
 			return filepath.Join(home, ".rngit", "reticulum")
 		}
 		return filepath.Join(home, ".rngit")
@@ -181,7 +181,7 @@ func EnsureServerConfig(dir string) error {
 }
 
 func parseINI(path string) (map[string]map[string]string, error) {
-	f, err := os.Open(path) // #nosec G304 -- operator config path
+	f, err := os.Open(path) // #nosec G304 G703 -- operator config path
 	if err != nil {
 		return nil, err
 	}

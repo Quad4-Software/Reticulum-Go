@@ -5,6 +5,7 @@ package rnsgit
 
 import (
 	"fmt"
+	"math"
 
 	"quad4/msgpack/v5/pkg/msgpack"
 )
@@ -88,12 +89,24 @@ func byteFromAny(v any) (byte, bool) {
 	case uint8:
 		return x, true
 	case int8:
+		if x < 0 {
+			return 0, false
+		}
 		return byte(x), true
 	case int:
+		if x < 0 || x > math.MaxUint8 {
+			return 0, false
+		}
 		return byte(x), true
 	case int64:
+		if x < 0 || x > math.MaxUint8 {
+			return 0, false
+		}
 		return byte(x), true
 	case uint64:
+		if x > math.MaxUint8 {
+			return 0, false
+		}
 		return byte(x), true
 	default:
 		return 0, false
@@ -105,7 +118,9 @@ func MetadataResultCodeRaw(packed []byte) (byte, bool) {
 	var m map[int]int
 	if err := msgpack.Unmarshal(packed, &m); err == nil {
 		if v, ok := m[IdxResultCode]; ok {
-			return byte(v), true
+			if b, ok := byteFromAny(v); ok {
+				return b, true
+			}
 		}
 	}
 	var anyMap map[any]any
@@ -141,6 +156,9 @@ func toIntKey(k any) (int, bool) {
 	case uint32:
 		return int(x), true
 	case uint64:
+		if x > math.MaxInt {
+			return 0, false
+		}
 		return int(x), true
 	default:
 		return 0, false
