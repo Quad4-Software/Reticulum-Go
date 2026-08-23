@@ -1,0 +1,8 @@
+#!/bin/sh
+# commit-msg: enforce Conventional Commits subject line.
+#
+# Skip: SKIP_COMMIT_MSG_HOOK=1 git commit ...
+set -eu
+
+ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
+sh "$ROOT/scripts/ci/commit-msg-check.sh" "$1"

@@ -4,6 +4,7 @@ env:
   GOFLAGS: -mod=vendor
   GOPROXY: 'off'
   GOSUMDB: 'off'
+  GOTOOLCHAIN: local
 
 vars:
   GOCMD: go
@@ -74,6 +75,11 @@ tasks:
     cmds:
       - revive -config revive.toml -formatter friendly -exclude './vendor/...' ./pkg/... ./cmd/... ./internal/...
 
+  staticcheck:
+    desc: Run staticcheck on core packages
+    cmds:
+      - staticcheck -tests=false ./pkg/... ./cmd/... ./internal/... ./tests/...
+
   scan:
     desc: Run gosec security scanner
     cmds:
@@ -91,18 +97,23 @@ tasks:
             go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 {{.SCAN_GO_PACKAGES}}
         fi
 
+  prepush:
+    desc: Fast checks before push (fmt-check, vet, lint, test-short)
+    deps: [fmt-check, vet, lint, test-short]
+
   check:
-    desc: Run fmt-check, vet, lint, test-short, scan, vulncheck with summary
+    desc: Run fmt-check, vet, lint, staticcheck, test-short, scan, vulncheck with summary
     cmds:
       - |
         FAILED_TASKS=""
         FAIL_COUNT=0
-        TOTAL_TASKS=6
+        TOTAL_TASKS=7
 
         echo "--- Running all checks ---"
         task fmt-check || { FAILED_TASKS="$FAILED_TASKS fmt-check"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
         task vet || { FAILED_TASKS="$FAILED_TASKS vet"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
         task lint || { FAILED_TASKS="$FAILED_TASKS lint"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
+        task staticcheck || { FAILED_TASKS="$FAILED_TASKS staticcheck"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
         task test-short || { FAILED_TASKS="$FAILED_TASKS test-short"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
         task scan || { FAILED_TASKS="$FAILED_TASKS scan"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
         task vulncheck || { FAILED_TASKS="$FAILED_TASKS vulncheck"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
@@ -162,9 +173,24 @@ tasks:
       - sh scripts/ci/verify-tree-rsm.sh
 
   hooks:install:
-    desc: Enable tracked .githooks (YAML/shellcheck + RSM resign)
+    desc: Enable tracked .githooks (Go, YAML, shellcheck, commit-msg, pre-push, RSM)
     cmds:
       - sh scripts/ci/install-git-hooks.sh
+
+  doctor:
+    desc: Verify dev tools match CI pins
+    cmds:
+      - sh scripts/ci/doctor.sh
+
+  bootstrap:
+    desc: Install pinned Go dev tools (task, revive, staticcheck)
+    cmds:
+      - sh scripts/ci/bootstrap.sh
+
+  changelog-preview:
+    desc: Preview unreleased CHANGELOG section from conventional commits
+    cmds:
+      - sh scripts/ci/changelog-preview.sh
 
   tree-workspace-clean:
     desc: Recheck inventory and fail on unexpected workspace changes
@@ -193,4 +219,4 @@ tasks:
 
   ci:
     desc: Run the same static checks as the CI lint job
-    deps: [fmt-check, vet, lint]
+    deps: [fmt-check, vet, lint, staticcheck]

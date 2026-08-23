@@ -1,28 +1,44 @@
 # Development and testing
 
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for commit format, git hooks, pull request checklist, and CI overview.
+
 ## Development environment
 
 Requirements:
 
-- Go 1.26.5 or later
-- Make or Task
-- revive linter for `make lint`
+- Go 1.26.6 or later (see `scripts/ci/dev-tools.env` and `mise.toml`)
+- Task (primary automation) or Make (common aliases)
+- revive and staticcheck (`task bootstrap`)
+- shellcheck and yamllint for git hooks (optional system packages)
 - Python 3 for crossref vector generation (optional)
 
 Clone the repository. Dependencies are in `vendor/`. No network fetch is needed for ordinary builds.
 
+Setup:
+
+```bash
+task bootstrap    # install task, revive, staticcheck
+task doctor       # verify tool versions
+task hooks:install # pre-commit, commit-msg, pre-push
+```
+
+Optional: [mise](https://mise.jdx.dev/) (`mise install`) or the Dev Container (`.devcontainer/`).
+
 ## Code quality commands
 
 ```bash
-make fmt
-make vet
-make lint
-make test-short
-make vulncheck
-make check
+task fmt
+task vet
+task lint
+task staticcheck
+task test-short
+task vulncheck
+task prepush      # fast path before git push
+task check        # full local check suite
+task ci           # same static checks as CI lint job
 ```
 
-`make check` runs fmt, vet, lint, test-short, and vulncheck in sequence.
+`make check` runs fmt, vet, lint, staticcheck, test-short, vulncheck, and gosec.
 
 ### Linting
 
@@ -31,6 +47,22 @@ revive with project config:
 ```bash
 revive -config revive.toml -formatter friendly ./pkg/* ./cmd/* ./internal/*
 ```
+
+staticcheck:
+
+```bash
+staticcheck -tests=false ./pkg/... ./cmd/... ./internal/... ./tests/...
+```
+
+### Changelog preview
+
+Preview unreleased notes from conventional commits:
+
+```bash
+task changelog-preview
+```
+
+Uses `cliff.toml` and git-cliff (installed via `go run` when not on PATH).
 
 ### Race detector
 

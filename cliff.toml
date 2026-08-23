@@ -1,0 +1,39 @@
+[changelog]
+header = "# Changelog\n"
+body = """
+{% if version %}\
+    {% if version.previous %}\
+        ## {{ version }} - {{ timestamp | date(format="%Y-%m-%d") }}
+    {% else %}\
+        ## {{ version }} [unreleased] - {{ timestamp | date(format="%Y-%m-%d") }}
+    {% endif %}\
+{% else %}\
+    ## [unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}
+- {{ commit.message | upper_first }}
+{% endfor %}
+{% endfor %}\n
+"""
+trim = true
+footer = ""
+
+[git]
+conventional_commits = true
+filter_commits = false
+commit_parsers = [
+  { message = "^feat", group = "Added" },
+  { message = "^fix", group = "Fixed" },
+  { message = "^perf", group = "Changed" },
+  { message = "^refactor", group = "Changed" },
+  { message = "^chore", group = "Changed" },
+  { message = "^build", group = "Changed" },
+  { message = "^docs", group = "Tests and docs" },
+  { message = "^test", group = "Tests and docs" },
+  { message = "^ci", skip = true },
+]
+
+[commit_parser_group]
+order = ["Added", "Changed", "Fixed", "Tests and docs"]

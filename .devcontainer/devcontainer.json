@@ -1,0 +1,22 @@
+{
+  "name": "Reticulum-Go",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "remoteUser": "vscode",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "redhat.vscode-yaml"
+      ]
+    }
+  },
+  "postCreateCommand": "task bootstrap && task hooks:install",
+  "containerEnv": {
+    "GOFLAGS": "-mod=vendor",
+    "GOPROXY": "off",
+    "GOSUMDB": "off"
+  }
+}

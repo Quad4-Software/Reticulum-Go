@@ -6,6 +6,7 @@
 #
 # Skip:
 #   SKIP_LINT_HOOK=1
+#   SKIP_GO_HOOK=1
 #   SKIP_YAML_HOOK=1
 #   SKIP_SHELLCHECK_HOOK=1
 #

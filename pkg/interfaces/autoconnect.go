@@ -38,8 +38,5 @@ func MatchesDiscoveredEndpoint(iface Interface, endpointHash []byte, reachableOn
 			}
 		}
 	}
-	if matchesDiscoveredEndpointI2P(iface, endpointHash, reachableOn) {
-		return true
-	}
-	return false
+	return matchesDiscoveredEndpointI2P(iface, endpointHash, reachableOn)
 }

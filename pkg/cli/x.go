@@ -335,12 +335,9 @@ func runXExecute(tr *transport.Transport, id *identity.Identity, destHash []byte
 		return rnsutil.ExitRNXRequestFailed
 	}
 
-	waitCtx := context.Background()
-	var cancel context.CancelFunc
+	waitCtx, cancel := context.WithTimeout(context.Background(), rexec+opts.timeout)
 	if opts.resultTimeout > 0 {
 		waitCtx, cancel = context.WithTimeout(context.Background(), opts.resultTimeout+rexec)
-	} else {
-		waitCtx, cancel = context.WithTimeout(context.Background(), rexec+opts.timeout)
 	}
 	defer cancel()
 

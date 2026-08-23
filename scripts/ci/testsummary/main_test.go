@@ -79,6 +79,16 @@ func TestIsSpuriousFuzzDeadline(t *testing.T) {
 		t.Fatal("missing fuzz progress must not be spurious")
 	}
 
+	outputs[pkg]["FuzzReadPCAPUDPPayloads"] = []string{
+		"=== RUN   FuzzReadPCAPUDPPayloads\n",
+		"fuzz: elapsed: 20s, execs: 100 (0/sec), new interesting: 0 (total: 7)\n",
+		"--- FAIL: FuzzReadPCAPUDPPayloads (21.00s)\n",
+		"    context deadline exceeded\n",
+	}
+	if !isSpuriousFuzzDeadline(failed, map[string]struct{}{pkg: {}}, outputs, nil) {
+		t.Fatal("expected spurious fuzz deadline with package fail and test output progress")
+	}
+
 	failed[pkg]["TestFoo"] = struct{}{}
 	if isSpuriousFuzzDeadline(failed, nil, outputs, map[string][]string{pkg: pkgOut[pkg]}) {
 		t.Fatal("non-fuzz test failure must not be spurious")

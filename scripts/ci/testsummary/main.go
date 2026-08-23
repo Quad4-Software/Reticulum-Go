@@ -221,6 +221,7 @@ func run() int {
 				fmt.Fprintf(os.Stderr, "testsummary: %s spurious fuzz deadline (go#75804), treating as pass\n", pkg)
 			}
 			passedPackages[pkg] = 0
+			delete(failedPackages, pkg)
 		}
 		failedTests = make(map[string]map[string]struct{})
 	}
@@ -335,39 +336,75 @@ func isSpuriousFuzzDeadline(
 	testOutputs map[string]map[string][]string,
 	pkgOutputs map[string][]string,
 ) bool {
-	if len(failedPackages) > 0 || len(failedTests) != 1 {
+	if len(failedTests) != 1 {
 		return false
 	}
 	for pkg, tests := range failedTests {
-		if len(tests) != 1 || !sawFuzzProgress(pkgOutputs, pkg) {
+		if len(tests) != 1 {
+			return false
+		}
+		for p := range failedPackages {
+			if p != pkg {
+				return false
+			}
+		}
+		if !sawFuzzProgress(pkgOutputs, testOutputs, pkg) {
 			return false
 		}
 		for test := range tests {
 			if !strings.HasPrefix(test, "Fuzz") {
 				return false
 			}
-			lines := testOutputs[pkg][test]
-			if strings.TrimSpace(strings.Join(lines, "")) != "context deadline exceeded" {
+			if !isOnlyFuzzDeadlineFailure(testOutputs[pkg][test]) {
 				return false
 			}
-			for _, line := range lines {
-				if strings.Contains(line, "_test.go:") {
-					return false
-				}
-			}
-			return true
 		}
 	}
-	return false
+	return true
 }
 
-func sawFuzzProgress(pkgOutputs map[string][]string, pkg string) bool {
+func sawFuzzProgress(
+	pkgOutputs map[string][]string,
+	testOutputs map[string]map[string][]string,
+	pkg string,
+) bool {
 	for _, line := range pkgOutputs[pkg] {
 		if strings.Contains(line, "fuzz: elapsed:") {
 			return true
 		}
 	}
+	for _, lines := range testOutputs[pkg] {
+		for _, line := range lines {
+			if strings.Contains(line, "fuzz: elapsed:") {
+				return true
+			}
+		}
+	}
 	return false
+}
+
+func isOnlyFuzzDeadlineFailure(lines []string) bool {
+	sawDeadline := false
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if strings.Contains(trimmed, "_test.go:") {
+			return false
+		}
+		switch {
+		case trimmed == "context deadline exceeded":
+			sawDeadline = true
+		case strings.HasPrefix(trimmed, "=== RUN"),
+			strings.HasPrefix(trimmed, "--- FAIL:"),
+			strings.HasPrefix(trimmed, "--- PASS:"),
+			strings.HasPrefix(trimmed, "fuzz:"):
+		default:
+			return false
+		}
+	}
+	return sawDeadline
 }
 
 func trimFailureOutput(lines []string, quiet bool) string {

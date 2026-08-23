@@ -1,30 +1,27 @@
 #!/bin/sh
-# pre-commit: lint staged YAML/shell, then keep reticulum-go.rsm in sync.
+# pre-commit: staged Go fmt/vet, YAML/shell lint, optional reticulum-go.rsm resign.
 #
 # Enable once per clone:
-#   make hooks-install
-#   # or: sh scripts/ci/install-git-hooks.sh
+#   task hooks:install
 #
 # Skip checks for one commit:
 #   SKIP_LINT_HOOK=1 git commit ...
+#   SKIP_GO_HOOK=1 git commit ...
 #   SKIP_YAML_HOOK=1 git commit ...
 #   SKIP_SHELLCHECK_HOOK=1 git commit ...
 #   SKIP_TREE_RSM_HOOK=1 git commit ...
-#
-# Without RNS_ID_PATH (or a default identity file) the RSM step warns and
-# continues so forks without the release identity are not blocked.
 set -eu
 
 ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+sh "$ROOT/scripts/ci/pre-commit-go.sh"
 sh "$ROOT/scripts/ci/pre-commit-lint.sh"
 
 if [ "${SKIP_TREE_RSM_HOOK:-0}" = "1" ]; then
 	exit 0
 fi
 
-# Only act when staged paths affect the signed inventory.
 need_resign=0
 while IFS= read -r path; do
 	[ -n "$path" ] || continue
@@ -59,7 +56,7 @@ fi
 
 if [ -z "$ID_PATH" ] || [ ! -f "$ID_PATH" ]; then
 	echo "pre-commit: staged inventory paths changed but no signing identity found." >&2
-	echo "pre-commit: set RNS_ID_PATH or run: make tree-rsm-sign" >&2
+	echo "pre-commit: set RNS_ID_PATH or run: task tree-rsm-sign" >&2
 	echo "pre-commit: or skip with SKIP_TREE_RSM_HOOK=1" >&2
 	exit 0
 fi

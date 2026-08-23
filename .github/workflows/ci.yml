@@ -1,5 +1,6 @@
 # Pinned actions (bump tag and SHA together when upgrading):
 #   actions/checkout@v7.0.0            9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+#   dorny/paths-filter@v3.0.2          45125845b8356f0cfd9f83369b74fea741c59d34
 #   actions/setup-node@v6.4.0          48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
 #   actions/setup-java@v4.7.1          c5195efecf7bdfc987ee8bae7a71cb8b11521c00
 #   vmactions/freebsd-vm@v1.5.0        5a72679103d223925653750faa878a143340fbd0
@@ -29,6 +30,7 @@ env:
   CI_GO_LEGACY_WINXP_VERSION: "1.26.6"
   CI_TASK_VERSION: "3.46.3"
   CI_REVIVE_VERSION: "v1.15.0"
+  CI_STATICCHECK_VERSION: "v0.6.1"
   CI_NODE_MAJOR: "22"
   CI_ODIN_VERSION: "dev-2026-06"
   CI_ZIG_VERSION: "0.16.0"
@@ -42,6 +44,56 @@ env:
   RNS_REQUIRED_SIGNER: e46112d44649266d71fe2193e00a4710
 
 jobs:
+  changes:
+    name: Path filter
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.filter.outputs.docs_only }}
+      core: ${{ steps.filter.outputs.core }}
+      bindings: ${{ steps.filter.outputs.bindings }}
+      ci: ${{ steps.filter.outputs.ci }}
+      examples: ${{ steps.filter.outputs.examples }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Detect changed paths
+        uses: dorny/paths-filter@45125845b8356f0cfd9f83369b74fea741c59d34 # v3.0.2
+        id: filter
+        with:
+          filters: |
+            docs_only:
+              - 'docs/**'
+              - '**/*.md'
+              - '!CONTRIBUTING.md'
+              - '!COMPATIBILITY.md'
+              - '!CHANGELOG.md'
+            core:
+              - 'pkg/**'
+              - 'cmd/**'
+              - 'internal/**'
+              - 'tests/**'
+              - 'go.mod'
+              - 'go.sum'
+              - 'vendor/**'
+              - 'include/**'
+              - 'scripts/**'
+              - 'reticulum-go.rsm'
+            bindings:
+              - 'bindings/**'
+              - 'pkg/librns/**'
+              - 'pkg/controlapi/**'
+            ci:
+              - '.github/**'
+              - 'Taskfile.yml'
+              - 'taskfiles/**'
+              - 'Makefile'
+              - 'cliff.toml'
+              - 'mise.toml'
+            examples:
+              - 'examples/**'
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -66,6 +118,11 @@ jobs:
       - name: Revive
         run: task lint
 
+      - name: Staticcheck
+        run: |
+          sh scripts/ci/setup-staticcheck.sh "${{ env.CI_STATICCHECK_VERSION }}"
+          task staticcheck
+
       - name: Installer script
         run: |
           sudo apt-get update -qq
@@ -77,6 +134,8 @@ jobs:
 
   test:
     name: Test (${{ matrix.os }}, ${{ matrix.goarch }})
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.docs_only != 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -118,6 +177,8 @@ jobs:
 
   test-os-matrix:
     name: OS runtime (${{ matrix.os }})
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.core == 'true' || needs.changes.outputs.bindings == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     strategy:
@@ -155,6 +216,8 @@ jobs:
 
   test-freebsd:
     name: FreeBSD self-check
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -190,6 +253,8 @@ jobs:
 
   test-openbsd:
     name: OpenBSD self-check
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -225,6 +290,8 @@ jobs:
 
   test-haiku:
     name: Haiku self-check
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -257,8 +324,9 @@ jobs:
             # Official go.mod targets a newer patch than korli Haiku Go 1.26.1.
             sed -i 's/^go 1\.26\.[0-9][0-9]*$/go 1.26.1/' go.mod
             sed -i 's/go 1\.26\.[2-9][0-9]*/go 1.26.1/g; s/go 1\.26\.[0-9][0-9][0-9]*/go 1.26.1/g' vendor/modules.txt
-            go test -buildvcs=false -short -count=1 -timeout 15m ./pkg/selfcheck/ ./pkg/sandbox/ ./pkg/protect/
-            go test -buildvcs=false -short -count=1 -timeout 10m ./pkg/transport/ -run 'Protect|HandlePacket'
+            # korli Haiku Go 1.26.1 vet crashes on some deps (lxstamper exit 255).
+            go test -buildvcs=false -vet=off -short -count=1 -timeout 15m ./pkg/selfcheck/ ./pkg/sandbox/ ./pkg/protect/
+            go test -buildvcs=false -vet=off -short -count=1 -timeout 10m ./pkg/transport/ -run 'Protect|HandlePacket'
             mkdir -p bin
             go build -buildvcs=false -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
             ./bin/reticulum-go self-check --binary "$(pwd)/bin/reticulum-go" --json --full
@@ -268,6 +336,8 @@ jobs:
 
   test-qemu-arch:
     name: Linux ${{ matrix.goarch }} self-check (qemu-user)
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
@@ -316,6 +386,8 @@ jobs:
 
   test-odin:
     name: Odin bindings
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -339,6 +411,8 @@ jobs:
 
   test-zig:
     name: Zig bindings
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -362,6 +436,8 @@ jobs:
 
   test-cpp:
     name: C++ bindings
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -385,6 +461,8 @@ jobs:
 
   test-c:
     name: C librns examples
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -405,6 +483,8 @@ jobs:
 
   test-rust:
     name: Rust bindings
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -425,6 +505,8 @@ jobs:
 
   test-swift:
     name: Swift bindings
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -450,6 +532,8 @@ jobs:
 
   test-lua:
     name: Lua bindings
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -473,6 +557,8 @@ jobs:
 
   test-java:
     name: Java bindings
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -499,6 +585,8 @@ jobs:
 
   test-kotlin:
     name: Kotlin bindings
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -530,6 +618,8 @@ jobs:
 
   test-python:
     name: Python bindings
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -550,6 +640,8 @@ jobs:
 
   test-dart:
     name: Dart bindings
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -575,6 +667,8 @@ jobs:
 
   test-mutation:
     name: Mutation testing
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
@@ -595,6 +689,8 @@ jobs:
 
   test-extra:
     name: Extra (${{ matrix.suite }})
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.core == 'true' || needs.changes.outputs.examples == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -648,6 +744,8 @@ jobs:
 
   build:
     name: Build (${{ matrix.goos }}, ${{ matrix.goarch }})
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.core == 'true' || needs.changes.outputs.bindings == 'true' || needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -756,6 +854,8 @@ jobs:
 
   build-windows-legacy:
     name: Build (windows, ${{ matrix.goarch }}, win7)
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.core == 'true' || needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -801,6 +901,8 @@ jobs:
 
   build-windows-xp:
     name: Build (windows, ${{ matrix.goarch }}, winxp)
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.core == 'true' || needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -846,6 +948,8 @@ jobs:
 
   examples:
     name: Examples (pageserver, wasm)
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.core == 'true' || needs.changes.outputs.examples == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -907,6 +1011,8 @@ jobs:
 
   reproducibility:
     name: Reproducible build
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.core == 'true' || needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -927,6 +1033,8 @@ jobs:
 
   benchmark:
     name: Benchmark gate
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

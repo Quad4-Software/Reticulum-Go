@@ -1,0 +1,20 @@
+#!/bin/sh
+# pre-push: run fast local checks before push.
+#
+# Skip: SKIP_PREPUSH=1 git push ...
+set -eu
+
+if [ "${SKIP_PREPUSH:-0}" = "1" ]; then
+	exit 0
+fi
+
+ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+if command -v task >/dev/null 2>&1; then
+	task prepush
+	exit 0
+fi
+
+echo "pre-push: task not found, running make prepush" >&2
+make prepush

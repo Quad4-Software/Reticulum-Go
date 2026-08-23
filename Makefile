@@ -7,12 +7,12 @@
 #   daemon (default), status, id, probe, path, cp, pageserver
 # Optional legacy tool names are installed as symlinks to that binary.
 
-.PHONY: all build build-utils install uninstall clean test fmt vet lint vulncheck gosec check deps run help
+.PHONY: all build build-utils install uninstall clean test fmt vet lint staticcheck vulncheck gosec check prepush deps run help
 .PHONY: build-linux build-windows build-windows-legacy build-windows-xp build-darwin build-all
 .PHONY: build-freebsd build-openbsd build-netbsd build-dragonfly build-solaris build-illumos build-aix build-android
 .PHONY: test-short test-race test-crossref test-wasm test-odin test-dart test-all coverage bench debug release
 .PHONY: man install-man install-service package package-deb package-rpm package-arch stage-nfpm
-.PHONY: test-services test-install-script tree-manifest tree-rsm-sign tree-rsm-verify hooks-install
+.PHONY: test-services test-install-script tree-manifest tree-rsm-sign tree-rsm-verify hooks-install doctor bootstrap changelog-preview
 .PHONY: build-librns
 .PHONY: microvm-up microvm-stop microvm-kernel microvm-rootfs microvm-rebuild microvm-guest
 
@@ -69,10 +69,14 @@ help:
 	@echo "  test-odin      Build librns and run Odin bindings tests"
 	@echo "  test-dart      Run Dart Control API client tests"
 	@echo "  test-services  Docker tests for systemd/openrc/runit/dinit + logfile"
-	@echo "  check          fmt vet lint test-short vulncheck gosec"
+	@echo "  check          fmt-check vet lint staticcheck test-short vulncheck gosec"
 	@echo "  tree-rsm-verify  Verify reticulum-go.rsm signature and hashes"
 	@echo "  tree-rsm-sign    Sign tree inventory (requires RNS_ID_PATH)"
-	@echo "  hooks-install    Enable .githooks pre-commit (YAML/shellcheck + RSM)"
+	@echo "  hooks-install    Enable .githooks (Go, YAML, shellcheck, commit-msg, pre-push)"
+	@echo "  doctor           Verify dev tools match CI pins"
+	@echo "  bootstrap        Install pinned task, revive, staticcheck"
+	@echo "  prepush          fmt-check, vet, lint, test-short (pre-push hook)"
+	@echo "  changelog-preview Preview unreleased CHANGELOG from commits"
 	@echo "  microvm-up       Prepare and start Firecracker microvm + host bridge"
 	@echo "  microvm-stop     Stop Firecracker microvm and host bridge"
 	@echo "  microvm-kernel   Download Firecracker guest kernel"
@@ -222,11 +226,22 @@ bench:
 fmt:
 	$(GOCMD) fmt ./...
 
+fmt-check:
+	@UNFORMATTED=$$(gofmt -l $$(git ls-files '*.go' ':!:vendor/**' ':!:**/vendor/**')); \
+	if [ -n "$$UNFORMATTED" ]; then \
+		echo "Code is not formatted. Run 'make fmt' to fix."; \
+		echo "$$UNFORMATTED"; \
+		exit 1; \
+	fi
+
 vet:
 	$(GOCMD) vet ./...
 
 lint:
 	revive -config revive.toml -formatter friendly ./pkg/* ./cmd/* ./internal/*
+
+staticcheck:
+	staticcheck -tests=false ./pkg/... ./cmd/... ./internal/... ./tests/...
 
 vulncheck:
 	env GOFLAGS= GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct $(GOCMD) run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VER) ./pkg/... ./cmd/... ./internal/... ./tests/...
@@ -235,7 +250,18 @@ vulncheck:
 gosec:
 	env GOFLAGS= GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct CGO_ENABLED=0 $(GOCMD) run github.com/securego/gosec/v2/cmd/gosec@latest -quiet -exclude-dir=vendor -exclude-dir=.cache -exclude-dir=testdata ./pkg/... ./cmd/... ./internal/... ./tests/...
 
-check: fmt vet lint test-short vulncheck gosec
+prepush: fmt-check vet lint test-short
+
+check: fmt vet lint staticcheck test-short vulncheck gosec
+
+doctor:
+	sh scripts/ci/doctor.sh
+
+bootstrap:
+	sh scripts/ci/bootstrap.sh
+
+changelog-preview:
+	sh scripts/ci/changelog-preview.sh
 
 run:
 	$(GOCMD) run $(MAIN_PACKAGE)

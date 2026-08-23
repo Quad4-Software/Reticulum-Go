@@ -1,0 +1,8 @@
+[tools]
+go = "1.26.6"
+task = "3.46.3"
+
+[env]
+GOFLAGS = "-mod=vendor"
+GOPROXY = "off"
+GOSUMDB = "off"

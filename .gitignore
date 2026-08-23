@@ -32,6 +32,7 @@ cosign.key
 !pkg/protect/testdata/packet_class_vectors.json
 !pkg/transport/testdata/spam_filter_vectors.json
 !pkg/rgosh/testdata/adversarial/manifest.json
+!.devcontainer/devcontainer.json
 
 # Opaque binary blobs (corpus payloads live as hex in tracked JSON)
 *.bin
@@ -129,3 +130,5 @@ microvm/out/
 /*.rfe
 /*.pub
 dist/
+
+.bughunter/

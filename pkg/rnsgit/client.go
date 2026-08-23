@@ -369,7 +369,7 @@ func (c *Client) processFetch(ctx context.Context, queue [][2]string, stderr io.
 		if body == nil && meta == nil {
 			return fmt.Errorf("empty fetch response")
 		}
-		if body != nil && len(body) > 0 && body[0] == ResOK && len(body) == 1 {
+		if len(body) > 0 && body[0] == ResOK && len(body) == 1 {
 			continue
 		}
 		bundlePath := ""

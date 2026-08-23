@@ -274,8 +274,13 @@ go test -v ./...
 | `make fmt` | Formats all Go source files. | Runs `go fmt ./...` |
 | `make vet` | Runs the standard Go vet tool. | Runs `go vet ./...` |
 | `make lint` | Runs the revive linter. | Runs `revive -config revive.toml -formatter friendly ./pkg/* ./cmd/* ./internal/*` |
+| `make staticcheck` | Runs staticcheck on core packages. | `staticcheck -tests=false ./pkg/... ./cmd/... ./internal/... ./tests/...` |
+| `make prepush` | Fast checks before push. | fmt-check, vet, lint, test-short |
+| `make doctor` | Verify dev tools match CI pins. | `sh scripts/ci/doctor.sh` |
+| `make bootstrap` | Install pinned task, revive, staticcheck. | `sh scripts/ci/bootstrap.sh` |
+| `make changelog-preview` | Preview unreleased CHANGELOG from commits. | `sh scripts/ci/changelog-preview.sh` |
 | `make vulncheck` | Runs govulncheck. | Runs `go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...` |
-| `make check` | Runs formatting, vetting, linting, short tests, and vulncheck. | Runs all code quality checks in sequence. |
+| `make check` | Runs formatting, vetting, linting, staticcheck, short tests, vulncheck, and gosec. | Runs all code quality checks in sequence. |
 | `make deps` | Downloads and verifies Go modules. | Runs `go mod download` and `go mod verify` using the public proxy. |
 | `make run` | Compiles and runs the daemon. | Runs `go run ./cmd/reticulum-go` |
 | `make debug` | Compiles a standard debug binary with symbols. | Runs `go build -o bin/reticulum-go ./cmd/reticulum-go` |
@@ -289,7 +294,7 @@ go test -v ./...
 | `make build-all` | Cross-compiles for all release platforms. | Linux, Windows, macOS, *BSD, Solaris, illumos, AIX, Android arm64, and wasm. |
 | `make tree-rsm-verify` | Verifies `reticulum-go.rsm` signature and file hashes. | `sh scripts/ci/verify-tree-rsm.sh` |
 | `make tree-rsm-sign` | Signs the tree inventory into `reticulum-go.rsm`. | Requires `RNS_ID_PATH`. See [SECURITY.md](SECURITY.md). |
-| `make hooks-install` | Enables the tracked pre-commit hook (YAML/shellcheck + RSM resign). | `sh scripts/ci/install-git-hooks.sh` |
+| `make hooks-install` | Enables tracked git hooks (Go, YAML, shellcheck, commit-msg, pre-push). | `sh scripts/ci/install-git-hooks.sh` |
 
 ## Taskfile Automation
 

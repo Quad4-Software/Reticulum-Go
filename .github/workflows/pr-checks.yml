@@ -1,0 +1,58 @@
+# Pinned actions (bump tag and SHA together when upgrading):
+#   actions/checkout@v7.0.0            9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+#   amannn/action-semantic-pull-request@v5.4.0  977d02e702ed69005e48d655ac0fddc19b34bb38
+#
+name: PR checks
+
+on:
+  pull_request:
+    branches: [master, dev]
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  semantic-pr-title:
+    name: Semantic PR title
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate title
+        uses: amannn/action-semantic-pull-request@977d02e702ed69005e48d655ac0fddc19b34bb38 # v5.4.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            refactor
+            chore
+            docs
+            test
+            ci
+            perf
+            build
+          requireScope: false
+          subjectPattern: ^.+$
+          subjectPatternError: |
+            PR title must follow Conventional Commits (type(scope): summary).
+
+  signed-commits:
+    name: Signed commits (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Verify commit signatures
+        env:
+          GITHUB_EVENT_NAME: pull_request
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
+        run: sh scripts/ci/verify-signed-commits.sh
