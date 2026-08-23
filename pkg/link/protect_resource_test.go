@@ -8,14 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/health"
 	"quad4/reticulum-go/pkg/protect"
 	"quad4/reticulum-go/pkg/resource"
 )
 
 func TestBeginIncomingResourceProtectPrevent(t *testing.T) {
 	t.Cleanup(func() { protect.SetDefault(nil) })
-	health.Default.Reset()
 	var buf bytes.Buffer
 	e := protect.New(protect.Options{
 		Mode:         protect.ModePrevent,

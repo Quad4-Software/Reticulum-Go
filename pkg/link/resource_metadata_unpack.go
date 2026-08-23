@@ -11,7 +11,13 @@ import (
 	"quad4/msgpack/v5/pkg/msgpack"
 )
 
-func unpackResourceMetadata(packed []byte) (map[string]any, error) {
+func unpackResourceMetadata(packed []byte) (meta map[string]any, err error) {
+	defer func() {
+		if recover() != nil {
+			meta = nil
+			err = fmt.Errorf("invalid metadata msgpack")
+		}
+	}()
 	var raw map[any]any
 	if err := msgpack.Unmarshal(packed, &raw); err == nil && len(raw) > 0 {
 		return normalizeMetadataMap(raw), nil

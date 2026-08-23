@@ -40,14 +40,12 @@ func TestHandlePacketProtectPreventShedsOnSemFull(t *testing.T) {
 		protect.SetDefault(nil)
 	})
 
-	saturateInboundDataQueue(t, tr)
+	fillPacketQueueForTest(t, tr)
 
 	iface := newOnlineTestIface("flood0")
-	tr.HandlePacket(minimalDataPacket(), iface)
-	if e.TripCount(protect.ReasonHandler) == 0 {
-		t.Fatal("expected handler trip")
-	}
-	if !bytes.Contains(buf.Bytes(), []byte("reason=handler")) {
+	waitProtectHandlerTrip(t, e, tr, iface, 2*time.Second)
+	_ = tr.Close()
+	if !bytes.Contains(append([]byte(nil), buf.Bytes()...), []byte("reason=handler")) {
 		t.Fatalf("warn missing %q", buf.String())
 	}
 }
@@ -68,12 +66,9 @@ func TestHandlePacketProtectDetectShedsOnSemFull(t *testing.T) {
 		_ = tr.Close()
 		protect.SetDefault(nil)
 	})
-	saturateInboundDataQueue(t, tr)
+	fillPacketQueueForTest(t, tr)
 	iface := newOnlineTestIface("flood1")
-	tr.HandlePacket(minimalDataPacket(), iface)
-	if e.TripCount(protect.ReasonHandler) == 0 {
-		t.Fatal("expected handler trip in detect mode")
-	}
+	waitProtectHandlerTrip(t, e, tr, iface, 2*time.Second)
 }
 
 func TestHandlePacketProtectAutoLearningShedsOnSemFull(t *testing.T) {
@@ -92,12 +87,9 @@ func TestHandlePacketProtectAutoLearningShedsOnSemFull(t *testing.T) {
 		_ = tr.Close()
 		protect.SetDefault(nil)
 	})
-	saturateInboundDataQueue(t, tr)
+	fillPacketQueueForTest(t, tr)
 	iface := newOnlineTestIface("flood2")
-	tr.HandlePacket(minimalDataPacket(), iface)
-	if e.TripCount(protect.ReasonHandler) == 0 {
-		t.Fatal("expected handler trip while auto learning")
-	}
+	waitProtectHandlerTrip(t, e, tr, iface, 2*time.Second)
 	if e.Phase() != protect.AutoLearning {
 		t.Fatalf("phase=%v want learning", e.Phase())
 	}

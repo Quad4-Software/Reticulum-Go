@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/health"
+	"quad4/reticulum-go/pkg/protect"
 )
 
 func newOnlineTestIface(name string) *common.BaseInterface {
@@ -33,6 +35,43 @@ func saturateInboundDataQueue(t *testing.T, tr *Transport) {
 			t.Fatalf("fill inbound queue at %d/%d", i, size)
 		}
 	}
+}
+
+// fillPacketQueueForTest blocks every handler worker so enqueuePacket fails
+// until the hold channel is closed via t.Cleanup.
+func fillPacketQueueForTest(t *testing.T, tr *Transport) {
+	t.Helper()
+	hold := make(chan struct{})
+	if n := tr.occupyHandlerPoolForTest(hold); n == 0 {
+		t.Fatal("handler pool not occupied")
+	}
+	t.Cleanup(func() { close(hold) })
+}
+
+func waitHandlerShed(t *testing.T, before uint64, ifaceName string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if health.Default.SnapshotIface(ifaceName).DoSHandler.Total > before {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("overflow did not shed: dos_handler %d -> %d", before, health.Default.SnapshotIface(ifaceName).DoSHandler.Total)
+}
+
+func waitProtectHandlerTrip(t *testing.T, e *protect.Engine, tr *Transport, iface common.NetworkInterface, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	pkt := minimalDataPacket()
+	for time.Now().Before(deadline) {
+		if e.TripCount(protect.ReasonHandler) > 0 {
+			return
+		}
+		tr.HandlePacket(pkt, iface)
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatal("expected handler trip")
 }
 
 func minimalDataPacket() []byte {

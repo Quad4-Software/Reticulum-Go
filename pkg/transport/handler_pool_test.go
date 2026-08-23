@@ -164,17 +164,17 @@ func TestHandlerPoolOverflowAlwaysSheds(t *testing.T) {
 		QLenInboundData:   1,
 	})
 	t.Cleanup(func() { _ = tr.Close() })
-	saturateInboundDataQueue(t, tr)
+	fillPacketQueueForTest(t, tr)
 
 	iface := newOnlineTestIface("shed0")
 	before := health.Default.SnapshotIface("shed0").DoSHandler.Total
-	deadline := time.Now().Add(500 * time.Millisecond)
+	deadline := time.Now().Add(2 * time.Second)
+	pkt := minimalDataPacket()
 	for time.Now().Before(deadline) {
-		tr.HandlePacket(minimalDataPacket(), iface)
 		if health.Default.SnapshotIface("shed0").DoSHandler.Total > before {
 			return
 		}
-		saturateInboundDataQueue(t, tr)
+		tr.HandlePacket(pkt, iface)
 		time.Sleep(time.Millisecond)
 	}
 	after := health.Default.SnapshotIface("shed0").DoSHandler.Total

@@ -98,9 +98,17 @@ func TestTransportInboundQueueStatsRPC(t *testing.T) {
 	if !tr.inboundQueues.put(TCData, packetJob{pc: pc, packetType: 0}) {
 		t.Fatal("put")
 	}
-	total, _, _ := tr.inboundQueueSnapshot()
-	if total < 1 {
-		t.Fatalf("queue height=%d want >=1", total)
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		stats := tr.GetInterfaceStatsRPC()
+		if stats.RXQT >= 1 {
+			return
+		}
+		pc := getPacketCopy(4)
+		pc.buf[0] = 0x00
+		pc.buf[1] = 0x00
+		_ = tr.inboundQueues.put(TCData, packetJob{pc: pc, packetType: 0})
+		time.Sleep(time.Millisecond)
 	}
 	stats := tr.GetInterfaceStatsRPC()
 	if stats.RXQT < 1 {

@@ -134,9 +134,8 @@ func FuzzSplitResourceMetadataExploratory(f *testing.F) {
 			t.Fatalf("body mismatch: got %d want %d (metaSize=%d)", len(got), len(wantBody), metaSize)
 		}
 		if meta != nil {
-			var round map[string]any
-			if err := msgpack.Unmarshal(payload[3:3+metaSize], &round); err != nil {
-				t.Fatalf("meta non-nil but raw does not unmarshal: %v", err)
+			if _, err := unpackResourceMetadata(payload[3 : 3+metaSize]); err != nil {
+				t.Fatalf("meta non-nil but unpack failed: %v", err)
 			}
 		}
 	})
