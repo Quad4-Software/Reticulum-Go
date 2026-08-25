@@ -347,11 +347,17 @@ func (n *Node) fromConfigContext() *interfaces.FromConfigContext {
 			n.handleInterface(client)
 		},
 		SpawnLocal: func(client *interfaces.LocalClientInterface) {
-			if err := n.transport.RegisterInterface(client.GetName(), client); err != nil {
+			name := client.GetName()
+			if err := n.transport.RegisterInterface(name, client); err != nil {
 				debug.Log(debug.DebugError, "Failed to register spawned local client", "error", err)
+				_ = client.Stop()
 				return
 			}
 			n.handleInterface(client)
+			client.SetDisconnectHooks(func() {
+				n.transport.UnregisterInterface(name)
+				n.unregisterInterfaceBuffers(name)
+			}, nil)
 		},
 		RegisterPeer: func(name string, peer common.NetworkInterface) error {
 			return n.transport.RegisterInterface(name, peer)

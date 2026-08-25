@@ -100,13 +100,21 @@ func attachServerOrClient(cfg *common.ReticulumConfig, tr *transport.Transport, 
 	inst := &Instance{}
 	spawn := func(client *interfaces.LocalClientInterface) {
 		if hooks.RegisterInterface == nil || hooks.HandleInterface == nil {
+			_ = client.Stop()
 			return
 		}
-		if err := hooks.RegisterInterface(client.GetName(), client); err != nil {
+		name := client.GetName()
+		if err := hooks.RegisterInterface(name, client); err != nil {
 			debug.Log(debug.DebugCritical, "Failed to register spawned local client", "error", err)
+			_ = client.Stop()
 			return
 		}
 		hooks.HandleInterface(client)
+		if hooks.UnregisterInterface != nil {
+			client.SetDisconnectHooks(func() {
+				hooks.UnregisterInterface(name)
+			}, nil)
+		}
 	}
 
 	server, err := interfaces.NewLocalServerInterface(port, socketPath, useUnix, spawn, backbone.Get())
