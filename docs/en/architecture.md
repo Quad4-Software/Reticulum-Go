@@ -28,33 +28,33 @@ Each layer depends downward only. Interfaces know nothing about application name
 
 ## Runtime components
 
-### Daemon (`cmd/reticulum-go`)
+### Daemon (cmd/reticulum-go)
 
 The daemon is the long-running process most operators deploy. On startup it:
 
-1. Loads configuration from `~/.reticulum-go/config` (or `--config`)
-2. Creates a `node.Node` which owns transport and interfaces
+1. Loads configuration from ~/.reticulum-go/config (or --config)
+2. Creates a node.Node which owns transport and interfaces
 3. Starts transport and registers each enabled interface
 4. Optionally attaches to a shared instance (share_instance)
-5. Applies the runtime sandbox (`pkg/sandbox`) unless disabled
+5. Applies the runtime sandbox (pkg/sandbox) unless disabled
 6. Optionally starts the control API on localhost
-7. Handles `SIGHUP` on Unix to hot-reload interface blocks
+7. Handles SIGHUP on Unix to hot-reload interface blocks
 
-Shutdown on `SIGINT` or `SIGTERM` stops interfaces and flushes path persistence where configured.
+Shutdown on SIGINT or SIGTERM stops interfaces and flushes path persistence where configured.
 
-### Node (`pkg/node`)
+### Node (pkg/node)
 
 Node is the embedder-facing orchestration type. It wires:
 
-- `transport.Transport` for routing
-- `interfaces.Interface` instances from config
-- `sharedinstance.Instance` when sharing one Reticulum process on a host
-- Optional `discovery.InterfaceDiscovery` when discover_interfaces is enabled
+- transport.Transport for routing
+- interfaces.Interface instances from config
+- sharedinstance.Instance when sharing one Reticulum process on a host
+- Optional discovery.InterfaceDiscovery when discover_interfaces is enabled
 - Network lifecycle hooks (OnNetworkAvailable, OnNetworkLost, RefreshPaths, ReloadInterfaces)
 
-Library authors typically construct `node.New(cfg)` and call `Start()` rather than reimplementing transport registration.
+Library authors typically construct node.New(cfg) and call Start() rather than reimplementing transport registration.
 
-### Transport (`pkg/transport`)
+### Transport (pkg/transport)
 
 Transport is the routing engine. It maintains:
 
@@ -64,30 +64,30 @@ Transport is the routing engine. It maintains:
 - Announce handlers and ingress or egress rate limits
 - Optional on-disk persistence for paths and known destinations
 
-Every interface registers a callback that feeds inbound bytes into `Transport.HandlePacket`.
+Every interface registers a callback that feeds inbound bytes into Transport.HandlePacket.
 
-### Interfaces (`pkg/interfaces`)
+### Interfaces (pkg/interfaces)
 
 Interfaces translate between Reticulum packets and a physical medium. They handle:
 
-- IFAC mask and unmask on ingress and egress (`pkg/common`)
+- IFAC mask and unmask on ingress and egress (pkg/common)
 - HDLC framing for TCP and backbone clients
 - Reconnect loops for TCP, UDP (opt-in), I2P, and backbone clients
 - Platform-specific socket options (IPv6 preference, bind addresses)
 
-Factory entry point: `interfaces.NewFromConfigWithContext`.
+Factory entry point: interfaces.NewFromConfigWithContext.
 
-### Shared instance (`pkg/sharedinstance`)
+### Shared instance (pkg/sharedinstance)
 
-When `share_instance = yes`, only one Reticulum process on a host should own the real interfaces. Other processes connect as clients over TCP or a Unix socket and multiplex packets through the owner. This mirrors Python behavior and uses msgpack RPC compatible with RNS 1.3.4 layouts.
+When share_instance = yes, only one Reticulum process on a host should own the real interfaces. Other processes connect as clients over TCP or a Unix socket and multiplex packets through the owner. This mirrors Python behavior and uses msgpack RPC compatible with RNS 1.3.4 layouts.
 
-Go CLI tools such as rgostatus dial this RPC. On Linux, Python rnsd defaults to a Unix abstract socket unless `shared_instance_type = tcp`. Setup for mixed Go and Python tooling is in [CLI utilities](utilities.md).
+Go CLI tools such as rgostatus dial this RPC. On Linux, Python rnsd defaults to a Unix abstract socket unless shared_instance_type = tcp. Setup for mixed Go and Python tooling is in [CLI utilities](utilities.md).
 
-### Storage (`internal/storage`)
+### Storage (internal/storage)
 
-The daemon persists ratchets, identity blobs, destination tables, and related artifacts under `~/.reticulum-go/storage/`. Library embedders can use the same paths or keep tables in memory with in_memory_path_table and in_memory_known_destinations.
+The daemon persists ratchets, identity blobs, destination tables, and related artifacts under ~/.reticulum-go/storage/. Library embedders can use the same paths or keep tables in memory with in_memory_path_table and in_memory_known_destinations.
 
-Set `in_memory_storage = yes` (or `RETICULUM_IN_MEMORY_STORAGE=1`) for fully ephemeral operation: no transport identity file, no blackhole directory, no split-resource staging on disk, and no `~/.reticulum-go` bootstrap. Empty ConfigPath with no `RETICULUM_STORAGE_PATH` also stays off disk. Soft caps (`max_in_memory_paths`, `max_in_memory_known_destinations`, `max_packet_hashlist`, `soft_memory_limit`) always bound RAM for the path table, known destinations, and packet hash filter. The split-resource byte budget still applies only under explicit in-memory storage.
+Set in_memory_storage = yes (or RETICULUM_IN_MEMORY_STORAGE=1) for fully ephemeral operation: no transport identity file, no blackhole directory, no split-resource staging on disk, and no ~/.reticulum-go bootstrap. Empty ConfigPath with no RETICULUM_STORAGE_PATH also stays off disk. Soft caps (max_in_memory_paths, max_in_memory_known_destinations, max_packet_hashlist, soft_memory_limit) always bound RAM for the path table, known destinations, and packet hash filter. The split-resource byte budget still applies only under explicit in-memory storage.
 
 ## Inbound packet flow
 
@@ -111,9 +111,9 @@ packetCallback -> Transport.HandlePacket
 
 Key functions (for code navigation):
 
-- `BaseInterface.ProcessIncoming` in `pkg/interfaces/interface.go`
-- `Transport.HandlePacket` in `pkg/transport/transport.go`
-- `Transport.handleTransportPacket` for data context routing
+- BaseInterface.ProcessIncoming in pkg/interfaces/interface.go
+- Transport.HandlePacket in pkg/transport/transport.go
+- Transport.handleTransportPacket for data context routing
 
 ## Outbound packet flow
 
@@ -141,17 +141,17 @@ If no path exists, transport may emit path requests according to configuration a
 ## Concurrency model
 
 - Each interface runs its own read loop (or shares a backbone hub poller). Stream interfaces (TCP, QUIC, VSOCK, WebTransport, I2P, Local, Pipe, backbone hub) read 64 KiB at a time. HDLC still splits frames at the packet MTU.
-- Transport HandlePacket copies the frame then hands it to a fixed worker pool (`max_packet_handlers`, default 512). Overflow sheds under dos_protection instead of spawning more goroutines.
+- Transport HandlePacket copies the frame then hands it to a fixed worker pool (max_packet_handlers, default 512). Overflow sheds under dos_protection instead of spawning more goroutines.
 - Links run session goroutines for keepalive, request/response, and channel outlets.
 - Hot reload takes reloadMu on Node to swap interfaces without tearing down unrelated state.
 
-Backbone I/O can consolidate many TCP sockets behind one epoll, kqueue, or io_uring hub (`pkg/backbone`). Configure with backbone_io in `[reticulum]`.
+Backbone I/O can consolidate many TCP sockets behind one epoll, kqueue, or io_uring hub (pkg/backbone). Configure with backbone_io in [reticulum].
 
 ## Deployment patterns
 
 ### Standalone node
 
-One `reticulum-go` process with local interfaces. Suitable for gateways, radios, and servers.
+One reticulum-go process with local interfaces. Suitable for gateways, radios, and servers.
 
 ```
 [Internet or LAN] <--> UDP/TCP Interface <--> reticulum-go <--> Your app
@@ -169,40 +169,40 @@ App C ----/
 
 ### Embedded library
 
-A Go service links `pkg/node` directly. No daemon. The service loads config, starts Node, and registers destinations in-process.
+A Go service links pkg/node directly. No daemon. The service loads config, starts Node, and registers destinations in-process.
 
 ### Browser WASM
 
-`reticulum-wasm` compiles transport and a WebSocket interface. JavaScript calls `reticulum.init`, connect, announce, and related functions exposed by `pkg/wasm`.
+reticulum-wasm compiles transport and a WebSocket interface. JavaScript calls reticulum.init, connect, announce, and related functions exposed by pkg/wasm.
 
 ### Control API sidecar
 
-Non-Go applications talk HTTP and WebSocket to `pkg/controlapi` on localhost while the daemon owns transport. See [Control API](control-api.md).
+Non-Go applications talk HTTP and WebSocket to pkg/controlapi on localhost while the daemon owns transport. See [Control API](control-api.md).
 
 ### librns in-process
 
-Native hosts link `librns.so` and call `include/rns.h`. Same stack as `pkg/node`, no separate daemon. Linux first. Odin hosts can use `bindings/odin`. See [librns](librns.md).
+Native hosts link librns.so and call include/rns.h. Same stack as pkg/node, no separate daemon. Linux first. Odin hosts can use bindings/odin. See [librns](librns.md).
 
 ### Firecracker microvm
 
-`microvm/` packages a static guest rootfs and a host vsock bridge for nested or isolated nodes. Default networking keeps clearnet on the host and pipes the guest over Firecracker vsock. See [Firecracker microvm](microvm.md).
+microvm/ packages a static guest rootfs and a host vsock bridge for nested or isolated nodes. Default networking keeps clearnet on the host and pipes the guest over Firecracker vsock. See [Firecracker microvm](microvm.md).
 
 ## Persistence and state
 
 | State | Default location | Notes |
 |-------|------------------|-------|
-| Config | `~/.reticulum-go/config` | INI format, Python-compatible keys |
-| Path table | `storage/destination_table` | Optional RAM-only mode |
-| Known destinations | `storage/known_destinations` | Loads Python-format files |
-| Identities | `storage/identities/` | Per-hash blobs |
-| Known-peer ratchet public keys | `storage/ratchets/{destination_hash}` | Python-compatible `{ratchet, received}` |
-| Local destination ratchet private keys | Path from `EnableRatchets` (pageserver: `{destination_hash}`) | Signed msgpack list, or RAM via `EnableRatchetsInMemory` |
-| Blackhole table | `storage/blackhole` | msgpack |
-| Transport identity | `storage/transport_identity` | Used when transport enabled |
+| Config | ~/.reticulum-go/config | INI format, Python-compatible keys |
+| Path table | storage/destination_table | Optional RAM-only mode |
+| Known destinations | storage/known_destinations | Loads Python-format files |
+| Identities | storage/identities/ | Per-hash blobs |
+| Known-peer ratchet public keys | storage/ratchets/{destination_hash} | Python-compatible {ratchet, received} |
+| Local destination ratchet private keys | Path from EnableRatchets (pageserver: {destination_hash}) | Signed msgpack list, or RAM via EnableRatchetsInMemory |
+| Blackhole table | storage/blackhole | msgpack |
+| Transport identity | storage/transport_identity | Used when transport enabled |
 
 ## Security boundaries
 
-Cryptography is centralized in `pkg/cryptography` and `pkg/identity`. IFAC adds an optional outer authentication layer on interface frames. The runtime sandbox limits filesystem and privilege exposure after startup. Neither replaces correct key handling or network segmentation.
+Cryptography is centralized in pkg/cryptography and pkg/identity. IFAC adds an optional outer authentication layer on interface frames. The runtime sandbox limits filesystem and privilege exposure after startup. Neither replaces correct key handling or network segmentation.
 
 See [Cryptography](cryptography.md) and [Security](security.md).
 
@@ -210,11 +210,11 @@ See [Cryptography](cryptography.md) and [Security](security.md).
 
 | Extension | Mechanism |
 |-----------|-----------|
-| Custom crypto for tests | `cryptography.SetProvider` |
-| Hardware signing | `identity.NewIdentityWithSigner` with `cryptography.Ed25519Signer` |
-| Embedder lifecycle | `node.Node` hooks and control API lifecycle routes |
-| New interface types | Implement `interfaces.Interface`, register in `fromconfig.go` |
-| Non-Go clients | Control API (out-of-process), librns (in-process C ABI), `bindings/odin`, or `bindings/dart` (FFI and Control API) |
+| Custom crypto for tests | cryptography.SetProvider |
+| Hardware signing | identity.NewIdentityWithSigner with cryptography.Ed25519Signer |
+| Embedder lifecycle | node.Node hooks and control API lifecycle routes |
+| New interface types | Implement interfaces.Interface, register in fromconfig.go |
+| Non-Go clients | Control API (out-of-process), librns (in-process C ABI), bindings/odin, or bindings/dart (FFI and Control API) |
 
 Adding a new interface type or changing on-wire layouts requires coordinated updates across implementations and crossref vectors.
 

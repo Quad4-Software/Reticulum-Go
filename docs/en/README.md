@@ -6,7 +6,7 @@ System documentation, API references, and configuration guides for Reticulum-Go.
 
 These documents describe Reticulum-Go, a Go implementation of the [Reticulum Network Stack](https://reticulum.network/). Use them to integrate, operate, or extend the stack.
 
-Documentation is organized by language under `docs/`. English lives in `docs/en/`. Additional languages can be added as sibling directories (for example `docs/de/`) without changing the English tree.
+Documentation is organized by language under docs/. English lives in docs/en/. Additional languages can be added as sibling directories (for example docs/de/) without changing the English tree.
 
 ## Document index
 
@@ -16,7 +16,7 @@ Documentation is organized by language under `docs/`. English lives in `docs/en/
 | [Architecture](architecture.md) | Layered design, data flow, major components, deployment models |
 | [Getting started](getting-started.md) | Requirements, build, install, first run, basic troubleshooting |
 | [Configuration](configuration.md) | Config file format, paths, keys, interface blocks |
-| [Package map](package-map.md) | `pkg/` layout, responsibilities, entry points |
+| [Package map](package-map.md) | pkg/ layout, responsibilities, entry points |
 | [API reference](api-reference.md) | Task-first Go API: recipes, types, Python map, concurrency |
 | [Transport](transport.md) | Routing, path table, announces, forwarding, persistence |
 | [Interfaces](interfaces.md) | UDP, TCP, Auto, I2P, Backbone, Serial, WebSocket, QUIC, WebTransport, DNS rendezvous, VSOCK, HTTPS, IFAC, reconnect |
@@ -27,8 +27,8 @@ Documentation is organized by language under `docs/`. English lives in `docs/en/
 | [Compatibility](compatibility.md) | Parity with Python RNS, gaps, Go-only extensions |
 | [Control API](control-api.md) | Localhost JSON and WebSocket API for non-Go clients, Dart and Flutter |
 | [librns](librns.md) | C ABI map, supported surface, events, build and smoke, Odin bindings |
-| [CLI utilities](utilities.md) | `reticulum-go` subcommands (status, slow, zen, id, probe, path, cp, pageserver), shared-instance RPC with Python |
-| [Embedding and WebAssembly](embedding-and-wasm.md) | `pkg/node`, WASM, browser integration |
+| [CLI utilities](utilities.md) | reticulum-go subcommands (status, slow, zen, id, probe, path, cp, pageserver), shared-instance RPC with Python |
+| [Embedding and WebAssembly](embedding-and-wasm.md) | pkg/node, WASM, browser integration |
 | [Firecracker microvm](microvm.md) | Guest rootfs, VSOCK host bridge, nested VM networking |
 | [Development and testing](development-and-testing.md) | Code quality, crossref tests, interop tests, CI |
 | [Examples](examples.md) | Example programs and how to run them |

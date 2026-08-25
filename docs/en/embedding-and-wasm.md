@@ -4,14 +4,14 @@
 
 | Path | Use when |
 |------|----------|
-| `pkg/node` | Go app, full transport and interfaces in-process |
-| `pkg/librns` / [librns](librns.md) | Native host (C, C++, FFI) wants the same stack in-process |
-| `bindings/odin` / [librns](librns.md#odin-bindings) | Odin app linking `librns.so` in-process |
-| `bindings/zig` / [librns](librns.md#zig-bindings) | Zig app linking `librns.so` in-process |
-| `bindings/cpp` / [librns](librns.md#c-bindings) | C++17 app linking `librns.so` in-process |
-| `bindings/dart` / [librns Dart FFI](librns.md#dart-ffi-bindings) | Flutter or Dart app embedding librns on Linux, Android, Windows |
-| Control API / [Dart client](control-api.md#dart-and-flutter) | Separate language or Flutter app talking to a local `reticulum-go` daemon |
-| `pkg/wasm` | Browser client over WebSocket |
+| pkg/node | Go app, full transport and interfaces in-process |
+| pkg/librns / [librns](librns.md) | Native host (C, C++, FFI) wants the same stack in-process |
+| bindings/odin / [librns](librns.md#odin-bindings) | Odin app linking librns.so in-process |
+| bindings/zig / [librns](librns.md#zig-bindings) | Zig app linking librns.so in-process |
+| bindings/cpp / [librns](librns.md#c-bindings) | C++17 app linking librns.so in-process |
+| bindings/dart / [librns Dart FFI](librns.md#dart-ffi-bindings) | Flutter or Dart app embedding librns on Linux, Android, Windows |
+| Control API / [Dart client](control-api.md#dart-and-flutter) | Separate language or Flutter app talking to a local reticulum-go daemon |
+| pkg/wasm | Browser client over WebSocket |
 
 ## Embedding with pkg/node
 
@@ -38,38 +38,38 @@ n.Stop()
 | OnNetworkLost | NIC down or airplane mode |
 | RefreshPaths | Stale paths, force path requests for watched destinations |
 | ReloadInterfaces | Config file interface blocks changed |
-| StartInterfaceDiscovery | rnstransport discovery when `discover_interfaces = yes` or any interface has `discoverable = yes` (also starts InterfaceAnnouncer) |
+| StartInterfaceDiscovery | rnstransport discovery when discover_interfaces = yes or any interface has discoverable = yes (also starts InterfaceAnnouncer) |
 
-`watch_interfaces = yes` in config enables NIC polling via `netmon.go` on Linux, Android, Windows, macOS, and BSD. WASM builds use a stub.
+watch_interfaces = yes in config enables NIC polling via netmon.go on Linux, Android, Windows, macOS, and BSD. WASM builds use a stub.
 
 ### Pause modes
 
 OnNetworkLost respects PauseMode:
 
-- PauseModeDisable calls `Disable()` on interfaces (default)
-- PauseModeStop calls `Stop()` on interfaces
+- PauseModeDisable calls Disable() on interfaces (default)
+- PauseModeStop calls Stop() on interfaces
 
 It also cancels in-flight WatchAndReconnect loops so they do not keep calling Reestablish while the host is offline.
 
 ### Link auto-reconnect
 
-LinkReconnectOptions and EnableLinkAutoReconnect wire `link.WatchAndReconnect` for watched destinations. New reconnect attempts are skipped while globally paused. OnNetworkAvailable re-establishes registered closed links.
+LinkReconnectOptions and EnableLinkAutoReconnect wire link.WatchAndReconnect for watched destinations. New reconnect attempts are skipped while globally paused. OnNetworkAvailable re-establishes registered closed links.
 
 ### Hot reload
 
-Call ReloadInterfaces with updated config or send `SIGHUP` to the daemon on Unix. See [Interfaces](interfaces.md).
+Call ReloadInterfaces with updated config or send SIGHUP to the daemon on Unix. See [Interfaces](interfaces.md).
 
 ### Shared instance
 
-When `share_instance = yes`, `sharedinstance.Attach` runs during `Start()`. If another process already owns interfaces, this process becomes a client and skips local interface binds.
+When share_instance = yes, sharedinstance.Attach runs during Start(). If another process already owns interfaces, this process becomes a client and skips local interface binds.
 
 ## Direct transport use
 
-Advanced embedders can use `transport.NewTransport` and `interfaces.NewFromConfigWithContext` without Node. You must register interfaces, handle shared instance, and wire lifecycle yourself. Node is the supported path for most applications.
+Advanced embedders can use transport.NewTransport and interfaces.NewFromConfigWithContext without Node. You must register interfaces, handle shared instance, and wire lifecycle yourself. Node is the supported path for most applications.
 
 ## WebAssembly build
 
-Binary: `cmd/reticulum-wasm` with build tag `js && wasm`.
+Binary: cmd/reticulum-wasm with build tag js && wasm.
 
 Build with Task:
 
@@ -80,7 +80,7 @@ task test-wasm
 
 ### JavaScript API
 
-`pkg/wasm.RegisterJSFunctions` exposes a reticulum global:
+pkg/wasm.RegisterJSFunctions exposes a reticulum global:
 
 | Function | Role |
 |----------|------|
@@ -100,7 +100,7 @@ task test-wasm
 | onNetworkLost | Pause on offline |
 | setWatchedDestinations | Watch list for paths |
 
-On load, the module calls the JavaScript function `reticulumReady()` if defined.
+On load, the module calls the JavaScript function reticulumReady() if defined.
 
 ### WebSocket interface
 
@@ -122,7 +122,7 @@ Reticulum network
 
 ### Network lifecycle in the browser
 
-Listen for online and offline events and call `reticulum.onNetworkAvailable()` or `reticulum.onNetworkLost()` so transport pauses cleanly.
+Listen for online and offline events and call reticulum.onNetworkAvailable() or reticulum.onNetworkLost() so transport pauses cleanly.
 
 ## TinyGo and embedded
 
@@ -130,15 +130,15 @@ The README references a tinygo branch for very constrained devices. That branch 
 
 ## Control API
 
-Run `reticulum-go` with `enable_control_api = yes` and talk HTTP/WebSocket from any language. The daemon owns transport. See [Control API](control-api.md).
+Run reticulum-go with enable_control_api = yes and talk HTTP/WebSocket from any language. The daemon owns transport. See [Control API](control-api.md).
 
 ## librns
 
-For in-process C / FFI embed, see [librns](librns.md). Build with `task build-librns`. Smoke: `bindings/c/examples/smoke`. Odin: `bindings/odin` (`task test-odin`). Zig: `bindings/zig` (`task test-zig`). C++: `bindings/cpp` (`task test-cpp`). Dart FFI: `bindings/dart` (`task test-dart`, `task build-librns-targets`).
+For in-process C / FFI embed, see [librns](librns.md). Build with task build-librns. Smoke: bindings/c/examples/smoke. Odin: bindings/odin (task test-odin). Zig: bindings/zig (task test-zig). C++: bindings/cpp (task test-cpp). Dart FFI: bindings/dart (task test-dart, task build-librns-targets).
 
 ## Sandbox note
 
-OS sandbox (`pkg/sandbox`) applies to the native daemon, not the WASM module. Browser security is enforced by the browser runtime.
+OS sandbox (pkg/sandbox) applies to the native daemon, not the WASM module. Browser security is enforced by the browser runtime.
 
 ## Related documents
 

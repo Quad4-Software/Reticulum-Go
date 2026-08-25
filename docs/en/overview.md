@@ -8,16 +8,16 @@ Reticulum-Go targets full wire compatibility with the official Python reference 
 
 The primary deliverables are:
 
-- A daemon binary (`reticulum-go`) comparable to Python rnsd
-- A library surface under `pkg/` for embedding Reticulum in Go applications
-- A WebAssembly build (`reticulum-wasm`) for browser clients
+- A daemon binary (reticulum-go) comparable to Python rnsd
+- A library surface under pkg/ for embedding Reticulum in Go applications
+- A WebAssembly build (reticulum-wasm) for browser clients
 - A localhost control API for applications written in other languages
 
 ## Design goals
 
 **Protocol interoperability.** Peers running Python Reticulum and Reticulum-Go must exchange packets, establish links, and verify cryptography without translation gateways.
 
-**Portability.** Builds are static by default (`CGO_ENABLED=0`). Cross-compilation targets Linux, Windows, macOS, and WebAssembly. A separate TinyGo branch exists for very small embedded targets.
+**Portability.** Builds are static by default (CGO_ENABLED=0). Cross-compilation targets Linux, Windows, macOS, and WebAssembly. A separate TinyGo branch exists for very small embedded targets.
 
 **Performance and reliability.** Go goroutines handle interface I/O, transport forwarding, and link sessions. Backbone interfaces can use epoll, kqueue, or io_uring multiplexing instead of one goroutine per socket.
 
@@ -43,38 +43,38 @@ Below is a summary of major features. For line-by-line parity with Python, see [
 
 | Area | Status | Location |
 |------|--------|----------|
-| Wire-compatible crypto and packets | Complete | `pkg/cryptography`, `pkg/packet`, `tests/crossref` |
-| Transport core (paths, announces, relay) | Complete | `pkg/transport` |
-| Identity and destinations | Complete | `pkg/identity`, `pkg/destination` |
-| Links, channel, buffer, resources | Complete | `pkg/link`, `pkg/channel`, `pkg/buffer`, `pkg/resource` |
-| IFAC | Complete | `pkg/ifac` |
-| UDP, TCP, Auto, I2P, Backbone interfaces | Complete | `pkg/interfaces` |
-| WebSocket interface | Go-only | `pkg/interfaces/websocket_*.go` |
-| QUIC interface | Go-only | `pkg/interfaces/quic.go`, `quic_tls.go` |
-| WebTransport interface | Go-only | `pkg/interfaces/webtransport.go` |
-| DNS rendezvous | Go-only | `pkg/interfaces/dns_rendezvous.go` |
-| VSOCK interface | Go-only (Linux) | `pkg/interfaces/vsock.go` |
-| HTTPS long-poll | Go-only | `pkg/interfaces/https.go` |
-| Daemon and config | Complete | `cmd/reticulum-go`, `pkg/reticulumconfig` |
+| Wire-compatible crypto and packets | Complete | pkg/cryptography, pkg/packet, tests/crossref |
+| Transport core (paths, announces, relay) | Complete | pkg/transport |
+| Identity and destinations | Complete | pkg/identity, pkg/destination |
+| Links, channel, buffer, resources | Complete | pkg/link, pkg/channel, pkg/buffer, pkg/resource |
+| IFAC | Complete | pkg/ifac |
+| UDP, TCP, Auto, I2P, Backbone interfaces | Complete | pkg/interfaces |
+| WebSocket interface | Go-only | pkg/interfaces/websocket_*.go |
+| QUIC interface | Go-only | pkg/interfaces/quic.go, quic_tls.go |
+| WebTransport interface | Go-only | pkg/interfaces/webtransport.go |
+| DNS rendezvous | Go-only | pkg/interfaces/dns_rendezvous.go |
+| VSOCK interface | Go-only (Linux) | pkg/interfaces/vsock.go |
+| HTTPS long-poll | Go-only | pkg/interfaces/https.go |
+| Daemon and config | Complete | cmd/reticulum-go, pkg/reticulumconfig |
 | Discovery (rnstransport) | Complete | Listen, announcer, LXStamper, autoconnect |
-| Blackhole | Complete | Local drop, LINKIDENTIFY teardown, publish `/list`, sources updater |
+| Blackhole | Complete | Local drop, LINKIDENTIFY teardown, publish /list, sources updater |
 | SerialInterface | Complete | HDLC serial with Go extensions. Live framing interop |
-| Modem73Interface | Complete | KISS + JSON control to modem73. Live: `tests/interop/modem73_live_test.go` |
+| Modem73Interface | Complete | KISS + JSON control to modem73. Live: tests/interop/modem73_live_test.go |
 | SDRInterface | Complete | Lab/testing IQ burst modem (pkg/sdr). Live: RUN_LIVE_SDR=1 |
 | RNode, KISS, Weave | Not implemented | No driver in this tree |
-| PipeInterface, LocalInterface | Implemented | `pipe.go`, `local.go`, sharedinstance |
-| Python CLI utilities | Yes (core) | `reticulum-go status|id|probe|path|cp` via `pkg/cli` / `pkg/rnsutil` |
-| Interface hot reload | Go-only | `pkg/node/reload.go`, SIGHUP on Unix |
-| Control API | Go-only | `pkg/controlapi` |
-| librns C ABI | Go-only | `pkg/librns`, `include/rns.h`, `task build-librns` |
-| Odin librns bindings | Go-only host | `bindings/odin` (Linux, links `librns.so`). See [librns](librns.md#odin-bindings) |
-| Zig librns bindings | Go-only host | `bindings/zig` (Linux, links `librns.so`). See [librns](librns.md#zig-bindings) |
-| C++ librns bindings | Go-only host | `bindings/cpp` (Linux, C++17, links `librns.so`). See [librns](librns.md#c-bindings) |
-| Dart librns FFI | Go-only host | `bindings/dart` (`ffi.dart`). Linux, Android, Windows. See [librns](librns.md#dart-ffi-bindings) |
-| Dart Control API client | Go-only host | `bindings/dart` (rns_control). See [Control API](control-api.md#dart-and-flutter) |
-| Runtime sandbox | Go-only | `pkg/sandbox` |
-| Local mesh health | Go-only | `pkg/health` counters, status RPC fields, `reticulum-go slow` findings |
-| DoS protection | Go-only | `pkg/protect`, config `dos_protection` (default off). See [Security](security.md#dos-protection-local-idsips) |
+| PipeInterface, LocalInterface | Implemented | pipe.go, local.go, sharedinstance |
+| Python CLI utilities | Yes (core) | reticulum-go status|id|probe|path|cp via pkg/cli / pkg/rnsutil |
+| Interface hot reload | Go-only | pkg/node/reload.go, SIGHUP on Unix |
+| Control API | Go-only | pkg/controlapi |
+| librns C ABI | Go-only | pkg/librns, include/rns.h, task build-librns |
+| Odin librns bindings | Go-only host | bindings/odin (Linux, links librns.so). See [librns](librns.md#odin-bindings) |
+| Zig librns bindings | Go-only host | bindings/zig (Linux, links librns.so). See [librns](librns.md#zig-bindings) |
+| C++ librns bindings | Go-only host | bindings/cpp (Linux, C++17, links librns.so). See [librns](librns.md#c-bindings) |
+| Dart librns FFI | Go-only host | bindings/dart (ffi.dart). Linux, Android, Windows. See [librns](librns.md#dart-ffi-bindings) |
+| Dart Control API client | Go-only host | bindings/dart (rns_control). See [Control API](control-api.md#dart-and-flutter) |
+| Runtime sandbox | Go-only | pkg/sandbox |
+| Local mesh health | Go-only | pkg/health counters, status RPC fields, reticulum-go slow findings |
+| DoS protection | Go-only | pkg/protect, config dos_protection (default off). See [Security](security.md#dos-protection-local-idsips) |
 
 ## Repository layout
 
@@ -107,12 +107,12 @@ Reticulum-Go/
 
 ## Relationship to Python Reticulum
 
-Python Reticulum (`RNS`) is the reference implementation and defines the on-wire protocol. Reticulum-Go reimplements that protocol in Go and verifies behavior against:
+Python Reticulum (RNS) is the reference implementation and defines the on-wire protocol. Reticulum-Go reimplements that protocol in Go and verifies behavior against:
 
-- JSON test vectors generated from the reference tree (`tests/crossref`)
-- Live interop tests that run Go and Python side by side (`tests/interop`)
+- JSON test vectors generated from the reference tree (tests/crossref)
+- Live interop tests that run Go and Python side by side (tests/interop)
 
-Configuration uses the same INI-style shape as Python (`[reticulum]`, `[logging]`, `[[Interface Name]]`). The default config directory is `~/.reticulum-go` instead of `~/.reticulum` so both stacks can coexist on one machine.
+Configuration uses the same INI-style shape as Python ([reticulum], [logging], [[Interface Name]]). The default config directory is ~/.reticulum-go instead of ~/.reticulum so both stacks can coexist on one machine.
 
 Reticulum-Go adds features that Python does not ship today (control API, librns, Odin bindings, Dart FFI and Control API client, sandbox, interface hot reload, NIC watching, local mesh health counters). Those extensions do not change the wire format unless explicitly documented as Go-only.
 

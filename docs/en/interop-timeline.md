@@ -2,7 +2,7 @@
 
 Language-neutral event names for live interop and peer debugging.
 
-Any stack (Go, Python RNS, MeshChatX, NomadNet probes, WASM ports) can emit the same timeline. Consumers include the Go harness under `tests/interop/harness/` and future dump or log tools.
+Any stack (Go, Python RNS, MeshChatX, NomadNet probes, WASM ports) can emit the same timeline. Consumers include the Go harness under tests/interop/harness/ and future dump or log tools.
 
 ## Wire shape
 
@@ -14,7 +14,7 @@ On stderr (preferred when a parent process captures the child):
 INTEROP_EVENT {"ts":"RFC3339","src":"py","event":"ready","kind":"","detail":""}
 ```
 
-Optional file append when `INTEROP_EVENTS_PATH` is set. When a Go harness owns the file it sets `INTEROP_EVENTS_GO_OWNED=1` so the child only emits on stderr and the parent writes `events.jsonl`.
+Optional file append when INTEROP_EVENTS_PATH is set. When a Go harness owns the file it sets INTEROP_EVENTS_GO_OWNED=1 so the child only emits on stderr and the parent writes events.jsonl.
 
 Field rules:
 
@@ -58,8 +58,8 @@ Field rules:
 
 ## Go constants
 
-See `pkg/timeline` for the same names as Go constants.
+See pkg/timeline for the same names as Go constants.
 
 ## Python helper
 
-`tests/interop/py/interop_events.py` implements `emit(event, **fields)`.
+tests/interop/py/interop_events.py implements emit(event, **fields).

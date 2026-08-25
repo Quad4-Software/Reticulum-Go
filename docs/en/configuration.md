@@ -2,7 +2,7 @@
 
 ## Overview
 
-Reticulum-Go reads the same INI-style configuration shape as Python Reticulum. The canonical parser lives in `pkg/reticulumconfig`. The daemon imports it through `internal/config`.
+Reticulum-Go reads the same INI-style configuration shape as Python Reticulum. The canonical parser lives in pkg/reticulumconfig. The daemon imports it through internal/config.
 
 Default config path:
 
@@ -10,7 +10,7 @@ Default config path:
 ~/.reticulum-go/config
 ```
 
-Override with `--config` on the daemon command line.
+Override with --config on the daemon command line.
 
 ## Config directory layout
 
@@ -30,23 +30,23 @@ Override with `--config` on the daemon command line.
     dos_protect.mpack
 ```
 
-Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a separate directory so both stacks can run on one host.
+Python uses ~/.reticulum or /etc/reticulum by default. Reticulum-Go uses a separate directory so both stacks can run on one host.
 
-`storage/ratchets/` holds known-peer public keys named by destination hash (Python `{ratchet, received}` msgpack) and destination-private signed lists at the path `EnableRatchets` was given. Pageserver names that file by destination hash, same as Python LXMF. `EnableRatchetsInMemory` and `in_memory_storage` keep ratchet material in RAM.
+storage/ratchets/ holds known-peer public keys named by destination hash (Python {ratchet, received} msgpack) and destination-private signed lists at the path EnableRatchets was given. Pageserver names that file by destination hash, same as Python LXMF. EnableRatchetsInMemory and in_memory_storage keep ratchet material in RAM.
 
 ## File format
 
 | Aspect | Behavior |
 |--------|----------|
-| Sections | `[reticulum]`, `[logging]`, `[[Interface Name]]` |
+| Sections | [reticulum], [logging], [[Interface Name]] |
 | Interface blocks | Double-bracket headers at nesting depth 2 |
-| Comments | `#` or `;` (including end-of-line after a space) |
+| Comments | # or ; (including end-of-line after a space) |
 | Booleans | yes, no, true, false, on, off, 1, 0 (case insensitive) |
 | Unknown keys | Ignored (allows boot with extra or damaged lines) |
 | UTF-8 BOM | Stripped on read |
 | Missing file | Default config is created |
 
-## Section `[reticulum]`
+## Section [reticulum]
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -60,9 +60,9 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | enable_sandbox | yes | Apply OS sandbox after startup (Go-only) |
 | enable_seccomp | yes | Linux seccomp-bpf denylist after Landlock (TSYNC, then all-threads, then prctl fallback, soft-fails if unsupported) |
 | sandbox_strict | no | Exit if Landlock, seccomp, OpenBSD unveil lock, or FreeBSD CapEnter fail. Stub and WASM still start |
-| sandbox_profile | full | `full` keeps `/bin` for pipe and pageserver exec. `router` omits those trees on Linux Landlock only. Not tied to node_profile |
+| sandbox_profile | full | full keeps /bin for pipe and pageserver exec. router omits those trees on Linux Landlock only. Not tied to node_profile |
 | sandbox_extra_paths | (empty) | Comma-separated extra filesystem paths for Landlock and OpenBSD unveil (serial, custom binaries) |
-| sandbox_exec_rlimits | no | Linux only. Apply NPROC=32 and CORE=0 to pipe, discovery, and dynamic `.mu` child processes |
+| sandbox_exec_rlimits | no | Linux only. Apply NPROC=32 and CORE=0 to pipe, discovery, and dynamic .mu child processes |
 | enable_control_api | no | Start localhost control API |
 | control_api_host | 127.0.0.1 | Control API bind address |
 | control_api_port | 37430 | Control API port |
@@ -72,44 +72,44 @@ Python uses `~/.reticulum` or `/etc/reticulum` by default. Reticulum-Go uses a s
 | in_memory_known_destinations | no | Keep known destinations in RAM only |
 | in_memory_storage | no | Fully ephemeral mode: no disk for paths, known dests, known-peer ratchets, transport identity, blackhole, or split resources. Implies both table flags |
 | identity_backend | file | Identity at-rest store: file, secretservice (Freedesktop Secret Service), or keyring (Linux kernel keyring) |
-| soft_memory_limit | (none) | Soft heap budget (K/M/G or bytes) via Go `debug.SetMemoryLimit`. Env: `RETICULUM_SOFT_MEMORY_LIMIT` |
+| soft_memory_limit | (none) | Soft heap budget (K/M/G or bytes) via Go debug.SetMemoryLimit. Env: RETICULUM_SOFT_MEMORY_LIMIT |
 | dos_protection | off | Go-only local IDS/IPS gates. Default off. Values: off, detect, prevent, auto (alias smart). See [DoS protection](#dos_protection-go-only) |
-| max_in_memory_paths | 100000 | Soft cap on the live path table in RAM (disk-backed and in-memory). Zero uses default. Negative disables. Env: `RETICULUM_MAX_IN_MEMORY_PATHS` |
-| max_in_memory_known_destinations | 100000 | Soft cap on known destinations in RAM. Zero uses default. Negative disables. Env: `RETICULUM_MAX_IN_MEMORY_KNOWN_DESTINATIONS` |
+| max_in_memory_paths | 100000 | Soft cap on the live path table in RAM (disk-backed and in-memory). Zero uses default. Negative disables. Env: RETICULUM_MAX_IN_MEMORY_PATHS |
+| max_in_memory_known_destinations | 100000 | Soft cap on known destinations in RAM. Zero uses default. Negative disables. Env: RETICULUM_MAX_IN_MEMORY_KNOWN_DESTINATIONS |
 | max_in_memory_resource_bytes | 256M | Split-resource staging budget when in_memory_storage is yes. Negative disables |
-| max_packet_hashlist | auto | Packet hash loop-filter size. Zero: 1M when enable_transport is yes, else 100k. Negative forces 1M. Env: `RETICULUM_MAX_PACKET_HASHLIST` |
+| max_packet_hashlist | auto | Packet hash loop-filter size. Zero: 1M when enable_transport is yes, else 100k. Negative forces 1M. Env: RETICULUM_MAX_PACKET_HASHLIST |
 | max_packet_handlers | 512 | HandlePacket worker count and queue depth. Overflow sheds under dos_protection |
-| node_profile | default | Go-only overlay: `default`, `core_router`, or `embedded`. Fills unset knobs only. Explicit keys always win |
+| node_profile | default | Go-only overlay: default, core_router, or embedded. Fills unset knobs only. Explicit keys always win |
 | discover_interfaces | no | Start rnstransport interface discovery listener |
 | autoconnect_discovered_interfaces | 0 | Max concurrent autoconnect peers from discovery (>0 enables) |
 | autoconnect_interface_gravity | (unset) | Gravity applied to autoconnected interfaces |
 | autoconnect_interface_mode | (unset) | Mode override for autoconnected interfaces |
 | autoconnect_announces_to_internal | (unset) | announces_to_internal on autoconnect peers |
-| publish_blackhole | no | Register rnstransport.info.blackhole with `/list` |
+| publish_blackhole | no | Register rnstransport.info.blackhole with /list |
 | blackhole_sources | (empty) | Comma-separated transport identity hashes to pull blackhole lists from |
 | blackhole_update_interval | 60 | Minutes between blackhole source pulls (floor 2) |
 | watch_interfaces | no | Poll NIC up/down and rescan Auto interfaces (Go-only) |
 | static_transport_identity | no | Keep persisted transport identity on the wire when enable_transport is no (RNS 1.3.6+) |
 | local_hops_delta | no | Mangling applied on local-origin hop-0 packets (delta 2-7) |
 | respond_to_probes / allow_probes | no | Register rnstransport.probe with prove-all |
-| enable_remote_management | no | Register `rnstransport.remote.management` for Python rnpath/rnstatus and Go rgopath/rgostatus `-R` |
+| enable_remote_management | no | Register rnstransport.remote.management for Python rnpath/rnstatus and Go rgopath/rgostatus -R |
 | remote_management_allowed | (empty) | Comma-separated identity hashes allowed to use remote management |
 | network_identity | (empty) | Path to network identity for discovery encrypt/decrypt |
 | panic_on_interface_error | no | Panic on fatal interface errors |
 
 ### node_profile (Go-only)
 
-`node_profile` fills unset knobs. Keys present in the file are never overwritten.
+node_profile fills unset knobs. Keys present in the file are never overwritten.
 
 | Profile | Effect when unset |
 |---------|-------------------|
 | default | No overlay |
-| core_router | `backbone_io=auto`, `watch_interfaces=yes`, `max_packet_handlers=max(512, GOMAXPROCS*64)`, `max_in_memory_paths=500000`. Does not enable `dos_protection` |
-| embedded | `max_packet_handlers=32`, `max_in_memory_paths=4096`, smaller known-dest and hashlist caps |
+| core_router | backbone_io=auto, watch_interfaces=yes, max_packet_handlers=max(512, GOMAXPROCS*64), max_in_memory_paths=500000. Does not enable dos_protection |
+| embedded | max_packet_handlers=32, max_in_memory_paths=4096, smaller known-dest and hashlist caps |
 
 ### dos_protection (Go-only)
 
-Local overload gates in `pkg/protect`. They keep **this node** alive under floods and resource storms. They do not ban peers mesh-wide and do not replace IFAC, link crypto, or Sybil-resistant admission policy.
+Local overload gates in pkg/protect. They keep **this node** alive under floods and resource storms. They do not ban peers mesh-wide and do not replace IFAC, link crypto, or Sybil-resistant admission policy.
 
 | Mode | Behavior |
 |------|----------|
@@ -118,7 +118,7 @@ Local overload gates in `pkg/protect`. They keep **this node** alive under flood
 | prevent (aliases block, ips) | Same as detect, and shed or block on trip |
 | auto (alias smart) | Learn quietly, then arm prevent. Relearn on interface fingerprint change or sustained moderate drift. Floods stay armed |
 
-Default is `off`. Mesh announce and path-request filtering still runs in Transport regardless of this key. Turn `detect` or `auto` on only after you have watched a busy node, and `prevent` only if you accept local shedding.
+Default is off. Mesh announce and path-request filtering still runs in Transport regardless of this key. Turn detect or auto on only after you have watched a busy node, and prevent only if you accept local shedding.
 
 Example (opt-in):
 
@@ -127,7 +127,7 @@ Example (opt-in):
   dos_protection = auto
 ```
 
-Learning state is written as msgpack to `{config_dir}/storage/dos_protect.mpack` (atomic replace). Restarts restore armed baselines when the interface fingerprint still matches.
+Learning state is written as msgpack to {config_dir}/storage/dos_protect.mpack (atomic replace). Restarts restore armed baselines when the interface fingerprint still matches.
 
 Optional limits (zero or unset keeps built-in defaults):
 
@@ -144,7 +144,7 @@ Optional limits (zero or unset keeps built-in defaults):
 
 Ingress uses interface bitrate when available to scale adaptive floors. Announce-class traffic sheds at the adaptive trip line. Path requests, data, and established link or proof traffic may stay admitted above that line (up to 2x, or the advertised bitrate if higher). That band does not arm interface cool-down. Interface-wide cool-down is off by default so a public UDP listener is not blackholed. A single flooder can still be peer-cooled.
 
-Operator visibility: `reticulum-go status -json` and shared-instance `interface_stats` include a `protect` object (mode, phase, trip lines, cool-down). Control API `GET /v1/status` includes the same `protect` block.
+Operator visibility: reticulum-go status -json and shared-instance interface_stats include a protect object (mode, phase, trip lines, cool-down). Control API GET /v1/status includes the same protect block.
 
 Surfaces gated when mode is not off:
 
@@ -168,7 +168,7 @@ WARNING: dos_protection auto promote reason=stable phase=armed
 WARNING: dos_protection auto relearn reason=network phase=learning
 ```
 
-Health kinds `dos_*` increment on trips. See [Security](security.md#dos-protection-local-idsips) and [Development and testing](development-and-testing.md#dos_protection-tests).
+Health kinds dos_* increment on trips. See [Security](security.md#dos-protection-local-idsips) and [Development and testing](development-and-testing.md#dos_protection-tests).
 
 ### Keys present in Python but ignored in Go
 
@@ -176,16 +176,16 @@ None for blackhole federation or discovery autoconnect. Those keys are driven in
 
 local_hops_delta applies a random hop field (2-7) on locally originated hop-0 packets when not connected to a shared instance.
 
-## Section `[logging]`
+## Section [logging]
 
 | Key | Supported |
 |-----|-----------|
 | loglevel | Yes (0 silent, 1 critical, 2 error, 3 warning, 4 info, 5 verbose, 6 trace, 7 packets) |
-| destination | Yes (stderr, file, both, syslog, journald, and combinations such as `syslog+stderr`) |
-| logfile | Yes (default `{config_dir}/logfile/reticulum.log`) |
+| destination | Yes (stderr, file, both, syslog, journald, and combinations such as syslog+stderr) |
+| logfile | Yes (default {config_dir}/logfile/reticulum.log) |
 | format | Yes (text or json) |
 
-Default `loglevel` is 4 (info). That prints start/stop, interface up/down, and link established/closed. It does not print per-packet forwarding.
+Default loglevel is 4 (info). That prints start/stop, interface up/down, and link established/closed. It does not print per-packet forwarding.
 
 | loglevel | Name | Typical content |
 |----------|------|-----------------|
@@ -198,9 +198,9 @@ Default `loglevel` is 4 (info). That prints start/stop, interface up/down, and l
 | 6 | trace | per-packet headers and forwarding |
 | 7 | packets | wire dumps and packet hex |
 
-CLI `-debug N` overrides config for one run (0 through 7). Hot paths skip argument formatting unless the active level would emit the line.
+CLI -debug N overrides config for one run (0 through 7). Hot paths skip argument formatting unless the active level would emit the line.
 
-## Interface blocks `[[Name]]`
+## Interface blocks [[Name]]
 
 Each block defines one interface. Common keys:
 
@@ -217,7 +217,7 @@ Each block defines one interface. Common keys:
 | target_address | UDP | Remote peer (preferred over target_host) |
 | interface | Auto | OS network interface name |
 | prefer_ipv6 | TCP, Auto | Prefer IPv6 when available |
-| max_reconnect_tries | TCP, UDP, backbone, QUIC, WebTransport, HTTPS, VSOCK | `-1` or omitted means unlimited |
+| max_reconnect_tries | TCP, UDP, backbone, QUIC, WebTransport, HTTPS, VSOCK | -1 or omitted means unlimited |
 | bitrate | All | Declared bitrate hint |
 | mtu | All | Interface MTU (default packet MTU is 500 bytes) |
 | discovery_port | Auto | Multicast discovery port |
@@ -226,11 +226,11 @@ Each block defines one interface. Common keys:
 | group_id | Auto | Group identifier |
 | multicast_address_type | Auto | Multicast address type |
 | announce_cap | All | Cap on outbound announces as a percent of bitrate (default 2). Excess announces wait on the per-interface queue |
-| `announce_rate_*` | All | Announce rate control |
-| ingress_control / `ic_*` | All | Ingress rate limits |
+| announce_rate_* | All | Announce rate control |
+| ingress_control / ic_* | All | Ingress rate limits |
 | network_name | IFAC | IFAC network name |
 | passphrase | IFAC | IFAC passphrase |
-| `ifac_*` | IFAC | Additional IFAC options |
+| ifac_* | IFAC | Additional IFAC options |
 | sam_address | I2P | SAM server host:port |
 | peers | I2P | Outbound tunnel peers |
 | connectable | I2P | SAM server tunnel mode |
@@ -242,7 +242,7 @@ Each block defines one interface. Common keys:
 | cert_file / key_file | QUIC, WebTransport, HTTPS | Optional TLS PEM paths |
 | peer_key | QUIC, WebTransport, HTTPS | Leaf SPKI SHA-256 pin (hex) |
 | sni | QUIC, WebTransport, HTTPS client | TLS ServerName |
-| path | WebTransport, HTTPS | URL path (default `/rns`) |
+| path | WebTransport, HTTPS | URL path (default /rns) |
 | transport_mode | WebTransport | datagram, stream, or dual |
 | domain | DNSRendezvous | DNS name for TXT lookup |
 | resolve_interval | DNSRendezvous | Seconds between TXT re-queries (default 60) |
@@ -250,25 +250,25 @@ Each block defines one interface. Common keys:
 | long_poll_sec | HTTPS | Long-poll timeout seconds (default 25) |
 | outgoing / selected_outgoing | All | Transmit permit (default yes). When no, interface is receive-only |
 
-Unknown type values load Go-native plugins from `{config_dir}/interfaces/` (JSON manifest or executable pipe driver), or from `interfaces.RegisterExternalFactory`.
+Unknown type values load Go-native plugins from {config_dir}/interfaces/ (JSON manifest or executable pipe driver), or from interfaces.RegisterExternalFactory.
 
 ## Interface types
 
 | type value | Implementation |
 |--------------|----------------|
-| UDPInterface | `pkg/interfaces/udp.go` |
-| TCPClientInterface | `pkg/interfaces/tcp.go` |
-| TCPServerInterface | `pkg/interfaces/tcp.go` |
-| AutoInterface | `pkg/interfaces/auto.go` |
-| I2PInterface | `pkg/interfaces/i2p.go` |
-| BackboneInterface | `pkg/interfaces/backbone.go` |
-| BackboneClientInterface | `pkg/interfaces/backbone_client.go` |
-| PipeInterface | `pkg/interfaces/pipe.go` |
-| LocalInterface | `pkg/interfaces/local.go` (client to shared instance) |
-| LocalServerInterface | `pkg/interfaces/local.go` (explicit server block) |
+| UDPInterface | pkg/interfaces/udp.go |
+| TCPClientInterface | pkg/interfaces/tcp.go |
+| TCPServerInterface | pkg/interfaces/tcp.go |
+| AutoInterface | pkg/interfaces/auto.go |
+| I2PInterface | pkg/interfaces/i2p.go |
+| BackboneInterface | pkg/interfaces/backbone.go |
+| BackboneClientInterface | pkg/interfaces/backbone_client.go |
+| PipeInterface | pkg/interfaces/pipe.go |
+| LocalInterface | pkg/interfaces/local.go (client to shared instance) |
+| LocalServerInterface | pkg/interfaces/local.go (explicit server block) |
 | WebSocketInterface | Go-only, native or WASM |
-| QUICClientInterface | Go-only, native (`quic-go`) |
-| QUICServerInterface | Go-only, native (`quic-go`) |
+| QUICClientInterface | Go-only, native (quic-go) |
+| QUICServerInterface | Go-only, native (quic-go) |
 | WebTransportClientInterface | Go-only, HTTP/3 WebTransport |
 | WebTransportServerInterface | Go-only, HTTP/3 WebTransport |
 | DNSRendezvousInterface | Go-only, DNS TXT to UDP peer |
@@ -291,7 +291,7 @@ ifac_size = 16
 max_reconnect_tries = 0
 ```
 
-`max_reconnect_tries = 0` means no reconnect attempts after disconnect. Omit the key or set `-1` for unlimited retries.
+max_reconnect_tries = 0 means no reconnect attempts after disconnect. Omit the key or set -1 for unlimited retries.
 
 ## Example: QUIC client and server
 
@@ -343,7 +343,7 @@ Reticulum writes HDLC-framed packets to the subprocess stdin and reads frames fr
 
 ## Example: shared-instance RPC for Go CLI tools
 
-On Linux, unset shared_instance_type uses abstract Unix sockets (`@rns/<instance_name>/rpc`), matching stock Python rnsd. Go utilities try that default first, then fall back to TCP when the type is unset.
+On Linux, unset shared_instance_type uses abstract Unix sockets (@rns/<instance_name>/rpc), matching stock Python rnsd. Go utilities try that default first, then fall back to TCP when the type is unset.
 
 ```bash
 make build
@@ -360,11 +360,11 @@ shared_instance_type = unix
 rpc_key = <64 hex characters>
 ```
 
-Use `shared_instance_type = tcp` with instance_control_port when you want TCP on every OS. Use `-config ~/.reticulum` for Python rnsd and `-config ~/.reticulum-go` for a Go shared instance. Full utility docs are in [CLI utilities](utilities.md).
+Use shared_instance_type = tcp with instance_control_port when you want TCP on every OS. Use -config ~/.reticulum for Python rnsd and -config ~/.reticulum-go for a Go shared instance. Full utility docs are in [CLI utilities](utilities.md).
 
 ## Example: explicit LocalInterface client
 
-When `share_instance = no`, attach to another process that owns the shared instance:
+When share_instance = no, attach to another process that owns the shared instance:
 
 ```ini
 [reticulum]
@@ -379,7 +379,7 @@ shared_instance_type = tcp
 
 ## Hot reload
 
-On Unix the daemon reloads interface blocks on `SIGHUP` via `node.ReloadInterfaces`. Reload compares normalized config for each interface including MTU, bitrate, prefer_ipv6, announce-rate, ingress/egress control, mode, and outgoing. See [Interfaces](interfaces.md).
+On Unix the daemon reloads interface blocks on SIGHUP via node.ReloadInterfaces. Reload compares normalized config for each interface including MTU, bitrate, prefer_ipv6, announce-rate, ingress/egress control, mode, and outgoing. See [Interfaces](interfaces.md).
 
 ## Programmatic access
 
@@ -403,7 +403,7 @@ err := reticulumconfig.SaveConfig(cfg)
 
 ## Storage and identity files
 
-Identity files use a 64-byte software layout (X25519 private plus Ed25519 seed). Reticulum-Go stores identity blobs under `storage/identities/` keyed by hash. Python may use per-name files. Both layouts are supported for loading.
+Identity files use a 64-byte software layout (X25519 private plus Ed25519 seed). Reticulum-Go stores identity blobs under storage/identities/ keyed by hash. Python may use per-name files. Both layouts are supported for loading.
 
 Optional hardware-bound descriptors (RHB1, 72 bytes) are documented in [Identity and destinations](identity-and-destinations.md).
 

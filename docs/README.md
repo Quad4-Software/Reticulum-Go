@@ -10,4 +10,4 @@ Documentation is organized by language.
 |----------|------|
 | English | [docs/en/](en/README.md) |
 
-Additional translations can be added as sibling directories (for example `docs/de/`).
+Additional translations can be added as sibling directories (for example docs/de/).

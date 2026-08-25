@@ -4,9 +4,9 @@
 
 - Go 1.26.5 or later
 - Make or Task (optional, for convenience targets)
-- A writable home directory for `~/.reticulum-go`
+- A writable home directory for ~/.reticulum-go
 
-The repository vendors dependencies. A normal build does not contact module proxies when `GOFLAGS=-mod=vendor` is set (default in the Makefile and Taskfile).
+The repository vendors dependencies. A normal build does not contact module proxies when GOFLAGS=-mod=vendor is set (default in the Makefile and Taskfile).
 
 ## Build
 
@@ -16,7 +16,7 @@ From the repository root:
 make build
 ```
 
-This produces `bin/reticulum-go` as a static stripped binary (`CGO_ENABLED=0`) with the daemon and all tools as subcommands.
+This produces bin/reticulum-go as a static stripped binary (CGO_ENABLED=0) with the daemon and all tools as subcommands.
 
 Equivalent manual command:
 
@@ -41,7 +41,7 @@ Or install from a checkout with Make:
 make install
 ```
 
-Default prefix is `/usr/local`. That installs `reticulum-go`, legacy tool symlinks (rgostatus, rgoid, …), and man pages (reticulum-go(1), reticulum-go(8), and tool pages). Override with `make install PREFIX=/opt/reticulum`. Staging: `make install DESTDIR=/tmp/stage PREFIX=/usr`.
+Default prefix is /usr/local. That installs reticulum-go, legacy tool symlinks (rgostatus, rgoid, …), and man pages (reticulum-go(1), reticulum-go(8), and tool pages). Override with make install PREFIX=/opt/reticulum. Staging: make install DESTDIR=/tmp/stage PREFIX=/usr.
 
 Or install into your Go binary directory:
 
@@ -57,7 +57,7 @@ make package-rpm
 make package-arch
 ```
 
-Arch Linux and CachyOS: add the Quad4 pacman repo from [quad4-arch](https://github.com/Quad4-Software/quad4-arch) (`reticulum-go` or `reticulum-go-git`). That is a Quad4-hosted repo, not AUR.
+Arch Linux and CachyOS: add the Quad4 pacman repo from [quad4-arch](https://github.com/Quad4-Software/quad4-arch) (reticulum-go or reticulum-go-git). That is a Quad4-hosted repo, not AUR.
 
 ## First run
 
@@ -71,7 +71,7 @@ Or:
 go run ./cmd/reticulum-go
 ```
 
-On first start the daemon creates `~/.reticulum-go/` with a default config if none exists. Logs go to stderr by default. Set verbosity with `[logging] loglevel` (0 silent through 7 packets, default 4 info). Set `[logging] destination = file|both` and optional logfile to write to disk (default `{config_dir}/logfile/reticulum.log`). Daemon text logs, pageserver banner, and CLI tools color on TTY. Respect `NO_COLOR` and `FORCE_COLOR` / `CLICOLOR_FORCE`.
+On first start the daemon creates ~/.reticulum-go/ with a default config if none exists. Logs go to stderr by default. Set verbosity with [logging] loglevel (0 silent through 7 packets, default 4 info). Set [logging] destination = file|both and optional logfile to write to disk (default {config_dir}/logfile/reticulum.log). Daemon text logs, pageserver banner, and CLI tools color on TTY. Respect NO_COLOR and FORCE_COLOR / CLICOLOR_FORCE.
 
 Daemon flags:
 
@@ -82,7 +82,7 @@ reticulum-go --config /path/to/config-dir
 
 ### Custom config path
 
-Pass `--config` / `-config` with a config file or directory (directory uses config inside it).
+Pass --config / -config with a config file or directory (directory uses config inside it).
 
 ## Minimal configuration
 
@@ -136,7 +136,7 @@ make build-darwin
 make build-all
 ```
 
-Linux amd64 always ships GOAMD64 v1 (unsuffixed and `-v1`) together with `-v3`. linux/386 is also named linux-i686. `make build-all` covers every CGO-free target listed in `scripts/build-release-targets.sh`.
+Linux amd64 always ships GOAMD64 v1 (unsuffixed and -v1) together with -v3. linux/386 is also named linux-i686. make build-all covers every CGO-free target listed in scripts/build-release-targets.sh.
 
 Legacy Windows 7, 8, and 8.1 builds use [go-legacy-win7](https://github.com/thongtech/go-legacy-win7):
 
@@ -173,7 +173,7 @@ task test-zig
 task test-cpp
 ```
 
-`task test-odin` needs the Odin compiler on `PATH`. `task test-zig` needs Zig 0.16.0 or later on `PATH`. `task test-cpp` needs CMake and a C++17 compiler. See [librns](librns.md).
+task test-odin needs the Odin compiler on PATH. task test-zig needs Zig 0.16.0 or later on PATH. task test-cpp needs CMake and a C++17 compiler. See [librns](librns.md).
 
 ## Dart bindings
 
@@ -182,11 +182,11 @@ task build-librns
 task test-dart
 ```
 
-Needs the Dart SDK on `PATH`. FFI uses librns on Linux, Android, and Windows. See [librns](librns.md#dart-ffi-bindings) and [Control API](control-api.md#dart-and-flutter).
+Needs the Dart SDK on PATH. FFI uses librns on Linux, Android, and Windows. See [librns](librns.md#dart-ffi-bindings) and [Control API](control-api.md#dart-and-flutter).
 
 ## Enable the control API
 
-Add to `[reticulum]`:
+Add to [reticulum]:
 
 ```ini
 enable_control_api = yes
@@ -195,22 +195,22 @@ control_api_host = 127.0.0.1
 control_api_port = 37430
 ```
 
-Generate a random 32-byte key and encode as hex. Clients send `Authorization: Bearer <rpc_key>`. See [Control API](control-api.md).
+Generate a random 32-byte key and encode as hex. Clients send Authorization: Bearer <rpc_key>. See [Control API](control-api.md).
 
 ## CLI utilities (status, identity, probe, path, copy, pageserver)
 
-Tools are subcommands of the single `reticulum-go` binary (`make build`). Legacy names (rgostatus, …) install as symlinks via `make install`.
+Tools are subcommands of the single reticulum-go binary (make build). Legacy names (rgostatus, …) install as symlinks via make install.
 
-To query a running Python rnsd from `reticulum-go status` / path, point `-config` at `~/.reticulum`. On Linux both stacks default to abstract Unix sockets when shared_instance_type is unset, so no TCP rewrite is required:
+To query a running Python rnsd from reticulum-go status / path, point -config at ~/.reticulum. On Linux both stacks default to abstract Unix sockets when shared_instance_type is unset, so no TCP rewrite is required:
 
 ```bash
 ./bin/reticulum-go status -config ~/.reticulum -json
 ./bin/reticulum-go path -config ~/.reticulum -t -json
 ```
 
-Prefer an explicit shared rpc_key when mixing stacks. Use `shared_instance_type = tcp` only when you want the same recipe on every OS.
+Prefer an explicit shared rpc_key when mixing stacks. Use shared_instance_type = tcp only when you want the same recipe on every OS.
 
-Full flag reference, `.rsg` / `.rsm` / `.rfe` usage, file transfer, and troubleshooting are in [CLI utilities](utilities.md).
+Full flag reference, .rsg / .rsm / .rfe usage, file transfer, and troubleshooting are in [CLI utilities](utilities.md).
 
 ## Disable the sandbox
 
@@ -230,9 +230,9 @@ See [Security](security.md) for platform behavior.
 
 **IFAC mismatches.** Peers must use the same network_name and passphrase. Wrong IFAC frames are dropped silently on ingress.
 
-**Shared instance conflicts.** Only one process should own interfaces when `share_instance = yes`. Others should connect as clients. Check shared_instance_port (default 37428).
+**Shared instance conflicts.** Only one process should own interfaces when share_instance = yes. Others should connect as clients. Check shared_instance_port (default 37428).
 
-**status connection refused.** Point `-config` at the daemon config dir (`~/.reticulum` for rnsd). Align shared_instance_type and instance_name / ports, or leave the type unset on Linux for Unix. See [CLI utilities](utilities.md).
+**status connection refused.** Point -config at the daemon config dir (~/.reticulum for rnsd). Align shared_instance_type and instance_name / ports, or leave the type unset on Linux for Unix. See [CLI utilities](utilities.md).
 
 **Permission errors on Linux sandbox.** Landlock requires kernel 5.13+. The config directory and storage paths must live under whitelisted locations. See [Security](security.md).
 
@@ -246,6 +246,6 @@ See [Security](security.md) for platform behavior.
 | Embed from C or Odin | [librns](librns.md), [Examples](examples.md) |
 | Flutter / Dart | [librns Dart FFI](librns.md#dart-ffi-bindings), [Control API](control-api.md#dart-and-flutter), [Examples](examples.md) |
 | Talk to a running daemon | [Control API](control-api.md) |
-| Run in Firecracker | [Firecracker microvm](microvm.md) (`make microvm-up`) |
+| Run in Firecracker | [Firecracker microvm](microvm.md) (make microvm-up) |
 | Use Python interop | [Compatibility](compatibility.md) |
 | Run examples | [Examples](examples.md) |

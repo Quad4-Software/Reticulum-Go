@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`pkg/controlapi` exposes a localhost JSON and WebSocket API so applications in any language can use Reticulum destinations, announces, links, and requests without embedding the Go transport stack.
+pkg/controlapi exposes a localhost JSON and WebSocket API so applications in any language can use Reticulum destinations, announces, links, and requests without embedding the Go transport stack.
 
 The server is optional and disabled by default.
 
@@ -10,7 +10,7 @@ The server is optional and disabled by default.
 
 The mesh is destinations, announces, and links between peers. No node is privileged on the wire. Upstream design intent: [Zen of Reticulum](https://reticulum.network/manual/zen.html).
 
-The Control API is a local HTTP/WebSocket front end for one `reticulum-go` process. It is not the mesh. Apps that treat this API as a required remote service reintroduce a single control host even when RNS routing stays peer-to-peer.
+The Control API is a local HTTP/WebSocket front end for one reticulum-go process. It is not the mesh. Apps that treat this API as a required remote service reintroduce a single control host even when RNS routing stays peer-to-peer.
 
 **Appropriate uses**
 
@@ -22,7 +22,7 @@ The Control API is a local HTTP/WebSocket front end for one `reticulum-go` proce
 
 - A public Control API endpoint that clients must use to participate
 - Putting identity, routing, or app policy behind one always-on control host
-- Large transfers via base64 `link.send_resource` when rncp or in-process librns is available
+- Large transfers via base64 link.send_resource when rncp or in-process librns is available
 - Binding off loopback and describing the result as decentralized because RNS is underneath
 
 If the product fails when the Control API host is unreachable, the product depends on that host. Prefer peer destinations and links for application traffic. Keep this API on the machine that runs the node.
@@ -49,7 +49,7 @@ openssl rand -hex 32
 
 ## Authentication
 
-All `/v1` routes require:
+All /v1 routes require:
 
 ```
 Authorization: Bearer <hex rpc_key>
@@ -61,35 +61,35 @@ Requests without a valid bearer token are rejected.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/v1/health` | Liveness probe (process up, transport id, uptime). Not mesh integrity scoring |
-| GET | `/v1/status` | Interface statistics, including Go local integrity counters when present |
-| GET | `/v1/paths` | Path table snapshot |
-| POST | `/v1/sessions` | Create session (identity) |
-| DELETE | `/v1/sessions/{id}` | Tear down session |
-| POST | `/v1/sessions/{id}/destinations` | Register destination |
-| POST | `/v1/sessions/{id}/destinations/{hash}/announce` | Send announce |
-| POST | `/v1/sessions/{id}/destinations/{hash}/requests` | Bridge request path to WebSocket |
-| DELETE | `/v1/sessions/{id}/destinations/{hash}/requests?path=` | Deregister request path |
-| POST | `/v1/sessions/{id}/path/request` | Request path to destination. Response includes `wait_s`. Repeats inside 20s return 429 |
-| GET | `/v1/sessions/{id}/events` | WebSocket event stream |
+| GET | /v1/health | Liveness probe (process up, transport id, uptime). Not mesh integrity scoring |
+| GET | /v1/status | Interface statistics, including Go local integrity counters when present |
+| GET | /v1/paths | Path table snapshot |
+| POST | /v1/sessions | Create session (identity) |
+| DELETE | /v1/sessions/{id} | Tear down session |
+| POST | /v1/sessions/{id}/destinations | Register destination |
+| POST | /v1/sessions/{id}/destinations/{hash}/announce | Send announce |
+| POST | /v1/sessions/{id}/destinations/{hash}/requests | Bridge request path to WebSocket |
+| DELETE | /v1/sessions/{id}/destinations/{hash}/requests?path= | Deregister request path |
+| POST | /v1/sessions/{id}/path/request | Request path to destination. Response includes wait_s. Repeats inside 20s return 429 |
+| GET | /v1/sessions/{id}/events | WebSocket event stream |
 
 Lifecycle routes (Go node integration):
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/v1/lifecycle/resume` | Resume after pause |
-| POST | `/v1/lifecycle/pause` | Pause interfaces |
-| POST | `/v1/lifecycle/refresh-paths` | Refresh stale paths |
+| POST | /v1/lifecycle/resume | Resume after pause |
+| POST | /v1/lifecycle/pause | Pause interfaces |
+| POST | /v1/lifecycle/refresh-paths | Refresh stale paths |
 
-Binary fields (hashes, app data, link payloads) are hex- or base64-encoded as documented in `pkg/controlapi/protocol.go`.
+Binary fields (hashes, app data, link payloads) are hex- or base64-encoded as documented in pkg/controlapi/protocol.go.
 
 ### Status integrity fields (Go daemon)
 
-`GET /v1/status` mirrors shared-instance interface stats. Against a Reticulum-Go daemon each interface object may include:
+GET /v1/status mirrors shared-instance interface stats. Against a Reticulum-Go daemon each interface object may include:
 
 | JSON field | Meaning |
 |------------|---------|
-| type | Concrete Go type name (`UDPInterface`, `TCPClientInterface`, ...) matching Python `type(interface).__name__` |
+| type | Concrete Go type name (UDPInterface, TCPClientInterface, ...) matching Python type(interface).__name__ |
 | held_announces | Ingress-held announces (congestion hold) |
 | announce_queue | Outgoing announces waiting for announce_cap |
 | ifac_fail | IFAC verify failures |
@@ -108,11 +108,11 @@ Binary fields (hashes, app data, link payloads) are hex- or base64-encoded as do
 | keepalive_timeout | Transitions into keepalive stale |
 | clients | Spawned peer count (I2P parent) |
 | i2p_connectable | Connectable I2P server tunnel enabled |
-| i2p_b32 | Published `*.b32.i2p` endpoint when connectable |
-| tunnelstate | I2P peer tunnel label (`Creating Tunnel`, `Tunnel Active`, `Tunnel Unresponsive`) |
+| i2p_b32 | Published *.b32.i2p endpoint when connectable |
+| tunnelstate | I2P peer tunnel label (Creating Tunnel, Tunnel Active, Tunnel Unresponsive) |
 | i2p_last_error | Last SAM dial or stream error text for an I2P peer |
 
-These counters are local observability only. They do not change packet accept or reject policy. For scored findings use `reticulum-go slow`. For a full path and health dump use `reticulum-go snapshot`. See [Security](security.md#local-mesh-health-observe-only), [packet-debug](packet-debug.md), and [CLI utilities](utilities.md#rgoslow).
+These counters are local observability only. They do not change packet accept or reject policy. For scored findings use reticulum-go slow. For a full path and health dump use reticulum-go snapshot. See [Security](security.md#local-mesh-health-observe-only), [packet-debug](packet-debug.md), and [CLI utilities](utilities.md#rgoslow).
 
 ## Sessions
 
@@ -145,62 +145,62 @@ Server to client JSON event type values:
 | Event | Meaning |
 |-------|---------|
 | announce | Remote announce received |
-| `link.established` | Link is active |
-| `link.failed` | Outbound link failed |
-| `link.data` | Data received on link |
-| `link.closed` | Link closed |
-| `link.remote_identified` | Peer identified on link |
-| `request.incoming` | Request arrived on registered path |
-| `request.response` | Outbound `link.request` succeeded |
-| `request.failed` | Outbound `link.request` failed or timed out |
-| `resource.started` | Resource transfer started |
-| `resource.concluded` | Resource transfer finished |
-| `command.error` | WebSocket command could not be applied |
+| link.established | Link is active |
+| link.failed | Outbound link failed |
+| link.data | Data received on link |
+| link.closed | Link closed |
+| link.remote_identified | Peer identified on link |
+| request.incoming | Request arrived on registered path |
+| request.response | Outbound link.request succeeded |
+| request.failed | Outbound link.request failed or timed out |
+| resource.started | Resource transfer started |
+| resource.concluded | Resource transfer finished |
+| command.error | WebSocket command could not be applied |
 
 Client to server command type values:
 
 | Command | Meaning |
 |---------|---------|
 | subscribe_announces | Subscribe to announces. Empty filter means all. Non-empty filter must be an exact 16-byte dest hash hex |
-| `link.open` | Open outbound link |
-| `link.send` | Send on link |
-| `link.close` | Close link |
-| `link.request` | Outbound request on established link |
-| `link.send_resource` | Send payload as a link resource (base64). Keep payloads small |
-| `link.identify` | Identify session identity on link |
-| `request.respond` | Answer a request. Optional filename for NomadNet `[name, bytes]` |
+| link.open | Open outbound link |
+| link.send | Send on link |
+| link.close | Close link |
+| link.request | Outbound request on established link |
+| link.send_resource | Send payload as a link resource (base64). Keep payloads small |
+| link.identify | Identify session identity on link |
+| request.respond | Answer a request. Optional filename for NomadNet [name, bytes] |
 
-Full type definitions: `pkg/controlapi/protocol.go`.
+Full type definitions: pkg/controlapi/protocol.go.
 
 ## Links via API
 
 Register a destination with link acceptance enabled for inbound links.
 
-Outbound: send `link.open` over the events WebSocket. The server waits a bitrate-sized path window, then starts handshake. `link.established` or `link.failed` follows. Do not apply a flat 15 second client timer. The `wait_s` field from `POST .../path/request` is the window to show in UI if you request a path yourself.
+Outbound: send link.open over the events WebSocket. The server waits a bitrate-sized path window, then starts handshake. link.established or link.failed follows. Do not apply a flat 15 second client timer. The wait_s field from POST .../path/request is the window to show in UI if you request a path yourself.
 
-Both directions receive `link.established` when ready, then `link.data` for peer data.
+Both directions receive link.established when ready, then link.data for peer data.
 
-Use `link.identify` after the link is active. The peer receives `link.remote_identified`.
+Use link.identify after the link is active. The peer receives link.remote_identified.
 
 ## Requests via API
 
-Register a request path with `POST .../destinations/{hash}/requests`. Incoming requests appear as `request.incoming`. Respond with `request.respond` before the handler timeout.
+Register a request path with POST .../destinations/{hash}/requests. Incoming requests appear as request.incoming. Respond with request.respond before the handler timeout.
 
-Outbound: after `link.established`, send `link.request`. Completion arrives as `request.response` or `request.failed`.
+Outbound: after link.established, send link.request. Completion arrives as request.response or request.failed.
 
 Handlers block the underlying link goroutine until response or timeout. Keep processing short.
 
-Deregister with `DELETE .../requests?path=/your/path`.
+Deregister with DELETE .../requests?path=/your/path.
 
 ## Resources via API
 
-`link.send_resource` mirrors librns minimal resource send. Expect `resource.started` and `resource.concluded` on the peer. Payloads are base64 over WebSocket, so large files are memory-heavy. Prefer rncp or in-process librns for bulk transfers.
+link.send_resource mirrors librns minimal resource send. Expect resource.started and resource.concluded on the peer. Payloads are base64 over WebSocket, so large files are memory-heavy. Prefer rncp or in-process librns for bulk transfers.
 
 ## Scope and caveats
 
 This API is an application contract for destinations, announces, links, requests, identify, and minimal resources. It is not a full mirror of channels, stream buffers, resource cancel/progress, or mesh-admin ops (drop path, blackhole). Those stay on shared-instance RPC and CLI.
 
-Control API `/v1` is independent of librns `RNS_API_VERSION`. Additive JSON fields and new type strings are the compatibility model.
+Control API /v1 is independent of librns RNS_API_VERSION. Additive JSON fields and new type strings are the compatibility model.
 
 WebSocket event delivery is best-effort. A full client outbox drops events.
 
@@ -208,7 +208,7 @@ See [Architecture notes](#architecture-notes) when designing a product on top of
 
 ## Example client
 
-`examples/control-client/client.py` is a Python reference client for the API.
+examples/control-client/client.py is a Python reference client for the API.
 
 ## Security notes
 
@@ -222,14 +222,14 @@ See [Architecture notes](#architecture-notes) when designing a product on top of
 
 | File | Role |
 |------|------|
-| `server.go` | HTTP server and routing |
-| `session.go` | Session state |
-| `protocol.go` | Request and event types |
-| `ws.go` | WebSocket handling |
-| `auth.go` | Bearer validation |
-| `lifecycle.go` | Lifecycle routes |
+| server.go | HTTP server and routing |
+| session.go | Session state |
+| protocol.go | Request and event types |
+| ws.go | WebSocket handling |
+| auth.go | Bearer validation |
+| lifecycle.go | Lifecycle routes |
 
-Daemon wiring: `cmd/reticulum-go/main.go` starts `controlapi.Server` when enabled.
+Daemon wiring: cmd/reticulum-go/main.go starts controlapi.Server when enabled.
 
 ## Related documents
 
@@ -243,11 +243,11 @@ Daemon wiring: `cmd/reticulum-go/main.go` starts `controlapi.Server` when enable
 
 ## Dart and Flutter
 
-Path: `bindings/dart/` (package rns_control).
+Path: bindings/dart/ (package rns_control).
 
 ### Control API client
 
-HTTP and WebSocket client for a local or LAN `reticulum-go` daemon. Import `package:rns_control/rns_control.dart`.
+HTTP and WebSocket client for a local or LAN reticulum-go daemon. Import package:rns_control/rns_control.dart.
 
 ```dart
 import 'package:rns_control/rns_control.dart';
@@ -258,11 +258,11 @@ final events = client.openEvents(session.sessionId);
 events.subscribeAnnounces();
 ```
 
-Coverage includes health, status (with integrity counters), paths, sessions, destinations, announce, request handlers (register and deregister), lifecycle, outbound requests, resources, identify, and WebSocket commands or events. Authenticated WebSocket upgrades require `dart:io` (Flutter mobile or desktop). Browser clients cannot set the Authorization header on WebSocket.
+Coverage includes health, status (with integrity counters), paths, sessions, destinations, announce, request handlers (register and deregister), lifecycle, outbound requests, resources, identify, and WebSocket commands or events. Authenticated WebSocket upgrades require dart:io (Flutter mobile or desktop). Browser clients cannot set the Authorization header on WebSocket.
 
 ### In-process FFI
 
-For embedding without a daemon, use `package:rns_control/ffi.dart` over librns on Linux, Android, and Windows. See [librns Dart FFI](librns.md#dart-ffi-bindings).
+For embedding without a daemon, use package:rns_control/ffi.dart over librns on Linux, Android, and Windows. See [librns Dart FFI](librns.md#dart-ffi-bindings).
 
 ```bash
 task build-librns
