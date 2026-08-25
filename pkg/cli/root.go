@@ -245,37 +245,41 @@ func okMsg(w io.Writer, s string) string   { return term.GreenW(w, s) }
 func errMsg(w io.Writer, s string) string  { return term.RedW(w, s) }
 func warnMsg(w io.Writer, s string) string { return term.YellowW(w, s) }
 func infoMsg(w io.Writer, s string) string { return term.CyanW(w, s) }
+func dimMsg(w io.Writer, s string) string  { return term.DimW(w, s) }
+func boldMsg(w io.Writer, s string) string { return term.BoldW(w, s) }
+
+func diagErr(w io.Writer, label string, err error) {
+	fmt.Fprintf(w, "%s: %v\n", errMsg(w, label), err)
+}
 
 func printRootHelp(w io.Writer) {
-	fmt.Fprintf(w, `reticulum-go - Reticulum network stack (Go)
-
-Usage:
-  reticulum-go                          run the network daemon
-  reticulum-go daemon [flags]           run the network daemon
-  reticulum-go status [flags]           interface and transport status (RPC)
-  reticulum-go id [flags]               identities, hashes, sign and encrypt
-  reticulum-go probe [flags] <name> <hash>
-  reticulum-go path [flags]             path table, drop, blackhole
-  reticulum-go slow [flags]             find slow interfaces, paths, transfers
-  reticulum-go speedtest [flags]        loopback link throughput smoke
-  reticulum-go dump [flags]             decode RNS packets from hex or pcap
-  reticulum-go snapshot [flags]         path table, links, and health JSON (RPC)
-  reticulum-go cp [flags]               file transfer over links
-  reticulum-go x [flags]                remote command execution (rnx)
-  reticulum-go sh [flags]               interactive remote shell (rgosh)
-  reticulum-go git [flags]                 Git-over-Reticulum node (rngit)
-  reticulum-go pageserver [flags]          NomadNet-style page and file server
-  reticulum-go debug [flags]            effective config, rate table, RPC dump
-  reticulum-go self-check [flags]       host OS preflight checklist
-  reticulum-go zen [flags] [packages]   scan for path/link footguns (go fix style)
-
-Global:
-  -h, --help       print this help
-  -v, --version    print version
-
-Legacy tool names (rgostatus, rgoid, rgoprobe, rgopath, rgocp, rgox, rnx, rgosh, rgoslow, rgospeed, rgodump, rgosnap, rgozen) work as
-subcommands or when the binary is installed under those names (symlinks).
-
-Configuration defaults to ~/.reticulum-go/config.
-`)
+	helpTitle(w, "reticulum-go - Reticulum network stack (Go)")
+	helpUsageHeader(w)
+	helpUsageLines(w,
+		helpLine{"reticulum-go", "run the network daemon"},
+		helpLine{"reticulum-go daemon [flags]", "run the network daemon"},
+		helpLine{"reticulum-go status [flags]", "interface and transport status (RPC)"},
+		helpLine{"reticulum-go id [flags]", "identities, hashes, sign and encrypt"},
+		helpLine{"reticulum-go probe [flags] <name> <hash>", ""},
+		helpLine{"reticulum-go path [flags]", "path table, drop, blackhole"},
+		helpLine{"reticulum-go slow [flags]", "find slow interfaces, paths, transfers"},
+		helpLine{"reticulum-go speedtest [flags]", "loopback link throughput smoke"},
+		helpLine{"reticulum-go dump [flags]", "decode RNS packets from hex or pcap"},
+		helpLine{"reticulum-go snapshot [flags]", "path table, links, and health JSON (RPC)"},
+		helpLine{"reticulum-go cp [flags]", "file transfer over links"},
+		helpLine{"reticulum-go x [flags]", "remote command execution (rnx)"},
+		helpLine{"reticulum-go sh [flags]", "interactive remote shell (rgosh)"},
+		helpLine{"reticulum-go git [flags]", "Git-over-Reticulum node (rngit)"},
+		helpLine{"reticulum-go pageserver [flags]", "NomadNet-style page and file server"},
+		helpLine{"reticulum-go debug [flags]", "effective config, rate table, RPC dump"},
+		helpLine{"reticulum-go self-check [flags]", "host OS preflight checklist"},
+		helpLine{"reticulum-go zen [flags] [packages]", "scan for path/link footguns (go fix style)"},
+	)
+	fmt.Fprintln(w)
+	helpSection(w, "Global:")
+	fmt.Fprintf(w, "  %s       print this help\n", dimMsg(w, "-h, --help"))
+	fmt.Fprintf(w, "  %s    print version\n", dimMsg(w, "-v, --version"))
+	fmt.Fprintln(w)
+	helpNote(w, "Legacy tool names (rgostatus, rgoid, rgoprobe, rgopath, rgocp, rgox, rnx, rgosh, rgoslow, rgospeed, rgodump, rgosnap, rgozen) work as subcommands or when the binary is installed under those names (symlinks).")
+	helpNote(w, "Configuration defaults to ~/.reticulum-go/config.")
 }

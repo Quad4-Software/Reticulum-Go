@@ -48,13 +48,22 @@ func RunSnapshot(args []string, opt ...Options) int {
 	maxHops := fs.Int("max-hops", 0, "omit paths with more hops than this (0 means no filter)")
 	timeout := fs.Duration("timeout", 10*time.Second, "RPC timeout")
 	quiet := fs.Bool("q", false, "quiet: suppress stderr hints")
+	bindFlagUsage(fs, "rgosnap - path table and health snapshot",
+		"Emits path table, link count, and health JSON via shared-instance RPC.",
+		[]helpLine{
+			{Cmd: "rgosnap [flags]"},
+			{Cmd: "reticulum-go snapshot [flags]"},
+		},
+		"rgosnap",
+		"rgosnap -max-hops 8",
+	)
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 
 	cfg, err := rnsutil.LoadConfigDir(*configDir)
 	if err != nil {
-		fmt.Fprintf(stderr, "config: %v\n", err)
+		diagErr(stderr, "config", err)
 		return 1
 	}
 	client, err := rnsutil.DialRPC(cfg, nil)
@@ -79,13 +88,13 @@ func RunSnapshot(args []string, opt ...Options) int {
 	}
 	paths, err := client.GetPathTable(mh)
 	if err != nil {
-		fmt.Fprintf(stderr, "path table: %v\n", err)
+		diagErr(stderr, "path table", err)
 		return 1
 	}
 
 	linkCount, err := client.GetLinkCount()
 	if err != nil {
-		fmt.Fprintf(stderr, "link count: %v\n", err)
+		diagErr(stderr, "link count", err)
 		return 1
 	}
 
@@ -125,7 +134,7 @@ func RunSnapshot(args []string, opt ...Options) int {
 	enc := json.NewEncoder(stdout)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(snap); err != nil {
-		fmt.Fprintf(stderr, "json: %v\n", err)
+		diagErr(stderr, "json", err)
 		return 1
 	}
 	return 0

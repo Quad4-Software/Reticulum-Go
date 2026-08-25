@@ -48,6 +48,18 @@ func RunCP(args []string, opt ...Options) int {
 	printID := fs.Bool("p", false, "print identity and destination hash then exit")
 	var allowed flagStringList
 	fs.Var(&allowed, "allowed", "allowed identity hash (repeatable)")
+	bindFlagUsage(fs, "rgocp - file transfer over RNS links",
+		"Send, receive, fetch, or listen for file transfers.",
+		[]helpLine{
+			{Cmd: "rgocp [flags] <file> <destination_hash>"},
+			{Cmd: "rgocp -l [flags]"},
+			{Cmd: "rgocp -f -F <remote_path> [flags] <destination_hash>"},
+			{Cmd: "reticulum-go cp [flags] ..."},
+		},
+		"rgocp document.pdf <dest_hash>",
+		"rgocp -l -save ./incoming",
+		"rgocp -f -F /path/on/remote <dest_hash>",
+	)
 
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -55,7 +67,7 @@ func RunCP(args []string, opt ...Options) int {
 
 	cfg, err := rnsutil.LoadConfigDir(*configDir)
 	if err != nil {
-		fmt.Fprintf(stderr, "config: %v\n", err)
+		diagErr(stderr, "config", err)
 		return 1
 	}
 	idPath := *identityPath
@@ -64,7 +76,7 @@ func RunCP(args []string, opt ...Options) int {
 	}
 	id, err := rnsutil.PrepareRNCPIdentity(idPath)
 	if err != nil {
-		fmt.Fprintf(stderr, "identity: %v\n", err)
+		diagErr(stderr, "identity", err)
 		return 2
 	}
 
@@ -79,11 +91,11 @@ func RunCP(args []string, opt ...Options) int {
 
 	n, err := node.New(cfg)
 	if err != nil {
-		fmt.Fprintf(stderr, "node: %v\n", err)
+		diagErr(stderr, "node", err)
 		return 1
 	}
 	if err := n.Start(); err != nil {
-		fmt.Fprintf(stderr, "start: %v\n", err)
+		diagErr(stderr, "start", err)
 		return 1
 	}
 	defer n.Stop()
@@ -104,7 +116,7 @@ func RunCP(args []string, opt ...Options) int {
 		})
 	case *fetchMode:
 		if fs.NArg() != 1 || *fetchPath == "" {
-			fmt.Fprintln(stderr, "usage: rgocp -f -F <remote_path> [flags] <destination_hash>")
+			usageErr(stderr, "rgocp -f -F <remote_path> [flags] <destination_hash>")
 			return 2
 		}
 		destHash, err := rnsutil.ParseDestHash(fs.Arg(0))
@@ -115,9 +127,9 @@ func RunCP(args []string, opt ...Options) int {
 		return runFetch(tr, id, destHash, *fetchPath, timeout, *silent, *saveDir, *overwrite, stdout, stderr)
 	default:
 		if fs.NArg() != 2 {
-			fmt.Fprintln(stderr, "usage: rgocp [flags] <file> <destination_hash>")
-			fmt.Fprintln(stderr, "       rgocp -l [flags]")
-			fmt.Fprintln(stderr, "       rgocp -f -F <remote_path> [flags] <destination_hash>")
+			usageErr(stderr, "rgocp [flags] <file> <destination_hash>")
+			usageErr(stderr, "rgocp -l [flags]")
+			usageErr(stderr, "rgocp -f -F <remote_path> [flags] <destination_hash>")
 			return 2
 		}
 		filePath := fs.Arg(0)
@@ -170,7 +182,7 @@ func runListen(tr *transport.Transport, id *identity.Identity, opts listenOpts) 
 	if opts.jail != "" {
 		jailAbs, err = filepath.Abs(opts.jail)
 		if err != nil {
-			fmt.Fprintf(stderr, "jail: %v\n", err)
+			diagErr(stderr, "jail", err)
 			return 1
 		}
 		fmt.Fprintln(stderr, infoMsg(stderr, fmt.Sprintf("Restricting fetch requests to paths under %q", jailAbs)))
@@ -178,7 +190,7 @@ func runListen(tr *transport.Transport, id *identity.Identity, opts listenOpts) 
 
 	dest, err := destination.New(id, destination.In, destination.Single, rnsutil.RNCPAppName, tr, rnsutil.RNCPAspect)
 	if err != nil {
-		fmt.Fprintf(stderr, "destination: %v\n", err)
+		diagErr(stderr, "destination", err)
 		return 1
 	}
 	dest.AcceptsLinks(true)
@@ -232,7 +244,7 @@ func runListen(tr *transport.Transport, id *identity.Identity, opts listenOpts) 
 			path, err := rnsutil.WriteReceivedFile(saveDir, name, data, opts.overwrite)
 			mu.Unlock()
 			if err != nil {
-				fmt.Fprintf(stderr, "save: %v\n", err)
+				diagErr(stderr, "save", err)
 				return
 			}
 			fmt.Fprintln(stderr, okMsg(stderr, fmt.Sprintf("Saved received file to %s", path)))
@@ -389,7 +401,7 @@ func runSend(tr *transport.Transport, id *identity.Identity, filePath string, de
 	defer l.Teardown()
 
 	if err := l.Identify(id); err != nil {
-		fmt.Fprintf(stderr, "identify: %v\n", err)
+		diagErr(stderr, "identify", err)
 		return 1
 	}
 
@@ -455,7 +467,7 @@ func runFetch(tr *transport.Transport, id *identity.Identity, destHash []byte, r
 	defer l.Teardown()
 
 	if err := l.Identify(id); err != nil {
-		fmt.Fprintf(stderr, "identify: %v\n", err)
+		diagErr(stderr, "identify", err)
 		return 1
 	}
 
@@ -477,7 +489,7 @@ func runFetch(tr *transport.Transport, id *identity.Identity, destHash []byte, r
 
 	receipt, err := l.Request(rnsutil.RNCPFetchPath, remotePath, timeout)
 	if err != nil {
-		fmt.Fprintf(stderr, "request: %v\n", err)
+		diagErr(stderr, "request", err)
 		return 1
 	}
 	if err := rnsutil.WaitRequest(ctx, receipt); err != nil {
@@ -513,7 +525,7 @@ func runFetch(tr *transport.Transport, id *identity.Identity, destHash []byte, r
 	name := rnsutil.FilenameFromMetadata(received.Metadata)
 	path, err := rnsutil.WriteReceivedFile(saveDir, name, received.Data, overwrite)
 	if err != nil {
-		fmt.Fprintf(stderr, "save: %v\n", err)
+		diagErr(stderr, "save", err)
 		return 1
 	}
 	fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("%s fetched from %s -> %s", remotePath, rnsutil.PrettyHex(destHash), path)))

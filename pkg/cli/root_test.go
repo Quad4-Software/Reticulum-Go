@@ -5,6 +5,8 @@ package cli
 
 import (
 	"bytes"
+	"io"
+	"os"
 	"strings"
 	"testing"
 )
@@ -82,6 +84,35 @@ func TestResolveCommandDumpAndSnapshot(t *testing.T) {
 	cmd, _, ok = resolveCommand("rgosnap", nil)
 	if !ok || cmd != CmdSnapshot {
 		t.Fatalf("rgosnap alias ok=%v cmd=%q", ok, cmd)
+	}
+}
+
+func TestGitHelpUsesColorWhenEnabled(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+	t.Setenv("FORCE_COLOR", "1")
+	f, err := os.CreateTemp("", "git-help-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(f.Name())
+	defer f.Close()
+	code := Main([]string{"git", "-h"}, Options{Stdout: f, Stderr: io.Discard, VersionLine: "test"})
+	if code != 0 {
+		t.Fatalf("code=%d", code)
+	}
+	b, err := os.ReadFile(f.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "\033[1m") {
+		preview := string(b)
+		if len(preview) > 80 {
+			preview = preview[:80]
+		}
+		t.Fatalf("expected bold title in git help, got %q", preview)
+	}
+	if !strings.Contains(string(b), "reticulum-go git create") {
+		t.Fatalf("missing git subcommand in help")
 	}
 }
 

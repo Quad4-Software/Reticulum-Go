@@ -21,6 +21,7 @@ import (
 	"quad4/reticulum-go/pkg/link"
 	"quad4/reticulum-go/pkg/node"
 	"quad4/reticulum-go/pkg/rnsutil"
+	"quad4/reticulum-go/pkg/term"
 	"quad4/reticulum-go/pkg/transport"
 )
 
@@ -48,6 +49,18 @@ func RunX(args []string, opt ...Options) int {
 	jsonOut := fs.Bool("json", false, "emit JSON result")
 	var allowed flagStringList
 	fs.Var(&allowed, "a", "allowed identity hash (repeatable, listen)")
+	bindFlagUsage(fs, "rgox - remote command execution (rnx)",
+		"Execute commands on remote nodes or listen for incoming requests.",
+		[]helpLine{
+			{Cmd: "rgox [flags] <destination_hash> <command>"},
+			{Cmd: "rgox -x [flags] <destination_hash>"},
+			{Cmd: "rgox -l [flags]"},
+			{Cmd: "reticulum-go x [flags] ..."},
+		},
+		"rgox <dest_hash> uname -a",
+		"rgox -x <dest_hash>",
+		"rgox -l",
+	)
 
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -55,7 +68,7 @@ func RunX(args []string, opt ...Options) int {
 
 	cfg, err := rnsutil.LoadConfigDir(*configDir)
 	if err != nil {
-		fmt.Fprintf(stderr, "config: %v\n", err)
+		diagErr(stderr, "config", err)
 		return 1
 	}
 
@@ -65,7 +78,7 @@ func RunX(args []string, opt ...Options) int {
 	}
 	id, err := rnsutil.PrepareRNXIdentity(idPath)
 	if err != nil {
-		fmt.Fprintf(stderr, "identity: %v\n", err)
+		diagErr(stderr, "identity", err)
 		return 2
 	}
 
@@ -80,11 +93,11 @@ func RunX(args []string, opt ...Options) int {
 
 	n, err := node.New(cfg)
 	if err != nil {
-		fmt.Fprintf(stderr, "node: %v\n", err)
+		diagErr(stderr, "node", err)
 		return 1
 	}
 	if err := n.Start(); err != nil {
-		fmt.Fprintf(stderr, "start: %v\n", err)
+		diagErr(stderr, "start", err)
 		return 1
 	}
 	defer n.Stop()
@@ -100,9 +113,9 @@ func RunX(args []string, opt ...Options) int {
 	}
 
 	if fs.NArg() < 1 {
-		fmt.Fprintln(stderr, "usage: rgox [flags] <destination_hash> [command]")
-		fmt.Fprintln(stderr, "       rgox -l [flags]")
-		fmt.Fprintln(stderr, "       rgox -x [flags] <destination_hash>")
+		usageErr(stderr, "rgox [flags] <destination_hash> [command]")
+		usageErr(stderr, "rgox -l [flags]")
+		usageErr(stderr, "rgox -x [flags] <destination_hash>")
 		return 2
 	}
 	destHash, err := rnsutil.ParseDestHash(fs.Arg(0))
@@ -149,7 +162,7 @@ func RunX(args []string, opt ...Options) int {
 		return runXInteractive(tr, id, destHash, &execOpts)
 	}
 	if fs.NArg() < 2 {
-		fmt.Fprintln(stderr, "usage: rgox [flags] <destination_hash> <command>")
+		usageErr(stderr, "rgox [flags] <destination_hash> <command>")
 		return 2
 	}
 	execOpts.req.Command = strings.Join(fs.Args()[1:], " ")
@@ -179,7 +192,7 @@ func runXListen(tr *transport.Transport, id *identity.Identity, opts xListenOpts
 
 	dest, err := destination.New(id, destination.In, destination.Single, rnsutil.RNXAppName, tr, rnsutil.RNXAspect)
 	if err != nil {
-		fmt.Fprintf(stderr, "destination: %v\n", err)
+		diagErr(stderr, "destination", err)
 		return 1
 	}
 	dest.AcceptsLinks(true)
@@ -277,7 +290,7 @@ func runXInteractive(tr *transport.Transport, id *identity.Identity, destHash []
 			return 0
 		}
 		if lower == "clear" {
-			fmt.Fprint(stdout, "\033[2J\033[H")
+			fmt.Fprint(stdout, term.ClearScreenW(stdout))
 			continue
 		}
 		opts.req.Command = line
@@ -322,7 +335,7 @@ func runXExecute(tr *transport.Transport, id *identity.Identity, destHash []byte
 
 	if !opts.noid && !opts.didIdentify {
 		if err := l.Identify(id); err != nil {
-			fmt.Fprintf(stderr, "identify: %v\n", err)
+			diagErr(stderr, "identify", err)
 			return rnsutil.ExitRNXRequestFailed
 		}
 		opts.didIdentify = true

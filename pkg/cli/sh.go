@@ -51,6 +51,16 @@ func RunSH(args []string, opt ...Options) int {
 	timeoutSec := fs.Float64("w", 0, "path/link timeout seconds (0 = adaptive from interface bitrate)")
 	var allowed flagStringList
 	fs.Var(&allowed, "a", "allowed identity hash (repeatable, listen)")
+	bindFlagUsage(fs, "rgosh - interactive remote shell",
+		"Connect to a remote shell or listen for incoming shell sessions.",
+		[]helpLine{
+			{Cmd: "rgosh [flags] <destination_hash> [command...]"},
+			{Cmd: "rgosh -l [flags] [command...]"},
+			{Cmd: "reticulum-go sh [flags] ..."},
+		},
+		"rgosh <dest_hash>",
+		"rgosh -l /bin/sh",
+	)
 
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -64,7 +74,7 @@ func RunSH(args []string, opt ...Options) int {
 
 	cfg, err := rnsutil.LoadConfigDir(*configDir)
 	if err != nil {
-		fmt.Fprintf(stderr, "config: %v\n", err)
+		diagErr(stderr, "config", err)
 		return 1
 	}
 
@@ -83,7 +93,7 @@ func RunSH(args []string, opt ...Options) int {
 	}
 	id, err := rnsutil.PrepareRgoshIdentity(idPath)
 	if err != nil {
-		fmt.Fprintf(stderr, "identity: %v\n", err)
+		diagErr(stderr, "identity", err)
 		return 2
 	}
 
@@ -102,11 +112,11 @@ func RunSH(args []string, opt ...Options) int {
 
 	n, err := node.New(cfg)
 	if err != nil {
-		fmt.Fprintf(stderr, "node: %v\n", err)
+		diagErr(stderr, "node", err)
 		return 1
 	}
 	if err := n.Start(); err != nil {
-		fmt.Fprintf(stderr, "start: %v\n", err)
+		diagErr(stderr, "start", err)
 		return 1
 	}
 	defer n.Stop()
@@ -133,8 +143,8 @@ func RunSH(args []string, opt ...Options) int {
 	}
 
 	if fs.NArg() < 1 {
-		fmt.Fprintln(stderr, "usage: rgosh [flags] <destination_hash> [command...]")
-		fmt.Fprintln(stderr, "       rgosh -l [flags] [command...]")
+		usageErr(stderr, "rgosh [flags] <destination_hash> [command...]")
+		usageErr(stderr, "rgosh -l [flags] [command...]")
 		return 2
 	}
 	destHash, err := rnsutil.ParseDestHash(fs.Arg(0))
@@ -204,7 +214,7 @@ func runSHListen(tr *transport.Transport, id *identity.Identity, opts shListenOp
 
 		dest, err := destination.New(id, destination.In, destination.Single, appName, tr)
 		if err != nil {
-			fmt.Fprintf(stderr, "destination: %v\n", err)
+			diagErr(stderr, "destination", err)
 			return 1
 		}
 		dest.AcceptsLinks(true)

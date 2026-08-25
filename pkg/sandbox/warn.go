@@ -8,6 +8,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"quad4/reticulum-go/pkg/term"
 )
 
 var (
@@ -31,5 +33,6 @@ func warnSoftUnavailable(mechanism, reason string) {
 	}
 	lastWarn[mechanism] = now
 	warnMu.Unlock()
-	_, _ = fmt.Fprintf(os.Stdout, "WARNING: sandbox soft-unavailable mechanism=%s reason=%s\n", mechanism, reason)
+	_, _ = fmt.Fprintf(os.Stdout, "%s sandbox soft-unavailable mechanism=%s reason=%s\n",
+		term.YellowW(os.Stdout, "WARNING:"), mechanism, reason)
 }

@@ -59,7 +59,7 @@ func RunGitRemoteRNS(args []string, opt ...Options) int {
 		rnsConfig = *rnsDir
 	}
 	if len(fs.Args()) < 2 {
-		fmt.Fprintln(stderr, "Usage: git-remote-rns <remote-name> <url>")
+		usageErr(stderr, "git-remote-rns <remote-name> <url>")
 		return 1
 	}
 	url := fs.Args()[1]
@@ -116,6 +116,15 @@ func runGitServer(args []string, opt ...Options) int {
 	fs.BoolVar(&printID, "p", false, "print identity and destination hashes")
 	fs.BoolVar(&printID, "print-identity", false, "same as -p")
 	fs.BoolVar(&serviceMode, "s", false, "service mode")
+	bindFlagUsage(fs, "reticulum-go git - Git over Reticulum (rngit-compatible)",
+		"Run a repository node or print identity hashes. See reticulum-go git -h for all subcommands.",
+		[]helpLine{
+			{Cmd: "reticulum-go git [-config dir] [-rnsconfig dir] [-s]"},
+			{Cmd: "reticulum-go git -p"},
+		},
+		"reticulum-go git -p",
+		"reticulum-go git -config ~/.rngit",
+	)
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -123,12 +132,12 @@ func runGitServer(args []string, opt ...Options) int {
 		configDir = os.Getenv("RNGIT_CONFIG")
 	}
 	if err := rnsgit.EnsureServerConfig(configDir); err != nil {
-		fmt.Fprintf(stderr, "config: %v\n", err)
+		diagErr(stderr, "config", err)
 		return 1
 	}
 	cfg, err := rnsgit.LoadServerConfig(configDir)
 	if err != nil {
-		fmt.Fprintf(stderr, "config: %v\n", err)
+		diagErr(stderr, "config", err)
 		return 1
 	}
 	idPath := identity
@@ -137,12 +146,12 @@ func runGitServer(args []string, opt ...Options) int {
 	}
 	id, err := rnsgit.PrepareGitIdentity(idPath)
 	if err != nil {
-		fmt.Fprintf(stderr, "identity: %v\n", err)
+		diagErr(stderr, "identity", err)
 		return 1
 	}
 	node, err := rnsgit.NewNode(cfg, id)
 	if err != nil {
-		fmt.Fprintf(stderr, "node: %v\n", err)
+		diagErr(stderr, "node", err)
 		return 1
 	}
 	if printID {
@@ -177,7 +186,7 @@ func runGitPrintIdentity(opt ...Options) int {
 func runGitMgmt(args []string, opt ...Options) int {
 	stdout, stderr := cliIO(opt)
 	if len(args) < 2 {
-		fmt.Fprintf(stderr, "usage: reticulum-go git %s <rns://...> ...\n", args[0])
+		usageErr(stderr, fmt.Sprintf("reticulum-go git %s <rns://...> ...", args[0]))
 		return 2
 	}
 	sub := args[0]
@@ -185,14 +194,14 @@ func runGitMgmt(args []string, opt ...Options) int {
 	cfgDir := os.Getenv("RNGIT_CONFIG")
 	client, err := rnsgit.NewMgmtClient(cfgDir, "")
 	if err != nil {
-		fmt.Fprintf(stderr, "client: %v\n", err)
+		diagErr(stderr, "client", err)
 		return 1
 	}
 	defer client.Close()
 	ctx, cancel := rnsutil.CLIWaitContext(0)
 	defer cancel()
 	if err := client.Connect(ctx, remote); err != nil {
-		fmt.Fprintf(stderr, "connect: %v\n", err)
+		diagErr(stderr, "connect", err)
 		return 1
 	}
 	switch sub {
@@ -210,7 +219,7 @@ func runGitMgmt(args []string, opt ...Options) int {
 		fmt.Fprintf(stdout, "Repository synced\n")
 	case "fork", "mirror":
 		if len(args) < 3 {
-			fmt.Fprintf(stderr, "usage: reticulum-go git %s <source> <target>\n", sub)
+			usageErr(stderr, fmt.Sprintf("reticulum-go git %s <source> <target>", sub))
 			return 2
 		}
 		if err := client.CloneRemote(ctx, args[1], args[2], sub); err != nil {
@@ -226,19 +235,19 @@ func runGitMgmt(args []string, opt ...Options) int {
 }
 
 func printGitHelp(w io.Writer) {
-	fmt.Fprintf(w, `reticulum-go git - Git over Reticulum (rngit-compatible)
-
-Usage:
-  reticulum-go git [-config dir] [-rnsconfig dir] [-s]     run repository node
-  reticulum-go git -p                                      print destination hashes
-  reticulum-go git create <rns://node/group/repo>          create repository
-  reticulum-go git fork <source> <target>                  fork repository
-  reticulum-go git mirror <source> <target>                mirror repository
-  reticulum-go git sync <rns://node/group/repo>            sync mirror/fork
-  reticulum-go git remote-rns <name> <rns://...>           git remote helper
-
-Install git-remote-rns symlink to reticulum-go for transparent git clone rns:// URLs.
-`)
+	helpTitle(w, "reticulum-go git - Git over Reticulum (rngit-compatible)")
+	helpUsageHeader(w)
+	helpUsageLines(w,
+		helpLine{"reticulum-go git [-config dir] [-rnsconfig dir] [-s]", "run repository node"},
+		helpLine{"reticulum-go git -p", "print destination hashes"},
+		helpLine{"reticulum-go git create <rns://node/group/repo>", "create repository"},
+		helpLine{"reticulum-go git fork <source> <target>", "fork repository"},
+		helpLine{"reticulum-go git mirror <source> <target>", "mirror repository"},
+		helpLine{"reticulum-go git sync <rns://node/group/repo>", "sync mirror/fork"},
+		helpLine{"reticulum-go git remote-rns <name> <rns://...>", "git remote helper"},
+	)
+	fmt.Fprintln(w)
+	helpNote(w, "Install git-remote-rns symlink to reticulum-go for transparent git clone rns:// URLs.")
 }
 
 // EmitGitJSON writes a JSON event line when -json is set.

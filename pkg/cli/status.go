@@ -40,13 +40,23 @@ func RunStatus(args []string, opt ...Options) int {
 	mgmtIdent := fs.String("i", "", "identity file for remote management")
 	remoteTimeoutSec := fs.Float64("W", 0, "timeout for remote queries in seconds (0 = adaptive from interface bitrate)")
 	quiet := fs.Bool("q", false, "quiet: suppress stderr hints")
+	bindFlagUsage(fs, "rgostatus - interface and transport status",
+		"Queries a running shared instance over RPC. Use -R for remote instance status.",
+		[]helpLine{
+			{Cmd: "rgostatus [flags]"},
+			{Cmd: "reticulum-go status [flags]"},
+		},
+		"rgostatus",
+		"rgostatus -json -l",
+		"rgostatus -R <transport_hash> -i identity",
+	)
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 
 	cfg, err := rnsutil.LoadConfigDir(*configDir)
 	if err != nil {
-		fmt.Fprintf(stderr, "config: %v\n", err)
+		diagErr(stderr, "config", err)
 		return 1
 	}
 
@@ -77,13 +87,13 @@ func RunStatus(args []string, opt ...Options) int {
 		}
 		if *jsonOut {
 			if err := rnsutil.WriteDiscoveredJSON(stdout, list); err != nil {
-				fmt.Fprintf(stderr, "json: %v\n", err)
+				diagErr(stderr, "json", err)
 				return 1
 			}
 			return 0
 		}
 		if err := rnsutil.WriteDiscoveredHuman(stdout, list, *discoveredDetail); err != nil {
-			fmt.Fprintf(stderr, "write: %v\n", err)
+			diagErr(stderr, "write", err)
 			return 1
 		}
 		return 0
@@ -128,7 +138,7 @@ func RunStatus(args []string, opt ...Options) int {
 	if *links {
 		n, err := client.GetLinkCount()
 		if err != nil {
-			fmt.Fprintf(stderr, "link count: %v\n", err)
+			diagErr(stderr, "link count", err)
 			return 1
 		}
 		linkCount = &n
@@ -140,13 +150,13 @@ func RunStatus(args []string, opt ...Options) int {
 
 	if *jsonOut {
 		if err := rnsutil.WriteStatusJSON(stdout, stats); err != nil {
-			fmt.Fprintf(stderr, "json: %v\n", err)
+			diagErr(stderr, "json", err)
 			return 1
 		}
 		return 0
 	}
 	if err := rnsutil.WriteStatusHuman(stdout, stats, linkCount, activeLinkCount, statusOpts); err != nil {
-		fmt.Fprintf(stderr, "write: %v\n", err)
+		diagErr(stderr, "write", err)
 		return 1
 	}
 	return 0
@@ -178,11 +188,11 @@ func runStatusRemote(cfg *common.ReticulumConfig, opts statusRemoteOpts) int {
 
 	n, err := node.New(cfg)
 	if err != nil {
-		fmt.Fprintf(stderr, "node: %v\n", err)
+		diagErr(stderr, "node", err)
 		return 1
 	}
 	if err := n.Start(); err != nil {
-		fmt.Fprintf(stderr, "start: %v\n", err)
+		diagErr(stderr, "start", err)
 		return 1
 	}
 	defer n.Stop()
@@ -213,13 +223,13 @@ func runStatusRemote(cfg *common.ReticulumConfig, opts statusRemoteOpts) int {
 	rnsutil.SortInterfaceStats(&stats, opts.statusOpts.SortBy, opts.statusOpts.SortAsc)
 	if opts.jsonOut {
 		if err := rnsutil.WriteStatusJSON(stdout, stats); err != nil {
-			fmt.Fprintf(stderr, "json: %v\n", err)
+			diagErr(stderr, "json", err)
 			return 1
 		}
 		return 0
 	}
 	if err := rnsutil.WriteStatusHuman(stdout, stats, linkCount, nil, opts.statusOpts); err != nil {
-		fmt.Fprintf(stderr, "write: %v\n", err)
+		diagErr(stderr, "write", err)
 		return 1
 	}
 	return 0

@@ -38,6 +38,17 @@ func RunPath(args []string, opt ...Options) int {
 	bhHours := fs.Float64("for", 0, "blackhole duration in hours (0 = indefinite)")
 	bhReason := fs.String("reason", "", "blackhole reason string")
 	filter := fs.String("filter", "", "substring filter for blackhole list")
+	bindFlagUsage(fs, "rgopath - path table and routing control",
+		"Inspect or modify the path table via shared-instance RPC.",
+		[]helpLine{
+			{Cmd: "rgopath [flags]"},
+			{Cmd: "rgopath [flags] <destination_hash>"},
+			{Cmd: "reticulum-go path [flags]"},
+		},
+		"rgopath -t",
+		"rgopath -t -json",
+		"rgopath -d <dest_hash>",
+	)
 
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -45,7 +56,7 @@ func RunPath(args []string, opt ...Options) int {
 
 	cfg, err := rnsutil.LoadConfigDir(*configDir)
 	if err != nil {
-		fmt.Fprintf(stderr, "config: %v\n", err)
+		diagErr(stderr, "config", err)
 		return 1
 	}
 
@@ -93,7 +104,7 @@ func RunPath(args []string, opt ...Options) int {
 	if needsRPC {
 		client, err := rnsutil.DialRPC(cfg, nil)
 		if err != nil {
-			fmt.Fprintf(stderr, "rpc: %v\n", err)
+			diagErr(stderr, "rpc", err)
 			return 1
 		}
 		client.SetTimeout(*rpcTimeout)
@@ -106,7 +117,7 @@ func RunPath(args []string, opt ...Options) int {
 			}
 			paths, err := client.GetPathTable(mh)
 			if err != nil {
-				fmt.Fprintf(stderr, "path table: %v\n", err)
+				diagErr(stderr, "path table", err)
 				return 1
 			}
 			if *jsonOut {
@@ -130,7 +141,7 @@ func RunPath(args []string, opt ...Options) int {
 		case *rates:
 			table, err := client.GetRateTable()
 			if err != nil {
-				fmt.Fprintf(stderr, "rate table: %v\n", err)
+				diagErr(stderr, "rate table", err)
 				return 1
 			}
 			if *jsonOut {
@@ -158,7 +169,7 @@ func RunPath(args []string, opt ...Options) int {
 			}
 			ok, err := client.DropPath(destHash)
 			if err != nil {
-				fmt.Fprintf(stderr, "drop path: %v\n", err)
+				diagErr(stderr, "drop path", err)
 				return 1
 			}
 			if !ok {
@@ -175,7 +186,7 @@ func RunPath(args []string, opt ...Options) int {
 			}
 			n, err := client.DropAllVia(destHash)
 			if err != nil {
-				fmt.Fprintf(stderr, "drop via: %v\n", err)
+				diagErr(stderr, "drop via", err)
 				return 1
 			}
 			if n == 0 {
@@ -188,7 +199,7 @@ func RunPath(args []string, opt ...Options) int {
 		case *dropQueues:
 			n, err := client.DropAnnounceQueues()
 			if err != nil {
-				fmt.Fprintf(stderr, "drop queues: %v\n", err)
+				diagErr(stderr, "drop queues", err)
 				return 1
 			}
 			fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Dropping announce queues on all interfaces... (%d cleared)", n)))
@@ -197,7 +208,7 @@ func RunPath(args []string, opt ...Options) int {
 		case *blackholed:
 			raw, err := client.GetBlackholedIdentities()
 			if err != nil {
-				fmt.Fprintf(stderr, "blackhole list: %v\n", err)
+				diagErr(stderr, "blackhole list", err)
 				return 1
 			}
 			entries := rnsutil.NormalizeBlackholeRPC(raw)
@@ -232,7 +243,7 @@ func RunPath(args []string, opt ...Options) int {
 			}
 			ok, err := client.BlackholeIdentity(destHash, until, *bhReason)
 			if err != nil {
-				fmt.Fprintf(stderr, "blackhole: %v\n", err)
+				diagErr(stderr, "blackhole", err)
 				return 1
 			}
 			if ok {
@@ -249,7 +260,7 @@ func RunPath(args []string, opt ...Options) int {
 			}
 			ok, err := client.UnblackholeIdentity(destHash)
 			if err != nil {
-				fmt.Fprintf(stderr, "unblackhole: %v\n", err)
+				diagErr(stderr, "unblackhole", err)
 				return 1
 			}
 			if ok {
@@ -263,7 +274,7 @@ func RunPath(args []string, opt ...Options) int {
 
 	// Default: request path (node-attached, like rnpath without -t).
 	if len(destHash) == 0 {
-		fmt.Fprintln(stderr, "usage: rgopath [flags] <destination_hash>")
+		usageErr(stderr, "rgopath [flags] <destination_hash>")
 		fmt.Fprintln(stderr, "  -t path table  -r rates  -d drop  -D drop via  -q drop queues")
 		fmt.Fprintln(stderr, "  -R transport_id  -i identity  -W seconds")
 		fmt.Fprintln(stderr, "  -blackholed / -blackhole / -unblackhole")
@@ -272,11 +283,11 @@ func RunPath(args []string, opt ...Options) int {
 
 	n, err := node.New(cfg)
 	if err != nil {
-		fmt.Fprintf(stderr, "node: %v\n", err)
+		diagErr(stderr, "node", err)
 		return 1
 	}
 	if err := n.Start(); err != nil {
-		fmt.Fprintf(stderr, "start: %v\n", err)
+		diagErr(stderr, "start", err)
 		return 1
 	}
 	defer n.Stop()
@@ -358,11 +369,11 @@ func runPathRemote(cfg *common.ReticulumConfig, destHash []byte, opts pathRemote
 
 	n, err := node.New(cfg)
 	if err != nil {
-		fmt.Fprintf(stderr, "node: %v\n", err)
+		diagErr(stderr, "node", err)
 		return 1
 	}
 	if err := n.Start(); err != nil {
-		fmt.Fprintf(stderr, "start: %v\n", err)
+		diagErr(stderr, "start", err)
 		return 1
 	}
 	defer n.Stop()

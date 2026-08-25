@@ -17,6 +17,8 @@ import (
 	"os/exec"
 	"slices"
 	"strings"
+
+	"quad4/reticulum-go/pkg/term"
 )
 
 type testEvent struct {
@@ -102,7 +104,7 @@ func validateGoTestArgs(user []string) error {
 func run() int {
 	user := os.Args[1:]
 	if err := validateGoTestArgs(user); err != nil {
-		fmt.Fprintf(os.Stderr, "testsummary: %v\n", err)
+		fmt.Fprintf(os.Stderr, "%s %v\n", term.Red(os.Stderr, "testsummary:"), err)
 		return 2
 	}
 	cmd := exec.Command("go", goTestArgs(user)...) // #nosec G204,G702 -- go binary is fixed, argv is go test flags checked by validateGoTestArgs
@@ -115,11 +117,11 @@ func run() int {
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "testsummary: %v\n", err)
+		fmt.Fprintf(os.Stderr, "%s %v\n", term.Red(os.Stderr, "testsummary:"), err)
 		return 1
 	}
 	if err := cmd.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "testsummary: %v\n", err)
+		fmt.Fprintf(os.Stderr, "%s %v\n", term.Red(os.Stderr, "testsummary:"), err)
 		return 1
 	}
 
@@ -154,12 +156,13 @@ func run() int {
 				}
 				emitOutput[ev.Package][ev.Test] = true
 				if quiet {
-					fmt.Printf("\n=== FAIL %s  %s ===\n", ev.Package, ev.Test)
+					fmt.Printf("\n%s %s  %s ===\n",
+						term.Red(os.Stdout, "=== FAIL"), ev.Package, ev.Test)
 				}
 			} else {
 				failedPackages[ev.Package] = struct{}{}
 				if quiet {
-					fmt.Printf("\n=== FAIL %s ===\n", ev.Package)
+					fmt.Printf("\n%s %s ===\n", term.Red(os.Stdout, "=== FAIL"), ev.Package)
 				}
 			}
 			if ev.Output != "" {
@@ -196,7 +199,7 @@ func run() int {
 		}
 	}
 	if err := sc.Err(); err != nil {
-		fmt.Fprintf(os.Stderr, "testsummary: reading test output: %v\n", err)
+		fmt.Fprintf(os.Stderr, "%s reading test output: %v\n", term.Red(os.Stderr, "testsummary:"), err)
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
 		return 1
@@ -218,7 +221,8 @@ func run() int {
 		exit = 0
 		for pkg := range failedTests {
 			if quiet {
-				fmt.Fprintf(os.Stderr, "testsummary: %s spurious fuzz deadline (go#75804), treating as pass\n", pkg)
+				fmt.Fprintf(os.Stderr, "%s %s spurious fuzz deadline (go#75804), treating as pass\n",
+					term.Yellow(os.Stderr, "testsummary:"), pkg)
 			}
 			passedPackages[pkg] = 0
 			delete(failedPackages, pkg)
@@ -234,7 +238,7 @@ func run() int {
 			if tests, ok := failedTests[pkg]; ok && len(tests) > 0 {
 				continue
 			}
-			fmt.Printf("ok  %s  %.3fs\n", pkg, passedPackages[pkg])
+			fmt.Printf("%s  %s  %.3fs\n", term.Green(os.Stdout, "ok"), pkg, passedPackages[pkg])
 		}
 	}
 
@@ -251,9 +255,9 @@ func run() int {
 
 	if totalFailed > 0 {
 		if stderrBuf.Len() > 0 {
-			fmt.Println("\n" + strings.Repeat("-", 60))
-			fmt.Println("GO TEST STDERR")
-			fmt.Println(strings.Repeat("-", 60))
+			fmt.Println("\n" + term.Dim(os.Stdout, strings.Repeat("-", 60)))
+			fmt.Println(term.Bold(os.Stdout, "GO TEST STDERR"))
+			fmt.Println(term.Dim(os.Stdout, strings.Repeat("-", 60)))
 			_, _ = os.Stdout.Write(stderrBuf.Bytes())
 		}
 		printSummary(failedPackages, failedTests, pkgOutputs, testOutputs, totalFailed, quiet)
@@ -272,19 +276,19 @@ func printSummary(
 	totalFailed int,
 	quiet bool,
 ) {
-	fmt.Println("\n" + strings.Repeat("=", 60))
-	fmt.Println("TEST FAILURE SUMMARY")
-	fmt.Println(strings.Repeat("=", 60))
+	fmt.Println("\n" + term.Red(os.Stdout, strings.Repeat("=", 60)))
+	fmt.Println(term.Bold(os.Stdout, "TEST FAILURE SUMMARY"))
+	fmt.Println(term.Red(os.Stdout, strings.Repeat("=", 60)))
 
 	if len(failedPackages) > 0 {
-		fmt.Println("\nFailed packages:")
+		fmt.Println("\n" + term.Yellow(os.Stdout, "Failed packages:"))
 		for _, pkg := range sortedKeysSet(failedPackages) {
 			fmt.Printf("  - %s\n", pkg)
 		}
 	}
 
 	if len(failedTests) > 0 {
-		fmt.Println("\nFailed tests:")
+		fmt.Println("\n" + term.Yellow(os.Stdout, "Failed tests:"))
 		for _, pkg := range sortedKeysMap(failedTests) {
 			names := make([]string, 0, len(failedTests[pkg]))
 			for t := range failedTests[pkg] {
@@ -298,9 +302,9 @@ func printSummary(
 	}
 
 	if len(pkgOutputs) > 0 || len(testOutputs) > 0 {
-		fmt.Println("\n" + strings.Repeat("-", 60))
-		fmt.Println("FAILURE DETAILS")
-		fmt.Println(strings.Repeat("-", 60))
+		fmt.Println("\n" + term.Dim(os.Stdout, strings.Repeat("-", 60)))
+		fmt.Println(term.Bold(os.Stdout, "FAILURE DETAILS"))
+		fmt.Println(term.Dim(os.Stdout, strings.Repeat("-", 60)))
 
 		for _, pkg := range sortedKeysSet(failedPackages) {
 			fmt.Printf("\n=== %s (package failure) ===\n", pkg)
@@ -320,9 +324,9 @@ func printSummary(
 		}
 	}
 
-	fmt.Println("\n" + strings.Repeat("=", 60))
-	fmt.Printf("Total failures: %d\n", totalFailed)
-	fmt.Println(strings.Repeat("=", 60))
+	fmt.Println("\n" + term.Red(os.Stdout, strings.Repeat("=", 60)))
+	fmt.Printf("%s %d\n", term.Bold(os.Stdout, "Total failures:"), totalFailed)
+	fmt.Println(term.Red(os.Stdout, strings.Repeat("=", 60)))
 }
 
 // trimFailureOutput keeps CI logs readable under TESTSUMMARY_QUIET by retaining

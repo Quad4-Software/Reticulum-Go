@@ -55,6 +55,14 @@ func RunPageserver(args []string, opt ...Options) int {
 	fs.StringVar(&identityOverride, "identity", "", "identity file path")
 	fs.StringVar(&identityOverride, "identity-path", "", "same as -identity")
 	fs.BoolVar(&disablePageStats, "no-page-stats", false, "disable built-in page view stats")
+	bindFlagUsage(fs, "reticulum-go pageserver - NomadNet-style page server",
+		"Serves pages and files over Reticulum announces.",
+		[]helpLine{
+			{Cmd: "reticulum-go pageserver [flags]"},
+			{Cmd: "rgopageserver [flags]"},
+		},
+		"reticulum-go pageserver -pages-dir ./pages",
+	)
 
 	if err := fs.Parse(args); err != nil {
 		return 2

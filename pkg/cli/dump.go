@@ -26,6 +26,18 @@ func RunDump(args []string, opt ...Options) int {
 	hexArg := fs.String("hex", "", "single packet as hex (with or without spaces)")
 	pretty := fs.Bool("pretty", false, "indent JSON objects (default is JSONL)")
 	limit := fs.Int("n", 0, "max packets to emit (0 means no limit)")
+	bindFlagUsage(fs, "rgodump - decode RNS packets",
+		"Decode packets from hex, files, pcap, or stdin as JSON/JSONL.",
+		[]helpLine{
+			{Cmd: "rgodump -hex <bytes>"},
+			{Cmd: "rgodump -pcap file.pcap"},
+			{Cmd: "rgodump <hexfile>"},
+			{Cmd: "rgodump < stdin hex lines"},
+			{Cmd: "reticulum-go dump [flags] ..."},
+		},
+		"rgodump -hex deadbeef",
+		"rgodump -pcap capture.pcap -pretty",
+	)
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -35,13 +47,13 @@ func RunDump(args []string, opt ...Options) int {
 	case *pcapPath != "":
 		f, err := os.Open(*pcapPath)
 		if err != nil {
-			fmt.Fprintf(stderr, "pcap open: %v\n", err)
+			diagErr(stderr, "pcap open", err)
 			return 1
 		}
 		defer f.Close()
 		caps, err := packet.ReadPCAPUDPPayloads(f)
 		if err != nil {
-			fmt.Fprintf(stderr, "pcap read: %v\n", err)
+			diagErr(stderr, "pcap read", err)
 			return 1
 		}
 		for _, c := range caps {
@@ -51,7 +63,7 @@ func RunDump(args []string, opt ...Options) int {
 	case *hexArg != "":
 		raw, err := decodeHexBlob(*hexArg)
 		if err != nil {
-			fmt.Fprintf(stderr, "hex: %v\n", err)
+			diagErr(stderr, "hex", err)
 			return 1
 		}
 		frames = append(frames, packet.DecodeFrame(raw))
@@ -90,7 +102,7 @@ func RunDump(args []string, opt ...Options) int {
 	default:
 		stat, _ := os.Stdin.Stat()
 		if (stat.Mode() & os.ModeCharDevice) != 0 {
-			fmt.Fprintln(stderr, "usage: rgodump -hex <bytes> | rgodump -pcap file.pcap | rgodump <hexfile> | rgodump < stdin hex lines>")
+			usageErr(stderr, "rgodump -hex <bytes> | rgodump -pcap file.pcap | rgodump <hexfile> | rgodump < stdin hex lines")
 			return 2
 		}
 		br := bufio.NewReader(os.Stdin)
@@ -98,7 +110,7 @@ func RunDump(args []string, opt ...Options) int {
 		if len(peek) >= 4 && looksLikePCAP(peek) {
 			all, err := io.ReadAll(br)
 			if err != nil {
-				fmt.Fprintf(stderr, "stdin: %v\n", err)
+				diagErr(stderr, "stdin", err)
 				return 1
 			}
 			caps, err := packet.ReadPCAPUDPPayloads(bytes.NewReader(all))
@@ -125,7 +137,7 @@ func RunDump(args []string, opt ...Options) int {
 				frames = append(frames, packet.DecodeFrame(raw))
 			}
 			if err := sc.Err(); err != nil {
-				fmt.Fprintf(stderr, "stdin: %v\n", err)
+				diagErr(stderr, "stdin", err)
 				return 1
 			}
 		}
@@ -148,7 +160,7 @@ func RunDump(args []string, opt ...Options) int {
 			"frame": fr,
 		}
 		if err := enc.Encode(rec); err != nil {
-			fmt.Fprintf(stderr, "encode: %v\n", err)
+			diagErr(stderr, "encode", err)
 			return 1
 		}
 	}

@@ -25,6 +25,16 @@ func RunZen(args []string, opt ...Options) int {
 	tests := fs.Bool("test", false, "include *_test.go files")
 	python := fs.Bool("python", false, "also scan .py files under the module root")
 	dir := fs.String("C", "", "module root directory (default: cwd)")
+	bindFlagUsage(fs, "reticulum-go zen - Reticulum footgun scanner",
+		"Scans Go (and optionally Python) sources for path/link pitfalls.",
+		[]helpLine{
+			{Cmd: "reticulum-go zen [flags] [packages]"},
+			{Cmd: "rgozen [flags] [packages]"},
+		},
+		"reticulum-go zen ./...",
+		"reticulum-go zen -fix ./pkg/transport",
+		"reticulum-go zen -list-rules",
+	)
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}

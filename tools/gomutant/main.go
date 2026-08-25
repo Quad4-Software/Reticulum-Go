@@ -15,6 +15,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"quad4/reticulum-go/pkg/term"
 )
 
 func main() {
@@ -32,6 +34,13 @@ func run(args []string) int {
 		verbose   = fs.Bool("v", false, "verbose output")
 	)
 	fs.Var(&pkgs, "pkg", "package to test (repeatable)")
+	fs.Usage = func() {
+		fmt.Fprintf(os.Stderr, "%s\n\n", term.Bold(os.Stderr, "gomutant - mutation tester"))
+		fmt.Fprintf(os.Stderr, "%s\n", term.Bold(os.Stderr, "Usage:"))
+		fmt.Fprintf(os.Stderr, "  %s\n\n", term.Cyan(os.Stderr, "gomutant [-pkg ./pkg/...] [flags]"))
+		fmt.Fprintf(os.Stderr, "%s\n", term.Bold(os.Stderr, "Flags:"))
+		fs.PrintDefaults()
+	}
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -43,7 +52,7 @@ func run(args []string) int {
 	for _, pkg := range pkgs {
 		ok, err := runPackage(pkg, *threshold, *workers, *timeout, *maxMut, *verbose)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "gomutant: %s: %v\n", pkg, err)
+			fmt.Fprintf(os.Stderr, "%s %s: %v\n", term.Red(os.Stderr, "gomutant:"), pkg, err)
 			failed = true
 			continue
 		}
@@ -66,11 +75,12 @@ func runPackage(pkg string, threshold float64, workers int, timeout time.Duratio
 		mutants = sampleMutants(mutants, maxMut)
 	}
 	if len(mutants) == 0 {
-		fmt.Printf("gomutant: %s: no mutants found\n", pkg)
+		fmt.Printf("%s %s: no mutants found\n", term.Cyan(os.Stdout, "gomutant:"), pkg)
 		return true, nil
 	}
 
-	fmt.Printf("gomutant: %s: running %d mutants (workers=%d)\n", pkg, len(mutants), workers)
+	fmt.Printf("%s %s: running %d mutants (workers=%d)\n",
+		term.Cyan(os.Stdout, "gomutant:"), pkg, len(mutants), workers)
 	ctx := context.Background()
 	outcomes, err := runMutants(ctx, mutants, workers, verbose, timeout)
 	if err != nil {
@@ -87,11 +97,16 @@ func runPackage(pkg string, threshold float64, workers int, timeout time.Duratio
 			rel = o.Mutant.File
 		}
 		fmt.Printf("%-10s %s:%d:%d  %s -> %s\n",
-			o.Result, rel, o.Mutant.Line, o.Mutant.Column, o.Mutant.From, o.Mutant.To)
+			formatMutantResult(o.Result), rel, o.Mutant.Line, o.Mutant.Column, o.Mutant.From, o.Mutant.To)
 	}
 
-	fmt.Printf("gomutant: %s: efficacy %.1f%% (killed=%d lived=%d skipped=%d) threshold=%.1f%%\n",
+	line := fmt.Sprintf("gomutant: %s: efficacy %.1f%% (killed=%d lived=%d skipped=%d) threshold=%.1f%%",
 		pkg, pct, killed, lived, skipped, threshold)
+	if pct < threshold {
+		fmt.Println(term.Red(os.Stdout, line))
+	} else {
+		fmt.Println(term.Green(os.Stdout, line))
+	}
 
 	if killed+lived == 0 {
 		return false, fmt.Errorf("no viable mutants")
@@ -100,6 +115,19 @@ func runPackage(pkg string, threshold float64, workers int, timeout time.Duratio
 		return false, nil
 	}
 	return true, nil
+}
+
+func formatMutantResult(r mutantResult) string {
+	switch r {
+	case resultKilled:
+		return term.Green(os.Stdout, string(r))
+	case resultSurvived:
+		return term.Red(os.Stdout, string(r))
+	case resultSkipped:
+		return term.Yellow(os.Stdout, string(r))
+	default:
+		return string(r)
+	}
 }
 
 type multiFlag []string
