@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -77,12 +78,13 @@ func RunGitRemoteRNS(args []string, opt ...Options) int {
 		cfgDir = os.Getenv("RNGIT_CONFIG")
 	}
 	client, err := rnsgit.NewClient(rnsgit.ClientOptions{
-		ConfigDir:    cfgDir,
-		RNSConfigDir: rnsConfig,
-		DestHex:      destHex,
-		Group:        group,
-		Repo:         repo,
-		JSONProgress: *jsonOut,
+		ConfigDir:      cfgDir,
+		RNSConfigDir:   rnsConfig,
+		DestHex:        destHex,
+		Group:          group,
+		Repo:           repo,
+		JSONProgress:   *jsonOut,
+		ProgressWriter: stderr,
 	})
 	if err != nil {
 		fmt.Fprintf(stderr, "git-remote-rns failed: %v\n", err)
@@ -91,8 +93,7 @@ func RunGitRemoteRNS(args []string, opt ...Options) int {
 	defer client.Close()
 	ctx, cancel := rnsutil.CLIWaitContext(0)
 	defer cancel()
-	fmt.Fprint(os.Stderr, "Requesting path...")
-	if err := client.RunGitHelper(ctx, os.Stdin, os.Stdout, os.Stderr); err != nil {
+	if err := client.RunGitHelper(ctx, os.Stdin, os.Stdout, stderr); err != nil {
 		fmt.Fprintf(stderr, "git-remote-rns failed: %v\n", err)
 		return 255
 	}
@@ -190,7 +191,6 @@ func runGitMgmt(args []string, opt ...Options) int {
 		return 2
 	}
 	sub := args[0]
-	remote := args[1]
 	cfgDir := os.Getenv("RNGIT_CONFIG")
 	client, err := rnsgit.NewMgmtClient(cfgDir, "")
 	if err != nil {
@@ -198,37 +198,208 @@ func runGitMgmt(args []string, opt ...Options) int {
 		return 1
 	}
 	defer client.Close()
+	client.SetStatusWriter(stderr)
 	ctx, cancel := rnsutil.CLIWaitContext(0)
 	defer cancel()
-	if err := client.Connect(ctx, remote); err != nil {
-		diagErr(stderr, "connect", err)
-		return 1
-	}
+
+	connectURL := args[1]
 	switch sub {
-	case "create":
-		if err := client.CreateRepo(ctx, remote); err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
-			return 1
-		}
-		fmt.Fprintf(stdout, "Repository created\n")
-	case "sync":
-		if err := client.SyncRepo(ctx, remote); err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
-			return 1
-		}
-		fmt.Fprintf(stdout, "Repository synced\n")
 	case "fork", "mirror":
 		if len(args) < 3 {
 			usageErr(stderr, fmt.Sprintf("reticulum-go git %s <source> <target>", sub))
 			return 2
 		}
+		connectURL = args[2]
+	case "release", "work":
+		if len(args) < 3 {
+			usageErr(stderr, fmt.Sprintf("reticulum-go git %s <rns://...> <operation> ...", sub))
+			return 2
+		}
+		connectURL = args[1]
+	}
+	if err := client.Connect(ctx, connectURL); err != nil {
+		diagErr(stderr, "connect", err)
+		return 1
+	}
+
+	switch sub {
+	case "create":
+		if err := client.CreateRepo(ctx, args[1]); err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+		fmt.Fprintf(stdout, "Repository created\n")
+	case "sync":
+		if err := client.SyncRepo(ctx, args[1]); err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+		fmt.Fprintf(stdout, "Repository synced\n")
+	case "fork", "mirror":
 		if err := client.CloneRemote(ctx, args[1], args[2], sub); err != nil {
 			fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
 		fmt.Fprintf(stdout, "Repository %sd\n", sub)
+	case "perms":
+		contentPath := ""
+		useEditor := true
+		for i := 2; i < len(args); i++ {
+			switch args[i] {
+			case "-content", "--content":
+				if i+1 >= len(args) {
+					usageErr(stderr, "reticulum-go git perms <rns://...> -content <file>")
+					return 2
+				}
+				contentPath = args[i+1]
+				useEditor = false
+				i++
+			}
+		}
+		if err := client.ManagePermissions(ctx, args[1], contentPath, useEditor); err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+		fmt.Fprintf(stdout, "Permissions updated\n")
+	case "release":
+		return runGitRelease(ctx, client, args, stdout, stderr)
+	case "work":
+		return runGitWork(ctx, client, args, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "subcommand %q not implemented via CLI yet\n", sub)
+		return 2
+	}
+	return 0
+}
+
+func runGitRelease(ctx context.Context, client *rnsgit.MgmtClient, args []string, stdout, stderr io.Writer) int {
+	op := args[2]
+	remote := args[1]
+	switch op {
+	case "list":
+		out, err := client.ReleaseList(ctx, remote)
+		if err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+		fmt.Fprint(stdout, out)
+	case "fetch":
+		if len(args) < 5 {
+			usageErr(stderr, "reticulum-go git release fetch <rns://...> <tag> <artifact> [-o out]")
+			return 2
+		}
+		tag := args[3]
+		artifact := args[4]
+		outPath := artifact
+		for i := 5; i < len(args); i++ {
+			if args[i] == "-o" || args[i] == "--output" {
+				if i+1 >= len(args) {
+					usageErr(stderr, "missing value for -o")
+					return 2
+				}
+				outPath = args[i+1]
+			}
+		}
+		if err := client.ReleaseFetch(ctx, remote, tag, artifact, outPath); err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+		fmt.Fprintf(stdout, "Release artifact saved to %s\n", outPath)
+	case "create":
+		if len(args) < 4 {
+			usageErr(stderr, "reticulum-go git release create <rns://...> <tag> [-notes file]")
+			return 2
+		}
+		notes := ""
+		for i := 4; i < len(args); i++ {
+			switch args[i] {
+			case "-notes", "--notes":
+				if i+1 >= len(args) {
+					usageErr(stderr, "missing value for -notes")
+					return 2
+				}
+				b, err := os.ReadFile(args[i+1]) // #nosec G304 -- operator-chosen notes file
+				if err != nil {
+					fmt.Fprintf(stderr, "%v\n", err)
+					return 1
+				}
+				notes = string(b)
+				i++
+			}
+		}
+		if err := client.ReleaseCreate(ctx, remote, args[3], notes); err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+		fmt.Fprintf(stdout, "Release created\n")
+	default:
+		fmt.Fprintf(stderr, "unknown release operation %q\n", op)
+		return 2
+	}
+	return 0
+}
+
+func runGitWork(ctx context.Context, client *rnsgit.MgmtClient, args []string, stdout, stderr io.Writer) int {
+	op := args[2]
+	remote := args[1]
+	switch op {
+	case "list":
+		out, err := client.WorkList(ctx, remote)
+		if err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+		fmt.Fprint(stdout, out)
+	case "view":
+		if len(args) < 4 {
+			usageErr(stderr, "reticulum-go git work view <rns://...> <doc_id>")
+			return 2
+		}
+		out, err := client.WorkView(ctx, remote, args[3])
+		if err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+		fmt.Fprint(stdout, out)
+	case "create", "propose":
+		if len(args) < 4 {
+			usageErr(stderr, fmt.Sprintf("reticulum-go git work %s <rns://...> <title> [-content file]", op))
+			return 2
+		}
+		contentPath := ""
+		for i := 4; i < len(args); i++ {
+			if args[i] == "-content" || args[i] == "--content" {
+				if i+1 >= len(args) {
+					usageErr(stderr, "missing value for -content")
+					return 2
+				}
+				contentPath = args[i+1]
+				i++
+			}
+		}
+		var (
+			result string
+			err    error
+		)
+		if op == "create" {
+			result, err = client.WorkCreate(ctx, remote, args[3], contentPath)
+		} else {
+			result, err = client.WorkPropose(ctx, remote, args[3], contentPath)
+		}
+		if err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+		if result != "" {
+			fmt.Fprint(stdout, result)
+			if !strings.HasSuffix(result, "\n") {
+				fmt.Fprintln(stdout)
+			}
+		} else {
+			fmt.Fprintf(stdout, "Work document %sd\n", op)
+		}
+	default:
+		fmt.Fprintf(stderr, "unknown work operation %q\n", op)
 		return 2
 	}
 	return 0
@@ -244,6 +415,9 @@ func printGitHelp(w io.Writer) {
 		helpLine{"reticulum-go git fork <source> <target>", "fork repository"},
 		helpLine{"reticulum-go git mirror <source> <target>", "mirror repository"},
 		helpLine{"reticulum-go git sync <rns://node/group/repo>", "sync mirror/fork"},
+		helpLine{"reticulum-go git perms <rns://...> [-content file]", "edit group or repo permissions"},
+		helpLine{"reticulum-go git release list|fetch|create ...", "manage release artifacts"},
+		helpLine{"reticulum-go git work list|view|create|propose ...", "manage work documents"},
 		helpLine{"reticulum-go git remote-rns <name> <rns://...>", "git remote helper"},
 	)
 	fmt.Fprintln(w)

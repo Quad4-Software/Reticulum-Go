@@ -43,7 +43,7 @@ func (n *Node) handlePerms(_ string, data []byte, _ []byte, _ []byte, remote *id
 		allowedPath := filepath.Join(filepath.Dir(ga.Path), group+".allowed")
 		if step == "get" {
 			content, _ := ReadAllowedFile(allowedPath)
-			return append([]byte{ResOK}, []byte(content)...)
+			return PermsGetResponse(content)
 		}
 		if step == "set" {
 			content := fmt.Sprint(req["content"])
@@ -72,7 +72,7 @@ func (n *Node) handlePerms(_ string, data []byte, _ []byte, _ []byte, remote *id
 		allowedPath := filepath.Join(ga.Path, repo+".allowed")
 		if step == "get" {
 			content, _ := ReadAllowedFile(allowedPath)
-			return append([]byte{ResOK}, []byte(content)...)
+			return PermsGetResponse(content)
 		}
 		if step == "set" {
 			content := fmt.Sprint(req["content"])

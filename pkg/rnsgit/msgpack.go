@@ -54,6 +54,40 @@ func RepoFromRequest(req map[any]any) (string, bool) {
 	return "", false
 }
 
+// PermsGetResponse builds a rngit-compatible permissions get payload.
+func PermsGetResponse(content string) []byte {
+	packed, _ := msgpack.Marshal(map[string]string{"content": content})
+	return append([]byte{ResOK}, packed...)
+}
+
+// ParsePermsGetBody extracts permission file text from a get response body.
+func ParsePermsGetBody(body []byte) (string, error) {
+	if len(body) == 0 {
+		return "", fmt.Errorf("empty response")
+	}
+	if body[0] != ResOK {
+		msg := string(body[1:])
+		if msg == "" {
+			msg = "permission request failed"
+		}
+		return "", fmt.Errorf("%s", msg)
+	}
+	if len(body) == 1 {
+		return "", nil
+	}
+	payload := body[1:]
+	var wrapped map[string]any
+	if err := msgpack.Unmarshal(payload, &wrapped); err == nil {
+		if c, ok := wrapped["content"].(string); ok {
+			return c, nil
+		}
+		if c, ok := wrapped["content"].([]byte); ok {
+			return string(c), nil
+		}
+	}
+	return string(payload), nil
+}
+
 // OKMetadataPacked returns msgpack metadata with result code zero.
 func OKMetadataPacked() []byte {
 	b, _ := msgpack.Marshal(map[int]int{IdxResultCode: ResOK})

@@ -110,6 +110,10 @@ func (c *Client) UseTransport(tr *transport.Transport, stop func()) {
 
 // Connect starts transport and opens a link to the git node.
 func (c *Client) Connect(ctx context.Context) error {
+	status := c.progressWriter
+	statusLine(status, "Requesting path...")
+	c.emitProgress("path_wait", nil)
+
 	if c.tr == nil {
 		rnsCfg, err := rnsutil.LoadConfigDir(c.cfg.RNSConfigDir)
 		if err != nil {
@@ -140,6 +144,10 @@ func (c *Client) Connect(ctx context.Context) error {
 		c.stopAttachedNode()
 		return fmt.Errorf("path: %w", err)
 	}
+	statusLinef(status, "\rPath resolved     \n")
+	c.emitProgress("path_resolved", nil)
+	statusLine(status, "Establishing link...")
+
 	remote, err := identity.Recall(destHash)
 	if err != nil {
 		c.stopAttachedNode()
@@ -162,7 +170,9 @@ func (c *Client) Connect(ctx context.Context) error {
 	}
 	time.Sleep(100 * time.Millisecond)
 	c.link = l
-	c.refBatchSize = dynamicRefBatch(c.refBatchSize, l)
+	c.refBatchSize = dynamicRefBatch(c.refBatchSize, l, c.tr)
+	statusLinef(status, "Link established with remote\n")
+	c.emitProgress("link_ready", map[string]any{"ref_batch_size": c.refBatchSize})
 	return nil
 }
 
@@ -187,38 +197,62 @@ func activateGitLink(ctx context.Context, l *link.Link) error {
 	return nil
 }
 
-func dynamicRefBatch(base int, l *link.Link) int {
-	if l == nil || base <= 0 {
-		return DefaultRefBatchSize
+type batchLink interface {
+	GetRTT() float64
+}
+
+type batchTransport interface {
+	SlowestOnlineBitrate() int64
+}
+
+func dynamicRefBatch(base int, l batchLink, tr batchTransport) int {
+	if base <= 0 {
+		base = DefaultRefBatchSize
 	}
-	rtt := l.GetRTT()
-	if rtt <= 0 {
-		return base
-	}
-	if rtt > 2.0 {
-		n := base / 2
-		if n < 4 {
-			return 4
+	batch := base
+	if l != nil {
+		rtt := l.GetRTT()
+		if rtt > 2.0 {
+			n := batch / 2
+			if n < 4 {
+				n = 4
+			}
+			batch = n
+		} else if rtt > 0 && rtt < 0.2 {
+			n := batch * 2
+			if n > 64 {
+				n = 64
+			}
+			batch = n
 		}
-		return n
 	}
-	if rtt < 0.2 {
-		n := base * 2
-		if n > 64 {
-			return 64
+	if tr != nil {
+		br := tr.SlowestOnlineBitrate()
+		switch {
+		case br > 0 && br < 100_000:
+			n := batch / 2
+			if n < 4 {
+				n = 4
+			}
+			batch = n
+		case br >= 10_000_000:
+			n := batch * 2
+			if n > 64 {
+				n = 64
+			}
+			batch = n
 		}
-		return n
 	}
-	return base
+	return batch
 }
 
 // RunGitHelper executes the git remote-helper protocol on stdin/stdout.
 func (c *Client) RunGitHelper(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer) error {
+	if c.progressWriter == nil && stderr != nil {
+		c.progressWriter = stderr
+	}
 	if err := c.Connect(ctx); err != nil {
 		return err
-	}
-	if stderr != nil {
-		fmt.Fprint(stderr, "\rPath resolved     \n")
 	}
 	in := bufio.NewReader(stdin)
 	fetchQueue := make([][2]string, 0)
@@ -362,6 +396,7 @@ func (c *Client) processFetch(ctx context.Context, queue [][2]string, stderr io.
 		if len(have) > 0 {
 			reqMap["have"] = have
 		}
+		c.emitProgress("fetch_batch", map[string]any{"refs": len(batch), "remaining": len(queue)})
 		body, meta, err := c.sendRequestWithMeta(ctx, PathFetch, reqMap, 2*time.Hour)
 		if err != nil {
 			return err
@@ -369,46 +404,17 @@ func (c *Client) processFetch(ctx context.Context, queue [][2]string, stderr io.
 		if body == nil && meta == nil {
 			return fmt.Errorf("empty fetch response")
 		}
-		if len(body) > 0 && body[0] == ResOK && len(body) == 1 {
+		if len(body) == 1 && body[0] == ResOK {
 			continue
 		}
-		bundlePath := ""
-		if len(body) > 0 && meta == nil && body[0] == ResOK {
-			continue
-		}
-		if meta != nil {
-			if code, ok := MetadataResultCode(meta); ok && code != ResOK {
-				return fmt.Errorf("fetch failed code %d", code)
-			}
-			bundlePath = filepath.Join(c.tmpDir, "fetch.bundle")
-			if err := os.WriteFile(bundlePath, body, 0o600); err != nil {
-				return err
-			}
-		} else if body != nil {
-			if body[0] != ResOK {
-				if isGitBundle(body) {
-					bundlePath = filepath.Join(c.tmpDir, "fetch.bundle")
-					if err := os.WriteFile(bundlePath, body, 0o600); err != nil {
-						return err
-					}
-				} else {
-					return fmt.Errorf("fetch failed: %s", string(body[1:]))
-				}
-			} else {
-				bundlePath = filepath.Join(c.tmpDir, "fetch.bundle")
-				if err := os.WriteFile(bundlePath, body[1:], 0o600); err != nil {
-					return err
-				}
-			}
+		bundlePath, err := c.writeFetchBundle(body, meta)
+		if err != nil {
+			return err
 		}
 		if bundlePath == "" {
 			continue
 		}
-		if c.progress && stderr != nil {
-			if st, err := os.Stat(bundlePath); err == nil {
-				fmt.Fprintf(stderr, "Transferring: 100%% (%d bytes).\n", st.Size())
-			}
-		}
+		c.reportFetchTransfer(stderr, bundlePath)
 		if err := localGitCmd("bundle", "verify", "-q", bundlePath).Run(); err != nil {
 			return fmt.Errorf("bundle verify failed")
 		}
@@ -423,17 +429,58 @@ func (c *Client) processFetch(ctx context.Context, queue [][2]string, stderr io.
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("bundle unbundle: %w", err)
 		}
-		for _, item := range batch {
-			sha, ref := item[0], item[1]
-			if SanSHA(sha) == "" || SanRef(ref) == "" {
-				continue
-			}
-			if err := localGitCmd("update-ref", ref, sha).Run(); err != nil {
-				return fmt.Errorf("update-ref %s: %w", ref, err)
-			}
-		}
+		c.emitProgress("fetch_unbundled", map[string]any{"refs": len(batch)})
 	}
 	return nil
+}
+
+func (c *Client) writeFetchBundle(body []byte, meta map[string]any) (string, error) {
+	if meta != nil {
+		if code, ok := MetadataResultCode(meta); ok && code != ResOK {
+			return "", fmt.Errorf("fetch failed code %d", code)
+		}
+		if len(body) == 0 {
+			return "", nil
+		}
+		bundlePath := filepath.Join(c.tmpDir, "fetch.bundle")
+		if err := os.WriteFile(bundlePath, body, 0o600); err != nil {
+			return "", err
+		}
+		return bundlePath, nil
+	}
+	if len(body) == 0 {
+		return "", nil
+	}
+	if body[0] != ResOK {
+		if isGitBundle(body) {
+			bundlePath := filepath.Join(c.tmpDir, "fetch.bundle")
+			if err := os.WriteFile(bundlePath, body, 0o600); err != nil {
+				return "", err
+			}
+			return bundlePath, nil
+		}
+		return "", fmt.Errorf("fetch failed: %s", string(body[1:]))
+	}
+	if len(body) == 1 {
+		return "", nil
+	}
+	bundlePath := filepath.Join(c.tmpDir, "fetch.bundle")
+	if err := os.WriteFile(bundlePath, body[1:], 0o600); err != nil {
+		return "", err
+	}
+	return bundlePath, nil
+}
+
+func (c *Client) reportFetchTransfer(stderr io.Writer, bundlePath string) {
+	st, err := os.Stat(bundlePath)
+	if err != nil {
+		return
+	}
+	c.emitProgress("fetch_transfer", map[string]any{"bytes": st.Size()})
+	if !c.progress || stderr == nil {
+		return
+	}
+	fmt.Fprintf(stderr, "Transferring: 100%% (%d bytes).\n", st.Size())
 }
 
 func (c *Client) processPush(ctx context.Context, localRef, remoteRef string, stdout, stderr io.Writer) error {
@@ -543,8 +590,37 @@ func (c *Client) sendRequestWithMeta(ctx context.Context, path string, payload a
 
 // RunGitRemoteRNS is the entry point for git-remote-rns.
 func RunGitRemoteRNS(args []string, rnsConfig string) int {
+	jsonOut := false
+	configDir := ""
+	rnsDir := rnsConfig
+	pos := 0
+	for pos < len(args) && strings.HasPrefix(args[pos], "-") {
+		switch args[pos] {
+		case "-json", "--json":
+			jsonOut = true
+		case "-config":
+			if pos+1 >= len(args) {
+				fmt.Fprintln(os.Stderr, "missing value for -config")
+				return 2
+			}
+			configDir = args[pos+1]
+			pos++
+		case "-rnsconfig":
+			if pos+1 >= len(args) {
+				fmt.Fprintln(os.Stderr, "missing value for -rnsconfig")
+				return 2
+			}
+			rnsDir = args[pos+1]
+			pos++
+		default:
+			fmt.Fprintf(os.Stderr, "unknown flag %q\n", args[pos])
+			return 2
+		}
+		pos++
+	}
+	args = args[pos:]
 	if len(args) < 2 {
-		fmt.Fprintln(os.Stderr, "Usage: git-remote-rns <remote-name> <url>")
+		fmt.Fprintln(os.Stderr, "Usage: git-remote-rns [-json] <remote-name> <url>")
 		return 1
 	}
 	url := args[1]
@@ -557,13 +633,18 @@ func RunGitRemoteRNS(args []string, rnsConfig string) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	cfgDir := os.Getenv("RNGIT_CONFIG")
+	cfgDir := configDir
+	if cfgDir == "" {
+		cfgDir = os.Getenv("RNGIT_CONFIG")
+	}
 	client, err := NewClient(ClientOptions{
-		ConfigDir:    cfgDir,
-		RNSConfigDir: rnsConfig,
-		DestHex:      destHex,
-		Group:        group,
-		Repo:         repo,
+		ConfigDir:      cfgDir,
+		RNSConfigDir:   rnsDir,
+		DestHex:        destHex,
+		Group:          group,
+		Repo:           repo,
+		JSONProgress:   jsonOut,
+		ProgressWriter: os.Stderr,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "git-remote-rns failed: %v\n", err)
@@ -572,7 +653,6 @@ func RunGitRemoteRNS(args []string, rnsConfig string) int {
 	defer client.Close()
 	ctx, cancel := rnsutil.CLIWaitContext(0)
 	defer cancel()
-	fmt.Fprint(os.Stderr, "Requesting path...")
 	if err := client.RunGitHelper(ctx, os.Stdin, os.Stdout, os.Stderr); err != nil {
 		fmt.Fprintf(os.Stderr, "git-remote-rns failed: %v\n", err)
 		return 255

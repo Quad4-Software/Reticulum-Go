@@ -9,20 +9,31 @@ import (
 	"time"
 )
 
-func (n *Node) mirrorScheduler(ctx context.Context, interval time.Duration) {
-	ticker := time.NewTicker(15 * time.Minute)
+const mirrorPollInterval = 15 * time.Minute
+
+func (n *Node) mirrorScheduler(ctx context.Context, syncInterval time.Duration) {
+	if syncInterval <= 0 {
+		syncInterval = time.Duration(n.cfg.MirrorIntervalHrs) * time.Hour
+	}
+	if syncInterval <= 0 {
+		syncInterval = 24 * time.Hour
+	}
+	ticker := time.NewTicker(mirrorPollInterval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			n.syncMirrors()
+			n.syncMirrors(syncInterval)
 		}
 	}
 }
 
-func (n *Node) syncMirrors() {
+func (n *Node) syncMirrors(syncInterval time.Duration) {
+	if syncInterval <= 0 {
+		syncInterval = time.Duration(n.cfg.MirrorIntervalHrs) * time.Hour
+	}
 	n.mu.RLock()
 	groups := n.access.Groups
 	n.mu.RUnlock()
@@ -36,7 +47,7 @@ func (n *Node) syncMirrors() {
 			if synced != "" {
 				var ts int64
 				if _, err := fmt.Sscanf(synced, "%d", &ts); err == nil {
-					if time.Since(time.Unix(ts, 0)) < time.Duration(n.cfg.MirrorIntervalHrs)*time.Hour {
+					if time.Since(time.Unix(ts, 0)) < syncInterval {
 						continue
 					}
 				}
