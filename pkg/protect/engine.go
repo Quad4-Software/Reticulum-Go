@@ -17,6 +17,7 @@ import (
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/health"
+	"quad4/reticulum-go/pkg/hostcap"
 )
 
 // Decision is the result of an admit check.
@@ -362,6 +363,7 @@ func (e *Engine) ObserveMemory() {
 	if heap >= tripAt {
 		e.shedMemory.Store(true)
 		e.recordTrip("", ReasonMemory)
+		hostcap.LogUnderMemoryPressure(heap, uint64(limit))
 	}
 }
 
