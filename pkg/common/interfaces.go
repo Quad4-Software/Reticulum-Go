@@ -21,8 +21,10 @@ type IFAC interface {
 	Size() int
 	// Mask wraps a raw outbound packet with an authenticated Interface Access
 	// Code. The returned buffer is the bytes to write on the wire.
-
 	Mask(raw []byte) ([]byte, error)
+	// MaskInto writes a masked packet into dst when cap(dst) is sufficient.
+	// When cap(dst) is too small a new buffer is allocated.
+	MaskInto(dst, raw []byte) ([]byte, error)
 	// Unmask validates an inbound packet's IFAC. It returns (raw, true) when
 	// the packet had a valid IFAC stripped, (raw, true) unchanged when the
 	// IFAC flag is not set, and (nil, false) when validation failed.
@@ -128,6 +130,8 @@ type BaseInterface struct {
 	// deferInboundIFAC skips ApplyIFACInbound in ProcessIncoming so transport
 	// inbound preprocessing can apply IFAC once (RNS 1.5.0).
 	deferInboundIFAC bool
+
+	ifacScratch []byte
 }
 
 // NewBaseInterface creates a BaseInterface value for embedding at construction.
@@ -309,20 +313,29 @@ func (i *BaseInterface) Send(data []byte, address string) error {
 	if err := RejectReceiveOnly(i); err != nil {
 		return err
 	}
-	id := i.GetIFAC()
-	if id != nil {
-		masked, err := id.Mask(data)
-		if err != nil {
-			return err
-		}
-		data = masked
+	masked, err := ApplyIFACOutboundInto(i, i.ifacOutboundScratch(len(data)), data)
+	if err != nil {
+		return err
 	}
+	data = masked
 	i.Mutex.Lock()
 	i.TxBytes += uint64(len(data))
 	i.TxPackets++
 	i.lastTx = time.Now()
 	i.Mutex.Unlock()
 	return i.ProcessOutgoing(data)
+}
+
+func (i *BaseInterface) ifacOutboundScratch(payloadLen int) []byte {
+	id := i.GetIFAC()
+	if id == nil {
+		return nil
+	}
+	need := payloadLen + id.Size() + 2
+	if cap(i.ifacScratch) < need {
+		i.ifacScratch = make([]byte, need)
+	}
+	return i.ifacScratch[:0]
 }
 
 func (i *BaseInterface) SetDeferInboundIFAC(deferIFAC bool) {
@@ -410,6 +423,11 @@ func (i *BaseInterface) GetIFAC() IFAC {
 
 // error.
 func ApplyIFACOutbound(iface NetworkInterface, raw []byte) ([]byte, error) {
+	return ApplyIFACOutboundInto(iface, nil, raw)
+}
+
+// ApplyIFACOutboundInto masks raw using dst as the output buffer when possible.
+func ApplyIFACOutboundInto(iface NetworkInterface, dst, raw []byte) ([]byte, error) {
 	if iface == nil {
 		return raw, nil
 	}
@@ -417,7 +435,7 @@ func ApplyIFACOutbound(iface NetworkInterface, raw []byte) ([]byte, error) {
 	if id == nil {
 		return raw, nil
 	}
-	return id.Mask(raw)
+	return id.MaskInto(dst, raw)
 }
 
 // ApplyIFACInbound applies the IFAC policy of Transport.inbound. It

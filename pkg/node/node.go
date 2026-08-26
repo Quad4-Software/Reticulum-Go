@@ -4,6 +4,7 @@
 package node
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/discovery"
+	"quad4/reticulum-go/pkg/hostcap"
 	"quad4/reticulum-go/pkg/interfaces"
 	"quad4/reticulum-go/pkg/link"
 	"quad4/reticulum-go/pkg/sandbox"
@@ -168,6 +170,8 @@ func (n *Node) Interfaces() []interfaces.Interface {
 
 // Start starts transport and network interfaces.
 func (n *Node) Start() error {
+	transportNode := n.config != nil && n.config.EnableTransport
+	hostcap.Start(context.Background(), transportNode)
 	if err := n.transport.Start(); err != nil {
 		return fmt.Errorf("failed to start transport: %w", err)
 	}
@@ -257,6 +261,7 @@ func (n *Node) startInterfaces() error {
 
 // Stop shuts down interfaces and transport.
 func (n *Node) Stop() error {
+	hostcap.Stop()
 	n.stopBlackholeUpdater()
 	n.stopAutoconnectMonitor()
 	n.drainAutoconnectEntries()

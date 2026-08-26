@@ -77,6 +77,25 @@ func TestDeriveKey(t *testing.T) {
 	}
 }
 
+func TestDeriveKeyIntoMatchesDeriveKey(t *testing.T) {
+	secret := []byte("test-secret")
+	salt := []byte("test-salt")
+	info := []byte("test-info")
+	for _, length := range []int{1, 32, 64, 475, 1024, 4096} {
+		want, err := DeriveKey(secret, salt, info, length)
+		if err != nil {
+			t.Fatalf("DeriveKey(%d): %v", length, err)
+		}
+		got := make([]byte, length)
+		if err := DeriveKeyInto(got, secret, salt, info); err != nil {
+			t.Fatalf("DeriveKeyInto(%d): %v", length, err)
+		}
+		if !bytes.Equal(want, got) {
+			t.Fatalf("DeriveKeyInto(%d) mismatch", length)
+		}
+	}
+}
+
 func TestDeriveKeyEdgeCases(t *testing.T) {
 	secret := []byte("test-secret")
 	salt := []byte("test-salt")

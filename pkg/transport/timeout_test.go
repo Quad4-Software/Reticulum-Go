@@ -4,6 +4,7 @@
 package transport
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"testing"
@@ -237,5 +238,37 @@ func TestAwaitPathReturnsWhenPathLearned(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("AwaitPath did not return after path update")
+	}
+}
+
+func TestAwaitPathRetryUsesPathRequestMI(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+	tr.SetIdentity(mustIdentity(t))
+
+	out := newRelayIface("out")
+	if err := tr.RegisterInterface("out", out); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	dest := bytes.Repeat([]byte{0x77}, 16)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- tr.AwaitPath(ctx, dest)
+	}()
+
+	select {
+	case <-time.After(5 * time.Second):
+	case err := <-done:
+		if err == nil {
+			t.Fatal("unexpected path before timeout")
+		}
+	}
+
+	if n := len(out.snapshot()); n != 1 {
+		t.Fatalf("AwaitPath emitted %d path requests in 5s, want 1 while inside PathRequestMI", n)
 	}
 }

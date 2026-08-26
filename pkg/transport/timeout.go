@@ -124,11 +124,10 @@ func (t *Transport) AwaitPath(ctx context.Context, destinationHash []byte) error
 	}
 	wait, cancel := waitContext(ctx, t.PathResponseWindow(destinationHash))
 	defer cancel()
-	const requestEvery = 2 * time.Second
 	_ = t.RequestPath(destinationHash, "", nil, false)
 	lastReq := time.Now()
-	ticker := time.NewTicker(50 * time.Millisecond)
-	defer ticker.Stop()
+	poll := time.NewTicker(50 * time.Millisecond)
+	defer poll.Stop()
 	for {
 		if t.HasPath(destinationHash) {
 			return nil
@@ -139,8 +138,8 @@ func (t *Transport) AwaitPath(ctx context.Context, destinationHash []byte) error
 				return common.ErrNoPathToDestinationf(destinationHash)
 			}
 			return wait.Err()
-		case <-ticker.C:
-			if time.Since(lastReq) >= requestEvery {
+		case <-poll.C:
+			if time.Since(lastReq) >= PathRequestMI {
 				_ = t.RequestPath(destinationHash, "", nil, false)
 				lastReq = time.Now()
 			}

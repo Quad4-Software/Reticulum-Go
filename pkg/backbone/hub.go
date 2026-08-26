@@ -231,12 +231,10 @@ func (s *Stream) QueueSend(payload []byte) {
 	}
 	if s.hub.goMode {
 		s.mu.Lock()
-		s.txBuf = appendFrameHDLC(s.txBuf, payload)
-		buf := s.txBuf
-		s.txBuf = nil
+		frame := appendFrameHDLC(s.txBuf[:0], payload)
 		s.mu.Unlock()
-		written, err := s.conn.Write(buf)
-		s.requeueUnwritten(buf, written, err)
+		written, err := s.conn.Write(frame)
+		s.requeueUnwritten(frame, written, err)
 		return
 	}
 	s.mu.Lock()

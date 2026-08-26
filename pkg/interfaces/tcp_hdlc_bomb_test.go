@@ -23,6 +23,7 @@ func newTestTCPClient() *TCPClientInterface {
 		neverConnected: false,
 		packetBuffer:   make([]byte, 0),
 		done:           make(chan struct{}),
+		txFrame:        make([]byte, 0, DefaultMTU*2+4),
 	}
 	tc.MTU = 1064
 	tc.Online = true
