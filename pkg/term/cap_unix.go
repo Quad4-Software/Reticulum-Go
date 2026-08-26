@@ -15,5 +15,11 @@ func prepareColorFile(f *os.File) bool {
 	if f == nil {
 		return false
 	}
-	return xterm.IsTerminal(int(f.Fd()))
+	fd := f.Fd()
+	maxInt := int(^uint(0) >> 1)
+	if fd > uintptr(maxInt) {
+		return false
+	}
+	// #nosec G115 -- fd is bounded above by max int
+	return xterm.IsTerminal(int(fd))
 }

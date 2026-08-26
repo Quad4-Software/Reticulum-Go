@@ -10,6 +10,7 @@ import (
 	"maps"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 func (c *Client) emitProgress(event string, fields map[string]any) {
@@ -39,18 +40,27 @@ func statusLinef(w io.Writer, format string, args ...any) {
 	fmt.Fprintf(w, format, args...)
 }
 
-func editWithEditor(initial string) (string, bool, error) {
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		for _, fb := range []string{"nano", "vim", "vi"} {
-			if _, err := exec.LookPath(fb); err == nil {
-				editor = fb
-				break
-			}
+func resolveEditor() (string, error) {
+	if ed := strings.TrimSpace(os.Getenv("EDITOR")); ed != "" {
+		name := strings.Fields(ed)[0]
+		path, err := exec.LookPath(name)
+		if err != nil {
+			return "", fmt.Errorf("EDITOR %q not executable: %w", name, err)
+		}
+		return path, nil
+	}
+	for _, fb := range []string{"nano", "vim", "vi"} {
+		if path, err := exec.LookPath(fb); err == nil {
+			return path, nil
 		}
 	}
-	if editor == "" {
-		return "", false, fmt.Errorf("no editor found, set EDITOR or use -content")
+	return "", fmt.Errorf("no editor found, set EDITOR or use -content")
+}
+
+func editWithEditor(initial string) (string, bool, error) {
+	editor, err := resolveEditor()
+	if err != nil {
+		return "", false, err
 	}
 	tmp, err := os.CreateTemp("", "rnsgit-edit-*")
 	if err != nil {
@@ -59,13 +69,15 @@ func editWithEditor(initial string) (string, bool, error) {
 	path := tmp.Name()
 	defer os.Remove(path)
 	if _, err := tmp.WriteString(initial); err != nil {
-		tmp.Close()
+		if closeErr := tmp.Close(); closeErr != nil {
+			return "", false, fmt.Errorf("write temp file: %w (close: %v)", err, closeErr)
+		}
 		return "", false, err
 	}
 	if err := tmp.Close(); err != nil {
 		return "", false, err
 	}
-	cmd := exec.Command(editor, path) // #nosec G204 -- operator-chosen editor
+	cmd := exec.Command(editor, path) // #nosec G204 -- editor from exec.LookPath, path from os.CreateTemp
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

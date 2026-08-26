@@ -75,7 +75,7 @@ func measureMemCopy(ctx context.Context, d time.Duration) float64 {
 	src := make([]byte, copyChunkBytes)
 	dst := make([]byte, copyChunkBytes)
 	for i := range src {
-		src[i] = byte(i)
+		src[i] = byte(i & 0xff) // #nosec G115 -- probe fill uses low byte only
 	}
 	deadline := time.Now().Add(d)
 	var total uint64
@@ -96,7 +96,7 @@ func measureMemCopy(ctx context.Context, d time.Duration) float64 {
 func measureCPU(ctx context.Context, d time.Duration) float64 {
 	buf := make([]byte, cpuChunkBytes)
 	for i := range buf {
-		buf[i] = byte(i * 37)
+		buf[i] = byte((i * 37) & 0xff) // #nosec G115 -- probe fill uses low byte only
 	}
 	deadline := time.Now().Add(d)
 	var total uint64
@@ -107,7 +107,7 @@ func measureCPU(ctx context.Context, d time.Duration) float64 {
 		}
 		for i := range buf {
 			x ^= uint64(buf[i]) * 131
-			buf[i] = byte(x >> (i & 7))
+			buf[i] = byte((x >> (i & 7)) & 0xff) // #nosec G115 -- probe mix uses low byte only
 		}
 		total += cpuChunkBytes
 	}
