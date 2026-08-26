@@ -109,7 +109,7 @@ type BaseInterface struct {
 	// deferInboundIFAC skips ApplyIFACInbound in ProcessIncoming so transport
 	// inbound preprocessing can apply IFAC once (RNS 1.5.0).
 	deferInboundIFAC bool
-	ifacScratch       []byte
+	ifacScratch      []byte
 	prxc, ptxc       uint64
 	sampleARXB       uint64
 	sampleATXB       uint64

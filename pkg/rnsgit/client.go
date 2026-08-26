@@ -213,16 +213,10 @@ func dynamicRefBatch(base int, l batchLink, tr batchTransport) int {
 	if l != nil {
 		rtt := l.GetRTT()
 		if rtt > 2.0 {
-			n := batch / 2
-			if n < 4 {
-				n = 4
-			}
+			n := max(batch/2, 4)
 			batch = n
 		} else if rtt > 0 && rtt < 0.2 {
-			n := batch * 2
-			if n > 64 {
-				n = 64
-			}
+			n := min(batch*2, 64)
 			batch = n
 		}
 	}
@@ -230,16 +224,10 @@ func dynamicRefBatch(base int, l batchLink, tr batchTransport) int {
 		br := tr.SlowestOnlineBitrate()
 		switch {
 		case br > 0 && br < 100_000:
-			n := batch / 2
-			if n < 4 {
-				n = 4
-			}
+			n := max(batch/2, 4)
 			batch = n
 		case br >= 10_000_000:
-			n := batch * 2
-			if n > 64 {
-				n = 64
-			}
+			n := min(batch*2, 64)
 			batch = n
 		}
 	}

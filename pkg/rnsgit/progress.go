@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 )
@@ -16,9 +17,7 @@ func (c *Client) emitProgress(event string, fields map[string]any) {
 		return
 	}
 	m := map[string]any{"event": event}
-	for k, v := range fields {
-		m[k] = v
-	}
+	maps.Copy(m, fields)
 	b, err := json.Marshal(m)
 	if err != nil {
 		return
