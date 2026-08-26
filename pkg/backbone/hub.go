@@ -232,9 +232,9 @@ func (s *Stream) QueueSend(payload []byte) {
 	if s.hub.goMode {
 		s.mu.Lock()
 		frame := appendFrameHDLC(s.txBuf[:0], payload)
-		s.mu.Unlock()
 		written, err := s.conn.Write(frame)
-		s.requeueUnwritten(frame, written, err)
+		s.requeueUnwrittenLocked(frame, written, err)
+		s.mu.Unlock()
 		return
 	}
 	s.mu.Lock()
@@ -253,11 +253,15 @@ func (s *Stream) requeueUnwritten(buf []byte, written int, err error) {
 	if s == nil {
 		return
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.requeueUnwrittenLocked(buf, written, err)
+}
+
+func (s *Stream) requeueUnwrittenLocked(buf []byte, written int, err error) {
 	if written < 0 {
 		written = 0
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if err != nil && written == 0 {
 		s.txBuf = append(buf, s.txBuf...)
 		return
