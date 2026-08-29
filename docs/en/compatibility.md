@@ -2,7 +2,7 @@
 
 ## Reference target
 
-Reticulum-Go is tested against **Python RNS 1.4.2**, plus the [official network API reference](https://reticulum.network/manual/reference.html).
+Reticulum-Go is tested against **Python RNS 1.5.2**, plus the [official network API reference](https://reticulum.network/manual/reference.html).
 
 Crossref vectors clone the reference from rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum via [rngit](https://reticulum.network/manual/git.html) (tests/crossref/run_crossref.sh). The GitHub mirror is not used for vectors.
 

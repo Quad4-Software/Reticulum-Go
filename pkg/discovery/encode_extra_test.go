@@ -94,6 +94,52 @@ func TestEncodeInfoIncludesOperatorLXMFAddress(t *testing.T) {
 	}
 }
 
+func TestEncodeInfoIncludesTransportImplVers(t *testing.T) {
+	in := Info{
+		Type:          "TCPServerInterface",
+		TransportID:   bytes.Repeat([]byte{0x11}, 16),
+		Name:          "hub",
+		TransportImpl: "reticulum-go",
+		TransportVers: "1.5.2-test",
+	}
+	packed, err := EncodeInfo(in)
+	if err != nil {
+		t.Fatalf("EncodeInfo: %v", err)
+	}
+	out, err := DecodeInfo(packed)
+	if err != nil {
+		t.Fatalf("DecodeInfo: %v", err)
+	}
+	if out.TransportImpl != in.TransportImpl {
+		t.Fatalf("TransportImpl=%q want %q", out.TransportImpl, in.TransportImpl)
+	}
+	if out.TransportVers != in.TransportVers {
+		t.Fatalf("TransportVers=%q want %q", out.TransportVers, in.TransportVers)
+	}
+}
+
+func TestEncodeInfoDefaultsTransportImplVers(t *testing.T) {
+	in := Info{
+		Type:        "TCPServerInterface",
+		TransportID: bytes.Repeat([]byte{0x22}, 16),
+		Name:        "hub",
+	}
+	packed, err := EncodeInfo(in)
+	if err != nil {
+		t.Fatalf("EncodeInfo: %v", err)
+	}
+	out, err := DecodeInfo(packed)
+	if err != nil {
+		t.Fatalf("DecodeInfo: %v", err)
+	}
+	if out.TransportImpl != ImplementationName {
+		t.Fatalf("TransportImpl=%q want %q", out.TransportImpl, ImplementationName)
+	}
+	if out.TransportVers == "" {
+		t.Fatal("TransportVers should default to non-empty")
+	}
+}
+
 func TestDecodeInfoTooLarge(t *testing.T) {
 	raw := make([]byte, MaxInfoSize+1)
 	if _, err := DecodeInfo(raw); err == nil {

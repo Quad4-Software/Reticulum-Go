@@ -39,15 +39,23 @@ func TestNomadNetPageExpectMatchesIndexMu(t *testing.T) {
 	}
 }
 
-func TestRNS140InteropPins(t *testing.T) {
+func TestRNS152InteropPins(t *testing.T) {
 	root := repoRoot(t)
 	crossref := filepath.Join(root, "tests", "crossref", "run_crossref.sh")
 	body, err := os.ReadFile(crossref)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(body, []byte(`RNS_REF_TAG="${RNS_REF_TAG:-1.4.2}"`)) {
-		t.Fatal("crossref must default RNS_REF_TAG to 1.4.2")
+	if !bytes.Contains(body, []byte(`RNS_REF_TAG="${RNS_REF_TAG:-1.5.2}"`)) {
+		t.Fatal("crossref must default RNS_REF_TAG to 1.5.2")
+	}
+	ci := filepath.Join(root, ".github", "workflows", "ci.yml")
+	ciBody, err := os.ReadFile(ci)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(ciBody, []byte(`rns==1.5.2`)) {
+		t.Fatal("CI must install rns==1.5.2")
 	}
 	disc := filepath.Join(root, "pkg", "discovery", "discovery.go")
 	discBody, err := os.ReadFile(disc)
@@ -55,7 +63,28 @@ func TestRNS140InteropPins(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !bytes.Contains(discBody, []byte("DefaultStampValue = 16")) {
-		t.Fatal("discovery DefaultStampValue must be 16 for RNS 1.4.0")
+		t.Fatal("discovery DefaultStampValue must be 16 for RNS 1.4.0+")
+	}
+	if !bytes.Contains(discBody, []byte("FieldTransportImpl   byte = 0xFD")) {
+		t.Fatal("discovery must define TRANSPORT_IMPL 0xFD (RNS 1.5.1+)")
+	}
+	if !bytes.Contains(discBody, []byte("FieldTransportVers   byte = 0xFC")) {
+		t.Fatal("discovery must define TRANSPORT_VERS 0xFC (RNS 1.5.1+)")
+	}
+	queues := filepath.Join(root, "pkg", "transport", "inbound_queues.go")
+	qBody, err := os.ReadFile(queues)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []string{
+		"defaultInboundDataQueueLen     = 1024",
+		"defaultInboundAnnounceQueueLen = 128",
+		"defaultInboundPRQueueLen       = 128",
+		"defaultInboundILQueueLen       = 8",
+	} {
+		if !bytes.Contains(qBody, []byte(n)) {
+			t.Fatalf("inbound queues missing %q (RNS 1.5.1+ defaults)", n)
+		}
 	}
 }
 

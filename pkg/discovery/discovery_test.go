@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -116,10 +117,31 @@ func pythonOrSkip(t *testing.T) string {
 	}
 	exe := os.Getenv("PYTHON_INTEROP")
 	if exe == "" {
+		for _, cand := range []string{
+			filepath.Join(".venv", "bin", "python"),
+			filepath.Join(".venv", "bin", "python3"),
+		} {
+			if st, err := os.Stat(cand); err == nil && !st.IsDir() {
+				exe = cand
+				break
+			}
+		}
+	}
+	if exe == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			pipx := filepath.Join(home, ".local", "share", "pipx", "venvs", "rns", "bin", "python")
+			if st, err := os.Stat(pipx); err == nil && !st.IsDir() {
+				exe = pipx
+			}
+		}
+	}
+	if exe == "" {
 		exe = "python3"
 	}
 	if _, err := exec.LookPath(exe); err != nil {
-		t.Skipf("python interpreter %q not found: %v", exe, err)
+		if _, err := os.Stat(exe); err != nil {
+			t.Skipf("python interpreter %q not found: %v", exe, err)
+		}
 	}
 	return exe
 }
@@ -171,6 +193,12 @@ print(json.dumps(out, sort_keys=True))
 	}
 	if parsed["254"] != hex.EncodeToString(id) {
 		t.Fatalf("transport_id field mismatch: %v", parsed["254"])
+	}
+	if parsed["253"] != ImplementationName {
+		t.Fatalf("transport_impl field mismatch: %v want %q", parsed["253"], ImplementationName)
+	}
+	if _, ok := parsed["252"]; !ok {
+		t.Fatal("transport_vers field (252) missing from Python decode")
 	}
 }
 

@@ -278,12 +278,14 @@ Enable:
 RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
 ```
 
-Optional Python interpreter (prefer a venv with rns==1.4.2):
+Optional Python interpreter (prefer a venv or pipx install with rns==1.5.2):
 
 ```bash
-sh scripts/ci/setup-venv-pip.sh 'rns==1.4.2'
+sh scripts/ci/setup-venv-pip.sh 'rns==1.5.2'
 PYTHON_INTEROP=.venv/bin/python RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
 ```
+
+With pipx (`pipx install rns`), the interop harness and self-check also auto-detect `~/.local/share/pipx/venvs/rns/bin/python` when `PYTHON_INTEROP` is unset.
 
 #### Debug harness
 

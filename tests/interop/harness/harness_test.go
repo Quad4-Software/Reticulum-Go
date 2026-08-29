@@ -100,3 +100,28 @@ func TestKindString(t *testing.T) {
 		t.Fatalf("path kind")
 	}
 }
+
+func TestPythonExePrefersPipxRNS(t *testing.T) {
+	t.Setenv("PYTHON_INTEROP", "")
+	home := os.Getenv("HOME")
+	if home == "" {
+		t.Skip("HOME unset")
+	}
+	pipxPy := filepath.Join(home, ".local", "share", "pipx", "venvs", "rns", "bin", "python")
+	if st, err := os.Stat(pipxPy); err != nil || st.IsDir() {
+		t.Skip("pipx rns python not installed")
+	}
+	prev, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(prev) })
+	got := PythonExe()
+	if got != pipxPy {
+		t.Fatalf("PythonExe=%q want %q", got, pipxPy)
+	}
+}

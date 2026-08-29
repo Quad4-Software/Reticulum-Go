@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"runtime/debug"
 
 	"quad4/msgpack/v5/pkg/msgpack"
 	"quad4/msgpack/v5/pkg/msgpack/msgpcode"
@@ -24,10 +25,16 @@ const AppName = "rnstransport"
 // (discovery.interface).
 var Aspects = []string{"discovery", "interface"}
 
+// ImplementationName is the short transport stack id announced in discovery
+// info (RNS 1.5.1+ TRANSPORT_IMPL). Python RNS uses "RNS".
+const ImplementationName = "reticulum-go"
+
 // Field tags from Discovery. Each is a single-byte msgpack map key.
 const (
 	FieldName            byte = 0xFF
 	FieldTransportID     byte = 0xFE
+	FieldTransportImpl   byte = 0xFD
+	FieldTransportVers   byte = 0xFC
 	FieldInterfaceType   byte = 0x00
 	FieldTransport       byte = 0x01
 	FieldReachableOn     byte = 0x02
@@ -45,6 +52,27 @@ const (
 	FieldChannel         byte = 0x0E
 	FieldOpAddr          byte = 0xF0
 )
+
+// implementationVersion is the fallback TRANSPORT_VERS when build info is
+// unavailable. Link with -X if a pinned release string is required.
+var implementationVersion = "dev"
+
+// ImplementationVersion returns the transport version string for discovery
+// announces (RNS 1.5.1+ TRANSPORT_VERS).
+func ImplementationVersion() string {
+	if implementationVersion != "" && implementationVersion != "dev" {
+		return implementationVersion
+	}
+	if info, ok := debug.ReadBuildInfo(); ok {
+		if v := info.Main.Version; v != "" && v != "(devel)" {
+			return v
+		}
+	}
+	if implementationVersion == "" {
+		return "dev"
+	}
+	return implementationVersion
+}
 
 // Flag bits used in the announce app_data flag byte.
 const (
@@ -72,11 +100,15 @@ type Info struct {
 	Type        string
 	Transport   bool
 	TransportID []byte
-	Name        string
-	Latitude    float64
-	Longitude   float64
-	Height      float64
-	HasGeo      bool
+	// TransportImpl is RNS 1.5.1+ TRANSPORT_IMPL (empty uses ImplementationName on encode).
+	TransportImpl string
+	// TransportVers is RNS 1.5.1+ TRANSPORT_VERS (empty uses ImplementationVersion on encode).
+	TransportVers string
+	Name          string
+	Latitude      float64
+	Longitude     float64
+	Height        float64
+	HasGeo        bool
 
 	ReachableOn string
 	Port        int64
@@ -107,11 +139,22 @@ func EncodeInfo(in Info) ([]byte, error) {
 		return nil, errors.New("discovery: Info.TransportID required")
 	}
 
-	pairs := make([][2]any, 0, 16)
+	impl := in.TransportImpl
+	if impl == "" {
+		impl = ImplementationName
+	}
+	vers := in.TransportVers
+	if vers == "" {
+		vers = ImplementationVersion()
+	}
+
+	pairs := make([][2]any, 0, 18)
 	pairs = append(pairs,
 		[2]any{FieldInterfaceType, in.Type},
 		[2]any{FieldTransport, in.Transport},
 		[2]any{FieldTransportID, in.TransportID},
+		[2]any{FieldTransportImpl, impl},
+		[2]any{FieldTransportVers, vers},
 		[2]any{FieldName, in.Name},
 		[2]any{FieldLatitude, in.Latitude},
 		[2]any{FieldLongitude, in.Longitude},
@@ -223,6 +266,14 @@ func DecodeInfo(raw []byte) (Info, error) {
 				out.TransportID = append([]byte(nil), v...)
 			case string:
 				out.TransportID = []byte(v)
+			}
+		case FieldTransportImpl:
+			if s, ok := raw.(string); ok {
+				out.TransportImpl = s
+			}
+		case FieldTransportVers:
+			if s, ok := raw.(string); ok {
+				out.TransportVers = s
 			}
 		case FieldInterfaceType:
 			if s, ok := raw.(string); ok {

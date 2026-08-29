@@ -101,3 +101,24 @@ func TestRunDefaultNoDaemon(t *testing.T) {
 		t.Fatalf("failures:\n%s", b.String())
 	}
 }
+
+func TestPythonRNSInteropPin(t *testing.T) {
+	t.Setenv("PYTHON_INTEROP", "")
+	t.Setenv("RNS_REQUIRED_VERSION", "1.5.2")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	rep := Run(ctx, Options{Quick: true, SkipDaemon: true, Interop: true})
+	for _, res := range rep.Results {
+		if res.Name != "interop/python-rns" {
+			continue
+		}
+		if res.Severity == SeveritySkip {
+			t.Skip(res.Detail)
+		}
+		if res.Severity != SeverityPass {
+			t.Fatalf("%s: %s", res.Severity, res.Detail)
+		}
+		return
+	}
+	t.Fatal("missing interop/python-rns")
+}

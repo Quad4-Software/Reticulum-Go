@@ -2,7 +2,7 @@
 
 ## v1.1.0 [unreleased] - 2026-08-TBD
 
-Wire compatible with Python RNS 1.5.0
+Wire compatible with Python RNS 1.5.2
 
 ### Added
 - reticulum-go zen (rgozen): static scanner for path and link footguns, with optional safe fixes
@@ -10,6 +10,7 @@ Wire compatible with Python RNS 1.5.0
 - Local LXStamper proof-of-work for discovery announces
 - Blackhole federation via publish_blackhole, remote sources, and periodic merge
 - Discovery operator LXMF address field (OP_ADDR 0xF0) and discovery_lxmf_address config
+- Discovery transport implementation and version fields (TRANSPORT_IMPL 0xFD / TRANSPORT_VERS 0xFC, RNS 1.5.1+)
 - rgostatus RNS 1.5.0 flags: -A, -P, -b, -B, -t, -Q (queues), link-table active count via -l
 - Per-interface protocol, IFAC, and packet-filter violation counters in interface stats RPC
 - Per-interface announce and path-request byte and count stats in interface stats RPC
@@ -27,6 +28,8 @@ Wire compatible with Python RNS 1.5.0
 - Default log level is info. Hot paths avoid work when logging is filtered
 - Control API and librns path requests report wait time and honor AwaitPath before link open
 - link_count RPC returns link-table size (Python parity). active_links in stats uses validated rows
+- Default inbound queue lengths match RNS 1.5.1+ (1024/128/128/8)
+- Interop and CI target Python RNS 1.5.2 (pipx rns venv auto-detected when present)
 
 ### Fixed
 - Shared-instance clients receive path and link relay when transport is disabled

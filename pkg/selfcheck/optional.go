@@ -34,11 +34,7 @@ func checkCrossref() Result {
 func checkPythonRNS() Result {
 	py := strings.TrimSpace(os.Getenv("PYTHON_INTEROP"))
 	if py == "" {
-		for _, cand := range []string{
-			filepath.Join(".venv", "bin", "python"),
-			filepath.Join(".venv", "bin", "python3"),
-			filepath.Join(".venv", "Scripts", "python.exe"),
-		} {
+		for _, cand := range pythonInteropCandidates() {
 			if st, err := os.Stat(cand); err == nil && !st.IsDir() {
 				py = cand
 				break
@@ -62,7 +58,7 @@ func checkPythonRNS() Result {
 	}
 	want := os.Getenv("RNS_REQUIRED_VERSION")
 	if want == "" {
-		want = "1.4.0"
+		want = "1.5.2"
 	}
 	cmd := exec.Command(py, "-c", "import RNS; print(getattr(RNS, '__version__', ''))") // #nosec G204,G702 -- python from PATH, .venv, or PYTHON_INTEROP
 	out, err := cmd.CombinedOutput()
@@ -77,6 +73,26 @@ func checkPythonRNS() Result {
 		return result("interop/python-rns", SeverityFail, "got "+ver+" want "+want+" via "+py)
 	}
 	return result("interop/python-rns", SeverityPass, ver+" via "+py)
+}
+
+func pythonInteropCandidates() []string {
+	home, _ := os.UserHomeDir()
+	cands := []string{
+		filepath.Join(".venv", "bin", "python"),
+		filepath.Join(".venv", "bin", "python3"),
+		filepath.Join(".venv", "Scripts", "python.exe"),
+	}
+	if home != "" {
+		pipxHome := os.Getenv("PIPX_HOME")
+		if pipxHome == "" {
+			pipxHome = filepath.Join(home, ".local", "share", "pipx")
+		}
+		cands = append(cands,
+			filepath.Join(pipxHome, "venvs", "rns", "bin", "python"),
+			filepath.Join(pipxHome, "venvs", "rns", "Scripts", "python.exe"),
+		)
+	}
+	return cands
 }
 
 // sanitizePythonInterp accepts bare interpreter names or cleaned paths without "..".

@@ -16,11 +16,12 @@ const (
 	inboundQueueCount = 4
 )
 
+// Default inbound queue lengths match Python RNS 1.5.1+ Transport.INBOUND_*_QUEUE_LENGTH.
 const (
-	defaultInboundDataQueueLen     = 4096
-	defaultInboundAnnounceQueueLen = 256
-	defaultInboundPRQueueLen       = 256
-	defaultInboundILQueueLen       = 128
+	defaultInboundDataQueueLen     = 1024
+	defaultInboundAnnounceQueueLen = 128
+	defaultInboundPRQueueLen       = 128
+	defaultInboundILQueueLen       = 8
 )
 
 // inboundQueues is a priority queue backend for inbound transport packets.

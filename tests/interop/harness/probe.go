@@ -84,12 +84,37 @@ type ProbeOpts struct {
 	ArtifactsDir string
 }
 
-// PythonExe returns PYTHON_INTEROP or python3.
+// PythonExe returns PYTHON_INTEROP, a local .venv or pipx rns interpreter, or python3.
 func PythonExe() string {
 	if p := os.Getenv("PYTHON_INTEROP"); p != "" {
 		return p
 	}
+	for _, cand := range pythonInteropCandidates() {
+		if st, err := os.Stat(cand); err == nil && !st.IsDir() {
+			return cand
+		}
+	}
 	return "python3"
+}
+
+func pythonInteropCandidates() []string {
+	home, _ := os.UserHomeDir()
+	cands := []string{
+		filepath.Join(".venv", "bin", "python"),
+		filepath.Join(".venv", "bin", "python3"),
+		filepath.Join(".venv", "Scripts", "python.exe"),
+	}
+	if home != "" {
+		pipxHome := os.Getenv("PIPX_HOME")
+		if pipxHome == "" {
+			pipxHome = filepath.Join(home, ".local", "share", "pipx")
+		}
+		cands = append(cands,
+			filepath.Join(pipxHome, "venvs", "rns", "bin", "python"),
+			filepath.Join(pipxHome, "venvs", "rns", "Scripts", "python.exe"),
+		)
+	}
+	return cands
 }
 
 // StartPython launches a Python probe script with stdout token protocol.
