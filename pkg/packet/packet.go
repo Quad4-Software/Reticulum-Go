@@ -38,6 +38,7 @@ type Packet struct {
 
 	SentAt     time.Time
 	PacketHash []byte
+	hashBuf    [32]byte
 	RatchetID  []byte
 
 	RSSI *float64
@@ -339,11 +340,9 @@ func (p *Packet) updateHash() {
 		hb := p.hashableInto(scratch[:0])
 		sum = sha256.Sum256(hb)
 	}
-	if cap(p.PacketHash) < sha256.Size {
-		p.PacketHash = make([]byte, sha256.Size)
-	} else {
-		p.PacketHash = p.PacketHash[:sha256.Size]
-	}
+	// Always bind PacketHash to this packet's hashBuf so a value-copied
+	// Packet cannot keep writing into another packet's buffer.
+	p.PacketHash = p.hashBuf[:]
 	copy(p.PacketHash, sum[:])
 	p.hashValid = true
 }
