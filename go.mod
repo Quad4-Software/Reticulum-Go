@@ -6,6 +6,7 @@ toolchain go1.26.6
 
 require (
 	github.com/creack/pty v1.1.24
+	github.com/ebitengine/purego v0.9.1
 	github.com/godbus/dbus/v5 v5.1.0
 	github.com/landlock-lsm/go-landlock v0.9.0
 	github.com/mdlayher/vsock v1.2.1

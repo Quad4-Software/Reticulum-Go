@@ -353,8 +353,9 @@ LXStamper-compatible proof-of-work. Used by discovery (20 rounds). Delivery/prop
 
 | Item | Detail |
 |------|--------|
-| Key funcs | StampWorkblock, StampValid, StampValue, MeetsCost, GenerateStamp |
-| Main file | stamper.go |
+| Key funcs | StampWorkblock, StampValid, StampValue, MeetsCost, GenerateStamp, GenerateStampCPU, GenerateStampGPU |
+| GPU | OpenCL ICD (NVIDIA/AMD/Intel), auto with CPU fallback (`RNS_LXSTAMP_BACKEND=auto\|cpu\|gpu`) |
+| Main files | stamper.go, backend.go, generate_cpu.go, gpu_opencl.go |
 
 ### pkg/discovery
 

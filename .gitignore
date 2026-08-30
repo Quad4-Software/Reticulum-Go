@@ -114,6 +114,7 @@ __pycache__/
 # Local Go build/test tmpdir override
 .gotmp/
 .gocache/
+.gomodcache/
 .tmp/
 
 # Firecracker microvm build and runtime artifacts
