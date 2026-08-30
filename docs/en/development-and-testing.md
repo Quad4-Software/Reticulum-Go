@@ -429,7 +429,7 @@ Environment:
 
 Exit code is non-zero on any fail result. With --strict, warnings also fail.
 
-Daemon checks include Control API health with sandbox enabled, shared-instance GetInterfaceStats RPC, and (except Windows and FreeBSD CapEnter) SIGHUP reload of a UDP interface.
+Daemon checks include Control API health with sandbox enabled, shared-instance GetInterfaceStats RPC, and (except Windows, FreeBSD CapEnter, and OpenBSD unveil+pledge) SIGHUP reload of a UDP interface.
 
 CI runs self-check on Linux (amd64 and arm64), macOS, Windows, FreeBSD, and OpenBSD. Extra Linux arches (386, arm GOARM=6, riscv64, ppc64le, ppc64) run via qemu-user-static (task test-self-check-386, test-self-check-arm, test-self-check-riscv64, test-self-check-ppc64le, test-self-check-ppc64). Android emulator self-check is a separate workflow (selfcheck-android.yml) on schedule or workflow_dispatch.
 

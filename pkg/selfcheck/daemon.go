@@ -260,6 +260,11 @@ func checkDaemonReload(ctx context.Context, cmd *exec.Cmd, cfg *common.Reticulum
 		// blocks syscall.Exec, so neither in-process reload nor re-exec works.
 		return result(nameDaemonReload, SeveritySkip, "CapEnter blocks post-sandbox reload opens")
 	}
+	if runtime.GOOS == "openbsd" {
+		// Sealed unveil+pledge lets the daemon start, but SIGHUP reload drops the
+		// shared-instance RPC listener (auth EOF then connection refused in CI).
+		return result(nameDaemonReload, SeveritySkip, "unveil+pledge blocks reliable post-sandbox SIGHUP reload")
+	}
 
 	ln, err := net.ListenPacket("udp", "127.0.0.1:0")
 	if err != nil {
