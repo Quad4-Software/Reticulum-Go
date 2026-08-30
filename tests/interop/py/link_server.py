@@ -16,28 +16,32 @@ INTEROP_ASPECT = "linksvc"
 
 def write_config(cfg_dir: str, listen_port: int, forward_port: int) -> None:
     config_path = os.path.join(cfg_dir, "config")
+    lines = [
+        "[reticulum]",
+        "enable_transport = false",
+        "share_instance = no",
+        "loglevel = 2",
+        "",
+        "[interfaces]",
+        "",
+        "[[interop_udp]]",
+        "type = UDPInterface",
+        "enabled = yes",
+        "listen_ip = 127.0.0.1",
+        f"listen_port = {listen_port}",
+        "forward_ip = 127.0.0.1",
+        f"forward_port = {forward_port}",
+    ]
+    netname = os.environ.get("INTEROP_NETNAME", "").strip()
+    netkey = os.environ.get("INTEROP_NETKEY", "").strip()
+    if netname or netkey:
+        ifac_size_bytes = int(os.environ.get("INTEROP_IFAC_SIZE", "16"))
+        lines.append(f"network_name = {netname}")
+        lines.append(f"passphrase = {netkey}")
+        lines.append(f"ifac_size = {ifac_size_bytes * 8}")
+    lines.append("")
     with open(config_path, "w", encoding="utf-8") as f:
-        f.write(
-            "\n".join(
-                [
-                    "[reticulum]",
-                    "enable_transport = false",
-                    "share_instance = no",
-                    "loglevel = 2",
-                    "",
-                    "[interfaces]",
-                    "",
-                    "[[interop_udp]]",
-                    "type = UDPInterface",
-                    "enabled = yes",
-                    "listen_ip = 127.0.0.1",
-                    f"listen_port = {listen_port}",
-                    "forward_ip = 127.0.0.1",
-                    f"forward_port = {forward_port}",
-                    "",
-                ],
-            ),
-        )
+        f.write("\n".join(lines))
 
 
 def client_connected(link):

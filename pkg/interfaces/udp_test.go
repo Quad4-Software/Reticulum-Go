@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/ifac"
 )
 
 func TestNewUDPInterface(t *testing.T) {
@@ -111,5 +112,89 @@ func TestUDPProcessIncomingCountsRx(t *testing.T) {
 	}
 	if ui.GetRxPackets() != 1 {
 		t.Fatalf("RxPackets=%d want 1", ui.GetRxPackets())
+	}
+}
+
+// TestUDPProcessIncomingDefersIFACWhenRegistered ensures UDP leaves IFAC
+// bytes intact when transport has requested deferred inbound IFAC. Stripping
+// here would make preprocessInboundPacket see a missing IFAC flag and drop
+// otherwise-valid Python (or Go) IFAC announces.
+func TestUDPProcessIncomingDefersIFACWhenRegistered(t *testing.T) {
+	ui, err := NewUDPInterface("udpDeferIFAC", "127.0.0.1:0", "", true)
+	if err != nil {
+		t.Fatalf("NewUDPInterface: %v", err)
+	}
+	id, err := ifac.New(16, "defer-net", "defer-pass")
+	if err != nil {
+		t.Fatalf("ifac.New: %v", err)
+	}
+	ui.SetIFAC(id)
+	ui.SetDeferInboundIFAC(true)
+
+	plain := []byte{0x01, 0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x11, 0x22}
+	masked, err := id.Mask(plain)
+	if err != nil {
+		t.Fatalf("mask: %v", err)
+	}
+	if masked[0]&0x80 == 0 {
+		t.Fatal("masked packet missing IFAC flag")
+	}
+
+	var got []byte
+	ui.SetPacketCallback(func(data []byte, _ common.NetworkInterface) {
+		got = append([]byte(nil), data...)
+	})
+	ui.ProcessIncoming(masked)
+	if len(got) == 0 {
+		t.Fatal("callback not invoked")
+	}
+	if len(got) != len(masked) {
+		t.Fatalf("deferred path altered length got=%d want=%d", len(got), len(masked))
+	}
+	if got[0]&0x80 == 0 {
+		t.Fatal("deferred path stripped IFAC flag before transport")
+	}
+	for i := range got {
+		if got[i] != masked[i] {
+			t.Fatalf("deferred path mutated byte %d", i)
+		}
+	}
+}
+
+func TestUDPProcessIncomingAppliesIFACWhenNotDeferred(t *testing.T) {
+	ui, err := NewUDPInterface("udpApplyIFAC", "127.0.0.1:0", "", true)
+	if err != nil {
+		t.Fatalf("NewUDPInterface: %v", err)
+	}
+	id, err := ifac.New(16, "apply-net", "apply-pass")
+	if err != nil {
+		t.Fatalf("ifac.New: %v", err)
+	}
+	ui.SetIFAC(id)
+
+	plain := []byte{0x01, 0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x11, 0x22}
+	masked, err := id.Mask(plain)
+	if err != nil {
+		t.Fatalf("mask: %v", err)
+	}
+
+	var got []byte
+	ui.SetPacketCallback(func(data []byte, _ common.NetworkInterface) {
+		got = append([]byte(nil), data...)
+	})
+	ui.ProcessIncoming(masked)
+	if len(got) == 0 {
+		t.Fatal("callback not invoked")
+	}
+	if len(got) != len(plain) {
+		t.Fatalf("standalone IFAC path length got=%d want=%d", len(got), len(plain))
+	}
+	if got[0]&0x80 != 0 {
+		t.Fatal("standalone path left IFAC flag set")
+	}
+	for i := range plain {
+		if got[i] != plain[i] {
+			t.Fatalf("standalone unmask mismatch at %d", i)
+		}
 	}
 }

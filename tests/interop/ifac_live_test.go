@@ -21,6 +21,8 @@ import (
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/ifac"
 	"quad4/reticulum-go/pkg/interfaces"
+	rlink "quad4/reticulum-go/pkg/link"
+	"quad4/reticulum-go/pkg/packet"
 	"quad4/reticulum-go/pkg/transport"
 )
 
@@ -71,7 +73,7 @@ func TestLiveInteropIFACGoSeesPythonAnnounce(t *testing.T) {
 
 	pyListen := freeUDPPort(t)
 	pyForward := freeUDPPort(t)
-	tr, _, cleanup := setupGoIFACPeer(t, pyListen, pyForward, ifacInteropNetname, ifacInteropNetkey, ifacInteropSize)
+	tr, iface, cleanup := setupGoIFACPeer(t, pyListen, pyForward, ifacInteropNetname, ifacInteropNetkey, ifacInteropSize)
 	defer cleanup()
 
 	script := pyScript(t, "ifac_peer.py")
@@ -114,6 +116,9 @@ func TestLiveInteropIFACGoSeesPythonAnnounce(t *testing.T) {
 	}
 	if err := waitPath(ctx, tr, pyHash, 60*time.Second); err != nil {
 		t.Fatalf("Go never learned path to Python destination over IFAC: %v", err)
+	}
+	if v := iface.IFACViolations(); v != 0 {
+		t.Fatalf("IFAC violations after successful Python announce path=%d", v)
 	}
 }
 
@@ -241,5 +246,110 @@ func TestLiveInteropIFACGoRejectsUnauthenticated(t *testing.T) {
 			t.Fatalf("Go peer with IFAC enabled accepted unauthenticated announce from %x", pyHash)
 		}
 		time.Sleep(150 * time.Millisecond)
+	}
+}
+
+// TestLiveInteropIFACGoLinkPacketEchoPython establishes a link over IFAC UDP
+// and verifies identity-backed packet echo both for announce path learning
+// and for link traffic under the same network_name/passphrase.
+func TestLiveInteropIFACGoLinkPacketEchoPython(t *testing.T) {
+	liveOrSkip(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	pyListen := freeUDPPort(t)
+	pyForward := freeUDPPort(t)
+	tr, iface, cleanup := setupGoIFACPeer(t, pyListen, pyForward, ifacInteropNetname, ifacInteropNetkey, ifacInteropSize)
+	defer cleanup()
+
+	script := pyScript(t, "link_server.py")
+	cmd := exec.CommandContext(ctx, pythonExe(), script)
+	cmd.Env = append(os.Environ(),
+		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
+		"INTEROP_FORWARD_PORT="+strconv.Itoa(pyForward),
+		"INTEROP_LINK_MODE=echo",
+		"INTEROP_NETNAME="+ifacInteropNetname,
+		"INTEROP_NETKEY="+ifacInteropNetkey,
+		"INTEROP_IFAC_SIZE="+strconv.Itoa(ifacInteropSize),
+	)
+	cmd.Stderr = os.Stderr
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("stdout pipe: %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start python: %v", err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	}()
+
+	br := bufio.NewReader(out)
+	line, err := readLineTimeout(ctx, br, 25*time.Second)
+	if err != nil {
+		t.Fatalf("wait READY: %v", err)
+	}
+	if strings.TrimSpace(line) != "READY" {
+		t.Fatalf("expected READY, got %q", line)
+	}
+	hashLine, err := readLineTimeout(ctx, br, 5*time.Second)
+	if err != nil {
+		t.Fatalf("wait hash: %v", err)
+	}
+	pyHash, err := hex.DecodeString(strings.TrimSpace(hashLine))
+	if err != nil || len(pyHash) != 16 {
+		t.Fatalf("bad python destination hash: %q err %v", hashLine, err)
+	}
+	if err := waitPath(ctx, tr, pyHash, 40*time.Second); err != nil {
+		t.Fatalf("path to python over IFAC: %v", err)
+	}
+	if v := iface.IFACViolations(); v != 0 {
+		t.Fatalf("IFAC violations before link=%d", v)
+	}
+
+	srvID, err := identity.Recall(pyHash)
+	if err != nil {
+		t.Fatalf("recall python identity: %v", err)
+	}
+	destOut, err := destination.FromHash(pyHash, srvID, destination.Single, tr)
+	if err != nil {
+		t.Fatalf("from hash: %v", err)
+	}
+
+	established := make(chan struct{})
+	replyCh := make(chan []byte, 1)
+	lnk := rlink.NewLink(destOut, tr, iface, func(_ *rlink.Link) {
+		close(established)
+	}, nil)
+	defer lnk.Teardown()
+	lnk.SetPacketCallback(func(data []byte, _ *packet.Packet) {
+		replyCh <- append([]byte(nil), data...)
+	})
+
+	if err := lnk.Establish(); err != nil {
+		t.Fatalf("establish: %v", err)
+	}
+	select {
+	case <-established:
+	case <-time.After(45 * time.Second):
+		t.Fatal("link establish timeout over IFAC")
+	}
+	lnk.Start()
+
+	payload := []byte("ifac-interop-ping")
+	if err := lnk.SendPacket(payload); err != nil {
+		t.Fatalf("send packet: %v", err)
+	}
+	select {
+	case got := <-replyCh:
+		if string(got) != string(payload) {
+			t.Fatalf("echo mismatch: %q != %q", got, payload)
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("no echo reply over IFAC")
+	}
+	if v := iface.IFACViolations(); v != 0 {
+		t.Fatalf("IFAC violations after link echo=%d", v)
 	}
 }

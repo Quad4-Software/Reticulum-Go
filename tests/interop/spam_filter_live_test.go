@@ -57,6 +57,11 @@ func setupSpamLiveTopo(t *testing.T, gateway bool) (*spamLiveTopo, func()) {
 		inIface.Mode = common.IFModeGateway
 		outIface.Mode = common.IFModeGateway
 	}
+	// Amplification checks need exactly one forward of the first unique
+	// path request. Default ingress PR-burst limiting would trip on a
+	// tight duplicate inject and suppress discovery entirely.
+	inIface.SetIngressControl(false)
+	outIface.SetIngressControl(false)
 
 	cfg := &common.ReticulumConfig{
 		EnableTransport: true,
@@ -234,6 +239,9 @@ func TestLiveSpamFilterUniquePRFloodNotAmplified(t *testing.T) {
 	}
 	time.Sleep(2 * time.Second)
 	got := topo.got.Load()
+	if got < 1 {
+		t.Fatalf("expected at least one unique PR forward, sink=%d", got)
+	}
 	if got >= int64(inject) {
 		t.Fatalf("unique PR flood amplified 1:1 sink=%d inject=%d", got, inject)
 	}

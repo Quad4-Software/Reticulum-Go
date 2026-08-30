@@ -189,12 +189,20 @@ func (ui *UDPInterface) ProcessIncomingFromAddr(data []byte, peerKey string) {
 		return
 	}
 
-	stripped, ok := common.ApplyIFACInbound(ui, data)
-	if !ok {
-		return
+	// When registered with transport, IFAC is applied once in
+	// preprocessInboundPacket (RNS 1.5.0). Applying it here too would
+	// strip the IFAC flag and make transport treat a valid packet as a
+	// missing-IFAC violation.
+	payload := data
+	if !ui.DeferInboundIFAC() {
+		var ok bool
+		payload, ok = common.ApplyIFACInbound(ui, data)
+		if !ok {
+			return
+		}
 	}
 	if callback := ui.GetPacketCallback(); callback != nil {
-		callback(stripped, ui)
+		callback(payload, ui)
 	}
 }
 
