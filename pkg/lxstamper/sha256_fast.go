@@ -11,7 +11,7 @@ import (
 // sha256Compress applies one SHA-256 compression round. block must be 64 bytes.
 func sha256Compress(h *[8]uint32, block []byte) {
 	var w [64]uint32
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		w[i] = binary.BigEndian.Uint32(block[i*4 : i*4+4])
 	}
 	for i := 16; i < 64; i++ {
@@ -23,7 +23,7 @@ func sha256Compress(h *[8]uint32, block []byte) {
 	}
 
 	a, b, c, d, e, f, g, hh := h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]
-	for i := 0; i < 64; i++ {
+	for i := range 64 {
 		s1 := bits.RotateLeft32(e, -6) ^ bits.RotateLeft32(e, -11) ^ bits.RotateLeft32(e, -25)
 		ch := (e & f) ^ (^e & g)
 		t1 := hh + s1 + ch + sha256K[i] + w[i]
@@ -68,7 +68,7 @@ func hashMidstateStamp(ms sha256Midstate, stamp []byte) [32]byte {
 	sha256Compress(&h, block[:])
 
 	var out [32]byte
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		binary.BigEndian.PutUint32(out[i*4:], h[i])
 	}
 	return out

@@ -42,7 +42,7 @@ func main() {
 
 	timeGo := func(name string, fn func() error) {
 		var total time.Duration
-		for i := 0; i < iters; i++ {
+		for range iters {
 			st := time.Now()
 			if err := fn(); err != nil {
 				fmt.Printf("%-8s FAIL: %v\n", name, err)

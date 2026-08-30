@@ -21,3 +21,11 @@ func openGPUEngine() (*gpuEngineState, error) {
 func (e *gpuEngineState) generate(ctx context.Context, workblock []byte, stampCost int) ([]byte, int, error) {
 	return nil, 0, ErrGPUUnavailable
 }
+
+func (e *gpuEngineState) workblock(material []byte, rounds int) ([]byte, error) {
+	return nil, ErrGPUUnavailable
+}
+
+func (e *gpuEngineState) batchValidate(cands []StampCandidate, targetCost, expandRounds int) ([]bool, error) {
+	return nil, ErrGPUUnavailable
+}

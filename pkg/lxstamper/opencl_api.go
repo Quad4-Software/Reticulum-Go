@@ -22,46 +22,46 @@ type clKernel = uintptr
 type clMem = uintptr
 
 const (
-	clSuccess             = 0
-	clDeviceTypeGPU       = 1 << 2
+	clSuccess               = 0
+	clDeviceTypeGPU         = 1 << 2
 	clDeviceTypeAccelerator = 1 << 3
-	clMemReadOnly         = 1 << 2
-	clMemWriteOnly        = 1 << 1
-	clMemReadWrite        = 1 << 0
-	clMemCopyHostPtr      = 1 << 5
+	clMemReadOnly           = 1 << 2
+	clMemWriteOnly          = 1 << 1
+	clMemReadWrite          = 1 << 0
+	clMemCopyHostPtr        = 1 << 5
 
-	clPlatformName   = 0x0902
-	clDeviceName     = 0x102B
-	clDeviceVendor   = 0x102C
-	clDeviceType     = 0x1000
-	clDeviceMaxCU    = 0x1021
+	clPlatformName    = 0x0902
+	clDeviceName      = 0x102B
+	clDeviceVendor    = 0x102C
+	clDeviceType      = 0x1000
+	clDeviceMaxCU     = 0x1021
 	clProgramBuildLog = 0x1183
 )
 
 type openclAPI struct {
 	lib uintptr
 
-	getPlatformIDs   func(uint32, *clPlatformID, *uint32) int32
-	getPlatformInfo  func(clPlatformID, uint32, uintptr, unsafe.Pointer, *uintptr) int32
-	getDeviceIDs     func(clPlatformID, uint64, uint32, *clDeviceID, *uint32) int32
-	getDeviceInfo    func(clDeviceID, uint32, uintptr, unsafe.Pointer, *uintptr) int32
-	createContext    func(*int32, uint32, *clDeviceID, uintptr, uintptr, *int32) clContext
-	createQueue      func(clContext, clDeviceID, uint64, *int32) clCommandQueue
-	createProgram    func(clContext, uint32, **byte, *uintptr, *int32) clProgram
-	buildProgram     func(clProgram, uint32, *clDeviceID, *byte, uintptr, uintptr) int32
-	getBuildInfo     func(clProgram, clDeviceID, uint32, uintptr, unsafe.Pointer, *uintptr) int32
-	createKernel     func(clProgram, *byte, *int32) clKernel
-	createBuffer     func(clContext, uint64, uintptr, unsafe.Pointer, *int32) clMem
-	setKernelArg     func(clKernel, uint32, uintptr, unsafe.Pointer) int32
-	enqueueNDRange   func(clCommandQueue, clKernel, uint32, *uintptr, *uintptr, *uintptr, uint32, uintptr, uintptr) int32
-	enqueueRead      func(clCommandQueue, clMem, uint32, uintptr, uintptr, unsafe.Pointer, uint32, uintptr, uintptr) int32
-	enqueueWrite     func(clCommandQueue, clMem, uint32, uintptr, uintptr, unsafe.Pointer, uint32, uintptr, uintptr) int32
-	finish           func(clCommandQueue) int32
-	releaseMem       func(clMem) int32
-	releaseKernel    func(clKernel) int32
-	releaseProgram   func(clProgram) int32
-	releaseQueue     func(clCommandQueue) int32
-	releaseContext   func(clContext) int32
+	getPlatformIDs  func(uint32, *clPlatformID, *uint32) int32
+	getPlatformInfo func(clPlatformID, uint32, uintptr, unsafe.Pointer, *uintptr) int32
+	getDeviceIDs    func(clPlatformID, uint64, uint32, *clDeviceID, *uint32) int32
+	getDeviceInfo   func(clDeviceID, uint32, uintptr, unsafe.Pointer, *uintptr) int32
+	createContext   func(*int32, uint32, *clDeviceID, uintptr, uintptr, *int32) clContext
+	createQueue     func(clContext, clDeviceID, uint64, *int32) clCommandQueue
+	createProgram   func(clContext, uint32, **byte, *uintptr, *int32) clProgram
+	buildProgram    func(clProgram, uint32, *clDeviceID, *byte, uintptr, uintptr) int32
+	getBuildInfo    func(clProgram, clDeviceID, uint32, uintptr, unsafe.Pointer, *uintptr) int32
+	createKernel    func(clProgram, *byte, *int32) clKernel
+	createBuffer    func(clContext, uint64, uintptr, unsafe.Pointer, *int32) clMem
+	setKernelArg    func(clKernel, uint32, uintptr, unsafe.Pointer) int32
+	enqueueNDRange  func(clCommandQueue, clKernel, uint32, *uintptr, *uintptr, *uintptr, uint32, uintptr, uintptr) int32
+	enqueueRead     func(clCommandQueue, clMem, uint32, uintptr, uintptr, unsafe.Pointer, uint32, uintptr, uintptr) int32
+	enqueueWrite    func(clCommandQueue, clMem, uint32, uintptr, uintptr, unsafe.Pointer, uint32, uintptr, uintptr) int32
+	finish          func(clCommandQueue) int32
+	releaseMem      func(clMem) int32
+	releaseKernel   func(clKernel) int32
+	releaseProgram  func(clProgram) int32
+	releaseQueue    func(clCommandQueue) int32
+	releaseContext  func(clContext) int32
 }
 
 func openCLLibNames() []string {

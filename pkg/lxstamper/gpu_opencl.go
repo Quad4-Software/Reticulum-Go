@@ -19,15 +19,17 @@ import (
 var gpuEngine *gpuEngineState
 
 type gpuEngineState struct {
-	api     *openclAPI
-	device  clDeviceID
-	ctx     clContext
-	queue   clCommandQueue
-	program clProgram
-	kernel  clKernel
-	vendor  string
-	name    string
-	mu      sync.Mutex
+	api             *openclAPI
+	device          clDeviceID
+	ctx             clContext
+	queue           clCommandQueue
+	program         clProgram
+	kernelSearch    clKernel
+	kernelWorkblock clKernel
+	kernelBatch     clKernel
+	vendor          string
+	name            string
+	mu              sync.Mutex
 }
 
 type clCandidate struct {
@@ -81,17 +83,36 @@ func openGPUEngine() (*gpuEngineState, error) {
 		api.releaseProgram(program)
 		api.releaseQueue(queue)
 		api.releaseContext(ctx)
-		return nil, fmt.Errorf("opencl: create kernel status %d", st)
+		return nil, fmt.Errorf("opencl: create search kernel status %d", st)
+	}
+	kwb := api.createKernel(program, cString("lxstamp_workblock"), &st)
+	if st != clSuccess || kwb == 0 {
+		api.releaseKernel(kernel)
+		api.releaseProgram(program)
+		api.releaseQueue(queue)
+		api.releaseContext(ctx)
+		return nil, fmt.Errorf("opencl: create workblock kernel status %d", st)
+	}
+	kbatch := api.createKernel(program, cString("lxstamp_batch_validate"), &st)
+	if st != clSuccess || kbatch == 0 {
+		api.releaseKernel(kwb)
+		api.releaseKernel(kernel)
+		api.releaseProgram(program)
+		api.releaseQueue(queue)
+		api.releaseContext(ctx)
+		return nil, fmt.Errorf("opencl: create batch kernel status %d", st)
 	}
 	return &gpuEngineState{
-		api:     api,
-		device:  device,
-		ctx:     ctx,
-		queue:   queue,
-		program: program,
-		kernel:  kernel,
-		vendor:  dev.vendor,
-		name:    dev.name,
+		api:             api,
+		device:          device,
+		ctx:             ctx,
+		queue:           queue,
+		program:         program,
+		kernelSearch:    kernel,
+		kernelWorkblock: kwb,
+		kernelBatch:     kbatch,
+		vendor:          dev.vendor,
+		name:            dev.name,
 	}, nil
 }
 
@@ -250,21 +271,21 @@ func (e *gpuEngineState) generate(ctx context.Context, workblock []byte, stampCo
 
 	setU32 := func(idx uint32, v uint32) error {
 		vv := v
-		if st := api.setKernelArg(e.kernel, idx, unsafe.Sizeof(vv), unsafe.Pointer(&vv)); st != clSuccess {
+		if st := api.setKernelArg(e.kernelSearch, idx, unsafe.Sizeof(vv), unsafe.Pointer(&vv)); st != clSuccess {
 			return fmt.Errorf("set arg %d: %d", idx, st)
 		}
 		return nil
 	}
 	setU64 := func(idx uint32, v uint64) error {
 		vv := v
-		if st := api.setKernelArg(e.kernel, idx, unsafe.Sizeof(vv), unsafe.Pointer(&vv)); st != clSuccess {
+		if st := api.setKernelArg(e.kernelSearch, idx, unsafe.Sizeof(vv), unsafe.Pointer(&vv)); st != clSuccess {
 			return fmt.Errorf("set arg %d: %d", idx, st)
 		}
 		return nil
 	}
 	setMem := func(idx uint32, m clMem) error {
 		mm := m
-		if st := api.setKernelArg(e.kernel, idx, unsafe.Sizeof(mm), unsafe.Pointer(&mm)); st != clSuccess {
+		if st := api.setKernelArg(e.kernelSearch, idx, unsafe.Sizeof(mm), unsafe.Pointer(&mm)); st != clSuccess {
 			return fmt.Errorf("set mem arg %d: %d", idx, st)
 		}
 		return nil
@@ -305,7 +326,7 @@ func (e *gpuEngineState) generate(ctx context.Context, workblock []byte, stampCo
 			return nil, 0, err
 		}
 		global := uintptr(batch)
-		if st := api.enqueueNDRange(e.queue, e.kernel, 1, nil, &global, nil, 0, 0, 0); st != clSuccess {
+		if st := api.enqueueNDRange(e.queue, e.kernelSearch, 1, nil, &global, nil, 0, 0, 0); st != clSuccess {
 			return nil, 0, fmt.Errorf("opencl: enqueue %d", st)
 		}
 		if st := api.finish(e.queue); st != clSuccess {
@@ -335,4 +356,148 @@ func (e *gpuEngineState) generate(ctx context.Context, workblock []byte, stampCo
 			return nil, 0, fmt.Errorf("opencl: reset found %d", st)
 		}
 	}
+}
+
+func (e *gpuEngineState) workblock(material []byte, rounds int) ([]byte, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if len(material) == 0 || len(material) > 64 || rounds <= 0 {
+		return nil, fmt.Errorf("opencl: invalid workblock args")
+	}
+	api := e.api
+	var st int32
+	mat := make([]byte, 64)
+	copy(mat, material)
+	matBuf := api.createBuffer(e.ctx, clMemReadOnly|clMemCopyHostPtr, 64, unsafe.Pointer(&mat[0]), &st)
+	if st != clSuccess {
+		return nil, fmt.Errorf("opencl: material buffer %d", st)
+	}
+	defer api.releaseMem(matBuf)
+	outBytes := 256 * rounds
+	outBuf := api.createBuffer(e.ctx, clMemWriteOnly, uintptr(outBytes), nil, &st)
+	if st != clSuccess {
+		return nil, fmt.Errorf("opencl: workblock out buffer %d", st)
+	}
+	defer api.releaseMem(outBuf)
+
+	mlen := uint32(len(material))
+	rds := uint32(rounds)
+	if st := api.setKernelArg(e.kernelWorkblock, 0, unsafe.Sizeof(matBuf), unsafe.Pointer(&matBuf)); st != clSuccess {
+		return nil, fmt.Errorf("opencl: wb arg0 %d", st)
+	}
+	if st := api.setKernelArg(e.kernelWorkblock, 1, unsafe.Sizeof(mlen), unsafe.Pointer(&mlen)); st != clSuccess {
+		return nil, fmt.Errorf("opencl: wb arg1 %d", st)
+	}
+	if st := api.setKernelArg(e.kernelWorkblock, 2, unsafe.Sizeof(rds), unsafe.Pointer(&rds)); st != clSuccess {
+		return nil, fmt.Errorf("opencl: wb arg2 %d", st)
+	}
+	if st := api.setKernelArg(e.kernelWorkblock, 3, unsafe.Sizeof(outBuf), unsafe.Pointer(&outBuf)); st != clSuccess {
+		return nil, fmt.Errorf("opencl: wb arg3 %d", st)
+	}
+	global := uintptr(rounds)
+	if st := api.enqueueNDRange(e.queue, e.kernelWorkblock, 1, nil, &global, nil, 0, 0, 0); st != clSuccess {
+		return nil, fmt.Errorf("opencl: wb enqueue %d", st)
+	}
+	if st := api.finish(e.queue); st != clSuccess {
+		return nil, fmt.Errorf("opencl: wb finish %d", st)
+	}
+	out := make([]byte, outBytes)
+	if st := api.enqueueRead(e.queue, outBuf, 1, 0, uintptr(outBytes), unsafe.Pointer(&out[0]), 0, 0, 0); st != clSuccess {
+		return nil, fmt.Errorf("opencl: wb read %d", st)
+	}
+	ref, err := stampWorkblockCPU(material, rounds)
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.Equal(out, ref) {
+		return nil, fmt.Errorf("opencl: workblock mismatch vs cpu")
+	}
+	return out, nil
+}
+
+func (e *gpuEngineState) batchValidate(cands []StampCandidate, targetCost, expandRounds int) ([]bool, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	n := len(cands)
+	if n == 0 {
+		return nil, nil
+	}
+	mats := make([]byte, n*64)
+	lens := make([]uint32, n)
+	stamps := make([]byte, n*StampSize)
+	for i, c := range cands {
+		if len(c.Material) == 0 || len(c.Material) > 64 || len(c.Stamp) != StampSize {
+			lens[i] = 0
+			continue
+		}
+		copy(mats[i*64:], c.Material)
+		lens[i] = uint32(len(c.Material))
+		copy(stamps[i*StampSize:], c.Stamp)
+	}
+	target := stampTarget(targetCost)
+	api := e.api
+	var st int32
+
+	matBuf := api.createBuffer(e.ctx, clMemReadOnly|clMemCopyHostPtr, uintptr(len(mats)), unsafe.Pointer(&mats[0]), &st)
+	if st != clSuccess {
+		return nil, fmt.Errorf("opencl: batch mat %d", st)
+	}
+	defer api.releaseMem(matBuf)
+	lenBuf := api.createBuffer(e.ctx, clMemReadOnly|clMemCopyHostPtr, uintptr(4*n), unsafe.Pointer(&lens[0]), &st)
+	if st != clSuccess {
+		return nil, fmt.Errorf("opencl: batch lens %d", st)
+	}
+	defer api.releaseMem(lenBuf)
+	stampBuf := api.createBuffer(e.ctx, clMemReadOnly|clMemCopyHostPtr, uintptr(len(stamps)), unsafe.Pointer(&stamps[0]), &st)
+	if st != clSuccess {
+		return nil, fmt.Errorf("opencl: batch stamps %d", st)
+	}
+	defer api.releaseMem(stampBuf)
+	tgtBuf := api.createBuffer(e.ctx, clMemReadOnly|clMemCopyHostPtr, 32, unsafe.Pointer(&target[0]), &st)
+	if st != clSuccess {
+		return nil, fmt.Errorf("opencl: batch target %d", st)
+	}
+	defer api.releaseMem(tgtBuf)
+	okBuf := api.createBuffer(e.ctx, clMemWriteOnly, uintptr(n), nil, &st)
+	if st != clSuccess {
+		return nil, fmt.Errorf("opencl: batch ok %d", st)
+	}
+	defer api.releaseMem(okBuf)
+
+	rds := uint32(expandRounds)
+	cost := uint32(targetCost)
+	args := []struct {
+		idx  uint32
+		size uintptr
+		ptr  unsafe.Pointer
+	}{
+		{0, unsafe.Sizeof(matBuf), unsafe.Pointer(&matBuf)},
+		{1, unsafe.Sizeof(lenBuf), unsafe.Pointer(&lenBuf)},
+		{2, unsafe.Sizeof(stampBuf), unsafe.Pointer(&stampBuf)},
+		{3, unsafe.Sizeof(rds), unsafe.Pointer(&rds)},
+		{4, unsafe.Sizeof(tgtBuf), unsafe.Pointer(&tgtBuf)},
+		{5, unsafe.Sizeof(cost), unsafe.Pointer(&cost)},
+		{6, unsafe.Sizeof(okBuf), unsafe.Pointer(&okBuf)},
+	}
+	for _, a := range args {
+		if st := api.setKernelArg(e.kernelBatch, a.idx, a.size, a.ptr); st != clSuccess {
+			return nil, fmt.Errorf("opencl: batch arg %d status %d", a.idx, st)
+		}
+	}
+	global := uintptr(n)
+	if st := api.enqueueNDRange(e.queue, e.kernelBatch, 1, nil, &global, nil, 0, 0, 0); st != clSuccess {
+		return nil, fmt.Errorf("opencl: batch enqueue %d", st)
+	}
+	if st := api.finish(e.queue); st != clSuccess {
+		return nil, fmt.Errorf("opencl: batch finish %d", st)
+	}
+	raw := make([]byte, n)
+	if st := api.enqueueRead(e.queue, okBuf, 1, 0, uintptr(n), unsafe.Pointer(&raw[0]), 0, 0, 0); st != clSuccess {
+		return nil, fmt.Errorf("opencl: batch read %d", st)
+	}
+	out := make([]bool, n)
+	for i := range out {
+		out[i] = raw[i] != 0
+	}
+	return out, nil
 }

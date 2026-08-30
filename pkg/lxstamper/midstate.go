@@ -12,10 +12,10 @@ import (
 
 // sha256Midstate is SHA-256 state after every complete 64-byte block of a prefix.
 type sha256Midstate struct {
-	H            [8]uint32
-	Rem          []byte
-	PrefixLen    int
-	Marshaled    []byte
+	H         [8]uint32
+	Rem       []byte
+	PrefixLen int
+	Marshaled []byte
 }
 
 // midstateOfPrefix compresses all complete SHA-256 blocks of prefix.
