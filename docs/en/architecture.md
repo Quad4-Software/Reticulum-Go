@@ -193,7 +193,7 @@ microvm/ packages a static guest rootfs and a host vsock bridge for nested or is
 |-------|------------------|-------|
 | Config | ~/.reticulum-go/config | INI format, Python-compatible keys |
 | Path table | storage/destination_table | Optional RAM-only mode |
-| Known destinations | storage/known_destinations | Loads Python-format files |
+| Known destinations | storage/known_destinations | Writes and loads Python-compatible keys |
 | Identities | storage/identities/ | Per-hash blobs |
 | Known-peer ratchet public keys | storage/ratchets/{destination_hash} | Python-compatible {ratchet, received} |
 | Local destination ratchet private keys | Path from EnableRatchets (pageserver: {destination_hash}) | Signed msgpack list, or RAM via EnableRatchetsInMemory |

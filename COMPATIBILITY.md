@@ -323,7 +323,7 @@ Python defaults from `RNS.Reticulum.__create_default_config` and [RNS/Reticulum.
 | storage/blackhole | msgpack table | [pkg/blackhole](pkg/blackhole/) |
 | storage/ratchets/ | Known-peer public keys as `{ratchet, received}` msgpack plus destination-private signed lists at `EnableRatchets` path | Same Python known-peer layout. Local private lists use the path the app passes (pageserver: `{destination_hash}`, same as Python LXMF). `EnableRatchetsInMemory` and `in_memory_storage` skip disk |
 | storage/destination_table | Path snapshot | Yes (flat msgpack, Python-compatible layout) |
-| storage/known_destinations | Known destinations | Yes (loads Python byte-keyed files) |
+| storage/known_destinations | Known destinations | Yes (writes Python-compatible bin map keys; loads Python bin keys and legacy Go hex/str keys) |
 | storage/transport_identity | Transport identity | Present |
 | interfaces/ | Python plugin modules | Go-native: factories, JSON manifests, executable pipe drivers under `{config_dir}/interfaces/` |
 

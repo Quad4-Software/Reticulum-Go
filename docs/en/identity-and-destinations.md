@@ -186,7 +186,7 @@ pkg/resolver resolves a human-readable full name string to a deterministic ident
 | Known-peer ratchet public keys | storage/ratchets/{destination_hash} |
 | Local destination ratchet private keys | Path from EnableRatchets (often under storage/ratchets/) |
 
-Go writes identity files keyed by hash. Python may use per-name files. Go loads Python-format known destination files for interoperability.
+Go writes identity files keyed by hash. Python may use per-name files. Go writes and loads Python-compatible known destination tables (16-byte keys) and still loads legacy Go hex-keyed files.
 
 ## Signing without holding the seed
 
