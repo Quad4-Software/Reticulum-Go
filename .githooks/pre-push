@@ -2,11 +2,36 @@
 # pre-push: run fast local checks before push.
 #
 # Skip: SKIP_PREPUSH=1 git push ...
+#
+# Git invokes this hook once per push URL. Remotes with multiple pushurls
+# would otherwise re-run the same checks. Guard on the parent push PID.
 set -eu
 
 if [ "${SKIP_PREPUSH:-0}" = "1" ]; then
 	exit 0
 fi
+
+tmpdir="${TMPDIR:-/tmp}"
+guard_prefix="${tmpdir}/reticulum-go-prepush-"
+guard="${guard_prefix}${PPID}"
+
+for stale in "${guard_prefix}"*; do
+	[ -e "$stale" ] || continue
+	spid="${stale#"$guard_prefix"}"
+	case "$spid" in
+	*[!0-9]*) continue ;;
+	esac
+	if ! kill -0 "$spid" 2>/dev/null; then
+		rm -f "$stale"
+	fi
+done
+
+if [ -e "$guard" ]; then
+	# Already ran for this git push (another pushurl). Drain stdin and skip.
+	cat >/dev/null
+	exit 0
+fi
+touch "$guard"
 
 ROOT="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
