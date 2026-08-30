@@ -59,7 +59,7 @@ func hashMidstateStamp(ms sha256Midstate, stamp []byte) [32]byte {
 	remn := n - off
 	copy(block[:], buf[off:off+remn])
 	block[remn] = 0x80
-	bitLen := uint64(ms.PrefixLen+len(stamp)) * 8
+	bitLen := uint64(ms.PrefixLen+len(stamp)) * 8 // #nosec G115 -- message bit length fits uint64
 	if remn >= 56 {
 		sha256Compress(&h, block[:])
 		clear(block[:])

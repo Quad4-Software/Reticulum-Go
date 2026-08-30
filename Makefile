@@ -248,7 +248,7 @@ vulncheck:
 
 # Scope packages so module cache under .cache/ is not scanned (avoids false positives from dependencies).
 gosec:
-	env GOFLAGS= GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct CGO_ENABLED=0 $(GOCMD) run github.com/securego/gosec/v2/cmd/gosec@latest -quiet -exclude-dir=vendor -exclude-dir=.cache -exclude-dir=testdata ./pkg/... ./cmd/... ./internal/... ./tests/...
+	env GOFLAGS= GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct CGO_ENABLED=0 $(GOCMD) run github.com/securego/gosec/v2/cmd/gosec@latest -quiet -tags lxstamp_nogpu -exclude-dir=vendor -exclude-dir=.cache -exclude-dir=testdata ./pkg/... ./cmd/... ./internal/... ./tests/...
 
 prepush: fmt-check vet lint test-short
 

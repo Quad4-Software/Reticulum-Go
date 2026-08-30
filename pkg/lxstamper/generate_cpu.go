@@ -45,7 +45,7 @@ func cpuMineStamp(ctx context.Context, workblock []byte, stampCost int) ([]byte,
 			}
 			var stamp [32]byte
 			copy(stamp[:16], seed[:])
-			binary.BigEndian.PutUint32(stamp[12:16], uint32(worker))
+			binary.BigEndian.PutUint32(stamp[12:16], uint32(worker)) // #nosec G115 -- worker index from GOMAXPROCS
 			var sum [32]byte
 			var counter uint64
 			for !found.Load() {
@@ -61,8 +61,8 @@ func cpuMineStamp(ctx context.Context, workblock []byte, stampCost int) ([]byte,
 					}
 				}
 				binary.BigEndian.PutUint64(stamp[16:], counter)
-				binary.BigEndian.PutUint32(stamp[24:], uint32(counter>>32)^uint32(worker)*0x9e3779b9)
-				binary.BigEndian.PutUint32(stamp[28:], uint32(counter)^uint32(worker)<<16)
+				binary.BigEndian.PutUint32(stamp[24:], uint32(counter>>32)^uint32(worker)*0x9e3779b9) // #nosec G115 -- stamp mixing truncates to 32 bits
+				binary.BigEndian.PutUint32(stamp[28:], uint32(counter)^uint32(worker)<<16)            // #nosec G115 -- stamp mixing truncates to 32 bits
 
 				if err := un.UnmarshalBinary(midState); err != nil {
 					return
@@ -134,7 +134,7 @@ func cpuMineStampFallback(ctx context.Context, workblock []byte, stampCost int) 
 			}
 			var stamp [32]byte
 			copy(stamp[:16], seed[:])
-			binary.BigEndian.PutUint32(stamp[12:16], uint32(worker))
+			binary.BigEndian.PutUint32(stamp[12:16], uint32(worker)) // #nosec G115 -- worker index from GOMAXPROCS
 			var sum [32]byte
 			var counter uint64
 			for !found.Load() {
@@ -147,8 +147,8 @@ func cpuMineStampFallback(ctx context.Context, workblock []byte, stampCost int) 
 					}
 				}
 				binary.BigEndian.PutUint64(stamp[16:], counter)
-				binary.BigEndian.PutUint32(stamp[24:], uint32(counter>>32)^uint32(worker)*0x9e3779b9)
-				binary.BigEndian.PutUint32(stamp[28:], uint32(counter)^uint32(worker)<<16)
+				binary.BigEndian.PutUint32(stamp[24:], uint32(counter>>32)^uint32(worker)*0x9e3779b9) // #nosec G115 -- stamp mixing truncates to 32 bits
+				binary.BigEndian.PutUint32(stamp[28:], uint32(counter)^uint32(worker)<<16)            // #nosec G115 -- stamp mixing truncates to 32 bits
 				if err := un.UnmarshalBinary(midState); err != nil {
 					return
 				}

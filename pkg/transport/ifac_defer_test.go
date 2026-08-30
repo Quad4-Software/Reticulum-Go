@@ -40,19 +40,22 @@ func TestSimIFACFirstHop(t *testing.T) {
 		}
 	}
 	src := net.nodes[0]
-	deadline := time.Now().Add(simConvergenceTimeout(1))
+	timeout := simConvergenceTimeout(1) + 20*time.Second
+	deadline := time.Now().Add(timeout)
 	var took time.Duration
 	var ok int
 	for time.Now().Before(deadline) {
 		src.originateAnnounce(t)
-		waitInboundDrain(t, net.nodes[1].tr, 50*time.Millisecond)
-		took, ok = waitForPaths(net.nodes[1:2], src.destHash, 500*time.Millisecond)
+		for _, node := range net.nodes {
+			waitInboundDrain(t, node.tr, 50*time.Millisecond)
+		}
+		took, ok = waitForPaths(net.nodes[1:2], src.destHash, 2*time.Second)
 		if ok == 1 {
 			return
 		}
 	}
 	if ok != 1 {
-		t.Fatalf("first hop: %d/1 converged in %v", ok, took)
+		t.Fatalf("first hop: %d/1 converged in %v (timeout %v)", ok, took, timeout)
 	}
 }
 

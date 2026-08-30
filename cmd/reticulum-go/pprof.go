@@ -6,7 +6,7 @@ package main
 import (
 	"net"
 	"net/http"
-	_ "net/http/pprof"
+	_ "net/http/pprof" // #nosec G108 -- opt-in via RETICULUM_PPROF_ADDR, localhost bind only
 	"os"
 	"strings"
 	"time"
