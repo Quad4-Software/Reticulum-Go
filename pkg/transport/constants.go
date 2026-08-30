@@ -28,6 +28,10 @@ const (
 	// PathfinderE is path table lifetime in seconds (Python PATHFINDER_E).
 	PathfinderE = 60 * 60 * 24 * 7
 
+	// PathPersistMinInterval is the minimum gap between dirty flushes of the
+	// path table. Shutdown uses savePathTableSync (force).
+	PathPersistMinInterval = 30 * time.Second
+
 	// KnownDestinationsInterval is how often known destinations are cleaned
 	// (Python known_destinations_interval).
 	KnownDestinationsInterval = 5 * time.Minute

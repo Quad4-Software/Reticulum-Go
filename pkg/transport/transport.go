@@ -198,6 +198,7 @@ type Transport struct {
 	pathPersistDirty         atomic.Bool
 	pathPersistGen           atomic.Uint64
 	pathPersistSaving        sync.Mutex
+	pathPersistLast          atomic.Int64
 	pendingPathEntries       []pendingPathEntry
 	done                     chan struct{}
 	stopOnce                 sync.Once
