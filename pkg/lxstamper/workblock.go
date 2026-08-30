@@ -39,7 +39,7 @@ func StampWorkblock(material []byte, expandRounds int) ([]byte, error) {
 			return nil, err
 		}
 	}
-	return stampWorkblockCPU(material, expandRounds)
+	return cpuExpandWorkblock(material, expandRounds)
 }
 
 // StampWorkblockCPU forces the parallel CPU workblock path.
@@ -50,10 +50,10 @@ func StampWorkblockCPU(material []byte, expandRounds int) ([]byte, error) {
 	if len(material) == 0 {
 		return nil, errors.New("lxstamper: workblock material required")
 	}
-	return stampWorkblockCPU(material, expandRounds)
+	return cpuExpandWorkblock(material, expandRounds)
 }
 
-func stampWorkblockCPU(material []byte, expandRounds int) ([]byte, error) {
+func cpuExpandWorkblock(material []byte, expandRounds int) ([]byte, error) {
 	out := make([]byte, 256*expandRounds)
 	workers := max(min(runtime.GOMAXPROCS(0), expandRounds), 1)
 	var (

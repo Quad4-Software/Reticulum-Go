@@ -185,28 +185,28 @@ func (i *BaseInterface) PathRequestTXSpeed() float64 {
 	return i.currentPTXS
 }
 
-func (i *BaseInterface) receivedAnnounceBytes(size int) {
+func (i *BaseInterface) tallyReceivedAnnounceBytes(size int) {
 	i.arxc++
 	if size > 0 {
 		i.arxb += uint64(size)
 	}
 }
 
-func (i *BaseInterface) sentAnnounceBytes(size int) {
+func (i *BaseInterface) tallySentAnnounceBytes(size int) {
 	i.atxc++
 	if size > 0 {
 		i.atxb += uint64(size)
 	}
 }
 
-func (i *BaseInterface) receivedPathRequestBytes(size int) {
+func (i *BaseInterface) tallyReceivedPathRequestBytes(size int) {
 	i.prxc++
 	if size > 0 {
 		i.prxb += uint64(size)
 	}
 }
 
-func (i *BaseInterface) sentPathRequestBytes(size int) {
+func (i *BaseInterface) tallySentPathRequestBytes(size int) {
 	i.ptxc++
 	if size > 0 {
 		i.ptxb += uint64(size)

@@ -58,7 +58,9 @@ func TestGenerateStampWithDeadlineExpired(t *testing.T) {
 func TestStampValueDeterministic(t *testing.T) {
 	wb := bytes.Repeat([]byte{0x11}, 256)
 	stamp := bytes.Repeat([]byte{0xAB}, StampSize)
-	if StampValue(wb, stamp) != StampValue(wb, stamp) {
+	first := StampValue(wb, stamp)
+	second := StampValue(wb, stamp)
+	if first != second {
 		t.Fatal("StampValue not deterministic")
 	}
 }

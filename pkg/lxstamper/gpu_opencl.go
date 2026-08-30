@@ -407,7 +407,7 @@ func (e *gpuEngineState) workblock(material []byte, rounds int) ([]byte, error) 
 		return nil, fmt.Errorf("opencl: wb read %d", st)
 	}
 	if gpuWorkblockVerifyEnabled() {
-		ref, err := stampWorkblockCPU(material, rounds)
+		ref, err := cpuExpandWorkblock(material, rounds)
 		if err != nil {
 			return nil, err
 		}

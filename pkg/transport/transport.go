@@ -501,15 +501,12 @@ func (t *Transport) rememberSeenAnnounceUnlocked(h [32]byte, now time.Time) {
 }
 
 func (t *Transport) evictSeenAnnouncesUnlocked(now time.Time) {
-	max := common.DefaultMaxSeenAnnounces
-	if max <= 0 || len(t.seenAnnounces) <= max {
+	limit := common.DefaultMaxSeenAnnounces
+	if limit <= 0 || len(t.seenAnnounces) <= limit {
 		return
 	}
-	over := len(t.seenAnnounces) - max
-	batch := over
-	if batch < 64 {
-		batch = 64
-	}
+	over := len(t.seenAnnounces) - limit
+	batch := max(over, 64)
 	if batch > len(t.seenAnnounces) {
 		batch = over
 	}

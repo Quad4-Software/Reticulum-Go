@@ -89,13 +89,13 @@ func (n *Node) handleFetch(path string, data []byte, _ []byte, _ []byte, remote 
 	for _, item := range refsList {
 		m, ok := item.(map[any]any)
 		if !ok {
-			if m2, ok := item.(map[string]any); ok {
-				m = map[any]any{}
-				for k, v := range m2 {
-					m[k] = v
-				}
-			} else {
+			m2, ok := item.(map[string]any)
+			if !ok {
 				return StatusResponse(ResInvalidReq, "Invalid request")
+			}
+			m = map[any]any{}
+			for k, v := range m2 {
+				m[k] = v
 			}
 		}
 		ref := fmt.Sprint(m["ref"])
@@ -205,13 +205,13 @@ func (n *Node) handlePush(path string, data []byte, _ []byte, _ []byte, remote *
 		for _, item := range list {
 			m, ok := item.(map[any]any)
 			if !ok {
-				if m2, ok := item.(map[string]any); ok {
-					m = map[any]any{}
-					for k, v := range m2 {
-						m[k] = v
-					}
-				} else {
+				m2, ok := item.(map[string]any)
+				if !ok {
 					return StatusResponse(ResInvalidReq, "Invalid request")
+				}
+				m = map[any]any{}
+				for k, v := range m2 {
+					m[k] = v
 				}
 			}
 			if fmt.Sprint(m["action"]) != "update_ref" {

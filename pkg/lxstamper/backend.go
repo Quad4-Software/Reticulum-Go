@@ -112,7 +112,7 @@ func GenerateStamp(ctx context.Context, messageID []byte, stampCost, expandRound
 		}
 		return nil, 0, ErrGPUUnavailable
 	}
-	return generateStampCPU(ctx, wb, stampCost)
+	return cpuMineStamp(ctx, wb, stampCost)
 }
 
 // GenerateStampCPU forces the CPU path (for benchmarks and tests).
@@ -127,7 +127,7 @@ func GenerateStampCPU(ctx context.Context, messageID []byte, stampCost, expandRo
 	if err != nil {
 		return nil, 0, err
 	}
-	return generateStampCPU(ctx, wb, stampCost)
+	return cpuMineStamp(ctx, wb, stampCost)
 }
 
 // GenerateStampGPU forces the GPU path. Returns ErrGPUUnavailable when no GPU.

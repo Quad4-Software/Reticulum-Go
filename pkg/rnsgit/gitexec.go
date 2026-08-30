@@ -25,7 +25,7 @@ func NewGitRunner() *GitRunner {
 func (g *GitRunner) run(dir string, args ...string) (stdout, stderr []byte, err error) {
 	cmd := exec.Command(g.Git, args...) // #nosec G204 -- fixed git binary
 	cmd.Dir = dir
-	cmd.Env = gitCleanEnv()
+	cmd.Env = envWithoutGitDir()
 	var outBuf, errBuf bytes.Buffer
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf

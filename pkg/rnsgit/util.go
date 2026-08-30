@@ -149,7 +149,7 @@ func isGitBundle(data []byte) bool {
 
 func localGitCmd(args ...string) *exec.Cmd {
 	cmd := exec.Command("git", args...) // #nosec G204 -- fixed git binary
-	env := gitCleanEnv()
+	env := envWithoutGitDir()
 	if dir := os.Getenv("GIT_DIR"); dir != "" {
 		env = append(env, "GIT_DIR="+dir)
 	}
@@ -163,10 +163,10 @@ func localGitCmd(args ...string) *exec.Cmd {
 
 // GitCleanEnv returns a copy of the environment without GIT_DIR or GIT_WORK_TREE.
 func GitCleanEnv() []string {
-	return gitCleanEnv()
+	return envWithoutGitDir()
 }
 
-func gitCleanEnv() []string {
+func envWithoutGitDir() []string {
 	env := os.Environ()
 	out := make([]string, 0, len(env))
 	for _, e := range env {

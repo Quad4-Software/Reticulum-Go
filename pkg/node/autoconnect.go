@@ -113,11 +113,11 @@ func (n *Node) autoconnect(info *discovery.ReceivedAnnounceInfo) {
 	if n == nil || n.config == nil || info == nil {
 		return
 	}
-	max := n.config.AutoconnectDiscoveredInterfaces
-	if max <= 0 {
+	limit := n.config.AutoconnectDiscoveredInterfaces
+	if limit <= 0 {
 		return
 	}
-	if n.autoconnectCount() >= max {
+	if n.autoconnectCount() >= limit {
 		return
 	}
 	ifaceType := info.Info.Type
@@ -251,9 +251,9 @@ func (n *Node) trackAutoconnect(iface interfaces.Interface, eh []byte, ifaceType
 	if n == nil || n.config == nil || iface == nil {
 		return false
 	}
-	max := n.config.AutoconnectDiscoveredInterfaces
+	limit := n.config.AutoconnectDiscoveredInterfaces
 	n.acMu.Lock()
-	if len(n.acEntries) >= max {
+	if len(n.acEntries) >= limit {
 		n.acMu.Unlock()
 		return false
 	}

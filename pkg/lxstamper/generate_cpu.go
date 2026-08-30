@@ -17,11 +17,11 @@ import (
 
 const cpuCancelCheckMask = 0x3fff // every 16384 attempts
 
-func generateStampCPU(ctx context.Context, workblock []byte, stampCost int) ([]byte, int, error) {
+func cpuMineStamp(ctx context.Context, workblock []byte, stampCost int) ([]byte, int, error) {
 	target := stampTarget(stampCost)
 	ms, err := midstateOfPrefix(workblock)
 	if err != nil || len(ms.Marshaled) == 0 {
-		return generateStampCPUFallback(ctx, workblock, stampCost)
+		return cpuMineStampFallback(ctx, workblock, stampCost)
 	}
 	midState := ms.Marshaled
 
@@ -101,7 +101,7 @@ func generateStampCPU(ctx context.Context, workblock []byte, stampCost int) ([]b
 	}
 }
 
-func generateStampCPUFallback(ctx context.Context, workblock []byte, stampCost int) ([]byte, int, error) {
+func cpuMineStampFallback(ctx context.Context, workblock []byte, stampCost int) ([]byte, int, error) {
 	target := stampTarget(stampCost)
 	workers := max(runtime.GOMAXPROCS(0), 1)
 	var found atomic.Bool

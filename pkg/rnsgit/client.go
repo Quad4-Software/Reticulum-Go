@@ -504,12 +504,12 @@ func (c *Client) processPush(ctx context.Context, localRef, remoteRef string, st
 	}
 	bundleEmpty := false
 	if err := create.Run(); err != nil {
-		if out, _ := create.CombinedOutput(); strings.Contains(strings.ToLower(string(out)), "empty bundle") {
-			bundleEmpty = true
-		} else {
+		out, _ := create.CombinedOutput()
+		if !strings.Contains(strings.ToLower(string(out)), "empty bundle") {
 			fmt.Fprintf(stdout, "error %s %s\n", remoteRef, EscapeGitStdout("bundle creation failed"))
 			return nil
 		}
+		bundleEmpty = true
 	}
 	if !bundleEmpty {
 		data, err := os.ReadFile(bundlePath) // #nosec G304 -- temp bundle path

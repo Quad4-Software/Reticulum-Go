@@ -44,7 +44,7 @@ func loadSpamFilterVectors(t *testing.T) []spamFilterCase {
 	return file.Amplification
 }
 
-func spamFilterTransport(t *testing.T, inCfg *common.InterfaceConfig, gatewayIn bool) (*Transport, *trackingIface, *trackingIface) {
+func spamFilterTransport(t *testing.T, inCfg *common.InterfaceConfig, gatewayIn bool) (tr *Transport, in *trackingIface, out *trackingIface) {
 	t.Helper()
 	cfg := &common.ReticulumConfig{
 		EnableTransport: true,
@@ -54,11 +54,11 @@ func spamFilterTransport(t *testing.T, inCfg *common.InterfaceConfig, gatewayIn 
 	if inCfg != nil {
 		cfg.Interfaces["in"] = inCfg
 	}
-	tr := NewTransport(cfg)
+	tr = NewTransport(cfg)
 	t.Cleanup(func() { _ = tr.Close() })
 
-	in := newTrackingIface("in")
-	out := newTrackingIface("out")
+	in = newTrackingIface("in")
+	out = newTrackingIface("out")
 	if gatewayIn {
 		in.Mode = common.IFModeGateway
 	}

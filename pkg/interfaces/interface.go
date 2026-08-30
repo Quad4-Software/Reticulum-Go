@@ -513,7 +513,7 @@ func (i *BaseInterface) ReceivedPathRequest() {
 func (i *BaseInterface) ReceivedPathRequestBytes(size int) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
-	i.receivedPathRequestBytes(size)
+	i.tallyReceivedPathRequestBytes(size)
 	i.ipFreqDeque = append(i.ipFreqDeque, time.Now())
 	if len(i.ipFreqDeque) > prFreqSamples {
 		i.ipFreqDeque = i.ipFreqDeque[1:]
@@ -529,7 +529,7 @@ func (i *BaseInterface) SentPathRequest() {
 func (i *BaseInterface) SentPathRequestBytes(size int) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
-	i.sentPathRequestBytes(size)
+	i.tallySentPathRequestBytes(size)
 	i.opFreqDeque = append(i.opFreqDeque, time.Now())
 	if len(i.opFreqDeque) > prFreqSamples {
 		i.opFreqDeque = i.opFreqDeque[1:]
@@ -545,7 +545,7 @@ func (i *BaseInterface) ReceivedAnnounce() {
 func (i *BaseInterface) ReceivedAnnounceBytes(size int) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
-	i.receivedAnnounceBytes(size)
+	i.tallyReceivedAnnounceBytes(size)
 	i.iaFreqDeque = append(i.iaFreqDeque, time.Now())
 	if len(i.iaFreqDeque) > prFreqSamples {
 		i.iaFreqDeque = i.iaFreqDeque[1:]
@@ -561,7 +561,7 @@ func (i *BaseInterface) SentAnnounce() {
 func (i *BaseInterface) SentAnnounceBytes(size int) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
-	i.sentAnnounceBytes(size)
+	i.tallySentAnnounceBytes(size)
 	i.oaFreqDeque = append(i.oaFreqDeque, time.Now())
 	if len(i.oaFreqDeque) > prFreqSamples {
 		i.oaFreqDeque = i.oaFreqDeque[1:]

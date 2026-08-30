@@ -74,7 +74,7 @@ func validateStampBatchCPU(cands []StampCandidate, targetCost, expandRounds int)
 				if len(c.Stamp) != StampSize || len(c.Material) == 0 {
 					continue
 				}
-				wb, err := stampWorkblockCPU(c.Material, expandRounds)
+				wb, err := cpuExpandWorkblock(c.Material, expandRounds)
 				if err != nil {
 					continue
 				}
