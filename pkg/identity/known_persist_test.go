@@ -28,6 +28,8 @@ func resetKnownDestinations(t *testing.T) {
 	knownPersistMemory.Store(false)
 	knownPersistDisabled.Store(false)
 	knownPersistDirty.Store(false)
+	knownPersistGen.Store(0)
+	knownPersistLast.Store(0)
 	SetKnownDestinationsMaxEntries(0)
 }
 

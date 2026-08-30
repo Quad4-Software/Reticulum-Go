@@ -45,12 +45,7 @@ func NewIdentityWithSigner(x25519Private []byte, signer cryptography.Ed25519Sign
 	if err := storeX25519(i, x25519Private); err != nil {
 		return nil, err
 	}
-
-	combinedPub := make([]byte, KeySize/8)
-	copy(combinedPub[:KeySize/16], i.publicKey)
-	copy(combinedPub[KeySize/16:], i.verificationKey)
-	fullHash := cryptography.Hash(combinedPub)
-	i.hash = fullHash[:TruncatedHashLength/8]
+	i.cachePublicHash()
 	i.hexHash = hex.EncodeToString(i.hash)
 
 	return i, nil

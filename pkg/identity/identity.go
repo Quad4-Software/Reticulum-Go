@@ -34,6 +34,7 @@ type Identity struct {
 	signingKey      *securemem.Buf // 64-byte expanded Ed25519 private key
 	verificationKey ed25519.PublicKey
 	externalSigner  cryptography.Ed25519Signer // if non-nil, Sign uses this instead of signingSeed
+	fullPublicKey   []byte                     // X25519||Ed25519, 64 bytes. Do not mutate.
 	hash            []byte
 	hexHash         string
 
@@ -43,10 +44,11 @@ type Identity struct {
 }
 
 type knownDestEntry struct {
-	pkt  []byte
-	hash []byte
-	id   *Identity
-	app  []byte
+	pkt    []byte
+	hash   []byte
+	rawKey string // truncated dest hash as a 16-byte string key for msgpack
+	id     *Identity
+	app    []byte
 }
 
 var (
@@ -90,12 +92,19 @@ func New() (*Identity, error) {
 	return i, nil
 }
 
+// GetPublicKey returns a fresh 64-byte X25519||Ed25519 public key, matching
+// Python Identity.get_public_key (pub_bytes+sig_pub_bytes concatenation).
+// Callers may mutate the returned slice without affecting the Identity.
 func (i *Identity) GetPublicKey() []byte {
-	// Combine encryption and signing public keys in correct order
-	fullKey := make([]byte, 64)
-	copy(fullKey[:32], i.publicKey)       // First 32 bytes: X25519 encryption key
-	copy(fullKey[32:], i.verificationKey) // Last 32 bytes: Ed25519 verification key
-	return fullKey
+	if i == nil {
+		return nil
+	}
+	if len(i.fullPublicKey) != 64 {
+		i.cachePublicHash()
+	}
+	out := make([]byte, 64)
+	copy(out, i.fullPublicKey)
+	return out
 }
 
 func (i *Identity) GetPrivateKey() ([]byte, error) {
@@ -187,16 +196,21 @@ func (i *Identity) Hash() []byte {
 	return i.hash
 }
 
-// cachePublicHash stores the truncated destination hash of the public key material.
+// cachePublicHash stores the combined public key and its truncated hash.
 func (i *Identity) cachePublicHash() {
 	if i == nil {
 		return
 	}
-	var full [64]byte
-	copy(full[:32], i.publicKey)
-	copy(full[32:], i.verificationKey)
-	sum := cryptography.Hash(full[:])
+	if cap(i.fullPublicKey) < 64 {
+		i.fullPublicKey = make([]byte, 64)
+	} else {
+		i.fullPublicKey = i.fullPublicKey[:64]
+	}
+	copy(i.fullPublicKey[:32], i.publicKey)
+	copy(i.fullPublicKey[32:], i.verificationKey)
+	sum := cryptography.Hash(i.fullPublicKey)
 	i.hash = append([]byte(nil), sum[:TruncatedHashLength/8]...)
+	i.hexHash = ""
 }
 
 func (i *Identity) ensureRatchetMaps() {
@@ -302,10 +316,11 @@ func rememberKnown(packet []byte, destHash []byte, publicKey []byte, appData []b
 		id = FromPublicKey(publicKey)
 	}
 	knownDestinations[hashStr] = knownDestEntry{
-		pkt:  append([]byte(nil), packet...),
-		hash: append([]byte(nil), destHash...),
-		id:   id,
-		app:  append([]byte(nil), appData...),
+		pkt:    append([]byte(nil), packet...),
+		hash:   append([]byte(nil), destHash...),
+		rawKey: string(hashStr[:]),
+		id:     id,
+		app:    append([]byte(nil), appData...),
 	}
 	prev := knownDestMetaByKey[hashStr]
 	lastUsed := prev.lastUsed
@@ -755,10 +770,7 @@ func (i *Identity) loadPrivateKey(privateKey, signingSeed []byte) error {
 		return err
 	}
 
-	publicKeyBytes := make([]byte, 0, len(i.publicKey)+len(i.verificationKey))
-	publicKeyBytes = append(publicKeyBytes, i.publicKey...)
-	publicKeyBytes = append(publicKeyBytes, i.verificationKey...)
-	i.hash = TruncatedHash(publicKeyBytes)[:TruncatedHashLength/8]
+	i.cachePublicHash()
 	i.hexHash = hex.EncodeToString(i.hash)
 
 	debug.Log(debug.DebugVerbose, "Private key loaded successfully", "hash", i.GetHexHash())
@@ -925,12 +937,7 @@ func NewIdentity() (*Identity, error) {
 		return nil, err
 	}
 	securemem.WipeBytes(ed25519Seed[:])
-
-	combinedPub := make([]byte, KeySize/8)
-	copy(combinedPub[:KeySize/16], i.publicKey)
-	copy(combinedPub[KeySize/16:], i.verificationKey)
-	fullHash := cryptography.Hash(combinedPub)
-	i.hash = fullHash[:TruncatedHashLength/8]
+	i.cachePublicHash()
 
 	return i, nil
 }
