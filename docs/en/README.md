@@ -30,14 +30,14 @@ Documentation is organized by language under docs/. English lives in docs/en/. A
 | [CLI utilities](utilities.md) | reticulum-go subcommands (status, slow, zen, id, probe, path, cp, pageserver), shared-instance RPC with Python |
 | [Embedding and WebAssembly](embedding-and-wasm.md) | pkg/node, WASM, browser integration |
 | [Firecracker microvm](microvm.md) | Guest rootfs, VSOCK host bridge, nested VM networking |
-| [Development and testing](development-and-testing.md) | Code quality, crossref tests, interop tests, CI |
+| [Development and testing](development-and-testing.md) | Make/Task/manual targets, code quality, crossref, interop, CI |
 | [Examples](examples.md) | Example programs and how to run them |
 
 ## Related files in the repository root
 
 | File | Purpose |
 |------|---------|
-| [README.md](../../README.md) | Project entry point, quick start, Makefile reference |
+| [README.md](../../README.md) | Project entry point, features, install/build |
 | [COMPATIBILITY.md](../../COMPATIBILITY.md) | Detailed compatibility matrix (also summarized in [compatibility.md](compatibility.md)) |
 | [SECURITY.md](../../SECURITY.md) | Vulnerability reporting and supply-chain detail (also summarized in [security.md](security.md)) |
 | [LICENSE](../../LICENSE) | Apache License 2.0 |

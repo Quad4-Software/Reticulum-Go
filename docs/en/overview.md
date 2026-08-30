@@ -105,6 +105,10 @@ Reticulum-Go/
     en/                 English documentation (this tree)
 ```
 
+## Credit
+
+[Mark Qvist](https://github.com/markqvist) designed and implemented the reference Reticulum Network Stack.
+
 ## Relationship to Python Reticulum
 
 Python Reticulum (RNS) is the reference implementation and defines the on-wire protocol. Reticulum-Go reimplements that protocol in Go and verifies behavior against:

@@ -11,7 +11,7 @@ Contributions are welcome. Prefer sending changes as `.patch` files over Reticul
 5. Branch from `dev` for feature work.
 6. Before pushing: `task prepush` or full `task check`.
 
-Primary automation is **Task** (`task --list`). **Make** targets are aliases for common workflows.
+Primary automation is available via **Make** and **Task** (`make help`, `task --list`). Use whichever you prefer. Plain `go build` / `go test` also work with vendored modules.
 
 Optional: use [mise](https://mise.jdx.dev/) (`mise install`) or the Dev Container (`.devcontainer/`) for pinned Go and Task versions.
 
@@ -143,3 +143,9 @@ Send issues, suggestions, patches, or feedback to:
 
 - **Reticulum LXMF:** `f489752fbef161c64d65e385a4e9fc74` (Ivan, Lead Maintainer)
 - **Email:** `team@quad4.io`
+
+## AI-assisted contributions
+
+Open-weight LLMs, preferably operated locally under a controlled harness, may assist with non-critical tasks such as commit messages, documentation, drafts, translations, tests, examples, language bindings, and CLI utilities. LLMs may create new bindings and examples, and update existing ones. Generated binding work is not accepted on authorship alone. See [bindings/README.md](bindings/README.md).
+
+Command execution and remote shell utilities (including `reticulum-go x` / rnx and `reticulum-go sh` / rgosh) may be drafted by an LLM only when a human scrutinizes the result heavily, verifies behavior, and keeps the same allowlists, sandbox, and security procedures used for production. LLMs are strictly excluded from cryptography, key handling, protocol security logic, and any other security-sensitive development. All LLM output is reviewed and approved by a human. Design decisions and security-critical changes are made exclusively by humans.

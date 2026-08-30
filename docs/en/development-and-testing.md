@@ -1,32 +1,79 @@
 # Development and testing
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for commit format, git hooks, pull request checklist, and CI overview.
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) for commit format, git hooks, pull request checklist, and CI overview.
 
 ## Development environment
 
 Requirements:
 
 - Go 1.26.6 or later (see scripts/ci/dev-tools.env and mise.toml)
-- Task (primary automation) or Make (common aliases)
-- revive and staticcheck (task bootstrap)
+- Make and/or Task (either works for common workflows)
+- revive and staticcheck (make bootstrap or task bootstrap)
 - shellcheck and yamllint for git hooks (optional system packages)
 - Python 3 for crossref vector generation (optional)
 
 Clone the repository. Dependencies are in vendor/. No network fetch is needed for ordinary builds.
 
-Setup:
+Setup (Make, Task, or both):
 
 ```bash
-task bootstrap    # install task, revive, staticcheck
-task doctor       # verify tool versions
-task hooks:install # pre-commit, commit-msg, pre-push
+make bootstrap          # or: task bootstrap
+make doctor             # or: task doctor
+make hooks-install      # or: task hooks:install
 ```
 
+On some Linux distributions the Task binary is named `go-task`. Add `alias task='go-task'` if needed. Run `task --list` or `make help` for available targets.
+
 Optional: [mise](https://mise.jdx.dev/) (mise install) or the Dev Container (.devcontainer/).
+
+## Build automation reference
+
+Makefile and Taskfile both set `GOFLAGS=-mod=vendor`, `GOPROXY=off`, and `GOSUMDB=off`. Prefer Make, Task, or plain `go` as you like. Equivalents for the common targets:
+
+| Make | Task | Manual / notes |
+|------|------|----------------|
+| `make` / `make all` / `make build` | `task build` | `mkdir -p bin && CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go` |
+| `make install` | `task install` | Installs binary, legacy tool symlinks, and man pages under `PREFIX` (supports `DESTDIR`) |
+| `make install-man` | | Man pages only |
+| `make install-service` | | `INIT=auto\|systemd\|openrc\|runit\|dinit\|all`. Sample config under `/var/lib/reticulum-go` |
+| `make uninstall` | | Removes installed binary, symlinks, and man pages |
+| `make package-deb` / `package-rpm` / `package-arch` | | nfpm packages into `dist/` |
+| `make clean` | `task clean` | `go clean` and remove build artifacts |
+| `make test` | `task test` | `go test -v ./...` (project wrapper may use testsummary) |
+| `make test-short` | `task test-short` | `go test -short -v ./...` |
+| `make test-race` | | `CGO_ENABLED=1 go test -race -v ./...` |
+| `make test-services` | | `scripts/ci/test-services-docker.sh` |
+| `make test-install-script` | | `scripts/ci/test-install.sh` |
+| `make test-self-check` | | `scripts/ci/run-self-check.sh` |
+| `make test-self-check-{386,arm,riscv64,ppc64le,ppc64}` | | qemu-user self-check (`qemu-user-static`) |
+| `make coverage` | | coverage profile and HTML report |
+| `make bench` | `task bench` | `go test -run=^$ -bench=. -benchmem ./...` |
+| `make fmt` | `task fmt` | `go fmt ./...` |
+| `make vet` | `task vet` | `go vet ./...` |
+| `make lint` | `task lint` | revive with `revive.toml` |
+| `make staticcheck` | `task staticcheck` | staticcheck on core packages |
+| `make vulncheck` | `task vulncheck` | govulncheck |
+| `make check` | `task check` | fmt/vet/lint/staticcheck/short tests/vulncheck (gosec via Make) |
+| `make prepush` | `task prepush` | fmt-check, vet, lint, test-short |
+| `make deps` | `task deps` | module download/verify (clears offline proxy for the fetch) |
+| `make run` | `task run` | `go run ./cmd/reticulum-go` |
+| `make debug` | | `go build -o bin/reticulum-go ./cmd/reticulum-go` |
+| `make build-linux` / `build-windows` / `build-darwin` / `build-all` | matching `task build-*` | Cross-compile release targets |
+| `make build-windows-legacy` | `task build-windows-legacy` | go-legacy-win7 (`GO_LEGACY_WIN7`) |
+| `make build-windows-xp` | `task build-windows-xp` | go-legacy-winxp (`GO_LEGACY_WINXP`) |
+| `make build-librns` | `task build-librns` | `CGO_ENABLED=1 go build -buildmode=c-shared -o bin/librns.so ./cmd/librns` |
+| `make test-wasm` | `task test-wasm` | js/wasm package tests (Node exec helper) |
+| | `task build-wasm` | `GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o bin/reticulum-go.wasm ./cmd/reticulum-wasm` |
+| `make microvm-up` / `microvm-stop` | matching microvm tasks | Firecracker guest. See [microvm](microvm.md) |
+| `make tree-rsm-verify` / `tree-rsm-sign` | matching tasks | Source tree `.rsm` inventory. See [SECURITY.md](../../SECURITY.md) |
+| `make hooks-install` | `task hooks:install` | Tracked git hooks |
+| `make doctor` / `bootstrap` / `changelog-preview` | matching tasks | Dev tool pins and CHANGELOG preview |
 
 ## Code quality commands
 
 ```bash
+make fmt && make vet && make lint && make check
+# or
 task fmt
 task vet
 task lint
@@ -38,7 +85,7 @@ task check        # full local check suite
 task ci           # same static checks as CI lint job
 ```
 
-make check runs fmt, vet, lint, staticcheck, test-short, vulncheck, and gosec.
+`make check` runs fmt, vet, lint, staticcheck, test-short, vulncheck, and gosec.
 
 ### Linting
 
@@ -405,15 +452,21 @@ Package tests live in pkg/zenfix/. Full flag and rule reference: [CLI utilities]
 
 ## Vendoring
 
-Ordinary builds use vendored modules. Refresh after dependency changes:
+Third-party source is committed under `vendor/`. Ordinary builds and tests use that tree with `GOFLAGS=-mod=vendor` and `GOPROXY=off` (set by the Makefile and Taskfile). That keeps air-gapped builds reliable, makes dependency upgrades reviewable as diffs, and matches CI.
+
+Versions and checksums remain in `go.mod` / `go.sum`. Scripts that install standalone CLI tools (revive, gosec, and similar) temporarily clear those env flags to fetch the tool binary. Project code itself always compiles from `vendor/`.
+
+Refresh after dependency changes:
 
 ```bash
 task vendor-sync
+# or
+make deps
 ```
 
-Requires LIBS_ROOT pointing at the Reticulum-Go-Projects sibling tree for replace directives. Commit go.mod, go.sum, and vendor/ after refresh.
+`task vendor-sync` requires `LIBS_ROOT` pointing at the Reticulum-Go-Projects sibling tree for replace directives. Commit `go.mod`, `go.sum`, and `vendor/` after refresh.
 
-Day-to-day clones only need vendor/ to build offline.
+Day-to-day clones only need `vendor/` to build offline. Sibling checkouts are only required when re-vendoring first-party libraries. `examples/wasm` and `examples/pageserver` keep their own `go.mod` / `vendor/` trees. Docker configs under `docker/` copy those folders for offline image builds.
 
 ## CI overview
 
@@ -447,15 +500,25 @@ Legacy Windows uses go-legacy-win7 (make build-windows-legacy).
 
 ```bash
 task build-wasm
+make test-wasm
+# or
 task test-wasm
 ```
 
-Requires Task. See [Embedding and WebAssembly](embedding-and-wasm.md).
+Manual WASM binary:
+
+```bash
+mkdir -p bin
+GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o bin/reticulum-go.wasm ./cmd/reticulum-wasm
+```
+
+See [Embedding and WebAssembly](embedding-and-wasm.md).
 
 ## librns shared library
 
 ```bash
-task build-librns
+make build-librns
+# or: task build-librns
 make -C bindings/c/examples/smoke
 ./bindings/c/examples/smoke/librns-smoke
 ```

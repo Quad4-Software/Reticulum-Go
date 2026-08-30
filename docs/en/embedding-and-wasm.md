@@ -71,11 +71,18 @@ Advanced embedders can use transport.NewTransport and interfaces.NewFromConfigWi
 
 Binary: cmd/reticulum-wasm with build tag js && wasm.
 
-Build with Task:
-
 ```bash
 task build-wasm
+make test-wasm
+# or
 task test-wasm
+```
+
+Manual:
+
+```bash
+mkdir -p bin
+GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o bin/reticulum-go.wasm ./cmd/reticulum-wasm
 ```
 
 ### JavaScript API
