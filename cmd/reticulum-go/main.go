@@ -134,6 +134,7 @@ func runDaemon(opts daemonOptions) int {
 	// Bind Control API and shared-instance listeners before sandbox.Apply so
 	// FreeBSD CapEnter and OpenBSD pledge do not block those listens.
 	r.StartControlAPI()
+	startPprofIfRequested()
 
 	if err := sandbox.Apply(cfg); err != nil {
 		debug.Log(debug.DebugError, "Sandbox application failed", "error", err)

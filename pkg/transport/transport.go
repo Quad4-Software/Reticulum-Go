@@ -2489,14 +2489,9 @@ func (t *Transport) handlePathRequest(data []byte, iface common.NetworkInterface
 	}
 	t.mutex.Unlock()
 
-	if iface != nil {
-		if pr, ok := iface.(interface{ ReceivedPathRequestBytes(int) }); ok {
-			pr.ReceivedPathRequestBytes(len(data))
-		} else {
-			iface.ReceivedPathRequest()
-		}
-	}
-
+	// Path-request byte accounting happens in preprocessInboundPacket so
+	// every wire arrival (including duplicates) counts toward PR burst
+	// frequency once. Counting again here would double-count unique PRs.
 	t.processPathRequest(destHash, iface, requestorTransportID, tag)
 }
 
