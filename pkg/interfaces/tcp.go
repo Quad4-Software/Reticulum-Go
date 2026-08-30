@@ -277,6 +277,8 @@ func (tc *TCPClientInterface) Send(data []byte, address string) error {
 
 func (tc *TCPClientInterface) readLoop() {
 	var feed func([]byte)
+	// Decoder is local to this readLoop so overlapping reconnect loops cannot
+	// race on a shared assembler (feed/reset across connections).
 	if tc.kissFraming {
 		decoder := newKISSStreamDecoder(tc.MTU, tc.handlePacket)
 		feed = decoder.feed
