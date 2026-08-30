@@ -251,6 +251,10 @@ __kernel void lxstamp_batch_validate(
   uchar hash[32];
   sha256_finalize(S, fin, 32u, (bytes + 32ul) * 8ul, hash);
 
+  if (cost == 0u) {
+    ok_out[gid] = 1;
+    return;
+  }
   bool thr_ok = true;
   for (int i = 0; i < 32; i++) {
     if (hash[i] < target[i]) break;
@@ -266,6 +270,6 @@ __kernel void lxstamp_batch_validate(
     }
     break;
   }
-  ok_out[gid] = ( thr_ok && (cost <= 0 || value >= (int)cost) ) ? (uchar)1 : (uchar)0;
+  ok_out[gid] = ( thr_ok && value >= (int)cost ) ? (uchar)1 : (uchar)0;
 }
 `

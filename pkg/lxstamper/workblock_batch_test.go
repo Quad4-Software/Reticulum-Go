@@ -97,25 +97,42 @@ func TestValidateStampBatchCPU(t *testing.T) {
 }
 
 func TestValidatePNStampsParallel(t *testing.T) {
-	material := bytes.Repeat([]byte{0x22}, 16)
-	stamp, _, err := GenerateStampCPU(t.Context(), material, 4, PropagationRounds)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// PN uses tid=sha256(lxm); craft lxm so tid equals material... hard.
-	// Instead build transient as random lxm + valid stamp for that tid.
-	lxm := bytes.Repeat([]byte{0x33}, 40)
+	lxm := bytes.Repeat([]byte{0x33}, PNMessageOverhead+16)
 	tid := sha256.Sum256(lxm)
 	st, _, err := GenerateStampCPU(t.Context(), tid[:], 4, PropagationRounds)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = stamp
 	msg := append(append([]byte{}, lxm...), st...)
 	bad := append(append([]byte{}, lxm...), bytes.Repeat([]byte{0xff}, StampSize)...)
-	got := ValidatePNStamps([][]byte{msg, bad, msg}, 4)
+	short := bytes.Repeat([]byte{0x44}, PNMessageOverhead+StampSize)
+	got := ValidatePNStamps([][]byte{msg, bad, msg, short}, 4)
 	if len(got) != 2 {
 		t.Fatalf("got %d entries want 2", len(got))
+	}
+}
+
+func TestValidatePNStampRejectsShort(t *testing.T) {
+	short := bytes.Repeat([]byte{0x01}, PNMessageOverhead+StampSize)
+	tid, _, _, _ := ValidatePNStamp(short, 0)
+	if tid != nil {
+		t.Fatal("expected reject at LXMF_OVERHEAD+STAMP_SIZE floor")
+	}
+}
+
+func TestValidateStampBatchCostZero(t *testing.T) {
+	material := bytes.Repeat([]byte{0x11}, 16)
+	stamp := bytes.Repeat([]byte{0xab}, StampSize)
+	longMat := bytes.Repeat([]byte{0x22}, 80)
+	cands := []StampCandidate{
+		{Material: material, Stamp: stamp},
+		{Material: material, Stamp: stamp[:16]},
+		{Material: longMat, Stamp: stamp},
+		{Material: nil, Stamp: stamp},
+	}
+	ok := ValidateStampBatch(cands, 0, 3)
+	if !ok[0] || ok[1] || !ok[2] || ok[3] {
+		t.Fatalf("cost0 batch=%v", ok)
 	}
 }
 

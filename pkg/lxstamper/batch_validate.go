@@ -27,7 +27,15 @@ func ValidateStampBatch(cands []StampCandidate, targetCost, expandRounds int) []
 	}
 
 	ensureBackend()
-	if PreferredStampBackend() != "cpu" && gpuEngine != nil && len(cands) >= 4 && expandRounds >= gpuWorkblockMinRounds {
+	// GPU kernel caps material at 64 bytes and mishandles cost<=0 thresholding.
+	// Stay on CPU for those cases so results match MeetsCost.
+	useGPU := PreferredStampBackend() != "cpu" &&
+		gpuEngine != nil &&
+		len(cands) >= 4 &&
+		expandRounds >= gpuWorkblockMinRounds &&
+		targetCost > 0 &&
+		!batchHasLongMaterial(cands)
+	if useGPU {
 		ok, err := gpuEngine.batchValidate(cands, targetCost, expandRounds)
 		if err == nil {
 			return ok
@@ -38,6 +46,15 @@ func ValidateStampBatch(cands []StampCandidate, targetCost, expandRounds int) []
 		}
 	}
 	return validateStampBatchCPU(cands, targetCost, expandRounds)
+}
+
+func batchHasLongMaterial(cands []StampCandidate) bool {
+	for _, c := range cands {
+		if len(c.Material) > 64 {
+			return true
+		}
+	}
+	return false
 }
 
 func validateStampBatchCPU(cands []StampCandidate, targetCost, expandRounds int) []bool {

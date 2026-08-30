@@ -22,6 +22,10 @@ const (
 	PeeringRounds     = 25
 
 	StampSize = 32
+
+	// PNMessageOverhead matches LXMessage.LXMF_OVERHEAD used by
+	// LXStamper.validate_pn_stamp before accepting a transient.
+	PNMessageOverhead = 112
 )
 
 // ErrStampNotFound means GenerateStamp ended before finding a stamp.
@@ -98,8 +102,9 @@ type PNStampEntry struct {
 }
 
 // ValidatePNStamp checks PN transient data (payload bytes + 32-byte stamp).
+// Rejects payloads at or below LXMF_OVERHEAD+STAMP_SIZE like LXStamper.
 func ValidatePNStamp(transientData []byte, targetCost int) (transientID, lxmData []byte, value int, stamp []byte) {
-	if len(transientData) <= StampSize {
+	if len(transientData) <= PNMessageOverhead+StampSize {
 		return nil, nil, 0, nil
 	}
 	cut := len(transientData) - StampSize
