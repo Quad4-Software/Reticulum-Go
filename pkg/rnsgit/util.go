@@ -77,6 +77,24 @@ func SanRef(ref string) string {
 	return ref
 }
 
+// ExpandSymbolicRef resolves HEAD and other symbolic refs to a full ref name
+// suitable for SanRef and git bundle create (e.g. HEAD -> refs/heads/dev).
+func ExpandSymbolicRef(ref string) (string, error) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return "", fmt.Errorf("empty ref")
+	}
+	out, err := localGitCmd("rev-parse", "--symbolic-full-name", ref).Output()
+	if err != nil {
+		return "", err
+	}
+	full := strings.TrimSpace(string(out))
+	if full == "" {
+		return "", fmt.Errorf("empty symbolic-full-name for %q", ref)
+	}
+	return full, nil
+}
+
 // SanRefs validates a list of refs.
 func SanRefs(refs []string) []string {
 	if len(refs) == 0 {

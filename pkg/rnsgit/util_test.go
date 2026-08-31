@@ -3,7 +3,10 @@
 
 package rnsgit
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseRNSURL(t *testing.T) {
 	dest, group, repo, err := ParseRNSURL("rns://0123456789abcdef0123456789abcdef/public/demo")
@@ -21,6 +24,22 @@ func TestSanRef(t *testing.T) {
 	}
 	if SanRef("../bad") != "" {
 		t.Fatal("expected invalid ref")
+	}
+	if SanRef("HEAD") != "" {
+		t.Fatal("HEAD must fail SanRef (no slash); clients expand it first")
+	}
+}
+
+func TestExpandSymbolicRefHEAD(t *testing.T) {
+	full, err := ExpandSymbolicRef("HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if SanRef(full) == "" {
+		t.Fatalf("expanded %q still fails SanRef", full)
+	}
+	if !strings.HasPrefix(full, "refs/") {
+		t.Fatalf("want refs/… got %q", full)
 	}
 }
 

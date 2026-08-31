@@ -485,6 +485,11 @@ func (c *Client) processPush(ctx context.Context, localRef, remoteRef string, st
 	if force {
 		localRef = localRef[1:]
 	}
+	// Expand HEAD (and other symbolic refs) before bundle create and server
+	// san_ref. Servers reject refs without "/" so "HEAD:refs/heads/dev" fails.
+	if full, err := ExpandSymbolicRef(localRef); err == nil && full != "" {
+		localRef = full
+	}
 	localSHA, err := localGitCmd("rev-parse", localRef).Output()
 	if err != nil {
 		fmt.Fprintf(stdout, "error %s %s\n", remoteRef, EscapeGitStdout("could not resolve local ref"))
