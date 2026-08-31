@@ -13,8 +13,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// TestAllThreadsSyscallUsable fails if this package's test binary links cgo or
-// purego/fakecgo. Daemon coverage lives in cmd/reticulum-go (full import graph).
+// TestAllThreadsSyscallUsable fails on the fakecgo panic that aborts Landlock
+// under CGO_ENABLED=0. Real cgo returns ENOTSUP here and is skipped (release
+// builds set CGO_ENABLED=0). Daemon coverage lives in cmd/reticulum-go.
 func TestAllThreadsSyscallUsable(t *testing.T) {
 	if os.Getenv("RETICULUM_QEMU_USER") == "1" {
 		t.Skip("AllThreadsSyscall is unreliable under qemu-user")
@@ -23,11 +24,14 @@ func TestAllThreadsSyscallUsable(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {
 			t.Fatalf("AllThreadsSyscall panicked: %v\n"+
-				"Sandbox package must stay free of purego/fakecgo and cgo.", r)
+				"Sandbox package must stay free of purego/fakecgo.", r)
 		}
 	}()
 
 	_, _, errno := syscall.AllThreadsSyscall(unix.SYS_GETPID, 0, 0, 0)
+	if errno == syscall.ENOTSUP {
+		t.Skip("AllThreadsSyscall ENOTSUP (real cgo linked; release builds use CGO_ENABLED=0)")
+	}
 	if errno != 0 {
 		t.Fatalf("AllThreadsSyscall(GETPID): %v", errno)
 	}

@@ -5,6 +5,9 @@ env:
   GOPROXY: 'off'
   GOSUMDB: 'off'
   GOTOOLCHAIN: local
+  # Match release/daemon builds. Real cgo (net/os/user) makes AllThreadsSyscall
+  # return ENOTSUP; fakecgo under CGO_ENABLED=0 panics and breaks Landlock.
+  CGO_ENABLED: '0'
 
 vars:
   GOCMD: go
