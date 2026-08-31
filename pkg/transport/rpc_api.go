@@ -148,6 +148,8 @@ type InterfaceStatsResponse struct {
 	AnnounceCacheCount int              `msgpack:"announce_cache_count"`
 	SeenAnnounceCount  int              `msgpack:"seen_announce_count"`
 	Protect            protect.Snapshot `msgpack:"protect"`
+	RXPPS              float64          `msgpack:"rxpps"`
+	TXPPS              float64          `msgpack:"txpps"`
 }
 
 // RateTableEntry is one rate-table row for shared-instance RPC.
@@ -247,6 +249,7 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 	}
 	var rxTotal, txTotal uint64
 	var rxsTotal, txsTotal float64
+	var rxPackets, txPackets uint64
 	for _, iface := range t.interfaces {
 		if iface == nil {
 			continue
@@ -258,6 +261,8 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 		tx := iface.GetTxBytes()
 		rxTotal += rx
 		txTotal += tx
+		rxPackets += iface.GetRxPackets()
+		txPackets += iface.GetTxPackets()
 		st := InterfaceStat{
 			Name:      iface.GetName(),
 			ShortName: iface.GetName(),
@@ -393,6 +398,9 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 	resp.TXB = txTotal
 	resp.RXS = rxsTotal
 	resp.TXS = txsTotal
+	rxPPS, txPPS := t.updatePacketPPS(rxPackets, txPackets)
+	resp.RXPPS = rxPPS
+	resp.TXPPS = txPPS
 	aggregateInterfaceStatsTotals(&resp)
 	trHealth := health.Default.SnapshotTransport()
 	resp.Health = trHealth
@@ -426,6 +434,37 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 	t.mutex.RUnlock()
 	resp.Protect = protect.CurrentSnapshot()
 	return resp
+}
+
+// updatePacketPPS refreshes transport-wide packet rates for rnstatus -p.
+// Safe under concurrent GetInterfaceStatsRPC callers (own mutex).
+func (t *Transport) updatePacketPPS(rxPackets, txPackets uint64) (rxPPS, txPPS float64) {
+	now := time.Now()
+	t.ppsMu.Lock()
+	defer t.ppsMu.Unlock()
+	if t.ppsSampleAt.IsZero() {
+		t.ppsSampleAt = now
+		t.ppsLastRxPackets = rxPackets
+		t.ppsLastTxPackets = txPackets
+		if !t.startTime.IsZero() {
+			td := now.Sub(t.startTime).Seconds()
+			if td > 0 {
+				t.rxPPS = float64(rxPackets) / td
+				t.txPPS = float64(txPackets) / td
+			}
+		}
+		return t.rxPPS, t.txPPS
+	}
+	td := now.Sub(t.ppsSampleAt).Seconds()
+	if td <= 0 {
+		return t.rxPPS, t.txPPS
+	}
+	t.rxPPS = float64(rxPackets-t.ppsLastRxPackets) / td
+	t.txPPS = float64(txPackets-t.ppsLastTxPackets) / td
+	t.ppsSampleAt = now
+	t.ppsLastRxPackets = rxPackets
+	t.ppsLastTxPackets = txPackets
+	return t.rxPPS, t.txPPS
 }
 
 func (t *Transport) countActiveLinksLocked() int {

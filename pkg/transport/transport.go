@@ -203,6 +203,12 @@ type Transport struct {
 	done                     chan struct{}
 	stopOnce                 sync.Once
 	startTime                time.Time
+	ppsMu                    sync.Mutex
+	ppsSampleAt              time.Time
+	ppsLastRxPackets         uint64
+	ppsLastTxPackets         uint64
+	rxPPS                    float64
+	txPPS                    float64
 	destinationsLastCleaned  atomic.Int64
 	knownDestCleaning        atomic.Bool
 
