@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-//go:build !(((linux && !android && (amd64 || arm64 || loong64)) || (darwin && (amd64 || arm64))) && !lxstamp_nogpu)
+//go:build !(((linux && !android && (amd64 || arm64 || loong64)) || (darwin && (amd64 || arm64))) && lxstamp_gpu)
 
 package lxstamper
 

@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-//go:build ((linux && !android && (amd64 || arm64 || loong64)) || (darwin && (amd64 || arm64))) && !lxstamp_nogpu
+//go:build ((linux && !android && (amd64 || arm64 || loong64)) || (darwin && (amd64 || arm64))) && lxstamp_gpu
+
+// OpenCL stamping is opt-in (-tags lxstamp_gpu). purego's fakecgo sets
+// runtime.iscgo under CGO_ENABLED=0, which makes syscall.AllThreadsSyscall
+// panic and breaks Landlock/seccomp on kernels before Landlock ABI 8.
 
 package lxstamper
 
