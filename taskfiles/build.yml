@@ -188,11 +188,10 @@ tasks:
 
   build-librns:
     desc: Build librns shared library and C header (CGO required)
-    env:
-      CGO_ENABLED: '1'
     cmds:
       - mkdir -p {{.BUILD_DIR}}
-      - '{{.GOCMD}} build -buildmode=c-shared -o {{.BUILD_DIR}}/librns.so ./cmd/librns'
+      # Prefix beats Taskfile/OS CGO_ENABLED=0 when nested tasks inherit outer env.
+      - CGO_ENABLED=1 {{.GOCMD}} build -buildmode=c-shared -o {{.BUILD_DIR}}/librns.so ./cmd/librns
       - cp include/rns.h {{.BUILD_DIR}}/rns.h
 
   build-librns-targets:

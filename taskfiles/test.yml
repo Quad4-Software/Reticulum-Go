@@ -23,10 +23,8 @@ tasks:
 
   test-race:
     desc: Run tests with race detector
-    env:
-      CGO_ENABLED: "1"
     cmds:
-      - '{{.GOCMD}} run ./scripts/ci/testsummary -race -v ./...'
+      - CGO_ENABLED=1 {{.GOCMD}} run ./scripts/ci/testsummary -race -v ./...
 
   test-fuzz:
     desc: Run fuzz tests for a short duration (legacy alias)
