@@ -2,10 +2,22 @@
 
 ## v1.2.0 - 2026-09-TBD
 
+### Added
+- rgostatus -p (pps), -m/-I monitor, -z profiling request parity with rnstatus
+- rgopath -p published blackhole list fetch (rnstransport.info.blackhole /list)
+- Interface_stats rxpps/txpps for status totals
+- Live Go profiler (pkg/profiler) with profiling_results shared-instance RPC and remote /status parity
+
+### Changed
+- CLI short flags aligned with Python RNS 1.5.2 utilities
+  - rgopath: -D drops announce queues, -x drops via transport, -b/-B/-U blackhole
+  - rgocp: -a allowed hash, -n no-auth, -F allow-fetch, -f takes remote path as positional
+
 ### Fixed
 - Daemon no longer panics on Landlock under CGO_ENABLED=0: OpenCL/purego is opt-in (-tags lxstamp_gpu) so fakecgo cannot break AllThreadsSyscall on kernels before Landlock ABI 8
 - Landlock/seccomp soft-fail instead of aborting if AllThreadsSyscall still panics
 - CI fails when AllThreadsSyscall is unusable or Landlock helpers hit the cgo/fakecgo panic (previously skipped)
+- Concurrent interface_stats RPC no longer races on rxpps/txpps sample state
 
 ## v1.1.0 - 2026-08-30
 
