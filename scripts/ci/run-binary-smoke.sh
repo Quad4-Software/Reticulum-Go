@@ -52,7 +52,7 @@ export HOME="$SMOKE_HOME"
 mkdir -p "$SMOKE_HOME/.reticulum-go/storage"
 cat >"$SMOKE_HOME/.reticulum-go/config" <<'EOF'
 [reticulum]
-enable_sandbox = no
+enable_sandbox = yes
 enable_control_api = no
 panic_on_interface_err = no
 EOF
@@ -85,6 +85,10 @@ run_daemon() {
 
 echo "binary-smoke: daemon run (${RUN_TIMEOUT})"
 if ! run_daemon; then
+	if grep -q 'doAllThreadsSyscall not supported' "$LOG" 2>/dev/null ||
+		grep -q 'not supported with cgo enabled' "$LOG" 2>/dev/null; then
+		smoke_fail "daemon panicked on AllThreadsSyscall (cgo/fakecgo vs Landlock)"
+	fi
 	smoke_fail "daemon exited early"
 fi
 

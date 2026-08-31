@@ -63,21 +63,7 @@ func TestLandlockFunctional(t *testing.T) {
 		"SANDBOX_BLOCKED_DIR="+blockedDir,
 	)
 	out, err := cmd.CombinedOutput()
-
-	if err != nil {
-		text := string(out)
-		if strings.Contains(text, "not supported") ||
-			strings.Contains(text, "operation not permitted") ||
-			strings.Contains(text, "AllThreadsSyscall") ||
-			strings.Contains(text, "runtime corrupted") {
-			t.Skip("Landlock not available in test environment")
-		}
-		t.Fatalf("Landlock helper subprocess failed:\n%s", out)
-	}
-
-	if !strings.Contains(string(out), "PASS") {
-		t.Fatalf("Landlock helper did not report PASS:\n%s", out)
-	}
+	requireLandlockHelperOK(t, out, err)
 }
 
 // TestLandlockHelper is executed as a subprocess by TestLandlockFunctional.
@@ -154,19 +140,7 @@ func TestLandlockExtraPathFunctional(t *testing.T) {
 		"SANDBOX_EXTRA_FILE="+extraFile,
 	)
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		text := string(out)
-		if strings.Contains(text, "not supported") ||
-			strings.Contains(text, "operation not permitted") ||
-			strings.Contains(text, "AllThreadsSyscall") ||
-			strings.Contains(text, "runtime corrupted") {
-			t.Skip("Landlock not available in test environment")
-		}
-		t.Fatalf("Landlock extra helper failed:\n%s", out)
-	}
-	if !strings.Contains(string(out), "PASS") {
-		t.Fatalf("Landlock extra helper did not report PASS:\n%s", out)
-	}
+	requireLandlockHelperOK(t, out, err)
 }
 
 func TestLandlockExtraHelper(t *testing.T) {
@@ -209,18 +183,31 @@ func TestLandlockRouterOmitsBin(t *testing.T) {
 	cmd := exec.Command(os.Args[0], "-test.run=TestLandlockRouterHelper", "-test.v")
 	cmd.Env = append(os.Environ(), "SANDBOX_LANDLOCK_ROUTER_TEST=1")
 	out, err := cmd.CombinedOutput()
+	requireLandlockHelperOK(t, out, err)
+}
+
+// requireLandlockHelperOK fails hard on cgo/fakecgo AllThreadsSyscall panics
+// (those used to match a broad skip and hid release crashes). Soft-skips only
+// when Landlock itself is missing or denied by the host.
+func requireLandlockHelperOK(t *testing.T, out []byte, err error) {
+	t.Helper()
+	text := string(out)
+	if strings.Contains(text, "doAllThreadsSyscall not supported") ||
+		strings.Contains(text, "not supported with cgo enabled") ||
+		strings.Contains(text, "landlock restrict panicked") {
+		t.Fatalf("Landlock helper hit cgo/fakecgo AllThreadsSyscall panic "+
+			"(daemon would abort on kernels before Landlock ABI 8):\n%s", out)
+	}
 	if err != nil {
-		text := string(out)
 		if strings.Contains(text, "not supported") ||
 			strings.Contains(text, "operation not permitted") ||
-			strings.Contains(text, "AllThreadsSyscall") ||
 			strings.Contains(text, "runtime corrupted") {
 			t.Skip("Landlock not available in test environment")
 		}
-		t.Fatalf("Landlock router helper failed:\n%s", out)
+		t.Fatalf("Landlock helper subprocess failed:\n%s", out)
 	}
-	if !strings.Contains(string(out), "PASS") {
-		t.Fatalf("Landlock router helper did not report PASS:\n%s", out)
+	if !strings.Contains(text, "PASS") {
+		t.Fatalf("Landlock helper did not report PASS:\n%s", out)
 	}
 }
 

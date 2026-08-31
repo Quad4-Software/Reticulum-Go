@@ -67,12 +67,20 @@ func applyPlatform(cfg *common.ReticulumConfig) error {
 // V9 via go-landlock. TCP port rules are intentionally omitted so the P2P
 // mesh can bind and dial arbitrary peers. BestEffort downgrades on older
 // kernels. Missing optional paths are ignored.
-func applyLandlock(cfg *common.ReticulumConfig) error {
+func applyLandlock(cfg *common.ReticulumConfig) (err error) {
 	// Go AllThreadsSyscall (Landlock restrict without TSYNC) fatals under
 	// qemu-user when per-thread results diverge. Skip rather than crash.
 	if os.Getenv("RETICULUM_QEMU_USER") == "1" {
 		return fmt.Errorf("landlock skipped under qemu-user")
 	}
+
+	// purego/fakecgo or real cgo makes AllThreadsSyscall panic on ABI < 8.
+	// Recover so the daemon can soft-fail instead of aborting.
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("landlock restrict panicked: %v", r)
+		}
+	}()
 
 	if err := probeLandlock(); err != nil {
 		return err
