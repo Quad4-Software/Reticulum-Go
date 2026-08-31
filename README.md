@@ -11,11 +11,13 @@ git clone rns://06a54b505bb67b25ef3f8097e8001edc/public/Reticulum-Go
 ## Features
 
 - Wire-compatible with Python RNS (links, resources, channels, IFAC, transport)
-- Single `reticulum-go` binary (daemon plus status, id, probe, path, cp, and related tools)
+- Portable cross-platform and 32-bit support
+- Single reticulum-go binary (daemon plus status, id, probe, path, cp, and related tools)
 - Static, portable builds including legacy Windows via go-legacy-win7 / go-legacy-winxp
-- Interfaces: UDP, TCP, Auto, I2P, Backbone, Pipe, Local, Serial, Modem73, SDR, WebSocket, QUIC, WebTransport, DNS rendezvous, VSOCK, HTTPS
+- Interfaces: UDP, TCP, Auto, I2P, Backbone, Pipe, Local, Serial, Modem73, SDR, WebSocket, QUIC, WebTransport, DNS rendezvous, VSOCK, HTTPS, and RNode.
 - WebAssembly, librns C ABI, and language bindings (see [docs](docs/en/))
-- Default OS sandbox, vendored deps, cosign release attestations
+- Native OS sandbox
+- Vendored dependencies for offline source builds
 
 Status detail: [docs/en/overview.md](docs/en/overview.md) and [COMPATIBILITY.md](COMPATIBILITY.md).
 
