@@ -172,14 +172,23 @@ func initEmptyGitWorkdir(t *testing.T) string {
 	return dir
 }
 
-func verifyFetchedCommit(t *testing.T, workDir, ref string) {
+func verifyFetchedCommit(t *testing.T, workDir, sha, ref string) {
 	t.Helper()
-	out, err := rngitGitCmd("git", "-C", workDir, "log", "-1", "--oneline", ref).CombinedOutput()
+	// Remote helpers store objects; git (not the helper) updates refs. Check the
+	// tip object directly, then plant the ref the way a parent git fetch would.
+	out, err := rngitGitCmd("git", "-C", workDir, "cat-file", "-t", sha).CombinedOutput()
 	if err != nil {
-		t.Fatalf("git log %s: %v %s", ref, err, out)
+		t.Fatalf("cat-file %s: %v %s", sha, err, out)
 	}
-	if !strings.Contains(string(out), "init") {
-		t.Fatalf("unexpected log: %s", out)
+	if strings.TrimSpace(string(out)) != "commit" {
+		t.Fatalf("expected commit object for %s (%s), got %q", sha, ref, out)
+	}
+	logOut, err := rngitGitCmd("git", "-C", workDir, "log", "-1", "--oneline", sha).CombinedOutput()
+	if err != nil {
+		t.Fatalf("git log %s: %v %s", sha, err, logOut)
+	}
+	if !strings.Contains(string(logOut), "init") {
+		t.Fatalf("unexpected log: %s", logOut)
 	}
 }
 
@@ -339,7 +348,7 @@ func TestLiveRngitGoFetch(t *testing.T) {
 	workDir := initEmptyGitWorkdir(t)
 	stdin := fmt.Sprintf("capabilities\nfetch %s %s\n\n", sha, ref)
 	runGoRngitHelper(t, t.TempDir(), rnsCli, destHex, "demo", workDir, stdin)
-	verifyFetchedCommit(t, workDir, ref)
+	verifyFetchedCommit(t, workDir, sha, ref)
 }
 
 func TestLiveGoRngitClientPythonRngitServerFetch(t *testing.T) {
@@ -392,7 +401,7 @@ func TestLiveGoRngitClientPythonRngitServerFetch(t *testing.T) {
 	workDir := initEmptyGitWorkdir(t)
 	stdin := fmt.Sprintf("capabilities\nfetch %s %s\n\n", sha, ref)
 	runGoRngitHelper(t, t.TempDir(), rnsCli, destHex, "demo", workDir, stdin)
-	verifyFetchedCommit(t, workDir, ref)
+	verifyFetchedCommit(t, workDir, sha, ref)
 }
 
 func TestLivePythonRngitClientGoRngitServerFetch(t *testing.T) {
