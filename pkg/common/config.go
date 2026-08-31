@@ -198,6 +198,25 @@ type InterfaceConfig struct {
 	TXGain      float64
 	Modem       string
 	SerialNum   string
+
+	// RNodeInterface / RNodeMultiInterface radio settings.
+	TXPower              int
+	SpreadingFactor      int
+	CodingRate           int
+	FlowControl          bool
+	IDInterval           int
+	IDCallsign           string
+	AirtimeLimitShort    float64
+	AirtimeLimitShortSet bool
+	AirtimeLimitLong     float64
+	AirtimeLimitLongSet  bool
+
+	// VPort is the virtual radio index for an RNodeMulti subinterface.
+	VPort    int
+	VPortSet bool
+
+	// SubInterfaces holds nested [[[name]]] blocks under an RNodeMultiInterface.
+	SubInterfaces map[string]*InterfaceConfig
 }
 
 // SharedInstanceType values for [reticulum] shared_instance_type.

@@ -152,7 +152,33 @@ func interfaceConfigsEqualForReload(a, b *common.InterfaceConfig) bool {
 		floatEqual(a.RXGain, b.RXGain) &&
 		floatEqual(a.TXGain, b.TXGain) &&
 		a.Modem == b.Modem &&
-		a.SerialNum == b.SerialNum
+		a.SerialNum == b.SerialNum &&
+		a.TXPower == b.TXPower &&
+		a.SpreadingFactor == b.SpreadingFactor &&
+		a.CodingRate == b.CodingRate &&
+		a.FlowControl == b.FlowControl &&
+		a.IDInterval == b.IDInterval &&
+		a.IDCallsign == b.IDCallsign &&
+		floatEqual(a.AirtimeLimitShort, b.AirtimeLimitShort) &&
+		a.AirtimeLimitShortSet == b.AirtimeLimitShortSet &&
+		floatEqual(a.AirtimeLimitLong, b.AirtimeLimitLong) &&
+		a.AirtimeLimitLongSet == b.AirtimeLimitLongSet &&
+		a.VPort == b.VPort &&
+		a.VPortSet == b.VPortSet &&
+		subInterfaceConfigsEqualForReload(a.SubInterfaces, b.SubInterfaces)
+}
+
+func subInterfaceConfigsEqualForReload(a, b map[string]*common.InterfaceConfig) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for name, ac := range a {
+		bc, ok := b[name]
+		if !ok || !interfaceConfigsEqualForReload(ac, bc) {
+			return false
+		}
+	}
+	return true
 }
 
 func (n *Node) tearDownInterface(iface interfaces.Interface) {

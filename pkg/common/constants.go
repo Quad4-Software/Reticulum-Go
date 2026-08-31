@@ -22,6 +22,8 @@ const (
 	IFTypeHTTPS
 	IFTypeModem73
 	IFTypeSDR
+	IFTypeRNode
+	IFTypeRNodeMulti
 )
 
 // Interface operational modes (wire values).

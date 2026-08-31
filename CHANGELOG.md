@@ -7,6 +7,10 @@
 - rgopath -p published blackhole list fetch (rnstransport.info.blackhole /list)
 - Interface_stats rxpps/txpps for status totals
 - Live Go profiler (pkg/profiler) with profiling_results shared-instance RPC and remote /status parity
+- RNodeInterface (RNS 1.5.2): KISS framing, detect/firmware gate, radio config and validation, flow control, ID beacons, PHY stats, serial and tcp:// on Linux (incl. Android GOOS), macOS, Windows, FreeBSD, OpenBSD
+- RNodeMultiInterface: virtual-port discovery, SEL_INT, nested [[[sub]]] config, indexed RX, shared firmware/flow-control path
+- RNode config FromConfig / reload equality, IFAC defaults, and in-memory simulator with fuzz, race, and bench coverage
+- Android RNode USB Host, BLE Nordic UART, and classic RFCOMM helpers in bindings/android, with Go ble:// bt:// usb:// registration and RNodeHostPipe / localhost TCP bridge
 
 ### Changed
 - CLI short flags aligned with Python RNS 1.5.2 utilities

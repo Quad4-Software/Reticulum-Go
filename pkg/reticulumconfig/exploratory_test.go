@@ -68,6 +68,9 @@ func TestClassifySectionExploratory(t *testing.T) {
 	if got := classifySection("anything", 2); got != sectionInterface {
 		t.Fatalf("depth2 got %q", got)
 	}
+	if got := classifySection("sub", 3); got != sectionSubInterface {
+		t.Fatalf("depth3 got %q", got)
+	}
 }
 
 func TestStripInlineCommentExploratory(t *testing.T) {

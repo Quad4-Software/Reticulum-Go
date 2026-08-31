@@ -35,6 +35,9 @@ func ApplyIFACFromConfig(iface common.NetworkInterface, cfg *common.InterfaceCon
 		switch {
 		case strings.EqualFold(cfg.Type, "SerialInterface"):
 			size = serialDefaultIFACSize
+		case strings.EqualFold(cfg.Type, "RNodeInterface"),
+			strings.EqualFold(cfg.Type, "RNodeMultiInterface"):
+			size = rnodeDefaultIFACSize
 		case strings.EqualFold(cfg.Type, "Modem73Interface"):
 			size = modem73DefaultIFACSize
 		case strings.EqualFold(cfg.Type, "SDRInterface"):
