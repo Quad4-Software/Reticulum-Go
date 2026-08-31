@@ -63,18 +63,26 @@ async def main_async() -> int:
             allowed=None,
             allowed_file=None,
             disable_auth=True,
-            announce_period=None,
+            # Announce once so peers can resolve a path without a prior cache.
+            announce_period=0,
             no_remote_command=False,
         ),
     )
 
-    for _ in range(100):
+    # Wait until the listen loop has registered the link callback, not merely
+    # until Destination() returns (READY-before-callback races Version).
+    for _ in range(200):
         dest = getattr(rnsh_listener, "_destination", None)
+        cb = None
         if dest is not None:
+            callbacks = getattr(dest, "callbacks", None)
+            cb = getattr(callbacks, "link_established", None)
+        if dest is not None and cb is not None:
+            await asyncio.sleep(0.3)
             sys.stdout.write("READY " + dest.hash.hex() + "\n")
             sys.stdout.flush()
             break
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.05)
     else:
         sys.stderr.write("rnsh listener destination not ready\n")
         listen_task.cancel()

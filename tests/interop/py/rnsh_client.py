@@ -1,20 +1,14 @@
 #!/usr/bin/env python3
 """Python rnsh initiator against a Go --compat listener."""
 
-import asyncio
 import os
+import subprocess
 import sys
 import tempfile
 
 _reticulum_path = os.environ.get("RETICULUM_PATH")
 if _reticulum_path:
     sys.path.insert(0, os.path.abspath(_reticulum_path))
-
-try:
-    from RNS.Utilities.rnsh import initiator as rnsh_initiator
-except ImportError as e:
-    sys.stderr.write(f"rnsh import failed: {e}\n")
-    raise SystemExit(77)
 
 
 def write_config(cfg_dir: str, listen_port: int, forward_port: int) -> None:
@@ -42,34 +36,41 @@ def write_config(cfg_dir: str, listen_port: int, forward_port: int) -> None:
         )
 
 
-async def main_async() -> int:
+def main() -> int:
+    """Drive the rnsh CLI under a PTY so asyncio stdin registration works."""
     listen_port = int(os.environ["INTEROP_LISTEN_PORT"])
     forward_port = int(os.environ["INTEROP_FORWARD_PORT"])
     dest_hex = os.environ["INTEROP_DEST_HASH"].strip()
-    command = os.environ.get("INTEROP_COMMAND", "/bin/echo py-client-ok").split()
+    command = os.environ.get("INTEROP_COMMAND", "/bin/echo py-client-ok")
     cfg_dir = os.environ.get("INTEROP_CONFIG_DIR") or tempfile.mkdtemp(
         prefix="rnsh_client_"
     )
     write_config(cfg_dir, listen_port, forward_port)
-    identity_path = os.path.join(cfg_dir, "rnsh_client_identity")
 
-    code = await rnsh_initiator.initiate(
-        configdir=cfg_dir,
-        rnsconfigdir=cfg_dir,
-        identitypath=identity_path,
-        logfile=None,
-        verbosity=0,
-        quietness=2,
-        noid=True,
-        destination=dest_hex,
-        timeout=30.0,
-        command=command,
-    )
-    return int(code or 0)
-
-
-def main() -> int:
-    return asyncio.run(main_async())
+    rnsh = os.environ.get("RNSH_BIN", "rnsh")
+    argv = [
+        rnsh,
+        "--config",
+        cfg_dir,
+        "--rnsconfig",
+        cfg_dir,
+        "-N",
+        "-m",
+        "-w",
+        "30",
+        dest_hex,
+        "--",
+        *command.split(),
+    ]
+    # Hardened kernels may EPERM asyncio add_reader on pipes. script(1) gives a PTY.
+    wrapped = ["script", "-q", "-e", "-c", subprocess.list2cmdline(argv), "/dev/null"]
+    try:
+        proc = subprocess.run(wrapped, check=False, capture_output=True)
+    except FileNotFoundError:
+        proc = subprocess.run(argv, check=False, capture_output=True)
+    sys.stdout.buffer.write(proc.stdout)
+    sys.stderr.buffer.write(proc.stderr)
+    return int(proc.returncode)
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -233,7 +234,9 @@ func runSHListen(tr *transport.Transport, id *identity.Identity, opts shListenOp
 			cfg := baseCfg.Copy()
 			cfg.Allowed = allowedNow
 			fmt.Fprintln(stderr, infoMsg(stderr, "Shell link established"))
-			go serveSHLink(l, cfg, stderr)
+			// Register channel handlers before returning so an early Version
+			// from the peer is not dropped (Python rnsh sends immediately).
+			serveSHLink(l, cfg, stderr)
 		})
 
 		label := "rgosh"
@@ -436,13 +439,38 @@ func runSHClient(tr *transport.Transport, id *identity.Identity, destHash []byte
 	}
 afterAuth:
 
+	readyCtx, readyCancel := context.WithTimeout(context.Background(), versReadyWindow(opts.timeout, l))
+	defer readyCancel()
+	sender := rgosh.ChannelSender{Ch: ch}
+	if err := sender.WaitReady(readyCtx); err != nil {
+		fmt.Fprintln(stderr, errMsg(stderr, "channel not ready: "+err.Error()))
+		return 1
+	}
+
+	// Let the peer finish RTT and register channel handlers. UDP can deliver
+	// Version before LRRTT; Python rnsh drops that race without a queue.
+	settle := max(time.Duration(l.GetRTT()*5*float64(time.Second)), 50*time.Millisecond)
+	if settle > 2*time.Second {
+		settle = 2 * time.Second
+	}
+	select {
+	case <-time.After(settle):
+	case <-done:
+		return 1
+	}
+
 	if err := sess.SendVersion(); err != nil {
 		fmt.Fprintln(stderr, errMsg(stderr, err.Error()))
 		return 1
 	}
 
-	deadline := time.After(opts.timeout)
-	lastVers := time.Now()
+	// Zero -w means adaptive path/link waits. Version handshake still needs a
+	// positive deadline (time.After(0) fires immediately).
+	versWait := opts.timeout
+	if versWait <= 0 {
+		versWait = rnsutil.LinkEstablishmentWindow(l)
+	}
+	deadline := time.After(versWait)
 	for sess.State() == rgosh.StateWaitVers {
 		select {
 		case <-deadline:
@@ -451,12 +479,9 @@ afterAuth:
 		case <-done:
 			return 1
 		case <-time.After(50 * time.Millisecond):
-			// Rare resend only: peer moves to WAIT_CMD after the first Version,
-			// so a fast retry is a protocol error (LSSTATE_WAIT_CMD).
-			if sess.State() == rgosh.StateWaitVers && time.Since(lastVers) >= 2*time.Second {
-				_ = sess.SendVersion()
-				lastVers = time.Now()
-			}
+			// Do not app-resend Version: the channel already retries packets.
+			// A second Version after the peer moved to WAIT_CMD is a Python
+			// rnsh protocol error that tears the link down.
 		}
 	}
 	if st := sess.State(); st != rgosh.StateWaitCmd && st != rgosh.StateRunning {
@@ -677,6 +702,13 @@ afterAuth:
 func fileFD(f *os.File) int {
 	// #nosec G115 -- kernel fds are small integers well below MaxInt on all supported OSes
 	return int(f.Fd())
+}
+
+func versReadyWindow(explicit time.Duration, l *link.Link) time.Duration {
+	if explicit > 0 {
+		return explicit
+	}
+	return rnsutil.LinkEstablishmentWindow(l)
 }
 
 func isTTY(f *os.File) bool {

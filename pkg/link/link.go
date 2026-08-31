@@ -139,6 +139,12 @@ type Link struct {
 
 	pendingPlainMu   sync.Mutex
 	pendingPlainData []byte
+
+	// earlyChannel holds ContextChannel packets that arrive after handshake
+	// keys exist but before promoteToActive. Python rnsh sends Version in that
+	// window; processing them before the established callback drops messages.
+	earlyChannelMu sync.Mutex
+	earlyChannel   []*packet.Packet
 }
 
 func NewLink(dest *destination.Destination, transport *transport.Transport, networkIface common.NetworkInterface, establishedCallback func(*Link), closedCallback func(*Link)) *Link {
@@ -1327,6 +1333,14 @@ func (l *Link) GetChannel() *channel.Channel {
 }
 
 func (l *Link) handleChannelPacket(pkt *packet.Packet) error {
+	if !l.IsActive() {
+		if l.status.Load() == int32(StatusHandshake) && l.sessionKey != nil {
+			l.queueEarlyChannel(pkt)
+			return nil
+		}
+		return common.ErrLinkNotActive
+	}
+
 	plaintext, err := l.decrypt(pkt.Data)
 	if err != nil {
 		return err
@@ -1339,6 +1353,31 @@ func (l *Link) handleChannelPacket(pkt *packet.Packet) error {
 		debug.Log(debug.DebugWarning, "Failed to prove channel packet", "error", proveErr)
 	}
 	return err
+}
+
+const maxEarlyChannelPackets = 32
+
+func (l *Link) queueEarlyChannel(pkt *packet.Packet) {
+	l.earlyChannelMu.Lock()
+	defer l.earlyChannelMu.Unlock()
+	if len(l.earlyChannel) >= maxEarlyChannelPackets {
+		debug.Log(debug.DebugWarning, "Dropping early channel packet, queue full", "link_id", fmt.Sprintf("%x", l.linkID))
+		return
+	}
+	l.earlyChannel = append(l.earlyChannel, pkt)
+	debug.Log(debug.DebugVerbose, "Queued early channel packet until link active", "link_id", fmt.Sprintf("%x", l.linkID), "queued", len(l.earlyChannel))
+}
+
+func (l *Link) flushEarlyChannel() {
+	l.earlyChannelMu.Lock()
+	queued := l.earlyChannel
+	l.earlyChannel = nil
+	l.earlyChannelMu.Unlock()
+	for _, pkt := range queued {
+		if err := l.handleChannelPacket(pkt); err != nil {
+			debug.Log(debug.DebugWarning, "Failed to flush early channel packet", "error", err, "link_id", fmt.Sprintf("%x", l.linkID))
+		}
+	}
 }
 
 func (l *Link) handleResourceAdvertisement(pkt *packet.Packet) error {
@@ -2223,6 +2262,9 @@ func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
 			// after RTT is not queued under a nil callback and lost to overwrite.
 			l.establishedCallback(l)
 		}
+		// Python rnsh may deliver Version before this RTT is processed. Flush
+		// after handlers are registered so early channel envelopes are not dropped.
+		l.flushEarlyChannel()
 
 		establishmentElapsed := time.Since(l.requestTime).Seconds()
 		debug.Log(debug.DebugInfo, "Link established (responder) after RTT", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", logRtt), "total_elapsed", fmt.Sprintf("%.3fs", establishmentElapsed))
@@ -3874,7 +3916,10 @@ func (l *Link) validateLinkProofLocked(pkt *packet.Packet, networkIface common.N
 		// Initiator callback runs from ValidateLinkProof while the link mutex is
 		// held. Callbacks call GetLinkID and must not run on this goroutine.
 		cb := l.establishedCallback
-		go cb(l)
+		go func() {
+			cb(l)
+			l.flushEarlyChannel()
+		}()
 	}
 
 	return nil
