@@ -383,11 +383,11 @@ func (r *RNodeInterface) checkFirmware(major, minor int) error {
 
 func (r *RNodeInterface) initRadio() error {
 	var frames []byte
-	frames = appendRNodeU32Frame(frames, rnodeCmdFrequency, uint32(r.opts.Frequency))
-	frames = appendRNodeU32Frame(frames, rnodeCmdBandwidth, uint32(r.opts.Bandwidth))
-	frames = appendRNodeFrame(frames, rnodeCmdTXPower, []byte{byte(r.opts.TXPower)})
-	frames = appendRNodeFrame(frames, rnodeCmdSF, []byte{byte(r.opts.SF)})
-	frames = appendRNodeFrame(frames, rnodeCmdCR, []byte{byte(r.opts.CR)})
+	frames = appendRNodeU32Frame(frames, rnodeCmdFrequency, rnodeWireU32(r.opts.Frequency))
+	frames = appendRNodeU32Frame(frames, rnodeCmdBandwidth, rnodeWireU32Int(r.opts.Bandwidth))
+	frames = appendRNodeFrame(frames, rnodeCmdTXPower, []byte{rnodeWireByte(r.opts.TXPower)})
+	frames = appendRNodeFrame(frames, rnodeCmdSF, []byte{rnodeWireByte(r.opts.SF)})
+	frames = appendRNodeFrame(frames, rnodeCmdCR, []byte{rnodeWireByte(r.opts.CR)})
 	frames = appendRNodeAirtimeFrames(frames, r.opts.STAirTimeLock, r.opts.LTAirTimeLock)
 	frames = appendRNodeFrame(frames, rnodeCmdRadioState, []byte{rnodeRadioStateOn})
 	return r.writeFrameBytes(frames)
@@ -549,7 +549,7 @@ func (r *RNodeInterface) handleRadioReport(cmd byte, payload []byte) {
 		}
 	case rnodeCmdStatSNR:
 		if len(payload) > 0 {
-			r.snr = float64(int8(payload[0])) * 0.25
+			r.snr = rnodeSNRFromWire(payload[0])
 			r.quality = rnodeLinkQuality(r.report.sf, r.snr)
 		}
 	}

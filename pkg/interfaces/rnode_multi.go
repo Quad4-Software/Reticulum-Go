@@ -376,11 +376,11 @@ func (s *RNodeSubInterface) configure() error {
 	s.report = rnodeRadioReport{}
 	s.stateMu.Unlock()
 	var frames []byte
-	frames = appendRNodeSelectedFrame(frames, s.index, rnodeCmdFrequency, uint32Payload(uint32(s.frequency)))
-	frames = appendRNodeSelectedFrame(frames, s.index, rnodeCmdBandwidth, uint32Payload(uint32(s.bandwidth)))
-	frames = appendRNodeSelectedFrame(frames, s.index, rnodeCmdTXPower, []byte{byte(int8(s.txPower))})
-	frames = appendRNodeSelectedFrame(frames, s.index, rnodeCmdSF, []byte{byte(s.sf)})
-	frames = appendRNodeSelectedFrame(frames, s.index, rnodeCmdCR, []byte{byte(s.cr)})
+	frames = appendRNodeSelectedFrame(frames, s.index, rnodeCmdFrequency, uint32Payload(rnodeWireU32(s.frequency)))
+	frames = appendRNodeSelectedFrame(frames, s.index, rnodeCmdBandwidth, uint32Payload(rnodeWireU32Int(s.bandwidth)))
+	frames = appendRNodeSelectedFrame(frames, s.index, rnodeCmdTXPower, []byte{rnodeWireTXPower(s.txPower)})
+	frames = appendRNodeSelectedFrame(frames, s.index, rnodeCmdSF, []byte{rnodeWireByte(s.sf)})
+	frames = appendRNodeSelectedFrame(frames, s.index, rnodeCmdCR, []byte{rnodeWireByte(s.cr)})
 	if s.stAirTimeLock != nil {
 		frames = appendRNodeSelectedFrame(frames, s.index, rnodeCmdSTAlock, airtimePayload(*s.stAirTimeLock))
 	}
@@ -414,7 +414,7 @@ func (s *RNodeSubInterface) configure() error {
 }
 
 func appendRNodeSelectedFrame(dst []byte, index int, cmd byte, payload []byte) []byte {
-	dst = appendRNodeSelIntFrame(dst, byte(index))
+	dst = appendRNodeSelIntFrame(dst, rnodeWireByte(index))
 	return appendRNodeFrame(dst, cmd, payload)
 }
 
@@ -554,7 +554,7 @@ func (m *RNodeMultiInterface) handleSubReport(cmd byte, payload []byte) {
 		}
 	case rnodeCmdTXPower:
 		if len(payload) > 0 {
-			sub.report.txPower = int(int8(payload[0]))
+			sub.report.txPower = rnodeTXPowerFromWire(payload[0])
 			sub.report.haveTX = true
 		}
 	case rnodeCmdSF:
@@ -578,7 +578,7 @@ func (m *RNodeMultiInterface) handleSubReport(cmd byte, payload []byte) {
 		}
 	case rnodeCmdStatSNR:
 		if len(payload) > 0 {
-			sub.snr = float64(int8(payload[0])) * 0.25
+			sub.snr = rnodeSNRFromWire(payload[0])
 			sub.quality = rnodeLinkQuality(sub.sf, sub.snr)
 		}
 	}
@@ -641,7 +641,7 @@ func (s *RNodeSubInterface) ProcessOutgoing(data []byte) error {
 	s.parent.idMu.Unlock()
 
 	s.parent.txMu.Lock()
-	frame := appendRNodeSelIntFrame(s.parent.txFrame[:0], byte(s.index))
+	frame := appendRNodeSelIntFrame(s.parent.txFrame[:0], rnodeWireByte(s.index))
 	frame = appendRNodeDataFrame(frame, data)
 	s.parent.txFrame = frame
 	err := s.parent.writeFrameBytesLocked(frame)
