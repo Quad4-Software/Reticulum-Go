@@ -33,11 +33,12 @@ const (
 
 // section kinds tracked while walking the parser stack.
 const (
-	sectionReticulum  = "reticulum"
-	sectionLogging    = "logging"
-	sectionInterfaces = "interfaces"
-	sectionInterface  = "interface"
-	sectionUnknown    = "unknown"
+	sectionReticulum    = "reticulum"
+	sectionLogging      = "logging"
+	sectionInterfaces   = "interfaces"
+	sectionInterface    = "interface"
+	sectionSubInterface = "subinterface"
+	sectionUnknown      = "unknown"
 )
 
 // maxLineBytes caps the size of a single configuration line accepted by the
@@ -130,9 +131,10 @@ func splitCommaPaths(value string) []string {
 
 // sectionFrame is one entry in the parser's section stack.
 type sectionFrame struct {
-	depth int
-	kind  string
-	name  string
+	depth  int
+	kind   string
+	name   string
+	parent string
 }
 
 // sectionHeader recognises bracketed section headers with matching opening and
@@ -186,12 +188,15 @@ func stripBOM(s string) string {
 	return s
 }
 
-// classifySection assigns a kind to a header. Depth >= 2 is always an
-// interface entry. Depth 1 must match a reserved name.
-
+// classifySection assigns a kind to a header. Depth 2 is an interface entry.
+// Depth >= 3 is handled separately as a nested subinterface. Depth 1 must
+// match a reserved name.
 func classifySection(name string, depth int) string {
-	if depth >= 2 {
+	if depth == 2 {
 		return sectionInterface
+	}
+	if depth >= 3 {
+		return sectionSubInterface
 	}
 	switch strings.ToLower(name) {
 	case sectionReticulum:
@@ -242,11 +247,31 @@ func LoadConfig(path string) (*common.ReticulumConfig, error) {
 				stack = stack[:len(stack)-1]
 			}
 			kind := classifySection(name, depth)
-			stack = append(stack, sectionFrame{depth: depth, kind: kind, name: name})
+			parent := ""
+			if kind == sectionSubInterface {
+				for i := len(stack) - 1; i >= 0; i-- {
+					if stack[i].kind == sectionInterface {
+						parent = stack[i].name
+						break
+					}
+				}
+			}
+			stack = append(stack, sectionFrame{depth: depth, kind: kind, name: name, parent: parent})
 
 			if kind == sectionInterface {
 				if _, exists := cfg.Interfaces[name]; !exists {
 					cfg.Interfaces[name] = &common.InterfaceConfig{Name: name}
+				}
+			}
+			if kind == sectionSubInterface && parent != "" {
+				piface := cfg.Interfaces[parent]
+				if piface != nil {
+					if piface.SubInterfaces == nil {
+						piface.SubInterfaces = make(map[string]*common.InterfaceConfig)
+					}
+					if _, exists := piface.SubInterfaces[name]; !exists {
+						piface.SubInterfaces[name] = &common.InterfaceConfig{Name: name}
+					}
 				}
 			}
 			continue
@@ -275,6 +300,12 @@ func LoadConfig(path string) (*common.ReticulumConfig, error) {
 		case sectionInterface:
 			if iface, ok := cfg.Interfaces[top.name]; ok {
 				applyInterfaceOption(iface, key, value)
+			}
+		case sectionSubInterface:
+			if parent, ok := cfg.Interfaces[top.parent]; ok && parent.SubInterfaces != nil {
+				if sub, ok := parent.SubInterfaces[top.name]; ok {
+					applyInterfaceOption(sub, key, value)
+				}
 			}
 		}
 	}
@@ -748,14 +779,42 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		iface.Modem = strings.ToLower(strings.TrimSpace(value))
 	case "serial":
 		iface.SerialNum = value
+	case "txpower":
+		setInt(value, &iface.TXPower)
+	case "spreadingfactor", "sf":
+		setInt(value, &iface.SpreadingFactor)
+	case "codingrate", "cr":
+		setInt(value, &iface.CodingRate)
+	case "flow_control":
+		setBool(&iface.FlowControl, value)
+	case "id_interval":
+		setInt(value, &iface.IDInterval)
+	case "id_callsign":
+		iface.IDCallsign = value
+	case "airtime_limit_short":
+		if setFloat(value, &iface.AirtimeLimitShort) {
+			iface.AirtimeLimitShortSet = true
+		}
+	case "airtime_limit_long":
+		if setFloat(value, &iface.AirtimeLimitLong) {
+			iface.AirtimeLimitLongSet = true
+		}
+	case "vport":
+		if setInt(value, &iface.VPort) {
+			iface.VPortSet = true
+		}
 	}
 }
 
 // setInt assigns *dst from value when value parses cleanly as a base-10 int.
-func setInt(value string, dst *int) {
-	if v, err := strconv.Atoi(strings.TrimSpace(value)); err == nil {
-		*dst = v
+// Reports whether the assignment succeeded.
+func setInt(value string, dst *int) bool {
+	v, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil {
+		return false
 	}
+	*dst = v
+	return true
 }
 
 func isNonNumericPort(value string) bool {
@@ -774,11 +833,15 @@ func setInt64(value string, dst *int64) {
 	}
 }
 
-// setFloat assigns *dst when value parses as a float64.
-func setFloat(value string, dst *float64) {
-	if v, err := strconv.ParseFloat(strings.TrimSpace(value), 64); err == nil {
-		*dst = v
+// setFloat assigns *dst when value parses as a float64. Reports whether the
+// assignment succeeded.
+func setFloat(value string, dst *float64) bool {
+	v, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+	if err != nil {
+		return false
 	}
+	*dst = v
+	return true
 }
 
 func parseStringList(value string) []string {
@@ -1235,7 +1298,90 @@ func writeInterface(b *strings.Builder, name string, iface *common.InterfaceConf
 	if iface.Modem != "" {
 		fmt.Fprintf(b, "    modem = %s\n", iface.Modem)
 	}
+	if iface.TXPower != 0 {
+		fmt.Fprintf(b, "    txpower = %d\n", iface.TXPower)
+	}
+	if iface.SpreadingFactor != 0 {
+		fmt.Fprintf(b, "    spreadingfactor = %d\n", iface.SpreadingFactor)
+	}
+	if iface.CodingRate != 0 {
+		fmt.Fprintf(b, "    codingrate = %d\n", iface.CodingRate)
+	}
+	if iface.FlowControl {
+		fmt.Fprintf(b, "    flow_control = %s\n", boolStr(iface.FlowControl))
+	}
+	if iface.IDInterval != 0 {
+		fmt.Fprintf(b, "    id_interval = %d\n", iface.IDInterval)
+	}
+	if iface.IDCallsign != "" {
+		fmt.Fprintf(b, "    id_callsign = %s\n", iface.IDCallsign)
+	}
+	if iface.AirtimeLimitShortSet {
+		fmt.Fprintf(b, "    airtime_limit_short = %g\n", iface.AirtimeLimitShort)
+	}
+	if iface.AirtimeLimitLongSet {
+		fmt.Fprintf(b, "    airtime_limit_long = %g\n", iface.AirtimeLimitLong)
+	}
+	if iface.VPortSet {
+		fmt.Fprintf(b, "    vport = %d\n", iface.VPort)
+	}
+	if iface.Port == 0 && iface.Device != "" &&
+		(strings.EqualFold(iface.Type, "RNodeInterface") || strings.EqualFold(iface.Type, "RNodeMultiInterface")) {
+		fmt.Fprintf(b, "    port = %s\n", iface.Device)
+	}
 	b.WriteString("\n")
+	if len(iface.SubInterfaces) > 0 {
+		names := make([]string, 0, len(iface.SubInterfaces))
+		for n := range iface.SubInterfaces {
+			names = append(names, n)
+		}
+		sort.Strings(names)
+		for _, n := range names {
+			sub := iface.SubInterfaces[n]
+			if sub == nil {
+				continue
+			}
+			fmt.Fprintf(b, "  [[[%s]]]\n", n)
+			writeRNodeSubInterface(b, sub)
+			b.WriteString("\n")
+		}
+	}
+}
+
+func writeRNodeSubInterface(b *strings.Builder, iface *common.InterfaceConfig) {
+	if iface.Enabled {
+		fmt.Fprintf(b, "      enabled = %s\n", boolStr(iface.Enabled))
+	}
+	if iface.VPortSet {
+		fmt.Fprintf(b, "      vport = %d\n", iface.VPort)
+	}
+	if iface.FrequencyHz != 0 {
+		fmt.Fprintf(b, "      frequency = %d\n", iface.FrequencyHz)
+	}
+	if iface.Bandwidth != 0 {
+		fmt.Fprintf(b, "      bandwidth = %d\n", iface.Bandwidth)
+	}
+	if iface.TXPower != 0 {
+		fmt.Fprintf(b, "      txpower = %d\n", iface.TXPower)
+	}
+	if iface.SpreadingFactor != 0 {
+		fmt.Fprintf(b, "      spreadingfactor = %d\n", iface.SpreadingFactor)
+	}
+	if iface.CodingRate != 0 {
+		fmt.Fprintf(b, "      codingrate = %d\n", iface.CodingRate)
+	}
+	if iface.FlowControl {
+		fmt.Fprintf(b, "      flow_control = %s\n", boolStr(iface.FlowControl))
+	}
+	if iface.AirtimeLimitShortSet {
+		fmt.Fprintf(b, "      airtime_limit_short = %g\n", iface.AirtimeLimitShort)
+	}
+	if iface.AirtimeLimitLongSet {
+		fmt.Fprintf(b, "      airtime_limit_long = %g\n", iface.AirtimeLimitLong)
+	}
+	if iface.OutgoingSet {
+		fmt.Fprintf(b, "      outgoing = %s\n", boolStr(iface.Outgoing))
+	}
 }
 
 // boolStr renders a Go bool using the yes/no spelling expected on disk.
