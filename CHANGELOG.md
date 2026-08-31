@@ -2,6 +2,11 @@
 
 ## v1.2.0 - 2026-09-TBD
 
+### Fixed
+- Daemon no longer panics on Landlock under CGO_ENABLED=0: OpenCL/purego is opt-in (-tags lxstamp_gpu) so fakecgo cannot break AllThreadsSyscall on kernels before Landlock ABI 8
+- Landlock/seccomp soft-fail instead of aborting if AllThreadsSyscall still panics
+- CI fails when AllThreadsSyscall is unusable or Landlock helpers hit the cgo/fakecgo panic (previously skipped)
+
 ## v1.1.0 - 2026-08-30
 
 Wire compatible with Python RNS 1.5.2
