@@ -13,6 +13,7 @@ import (
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/profiler"
 )
 
 const (
@@ -167,6 +168,9 @@ func (t *Transport) remoteStatusHandler(_ string, data []byte, _ []byte, _ []byt
 	out := []any{t.GetInterfaceStatsRPC()}
 	if asBoolAny(list[0]) {
 		out = append(out, t.GetLinkCountRPC())
+	}
+	if len(list) >= 2 && asBoolAny(list[1]) {
+		out = append(out, profiler.ResultsOrNil())
 	}
 	return out
 }

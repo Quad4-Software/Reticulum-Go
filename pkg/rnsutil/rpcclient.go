@@ -179,6 +179,19 @@ func (c *RPCClient) GetActiveLinkCount() (int, error) {
 	return out, err
 }
 
+// GetProfilingResults fetches live RNS.Profiler-compatible results from a
+// shared instance (Go reticulum-go or Python rnsd).
+func (c *RPCClient) GetProfilingResults() (string, error) {
+	var out any
+	if err := c.Call(map[string]any{"get": "profiling_results"}, &out); err != nil {
+		return "", err
+	}
+	if out == nil {
+		return "", nil
+	}
+	return formatProfilingResults(out), nil
+}
+
 // GetNextHop returns the next-hop transport hash for destinationHash.
 func (c *RPCClient) GetNextHop(destinationHash []byte) ([]byte, error) {
 	var out []byte

@@ -13,6 +13,7 @@ import (
 	"quad4/msgpack/v5/pkg/msgpack"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/profiler"
 	"quad4/reticulum-go/pkg/transport"
 )
 
@@ -54,6 +55,8 @@ func (h *RPCHandler) Handle(call map[string]any) any {
 			return h.Transport.GetBlackholedIdentitiesRPC()
 		case "is_blackholed":
 			return h.Transport.IsBlackholedRPC(decodeHash(call["identity_hash"]))
+		case "profiling_results":
+			return profiler.ResultsOrNil()
 		}
 	}
 	if drop, ok := call["drop"].(string); ok {

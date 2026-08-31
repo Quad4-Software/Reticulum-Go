@@ -86,6 +86,7 @@ type StatusOptions struct {
 	QueueStats     bool
 	TrafficTotals  bool
 	BurstFilter    bool
+	ShowPPS        bool
 }
 
 // SortInterfaceStats sorts interfaces in place by SortBy.
@@ -372,19 +373,20 @@ func WriteStatusHuman(w io.Writer, stats transport.InterfaceStatsResponse, linkC
 		}
 	}
 	if opts.TrafficTotals {
-		if _, err := fmt.Fprintf(w, "\n Traffic      : RX %s  TX %s\n",
+		rxLine := fmt.Sprintf("↓%s  %s/s",
 			SizeString(float64(stats.RXB), "B"),
+			SizeString(stats.RXS, "b"),
+		)
+		txLine := fmt.Sprintf("↑%s  %s/s",
 			SizeString(float64(stats.TXB), "B"),
-		); err != nil {
-			return err
+			SizeString(stats.TXS, "b"),
+		)
+		if opts.ShowPPS {
+			rxLine += ", " + SizeString(stats.RXPPS, "pps")
+			txLine += ", " + SizeString(stats.TXPPS, "pps")
 		}
-		if stats.RXS > 0 || stats.TXS > 0 {
-			if _, err := fmt.Fprintf(w, " Throughput   : ↓%s ↑%s\n",
-				SizeString(stats.RXS, "b")+"/s",
-				SizeString(stats.TXS, "b")+"/s",
-			); err != nil {
-				return err
-			}
+		if _, err := fmt.Fprintf(w, "\n Totals       : %s\n                %s\n", txLine, rxLine); err != nil {
+			return err
 		}
 		if opts.AnnounceStats && (stats.ARXB > 0 || stats.ATXB > 0) {
 			if _, err := fmt.Fprintf(w, " Announces    : ↓%s ↑%s\n",
@@ -496,6 +498,8 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 		TXB             uint64           `json:"txb"`
 		RXS             float64          `json:"rxs"`
 		TXS             float64          `json:"txs"`
+		RXPPS           float64          `json:"rxpps"`
+		TXPPS           float64          `json:"txpps"`
 		RXQT            int              `json:"rxqt"`
 		RXQD            int              `json:"rxqd"`
 		RXQA            int              `json:"rxqa"`
@@ -518,6 +522,8 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 		TXB:             stats.TXB,
 		RXS:             stats.RXS,
 		TXS:             stats.TXS,
+		RXPPS:           stats.RXPPS,
+		TXPPS:           stats.TXPPS,
 		RXQT:            stats.RXQT,
 		RXQD:            stats.RXQD,
 		RXQA:            stats.RXQA,

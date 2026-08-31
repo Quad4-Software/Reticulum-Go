@@ -10,6 +10,7 @@ import (
 
 	"quad4/msgpack/v5/pkg/msgpack"
 	"quad4/reticulum-go/pkg/common"
+	"quad4/reticulum-go/pkg/profiler"
 	"quad4/reticulum-go/pkg/transport"
 )
 
@@ -59,6 +60,27 @@ func TestRPCServerLinkCountAfterAuth(t *testing.T) {
 	}
 	if count != 0 {
 		t.Fatalf("link_count = %d; want 0", count)
+	}
+}
+
+func TestRPCHandlerProfilingResults(t *testing.T) {
+	profiler.Reset()
+	defer profiler.Reset()
+
+	cfg := &common.ReticulumConfig{EnableTransport: false, InMemoryStorage: true}
+	tr := transport.NewTransport(cfg)
+	defer tr.Close()
+	h := &RPCHandler{Transport: tr}
+
+	if got := h.Handle(map[string]any{"get": "profiling_results"}); got != nil {
+		t.Fatalf("expected nil before captures, got %#v", got)
+	}
+
+	profiler.Do("rpc.probe", func() {})
+	got := h.Handle(map[string]any{"get": "profiling_results"})
+	m, ok := got.(map[string]profiler.TagResult)
+	if !ok || m["rpc.probe"].StatsAll == nil {
+		t.Fatalf("unexpected profiling payload: %#v", got)
 	}
 }
 

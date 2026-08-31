@@ -11,6 +11,7 @@ import (
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/profiler"
 )
 
 func TestInitializeRemoteManagementRegistersPathHandler(t *testing.T) {
@@ -71,6 +72,25 @@ func TestInitializeRemoteManagementRegistersPathHandler(t *testing.T) {
 	}
 	if len(status) != 1 {
 		t.Fatalf("status without links: len %d", len(status))
+	}
+
+	profiler.Reset()
+	defer profiler.Reset()
+	profiler.Do("remote.status.probe", func() {})
+	statusPacked2, err := msgpack.Marshal([]any{true, true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	statusRaw2 := dest.HandleRequest("/status", statusPacked2, nil, nil, allowed, 0)
+	var status2 []any
+	if err := msgpack.Unmarshal(statusRaw2, &status2); err != nil {
+		t.Fatalf("unmarshal status+prof: %v", err)
+	}
+	if len(status2) < 3 {
+		t.Fatalf("status with links+profiling: len %d", len(status2))
+	}
+	if status2[2] == nil {
+		t.Fatal("expected profiling results in remote /status")
 	}
 }
 

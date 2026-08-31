@@ -11,6 +11,7 @@ import (
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/health"
 	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/profiler"
 	"quad4/reticulum-go/pkg/protect"
 )
 
@@ -111,6 +112,8 @@ func (t *Transport) packetWorker() {
 }
 
 func (t *Transport) runPacketJob(job packetJob) {
+	span := profiler.Start("Transport.runPacketJob")
+	defer span.End()
 	if job.hold != nil {
 		select {
 		case <-job.hold:
