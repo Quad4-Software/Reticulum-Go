@@ -89,24 +89,24 @@ const (
 	rnodeCmdInt10Data byte = 0xE0
 	rnodeCmdInt11Data byte = 0xF0
 
-	rnodeHWMTU              = 508
-	rnodeDefaultIFACSize    = 8
-	rnodeFreqMin            = 137000000
-	rnodeFreqMax            = 3000000000
-	rnodeRSSIOffset         = 157
-	rnodeCallsignMaxLen     = 32
-	rnodeRequiredFWMaj      = 1
-	rnodeRequiredFWMin      = 52
-	rnodeMultiRequiredMaj   = 1
-	rnodeMultiRequiredMin   = 74
-	rnodeMaxSubInterfaces   = 11
-	rnodeQSNRMinBase        = -9.0
-	rnodeQSNRMax            = 6.0
-	rnodeQSNRStep           = 2.0
-	rnodeBatteryUnknown     = 0x00
-	rnodeBatteryDischarging = 0x01
-	rnodeBatteryCharging    = 0x02
-	rnodeBatteryCharged     = 0x03
+	rnodeHWMTU                    = 508
+	rnodeDefaultIFACSize          = 8
+	rnodeFreqMin            int64 = 137000000
+	rnodeFreqMax            int64 = 3000000000
+	rnodeRSSIOffset               = 157
+	rnodeCallsignMaxLen           = 32
+	rnodeRequiredFWMaj            = 1
+	rnodeRequiredFWMin            = 52
+	rnodeMultiRequiredMaj         = 1
+	rnodeMultiRequiredMin         = 74
+	rnodeMaxSubInterfaces         = 11
+	rnodeQSNRMinBase              = -9.0
+	rnodeQSNRMax                  = 6.0
+	rnodeQSNRStep                 = 2.0
+	rnodeBatteryUnknown           = 0x00
+	rnodeBatteryDischarging       = 0x01
+	rnodeBatteryCharging          = 0x02
+	rnodeBatteryCharged           = 0x03
 )
 
 var rnodeIntDataCmds = [...]byte{
@@ -122,6 +122,32 @@ var rnodeIntDataCmds = [...]byte{
 	rnodeCmdInt9Data,
 	rnodeCmdInt10Data,
 	rnodeCmdInt11Data,
+}
+
+// Wire helpers keep gosec G115 quiet where values are already validated to
+// RNode protocol ranges before encoding or decoded from signed wire bytes.
+func rnodeWireU32(v int64) uint32 {
+	return uint32(v) // #nosec G115 -- frequency/bandwidth validated before encode
+}
+
+func rnodeWireU32Int(v int) uint32 {
+	return uint32(v) // #nosec G115 -- bandwidth validated before encode
+}
+
+func rnodeWireByte(v int) byte {
+	return byte(v) // #nosec G115 -- SF/CR/TXPower/index validated before encode
+}
+
+func rnodeWireTXPower(v int) byte {
+	return byte(int8(v)) // #nosec G115 -- TX power validated to -9..37
+}
+
+func rnodeSNRFromWire(b byte) float64 {
+	return float64(int8(b)) * 0.25 // #nosec G115 -- SNR is signed Q format on the wire
+}
+
+func rnodeTXPowerFromWire(b byte) int {
+	return int(int8(b)) // #nosec G115 -- TX power is signed on the wire
 }
 
 func rnodeEscape(dst, data []byte) []byte {
