@@ -82,6 +82,9 @@ bindings/**/examples/**/odin-*
 bindings/**/examples/**/cpp-*
 bindings/**/examples/**/zig-*
 
+# WASM example build output
+examples/wasm/public/static/reticulum-go.wasm
+
 # OS / Editor files
 .DS_Store
 Thumbs.db
