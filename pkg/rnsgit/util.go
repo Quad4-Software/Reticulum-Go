@@ -6,6 +6,7 @@ package rnsgit
 import (
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -177,6 +178,23 @@ func localGitCmd(args ...string) *exec.Cmd {
 	}
 	cmd.Env = env
 	return cmd
+}
+
+func flushWriter(w io.Writer) {
+	if f, ok := w.(interface{ Flush() error }); ok {
+		_ = f.Flush()
+	}
+}
+
+// WriteGitListPayload writes a remote-helper list response and the required
+// terminating blank line (matches Python git-remote-rns).
+func WriteGitListPayload(w io.Writer, text string) {
+	fmt.Fprint(w, text)
+	if !strings.HasSuffix(text, "\n") {
+		fmt.Fprintln(w)
+	}
+	fmt.Fprintln(w)
+	flushWriter(w)
 }
 
 // GitCleanEnv returns a copy of the environment without GIT_DIR or GIT_WORK_TREE.

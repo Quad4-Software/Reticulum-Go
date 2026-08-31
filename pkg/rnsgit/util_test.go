@@ -43,6 +43,19 @@ func TestExpandSymbolicRefHEAD(t *testing.T) {
 	}
 }
 
+func TestWriteGitListPayloadTerminates(t *testing.T) {
+	var buf strings.Builder
+	WriteGitListPayload(&buf, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa refs/heads/main\n")
+	got := buf.String()
+	if !strings.HasSuffix(got, "\n\n") {
+		t.Fatalf("list must end with blank line, got %q", got)
+	}
+	WriteGitListPayload(&buf, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb refs/heads/dev")
+	if !strings.Contains(buf.String(), "refs/heads/dev\n\n") {
+		t.Fatalf("payload without trailing newline still needs blank line: %q", buf.String())
+	}
+}
+
 func TestEncodeMixedRequestForPush(t *testing.T) {
 	b, err := EncodeMixedRequest(map[any]any{
 		IdxRepository: "public/demo",

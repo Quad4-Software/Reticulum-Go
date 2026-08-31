@@ -262,6 +262,7 @@ func (c *Client) RunGitHelper(ctx context.Context, stdin io.Reader, stdout, stde
 			fetchQueue = fetchQueue[:0]
 			pushQueue = pushQueue[:0]
 			fmt.Fprintln(stdout)
+			flushWriter(stdout)
 			continue
 		}
 		switch {
@@ -271,6 +272,7 @@ func (c *Client) RunGitHelper(ctx context.Context, stdin io.Reader, stdout, stde
 			fmt.Fprintln(stdout, "push")
 			fmt.Fprintln(stdout, "option")
 			fmt.Fprintln(stdout)
+			flushWriter(stdout)
 		case line == "list":
 			if err := c.handleList(ctx, stdout, false); err != nil {
 				return err
@@ -287,6 +289,7 @@ func (c *Client) RunGitHelper(ctx context.Context, stdin io.Reader, stdout, stde
 			} else {
 				fmt.Fprintln(stdout, "unsupported")
 			}
+			flushWriter(stdout)
 		case strings.HasPrefix(line, "fetch"):
 			parts := strings.Fields(line)
 			if len(parts) >= 3 {
@@ -337,10 +340,7 @@ func (c *Client) handleList(ctx context.Context, stdout io.Writer, forPush bool)
 		}
 		c.remoteRefs[parts[1]] = parts[0]
 	}
-	fmt.Fprint(stdout, text)
-	if !strings.HasSuffix(text, "\n") {
-		fmt.Fprintln(stdout)
-	}
+	WriteGitListPayload(stdout, text)
 	return nil
 }
 
@@ -552,6 +552,7 @@ func (c *Client) processPush(ctx context.Context, localRef, remoteRef string, st
 		}
 	}
 	fmt.Fprintf(stdout, "ok %s\n", remoteRef)
+	flushWriter(stdout)
 	return nil
 }
 
