@@ -236,12 +236,12 @@ Intentional extensions beyond upstream *rns*:
 | Python utility | Reticulum-Go | Notes |
 |----------------|:------------:|-------|
 | rnsd | Yes | [cmd/reticulum-go](cmd/reticulum-go/) daemon (default subcommand) |
-| rncp | Yes | `reticulum-go cp` ([pkg/cli](pkg/cli/), symlink rgocp). Link resource send/listen/fetch, destination `rncp.receive` |
+| rncp | Yes | `reticulum-go cp` ([pkg/cli](pkg/cli/), symlink rgocp). Link resource send/listen/fetch, destination `rncp.receive`. Short flags match Python rncp (`-a` allowed, `-n` no-auth, `-F` allow-fetch, `-f <path> <dest>`) |
 | rnid | Yes | `reticulum-go id` (symlink rgoid). `.rid`/`.rsg`/`.rsm`/`.rfe` interop with Python rnid |
 | rnir | No | Python stub identity resolver. Not ported |
-| rnpath | Yes | `reticulum-go path` (symlink rgopath). Local/shared-instance path table, drop, blackhole. Remote `-R` table and rates over `rnstransport.remote.management` |
+| rnpath | Yes | `reticulum-go path` (symlink rgopath). Local/shared-instance path table, drop, blackhole, published list (`-p`). Short flags match Python (`-D` drop announces, `-x` drop via, `-b`/`-B`/`-U`) |
 | rnprobe | Yes | `reticulum-go probe` (symlink rgoprobe) |
-| rnstatus | Yes | `reticulum-go status` (symlink rgostatus). Shared-instance RPC including announce/PR rates, concrete interface type names, and `announce_queue`. Remote `-R` over `rnstransport.remote.management`. Go daemons also expose local integrity counters. TCP RPC setup: [docs/en/utilities.md](docs/en/utilities.md) |
+| rnstatus | Yes | `reticulum-go status` (symlink rgostatus). Shared-instance RPC including announce/PR rates, pps (`-p`), monitor (`-m`/`-I`), queues (`-Q`), discovered (`-d`/`-D`), profiling (`-z` via `profiling_results` / remote `/status`), and remote `-R`. Go daemons also expose local integrity counters. TCP RPC setup: [docs/en/utilities.md](docs/en/utilities.md) |
 | (Go-only) | Yes | `reticulum-go slow` (symlink rgoslow). Bottleneck and local health findings. See [docs/en/utilities.md](docs/en/utilities.md#rgoslow) |
 | Speedtest.py | Yes | `reticulum-go speedtest` (symlink rgospeed). Loopback link throughput smoke / liveness floor. See [docs/en/utilities.md](docs/en/utilities.md#rgospeed) |
 | rnx | Yes | `reticulum-go x` (symlinks rgox, rnx). Destination `rnx.execute`, request path command. JSON stdout, Python exit codes |

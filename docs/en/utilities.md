@@ -149,7 +149,7 @@ Only one process should own the shared instance ports (or Unix RPC name) at a ti
 ## rgostatus
 
 ```bash
-rgostatus [flags]
+rgostatus [flags] [filter]
 ```
 
 | Flag | Meaning |
@@ -157,16 +157,27 @@ rgostatus [flags]
 | -config dir | Config directory (default: ~/.reticulum-go) |
 | -json | Emit JSON (bytes as hex, same field names as Python where populated) |
 | -a | Include all interfaces (less filtering of local/client peers) |
-| -n substr | Filter interface names |
+| -n substr | Filter interface names (positional filter also accepted) |
 | -l | Include link count |
+| -A | Show announce byte and count stats |
+| -P | Show path-request byte and count stats |
+| -B | Only interfaces with active bursts |
+| -b | List blocked IPs per interface |
+| -t | Show transport traffic totals |
+| -p | Show packets per second in totals |
+| -Q | Show inbound queue pressure (use -Q not -q; -q is quiet) |
+| -z | Show profiling results when the instance provides them |
+| -m | Continuously monitor status |
+| -I sec | Monitor refresh interval (default 1) |
+| -d / -D | List discovered interfaces (details with -D) |
 | -s key | Sort by rate, rx, tx, rxs, txs, traffic, announce, arx, atx, prx, ptx, held, queue |
 | -r | Sort ascending (default descending) |
 | -timeout dur | RPC timeout (default 10s) |
 | -R hash | Transport identity hash of remote instance |
 | -i path | Identity file for remote management |
-| -W sec | Timeout for remote queries (default 15) |
+| -W / -w sec | Timeout for remote queries (0 = adaptive) |
 
-JSON includes per-interface announce and path-request frequencies, held announces, outgoing announce queue, burst flags, and traffic counters when the daemon provides them.
+JSON includes per-interface announce and path-request frequencies, held announces, outgoing announce queue, burst flags, and traffic counters when the daemon provides them. Totals include rxpps/txpps when available.
 
 Against a Go daemon, human and JSON output also include local mesh health fields when counters are non-zero: ifac_fail, hmac_fail, announce_sig_fail, unpack_fail, integrity_fail_rate, stale_closes, keepalive_timeout, and related totals. Python rnsd does not populate these keys. Missing fields mean zero or unknown, not a protocol error.
 
@@ -329,19 +340,20 @@ rgopath [flags] [destination_hash]
 | -config dir | Config directory |
 | -t | Show path table (optional hash filter) |
 | -r | Show announce rate info |
-| -json | JSON for -t / -r / -blackholed |
+| -json / -j | JSON for -t / -r / -b |
 | -m N | Max hops filter for path table |
 | -d | Drop path to hash |
-| -D | Drop all paths via transport hash |
-| -q | Drop announce queues |
+| -D / -q | Drop announce queues (Python -D, Go also accepts -q) |
+| -x | Drop all paths via transport hash |
 | -w sec | Path request timeout (0 = adaptive from slowest online bitrate, default) |
 | -R hash | Transport identity hash of remote instance |
 | -i path | Identity file for remote management |
 | -W sec | Timeout for remote queries (default 15) |
-| -blackholed | List blackholed identities |
-| -blackhole | Blackhole identity hash |
-| -unblackhole | Lift blackhole |
-| -for hours | Blackhole duration (0 = indefinite) |
+| -b / -blackholed | List blackholed identities |
+| -B / -blackhole | Blackhole identity hash |
+| -U / -unblackhole | Lift blackhole |
+| -p | View published blackhole list for a remote transport identity |
+| -duration / -for hours | Blackhole duration (0 = indefinite) |
 | -reason str | Blackhole reason |
 | -filter substr | Filter blackhole list lines |
 
@@ -360,25 +372,26 @@ File transfer over links. Destination name is rncp.receive so Go and Python peer
 ```bash
 rgocp [flags] <file> <destination_hash>     # send
 rgocp -l [flags]                            # listen
-rgocp -f -F <remote_path> [flags] <hash>    # fetch
+rgocp -f [flags] <remote_path> <hash>       # fetch
 ```
 
 | Flag | Meaning |
 |------|---------|
 | -config dir | Config directory |
-| -identity path | Identity file (default storage/identities/rncp) |
+| -i / -identity path | Identity file (default storage/identities/rncp) |
 | -l | Listen for pushes |
-| -f / -F path | Fetch remote file |
-| -a | Allow unauthenticated senders (listen) |
-| -allowed hash | Allowed identity (repeatable) |
-| -allow-fetch | Enable fetch_file requests |
-| -jail dir | Restrict fetch paths |
-| -save dir | Save directory for received files |
-| -overwrite | Overwrite on receive |
-| -no-compress | Disable auto compression |
-| -announce sec | Announce interval (0 once, <0 never) |
+| -f | Fetch remote file (`-f <remote_path> <dest>`) |
+| -a hash | Allowed identity (repeatable, listen) |
+| -n / -no-auth | Accept requests from anyone (listen) |
+| -F / -allow-fetch | Enable fetch_file requests (listen) |
+| -j / -jail dir | Restrict fetch paths |
+| -s / -save dir | Save directory for received files |
+| -O / -overwrite | Overwrite on receive |
+| -C / -no-compress | Disable auto compression |
+| -b / -announce sec | Announce interval (0 once, <0 never) |
 | -w sec | Path/link timeout (0 = adaptive, default) |
-| -s | Silent progress |
+| -S / -silent | Silent progress |
+| -P / -phy-rates | Show physical-layer style rates in progress |
 | -p | Print identity and destination hash |
 
 Allow lists are loaded from /etc/rncp/allowed_identities, ~/.config/rncp/, ~/.rncp/, plus Go-specific ~/.config/rgocp/ and ~/.rgocp/.
@@ -512,7 +525,7 @@ Use this during development and in CI before shipping apps that talk to shared i
 | Empty or missing announce rates from Python | Field is present but may be 0 until traffic accumulates. Sorting and JSON keys still work. |
 | Top-level rxb/txb are 0 while interfaces show traffic | Python aggregate totals often omit some parent interfaces. Prefer per-interface counters. |
 | Identity load log lines on stderr | Harmless debug from loading transport_identity for derived auth when resolving keys. Prefer explicit rpc_key to avoid that path when possible. |
-| rgocp transfer ignored | Listener needs -a or an allow-list entry matching the sender identity hash. Metadata (name) is required on the wire. |
+| rgocp transfer ignored | Listener needs -n or an allow-list entry (`-a`) matching the sender identity hash. Metadata (name) is required on the wire. |
 
 ## Debugging
 

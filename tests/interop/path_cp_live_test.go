@@ -369,7 +369,7 @@ func TestLiveRgocpCLIAgainstGoListenerUDP(t *testing.T) {
 	destHex := hex.EncodeToString(dest.GetHash())
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, rgocp, "-config", cfgDirB, "-s", src, destHex)
+	cmd := exec.CommandContext(ctx, rgocp, "-config", cfgDirB, "-S", src, destHex)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("rgocp send: %v\n%s", err, out)

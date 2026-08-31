@@ -22,20 +22,28 @@ func RunPath(args []string, opt ...Options) int {
 	configDir := fs.String("config", "", "path to config directory")
 	table := fs.Bool("t", false, "show path table")
 	jsonOut := fs.Bool("json", false, "emit JSON")
+	fs.BoolVar(jsonOut, "j", false, "emit JSON (Python rnpath alias)")
 	maxHops := fs.Int("m", -1, "max hops filter for path table (-1 = no filter)")
 	rates := fs.Bool("r", false, "show announce rate info")
 	drop := fs.Bool("d", false, "drop path to destination")
-	dropVia := fs.Bool("D", false, "drop all paths via transport hash")
-	dropQueues := fs.Bool("q", false, "drop announce queues")
+	// Match Python rnpath: -D drop-announces, -x drop-via. Keep -q as Go alias for -D.
+	dropQueues := fs.Bool("D", false, "drop all queued announces")
+	fs.BoolVar(dropQueues, "q", false, "drop all queued announces (Go alias for -D)")
+	dropVia := fs.Bool("x", false, "drop all paths via specified transport instance")
 	timeoutSec := fs.Float64("w", 0, "path request timeout in seconds (0 = adaptive from interface bitrate)")
 	rpcTimeout := fs.Duration("timeout", 10*time.Second, "RPC timeout")
 	remoteHex := fs.String("R", "", "transport identity hash of remote instance")
 	mgmtIdent := fs.String("i", "", "identity file for remote management")
 	remoteTimeoutSec := fs.Float64("W", 0, "timeout for remote queries in seconds (0 = adaptive from interface bitrate)")
-	blackholed := fs.Bool("blackholed", false, "list blackholed identities")
-	blackhole := fs.Bool("blackhole", false, "blackhole identity")
-	unblackhole := fs.Bool("unblackhole", false, "lift blackhole for identity")
-	bhHours := fs.Float64("for", 0, "blackhole duration in hours (0 = indefinite)")
+	blackholed := fs.Bool("b", false, "list blackholed identities")
+	fs.BoolVar(blackholed, "blackholed", false, "list blackholed identities")
+	blackhole := fs.Bool("B", false, "blackhole identity")
+	fs.BoolVar(blackhole, "blackhole", false, "blackhole identity")
+	unblackhole := fs.Bool("U", false, "lift blackhole for identity")
+	fs.BoolVar(unblackhole, "unblackhole", false, "lift blackhole for identity")
+	remoteBHList := fs.Bool("p", false, "view published blackhole list for remote transport instance")
+	bhHours := fs.Float64("duration", 0, "blackhole duration in hours (0 = indefinite)")
+	fs.Float64Var(bhHours, "for", 0, "blackhole duration in hours (Go alias for -duration)")
 	bhReason := fs.String("reason", "", "blackhole reason string")
 	filter := fs.String("filter", "", "substring filter for blackhole list")
 	bindFlagUsage(fs, "rgopath - path table and routing control",
@@ -43,11 +51,15 @@ func RunPath(args []string, opt ...Options) int {
 		[]helpLine{
 			{Cmd: "rgopath [flags]"},
 			{Cmd: "rgopath [flags] <destination_hash>"},
+			{Cmd: "rgopath -p <transport_hash> [list_filter]"},
 			{Cmd: "reticulum-go path [flags]"},
 		},
 		"rgopath -t",
 		"rgopath -t -json",
 		"rgopath -d <dest_hash>",
+		"rgopath -D",
+		"rgopath -x <transport_hash>",
+		"rgopath -p <transport_hash>",
 	)
 
 	if err := fs.Parse(args); err != nil {
@@ -61,6 +73,7 @@ func RunPath(args []string, opt ...Options) int {
 	}
 
 	var destHash []byte
+	listFilter := *filter
 	if fs.NArg() > 0 {
 		destHash, err = rnsutil.ParseDestHash(fs.Arg(0))
 		if err != nil {
@@ -68,16 +81,23 @@ func RunPath(args []string, opt ...Options) int {
 			return 1
 		}
 	}
+	if fs.NArg() > 1 && listFilter == "" {
+		listFilter = fs.Arg(1)
+	}
 
 	modeCount := 0
-	for _, b := range []bool{*table, *rates, *drop, *dropVia, *dropQueues, *blackholed, *blackhole, *unblackhole} {
+	for _, b := range []bool{*table, *rates, *drop, *dropVia, *dropQueues, *blackholed, *blackhole, *unblackhole, *remoteBHList} {
 		if b {
 			modeCount++
 		}
 	}
 	if modeCount > 1 {
-		fmt.Fprintln(stderr, "specify only one of -t -r -d -D -q -blackholed -blackhole -unblackhole")
+		fmt.Fprintln(stderr, "specify only one of -t -r -d -D -x -b -B -U -p")
 		return 2
+	}
+
+	if *remoteBHList {
+		return runPathPublishedBlackhole(cfg, destHash, listFilter, *jsonOut, *remoteTimeoutSec, stdout, stderr)
 	}
 
 	if *remoteHex != "" {
@@ -181,7 +201,7 @@ func RunPath(args []string, opt ...Options) int {
 
 		case *dropVia:
 			if len(destHash) == 0 {
-				fmt.Fprintln(stderr, "transport hash required for -D")
+				fmt.Fprintln(stderr, "transport hash required for -x")
 				return 2
 			}
 			n, err := client.DropAllVia(destHash)
@@ -219,7 +239,7 @@ func RunPath(args []string, opt ...Options) int {
 				}
 				return 0
 			}
-			filt := *filter
+			filt := listFilter
 			if filt == "" && len(destHash) > 0 {
 				filt = rnsutil.HexHash(destHash)
 			}
@@ -234,7 +254,7 @@ func RunPath(args []string, opt ...Options) int {
 
 		case *blackhole:
 			if len(destHash) == 0 {
-				fmt.Fprintln(stderr, "identity hash required for -blackhole")
+				fmt.Fprintln(stderr, "identity hash required for -B")
 				return 2
 			}
 			var until float64
@@ -255,7 +275,7 @@ func RunPath(args []string, opt ...Options) int {
 
 		case *unblackhole:
 			if len(destHash) == 0 {
-				fmt.Fprintln(stderr, "identity hash required for -unblackhole")
+				fmt.Fprintln(stderr, "identity hash required for -U")
 				return 2
 			}
 			ok, err := client.UnblackholeIdentity(destHash)
@@ -275,9 +295,9 @@ func RunPath(args []string, opt ...Options) int {
 	// Default: request path (node-attached, like rnpath without -t).
 	if len(destHash) == 0 {
 		usageErr(stderr, "rgopath [flags] <destination_hash>")
-		fmt.Fprintln(stderr, "  -t path table  -r rates  -d drop  -D drop via  -q drop queues")
+		fmt.Fprintln(stderr, "  -t path table  -r rates  -d drop  -D drop announce queues  -x drop via")
+		fmt.Fprintln(stderr, "  -b list blackholes  -B blackhole  -U unblackhole  -p published list")
 		fmt.Fprintln(stderr, "  -R transport_id  -i identity  -W seconds")
-		fmt.Fprintln(stderr, "  -blackholed / -blackhole / -unblackhole")
 		return 2
 	}
 
@@ -312,6 +332,51 @@ func RunPath(args []string, opt ...Options) int {
 	}
 	fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("Path found: %d %s via %s on %s",
 		hops, hopWord, rnsutil.PrettyHex(via), iface)))
+	return 0
+}
+
+func runPathPublishedBlackhole(cfg *common.ReticulumConfig, transportHash []byte, listFilter string, jsonOut bool, timeoutSec float64, stdout, stderr io.Writer) int {
+	if len(transportHash) == 0 {
+		fmt.Fprintln(stderr, "transport identity hash required for -p")
+		return 2
+	}
+	n, err := node.New(cfg)
+	if err != nil {
+		diagErr(stderr, "node", err)
+		return 1
+	}
+	if err := n.Start(); err != nil {
+		diagErr(stderr, "start", err)
+		return 1
+	}
+	defer n.Stop()
+
+	timeout := time.Duration(timeoutSec * float64(time.Second))
+	ctx, cancel := rnsutil.CLIWaitContext(timeout)
+	defer cancel()
+
+	fmt.Fprintln(stdout, infoMsg(stdout, "Sending request..."))
+	entries, err := rnsutil.FetchPublishedBlackholeList(ctx, n.Transport(), transportHash)
+	if err != nil {
+		fmt.Fprintln(stdout, errMsg(stdout, "The remote request failed."))
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 10
+	}
+	if len(entries) == 0 {
+		fmt.Fprintln(stdout, "No blackholed identity data available")
+		return 20
+	}
+	if jsonOut {
+		if err := rnsutil.WriteBlackholeJSON(stdout, entries); err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+		return 0
+	}
+	if err := rnsutil.WriteBlackholeHuman(stdout, entries, listFilter); err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
 	return 0
 }
 
