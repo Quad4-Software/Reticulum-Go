@@ -125,10 +125,10 @@ func checkSeccomp() Result {
 	switch runtime.GOOS {
 	case "linux":
 		switch runtime.GOARCH {
-		case "amd64", "arm64":
-			return result("sandbox/seccomp", SeverityPass, "supported on "+runtime.GOARCH)
+		case "amd64", "arm64", "386", "arm", "riscv64", "ppc64", "ppc64le":
+			return result("sandbox/seccomp", SeverityPass, "seccomp-bpf denylist supported on "+runtime.GOARCH)
 		default:
-			return result("sandbox/seccomp", SeveritySkip, "not built for "+runtime.GOARCH)
+			return result("sandbox/seccomp", SeveritySkip, "no seccomp policy for "+runtime.GOARCH+" (daemon soft-skips)")
 		}
 	default:
 		return result("sandbox/seccomp", SeveritySkip, "linux only")

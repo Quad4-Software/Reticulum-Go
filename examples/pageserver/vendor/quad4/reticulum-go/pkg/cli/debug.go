@@ -23,13 +23,21 @@ func RunDebug(args []string, opt ...Options) int {
 	jsonOut := fs.Bool("json", false, "emit JSON")
 	rates := fs.Bool("rates", false, "include rate table")
 	timeout := fs.Duration("timeout", 10*time.Second, "RPC timeout")
+	bindFlagUsage(fs, "reticulum-go debug - runtime diagnostics",
+		"Prints effective config, rate table, and RPC dump from a running daemon.",
+		[]helpLine{
+			{Cmd: "reticulum-go debug [flags]"},
+		},
+		"reticulum-go debug",
+		"reticulum-go debug -json -rates",
+	)
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 
 	cfg, err := rnsutil.LoadConfigDir(*configDir)
 	if err != nil {
-		fmt.Fprintf(stderr, "config: %v\n", err)
+		diagErr(stderr, "config", err)
 		return 1
 	}
 
@@ -64,7 +72,7 @@ func RunDebug(args []string, opt ...Options) int {
 			_ = enc.Encode(out)
 			return 1
 		}
-		fmt.Fprintf(stderr, "rpc: %v\n", err)
+		diagErr(stderr, "rpc", err)
 		fmt.Fprintf(stdout, "config_path=%s log_level=%d goos=%s goarch=%s\n",
 			out.ConfigPath, out.LogLevel, out.GOOS, out.GOARCH)
 		return 1
@@ -97,7 +105,7 @@ func RunDebug(args []string, opt ...Options) int {
 		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "  ")
 		if err := enc.Encode(out); err != nil {
-			fmt.Fprintf(stderr, "json: %v\n", err)
+			diagErr(stderr, "json", err)
 			return 1
 		}
 		return 0

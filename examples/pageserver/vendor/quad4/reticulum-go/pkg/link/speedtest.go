@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -312,6 +313,8 @@ func RunLoopbackSpeedtest(opt SpeedtestOptions) (SpeedtestResult, error) {
 	}
 
 	cleanup := func() {
+		_ = pa.Stop()
+		_ = pb.Stop()
 		_ = trA.Close()
 		_ = trB.Close()
 	}
@@ -388,16 +391,25 @@ func normalizeSpeedtestOptions(opt SpeedtestOptions) SpeedtestOptions {
 	return opt
 }
 
-// speedPipe is a minimal bidirectional in-process interface for loopback tests.
+// speedPipeInbox holds in-flight loopback frames so Send does not block
+// under the sender transport lock. 2 MiB at MDU 431 is about 4900 packets.
+const speedPipeInbox = 8192
+
+// speedPipe is a bidirectional in-process interface for loopback tests.
+// A dispatcher delivers with HandlePacketBlocking so a faster sender does
+// not overflow the transport handler queue.
 type speedPipe struct {
 	common.BaseInterface
-	peer   *speedPipe
-	tr     *transport.Transport
-	online bool
+	peer     *speedPipe
+	tr       *transport.Transport
+	online   bool
+	inbox    chan []byte
+	stop     chan struct{}
+	stopOnce sync.Once
 }
 
 func newSpeedPipe(name string) *speedPipe {
-	return &speedPipe{
+	p := &speedPipe{
 		BaseInterface: common.BaseInterface{
 			Name:    name,
 			Type:    common.IFTypeUDP,
@@ -407,21 +419,47 @@ func newSpeedPipe(name string) *speedPipe {
 			MTU:     common.DefaultMTU,
 		},
 		online: true,
+		inbox:  make(chan []byte, speedPipeInbox),
+		stop:   make(chan struct{}),
+	}
+	go p.dispatch()
+	return p
+}
+
+func (p *speedPipe) dispatch() {
+	for {
+		select {
+		case <-p.stop:
+			return
+		case data := <-p.inbox:
+			if p.tr != nil && p.online {
+				p.tr.HandlePacketBlocking(data, p)
+			}
+		}
 	}
 }
 
 func (p *speedPipe) Send(data []byte, _ string) error {
-	if !p.online || p.peer == nil || !p.peer.online || p.peer.tr == nil {
+	if !p.online || p.peer == nil || !p.peer.online {
 		return errors.New("speedtest: pipe peer not connected")
 	}
 	raw := append([]byte(nil), data...)
-	p.peer.tr.HandlePacket(raw, p.peer)
-	return nil
+	select {
+	case p.peer.inbox <- raw:
+		return nil
+	case <-p.peer.stop:
+		return errors.New("speedtest: pipe peer not connected")
+	}
+}
+
+func (p *speedPipe) shutdown() {
+	p.online = false
+	p.stopOnce.Do(func() { close(p.stop) })
 }
 
 func (p *speedPipe) IsEnabled() bool { return p.Enabled }
 func (p *speedPipe) IsOnline() bool  { return p.online }
 func (p *speedPipe) GetName() string { return p.Name }
 func (p *speedPipe) Start() error    { return nil }
-func (p *speedPipe) Stop() error     { p.online = false; return nil }
-func (p *speedPipe) Detach()         { p.online = false }
+func (p *speedPipe) Stop() error     { p.shutdown(); return nil }
+func (p *speedPipe) Detach()         { p.shutdown() }

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"quad4/reticulum-go/pkg/protect"
 	"quad4/reticulum-go/pkg/term"
 	"quad4/reticulum-go/pkg/transport"
 )
@@ -71,6 +72,7 @@ type SlowReport struct {
 	Destination     *DestFocus          `json:"destination,omitempty"`
 	PathStats       SlowPathStats       `json:"path_stats"`
 	HighHopAt       int                 `json:"high_hop_threshold"`
+	Protect         protect.Snapshot    `json:"protect"`
 }
 
 // SlowTrafficTotals summarizes transport-wide rates.
@@ -103,6 +105,7 @@ type SlowIfaceRow struct {
 	TXB                uint64   `json:"txb"`
 	UtilPct            float64  `json:"util_pct"`
 	HeldAnnounces      int      `json:"held_announces"`
+	AnnounceQueue      int      `json:"announce_queue"`
 	BurstActive        bool     `json:"burst_active"`
 	PRBurstActive      bool     `json:"pr_burst_active"`
 	AnnounceHz         float64  `json:"announce_hz"`
@@ -289,6 +292,7 @@ func AnalyzeSlow(
 		hotspots = hotspots[:8]
 	}
 	rep.EgressHotspots = hotspots
+	rep.Protect = stats.Protect
 
 	rep.Findings = buildFindings(rep, opts)
 	rep.Recommendations = buildRecommendations(rep, opts)
@@ -312,6 +316,7 @@ func scoreInterface(st transport.InterfaceStat, paths []transport.PathTableEntry
 		TXB:                st.TXB,
 		UtilPct:            util,
 		HeldAnnounces:      st.HeldAnnounces,
+		AnnounceQueue:      st.AnnounceQueue,
 		BurstActive:        st.BurstActive,
 		PRBurstActive:      st.PRBurstActive,
 		AnnounceHz:         st.IncomingAnnounceFrequency + st.OutgoingAnnounceFrequency,
@@ -357,6 +362,11 @@ func scoreInterface(st transport.InterfaceStat, paths []transport.PathTableEntry
 		flags = append(flags, fmt.Sprintf("held=%d", st.HeldAnnounces))
 		reasons = append(reasons, fmt.Sprintf("%d announces held (ingress congestion)", st.HeldAnnounces))
 		score += math.Min(40, float64(st.HeldAnnounces)*2)
+	}
+	if st.AnnounceQueue > 0 {
+		flags = append(flags, fmt.Sprintf("queue=%d", st.AnnounceQueue))
+		reasons = append(reasons, fmt.Sprintf("%d announces waiting on announce_cap", st.AnnounceQueue))
+		score += math.Min(30, float64(st.AnnounceQueue))
 	}
 	if st.Bitrate > 0 && st.Bitrate < 500_000 && load > float64(st.Bitrate)*0.3 {
 		flags = append(flags, "low-cap")
@@ -517,12 +527,55 @@ func buildFindings(rep SlowReport, opts SlowAnalyzeOptions) []SlowFinding {
 			},
 		})
 	}
+	out = append(out, protectFindings(rep.Protect)...)
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].Score == out[j].Score {
 			return out[i].Name < out[j].Name
 		}
 		return out[i].Score > out[j].Score
 	})
+	return out
+}
+
+func protectFindings(ps protect.Snapshot) []SlowFinding {
+	if ps.Mode == "off" {
+		return nil
+	}
+	var out []SlowFinding
+	if ps.CoolDownActive() {
+		out = append(out, SlowFinding{
+			Kind:     "dos_cooldown",
+			Name:     "dos_protection",
+			Severity: SeverityCritical,
+			Score:    75,
+			Summary:  "dos_protection iface cool-down is rejecting ingress",
+			Detail:   fmt.Sprintf("mode=%s phase=%s enforcement=%s", ps.Mode, ps.Phase, ps.Enforcement),
+			Hints: []string{
+				"Wait for cool-down to clear or reduce ingress load on the affected interface",
+				"Check status -json protect.trip_counts and per-iface cooldown_seconds",
+			},
+		})
+	} else if ps.Enforcement == "prevent" && ps.ActivePressure() {
+		sev := SeverityWarn
+		score := 45.0
+		if ps.SheddingMemory {
+			sev = SeverityCritical
+			score = 65
+		}
+		out = append(out, SlowFinding{
+			Kind:     "dos_armed_trips",
+			Name:     "dos_protection",
+			Severity: sev,
+			Score:    score,
+			Summary:  "dos_protection is armed and has tripped local overload gates",
+			Detail: fmt.Sprintf("mode=%s phase=%s pps_trips=%d handler_trips=%d crypto_trips=%d",
+				ps.Mode, ps.Phase, ps.TripCounts.PPS, ps.TripCounts.Handler, ps.TripCounts.Crypto),
+			Hints: []string{
+				"Legitimate bursts can trip adaptive limits on busy transport nodes",
+				"Use detect mode temporarily or tune dos_* limits in config if drops are false positives",
+			},
+		})
+	}
 	return out
 }
 
@@ -602,6 +655,18 @@ func healthFindingsForRow(row SlowIfaceRow, opts SlowAnalyzeOptions) []SlowFindi
 			},
 		})
 	}
+	if row.AnnounceQueue > 0 {
+		out = append(out, SlowFinding{
+			Kind:     "announce_queue",
+			Name:     row.Name,
+			Severity: SeverityWarn,
+			Score:    math.Min(30, float64(row.AnnounceQueue)),
+			Summary:  fmt.Sprintf("%d announces waiting on announce_cap on %s", row.AnnounceQueue, row.Name),
+			Hints: []string{
+				"Outgoing announces are delayed until this interface has announce_cap budget",
+			},
+		})
+	}
 	return out
 }
 
@@ -612,6 +677,9 @@ func interfaceHints(row SlowIfaceRow) []string {
 	}
 	if row.BurstActive || row.HeldAnnounces > 0 {
 		hints = append(hints, "Announce storm or slow peer: held announces delay path learning and can stall transfers")
+	}
+	if row.AnnounceQueue > 0 {
+		hints = append(hints, "Outgoing announce queue is waiting for announce_cap bandwidth")
 	}
 	if row.BandwidthAvailable != nil && !*row.BandwidthAvailable {
 		hints = append(hints, "Bandwidth gate is closed: announce/path rebroadcasts are deferred until load drops")

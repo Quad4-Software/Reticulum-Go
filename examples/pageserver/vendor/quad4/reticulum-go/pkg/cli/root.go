@@ -23,6 +23,7 @@ const (
 	CmdPath       = "path"
 	CmdCP         = "cp"
 	CmdX          = "x"
+	CmdSH         = "sh"
 	CmdPageserver = "pageserver"
 	CmdDebug      = "debug"
 	CmdSlow       = "slow"
@@ -30,6 +31,8 @@ const (
 	CmdSpeedtest  = "speedtest"
 	CmdDump       = "dump"
 	CmdSnapshot   = "snapshot"
+	CmdZen        = "zen"
+	CmdGit        = "git"
 )
 
 // DaemonFunc starts the network daemon. Injected by cmd/reticulum-go to avoid
@@ -56,6 +59,12 @@ func Main(args []string, opt Options) int {
 	}
 	if opt.Stderr == nil {
 		opt.Stderr = os.Stderr
+	}
+
+	base := strings.ToLower(filepath.Base(opt.Argv0))
+	base = strings.TrimSuffix(base, ".exe")
+	if base == "git-remote-rns" {
+		return RunGitRemoteRNS(args, opt)
 	}
 
 	cmd, rest, ok := resolveCommand(opt.Argv0, args)
@@ -102,6 +111,8 @@ func Main(args []string, opt Options) int {
 		return RunCP(rest, opt)
 	case CmdX:
 		return RunX(rest, opt)
+	case CmdSH:
+		return RunSH(rest, opt)
 	case CmdPageserver:
 		return RunPageserver(rest, opt)
 	case CmdDebug:
@@ -116,6 +127,13 @@ func Main(args []string, opt Options) int {
 		return RunDump(rest, opt)
 	case CmdSnapshot:
 		return RunSnapshot(rest, opt)
+	case CmdZen:
+		return RunZen(rest, opt)
+	case CmdGit:
+		if len(rest) > 0 && rest[0] == "remote-rns" {
+			return RunGitRemoteRNS(rest[1:], opt)
+		}
+		return RunGit(rest, opt)
 	default:
 		fmt.Fprintf(opt.Stderr, "unknown command %q\n\n", cmd)
 		printRootHelp(opt.Stderr)
@@ -136,7 +154,7 @@ func resolveCommand(argv0 string, args []string) (cmd string, rest []string, ok 
 	}
 
 	switch args[0] {
-	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdX, CmdPageserver, CmdDebug, CmdSlow, CmdSelfCheck, CmdSpeedtest, CmdDump, CmdSnapshot:
+	case CmdDaemon, CmdStatus, CmdID, CmdProbe, CmdPath, CmdCP, CmdX, CmdSH, CmdPageserver, CmdDebug, CmdSlow, CmdSelfCheck, CmdSpeedtest, CmdDump, CmdSnapshot, CmdZen, CmdGit:
 		return args[0], args[1:], true
 	case "selfcheck", "rgoselfcheck":
 		return CmdSelfCheck, args[1:], true
@@ -152,6 +170,8 @@ func resolveCommand(argv0 string, args []string) (cmd string, rest []string, ok 
 		return CmdCP, args[1:], true
 	case "rgox", "rnx":
 		return CmdX, args[1:], true
+	case "rgosh":
+		return CmdSH, args[1:], true
 	case "rgoslow":
 		return CmdSlow, args[1:], true
 	case "rgospeed":
@@ -160,6 +180,10 @@ func resolveCommand(argv0 string, args []string) (cmd string, rest []string, ok 
 		return CmdDump, args[1:], true
 	case "rgosnap":
 		return CmdSnapshot, args[1:], true
+	case "rgozen", "reticulum-go-zen":
+		return CmdZen, args[1:], true
+	case "rgogit", "reticulum-go-git", "git-remote-rns":
+		return CmdGit, args[1:], true
 	default:
 		return "", nil, false
 	}
@@ -179,6 +203,8 @@ func aliasFromArgv0(base string) string {
 		return CmdCP
 	case "rgox", "rnx", "reticulum-go-x":
 		return CmdX
+	case "rgosh", "reticulum-go-sh":
+		return CmdSH
 	case "rgopageserver", "reticulum-go-pageserver":
 		return CmdPageserver
 	case "rgoslow", "reticulum-go-slow":
@@ -191,6 +217,10 @@ func aliasFromArgv0(base string) string {
 		return CmdDump
 	case "rgosnap", "reticulum-go-snapshot":
 		return CmdSnapshot
+	case "rgozen", "reticulum-go-zen":
+		return CmdZen
+	case "rgogit", "reticulum-go-git", "git-remote-rns":
+		return CmdGit
 	default:
 		return ""
 	}
@@ -215,34 +245,41 @@ func okMsg(w io.Writer, s string) string   { return term.GreenW(w, s) }
 func errMsg(w io.Writer, s string) string  { return term.RedW(w, s) }
 func warnMsg(w io.Writer, s string) string { return term.YellowW(w, s) }
 func infoMsg(w io.Writer, s string) string { return term.CyanW(w, s) }
+func dimMsg(w io.Writer, s string) string  { return term.DimW(w, s) }
+func boldMsg(w io.Writer, s string) string { return term.BoldW(w, s) }
+
+func diagErr(w io.Writer, label string, err error) {
+	fmt.Fprintf(w, "%s: %v\n", errMsg(w, label), err)
+}
 
 func printRootHelp(w io.Writer) {
-	fmt.Fprintf(w, `reticulum-go - Reticulum network stack (Go)
-
-Usage:
-  reticulum-go                          run the network daemon
-  reticulum-go daemon [flags]           run the network daemon
-  reticulum-go status [flags]           interface and transport status (RPC)
-  reticulum-go id [flags]               identities, hashes, sign and encrypt
-  reticulum-go probe [flags] <name> <hash>
-  reticulum-go path [flags]             path table, drop, blackhole
-  reticulum-go slow [flags]             find slow interfaces, paths, transfers
-  reticulum-go speedtest [flags]        loopback link throughput smoke
-  reticulum-go dump [flags]             decode RNS packets from hex or pcap
-  reticulum-go snapshot [flags]         path table, links, and health JSON (RPC)
-  reticulum-go cp [flags]               file transfer over links
-  reticulum-go x [flags]                remote command execution (rnx)
-  reticulum-go pageserver [flags]       NomadNet-style page and file server
-  reticulum-go debug [flags]            effective config, rate table, RPC dump
-  reticulum-go self-check [flags]       host OS preflight checklist
-
-Global:
-  -h, --help       print this help
-  -v, --version    print version
-
-Legacy tool names (rgostatus, rgoid, rgoprobe, rgopath, rgocp, rgox, rnx, rgoslow, rgospeed, rgodump, rgosnap) work as
-subcommands or when the binary is installed under those names (symlinks).
-
-Configuration defaults to ~/.reticulum-go/config.
-`)
+	helpTitle(w, "reticulum-go - Reticulum network stack (Go)")
+	helpUsageHeader(w)
+	helpUsageLines(w,
+		helpLine{"reticulum-go", "run the network daemon"},
+		helpLine{"reticulum-go daemon [flags]", "run the network daemon"},
+		helpLine{"reticulum-go status [flags]", "interface and transport status (RPC)"},
+		helpLine{"reticulum-go id [flags]", "identities, hashes, sign and encrypt"},
+		helpLine{"reticulum-go probe [flags] <name> <hash>", ""},
+		helpLine{"reticulum-go path [flags]", "path table, drop, blackhole"},
+		helpLine{"reticulum-go slow [flags]", "find slow interfaces, paths, transfers"},
+		helpLine{"reticulum-go speedtest [flags]", "loopback link throughput smoke"},
+		helpLine{"reticulum-go dump [flags]", "decode RNS packets from hex or pcap"},
+		helpLine{"reticulum-go snapshot [flags]", "path table, links, and health JSON (RPC)"},
+		helpLine{"reticulum-go cp [flags]", "file transfer over links"},
+		helpLine{"reticulum-go x [flags]", "remote command execution (rnx)"},
+		helpLine{"reticulum-go sh [flags]", "interactive remote shell (rgosh)"},
+		helpLine{"reticulum-go git [flags]", "Git-over-Reticulum node (rngit)"},
+		helpLine{"reticulum-go pageserver [flags]", "NomadNet-style page and file server"},
+		helpLine{"reticulum-go debug [flags]", "effective config, rate table, RPC dump"},
+		helpLine{"reticulum-go self-check [flags]", "host OS preflight checklist"},
+		helpLine{"reticulum-go zen [flags] [packages]", "scan for path/link footguns (go fix style)"},
+	)
+	fmt.Fprintln(w)
+	helpSection(w, "Global:")
+	fmt.Fprintf(w, "  %s       print this help\n", dimMsg(w, "-h, --help"))
+	fmt.Fprintf(w, "  %s    print version\n", dimMsg(w, "-v, --version"))
+	fmt.Fprintln(w)
+	helpNote(w, "Legacy tool names (rgostatus, rgoid, rgoprobe, rgopath, rgocp, rgox, rnx, rgosh, rgoslow, rgospeed, rgodump, rgosnap, rgozen) work as subcommands or when the binary is installed under those names (symlinks).")
+	helpNote(w, "Configuration defaults to ~/.reticulum-go/config.")
 }

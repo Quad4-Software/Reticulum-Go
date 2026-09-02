@@ -19,13 +19,21 @@ import (
 )
 
 func applyPlatform(cfg *common.ReticulumConfig) error {
+	strict := cfg != nil && cfg.SandboxStrict
+
 	if err := unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
 		debug.Log(debug.DebugError, "PR_SET_NO_NEW_PRIVS failed", "error", err)
+		if strict {
+			return err
+		}
 	}
 
 	if err := applyLandlock(cfg); err != nil {
 		debug.Log(debug.DebugError, "Landlock failed", "error", err)
 		warnSoftUnavailable("landlock", err.Error())
+		if strict {
+			return err
+		}
 	}
 
 	if os.Geteuid() == 0 {
@@ -45,7 +53,11 @@ func applyPlatform(cfg *common.ReticulumConfig) error {
 		debug.Log(debug.DebugError, "Setrlimit failed", "error", err)
 	}
 
-	applySeccomp(cfg)
+	if err := applySeccomp(cfg); err != nil {
+		if strict {
+			return err
+		}
+	}
 
 	debug.Log(debug.DebugInfo, "Sandbox applied", "platform", "linux")
 	return nil
@@ -55,12 +67,20 @@ func applyPlatform(cfg *common.ReticulumConfig) error {
 // V9 via go-landlock. TCP port rules are intentionally omitted so the P2P
 // mesh can bind and dial arbitrary peers. BestEffort downgrades on older
 // kernels. Missing optional paths are ignored.
-func applyLandlock(cfg *common.ReticulumConfig) error {
+func applyLandlock(cfg *common.ReticulumConfig) (err error) {
 	// Go AllThreadsSyscall (Landlock restrict without TSYNC) fatals under
 	// qemu-user when per-thread results diverge. Skip rather than crash.
 	if os.Getenv("RETICULUM_QEMU_USER") == "1" {
 		return fmt.Errorf("landlock skipped under qemu-user")
 	}
+
+	// purego/fakecgo or real cgo makes AllThreadsSyscall panic on ABI < 8.
+	// Recover so the daemon can soft-fail instead of aborting.
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("landlock restrict panicked: %v", r)
+		}
+	}()
 
 	if err := probeLandlock(); err != nil {
 		return err
@@ -79,13 +99,20 @@ func applyLandlock(cfg *common.ReticulumConfig) error {
 
 	// V6+ scopes abstract UNIX sockets and signals toward more privileged
 	// domains. Pathname UNIX sockets (session bus, journald) need
-	// WithResolveUnix on their path trees instead.
-	if err := landlock.V9.BestEffort().RestrictScoped(); err != nil {
-		return fmt.Errorf("landlock restrict scoped: %w", err)
+	// WithResolveUnix on their path trees instead. GUI hosts skip this
+	// because WebKitGTK helpers use abstract sockets and signals.
+	if shouldRestrictScoped(cfg) {
+		if err := landlock.V9.BestEffort().RestrictScoped(); err != nil {
+			return fmt.Errorf("landlock restrict scoped: %w", err)
+		}
 	}
 
 	debug.Log(debug.DebugInfo, "Landlock sandbox applied", "abi", "V9")
 	return nil
+}
+
+func shouldRestrictScoped(cfg *common.ReticulumConfig) bool {
+	return cfg == nil || !cfg.SandboxSkipScoped
 }
 
 func probeLandlock() error {
@@ -151,15 +178,37 @@ func landlockPathRules(cfg *common.ReticulumConfig) ([]landlock.Rule, error) {
 		landlock.RODirs(
 			"/etc/ssl/certs",
 			"/proc/self",
-			"/bin",
-			"/usr/bin",
-			"/usr/local/bin",
 			"/lib",
 			"/lib64",
 			"/usr/lib",
 		).IgnoreIfMissing(),
 	}
+	if !isRouterProfile(cfg) {
+		rules = append(rules, landlock.RODirs(
+			"/bin",
+			"/usr/bin",
+			"/usr/local/bin",
+		).IgnoreIfMissing())
+	}
+	rules = append(rules, extraLandlockRules(cfg)...)
 	return rules, nil
+}
+
+func extraLandlockRules(cfg *common.ReticulumConfig) []landlock.Rule {
+	var rules []landlock.Rule
+	for _, p := range collectExtraPaths(cfg) {
+		switch p.kind {
+		case pathRWDir:
+			rules = append(rules, landlock.RWDirs(p.path).IgnoreIfMissing())
+		case pathRODir:
+			rules = append(rules, landlock.RODirs(p.path).IgnoreIfMissing())
+		case pathROFile:
+			rules = append(rules, landlock.ROFiles(p.path).IgnoreIfMissing())
+		default:
+			rules = append(rules, landlock.RWFiles(p.path).WithIoctlDev().IgnoreIfMissing())
+		}
+	}
+	return rules
 }
 
 func dropAllCapabilities() error {

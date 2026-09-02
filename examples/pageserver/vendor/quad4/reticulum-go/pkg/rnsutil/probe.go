@@ -31,26 +31,12 @@ type ProbeResult struct {
 }
 
 // WaitPath blocks until HasPath is true or ctx is done.
+// When ctx has no deadline the wait is PathResponseWindow.
 func WaitPath(ctx context.Context, tr *transport.Transport, destHash []byte) error {
 	if tr == nil {
 		return fmt.Errorf("nil transport")
 	}
-	if tr.HasPath(destHash) {
-		return nil
-	}
-	_ = tr.RequestPath(destHash, "", nil, false)
-	ticker := time.NewTicker(50 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		if tr.HasPath(destHash) {
-			return nil
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-		}
-	}
+	return tr.AwaitPath(ctx, destHash)
 }
 
 // SendProbe encrypts a random payload to destHash and waits for a proof.

@@ -11,6 +11,7 @@ require (
 	github.com/creack/goselect v0.1.2 // indirect
 	github.com/creack/pty v1.1.24 // indirect
 	github.com/dunglas/httpsfv v1.1.0 // indirect
+	github.com/ebitengine/purego v0.9.1 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/landlock-lsm/go-landlock v0.9.0 // indirect
 	github.com/mdlayher/socket v0.4.1 // indirect

@@ -5,6 +5,7 @@ package pageserver
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"math"
@@ -27,6 +28,7 @@ import (
 	"quad4/reticulum-go/pkg/interfaces"
 	"quad4/reticulum-go/pkg/link"
 	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/sandbox"
 	"quad4/reticulum-go/pkg/transport"
 
 	"quad4/reticulum-go/pkg/pageserver/dynamicpage"
@@ -80,6 +82,7 @@ func NewReticulum(cfg *common.ReticulumConfig, opts Options) (*Reticulum, error)
 	if cfg == nil {
 		cfg = common.DefaultConfig()
 	}
+	sandbox.SetExecRlimits(cfg.SandboxExecRlimits)
 
 	if opts.NodeDisplayName == "" {
 		opts.NodeDisplayName = AppName
@@ -177,7 +180,7 @@ func NewReticulum(cfg *common.ReticulumConfig, opts Options) (*Reticulum, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get home directory: %w", err)
 	}
-	ratchetPath := filepath.Join(homeDir, ".reticulum-go", "storage", "ratchets", r.identity.GetHexHash())
+	ratchetPath := destPrivateRatchetPath(filepath.Join(homeDir, ".reticulum-go"), dest, ident)
 	dest.EnableRatchets(ratchetPath)
 	dest.SetProofStrategy(destination.ProveApp)
 
@@ -197,11 +200,11 @@ func NewReticulum(cfg *common.ReticulumConfig, opts Options) (*Reticulum, error)
 			if cfg.PanicOnInterfaceErr {
 				return nil, fmt.Errorf("failed to create interface %s: %v", name, err)
 			}
-			debug.Log(debug.DebugCritical, "Error creating interface", "name", name, "error", err)
+			debug.Log(debug.DebugError, "Error creating interface", "name", name, "error", err)
 			continue
 		}
 
-		debug.Log(debug.DebugError, "Configuring interface", "name", name, "type", ifaceConfig.Type)
+		debug.Log(debug.DebugInfo, "Configuring interface", "name", name, "type", ifaceConfig.Type)
 		r.interfaces = append(r.interfaces, iface)
 		debug.Log(debug.DebugInfo, "Interface configured", "name", name)
 	}
@@ -245,6 +248,9 @@ func (r *Reticulum) MonitorInterfaces() {
 	defer ticker.Stop()
 
 	for range ticker.C {
+		if !debug.Enabled(debug.DebugVerbose) {
+			continue
+		}
 		for _, iface := range r.interfaces {
 			if tcpClient, ok := iface.(*interfaces.TCPClientInterface); ok {
 				stats := fmt.Sprintf("Interface %s status - Connected: %v, TX: %d bytes (%.2f Kbps), RX: %d bytes (%.2f Kbps)",
@@ -375,13 +381,13 @@ func (r *Reticulum) Start() error {
 			if r.config.PanicOnInterfaceErr {
 				return fmt.Errorf("failed to start interface %s: %v", iface.GetName(), err)
 			}
-			debug.Log(debug.DebugCritical, "Error starting interface", "name", iface.GetName(), "error", err)
+			debug.Log(debug.DebugError, "Error starting interface", "name", iface.GetName(), "error", err)
 			continue
 		}
 
 		if netIface, ok := iface.(common.NetworkInterface); ok {
 			if err := r.transport.RegisterInterface(iface.GetName(), netIface); err != nil {
-				debug.Log(debug.DebugCritical, "Failed to register interface with transport", "name", iface.GetName(), "error", err)
+				debug.Log(debug.DebugError, "Failed to register interface with transport", "name", iface.GetName(), "error", err)
 			} else {
 				debug.Log(debug.DebugInfo, "Registered interface with transport", "name", iface.GetName())
 			}
@@ -403,7 +409,7 @@ func (r *Reticulum) Start() error {
 	r.destination.SetDefaultAppData([]byte(nodeName))
 	announceStartTime := time.Now()
 	if err := r.destination.Announce(false, nil, nil); err != nil {
-		debug.Log(debug.DebugCritical, "Failed to send initial announce", "error", err, "elapsed", time.Since(announceStartTime).Seconds())
+		debug.Log(debug.DebugError, "Failed to send initial announce", "error", err, "elapsed", time.Since(announceStartTime).Seconds())
 	} else {
 		debug.Log(debug.DebugInfo, "Initial announce sent successfully", "elapsed", time.Since(announceStartTime).Seconds())
 	}
@@ -413,7 +419,7 @@ func (r *Reticulum) Start() error {
 		debug.Log(debug.DebugInfo, "Periodic announces disabled (announce-interval 0). Only the initial announce was sent")
 	} else {
 		if interval < MinAnnounceInterval {
-			debug.Log(debug.DebugCritical,
+			debug.Log(debug.DebugWarning,
 				"Configured announce-interval is below the minimum. Clamping to avoid flooding peers",
 				"requested_minutes", r.announceEveryMinutes,
 				"min", FormatDuration(MinAnnounceInterval),
@@ -432,7 +438,7 @@ func (r *Reticulum) Start() error {
 					"every", FormatDuration(period),
 				)
 				if err := r.destination.Announce(false, nil, nil); err != nil {
-					debug.Log(debug.DebugCritical, "Could not send announce", "error", err)
+					debug.Log(debug.DebugError, "Could not send announce", "error", err)
 				}
 			}
 		}(interval)
@@ -482,19 +488,19 @@ func (r *Reticulum) Stop() error {
 
 	for _, buf := range r.buffers {
 		if err := buf.Close(); err != nil {
-			debug.Log(debug.DebugCritical, "Error closing buffer", "error", err)
+			debug.Log(debug.DebugError, "Error closing buffer", "error", err)
 		}
 	}
 
 	for _, ch := range r.channels {
 		if err := ch.Close(); err != nil {
-			debug.Log(debug.DebugCritical, "Error closing channel", "error", err)
+			debug.Log(debug.DebugError, "Error closing channel", "error", err)
 		}
 	}
 
 	for _, iface := range r.interfaces {
 		if err := iface.Stop(); err != nil {
-			debug.Log(debug.DebugCritical, "Error stopping interface", "name", iface.GetName(), "error", err)
+			debug.Log(debug.DebugError, "Error stopping interface", "name", iface.GetName(), "error", err)
 		}
 	}
 
@@ -577,20 +583,13 @@ func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id any, appData []by
 		debug.Log(debug.DebugInfo, "No appData (empty announce)")
 	}
 
-	if identity, ok := id.(*identity.Identity); ok {
+	if announcedID, ok := id.(*identity.Identity); ok {
 		debug.Log(debug.DebugAll, "Identity details")
-		debug.Log(debug.DebugAll, "Identity hash", "hash", identity.GetHexHash())
-		debug.Log(debug.DebugAll, "Identity public key", "key", fmt.Sprintf("%x", identity.GetPublicKey()))
+		debug.Log(debug.DebugAll, "Identity hash", "hash", announcedID.GetHexHash())
+		debug.Log(debug.DebugAll, "Identity public key", "key", fmt.Sprintf("%x", announcedID.GetPublicKey()))
 
-		ratchets := identity.GetRatchets()
-		debug.Log(debug.DebugAll, "Active ratchets", "count", len(ratchets))
-
-		if len(ratchets) > 0 {
-			ratchetKey := identity.GetCurrentRatchetKey()
-			if ratchetKey != nil {
-				ratchetID := identity.GetRatchetID(ratchetKey)
-				debug.Log(debug.DebugAll, "Current ratchet ID", "id", fmt.Sprintf("%x", ratchetID))
-			}
+		if ratchetPub := identity.GetRatchet(destHash); len(ratchetPub) > 0 {
+			debug.Log(debug.DebugAll, "Announced ratchet ID", "id", fmt.Sprintf("%x", announcedID.GetRatchetID(ratchetPub)))
 		}
 
 		recordType := "peer"
@@ -600,13 +599,13 @@ func (h *AnnounceHandler) ReceivedAnnounce(destHash []byte, id any, appData []by
 		}
 
 		h.reticulum.announceHistoryMu.Lock()
-		h.reticulum.announceHistory[identity.GetHexHash()] = announceRecord{
+		h.reticulum.announceHistory[announcedID.GetHexHash()] = announceRecord{
 			timestamp: time.Now().Unix(),
 			appData:   appData,
 		}
 		h.reticulum.announceHistoryMu.Unlock()
 
-		debug.Log(debug.DebugVerbose, "Stored announce in history", "type", recordType, "identity", identity.GetHexHash())
+		debug.Log(debug.DebugVerbose, "Stored announce in history", "type", recordType, "identity", announcedID.GetHexHash())
 	}
 
 	return nil
@@ -894,17 +893,15 @@ func (r *Reticulum) syncFileHandlers() {
 func (r *Reticulum) servePage(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) []byte {
 	debug.Log(debug.DebugInfo, "Serving page", "path", path, "request_id", fmt.Sprintf("%x", requestID))
 
-	var filePath string
+	var joined string
 	if after, ok := strings.CutPrefix(path, "/page/"); ok {
-		filePath = filepath.Join(r.pagesPath, after)
+		joined = filepath.Join(r.pagesPath, after)
 	} else {
-		filePath = filepath.Join(r.pagesPath, path)
+		joined = filepath.Join(r.pagesPath, path)
 	}
 
-	filePath = filepath.Clean(filePath)
-	pagesDir := filepath.Clean(r.pagesPath)
-
-	if !strings.HasPrefix(filePath, pagesDir) {
+	filePath, ok := resolveJailedPath(r.pagesPath, joined)
+	if !ok {
 		debug.Log(debug.DebugError, "Path traversal attempt detected", "path", path)
 		return []byte(">Request Not Allowed\n\nYou are not authorized to access this resource.")
 	}
@@ -924,22 +921,20 @@ func (r *Reticulum) servePage(path string, data []byte, requestID []byte, linkID
 func (r *Reticulum) serveFile(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) any {
 	debug.Log(debug.DebugInfo, "Serving file", "path", path, "request_id", fmt.Sprintf("%x", requestID))
 
-	var filePath string
+	var joined string
 	if after, ok := strings.CutPrefix(path, "/file/"); ok {
-		filePath = filepath.Join(r.filesPath, after)
+		joined = filepath.Join(r.filesPath, after)
 	} else {
-		filePath = filepath.Join(r.filesPath, path)
+		joined = filepath.Join(r.filesPath, path)
 	}
 
-	filePath = filepath.Clean(filePath)
-	filesDir := filepath.Clean(r.filesPath)
-
-	if !strings.HasPrefix(filePath, filesDir) {
+	filePath, ok := resolveJailedPath(r.filesPath, joined)
+	if !ok {
 		debug.Log(debug.DebugError, "Path traversal attempt detected", "path", path)
 		return []byte(">Request Not Allowed\n\nYou are not authorized to access this resource.")
 	}
 
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) // #nosec G304 -- filePath resolved and jail-validated by resolveJailedPath
 	if err != nil {
 		debug.Log(debug.DebugError, "Failed to open file", "path", filePath, "error", err)
 		return []byte(">File Not Found\n\nThe requested file could not be found.")
@@ -971,4 +966,27 @@ func (r *Reticulum) handleLinkPacket(l *link.Link, data []byte, pkt *packet.Pack
 	debug.Log(debug.DebugInfo, "Processing request", "path", requestPath, "request_id", fmt.Sprintf("%x", requestID))
 
 	r.destination.HandleRequest(requestPath, nil, requestID, l.GetLinkID(), nil, time.Now().Unix())
+}
+
+func destPrivateRatchetPath(configRoot string, dest *destination.Destination, ident *identity.Identity) string {
+	dir := filepath.Join(configRoot, "storage", "ratchets")
+	path := filepath.Join(dir, hex.EncodeToString(dest.GetHash()))
+	if ident == nil {
+		return path
+	}
+	old := filepath.Join(dir, ident.GetHexHash())
+	if path == old {
+		return path
+	}
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	if _, err := os.Stat(old); err != nil {
+		return path
+	}
+	if err := os.Rename(old, path); err != nil {
+		debug.Log(debug.DebugError, "Failed to rename ratchet file to destination hash", "error", err, "from", old, "to", path)
+		return old
+	}
+	return path
 }

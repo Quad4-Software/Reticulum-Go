@@ -4,24 +4,110 @@
 package transport
 
 import (
+	"encoding/binary"
 	"fmt"
+	"math"
 	"sync"
 
+	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/packet"
 )
 
-type packetHashList struct {
-	mu   sync.Mutex
-	cur  map[[32]byte]struct{}
-	prev map[[32]byte]struct{}
+type hashGen struct {
+	slots [][32]byte
+	occ   []byte
+	n     int
+	mask  int
 }
 
-func newPacketHashList() *packetHashList {
-	return &packetHashList{
-		cur:  make(map[[32]byte]struct{}),
-		prev: make(map[[32]byte]struct{}),
+type packetHashList struct {
+	mu   sync.Mutex
+	max  int
+	cur  hashGen
+	prev hashGen
+}
+
+func hashSlot(k [32]byte, mask int) int {
+	x := binary.LittleEndian.Uint64(k[:8])
+	x ^= binary.LittleEndian.Uint64(k[8:16])
+	x ^= binary.LittleEndian.Uint64(k[16:24])
+	x ^= binary.LittleEndian.Uint64(k[24:32])
+	if mask < 0 {
+		return 0
 	}
+	slot := x & uint64(mask)
+	if slot > uint64(math.MaxInt) {
+		return 0
+	}
+	return int(slot)
+}
+
+func (g *hashGen) has(k [32]byte) bool {
+	if g == nil || len(g.slots) == 0 {
+		return false
+	}
+	i := hashSlot(k, g.mask)
+	for {
+		if g.occ[i] == 0 {
+			return false
+		}
+		if g.slots[i] == k {
+			return true
+		}
+		i = (i + 1) & g.mask
+	}
+}
+
+func (g *hashGen) grow() {
+	ns := 8
+	if len(g.slots) > 0 {
+		ns = len(g.slots) * 2
+	}
+	ng := hashGen{
+		slots: make([][32]byte, ns),
+		occ:   make([]byte, ns),
+		mask:  ns - 1,
+	}
+	for i, occ := range g.occ {
+		if occ != 0 {
+			ng.insert(g.slots[i])
+		}
+	}
+	*g = ng
+}
+
+func (g *hashGen) insert(k [32]byte) {
+	i := hashSlot(k, g.mask)
+	for {
+		if g.occ[i] == 0 {
+			g.slots[i] = k
+			g.occ[i] = 1
+			g.n++
+			return
+		}
+		if g.slots[i] == k {
+			return
+		}
+		i = (i + 1) & g.mask
+	}
+}
+
+func (g *hashGen) put(k [32]byte) {
+	if g == nil {
+		return
+	}
+	if len(g.slots) == 0 || (g.n+1)*2 > len(g.slots) {
+		g.grow()
+	}
+	g.insert(k)
+}
+
+func newPacketHashList(limit int) *packetHashList {
+	if limit <= 0 {
+		limit = HashlistMaxSize
+	}
+	return &packetHashList{max: limit}
 }
 
 func hash32FromSlice(h []byte) [32]byte {
@@ -37,11 +123,7 @@ func (hl *packetHashList) seen(h []byte) bool {
 	k := hash32FromSlice(h)
 	hl.mu.Lock()
 	defer hl.mu.Unlock()
-	if _, ok := hl.cur[k]; ok {
-		return true
-	}
-	_, ok := hl.prev[k]
-	return ok
+	return hl.cur.has(k) || hl.prev.has(k)
 }
 
 func (hl *packetHashList) add(h []byte) {
@@ -51,11 +133,29 @@ func (hl *packetHashList) add(h []byte) {
 	k := hash32FromSlice(h)
 	hl.mu.Lock()
 	defer hl.mu.Unlock()
-	hl.cur[k] = struct{}{}
-	if len(hl.cur) > HashlistMaxSize/2 {
+	hl.cur.put(k)
+	rotateAt := max(hl.max/2, 1)
+	if hl.cur.n > rotateAt {
 		hl.prev = hl.cur
-		hl.cur = make(map[[32]byte]struct{})
+		hl.cur = hashGen{}
 	}
+}
+
+// Len returns the number of hashes in the current and previous generations.
+func (hl *packetHashList) Len() int {
+	if hl == nil {
+		return 0
+	}
+	hl.mu.Lock()
+	defer hl.mu.Unlock()
+	return hl.cur.n + hl.prev.n
+}
+
+func effectivePacketHashlistMax(cfg *common.ReticulumConfig) int {
+	if cfg == nil {
+		return common.DefaultMaxPacketHashlistClient
+	}
+	return cfg.EffectiveMaxPacketHashlist()
 }
 
 // packetFilter mirrors Python Transport.packet_filter for duplicate detection
@@ -95,8 +195,10 @@ func (t *Transport) packetFilter(pkt *packet.Packet) bool {
 	if len(preview) > 8 {
 		preview = preview[:8]
 	}
-	debug.Log(debug.DebugVerbose, "Filtered duplicate packet",
-		"hash", fmt.Sprintf("%x", preview))
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Filtered duplicate packet",
+			"hash", fmt.Sprintf("%x", preview))
+	}
 	return false
 }
 

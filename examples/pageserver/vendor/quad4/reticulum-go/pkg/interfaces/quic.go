@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
-//go:build !js
+//go:build !js && !rns_slim
 
 package interfaces
 
@@ -17,6 +17,7 @@ import (
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/protect"
 )
 
 const (
@@ -24,6 +25,40 @@ const (
 	quicHandshakeTimeout = 10 * time.Second
 	quicIdleTimeout      = 60 * time.Second
 )
+
+func init() {
+	registerBuiltinFromConfig("QUICClientInterface", newQUICClientFromConfig)
+	registerBuiltinFromConfig("QUICServerInterface", newQUICServerFromConfig)
+}
+
+func newQUICClientFromConfig(name string, cfg *common.InterfaceConfig, _ *FromConfigContext) (Interface, error) {
+	return NewQUICClientInterfaceWithRetries(
+		name,
+		cfg.TargetHost,
+		cfg.TargetPort,
+		cfg.Enabled,
+		cfg.MaxReconnTries,
+		QUICClientOptions{
+			CertFile: cfg.CertFile,
+			KeyFile:  cfg.KeyFile,
+			PeerKey:  cfg.PeerKey,
+			SNI:      cfg.SNI,
+		},
+	)
+}
+
+func newQUICServerFromConfig(name string, cfg *common.InterfaceConfig, _ *FromConfigContext) (Interface, error) {
+	return NewQUICServerInterface(
+		name,
+		cfg.Address,
+		cfg.Port,
+		QUICServerOptions{
+			CertFile: cfg.CertFile,
+			KeyFile:  cfg.KeyFile,
+			PeerKey:  cfg.PeerKey,
+		},
+	)
+}
 
 // quicSessionConn wraps a bidirectional QUIC stream and its parent connection as net.Conn.
 type quicSessionConn struct {
@@ -302,10 +337,11 @@ func (qc *QUICClientInterface) readLoop() {
 		}
 		qc.ProcessIncoming(payload)
 	})
-	if cap(qc.readBuf) < qc.MTU {
-		qc.readBuf = make([]byte, qc.MTU)
+	n := streamReadSize(qc.MTU)
+	if cap(qc.readBuf) < n {
+		qc.readBuf = make([]byte, n)
 	}
-	buffer := qc.readBuf[:qc.MTU]
+	buffer := qc.readBuf[:n]
 	for {
 		qc.Mutex.RLock()
 		conn := qc.conn
@@ -495,7 +531,15 @@ func (qs *QUICServerInterface) acceptLoop(ctx context.Context, ln *quic.Listener
 			debug.Log(debug.DebugVerbose, "QUIC accept error", "name", qs.Name, "error", err)
 			continue
 		}
-		go qs.handleConn(ctx, conn)
+		d, release := protect.AdmitConn(qs.Name)
+		if !d.Allow {
+			_ = conn.CloseWithError(0, "dos_protection")
+			continue
+		}
+		go func(c *quic.Conn, rel func()) {
+			defer rel()
+			qs.handleConn(ctx, c)
+		}(conn, release)
 	}
 }
 
@@ -527,13 +571,14 @@ func (qs *QUICServerInterface) SessionCount() int {
 }
 
 func (qs *QUICServerInterface) readHDLCLoop(conn net.Conn) {
+	peerKey := conn.RemoteAddr().String()
 	decoder := newHDLCToggleStreamDecoder(qs.MTU, func(payload []byte) {
 		if len(payload) == 0 {
 			return
 		}
-		qs.ProcessIncoming(payload)
+		qs.ProcessIncomingFrom(payload, peerKey)
 	})
-	buf := make([]byte, qs.MTU)
+	buf := make([]byte, streamReadSize(qs.MTU))
 	for {
 		qs.Mutex.RLock()
 		done := qs.done

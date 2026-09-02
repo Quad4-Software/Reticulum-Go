@@ -42,10 +42,17 @@ func NewLocalFromConfig(name string, cfg *common.InterfaceConfig, ctx *FromConfi
 			spawn = ctx.SpawnLocal
 		} else if ctx != nil && ctx.RegisterPeer != nil && ctx.SetupPeer != nil {
 			spawn = func(client *LocalClientInterface) {
-				if err := ctx.RegisterPeer(client.GetName(), client); err != nil {
+				name := client.GetName()
+				if err := ctx.RegisterPeer(name, client); err != nil {
+					_ = client.Stop()
 					return
 				}
 				ctx.SetupPeer(client)
+				if ctx.UnregisterPeer != nil {
+					client.SetDisconnectHooks(func() {
+						ctx.UnregisterPeer(name)
+					}, nil)
+				}
 			}
 		}
 		return NewLocalServerInterface(port, socketPath, useUnix, spawn, hub)

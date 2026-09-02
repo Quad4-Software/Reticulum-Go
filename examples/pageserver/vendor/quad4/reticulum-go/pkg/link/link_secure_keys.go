@@ -39,6 +39,7 @@ func (l *Link) closeAllSecretKeys() {
 	closeSecBuf(&l.derivedKey)
 	closeSecBuf(&l.hmacKey)
 	closeSecBuf(&l.sessionKey)
+	l.aesBlock = nil
 }
 
 func bufLen(b *securemem.Buf) int {

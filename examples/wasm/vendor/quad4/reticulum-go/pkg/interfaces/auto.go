@@ -552,12 +552,20 @@ func (ai *AutoInterface) handleData(conn *net.UDPConn, ifaceName string) {
 
 		ai.Mutex.Unlock()
 
-		stripped, ok := common.ApplyIFACInbound(ai, data)
-		if !ok {
-			continue
+		// When registered with transport, IFAC is applied once in
+		// preprocessInboundPacket (RNS 1.5.0). Applying it here too would
+		// strip the IFAC flag and make transport treat a valid packet as a
+		// missing-IFAC violation.
+		payload := data
+		if !ai.DeferInboundIFAC() {
+			var ok bool
+			payload, ok = common.ApplyIFACInbound(ai, data)
+			if !ok {
+				continue
+			}
 		}
 		if callback := ai.GetPacketCallback(); callback != nil {
-			callback(stripped, ai)
+			callback(payload, ai)
 		}
 	}
 }
@@ -726,7 +734,7 @@ func (ai *AutoInterface) Send(data []byte, address string) error {
 
 	masked, err := common.ApplyIFACOutbound(ai, data)
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to mask outgoing packet for IFAC", "name", ai.Name, "error", err)
+		debug.Log(debug.DebugError, "Failed to mask outgoing packet for IFAC", "name", ai.Name, "error", err)
 		return err
 	}
 	data = masked

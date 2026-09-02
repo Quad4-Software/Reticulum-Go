@@ -118,11 +118,10 @@ func extractUDPv4(frame []byte, linkType uint32) (payload []byte, sport, dport u
 		off = 0
 	default:
 		// Try raw IPv4 if it looks like one.
-		if len(frame) > 0 && frame[0]>>4 == 4 {
-			off = 0
-		} else {
+		if len(frame) == 0 || frame[0]>>4 != 4 {
 			return nil, 0, 0, false
 		}
+		off = 0
 	}
 	if len(frame) < off+20 {
 		return nil, 0, 0, false

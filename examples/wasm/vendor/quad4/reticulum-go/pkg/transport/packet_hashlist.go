@@ -6,6 +6,7 @@ package transport
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 	"sync"
 
 	"quad4/reticulum-go/pkg/common"
@@ -32,7 +33,14 @@ func hashSlot(k [32]byte, mask int) int {
 	x ^= binary.LittleEndian.Uint64(k[8:16])
 	x ^= binary.LittleEndian.Uint64(k[16:24])
 	x ^= binary.LittleEndian.Uint64(k[24:32])
-	return int(x) & mask
+	if mask < 0 {
+		return 0
+	}
+	slot := x & uint64(mask)
+	if slot > uint64(math.MaxInt) {
+		return 0
+	}
+	return int(slot)
 }
 
 func (g *hashGen) has(k [32]byte) bool {

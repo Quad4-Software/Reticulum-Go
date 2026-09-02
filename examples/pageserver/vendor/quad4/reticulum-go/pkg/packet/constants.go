@@ -78,6 +78,9 @@ const (
 	HeaderMaxSize = 64
 	MTU           = 500
 
+	// HeaderType1Overhead is flags + hops + dest hash + context.
+	HeaderType1Overhead = 2 + TruncatedHashLength + 1
+
 	MaxInboundPacketSize = 262144
 
 	AddressSize = 32

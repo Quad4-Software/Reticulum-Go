@@ -5,7 +5,6 @@ package destination
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -95,6 +94,9 @@ type Destination struct {
 	defaultAppData []byte
 	mutex          sync.RWMutex
 
+	announceWindowStart time.Time
+	announceWindowCount int
+
 	requestHandlers map[string]*RequestHandler
 
 	// maxRequestSize limits accepted inbound request plaintext size when set
@@ -106,7 +108,7 @@ type Destination struct {
 // New creates a Destination for appName and optional aspects.
 // Direction In requires a non-nil transport so inbound packets can register.
 func New(id *identity.Identity, direction byte, destType byte, appName string, transport Transport, aspects ...string) (*Destination, error) {
-	debug.Log(debug.DebugInfo, "Creating new destination", "app", appName, "type", destType, "direction", direction)
+	debug.Log(debug.DebugVerbose, "Creating new destination", "app", appName, "type", destType, "direction", direction)
 
 	if id == nil && destType != Plain {
 		debug.Log(debug.DebugError, "Cannot create destination: identity is nil for non-Plain destination")
@@ -140,7 +142,7 @@ func New(id *identity.Identity, direction byte, destType byte, appName string, t
 	// Auto-register with transport if direction is In
 	if (direction & In) != 0 {
 		transport.RegisterDestination(d.hashValue, d)
-		debug.Log(debug.DebugInfo, "Destination auto-registered with transport", "hash", fmt.Sprintf("%x", d.hashValue))
+		debug.Log(debug.DebugVerbose, "Destination auto-registered with transport", "hash", fmt.Sprintf("%x", d.hashValue))
 	}
 
 	return d, nil
@@ -149,7 +151,7 @@ func New(id *identity.Identity, direction byte, destType byte, appName string, t
 // FromHash creates a destination from a known hash (e.g., from an announce).
 // This is used by clients to create destination objects for servers they've discovered.
 func FromHash(hash []byte, id *identity.Identity, destType byte, transport Transport) (*Destination, error) {
-	debug.Log(debug.DebugInfo, "Creating destination from hash", "hash", fmt.Sprintf("%x", hash))
+	debug.Log(debug.DebugVerbose, "Creating destination from hash", "hash", fmt.Sprintf("%x", hash))
 
 	if id == nil && destType != Plain {
 		debug.Log(debug.DebugError, "Cannot create destination: identity is nil for non-Plain destination")
@@ -179,17 +181,7 @@ func (d *Destination) calculateHash() []byte {
 
 // ExpandAppName builds the dotted destination name used in hashing.
 func ExpandAppName(appName string, aspects ...string) string {
-	if len(aspects) == 0 {
-		return appName
-	}
-	var name strings.Builder
-	name.Grow(len(appName) + len(aspects)*8)
-	name.WriteString(appName)
-	for _, aspect := range aspects {
-		name.WriteByte('.')
-		name.WriteString(aspect)
-	}
-	return name.String()
+	return identity.ExpandAppName(appName, aspects...)
 }
 
 // ValidateNameParts rejects dots in app names and aspects, matching Python
@@ -211,56 +203,26 @@ func ValidateNameParts(appName string, aspects ...string) error {
 
 // ParseName splits a dotted destination name into app name and aspects.
 func ParseName(full string) (appName string, aspects []string, err error) {
-	full = strings.TrimSpace(full)
-	if full == "" {
-		return "", nil, errors.New("empty destination name")
-	}
-	parts := strings.Split(full, ".")
-	if len(parts) < 1 || parts[0] == "" {
-		return "", nil, errors.New("invalid destination name")
-	}
-	if len(parts) == 1 {
-		return parts[0], nil, nil
-	}
-	return parts[0], parts[1:], nil
+	return identity.ParseDestinationName(full)
 }
 
 // Hash computes a 16-byte destination hash from identity and app name aspects.
 func Hash(id *identity.Identity, appName string, aspects ...string) []byte {
-	var idHash []byte
-	if id != nil {
-		idHash = identity.TruncatedHash(id.GetPublicKey())
-	}
-	return HashFromIdentityHash(idHash, appName, aspects...)
+	return identity.DestinationHash(id, appName, aspects...)
 }
 
 // HashFromIdentityHash computes a destination hash from a 16-byte identity
 // hash and app name aspects. Python Destination.hash accepts either an
 // Identity or a truncated identity hash.
 func HashFromIdentityHash(identityHash []byte, appName string, aspects ...string) []byte {
-	nameHashFull := sha256.Sum256([]byte(ExpandAppName(appName, aspects...)))
-	nameHash10 := nameHashFull[:10]
-
-	var combined [26]byte
-	n := copy(combined[:], nameHash10)
-	if len(identityHash) > 0 {
-		n += copy(combined[n:], identityHash)
-	}
-	finalHashFull := sha256.Sum256(combined[:n])
-	out := make([]byte, 16)
-	copy(out, finalHashFull[:16])
-	return out
+	return identity.HashFromIdentityHash(identityHash, appName, aspects...)
 }
 
 // HashFromNameAndIdentity hashes a dotted name such as
 // rnstransport.remote.management with a truncated identity hash, matching
 // Python Destination.hash_from_name_and_identity.
 func HashFromNameAndIdentity(fullName string, identityHash []byte) []byte {
-	app, aspects, err := ParseName(fullName)
-	if err != nil {
-		return HashFromIdentityHash(identityHash, fullName)
-	}
-	return HashFromIdentityHash(identityHash, app, aspects...)
+	return identity.HashFromNameAndIdentity(fullName, identityHash)
 }
 
 // ExpandName returns appName joined with aspects using dots.
@@ -290,6 +252,18 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 		return common.ErrDestTransportNotSet
 	}
 
+	if !pathResponse {
+		now := time.Now()
+		if now.Sub(d.announceWindowStart) > announceBurstWindow {
+			d.announceWindowStart = now
+			d.announceWindowCount = 0
+		}
+		d.announceWindowCount++
+		if d.announceWindowCount > announceBurstMax {
+			return common.ErrDestAnnounceThrottled
+		}
+	}
+
 	appData := d.defaultAppData
 
 	var ratchetPub []byte
@@ -316,7 +290,7 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 	}
 
 	if pathResponse && tag != nil {
-		debug.Log(debug.DebugInfo, "Sending path response announce", "tag", fmt.Sprintf("%x", tag))
+		debug.Log(debug.DebugVerbose, "Sending path response announce", "tag", fmt.Sprintf("%x", tag))
 	}
 
 	var lastErr error
@@ -400,7 +374,7 @@ func (d *Destination) AcceptsLinks(accepts bool) {
 		return
 	}
 	if !accepts {
-		debug.Log(debug.DebugInfo, common.MsgDestAcceptsLinksFalseOnly)
+		debug.Log(debug.DebugWarning, common.MsgDestAcceptsLinksFalseOnly)
 	}
 }
 
@@ -417,7 +391,7 @@ func (d *Destination) GetLinkCallback() common.LinkEstablishedCallback {
 }
 
 func (d *Destination) HandleIncomingLinkRequest(pkt any, transport any, networkIface common.NetworkInterface) error {
-	debug.Log(debug.DebugInfo, "Handling incoming link request for destination", "hash", fmt.Sprintf("%x", d.GetHash()))
+	debug.Log(debug.DebugVerbose, "Handling incoming link request for destination", "hash", fmt.Sprintf("%x", d.GetHash()))
 
 	pktObj, ok := pkt.(*packet.Packet)
 	if !ok {
@@ -460,15 +434,13 @@ func (d *Destination) Receive(pkt *packet.Packet, iface common.NetworkInterface)
 	d.mutex.RUnlock()
 
 	if callback == nil {
-		if debug.Enabled(debug.DebugInfo) {
-			debug.Log(debug.DebugInfo, common.MsgDestNoPacketCallback, "hash", fmt.Sprintf("%x", d.GetHash()))
-		}
+		debug.Log(debug.DebugVerbose, common.MsgDestNoPacketCallback, "hash", fmt.Sprintf("%x", d.GetHash()))
 		return false
 	}
 
 	plaintext, err := d.Decrypt(pkt.Data)
 	if err != nil {
-		debug.Log(debug.DebugInfo, "Failed to decrypt packet data", "error", err)
+		debug.Log(debug.DebugWarning, "Failed to decrypt packet data", "error", err)
 		return false
 	}
 
@@ -787,7 +759,7 @@ func (d *Destination) HandleRequest(path string, data []byte, requestID []byte, 
 	d.mutex.RUnlock()
 
 	if !exists {
-		debug.Log(debug.DebugInfo, common.MsgDestNoRequestHandler, "path", path)
+		debug.Log(debug.DebugVerbose, common.MsgDestNoRequestHandler, "path", path)
 		return []byte(">Not Found\n\nThe requested resource was not found.")
 	}
 
@@ -804,7 +776,7 @@ func (d *Destination) HandleRequest(path string, data []byte, requestID []byte, 
 		}
 	}
 	if !allowed {
-		debug.Log(debug.DebugInfo, "Request denied by allow mode", "path", path)
+		debug.Log(debug.DebugVerbose, "Request denied by allow mode", "path", path)
 		return []byte(">Not Found\n\nThe requested resource was not found.")
 	}
 
@@ -831,7 +803,7 @@ func (d *Destination) Encrypt(plaintext []byte) ([]byte, error) {
 	}
 
 	if d.identity == nil {
-		debug.Log(debug.DebugInfo, "Cannot encrypt: no identity available")
+		debug.Log(debug.DebugWarning, "Cannot encrypt: no identity available")
 		return nil, errors.New("no identity available for encryption")
 	}
 
@@ -859,7 +831,7 @@ func (d *Destination) Encrypt(plaintext []byte) ([]byte, error) {
 		debug.Log(debug.DebugVerbose, "Encrypting for group destination")
 		return cryptography.EncryptToken(key, plaintext)
 	default:
-		debug.Log(debug.DebugInfo, "Unsupported destination type for encryption", "destType", d.destType)
+		debug.Log(debug.DebugWarning, "Unsupported destination type for encryption", "destType", d.destType)
 		return nil, errors.New("unsupported destination type for encryption")
 	}
 }
@@ -898,7 +870,7 @@ func (d *Destination) Decrypt(ciphertext []byte) ([]byte, error) {
 	plaintext, err := d.identity.Decrypt(ciphertext, ratchets, enforceRatchets, ratchetReceiver)
 	d.mutex.RUnlock()
 	if err != nil {
-		debug.Log(debug.DebugError, "Decryption with ratchets failed, reloading ratchets from storage and retrying", "error", err)
+		debug.Log(debug.DebugWarning, "Decryption with ratchets failed, reloading ratchets from storage and retrying", "error", err)
 		d.mutex.Lock()
 		reloadErr := d.reloadRatchets()
 		d.mutex.Unlock()
@@ -911,7 +883,7 @@ func (d *Destination) Decrypt(ciphertext []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		debug.Log(debug.DebugInfo, "Decryption succeeded after ratchet reload")
+		debug.Log(debug.DebugVerbose, "Decryption succeeded after ratchet reload")
 	}
 
 	d.setLatestRatchetID(ratchetReceiver.LatestRatchetID)
@@ -1057,7 +1029,7 @@ func (d *Destination) reloadRatchets() error {
 	}
 
 	if _, err := os.Stat(d.ratchetPath); os.IsNotExist(err) {
-		debug.Log(debug.DebugInfo, "No existing ratchet data found, initializing new ratchet file")
+		debug.Log(debug.DebugVerbose, "No existing ratchet data found, initializing new ratchet file")
 		d.ratchets = make([]*securemem.Buf, 0)
 		return nil
 	}
@@ -1118,7 +1090,7 @@ func (d *Destination) reloadRatchets() error {
 		d.ratchets = append(d.ratchets, buf)
 	}
 
-	debug.Log(debug.DebugInfo, "Ratchets reloaded successfully", "count", len(d.ratchets))
+	debug.Log(debug.DebugVerbose, "Ratchets reloaded successfully", "count", len(d.ratchets))
 	return nil
 }
 
@@ -1139,7 +1111,7 @@ func (d *Destination) rotateRatchetsLocked() error {
 		return nil
 	}
 
-	debug.Log(debug.DebugInfo, "Rotating ratchets", "destination", d.ExpandName())
+	debug.Log(debug.DebugVerbose, "Rotating ratchets", "destination", d.ExpandName())
 
 	newRatchet := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, newRatchet); err != nil {
@@ -1172,7 +1144,7 @@ func (d *Destination) rotateRatchetsLocked() error {
 		return err
 	}
 
-	debug.Log(debug.DebugInfo, "Ratchet rotation completed", "total_ratchets", len(d.ratchets))
+	debug.Log(debug.DebugVerbose, "Ratchet rotation completed", "total_ratchets", len(d.ratchets))
 	return nil
 }
 

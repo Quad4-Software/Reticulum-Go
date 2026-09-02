@@ -31,6 +31,14 @@ func newKISSStreamDecoder(mtu int, onFrame func([]byte)) *kissStreamDecoder {
 	}
 }
 
+func (d *kissStreamDecoder) reset() {
+	d.inFrame = false
+	d.escape = false
+	d.haveCmd = false
+	d.command = kissCmdUnknown
+	d.data = d.data[:0]
+}
+
 func (d *kissStreamDecoder) feed(buf []byte) {
 	for _, b := range buf {
 		d.feedByte(b)

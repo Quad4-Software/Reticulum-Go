@@ -20,6 +20,7 @@ import (
 	"quad4/reticulum-go/pkg/health"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/protect"
 	"quad4/reticulum-go/pkg/resource"
 )
 
@@ -122,18 +123,33 @@ type incomingResourceAsm struct {
 	bytesReceived  int64
 	hmuWaitNanos   int64
 	hmuWaitStarted time.Time
+	protectRelease func()
 }
 
 func (rx *incomingResourceAsm) applyHashmapSegment(segment int, hashmapBytes []byte) int {
+	// segment is parsed straight off the wire in handleResourceHashmapUpdate
+	// (wireInt(update[0])) and can be any attacker-chosen int, including
+	// negative or so large that segment*segLen overflows int. Reject
+	// those here. A wrapping multiply would otherwise write hashmap[0].
+	if segment < 0 {
+		return 0
+	}
 	segLen := rx.hashmapSegLen
 	if segLen <= 0 {
 		segLen = 1
 	}
+	if segment > math.MaxInt/segLen {
+		return 0
+	}
+	base := segment * segLen
 	added := 0
 	hashes := len(hashmapBytes) / resource.MapHashLen
 	for i := range hashes {
-		idx := i + segment*segLen
-		if idx >= rx.totalParts {
+		if i > math.MaxInt-base {
+			return added
+		}
+		idx := base + i
+		if idx < 0 || idx >= rx.totalParts {
 			return added
 		}
 		if rx.mapHashes[idx] == nil {
@@ -290,6 +306,11 @@ func (l *Link) beginIncomingResource(adv *resource.ResourceAdvertisement) error 
 		return errors.New("invalid advertisement hashmap")
 	}
 
+	d, release := protect.AdmitResource(adv.TransferSize)
+	if !d.Allow {
+		return errors.New("dos_protection refused incoming resource")
+	}
+
 	now := time.Now()
 	rx := &incomingResourceAsm{
 		adv:                  adv,
@@ -306,6 +327,7 @@ func (l *Link) beginIncomingResource(adv *resource.ResourceAdvertisement) error 
 		windowMax:            resource.WindowMaxFast,
 		lastProgressAt:       now,
 		startedAt:            now,
+		protectRelease:       release,
 	}
 	rx.applyHashmapSegment(0, adv.Hashmap)
 	debug.Log(
@@ -661,15 +683,32 @@ func (l *Link) sendIncomingResourceHMUPrefetch() error {
 func (l *Link) resetIncomingResource() {
 	l.incomingMu.Lock()
 	rx := l.incomingRx
+	var release func()
 	if rx != nil {
 		l.flushIncomingResourceStats(rx, "reset")
 		for i := range rx.partSlots {
 			releaseIncomingPart(rx.partSlots[i])
 			rx.partSlots[i] = nil
 		}
+		release = rx.protectRelease
+		rx.protectRelease = nil
 	}
 	l.incomingRx = nil
 	l.incomingMu.Unlock()
+	if release != nil {
+		release()
+	}
+}
+
+// takeIncomingProtectRelease clears and returns the protect release under incomingMu.
+// Caller must hold incomingMu.
+func takeIncomingProtectRelease(rx *incomingResourceAsm) func() {
+	if rx == nil || rx.protectRelease == nil {
+		return nil
+	}
+	rel := rx.protectRelease
+	rx.protectRelease = nil
+	return rel
 }
 
 func (l *Link) applyIncomingHashmapUpdate(resHash []byte, segment int, hashmapBytes []byte) error {
@@ -752,8 +791,12 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 			inner := l.concatIncomingParts(rx)
 			adv := rx.adv
 			l.flushIncomingResourceStats(rx, "complete")
+			release := takeIncomingProtectRelease(rx)
 			l.incomingRx = nil
 			l.incomingMu.Unlock()
+			if release != nil {
+				release()
+			}
 			return l.deliverIncomingResource(inner, adv)
 		}
 		l.incomingMu.Unlock()
@@ -881,8 +924,12 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 		inner := l.concatIncomingParts(rx)
 		adv := rx.adv
 		l.flushIncomingResourceStats(rx, "complete")
+		release := takeIncomingProtectRelease(rx)
 		l.incomingRx = nil
 		l.incomingMu.Unlock()
+		if release != nil {
+			release()
+		}
 		return l.deliverIncomingResource(inner, adv)
 	}
 
@@ -1063,8 +1110,8 @@ func splitResourceMetadata(payload []byte, adv *resource.ResourceAdvertisement) 
 	// Resource assembly. A failed msgpack unpack must not leave the 3-byte
 	// size prefix and packed meta attached to the file body.
 	body := payload[3+metaSize:]
-	var meta map[string]any
-	if err := msgpack.Unmarshal(payload[3:3+metaSize], &meta); err != nil {
+	meta, err := unpackResourceMetadata(payload[3 : 3+metaSize])
+	if err != nil {
 		debug.Log(debug.DebugInfo, "Failed to unpack incoming resource metadata", "error", err)
 		return body, nil
 	}

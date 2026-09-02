@@ -14,6 +14,7 @@ import (
 // Apply installs platform sandbox restrictions when cfg is nil or
 // cfg.EnableSandbox is true. Returns ErrSandbox when the platform apply fails.
 func Apply(cfg *common.ReticulumConfig) error {
+	SetExecRlimits(cfg != nil && cfg.SandboxExecRlimits)
 	if cfg != nil && !cfg.EnableSandbox {
 		debug.Log(debug.DebugInfo, "Sandbox disabled by configuration")
 		return nil

@@ -4,7 +4,31 @@
 
 package interfaces
 
-import "fmt"
+import (
+	"fmt"
+
+	"quad4/reticulum-go/pkg/common"
+)
+
+func init() {
+	registerBuiltinFromConfig("WebTransportClientInterface", func(name string, cfg *common.InterfaceConfig, _ *FromConfigContext) (Interface, error) {
+		return NewWebTransportClientInterfaceWithRetries(name, cfg.TargetHost, cfg.TargetPort, cfg.Path, cfg.Enabled, cfg.MaxReconnTries, WebTransportClientOptions{
+			CertFile:      cfg.CertFile,
+			KeyFile:       cfg.KeyFile,
+			PeerKey:       cfg.PeerKey,
+			SNI:           cfg.SNI,
+			TransportMode: cfg.TransportMode,
+		})
+	})
+	registerBuiltinFromConfig("WebTransportServerInterface", func(name string, cfg *common.InterfaceConfig, _ *FromConfigContext) (Interface, error) {
+		return NewWebTransportServerInterface(name, cfg.Address, cfg.Port, cfg.Path, WebTransportServerOptions{
+			CertFile:      cfg.CertFile,
+			KeyFile:       cfg.KeyFile,
+			PeerKey:       cfg.PeerKey,
+			TransportMode: cfg.TransportMode,
+		})
+	})
+}
 
 // WebTransportClientOptions holds optional TLS and carriage settings for a client.
 type WebTransportClientOptions struct {

@@ -328,6 +328,10 @@ func (t *Transport) persistPathTableIfDirty() {
 	if t.pathPersistMemory.Load() || t.pathPersistDisabled.Load() || !t.pathPersistDirty.Load() {
 		return
 	}
+	last := t.pathPersistLast.Load()
+	if last != 0 && time.Since(time.Unix(0, last)) < PathPersistMinInterval {
+		return
+	}
 	t.savePathTable(false)
 }
 
@@ -395,6 +399,7 @@ func (t *Transport) savePathTable(force bool) {
 		t.disablePathPersistence(err)
 		return
 	}
+	t.pathPersistLast.Store(time.Now().UnixNano())
 	// Only clear dirty when no mutations landed after the snapshot gen.
 	if t.pathPersistGen.Load() == gen {
 		t.pathPersistDirty.Store(false)

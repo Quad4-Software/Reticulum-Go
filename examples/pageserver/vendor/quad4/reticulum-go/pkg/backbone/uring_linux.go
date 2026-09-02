@@ -21,7 +21,7 @@ type uringPoller struct {
 }
 
 func newUringPoller() (poller, error) {
-	if !uringProbeAllowed() {
+	if !UringProbeAllowed() {
 		return nil, fmt.Errorf("io_uring unavailable")
 	}
 	if err := probeIOUring(); err != nil {
@@ -64,10 +64,6 @@ func probeIOUring() error {
 // UringProbeAllowed reports whether this process should attempt io_uring_setup.
 // GitHub Actions and similar CI sandboxes often deny the syscall with SIGSYS.
 func UringProbeAllowed() bool {
-	return uringProbeAllowed()
-}
-
-func uringProbeAllowed() bool {
 	if os.Getenv("CI") != "" && os.Getenv("RETICULUM_ENABLE_IO_URING") == "" {
 		return false
 	}

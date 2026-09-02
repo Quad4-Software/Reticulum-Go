@@ -384,7 +384,7 @@ func wireFlagsFromAny(f any) (byte, error) {
 
 func hashmapEntriesPerAdvSegment(linkMDU int) int {
 	if linkMDU <= 0 {
-		linkMDU = 384
+		linkMDU = DefaultLinkMDU
 	}
 	n := (linkMDU - Overhead) / MapHashLen
 	if n <= 0 {

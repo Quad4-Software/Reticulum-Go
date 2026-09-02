@@ -51,10 +51,7 @@ func (t *Transport) evictAnnouncePacketCacheUnlocked() {
 	if over <= 0 {
 		return
 	}
-	batch := over
-	if batch < 64 {
-		batch = 64
-	}
+	batch := max(over, 64)
 	if batch > len(t.announcePacketCache) {
 		batch = over
 	}

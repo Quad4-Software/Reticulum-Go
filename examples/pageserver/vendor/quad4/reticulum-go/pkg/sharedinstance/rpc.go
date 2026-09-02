@@ -6,12 +6,14 @@ package sharedinstance
 import (
 	"encoding/hex"
 	"net"
+	rdebug "runtime/debug"
 	"strconv"
 	"sync"
 
 	"quad4/msgpack/v5/pkg/msgpack"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/profiler"
 	"quad4/reticulum-go/pkg/transport"
 )
 
@@ -47,10 +49,14 @@ func (h *RPCHandler) Handle(call map[string]any) any {
 			return h.Transport.GetFirstHopTimeoutRPC(decodeHash(call["destination_hash"]))
 		case "link_count":
 			return h.Transport.GetLinkCountRPC()
+		case "active_link_count":
+			return h.Transport.GetActiveLinkCountRPC()
 		case "blackholed_identities":
 			return h.Transport.GetBlackholedIdentitiesRPC()
 		case "is_blackholed":
 			return h.Transport.IsBlackholedRPC(decodeHash(call["identity_hash"]))
+		case "profiling_results":
+			return profiler.ResultsOrNil()
 		}
 	}
 	if drop, ok := call["drop"].(string); ok {
@@ -171,6 +177,12 @@ func (s *RPCServer) serve() {
 		go func(c net.Conn) {
 			defer s.wg.Done()
 			defer c.Close()
+			defer func() {
+				if r := recover(); r != nil {
+					debug.Log(debug.DebugCritical, "Shared instance RPC panic",
+						"error", r, "stack", string(rdebug.Stack()))
+				}
+			}()
 			if err := AuthenticateServer(c, s.authkey); err != nil {
 				debug.Log(debug.DebugError, "Shared instance RPC auth failed", "error", err)
 				return

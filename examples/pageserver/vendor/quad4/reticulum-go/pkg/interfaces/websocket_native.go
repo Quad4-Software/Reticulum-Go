@@ -461,7 +461,7 @@ func (wsi *WebSocketInterface) Send(data []byte, addr string) error {
 	if !connected {
 		debug.Log(debug.DebugVerbose, "WebSocket not connected, queuing packet", "name", wsi.Name, "bytes", len(data), "queue_size", len(wsi.messageQueue))
 		wsi.Mutex.Lock()
-		wsi.messageQueue = append(wsi.messageQueue, data)
+		wsi.messageQueue = enqueueWSMessage(wsi.messageQueue, data)
 		wsi.Mutex.Unlock()
 		return nil
 	}

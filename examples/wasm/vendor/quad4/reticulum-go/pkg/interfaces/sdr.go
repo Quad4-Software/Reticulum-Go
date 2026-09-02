@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
+//go:build !rns_slim
+
 package interfaces
 
 import (
@@ -17,11 +19,18 @@ import (
 )
 
 const (
-	sdrDefaultIFACSize = 8
-	sdrDefaultBitrate  = 1200
-	sdrRXQueue         = 16
-	sdrTXQueue         = 16
+	sdrDefaultBitrate = 1200
+	sdrRXQueue        = 16
+	sdrTXQueue        = 16
 )
+
+func init() {
+	registerBuiltinFromConfig("SDRInterface", newSDRFromConfig)
+}
+
+func newSDRFromConfig(name string, cfg *common.InterfaceConfig, _ *FromConfigContext) (Interface, error) {
+	return NewSDRInterface(name, cfg.Enabled, SDROptionsFromConfig(cfg))
+}
 
 // SDROptions configures SDRInterface.
 type SDROptions struct {

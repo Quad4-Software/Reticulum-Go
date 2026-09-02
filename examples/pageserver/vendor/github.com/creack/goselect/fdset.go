@@ -1,4 +1,3 @@
-//go:build !freebsd && !windows && !plan9
 // +build !freebsd,!windows,!plan9
 
 package goselect

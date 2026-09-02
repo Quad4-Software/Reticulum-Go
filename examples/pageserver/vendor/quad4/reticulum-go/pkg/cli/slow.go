@@ -32,34 +32,27 @@ func RunSlow(args []string, opt ...Options) int {
 	quiet := fs.Bool("q", false, "quiet: suppress stderr hints")
 	withPaths := fs.Bool("paths", false, "include full path-table analysis (can be slow on large tables)")
 
-	fs.Usage = func() {
-		fmt.Fprintf(stderr, `rgoslow - find interfaces, paths, and transports slowing transfers
-
-Queries a running shared instance (Go reticulum-go or Python rnsd) over RPC
-and ranks congestion signals that commonly stall resource transfers:
-  · bitrate caps and utilization
-  · announce / path-request bursts and held announces
-  · bandwidth gates
-  · socket RTT (Go daemon)
-  · high-hop paths and congested egress hubs
-
-Usage:
-  rgoslow [flags]
-  reticulum-go slow [flags]
-
-Flags:
-`)
-		fs.PrintDefaults()
-		fmt.Fprintf(stderr, `
-Examples:
-  rgoslow
-  rgoslow -config ~/.reticulum
-  rgoslow -dest 06a54b505bb67b25ef3f8097e8001edc
-  rgoslow -json -l
-  rgoslow -paths
-  rgoslow -m -I 3s
-`)
-	}
+	bindFlagUsageBullets(fs, "rgoslow - find interfaces, paths, and transports slowing transfers",
+		`Queries a running shared instance (Go reticulum-go or Python rnsd) over RPC
+and ranks congestion signals that commonly stall resource transfers:`,
+		[]string{
+			"bitrate caps and utilization",
+			"announce / path-request bursts and held announces",
+			"bandwidth gates",
+			"socket RTT (Go daemon)",
+			"high-hop paths and congested egress hubs",
+		},
+		[]helpLine{
+			{Cmd: "rgoslow [flags]"},
+			{Cmd: "reticulum-go slow [flags]"},
+		},
+		"rgoslow",
+		"rgoslow -config ~/.reticulum",
+		"rgoslow -dest 06a54b505bb67b25ef3f8097e8001edc",
+		"rgoslow -json -l",
+		"rgoslow -paths",
+		"rgoslow -m -I 3s",
+	)
 
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -67,7 +60,7 @@ Examples:
 
 	cfg, err := rnsutil.LoadConfigDir(*configDir)
 	if err != nil {
-		fmt.Fprintf(stderr, "config: %v\n", err)
+		diagErr(stderr, "config", err)
 		return 1
 	}
 	client, err := rnsutil.DialRPC(cfg, nil)
@@ -112,7 +105,7 @@ Examples:
 		if *links {
 			n, err := client.GetLinkCount()
 			if err != nil {
-				fmt.Fprintf(stderr, "link count: %v\n", err)
+				diagErr(stderr, "link count", err)
 				return 1
 			}
 			linkCount = &n
@@ -127,7 +120,7 @@ Examples:
 		if *destHex != "" {
 			focus, err := focusDestination(client, paths, *destHex)
 			if err != nil {
-				fmt.Fprintf(stderr, "dest: %v\n", err)
+				diagErr(stderr, "dest", err)
 				return 1
 			}
 			rep.Destination = focus
@@ -150,13 +143,13 @@ Examples:
 
 		if *jsonOut {
 			if err := rnsutil.WriteSlowJSON(stdout, rep); err != nil {
-				fmt.Fprintf(stderr, "json: %v\n", err)
+				diagErr(stderr, "json", err)
 				return 1
 			}
 			return 0
 		}
 		if err := rnsutil.WriteSlowHuman(stdout, rep); err != nil {
-			fmt.Fprintf(stderr, "write: %v\n", err)
+			diagErr(stderr, "write", err)
 			return 1
 		}
 		return 0

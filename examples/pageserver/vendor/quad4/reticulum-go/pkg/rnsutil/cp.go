@@ -229,7 +229,7 @@ func WaitLinkActive(ctx context.Context, l *link.Link) error {
 
 // EstablishRNCPLink waits for a path and opens an outbound link to rncp.receive.
 func EstablishRNCPLink(ctx context.Context, tr *transport.Transport, destHash []byte) (*link.Link, error) {
-	if err := WaitPath(ctx, tr, destHash); err != nil {
+	if err := WaitPathWindow(ctx, tr, destHash); err != nil {
 		return nil, fmt.Errorf("path: %w", err)
 	}
 	remote, err := identity.Recall(destHash)
@@ -241,11 +241,7 @@ func EstablishRNCPLink(ctx context.Context, tr *transport.Transport, destHash []
 		return nil, err
 	}
 	l := link.NewLink(outDest, tr, nil, nil, nil)
-	if err := l.Establish(); err != nil {
-		return nil, err
-	}
-	if err := WaitLinkActive(ctx, l); err != nil {
-		l.Teardown()
+	if err := activateOutboundLink(ctx, l); err != nil {
 		return nil, fmt.Errorf("link: %w", err)
 	}
 	return l, nil
@@ -365,9 +361,9 @@ func (p *ProgressPrinter) Update(label string, pct float64, got, total int64, bp
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	clear := term.ProgressClear(p.out)
+	clearSeq := term.ProgressClear(p.out)
 	line := fmt.Sprintf("%s%s %.1f%% - %s of %s - %s/s",
-		clear, term.Cyan(p.out, label), pct*100, SizeString(float64(got), "B"), SizeString(float64(total), "B"), SizeString(bps, "b"))
+		clearSeq, term.Cyan(p.out, label), pct*100, SizeString(float64(got), "B"), SizeString(float64(total), "B"), SizeString(bps, "b"))
 	fmt.Fprint(p.out, line)
 	p.last = line
 }

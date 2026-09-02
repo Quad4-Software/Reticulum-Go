@@ -51,6 +51,14 @@ type Identity struct {
 	size     int
 	key      []byte
 	identity *identity.Identity
+	scratch  []byte
+}
+
+func (i *Identity) ensureScratch(n int) []byte {
+	if cap(i.scratch) < n {
+		i.scratch = make([]byte, n)
+	}
+	return i.scratch[:n]
 }
 
 // Size returns the per-interface IFAC size in bytes.
@@ -139,47 +147,47 @@ func FromKey(size int, key []byte) (*Identity, error) {
 	return &Identity{size: size, key: cp, identity: id}, nil
 }
 
-// Mask wraps a raw outbound packet with an Interface Access Code and applies
-// the per-byte HKDF mask, matching Transport.transmit. The returned slice
-// is a freshly allocated buffer.
-//
-// Layout: [masked_header_byte_0 (IFAC flag forced on)] [masked_header_byte_1]
-// [unmasked ifac (size bytes)] [masked rest of packet starting at original
-// byte 2]
-//
-// raw must include the standard two-byte Reticulum packet header.
-func (i *Identity) Mask(raw []byte) ([]byte, error) {
+// MaskInto wraps raw with an IFAC into dst when cap(dst) is large enough.
+// When cap(dst) is too small a new buffer is allocated. Mask delegates here.
+func (i *Identity) MaskInto(dst, raw []byte) ([]byte, error) {
 	if len(raw) < 2 {
 		return nil, fmt.Errorf("ifac: packet too short (%d bytes) for masking", len(raw))
 	}
-	ifac, err := i.Sign(raw)
+	ifacSig, err := i.Sign(raw)
 	if err != nil {
 		return nil, err
 	}
 
 	maskLen := len(raw) + i.size
-	mask, err := cryptography.DeriveKey(ifac, i.key, nil, maskLen)
-	if err != nil {
+	if cap(dst) < maskLen {
+		dst = make([]byte, maskLen)
+	} else {
+		dst = dst[:maskLen]
+	}
+	dst[0] = raw[0] | IFACFlag
+	dst[1] = raw[1]
+	copy(dst[2:], ifacSig)
+	copy(dst[2+i.size:], raw[2:])
+
+	mask := i.ensureScratch(maskLen)
+	if err := cryptography.DeriveKeyInto(mask, ifacSig, i.key, nil); err != nil {
 		return nil, fmt.Errorf("ifac: hkdf mask derive failed: %w", err)
 	}
-
-	masked := make([]byte, maskLen)
-	masked[0] = raw[0] | IFACFlag
-	masked[1] = raw[1]
-	copy(masked[2:], ifac)
-	copy(masked[2+i.size:], raw[2:])
-
-	for k, b := range masked {
+	for k, b := range dst {
 		switch {
 		case k == 0:
-			masked[k] = (b ^ mask[k]) | IFACFlag
+			dst[k] = (b ^ mask[k]) | IFACFlag
 		case k == 1 || k > i.size+1:
-			masked[k] = b ^ mask[k]
-		default:
-			masked[k] = b
+			dst[k] = b ^ mask[k]
 		}
 	}
-	return masked, nil
+	return dst, nil
+}
+
+// Mask wraps a raw outbound packet with an Interface Access Code and applies
+// the per-byte HKDF mask, matching Transport.transmit.
+func (i *Identity) Mask(raw []byte) ([]byte, error) {
+	return i.MaskInto(nil, raw)
 }
 
 // Unmask reverses Mask and verifies the embedded Interface Access Code.
@@ -202,8 +210,8 @@ func (i *Identity) Unmask(raw []byte) ([]byte, bool, error) {
 		return nil, false, nil
 	}
 
-	mask, err := cryptography.DeriveKey(raw[2:2+i.size], i.key, nil, len(raw))
-	if err != nil {
+	mask := i.ensureScratch(len(raw))
+	if err := cryptography.DeriveKeyInto(mask, raw[2:2+i.size], i.key, nil); err != nil {
 		return nil, false, fmt.Errorf("ifac: hkdf unmask derive failed: %w", err)
 	}
 

@@ -4,6 +4,7 @@
 package node
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -18,8 +19,10 @@ import (
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/discovery"
+	"quad4/reticulum-go/pkg/hostcap"
 	"quad4/reticulum-go/pkg/interfaces"
 	"quad4/reticulum-go/pkg/link"
+	"quad4/reticulum-go/pkg/sandbox"
 	"quad4/reticulum-go/pkg/sharedinstance"
 	"quad4/reticulum-go/pkg/transport"
 )
@@ -47,6 +50,7 @@ type Node struct {
 	channels       map[string]*channel.Channel
 	buffers        map[string]*buffer.Buffer
 	reloadMu       sync.Mutex
+	wiringMu       sync.Mutex
 
 	lastNetworkDown time.Time
 	networkPaused   bool
@@ -56,6 +60,16 @@ type Node struct {
 	linkMgr         *linkManager
 	discovery       *discovery.InterfaceDiscovery
 	announcer       *discovery.InterfaceAnnouncer
+
+	bhUpdaterMu      sync.Mutex
+	bhUpdaterRunning bool
+	bhUpdaterLast    map[[16]byte]time.Time
+	bhUpdaterStop    chan struct{}
+
+	acMu             sync.Mutex
+	acEntries        []*autoconnectEntry
+	acMonitorRunning bool
+	acMonitorStop    chan struct{}
 }
 
 // StartInterfaceDiscovery enables rnstransport interface discovery listening
@@ -64,13 +78,23 @@ func (n *Node) StartInterfaceDiscovery() {
 	if n == nil || n.transport == nil || n.config == nil {
 		return
 	}
-	listen := n.config.DiscoverInterfaces || discovery.HasDiscoverableInterfaces(n.config)
+	listen := n.config.DiscoverInterfaces || discovery.HasDiscoverableInterfaces(n.config) ||
+		n.config.AutoconnectDiscoveredInterfaces > 0
 	if !listen {
 		return
 	}
 	if n.discovery == nil {
-		n.discovery = discovery.NewInterfaceDiscovery(n.transport, discovery.DefaultStampValue, nil)
+		isBH := func(h []byte) bool {
+			tab := n.transport.BlackholeTable()
+			return tab != nil && tab.Has(h)
+		}
+		var onDisc func(*discovery.ReceivedAnnounceInfo)
+		if n.config.DiscoverInterfaces || n.config.AutoconnectDiscoveredInterfaces > 0 {
+			onDisc = n.onInterfaceDiscovered
+		}
+		n.discovery = discovery.NewInterfaceDiscoveryWithBlackhole(n.transport, discovery.DefaultStampValue, onDisc, isBH)
 		n.discovery.Start()
+		n.reconnectPersistedAutoconnect()
 	}
 	if n.announcer != nil || !discovery.HasDiscoverableInterfaces(n.config) {
 		return
@@ -97,6 +121,7 @@ func New(cfg *common.ReticulumConfig) (*Node, error) {
 	if cfg == nil {
 		cfg = common.DefaultConfig()
 	}
+	sandbox.SetExecRlimits(cfg.SandboxExecRlimits)
 	if _, err := backbone.Init(backbone.ParseBackend(cfg.BackboneIO)); err != nil {
 		return nil, fmt.Errorf("backbone I/O hub: %w", err)
 	}
@@ -120,7 +145,7 @@ func New(cfg *common.ReticulumConfig) (*Node, error) {
 			if cfg.PanicOnInterfaceErr {
 				return nil, fmt.Errorf("failed to create interface %s: %w", name, err)
 			}
-			debug.Log(debug.DebugCritical, "Error creating interface", "name", name, "error", err)
+			debug.Log(debug.DebugError, "Error creating interface", "name", name, "error", err)
 			continue
 		}
 		n.interfaces = append(n.interfaces, iface)
@@ -145,6 +170,8 @@ func (n *Node) Interfaces() []interfaces.Interface {
 
 // Start starts transport and network interfaces.
 func (n *Node) Start() error {
+	transportNode := n.config != nil && n.config.EnableTransport
+	hostcap.Start(context.Background(), transportNode)
 	if err := n.transport.Start(); err != nil {
 		return fmt.Errorf("failed to start transport: %w", err)
 	}
@@ -170,7 +197,17 @@ func (n *Node) Start() error {
 		debug.Log(debug.DebugInfo, "Using existing local shared Reticulum instance, skipping configured network interfaces")
 		return nil
 	}
-	return n.startInterfaces()
+	if err := n.startInterfaces(); err != nil {
+		return err
+	}
+	if err := n.transport.InitializeRemoteManagement(); err != nil {
+		return fmt.Errorf("remote management: %w", err)
+	}
+	if err := n.transport.InitializeBlackholePublish(); err != nil {
+		return fmt.Errorf("blackhole publish: %w", err)
+	}
+	n.StartBlackholeUpdater()
+	return nil
 }
 
 func (n *Node) startInterfaces() error {
@@ -191,7 +228,7 @@ func (n *Node) startInterfaces() error {
 			if n.config.PanicOnInterfaceErr {
 				return fmt.Errorf("failed to start interface %s: %w", res.iface.GetName(), res.err)
 			}
-			debug.Log(debug.DebugCritical, "Error starting interface", "name", res.iface.GetName(), "error", res.err)
+			debug.Log(debug.DebugError, "Error starting interface", "name", res.iface.GetName(), "error", res.err)
 			continue
 		}
 		started = append(started, res.iface)
@@ -202,7 +239,7 @@ func (n *Node) startInterfaces() error {
 			continue
 		}
 		if err := n.transport.RegisterInterface(iface.GetName(), ni); err != nil {
-			debug.Log(debug.DebugCritical, "Failed to register interface", "name", iface.GetName(), "error", err)
+			debug.Log(debug.DebugError, "Failed to register interface", "name", iface.GetName(), "error", err)
 			continue
 		}
 		n.handleInterface(ni)
@@ -224,6 +261,10 @@ func (n *Node) startInterfaces() error {
 
 // Stop shuts down interfaces and transport.
 func (n *Node) Stop() error {
+	hostcap.Stop()
+	n.stopBlackholeUpdater()
+	n.stopAutoconnectMonitor()
+	n.drainAutoconnectEntries()
 	n.reloadMu.Lock()
 	defer n.reloadMu.Unlock()
 	if n.announcer != nil {
@@ -238,12 +279,14 @@ func (n *Node) Stop() error {
 		n.sharedInstance.Close()
 		n.sharedInstance = nil
 	}
+	n.wiringMu.Lock()
 	for _, buf := range n.buffers {
 		_ = buf.Close()
 	}
 	for _, ch := range n.channels {
 		_ = ch.Close()
 	}
+	n.wiringMu.Unlock()
 	for _, iface := range n.interfaces {
 		_ = iface.Stop()
 	}
@@ -275,6 +318,13 @@ func (n *Node) EnableLinkAutoReconnect(opts LinkReconnectOptions) {
 	}
 }
 
+func defaultGravityFromConfig(cfg *common.ReticulumConfig) int {
+	if cfg != nil && cfg.DefaultGravitySet {
+		return cfg.DefaultGravity
+	}
+	return 0
+}
+
 func (n *Node) fromConfigContext() *interfaces.FromConfigContext {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -292,20 +342,27 @@ func (n *Node) fromConfigContext() *interfaces.FromConfigContext {
 		WatchInterfaces:       n.config != nil && n.config.WatchInterfaces,
 		DiscoverInterfaces:    n.config != nil && n.config.DiscoverInterfaces,
 		PanicOnInterfaceError: n.config != nil && n.config.PanicOnInterfaceErr,
+		DefaultGravity:        defaultGravityFromConfig(n.config),
 		BackboneHub:           backbone.Get(),
 		SpawnBackbone: func(client *interfaces.BackboneClientInterface) {
 			if err := n.transport.RegisterInterface(client.GetName(), client); err != nil {
-				debug.Log(debug.DebugCritical, "Failed to register spawned backbone client", "error", err)
+				debug.Log(debug.DebugError, "Failed to register spawned backbone client", "error", err)
 				return
 			}
 			n.handleInterface(client)
 		},
 		SpawnLocal: func(client *interfaces.LocalClientInterface) {
-			if err := n.transport.RegisterInterface(client.GetName(), client); err != nil {
-				debug.Log(debug.DebugCritical, "Failed to register spawned local client", "error", err)
+			name := client.GetName()
+			if err := n.transport.RegisterInterface(name, client); err != nil {
+				debug.Log(debug.DebugError, "Failed to register spawned local client", "error", err)
+				_ = client.Stop()
 				return
 			}
 			n.handleInterface(client)
+			client.SetDisconnectHooks(func() {
+				n.transport.UnregisterInterface(name)
+				n.unregisterInterfaceBuffers(name)
+			}, nil)
 		},
 		RegisterPeer: func(name string, peer common.NetworkInterface) error {
 			return n.transport.RegisterInterface(name, peer)

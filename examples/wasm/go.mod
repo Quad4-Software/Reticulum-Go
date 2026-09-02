@@ -3,7 +3,7 @@ module quad4/reticulum-go/examples/wasm
 go 1.26.6
 
 require (
-	quad4/reticulum-go v1.0.0
+	quad4/reticulum-go v1.1.1
 	quad4/reticulum-go-protocols v0.0.0
 )
 
@@ -21,6 +21,7 @@ require (
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/term v0.45.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 	kernel.org/pub/linux/libs/security/libcap/psx v1.2.77 // indirect
 	quad4/bzip2 v0.0.0 // indirect

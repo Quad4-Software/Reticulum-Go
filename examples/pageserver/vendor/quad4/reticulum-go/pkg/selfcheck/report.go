@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"quad4/reticulum-go/pkg/term"
 )
 
 // Severity classifies a single check outcome.
@@ -66,13 +68,29 @@ func (r Report) ExitCode(strict bool) int {
 	return 0
 }
 
+func severityLabel(w io.Writer, sev Severity) string {
+	switch sev {
+	case SeverityPass:
+		return term.GreenW(w, "pass")
+	case SeverityWarn:
+		return term.YellowW(w, "warn")
+	case SeverityFail:
+		return term.RedW(w, "fail")
+	case SeveritySkip:
+		return term.DimW(w, "skip")
+	default:
+		return string(sev)
+	}
+}
+
 // FormatText writes a human-readable report to w.
 func (r Report) FormatText(w io.Writer) error {
-	if _, err := fmt.Fprintf(w, "reticulum-go self-check  %s/%s  %s\n", r.GOOS, r.GOARCH, r.GoVersion); err != nil {
+	header := fmt.Sprintf("reticulum-go self-check  %s/%s  %s", r.GOOS, r.GOARCH, r.GoVersion)
+	if _, err := fmt.Fprintln(w, term.BoldW(w, header)); err != nil {
 		return err
 	}
 	for _, res := range r.Results {
-		line := fmt.Sprintf("  [%s] %s", res.Severity, res.Name)
+		line := fmt.Sprintf("  [%s] %s", severityLabel(w, res.Severity), res.Name)
 		if res.Detail != "" {
 			line += ": " + res.Detail
 		}
@@ -81,7 +99,13 @@ func (r Report) FormatText(w io.Writer) error {
 		}
 	}
 	pass, warn, skip, fail := r.Counts()
-	_, err := fmt.Fprintf(w, "Summary: %d pass, %d warn, %d skip, %d fail\n", pass, warn, skip, fail)
+	summary := fmt.Sprintf("Summary: %d pass, %d warn, %d skip, %d fail",
+		pass, warn, skip, fail)
+	summary = strings.Replace(summary, fmt.Sprintf("%d pass", pass), term.GreenW(w, fmt.Sprintf("%d pass", pass)), 1)
+	summary = strings.Replace(summary, fmt.Sprintf("%d warn", warn), term.YellowW(w, fmt.Sprintf("%d warn", warn)), 1)
+	summary = strings.Replace(summary, fmt.Sprintf("%d skip", skip), term.DimW(w, fmt.Sprintf("%d skip", skip)), 1)
+	summary = strings.Replace(summary, fmt.Sprintf("%d fail", fail), term.RedW(w, fmt.Sprintf("%d fail", fail)), 1)
+	_, err := fmt.Fprintln(w, term.BoldW(w, summary))
 	return err
 }
 

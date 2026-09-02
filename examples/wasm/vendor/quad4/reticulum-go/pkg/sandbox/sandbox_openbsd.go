@@ -87,5 +87,5 @@ func unveilPaths(cfg *common.ReticulumConfig) error {
 		}
 	}
 
-	return unix.Unveil("", "")
+	return unix.UnveilBlock()
 }

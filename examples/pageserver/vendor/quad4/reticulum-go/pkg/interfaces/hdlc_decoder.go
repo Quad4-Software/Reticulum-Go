@@ -4,7 +4,9 @@
 package interfaces
 
 // hdlcStreamDecoder incrementally parses HDLC-framed packets from a byte stream.
-// Payload bytes are unescaped during assembly, and onFrame receives the decoded body.
+// Payload bytes are unescaped during assembly. onFrame receives a view of the
+// assembler buffer that is reused after the callback returns. Callers that
+// retain the frame must copy it. Transport.HandlePacket already copies.
 type hdlcStreamDecoder struct {
 	mtu        int
 	minPayload int

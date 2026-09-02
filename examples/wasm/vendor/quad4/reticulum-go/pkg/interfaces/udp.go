@@ -54,6 +54,7 @@ func NewUDPInterfaceWithRetries(name string, addr string, target string, enabled
 	}
 
 	ui.MTU = 1064
+	ui.Bitrate = BitrateGuess
 	if maxReconnectTries > 0 {
 		ui.initReconnectDriver()
 	}
@@ -188,12 +189,20 @@ func (ui *UDPInterface) ProcessIncomingFromAddr(data []byte, peerKey string) {
 		return
 	}
 
-	stripped, ok := common.ApplyIFACInbound(ui, data)
-	if !ok {
-		return
+	// When registered with transport, IFAC is applied once in
+	// preprocessInboundPacket (RNS 1.5.0). Applying it here too would
+	// strip the IFAC flag and make transport treat a valid packet as a
+	// missing-IFAC violation.
+	payload := data
+	if !ui.DeferInboundIFAC() {
+		var ok bool
+		payload, ok = common.ApplyIFACInbound(ui, data)
+		if !ok {
+			return
+		}
 	}
 	if callback := ui.GetPacketCallback(); callback != nil {
-		callback(stripped, ui)
+		callback(payload, ui)
 	}
 }
 
@@ -226,16 +235,18 @@ func (ui *UDPInterface) Send(data []byte, address string) error {
 	if err := common.RejectReceiveOnly(ui); err != nil {
 		return err
 	}
-	debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", ui.Name, "bytes", len(data), "address", address)
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", ui.Name, "bytes", len(data), "address", address)
+	}
 
 	masked, err := common.ApplyIFACOutbound(ui, data)
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to mask outgoing packet for IFAC", "name", ui.Name, "error", err)
+		debug.Log(debug.DebugError, "Failed to mask outgoing packet for IFAC", "name", ui.Name, "error", err)
 		return err
 	}
 
 	if err := ui.ProcessOutgoing(masked); err != nil {
-		debug.Log(debug.DebugCritical, "Interface failed to send data", "name", ui.Name, "error", err)
+		debug.Log(debug.DebugVerbose, "Interface failed to send data", "name", ui.Name, "error", err)
 		return err
 	}
 

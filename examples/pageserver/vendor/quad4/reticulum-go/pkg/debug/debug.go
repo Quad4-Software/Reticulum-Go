@@ -19,19 +19,18 @@ import (
 )
 
 var (
-	debugLevel  = flag.Int("debug", 3, "debug level (1-7); 1=critical, 2=error, 3=info, 4=verbose, 5=trace, 6=packets, 7=all")
-	logger      *slog.Logger
+	debugLevel  = flag.Int("debug", DebugInfo, "debug level (0-7) 0=silent 1=critical 2=error 3=warning 4=info 5=verbose 6=trace 7=packets")
+	logPtr      atomic.Pointer[slog.Logger]
 	extraWriter io.Writer
 	jsonFormat  bool
 	omitStderr  bool
 	logFile     *os.File
-	initialized bool
-	mu          sync.RWMutex
+	initialized atomic.Bool
+	mu          sync.Mutex
 
-	// levelAtomic mirrors *debugLevel in an atomic so hot-path callers can
-	// check debug.Enabled(level) without a mutex and without evaluating
-	// expensive log arguments (fmt.Sprintf, variadic slices) when the
-	// message would be filtered.
+	// levelAtomic mirrors *debugLevel so hot-path callers can check
+	// debug.Enabled(level) without a mutex and without evaluating
+	// expensive log arguments when the message would be filtered.
 	levelAtomic atomic.Int64
 )
 
@@ -44,7 +43,7 @@ func SetExtraWriter(w io.Writer) {
 	mu.Lock()
 	defer mu.Unlock()
 	extraWriter = w
-	if initialized {
+	if initialized.Load() {
 		rebuildLocked()
 	}
 }
@@ -54,7 +53,7 @@ func SetJSONFormat(enabled bool) {
 	mu.Lock()
 	defer mu.Unlock()
 	jsonFormat = enabled
-	if initialized {
+	if initialized.Load() {
 		rebuildLocked()
 	}
 }
@@ -65,12 +64,12 @@ func SetJSONFormat(enabled bool) {
 func Init() {
 	mu.Lock()
 	defer mu.Unlock()
-	if initialized {
+	if initialized.Load() {
 		return
 	}
 	levelAtomic.Store(int64(*debugLevel))
 	rebuildLocked()
-	initialized = true
+	initialized.Store(true)
 }
 
 // rebuildLocked rebuilds the slog logger so the handler honours the
@@ -86,24 +85,26 @@ func rebuildLocked() {
 	default:
 		out = os.Stderr
 	}
+	var l *slog.Logger
 	if jsonFormat {
-		logger = slog.New(slog.NewJSONHandler(out, opts))
+		l = slog.New(slog.NewJSONHandler(out, opts))
 	} else if useColorLogs() {
-		logger = slog.New(newColorHandler(out, opts))
+		l = slog.New(newColorHandler(out, opts))
 	} else {
-		logger = slog.New(slog.NewTextHandler(out, opts))
+		l = slog.New(slog.NewTextHandler(out, opts))
 	}
-	slog.SetDefault(logger)
+	logPtr.Store(l)
+	slog.SetDefault(l)
 }
 
-// slogLevelFor maps an RNS debug level (1-7) to the closest slog level.
+// slogLevelFor maps an RNS debug level to the closest slog level.
 func slogLevelFor(level int) slog.Level {
 	switch {
 	case level >= DebugVerbose:
 		return slog.LevelDebug
 	case level >= DebugInfo:
 		return slog.LevelInfo
-	case level >= DebugError:
+	case level >= DebugWarning:
 		return slog.LevelWarn
 	default:
 		return slog.LevelError
@@ -113,57 +114,39 @@ func slogLevelFor(level int) slog.Level {
 // GetLogger returns the underlying slog logger. Prefer Log so callers
 // route through the central level filter.
 func GetLogger() *slog.Logger {
-	mu.RLock()
-	if initialized {
-		l := logger
-		mu.RUnlock()
+	if l := logPtr.Load(); l != nil {
 		return l
 	}
-	mu.RUnlock()
 	Init()
-	mu.RLock()
-	defer mu.RUnlock()
-	return logger
+	return logPtr.Load()
 }
 
 // Log emits msg at the given RNS debug level, suppressing it when the
 // level is above the current threshold.
 func Log(level int, msg string, args ...any) {
-	mu.RLock()
-	ready := initialized
-	mu.RUnlock()
-	if !ready {
+	if int(levelAtomic.Load()) < level {
+		return
+	}
+	l := logPtr.Load()
+	if l == nil {
 		Init()
+		l = logPtr.Load()
+		if l == nil {
+			return
+		}
 	}
-
-	mu.RLock()
-	if *debugLevel < level {
-		mu.RUnlock()
-		return
-	}
-	l := logger
-	mu.RUnlock()
-
-	slogLevel := slogLevelFor(level)
-	if !l.Enabled(context.TODO(), slogLevel) {
-		return
-	}
-
-	allArgs := make([]any, len(args)+2)
-	copy(allArgs, args)
-	allArgs[len(args)] = "debug_level"
-	allArgs[len(args)+1] = level
-	l.Log(context.TODO(), slogLevel, msg, allArgs...)
+	l.Log(context.Background(), slogLevelFor(level), msg, args...)
 }
 
 // SetDebugLevel updates the active level and rebuilds the slog handler
-// so the change takes effect immediately.
+// so the change takes effect immediately. Values below 1 silence output.
 func SetDebugLevel(level int) {
+	level = ClampLevel(level)
 	mu.Lock()
 	defer mu.Unlock()
 	*debugLevel = level
 	levelAtomic.Store(int64(level))
-	if initialized {
+	if initialized.Load() {
 		rebuildLocked()
 	}
 }
@@ -176,7 +159,7 @@ func GetDebugLevel() int {
 // Enabled reports whether messages at level would be emitted. Hot paths
 // should call this before constructing expensive log arguments (e.g.
 // fmt.Sprintf) to avoid per-call allocations on a busy network running
-// below DebugAll.
+// below DebugPackets.
 func Enabled(level int) bool {
 	return int(levelAtomic.Load()) >= level
 }
@@ -294,7 +277,7 @@ func ConfigureDestination(cfg *common.ReticulumConfig) error {
 		jsonFormat = true
 	}
 
-	if initialized {
+	if initialized.Load() {
 		rebuildLocked()
 	}
 	return nil

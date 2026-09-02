@@ -17,6 +17,10 @@ const (
 var (
 	// ErrInvalidHashLength means the hash length is not SenderHashLength.
 	ErrInvalidHashLength = errors.New("invalid hash length")
+	// ErrInvalidHash means the hex hash could not be parsed.
+	ErrInvalidHash = errors.New("invalid destination hash")
+	// ErrRecall means the destination identity was not in identity.Recall.
+	ErrRecall = errors.New("could not recall identity")
 	// ErrMessageTooShort means the buffer is shorter than SenderHashLength.
 	ErrMessageTooShort = errors.New("message too short")
 	// ErrMessageTooLong means text exceeds MaxMessageSize.

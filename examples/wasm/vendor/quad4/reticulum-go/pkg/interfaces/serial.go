@@ -1,78 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-//go:build (linux || darwin || freebsd || openbsd || windows) && !js
+//go:build !js
 
 package interfaces
 
 import (
 	"fmt"
-	"io"
 	"net"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
-
-	"go.bug.st/serial"
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
 )
 
-const (
-	serialHWMTU            = 564
-	serialDefaultSpeed     = 9600
-	serialDefaultDataBits  = 8
-	serialDefaultStopBits  = 1
-	serialDefaultFrameIdle = 100 * time.Millisecond
-	serialDefaultReconnect = 5 * time.Second
-	serialReadChunk        = 4096
-	serialDefaultIFACSize  = 8
-)
-
-// SerialPort is the byte stream behind SerialInterface. Tests inject pipes or
-// PTYs. Production opens use go.bug.st/serial.
-type SerialPort interface {
-	io.ReadWriteCloser
-}
-
-// SerialOpenFunc opens a serial device from options.
-type SerialOpenFunc func(opts SerialOptions) (SerialPort, error)
-
-// SerialOptions configures SerialInterface beyond the Python baseline.
-type SerialOptions struct {
-	Device            string
-	Speed             int
-	DataBits          int
-	Parity            string
-	StopBits          int
-	RTSCTS            bool
-	DSRDTR            bool
-	XONXOFF           bool
-	FrameIdle         time.Duration
-	ReconnectDelay    time.Duration
-	MaxReconnectTries int
-	MTU               int
-	Bitrate           int64
-	Open              SerialOpenFunc
-}
-
-// SerialStats is atomic traffic and health counters for operators.
-type SerialStats struct {
-	FramesRX      atomic.Uint64
-	FramesTX      atomic.Uint64
-	BytesRX       atomic.Uint64
-	BytesTX       atomic.Uint64
-	FramingErrors atomic.Uint64
-	Reconnects    atomic.Uint64
-	OpenFailures  atomic.Uint64
-}
-
 // SerialInterface carries HDLC-framed Reticulum packets over a serial port.
 // Beyond Python SerialInterface it adds chunked reads, configurable flow
 // control, inter-byte frame idle drops, reconnect limits, IFAC, receive-only,
 // injectable ports for tests, and live stats.
+//
+// Native TTY open works on Linux (including Android), macOS, Windows, FreeBSD,
+// and OpenBSD. Other GOOS builds still accept an injected Open for tests or
+// platform bridges.
 type SerialInterface struct {
 	BaseInterface
 	opts     SerialOptions
@@ -146,28 +97,6 @@ func normalizeSerialOptions(opts SerialOptions) SerialOptions {
 		opts.Open = openHardwareSerial
 	}
 	return opts
-}
-
-func openHardwareSerial(opts SerialOptions) (SerialPort, error) {
-	mode := &serial.Mode{
-		BaudRate: opts.Speed,
-		DataBits: opts.DataBits,
-		StopBits: serial.StopBits(opts.StopBits),
-	}
-	switch strings.ToLower(opts.Parity) {
-	case "e", "even":
-		mode.Parity = serial.EvenParity
-	case "o", "odd":
-		mode.Parity = serial.OddParity
-	default:
-		mode.Parity = serial.NoParity
-	}
-	p, err := serial.Open(opts.Device, mode)
-	if err != nil {
-		return nil, err
-	}
-	_ = p.SetReadTimeout(50 * time.Millisecond)
-	return p, nil
 }
 
 func (si *SerialInterface) String() string {

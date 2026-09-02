@@ -20,6 +20,7 @@ import (
 	"quad4/reticulum-go/pkg/cryptography"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/identity/store"
+	"quad4/reticulum-go/pkg/protect"
 	"quad4/reticulum-go/pkg/securemem"
 )
 
@@ -33,6 +34,7 @@ type Identity struct {
 	signingKey      *securemem.Buf // 64-byte expanded Ed25519 private key
 	verificationKey ed25519.PublicKey
 	externalSigner  cryptography.Ed25519Signer // if non-nil, Sign uses this instead of signingSeed
+	fullPublicKey   []byte                     // X25519||Ed25519, 64 bytes. Do not mutate.
 	hash            []byte
 	hexHash         string
 
@@ -41,10 +43,18 @@ type Identity struct {
 	mutex         *sync.RWMutex
 }
 
+type knownDestEntry struct {
+	pkt    []byte
+	hash   []byte
+	rawKey string // truncated dest hash as a 16-byte string key for msgpack
+	id     *Identity
+	app    []byte
+}
+
 var (
-	knownDestinations     = make(map[string][]any)
+	knownDestinations     = make(map[destMapKey]knownDestEntry)
 	knownDestinationsLock sync.RWMutex
-	knownRatchets         = make(map[string][]byte)
+	knownRatchets         = make(map[destMapKey]knownRatchetEntry)
 	ratchetPersistLock    sync.Mutex
 )
 
@@ -82,12 +92,19 @@ func New() (*Identity, error) {
 	return i, nil
 }
 
+// GetPublicKey returns a fresh 64-byte X25519||Ed25519 public key, matching
+// Python Identity.get_public_key (pub_bytes+sig_pub_bytes concatenation).
+// Callers may mutate the returned slice without affecting the Identity.
 func (i *Identity) GetPublicKey() []byte {
-	// Combine encryption and signing public keys in correct order
-	fullKey := make([]byte, 64)
-	copy(fullKey[:32], i.publicKey)       // First 32 bytes: X25519 encryption key
-	copy(fullKey[32:], i.verificationKey) // Last 32 bytes: Ed25519 verification key
-	return fullKey
+	if i == nil {
+		return nil
+	}
+	if len(i.fullPublicKey) != 64 {
+		i.cachePublicHash()
+	}
+	out := make([]byte, 64)
+	copy(out, i.fullPublicKey)
+	return out
 }
 
 func (i *Identity) GetPrivateKey() ([]byte, error) {
@@ -125,9 +142,9 @@ func (i *Identity) Encrypt(plaintext []byte, ratchet []byte) ([]byte, error) {
 	}
 	defer securemem.WipeBytes(ephemeralPrivKey)
 
-	// Use ratchet key if provided, otherwise use identity public key
+	// Use ratchet public key if provided, otherwise use identity public key
 	targetKey := i.publicKey
-	if ratchet != nil {
+	if len(ratchet) > 0 {
 		targetKey = ratchet
 	}
 
@@ -167,6 +184,8 @@ func (i *Identity) Encrypt(plaintext []byte, ratchet []byte) ([]byte, error) {
 	return token, nil
 }
 
+// Hash returns the cached truncated public-key hash. The slice must not be
+// mutated. Callers that need a private copy should clone it.
 func (i *Identity) Hash() []byte {
 	if i == nil {
 		return nil
@@ -174,21 +193,24 @@ func (i *Identity) Hash() []byte {
 	if len(i.hash) != TruncatedHashLength/8 {
 		i.cachePublicHash()
 	}
-	out := make([]byte, TruncatedHashLength/8)
-	copy(out, i.hash)
-	return out
+	return i.hash
 }
 
-// cachePublicHash stores the truncated destination hash of the public key material.
+// cachePublicHash stores the combined public key and its truncated hash.
 func (i *Identity) cachePublicHash() {
 	if i == nil {
 		return
 	}
-	var full [64]byte
-	copy(full[:32], i.publicKey)
-	copy(full[32:], i.verificationKey)
-	sum := cryptography.Hash(full[:])
+	if cap(i.fullPublicKey) < 64 {
+		i.fullPublicKey = make([]byte, 64)
+	} else {
+		i.fullPublicKey = i.fullPublicKey[:64]
+	}
+	copy(i.fullPublicKey[:32], i.publicKey)
+	copy(i.fullPublicKey[32:], i.verificationKey)
+	sum := cryptography.Hash(i.fullPublicKey)
 	i.hash = append([]byte(nil), sum[:TruncatedHashLength/8]...)
+	i.hexHash = ""
 }
 
 func (i *Identity) ensureRatchetMaps() {
@@ -208,10 +230,17 @@ func (i *Identity) publicKeyEqual(publicKey []byte) bool {
 		bytes.Equal(i.verificationKey, publicKey[KeySize/16:])
 }
 
-func knownDestKey(destHash []byte) string {
-	var buf [64]byte
-	n := hex.Encode(buf[:], destHash)
-	return string(buf[:n])
+type destMapKey [16]byte
+
+func knownDestKey(destHash []byte) destMapKey {
+	var k destMapKey
+	copy(k[:], destHash)
+	return k
+}
+
+func knownDestHex(destHash []byte) string {
+	k := knownDestKey(destHash)
+	return hex.EncodeToString(k[:])
 }
 
 func TruncatedHash(data []byte) []byte {
@@ -223,46 +252,87 @@ func GetRandomHash() []byte {
 	randomData := make([]byte, TruncatedHashLength/8)
 	_, err := rand.Read(randomData) // #nosec G104
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to read random data for hash", "error", err)
+		debug.Log(debug.DebugError, "Failed to read random data for hash", "error", err)
 		return nil // Or handle the error appropriately
 	}
 	return TruncatedHash(randomData)
 }
 
-func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) {
+// Remember stores a known destination from a validated announce.
+// Returns false when destHash is already known under a different public key.
+func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) bool {
+	return rememberKnown(packet, destHash, publicKey, appData, nil)
+}
+
+// RememberIdentity is Remember using an already-built Identity when the
+// public key matches. Avoids a second FromPublicKey on first insert.
+func RememberIdentity(packet []byte, destHash []byte, publicKey []byte, appData []byte, id *Identity) bool {
+	return rememberKnown(packet, destHash, publicKey, appData, id)
+}
+
+// KnownIdentityMatching returns the stored Identity for destHash when its
+// public key matches publicKey. The pointer is owned by the known-dest table.
+func KnownIdentityMatching(destHash, publicKey []byte) *Identity {
+	key := knownDestKey(destHash)
+	knownDestinationsLock.RLock()
+	e, ok := knownDestinations[key]
+	knownDestinationsLock.RUnlock()
+	if !ok || e.id == nil || !e.id.publicKeyEqual(publicKey) {
+		return nil
+	}
+	return e.id
+}
+
+func rememberKnown(packet []byte, destHash []byte, publicKey []byte, appData []byte, id *Identity) bool {
 	hashStr := knownDestKey(destHash)
 
 	knownDestinationsLock.Lock()
 	defer knownDestinationsLock.Unlock()
 
-	if existing, ok := knownDestinations[hashStr]; ok && len(existing) >= 4 {
-		if id, ok := existing[2].(*Identity); ok && id.publicKeyEqual(publicKey) {
-			prevPkt, _ := existing[0].([]byte)
-			prevApp, _ := existing[3].([]byte)
-			if bytes.Equal(prevPkt, packet) && bytes.Equal(prevApp, appData) {
-				return
-			}
-			existing[0] = append([]byte(nil), packet...)
-			existing[3] = append([]byte(nil), appData...)
-			markKnownDestinationsDirty()
-			return
+	now := time.Now().Unix()
+	if existing, ok := knownDestinations[hashStr]; ok && existing.id != nil {
+		if !existing.id.publicKeyEqual(publicKey) {
+			debug.Log(debug.DebugWarning, "Rejected announce: destination hash already known with a different public key")
+			return false
 		}
+		if bytes.Equal(existing.pkt, packet) && bytes.Equal(existing.app, appData) {
+			meta := knownDestMetaByKey[hashStr]
+			meta.rememberedAt = now
+			knownDestMetaByKey[hashStr] = meta
+			markKnownDestinationsDirty()
+			return true
+		}
+		existing.pkt = append([]byte(nil), packet...)
+		existing.app = append([]byte(nil), appData...)
+		knownDestinations[hashStr] = existing
+		meta := knownDestMetaByKey[hashStr]
+		meta.rememberedAt = now
+		knownDestMetaByKey[hashStr] = meta
+		markKnownDestinationsDirty()
+		return true
 	}
 
-	packetCopy := append([]byte(nil), packet...)
-	destHashCopy := append([]byte(nil), destHash...)
-	publicKeyCopy := append([]byte(nil), publicKey...)
-	appDataCopy := append([]byte(nil), appData...)
-
-	id := FromPublicKey(publicKeyCopy)
-	knownDestinations[hashStr] = []any{
-		packetCopy,
-		destHashCopy,
-		id,
-		appDataCopy,
+	if id == nil || !id.publicKeyEqual(publicKey) {
+		id = FromPublicKey(publicKey)
 	}
+	knownDestinations[hashStr] = knownDestEntry{
+		pkt:    append([]byte(nil), packet...),
+		hash:   append([]byte(nil), destHash...),
+		rawKey: string(hashStr[:]),
+		id:     id,
+		app:    append([]byte(nil), appData...),
+	}
+	prev := knownDestMetaByKey[hashStr]
+	lastUsed := prev.lastUsed
+	if lastUsed < 0 {
+		lastUsed = -1
+	} else {
+		lastUsed = 0
+	}
+	setKnownDestMetaLocked(hashStr, now, lastUsed)
 	evictKnownDestinationsIfNeededLocked()
 	markKnownDestinationsDirty()
+	return true
 }
 
 // knownDestMaxEntries is the soft cap applied while in-memory storage is
@@ -271,24 +341,25 @@ var knownDestMaxEntries atomic.Int64
 
 // SetKnownDestinationsMaxEntries installs a soft cap on known destinations.
 // Zero or negative disables the cap.
-func SetKnownDestinationsMaxEntries(max int) {
-	if max < 0 {
-		max = 0
+func SetKnownDestinationsMaxEntries(maxEntries int) {
+	if maxEntries < 0 {
+		maxEntries = 0
 	}
-	knownDestMaxEntries.Store(int64(max))
+	knownDestMaxEntries.Store(int64(maxEntries))
 }
 
 func evictKnownDestinationsIfNeededLocked() {
-	max := int(knownDestMaxEntries.Load())
-	if max <= 0 || len(knownDestinations) <= max {
+	maxEntries := int(knownDestMaxEntries.Load())
+	if maxEntries <= 0 || len(knownDestinations) <= maxEntries {
 		return
 	}
-	excess := len(knownDestinations) - max
+	excess := len(knownDestinations) - maxEntries
 	for key := range knownDestinations {
 		if excess <= 0 {
 			return
 		}
 		delete(knownDestinations, key)
+		deleteKnownDestMetaLocked(key)
 		excess--
 	}
 }
@@ -358,13 +429,9 @@ func Recall(hash []byte) (*Identity, error) {
 	data, exists := knownDestinations[hashStr]
 	knownDestinationsLock.RUnlock()
 
-	if exists {
-		// data is [packet, destHash, identity, appData]
-		if len(data) >= 3 {
-			if id, ok := data[2].(*Identity); ok {
-				return id, nil
-			}
-		}
+	if exists && data.id != nil {
+		TouchKnownDestination(hash)
+		return data.id, nil
 	}
 
 	return nil, common.ErrIdentityNotFoundf(hash)
@@ -389,21 +456,12 @@ func (i *Identity) ValidateHMAC(key, message, messageHMAC []byte) bool {
 	return cryptography.ValidateHMAC(key, message, messageHMAC)
 }
 
+// GetCurrentRatchetKey returns the most recently rotated identity-level
+// ratchet private key, or nil if none exist. It does not generate keys.
+// On-wire SINGLE ratchets live on Destination, not Identity.
 func (i *Identity) GetCurrentRatchetKey() []byte {
 	i.mutex.RLock()
 	defer i.mutex.RUnlock()
-
-	if len(i.ratchets) == 0 {
-		debug.Log(debug.DebugTrace, "No ratchets found, generating a new one on-the-fly")
-		i.mutex.RUnlock()
-		newRatchet, err := i.RotateRatchet()
-		i.mutex.RLock()
-		if err != nil {
-			debug.Log(debug.DebugCritical, "Failed to generate initial ratchet key", "error", err)
-			return nil
-		}
-		return newRatchet
-	}
 
 	var latestKey []byte
 	var latestTime int64
@@ -416,18 +474,20 @@ func (i *Identity) GetCurrentRatchetKey() []byte {
 		}
 	}
 
-	if latestKey == nil {
-		debug.Log(debug.DebugError, "Could not determine the latest ratchet key", "ratchet_count", len(i.ratchets))
-	}
-
 	return latestKey
 }
 
 func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRatchets bool, ratchetIDReceiver *common.RatchetIDReceiver) ([]byte, error) {
 	if !i.hasDecryptPrivate() {
-		debug.Log(debug.DebugCritical, "Decryption failed: identity has no private key")
+		debug.Log(debug.DebugError, "Decryption failed: identity has no private key")
 		return nil, errors.New("decryption failed because identity does not hold a private key")
 	}
+
+	d, release := protect.AdmitCrypto("")
+	if !d.Allow {
+		return nil, errors.New("dos_protection refused crypto")
+	}
+	defer release()
 
 	debug.Log(debug.DebugAll, "Starting decryption for identity", "hash", i.GetHexHash())
 	if len(ratchets) > 0 {
@@ -447,23 +507,33 @@ func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRat
 	ciphertext := ciphertextToken[32 : len(ciphertextToken)-32]
 	mac := ciphertextToken[len(ciphertextToken)-32:]
 
-	// Try decryption with ratchets first if provided
+	// Try decryption with ratchets first if provided. Matches Python
+	// Identity.decrypt: the enforce_ratchets check runs regardless of whether
+	// ratchets was empty, so an enforcing caller can never fall through to
+	// identity-key decryption even with no ratchets on hand.
+	var plaintext, ratchetID []byte
 	if len(ratchets) > 0 {
 		for _, ratchet := range ratchets {
-			if decrypted, ratchetID, err := i.tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet); err == nil {
-				if ratchetIDReceiver != nil {
-					ratchetIDReceiver.LatestRatchetID = ratchetID
-				}
-				return decrypted, nil
+			if decrypted, id, err := i.tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet); err == nil {
+				plaintext = decrypted
+				ratchetID = id
+				break
 			}
 		}
+	}
 
-		if enforceRatchets {
-			if ratchetIDReceiver != nil {
-				ratchetIDReceiver.LatestRatchetID = nil
-			}
-			return nil, errors.New("decryption with ratchet enforcement failed")
+	if enforceRatchets && plaintext == nil {
+		if ratchetIDReceiver != nil {
+			ratchetIDReceiver.LatestRatchetID = nil
 		}
+		return nil, errors.New("decryption with ratchet enforcement failed")
+	}
+
+	if plaintext != nil {
+		if ratchetIDReceiver != nil {
+			ratchetIDReceiver.LatestRatchetID = ratchetID
+		}
+		return plaintext, nil
 	}
 
 	sharedKey, err := cryptography.DeriveSharedSecret(i.privateKey.Bytes(), peerPubBytes)
@@ -486,7 +556,7 @@ func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRat
 		return nil, errors.New("invalid HMAC")
 	}
 
-	plaintext, err := cryptography.DecryptAES256CBC(encryptionKey, ciphertext)
+	plaintext, err = cryptography.DecryptAES256CBC(encryptionKey, ciphertext)
 	if err != nil {
 		return nil, err
 	}
@@ -612,7 +682,7 @@ func (i *Identity) ToFile(path string) error {
 	defer securemem.WipeBytes(privateKeyBytes)
 
 	if err := store.SaveIdentityBlob(path, privateKeyBytes, ""); err != nil {
-		debug.Log(debug.DebugCritical, "Failed to write identity file", "error", err)
+		debug.Log(debug.DebugError, "Failed to write identity file", "error", err)
 		return err
 	}
 
@@ -700,10 +770,7 @@ func (i *Identity) loadPrivateKey(privateKey, signingSeed []byte) error {
 		return err
 	}
 
-	publicKeyBytes := make([]byte, 0, len(i.publicKey)+len(i.verificationKey))
-	publicKeyBytes = append(publicKeyBytes, i.publicKey...)
-	publicKeyBytes = append(publicKeyBytes, i.verificationKey...)
-	i.hash = TruncatedHash(publicKeyBytes)[:TruncatedHashLength/8]
+	i.cachePublicHash()
 	i.hexHash = hex.EncodeToString(i.hash)
 
 	debug.Log(debug.DebugVerbose, "Private key loaded successfully", "hash", i.GetHexHash())
@@ -715,7 +782,7 @@ func RecallIdentity(path string) (*Identity, error) {
 
 	file, err := os.Open(path) // #nosec G304
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to open identity file", "error", err)
+		debug.Log(debug.DebugError, "Failed to open identity file", "error", err)
 		return nil, err
 	}
 	defer file.Close()
@@ -725,7 +792,7 @@ func RecallIdentity(path string) (*Identity, error) {
 	privateKeyBytes := make([]byte, 64)
 	n, err := io.ReadFull(file, privateKeyBytes)
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to read identity data", "error", err)
+		debug.Log(debug.DebugError, "Failed to read identity data", "error", err)
 		return nil, err
 	}
 	if n != 64 {
@@ -783,18 +850,21 @@ func (i *Identity) GetRatchetID(ratchetPubBytes []byte) []byte {
 }
 
 func GetKnownDestination(hash string) ([]any, bool) {
+	raw, err := hex.DecodeString(hash)
+	if err != nil || len(raw) == 0 {
+		return nil, false
+	}
+	key := knownDestKey(raw)
 	knownDestinationsLock.RLock()
-	data, exists := knownDestinations[hash]
+	data, exists := knownDestinations[key]
 	knownDestinationsLock.RUnlock()
 	if exists {
-		copied := make([]any, len(data))
-		copy(copied, data)
-		for i := range copied {
-			if b, ok := copied[i].([]byte); ok {
-				copied[i] = append([]byte(nil), b...)
-			}
-		}
-		return copied, true
+		return []any{
+			append([]byte(nil), data.pkt...),
+			append([]byte(nil), data.hash...),
+			data.id,
+			append([]byte(nil), data.app...),
+		}, true
 	}
 	return nil, false
 }
@@ -810,18 +880,23 @@ func (i *Identity) GetRatchetKey(id string) ([]byte, bool) {
 	ratchetPersistLock.Lock()
 	defer ratchetPersistLock.Unlock()
 
-	key, exists := knownRatchets[id]
+	e, exists := knownRatchets[ratchetMapKey(id)]
 	if !exists {
 		return nil, false
 	}
-	return append([]byte(nil), key...), true
+	return append([]byte(nil), e.key...), true
 }
 
 func (i *Identity) SetRatchetKey(id string, key []byte) {
 	ratchetPersistLock.Lock()
 	defer ratchetPersistLock.Unlock()
 
-	knownRatchets[id] = append([]byte(nil), key...)
+	mapKey := ratchetMapKey(id)
+	knownRatchets[mapKey] = knownRatchetEntry{
+		key:      append([]byte(nil), key...),
+		received: time.Now().Unix(),
+	}
+	evictKnownRatchetsLocked(mapKey)
 }
 
 // NewIdentity creates a new Identity instance with fresh keys
@@ -862,12 +937,7 @@ func NewIdentity() (*Identity, error) {
 		return nil, err
 	}
 	securemem.WipeBytes(ed25519Seed[:])
-
-	combinedPub := make([]byte, KeySize/8)
-	copy(combinedPub[:KeySize/16], i.publicKey)
-	copy(combinedPub[KeySize/16:], i.verificationKey)
-	fullHash := cryptography.Hash(combinedPub)
-	i.hash = fullHash[:TruncatedHashLength/8]
+	i.cachePublicHash()
 
 	return i, nil
 }
@@ -894,6 +964,8 @@ func FromBytes(data []byte) (*Identity, error) {
 	return ident, nil
 }
 
+// RotateRatchet generates an identity-level ratchet private key.
+// Announces and SINGLE encrypt use Destination.EnableRatchets instead.
 func (i *Identity) RotateRatchet() ([]byte, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
@@ -903,14 +975,14 @@ func (i *Identity) RotateRatchet() ([]byte, error) {
 
 	newRatchet := make([]byte, RatchetSize/8)
 	if _, err := io.ReadFull(rand.Reader, newRatchet); err != nil {
-		debug.Log(debug.DebugCritical, "Failed to generate new ratchet", "error", err)
+		debug.Log(debug.DebugError, "Failed to generate new ratchet", "error", err)
 		return nil, err
 	}
 
 	ratchetPub, err := cryptography.PublicKeyFromPrivate(newRatchet)
 	if err != nil {
 		securemem.WipeBytes(newRatchet)
-		debug.Log(debug.DebugCritical, "Failed to generate ratchet public key", "error", err)
+		debug.Log(debug.DebugError, "Failed to generate ratchet public key", "error", err)
 		return nil, err
 	}
 

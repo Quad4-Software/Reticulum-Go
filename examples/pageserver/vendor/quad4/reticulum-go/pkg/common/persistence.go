@@ -10,16 +10,44 @@ import (
 )
 
 const (
-	// DefaultMaxInMemoryPaths is the soft path-table cap under in-memory storage.
+	// DefaultMaxInMemoryPaths is the soft path-table cap for the live path map.
+	// Applies for both disk-backed and in-memory storage. Paths live in RAM
+	// either way, so an uncapped table grows without bound on a busy mesh.
 	DefaultMaxInMemoryPaths = 100_000
 
-	// DefaultMaxInMemoryKnownDestinations is the soft known-dest cap under
-	// in-memory storage.
+	// DefaultMaxInMemoryKnownDestinations is the soft known-dest cap.
 	DefaultMaxInMemoryKnownDestinations = 100_000
 
 	// DefaultMaxInMemoryResourceBytes is the soft split-resource staging budget
 	// under in-memory storage (256 MiB).
 	DefaultMaxInMemoryResourceBytes = 256 << 20
+
+	// DefaultMaxPacketHashlist is the packet hash loop-filter cap when
+	// enable_transport is yes (matches Python Transport.hashlist_maxsize).
+	DefaultMaxPacketHashlist = 1_000_000
+
+	// DefaultMaxPacketHashlistClient is the hashlist cap when transport is off.
+	// Client nodes still see mesh traffic but do not need a million-entry filter.
+	DefaultMaxPacketHashlistClient = 100_000
+
+	// DefaultMaxSeenAnnounces caps announce-hash dedupe entries.
+	DefaultMaxSeenAnnounces = 100_000
+
+	// DefaultMaxPacketHandlers is the HandlePacket worker count and queue depth.
+	DefaultMaxPacketHandlers = 512
+
+	// CoreRouterMaxInMemoryPaths is the path-table cap applied by node_profile=core_router
+	// when max_in_memory_paths is unset.
+	CoreRouterMaxInMemoryPaths = 500_000
+
+	// EmbeddedMaxPacketHandlers is the handler pool size for node_profile=embedded.
+	EmbeddedMaxPacketHandlers = 32
+	// EmbeddedMaxInMemoryPaths is the path-table cap for node_profile=embedded.
+	EmbeddedMaxInMemoryPaths = 4096
+	// EmbeddedMaxInMemoryKnownDestinations is the known-dest cap for embedded.
+	EmbeddedMaxInMemoryKnownDestinations = 4096
+	// EmbeddedMaxPacketHashlist is the hashlist cap for embedded.
+	EmbeddedMaxPacketHashlist = 10_000
 )
 
 // ApplyPersistenceEnv overrides persistence-related config from environment
@@ -27,6 +55,7 @@ const (
 // RETICULUM_IN_MEMORY_KNOWN_DESTINATIONS=1 to force in-memory tables.
 // RETICULUM_IN_MEMORY_STORAGE=1 forces fully ephemeral storage.
 // RETICULUM_SOFT_MEMORY_LIMIT accepts a byte count or K/M/G suffix.
+// RETICULUM_MAX_PACKET_HASHLIST accepts an integer entry budget.
 func (c *ReticulumConfig) ApplyPersistenceEnv() {
 	if c == nil {
 		return
@@ -43,6 +72,21 @@ func (c *ReticulumConfig) ApplyPersistenceEnv() {
 	if v := strings.TrimSpace(os.Getenv("RETICULUM_SOFT_MEMORY_LIMIT")); v != "" {
 		if n, err := ParseByteSize(v); err == nil && n > 0 {
 			c.SoftMemoryLimitBytes = n
+		}
+	}
+	if v := strings.TrimSpace(os.Getenv("RETICULUM_MAX_PACKET_HASHLIST")); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.MaxPacketHashlist = n
+		}
+	}
+	if v := strings.TrimSpace(os.Getenv("RETICULUM_MAX_IN_MEMORY_PATHS")); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.MaxInMemoryPaths = n
+		}
+	}
+	if v := strings.TrimSpace(os.Getenv("RETICULUM_MAX_IN_MEMORY_KNOWN_DESTINATIONS")); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.MaxInMemoryKnownDestinations = n
 		}
 	}
 	c.NormalizeInMemoryFlags()
@@ -75,12 +119,12 @@ func (c *ReticulumConfig) UseInMemoryStorage() bool {
 	return false
 }
 
-// EffectiveMaxInMemoryPaths returns the path-table cap when InMemoryStorage
-// is explicitly enabled. Auto ephemeral mode (empty ConfigPath) does not
-// install a cap. Returns 0 when the cap is disabled.
+// EffectiveMaxInMemoryPaths returns the live path-table cap. Disk-backed
+// stacks keep the full table in RAM, so the cap always applies. Zero uses
+// DefaultMaxInMemoryPaths. Negative disables the cap.
 func (c *ReticulumConfig) EffectiveMaxInMemoryPaths() int {
-	if c == nil || !c.InMemoryStorage {
-		return 0
+	if c == nil {
+		return DefaultMaxInMemoryPaths
 	}
 	if c.MaxInMemoryPaths < 0 {
 		return 0
@@ -91,11 +135,12 @@ func (c *ReticulumConfig) EffectiveMaxInMemoryPaths() int {
 	return c.MaxInMemoryPaths
 }
 
-// EffectiveMaxInMemoryKnownDestinations returns the known-dest cap when
-// InMemoryStorage is explicitly enabled.
+// EffectiveMaxInMemoryKnownDestinations returns the known-dest cap. Always
+// applies (known destinations are held in RAM). Zero uses
+// DefaultMaxInMemoryKnownDestinations. Negative disables the cap.
 func (c *ReticulumConfig) EffectiveMaxInMemoryKnownDestinations() int {
-	if c == nil || !c.InMemoryStorage {
-		return 0
+	if c == nil {
+		return DefaultMaxInMemoryKnownDestinations
 	}
 	if c.MaxInMemoryKnownDestinations < 0 {
 		return 0
@@ -119,6 +164,66 @@ func (c *ReticulumConfig) EffectiveMaxInMemoryResourceBytes() int64 {
 		return DefaultMaxInMemoryResourceBytes
 	}
 	return c.MaxInMemoryResourceBytes
+}
+
+// EffectiveMaxPacketHashlist returns the packet hash loop-filter size.
+// Zero picks DefaultMaxPacketHashlist when transport is enabled, otherwise
+// DefaultMaxPacketHashlistClient. Negative uses DefaultMaxPacketHashlist.
+func (c *ReticulumConfig) EffectiveMaxPacketHashlist() int {
+	if c == nil {
+		return DefaultMaxPacketHashlistClient
+	}
+	if c.MaxPacketHashlist > 0 {
+		return c.MaxPacketHashlist
+	}
+	if c.MaxPacketHashlist < 0 {
+		return DefaultMaxPacketHashlist
+	}
+	if c.EnableTransport {
+		return DefaultMaxPacketHashlist
+	}
+	return DefaultMaxPacketHashlistClient
+}
+
+// EffectiveMaxPacketHandlers returns the HandlePacket worker count and queue
+// depth. Zero uses DefaultMaxPacketHandlers. Negative also uses the default.
+func (c *ReticulumConfig) EffectiveMaxPacketHandlers() int {
+	if c == nil || c.MaxPacketHandlers <= 0 {
+		return DefaultMaxPacketHandlers
+	}
+	return c.MaxPacketHandlers
+}
+
+// InboundDataQueueLength returns qlen_in_data when set.
+func (c *ReticulumConfig) InboundDataQueueLength() int {
+	if c == nil {
+		return 0
+	}
+	return c.QLenInboundData
+}
+
+// InboundAnnounceQueueLength returns qlen_in_announce when set.
+func (c *ReticulumConfig) InboundAnnounceQueueLength() int {
+	if c == nil {
+		return 0
+	}
+	return c.QLenInboundAnnounce
+}
+
+// InboundPRQueueLength returns qlen_in_pr when set.
+func (c *ReticulumConfig) InboundPRQueueLength() int {
+	if c == nil {
+		return 0
+	}
+	return c.QLenInboundPR
+}
+
+// InboundILQueueLength returns qlen_in_il when set.
+func (c *ReticulumConfig) InboundILQueueLength() int {
+	if c == nil {
+		return 0
+	}
+	return c.QLenInboundIL
 }
 
 // ParseByteSize parses a decimal byte count with an optional K, M, or G suffix

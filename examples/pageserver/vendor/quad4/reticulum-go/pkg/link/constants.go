@@ -3,6 +3,8 @@
 
 package link
 
+import "quad4/reticulum-go/pkg/common"
+
 const (
 	Curve = "Curve25519"
 
@@ -12,11 +14,11 @@ const (
 	MTUByteMask  = 0xFFFFFF
 	ModeByteMask = 0xE0
 
-	EstablishmentTimeoutPerHop = 6
-	KeepaliveTimeoutFactor     = 4
-	StaleGrace                 = 2
-	Keepalive                  = 360
-	StaleTime                  = 720
+	EstablishmentTimeoutPerHop = common.EstablishmentTimeoutPerHop
+	KeepaliveTimeoutFactor     = common.KeepaliveTimeoutFactor
+	StaleGrace                 = common.StaleGrace
+	Keepalive                  = common.Keepalive
+	StaleTime                  = common.StaleTime
 	TrafficTimeoutFactor       = 6
 
 	AcceptNone = 0x00
@@ -43,6 +45,7 @@ const (
 
 	DestTypeLink = 0x03
 
+	MaxPendingRequests = 8
 	MinRequestDataLen  = 3
 	MinResponseDataLen = 2
 

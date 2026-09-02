@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -99,6 +100,7 @@ func checkDaemon(ctx context.Context, opts Options) []Result {
 	cfg.RPCKey = rpcKey
 	cfg.PanicOnInterfaceErr = false
 	cfg.InMemoryStorage = true
+	cfg.DoSProtection = "off"
 	cfg.LogLevel = 3
 	cfg.Interfaces = map[string]*common.InterfaceConfig{}
 	if err := reticulumconfig.SaveConfig(cfg); err != nil {
@@ -139,6 +141,12 @@ func checkDaemon(ctx context.Context, opts Options) []Result {
 	if smoke.Severity == SeverityFail {
 		out = append(out, result(nameDaemonRPC, SeveritySkip, "control API not healthy"))
 		out = append(out, result(nameDaemonReload, SeveritySkip, "control API not healthy"))
+		return out
+	}
+
+	if err := waitRPCPort(dctx, cfg, timeout); err != nil {
+		out = append(out, result(nameDaemonRPC, SeverityFail, "rpc port: "+err.Error()))
+		out = append(out, result(nameDaemonReload, SeveritySkip, "rpc not ready"))
 		return out
 	}
 
@@ -187,6 +195,35 @@ func waitControlAPI(ctx context.Context, ctrlPort int, rpcKey []byte, timeout ti
 	return result(nameDaemonSmoke, SeverityFail, detail)
 }
 
+func waitRPCPort(ctx context.Context, cfg *common.ReticulumConfig, timeout time.Duration) error {
+	if cfg == nil {
+		return fmt.Errorf("nil config")
+	}
+	port := cfg.InstanceControlPort
+	if port == 0 {
+		port = reticulumconfig.DefaultInstanceControlPort
+	}
+	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		conn, err := net.DialTimeout("tcp", addr, 250*time.Millisecond)
+		if err == nil {
+			_ = conn.Close()
+			return nil
+		}
+		lastErr = err
+		time.Sleep(50 * time.Millisecond)
+	}
+	if lastErr != nil {
+		return lastErr
+	}
+	return fmt.Errorf("timeout")
+}
+
 func checkDaemonRPC(ctx context.Context, cfg *common.ReticulumConfig, rpcKey []byte, timeout time.Duration) Result {
 	client, err := rnsutil.DialRPC(cfg, rpcKey)
 	if err != nil {
@@ -219,8 +256,14 @@ func checkDaemonReload(ctx context.Context, cmd *exec.Cmd, cfg *common.Reticulum
 		return result(nameDaemonReload, SeveritySkip, "SIGHUP not used on windows")
 	}
 	if runtime.GOOS == "freebsd" {
-		// CapEnter after startup blocks opening the config file and new sockets.
+		// CapEnter blocks opening the rewritten config and new sockets, and also
+		// blocks syscall.Exec, so neither in-process reload nor re-exec works.
 		return result(nameDaemonReload, SeveritySkip, "CapEnter blocks post-sandbox reload opens")
+	}
+	if runtime.GOOS == "openbsd" {
+		// Sealed unveil+pledge lets the daemon start, but SIGHUP reload drops the
+		// shared-instance RPC listener (auth EOF then connection refused in CI).
+		return result(nameDaemonReload, SeveritySkip, "unveil+pledge blocks reliable post-sandbox SIGHUP reload")
 	}
 
 	ln, err := net.ListenPacket("udp", "127.0.0.1:0")

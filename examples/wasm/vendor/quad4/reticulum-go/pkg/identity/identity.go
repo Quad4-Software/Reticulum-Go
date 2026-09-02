@@ -34,6 +34,7 @@ type Identity struct {
 	signingKey      *securemem.Buf // 64-byte expanded Ed25519 private key
 	verificationKey ed25519.PublicKey
 	externalSigner  cryptography.Ed25519Signer // if non-nil, Sign uses this instead of signingSeed
+	fullPublicKey   []byte                     // X25519||Ed25519, 64 bytes. Do not mutate.
 	hash            []byte
 	hexHash         string
 
@@ -43,10 +44,11 @@ type Identity struct {
 }
 
 type knownDestEntry struct {
-	pkt  []byte
-	hash []byte
-	id   *Identity
-	app  []byte
+	pkt    []byte
+	hash   []byte
+	rawKey string // truncated dest hash as a 16-byte string key for msgpack
+	id     *Identity
+	app    []byte
 }
 
 var (
@@ -90,12 +92,19 @@ func New() (*Identity, error) {
 	return i, nil
 }
 
+// GetPublicKey returns a fresh 64-byte X25519||Ed25519 public key, matching
+// Python Identity.get_public_key (pub_bytes+sig_pub_bytes concatenation).
+// Callers may mutate the returned slice without affecting the Identity.
 func (i *Identity) GetPublicKey() []byte {
-	// Combine encryption and signing public keys in correct order
-	fullKey := make([]byte, 64)
-	copy(fullKey[:32], i.publicKey)       // First 32 bytes: X25519 encryption key
-	copy(fullKey[32:], i.verificationKey) // Last 32 bytes: Ed25519 verification key
-	return fullKey
+	if i == nil {
+		return nil
+	}
+	if len(i.fullPublicKey) != 64 {
+		i.cachePublicHash()
+	}
+	out := make([]byte, 64)
+	copy(out, i.fullPublicKey)
+	return out
 }
 
 func (i *Identity) GetPrivateKey() ([]byte, error) {
@@ -187,16 +196,21 @@ func (i *Identity) Hash() []byte {
 	return i.hash
 }
 
-// cachePublicHash stores the truncated destination hash of the public key material.
+// cachePublicHash stores the combined public key and its truncated hash.
 func (i *Identity) cachePublicHash() {
 	if i == nil {
 		return
 	}
-	var full [64]byte
-	copy(full[:32], i.publicKey)
-	copy(full[32:], i.verificationKey)
-	sum := cryptography.Hash(full[:])
+	if cap(i.fullPublicKey) < 64 {
+		i.fullPublicKey = make([]byte, 64)
+	} else {
+		i.fullPublicKey = i.fullPublicKey[:64]
+	}
+	copy(i.fullPublicKey[:32], i.publicKey)
+	copy(i.fullPublicKey[32:], i.verificationKey)
+	sum := cryptography.Hash(i.fullPublicKey)
 	i.hash = append([]byte(nil), sum[:TruncatedHashLength/8]...)
+	i.hexHash = ""
 }
 
 func (i *Identity) ensureRatchetMaps() {
@@ -238,7 +252,7 @@ func GetRandomHash() []byte {
 	randomData := make([]byte, TruncatedHashLength/8)
 	_, err := rand.Read(randomData) // #nosec G104
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to read random data for hash", "error", err)
+		debug.Log(debug.DebugError, "Failed to read random data for hash", "error", err)
 		return nil // Or handle the error appropriately
 	}
 	return TruncatedHash(randomData)
@@ -278,7 +292,7 @@ func rememberKnown(packet []byte, destHash []byte, publicKey []byte, appData []b
 	now := time.Now().Unix()
 	if existing, ok := knownDestinations[hashStr]; ok && existing.id != nil {
 		if !existing.id.publicKeyEqual(publicKey) {
-			debug.Log(debug.DebugCritical, "Rejected announce: destination hash already known with a different public key")
+			debug.Log(debug.DebugWarning, "Rejected announce: destination hash already known with a different public key")
 			return false
 		}
 		if bytes.Equal(existing.pkt, packet) && bytes.Equal(existing.app, appData) {
@@ -302,10 +316,11 @@ func rememberKnown(packet []byte, destHash []byte, publicKey []byte, appData []b
 		id = FromPublicKey(publicKey)
 	}
 	knownDestinations[hashStr] = knownDestEntry{
-		pkt:  append([]byte(nil), packet...),
-		hash: append([]byte(nil), destHash...),
-		id:   id,
-		app:  append([]byte(nil), appData...),
+		pkt:    append([]byte(nil), packet...),
+		hash:   append([]byte(nil), destHash...),
+		rawKey: string(hashStr[:]),
+		id:     id,
+		app:    append([]byte(nil), appData...),
 	}
 	prev := knownDestMetaByKey[hashStr]
 	lastUsed := prev.lastUsed
@@ -464,7 +479,7 @@ func (i *Identity) GetCurrentRatchetKey() []byte {
 
 func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRatchets bool, ratchetIDReceiver *common.RatchetIDReceiver) ([]byte, error) {
 	if !i.hasDecryptPrivate() {
-		debug.Log(debug.DebugCritical, "Decryption failed: identity has no private key")
+		debug.Log(debug.DebugError, "Decryption failed: identity has no private key")
 		return nil, errors.New("decryption failed because identity does not hold a private key")
 	}
 
@@ -667,7 +682,7 @@ func (i *Identity) ToFile(path string) error {
 	defer securemem.WipeBytes(privateKeyBytes)
 
 	if err := store.SaveIdentityBlob(path, privateKeyBytes, ""); err != nil {
-		debug.Log(debug.DebugCritical, "Failed to write identity file", "error", err)
+		debug.Log(debug.DebugError, "Failed to write identity file", "error", err)
 		return err
 	}
 
@@ -755,10 +770,7 @@ func (i *Identity) loadPrivateKey(privateKey, signingSeed []byte) error {
 		return err
 	}
 
-	publicKeyBytes := make([]byte, 0, len(i.publicKey)+len(i.verificationKey))
-	publicKeyBytes = append(publicKeyBytes, i.publicKey...)
-	publicKeyBytes = append(publicKeyBytes, i.verificationKey...)
-	i.hash = TruncatedHash(publicKeyBytes)[:TruncatedHashLength/8]
+	i.cachePublicHash()
 	i.hexHash = hex.EncodeToString(i.hash)
 
 	debug.Log(debug.DebugVerbose, "Private key loaded successfully", "hash", i.GetHexHash())
@@ -770,7 +782,7 @@ func RecallIdentity(path string) (*Identity, error) {
 
 	file, err := os.Open(path) // #nosec G304
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to open identity file", "error", err)
+		debug.Log(debug.DebugError, "Failed to open identity file", "error", err)
 		return nil, err
 	}
 	defer file.Close()
@@ -780,7 +792,7 @@ func RecallIdentity(path string) (*Identity, error) {
 	privateKeyBytes := make([]byte, 64)
 	n, err := io.ReadFull(file, privateKeyBytes)
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to read identity data", "error", err)
+		debug.Log(debug.DebugError, "Failed to read identity data", "error", err)
 		return nil, err
 	}
 	if n != 64 {
@@ -925,12 +937,7 @@ func NewIdentity() (*Identity, error) {
 		return nil, err
 	}
 	securemem.WipeBytes(ed25519Seed[:])
-
-	combinedPub := make([]byte, KeySize/8)
-	copy(combinedPub[:KeySize/16], i.publicKey)
-	copy(combinedPub[KeySize/16:], i.verificationKey)
-	fullHash := cryptography.Hash(combinedPub)
-	i.hash = fullHash[:TruncatedHashLength/8]
+	i.cachePublicHash()
 
 	return i, nil
 }
@@ -968,14 +975,14 @@ func (i *Identity) RotateRatchet() ([]byte, error) {
 
 	newRatchet := make([]byte, RatchetSize/8)
 	if _, err := io.ReadFull(rand.Reader, newRatchet); err != nil {
-		debug.Log(debug.DebugCritical, "Failed to generate new ratchet", "error", err)
+		debug.Log(debug.DebugError, "Failed to generate new ratchet", "error", err)
 		return nil, err
 	}
 
 	ratchetPub, err := cryptography.PublicKeyFromPrivate(newRatchet)
 	if err != nil {
 		securemem.WipeBytes(newRatchet)
-		debug.Log(debug.DebugCritical, "Failed to generate ratchet public key", "error", err)
+		debug.Log(debug.DebugError, "Failed to generate ratchet public key", "error", err)
 		return nil, err
 	}
 

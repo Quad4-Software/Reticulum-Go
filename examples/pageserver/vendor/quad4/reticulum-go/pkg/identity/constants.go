@@ -18,4 +18,5 @@ const (
 
 	RatchetRotationInterval = 1800
 	MaxRetainedRatchets     = 512
+	MaxKnownRatchets        = 2048
 )
