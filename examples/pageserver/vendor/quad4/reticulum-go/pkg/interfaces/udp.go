@@ -54,6 +54,7 @@ func NewUDPInterfaceWithRetries(name string, addr string, target string, enabled
 	}
 
 	ui.MTU = 1064
+	ui.Bitrate = BitrateGuess
 	if maxReconnectTries > 0 {
 		ui.initReconnectDriver()
 	}
@@ -169,12 +170,39 @@ func (ui *UDPInterface) GetPacketCallback() common.PacketCallback {
 }
 
 func (ui *UDPInterface) ProcessIncoming(data []byte) {
-	stripped, ok := common.ApplyIFACInbound(ui, data)
-	if !ok {
+	ui.ProcessIncomingFromAddr(data, "")
+}
+
+// ProcessIncomingFromAddr is ProcessIncoming plus an optional remote address
+// string. A UDP socket is commonly shared by many remote senders, so this
+// gives each sender its own fair-share sub-bucket instead of letting one
+// flooding peer exhaust the whole interface budget and cool down every
+// other peer using the same socket. See admitIncomingFrom.
+func (ui *UDPInterface) ProcessIncomingFromAddr(data []byte, peerKey string) {
+	ui.Mutex.Lock()
+	ui.RxBytes += uint64(len(data))
+	ui.RxPackets++
+	name := ui.Name
+	ui.Mutex.Unlock()
+
+	if !admitIncomingFrom(ui, name, data, peerKey) {
 		return
 	}
+
+	// When registered with transport, IFAC is applied once in
+	// preprocessInboundPacket (RNS 1.5.0). Applying it here too would
+	// strip the IFAC flag and make transport treat a valid packet as a
+	// missing-IFAC violation.
+	payload := data
+	if !ui.DeferInboundIFAC() {
+		var ok bool
+		payload, ok = common.ApplyIFACInbound(ui, data)
+		if !ok {
+			return
+		}
+	}
 	if callback := ui.GetPacketCallback(); callback != nil {
-		callback(stripped, ui)
+		callback(payload, ui)
 	}
 }
 
@@ -207,16 +235,18 @@ func (ui *UDPInterface) Send(data []byte, address string) error {
 	if err := common.RejectReceiveOnly(ui); err != nil {
 		return err
 	}
-	debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", ui.Name, "bytes", len(data), "address", address)
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", ui.Name, "bytes", len(data), "address", address)
+	}
 
 	masked, err := common.ApplyIFACOutbound(ui, data)
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to mask outgoing packet for IFAC", "name", ui.Name, "error", err)
+		debug.Log(debug.DebugError, "Failed to mask outgoing packet for IFAC", "name", ui.Name, "error", err)
 		return err
 	}
 
 	if err := ui.ProcessOutgoing(masked); err != nil {
-		debug.Log(debug.DebugCritical, "Interface failed to send data", "name", ui.Name, "error", err)
+		debug.Log(debug.DebugVerbose, "Interface failed to send data", "name", ui.Name, "error", err)
 		return err
 	}
 
@@ -329,7 +359,7 @@ func (ui *UDPInterface) readLoop() {
 		default:
 		}
 
-		n, _, err := conn.ReadFromUDP(buffer)
+		n, from, err := conn.ReadFromUDP(buffer)
 		if err != nil {
 			ui.Mutex.RLock()
 			stillOnline := ui.Online
@@ -351,7 +381,11 @@ func (ui *UDPInterface) readLoop() {
 			return
 		}
 
-		ui.ProcessIncoming(buffer[:n])
+		peerKey := ""
+		if from != nil {
+			peerKey = from.String()
+		}
+		ui.ProcessIncomingFromAddr(buffer[:n], peerKey)
 	}
 }
 

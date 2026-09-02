@@ -5,7 +5,6 @@ package cryptography
 
 import (
 	"crypto/aes"
-	"crypto/cipher"
 	"crypto/rand"
 	"errors"
 	"io"
@@ -29,22 +28,20 @@ func implEncryptAES256CBC(key, plaintext []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	iv := make([]byte, aes.BlockSize)
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+	padding := aes.BlockSize - len(plaintext)%aes.BlockSize
+	ctLen := len(plaintext) + padding
+	out := make([]byte, aes.BlockSize+ctLen)
+	if _, err := io.ReadFull(rand.Reader, out[:aes.BlockSize]); err != nil {
 		return nil, err
 	}
-
-	padding := aes.BlockSize - len(plaintext)%aes.BlockSize
-	padtext := make([]byte, len(plaintext)+padding)
-	copy(padtext, plaintext)
-	for i := len(plaintext); i < len(padtext); i++ {
-		padtext[i] = byte(padding)
+	copy(out[aes.BlockSize:aes.BlockSize+len(plaintext)], plaintext)
+	padByte := byte(padding)
+	for i := aes.BlockSize + len(plaintext); i < aes.BlockSize+ctLen; i++ {
+		out[i] = padByte
 	}
-
-	mode := cipher.NewCBCEncrypter(block, iv) // #nosec G407
-	out := make([]byte, aes.BlockSize+len(padtext))
-	copy(out[:aes.BlockSize], iv)
-	mode.CryptBlocks(out[aes.BlockSize:], padtext)
+	if err := EncryptCBC(block, out[:aes.BlockSize], out[aes.BlockSize:]); err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 
@@ -63,16 +60,14 @@ func implDecryptAES256CBC(key, ciphertext []byte) ([]byte, error) {
 	}
 
 	iv := ciphertext[:aes.BlockSize]
-	ciphertext = ciphertext[aes.BlockSize:]
-
-	if len(ciphertext)%aes.BlockSize != 0 {
+	ct := ciphertext[aes.BlockSize:]
+	if len(ct)%aes.BlockSize != 0 {
 		return nil, errors.New("ciphertext is not a multiple of the block size")
 	}
-
-	mode := cipher.NewCBCDecrypter(block, iv)
-	plaintext := make([]byte, len(ciphertext))
-	mode.CryptBlocks(plaintext, ciphertext)
-
+	plaintext := make([]byte, len(ct))
+	if err := DecryptCBC(block, iv, ct, plaintext); err != nil {
+		return nil, err
+	}
 	return RemovePKCS7Padding(plaintext)
 }
 

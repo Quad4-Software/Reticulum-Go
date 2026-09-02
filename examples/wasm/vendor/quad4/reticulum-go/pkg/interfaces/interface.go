@@ -98,6 +98,31 @@ type BaseInterface struct {
 	sampleRXB  uint64
 	sampleTXB  uint64
 	sampleTS   time.Time
+
+	protocolViolations uint64
+	ifacViolations     uint64
+	packetFilterHits   uint64
+	arxb, atxb         uint64
+	prxb, ptxb         uint64
+	arxc, atxc         uint64
+
+	// deferInboundIFAC skips ApplyIFACInbound in ProcessIncoming so transport
+	// inbound preprocessing can apply IFAC once (RNS 1.5.0).
+	deferInboundIFAC bool
+	ifacScratch      []byte
+	prxc, ptxc       uint64
+	sampleARXB       uint64
+	sampleATXB       uint64
+	samplePRXB       uint64
+	samplePTXB       uint64
+	currentARXS      float64
+	currentATXS      float64
+	currentPRXS      float64
+	currentPTXS      float64
+
+	announceQueue     []queuedAnnounce
+	announceAllowedAt time.Time
+	announceCap       float64
 }
 
 // NewBaseInterface creates a BaseInterface value for embedding at construction.
@@ -129,6 +154,10 @@ func NewBaseInterface(name string, ifType common.InterfaceType, enabled bool) Ba
 	}
 }
 
+func (i *BaseInterface) base() *BaseInterface {
+	return i
+}
+
 func (i *BaseInterface) SetPacketCallback(callback common.PacketCallback) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
@@ -158,6 +187,18 @@ func (i *BaseInterface) GetIFAC() common.IFAC {
 	return i.IFACIdentity
 }
 
+func (i *BaseInterface) SetDeferInboundIFAC(deferIFAC bool) {
+	i.Mutex.Lock()
+	i.deferInboundIFAC = deferIFAC
+	i.Mutex.Unlock()
+}
+
+func (i *BaseInterface) DeferInboundIFAC() bool {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.deferInboundIFAC
+}
+
 func (i *BaseInterface) ProcessIncoming(data []byte) {
 	i.ProcessIncomingFrom(data, "")
 }
@@ -176,10 +217,18 @@ func (i *BaseInterface) ProcessIncomingFrom(data []byte, peerKey string) {
 		return
 	}
 
-	stripped, ok := common.ApplyIFACInbound(i, data)
-	if !ok {
-		debug.Log(debug.DebugVerbose, "Dropped packet failing IFAC policy", "name", i.Name, "size", len(data))
-		return
+	i.Mutex.RLock()
+	deferInbound := i.deferInboundIFAC
+	i.Mutex.RUnlock()
+
+	payload := data
+	if !deferInbound {
+		var ok bool
+		payload, ok = common.ApplyIFACInbound(i, data)
+		if !ok {
+			debug.Log(debug.DebugVerbose, "Dropped packet failing IFAC policy", "name", i.Name, "size", len(data))
+			return
+		}
 	}
 
 	i.Mutex.RLock()
@@ -187,7 +236,7 @@ func (i *BaseInterface) ProcessIncomingFrom(data []byte, peerKey string) {
 	i.Mutex.RUnlock()
 
 	if callback != nil {
-		callback(stripped, i)
+		callback(payload, i)
 	}
 }
 
@@ -260,7 +309,7 @@ func (i *BaseInterface) Disable() {
 	defer i.Mutex.Unlock()
 	i.Enabled = false
 	i.Online = false
-	debug.Log(debug.DebugError, "Interface disabled and offline", "name", i.Name)
+	debug.Log(debug.DebugInfo, "Interface disabled and offline", "name", i.Name)
 }
 
 func (i *BaseInterface) GetName() string {
@@ -273,6 +322,13 @@ func (i *BaseInterface) GetType() common.InterfaceType {
 
 func (i *BaseInterface) GetMode() common.InterfaceMode {
 	return i.Mode
+}
+
+// GetBitrate returns the advertised interface bitrate in bits per second.
+func (i *BaseInterface) GetBitrate() int64 {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.Bitrate
 }
 
 // RecursivePRsEnabled reports whether unknown-path discovery is enabled.
@@ -370,21 +426,35 @@ func (i *BaseInterface) Send(data []byte, address string) error {
 	if err := common.RejectReceiveOnly(i); err != nil {
 		return err
 	}
-	debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", i.Name, "bytes", len(data), "address", address)
+	if debug.Enabled(debug.DebugTrace) {
+		debug.Log(debug.DebugTrace, "Interface sending bytes", "name", i.Name, "bytes", len(data), "address", address)
+	}
 
-	masked, err := common.ApplyIFACOutbound(i, data)
+	masked, err := common.ApplyIFACOutboundInto(i, i.ifacOutboundScratch(len(data)), data)
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to mask outgoing packet for IFAC", "name", i.Name, "error", err)
+		debug.Log(debug.DebugError, "Failed to mask outgoing packet for IFAC", "name", i.Name, "error", err)
 		return err
 	}
 
 	if err := i.ProcessOutgoing(masked); err != nil {
-		debug.Log(debug.DebugCritical, "Interface failed to send data", "name", i.Name, "error", err)
+		debug.Log(debug.DebugVerbose, "Interface failed to send data", "name", i.Name, "error", err)
 		return err
 	}
 
 	i.updateBandwidthStats(uint64(len(masked)))
 	return nil
+}
+
+func (i *BaseInterface) ifacOutboundScratch(payloadLen int) []byte {
+	id := i.GetIFAC()
+	if id == nil {
+		return nil
+	}
+	need := payloadLen + id.Size() + 2
+	if cap(i.ifacScratch) < need {
+		i.ifacScratch = make([]byte, need)
+	}
+	return i.ifacScratch[:0]
 }
 
 func (i *BaseInterface) GetConn() net.Conn {
@@ -399,7 +469,9 @@ func (i *BaseInterface) GetBandwidthAvailable() bool {
 	// Coarse clocks (notably Windows) can report elapsed <= 0 on the same
 	// tick as lastTx. Still apply the sampled TX gate in that case.
 	if i.Bitrate <= 0 || elapsed > time.Second {
-		debug.Log(debug.DebugVerbose, "Interface bandwidth available", "name", i.Name, "idle_seconds", elapsed.Seconds())
+		if debug.Enabled(debug.DebugTrace) {
+			debug.Log(debug.DebugTrace, "Interface bandwidth available", "name", i.Name, "idle_seconds", elapsed.Seconds())
+		}
 		return true
 	}
 
@@ -408,11 +480,15 @@ func (i *BaseInterface) GetBandwidthAvailable() bool {
 	// falsely reports multi-Gbps after a few KB and permanently closes the
 	// announce forward gate under normal mesh load.
 	if i.currentTXS <= 0 {
-		debug.Log(debug.DebugVerbose, "Interface bandwidth available", "name", i.Name, "idle_seconds", elapsed.Seconds())
+		if debug.Enabled(debug.DebugTrace) {
+			debug.Log(debug.DebugTrace, "Interface bandwidth available", "name", i.Name, "idle_seconds", elapsed.Seconds())
+		}
 		return true
 	}
 	available := i.currentTXS < maxUsage
-	debug.Log(debug.DebugVerbose, "Interface bandwidth stats", "name", i.Name, "current_bps", i.currentTXS, "max_bps", maxUsage, "usage_percent", (i.currentTXS/maxUsage)*100, "available", available)
+	if debug.Enabled(debug.DebugTrace) {
+		debug.Log(debug.DebugTrace, "Interface bandwidth stats", "name", i.Name, "current_bps", i.currentTXS, "max_bps", maxUsage, "usage_percent", (i.currentTXS/maxUsage)*100, "available", available)
+	}
 	return available
 }
 
@@ -421,15 +497,23 @@ func (i *BaseInterface) updateBandwidthStats(bytes uint64) {
 	defer i.Mutex.Unlock()
 
 	i.TxBytes += bytes
+	i.TxPackets++
 	i.lastTx = time.Now()
-
-	debug.Log(debug.DebugVerbose, "Interface updated bandwidth stats", "name", i.Name, "tx_bytes", i.TxBytes, "last_tx", i.lastTx)
+	if debug.Enabled(debug.DebugTrace) {
+		debug.Log(debug.DebugTrace, "Interface updated bandwidth stats", "name", i.Name, "tx_bytes", i.TxBytes, "last_tx", i.lastTx)
+	}
 }
 
 // ReceivedPathRequest records an incoming path request for frequency tracking.
 func (i *BaseInterface) ReceivedPathRequest() {
+	i.ReceivedPathRequestBytes(0)
+}
+
+// ReceivedPathRequestBytes records an incoming path request with byte size.
+func (i *BaseInterface) ReceivedPathRequestBytes(size int) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
+	i.tallyReceivedPathRequestBytes(size)
 	i.ipFreqDeque = append(i.ipFreqDeque, time.Now())
 	if len(i.ipFreqDeque) > prFreqSamples {
 		i.ipFreqDeque = i.ipFreqDeque[1:]
@@ -438,8 +522,14 @@ func (i *BaseInterface) ReceivedPathRequest() {
 
 // SentPathRequest records an outgoing path request for frequency tracking.
 func (i *BaseInterface) SentPathRequest() {
+	i.SentPathRequestBytes(0)
+}
+
+// SentPathRequestBytes records an outgoing path request with byte size.
+func (i *BaseInterface) SentPathRequestBytes(size int) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
+	i.tallySentPathRequestBytes(size)
 	i.opFreqDeque = append(i.opFreqDeque, time.Now())
 	if len(i.opFreqDeque) > prFreqSamples {
 		i.opFreqDeque = i.opFreqDeque[1:]
@@ -448,8 +538,14 @@ func (i *BaseInterface) SentPathRequest() {
 
 // ReceivedAnnounce records an incoming announce for frequency tracking.
 func (i *BaseInterface) ReceivedAnnounce() {
+	i.ReceivedAnnounceBytes(0)
+}
+
+// ReceivedAnnounceBytes records an incoming announce with byte size.
+func (i *BaseInterface) ReceivedAnnounceBytes(size int) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
+	i.tallyReceivedAnnounceBytes(size)
 	i.iaFreqDeque = append(i.iaFreqDeque, time.Now())
 	if len(i.iaFreqDeque) > prFreqSamples {
 		i.iaFreqDeque = i.iaFreqDeque[1:]
@@ -458,8 +554,14 @@ func (i *BaseInterface) ReceivedAnnounce() {
 
 // SentAnnounce records an outgoing announce for frequency tracking.
 func (i *BaseInterface) SentAnnounce() {
+	i.SentAnnounceBytes(0)
+}
+
+// SentAnnounceBytes records an outgoing announce with byte size.
+func (i *BaseInterface) SentAnnounceBytes(size int) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
+	i.tallySentAnnounceBytes(size)
 	i.oaFreqDeque = append(i.oaFreqDeque, time.Now())
 	if len(i.oaFreqDeque) > prFreqSamples {
 		i.oaFreqDeque = i.oaFreqDeque[1:]
@@ -509,6 +611,10 @@ func (i *BaseInterface) SampleTraffic() {
 	if i.sampleTS.IsZero() {
 		i.sampleRXB = i.RxBytes
 		i.sampleTXB = i.TxBytes
+		i.sampleARXB = i.arxb
+		i.sampleATXB = i.atxb
+		i.samplePRXB = i.prxb
+		i.samplePTXB = i.ptxb
 		i.sampleTS = now
 		return
 	}
@@ -522,6 +628,7 @@ func (i *BaseInterface) SampleTraffic() {
 	i.currentTXS = float64(txDiff*8) / elapsed
 	i.sampleRXB = i.RxBytes
 	i.sampleTXB = i.TxBytes
+	i.sampleTypedTraffic(now, elapsed)
 	i.sampleTS = now
 }
 

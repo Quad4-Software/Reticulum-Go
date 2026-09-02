@@ -45,7 +45,7 @@ github.com/quic-go/webtransport-go
 ## explicit; go 1.25.0
 go.bug.st/serial
 go.bug.st/serial/unixutils
-# golang.org/x/crypto v0.54.0
+# golang.org/x/crypto v0.55.0
 ## explicit; go 1.25.0
 golang.org/x/crypto/chacha20
 golang.org/x/crypto/chacha20poly1305
@@ -53,7 +53,7 @@ golang.org/x/crypto/curve25519
 golang.org/x/crypto/hkdf
 golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
-# golang.org/x/net v0.57.0
+# golang.org/x/net v0.58.0
 ## explicit; go 1.25.0
 golang.org/x/net/bpf
 golang.org/x/net/http/httpguts
@@ -69,10 +69,14 @@ golang.org/x/sync/errgroup
 # golang.org/x/sys v0.47.0
 ## explicit; go 1.25.0
 golang.org/x/sys/cpu
+golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
-# golang.org/x/text v0.40.0
+# golang.org/x/term v0.45.0
+## explicit; go 1.25.0
+golang.org/x/term
+# golang.org/x/text v0.41.0
 ## explicit; go 1.25.0
 golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
@@ -89,7 +93,7 @@ quad4/bzip2/pkg/bzip2
 ## explicit; go 1.26.5
 quad4/msgpack/v5/pkg/msgpack
 quad4/msgpack/v5/pkg/msgpack/msgpcode
-# quad4/reticulum-go v1.0.0 => ../../
+# quad4/reticulum-go v1.1.1 => ../../
 ## explicit; go 1.26.5
 quad4/reticulum-go/internal/storage
 quad4/reticulum-go/pkg/announce
@@ -101,6 +105,7 @@ quad4/reticulum-go/pkg/cryptography
 quad4/reticulum-go/pkg/debug
 quad4/reticulum-go/pkg/destination
 quad4/reticulum-go/pkg/health
+quad4/reticulum-go/pkg/hostcap
 quad4/reticulum-go/pkg/i2p
 quad4/reticulum-go/pkg/identity
 quad4/reticulum-go/pkg/identity/store
@@ -109,6 +114,7 @@ quad4/reticulum-go/pkg/interfaces
 quad4/reticulum-go/pkg/link
 quad4/reticulum-go/pkg/packet
 quad4/reticulum-go/pkg/pathfinder
+quad4/reticulum-go/pkg/profiler
 quad4/reticulum-go/pkg/protect
 quad4/reticulum-go/pkg/rate
 quad4/reticulum-go/pkg/resource
@@ -119,7 +125,7 @@ quad4/reticulum-go/pkg/term
 quad4/reticulum-go/pkg/transport
 quad4/reticulum-go/pkg/wasm
 # quad4/reticulum-go-protocols v0.0.0 => ../../../../Reticulum-Go-Projects/reticulum-go-mf
-## explicit; go 1.26.5
+## explicit; go 1.26.6
 quad4/reticulum-go-protocols/pkg/mf
 # quad4/tagparser v0.0.0 => ../../../../Reticulum-Go-Projects/tagparser
 ## explicit; go 1.26.2

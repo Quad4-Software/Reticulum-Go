@@ -6,6 +6,7 @@ package buffer
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/binary"
 	"io"
 	"sync"
@@ -187,6 +188,9 @@ func (w *RawChannelWriter) Write(p []byte) (n int, err error) {
 		processed = len(p)
 	}
 
+	if err := w.channel.WaitReady(context.Background()); err != nil {
+		return 0, err
+	}
 	if err := w.channel.Send(msg); err != nil {
 		return 0, err
 	}

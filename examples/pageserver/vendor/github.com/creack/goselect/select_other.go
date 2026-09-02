@@ -1,4 +1,3 @@
-//go:build !linux && !windows && !plan9 && !solaris
 // +build !linux,!windows,!plan9,!solaris
 
 package goselect

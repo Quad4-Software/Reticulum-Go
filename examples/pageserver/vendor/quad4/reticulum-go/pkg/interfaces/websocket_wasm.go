@@ -249,7 +249,7 @@ func (wsi *WebSocketInterface) Send(data []byte, _ string) error {
 func (wsi *WebSocketInterface) ProcessOutgoing(data []byte) error {
 	if !wsi.connected {
 		wsi.Mutex.Lock()
-		wsi.messageQueue = append(wsi.messageQueue, data)
+		wsi.messageQueue = enqueueWSMessage(wsi.messageQueue, data)
 		wsi.Mutex.Unlock()
 		return nil
 	}

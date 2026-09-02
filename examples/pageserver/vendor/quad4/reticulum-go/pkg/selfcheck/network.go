@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/interfaces"
 )
 
@@ -116,7 +117,12 @@ func checkQUIC() Result {
 	port := ln.LocalAddr().(*net.UDPAddr).Port
 	_ = ln.Close()
 
-	srv, err := interfaces.NewQUICServerInterface("selfcheck-quic", "127.0.0.1", port, interfaces.QUICServerOptions{})
+	srv, err := interfaces.NewFromConfig("selfcheck-quic", &common.InterfaceConfig{
+		Type:    "QUICServerInterface",
+		Address: "127.0.0.1",
+		Port:    port,
+		Enabled: true,
+	})
 	if err != nil {
 		if isUnsupported(err) {
 			return result("network/quic", SeveritySkip, err.Error())
@@ -208,7 +214,8 @@ func isUnsupported(err error) bool {
 	s := strings.ToLower(err.Error())
 	return strings.Contains(s, "not supported") ||
 		strings.Contains(s, "unsupported") ||
-		strings.Contains(s, "not available")
+		strings.Contains(s, "not available") ||
+		strings.Contains(s, "omitted")
 }
 
 func loopbackResult(name string, err error) Result {

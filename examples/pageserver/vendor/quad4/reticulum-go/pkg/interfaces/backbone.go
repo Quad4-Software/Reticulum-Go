@@ -6,6 +6,7 @@ package interfaces
 import (
 	"fmt"
 	"net"
+	"sort"
 	"sync"
 	"time"
 
@@ -211,6 +212,13 @@ func (bi *BackboneInterface) Stop() error {
 }
 
 func (bi *BackboneInterface) acceptConn(conn net.Conn) {
+	select {
+	case <-bi.done:
+		_ = conn.Close()
+		return
+	default:
+	}
+
 	remoteIP := peerIP(conn)
 	if bi.isFastFlappingBlocked(remoteIP) {
 		debug.Log(debug.DebugVerbose, "Ignoring incoming connection from fast-flapping IP", "ip", remoteIP)
@@ -220,6 +228,19 @@ func (bi *BackboneInterface) acceptConn(conn net.Conn) {
 
 	client := newSpawnedBackboneClient(bi, conn)
 	bi.spawnMu.Lock()
+	select {
+	case <-bi.done:
+		bi.spawnMu.Unlock()
+		_ = conn.Close()
+		return
+	default:
+	}
+	if bi.isFastFlappingBlocked(remoteIP) {
+		bi.spawnMu.Unlock()
+		debug.Log(debug.DebugVerbose, "Ignoring incoming connection from fast-flapping IP", "ip", remoteIP)
+		_ = conn.Close()
+		return
+	}
 	bi.spawned = append(bi.spawned, client)
 	cb := bi.callback
 	hook := bi.spawnHook
@@ -279,6 +300,27 @@ func (bi *BackboneInterface) BlockedIPCount() int {
 		}
 	}
 	return count
+}
+
+// BlockedIPs returns remote IPs currently blocked for fast-flapping.
+// Unlike Python's blocked_ip_list (which returns every tracked flap entry),
+// Go only exports IPs that have exceeded the grace threshold.
+func (bi *BackboneInterface) BlockedIPs() []string {
+	if !bi.blockFastFlapping {
+		return nil
+	}
+	now := time.Now()
+	bi.fastFlapMu.Lock()
+	defer bi.fastFlapMu.Unlock()
+	bi.expireFastFlapsLocked(now)
+	out := make([]string, 0)
+	for ip, ffe := range bi.fastFlapping {
+		if ffe.flaps > bi.fastFlapGrace {
+			out = append(out, ip)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 func (bi *BackboneInterface) expireFastFlapsLocked(now time.Time) {

@@ -6,7 +6,6 @@ package cli
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -26,6 +25,16 @@ func RunSelfCheck(args []string, opt ...Options) int {
 	strict := fs.Bool("strict", false, "treat warnings as failures")
 	binary := fs.String("binary", "", "path to reticulum-go for daemon and CLI checks")
 	timeout := fs.Duration("timeout", 45*time.Second, "overall check timeout")
+	bindFlagUsage(fs, "reticulum-go self-check - host OS preflight",
+		"Runs platform checks for dependencies, permissions, and optional interop tools.",
+		[]helpLine{
+			{Cmd: "reticulum-go self-check [flags]"},
+			{Cmd: "rgoselfcheck [flags]"},
+		},
+		"reticulum-go self-check",
+		"reticulum-go self-check -json",
+		"reticulum-go self-check -full -strict",
+	)
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -57,12 +66,12 @@ func RunSelfCheck(args []string, opt ...Options) int {
 	rep := selfcheck.Run(ctx, opts)
 	if *jsonOut {
 		if err := rep.FormatJSON(stdout); err != nil {
-			fmt.Fprintf(stderr, "json: %v\n", err)
+			diagErr(stderr, "json", err)
 			return 1
 		}
 	} else {
 		if err := rep.FormatText(stdout); err != nil {
-			fmt.Fprintf(stderr, "report: %v\n", err)
+			diagErr(stderr, "report", err)
 			return 1
 		}
 	}

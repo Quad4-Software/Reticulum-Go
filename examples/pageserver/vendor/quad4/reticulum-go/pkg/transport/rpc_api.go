@@ -4,11 +4,15 @@
 package transport
 
 import (
+	"math"
+	"reflect"
 	"time"
 
+	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/cryptography"
 	"quad4/reticulum-go/pkg/health"
 	"quad4/reticulum-go/pkg/packet"
+	"quad4/reticulum-go/pkg/protect"
 )
 
 // PathTableEntry is one path-table row for shared-instance RPC.
@@ -36,10 +40,13 @@ type InterfaceStat struct {
 	IncomingPRFrequency       float64  `msgpack:"incoming_pr_frequency"`
 	OutgoingPRFrequency       float64  `msgpack:"outgoing_pr_frequency"`
 	HeldAnnounces             int      `msgpack:"held_announces"`
+	AnnounceQueue             int      `msgpack:"announce_queue"`
 	BurstActive               bool     `msgpack:"burst_active"`
 	PRBurstActive             bool     `msgpack:"pr_burst_active"`
 	Status                    bool     `msgpack:"status"`
 	Mode                      byte     `msgpack:"mode"`
+	Gravity                   int      `msgpack:"gravity"`
+	AnnouncesToInternal       bool     `msgpack:"announces_to_internal"`
 	Clients                   *int     `msgpack:"clients"`
 	Bitrate                   int64    `msgpack:"bitrate"`
 	RTTMs                     *float64 `msgpack:"rtt_ms,omitempty"`
@@ -55,6 +62,7 @@ type InterfaceStat struct {
 	PaddingFail               uint64   `msgpack:"padding_fail"`
 	ProofFail                 uint64   `msgpack:"proof_fail"`
 	LRProofHopMismatch        uint64   `msgpack:"lrproof_hop_mismatch"`
+	PathRebalance             uint64   `msgpack:"path_rebalance"`
 	RequestSkewReject         uint64   `msgpack:"request_skew_reject"`
 	BlackholeHit              uint64   `msgpack:"blackhole_hit"`
 	LinkStaleClose            uint64   `msgpack:"link_stale_close"`
@@ -75,20 +83,73 @@ type InterfaceStat struct {
 	IntegritySamples60        uint64   `msgpack:"integrity_samples_60s"`
 	StaleCloses               uint64   `msgpack:"stale_closes"`
 	ActiveLinks               int      `msgpack:"active_links,omitempty"`
+	BlockedIPs                *int     `msgpack:"blocked_ips,omitempty"`
+	BlockedIPList             []string `msgpack:"blocked_ip_list,omitempty"`
+	ARXB                      uint64   `msgpack:"arxb"`
+	ATXB                      uint64   `msgpack:"atxb"`
+	ARXC                      uint64   `msgpack:"arxc"`
+	ATXC                      uint64   `msgpack:"atxc"`
+	PRXB                      uint64   `msgpack:"prxb"`
+	PTXB                      uint64   `msgpack:"ptxb"`
+	PRXC                      uint64   `msgpack:"prxc"`
+	PTXC                      uint64   `msgpack:"ptxc"`
+	ARXS                      float64  `msgpack:"arxs"`
+	ATXS                      float64  `msgpack:"atxs"`
+	PRXS                      float64  `msgpack:"prxs"`
+	PTXS                      float64  `msgpack:"ptxs"`
+	ProtocolViolations        uint64   `msgpack:"protocol_violations"`
+	IFACViolations            uint64   `msgpack:"ifac_violations"`
+	PacketFilterHits          uint64   `msgpack:"packet_filter_hits"`
 }
 
 // InterfaceStatsResponse is the top-level interface stats RPC payload.
 type InterfaceStatsResponse struct {
-	Interfaces      []InterfaceStat `msgpack:"interfaces"`
-	RXB             uint64          `msgpack:"rxb"`
-	TXB             uint64          `msgpack:"txb"`
-	RXS             float64         `msgpack:"rxs"`
-	TXS             float64         `msgpack:"txs"`
-	TransportID     []byte          `msgpack:"transport_id"`
-	TransportUptime float64         `msgpack:"transport_uptime"`
-	NetmonFlap      uint64          `msgpack:"netmon_flap"`
-	ActiveLinks     int             `msgpack:"active_links"`
-	Health          health.Snapshot `msgpack:"health"`
+	Interfaces         []InterfaceStat  `msgpack:"interfaces"`
+	RXB                uint64           `msgpack:"rxb"`
+	TXB                uint64           `msgpack:"txb"`
+	RXS                float64          `msgpack:"rxs"`
+	TXS                float64          `msgpack:"txs"`
+	ARXB               uint64           `msgpack:"arxb"`
+	ATXB               uint64           `msgpack:"atxb"`
+	ARXS               float64          `msgpack:"arxs"`
+	ATXS               float64          `msgpack:"atxs"`
+	ARXF               float64          `msgpack:"arxf"`
+	ATXF               float64          `msgpack:"atxf"`
+	PRXB               uint64           `msgpack:"prxb"`
+	PTXB               uint64           `msgpack:"ptxb"`
+	PRXS               float64          `msgpack:"prxs"`
+	PTXS               float64          `msgpack:"ptxs"`
+	PRXF               float64          `msgpack:"prxf"`
+	PTXF               float64          `msgpack:"ptxf"`
+	RXQT               int              `msgpack:"rxqt"`
+	RXQD               int              `msgpack:"rxqd"`
+	RXQA               int              `msgpack:"rxqa"`
+	RXQP               int              `msgpack:"rxqp"`
+	RXQIL              int              `msgpack:"rxqil"`
+	RXQTD              int              `msgpack:"rxqtd"`
+	RXQDD              int              `msgpack:"rxqdd"`
+	RXQAD              int              `msgpack:"rxqad"`
+	RXQPD              int              `msgpack:"rxqpd"`
+	RXQILD             int              `msgpack:"rxqild"`
+	TQPressure         float64          `msgpack:"tqpressure"`
+	DQPressure         float64          `msgpack:"dqpressure"`
+	AQPressure         float64          `msgpack:"aqpressure"`
+	PQPressure         float64          `msgpack:"pqpressure"`
+	ILQPressure        float64          `msgpack:"ilqpressure"`
+	TransportID        []byte           `msgpack:"transport_id"`
+	NetworkID          []byte           `msgpack:"network_id,omitempty"`
+	ProbeResponder     []byte           `msgpack:"probe_responder,omitempty"`
+	TransportUptime    float64          `msgpack:"transport_uptime"`
+	NetmonFlap         uint64           `msgpack:"netmon_flap"`
+	ActiveLinks        int              `msgpack:"active_links"`
+	Health             health.Snapshot  `msgpack:"health"`
+	PathCount          int              `msgpack:"path_count"`
+	PacketHashCount    int              `msgpack:"packet_hash_count"`
+	AnnounceCacheCount int              `msgpack:"announce_cache_count"`
+	SeenAnnounceCount  int              `msgpack:"seen_announce_count"`
+	Protect            protect.Snapshot `msgpack:"protect"`
+	RXPPS              float64          `msgpack:"rxpps"`
+	TXPPS              float64          `msgpack:"txpps"`
 }
 
 // RateTableEntry is one rate-table row for shared-instance RPC.
@@ -183,12 +244,12 @@ func (t *Transport) GetPathTable(maxHops *int) []PathTableEntry {
 
 func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 	t.mutex.RLock()
-	defer t.mutex.RUnlock()
 	resp := InterfaceStatsResponse{
 		Interfaces: make([]InterfaceStat, 0, len(t.interfaces)),
 	}
 	var rxTotal, txTotal uint64
 	var rxsTotal, txsTotal float64
+	var rxPackets, txPackets uint64
 	for _, iface := range t.interfaces {
 		if iface == nil {
 			continue
@@ -200,14 +261,20 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 		tx := iface.GetTxBytes()
 		rxTotal += rx
 		txTotal += tx
+		rxPackets += iface.GetRxPackets()
+		txPackets += iface.GetTxPackets()
 		st := InterfaceStat{
 			Name:      iface.GetName(),
 			ShortName: iface.GetName(),
-			Type:      "Interface",
+			Type:      interfaceStatusType(iface),
 			Status:    iface.IsOnline(),
 			Mode:      byte(iface.GetMode()),
+			Gravity:   interfaceGravity(iface),
 			RXB:       rx,
 			TXB:       tx,
+		}
+		if v, ok := iface.(interface{ AnnouncesToInternalFlag() bool }); ok {
+			st.AnnouncesToInternal = v.AnnouncesToInternalFlag()
 		}
 		if hasher, ok := iface.(interface{ InterfaceHash() []byte }); ok {
 			st.Hash = hasher.InterfaceHash()
@@ -220,10 +287,13 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 		case interface{ GetBitrate() uint64 }:
 			st.Bitrate = int64(br.GetBitrate()) // #nosec G115 -- bitrate display only
 		}
+		if clients, ok := iface.(interface{ Clients() int }); ok {
+			n := clients.Clients()
+			st.Clients = &n
+		}
 		if parent, ok := iface.(interface {
 			Connectable() bool
 			Base32() string
-			Clients() int
 		}); ok {
 			connectable := parent.Connectable()
 			st.I2PConnectable = &connectable
@@ -231,8 +301,16 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 				endpoint := b32 + ".b32.i2p"
 				st.I2PB32 = &endpoint
 			}
-			clients := parent.Clients()
-			st.Clients = &clients
+		}
+		if blocked, ok := iface.(interface {
+			BlockedIPCount() int
+			BlockedIPs() []string
+		}); ok {
+			n := blocked.BlockedIPCount()
+			st.BlockedIPs = &n
+			if list := blocked.BlockedIPs(); len(list) > 0 {
+				st.BlockedIPList = append([]string(nil), list...)
+			}
 		}
 		if peer, ok := iface.(interface{ TunnelState() uint32 }); ok {
 			label := i2pTunnelStateLabel(peer.TunnelState())
@@ -282,6 +360,9 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 				st.BurstActive = stt.ingress.InBurst()
 			}
 		}
+		if q, ok := iface.(interface{ AnnounceQueueLen() int }); ok {
+			st.AnnounceQueue = q.AnnounceQueueLen()
+		}
 		hs := health.Default.SnapshotIface(iface.GetName())
 		st.IFACFail = hs.IFACFail.Total
 		st.HMACFail = hs.HMACFail.Total
@@ -290,6 +371,7 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 		st.PaddingFail = hs.PaddingFail.Total
 		st.ProofFail = hs.ProofFail.Total
 		st.LRProofHopMismatch = hs.LRProofHopMismatch.Total
+		st.PathRebalance = hs.PathRebalance.Total
 		st.RequestSkewReject = hs.RequestSkewReject.Total
 		st.BlackholeHit = hs.BlackholeHit.Total
 		st.LinkStaleClose = hs.LinkStaleClose.Total
@@ -309,23 +391,80 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 		st.IntegrityFailRate = hs.IntegrityFailRate
 		st.IntegritySamples60 = hs.IFACFail.Rate60 + hs.HMACFail.Rate60 + hs.UnpackFail.Rate60 + hs.PaddingFail.Rate60 + hs.RxOK.Rate60
 		st.StaleCloses = hs.StaleCloses
+		fillInterfaceAccounting(&st, iface)
 		resp.Interfaces = append(resp.Interfaces, st)
 	}
 	resp.RXB = rxTotal
 	resp.TXB = txTotal
 	resp.RXS = rxsTotal
 	resp.TXS = txsTotal
+	rxPPS, txPPS := t.updatePacketPPS(rxPackets, txPackets)
+	resp.RXPPS = rxPPS
+	resp.TXPPS = txPPS
+	aggregateInterfaceStatsTotals(&resp)
 	trHealth := health.Default.SnapshotTransport()
 	resp.Health = trHealth
 	resp.NetmonFlap = trHealth.NetmonFlap.Total
-	resp.ActiveLinks = t.countActiveLinksLocked()
+	total, heights, dropped := t.inboundQueueSnapshot()
+	fillInboundQueueStats(&resp, total, heights, dropped, t.inboundQueueSizes)
+	if t.linkTable != nil {
+		total, validated := t.linkTable.counts()
+		resp.ActiveLinks = validated
+		_ = total
+	} else {
+		resp.ActiveLinks = t.countActiveLinksLocked()
+	}
 	if t.transportIdentity != nil {
 		resp.TransportID = t.transportIdentity.Hash()
+	}
+	if t.networkIdentity != nil {
+		resp.NetworkID = t.networkIdentity.Hash()
+	}
+	if t.probeDestination != nil {
+		resp.ProbeResponder = t.probeDestination.GetHash()
 	}
 	if !t.startTime.IsZero() {
 		resp.TransportUptime = time.Since(t.startTime).Seconds()
 	}
+	ms := t.memoryStatsUnlocked()
+	resp.PathCount = ms.Paths
+	resp.PacketHashCount = ms.PacketHashes
+	resp.AnnounceCacheCount = ms.AnnouncePacketCache
+	resp.SeenAnnounceCount = ms.SeenAnnounces
+	t.mutex.RUnlock()
+	resp.Protect = protect.CurrentSnapshot()
 	return resp
+}
+
+// updatePacketPPS refreshes transport-wide packet rates for rnstatus -p.
+// Safe under concurrent GetInterfaceStatsRPC callers (own mutex).
+func (t *Transport) updatePacketPPS(rxPackets, txPackets uint64) (rxPPS, txPPS float64) {
+	now := time.Now()
+	t.ppsMu.Lock()
+	defer t.ppsMu.Unlock()
+	if t.ppsSampleAt.IsZero() {
+		t.ppsSampleAt = now
+		t.ppsLastRxPackets = rxPackets
+		t.ppsLastTxPackets = txPackets
+		if !t.startTime.IsZero() {
+			td := now.Sub(t.startTime).Seconds()
+			if td > 0 {
+				t.rxPPS = float64(rxPackets) / td
+				t.txPPS = float64(txPackets) / td
+			}
+		}
+		return t.rxPPS, t.txPPS
+	}
+	td := now.Sub(t.ppsSampleAt).Seconds()
+	if td <= 0 {
+		return t.rxPPS, t.txPPS
+	}
+	t.rxPPS = float64(rxPackets-t.ppsLastRxPackets) / td
+	t.txPPS = float64(txPackets-t.ppsLastTxPackets) / td
+	t.ppsSampleAt = now
+	t.ppsLastRxPackets = rxPackets
+	t.ppsLastTxPackets = txPackets
+	return t.rxPPS, t.txPPS
 }
 
 func (t *Transport) countActiveLinksLocked() int {
@@ -398,18 +537,182 @@ func (t *Transport) DropAllViaRPC(transportHash []byte) int {
 	return dropped
 }
 
+// DropAnnounceQueuesRPC discards per-interface outgoing announce queues.
+// Matches Python Transport.drop_announce_queues. It does not clear the
+// pathfinder held-announce cache.
 func (t *Transport) DropAnnounceQueuesRPC() int {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-	n := len(t.heldAnnounces)
-	t.heldAnnounces = make(map[string]*PathAnnounceEntry)
+	n := 0
+	for _, e := range t.snapshotRegisteredInterfaces() {
+		if e.iface == nil {
+			continue
+		}
+		if q, ok := e.iface.(interface{ DropAnnounceQueue() int }); ok {
+			n += q.DropAnnounceQueue()
+		}
+	}
 	return n
+}
+
+// interfaceStatusType returns the concrete Go type name, matching Python
+// type(interface).__name__ (UDPInterface, TCPClientInterface, ...).
+func interfaceStatusType(iface common.NetworkInterface) string {
+	if iface == nil {
+		return "Interface"
+	}
+	rt := reflect.TypeOf(iface)
+	for rt != nil && rt.Kind() == reflect.Pointer {
+		rt = rt.Elem()
+	}
+	if rt == nil {
+		return "Interface"
+	}
+	if name := rt.Name(); name != "" {
+		return name
+	}
+	return "Interface"
 }
 
 func (t *Transport) GetLinkCountRPC() int {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
+	if t.linkTable != nil {
+		total, _ := t.linkTable.counts()
+		return total
+	}
 	return len(t.links)
+}
+
+func (t *Transport) GetActiveLinkCountRPC() int {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	if t.linkTable != nil {
+		_, validated := t.linkTable.counts()
+		return validated
+	}
+	return t.countActiveLinksLocked()
+}
+
+func fillInterfaceAccounting(st *InterfaceStat, iface common.NetworkInterface) {
+	if st == nil || iface == nil {
+		return
+	}
+	if v, ok := iface.(interface{ ProtocolViolations() uint64 }); ok {
+		st.ProtocolViolations = v.ProtocolViolations()
+	}
+	if v, ok := iface.(interface{ IFACViolations() uint64 }); ok {
+		st.IFACViolations = v.IFACViolations()
+	}
+	if v, ok := iface.(interface{ PacketFilterHits() uint64 }); ok {
+		st.PacketFilterHits = v.PacketFilterHits()
+	}
+	if v, ok := iface.(interface{ AnnounceRXBytes() uint64 }); ok {
+		st.ARXB = v.AnnounceRXBytes()
+	}
+	if v, ok := iface.(interface{ AnnounceTXBytes() uint64 }); ok {
+		st.ATXB = v.AnnounceTXBytes()
+	}
+	if v, ok := iface.(interface{ AnnounceRXCount() uint64 }); ok {
+		st.ARXC = v.AnnounceRXCount()
+	}
+	if v, ok := iface.(interface{ AnnounceTXCount() uint64 }); ok {
+		st.ATXC = v.AnnounceTXCount()
+	}
+	if v, ok := iface.(interface{ PathRequestRXBytes() uint64 }); ok {
+		st.PRXB = v.PathRequestRXBytes()
+	}
+	if v, ok := iface.(interface{ PathRequestTXBytes() uint64 }); ok {
+		st.PTXB = v.PathRequestTXBytes()
+	}
+	if v, ok := iface.(interface{ PathRequestRXCount() uint64 }); ok {
+		st.PRXC = v.PathRequestRXCount()
+	}
+	if v, ok := iface.(interface{ PathRequestTXCount() uint64 }); ok {
+		st.PTXC = v.PathRequestTXCount()
+	}
+	if v, ok := iface.(interface{ AnnounceRXSpeed() float64 }); ok {
+		st.ARXS = v.AnnounceRXSpeed()
+	}
+	if v, ok := iface.(interface{ AnnounceTXSpeed() float64 }); ok {
+		st.ATXS = v.AnnounceTXSpeed()
+	}
+	if v, ok := iface.(interface{ PathRequestRXSpeed() float64 }); ok {
+		st.PRXS = v.PathRequestRXSpeed()
+	}
+	if v, ok := iface.(interface{ PathRequestTXSpeed() float64 }); ok {
+		st.PTXS = v.PathRequestTXSpeed()
+	}
+}
+
+func inboundDroppedToInt(v uint64) int {
+	if v > uint64(math.MaxInt) {
+		return math.MaxInt
+	}
+	return int(v)
+}
+
+func fillInboundQueueStats(resp *InterfaceStatsResponse, total int, heights [inboundQueueCount]int, dropped [inboundQueueCount]uint64, sizes [inboundQueueCount]int) {
+	if resp == nil {
+		return
+	}
+	dql := queueSizeOrDefault(sizes[TCData], defaultInboundDataQueueLen)
+	aql := queueSizeOrDefault(sizes[TCAnnounce], defaultInboundAnnounceQueueLen)
+	pql := queueSizeOrDefault(sizes[TCPathRequest], defaultInboundPRQueueLen)
+	ilql := queueSizeOrDefault(sizes[TCIngressLimited], defaultInboundILQueueLen)
+	tql := dql + aql + pql + ilql
+
+	resp.RXQT = total
+	resp.RXQD = heights[TCData]
+	resp.RXQA = heights[TCAnnounce]
+	resp.RXQP = heights[TCPathRequest]
+	resp.RXQIL = heights[TCIngressLimited]
+	resp.RXQTD = inboundDroppedToInt(dropped[TCData] + dropped[TCAnnounce] + dropped[TCPathRequest] + dropped[TCIngressLimited])
+	resp.RXQDD = inboundDroppedToInt(dropped[TCData])
+	resp.RXQAD = inboundDroppedToInt(dropped[TCAnnounce])
+	resp.RXQPD = inboundDroppedToInt(dropped[TCPathRequest])
+	resp.RXQILD = inboundDroppedToInt(dropped[TCIngressLimited])
+	if tql > 0 && total > 0 {
+		resp.TQPressure = float64(total) / float64(tql)
+	}
+	if dql > 0 && heights[TCData] > 0 {
+		resp.DQPressure = float64(heights[TCData]) / float64(dql)
+	}
+	if aql > 0 && heights[TCAnnounce] > 0 {
+		resp.AQPressure = float64(heights[TCAnnounce]) / float64(aql)
+	}
+	if pql > 0 && heights[TCPathRequest] > 0 {
+		resp.PQPressure = float64(heights[TCPathRequest]) / float64(pql)
+	}
+	if ilql > 0 && heights[TCIngressLimited] > 0 {
+		resp.ILQPressure = float64(heights[TCIngressLimited]) / float64(ilql)
+	}
+}
+
+func queueSizeOrDefault(size, def int) int {
+	if size > 0 {
+		return size
+	}
+	return def
+}
+
+func aggregateInterfaceStatsTotals(resp *InterfaceStatsResponse) {
+	if resp == nil {
+		return
+	}
+	for i := range resp.Interfaces {
+		st := &resp.Interfaces[i]
+		resp.ARXB += st.ARXB
+		resp.ATXB += st.ATXB
+		resp.ARXS += st.ARXS
+		resp.ATXS += st.ATXS
+		resp.ARXF += st.IncomingAnnounceFrequency
+		resp.ATXF += st.OutgoingAnnounceFrequency
+		resp.PRXB += st.PRXB
+		resp.PTXB += st.PTXB
+		resp.PRXS += st.PRXS
+		resp.PTXS += st.PTXS
+		resp.PRXF += st.IncomingPRFrequency
+		resp.PTXF += st.OutgoingPRFrequency
+	}
 }
 
 func (t *Transport) GetNextHopRPC(destinationHash []byte) []byte {
@@ -421,11 +724,7 @@ func (t *Transport) GetNextHopIfNameRPC(destinationHash []byte) string {
 }
 
 func (t *Transport) GetFirstHopTimeoutRPC(destinationHash []byte) float64 {
-	hops := t.HopsTo(destinationHash)
-	if hops >= PathfinderM {
-		return float64(EstablishmentTimeoutPerHop)
-	}
-	return float64(EstablishmentTimeoutPerHop) * float64(max(1, int(hops)))
+	return t.FirstHopTimeout(destinationHash)
 }
 
 func (t *Transport) IsBlackholedRPC(identityHash []byte) bool {

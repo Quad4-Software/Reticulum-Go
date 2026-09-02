@@ -19,6 +19,7 @@ import (
 
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/identity"
+	"quad4/reticulum-go/pkg/sandbox"
 )
 
 func shebangLine(content []byte) bool {
@@ -100,7 +101,7 @@ func ReadOrExecute(filePath string, data []byte, linkID []byte, remoteIdentity *
 
 	cmd := exec.Command(filePath)
 	cmd.Env = buildScriptEnv(data, linkID, remoteIdentity)
-	out, err := cmd.Output()
+	out, err := sandbox.OutputLimited(cmd)
 	if err != nil {
 		debug.Log(debug.DebugError, "dynamic .mu page execution failed. Serving file contents", "path", filePath, "error", err)
 		return raw, nil

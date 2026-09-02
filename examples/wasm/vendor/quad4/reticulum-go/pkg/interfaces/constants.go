@@ -23,6 +23,13 @@ const (
 	TypeTCP = 0x02
 
 	PropagationRate = 0.02
+
+	// MaxQueuedAnnounces is Python RNS.Reticulum.MAX_QUEUED_ANNOUNCES.
+	MaxQueuedAnnounces = 16384
+	// QueuedAnnounceLife is Python RNS.Reticulum.QUEUED_ANNOUNCE_LIFE (24 hours).
+	QueuedAnnounceLife = 24 * time.Hour
+	// DefaultAnnounceCapFraction is 2 percent of interface bitrate.
+	DefaultAnnounceCapFraction = 0.02
 )
 
 const (

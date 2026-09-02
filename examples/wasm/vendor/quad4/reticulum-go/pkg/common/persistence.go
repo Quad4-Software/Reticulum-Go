@@ -194,6 +194,38 @@ func (c *ReticulumConfig) EffectiveMaxPacketHandlers() int {
 	return c.MaxPacketHandlers
 }
 
+// InboundDataQueueLength returns qlen_in_data when set.
+func (c *ReticulumConfig) InboundDataQueueLength() int {
+	if c == nil {
+		return 0
+	}
+	return c.QLenInboundData
+}
+
+// InboundAnnounceQueueLength returns qlen_in_announce when set.
+func (c *ReticulumConfig) InboundAnnounceQueueLength() int {
+	if c == nil {
+		return 0
+	}
+	return c.QLenInboundAnnounce
+}
+
+// InboundPRQueueLength returns qlen_in_pr when set.
+func (c *ReticulumConfig) InboundPRQueueLength() int {
+	if c == nil {
+		return 0
+	}
+	return c.QLenInboundPR
+}
+
+// InboundILQueueLength returns qlen_in_il when set.
+func (c *ReticulumConfig) InboundILQueueLength() int {
+	if c == nil {
+		return 0
+	}
+	return c.QLenInboundIL
+}
+
 // ParseByteSize parses a decimal byte count with an optional K, M, or G suffix
 // (1024-based). Empty or invalid input returns an error.
 func ParseByteSize(s string) (int64, error) {

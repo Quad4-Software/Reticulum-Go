@@ -42,8 +42,8 @@ type Hooks struct {
 // Attach starts or joins a shared local instance when share_instance is
 // enabled.
 //
-// With an explicit shared_instance_type it binds as server first, then falls
-// back to client (Python behavior).
+// With an explicit shared_instance_type it joins an existing listener when
+// present, then binds as server, matching short-lived utility expectations.
 //
 // When the type is unset it matches Python platform defaults (Unix on Linux,
 // TCP elsewhere). Before binding, it tries client dials on the primary then
@@ -82,17 +82,39 @@ func Attach(cfg *common.ReticulumConfig, tr *transport.Transport, hooks Hooks) (
 	return attachServerOrClient(cfg, tr, hooks, cfg.SharedInstancePort, socketPath, useUnix)
 }
 
+func tryAttachClients(cfg *common.ReticulumConfig, tr *transport.Transport, hooks Hooks, port int, socketPath string, useUnix bool) (*Instance, error) {
+	if inst, err := attachClient(cfg, tr, hooks, port, socketPath, useUnix); err == nil {
+		return inst, nil
+	}
+	if inst, err := attachClient(cfg, tr, hooks, port, socketPath, !useUnix); err == nil {
+		return inst, nil
+	}
+	return nil, fmt.Errorf("no shared instance listener")
+}
+
 func attachServerOrClient(cfg *common.ReticulumConfig, tr *transport.Transport, hooks Hooks, port int, socketPath string, useUnix bool) (*Instance, error) {
+	if inst, err := tryAttachClients(cfg, tr, hooks, port, socketPath, useUnix); err == nil {
+		return inst, nil
+	}
+
 	inst := &Instance{}
 	spawn := func(client *interfaces.LocalClientInterface) {
 		if hooks.RegisterInterface == nil || hooks.HandleInterface == nil {
+			_ = client.Stop()
 			return
 		}
-		if err := hooks.RegisterInterface(client.GetName(), client); err != nil {
+		name := client.GetName()
+		if err := hooks.RegisterInterface(name, client); err != nil {
 			debug.Log(debug.DebugCritical, "Failed to register spawned local client", "error", err)
+			_ = client.Stop()
 			return
 		}
 		hooks.HandleInterface(client)
+		if hooks.UnregisterInterface != nil {
+			client.SetDisconnectHooks(func() {
+				hooks.UnregisterInterface(name)
+			}, nil)
+		}
 	}
 
 	server, err := interfaces.NewLocalServerInterface(port, socketPath, useUnix, spawn, backbone.Get())

@@ -17,12 +17,12 @@ const (
 
 // Modem73WriteControl sends one length-prefixed JSON control message.
 func Modem73WriteControl(w io.Writer, msg any) error {
-	return modem73WriteControl(w, msg)
+	return writeModem73Control(w, msg)
 }
 
 // Modem73ReadControl reads one length-prefixed JSON control object.
 func Modem73ReadControl(r io.Reader) (map[string]any, error) {
-	return modem73ReadControl(r)
+	return readModem73Control(r)
 }
 
 // modem73EncodeControl writes a length-prefixed JSON control message.
@@ -40,8 +40,8 @@ func modem73EncodeControl(msg any) ([]byte, error) {
 	return out, nil
 }
 
-// modem73WriteControl sends one control message on w.
-func modem73WriteControl(w io.Writer, msg any) error {
+// writeModem73Control sends one control message on w.
+func writeModem73Control(w io.Writer, msg any) error {
 	frame, err := modem73EncodeControl(msg)
 	if err != nil {
 		return err
@@ -50,8 +50,8 @@ func modem73WriteControl(w io.Writer, msg any) error {
 	return err
 }
 
-// modem73ReadControl reads one length-prefixed JSON object from r.
-func modem73ReadControl(r io.Reader) (map[string]any, error) {
+// readModem73Control reads one length-prefixed JSON object from r.
+func readModem73Control(r io.Reader) (map[string]any, error) {
 	var hdr [modem73ControlHdrLen]byte
 	if _, err := io.ReadFull(r, hdr[:]); err != nil {
 		return nil, err

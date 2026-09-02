@@ -117,7 +117,7 @@ func LoadRNXAllowedIdentities(extra []string) ([][]byte, error) {
 
 // EstablishRNXLink waits for a path and opens an outbound link to rnx.execute.
 func EstablishRNXLink(ctx context.Context, tr *transport.Transport, destHash []byte) (*link.Link, error) {
-	if err := WaitPath(ctx, tr, destHash); err != nil {
+	if err := WaitPathWindow(ctx, tr, destHash); err != nil {
 		return nil, fmt.Errorf("path: %w", err)
 	}
 	remote, err := identity.Recall(destHash)
@@ -129,11 +129,7 @@ func EstablishRNXLink(ctx context.Context, tr *transport.Transport, destHash []b
 		return nil, err
 	}
 	l := link.NewLink(outDest, tr, nil, nil, nil)
-	if err := l.Establish(); err != nil {
-		return nil, err
-	}
-	if err := WaitLinkActive(ctx, l); err != nil {
-		l.Teardown()
+	if err := activateOutboundLink(ctx, l); err != nil {
 		return nil, fmt.Errorf("link: %w", err)
 	}
 	return l, nil

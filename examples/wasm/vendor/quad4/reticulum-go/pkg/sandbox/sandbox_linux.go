@@ -67,12 +67,20 @@ func applyPlatform(cfg *common.ReticulumConfig) error {
 // V9 via go-landlock. TCP port rules are intentionally omitted so the P2P
 // mesh can bind and dial arbitrary peers. BestEffort downgrades on older
 // kernels. Missing optional paths are ignored.
-func applyLandlock(cfg *common.ReticulumConfig) error {
+func applyLandlock(cfg *common.ReticulumConfig) (err error) {
 	// Go AllThreadsSyscall (Landlock restrict without TSYNC) fatals under
 	// qemu-user when per-thread results diverge. Skip rather than crash.
 	if os.Getenv("RETICULUM_QEMU_USER") == "1" {
 		return fmt.Errorf("landlock skipped under qemu-user")
 	}
+
+	// purego/fakecgo or real cgo makes AllThreadsSyscall panic on ABI < 8.
+	// Recover so the daemon can soft-fail instead of aborting.
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("landlock restrict panicked: %v", r)
+		}
+	}()
 
 	if err := probeLandlock(); err != nil {
 		return err
@@ -91,13 +99,20 @@ func applyLandlock(cfg *common.ReticulumConfig) error {
 
 	// V6+ scopes abstract UNIX sockets and signals toward more privileged
 	// domains. Pathname UNIX sockets (session bus, journald) need
-	// WithResolveUnix on their path trees instead.
-	if err := landlock.V9.BestEffort().RestrictScoped(); err != nil {
-		return fmt.Errorf("landlock restrict scoped: %w", err)
+	// WithResolveUnix on their path trees instead. GUI hosts skip this
+	// because WebKitGTK helpers use abstract sockets and signals.
+	if shouldRestrictScoped(cfg) {
+		if err := landlock.V9.BestEffort().RestrictScoped(); err != nil {
+			return fmt.Errorf("landlock restrict scoped: %w", err)
+		}
 	}
 
 	debug.Log(debug.DebugInfo, "Landlock sandbox applied", "abi", "V9")
 	return nil
+}
+
+func shouldRestrictScoped(cfg *common.ReticulumConfig) bool {
+	return cfg == nil || !cfg.SandboxSkipScoped
 }
 
 func probeLandlock() error {

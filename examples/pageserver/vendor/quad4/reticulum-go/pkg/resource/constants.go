@@ -50,8 +50,13 @@ const (
 )
 
 const (
-	Overhead           = 134
-	CollisionGuardSize = 2*WindowMax + 100
+	Overhead = 134
+	// DefaultLinkMDU is Python Link.MDU at Reticulum.MTU 500.
+	DefaultLinkMDU = 431
+	// HashmapMaxLen is Python ResourceAdvertisement.HASHMAP_MAX_LEN at DefaultLinkMDU.
+	HashmapMaxLen = (DefaultLinkMDU - Overhead) / MapHashLen
+	// CollisionGuardSize matches Python 2*WINDOW_MAX + HASHMAP_MAX_LEN.
+	CollisionGuardSize = 2*WindowMax + HashmapMaxLen
 )
 
 // ResourceAdvertisement flag bits packed into the wire f field.

@@ -3,6 +3,8 @@
 
 package common
 
+import "time"
+
 type ConfigProvider interface {
 	GetConfigPath() string
 	GetLogLevel() int
@@ -152,6 +154,9 @@ type InterfaceConfig struct {
 	DiscoveryStampValue int
 	// DiscoveryEncrypt encrypts announces with the network identity.
 	DiscoveryEncrypt bool
+	// DiscoveryLXMFAddress is an optional operator LXMF address published in
+	// discovery announces (RNS 1.5.0 OP_ADDR field).
+	DiscoveryLXMFAddress []byte
 	// DiscoveryLocationCmd is an optional executable that prints
 	// "lat,lon,height" used for discovery geo fields.
 	DiscoveryLocationCmd string
@@ -193,6 +198,25 @@ type InterfaceConfig struct {
 	TXGain      float64
 	Modem       string
 	SerialNum   string
+
+	// RNodeInterface / RNodeMultiInterface radio settings.
+	TXPower              int
+	SpreadingFactor      int
+	CodingRate           int
+	FlowControl          bool
+	IDInterval           int
+	IDCallsign           string
+	AirtimeLimitShort    float64
+	AirtimeLimitShortSet bool
+	AirtimeLimitLong     float64
+	AirtimeLimitLongSet  bool
+
+	// VPort is the virtual radio index for an RNodeMulti subinterface.
+	VPort    int
+	VPortSet bool
+
+	// SubInterfaces holds nested [[[name]]] blocks under an RNodeMultiInterface.
+	SubInterfaces map[string]*InterfaceConfig
 }
 
 // SharedInstanceType values for [reticulum] shared_instance_type.
@@ -241,6 +265,24 @@ type ReticulumConfig struct {
 	AutoconnectAnnouncesToInternal    bool
 	AutoconnectAnnouncesToInternalSet bool
 
+	// AutoconnectDiscoveredInterfaces is the max number of concurrent
+	// autoconnected discovery peers from rnstransport (Backbone, TCP, I2P).
+	// Zero disables autoconnect (Python autoconnect_discovered_interfaces).
+	AutoconnectDiscoveredInterfaces int
+
+	// PublishBlackhole registers rnstransport.info.blackhole with a /list
+	// request handler so peers can fetch this instance's blackhole table.
+	PublishBlackhole bool
+
+	// BlackholeSources lists remote transport identity hashes to pull blackhole
+	// lists from (Python blackhole_sources).
+	BlackholeSources [][]byte
+
+	// BlackholeUpdateInterval is how often to pull each blackhole source.
+	// Zero means the Python default of 60 minutes. Values below 2 minutes are
+	// raised to 2 minutes when parsed from config.
+	BlackholeUpdateInterval time.Duration
+
 	// AllowLinkPathRebalance enables LRPROOF-based hop rebalancing (RNS 1.4.1).
 	// Default true. Go adds dampening and gravity-aware refusals on top.
 	AllowLinkPathRebalance    bool
@@ -277,9 +319,11 @@ type ReticulumConfig struct {
 	SoftMemoryLimitBytes int64
 
 	// DoSProtection selects IDS/IPS style flood and OOM gates off detect prevent or auto.
-	// Go-only. Default auto. Detect warns on stdout and increments health counters.
-	// Prevent also sheds ingress refuses excess accepts and drops overloaded handlers.
-	// Auto learns quietly persists baselines via msgpack then arms prevent and relearns on change.
+	// Go-only. Default off until the gates are proven not to drop legitimate
+	// public-mesh path requests and resource transfers. Detect warns on stdout
+	// and increments health counters. Prevent also sheds ingress refuses excess
+	// accepts and drops overloaded handlers. Auto learns quietly persists
+	// baselines via msgpack then arms prevent and relearns on change.
 	DoSProtection string
 
 	// DoSProtectionSet is true when dos_protection appeared in the config file.
@@ -347,6 +391,10 @@ type ReticulumConfig struct {
 	// dynamic page child processes on Linux. Default false.
 	SandboxExecRlimits bool
 
+	// SandboxSkipScoped skips Landlock V6 RestrictScoped. GUI processes that
+	// spawn WebKit helpers need abstract UNIX sockets and signals.
+	SandboxSkipScoped bool
+
 	// ControlAPISocket is an optional Unix socket path for the control API.
 	// TCP listen stays enabled when the control API is on.
 	ControlAPISocket string
@@ -399,6 +447,12 @@ type ReticulumConfig struct {
 
 	// LogFormat is text or json for structured logs.
 	LogFormat string
+
+	// Inbound queue lengths (RNS 1.5.0 qlen_in_*). Zero uses transport defaults.
+	QLenInboundData     int
+	QLenInboundAnnounce int
+	QLenInboundPR       int
+	QLenInboundIL       int
 }
 
 // NewReticulumConfig creates a new ReticulumConfig with default values

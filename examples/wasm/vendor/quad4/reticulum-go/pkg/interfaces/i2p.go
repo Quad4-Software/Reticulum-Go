@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
+//go:build !rns_slim
+
 package interfaces
 
 import (
@@ -12,7 +14,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"quad4/reticulum-go/pkg/backbone"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/i2p"
@@ -28,32 +29,28 @@ const (
 	i2pDialTimeout     = 2 * time.Minute
 )
 
+func init() {
+	registerBuiltinFromConfig("I2PInterface", newI2PFromConfig)
+}
+
+func newI2PFromConfig(name string, cfg *common.InterfaceConfig, ctx *FromConfigContext) (Interface, error) {
+	parent, err := NewI2PInterface(name, cfg, ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, peerAddr := range cfg.I2PPeers {
+		peerName := name + " to " + peerAddr
+		peer := NewI2PInterfacePeer(parent, peerName, peerAddr, cfg.MaxReconnTries, cfg)
+		parent.registerSpawnedPeer(peer)
+	}
+	return parent, nil
+}
+
 const (
 	i2pTunnelStateInit   = 0x00
 	i2pTunnelStateActive = 0x01
 	i2pTunnelStateStale  = 0x02
 )
-
-// FromConfigContext carries runtime dependencies for interface types that
-// need storage paths, transport identity, or dynamic peer registration.
-type FromConfigContext struct {
-	I2PStoragePath        string
-	TransportID           []byte
-	RegisterPeer          func(name string, peer common.NetworkInterface) error
-	UnregisterPeer        func(name string)
-	SetupPeer             func(peer common.NetworkInterface)
-	SynthesizeTunnel      func(TunnelPeer)
-	VoidTunnel            func(TunnelPeer)
-	DefaultGravity        int
-	WatchInterfaces       bool
-	DiscoverInterfaces    bool
-	PanicOnInterfaceError bool
-	BackboneHub           *backbone.Hub
-	SpawnBackbone         func(client *BackboneClientInterface)
-	SpawnLocal            LocalSpawnHook
-	// ConfigDir is the directory containing config and the interfaces/ plugin tree.
-	ConfigDir string
-}
 
 // I2PInterface is the parent listener for inbound I2P peers and optional SAM
 // server tunnel publication.
@@ -103,6 +100,9 @@ type I2PInterfacePeer struct {
 	done              chan struct{}
 	stopOnce          sync.Once
 	peerKey           string
+
+	AutoconnectHash   []byte
+	AutoconnectSource []byte
 }
 
 // i2pAcceptedPeerSeq gives each accepted I2P peer a unique protect fair-share
@@ -356,6 +356,34 @@ func (p *I2PInterface) registerSpawnedPeer(peer *I2PInterfacePeer) {
 	}
 }
 
+// ListSpawnedPeers returns outbound peers registered on this parent.
+func (p *I2PInterface) ListSpawnedPeers() []Interface {
+	p.spawnMu.Lock()
+	defer p.spawnMu.Unlock()
+	out := make([]Interface, len(p.spawned))
+	for i, peer := range p.spawned {
+		out[i] = peer
+	}
+	return out
+}
+
+// AutoconnectPeer dials dest as a new outbound peer with discovery metadata.
+func (p *I2PInterface) AutoconnectPeer(name, dest string, peerCfg *common.InterfaceConfig, endpointHash, source []byte) *I2PInterfacePeer {
+	maxReconn := -1
+	if peerCfg != nil {
+		maxReconn = peerCfg.MaxReconnTries
+	}
+	peer := NewI2PInterfacePeer(p, name, dest, maxReconn, peerCfg)
+	if len(endpointHash) > 0 {
+		peer.AutoconnectHash = append([]byte(nil), endpointHash...)
+	}
+	if len(source) > 0 {
+		peer.AutoconnectSource = append([]byte(nil), source...)
+	}
+	p.registerSpawnedPeer(peer)
+	return peer
+}
+
 func NewI2PInterfacePeer(parent *I2PInterface, name, targetDest string, maxReconnect int, cfg *common.InterfaceConfig) *I2PInterfacePeer {
 	if maxReconnect == 0 {
 		maxReconnect = -1
@@ -485,6 +513,18 @@ func (peer *I2PInterfacePeer) InterfaceConfig() *common.InterfaceConfig {
 		return nil
 	}
 	return peer.parent.cfg
+}
+
+// TargetDest returns the configured I2P destination for initiator peers.
+func (peer *I2PInterfacePeer) TargetDest() string {
+	return peer.targetDest
+}
+
+// DetachAutoconnectFromParent removes this peer from its parent spawned list.
+func (peer *I2PInterfacePeer) DetachAutoconnectFromParent() {
+	if peer.parent != nil {
+		peer.parent.removeSpawnedPeer(peer)
+	}
 }
 
 func (peer *I2PInterfacePeer) onConnected() {

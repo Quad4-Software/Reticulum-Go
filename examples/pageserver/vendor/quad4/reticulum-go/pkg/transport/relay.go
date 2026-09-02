@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -65,6 +66,18 @@ func (lt *linkRelayTable) markValidated(linkID []byte) bool {
 	return true
 }
 
+func (lt *linkRelayTable) setRemainingHops(linkID []byte, hops int) bool {
+	lt.mu.Lock()
+	defer lt.mu.Unlock()
+	e, ok := lt.entries[hash16FromSlice(linkID)]
+	if !ok || e == nil || e.Validated {
+		return false
+	}
+	e.RemainingHops = hops
+	e.Timestamp = time.Now()
+	return true
+}
+
 func (lt *linkRelayTable) touch(linkID []byte) {
 	lt.mu.Lock()
 	defer lt.mu.Unlock()
@@ -105,6 +118,21 @@ func (lt *linkRelayTable) sweep(maxIdle time.Duration) (expiredUnvalidated []*Li
 	return expiredUnvalidated, removed
 }
 
+func (lt *linkRelayTable) counts() (total, validated int) {
+	lt.mu.RLock()
+	defer lt.mu.RUnlock()
+	for _, e := range lt.entries {
+		if e == nil {
+			continue
+		}
+		total++
+		if e.Validated {
+			validated++
+		}
+	}
+	return total, validated
+}
+
 func (lt *linkRelayTable) removeEntriesReferencing(iface common.NetworkInterface) {
 	if lt == nil || iface == nil {
 		return
@@ -131,6 +159,18 @@ func (t *Transport) transportEnabled() bool {
 	return t.config.EnableTransport
 }
 
+// mayRelayForSharedInstanceClient is true when transport is on or the
+// packet is to or from a shared-instance local client.
+func (t *Transport) mayRelayForSharedInstanceClient(sourceIface common.NetworkInterface, related ...common.NetworkInterface) bool {
+	if t.transportEnabled() {
+		return true
+	}
+	if isLocalClientInterface(sourceIface) {
+		return true
+	}
+	return slices.ContainsFunc(related, isLocalClientInterface)
+}
+
 func (t *Transport) ourTransportID() []byte {
 	if t.transportIdentity == nil {
 		return nil
@@ -154,9 +194,7 @@ func rebuildHeaderType2(raw []byte, hops byte, nextHop []byte) ([]byte, error) {
 	return raw, nil
 }
 
-// insertHeaderType2 upgrades a HeaderType1 wire packet to HeaderType2 by
-// inserting the next-hop transport id after the hop byte. Matches Python
-// Transport outbound wrapping when path hops > 1.
+// insertHeaderType2 upgrades a HeaderType1 wire packet to HeaderType2 by inserting the next-hop transport id after the hop byte.
 func insertHeaderType2(raw []byte, hops byte, nextHop []byte) ([]byte, error) {
 	hopLen := identity.TruncatedHashLength / 8
 	if len(raw) < 2 {
@@ -189,6 +227,13 @@ func stripHeaderType2(raw []byte, hops byte) ([]byte, error) {
 	raw[0] = newFlags
 	raw[1] = hops
 	return raw[:len(raw)-(identity.TruncatedHashLength/8)], nil
+}
+
+func rewriteHopsInPlace(raw []byte, hops byte) []byte {
+	if len(raw) >= 2 {
+		raw[1] = hops
+	}
+	return raw
 }
 
 func rewriteHopsOnly(raw []byte, hops byte) []byte {
@@ -236,11 +281,10 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 		}
 		return false
 	}
-	if !t.transportEnabled() {
-		if debug.Enabled(debug.DebugVerbose) {
-			debug.Log(debug.DebugVerbose, "Dropping transport packet: relay disabled",
-				"dest_hash", fmt.Sprintf("%x", pkt.DestinationHash))
-		}
+	if !t.mayRelayForSharedInstanceClient(sourceIface) {
+		debug.Log(debug.DebugInfo, common.MsgTransportLinkRelayDisabled,
+			"dest_hash", fmt.Sprintf("%x", pkt.DestinationHash),
+			"iface", sourceIface.GetName())
 		return true
 	}
 
@@ -263,10 +307,10 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 		return false
 	}
 	if !hasPath || path == nil || path.Interface == nil {
-		if debug.Enabled(debug.DebugInfo) {
-			debug.Log(debug.DebugInfo, "No path for relayed transport packet, dropping",
-				"dest_hash", fmt.Sprintf("%x", destHash))
-		}
+		debug.Log(debug.DebugInfo, common.MsgTransportNoPathForLinkRelay,
+			"dest_hash", fmt.Sprintf("%x", destHash),
+			"iface", sourceIface.GetName(),
+			"hint", "call Transport.AwaitPath before Link.Establish")
 		return true
 	}
 	if path.Interface == sourceIface {
@@ -287,16 +331,17 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 		return true
 	}
 
-	rawCopy := append([]byte(nil), raw...)
 	var out []byte
 	var err error
 	switch {
 	case path.HopCount > 1:
-		out, err = rebuildHeaderType2(rawCopy, newHops, path.NextHop)
+		out, err = rebuildHeaderType2(raw, newHops, path.NextHop)
 	case path.HopCount == 1:
+		rawCopy := append([]byte(nil), raw...)
 		out, err = stripHeaderType2(rawCopy, newHops)
 	default:
-		out = rewriteHopsOnly(rawCopy, newHops)
+		rawCopy := append([]byte(nil), raw...)
+		out = rewriteHopsInPlace(rawCopy, newHops)
 	}
 	if err != nil {
 		debug.Log(debug.DebugError, "Failed to rewrite transport packet",
@@ -336,7 +381,7 @@ func (t *Transport) recordLinkRelay(pkt *packet.Packet, raw []byte, recvIface co
 	}
 	now := time.Now()
 	remaining := max(int(path.HopCount), 1)
-	timeout := now.Add(LinkProofTimeoutPerHop * time.Duration(remaining))
+	timeout := now.Add(LinkProofTimeoutPerHop*time.Duration(remaining) + ExtraLinkProofTimeout(path.Interface))
 	entry := &LinkRelayEntry{
 		NextHop:         path.NextHop,
 		NextHopIface:    path.Interface,
@@ -366,11 +411,10 @@ func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterf
 	if !ok {
 		return false
 	}
-	if !t.transportEnabled() {
-		if debug.Enabled(debug.DebugVerbose) {
-			debug.Log(debug.DebugVerbose, "Dropping link relay packet: transport disabled",
-				"link_id", fmt.Sprintf("%x", linkID))
-		}
+	if !t.mayRelayForSharedInstanceClient(sourceIface, entry.ReceivedIface, entry.NextHopIface) {
+		debug.Log(debug.DebugInfo, common.MsgTransportLinkRelayDisabled,
+			"link_id", fmt.Sprintf("%x", linkID),
+			"iface", sourceIface.GetName())
 		return true
 	}
 
@@ -426,10 +470,12 @@ func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterf
 	}
 
 	out := rewriteHopsOnly(raw, accounted)
-	debug.Log(debug.DebugInfo, "Relaying link data packet",
-		"link_id", fmt.Sprintf("%x", linkID),
-		"out_iface", outIface.GetName(),
-		"hops", accounted)
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Relaying link data packet",
+			"link_id", fmt.Sprintf("%x", linkID),
+			"out_iface", outIface.GetName(),
+			"hops", accounted)
+	}
 	if err := sendOnInterface(outIface, out, ""); err != nil {
 		debug.Log(debug.DebugError, "Failed to relay link data packet",
 			"error", err,
@@ -467,7 +513,10 @@ func (t *Transport) relayBridgedLinkRequest(pkt *packet.Packet, raw []byte, sour
 }
 
 func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, sourceIface common.NetworkInterface) bool {
-	if !t.transportEnabled() {
+	if !t.mayRelayForSharedInstanceClient(sourceIface) {
+		debug.Log(debug.DebugInfo, common.MsgTransportLinkRelayDisabled,
+			"dest_hash", fmt.Sprintf("%x", pkt.DestinationHash),
+			"iface", sourceIface.GetName())
 		return true
 	}
 
@@ -482,13 +531,12 @@ func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, s
 	_, isLocal := t.destinations[destKey]
 	t.mutex.RUnlock()
 	if isLocal || !hasPath || path == nil || path.Interface == nil {
-		if debug.Enabled(debug.DebugVerbose) {
-			debug.Log(debug.DebugVerbose, "Bridged link request not relayed",
+		if !isLocal {
+			debug.Log(debug.DebugInfo, common.MsgTransportNoPathForLinkRelay,
 				"dest_hash", fmt.Sprintf("%x", destHash),
-				"is_local", isLocal,
+				"iface", sourceIface.GetName(),
 				"has_path", hasPath,
-				"path_iface_nil", path == nil || path.Interface == nil,
-				"source_iface", sourceIface.GetName())
+				"hint", "call Transport.AwaitPath before Link.Establish")
 		}
 		return false
 	}
@@ -536,35 +584,78 @@ func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, s
 	return true
 }
 
-func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag []byte, exclude common.NetworkInterface) {
-	if !t.transportEnabled() {
-		return
-	}
-	t.mutex.RLock()
-	ifaces := make([]common.NetworkInterface, 0, len(t.interfaces))
-	for _, iface := range t.interfaces {
-		if iface == exclude || !iface.IsEnabled() {
+func (t *Transport) discoveryFanoutIfaces(exclude common.NetworkInterface) []common.NetworkInterface {
+	modeFilter := discoverySearchModeFilter(exclude)
+	ifaces := make([]common.NetworkInterface, 0, 8)
+	for _, e := range t.snapshotRegisteredInterfaces() {
+		iface := e.iface
+		if iface == exclude || !ifaceReadyForPathRequest(iface) {
+			continue
+		}
+		if len(modeFilter) > 0 && !modeInFilter(iface.GetMode(), modeFilter) {
 			continue
 		}
 		if iface.ShouldEgressLimitPR() {
 			if debug.Enabled(debug.DebugVerbose) {
 				debug.Log(debug.DebugVerbose, "Skipping path-request rebroadcast due to egress limiting",
-					"iface", iface.GetName(), "dest_hash", fmt.Sprintf("%x", destHash))
+					"iface", iface.GetName())
 			}
 			continue
 		}
 		ifaces = append(ifaces, iface)
 	}
-	t.mutex.RUnlock()
+	return ifaces
+}
+
+func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag []byte, exclude common.NetworkInterface) {
+	if !t.transportEnabled() {
+		return
+	}
+	ifaces := t.discoveryFanoutIfaces(exclude)
 	if len(ifaces) == 0 {
 		return
 	}
 	for _, iface := range ifaces {
+		// Re-check at emit time (RNS 1.4.2 online gate). An iface may go
+		// offline or lose bitrate while the discovery PR queue drains.
+		if !ifaceReadyForPathRequest(iface) {
+			continue
+		}
 		if err := t.RequestPath(destHash, iface.GetName(), tag, true); err != nil {
 			debug.Log(debug.DebugVerbose, "Path-request rebroadcast failed",
 				"iface", iface.GetName(), "error", err)
 		}
 	}
+}
+
+// ifaceReadyForPathRequest reports whether iface may emit a path request.
+// Matches RNS 1.4.2 recursive-PR online gating. Go uniqueness: refuse
+// receive-only interfaces, and interfaces that advertise a non-positive
+// bitrate via GetBitrate() int (uninitialized radios) so PR emit cannot
+// hit zero-rate timing math. GetBitrate() int64 on BaseInterface is the
+// configured default and is not used as a readiness gate.
+func ifaceReadyForPathRequest(iface common.NetworkInterface) bool {
+	if iface == nil || !iface.IsEnabled() || !iface.IsOnline() {
+		return false
+	}
+	if !common.InterfaceAllowsOutgoing(iface) {
+		return false
+	}
+	switch br := iface.(type) {
+	case interface{ GetBitrate() int }:
+		if br.GetBitrate() <= 0 {
+			return false
+		}
+	case interface{ GetBitrate() uint64 }:
+		if br.GetBitrate() == 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func modeInFilter(mode common.InterfaceMode, filter []common.InterfaceMode) bool {
+	return slices.Contains(filter, mode)
 }
 
 func (t *Transport) queueDiscoveryPathRequest(destHash []byte, exclude common.NetworkInterface) {

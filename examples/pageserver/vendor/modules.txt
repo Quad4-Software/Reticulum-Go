@@ -7,6 +7,12 @@ github.com/creack/pty
 # github.com/dunglas/httpsfv v1.1.0
 ## explicit; go 1.14
 github.com/dunglas/httpsfv
+# github.com/ebitengine/purego v0.9.1
+## explicit; go 1.18
+github.com/ebitengine/purego
+github.com/ebitengine/purego/internal/cgo
+github.com/ebitengine/purego/internal/fakecgo
+github.com/ebitengine/purego/internal/strings
 # github.com/godbus/dbus/v5 v5.1.0
 ## explicit; go 1.12
 github.com/godbus/dbus/v5
@@ -51,7 +57,7 @@ github.com/quic-go/webtransport-go
 ## explicit; go 1.17
 go.bug.st/serial
 go.bug.st/serial/unixutils
-# golang.org/x/crypto v0.53.0
+# golang.org/x/crypto v0.55.0
 ## explicit; go 1.25.0
 golang.org/x/crypto/chacha20
 golang.org/x/crypto/chacha20poly1305
@@ -59,7 +65,7 @@ golang.org/x/crypto/curve25519
 golang.org/x/crypto/hkdf
 golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
-# golang.org/x/net v0.56.0
+# golang.org/x/net v0.58.0
 ## explicit; go 1.25.0
 golang.org/x/net/bpf
 golang.org/x/net/http/httpguts
@@ -69,19 +75,19 @@ golang.org/x/net/internal/iana
 golang.org/x/net/internal/socket
 golang.org/x/net/ipv4
 golang.org/x/net/ipv6
-# golang.org/x/sync v0.21.0
+# golang.org/x/sync v0.22.0
 ## explicit; go 1.25.0
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.46.0
+# golang.org/x/sys v0.47.0
 ## explicit; go 1.25.0
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.44.0
+# golang.org/x/term v0.45.0
 ## explicit; go 1.25.0
 golang.org/x/term
-# golang.org/x/text v0.39.0
+# golang.org/x/text v0.41.0
 ## explicit; go 1.25.0
 golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
@@ -113,22 +119,26 @@ quad4/reticulum-go/pkg/debug
 quad4/reticulum-go/pkg/destination
 quad4/reticulum-go/pkg/discovery
 quad4/reticulum-go/pkg/health
+quad4/reticulum-go/pkg/hostcap
 quad4/reticulum-go/pkg/i2p
 quad4/reticulum-go/pkg/identity
 quad4/reticulum-go/pkg/identity/store
 quad4/reticulum-go/pkg/ifac
 quad4/reticulum-go/pkg/interfaces
 quad4/reticulum-go/pkg/link
+quad4/reticulum-go/pkg/lxstamper
 quad4/reticulum-go/pkg/node
 quad4/reticulum-go/pkg/packet
 quad4/reticulum-go/pkg/pageserver
 quad4/reticulum-go/pkg/pageserver/dynamicpage
 quad4/reticulum-go/pkg/pathfinder
+quad4/reticulum-go/pkg/profiler
 quad4/reticulum-go/pkg/protect
 quad4/reticulum-go/pkg/rate
 quad4/reticulum-go/pkg/resource
 quad4/reticulum-go/pkg/reticulumconfig
 quad4/reticulum-go/pkg/rgosh
+quad4/reticulum-go/pkg/rnsgit
 quad4/reticulum-go/pkg/rnsutil
 quad4/reticulum-go/pkg/sandbox
 quad4/reticulum-go/pkg/sdr
@@ -137,6 +147,7 @@ quad4/reticulum-go/pkg/selfcheck
 quad4/reticulum-go/pkg/sharedinstance
 quad4/reticulum-go/pkg/term
 quad4/reticulum-go/pkg/transport
+quad4/reticulum-go/pkg/zenfix
 # quad4/tagparser v0.0.0 => ../../../../Reticulum-Go-Projects/tagparser
 ## explicit; go 1.26.2
 quad4/tagparser/internal

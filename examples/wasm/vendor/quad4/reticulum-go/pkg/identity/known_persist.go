@@ -4,6 +4,7 @@
 package identity
 
 import (
+	"bytes"
 	"encoding/hex"
 	"os"
 	"sync"
@@ -28,7 +29,12 @@ var (
 	knownPersistDirty    atomic.Bool
 	knownPersistGen      atomic.Uint64
 	knownPersistSaving   sync.Mutex
+	knownPersistLast     atomic.Int64
 )
+
+// KnownPersistMinInterval is the minimum gap between dirty flushes of
+// known_destinations. Shutdown uses SaveKnownDestinationsSync (force).
+const KnownPersistMinInterval = 30 * time.Second
 
 // knownDestRecord is a fully-decoded, package-state-independent known
 // destination entry. decodeKnownDestinations produces these without
@@ -117,16 +123,16 @@ func asFloat64(v any) float64 {
 	}
 }
 
-// resolveDestHashKey accepts either a hex-encoded key (native on-disk
-// format) or a raw truncated-hash-length byte string. The msgpack decoder
-// folds bin and str keys into a Go string of equal length regardless of
-// the original wire type.
+// resolveDestHashKey accepts either a raw truncated-hash-length key
+// (Python / current Go on-disk format) or a legacy hex-encoded key. The
+// msgpack decoder folds bin and str keys into a Go string of equal length
+// regardless of the original wire type.
 func resolveDestHashKey(hashKey string) ([]byte, bool) {
-	if decoded, err := hex.DecodeString(hashKey); err == nil && len(decoded) == TruncatedHashLength/8 {
-		return decoded, true
-	}
 	if len(hashKey) == TruncatedHashLength/8 {
 		return []byte(hashKey), true
+	}
+	if decoded, err := hex.DecodeString(hashKey); err == nil && len(decoded) == TruncatedHashLength/8 {
+		return decoded, true
 	}
 	return nil, false
 }
@@ -143,6 +149,7 @@ func InitKnownDestinationsPersistence(configPath string, inMemory bool) {
 	knownPersistDisabled.Store(false)
 	knownPersistDirty.Store(false)
 	knownPersistGen.Store(0)
+	knownPersistLast.Store(0)
 
 	if configPath == "" && os.Getenv("RETICULUM_STORAGE_PATH") == "" {
 		// No config path was resolved: this is either ad-hoc/library use or
@@ -211,10 +218,11 @@ func loadKnownDestinationsFromDisk(configPath string) {
 		}
 		canonicalKey := knownDestKey(rec.destHash)
 		knownDestinations[canonicalKey] = knownDestEntry{
-			pkt:  rec.packetRaw,
-			hash: rec.destHash,
-			id:   id,
-			app:  rec.appData,
+			pkt:    rec.packetRaw,
+			hash:   rec.destHash,
+			rawKey: string(canonicalKey[:]),
+			id:     id,
+			app:    rec.appData,
 		}
 		rememberedAt := int64(rec.rememberedAt)
 		if rememberedAt <= 0 {
@@ -257,8 +265,14 @@ func saveKnownDestinations(force bool) {
 	if knownPersistMemory.Load() || knownPersistDisabled.Load() {
 		return
 	}
-	if !force && !knownPersistDirty.Load() {
-		return
+	if !force {
+		if !knownPersistDirty.Load() {
+			return
+		}
+		last := knownPersistLast.Load()
+		if last != 0 && time.Since(time.Unix(0, last)) < KnownPersistMinInterval {
+			return
+		}
 	}
 	if !knownPersistSaving.TryLock() {
 		return
@@ -273,7 +287,13 @@ func saveKnownDestinations(force bool) {
 		if e.id == nil || len(e.hash) == 0 {
 			continue
 		}
-		key := hex.EncodeToString(hashKey[:])
+		// Python Identity.load_known_destinations keeps keys whose length
+		// equals the truncated hash size (16). Use the raw hash bytes as a
+		// Go string key so msgpack emits a 16-byte str/bin key Python accepts.
+		key := e.rawKey
+		if len(key) != TruncatedHashLength/8 {
+			key = string(hashKey[:])
+		}
 		meta := knownDestMetaByKey[hashKey]
 		rememberedAt := float64(meta.rememberedAt)
 		if rememberedAt == 0 {
@@ -289,7 +309,7 @@ func saveKnownDestinations(force bool) {
 	}
 	knownDestinationsLock.RUnlock()
 
-	encoded, err := msgpack.Marshal(export)
+	encoded, err := marshalKnownDestinationsPython(export)
 	if err != nil {
 		debug.Log(debug.DebugInfo, "Known destinations marshal failed", "error", err)
 		return
@@ -308,6 +328,7 @@ func saveKnownDestinations(force bool) {
 		disableKnownDestinationsPersistence(err)
 		return
 	}
+	knownPersistLast.Store(time.Now().UnixNano())
 	// Only clear dirty when no Remember/Retain landed after the snapshot gen.
 	if knownPersistGen.Load() == gen {
 		knownPersistDirty.Store(false)
@@ -320,4 +341,27 @@ func disableKnownDestinationsPersistence(err error) {
 	knownPersistMemory.Store(true)
 	knownPersistDisabled.Store(true)
 	knownPersistDirty.Store(false)
+}
+
+// marshalKnownDestinationsPython encodes the table with binary map keys, matching
+// Python umsgpack.dump({dest_hash_bytes: entry}). Go's default string-key
+// encoder emits msgpack str, which umsgpack rejects when the hash is not UTF-8.
+func marshalKnownDestinationsPython(export map[string][]any) ([]byte, error) {
+	enc := msgpack.GetEncoder()
+	defer msgpack.PutEncoder(enc)
+
+	var buf bytes.Buffer
+	enc.Reset(&buf)
+	if err := enc.EncodeMapLen(len(export)); err != nil {
+		return nil, err
+	}
+	for key, entry := range export {
+		if err := enc.EncodeBytes([]byte(key)); err != nil {
+			return nil, err
+		}
+		if err := enc.Encode(entry); err != nil {
+			return nil, err
+		}
+	}
+	return buf.Bytes(), nil
 }

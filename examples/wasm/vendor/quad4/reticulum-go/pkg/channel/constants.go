@@ -31,7 +31,7 @@ const (
 	RTTMinThreshold       = 0.025
 	TimeoutBaseMultiplier = 1.5
 	TimeoutRingMultiplier = 2.5
-	TimeoutRingOffset     = 2
+	TimeoutRingOffset     = 1.5
 
 	ChannelHeaderSize = 6
 	ChannelHeaderBits = 8

@@ -3,6 +3,8 @@
 
 package destination
 
+import "time"
+
 const (
 	In  = 0x01
 	Out = 0x02
@@ -22,4 +24,7 @@ const (
 
 	RatchetCount    = 512
 	RatchetInterval = 1800
+
+	announceBurstWindow = 10 * time.Second
+	announceBurstMax    = 8
 )

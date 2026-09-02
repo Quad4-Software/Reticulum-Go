@@ -49,6 +49,16 @@ func RunID(args []string, opt ...Options) int {
 	toSecretService := fs.Bool("to-secretservice", false, "migrate identity file into Freedesktop Secret Service (writes RSSI marker)")
 	toKeyring := fs.Bool("to-keyring", false, "migrate identity file into Linux kernel keyring (writes RSSI marker)")
 	toFile := fs.Bool("to-file", false, "migrate marker-backed identity back to a plaintext identity file")
+	bindFlagUsage(fs, "rgoid - Reticulum identity tool",
+		"Generate, import, export, sign, encrypt, and verify identity material.",
+		[]helpLine{
+			{Cmd: "rgoid [flags]"},
+			{Cmd: "reticulum-go id [flags]"},
+		},
+		"rgoid -g ~/.reticulum/identity",
+		"rgoid -i identity -p",
+		"rgoid -i identity -s document.pdf",
+	)
 
 	if err := fs.Parse(args); err != nil {
 		return 2

@@ -68,6 +68,7 @@ type ReceivedAnnounceInfo struct {
 	StampValue     int
 	RequiredValue  int
 	RemoteIdentity []byte
+	Hops           uint8
 }
 
 // ValidateAndDecode parses an inbound discovery announce app_data buffer.
@@ -113,10 +114,10 @@ func ValidateAndDecodeWithIdentity(appData []byte, requiredValue int, expandRoun
 	if err != nil {
 		return nil, err
 	}
-	if !StampValid(stamp, requiredValue, wb) {
-		return nil, fmt.Errorf("discovery: stamp value below required cost %d", requiredValue)
-	}
 	value := StampValue(wb, stamp)
+	if !MeetsCost(stamp, requiredValue, wb) {
+		return nil, fmt.Errorf("discovery: stamp value %d below required cost %d", value, requiredValue)
+	}
 	info, err := DecodeInfo(packed)
 	if err != nil {
 		return nil, err

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-//go:build js || !(linux || darwin || freebsd || openbsd || windows)
+//go:build js
 
 package interfaces
 
@@ -20,11 +20,6 @@ type SerialInterface struct {
 	BaseInterface
 }
 
-// NewSerialInterface returns an error on unsupported platforms.
-func NewSerialInterface(name string, enabled bool, opts SerialOptions) (*SerialInterface, error) {
-	return nil, fmt.Errorf("SerialInterface is not available on %s/%s", runtime.GOOS, runtime.GOARCH)
-}
-
 // SerialOptions is a stub for unsupported platforms.
 type SerialOptions struct {
 	Device            string
@@ -40,6 +35,11 @@ type SerialOptions struct {
 	MaxReconnectTries int
 	MTU               int
 	Bitrate           int64
+}
+
+// NewSerialInterface returns an error on unsupported platforms.
+func NewSerialInterface(name string, enabled bool, opts SerialOptions) (*SerialInterface, error) {
+	return nil, fmt.Errorf("SerialInterface is not available on %s/%s", runtime.GOOS, runtime.GOARCH)
 }
 
 func (si *SerialInterface) GetType() common.InterfaceType { return common.IFTypeSerial }

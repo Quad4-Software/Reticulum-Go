@@ -51,10 +51,18 @@ func RunPageserver(args []string, opt ...Options) int {
 	fs.IntVar(&pageRefreshSec, "pages-refresh-interval", 0, "same as -page-refresh")
 	fs.IntVar(&fileRefreshSec, "file-refresh", 0, "rescan files every N seconds (0 = startup only)")
 	fs.IntVar(&fileRefreshSec, "files-refresh-interval", 0, "same as -file-refresh")
-	fs.IntVar(&logLevel, "log-level", -1, "log verbosity 1-7 (-1 = from config)")
+	fs.IntVar(&logLevel, "log-level", -1, "log verbosity 0-7 (-1 = from config)")
 	fs.StringVar(&identityOverride, "identity", "", "identity file path")
 	fs.StringVar(&identityOverride, "identity-path", "", "same as -identity")
 	fs.BoolVar(&disablePageStats, "no-page-stats", false, "disable built-in page view stats")
+	bindFlagUsage(fs, "reticulum-go pageserver - NomadNet-style page server",
+		"Serves pages and files over Reticulum announces.",
+		[]helpLine{
+			{Cmd: "reticulum-go pageserver [flags]"},
+			{Cmd: "rgopageserver [flags]"},
+		},
+		"reticulum-go pageserver -pages-dir ./pages",
+	)
 
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -107,11 +115,11 @@ func RunPageserver(args []string, opt ...Options) int {
 	signal.Notify(sigChan, sigs...)
 	<-sigChan
 
-	debug.Log(debug.DebugCritical, "Shutting down...")
+	debug.Log(debug.DebugInfo, "Shutting down...")
 	if err := r.Stop(); err != nil {
-		debug.Log(debug.DebugCritical, "Error during shutdown", "error", err)
+		debug.Log(debug.DebugError, "Error during shutdown", "error", err)
 	}
-	debug.Log(debug.DebugCritical, "Goodbye!")
+	debug.Log(debug.DebugInfo, "Goodbye!")
 	return 0
 }
 
@@ -143,19 +151,13 @@ func applyPageserverLogLevel(fs *flag.FlagSet, pageserverLogLevel int, cfg *comm
 			logLevelSet = true
 		}
 	})
-	switch {
-	case logLevelSet && pageserverLogLevel >= debug.DebugCritical:
+	if logLevelSet {
 		debug.SetDebugLevel(pageserverLogLevel)
-	case logLevelSet && pageserverLogLevel != -1 && pageserverLogLevel < debug.DebugCritical:
-		debug.SetDebugLevel(debug.DebugCritical)
-	default:
-		if cfg != nil {
-			l := cfg.LogLevel
-			if l >= debug.DebugCritical && l <= debug.DebugAll {
-				debug.SetDebugLevel(l)
-				return
-			}
-		}
-		debug.SetDebugLevel(debug.DebugCritical)
+		return
 	}
+	if cfg != nil {
+		debug.SetDebugLevel(cfg.LogLevel)
+		return
+	}
+	debug.SetDebugLevel(debug.DebugInfo)
 }

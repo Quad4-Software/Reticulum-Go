@@ -91,7 +91,7 @@ const (
 
 	// HeaderTypeMask isolates the header-type bit (bit 6) of a header byte.
 	HeaderTypeMask  byte = 0b01000000
-	HeaderTypeShift      = 6
+	HeaderTypeShift byte = 6
 
 	// HeaderContextFlagMask isolates the context/ratchet flag (bit 5).
 	HeaderContextFlagMask byte = 0b00100000

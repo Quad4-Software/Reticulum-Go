@@ -35,6 +35,9 @@ type TCPClientInterface struct {
 	synthesizeTunnel  func(TunnelPeer)
 	txFrame           []byte
 	readBuf           []byte
+
+	AutoconnectHash   []byte
+	AutoconnectSource []byte
 }
 
 func NewTCPClientInterface(name string, targetHost string, targetPort int, kissFraming bool, i2pTunneled bool, enabled bool) (*TCPClientInterface, error) {
@@ -235,7 +238,7 @@ func (tc *TCPClientInterface) ProcessOutgoing(data []byte) error {
 
 	_, err := conn.Write(frame)
 	if err != nil {
-		debug.Log(debug.DebugCritical, "TCP interface write failed", "name", tc.Name, "error", err)
+		debug.Log(debug.DebugVerbose, "TCP interface write failed", "name", tc.Name, "error", err)
 		tc.Mutex.Lock()
 		tc.Online = false
 		initiator := tc.initiator
@@ -253,16 +256,18 @@ func (tc *TCPClientInterface) Send(data []byte, address string) error {
 	if err := common.RejectReceiveOnly(tc); err != nil {
 		return err
 	}
-	debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", tc.Name, "bytes", len(data), "address", address)
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", tc.Name, "bytes", len(data), "address", address)
+	}
 
 	masked, err := common.ApplyIFACOutbound(tc, data)
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to mask outgoing packet for IFAC", "name", tc.Name, "error", err)
+		debug.Log(debug.DebugError, "Failed to mask outgoing packet for IFAC", "name", tc.Name, "error", err)
 		return err
 	}
 
 	if err := tc.ProcessOutgoing(masked); err != nil {
-		debug.Log(debug.DebugCritical, "Interface failed to send data", "name", tc.Name, "error", err)
+		debug.Log(debug.DebugVerbose, "Interface failed to send data", "name", tc.Name, "error", err)
 		return err
 	}
 
@@ -272,6 +277,8 @@ func (tc *TCPClientInterface) Send(data []byte, address string) error {
 
 func (tc *TCPClientInterface) readLoop() {
 	var feed func([]byte)
+	// Decoder is local to this readLoop so overlapping reconnect loops cannot
+	// race on a shared assembler (feed/reset across connections).
 	if tc.kissFraming {
 		decoder := newKISSStreamDecoder(tc.MTU, tc.handlePacket)
 		feed = decoder.feed
@@ -496,6 +503,20 @@ func (tc *TCPClientInterface) IsConnected() bool {
 	tc.Mutex.RLock()
 	defer tc.Mutex.RUnlock()
 	return tc.conn != nil && tc.Online && !tc.IsReconnecting()
+}
+
+// TargetHost returns the configured dial host for initiator clients.
+func (tc *TCPClientInterface) TargetHost() string {
+	tc.Mutex.RLock()
+	defer tc.Mutex.RUnlock()
+	return tc.targetAddr
+}
+
+// TargetPort returns the configured dial port for initiator clients.
+func (tc *TCPClientInterface) TargetPort() int {
+	tc.Mutex.RLock()
+	defer tc.Mutex.RUnlock()
+	return tc.targetPort
 }
 
 func (tc *TCPClientInterface) GetRTT() time.Duration {
@@ -806,16 +827,18 @@ func (ts *TCPServerInterface) Send(data []byte, address string) error {
 	if err := common.RejectReceiveOnly(ts); err != nil {
 		return err
 	}
-	debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", ts.Name, "bytes", len(data), "address", address)
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Interface sending bytes", "name", ts.Name, "bytes", len(data), "address", address)
+	}
 
 	masked, err := common.ApplyIFACOutbound(ts, data)
 	if err != nil {
-		debug.Log(debug.DebugCritical, "Failed to mask outgoing packet for IFAC", "name", ts.Name, "error", err)
+		debug.Log(debug.DebugError, "Failed to mask outgoing packet for IFAC", "name", ts.Name, "error", err)
 		return err
 	}
 
 	if err := ts.ProcessOutgoing(masked); err != nil {
-		debug.Log(debug.DebugCritical, "Interface failed to send data", "name", ts.Name, "error", err)
+		debug.Log(debug.DebugVerbose, "Interface failed to send data", "name", ts.Name, "error", err)
 		return err
 	}
 

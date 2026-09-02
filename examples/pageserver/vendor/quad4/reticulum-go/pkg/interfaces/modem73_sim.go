@@ -79,9 +79,6 @@ func (ch *Modem73Channel) publish(fr modem73AirFrame, airtime time.Duration) {
 	subs := append([]chan modem73AirFrame(nil), ch.subs...)
 	ch.mu.Unlock()
 	for _, s := range subs {
-		if fr.from != nil {
-			// deliver to all including sender loop filter
-		}
 		select {
 		case s <- fr:
 		default:
@@ -342,7 +339,7 @@ func (s *Modem73Simulator) handleControl(c net.Conn) {
 		_ = c.Close()
 	}()
 	for {
-		msg, err := modem73ReadControl(c)
+		msg, err := readModem73Control(c)
 		if err != nil {
 			return
 		}
@@ -354,15 +351,15 @@ func (s *Modem73Simulator) dispatchControl(c net.Conn, msg map[string]any) {
 	cmd, _ := msg["cmd"].(string)
 	switch cmd {
 	case "get_status":
-		_ = modem73WriteControl(c, s.status())
+		_ = writeModem73Control(c, s.status())
 	case "get_config":
 		s.mu.Lock()
 		cfg := copyMap(s.cfgMap)
 		s.mu.Unlock()
-		_ = modem73WriteControl(c, cfg)
+		_ = writeModem73Control(c, cfg)
 	case "set_config":
 		ok := s.applySetConfig(msg)
-		_ = modem73WriteControl(c, map[string]any{"ok": ok})
+		_ = writeModem73Control(c, map[string]any{"ok": ok})
 		if ok {
 			s.broadcastEvent(map[string]any{"event": "config_changed", "config": s.configSnapshot()})
 		}
@@ -370,7 +367,7 @@ func (s *Modem73Simulator) dispatchControl(c net.Conn, msg map[string]any) {
 		dataB64, _ := msg["data"].(string)
 		raw, err := base64.StdEncoding.DecodeString(dataB64)
 		if err != nil || len(raw) == 0 {
-			_ = modem73WriteControl(c, map[string]any{"ok": false, "error": "empty or invalid base64 data"})
+			_ = writeModem73Control(c, map[string]any{"ok": false, "error": "empty or invalid base64 data"})
 			return
 		}
 		oper := -1
@@ -378,14 +375,14 @@ func (s *Modem73Simulator) dispatchControl(c net.Conn, msg map[string]any) {
 			oper = v
 		}
 		if err := s.transmit(raw, oper); err != nil {
-			_ = modem73WriteControl(c, map[string]any{"ok": false, "error": "tx failed"})
+			_ = writeModem73Control(c, map[string]any{"ok": false, "error": "tx failed"})
 			return
 		}
-		_ = modem73WriteControl(c, map[string]any{"ok": true, "size": float64(len(raw))})
+		_ = writeModem73Control(c, map[string]any{"ok": true, "size": float64(len(raw))})
 	case "rigctl":
-		_ = modem73WriteControl(c, map[string]any{"ok": true, "response": "SIM\n"})
+		_ = writeModem73Control(c, map[string]any{"ok": true, "response": "SIM\n"})
 	default:
-		_ = modem73WriteControl(c, map[string]any{"ok": false, "error": "unknown command"})
+		_ = writeModem73Control(c, map[string]any{"ok": false, "error": "unknown command"})
 	}
 }
 
@@ -638,7 +635,7 @@ func (s *Modem73Simulator) broadcastEvent(msg map[string]any) {
 	}
 	s.connMu.Unlock()
 	for _, c := range conns {
-		_ = modem73WriteControl(c, msg)
+		_ = writeModem73Control(c, msg)
 	}
 }
 

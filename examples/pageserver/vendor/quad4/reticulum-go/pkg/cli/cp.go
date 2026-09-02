@@ -4,7 +4,6 @@
 package cli
 
 import (
-	"context"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -34,21 +33,45 @@ func RunCP(args []string, opt ...Options) int {
 
 	configDir := fs.String("config", "", "path to config directory")
 	identityPath := fs.String("identity", "", "path to identity file (default: storage/identities/rncp)")
+	fs.StringVar(identityPath, "i", "", "path to identity file (Python rncp alias)")
 	listenMode := fs.Bool("l", false, "listen for incoming transfers")
-	fetchMode := fs.Bool("f", false, "fetch file from remote (requires -f path and destination)")
-	fetchPath := fs.String("F", "", "remote file path to fetch (with -f)")
-	timeoutSec := fs.Float64("w", 15, "path and link timeout in seconds")
-	silent := fs.Bool("s", false, "silent (minimal progress)")
-	noCompress := fs.Bool("no-compress", false, "disable auto compression")
-	allowAll := fs.Bool("a", false, "allow unauthenticated senders (listen)")
-	allowFetch := fs.Bool("allow-fetch", false, "allow fetch_file requests (listen)")
-	jail := fs.String("jail", "", "restrict fetch paths under this directory")
-	saveDir := fs.String("save", "", "directory to save received files")
-	overwrite := fs.Bool("overwrite", false, "overwrite existing files on receive")
-	announceSec := fs.Float64("announce", 0, "announce interval seconds (0 = once at start, <0 = never)")
+	fetchMode := fs.Bool("f", false, "fetch file from remote listener instead of sending")
+	timeoutSec := fs.Float64("w", 0, "path and link timeout in seconds (0 = adaptive from interface bitrate)")
+	silent := fs.Bool("S", false, "silent (minimal progress)")
+	fs.BoolVar(silent, "silent", false, "silent (minimal progress)")
+	noCompress := fs.Bool("C", false, "disable auto compression")
+	fs.BoolVar(noCompress, "no-compress", false, "disable auto compression")
+	allowAll := fs.Bool("n", false, "accept requests from anyone (listen)")
+	fs.BoolVar(allowAll, "no-auth", false, "accept requests from anyone (listen)")
+	allowFetch := fs.Bool("F", false, "allow authenticated clients to fetch files (listen)")
+	fs.BoolVar(allowFetch, "allow-fetch", false, "allow authenticated clients to fetch files (listen)")
+	jail := fs.String("j", "", "restrict fetch requests to specified path")
+	fs.StringVar(jail, "jail", "", "restrict fetch requests to specified path")
+	saveDir := fs.String("s", "", "directory to save received files")
+	fs.StringVar(saveDir, "save", "", "directory to save received files")
+	overwrite := fs.Bool("O", false, "overwrite existing files on receive")
+	fs.BoolVar(overwrite, "overwrite", false, "overwrite existing files on receive")
+	announceSec := fs.Float64("b", 0, "announce interval seconds (0 = once at start, <0 = never)")
+	fs.Float64Var(announceSec, "announce", 0, "announce interval seconds (0 = once at start, <0 = never)")
 	printID := fs.Bool("p", false, "print identity and destination hash then exit")
+	phyRates := fs.Bool("P", false, "display physical layer transfer rates")
+	fs.BoolVar(phyRates, "phy-rates", false, "display physical layer transfer rates")
 	var allowed flagStringList
-	fs.Var(&allowed, "allowed", "allowed identity hash (repeatable)")
+	fs.Var(&allowed, "a", "allowed identity hash (repeatable, listen)")
+	fs.Var(&allowed, "allowed", "allowed identity hash (repeatable, listen)")
+	bindFlagUsage(fs, "rgocp - file transfer over RNS links",
+		"Send, receive, fetch, or listen for file transfers. Flags match Python rncp.",
+		[]helpLine{
+			{Cmd: "rgocp [flags] <file> <destination_hash>"},
+			{Cmd: "rgocp -l [flags]"},
+			{Cmd: "rgocp -f [flags] <remote_path> <destination_hash>"},
+			{Cmd: "reticulum-go cp [flags] ..."},
+		},
+		"rgocp document.pdf <dest_hash>",
+		"rgocp -l -s ./incoming -a <identity_hash>",
+		"rgocp -l -n -F",
+		"rgocp -f /path/on/remote <dest_hash>",
+	)
 
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -56,7 +79,7 @@ func RunCP(args []string, opt ...Options) int {
 
 	cfg, err := rnsutil.LoadConfigDir(*configDir)
 	if err != nil {
-		fmt.Fprintf(stderr, "config: %v\n", err)
+		diagErr(stderr, "config", err)
 		return 1
 	}
 	idPath := *identityPath
@@ -65,14 +88,11 @@ func RunCP(args []string, opt ...Options) int {
 	}
 	id, err := rnsutil.PrepareRNCPIdentity(idPath)
 	if err != nil {
-		fmt.Fprintf(stderr, "identity: %v\n", err)
+		diagErr(stderr, "identity", err)
 		return 2
 	}
 
-	timeout := time.Duration(*timeoutSec * float64(time.Second))
-	if timeout <= 0 {
-		timeout = rnsutil.DefaultRNCPTimeout
-	}
+	timeout := max(time.Duration(*timeoutSec*float64(time.Second)), 0)
 
 	if *printID {
 		destHash := destination.Hash(id, rnsutil.RNCPAppName, rnsutil.RNCPAspect)
@@ -83,11 +103,11 @@ func RunCP(args []string, opt ...Options) int {
 
 	n, err := node.New(cfg)
 	if err != nil {
-		fmt.Fprintf(stderr, "node: %v\n", err)
+		diagErr(stderr, "node", err)
 		return 1
 	}
 	if err := n.Start(); err != nil {
-		fmt.Fprintf(stderr, "start: %v\n", err)
+		diagErr(stderr, "start", err)
 		return 1
 	}
 	defer n.Stop()
@@ -107,21 +127,22 @@ func RunCP(args []string, opt ...Options) int {
 			stderr:      stderr,
 		})
 	case *fetchMode:
-		if fs.NArg() != 1 || *fetchPath == "" {
-			fmt.Fprintln(stderr, "usage: rgocp -f -F <remote_path> [flags] <destination_hash>")
+		if fs.NArg() != 2 {
+			usageErr(stderr, "rgocp -f [flags] <remote_path> <destination_hash>")
 			return 2
 		}
-		destHash, err := rnsutil.ParseDestHash(fs.Arg(0))
+		remotePath := fs.Arg(0)
+		destHash, err := rnsutil.ParseDestHash(fs.Arg(1))
 		if err != nil {
 			fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		return runFetch(tr, id, destHash, *fetchPath, timeout, *silent, *saveDir, *overwrite, stdout, stderr)
+		return runFetch(tr, id, destHash, remotePath, timeout, *silent, *saveDir, *overwrite, *phyRates, stdout, stderr)
 	default:
 		if fs.NArg() != 2 {
-			fmt.Fprintln(stderr, "usage: rgocp [flags] <file> <destination_hash>")
-			fmt.Fprintln(stderr, "       rgocp -l [flags]")
-			fmt.Fprintln(stderr, "       rgocp -f -F <remote_path> [flags] <destination_hash>")
+			usageErr(stderr, "rgocp [flags] <file> <destination_hash>")
+			usageErr(stderr, "rgocp -l [flags]")
+			usageErr(stderr, "rgocp -f [flags] <remote_path> <destination_hash>")
 			return 2
 		}
 		filePath := fs.Arg(0)
@@ -130,7 +151,7 @@ func RunCP(args []string, opt ...Options) int {
 			fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		return runSend(tr, id, filePath, destHash, timeout, *silent, !*noCompress, stdout, stderr)
+		return runSend(tr, id, filePath, destHash, timeout, *silent, !*noCompress, *phyRates, stdout, stderr)
 	}
 }
 
@@ -174,7 +195,7 @@ func runListen(tr *transport.Transport, id *identity.Identity, opts listenOpts) 
 	if opts.jail != "" {
 		jailAbs, err = filepath.Abs(opts.jail)
 		if err != nil {
-			fmt.Fprintf(stderr, "jail: %v\n", err)
+			diagErr(stderr, "jail", err)
 			return 1
 		}
 		fmt.Fprintln(stderr, infoMsg(stderr, fmt.Sprintf("Restricting fetch requests to paths under %q", jailAbs)))
@@ -182,7 +203,7 @@ func runListen(tr *transport.Transport, id *identity.Identity, opts listenOpts) 
 
 	dest, err := destination.New(id, destination.In, destination.Single, rnsutil.RNCPAppName, tr, rnsutil.RNCPAspect)
 	if err != nil {
-		fmt.Fprintf(stderr, "destination: %v\n", err)
+		diagErr(stderr, "destination", err)
 		return 1
 	}
 	dest.AcceptsLinks(true)
@@ -236,7 +257,7 @@ func runListen(tr *transport.Transport, id *identity.Identity, opts listenOpts) 
 			path, err := rnsutil.WriteReceivedFile(saveDir, name, data, opts.overwrite)
 			mu.Unlock()
 			if err != nil {
-				fmt.Fprintf(stderr, "save: %v\n", err)
+				diagErr(stderr, "save", err)
 				return
 			}
 			fmt.Fprintln(stderr, okMsg(stderr, fmt.Sprintf("Saved received file to %s", path)))
@@ -302,26 +323,75 @@ func runListen(tr *transport.Transport, id *identity.Identity, opts listenOpts) 
 
 func resolveFetchPath(req, jail string) (string, bool) {
 	req = strings.TrimSpace(req)
-	if jail != "" {
-		cleaned := strings.TrimPrefix(req, jail+"/")
-		full := filepath.Join(jail, cleaned)
-		abs, err := filepath.Abs(full)
+	if jail == "" {
+		abs, err := filepath.Abs(req)
 		if err != nil {
-			return "", false
-		}
-		if !strings.HasPrefix(abs, jail+string(os.PathSeparator)) && abs != jail {
 			return "", false
 		}
 		return abs, true
 	}
-	abs, err := filepath.Abs(req)
+
+	cleaned := strings.TrimPrefix(req, jail+"/")
+	full := filepath.Join(jail, cleaned)
+	abs, err := filepath.Abs(full)
 	if err != nil {
 		return "", false
 	}
-	return abs, true
+	if !strings.HasPrefix(abs, jail+string(os.PathSeparator)) && abs != jail {
+		return "", false
+	}
+
+	// A Clean+HasPrefix check on the unresolved string is not enough: a
+	// symlink inside jail can point outside it while the string still looks
+	// contained. Resolve symlinks on both sides before trusting abs.
+	resolvedJail, err := filepath.EvalSymlinks(jail)
+	if err != nil {
+		resolvedJail = jail
+	}
+	resolved, ok := evalExistingAncestorPath(abs)
+	if !ok {
+		return "", false
+	}
+	if resolved != resolvedJail && !strings.HasPrefix(resolved, resolvedJail+string(os.PathSeparator)) {
+		return "", false
+	}
+	return resolved, true
 }
 
-func runSend(tr *transport.Transport, id *identity.Identity, filePath string, destHash []byte, timeout time.Duration, silent, compress bool, stdout, stderr io.Writer) int {
+// evalExistingAncestorPath resolves symlinks in path, walking up to the
+// nearest existing ancestor when the leaf (or more) does not exist yet, then
+// reattaches the missing suffix unresolved. A symlinked ancestor still
+// cannot smuggle a request outside the jail just because the final
+// component happens not to exist yet.
+func evalExistingAncestorPath(path string) (string, bool) {
+	suffix := ""
+	cur := path
+	for {
+		resolved, err := filepath.EvalSymlinks(cur)
+		if err == nil {
+			if suffix == "" {
+				return resolved, true
+			}
+			return filepath.Join(resolved, suffix), true
+		}
+		if !os.IsNotExist(err) {
+			return "", false
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return "", false
+		}
+		base := filepath.Base(cur)
+		if suffix == "" {
+			suffix = base
+		} else {
+			suffix = filepath.Join(base, suffix)
+		}
+		cur = parent
+	}
+}
+
+func runSend(tr *transport.Transport, id *identity.Identity, filePath string, destHash []byte, timeout time.Duration, silent, compress, phyRates bool, stdout, stderr io.Writer) int {
 	if stdout == nil {
 		stdout = os.Stdout
 	}
@@ -332,7 +402,7 @@ func runSend(tr *transport.Transport, id *identity.Identity, filePath string, de
 		fmt.Fprintln(stdout, errMsg(stdout, "File not found"))
 		return 1
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := rnsutil.CLIWaitContext(timeout)
 	defer cancel()
 
 	fmt.Fprintln(stdout, infoMsg(stdout, fmt.Sprintf("Path to %s requested", rnsutil.PrettyHex(destHash))))
@@ -344,7 +414,7 @@ func runSend(tr *transport.Transport, id *identity.Identity, filePath string, de
 	defer l.Teardown()
 
 	if err := l.Identify(id); err != nil {
-		fmt.Fprintf(stderr, "identify: %v\n", err)
+		diagErr(stderr, "identify", err)
 		return 1
 	}
 
@@ -363,7 +433,11 @@ func runSend(tr *transport.Transport, id *identity.Identity, filePath string, de
 			bps = float64(got-lastGot) * 8 / now.Sub(lastAt).Seconds()
 		}
 		lastGot, lastAt = got, now
-		prog.Update("Transferring", pct, got, total, bps)
+		suffix := ""
+		if phyRates && bps > 0 {
+			suffix = fmt.Sprintf(" (%s/s at physical layer)", rnsutil.SizeString(bps, "b"))
+		}
+		prog.Update("Transferring"+suffix, pct, got, total, bps)
 	})
 	if err != nil {
 		prog.Done(errMsg(stderr, "Transfer failed: "+err.Error()))
@@ -382,8 +456,9 @@ func runSend(tr *transport.Transport, id *identity.Identity, filePath string, de
 	return 0
 }
 
-func runFetch(tr *transport.Transport, id *identity.Identity, destHash []byte, remotePath string, timeout time.Duration, silent bool, saveDir string, overwrite bool, stdout, stderr io.Writer) int {
+func runFetch(tr *transport.Transport, id *identity.Identity, destHash []byte, remotePath string, timeout time.Duration, silent bool, saveDir string, overwrite, phyRates bool, stdout, stderr io.Writer) int {
 	_ = silent
+	_ = phyRates
 	if stdout == nil {
 		stdout = os.Stdout
 	}
@@ -398,7 +473,7 @@ func runFetch(tr *transport.Transport, id *identity.Identity, destHash []byte, r
 		}
 		saveDir = abs
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := rnsutil.CLIWaitContext(timeout)
 	defer cancel()
 
 	fmt.Fprintln(stdout, infoMsg(stdout, fmt.Sprintf("Path to %s requested", rnsutil.PrettyHex(destHash))))
@@ -410,7 +485,7 @@ func runFetch(tr *transport.Transport, id *identity.Identity, destHash []byte, r
 	defer l.Teardown()
 
 	if err := l.Identify(id); err != nil {
-		fmt.Fprintf(stderr, "identify: %v\n", err)
+		diagErr(stderr, "identify", err)
 		return 1
 	}
 
@@ -432,7 +507,7 @@ func runFetch(tr *transport.Transport, id *identity.Identity, destHash []byte, r
 
 	receipt, err := l.Request(rnsutil.RNCPFetchPath, remotePath, timeout)
 	if err != nil {
-		fmt.Fprintf(stderr, "request: %v\n", err)
+		diagErr(stderr, "request", err)
 		return 1
 	}
 	if err := rnsutil.WaitRequest(ctx, receipt); err != nil {
@@ -468,7 +543,7 @@ func runFetch(tr *transport.Transport, id *identity.Identity, destHash []byte, r
 	name := rnsutil.FilenameFromMetadata(received.Metadata)
 	path, err := rnsutil.WriteReceivedFile(saveDir, name, received.Data, overwrite)
 	if err != nil {
-		fmt.Fprintf(stderr, "save: %v\n", err)
+		diagErr(stderr, "save", err)
 		return 1
 	}
 	fmt.Fprintln(stdout, okMsg(stdout, fmt.Sprintf("%s fetched from %s -> %s", remotePath, rnsutil.PrettyHex(destHash), path)))

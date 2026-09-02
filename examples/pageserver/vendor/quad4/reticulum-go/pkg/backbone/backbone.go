@@ -21,12 +21,24 @@ const (
 	BackendKqueue Backend = "kqueue"
 	BackendUring  Backend = "io_uring"
 	BackendGo     Backend = "go"
+
+	// streamReadChunk is the hub socket read size. HDLC still splits frames
+	// at the packet MTU. Reading more than one MTU per syscall is the
+	// fast path for TCP backbone streams.
+	streamReadChunk = 64 * 1024
 )
 
 var (
 	globalHub *Hub
 	globalMu  sync.Mutex
 )
+
+func streamReadSize(mtu int) int {
+	if mtu > streamReadChunk {
+		return mtu
+	}
+	return streamReadChunk
+}
 
 // ParseBackend normalises a configuration value.
 func ParseBackend(s string) Backend {

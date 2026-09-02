@@ -16,6 +16,26 @@ import (
 	"quad4/reticulum-go/pkg/debug"
 )
 
+// FromConfigContext carries runtime dependencies for interface types that
+// need storage paths, transport identity, or dynamic peer registration.
+type FromConfigContext struct {
+	I2PStoragePath        string
+	TransportID           []byte
+	RegisterPeer          func(name string, peer common.NetworkInterface) error
+	UnregisterPeer        func(name string)
+	SetupPeer             func(peer common.NetworkInterface)
+	SynthesizeTunnel      func(TunnelPeer)
+	VoidTunnel            func(TunnelPeer)
+	DefaultGravity        int
+	WatchInterfaces       bool
+	DiscoverInterfaces    bool
+	PanicOnInterfaceError bool
+	BackboneHub           *backbone.Hub
+	SpawnBackbone         func(client *BackboneClientInterface)
+	SpawnLocal            LocalSpawnHook
+	ConfigDir             string
+}
+
 // NewFromConfig constructs a logical interface from a loaded [common.InterfaceConfig].
 func NewFromConfig(name string, cfg *common.InterfaceConfig) (Interface, error) {
 	return NewFromConfigWithContext(name, cfg, nil)
@@ -101,43 +121,6 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			cfg.I2PTunneled,
 			cfg.PreferIPv6,
 		)
-	case "QUICClientInterface":
-		iface, err = NewQUICClientInterfaceWithRetries(
-			name,
-			cfg.TargetHost,
-			cfg.TargetPort,
-			cfg.Enabled,
-			cfg.MaxReconnTries,
-			QUICClientOptions{
-				CertFile: cfg.CertFile,
-				KeyFile:  cfg.KeyFile,
-				PeerKey:  cfg.PeerKey,
-				SNI:      cfg.SNI,
-			},
-		)
-	case "QUICServerInterface":
-		iface, err = NewQUICServerInterface(
-			name,
-			cfg.Address,
-			cfg.Port,
-			QUICServerOptions{
-				CertFile: cfg.CertFile,
-				KeyFile:  cfg.KeyFile,
-				PeerKey:  cfg.PeerKey,
-			},
-		)
-	case "I2PInterface":
-		parent, perr := NewI2PInterface(name, cfg, ctx)
-		if perr != nil {
-			return nil, perr
-		}
-		for _, peerAddr := range cfg.I2PPeers {
-			peerName := name + " to " + peerAddr
-			maxTries := cfg.MaxReconnTries
-			peer := NewI2PInterfacePeer(parent, peerName, peerAddr, maxTries, cfg)
-			parent.registerSpawnedPeer(peer)
-		}
-		iface = parent
 	case "PipeInterface":
 		delay := time.Duration(cfg.RespawnDelay) * time.Second
 		panicOnErr := ctx != nil && ctx.PanicOnInterfaceError
@@ -162,6 +145,47 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			MTU:               cfg.MTU,
 			Bitrate:           cfg.Bitrate,
 		})
+	case "RNodeInterface":
+		port := cfg.Device
+		if port == "" {
+			port = cfg.Address
+		}
+		iface, err = NewRNodeInterface(name, cfg.Enabled, RNodeOptions{
+			Port:                  port,
+			Frequency:             cfg.FrequencyHz,
+			Bandwidth:             cfg.Bandwidth,
+			TXPower:               cfg.TXPower,
+			SF:                    cfg.SpreadingFactor,
+			CR:                    cfg.CodingRate,
+			FlowControl:           cfg.FlowControl,
+			IDInterval:            time.Duration(cfg.IDInterval) * time.Second,
+			Callsign:              cfg.IDCallsign,
+			STAirTimeLock:         rnodeAirtimeFromConfig(cfg.AirtimeLimitShort, cfg.AirtimeLimitShortSet),
+			LTAirTimeLock:         rnodeAirtimeFromConfig(cfg.AirtimeLimitLong, cfg.AirtimeLimitLongSet),
+			MaxReconnectTries:     cfg.MaxReconnTries,
+			PanicOnInterfaceError: ctx != nil && ctx.PanicOnInterfaceError,
+		})
+	case "RNodeMultiInterface":
+		port := cfg.Device
+		if port == "" {
+			port = cfg.Address
+		}
+		opts := RNodeMultiOptions{
+			RNodeOptions: RNodeOptions{
+				Port:                  port,
+				IDInterval:            time.Duration(cfg.IDInterval) * time.Second,
+				Callsign:              cfg.IDCallsign,
+				MaxReconnectTries:     cfg.MaxReconnTries,
+				PanicOnInterfaceError: ctx != nil && ctx.PanicOnInterfaceError,
+			},
+			SubInterfaces: cfg.SubInterfaces,
+		}
+		if ctx != nil {
+			opts.RegisterPeer = ctx.RegisterPeer
+			opts.UnregisterPeer = ctx.UnregisterPeer
+			opts.SetupPeer = ctx.SetupPeer
+		}
+		iface, err = NewRNodeMultiInterface(name, cfg.Enabled, opts)
 	case "Modem73Interface":
 		autoFrag := true
 		if cfg.AutoFragSet {
@@ -192,37 +216,6 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			TimeoutMargin:     cfg.TimeoutMargin,
 			MaxReconnectTries: cfg.MaxReconnTries,
 		})
-	case "SDRInterface":
-		iface, err = NewSDRInterface(name, cfg.Enabled, SDROptionsFromConfig(cfg))
-	case "WebTransportClientInterface":
-		iface, err = NewWebTransportClientInterfaceWithRetries(
-			name,
-			cfg.TargetHost,
-			cfg.TargetPort,
-			cfg.Path,
-			cfg.Enabled,
-			cfg.MaxReconnTries,
-			WebTransportClientOptions{
-				CertFile:      cfg.CertFile,
-				KeyFile:       cfg.KeyFile,
-				PeerKey:       cfg.PeerKey,
-				SNI:           cfg.SNI,
-				TransportMode: cfg.TransportMode,
-			},
-		)
-	case "WebTransportServerInterface":
-		iface, err = NewWebTransportServerInterface(
-			name,
-			cfg.Address,
-			cfg.Port,
-			cfg.Path,
-			WebTransportServerOptions{
-				CertFile:      cfg.CertFile,
-				KeyFile:       cfg.KeyFile,
-				PeerKey:       cfg.PeerKey,
-				TransportMode: cfg.TransportMode,
-			},
-		)
 	case "DNSRendezvousInterface":
 		interval := time.Duration(cfg.ResolveIntervalSec) * time.Second
 		listen := cfg.Address
@@ -303,7 +296,11 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 	case "LocalInterface", "LocalServerInterface":
 		iface, err = NewLocalFromConfig(name, cfg, ctx)
 	default:
-		iface, err = loadExternalInterface(name, cfg, ctx)
+		if factory := lookupBuiltinFromConfig(cfg.Type); factory != nil {
+			iface, err = factory(name, cfg, ctx)
+		} else {
+			iface, err = loadExternalInterface(name, cfg, ctx)
+		}
 	}
 	if err != nil {
 		return nil, err
@@ -312,7 +309,9 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 	if !ok {
 		return nil, fmt.Errorf("interface %q does not implement common.NetworkInterface", name)
 	}
-	applyModeFromConfig(iface, cfg)
+	applyModeFromConfig(iface, cfg, ctx)
+	applyBitrateFromConfig(iface, cfg)
+	applyAnnounceCapFromConfig(iface, cfg)
 	applyOutgoingFromConfig(iface, cfg)
 	if err := ApplyIFACFromConfig(ni, cfg); err != nil {
 		return nil, err
@@ -320,18 +319,61 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 	return iface, nil
 }
 
-// applyModeFromConfig sets Mode, RecursivePRs, and AnnouncesFromInternal from cfg.
-func applyModeFromConfig(iface Interface, cfg *common.InterfaceConfig) {
+func rnodeAirtimeFromConfig(value float64, set bool) *float64 {
+	if !set {
+		return nil
+	}
+	v := value
+	return &v
+}
+
+// applyModeFromConfig sets Mode, RecursivePRs, gravity, and announce flags from cfg.
+func applyModeFromConfig(iface Interface, cfg *common.InterfaceConfig, ctx *FromConfigContext) {
 	if cfg == nil || iface == nil {
 		return
 	}
 	mode := common.ParseInterfaceMode(cfg.Mode)
 	afi := announcesFromInternal(cfg)
+	ati := announcesToInternal(cfg)
+	gravity := cfg.Gravity
+	if !cfg.GravitySet {
+		gravity = 0
+		if ctx != nil {
+			gravity = ctx.DefaultGravity
+		}
+	}
 	if base := baseInterfaceOf(iface); base != nil {
 		base.Mode = mode
 		base.RecursivePRs = cfg.RecursivePRs
 		base.AnnouncesFromInternal = afi
+		base.AnnouncesToInternal = ati
+		base.Gravity = gravity
 	}
+}
+
+func applyBitrateFromConfig(iface Interface, cfg *common.InterfaceConfig) {
+	if cfg == nil || cfg.Bitrate <= 0 {
+		return
+	}
+	if base := baseInterfaceOf(iface); base != nil {
+		base.Bitrate = cfg.Bitrate
+	}
+}
+
+func applyAnnounceCapFromConfig(iface Interface, cfg *common.InterfaceConfig) {
+	if cfg == nil {
+		return
+	}
+	if base := baseInterfaceOf(iface); base != nil {
+		base.SetAnnounceCap(cfg.AnnounceCap)
+	}
+}
+
+func announcesToInternal(cfg *common.InterfaceConfig) bool {
+	if cfg.AnnouncesToInternalSet {
+		return cfg.AnnouncesToInternal
+	}
+	return false
 }
 
 // applyOutgoingFromConfig sets the transmit permit from outgoing / selected_outgoing.
@@ -360,58 +402,13 @@ func announcesFromInternal(cfg *common.InterfaceConfig) bool {
 	return true
 }
 
-// baseInterfaceOf returns the embedded *BaseInterface for known concrete types.
+type hasBaseInterface interface {
+	base() *BaseInterface
+}
+
 func baseInterfaceOf(iface Interface) *BaseInterface {
-	switch v := iface.(type) {
-	case *UDPInterface:
-		return &v.BaseInterface
-	case *TCPClientInterface:
-		return &v.BaseInterface
-	case *TCPServerInterface:
-		return &v.BaseInterface
-	case *AutoInterface:
-		return &v.BaseInterface
-	case *I2PInterface:
-		return &v.BaseInterface
-	case *I2PInterfacePeer:
-		return &v.BaseInterface
-	case *PipeInterface:
-		return &v.BaseInterface
-	case *LocalServerInterface:
-		return &v.BaseInterface
-	case *LocalClientInterface:
-		return &v.BaseInterface
-	case *WebSocketInterface:
-		return &v.BaseInterface
-	case *BackboneInterface:
-		return &v.BaseInterface
-	case *BackboneClientInterface:
-		return &v.BaseInterface
-	case *QUICClientInterface:
-		return &v.BaseInterface
-	case *QUICServerInterface:
-		return &v.BaseInterface
-	case *SerialInterface:
-		return &v.BaseInterface
-	case *Modem73Interface:
-		return &v.BaseInterface
-	case *SDRInterface:
-		return &v.BaseInterface
-	case *WebTransportClientInterface:
-		return &v.BaseInterface
-	case *WebTransportServerInterface:
-		return &v.BaseInterface
-	case *DNSRendezvousInterface:
-		return &v.BaseInterface
-	case *VSOCKClientInterface:
-		return &v.BaseInterface
-	case *VSOCKServerInterface:
-		return &v.BaseInterface
-	case *HTTPSClientInterface:
-		return &v.BaseInterface
-	case *HTTPSServerInterface:
-		return &v.BaseInterface
-	default:
-		return nil
+	if b, ok := iface.(hasBaseInterface); ok {
+		return b.base()
 	}
+	return nil
 }

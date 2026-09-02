@@ -8,6 +8,7 @@ import (
 
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/health"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/packet"
 )
@@ -19,6 +20,9 @@ const (
 
 // validateAndForwardLRProof cryptographically validates a transit link-request
 // proof before forwarding it toward the initiator (Python Transport LRPROOF path).
+// When ALLOW_LINK_PATH_REBALANCE is on, a hop mismatch on the correct next-hop
+// iface may update RemainingHops and path hops after signature validation
+// (RNS 1.4.1), then continue with normal forward when hops match.
 func (t *Transport) validateAndForwardLRProof(pkt *packet.Packet, iface common.NetworkInterface) bool {
 	if t == nil || t.linkTable == nil || pkt == nil {
 		return false
@@ -39,11 +43,22 @@ func (t *Transport) validateAndForwardLRProof(pkt *packet.Packet, iface common.N
 
 	accounted := AccountInboundHops(pkt.Hops, iface)
 	if int(accounted) != entry.RemainingHops {
-		debug.Log(debug.DebugInfo, "LRPROOF hop mismatch, not transporting",
-			"link_id", fmt.Sprintf("%x", linkID),
-			"accounted", accounted,
-			"remaining", entry.RemainingHops)
-		return true
+		if !t.tryTransitLRProofRebalance(pkt, iface, linkID, entry, accounted) {
+			ifaceName := ""
+			if iface != nil {
+				ifaceName = iface.GetName()
+			}
+			health.Inc(ifaceName, health.KindLRProofHopMismatch)
+			debug.Log(debug.DebugInfo, "LRPROOF hop mismatch, not transporting",
+				"link_id", fmt.Sprintf("%x", linkID),
+				"accounted", accounted,
+				"remaining", entry.RemainingHops)
+			return true
+		}
+		entry, ok = t.linkTable.get(linkID)
+		if !ok || entry == nil || int(accounted) != entry.RemainingHops {
+			return true
+		}
 	}
 	if iface != entry.NextHopIface {
 		debug.Log(debug.DebugInfo, "LRPROOF received on wrong interface, not transporting",
@@ -109,5 +124,63 @@ func (t *Transport) validateAndForwardLRProof(pkt *packet.Packet, iface common.N
 		debug.Log(debug.DebugError, "Failed to transport LRPROOF", "error", err)
 	}
 	t.rememberPacketHashForced(pkt)
+	t.noteIfacePathSuccess(iface)
+	return true
+}
+
+// tryTransitLRProofRebalance attempts RNS 1.4.1 hop correction on a transit
+// LRPROOF. Requires correct next-hop iface, valid signature, and an
+// unvalidated link-table entry. Returns true when RemainingHops was updated.
+func (t *Transport) tryTransitLRProofRebalance(pkt *packet.Packet, iface common.NetworkInterface, linkID []byte, entry *LinkRelayEntry, accounted byte) bool {
+	if t == nil || pkt == nil || entry == nil || !t.LinkPathRebalanceAllowed() {
+		return false
+	}
+	if iface != entry.NextHopIface {
+		return false
+	}
+	if entry.Validated {
+		return false
+	}
+	sigLen := identity.SigLength / 8
+	minLen := sigLen + lrProofX25519Size
+	maxLen := minLen + lrProofMTUSize
+	if len(pkt.Data) != minLen && len(pkt.Data) != maxLen {
+		return false
+	}
+	peerIdent, err := identity.Recall(entry.DestinationHash)
+	if err != nil || peerIdent == nil {
+		return false
+	}
+	pub := peerIdent.GetPublicKey()
+	if len(pub) < lrProofX25519Size*2 {
+		return false
+	}
+	signature := pkt.Data[:sigLen]
+	peerPub := pkt.Data[sigLen : sigLen+lrProofX25519Size]
+	signalling := []byte(nil)
+	if len(pkt.Data) == maxLen {
+		signalling = pkt.Data[sigLen+lrProofX25519Size:]
+	}
+	peerSigPub := pub[lrProofX25519Size : lrProofX25519Size*2]
+	signed := make([]byte, 0, len(linkID)+len(peerPub)+len(peerSigPub)+len(signalling))
+	signed = append(signed, linkID...)
+	signed = append(signed, peerPub...)
+	signed = append(signed, peerSigPub...)
+	signed = append(signed, signalling...)
+	if !peerIdent.Verify(signed, signature) {
+		debug.Log(debug.DebugInfo, "Aborting LRPROOF path rebalance due to invalid signature",
+			"link_id", fmt.Sprintf("%x", linkID))
+		return false
+	}
+	if !t.applyPathHopRebalance(entry.DestinationHash, accounted, iface) {
+		return false
+	}
+	if !t.linkTable.setRemainingHops(linkID, int(accounted)) {
+		return false
+	}
+	debug.Log(debug.DebugInfo, "Re-balancing path from transit link-request proof",
+		"link_id", fmt.Sprintf("%x", linkID),
+		"dest", pathHex(entry.DestinationHash),
+		"to", accounted)
 	return true
 }

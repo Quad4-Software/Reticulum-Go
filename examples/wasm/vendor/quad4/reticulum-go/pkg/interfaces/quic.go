@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
-//go:build !js
+//go:build !js && !rns_slim
 
 package interfaces
 
@@ -25,6 +25,40 @@ const (
 	quicHandshakeTimeout = 10 * time.Second
 	quicIdleTimeout      = 60 * time.Second
 )
+
+func init() {
+	registerBuiltinFromConfig("QUICClientInterface", newQUICClientFromConfig)
+	registerBuiltinFromConfig("QUICServerInterface", newQUICServerFromConfig)
+}
+
+func newQUICClientFromConfig(name string, cfg *common.InterfaceConfig, _ *FromConfigContext) (Interface, error) {
+	return NewQUICClientInterfaceWithRetries(
+		name,
+		cfg.TargetHost,
+		cfg.TargetPort,
+		cfg.Enabled,
+		cfg.MaxReconnTries,
+		QUICClientOptions{
+			CertFile: cfg.CertFile,
+			KeyFile:  cfg.KeyFile,
+			PeerKey:  cfg.PeerKey,
+			SNI:      cfg.SNI,
+		},
+	)
+}
+
+func newQUICServerFromConfig(name string, cfg *common.InterfaceConfig, _ *FromConfigContext) (Interface, error) {
+	return NewQUICServerInterface(
+		name,
+		cfg.Address,
+		cfg.Port,
+		QUICServerOptions{
+			CertFile: cfg.CertFile,
+			KeyFile:  cfg.KeyFile,
+			PeerKey:  cfg.PeerKey,
+		},
+	)
+}
 
 // quicSessionConn wraps a bidirectional QUIC stream and its parent connection as net.Conn.
 type quicSessionConn struct {

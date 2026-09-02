@@ -4,7 +4,29 @@
 
 package interfaces
 
-import "fmt"
+import (
+	"fmt"
+
+	"quad4/reticulum-go/pkg/common"
+)
+
+func init() {
+	registerBuiltinFromConfig("QUICClientInterface", func(name string, cfg *common.InterfaceConfig, _ *FromConfigContext) (Interface, error) {
+		return NewQUICClientInterfaceWithRetries(name, cfg.TargetHost, cfg.TargetPort, cfg.Enabled, cfg.MaxReconnTries, QUICClientOptions{
+			CertFile: cfg.CertFile,
+			KeyFile:  cfg.KeyFile,
+			PeerKey:  cfg.PeerKey,
+			SNI:      cfg.SNI,
+		})
+	})
+	registerBuiltinFromConfig("QUICServerInterface", func(name string, cfg *common.InterfaceConfig, _ *FromConfigContext) (Interface, error) {
+		return NewQUICServerInterface(name, cfg.Address, cfg.Port, QUICServerOptions{
+			CertFile: cfg.CertFile,
+			KeyFile:  cfg.KeyFile,
+			PeerKey:  cfg.PeerKey,
+		})
+	})
+}
 
 // QUICClientOptions holds optional TLS settings for a QUIC client.
 type QUICClientOptions struct {

@@ -38,6 +38,15 @@ func DestinationTablePath(configPath string) (string, error) {
 	return filepath.Join(dir, "destination_table"), nil
 }
 
+// RatchetsDir returns the directory for announced peer ratchet public keys.
+func RatchetsDir(configPath string) (string, error) {
+	dir, err := DataDir(configPath)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "ratchets"), nil
+}
+
 // KnownDestinationsPath returns the known destinations snapshot file path.
 func KnownDestinationsPath(configPath string) (string, error) {
 	dir, err := DataDir(configPath)

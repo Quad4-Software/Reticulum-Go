@@ -46,6 +46,9 @@ func (t *Transport) shouldForwardAnnounceOn(destHash []byte, outIface, fromIface
 			if fromIface == nil {
 				return false
 			}
+			if announcesToInternal(fromIface) {
+				break
+			}
 			if fromIface.GetMode() == common.IFModeBoundary {
 				debug.Log(debug.DebugAll, "Blocking announce broadcast: boundary next hop to internal",
 					"iface", outIface.GetName())
@@ -83,6 +86,17 @@ func announcesFromInternal(iface common.NetworkInterface) bool {
 	return true
 }
 
+func announcesToInternal(iface common.NetworkInterface) bool {
+	type ati interface{ AnnouncesToInternalFlag() bool }
+	if v, ok := iface.(ati); ok {
+		return v.AnnouncesToInternalFlag()
+	}
+	if bi, ok := iface.(interface{ GetAnnouncesToInternal() bool }); ok {
+		return bi.GetAnnouncesToInternal()
+	}
+	return false
+}
+
 func (t *Transport) isLocalDestination(destHash []byte) bool {
 	if len(destHash) == 0 {
 		return false
@@ -106,7 +120,7 @@ func (t *Transport) nextHopNetworkInterface(destHash []byte) common.NetworkInter
 }
 
 // ifaceDiscoversUnknownPaths reports whether iface should search for unknown
-// paths (discover modes or recursive_prs).
+// paths (discover modes, recursive_prs, or boundary-mode RNS 1.4.1 search).
 func ifaceDiscoversUnknownPaths(iface common.NetworkInterface) bool {
 	if iface == nil {
 		return false
@@ -115,5 +129,28 @@ func ifaceDiscoversUnknownPaths(iface common.NetworkInterface) bool {
 	if v, ok := iface.(rp); ok && v.RecursivePRsEnabled() {
 		return true
 	}
-	return common.ModeDiscoversPaths(iface.GetMode())
+	mode := iface.GetMode()
+	if common.ModeDiscoversPaths(mode) {
+		return true
+	}
+	return mode == common.IFModeBoundary
+}
+
+// discoverySearchModeFilter returns the interface-mode filter for recursive
+// discovery. Boundary-mode without recursive_prs only fans out to
+// BOUNDARY_SEARCH_MODES (boundary and gateway). Nil means no filter.
+func discoverySearchModeFilter(iface common.NetworkInterface) []common.InterfaceMode {
+	if iface == nil {
+		return nil
+	}
+	type rp interface{ RecursivePRsEnabled() bool }
+	if v, ok := iface.(rp); ok && v.RecursivePRsEnabled() {
+		return nil
+	}
+	if iface.GetMode() == common.IFModeBoundary {
+		out := make([]common.InterfaceMode, len(common.BoundarySearchModes))
+		copy(out, common.BoundarySearchModes)
+		return out
+	}
+	return nil
 }

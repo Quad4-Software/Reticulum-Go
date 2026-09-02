@@ -5,6 +5,8 @@ package transport
 
 import (
 	"time"
+
+	"quad4/reticulum-go/pkg/common"
 )
 
 type PrepareFreshPathReturn string
@@ -54,16 +56,16 @@ func (t *Transport) PrepareFreshPathRequest(destinationHash []byte) PrepareFresh
 	return PrepareFreshNewPathRequested
 }
 
-// NudgePathRequest clears the per-destination throttle used by RequestPath when tag
-// is nil, then sends one path request. Use while polling for HasPath at intervals
-// of at least PathRequestMI so discovery packets actually emit on each nudge.
+// NudgePathRequest sends one path request. It honours PathRequestMI the same
+// way RequestPath does. Polling faster than that returns ErrPathRequestThrottled.
+// Use AwaitPath instead of a RequestPath or NudgePathRequest loop.
 func (t *Transport) NudgePathRequest(destinationHash []byte) error {
-	if t == nil || len(destinationHash) != 16 {
-		return nil
+	if t == nil {
+		return common.ErrNoPathToDestination
 	}
-	t.mutex.Lock()
-	delete(t.lastPathRequest, pathMapKey(destinationHash))
-	t.mutex.Unlock()
+	if len(destinationHash) != 16 {
+		return common.ErrTransportEmptyDestinationHash
+	}
 	return t.RequestPath(destinationHash, "", nil, false)
 }
 

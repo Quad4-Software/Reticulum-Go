@@ -618,6 +618,32 @@ func (r *Resource) HasMetadata() bool {
 	return len(r.metadata) > 0 || len(r.metadataPacked) > 0
 }
 
+// SetMetadataPacked attaches pre-packed msgpack metadata (for integer keys).
+func (r *Resource) SetMetadataPacked(packed []byte) error {
+	if r == nil {
+		return errors.New("nil resource")
+	}
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	if len(packed) == 0 {
+		r.metadata = nil
+		r.metadataPacked = nil
+		return nil
+	}
+	if len(packed) > MetadataMaxSize {
+		return errors.New("resource metadata size exceeded")
+	}
+	r.metadata = nil
+	blob := make([]byte, 3+len(packed))
+	n := len(packed)
+	blob[0] = byte(n >> 16) // #nosec G115 -- n bounded by MetadataMaxSize
+	blob[1] = byte(n >> 8)  // #nosec G115 -- n bounded by MetadataMaxSize
+	blob[2] = byte(n)       // #nosec G115 -- n bounded by MetadataMaxSize
+	copy(blob[3:], packed)
+	r.metadataPacked = blob
+	return nil
+}
+
 // SetMetadata attaches a metadata map transferred ahead of the file bytes.
 // Keys and values must be msgpack-safe.
 func (r *Resource) SetMetadata(meta map[string]any) error {

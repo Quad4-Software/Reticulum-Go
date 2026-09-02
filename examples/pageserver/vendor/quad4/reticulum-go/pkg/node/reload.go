@@ -100,6 +100,10 @@ func interfaceConfigsEqualForReload(a, b *common.InterfaceConfig) bool {
 		a.RecursivePRs == b.RecursivePRs &&
 		a.AnnouncesFromInternal == b.AnnouncesFromInternal &&
 		a.AnnouncesFromInternalSet == b.AnnouncesFromInternalSet &&
+		a.AnnouncesToInternal == b.AnnouncesToInternal &&
+		a.AnnouncesToInternalSet == b.AnnouncesToInternalSet &&
+		a.Gravity == b.Gravity &&
+		a.GravitySet == b.GravitySet &&
 		a.Outgoing == b.Outgoing &&
 		a.OutgoingSet == b.OutgoingSet &&
 		a.Device == b.Device &&
@@ -148,7 +152,33 @@ func interfaceConfigsEqualForReload(a, b *common.InterfaceConfig) bool {
 		floatEqual(a.RXGain, b.RXGain) &&
 		floatEqual(a.TXGain, b.TXGain) &&
 		a.Modem == b.Modem &&
-		a.SerialNum == b.SerialNum
+		a.SerialNum == b.SerialNum &&
+		a.TXPower == b.TXPower &&
+		a.SpreadingFactor == b.SpreadingFactor &&
+		a.CodingRate == b.CodingRate &&
+		a.FlowControl == b.FlowControl &&
+		a.IDInterval == b.IDInterval &&
+		a.IDCallsign == b.IDCallsign &&
+		floatEqual(a.AirtimeLimitShort, b.AirtimeLimitShort) &&
+		a.AirtimeLimitShortSet == b.AirtimeLimitShortSet &&
+		floatEqual(a.AirtimeLimitLong, b.AirtimeLimitLong) &&
+		a.AirtimeLimitLongSet == b.AirtimeLimitLongSet &&
+		a.VPort == b.VPort &&
+		a.VPortSet == b.VPortSet &&
+		subInterfaceConfigsEqualForReload(a.SubInterfaces, b.SubInterfaces)
+}
+
+func subInterfaceConfigsEqualForReload(a, b map[string]*common.InterfaceConfig) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for name, ac := range a {
+		bc, ok := b[name]
+		if !ok || !interfaceConfigsEqualForReload(ac, bc) {
+			return false
+		}
+	}
+	return true
 }
 
 func (n *Node) tearDownInterface(iface interfaces.Interface) {
@@ -157,6 +187,7 @@ func (n *Node) tearDownInterface(iface interfaces.Interface) {
 	}
 	name := iface.GetName()
 	n.transport.UnregisterInterface(name)
+	n.wiringMu.Lock()
 	if buf, ok := n.buffers[name]; ok {
 		_ = buf.Close()
 		delete(n.buffers, name)
@@ -165,6 +196,7 @@ func (n *Node) tearDownInterface(iface interfaces.Interface) {
 		_ = ch.Close()
 		delete(n.channels, name)
 	}
+	n.wiringMu.Unlock()
 	_ = iface.Stop()
 }
 
@@ -218,14 +250,14 @@ func (n *Node) ReloadInterfaces(newCfg *common.ReticulumConfig) error {
 			if newCfg.PanicOnInterfaceErr {
 				return fmt.Errorf("interface %s: %w", name, err)
 			}
-			debug.Log(debug.DebugCritical, "ReloadInterfaces: skip interface", "name", name, "error", err)
+			debug.Log(debug.DebugError, "ReloadInterfaces: skip interface", "name", name, "error", err)
 			continue
 		}
 		if err := niface.Start(); err != nil {
 			if newCfg.PanicOnInterfaceErr {
 				return fmt.Errorf("start %s: %w", name, err)
 			}
-			debug.Log(debug.DebugCritical, "ReloadInterfaces: start failed", "name", name, "error", err)
+			debug.Log(debug.DebugError, "ReloadInterfaces: start failed", "name", name, "error", err)
 			continue
 		}
 		ni, ok := niface.(common.NetworkInterface)
@@ -238,7 +270,7 @@ func (n *Node) ReloadInterfaces(newCfg *common.ReticulumConfig) error {
 			if newCfg.PanicOnInterfaceErr {
 				return err
 			}
-			debug.Log(debug.DebugCritical, "ReloadInterfaces: ReplaceInterface failed", "name", name, "error", err)
+			debug.Log(debug.DebugError, "ReloadInterfaces: ReplaceInterface failed", "name", name, "error", err)
 			continue
 		}
 		n.handleInterface(ni)

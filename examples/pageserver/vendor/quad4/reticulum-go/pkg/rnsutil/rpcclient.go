@@ -158,11 +158,38 @@ func (c *RPCClient) GetPathTable(maxHops *int) ([]transport.PathTableEntry, erro
 	return out, err
 }
 
-// GetLinkCount returns the active link count.
+// GetRateTable fetches announce rate-table rows.
+func (c *RPCClient) GetRateTable() ([]transport.RateTableEntry, error) {
+	var out []transport.RateTableEntry
+	err := c.Call(map[string]any{"get": "rate_table"}, &out)
+	return out, err
+}
+
+// GetLinkCount returns the link-table entry count.
 func (c *RPCClient) GetLinkCount() (int, error) {
 	var out int
 	err := c.Call(map[string]any{"get": "link_count"}, &out)
 	return out, err
+}
+
+// GetActiveLinkCount returns validated link-table entries.
+func (c *RPCClient) GetActiveLinkCount() (int, error) {
+	var out int
+	err := c.Call(map[string]any{"get": "active_link_count"}, &out)
+	return out, err
+}
+
+// GetProfilingResults fetches live RNS.Profiler-compatible results from a
+// shared instance (Go reticulum-go or Python rnsd).
+func (c *RPCClient) GetProfilingResults() (string, error) {
+	var out any
+	if err := c.Call(map[string]any{"get": "profiling_results"}, &out); err != nil {
+		return "", err
+	}
+	if out == nil {
+		return "", nil
+	}
+	return formatProfilingResults(out), nil
 }
 
 // GetNextHop returns the next-hop transport hash for destinationHash.
@@ -215,7 +242,8 @@ func (c *RPCClient) DropAllVia(transportHash []byte) (int, error) {
 	return out, err
 }
 
-// DropAnnounceQueues clears held announce queues. Returns cleared count.
+// DropAnnounceQueues clears per-interface outgoing announce queues.
+// Returns the number of queued announces dropped.
 func (c *RPCClient) DropAnnounceQueues() (int, error) {
 	var out int
 	err := c.Call(map[string]any{"drop": "announce_queues"}, &out)

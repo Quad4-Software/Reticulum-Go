@@ -1,8 +1,10 @@
 package mf
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/identity"
@@ -24,7 +26,16 @@ func NewMessage(senderHash []byte, text string) (*Message, error) {
 }
 
 // NewMessageWithGroup validates and returns a Message optionally tagged with a group hash.
+// Hash slices are copied so later mutation of the caller buffers cannot change the message.
 func NewMessageWithGroup(senderHash, groupHash []byte, text string) (*Message, error) {
+	var gh []byte
+	if len(groupHash) > 0 {
+		gh = cloneBytes(groupHash)
+	}
+	return newMessageOwned(cloneBytes(senderHash), gh, text)
+}
+
+func newMessageOwned(senderHash, groupHash []byte, text string) (*Message, error) {
 	m := &Message{
 		SenderHash: senderHash,
 		GroupHash:  groupHash,
@@ -36,11 +47,20 @@ func NewMessageWithGroup(senderHash, groupHash []byte, text string) (*Message, e
 	return m, nil
 }
 
+func cloneBytes(b []byte) []byte {
+	if len(b) == 0 {
+		return nil
+	}
+	out := make([]byte, len(b))
+	copy(out, b)
+	return out
+}
+
 // NewMessageFromHex parses the sender hash from hex then calls NewMessage.
 func NewMessageFromHex(senderHashHex string, text string) (*Message, error) {
-	hash, err := hex.DecodeString(senderHashHex)
+	hash, err := ParseHash(senderHashHex)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode hash: %w", err)
+		return nil, err
 	}
 	return NewMessage(hash, text)
 }
@@ -76,7 +96,7 @@ func (m *Message) String() string {
 	return fmt.Sprintf("Message{Sender: %s, Text: %q}", m.FormatSenderHash(), m.Text)
 }
 
-// Equal compares sender hash and text.
+// Equal compares sender hash, group hash, and text.
 func (m *Message) Equal(other *Message) bool {
 	if other == nil {
 		return false
@@ -84,15 +104,10 @@ func (m *Message) Equal(other *Message) bool {
 	if m.Text != other.Text {
 		return false
 	}
-	if len(m.SenderHash) != len(other.SenderHash) {
+	if !bytes.Equal(m.SenderHash, other.SenderHash) {
 		return false
 	}
-	for i := range m.SenderHash {
-		if m.SenderHash[i] != other.SenderHash[i] {
-			return false
-		}
-	}
-	return true
+	return bytes.Equal(m.GroupHash, other.GroupHash)
 }
 
 // Pack returns [16-byte sender][UTF-8 text] or [16-byte sender][0x01][16-byte group][UTF-8 text].
@@ -105,12 +120,12 @@ func (m *Message) Pack() ([]byte, error) {
 		copy(payload[:SenderHashLength], m.SenderHash)
 		payload[SenderHashLength] = groupFlagPresent
 		copy(payload[SenderHashLength+1:SenderHashLength+1+SenderHashLength], m.GroupHash)
-		copy(payload[SenderHashLength+1+SenderHashLength:], []byte(m.Text))
+		copy(payload[SenderHashLength+1+SenderHashLength:], m.Text)
 		return payload, nil
 	}
 	payload := make([]byte, m.Len())
 	copy(payload[:SenderHashLength], m.SenderHash)
-	copy(payload[SenderHashLength:], []byte(m.Text))
+	copy(payload[SenderHashLength:], m.Text)
 	return payload, nil
 }
 
@@ -130,9 +145,9 @@ func Unpack(data []byte) (*Message, error) {
 		groupHash := make([]byte, SenderHashLength)
 		copy(groupHash, rest[1:1+SenderHashLength])
 		text := string(rest[1+SenderHashLength:])
-		return NewMessageWithGroup(senderHash, groupHash, text)
+		return newMessageOwned(senderHash, groupHash, text)
 	}
-	return NewMessage(senderHash, string(rest))
+	return newMessageOwned(senderHash, nil, string(rest))
 }
 
 // Peer is a discovered peer hash plus app data string.
@@ -205,6 +220,35 @@ func (m *Messenger) SendMessage(destHash []byte, text string) error {
 	return m.sendPacked(destHash, targetDest, msg)
 }
 
+const recallTimeout = 10 * time.Second
+
+func (m *Messenger) SendHash(destHex, text string) error {
+	return m.sendHash(destHex, text, recallTimeout)
+}
+
+func (m *Messenger) sendHash(destHex, text string, wait time.Duration) error {
+	destHash, err := ParseHash(destHex)
+	if err != nil {
+		return err
+	}
+	deadline := time.Now().Add(wait)
+	var last error
+	for {
+		remote, err := identity.Recall(destHash)
+		if err == nil && remote != nil {
+			return m.SendMessage(destHash, text)
+		}
+		last = err
+		if time.Now().After(deadline) {
+			if last != nil {
+				return fmt.Errorf("%w: %v", ErrRecall, last)
+			}
+			return ErrRecall
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
 // SendGroupMessage sends one MF packet to destHash tagged with groupHash.
 func (m *Messenger) SendGroupMessage(destHash, groupHash []byte, text string) error {
 	if len(destHash) != SenderHashLength {
@@ -268,14 +312,7 @@ func (m *Messenger) sendPacked(destHash []byte, targetDest *destination.Destinat
 
 // SenderHashFromHex decodes a 32-byte hex sender hash.
 func SenderHashFromHex(s string) ([]byte, error) {
-	hash, err := hex.DecodeString(s)
-	if err != nil {
-		return nil, err
-	}
-	if len(hash) != SenderHashLength {
-		return nil, fmt.Errorf(errFmtExpected, ErrInvalidHashLength, SenderHashLength, len(hash))
-	}
-	return hash, nil
+	return ParseHash(s)
 }
 
 // ValidateSenderHash checks length == SenderHashLength.

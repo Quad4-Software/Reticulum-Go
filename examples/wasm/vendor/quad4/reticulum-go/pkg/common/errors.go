@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // Developer-facing setup and API error messages.
@@ -20,6 +21,7 @@ const (
 	MsgDestAnnounceNoInterfaces   = "destination: announce sent on 0 interfaces (none registered with transport)"
 	MsgDestAnnounceNoWritable     = "destination: announce sent on 0 interfaces (none online, enabled, and writable)"
 	MsgDestAnnounceRequiresIn     = "destination: only IN destination types can be announced"
+	MsgDestAnnounceThrottled      = "destination: announce throttled (wait before announcing again, do not loop Announce)"
 	MsgDestNoIncomingLinkHandler  = `destination: no incoming link handler (import the link package, e.g. _ "quad4/reticulum-go/pkg/link")`
 	MsgDestAcceptsLinksFalseOnly  = "destination: AcceptsLinks(false) clears the flag only and does not unregister from transport"
 	MsgDestNoPacketCallback       = "destination: packet received but no packet callback set (call SetPacketCallback)"
@@ -31,11 +33,21 @@ const (
 	MsgLinkTransportRequired       = "link: transport is required for Establish"
 	MsgLinkNoPacketCallback        = "link: packet queued with no packet callback (call SetPacketCallback)"
 	MsgLinkNoPacketCallbackDropped = "link: packet queued with no packet callback (call SetPacketCallback), prior queued packet dropped"
+	MsgLinkNotActive               = "link not active (wait for the established callback before Send, Request, or Identify)"
+	MsgLinkRequestBusy             = "link: too many in-flight requests (wait for receipts, do not loop Request)"
+	MsgLinkRequestDuplicate        = "link: a request for this path is already in flight (wait for the receipt)"
+	MsgLinkAlreadySettled          = "link already established or failed (wait for the established or closed callback, do not call Establish again on this link)"
+	MsgLinkEstablishBusy           = "link: handshake already in progress to this destination (wait for the established callback, do not loop NewLink/Establish)"
 
 	MsgTransportNilDestination       = "transport: cannot register nil destination"
 	MsgTransportEmptyDestinationHash = "transport: destination hash is empty"
 	MsgTransportNoDestForLinkRequest = "transport: no destination registered for hash (create destination with direction In or call RegisterDestination / AcceptsLinks(true))"
 	MsgTransportNoDestForData        = "transport: data for unregistered destination (create destination with direction In or call RegisterDestination)"
+	MsgTransportNoPathForLinkRelay   = "transport: no path to relay link request (call Transport.AwaitPath before Link.Establish)"
+	MsgTransportLinkRelayDisabled    = "transport: link relay refused (enable_transport is off and packet is not from a shared-instance client)"
+	MsgTransportNoOutgoingForPR      = "transport: path request not sent (no online outgoing interface with positive bitrate)"
+	MsgTransportIfaceNotReadyForPR   = "transport: interface offline, receive-only, or has no bitrate"
+	MsgPathRequestThrottled          = "path request throttled (use Transport.AwaitPath, do not loop RequestPath)"
 
 	MsgControlAPINoAcceptsLinks = "controlapi: destination registered without accepts_links, inbound link events will not be emitted"
 
@@ -57,6 +69,7 @@ var (
 	ErrDestAnnounceNoInterfaces   = errors.New(MsgDestAnnounceNoInterfaces)
 	ErrDestAnnounceNoWritable     = errors.New(MsgDestAnnounceNoWritable)
 	ErrDestAnnounceRequiresIn     = errors.New(MsgDestAnnounceRequiresIn)
+	ErrDestAnnounceThrottled      = errors.New(MsgDestAnnounceThrottled)
 	ErrDestNoIncomingLinkHandler  = errors.New(MsgDestNoIncomingLinkHandler)
 	ErrDestNoPacketCallback       = errors.New(MsgDestNoPacketCallback)
 	ErrDestNoRequestHandler       = errors.New(MsgDestNoRequestHandler)
@@ -65,12 +78,22 @@ var (
 	ErrLinkTransportRequired   = errors.New(MsgLinkTransportRequired)
 	ErrLinkNoPath              = errors.New("link: no path to destination")
 	ErrLinkNoPacketCallback    = errors.New(MsgLinkNoPacketCallback)
+	ErrLinkNotActive           = errors.New(MsgLinkNotActive)
+	ErrLinkRequestBusy         = errors.New(MsgLinkRequestBusy)
+	ErrLinkRequestDuplicate    = errors.New(MsgLinkRequestDuplicate)
+	ErrLinkAlreadySettled      = errors.New(MsgLinkAlreadySettled)
+	ErrLinkEstablishBusy       = errors.New(MsgLinkEstablishBusy)
 
 	ErrTransportNilDestination       = errors.New(MsgTransportNilDestination)
 	ErrTransportEmptyDestinationHash = errors.New(MsgTransportEmptyDestinationHash)
 	ErrTransportNoDestForLinkRequest = errors.New(MsgTransportNoDestForLinkRequest)
 	ErrTransportNoDestForData        = errors.New(MsgTransportNoDestForData)
+	ErrTransportNoPathForLinkRelay   = errors.New(MsgTransportNoPathForLinkRelay)
+	ErrTransportLinkRelayDisabled    = errors.New(MsgTransportLinkRelayDisabled)
+	ErrTransportNoOutgoingForPR      = errors.New(MsgTransportNoOutgoingForPR)
+	ErrTransportIfaceNotReadyForPR   = errors.New(MsgTransportIfaceNotReadyForPR)
 	ErrNoPathToDestination           = errors.New("no path to destination")
+	ErrPathRequestThrottled          = errors.New(MsgPathRequestThrottled)
 
 	ErrIdentityNotFound = errors.New("identity not found")
 
@@ -86,12 +109,30 @@ var (
 
 // ErrLinkNoPathf returns a path-missing establish error for destHash.
 func ErrLinkNoPathf(destHash []byte) error {
-	return fmt.Errorf("%w: %x (call RequestPath or wait for an announce)", ErrLinkNoPath, destHash)
+	return fmt.Errorf("%w: %x (use Transport.AwaitPath, not a fixed 15 second wait)", ErrLinkNoPath, destHash)
 }
 
 // ErrNoPathToDestinationf returns a send/path error for destHash.
 func ErrNoPathToDestinationf(destHash []byte) error {
-	return fmt.Errorf("%w %x (announce the peer or call RequestPath first)", ErrNoPathToDestination, destHash)
+	return fmt.Errorf("%w %x (use Transport.AwaitPath, not a tight RequestPath loop)", ErrNoPathToDestination, destHash)
+}
+
+// ErrTransportIfaceNotReadyForPRf names the interface that cannot emit a path request.
+func ErrTransportIfaceNotReadyForPRf(ifaceName string) error {
+	return fmt.Errorf("%w: %s (check enabled, online, outgoing, and bitrate)", ErrTransportIfaceNotReadyForPR, ifaceName)
+}
+
+// ErrTransportNoPathForLinkRelayf returns a link-relay miss for destHash.
+func ErrTransportNoPathForLinkRelayf(destHash []byte) error {
+	return fmt.Errorf("%w: %x", ErrTransportNoPathForLinkRelay, destHash)
+}
+
+// ErrPathRequestThrottledf explains a PathRequestMI suppress with remaining wait.
+func ErrPathRequestThrottledf(destHash []byte, wait time.Duration) error {
+	if wait < 0 {
+		wait = 0
+	}
+	return fmt.Errorf("%w: %x retry in %.1fs", ErrPathRequestThrottled, destHash, wait.Seconds())
 }
 
 // ErrIdentityNotFoundf returns a Recall miss for hash.

@@ -31,12 +31,15 @@ const (
 	RTTMinThreshold       = 0.025
 	TimeoutBaseMultiplier = 1.5
 	TimeoutRingMultiplier = 2.5
-	TimeoutRingOffset     = 2
+	TimeoutRingOffset     = 1.5
 
 	ChannelHeaderSize = 6
 	ChannelHeaderBits = 8
 
 	DefaultMaxTries = 5
+
+	// DefaultOutletMDU is used when the outlet does not expose GetMDU.
+	DefaultOutletMDU = 500
 )
 
 // MessageState represents the delivery state of a channel message.

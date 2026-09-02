@@ -11,21 +11,17 @@ import (
 
 var hkdfZeroSalt [32]byte
 
-func implDeriveKey(secret, salt, info []byte, length int) ([]byte, error) {
-	hashLen := 32
-
+func implDeriveKeyWrite(dst []byte, secret, salt, info []byte) error {
+	length := len(dst)
 	if length < 1 {
-		return nil, errors.New("invalid output key length")
+		return errors.New("invalid output key length")
 	}
-
 	if len(secret) == 0 {
-		return nil, errors.New("cannot derive key from empty input material")
+		return errors.New("cannot derive key from empty input material")
 	}
-
 	if len(salt) == 0 {
 		salt = hkdfZeroSalt[:]
 	}
-
 	if info == nil {
 		info = []byte{}
 	}
@@ -34,16 +30,16 @@ func implDeriveKey(secret, salt, info []byte, length int) ([]byte, error) {
 	extract.Write(secret)
 	prk := extract.Sum(nil)
 
-	iterations := (length + hashLen - 1) / hashLen
+	iterations := (length + 31) / 32
 	if iterations > 255 {
-		return nil, errors.New("hkdf: output length exceeds maximum")
+		return errors.New("hkdf: output length exceeds maximum")
 	}
 
-	derived := make([]byte, 0, iterations*hashLen)
 	var blockBuf [32]byte
 	block := blockBuf[:0]
 	expand := hmac.New(sha256.New, prk)
 	var counter [1]byte
+	off := 0
 	for i := range iterations {
 		expand.Reset()
 		expand.Write(block)
@@ -51,10 +47,26 @@ func implDeriveKey(secret, salt, info []byte, length int) ([]byte, error) {
 		counter[0] = byte(i + 1)
 		expand.Write(counter[:])
 		block = expand.Sum(blockBuf[:0])
-		derived = append(derived, block...)
+		n := copy(dst[off:], block)
+		off += n
 	}
+	return nil
+}
 
-	return derived[:length], nil
+func implDeriveKey(secret, salt, info []byte, length int) ([]byte, error) {
+	if length < 1 {
+		return nil, errors.New("invalid output key length")
+	}
+	derived := make([]byte, length)
+	if err := implDeriveKeyWrite(derived, secret, salt, info); err != nil {
+		return nil, err
+	}
+	return derived, nil
+}
+
+// DeriveKeyInto expands HKDF-SHA256 output into dst. len(dst) must be at least 1.
+func DeriveKeyInto(dst []byte, secret, salt, info []byte) error {
+	return implDeriveKeyWrite(dst, secret, salt, info)
 }
 
 // DeriveKey performs HKDF-SHA256 expansion (non-RFC 5869 extract. Matches legacy use).

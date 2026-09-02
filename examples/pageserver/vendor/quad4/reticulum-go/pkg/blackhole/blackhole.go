@@ -84,6 +84,12 @@ type Table struct {
 	entries map[[HashLen]byte]Entry
 	dir     string
 	now     func() time.Time
+
+	// activeSet caches currently blackholed hashes for bulk membership checks
+	// (RNS 1.4.2 Discovery list filtering). Invalidated on mutation.
+	activeSet    map[[HashLen]byte]struct{}
+	activeSetGen uint64
+	entriesGen   uint64
 }
 
 // New returns an empty Table whose persistence directory is dir. dir is
@@ -156,6 +162,7 @@ func (t *Table) Add(identityHash []byte, until float64, reason string) (bool, er
 		return false, nil
 	}
 	t.entries[k] = Entry{Source: src, Until: until, Reason: reason}
+	t.entriesGen++
 	t.mu.Unlock()
 	if err := t.PersistLocal(); err != nil {
 		return true, err
@@ -175,6 +182,7 @@ func (t *Table) Remove(identityHash []byte) (bool, error) {
 	_, exists := t.entries[k]
 	if exists {
 		delete(t.entries, k)
+		t.entriesGen++
 	}
 	t.mu.Unlock()
 	if !exists {
@@ -238,7 +246,48 @@ func (t *Table) SweepExpired() int {
 			removed++
 		}
 	}
+	if removed > 0 {
+		t.entriesGen++
+	}
 	return removed
+}
+
+// ActiveIdentitySet returns currently blackholed identity hashes for bulk
+// membership checks (RNS 1.4.2 Discovery list filtering). Go uniqueness:
+// the set is rebuilt on mutation (Add/Remove/Sweep) instead of a fixed 60s
+// TTL, so newly blackholed identities are never served stale for a minute.
+func (t *Table) ActiveIdentitySet() map[[HashLen]byte]struct{} {
+	if t == nil {
+		return nil
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.activeSet != nil && t.activeSetGen == t.entriesGen {
+		return t.activeSet
+	}
+	now := float64(t.now().Unix())
+	out := make(map[[HashLen]byte]struct{}, len(t.entries))
+	for k, e := range t.entries {
+		if e.Until != 0 && now >= e.Until {
+			continue
+		}
+		out[k] = struct{}{}
+	}
+	t.activeSet = out
+	t.activeSetGen = t.entriesGen
+	return out
+}
+
+// SetContains reports whether identityHash is present in a set from
+// ActiveIdentitySet.
+func SetContains(set map[[HashLen]byte]struct{}, identityHash []byte) bool {
+	if len(set) == 0 || len(identityHash) != HashLen {
+		return false
+	}
+	var k [HashLen]byte
+	copy(k[:], identityHash)
+	_, ok := set[k]
+	return ok
 }
 
 // PersistLocal writes the local-source subset of the table to <dir>/local
@@ -351,6 +400,7 @@ func (t *Table) LoadAll() error {
 			continue
 		}
 		t.mu.Lock()
+		changed := false
 		for hashStr, entry := range decoded {
 			if len(hashStr) != HashLen {
 				continue
@@ -367,6 +417,10 @@ func (t *Table) LoadAll() error {
 				entry.Source = srcHash
 			}
 			t.entries[k] = entry
+			changed = true
+		}
+		if changed {
+			t.entriesGen++
 		}
 		t.mu.Unlock()
 	}
@@ -387,6 +441,7 @@ func (t *Table) MergeRemote(sourceHash []byte, decoded map[string]Entry) error {
 	mu.Unlock()
 	now := float64(t.now().Unix())
 	t.mu.Lock()
+	changed := false
 	for hashStr, entry := range decoded {
 		if len(hashStr) != HashLen {
 			continue
@@ -403,6 +458,10 @@ func (t *Table) MergeRemote(sourceHash []byte, decoded map[string]Entry) error {
 			entry.Source = append([]byte(nil), sourceHash...)
 		}
 		t.entries[k] = entry
+		changed = true
+	}
+	if changed {
+		t.entriesGen++
 	}
 	t.mu.Unlock()
 

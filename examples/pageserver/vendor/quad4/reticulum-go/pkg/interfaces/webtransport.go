@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
-//go:build !js
+//go:build !js && !rns_slim
 
 package interfaces
 
@@ -34,6 +34,44 @@ const (
 	wtHandshakeTimeout = 10 * time.Second
 	wtIdleTimeout      = 60 * time.Second
 )
+
+func init() {
+	registerBuiltinFromConfig("WebTransportClientInterface", newWebTransportClientFromConfig)
+	registerBuiltinFromConfig("WebTransportServerInterface", newWebTransportServerFromConfig)
+}
+
+func newWebTransportClientFromConfig(name string, cfg *common.InterfaceConfig, _ *FromConfigContext) (Interface, error) {
+	return NewWebTransportClientInterfaceWithRetries(
+		name,
+		cfg.TargetHost,
+		cfg.TargetPort,
+		cfg.Path,
+		cfg.Enabled,
+		cfg.MaxReconnTries,
+		WebTransportClientOptions{
+			CertFile:      cfg.CertFile,
+			KeyFile:       cfg.KeyFile,
+			PeerKey:       cfg.PeerKey,
+			SNI:           cfg.SNI,
+			TransportMode: cfg.TransportMode,
+		},
+	)
+}
+
+func newWebTransportServerFromConfig(name string, cfg *common.InterfaceConfig, _ *FromConfigContext) (Interface, error) {
+	return NewWebTransportServerInterface(
+		name,
+		cfg.Address,
+		cfg.Port,
+		cfg.Path,
+		WebTransportServerOptions{
+			CertFile:      cfg.CertFile,
+			KeyFile:       cfg.KeyFile,
+			PeerKey:       cfg.PeerKey,
+			TransportMode: cfg.TransportMode,
+		},
+	)
+}
 
 // WebTransportClientOptions holds optional TLS and carriage settings for a client.
 type WebTransportClientOptions struct {
@@ -475,10 +513,11 @@ func (wc *WebTransportClientInterface) streamReadLoop() {
 		wc.StreamFramesRX.Add(1)
 		wc.ProcessIncoming(payload)
 	})
-	if cap(wc.readBuf) < wc.MTU {
-		wc.readBuf = make([]byte, wc.MTU)
+	n := streamReadSize(wc.MTU)
+	if cap(wc.readBuf) < n {
+		wc.readBuf = make([]byte, n)
 	}
-	buffer := wc.readBuf[:wc.MTU]
+	buffer := wc.readBuf[:n]
 	for {
 		wc.Mutex.RLock()
 		conn := wc.conn
@@ -590,7 +629,7 @@ func (wc *WebTransportClientInterface) readHDLCStream(stream *webtransport.Strea
 		wc.StreamFramesRX.Add(1)
 		wc.ProcessIncoming(payload)
 	})
-	buf := make([]byte, wc.MTU)
+	buf := make([]byte, streamReadSize(wc.MTU))
 	for {
 		wc.Mutex.RLock()
 		done := wc.done
@@ -897,7 +936,7 @@ func (ws *WebTransportServerInterface) readHDLCStream(stream *webtransport.Strea
 		ws.StreamFramesRX.Add(1)
 		ws.ProcessIncoming(payload)
 	})
-	buf := make([]byte, ws.MTU)
+	buf := make([]byte, streamReadSize(ws.MTU))
 	for {
 		ws.Mutex.RLock()
 		done := ws.done

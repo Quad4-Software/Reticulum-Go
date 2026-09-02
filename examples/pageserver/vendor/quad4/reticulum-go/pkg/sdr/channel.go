@@ -135,15 +135,15 @@ func AddAWGN(tx []Complex64, snrDB float64, rng *rand.Rand) []Complex64 {
 	return out
 }
 
-func boxMuller(rng *rand.Rand) (float64, float64) {
+func boxMuller(rng *rand.Rand) (z0, z1 float64) {
 	u1 := rng.Float64()
 	u2 := rng.Float64()
 	if u1 < 1e-12 {
 		u1 = 1e-12
 	}
 	mag := math.Sqrt(-2 * math.Log(u1))
-	z0 := mag * math.Cos(2*math.Pi*u2)
-	z1 := mag * math.Sin(2*math.Pi*u2)
+	z0 = mag * math.Cos(2*math.Pi*u2)
+	z1 = mag * math.Sin(2*math.Pi*u2)
 	return z0, z1
 }
 

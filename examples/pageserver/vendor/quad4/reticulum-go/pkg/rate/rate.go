@@ -57,7 +57,7 @@ type AnnounceRateControl struct {
 	rateGrace   int
 	ratePenalty float64
 
-	announceHistory map[string][]time.Time
+	announceHistory map[[16]byte][]time.Time
 	mutex           sync.RWMutex
 }
 
@@ -67,13 +67,24 @@ func NewAnnounceRateControl(target float64, grace int, penalty float64) *Announc
 		rateTarget:      target,
 		rateGrace:       grace,
 		ratePenalty:     penalty,
-		announceHistory: make(map[string][]time.Time),
+		announceHistory: make(map[[16]byte][]time.Time),
 	}
+}
+
+func destAnnounceKey(destHash string) [16]byte {
+	var k [16]byte
+	copy(k[:], destHash)
+	return k
 }
 
 // AllowAnnounce reports whether an announce for destHash is allowed.
 // Returns true unconditionally when rateTarget <= 0.
 func (arc *AnnounceRateControl) AllowAnnounce(destHash string) bool {
+	return arc.AllowAnnounceHash(destAnnounceKey(destHash))
+}
+
+// AllowAnnounceHash is AllowAnnounce keyed by a 16-byte destination hash.
+func (arc *AnnounceRateControl) AllowAnnounceHash(destHash [16]byte) bool {
 	if arc == nil || arc.rateTarget <= 0 {
 		return true
 	}
@@ -169,7 +180,7 @@ type IngressControl struct {
 	spawnedAt      time.Time
 	arrivals       []time.Time
 	heldQueue      []ingressHeld
-	heldIndex      map[string]int
+	heldIndex      map[[32]byte]int
 	burstActive    bool
 	burstClearedAt time.Time
 	lastReleaseAt  time.Time
@@ -178,7 +189,7 @@ type IngressControl struct {
 }
 
 type ingressHeld struct {
-	hash string
+	hash [32]byte
 	data []byte
 }
 
@@ -217,7 +228,7 @@ func NewIngressControlWith(cfg IngressControlConfig) *IngressControl {
 	return &IngressControl{
 		cfg:       cfg,
 		spawnedAt: time.Now(),
-		heldIndex: make(map[string]int),
+		heldIndex: make(map[[32]byte]int),
 	}
 }
 
@@ -226,10 +237,21 @@ func (ic *IngressControl) Enabled() bool {
 	return ic != nil && ic.cfg.Enabled
 }
 
+func announceHoldKey(announceHash string) [32]byte {
+	var k [32]byte
+	copy(k[:], announceHash)
+	return k
+}
+
 // ProcessAnnounce returns true when the announce should be processed
 // immediately, false when it has been queued or dropped. isNewDest must
 // be true when the receiving transport has no path for the destination.
 func (ic *IngressControl) ProcessAnnounce(announceHash string, announceData []byte, isNewDest bool) bool {
+	return ic.ProcessAnnounceHash(announceHoldKey(announceHash), announceData, isNewDest)
+}
+
+// ProcessAnnounceHash is ProcessAnnounce keyed by a 32-byte announce hash.
+func (ic *IngressControl) ProcessAnnounceHash(announceHash [32]byte, announceData []byte, isNewDest bool) bool {
 	if !ic.Enabled() {
 		return true
 	}
@@ -307,7 +329,7 @@ func (ic *IngressControl) ReleaseHeldAnnounce() (string, []byte, bool) {
 		ic.heldIndex[h.hash] = i
 	}
 	ic.lastReleaseAt = now
-	return entry.hash, entry.data, true
+	return string(entry.hash[:]), entry.data, true
 }
 
 // HeldCount returns the number of currently queued announces.

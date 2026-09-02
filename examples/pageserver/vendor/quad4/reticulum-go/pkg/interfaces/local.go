@@ -14,6 +14,7 @@ import (
 	"quad4/reticulum-go/pkg/backbone"
 	"quad4/reticulum-go/pkg/common"
 	"quad4/reticulum-go/pkg/debug"
+	"quad4/reticulum-go/pkg/protect"
 )
 
 const localReconnectWait = 8 * time.Second
@@ -152,17 +153,44 @@ func (ls *LocalServerInterface) acceptLoop() {
 			debug.Log(debug.DebugError, "Local shared instance accept error", "error", err)
 			continue
 		}
-		ls.handleConnection(conn)
+		d, release := protect.AdmitConn(ls.Name)
+		if !d.Allow {
+			_ = conn.Close()
+			continue
+		}
+		func(c net.Conn, rel func()) {
+			defer rel()
+			ls.handleConnection(c)
+		}(conn, release)
 	}
 }
 
-func (ls *LocalServerInterface) handleConnection(conn net.Conn) {
-	idx := int(ls.clients.Add(1))
-	name := conn.RemoteAddr().String()
+func localSpawnedClientName(conn net.Conn, ls *LocalServerInterface) string {
 	if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-		name = strconv.Itoa(tcpAddr.Port)
+		return strconv.Itoa(tcpAddr.Port)
 	}
-	_ = idx
+	if ls != nil && ls.useUnix {
+		path := ls.socketPath
+		if path == "" {
+			path = "default"
+		}
+		idx := int(ls.clients.Load())
+		return fmt.Sprintf("%d@rns/%s", idx, path)
+	}
+	if conn.RemoteAddr() != nil {
+		if addr := conn.RemoteAddr().String(); addr != "" {
+			return addr
+		}
+	}
+	if ls != nil {
+		return fmt.Sprintf("client-%d", ls.clients.Load())
+	}
+	return "client"
+}
+
+func (ls *LocalServerInterface) handleConnection(conn net.Conn) {
+	name := localSpawnedClientName(conn, ls)
+	ls.clients.Add(1)
 	client := newLocalClientFromConn(name, conn, ls, true)
 	client.Out = ls.Out
 	client.In = ls.In
@@ -408,10 +436,11 @@ func (lc *LocalClientInterface) readLoop() {
 
 func (lc *LocalClientInterface) runHDLCLoop(onFrame func([]byte)) {
 	decoder := newHDLCStreamDecoder(lc.MTU, onFrame)
-	if cap(lc.readBuf) < lc.MTU {
-		lc.readBuf = make([]byte, lc.MTU)
+	n := streamReadSize(lc.MTU)
+	if cap(lc.readBuf) < n {
+		lc.readBuf = make([]byte, n)
 	}
-	buffer := lc.readBuf[:lc.MTU]
+	buffer := lc.readBuf[:n]
 
 	for {
 		lc.Mutex.RLock()
@@ -449,13 +478,19 @@ func (lc *LocalClientInterface) handleDisconnect() {
 		_ = lc.conn.Close()
 		lc.conn = nil
 	}
+	spawned := lc.parent != nil && !lc.sharedInitiator
 	lc.Mutex.Unlock()
+	if spawned {
+		if lc.onDisconnect != nil {
+			lc.onDisconnect()
+		}
+		return
+	}
 	if lc.sharedInitiator && lc.Enabled && !lc.Detached {
 		if lc.onDisconnect != nil {
 			lc.onDisconnect()
 		}
 		go lc.reconnect()
-		return
 	}
 }
 

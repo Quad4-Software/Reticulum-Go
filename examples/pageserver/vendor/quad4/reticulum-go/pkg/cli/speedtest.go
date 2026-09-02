@@ -44,33 +44,24 @@ func RunSpeedtest(args []string, opt ...Options) int {
 	jsonOut := fs.Bool("json", false, "emit JSON result lines on stdout")
 	quiet := fs.Bool("q", false, "suppress progress logs")
 
-	fs.Usage = func() {
-		fmt.Fprintf(stderr, `rgospeed - link throughput test (RNS Speedtest-style)
-
-Modes:
+	bindFlagUsage(fs, "rgospeed - link throughput test (RNS Speedtest-style)",
+		`Modes:
   -loopback              in-process pipe (CI liveness)
   -l                     listen as speedtest.server (one client then exit)
   -daemon                persistent server for docker / VPS (implies -l -m)
-  <destination_hash>     connect and blast to a listening server
-
-Usage:
-  reticulum-go speedtest -loopback [flags]
-  reticulum-go speedtest -l [flags]
-  reticulum-go speedtest -daemon [flags]
-  reticulum-go speedtest [flags] <destination_hash>
-  rgospeed ...
-
-Flags:
-`)
-		fs.PrintDefaults()
-		fmt.Fprintf(stderr, `
-Examples:
-  reticulum-go speedtest -loopback
-  reticulum-go speedtest -daemon -iface tcp -json
-  reticulum-go speedtest -l -iface tcp,udp -bytes 1048576
-  reticulum-go speedtest -iface tcp -bytes 1048576 <server_dest_hash>
-`)
-	}
+  <destination_hash>     connect and blast to a listening server`,
+		[]helpLine{
+			{Cmd: "reticulum-go speedtest -loopback [flags]"},
+			{Cmd: "reticulum-go speedtest -l [flags]"},
+			{Cmd: "reticulum-go speedtest -daemon [flags]"},
+			{Cmd: "reticulum-go speedtest [flags] <destination_hash>"},
+			{Cmd: "rgospeed ..."},
+		},
+		"reticulum-go speedtest -loopback",
+		"reticulum-go speedtest -daemon -iface tcp -json",
+		"reticulum-go speedtest -l -iface tcp,udp -bytes 1048576",
+		"reticulum-go speedtest -iface tcp -bytes 1048576 <server_dest_hash>",
+	)
 
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -108,7 +99,7 @@ Examples:
 
 	if useLoopback {
 		if *listenMode {
-			fmt.Fprintln(stderr, "usage: speedtest -loopback [flags]")
+			usageErr(stderr, "speedtest -loopback [flags]")
 			return 2
 		}
 		return emitSpeedResult(stdout, stderr, *jsonOut, "loopback", "", spOpt, func() (rlink.SpeedtestResult, error) {
@@ -118,7 +109,7 @@ Examples:
 
 	cfg, err := rnsutil.LoadConfigDir(*configDir)
 	if err != nil {
-		fmt.Fprintf(stderr, "config: %v\n", err)
+		diagErr(stderr, "config", err)
 		return 1
 	}
 	// Speedtest must own its interfaces. Attaching to an ambient shared
@@ -127,7 +118,7 @@ Examples:
 
 	activeIfaces, err := rnsutil.SelectInterfaces(cfg, *ifaceSel)
 	if err != nil {
-		fmt.Fprintf(stderr, "iface: %v\n", err)
+		diagErr(stderr, "iface", err)
 		return 2
 	}
 
@@ -137,7 +128,7 @@ Examples:
 	}
 	id, err := rnsutil.PrepareSpeedtestIdentity(idPath)
 	if err != nil {
-		fmt.Fprintf(stderr, "identity: %v\n", err)
+		diagErr(stderr, "identity", err)
 		return 2
 	}
 
@@ -150,11 +141,11 @@ Examples:
 
 	n, err := node.New(cfg)
 	if err != nil {
-		fmt.Fprintf(stderr, "node: %v\n", err)
+		diagErr(stderr, "node", err)
 		return 1
 	}
 	if err := n.Start(); err != nil {
-		fmt.Fprintf(stderr, "start: %v\n", err)
+		diagErr(stderr, "start", err)
 		return 1
 	}
 	defer n.Stop()
@@ -167,7 +158,7 @@ Examples:
 		return runSpeedtestListen(tr, id, spOpt, !*multi, *announceSec, *jsonOut, stdout, stderr)
 	default:
 		if fs.NArg() != 1 {
-			fmt.Fprintln(stderr, "usage: speedtest [flags] <destination_hash>")
+			usageErr(stderr, "speedtest [flags] <destination_hash>")
 			fmt.Fprintln(stderr, "       speedtest -l|-daemon [flags]")
 			fmt.Fprintln(stderr, "       speedtest -loopback [flags]")
 			return 2
@@ -192,7 +183,7 @@ func runSpeedtestListen(
 ) int {
 	dest, err := destination.New(id, destination.In, destination.Single, rnsutil.SpeedtestAppName, tr, rnsutil.SpeedtestAspect)
 	if err != nil {
-		fmt.Fprintf(stderr, "destination: %v\n", err)
+		diagErr(stderr, "destination", err)
 		return 1
 	}
 	dest.AcceptsLinks(true)
@@ -221,7 +212,7 @@ func runSpeedtestListen(
 
 	if announceSec >= 0 {
 		if err := dest.Announce(false, nil, nil); err != nil {
-			fmt.Fprintf(stderr, "announce: %v\n", err)
+			diagErr(stderr, "announce", err)
 			return 1
 		}
 		fmt.Fprintln(stdout, infoMsg(stdout, "announce sent"))
@@ -238,7 +229,7 @@ func runSpeedtestListen(
 					return
 				case <-t.C:
 					if err := dest.Announce(false, nil, nil); err != nil {
-						fmt.Fprintf(stderr, "announce: %v\n", err)
+						diagErr(stderr, "announce", err)
 						continue
 					}
 					fmt.Fprintln(stdout, infoMsg(stdout, "announce refreshed"))

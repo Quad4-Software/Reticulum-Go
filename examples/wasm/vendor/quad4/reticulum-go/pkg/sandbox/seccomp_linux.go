@@ -88,7 +88,13 @@ func installSeccompFilter() (string, error) {
 	}
 }
 
-func installSeccompAllThreads(prog *unix.SockFprog) (string, error) {
+func installSeccompAllThreads(prog *unix.SockFprog) (mode string, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("seccomp all-threads panicked: %v", r)
+		}
+	}()
+
 	_, _, errno := syscall.AllThreadsSyscall(
 		unix.SYS_SECCOMP,
 		uintptr(unix.SECCOMP_SET_MODE_FILTER),

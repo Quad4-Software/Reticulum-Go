@@ -23,22 +23,30 @@ func RunProbe(args []string, opt ...Options) int {
 
 	configDir := fs.String("config", "", "path to config directory")
 	size := fs.Int("s", rnsutil.DefaultProbeSize, "probe payload size in bytes")
-	timeoutSec := fs.Float64("t", 0, "per-probe timeout in seconds (0 = first-hop based)")
+	timeoutSec := fs.Float64("t", 0, "per-probe timeout in seconds (0 = adaptive path wait, first-hop based probe)")
 	waitSec := fs.Float64("w", 0, "delay between probes in seconds")
 	count := fs.Int("n", 1, "number of probes")
 	verbose := fs.Bool("v", false, "show next-hop details")
 	jsonOut := fs.Bool("json", false, "emit JSON results")
+	bindFlagUsage(fs, "rgoprobe - path probe tool",
+		"Sends probe packets to a destination and reports loss and RTT.",
+		[]helpLine{
+			{Cmd: "rgoprobe [flags] <full_name> <destination_hash_hex>"},
+			{Cmd: "reticulum-go probe [flags] <full_name> <destination_hash_hex>"},
+		},
+		"rgoprobe example.app probe <dest_hash>",
+	)
 
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	if fs.NArg() != 2 {
-		fmt.Fprintln(stderr, "usage: rgoprobe [flags] <full_name> <destination_hash_hex>")
+		usageErr(stderr, "rgoprobe [flags] <full_name> <destination_hash_hex>")
 		return 2
 	}
 	fullName := fs.Arg(0)
 	if _, _, err := destination.ParseName(fullName); err != nil {
-		fmt.Fprintf(stderr, "name: %v\n", err)
+		diagErr(stderr, "name", err)
 		return 2
 	}
 
@@ -50,17 +58,17 @@ func RunProbe(args []string, opt ...Options) int {
 
 	cfg, err := rnsutil.LoadConfigDir(*configDir)
 	if err != nil {
-		fmt.Fprintf(stderr, "config: %v\n", err)
+		diagErr(stderr, "config", err)
 		return 1
 	}
 
 	n, err := node.New(cfg)
 	if err != nil {
-		fmt.Fprintf(stderr, "node: %v\n", err)
+		diagErr(stderr, "node", err)
 		return 1
 	}
 	if err := n.Start(); err != nil {
-		fmt.Fprintf(stderr, "start: %v\n", err)
+		diagErr(stderr, "start", err)
 		return 1
 	}
 	defer n.Stop()
@@ -70,7 +78,7 @@ func RunProbe(args []string, opt ...Options) int {
 	if *timeoutSec > 0 {
 		pathTimeout = time.Duration(*timeoutSec * float64(time.Second))
 	} else {
-		pathTimeout = rnsutil.DefaultProbeTimeout + time.Duration(tr.GetFirstHopTimeoutRPC(destHash)*float64(time.Second))
+		pathTimeout = rnsutil.PathResponseWindow(tr, destHash)
 	}
 
 	pathCtx, cancel := context.WithTimeout(context.Background(), pathTimeout)
@@ -102,7 +110,7 @@ func RunProbe(args []string, opt ...Options) int {
 		if *timeoutSec > 0 {
 			probeTimeout = time.Duration(*timeoutSec * float64(time.Second))
 		} else {
-			probeTimeout = rnsutil.DefaultProbeTimeout + time.Duration(tr.GetFirstHopTimeoutRPC(destHash)*float64(time.Second))
+			probeTimeout = rnsutil.DefaultProbeTimeout + rnsutil.FirstHopTimeout(tr, destHash)
 		}
 		ctx, cancelProbe := context.WithTimeout(context.Background(), probeTimeout)
 

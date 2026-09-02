@@ -44,27 +44,29 @@ type PacketReceipt struct {
 
 	link             any
 	destinationIdent *identity.Identity
-	timeoutCheckDone chan bool
+	timer            *time.Timer
 }
 
-// NewPacketReceipt creates a receipt for the given packet and starts the timeout watchdog.
+// NewPacketReceipt creates a receipt for the given packet and starts its timeout timer.
 func NewPacketReceipt(pkt *Packet) *PacketReceipt {
 	hash := append([]byte(nil), pkt.Hash()...)
+	timeout := calculateTimeout(pkt)
 	receipt := &PacketReceipt{
-		hash:             hash,
-		truncatedHash:    pkt.TruncatedHash(),
-		sent:             true,
-		sentAt:           time.Now(),
-		proved:           false,
-		status:           ReceiptSent,
-		destination:      pkt.Destination,
-		timeout:          calculateTimeout(pkt),
-		timeoutCheckDone: make(chan bool, 1),
+		hash:          hash,
+		truncatedHash: hash[:TruncatedHashLength],
+		sent:          true,
+		sentAt:        time.Now(),
+		proved:        false,
+		status:        ReceiptSent,
+		destination:   pkt.Destination,
+		link:          pkt.Link,
+		timeout:       timeout,
 	}
+	receipt.timer = time.AfterFunc(timeout, receipt.onTimeout)
 
-	go receipt.timeoutWatchdog()
-
-	debug.Log(debug.DebugPackets, "Created packet receipt", "hash", fmt.Sprintf("%x", receipt.truncatedHash))
+	if debug.Enabled(debug.DebugPackets) {
+		debug.Log(debug.DebugPackets, "Created packet receipt", "hash", fmt.Sprintf("%x", receipt.truncatedHash))
+	}
 	return receipt
 }
 
@@ -112,8 +114,14 @@ func (pr *PacketReceipt) IsFailed() bool {
 }
 
 func (pr *PacketReceipt) ValidateProofPacket(proofPacket *Packet) bool {
-	if proofPacket.Link != nil {
+	if proofPacket != nil && proofPacket.Link != nil {
 		return pr.ValidateLinkProof(proofPacket.Data, proofPacket.Link, proofPacket)
+	}
+	pr.mutex.RLock()
+	link := pr.link
+	pr.mutex.RUnlock()
+	if link != nil {
+		return pr.ValidateLinkProof(proofPacket.Data, link, proofPacket)
 	}
 	return pr.ValidateProof(proofPacket.Data, proofPacket)
 }
@@ -139,6 +147,7 @@ func (pr *PacketReceipt) ValidateLinkProof(proof []byte, link any, proofPacket *
 			pr.concludedAt = time.Now()
 			pr.proofPacket = proofPacket
 			callback := pr.deliveryCallback
+			pr.stopTimerLocked()
 			pr.mutex.Unlock()
 
 			if callback != nil {
@@ -186,6 +195,7 @@ func (pr *PacketReceipt) ValidateProof(proof []byte, proofPacket *Packet) bool {
 			pr.concludedAt = time.Now()
 			pr.proofPacket = proofPacket
 			callback := pr.deliveryCallback
+			pr.stopTimerLocked()
 			pr.mutex.Unlock()
 
 			if callback != nil {
@@ -214,6 +224,7 @@ func (pr *PacketReceipt) ValidateProof(proof []byte, proofPacket *Packet) bool {
 			pr.concludedAt = time.Now()
 			pr.proofPacket = proofPacket
 			callback := pr.deliveryCallback
+			pr.stopTimerLocked()
 			pr.mutex.Unlock()
 
 			if callback != nil {
@@ -268,6 +279,7 @@ func (pr *PacketReceipt) checkTimeout() {
 	}
 
 	if time.Since(pr.sentAt) <= pr.timeout {
+		pr.rescheduleTimerLocked()
 		pr.mutex.Unlock()
 		return
 	}
@@ -280,41 +292,43 @@ func (pr *PacketReceipt) checkTimeout() {
 
 	pr.concludedAt = time.Now()
 	callback := pr.timeoutCallback
+	pr.stopTimerLocked()
 	pr.mutex.Unlock()
 
-	debug.Log(debug.DebugVerbose, "Packet receipt timed out", "hash", fmt.Sprintf("%x", pr.truncatedHash))
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Packet receipt timed out", "hash", fmt.Sprintf("%x", pr.truncatedHash))
+	}
 
 	if callback != nil {
 		go callback(pr)
 	}
 }
 
-func (pr *PacketReceipt) timeoutWatchdog() {
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
+func (pr *PacketReceipt) onTimeout() {
+	pr.checkTimeout()
+}
 
-	for {
-		select {
-		case <-ticker.C:
-			pr.checkTimeout()
-
-			pr.mutex.RLock()
-			status := pr.status
-			pr.mutex.RUnlock()
-
-			if status != ReceiptSent {
-				return
-			}
-		case <-pr.timeoutCheckDone:
-			return
-		}
+func (pr *PacketReceipt) stopTimerLocked() {
+	if pr.timer != nil {
+		pr.timer.Stop()
 	}
+}
+
+func (pr *PacketReceipt) rescheduleTimerLocked() {
+	if pr.timer == nil {
+		return
+	}
+	remaining := max(pr.timeout-time.Since(pr.sentAt), 0)
+	pr.timer.Reset(remaining)
 }
 
 func (pr *PacketReceipt) SetTimeout(timeout time.Duration) {
 	pr.mutex.Lock()
 	defer pr.mutex.Unlock()
 	pr.timeout = timeout
+	if pr.status == ReceiptSent {
+		pr.rescheduleTimerLocked()
+	}
 }
 
 func (pr *PacketReceipt) SetDeliveryCallback(callback func(*PacketReceipt)) {
@@ -349,9 +363,5 @@ func (pr *PacketReceipt) Cancel() {
 		pr.status = ReceiptCulled
 		pr.concludedAt = time.Now()
 	}
-
-	select {
-	case pr.timeoutCheckDone <- true:
-	default:
-	}
+	pr.stopTimerLocked()
 }
