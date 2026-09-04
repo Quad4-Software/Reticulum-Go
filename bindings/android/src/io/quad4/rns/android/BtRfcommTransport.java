@@ -87,7 +87,11 @@ public final class BtRfcommTransport implements RNodeByteTransport {
     public int read(byte[] buffer) throws IOException {
         ensureOpen();
         int n = in.read(buffer);
-        return n < 0 ? 0 : n;
+        if (n < 0) {
+            close();
+            throw new IOException("Bluetooth RFCOMM EOF");
+        }
+        return n;
     }
 
     @Override

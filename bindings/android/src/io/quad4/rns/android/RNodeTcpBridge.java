@@ -12,6 +12,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Localhost TCP bridge so Go RNode can use {@code tcp://127.0.0.1:port}
@@ -19,10 +20,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * transport.
  */
 public final class RNodeTcpBridge implements Closeable {
+    private static final long RELAY_JOIN_MS = 2000;
+
     private final RNodeByteTransport transport;
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final AtomicReference<Socket> clientRef = new AtomicReference<>();
     private ServerSocket server;
-    private Socket client;
     private Thread acceptThread;
     private Thread uplink;
     private Thread downlink;
@@ -63,13 +66,10 @@ public final class RNodeTcpBridge implements Closeable {
             try {
                 Socket sock = server.accept();
                 synchronized (this) {
-                    if (client != null) {
-                        try {
-                            client.close();
-                        } catch (Exception ignored) {
-                        }
+                    Socket prev = clientRef.getAndSet(sock);
+                    if (prev != null) {
+                        closeQuiet(prev);
                     }
-                    client = sock;
                     startRelay(sock);
                 }
             } catch (SocketTimeoutException ignored) {
@@ -83,8 +83,9 @@ public final class RNodeTcpBridge implements Closeable {
 
     private void startRelay(Socket sock) {
         stopRelayThreads();
-        uplink = new Thread(() -> tcpToRadio(sock), "rnode-tcp-up");
-        downlink = new Thread(() -> radioToTcp(sock), "rnode-tcp-down");
+        final Socket active = sock;
+        uplink = new Thread(() -> tcpToRadio(active), "rnode-tcp-up");
+        downlink = new Thread(() -> radioToTcp(active), "rnode-tcp-down");
         uplink.setDaemon(true);
         downlink.setDaemon(true);
         uplink.start();
@@ -95,7 +96,7 @@ public final class RNodeTcpBridge implements Closeable {
         byte[] buf = new byte[4096];
         try {
             InputStream in = sock.getInputStream();
-            while (running.get() && !sock.isClosed()) {
+            while (running.get() && sock == clientRef.get() && !sock.isClosed()) {
                 int n = in.read(buf);
                 if (n < 0) {
                     break;
@@ -112,7 +113,7 @@ public final class RNodeTcpBridge implements Closeable {
         byte[] buf = new byte[4096];
         try {
             OutputStream out = sock.getOutputStream();
-            while (running.get() && !sock.isClosed() && transport.isOpen()) {
+            while (running.get() && sock == clientRef.get() && !sock.isClosed() && transport.isOpen()) {
                 int n = transport.read(buf);
                 if (n > 0) {
                     out.write(buf, 0, n);
@@ -134,29 +135,45 @@ public final class RNodeTcpBridge implements Closeable {
         if (d != null) {
             d.interrupt();
         }
+        joinQuiet(u);
+        joinQuiet(d);
+    }
+
+    private static void joinQuiet(Thread t) {
+        if (t == null || t == Thread.currentThread()) {
+            return;
+        }
+        try {
+            t.join(RELAY_JOIN_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void closeQuiet(Closeable c) {
+        if (c == null) {
+            return;
+        }
+        try {
+            c.close();
+        } catch (Exception ignored) {
+        }
     }
 
     @Override
     public synchronized void close() {
         running.set(false);
-        stopRelayThreads();
-        try {
-            if (client != null) {
-                client.close();
-            }
-        } catch (Exception ignored) {
-        }
-        try {
-            if (server != null) {
-                server.close();
-            }
-        } catch (Exception ignored) {
-        }
-        client = null;
+        Socket sock = clientRef.getAndSet(null);
+        closeQuiet(sock);
+        closeQuiet(server);
         server = null;
-        try {
-            transport.close();
-        } catch (Exception ignored) {
+        stopRelayThreads();
+        Thread a = acceptThread;
+        acceptThread = null;
+        if (a != null) {
+            a.interrupt();
+            joinQuiet(a);
         }
+        closeQuiet(transport);
     }
 }

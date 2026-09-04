@@ -326,6 +326,8 @@ func (d *rnodeCmdDecoder) feedByte(b byte) {
 		return
 	}
 	if len(d.data) >= d.mtu {
+		// Match HDLC: drop the whole frame instead of delivering a truncated payload.
+		d.reset()
 		return
 	}
 	if b == KISSFesc {

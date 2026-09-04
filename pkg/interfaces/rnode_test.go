@@ -185,3 +185,27 @@ func waitForRNodePackets(t *testing.T, mu *sync.Mutex, packets *[][]byte, count 
 	}
 	t.Fatalf("timed out waiting for %d packets", count)
 }
+
+func TestRNodeCmdDecoderDropsOversizeFrame(t *testing.T) {
+	var got []byte
+	calls := 0
+	d := newRNodeCmdDecoder(8, func(cmd byte, data []byte) {
+		if cmd == rnodeCmdData {
+			calls++
+			got = append([]byte(nil), data...)
+		}
+	})
+	frame := []byte{KISSFend, rnodeCmdData}
+	for i := range 16 {
+		frame = append(frame, byte(i))
+	}
+	frame = append(frame, KISSFend)
+	d.feed(frame)
+	if calls != 0 || got != nil {
+		t.Fatalf("oversize RNode frame must be dropped, calls=%d got=%x", calls, got)
+	}
+	d.feed([]byte{KISSFend, rnodeCmdData, 0x0a, 0x0b, KISSFend})
+	if calls != 1 || !bytes.Equal(got, []byte{0x0a, 0x0b}) {
+		t.Fatalf("after drop, next frame should decode got=%x calls=%d", got, calls)
+	}
+}

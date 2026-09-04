@@ -137,16 +137,24 @@ public final class UsbSerialTransport implements RNodeByteTransport {
     @Override
     public int write(byte[] buffer, int offset, int length) throws IOException {
         ensureOpen();
-        byte[] slice = buffer;
-        if (offset != 0 || length != buffer.length) {
-            slice = new byte[length];
-            System.arraycopy(buffer, offset, slice, 0, length);
+        if (length < 0 || offset < 0 || offset + length > buffer.length) {
+            throw new IOException("USB write bounds");
         }
-        int n = connection.bulkTransfer(epOut, slice, slice.length, writeTimeoutMs);
-        if (n < 0) {
-            throw new IOException("USB bulk write failed");
+        int total = 0;
+        while (total < length) {
+            int remaining = length - total;
+            byte[] slice = new byte[remaining];
+            System.arraycopy(buffer, offset + total, slice, 0, remaining);
+            int n = connection.bulkTransfer(epOut, slice, slice.length, writeTimeoutMs);
+            if (n < 0) {
+                throw new IOException("USB bulk write failed");
+            }
+            if (n == 0) {
+                throw new IOException("USB bulk write returned 0");
+            }
+            total += n;
         }
-        return n;
+        return total;
     }
 
     @Override

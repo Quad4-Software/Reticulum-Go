@@ -44,11 +44,13 @@ public final class BleUartTransport implements RNodeByteTransport {
     private static final int TARGET_MTU = 512;
     private static final long CONNECT_TIMEOUT_MS = 7000;
     private static final long MTU_TIMEOUT_MS = 4000;
+    private static final int MAX_RX_QUEUE_BYTES = 256 * 1024;
 
     private final Context context;
     private final Object lock = new Object();
     private final ArrayDeque<byte[]> rxQueue = new ArrayDeque<>();
     private final AtomicBoolean open = new AtomicBoolean(false);
+    private int rxQueueBytes;
 
     private BluetoothGatt gatt;
     private BluetoothGattCharacteristic rxChar;
@@ -162,19 +164,32 @@ public final class BleUartTransport implements RNodeByteTransport {
         @Override
         public void onConnectionStateChange(BluetoothGatt g, int status, int newState) {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
+                if (status != BluetoothGatt.GATT_SUCCESS) {
+                    connectError = new IOException("BLE connect failed status=" + status);
+                    CountDownLatch latch = connectLatch;
+                    if (latch != null) {
+                        latch.countDown();
+                    }
+                    return;
+                }
                 g.discoverServices();
                 CountDownLatch latch = connectLatch;
                 if (latch != null) {
                     latch.countDown();
                 }
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                open.set(false);
-                if (status != BluetoothGatt.GATT_SUCCESS) {
+                boolean wasOpen = open.getAndSet(false);
+                if (!wasOpen && connectError == null) {
+                    connectError = new IOException("BLE disconnected before ready status=" + status);
+                } else if (status != BluetoothGatt.GATT_SUCCESS && connectError == null) {
                     connectError = new IOException("BLE disconnect status=" + status);
                 }
                 CountDownLatch latch = connectLatch;
                 if (latch != null) {
                     latch.countDown();
+                }
+                synchronized (lock) {
+                    lock.notifyAll();
                 }
             }
         }
@@ -220,7 +235,15 @@ public final class BleUartTransport implements RNodeByteTransport {
             byte[] copy = new byte[value.length];
             System.arraycopy(value, 0, copy, 0, value.length);
             synchronized (lock) {
+                while (rxQueueBytes + copy.length > MAX_RX_QUEUE_BYTES && !rxQueue.isEmpty()) {
+                    byte[] dropped = rxQueue.removeFirst();
+                    rxQueueBytes -= dropped.length;
+                }
+                if (rxQueueBytes + copy.length > MAX_RX_QUEUE_BYTES) {
+                    return;
+                }
                 rxQueue.addLast(copy);
+                rxQueueBytes += copy.length;
                 lock.notifyAll();
             }
         }
@@ -251,12 +274,14 @@ public final class BleUartTransport implements RNodeByteTransport {
                 return 0;
             }
             byte[] next = rxQueue.removeFirst();
+            rxQueueBytes -= next.length;
             int n = Math.min(buffer.length, next.length);
             System.arraycopy(next, 0, buffer, 0, n);
             if (n < next.length) {
                 byte[] rest = new byte[next.length - n];
                 System.arraycopy(next, n, rest, 0, rest.length);
                 rxQueue.addFirst(rest);
+                rxQueueBytes += rest.length;
             }
             return n;
         }
@@ -321,6 +346,7 @@ public final class BleUartTransport implements RNodeByteTransport {
         open.set(false);
         synchronized (lock) {
             rxQueue.clear();
+            rxQueueBytes = 0;
             lock.notifyAll();
         }
         if (gatt != null) {
