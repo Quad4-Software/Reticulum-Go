@@ -15,8 +15,16 @@ import (
 )
 
 // waitEventType reads WS events until one matches typ or timeout.
+// Non-matching events are queued on ws.pending so a later wait can still see
+// them (resource.concluded can race ahead of the resource.started waiter).
 func waitEventType(t testing.TB, ws *testWSClient, typ string, timeout time.Duration) map[string]any {
 	t.Helper()
+	for i, m := range ws.pending {
+		if got, _ := m["type"].(string); got == typ {
+			ws.pending = append(ws.pending[:i], ws.pending[i+1:]...)
+			return m
+		}
+	}
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		remain := time.Until(deadline)
@@ -31,6 +39,7 @@ func waitEventType(t testing.TB, ws *testWSClient, typ string, timeout time.Dura
 		if got, _ := m["type"].(string); got == typ {
 			return m
 		}
+		ws.pending = append(ws.pending, m)
 	}
 	t.Fatalf("timed out waiting for event type %q", typ)
 	return nil

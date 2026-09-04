@@ -207,8 +207,9 @@ func TestPathRequestValidation(t *testing.T) {
 // testWSClient is a minimal RFC 6455 client used only to exercise the
 // server's real websocket handshake and framing from outside the package.
 type testWSClient struct {
-	conn   net.Conn
-	reader *bufio.Reader
+	conn    net.Conn
+	reader  *bufio.Reader
+	pending []map[string]any
 }
 
 func dialControlAPIWS(t testing.TB, httpURL, path, authKeyHex string) *testWSClient {

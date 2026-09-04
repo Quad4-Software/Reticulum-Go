@@ -1053,15 +1053,18 @@ func (l *Link) deliverIncomingResource(inner []byte, adv *resource.ResourceAdver
 		"payload_len",
 		len(payload),
 	)
-	if err := l.sendIncomingResourceProof(payload, adv.Hash); err != nil {
-		return err
-	}
 
 	if adv.Split && adv.TotalSegments > 1 {
+		if err := l.sendIncomingResourceProof(payload, adv.Hash); err != nil {
+			return err
+		}
 		return l.handleSplitSegmentComplete(payload, adv)
 	}
 
 	if adv.IsRequest {
+		if err := l.sendIncomingResourceProof(payload, adv.Hash); err != nil {
+			return err
+		}
 		requestID := identity.TruncatedHash(payload)
 		debug.Log(debug.DebugInfo, "Incoming request resource complete", "request_id", fmt.Sprintf("%x", requestID), "payload_len", len(payload))
 		return l.handleRequest(payload, requestID)
@@ -1073,6 +1076,9 @@ func (l *Link) deliverIncomingResource(inner []byte, adv *resource.ResourceAdver
 	l.incomingMu.Unlock()
 
 	if pending != nil {
+		if err := l.sendIncomingResourceProof(payload, adv.Hash); err != nil {
+			return err
+		}
 		responsePayload, metadata := splitResourceMetadata(payload, adv)
 		l.completeRequestWithResourcePayload(pending, responsePayload, metadata)
 		return nil
@@ -1089,6 +1095,12 @@ func (l *Link) deliverIncomingResource(inner []byte, adv *resource.ResourceAdver
 		} else {
 			l.resourceConcludedCallback(filePayload)
 		}
+	}
+	// Proof is best-effort after the app callback so a transport send failure
+	// cannot swallow resource.concluded for an already-assembled payload.
+	if err := l.sendIncomingResourceProof(payload, adv.Hash); err != nil {
+		debug.Log(debug.DebugWarning, "Incoming resource proof send failed after conclude",
+			"link_id", fmt.Sprintf("%x", l.linkID), "error", err)
 	}
 	return nil
 }
