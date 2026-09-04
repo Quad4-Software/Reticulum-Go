@@ -77,6 +77,10 @@ func TestPriorityShedPreferKeep(t *testing.T) {
 
 func TestConfigureFromConfigTransportLearnDuration(t *testing.T) {
 	e := ConfigureFromConfig("auto", 0, "", &common.ReticulumConfig{EnableTransport: true})
+	t.Cleanup(func() {
+		e.StopMemoryMonitor()
+		SetDefault(nil)
+	})
 	if e.autoLearnMinDuration < AutoLearnMinDuration*2 {
 		t.Fatalf("duration=%v", e.autoLearnMinDuration)
 	}
