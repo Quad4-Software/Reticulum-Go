@@ -81,8 +81,16 @@ func (l *Link) handleSplitSegmentComplete(payload []byte, adv *resource.Resource
 	return l.handleSplitSegmentOnDisk(payload, adv)
 }
 
+func (l *Link) splitResourceKey(originalHash []byte) string {
+	linkPart := ""
+	if l != nil && len(l.linkID) > 0 {
+		linkPart = hex.EncodeToString(l.linkID)
+	}
+	return linkPart + ":" + hex.EncodeToString(originalHash)
+}
+
 func (l *Link) handleSplitSegmentInMemory(payload []byte, adv *resource.ResourceAdvertisement) error {
-	key := hex.EncodeToString(adv.OriginalHash)
+	key := l.splitResourceKey(adv.OriginalHash)
 	fileBytes := payload
 	if adv.HasMetadata && adv.SegmentIndex == 1 {
 		if len(payload) < 3 {

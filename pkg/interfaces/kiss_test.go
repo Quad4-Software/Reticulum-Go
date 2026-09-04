@@ -161,3 +161,27 @@ func FuzzKISSStreamDecoderRoundTrip(f *testing.F) {
 		}
 	})
 }
+
+func TestKISSStreamDecoderDropsOversizeFrame(t *testing.T) {
+	var got []byte
+	calls := 0
+	d := newKISSStreamDecoder(8, func(p []byte) {
+		calls++
+		got = append([]byte(nil), p...)
+	})
+	frame := []byte{KISSFend, KISSCmdData}
+	for i := range 16 {
+		frame = append(frame, byte(i))
+	}
+	frame = append(frame, KISSFend)
+	d.feed(frame)
+	if calls != 0 || got != nil {
+		t.Fatalf("oversize KISS frame must be dropped, calls=%d got=%x", calls, got)
+	}
+
+	ok := []byte{KISSFend, KISSCmdData, 0x01, 0x02, KISSFend}
+	d.feed(ok)
+	if calls != 1 || !bytes.Equal(got, []byte{0x01, 0x02}) {
+		t.Fatalf("after drop, next frame should decode got=%x calls=%d", got, calls)
+	}
+}
