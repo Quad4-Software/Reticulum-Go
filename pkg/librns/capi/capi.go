@@ -663,6 +663,19 @@ func rns_link_id(link C.uint64_t, idOut *C.uint8_t, idOutLen C.size_t, written *
 	return copyFixedBytes(idOut, idOutLen, written, id)
 }
 
+//export rns_link_from_id
+func rns_link_from_id(node C.uint64_t, linkID *C.uint8_t, linkIDLen C.size_t) C.uint64_t {
+	if linkID == nil || linkIDLen == 0 {
+		return 0
+	}
+	id := C.GoBytes(unsafe.Pointer(linkID), C.int(linkIDLen))
+	h, code := librns.LinkFromID(uint64(node), id)
+	if code != librns.OK {
+		return 0
+	}
+	return C.uint64_t(h)
+}
+
 //export rns_link_request
 func rns_link_request(node, link C.uint64_t, path *C.char, data *C.uint8_t, dataLen C.size_t, timeoutMs C.int, requestIDOut *C.uint8_t, requestIDOutLen C.size_t, written *C.size_t) C.int {
 	if path == nil {

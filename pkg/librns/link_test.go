@@ -134,6 +134,40 @@ func TestFacadeLinkOpenSendClose(t *testing.T) {
 		t.Fatal("timed out waiting for link data")
 	}
 
+	linkIDBytes, idCode := LinkID(linkB)
+	if idCode != OK {
+		t.Fatal(idCode)
+	}
+	found, fromCode := LinkFromID(nodeA, linkIDBytes)
+	if fromCode != OK || found == 0 {
+		t.Fatalf("LinkFromID inbound: %d %q", fromCode, LastError())
+	}
+	reply := []byte("facade-reply")
+	if code := LinkSend(found, reply); code != OK {
+		t.Fatalf("LinkSend via LinkFromID: %d %q", code, LastError())
+	}
+	deadline = time.Now().Add(5 * time.Second)
+	var gotReply bool
+	for time.Now().Before(deadline) {
+		ev, code := EventPoll(nodeB, 50*time.Millisecond)
+		if code == ErrTimeout {
+			continue
+		}
+		if code != OK {
+			t.Fatal(code, LastError())
+		}
+		if ev.Kind == EventLinkData {
+			if !bytes.Equal(ev.AppData, reply) {
+				t.Fatalf("reply mismatch: %q", ev.AppData)
+			}
+			gotReply = true
+			break
+		}
+	}
+	if !gotReply {
+		t.Fatal("timed out waiting for reply via LinkFromID")
+	}
+
 	if code := LinkClose(linkB); code != OK {
 		t.Fatal(code, LastError())
 	}
