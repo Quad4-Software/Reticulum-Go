@@ -174,6 +174,7 @@ Authoritative names live in include/rns.h. Summary below.
 | rns_link_send_resource | Transfer bytes as a link resource (optional rncp name) |
 | rns_link_close | Teardown |
 | rns_link_id | 16-byte link id |
+| rns_link_from_id | Lookup established link handle by link id (for inbound links) |
 | rns_link_request | Outbound request. Completion via response or failed events |
 | rns_request_respond | Answer a pending RNS_EV_REQUEST_INCOMING with raw bytes |
 | rns_request_respond_file | NomadNet /file/ response [filename, content] (auto resource when large) |

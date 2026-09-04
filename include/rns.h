@@ -140,6 +140,7 @@ int rns_link_send(uint64_t link, const uint8_t *data, size_t data_len);
 int rns_link_send_resource(uint64_t link, const uint8_t *data, size_t data_len, const char *name);
 int rns_link_close(uint64_t link);
 int rns_link_id(uint64_t link, uint8_t *id_out, size_t id_out_len, size_t *written);
+uint64_t rns_link_from_id(uint64_t node, const uint8_t *link_id, size_t link_id_len);
 int rns_link_request(uint64_t node, uint64_t link, const char *path,
 	const uint8_t *data, size_t data_len, int timeout_ms,
 	uint8_t *request_id_out, size_t request_id_out_len, size_t *written);

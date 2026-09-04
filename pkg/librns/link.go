@@ -4,6 +4,7 @@
 package librns
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"time"
@@ -187,6 +188,26 @@ func LinkID(linkHandle uint64) ([]byte, int) {
 	out := make([]byte, len(lr.id))
 	copy(out, lr.id)
 	return out, OK
+}
+
+// LinkFromID returns the handle for an established link on nodeHandle matching linkID.
+// Used after inbound RNS_EV_LINK_ESTABLISHED events which only expose the link id.
+func LinkFromID(nodeHandle uint64, linkID []byte) (uint64, int) {
+	nodeRec, err := nodeByHandle(nodeHandle)
+	if err != nil {
+		return 0, setLastError(err)
+	}
+	if len(linkID) == 0 {
+		return 0, setLastError(errInvalidArg)
+	}
+	runtimeMu.RLock()
+	defer runtimeMu.RUnlock()
+	for h, lr := range nodeRec.links {
+		if lr != nil && bytes.Equal(lr.id, linkID) {
+			return h, OK
+		}
+	}
+	return 0, setLastError(errNotFound)
 }
 
 // LinkRequest sends a request on an established link.
