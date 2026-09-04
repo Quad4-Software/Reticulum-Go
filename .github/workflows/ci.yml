@@ -55,14 +55,10 @@ jobs:
       ci: ${{ steps.filter.outputs.ci }}
       examples: ${{ steps.filter.outputs.examples }}
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Detect changed paths
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
@@ -105,14 +101,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -160,14 +152,10 @@ jobs:
             goarch: arm64
 
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -205,14 +193,10 @@ jobs:
         os: [macos-latest, windows-latest]
 
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -245,14 +229,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Run FreeBSD VM tests
         uses: vmactions/freebsd-vm@5a72679103d223925653750faa878a143340fbd0 # v1.5.0
@@ -288,14 +268,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Run OpenBSD VM tests
         uses: vmactions/openbsd-vm@c941015845c0f0c429676840963dc63b226d4f69 # v1.4.5
@@ -331,14 +307,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Run Haiku VM tests
         uses: vmactions/haiku-vm@0ba6b98c8d7e5626f9defdd7403af49ad72b51df # v1.1.3
@@ -398,14 +370,10 @@ jobs:
           - goarch: ppc64
             qemu: qemu-ppc64-static
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -439,14 +407,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -470,14 +434,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -501,14 +461,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -532,14 +488,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -560,14 +512,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -588,14 +536,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -621,14 +565,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -652,14 +592,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -686,14 +622,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -725,14 +657,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -753,14 +681,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup Dart
         uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
@@ -786,14 +710,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -819,14 +739,10 @@ jobs:
         suite: [race, leaks, sim, fuzz-guided, chaos, soak, bench-gate, wasm]
 
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -957,14 +873,10 @@ jobs:
             goarch: wasm
 
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -996,14 +908,10 @@ jobs:
         goarch: [amd64, arm64]
 
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Set up go-legacy-win7
         run: sh scripts/ci/setup-go-legacy-win7.sh "${{ env.CI_GO_LEGACY_WIN7_VERSION }}"
@@ -1049,14 +957,10 @@ jobs:
         goarch: [386, amd64]
 
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Set up go-legacy-winxp
         run: sh scripts/ci/setup-go-legacy-winxp.sh "${{ env.CI_GO_LEGACY_WINXP_VERSION }}"
@@ -1097,14 +1001,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -1166,14 +1066,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -1194,14 +1090,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci

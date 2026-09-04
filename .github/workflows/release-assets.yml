@@ -132,14 +132,10 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -181,14 +177,10 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Set up go-legacy-win7
         run: sh scripts/ci/setup-go-legacy-win7.sh "${{ env.CI_GO_LEGACY_WIN7_VERSION }}"
@@ -236,14 +228,10 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Set up go-legacy-winxp
         run: sh scripts/ci/setup-go-legacy-winxp.sh "${{ env.CI_GO_LEGACY_WINXP_VERSION }}"
@@ -286,14 +274,10 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -330,14 +314,10 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-          with:
-            persist-credentials: false
+        with:
+          persist-credentials: false
 
       - name: Setup CI
         uses: ./.github/actions/setup-ci
@@ -423,10 +403,6 @@ jobs:
       contents: write
 
     steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
