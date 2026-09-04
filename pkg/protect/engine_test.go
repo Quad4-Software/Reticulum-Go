@@ -577,13 +577,14 @@ func TestPeerSubBucketEvictionIsBounded(t *testing.T) {
 }
 
 func TestConfigureFromConfig(t *testing.T) {
-	t.Cleanup(func() { SetDefault(nil) })
 	e := ConfigureFromConfig("detect", 0, "", nil)
+	t.Cleanup(func() {
+		e.StopMemoryMonitor()
+		SetDefault(nil)
+	})
 	if e.Mode() != ModeDetect {
 		t.Fatalf("mode %v", e.Mode())
 	}
-	e.StopMemoryMonitor()
-	SetDefault(nil)
 }
 
 func TestAdmitPacketConcurrent(t *testing.T) {
