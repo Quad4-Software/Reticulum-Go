@@ -1,5 +1,5 @@
 //
-// Copyright 2014-2023 Cristian Maglie. All rights reserved.
+// Copyright 2014-2026 Cristian Maglie. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 //
@@ -10,8 +10,7 @@ package serial
 
 import (
 	"fmt"
-	"io/ioutil"
-	"regexp"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -242,7 +241,7 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	// Explicitly disable RTS/CTS flow control
 	setTermSettingsCtsRts(false, settings)
 
-	if port.setTermSettings(settings) != nil {
+	if err = port.setTermSettings(settings); err != nil {
 		port.Close()
 		return nil, &PortError{code: InvalidSerialPort, causedBy: fmt.Errorf("error setting term settings: %w", err)}
 	}
@@ -281,27 +280,23 @@ func nativeOpen(portName string, mode *Mode) (*unixPort, error) {
 	port.acquireExclusiveAccess()
 
 	// This pipe is used as a signal to cancel blocking Read
-	pipe := &unixutils.Pipe{}
-	if err := pipe.Open(); err != nil {
+	if pipe, err := unixutils.NewPipe(); err != nil {
 		port.Close()
 		return nil, &PortError{code: InvalidSerialPort, causedBy: fmt.Errorf("error opening signaling pipe: %w", err)}
+	} else {
+		port.closeSignal = pipe
 	}
-	port.closeSignal = pipe
 
 	return port, nil
 }
 
 func nativeGetPortsList() ([]string, error) {
-	files, err := ioutil.ReadDir(devFolder)
+	files, err := os.ReadDir(devFolder)
 	if err != nil {
 		return nil, err
 	}
 
 	ports := make([]string, 0, len(files))
-	regex, err := regexp.Compile(regexFilter)
-	if err != nil {
-		return nil, err
-	}
 	for _, f := range files {
 		// Skip folders
 		if f.IsDir() {
@@ -309,7 +304,7 @@ func nativeGetPortsList() ([]string, error) {
 		}
 
 		// Keep only devices with the correct name
-		if !regex.MatchString(f.Name()) {
+		if !osPortFilter.MatchString(f.Name()) {
 			continue
 		}
 
