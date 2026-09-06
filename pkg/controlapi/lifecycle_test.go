@@ -87,7 +87,10 @@ func TestListenServeStatusPathsClose(t *testing.T) {
 	auth := hex.EncodeToString(key)
 	base := "http://" + net.JoinHostPort(cfg.ControlAPIHost, strconv.Itoa(cfg.ControlAPIPort))
 
-	client := &http.Client{Timeout: 500 * time.Millisecond}
+	client := &http.Client{
+		Timeout:   500 * time.Millisecond,
+		Transport: &http.Transport{DisableKeepAlives: true},
+	}
 	deadline := time.Now().Add(2 * time.Second)
 	var ready bool
 	for time.Now().Before(deadline) {

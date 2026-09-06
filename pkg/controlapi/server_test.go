@@ -70,7 +70,11 @@ func doJSON(t testing.TB, method, url, authKeyHex string, body any) (*http.Respo
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	client := &http.Client{
+		Timeout:   5 * time.Second,
+		Transport: &http.Transport{DisableKeepAlives: true},
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("do request: %v", err)
 	}

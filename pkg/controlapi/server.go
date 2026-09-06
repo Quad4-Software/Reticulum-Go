@@ -93,6 +93,7 @@ func New(t *transport.Transport, lifecycle Lifecycle, cfg *common.ReticulumConfi
 	s.httpServer = &http.Server{
 		Handler:           s.authMiddleware(mux),
 		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       30 * time.Second,
 	}
 
 	t.RegisterAnnounceHandler(&announceBridge{server: s})
@@ -189,7 +190,15 @@ func (s *Server) Close() error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	return s.httpServer.Shutdown(ctx)
+	err := s.httpServer.Shutdown(ctx)
+	closeErr := s.httpServer.Close()
+	if err != nil && !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	if closeErr != nil && !errors.Is(closeErr, http.ErrServerClosed) {
+		return closeErr
+	}
+	return nil
 }
 
 func (s *Server) registerRoutes(mux *http.ServeMux) {
