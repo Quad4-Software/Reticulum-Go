@@ -238,9 +238,13 @@ func (s *Session) Close() {
 		if s.state != StateTeardown && s.state != StateError {
 			s.state = StateTeardown
 		}
+		after := s.finishClientCallbacksLocked()
 		s.mu.Unlock()
 		if proc != nil {
 			_ = proc.Kill()
+		}
+		if after != nil {
+			after()
 		}
 	})
 }

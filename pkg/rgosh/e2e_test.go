@@ -252,15 +252,11 @@ func TestE2E_RgoshLongLived(t *testing.T) {
 			DefaultCmd: []string{"/bin/sh", "-c", "sleep 6; echo still-alive"},
 		}, ChannelSender{Ch: ch})
 		sess.StartProcess = StartLocalProcess
-		sess.OnTeardown = func() {
-			sess.Close()
-			l.Teardown()
-		}
+		sess.OnTeardown = func() { l.Teardown() }
 		ch.AddMessageHandler(func(msg Message) bool {
 			_ = sess.HandleMessage(msg)
 			return true
 		})
-		l.SetLinkClosedCallback(func(*link.Link) { sess.Close() })
 		select {
 		case listenerReady <- struct{}{}:
 		default:
@@ -327,13 +323,25 @@ func TestE2E_RgoshLongLived(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = sess.SendStream(StreamStdin, nil, true)
-	select {
-	case <-exitCh:
-	case <-time.After(45 * time.Second):
-		stdoutMu.Lock()
-		out := stdoutBuf.String()
-		stdoutMu.Unlock()
-		t.Fatalf("exit timeout stdout=%q state=%s", out, sess.State())
+	waitDeadline := time.Now().Add(45 * time.Second)
+	exited := false
+	for !exited {
+		select {
+		case <-exitCh:
+			exited = true
+		default:
+			stdoutMu.Lock()
+			out := stdoutBuf.String()
+			stdoutMu.Unlock()
+			if strings.Contains(out, "still-alive") && sess.State() == StateTeardown {
+				exited = true
+				break
+			}
+			if time.Now().After(waitDeadline) {
+				t.Fatalf("exit timeout stdout=%q state=%s", out, sess.State())
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
 	}
 	if time.Since(start) < 6*time.Second {
 		t.Fatalf("session ended too fast: %v", time.Since(start))
