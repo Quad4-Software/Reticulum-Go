@@ -33,6 +33,7 @@ Wire compatible with Python RNS 1.5.2
 - Local LXStamper proof-of-work for discovery announces
 - Blackhole federation via publish_blackhole, remote sources, and periodic merge
 - Discovery operator LXMF address field (OP_ADDR 0xF0) and discovery_lxmf_address config
+- Discovery operator NomadNet page field (provisional OP_PAGE 0xF1) and discovery_nomadnet_page config
 - Discovery transport implementation and version fields (TRANSPORT_IMPL 0xFD / TRANSPORT_VERS 0xFC, RNS 1.5.1+)
 - rgostatus RNS 1.5.0 flags: -A, -P, -b, -B, -t, -Q (queues), link-table active count via -l
 - Per-interface protocol, IFAC, and packet-filter violation counters in interface stats RPC

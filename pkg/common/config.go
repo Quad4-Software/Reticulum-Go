@@ -157,6 +157,9 @@ type InterfaceConfig struct {
 	// DiscoveryLXMFAddress is an optional operator LXMF address published in
 	// discovery announces (RNS 1.5.0 OP_ADDR field).
 	DiscoveryLXMFAddress []byte
+	// DiscoveryNomadNetPage is an optional NomadNet page destination hash
+	// published in discovery announces (provisional OP_PAGE 0xF1 field).
+	DiscoveryNomadNetPage []byte
 	// DiscoveryLocationCmd is an optional executable that prints
 	// "lat,lon,height" used for discovery geo fields.
 	DiscoveryLocationCmd string
