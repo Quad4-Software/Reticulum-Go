@@ -1,7 +1,7 @@
 #!/bin/sh
 # Install Go from dl.google.com with SHA256 from official checksum files.
 # Usage: setup-go.sh <version>
-#   version: e.g. 1.26.5 (no "go" prefix)
+#   version: e.g. 1.27.1 (no "go" prefix)
 set -eu
 
 . "$(dirname "$0")/priv.sh"

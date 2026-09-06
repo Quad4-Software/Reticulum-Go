@@ -6,7 +6,7 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md) for commit format, git hooks, pull 
 
 Requirements:
 
-- Go 1.26.6 or later (see scripts/ci/dev-tools.env and mise.toml)
+- Go 1.27.1 or later (see scripts/ci/dev-tools.env and mise.toml)
 - Make and/or Task (either works for common workflows)
 - revive and staticcheck (make bootstrap or task bootstrap)
 - shellcheck and yamllint for git hooks (optional system packages)
@@ -481,7 +481,7 @@ GitHub Actions workflows in .github/workflows/:
 | dependency-review.yml | PR dependency and advisory gate |
 | publish.yml | Tagged releases, cosign attestations |
 
-CI uses Go 1.26.5 via actions/setup-go in .github/actions/setup-ci with GOTOOLCHAIN=local and vendored modules. Actions are SHA-pinned. Dependabot opens weekly PRs for Action bumps (.github/dependabot.yml).
+CI uses Go 1.27.1 via actions/setup-go in .github/actions/setup-ci with GOTOOLCHAIN=local and vendored modules. Actions are SHA-pinned. Dependabot opens weekly PRs for Action bumps (.github/dependabot.yml).
 
 ## Cross-compilation
 

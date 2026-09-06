@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Go 1.26.5 or later
+- Go 1.27.1 or later
 - Make or Task (optional, for convenience targets)
 - A writable home directory for ~/.reticulum-go
 

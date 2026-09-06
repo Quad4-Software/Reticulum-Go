@@ -22,7 +22,7 @@ REPO="${RGO_REPO:-Quad4-Software/Reticulum-Go}"
 GITHUB="${RGO_GITHUB:-https://github.com}"
 GITHUB_API="${RGO_GITHUB_API:-https://api.github.com}"
 GITHUB_RAW="${RGO_GITHUB_RAW:-https://raw.githubusercontent.com}"
-MIN_GO="${RGO_MIN_GO:-1.26.5}"
+MIN_GO="${RGO_MIN_GO:-1.27.1}"
 BINARY_NAME="reticulum-go"
 STATE_DIR="/var/lib/reticulum-go"
 TOOL_LINKS="rgostatus rgoid rgoprobe rgopath rgocp rgox rnx rgosh rgopageserver rgoslow rgoselfcheck rgospeed rgodump rgosnap rgozen"
@@ -75,7 +75,7 @@ init service files (systemd, OpenRC, runit, or dinit).
 
 Options:
   --binary            Fetch a pre-built GitHub release binary
-  --source            Build from source (needs Go 1.26.5 or later)
+  --source            Build from source (needs Go 1.27.1 or later)
   --dry-run, -n       Print detections and planned actions, write nothing
   --yes, -y           Non-interactive defaults (binary, install service)
   --no-service        Skip init service files
