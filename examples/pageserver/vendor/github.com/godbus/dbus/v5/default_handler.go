@@ -52,9 +52,9 @@ func (h *defaultHandler) introspectPath(path ObjectPath) string {
 		if p != "/" {
 			p += "/"
 		}
-		if strings.HasPrefix(string(obj), p) {
-			node_name := strings.Split(string(obj[len(p):]), "/")[0]
-			subpath[node_name] = struct{}{}
+		if after, ok := strings.CutPrefix(string(obj), p); ok {
+			name, _, _ := strings.Cut(after, "/")
+			subpath[name] = struct{}{}
 		}
 	}
 	for s := range subpath {
@@ -117,7 +117,7 @@ type exportedMethod struct {
 	reflect.Value
 }
 
-func (m exportedMethod) Call(args ...interface{}) ([]interface{}, error) {
+func (m exportedMethod) Call(args ...any) ([]any, error) {
 	t := m.Type()
 
 	params := make([]reflect.Value, len(args))
@@ -143,12 +143,12 @@ func (m exportedMethod) Call(args ...interface{}) ([]interface{}, error) {
 			ret = ret[:t.NumOut()-1]
 		}
 	}
-	out := make([]interface{}, len(ret))
+	out := make([]any, len(ret))
 	for i, val := range ret {
 		out[i] = val.Interface()
 	}
 	if nilErr || err == nil {
-		//concrete type to interface nil is a special case
+		// concrete type to interface nil is a special case
 		return out, nil
 	}
 	return out, err
@@ -158,7 +158,7 @@ func (m exportedMethod) NumArguments() int {
 	return m.Value.Type().NumIn()
 }
 
-func (m exportedMethod) ArgumentValue(i int) interface{} {
+func (m exportedMethod) ArgumentValue(i int) any {
 	return reflect.Zero(m.Type().In(i)).Interface()
 }
 
@@ -166,7 +166,7 @@ func (m exportedMethod) NumReturns() int {
 	return m.Value.Type().NumOut()
 }
 
-func (m exportedMethod) ReturnValue(i int) interface{} {
+func (m exportedMethod) ReturnValue(i int) any {
 	return reflect.Zero(m.Type().Out(i)).Interface()
 }
 
@@ -213,10 +213,6 @@ func (obj *exportedObj) LookupMethod(name string) (Method, bool) {
 		}
 	}
 	return nil, false
-}
-
-func (obj *exportedObj) isFallbackInterface() bool {
-	return false
 }
 
 func newExportedIntf(methods map[string]Method, includeSubtree bool) *exportedIntf {

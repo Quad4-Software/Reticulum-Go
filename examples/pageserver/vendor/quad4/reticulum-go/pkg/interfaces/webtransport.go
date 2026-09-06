@@ -287,7 +287,7 @@ func (wc *WebTransportClientInterface) initReconnectDriver() {
 func (wc *WebTransportClientInterface) dialSession() (net.Conn, error) {
 	url := fmt.Sprintf("https://%s%s", net.JoinHostPort(wc.targetHost, fmt.Sprintf("%d", wc.targetPort)), wc.path)
 	tlsConf := buildWTClientTLS(wc.sni, wc.peerPin, wc.clientCert)
-	d := &webtransport.Dialer{
+	d := &webtransport.Transport{
 		TLSClientConfig:      tlsConf,
 		QUICConfig:           wtQUICConfig(),
 		ApplicationProtocols: []string{wtAppProtocol},

@@ -1,5 +1,5 @@
 //
-// Copyright 2014-2023 Cristian Maglie. All rights reserved.
+// Copyright 2014-2026 Cristian Maglie. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 //
@@ -147,7 +147,7 @@ const (
 	PortNotFound
 	// InvalidSerialPort the requested port is not a serial port
 	InvalidSerialPort
-	// PermissionDenied the user doesn't have enough priviledges
+	// PermissionDenied the user doesn't have enough privileges
 	PermissionDenied
 	// InvalidSpeed the requested speed is not valid or not supported
 	InvalidSpeed

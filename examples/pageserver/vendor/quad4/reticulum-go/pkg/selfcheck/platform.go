@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -83,8 +84,8 @@ func checkSandbox(ctx context.Context, opts Options) Result {
 
 func sandboxChildDetail(out []byte) string {
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	for i := len(lines) - 1; i >= 0; i-- {
-		line := strings.TrimSpace(lines[i])
+	for _, line := range slices.Backward(lines) {
+		line := strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
