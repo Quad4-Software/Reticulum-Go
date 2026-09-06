@@ -270,6 +270,9 @@ jobs:
               exit 1
               ;;
           esac
+          # Official go.mod targets Go 1.27.x; rewrite down to go-legacy-winxp.
+          sed -i 's/^go 1\.2[67]\.[0-9][0-9]*$/go 1.26.6/' go.mod
+          sed -i 's/go 1\.2[67]\.[0-9][0-9]*/go 1.26.6/g' vendor/modules.txt
           output_name="reticulum-go-windows-${{ matrix.goarch }}-winxp.exe"
           "$LEGACY_GO" build -ldflags="-s -w -X main.defaultVersion=${VERSION}" -o "${output_name}" ./cmd/reticulum-go
           echo "Built: ${output_name}"

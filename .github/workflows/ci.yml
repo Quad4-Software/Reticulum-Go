@@ -30,7 +30,7 @@ env:
   CI_GO_LEGACY_WINXP_VERSION: "1.26.6"
   CI_TASK_VERSION: "3.46.3"
   CI_REVIVE_VERSION: "v1.15.0"
-  CI_STATICCHECK_VERSION: "v0.6.1"
+  CI_STATICCHECK_VERSION: "2026.2.1"
   CI_NODE_MAJOR: "22"
   CI_ODIN_VERSION: "dev-2026-06"
   CI_ZIG_VERSION: "0.16.0"
@@ -1082,6 +1082,9 @@ jobs:
               exit 1
               ;;
           esac
+          # Official go.mod targets Go 1.27.x; rewrite down to go-legacy-winxp.
+          sed -i 's/^go 1\.2[67]\.[0-9][0-9]*$/go 1.26.6/' go.mod
+          sed -i 's/go 1\.2[67]\.[0-9][0-9]*/go 1.26.6/g' vendor/modules.txt
           mkdir -p bin
           "$LEGACY_GO" build -ldflags="-s -w" \
             -o "bin/reticulum-go-windows-${{ matrix.goarch }}-winxp.exe" \

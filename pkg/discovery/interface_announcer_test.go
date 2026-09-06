@@ -92,10 +92,12 @@ func TestInterfaceAnnouncerAnnounceDue(t *testing.T) {
 	}
 	tr.SetIdentity(id)
 	sink := &announceSinkInterface{
-		Name:    "sink",
-		Type:    common.IFTypeUDP,
-		Enabled: true,
-		Online:  true,
+		BaseInterface: common.BaseInterface{
+			Name:    "sink",
+			Type:    common.IFTypeUDP,
+			Enabled: true,
+			Online:  true,
+		},
 	}
 	if err := tr.RegisterInterface("sink", sink); err != nil {
 		t.Fatal(err)

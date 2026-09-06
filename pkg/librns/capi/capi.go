@@ -665,10 +665,10 @@ func rns_link_id(link C.uint64_t, idOut *C.uint8_t, idOutLen C.size_t, written *
 
 //export rns_link_from_id
 func rns_link_from_id(node C.uint64_t, linkID *C.uint8_t, linkIDLen C.size_t) C.uint64_t {
-	if linkID == nil || linkIDLen == 0 {
+	id, code := goBytesFromC(linkID, linkIDLen)
+	if code != librns.OK || len(id) == 0 {
 		return 0
 	}
-	id := C.GoBytes(unsafe.Pointer(linkID), C.int(linkIDLen))
 	h, code := librns.LinkFromID(uint64(node), id)
 	if code != librns.OK {
 		return 0
