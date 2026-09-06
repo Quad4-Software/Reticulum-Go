@@ -49,6 +49,7 @@ type DiscoveredInterface struct {
 	TransportID         []byte
 	NetworkID           []byte
 	OperatorLXMFAddress []byte
+	OperatorPageAddress []byte
 	IFACNetname         string
 	IFACNetkey          string
 	Hops                uint8
@@ -117,6 +118,9 @@ func buildDiscoveredRecord(info *ReceivedAnnounceInfo, hops uint8, now float64) 
 	}
 	if len(info.Info.OperatorLXMFAddress) > 0 {
 		rec.OperatorLXMFAddress = append([]byte(nil), info.Info.OperatorLXMFAddress...)
+	}
+	if len(info.Info.OperatorPageAddress) > 0 {
+		rec.OperatorPageAddress = append([]byte(nil), info.Info.OperatorPageAddress...)
 	}
 	rec.ConfigEntry = configEntryForDiscovered(rec)
 	return rec
@@ -213,6 +217,9 @@ func discoveredToMap(rec *DiscoveredInterface, existing map[string]any, now floa
 	}
 	if len(rec.OperatorLXMFAddress) > 0 {
 		m["operator_lxmf_address"] = hex.EncodeToString(rec.OperatorLXMFAddress)
+	}
+	if len(rec.OperatorPageAddress) > 0 {
+		m["operator_nomadnet_page"] = hex.EncodeToString(rec.OperatorPageAddress)
 	}
 	if rec.Latitude != nil {
 		m["latitude"] = *rec.Latitude
@@ -313,6 +320,9 @@ func normalizeDiscoveredRecord(m map[string]any, now time.Time) (*DiscoveredInte
 	rec.NetworkID = decodeHexField(m["network_id"])
 	if op := decodeHexField(m["operator_lxmf_address"]); len(op) > 0 {
 		rec.OperatorLXMFAddress = op
+	}
+	if page := decodeHexField(m["operator_nomadnet_page"]); len(page) > 0 {
+		rec.OperatorPageAddress = page
 	}
 	switch p := m["port"].(type) {
 	case int64:

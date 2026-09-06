@@ -295,6 +295,9 @@ func (a *InterfaceAnnouncer) infoForInterface(iface *common.InterfaceConfig) (*I
 	if len(iface.DiscoveryLXMFAddress) == 16 {
 		info.OperatorLXMFAddress = append([]byte(nil), iface.DiscoveryLXMFAddress...)
 	}
+	if len(iface.DiscoveryNomadNetPage) == 16 {
+		info.OperatorPageAddress = append([]byte(nil), iface.DiscoveryNomadNetPage...)
+	}
 	return info, nil
 }
 

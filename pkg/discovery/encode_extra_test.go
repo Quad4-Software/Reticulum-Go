@@ -94,6 +94,53 @@ func TestEncodeInfoIncludesOperatorLXMFAddress(t *testing.T) {
 	}
 }
 
+func TestEncodeInfoIncludesOperatorPageAddress(t *testing.T) {
+	page := bytes.Repeat([]byte{0xcd}, 16)
+	in := Info{
+		Type:                "TCPServerInterface",
+		TransportID:         bytes.Repeat([]byte{0x11}, 16),
+		OperatorPageAddress: page,
+	}
+	packed, err := EncodeInfo(in)
+	if err != nil {
+		t.Fatalf("EncodeInfo: %v", err)
+	}
+	out, err := DecodeInfo(packed)
+	if err != nil {
+		t.Fatalf("DecodeInfo: %v", err)
+	}
+	if !bytes.Equal(out.OperatorPageAddress, page) {
+		t.Fatalf("OperatorPageAddress=%x want %x", out.OperatorPageAddress, page)
+	}
+	if out.OperatorLXMFAddress != nil {
+		t.Fatalf("unexpected OperatorLXMFAddress=%x", out.OperatorLXMFAddress)
+	}
+}
+
+func TestDecodeInfoIgnoresUnknownOperatorField(t *testing.T) {
+	var buf bytes.Buffer
+	enc := msgpack.NewEncoder(&buf)
+	if err := enc.EncodeMapLen(3); err != nil {
+		t.Fatal(err)
+	}
+	_ = enc.Encode(byte(FieldInterfaceType))
+	_ = enc.Encode("BackboneInterface")
+	_ = enc.Encode(byte(FieldTransportID))
+	_ = enc.Encode(bytes.Repeat([]byte{0x22}, 16))
+	_ = enc.Encode(byte(0xF2))
+	_ = enc.Encode(bytes.Repeat([]byte{0xee}, 16))
+	out, err := DecodeInfo(buf.Bytes())
+	if err != nil {
+		t.Fatalf("DecodeInfo: %v", err)
+	}
+	if out.Type != "BackboneInterface" {
+		t.Fatalf("Type=%q", out.Type)
+	}
+	if out.OperatorPageAddress != nil || out.OperatorLXMFAddress != nil {
+		t.Fatalf("unknown field should be ignored")
+	}
+}
+
 func TestEncodeInfoIncludesTransportImplVers(t *testing.T) {
 	in := Info{
 		Type:          "TCPServerInterface",

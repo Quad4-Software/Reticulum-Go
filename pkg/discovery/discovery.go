@@ -51,6 +51,11 @@ const (
 	FieldModulation      byte = 0x0D
 	FieldChannel         byte = 0x0E
 	FieldOpAddr          byte = 0xF0
+	// FieldOpPage is a provisional operator NomadNet page destination hash.
+	// Upstream RNS has not assigned this tag yet. Python ignores unknown map
+	// keys, so emitting it does not break receive-side interop. Remap if RNS
+	// standardizes a different code.
+	FieldOpPage byte = 0xF1
 )
 
 // implementationVersion is the fallback TRANSPORT_VERS when build info is
@@ -124,6 +129,7 @@ type Info struct {
 	Channel             int64
 	Modulation          string
 	OperatorLXMFAddress []byte
+	OperatorPageAddress []byte
 }
 
 // EncodeInfo serialises an Info into the msgpack representation used as the
@@ -192,6 +198,9 @@ func EncodeInfo(in Info) ([]byte, error) {
 	}
 	if len(in.OperatorLXMFAddress) == 16 {
 		pairs = append(pairs, [2]any{FieldOpAddr, in.OperatorLXMFAddress})
+	}
+	if len(in.OperatorPageAddress) == 16 {
+		pairs = append(pairs, [2]any{FieldOpPage, in.OperatorPageAddress})
 	}
 
 	var buf bytes.Buffer
@@ -348,6 +357,17 @@ func DecodeInfo(raw []byte) (Info, error) {
 			case string:
 				if len(v) == 16 {
 					out.OperatorLXMFAddress = []byte(v)
+				}
+			}
+		case FieldOpPage:
+			switch v := raw.(type) {
+			case []byte:
+				if len(v) == 16 {
+					out.OperatorPageAddress = append([]byte(nil), v...)
+				}
+			case string:
+				if len(v) == 16 {
+					out.OperatorPageAddress = []byte(v)
 				}
 			}
 		}
