@@ -1,7 +1,7 @@
 #!/bin/sh
 # Install go-legacy-winxp from Quad4-Software GitHub releases.
 # Usage: setup-go-legacy-winxp.sh <version>
-#   version: e.g. 1.26.6 (no "v" or "go-legacy-winxp-" prefix)
+#   version: e.g. 1.27.1 (no "v" or "go-legacy-winxp-" prefix)
 set -eu
 
 . "$(dirname "$0")/priv.sh"

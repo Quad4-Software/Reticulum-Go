@@ -23,7 +23,7 @@ Status detail: [docs/en/overview.md](docs/en/overview.md) and [COMPATIBILITY.md]
 
 ## Install / Build from source
 
-Requires Go 1.26.5 or later. Dependencies are vendored (`GOFLAGS=-mod=vendor`).
+Requires Go 1.27.1 or later. Dependencies are vendored (`GOFLAGS=-mod=vendor`).
 
 Install a release binary (and optional init units):
 
