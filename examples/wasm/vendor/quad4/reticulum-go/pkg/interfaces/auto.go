@@ -167,18 +167,16 @@ func NewAutoInterface(name string, config *common.InterfaceConfig) (*AutoInterfa
 	}
 
 	ai := &AutoInterface{
-		BaseInterface: BaseInterface{
-			Name:     name,
-			Mode:     common.IFModeFull,
-			Type:     common.IFTypeAuto,
-			Online:   false,
-			Enabled:  config.Enabled,
-			Detached: false,
-			In:       true,
-			Out:      false,
-			MTU:      HWMTU,
-			Bitrate:  BitrateGuess,
-		},
+		Name:                    name,
+		Mode:                    common.IFModeFull,
+		Type:                    common.IFTypeAuto,
+		Online:                  false,
+		Enabled:                 config.Enabled,
+		Detached:                false,
+		In:                      true,
+		Out:                     false,
+		MTU:                     HWMTU,
+		Bitrate:                 BitrateGuess,
 		groupID:                 []byte(groupID),
 		groupHash:               groupHash[:],
 		discoveryPort:           discoveryPort,

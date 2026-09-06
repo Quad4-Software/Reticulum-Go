@@ -410,17 +410,15 @@ type speedPipe struct {
 
 func newSpeedPipe(name string) *speedPipe {
 	p := &speedPipe{
-		BaseInterface: common.BaseInterface{
-			Name:    name,
-			Type:    common.IFTypeUDP,
-			Enabled: true,
-			Online:  true,
-			Bitrate: 1_000_000_000,
-			MTU:     common.DefaultMTU,
-		},
-		online: true,
-		inbox:  make(chan []byte, speedPipeInbox),
-		stop:   make(chan struct{}),
+		Name:    name,
+		Type:    common.IFTypeUDP,
+		Enabled: true,
+		Online:  true,
+		Bitrate: 1_000_000_000,
+		MTU:     common.DefaultMTU,
+		online:  true,
+		inbox:   make(chan []byte, speedPipeInbox),
+		stop:    make(chan struct{}),
 	}
 	go p.dispatch()
 	return p

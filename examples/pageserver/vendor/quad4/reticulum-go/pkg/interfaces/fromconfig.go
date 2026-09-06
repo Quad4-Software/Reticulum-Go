@@ -145,47 +145,6 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			MTU:               cfg.MTU,
 			Bitrate:           cfg.Bitrate,
 		})
-	case "RNodeInterface":
-		port := cfg.Device
-		if port == "" {
-			port = cfg.Address
-		}
-		iface, err = NewRNodeInterface(name, cfg.Enabled, RNodeOptions{
-			Port:                  port,
-			Frequency:             cfg.FrequencyHz,
-			Bandwidth:             cfg.Bandwidth,
-			TXPower:               cfg.TXPower,
-			SF:                    cfg.SpreadingFactor,
-			CR:                    cfg.CodingRate,
-			FlowControl:           cfg.FlowControl,
-			IDInterval:            time.Duration(cfg.IDInterval) * time.Second,
-			Callsign:              cfg.IDCallsign,
-			STAirTimeLock:         rnodeAirtimeFromConfig(cfg.AirtimeLimitShort, cfg.AirtimeLimitShortSet),
-			LTAirTimeLock:         rnodeAirtimeFromConfig(cfg.AirtimeLimitLong, cfg.AirtimeLimitLongSet),
-			MaxReconnectTries:     cfg.MaxReconnTries,
-			PanicOnInterfaceError: ctx != nil && ctx.PanicOnInterfaceError,
-		})
-	case "RNodeMultiInterface":
-		port := cfg.Device
-		if port == "" {
-			port = cfg.Address
-		}
-		opts := RNodeMultiOptions{
-			RNodeOptions: RNodeOptions{
-				Port:                  port,
-				IDInterval:            time.Duration(cfg.IDInterval) * time.Second,
-				Callsign:              cfg.IDCallsign,
-				MaxReconnectTries:     cfg.MaxReconnTries,
-				PanicOnInterfaceError: ctx != nil && ctx.PanicOnInterfaceError,
-			},
-			SubInterfaces: cfg.SubInterfaces,
-		}
-		if ctx != nil {
-			opts.RegisterPeer = ctx.RegisterPeer
-			opts.UnregisterPeer = ctx.UnregisterPeer
-			opts.SetupPeer = ctx.SetupPeer
-		}
-		iface, err = NewRNodeMultiInterface(name, cfg.Enabled, opts)
 	case "Modem73Interface":
 		autoFrag := true
 		if cfg.AutoFragSet {
@@ -317,14 +276,6 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 		return nil, err
 	}
 	return iface, nil
-}
-
-func rnodeAirtimeFromConfig(value float64, set bool) *float64 {
-	if !set {
-		return nil
-	}
-	v := value
-	return &v
 }
 
 // applyModeFromConfig sets Mode, RecursivePRs, gravity, and announce flags from cfg.
