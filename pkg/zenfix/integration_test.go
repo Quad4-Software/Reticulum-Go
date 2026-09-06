@@ -13,7 +13,7 @@ import (
 
 func TestRunOnTempModule(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module zentest\n\ngo 1.26\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module zentest\n\ngo 1.27\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	src := `package main

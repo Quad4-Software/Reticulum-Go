@@ -206,12 +206,10 @@ func IsPortConflict(err error) bool {
 	if errors.Is(err, ErrPortConflict) {
 		return true
 	}
-	var opErr *net.OpError
-	if errors.As(err, &opErr) {
+	if opErr, ok := errors.AsType[*net.OpError](err); ok {
 		err = opErr.Err
 	}
-	var sysErr *os.SyscallError
-	if errors.As(err, &sysErr) {
+	if sysErr, ok := errors.AsType[*os.SyscallError](err); ok {
 		err = sysErr.Err
 	}
 	if errors.Is(err, syscall.EADDRINUSE) {

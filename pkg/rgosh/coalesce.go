@@ -55,9 +55,10 @@ func (c *Coalescer) Write(p []byte) (int, error) {
 	}
 	_, _ = c.buf.Write(p)
 	if c.lineMode {
-		if i := bytes.LastIndexByte(c.buf.Bytes(), '\n'); i >= 0 {
-			out := append([]byte(nil), c.buf.Bytes()[:i+1]...)
-			rest := append([]byte(nil), c.buf.Bytes()[i+1:]...)
+		before, after, ok := bytes.CutLast(c.buf.Bytes(), []byte{'\n'})
+		if ok {
+			out := append(append([]byte(nil), before...), '\n')
+			rest := append([]byte(nil), after...)
 			c.buf.Reset()
 			_, _ = c.buf.Write(rest)
 			c.flushUnlocked(out)

@@ -25,8 +25,8 @@ func (f *failingLink) Send(data []byte) any {
 
 func TestSendOnFailingOutletDoesNotCorruptState(t *testing.T) {
 	link := &failingLink{
-		mockLink: mockLink{status: transport.StatusActive},
-		fail:     true,
+		status: transport.StatusActive,
+		fail:   true,
 	}
 	c := NewChannel(link)
 	defer func() { _ = c.Close() }()

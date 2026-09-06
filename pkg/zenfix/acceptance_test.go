@@ -80,7 +80,7 @@ func TestAcceptanceCorpusPython(t *testing.T) {
 func TestAcceptanceFixRoundTrip(t *testing.T) {
 	src := "package p\n\nfunc BadIgnoredError(tr *Transport, dest []byte) error {\n\ttr.RequestPath(dest, \"\", nil, false)\n\treturn nil\n}\n\ntype Transport struct{}\nfunc (t *Transport) RequestPath([]byte, string, []byte, bool) error { return nil }\n"
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module fixrt\n\ngo 1.26\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module fixrt\n\ngo 1.27\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(dir, "fix.go")
