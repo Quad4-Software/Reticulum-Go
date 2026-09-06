@@ -25,14 +25,16 @@ type pipeInterface struct {
 
 func newPipeInterface(name string) *pipeInterface {
 	return &pipeInterface{
-		Name:    name,
-		Type:    common.IFTypeUDP,
-		Mode:    common.IFModeFull,
-		Enabled: true,
-		Online:  true,
-		MTU:     common.DefaultMTU,
-		Bitrate: pipeTestBitrate,
-		online:  true,
+		BaseInterface: common.BaseInterface{
+			Name:    name,
+			Type:    common.IFTypeUDP,
+			Mode:    common.IFModeFull,
+			Enabled: true,
+			Online:  true,
+			MTU:     common.DefaultMTU,
+			Bitrate: pipeTestBitrate,
+		},
+		online: true,
 	}
 }
 

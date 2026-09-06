@@ -3,7 +3,7 @@ FROM golang:1.27.1-bookworm
 
 ARG TASK_VERSION=3.46.3
 ARG REVIVE_VERSION=v1.15.0
-ARG STATICCHECK_VERSION=v0.6.1
+ARG STATICCHECK_VERSION=2026.2.1
 
 RUN apt-get update -qq \
     && apt-get install -y --no-install-recommends \
