@@ -42,12 +42,10 @@ type dropFn func(data []byte) bool
 
 func NewPipeInterface(name string) *PipeInterface {
 	p := &PipeInterface{
-		BaseInterface: common.BaseInterface{
-			Name:    name,
-			Type:    common.IFTypeUDP,
-			Enabled: true,
-			Online:  true,
-		},
+		Name:    name,
+		Type:    common.IFTypeUDP,
+		Enabled: true,
+		Online:  true,
 	}
 	p.online.Store(true)
 	return p

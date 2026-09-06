@@ -560,15 +560,13 @@ type TCPServerInterface struct {
 
 func NewTCPServerInterface(name string, bindAddr string, bindPort int, kissFraming bool, i2pTunneled bool, preferIPv6 bool) (*TCPServerInterface, error) {
 	ts := &TCPServerInterface{
-		BaseInterface: BaseInterface{
-			Name:     name,
-			Mode:     common.IFModeFull,
-			Type:     common.IFTypeTCP,
-			Online:   false,
-			MTU:      common.DefaultMTU,
-			Enabled:  true,
-			Detached: false,
-		},
+		Name:        name,
+		Mode:        common.IFModeFull,
+		Type:        common.IFTypeTCP,
+		Online:      false,
+		MTU:         common.DefaultMTU,
+		Enabled:     true,
+		Detached:    false,
 		connections: make(map[string]net.Conn),
 		bindAddr:    bindAddr,
 		bindPort:    bindPort,
