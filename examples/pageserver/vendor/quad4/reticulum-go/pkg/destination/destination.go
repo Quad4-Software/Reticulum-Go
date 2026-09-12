@@ -922,14 +922,17 @@ func (d *Destination) GetType() byte {
 
 func (d *Destination) GetHash() []byte {
 	d.mutex.RLock()
-	defer d.mutex.RUnlock()
-	if d.hashValue == nil {
+	if d.hashValue != nil {
+		h := d.hashValue
 		d.mutex.RUnlock()
-		d.mutex.Lock()
-		defer d.mutex.Unlock()
-		if d.hashValue == nil {
-			d.hashValue = d.calculateHash()
-		}
+		return h
+	}
+	d.mutex.RUnlock()
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	if d.hashValue == nil {
+		d.hashValue = d.calculateHash()
 	}
 	return d.hashValue
 }

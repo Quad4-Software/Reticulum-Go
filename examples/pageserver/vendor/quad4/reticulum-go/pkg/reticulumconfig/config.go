@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -249,9 +250,9 @@ func LoadConfig(path string) (*common.ReticulumConfig, error) {
 			kind := classifySection(name, depth)
 			parent := ""
 			if kind == sectionSubInterface {
-				for i := len(stack) - 1; i >= 0; i-- {
-					if stack[i].kind == sectionInterface {
-						parent = stack[i].name
+				for _, s := range slices.Backward(stack) {
+					if s.kind == sectionInterface {
+						parent = s.name
 						break
 					}
 				}
@@ -715,6 +716,11 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		b, err := hex.DecodeString(strings.TrimSpace(value))
 		if err == nil && len(b) == 16 {
 			iface.DiscoveryLXMFAddress = b
+		}
+	case "discovery_nomadnet_page":
+		b, err := hex.DecodeString(strings.TrimSpace(value))
+		if err == nil && len(b) == 16 {
+			iface.DiscoveryNomadNetPage = b
 		}
 	case "location_cmd":
 		iface.DiscoveryLocationCmd = value
@@ -1220,6 +1226,12 @@ func writeInterface(b *strings.Builder, name string, iface *common.InterfaceConf
 	}
 	if iface.DiscoveryEncrypt {
 		fmt.Fprintf(b, "    discovery_encrypt = %s\n", boolStr(iface.DiscoveryEncrypt))
+	}
+	if len(iface.DiscoveryLXMFAddress) == 16 {
+		fmt.Fprintf(b, "    discovery_lxmf_address = %x\n", iface.DiscoveryLXMFAddress)
+	}
+	if len(iface.DiscoveryNomadNetPage) == 16 {
+		fmt.Fprintf(b, "    discovery_nomadnet_page = %x\n", iface.DiscoveryNomadNetPage)
 	}
 	if iface.DiscoveryLocationCmd != "" {
 		fmt.Fprintf(b, "    location_cmd = %s\n", iface.DiscoveryLocationCmd)

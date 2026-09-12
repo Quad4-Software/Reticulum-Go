@@ -600,6 +600,7 @@ func WriteDiscoveredJSON(w io.Writer, list []*discovery.DiscoveredInterface) err
 		TransportID         string   `json:"transport_id"`
 		NetworkID           string   `json:"network_id"`
 		OperatorLXMFAddress string   `json:"operator_lxmf_address,omitempty"`
+		OperatorPageAddress string   `json:"operator_nomadnet_page,omitempty"`
 		Discovered          float64  `json:"discovered"`
 		LastHeard           float64  `json:"last_heard"`
 		HeardCount          int      `json:"heard_count"`
@@ -634,6 +635,9 @@ func WriteDiscoveredJSON(w io.Writer, list []*discovery.DiscoveredInterface) err
 		}
 		if len(rec.OperatorLXMFAddress) > 0 {
 			r.OperatorLXMFAddress = hex.EncodeToString(rec.OperatorLXMFAddress)
+		}
+		if len(rec.OperatorPageAddress) > 0 {
+			r.OperatorPageAddress = hex.EncodeToString(rec.OperatorPageAddress)
 		}
 		out = append(out, r)
 	}
@@ -686,6 +690,11 @@ func WriteDiscoveredHuman(w io.Writer, list []*discovery.DiscoveredInterface, de
 			}
 			if len(rec.OperatorLXMFAddress) > 0 {
 				if _, err := fmt.Fprintf(w, "Operator LXMF: %x\n", rec.OperatorLXMFAddress); err != nil {
+					return err
+				}
+			}
+			if len(rec.OperatorPageAddress) > 0 {
+				if _, err := fmt.Fprintf(w, "Operator page: %x\n", rec.OperatorPageAddress); err != nil {
 					return err
 				}
 			}
