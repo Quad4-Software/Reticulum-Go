@@ -58,7 +58,7 @@ func checkPythonRNS() Result {
 	}
 	want := os.Getenv("RNS_REQUIRED_VERSION")
 	if want == "" {
-		want = "1.5.2"
+		want = "1.5.4"
 	}
 	cmd := exec.Command(py, "-c", "import RNS; print(getattr(RNS, '__version__', ''))") // #nosec G204,G702 -- python from PATH, .venv, or PYTHON_INTEROP
 	out, err := cmd.CombinedOutput()
@@ -83,6 +83,11 @@ func pythonInteropCandidates() []string {
 		filepath.Join(".venv", "Scripts", "python.exe"),
 	}
 	if home != "" {
+		cands = append(cands,
+			filepath.Join(home, ".venv", "bin", "python"),
+			filepath.Join(home, ".venv", "bin", "python3"),
+			filepath.Join(home, ".venv", "Scripts", "python.exe"),
+		)
 		pipxHome := os.Getenv("PIPX_HOME")
 		if pipxHome == "" {
 			pipxHome = filepath.Join(home, ".local", "share", "pipx")

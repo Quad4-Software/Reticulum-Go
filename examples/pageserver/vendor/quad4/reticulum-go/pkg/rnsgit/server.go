@@ -9,10 +9,13 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
+	"quad4/reticulum-go/pkg/debug"
 	"quad4/reticulum-go/pkg/destination"
 	"quad4/reticulum-go/pkg/identity"
 	"quad4/reticulum-go/pkg/node"
@@ -22,13 +25,15 @@ import (
 // Node hosts git repositories over Reticulum.
 type Node struct {
 	cfg        *ServerConfig
-	access     *AccessTable
+	access     atomic.Pointer[AccessTable]
 	git        *GitRunner
 	identity   *identity.Identity
 	dest       *destination.Destination
 	n          *node.Node
 	mirrorStop context.CancelFunc
 	mu         sync.RWMutex
+	permsMu    sync.Mutex
+	workMu     sync.Mutex
 }
 
 // NewNode creates a git repository node.
@@ -40,12 +45,13 @@ func NewNode(cfg *ServerConfig, id *identity.Identity) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Node{
+	nd := &Node{
 		cfg:      cfg,
-		access:   access,
 		git:      NewGitRunner(),
 		identity: id,
-	}, nil
+	}
+	nd.access.Store(access)
+	return nd, nil
 }
 
 // Start runs the repository node.
@@ -82,9 +88,11 @@ func (n *Node) Start(rnsConfig string) error {
 	}
 	if n.cfg.ServeNomadNet {
 		if err := n.startPageNode(); err != nil {
+			n.logf(debug.DebugError, "Failed to start NomadNet page node", "error", err)
 			return err
 		}
 	}
+	n.logf(debug.DebugInfo, "Reticulum Git Node listening", "destination", n.ReposDestHash())
 	return nil
 }
 
@@ -156,9 +164,54 @@ func (n *Node) registerHandlers() {
 		{PathWork, n.handleWork},
 	}
 	for _, h := range paths {
-		_ = n.dest.RegisterRequestHandlerAny(h.path, h.fn, allow, nil)
+		_ = n.dest.RegisterRequestHandlerAny(h.path, n.wrapHandler(h.path, h.fn), allow, nil)
 	}
 	n.dest.SetLinkEstablishedCallback(func(_ any) {})
+}
+
+// logf emits a node diagnostic at level, honoring the configured loglevel.
+func (n *Node) logf(level int, msg string, args ...any) {
+	if n.cfg == nil || n.cfg.LogLevel < level {
+		return
+	}
+	debug.Log(level, msg, args...)
+}
+
+// logRequest mirrors Python rngit log_request: ordinary requests log at
+// verbose while requests from blocked identities log one level deeper.
+func (n *Node) logRequest(msg string, remote *identity.Identity) {
+	level := debug.DebugVerbose
+	if remote != nil && n.cfg.BlockedIdentities[strings.ToLower(hex.EncodeToString(remote.Hash()))] {
+		level = debug.DebugTrace
+	}
+	n.logf(level, msg)
+}
+
+// wrapHandler logs each request and any non-OK status result.
+func (n *Node) wrapHandler(path string, fn destination.ResponseGeneratorFunc) destination.ResponseGeneratorFunc {
+	return func(p string, data []byte, reqID, linkID []byte, remote *identity.Identity, at int64) any {
+		remoteStr := "unidentified"
+		if remote != nil {
+			remoteStr = "<" + hex.EncodeToString(remote.Hash()) + ">"
+		}
+		n.logRequest(fmt.Sprintf("%s request from remote %s", path, remoteStr), remote)
+		out := fn(p, data, reqID, linkID, remote, at)
+		if body, ok := out.([]byte); ok && len(body) > 0 && body[0] != ResOK {
+			level := debug.DebugVerbose
+			if body[0] == ResRemoteFail {
+				level = debug.DebugWarning
+			}
+			n.logf(level, fmt.Sprintf("%s request from remote %s failed", path, remoteStr),
+				"code", fmt.Sprintf("0x%02x", body[0]), "detail", string(body[1:]))
+		}
+		return out
+	}
+}
+
+// accessTable returns the current permission table. The pointer is swapped
+// atomically on reload, so snapshots are safe to walk without a lock.
+func (n *Node) accessTable() *AccessTable {
+	return n.access.Load()
 }
 
 func (n *Node) remoteAllowed(remote *identity.Identity, group, repo string, perm int) bool {
@@ -166,11 +219,11 @@ func (n *Node) remoteAllowed(remote *identity.Identity, group, repo string, perm
 	if remote != nil {
 		hash = remote.Hash()
 	}
-	return n.access.Resolve(group, repo, hash, perm)
+	return n.accessTable().Resolve(group, repo, hash, perm)
 }
 
 func (n *Node) repoPath(group, repo string) (string, bool) {
-	ga, ok := n.access.Groups[group]
+	ga, ok := n.accessTable().Groups[group]
 	if !ok {
 		return "", false
 	}
@@ -181,13 +234,15 @@ func (n *Node) repoPath(group, repo string) (string, bool) {
 	return ra.Path, true
 }
 
+// reloadAccess rebuilds the permission table from config and .allowed files,
+// matching the Python perms_lock refresh after permission writes.
 func (n *Node) reloadAccess() error {
+	n.permsMu.Lock()
+	defer n.permsMu.Unlock()
 	access, err := NewAccessTable(n.cfg)
 	if err != nil {
 		return err
 	}
-	n.mu.Lock()
-	n.access = access
-	n.mu.Unlock()
+	n.access.Store(access)
 	return nil
 }

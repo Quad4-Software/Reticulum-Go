@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"quad4/reticulum-go/pkg/channel"
+	"quad4/reticulum-go/pkg/debug"
 )
 
 // Message is the channel message interface used by sessions.
@@ -628,7 +629,9 @@ func (s *Session) copyProcessStream(ctx context.Context, sender Sender, compat b
 		n, err := r.Read(buf)
 		if n > 0 {
 			data := append([]byte(nil), buf[:n]...)
-			_ = s.sendStreamChunks(ctx, sender, compat, streamID, data, false)
+			if sendErr := s.sendStreamChunks(ctx, sender, compat, streamID, data, false); sendErr != nil {
+				debug.Log(debug.DebugWarning, "rgosh: stream chunk send failed, output dropped", "stream", streamID, "err", sendErr)
+			}
 			s.mu.Lock()
 			onOut := s.OnStdout
 			onErr := s.OnStderr
@@ -641,7 +644,9 @@ func (s *Session) copyProcessStream(ctx context.Context, sender Sender, compat b
 			}
 		}
 		if err != nil {
-			_ = s.sendStreamChunks(ctx, sender, compat, streamID, nil, true)
+			if sendErr := s.sendStreamChunks(ctx, sender, compat, streamID, nil, true); sendErr != nil {
+				debug.Log(debug.DebugWarning, "rgosh: stream EOF send failed", "stream", streamID, "err", sendErr)
+			}
 			return
 		}
 	}
@@ -819,10 +824,14 @@ func sendWhenReady(sender Sender, msg Message, wait time.Duration) {
 	}
 	if rs, ok := sender.(interface{ WaitReady(context.Context) error }); ok && wait > 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), wait)
-		_ = rs.WaitReady(ctx)
+		if err := rs.WaitReady(ctx); err != nil {
+			debug.Log(debug.DebugWarning, "rgosh: outlet not ready before send", "err", err)
+		}
 		cancel()
 	}
-	_ = sender.Send(msg)
+	if err := sender.Send(msg); err != nil {
+		debug.Log(debug.DebugWarning, "rgosh: message send failed", "err", err)
+	}
 }
 
 // sendLocked sends while temporarily releasing s.mu so channel IO cannot

@@ -675,11 +675,10 @@ func (r *Resource) Metadata() map[string]any {
 }
 
 func (r *Resource) ensureMetadataPackedLocked() error {
-	if len(r.metadata) == 0 {
-		r.metadataPacked = nil
+	if len(r.metadataPacked) > 0 {
 		return nil
 	}
-	if len(r.metadataPacked) > 0 {
+	if len(r.metadata) == 0 {
 		return nil
 	}
 	packed, err := msgpack.Marshal(r.metadata)

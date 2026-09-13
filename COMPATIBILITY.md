@@ -1,6 +1,6 @@
 # Compatibility with Python Reticulum
 
-This document compares Reticulum-Go with the official [Reticulum network API reference](https://reticulum.network/manual/reference.html) and the reference *rns* Python package (**RNS 1.5.2**).
+This document compares Reticulum-Go with the official [Reticulum network API reference](https://reticulum.network/manual/reference.html) and the reference *rns* Python package (**RNS 1.5.4**).
 
 Crossref tests clone the reference from `rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum` via [rngit](https://reticulum.network/manual/git.html) (`tests/crossref/run_crossref.sh`). The GitHub mirror at [markqvist/Reticulum](https://github.com/markqvist/Reticulum) is no longer used for vectors.
 
@@ -14,7 +14,7 @@ For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). F
 | Identity | Yes | Key generation, recall, sign/verify, encrypt/decrypt, ratchets. Optional 72-byte hardware-bound descriptor (RHB1). On-wire Ed25519 public key matches RNS.Identity. Python Identity.from_file expects the 64-byte software layout only today. [3] [4] |
 | Destination | Yes | SINGLE, GROUP, PLAIN, LINK. Announce and request handlers, links in and out. GROUP uses shared Token keys (`CreateKeys` / `LoadPrivateKey`). `SetMaxRequestSize` (1.4.1). [5] |
 | Packet | Yes | Header types 1 and 2, all packet types and contexts. Byte-for-byte parity in crossref. [1] [6] |
-| Transport | Yes | Core wire behavior matches Python 1.4.2 through 1.5.2 for path table, announces, link relay, ingress control, blackhole handling, inbound priority queues, qlen_in_* tuning (defaults match 1.5.1+), and queue pressure in interface_stats RPC. [7] [8] [9] |
+| Transport | Yes | Core wire behavior matches Python 1.4.2 through 1.5.4 for path table, announces, link relay, ingress control, blackhole handling, inbound priority queues, qlen_in_* tuning (defaults match 1.5.1+), and queue pressure in interface_stats RPC. [7] [8] [9] |
 | Interfaces | Partial | See Interfaces below. [10] |
 | Discovery (RNS.Discovery, rnstransport) | Yes | Mirrors wire constants, LXStamper (`pkg/lxstamper`), msgpack layouts including operator LXMF address (OP_ADDR 0xF0, RNS 1.5.0), provisional operator NomadNet page (OP_PAGE 0xF1, ignored by current Python RNS), and transport implementation/version (TRANSPORT_IMPL 0xFD / TRANSPORT_VERS 0xFC, RNS 1.5.1+). Go announces as `reticulum-go` plus build version. Default discovery stamp cost is 16 (RNS 1.4.0). Receive path requires both StampValid threshold and StampValue >= cost. Valid/invalid announce stamp caches and single-flight validation match Python. Blackholed transport_id / announcer identity (network_id) filtered at receive time (1.4.2 list filtering, fail-closed). discover_interfaces, per-interface discoverable, or autoconnect_discovered_interfaces > 0 starts rnstransport listening via StartInterfaceDiscovery. InterfaceAnnouncer publishes discoverable TCP/Backbone/I2P (and related) interfaces. autoconnect_discovered_interfaces > 0 enables Backbone, TCP client, and I2P peer autoconnect from discovery. Build with BuildAppData, decode with ValidateAndDecode. Separate from AutoInterface multicast discovery. [11] [12] |
 | Blackhole | Yes | Table semantics, msgpack, expiry, MergeRemote, EncodeForRequest. Announces from listed identities are dropped. Links from blackholed identities are torn down at LINKIDENTIFY. publish_blackhole registers rnstransport.info.blackhole with AllowAll `/list`. blackhole_sources and blackhole_update_interval drive BlackholeUpdater (path, link, `/list`, MergeRemote, persist). [13] |
@@ -170,7 +170,7 @@ Wire format is unchanged in 1.2.x to 1.4.x. Most churn is utilities and transpor
 | allow_link_path_rebalance | 1.4.1 | Covered (default true, config `allow_link_path_rebalance`) |
 | Recursive path-request online gate | 1.4.2 | Covered (`ifaceReadyForPathRequest`). Go also refuses non-positive bitrate when exposed and re-checks at emit time |
 | Discovery blackhole set for list filtering | 1.4.2 | Covered (`ActiveIdentitySet` + receive-time filter). Go invalidates on mutation instead of a 60s TTL and drops at receive rather than list-only |
-| rngit / rnid / rnsh utilities | 1.2.x+ | rngit ported (`reticulum-go git`, `git-remote-rns`). rnid via `reticulum-go id`. rnsh security fix is Python-only |
+| rngit / rnid / rnsh utilities | 1.2.x+ | rngit ported (`reticulum-go git`, `git-remote-rns`), including 1.5.3+ work documents, /media serving with WebP conversion, blocked identities, aliases, and immediate perms activation. rnid via `reticulum-go id`. rnsh security fix is Python-only |
 
 ### RNS 1.3.6 through 1.4.2 notes
 
@@ -247,7 +247,7 @@ Intentional extensions beyond upstream *rns*:
 | rnx | Yes | `reticulum-go x` (symlinks rgox, rnx). Destination `rnx.execute`, request path command. JSON stdout, Python exit codes |
 | rnodeconf | No | Depends on RNode driver |
 | rnpkg | No | Not ported |
-| rngit | Yes | `reticulum-go git` (rgogit), `git-remote-rns`. Interops with Python rngit |
+| rngit | Yes | `reticulum-go git` (rgogit), `git-remote-rns`. Interops with Python rngit incl. work docs, media pages, and remote perms |
 | rnsh | Interop | Python rnsh talks to dest app `rnsh` on either stack. `reticulum-go sh` auto-detects that dest. Native `rgosh` dest is Go-only. Unix PTY. Windows listener uses pipes. |
 | WASM build | Go-only | [cmd/reticulum-wasm](cmd/reticulum-wasm/), [pkg/wasm](pkg/wasm/) |
 

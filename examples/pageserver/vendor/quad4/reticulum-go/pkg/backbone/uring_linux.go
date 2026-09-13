@@ -35,24 +35,12 @@ func newUringPoller() (poller, error) {
 }
 
 func probeIOUring() error {
-	params := struct {
-		sqEntries    uint32
-		cqEntries    uint32
-		flags        uint32
-		sqThread     uint32
-		sqCpu        uint32
-		pad          uint32
-		featureFlags uint32
-		wqFd         int32
-		resv         [3]uint32
-		sqOff        [5]uint32
-		cqOff        [5]uint32
-	}{
-		sqEntries: uringProbeEntries,
-		cqEntries: uringProbeEntries * 2,
-	}
+	// struct io_uring_params is 120 bytes on every kernel since 5.1 and the
+	// kernel copies the full struct out unconditionally. Allocate 128 bytes
+	// so the copyout can never overwrite the stack frame.
+	var params [128]byte
 	// #nosec G103 -- io_uring_setup requires passing a struct pointer to the syscall
-	fd, _, errno := syscall.Syscall(unix.SYS_IO_URING_SETUP, uintptr(uringProbeEntries), uintptr(unsafe.Pointer(&params)), 0)
+	fd, _, errno := syscall.Syscall(unix.SYS_IO_URING_SETUP, uintptr(uringProbeEntries), uintptr(unsafe.Pointer(&params[0])), 0)
 	if errno != 0 {
 		return fmt.Errorf("io_uring_setup: %w", errno)
 	}

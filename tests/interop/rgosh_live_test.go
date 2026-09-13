@@ -24,6 +24,7 @@ import (
 	"quad4/reticulum-go/pkg/node"
 	"quad4/reticulum-go/pkg/rgosh"
 	"quad4/reticulum-go/pkg/rnsutil"
+	"quad4/reticulum-go/tests/interop/harness"
 )
 
 func ensureRgosh(t *testing.T) string {
@@ -254,8 +255,9 @@ func TestLiveGoCompatToPythonRnsh(t *testing.T) {
 	if _, err := os.Stat(script); err != nil {
 		t.Skip("rnsh_listen.py missing")
 	}
-	if os.Getenv("RETICULUM_PATH") == "" {
-		t.Skip("RETICULUM_PATH required for Python rnsh")
+	rpath := harness.ReticulumPath()
+	if rpath == "" {
+		t.Skip("no Python RNS found (set RETICULUM_PATH or PYTHON_INTEROP)")
 	}
 
 	portA := freeUDPPort(t)
@@ -269,6 +271,7 @@ func TestLiveGoCompatToPythonRnsh(t *testing.T) {
 	defer cancel()
 	py := exec.CommandContext(ctx, pythonExe(), script)
 	py.Env = append(os.Environ(),
+		"RETICULUM_PATH="+rpath,
 		"INTEROP_CONFIG_DIR="+cfgDirA,
 		"INTEROP_LISTEN_PORT="+strconv.Itoa(portA),
 		"INTEROP_FORWARD_PORT="+strconv.Itoa(portB),
@@ -309,8 +312,9 @@ func TestLivePythonRnshToGoCompat(t *testing.T) {
 	if _, err := os.Stat(script); err != nil {
 		t.Skip("rnsh_client.py missing")
 	}
-	if os.Getenv("RETICULUM_PATH") == "" {
-		t.Skip("RETICULUM_PATH required for Python rnsh")
+	rpath := harness.ReticulumPath()
+	if rpath == "" {
+		t.Skip("no Python RNS found (set RETICULUM_PATH or PYTHON_INTEROP)")
 	}
 
 	portA := freeUDPPort(t)
@@ -344,6 +348,7 @@ func TestLivePythonRnshToGoCompat(t *testing.T) {
 
 	py := exec.CommandContext(ctx, pythonExe(), script)
 	py.Env = append(os.Environ(),
+		"RETICULUM_PATH="+rpath,
 		"INTEROP_CONFIG_DIR="+cfgDirB,
 		"INTEROP_LISTEN_PORT="+strconv.Itoa(portB),
 		"INTEROP_FORWARD_PORT="+strconv.Itoa(portA),

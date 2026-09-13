@@ -5,11 +5,14 @@ package rnsgit
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // GitRunner executes git subprocesses in a repository directory.
@@ -23,7 +26,11 @@ func NewGitRunner() *GitRunner {
 }
 
 func (g *GitRunner) run(dir string, args ...string) (stdout, stderr []byte, err error) {
-	cmd := exec.Command(g.Git, args...) // #nosec G204 -- fixed git binary
+	return g.runCtx(context.Background(), dir, args...)
+}
+
+func (g *GitRunner) runCtx(ctx context.Context, dir string, args ...string) (stdout, stderr []byte, err error) {
+	cmd := exec.CommandContext(ctx, g.Git, args...) // #nosec G204 -- fixed git binary
 	cmd.Dir = dir
 	cmd.Env = envWithoutGitDir()
 	var outBuf, errBuf bytes.Buffer
@@ -208,4 +215,106 @@ func (g *GitRunner) RevParse(repoPath, ref string) (string, error) {
 		return "", fmt.Errorf("git rev-parse: %w: %s", err, strings.TrimSpace(string(stderr)))
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+// RevParseVerify resolves a ref to a sha, matching Python resolve_ref.
+func (g *GitRunner) RevParseVerify(repoPath, ref string) (string, error) {
+	if strings.HasPrefix(ref, "-") || ref == "" {
+		return "", fmt.Errorf("invalid ref")
+	}
+	out, stderr, err := g.run(repoPath, "rev-parse", "--verify", ref)
+	if err != nil {
+		return "", fmt.Errorf("git rev-parse --verify: %w: %s", err, strings.TrimSpace(string(stderr)))
+	}
+	return strings.ToLower(strings.TrimSpace(string(out))), nil
+}
+
+// BlobSize returns the size of a blob at ref:path, matching Python
+// get_blob_info size resolution.
+func (g *GitRunner) BlobSize(repoPath, ref, filePath string) (int64, error) {
+	out, stderr, err := g.run(repoPath, "cat-file", "-s", ref+":"+strings.Trim(filePath, "/"))
+	if err != nil {
+		return 0, fmt.Errorf("git cat-file: %w: %s", err, strings.TrimSpace(string(stderr)))
+	}
+	size, err := strconv.ParseInt(strings.TrimSpace(string(out)), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("git cat-file size: %w", err)
+	}
+	return size, nil
+}
+
+// BlobContent returns blob bytes at ref:path, matching Python
+// get_blob_content.
+func (g *GitRunner) BlobContent(repoPath, ref, filePath string) ([]byte, error) {
+	out, stderr, err := g.run(repoPath, "show", ref+":"+strings.Trim(filePath, "/"))
+	if err != nil {
+		return nil, fmt.Errorf("git show: %w: %s", err, strings.TrimSpace(string(stderr)))
+	}
+	return out, nil
+}
+
+// LsRemoteHead returns the symref target branch for HEAD on a remote
+// source, or an empty string if it cannot be determined. Matches the
+// ls-remote --symref step of Python __update_head_to_source_default.
+func (g *GitRunner) LsRemoteHead(source string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	out, _, err := g.runCtx(ctx, "", "ls-remote", "--symref", source, "HEAD")
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		if !strings.HasPrefix(line, "ref: refs/heads/") {
+			continue
+		}
+		parts := strings.SplitN(line, "\t", 2)
+		if len(parts) == 2 && parts[1] == "HEAD" {
+			return strings.TrimSpace(parts[0][5:])
+		}
+	}
+	return ""
+}
+
+// ShowRefVerify reports whether ref resolves, matching
+// git show-ref --verify --quiet.
+func (g *GitRunner) ShowRefVerify(repoPath, ref string) bool {
+	_, _, err := g.run(repoPath, "show-ref", "--verify", "--quiet", ref)
+	return err == nil
+}
+
+// FirstLocalBranch returns the first branch under refs/heads, or an
+// empty string when the repository has no branches.
+func (g *GitRunner) FirstLocalBranch(repoPath string) string {
+	out, _, err := g.run(repoPath, "for-each-ref", "--format=%(refname:short)", "refs/heads", "--count=1")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// SetHead points HEAD at ref via git symbolic-ref.
+func (g *GitRunner) SetHead(repoPath, ref string) error {
+	_, stderr, err := g.run(repoPath, "symbolic-ref", "HEAD", ref)
+	if err != nil {
+		return fmt.Errorf("git symbolic-ref: %w: %s", err, strings.TrimSpace(string(stderr)))
+	}
+	return nil
+}
+
+// UpdateHeadToSourceDefault points HEAD at the remote's default branch,
+// falling back to the first local branch. Matches Python
+// __update_head_to_source_default. Best effort, like the Python caller.
+func (g *GitRunner) UpdateHeadToSourceDefault(repoPath, source string) {
+	target := g.LsRemoteHead(source)
+	if target != "" && !g.ShowRefVerify(repoPath, target) {
+		target = ""
+	}
+	if target == "" {
+		name := g.FirstLocalBranch(repoPath)
+		if name == "" {
+			return
+		}
+		target = "refs/heads/" + name
+	}
+	_ = g.SetHead(repoPath, target)
 }

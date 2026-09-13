@@ -69,7 +69,7 @@ func SanRef(ref string) string {
 			return ""
 		}
 	}
-	if strings.ContainsAny(ref, "~^:?*[@") || ref == "@" {
+	if strings.ContainsAny(ref, "~^:?*[") || ref == "@" {
 		return ""
 	}
 	if strings.Contains(ref, "@{") {

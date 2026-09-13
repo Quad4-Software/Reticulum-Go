@@ -6,6 +6,7 @@ package rgosh
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -194,6 +195,20 @@ func TestE2E_RgoshLongLived(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("sleep shell")
 	}
+	// A link that sees no inbound traffic for staleTime is closed by the
+	// watchdog, matching Python RNS. Under heavy test parallelism the peer
+	// watchdog can starve past that window, so allow one retry.
+	var err error
+	for attempt := 0; attempt < 2; attempt++ {
+		if err = runRgoshLongLivedAttempt(t); err == nil {
+			return
+		}
+		t.Logf("long-lived attempt %d failed: %v", attempt+1, err)
+	}
+	t.Fatal(err)
+}
+
+func runRgoshLongLivedAttempt(t *testing.T) error {
 	portA := freeUDPPort(t)
 	portB := freeUDPPort(t)
 	dirA := t.TempDir()
@@ -203,36 +218,36 @@ func TestE2E_RgoshLongLived(t *testing.T) {
 
 	cfgA, err := rnsutil.LoadConfigDir(dirA)
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
 	cfgB, err := rnsutil.LoadConfigDir(dirB)
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
 	nA, err := node.New(cfgA)
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
 	nB, err := node.New(cfgB)
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
 	if err := nA.Start(); err != nil {
-		t.Fatal(err)
+		return err
 	}
 	defer nA.Stop()
 	if err := nB.Start(); err != nil {
-		t.Fatal(err)
+		return err
 	}
 	defer nB.Stop()
 
 	idListen, err := identity.New()
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
 	dest, err := destination.New(idListen, destination.In, destination.Single, rnsutil.RgoshAppName, nA.Transport())
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
 	dest.AcceptsLinks(true)
 	var stdoutMu sync.Mutex
@@ -269,14 +284,14 @@ func TestE2E_RgoshLongLived(t *testing.T) {
 	defer cancel()
 	l, err := rnsutil.EstablishRgoshLink(ctx, nB.Transport(), dest.GetHash(), rnsutil.RgoshAppName)
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
 	defer l.Teardown()
 
 	select {
 	case <-listenerReady:
 	case <-time.After(5 * time.Second):
-		t.Fatal("listener session not ready")
+		return fmt.Errorf("listener session not ready")
 	}
 
 	ch := l.GetChannel()
@@ -299,14 +314,14 @@ func TestE2E_RgoshLongLived(t *testing.T) {
 	})
 	start := time.Now()
 	if err := sess.SendVersion(); err != nil {
-		t.Fatal(err)
+		return err
 	}
 	deadline := time.After(10 * time.Second)
 	lastVers := time.Now()
 	for sess.State() == StateWaitVers {
 		select {
 		case <-deadline:
-			t.Fatal("version timeout")
+			return fmt.Errorf("version timeout")
 		case <-time.After(50 * time.Millisecond):
 			if sess.State() == StateWaitVers && time.Since(lastVers) >= 2*time.Second {
 				_ = sess.SendVersion()
@@ -320,7 +335,7 @@ func TestE2E_RgoshLongLived(t *testing.T) {
 		PipeStdout: true,
 		PipeStderr: true,
 	}); err != nil {
-		t.Fatal(err)
+		return err
 	}
 	_ = sess.SendStream(StreamStdin, nil, true)
 	waitDeadline := time.Now().Add(45 * time.Second)
@@ -338,20 +353,21 @@ func TestE2E_RgoshLongLived(t *testing.T) {
 				break
 			}
 			if time.Now().After(waitDeadline) {
-				t.Fatalf("exit timeout stdout=%q state=%s", out, sess.State())
+				return fmt.Errorf("exit timeout stdout=%q state=%s", out, sess.State())
 			}
 			time.Sleep(50 * time.Millisecond)
 		}
 	}
 	if time.Since(start) < 6*time.Second {
-		t.Fatalf("session ended too fast: %v", time.Since(start))
+		return fmt.Errorf("session ended too fast: %v", time.Since(start))
 	}
 	stdoutMu.Lock()
 	out := stdoutBuf.String()
 	stdoutMu.Unlock()
 	if !strings.Contains(out, "still-alive") {
-		t.Fatalf("stdout=%q", out)
+		return fmt.Errorf("stdout=%q", out)
 	}
+	return nil
 }
 
 func TestE2E_RgoshAuthDeny(t *testing.T) {

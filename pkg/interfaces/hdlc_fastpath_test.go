@@ -5,6 +5,7 @@ package interfaces
 
 import (
 	"bytes"
+	"fmt"
 	"net"
 	"runtime"
 	"testing"
@@ -35,6 +36,27 @@ func TestAppendFrameHDLCNoInteriorFlag(t *testing.T) {
 	legacy = append(legacy, HDLCFlag)
 	if !bytes.Equal(frame, legacy) {
 		t.Fatalf("appendFrameHDLC diverged from flag+escape+flag")
+	}
+}
+
+// TestAppendFrameHDLCPython154Vectors locks the interface framer byte-for-byte
+// against Python RNS 1.5.3+ HDLC.frame used by BackboneInterface and
+// LocalInterface. Vectors generated from RNS 1.5.4.
+func TestAppendFrameHDLCPython154Vectors(t *testing.T) {
+	cases := []struct {
+		in   []byte
+		want string
+	}{
+		{nil, "7e7e"},
+		{[]byte{0x7e}, "7e7d5e7e"},
+		{[]byte{0x7d}, "7e7d5d7e"},
+		{[]byte("hello"), "7e68656c6c6f7e"},
+		{[]byte{0x7e, 0x7d, 0x00, 0x01}, "7e7d5e7d5d00017e"},
+	}
+	for i, c := range cases {
+		if got := fmt.Sprintf("%x", appendFrameHDLC(nil, c.in)); got != c.want {
+			t.Fatalf("case %d: got %s want %s", i, got, c.want)
+		}
 	}
 }
 

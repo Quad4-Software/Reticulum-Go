@@ -97,6 +97,23 @@ func PythonExe() string {
 	return "python3"
 }
 
+// ReticulumPath returns RETICULUM_PATH if set, else the site-packages
+// directory of the interpreter returned by PythonExe when RNS is importable.
+// Python interop scripts sys.path-insert it, so installed packages work too.
+func ReticulumPath() string {
+	if p := os.Getenv("RETICULUM_PATH"); p != "" {
+		return p
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, PythonExe(), "-c", // #nosec G204 -- interpreter resolved by PythonExe
+		"import RNS, os; print(os.path.dirname(os.path.dirname(os.path.abspath(RNS.__file__))))").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
 func pythonInteropCandidates() []string {
 	home, _ := os.UserHomeDir()
 	cands := []string{
@@ -110,6 +127,8 @@ func pythonInteropCandidates() []string {
 			pipxHome = filepath.Join(home, ".local", "share", "pipx")
 		}
 		cands = append(cands,
+			filepath.Join(home, ".venv", "bin", "python"),
+			filepath.Join(home, ".venv", "bin", "python3"),
 			filepath.Join(pipxHome, "venvs", "rns", "bin", "python"),
 			filepath.Join(pipxHome, "venvs", "rns", "Scripts", "python.exe"),
 		)

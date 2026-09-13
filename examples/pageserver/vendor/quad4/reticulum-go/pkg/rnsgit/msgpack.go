@@ -54,6 +54,29 @@ func RepoFromRequest(req map[any]any) (string, bool) {
 	return "", false
 }
 
+// reqIntKey looks up a request field by integer key across msgpack int types.
+func reqIntKey(req map[any]any, key int) (any, bool) {
+	for k, v := range req {
+		ik, ok := toIntKey(k)
+		if ok && ik == key {
+			return v, true
+		}
+	}
+	return nil, false
+}
+
+// reqStringVal renders a decoded request value as a string.
+func reqStringVal(v any) string {
+	switch s := v.(type) {
+	case string:
+		return s
+	case []byte:
+		return string(s)
+	default:
+		return fmt.Sprint(v)
+	}
+}
+
 // PermsGetResponse builds a rngit-compatible permissions get payload.
 func PermsGetResponse(content string) []byte {
 	packed, _ := msgpack.Marshal(map[string]string{"content": content})

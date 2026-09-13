@@ -16,6 +16,9 @@ import (
 )
 
 func (n *Node) handleList(path string, data []byte, _ []byte, _ []byte, remote *identity.Identity, _ int64) any {
+	if remote == nil {
+		return StatusResponse(ResDisallowed, "Not identified")
+	}
 	req, err := DecodeRequest(data)
 	if err != nil {
 		return StatusResponse(ResInvalidReq, "Invalid request")
@@ -57,6 +60,9 @@ func (n *Node) handleList(path string, data []byte, _ []byte, _ []byte, remote *
 }
 
 func (n *Node) handleFetch(path string, data []byte, _ []byte, _ []byte, remote *identity.Identity, _ int64) any {
+	if remote == nil {
+		return StatusResponse(ResDisallowed, "Not identified")
+	}
 	req, err := DecodeRequest(data)
 	if err != nil {
 		return StatusResponse(ResInvalidReq, "Invalid request")
@@ -142,6 +148,9 @@ func (n *Node) handleFetch(path string, data []byte, _ []byte, _ []byte, remote 
 }
 
 func (n *Node) handlePush(path string, data []byte, _ []byte, _ []byte, remote *identity.Identity, _ int64) any {
+	if remote == nil {
+		return StatusResponse(ResDisallowed, "Not identified")
+	}
 	req, err := DecodeRequest(data)
 	if err != nil {
 		return StatusResponse(ResInvalidReq, "Invalid request")
@@ -239,6 +248,9 @@ func (n *Node) handlePush(path string, data []byte, _ []byte, _ []byte, remote *
 }
 
 func (n *Node) handleDelete(path string, data []byte, _ []byte, _ []byte, remote *identity.Identity, _ int64) any {
+	if remote == nil {
+		return StatusResponse(ResDisallowed, "Not identified")
+	}
 	req, err := DecodeRequest(data)
 	if err != nil {
 		return StatusResponse(ResInvalidReq, "Invalid request")
@@ -272,6 +284,9 @@ func (n *Node) handleDelete(path string, data []byte, _ []byte, _ []byte, remote
 }
 
 func (n *Node) handleCreate(path string, data []byte, _ []byte, _ []byte, remote *identity.Identity, _ int64) any {
+	if remote == nil {
+		return StatusResponse(ResDisallowed, "Not identified")
+	}
 	req, err := DecodeRequest(data)
 	if err != nil {
 		return StatusResponse(ResInvalidReq, "Invalid request")
@@ -284,25 +299,38 @@ func (n *Node) handleCreate(path string, data []byte, _ []byte, _ []byte, remote
 	if !ok {
 		return StatusResponse(ResInvalidReq, "Invalid request")
 	}
-	if !n.access.Resolve(group, "", remote.Hash(), permCreate) {
-		if n.access.Resolve(group, "", remote.Hash(), permRead) {
+	tab := n.accessTable()
+	ga, ok := tab.Groups[group]
+	if !ok {
+		return StatusResponse(ResNotFound, "Not found")
+	}
+	if _, err := os.Stat(ga.Path); err != nil {
+		return StatusResponse(ResNotFound, "Not found")
+	}
+	remoteHash := remote.Hash()
+	if !tab.Resolve(group, "", remoteHash, permCreate) {
+		if tab.Resolve(group, "", remoteHash, permRead) {
 			return StatusResponse(ResDisallowed, "Not allowed")
 		}
 		return StatusResponse(ResNotFound, "Not found")
 	}
-	ga, ok := n.access.Groups[group]
-	if !ok {
+	repoDir := filepath.Join(ga.Path, repo)
+	_, statErr := os.Stat(repoDir)
+	_, registered := ga.Repositories[repo]
+	if statErr == nil || registered {
+		if tab.Resolve(group, repo, remoteHash, permRead) {
+			return StatusResponse(ResDisallowed, "Repository already exists")
+		}
 		return StatusResponse(ResNotFound, "Not found")
 	}
-	repoDir := filepath.Join(ga.Path, repo)
-	if _, err := os.Stat(repoDir); err == nil {
-		return StatusResponse(ResDisallowed, "Repository already exists")
-	}
 	if err := n.git.InitBare(repoDir); err != nil {
-		return StatusResponse(ResRemoteFail, "Could not create repository")
+		_ = os.RemoveAll(repoDir)
+		return StatusResponse(ResRemoteFail, "Could not initialize repository")
 	}
-	allowedPath := filepath.Join(ga.Path, repo+".allowed")
-	_ = GrantCreatorAdmin(allowedPath, hex.EncodeToString(remote.Hash()))
+	if err := GrantCreatorAdmin(repoDir+".allowed", hex.EncodeToString(remoteHash)); err != nil {
+		_ = os.RemoveAll(repoDir)
+		return StatusResponse(ResRemoteFail, "Could not initialize repository")
+	}
 	_ = n.reloadAccess()
 	return []byte{ResOK}
 }
@@ -315,7 +343,17 @@ func (n *Node) handleMirror(path string, data []byte, _ []byte, _ []byte, remote
 	return n.remoteClone(path, data, remote, "mirror")
 }
 
+// cloneProtos lists the permitted upstream URL schemes, matching Python
+// CLONE_PROTOS.
+var cloneProtos = map[string]bool{"rns": true, "http": true, "https": true, "ssh": true}
+
 func (n *Node) remoteClone(_ string, data []byte, remote *identity.Identity, repoType string) any {
+	if repoType != "mirror" && repoType != "fork" {
+		return StatusResponse(ResInvalidReq, "Invalid request")
+	}
+	if remote == nil {
+		return StatusResponse(ResDisallowed, "Not identified")
+	}
 	req, err := DecodeRequest(data)
 	if err != nil {
 		return StatusResponse(ResInvalidReq, "Invalid request")
@@ -324,36 +362,79 @@ func (n *Node) remoteClone(_ string, data []byte, remote *identity.Identity, rep
 	if !ok {
 		return StatusResponse(ResInvalidReq, "No repository specified")
 	}
+	source, isStr := req["source"].(string)
+	if !isStr || source == "" {
+		if b, isBytes := req["source"].([]byte); !isBytes || len(b) == 0 {
+			return StatusResponse(ResInvalidReq, "No source specified")
+		}
+		return StatusResponse(ResInvalidReq, "Invalid source URL")
+	}
+	if scheme := strings.ToLower(strings.SplitN(source, "://", 2)[0]); !cloneProtos[scheme] {
+		return StatusResponse(ResDisallowed, "Prohibited source URL")
+	}
 	group, repo, ok := ParseRepoPath(repoPath)
 	if !ok {
 		return StatusResponse(ResInvalidReq, "Invalid request")
 	}
-	if !n.access.Resolve(group, "", remote.Hash(), permCreate) {
-		return StatusResponse(ResNotFound, "Not found")
-	}
-	source := fmt.Sprint(req["source"])
-	if source == "" {
-		return StatusResponse(ResInvalidReq, "Invalid request")
-	}
-	ga, ok := n.access.Groups[group]
+	tab := n.accessTable()
+	ga, ok := tab.Groups[group]
 	if !ok {
 		return StatusResponse(ResNotFound, "Not found")
 	}
+	if _, err := os.Stat(ga.Path); err != nil {
+		return StatusResponse(ResNotFound, "Not found")
+	}
+	remoteHash := remote.Hash()
+	if !tab.Resolve(group, "", remoteHash, permCreate) {
+		if !tab.Resolve(group, "", remoteHash, permRead) {
+			return StatusResponse(ResNotFound, "Not found")
+		}
+		return StatusResponse(ResDisallowed, "Not allowed")
+	}
 	repoDir := filepath.Join(ga.Path, repo)
-	if err := n.git.CloneBare(source, repoDir); err != nil {
-		return StatusResponse(ResRemoteFail, "Could not clone")
+	_, registered := ga.Repositories[repo]
+	if _, err := os.Stat(repoDir); err == nil || registered {
+		if tab.Resolve(group, repo, remoteHash, permRead) {
+			return StatusResponse(ResDisallowed, "Repository already exists")
+		}
+		return StatusResponse(ResNotFound, "Not found")
 	}
-	_ = n.git.SetConfig(repoDir, "repository.rngit.type", repoType)
-	_ = n.git.SetConfig(repoDir, "repository.rngit.upstream.source", source)
-	if repoType == "mirror" {
-		_ = n.git.SetConfig(repoDir, "repository.rngit.upstream.sync", fmt.Sprintf("%d", time.Now().Unix()))
+	tmp, err := os.MkdirTemp(ga.Path, ".rngit-clone-")
+	if err != nil {
+		return StatusResponse(ResRemoteFail, "Remote error")
 	}
-	_ = GrantCreatorAdmin(filepath.Join(ga.Path, repo+".allowed"), hex.EncodeToString(remote.Hash()))
+	defer os.RemoveAll(tmp) // #nosec G104 -- clone scratch dir
+	tmpRepo := filepath.Join(tmp, repo)
+	if err := n.git.InitBare(tmpRepo); err != nil {
+		return StatusResponse(ResRemoteFail, "Failed to initialize repository")
+	}
+	if err := n.git.FetchAll(tmpRepo, source); err != nil {
+		return StatusResponse(ResRemoteFail, "Failed to fetch from source")
+	}
+	n.git.UpdateHeadToSourceDefault(tmpRepo, source)
+	if err := n.git.SetConfig(tmpRepo, "repository.rngit.type", repoType); err != nil {
+		return StatusResponse(ResRemoteFail, "Could not configure repository")
+	}
+	if err := n.git.SetConfig(tmpRepo, "repository.rngit.upstream.source", source); err != nil {
+		return StatusResponse(ResRemoteFail, "Could not configure repository")
+	}
+	if err := n.git.SetConfig(tmpRepo, "repository.rngit.upstream.sync", fmt.Sprintf("%d", time.Now().Unix())); err != nil {
+		return StatusResponse(ResRemoteFail, "Could not configure repository")
+	}
+	if err := GrantCreatorAdmin(repoDir+".allowed", hex.EncodeToString(remoteHash)); err != nil {
+		return StatusResponse(ResRemoteFail, "Could not initialize repository")
+	}
+	if err := os.Rename(tmpRepo, repoDir); err != nil {
+		return StatusResponse(ResRemoteFail, "Could not write repository")
+	}
 	_ = n.reloadAccess()
 	return []byte{ResOK}
 }
 
 func (n *Node) handleSync(path string, data []byte, _ []byte, _ []byte, remote *identity.Identity, _ int64) any {
+	if remote == nil {
+		return StatusResponse(ResDisallowed, "Not identified")
+	}
 	req, err := DecodeRequest(data)
 	if err != nil {
 		return StatusResponse(ResInvalidReq, "Invalid request")
@@ -362,23 +443,34 @@ func (n *Node) handleSync(path string, data []byte, _ []byte, _ []byte, remote *
 	if !ok {
 		return StatusResponse(ResInvalidReq, "No repository specified")
 	}
-	group, repo, ok := ParseRepoPath(repoPath)
-	if !ok {
-		return StatusResponse(ResInvalidReq, "Invalid request")
-	}
-	if !n.remoteAllowed(remote, group, repo, permWrite) {
+	group, repo, _ := ParseRepoPath(repoPath)
+	tab := n.accessTable()
+	if !tab.Resolve(group, repo, remote.Hash(), permRead) {
 		return StatusResponse(ResNotFound, "Not found")
+	}
+	if !tab.Resolve(group, repo, remote.Hash(), permWrite) {
+		return StatusResponse(ResDisallowed, "Not allowed")
 	}
 	p, ok := n.repoPath(group, repo)
 	if !ok {
 		return StatusResponse(ResNotFound, "Not found")
 	}
+	repoType, _ := n.git.ConfigValue(p, "repository.rngit.type")
+	if repoType != "mirror" && repoType != "fork" {
+		return StatusResponse(ResInvalidReq, "Repository is neither fork nor mirror")
+	}
 	source, err := n.git.ConfigValue(p, "repository.rngit.upstream.source")
 	if err != nil || source == "" {
-		return StatusResponse(ResInvalidReq, "No upstream configured")
+		return StatusResponse(ResRemoteFail, "Sync failed")
 	}
 	if err := n.git.FetchAll(p, source); err != nil {
-		return StatusResponse(ResRemoteFail, "Sync failed")
+		if repoType == "mirror" {
+			return StatusResponse(ResRemoteFail, "Mirror sync failed")
+		}
+		return StatusResponse(ResRemoteFail, "Fork sync failed")
+	}
+	if repoType == "mirror" {
+		n.git.UpdateHeadToSourceDefault(p, source)
 	}
 	_ = n.git.SetConfig(p, "repository.rngit.upstream.sync", fmt.Sprintf("%d", time.Now().Unix()))
 	return []byte{ResOK}

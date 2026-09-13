@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"quad4/reticulum-go/pkg/debug"
 )
 
 const mirrorPollInterval = 15 * time.Minute
@@ -35,7 +37,7 @@ func (n *Node) syncMirrors(syncInterval time.Duration) {
 		syncInterval = time.Duration(n.cfg.MirrorIntervalHrs) * time.Hour
 	}
 	n.mu.RLock()
-	groups := n.access.Groups
+	groups := n.accessTable().Groups
 	n.mu.RUnlock()
 	for _, ga := range groups {
 		for name, ra := range ga.Repositories {
@@ -56,10 +58,12 @@ func (n *Node) syncMirrors(syncInterval time.Duration) {
 			if err != nil || source == "" {
 				continue
 			}
-			if err := n.git.FetchAll(ra.Path, source); err == nil {
-				_ = n.git.SetConfig(ra.Path, "repository.rngit.upstream.sync", fmt.Sprintf("%d", time.Now().Unix()))
+			if err := n.git.FetchAll(ra.Path, source); err != nil {
+				n.logf(debug.DebugWarning, "Mirror sync fetch failed", "repo", name, "source", source, "error", err)
+				continue
 			}
-			_ = name
+			n.git.UpdateHeadToSourceDefault(ra.Path, source)
+			_ = n.git.SetConfig(ra.Path, "repository.rngit.upstream.sync", fmt.Sprintf("%d", time.Now().Unix()))
 		}
 	}
 }

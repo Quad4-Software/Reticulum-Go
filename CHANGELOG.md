@@ -6,6 +6,10 @@
 - rgostatus -p (pps), -m/-I monitor, -z profiling request parity with rnstatus
 - rgopath -p published blackhole list fetch (rnstransport.info.blackhole /list)
 - Interface_stats rxpps/txpps for status totals
+- rngit release management (RNS 1.5.x protocol): init/artifact/finalize create flow, list, view, fetch, delete, latest
+- rngit identity aliases and blocked_identities config, with reserved-target validation
+- rngit /media blob serving with optional WebP conversion (media_conversion config)
+- rngit no_ident template for unidentified remote requests
 - Live Go profiler (pkg/profiler) with profiling_results shared-instance RPC and remote /status parity
 - RNodeInterface (RNS 1.5.2): KISS framing, detect/firmware gate, radio config and validation, flow control, ID beacons, PHY stats, serial and tcp:// on Linux (incl. Android GOOS), macOS, Windows, FreeBSD, OpenBSD
 - RNodeMultiInterface: virtual-port discovery, SEL_INT, nested [[[sub]]] config, indexed RX, shared firmware/flow-control path
@@ -22,10 +26,22 @@
 - Landlock/seccomp soft-fail instead of aborting if AllThreadsSyscall still panics
 - CI fails when AllThreadsSyscall is unusable or Landlock helpers hit the cgo/fakecgo panic (previously skipped)
 - Concurrent interface_stats RPC no longer races on rxpps/txpps sample state
+- io_uring probe no longer crashes: the kernel writes the full 120-byte io_uring_params, which smashed an 84-byte stack struct
+- rngit returns NOT_FOUND (not DISALLOWED) for repos the remote cannot read, matching Python visibility semantics
+- rngit work-document delete now fails on missing .allowed, matching Python
+- rngit gperms requires an explicit group, mirroring Python INVALID handling
+- rngit SanRef only rejects bare @ and @{, matching Python
+- rngit mirror/fork clone uses a temp dir, validates source scheme (rns/http/https/ssh), and reloads permissions
+- rngit mirror sync updates HEAD to the upstream default branch; fork sync preserves HEAD
+- rngit permission reload is atomic and takes effect immediately
+- rngit resource responses keep pre-packed metadata, so Python clients can correlate completed file responses
+- rngit server config gains [logging] loglevel and request/result diagnostics via the debug facility
+- rgosh stream sends log dropped chunks and EOF failures instead of staying silent
+- rgosh long-lived e2e test retries once to tolerate watchdog starvation under parallel test load
 
 ## v1.1.0 - 2026-08-30
 
-Wire compatible with Python RNS 1.5.2
+Wire compatible with Python RNS 1.5.4
 
 ### Added
 - reticulum-go zen (rgozen): static scanner for path and link footguns, with optional safe fixes
@@ -53,7 +69,7 @@ Wire compatible with Python RNS 1.5.2
 - Control API and librns path requests report wait time and honor AwaitPath before link open
 - link_count RPC returns link-table size (Python parity). active_links in stats uses validated rows
 - Default inbound queue lengths match RNS 1.5.1+ (1024/128/128/8)
-- Interop and CI target Python RNS 1.5.2 (pipx rns venv auto-detected when present)
+- Interop and CI target Python RNS 1.5.4 (pipx rns venv auto-detected when present)
 
 ### Fixed
 - known_destinations on-disk keys use raw 16-byte destination hashes so Python RNS can load Go-written files
