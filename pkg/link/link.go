@@ -3203,6 +3203,7 @@ func (l *Link) finishWatchdogClose(reason byte, invalidatePath bool) {
 	if l.transport != nil && len(l.linkID) > 0 {
 		l.transport.UnregisterLink(l.linkID)
 	}
+	l.releaseOutboundEstablish()
 	if invalidatePath && l.initiator {
 		l.invalidateTransportPathAfterInitiatorFailure()
 	}
