@@ -34,7 +34,7 @@ We pin third-party GitHub Actions to full commit SHAs, not floating tags. Compil
 
 ### Source tree integrity (`.rsm`)
 
-The repository root includes a signed rnid message file, `reticulum-go.rsm`. It embeds a SHA-256 inventory of git-tracked files except itself and paths under any `vendor/` tree. CI verifies the signature against the required signer identity `e46112d44649266d71fe2193e00a4710`, then re-hashes file bytes. Jobs also recheck the inventory at the end so a compromised runner cannot silently add or modify tracked files.
+The repository root includes a signed rnid message file, `reticulum-go.rsm`. It embeds a SHA-256 inventory of git-tracked files except itself and paths under any `vendor/` tree. CI verifies the signature against the required signer identity `e318cbc04468bd574db2b4523dddd710`, then re-hashes file bytes. Jobs also recheck the inventory at the end so a compromised runner cannot silently add or modify tracked files.
 
 Verify locally:
 
