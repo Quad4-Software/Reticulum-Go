@@ -2,6 +2,9 @@
 
 ## v1.2.1 - 2026-09-TBD
 
+### Fixed
+- linux/ppc64 (big-endian) builds: vendored go.bug.st/serial v1.8.0 only stubbed specialbaudrate for ppc64le, leaving ppc64 to hit undefined unix.TCGETS2/TCSETS2. Patched vendor tree gives ppc64 the same InvalidSpeed stub; vendor-sync.sh reapplies the patch after re-vendoring
+
 ### Changed
 - pbt bumped to v1.0.2: built-in generators now carry their own shrinkers, so tests dropped redundant WithShrinker wiring and Tuple2 properties moved to ForAll2
 
