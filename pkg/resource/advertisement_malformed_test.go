@@ -34,9 +34,9 @@ func TestUnpackRejectsNegativeSizesAndParts(t *testing.T) {
 	}
 }
 
-// TestExploratoryUnpackAllowsOversizedTransfer checks that unpack accepts sizes
+// TestUnpackAllowsOversizedTransfer checks that unpack accepts sizes
 // past the link accept bound but still under Python's MAX_EFFICIENT_SIZE*3 gate.
-func TestExploratoryUnpackAllowsOversizedTransfer(t *testing.T) {
+func TestUnpackAllowsOversizedTransfer(t *testing.T) {
 	dict := map[string]any{
 		"t": int64(MaxEfficientSize) + 8192,
 		"d": int64(MaxEfficientSize) + 8192,

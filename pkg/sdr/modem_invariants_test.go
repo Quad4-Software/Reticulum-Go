@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestBurstModemExploratoryInvariants(t *testing.T) {
+func TestBurstModemInvariants(t *testing.T) {
 	m := NewBurstModem()
 	for n := 0; n <= 200; n += 7 {
 		payload := bytes.Repeat([]byte{byte(n)}, n)
@@ -32,7 +32,7 @@ func TestBurstModemExploratoryInvariants(t *testing.T) {
 	}
 }
 
-func TestDeviceConfigExploratory(t *testing.T) {
+func TestDeviceConfig(t *testing.T) {
 	for _, rate := range []int{-1, 0, 100, 250000, 2000000, 50000000} {
 		c := ClampSampleRate(rate)
 		if c < 250000 || c > 20000000 {

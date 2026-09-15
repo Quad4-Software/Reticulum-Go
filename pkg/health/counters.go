@@ -3,8 +3,8 @@
 
 package health
 
-// OracleSnapshot is a compact view used as a test oracle for health counters.
-type OracleSnapshot struct {
+// CounterSnapshot is a compact view used as a test oracle for health counters.
+type CounterSnapshot struct {
 	RxOK             uint64
 	AnnounceOK       uint64
 	AnnounceDup      uint64
@@ -17,13 +17,13 @@ type OracleSnapshot struct {
 	LinkStaleClose   uint64
 }
 
-// TransportOracle returns lifetime totals suitable for delta assertions in tests.
-func (r *Registry) TransportOracle() OracleSnapshot {
+// TransportCounters returns lifetime totals suitable for delta assertions in tests.
+func (r *Registry) TransportCounters() CounterSnapshot {
 	if r == nil {
-		return OracleSnapshot{}
+		return CounterSnapshot{}
 	}
 	s := r.SnapshotTransport()
-	return OracleSnapshot{
+	return CounterSnapshot{
 		RxOK:             s.RxOK.Total,
 		AnnounceOK:       s.AnnounceOK.Total,
 		AnnounceDup:      s.AnnounceDup.Total,
@@ -38,14 +38,14 @@ func (r *Registry) TransportOracle() OracleSnapshot {
 }
 
 // Delta returns after - before for each counter (saturating at zero).
-func (s OracleSnapshot) Delta(after OracleSnapshot) OracleSnapshot {
+func (s CounterSnapshot) Delta(after CounterSnapshot) CounterSnapshot {
 	sub := func(a, b uint64) uint64 {
 		if a >= b {
 			return a - b
 		}
 		return 0
 	}
-	return OracleSnapshot{
+	return CounterSnapshot{
 		RxOK:             sub(after.RxOK, s.RxOK),
 		AnnounceOK:       sub(after.AnnounceOK, s.AnnounceOK),
 		AnnounceDup:      sub(after.AnnounceDup, s.AnnounceDup),
@@ -60,6 +60,6 @@ func (s OracleSnapshot) Delta(after OracleSnapshot) OracleSnapshot {
 }
 
 // IntegrityFails is the sum of common integrity-failure counters in the delta.
-func (s OracleSnapshot) IntegrityFails() uint64 {
+func (s CounterSnapshot) IntegrityFails() uint64 {
 	return s.UnpackFail + s.HMACFail + s.IFACFail + s.AnnounceSigFail
 }

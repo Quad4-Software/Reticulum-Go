@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestModem73MTUExploratoryInvariants(t *testing.T) {
+func TestModem73MTUInvariants(t *testing.T) {
 	floor := 500
 	for overhead := 1; overhead <= 40; overhead++ {
 		prev := modem73ComputeMTU(0, overhead, floor)
@@ -35,7 +35,7 @@ func TestModem73MTUExploratoryInvariants(t *testing.T) {
 	}
 }
 
-func TestModem73BitrateExploratoryInvariants(t *testing.T) {
+func TestModem73BitrateInvariants(t *testing.T) {
 	cfg := map[string]any{
 		"modem_type":    float64(modem73TypeRobust),
 		"robust_mode":   float64(0),
@@ -63,7 +63,7 @@ func TestModem73BitrateExploratoryInvariants(t *testing.T) {
 	}
 }
 
-func TestModem73ShortFrameExploratory(t *testing.T) {
+func TestModem73ShortFrame(t *testing.T) {
 	cfg := map[string]any{
 		"modem_type":  float64(modem73TypeOFDM),
 		"modulation":  "QPSK",
@@ -80,7 +80,7 @@ func TestModem73ShortFrameExploratory(t *testing.T) {
 	}
 }
 
-func TestModem73PathTimeoutExploratory(t *testing.T) {
+func TestModem73PathTimeout(t *testing.T) {
 	sec := modem73PathRequestTimeoutSec(400, 500)
 	if sec < 10 {
 		t.Fatalf("sec=%d", sec)

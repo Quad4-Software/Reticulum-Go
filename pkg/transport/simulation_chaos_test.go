@@ -337,7 +337,7 @@ func TestSimChaosCorruptFrames(t *testing.T) {
 	runtime.GC()
 	time.Sleep(20 * time.Millisecond)
 	baseG := runtime.NumGoroutine()
-	oracleBefore := health.Default.TransportOracle()
+	oracleBefore := health.Default.TransportCounters()
 
 	const n = 5
 	net := newSimNetwork(t, n)
@@ -356,7 +356,7 @@ func TestSimChaosCorruptFrames(t *testing.T) {
 		t.Fatal("corrupt frames: zero paths learned (possible deadlock or total drop)")
 	}
 
-	delta := oracleBefore.Delta(health.Default.TransportOracle())
+	delta := oracleBefore.Delta(health.Default.TransportCounters())
 	if ok > 0 && delta.AnnounceOK == 0 && delta.RxOK == 0 && delta.IntegrityFails() == 0 {
 		t.Fatalf("health oracle flat after corrupt chaos: delta=%+v", delta)
 	}

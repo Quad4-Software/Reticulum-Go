@@ -10,10 +10,10 @@ import (
 	"testing"
 )
 
-// FuzzLoadConfigExploratory feeds arbitrary file contents through LoadConfig.
+// FuzzLoadConfig feeds arbitrary file contents through LoadConfig.
 // The parser must not panic, and reserved section names must never appear
 // as interface entries.
-func FuzzLoadConfigExploratory(f *testing.F) {
+func FuzzLoadConfig(f *testing.F) {
 	f.Add([]byte(""))
 	f.Add([]byte("[reticulum]\nenable_transport = yes\n"))
 	f.Add([]byte("[reticulum]\n[[Default Interface]]\ntype = UDPInterface\n"))
@@ -52,7 +52,7 @@ func FuzzLoadConfigExploratory(f *testing.F) {
 	})
 }
 
-func TestClassifySectionExploratory(t *testing.T) {
+func TestClassifySection(t *testing.T) {
 	if got := classifySection("reticulum", 1); got != sectionReticulum {
 		t.Fatalf("got %q", got)
 	}
@@ -73,7 +73,7 @@ func TestClassifySectionExploratory(t *testing.T) {
 	}
 }
 
-func TestStripInlineCommentExploratory(t *testing.T) {
+func TestStripInlineCommentEdges(t *testing.T) {
 	if got := stripInlineComment("yes #x"); got != "yes" {
 		t.Fatalf("comment strip got %q", got)
 	}

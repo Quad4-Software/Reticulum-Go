@@ -15,10 +15,10 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 )
 
-// FuzzWSReadMessageExploratory feeds masked client frames into readMessage.
+// FuzzWSReadMessage feeds masked client frames into readMessage.
 // Oversize lengths must error, and successful payloads must stay within
 // wsMaxMessageBytes.
-func FuzzWSReadMessageExploratory(f *testing.F) {
+func FuzzWSReadMessage(f *testing.F) {
 	f.Add(maskedTextFrame([]byte(`{"type":"subscribe_announces"}`)))
 	f.Add(maskedTextFrame([]byte(`{}`)))
 	f.Add([]byte{0x81, 0x80})
@@ -49,7 +49,7 @@ func TestWSOutboxDropWhenFull(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sess := newSession("exploratory-outbox", ident)
+	sess := newSession("ws-outbox", ident)
 	c := newWSClient(srv, sess, &wsConn{conn: discardConn{}, reader: bufio.NewReader(bytes.NewReader(nil))})
 
 	for i := range wsClientOutboxSize {
@@ -67,7 +67,7 @@ func TestWSWriteLoopDoneBeforeEnable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sess := newSession("exploratory-done", ident)
+	sess := newSession("ws-done", ident)
 	rc := newRecordConn()
 	c := newWSClient(srv, sess, &wsConn{conn: rc, reader: bufio.NewReader(rc)})
 	c.startWriter()

@@ -8,6 +8,7 @@
 
 ### Changed
 - pbt bumped to v1.0.2: built-in generators now carry their own shrinkers, so tests dropped redundant WithShrinker wiring and Tuple2 properties moved to ForAll2
+- Test files and test functions renamed to match the technique they actually use (malformed, edge, invariants, oracle, fault, perf, golden, fuzz); health.OracleSnapshot/TransportOracle renamed to CounterSnapshot/TransportCounters since the type is a counter view, not a decision procedure
 
 ## v1.2.0 - 2026-09-15
 

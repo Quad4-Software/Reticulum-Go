@@ -65,7 +65,7 @@ func incomingResourceAllowed(adv *resource.ResourceAdvertisement, sdu int) bool 
 	return true
 }
 
-func TestExploratoryResourceAdvRequestGate(t *testing.T) {
+func TestResourceAdvRequestGate(t *testing.T) {
 	const sdu = 384
 	honest := &resource.ResourceAdvertisement{
 		Parts:        4,
@@ -93,7 +93,7 @@ func TestExploratoryResourceAdvRequestGate(t *testing.T) {
 	}
 }
 
-func TestExploratoryProcessResourceAdvertisementMatchesClassifier(t *testing.T) {
+func TestProcessResourceAdvertisementMatchesClassifier(t *testing.T) {
 	id, err := identity.New()
 	if err != nil {
 		t.Fatalf("identity.New: %v", err)
@@ -328,9 +328,9 @@ func mustPackAdv(adv *resource.ResourceAdvertisement) []byte {
 	return b
 }
 
-// FuzzProcessResourceAdvertisementExploratory feeds adversarial RESOURCE_ADV blobs
+// FuzzProcessResourceAdvertisement feeds adversarial RESOURCE_ADV blobs
 // through processResourceAdvertisement and checks status laws on success or abort.
-func FuzzProcessResourceAdvertisementExploratory(f *testing.F) {
+func FuzzProcessResourceAdvertisement(f *testing.F) {
 	id, err := identity.New()
 	if err != nil {
 		f.Fatal(err)

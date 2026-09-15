@@ -101,7 +101,7 @@ func TestOracleKeepaliveMatrixRNS140(t *testing.T) {
 func TestOracleKeepaliveTimeoutIncrementsHealth(t *testing.T) {
 	l, _, cleanup := newFSMLink(t)
 	defer cleanup()
-	before := health.Default.TransportOracle()
+	before := health.Default.TransportCounters()
 
 	l.keepalive = 10 * time.Millisecond
 	l.staleTime = 15 * time.Millisecond
@@ -122,7 +122,7 @@ func TestOracleKeepaliveTimeoutIncrementsHealth(t *testing.T) {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	d := before.Delta(health.Default.TransportOracle())
+	d := before.Delta(health.Default.TransportCounters())
 	if d.KeepaliveTimeout == 0 && d.LinkStaleClose == 0 {
 		// Watchdog may race past Stale into Closed. Either counter proves the path.
 		if l.GetStatus() != StatusClosed {

@@ -13,8 +13,8 @@ import (
 	"go/token"
 )
 
-// functionOracle maps corpus function names to rules that must fire at least once.
-var badOracle = map[string][]string{
+// goldenRules maps corpus function names to rules that must fire at least once.
+var goldenBad = map[string][]string{
 	"BadPathLoop":         {"zen/requestpath-loop"},
 	"BadNudgeLoop":        {"zen/requestpath-loop"},
 	"BadHasPathLoop":      {"zen/haspath-loop"},
@@ -28,7 +28,7 @@ var badOracle = map[string][]string{
 	"BadSelectLoop":       {"zen/requestpath-loop"},
 }
 
-var linkOracle = map[string][]string{
+var goldenLink = map[string][]string{
 	"BadNewLinkLoop":        {"zen/newlink-loop"},
 	"BadLinkRequestLoop":    {"zen/link-active-use-loop"},
 	"BadLinkSendNoCallback": {"zen/link-not-active"},
@@ -36,40 +36,40 @@ var linkOracle = map[string][]string{
 	"BadLinkSendLoop":       {"zen/link-active-use-loop"},
 }
 
-var goodOracle = map[string][]string{
+var goldenGood = map[string][]string{
 	"GoodPath": {},
 	"GoodLink": {},
 }
 
-var adversarialOracle = map[string][]string{
+var goldenAdversarial = map[string][]string{
 	"AdversarialNested":       {"zen/requestpath-loop"},
 	"AdversarialCleanLiteral": {},
 }
 
-func TestOracleBadPackage(t *testing.T) {
-	assertFuncOracle(t, filepath.Join("testdata", "module", "bad", "bad.go"), badOracle)
+func TestGoldenBadPackage(t *testing.T) {
+	assertGoldenRules(t, filepath.Join("testdata", "module", "bad", "bad.go"), goldenBad)
 }
 
-func TestOracleBadRecallFile(t *testing.T) {
-	assertFuncOracle(t, filepath.Join("testdata", "module", "bad", "recall.go"), map[string][]string{
+func TestGoldenBadRecallFile(t *testing.T) {
+	assertGoldenRules(t, filepath.Join("testdata", "module", "bad", "recall.go"), map[string][]string{
 		"BadRecallBeforePath": {RuleRecallBeforePath},
 		"BadOnInterface":      {RuleOnInterfaceOverride},
 	})
 }
 
-func TestOracleLinkPackage(t *testing.T) {
-	assertFuncOracle(t, filepath.Join("testdata", "module", "linkbad", "linkbad.go"), linkOracle)
+func TestGoldenLinkPackage(t *testing.T) {
+	assertGoldenRules(t, filepath.Join("testdata", "module", "linkbad", "linkbad.go"), goldenLink)
 }
 
-func TestOracleGoodPackage(t *testing.T) {
-	assertFuncOracle(t, filepath.Join("testdata", "module", "good", "good.go"), goodOracle)
+func TestGoldenGoodPackage(t *testing.T) {
+	assertGoldenRules(t, filepath.Join("testdata", "module", "good", "good.go"), goldenGood)
 }
 
-func TestOracleAdversarialPackage(t *testing.T) {
-	assertFuncOracle(t, filepath.Join("testdata", "module", "adversarial", "adversarial.go"), adversarialOracle)
+func TestGoldenAdversarialPackage(t *testing.T) {
+	assertGoldenRules(t, filepath.Join("testdata", "module", "adversarial", "adversarial.go"), goldenAdversarial)
 }
 
-func TestOracleRNSPythonPatterns(t *testing.T) {
+func TestGoldenRNSPythonPatterns(t *testing.T) {
 	path := filepath.Join("testdata", "module", "python", "rns_patterns.py")
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -93,7 +93,7 @@ func TestOracleRNSPythonPatterns(t *testing.T) {
 	}
 }
 
-func assertFuncOracle(t *testing.T, path string, oracle map[string][]string) {
+func assertGoldenRules(t *testing.T, path string, want map[string][]string) {
 	t.Helper()
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, path, nil, 0)
@@ -102,7 +102,7 @@ func assertFuncOracle(t *testing.T, path string, oracle map[string][]string) {
 	}
 	findings := inspectFile(fset, path, file)
 	byFunc := rulesByFunc(fset, file, findings)
-	for funcName, wantRules := range oracle {
+	for funcName, wantRules := range want {
 		got := byFunc[funcName]
 		if len(wantRules) == 0 {
 			if len(got) > 0 {

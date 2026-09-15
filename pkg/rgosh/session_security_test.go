@@ -107,7 +107,7 @@ func (f *fakeProc) wasKilled() bool {
 	return f.killed
 }
 
-func TestOracleAuthDenyNoExec(t *testing.T) {
+func TestAdversarialAuthDenyNoExec(t *testing.T) {
 	send := &memSender{}
 	hashOK := []byte{1, 2, 3, 4}
 	hashBad := []byte{9, 9, 9, 9}
@@ -138,7 +138,7 @@ func TestOracleAuthDenyNoExec(t *testing.T) {
 	t.Log("PROVED auth deny never reaches exec")
 }
 
-func TestOracleArgvIsolation(t *testing.T) {
+func TestAdversarialArgvIsolation(t *testing.T) {
 	base := Config{DefaultCmd: []string{"/bin/sh", "-l"}, Listener: true, AllowAll: true}
 	s1 := NewSession(base, &memSender{})
 	s2 := NewSession(base, &memSender{})
@@ -152,7 +152,7 @@ func TestOracleArgvIsolation(t *testing.T) {
 	t.Log("PROVED argv isolation across sessions")
 }
 
-func TestOracleForcedCommand(t *testing.T) {
+func TestAdversarialForcedCommand(t *testing.T) {
 	send := &memSender{}
 	sess := NewSession(Config{
 		Listener:      true,
@@ -179,7 +179,7 @@ func TestOracleForcedCommand(t *testing.T) {
 	t.Log("PROVED -C rejects remote argv")
 }
 
-func TestOracleForcedCommandDefault(t *testing.T) {
+func TestAdversarialForcedCommandDefault(t *testing.T) {
 	send := &memSender{}
 	sess := NewSession(Config{
 		Listener:      true,
@@ -213,7 +213,7 @@ func TestOracleForcedCommandDefault(t *testing.T) {
 	}
 }
 
-func TestOracleRemoteCmdAsArgs(t *testing.T) {
+func TestAdversarialRemoteCmdAsArgs(t *testing.T) {
 	send := &memSender{}
 	sess := NewSession(Config{
 		Listener:        true,
@@ -248,7 +248,7 @@ func TestOracleRemoteCmdAsArgs(t *testing.T) {
 	}
 }
 
-func TestOracleLongLivedNotKilled(t *testing.T) {
+func TestAdversarialLongLivedNotKilled(t *testing.T) {
 	if testing.Short() {
 		t.Skip("short")
 	}
@@ -284,7 +284,7 @@ func TestOracleLongLivedNotKilled(t *testing.T) {
 	t.Fatal("Close did not kill process")
 }
 
-func TestOraclePacingWaitReady(t *testing.T) {
+func TestAdversarialPacingWaitReady(t *testing.T) {
 	gate := make(chan struct{})
 	var n atomicInt
 	s := &paceSender{gate: gate, n: &n}
@@ -372,7 +372,7 @@ func (p *paceSender) WaitReady(ctx context.Context) error {
 
 func (p *paceSender) MDU() int { return 64 }
 
-func TestOracleStreamBombRejected(t *testing.T) {
+func TestAdversarialStreamBombRejected(t *testing.T) {
 	// Directly test decompressBounded with oversize.
 	big := bytes.Repeat([]byte("Z"), MaxDecompressed+64)
 	comp, ok := compressMaybe(big)

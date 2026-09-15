@@ -10,10 +10,10 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
-// FuzzHandleInboundEnvelopeExploratory checks wire length consistency. On success
+// FuzzHandleInboundEnvelope checks wire length consistency. On success
 // the declared body length must fit the buffer and GenericMessage payload
 // length must equal that declaration.
-func FuzzHandleInboundEnvelopeExploratory(f *testing.F) {
+func FuzzHandleInboundEnvelope(f *testing.F) {
 	if raw, err := packEnvelope(1, 0, []byte("abcd")); err == nil {
 		f.Add(raw)
 	}

@@ -57,8 +57,8 @@ func TestParsePathRequestWireShapes(t *testing.T) {
 	}
 }
 
-// FuzzParsePathRequestWireExploratory locks dest/TID/tag slicing rules.
-func FuzzParsePathRequestWireExploratory(f *testing.F) {
+// FuzzParsePathRequestWire locks dest/TID/tag slicing rules.
+func FuzzParsePathRequestWire(f *testing.F) {
 	h := identity.TruncatedHashLength / 8
 	f.Add([]byte{})
 	f.Add(bytes.Repeat([]byte{0x01}, h))

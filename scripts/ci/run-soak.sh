@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Bounded transport fault-load soak for exploratory leak detection.
+# Bounded transport fault-load soak for leak detection.
 set -eu
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

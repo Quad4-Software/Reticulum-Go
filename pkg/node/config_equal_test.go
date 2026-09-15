@@ -9,7 +9,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 )
 
-func TestInterfaceConfigsEqualForReloadExploratory(t *testing.T) {
+func TestInterfaceConfigsEqualForReloadNilCases(t *testing.T) {
 	if !interfaceConfigsEqualForReload(nil, nil) {
 		t.Fatal("nil/nil must be equal")
 	}
@@ -57,7 +57,7 @@ func TestInterfaceConfigsEqualForReloadExploratory(t *testing.T) {
 	}
 }
 
-func TestFloatEqualExploratory(t *testing.T) {
+func TestFloatEqual(t *testing.T) {
 	if !floatEqual(1.0, 1.0) {
 		t.Fatal("identical floats")
 	}
@@ -69,7 +69,7 @@ func TestFloatEqualExploratory(t *testing.T) {
 	}
 }
 
-func TestSliceEqualExploratory(t *testing.T) {
+func TestSliceEqual(t *testing.T) {
 	if !sliceEqual(nil, nil) {
 		t.Fatal("nil slices")
 	}

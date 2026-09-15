@@ -10,7 +10,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
 )
 
-func TestChooseHashmapUpdateSegmentExploratoryInvariants(t *testing.T) {
+func TestChooseHashmapUpdateSegmentInvariants(t *testing.T) {
 	const sdu = 384
 	payload := bytes.Repeat([]byte{0x52}, 40000)
 	res, err := resource.New(payload, false)
@@ -87,9 +87,9 @@ func TestSelectRequestedPartIndexesStaysInGuardWindow(t *testing.T) {
 	}
 }
 
-// FuzzSelectRequestedPartIndexesExploratory builds a small outbound resource and
+// FuzzSelectRequestedPartIndexes builds a small outbound resource and
 // checks selected indexes stay inside the collision-guard window.
-func FuzzSelectRequestedPartIndexesExploratory(f *testing.F) {
+func FuzzSelectRequestedPartIndexes(f *testing.F) {
 	f.Add(uint8(0), []byte{0x00, 0x01, 0x02, 0x03})
 	f.Add(uint8(3), []byte{0xff, 0xfe, 0xfd, 0xfc, 0x01, 0x02, 0x03, 0x04})
 	f.Add(uint8(255), []byte{})
