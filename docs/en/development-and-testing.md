@@ -464,7 +464,7 @@ task vendor-sync
 make deps
 ```
 
-`task vendor-sync` requires `LIBS_ROOT` pointing at the Reticulum-Go-Projects sibling tree for replace directives. Commit `go.mod`, `go.sum`, and `vendor/` after refresh.
+`task vendor-sync` requires `LIBS_ROOT` pointing at the Reticulum-Go-Deps sibling tree for replace directives. Commit `go.mod`, `go.sum`, and `vendor/` after refresh.
 
 Day-to-day clones only need `vendor/` to build offline. Sibling checkouts are only required when re-vendoring first-party libraries. `examples/wasm` and `examples/pageserver` keep their own `go.mod` / `vendor/` trees. Docker configs under `docker/` copy those folders for offline image builds.
 

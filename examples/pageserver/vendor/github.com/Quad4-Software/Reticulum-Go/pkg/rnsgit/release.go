@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 // releaseMeta is a ConfigObj-style META file for a release directory.
@@ -480,7 +480,7 @@ func (n *Node) releaseCreateFinalize(releasesPath string, req map[any]any) any {
 	if err := writeReleaseMeta(metaPath, meta); err != nil {
 		return StatusResponse(ResRemoteFail, "Remote error")
 	}
-	n.writeLatestRelease(releasesPath, tag)
+	_ = n.writeLatestRelease(releasesPath, tag) // #nosec G104 - best effort latest marker; release is already published
 	return []byte{ResOK}
 }
 

@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 var (
@@ -70,15 +70,16 @@ func (l *Link) resourceStoragePath(originalHash []byte) string {
 
 // handleSplitSegmentComplete appends a finished resource segment to durable
 // storage or an in-memory buffer when InMemoryStorage is active. The
-// application callback runs only after the last segment arrives.
-func (l *Link) handleSplitSegmentComplete(payload []byte, adv *resource.ResourceAdvertisement) error {
+// application callback runs only after the last segment arrives. pending is
+// the request receipt bound to this response transfer, if any.
+func (l *Link) handleSplitSegmentComplete(payload []byte, adv *resource.ResourceAdvertisement, pending *RequestReceipt) error {
 	if adv == nil || len(adv.OriginalHash) == 0 {
 		return fmt.Errorf("split resource missing original hash")
 	}
 	if l.useInMemoryResources() {
-		return l.handleSplitSegmentInMemory(payload, adv)
+		return l.handleSplitSegmentInMemory(payload, adv, pending)
 	}
-	return l.handleSplitSegmentOnDisk(payload, adv)
+	return l.handleSplitSegmentOnDisk(payload, adv, pending)
 }
 
 func (l *Link) splitResourceKey(originalHash []byte) string {
@@ -89,7 +90,7 @@ func (l *Link) splitResourceKey(originalHash []byte) string {
 	return linkPart + ":" + hex.EncodeToString(originalHash)
 }
 
-func (l *Link) handleSplitSegmentInMemory(payload []byte, adv *resource.ResourceAdvertisement) error {
+func (l *Link) handleSplitSegmentInMemory(payload []byte, adv *resource.ResourceAdvertisement, pending *RequestReceipt) error {
 	key := l.splitResourceKey(adv.OriginalHash)
 	fileBytes := payload
 	if adv.HasMetadata && adv.SegmentIndex == 1 {
@@ -157,10 +158,6 @@ func (l *Link) handleSplitSegmentInMemory(payload []byte, adv *resource.Resource
 		return l.handleRequest(data, requestID)
 	}
 
-	l.incomingMu.Lock()
-	pending := l.incomingResourceRequest
-	l.incomingResourceRequest = nil
-	l.incomingMu.Unlock()
 	if pending != nil {
 		l.completeRequestWithResourcePayload(pending, data, metadata)
 		return nil
@@ -180,7 +177,7 @@ func (l *Link) handleSplitSegmentInMemory(payload []byte, adv *resource.Resource
 	return nil
 }
 
-func (l *Link) handleSplitSegmentOnDisk(payload []byte, adv *resource.ResourceAdvertisement) error {
+func (l *Link) handleSplitSegmentOnDisk(payload []byte, adv *resource.ResourceAdvertisement, pending *RequestReceipt) error {
 	dir := l.resourceStorageDir()
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
@@ -237,10 +234,6 @@ func (l *Link) handleSplitSegmentOnDisk(payload []byte, adv *resource.ResourceAd
 		return l.handleRequest(data, requestID)
 	}
 
-	l.incomingMu.Lock()
-	pending := l.incomingResourceRequest
-	l.incomingResourceRequest = nil
-	l.incomingMu.Unlock()
 	if pending != nil {
 		l.completeRequestWithResourcePayload(pending, data, metadata)
 		return nil

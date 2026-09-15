@@ -14,14 +14,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Quad4-Software/bzip2/pkg/bzip2"
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/protect"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
+	"github.com/Quad4-Software/bzip2/pkg/bzip2"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 const (
@@ -44,6 +44,11 @@ const (
 	// are required before shrinking windowMax (keeps the fast ceiling
 	// unless the path is repeatedly unhealthy).
 	incomingResourceWindowMaxShrinkStalls = 3
+
+	// incomingResourceMaxStallRetries bounds consecutive unproductive
+	// re-request rounds before the transfer is aborted and the bound
+	// request receipt failed (Python Resource.MAX_RETRIES).
+	incomingResourceMaxStallRetries = 16
 )
 
 // incomingPartPool recycles part payload buffers. ContextResource payloads
@@ -124,6 +129,11 @@ type incomingResourceAsm struct {
 	hmuWaitNanos   int64
 	hmuWaitStarted time.Time
 	protectRelease func()
+
+	// request is the pending request receipt this transfer is answering
+	// when the resource is a response. Nil for request-side and
+	// application resources.
+	request *RequestReceipt
 }
 
 func (rx *incomingResourceAsm) applyHashmapSegment(segment int, hashmapBytes []byte) int {
@@ -344,8 +354,20 @@ func (l *Link) beginIncomingResource(adv *resource.ResourceAdvertisement) error 
 	)
 
 	l.incomingMu.Lock()
+	old := l.incomingRx
 	l.incomingRx = rx
+	var oldRelease func()
+	var oldReq *RequestReceipt
+	if old != nil {
+		oldRelease, oldReq = l.clearIncomingResourceLocked(old, "superseded")
+	}
 	l.incomingMu.Unlock()
+	if oldRelease != nil {
+		oldRelease()
+	}
+	if oldReq != nil {
+		l.failPendingRequest(oldReq)
+	}
 	go l.watchIncomingResource(rx)
 	return l.queueIncomingResourceReqNext()
 }
@@ -418,6 +440,7 @@ func (l *Link) tickIncomingResourceWatchdog(rx *incomingResourceAsm) bool {
 	rx.outstandingParts = 0
 	rx.consecutiveStalls++
 	rx.stallRetries++
+	abort := rx.consecutiveStalls >= incomingResourceMaxStallRetries
 	if rx.consecutiveStalls >= incomingResourceWindowShrinkStalls && rx.window > rx.windowMin && rx.windowMin > 0 {
 		rx.window--
 	}
@@ -446,6 +469,19 @@ func (l *Link) tickIncomingResourceWatchdog(rx *incomingResourceAsm) bool {
 		rx.consecutiveStalls,
 	)
 	health.Inc(l.attachedIfaceName(), health.KindResourceStall)
+	if abort {
+		debug.Log(
+			debug.DebugWarning,
+			"Incoming resource exceeded max stall retries, aborting",
+			"link_id",
+			fmt.Sprintf("%x", l.linkID),
+		)
+		l.resetIncomingResource()
+		if l.status.Load() == int32(StatusActive) && rx.adv != nil && len(rx.adv.Hash) == sha256.Size {
+			_ = l.rejectResource(rx.adv.Hash) // #nosec G104 - best effort RESOURCE_RCL
+		}
+		return false
+	}
 	if err := l.sendIncomingResourceReqNext(); err != nil {
 		debug.Log(
 			debug.DebugInfo,
@@ -455,6 +491,7 @@ func (l *Link) tickIncomingResourceWatchdog(rx *incomingResourceAsm) bool {
 			"error",
 			err,
 		)
+		l.resetIncomingResource()
 		return false
 	}
 	return true
@@ -680,23 +717,91 @@ func (l *Link) sendIncomingResourceHMUPrefetch() error {
 	return nil
 }
 
+// clearIncomingResourceLocked releases rx part buffers and takes over its
+// protect release and bound request receipt. Caller must hold incomingMu.
+// The post-unlock caller is responsible for calling the returned release
+// and failing the returned receipt.
+func (l *Link) clearIncomingResourceLocked(rx *incomingResourceAsm, outcome string) (func(), *RequestReceipt) {
+	l.flushIncomingResourceStats(rx, outcome)
+	for i := range rx.partSlots {
+		releaseIncomingPart(rx.partSlots[i])
+		rx.partSlots[i] = nil
+	}
+	release := rx.protectRelease
+	rx.protectRelease = nil
+	req := rx.request
+	rx.request = nil
+	return release, req
+}
+
 func (l *Link) resetIncomingResource() {
 	l.incomingMu.Lock()
 	rx := l.incomingRx
-	var release func()
-	if rx != nil {
-		l.flushIncomingResourceStats(rx, "reset")
-		for i := range rx.partSlots {
-			releaseIncomingPart(rx.partSlots[i])
-			rx.partSlots[i] = nil
-		}
-		release = rx.protectRelease
-		rx.protectRelease = nil
-	}
 	l.incomingRx = nil
+	var release func()
+	var req *RequestReceipt
+	if rx != nil {
+		release, req = l.clearIncomingResourceLocked(rx, "reset")
+	}
 	l.incomingMu.Unlock()
 	if release != nil {
 		release()
+	}
+	if req != nil {
+		l.failPendingRequest(req)
+	}
+}
+
+// abortResponseResourceFor cancels the incoming transfer bound to req, if
+// the receipt still owns the active incoming resource. The bound receipt is
+// failed by the reset and the sender gets a best-effort RESOURCE_RCL,
+// matching Python resource.cancel.
+func (l *Link) abortResponseResourceFor(req *RequestReceipt) {
+	l.incomingMu.Lock()
+	rx := l.incomingRx
+	if rx == nil || rx.request != req {
+		l.incomingMu.Unlock()
+		return
+	}
+	l.incomingRx = nil
+	var cancelHash []byte
+	if rx.adv != nil {
+		cancelHash = append([]byte(nil), rx.adv.Hash...)
+	}
+	release, bound := l.clearIncomingResourceLocked(rx, "aborted")
+	l.incomingMu.Unlock()
+	if release != nil {
+		release()
+	}
+	if bound != nil {
+		l.failPendingRequest(bound)
+	}
+	if l.status.Load() == int32(StatusActive) && len(cancelHash) == sha256.Size {
+		_ = l.rejectResource(cancelHash) // #nosec G104 - best effort RESOURCE_RCL
+	}
+}
+
+// bindIncomingResponseRequest attaches the matched request receipt to the
+// incoming resource just created for adv. Binding after begin keeps the
+// receipt on the exact transfer carrying its response. If the receipt
+// already concluded (its timeout fired between matching and binding) the
+// transfer is aborted, matching Python response_resource_progress which
+// cancels the resource for a FAILED receipt.
+func (l *Link) bindIncomingResponseRequest(adv *resource.ResourceAdvertisement, req *RequestReceipt) {
+	l.incomingMu.Lock()
+	rx := l.incomingRx
+	if rx == nil || rx.adv != adv {
+		l.incomingMu.Unlock()
+		return
+	}
+	rx.request = req
+	l.incomingMu.Unlock()
+
+	// StatusReceiving is valid here: a split response binds each segment to
+	// the same receipt while earlier segment progress already moved it past
+	// pending. Abort only once the receipt has concluded.
+	if s := req.GetStatus(); s != StatusPending && s != StatusReceiving {
+		l.abortResponseResourceFor(req)
 	}
 }
 
@@ -797,7 +902,7 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 			if release != nil {
 				release()
 			}
-			return l.deliverIncomingResource(inner, adv)
+			return l.deliverIncomingResource(inner, adv, rx)
 		}
 		l.incomingMu.Unlock()
 		return nil
@@ -930,7 +1035,7 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 		if release != nil {
 			release()
 		}
-		return l.deliverIncomingResource(inner, adv)
+		return l.deliverIncomingResource(inner, adv, rx)
 	}
 
 	// Prefetch next HMU segment while current parts are still draining.
@@ -997,10 +1102,12 @@ func consecutivePrefix(slots [][]byte) int {
 // reportIncomingResourceProgress updates the bytes-received counter on the
 // pending request receipt (if this incoming resource is a response to a
 // Link.Request call) so callers can surface download progress/speed/ETA
-// while a large multi-part transfer is still in flight. Must be called with
+// while a large multi-part transfer is still in flight. The first accepted
+// part moves the receipt into StatusReceiving, suspending the request
+// timeout like Python RequestReceipt.RECEIVING. Must be called with
 // l.incomingMu held.
 func (l *Link) reportIncomingResourceProgress(rx *incomingResourceAsm) {
-	pending := l.incomingResourceRequest
+	pending := rx.request
 	if pending == nil {
 		return
 	}
@@ -1009,8 +1116,15 @@ func (l *Link) reportIncomingResourceProgress(rx *incomingResourceAsm) {
 		received += int64(len(rx.partSlots[i]))
 	}
 	pending.mutex.Lock()
+	if pending.status == StatusPending {
+		pending.status = StatusReceiving
+	}
 	pending.bytesReceived = received
+	pcb := pending.progressCb
 	pending.mutex.Unlock()
+	if pcb != nil {
+		go pcb(pending)
+	}
 }
 
 func (l *Link) incomingTransferComplete(rx *incomingResourceAsm) bool {
@@ -1038,7 +1152,7 @@ func (l *Link) concatIncomingParts(rx *incomingResourceAsm) []byte {
 	return b
 }
 
-func (l *Link) deliverIncomingResource(inner []byte, adv *resource.ResourceAdvertisement) error {
+func (l *Link) deliverIncomingResource(inner []byte, adv *resource.ResourceAdvertisement, rx *incomingResourceAsm) error {
 	payload, err := l.assembleIncomingPayload(inner, adv)
 	if err != nil {
 		return err
@@ -1054,11 +1168,16 @@ func (l *Link) deliverIncomingResource(inner []byte, adv *resource.ResourceAdver
 		len(payload),
 	)
 
+	l.incomingMu.Lock()
+	pending := rx.request
+	rx.request = nil
+	l.incomingMu.Unlock()
+
 	if adv.Split && adv.TotalSegments > 1 {
 		if err := l.sendIncomingResourceProof(payload, adv.Hash); err != nil {
 			return err
 		}
-		return l.handleSplitSegmentComplete(payload, adv)
+		return l.handleSplitSegmentComplete(payload, adv, pending)
 	}
 
 	if adv.IsRequest {
@@ -1069,11 +1188,6 @@ func (l *Link) deliverIncomingResource(inner []byte, adv *resource.ResourceAdver
 		debug.Log(debug.DebugInfo, "Incoming request resource complete", "request_id", fmt.Sprintf("%x", requestID), "payload_len", len(payload))
 		return l.handleRequest(payload, requestID)
 	}
-
-	l.incomingMu.Lock()
-	pending := l.incomingResourceRequest
-	l.incomingResourceRequest = nil
-	l.incomingMu.Unlock()
 
 	if pending != nil {
 		if err := l.sendIncomingResourceProof(payload, adv.Hash); err != nil {
@@ -1148,24 +1262,30 @@ func (l *Link) completeRequestWithResourcePayload(req *RequestReceipt, payload [
 	}
 
 	req.mutex.Lock()
+	if req.status != StatusPending && req.status != StatusReceiving {
+		// Receipt already concluded (timeout or a plain response won the
+		// race). Python response_received skips FAILED receipts the same
+		// way; never resurrect or double-fire callbacks.
+		req.mutex.Unlock()
+		return
+	}
 	req.status = StatusActive
 	req.response = respBytes
 	req.responseValue = responseValue
 	req.metadata = metadata
 	req.receivedAt = time.Now()
+	req.bytesReceived = int64(len(respBytes))
+	req.totalBytes = int64(len(respBytes))
+	pcb := req.progressCb
+	cb := req.responseCb
 	req.mutex.Unlock()
 
-	l.requestMutex.Lock()
-	for i, pending := range l.pendingRequests {
-		if pending == req {
-			l.pendingRequests = append(l.pendingRequests[:i], l.pendingRequests[i+1:]...)
-			break
-		}
+	l.removePendingRequest(req)
+	if pcb != nil {
+		go pcb(req)
 	}
-	l.requestMutex.Unlock()
-
-	if req.responseCb != nil {
-		go req.responseCb(req)
+	if cb != nil {
+		go cb(req)
 	}
 }
 

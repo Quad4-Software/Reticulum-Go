@@ -11,7 +11,7 @@ env:
 
 vars:
   GOCMD: go
-  LIBS_ROOT: '{{default "../../Reticulum-Go-Projects" .LIBS_ROOT}}'
+  LIBS_ROOT: '{{default "../Reticulum-Go-Deps" .LIBS_ROOT}}'
   GO_LEGACY_WIN7: '{{default "/usr/local/go-legacy-win7/bin/go" .GO_LEGACY_WIN7}}'
   GO_LEGACY_WINXP: '{{default "/usr/local/go-legacy-winxp/bin/go" .GO_LEGACY_WINXP}}'
   BINARY_NAME: reticulum-go
@@ -99,7 +99,7 @@ tasks:
             govulncheck {{.SCAN_GO_PACKAGES}}
         else
           env GOFLAGS= GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct \
-            go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 {{.SCAN_GO_PACKAGES}}
+            go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 {{.SCAN_GO_PACKAGES}}
         fi
 
   prepush:
@@ -203,12 +203,12 @@ tasks:
       - sh scripts/ci/verify-workspace-clean.sh "${RNS_INVENTORY_OUT:-/tmp/reticulum-go-tree-inventory.txt}"
 
   vendor-sync:
-    desc: Refresh vendor trees from Reticulum-Go-Projects
+    desc: Refresh vendor trees from Reticulum-Go-Deps
     cmds:
       - sh scripts/vendor-sync.sh "{{.LIBS_ROOT}}"
 
   deps:
-    desc: Refresh vendored dependencies from Reticulum-Go-Projects (offline after sync)
+    desc: Refresh vendored dependencies from Reticulum-Go-Deps (offline after sync)
     cmds:
       - task: vendor-sync
 

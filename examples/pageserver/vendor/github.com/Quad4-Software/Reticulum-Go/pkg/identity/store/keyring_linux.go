@@ -10,8 +10,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"golang.org/x/sys/unix"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/securemem"
+	"golang.org/x/sys/unix"
 )
 
 // KeyringBackend stores secrets in the Linux user keyring (no D-Bus).

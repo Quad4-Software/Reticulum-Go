@@ -31,6 +31,9 @@ func Check[T any](t TestingT, property Property[T], opts ...Option) {
 func CheckResult[T any](property Property[T], opts ...Option) Result[T] {
 	cfg := applyOptions(opts)
 	validate(property, cfg)
+	if property.Shrinker == nil {
+		property.Shrinker = shrinkerFor(property.Generator)
+	}
 	dispatcher := newHookDispatcher(property.Hooks)
 	startedAt := time.Now()
 
@@ -83,7 +86,8 @@ func runSequential[T any](ctx context.Context, property Property[T], cfg Config,
 		BucketCounts:  map[string]int{},
 	}
 
-	for i := 0; i < cfg.Runs; i++ {
+	evaluated := 0
+	for evaluated < cfg.Runs {
 		select {
 		case <-ctx.Done():
 			out.Passed = false
@@ -93,12 +97,25 @@ func runSequential[T any](ctx context.Context, property Property[T], cfg Config,
 		default:
 		}
 
-		size := sizeForRun(i, cfg.Runs, cfg.MaxSize)
+		size := sizeForRun(evaluated, cfg.Runs, cfg.MaxSize)
 		value := property.Generator.Generate(rng, size)
+		index := out.Skipped + evaluated
+		if property.Precondition != nil && !property.Precondition(value) {
+			out.Skipped++
+			if out.Skipped > cfg.MaxDiscards {
+				out.Passed = false
+				out.Exhausted = true
+				dispatcher.failure(FailureEvent[T]{Index: -1})
+				return out
+			}
+			continue
+		}
+		evaluated++
+
 		recordCoverage(&out, property, value)
 		passed := property.Predicate(value)
 		dispatcher.caseGenerated(CaseGeneratedEvent[T]{
-			Index:  i,
+			Index:  index,
 			Size:   size,
 			Value:  value,
 			Passed: passed,
@@ -108,12 +125,12 @@ func runSequential[T any](ctx context.Context, property Property[T], cfg Config,
 		}
 
 		out.Passed = false
-		out.FailureIndex = i
+		out.FailureIndex = index
 		out.Counterexample = value
 		out.HasCounterexample = true
 		out.FailureLabels = classifyFailure(property, value)
 		dispatcher.failure(FailureEvent[T]{
-			Index:         i,
+			Index:         index,
 			Value:         value,
 			FailureLabels: append([]string(nil), out.FailureLabels...),
 		})
@@ -154,6 +171,8 @@ func runParallel[T any](ctx context.Context, property Property[T], cfg Config, d
 
 	type workerResult struct {
 		Candidate    candidate
+		Skipped      int
+		Exhausted    bool
 		LabelCounts  map[string]int
 		BucketCounts map[string]int
 	}
@@ -177,21 +196,22 @@ func runParallel[T any](ctx context.Context, property Property[T], cfg Config, d
 	baseRuns := cfg.Runs / workers
 	extra := cfg.Runs % workers
 
+	// Each worker owns a disjoint window of generated indices so discards that
+	// extend a partition cannot collide with the next worker's index space.
+	indexSpan := baseRuns + 1 + cfg.MaxDiscards + 1
+
 	results := make(chan workerResult, workers)
 	panics := make(chan workerPanic, workers)
 	var wg sync.WaitGroup
 
-	start := 0
 	for w := range workers {
 		count := baseRuns
 		if w < extra {
 			count++
 		}
-		workerStart := start
-		start += count
 
 		wg.Add(1)
-		go func(workerIndex int, runStart int, runCount int) {
+		go func(workerIndex int, runCount int) {
 			panicIndex := -1
 			defer wg.Done()
 			// A panic in a worker goroutine would otherwise crash the whole
@@ -208,7 +228,9 @@ func runParallel[T any](ctx context.Context, property Property[T], cfg Config, d
 				BucketCounts: map[string]int{},
 			}
 
-			for i := 0; i < runCount && !local.Candidate.Found; i++ {
+			evaluated := 0
+			generated := 0
+			for evaluated < runCount && !local.Candidate.Found {
 				select {
 				case <-ctx.Done():
 					results <- local
@@ -216,10 +238,23 @@ func runParallel[T any](ctx context.Context, property Property[T], cfg Config, d
 				default:
 				}
 
-				globalIndex := runStart + i
-				panicIndex = globalIndex
-				size := sizeForRun(globalIndex, cfg.Runs, cfg.MaxSize)
+				globalIndex := workerIndex*indexSpan + generated
+				size := sizeForRun(evaluated, cfg.Runs, cfg.MaxSize)
 				value := property.Generator.Generate(rng, size)
+				generated++
+				panicIndex = globalIndex
+
+				if property.Precondition != nil && !property.Precondition(value) {
+					local.Skipped++
+					if local.Skipped > cfg.MaxDiscards {
+						local.Exhausted = true
+						results <- local
+						return
+					}
+					continue
+				}
+				evaluated++
+
 				recordCoverageLocal(local.LabelCounts, local.BucketCounts, property, value)
 				passed := property.Predicate(value)
 				dispatcher.caseGenerated(CaseGeneratedEvent[T]{
@@ -240,7 +275,7 @@ func runParallel[T any](ctx context.Context, property Property[T], cfg Config, d
 			}
 
 			results <- local
-		}(w, workerStart, count)
+		}(w, count)
 	}
 
 	wg.Wait()
@@ -270,9 +305,12 @@ func runParallel[T any](ctx context.Context, property Property[T], cfg Config, d
 	}
 
 	best := candidate{}
+	exhausted := false
 	for r := range results {
 		mergeCounts(out.LabelCounts, r.LabelCounts)
 		mergeCounts(out.BucketCounts, r.BucketCounts)
+		out.Skipped += r.Skipped
+		exhausted = exhausted || r.Exhausted
 
 		if !r.Candidate.Found {
 			continue
@@ -283,6 +321,12 @@ func runParallel[T any](ctx context.Context, property Property[T], cfg Config, d
 	}
 
 	if !best.Found {
+		if exhausted {
+			out.Passed = false
+			out.Exhausted = true
+			dispatcher.failure(FailureEvent[T]{Index: -1})
+			return out
+		}
 		coverageErrors := evaluateCoverage(property.Coverage, out.Runs, out.LabelCounts, out.BucketCounts)
 		if len(coverageErrors) > 0 {
 			out.Passed = false

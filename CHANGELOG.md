@@ -20,6 +20,8 @@
 - CLI short flags aligned with Python RNS 1.5.2 utilities
   - rgopath: -D drops announce queues, -x drops via transport, -b/-B/-U blackhole
   - rgocp: -a allowed hash, -n no-auth, -F allow-fetch, -f takes remote path as positional
+- Module path is now github.com/Quad4-Software/Reticulum-Go with first-party deps (bzip2 v1.0.1, msgpack/v5 v5.9.1, pbt v1.0.2, tagparser/v2 v2.2.1) at published versions, and go.mod carries no replace directives, so downstream modules resolve without vendored replaces (#13)
+- Post-v1.1.1 commits re-authored to ivan@quad4.io and signed with the GPG key instead of rngcs Reticulum signatures
 
 ### Fixed
 - Daemon no longer panics on Landlock under CGO_ENABLED=0: OpenCL/purego is opt-in (-tags lxstamp_gpu) so fakecgo cannot break AllThreadsSyscall on kernels before Landlock ABI 8
@@ -38,6 +40,12 @@
 - rngit server config gains [logging] loglevel and request/result diagnostics via the debug facility
 - rgosh stream sends log dropped chunks and EOF failures instead of staying silent
 - rgosh long-lived e2e test retries once to tolerate watchdog starvation under parallel test load
+- Timed-out RequestReceipts are removed from pendingRequests, freeing the MaxPendingRequests slot and unblocking the duplicate-path gate (previously wedged the link after eight silent requests)
+- Request timeout no longer fires while a response resource is transferring; added RequestReceipt StatusReceiving matching Python, and oversized request-resource response windows now start after SendResource completes
+- Incoming resource watchdog aborts after 16 unproductive stall retries (Python MAX_RETRIES) instead of retrying forever, releasing protect budget and failing the bound receipt
+- Superseded incoming resource transfers now release prior protect budgets, part buffers, and bound receipts
+- Keepalive packets are sent plaintext, matching Python Packet.pack for the KEEPALIVE context; previously encrypted keepalives were never recognized by Python peers and links went stale at 2*keepalive
+- Split response resources no longer abort on the second segment; receipt binding now tolerates the StatusReceiving state left by earlier segments
 
 ## v1.1.0 - 2026-08-30
 

@@ -27,8 +27,8 @@ GOPROXY := off
 GOSUMDB := off
 GOTOOLCHAIN ?= local
 export GOFLAGS GOPROXY GOSUMDB GOTOOLCHAIN
-LIBS_ROOT ?= ../../Reticulum-Go-Projects
-GOVULNCHECK_VER ?= v1.1.4
+LIBS_ROOT ?= ../Reticulum-Go-Deps
+GOVULNCHECK_VER ?= v1.8.0
 NFPM_VER ?= v2.41.3
 
 BINARY_NAME := reticulum-go

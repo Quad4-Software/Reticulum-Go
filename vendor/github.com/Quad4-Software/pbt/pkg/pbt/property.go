@@ -15,15 +15,16 @@ type PropertyOption[T any] func(*Property[T])
 
 // Property describes a property to evaluate with generated inputs.
 type Property[T any] struct {
-	Name       string         // Human-readable property name for failure reports.
-	Generator  Generator[T]   // Produces random values for each run.
-	Predicate  Predicate[T]   // Must return true for the property to hold.
-	Shrinker   Shrinker[T]    // Optional; minimizes failing counterexamples.
-	Classifier Classifier[T]  // Optional; tags failures for triage.
-	Labeler    Labeler[T]     // Optional; labels each sample for coverage.
-	Bucketer   Bucketer[T]    // Optional; assigns samples to coverage buckets.
-	Coverage   CoverageConfig // Optional; enforces label/bucket thresholds.
-	Hooks      []Hook[T]      // Optional; lifecycle callbacks.
+	Name         string         // Human-readable property name for failure reports.
+	Generator    Generator[T]   // Produces random values for each run.
+	Predicate    Predicate[T]   // Must return true for the property to hold.
+	Precondition Predicate[T]   // Optional; rejects generated cases before evaluation.
+	Shrinker     Shrinker[T]    // Optional; minimizes failing counterexamples.
+	Classifier   Classifier[T]  // Optional; tags failures for triage.
+	Labeler      Labeler[T]     // Optional; labels each sample for coverage.
+	Bucketer     Bucketer[T]    // Optional; assigns samples to coverage buckets.
+	Coverage     CoverageConfig // Optional; enforces label/bucket thresholds.
+	Hooks        []Hook[T]      // Optional; lifecycle callbacks.
 }
 
 // ForAll constructs a property from a generator and predicate.
@@ -37,6 +38,35 @@ func ForAll[T any](name string, generator Generator[T], predicate Predicate[T], 
 		opt(&property)
 	}
 	return property
+}
+
+// ForAll2 constructs a property over two independent generators. The
+// predicate receives the generated values directly instead of a tuple. To
+// shrink failures, pass WithShrinker with Tuple2Shrinker.
+func ForAll2[A any, B any](name string, left Generator[A], right Generator[B], predicate func(A, B) bool, opts ...PropertyOption[Tuple2Value[A, B]]) Property[Tuple2Value[A, B]] {
+	return ForAll(name, Tuple2(name+"/gen", left, right), func(v Tuple2Value[A, B]) bool {
+		return predicate(v.First, v.Second)
+	}, opts...)
+}
+
+// ForAll3 constructs a property over three independent generators. To shrink
+// failures, pass WithShrinker with Tuple3Shrinker.
+func ForAll3[A any, B any, C any](name string, first Generator[A], second Generator[B], third Generator[C], predicate func(A, B, C) bool, opts ...PropertyOption[Tuple3Value[A, B, C]]) Property[Tuple3Value[A, B, C]] {
+	return ForAll(name, Tuple3(name+"/gen", first, second, third), func(v Tuple3Value[A, B, C]) bool {
+		return predicate(v.First, v.Second, v.Third)
+	}, opts...)
+}
+
+// WithPrecondition rejects generated cases before the predicate runs, the
+// equivalent of QuickCheck implication or Hypothesis assume. Rejected cases
+// are counted in Result.Skipped and generation continues until Runs evaluated
+// cases or the discard limit in Config.MaxDiscards is exceeded, in which case
+// the property fails with Result.Exhausted. Unlike SuchThat this does not
+// bias the generator because rejection happens after the draw.
+func WithPrecondition[T any](precondition Predicate[T]) PropertyOption[T] {
+	return func(p *Property[T]) {
+		p.Precondition = precondition
+	}
 }
 
 // WithShrinker assigns a custom shrinker for minimizing counterexamples.

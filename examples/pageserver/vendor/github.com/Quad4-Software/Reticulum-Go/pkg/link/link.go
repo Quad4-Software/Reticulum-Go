@@ -19,7 +19,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/channel"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
@@ -33,6 +32,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/securemem"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 func init() {
@@ -126,9 +126,8 @@ type Link struct {
 	channelReceiptMu sync.Mutex
 	channelReceipts  map[*packet.Packet]*packet.PacketReceipt
 
-	incomingMu              sync.Mutex
-	incomingRx              *incomingResourceAsm
-	incomingResourceRequest *RequestReceipt
+	incomingMu sync.Mutex
+	incomingRx *incomingResourceAsm
 
 	outgoingMu              sync.Mutex
 	resourceSendMu          sync.Mutex
@@ -530,17 +529,7 @@ func (l *Link) RequestLimited(path string, data any, timeout time.Duration, maxR
 
 		debug.Log(debug.DebugVerbose, "Sending request", "path", path, "request_id", fmt.Sprintf("%x", requestID))
 		if err := l.transport.SendPacket(reqPkt); err != nil {
-			l.requestMutex.Lock()
-			for i, req := range l.pendingRequests {
-				if req == receipt {
-					l.pendingRequests = append(l.pendingRequests[:i], l.pendingRequests[i+1:]...)
-					break
-				}
-			}
-			l.requestMutex.Unlock()
-			receipt.mutex.Lock()
-			receipt.status = StatusFailed
-			receipt.mutex.Unlock()
+			l.failPendingRequest(receipt)
 			return nil, fmt.Errorf("failed to send request: %w", err)
 		}
 
@@ -573,32 +562,17 @@ func (l *Link) RequestLimited(path string, data any, timeout time.Duration, maxR
 		return nil, err
 	}
 
-	go receipt.startTimeout()
-
 	debug.Log(debug.DebugVerbose, "Sending request as resource", "path", path, "request_id", fmt.Sprintf("%x", requestID), "packed_len", len(packedRequest))
 	go func() {
 		if err := l.SendResource(res); err != nil {
 			debug.Log(debug.DebugError, "Failed to send request resource", "request_id", fmt.Sprintf("%x", requestID), "error", err)
-			receipt.mutex.Lock()
-			if receipt.status == StatusPending {
-				receipt.status = StatusFailed
-				cb := receipt.failedCb
-				receipt.mutex.Unlock()
-				l.requestMutex.Lock()
-				for i, pending := range l.pendingRequests {
-					if pending == receipt {
-						l.pendingRequests = append(l.pendingRequests[:i], l.pendingRequests[i+1:]...)
-						break
-					}
-				}
-				l.requestMutex.Unlock()
-				if cb != nil {
-					go cb(receipt)
-				}
-				return
-			}
-			receipt.mutex.Unlock()
+			l.failPendingRequest(receipt)
+			return
 		}
+		// Match Python RequestReceipt: the response window starts when the
+		// request resource concludes (DELIVERED), so a slow upload does not
+		// consume the response timeout.
+		go receipt.startTimeout()
 	}()
 
 	return receipt, nil
@@ -720,16 +694,75 @@ func (r *RequestReceipt) Concluded() bool {
 	return status == StatusActive || status == StatusFailed
 }
 
-func (r *RequestReceipt) startTimeout() {
-	time.Sleep(r.timeout)
-	r.mutex.Lock()
-	if r.status == StatusPending {
-		r.status = StatusFailed
-		if r.failedCb != nil {
-			go r.failedCb(r)
+func (l *Link) removePendingRequest(req *RequestReceipt) {
+	l.requestMutex.Lock()
+	for i, pending := range l.pendingRequests {
+		if pending == req {
+			l.pendingRequests = append(l.pendingRequests[:i], l.pendingRequests[i+1:]...)
+			break
 		}
 	}
-	r.mutex.Unlock()
+	l.requestMutex.Unlock()
+}
+
+// failPendingRequest moves a pending or receiving receipt to FAILED, drops
+// it from pendingRequests, and fires the failed callback. Idempotent; a
+// concluded receipt is left alone so a late failure cannot resurrect it or
+// double-fire callbacks.
+func (l *Link) failPendingRequest(req *RequestReceipt) {
+	req.mutex.Lock()
+	if req.status != StatusPending && req.status != StatusReceiving {
+		req.mutex.Unlock()
+		return
+	}
+	req.status = StatusFailed
+	cb := req.failedCb
+	req.mutex.Unlock()
+	l.removePendingRequest(req)
+	if cb != nil {
+		go cb(req)
+	}
+}
+
+func (r *RequestReceipt) startTimeout() {
+	timer := time.NewTimer(r.timeout)
+	<-timer.C
+	timer.Stop()
+	var unboundSince time.Time
+	for {
+		r.mutex.RLock()
+		status := r.status
+		r.mutex.RUnlock()
+		if status == StatusPending {
+			// Deadline hit while still waiting for a response to start. If a
+			// response resource was advertised but never progressed, cancel
+			// it like Python response_resource_progress does for a FAILED
+			// receipt.
+			r.link.abortResponseResourceFor(r)
+			r.link.failPendingRequest(r)
+			return
+		}
+		if status != StatusReceiving {
+			return
+		}
+		// A response resource is transferring. Python suspends the request
+		// timeout in RECEIVING and lets the resource watchdog bound stalls;
+		// abort paths fail this receipt. Bound only the orphaned case where
+		// no live transfer claims the receipt (e.g. a peer that abandons a
+		// split transfer between segments).
+		r.link.incomingMu.Lock()
+		bound := r.link.incomingRx != nil && r.link.incomingRx.request == r
+		r.link.incomingMu.Unlock()
+		if bound {
+			unboundSince = time.Time{}
+		} else if unboundSince.IsZero() {
+			unboundSince = time.Now()
+		} else if time.Since(unboundSince) > r.timeout {
+			r.link.failPendingRequest(r)
+			return
+		}
+		time.Sleep(incomingResourceRetryInterval)
+	}
 }
 
 func (r *RequestReceipt) SetResponseCallback(cb func(*RequestReceipt)) {
@@ -1447,38 +1480,18 @@ func (l *Link) processResourceAdvertisement(plaintext []byte) error {
 		if matched.maxResponseSize > 0 && int(adv.TransferSize) > matched.maxResponseSize {
 			debug.Log(debug.DebugVerbose, "Rejected response resource with excessive size",
 				"bytes", adv.TransferSize, "max", matched.maxResponseSize)
-			matched.mutex.Lock()
-			matched.status = StatusFailed
-			cb := matched.failedCb
-			matched.mutex.Unlock()
-			l.requestMutex.Lock()
-			for i, req := range l.pendingRequests {
-				if req == matched {
-					l.pendingRequests = append(l.pendingRequests[:i], l.pendingRequests[i+1:]...)
-					break
-				}
-			}
-			l.requestMutex.Unlock()
-			if cb != nil {
-				go cb(matched)
-			}
+			l.failPendingRequest(matched)
 			return nil
 		}
-
-		l.incomingMu.Lock()
-		l.incomingResourceRequest = matched
-		l.incomingMu.Unlock()
 
 		matched.mutex.Lock()
 		matched.totalBytes = adv.TransferSize
 		matched.mutex.Unlock()
 
 		if err := l.beginIncomingResource(adv); err != nil {
-			l.incomingMu.Lock()
-			l.incomingResourceRequest = nil
-			l.incomingMu.Unlock()
 			return err
 		}
+		l.bindIncomingResponseRequest(adv, matched)
 		return nil
 	}
 
@@ -2094,42 +2107,44 @@ func (l *Link) handleResponse(plaintext []byte) error {
 		}
 	}
 
-	l.requestMutex.Lock()
-	for i, req := range l.pendingRequests {
+	l.requestMutex.RLock()
+	var matched *RequestReceipt
+	for _, req := range l.pendingRequests {
 		if string(req.requestID) == string(requestID) {
-			if req.maxResponseSize > 0 && len(responsePayload) > req.maxResponseSize {
-				debug.Log(debug.DebugVerbose, "Rejected response with excessive size",
-					"bytes", len(responsePayload), "max", req.maxResponseSize)
-				req.mutex.Lock()
-				req.status = StatusFailed
-				cb := req.failedCb
-				req.mutex.Unlock()
-				l.pendingRequests = append(l.pendingRequests[:i], l.pendingRequests[i+1:]...)
-				l.requestMutex.Unlock()
-				if cb != nil {
-					go cb(req)
-				}
-				return nil
-			}
-			req.mutex.Lock()
-			req.status = StatusActive
-			req.response = responsePayload
-			req.responseValue = responseValue
-			req.receivedAt = time.Now()
-			req.bytesReceived = int64(len(responsePayload))
-			req.totalBytes = int64(len(responsePayload))
-			cb := req.responseCb
-			req.mutex.Unlock()
-
-			if cb != nil {
-				go cb(req)
-			}
-
-			l.pendingRequests = append(l.pendingRequests[:i], l.pendingRequests[i+1:]...)
+			matched = req
 			break
 		}
 	}
-	l.requestMutex.Unlock()
+	l.requestMutex.RUnlock()
+
+	if matched == nil {
+		return nil
+	}
+	if matched.maxResponseSize > 0 && len(responsePayload) > matched.maxResponseSize {
+		debug.Log(debug.DebugVerbose, "Rejected response with excessive size",
+			"bytes", len(responsePayload), "max", matched.maxResponseSize)
+		l.failPendingRequest(matched)
+		return nil
+	}
+
+	matched.mutex.Lock()
+	if matched.status != StatusPending && matched.status != StatusReceiving {
+		matched.mutex.Unlock()
+		return nil
+	}
+	matched.status = StatusActive
+	matched.response = responsePayload
+	matched.responseValue = responseValue
+	matched.receivedAt = time.Now()
+	matched.bytesReceived = int64(len(responsePayload))
+	matched.totalBytes = int64(len(responsePayload))
+	cb := matched.responseCb
+	matched.mutex.Unlock()
+
+	l.removePendingRequest(matched)
+	if cb != nil {
+		go cb(matched)
+	}
 
 	return nil
 }
@@ -3210,11 +3225,9 @@ func (l *Link) sendKeepalive() error {
 		Data:            keepaliveData,
 		CreateReceipt:   false,
 	}
-	encrypted, err := l.encryptLocked(keepaliveData)
-	if err != nil {
-		return err
-	}
-	keepalivePkt.Data = encrypted
+	// Python Packet.pack sends KEEPALIVE payloads unencrypted; encrypting
+	// here would make the 0xFF byte unrecognizable to the peer and the
+	// reply would never arrive, leaving the link to go stale.
 	if err := keepalivePkt.Pack(); err != nil {
 		return err
 	}

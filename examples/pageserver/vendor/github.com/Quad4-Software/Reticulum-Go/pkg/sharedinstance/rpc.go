@@ -10,11 +10,11 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/profiler"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 // RPCHandler serves shared-instance control requests.
