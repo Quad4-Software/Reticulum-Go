@@ -8,7 +8,7 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	"quad4/pbt/pkg/pbt"
+	"github.com/Quad4-Software/pbt/pkg/pbt"
 )
 
 func TestPBTDiscoveryInvalidCacheShortCircuits(t *testing.T) {

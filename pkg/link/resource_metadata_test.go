@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/resource"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
 )
 
 func TestResourceInterop_WithMetadata(t *testing.T) {

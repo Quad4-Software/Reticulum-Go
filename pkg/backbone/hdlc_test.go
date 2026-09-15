@@ -5,6 +5,7 @@ package backbone
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 )
 
@@ -46,6 +47,36 @@ func TestAppendFrameHDLCEqualsFrameHDLC(t *testing.T) {
 		got = appendFrameHDLC(reuse[:0], p)
 		if !bytes.Equal(got, want) {
 			t.Fatalf("case %d reuse: append != frame", i)
+		}
+	}
+}
+
+// TestFrameHDLCPython154Vectors locks frameHDLC byte-for-byte against Python
+// RNS 1.5.3+ HDLC.frame (the optimized framer used by BackboneInterface and
+// LocalInterface). Vectors generated from RNS 1.5.4:
+// HDLC.frame(b"") = 7e7e, HDLC.frame(b"\x7e") = 7e7d5e7e, and so on.
+func TestFrameHDLCPython154Vectors(t *testing.T) {
+	cases := []struct {
+		in   []byte
+		want string
+	}{
+		{nil, "7e7e"},
+		{[]byte{0x7e}, "7e7d5e7e"},
+		{[]byte{0x7d}, "7e7d5d7e"},
+		{[]byte("hello"), "7e68656c6c6f7e"},
+		{[]byte{0x7e, 0x7d, 0x00, 0x01}, "7e7d5e7d5d00017e"},
+	}
+	full := make([]byte, 32)
+	for i := range full {
+		full[i] = byte(i)
+	}
+	cases = append(cases, struct {
+		in   []byte
+		want string
+	}{full, "7e000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f7e"})
+	for i, c := range cases {
+		if got := fmt.Sprintf("%x", frameHDLC(c.in)); got != c.want {
+			t.Fatalf("case %d: got %s want %s", i, got, c.want)
 		}
 	}
 }

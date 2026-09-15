@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"quad4/reticulum-go/pkg/cryptography"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
 )
 
 func TestHardwareBoundRoundTripMatchesSoftwareIdentity(t *testing.T) {

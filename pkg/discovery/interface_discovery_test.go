@@ -6,7 +6,7 @@ package discovery
 import (
 	"testing"
 
-	"quad4/reticulum-go/pkg/transport"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
 func TestInterfaceDiscoveryRegistersHandler(t *testing.T) {

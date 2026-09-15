@@ -15,7 +15,7 @@ import (
 
 	"github.com/mdlayher/vsock"
 
-	"quad4/reticulum-go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 )
 
 func skipIfVSOCKUnavailable(t *testing.T) {

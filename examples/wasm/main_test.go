@@ -10,7 +10,7 @@ import (
 	"syscall/js"
 	"testing"
 
-	"quad4/reticulum-go/pkg/wasm"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/wasm"
 )
 
 func TestRegisterFunctions(t *testing.T) {

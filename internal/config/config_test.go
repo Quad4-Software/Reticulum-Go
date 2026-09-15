@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/reticulumconfig"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/reticulumconfig"
 )
 
 // withTempHome points HOME at an isolated temp directory for the duration of

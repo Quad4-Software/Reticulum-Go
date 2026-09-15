@@ -7,9 +7,9 @@ import (
 	"errors"
 	"testing"
 
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/resource"
-	"quad4/reticulum-go/pkg/transport"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
 func TestSplitResourceInMemoryBudgetExceeded(t *testing.T) {
@@ -32,7 +32,7 @@ func TestSplitResourceInMemoryBudgetExceeded(t *testing.T) {
 		TotalSegments: 2,
 	}
 	payload := make([]byte, 40)
-	err := l.handleSplitSegmentComplete(payload, adv)
+	err := l.handleSplitSegmentComplete(payload, adv, nil)
 	if !errors.Is(err, common.ErrMemoryBudgetExceeded) {
 		t.Fatalf("expected ErrMemoryBudgetExceeded, got %v", err)
 	}
@@ -79,7 +79,7 @@ func TestSplitResourceInMemoryRoundTrip(t *testing.T) {
 		SegmentIndex:  2,
 		TotalSegments: 2,
 	}
-	if err := l.handleSplitSegmentComplete(seg1, adv1); err != nil {
+	if err := l.handleSplitSegmentComplete(seg1, adv1, nil); err != nil {
 		t.Fatal(err)
 	}
 	wantKey := l.splitResourceKey(hash)
@@ -89,7 +89,7 @@ func TestSplitResourceInMemoryRoundTrip(t *testing.T) {
 	if !pending {
 		t.Fatal("expected staged segment before final")
 	}
-	if err := l.handleSplitSegmentComplete(seg2, adv2); err != nil {
+	if err := l.handleSplitSegmentComplete(seg2, adv2, nil); err != nil {
 		t.Fatal(err)
 	}
 	if string(got) != "hello world" {
@@ -135,16 +135,16 @@ func TestSplitResourceInMemoryIsolatesLinks(t *testing.T) {
 
 	adv1 := &resource.ResourceAdvertisement{OriginalHash: hash, SegmentIndex: 1, TotalSegments: 2}
 	adv2 := &resource.ResourceAdvertisement{OriginalHash: hash, SegmentIndex: 2, TotalSegments: 2}
-	if err := a.handleSplitSegmentComplete([]byte("A1"), adv1); err != nil {
+	if err := a.handleSplitSegmentComplete([]byte("A1"), adv1, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := b.handleSplitSegmentComplete([]byte("B1"), adv1); err != nil {
+	if err := b.handleSplitSegmentComplete([]byte("B1"), adv1, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.handleSplitSegmentComplete([]byte("A2"), adv2); err != nil {
+	if err := a.handleSplitSegmentComplete([]byte("A2"), adv2, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := b.handleSplitSegmentComplete([]byte("B2"), adv2); err != nil {
+	if err := b.handleSplitSegmentComplete([]byte("B2"), adv2, nil); err != nil {
 		t.Fatal(err)
 	}
 	if string(gotA) != "A1A2" {

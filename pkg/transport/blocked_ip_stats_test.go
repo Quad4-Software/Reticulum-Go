@@ -6,7 +6,7 @@ package transport
 import (
 	"testing"
 
-	"quad4/reticulum-go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 )
 
 type blockedStatsIface struct {

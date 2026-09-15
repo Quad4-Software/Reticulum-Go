@@ -6,8 +6,8 @@ package interfaces
 import (
 	"testing"
 
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/ifac"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/ifac"
 )
 
 func TestApplyIFACFromConfig(t *testing.T) {

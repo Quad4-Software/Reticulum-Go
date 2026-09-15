@@ -16,9 +16,9 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/node"
-	"quad4/reticulum-go/pkg/rnsutil"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/node"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/rnsutil"
 )
 
 func TestLiveInteropPythonRPCAgainstGoSharedInstance(t *testing.T) {

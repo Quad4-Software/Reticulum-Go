@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/transport"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
 func TestAccuracyPathRequestMI(t *testing.T) {

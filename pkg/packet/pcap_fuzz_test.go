@@ -9,7 +9,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"quad4/pbt/pkg/pbt"
+	"github.com/Quad4-Software/pbt/pkg/pbt"
 )
 
 // FuzzReadPCAPUDPPayloads ensures classic pcap parsing never panics on

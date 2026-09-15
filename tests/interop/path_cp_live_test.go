@@ -19,13 +19,13 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/destination"
-	"quad4/reticulum-go/pkg/identity"
-	rlink "quad4/reticulum-go/pkg/link"
-	"quad4/reticulum-go/pkg/node"
-	"quad4/reticulum-go/pkg/resource"
-	"quad4/reticulum-go/pkg/rnsutil"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	rlink "github.com/Quad4-Software/Reticulum-Go/pkg/link"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/node"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/rnsutil"
 )
 
 func TestLiveRgopathRPCAgainstGoDaemon(t *testing.T) {

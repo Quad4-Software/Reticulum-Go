@@ -3,7 +3,7 @@
 
 package link
 
-import "quad4/reticulum-go/pkg/common"
+import "github.com/Quad4-Software/Reticulum-Go/pkg/common"
 
 const (
 	Curve = "Curve25519"
@@ -31,6 +31,12 @@ const (
 	StatusStale     = 0x03
 	StatusClosed    = 0x04
 	StatusFailed    = 0x05
+
+	// StatusReceiving is a RequestReceipt-only status: the response is
+	// arriving as an incoming resource transfer. The request timeout no
+	// longer applies and the resource watchdog owns the transfer lifecycle
+	// (Python RequestReceipt.RECEIVING).
+	StatusReceiving = 0x06
 
 	ProveNone = 0x00
 	ProveAll  = 0x01

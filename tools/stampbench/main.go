@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"quad4/reticulum-go/pkg/lxstamper"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/lxstamper"
 )
 
 func main() {

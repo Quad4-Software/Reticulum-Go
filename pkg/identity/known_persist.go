@@ -11,9 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"quad4/msgpack/v5/pkg/msgpack"
-	"quad4/reticulum-go/internal/storage"
-	"quad4/reticulum-go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/internal/storage"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 var (

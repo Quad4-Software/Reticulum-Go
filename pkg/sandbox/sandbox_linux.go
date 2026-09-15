@@ -12,10 +12,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 	"github.com/landlock-lsm/go-landlock/landlock"
 	"golang.org/x/sys/unix"
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/debug"
 )
 
 func applyPlatform(cfg *common.ReticulumConfig) error {

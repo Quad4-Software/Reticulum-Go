@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/health"
-	"quad4/reticulum-go/pkg/protect"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/protect"
 )
 
 // TestLiveTCPConnCapPrevent sheds excess real TCP accepts.

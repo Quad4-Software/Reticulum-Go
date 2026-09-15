@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/interfaces"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
 )
 
 type mockTunnelPeer struct {

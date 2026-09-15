@@ -10,11 +10,11 @@ import (
 	"sort"
 	"time"
 
-	"quad4/reticulum-go/pkg/announce"
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/identity"
-	"quad4/reticulum-go/pkg/node"
-	"quad4/reticulum-go/pkg/reticulumconfig"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/announce"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/node"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/reticulumconfig"
 )
 
 type announceHandler struct {

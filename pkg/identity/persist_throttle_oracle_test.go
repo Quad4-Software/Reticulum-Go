@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/internal/storage"
+	"github.com/Quad4-Software/Reticulum-Go/internal/storage"
 )
 
 // Guarantee: dirty periodic flushes respect KnownPersistMinInterval, while

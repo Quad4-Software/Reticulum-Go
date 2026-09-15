@@ -18,7 +18,7 @@ import (
 	"net/http"
 	"sync"
 
-	"quad4/reticulum-go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 )
 
 // RFC 6455 framing constants. A minimal server-side implementation lives

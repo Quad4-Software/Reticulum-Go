@@ -6,7 +6,7 @@ package transport
 import (
 	"testing"
 
-	"quad4/reticulum-go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 )
 
 func muteDebugLogsForBenchmark(b *testing.B) {

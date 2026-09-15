@@ -8,9 +8,9 @@ package sandbox
 import (
 	"unsafe"
 
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 	"golang.org/x/sys/windows"
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/debug"
 )
 
 func applyPlatform(cfg *common.ReticulumConfig) error {

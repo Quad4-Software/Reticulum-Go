@@ -8,7 +8,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"quad4/reticulum-go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 )
 
 func TestOracleDestinationHashesMatchPythonRNS(t *testing.T) {

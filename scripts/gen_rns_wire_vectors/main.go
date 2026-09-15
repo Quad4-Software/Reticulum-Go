@@ -14,10 +14,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"quad4/reticulum-go/pkg/announce"
-	"quad4/reticulum-go/pkg/identity"
-	"quad4/reticulum-go/pkg/packet"
-	"quad4/reticulum-go/pkg/resource"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/announce"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
 )
 
 const destName = "oracleapp.node"

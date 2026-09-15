@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"quad4/reticulum-go/pkg/profiler"
-	"quad4/reticulum-go/pkg/transport"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/profiler"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
 func TestFormatProfilingResultsFromGoMap(t *testing.T) {

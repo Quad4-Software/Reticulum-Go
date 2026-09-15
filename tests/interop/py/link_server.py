@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import hashlib
 import os
 import sys
 import tempfile
@@ -164,14 +165,22 @@ def main() -> int:
     destination.set_link_established_callback(client_connected)
 
     req_path = os.environ.get("INTEROP_REQUEST_PATH", "").strip()
+    reply_sha = ""
     if req_path:
         expect = os.environ.get("INTEROP_REQUEST_PAYLOAD", "ping").encode("utf-8")
         reply = os.environ.get("INTEROP_REQUEST_REPLY", "PONG_FROM_PY").encode("utf-8")
+        reply_size = int(os.environ.get("INTEROP_REQUEST_REPLY_SIZE", "0"))
+        no_reply = os.environ.get("INTEROP_REQUEST_NOREPLY", "0") == "1"
+        if reply_size > 0:
+            reply = os.urandom(reply_size)
+            reply_sha = hashlib.sha256(reply).hexdigest()
 
         def response_generator(
             path, data, request_id, link_id, remote_identity, requested_at
         ):
             if data == expect:
+                if no_reply:
+                    return None
                 return reply
             return b"BAD_PAYLOAD"
 
@@ -184,6 +193,8 @@ def main() -> int:
     h = destination.hash
     sys.stdout.write("READY\n")
     sys.stdout.write(h.hex() + "\n")
+    if reply_sha:
+        sys.stdout.write("REPLY_SHA256 " + reply_sha + "\n")
     sys.stdout.flush()
 
     destination.announce()

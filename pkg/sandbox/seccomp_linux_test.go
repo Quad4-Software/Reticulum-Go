@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"golang.org/x/sys/unix"
-	"quad4/reticulum-go/pkg/common"
 )
 
 func TestSeccompPolicyBuilds(t *testing.T) {

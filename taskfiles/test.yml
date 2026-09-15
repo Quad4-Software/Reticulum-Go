@@ -62,7 +62,7 @@ tasks:
       - sh scripts/ci/run-mutation.sh
 
   test-property:
-    desc: Run property-based tests (quad4/pbt and testing/quick)
+    desc: Run property-based tests (github.com/Quad4-Software/pbt and testing/quick)
     cmds:
       - '{{.GOCMD}} run ./scripts/ci/testsummary -v ./pkg/announce ./pkg/link ./pkg/transport ./pkg/cryptography ./pkg/packet ./pkg/buffer ./pkg/rate ./pkg/resource ./pkg/identity ./pkg/librns ./pkg/destination ./pkg/protect ./pkg/discovery ./pkg/interfaces -run "TestPBT|TestProperty|TestQuick" -timeout 10m'
 

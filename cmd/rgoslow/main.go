@@ -7,7 +7,7 @@ package main
 import (
 	"os"
 
-	"quad4/reticulum-go/pkg/cli"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/cli"
 )
 
 func main() {

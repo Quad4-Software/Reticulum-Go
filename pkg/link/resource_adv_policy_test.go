@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"quad4/reticulum-go/pkg/destination"
-	"quad4/reticulum-go/pkg/identity"
-	"quad4/reticulum-go/pkg/resource"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
 )
 
 func packTestAdvertisement(t *testing.T, adv *resource.ResourceAdvertisement) []byte {

@@ -22,11 +22,11 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/destination"
-	"quad4/reticulum-go/pkg/identity"
-	rlink "quad4/reticulum-go/pkg/link"
-	"quad4/reticulum-go/pkg/node"
-	"quad4/reticulum-go/pkg/rnsutil"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	rlink "github.com/Quad4-Software/Reticulum-Go/pkg/link"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/node"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/rnsutil"
 )
 
 func writeUDPPeerConfig(t *testing.T, dir string, listen, peerPort int) {

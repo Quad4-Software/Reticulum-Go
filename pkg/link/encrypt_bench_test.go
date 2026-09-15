@@ -9,7 +9,7 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	"quad4/reticulum-go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 )
 
 func handshakeLink(t testing.TB) *Link {

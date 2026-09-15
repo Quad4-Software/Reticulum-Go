@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/health"
-	"quad4/reticulum-go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 )
 
 // keepaliveOracle holds the pure RNS 1.4.0 keepalive decision surface used as

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"quad4/pbt/pkg/pbt"
-	"quad4/reticulum-go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/pbt/pkg/pbt"
 )
 
 // FuzzParseName ensures ParseName never panics and rejects empty names.

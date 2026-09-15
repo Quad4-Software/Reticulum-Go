@@ -6,8 +6,8 @@ package librns
 import (
 	"fmt"
 
-	"quad4/reticulum-go/pkg/identity"
-	"quad4/reticulum-go/pkg/rnsutil"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/rnsutil"
 )
 
 // IdentitySign signs data with the identity Ed25519 key.

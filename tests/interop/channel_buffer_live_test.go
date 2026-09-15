@@ -18,12 +18,12 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/buffer"
-	"quad4/reticulum-go/pkg/channel"
-	"quad4/reticulum-go/pkg/destination"
-	"quad4/reticulum-go/pkg/identity"
-	rlink "quad4/reticulum-go/pkg/link"
-	"quad4/reticulum-go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/buffer"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/channel"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	rlink "github.com/Quad4-Software/Reticulum-Go/pkg/link"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 )
 
 type echoMsg struct {

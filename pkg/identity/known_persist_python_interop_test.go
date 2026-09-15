@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"quad4/msgpack/v5/pkg/msgpack"
-	"quad4/reticulum-go/internal/storage"
+	"github.com/Quad4-Software/Reticulum-Go/internal/storage"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 // Guarantee: Go-written known_destinations is accepted by Python

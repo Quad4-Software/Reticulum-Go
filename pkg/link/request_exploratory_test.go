@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"quad4/msgpack/v5/pkg/msgpack"
-	"quad4/pbt/pkg/pbt"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"github.com/Quad4-Software/pbt/pkg/pbt"
 )
 
 func TestParseRequestedAtRejectsNonFinite(t *testing.T) {

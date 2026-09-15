@@ -85,56 +85,59 @@ golang.org/x/text/unicode/norm
 # kernel.org/pub/linux/libs/security/libcap/psx v1.2.78
 ## explicit; go 1.11
 kernel.org/pub/linux/libs/security/libcap/psx
-# quad4/bzip2 v0.0.0 => ../../../../Reticulum-Go-Projects/bzip2
+# github.com/Quad4-Software/bzip2 v0.0.0 => ../../../../Reticulum-Go-Projects/bzip2
 ## explicit; go 1.27.1
-quad4/bzip2/internal/enc
-quad4/bzip2/pkg/bzip2
-# quad4/msgpack/v5 v5.8.2 => ../../../../Reticulum-Go-Projects/msgpack
+github.com/Quad4-Software/bzip2/internal/enc
+github.com/Quad4-Software/bzip2/pkg/bzip2
+# github.com/Quad4-Software/msgpack/v5 v5.8.2 => ../../../../Reticulum-Go-Projects/msgpack
 ## explicit; go 1.27.1
-quad4/msgpack/v5/pkg/msgpack
-quad4/msgpack/v5/pkg/msgpack/msgpcode
-# quad4/reticulum-go v1.0.0 => ../../
+github.com/Quad4-Software/msgpack/v5/pkg/msgpack
+github.com/Quad4-Software/msgpack/v5/pkg/msgpack/msgpcode
+# github.com/Quad4-Software/pbt v0.0.0 => ../../../../Reticulum-Go-Projects/pbt
 ## explicit; go 1.27.1
-quad4/reticulum-go/internal/storage
-quad4/reticulum-go/pkg/announce
-quad4/reticulum-go/pkg/backbone
-quad4/reticulum-go/pkg/blackhole
-quad4/reticulum-go/pkg/channel
-quad4/reticulum-go/pkg/common
-quad4/reticulum-go/pkg/cryptography
-quad4/reticulum-go/pkg/debug
-quad4/reticulum-go/pkg/destination
-quad4/reticulum-go/pkg/health
-quad4/reticulum-go/pkg/hostcap
-quad4/reticulum-go/pkg/i2p
-quad4/reticulum-go/pkg/identity
-quad4/reticulum-go/pkg/identity/store
-quad4/reticulum-go/pkg/ifac
-quad4/reticulum-go/pkg/interfaces
-quad4/reticulum-go/pkg/link
-quad4/reticulum-go/pkg/packet
-quad4/reticulum-go/pkg/pathfinder
-quad4/reticulum-go/pkg/profiler
-quad4/reticulum-go/pkg/protect
-quad4/reticulum-go/pkg/rate
-quad4/reticulum-go/pkg/resource
-quad4/reticulum-go/pkg/sandbox
-quad4/reticulum-go/pkg/sdr
-quad4/reticulum-go/pkg/securemem
-quad4/reticulum-go/pkg/term
-quad4/reticulum-go/pkg/transport
-quad4/reticulum-go/pkg/wasm
+github.com/Quad4-Software/pbt/pkg/pbt
+# github.com/Quad4-Software/Reticulum-Go v1.0.0 => ../../
+## explicit; go 1.27.1
+github.com/Quad4-Software/Reticulum-Go/internal/storage
+github.com/Quad4-Software/Reticulum-Go/pkg/announce
+github.com/Quad4-Software/Reticulum-Go/pkg/backbone
+github.com/Quad4-Software/Reticulum-Go/pkg/blackhole
+github.com/Quad4-Software/Reticulum-Go/pkg/channel
+github.com/Quad4-Software/Reticulum-Go/pkg/common
+github.com/Quad4-Software/Reticulum-Go/pkg/cryptography
+github.com/Quad4-Software/Reticulum-Go/pkg/debug
+github.com/Quad4-Software/Reticulum-Go/pkg/destination
+github.com/Quad4-Software/Reticulum-Go/pkg/health
+github.com/Quad4-Software/Reticulum-Go/pkg/hostcap
+github.com/Quad4-Software/Reticulum-Go/pkg/i2p
+github.com/Quad4-Software/Reticulum-Go/pkg/identity
+github.com/Quad4-Software/Reticulum-Go/pkg/identity/store
+github.com/Quad4-Software/Reticulum-Go/pkg/ifac
+github.com/Quad4-Software/Reticulum-Go/pkg/interfaces
+github.com/Quad4-Software/Reticulum-Go/pkg/link
+github.com/Quad4-Software/Reticulum-Go/pkg/packet
+github.com/Quad4-Software/Reticulum-Go/pkg/pathfinder
+github.com/Quad4-Software/Reticulum-Go/pkg/profiler
+github.com/Quad4-Software/Reticulum-Go/pkg/protect
+github.com/Quad4-Software/Reticulum-Go/pkg/rate
+github.com/Quad4-Software/Reticulum-Go/pkg/resource
+github.com/Quad4-Software/Reticulum-Go/pkg/sandbox
+github.com/Quad4-Software/Reticulum-Go/pkg/sdr
+github.com/Quad4-Software/Reticulum-Go/pkg/securemem
+github.com/Quad4-Software/Reticulum-Go/pkg/term
+github.com/Quad4-Software/Reticulum-Go/pkg/transport
+github.com/Quad4-Software/Reticulum-Go/pkg/wasm
 # quad4/reticulum-go-protocols v0.0.0 => ../../../../Reticulum-Go-Projects/reticulum-go-mf
 ## explicit; go 1.27.1
 quad4/reticulum-go-protocols/pkg/mf
-# quad4/tagparser v0.0.0 => ../../../../Reticulum-Go-Projects/tagparser
+# github.com/Quad4-Software/tagparser v0.0.0 => ../../../../Reticulum-Go-Projects/tagparser
 ## explicit; go 1.27.1
-quad4/tagparser/internal
-quad4/tagparser/internal/parser
-quad4/tagparser/pkg/tagparser
-# quad4/bzip2 => ../../../../Reticulum-Go-Projects/bzip2
-# quad4/msgpack/v5 => ../../../../Reticulum-Go-Projects/msgpack
-# quad4/pbt => ../../../../Reticulum-Go-Projects/pbt
-# quad4/reticulum-go => ../../
+github.com/Quad4-Software/tagparser/internal
+github.com/Quad4-Software/tagparser/internal/parser
+github.com/Quad4-Software/tagparser/pkg/tagparser
+# github.com/Quad4-Software/bzip2 => ../../../../Reticulum-Go-Projects/bzip2
+# github.com/Quad4-Software/msgpack/v5 => ../../../../Reticulum-Go-Projects/msgpack
+# github.com/Quad4-Software/pbt => ../../../../Reticulum-Go-Projects/pbt
+# github.com/Quad4-Software/Reticulum-Go => ../../
 # quad4/reticulum-go-protocols => ../../../../Reticulum-Go-Projects/reticulum-go-mf
-# quad4/tagparser => ../../../../Reticulum-Go-Projects/tagparser
+# github.com/Quad4-Software/tagparser => ../../../../Reticulum-Go-Projects/tagparser

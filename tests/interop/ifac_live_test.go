@@ -16,14 +16,14 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/destination"
-	"quad4/reticulum-go/pkg/identity"
-	"quad4/reticulum-go/pkg/ifac"
-	"quad4/reticulum-go/pkg/interfaces"
-	rlink "quad4/reticulum-go/pkg/link"
-	"quad4/reticulum-go/pkg/packet"
-	"quad4/reticulum-go/pkg/transport"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/ifac"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
+	rlink "github.com/Quad4-Software/Reticulum-Go/pkg/link"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
 const (

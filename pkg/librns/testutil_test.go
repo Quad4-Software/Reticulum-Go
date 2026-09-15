@@ -6,8 +6,8 @@ package librns
 import (
 	"testing"
 
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/transport"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
 // pipeTestBitrate models an in-process lossless pipe, matching the guess

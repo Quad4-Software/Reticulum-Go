@@ -40,75 +40,84 @@ if [ -z "$PROTO_DIR" ]; then
 fi
 
 cat > "$ROOT/go.mod" <<EOF
-module quad4/reticulum-go
+module github.com/Quad4-Software/Reticulum-Go
 
 go 1.27.1
 
 require (
-	quad4/bzip2 v0.0.0
-	quad4/msgpack/v5 v5.8.1
-	quad4/pbt v0.0.0
+	github.com/Quad4-Software/bzip2 v0.0.0
+	github.com/Quad4-Software/msgpack/v5 v5.8.1
+	github.com/Quad4-Software/pbt v0.0.0
 	golang.org/x/crypto v0.52.0
 	golang.org/x/sys v0.45.0
 )
 
-require quad4/tagparser v0.0.0 // indirect
+require github.com/Quad4-Software/tagparser v0.0.0 // indirect
 
 replace (
-	quad4/bzip2 => $REL_LIBS/bzip2
-	quad4/msgpack/v5 => $REL_LIBS/msgpack
-	quad4/pbt => $REL_LIBS/pbt
-	quad4/tagparser => $REL_LIBS/tagparser
+	github.com/Quad4-Software/bzip2 => $REL_LIBS/bzip2
+	github.com/Quad4-Software/msgpack/v5 => $REL_LIBS/msgpack
+	github.com/Quad4-Software/pbt => $REL_LIBS/pbt
+	github.com/Quad4-Software/tagparser => $REL_LIBS/tagparser
 	quad4/reticulum-go-protocols => $REL_LIBS/$PROTO_DIR
 )
 EOF
 
 cat > "$ROOT/examples/wasm/go.mod" <<EOF
-module quad4/reticulum-go/examples/wasm
+module github.com/Quad4-Software/Reticulum-Go/examples/wasm
 
 go 1.27.1
 
 require (
-	quad4/reticulum-go v0.0.0
+	github.com/Quad4-Software/Reticulum-Go v0.0.0
 	quad4/reticulum-go-protocols v0.0.0
 )
 
 require (
-	quad4/msgpack/v5 v5.8.1 // indirect
-	quad4/tagparser v0.0.0 // indirect
+	github.com/Quad4-Software/msgpack/v5 v5.8.1 // indirect
+	github.com/Quad4-Software/pbt v0.0.0 // indirect
+	github.com/Quad4-Software/tagparser v0.0.0 // indirect
 	golang.org/x/crypto v0.52.0 // indirect
 )
 
 replace (
-	quad4/reticulum-go => ../../
+	github.com/Quad4-Software/Reticulum-Go => ../../
+	github.com/Quad4-Software/bzip2 => $REL_WASM_LIBS/bzip2
+	github.com/Quad4-Software/msgpack/v5 => $REL_WASM_LIBS/msgpack
+	github.com/Quad4-Software/pbt => $REL_WASM_LIBS/pbt
+	github.com/Quad4-Software/tagparser => $REL_WASM_LIBS/tagparser
 	quad4/reticulum-go-protocols => $REL_WASM_LIBS/$PROTO_DIR
-	quad4/bzip2 => $REL_WASM_LIBS/bzip2
-	quad4/msgpack/v5 => $REL_WASM_LIBS/msgpack
-	quad4/pbt => $REL_WASM_LIBS/pbt
-	quad4/tagparser => $REL_WASM_LIBS/tagparser
+	// quad4/* names below satisfy reticulum-go-protocols' own requires, which
+	// still use the old module paths upstream.
+	quad4/bzip2 => github.com/Quad4-Software/bzip2 v0.0.0-20260704225916-ca8b2bb66059
+	quad4/msgpack/v5 => github.com/Quad4-Software/msgpack/v5 v5.8.2
+	quad4/pbt => github.com/Quad4-Software/pbt v0.0.0-20260614183135-abe0cfc4e604
+	quad4/reticulum-go => github.com/Quad4-Software/Reticulum-Go v1.1.1
+	quad4/tagparser => github.com/Quad4-Software/tagparser v0.1.3-0.20260614183136-daa4d5f437ce
 )
 EOF
 
 cat > "$ROOT/examples/pageserver/go.mod" <<EOF
-module quad4/reticulum-go/examples/pageserver
+module github.com/Quad4-Software/Reticulum-Go/examples/pageserver
 
 go 1.27.1
 
-require quad4/reticulum-go v0.0.0
+require github.com/Quad4-Software/Reticulum-Go v0.0.0
 
 require (
-	quad4/bzip2 v0.0.0 // indirect
-	quad4/msgpack/v5 v5.8.1 // indirect
-	quad4/tagparser v0.0.0 // indirect
+	github.com/Quad4-Software/bzip2 v0.0.0 // indirect
+	github.com/Quad4-Software/msgpack/v5 v5.8.1 // indirect
+	github.com/Quad4-Software/pbt v0.0.0 // indirect
+	github.com/Quad4-Software/tagparser v0.0.0 // indirect
 	golang.org/x/crypto v0.52.0 // indirect
 )
 
 replace (
-	quad4/reticulum-go => ../..
-	quad4/bzip2 => $REL_PS_LIBS/bzip2
-	quad4/msgpack/v5 => $REL_PS_LIBS/msgpack
-	quad4/pbt => $REL_PS_LIBS/pbt
-	quad4/tagparser => $REL_PS_LIBS/tagparser
+	github.com/Quad4-Software/Reticulum-Go => ../..
+	github.com/Quad4-Software/bzip2 => $REL_PS_LIBS/bzip2
+	github.com/Quad4-Software/msgpack/v5 => $REL_PS_LIBS/msgpack
+	github.com/Quad4-Software/pbt => $REL_PS_LIBS/pbt
+	github.com/Quad4-Software/tagparser => $REL_PS_LIBS/tagparser
 )
 EOF
 
@@ -125,5 +134,16 @@ vendor_tree() {
 vendor_tree "$ROOT"
 vendor_tree "$ROOT/examples/wasm"
 vendor_tree "$ROOT/examples/pageserver"
+
+# Flip the main module's replace directives to the committed in-repo vendor
+# layout and drop go.mod files into the vendored trees so the dir replaces
+# resolve in -mod=mod mode as well.
+VENDOR_BASE="./vendor/github.com/Quad4-Software"
+for pair in "bzip2:bzip2" "msgpack:msgpack/v5" "pbt:pbt" "tagparser:tagparser"; do
+	repo="${pair%%:*}"
+	modpath="${pair##*:}"
+	sed -i "s|github.com/Quad4-Software/$modpath => $REL_LIBS/$repo|github.com/Quad4-Software/$modpath => $VENDOR_BASE/$modpath|" "$ROOT/go.mod" "$ROOT/vendor/modules.txt"
+	cp "$LIBS_ROOT/$repo/go.mod" "$ROOT/vendor/github.com/Quad4-Software/$modpath/go.mod"
+done
 
 echo "vendor-sync: vendor/ trees refreshed from $LIBS_ROOT"

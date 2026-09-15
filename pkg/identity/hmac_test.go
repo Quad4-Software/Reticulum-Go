@@ -7,8 +7,8 @@ import (
 	"bytes"
 	"testing"
 
-	"quad4/pbt/pkg/pbt"
-	"quad4/reticulum-go/pkg/cryptography"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
+	"github.com/Quad4-Software/pbt/pkg/pbt"
 )
 
 func TestHMACKeyComputeValidate(t *testing.T) {

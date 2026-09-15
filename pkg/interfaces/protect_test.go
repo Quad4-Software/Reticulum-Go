@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/health"
-	"quad4/reticulum-go/pkg/protect"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/protect"
 )
 
 func TestProcessIncomingProtectPreventDrops(t *testing.T) {

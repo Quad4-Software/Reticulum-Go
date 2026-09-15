@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"syscall/js"
 
+	"github.com/Quad4-Software/Reticulum-Go/pkg/wasm"
 	"quad4/reticulum-go-protocols/pkg/mf"
-	"quad4/reticulum-go/pkg/wasm"
 )
 
 var messenger *mf.Messenger

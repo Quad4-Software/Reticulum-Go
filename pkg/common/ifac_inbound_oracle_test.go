@@ -8,9 +8,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/health"
-	"quad4/reticulum-go/pkg/ifac"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/ifac"
 )
 
 func oracleMaskedPacket(t *testing.T, netname, netkey string) []byte {

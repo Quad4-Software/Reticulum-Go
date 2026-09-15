@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/destination"
-	"quad4/reticulum-go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 )
 
 // TestResponderProofUsesDestinationIdentity catches the NomadNet 50% bug:

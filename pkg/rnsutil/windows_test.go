@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/link"
-	"quad4/reticulum-go/pkg/transport"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
 func TestPathResponseWindowMatchesTransport(t *testing.T) {

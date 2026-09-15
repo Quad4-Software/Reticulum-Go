@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"quad4/reticulum-go/pkg/cli"
-	"quad4/reticulum-go/pkg/term"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/cli"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/term"
 )
 
 // daemonOptions holds parsed daemon flags.

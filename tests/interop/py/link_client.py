@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import hashlib
 import os
 import sys
 import tempfile
@@ -166,13 +167,25 @@ def main() -> int:
             )
 
         elif mode == "request":
+            expect_size = int(os.environ.get("INTEROP_EXPECT_REPLY_SIZE", "0"))
+            expect_sha = os.environ.get("INTEROP_EXPECT_REPLY_SHA256", "").strip()
 
             def on_resp(receipt):
                 try:
-                    if receipt.response == b"PONG_FROM_GO":
+                    ok = False
+                    if expect_sha:
+                        ok = hashlib.sha256(receipt.response).hexdigest() == expect_sha
+                    elif expect_size > 0:
+                        ok = len(receipt.response) == expect_size
+                    else:
+                        ok = receipt.response == b"PONG_FROM_GO"
+                    if ok:
                         sys.stdout.write("REQUEST_OK\n")
                         sys.stdout.flush()
                         interop_events.emit("request_ok", detail="request")
+                    else:
+                        sys.stderr.write("request callback: response mismatch\n")
+                        sys.stderr.flush()
                 except Exception as exc:
                     interop_events.emit("fail", kind="request", detail=str(exc))
                     sys.stderr.write("request callback: " + str(exc) + "\n")
@@ -180,6 +193,13 @@ def main() -> int:
 
             path = os.environ.get("INTEROP_REQUEST_PATH", "interop_req_path")
             payload = os.environ.get("INTEROP_REQUEST_PAYLOAD", "ping").encode("utf-8")
+            payload_size = int(os.environ.get("INTEROP_REQUEST_PAYLOAD_SIZE", "0"))
+            if payload_size > 0:
+                payload = os.urandom(payload_size)
+                sys.stdout.write(
+                    "PAYLOAD_SHA256 " + hashlib.sha256(payload).hexdigest() + "\n"
+                )
+                sys.stdout.flush()
             link.request(path, payload, response_callback=on_resp)
 
         elif mode == "channel_send":

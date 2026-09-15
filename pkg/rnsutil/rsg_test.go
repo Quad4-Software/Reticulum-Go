@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"quad4/reticulum-go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 )
 
 func TestRSGRoundTripAndPythonFixture(t *testing.T) {
