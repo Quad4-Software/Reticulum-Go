@@ -227,11 +227,11 @@ func TestLinkRequestPassesMapDataAsDict(t *testing.T) {
 func TestReportIncomingResourceProgress_UpdatesPendingRequest(t *testing.T) {
 	l := &Link{}
 	req := &RequestReceipt{requestID: []byte("req-progress"), status: StatusPending, totalBytes: 30}
-	l.incomingResourceRequest = req
 
 	rx := &incomingResourceAsm{
 		partSlots:  make([][]byte, 3),
 		totalParts: 3,
+		request:    req,
 	}
 	rx.partSlots[0] = make([]byte, 10)
 	l.reportIncomingResourceProgress(rx)

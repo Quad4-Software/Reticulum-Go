@@ -32,6 +32,12 @@ const (
 	StatusClosed    = 0x04
 	StatusFailed    = 0x05
 
+	// StatusReceiving is a RequestReceipt-only status: the response is
+	// arriving as an incoming resource transfer. The request timeout no
+	// longer applies and the resource watchdog owns the transfer lifecycle
+	// (Python RequestReceipt.RECEIVING).
+	StatusReceiving = 0x06
+
 	ProveNone = 0x00
 	ProveAll  = 0x01
 	ProveApp  = 0x02
