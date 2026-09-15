@@ -104,7 +104,6 @@ func TestPBTEncryptDecryptWithHMAC(t *testing.T) {
 			}
 			return true
 		},
-		pbt.WithShrinker(pbt.SliceShrinker[byte]()),
 	)
 	pbt.Check(t, prop, pbt.WithRuns(60), pbt.WithSeed(9))
 }

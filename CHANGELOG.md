@@ -1,6 +1,11 @@
 # Changelog
 
-## v1.2.0 - 2026-09-TBD
+## v1.2.1 - 2026-09-TBD
+
+### Changed
+- pbt bumped to v1.0.2: built-in generators now carry their own shrinkers, so tests dropped redundant WithShrinker wiring and Tuple2 properties moved to ForAll2
+
+## v1.2.0 - 2026-09-15
 
 ### Added
 - rgostatus -p (pps), -m/-I monitor, -z profiling request parity with rnstatus

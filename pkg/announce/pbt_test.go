@@ -42,7 +42,6 @@ func TestPBTCreateThenHandleAnnounce(t *testing.T) {
 			}
 			return ann.HandleAnnounce(pkt) == nil
 		},
-		pbt.WithShrinker(pbt.SliceShrinker[byte]()),
 	)
 	pbt.Check(t, prop, pbt.WithRuns(40), pbt.WithSeed(31))
 }

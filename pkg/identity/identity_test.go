@@ -487,7 +487,6 @@ func TestPBTIdentitySignVerify(t *testing.T) {
 			}
 			return true
 		},
-		pbt.WithShrinker(pbt.SliceShrinker[byte]()),
 	)
 	pbt.Check(t, prop, pbt.WithRuns(100), pbt.WithSeed(42))
 }
@@ -541,7 +540,6 @@ func TestPBTIdentityEncryptDecrypt(t *testing.T) {
 			}
 			return bytes.Equal(plaintext, decrypted2)
 		},
-		pbt.WithShrinker(pbt.SliceShrinker[byte]()),
 	)
 	pbt.Check(t, prop, pbt.WithRuns(60), pbt.WithSeed(3))
 }

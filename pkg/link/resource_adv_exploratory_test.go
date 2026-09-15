@@ -275,13 +275,11 @@ func TestPBTResourceAdvRequestGate(t *testing.T) {
 		t.Fatalf("RegisterRequestHandler: %v", err)
 	}
 
-	gen := pbt.Tuple2("handlers_x_parts", pbt.Bool(), pbt.IntRange(1, 16))
-	prop := pbt.ForAll(
+	prop := pbt.ForAll2(
 		"request ads need registered handlers",
-		gen,
-		func(v pbt.Tuple2Value[bool, int]) bool {
-			hasHandlers := v.First
-			parts := v.Second
+		pbt.Bool(),
+		pbt.IntRange(1, 16),
+		func(hasHandlers bool, parts int) bool {
 			adv := &resource.ResourceAdvertisement{
 				Parts:        parts,
 				TransferSize: int64(parts) * 384,

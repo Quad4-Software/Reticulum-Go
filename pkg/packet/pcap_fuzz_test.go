@@ -78,7 +78,6 @@ func TestPBTPCAPWriteReadRoundTrip(t *testing.T) {
 			c := caps[0]
 			return c.FromUDP && c.UDPSport == 1111 && c.UDPDport == 2222 && bytes.Equal(c.Payload, data)
 		},
-		pbt.WithShrinker(pbt.SliceShrinker[byte]()),
 	)
 	pbt.Check(t, prop, pbt.WithRuns(80), pbt.WithSeed(44))
 }

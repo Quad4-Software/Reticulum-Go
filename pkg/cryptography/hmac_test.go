@@ -86,17 +86,11 @@ func TestComputeAndValidateHMAC(t *testing.T) {
 }
 
 func TestPBTHMACValidate(t *testing.T) {
-	keyMsg := pbt.Tuple2(
-		"keyMsg",
+	prop := pbt.ForAll2(
+		"hmac validate accepts computed mac and rejects tamper",
 		byteSliceNonEmpty(64),
 		byteSliceMaybeEmpty(2048),
-	)
-	prop := pbt.ForAll(
-		"hmac validate accepts computed mac and rejects tamper",
-		keyMsg,
-		func(in pbt.Tuple2Value[[]byte, []byte]) bool {
-			key := in.First
-			msg := in.Second
+		func(key, msg []byte) bool {
 			mac := ComputeHMAC(key, msg)
 			if !ValidateHMAC(key, msg, mac) {
 				return false

@@ -251,7 +251,6 @@ func TestPBTAESCBCRoundTrip(t *testing.T) {
 			}
 			return bytes.Equal(out, plaintext)
 		},
-		pbt.WithShrinker(pbt.SliceShrinker[byte]()),
 	)
 	pbt.Check(t, prop, pbt.WithRuns(80), pbt.WithSeed(99))
 }
