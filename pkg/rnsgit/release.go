@@ -480,7 +480,7 @@ func (n *Node) releaseCreateFinalize(releasesPath string, req map[any]any) any {
 	if err := writeReleaseMeta(metaPath, meta); err != nil {
 		return StatusResponse(ResRemoteFail, "Remote error")
 	}
-	n.writeLatestRelease(releasesPath, tag)
+	_ = n.writeLatestRelease(releasesPath, tag) // #nosec G104 - best effort latest marker; release is already published
 	return []byte{ResOK}
 }
 
