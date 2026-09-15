@@ -5,6 +5,7 @@ package rnsgit
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -504,13 +505,15 @@ func (c *Client) processPush(ctx context.Context, localRef, remoteRef string, st
 		}
 	}
 	create := localGitCmd(createArgs...)
+	var createErr bytes.Buffer
 	if c.progress {
-		create.Stderr = stderr
+		create.Stderr = io.MultiWriter(stderr, &createErr)
+	} else {
+		create.Stderr = &createErr
 	}
 	bundleEmpty := false
 	if err := create.Run(); err != nil {
-		out, _ := create.CombinedOutput()
-		if !strings.Contains(strings.ToLower(string(out)), "empty bundle") {
+		if !strings.Contains(strings.ToLower(createErr.String()), "empty bundle") {
 			fmt.Fprintf(stdout, "error %s %s\n", remoteRef, EscapeGitStdout("bundle creation failed"))
 			return nil
 		}
