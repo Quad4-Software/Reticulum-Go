@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 )
 
 func freeUDPPort(t *testing.T) int {

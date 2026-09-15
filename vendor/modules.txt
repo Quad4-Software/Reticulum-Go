@@ -97,23 +97,23 @@ golang.org/x/text/unicode/norm
 # kernel.org/pub/linux/libs/security/libcap/psx v1.2.78
 ## explicit; go 1.11
 kernel.org/pub/linux/libs/security/libcap/psx
-# quad4/bzip2 v0.0.0 => ./vendor/quad4/bzip2
+# github.com/Quad4-Software/bzip2 v0.0.0 => ./vendor/github.com/Quad4-Software/bzip2
 ## explicit; go 1.27.1
-quad4/bzip2/internal/enc
-quad4/bzip2/pkg/bzip2
-# quad4/msgpack/v5 v5.8.1 => ./vendor/quad4/msgpack/v5
+github.com/Quad4-Software/bzip2/internal/enc
+github.com/Quad4-Software/bzip2/pkg/bzip2
+# github.com/Quad4-Software/msgpack/v5 v5.8.1 => ./vendor/github.com/Quad4-Software/msgpack/v5
 ## explicit; go 1.27.1
-quad4/msgpack/v5/pkg/msgpack
-quad4/msgpack/v5/pkg/msgpack/msgpcode
-# quad4/pbt v0.0.0 => ./vendor/quad4/pbt
+github.com/Quad4-Software/msgpack/v5/pkg/msgpack
+github.com/Quad4-Software/msgpack/v5/pkg/msgpack/msgpcode
+# github.com/Quad4-Software/pbt v0.0.0 => ./vendor/github.com/Quad4-Software/pbt
 ## explicit; go 1.27.1
-quad4/pbt/pkg/pbt
-# quad4/tagparser v0.0.0 => ./vendor/quad4/tagparser
+github.com/Quad4-Software/pbt/pkg/pbt
+# github.com/Quad4-Software/tagparser v0.0.0 => ./vendor/github.com/Quad4-Software/tagparser
 ## explicit; go 1.27.1
-quad4/tagparser/internal
-quad4/tagparser/internal/parser
-quad4/tagparser/pkg/tagparser
-# quad4/bzip2 => ./vendor/quad4/bzip2
-# quad4/msgpack/v5 => ./vendor/quad4/msgpack/v5
-# quad4/pbt => ./vendor/quad4/pbt
-# quad4/tagparser => ./vendor/quad4/tagparser
+github.com/Quad4-Software/tagparser/internal
+github.com/Quad4-Software/tagparser/internal/parser
+github.com/Quad4-Software/tagparser/pkg/tagparser
+# github.com/Quad4-Software/bzip2 => ./vendor/github.com/Quad4-Software/bzip2
+# github.com/Quad4-Software/msgpack/v5 => ./vendor/github.com/Quad4-Software/msgpack/v5
+# github.com/Quad4-Software/pbt => ./vendor/github.com/Quad4-Software/pbt
+# github.com/Quad4-Software/tagparser => ./vendor/github.com/Quad4-Software/tagparser

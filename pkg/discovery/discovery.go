@@ -13,9 +13,9 @@ import (
 	"io"
 	"runtime/debug"
 
-	"quad4/msgpack/v5/pkg/msgpack"
-	"quad4/msgpack/v5/pkg/msgpack/msgpcode"
-	"quad4/reticulum-go/pkg/lxstamper"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/lxstamper"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack/msgpcode"
 )
 
 // AppName is the destination app_name used by Discovery (see const value).

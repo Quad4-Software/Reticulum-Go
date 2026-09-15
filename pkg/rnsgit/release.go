@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"quad4/msgpack/v5/pkg/msgpack"
-	"quad4/reticulum-go/pkg/identity"
-	"quad4/reticulum-go/pkg/link"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 // releaseMeta is a ConfigObj-style META file for a release directory.

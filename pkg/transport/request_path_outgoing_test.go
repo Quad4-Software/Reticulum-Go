@@ -8,7 +8,7 @@ import (
 	"errors"
 	"testing"
 
-	"quad4/reticulum-go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 )
 
 func TestRequestPathNoOutgoingInterface(t *testing.T) {

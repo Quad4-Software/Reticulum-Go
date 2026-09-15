@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/announce"
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/debug"
-	"quad4/reticulum-go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/announce"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 )
 
 // buildValidAnnounceForReceiver produces a valid announce wire payload that

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/packet"
-	"quad4/reticulum-go/pkg/resource"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
 )
 
 // TestIncomingResourceWatchdog_RecoversFromDroppedRequestPacket simulates

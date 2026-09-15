@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"quad4/reticulum-go/pkg/identity/store"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity/store"
 )
 
 func TestToFileFromFileSecretServiceMarker(t *testing.T) {

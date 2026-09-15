@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"testing"
 
-	"quad4/reticulum-go/pkg/resource"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
 )
 
 func TestHMUSegmentIndexWrapDoesNotOverwriteSlotZero(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"quad4/reticulum-go/pkg/transport"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
 func TestWriteStatusHumanShowsBlockedIPs(t *testing.T) {

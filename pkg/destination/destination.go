@@ -13,14 +13,14 @@ import (
 	"sync"
 	"time"
 
-	"quad4/msgpack/v5/pkg/msgpack"
-	"quad4/reticulum-go/pkg/announce"
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/cryptography"
-	"quad4/reticulum-go/pkg/debug"
-	"quad4/reticulum-go/pkg/identity"
-	"quad4/reticulum-go/pkg/packet"
-	"quad4/reticulum-go/pkg/securemem"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/announce"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/securemem"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 // PacketCallback handles plaintext delivered to a destination.

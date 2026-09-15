@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 )
 
 func TestPacketHashlistAddSeenAllocBudget(t *testing.T) {

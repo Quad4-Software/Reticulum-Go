@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"quad4/pbt/pkg/pbt"
+	"github.com/Quad4-Software/pbt/pkg/pbt"
 )
 
 func resetKnownForTest(t *testing.T) {

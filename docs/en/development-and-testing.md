@@ -162,7 +162,7 @@ Follow existing naming, error wrapping, and SPDX headers in each file.
 | Layer | How to run | What it covers |
 |-------|------------|----------------|
 | Unit | task test / task test-short | Package *_test.go |
-| Property | task test-property | *_pbt_test.go and embedded quad4/pbt / testing/quick |
+| Property | task test-property | *_pbt_test.go and embedded github.com/Quad4-Software/pbt / testing/quick |
 | Mutation | task test-mutation | gomutant on cryptography, packet, announce, destination, identity, ifac, backbone, interfaces |
 | Chaos | task test-chaos / task test-soak / task test-soak-protect | TestSimChaos* / TestLinkChaos* / TestIfaceChaos* plus soak, including dos_protection flood soak |
 | Oracle | task test-oracle | Crossref vectors, health TransportOracle deltas, adversarial corpus |
@@ -188,7 +188,7 @@ go test -short -v ./...
 
 ### Property-based tests
 
-Files named *_pbt_test.go use quad4/pbt for generative testing (cryptography, packet, buffer, rate, resource, announce, link, identity). Some properties still live beside unit tests in the same package.
+Files named *_pbt_test.go use github.com/Quad4-Software/pbt for generative testing (cryptography, packet, buffer, rate, resource, announce, link, identity). Some properties still live beside unit tests in the same package.
 
 ```bash
 task test-property

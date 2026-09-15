@@ -18,9 +18,9 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/node"
-	"quad4/reticulum-go/pkg/rnsgit"
-	"quad4/reticulum-go/pkg/rnsutil"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/node"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/rnsgit"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/rnsutil"
 )
 
 func writeRNGitServerConfig(t *testing.T, rngitDir, repoRoot string) {

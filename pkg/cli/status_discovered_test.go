@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"quad4/reticulum-go/pkg/discovery"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/discovery"
 )
 
 func TestRunStatusDiscoveredList(t *testing.T) {

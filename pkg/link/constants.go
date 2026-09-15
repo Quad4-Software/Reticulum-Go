@@ -3,7 +3,7 @@
 
 package link
 
-import "quad4/reticulum-go/pkg/common"
+import "github.com/Quad4-Software/Reticulum-Go/pkg/common"
 
 const (
 	Curve = "Curve25519"

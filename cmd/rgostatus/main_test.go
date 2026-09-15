@@ -12,10 +12,10 @@ import (
 	"strconv"
 	"testing"
 
-	"quad4/reticulum-go/pkg/cli"
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/sharedinstance"
-	"quad4/reticulum-go/pkg/transport"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/cli"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/sharedinstance"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
 func TestRgostatusAgainstRPC(t *testing.T) {

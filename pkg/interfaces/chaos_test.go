@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/backbone"
-	"quad4/reticulum-go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/backbone"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 )
 
 func skipIfaceChaosIfShort(t *testing.T) {

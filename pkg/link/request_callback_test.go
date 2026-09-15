@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"quad4/msgpack/v5/pkg/msgpack"
-	"quad4/reticulum-go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 func TestSetResponseCallbackLateFires(t *testing.T) {

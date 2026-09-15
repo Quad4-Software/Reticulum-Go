@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"quad4/reticulum-go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 )
 
 func TestTsharkRNSDissector(t *testing.T) {

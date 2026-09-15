@@ -15,13 +15,13 @@ import (
 	"testing"
 	"time"
 
-	"quad4/bzip2/pkg/bzip2"
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/destination"
-	"quad4/reticulum-go/pkg/identity"
-	rlink "quad4/reticulum-go/pkg/link"
-	"quad4/reticulum-go/pkg/resource"
-	"quad4/reticulum-go/pkg/transport"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	rlink "github.com/Quad4-Software/Reticulum-Go/pkg/link"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"github.com/Quad4-Software/bzip2/pkg/bzip2"
 )
 
 func shufflePeers(peers []directoryPeer) []directoryPeer {

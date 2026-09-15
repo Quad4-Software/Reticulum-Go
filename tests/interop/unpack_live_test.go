@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"quad4/reticulum-go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 )
 
 func pythonUnpackOK(t *testing.T, raw []byte) bool {

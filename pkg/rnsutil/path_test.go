@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"quad4/reticulum-go/pkg/transport"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
 func TestParseDestHash(t *testing.T) {

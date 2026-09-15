@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"quad4/msgpack/v5/pkg/msgpack"
-	"quad4/reticulum-go/pkg/link"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 // releaseRules grants read and release access to all identities.

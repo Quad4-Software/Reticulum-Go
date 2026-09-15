@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"quad4/reticulum-go/pkg/protect"
-	"quad4/reticulum-go/pkg/transport"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/protect"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
 func TestAnalyzeSlowProtectFinding(t *testing.T) {

@@ -18,13 +18,13 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/destination"
-	"quad4/reticulum-go/pkg/identity"
-	"quad4/reticulum-go/pkg/link"
-	"quad4/reticulum-go/pkg/node"
-	"quad4/reticulum-go/pkg/rgosh"
-	"quad4/reticulum-go/pkg/rnsutil"
-	"quad4/reticulum-go/tests/interop/harness"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/node"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/rgosh"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/rnsutil"
+	"github.com/Quad4-Software/Reticulum-Go/tests/interop/harness"
 )
 
 func ensureRgosh(t *testing.T) string {

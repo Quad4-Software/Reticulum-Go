@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"quad4/reticulum-go/pkg/cryptography"
-	"quad4/reticulum-go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 )
 
 // Regression: EnforceRatchets must reject identity-key ciphertext

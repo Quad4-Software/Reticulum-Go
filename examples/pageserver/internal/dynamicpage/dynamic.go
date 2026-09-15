@@ -15,10 +15,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"quad4/msgpack/v5/pkg/msgpack"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 
-	"quad4/reticulum-go/pkg/debug"
-	"quad4/reticulum-go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 )
 
 func shebangLine(content []byte) bool {

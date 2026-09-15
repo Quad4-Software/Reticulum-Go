@@ -18,11 +18,11 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/blackhole"
-	"quad4/reticulum-go/pkg/destination"
-	"quad4/reticulum-go/pkg/identity"
-	rlink "quad4/reticulum-go/pkg/link"
-	"quad4/reticulum-go/pkg/resource"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/blackhole"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	rlink "github.com/Quad4-Software/Reticulum-Go/pkg/link"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
 )
 
 // Go sends a file resource to a Python rncp.receive peer.

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"quad4/reticulum-go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 )
 
 // startPprofIfRequested binds a localhost pprof HTTP server when

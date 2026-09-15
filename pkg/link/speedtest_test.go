@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/debug"
-	"quad4/reticulum-go/pkg/protect"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/protect"
 )
 
 // TestLinkSpeedSmoke is an RNS Speedtest-style loopback liveness floor.

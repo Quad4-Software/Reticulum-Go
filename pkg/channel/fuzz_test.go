@@ -7,7 +7,7 @@ import (
 	"encoding/binary"
 	"testing"
 
-	"quad4/reticulum-go/pkg/transport"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
 // FuzzHandleInboundEnvelopeExploratory checks wire length consistency. On success

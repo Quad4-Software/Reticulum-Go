@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"testing"
 
-	"quad4/pbt/pkg/pbt"
+	"github.com/Quad4-Software/pbt/pkg/pbt"
 )
 
 // Property suite for packet wire invariants. Pack/unpack round-trip lives in

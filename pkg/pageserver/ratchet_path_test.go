@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"quad4/reticulum-go/pkg/destination"
-	"quad4/reticulum-go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 )
 
 func TestDestPrivateRatchetPathUsesDestHash(t *testing.T) {

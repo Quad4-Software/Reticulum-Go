@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"quad4/reticulum-go/pkg/cli"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/cli"
 )
 
 func TestCLIVersion(t *testing.T) {

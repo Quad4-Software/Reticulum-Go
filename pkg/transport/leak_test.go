@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 )
 
 func TestTransportLeak(t *testing.T) {

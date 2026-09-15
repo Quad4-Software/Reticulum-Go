@@ -1,9 +1,9 @@
-module quad4/reticulum-go/examples/wasm
+module github.com/Quad4-Software/Reticulum-Go/examples/wasm
 
 go 1.27.1
 
 require (
-	quad4/reticulum-go v1.0.0
+	github.com/Quad4-Software/Reticulum-Go v1.0.0
 	quad4/reticulum-go-protocols v0.0.0
 )
 
@@ -24,16 +24,24 @@ require (
 	golang.org/x/term v0.46.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	kernel.org/pub/linux/libs/security/libcap/psx v1.2.78 // indirect
-	quad4/bzip2 v0.0.0 // indirect
-	quad4/msgpack/v5 v5.8.2 // indirect
-	quad4/tagparser v0.0.0 // indirect
+	github.com/Quad4-Software/bzip2 v0.0.0 // indirect
+	github.com/Quad4-Software/msgpack/v5 v5.8.2 // indirect
+	github.com/Quad4-Software/pbt v0.0.0 // indirect
+	github.com/Quad4-Software/tagparser v0.0.0 // indirect
 )
 
 replace (
-	quad4/bzip2 => ../../../../Reticulum-Go-Projects/bzip2
-	quad4/msgpack/v5 => ../../../../Reticulum-Go-Projects/msgpack
-	quad4/pbt => ../../../../Reticulum-Go-Projects/pbt
-	quad4/reticulum-go => ../../
+	github.com/Quad4-Software/Reticulum-Go => ../../
+	github.com/Quad4-Software/bzip2 => ../../../../Reticulum-Go-Projects/bzip2
+	github.com/Quad4-Software/msgpack/v5 => ../../../../Reticulum-Go-Projects/msgpack
+	github.com/Quad4-Software/pbt => ../../../../Reticulum-Go-Projects/pbt
+	github.com/Quad4-Software/tagparser => ../../../../Reticulum-Go-Projects/tagparser
 	quad4/reticulum-go-protocols => ../../../../Reticulum-Go-Projects/reticulum-go-mf
-	quad4/tagparser => ../../../../Reticulum-Go-Projects/tagparser
+	// quad4/* names below satisfy reticulum-go-protocols' own requires, which
+	// still use the old module paths upstream.
+	quad4/bzip2 => github.com/Quad4-Software/bzip2 v0.0.0-20260704225916-ca8b2bb66059
+	quad4/msgpack/v5 => github.com/Quad4-Software/msgpack/v5 v5.8.2
+	quad4/pbt => github.com/Quad4-Software/pbt v0.0.0-20260614183135-abe0cfc4e604
+	quad4/reticulum-go => github.com/Quad4-Software/Reticulum-Go v1.1.1
+	quad4/tagparser => github.com/Quad4-Software/tagparser v0.1.3-0.20260614183136-daa4d5f437ce
 )

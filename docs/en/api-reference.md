@@ -79,10 +79,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"quad4/reticulum-go/pkg/destination"
-	"quad4/reticulum-go/pkg/identity"
-	"quad4/reticulum-go/pkg/node"
-	"quad4/reticulum-go/pkg/reticulumconfig"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/node"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/reticulumconfig"
 )
 
 const appName = "example_utilities"

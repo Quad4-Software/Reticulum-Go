@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"testing"
 
-	"quad4/reticulum-go/pkg/rnsutil"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/rnsutil"
 )
 
 // TestCLIUtilitiesHonorShareInstanceNo locks the rgox/rgopath/rgoprobe interop

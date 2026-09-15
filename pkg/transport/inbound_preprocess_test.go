@@ -6,8 +6,8 @@ package transport
 import (
 	"testing"
 
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 )
 
 func TestPreprocessMinimalDataPacket(t *testing.T) {

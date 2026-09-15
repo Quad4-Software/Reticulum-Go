@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/backbone"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/backbone"
 )
 
 const (

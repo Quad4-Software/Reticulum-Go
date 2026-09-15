@@ -3,7 +3,7 @@ package lxstamper_test
 import (
 	"bytes"
 	"context"
-	"quad4/reticulum-go/pkg/lxstamper"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/lxstamper"
 	"sync"
 	"testing"
 )

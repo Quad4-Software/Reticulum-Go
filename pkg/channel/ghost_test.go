@@ -7,8 +7,8 @@ import (
 	"errors"
 	"testing"
 
-	"quad4/reticulum-go/pkg/packet"
-	"quad4/reticulum-go/pkg/transport"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
 type failingLink struct {

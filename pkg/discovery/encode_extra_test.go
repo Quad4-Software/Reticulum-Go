@@ -8,7 +8,7 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	"quad4/msgpack/v5/pkg/msgpack"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 func TestEncodeInfoRequiresType(t *testing.T) {

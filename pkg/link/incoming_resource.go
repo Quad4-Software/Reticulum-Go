@@ -14,14 +14,14 @@ import (
 	"sync"
 	"time"
 
-	"quad4/bzip2/pkg/bzip2"
-	"quad4/msgpack/v5/pkg/msgpack"
-	"quad4/reticulum-go/pkg/debug"
-	"quad4/reticulum-go/pkg/health"
-	"quad4/reticulum-go/pkg/identity"
-	"quad4/reticulum-go/pkg/packet"
-	"quad4/reticulum-go/pkg/protect"
-	"quad4/reticulum-go/pkg/resource"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/protect"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
+	"github.com/Quad4-Software/bzip2/pkg/bzip2"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 const (

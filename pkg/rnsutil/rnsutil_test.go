@@ -11,11 +11,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/destination"
-	"quad4/reticulum-go/pkg/identity"
-	"quad4/reticulum-go/pkg/sharedinstance"
-	"quad4/reticulum-go/pkg/transport"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/sharedinstance"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
 func TestDestinationHashMatchesDestinationNew(t *testing.T) {

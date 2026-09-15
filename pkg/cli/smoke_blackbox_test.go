@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"quad4/reticulum-go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 )
 
 // Smoke and black-box coverage for dump via the public Main dispatcher.

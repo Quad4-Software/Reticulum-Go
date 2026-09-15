@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/identity"
-	"quad4/reticulum-go/pkg/interfaces"
-	"quad4/reticulum-go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 )
 
 // relayIface is a tracking NetworkInterface used by the relay tests. It

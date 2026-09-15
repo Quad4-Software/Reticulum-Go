@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"quad4/reticulum-go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 )
 
 // closedAbsorbingOracle is true when Closed never transitions to a live status.

@@ -20,10 +20,10 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/interfaces"
-	"quad4/reticulum-go/pkg/transport"
-	"quad4/reticulum-go/tests/interop/harness"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"github.com/Quad4-Software/Reticulum-Go/tests/interop/harness"
 )
 
 type directoryPeer struct {

@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/pkg/backbone"
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/ifac"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/backbone"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/ifac"
 )
 
 func BenchmarkTCPSendIFAC(b *testing.B) {

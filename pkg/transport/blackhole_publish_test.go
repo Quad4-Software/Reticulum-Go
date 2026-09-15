@@ -7,9 +7,9 @@ import (
 	"bytes"
 	"testing"
 
-	"quad4/reticulum-go/pkg/blackhole"
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/blackhole"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 )
 
 func TestInitializeBlackholePublish(t *testing.T) {

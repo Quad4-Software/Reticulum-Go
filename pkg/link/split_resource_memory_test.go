@@ -7,9 +7,9 @@ import (
 	"errors"
 	"testing"
 
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/resource"
-	"quad4/reticulum-go/pkg/transport"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
 func TestSplitResourceInMemoryBudgetExceeded(t *testing.T) {

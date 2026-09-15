@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"quad4/reticulum-go/internal/storage"
-	"quad4/reticulum-go/pkg/common"
-	"quad4/reticulum-go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/internal/storage"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 )
 
 // Guarantee: persistPathTableIfDirty honors PathPersistMinInterval, while
