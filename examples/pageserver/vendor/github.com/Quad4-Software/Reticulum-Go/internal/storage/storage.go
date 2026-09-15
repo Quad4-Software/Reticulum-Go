@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 type Manager struct {

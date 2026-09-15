@@ -10,8 +10,8 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 // gpuWorkblockMinRounds uses GPU for StampWorkblock only when expand cost is high

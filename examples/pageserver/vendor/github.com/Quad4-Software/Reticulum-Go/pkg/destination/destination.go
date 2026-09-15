@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/announce"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
@@ -21,6 +20,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/securemem"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 // PacketCallback handles plaintext delivered to a destination.

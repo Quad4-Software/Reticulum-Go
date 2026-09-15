@@ -17,12 +17,13 @@ const (
 
 // Config defines how property checks are executed.
 type Config struct {
-	Runs              int           // Number of generated test cases.
+	Runs              int           // Number of evaluated test cases.
 	MaxSize           int           // Maximum size parameter passed to generators.
 	Seed              int64         // Random seed; set for reproducibility.
 	Timeout           time.Duration // Abort after this duration; 0 means no limit.
 	Parallelism       int           // Number of deterministic worker partitions.
 	ShrinkParallelism int           // Workers used during counterexample shrinking.
+	MaxDiscards       int           // Cases a precondition may reject before giving up; <= 0 means 5x Runs per worker.
 }
 
 // Option mutates a Config used by a check.
@@ -101,10 +102,25 @@ func WithShrinkParallelism(parallelism int) Option {
 	}
 }
 
+// WithMaxDiscards caps how many generated cases a precondition may reject.
+// The default is 5x Runs. Under parallel execution the limit applies per
+// worker partition.
+func WithMaxDiscards(maxDiscards int) Option {
+	return func(c *Config) {
+		if maxDiscards <= 0 {
+			panic("pbt: WithMaxDiscards requires positive value")
+		}
+		c.MaxDiscards = maxDiscards
+	}
+}
+
 func applyOptions(opts []Option) Config {
 	cfg := DefaultConfig()
 	for _, opt := range opts {
 		opt(&cfg)
+	}
+	if cfg.MaxDiscards <= 0 {
+		cfg.MaxDiscards = 5 * cfg.Runs
 	}
 	return cfg
 }

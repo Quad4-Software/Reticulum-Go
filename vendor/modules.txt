@@ -1,3 +1,19 @@
+# github.com/Quad4-Software/bzip2 v1.0.1
+## explicit; go 1.27.1
+github.com/Quad4-Software/bzip2/internal/enc
+github.com/Quad4-Software/bzip2/pkg/bzip2
+# github.com/Quad4-Software/msgpack/v5 v5.9.1
+## explicit; go 1.27.1
+github.com/Quad4-Software/msgpack/v5/pkg/msgpack
+github.com/Quad4-Software/msgpack/v5/pkg/msgpack/msgpcode
+# github.com/Quad4-Software/pbt v1.0.2
+## explicit; go 1.27.1
+github.com/Quad4-Software/pbt/pkg/pbt
+# github.com/Quad4-Software/tagparser/v2 v2.2.1
+## explicit; go 1.27.1
+github.com/Quad4-Software/tagparser/v2/internal
+github.com/Quad4-Software/tagparser/v2/internal/parser
+github.com/Quad4-Software/tagparser/v2/pkg/tagparser
 # github.com/creack/pty v1.1.24
 ## explicit; go 1.18
 github.com/creack/pty
@@ -13,13 +29,13 @@ github.com/ebitengine/purego/internal/strings
 # github.com/godbus/dbus/v5 v5.2.2
 ## explicit; go 1.20
 github.com/godbus/dbus/v5
-# github.com/landlock-lsm/go-landlock v0.10.0
+# github.com/landlock-lsm/go-landlock v0.10.1
 ## explicit; go 1.24.0
 github.com/landlock-lsm/go-landlock/landlock
 github.com/landlock-lsm/go-landlock/landlock/internal
 github.com/landlock-lsm/go-landlock/landlock/syscall
-# github.com/mdlayher/socket v0.7.0
-## explicit; go 1.26.0
+# github.com/mdlayher/socket v0.6.0
+## explicit; go 1.25.0
 github.com/mdlayher/socket
 # github.com/mdlayher/vsock v1.3.0
 ## explicit; go 1.25.0
@@ -65,8 +81,8 @@ golang.org/x/crypto/curve25519
 golang.org/x/crypto/hkdf
 golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
-# golang.org/x/net v0.59.0
-## explicit; go 1.26.0
+# golang.org/x/net v0.58.0
+## explicit; go 1.25.0
 golang.org/x/net/bpf
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2/hpack
@@ -94,26 +110,6 @@ golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
-# kernel.org/pub/linux/libs/security/libcap/psx v1.2.78
+# kernel.org/pub/linux/libs/security/libcap/psx v1.2.77
 ## explicit; go 1.11
 kernel.org/pub/linux/libs/security/libcap/psx
-# github.com/Quad4-Software/bzip2 v0.0.0 => ./vendor/github.com/Quad4-Software/bzip2
-## explicit; go 1.27.1
-github.com/Quad4-Software/bzip2/internal/enc
-github.com/Quad4-Software/bzip2/pkg/bzip2
-# github.com/Quad4-Software/msgpack/v5 v5.8.1 => ./vendor/github.com/Quad4-Software/msgpack/v5
-## explicit; go 1.27.1
-github.com/Quad4-Software/msgpack/v5/pkg/msgpack
-github.com/Quad4-Software/msgpack/v5/pkg/msgpack/msgpcode
-# github.com/Quad4-Software/pbt v0.0.0 => ./vendor/github.com/Quad4-Software/pbt
-## explicit; go 1.27.1
-github.com/Quad4-Software/pbt/pkg/pbt
-# github.com/Quad4-Software/tagparser v0.0.0 => ./vendor/github.com/Quad4-Software/tagparser
-## explicit; go 1.27.1
-github.com/Quad4-Software/tagparser/internal
-github.com/Quad4-Software/tagparser/internal/parser
-github.com/Quad4-Software/tagparser/pkg/tagparser
-# github.com/Quad4-Software/bzip2 => ./vendor/github.com/Quad4-Software/bzip2
-# github.com/Quad4-Software/msgpack/v5 => ./vendor/github.com/Quad4-Software/msgpack/v5
-# github.com/Quad4-Software/pbt => ./vendor/github.com/Quad4-Software/pbt
-# github.com/Quad4-Software/tagparser => ./vendor/github.com/Quad4-Software/tagparser

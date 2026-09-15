@@ -25,12 +25,12 @@ type WeightedGenerator[T any] struct {
 
 // Tuple2 combines two generators into a product generator.
 func Tuple2[A any, B any](name string, left Generator[A], right Generator[B]) Generator[Tuple2Value[A, B]] {
-	return NewGenerator(name, func(r *rand.Rand, size int) Tuple2Value[A, B] {
+	return NewShrinkableGenerator(name, func(r *rand.Rand, size int) Tuple2Value[A, B] {
 		return Tuple2Value[A, B]{
 			First:  left.Generate(r, size),
 			Second: right.Generate(r, size),
 		}
-	})
+	}, Tuple2Shrinker(shrinkerFor(left), shrinkerFor(right)))
 }
 
 // Product2 is an alias for Tuple2.
@@ -40,29 +40,29 @@ func Product2[A any, B any](name string, left Generator[A], right Generator[B]) 
 
 // Tuple3 combines three generators into a product generator.
 func Tuple3[A any, B any, C any](name string, first Generator[A], second Generator[B], third Generator[C]) Generator[Tuple3Value[A, B, C]] {
-	return NewGenerator(name, func(r *rand.Rand, size int) Tuple3Value[A, B, C] {
+	return NewShrinkableGenerator(name, func(r *rand.Rand, size int) Tuple3Value[A, B, C] {
 		return Tuple3Value[A, B, C]{
 			First:  first.Generate(r, size),
 			Second: second.Generate(r, size),
 			Third:  third.Generate(r, size),
 		}
-	})
+	}, Tuple3Shrinker(shrinkerFor(first), shrinkerFor(second), shrinkerFor(third)))
 }
 
 // OneOf picks one generator uniformly at random.
 func OneOf[T any](name string, generators ...Generator[T]) Generator[T] {
-	return NewGenerator(name, func(r *rand.Rand, size int) T {
+	return NewShrinkableGenerator(name, func(r *rand.Rand, size int) T {
 		if len(generators) == 0 {
 			panic("pbt: OneOf requires at least one generator")
 		}
 		pick := generators[r.Intn(len(generators))]
 		return pick.Generate(r, size)
-	})
+	}, oneOfShrinker(generators))
 }
 
 // Frequency picks a generator using relative integer weights.
 func Frequency[T any](name string, entries ...WeightedGenerator[T]) Generator[T] {
-	return NewGenerator(name, func(r *rand.Rand, size int) T {
+	return NewShrinkableGenerator(name, func(r *rand.Rand, size int) T {
 		if len(entries) == 0 {
 			panic("pbt: Frequency requires at least one entry")
 		}
@@ -90,7 +90,7 @@ func Frequency[T any](name string, entries ...WeightedGenerator[T]) Generator[T]
 		}
 
 		return entries[len(entries)-1].Generator.Generate(r, size)
-	})
+	}, oneOfShrinker(frequencyGenerators(entries)))
 }
 
 const defaultSuchThatAttempts = 1000
@@ -103,7 +103,7 @@ func SuchThat[T any](name string, source Generator[T], predicate Predicate[T], m
 	if maxAttempts <= 0 {
 		maxAttempts = defaultSuchThatAttempts
 	}
-	return NewGenerator(name, func(r *rand.Rand, size int) T {
+	return NewShrinkableGenerator(name, func(r *rand.Rand, size int) T {
 		for i := 0; i < maxAttempts; i++ {
 			v := source.Generate(r, size)
 			if predicate(v) {
@@ -111,7 +111,7 @@ func SuchThat[T any](name string, source Generator[T], predicate Predicate[T], m
 			}
 		}
 		panic("pbt: SuchThat failed to find satisfying value within maxAttempts")
-	})
+	}, filterShrinker(shrinkerFor(source), predicate))
 }
 
 // SuchThatFallback filters generated values to those satisfying the predicate.
@@ -122,7 +122,7 @@ func SuchThatFallback[T any](name string, source Generator[T], predicate Predica
 	if maxAttempts <= 0 {
 		maxAttempts = defaultSuchThatAttempts
 	}
-	return NewGenerator(name, func(r *rand.Rand, size int) T {
+	return NewShrinkableGenerator(name, func(r *rand.Rand, size int) T {
 		for i := 0; i < maxAttempts; i++ {
 			v := source.Generate(r, size)
 			if predicate(v) {
@@ -130,6 +130,19 @@ func SuchThatFallback[T any](name string, source Generator[T], predicate Predica
 			}
 		}
 		return fallback
+	}, filterShrinker(shrinkerFor(source), predicate))
+}
+
+// FlatMap builds a generator whose output depends on a value produced by an
+// earlier generator. This is the bind operation: it enables correlated
+// structures such as generating a length and then a slice of exactly that
+// length. Automatic shrinking cannot cross the bind because the inner
+// generator is only known after the first value is drawn, so supply
+// WithShrinker when minimized counterexamples matter.
+func FlatMap[A any, B any](name string, source Generator[A], fn func(A) Generator[B]) Generator[B] {
+	return NewGenerator(name, func(r *rand.Rand, size int) B {
+		a := source.Generate(r, size)
+		return fn(a).Generate(r, size)
 	})
 }
 
@@ -157,4 +170,40 @@ func Recursive[T any](name string, base Generator[T], combine func(self Generato
 		}
 		return genAtDepth(depth).Generate(r, size)
 	})
+}
+
+// oneOfShrinker composes the shrinkers of a union generator's children. Each
+// child's shrinker is tried in turn; the first that makes progress wins.
+func oneOfShrinker[T any](generators []Generator[T]) Shrinker[T] {
+	var shrinkers []Shrinker[T]
+	for _, g := range generators {
+		if s := shrinkerFor(g); s != nil {
+			shrinkers = append(shrinkers, s)
+		}
+	}
+	if len(shrinkers) == 0 {
+		return nil
+	}
+	return ShrinkerFunc[T](func(value T, predicate Predicate[T]) (T, bool) {
+		if predicate(value) {
+			return value, false
+		}
+		candidate := value
+		changed := false
+		for _, s := range shrinkers {
+			if shrunk, ok := s.Shrink(candidate, predicate); ok {
+				candidate = shrunk
+				changed = true
+			}
+		}
+		return candidate, changed
+	})
+}
+
+func frequencyGenerators[T any](entries []WeightedGenerator[T]) []Generator[T] {
+	gens := make([]Generator[T], 0, len(entries))
+	for _, e := range entries {
+		gens = append(gens, e.Generator)
+	}
+	return gens
 }

@@ -8,8 +8,8 @@ package securemem
 import (
 	"sync"
 
-	"golang.org/x/sys/unix"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"golang.org/x/sys/unix"
 )
 
 var mlockDeniedOnce sync.Once

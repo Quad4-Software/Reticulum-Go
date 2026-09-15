@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/reticulumconfig"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/sharedinstance"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 // RPCClient is a one-shot shared-instance RPC client over

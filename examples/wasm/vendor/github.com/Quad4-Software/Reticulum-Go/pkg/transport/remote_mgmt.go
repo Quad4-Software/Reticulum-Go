@@ -9,11 +9,11 @@ import (
 	"math"
 	"time"
 
-	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/profiler"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 const (

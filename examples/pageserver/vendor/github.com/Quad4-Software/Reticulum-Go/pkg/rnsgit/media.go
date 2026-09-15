@@ -251,7 +251,7 @@ func ConvertFileToWebP(sourcePath string, quality, maxDimension int, timeout tim
 	tmpPath := tmp.Name()
 	success := false
 	defer func() {
-		tmp.Close()
+		_ = tmp.Close() // #nosec G104 - best effort temp close
 		if !success {
 			_ = os.Remove(tmpPath)
 		}
