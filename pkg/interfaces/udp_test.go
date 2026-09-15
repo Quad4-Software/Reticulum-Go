@@ -4,7 +4,10 @@
 package interfaces
 
 import (
+	"net"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/ifac"
@@ -196,5 +199,53 @@ func TestUDPProcessIncomingAppliesIFACWhenNotDeferred(t *testing.T) {
 		if got[i] != plain[i] {
 			t.Fatalf("standalone unmask mismatch at %d", i)
 		}
+	}
+}
+
+func TestUDPSocketBuffersAbsorbBurst(t *testing.T) {
+	// dialUDP used to cap SO_RCVBUF and SO_SNDBUF at 1064 bytes, about one
+	// packet once per-skb overhead is counted. Any burst that arrived while
+	// the read loop was busy in the packet callback was dropped by the
+	// kernel before transport ever saw it.
+	recv, err := NewUDPInterface("udpBurstRecv", "127.0.0.1:0", "127.0.0.1:1", true)
+	if err != nil {
+		t.Fatalf("NewUDPInterface: %v", err)
+	}
+	if err := recv.Start(); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	defer func() { _ = recv.Stop() }()
+
+	var got atomic.Int64
+	recv.SetPacketCallback(func(_ []byte, _ common.NetworkInterface) {
+		// Hold the read loop so the burst must queue in the kernel.
+		time.Sleep(5 * time.Millisecond)
+		got.Add(1)
+	})
+
+	bound, ok := recv.GetConn().LocalAddr().(*net.UDPAddr)
+	if !ok {
+		t.Fatal("unexpected local addr type")
+	}
+	sender, err := net.DialUDP("udp", nil, bound)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer func() { _ = sender.Close() }()
+
+	const n = 64
+	payload := make([]byte, 64)
+	for range n {
+		if _, err := sender.Write(payload); err != nil {
+			t.Fatalf("send: %v", err)
+		}
+	}
+
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) && got.Load() < n {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if c := got.Load(); c < n {
+		t.Fatalf("received %d/%d burst packets; kernel socket buffer too small", c, n)
 	}
 }

@@ -3,6 +3,7 @@
 ## v1.2.1 - 2026-09-TBD
 
 ### Fixed
+- UDP interfaces silently dropped bursts under load: dialUDP capped SO_RCVBUF/SO_SNDBUF at 1064 bytes and AutoInterface listeners capped read buffers at 1024/MTU bytes, so the kernel discarded packets whenever the read loop was busy. Caps removed; kernel defaults now apply. Regression test floods a stalled reader with 64 packets
 - linux/ppc64 (big-endian) builds: vendored go.bug.st/serial v1.8.0 only stubbed specialbaudrate for ppc64le, leaving ppc64 to hit undefined unix.TCGETS2/TCSETS2. Patched vendor tree gives ppc64 the same InvalidSpeed stub; vendor-sync.sh reapplies the patch after re-vendoring
 
 ### Changed
