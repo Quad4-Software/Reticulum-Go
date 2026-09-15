@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.2.0 - 2026-09-TBD
+## v1.2.0 - 2026-09-15
 
 ### Added
 - rgostatus -p (pps), -m/-I monitor, -z profiling request parity with rnstatus
