@@ -118,9 +118,9 @@ func (r *RawChannelReader) Read(p []byte) (n int, err error) {
 // the peer grow this buffer without limit.
 const maxReaderBufferBytes = 8 << 20
 
-func (r *RawChannelReader) HandleMessage(msg channel.MessageBase) bool { // #nosec G115
+func (r *RawChannelReader) HandleMessage(msg channel.MessageBase) bool {
 	streamMsg, ok := msg.(*StreamDataMessage)
-	if !ok || streamMsg.StreamID != uint16(r.streamID) {
+	if !ok || streamMsg.StreamID != uint16(r.streamID) { // #nosec G115 -- stream ids are uint16 on the wire
 		return false
 	}
 

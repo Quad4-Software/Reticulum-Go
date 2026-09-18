@@ -104,7 +104,9 @@ func expandHex(c string) string {
 
 func hexToRGB(h string) (int, int, int) {
 	var r, g, b int
-	fmt.Sscanf(h, "%02x%02x%02x", &r, &g, &b)
+	if _, err := fmt.Sscanf(h, "%02x%02x%02x", &r, &g, &b); err != nil {
+		return 0, 0, 0
+	}
 	return r, g, b
 }
 
@@ -230,33 +232,30 @@ func renderCombinedChart(views, fetches, pushes, downloads []int64, labels []str
 				continue
 			}
 			var cum float64
-			ranges := make([][2]float64, len(cats))
+			upperCat, lowerCat := -1, -1
+			upperCol, lowerCol := "", ""
 			for ci, c := range cats {
 				start := cum / float64(total)
 				cum += float64(c.data[i])
-				ranges[ci] = [2]float64{start, cum / float64(total)}
-			}
-			upperCat, lowerCat := -1, -1
-			for ci, r := range ranges {
-				if upperMin < r[1] && upperMax > r[0] {
-					upperCat = ci
+				end := cum / float64(total)
+				if upperMin < end && upperMax > start {
+					upperCat, upperCol = ci, c.color
 				}
-				if lowerMin < r[1] && lowerMax > r[0] {
-					lowerCat = ci
+				if lowerMin < end && lowerMax > start {
+					lowerCat, lowerCol = ci, c.color
 				}
 			}
 			switch {
 			case upperCat < 0 && lowerCat < 0:
 				b.WriteString(" ")
 			case upperCat == lowerCat:
-				col := cats[upperCat].color
-				b.WriteString("`FT" + col + "`BT" + col + "█`f`b")
+				b.WriteString("`FT" + upperCol + "`BT" + upperCol + "█`f`b")
 			case upperCat >= 0 && lowerCat >= 0:
-				b.WriteString("`FT" + cats[upperCat].color + "`BT" + cats[lowerCat].color + "▀`f`b")
+				b.WriteString("`FT" + upperCol + "`BT" + lowerCol + "▀`f`b")
 			case upperCat >= 0:
-				b.WriteString("`FT" + cats[upperCat].color + "▀`f")
+				b.WriteString("`FT" + upperCol + "▀`f")
 			default:
-				b.WriteString("`FT" + cats[lowerCat].color + "▄`f")
+				b.WriteString("`FT" + lowerCol + "▄`f")
 			}
 		}
 		b.WriteString("\n")
