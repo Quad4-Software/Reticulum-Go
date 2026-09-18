@@ -182,6 +182,16 @@ tasks:
     cmds:
       - sh scripts/ci/install-git-hooks.sh
 
+  gitsign:setup:
+    desc: Configure gitsign commit signing (SIGSTORE_* env for private Fulcio/Rekor/OIDC)
+    cmds:
+      - sh scripts/ci/setup-gitsign.sh
+
+  gittuf:init:
+    desc: Initialize gittuf repository security policy (requires gittuf + signing key)
+    cmds:
+      - sh scripts/ci/gittuf-init.sh
+
   doctor:
     desc: Verify dev tools match CI pins
     cmds:

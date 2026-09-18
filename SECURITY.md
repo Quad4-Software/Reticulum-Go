@@ -32,6 +32,12 @@ To run our builds and security scans, we use helper scripts located in `scripts/
 
 We pin third-party GitHub Actions to full commit SHAs, not floating tags. Compilers and scanners are pinned in workflow `env` blocks. Dependabot opens weekly PRs for Action updates (`.github/dependabot.yml`).
 
+### Commit and repository policy
+
+- **DCO:** every commit needs a `Signed-off-by:` trailer (`git commit -s`). Enforced by the commit-msg hook and the `dco-signoff` CI job.
+- **Signatures:** GPG or SSH signatures are checked by an advisory CI job. gitsign (keyless x509) is supported via `task gitsign:setup`, which can target a private Fulcio/Rekor/OIDC stack through `SIGSTORE_*` env vars.
+- **gittuf:** `task gittuf:init` (scripts/ci/gittuf-init.sh) writes a repository security policy into `refs/gittuf/*`: branch rules for `master` and `dev`, tag rules for releases, and file rules for crypto, identity, workflows and CI scripts. Push the gittuf refs after running it.
+
 ### Source tree integrity (`.rsm`)
 
 The repository root includes a signed rnid message file, `reticulum-go.rsm`. It embeds a SHA-256 inventory of git-tracked files except itself and paths under any `vendor/` tree. CI verifies the signature against the required signer identity `e318cbc04468bd574db2b4523dddd710`, then re-hashes file bytes. Jobs also recheck the inventory at the end so a compromised runner cannot silently add or modify tracked files.
@@ -63,6 +69,8 @@ When we publish a release, we build the binaries, WebAssembly targets, and pages
 
 For each release asset, we generate a signed provenance bundle using **cosign**. We do not use separate checksum files.
 
+Each bundle carries an RFC 3161 timestamp (default TSA: `tsa.sigstore.dev`, override with `COSIGN_TSA_URL`, set `COSIGN_TSA_URL=none` to disable). Setting `COSIGN_REKOR_URL` additionally uploads every attestation to a transparency log, public or self-hosted.
+
 #### Verifying Release Files
 
 You can verify any release file using our public key and the provided verification script:
@@ -79,7 +87,7 @@ We use several security scanners to check our codebase on every commit:
 
 *   **Gosec:** Scans the Go code for security issues and unsafe coding patterns.
 *   **Govulncheck:** Checks our dependencies against the official Go vulnerability database to find reachable vulnerabilities.
-*   **Trivy:** Scans our filesystem and dependencies for known vulnerabilities.
+*   **Trivy:** Scans our filesystem and dependencies for known vulnerabilities. Findings that do not apply are recorded in `openvex.json` (OpenVEX format) at the repo root; Trivy reads it automatically during scans so suppressed findings stay documented rather than hidden.
 
 #### Our Approach to Scanner Safety
 
