@@ -303,8 +303,8 @@ func TestLiveRgocpCLIAgainstGoListenerUDP(t *testing.T) {
 			"    enabled = yes",
 			"    listen_ip = 127.0.0.1",
 			"    listen_port = " + strconv.Itoa(listen),
-			"    target_host = 127.0.0.1",
-			"    target_port = " + strconv.Itoa(peerPort),
+			"    forward_ip = 127.0.0.1",
+			"    forward_port = " + strconv.Itoa(peerPort),
 			"",
 		}, "\n")
 		if err := os.WriteFile(filepath.Join(dir, "config"), []byte(cfg), 0o600); err != nil {

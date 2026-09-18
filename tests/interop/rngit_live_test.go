@@ -25,6 +25,11 @@ import (
 
 func writeRNGitServerConfig(t *testing.T, rngitDir, repoRoot string) {
 	t.Helper()
+	writeRNGitServerConfigAccess(t, rngitDir, repoRoot, "rw:all")
+}
+
+func writeRNGitServerConfigAccess(t *testing.T, rngitDir, repoRoot, access string) {
+	t.Helper()
 	if err := os.MkdirAll(rngitDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +37,7 @@ func writeRNGitServerConfig(t *testing.T, rngitDir, repoRoot string) {
 		"[repositories]",
 		"public = " + repoRoot,
 		"[access]",
-		"public = rw:all",
+		"public = " + access,
 		"[rngit]",
 		"announce_interval = 0",
 		"mirror_interval = 0",
@@ -43,7 +48,7 @@ func writeRNGitServerConfig(t *testing.T, rngitDir, repoRoot string) {
 
 func initBareRepoWithCommit(t *testing.T, barePath string) {
 	t.Helper()
-	if out, err := rngitGitCmd("git", "init", "--bare", barePath).CombinedOutput(); err != nil {
+	if out, err := rngitGitCmd("git", "init", "--bare", "-b", "main", barePath).CombinedOutput(); err != nil {
 		t.Fatalf("bare init: %v %s", err, out)
 	}
 	work := t.TempDir()
@@ -53,7 +58,7 @@ func initBareRepoWithCommit(t *testing.T, barePath string) {
 		"GIT_COMMITTER_NAME=interop",
 		"GIT_COMMITTER_EMAIL=interop@test",
 	)
-	if out, err := rngitGitCmd("git", "clone", barePath, work).CombinedOutput(); err != nil {
+	if out, err := rngitGitCmd("git", "-c", "init.defaultBranch=main", "clone", barePath, work).CombinedOutput(); err != nil {
 		t.Fatalf("clone work: %v %s", err, out)
 	}
 	readme := filepath.Join(work, "README")
@@ -62,7 +67,7 @@ func initBareRepoWithCommit(t *testing.T, barePath string) {
 	}
 	for _, args := range [][]string{
 		{"git", "add", "README"},
-		{"git", "commit", "-m", "init"},
+		{"git", "-c", "commit.gpgsign=false", "commit", "-m", "init"},
 		{"git", "push", "origin", "HEAD"},
 	} {
 		cmd := rngitGitCmd(args...)

@@ -164,11 +164,10 @@ func waitForRequestReceipt(receipt *rlink.RequestReceipt, timeout time.Duration)
 // TestLiveNomadNetCrawlFetchMU listens for NomadNet node announces over TCP and fetches .mu pages.
 // Required: RUN_LIVE_INTEROP=1.
 // Optional env:
-// - INTEROP_NOMADNET_TCP_HOST (default public mesh host. See test)
-
-//   - INTEROP_NOMADNET_TCP_PORT (default 7822)
-//   - INTEROP_NOMADNET_TCP_NAME (default Beleth Clearnet TCP)
-//   - INTEROP_NOMADNET_ANNOUNCE_WAIT_SEC (default 45)
+//   - INTEROP_NOMADNET_TCP_HOST/PORT/NAME pin a single uplink; unset, the test
+//     walks the same public peer list as the relay test until one forwards
+//     announces
+//   - INTEROP_NOMADNET_ANNOUNCE_WAIT_SEC (default 45, per uplink)
 //   - INTEROP_NOMADNET_NODE_TARGET (default 3)
 //   - INTEROP_NOMADNET_PAGE_PATHS (comma-separated paths)
 //   - INTEROP_NOMADNET_SAVE_DIR (if set, writes each received page body to
@@ -176,66 +175,94 @@ func waitForRequestReceipt(receipt *rlink.RequestReceipt, timeout time.Duration)
 func TestLiveNomadNetCrawlFetchMU(t *testing.T) {
 	liveOrSkip(t)
 
-	tcpHost := strings.TrimSpace(os.Getenv("INTEROP_NOMADNET_TCP_HOST"))
-	if tcpHost == "" {
-		tcpHost = "rns.michmesh.net"
-	}
-	tcpPort := envInt("INTEROP_NOMADNET_TCP_PORT", 7822)
-	tcpName := strings.TrimSpace(os.Getenv("INTEROP_NOMADNET_TCP_NAME"))
-	if tcpName == "" {
-		tcpName = "Beleth Clearnet TCP"
+	var peers []directoryPeer
+	if tcpHost := strings.TrimSpace(os.Getenv("INTEROP_NOMADNET_TCP_HOST")); tcpHost != "" {
+		tcpName := strings.TrimSpace(os.Getenv("INTEROP_NOMADNET_TCP_NAME"))
+		if tcpName == "" {
+			tcpName = "custom"
+		}
+		peers = []directoryPeer{{Name: tcpName, Host: tcpHost, Port: envInt("INTEROP_NOMADNET_TCP_PORT", 7822)}}
+	} else {
+		peers = meshPeersFromEnv(t)
 	}
 	announceWait := envDurationSeconds("INTEROP_NOMADNET_ANNOUNCE_WAIT_SEC", 45*time.Second)
 	nodeTarget := envInt("INTEROP_NOMADNET_NODE_TARGET", 3)
+	// Collect a wider candidate pool than the fetch target: public nodes
+	// announce freely but many never answer page requests or even link, so
+	// the crawl needs spare candidates before it gives up on an uplink.
+	poolTarget := nodeTarget * 4
+	if poolTarget < 12 {
+		poolTarget = 12
+	}
 	pagePaths := envPagePaths()
 	saveDir := strings.TrimSpace(os.Getenv("INTEROP_NOMADNET_SAVE_DIR"))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 
-	tr := transport.NewTransport(common.DefaultConfig())
-	iface, err := interfaces.NewTCPClientInterface(tcpName, tcpHost, tcpPort, false, false, true)
-	if err != nil {
-		t.Fatalf("tcp interface connect: %v", err)
+	var tr *transport.Transport
+	var collector *nomadnetAnnounceCollector
+	var nodes []announcedNode
+	var usedPeer directoryPeer
+	for _, peer := range peers {
+		t.Logf("uplink %s %s:%d: waiting up to %s for announces", peer.Name, peer.Host, peer.Port, announceWait)
+		tr2 := transport.NewTransport(common.DefaultConfig())
+		iface, err := interfaces.NewTCPClientInterface(peer.Name, peer.Host, peer.Port, false, false, true)
+		if err != nil {
+			t.Logf("uplink %s connect failed: %v", peer.Name, err)
+			tr2.Close()
+			continue
+		}
+		if err := tr2.RegisterInterface(peer.Name, iface); err != nil {
+			tr2.Close()
+			t.Fatalf("register tcp interface: %v", err)
+		}
+		if err := tr2.InitializePathRequestHandler(); err != nil {
+			tr2.Close()
+			t.Fatalf("path handler: %v", err)
+		}
+		col := newNomadnetAnnounceCollector()
+		tr2.RegisterAnnounceHandler(col)
+
+		deadline := time.Now().Add(announceWait)
+		for time.Now().Before(deadline) {
+			if ctx.Err() != nil {
+				break
+			}
+			if len(col.snapshot()) >= poolTarget {
+				break
+			}
+			time.Sleep(250 * time.Millisecond)
+		}
+		got := col.snapshot()
+		if len(got) == 0 {
+			t.Logf("uplink %s delivered no announces in %s", peer.Name, announceWait)
+			tr2.Close()
+			continue
+		}
+		tr = tr2
+		collector = col
+		nodes = got
+		usedPeer = peer
+		break
 	}
-	if err := tr.RegisterInterface(tcpName, iface); err != nil {
-		t.Fatalf("register tcp interface: %v", err)
-	}
-	if err := tr.InitializePathRequestHandler(); err != nil {
-		t.Fatalf("path handler: %v", err)
+	if tr == nil {
+		t.Fatalf("no nomadnet announces observed via any of %d uplink(s), %s each", len(peers), announceWait)
 	}
 	defer tr.Close()
-
-	collector := newNomadnetAnnounceCollector()
-	tr.RegisterAnnounceHandler(collector)
 	defer tr.UnregisterAnnounceHandler(collector)
 
-	deadline := time.Now().Add(announceWait)
-	for time.Now().Before(deadline) {
-		select {
-		case <-ctx.Done():
-			t.Fatalf("context while waiting for announces: %v", ctx.Err())
-		default:
-		}
-		if len(collector.snapshot()) >= nodeTarget {
-			break
-		}
-		time.Sleep(250 * time.Millisecond)
+	if len(nodes) > poolTarget {
+		nodes = nodes[:poolTarget]
 	}
-
-	nodes := collector.snapshot()
-	if len(nodes) == 0 {
-		t.Fatalf("no nomadnet announces observed within %s", announceWait)
-	}
-
-	if len(nodes) > nodeTarget {
-		nodes = nodes[:nodeTarget]
-	}
-	t.Logf("crawl candidates=%d host=%s:%d", len(nodes), tcpHost, tcpPort)
+	t.Logf("crawl candidates=%d host=%s:%d", len(nodes), usedPeer.Host, usedPeer.Port)
 
 	fetches := 0
 	successes := 0
 	for _, node := range nodes {
+		if successes > 0 {
+			break
+		}
 		nodeHashHex := hex.EncodeToString(node.destHash)
 		if err := waitPath(ctx, tr, node.destHash, 35*time.Second); err != nil {
 			t.Logf("skip %s: no path (%v)", nodeHashHex, err)

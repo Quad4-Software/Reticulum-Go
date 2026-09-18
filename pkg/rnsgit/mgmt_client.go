@@ -84,11 +84,8 @@ func (c *MgmtClient) CreateRepo(ctx context.Context, remote string) error {
 	if err != nil {
 		return err
 	}
-	req, err := EncodeRequest(map[int]any{IdxRepository: RepoPath(group, repo)})
-	if err != nil {
-		return err
-	}
-	body, err := c.sendRequest(ctx, PathCreate, req, 120*time.Second)
+
+	body, err := c.sendRequest(ctx, PathCreate, map[any]any{IdxRepository: RepoPath(group, repo)}, 120*time.Second)
 	if err != nil {
 		return err
 	}
@@ -101,11 +98,8 @@ func (c *MgmtClient) SyncRepo(ctx context.Context, remote string) error {
 	if err != nil {
 		return err
 	}
-	req, err := EncodeRequest(map[int]any{IdxRepository: RepoPath(group, repo)})
-	if err != nil {
-		return err
-	}
-	body, err := c.sendRequest(ctx, PathSync, req, 2*time.Hour)
+
+	body, err := c.sendRequest(ctx, PathSync, map[any]any{IdxRepository: RepoPath(group, repo)}, 2*time.Hour)
 	if err != nil {
 		return err
 	}
@@ -122,14 +116,11 @@ func (c *MgmtClient) CloneRemote(ctx context.Context, source, target, kind strin
 	if kind == "mirror" {
 		path = PathMirror
 	}
-	req, err := EncodeMixedRequest(map[any]any{
+
+	body, err := c.sendRequest(ctx, path, map[any]any{
 		IdxRepository: RepoPath(group, repo),
 		"source":      source,
-	})
-	if err != nil {
-		return err
-	}
-	body, err := c.sendRequest(ctx, path, req, 2*time.Hour)
+	}, 2*time.Hour)
 	if err != nil {
 		return err
 	}
@@ -197,14 +188,11 @@ func (c *MgmtClient) ReleaseList(ctx context.Context, remote string) (string, er
 	if err != nil {
 		return "", err
 	}
-	req, err := EncodeMixedRequest(map[any]any{
+
+	body, err := c.sendRequest(ctx, PathRelease, map[any]any{
 		IdxRepository: RepoPath(group, repo),
 		"operation":   "list",
-	})
-	if err != nil {
-		return "", err
-	}
-	body, err := c.sendRequest(ctx, PathRelease, req, 120*time.Second)
+	}, 120*time.Second)
 	if err != nil {
 		return "", err
 	}
@@ -303,15 +291,12 @@ func (c *MgmtClient) ReleaseView(ctx context.Context, remote, tag string) (strin
 	if err != nil {
 		return "", err
 	}
-	req, err := EncodeMixedRequest(map[any]any{
+
+	body, err := c.sendRequest(ctx, PathRelease, map[any]any{
 		IdxRepository: RepoPath(group, repo),
 		"operation":   "view",
 		"tag":         tag,
-	})
-	if err != nil {
-		return "", err
-	}
-	body, err := c.sendRequest(ctx, PathRelease, req, 120*time.Second)
+	}, 120*time.Second)
 	if err != nil {
 		return "", err
 	}
@@ -349,16 +334,13 @@ func (c *MgmtClient) ReleaseFetch(ctx context.Context, remote, tag, artifact, ou
 	if err != nil {
 		return err
 	}
-	req, err := EncodeMixedRequest(map[any]any{
+
+	body, meta, err := c.sendRequestWithMeta(ctx, PathRelease, map[any]any{
 		IdxRepository: RepoPath(group, repo),
 		"operation":   "fetch",
 		"tag":         tag,
 		"artifact":    artifact,
-	})
-	if err != nil {
-		return err
-	}
-	body, meta, err := c.sendRequestWithMeta(ctx, PathRelease, req, 2*time.Hour)
+	}, 2*time.Hour)
 	if err != nil {
 		return err
 	}
@@ -437,11 +419,8 @@ func (c *MgmtClient) ReleaseCreate(ctx context.Context, remote, tag, notes, note
 }
 
 func (c *MgmtClient) releaseStep(ctx context.Context, fields map[any]any, desc string) error {
-	req, err := EncodeMixedRequest(fields)
-	if err != nil {
-		return err
-	}
-	body, err := c.sendRequest(ctx, PathRelease, req, 120*time.Second)
+
+	body, err := c.sendRequest(ctx, PathRelease, fields, 120*time.Second)
 	if err != nil {
 		return err
 	}
@@ -463,15 +442,12 @@ func (c *MgmtClient) releaseTagOp(ctx context.Context, remote, op, tag, desc str
 	if err != nil {
 		return err
 	}
-	req, err := EncodeMixedRequest(map[any]any{
+
+	body, err := c.sendRequest(ctx, PathRelease, map[any]any{
 		IdxRepository: RepoPath(group, repo),
 		"operation":   op,
 		"tag":         tag,
-	})
-	if err != nil {
-		return err
-	}
-	body, err := c.sendRequest(ctx, PathRelease, req, 120*time.Second)
+	}, 120*time.Second)
 	if err != nil {
 		return err
 	}
@@ -488,15 +464,12 @@ func (c *MgmtClient) WorkList(ctx context.Context, remote, scope string) (string
 	if scope == "" {
 		scope = "active"
 	}
-	req, err := EncodeMixedRequest(map[any]any{
+
+	body, err := c.sendRequest(ctx, PathWork, map[any]any{
 		IdxRepository: RepoPath(group, repo),
 		"operation":   "list",
 		"scope":       scope,
-	})
-	if err != nil {
-		return "", err
-	}
-	body, err := c.sendRequest(ctx, PathWork, req, 120*time.Second)
+	}, 120*time.Second)
 	if err != nil {
 		return "", err
 	}
@@ -545,16 +518,13 @@ func (c *MgmtClient) WorkView(ctx context.Context, remote, docID, scope string) 
 	if scope == "" {
 		scope = "all"
 	}
-	req, err := EncodeMixedRequest(map[any]any{
+
+	body, err := c.sendRequest(ctx, PathWork, map[any]any{
 		IdxRepository: RepoPath(group, repo),
 		"operation":   "view",
 		"doc_id":      id,
 		"scope":       scope,
-	})
-	if err != nil {
-		return "", err
-	}
-	body, err := c.sendRequest(ctx, PathWork, req, 600*time.Second)
+	}, 600*time.Second)
 	if err != nil {
 		return "", err
 	}
@@ -639,18 +609,15 @@ func (c *MgmtClient) WorkComment(ctx context.Context, remote, docID, scope, cont
 	if err != nil {
 		return fmt.Errorf("invalid document ID")
 	}
-	req, err := EncodeMixedRequest(map[any]any{
+
+	body, err := c.sendRequest(ctx, PathWork, map[any]any{
 		IdxRepository: c.repoPathFor(remote),
 		"operation":   "comment",
 		"doc_id":      id,
 		"scope":       scopeOrDefault(scope),
 		"content":     content,
 		"format":      "markdown",
-	})
-	if err != nil {
-		return err
-	}
-	body, err := c.sendRequest(ctx, PathWork, req, 600*time.Second)
+	}, 600*time.Second)
 	if err != nil {
 		return err
 	}
@@ -664,16 +631,13 @@ func (c *MgmtClient) WorkPermissions(ctx context.Context, remote, docID, content
 		return fmt.Errorf("invalid document ID")
 	}
 	repoPath := c.repoPathFor(remote)
-	getReq, err := EncodeMixedRequest(map[any]any{
+
+	body, err := c.sendRequest(ctx, PathWork, map[any]any{
 		IdxRepository: repoPath,
 		"operation":   "perms",
 		"doc_id":      id,
 		"step":        "get",
-	})
-	if err != nil {
-		return err
-	}
-	body, err := c.sendRequest(ctx, PathWork, getReq, 120*time.Second)
+	}, 120*time.Second)
 	if err != nil {
 		return err
 	}
@@ -701,17 +665,14 @@ func (c *MgmtClient) WorkPermissions(ctx context.Context, remote, docID, content
 	default:
 		return fmt.Errorf("provide -content or set EDITOR to modify permissions")
 	}
-	setReq, err := EncodeMixedRequest(map[any]any{
+
+	body, err = c.sendRequest(ctx, PathWork, map[any]any{
 		IdxRepository: repoPath,
 		"operation":   "perms",
 		"doc_id":      id,
 		"step":        "set",
 		"content":     content,
-	})
-	if err != nil {
-		return err
-	}
-	body, err = c.sendRequest(ctx, PathWork, setReq, 120*time.Second)
+	}, 120*time.Second)
 	if err != nil {
 		return err
 	}
@@ -748,11 +709,8 @@ func (c *MgmtClient) workSimpleOp(ctx context.Context, remote, operation, docID,
 	if scope != "" {
 		fields["scope"] = scope
 	}
-	req, err := EncodeMixedRequest(fields)
-	if err != nil {
-		return err
-	}
-	body, err := c.sendRequest(ctx, PathWork, req, timeout)
+
+	body, err := c.sendRequest(ctx, PathWork, fields, timeout)
 	if err != nil {
 		return err
 	}
@@ -803,11 +761,8 @@ func (c *MgmtClient) workSubmit(ctx context.Context, remote, operation string, d
 	if scope != "" {
 		fields["scope"] = scope
 	}
-	req, err := EncodeMixedRequest(fields)
-	if err != nil {
-		return "", err
-	}
-	body, err := c.sendRequest(ctx, PathWork, req, 600*time.Second)
+
+	body, err := c.sendRequest(ctx, PathWork, fields, 600*time.Second)
 	if err != nil {
 		return "", err
 	}
@@ -834,15 +789,4 @@ func checkStatus(body []byte, op string) error {
 		return fmt.Errorf("%s", msg)
 	}
 	return nil
-}
-
-func stringBody(body []byte, op string) (string, error) {
-	if len(body) == 0 || body[0] != ResOK {
-		msg := string(body[1:])
-		if msg == "" {
-			msg = op + " failed"
-		}
-		return "", fmt.Errorf("%s", msg)
-	}
-	return string(body[1:]), nil
 }

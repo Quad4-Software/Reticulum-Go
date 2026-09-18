@@ -515,6 +515,30 @@ reticulum-go zen -json ./pkg/... | jq .
 
 Use this during development and in CI before shipping apps that talk to shared instances or slow radios. See also [API reference](api-reference.md) path and link guidance and [Development and testing](development-and-testing.md#static-footgun-scan).
 
+## reticulum-go git (rngit)
+
+`reticulum-go git` runs an rngit-compatible repository node. The git protocol destination is `git.repositories` on the node identity and handles list, fetch, push, delete, create, fork, mirror, sync, permissions, releases, and work documents.
+
+When `serve_nomadnet = yes` is set in the `[pages]` section of the server config, a second destination `nomadnetwork.node` serves the browseable page surface that NomadNet clients load:
+
+- `/page/index.mu`, `group.mu`, `repo.mu`, `tree.mu`, `blob.mu`, `commits.mu`, `commit.mu`, `refs.mu`, `stats.mu`, `releases.mu`, `release.mu`, `work.mu`, `work_doc.mu`
+- `/file/artifact`, `/file/download`, `/file/workdoc` for release artifacts, raw blobs, and work document downloads
+- `/media` is a Reticulum-Go extension for repository blobs with optional WebP conversion (media_conversion config); the reference implementation has no such route
+
+Page requests carry NomadNet `var_*` fields (var_g, var_r, var_ref, var_path, var_scope, var_id, var_t, var_a, var_thanks, var_page, var_type, var_h, var_raw, var_render). Unidentified peers resolve as the null identity `d7db22f63b453c23bb0688dde565b7c1` and can be refused entirely by listing it under `blocked_identities`.
+
+Templates come from `<configdir>/templates/<name>.mu` with defaults compiled in. Supported names: base, front, group, repo, tree, blob, commits, commit, refs, stats, releases, release, work, work_doc, no_ident. Placeholders: `{PAGE_CONTENT}` in every template, plus `{NODE_NAME}`, `{VERSION}`, `{NAVIGATION}`, and `{GEN_TIME}` in base. A template file with the executable bit set is run and its stdout becomes the template, bounded by a 5 second timeout and a 1 MiB output cap.
+
+Markdown files (README, work documents) are converted to Micron, and blob pages apply syntax highlighting unless `syntax_highlight = no`. With `record_stats = yes` the node persists Python-compatible daily counters and renders a stats page with activity scoring; `stats_ignore_identities` and `stats_push_ignore_identities` exclude identities from counting.
+
+Deliberate differences from the Python reference:
+
+- Git subprocesses for pages are bounded by an 8 second timeout and blob display is capped at 256 KiB, same limits, but executable templates and blob head reads are bounded where the reference is not
+- `stats_push_ignore_identities` is honored; the reference parses it but never applies it
+- rperms rechecks repository admin permission, not group permission (reference bug)
+- Work document delete on a missing document returns Not Found instead of failing
+- Missing release artifacts return no response instead of slipping through a no-op guard
+
 ## Troubleshooting
 
 | Symptom | Fix |

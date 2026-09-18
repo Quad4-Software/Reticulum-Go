@@ -160,7 +160,10 @@ func TestLiveDoSProtectAutoLearnOnUDP(t *testing.T) {
 	defer b.Stop()
 
 	payload := []byte{1, 2, 3, 4, 5, 6, 7, 8}
-	deadline := time.Now().Add(45 * time.Second)
+	// Arming needs AdaptiveWarmupSamples plus AutoStableWindows consecutive
+	// quiet samples; under suite load a single perturbed window restarts the
+	// stable count, so keep generous headroom over the ~20s minimum.
+	deadline := time.Now().Add(150 * time.Second)
 	for time.Now().Before(deadline) && e.Phase() != protect.AutoArmed {
 		_ = a.ProcessOutgoing(payload)
 		time.Sleep(250 * time.Millisecond)
@@ -174,6 +177,7 @@ func TestLiveDoSProtectAutoLearnOnUDP(t *testing.T) {
 
 	got.Store(0)
 	flood := make([]byte, 48)
+	flood[0] = 0x01
 	for range 500 {
 		_ = a.ProcessOutgoing(flood)
 	}
