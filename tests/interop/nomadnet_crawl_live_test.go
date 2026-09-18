@@ -204,6 +204,10 @@ func TestLiveNomadNetCrawlFetchMU(t *testing.T) {
 	var collector *nomadnetAnnounceCollector
 	var nodes []announcedNode
 	var usedPeer directoryPeer
+	// Walk every uplink and keep the richest announce pool. An uplink that
+	// forwards only a trickle leaves too few candidates to survive
+	// link-establish failures, so the first uplink that answers is not
+	// automatically the crawl source.
 	for _, peer := range peers {
 		t.Logf("uplink %s %s:%d: waiting up to %s for announces", peer.Name, peer.Host, peer.Port, announceWait)
 		tr2 := transport.NewTransport(common.DefaultConfig())
@@ -240,11 +244,21 @@ func TestLiveNomadNetCrawlFetchMU(t *testing.T) {
 			tr2.Close()
 			continue
 		}
-		tr = tr2
-		collector = col
-		nodes = got
-		usedPeer = peer
-		break
+		t.Logf("uplink %s delivered %d announce(s)", peer.Name, len(got))
+		if len(got) > len(nodes) {
+			if tr != nil {
+				tr.Close()
+			}
+			tr = tr2
+			collector = col
+			nodes = got
+			usedPeer = peer
+		} else {
+			tr2.Close()
+		}
+		if len(nodes) >= nodeTarget {
+			break
+		}
 	}
 	if tr == nil {
 		t.Fatalf("no nomadnet announces observed via any of %d uplink(s), %s each", len(peers), announceWait)
