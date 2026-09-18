@@ -137,3 +137,6 @@ microvm/out/
 dist/
 
 .bughunter/
+/bindings/c/examples/*/librns-*
+/bindings/cpp/examples/*/cpp-*
+/bindings/c/examples/pageserver/identity
