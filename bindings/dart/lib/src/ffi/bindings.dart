@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 // ignore_for_file: non_constant_identifier_names, library_private_types_in_public_api

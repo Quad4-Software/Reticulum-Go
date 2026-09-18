@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package destination
@@ -121,6 +121,9 @@ func New(id *identity.Identity, direction byte, destType byte, appName string, t
 		return nil, common.ErrDestTransportRequiredForIn
 	}
 
+	// accept_link_requests defaults to True in Python RNS Destination.__init__
+	// (RNS 1.5.x). The flag is enforced at link request dispatch, so
+	// destinations that must refuse links call AcceptsLinks(false).
 	d := &Destination{
 		identity:        id,
 		direction:       direction,
@@ -128,7 +131,7 @@ func New(id *identity.Identity, direction byte, destType byte, appName string, t
 		appName:         appName,
 		aspects:         aspects,
 		transport:       transport,
-		acceptsLinks:    false,
+		acceptsLinks:    true,
 		proofStrategy:   ProveNone,
 		ratchetCount:    RatchetCount,
 		ratchetInterval: RatchetInterval,
@@ -164,7 +167,7 @@ func FromHash(hash []byte, id *identity.Identity, destType byte, transport Trans
 		destType:        destType,
 		hashValue:       hash,
 		transport:       transport,
-		acceptsLinks:    false,
+		acceptsLinks:    true,
 		proofStrategy:   ProveNone,
 		ratchetCount:    RatchetCount,
 		ratchetInterval: RatchetInterval,
@@ -361,8 +364,10 @@ func localAnnounceAllowed(iface, attached common.NetworkInterface) bool {
 
 // AcceptsLinks marks whether this destination should accept incoming links.
 // AcceptsLinks(true) registers the destination with transport if one is set.
-// Direction In already auto-registers in New. AcceptsLinks(false) only clears
-// the flag and does not unregister from transport.
+// Direction In already auto-registers in New. AcceptsLinks(false) makes the
+// destination silently drop inbound link requests; it clears the flag only
+// and does not unregister the destination from transport, which also routes
+// inbound data packets.
 func (d *Destination) AcceptsLinks(accepts bool) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -396,6 +401,18 @@ func (d *Destination) HandleIncomingLinkRequest(pkt any, transport any, networkI
 	pktObj, ok := pkt.(*packet.Packet)
 	if !ok {
 		return errors.New("invalid packet type")
+	}
+
+	// Python RNS Destination.incoming_link_request drops the request when
+	// accept_link_requests is False. Drop silently like upstream rather than
+	// erroring, so a refused destination is not a per-packet error log source.
+	d.mutex.RLock()
+	accepts := d.acceptsLinks
+	d.mutex.RUnlock()
+	if !accepts {
+		debug.Log(debug.DebugVerbose, "Destination does not accept link requests; dropping",
+			"hash", fmt.Sprintf("%x", d.GetHash()))
+		return nil
 	}
 
 	if incomingLinkHandler == nil {

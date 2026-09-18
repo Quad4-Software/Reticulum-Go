@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package backbone
@@ -23,10 +23,3 @@ func (p *goPoller) Wait(int) ([]pollEvent, error) {
 	}
 }
 func (p *goPoller) Close() error { return nil }
-
-func (p *goPoller) signal(fd int, events int) {
-	select {
-	case p.wake <- pollEvent{fd: fd, events: events}:
-	default:
-	}
-}

@@ -1,7 +1,5 @@
 # Cryptography
 
-## Purpose
-
 This document is the canonical cryptography reference for Reticulum-Go. It supports security reviews and correct use of APIs. For vulnerability reporting and CI practices see [Security](security.md).
 
 Implementation code:

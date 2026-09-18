@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: LicenseRef-Reticulum
 # Speedtest daemon entrypoint. Results go to stdout for docker logs.
 
 set -eu

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package cli
@@ -153,6 +153,11 @@ func runGitServer(args []string, opt ...Options) int {
 	if err != nil {
 		diagErr(stderr, "identity", err)
 		return 1
+	}
+	if len(opt) > 0 {
+		if fields := strings.Fields(opt[0].VersionLine); len(fields) > 1 {
+			rnsgit.Version = fields[1]
+		}
 	}
 	node, err := rnsgit.NewNode(cfg, id)
 	if err != nil {

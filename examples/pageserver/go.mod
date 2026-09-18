@@ -4,7 +4,7 @@ go 1.27.1
 
 require (
 	github.com/Quad4-Software/Reticulum-Go v0.0.0
-	github.com/Quad4-Software/msgpack/v5 v5.9.1
+	github.com/Quad4-Software/msgpack/v5 v5.9.2
 )
 
 require (

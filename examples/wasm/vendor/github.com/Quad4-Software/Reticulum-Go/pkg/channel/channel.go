@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package channel
@@ -360,7 +360,7 @@ func (c *Channel) HandleInbound(data []byte) error {
 	}
 
 	c.mutex.RLock()
-	stale := staleRXSequence(sequence, c.nextRxSequence)
+	stale := staleRXSequence(sequence, c.nextRxSequence) || farAheadRXSequence(sequence, c.nextRxSequence)
 	ctor := c.factories[msgType]
 	c.mutex.RUnlock()
 	if stale {
@@ -385,7 +385,7 @@ func (c *Channel) HandleInbound(data []byte) error {
 	}
 
 	c.mutex.Lock()
-	if staleRXSequence(sequence, c.nextRxSequence) {
+	if staleRXSequence(sequence, c.nextRxSequence) || farAheadRXSequence(sequence, c.nextRxSequence) {
 		c.mutex.Unlock()
 		return nil
 	}
@@ -420,6 +420,15 @@ func staleRXSequence(seq, next uint16) bool {
 		return seq > windowOverflow
 	}
 	return true
+}
+
+// farAheadRXSequence reports whether seq is more than WINDOW_MAX ahead of
+// nextRx, matching the Python Channel._receive check
+// "envelope.sequence > self._next_rx_sequence + self.WINDOW_MAX". The
+// comparison is deliberately non-modular, as in upstream: a peer cannot
+// pin the RX ring with sequences the honest window would never reach.
+func farAheadRXSequence(seq, next uint16) bool {
+	return uint32(seq) > uint32(next)+uint32(WindowMax)
 }
 
 func (c *Channel) emplaceRXLocked(env rxEnvelope) bool {

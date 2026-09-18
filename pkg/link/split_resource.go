@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package link
@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
@@ -22,10 +23,38 @@ var (
 	splitResourceMem     = make(map[string]*splitResourceBuf)
 	splitResourceBudget  = common.NewMemoryBudget(0)
 	splitResourceMetaMem = make(map[string][]byte)
+	splitAssemblies      = make(map[string]*splitAsm)
 )
+
+// maxSplitAssembliesPerLink bounds distinct in-flight split resources on one
+// link. Upstream paces segments so effectively one assembly advances at a
+// time; a small allowance covers pipelined senders without letting a peer
+// accumulate unbounded staged state.
+const maxSplitAssembliesPerLink = 4
+
+// maxSplitAssembliesTotal bounds the tracker map across all links.
+const maxSplitAssembliesTotal = 1024
+
+// maxSplitAssemblyBytes is the hard ceiling on staged bytes per split
+// resource regardless of advertised sizes. Upstream trusts the declared
+// total implicitly; a finite bound keeps a hostile peer from appending
+// unbounded data to memory or disk.
+const maxSplitAssemblyBytes = 1 << 30
 
 type splitResourceBuf struct {
 	data []byte
+}
+
+// splitAsm tracks one in-flight split-resource assembly keyed by
+// linkID:originalHash. Every segment advertisement declares the same
+// total_size and total_segments, so the receiver can bound staged bytes by
+// the declared total and require sequential indexes.
+type splitAsm struct {
+	nextIndex    uint16
+	declaredSegs uint16
+	declaredSize int64
+	written      int64
+	origHash     []byte
 }
 
 func (l *Link) useInMemoryResources() bool {
@@ -76,6 +105,10 @@ func (l *Link) handleSplitSegmentComplete(payload []byte, adv *resource.Resource
 	if adv == nil || len(adv.OriginalHash) == 0 {
 		return fmt.Errorf("split resource missing original hash")
 	}
+	key := l.splitResourceKey(adv.OriginalHash)
+	if err := admitSplitSegment(key, adv, len(payload)); err != nil {
+		return err
+	}
 	if l.useInMemoryResources() {
 		return l.handleSplitSegmentInMemory(payload, adv, pending)
 	}
@@ -90,8 +123,134 @@ func (l *Link) splitResourceKey(originalHash []byte) string {
 	return linkPart + ":" + hex.EncodeToString(originalHash)
 }
 
+// admitSplitSegment validates one completed segment against the assembly
+// record for its linkID:originalHash key. Upstream concludes segments
+// strictly in order (1..l) and repeats the same total_size/total_segments on
+// every advertisement, so sequential indexes and a cumulative byte bound
+// derived from the declared total reject replay, reordering, and append
+// amplification without affecting honest transfers. A segment index of 1
+// after a partial assembly means the sender restarted the transfer; the
+// record resets and callers truncate previously staged bytes. The record is
+// removed by finishSplitAssembly or dropSplitAssemblies.
+func admitSplitSegment(key string, adv *resource.ResourceAdvertisement, payloadLen int) error {
+	splitResourceMu.Lock()
+	defer splitResourceMu.Unlock()
+
+	asm, ok := splitAssemblies[key]
+	if ok && adv.SegmentIndex == 1 {
+		asm.nextIndex = 1
+		asm.declaredSegs = adv.TotalSegments
+		asm.declaredSize = adv.DataSize
+		asm.written = 0
+	}
+	if !ok {
+		if len(splitAssemblies) >= maxSplitAssembliesTotal {
+			return fmt.Errorf("split resource assembly limit reached")
+		}
+		prefix := key[:len(key)-len(hex.EncodeToString(adv.OriginalHash))]
+		count := 0
+		for k := range splitAssemblies {
+			if strings.HasPrefix(k, prefix) {
+				count++
+			}
+		}
+		if count >= maxSplitAssembliesPerLink {
+			return fmt.Errorf("per-link split resource assembly limit reached")
+		}
+		if adv.SegmentIndex != 1 {
+			return fmt.Errorf("split resource begins at segment %d, want 1", adv.SegmentIndex)
+		}
+		asm = &splitAsm{
+			nextIndex:    1,
+			declaredSegs: adv.TotalSegments,
+			declaredSize: adv.DataSize,
+			origHash:     append([]byte(nil), adv.OriginalHash...),
+		}
+		splitAssemblies[key] = asm
+	}
+
+	if adv.SegmentIndex != asm.nextIndex {
+		return fmt.Errorf("split resource segment %d out of order, want %d", adv.SegmentIndex, asm.nextIndex)
+	}
+	if adv.TotalSegments != asm.declaredSegs {
+		return fmt.Errorf("split resource segment count changed %d to %d", asm.declaredSegs, adv.TotalSegments)
+	}
+	// Peers compliant with upstream advertise data_size as the whole
+	// resource total. Some implementations advertise only the current
+	// segment body, so the segment count bound covers both conventions.
+	limit := asm.declaredSize
+	if segCap := int64(asm.declaredSegs) * int64(resource.MaxEfficientSize); segCap > limit {
+		limit = segCap
+	}
+	if limit > maxSplitAssemblyBytes {
+		limit = maxSplitAssemblyBytes
+	}
+	if asm.written+int64(payloadLen) > limit {
+		return fmt.Errorf("split resource exceeds staged size limit %d", limit)
+	}
+	asm.written += int64(payloadLen)
+	asm.nextIndex++
+	return nil
+}
+
+// finishSplitAssembly drops the assembly record for key once the last
+// segment completes.
+func finishSplitAssembly(key string) {
+	splitResourceMu.Lock()
+	delete(splitAssemblies, key)
+	splitResourceMu.Unlock()
+}
+
+// dropSplitAssemblies releases all staged split-resource state for this
+// link, including partial on-disk files. Called once when the link closes.
+func (l *Link) dropSplitAssemblies() {
+	if l == nil {
+		return
+	}
+	prefix := ""
+	if len(l.linkID) > 0 {
+		prefix = hex.EncodeToString(l.linkID) + ":"
+	}
+	var staged []string
+	splitResourceMu.Lock()
+	for k, asm := range splitAssemblies {
+		if strings.HasPrefix(k, prefix) {
+			delete(splitAssemblies, k)
+			staged = append(staged, hex.EncodeToString(asm.origHash))
+			if buf := splitResourceMem[k]; buf != nil {
+				splitResourceBudget.Release(int64(len(buf.data)))
+				delete(splitResourceMem, k)
+			}
+			if meta := splitResourceMetaMem[k]; meta != nil {
+				splitResourceBudget.Release(int64(len(meta)))
+				delete(splitResourceMetaMem, k)
+			}
+		}
+	}
+	splitResourceMu.Unlock()
+	for _, hashHex := range staged {
+		path := filepath.Join(l.resourceStorageDir(), hashHex)
+		_ = os.Remove(path)
+		_ = os.Remove(path + ".meta")
+	}
+}
+
 func (l *Link) handleSplitSegmentInMemory(payload []byte, adv *resource.ResourceAdvertisement, pending *RequestReceipt) error {
 	key := l.splitResourceKey(adv.OriginalHash)
+	if adv.SegmentIndex == 1 {
+		// Fresh transfer or restart: discard bytes and metadata staged by a
+		// previous incomplete attempt at the same original hash.
+		splitResourceMu.Lock()
+		if buf, ok := splitResourceMem[key]; ok && buf != nil {
+			l.resourceBudget().Release(int64(len(buf.data)))
+			buf.data = nil
+		}
+		if prev, ok := splitResourceMetaMem[key]; ok {
+			l.resourceBudget().Release(int64(len(prev)))
+			delete(splitResourceMetaMem, key)
+		}
+		splitResourceMu.Unlock()
+	}
 	fileBytes := payload
 	if adv.HasMetadata && adv.SegmentIndex == 1 {
 		if len(payload) < 3 {
@@ -142,6 +301,7 @@ func (l *Link) handleSplitSegmentInMemory(payload []byte, adv *resource.Resource
 	delete(splitResourceMem, key)
 	delete(splitResourceMetaMem, key)
 	splitResourceMu.Unlock()
+	finishSplitAssembly(key)
 
 	l.resourceBudget().Release(int64(len(data)))
 	if len(metaRaw) > 0 {
@@ -186,6 +346,11 @@ func (l *Link) handleSplitSegmentOnDisk(payload []byte, adv *resource.ResourceAd
 	metaPath := path + ".meta"
 
 	fileBytes := payload
+	if adv.SegmentIndex == 1 {
+		// Fresh transfer or restart: staged bytes and metadata from a
+		// previous incomplete attempt at this hash are discarded.
+		_ = os.Remove(metaPath)
+	}
 	if adv.HasMetadata && adv.SegmentIndex == 1 {
 		if len(payload) < 3 {
 			return fmt.Errorf("split segment metadata too short")
@@ -200,7 +365,11 @@ func (l *Link) handleSplitSegmentOnDisk(payload []byte, adv *resource.ResourceAd
 		fileBytes = payload[3+metaSize:]
 	}
 
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304
+	openFlags := os.O_CREATE | os.O_APPEND | os.O_WRONLY
+	if adv.SegmentIndex == 1 {
+		openFlags = os.O_CREATE | os.O_TRUNC | os.O_WRONLY
+	}
+	f, err := os.OpenFile(path, openFlags, 0o600) // #nosec G304
 	if err != nil {
 		return err
 	}
@@ -228,6 +397,7 @@ func (l *Link) handleSplitSegmentOnDisk(payload []byte, adv *resource.ResourceAd
 		_ = os.Remove(metaPath)
 	}
 	_ = os.Remove(path)
+	finishSplitAssembly(l.splitResourceKey(adv.OriginalHash))
 
 	if adv.IsRequest {
 		requestID := identity.TruncatedHash(data)
@@ -267,4 +437,5 @@ func resetSplitResourceMemoryForTest() {
 		splitResourceBudget.Release(int64(len(meta)))
 		delete(splitResourceMetaMem, k)
 	}
+	clear(splitAssemblies)
 }

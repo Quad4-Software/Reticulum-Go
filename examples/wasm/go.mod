@@ -9,7 +9,7 @@ require (
 
 require (
 	github.com/Quad4-Software/bzip2 v1.0.1 // indirect
-	github.com/Quad4-Software/msgpack/v5 v5.9.1 // indirect
+	github.com/Quad4-Software/msgpack/v5 v5.9.2 // indirect
 	github.com/Quad4-Software/tagparser/v2 v2.2.1 // indirect
 	github.com/dunglas/httpsfv v1.1.1 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 // Live rgosh interop: Go↔Go native and Go↔Python rnsh (--compat).
@@ -10,11 +10,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -294,11 +296,30 @@ func TestLiveGoCompatToPythonRnsh(t *testing.T) {
 		}
 		t.Fatal(err)
 	}
+	// Keep draining the listener stdout so RNS logging or prints can never
+	// fill the pipe and block the Python session pump.
+	go io.Copy(io.Discard, stdout)
 
 	rgoshBin := ensureRgosh(t)
-	cmd := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "--compat", "-N", "-m", destHex, "/bin/echo", "py-rnsh-ok")
+	cmd := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "--compat", "-N", "-m", "-v", destHex, "/bin/echo", "py-rnsh-ok")
+	// Hold stdin open for the session: with a null stdin rgosh sends an
+	// immediate stdin EOF, which makes Python's listener close the child
+	// stdin and race its own reaper. In RNS 1.5.x that path reaps the child
+	// in terminate() without recording the exit status, so the listener
+	// never emits CommandExitedMessage. Python-to-Python rnsh hits the same
+	// upstream bug, so the interop test keeps stdin open like an
+	// interactive session would.
+	stdinR, stdinW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = stdinR.Close(); _ = stdinW.Close() }()
+	cmd.Stdin = stdinR
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		if logBytes, rerr := os.ReadFile(filepath.Join(cfgDirA, "logfile")); rerr == nil && len(logBytes) > 0 {
+			t.Logf("python rns log tail:\n%s", tailLines(string(logBytes), 60))
+		}
 		t.Fatalf("rgosh --compat: %v\n%s", err, out)
 	}
 	if !bytes.Contains(out, []byte("py-rnsh-ok")) {
@@ -365,4 +386,12 @@ func TestLivePythonRnshToGoCompat(t *testing.T) {
 	if !bytes.Contains(out, []byte("go-compat-ok")) {
 		t.Fatalf("missing output: %s", out)
 	}
+}
+
+func tailLines(s string, n int) string {
+	lines := strings.Split(strings.TrimRight(s, "\n"), "\n")
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	return strings.Join(lines, "\n")
 }

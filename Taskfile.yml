@@ -86,8 +86,7 @@ tasks:
   scan:
     desc: Run gosec security scanner
     cmds:
-      # Default builds omit OpenCL (lxstamp_gpu). Scan the GPU path separately
-      # so intentional unsafe.Pointer in opencl_api does not trip G103.
+      # Vendored code and generated test fixtures are excluded from scanning.
       - gosec -exclude-dir=vendor -exclude-dir=.cache -exclude-dir=testdata {{.SCAN_GO_PACKAGES}}
 
   vulncheck:
@@ -181,6 +180,16 @@ tasks:
     desc: Enable tracked .githooks (Go, YAML, shellcheck, commit-msg, pre-push, RSM)
     cmds:
       - sh scripts/ci/install-git-hooks.sh
+
+  gitsign:setup:
+    desc: Configure gitsign commit signing (SIGSTORE_* env for private Fulcio/Rekor/OIDC)
+    cmds:
+      - sh scripts/ci/setup-gitsign.sh
+
+  gittuf:init:
+    desc: Initialize gittuf repository security policy (requires gittuf + signing key)
+    cmds:
+      - sh scripts/ci/gittuf-init.sh
 
   doctor:
     desc: Verify dev tools match CI pins

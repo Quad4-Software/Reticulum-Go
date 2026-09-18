@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package interfaces
@@ -109,10 +109,6 @@ func (ui *UDPInterface) dialUDP() (net.Conn, error) {
 	conn, err := net.ListenUDP("udp", ui.addr)
 	if err != nil {
 		return nil, common.WrapListenError(err)
-	}
-	if ui.targetAddr != nil {
-		_ = conn.SetReadBuffer(1064)
-		_ = conn.SetWriteBuffer(1064)
 	}
 	return conn, nil
 }

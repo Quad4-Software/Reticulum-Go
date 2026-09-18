@@ -1,7 +1,5 @@
 # Security
 
-## Purpose
-
 This page summarizes security practices for Reticulum-Go. The repository root [SECURITY.md](../../SECURITY.md) remains the authoritative source for reporting contacts and detailed CI paths. [Cryptography](cryptography.md) covers algorithms and key handling.
 
 ## Reporting vulnerabilities
@@ -73,7 +71,7 @@ Application code should use pkg/cryptography and pkg/identity. IFAC configuratio
 
 **Actions pinning.** Third-party actions are pinned to full commit SHAs. Dependabot proposes weekly Action updates (.github/dependabot.yml).
 
-**Tree integrity.** Root file reticulum-go.rsm is an rnid signed message embedding SHA-256 hashes of tracked files (excluding vendor/ trees). CI verifies signer e46112d44649266d71fe2193e00a4710 and rechecks bytes at job start and end (make tree-rsm-verify).
+**Tree integrity.** Root file reticulum-go.rsm is an rnid signed message embedding SHA-256 hashes of tracked files (excluding vendor/ trees). CI verifies signer e318cbc04468bd574db2b4523dddd710 and rechecks bytes at job start and end (make tree-rsm-verify).
 
 ## Releases
 

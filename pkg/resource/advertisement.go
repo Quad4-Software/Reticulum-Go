@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package resource
@@ -70,7 +70,7 @@ func NewResourceAdvertisement(res *Resource) *ResourceAdvertisement {
 
 	return &ResourceAdvertisement{
 		TransferSize:  res.GetTransferSize(),
-		DataSize:      res.GetDataSize(),
+		DataSize:      res.GetTotalSize(),
 		Parts:         int(res.GetSegments()),
 		Hash:          res.GetHash(),
 		RandomHash:    randomHash,

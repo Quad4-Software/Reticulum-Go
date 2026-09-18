@@ -1,7 +1,5 @@
 # Architecture
 
-## Purpose of this document
-
 This page explains how Reticulum-Go is structured, describing layers, control flow, persistence, and deployment patterns.
 
 For package-level detail see [Package map](package-map.md). For wire-level behavior see [Transport](transport.md) and [Interfaces](interfaces.md).

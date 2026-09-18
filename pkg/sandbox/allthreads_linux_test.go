@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 //go:build linux
@@ -24,7 +24,7 @@ func TestAllThreadsSyscallUsable(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {
 			t.Fatalf("AllThreadsSyscall panicked: %v\n"+
-				"Sandbox package must stay free of purego/fakecgo.", r)
+				"Sandbox package must stay free of fakecgo providers.", r)
 		}
 	}()
 

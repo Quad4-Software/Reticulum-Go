@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: LicenseRef-Reticulum
 # Serial HDLC peer matching RNS SerialInterface framing for live interop.
 # Opens SERIAL_DEVICE (PTY slave) with pyserial and echoes framed packets.
 

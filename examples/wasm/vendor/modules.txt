@@ -33,7 +33,7 @@ github.com/Quad4-Software/Reticulum-Go/pkg/wasm
 ## explicit; go 1.27.1
 github.com/Quad4-Software/bzip2/internal/enc
 github.com/Quad4-Software/bzip2/pkg/bzip2
-# github.com/Quad4-Software/msgpack/v5 v5.9.1
+# github.com/Quad4-Software/msgpack/v5 v5.9.2
 ## explicit; go 1.27.1
 github.com/Quad4-Software/msgpack/v5/pkg/msgpack
 github.com/Quad4-Software/msgpack/v5/pkg/msgpack/msgpcode

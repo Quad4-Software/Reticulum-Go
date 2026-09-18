@@ -100,7 +100,7 @@ Python utility rncp is ported as rgocp ([CLI utilities](utilities.md)). The prim
 
 See examples/resources for a minimal send/receive demo and examples/filetransfer for a directory browser.
 
-Transfer flow at a high level:
+Transfer flow:
 
 ```
 Sender                           Receiver

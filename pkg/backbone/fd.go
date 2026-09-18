@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package backbone
@@ -6,7 +6,6 @@ package backbone
 import (
 	"fmt"
 	"net"
-	"os"
 )
 
 // socketFD converts a kernel file descriptor to int for epoll and similar syscalls.
@@ -39,24 +38,5 @@ func connFD(conn net.Conn) (int, error) {
 		return fd, err
 	default:
 		return -1, fmt.Errorf("unsupported connection type %T", conn)
-	}
-}
-
-func listenerFD(ln net.Listener) (int, *os.File, error) {
-	switch l := ln.(type) {
-	case *net.TCPListener:
-		f, err := l.File()
-		if err != nil {
-			return -1, nil, err
-		}
-		return socketFD(f.Fd()), f, nil
-	case *net.UnixListener:
-		f, err := l.File()
-		if err != nil {
-			return -1, nil, err
-		}
-		return socketFD(f.Fd()), f, nil
-	default:
-		return -1, nil, fmt.Errorf("unsupported listener type %T", ln)
 	}
 }

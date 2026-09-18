@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package buffer
@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/channel"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 	"github.com/Quad4-Software/bzip2/pkg/bzip2"
 )
 
@@ -112,33 +113,52 @@ func (r *RawChannelReader) Read(p []byte) (n int, err error) {
 	return n, err
 }
 
-func (r *RawChannelReader) HandleMessage(msg channel.MessageBase) bool { // #nosec G115
-	if streamMsg, ok := msg.(*StreamDataMessage); ok && streamMsg.StreamID == uint16(r.streamID) {
-		r.mutex.Lock()
-		defer r.mutex.Unlock()
+// maxReaderBufferBytes bounds unread stream data held for the application.
+// The sender is remote-controlled, so without a bound a stalled reader lets
+// the peer grow this buffer without limit.
+const maxReaderBufferBytes = 8 << 20
 
-		if streamMsg.Compressed {
-			decompressed := decompressData(streamMsg.Data)
-			if decompressed != nil {
-				r.buffer.Write(decompressed)
-			}
-		} else {
-			r.buffer.Write(streamMsg.Data)
-		}
-
-		// Honor EOF even when compressed payload fails to decompress so a
-		// corrupt final chunk cannot leave the reader blocked forever.
-		if streamMsg.EOF {
-			r.eof = true
-		}
-
-		for _, cb := range r.callbacks {
-			cb(r.buffer.Len())
-		}
-
-		return true
+func (r *RawChannelReader) HandleMessage(msg channel.MessageBase) bool {
+	streamMsg, ok := msg.(*StreamDataMessage)
+	if !ok || streamMsg.StreamID != uint16(r.streamID) { // #nosec G115 -- stream ids are uint16 on the wire
+		return false
 	}
-	return false
+
+	var data []byte
+	if streamMsg.Compressed {
+		data = decompressData(streamMsg.Data)
+	} else {
+		data = streamMsg.Data
+	}
+
+	r.mutex.Lock()
+	if len(data) > 0 {
+		if r.buffer.Len()+len(data) <= maxReaderBufferBytes {
+			r.buffer.Write(data)
+		} else {
+			debug.Log(debug.DebugWarning, "Raw channel reader buffer full; dropping stream data", "stream_id", r.streamID)
+		}
+	}
+
+	// Honor EOF even when compressed payload fails to decompress so a
+	// corrupt final chunk cannot leave the reader blocked forever.
+	if streamMsg.EOF {
+		r.eof = true
+	}
+
+	ready := r.buffer.Len()
+	cbs := make([]func(int), 0, len(r.callbacks))
+	for _, cb := range r.callbacks {
+		cbs = append(cbs, cb)
+	}
+	r.mutex.Unlock()
+
+	// Invoke callbacks without the lock held so a callback that reads or
+	// unregisters cannot deadlock against the channel dispatch goroutine.
+	for _, cb := range cbs {
+		cb(ready)
+	}
+	return true
 }
 
 type RawChannelWriter struct {

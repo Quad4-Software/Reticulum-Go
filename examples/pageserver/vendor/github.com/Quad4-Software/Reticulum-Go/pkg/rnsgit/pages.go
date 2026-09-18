@@ -1,30 +1,20 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package rnsgit
 
 import (
 	"encoding/hex"
-	"fmt"
 	"net/url"
 	"path"
-	"sort"
 	"strings"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
-// Page paths served by the nomadnet node, matching Python NomadNetworkNode.
-const (
-	pagePathIndex = "/page/index.mu"
-	pagePathMedia = "/media"
-)
-
-// imageExts are media extensions eligible for WebP conversion, matching
-// Python IMAGE_EXTS.
+// imageExts are media extensions eligible for WebP conversion.
 var imageExts = map[string]bool{
 	".webp": true, ".png": true, ".jpg": true, ".jpeg": true,
 	".gif": true, ".tiff": true, ".tif": true, ".bmp": true,
@@ -37,19 +27,6 @@ const nullIdentHash = "d7db22f63b453c23bb0688dde565b7c1"
 // noIdentTemplate matches Python DEFAULT_NO_IDENT_TEMPLATE.
 const noIdentTemplate = ">>No Identity\n\nThis page requires identification, and none was received.\n"
 
-func (n *Node) startPageNode() error {
-	if n.dest == nil {
-		return fmt.Errorf("destination not ready")
-	}
-	_ = n.dest.RegisterRequestHandlerAny(pagePathIndex, func(_ string, _ []byte, _ []byte, _ []byte, remote *identity.Identity, _ int64) any {
-		return n.renderRepoIndex(remote)
-	}, destination.AllowAll, nil)
-	_ = n.dest.RegisterRequestHandlerAny(pagePathMedia, func(_ string, data []byte, _ []byte, _ []byte, remote *identity.Identity, _ int64) any {
-		return n.serveMedia(data, remote)
-	}, destination.AllowAll, nil)
-	return nil
-}
-
 // remotePageHash returns the identity hash used for page-level permission
 // checks, substituting the null identity for unidentified peers like Python.
 func remotePageHash(remote *identity.Identity) []byte {
@@ -60,50 +37,15 @@ func remotePageHash(remote *identity.Identity) []byte {
 	return remote.Hash()
 }
 
-func (n *Node) renderRepoIndex(remote *identity.Identity) []byte {
-	hash := remotePageHash(remote)
-	access := n.accessTable()
-	if remote == nil && access.Blocked[nullIdentHash] {
-		return []byte(noIdentTemplate)
-	}
-	var b strings.Builder
-	b.WriteString(">Reticulum Git Node\n\n")
-	b.WriteString(n.cfg.NodeName)
-	b.WriteString("\n\nRepositories destination:\n`F")
-	b.WriteString(n.ReposDestHash())
-	b.WriteString("`\n\n")
-	var groups []string
-	for group := range access.Groups {
-		groups = append(groups, group)
-	}
-	sort.Strings(groups)
-	for _, group := range groups {
-		ga := access.Groups[group]
-		var repos []string
-		for name := range ga.Repositories {
-			if access.Resolve(group, name, hash, permRead) {
-				repos = append(repos, name)
-			}
-		}
-		if len(repos) == 0 {
-			continue
-		}
-		sort.Strings(repos)
-		b.WriteString(group)
-		b.WriteString(" (")
-		b.WriteString(fmt.Sprintf("%d", len(repos)))
-		b.WriteString(" repos)\n")
-		for _, name := range repos {
-			b.WriteString("  - ")
-			b.WriteString(name)
-			b.WriteString("\n")
-		}
-	}
-	return []byte(b.String())
+// serveMediaRequest wraps the media handler for the page destination.
+func (n *Node) serveMediaRequest(_ string, data []byte, _ []byte, _ []byte, remote *identity.Identity, _ int64) any {
+	return n.serveMedia(data, remote)
 }
 
-// serveMedia implements the Python serve_media handler. It serves repository
-// blobs and optionally converts images to WebP.
+// serveMedia serves repository blobs to page clients and optionally converts
+// images to WebP. This endpoint is a Reticulum-Go extension: the reference
+// implementation exposes blobs only through /file/download. Media requests
+// carry {"key": <token>, "path": "/media/group/repo/ref/path"}.
 func (n *Node) serveMedia(data []byte, remote *identity.Identity) any {
 	req, err := DecodeRequest(data)
 	if err != nil || req == nil {
@@ -157,6 +99,7 @@ func (n *Node) serveMedia(data []byte, remote *identity.Identity) any {
 	if err != nil {
 		return nil
 	}
+	n.downloadSucceeded(group, repo, remote)
 	meta, _ := msgpack.Marshal(map[string]any{"name": []byte(fileName)})
 	return link.FileResponse{Data: blob, MetadataPacked: meta, AutoCompress: false}
 }

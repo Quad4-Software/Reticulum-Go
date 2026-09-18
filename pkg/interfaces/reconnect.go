@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package interfaces
@@ -48,12 +48,6 @@ func (rd *reconnectDriver) setHooks(onDown, onUp func()) {
 func (rd *reconnectDriver) setOnExhausted(fn func()) {
 	rd.mu.Lock()
 	rd.onExhausted = fn
-	rd.mu.Unlock()
-}
-
-func (rd *reconnectDriver) setAllowIdleRetry(allow bool) {
-	rd.mu.Lock()
-	rd.allowIdleRetry = allow
 	rd.mu.Unlock()
 }
 

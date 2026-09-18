@@ -41,7 +41,7 @@ env:
   GOPROXY: "off"
   GOTOOLCHAIN: local
   TESTSUMMARY_QUIET: "1"
-  RNS_REQUIRED_SIGNER: e46112d44649266d71fe2193e00a4710
+  RNS_REQUIRED_SIGNER: e318cbc04468bd574db2b4523dddd710
 
 jobs:
   changes:
@@ -189,6 +189,45 @@ jobs:
 
       - name: Run tests
         run: task test
+
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
+
+  test-live-interop:
+    name: Live interop (Go/Python RNS)
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.core == 'true' || needs.changes.outputs.ci == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup CI
+        uses: ./.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Python venv, RNS, and pyserial
+        run: sh scripts/ci/setup-venv-pip.sh 'rns==1.5.4' 'pyserial'
+
+      - name: Build pageserver example for live tests
+        run: |
+          cd examples/pageserver
+          go build -mod=vendor -o example-pageserver .
+
+      - name: Run live interop suite
+        env:
+          RUN_LIVE_INTEROP: "1"
+          PYTHON_INTEROP: ${{ github.workspace }}/.venv/bin/python
+        run: go test -count=1 -timeout 30m ./tests/interop/
 
       - name: Verify workspace clean
         uses: ./.github/actions/verify-workspace-clean

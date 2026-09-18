@@ -25,7 +25,8 @@ def write_config(cfg_dir: str, listen_port: int, forward_port: int) -> None:
                     "[reticulum]",
                     "enable_transport = yes",
                     "share_instance = no",
-                    "loglevel = 2",
+                    "loglevel = 4",
+                    "logdest = file",
                     "",
                     "[interfaces]",
                     "",
@@ -64,7 +65,7 @@ async def main_async() -> int:
             allowed_file=None,
             disable_auth=True,
             # Announce once so peers can resolve a path without a prior cache.
-            announce_period=0,
+            announce_period=float(os.environ.get("INTEROP_ANNOUNCE_PERIOD", "0")),
             no_remote_command=False,
         ),
     )

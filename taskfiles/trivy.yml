@@ -1,5 +1,10 @@
 version: '3'
 
+vars:
+  # OpenVEX file at repo root documents findings that do not apply.
+  VEX_FLAGS:
+    sh: test -f openvex.json && printf '%s' '--vex openvex.json' || true
+
 tasks:
   _trivy-require:
     internal: true
@@ -21,13 +26,13 @@ tasks:
     desc: Run Trivy vulnerability scan
     deps: [_trivy-require]
     cmds:
-      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --scanners vuln --severity HIGH,CRITICAL --timeout 90m .
+      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --scanners vuln --severity HIGH,CRITICAL --timeout 90m {{.VEX_FLAGS}} .
 
   "trivy:scan-all":
     desc: Run Trivy full scan (vulnerabilities, secrets, misconfig)
     deps: [_trivy-require]
     cmds:
-      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --scanners vuln,secret,misconfig .
+      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --scanners vuln,secret,misconfig {{.VEX_FLAGS}} .
 
   sbom:
     desc: Generate SBOM files (SPDX and CycloneDX formats)
@@ -61,7 +66,7 @@ tasks:
     deps: [_trivy-require]
     cmds:
       - mkdir -p reports
-      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --scanners vuln --format json --output reports/trivy-vuln.json --timeout 90m .
+      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --scanners vuln --format json --output reports/trivy-vuln.json --timeout 90m {{.VEX_FLAGS}} .
 
   "trivy:scan:sarif":
     desc: Run Trivy scan with SARIF output (for GitHub/GitLab integration)
@@ -113,4 +118,4 @@ tasks:
     desc: Run Trivy scan for CI (exits with non-zero code on findings)
     deps: [_trivy-require]
     cmds:
-      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --timeout 90m .
+      - trivy fs {{.TRIVY_SKIP_DIR_FLAGS}} --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --timeout 90m {{.VEX_FLAGS}} .

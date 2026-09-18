@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 //go:build !js
@@ -588,6 +588,11 @@ func (r *RNodeInterface) writeFrameBytesLocked(frame []byte) error {
 	return nil
 }
 
+// rnodeMaxQueuedPackets bounds outbound packets retained while the radio
+// holds flow control busy. A stalled or hostile peer can otherwise grow the
+// queue without limit, one entry per packet the stack tries to transmit.
+const rnodeMaxQueuedPackets = 256
+
 // ProcessOutgoing frames one packet or queues it while flow control is busy.
 func (r *RNodeInterface) ProcessOutgoing(data []byte) error {
 	r.Mutex.RLock()
@@ -598,6 +603,11 @@ func (r *RNodeInterface) ProcessOutgoing(data []byte) error {
 	}
 	r.queueMu.Lock()
 	if !r.interfaceReady {
+		if len(r.packetQueue) >= rnodeMaxQueuedPackets {
+			r.queueMu.Unlock()
+			debug.Log(debug.DebugVerbose, "RNode transmit queue full; dropping packet", "name", r.Name)
+			return nil
+		}
 		r.packetQueue = append(r.packetQueue, append([]byte(nil), data...))
 		r.queueMu.Unlock()
 		return nil

@@ -15,7 +15,8 @@
 - [ ] `COMPATIBILITY.md` updated for wire, RPC, or Python RNS parity changes
 - [ ] Tests added or updated for behavior changes
 - [ ] PR title follows Conventional Commits (`type(scope): summary`)
-- [ ] Commits signed when practical (`git commit -S`)
+- [ ] Every commit signed off (`git commit -s`, DCO)
+- [ ] Commits signed when practical (`git commit -S` or gitsign)
 
 ## RSM / inventory
 
