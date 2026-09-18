@@ -93,7 +93,9 @@ type pathTableEntryJSON struct {
 
 // createSessionRequest is the body of POST /v1/sessions. IdentityPath, when
 // set, is a server-local filesystem path used to load or create a
-// persistent identity. When empty a new in-memory identity is generated and
+// persistent identity. It must resolve inside the server's identity
+// storage directory (configdir/storage/identities); other paths are
+// rejected with 400. When empty a new in-memory identity is generated and
 
 // discarded on session close.
 type createSessionRequest struct {
