@@ -75,7 +75,7 @@ Report issues privately (see [SECURITY.md](SECURITY.md)). Sandbox is on by defau
 
 ## License
 
-[Reticulum License](LICENSE), the same license as the Python reference implementation since RNS 0.9.4. Earlier revisions carried MIT, then 0BSD, then Apache-2.0. [LEGAL.md](LEGAL.md) records the boundary commits.
+[Reticulum License](LICENSE), the same license as the Python reference implementation since RNS 0.9.4. Earlier revisions carried MIT, then 0BSD, then Apache-2.0. [LEGAL.md](LEGAL.md) records the boundary commits. [AUTHORS.md](AUTHORS.md) lists authorship and attribution.
 
 ## Upstream
 

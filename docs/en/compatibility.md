@@ -105,7 +105,8 @@ Wire format is stable across 1.2.x to 1.4.x. Notable behavior differences:
 
 ## Go-only extensions
 
-These do not change the wire format:
+These do not change the wire format. For local hardening bounds and
+wire-visible extensions see [deviations.md](deviations.md):
 
 | Feature | Package / location |
 |---------|-------------------|
