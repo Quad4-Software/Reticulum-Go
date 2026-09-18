@@ -2,13 +2,50 @@
 
 ## v1.2.1 - 2026-09-TBD
 
+### Added
+- rngit NomadNet page server on a dedicated nomadnetwork.node destination (serve_nomadnet config): front, group, repo, tree, blob, commits, commit, refs, stats, releases, release, work and work_doc pages plus /file/artifact, /file/download and /file/workdoc endpoints, matching the Python rngit 1.5.2 page surface
+- rngit page template overrides from <configdir>/templates/<name>.mu with {PAGE_CONTENT}, {NODE_NAME}, {VERSION}, {NAVIGATION} and {GEN_TIME} substitution; executable templates run bounded by a timeout and output cap
+- rngit Markdown to Micron conversion for README and work document rendering, plus syntax highlighting for blob pages (syntax_highlight config)
+- rngit usage statistics (record_stats config): Python-compatible msgpack stats file, per-repo view/fetch/push/download counters, activity scoring, charts, and working stats_push_ignore_identities
+- rngit thanks counters on repo and release pages with link-scoped deduplication
+- DCO sign-off enforcement: commit-msg hook requires a Signed-off-by trailer and a required dco-signoff CI job re-checks every PR commit (SKIP_DCO_HOOK=1 to bypass)
+- Release attestations embed an RFC 3161 timestamp (COSIGN_TSA_URL, default tsa.sigstore.dev) and can upload to a transparency log via COSIGN_REKOR_URL
+- openvex.json at the repo root records scanner findings that do not apply; Trivy consumes it during scans
+- fuzz/oss-fuzz submission files (project.yaml, Dockerfile, build.sh) covering wire-parser fuzz targets for google/oss-fuzz or ClusterFuzzLite
+- task gitsign:setup configures keyless commit signing, including private Fulcio/Rekor/OIDC via SIGSTORE_* env vars; task gittuf:init scaffolds a gittuf repository security policy
+- Live interop coverage for previously untested paths: rgoprobe/rnprobe both directions, Python rncp sender to rgocp listener, Python buffer stream to Go, Python TCPClientInterface against Go TCPServerInterface full session, full-stack serial over PTY, full-stack pipe via TCP bridge, WebSocket and WebTransport echo, rgospeed UDP pair and rgosnap against a Go daemon
+- test-live-interop CI job runs the RUN_LIVE_INTEROP suite on ubuntu-latest with a pinned rns==1.5.4 venv
+- rgosh --compat interop test holds stdin open like an interactive session: Python rnsh 1.5.x loses the remote exit code when stdin EOF arrives while the child is running (its close_stdin path reaps the child via terminate() before the poll loop records the status), so CommandExitedMessage is never sent. Python-to-Python rnsh hits the same upstream race
+
+### Security
+- Vendored msgpack decoder no longer panics on unhashable map keys: DecodeUntypedMap and the typed map path reject non-comparable keys, and bin keys decode to string like Python msgpack dict keys. A 4-byte payload such as {[1]: 2} previously crashed the process on wire decode paths such as rnsgit request handling. Fix shipped upstream in Quad4-Software/msgpack v5.9.2 (changelog 5.8.3)
+- Packet dispatch workers and inbound preprocessing now recover panics per packet instead of letting one hostile packet kill the process
+- Split-resource assembly is bounded: sequential segment enforcement, segment-count consistency, replay rejection, per-link assembly cap of 4, global tracker cap, and a 1 GiB hard ceiling per assembly. Declared d is tolerated in both upstream total-size and per-segment conventions
+- Resource advertisement d now carries the whole-resource total size on every segment, matching upstream ResourceAdvertisement.d semantics (was per-segment wireBody length)
+- Compressed resource decompression is bounded per segment at min(d, AutoCompressMaxSize); non-split advertisements with d above AutoCompressMaxSize are rejected up front
+- RawChannelReader caps unread buffered data at 8 MiB and invokes callbacks outside the lock; bounded bzip2 stream decompression
+- Channel rejects message sequences more than WINDOW_MAX (48) ahead of the next expected sequence, matching the receive-window check upstream applies
+- RNode packet queues are capped at 256 packets per direction, dropping newest on overflow
+- Destination.AcceptsLinks now actually drops inbound link requests, and defaults to true matching Python accept_link_requests
+
+### Removed
+- OpenCL/GPU stamping backend and the lxstamp_gpu build tag: stamps are CPU-only, stamps remain byte-identical and interoperable. purego/fakecgo dependency dropped, so the daemon can never import a fakecgo provider that breaks AllThreadsSyscall under CGO_ENABLED=0
+- Dead helpers removed after call-site verification: knownDestHex, rnodeIsIntDataCmd, setAllowIdleRetry, Hub.removeListener, stringBody, pageNav, sortDays, thanksHashHex, setNonblockConn, listenerFD, goPoller.signal, and the GPU-era sha256_fast oracle
+
 ### Fixed
+- Transport dropped valid inbound packets on IFAC interfaces: the multi-hop PLAIN/GROUP filter in handleInboundPacket parsed the still-IFAC-masked header, so it read IFAC bytes as the hops field and rejected packets whose mask happened to decode as PLAIN or GROUP. The filter now runs in preprocessInboundPacket after IFAC unmasking, matching Python Transport.inbound ordering
+- Live interop UDP configs wrote target_host/target_port, which Python UDPInterface ignores, so Python-side transmits silently failed with 'no attribute forward_ip'. The shared config writers now emit forward_ip/forward_port (Go accepts both spellings)
+- Announce dedup raced on multi-worker inbound paths: seenAnnounces was checked and inserted ~100 lines apart, so a burst of identical announces could forward two or more copies. The dedup slot is now claimed atomically at check time and released only on the post-check failure returns
+- dos_protection auto mode could fail to arm on multi-interface engines: the quiet-window streak and drift tracker were engine-global, so a sample on any other interface reset a quiet interface's streak. Both are now per-interface
+- dos-protect auto-learn live test flooded with all-zero frames, which classify as unknown traffic that prefer-keep leniency deliberately lets ride to the link-rate cap; the flood now uses announce-class frames, matching the shed-first class the gate exists to drop
+- NomadNet crawl test pinned a single public uplink (rns.michmesh.net) that now accepts TCP but forwards no traffic; it walks the shared public peer list until an uplink delivers announces
 - UDP interfaces silently dropped bursts under load: dialUDP capped SO_RCVBUF/SO_SNDBUF at 1064 bytes and AutoInterface listeners capped read buffers at 1024/MTU bytes, so the kernel discarded packets whenever the read loop was busy. Caps removed; kernel defaults now apply. Regression test floods a stalled reader with 64 packets
 - linux/ppc64 (big-endian) builds: vendored go.bug.st/serial v1.8.0 only stubbed specialbaudrate for ppc64le, leaving ppc64 to hit undefined unix.TCGETS2/TCSETS2. Patched vendor tree gives ppc64 the same InvalidSpeed stub; vendor-sync.sh reapplies the patch after re-vendoring
 
 ### Changed
 - pbt bumped to v1.0.2: built-in generators now carry their own shrinkers, so tests dropped redundant WithShrinker wiring and Tuple2 properties moved to ForAll2
 - Test files and test functions renamed to match the technique they actually use (malformed, edge, invariants, oracle, fault, perf, golden, fuzz); health.OracleSnapshot/TransportOracle renamed to CounterSnapshot/TransportCounters since the type is a counter view, not a decision procedure
+- rngit page routes moved off the git.repositories destination to a dedicated nomadnetwork.node destination, matching where NomadNet clients browse for them; /media blob serving remains a Reticulum-Go extension not present in the reference
 
 ## v1.2.0 - 2026-09-15
 
