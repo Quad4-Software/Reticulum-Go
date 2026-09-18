@@ -1,7 +1,5 @@
 # Security
 
-## Purpose
-
 This page summarizes security practices for Reticulum-Go. The repository root [SECURITY.md](../../SECURITY.md) remains the authoritative source for reporting contacts and detailed CI paths. [Cryptography](cryptography.md) covers algorithms and key handling.
 
 ## Reporting vulnerabilities

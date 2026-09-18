@@ -27,7 +27,7 @@ The primary deliverables are:
 
 Reticulum is not a replacement for IP routing. It is an overlay that gives applications named destinations, encrypted links, and multi-hop paths across whatever physical interfaces you configure.
 
-At a high level:
+The stack in one line:
 
 ```
 Application  -->  Destination / Link  -->  Transport  -->  Interface  -->  Physical network
@@ -35,7 +35,7 @@ Application  -->  Destination / Link  -->  Transport  -->  Interface  -->  Physi
 
 An application registers interest in a destination hash. Transport learns routes from signed announces and forwards packets hop by hop. Interfaces move bytes on the wire and may apply an Interface Access Code (IFAC) so only authorized peers can join a logical network segment.
 
-See [Architecture](architecture.md) for a fuller picture.
+See [Architecture](architecture.md) for the layered model and control flow.
 
 ## Feature status
 

@@ -1,7 +1,5 @@
 # Control API
 
-## Purpose
-
 pkg/controlapi exposes a localhost JSON and WebSocket API so applications in any language can use Reticulum destinations, announces, links, and requests without embedding the Go transport stack.
 
 The server is optional and disabled by default.
