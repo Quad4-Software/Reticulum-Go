@@ -43,6 +43,28 @@ jobs:
           subjectPatternError: |
             PR title must follow Conventional Commits (type(scope): summary).
 
+  dco-signoff:
+    name: DCO sign-off
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check Signed-off-by trailers
+        env:
+          GITHUB_EVENT_NAME: pull_request
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
+        run: sh scripts/ci/verify-dco.sh
+
   signed-commits:
     name: Signed commits (advisory)
     runs-on: ubuntu-latest

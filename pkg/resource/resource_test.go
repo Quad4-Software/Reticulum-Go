@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package resource
@@ -187,7 +187,6 @@ func TestPBTResourceSegmentsReassemble(t *testing.T) {
 			}
 			return bytes.Equal(buf.Bytes(), data)
 		},
-		pbt.WithShrinker(pbt.SliceShrinker[byte]()),
 	)
 	pbt.Check(t, prop, pbt.WithRuns(80), pbt.WithSeed(17))
 }

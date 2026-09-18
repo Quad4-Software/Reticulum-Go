@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package controlapi
@@ -43,6 +43,10 @@ type Server struct {
 	authKey   []byte
 	startedAt time.Time
 
+	// identityDir bounds where session identity_path may point. Empty means
+	// persistent session identities are disabled (no config dir in scope).
+	identityDir string
+
 	httpServer   *http.Server
 	listener     net.Listener
 	unixListener net.Listener
@@ -86,6 +90,9 @@ func New(t *transport.Transport, lifecycle Lifecycle, cfg *common.ReticulumConfi
 		startedAt:    time.Now(),
 		sessions:     make(map[string]*session),
 		announceSubs: make(map[*wsClient]struct{}),
+	}
+	if cfg.ConfigPath != "" {
+		s.identityDir = filepath.Join(filepath.Dir(cfg.ConfigPath), "storage", "identities")
 	}
 
 	mux := http.NewServeMux()
@@ -310,7 +317,11 @@ func (s *Server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	ident, err := loadOrCreateIdentity(req.IdentityPath)
+	ident, err := s.loadOrCreateIdentity(req.IdentityPath)
+	if errors.Is(err, errIdentityPathOutside) {
+		writeError(w, http.StatusBadRequest, "identity_path must be inside the server identity directory")
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("identity: %v", err))
 		return
@@ -333,21 +344,69 @@ func (s *Server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// errIdentityPathOutside marks an identity_path that resolves outside the
+// server's identity storage directory.
+var errIdentityPathOutside = errors.New("controlapi: identity_path outside identity directory")
+
+// resolveExisting resolves symlinks on the deepest existing ancestor of
+// path and rejoins the remaining components.
+func resolveExisting(path string) string {
+	var tail []string
+	probe := filepath.Clean(path)
+	for {
+		resolved, err := filepath.EvalSymlinks(probe)
+		if err == nil {
+			for _, part := range tail {
+				resolved = filepath.Join(resolved, part)
+			}
+			return resolved
+		}
+		parent := filepath.Dir(probe)
+		if parent == probe {
+			return filepath.Clean(path)
+		}
+		tail = append([]string{filepath.Base(probe)}, tail...)
+		probe = parent
+	}
+}
+
+// resolveIdentityPath maps a client-supplied identity_path to an absolute
+// path inside s.identityDir, following symlinks where the target exists.
+func (s *Server) resolveIdentityPath(path string) (string, error) {
+	if s.identityDir == "" {
+		return "", errIdentityPathOutside
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	resolved := resolveExisting(abs)
+	base := resolveExisting(s.identityDir)
+	if resolved != base && !strings.HasPrefix(resolved, base+string(filepath.Separator)) {
+		return "", errIdentityPathOutside
+	}
+	return resolved, nil
+}
+
 // loadOrCreateIdentity loads the identity at path, creates and persists a
 // new one there if path is set but does not exist yet, or generates an
 // ephemeral in-memory identity when path is empty.
-func loadOrCreateIdentity(path string) (*identity.Identity, error) {
+func (s *Server) loadOrCreateIdentity(path string) (*identity.Identity, error) {
 	if path == "" {
 		return identity.NewIdentity()
 	}
-	if _, err := os.Stat(path); err == nil {
-		return identity.LoadIdentityFile(path, nil)
+	resolved, err := s.resolveIdentityPath(path)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := os.Stat(resolved); err == nil {
+		return identity.LoadIdentityFile(resolved, nil)
 	}
 	ident, err := identity.NewIdentity()
 	if err != nil {
 		return nil, err
 	}
-	if err := ident.ToFile(path); err != nil {
+	if err := ident.ToFile(resolved); err != nil {
 		return nil, err
 	}
 	return ident, nil

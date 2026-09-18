@@ -1,0 +1,8 @@
+homepage: "https://github.com/Quad4-Software/Reticulum-Go"
+main_repo: "https://github.com/Quad4-Software/Reticulum-Go"
+language: go
+primary_contact: "security@quad4.io"
+fuzzing_engines:
+  - libfuzzer
+sanitizers:
+  - address

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package controlapi
@@ -55,6 +55,7 @@ func (s *Server) handleRegisterDestination(w http.ResponseWriter, r *http.Reques
 	if req.AcceptsLinks {
 		wireInboundLinks(sess, dest)
 	} else {
+		dest.AcceptsLinks(false)
 		debug.Log(debug.DebugInfo, common.MsgControlAPINoAcceptsLinks, "hash", hashHex)
 	}
 

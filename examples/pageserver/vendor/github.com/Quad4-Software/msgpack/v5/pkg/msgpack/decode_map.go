@@ -20,6 +20,7 @@ var (
 var (
 	mapStringInterfacePtrType = reflect.TypeFor[*map[string]any]()
 	mapStringInterfaceType    = mapStringInterfacePtrType.Elem()
+	bytesType                 = reflect.TypeFor[[]byte]()
 )
 
 func decodeMapValue(d *Decoder, v reflect.Value) error {
@@ -219,6 +220,16 @@ func (d *Decoder) DecodeUntypedMap() (map[any]any, error) {
 		if err != nil {
 			return nil, err
 		}
+		// bin keys decode as []byte, which is unhashable in Go; Python
+		// msgpack accepts bytes as dict keys, so convert to string like the
+		// typed map[string]any path does. Arrays and maps remain unhashable
+		// and must error rather than panic on map insertion.
+		if b, ok := mk.([]byte); ok {
+			mk = string(b)
+		}
+		if mk != nil && !reflect.TypeOf(mk).Comparable() {
+			return nil, fmt.Errorf("msgpack: unhashable map key type: %T", mk)
+		}
 
 		mv, err := d.decodeInterfaceCond()
 		if err != nil {
@@ -287,6 +298,17 @@ func (d *Decoder) decodeTypedMapValue(v reflect.Value, n int) error {
 		mk := d.newValue(keyType).Elem()
 		if err := d.DecodeValue(mk); err != nil {
 			return err
+		}
+		if keyType.Kind() == reflect.Interface {
+			if ek := mk.Elem(); ek.IsValid() {
+				if ek.Type() == bytesType {
+					// bin keys must not reach SetMapIndex as []byte; convert
+					// to string like a map[string]... decode would.
+					mk.Set(reflect.ValueOf(string(ek.Bytes())))
+				} else if !ek.Type().Comparable() {
+					return fmt.Errorf("msgpack: unhashable map key type: %s", ek.Type())
+				}
+			}
 		}
 
 		mv := d.newValue(valueType).Elem()

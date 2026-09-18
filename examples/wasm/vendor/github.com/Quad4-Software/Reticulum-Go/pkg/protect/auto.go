@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package protect
@@ -83,16 +83,16 @@ func (e *Engine) beginRelearn(reason string) {
 	e.autoPhase.Store(int32(AutoLearning))
 	e.mu.Lock()
 	e.learnStarted = e.now()
-	e.stableWindows = 0
-	e.driftWindows = 0
 	e.promoted = false
-	e.driftSec = 0
-	e.driftSecMaxPPS = 0
 	for _, st := range e.ifaces {
 		st.adapt = adaptiveState{}
 		st.adaptSec = 0
 		st.adaptPeakPPS = 0
 		st.adaptPeakBPS = 0
+		st.stableWindows = 0
+		st.driftWindows = 0
+		st.driftSec = 0
+		st.driftSecMaxPPS = 0
 		st.tripAt = nil
 		st.coolUntil = time.Time{}
 	}
@@ -134,15 +134,18 @@ func (e *Engine) maybePromoteOrDrift(iface string, pps, bps float64) {
 		(ewmaBPS <= 0 || bps <= ewmaBPS*1.5)
 
 	if phase == AutoLearning {
+		// The quiet streak is per-interface: a sample on any other iface
+		// must not reset this one's stable count, otherwise stray traffic
+		// on a shared engine starves arming for a quiet iface.
+		e.mu.Lock()
+		st = e.ifaceLocked(iface)
 		if !quiet {
-			e.mu.Lock()
-			e.stableWindows = 0
+			st.stableWindows = 0
 			e.mu.Unlock()
 			return
 		}
-		e.mu.Lock()
-		e.stableWindows++
-		stable := e.stableWindows
+		st.stableWindows++
+		stable := st.stableWindows
 		e.mu.Unlock()
 		if totalSamples >= minSamples && readyIfaces > 0 &&
 			now.Sub(learnStarted) >= minDur && stable >= AutoStableWindows {
@@ -155,7 +158,9 @@ func (e *Engine) maybePromoteOrDrift(iface string, pps, bps float64) {
 	}
 
 	// Armed: relearn on sustained moderately elevated traffic (new normal).
-	// Sample at most once per second using that second's peak pps.
+	// Sample at most once per second using that second's peak pps. Drift
+	// state is per-interface so traffic on one iface cannot trigger or
+	// reset another's relearn streak.
 	if !ready || ewmaPPS <= 0 {
 		return
 	}
@@ -164,22 +169,23 @@ func (e *Engine) maybePromoteOrDrift(iface string, pps, bps float64) {
 		upper = floorCap
 	}
 	e.mu.Lock()
+	st = e.ifaceLocked(iface)
 	sec := now.Unix()
-	if sec != e.driftSec {
-		if e.driftSec != 0 {
-			peak := e.driftSecMaxPPS
+	if sec != st.driftSec {
+		if st.driftSec != 0 {
+			peak := st.driftSecMaxPPS
 			if peak > ewmaPPS*AutoDriftFactor && peak <= upper {
-				e.driftWindows++
+				st.driftWindows++
 			} else if peak <= ewmaPPS*1.5 {
-				e.driftWindows = 0
+				st.driftWindows = 0
 			}
 		}
-		e.driftSec = sec
-		e.driftSecMaxPPS = pps
-	} else if pps > e.driftSecMaxPPS {
-		e.driftSecMaxPPS = pps
+		st.driftSec = sec
+		st.driftSecMaxPPS = pps
+	} else if pps > st.driftSecMaxPPS {
+		st.driftSecMaxPPS = pps
 	}
-	dw := e.driftWindows
+	dw := st.driftWindows
 	e.mu.Unlock()
 	if dw >= AutoDriftWindows {
 		e.beginRelearn("drift")
@@ -211,8 +217,6 @@ func (e *Engine) promote() {
 	}
 	e.mu.Lock()
 	e.promoted = true
-	e.stableWindows = 0
-	e.driftWindows = 0
 	e.mu.Unlock()
 	e.warnAuto("promote", "stable")
 	_ = e.Persist()

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 // Live AutoInterface interop. Requires Linux and permission to create veth pairs
@@ -9,6 +9,7 @@ package interop
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"os"
 	"os/exec"
 	"runtime"
@@ -17,6 +18,8 @@ import (
 	"time"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
@@ -242,4 +245,98 @@ func TestLiveInteropAutoInterfaceGoSeesPythonAnnounce(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 	}
 	t.Fatalf("Go never discovered Python peer over AutoInterface")
+}
+
+// TestLiveInteropAutoInterfacePythonSeesGoAnnounce verifies Python learns a
+// path to a Go destination announced over AutoInterface.
+func TestLiveInteropAutoInterfacePythonSeesGoAnnounce(t *testing.T) {
+	autoVethOrSkip(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	veth0, veth1, cleanupVeth := setupVethPair(t)
+	defer cleanupVeth()
+
+	tr := transport.NewTransport(&common.ReticulumConfig{})
+	defer tr.Close()
+
+	cfg := &common.InterfaceConfig{
+		Enabled: true,
+		Devices: []string{veth0},
+	}
+	ai, err := interfaces.NewAutoInterface("test_auto", cfg)
+	if err != nil {
+		t.Fatalf("NewAutoInterface failed: %v", err)
+	}
+	if err := ai.Start(); err != nil {
+		t.Fatalf("Start AutoInterface failed: %v", err)
+	}
+	defer ai.Stop()
+	if err := tr.RegisterInterface("test_auto", ai); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	if err := tr.InitializePathRequestHandler(); err != nil {
+		t.Fatalf("path handler: %v", err)
+	}
+
+	idGo, err := identity.New()
+	if err != nil {
+		t.Fatalf("identity: %v", err)
+	}
+	destGo, err := destination.New(idGo, destination.In, destination.Single, "interop_pygo", tr, "autosvc")
+	if err != nil {
+		t.Fatalf("destination: %v", err)
+	}
+	destGo.AcceptsLinks(true)
+	if err := destGo.Announce(false, nil, nil); err != nil {
+		t.Fatalf("announce: %v", err)
+	}
+	go func() {
+		for range time.NewTicker(3 * time.Second).C {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				_ = destGo.Announce(false, nil, nil)
+			}
+		}
+	}()
+
+	script := pyScript(t, "auto_peer.py")
+	cmd := exec.CommandContext(ctx, pythonExe(), script)
+	cmd.Env = append(os.Environ(),
+		"INTEROP_DEVICE="+veth1,
+		"INTEROP_GROUP_ID=reticulum",
+		"INTEROP_GO_DEST_HASH="+hex.EncodeToString(destGo.GetHash()),
+	)
+	cmd.Stderr = os.Stderr
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("stdout pipe: %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start python: %v", err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	}()
+
+	br := bufio.NewReader(out)
+	deadline := time.Now().Add(75 * time.Second)
+	for time.Now().Before(deadline) {
+		line, err := readLineTimeout(ctx, br, 30*time.Second)
+		if err != nil {
+			t.Fatalf("read python: %v", err)
+		}
+		line = strings.TrimSpace(line)
+		if line == "OK" {
+			return
+		}
+		if line == "TIMEOUT" {
+			t.Fatal("python never saw the Go announce over AutoInterface")
+		}
+	}
+	t.Fatal("deadline waiting for python OK")
 }

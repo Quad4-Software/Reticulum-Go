@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: LicenseRef-Reticulum
 # Copyright (c) 2024-2026 Quad4.io
 #
 # Reticulum-Go build and install.
@@ -12,7 +12,7 @@
 .PHONY: build-freebsd build-openbsd build-netbsd build-dragonfly build-solaris build-illumos build-aix build-android
 .PHONY: test-short test-race test-crossref test-wasm test-odin test-dart test-all coverage bench debug release
 .PHONY: man install-man install-service package package-deb package-rpm package-arch stage-nfpm
-.PHONY: test-services test-install-script tree-manifest tree-rsm-sign tree-rsm-verify hooks-install doctor bootstrap changelog-preview
+.PHONY: test-services test-install-script tree-manifest tree-rsm-sign tree-rsm-verify hooks-install doctor bootstrap changelog-preview gitsign-setup gittuf-init
 .PHONY: build-librns
 .PHONY: microvm-up microvm-stop microvm-kernel microvm-rootfs microvm-rebuild microvm-guest
 
@@ -73,6 +73,8 @@ help:
 	@echo "  tree-rsm-verify  Verify reticulum-go.rsm signature and hashes"
 	@echo "  tree-rsm-sign    Sign tree inventory (requires RNS_ID_PATH)"
 	@echo "  hooks-install    Enable .githooks (Go, YAML, shellcheck, commit-msg, pre-push)"
+	@echo "  gitsign-setup    Configure gitsign commit signing (SIGSTORE_* for private infra)"
+	@echo "  gittuf-init      Initialize gittuf repo security policy"
 	@echo "  doctor           Verify dev tools match CI pins"
 	@echo "  bootstrap        Install pinned task, revive, staticcheck"
 	@echo "  prepush          fmt-check, vet, lint, test-short (pre-push hook)"
@@ -356,6 +358,12 @@ tree-rsm-sign:
 
 hooks-install:
 	sh scripts/ci/install-git-hooks.sh
+
+gitsign-setup:
+	sh scripts/ci/setup-gitsign.sh
+
+gittuf-init:
+	sh scripts/ci/gittuf-init.sh
 
 microvm-up:
 	./microvm/up.sh

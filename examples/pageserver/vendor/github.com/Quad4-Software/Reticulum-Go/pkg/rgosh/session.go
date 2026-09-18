@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package rgosh
@@ -252,6 +252,7 @@ func (s *Session) Close() {
 
 // HandleMessage processes one inbound protocol message.
 func (s *Session) HandleMessage(msg Message) error {
+	debug.Log(debug.DebugVerbose, "rgosh inbound message", "type", fmt.Sprintf("%T", msg), "state", s.State())
 	s.mu.Lock()
 	if s.state == StateTeardown || s.state == StateError {
 		// UDP can deliver Stream after Exit. Still accept client stream data.

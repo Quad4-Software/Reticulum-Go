@@ -18,8 +18,6 @@ Optional file append when INTEROP_EVENTS_PATH is set. When a Go harness owns the
 
 Field rules:
 
-- No em dashes in string values
-- No semicolons in string values
 - src is go or py (or another short stack id)
 - event uses the names below
 - kind is optional except on fail

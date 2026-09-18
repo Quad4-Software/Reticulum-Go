@@ -1,5 +1,8 @@
 #!/bin/sh
-# Warn when pull request commits lack GPG or SSH signatures.
+# Warn when pull request commits lack signatures.
+# GPG, SSH and gitsign (x509) signatures are all detected via git %G? codes:
+#   G/U/X/Y count as signed, E counts as signed but locally unverifiable
+#   (typical for gitsign commits without a configured verifier), N is unsigned.
 set -eu
 
 if [ "${GITHUB_EVENT_NAME:-}" != "pull_request" ]; then
@@ -14,21 +17,37 @@ if [ -z "$BASE_SHA" ]; then
 fi
 
 unsigned=0
-while IFS= read -r sha; do
-	[ -n "$sha" ] || continue
-	if git verify-commit "$sha" >/dev/null 2>&1; then
-		continue
-	fi
-	echo "unsigned: $sha $(git log -1 --format='%s' "$sha")"
-	unsigned=$((unsigned + 1))
+unverifiable=0
+while IFS= read -r line; do
+	[ -n "$line" ] || continue
+	code="${line%% *}"
+	sha="${line#* }"
+	case "$code" in
+	G | U | X | Y | E)
+		if [ "$code" = "E" ]; then
+			unverifiable=$((unverifiable + 1))
+			echo "signed-unverifiable: $sha $(git log -1 --format='%s' "$sha")"
+		fi
+		;;
+	*)
+		echo "unsigned: $sha $(git log -1 --format='%s' "$sha")"
+		unsigned=$((unsigned + 1))
+		;;
+	esac
 done <<EOF
-$(git rev-list --no-merges "${BASE_SHA}..${HEAD_SHA}")
+$(git log --no-merges --format='%G? %H' "${BASE_SHA}..${HEAD_SHA}")
 EOF
+
+if [ "$unverifiable" -gt 0 ]; then
+	echo ""
+	echo "verify-signed-commits: $unverifiable commit(s) carry a signature that could not be" >&2
+	echo "verify-signed-commits: verified locally (gitsign x509 or missing trust config)" >&2
+fi
 
 if [ "$unsigned" -gt 0 ]; then
 	echo ""
-	echo "verify-signed-commits: $unsigned commit(s) without verified signature" >&2
-	echo "verify-signed-commits: sign with git commit -S when practical (see CONTRIBUTING.md)" >&2
+	echo "verify-signed-commits: $unsigned commit(s) without a signature" >&2
+	echo "verify-signed-commits: sign with git commit -S or gitsign (see CONTRIBUTING.md)" >&2
 	exit 1
 fi
 

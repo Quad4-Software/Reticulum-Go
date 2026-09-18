@@ -165,7 +165,7 @@ Follow existing naming, error wrapping, and SPDX headers in each file.
 | Property | task test-property | *_pbt_test.go and embedded github.com/Quad4-Software/pbt / testing/quick |
 | Mutation | task test-mutation | gomutant on cryptography, packet, announce, destination, identity, ifac, backbone, interfaces |
 | Chaos | task test-chaos / task test-soak / task test-soak-protect | TestSimChaos* / TestLinkChaos* / TestIfaceChaos* plus soak, including dos_protection flood soak |
-| Oracle | task test-oracle | Crossref vectors, health TransportOracle deltas, adversarial corpus |
+| Oracle | task test-oracle | Crossref vectors, health TransportCounters deltas, adversarial corpus |
 | Smoke | task test-binary-smoke, binding smokes | Binary --version/--help, CLI dump via Main, librns smoke examples |
 | Acceptance | task test-acceptance | librns SCAFFOLD minimum, control API acceptance |
 | E2E | task test-e2e | Daemon reload, UDP path e2e, transport TestE2E_* |
@@ -260,7 +260,7 @@ Config and threat scope: [Configuration](configuration.md#dos_protection-go-only
 | Oracle | Location |
 |--------|----------|
 | Python crossref vectors | tests/crossref/ |
-| Health counter deltas | pkg/health.TransportOracle / OracleSnapshot.Delta |
+| Health counter deltas | pkg/health.TransportCounters / CounterSnapshot.Delta |
 | Handshake / adversarial frames | pkg/packet/testdata/ |
 | IFAC goldens | pkg/ifac unit tests |
 | Sim path/hop asserts | pkg/transport/sim_assertions_test.go |

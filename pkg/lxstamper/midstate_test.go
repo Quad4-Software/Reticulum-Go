@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package lxstamper
@@ -17,11 +17,7 @@ func TestMidstateMatchesFullHash(t *testing.T) {
 		if err != nil {
 			t.Fatalf("n=%d midstate: %v", n, err)
 		}
-		got := hashMidstateStamp(ms, stamp)
 		want := sha256.Sum256(append(append([]byte{}, prefix...), stamp...))
-		if got != want {
-			t.Fatalf("n=%d midstate hash mismatch\ngot  %x\nwant %x", n, got, want)
-		}
 		viaHash, err := hashFromMidstateStamp(ms, stamp)
 		if err != nil {
 			t.Fatalf("n=%d hashFromMidstate: %v", n, err)

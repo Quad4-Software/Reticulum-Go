@@ -2,6 +2,8 @@ github.com/Quad4-Software/bzip2 v1.0.1 h1:d8nE46X+92KxXhwFt3xLBlL/OYE6dMvaqFbeRY
 github.com/Quad4-Software/bzip2 v1.0.1/go.mod h1:3Kb23wxfrwE9+Nm9BNenON1ZktP42W1HhH9uUgs6bRw=
 github.com/Quad4-Software/msgpack/v5 v5.9.1 h1:yjl+HROVYo3Xkgdf3rGnT+NgMYpu/AD9+t5k2iJAALA=
 github.com/Quad4-Software/msgpack/v5 v5.9.1/go.mod h1:QZyJyJ+zotzU854cnsrd3bmRghUkBg7zpeYCKTpyVQs=
+github.com/Quad4-Software/msgpack/v5 v5.9.2 h1:u7w+VhyG3TgRcEJp5EL5Ycentzv2OUnt4lKhO6S7JFo=
+github.com/Quad4-Software/msgpack/v5 v5.9.2/go.mod h1:QZyJyJ+zotzU854cnsrd3bmRghUkBg7zpeYCKTpyVQs=
 github.com/Quad4-Software/pbt v1.0.2 h1:Pbd+M1dr/1zZ6F0VTxk0JR7OezECFg8xZ9pfQbMO3Hc=
 github.com/Quad4-Software/pbt v1.0.2/go.mod h1:LT0wImA1rUlv1IcuPHf3rrDBa5WwDi5nHAPupxi7a84=
 github.com/Quad4-Software/reticulum-go-protocols v0.0.0-20260915041511-3c6fc8492060 h1:QUlveM/72GnPlByHDdSiilFQ+TJSiZe0UaENUqzvbGE=

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package destination
@@ -660,6 +660,47 @@ func TestHandleIncomingLinkRequestWithHandler(t *testing.T) {
 	RegisterIncomingLinkHandler(nil)
 	if err := d.HandleIncomingLinkRequest(&packet.Packet{PacketType: packet.PacketTypeLinkReq}, nil, nil); err == nil {
 		t.Fatal("expected error after handler cleared")
+	}
+}
+
+func TestAcceptsLinksFalseDropsLinkRequest(t *testing.T) {
+	id, _ := identity.New()
+	d, _ := New(id, In, Single, "app", &mockTransport{})
+	d.AcceptsLinks(false)
+
+	handlerCalled := false
+	RegisterIncomingLinkHandler(func(pkt *packet.Packet, dest *Destination, transport any, iface common.NetworkInterface) (any, error) {
+		handlerCalled = true
+		return struct{}{}, nil
+	})
+	defer RegisterIncomingLinkHandler(nil)
+
+	// Refused requests drop silently like Python incoming_link_request, not
+	// as errors that would log-spam per hostile packet.
+	if err := d.HandleIncomingLinkRequest(&packet.Packet{PacketType: packet.PacketTypeLinkReq}, nil, nil); err != nil {
+		t.Fatalf("refused link request returned error: %v", err)
+	}
+	if handlerCalled {
+		t.Fatal("handler invoked for destination that does not accept links")
+	}
+}
+
+func TestAcceptsLinksTrueInvokesHandler(t *testing.T) {
+	id, _ := identity.New()
+	d, _ := New(id, In, Single, "app", &mockTransport{})
+
+	handlerCalled := false
+	RegisterIncomingLinkHandler(func(pkt *packet.Packet, dest *Destination, transport any, iface common.NetworkInterface) (any, error) {
+		handlerCalled = true
+		return struct{}{}, nil
+	})
+	defer RegisterIncomingLinkHandler(nil)
+
+	if err := d.HandleIncomingLinkRequest(&packet.Packet{PacketType: packet.PacketTypeLinkReq}, nil, nil); err != nil {
+		t.Fatalf("HandleIncomingLinkRequest: %v", err)
+	}
+	if !handlerCalled {
+		t.Fatal("handler not invoked for default (accepting) destination")
 	}
 }
 

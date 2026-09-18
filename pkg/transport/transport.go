@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package transport
@@ -1653,6 +1653,17 @@ func (t *Transport) HandlePacketBlocking(data []byte, iface common.NetworkInterf
 }
 
 func (t *Transport) handleInboundPacket(data []byte, iface common.NetworkInterface, block bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			ifaceName := ""
+			if iface != nil {
+				ifaceName = iface.GetName()
+			}
+			debug.Log(debug.DebugError, "Panic in inbound packet preprocessing; packet dropped",
+				"panic", fmt.Sprint(r), "packet_size", len(data), "source", ifaceName)
+			health.Inc(ifaceName, health.KindUnpackFail)
+		}
+	}()
 	if len(data) < 2 {
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Dropping packet: insufficient length", "bytes", len(data))
@@ -1685,20 +1696,10 @@ func (t *Transport) handleInboundPacket(data []byte, iface common.NetworkInterfa
 			"first_32_bytes", fmt.Sprintf("%x", data[:32]))
 	}
 
-	// Match Python Transport.packet_filter: PLAIN/GROUP payloads must not
-	// travel more than one hop after inbound hop accounting.
-	if packetType != PacketTypeAnnounce && (destType == DestTypePlain || destType == DestTypeGroup) {
-		accounted := AccountInboundHops(data[1], iface)
-		if accounted > 1 {
-			if debug.Enabled(debug.DebugVerbose) {
-				debug.Log(debug.DebugVerbose, "Dropped multi-hop PLAIN/GROUP packet",
-					"dest_type", destType, "wire_hops", data[1], "accounted_hops", accounted)
-			}
-			ifaceProtocolViolation(iface)
-			return
-		}
-	}
-
+	// The PLAIN/GROUP multi-hop filter runs in preprocessInboundPacket
+	// after IFAC unmasking. On deferred-IFAC interfaces the header byte here
+	// still carries the IFAC flag, so parsing it would read the IFAC bytes
+	// as hops and drop valid traffic.
 	job, tc, ok := t.preprocessInboundPacket(data, iface)
 	if !ok {
 		return
@@ -1893,6 +1894,10 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 
 	announceHash := sha256.Sum256(data[2:])
 
+	// Claim the dedup slot atomically with the check: concurrent inbound
+	// workers must not both pass before either records the announce. The
+	// claim is released on the early returns below so a dropped copy does
+	// not block a valid re-arrival (for example a shorter path).
 	t.mutex.Lock()
 	if last, ok := t.seenAnnounces[announceHash]; ok {
 		if time.Since(last) < SeenAnnounceTTL {
@@ -1908,12 +1913,19 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 			return nil
 		}
 	}
+	t.rememberSeenAnnounceUnlocked(announceHash, time.Now())
 	t.mutex.Unlock()
+	unclaimAnnounce := func() {
+		t.mutex.Lock()
+		delete(t.seenAnnounces, announceHash)
+		t.mutex.Unlock()
+	}
 
 	if !identity.RememberIdentity(data, destinationHash, pubKey, appData, id) {
 		if debug.Enabled(debug.DebugWarning) {
 			debug.Log(debug.DebugWarning, "Rejected announce: destination hash already known with a different public key")
 		}
+		unclaimAnnounce()
 		return fmt.Errorf("announce public key mismatch")
 	}
 	if len(ratchetData) == 32 {
@@ -1942,6 +1954,7 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Announce exceeded max hops", "wire_hops", hopCount, "announce_hops", announceHops)
 		}
+		unclaimAnnounce()
 		return nil
 	}
 
@@ -1997,10 +2010,6 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	}
 
 	t.notifyAnnounceHandlersFiltered(destinationHash, id, appData, uint8(announceHops), isPathResponse)
-
-	t.mutex.Lock()
-	t.rememberSeenAnnounceUnlocked(announceHash, time.Now())
-	t.mutex.Unlock()
 
 	if iface != nil {
 		if st := t.ifaceStates.get(iface.GetName()); st != nil && st.ingress != nil {
@@ -2315,7 +2324,11 @@ func (t *Transport) handleIncomingLinkRequest(pkt *packet.Packet, destIface regi
 	}
 
 	if debug.Enabled(debug.DebugVerbose) {
-		debug.Log(debug.DebugVerbose, "Link request with ID", "id", fmt.Sprintf("%x", linkID[:8]), "full_id", fmt.Sprintf("%x", linkID), "elapsed", time.Since(startTime).Seconds())
+		idShort := linkID
+		if len(idShort) > 8 {
+			idShort = idShort[:8]
+		}
+		debug.Log(debug.DebugVerbose, "Link request with ID", "id", fmt.Sprintf("%x", idShort), "full_id", fmt.Sprintf("%x", linkID), "elapsed", time.Since(startTime).Seconds())
 	}
 
 	if destIface.linkRequestHandler == nil {

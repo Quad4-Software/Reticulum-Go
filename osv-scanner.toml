@@ -1,0 +1,6 @@
+# osv-scanner ignore list. Each entry names a finding that does not apply to
+# this repository, with the reason a scanner should keep ignoring it.
+
+[[IgnoredVulns]]
+id = "GO-2026-5932"
+reason = "golang.org/x/crypto/openpgp is not imported anywhere in this module. The vendored tree only carries chacha20, chacha20poly1305, curve25519, and hkdf, so the flagged package is not present or reachable. govulncheck passes clean in CI."

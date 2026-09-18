@@ -62,9 +62,14 @@ chore(ci): pin staticcheck to v0.6.1
 docs: expand development and testing guide
 ```
 
-Sign commits with GPG or SSH when practical (`git commit -S`). Use a real email address or LXMF address in the Git author field.
+Sign commits with GPG or SSH when practical (`git commit -S`), or use gitsign for keyless x509 signatures (`task gitsign:setup`; set `SIGSTORE_FULCIO_URL`, `SIGSTORE_REKOR_URL` and `SIGSTORE_OIDC_ISSUER` to sign against a private Sigstore stack). Use a real email address or LXMF address in the Git author field.
+
+### Developer Certificate of Origin
+
+Every commit must carry a `Signed-off-by:` trailer certifying the DCO. Add it with `git commit -s`. The commit-msg hook enforces it and the `dco-signoff` CI job re-checks every PR commit.
 
 Skip the commit-msg hook for one commit: `SKIP_COMMIT_MSG_HOOK=1 git commit ...`
+Skip only the DCO check: `SKIP_DCO_HOOK=1 git commit ...`
 
 ## Changelog and compatibility
 
@@ -81,6 +86,7 @@ The PR template mirrors this list:
 - [ ] `COMPATIBILITY.md` updated when wire or API compatibility changes
 - [ ] Tests added or extended for behavior changes
 - [ ] PR title follows Conventional Commits (required for squash merges)
+- [ ] Every commit signed off (`git commit -s`, DCO)
 - [ ] RSM hook skipped only when intentional (`SKIP_TREE_RSM_HOOK=1` with reason in PR)
 
 ## Git hooks
@@ -90,7 +96,7 @@ After `task hooks:install`:
 | Hook | Runs |
 |------|------|
 | `pre-commit` | Staged Go fmt/vet, YAML, shellcheck, optional `reticulum-go.rsm` resign |
-| `commit-msg` | Conventional commit format |
+| `commit-msg` | Conventional commit format, DCO sign-off |
 | `pre-push` | `task prepush` (fmt-check, vet, lint, test-short) |
 
 Skip env vars:
@@ -102,7 +108,8 @@ Skip env vars:
 | `SKIP_YAML_HOOK=1` | YAML checks |
 | `SKIP_SHELLCHECK_HOOK=1` | shellcheck |
 | `SKIP_TREE_RSM_HOOK=1` | RSM resign |
-| `SKIP_COMMIT_MSG_HOOK=1` | commit-msg format |
+| `SKIP_COMMIT_MSG_HOOK=1` | commit-msg format and DCO |
+| `SKIP_DCO_HOOK=1` | DCO sign-off only |
 | `SKIP_PREPUSH=1` | pre-push checks |
 
 See `SECURITY.md` for RSM signing and inventory details.
@@ -115,7 +122,7 @@ Required on pull requests (see `.github/workflows/ci.yml`):
 |-----|---------|
 | Lint | fmt-check, vet, revive, staticcheck, installer shellcheck |
 | Test | Core Go tests, smoke, self-check |
-| PR checks | Semantic PR title, signed-commit advisory |
+| PR checks | Semantic PR title, DCO sign-off, signed-commit advisory |
 
 Binding, OS matrix, legacy Windows, examples, and reproducibility jobs run on push to `dev`/`master`, or when relevant paths change on pull requests.
 
@@ -135,7 +142,7 @@ By submitting a contribution, you agree that:
 
 - You have the right to submit it and are not breaching any obligation to an employer, client, or third party.
 - You assign to **Quad4** the copyright and related rights you hold in that contribution, or where assignment is not possible, grant Quad4 a perpetual, irrevocable, worldwide, royalty-free license (including the right to sublicense) to use, reproduce, modify, distribute, and prepare derivative works of the contribution.
-- The contribution is provided for distribution under the **Apache License, Version 2.0** (see `LICENSE`) as part of this project.
+- The contribution is provided for distribution under the **Reticulum License** (see `LICENSE`) as part of this project, including its conditions on harm and AI-training use.
 
 ## Contact
 

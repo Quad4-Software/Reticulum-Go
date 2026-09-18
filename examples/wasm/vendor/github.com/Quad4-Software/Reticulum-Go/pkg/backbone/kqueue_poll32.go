@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 //go:build (freebsd && (arm || 386)) || (openbsd && (arm || 386))
@@ -6,7 +6,6 @@
 package backbone
 
 import (
-	"net"
 	"syscall"
 	"time"
 
@@ -95,14 +94,6 @@ func (p *kqueuePoller) Wait(timeoutMs int) ([]pollEvent, error) {
 
 func (p *kqueuePoller) Close() error {
 	return unix.Close(p.fd)
-}
-
-func setNonblockConn(conn net.Conn) error {
-	fd, err := connFD(conn)
-	if err != nil {
-		return err
-	}
-	return setNonblockFD(fd)
 }
 
 func setNonblockFD(fd int) error {

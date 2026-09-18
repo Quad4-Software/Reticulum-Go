@@ -1,0 +1,24 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://github.com/Quad4-Software/Reticulum-Go/openvex.json",
+  "author": "Quad4",
+  "timestamp": "2026-09-18T00:00:00Z",
+  "version": 1,
+  "tooling": "Reticulum-Go maintainers (manual)",
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "GO-2026-5932"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/golang.org/x/crypto@v0.57.0",
+          "subcomponents": []
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "detail": "GO-2026-5932 applies to golang.org/x/crypto/openpgp. Nothing in this module imports openpgp and the vendored tree does not contain it, so the vulnerable code is absent and unreachable."
+    }
+  ]
+}

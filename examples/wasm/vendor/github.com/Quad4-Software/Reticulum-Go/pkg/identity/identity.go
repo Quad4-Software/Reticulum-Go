@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package identity
@@ -236,11 +236,6 @@ func knownDestKey(destHash []byte) destMapKey {
 	var k destMapKey
 	copy(k[:], destHash)
 	return k
-}
-
-func knownDestHex(destHash []byte) string {
-	k := knownDestKey(destHash)
-	return hex.EncodeToString(k[:])
 }
 
 func TruncatedHash(data []byte) []byte {

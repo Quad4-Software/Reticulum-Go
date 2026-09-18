@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package transport
@@ -7,6 +7,7 @@ import (
 	"bytes"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
@@ -98,6 +99,23 @@ func (t *Transport) preprocessInboundPacket(data []byte, iface common.NetworkInt
 			health.Inc(iface.GetName(), health.KindUnpackFail)
 		}
 		return packetJob{}, 0, false
+	}
+
+	// Match Python Transport.packet_filter: PLAIN/GROUP payloads must not
+	// travel more than one hop after inbound hop accounting. This must run
+	// on the unmasked data above: on deferred-IFAC interfaces the raw frame
+	// still carries the IFAC flag and bytes, so a pre-unmask check reads
+	// IFAC bytes as the hops field.
+	if packetType != PacketTypeAnnounce && (destType == DestTypePlain || destType == DestTypeGroup) {
+		accounted := AccountInboundHops(data[1], iface)
+		if accounted > 1 {
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Dropped multi-hop PLAIN/GROUP packet",
+					"dest_type", destType, "wire_hops", data[1], "accounted_hops", accounted)
+			}
+			ifaceProtocolViolation(iface)
+			return packetJob{}, 0, false
+		}
 	}
 	if !t.applyPacketFilter(pkt, iface) {
 		return packetJob{}, 0, false

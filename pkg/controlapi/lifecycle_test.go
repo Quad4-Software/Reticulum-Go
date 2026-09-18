@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package controlapi
@@ -304,25 +304,44 @@ func TestLifecycleNotConfigured(t *testing.T) {
 }
 
 func TestLoadOrCreateIdentity(t *testing.T) {
-	id, err := loadOrCreateIdentity("")
+	s := &Server{identityDir: filepath.Join(t.TempDir(), "identities")}
+
+	id, err := s.loadOrCreateIdentity("")
 	if err != nil || id == nil {
 		t.Fatalf("ephemeral: %v", err)
 	}
 
-	path := filepath.Join(t.TempDir(), "id")
-	created, err := loadOrCreateIdentity(path)
+	path := filepath.Join(s.identityDir, "id")
+	created, err := s.loadOrCreateIdentity(path)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("identity file missing: %v", err)
 	}
-	loaded, err := loadOrCreateIdentity(path)
+	loaded, err := s.loadOrCreateIdentity(path)
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
 	if created.GetHexHash() != loaded.GetHexHash() {
 		t.Fatalf("hash mismatch create=%s load=%s", created.GetHexHash(), loaded.GetHexHash())
+	}
+}
+
+func TestLoadOrCreateIdentityRejectsOutsidePath(t *testing.T) {
+	s := &Server{identityDir: filepath.Join(t.TempDir(), "identities")}
+
+	outside := filepath.Join(t.TempDir(), "id")
+	if _, err := s.loadOrCreateIdentity(outside); !errors.Is(err, errIdentityPathOutside) {
+		t.Fatalf("outside path: got %v, want errIdentityPathOutside", err)
+	}
+	if _, err := s.loadOrCreateIdentity(filepath.Join(s.identityDir, "..", "id")); !errors.Is(err, errIdentityPathOutside) {
+		t.Fatalf("dotdot path: got %v, want errIdentityPathOutside", err)
+	}
+
+	noDir := &Server{}
+	if _, err := noDir.loadOrCreateIdentity(outside); !errors.Is(err, errIdentityPathOutside) {
+		t.Fatalf("no identityDir: got %v, want errIdentityPathOutside", err)
 	}
 }
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package discovery
@@ -28,8 +28,7 @@ func TestInterfaceDiscoveryInvalidStampCache(t *testing.T) {
 		t.Fatalf("first announce: %v", err)
 	}
 	sum := sha256.Sum256(app[1:])
-	key := string(sum[:])
-	if _, ok := h.invalidCache[key]; !ok {
+	if _, ok := h.invalidCache[string(sum[:])]; !ok {
 		t.Fatal("expected invalid stamp cache entry")
 	}
 	var validated atomic.Int32
@@ -69,8 +68,7 @@ func TestInterfaceDiscoveryValidStampCache(t *testing.T) {
 		t.Fatalf("hits=%d want 1", hits.Load())
 	}
 	sum := sha256.Sum256(app[1:])
-	key := string(sum[:])
-	if _, ok := h.validCache[key]; !ok {
+	if _, ok := h.validCache[string(sum[:])]; !ok {
 		t.Fatal("expected valid stamp cache entry")
 	}
 	if err := h.ReceivedAnnounce(nil, nil, app, 0); err != nil {

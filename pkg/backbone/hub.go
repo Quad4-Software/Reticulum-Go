@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package backbone
@@ -313,13 +313,6 @@ func (h *Hub) removeStream(fd int) {
 	if !h.goMode {
 		h.pollerDel(fd)
 	}
-}
-
-func (h *Hub) removeListener(fd int) {
-	h.mu.Lock()
-	delete(h.listeners, fd)
-	h.mu.Unlock()
-	h.pollerDel(fd)
 }
 
 // Close shuts down the hub event loop.

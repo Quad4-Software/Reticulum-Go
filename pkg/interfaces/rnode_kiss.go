@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package interfaces
@@ -217,11 +217,6 @@ func rnodeIntDataIndex(cmd byte) (int, bool) {
 		}
 	}
 	return 0, false
-}
-
-func rnodeIsIntDataCmd(cmd byte) bool {
-	_, ok := rnodeIntDataIndex(cmd)
-	return ok
 }
 
 func rnodeComputeBitrate(sf, cr int, bandwidth int) float64 {

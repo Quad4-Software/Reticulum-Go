@@ -41,21 +41,28 @@ def write_config(cfg_dir: str, listen_port: int, forward_port: int) -> None:
         )
 
 
-def write_rngit_config(rngit_dir: str, repo_root: str) -> None:
+def write_rngit_config(rngit_dir: str, repo_root: str, serve_pages: bool = False) -> None:
     os.makedirs(rngit_dir, exist_ok=True)
+    lines = [
+        "[repositories]",
+        f"public = {repo_root}",
+        "",
+        "[access]",
+        "public = rw:all",
+        "",
+    ]
+    if serve_pages:
+        lines += [
+            "[rngit]",
+            "node_name = Interop Py Node",
+            "record_stats = yes",
+            "",
+            "[pages]",
+            "serve_nomadnet = yes",
+            "",
+        ]
     with open(os.path.join(rngit_dir, "config"), "w", encoding="utf-8") as f:
-        f.write(
-            "\n".join(
-                [
-                    "[repositories]",
-                    f"public = {repo_root}",
-                    "",
-                    "[access]",
-                    "public = rw:all",
-                    "",
-                ],
-            ),
-        )
+        f.write("\n".join(lines))
 
 
 def strip_git_env() -> None:
@@ -94,7 +101,8 @@ def git_env(extra: dict[str, str] | None = None) -> dict[str, str]:
 
 
 def init_bare_repo_with_commit(bare_path: str) -> None:
-    subprocess.run(["git", "init", "--bare", bare_path], check=True, capture_output=True, env=git_env())
+    subprocess.run(["git", "init", "--bare", "-b", "main", bare_path],
+                   check=True, capture_output=True, env=git_env())
     work = tempfile.mkdtemp(prefix="rngit_work_")
     env = git_env(
         {
@@ -104,13 +112,14 @@ def init_bare_repo_with_commit(bare_path: str) -> None:
             "GIT_COMMITTER_EMAIL": "interop@test",
         },
     )
-    subprocess.run(["git", "clone", bare_path, work], check=True, capture_output=True, env=env)
+    subprocess.run(["git", "-c", "init.defaultBranch=main", "clone", bare_path, work],
+                   check=True, capture_output=True, env=env)
     readme = os.path.join(work, "README")
     with open(readme, "w", encoding="utf-8") as fh:
         fh.write("rngit interop\n")
     subprocess.run(["git", "add", "README"], check=True, cwd=work, capture_output=True, env=env)
     subprocess.run(
-        ["git", "commit", "-m", "init"],
+        ["git", "-c", "commit.gpgsign=false", "commit", "-m", "init"],
         check=True,
         cwd=work,
         capture_output=True,
@@ -129,7 +138,8 @@ def main() -> int:
     rngit_dir = os.environ.get("INTEROP_RNGIT_DIR") or tempfile.mkdtemp(prefix="rngit_cfg_")
     repo_root = os.environ.get("INTEROP_REPO_ROOT") or os.path.join(rngit_dir, "repos", "public")
     os.makedirs(repo_root, exist_ok=True)
-    write_rngit_config(rngit_dir, repo_root)
+    serve_pages = os.environ.get("INTEROP_PAGES", "") == "1"
+    write_rngit_config(rngit_dir, repo_root, serve_pages)
     demo = os.path.join(repo_root, "demo")
     if os.path.isdir(demo) and not is_bare_git_repo(demo):
         shutil.rmtree(demo)
@@ -150,6 +160,12 @@ def main() -> int:
         print("INTEROP_GROUP_READ " + repr(git_node.groups.get("public", {}).get("read", [])), file=sys.stderr)
     dest_hex = RNS.hexrep(git_node.destination.hash, delimit=False)
     sys.stdout.write("READY " + dest_hex + "\n")
+    if serve_pages:
+        page_dest = git_node.page_servers.get("nomadnet")
+        if page_dest is None:
+            print("nomadnet page server not started", file=sys.stderr)
+            return 1
+        sys.stdout.write("PAGES " + RNS.hexrep(page_dest.destination.hash, delimit=False) + "\n")
     sys.stdout.flush()
     while True:
         time.sleep(1)

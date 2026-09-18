@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 package transport
@@ -112,6 +112,18 @@ func (t *Transport) packetWorker() {
 }
 
 func (t *Transport) runPacketJob(job packetJob) {
+	defer func() {
+		if r := recover(); r != nil {
+			ifaceName := ""
+			if job.iface != nil {
+				ifaceName = job.iface.GetName()
+			}
+			debug.Log(debug.DebugError, "Panic in inbound packet handler; packet dropped",
+				"panic", fmt.Sprint(r), "packet_type", job.packetType,
+				"packet_size", len(job.pc.buf), "source", ifaceName)
+			health.Inc(ifaceName, health.KindUnpackFail)
+		}
+	}()
 	span := profiler.Start("Transport.runPacketJob")
 	defer span.End()
 	if job.hold != nil {

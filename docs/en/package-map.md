@@ -353,9 +353,9 @@ LXStamper-compatible proof-of-work. Used by discovery (20 rounds). Delivery/prop
 
 | Item | Detail |
 |------|--------|
-| Key funcs | StampWorkblock, StampValid, StampValue, MeetsCost, GenerateStamp, GenerateStampCPU, GenerateStampGPU |
-| GPU | Opt-in OpenCL (`-tags lxstamp_gpu`). Default builds are CPU-only so Landlock AllThreadsSyscall stays usable |
-| Main files | stamper.go, backend.go, generate_cpu.go, gpu_opencl.go |
+| Key funcs | StampWorkblock, StampValid, StampValue, MeetsCost, GenerateStamp, GenerateStampCPU |
+| Backend | Parallel CPU only. The former opt-in OpenCL path was removed |
+| Main files | stamper.go, backend.go, generate_cpu.go, workblock.go |
 
 ### pkg/discovery
 
