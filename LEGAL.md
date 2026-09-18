@@ -67,3 +67,7 @@ itemized in NOTICE. Vendored license texts govern over this document.
 ## Contributions
 
 See CONTRIBUTING.md for commit signing and CLA requirements.
+
+## Legal contact
+
+For any questions, corrections, or feedback about licensing, please contact legal@quad4.io.
