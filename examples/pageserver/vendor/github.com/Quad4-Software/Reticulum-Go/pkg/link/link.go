@@ -946,6 +946,7 @@ func (l *Link) Teardown() {
 		l.closedCallback(l)
 	}
 	l.resetIncomingResource()
+	l.dropSplitAssemblies()
 }
 
 func (l *Link) SetEstablishedCallback(callback func(*Link)) {
@@ -1384,6 +1385,8 @@ func (l *Link) handleChannelPacket(pkt *packet.Packet) error {
 	// TX ring only after the peer has processed the envelope.
 	if proveErr := l.ProvePacket(pkt); proveErr != nil {
 		debug.Log(debug.DebugWarning, "Failed to prove channel packet", "error", proveErr)
+	} else {
+		debug.Log(debug.DebugVerbose, "Proved channel packet", "link_id", fmt.Sprintf("%x", l.linkID))
 	}
 	return err
 }
@@ -2358,6 +2361,7 @@ func (l *Link) closeOnce(reason byte) bool {
 		}
 		if l.status.CompareAndSwap(st, int32(StatusClosed)) {
 			l.teardownReason = reason
+			l.dropSplitAssemblies()
 			return true
 		}
 	}
@@ -3203,6 +3207,7 @@ func (l *Link) finishWatchdogClose(reason byte, invalidatePath bool) {
 	if l.transport != nil && len(l.linkID) > 0 {
 		l.transport.UnregisterLink(l.linkID)
 	}
+	l.releaseOutboundEstablish()
 	if invalidatePath && l.initiator {
 		l.invalidateTransportPathAfterInitiatorFailure()
 	}

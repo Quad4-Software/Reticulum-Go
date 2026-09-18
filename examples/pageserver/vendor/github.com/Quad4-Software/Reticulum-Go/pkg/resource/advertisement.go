@@ -70,7 +70,7 @@ func NewResourceAdvertisement(res *Resource) *ResourceAdvertisement {
 
 	return &ResourceAdvertisement{
 		TransferSize:  res.GetTransferSize(),
-		DataSize:      res.GetDataSize(),
+		DataSize:      res.GetTotalSize(),
 		Parts:         int(res.GetSegments()),
 		Hash:          res.GetHash(),
 		RandomHash:    randomHash,

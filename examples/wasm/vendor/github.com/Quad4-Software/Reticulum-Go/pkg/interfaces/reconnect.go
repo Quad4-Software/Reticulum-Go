@@ -51,12 +51,6 @@ func (rd *reconnectDriver) setOnExhausted(fn func()) {
 	rd.mu.Unlock()
 }
 
-func (rd *reconnectDriver) setAllowIdleRetry(allow bool) {
-	rd.mu.Lock()
-	rd.allowIdleRetry = allow
-	rd.mu.Unlock()
-}
-
 func (rd *reconnectDriver) fireDown() {
 	rd.mu.Lock()
 	fn := rd.onDown

@@ -29,11 +29,17 @@ type Node struct {
 	git        *GitRunner
 	identity   *identity.Identity
 	dest       *destination.Destination
+	pageDest   *destination.Destination
 	n          *node.Node
 	mirrorStop context.CancelFunc
 	mu         sync.RWMutex
 	permsMu    sync.Mutex
 	workMu     sync.Mutex
+	stats      *statsStore
+	thanks     thanksTracker
+	tmplCache  templateCache
+	mdc        *mdToMicron
+	hl         *highlighter
 }
 
 // NewNode creates a git repository node.
@@ -49,6 +55,8 @@ func NewNode(cfg *ServerConfig, id *identity.Identity) (*Node, error) {
 		cfg:      cfg,
 		git:      NewGitRunner(),
 		identity: id,
+		mdc:      newMdToMicron(100),
+		hl:       newHighlighter(),
 	}
 	nd.access.Store(access)
 	return nd, nil
@@ -101,6 +109,9 @@ func (n *Node) Stop() {
 	if n.mirrorStop != nil {
 		n.mirrorStop()
 	}
+	if n.stats != nil {
+		n.stats.close()
+	}
 	if n.n != nil {
 		_ = n.n.Stop() // #nosec G104 -- best effort shutdown
 	}
@@ -119,6 +130,15 @@ func (n *Node) IdentityHash() string {
 	return hex.EncodeToString(n.identity.Hash())
 }
 
+// PageDestHash returns the nomadnetwork.node page destination hash hex, or
+// the would-be hash when the page node is not running.
+func (n *Node) PageDestHash() string {
+	if n.pageDest == nil {
+		return hex.EncodeToString(destination.Hash(n.identity, pageAppName, pageAppAspect))
+	}
+	return hex.EncodeToString(n.pageDest.GetHash())
+}
+
 // RunService starts the node until interrupted.
 func (n *Node) RunService(rnsConfig string) error {
 	if err := n.Start(rnsConfig); err != nil {
@@ -135,6 +155,7 @@ func (n *Node) announce() {
 	if n.dest != nil {
 		_ = n.dest.Announce(false, nil, nil)
 	}
+	n.announcePages()
 }
 
 func (n *Node) announceLoop(interval time.Duration) {

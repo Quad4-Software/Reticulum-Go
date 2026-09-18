@@ -23,10 +23,3 @@ func (p *goPoller) Wait(int) ([]pollEvent, error) {
 	}
 }
 func (p *goPoller) Close() error { return nil }
-
-func (p *goPoller) signal(fd int, events int) {
-	select {
-	case p.wake <- pollEvent{fd: fd, events: events}:
-	default:
-	}
-}

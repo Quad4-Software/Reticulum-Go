@@ -41,6 +41,8 @@ func DestinationCreate(nodeHandle, identityHandle uint64, appName string, aspect
 	}
 	if acceptsLinks {
 		wireInboundLinks(nodeRec, dest)
+	} else {
+		dest.AcceptsLinks(false)
 	}
 
 	hash := append([]byte(nil), dest.GetHash()...)

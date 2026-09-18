@@ -219,11 +219,6 @@ func rnodeIntDataIndex(cmd byte) (int, bool) {
 	return 0, false
 }
 
-func rnodeIsIntDataCmd(cmd byte) bool {
-	_, ok := rnodeIntDataIndex(cmd)
-	return ok
-}
-
 func rnodeComputeBitrate(sf, cr int, bandwidth int) float64 {
 	if sf <= 0 || cr <= 0 || bandwidth <= 0 || sf > 63 {
 		return 0

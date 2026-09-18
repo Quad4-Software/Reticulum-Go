@@ -39,6 +39,7 @@ type Resource struct {
 	completedParts    map[uint16]bool
 	transferSize      int64
 	dataSize          int64
+	totalSize         int64
 	progress          float64
 	createdAt         time.Time
 	completedAt       time.Time
@@ -171,6 +172,18 @@ func (r *Resource) GetTransferSize() int64 {
 func (r *Resource) GetDataSize() int64 {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
+	return r.dataSize
+}
+
+// GetTotalSize returns the advertised total uncompressed resource size
+// across all split segments. Falls back to dataSize for resources that
+// were never prepared for a link.
+func (r *Resource) GetTotalSize() int64 {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	if r.totalSize > 0 {
+		return r.totalSize
+	}
 	return r.dataSize
 }
 
@@ -365,6 +378,9 @@ func (r *Resource) PrepareOutboundForLink(encrypt func([]byte) ([]byte, error), 
 		return err
 	}
 	totalSize := fileSize + int64(metaLen)
+	// Advertised data_size is the whole resource, identical on every
+	// segment advertisement, matching upstream ResourceAdvertisement.d.
+	r.totalSize = totalSize
 
 	if r.segmentIndex == 0 {
 		r.segmentIndex = 1

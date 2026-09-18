@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 )
 
 // RNodeMultiOptions configures an RNodeMultiInterface.
@@ -624,6 +625,11 @@ func (s *RNodeSubInterface) ProcessOutgoing(data []byte) error {
 	}
 	s.stateMu.Lock()
 	if !s.interfaceReady {
+		if len(s.packetQueue) >= rnodeMaxQueuedPackets {
+			s.stateMu.Unlock()
+			debug.Log(debug.DebugVerbose, "RNode transmit queue full; dropping packet", "name", s.String())
+			return nil
+		}
 		s.packetQueue = append(s.packetQueue, append([]byte(nil), data...))
 		s.stateMu.Unlock()
 		return nil

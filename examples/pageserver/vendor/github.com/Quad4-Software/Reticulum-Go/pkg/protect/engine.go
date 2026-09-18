@@ -60,14 +60,18 @@ type Options struct {
 }
 
 type ifaceState struct {
-	window       rateWindow
-	adapt        adaptiveState
-	adaptSec     int64
-	adaptPeakPPS float64
-	adaptPeakBPS float64
-	tripAt       []time.Time
-	coolUntil    time.Time
-	peers        map[string]*peerState
+	window         rateWindow
+	adapt          adaptiveState
+	adaptSec       int64
+	adaptPeakPPS   float64
+	adaptPeakBPS   float64
+	stableWindows  int
+	driftWindows   int
+	driftSec       int64
+	driftSecMaxPPS float64
+	tripAt         []time.Time
+	coolUntil      time.Time
+	peers          map[string]*peerState
 }
 
 // peerState is a per-remote-peer rate sub-bucket scoped to one interface.
@@ -116,24 +120,20 @@ type Engine struct {
 	autoLearnMinSamples  int
 	transportNode        bool
 
-	mu             sync.Mutex
-	ifaces         map[string]*ifaceState
-	conns          map[string]int
-	resources      int
-	crypto         int
-	handshake      int
-	warns          map[warnKey]*warnState
-	shedMemory     atomic.Bool
-	tripCounts     [reasonCount]atomic.Uint64
-	autoPhase      atomic.Int32
-	fingerprint    string
-	promoted       bool
-	learnStarted   time.Time
-	stableWindows  int
-	driftWindows   int
-	driftSec       int64
-	driftSecMaxPPS float64
-	lastPersist    time.Time
+	mu           sync.Mutex
+	ifaces       map[string]*ifaceState
+	conns        map[string]int
+	resources    int
+	crypto       int
+	handshake    int
+	warns        map[warnKey]*warnState
+	shedMemory   atomic.Bool
+	tripCounts   [reasonCount]atomic.Uint64
+	autoPhase    atomic.Int32
+	fingerprint  string
+	promoted     bool
+	learnStarted time.Time
+	lastPersist  time.Time
 
 	memStop chan struct{}
 	memOnce sync.Once
@@ -466,7 +466,7 @@ func (e *Engine) admitWithOpts(iface string, nbytes int, opts AdmitOpts) Decisio
 				return d
 			}
 		}
-		e.resetDriftLocked()
+		e.resetDriftLocked(iface)
 		if overPPS {
 			return e.tripWithCoolDown(iface, ReasonPPS)
 		}
@@ -506,12 +506,12 @@ func (st *ifaceState) noteAdaptive(now time.Time, pps, bps float64) (sampled boo
 	return true, samplePPS, sampleBPS
 }
 
-func (e *Engine) resetDriftLocked() {
+func (e *Engine) resetDriftLocked(iface string) {
 	if e == nil {
 		return
 	}
 	e.mu.Lock()
-	e.driftWindows = 0
+	e.ifaceLocked(iface).driftWindows = 0
 	e.mu.Unlock()
 }
 

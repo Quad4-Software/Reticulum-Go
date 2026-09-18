@@ -238,11 +238,6 @@ func knownDestKey(destHash []byte) destMapKey {
 	return k
 }
 
-func knownDestHex(destHash []byte) string {
-	k := knownDestKey(destHash)
-	return hex.EncodeToString(k[:])
-}
-
 func TruncatedHash(data []byte) []byte {
 	fullHash := cryptography.Hash(data)
 	return fullHash[:TruncatedHashLength/8]

@@ -27,21 +27,24 @@ type ClientConfig struct {
 
 // ServerConfig holds rngit node settings.
 type ServerConfig struct {
-	ConfigDir         string
-	NodeName          string
-	AnnounceInterval  int
-	RecordStats       bool
-	MirrorIntervalHrs int
-	RepositoryGroups  map[string]string
-	AccessRules       map[string]string
-	ServeNomadNet     bool
-	UnicodeIcons      bool
-	MediaConversion   bool
-	BlockedIdentities map[string]bool
-	IdentityAliases   map[string]string
-	RNSConfigDir      string
-	IdentityPath      string
-	LogLevel          int
+	ConfigDir                 string
+	NodeName                  string
+	AnnounceInterval          int
+	RecordStats               bool
+	MirrorIntervalHrs         int
+	RepositoryGroups          map[string]string
+	AccessRules               map[string]string
+	ServeNomadNet             bool
+	UnicodeIcons              bool
+	MediaConversion           bool
+	SyntaxHighlight           bool
+	BlockedIdentities         map[string]bool
+	IdentityAliases           map[string]string
+	StatsIgnoreIdentities     map[string]bool
+	StatsPushIgnoreIdentities map[string]bool
+	RNSConfigDir              string
+	IdentityPath              string
+	LogLevel                  int
 }
 
 // DefaultClientConfigDir returns ~/.rngit or /etc/rngit.
@@ -110,17 +113,20 @@ func LoadServerConfig(dir string) (*ServerConfig, error) {
 		dir = DefaultServerConfigDir()
 	}
 	cfg := &ServerConfig{
-		ConfigDir:         dir,
-		NodeName:          "Reticulum Git Node",
-		AnnounceInterval:  360,
-		MirrorIntervalHrs: 24,
-		RepositoryGroups:  map[string]string{},
-		AccessRules:       map[string]string{},
-		MediaConversion:   true,
-		BlockedIdentities: map[string]bool{},
-		IdentityAliases:   map[string]string{},
-		IdentityPath:      filepath.Join(dir, "server_identity"),
-		LogLevel:          4,
+		ConfigDir:                 dir,
+		NodeName:                  "Reticulum Git Node",
+		AnnounceInterval:          360,
+		MirrorIntervalHrs:         24,
+		RepositoryGroups:          map[string]string{},
+		AccessRules:               map[string]string{},
+		MediaConversion:           true,
+		SyntaxHighlight:           true,
+		BlockedIdentities:         map[string]bool{},
+		IdentityAliases:           map[string]string{},
+		StatsIgnoreIdentities:     map[string]bool{},
+		StatsPushIgnoreIdentities: map[string]bool{},
+		IdentityPath:              filepath.Join(dir, "server_identity"),
+		LogLevel:                  4,
 	}
 	path := filepath.Join(dir, "config")
 	sections, err := parseINI(path)
@@ -171,6 +177,24 @@ func LoadServerConfig(dir string) (*ServerConfig, error) {
 			}
 		}
 	}
+	for _, key := range []struct {
+		name string
+		into map[string]bool
+	}{
+		{"stats_ignore_identities", cfg.StatsIgnoreIdentities},
+		{"stats_push_ignore_identities", cfg.StatsPushIgnoreIdentities},
+	} {
+		if v, ok := sections["rngit"][key.name]; ok {
+			for _, entry := range splitListValue(v) {
+				resolved := cfg.resolveIdentityAliasLocked(entry)
+				if len(resolved) == 32 {
+					if _, err := hex.DecodeString(resolved); err == nil {
+						key.into[strings.ToLower(resolved)] = true
+					}
+				}
+			}
+		}
+	}
 	for k, v := range sections["repositories"] {
 		cfg.RepositoryGroups[strings.TrimSpace(k)] = strings.TrimSpace(v)
 	}
@@ -186,6 +210,9 @@ func LoadServerConfig(dir string) (*ServerConfig, error) {
 	}
 	if v, ok := sections["pages"]["media_conversion"]; ok {
 		cfg.MediaConversion = strings.EqualFold(strings.TrimSpace(v), "yes")
+	}
+	if v, ok := sections["pages"]["syntax_highlight"]; ok {
+		cfg.SyntaxHighlight = strings.EqualFold(strings.TrimSpace(v), "yes")
 	}
 	if v, ok := sections["logging"]["loglevel"]; ok {
 		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
@@ -320,6 +347,13 @@ mirror_interval = 24
 
 # blocked_identities = d7db22f63b453c23bb0688dde565b7c1
 
+# Identities in these lists are not counted in repository
+# statistics. The first list covers page views, fetches and
+# downloads; the second covers pushes only.
+
+# stats_ignore_identities = d31aeea49873006f13b3415520666a4e
+# stats_push_ignore_identities = d31aeea49873006f13b3415520666a4e
+
 [repositories]
 public = ./repos/public
 
@@ -345,6 +379,24 @@ serve_nomadnet = no
 # variable RNGIT_MEDIA_BACKEND.
 
 # media_conversion = yes
+
+# Syntax highlighting for source files shown on blob pages
+# is enabled by default. Disable it if you prefer plain
+# literal rendering.
+
+# syntax_highlight = no
+
+# Custom page templates can be placed in the "templates"
+# directory inside this config directory, named
+# "template_name.mu". Supported names are "base", "front",
+# "group", "repo", "tree", "blob", "commits", "commit",
+# "refs", "stats", "releases", "release", "work" and
+# "work_doc". Include a {PAGE_CONTENT} variable where the
+# rendered page content should be injected. The base
+# template additionally supports {NODE_NAME}, {VERSION},
+# {NAVIGATION} and {GEN_TIME}. A template file with the
+# executable bit set is run and its stdout becomes the
+# template.
 
 
 [logging]

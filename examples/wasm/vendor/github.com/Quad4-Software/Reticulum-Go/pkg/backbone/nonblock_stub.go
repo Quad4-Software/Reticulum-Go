@@ -5,7 +5,4 @@
 
 package backbone
 
-import "net"
-
-func setNonblockConn(net.Conn) error { return nil }
-func setNonblockFD(int) error        { return nil }
+func setNonblockFD(int) error { return nil }

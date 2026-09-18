@@ -1310,18 +1310,29 @@ func (l *Link) assembleIncomingPayload(inner []byte, adv *resource.ResourceAdver
 		if adv.DataSize <= 0 {
 			return nil, errors.New("incoming compressed resource has invalid data_size")
 		}
-		if adv.DataSize > int64(resource.AutoCompressMaxSize) {
+		// Upstream never compresses a resource whose total exceeds
+		// AutoCompressMaxSize, so a non-split advertisement claiming more
+		// is invalid. For split resources DataSize is the whole-resource
+		// total and each segment still decompresses to at most
+		// AutoCompressMaxSize, matching upstream's per-Resource max_length.
+		if !adv.Split && adv.DataSize > int64(resource.AutoCompressMaxSize) {
 			return nil, errors.New("incoming compressed resource exceeds AutoCompressMaxSize")
 		}
-
+		bound := adv.DataSize
+		if bound > int64(resource.AutoCompressMaxSize) {
+			bound = int64(resource.AutoCompressMaxSize)
+		}
 		r := bzip2.NewReader(bytes.NewReader(data))
-		limited := io.LimitReader(r, adv.DataSize+1)
+		limited := io.LimitReader(r, bound+1)
 		decompressed, err := io.ReadAll(limited)
 		if err != nil {
 			return nil, err
 		}
 		if int64(len(decompressed)) > adv.DataSize {
 			return nil, errors.New("incoming compressed resource exceeds advertised data_size")
+		}
+		if len(decompressed) > resource.AutoCompressMaxSize {
+			return nil, errors.New("incoming compressed resource exceeds decompression bound")
 		}
 		data = decompressed
 	}

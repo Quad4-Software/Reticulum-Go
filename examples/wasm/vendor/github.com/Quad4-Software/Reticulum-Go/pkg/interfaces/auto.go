@@ -381,10 +381,6 @@ func (ai *AutoInterface) startDiscoveryListener(iface *net.Interface) error {
 		return err
 	}
 
-	if err := conn.SetReadBuffer(1024); err != nil {
-		debug.Log(debug.DebugError, "Failed to set discovery read buffer", "error", err)
-	}
-
 	ai.Mutex.Lock()
 	ai.discoveryServers[iface.Name] = conn
 	ai.Mutex.Unlock()
@@ -412,10 +408,6 @@ func (ai *AutoInterface) startUnicastDiscoveryListener(iface *net.Interface) err
 		return err
 	}
 
-	if err := conn.SetReadBuffer(1024); err != nil {
-		debug.Log(debug.DebugError, "Failed to set unicast discovery read buffer", "error", err)
-	}
-
 	ai.Mutex.Lock()
 	ai.unicastDiscoveryServers[iface.Name] = conn
 	ai.Mutex.Unlock()
@@ -441,10 +433,6 @@ func (ai *AutoInterface) startDataListener(iface *net.Interface) error {
 	if err != nil {
 		debug.Log(debug.DebugError, "Failed to listen on data port", "addr", addr, "error", err)
 		return err
-	}
-
-	if err := conn.SetReadBuffer(ai.MTU); err != nil {
-		debug.Log(debug.DebugError, "Failed to set data read buffer", "error", err)
 	}
 
 	ai.Mutex.Lock()

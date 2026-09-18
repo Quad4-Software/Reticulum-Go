@@ -110,10 +110,6 @@ func (ui *UDPInterface) dialUDP() (net.Conn, error) {
 	if err != nil {
 		return nil, common.WrapListenError(err)
 	}
-	if ui.targetAddr != nil {
-		_ = conn.SetReadBuffer(1064)
-		_ = conn.SetWriteBuffer(1064)
-	}
 	return conn, nil
 }
 

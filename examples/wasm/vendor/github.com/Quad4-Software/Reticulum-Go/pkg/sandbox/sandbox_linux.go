@@ -74,7 +74,7 @@ func applyLandlock(cfg *common.ReticulumConfig) (err error) {
 		return fmt.Errorf("landlock skipped under qemu-user")
 	}
 
-	// purego/fakecgo or real cgo makes AllThreadsSyscall panic on ABI < 8.
+	// A fakecgo provider or real cgo makes AllThreadsSyscall panic on ABI < 8.
 	// Recover so the daemon can soft-fail instead of aborting.
 	defer func() {
 		if r := recover(); r != nil {

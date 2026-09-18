@@ -55,6 +55,7 @@ func (s *Server) handleRegisterDestination(w http.ResponseWriter, r *http.Reques
 	if req.AcceptsLinks {
 		wireInboundLinks(sess, dest)
 	} else {
+		dest.AcceptsLinks(false)
 		debug.Log(debug.DebugInfo, common.MsgControlAPINoAcceptsLinks, "hash", hashHex)
 	}
 

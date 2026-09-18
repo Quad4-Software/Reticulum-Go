@@ -136,6 +136,7 @@ func (n *Node) handleFetch(path string, data []byte, _ []byte, _ []byte, remote 
 	bundlePath := filepath.Join(tmp, "fetch.bundle")
 	if err := n.git.CreateBundle(p, bundlePath, refs, have); err != nil {
 		if IsEmptyBundle(err) {
+			n.fetchSucceeded(group, repo, remote)
 			return []byte{ResOK}
 		}
 		return StatusResponse(ResRemoteFail, "Could not fetch refs")
@@ -144,6 +145,7 @@ func (n *Node) handleFetch(path string, data []byte, _ []byte, _ []byte, remote 
 	if err != nil {
 		return StatusResponse(ResRemoteFail, "Remote error")
 	}
+	n.fetchSucceeded(group, repo, remote)
 	return link.FileResponse{Data: bundle, MetadataPacked: OKMetadataPacked(), AutoCompress: true}
 }
 
@@ -204,6 +206,7 @@ func (n *Node) handlePush(path string, data []byte, _ []byte, _ []byte, remote *
 		if err := n.git.FetchBundle(p, bundlePath, localRef, remoteRef, force); err != nil {
 			return StatusResponse(ResRemoteFail, "Could not verify bundle")
 		}
+		n.pushSucceeded(group, repo, remote)
 		return []byte{ResOK}
 	}
 	if ops, ok := req["operations"]; ok {
@@ -242,6 +245,7 @@ func (n *Node) handlePush(path string, data []byte, _ []byte, _ []byte, remote *
 				return StatusResponse(ResRemoteFail, "Could not update refs")
 			}
 		}
+		n.pushSucceeded(group, repo, remote)
 		return []byte{ResOK}
 	}
 	return StatusResponse(ResInvalidReq, "Invalid request data")
