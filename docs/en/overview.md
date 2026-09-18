@@ -135,4 +135,4 @@ Reticulum-Go adds features that Python does not ship today (control API, librns,
 
 ## License and credit
 
-Reticulum-Go is licensed under Apache License 2.0. See [LICENSE](../../LICENSE).
+Reticulum-Go is licensed under the Reticulum License. See [LICENSE](../../LICENSE).

@@ -142,7 +142,7 @@ By submitting a contribution, you agree that:
 
 - You have the right to submit it and are not breaching any obligation to an employer, client, or third party.
 - You assign to **Quad4** the copyright and related rights you hold in that contribution, or where assignment is not possible, grant Quad4 a perpetual, irrevocable, worldwide, royalty-free license (including the right to sublicense) to use, reproduce, modify, distribute, and prepare derivative works of the contribution.
-- The contribution is provided for distribution under the **Apache License, Version 2.0** (see `LICENSE`) as part of this project.
+- The contribution is provided for distribution under the **Reticulum License** (see `LICENSE`) as part of this project, including its conditions on harm and AI-training use.
 
 ## Contact
 

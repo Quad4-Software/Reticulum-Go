@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: 0BSD
+# SPDX-License-Identifier: LicenseRef-Reticulum
 
 """Fast git-index tree manifest for reticulum-go.rsm signing.
 

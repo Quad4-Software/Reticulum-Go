@@ -40,7 +40,7 @@ Documentation is organized by language under docs/. English lives in docs/en/. A
 | [README.md](../../README.md) | Project entry point, features, install/build |
 | [COMPATIBILITY.md](../../COMPATIBILITY.md) | Detailed compatibility matrix (also summarized in [compatibility.md](compatibility.md)) |
 | [SECURITY.md](../../SECURITY.md) | Vulnerability reporting and supply-chain detail (also summarized in [security.md](security.md)) |
-| [LICENSE](../../LICENSE) | Apache License 2.0 |
+| [LICENSE](../../LICENSE) | Reticulum License |
 
 ## External references
 

@@ -75,6 +75,8 @@ Report issues privately (see [SECURITY.md](SECURITY.md)). Sandbox is on by defau
 
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE).
+[Reticulum License](LICENSE), the same license as the Python reference implementation since RNS 0.9.4. Earlier revisions carried MIT, then 0BSD, then Apache-2.0. [LEGAL.md](LEGAL.md) records the boundary commits.
 
-Credit: [Mark Qvist](https://github.com/markqvist) for the reference Reticulum Network Stack.
+## Upstream
+
+[Python RNS](https://github.com/markqvist/Reticulum) by [Mark Qvist](https://github.com/markqvist) is the reference implementation and defines the protocol. If you are new to Reticulum, start there. Donations to this project are shared: 75% go to Mark.

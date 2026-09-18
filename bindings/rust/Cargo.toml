@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: LicenseRef-Reticulum
 # Copyright (c) 2024-2026 Quad4.io
 
 [package]
@@ -6,7 +6,7 @@ name = "rns"
 version = "1.5.0"
 edition = "2021"
 description = "Idiomatic Rust bindings for the librns C ABI"
-license = "Apache-2.0"
+license = "LicenseRef-Reticulum"
 publish = false
 
 [lib]

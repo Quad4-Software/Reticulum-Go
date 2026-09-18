@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
 //go:build darwin || (freebsd && (amd64 || arm64 || riscv64)) || (openbsd && (amd64 || arm64 || mips64 || ppc64 || riscv64))
