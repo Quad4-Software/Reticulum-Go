@@ -98,7 +98,7 @@ Wire format is stable across 1.2.x to 1.4.x. Notable behavior differences:
 |-----|--------|
 | Discovery TCPClient/I2P autoconnect | Go implements TCP client and I2P peer autoconnect from discovery. Python still stubs these paths |
 | Remote management mutate | Remote /path table and rates plus /status work. Remote drop, path-request, and blackhole mutate are unimplemented (Python also exits 255) |
-| RNode and radio serial drivers | RNode / KISS / AX25 / Weave not in this tree. SerialInterface, Modem73Interface, and SDRInterface are present |
+| RNode and radio serial drivers | RNodeInterface and RNodeMultiInterface with KISS framing are present (serial and tcp://). Generic KISSInterface, AX25KISSInterface, and WeaveInterface are not in this tree. SerialInterface, Modem73Interface, and SDRInterface are present |
 | Utilities rnir rnpkg | Not ported |
 | rngit | Ported (reticulum-go git, git-remote-rns) |
 | Python-only utilities | rnir, rnpkg, rnodeconf are not ported |
