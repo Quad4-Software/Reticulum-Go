@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024-2026 Quad4.io
 
-// Command stampbench compares Python LXStamper, Go CPU, and Go OpenCL GPU
-// stamp generation for the same cost and expand rounds.
+// Command stampbench compares Python LXStamper and Go CPU stamp generation
+// for the same cost and expand rounds.
 package main
 
 import (
@@ -32,13 +32,7 @@ func main() {
 	msg := bytes.Repeat([]byte{0x5A}, 16)
 	ctx := context.Background()
 
-	fmt.Printf("stamp cost=%d expand_rounds=%d material_len=%d iters=%d\n", cost, rounds, len(msg), iters)
-	if v, n, ok := lxstamper.GPUDeviceInfo(); ok {
-		fmt.Printf("OpenCL GPU: %s / %s\n", v, n)
-	} else {
-		fmt.Printf("OpenCL GPU: not detected (needs NVIDIA/AMD/Intel OpenCL ICD)\n")
-	}
-	fmt.Printf("preferred backend: %s active=%s\n\n", lxstamper.PreferredStampBackend(), lxstamper.ActiveStampBackend())
+	fmt.Printf("stamp cost=%d expand_rounds=%d material_len=%d iters=%d\n\n", cost, rounds, len(msg), iters)
 
 	timeGo := func(name string, fn func() error) {
 		var total time.Duration
@@ -55,10 +49,6 @@ func main() {
 
 	timeGo("go-cpu", func() error {
 		_, _, err := lxstamper.GenerateStampCPU(ctx, msg, cost, rounds)
-		return err
-	})
-	timeGo("go-gpu", func() error {
-		_, _, err := lxstamper.GenerateStampGPU(ctx, msg, cost, rounds)
 		return err
 	})
 

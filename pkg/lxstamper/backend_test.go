@@ -32,27 +32,7 @@ func TestGenerateStampCPUValid(t *testing.T) {
 	}
 }
 
-func TestGenerateStampGPUOrSkip(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-	msg := bytes.Repeat([]byte{0x22}, 16)
-	stamp, value, err := GenerateStampGPU(ctx, msg, 4, 3)
-	if err != nil {
-		t.Skipf("GPU unavailable: %v", err)
-	}
-	wb, _ := StampWorkblock(msg, 3)
-	if value < 4 || !MeetsCost(stamp, 4, wb) {
-		t.Fatalf("gpu stamp invalid value=%d", value)
-	}
-	vendor, name, ok := GPUDeviceInfo()
-	if !ok {
-		t.Fatal("expected GPU device info")
-	}
-	t.Logf("GPU stamp ok on %s %s", vendor, name)
-}
-
-func TestGenerateStampAutoFallback(t *testing.T) {
-	t.Setenv("RNS_LXSTAMP_BACKEND", "auto")
+func TestGenerateStampValid(t *testing.T) {
 	msg := make([]byte, 16)
 	rand.Read(msg)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -63,7 +43,7 @@ func TestGenerateStampAutoFallback(t *testing.T) {
 	}
 	wb, _ := StampWorkblock(msg, 3)
 	if !MeetsCost(stamp, 4, wb) {
-		t.Fatal("auto backend stamp invalid")
+		t.Fatal("stamp invalid")
 	}
 }
 
@@ -73,22 +53,6 @@ func BenchmarkGenerateStampCPU(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		_, _, err := GenerateStampCPU(ctx, msg, 8, DiscoveryRounds)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkGenerateStampGPU(b *testing.B) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if _, _, err := GenerateStampGPU(ctx, []byte("probe"), 4, 3); err != nil {
-		b.Skipf("GPU unavailable: %v", err)
-	}
-	msg := bytes.Repeat([]byte{0xCD}, 16)
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_, _, err := GenerateStampGPU(context.Background(), msg, 8, DiscoveryRounds)
 		if err != nil {
 			b.Fatal(err)
 		}

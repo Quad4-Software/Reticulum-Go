@@ -14,32 +14,11 @@ import (
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
-// gpuWorkblockMinRounds uses GPU for StampWorkblock only when expand cost is high
-// enough that PCIe overhead is amortized (discovery's 20 rounds stays on CPU).
-const gpuWorkblockMinRounds = 64
-
-// StampWorkblock returns the HKDF-expanded workblock (256 * expandRounds bytes).
-// Uses OpenCL when a GPU is available and expandRounds >= 64, otherwise a
-// parallel CPU expand. Output is byte-identical to LXStamper.
+// StampWorkblock returns the HKDF-expanded workblock (256 * expandRounds
+// bytes) computed by the parallel CPU expand. Output is byte-identical to
+// LXStamper.
 func StampWorkblock(material []byte, expandRounds int) ([]byte, error) {
-	if expandRounds <= 0 {
-		return nil, errors.New("lxstamper: expandRounds must be positive")
-	}
-	if len(material) == 0 {
-		return nil, errors.New("lxstamper: workblock material required")
-	}
-
-	ensureBackend()
-	if PreferredStampBackend() != "cpu" && gpuEngine != nil && expandRounds >= gpuWorkblockMinRounds {
-		out, err := gpuEngine.workblock(material, expandRounds)
-		if err == nil {
-			return out, nil
-		}
-		if PreferredStampBackend() == "gpu" {
-			return nil, err
-		}
-	}
-	return cpuExpandWorkblock(material, expandRounds)
+	return StampWorkblockCPU(material, expandRounds)
 }
 
 // StampWorkblockCPU forces the parallel CPU workblock path.

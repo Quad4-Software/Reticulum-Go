@@ -15,8 +15,7 @@ type StampCandidate struct {
 }
 
 // ValidateStampBatch reports which candidates meet targetCost for the given
-// expandRounds. Uses GPU streaming validation when available and the batch is
-// large enough, otherwise a parallel CPU path. Results are LXStamper-compatible.
+// expandRounds using a parallel CPU path. Results are LXStamper-compatible.
 func ValidateStampBatch(cands []StampCandidate, targetCost, expandRounds int) []bool {
 	out := make([]bool, len(cands))
 	if len(cands) == 0 {
@@ -25,36 +24,7 @@ func ValidateStampBatch(cands []StampCandidate, targetCost, expandRounds int) []
 	if expandRounds <= 0 {
 		expandRounds = DeliveryRounds
 	}
-
-	ensureBackend()
-	// GPU kernel caps material at 64 bytes and mishandles cost<=0 thresholding.
-	// Stay on CPU for those cases so results match MeetsCost.
-	useGPU := PreferredStampBackend() != "cpu" &&
-		gpuEngine != nil &&
-		len(cands) >= 4 &&
-		expandRounds >= gpuWorkblockMinRounds &&
-		targetCost > 0 &&
-		!batchHasLongMaterial(cands)
-	if useGPU {
-		ok, err := gpuEngine.batchValidate(cands, targetCost, expandRounds)
-		if err == nil {
-			return ok
-		}
-		if PreferredStampBackend() == "gpu" {
-			// Forced GPU failed: mark all false rather than silently changing semantics.
-			return out
-		}
-	}
 	return validateStampBatchCPU(cands, targetCost, expandRounds)
-}
-
-func batchHasLongMaterial(cands []StampCandidate) bool {
-	for _, c := range cands {
-		if len(c.Material) > 64 {
-			return true
-		}
-	}
-	return false
 }
 
 func validateStampBatchCPU(cands []StampCandidate, targetCost, expandRounds int) []bool {

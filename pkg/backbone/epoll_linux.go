@@ -6,7 +6,6 @@
 package backbone
 
 import (
-	"net"
 	"syscall"
 
 	"golang.org/x/sys/unix"
@@ -77,14 +76,6 @@ func (p *epollPoller) Wait(timeoutMs int) ([]pollEvent, error) {
 
 func (p *epollPoller) Close() error {
 	return unix.Close(p.fd)
-}
-
-func setNonblockConn(conn net.Conn) error {
-	fd, err := connFD(conn)
-	if err != nil {
-		return err
-	}
-	return setNonblockFD(fd)
 }
 
 func setNonblockFD(fd int) error {

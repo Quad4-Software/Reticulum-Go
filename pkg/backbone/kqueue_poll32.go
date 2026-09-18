@@ -6,7 +6,6 @@
 package backbone
 
 import (
-	"net"
 	"syscall"
 	"time"
 
@@ -95,14 +94,6 @@ func (p *kqueuePoller) Wait(timeoutMs int) ([]pollEvent, error) {
 
 func (p *kqueuePoller) Close() error {
 	return unix.Close(p.fd)
-}
-
-func setNonblockConn(conn net.Conn) error {
-	fd, err := connFD(conn)
-	if err != nil {
-		return err
-	}
-	return setNonblockFD(fd)
 }
 
 func setNonblockFD(fd int) error {

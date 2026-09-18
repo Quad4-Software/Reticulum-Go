@@ -2,7 +2,7 @@
 ## explicit; go 1.27.1
 github.com/Quad4-Software/bzip2/internal/enc
 github.com/Quad4-Software/bzip2/pkg/bzip2
-# github.com/Quad4-Software/msgpack/v5 v5.9.1
+# github.com/Quad4-Software/msgpack/v5 v5.9.2
 ## explicit; go 1.27.1
 github.com/Quad4-Software/msgpack/v5/pkg/msgpack
 github.com/Quad4-Software/msgpack/v5/pkg/msgpack/msgpcode
@@ -20,12 +20,6 @@ github.com/creack/pty
 # github.com/dunglas/httpsfv v1.1.1
 ## explicit; go 1.14
 github.com/dunglas/httpsfv
-# github.com/ebitengine/purego v0.11.0
-## explicit; go 1.25.0
-github.com/ebitengine/purego
-github.com/ebitengine/purego/internal/cgo
-github.com/ebitengine/purego/internal/fakecgo
-github.com/ebitengine/purego/internal/strings
 # github.com/godbus/dbus/v5 v5.2.2
 ## explicit; go 1.20
 github.com/godbus/dbus/v5

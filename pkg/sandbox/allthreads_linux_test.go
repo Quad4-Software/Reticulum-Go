@@ -24,7 +24,7 @@ func TestAllThreadsSyscallUsable(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {
 			t.Fatalf("AllThreadsSyscall panicked: %v\n"+
-				"Sandbox package must stay free of purego/fakecgo.", r)
+				"Sandbox package must stay free of fakecgo providers.", r)
 		}
 	}()
 

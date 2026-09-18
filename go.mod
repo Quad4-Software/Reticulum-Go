@@ -4,10 +4,9 @@ go 1.27.1
 
 require (
 	github.com/Quad4-Software/bzip2 v1.0.1
-	github.com/Quad4-Software/msgpack/v5 v5.9.1
+	github.com/Quad4-Software/msgpack/v5 v5.9.2
 	github.com/Quad4-Software/pbt v1.0.2
 	github.com/creack/pty v1.1.24
-	github.com/ebitengine/purego v0.11.0
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/landlock-lsm/go-landlock v0.10.1
 	github.com/mdlayher/vsock v1.3.0

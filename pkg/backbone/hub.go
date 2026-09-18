@@ -315,13 +315,6 @@ func (h *Hub) removeStream(fd int) {
 	}
 }
 
-func (h *Hub) removeListener(fd int) {
-	h.mu.Lock()
-	delete(h.listeners, fd)
-	h.mu.Unlock()
-	h.pollerDel(fd)
-}
-
 // Close shuts down the hub event loop.
 func (h *Hub) Close() {
 	h.shutdownOnce.Do(func() {
