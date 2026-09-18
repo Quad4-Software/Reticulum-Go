@@ -1,282 +1,256 @@
 # Changelog
 
-## v1.2.1 - 2026-09-TBD
+## [Unreleased]
 
 ### Added
-- rngit NomadNet page server on a dedicated nomadnetwork.node destination (serve_nomadnet config): front, group, repo, tree, blob, commits, commit, refs, stats, releases, release, work and work_doc pages plus /file/artifact, /file/download and /file/workdoc endpoints, matching the Python rngit 1.5.2 page surface
-- rngit page template overrides from <configdir>/templates/<name>.mu with {PAGE_CONTENT}, {NODE_NAME}, {VERSION}, {NAVIGATION} and {GEN_TIME} substitution; executable templates run bounded by a timeout and output cap
-- rngit Markdown to Micron conversion for README and work document rendering, plus syntax highlighting for blob pages (syntax_highlight config)
-- rngit usage statistics (record_stats config): Python-compatible msgpack stats file, per-repo view/fetch/push/download counters, activity scoring, charts, and working stats_push_ignore_identities
-- rngit thanks counters on repo and release pages with link-scoped deduplication
-- DCO sign-off enforcement: commit-msg hook requires a Signed-off-by trailer and a required dco-signoff CI job re-checks every PR commit (SKIP_DCO_HOOK=1 to bypass)
-- Release attestations embed an RFC 3161 timestamp (COSIGN_TSA_URL, default tsa.sigstore.dev) and can upload to a transparency log via COSIGN_REKOR_URL
-- openvex.json at the repo root records scanner findings that do not apply; Trivy consumes it during scans
-- fuzz/oss-fuzz submission files (project.yaml, Dockerfile, build.sh) covering wire-parser fuzz targets for google/oss-fuzz or ClusterFuzzLite
-- task gitsign:setup configures keyless commit signing, including private Fulcio/Rekor/OIDC via SIGSTORE_* env vars; task gittuf:init scaffolds a gittuf repository security policy
-- Live interop coverage for previously untested paths: rgoprobe/rnprobe both directions, Python rncp sender to rgocp listener, Python buffer stream to Go, Python TCPClientInterface against Go TCPServerInterface full session, full-stack serial over PTY, full-stack pipe via TCP bridge, WebSocket and WebTransport echo, rgospeed UDP pair and rgosnap against a Go daemon
-- test-live-interop CI job runs the RUN_LIVE_INTEROP suite on ubuntu-latest with a pinned rns==1.5.4 venv
-- rgosh --compat interop test holds stdin open like an interactive session: Python rnsh 1.5.x loses the remote exit code when stdin EOF arrives while the child is running (its close_stdin path reaps the child via terminate() before the poll loop records the status), so CommandExitedMessage is never sent. Python-to-Python rnsh hits the same upstream race
+
+- rngit NomadNet pages on a dedicated nomadnetwork.node destination. Same page set as Python rngit 1.5.2, plus file download.
+- Templates in the config directory can override those pages. Executable templates hit a timeout and an output cap.
+- READMEs and work documents render from Markdown into Micron. Blob pages can syntax-highlight.
+- Optional repo stats (views, fetches, pushes, downloads) with charts, and a list of identities whose pushes do not count.
+- Thanks counters on repo and release pages. One thanks per link.
+- Commits need a Signed-off-by line. The commit-msg hook checks, and so does CI. `SKIP_DCO_HOOK=1` skips the hook.
+- Release attestations carry an RFC 3161 timestamp. `COSIGN_REKOR_URL` also uploads them to a transparency log.
+- `openvex.json` tells Trivy which scanner findings do not apply here.
+- oss-fuzz files for the wire-parser targets.
+- `task gitsign:setup` for keyless commit signing, including a private Sigstore stack. `task gittuf:init` scaffolds a gittuf policy.
+- Live interop against Python RNS 1.5.4: probes both ways, rncp into rgocp, buffer streams, a full TCP session, serial, pipe, WebSocket, WebTransport, speedtest, and snapshot. CI runs that suite on ubuntu-latest.
 
 ### Security
-- Vendored msgpack decoder no longer panics on unhashable map keys: DecodeUntypedMap and the typed map path reject non-comparable keys, and bin keys decode to string like Python msgpack dict keys. A 4-byte payload such as {[1]: 2} previously crashed the process on wire decode paths such as rnsgit request handling. Fix shipped upstream in Quad4-Software/msgpack v5.9.2 (changelog 5.8.3)
-- Packet dispatch workers and inbound preprocessing now recover panics per packet instead of letting one hostile packet kill the process
-- Split-resource assembly is bounded: sequential segment enforcement, segment-count consistency, replay rejection, per-link assembly cap of 4, global tracker cap, and a 1 GiB hard ceiling per assembly. Declared d is tolerated in both upstream total-size and per-segment conventions
-- Resource advertisement d now carries the whole-resource total size on every segment, matching upstream ResourceAdvertisement.d semantics (was per-segment wireBody length)
-- Compressed resource decompression is bounded per segment at min(d, AutoCompressMaxSize); non-split advertisements with d above AutoCompressMaxSize are rejected up front
-- RawChannelReader caps unread buffered data at 8 MiB and invokes callbacks outside the lock; bounded bzip2 stream decompression
-- Channel rejects message sequences more than WINDOW_MAX (48) ahead of the next expected sequence, matching the receive-window check upstream applies
-- RNode packet queues are capped at 256 packets per direction, dropping newest on overflow
-- Destination.AcceptsLinks now actually drops inbound link requests, and defaults to true matching Python accept_link_requests
+
+- A 4-byte msgpack map with an unhashable key crashed the process, including on rnsgit requests. Decode rejects those keys. Bin keys become strings, as in Python. Upstream fix is msgpack v5.9.2.
+- One panicking packet no longer takes the daemon with it.
+- Split-resource assembly rejects replays, gaps, and inconsistent segment counts. Four assemblies per link, a global cap on trackers, and nothing over 1 GiB.
+- Advertisement field `d` is the whole resource size on every segment, matching Python. It used to be the size of that segment alone.
+- Compressed segments will not expand past `min(d, AutoCompressMaxSize)`. Oversized single-part ads are refused up front.
+- A channel stops buffering once 8 MiB is sitting unread. bzip2 streams are capped the same way.
+- Channels drop anything more than 48 messages ahead of the next one they expect.
+- Each RNode direction keeps 256 packets, then drops the newest.
+- `AcceptsLinks` set to false now actually refuses the request. The default is still true.
 
 ### Removed
-- OpenCL/GPU stamping backend and the lxstamp_gpu build tag: stamps are CPU-only, stamps remain byte-identical and interoperable. purego/fakecgo dependency dropped, so the daemon can never import a fakecgo provider that breaks AllThreadsSyscall under CGO_ENABLED=0
-- Dead helpers removed after call-site verification: knownDestHex, rnodeIsIntDataCmd, setAllowIdleRetry, Hub.removeListener, stringBody, pageNav, sortDays, thanksHashHex, setNonblockConn, listenerFD, goPoller.signal, and the GPU-era sha256_fast oracle
+
+- GPU stamping. Stamps stay on the CPU and stay byte-identical. purego is gone, so Landlock can run with CGO off.
+- Helpers nothing called anymore, including the old GPU sha256 oracle.
 
 ### Fixed
-- Transport dropped valid inbound packets on IFAC interfaces: the multi-hop PLAIN/GROUP filter in handleInboundPacket parsed the still-IFAC-masked header, so it read IFAC bytes as the hops field and rejected packets whose mask happened to decode as PLAIN or GROUP. The filter now runs in preprocessInboundPacket after IFAC unmasking, matching Python Transport.inbound ordering
-- Live interop UDP configs wrote target_host/target_port, which Python UDPInterface ignores, so Python-side transmits silently failed with 'no attribute forward_ip'. The shared config writers now emit forward_ip/forward_port (Go accepts both spellings)
-- Announce dedup raced on multi-worker inbound paths: seenAnnounces was checked and inserted ~100 lines apart, so a burst of identical announces could forward two or more copies. The dedup slot is now claimed atomically at check time and released only on the post-check failure returns
-- dos_protection auto mode could fail to arm on multi-interface engines: the quiet-window streak and drift tracker were engine-global, so a sample on any other interface reset a quiet interface's streak. Both are now per-interface
-- dos-protect auto-learn live test flooded with all-zero frames, which classify as unknown traffic that prefer-keep leniency deliberately lets ride to the link-rate cap; the flood now uses announce-class frames, matching the shed-first class the gate exists to drop
-- NomadNet crawl test pinned a single public uplink (rns.michmesh.net) that now accepts TCP but forwards no traffic; it walks the shared public peer list until an uplink delivers announces
-- UDP interfaces silently dropped bursts under load: dialUDP capped SO_RCVBUF/SO_SNDBUF at 1064 bytes and AutoInterface listeners capped read buffers at 1024/MTU bytes, so the kernel discarded packets whenever the read loop was busy. Caps removed; kernel defaults now apply. Regression test floods a stalled reader with 64 packets
-- linux/ppc64 (big-endian) builds: vendored go.bug.st/serial v1.8.0 only stubbed specialbaudrate for ppc64le, leaving ppc64 to hit undefined unix.TCGETS2/TCSETS2. Patched vendor tree gives ppc64 the same InvalidSpeed stub; vendor-sync.sh reapplies the patch after re-vendoring
+
+- Valid packets died on IFAC interfaces. The hop check read the still-masked header and treated mask bytes as the hop count. The check now runs after the mask comes off.
+- Python UDP peers in the live tests never sent anything. The configs wrote `target_host`. Python reads `forward_ip`. Go still accepts both.
+- Two copies of the same announce could both be forwarded. The "seen" slot is claimed when the announce is first noticed.
+- `dos_protection` auto mode would not arm if another interface kept making noise. Quiet streaks are counted per interface.
+- UDP threw away bursts whenever the reader was busy. Send and receive buffers had been pinned near 1 KiB. They use the kernel default now.
+- linux/ppc64 did not build. The serial package only had a special-baud stub for ppc64le. ppc64 has the same stub, and vendor-sync puts it back after a re-vendor.
 
 ### Changed
-- pbt bumped to v1.0.2: built-in generators now carry their own shrinkers, so tests dropped redundant WithShrinker wiring and Tuple2 properties moved to ForAll2
-- Test files and test functions renamed to match the technique they actually use (malformed, edge, invariants, oracle, fault, perf, golden, fuzz); health.OracleSnapshot/TransportOracle renamed to CounterSnapshot/TransportCounters since the type is a counter view, not a decision procedure
-- rngit page routes moved off the git.repositories destination to a dedicated nomadnetwork.node destination, matching where NomadNet clients browse for them; /media blob serving remains a Reticulum-Go extension not present in the reference
+
+- pbt 1.0.2 brings shrinkers with the generators, so tests dropped the extra shrinker wiring.
+- Test names match the technique: malformed, edge, oracle, fault, perf, golden, fuzz.
+- rngit pages moved onto nomadnetwork.node, which is where NomadNet goes looking. Serving blobs at `/media` is still a Go-only extra.
+
+### Tests
+
+- The dos-protect flood uses announce frames, the traffic that gate is supposed to shed. All-zero frames were sailing through on purpose.
+- The NomadNet crawl walks the public peer list. The old single uplink accepts TCP and forwards nothing.
+- The rgosh compat test holds stdin open. Python rnsh 1.5.x loses the remote exit code if stdin hits EOF while the child is still running. Python-to-Python rnsh hits the same race.
 
 ## v1.2.0 - 2026-09-15
 
+RNode radios, rngit releases, and the same short flags as the Python 1.5.2 tools.
+
 ### Added
-- rgostatus -p (pps), -m/-I monitor, -z profiling request parity with rnstatus
-- rgopath -p published blackhole list fetch (rnstransport.info.blackhole /list)
-- Interface_stats rxpps/txpps for status totals
-- rngit release management (RNS 1.5.x protocol): init/artifact/finalize create flow, list, view, fetch, delete, latest
-- rngit identity aliases and blocked_identities config, with reserved-target validation
-- rngit /media blob serving with optional WebP conversion (media_conversion config)
-- rngit no_ident template for unidentified remote requests
-- Live Go profiler (pkg/profiler) with profiling_results shared-instance RPC and remote /status parity
-- RNodeInterface (RNS 1.5.2): KISS framing, detect/firmware gate, radio config and validation, flow control, ID beacons, PHY stats, serial and tcp:// on Linux (incl. Android GOOS), macOS, Windows, FreeBSD, OpenBSD
-- RNodeMultiInterface: virtual-port discovery, SEL_INT, nested [[[sub]]] config, indexed RX, shared firmware/flow-control path
-- RNode config FromConfig / reload equality, IFAC defaults, and in-memory simulator with fuzz, race, and bench coverage
-- Android RNode USB Host, BLE Nordic UART, and classic RFCOMM helpers in bindings/android, with Go ble:// bt:// usb:// registration and RNodeHostPipe / localhost TCP bridge
+
+- `rgostatus -p` for packets per second, `-m`/`-I` to watch, `-z` to ask for a profile.
+- `rgopath -p` fetches the published blackhole list.
+- Interface stats include receive and transmit packets per second.
+- rngit releases, in the RNS 1.5.x flow: create, list, view, fetch, delete, latest.
+- Identity aliases, a block list, and a check that reserved targets stay reserved.
+- `/media` blob serving, with optional WebP conversion.
+- A template for remote requests that never identified.
+- A live profiler, with a shared-instance RPC and the same data on remote `/status`.
+- RNode, matching RNS 1.5.2: KISS, firmware gate, radio config, flow control, beacons, PHY stats. Serial and `tcp://` on Linux (including Android), macOS, Windows, FreeBSD, and OpenBSD.
+- RNodeMultiInterface: virtual ports, `SEL_INT`, nested sub-interfaces, shared firmware and flow control.
+- RNode config reload checks, IFAC defaults, and an in-memory radio you can fuzz.
+- Android USB host, BLE Nordic UART, and classic RFCOMM, wired up as `usb://`, `ble://`, and `bt://`.
 
 ### Changed
-- CLI short flags aligned with Python RNS 1.5.2 utilities
-  - rgopath: -D drops announce queues, -x drops via transport, -b/-B/-U blackhole
-  - rgocp: -a allowed hash, -n no-auth, -F allow-fetch, -f takes remote path as positional
-- Module path is now github.com/Quad4-Software/Reticulum-Go with first-party deps (bzip2 v1.0.1, msgpack/v5 v5.9.1, pbt v1.0.2, tagparser/v2 v2.2.1) at published versions, and go.mod carries no replace directives, so downstream modules resolve without vendored replaces (#13)
-- Post-v1.1.1 commits re-authored to ivan@quad4.io and signed with the GPG key instead of rngcs Reticulum signatures
+
+- Short flags match the Python 1.5.2 tools. `rgopath` gained the blackhole and queue-drop flags. `rgocp -f` takes the remote path as a positional.
+- Module path is `github.com/Quad4-Software/Reticulum-Go`. First-party deps are real module versions, and `go.mod` has no `replace` lines (#13).
+- Commits after v1.1.1 were re-authored to ivan@quad4.io and signed with GPG instead of Reticulum signatures.
 
 ### Fixed
-- Daemon no longer panics on Landlock under CGO_ENABLED=0: OpenCL/purego is opt-in (-tags lxstamp_gpu) so fakecgo cannot break AllThreadsSyscall on kernels before Landlock ABI 8
-- Landlock/seccomp soft-fail instead of aborting if AllThreadsSyscall still panics
-- CI fails when AllThreadsSyscall is unusable or Landlock helpers hit the cgo/fakecgo panic (previously skipped)
-- Concurrent interface_stats RPC no longer races on rxpps/txpps sample state
-- io_uring probe no longer crashes: the kernel writes the full 120-byte io_uring_params, which smashed an 84-byte stack struct
-- rngit returns NOT_FOUND (not DISALLOWED) for repos the remote cannot read, matching Python visibility semantics
-- rngit work-document delete now fails on missing .allowed, matching Python
-- rngit gperms requires an explicit group, mirroring Python INVALID handling
-- rngit SanRef only rejects bare @ and @{, matching Python
-- rngit mirror/fork clone uses a temp dir, validates source scheme (rns/http/https/ssh), and reloads permissions
-- rngit mirror sync updates HEAD to the upstream default branch; fork sync preserves HEAD
-- rngit permission reload is atomic and takes effect immediately
-- rngit resource responses keep pre-packed metadata, so Python clients can correlate completed file responses
-- rngit server config gains [logging] loglevel and request/result diagnostics via the debug facility
-- rgosh stream sends log dropped chunks and EOF failures instead of staying silent
-- rgosh long-lived e2e test retries once to tolerate watchdog starvation under parallel test load
-- Timed-out RequestReceipts are removed from pendingRequests, freeing the MaxPendingRequests slot and unblocking the duplicate-path gate (previously wedged the link after eight silent requests)
-- Request timeout no longer fires while a response resource is transferring; added RequestReceipt StatusReceiving matching Python, and oversized request-resource response windows now start after SendResource completes
-- Incoming resource watchdog aborts after 16 unproductive stall retries (Python MAX_RETRIES) instead of retrying forever, releasing protect budget and failing the bound receipt
-- Superseded incoming resource transfers now release prior protect budgets, part buffers, and bound receipts
-- Keepalive packets are sent plaintext, matching Python Packet.pack for the KEEPALIVE context; previously encrypted keepalives were never recognized by Python peers and links went stale at 2*keepalive
-- Split response resources no longer abort on the second segment; receipt binding now tolerates the StatusReceiving state left by earlier segments
+
+- The daemon panicked in Landlock when CGO was off, because the GPU stack pulled in fakecgo. GPU support is opt-in (`-tags lxstamp_gpu`). On older kernels, Landlock and seccomp warn and continue instead of aborting.
+- CI fails if `AllThreadsSyscall` is unusable. It used to skip.
+- Concurrent status calls no longer race on the packets-per-second sample.
+- The io_uring probe smashed an 84-byte stack struct. The kernel writes 120 bytes.
+- rngit says NOT_FOUND, not DISALLOWED, when the remote cannot read the repo.
+- Deleting a work document fails if `.allowed` is missing, same as Python.
+- `gperms` requires a group.
+- `SanRef` only rejects a bare `@` and `@{`.
+- Mirror and fork clones land in a temp dir, accept only rns/http/https/ssh sources, and reload permissions after.
+- Mirror sync points HEAD at the upstream default branch. Fork sync leaves HEAD alone.
+- Permission reloads are atomic and apply immediately.
+- File responses keep the metadata Python clients use to match a finished transfer.
+- The server config has a log level, and failed requests show up on the debug facility.
+- rgosh logs a dropped stream chunk instead of going quiet.
+- The long rgosh end-to-end test retries once when the watchdog starves under parallel load.
+- Eight timed-out requests in a row used to wedge the link. Timed-out receipts are dropped, so the slot frees.
+- A request timeout no longer fires in the middle of a response transfer.
+- An incoming resource gives up after 16 stalls, same as Python, instead of retrying forever.
+- Replacing an in-flight resource releases the old buffers and the old receipt.
+- Keepalives are plaintext, matching Python. Encrypted ones were ignored, and the link went stale.
+- The second segment of a split response no longer aborts the transfer.
 
 ## v1.1.0 - 2026-08-30
 
-Wire compatible with Python RNS 1.5.4
+Wire compatible with Python RNS 1.5.4.
 
 ### Added
-- reticulum-go zen (rgozen): static scanner for path and link footguns, with optional safe fixes
-- Release builds add more CGO-free Linux, BSD, Solaris, illumos, AIX, and Android targets. Linux amd64 ships v1 and v3 together
-- Local LXStamper proof-of-work for discovery announces
-- Blackhole federation via publish_blackhole, remote sources, and periodic merge
-- Discovery operator LXMF address field (OP_ADDR 0xF0) and discovery_lxmf_address config
-- Discovery operator NomadNet page field (provisional OP_PAGE 0xF1) and discovery_nomadnet_page config
-- Discovery transport implementation and version fields (TRANSPORT_IMPL 0xFD / TRANSPORT_VERS 0xFC, RNS 1.5.1+)
-- rgostatus RNS 1.5.0 flags: -A, -P, -b, -B, -t, -Q (queues), link-table active count via -l
-- Per-interface protocol, IFAC, and packet-filter violation counters in interface stats RPC
-- Per-interface announce and path-request byte and count stats in interface stats RPC
-- active_link_count shared-instance RPC (validated link-table rows)
-- RNS 1.5.0 inbound priority queues with qlen_in_* config and queue pressure in interface stats RPC
-- rgostatus -d and -D for discovered interface listing (Python rnstatus parity)
-- Discovered interface persistence keyed by discovery_hash with list_discovered_interfaces parity
-- rngit-compatible Git-over-Reticulum (`reticulum-go git`, `git-remote-rns`) with Python interop tests
+
+- `reticulum-go zen`: a static scanner for path and link mistakes, with optional safe fixes.
+- More CGO-free release targets (Linux, BSD, Solaris, illumos, AIX, Android). Linux amd64 ships v1 and v3.
+- Local LXStamper proof-of-work on discovery announces.
+- Blackhole federation: publish, remote sources, periodic merge.
+- Discovery operator LXMF address, and a NomadNet page field.
+- Discovery transport implementation and version fields (RNS 1.5.1+).
+- `rgostatus` flags from RNS 1.5.0, including queue view and active link count.
+- Per-interface counters for protocol, IFAC, and filter violations, plus announce and path-request bytes.
+- Inbound priority queues from RNS 1.5.0, with lengths in the config and pressure in the stats.
+- `rgostatus -d`/`-D` lists discovered interfaces, persisted by discovery hash.
+- `reticulum-go git` and `git-remote-rns`, with Python interop tests.
 
 ### Changed
-- Path and link timeouts, throttling, and relay behavior aligned with RNS 1.4.2
-- Discovery path-request wait scales from slowest online interface bitrate
-- Link establishment uses 6s per-hop timeout. Duplicate or busy handshakes return explicit errors
-- Optional slim build tag drops QUIC, WebTransport, I2P, and SDR drivers
-- Default log level is info. Hot paths avoid work when logging is filtered
-- Control API and librns path requests report wait time and honor AwaitPath before link open
-- link_count RPC returns link-table size (Python parity). active_links in stats uses validated rows
-- Default inbound queue lengths match RNS 1.5.1+ (1024/128/128/8)
-- Interop and CI target Python RNS 1.5.4 (pipx rns venv auto-detected when present)
+
+- Path and link timeouts, throttling, and relay follow RNS 1.4.2.
+- Path-request wait scales from the slowest interface that is actually up.
+- Link setup allows 6 seconds per hop. Duplicate or busy handshakes return a real error.
+- The `slim` build tag drops QUIC, WebTransport, I2P, and SDR.
+- Default log level is info. Hot paths skip work when that line would be filtered.
+- Control API and librns path requests report how long they waited, and wait for `AwaitPath` before opening a link.
+- `link_count` is the size of the link table. `active_links` counts only validated rows.
+- Default inbound queues match RNS 1.5.1+ (1024/128/128/8).
+- Interop and CI track Python RNS 1.5.4.
 
 ### Fixed
-- known_destinations on-disk keys use raw 16-byte destination hashes so Python RNS can load Go-written files
-- Shared-instance clients receive path and link relay when transport is disabled
-- Path and link relay failures return explicit errors instead of silent drops
-- AwaitPath timeout returns a destination-specific no-path error
-- Base interface Tx packet counters stay aligned with byte counters
-- CI bench and fuzz jobs no longer hang or overrun time limits
-- Channel retry and start window timing match Python
-- dos_protection defaults off. Core router no longer forces prevent mode
-- drop_announce_queues RPC clears interface queues, not the path announce cache
+
+- `known_destinations` on disk uses raw 16-byte hashes, so Python can load a file Go wrote.
+- Shared-instance clients still get path and link relay when transport is off.
+- Path and link relay failures return an error instead of vanishing.
+- `AwaitPath` timeout names the destination that had no path.
+- Transmit packet counters stay in step with byte counters.
+- CI bench and fuzz jobs stop when they should.
+- Channel retry timing matches Python.
+- `dos_protection` defaults to off. The core router no longer forces prevent mode.
+- `drop_announce_queues` clears interface queues, not the path cache.
 
 ### Tests and docs
-- Golden RNS 1.4.2 wire vectors and oracles for packets, announces, channels, resources, and links
-- Configuration, transport, links, compatibility, and development docs updated
 
+- Golden RNS 1.4.2 vectors for packets, announces, channels, resources, and links.
+- Configuration, transport, links, compatibility, and development docs updated.
 
 ## v1.0.2 - 2026-08-14
 
-Wire compatible with Python RNS 1.4.2
+Wire compatible with Python RNS 1.4.2.
 
-### Included
-- Wire compatibility target raised to Python RNS 1.4.2
-- Path-request emit skips offline interfaces (and re-checks at recursive PR emit time)
-- Adaptive path-request and link-establishment waits from slowest online bitrate (5 bit/s floor) instead of a flat 15s
-- Config `bitrate` applied when interfaces are created so adaptive timeout math sees radio timing
-- `Transport.FirstHopTimeout` matches Python next-hop airtime, including RPC `get_first_hop_timeout`
-- `Link.EstablishmentTimeout` and `rnsutil` FirstHop/PathResponse helpers wired through CLI utilities (Windows shared-instance RPC included)
-- Discovery drops blackholed transport ids and announcer identities at announce receive time
-- Blackhole `ActiveIdentitySet` for bulk membership checks used by discovery filtering
-- Go-unique path-request readiness also refuses non-positive bitrate when exposed (uninitialized radio timing)
-- Go-unique blackhole active-identity set invalidates on mutation instead of a fixed 60s TTL
-- Go-unique discovery blackhole filtering at receive time (fail-closed) rather than list-only
-- Destination identity ratchets on SINGLE announce, remember, and encrypt (`EnableRatchets` / `EnableRatchetsInMemory` / `EnforceRatchets`)
-- Known-peer ratchet public keys stored by destination hash in Python-compatible `{ratchet, received}` msgpack
-- Pageserver ratchet private-key path uses `{destination_hash}`, matching Python LXMF
-- librns `rns_destination_enable_ratchets` plus Destination ratchet helpers in C, Odin, Zig, C++, Dart, Rust, Python, Lua, Swift, Java, and Kotlin bindings
-- GROUP destinations with Token PSK (`CreateKeys` / `LoadPrivateKey`), AES-256 Token encrypt/decrypt, local broadcast, and one-hop drop
-- Live Go to Python ratchet and GROUP packet interop
-- Incoming link handshake slots count against `MaxRegisteredLinks` until register or reject
-- Tunnel table drops expired rows on insert and caps live tunnels at 256
-- Channel `IsReadyToSend` / `WaitReady` / `MDU` and RTT-class window grow/shrink matching Python Channel
-- `reticulum-go sh` / rgosh interactive remote shell (native protocol, automatic rnsh dest detection, `--compat` to force Python rnsh)
-- rgosh long-lived PTY sessions, Ctrl-C forwarding, `~.` / `~L` / `~?` escapes, `-A`, `-C` reject, `-b PERIOD` announce (default 900s), Windows pipe fallback
-- Remote `rgopath` / `rgostatus` over `rnstransport.remote.management` (`-R` / `-i`, config `enable_remote_management`)
-- rgosh TTY handling via golang.org/x/term, Unix vs non-Unix signal files, and adversarial protocol corpus tests
-- dos_protection snapshot on status JSON, Control API, and rgoslow findings
-- dos_max_* config knobs, bitrate-scaled adaptive floors, priority ingress shedding
-- Per-peer fair-share admit buckets on shared UDP/TCP/QUIC/VSOCK/HTTPS/I2P listeners so one sender cannot cool down the whole iface
-- Handler pool overflow always sheds (no sync dispatch on ingress threads)
-- Fixed HandlePacket worker pool (`max_packet_handlers`, default 512) instead of a goroutine per packet
-- 64 KiB stream reads on TCP/QUIC/VSOCK/WebTransport/I2P/Local/Pipe/backbone with packet-MTU HDLC framing unchanged
-- Announce ingest at default Info matches Critical (~5 allocs, ~50 µs) after demoting per-packet success logs
-- Known destinations stored as structs in RAM (16-byte msgpack keys on disk for Python parity; legacy hex keys still load), Identity reused on re-announce
-- Link encrypt uses one result buffer (~9 allocs). Backbone HDLC assembler idle cap is 64 KiB at 1 MiB iface MTU
-- `node_profile` overlay (`core_router` / `embedded`) fills unset knobs only
-- HDLC burst and Unpack hop-gate live Go/Python oracles
-- Backbone package mutation testing in CI
-- FreeBSD sandbox SIGHUP re-exec for config reload under CapEnter
-- Linux Landlock via `github.com/landlock-lsm/go-landlock` instead of hand-rolled syscalls
-- Sandbox Landlock/seccomp soft-fail stdout warnings
-- Sandbox extra path allowlisting from interface Device, pipe/discovery commands, TLS files, and `sandbox_extra_paths`
-- Opt-in `sandbox_strict`, `sandbox_profile=router`, `sandbox_exec_rlimits`, `sandbox_skip_scoped`, and Control API `control_api_socket`
-- systemd ProtectSystem and related hardening, plus optional User= drop-in example
-- Path jail with symlink resolution for pageserver and `rgocp` listen fetch
-- Crypto, IFAC, announce-auth, ratchet-downgrade, and RESOURCE_HMU oracle tests
-- Dependabot for GitHub Actions, PR dependency review, and CI RNS pin raised to 1.4.2
-- Builtin protocols vendor module renamed from reticulum-go-mf to reticulum-go-protocols
-- nfpm deb/rpm/arch packages with tool symlinks, man pages, post-install systemd hook, and Makefile `stage-nfpm`
-- Windows XP and Server 2003 release builds via go-legacy-winxp
-- Tagged releases ship 386 binaries for Linux, Windows, and FreeBSD (arm v6 already included)
-- Tagged releases ship riscv64 binaries for Linux and FreeBSD
-- Linux ppc64 serial special-baudrate support
-- DragonFly BSD TCP keepalive socket options
-- Tree `.rsm` inventory generator and verify/sign script updates
-- Docs updates for ratchets, GROUP Token keys, rgosh, sandbox, and dos_protection
+### Added
+
+- Path-request and link waits follow the slowest radio that is up, with a 5 bit/s floor, instead of a flat 15 seconds. Offline interfaces are skipped. A non-positive bitrate counts as not ready.
+- `bitrate` is applied when the interface is created, so that math sees the radio.
+- First-hop timeout matches Python airtime, including over RPC. Link establishment timeout is wired through the CLI tools.
+- Discovery drops blackholed transport ids and announcer identities when the announce arrives.
+- Identity ratchets on SINGLE announce, remember, and encrypt. Public keys are stored the way Python stores them. Pageserver ratchet paths use `{destination_hash}`.
+- librns can turn ratchets on. The same helpers are in the C, Odin, Zig, C++, Dart, Rust, Python, Lua, Swift, Java, and Kotlin bindings.
+- GROUP destinations with a Token PSK, AES-256, local broadcast, and a one-hop drop. Live-tested against Python.
+- `reticulum-go sh` (rgosh): interactive remote shell, PTY sessions, Ctrl-C, `~.` / `~L` / `~?`, announce every 15 minutes by default. `--compat` forces the Python rnsh destination. Windows falls back to a pipe.
+- Remote `rgopath` and `rgostatus` (`-R` / `-i`) when `enable_remote_management` is set.
+- `dos_protection` shows up in status JSON, the control API, and rgoslow. Config knobs for the caps, bitrate-scaled floors, and priority shedding.
+- Shared listeners (UDP, TCP, QUIC, VSOCK, HTTPS, I2P) give each peer its own admit budget, so one sender cannot cool the whole interface.
+- Ingress overflow always sheds. Packet handling is a pool of 512 workers, not a goroutine per packet.
+- Stream reads are 64 KiB. HDLC framing on the wire is unchanged.
+- `node_profile` (`core_router` or `embedded`) fills only the knobs you left unset.
+- FreeBSD sandbox re-execs on SIGHUP so a reload works under Capsicum.
+- Linux sandbox uses go-landlock. Landlock and seccomp warn and continue on failure. Extra paths can be allowlisted, including a strict profile and a control-API socket.
+- systemd hardening example, with an optional User= drop-in.
+- Pageserver and `rgocp` fetch resolve symlinks before the path jail.
+- deb, rpm, and Arch packages, with tool symlinks, man pages, and a systemd hook.
+- Release builds for Windows XP and Server 2003, plus 386 and riscv64 where those OS builds exist.
+- Linux ppc64 special baud rates. DragonFly TCP keepalive options.
+- `.rsm` inventory generator.
+- The vendored protocols module was renamed from reticulum-go-mf to reticulum-go-protocols.
+
+### Changed
+
+- Announce ingest at info log level is about as cheap as critical (around 5 allocations).
+- Known destinations sit in RAM as structs. Disk keys stay 16-byte msgpack so Python can read them. Old hex keys still load.
+- Link encrypt uses one output buffer. The backbone HDLC assembler goes idle at 64 KiB.
+- An incoming handshake counts against `MaxRegisteredLinks` until it is accepted or refused.
+- The tunnel table drops expired rows on insert and stops at 256 live tunnels.
+- Channel send-window grow and shrink follows Python, including ready-to-send and MDU.
 
 ### Fixed
-- rgosh no longer kills the remote process after 5 seconds, so interactive shells stay up
-- Recursive path-request fan-out no longer targets ifaces that went offline while the discovery queue drained
-- RESOURCE_HMU negative hashmap segment no longer panics the process
-- Tunnel expiry used a bare integer (nanoseconds) instead of 8 hours
-- Channel packet timeouts no longer fire while the mutex is dropped, and delivered callbacks wait for link proof instead of running immediately
-- Channel inbound envelopes are delivered in sequence order with duplicates dropped, matching Python Channel._receive
-- Channel.Send refuses a full TX window and packed envelopes larger than the outlet MDU, matching Python Channel.send
-- RESOURCE_HMU hashmap segment indexes that overflow integer multiply no longer wrap into earlier slots
-- `Identity.GetCurrentRatchetKey` no longer auto-generates keys (on-wire SINGLE ratchets live on Destination)
-- Local `Destination.Announce` requires IN, skips access-point ifaces (Python outbound mode rules), and `Identity.Remember` rejects dest-hash public-key collisions
-- Link identify callback mutex so concurrent identification packets do not race remote identity assignment
+
+- rgosh killed the remote process after 5 seconds. Interactive shells stay up.
+- A path request no longer fans out to an interface that went offline while discovery drained.
+- A negative RESOURCE_HMU hashmap segment panicked the process. Indexes that overflow a multiply no longer wrap into earlier slots.
+- Tunnel expiry was a bare integer of nanoseconds. It is 8 hours.
+- Channel timeouts no longer fire while the lock is dropped. Delivery waits for the link proof, in order, with duplicates dropped.
+- `Channel.Send` refuses a full window and any envelope bigger than the outlet MDU.
+- `GetCurrentRatchetKey` no longer mints a key on read. On-wire SINGLE ratchets live on the destination.
+- A local announce requires IN mode and skips access-point interfaces. `Remember` rejects two identities claiming one destination hash.
+- Concurrent link-identify packets no longer race the remote identity.
 
 ## v1.0.1 - 2026-07-25
 
-### Included
-- Rust, Python, Lua, Swift, Java, and Kotlin librns bindings with smoke, page-fetch, and pageserver examples plus CI jobs
-- Binding layout and SCAFFOLD updates with examples under each language tree and shared CI runners
-- librns ABI 1.5 with identity sign/verify/public-key helpers, RSG surface, and outbound packet send C API
-- Link and interface chaos suites wired into task test-chaos alongside transport sim chaos
-- Live Go to Python link request and binary packet-burst echo interop
-- Expanded test taxonomy covering mutation, health oracles, property suites, CLI smoke and black-box, librns acceptance, UDP path e2e, and matching Task targets
-- Docs updates for bindings, librns, examples, and testing layers
-- Go-only dos_protection IDS/IPS gates (off/detect/prevent/auto, default auto) with adaptive baselines, once-per-second peak sampling, msgpack-persisted learning, auto promote to prevent, relearn on network or drift change, iface cool-down, crypto and handshake budgets, health counters, rate-limited stdout trip warnings, false-positive edge suites, and live UDP/TCP/mesh protect tests
-- Wire compatibility target raised to Python RNS 1.4.1 (interface gravity, LRPROOF path rebalance, announces_to_internal, boundary search modes, request size caps)
-- Go-unique pathingAffinity (live iface penalty on gravity contests) and LRPROOF rebalance dampening / gravity-sticky hop-increase refusal
-- Backbone `blocked_ips` / `blocked_ip_list` in interface stats, status, and control API
-- Background known-destination cleaning with path/age rules and cooperative yields
-- Initiator keepalive throttle on `lastKeepaliveNs` so one-way data traffic does not suppress probes
-- Destination `SetMaxRequestSize` and Link `RequestLimited` (`max_response_size`)
+Wire compatible with Python RNS 1.4.1.
+
+### Added
+
+- librns bindings for Rust, Python, Lua, Swift, Java, and Kotlin, each with a pageserver example.
+- librns ABI 1.5: sign, verify, public key, RSG, and sending a packet from C.
+- Go-only `dos_protection` (off, detect, prevent, auto). Adaptive baseline, persisted learning, per-interface cool-down, and budgets for crypto and handshakes. Default in this release was auto.
+- Interface gravity, LRPROOF rebalance, internal announces, boundary search, and request size caps from RNS 1.4.1.
+- A live-interface penalty on gravity contests, and a refusal to hop-increase a path that LRPROOF just rebalanced.
+- Backbone blocked-IP list in stats, status, and the control API.
+- Background cleaning of known destinations.
+- Keepalives still go out when the peer is sending and you are only receiving.
+- `SetMaxRequestSize` on a destination, and `RequestLimited` on a link.
 
 ### Fixed
-- Link requests register before send so fast replies are not dropped
-- Request response and failed callbacks late-fire if attached after completion
-- UDP inbound Rx byte and packet counters
-- Common base interface IFAC ingress aligned with the shared inbound IFAC policy
-- Python, Rust, and Lua node event poll allocate app data so payloads are not silently truncated
-- Link watchdog keepalive when remote continuously transmits (RNS 1.4.0)
-- Backbone client count and blocked-IP fields missing from RPC interface stats
+
+- Link requests are registered before send, so a fast reply is not dropped.
+- Response callbacks still run if you attach them after the request finished.
+- UDP receive counters count bytes and packets.
+- IFAC on the base interface follows the shared ingress policy.
+- Python, Rust, and Lua event polls allocate the app buffer, so payloads are not cut off.
+- The link watchdog sends a keepalive even when the remote is transmitting continuously (RNS 1.4.0).
+- Backbone client count and blocked IPs show up in the RPC stats.
 
 ## v1.0.0 - 2026-07-19
 
-First stable release of Reticulum-Go.
+First stable release.
 
-Wire compatible with Python RNS 1.3.9
+Wire compatible with Python RNS 1.3.9.
 
 ### Included
-- Crypto, identity, destinations, packets, transport, links, channels, buffers, and resources
-- IFAC on UDP, TCP, Auto, and related interfaces
-- Interfaces: UDP, TCP, Auto, I2P, Backbone, Pipe, Local, Serial, Modem73, SDR, WebSocket, QUIC, WebTransport, DNS rendezvous, VSOCK, HTTPS
-- Daemon utilities: status, id, probe, path, cp, x, pageserver, slow, speedtest, self-check
-- librns C ABI with node lifecycle, control API, and sandbox
-- Odin, Zig, and C++ librns bindings
-- Dart librns FFI and Dart Control API client
-- Fully ephemeral in-memory storage with soft memory caps and OOM-safe eviction
-- librns API version aligned to 1.4
-- Persistent identity save for librns hosts
-- librns resource transfers and resource events
-- Cross-build scripts for Windows DLL and macOS dylib
-- Interface discovery announcer for discoverable TCP, Backbone, and I2P peers
-- Path and probe reachability diagnostics with status health counters
-- Examples: minimal announce, link, resources, file transfer, echo, and more
-- librns C, Odin, Zig, and C++ pageserver and page-fetch examples with persistent identities
-- Go-only underlays: DNS TXT rendezvous, Linux VSOCK, HTTPS long-poll
-- Race, fuzz, and goroutine-leak coverage for Serial, WebTransport, DNS rendezvous, VSOCK, and HTTPS
-- Channel envelope and stream data message wire parity with Python RNS
-- Live Python-Go interop for channel, buffer, rncp, and blackhole link identify
-- Health drop counters for announce duplicates, path response suppressions, path request dedup, and unknown link-relay interfaces
-- Shared-instance Unix defaults on Linux matching Python RNS, with TCP fallback when shared instance type is unset
+
+- Crypto, identity, destinations, packets, transport, links, channels, buffers, and resources.
+- IFAC on UDP, TCP, Auto, and the other interfaces that carry it.
+- Interfaces: UDP, TCP, Auto, I2P, Backbone, Pipe, Local, Serial, Modem73, SDR, WebSocket, QUIC, WebTransport, DNS rendezvous, VSOCK, HTTPS.
+- Tools: status, id, probe, path, cp, x, pageserver, slow, speedtest, self-check.
+- librns C ABI (API 1.4), control API, and sandbox. Bindings for Odin, Zig, C++, and Dart. Cross-builds for a Windows DLL and a macOS dylib.
+- In-memory storage with soft caps. Identity save, resource transfers, and resource events for librns hosts.
+- Discovery announces for TCP, Backbone, and I2P. Path and probe health counters.
+- Examples for announce, link, resources, file transfer, and echo, including pageserver examples in C, Odin, Zig, and C++.
+- Go-only underlays: DNS TXT rendezvous, Linux VSOCK, HTTPS long-poll.
+- Channel and stream messages match Python on the wire. Live interop for channel, buffer, rncp, and blackhole link identify.
+- Shared-instance Unix socket on Linux, with TCP if the shared-instance type is unset.
 
 ### Not in this release
-- RNode, KISS, AX25, and Weave radio drivers
-- Discovery autoconnect loops
-- Blackhole auto publish federation
-- Utilities: Python rnsh (use rgosh), rnir, rnpkg
-- Remote rnpath and rnstransport modes
 
-RNode and remaining radio drivers plus deferred utilities are planned for later releases.
+- RNode, KISS, AX.25, and Weave.
+- Discovery autoconnect.
+- Blackhole publish federation.
+- Python rnsh (use rgosh), rnir, and rnpkg.
+- Remote rnpath and rnstransport.
