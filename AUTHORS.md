@@ -2,7 +2,7 @@
 
 Reticulum-Go is developed and maintained by:
 
-- **Ivan** (ivan@quad4.io, ivan@ivanryan.dev) - primary author and maintainer
+- **Ivan** (ivan@quad4.io) - primary author and maintainer
 - **Quad4 Software** (quad4.io) - project sponsor and copyright holder
 
 ## Contributors
