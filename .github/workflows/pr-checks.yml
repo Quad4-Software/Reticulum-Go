@@ -81,6 +81,14 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - name: Install rngcs verifier
+        run: python3 -m pip install "rns==1.5.4"
+
+      - name: Configure rngcs verification
+        run: |
+          git config --global gpg.ssh.program rngcs
+          git config --global gpg.ssh.allowedsignersfile none
+
       - name: Verify commit signatures
         env:
           GITHUB_EVENT_NAME: pull_request

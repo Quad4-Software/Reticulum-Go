@@ -62,7 +62,18 @@ chore(ci): pin staticcheck to v0.6.1
 docs: expand development and testing guide
 ```
 
-Sign commits with GPG or SSH when practical (`git commit -S`), or use gitsign for keyless x509 signatures (`task gitsign:setup`; set `SIGSTORE_FULCIO_URL`, `SIGSTORE_REKOR_URL` and `SIGSTORE_OIDC_ISSUER` to sign against a private Sigstore stack). Use a real email address or LXMF address in the Git author field.
+Sign commits with `git commit -S`. The preferred method is `rngcs`, which signs with a Reticulum identity instead of a PGP key (ships with `rns`, see `pip install rns`):
+
+```bash
+rnid -g ~/.rngit/client_identity              # once, creates your signing identity
+git config gpg.format ssh
+git config gpg.ssh.program rngcs
+git config gpg.ssh.allowedsignersfile none
+git config user.signingkey ~/.rngit/client_identity
+git config user.email <your identity hash>    # rngcs binds the author to the signer
+```
+
+The author field must equal the identity hash, or an LXMF address you can prove. GPG, SSH, and gitsign signatures are also accepted (`task gitsign:setup`; set `SIGSTORE_FULCIO_URL`, `SIGSTORE_REKOR_URL` and `SIGSTORE_OIDC_ISSUER` for a private Sigstore stack).
 
 ### Developer Certificate of Origin
 
@@ -147,7 +158,7 @@ By signing off a contribution, you certify that:
 - You grant Quad4 and recipients of this project a perpetual, worldwide, non-exclusive, irrevocable, royalty-free patent license under the claims you own or control that are necessarily infringed by the contribution, to make, use, and distribute the contribution as part of this project.
 - Where rights in the contribution cannot be licensed under applicable law, such as non-waivable moral rights, you agree not to assert them against Quad4 or recipients of this project to the maximum extent permitted.
 
-For substantial contributions such as a new package, binding, or interface, we may also ask for a signed acceptance of this grant (GPG-signed email or LXMF message to the maintainer), which we keep on file under `LEGAL/`.
+For substantial contributions such as a new package, binding, or interface, we may also ask for a signed acceptance of this grant: a message signed with your Reticulum identity and sent via LXMF to the maintainer, or a GPG-signed email. Acceptances are kept on file under `LEGAL/`.
 
 ## Contact
 
