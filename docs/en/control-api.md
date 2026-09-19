@@ -263,8 +263,8 @@ Coverage includes health, status (with integrity counters), paths, sessions, des
 For embedding without a daemon, use package:rns_control/ffi.dart over librns on Linux, Android, and Windows. See [librns Dart FFI](librns.md#dart-ffi-bindings).
 
 ```bash
-task build-librns
-task test-dart
+make build-librns
+make test-dart
 # or
 make -C bindings/dart test
 ```

@@ -283,11 +283,11 @@ C ABI facade for in-process embed. Pure Go core. CGO shims in pkg/librns/capi.
 | Item | Detail |
 |------|--------|
 | Header | include/rns.h |
-| Shared lib | task build-librns produces bin/librns.so |
+| Shared lib | make build-librns produces bin/librns.so |
 | Smoke | bindings/c/examples/smoke |
-| Odin | bindings/odin (task test-odin) |
-| Zig | bindings/zig (task test-zig) |
-| C++ | bindings/cpp (task test-cpp) |
+| Odin | bindings/odin (make test-odin) |
+| Zig | bindings/zig (make test-zig) |
+| C++ | bindings/cpp (make test-cpp) |
 | Main files | node.go, identity.go, destination.go, link.go, queue.go |
 
 See [librns](librns.md).
@@ -300,7 +300,7 @@ Idiomatic Odin package over librns.so. Not a Go import path. Use -collection:rns
 |------|--------|
 | Package | bindings/odin/rns |
 | Tests | bindings/odin/tests |
-| Build | task test-odin or make -C bindings/odin test |
+| Build | make test-odin or make -C bindings/odin test |
 | Platform | Linux (links system:rns) |
 
 See [librns](librns.md#odin-bindings).
@@ -313,7 +313,7 @@ Idiomatic Zig package over librns.so. Not a Go import path. Depend on bindings/z
 |------|--------|
 | Package | bindings/zig (module rns) |
 | Tests | bindings/zig/tests |
-| Build | task test-zig or make -C bindings/zig test |
+| Build | make test-zig or make -C bindings/zig test |
 | Platform | Linux (links -lrns) |
 
 See [librns](librns.md#zig-bindings).
@@ -326,7 +326,7 @@ Idiomatic C++17 RAII package over librns.so. Not a Go import path. Include rns/r
 |------|--------|
 | Package | bindings/cpp/include/rns |
 | Tests | bindings/cpp/tests |
-| Build | task test-cpp or make -C bindings/cpp test |
+| Build | make test-cpp or make -C bindings/cpp test |
 | Platform | Linux (links -lrns) |
 | Standard | C++17 and up |
 
@@ -340,7 +340,7 @@ Dart package rns_control with librns FFI (ffi.dart) and a Control API client. Pa
 |------|--------|
 | Package | bindings/dart (name: rns_control) |
 | FFI | Linux, Android, Windows via librns (package:rns_control/ffi.dart) |
-| Tests | dart test / task test-dart |
+| Tests | dart test / make test-dart |
 | Platforms | Flutter mobile and desktop (events need dart:io). FFI needs shipped native libs |
 
 See [Control API](control-api.md#dart-and-flutter).

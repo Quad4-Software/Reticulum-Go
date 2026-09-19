@@ -66,7 +66,7 @@ Below is a summary of major features. For line-by-line parity with Python, see [
 | Python CLI utilities | Yes (core) | reticulum-go status|id|probe|path|cp via pkg/cli / pkg/rnsutil |
 | Interface hot reload | Go-only | pkg/node/reload.go, SIGHUP on Unix |
 | Control API | Go-only | pkg/controlapi |
-| librns C ABI | Go-only | pkg/librns, include/rns.h, task build-librns |
+| librns C ABI | Go-only | pkg/librns, include/rns.h, make build-librns |
 | Odin librns bindings | Go-only host | bindings/odin (Linux, links librns.so). See [librns](librns.md#odin-bindings) |
 | Zig librns bindings | Go-only host | bindings/zig (Linux, links librns.so). See [librns](librns.md#zig-bindings) |
 | C++ librns bindings | Go-only host | bindings/cpp (Linux, C++17, links librns.so). See [librns](librns.md#c-bindings) |

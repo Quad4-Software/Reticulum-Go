@@ -41,7 +41,7 @@ Daemon builds stay CGO_ENABLED=0. Only build-librns turns CGO on.
 ## Build and smoke
 
 ```bash
-task build-librns
+make build-librns
 make -C bindings/c/examples/smoke
 ./bindings/c/examples/smoke/librns-smoke
 ```
@@ -217,7 +217,7 @@ Grow the header only when a real host needs it. Keep RNS_API_VERSION in mind.
 
 ## Platform artifacts
 
-Build with task build-librns for the host .so, or:
+Build with make build-librns for the host .so, or:
 
 ```bash
 sh scripts/build-librns-targets.sh linux windows darwin android
@@ -262,27 +262,27 @@ rns_node_destroy
 | Property | testing/quick drop-oldest and handle table |
 | Fuzz | FuzzHandleTable, FuzzEventQueue, FuzzConfigPathCreate, FuzzValidatePath |
 | C smoke | bindings/c/examples/smoke |
-| Odin bindings | bindings/odin (task test-odin) |
-| Zig bindings | bindings/zig (task test-zig) |
-| C++ bindings | bindings/cpp (task test-cpp) |
-| Dart FFI | bindings/dart (task test-dart) |
-| Rust bindings | bindings/rust (task test-rust) |
-| Python bindings | bindings/python (task test-python) |
-| Lua bindings | bindings/lua (task test-lua) |
-| Swift bindings | bindings/swift (task test-swift) |
-| Java bindings | bindings/java (task test-java) |
-| Kotlin bindings | bindings/kotlin (task test-kotlin) |
+| Odin bindings | bindings/odin (make test-odin) |
+| Zig bindings | bindings/zig (make test-zig) |
+| C++ bindings | bindings/cpp (make test-cpp) |
+| Dart FFI | bindings/dart (make test-dart) |
+| Rust bindings | bindings/rust (make test-rust) |
+| Python bindings | bindings/python (make test-python) |
+| Lua bindings | bindings/lua (make test-lua) |
+| Swift bindings | bindings/swift (make test-swift) |
+| Java bindings | bindings/java (make test-java) |
+| Kotlin bindings | bindings/kotlin (make test-kotlin) |
 
 ```bash
 go test ./pkg/librns
-task build-librns
+make build-librns
 make -C bindings/c/examples/smoke && ./bindings/c/examples/smoke/librns-smoke
-task test-odin
-task test-zig
-task test-cpp
-task test-dart
-task test-rust
-task test-python
+make test-odin
+make test-zig
+make test-cpp
+make test-dart
+make test-rust
+make test-python
 ```
 
 ## Odin bindings
@@ -314,8 +314,8 @@ Linux only (matches librns.so). Requires Odin on PATH and a built shared library
 ### Build and test
 
 ```bash
-task build-librns
-task test-odin
+make build-librns
+make test-odin
 # or
 make -C bindings/odin test
 make -C bindings/odin smoke
@@ -354,8 +354,8 @@ Linux only (matches librns.so). Requires Zig 0.16.0 or later on PATH and a built
 ### Build and test
 
 ```bash
-task build-librns
-task test-zig
+make build-librns
+make test-zig
 # or
 make -C bindings/zig test
 ```
@@ -398,8 +398,8 @@ Linux only (matches librns.so). Requires CMake and a C++17 compiler, plus a buil
 ### Build and test
 
 ```bash
-task build-librns
-task test-cpp
+make build-librns
+make test-cpp
 # or
 make -C bindings/cpp test
 ```
@@ -431,9 +431,9 @@ rns.nodeStart(node);
 | Windows | bin/windows/amd64/librns.dll |
 
 ```bash
-task build-librns
-task build-librns-targets -- linux android windows
-task test-dart
+make build-librns
+make build-librns-targets LIBRNS_TARGETS="linux android windows"
+make test-dart
 ```
 
 Android builds need an NDK (ANDROID_NDK_HOME). Windows cross-builds need mingw-w64 or Zig (scripts/cc-windows-zig.sh). Flutter apps copy Android ABIs into jniLibs and ship librns.dll beside the Windows runner.
@@ -462,8 +462,8 @@ assert_eq!(version(), API_VERSION);
 | Interfaces | interfaces_list |
 
 ```bash
-task build-librns
-task test-rust
+make build-librns
+make test-rust
 # or
 make -C bindings/rust test
 ```
@@ -490,8 +490,8 @@ assert rns.version() == rns.API_VERSION
 | Interfaces | interfaces_list |
 
 ```bash
-task build-librns
-task test-python
+make build-librns
+make test-python
 # or
 make -C bindings/python test
 ```
@@ -508,8 +508,8 @@ assert(rns.version() == rns.API_VERSION)
 ```
 
 ```bash
-task build-librns
-task test-lua
+make build-librns
+make test-lua
 # or
 make -C bindings/lua test
 ```
@@ -526,8 +526,8 @@ assert(version() == API_VERSION)
 ```
 
 ```bash
-task build-librns
-task test-swift
+make build-librns
+make test-swift
 # or
 make -C bindings/swift test
 ```
@@ -544,8 +544,8 @@ assert Rns.version().equals(Rns.API_VERSION);
 ```
 
 ```bash
-task build-librns
-task test-java
+make build-librns
+make test-java
 # or
 make -C bindings/java test
 ```
@@ -562,8 +562,8 @@ check(RnsKt.version() == RnsKt.API_VERSION)
 ```
 
 ```bash
-task build-librns
-task test-kotlin
+make build-librns
+make test-kotlin
 # or
 make -C bindings/kotlin test
 ```

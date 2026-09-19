@@ -72,10 +72,8 @@ Advanced embedders can use transport.NewTransport and interfaces.NewFromConfigWi
 Binary: cmd/reticulum-wasm with build tag js && wasm.
 
 ```bash
-task build-wasm
+make build-wasm
 make test-wasm
-# or
-task test-wasm
 ```
 
 Manual:
@@ -141,7 +139,7 @@ Run reticulum-go with enable_control_api = yes and talk HTTP/WebSocket from any 
 
 ## librns
 
-For in-process C / FFI embed, see [librns](librns.md). Build with task build-librns. Smoke: bindings/c/examples/smoke. Odin: bindings/odin (task test-odin). Zig: bindings/zig (task test-zig). C++: bindings/cpp (task test-cpp). Dart FFI: bindings/dart (task test-dart, task build-librns-targets).
+For in-process C / FFI embed, see [librns](librns.md). Build with make build-librns. Smoke: bindings/c/examples/smoke. Odin: bindings/odin (make test-odin). Zig: bindings/zig (make test-zig). C++: bindings/cpp (make test-cpp). Dart FFI: bindings/dart (make test-dart, make build-librns-targets).
 
 ## Sandbox note
 

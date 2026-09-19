@@ -271,7 +271,7 @@ reticulum-go speedtest -iface tcp -bytes 4194304 <hash_from_server>
 Build and run a persistent public TCP listener:
 
 ```bash
-task docker:build:speedtest
+docker build -f docker/Dockerfile.speedtest -t reticulum-go:speedtest .
 docker run -d --name rgo-speedtest -p 4242:4242 \
   -e SPEEDTEST_IFACE=tcp \
   -v reticulum-go-speedtest:/data \
@@ -283,7 +283,7 @@ Env knobs: SPEEDTEST_IFACE (all or names), SPEEDTEST_BYTES, SPEEDTEST_ANNOUNCE, 
 
 CI client config needs a TCPClientInterface to the VPS host:port and the printed dest hash. Treat measured rates as a path floor (runner to VPS), not a lab loopback number.
 
-Nightly CI runs task test-link-speed (TestLinkSpeedSmoke) with a 512 KiB loopback cap and a 1 MB/s floor.
+Nightly CI runs make test-link-speed (TestLinkSpeedSmoke) with a 512 KiB loopback cap and a 1 MB/s floor.
 
 ## rgoid
 
