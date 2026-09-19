@@ -15,7 +15,7 @@ set -eu
 
 DIR="${1:?directory}"
 KEY="${COSIGN_KEY_PATH:?set COSIGN_KEY_PATH}"
-TSA_URL="${COSIGN_TSA_URL:-https://tsa.sigstore.dev/api/v1/timestamp}"
+TSA_URL="${COSIGN_TSA_URL:-https://timestamp.sigstore.dev/api/v1/timestamp}"
 REKOR_URL="${COSIGN_REKOR_URL:-}"
 
 if [ ! -f "$KEY" ]; then
