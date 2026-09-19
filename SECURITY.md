@@ -69,7 +69,7 @@ When we publish a release, we build the binaries, WebAssembly targets, and pages
 
 For each release asset, we generate a signed provenance bundle using **cosign**. We do not use separate checksum files.
 
-Each bundle carries an RFC 3161 timestamp (default TSA: `tsa.sigstore.dev`, override with `COSIGN_TSA_URL`, set `COSIGN_TSA_URL=none` to disable). Setting `COSIGN_REKOR_URL` additionally uploads every attestation to a transparency log, public or self-hosted.
+Each bundle carries an RFC 3161 timestamp (default TSA: `timestamp.sigstore.dev`, override with `COSIGN_TSA_URL`, set `COSIGN_TSA_URL=none` to disable). Setting `COSIGN_REKOR_URL` additionally uploads every attestation to a transparency log, public or self-hosted.
 
 #### Verifying Release Files
 
