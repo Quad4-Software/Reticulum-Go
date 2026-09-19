@@ -66,7 +66,7 @@ Sign commits with GPG or SSH when practical (`git commit -S`), or use gitsign fo
 
 ### Developer Certificate of Origin
 
-Every commit must carry a `Signed-off-by:` trailer certifying the DCO. Add it with `git commit -s`. The commit-msg hook enforces it and the `dco-signoff` CI job re-checks every PR commit.
+Every commit must carry a `Signed-off-by:` trailer certifying the DCO and the contributor license grant below. Add it with `git commit -s`. The commit-msg hook enforces it and the `dco-signoff` CI job re-checks every PR commit.
 
 Skip the commit-msg hook for one commit: `SKIP_COMMIT_MSG_HOOK=1 git commit ...`
 Skip only the DCO check: `SKIP_DCO_HOOK=1 git commit ...`
@@ -86,7 +86,7 @@ The PR template mirrors this list:
 - [ ] `COMPATIBILITY.md` updated when wire or API compatibility changes
 - [ ] Tests added or extended for behavior changes
 - [ ] PR title follows Conventional Commits (required for squash merges)
-- [ ] Every commit signed off (`git commit -s`, DCO)
+- [ ] Every commit signed off (`git commit -s`, DCO + license grant)
 - [ ] RSM hook skipped only when intentional (`SKIP_TREE_RSM_HOOK=1` with reason in PR)
 
 ## Git hooks
@@ -136,13 +136,18 @@ task check       # ci checks + test-short + gosec + vulncheck
 task prepush     # fmt-check, vet, lint, test-short
 ```
 
-## Contributor License Agreement (CLA)
+## Contributor License Grant (CLA)
 
-By submitting a contribution, you agree that:
+You keep the copyright in your contribution. The `Signed-off-by` trailer on each commit certifies both the DCO and this grant, so every commit carries the certification in permanent history, tied to the author identity.
+
+By signing off a contribution, you certify that:
 
 - You have the right to submit it and are not breaching any obligation to an employer, client, or third party.
-- You assign to **Quad4** the copyright and related rights you hold in that contribution, or where assignment is not possible, grant Quad4 a perpetual, irrevocable, worldwide, royalty-free license (including the right to sublicense) to use, reproduce, modify, distribute, and prepare derivative works of the contribution.
-- The contribution is provided for distribution under the **Reticulum License** (see `LICENSE`) as part of this project, including its conditions on harm and AI-training use.
+- You grant **Quad4** a perpetual, worldwide, non-exclusive, irrevocable, royalty-free license to use, reproduce, modify, distribute, and sublicense the contribution as part of this project, on the condition that outbound distribution stays under the **Reticulum License** (see `LICENSE`) or a successor license adopted for this project that preserves its attribution, no-harm, and AI-training terms.
+- You grant Quad4 and recipients of this project a perpetual, worldwide, non-exclusive, irrevocable, royalty-free patent license under the claims you own or control that are necessarily infringed by the contribution, to make, use, and distribute the contribution as part of this project.
+- Where rights in the contribution cannot be licensed under applicable law, such as non-waivable moral rights, you agree not to assert them against Quad4 or recipients of this project to the maximum extent permitted.
+
+For substantial contributions such as a new package, binding, or interface, we may also ask for a signed acceptance of this grant (GPG-signed email or LXMF message to the maintainer), which we keep on file under `LEGAL/`.
 
 ## Contact
 
