@@ -5,15 +5,15 @@ Contributions are welcome. Prefer sending changes as `.patch` files over Reticul
 ## Quick start
 
 1. Clone the repository. Dependencies live in `vendor/` (no network fetch for ordinary builds).
-2. Install dev tools: `task bootstrap` (or `make bootstrap`).
-3. Verify your environment: `task doctor` (or `make doctor`).
-4. Enable git hooks: `task hooks:install` (or `make hooks-install`).
+2. Install dev tools: `make bootstrap`.
+3. Verify your environment: `make doctor`.
+4. Enable git hooks: `make hooks-install`.
 5. Branch from `dev` for feature work.
-6. Before pushing: `task prepush` or full `task check`.
+6. Before pushing: `make prepush` or full `make check`.
 
-Primary automation is available via **Make** and **Task** (`make help`, `task --list`). Use whichever you prefer. Plain `go build` / `go test` also work with vendored modules.
+Automation is available via **Make** (`make help`). Plain `go build` / `go test` also work with vendored modules.
 
-Optional: use [mise](https://mise.jdx.dev/) (`mise install`) or the Dev Container (`.devcontainer/`) for pinned Go and Task versions.
+Optional: use [mise](https://mise.jdx.dev/) (`mise install`) or the Dev Container (`.devcontainer/`) for pinned Go and tool versions.
 
 ## Branch workflow
 
@@ -62,11 +62,22 @@ chore(ci): pin staticcheck to v0.6.1
 docs: expand development and testing guide
 ```
 
-Sign commits with GPG or SSH when practical (`git commit -S`), or use gitsign for keyless x509 signatures (`task gitsign:setup`; set `SIGSTORE_FULCIO_URL`, `SIGSTORE_REKOR_URL` and `SIGSTORE_OIDC_ISSUER` to sign against a private Sigstore stack). Use a real email address or LXMF address in the Git author field.
+Sign commits with `git commit -S`. The preferred method is `rngcs`, which signs with a Reticulum identity instead of a PGP key (ships with `rns`, see `pip install rns`):
+
+```bash
+rnid -g ~/.rngit/client_identity              # once, creates your signing identity
+git config gpg.format ssh
+git config gpg.ssh.program rngcs
+git config gpg.ssh.allowedsignersfile none
+git config user.signingkey ~/.rngit/client_identity
+git config user.email <your identity hash>    # rngcs binds the author to the signer
+```
+
+The author field must equal the identity hash, or an LXMF address you can prove. GPG, SSH, and gitsign signatures are also accepted (`make gitsign-setup`; set `SIGSTORE_FULCIO_URL`, `SIGSTORE_REKOR_URL` and `SIGSTORE_OIDC_ISSUER` for a private Sigstore stack).
 
 ### Developer Certificate of Origin
 
-Every commit must carry a `Signed-off-by:` trailer certifying the DCO. Add it with `git commit -s`. The commit-msg hook enforces it and the `dco-signoff` CI job re-checks every PR commit.
+Every commit must carry a `Signed-off-by:` trailer certifying the DCO and the contributor license grant below. Add it with `git commit -s`. The commit-msg hook enforces it and the `dco-signoff` CI job re-checks every PR commit.
 
 Skip the commit-msg hook for one commit: `SKIP_COMMIT_MSG_HOOK=1 git commit ...`
 Skip only the DCO check: `SKIP_DCO_HOOK=1 git commit ...`
@@ -75,29 +86,29 @@ Skip only the DCO check: `SKIP_DCO_HOOK=1 git commit ...`
 
 - User-facing changes: add an entry under the current `[unreleased]` section in `CHANGELOG.md` (Keep a Changelog style).
 - Wire format, RPC, or Python RNS parity changes: update `COMPATIBILITY.md`.
-- Preview unreleased notes from conventional commits: `task changelog-preview`.
+- Preview unreleased notes from conventional commits: `make changelog-preview`.
 
 ## Pull request checklist
 
 The PR template mirrors this list:
 
-- [ ] `task prepush` or `task check` passes locally
+- [ ] `make prepush` or `make check` passes locally
 - [ ] `CHANGELOG.md` updated when behavior or UX changes
 - [ ] `COMPATIBILITY.md` updated when wire or API compatibility changes
 - [ ] Tests added or extended for behavior changes
 - [ ] PR title follows Conventional Commits (required for squash merges)
-- [ ] Every commit signed off (`git commit -s`, DCO)
+- [ ] Every commit signed off (`git commit -s`, DCO + license grant)
 - [ ] RSM hook skipped only when intentional (`SKIP_TREE_RSM_HOOK=1` with reason in PR)
 
 ## Git hooks
 
-After `task hooks:install`:
+After `make hooks-install`:
 
 | Hook | Runs |
 |------|------|
 | `pre-commit` | Staged Go fmt/vet, YAML, shellcheck, optional `reticulum-go.rsm` resign |
 | `commit-msg` | Conventional commit format, DCO sign-off |
-| `pre-push` | `task prepush` (fmt-check, vet, lint, test-short) |
+| `pre-push` | `make prepush` (fmt-check, vet, lint, test-short) |
 
 Skip env vars:
 
@@ -131,18 +142,23 @@ Advisory or scheduled: CodeQL, security workflow, sim-heavy, TinyGo, preview-rel
 Local parity:
 
 ```bash
-task ci          # fmt-check, vet, lint, staticcheck (CI lint job)
-task check       # ci checks + test-short + gosec + vulncheck
-task prepush     # fmt-check, vet, lint, test-short
+make fmt-check vet lint staticcheck  # CI lint job
+make check                            # lint + test-short + vulncheck + gosec
+make prepush                          # fmt-check, vet, lint, test-short
 ```
 
-## Contributor License Agreement (CLA)
+## Contributor License Grant (CLA)
 
-By submitting a contribution, you agree that:
+You keep the copyright in your contribution. The `Signed-off-by` trailer on each commit certifies both the DCO and this grant, so every commit carries the certification in permanent history, tied to the author identity.
+
+By signing off a contribution, you certify that:
 
 - You have the right to submit it and are not breaching any obligation to an employer, client, or third party.
-- You assign to **Quad4** the copyright and related rights you hold in that contribution, or where assignment is not possible, grant Quad4 a perpetual, irrevocable, worldwide, royalty-free license (including the right to sublicense) to use, reproduce, modify, distribute, and prepare derivative works of the contribution.
-- The contribution is provided for distribution under the **Reticulum License** (see `LICENSE`) as part of this project, including its conditions on harm and AI-training use.
+- You grant **Quad4** a perpetual, worldwide, non-exclusive, irrevocable, royalty-free license to use, reproduce, modify, distribute, and sublicense the contribution as part of this project, on the condition that outbound distribution stays under the **Reticulum License** (see `LICENSE`) or a successor license adopted for this project that preserves its attribution, no-harm, and AI-training terms.
+- You grant Quad4 and recipients of this project a perpetual, worldwide, non-exclusive, irrevocable, royalty-free patent license under the claims you own or control that are necessarily infringed by the contribution, to make, use, and distribute the contribution as part of this project.
+- Where rights in the contribution cannot be licensed under applicable law, such as non-waivable moral rights, you agree not to assert them against Quad4 or recipients of this project to the maximum extent permitted.
+
+For substantial contributions such as a new package, binding, or interface, we may also ask for a signed acceptance of this grant: a message signed with your Reticulum identity and sent via LXMF to the maintainer, or a GPG-signed email. Acceptances are kept on file under `LEGAL/`.
 
 ## Contact
 

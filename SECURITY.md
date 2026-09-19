@@ -35,8 +35,8 @@ We pin third-party GitHub Actions to full commit SHAs, not floating tags. Compil
 ### Commit and repository policy
 
 - **DCO:** every commit needs a `Signed-off-by:` trailer (`git commit -s`). Enforced by the commit-msg hook and the `dco-signoff` CI job.
-- **Signatures:** GPG or SSH signatures are checked by an advisory CI job. gitsign (keyless x509) is supported via `task gitsign:setup`, which can target a private Fulcio/Rekor/OIDC stack through `SIGSTORE_*` env vars.
-- **gittuf:** `task gittuf:init` (scripts/ci/gittuf-init.sh) writes a repository security policy into `refs/gittuf/*`: branch rules for `master` and `dev`, tag rules for releases, and file rules for crypto, identity, workflows and CI scripts. Push the gittuf refs after running it.
+- **Signatures:** the preferred method is `rngcs`, which signs with a Reticulum identity (see CONTRIBUTING.md). GPG, SSH, and gitsign signatures are also accepted and checked by an advisory CI job. gitsign (keyless x509) is supported via `make gitsign-setup`, which can target a private Fulcio/Rekor/OIDC stack through `SIGSTORE_*` env vars.
+- **gittuf:** `make gittuf-init` (scripts/ci/gittuf-init.sh) writes a repository security policy into `refs/gittuf/*`: branch rules for `master` and `dev`, tag rules for releases, and file rules for crypto, identity, workflows and CI scripts. Push the gittuf refs after running it.
 
 ### Source tree integrity (`.rsm`)
 

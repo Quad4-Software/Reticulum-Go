@@ -1,8 +1,11 @@
 #!/bin/sh
 # Warn when pull request commits lack signatures.
-# GPG, SSH and gitsign (x509) signatures are all detected via git %G? codes:
+# GPG, SSH, rngcs (Reticulum identity) and gitsign (x509) signatures are all
+# detected via git %G? codes:
 #   G/U/X/Y count as signed, E counts as signed but locally unverifiable
 #   (typical for gitsign commits without a configured verifier), N is unsigned.
+# rngcs SSH-format signatures verify as G when the job installs rns and points
+# gpg.ssh.program at rngcs.
 set -eu
 
 if [ "${GITHUB_EVENT_NAME:-}" != "pull_request" ]; then

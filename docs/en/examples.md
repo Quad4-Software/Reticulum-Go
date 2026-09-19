@@ -149,7 +149,7 @@ Path: examples/wasm/
 Browser chat demo using pkg/wasm.
 
 ```bash
-task build-wasm
+make build-wasm
 ```
 
 See [Embedding and WebAssembly](embedding-and-wasm.md).
@@ -174,7 +174,7 @@ Path: bindings/c/examples/smoke/
 Minimal C program against librns.so and include/rns.h.
 
 ```bash
-task build-librns
+make build-librns
 make -C bindings/c/examples/smoke
 ./bindings/c/examples/smoke/librns-smoke
 ```
@@ -188,7 +188,7 @@ Path: bindings/c/examples/page-fetch/
 NomadNet / pageserver style page request over the C ABI. Opens a path, waits for an announce, establishes a link, and prints the /page/... response.
 
 ```bash
-task build-librns
+make build-librns
 make -C bindings/c/examples/page-fetch
 ./bindings/c/examples/page-fetch/librns-page-fetch \
   -c /path/to/config \
@@ -204,7 +204,7 @@ Path: bindings/odin/examples/page-fetch/
 Same flow as the C page-fetch example, using the Odin wrappers in bindings/odin.
 
 ```bash
-task build-librns
+make build-librns
 make -C bindings/odin/examples/page-fetch
 ./bindings/odin/examples/page-fetch/odin-page-fetch \
   -c /path/to/config \
@@ -218,7 +218,7 @@ Path: bindings/c/examples/pageserver/
 NomadNet-compatible nomadnetwork.node destination that serves /page/index.mu over librns request handlers.
 
 ```bash
-task build-librns
+make build-librns
 make -C bindings/c/examples/pageserver
 ./bindings/c/examples/pageserver/librns-pageserver \
   -c /path/to/config
@@ -229,13 +229,14 @@ Prints DEST_HASH=... on startup. Fetch with the C, Odin, Zig, or C++ page-fetch 
 Run helpers (Go is the default demo pageserver):
 
 ```bash
-task example:pageserver
+make build
+bin/reticulum-go pageserver
 make -C examples/pageserver run
 
-task example:pageserver:c
-task example:pageserver:odin
-task example:pageserver:zig
-task example:pageserver:cpp
+make -C bindings/c/examples/pageserver run
+make -C bindings/odin/examples/pageserver run
+make -C bindings/zig/examples/pageserver run
+make -C bindings/cpp/examples/pageserver run
 ```
 
 ## Odin pageserver
@@ -245,7 +246,7 @@ Path: bindings/odin/examples/pageserver/
 Same pageserver flow using the Odin bindings.
 
 ```bash
-task build-librns
+make build-librns
 make -C bindings/odin/examples/pageserver
 ./bindings/odin/examples/pageserver/odin-pageserver \
   -c /path/to/config
@@ -258,7 +259,7 @@ Path: bindings/zig/examples/page-fetch/
 Same flow as the C page-fetch example, using the Zig wrappers in bindings/zig.
 
 ```bash
-task build-librns
+make build-librns
 make -C bindings/zig/examples/page-fetch
 ./bindings/zig/examples/page-fetch/zig-page-fetch \
   -c /path/to/config \
@@ -272,7 +273,7 @@ Path: bindings/zig/examples/pageserver/
 Same pageserver flow using the Zig bindings.
 
 ```bash
-task build-librns
+make build-librns
 make -C bindings/zig/examples/pageserver
 ./bindings/zig/examples/pageserver/zig-pageserver \
   -c /path/to/config
@@ -285,7 +286,7 @@ Path: bindings/cpp/examples/smoke/
 Minimal C++17 lifecycle check against librns.so via bindings/cpp.
 
 ```bash
-task build-librns
+make build-librns
 make -C bindings/cpp/examples/smoke
 ./bindings/cpp/examples/smoke/cpp-smoke
 ```
@@ -297,7 +298,7 @@ Path: bindings/cpp/examples/page-fetch/
 Same flow as the C page-fetch example, using the C++ wrappers in bindings/cpp.
 
 ```bash
-task build-librns
+make build-librns
 make -C bindings/cpp/examples/page-fetch
 ./bindings/cpp/examples/page-fetch/cpp-page-fetch \
   -c /path/to/config \
@@ -311,7 +312,7 @@ Path: bindings/cpp/examples/pageserver/
 Same pageserver flow using the C++ bindings.
 
 ```bash
-task build-librns
+make build-librns
 make -C bindings/cpp/examples/pageserver
 ./bindings/cpp/examples/pageserver/cpp-pageserver \
   -c /path/to/config
@@ -322,7 +323,7 @@ make -C bindings/cpp/examples/pageserver
 Each language binding keeps demos under bindings/<lang>/examples/.
 
 ```bash
-task build-librns
+make build-librns
 make -C bindings/rust examples
 make -C bindings/python examples
 make -C bindings/lua examples
@@ -341,8 +342,8 @@ Path: bindings/odin/
 Idiomatic Odin package over librns.so. Requires Odin on PATH and a built shared library.
 
 ```bash
-task build-librns
-task test-odin
+make build-librns
+make test-odin
 ```
 
 Import with a collection rooted at bindings/odin:
@@ -360,8 +361,8 @@ Path: bindings/zig/
 Idiomatic Zig package over librns.so. Requires Zig 0.16.0 or later on PATH and a built shared library.
 
 ```bash
-task build-librns
-task test-zig
+make build-librns
+make test-zig
 ```
 
 Import as @import("rns") from a build.zig dependency on bindings/zig. See [librns](librns.md#zig-bindings).
@@ -373,8 +374,8 @@ Path: bindings/cpp/
 Idiomatic C++17 RAII package over librns.so. Requires CMake and a C++17 compiler, plus a built shared library.
 
 ```bash
-task build-librns
-task test-cpp
+make build-librns
+make test-cpp
 ```
 
 ```cpp
@@ -394,9 +395,9 @@ Path: bindings/dart/
 Package rns_control includes librns FFI (ffi.dart) and a Control API client.
 
 ```bash
-task build-librns
-task test-dart
-task build-librns-targets -- linux android windows
+make build-librns
+make test-dart
+sh scripts/build-librns-targets.sh linux android windows
 ```
 
 ```yaml

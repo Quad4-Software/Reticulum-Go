@@ -34,7 +34,7 @@ curl -fsSL https://raw.githubusercontent.com/Quad4-Software/Reticulum-Go/master/
 curl -fsSL https://raw.githubusercontent.com/Quad4-Software/Reticulum-Go/master/install.sh | sh -s -- --source
 ```
 
-From a git checkout, use Make, Task, or plain Go:
+From a git checkout, use Make or plain Go:
 
 ```bash
 # Make
@@ -42,11 +42,6 @@ make build
 make install                 # PREFIX=/usr/local (binary, tool symlinks, man pages)
 make install-service         # INIT=auto|systemd|openrc|runit|dinit|all
 make test
-
-# Task (go-task on some distros: alias task='go-task')
-task build
-task install
-task test
 
 # Manual
 mkdir -p bin
@@ -69,7 +64,7 @@ More targets, cross-compiles, WASM, and librns: [docs/en/getting-started.md](doc
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Branch from `dev`. Prefer `make check` / `task check` before opening a PR.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Branch from `dev`. Run `make check` before opening a PR.
 
 ## Security
 

@@ -3,19 +3,17 @@
 ## Requirements
 
 - Go 1.27.1 or later
-- Make or Task (optional, for convenience targets)
+- Make (optional, for convenience targets; plain `go` works too)
 - A writable home directory for ~/.reticulum-go
 
-The repository vendors dependencies. A normal build does not contact module proxies when GOFLAGS=-mod=vendor is set (default in the Makefile and Taskfile).
+The repository vendors dependencies. A normal build does not contact module proxies when GOFLAGS=-mod=vendor is set (default in the Makefile).
 
 ## Build
 
-From the repository root (Make, Task, or plain Go):
+From the repository root (Make or plain Go):
 
 ```bash
 make build
-# or
-task build
 ```
 
 This produces bin/reticulum-go as a static stripped binary (CGO_ENABLED=0) with the daemon and all tools as subcommands.
@@ -37,12 +35,10 @@ curl -fsSL https://raw.githubusercontent.com/Quad4-Software/Reticulum-Go/master/
 ./install.sh --source --init systemd
 ```
 
-From a checkout with Make or Task:
+From a checkout with Make:
 
 ```bash
 make install
-# or
-task install
 ```
 
 Default prefix is /usr/local. That installs reticulum-go, legacy tool symlinks (rgostatus, rgoid, …), and man pages (reticulum-go(1), reticulum-go(8), and tool pages). Override with `make install PREFIX=/opt/reticulum`. Staging: `make install DESTDIR=/tmp/stage PREFIX=/usr`.
@@ -70,14 +66,12 @@ make package-arch
 
 Arch Linux and CachyOS: add the Quad4 pacman repo from [quad4-arch](https://github.com/Quad4-Software/quad4-arch) (reticulum-go or reticulum-go-git). That is a Quad4-hosted repo, not AUR.
 
-Full Make/Task target map: [Development and testing](development-and-testing.md#build-automation-reference).
+Full Make target map: [Development and testing](development-and-testing.md#build-automation-reference).
 
 ## First run
 
 ```bash
 make run
-# or
-task run
 # or
 go run ./cmd/reticulum-go
 ```
@@ -125,8 +119,6 @@ For local mesh discovery over IPv6 link-local multicast, use AutoInterface. See 
 ```bash
 make test-short
 # or
-task test-short
-# or
 go test -short -v ./...
 ```
 
@@ -134,8 +126,6 @@ Full test suite:
 
 ```bash
 make test
-# or
-task test
 # or
 go test -v ./...
 ```
@@ -161,25 +151,19 @@ Legacy Windows 7, 8, and 8.1 builds use [go-legacy-win7](https://github.com/thon
 
 ```bash
 make build-windows-legacy
-# or
-task build-windows-legacy
 ```
 
 Windows XP and Server 2003 builds use [go-legacy-winxp](https://github.com/Quad4-Software/go-legacy-winxp):
 
 ```bash
 make build-windows-xp
-# or
-task build-windows-xp
 ```
 
 ## WebAssembly
 
 ```bash
-task build-wasm
+make build-wasm
 make test-wasm
-# or
-task test-wasm
 ```
 
 Manual:
@@ -197,10 +181,9 @@ Build the shared library and optional binding tests:
 
 ```bash
 make build-librns
-# or: task build-librns
 make -C bindings/c/examples/smoke && ./bindings/c/examples/smoke/librns-smoke
 make test-odin
-# or: task test-odin / task test-zig / task test-cpp
+# or: make test-odin / make test-zig / make test-cpp
 ```
 
 Odin bindings need the Odin compiler on PATH. Zig needs 0.16.0 or later. C++ needs CMake and a C++17 compiler. See [librns](librns.md).
@@ -209,8 +192,7 @@ Odin bindings need the Odin compiler on PATH. Zig needs 0.16.0 or later. C++ nee
 
 ```bash
 make build-librns
-task test-dart
-# or: make test-dart
+make test-dart
 ```
 
 Needs the Dart SDK on PATH. FFI uses librns on Linux, Android, and Windows. See [librns](librns.md#dart-ffi-bindings) and [Control API](control-api.md#dart-and-flutter).
