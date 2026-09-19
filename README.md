@@ -1,8 +1,10 @@
 # Reticulum-Go
 
-Go implementation of the [Reticulum Network Stack](https://github.com/markqvist/Reticulum). It strengthens existing networks and brings Reticulum to more devices. It is not a replacement for the Python reference.
+Go implementation of the [Reticulum Network Stack](https://github.com/markqvist/Reticulum). It strengthens existing networks and brings Reticulum to more devices without needing the pure cryptographic primitives. It is **not a replacement** for the Python reference.
 
-Available on rngit: NomadNet node `132f67e79d9b24aad014e93015fb858f:/page/index.mu`
+**Important: This project is still considered experimental, may not always be up to date with the Python reference, and not ready to be reliably used, we do welcome testers and feedback.**
+
+NomadNet Node (rngit): `132f67e79d9b24aad014e93015fb858f:/page/index.mu`
 
 ```bash
 git clone rns://06a54b505bb67b25ef3f8097e8001edc/public/Reticulum-Go
@@ -16,7 +18,7 @@ git clone rns://06a54b505bb67b25ef3f8097e8001edc/public/Reticulum-Go
 - Static, portable builds including legacy Windows via go-legacy-win7 / go-legacy-winxp
 - Interfaces: UDP, TCP, Auto, I2P, Backbone, Pipe, Local, Serial, Modem73, SDR, WebSocket, QUIC, WebTransport, DNS rendezvous, VSOCK, HTTPS, and RNode.
 - WebAssembly, librns C ABI, and language bindings (see [docs](docs/en/))
-- Native OS sandbox
+- Native OS sandboxing
 - Vendored dependencies for offline source builds
 
 Status detail: [docs/en/overview.md](docs/en/overview.md) and [COMPATIBILITY.md](COMPATIBILITY.md).
@@ -75,8 +77,8 @@ Report issues privately (see [SECURITY.md](SECURITY.md)). Sandbox is on by defau
 
 ## License
 
-[Reticulum License](LICENSE), the same license as the Python reference implementation since RNS 0.9.4. Earlier revisions carried MIT, then 0BSD, then Apache-2.0. [LEGAL.md](LEGAL.md) records the boundary commits. [AUTHORS.md](AUTHORS.md) lists authorship and attribution.
+[Reticulum License](LICENSE), the same license as the Python reference implementation since RNS 0.9.4. Earlier revisions carried MIT, then 0BSD, then Apache-2.0. [LEGAL.md](LEGAL.md) records the boundary commits.
 
 ## Upstream
 
-[Python RNS](https://github.com/markqvist/Reticulum) by [Mark Qvist](https://github.com/markqvist) is the reference implementation and defines the protocol. If you are new to Reticulum, start there. Donations to this project are shared: 75% go to Mark.
+[Python RNS](https://github.com/markqvist/Reticulum) by [Mark Qvist](https://github.com/markqvist) is the reference implementation and defines the protocol. If you are new to Reticulum, start there. 75% of donations to this project go to Mark Qvist.
