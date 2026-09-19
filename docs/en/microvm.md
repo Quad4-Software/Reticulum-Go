@@ -13,7 +13,6 @@ Run reticulum-go inside an Amazon Firecracker microVM. The default path is aimed
 
 ```bash
 make microvm-up
-# or: task microvm:up
 # or: ./microvm/up.sh
 ```
 
@@ -107,15 +106,15 @@ Configure guest IP via microvm/guest/microvm-net before build-rootfs.sh.
 
 Guest storage lives on the rootfs under /etc/reticulum/storage (next to the guest config). Rebuilds of rootfs.ext4 replace that disk image. Keep identities you care about outside the image or avoid --rebuild when you need them.
 
-## Makefile and Task
+## Makefile targets
 
-| Make | Task | Action |
-|------|------|--------|
-| make microvm-up | task microvm:up | Fetch kernel if needed, build rootfs if needed, start guest + host bridge |
-| make microvm-stop | task microvm:stop | Stop guest and host bridge |
-| make microvm-kernel | task microvm:kernel | Fetch kernel only |
-| make microvm-rootfs | task microvm:rootfs | Build rootfs only |
-| make microvm-rebuild | task microvm:rebuild | Force kernel+rootfs rebuild then up |
+| Make | Action |
+|------|--------|
+| make microvm-up | Fetch kernel if needed, build rootfs if needed, start guest + host bridge |
+| make microvm-stop | Stop guest and host bridge |
+| make microvm-kernel | Fetch kernel only |
+| make microvm-rootfs | Build rootfs only |
+| make microvm-rebuild | Force kernel+rootfs rebuild then up |
 
 ## Logs
 

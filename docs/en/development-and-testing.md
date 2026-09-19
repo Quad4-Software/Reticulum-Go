@@ -7,82 +7,82 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md) for commit format, git hooks, pull 
 Requirements:
 
 - Go 1.27.1 or later (see scripts/ci/dev-tools.env and mise.toml)
-- Make and/or Task (either works for common workflows)
-- revive and staticcheck (make bootstrap or task bootstrap)
+- Make (or plain `go` commands)
+- revive and staticcheck (`make bootstrap` installs pinned versions)
 - shellcheck and yamllint for git hooks (optional system packages)
 - Python 3 for crossref vector generation (optional)
 
 Clone the repository. Dependencies are in vendor/. No network fetch is needed for ordinary builds.
 
-Setup (Make, Task, or both):
+Setup:
 
 ```bash
-make bootstrap          # or: task bootstrap
-make doctor             # or: task doctor
-make hooks-install      # or: task hooks:install
+make bootstrap
+make doctor
+make hooks-install
 ```
 
-On some Linux distributions the Task binary is named `go-task`. Add `alias task='go-task'` if needed. Run `task --list` or `make help` for available targets.
+Run `make help` for available targets. Plain `go` commands work too; the Makefile sets `GOFLAGS=-mod=vendor`, `GOPROXY=off`, and `GOSUMDB=off`, so export those if you bypass it.
+
+A Taskfile also exists for maintainer and CI automation (`task --list`), but it is not required for contributing. Everything below works with Make or plain shell.
 
 Optional: [mise](https://mise.jdx.dev/) (mise install) or the Dev Container (.devcontainer/).
 
 ## Build automation reference
 
-Makefile and Taskfile both set `GOFLAGS=-mod=vendor`, `GOPROXY=off`, and `GOSUMDB=off`. Prefer Make, Task, or plain `go` as you like. Equivalents for the common targets:
-
-| Make | Task | Manual / notes |
-|------|------|----------------|
-| `make` / `make all` / `make build` | `task build` | `mkdir -p bin && CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go` |
-| `make install` | `task install` | Installs binary, legacy tool symlinks, and man pages under `PREFIX` (supports `DESTDIR`) |
-| `make install-man` | | Man pages only |
-| `make install-service` | | `INIT=auto\|systemd\|openrc\|runit\|dinit\|all`. Sample config under `/var/lib/reticulum-go` |
-| `make uninstall` | | Removes installed binary, symlinks, and man pages |
-| `make package-deb` / `package-rpm` / `package-arch` | | nfpm packages into `dist/` |
-| `make clean` | `task clean` | `go clean` and remove build artifacts |
-| `make test` | `task test` | `go test -v ./...` (project wrapper may use testsummary) |
-| `make test-short` | `task test-short` | `go test -short -v ./...` |
-| `make test-race` | | `CGO_ENABLED=1 go test -race -v ./...` |
-| `make test-services` | | `scripts/ci/test-services-docker.sh` |
-| `make test-install-script` | | `scripts/ci/test-install.sh` |
-| `make test-self-check` | | `scripts/ci/run-self-check.sh` |
-| `make test-self-check-{386,arm,riscv64,ppc64le,ppc64}` | | qemu-user self-check (`qemu-user-static`) |
-| `make coverage` | | coverage profile and HTML report |
-| `make bench` | `task bench` | `go test -run=^$ -bench=. -benchmem ./...` |
-| `make fmt` | `task fmt` | `go fmt ./...` |
-| `make vet` | `task vet` | `go vet ./...` |
-| `make lint` | `task lint` | revive with `revive.toml` |
-| `make staticcheck` | `task staticcheck` | staticcheck on core packages |
-| `make vulncheck` | `task vulncheck` | govulncheck |
-| `make check` | `task check` | fmt/vet/lint/staticcheck/short tests/vulncheck (gosec via Make) |
-| `make prepush` | `task prepush` | fmt-check, vet, lint, test-short |
-| `make deps` | `task deps` | module download/verify (clears offline proxy for the fetch) |
-| `make run` | `task run` | `go run ./cmd/reticulum-go` |
-| `make debug` | | `go build -o bin/reticulum-go ./cmd/reticulum-go` |
-| `make build-linux` / `build-windows` / `build-darwin` / `build-all` | matching `task build-*` | Cross-compile release targets |
-| `make build-windows-legacy` | `task build-windows-legacy` | go-legacy-win7 (`GO_LEGACY_WIN7`) |
-| `make build-windows-xp` | `task build-windows-xp` | go-legacy-winxp (`GO_LEGACY_WINXP`) |
-| `make build-librns` | `task build-librns` | `CGO_ENABLED=1 go build -buildmode=c-shared -o bin/librns.so ./cmd/librns` |
-| `make test-wasm` | `task test-wasm` | js/wasm package tests (Node exec helper) |
-| | `task build-wasm` | `GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o bin/reticulum-go.wasm ./cmd/reticulum-wasm` |
-| `make microvm-up` / `microvm-stop` | matching microvm tasks | Firecracker guest. See [microvm](microvm.md) |
-| `make tree-rsm-verify` / `tree-rsm-sign` | matching tasks | Source tree `.rsm` inventory. See [SECURITY.md](../../SECURITY.md) |
-| `make hooks-install` | `task hooks:install` | Tracked git hooks |
-| `make doctor` / `bootstrap` / `changelog-preview` | matching tasks | Dev tool pins and CHANGELOG preview |
+| Make | Manual / notes |
+|------|----------------|
+| `make` / `make all` / `make build` | `mkdir -p bin && CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go` |
+| `make install` | Installs binary, legacy tool symlinks, and man pages under `PREFIX` (supports `DESTDIR`) |
+| `make install-man` | Man pages only |
+| `make install-service` | `INIT=auto\|systemd\|openrc\|runit\|dinit\|all`. Sample config under `/var/lib/reticulum-go` |
+| `make uninstall` | Removes installed binary, symlinks, and man pages |
+| `make package-deb` / `package-rpm` / `package-arch` | nfpm packages into `dist/` |
+| `make clean` | `go clean` and remove build artifacts |
+| `make test` | `go test -v ./...` (project wrapper may use testsummary) |
+| `make test-short` | `go test -short -v ./...` |
+| `make test-race` | `CGO_ENABLED=1 go test -race -v ./...` |
+| `make test-services` | `scripts/ci/test-services-docker.sh` |
+| `make test-install-script` | `scripts/ci/test-install.sh` |
+| `make test-self-check` | `scripts/ci/run-self-check.sh` |
+| `make test-self-check-{386,arm,riscv64,ppc64le,ppc64}` | qemu-user self-check (`qemu-user-static`) |
+| `make coverage` | coverage profile and HTML report |
+| `make bench` | `go test -run=^$ -bench=. -benchmem ./...` |
+| `make fmt` | `go fmt ./...` |
+| `make vet` | `go vet ./...` |
+| `make lint` | revive with `revive.toml` |
+| `make staticcheck` | staticcheck on core packages |
+| `make vulncheck` | govulncheck |
+| `make check` | fmt/vet/lint/staticcheck/short tests/vulncheck (gosec via Make) |
+| `make prepush` | fmt-check, vet, lint, test-short |
+| `make deps` / `make vendor-sync` | module download/verify and re-vendor from `LIBS_ROOT` |
+| `make run` | `go run ./cmd/reticulum-go` |
+| `make debug` | `go build -o bin/reticulum-go ./cmd/reticulum-go` |
+| `make build-linux` / `build-windows` / `build-darwin` / `build-all` | Cross-compile release targets |
+| `make build-windows-legacy` | go-legacy-win7 (`GO_LEGACY_WIN7`) |
+| `make build-windows-xp` | go-legacy-winxp (`GO_LEGACY_WINXP`) |
+| `make build-librns` | `CGO_ENABLED=1 go build -buildmode=c-shared -o bin/librns.so ./cmd/librns` |
+| `make test-wasm` | js/wasm package tests (Node exec helper) |
+| `make build-wasm` | `GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o bin/reticulum-go.wasm ./cmd/reticulum-wasm` |
+| `make microvm-up` / `microvm-stop` | Firecracker guest. See [microvm](microvm.md) |
+| `make tree-rsm-verify` / `tree-rsm-sign` | Source tree `.rsm` inventory. See [SECURITY.md](../../SECURITY.md) |
+| `make hooks-install` | Tracked git hooks |
+| `make doctor` / `bootstrap` / `changelog-preview` | Dev tool pins and CHANGELOG preview |
 
 ## Code quality commands
 
 ```bash
 make fmt && make vet && make lint && make check
 # or
-task fmt
-task vet
-task lint
-task staticcheck
-task test-short
-task vulncheck
-task prepush      # fast path before git push
-task check        # full local check suite
-task ci           # same static checks as CI lint job
+make fmt
+make vet
+make lint
+make staticcheck
+make test-short
+make vulncheck
+make prepush      # fast path before git push
+make check        # full local check suite
+make ci           # same static checks as CI lint job
 ```
 
 `make check` runs fmt, vet, lint, staticcheck, test-short, vulncheck, and gosec.
@@ -106,7 +106,7 @@ staticcheck -tests=false ./pkg/... ./cmd/... ./internal/... ./tests/...
 Preview unreleased notes from conventional commits:
 
 ```bash
-task changelog-preview
+make changelog-preview
 ```
 
 Uses cliff.toml and git-cliff (installed via go run when not on PATH).
@@ -131,13 +131,13 @@ Opens HTML coverage from coverage.out.
 
 ```bash
 make bench
-task test-bench-gate
+make test-bench-gate
 ```
 
 Loopback link throughput smoke (RNS Speedtest-style liveness floor):
 
 ```bash
-task test-link-speed
+make test-link-speed
 reticulum-go speedtest
 ```
 
@@ -161,15 +161,15 @@ Follow existing naming, error wrapping, and SPDX headers in each file.
 
 | Layer | How to run | What it covers |
 |-------|------------|----------------|
-| Unit | task test / task test-short | Package *_test.go |
-| Property | task test-property | *_pbt_test.go and embedded github.com/Quad4-Software/pbt / testing/quick |
-| Mutation | task test-mutation | gomutant on cryptography, packet, announce, destination, identity, ifac, backbone, interfaces |
-| Chaos | task test-chaos / task test-soak / task test-soak-protect | TestSimChaos* / TestLinkChaos* / TestIfaceChaos* plus soak, including dos_protection flood soak |
-| Oracle | task test-oracle | Crossref vectors, health TransportCounters deltas, adversarial corpus |
-| Smoke | task test-binary-smoke, binding smokes | Binary --version/--help, CLI dump via Main, librns smoke examples |
-| Acceptance | task test-acceptance | librns SCAFFOLD minimum, control API acceptance |
-| E2E | task test-e2e | Daemon reload, UDP path e2e, transport TestE2E_* |
-| Black box | task test-blackbox | CLI Main / rgodump surface, control API HTTP acceptance |
+| Unit | make test / make test-short | Package *_test.go |
+| Property | make test-property | *_pbt_test.go and embedded github.com/Quad4-Software/pbt / testing/quick |
+| Mutation | make test-mutation | gomutant on cryptography, packet, announce, destination, identity, ifac, backbone, interfaces |
+| Chaos | make test-chaos / make test-soak / make test-soak-protect | TestSimChaos* / TestLinkChaos* / TestIfaceChaos* plus soak, including dos_protection flood soak |
+| Oracle | make test-oracle | Crossref vectors, health TransportCounters deltas, adversarial corpus |
+| Smoke | make test-binary-smoke, binding smokes | Binary --version/--help, CLI dump via Main, librns smoke examples |
+| Acceptance | make test-acceptance | librns SCAFFOLD minimum, control API acceptance |
+| E2E | make test-e2e | Daemon reload, UDP path e2e, transport TestE2E_* |
+| Black box | make test-blackbox | CLI Main / rgodump surface, control API HTTP acceptance |
 | Interop | RUN_LIVE_INTEROP=1 go test ./tests/interop/... | Live Go↔Python (optional locally), including dos_protection live suites |
 
 ### Unit tests
@@ -191,7 +191,7 @@ go test -short -v ./...
 Files named *_pbt_test.go use github.com/Quad4-Software/pbt for generative testing (cryptography, packet, buffer, rate, resource, announce, link, identity). Some properties still live beside unit tests in the same package.
 
 ```bash
-task test-property
+make test-property
 ```
 
 ### Mutation tests
@@ -199,7 +199,7 @@ task test-property
 In-repo tools/gomutant flips same-width operators and re-runs package tests.
 
 ```bash
-task test-mutation
+make test-mutation
 ```
 
 Default packages: cryptography, packet, announce, destination, identity, ifac, backbone, interfaces. Override with MUTATION_PACKAGES / MUTATION_THRESHOLD.
@@ -219,9 +219,9 @@ Seeded loss, reorder, corruption, and flap tests across layers:
 | TestIfaceChaos* | pkg/interfaces | TCP HDLC corrupt/reorder, Local corrupt resync, Pipe respawn, Backbone reconnect |
 
 ```bash
-task test-chaos
-task test-soak
-task test-soak-protect
+make test-chaos
+make test-soak
+make test-soak-protect
 ```
 
 Chaos suites are in-process Go only (sim pipes / HDLC fixtures). Live Go↔Python HDLC loss, reorder, corrupt, and mid-session flap live under tests/interop/ (TestLiveInteropHDLC*, RUN_LIVE_INTEROP=1). Unpack hop-gate, HT2 truncation, oversize, and Pack/Unpack byte-identity vs Python RNS.Packet live in unpack_live_test.go. Healthy-path cross-stack coverage also lives under tests/interop/.
@@ -240,18 +240,18 @@ pkg/protect and interface hooks cover false positives, false negatives, auto lea
 | Sandbox soft-fail | pkg/sandbox/warn_test.go | Rate-limited stdout when Landlock or seccomp soft-fails |
 | Replay traces | pkg/protect/replay_trace_test.go | Mesh-like timelines, flood inject and recovery, auto learn then block |
 | Property / fuzz | pkg/protect/property_test.go, fuzz_test.go | Detect never blocks, prevent after threshold, mode round-trip |
-| Soak | task test-soak-protect | Bounded flood heap and goroutine budgets |
+| Soak | make test-soak-protect | Bounded flood heap and goroutine budgets |
 | Live UDP/TCP | pkg/interfaces/protect_*_live_test.go | Real loopback sockets, optional non-loopback NIC, TCP accept storms |
 | Live interop | tests/interop/dos_protect_live_test.go | RUN_LIVE_INTEROP=1: quiet budget, UDP flood shed, auto learn on live UDP, transport path, public mesh peer dials |
 
 ```bash
 go test ./pkg/protect -short
 go test ./pkg/interfaces -run 'LiveUDP|LiveTCP|Protect'
-task test-soak-protect
+make test-soak-protect
 RUN_LIVE_INTEROP=1 go test ./tests/interop -run 'DoSProtect|DoSProtection'
 ```
 
-FreeBSD, OpenBSD, and Haiku CI jobs run go test -short ./pkg/protect/ and transport protect tests in addition to pkg/sandbox and self-check. The test-extra soak matrix runs task test-soak-protect.
+FreeBSD, OpenBSD, and Haiku CI jobs run go test -short ./pkg/protect/ and transport protect tests in addition to pkg/sandbox and self-check. The test-extra soak matrix runs make test-soak-protect.
 
 Config and threat scope: [Configuration](configuration.md#dos_protection-go-only), [Security](security.md#dos-protection-local-idsips).
 
@@ -266,16 +266,16 @@ Config and threat scope: [Configuration](configuration.md#dos_protection-go-only
 | Sim path/hop asserts | pkg/transport/sim_assertions_test.go |
 
 ```bash
-task test-oracle
+make test-oracle
 ```
 
 ### Smoke, acceptance, e2e, black box
 
 ```bash
-task test-binary-smoke
-task test-acceptance
-task test-e2e
-task test-blackbox
+make test-binary-smoke
+make test-acceptance
+make test-e2e
+make test-blackbox
 ```
 
 Notable additions: pkg/cli dump smoke via Main, pkg/librns.TestAcceptanceScaffoldMinimum, pkg/node.TestUDPPathE2E.
@@ -403,8 +403,6 @@ reticulum-go self-check is a host OS preflight. It validates that platform featu
 ```bash
 make test-self-check
 # or
-task test-self-check
-# or
 ./bin/reticulum-go self-check --json --full
 ```
 
@@ -431,7 +429,7 @@ Exit code is non-zero on any fail result. With --strict, warnings also fail.
 
 Daemon checks include Control API health with sandbox enabled, shared-instance GetInterfaceStats RPC, and (except Windows, FreeBSD CapEnter, and OpenBSD unveil+pledge) SIGHUP reload of a UDP interface.
 
-CI runs self-check on Linux (amd64 and arm64), macOS, Windows, FreeBSD, and OpenBSD. Extra Linux arches (386, arm GOARM=6, riscv64, ppc64le, ppc64) run via qemu-user-static (task test-self-check-386, test-self-check-arm, test-self-check-riscv64, test-self-check-ppc64le, test-self-check-ppc64). Android emulator self-check is a separate workflow (selfcheck-android.yml) on schedule or workflow_dispatch.
+CI runs self-check on Linux (amd64 and arm64), macOS, Windows, FreeBSD, and OpenBSD. Extra Linux arches (386, arm GOARM=6, riscv64, ppc64le, ppc64) run via qemu-user-static (make test-self-check-386, test-self-check-arm, test-self-check-riscv64, test-self-check-ppc64le, test-self-check-ppc64). Android emulator self-check is a separate workflow (selfcheck-android.yml) on schedule or workflow_dispatch.
 
 NetBSD is not in CI. Run reticulum-go self-check manually on that host.
 
@@ -452,19 +450,19 @@ Package tests live in pkg/zenfix/. Full flag and rule reference: [CLI utilities]
 
 ## Vendoring
 
-Third-party source is committed under `vendor/`. Ordinary builds and tests use that tree with `GOFLAGS=-mod=vendor` and `GOPROXY=off` (set by the Makefile and Taskfile). That keeps air-gapped builds reliable, makes dependency upgrades reviewable as diffs, and matches CI.
+Third-party source is committed under `vendor/`. Ordinary builds and tests use that tree with `GOFLAGS=-mod=vendor` and `GOPROXY=off` (set by the Makefile). That keeps air-gapped builds reliable, makes dependency upgrades reviewable as diffs, and matches CI.
 
 Versions and checksums remain in `go.mod` / `go.sum`. Scripts that install standalone CLI tools (revive, gosec, and similar) temporarily clear those env flags to fetch the tool binary. Project code itself always compiles from `vendor/`.
 
 Refresh after dependency changes:
 
 ```bash
-task vendor-sync
+make vendor-sync
 # or
 make deps
 ```
 
-`task vendor-sync` requires `LIBS_ROOT` pointing at the Reticulum-Go-Deps sibling tree for replace directives. Commit `go.mod`, `go.sum`, and `vendor/` after refresh.
+`make vendor-sync` requires `LIBS_ROOT` pointing at the Reticulum-Go-Deps sibling tree for replace directives. Commit `go.mod`, `go.sum`, and `vendor/` after refresh.
 
 Day-to-day clones only need `vendor/` to build offline. Sibling checkouts are only required when re-vendoring first-party libraries. `examples/wasm` and `examples/pageserver` keep their own `go.mod` / `vendor/` trees. Docker configs under `docker/` copy those folders for offline image builds.
 
@@ -499,10 +497,8 @@ Legacy Windows uses go-legacy-win7 (make build-windows-legacy).
 ## WebAssembly development
 
 ```bash
-task build-wasm
+make build-wasm
 make test-wasm
-# or
-task test-wasm
 ```
 
 Manual WASM binary:
@@ -518,7 +514,6 @@ See [Embedding and WebAssembly](embedding-and-wasm.md).
 
 ```bash
 make build-librns
-# or: task build-librns
 make -C bindings/c/examples/smoke
 ./bindings/c/examples/smoke/librns-smoke
 ```
@@ -528,8 +523,8 @@ Needs a C toolchain and CGO. Daemon builds stay CGO_ENABLED=0. See [librns](libr
 ## Odin bindings
 
 ```bash
-task build-librns
-task test-odin
+make build-librns
+make test-odin
 ```
 
 Requires the Odin compiler on PATH (CI installs a pinned monthly release via scripts/ci/setup-odin.sh, job Odin bindings). Package lives under bindings/odin. See [librns](librns.md#odin-bindings).
@@ -537,8 +532,8 @@ Requires the Odin compiler on PATH (CI installs a pinned monthly release via scr
 ## Zig bindings
 
 ```bash
-task build-librns
-task test-zig
+make build-librns
+make test-zig
 ```
 
 Requires Zig 0.16.0 or later on PATH (CI installs a pinned release via scripts/ci/setup-zig.sh, job Zig bindings). Package lives under bindings/zig. See [librns](librns.md#zig-bindings).
@@ -546,8 +541,8 @@ Requires Zig 0.16.0 or later on PATH (CI installs a pinned release via scripts/c
 ## C++ bindings
 
 ```bash
-task build-librns
-task test-cpp
+make build-librns
+make test-cpp
 ```
 
 Requires CMake and a C++17 compiler on PATH (CI job C++ bindings). Package lives under bindings/cpp. See [librns](librns.md#c-bindings).
@@ -555,8 +550,8 @@ Requires CMake and a C++17 compiler on PATH (CI job C++ bindings). Package lives
 ## Dart bindings
 
 ```bash
-task build-librns
-task test-dart
+make build-librns
+make test-dart
 ```
 
 Requires the Dart SDK on PATH (CI pins 3.11.4, job Dart bindings) and CGO for librns.so FFI smoke tests. Package and examples live under bindings/dart. See [librns Dart FFI](librns.md#dart-ffi-bindings) and [Control API](control-api.md#dart-and-flutter).
@@ -564,8 +559,8 @@ Requires the Dart SDK on PATH (CI pins 3.11.4, job Dart bindings) and CGO for li
 ## Rust bindings
 
 ```bash
-task build-librns
-task test-rust
+make build-librns
+make test-rust
 ```
 
 Requires cargo on PATH (CI job Rust bindings). Package and examples live under bindings/rust.
@@ -573,8 +568,8 @@ Requires cargo on PATH (CI job Rust bindings). Package and examples live under b
 ## Python bindings
 
 ```bash
-task build-librns
-task test-python
+make build-librns
+make test-python
 ```
 
 Requires python3 on PATH (CI job Python bindings). Package and examples live under bindings/python.
@@ -582,8 +577,8 @@ Requires python3 on PATH (CI job Python bindings). Package and examples live und
 ## Lua bindings
 
 ```bash
-task build-librns
-task test-lua
+make build-librns
+make test-lua
 ```
 
 Requires LuaJIT on PATH (CI job Lua bindings). Package and examples live under bindings/lua.
@@ -591,8 +586,8 @@ Requires LuaJIT on PATH (CI job Lua bindings). Package and examples live under b
 ## Swift bindings
 
 ```bash
-task build-librns
-task test-swift
+make build-librns
+make test-swift
 ```
 
 Requires swift on PATH (CI pins 6.0.3 via scripts/ci/setup-swift.sh, job Swift bindings). Package and examples live under bindings/swift.
@@ -600,8 +595,8 @@ Requires swift on PATH (CI pins 6.0.3 via scripts/ci/setup-swift.sh, job Swift b
 ## Java bindings
 
 ```bash
-task build-librns
-task test-java
+make build-librns
+make test-java
 ```
 
 Requires javac on PATH (CI uses Temurin 17, job Java bindings). Package and examples live under bindings/java. JNA is fetched on first build.
@@ -609,8 +604,8 @@ Requires javac on PATH (CI uses Temurin 17, job Java bindings). Package and exam
 ## Kotlin bindings
 
 ```bash
-task build-librns
-task test-kotlin
+make build-librns
+make test-kotlin
 ```
 
 Requires kotlinc and javac on PATH (CI pins Kotlin 2.1.10 via scripts/ci/setup-kotlin.sh, job Kotlin bindings). Package and examples live under bindings/kotlin and depend on bindings/java.
@@ -618,8 +613,8 @@ Requires kotlinc and javac on PATH (CI pins Kotlin 2.1.10 via scripts/ci/setup-k
 ## C ABI examples
 
 ```bash
-task build-librns
-task test-c
+make build-librns
+make test-c
 ```
 
 Builds and runs bindings/c/examples (smoke plus page-fetch/pageserver compile). Binding CI jobs also run make -C bindings/<lang> examples.

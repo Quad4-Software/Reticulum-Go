@@ -5,15 +5,15 @@ Contributions are welcome. Prefer sending changes as `.patch` files over Reticul
 ## Quick start
 
 1. Clone the repository. Dependencies live in `vendor/` (no network fetch for ordinary builds).
-2. Install dev tools: `task bootstrap` (or `make bootstrap`).
-3. Verify your environment: `task doctor` (or `make doctor`).
-4. Enable git hooks: `task hooks:install` (or `make hooks-install`).
+2. Install dev tools: `make bootstrap`.
+3. Verify your environment: `make doctor`.
+4. Enable git hooks: `make hooks-install`.
 5. Branch from `dev` for feature work.
-6. Before pushing: `task prepush` or full `task check`.
+6. Before pushing: `make prepush` or full `make check`.
 
-Primary automation is available via **Make** and **Task** (`make help`, `task --list`). Use whichever you prefer. Plain `go build` / `go test` also work with vendored modules.
+Automation is available via **Make** (`make help`). Plain `go build` / `go test` also work with vendored modules.
 
-Optional: use [mise](https://mise.jdx.dev/) (`mise install`) or the Dev Container (`.devcontainer/`) for pinned Go and Task versions.
+Optional: use [mise](https://mise.jdx.dev/) (`mise install`) or the Dev Container (`.devcontainer/`) for pinned Go and tool versions.
 
 ## Branch workflow
 
@@ -73,7 +73,7 @@ git config user.signingkey ~/.rngit/client_identity
 git config user.email <your identity hash>    # rngcs binds the author to the signer
 ```
 
-The author field must equal the identity hash, or an LXMF address you can prove. GPG, SSH, and gitsign signatures are also accepted (`task gitsign:setup`; set `SIGSTORE_FULCIO_URL`, `SIGSTORE_REKOR_URL` and `SIGSTORE_OIDC_ISSUER` for a private Sigstore stack).
+The author field must equal the identity hash, or an LXMF address you can prove. GPG, SSH, and gitsign signatures are also accepted (`make gitsign-setup`; set `SIGSTORE_FULCIO_URL`, `SIGSTORE_REKOR_URL` and `SIGSTORE_OIDC_ISSUER` for a private Sigstore stack).
 
 ### Developer Certificate of Origin
 
@@ -86,13 +86,13 @@ Skip only the DCO check: `SKIP_DCO_HOOK=1 git commit ...`
 
 - User-facing changes: add an entry under the current `[unreleased]` section in `CHANGELOG.md` (Keep a Changelog style).
 - Wire format, RPC, or Python RNS parity changes: update `COMPATIBILITY.md`.
-- Preview unreleased notes from conventional commits: `task changelog-preview`.
+- Preview unreleased notes from conventional commits: `make changelog-preview`.
 
 ## Pull request checklist
 
 The PR template mirrors this list:
 
-- [ ] `task prepush` or `task check` passes locally
+- [ ] `make prepush` or `make check` passes locally
 - [ ] `CHANGELOG.md` updated when behavior or UX changes
 - [ ] `COMPATIBILITY.md` updated when wire or API compatibility changes
 - [ ] Tests added or extended for behavior changes
@@ -102,13 +102,13 @@ The PR template mirrors this list:
 
 ## Git hooks
 
-After `task hooks:install`:
+After `make hooks-install`:
 
 | Hook | Runs |
 |------|------|
 | `pre-commit` | Staged Go fmt/vet, YAML, shellcheck, optional `reticulum-go.rsm` resign |
 | `commit-msg` | Conventional commit format, DCO sign-off |
-| `pre-push` | `task prepush` (fmt-check, vet, lint, test-short) |
+| `pre-push` | `make prepush` (fmt-check, vet, lint, test-short) |
 
 Skip env vars:
 
@@ -142,9 +142,9 @@ Advisory or scheduled: CodeQL, security workflow, sim-heavy, TinyGo, preview-rel
 Local parity:
 
 ```bash
-task ci          # fmt-check, vet, lint, staticcheck (CI lint job)
-task check       # ci checks + test-short + gosec + vulncheck
-task prepush     # fmt-check, vet, lint, test-short
+make fmt-check vet lint staticcheck  # CI lint job
+make check                            # lint + test-short + vulncheck + gosec
+make prepush                          # fmt-check, vet, lint, test-short
 ```
 
 ## Contributor License Grant (CLA)

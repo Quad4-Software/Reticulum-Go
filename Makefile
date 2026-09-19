@@ -12,7 +12,9 @@
 .PHONY: build-freebsd build-openbsd build-netbsd build-dragonfly build-solaris build-illumos build-aix build-android
 .PHONY: test-short test-race test-crossref test-wasm test-odin test-dart test-all coverage bench debug release
 .PHONY: man install-man install-service package package-deb package-rpm package-arch stage-nfpm
-.PHONY: test-services test-install-script tree-manifest tree-rsm-sign tree-rsm-verify hooks-install doctor bootstrap changelog-preview gitsign-setup gittuf-init
+.PHONY: test-services test-install-script tree-manifest tree-rsm-sign tree-rsm-verify hooks-install doctor bootstrap changelog-preview gitsign-setup gittuf-init test-zig test-cpp build-wasm build-librns-targets
+.PHONY: test-property test-mutation test-chaos test-soak test-soak-protect test-oracle test-binary-smoke test-acceptance test-e2e test-blackbox test-bench-gate test-link-speed
+.PHONY: test-c test-rust test-swift test-lua test-java test-kotlin test-python vendor-sync reproducibility sbom
 .PHONY: build-librns
 .PHONY: microvm-up microvm-stop microvm-kernel microvm-rootfs microvm-rebuild microvm-guest
 
@@ -68,6 +70,25 @@ help:
 	@echo "  test           Run tests"
 	@echo "  test-odin      Build librns and run Odin bindings tests"
 	@echo "  test-dart      Run Dart Control API client tests"
+	@echo "  test-zig       Build librns and run Zig bindings tests"
+	@echo "  test-cpp       Build librns and run C++ bindings tests"
+	@echo "  test-c|rust|swift|lua|java|kotlin|python  Run other bindings tests"
+	@echo "  test-property  Property-based tests (pbt + testing/quick)"
+	@echo "  test-oracle    Crossref/golden/adversarial oracle tests"
+	@echo "  test-acceptance  librns scaffold + control API acceptance"
+	@echo "  test-e2e       Daemon reload, UDP path, transport E2E"
+	@echo "  test-blackbox  CLI Main / rgodump / control API surface"
+	@echo "  test-binary-smoke  Binary --version/--help and CLI dump smokes"
+	@echo "  test-chaos     Sim/link/iface chaos tests"
+	@echo "  test-soak / test-soak-protect  Soak suites incl. protect flood"
+	@echo "  test-mutation  gomutant on crypto and wire packages"
+	@echo "  test-bench-gate  Benchmark regression gate"
+	@echo "  test-link-speed  Link speed smoke test"
+	@echo "  build-wasm     Build WebAssembly binary"
+	@echo "  build-librns-targets  Cross-build librns (LIBRNS_TARGETS='linux android windows')"
+	@echo "  vendor-sync    Re-vendor modules from LIBRNS_ROOT deps tree"
+	@echo "  reproducibility  Verify two release builds are byte-identical"
+	@echo "  sbom           Generate SPDX + CycloneDX SBOMs via trivy"
 	@echo "  test-services  Docker tests for systemd/openrc/runit/dinit + logfile"
 	@echo "  check          fmt-check vet lint staticcheck test-short vulncheck gosec"
 	@echo "  tree-rsm-verify  Verify reticulum-go.rsm signature and hashes"
@@ -195,6 +216,20 @@ test-odin: build-librns
 test-dart:
 	$(MAKE) -C bindings/dart test
 
+test-zig:
+	sh scripts/ci/run-zig-bindings.sh
+
+test-cpp:
+	sh scripts/ci/run-cpp-bindings.sh
+
+build-wasm:
+	mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=0 GOOS=js GOARCH=wasm $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME).wasm ./cmd/reticulum-wasm
+
+# LIBRNS_TARGETS selects platforms, e.g. make build-librns-targets LIBRNS_TARGETS="linux android windows"
+build-librns-targets:
+	sh scripts/build-librns-targets.sh $(LIBRNS_TARGETS)
+
 test-all: test test-wasm test-crossref test-odin test-dart
 
 test-services:
@@ -217,6 +252,74 @@ test-self-check-ppc64le:
 
 test-self-check-ppc64:
 	sh scripts/ci/run-qemu-arch-self-check.sh ppc64
+
+test-property:
+	$(GOCMD) run ./scripts/ci/testsummary -v ./pkg/announce ./pkg/link ./pkg/transport ./pkg/cryptography ./pkg/packet ./pkg/buffer ./pkg/rate ./pkg/resource ./pkg/identity ./pkg/librns ./pkg/destination ./pkg/protect ./pkg/discovery ./pkg/interfaces -run "TestPBT|TestProperty|TestQuick" -timeout 10m
+
+test-mutation:
+	sh scripts/ci/run-mutation.sh
+
+test-chaos:
+	$(GOCMD) run ./scripts/ci/testsummary -v ./pkg/transport ./pkg/link ./pkg/interfaces -run 'TestSimChaos|TestLinkChaos|TestIfaceChaos' -timeout 15m
+
+test-soak:
+	sh scripts/ci/run-soak.sh
+
+test-soak-protect:
+	sh scripts/ci/run-protect-soak.sh
+
+test-oracle:
+	$(GOCMD) test ./tests/crossref/ ./pkg/health/ ./pkg/packet/ ./pkg/ifac/ ./pkg/link/ ./pkg/discovery/ ./pkg/identity/ ./pkg/interfaces/ ./pkg/protect/ ./pkg/transport/ ./pkg/rnsutil/ ./pkg/rgosh/ ./pkg/zenfix/ -count=1 -run "TestIdentity|TestHKDF|TestHMAC|TestPacket|TestOracle|TestAdversarial|TestGolden|TestTOCTOU|TestHandshake|TestNewMatchesPython|TestMaskMatchesPython|TestSignMatchesPython|TestUnmask|TestDrop|TestCleanKnown|TestBlocked|TestCompatMatches" -timeout 15m
+
+test-binary-smoke:
+	sh scripts/ci/run-binary-smoke.sh
+
+test-acceptance:
+	$(GOCMD) run ./scripts/ci/testsummary -v ./pkg/librns ./pkg/controlapi -run "TestAcceptance|TestScaffold|TestHandleLifecycle|TestNodeStartStop" -timeout 5m
+
+test-e2e:
+	$(GOCMD) run ./scripts/ci/testsummary -v ./cmd/reticulum-go ./pkg/node ./pkg/transport ./pkg/rgosh -run "TestE2E_|TestReload|TestDaemon|UDPPathE2E" -timeout 10m
+
+test-blackbox:
+	$(GOCMD) run ./scripts/ci/testsummary -v ./pkg/cli ./pkg/controlapi ./cmd/reticulum-go -run "TestMain|TestRunDump|TestBlackBox|TestAcceptance|TestE2E" -timeout 5m
+
+test-bench-gate:
+	sh scripts/ci/bench-gate.sh
+
+test-link-speed:
+	$(GOCMD) test -count=1 -timeout 5m ./pkg/link -run TestLinkSpeedSmoke
+
+test-c:
+	sh scripts/ci/run-c-bindings.sh
+
+test-rust:
+	sh scripts/ci/run-rust-bindings.sh
+
+test-swift:
+	sh scripts/ci/run-swift-bindings.sh
+
+test-lua:
+	sh scripts/ci/run-lua-bindings.sh
+
+test-java:
+	sh scripts/ci/run-java-bindings.sh
+
+test-kotlin:
+	sh scripts/ci/run-kotlin-bindings.sh
+
+test-python:
+	sh scripts/ci/run-python-bindings.sh
+
+vendor-sync: deps
+
+reproducibility:
+	sh scripts/ci/reproducibility-build.sh
+
+sbom:
+	mkdir -p sbom
+	trivy fs --skip-dirs vendor --skip-dirs .cache --format spdx-json --include-dev-deps --output sbom/sbom.spdx.json .
+	trivy fs --skip-dirs vendor --skip-dirs .cache --format cyclonedx --include-dev-deps --output sbom/sbom.cyclonedx.json .
+	@echo "SBOM files generated in sbom/ directory"
 
 coverage:
 	$(GOCMD) test -coverprofile=coverage.out ./...
@@ -253,6 +356,8 @@ gosec:
 	env GOFLAGS= GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct CGO_ENABLED=0 $(GOCMD) run github.com/securego/gosec/v2/cmd/gosec@latest -quiet -tags lxstamp_nogpu -exclude-dir=vendor -exclude-dir=.cache -exclude-dir=testdata ./pkg/... ./cmd/... ./internal/... ./tests/...
 
 prepush: fmt-check vet lint test-short
+
+ci: fmt-check vet lint staticcheck
 
 check: fmt vet lint staticcheck test-short vulncheck gosec
 

@@ -67,7 +67,7 @@ Application code should use pkg/cryptography and pkg/identity. IFAC configuratio
 
 **CI security scans.** GitHub Actions runs Gosec, govulncheck, and Trivy on pushes and pull requests to master/dev. CodeQL covers Go, JavaScript/TypeScript, Python, and Actions workflows. Pull requests also run dependency-review.yml. Trivy is installed from a pinned release with SHA256 verification (scripts/ci/setup-trivy.sh).
 
-**Reproducibility.** CI includes a reproducibility check (task reproducibility).
+**Reproducibility.** CI includes a reproducibility check (make reproducibility).
 
 **Actions pinning.** Third-party actions are pinned to full commit SHAs. Dependabot proposes weekly Action updates (.github/dependabot.yml).
 
@@ -87,7 +87,7 @@ sh scripts/ci/verify-release-attestation.sh PATH/TO/blob PATH/TO/blob.cosign.bun
 
 SHA256 listings in release notes are an informal backup. Prefer cosign verification.
 
-SBOMs (SPDX and CycloneDX) are attached to tagged releases via Trivy (task sbom).
+SBOMs (SPDX and CycloneDX) are attached to tagged releases via Trivy (make sbom).
 
 ## Static analysis in development
 
