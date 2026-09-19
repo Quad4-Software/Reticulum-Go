@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased]
+## v1.3.0 - 2026-09-19
+
+The license is now the Reticulum License, matching Python RNS. [LEGAL.md](LEGAL.md) records the boundary commits.
 
 ### Added
 
@@ -27,6 +29,7 @@
 - Channels drop anything more than 48 messages ahead of the next one they expect.
 - Each RNode direction keeps 256 packets, then drops the newest.
 - `AcceptsLinks` set to false now actually refuses the request. The default is still true.
+- `POST /v1/sessions` took an `identity_path` and would read or create keys anywhere on the host. Paths are confined to the server's own identity directory now, symlinks included.
 
 ### Removed
 
