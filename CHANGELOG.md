@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Optional RNE1 passphrase-encrypted identity files. Argon2id plus XChaCha20-Poly1305 wrap the standard 64-byte blob, unlocked by prompt, RETICULUM_IDENTITY_PASSPHRASE, a passphrase fd, or an OS wrap store (Linux kernel keyring and Secret Service, macOS Keychain, Windows DPAPI). rgoid gains -to-passphrase, -to-wrapped, -rekey, and -to-file decryption. Local storage format only, no wire change, and decryption always restores the standard file.
+
+### Security
+
+- A failed unlock of an encrypted transport identity no longer falls through to writing a fresh plaintext identity over the file. Startup fails with the real error instead.
+
+### Fixed
+
+- rgosh listener sessions could deny an Exec that arrived while the version reply was still in flight, tearing down valid connections. The listener now enters WAIT_CMD before the reply is sent.
+
 ## v1.3.0 - 2026-09-19
 
 The license is now the Reticulum License, matching Python RNS. [LEGAL.md](LEGAL.md) records the boundary commits.
