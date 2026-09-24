@@ -67,4 +67,9 @@ if [ -n "${GITHUB_PATH:-}" ]; then
 fi
 
 export PATH="$BIN_DIR:$INSTALL_DIR:$PATH"
-odin version
+GOT="$(odin version 2>&1 | head -n1)"
+echo "$GOT"
+case "$GOT" in
+	*"$TAG"*) ;;
+	*) echo "error: resolved Odin does not match pinned ${TAG} (got: $GOT)" >&2; exit 1 ;;
+esac

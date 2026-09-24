@@ -59,3 +59,8 @@ fi
 export PATH="/usr/local/bin:$PATH"
 node --version
 npm --version
+GOT="$(node --version 2>&1 | head -n1)"
+case "$GOT" in
+    "v${NODE_MAJOR}."*) ;;
+    *) echo "error: resolved Node does not match pinned major v${NODE_MAJOR} (got: $GOT)" >&2; exit 1 ;;
+esac
