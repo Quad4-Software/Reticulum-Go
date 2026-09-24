@@ -6,9 +6,12 @@ package buffer
 import (
 	"bufio"
 	"bytes"
+	"context"
+	"encoding/binary"
 	"io"
 	"math/rand"
 	"os/exec"
+	"sync"
 	"testing"
 	"time"
 
@@ -212,21 +215,52 @@ func TestMaxDataLen(t *testing.T) {
 }
 
 type mockLink struct {
-	status byte
-	rtt    float64
+	status    byte
+	rtt       float64
+	mdu       int
+	noDeliver bool
+
+	sentMu sync.Mutex
+	sent   [][]byte
+
+	delivered map[any]func(any)
 }
 
-func (m *mockLink) GetStatus() byte                                       { return m.status }
-func (m *mockLink) GetRTT() float64                                       { return m.rtt }
-func (m *mockLink) RTT() float64                                          { return m.rtt }
-func (m *mockLink) GetLinkID() []byte                                     { return []byte("testlink") }
-func (m *mockLink) Send(data []byte) any                                  { return &packet.Packet{Raw: data} }
+func (m *mockLink) GetStatus() byte { return m.status }
+func (m *mockLink) GetRTT() float64 { return m.rtt }
+func (m *mockLink) RTT() float64    { return m.rtt }
+func (m *mockLink) GetMDU() int {
+	if m.mdu > 0 {
+		return m.mdu
+	}
+	return channel.DefaultOutletMDU
+}
+func (m *mockLink) GetLinkID() []byte { return []byte("testlink") }
+func (m *mockLink) Send(data []byte) any {
+	m.sentMu.Lock()
+	m.sent = append(m.sent, data)
+	m.sentMu.Unlock()
+	return &packet.Packet{Raw: data}
+}
 func (m *mockLink) Resend(p any) error                                    { return nil }
 func (m *mockLink) SetPacketTimeout(p any, cb func(any), t time.Duration) {}
 func (m *mockLink) SetPacketDelivered(p any, cb func(any)) {
+	if m.noDeliver {
+		if m.delivered == nil {
+			m.delivered = make(map[any]func(any))
+		}
+		m.delivered[p] = cb
+		return
+	}
 	if cb != nil {
 		cb(p)
 	}
+}
+
+func (m *mockLink) sentFrames() [][]byte {
+	m.sentMu.Lock()
+	defer m.sentMu.Unlock()
+	return append([][]byte(nil), m.sent...)
 }
 func (m *mockLink) HandleInbound(pkt *packet.Packet) error { return nil }
 func (m *mockLink) ValidateLinkProof(pkt *packet.Packet, networkIface common.NetworkInterface) error {
@@ -388,7 +422,9 @@ func TestRawChannelWriter_Write(t *testing.T) {
 		t.Errorf("Write() zeros = %d bytes, want %d (compressed full chunk)", n, MaxChunkLen)
 	}
 
-	// Incompressible: falls back to MaxDataLen uncompressed slice.
+	// Incompressible: falls back to an uncompressed slice bounded by the live
+	// channel MDU minus the stream header, like Python RawChannelWriter._mdu.
+	want := ch.MDU() - StreamHeaderSize
 	incomp := make([]byte, MaxChunkLen)
 	for i := range incomp {
 		incomp[i] = byte(i)
@@ -397,8 +433,8 @@ func TestRawChannelWriter_Write(t *testing.T) {
 	if err != nil {
 		t.Errorf("Write() incompressible error = %v", err)
 	}
-	if n != MaxDataLen {
-		t.Errorf("Write() incompressible = %d bytes, want MaxDataLen=%d", n, MaxDataLen)
+	if n != want {
+		t.Errorf("Write() incompressible = %d bytes, want channel-derived %d", n, want)
 	}
 }
 
@@ -671,5 +707,101 @@ func TestRawChannelReader_HandleMessage_HonestCompressedFlows(t *testing.T) {
 	n, _ := reader.Read(got)
 	if !bytes.Equal(got[:n], plaintext) {
 		t.Fatalf("read mismatch: got %q, want %q", got[:n], plaintext)
+	}
+}
+
+// streamFrameFlags extracts the StreamDataMessage header from a wire envelope.
+func streamFrameFlags(t *testing.T, raw []byte) uint16 {
+	t.Helper()
+	if len(raw) < 8 {
+		t.Fatalf("frame too short: %d", len(raw))
+	}
+	return binary.BigEndian.Uint16(raw[6:8])
+}
+
+func TestRawChannelWriterCompressionDisabled(t *testing.T) {
+	link := &mockLink{status: transport.StatusActive}
+	ch := channel.NewChannel(link)
+	defer func() { _ = ch.Close() }()
+	writer := NewRawChannelWriterWithOptions(7, ch, WriterOptions{Compression: CompressionDisabled})
+
+	// Highly compressible payload must still go out uncompressed.
+	zeros := make([]byte, 4096)
+	if _, err := writer.Write(zeros); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	frames := link.sentFrames()
+	if len(frames) != 1 {
+		t.Fatalf("sent %d frames, want 1", len(frames))
+	}
+	if streamFrameFlags(t, frames[0])&StreamHeaderCompressed != 0 {
+		t.Fatal("CompressionDisabled writer sent a compressed stream message")
+	}
+}
+
+func TestRawChannelWriterCompressionAutoStillCompresses(t *testing.T) {
+	link := &mockLink{status: transport.StatusActive}
+	ch := channel.NewChannel(link)
+	defer func() { _ = ch.Close() }()
+	writer := NewRawChannelWriter(7, ch)
+
+	zeros := make([]byte, 4096)
+	if _, err := writer.Write(zeros); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	frames := link.sentFrames()
+	if len(frames) != 1 {
+		t.Fatalf("sent %d frames, want 1", len(frames))
+	}
+	if streamFrameFlags(t, frames[0])&StreamHeaderCompressed == 0 {
+		t.Fatal("auto writer did not compress a compressible payload")
+	}
+}
+
+// The stream payload bound tracks the live channel MDU, so a write must fit
+// the envelope the channel will accept instead of the old fixed 457.
+func TestRawChannelWriterHonorsChannelMDU(t *testing.T) {
+	link := &mockLink{status: transport.StatusActive, mdu: 431}
+	ch := channel.NewChannel(link)
+	defer func() { _ = ch.Close() }()
+	writer := NewRawChannelWriter(9, ch)
+
+	incomp := make([]byte, MaxChunkLen)
+	for i := range incomp {
+		incomp[i] = byte(i*31 + 7)
+	}
+	n, err := writer.Write(incomp)
+	if err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	want := 431 - channel.ChannelHeaderSize - StreamHeaderSize
+	if n != want {
+		t.Fatalf("Write = %d bytes, want %d", n, want)
+	}
+	frames := link.sentFrames()
+	if len(frames) != 1 {
+		t.Fatalf("sent %d frames, want 1", len(frames))
+	}
+	if len(frames[0]) > 431 {
+		t.Fatalf("frame %d bytes exceeds outlet MDU 431", len(frames[0]))
+	}
+}
+
+func TestRawChannelWriterWriteContextCancel(t *testing.T) {
+	link := &mockLink{status: transport.StatusActive, rtt: 0.5, noDeliver: true}
+	ch := channel.NewChannel(link)
+	defer func() { _ = ch.Close() }()
+	writer := NewRawChannelWriter(3, ch)
+
+	for ch.IsReadyToSend() {
+		if _, err := writer.Write([]byte("x")); err != nil {
+			t.Fatalf("fill write: %v", err)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+	if _, err := writer.WriteContext(ctx, []byte("blocked")); err != context.DeadlineExceeded {
+		t.Fatalf("WriteContext = %v, want context.DeadlineExceeded", err)
 	}
 }

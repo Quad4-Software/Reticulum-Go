@@ -10,6 +10,7 @@
 ### Added
 
 - librns `rns_node_reload_config` hot-reloads interface blocks from the create-time config path without restarting transport. The C ABI is now 1.6, and the Java binding gains `Node.reloadConfig` plus `packetSend` and `destinationEncrypt` helpers.
+- `buffer.WriterOptions` with a `CompressionPolicy`: `CompressionAuto` keeps the Python-compatible compression probes, and `CompressionDisabled` always emits the standard uncompressed stream message. New constructors: `NewRawChannelWriterWithOptions`, `CreateWriterWithOptions`, `CreateBidirectionalBufferWithOptions`. `RawChannelWriter.WriteContext` adds caller-controlled cancellation of the TX-window wait. Wire format is unchanged and Python receivers accept both forms.
 
 - Optional RNE1 passphrase-encrypted identity files. Argon2id plus XChaCha20-Poly1305 wrap the standard 64-byte blob, unlocked by prompt, RETICULUM_IDENTITY_PASSPHRASE, a passphrase fd, or an OS wrap store (Linux kernel keyring and Secret Service, macOS Keychain, Windows DPAPI). rgoid gains -to-passphrase, -to-wrapped, -rekey, and -to-file decryption. Local storage format only, no wire change, and decryption always restores the standard file.
 
@@ -23,6 +24,7 @@
 - Channel inbound dispatch is serialized per channel, so parallel transport workers can no longer deliver stream or channel messages out of sequence order.
 - `Channel.WaitReady` and `WaitTxIdle` now wake on TX-ring removal, window changes, and link teardown instead of polling every 5 ms, which removed a roughly 4 MiB/s throughput ceiling on buffered streams.
 - A Backbone stream could lose its write interest when a queued send raced the empty-buffer disarm, stranding queued bytes. The interest decision is now made under the stream lock.
+- `RawChannelWriter` derives the stream payload bound from the live channel MDU like Python, instead of a fixed 457 bytes, which could produce envelopes larger than a negotiated link MDU.
 
 ## v1.3.0 - 2026-09-19
 
