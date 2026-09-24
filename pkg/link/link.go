@@ -325,8 +325,19 @@ func (l *Link) Teardown() {
 	if l.closedCallback != nil {
 		l.closedCallback(l)
 	}
+	l.notifyChannelClosed()
 	l.resetIncomingResource()
 	l.dropSplitAssemblies()
+}
+
+// notifyChannelClosed wakes channel waiters blocked on this link's status.
+func (l *Link) notifyChannelClosed() {
+	l.channelMutex.RLock()
+	ch := l.channel
+	l.channelMutex.RUnlock()
+	if ch != nil {
+		ch.NotifyClosed()
+	}
 }
 func (l *Link) SetEstablishedCallback(callback func(*Link)) {
 	l.mutex.Lock()
@@ -711,6 +722,7 @@ func (l *Link) closeOnce(reason byte) bool {
 		if l.status.CompareAndSwap(st, int32(StatusClosed)) {
 			l.teardownReason = reason
 			l.dropSplitAssemblies()
+			l.notifyChannelClosed()
 			return true
 		}
 	}

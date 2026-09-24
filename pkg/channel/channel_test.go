@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,13 +18,24 @@ import (
 
 type mockLink struct {
 	status    byte
+	statusMu  sync.RWMutex
 	rtt       float64
 	sent      [][]byte
 	timeouts  map[any]func(any)
 	delivered map[any]func(any)
 }
 
-func (m *mockLink) GetStatus() byte   { return m.status }
+func (m *mockLink) GetStatus() byte {
+	m.statusMu.RLock()
+	defer m.statusMu.RUnlock()
+	return m.status
+}
+
+func (m *mockLink) setStatus(s byte) {
+	m.statusMu.Lock()
+	m.status = s
+	m.statusMu.Unlock()
+}
 func (m *mockLink) GetRTT() float64   { return m.rtt }
 func (m *mockLink) RTT() float64      { return m.rtt }
 func (m *mockLink) GetMDU() int       { return 512 }
