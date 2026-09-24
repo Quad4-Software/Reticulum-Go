@@ -92,6 +92,6 @@ fi
 GOT="$("$TASK_BIN" --version 2>&1 | head -n1)"
 echo "$GOT"
 case "$GOT" in
-    *"v${TASK_VERSION}"*) ;;
+    *"${TASK_VERSION}"*) ;;
     *) echo "error: resolved Task does not match pinned v${TASK_VERSION} (got: $GOT)" >&2; exit 1 ;;
 esac
