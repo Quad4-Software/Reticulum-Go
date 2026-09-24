@@ -22,6 +22,7 @@
 - rgosh listener sessions could deny an Exec that arrived while the version reply was still in flight, tearing down valid connections. The listener now enters WAIT_CMD before the reply is sent.
 - Channel inbound dispatch is serialized per channel, so parallel transport workers can no longer deliver stream or channel messages out of sequence order.
 - `Channel.WaitReady` and `WaitTxIdle` now wake on TX-ring removal, window changes, and link teardown instead of polling every 5 ms, which removed a roughly 4 MiB/s throughput ceiling on buffered streams.
+- A Backbone stream could lose its write interest when a queued send raced the empty-buffer disarm, stranding queued bytes. The interest decision is now made under the stream lock.
 
 ## v1.3.0 - 2026-09-19
 
