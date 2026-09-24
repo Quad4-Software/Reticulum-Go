@@ -161,26 +161,72 @@ func (r *RawChannelReader) HandleMessage(msg channel.MessageBase) bool {
 	return true
 }
 
+// CompressionPolicy controls whether RawChannelWriter attempts bzip2
+// compression on outgoing stream data.
+type CompressionPolicy uint8
+
+const (
+	// CompressionAuto keeps the Python-compatible three-probe compression
+	// algorithm. This is the default.
+	CompressionAuto CompressionPolicy = iota
+	// CompressionDisabled always emits uncompressed StreamDataMessages, which
+	// Python RNS receivers already accept. For payloads the application knows
+	// are incompressible (TLS, SSH, archives, tunnels) this avoids repeated
+	// compression probes that cannot succeed.
+	CompressionDisabled
+)
+
+// WriterOptions configures a RawChannelWriter.
+type WriterOptions struct {
+	Compression CompressionPolicy
+}
+
 type RawChannelWriter struct {
 	streamID int
 	channel  *channel.Channel
 	eof      bool
+	opts     WriterOptions
 }
 
 func NewRawChannelWriter(streamID int, ch *channel.Channel) *RawChannelWriter {
+	return NewRawChannelWriterWithOptions(streamID, ch, WriterOptions{})
+}
+
+// NewRawChannelWriterWithOptions creates a writer with an explicit
+// compression policy and other options.
+func NewRawChannelWriterWithOptions(streamID int, ch *channel.Channel, opts WriterOptions) *RawChannelWriter {
 	_ = ch.RegisterSystemMessageType(StreamDataMessageType, func() channel.MessageBase {
 		return &StreamDataMessage{}
 	})
 	return &RawChannelWriter{
 		streamID: streamID,
 		channel:  ch,
+		opts:     opts,
 	}
 }
 
+// streamMDU returns the payload limit for one stream message, derived from
+// the live channel MDU like Python RawChannelWriter._mdu
+// (channel.mdu - StreamDataMessage.HEADER_LEN).
+func (w *RawChannelWriter) streamMDU() int {
+	mdu := w.channel.MDU() - StreamHeaderSize
+	if mdu < 1 {
+		mdu = 1
+	}
+	return mdu
+}
+
 func (w *RawChannelWriter) Write(p []byte) (n int, err error) {
+	return w.WriteContext(context.Background(), p)
+}
+
+// WriteContext is Write with caller-controlled cancellation of the
+// backpressure wait when the channel TX window is full.
+func (w *RawChannelWriter) WriteContext(ctx context.Context, p []byte) (n int, err error) {
 	if len(p) > MaxChunkLen {
 		p = p[:MaxChunkLen]
 	}
+	mdu := w.streamMDU()
 
 	msg := &StreamDataMessage{
 		StreamID: uint16(w.streamID), // #nosec G115
@@ -188,11 +234,11 @@ func (w *RawChannelWriter) Write(p []byte) (n int, err error) {
 	}
 	processed := 0
 
-	if len(p) > CompressThreshold {
+	if w.opts.Compression != CompressionDisabled && len(p) > CompressThreshold {
 		for try := 1; try < CompressTries; try++ {
 			chunkLen := len(p) / try
 			compressed := compressData(p[:chunkLen])
-			if compressed != nil && len(compressed) < MaxDataLen && len(compressed) < chunkLen {
+			if compressed != nil && len(compressed) < mdu && len(compressed) < chunkLen {
 				msg.Data = compressed
 				msg.Compressed = true
 				processed = chunkLen
@@ -201,14 +247,14 @@ func (w *RawChannelWriter) Write(p []byte) (n int, err error) {
 		}
 	}
 	if !msg.Compressed {
-		if len(p) > MaxDataLen {
-			p = p[:MaxDataLen]
+		if len(p) > mdu {
+			p = p[:mdu]
 		}
 		msg.Data = p
 		processed = len(p)
 	}
 
-	if err := w.channel.WaitReady(context.Background()); err != nil {
+	if err := w.channel.WaitReady(ctx); err != nil {
 		return 0, err
 	}
 	if err := w.channel.Send(msg); err != nil {
@@ -249,13 +295,24 @@ func CreateReader(streamID int, ch *channel.Channel, readyCallback func(int)) *b
 }
 
 func CreateWriter(streamID int, ch *channel.Channel) *bufio.Writer {
-	raw := NewRawChannelWriter(streamID, ch)
+	return CreateWriterWithOptions(streamID, ch, WriterOptions{})
+}
+
+// CreateWriterWithOptions is CreateWriter with an explicit compression policy.
+func CreateWriterWithOptions(streamID int, ch *channel.Channel, opts WriterOptions) *bufio.Writer {
+	raw := NewRawChannelWriterWithOptions(streamID, ch, opts)
 	return bufio.NewWriter(raw)
 }
 
 func CreateBidirectionalBuffer(receiveStreamID, sendStreamID int, ch *channel.Channel, readyCallback func(int)) *bufio.ReadWriter {
+	return CreateBidirectionalBufferWithOptions(receiveStreamID, sendStreamID, ch, readyCallback, WriterOptions{})
+}
+
+// CreateBidirectionalBufferWithOptions is CreateBidirectionalBuffer with an
+// explicit compression policy on the send stream.
+func CreateBidirectionalBufferWithOptions(receiveStreamID, sendStreamID int, ch *channel.Channel, readyCallback func(int), opts WriterOptions) *bufio.ReadWriter {
 	reader := CreateReader(receiveStreamID, ch, readyCallback)
-	writer := CreateWriter(sendStreamID, ch)
+	writer := CreateWriterWithOptions(sendStreamID, ch, opts)
 	return bufio.NewReadWriter(reader, writer)
 }
 
