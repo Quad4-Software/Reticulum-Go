@@ -6,12 +6,18 @@
 
 - The contributor license grant is replaced by plain DCO sign-off. The `Signed-off-by:` trailer now certifies only the Developer Certificate of Origin.
 - The librns event queue now protects payload-bearing events under overflow: non-priority events such as announces are dropped first, and capacity grew from 256 to 4096.
+- Mutation testing is now a per-package CI matrix, cutting the job's wall time from roughly 50 minutes to the slowest single package.
+- The amd64 test run now builds with `-vet=all` and uploads a `coverage.out` artifact.
 
 ### Added
 
 - librns `rns_node_reload_config` hot-reloads interface blocks from the create-time config path without restarting transport. The C ABI is now 1.6, and the Java binding gains `Node.reloadConfig` plus `packetSend` and `destinationEncrypt` helpers.
 - `buffer.WriterOptions` with a `CompressionPolicy`: `CompressionAuto` keeps the Python-compatible compression probes, and `CompressionDisabled` always emits the standard uncompressed stream message. New constructors: `NewRawChannelWriterWithOptions`, `CreateWriterWithOptions`, `CreateBidirectionalBufferWithOptions`. `RawChannelWriter.WriteContext` adds caller-controlled cancellation of the TX-window wait. Wire format is unchanged and Python receivers accept both forms.
 
+- `testsummary` honours `TESTSUMMARY_RERUN_FAILS=N`: failed tests get up to N fresh `-count=1` retries, and tests that pass on retry are reported as FLAKE instead of failing the run.
+- A `flake-report` workflow files or updates `ci-flake` issues for tests that fail or only pass on retry, and a nightly `stress` workflow repeats the timing-sensitive tests so flakes surface off the merge path.
+- All pinned CI toolchain installers (`setup-go`, `setup-node`, `setup-task`, `setup-zig`, `setup-odin`, `setup-kotlin`, `setup-tinygo`, `setup-swift`) now verify the resolved binary reports the pinned version and fail loudly on shadowing.
+- A `merge-to-master` dispatch workflow merges dev into master only when the latest CI run for the dev head is green.
 - Optional RNE1 passphrase-encrypted identity files. Argon2id plus XChaCha20-Poly1305 wrap the standard 64-byte blob, unlocked by prompt, RETICULUM_IDENTITY_PASSPHRASE, a passphrase fd, or an OS wrap store (Linux kernel keyring and Secret Service, macOS Keychain, Windows DPAPI). rgoid gains -to-passphrase, -to-wrapped, -rekey, and -to-file decryption. Local storage format only, no wire change, and decryption always restores the standard file.
 
 ### Security
