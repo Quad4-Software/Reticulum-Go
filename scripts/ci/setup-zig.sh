@@ -66,4 +66,9 @@ if [ -n "${GITHUB_PATH:-}" ]; then
 fi
 
 export PATH="$BIN_DIR:$INSTALL_DIR:$PATH"
-zig version
+GOT="$(zig version 2>&1 | head -n1)"
+echo "$GOT"
+case "$GOT" in
+	*"$VERSION"*) ;;
+	*) echo "error: resolved Zig does not match pinned ${VERSION} (got: $GOT)" >&2; exit 1 ;;
+esac
