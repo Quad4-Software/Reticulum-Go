@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"go/ast"
+	"go/build"
 	"go/parser"
 	"go/token"
 	"os"
@@ -53,29 +54,39 @@ func operatorKind(op token.Token) mutantKind {
 	}
 }
 
+// listPackageSources returns the .go files that actually compile into the
+// package on this platform: only the package directory itself (subdirectories
+// are different packages whose tests never run under `go test ./pkg`) and only
+// files selected by the current build constraints, so mutants can never be
+// injected into code the test binary cannot execute.
 func listPackageSources(pkg string) ([]string, error) {
 	dir, err := packageDir(pkg)
 	if err != nil {
 		return nil, err
 	}
 	var files []string
-	err = filepath.WalkDir(dir, func(path string, d os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	for _, d := range entries {
 		if d.IsDir() {
-			return nil
+			continue
 		}
+		path := filepath.Join(dir, d.Name())
 		if !strings.HasSuffix(path, ".go") {
-			return nil
+			continue
 		}
 		if strings.HasSuffix(path, "_test.go") {
-			return nil
+			continue
+		}
+		match, err := build.Default.MatchFile(dir, d.Name())
+		if err != nil || !match {
+			continue
 		}
 		files = append(files, path)
-		return nil
-	})
-	return files, err
+	}
+	return files, nil
 }
 
 func scanPackage(pkg string, nextID int) ([]mutant, int, error) {
