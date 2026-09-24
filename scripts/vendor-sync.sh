@@ -127,32 +127,8 @@ vendor_tree "$ROOT"
 vendor_tree "$ROOT/examples/wasm"
 vendor_tree "$ROOT/examples/pageserver"
 
-# go.bug.st/serial v1.8.0 lacks a linux/ppc64 (big-endian) specialbaudrate
-# stub: the generic file needs unix.TCGETS2, which x/sys does not define for
-# ppc64. Give ppc64 the same InvalidSpeed stub upstream uses for ppc64le.
-patch_serial_ppc64() {
-	vdir="$1/vendor/go.bug.st/serial"
-	src="$vdir/serial_specialbaudrate_linux.go"
-	[ -f "$src" ] || return 0
-	sed -i 's|^//go:build linux && !ppc64le$|//go:build linux \&\& !ppc64le \&\& !ppc64|' "$src"
-	cat > "$vdir/serial_specialbaudrate_linux_ppc64.go" <<'EOF'
-//
-// Copyright 2014-2026 Cristian Maglie. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-//
-
-package serial
-
-func (port *unixPort) setSpecialBaudrate(speed uint32) error {
-	// TODO: unimplemented
-	return &PortError{code: InvalidSpeed}
-}
-EOF
-}
-
-patch_serial_ppc64 "$ROOT"
-patch_serial_ppc64 "$ROOT/examples/wasm"
-patch_serial_ppc64 "$ROOT/examples/pageserver"
+# go mod vendor deletes local vendor patches on regeneration. Reapply them.
+# Keep this list in step with the module roots vendored above.
+sh "$ROOT/scripts/vendor-patches.sh" "$ROOT" "$ROOT/examples/wasm" "$ROOT/examples/pageserver"
 
 echo "vendor-sync: vendor/ trees refreshed from $LIBS_ROOT"

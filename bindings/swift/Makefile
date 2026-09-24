@@ -36,7 +36,7 @@ smoke: test
 examples: $(RNS_LIB)
 	LIBRARY_PATH="$(ABS_BIN):$${LIBRARY_PATH:-}" \
 	LD_LIBRARY_PATH="$(ABS_BIN):$${LD_LIBRARY_PATH:-}" \
-	$(SWIFT) run --package-path . RNSSmoke $(SWIFT_FLAGS)
+	$(SWIFT) run --package-path . $(SWIFT_FLAGS) RNSSmoke
 	LIBRARY_PATH="$(ABS_BIN):$${LIBRARY_PATH:-}" \
 	LD_LIBRARY_PATH="$(ABS_BIN):$${LD_LIBRARY_PATH:-}" \
 	$(SWIFT) build --package-path . --product RNSPageFetch $(SWIFT_FLAGS)

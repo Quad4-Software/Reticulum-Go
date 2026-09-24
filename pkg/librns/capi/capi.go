@@ -151,6 +151,11 @@ func rns_node_destroy(node C.uint64_t) C.int {
 	return cCode(librns.NodeDestroy(uint64(node)))
 }
 
+//export rns_node_reload_config
+func rns_node_reload_config(node C.uint64_t) C.int {
+	return cCode(librns.NodeReloadConfig(uint64(node)))
+}
+
 //export rns_node_set_identity
 func rns_node_set_identity(node, identity C.uint64_t) C.int {
 	return cCode(librns.NodeSetIdentity(uint64(node), uint64(identity)))

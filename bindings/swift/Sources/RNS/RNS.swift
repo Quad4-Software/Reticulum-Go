@@ -4,7 +4,7 @@
 import Foundation
 import CRNS
 
-public let API_VERSION = "1.5"
+public let API_VERSION = "1.6"
 public let HASH_LEN = 16
 
 public enum RNSError: Error, Equatable {

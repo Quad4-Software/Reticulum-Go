@@ -16,7 +16,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-/** Raw JNA mapping of include/rns.h (ABI 1.5). */
+/** Raw JNA mapping of include/rns.h (ABI 1.6). */
 public interface RnsLibrary extends Library {
     int HASH_LEN = 16;
 
@@ -53,6 +53,8 @@ public interface RnsLibrary extends Library {
     int rns_node_stop(long node);
 
     int rns_node_destroy(long node);
+
+    int rns_node_reload_config(long node);
 
     int rns_node_set_identity(long node, long identity);
 
@@ -121,6 +123,11 @@ public interface RnsLibrary extends Library {
     int rns_destination_destroy(long destination);
 
     int rns_destination_register_request_handler(long destination, String path);
+
+    int rns_destination_encrypt(
+            byte[] destHash, byte[] plaintext, long plaintextLen, byte[] out, long outLen, LongByReference written);
+
+    int rns_packet_send(long node, byte[] destHash, byte[] plaintext, long plaintextLen);
 
     int rns_path_request(long node, byte[] destHash);
 

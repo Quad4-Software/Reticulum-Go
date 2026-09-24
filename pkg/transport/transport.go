@@ -171,6 +171,7 @@ type Transport struct {
 	// rpcIdentity is the persisted transport identity used for shared-instance
 	// RPC auth when an ephemeral wire identity is active.
 	rpcIdentity              *identity.Identity
+	identityLoadErr          error
 	networkIdentity          *identity.Identity
 	networkDestination       *destination.Destination
 	networkInstanceDest      *destination.Destination
@@ -331,6 +332,12 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 	}
 
 	transportIdent, err := identity.LoadOrCreateTransportIdentity(storagePath)
+	if err != nil {
+		// Kept so InitializePathRequestHandler reports the real cause
+		// (for example a failed RNE1 unlock) instead of a bare
+		// "not initialized" later.
+		t.identityLoadErr = err
+	}
 	if err == nil {
 		t.rpcIdentity = transportIdent
 		t.setTransportIdentityLocked(transportIdent)
@@ -2438,6 +2445,9 @@ func (t *Transport) handleTransportPacket(data []byte, iface common.NetworkInter
 }
 
 func (t *Transport) InitializePathRequestHandler() error {
+	if t.identityLoadErr != nil {
+		return t.identityLoadErr
+	}
 	if t.transportIdentity == nil {
 		return errors.New("transport identity not initialized")
 	}

@@ -65,7 +65,13 @@ func NewMemoryBackend() *MemoryBackend {
 }
 
 func memKey(attrs map[string]string) string {
-	return attrs[AttrIdentityPath]
+	k := attrs[AttrIdentityPath]
+	// Mirrors keyDesc: wrap passphrases must not collide with identity
+	// secrets at the same path.
+	if attrs[AttrIdentityKind] == wrapKind {
+		k += "|wrap"
+	}
+	return k
 }
 
 func (m *MemoryBackend) Get(attrs map[string]string) ([]byte, error) {

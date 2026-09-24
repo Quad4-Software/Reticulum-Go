@@ -29,4 +29,4 @@ pub use path::{path_known, path_request, path_table, PathInfo};
 pub use rsg::{rsg_create, rsg_validate, rsm_verify};
 pub use util::{hash_to_hex, hex_to_hash};
 
-pub const API_VERSION: &str = "1.5";
+pub const API_VERSION: &str = "1.6";

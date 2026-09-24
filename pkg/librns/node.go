@@ -65,7 +65,7 @@ func NodeCreate(configPath string) (uint64, int) {
 		return 0, setLastError(fmt.Errorf("%w: %v", errInternal, err))
 	}
 
-	rec := newNodeRecord(n)
+	rec := newNodeRecord(n, configPath)
 	n.Transport().RegisterAnnounceHandler(&announceHandler{rec: rec})
 
 	runtimeMu.Lock()
@@ -73,6 +73,26 @@ func NodeCreate(configPath string) (uint64, int) {
 	rec.handle = id
 	runtimeMu.Unlock()
 	return id, OK
+}
+
+// NodeReloadConfig reloads interface blocks from the config path stored at create.
+// Empty create path (in-memory defaults) cannot reload.
+func NodeReloadConfig(nodeHandle uint64) int {
+	rec, err := nodeByHandle(nodeHandle)
+	if err != nil {
+		return setLastError(err)
+	}
+	if rec.configPath == "" {
+		return setLastError(errInvalidArg)
+	}
+	cfg, err := reticulumconfig.LoadConfig(rec.configPath)
+	if err != nil {
+		return setLastError(fmt.Errorf("%w: %v", errIO, err))
+	}
+	if err := rec.node.ReloadInterfaces(cfg); err != nil {
+		return setLastError(fmt.Errorf("%w: %v", errInternal, err))
+	}
+	return OK
 }
 
 // NodeStart starts transport and configured interfaces.

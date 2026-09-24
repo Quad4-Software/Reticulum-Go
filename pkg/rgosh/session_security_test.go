@@ -429,3 +429,91 @@ func TestSessionHappyPathListener(t *testing.T) {
 		t.Fatal("no start")
 	}
 }
+
+// gateSender parks inside Send after the first call until release closes,
+// holding a peer-visible in-flight window for race reproduction.
+type gateSender struct {
+	memSender
+	entered chan struct{}
+	release <-chan struct{}
+	once    sync.Once
+}
+
+func (g *gateSender) Send(msg Message) error {
+	g.once.Do(func() { close(g.entered) })
+	<-g.release
+	return g.memSender.Send(msg)
+}
+
+// TestExecDuringVersionReplyAccepted parks the version reply mid-send and
+// delivers Exec in that window. The listener must already be in WAIT_CMD; an
+// Exec denied as a protocol violation here is the master CI
+// TestE2E_RgoshPipeEcho flake.
+func TestExecDuringVersionReplyAccepted(t *testing.T) {
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	send := &gateSender{entered: entered, release: release}
+	sess := NewSession(Config{
+		Listener:   true,
+		AllowAll:   true,
+		DefaultCmd: []string{"/bin/true"},
+	}, send)
+	started := make(chan ExecRequest, 1)
+	sess.StartProcess = func(req ExecRequest) (ProcessHandle, error) {
+		started <- req
+		fp := &fakeProc{
+			stdin: newPipeBuf(), stdout: newPipeBuf(), stderr: newPipeBuf(),
+			code: 0, done: make(chan struct{}),
+		}
+		close(fp.done)
+		_ = fp.stdout.Close()
+		_ = fp.stderr.Close()
+		return fp, nil
+	}
+	versionDone := make(chan error, 1)
+	go func() {
+		versionDone <- sess.HandleMessage(&VersionMessage{ProtocolVersion: 1, SoftwareVersion: "c"})
+	}()
+	select {
+	case <-entered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("version reply never reached sender")
+	}
+	execDone := make(chan error, 1)
+	go func() {
+		execDone <- sess.HandleMessage(&ExecMessage{Cmdline: []string{"/bin/true"}, PipeStdin: true, PipeStdout: true, PipeStderr: true})
+	}()
+	// The exec handler decides under s.mu while the version reply is parked in
+	// the sender: WAIT_CMD means it will spawn (RUNNING), WAIT_VERS means it
+	// denies and the session goes TEARDOWN. Poll until either lands so the
+	// broken ordering cannot deadlock this test on the send gate.
+	deadline := time.After(2 * time.Second)
+	for {
+		st := sess.State()
+		if st == StateRunning || st == StateTeardown || st == StateError {
+			break
+		}
+		select {
+		case <-deadline:
+			close(release)
+			t.Fatal("exec handler never progressed")
+		case <-time.After(5 * time.Millisecond):
+		}
+	}
+	close(release)
+	if err := <-execDone; err != nil {
+		t.Fatalf("exec denied while version reply in flight: %v", err)
+	}
+	if err := <-versionDone; err != nil {
+		t.Fatalf("version handler: %v", err)
+	}
+	select {
+	case req := <-started:
+		if req.Cmdline[0] != "/bin/true" {
+			t.Fatalf("%v", req.Cmdline)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("no start")
+	}
+	sess.Close()
+}

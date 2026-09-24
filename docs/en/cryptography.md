@@ -60,6 +60,25 @@ X25519 private (32) || Ed25519 seed (32)
 
 Optional Reticulum-Go format for external signing. Magic RHB1, version byte, reserved bytes, X25519 private, Ed25519 public only. On-wire public keys match software identities.
 
+### Passphrase-encrypted file (RNE1, 135 bytes for a 64-byte payload)
+
+Optional Reticulum-Go local format. Never appears on the wire; decrypts back to the standard 64-byte blob.
+
+| Offset | Field | Size |
+|--------|-------|------|
+| 0 | Magic RNE1 | 4 |
+| 4 | Version (1) | 1 |
+| 5 | KDF id (0x01 = Argon2id) | 1 |
+| 6 | Argon2 time, uint32 LE | 4 |
+| 10 | Argon2 memory KiB, uint32 LE | 4 |
+| 14 | Argon2 threads | 1 |
+| 15 | Salt | 16 |
+| 31 | XChaCha20 nonce | 24 |
+| 55 | Ciphertext | payload length |
+| 55+n | Poly1305 tag | 16 |
+
+KDF defaults: time 3, memory 64 MiB, threads 4, 32-byte key (RFC 9106 second recommendation). The full header is authenticated as associated data. Loaded files accept KDF parameters only within bounded ranges so a crafted header cannot request unbounded work or memory.
+
 ## Identity encryption
 
 When encrypting to another identity public X25519 key:
@@ -129,6 +148,7 @@ cryptography.SetProvider replaces the active provider for tests or experiments. 
 
 - Store identity files on encrypted disks with restrictive permissions
 - Optional identity_backend = secretservice or keyring stores private blobs outside plaintext files
+- Optional RNE1 passphrase-encrypted identity files add at-rest encryption with env, fd, prompt, or OS-store unlock
 - Backup of the 64-byte software file or RHB1 plus signing capability equals full impersonation capability
 - Verbose debug logging may hex-dump sensitive metadata. Lower loglevel in production
 

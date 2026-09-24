@@ -50,6 +50,10 @@ public final class Node implements AutoCloseable {
         Rns.check(RnsLibrary.INSTANCE.rns_node_resume(handle));
     }
 
+    public void reloadConfig() {
+        Rns.check(RnsLibrary.INSTANCE.rns_node_reload_config(handle));
+    }
+
     @Override
     public void close() {
         if (handle != 0) {

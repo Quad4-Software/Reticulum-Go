@@ -153,7 +153,9 @@ func runMutants(ctx context.Context, mutants []mutant, workers int, verbose bool
 func efficacy(outcomes []outcome) (killed, lived, skipped int, pct float64) {
 	for _, o := range outcomes {
 		switch o.Result {
-		case resultKilled:
+		case resultKilled, resultTimeout:
+			// A mutant that hangs the suite was detected: the tests cannot
+			// pass with it in place. Matches PIT/mutmut timeout semantics.
 			killed++
 		case resultSurvived:
 			lived++

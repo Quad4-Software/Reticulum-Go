@@ -741,9 +741,30 @@ func LoadOrCreateTransportIdentity(customPath string) (*Identity, error) {
 
 	transportIdentityPath := fmt.Sprintf("%s/transport_identity", storagePath)
 
-	if ident, err := FromFile(transportIdentityPath); err == nil {
-		debug.Log(debug.DebugInfo, "Loaded transport identity from storage")
+	// #nosec G703 G304 -- transport identity path derived from operator storage path, not remote input
+	raw, readErr := os.ReadFile(transportIdentityPath)
+	switch {
+	case readErr == nil && store.IsEncryptedIdentityPayload(raw):
+		// An RNE1 file that fails to unlock must never fall through to
+		// creating a fresh identity: that would silently replace the
+		// operator's encrypted identity with a new plaintext one.
+		ident, err := FromFile(transportIdentityPath)
+		if err != nil {
+			return nil, fmt.Errorf("encrypted transport identity could not be unlocked: %w",
+				EncryptedIdentityError(err))
+		}
+		debug.Log(debug.DebugInfo, "Loaded encrypted transport identity from storage")
 		return ident, nil
+	case readErr != nil && !os.IsNotExist(readErr):
+		// The file exists but cannot be read (permissions, transient fs
+		// trouble). Recreating would rename a fresh identity over it, so
+		// fail instead of silently adopting a new identity.
+		return nil, fmt.Errorf("transport identity exists but is unreadable: %w", readErr)
+	case readErr == nil:
+		if ident, err := FromFile(transportIdentityPath); err == nil {
+			debug.Log(debug.DebugInfo, "Loaded transport identity from storage")
+			return ident, nil
+		}
 	}
 
 	debug.Log(debug.DebugInfo, "No valid transport identity in storage, creating new one")
@@ -775,24 +796,13 @@ func (i *Identity) loadPrivateKey(privateKey, signingSeed []byte) error {
 func RecallIdentity(path string) (*Identity, error) {
 	debug.Log(debug.DebugAll, "Attempting to recall identity", "path", path)
 
-	file, err := os.Open(path) // #nosec G304
-	if err != nil {
-		debug.Log(debug.DebugError, "Failed to open identity file", "error", err)
-		return nil, err
-	}
-	defer file.Close()
-
-	// Read raw bytes
-	// Format: [X25519 PrivKey (32 bytes)][Ed25519 PrivKey (32 bytes)]
-	privateKeyBytes := make([]byte, 64)
-	n, err := io.ReadFull(file, privateKeyBytes)
+	// LoadIdentityBlob handles plaintext, RSSI marker, RHB1, and RNE1 files.
+	privateKeyBytes, err := store.LoadIdentityBlob(path)
 	if err != nil {
 		debug.Log(debug.DebugError, "Failed to read identity data", "error", err)
 		return nil, err
 	}
-	if n != 64 {
-		return nil, fmt.Errorf("invalid identity file: expected 64 bytes, got %d", n)
-	}
+	defer securemem.WipeBytes(privateKeyBytes)
 
 	// Extract keys
 	x25519PrivKey := make([]byte, 32)

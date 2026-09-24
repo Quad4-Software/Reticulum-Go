@@ -128,10 +128,19 @@ func SaveIdentityBlob(path string, secret []byte, kind string) error {
 
 // LoadIdentityBlob loads identity bytes from path.
 // RSSI markers resolve through the active marker backend or by probing keyring then secretservice.
+// RNE1 envelopes decrypt through ResolvePassphrase.
 func LoadIdentityBlob(path string) ([]byte, error) {
 	data, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
 		return nil, err
+	}
+	if IsEncryptedIdentityPayload(data) {
+		pass, err := ResolvePassphrase(path)
+		if err != nil {
+			return nil, err
+		}
+		defer securemem.WipeBytes(pass)
+		return DecryptIdentityPayload(data, pass)
 	}
 	if !IsMarkerPayload(data) {
 		return data, nil
@@ -197,7 +206,8 @@ func MigrateToKeyring(path, kind string) error {
 	return MigrateToBackend(path, kind, BackendKeyring)
 }
 
-// MigrateToFile exports a marker-backed identity back to a plaintext file.
+// MigrateToFile exports a marker-backed or RNE1 identity back to a plaintext
+// file.
 func MigrateToFile(path string) error {
 	data, err := LoadIdentityBlob(path)
 	if err != nil {
@@ -209,6 +219,12 @@ func MigrateToFile(path string) error {
 		return err
 	}
 	attrs := AttrsForPath(abs, "")
+	fb := FileBackend{}
+	if err := fb.Set(attrs, data, ""); err != nil {
+		return err
+	}
+	// Backend entries are dropped only after the plaintext file exists: a
+	// failed write must not orphan a still-marker or still-encrypted file.
 	backendMu.RLock()
 	name := activeName
 	b := activeBackend
@@ -223,6 +239,6 @@ func MigrateToFile(path string) error {
 			_ = ss.Delete(attrs)
 		}
 	}
-	fb := FileBackend{}
-	return fb.Set(attrs, data, "")
+	deleteWrapPassphrase(path)
+	return nil
 }

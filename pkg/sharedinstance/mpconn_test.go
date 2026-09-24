@@ -70,20 +70,21 @@ func TestMPConnAuthRejectsSingleRoundServer(t *testing.T) {
 	defer serverConn.Close()
 	defer clientConn.Close()
 
-	errCh := make(chan error, 2)
+	serverErrCh := make(chan error, 1)
+	clientErrCh := make(chan error, 1)
 	go func() {
 		err := deliverChallenge(serverConn, authkey)
 		_ = serverConn.Close()
-		errCh <- err
+		serverErrCh <- err
 	}()
 	go func() {
-		errCh <- AuthenticateClient(clientConn, authkey)
+		clientErrCh <- AuthenticateClient(clientConn, authkey)
 	}()
 
-	if err := <-errCh; err != nil {
-		t.Fatalf("handshake: %v", err)
+	if err := <-serverErrCh; err != nil {
+		t.Fatalf("deliverChallenge: %v", err)
 	}
-	if err := <-errCh; err == nil {
+	if err := <-clientErrCh; err == nil {
 		t.Fatal("expected client to reject single-round server auth")
 	}
 }

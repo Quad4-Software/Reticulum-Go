@@ -72,9 +72,11 @@ jobs:
     if: needs.metadata.outputs.skip_release != 'true'
     permissions:
       contents: write
-    uses: ./.github/workflows/release-assets.yml
+    uses: $/.github/workflows/release-assets.yml
     with:
       tag_name: ${{ needs.metadata.outputs.tag_name }}
       prerelease: true
       target_commitish: ${{ needs.metadata.outputs.commit_sha }}
-    secrets: inherit
+    secrets:
+      COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+      COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}

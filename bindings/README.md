@@ -24,7 +24,7 @@ Artifacts land in `bin/` (`librns.so` / `dylib` / `dll`) with the public header 
 | Directory | Integration | Notes |
 |-----------|-------------|-------|
 | [`c/`](c/) | librns C ABI | Examples only. Header is `include/rns.h`. |
-| [`odin/`](odin/) | librns | ABI 1.5 reference wrap |
+| [`odin/`](odin/) | librns | ABI 1.6 reference wrap |
 | [`zig/`](zig/) | librns | `@extern` wrappers |
 | [`cpp/`](cpp/) | librns | C++17 RAII |
 | [`rust/`](rust/) | librns | Safe Rust over `extern` |
