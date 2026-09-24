@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- The contributor license grant is replaced by plain DCO sign-off. The `Signed-off-by:` trailer now certifies only the Developer Certificate of Origin.
+
 ### Added
 
 - Optional RNE1 passphrase-encrypted identity files. Argon2id plus XChaCha20-Poly1305 wrap the standard 64-byte blob, unlocked by prompt, RETICULUM_IDENTITY_PASSPHRASE, a passphrase fd, or an OS wrap store (Linux kernel keyring and Secret Service, macOS Keychain, Windows DPAPI). rgoid gains -to-passphrase, -to-wrapped, -rekey, and -to-file decryption. Local storage format only, no wire change, and decryption always restores the standard file.
