@@ -25,7 +25,7 @@ application traffic. The Control API is a local front end, not the mesh.
 Reference bindings already in tree
 ----------------------------------
 
-  bindings/odin   librns wrappers (foreign import)  ABI 1.5 reference
+  bindings/odin   librns wrappers (foreign import)  ABI 1.6 reference
   bindings/zig    librns wrappers (@extern)
   bindings/cpp    librns wrappers (C++ RAII)
   bindings/dart   librns FFI plus Control API client
@@ -82,6 +82,7 @@ Version and errors
 Node
   rns_node_create (empty config path means in-memory defaults, share_instance off)
   rns_node_start / rns_node_stop / rns_node_destroy
+  rns_node_reload_config (hot-reload interfaces from create-time config path)
   rns_node_set_identity
   rns_node_pause / rns_node_resume
   rns_node_refresh_paths

@@ -5,8 +5,11 @@
 ### Changed
 
 - The contributor license grant is replaced by plain DCO sign-off. The `Signed-off-by:` trailer now certifies only the Developer Certificate of Origin.
+- The librns event queue now protects payload-bearing events under overflow: non-priority events such as announces are dropped first, and capacity grew from 256 to 4096.
 
 ### Added
+
+- librns `rns_node_reload_config` hot-reloads interface blocks from the create-time config path without restarting transport. The C ABI is now 1.6, and the Java binding gains `Node.reloadConfig` plus `packetSend` and `destinationEncrypt` helpers.
 
 - Optional RNE1 passphrase-encrypted identity files. Argon2id plus XChaCha20-Poly1305 wrap the standard 64-byte blob, unlocked by prompt, RETICULUM_IDENTITY_PASSPHRASE, a passphrase fd, or an OS wrap store (Linux kernel keyring and Secret Service, macOS Keychain, Windows DPAPI). rgoid gains -to-passphrase, -to-wrapped, -rekey, and -to-file decryption. Local storage format only, no wire change, and decryption always restores the standard file.
 

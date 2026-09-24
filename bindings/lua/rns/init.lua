@@ -13,7 +13,7 @@ local interfaces_mod = require("rns.interfaces")
 local rsg_mod = require("rns.rsg")
 
 local M = {
-	API_VERSION = "1.5",
+	API_VERSION = "1.6",
 	HASH_LEN = 16,
 	Error = errors.Error,
 	version = errors.version,

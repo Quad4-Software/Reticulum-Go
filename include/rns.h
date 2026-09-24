@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#define RNS_API_VERSION "1.5"
+#define RNS_API_VERSION "1.6"
 
 #define RNS_HASH_LEN 16
 
@@ -87,6 +87,7 @@ uint64_t rns_node_create(const char *config_path);
 int rns_node_start(uint64_t node);
 int rns_node_stop(uint64_t node);
 int rns_node_destroy(uint64_t node);
+int rns_node_reload_config(uint64_t node);
 int rns_node_set_identity(uint64_t node, uint64_t identity);
 int rns_node_resume(uint64_t node);
 int rns_node_pause(uint64_t node);

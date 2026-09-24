@@ -8,7 +8,19 @@ import (
 	"time"
 )
 
-const defaultQueueCapacity = 256
+const defaultQueueCapacity = 4096
+
+// Event kinds that must not be dropped when the queue is full.
+func isPriorityEvent(kind int) bool {
+	switch kind {
+	case EventDestinationData, EventLinkData, EventResourceConcluded,
+		EventResourceStarted, EventLinkEstablished, EventRequestIncoming,
+		EventRequestResponse:
+		return true
+	default:
+		return false
+	}
+}
 
 type eventQueue struct {
 	mu     sync.Mutex
@@ -16,6 +28,7 @@ type eventQueue struct {
 	events []Event
 	cap    int
 	closed bool
+	drops  uint64
 }
 
 func newEventQueue(capacity int) *eventQueue {
@@ -44,8 +57,27 @@ func (q *eventQueue) push(ev Event) {
 		return
 	}
 	if len(q.events) >= q.cap {
-		copy(q.events, q.events[1:])
-		q.events = q.events[:len(q.events)-1]
+		dropped := false
+		// Prefer dropping low-priority announce noise over inbound payloads.
+		if !isPriorityEvent(ev.Kind) {
+			q.drops++
+			return
+		}
+		for i, existing := range q.events {
+			if !isPriorityEvent(existing.Kind) {
+				copy(q.events[i:], q.events[i+1:])
+				q.events = q.events[:len(q.events)-1]
+				dropped = true
+				q.drops++
+				break
+			}
+		}
+		if !dropped {
+			// All priority: drop oldest.
+			copy(q.events, q.events[1:])
+			q.events = q.events[:len(q.events)-1]
+			q.drops++
+		}
 	}
 	q.events = append(q.events, cloneEvent(ev))
 	q.cond.Signal()

@@ -8,7 +8,7 @@ import io.quad4.rns.ffi.RnsLibrary;
 
 /** Shared constants, version helpers, and error mapping for librns. */
 public final class Rns {
-    public static final String API_VERSION = "1.5";
+    public static final String API_VERSION = "1.6";
     public static final int HASH_LEN = RnsLibrary.HASH_LEN;
 
     private Rns() {}
@@ -71,5 +71,27 @@ public final class Rns {
             }
         }
         return true;
+    }
+
+    public static void packetSend(Node node, byte[] destHash, byte[] plaintext) {
+        if (node == null || destHash == null || destHash.length != HASH_LEN) {
+            throw new RnsException(RnsException.INVALID_ARG);
+        }
+        byte[] payload = plaintext == null ? new byte[0] : plaintext;
+        check(RnsLibrary.INSTANCE.rns_packet_send(node.handle(), destHash, payload, payload.length));
+    }
+
+    public static byte[] destinationEncrypt(byte[] destHash, byte[] plaintext) {
+        if (destHash == null || destHash.length != HASH_LEN) {
+            throw new RnsException(RnsException.INVALID_ARG);
+        }
+        byte[] payload = plaintext == null ? new byte[0] : plaintext;
+        byte[] out = new byte[Math.max(4096, payload.length + 256)];
+        LongByReference written = new LongByReference();
+        check(RnsLibrary.INSTANCE.rns_destination_encrypt(
+                destHash, payload, payload.length, out, out.length, written));
+        byte[] result = new byte[(int) written.getValue()];
+        System.arraycopy(out, 0, result, 0, result.length);
+        return result;
     }
 }

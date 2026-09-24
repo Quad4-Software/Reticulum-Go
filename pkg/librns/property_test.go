@@ -9,36 +9,53 @@ import (
 )
 
 func TestEventQueuePropertyDropOldest(t *testing.T) {
-	fn := func(capRaw uint8, pushes uint16) bool {
+	fn := func(capRaw uint8, pushes uint16, mix uint8) bool {
 		queueCap := int(capRaw%32) + 1
 		n := int(pushes%200) + 1
 		q := newEventQueue(queueCap)
+		kindOf := func(i int) int {
+			switch mix % 3 {
+			case 1:
+				return EventLinkData
+			case 2:
+				if i%2 == 0 {
+					return EventAnnounce
+				}
+				return EventLinkData
+			default:
+				return EventAnnounce
+			}
+		}
+		var want []Event
+		pushModel := func(ev Event) {
+			if len(want) >= queueCap {
+				if !isPriorityEvent(ev.Kind) {
+					return
+				}
+				idx := 0
+				for i, e := range want {
+					if !isPriorityEvent(e.Kind) {
+						idx = i
+						break
+					}
+				}
+				want = append(want[:idx], want[idx+1:]...)
+			}
+			want = append(want, ev)
+		}
 		for i := range n {
-			q.push(Event{Kind: EventAnnounce, Hops: uint8(i % 256)})
+			ev := Event{Kind: kindOf(i), Hops: uint8(i % 256)}
+			q.push(ev)
+			pushModel(ev)
 		}
-		expected := min(n, queueCap)
-		got := 0
-		firstHops := -1
-		for {
+		for _, wev := range want {
 			ev, err := q.poll(0)
-			if err != nil {
-				break
-			}
-			if firstHops < 0 {
-				firstHops = int(ev.Hops)
-			}
-			got++
-		}
-		if got != expected {
-			return false
-		}
-		if n > queueCap {
-			wantFirst := (n - queueCap) % 256
-			if firstHops != wantFirst {
+			if err != nil || ev.Kind != wev.Kind || ev.Hops != wev.Hops {
 				return false
 			}
 		}
-		return true
+		_, err := q.poll(0)
+		return err != nil
 	}
 	if err := quick.Check(fn, &quick.Config{MaxCount: 200}); err != nil {
 		t.Fatal(err)

@@ -145,9 +145,9 @@ func TestIdentitySaveRoundTrip(t *testing.T) {
 
 func TestEventQueueOverflowDropOldest(t *testing.T) {
 	q := newEventQueue(2)
-	q.push(Event{Kind: EventAnnounce, Hops: 1})
-	q.push(Event{Kind: EventAnnounce, Hops: 2})
-	q.push(Event{Kind: EventAnnounce, Hops: 3})
+	q.push(Event{Kind: EventLinkData, Hops: 1})
+	q.push(Event{Kind: EventLinkData, Hops: 2})
+	q.push(Event{Kind: EventLinkData, Hops: 3})
 
 	ev, err := q.poll(0)
 	if err != nil {
@@ -162,6 +162,51 @@ func TestEventQueueOverflowDropOldest(t *testing.T) {
 	}
 	if ev.Hops != 3 {
 		t.Fatalf("remaining: got hops %d want 3", ev.Hops)
+	}
+}
+
+func TestEventQueueOverflowLowPriority(t *testing.T) {
+	// Incoming non-priority events are dropped when the queue is full.
+	q := newEventQueue(2)
+	q.push(Event{Kind: EventAnnounce, Hops: 1})
+	q.push(Event{Kind: EventAnnounce, Hops: 2})
+	q.push(Event{Kind: EventAnnounce, Hops: 3})
+
+	ev, err := q.poll(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ev.Hops != 1 {
+		t.Fatalf("low-priority drop: got hops %d want 1", ev.Hops)
+	}
+	ev, err = q.poll(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ev.Hops != 2 {
+		t.Fatalf("low-priority drop: got hops %d want 2", ev.Hops)
+	}
+}
+
+func TestEventQueueOverflowPriorityEvictsAnnounce(t *testing.T) {
+	q := newEventQueue(2)
+	q.push(Event{Kind: EventAnnounce, Hops: 1})
+	q.push(Event{Kind: EventAnnounce, Hops: 2})
+	q.push(Event{Kind: EventLinkData, Hops: 3})
+
+	ev, err := q.poll(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ev.Kind != EventAnnounce || ev.Hops != 2 {
+		t.Fatalf("priority evict: got kind %d hops %d want announce hops 2", ev.Kind, ev.Hops)
+	}
+	ev, err = q.poll(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ev.Kind != EventLinkData || ev.Hops != 3 {
+		t.Fatalf("priority evict: got kind %d hops %d want link data hops 3", ev.Kind, ev.Hops)
 	}
 }
 
@@ -263,7 +308,7 @@ func TestDecodeHexHash(t *testing.T) {
 }
 
 func TestVersion(t *testing.T) {
-	if Version() != APIVersion || APIVersion != "1.5" {
+	if Version() != APIVersion || APIVersion != "1.6" {
 		t.Fatalf("version %q", Version())
 	}
 }
