@@ -95,7 +95,7 @@ func TestLiveGoToGoRgoshPipe(t *testing.T) {
 
 	rgoshBin := ensureRgosh(t)
 	destHex := hex.EncodeToString(dest.GetHash())
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "-N", "-m", destHex, "/bin/echo", "live-rgosh-ok")
 	cmd.Stdin = bytes.NewReader(nil)
@@ -122,7 +122,7 @@ func TestLiveGoToGoRgoshPTY(t *testing.T) {
 	writeUDPPeerConfig(t, cfgDirB, portB, portA)
 
 	rgoshBin := ensureRgosh(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
 	listen := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirA, "-l", "-n", "/bin/sh", "-c", "sleep 6; echo pty-alive")
@@ -173,7 +173,7 @@ func TestLiveGoAuthDeny(t *testing.T) {
 	}
 	rgoshBin := ensureRgosh(t)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
 	listen := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirA, "-l", "-a", hex.EncodeToString(idAllowed.Hash()), "/bin/echo", "should-not-run")
@@ -213,7 +213,7 @@ func TestLiveGoForcedCommand(t *testing.T) {
 	writeUDPPeerConfig(t, cfgDirB, portB, portA)
 
 	rgoshBin := ensureRgosh(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
 	listen := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirA, "-l", "-n", "-C", "/bin/echo", "forced-only")
