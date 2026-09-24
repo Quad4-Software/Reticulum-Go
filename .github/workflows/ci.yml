@@ -823,7 +823,7 @@ jobs:
     needs: changes
     if: github.event_name == 'push' || needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 75
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
