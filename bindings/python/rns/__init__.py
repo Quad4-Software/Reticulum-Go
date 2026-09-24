@@ -14,7 +14,7 @@ from .path import PathInfo, path_known, path_request, path_table
 from .rsg import rsg_create, rsg_validate, rsm_verify
 from .util import hash_to_hex, hex_to_hash
 
-API_VERSION = "1.5"
+API_VERSION = "1.6"
 HASH_LEN = 16
 
 __all__ = [

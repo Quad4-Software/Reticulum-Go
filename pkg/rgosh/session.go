@@ -349,10 +349,13 @@ func (s *Session) handleVersionLocked(m *VersionMessage) error {
 		if s.cfg.Compat {
 			reply.ProtocolVersion = CompatProtocolVersion
 		}
+		// Transition before sendLocked drops s.mu: an Exec arriving while the
+		// reply is on the wire must see WAIT_CMD, not WAIT_VERS, or it is denied
+		// as a protocol violation.
+		s.state = StateWaitCmd
 		if err := s.sendLocked(reply); err != nil {
 			return err
 		}
-		s.state = StateWaitCmd
 		return nil
 	}
 	if s.state == StateWaitVers {

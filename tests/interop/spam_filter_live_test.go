@@ -5,6 +5,7 @@ package interop
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"strconv"
 	"sync/atomic"
 	"testing"
@@ -27,6 +28,24 @@ type spamLiveTopo struct {
 
 func setupSpamLiveTopo(t *testing.T, gateway bool) (*spamLiveTopo, func()) {
 	t.Helper()
+	// freeUDPPort picks are released then rebound below, leaving a window
+	// where another process can claim the port. Retry the whole topology on
+	// a bind failure rather than failing the test on a lost race.
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		topo, cleanup, err := setupSpamLiveTopoAttempt(t, gateway)
+		if err == nil {
+			return topo, cleanup
+		}
+		lastErr = err
+		t.Logf("spam topo attempt %d failed: %v", attempt+1, err)
+	}
+	t.Fatal(lastErr)
+	return nil, nil
+}
+
+func setupSpamLiveTopoAttempt(t *testing.T, gateway bool) (*spamLiveTopo, func(), error) {
+	t.Helper()
 
 	floodListen := freeUDPPort(t)
 	relayIn := freeUDPPort(t)
@@ -36,22 +55,22 @@ func setupSpamLiveTopo(t *testing.T, gateway bool) (*spamLiveTopo, func()) {
 	flooder, err := interfaces.NewUDPInterface("spam_flooder",
 		"127.0.0.1:"+strconv.Itoa(floodListen), "127.0.0.1:"+strconv.Itoa(relayIn), true)
 	if err != nil {
-		t.Fatalf("flooder: %v", err)
+		return nil, nil, fmt.Errorf("flooder: %w", err)
 	}
 	sink, err := interfaces.NewUDPInterface("spam_sink",
 		"127.0.0.1:"+strconv.Itoa(sinkListen), "127.0.0.1:"+strconv.Itoa(relayOut), true)
 	if err != nil {
-		t.Fatalf("sink: %v", err)
+		return nil, nil, fmt.Errorf("sink: %w", err)
 	}
 	inIface, err := interfaces.NewUDPInterface("spam_in",
 		"127.0.0.1:"+strconv.Itoa(relayIn), "127.0.0.1:"+strconv.Itoa(floodListen), true)
 	if err != nil {
-		t.Fatalf("relay in: %v", err)
+		return nil, nil, fmt.Errorf("relay in: %w", err)
 	}
 	outIface, err := interfaces.NewUDPInterface("spam_out",
 		"127.0.0.1:"+strconv.Itoa(relayOut), "127.0.0.1:"+strconv.Itoa(sinkListen), true)
 	if err != nil {
-		t.Fatalf("relay out: %v", err)
+		return nil, nil, fmt.Errorf("relay out: %w", err)
 	}
 	if gateway {
 		inIface.Mode = common.IFModeGateway
@@ -69,13 +88,13 @@ func setupSpamLiveTopo(t *testing.T, gateway bool) (*spamLiveTopo, func()) {
 	}
 	tr := transport.NewTransport(cfg)
 	if err := tr.RegisterInterface("spam_in", inIface); err != nil {
-		t.Fatalf("register in: %v", err)
+		return nil, nil, fmt.Errorf("register in: %w", err)
 	}
 	if err := tr.RegisterInterface("spam_out", outIface); err != nil {
-		t.Fatalf("register out: %v", err)
+		return nil, nil, fmt.Errorf("register out: %w", err)
 	}
 	if err := tr.InitializePathRequestHandler(); err != nil {
-		t.Fatalf("path handler: %v", err)
+		return nil, nil, fmt.Errorf("path handler: %w", err)
 	}
 
 	var got atomic.Int64
@@ -84,16 +103,25 @@ func setupSpamLiveTopo(t *testing.T, gateway bool) (*spamLiveTopo, func()) {
 	})
 
 	if err := flooder.Start(); err != nil {
-		t.Fatalf("start flooder: %v", err)
+		_ = tr.Close()
+		return nil, nil, fmt.Errorf("start flooder: %w", err)
 	}
 	if err := sink.Start(); err != nil {
-		t.Fatalf("start sink: %v", err)
+		_ = tr.Close()
+		_ = flooder.Stop()
+		return nil, nil, fmt.Errorf("start sink: %w", err)
 	}
 	if err := inIface.Start(); err != nil {
-		t.Fatalf("start relay in: %v", err)
+		_ = tr.Close()
+		_ = flooder.Stop()
+		_ = sink.Stop()
+		return nil, nil, fmt.Errorf("start relay in: %w", err)
 	}
 	if err := outIface.Start(); err != nil {
-		t.Fatalf("start relay out: %v", err)
+		_ = tr.Close()
+		_ = flooder.Stop()
+		_ = sink.Stop()
+		return nil, nil, fmt.Errorf("start relay out: %w", err)
 	}
 
 	cleanup := func() {
@@ -101,7 +129,7 @@ func setupSpamLiveTopo(t *testing.T, gateway bool) (*spamLiveTopo, func()) {
 		_ = flooder.Stop()
 		_ = sink.Stop()
 	}
-	return &spamLiveTopo{relay: tr, flooder: flooder, sink: sink, got: &got}, cleanup
+	return &spamLiveTopo{relay: tr, flooder: flooder, sink: sink, got: &got}, cleanup, nil
 }
 
 func liveSignedAnnounce(t *testing.T, tr *transport.Transport) []byte {

@@ -94,16 +94,26 @@ rm -rf "$INSTALL_DIR"
 mkdir -p "$(dirname "$INSTALL_DIR")"
 cp -a "$SRC_DIR" "$INSTALL_DIR"
 
+# The tarball's usr/ tree lands at $INSTALL_DIR, so binaries live under
+# $INSTALL_DIR/bin, not $INSTALL_DIR/usr/bin.
 BIN_DIR="${GITHUB_PATH_DIR:-$HOME/.local/bin}"
 mkdir -p "$BIN_DIR"
-ln -sfn "$INSTALL_DIR/usr/bin/swift" "$BIN_DIR/swift"
-ln -sfn "$INSTALL_DIR/usr/bin/swiftc" "$BIN_DIR/swiftc"
+ln -sfn "$INSTALL_DIR/bin/swift" "$BIN_DIR/swift"
+ln -sfn "$INSTALL_DIR/bin/swiftc" "$BIN_DIR/swiftc"
 
 if [ -n "${GITHUB_PATH:-}" ]; then
 	echo "$BIN_DIR" >>"$GITHUB_PATH"
-	echo "$INSTALL_DIR/usr/bin" >>"$GITHUB_PATH"
+	echo "$INSTALL_DIR/bin" >>"$GITHUB_PATH"
 fi
 
-export PATH="$INSTALL_DIR/usr/bin:$BIN_DIR:$PATH"
+export PATH="$INSTALL_DIR/bin:$BIN_DIR:$PATH"
 echo "Swift installed: $(command -v swift)"
-swift --version | head -n 2
+GOT="$(swift --version | head -n 1)"
+echo "$GOT"
+case "$GOT" in
+	*"${SWIFT_VERSION}"*) ;;
+	*)
+		echo "error: resolved toolchain does not match pinned Swift ${SWIFT_VERSION}" >&2
+		exit 1
+		;;
+esac

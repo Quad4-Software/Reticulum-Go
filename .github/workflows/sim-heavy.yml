@@ -41,7 +41,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -53,4 +53,4 @@ jobs:
         run: task test-link-speed
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean

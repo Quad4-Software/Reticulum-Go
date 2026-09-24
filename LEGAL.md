@@ -66,7 +66,7 @@ itemized in NOTICE. Vendored license texts govern over this document.
 
 ## Contributions
 
-See CONTRIBUTING.md for commit signing and CLA requirements.
+See CONTRIBUTING.md for commit signing and DCO requirements.
 
 ## Legal contact
 

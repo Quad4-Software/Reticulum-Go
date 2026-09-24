@@ -23,6 +23,7 @@ type nodeRecord struct {
 	destinations map[uint64]*destination.Destination
 	links        map[uint64]*linkRecord
 	started      bool
+	configPath   string
 
 	pendingMu sync.Mutex
 	pending   map[string]chan any
@@ -138,9 +139,10 @@ func (n *nodeRecord) stopCallback() {
 	}
 }
 
-func newNodeRecord(n *node.Node) *nodeRecord {
+func newNodeRecord(n *node.Node, configPath string) *nodeRecord {
 	return &nodeRecord{
 		node:         n,
+		configPath:   configPath,
 		queue:        newEventQueue(defaultQueueCapacity),
 		destinations: make(map[uint64]*destination.Destination),
 		links:        make(map[uint64]*linkRecord),

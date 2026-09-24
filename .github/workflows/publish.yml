@@ -19,8 +19,10 @@ jobs:
   release:
     permissions:
       contents: write
-    uses: ./.github/workflows/release-assets.yml
+    uses: $/.github/workflows/release-assets.yml
     with:
       tag_name: ${{ github.ref_name }}
       prerelease: false
-    secrets: inherit
+    secrets:
+      COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+      COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}

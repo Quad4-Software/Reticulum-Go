@@ -14,7 +14,7 @@ import io.quad4.rns.Rns
 import io.quad4.rns.RnsException
 import io.quad4.rns.Rsg
 
-/** Kotlin facade over the Java librns JNA bindings (ABI 1.5). */
+/** Kotlin facade over the Java librns JNA bindings (ABI 1.6). */
 object RnsKt {
     const val API_VERSION: String = Rns.API_VERSION
     const val HASH_LEN: Int = Rns.HASH_LEN

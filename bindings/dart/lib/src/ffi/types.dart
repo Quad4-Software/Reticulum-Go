@@ -7,7 +7,7 @@ import 'dart:ffi';
 import 'dart:typed_data';
 
 const rnsHashLen = 16;
-const rnsApiVersion = '1.5';
+const rnsApiVersion = '1.6';
 
 abstract final class RnsError {
   static const ok = 0;

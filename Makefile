@@ -14,7 +14,7 @@
 .PHONY: man install-man install-service package package-deb package-rpm package-arch stage-nfpm
 .PHONY: test-services test-install-script tree-manifest tree-rsm-sign tree-rsm-verify hooks-install doctor bootstrap changelog-preview gitsign-setup gittuf-init test-zig test-cpp build-wasm build-librns-targets
 .PHONY: test-property test-mutation test-chaos test-soak test-soak-protect test-oracle test-binary-smoke test-acceptance test-e2e test-blackbox test-bench-gate test-link-speed
-.PHONY: test-c test-rust test-swift test-lua test-java test-kotlin test-python vendor-sync reproducibility sbom
+.PHONY: test-c test-rust test-swift test-lua test-java test-kotlin test-python vendor-sync vendor-patch vendor-check reproducibility sbom
 .PHONY: build-librns
 .PHONY: microvm-up microvm-stop microvm-kernel microvm-rootfs microvm-rebuild microvm-guest
 
@@ -312,6 +312,15 @@ test-python:
 
 vendor-sync: deps
 
+# Reapply local vendor patches that go mod vendor deletes on regeneration.
+# Run after any manual go mod vendor; vendor-sync already calls this.
+vendor-patch:
+	sh scripts/vendor-patches.sh . examples/wasm examples/pageserver
+
+# Fail if a vendoring run wiped local vendor patches.
+vendor-check:
+	sh scripts/vendor-patches.sh check . examples/wasm examples/pageserver
+
 reproducibility:
 	sh scripts/ci/reproducibility-build.sh
 
@@ -357,7 +366,7 @@ gosec:
 
 prepush: fmt-check vet lint test-short
 
-ci: fmt-check vet lint staticcheck
+ci: fmt-check vet lint staticcheck vendor-check
 
 check: fmt vet lint staticcheck test-short vulncheck gosec
 

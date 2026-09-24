@@ -35,6 +35,7 @@ Three categories exist:
 | Landlock + seccomp sandbox | Local hardening |
 | `pkg/health` counters, `reticulum-go slow` | Observe-only diagnostics |
 | RHB1 hardware-bound identity descriptor | Local storage format. Python reads only the 64-byte software layout |
+| RNE1 passphrase-encrypted identity file | Local storage format. Argon2id + XChaCha20-Poly1305 envelope around the standard 64-byte blob. Opt-in, decrypts back to plaintext. No wire change |
 
 ## Wire-visible extensions
 

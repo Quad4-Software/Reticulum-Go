@@ -65,6 +65,28 @@ rgoid -i ~/.reticulum-go/storage/transport_identity -to-keyring
 rgoid -i ~/.reticulum-go/storage/transport_identity -to-file
 ```
 
+### Passphrase-encrypted identity file (RNE1, optional)
+
+RNE1 wraps the standard 64-byte identity blob in an authenticated envelope: Argon2id derives a key from a passphrase, XChaCha20-Poly1305 seals the payload. It is a local storage format only. An identity loaded from RNE1 is byte-identical on the wire to one loaded from plaintext, and -to-file always restores the standard file, so there is no lock-in.
+
+Two unlock modes exist:
+
+- **Passphrase**: you supply the passphrase at unlock. Resolved in order: RETICULUM_IDENTITY_PASSPHRASE, the fd named by RETICULUM_IDENTITY_PASSPHRASE_FD (for systemd LoadCredential and similar), a stored wrap secret, then an interactive terminal prompt.
+- **Wrapped**: a random passphrase is generated and stored in the OS credential store, giving encrypted at rest with unattended unlock. Linux uses the kernel keyring then Secret Service, macOS uses Keychain via /usr/bin/security, Windows uses a DPAPI-protected sidecar file. Platforms without a credential store (the BSDs) support passphrase mode only.
+
+CLI (path via -i):
+
+```
+rgoid -i <path> -to-passphrase     # prompt for a new passphrase
+rgoid -i <path> -to-wrapped        # random passphrase into the OS store
+rgoid -i <path> -rekey             # change the passphrase
+rgoid -i <path> -to-file           # decrypt back to the 64-byte format
+```
+
+Headless rekey uses RETICULUM_IDENTITY_PASSPHRASE for the current passphrase and RETICULUM_IDENTITY_NEW_PASSPHRASE for the new one. Embedders can install identity.SetPassphraseResolver to supply their own unlock UI.
+
+An RNE1 file that cannot be unlocked is never silently replaced: daemon startup fails with a clear error and the file is left untouched. Rekey drops any stored wrap secret. Run -to-wrapped again to restore unattended unlock.
+
 ### In-memory key handling
 
 Long-term X25519 and Ed25519 material lives in pkg/securemem buffers with best-effort mlock and wipe on Identity.Close. Callers of GetPrivateKey should wipe the returned slice when finished.
@@ -77,6 +99,8 @@ Long-term X25519 and Ed25519 material lives in pkg/securemem buffers with best-e
 | identity_backend = keyring | Same file-path theft cases without requiring D-Bus. Fits systemd units that have a user keyring. | Root or same-UID processes that can call keyctl. Keys may not survive reboot if persistent keyring is unavailable. |
 | pkg/securemem mlock + wipe | Keys lingering in swap after process exit, casual core dumps of freed heap (with RLIMIT_CORE=0 in the sandbox), accidental retention after Close. | Live process memory inspection by root or a debugger attached to the running daemon. Full cold-boot attacks on RAM. |
 | File permissions 0600 + encrypted disk (operator practice) | Other local users reading plaintext identity files. Disk theft when FDE is used and the volume is locked. | Attacks after the volume is unlocked and mounted. |
+| RNE1 passphrase mode | File theft at rest in all forms (backups, disk images, other local users), independent of any OS credential store. Argon2id raises offline cracking cost | A weak passphrase. Keyloggers or memory inspection while unlocked. |
+| RNE1 wrapped mode | File theft where the attacker lacks the OS credential store entry (stolen disk, copied home dir). No operator prompt needed | Same-user malware: the OS store decrypts for the owning user, so wrapped mode protects the file at rest, not a compromised account. Loss of the stored wrap secret (keyring cleared, reinstall) orphans the file permanently unless a passphrase-encrypted copy was also kept. |
 
 None of these replace HSM-backed signing (RHB1 / NewIdentityWithSigner) for high-assurance signing material, or host firewall and sandbox policy for network exposure.
 

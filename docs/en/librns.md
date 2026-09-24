@@ -138,6 +138,7 @@ Authoritative names live in include/rns.h. Summary below.
 | rns_node_pause | Network lost (OnNetworkLost) |
 | rns_node_resume | Network available (OnNetworkAvailable) |
 | rns_node_refresh_paths | Refresh watched paths, or pass packed 16-byte hashes |
+| rns_node_reload_config | Hot-reload interface blocks from the create-time config path (no transport restart). Fails with INVALID_ARG when create used an empty path |
 
 ### Identity
 
@@ -230,7 +231,7 @@ sh scripts/build-librns-targets.sh linux windows darwin android
 | macOS | bin/darwin/amd64/librns.dylib or bin/darwin/arm64/librns.dylib |
 | Android | bin/android/<abi>/librns.so |
 
-Embedders should call rns_version() and compare to RNS_API_VERSION from the header they compiled against. Current ABI is **1.5**.
+Embedders should call rns_version() and compare to RNS_API_VERSION from the header they compiled against. Current ABI is **1.6**.
 
 ## Typical flow
 

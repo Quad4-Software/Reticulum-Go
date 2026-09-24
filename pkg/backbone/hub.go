@@ -414,8 +414,11 @@ func (h *Hub) writeStream(s *Stream) {
 	s.mu.Lock()
 	if len(s.txBuf) == 0 {
 		s.wantOut = false
-		s.mu.Unlock()
+		// Disarm while holding s.mu: a concurrent QueueSend appends under the
+		// same lock before arming evRead|evWrite, so the disarm can never
+		// clobber a fresh arm issued between the state check and the Mod call.
 		h.pollerMod(s.fd, evRead)
+		s.mu.Unlock()
 		return
 	}
 	buf := s.txBuf
@@ -444,8 +447,8 @@ func (h *Hub) writeStream(s *Stream) {
 		if s.txBuf == nil {
 			s.txBuf = buf[:0]
 		}
-		s.mu.Unlock()
 		h.pollerMod(s.fd, evRead)
+		s.mu.Unlock()
 		return
 	}
 	s.mu.Unlock()
