@@ -292,7 +292,7 @@ func TestLiveRngitPythonPagesGoClient(t *testing.T) {
 	}
 	defer func() { _ = py.Process.Kill() }()
 
-	// Read READY and PAGES in one scan pass; separate scanners would let the
+	// Read READY and PAGES in one scan pass. Separate scanners would let the
 	// first read ahead and swallow the second line.
 	destHex, pageDestHex, err := readReadyAndPagesLines(t, stdout, 45*time.Second)
 	if err != nil {

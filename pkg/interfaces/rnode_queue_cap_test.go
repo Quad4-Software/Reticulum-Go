@@ -12,7 +12,7 @@ import (
 )
 
 // TestRNodeQueueCap bounds the transmit queue while flow control holds the
-// radio busy; the packet stream is remote-influenced, so the queue cannot
+// radio busy. The packet stream is remote-influenced, so the queue cannot
 // grow without limit.
 func TestRNodeQueueCap(t *testing.T) {
 	r := &RNodeInterface{

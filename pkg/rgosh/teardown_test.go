@@ -5,9 +5,9 @@ import (
 	"time"
 )
 
-// TestDenyFiresTeardown verifies every protocol-deny path releases the link:
-// without OnTeardown, an unauthenticated peer can park registered links until
-// the node's incoming-link ceiling is reached.
+// Every protocol-deny path must release the link. Without OnTeardown an
+// unauthenticated peer can park registered links until the node hits the
+// incoming-link ceiling.
 func TestDenyFiresTeardown(t *testing.T) {
 	send := &memSender{}
 	torn := false
@@ -28,8 +28,8 @@ func TestDenyFiresTeardown(t *testing.T) {
 	}
 }
 
-// TestListenerExitFiresTeardown verifies a finished listener session releases
-// the link instead of leaving it registered until the peer disconnects.
+// A finished listener session must release its link instead of leaving
+// it registered until the peer disconnects.
 func TestListenerExitFiresTeardown(t *testing.T) {
 	send := &memSender{}
 	exited := make(chan int, 1)

@@ -184,7 +184,7 @@ func TestServeMedia(t *testing.T) {
 		t.Fatalf("missing key: %T", r)
 	}
 
-	// Unidentified remote maps to the null identity; with r:all it can read.
+	// Unidentified remote maps to the null identity. With r:all it can read.
 	if r := node.serveMedia(mediaReq("/media/public/demo/master/file.txt"), nil); r == nil {
 		t.Fatal("unidentified remote denied despite r:all")
 	}

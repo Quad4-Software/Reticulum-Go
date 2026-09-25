@@ -353,7 +353,7 @@ func (ic *IngressControl) InBurst() bool {
 }
 
 // maxArrivalEntries bounds the arrival history even under a sustained
-// flood; timestamps older than BurstHold are pruned, but a flood inside the
+// flood. Timestamps older than BurstHold are pruned, but a flood inside the
 // window could otherwise grow the slice without limit (~24 B per entry).
 const maxArrivalEntries = 65536
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
-// Live rgosh interop: Go↔Go native and Go↔Python rnsh (--compat).
+// Live rgosh interop: Go<->Go native and Go<->Python rnsh (--compat).
 // Set RUN_LIVE_INTEROP=1 to enable. Python tests need RETICULUM_PATH.
 
 package interop

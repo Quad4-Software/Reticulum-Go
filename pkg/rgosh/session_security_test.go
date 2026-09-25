@@ -446,7 +446,7 @@ func (g *gateSender) Send(msg Message) error {
 }
 
 // TestExecDuringVersionReplyAccepted parks the version reply mid-send and
-// delivers Exec in that window. The listener must already be in WAIT_CMD; an
+// delivers Exec in that window. The listener must already be in WAIT_CMD. An
 // Exec denied as a protocol violation here is the master CI
 // TestE2E_RgoshPipeEcho flake.
 func TestExecDuringVersionReplyAccepted(t *testing.T) {

@@ -211,7 +211,7 @@ func truncateRunes(s string, maxRunes int) string {
 	if len(r) <= maxRunes {
 		return s
 	}
-	return string(r[:maxRunes-1]) + "…"
+	return string(r[:maxRunes-1]) + "..."
 }
 
 func containsFold(hay, needle string) bool {

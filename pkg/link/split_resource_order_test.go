@@ -129,7 +129,7 @@ func TestSplitResourceDeclaredSizeTolerance(t *testing.T) {
 	key := "aa:" + string(make([]byte, 64))
 
 	// Peers that advertise only the current segment body in d must not be
-	// rejected when their total exceeds it; the segment count bounds them.
+	// rejected when their total exceeds it. The segment count bounds them.
 	if err := admitSplitSegment(key, splitAdv(hash, 1, 2, 6), 4); err != nil {
 		t.Fatal(err)
 	}

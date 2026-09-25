@@ -94,7 +94,7 @@ func TestLoadServerConfigMediaConversion(t *testing.T) {
 }
 
 func TestNullIdentHash(t *testing.T) {
-	// The Python null identity is an all-zero 64-byte keypair; its truncated
+	// The Python null identity is an all-zero 64-byte keypair. Its truncated
 	// identity hash is fixed and must match RNS for no_ident behavior.
 	if nullIdentHash != "d7db22f63b453c23bb0688dde565b7c1" {
 		t.Fatalf("null ident: %s", nullIdentHash)

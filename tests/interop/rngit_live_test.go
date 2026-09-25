@@ -179,7 +179,7 @@ func initEmptyGitWorkdir(t *testing.T) string {
 
 func verifyFetchedCommit(t *testing.T, workDir, sha, ref string) {
 	t.Helper()
-	// Remote helpers store objects; git (not the helper) updates refs. Check the
+	// Remote helpers store objects. Git (not the helper) updates refs. Check the
 	// tip object directly, then plant the ref the way a parent git fetch would.
 	out, err := rngitGitCmd("git", "-C", workDir, "cat-file", "-t", sha).CombinedOutput()
 	if err != nil {

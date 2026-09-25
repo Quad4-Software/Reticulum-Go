@@ -734,7 +734,7 @@ func (ts *TCPServerInterface) Stop() error {
 }
 
 func (ts *TCPServerInterface) handleConnection(conn net.Conn) {
-	// Accepted sockets get no liveness probe by default; a silent peer would
+	// Accepted sockets get no liveness probe by default. A silent peer would
 	// otherwise pin a goroutine and read buffer forever.
 	if tc, ok := conn.(*net.TCPConn); ok {
 		_ = tc.SetKeepAlive(true)

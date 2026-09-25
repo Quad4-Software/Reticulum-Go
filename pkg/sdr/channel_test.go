@@ -13,7 +13,7 @@ import (
 )
 
 func TestFreeSpacePathLoss(t *testing.T) {
-	// 100 m at 433 MHz: FSPL ≈ 20*log10(100)+20*log10(433e6)+20*log10(4π/c)
+	// 100 m at 433 MHz: FSPL ~ 20*log10(100)+20*log10(433e6)+20*log10(4pi/c)
 	got := FreeSpacePathLossDB(100, 433e6)
 	want := 20*math.Log10(100) + 20*math.Log10(433e6) + 20*math.Log10(4*math.Pi/speedOfLight)
 	if math.Abs(got-want) > 1e-9 {

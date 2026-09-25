@@ -10,7 +10,7 @@ For generated signatures, use go doc on the import path or browse the module on 
 
 | Python RNS manual | This document |
 |-------------------|---------------|
-| Class catalog (RNS.Reticulum, Identity, Destination, …) | Task-first recipes, then API tables |
+| Class catalog (RNS.Reticulum, Identity, Destination, ...) | Task-first recipes, then API tables |
 | One process model (RNS.Reticulum(...)) | Four integration paths with trade-offs |
 | Little concurrency guidance | Explicit callback and locking rules |
 | No C / WASM / control-plane docs in the same place | Links to Control API, librns, WASM |
@@ -60,7 +60,7 @@ Most of this page describes the **pkg/node happy path**. Other paths expose the 
 1. **Config** loads interfaces and storage paths (pkg/reticulumconfig, pkg/common).
 2. **Node** starts transport, interfaces, and optional shared instance (pkg/node).
 3. **Identity** holds X25519 + Ed25519 keys (pkg/identity).
-4. **Destination** is an app endpoint named app.aspect… (pkg/destination).
+4. **Destination** is an app endpoint named app.aspect... (pkg/destination).
 5. **Announce** publishes reachability. Peers learn paths.
 6. **Path** is a cached route (Transport.HasPath / RequestPath).
 7. **Link** is an encrypted session to a destination (pkg/link).
@@ -357,7 +357,7 @@ Avoid transport.Destination and transport.Link placeholder types. Use destinatio
 | MTU | 500 |
 | NewPacket / Pack / Unpack | Wire encode/decode |
 | PacketReceipt | Delivery proofs for data packets |
-| Context constants | ContextRequest, ContextResource, link contexts, … |
+| Context constants | ContextRequest, ContextResource, link contexts, ... |
 
 ### Config (pkg/reticulumconfig, pkg/common)
 

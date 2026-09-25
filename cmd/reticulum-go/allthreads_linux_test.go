@@ -17,7 +17,7 @@ import (
 // A fakecgo provider (for example purego) sets runtime.iscgo without libc
 // setegid hooks, so AllThreadsSyscall panics and Landlock aborts on kernels
 // before ABI 8. With real cgo (default go test when a C compiler is present),
-// net/os/user link cgo and AllThreadsSyscall returns ENOTSUP; go-landlock then
+// net/os/user link cgo and AllThreadsSyscall returns ENOTSUP. go-landlock then
 // uses libpsx.
 func TestAllThreadsSyscallUsable(t *testing.T) {
 	if os.Getenv("RETICULUM_QEMU_USER") == "1" {

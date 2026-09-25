@@ -63,7 +63,7 @@ func TestLocalClientPR_NilAttachedIface(t *testing.T) {
 	dest := randomDestHash(1)
 	tag := bytes.Repeat([]byte{0x01}, 16)
 
-	// nil iface → isLocalClientInterface(nil) is false, so this falls through
+	// nil iface -> isLocalClientInterface(nil) is false, so this falls through
 	// to the "no path known" branch and returns.
 	tr.processPathRequest(dest, nil, nil, tag)
 
@@ -653,7 +653,7 @@ func TestLocalClientPR_TagUniqueness(t *testing.T) {
 		tr.processPathRequest(dest, lc, nil, origTag)
 	}
 
-	// Each PR should generate a unique fresh tag → forwarded on wan each time.
+	// Each PR should generate a unique fresh tag -> forwarded on wan each time.
 	// (The discoveryPRTags dedup in handlePathRequest may suppress some if the
 	// same destHash+originalTag is seen again, but processPathRequest is
 	// called directly here, bypassing handlePathRequest's dedup.)
@@ -1000,11 +1000,11 @@ func FuzzHandlePathRequestMultipleInterfaces(f *testing.F) {
 }
 
 // ===========================================================================
-// 7. INTEGRATION: handlePathRequest → processPathRequest end-to-end
+// 7. INTEGRATION: handlePathRequest -> processPathRequest end-to-end
 // ===========================================================================
 
 // TestE2E_HandlePathRequestFromLocalClientForwards verifies the full
-// handlePathRequest → processPathRequest pipeline for a local-client
+// handlePathRequest -> processPathRequest pipeline for a local-client
 // interface, ensuring the data parsing correctly extracts destHash + tag.
 func TestE2E_HandlePathRequestFromLocalClientForwards(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})

@@ -270,7 +270,7 @@ func (l *Link) removePendingRequest(req *RequestReceipt) {
 }
 
 // failPendingRequest moves a pending or receiving receipt to FAILED, drops
-// it from pendingRequests, and fires the failed callback. Idempotent; a
+// it from pendingRequests, and fires the failed callback. Idempotent. A
 // concluded receipt is left alone so a late failure cannot resurrect it or
 // double-fire callbacks.
 func (l *Link) failPendingRequest(req *RequestReceipt) {
@@ -309,7 +309,7 @@ func (r *RequestReceipt) startTimeout() {
 			return
 		}
 		// A response resource is transferring. Python suspends the request
-		// timeout in RECEIVING and lets the resource watchdog bound stalls;
+		// timeout in RECEIVING and lets the resource watchdog bound stalls.
 		// abort paths fail this receipt. Bound only the orphaned case where
 		// no live transfer claims the receipt (e.g. a peer that abandons a
 		// split transfer between segments).

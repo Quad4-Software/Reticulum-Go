@@ -1894,7 +1894,7 @@ func goRequestClientServer(t *testing.T, ctx context.Context, reqPath string, ha
 }
 
 // Python requests a large response from the Go side. The Go handler replies
-// with random data over the link MDU so sendResponse emits a resource; the
+// with random data over the link MDU so sendResponse emits a resource. The
 // Python client verifies the payload hash and prints REQUEST_OK.
 func TestLiveInteropPythonLinkRequestLargeResponseGo(t *testing.T) {
 	liveOrSkip(t)

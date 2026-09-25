@@ -158,7 +158,7 @@ Operators see the numbers through:
 | Surface | What you get |
 |---------|----------------|
 | reticulum-go status | Per-interface integrity totals and fail rate when non-zero |
-| reticulum-go status -json | Same fields in JSON (ifac_fail, hmac_fail, integrity_fail_rate, stale_closes, announce_dup, …) |
+| reticulum-go status -json | Same fields in JSON (ifac_fail, hmac_fail, integrity_fail_rate, stale_closes, announce_dup, ...) |
 | reticulum-go snapshot (rgosnap) | Paths, active links, and full transport health JSON including path drop counters |
 | reticulum-go slow | Scored findings such as integrity_burst, auth_pressure, link_degraded, ingress_pressure |
 | Control API GET /v1/status | Integrity and drop fields on each interface object |
