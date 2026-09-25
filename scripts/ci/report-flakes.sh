@@ -30,7 +30,7 @@ unzip -qo "$TMP/logs.zip" -d "$TMP/logs" 2>/dev/null || {
 # like "testsummary: FLAKE <pkg> <Test> (passed on retry N)".
 grep -rhoE -- '--- FAIL: [A-Za-z_][A-Za-z0-9_]*' "$TMP/logs" |
 	sed 's/--- FAIL: //' | sort -u >"$TMP/failed.txt" || true
-grep -rhoE 'testsummary: FLAKE [^ ]+ [A-Za-z_][A-Za-z0-9_]*' "$TMP/logs" |
+grep -rhoE 'testsummary: FLAKE [A-Za-z0-9_./-]+ [A-Za-z_][A-Za-z0-9_]*' "$TMP/logs" |
 	sed 's/.*testsummary: FLAKE //' | sort -u >"$TMP/flaked.txt" || true
 
 if [ ! -s "$TMP/failed.txt" ] && [ ! -s "$TMP/flaked.txt" ]; then
