@@ -1,10 +1,29 @@
 # Changelog
 
-## Unreleased
+## v1.3.2 - 2026-09-25
 
 ### Added
 
+- `AwareInterface`: WiFi Aware (NAN) transport for Android. A host-supplied driver owns the NAN session while each data path spawns an HDLC-framed peer interface, wire-identical to TCPClientInterface.
 - `RawChannelReader.WaitReadable` and `ReadContext`: cancellable, event-driven reads that never return (0, nil) on an open stream. Plain `Read` keeps its Python-compatible non-blocking semantics.
+- Accepted-connection backstop: even with protection disabled, per-interface accepted conns are counted under a generous ceiling.
+- CI now rejects commits with placeholder author identities.
+
+### Fixed
+
+- Held announces are forwarded when released instead of dying on the dedup claim.
+- Forged or malformed LRPROOF packets no longer kill pending links.
+- Receipt proofs are only consumed when they arrive on the expected interface.
+- Header Type 2 link relay uses the parsed destination hash instead of the transport ID, restoring multi-hop link traffic through transport nodes.
+- Link packets that must be encrypted are dropped when no session keys exist.
+- Link teardown works from every state, wakes all waiters and watchdogs, and clears link-installed path entries.
+- Interface restart recreates done channels, so stopped interfaces come back instead of staying dead.
+- WebTransport server sessions go through admission; VSOCK and WebTransport clients cannot stack duplicate read loops; vsock dial is bounded.
+- HTTPS DoS bucketing keys on the transport host rather than the self-chosen peer header; the server warns when run without peer_key or IFAC.
+- max_reconnect_tries = 0 means never reconnect; it is no longer conflated with an unset value.
+- Relay tables, discovery state, peer maps, HDLC assembly, and local path-request state are bounded.
+- Atomic state writes fsync file and directory; state-file loads are capped; ratchet init refuses to clobber unreadable material.
+- Service loops, the memory monitor, and shared-instance RPC observe stop signals and deadlines.
 
 ## v1.3.1 - 2026-09-25
 
