@@ -137,6 +137,7 @@ type Engine struct {
 
 	memStop chan struct{}
 	memOnce sync.Once
+	memWg   sync.WaitGroup
 	started atomic.Bool
 }
 
@@ -294,9 +295,16 @@ func (e *Engine) StartMemoryMonitor() {
 	if e == nil || e.mode == ModeOff {
 		return
 	}
+	e.mu.Lock()
+	if e.memStop == nil {
+		e.memStop = make(chan struct{})
+		e.memOnce = sync.Once{}
+	}
+	e.mu.Unlock()
 	if !e.started.CompareAndSwap(false, true) {
 		return
 	}
+	e.memWg.Add(1)
 	go e.memoryLoop()
 }
 
@@ -312,9 +320,19 @@ func (e *Engine) StopMemoryMonitor() {
 	e.memOnce.Do(func() {
 		close(e.memStop)
 	})
+	e.memWg.Wait()
+	// Reset so a later StartMemoryMonitor on this engine actually restarts;
+	// without it the consumed once and closed channel make every subsequent
+	// start exit immediately.
+	e.mu.Lock()
+	e.memStop = make(chan struct{})
+	e.memOnce = sync.Once{}
+	e.mu.Unlock()
 }
 
 func (e *Engine) memoryLoop() {
+	defer e.memWg.Done()
+	defer e.started.Store(false)
 	ticker := time.NewTicker(MemorySampleInterval)
 	defer ticker.Stop()
 	persistEvery := PersistInterval

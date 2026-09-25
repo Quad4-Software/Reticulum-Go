@@ -1064,8 +1064,10 @@ func (i *Identity) RotateRatchet() ([]byte, error) {
 }
 
 func (i *Identity) GetRatchets() [][]byte {
-	i.mutex.RLock()
-	defer i.mutex.RUnlock()
+	// Deletes below mutate the maps, so this needs the write lock even though
+	// the method reads like a getter.
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
 
 	debug.Log(debug.DebugAll, "Getting ratchets for identity", "hash", i.GetHexHash())
 

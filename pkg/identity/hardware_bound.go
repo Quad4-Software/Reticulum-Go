@@ -8,7 +8,8 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"fmt"
-	"os"
+
+	"github.com/Quad4-Software/Reticulum-Go/internal/storage"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity/store"
@@ -52,7 +53,7 @@ func WriteHardwareBoundIdentityFile(path string, x25519Private []byte, ed25519Pu
 	copy(buf[8:40], x25519Private)
 	copy(buf[40:72], ed25519Pub)
 	// #nosec G304 G703 -- path is operator-chosen identity storage
-	return os.WriteFile(path, buf, 0600)
+	return storage.AtomicWriteFile(path, buf, 0600)
 }
 
 // ToHardwareBoundFile writes RHB1 v1 (X25519 private + Ed25519 public on disk).

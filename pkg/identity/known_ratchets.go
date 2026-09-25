@@ -28,6 +28,7 @@ type knownRatchetFile struct {
 }
 
 // RatchetPublicBytes returns the X25519 public key for a 32-byte ratchet private key.
+
 func RatchetPublicBytes(private []byte) ([]byte, error) {
 	if len(private) != RatchetSize/8 {
 		return nil, errors.New("invalid ratchet key size")
@@ -164,7 +165,7 @@ func CleanKnownRatchets() {
 			continue
 		}
 		path := filepath.Join(dir, name)
-		data, err := os.ReadFile(path) // #nosec G304 -- operator storage path
+		data, err := storage.ReadFileCapped(path, maxStateFileBytes)
 		if err != nil {
 			continue
 		}
@@ -238,7 +239,7 @@ func loadKnownRatchetFromDisk(destHash []byte) []byte {
 		return nil
 	}
 	path := filepath.Join(dir, hex.EncodeToString(destHash))
-	data, err := os.ReadFile(path) // #nosec G304 -- operator storage path
+	data, err := storage.ReadFileCapped(path, maxStateFileBytes)
 	if err != nil {
 		return nil
 	}
