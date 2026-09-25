@@ -13,22 +13,22 @@ type ConfigProvider interface {
 
 // InterfaceConfig is per-interface settings (announce_* / ic_* and related keys).
 type InterfaceConfig struct {
-	Name              string
-	Type              string
-	Enabled           bool
-	Address           string
-	Port              int
-	TargetHost        string
-	TargetPort        int
-	TargetAddress     string
-	Interface         string
-	KISSFraming       bool
-	I2PTunneled       bool
-	I2PPeers          []string
-	I2PConnectable    bool
-	I2PSAMAddress     string
-	PreferIPv6        bool
-	MaxReconnTries    int
+	Name           string
+	Type           string
+	Enabled        bool
+	Address        string
+	Port           int
+	TargetHost     string
+	TargetPort     int
+	TargetAddress  string
+	Interface      string
+	KISSFraming    bool
+	I2PTunneled    bool
+	I2PPeers       []string
+	I2PConnectable bool
+	I2PSAMAddress  string
+	PreferIPv6     bool
+	MaxReconnTries int
 	// MaxReconnTriesSet distinguishes an explicit max_reconnect_tries = 0
 	// (never reconnect) from an unset value (unlimited). Explicit zero
 	// semantics matter: conflating the two silently changes operator

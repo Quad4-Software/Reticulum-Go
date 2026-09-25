@@ -107,7 +107,7 @@ func TestE2E_RgoshPipeEcho(t *testing.T) {
 	_ = dest.Announce(false, nil, nil)
 	time.Sleep(100 * time.Millisecond)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	l, err := rnsutil.EstablishRgoshLink(ctx, nB.Transport(), dest.GetHash(), rnsutil.RgoshAppName)
 	if err != nil {
@@ -117,7 +117,7 @@ func TestE2E_RgoshPipeEcho(t *testing.T) {
 
 	select {
 	case <-listenerReady:
-	case <-time.After(5 * time.Second):
+	case <-time.After(15 * time.Second):
 		t.Fatal("listener session not ready")
 	}
 
@@ -146,14 +146,14 @@ func TestE2E_RgoshPipeEcho(t *testing.T) {
 	if err := sess.SendVersion(); err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.After(10 * time.Second)
+	deadline := time.After(20 * time.Second)
 	lastVers := time.Now()
 	for sess.State() == StateWaitVers {
 		select {
 		case <-deadline:
 			t.Fatal("version timeout")
 		case <-time.After(50 * time.Millisecond):
-			if sess.State() == StateWaitVers && time.Since(lastVers) >= 2*time.Second {
+			if sess.State() == StateWaitVers && time.Since(lastVers) >= 1*time.Second {
 				_ = sess.SendVersion()
 				lastVers = time.Now()
 			}

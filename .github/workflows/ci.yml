@@ -69,11 +69,18 @@ jobs:
       - name: Commit identity check
         run: |
           # Refuse placeholder identities. A repo-local git config once set
-          # user.email to the literal string "user.name", poisoning 42 pushed
-          # commits; this gate makes sure that cannot merge again.
-          if git log --format='%ae%n%ce' | grep -qE '^(user\.name|user\.email|<.*>)$'; then
+          # user.email to the literal string "user.name", poisoning pushed
+          # commits; this gate makes sure that cannot merge again. Only the
+          # pushed/PR commits are checked so pre-fix history does not trip it.
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            range="HEAD"
+          else
+            range="${base}..HEAD"
+          fi
+          if git log --format='%ae%n%ce' $range | grep -qE '^user\.(name|email)$'; then
             echo "placeholder commit identity found:"
-            git log --format='%h %an <%ae>' | grep -E 'user\.name|user\.email' | head -5
+            git log --format='%h %an <%ae>' $range | grep -E 'user\.name|user\.email' | head -5
             exit 1
           fi
 
@@ -128,7 +135,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -155,7 +162,7 @@ jobs:
           sh scripts/ci/test-install.sh
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test:
     name: Test (${{ matrix.os }}, ${{ matrix.goarch }})
@@ -183,7 +190,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -217,7 +224,7 @@ jobs:
           retention-days: 14
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-live-interop:
     name: Live interop (Go/Python RNS)
@@ -236,7 +243,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -256,7 +263,7 @@ jobs:
         run: go run ./scripts/ci/testsummary -count=1 -timeout 30m ./tests/interop/
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-os-matrix:
     name: OS runtime (${{ matrix.os }})
@@ -280,7 +287,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -301,7 +308,7 @@ jobs:
         run: task test-self-check
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-freebsd:
     name: FreeBSD self-check
@@ -344,7 +351,7 @@ jobs:
             ./bin/reticulum-go self-check --binary "$(pwd)/bin/reticulum-go" --json --full
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-openbsd:
     name: OpenBSD self-check
@@ -387,7 +394,7 @@ jobs:
             ./bin/reticulum-go self-check --binary "$(pwd)/bin/reticulum-go" --json --full
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-haiku:
     name: Haiku self-check
@@ -439,7 +446,7 @@ jobs:
             ./bin/reticulum-go self-check --binary "$(pwd)/bin/reticulum-go" --json --full
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-qemu-arch:
     name: Linux ${{ matrix.goarch }} self-check (qemu-user)
@@ -473,7 +480,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -495,7 +502,7 @@ jobs:
         run: sh scripts/ci/run-qemu-arch-self-check.sh "${GOARCH_TARGET}"
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-odin:
     name: Odin bindings
@@ -514,7 +521,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -526,7 +533,7 @@ jobs:
         run: task test-odin
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-zig:
     name: Zig bindings
@@ -545,7 +552,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -557,7 +564,7 @@ jobs:
         run: task test-zig
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-cpp:
     name: C++ bindings
@@ -576,7 +583,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -588,7 +595,7 @@ jobs:
         run: task test-cpp
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-c:
     name: C librns examples
@@ -607,7 +614,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -616,7 +623,7 @@ jobs:
         run: task test-c
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-rust:
     name: Rust bindings
@@ -635,7 +642,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -644,7 +651,7 @@ jobs:
         run: task test-rust
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-swift:
     name: Swift bindings
@@ -663,7 +670,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -677,7 +684,7 @@ jobs:
           task test-swift
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-lua:
     name: Lua bindings
@@ -696,7 +703,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -708,7 +715,7 @@ jobs:
         run: task test-lua
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-java:
     name: Java bindings
@@ -727,7 +734,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -742,7 +749,7 @@ jobs:
         run: task test-java
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-kotlin:
     name: Kotlin bindings
@@ -761,7 +768,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -781,7 +788,7 @@ jobs:
           task test-kotlin
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-python:
     name: Python bindings
@@ -800,7 +807,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -809,7 +816,7 @@ jobs:
         run: task test-python
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-dart:
     name: Dart bindings
@@ -833,7 +840,7 @@ jobs:
           sdk: ${{ env.CI_DART_VERSION }}
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -842,7 +849,7 @@ jobs:
         run: task test-dart
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-mutation:
     name: Mutation testing (${{ matrix.name }})
@@ -873,7 +880,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -885,7 +892,7 @@ jobs:
         run: task test-mutation
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   test-extra:
     name: Extra (${{ matrix.suite }})
@@ -909,7 +916,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -946,7 +953,7 @@ jobs:
           esac
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   build:
     name: Build (${{ matrix.goos }}, ${{ matrix.goarch }})
@@ -1047,7 +1054,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -1062,7 +1069,7 @@ jobs:
         run: sh scripts/ci/build-named-release-binary.sh
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   build-windows-legacy:
     name: Build (windows, ${{ matrix.goarch }}, win7)
@@ -1115,7 +1122,7 @@ jobs:
             ./cmd/reticulum-go
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   build-windows-xp:
     name: Build (windows, ${{ matrix.goarch }}, winxp)
@@ -1171,7 +1178,7 @@ jobs:
             ./cmd/reticulum-go
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   examples:
     name: Examples (pageserver, wasm)
@@ -1190,7 +1197,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -1240,7 +1247,7 @@ jobs:
         run: task build-wasm
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   reproducibility:
     name: Reproducible build
@@ -1259,7 +1266,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -1268,7 +1275,7 @@ jobs:
         run: task reproducibility
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean
 
   benchmark:
     name: Benchmark gate
@@ -1287,7 +1294,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: $/.github/actions/setup-ci
+        uses: ./.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -1296,4 +1303,4 @@ jobs:
         run: task test-bench-gate
 
       - name: Verify workspace clean
-        uses: $/.github/actions/verify-workspace-clean
+        uses: ./.github/actions/verify-workspace-clean

@@ -120,13 +120,13 @@ type Engine struct {
 	autoLearnMinSamples  int
 	transportNode        bool
 
-	mu           sync.Mutex
-	ifaces       map[string]*ifaceState
-	conns        map[string]int
+	mu     sync.Mutex
+	ifaces map[string]*ifaceState
+	conns  map[string]int
 	// offConns counts accepted conns while protection is off; the
 	// backstop below keeps a flood from exhausting fds without
 	// engaging adaptive policy.
-	offConns map[string]int
+	offConns     map[string]int
 	resources    int
 	crypto       int
 	handshake    int
