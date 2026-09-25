@@ -130,10 +130,19 @@ func TestBackboneInterfaceHDLCRoundTrip(t *testing.T) {
 
 func TestBackboneInterfaceStartStop(t *testing.T) {
 	hub := testBackboneHub(t)
+	// Reserve a kernel-assigned port: a fixed port collides with any local
+	// rnsd instance listening on the same number.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := ln.Addr().(*net.TCPAddr).Port
+	_ = ln.Close()
+
 	cfg := &common.InterfaceConfig{
 		Enabled: true,
 		Address: "127.0.0.1",
-		Port:    4242,
+		Port:    port,
 	}
 	bi, err := NewBackboneInterface("bb", cfg, hub, nil)
 	if err != nil {
