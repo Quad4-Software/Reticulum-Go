@@ -111,6 +111,14 @@ type InterfaceConfig struct {
 	// LongPollSec is HTTPS long-poll timeout seconds (default 25).
 	LongPollSec int
 
+	// AwareRole selects the WiFi Aware session role: publish or subscribe.
+	// mode = publish|subscribe is also accepted for config compatibility
+	// with the Python AwareInterface.
+	AwareRole string
+
+	// AwarePeers caps concurrent data paths (default 4, max 8).
+	AwarePeers int
+
 	// Mode is the interface operational mode (full, gateway, internal, ...).
 	// Empty means full.
 	Mode string

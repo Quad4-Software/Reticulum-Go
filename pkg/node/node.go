@@ -73,6 +73,15 @@ type Node struct {
 
 	netmonMu   sync.Mutex
 	netmonStop chan struct{}
+
+	awareDriver interfaces.AwareDriver
+}
+
+// SetAwareDriver installs the host-supplied WiFi Aware session driver before
+// Start. Android builds inject the gomobile bridge here; when unset, an
+// AwareInterface in config fails at Start.
+func (n *Node) SetAwareDriver(d interfaces.AwareDriver) {
+	n.awareDriver = d
 }
 
 // StartInterfaceDiscovery enables rnstransport interface discovery listening
@@ -373,6 +382,16 @@ func (n *Node) fromConfigContext() *interfaces.FromConfigContext {
 				n.unregisterInterfaceBuffers(name)
 			}, nil)
 		},
+		SpawnAware: func(peer *interfaces.AwarePeerInterface) {
+			name := peer.GetName()
+			if err := n.transport.RegisterInterface(name, peer); err != nil {
+				debug.Log(debug.DebugError, "Failed to register spawned aware peer", "error", err)
+				_ = peer.Stop()
+				return
+			}
+			n.handleInterface(peer)
+		},
+		AwareDriver: n.awareDriver,
 		RegisterPeer: func(name string, peer common.NetworkInterface) error {
 			return n.transport.RegisterInterface(name, peer)
 		},

@@ -591,6 +591,11 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		setBool(&iface.I2PTunneled, value)
 	case "peers":
 		iface.I2PPeers = parseStringList(value)
+		if n, err := strconv.Atoi(strings.TrimSpace(value)); err == nil && len(parseStringList(value)) == 1 {
+			iface.AwarePeers = n
+		}
+	case "role", "aware_role":
+		iface.AwareRole = strings.ToLower(strings.TrimSpace(value))
 	case "connectable":
 		setBool(&iface.I2PConnectable, value)
 	case "sam_address":
@@ -1115,6 +1120,11 @@ func writeInterface(b *strings.Builder, name string, iface *common.InterfaceConf
 	}
 	if len(iface.I2PPeers) > 0 {
 		fmt.Fprintf(b, "    peers = %s\n", strings.Join(iface.I2PPeers, ", "))
+	} else if iface.AwarePeers > 0 {
+		fmt.Fprintf(b, "    peers = %d\n", iface.AwarePeers)
+	}
+	if iface.AwareRole != "" {
+		fmt.Fprintf(b, "    role = %s\n", iface.AwareRole)
 	}
 	if iface.PreferIPv6 {
 		fmt.Fprintf(b, "    prefer_ipv6 = %s\n", boolStr(iface.PreferIPv6))

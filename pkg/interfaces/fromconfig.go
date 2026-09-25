@@ -33,6 +33,8 @@ type FromConfigContext struct {
 	BackboneHub           *backbone.Hub
 	SpawnBackbone         func(client *BackboneClientInterface)
 	SpawnLocal            LocalSpawnHook
+	SpawnAware            AwareSpawnHook
+	AwareDriver           AwareDriver
 	ConfigDir             string
 }
 
@@ -106,6 +108,23 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			spawn = ctx.SpawnBackbone
 		}
 		iface, err = NewBackboneFromConfig(name, cfg, hub, spawn)
+	case "AwareInterface":
+		role := cfg.AwareRole
+		if role == "" && (cfg.Mode == "publish" || cfg.Mode == "subscribe") {
+			role = cfg.Mode
+		}
+		var driver AwareDriver
+		var spawn AwareSpawnHook
+		if ctx != nil {
+			driver = ctx.AwareDriver
+			spawn = ctx.SpawnAware
+		}
+		iface, err = NewAwareInterface(name, role, cfg.AwarePeers, driver, spawn)
+		if err == nil {
+			if ai, ok := iface.(*AwareInterface); ok && ctx != nil {
+				ai.SetUnregisterHook(ctx.UnregisterPeer)
+			}
+		}
 	case "WebSocketInterface":
 		wsURL := cfg.Address
 		if wsURL == "" {

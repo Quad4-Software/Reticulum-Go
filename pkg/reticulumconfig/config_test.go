@@ -1139,3 +1139,49 @@ func TestLoadConfig_RemoteManagement(t *testing.T) {
 		t.Fatalf("first hash %x", cfg.RemoteManagementAllowed[0])
 	}
 }
+
+func TestAwareInterfaceConfigParse(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config")
+	body := `[reticulum]
+  enable_transport = no
+
+[[WiFi Aware]]
+  type = AwareInterface
+  enabled = yes
+  role = subscribe
+  peers = 4
+`
+	writeFile(t, path, body)
+
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	var ai *common.InterfaceConfig
+	for _, ic := range cfg.Interfaces {
+		ai = ic
+	}
+	if ai == nil || ai.Type != "AwareInterface" {
+		t.Fatalf("aware iface not parsed: %+v", ai)
+	}
+	if ai.AwareRole != "subscribe" {
+		t.Fatalf("role=%q want subscribe", ai.AwareRole)
+	}
+	if ai.AwarePeers != 4 {
+		t.Fatalf("peers=%d want 4", ai.AwarePeers)
+	}
+
+	// mode=publish is accepted for Python AwareInterface config compat.
+	body2 := strings.Replace(body, "role = subscribe", "mode = publish", 1)
+	writeFile(t, path, body2)
+	cfg2, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig mode variant: %v", err)
+	}
+	for _, ic := range cfg2.Interfaces {
+		if ic.Mode != "publish" {
+			t.Fatalf("mode=%q want publish", ic.Mode)
+		}
+	}
+}
