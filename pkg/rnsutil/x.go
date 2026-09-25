@@ -88,13 +88,15 @@ func LoadRNXAllowedIdentities(extra []string) ([][]byte, error) {
 		seen[k] = struct{}{}
 		out = append(out, h)
 	}
-	home := os.Getenv("HOME")
-	candidates := []string{
-		"/etc/rnx/allowed_identities",
-		filepath.Join(home, ".config", "rnx", "allowed_identities"),
-		filepath.Join(home, ".rnx", "allowed_identities"),
-		filepath.Join(home, ".config", "rgox", "allowed_identities"),
-		filepath.Join(home, ".rgox", "allowed_identities"),
+	home, _ := os.UserHomeDir()
+	candidates := []string{"/etc/rnx/allowed_identities"}
+	if home != "" {
+		candidates = append(candidates,
+			filepath.Join(home, ".config", "rnx", "allowed_identities"),
+			filepath.Join(home, ".rnx", "allowed_identities"),
+			filepath.Join(home, ".config", "rgox", "allowed_identities"),
+			filepath.Join(home, ".rgox", "allowed_identities"),
+		)
 	}
 	for _, path := range candidates {
 		hashes, err := readAllowedFile(path)
