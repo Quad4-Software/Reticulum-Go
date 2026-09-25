@@ -9,7 +9,7 @@ import (
 )
 
 // highlighter renders source code into micron markup with truecolor
-// foreground spans. It is a self-contained tokenizer implementation; the
+// foreground spans. It is a self-contained tokenizer implementation. The
 // reference defers to pygments, while this package covers the common
 // language families without external dependencies.
 type highlighter struct{}

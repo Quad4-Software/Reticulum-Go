@@ -122,8 +122,11 @@ type Link struct {
 	incomingMu sync.Mutex
 	incomingRx *incomingResourceAsm
 
-	outgoingMu              sync.Mutex
-	resourceSendMu          sync.Mutex
+	outgoingMu     sync.Mutex
+	resourceSendMu sync.Mutex
+	// resSendInflight bounds goroutines parked in SendResource. Each holds a
+	// full resource copy, so a rapid requester could otherwise pile them up.
+	resSendInflight         atomic.Int64
 	outgoingRes             *resource.Resource
 	outgoingReceiverMinPart int
 	outgoingResCompleteChan chan struct{}
@@ -134,7 +137,7 @@ type Link struct {
 
 	// earlyChannel holds ContextChannel packets that arrive after handshake
 	// keys exist but before promoteToActive. Python rnsh sends Version in that
-	// window; processing them before the established callback drops messages.
+	// window. Processing them before the established callback drops messages.
 	earlyChannelMu sync.Mutex
 	earlyChannel   []*packet.Packet
 }
@@ -275,6 +278,11 @@ func (l *Link) resetForReconnectLocked() {
 	l.requestPacket = nil
 	l.requestTime = time.Time{}
 	l.teardownReason = 0
+	// The stale linkID must leave the transport's link table. Otherwise a
+	// replayed proof for the old ID can interfere with the fresh attempt.
+	if l.transport != nil && len(l.linkID) > 0 {
+		l.transport.UnregisterLink(l.linkID)
+	}
 	l.linkID = nil
 	l.pub = nil
 	l.sigPub = nil
@@ -312,22 +320,27 @@ func (l *Link) GetRemoteIdentity() *identity.Identity {
 }
 func (l *Link) Teardown() {
 	l.mutex.Lock()
-	defer l.mutex.Unlock()
 
 	if !l.status.CompareAndSwap(int32(StatusActive), int32(StatusClosed)) {
 		l.resetIncomingResource()
+		l.mutex.Unlock()
 		return
 	}
 	_ = l.sendTeardownPacket() // #nosec G104 - best effort notification to peer
 	if l.transport != nil && len(l.linkID) > 0 {
 		l.transport.UnregisterLink(l.linkID)
 	}
-	if l.closedCallback != nil {
-		l.closedCallback(l)
-	}
+	cb := l.closedCallback
 	l.notifyChannelClosed()
 	l.resetIncomingResource()
 	l.dropSplitAssemblies()
+	l.mutex.Unlock()
+
+	// The callback is user code and may call back into the link. It must not
+	// run while l.mutex is held.
+	if cb != nil {
+		cb(l)
+	}
 }
 
 // notifyChannelClosed wakes channel waiters blocked on this link's status.
@@ -537,7 +550,7 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 	var plaintext []byte
 	var err error
 
-	if l.sessionKey != nil {
+	if l.hasSessionKeys() {
 		if pkt.Context == packet.ContextResource {
 			plaintext = pkt.Data
 		} else if pkt.Context == packet.ContextCacheReq {
@@ -626,8 +639,13 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 }
 func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
 	if !l.initiator {
+		if l.status.Load() != int32(StatusHandshake) {
+			// A duplicate or replayed RTT on an established link must not
+			// re-fire the established callback or reset link timing.
+			return nil
+		}
 		measuredRTT := time.Since(l.requestTime).Seconds()
-		debug.Log(debug.DebugVerbose, "Handling RTT packet (responder)", "link_id", fmt.Sprintf("%x", l.linkID), "has_session_key", l.sessionKey != nil, "status", l.status.Load(), "data_len", len(pkt.Data))
+		debug.Log(debug.DebugVerbose, "Handling RTT packet (responder)", "link_id", fmt.Sprintf("%x", l.linkID), "has_session_key", l.hasSessionKeys(), "status", l.status.Load(), "data_len", len(pkt.Data))
 		plaintext, err := l.decrypt(pkt.Data)
 		if err != nil {
 			debug.Log(debug.DebugError, "Failed to decrypt RTT packet", "error", err, "link_id", fmt.Sprintf("%x", l.linkID))
@@ -843,6 +861,20 @@ func (l *Link) SetPacketTimeout(pkt any, callback func(any), timeout time.Durati
 		callback(packetObj)
 	}()
 }
+
+// DropPacketReceipt stops delivery tracking for a packet whose envelope the
+// channel has terminally removed. Without this, undeliverable sends leak one
+// receipt per message for the life of the link.
+func (l *Link) DropPacketReceipt(pkt any) {
+	packetObj, ok := pkt.(*packet.Packet)
+	if !ok {
+		return
+	}
+	l.channelReceiptMu.Lock()
+	delete(l.channelReceipts, packetObj)
+	l.channelReceiptMu.Unlock()
+}
+
 func (l *Link) SetPacketDelivered(pkt any, callback func(any)) {
 	packetObj, ok := pkt.(*packet.Packet)
 	if !ok || callback == nil {
@@ -1057,8 +1089,10 @@ func (l *Link) finishWatchdogClose(reason byte, invalidatePath bool) {
 	if invalidatePath && l.initiator {
 		l.invalidateTransportPathAfterInitiatorFailure()
 	}
+	// Callers hold l.mutex. User callbacks may call back into the link.
 	if l.closedCallback != nil {
-		l.closedCallback(l)
+		cb := l.closedCallback
+		go cb(l)
 	}
 }
 func (l *Link) sendTeardownPacket() error {

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
@@ -52,6 +53,9 @@ type Identity struct {
 	key      []byte
 	identity *identity.Identity
 	scratch  []byte
+	// maskMu serializes MaskInto/Unmask: they share scratch for the HKDF mask
+	// and concurrent sends on one interface would otherwise tear the mask.
+	maskMu sync.Mutex
 }
 
 func (i *Identity) ensureScratch(n int) []byte {
@@ -150,6 +154,8 @@ func FromKey(size int, key []byte) (*Identity, error) {
 // MaskInto wraps raw with an IFAC into dst when cap(dst) is large enough.
 // When cap(dst) is too small a new buffer is allocated. Mask delegates here.
 func (i *Identity) MaskInto(dst, raw []byte) ([]byte, error) {
+	i.maskMu.Lock()
+	defer i.maskMu.Unlock()
 	if len(raw) < 2 {
 		return nil, fmt.Errorf("ifac: packet too short (%d bytes) for masking", len(raw))
 	}
@@ -197,9 +203,11 @@ func (i *Identity) Mask(raw []byte) ([]byte, error) {
 //
 // The caller is responsible for separately enforcing the policy "if IFAC is
 // configured for this interface but the IFAC flag is not set, drop the
-// packet" -- this function only validates packets that claim to carry an
+// packet". This function only validates packets that claim to carry an
 // IFAC.
 func (i *Identity) Unmask(raw []byte) ([]byte, bool, error) {
+	i.maskMu.Lock()
+	defer i.maskMu.Unlock()
 	if len(raw) < 2 {
 		return nil, false, fmt.Errorf("ifac: packet too short (%d bytes) for unmasking", len(raw))
 	}

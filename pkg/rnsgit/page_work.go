@@ -159,7 +159,7 @@ func (n *Node) serveWorkPage(_ string, data []byte, _ []byte, _ []byte, remote *
 
 // serveWorkDocPage renders a single work document with its updates. The
 // reference resets an invalid scope to "active" while scope "all" probes in
-// order; this implementation probes all scopes whenever the given scope does
+// order. This implementation probes all scopes whenever the given scope does
 // not contain the document.
 func (n *Node) serveWorkDocPage(_ string, data []byte, _ []byte, _ []byte, remote *identity.Identity, _ int64) any {
 	st := time.Now()

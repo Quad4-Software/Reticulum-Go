@@ -92,7 +92,7 @@ Reticulum-Go/
     zig/                Zig bindings and tests for librns
     cpp/                C++17 bindings and tests for librns
     dart/               Dart librns FFI and Control API client
-  pkg/                  Public library packages (cli, pageserver, rnsutil, …)
+  pkg/                  Public library packages (cli, pageserver, rnsutil, ...)
   man/                  Man pages (sections 1 and 8)
   packaging/            nfpm deb/rpm/arch packages plus init units
   internal/             Daemon-only helpers (config re-export, storage)

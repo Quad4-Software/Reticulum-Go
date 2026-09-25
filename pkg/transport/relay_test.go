@@ -576,7 +576,7 @@ func TestLinkRelayBidirectional(t *testing.T) {
 		t.Fatalf("forwarded hops = %d, want 1 (accounted)", gotOut[0][1])
 	}
 
-	// Return path from next-hop iface: wire 0 → accounted 1 == RemainingHops.
+	// Return path from next-hop iface: wire 0 -> accounted 1 == RemainingHops.
 	ret := make([]byte, 0, 2+16+1+4)
 	ret = append(ret, 0x00, 0x00)
 	ret = append(ret, linkID...)
@@ -672,7 +672,7 @@ func TestLocalClientLinkHopSpoofing(t *testing.T) {
 		t.Fatalf("identify hops = %d, want 0", identFwd[0][1])
 	}
 
-	// Proof returning from WAN: wire 3 → accounted 4 == RemainingHops.
+	// Proof returning from WAN: wire 3 -> accounted 4 == RemainingHops.
 	proof := make([]byte, 0, 2+16+1+4)
 	proof = append(proof, 0x00, 0x03)
 	proof = append(proof, linkID...)

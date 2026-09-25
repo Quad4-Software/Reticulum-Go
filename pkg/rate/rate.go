@@ -352,6 +352,11 @@ func (ic *IngressControl) InBurst() bool {
 	return ic.burstActive
 }
 
+// maxArrivalEntries bounds the arrival history even under a sustained
+// flood. Timestamps older than BurstHold are pruned, but a flood inside the
+// window could otherwise grow the slice without limit (~24 B per entry).
+const maxArrivalEntries = 65536
+
 func (ic *IngressControl) recordArrivalLocked(now time.Time) {
 	ic.arrivals = append(ic.arrivals, now)
 	cutoff := now.Add(-ic.cfg.BurstHold)
@@ -363,6 +368,9 @@ func (ic *IngressControl) recordArrivalLocked(now time.Time) {
 	}
 	if idx > 0 {
 		ic.arrivals = ic.arrivals[idx:]
+	}
+	if len(ic.arrivals) > maxArrivalEntries {
+		ic.arrivals = ic.arrivals[len(ic.arrivals)-maxArrivalEntries:]
 	}
 }
 

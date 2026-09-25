@@ -19,7 +19,7 @@ import (
 // serveArtifact streams a release artifact for published releases only.
 // Artifact names are restricted to basenames and tags resolve through the
 // published-only list, matching the reference gate. The reference has a
-// no-op guard at the artifact lookup that lets a missing file slip through;
+// no-op guard at the artifact lookup that lets a missing file slip through.
 // here a missing artifact returns no response.
 func (n *Node) serveArtifact(_ string, data []byte, _ []byte, _ []byte, remote *identity.Identity, _ int64) any {
 	vars := pageVars(data)
@@ -70,7 +70,7 @@ func (n *Node) serveArtifact(_ string, data []byte, _ []byte, _ []byte, remote *
 }
 
 // serveDownload streams a raw blob as a file response. The reference pipes
-// git show directly; this implementation reads the blob with the page git
+// git show directly. This implementation reads the blob with the page git
 // timeout, which bounds both runtime and memory through the subprocess cap.
 func (n *Node) serveDownload(_ string, data []byte, _ []byte, _ []byte, remote *identity.Identity, _ int64) any {
 	vars := pageVars(data)

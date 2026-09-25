@@ -49,6 +49,11 @@ typedef struct rns_event {
 	int path_truncated;
 	char error_message[256];
 	int error_message_truncated;
+	/* app_data and app_data_cap are IN-parameters for rns_event_poll:
+	   app_data must point to app_data_cap writable bytes owned by the
+	   caller, or both must be zero. The library copies the event payload
+	   into that buffer and sets app_data_len/app_data_truncated. Passing
+	   an uninitialised pointer here is undefined behavior. */
 	uint8_t *app_data;
 	size_t app_data_len;
 	size_t app_data_cap;

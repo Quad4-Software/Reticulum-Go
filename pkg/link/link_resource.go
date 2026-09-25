@@ -712,6 +712,25 @@ func (l *Link) handleResourcePart(data []byte, pkt *packet.Packet) error {
 
 	return nil
 }
+
+// acquireResourceSendSlot reserves one of MaxPendingResourceSends slots for a
+// goroutine blocked inside SendResource.
+func (l *Link) acquireResourceSendSlot() bool {
+	for {
+		n := l.resSendInflight.Load()
+		if n >= MaxPendingResourceSends {
+			return false
+		}
+		if l.resSendInflight.CompareAndSwap(n, n+1) {
+			return true
+		}
+	}
+}
+
+func (l *Link) releaseResourceSendSlot() {
+	l.resSendInflight.Add(-1)
+}
+
 func (l *Link) SendResource(res *resource.Resource) error {
 	l.resourceSendMu.Lock()
 	defer l.resourceSendMu.Unlock()

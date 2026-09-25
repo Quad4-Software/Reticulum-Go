@@ -55,7 +55,10 @@ var (
 	knownDestinations     = make(map[destMapKey]knownDestEntry)
 	knownDestinationsLock sync.RWMutex
 	knownRatchets         = make(map[destMapKey]knownRatchetEntry)
-	ratchetPersistLock    sync.Mutex
+	// privateRatchets holds operator-set private ratchet keys keyed by the
+	// raw id string. Never mix them into the destHash keyspace above.
+	privateRatchets    = make(map[string]knownRatchetEntry)
+	ratchetPersistLock sync.Mutex
 )
 
 func New() (*Identity, error) {
@@ -243,14 +246,13 @@ func TruncatedHash(data []byte) []byte {
 	return fullHash[:TruncatedHashLength/8]
 }
 
-func GetRandomHash() []byte {
+func GetRandomHash() ([]byte, error) {
 	randomData := make([]byte, TruncatedHashLength/8)
-	_, err := rand.Read(randomData) // #nosec G104
-	if err != nil {
+	if _, err := rand.Read(randomData); err != nil {
 		debug.Log(debug.DebugError, "Failed to read random data for hash", "error", err)
-		return nil // Or handle the error appropriately
+		return nil, err
 	}
-	return TruncatedHash(randomData)
+	return TruncatedHash(randomData), nil
 }
 
 // Remember stores a known destination from a validated announce.
@@ -359,6 +361,10 @@ func evictKnownDestinationsIfNeededLocked() {
 	}
 }
 
+// ValidateAnnounce validates a legacy-format announce signature covering
+// destHash || publicKey || appData. The wire path in pkg/announce covers the
+// fuller modern field set (nameHash, randomHash, ratchet). Use that for real
+// announces.
 func ValidateAnnounce(packet []byte, destHash []byte, publicKey []byte, signature []byte, appData []byte) bool {
 	if len(publicKey) != KeySize/8 {
 		return false
@@ -535,6 +541,7 @@ func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRat
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate shared key: %w", err)
 	}
+	defer securemem.WipeBytes(sharedKey)
 
 	salt := i.GetSalt()
 	debug.Log(debug.DebugAll, "Decrypt: using salt", "salt", fmt.Sprintf("%x", salt), "identity_hash", fmt.Sprintf("%x", i.Hash()))
@@ -542,6 +549,7 @@ func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRat
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive key: %w", err)
 	}
+	defer securemem.WipeBytes(derivedKey)
 
 	hmacKey := derivedKey[:32]
 	encryptionKey := derivedKey[32:64]
@@ -581,11 +589,13 @@ func (i *Identity) tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet [
 	if err != nil {
 		return nil, nil, err
 	}
+	defer securemem.WipeBytes(sharedSecret)
 
 	key, err := cryptography.DeriveIdentityKeyMaterial(sharedSecret, i.GetSalt(), i.GetContext())
 	if err != nil {
 		return nil, nil, err
 	}
+	defer securemem.WipeBytes(key)
 
 	hmacKey := key[:32]
 	encryptionKey := key[32:64]
@@ -761,10 +771,15 @@ func LoadOrCreateTransportIdentity(customPath string) (*Identity, error) {
 		// fail instead of silently adopting a new identity.
 		return nil, fmt.Errorf("transport identity exists but is unreadable: %w", readErr)
 	case readErr == nil:
-		if ident, err := FromFile(transportIdentityPath); err == nil {
-			debug.Log(debug.DebugInfo, "Loaded transport identity from storage")
-			return ident, nil
+		ident, err := FromFile(transportIdentityPath)
+		if err != nil {
+			// The file exists and is readable but is corrupt or its backend
+			// is unavailable. Creating a fresh identity would silently
+			// replace the node's identity, so fail closed.
+			return nil, fmt.Errorf("transport identity exists but is invalid: %w", err)
 		}
+		debug.Log(debug.DebugInfo, "Loaded transport identity from storage")
+		return ident, nil
 	}
 
 	debug.Log(debug.DebugInfo, "No valid transport identity in storage, creating new one")
@@ -803,6 +818,12 @@ func RecallIdentity(path string) (*Identity, error) {
 		return nil, err
 	}
 	defer securemem.WipeBytes(privateKeyBytes)
+
+	// LoadIdentityBlob can return RHB1 descriptors or other non-key blobs.
+	// only a raw 64-byte private keypair is valid here.
+	if len(privateKeyBytes) != 64 {
+		return nil, fmt.Errorf("identity blob has invalid length %d (want 64)", len(privateKeyBytes))
+	}
 
 	// Extract keys
 	x25519PrivKey := make([]byte, 32)
@@ -885,7 +906,7 @@ func (i *Identity) GetRatchetKey(id string) ([]byte, bool) {
 	ratchetPersistLock.Lock()
 	defer ratchetPersistLock.Unlock()
 
-	e, exists := knownRatchets[ratchetMapKey(id)]
+	e, exists := privateRatchets[id]
 	if !exists {
 		return nil, false
 	}
@@ -896,12 +917,19 @@ func (i *Identity) SetRatchetKey(id string, key []byte) {
 	ratchetPersistLock.Lock()
 	defer ratchetPersistLock.Unlock()
 
-	mapKey := ratchetMapKey(id)
-	knownRatchets[mapKey] = knownRatchetEntry{
+	// Private ratchet keys live in their own map: mapping a hex id through
+	// ratchetMapKey could alias the destHash keyspace, making CopyRatchet
+	// hand a private key to the encryption path.
+	privateRatchets[id] = knownRatchetEntry{
 		key:      append([]byte(nil), key...),
 		received: time.Now().Unix(),
 	}
-	evictKnownRatchetsLocked(mapKey)
+	for len(privateRatchets) > MaxKnownRatchets {
+		for k := range privateRatchets {
+			delete(privateRatchets, k)
+			break
+		}
+	}
 }
 
 // NewIdentity creates a new Identity instance with fresh keys
@@ -1086,7 +1114,9 @@ func (i *Identity) CleanupExpiredRatchets() {
 	debug.Log(debug.DebugAll, "Cleaned up expired ratchets", "cleaned", cleaned, "remaining", len(i.ratchets))
 }
 
-// ValidateAnnounce validates an announce packet's signature
+// ValidateAnnounce validates a legacy-format announce signature covering
+// destHash || i.publicKey || appData. See the package-level ValidateAnnounce
+// for why this is not the wire announce path.
 func (i *Identity) ValidateAnnounce(data []byte, destHash []byte, appData []byte) bool {
 	if i == nil || len(data) < ed25519.SignatureSize {
 		return false
@@ -1094,7 +1124,10 @@ func (i *Identity) ValidateAnnounce(data []byte, destHash []byte, appData []byte
 
 	signatureStart := len(data) - ed25519.SignatureSize
 	signature := data[signatureStart:]
-	signedData := append(destHash, i.GetPublicKey()...)
+	// Do not append onto destHash: it may share a caller's backing array.
+	signedData := make([]byte, 0, len(destHash)+KeySize/8+len(appData))
+	signedData = append(signedData, destHash...)
+	signedData = append(signedData, i.GetPublicKey()...)
 	signedData = append(signedData, appData...)
 
 	return cryptography.Verify(i.verificationKey, signedData, signature)

@@ -35,8 +35,12 @@ func (l *Link) markInitiatorEstablishmentFailedLocked() {
 	}
 	l.releaseOutboundEstablish()
 	l.invalidateTransportPathAfterInitiatorFailure()
+	l.dropSplitAssemblies()
+	l.notifyChannelClosed()
+	// Callers hold l.mutex. User callbacks may call back into the link.
 	if l.closedCallback != nil {
-		l.closedCallback(l)
+		cb := l.closedCallback
+		go cb(l)
 	}
 }
 

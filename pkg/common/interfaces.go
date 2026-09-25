@@ -131,6 +131,9 @@ type BaseInterface struct {
 	// inbound preprocessing can apply IFAC once (RNS 1.5.0).
 	deferInboundIFAC bool
 
+	// ifacMu serializes outbound masking: ifacScratch is shared working
+	// memory, so concurrent Sends would otherwise tear frames.
+	ifacMu      sync.Mutex
 	ifacScratch []byte
 }
 
@@ -313,7 +316,9 @@ func (i *BaseInterface) Send(data []byte, address string) error {
 	if err := RejectReceiveOnly(i); err != nil {
 		return err
 	}
+	i.ifacMu.Lock()
 	masked, err := ApplyIFACOutboundInto(i, i.ifacOutboundScratch(len(data)), data)
+	i.ifacMu.Unlock()
 	if err != nil {
 		return err
 	}

@@ -9,14 +9,14 @@ package link
 //   - Python removes a timed-out receipt from pending_requests
 //     (RequestReceipt.request_timed_out). Ret-go additionally must remove
 //     it because pendingRequests is capped at MaxPendingRequests and gated
-//     per pathHash; a leaked entry wedges the link permanently.
+//     per pathHash. A leaked entry wedges the link permanently.
 //   - Python suspends the response timeout once a response resource starts
-//     arriving (status RECEIVING); the resource watchdog then owns the
+//     arriving (status RECEIVING). The resource watchdog then owns the
 //     transfer. Ret-go must not fail a receipt mid-transfer.
 //   - Python Resource gives up after MAX_RETRIES (16) unproductive stall
-//     rounds and cancels; the bound receipt must fail, not linger.
+//     rounds and cancels. The bound receipt must fail, not linger.
 //   - Python response_received/response_resource_progress never fire on a
-//     receipt already FAILED; a late completion must not resurrect it.
+//     receipt already FAILED. A late completion must not resurrect it.
 
 import (
 	"bytes"
@@ -57,7 +57,7 @@ func waitForCond(t *testing.T, d time.Duration, cond func() bool, msg string) {
 }
 
 // A receipt whose timeout expires with no response must be failed AND
-// removed from pendingRequests (Python request_timed_out removes it; the
+// removed from pendingRequests (Python request_timed_out removes it. The
 // cap makes removal mandatory here).
 func TestRequestReceiptTimeout_RemovesPendingEntry(t *testing.T) {
 	l := &Link{}
@@ -81,7 +81,7 @@ func TestRequestReceiptTimeout_RemovesPendingEntry(t *testing.T) {
 	}
 }
 
-// After a timeout the same path must be requestable again; a leaked receipt
+// After a timeout the same path must be requestable again. A leaked receipt
 // would block it with ErrLinkRequestDuplicate forever.
 func TestRequestReceiptTimeout_UnblocksDuplicatePath(t *testing.T) {
 	l := &Link{}
@@ -100,7 +100,7 @@ func TestRequestReceiptTimeout_UnblocksDuplicatePath(t *testing.T) {
 	}
 }
 
-// MaxPendingRequests must recover after timeouts; leaked entries otherwise
+// MaxPendingRequests must recover after timeouts. Leaked entries otherwise
 // wedge the link at ErrLinkRequestBusy after eight silent requests.
 func TestRequestReceiptTimeout_FreesMaxPendingSlot(t *testing.T) {
 	l := &Link{}
@@ -379,7 +379,7 @@ func TestTickIncomingResourceWatchdog_SendFailureAbortsTransfer(t *testing.T) {
 }
 
 // A new advertisement superseding a live transfer must release the old
-// transfer's protect budget and fail its bound receipt; otherwise repeated
+// transfer's protect budget and fail its bound receipt. Otherwise repeated
 // advertisements exhaust the admission budget.
 func TestBeginIncomingResource_SupersedeCleansUpOldTransfer(t *testing.T) {
 	l := &Link{mdu: 384}
@@ -458,7 +458,7 @@ func TestCompleteRequestWithResourcePayload_SkipsFailedReceipt(t *testing.T) {
 }
 
 // A plain response that beat the in-flight resource also concludes the
-// receipt; the resource's later completion must not fire again.
+// receipt. The resource's later completion must not fire again.
 func TestCompleteRequestWithResourcePayload_SkipsActiveReceipt(t *testing.T) {
 	l := &Link{}
 	r := newTestRequestReceipt(l, 0x56, time.Minute)

@@ -41,7 +41,7 @@ From a checkout with Make:
 make install
 ```
 
-Default prefix is /usr/local. That installs reticulum-go, legacy tool symlinks (rgostatus, rgoid, …), and man pages (reticulum-go(1), reticulum-go(8), and tool pages). Override with `make install PREFIX=/opt/reticulum`. Staging: `make install DESTDIR=/tmp/stage PREFIX=/usr`.
+Default prefix is /usr/local. That installs reticulum-go, legacy tool symlinks (rgostatus, rgoid, ...), and man pages (reticulum-go(1), reticulum-go(8), and tool pages). Override with `make install PREFIX=/opt/reticulum`. Staging: `make install DESTDIR=/tmp/stage PREFIX=/usr`.
 
 Init units:
 
@@ -212,7 +212,7 @@ Generate a random 32-byte key and encode as hex. Clients send Authorization: Bea
 
 ## CLI utilities (status, identity, probe, path, copy, pageserver)
 
-Tools are subcommands of the single reticulum-go binary (make build). Legacy names (rgostatus, …) install as symlinks via make install.
+Tools are subcommands of the single reticulum-go binary (make build). Legacy names (rgostatus, ...) install as symlinks via make install.
 
 To query a running Python rnsd from reticulum-go status / path, point -config at ~/.reticulum. On Linux both stacks default to abstract Unix sockets when shared_instance_type is unset, so no TCP rewrite is required:
 

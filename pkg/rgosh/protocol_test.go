@@ -181,7 +181,7 @@ func TestStreamDecompressBomb(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Unpack will decompress; if under limit OK. Use artificial oversize by
+	// Unpack will decompress. If under limit OK. Use artificial oversize by
 	// packing compressed flag with data that decompresses large.
 	got := &StreamMessage{}
 	if err := got.Unpack(packed); err != nil && err != ErrDecompressBomb {

@@ -616,9 +616,15 @@ func (s *Session) pumpProcess(proc ProcessHandle) {
 	s.mu.Lock()
 	s.state = StateTeardown
 	cb := s.OnExit
+	td := s.OnTeardown
 	s.mu.Unlock()
 	if cb != nil {
 		cb(code)
+	}
+	// On the listener the session owns the link. Release it after the
+	// process exits so a completed session cannot park a registered link.
+	if s.cfg.Listener && td != nil {
+		td()
 	}
 }
 
@@ -858,6 +864,15 @@ func (s *Session) denyProtocolLocked(reason string) error {
 		_ = s.sendLocked(&AuthDeniedMessage{Reason: reason})
 	}
 	_ = s.sendLocked(&ErrorMessage{Compat: s.cfg.Compat, Msg: reason, Fatal: true})
+	// Denied sessions must release the link. Otherwise an unauthenticated
+	// peer parks links until the node hits the registered-link ceiling.
+	// OnTeardown may call Close which needs s.mu, so run it unlocked.
+	td := s.OnTeardown
+	s.mu.Unlock()
+	if td != nil {
+		td()
+	}
+	s.mu.Lock()
 	return fmt.Errorf("rgosh: %s", reason)
 }
 

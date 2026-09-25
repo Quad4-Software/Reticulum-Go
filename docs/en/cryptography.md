@@ -62,7 +62,7 @@ Optional Reticulum-Go format for external signing. Magic RHB1, version byte, res
 
 ### Passphrase-encrypted file (RNE1, 135 bytes for a 64-byte payload)
 
-Optional Reticulum-Go local format. Never appears on the wire; decrypts back to the standard 64-byte blob.
+Optional Reticulum-Go local format. Never appears on the wire. Decrypts back to the standard 64-byte blob.
 
 | Offset | Field | Size |
 |--------|-------|------|

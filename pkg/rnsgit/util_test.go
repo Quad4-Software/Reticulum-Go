@@ -39,7 +39,7 @@ func TestExpandSymbolicRefHEAD(t *testing.T) {
 		t.Fatalf("expanded %q still fails SanRef", full)
 	}
 	if !strings.HasPrefix(full, "refs/") {
-		t.Fatalf("want refs/… got %q", full)
+		t.Fatalf("want refs/... got %q", full)
 	}
 }
 

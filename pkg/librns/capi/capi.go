@@ -86,14 +86,14 @@ var (
 	cbMu      sync.Mutex
 	cbFn      map[uint64]C.rns_event_callback
 	cbUser    map[uint64]unsafe.Pointer
-	cbScratch map[uint64][]byte
+	cbScratch map[uint64]unsafe.Pointer // C.malloc'd, never a Go pointer
 )
 
 func init() {
 	versionCString = C.CString(librns.Version())
 	cbFn = make(map[uint64]C.rns_event_callback)
 	cbUser = make(map[uint64]unsafe.Pointer)
-	cbScratch = make(map[uint64][]byte)
+	cbScratch = make(map[uint64]unsafe.Pointer)
 }
 
 //export rns_version
@@ -174,7 +174,9 @@ func rns_node_pause(node C.uint64_t) C.int {
 //export rns_node_refresh_paths
 func rns_node_refresh_paths(node C.uint64_t, destHashes *C.uint8_t, count C.size_t) C.int {
 	n, ok := sizeToInt(count)
-	if !ok {
+	// Bound n*16 to a sane count. On 32-bit targets n*16 overflows int and
+	// unsafe.Slice panics, aborting the host process.
+	if !ok || n > 65536 {
 		return cCode(librns.ErrInvalidArg)
 	}
 	var hashes [][]byte
@@ -182,7 +184,7 @@ func rns_node_refresh_paths(node C.uint64_t, destHashes *C.uint8_t, count C.size
 		if destHashes == nil {
 			return cCode(librns.ErrInvalidArg)
 		}
-		raw := unsafe.Slice((*byte)(unsafe.Pointer(destHashes)), n*16)
+		raw := unsafe.Slice((*byte)(unsafe.Pointer(destHashes)), int64(n)*16)
 		hashes = make([][]byte, n)
 		for i := 0; i < n; i++ {
 			hashes[i] = append([]byte(nil), raw[i*16:(i+1)*16]...)
@@ -750,34 +752,49 @@ func rns_set_event_callback(node C.uint64_t, callback C.rns_event_callback, user
 		cbMu.Lock()
 		delete(cbFn, id)
 		delete(cbUser, id)
+		if buf := cbScratch[id]; buf != nil {
+			C.free(buf)
+		}
 		delete(cbScratch, id)
 		cbMu.Unlock()
 		return cCode(librns.SetEventCallback(id, nil))
 	}
-	cbMu.Lock()
-	cbFn[id] = callback
-	cbUser[id] = userData
-	if _, ok := cbScratch[id]; !ok {
-		cbScratch[id] = make([]byte, 65536)
+	scratch := C.malloc(65536)
+	if scratch == nil {
+		return cCode(librns.ErrInternal)
 	}
-	cbMu.Unlock()
-	return cCode(librns.SetEventCallback(id, func(ev librns.Event) {
+	if err := librns.SetEventCallback(id, func(ev librns.Event) {
 		cbMu.Lock()
 		fn := cbFn[id]
 		ud := cbUser[id]
 		buf := cbScratch[id]
 		cbMu.Unlock()
-		if fn == nil {
+		if fn == nil || buf == nil {
 			return
 		}
 		var cev C.rns_event
-		if len(ev.AppData) > 0 && len(buf) > 0 {
-			cev.app_data = (*C.uint8_t)(unsafe.Pointer(&buf[0]))
-			cev.app_data_cap = sizeFromInt(len(buf))
+		if len(ev.AppData) > 0 {
+			// app_data must point at C memory: cev is a Go-side struct
+			// handed to C, so a Go pointer inside it trips cgocheck and
+			// aborts the host process on any event carrying AppData.
+			cev.app_data = (*C.uint8_t)(buf)
+			cev.app_data_cap = 65536
 		}
 		fillEvent(&cev, ev)
 		C.call_rns_event_callback(fn, &cev, ud)
-	}))
+	}); err != librns.OK {
+		C.free(scratch)
+		return cCode(err)
+	}
+	cbMu.Lock()
+	cbFn[id] = callback
+	cbUser[id] = userData
+	if old := cbScratch[id]; old != nil {
+		C.free(old)
+	}
+	cbScratch[id] = scratch
+	cbMu.Unlock()
+	return cCode(librns.OK)
 }
 
 func fillPathEntry(dst *C.rns_path_entry, e librns.PathEntry) {
@@ -824,7 +841,9 @@ func fillInterfaceEntry(dst *C.rns_interface_entry, e librns.InterfaceEntry) {
 }
 
 func fillEvent(dst *C.rns_event, ev librns.Event) {
-	dst.kind = cCode(ev.Kind)
+	// ev.Kind is an event kind, not an error code. Routing it through cCode
+	// mapped every kind above 8 to RNS_EV_REQUEST_INCOMING.
+	dst.kind = C.int(ev.Kind)
 	dst.hops = C.uint8_t(ev.Hops)
 	dst.link_id_len = 0
 	dst.destination_hash_len = 0
