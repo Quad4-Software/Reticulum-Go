@@ -227,7 +227,7 @@ type WebTransportClientInterface struct {
 	txMu              sync.Mutex
 	readBuf           []byte
 	recvCancel        context.CancelFunc
-	readerActive       atomic.Bool
+	readerActive      atomic.Bool
 
 	DatagramsRX    atomic.Uint64
 	DatagramsTX    atomic.Uint64

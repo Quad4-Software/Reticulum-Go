@@ -79,17 +79,17 @@ type AwareSpawnHook func(peer *AwarePeerInterface)
 // itself carries no packets.
 type AwareInterface struct {
 	BaseInterface
-	Mutex       sync.RWMutex
-	driver      AwareDriver
-	spawn       AwareSpawnHook
-	role        string
-	maxPeers    int
-	done        chan struct{}
-	stopOnce    sync.Once
-	unregister  func(name string)
-	peers       map[int]*AwarePeerInterface
-	spawning    map[int]struct{}
-	peerKey     string
+	Mutex      sync.RWMutex
+	driver     AwareDriver
+	spawn      AwareSpawnHook
+	role       string
+	maxPeers   int
+	done       chan struct{}
+	stopOnce   sync.Once
+	unregister func(name string)
+	peers      map[int]*AwarePeerInterface
+	spawning   map[int]struct{}
+	peerKey    string
 }
 
 // NewAwareInterface builds a controller around a host-supplied driver. A nil

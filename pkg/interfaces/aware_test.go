@@ -25,9 +25,19 @@ type fakeAwareDriver struct {
 	sendHook func(peerID int)
 }
 
-func (f *fakeAwareDriver) StartPublish() error   { f.mu.Lock(); f.started = "publish"; f.mu.Unlock(); return nil }
-func (f *fakeAwareDriver) StartSubscribe() error { f.mu.Lock(); f.started = "subscribe"; f.mu.Unlock(); return nil }
-func (f *fakeAwareDriver) Stop() error           { f.mu.Lock(); f.stopped = true; f.mu.Unlock(); return nil }
+func (f *fakeAwareDriver) StartPublish() error {
+	f.mu.Lock()
+	f.started = "publish"
+	f.mu.Unlock()
+	return nil
+}
+func (f *fakeAwareDriver) StartSubscribe() error {
+	f.mu.Lock()
+	f.started = "subscribe"
+	f.mu.Unlock()
+	return nil
+}
+func (f *fakeAwareDriver) Stop() error { f.mu.Lock(); f.stopped = true; f.mu.Unlock(); return nil }
 func (f *fakeAwareDriver) SetEvents(e AwareEvents) {
 	f.mu.Lock()
 	f.events = e
@@ -53,8 +63,13 @@ func (f *fakeAwareDriver) ClosePeer(peerID int) error {
 	return nil
 }
 
-func (f *fakeAwareDriver) linkUp(id int)    { f.mu.Lock(); e := f.events; f.mu.Unlock(); e.OnLinkUp(id) }
-func (f *fakeAwareDriver) linkDown(id int)  { f.mu.Lock(); e := f.events; f.mu.Unlock(); e.OnLinkDown(id) }
+func (f *fakeAwareDriver) linkUp(id int) { f.mu.Lock(); e := f.events; f.mu.Unlock(); e.OnLinkUp(id) }
+func (f *fakeAwareDriver) linkDown(id int) {
+	f.mu.Lock()
+	e := f.events
+	f.mu.Unlock()
+	e.OnLinkDown(id)
+}
 func (f *fakeAwareDriver) data(id int, d []byte) {
 	f.mu.Lock()
 	e := f.events
