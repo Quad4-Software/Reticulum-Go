@@ -243,15 +243,20 @@ func firstNonEmpty(a, b string) string {
 	return b
 }
 
-// sanReleaseTag validates a release tag and returns its basename.
+// sanReleaseTag validates a release tag and returns its basename. Tag values
+// become directory names under releasesPath, so path separators and the
+// special directory entries are rejected outright.
 func sanReleaseTag(tag string) (string, []byte) {
-	if tag == "" || strings.Contains(tag, "/") {
+	if tag == "" || tag == "." || tag == ".." ||
+		strings.ContainsAny(tag, "/\\\x00") {
 		return "", StatusResponse(ResInvalidReq, "Invalid tag specified")
 	}
 	return path.Base(tag), nil
 }
 
-// resolveReleaseTag handles the special "latest" tag.
+// resolveReleaseTag handles the special "latest" tag. The marker file holds a
+// tag written by a previous request; its contents are re-validated the same
+// way before use so a corrupt or planted marker cannot escape releasesPath.
 func resolveReleaseTag(releasesPath, tag string) (string, []byte) {
 	if tag != "latest" {
 		return tag, nil
@@ -261,10 +266,11 @@ func resolveReleaseTag(releasesPath, tag string) (string, []byte) {
 		return "", StatusResponse(ResNotFound, "No latest release found")
 	}
 	latest := strings.TrimSpace(string(b))
-	if latest == "" {
+	if r, resp := sanReleaseTag(latest); resp != nil {
 		return "", StatusResponse(ResNotFound, "No latest release found")
+	} else {
+		return r, nil
 	}
-	return latest, nil
 }
 
 func packOK(v any) []byte {
@@ -410,20 +416,22 @@ func (n *Node) releaseCreateInit(releasesPath, repoPath string, req map[any]any,
 }
 
 func (n *Node) releaseCreateArtifact(releasesPath string, req map[any]any) any {
-	tag := reqString(req, "tag")
+	tag, resp := sanReleaseTag(reqString(req, "tag"))
+	if resp != nil {
+		return resp
+	}
 	artifactName := reqString(req, "artifact_name")
 	artifactData, hasData := req["artifact_data"]
-	if tag == "" || artifactName == "" {
-		return StatusResponse(ResInvalidReq, "Missing tag or artifact name")
-	}
-	if strings.Contains(tag, "/") {
-		return StatusResponse(ResInvalidReq, "Invalid tag specified")
+	if artifactName == "" {
+		return StatusResponse(ResInvalidReq, "Missing artifact name")
 	}
 	if artifactData == nil || !hasData {
 		return StatusResponse(ResInvalidReq, "No artifact data")
 	}
-	tag = path.Base(tag)
 	artifactName = path.Base(artifactName)
+	if artifactName == "." || artifactName == ".." || strings.ContainsAny(artifactName, "\x00") {
+		return StatusResponse(ResInvalidReq, "Invalid artifact name")
+	}
 	releaseDir := filepath.Join(releasesPath, tag)
 	if fi, err := os.Stat(releaseDir); err != nil || !fi.IsDir() {
 		return StatusResponse(ResNotFound, "Release not found")
@@ -455,14 +463,10 @@ func (n *Node) releaseCreateArtifact(releasesPath string, req map[any]any) any {
 }
 
 func (n *Node) releaseCreateFinalize(releasesPath string, req map[any]any) any {
-	tag := reqString(req, "tag")
-	if tag == "" {
-		return StatusResponse(ResInvalidReq, "No tag specified")
+	tag, resp := sanReleaseTag(reqString(req, "tag"))
+	if resp != nil {
+		return resp
 	}
-	if strings.Contains(tag, "/") {
-		return StatusResponse(ResInvalidReq, "Invalid tag specified")
-	}
-	tag = path.Base(tag)
 	releaseDir := filepath.Join(releasesPath, tag)
 	if fi, err := os.Stat(releaseDir); err != nil || !fi.IsDir() {
 		return StatusResponse(ResNotFound, "Release not found")
@@ -485,14 +489,10 @@ func (n *Node) releaseCreateFinalize(releasesPath string, req map[any]any) any {
 }
 
 func (n *Node) releaseDelete(releasesPath string, req map[any]any) any {
-	tag := reqString(req, "tag")
-	if tag == "" {
-		return StatusResponse(ResInvalidReq, "No tag specified")
+	tag, resp := sanReleaseTag(reqString(req, "tag"))
+	if resp != nil {
+		return resp
 	}
-	if strings.Contains(tag, "/") {
-		return StatusResponse(ResInvalidReq, "Invalid tag specified")
-	}
-	tag = path.Base(tag)
 	releaseDir := filepath.Join(releasesPath, tag)
 	if fi, err := os.Stat(releaseDir); err != nil || !fi.IsDir() {
 		return StatusResponse(ResNotFound, "Release not found")
@@ -504,14 +504,10 @@ func (n *Node) releaseDelete(releasesPath string, req map[any]any) any {
 }
 
 func (n *Node) releaseLatest(releasesPath string, req map[any]any) any {
-	tag := reqString(req, "tag")
-	if tag == "" {
-		return StatusResponse(ResInvalidReq, "No tag specified")
+	tag, resp := sanReleaseTag(reqString(req, "tag"))
+	if resp != nil {
+		return resp
 	}
-	if strings.Contains(tag, "/") {
-		return StatusResponse(ResInvalidReq, "Invalid tag specified")
-	}
-	tag = path.Base(tag)
 	releaseDir := filepath.Join(releasesPath, tag)
 	if fi, err := os.Stat(releaseDir); err != nil || !fi.IsDir() {
 		return StatusResponse(ResNotFound, "Release not found")

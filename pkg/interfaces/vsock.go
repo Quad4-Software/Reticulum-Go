@@ -10,6 +10,8 @@ import (
 	"math"
 	"net"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/mdlayher/vsock"
 
@@ -41,6 +43,7 @@ type VSOCKClientInterface struct {
 	maxReconnectTries int
 	done              chan struct{}
 	stopOnce          sync.Once
+	readerActive      atomic.Bool
 	reconnect         *reconnectDriver
 	txFrame           []byte
 	txMu              sync.Mutex
@@ -81,8 +84,28 @@ func (vc *VSOCKClientInterface) initReconnectDriver() {
 	})
 }
 
+// vsockDialTimeout bounds a connect attempt; vsock.Dial has no context
+// support, so the dial runs on a helper goroutine the caller can abandon.
+const vsockDialTimeout = 10 * time.Second
+
 func (vc *VSOCKClientInterface) dialSession() (net.Conn, error) {
-	return vsock.Dial(vc.contextID, vc.port, nil)
+	type result struct {
+		conn *vsock.Conn
+		err  error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		c, err := vsock.Dial(vc.contextID, vc.port, nil)
+		ch <- result{c, err}
+	}()
+	select {
+	case r := <-ch:
+		return r.conn, r.err
+	case <-time.After(vsockDialTimeout):
+		return nil, fmt.Errorf("vsock dial timed out after %s", vsockDialTimeout)
+	case <-vc.done:
+		return nil, fmt.Errorf("interface stopped")
+	}
 }
 
 func (vc *VSOCKClientInterface) onConnected(conn net.Conn) {
@@ -137,7 +160,9 @@ func (vc *VSOCKClientInterface) Start() error {
 	}
 	if vc.conn != nil {
 		vc.Online = true
-		go vc.readLoop()
+		if vc.readerActive.CompareAndSwap(false, true) {
+			go vc.readLoop()
+		}
 		vc.Mutex.Unlock()
 		return nil
 	}
@@ -225,6 +250,7 @@ func (vc *VSOCKClientInterface) Send(data []byte, address string) error {
 }
 
 func (vc *VSOCKClientInterface) readLoop() {
+	defer vc.readerActive.Store(false)
 	decoder := newHDLCToggleStreamDecoder(vc.MTU, func(payload []byte) {
 		if len(payload) == 0 {
 			return

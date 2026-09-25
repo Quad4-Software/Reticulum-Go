@@ -433,7 +433,12 @@ func (r *Reticulum) Start() error {
 		go func(period time.Duration) {
 			ticker := time.NewTicker(period)
 			defer ticker.Stop()
-			for range ticker.C {
+			for {
+				select {
+				case <-r.refreshStop:
+					return
+				case <-ticker.C:
+				}
 				debug.Log(debug.DebugInfo, "Sending periodic announce",
 					"every", FormatDuration(period),
 				)

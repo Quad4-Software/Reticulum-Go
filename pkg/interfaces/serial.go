@@ -110,6 +110,14 @@ func (si *SerialInterface) Start() error {
 		return nil
 	}
 	enabled := si.Enabled
+	// A closed done means a previous Stop; restart needs a fresh channel and
+	// a fresh once or the new readLoop exits immediately.
+	select {
+	case <-si.done:
+		si.done = make(chan struct{})
+		si.stopOnce = sync.Once{}
+	default:
+	}
 	si.Mutex.Unlock()
 	if !enabled {
 		return fmt.Errorf("interface not enabled")

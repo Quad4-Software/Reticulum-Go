@@ -232,6 +232,12 @@ func (di *DNSRendezvousInterface) Start() error {
 	di.Mutex.Lock()
 	di.conn = conn
 	di.Online = true
+	select {
+	case <-di.done:
+		di.done = make(chan struct{})
+		di.stopOnce = sync.Once{}
+	default:
+	}
 	di.Mutex.Unlock()
 	if err := di.resolveAndApply(); err != nil {
 		debug.Log(debug.DebugVerbose, "DNS rendezvous initial resolve", "name", di.Name, "error", err)

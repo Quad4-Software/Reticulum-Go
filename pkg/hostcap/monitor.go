@@ -15,8 +15,9 @@ import (
 
 var (
 	lastReport  atomic.Pointer[Report]
+	monitorMu   sync.Mutex
 	monitorStop chan struct{}
-	monitorOnce sync.Once
+	running     bool
 )
 
 // LastReport returns the most recent probe, or nil.
@@ -30,9 +31,20 @@ func Start(ctx context.Context, transport bool) {
 	if Skipped() {
 		return
 	}
-	monitorOnce.Do(func() {
+	// The monitor is a process singleton shared by every Node. Only the
+	// first live Start owns the loop; a Stop frees the slot so the next
+	// Start can monitor again.
+	monitorMu.Lock()
+	if monitorStop == nil {
 		monitorStop = make(chan struct{})
-	})
+	}
+	ownsLoop := !running
+	if ownsLoop {
+		running = true
+	}
+	stop := monitorStop
+	monitorMu.Unlock()
+
 	run := func() {
 		if ctx == nil {
 			ctx = context.Background()
@@ -46,13 +58,24 @@ func Start(ctx context.Context, transport bool) {
 
 	interval := probeInterval()
 	if interval <= 0 {
+		if ownsLoop {
+			monitorMu.Lock()
+			running = false
+			monitorMu.Unlock()
+		}
 		return
 	}
-	go monitorLoop(ctx, interval, transport)
+	if !ownsLoop {
+		return
+	}
+	go monitorLoop(ctx, interval, transport, stop)
 }
 
 // Stop ends periodic host probing.
 func Stop() {
+	monitorMu.Lock()
+	defer monitorMu.Unlock()
+	running = false
 	if monitorStop == nil {
 		return
 	}
@@ -61,6 +84,7 @@ func Stop() {
 	default:
 		close(monitorStop)
 	}
+	monitorStop = nil
 }
 
 func storeReport(r Report) {
@@ -80,13 +104,18 @@ func probeInterval() time.Duration {
 	return time.Duration(sec) * time.Second
 }
 
-func monitorLoop(ctx context.Context, interval time.Duration, transport bool) {
+func monitorLoop(ctx context.Context, interval time.Duration, transport bool, stop <-chan struct{}) {
+	defer func() {
+		monitorMu.Lock()
+		running = false
+		monitorMu.Unlock()
+	}()
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	var prev *Report
 	for {
 		select {
-		case <-monitorStop:
+		case <-stop:
 			return
 		case <-ctx.Done():
 			return

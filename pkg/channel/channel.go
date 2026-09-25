@@ -694,6 +694,9 @@ func (c *Channel) Close() error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	for _, env := range c.txRing {
+		if env != nil && env.Packet != nil {
+			c.dropReceiptTracking(env.Packet)
+		}
 		releaseEnvelope(env)
 	}
 	c.txRing = nil

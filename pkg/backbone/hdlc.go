@@ -29,7 +29,9 @@ func assemblerCap(mtu int) int {
 }
 
 func NewHDLCDecoder(mtu int, onPacket func([]byte)) *HDLCDecoder {
-	maxFrame := 2*mtu + 32
+	// emit drops payloads above mtu, so bytes beyond it can never deliver.
+	// Capping assembly at mtu bounds what an unterminated frame pins.
+	maxFrame := mtu
 	if maxFrame < 256 {
 		maxFrame = 2048
 	}

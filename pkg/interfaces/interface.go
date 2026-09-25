@@ -302,6 +302,10 @@ func (i *BaseInterface) Enable() {
 	prevState := i.Enabled
 	i.Enabled = true
 	i.Online = true
+	// Enable resurrects a detached interface; Detach remains the
+	// power-down verb and a later Enable plus Start must be able to
+	// bring it back.
+	i.Detached = false
 
 	debug.Log(debug.DebugInfo, "Interface state changed", "name", i.Name, "enabled_prev", prevState, "enabled", i.Enabled, "online_prev", !i.Online, "online", i.Online)
 }

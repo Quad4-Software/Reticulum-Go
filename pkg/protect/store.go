@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	storageio "github.com/Quad4-Software/Reticulum-Go/internal/storage"
 	"os"
 	"path/filepath"
 	"sort"
@@ -32,6 +33,10 @@ type persistedStore struct {
 	Ifaces      map[string]persistedIface `msgpack:"ifaces"`
 }
 
+// maxStateFileBytes caps state files loaded from disk so a replaced or
+// oversized file cannot exhaust memory during startup.
+const maxStateFileBytes = 64 << 20
+
 func networkFingerprint(names []string) string {
 	sorted := append([]string(nil), names...)
 	sort.Strings(sorted)
@@ -48,7 +53,7 @@ func loadStore(path string) (*persistedStore, error) {
 		return nil, nil
 	}
 	path = filepath.Clean(path)
-	data, err := os.ReadFile(path) // #nosec G304 -- path is transport storage dir plus fixed StoreFileName
+	data, err := storageio.ReadFileCapped(path, maxStateFileBytes)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil

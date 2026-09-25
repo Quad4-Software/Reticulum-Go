@@ -29,6 +29,11 @@ type InterfaceConfig struct {
 	I2PSAMAddress     string
 	PreferIPv6        bool
 	MaxReconnTries    int
+	// MaxReconnTriesSet distinguishes an explicit max_reconnect_tries = 0
+	// (never reconnect) from an unset value (unlimited). Explicit zero
+	// semantics matter: conflating the two silently changes operator
+	// intent, the same class as Tailscale's checkPeriod zero-default bug.
+	MaxReconnTriesSet bool
 	Bitrate           int64
 	MTU               int
 	GroupID           string
@@ -110,6 +115,14 @@ type InterfaceConfig struct {
 
 	// LongPollSec is HTTPS long-poll timeout seconds (default 25).
 	LongPollSec int
+
+	// AwareRole selects the WiFi Aware session role: publish or subscribe.
+	// mode = publish|subscribe is also accepted for config compatibility
+	// with the Python AwareInterface.
+	AwareRole string
+
+	// AwarePeers caps concurrent data paths (default 4, max 8).
+	AwarePeers int
 
 	// Mode is the interface operational mode (full, gateway, internal, ...).
 	// Empty means full.

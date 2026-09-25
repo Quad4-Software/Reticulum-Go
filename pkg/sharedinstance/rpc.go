@@ -9,6 +9,7 @@ import (
 	rdebug "runtime/debug"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
@@ -171,6 +172,13 @@ func (s *RPCServer) serve() {
 				return
 			default:
 			}
+			// A persistent accept failure (fd exhaustion, emfile) must not
+			// spin the loop at full rate.
+			select {
+			case <-s.done:
+				return
+			case <-time.After(50 * time.Millisecond):
+			}
 			continue
 		}
 		s.wg.Add(1)
@@ -183,6 +191,9 @@ func (s *RPCServer) serve() {
 						"error", r, "stack", string(rdebug.Stack()))
 				}
 			}()
+			// Bound the whole auth+request read: a client that connects and
+			// stalls would otherwise hold this goroutine and fd forever.
+			_ = c.SetDeadline(time.Now().Add(30 * time.Second))
 			if err := AuthenticateServer(c, s.authkey); err != nil {
 				debug.Log(debug.DebugError, "Shared instance RPC auth failed", "error", err)
 				return

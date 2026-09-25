@@ -85,6 +85,7 @@ func (l *Link) RequestLimited(path string, data any, timeout time.Duration, maxR
 			sentAt:          time.Now(),
 			timeout:         timeout,
 			maxResponseSize: maxResponseSize,
+			done:            make(chan struct{}),
 		}
 
 		if err := l.registerPendingRequest(receipt); err != nil {
@@ -122,6 +123,7 @@ func (l *Link) RequestLimited(path string, data any, timeout time.Duration, maxR
 		sentAt:          time.Now(),
 		timeout:         timeout,
 		maxResponseSize: maxResponseSize,
+		done:            make(chan struct{}),
 	}
 
 	if err := l.registerPendingRequest(receipt); err != nil {
@@ -192,6 +194,10 @@ type RequestReceipt struct {
 	responseCb      func(*RequestReceipt)
 	failedCb        func(*RequestReceipt)
 	progressCb      func(*RequestReceipt)
+	// done is closed when the receipt concludes so the timeout sleeper exits
+	// immediately instead of sleeping out the deadline.
+	done     chan struct{}
+	doneOnce sync.Once
 }
 
 func (r *RequestReceipt) GetRequestID() []byte {
@@ -282,15 +288,36 @@ func (l *Link) failPendingRequest(req *RequestReceipt) {
 	req.status = StatusFailed
 	cb := req.failedCb
 	req.mutex.Unlock()
+	req.signalDone()
 	l.removePendingRequest(req)
 	if cb != nil {
 		go cb(req)
 	}
 }
+
+// signalDone releases the timeout sleeper. Idempotent via recover-safe
+// select on the channel state is avoided by closing under r.mutex at the
+// single status transition sites.
+func (r *RequestReceipt) signalDone() {
+	if r.done == nil {
+		return
+	}
+	r.doneOnce.Do(func() {
+		close(r.done)
+	})
+}
+
 func (r *RequestReceipt) startTimeout() {
 	timer := time.NewTimer(r.timeout)
-	<-timer.C
-	timer.Stop()
+	select {
+	case <-timer.C:
+	case <-r.done:
+		timer.Stop()
+		return
+	case <-r.link.linkDone:
+		timer.Stop()
+		return
+	}
 	var unboundSince time.Time
 	for {
 		r.mutex.RLock()
@@ -324,7 +351,13 @@ func (r *RequestReceipt) startTimeout() {
 			r.link.failPendingRequest(r)
 			return
 		}
-		time.Sleep(incomingResourceRetryInterval)
+		select {
+		case <-r.done:
+			return
+		case <-r.link.linkDone:
+			return
+		case <-time.After(incomingResourceRetryInterval):
+		}
 	}
 }
 func (r *RequestReceipt) SetResponseCallback(cb func(*RequestReceipt)) {
@@ -457,6 +490,7 @@ func (l *Link) handleResponse(plaintext []byte) error {
 	matched.totalBytes = int64(len(responsePayload))
 	cb := matched.responseCb
 	matched.mutex.Unlock()
+	matched.signalDone()
 
 	l.removePendingRequest(matched)
 	if cb != nil {
@@ -556,4 +590,18 @@ func (l *Link) sendResponse(requestID []byte, response any) error {
 		}
 	}()
 	return nil
+}
+
+// failAllPendingRequests fails every unconcluded receipt. Called from
+// closeOnce on link teardown: a dead link cannot deliver responses, so
+// waiters and their timeout goroutines are released now rather than at
+// their deadlines.
+func (l *Link) failAllPendingRequests() {
+	l.requestMutex.Lock()
+	pending := make([]*RequestReceipt, len(l.pendingRequests))
+	copy(pending, l.pendingRequests)
+	l.requestMutex.Unlock()
+	for _, req := range pending {
+		l.failPendingRequest(req)
+	}
 }

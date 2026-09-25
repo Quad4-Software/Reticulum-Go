@@ -93,8 +93,12 @@ func (l *Link) resourceStorageDir() string {
 	return filepath.Join(home, ".reticulum-go", "storage", "resources")
 }
 
+// resourceStoragePath scopes the on-disk staging file by link ID as well as
+// resource hash: two links transferring the same hash must not share one
+// file and corrupt each other's append state.
 func (l *Link) resourceStoragePath(originalHash []byte) string {
-	return filepath.Join(l.resourceStorageDir(), hex.EncodeToString(originalHash))
+	name := hex.EncodeToString(l.linkID) + "-" + hex.EncodeToString(originalHash)
+	return filepath.Join(l.resourceStorageDir(), name)
 }
 
 // handleSplitSegmentComplete appends a finished resource segment to durable

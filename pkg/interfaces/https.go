@@ -92,12 +92,20 @@ func newHTTPSPeerID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
+// maxHTTPSPeers bounds self-registered X-RNS-Peer identities; each entry
+// claims a queue and up to one parked poll goroutine.
+const maxHTTPSPeers = 1024
+
+// httpsPeerIdleTTL drops peer entries with no send or poll activity.
+const httpsPeerIdleTTL = 10 * time.Minute
+
 type httpsPeerQueue struct {
-	ch chan []byte
+	ch       chan []byte
+	lastSeen time.Time
 }
 
 func newHTTPSPeerQueue() *httpsPeerQueue {
-	return &httpsPeerQueue{ch: make(chan []byte, httpsQueueSize)}
+	return &httpsPeerQueue{ch: make(chan []byte, httpsQueueSize), lastSeen: time.Now()}
 }
 
 func (q *httpsPeerQueue) enqueue(pkt []byte) {
@@ -553,6 +561,16 @@ func (hs *HTTPSServerInterface) LeafSPKIPinHex() (string, error) {
 	return SPKIPinHex(leaf), nil
 }
 
+// remoteHostKey extracts the stable part of the transport peer for DoS
+// bucketing; the port changes per connection but the host does not.
+func remoteHostKey(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
 // PeerCount returns the number of known long-poll peers.
 func (hs *HTTPSServerInterface) PeerCount() int {
 	hs.Mutex.RLock()
@@ -564,10 +582,25 @@ func (hs *HTTPSServerInterface) ensurePeer(peerID string) *httpsPeerQueue {
 	hs.Mutex.Lock()
 	defer hs.Mutex.Unlock()
 	q := hs.peers[peerID]
-	if q == nil {
-		q = newHTTPSPeerQueue()
-		hs.peers[peerID] = q
+	if q != nil {
+		q.lastSeen = time.Now()
+		return q
 	}
+	// Peer IDs are requester-chosen, so new registrations need a bound and
+	// an idle expiry or a flood of unique IDs grows the map forever.
+	if len(hs.peers) >= maxHTTPSPeers {
+		now := time.Now()
+		for id, pq := range hs.peers {
+			if now.Sub(pq.lastSeen) > httpsPeerIdleTTL {
+				delete(hs.peers, id)
+			}
+		}
+		if len(hs.peers) >= maxHTTPSPeers {
+			return nil
+		}
+	}
+	q = newHTTPSPeerQueue()
+	hs.peers[peerID] = q
 	return q
 }
 
@@ -613,6 +646,12 @@ func (hs *HTTPSServerInterface) Start() error {
 	hs.Online = true
 	hs.Mutex.Unlock()
 
+	if hs.peerPin == nil {
+		debug.Log(debug.DebugWarning,
+			"HTTPS server has no peer_key: any TLS client can register peer IDs",
+			"name", hs.Name)
+	}
+
 	hs.serveWg.Go(func() {
 		err := srv.Serve(ln)
 		if err != nil && err != http.ErrServerClosed {
@@ -643,7 +682,10 @@ func (hs *HTTPSServerInterface) handleSend(w http.ResponseWriter, r *http.Reques
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	hs.ensurePeer(peerID)
+	if hs.ensurePeer(peerID) == nil {
+		http.Error(w, "too many peers", http.StatusServiceUnavailable)
+		return
+	}
 
 	limit := int64(hs.MTU + httpsMaxBodySlack)
 	body, err := io.ReadAll(io.LimitReader(r.Body, limit+1))
@@ -656,7 +698,10 @@ func (hs *HTTPSServerInterface) handleSend(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if len(body) > 0 {
-		hs.ProcessIncomingFrom(body, peerID)
+		// The X-RNS-Peer header is self-chosen, so it cannot key DoS
+		// buckets: rotating IDs would defeat per-peer fair sharing.
+		// The transport address is what the peer cannot forge.
+		hs.ProcessIncomingFrom(body, remoteHostKey(r))
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -672,6 +717,10 @@ func (hs *HTTPSServerInterface) handlePoll(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	q := hs.ensurePeer(peerID)
+	if q == nil {
+		http.Error(w, "too many peers", http.StatusServiceUnavailable)
+		return
+	}
 
 	hs.Mutex.RLock()
 	done := hs.done

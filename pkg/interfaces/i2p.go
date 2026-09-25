@@ -96,7 +96,7 @@ type I2PInterfacePeer struct {
 	lastWrite         time.Time
 	lastError         string
 	tunnelState       atomic.Uint32
-	wdReset           atomic.Bool
+	wdGen             atomic.Uint64
 	done              chan struct{}
 	stopOnce          sync.Once
 	peerKey           string
@@ -172,6 +172,20 @@ func (p *I2PInterface) Start() error {
 	p.Mutex.Lock()
 	p.listener = ln
 	p.Online = true
+	// A closed done means a previous Stop; restart needs fresh channels and
+	// fresh onces or the new loops exit immediately.
+	select {
+	case <-p.serverDone:
+		p.serverDone = make(chan struct{})
+		p.serverStop = sync.Once{}
+	default:
+	}
+	select {
+	case <-p.acceptDone:
+		p.acceptDone = make(chan struct{})
+		p.acceptStop = sync.Once{}
+	default:
+	}
 	p.Mutex.Unlock()
 
 	go p.acceptLoop()
@@ -703,7 +717,8 @@ func (peer *I2PInterfacePeer) ProcessOutgoing(data []byte) error {
 }
 
 func (peer *I2PInterfacePeer) readLoop() {
-	go peer.readWatchdog()
+	gen := peer.wdGen.Add(1)
+	go peer.readWatchdog(gen)
 	peer.Mutex.Lock()
 	peer.lastRead = time.Now()
 	peer.lastWrite = time.Now()
@@ -739,9 +754,7 @@ func (peer *I2PInterfacePeer) readLoop() {
 			detached := peer.Detached
 			peer.Mutex.Unlock()
 			peer.tunnelState.Store(i2pTunnelStateInit)
-			peer.wdReset.Store(true)
 			time.Sleep(2 * time.Second)
-			peer.wdReset.Store(false)
 			if initiator && !detached {
 				go peer.reconnect()
 			} else {
@@ -773,11 +786,15 @@ func (peer *I2PInterfacePeer) deliverFrame(data []byte) {
 	peer.ProcessIncomingFrom(data, peer.peerKey)
 }
 
-func (peer *I2PInterfacePeer) readWatchdog() {
-	for !peer.wdReset.Load() {
+// A new readLoop after a fast reconnect starts a new watchdog; the
+// generation check retires any older one still sleeping. A shared reset
+// flag would also retire the replacement watchdog started inside the
+// reset window, leaving the new conn unmonitored.
+func (peer *I2PInterfacePeer) readWatchdog(gen uint64) {
+	for {
 		time.Sleep(time.Second)
-		if peer.wdReset.Load() {
-			break
+		if peer.wdGen.Load() != gen {
+			return
 		}
 		peer.Mutex.RLock()
 		lastRead := peer.lastRead

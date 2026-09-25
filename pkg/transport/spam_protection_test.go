@@ -204,3 +204,55 @@ func TestBuildIfaceStateDefaults(t *testing.T) {
 		t.Fatalf("default announce_cap = %v, want 2.0", st.announceCap)
 	}
 }
+
+// Regression: announces held during an ingress burst must still forward on
+// release. The dedup claim claimed before the hold previously survived the
+// hold and killed the replayed announce as a duplicate.
+func TestHeldAnnounceForwardsOnRelease(t *testing.T) {
+	inCfg := &common.InterfaceConfig{
+		IngressControlSet:     true,
+		IngressControl:        true,
+		ICBurstFreq:           4,
+		ICBurstFreqNew:        4,
+		ICNewTime:             1,
+		ICBurstHold:           5,
+		ICBurstPenalty:        5,
+		ICMaxHeldAnnounces:    16,
+		ICHeldReleaseInterval: 1,
+	}
+	tr, in, out := transportWithIfaceConfig(t, inCfg, nil)
+	defer tr.Close()
+
+	// Push enough announces to engage the hold, ending with one announce
+	// for a destination the node has never seen before.
+	for range 12 {
+		id, err := identity.New()
+		if err != nil {
+			t.Fatalf("identity.New: %v", err)
+		}
+		raw, _ := signedAnnounce(t, tr, id)
+		tr.HandlePacket(raw, in)
+	}
+	time.Sleep(150 * time.Millisecond)
+
+	st := tr.ifaceStates.get("in")
+	if st == nil || st.ingress == nil {
+		t.Fatal("expected ingress state on in iface")
+	}
+	if st.ingress.HeldCount() == 0 {
+		t.Skip("no announce was held; ingress did not engage in time")
+	}
+
+	before := sentCount(out)
+	tr.releaseHeldAnnounces()
+	// Released announces may requeue into the delayed-announce drain, so
+	// give the maintenance loop a couple of ticks to emit.
+	deadline := time.Now().Add(4 * time.Second)
+	for time.Now().Before(deadline) {
+		if sentCount(out) > before {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("held announce lost on release: out sends %d before, %d after", before, sentCount(out))
+}

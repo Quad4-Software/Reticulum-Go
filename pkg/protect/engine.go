@@ -123,6 +123,10 @@ type Engine struct {
 	mu           sync.Mutex
 	ifaces       map[string]*ifaceState
 	conns        map[string]int
+	// offConns counts accepted conns while protection is off; the
+	// backstop below keeps a flood from exhausting fds without
+	// engaging adaptive policy.
+	offConns map[string]int
 	resources    int
 	crypto       int
 	handshake    int
@@ -137,6 +141,7 @@ type Engine struct {
 
 	memStop chan struct{}
 	memOnce sync.Once
+	memWg   sync.WaitGroup
 	started atomic.Bool
 }
 
@@ -294,9 +299,16 @@ func (e *Engine) StartMemoryMonitor() {
 	if e == nil || e.mode == ModeOff {
 		return
 	}
+	e.mu.Lock()
+	if e.memStop == nil {
+		e.memStop = make(chan struct{})
+		e.memOnce = sync.Once{}
+	}
+	e.mu.Unlock()
 	if !e.started.CompareAndSwap(false, true) {
 		return
 	}
+	e.memWg.Add(1)
 	go e.memoryLoop()
 }
 
@@ -312,9 +324,19 @@ func (e *Engine) StopMemoryMonitor() {
 	e.memOnce.Do(func() {
 		close(e.memStop)
 	})
+	e.memWg.Wait()
+	// Reset so a later StartMemoryMonitor on this engine actually restarts;
+	// without it the consumed once and closed channel make every subsequent
+	// start exit immediately.
+	e.mu.Lock()
+	e.memStop = make(chan struct{})
+	e.memOnce = sync.Once{}
+	e.mu.Unlock()
 }
 
 func (e *Engine) memoryLoop() {
+	defer e.memWg.Done()
+	defer e.started.Store(false)
 	ticker := time.NewTicker(MemorySampleInterval)
 	defer ticker.Stop()
 	persistEvery := PersistInterval
@@ -705,11 +727,38 @@ func (e *Engine) AdmitHandler(iface string) Decision {
 	return e.decide(iface, ReasonHandler)
 }
 
+// offModeMaxConns is the unconditional accepted-connection ceiling per
+// interface when protect is disabled. Well above any legitimate peer count
+// on a sparse mesh; it exists so an idle-conn flood cannot exhaust fds.
+const offModeMaxConns = 8192
+
 // AdmitConn checks concurrent accepted connections for iface.
 func (e *Engine) AdmitConn(iface string) (Decision, func()) {
 	noop := func() {}
-	if e == nil || e.mode == ModeOff {
+	if e == nil {
 		return Decision{Allow: true}, noop
+	}
+	if e.mode == ModeOff {
+		e.mu.Lock()
+		if e.offConns == nil {
+			e.offConns = make(map[string]int)
+		}
+		if e.offConns[iface] >= offModeMaxConns {
+			e.mu.Unlock()
+			return Decision{Allow: false}, noop
+		}
+		e.offConns[iface]++
+		e.mu.Unlock()
+		var once sync.Once
+		return Decision{Allow: true}, func() {
+			once.Do(func() {
+				e.mu.Lock()
+				if e.offConns[iface] > 0 {
+					e.offConns[iface]--
+				}
+				e.mu.Unlock()
+			})
+		}
 	}
 	if e.shedMemory.Load() {
 		d := e.decideMemory(iface)

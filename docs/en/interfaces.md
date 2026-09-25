@@ -57,6 +57,7 @@ Transport.SendPacket -> Send -> ProcessOutgoing -> wire
 | HTTPSServerInterface | Go-only | https.go |
 | Modem73Interface | Complete | modem73.go |
 | SDRInterface | Complete | sdr.go, pkg/sdr |
+| AwareInterface | Android, driver-injected | aware.go |
 
 ## Not implemented
 
@@ -402,6 +403,22 @@ peer_key = aabbccdd...
 ```
 
 Live Go-Go: RUN_LIVE_INTEROP=1 with tests/interop/https_live_test.go.
+
+## AwareInterface
+
+WiFi Aware (NAN) transport, Android only. The host app supplies an AwareDriver (a gomobile bridge to WifiAwareManager); the controller spawns one peer interface per data path and frames it with HDLC identical to TCPClientInterface, so wire behaviour is unchanged.
+
+```
+type = AwareInterface
+enabled = yes
+role = subscribe
+peers = 4
+```
+
+- `role`: `publish` (responder) or `subscribe` (initiator). `mode = publish|subscribe` is also accepted for config compatibility with the Python AwareInterface.
+- `peers`: concurrent data-path cap, default 4, max 8.
+
+The Go side owns only framing and RNS plumbing: discovery, DPREQ exchange, data-path negotiation, and peer sockets live in the platform driver. Without a driver the interface fails at Start, matching the Python bridge raising on non-Android platforms. Embedding apps call `node.SetAwareDriver(...)` before `Start`.
 
 ## Interface Access Code (IFAC)
 

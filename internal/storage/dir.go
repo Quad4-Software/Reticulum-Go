@@ -5,6 +5,7 @@ package storage
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -66,4 +67,22 @@ func EnsureDataDir(configPath string) (string, error) {
 		return "", fmt.Errorf("create storage directory %q: %w", dir, err)
 	}
 	return dir, nil
+}
+
+// ReadFileCapped reads a file but refuses data above max bytes, so state
+// loads stay bounded when a file is replaced by something oversized.
+func ReadFileCapped(path string, max int64) ([]byte, error) {
+	f, err := os.Open(path) // #nosec G304 -- callers own the path contract
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	data, err := io.ReadAll(io.LimitReader(f, max+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > max {
+		return nil, fmt.Errorf("file %q exceeds size cap of %d bytes", path, max)
+	}
+	return data, nil
 }
