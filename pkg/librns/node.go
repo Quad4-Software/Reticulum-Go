@@ -101,13 +101,13 @@ func NodeStart(nodeHandle uint64) int {
 	if err != nil {
 		return setLastError(err)
 	}
-	if rec.started {
+	if rec.started.Load() {
 		return OK
 	}
 	if err := rec.node.Start(); err != nil {
 		return setLastError(fmt.Errorf("%w: %v", errInternal, err))
 	}
-	rec.started = true
+	rec.started.Store(true)
 	return OK
 }
 
@@ -117,13 +117,13 @@ func NodeStop(nodeHandle uint64) int {
 	if err != nil {
 		return setLastError(err)
 	}
-	if !rec.started {
+	if !rec.started.Load() {
 		return OK
 	}
 	if err := rec.node.Stop(); err != nil {
 		return setLastError(fmt.Errorf("%w: %v", errInternal, err))
 	}
-	rec.started = false
+	rec.started.Store(false)
 	return OK
 }
 
@@ -134,9 +134,9 @@ func NodeDestroy(nodeHandle uint64) int {
 		return setLastError(err)
 	}
 	rec.stopCallback()
-	if rec.started {
+	if rec.started.Load() {
 		_ = rec.node.Stop()
-		rec.started = false
+		rec.started.Store(false)
 	}
 	rec.queue.close()
 
@@ -322,7 +322,9 @@ func drainEvents(rec *nodeRecord, cb EventCallback, stop, done chan struct{}) {
 			}
 			continue
 		}
+		rec.inCallback.Store(true)
 		cb(cloneEvent(ev))
+		rec.inCallback.Store(false)
 	}
 }
 
@@ -336,7 +338,7 @@ func NodeSetIdentity(nodeHandle, identityHandle uint64) int {
 	if err != nil {
 		return setLastError(err)
 	}
-	rec.identity = identRec.identity
+	rec.identity.Store(identRec.identity)
 	rec.node.Transport().SetIdentity(identRec.identity)
 	return OK
 }
@@ -350,7 +352,7 @@ func PathRequest(nodeHandle uint64, destHash []byte) int {
 	if len(destHash) != identity.TruncatedHashLength/8 {
 		return setLastError(errInvalidArg)
 	}
-	if !rec.started {
+	if !rec.started.Load() {
 		return setLastError(errState)
 	}
 	if err := rec.node.Transport().RequestPath(destHash, "", nil, false); err != nil {

@@ -5,6 +5,7 @@ package librns
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
@@ -16,13 +17,14 @@ import (
 const requestResponseTimeout = 30 * time.Second
 
 type nodeRecord struct {
-	handle       uint64
-	node         *node.Node
-	identity     *identity.Identity
+	handle uint64
+	node   *node.Node
+	// started and identity are touched from arbitrary embedder threads.
+	identity     atomic.Pointer[identity.Identity]
 	queue        *eventQueue
 	destinations map[uint64]*destination.Destination
 	links        map[uint64]*linkRecord
-	started      bool
+	started      atomic.Bool
 	configPath   string
 
 	pendingMu sync.Mutex
@@ -32,13 +34,34 @@ type nodeRecord struct {
 	callback EventCallback
 	cbStop   chan struct{}
 	cbDone   chan struct{}
+	// inCallback is set while drainEvents is inside the user callback.
+	// A reentrant stop (rns_node_destroy or rns_set_event_callback called
+	// from the callback on the same goroutine) must not wait for cbDone,
+	// or both sides block forever.
+	inCallback atomic.Bool
 }
 
 type linkRecord struct {
-	link        *link.Link
-	id          []byte
+	// link and established are written by transport callbacks on other
+	// goroutines. id is written during establishment (the transport assigns
+	// linkID inside Establish) and read by FFI threads.
+	link        atomic.Pointer[link.Link]
 	nodeID      uint64
-	established bool
+	established atomic.Bool
+	idMu        sync.RWMutex
+	id          []byte
+}
+
+func (lr *linkRecord) linkIDBytes() []byte {
+	lr.idMu.RLock()
+	defer lr.idMu.RUnlock()
+	return append([]byte(nil), lr.id...)
+}
+
+func (lr *linkRecord) setLinkID(id []byte) {
+	lr.idMu.Lock()
+	lr.id = append([]byte(nil), id...)
+	lr.idMu.Unlock()
 }
 
 type identityRecord struct {
@@ -135,7 +158,9 @@ func (n *nodeRecord) stopCallback() {
 	n.cbMu.Unlock()
 	if stop != nil {
 		close(stop)
-		<-done
+		if !n.inCallback.Load() {
+			<-done
+		}
 	}
 }
 
