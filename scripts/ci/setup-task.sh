@@ -89,4 +89,9 @@ TASK_BIN="${INSTALL_DIR}/task"
 if [ -f "${INSTALL_DIR}/task.exe" ]; then
     TASK_BIN="${INSTALL_DIR}/task.exe"
 fi
-"$TASK_BIN" --version
+GOT="$("$TASK_BIN" --version 2>&1 | head -n1)"
+echo "$GOT"
+case "$GOT" in
+    *"${TASK_VERSION}"*) ;;
+    *) echo "error: resolved Task does not match pinned v${TASK_VERSION} (got: $GOT)" >&2; exit 1 ;;
+esac

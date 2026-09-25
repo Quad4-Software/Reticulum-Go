@@ -56,5 +56,10 @@ if [ -n "${GITHUB_ENV:-}" ]; then
 	echo "KOTLIN_HOME=$INSTALL_DIR" >>"$GITHUB_ENV"
 fi
 echo "Kotlin installed: $(command -v kotlinc)"
-kotlinc -version
+GOT="$(kotlinc -version 2>&1 | head -n1)"
+echo "$GOT"
+case "$GOT" in
+	*"$VERSION"*) ;;
+	*) echo "error: resolved Kotlin does not match pinned ${VERSION} (got: $GOT)" >&2; exit 1 ;;
+esac
 echo "KOTLIN_HOME=$INSTALL_DIR"

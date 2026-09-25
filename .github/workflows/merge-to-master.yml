@@ -1,0 +1,57 @@
+# Pinned actions (bump tag and SHA together when upgrading):
+#   actions/checkout@v7.0.1            3d3c42e5aac5ba805825da76410c181273ba90b1
+#
+name: Merge dev to master
+
+# Manually dispatched merge gate. Refuses to merge unless the latest
+# completed CI run for the current dev head concluded successfully.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  merge:
+    name: Merge dev into master
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout master
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: master
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Verify dev CI is green
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git fetch origin dev
+          DEV_SHA="$(git rev-parse origin/dev)"
+          echo "dev head: ${DEV_SHA}"
+          STATUS="$(gh run list --branch dev --workflow CI --commit "${DEV_SHA}" \
+            --limit 1 --json status,conclusion \
+            --jq '.[0] | .status + "/" + (.conclusion // "none")')"
+          echo "CI run for ${DEV_SHA}: ${STATUS}"
+          if [ "${STATUS}" != "completed/success" ]; then
+            echo "::error::latest CI run for dev head is not green (${STATUS}); refusing to merge"
+            exit 1
+          fi
+
+      - name: Merge and push
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git merge --no-ff --signoff origin/dev -m "Merge branch 'dev'"
+          git push origin master

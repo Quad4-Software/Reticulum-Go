@@ -43,3 +43,8 @@ if [ -n "${GITEA_PATH:-}" ]; then
 fi
 
 go version
+GOT="$(go version 2>&1 | head -n1)"
+case "$GOT" in
+    *"$GO_VERSION"*) ;;
+    *) echo "error: resolved Go toolchain does not match pinned ${GO_VERSION} (got: $GOT)" >&2; exit 1 ;;
+esac

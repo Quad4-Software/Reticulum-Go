@@ -41,6 +41,7 @@ env:
   GOPROXY: "off"
   GOTOOLCHAIN: local
   TESTSUMMARY_QUIET: "1"
+  TESTSUMMARY_RERUN_FAILS: "2"
   RNS_REQUIRED_SIGNER: e318cbc04468bd574db2b4523dddd710
 
 jobs:
@@ -188,7 +189,20 @@ jobs:
         run: task test-self-check
 
       - name: Run tests
-        run: task test
+        run: |
+          if [ "${{ matrix.goarch }}" = "amd64" ]; then
+            go run ./scripts/ci/testsummary -v -vet=all -coverprofile=coverage.out ./...
+          else
+            task test
+          fi
+
+      - name: Upload coverage profile
+        if: matrix.goarch == 'amd64'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-amd64
+          path: coverage.out
+          retention-days: 14
 
       - name: Verify workspace clean
         uses: $/.github/actions/verify-workspace-clean
@@ -227,7 +241,7 @@ jobs:
         env:
           RUN_LIVE_INTEROP: "1"
           PYTHON_INTEROP: ${{ github.workspace }}/.venv/bin/python
-        run: go test -count=1 -timeout 30m ./tests/interop/
+        run: go run ./scripts/ci/testsummary -count=1 -timeout 30m ./tests/interop/
 
       - name: Verify workspace clean
         uses: $/.github/actions/verify-workspace-clean
@@ -819,11 +833,23 @@ jobs:
         uses: $/.github/actions/verify-workspace-clean
 
   test-mutation:
-    name: Mutation testing
+    name: Mutation testing (${{ matrix.name }})
     needs: changes
     if: github.event_name == 'push' || needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: cryptography, pkg: ./pkg/cryptography, threshold: 55 }
+          - { name: packet, pkg: ./pkg/packet, threshold: 50 }
+          - { name: announce, pkg: ./pkg/announce, threshold: 40 }
+          - { name: destination, pkg: ./pkg/destination, threshold: 45 }
+          - { name: identity, pkg: ./pkg/identity, threshold: 50 }
+          - { name: ifac, pkg: ./pkg/ifac, threshold: 45 }
+          - { name: backbone, pkg: ./pkg/backbone, threshold: 40 }
+          - { name: interfaces, pkg: ./pkg/interfaces, threshold: 40 }
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
@@ -841,6 +867,9 @@ jobs:
           task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Run mutation tests
+        env:
+          MUTATION_PACKAGES: ${{ matrix.pkg }}
+          MUTATION_THRESHOLD: ${{ matrix.threshold }}
         run: task test-mutation
 
       - name: Verify workspace clean
