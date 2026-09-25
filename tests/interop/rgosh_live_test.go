@@ -199,7 +199,7 @@ func TestLiveGoForcedCommand(t *testing.T) {
 	writeUDPPeerConfig(t, cfgDirB, portB, portA)
 
 	rgoshBin := ensureRgosh(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Second)
 	defer cancel()
 
 	listen := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirA, "-l", "-n", "-C", "/bin/echo", "forced-only")
@@ -216,11 +216,13 @@ func TestLiveGoForcedCommand(t *testing.T) {
 	// Leg 1 asserts the deny actually reached the client, which doubles as a
 	// listener-readiness probe: an unreachable listener produced empty output
 	// and silently passed the old assertions while burning the shared ctx
-	// budget that leg 2 needed. Retrying absorbs startup jitter.
+	// budget that leg 2 needed. Retrying absorbs startup jitter. Each attempt
+	// waits at most 10s for the path so a slow announce propagating under CI
+	// load cannot consume the whole context in two attempts.
 	var out []byte
 	denied := false
-	for i := 0; i < 4 && !denied; i++ {
-		client := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "-N", "-m", "-w", "20", hex.EncodeToString(destHash), "/bin/echo", "client-cmd")
+	for i := 0; i < 6 && !denied; i++ {
+		client := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "-N", "-m", "-w", "10", hex.EncodeToString(destHash), "/bin/echo", "client-cmd")
 		client.Stdin = bytes.NewReader(nil)
 		out, _ = client.CombinedOutput()
 		denied = bytes.Contains(out, []byte("auth denied"))
