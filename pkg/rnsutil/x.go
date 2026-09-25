@@ -418,9 +418,10 @@ func ExecuteRNXCommandLocally(req RNXRequest) RNXResult {
 		return result
 	}
 	cmd := exec.Command(args[0], args[1:]...) // #nosec G204 -- remote-exec allow-listed operator command
-	var stdoutBuf, stderrBuf bytes.Buffer
-	cmd.Stdout = &stdoutBuf
-	cmd.Stderr = &stderrBuf
+	stdoutBuf := newCappedBuffer(rnxCaptureLimit(req.StdoutLimit))
+	stderrBuf := newCappedBuffer(rnxCaptureLimit(req.StderrLimit))
+	cmd.Stdout = stdoutBuf
+	cmd.Stderr = stderrBuf
 	if len(req.Stdin) > 0 {
 		cmd.Stdin = bytes.NewReader(req.Stdin)
 	}
@@ -432,9 +433,18 @@ func ExecuteRNXCommandLocally(req RNXRequest) RNXResult {
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 
+	// The timeout is requester-controlled, so a missing or huge value gets a
+	// server-side ceiling. Without it a remote sleep-infinity pins a request
+	// goroutine for the life of the listener.
 	var timeout <-chan time.Time
 	if req.TimeoutSec != nil && *req.TimeoutSec > 0 {
-		timeout = time.After(time.Duration(*req.TimeoutSec * float64(time.Second)))
+		if *req.TimeoutSec > maxRNXTimeoutSec {
+			timeout = time.After(time.Duration(maxRNXTimeoutSec * float64(time.Second)))
+		} else {
+			timeout = time.After(time.Duration(*req.TimeoutSec * float64(time.Second)))
+		}
+	} else {
+		timeout = time.After(time.Duration(maxRNXTimeoutSec * float64(time.Second)))
 	}
 
 	timedOut := false
@@ -464,8 +474,8 @@ func ExecuteRNXCommandLocally(req RNXRequest) RNXResult {
 
 	stdout := stdoutBuf.Bytes()
 	stderr := stderrBuf.Bytes()
-	result.StdoutTotal = len(stdout)
-	result.StderrTotal = len(stderr)
+	result.StdoutTotal = stdoutBuf.total
+	result.StderrTotal = stderrBuf.total
 	result.Stdout = truncateBytes(stdout, req.StdoutLimit)
 	result.Stderr = truncateBytes(stderr, req.StderrLimit)
 	if !timedOut {
@@ -475,6 +485,54 @@ func ExecuteRNXCommandLocally(req RNXRequest) RNXResult {
 	return result
 }
 
+// maxRNXTimeoutSec caps the requester-supplied command timeout so a missing or
+// hostile value cannot pin a request goroutine indefinitely.
+const maxRNXTimeoutSec = 3600.0
+
+// rnxCaptureCap is the most output retained per stream when the requester
+// sets no limit or a limit above the capture ceiling.
+const rnxCaptureCap = 32 << 20
+
+// rnxCaptureLimit derives the in-memory capture bound for one stream. Limits
+// are remote-controlled, so negatives collapse to zero and oversized values
+// are clamped.
+func rnxCaptureLimit(limit *int) int {
+	if limit != nil && *limit <= 0 {
+		return 0
+	}
+	if limit != nil && *limit < rnxCaptureCap {
+		return *limit
+	}
+	return rnxCaptureCap
+}
+
+// cappedBuffer counts all bytes while retaining at most cap bytes, so totals
+// stay accurate after capture is full.
+type cappedBuffer struct {
+	buf   bytes.Buffer
+	total int
+	cap   int
+}
+
+func newCappedBuffer(cap int) *cappedBuffer {
+	return &cappedBuffer{cap: cap}
+}
+
+func (w *cappedBuffer) Write(p []byte) (int, error) {
+	w.total += len(p)
+	if rem := w.cap - w.buf.Len(); rem > 0 {
+		if len(p) > rem {
+			p = p[:rem]
+		}
+		_, _ = w.buf.Write(p)
+	}
+	return len(p), nil
+}
+
+func (w *cappedBuffer) Bytes() []byte {
+	return w.buf.Bytes()
+}
+
 func truncateBytes(b []byte, limit *int) []byte {
 	if b == nil {
 		return nil
@@ -482,7 +540,7 @@ func truncateBytes(b []byte, limit *int) []byte {
 	if limit == nil {
 		return b
 	}
-	if *limit == 0 {
+	if *limit <= 0 {
 		return []byte{}
 	}
 	if len(b) > *limit {
@@ -520,8 +578,14 @@ func asIntAny(v any) (int, error) {
 		}
 		return int(x), nil
 	case float64:
+		if math.IsNaN(x) || math.IsInf(x, 0) || x > float64(math.MaxInt) || x < float64(math.MinInt) {
+			return 0, fmt.Errorf("float64 value %v overflows int", x)
+		}
 		return int(x), nil
 	case float32:
+		if math.IsNaN(float64(x)) || math.IsInf(float64(x), 0) || x > float32(math.MaxInt) || x < float32(math.MinInt) {
+			return 0, fmt.Errorf("float32 value %v overflows int", x)
+		}
 		return int(x), nil
 	default:
 		return 0, fmt.Errorf("not an int: %T", v)

@@ -609,6 +609,20 @@ func (s *Session) pumpProcess(proc ProcessHandle) {
 		}
 	}
 
+	// When the drain timer abandoned a stuck reader (a descendant holding
+	// the pipe open after the process died), close our read ends so the
+	// copy goroutines can exit instead of leaking for the session's life.
+	if stdoutEOF != nil {
+		if c, ok := proc.Stdout().(interface{ Close() error }); ok {
+			_ = c.Close()
+		}
+	}
+	if stderrEOF != nil {
+		if c, ok := proc.Stderr().(interface{ Close() error }); ok {
+			_ = c.Close()
+		}
+	}
+
 	sendWhenReady(sender, &ExitMessage{Compat: compat, ReturnCode: code}, 5*time.Second)
 	if d, ok := sender.(interface{ WaitTxIdle(time.Duration) bool }); ok {
 		_ = d.WaitTxIdle(5 * time.Second)

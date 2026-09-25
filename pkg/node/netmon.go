@@ -18,11 +18,20 @@ const interfaceMonitorInterval = 10 * time.Second
 // when link state or addresses change. Uses net.Interfaces and works on Linux,
 // Android, Windows, macOS, and BSD on any CPU architecture.
 func (n *Node) startInterfaceMonitor() {
+	n.netmonMu.Lock()
+	stop := make(chan struct{})
+	n.netmonStop = stop
+	n.netmonMu.Unlock()
 	go func() {
 		ticker := time.NewTicker(interfaceMonitorInterval)
 		defer ticker.Stop()
 		last := currentInterfaceSnapshot()
-		for range ticker.C {
+		for {
+			select {
+			case <-stop:
+				return
+			case <-ticker.C:
+			}
 			cur := currentInterfaceSnapshot()
 			if interfaceSnapshotsEqual(last, cur) {
 				continue

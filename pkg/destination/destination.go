@@ -240,19 +240,23 @@ func (d *Destination) ExpandName() string {
 // outbound path exists. Access-point interfaces are skipped on unattached
 // local origin, same as Python Transport.outbound.
 func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface common.NetworkInterface) error {
+	// Build the signed packet under the lock, but send after releasing it:
+	// a wedged interface write must not stall every other destination op.
 	d.mutex.Lock()
-	defer d.mutex.Unlock()
 
 	debug.Log(debug.DebugVerbose, "Announcing destination", "name", d.ExpandName(), "path_response", pathResponse)
 
 	if d.destType != Single {
+		d.mutex.Unlock()
 		return errors.New("only SINGLE destination types can be announced")
 	}
 	if d.direction&In == 0 {
+		d.mutex.Unlock()
 		return common.ErrDestAnnounceRequiresIn
 	}
 
 	if d.transport == nil {
+		d.mutex.Unlock()
 		return common.ErrDestTransportNotSet
 	}
 
@@ -264,6 +268,7 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 		}
 		d.announceWindowCount++
 		if d.announceWindowCount > announceBurstMax {
+			d.mutex.Unlock()
 			return common.ErrDestAnnounceThrottled
 		}
 	}
@@ -273,6 +278,7 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 	var ratchetPub []byte
 	if d.ratchetsEnabled {
 		if err := d.rotateRatchetsLocked(); err != nil {
+			d.mutex.Unlock()
 			return err
 		}
 		ratchetPub = d.currentRatchetPublicLocked()
@@ -284,11 +290,14 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 	// Create announce packet using announce package
 	announceObj, err := announce.New(d.identity, d.hashValue, d.ExpandName(), appData, pathResponse, d.transport.GetConfig())
 	if err != nil {
+		d.mutex.Unlock()
 		return fmt.Errorf("failed to create announce: %w", err)
 	}
 	announceObj.SetRatchetPublic(ratchetPub)
 
 	packet, err := announceObj.GetPacket()
+	transport := d.transport
+	d.mutex.Unlock()
 	if err != nil {
 		return fmt.Errorf("failed to create announce packet: %w", err)
 	}
@@ -312,7 +321,7 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 			debug.Log(debug.DebugVerbose, "Skipping announce on receive-only attached interface", "name", attachedInterface.GetName())
 		}
 	} else {
-		interfaces := d.transport.GetInterfaces()
+		interfaces := transport.GetInterfaces()
 		if len(interfaces) == 0 {
 			return common.ErrDestAnnounceNoInterfaces
 		}
@@ -611,10 +620,14 @@ func (d *Destination) EnableRatchets(path string) bool {
 	d.ratchetPath = path
 	d.latestRatchetTime = time.Time{} // Zero time to force rotation
 
-	// Load or initialize ratchets
+	// Load or initialize ratchets. A present but unreadable file means lost
+	// forward secrecy material, not a fresh start; refusing to overwrite it
+	// keeps the corrupt file for recovery instead of wiping the keys.
 	if err := d.reloadRatchets(); err != nil {
 		debug.Log(debug.DebugError, "Failed to load ratchets", "error", err)
-		// Initialize empty ratchet list
+		if _, statErr := os.Stat(d.ratchetPath); statErr == nil {
+			return false
+		}
 		d.ratchets = make([]*securemem.Buf, 0)
 		if err := d.persistRatchets(); err != nil {
 			debug.Log(debug.DebugError, "Failed to create initial ratchet file", "error", err)

@@ -70,6 +70,9 @@ type Node struct {
 	acEntries        []*autoconnectEntry
 	acMonitorRunning bool
 	acMonitorStop    chan struct{}
+
+	netmonMu   sync.Mutex
+	netmonStop chan struct{}
 }
 
 // StartInterfaceDiscovery enables rnstransport interface discovery listening
@@ -262,6 +265,12 @@ func (n *Node) startInterfaces() error {
 // Stop shuts down interfaces and transport.
 func (n *Node) Stop() error {
 	hostcap.Stop()
+	n.netmonMu.Lock()
+	if n.netmonStop != nil {
+		close(n.netmonStop)
+		n.netmonStop = nil
+	}
+	n.netmonMu.Unlock()
 	n.stopBlackholeUpdater()
 	n.stopAutoconnectMonitor()
 	n.drainAutoconnectEntries()
