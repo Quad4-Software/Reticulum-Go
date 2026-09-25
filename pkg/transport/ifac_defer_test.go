@@ -117,7 +117,7 @@ func TestSimIFACRelayPreprocessAcceptsForwardedAnnounce(t *testing.T) {
 	if !accepted {
 		t.Fatal("preprocess rejected masked relay announce")
 	}
-	midTr.dispatchInboundPacket(job.pc.buf, job.iface, job.packetType, job.destType, job.headerType)
+	midTr.dispatchInboundPacket(job.pkt, job.pc.buf, job.iface, job.packetType, job.destType, job.headerType)
 	putPacketCopy(job.pc)
 	if !midTr.HasPath(src.destHash) {
 		t.Fatal("mid did not learn path after preprocess")
@@ -137,7 +137,7 @@ func TestSimIFACRelayPreprocessAcceptsForwardedAnnounce(t *testing.T) {
 	if !tailAccepted {
 		t.Fatal("tail preprocess rejected masked relay announce")
 	}
-	tailTr.dispatchInboundPacket(tailJob.pc.buf, tailJob.iface, tailJob.packetType, tailJob.destType, tailJob.headerType)
+	tailTr.dispatchInboundPacket(tailJob.pkt, tailJob.pc.buf, tailJob.iface, tailJob.packetType, tailJob.destType, tailJob.headerType)
 	putPacketCopy(tailJob.pc)
 	if !tailTr.HasPath(src.destHash) {
 		t.Fatalf("tail did not learn path after relay hops=%d", tailTr.HopsTo(src.destHash))

@@ -361,7 +361,9 @@ func (tc *TCPClientInterface) handlePacket(data []byte) {
 	tc.lastRx = lastRx
 	tc.Mutex.Unlock()
 
-	debug.Log(debug.DebugAll, "Received packet", "type", fmt.Sprintf("0x%02x", data[0]), "size", len(data))
+	if debug.Enabled(debug.DebugAll) {
+		debug.Log(debug.DebugAll, "Received packet", "type", fmt.Sprintf("0x%02x", data[0]), "size", len(data))
+	}
 
 	tc.ProcessIncoming(data)
 }

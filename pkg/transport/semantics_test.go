@@ -97,7 +97,7 @@ func TestBlackholeAnnounceDropped(t *testing.T) {
 
 	raw, dest := signedAnnounceWithContext(t, tr, id, packet.ContextNone)
 	tr.HandlePacket(raw, in)
-	time.Sleep(80 * time.Millisecond)
+	waitInboundDrain(t, tr, 20*time.Millisecond)
 
 	if tr.HasPath(dest) {
 		t.Fatal("blackholed announce must not install a path")
@@ -134,7 +134,7 @@ func TestPathResponseAnnounceDoesNotRebroadcast(t *testing.T) {
 
 	raw, dest := signedAnnounceWithContext(t, tr, id, packet.ContextPathResponse)
 	tr.HandlePacket(raw, in)
-	time.Sleep(80 * time.Millisecond)
+	waitInboundDrain(t, tr, 20*time.Millisecond)
 
 	if !tr.HasPath(dest) {
 		t.Fatal("PATH_RESPONSE should still install a path")
@@ -168,7 +168,7 @@ func TestLocalClientAnnounceHopsStayZero(t *testing.T) {
 	raw, dest := signedAnnounceWithContext(t, tr, id, packet.ContextNone)
 	raw[1] = 0
 	tr.HandlePacket(raw, client)
-	time.Sleep(30 * time.Millisecond)
+	waitInboundDrain(t, tr, 20*time.Millisecond)
 
 	if !tr.HasPath(dest) {
 		t.Fatal("expected path from local-client announce")
@@ -196,7 +196,7 @@ func TestPlainMultiHopDropped(t *testing.T) {
 	// Poison attempt: unsigned path-style payload must not install a route
 	// and must be dropped before DATA handling when hops account > 1.
 	tr.HandlePacket(raw, iface)
-	time.Sleep(20 * time.Millisecond)
+	waitInboundDrain(t, tr, 20*time.Millisecond)
 	if tr.HasPath(dest) {
 		t.Fatal("multi-hop PLAIN packet must be dropped")
 	}
@@ -310,7 +310,7 @@ func TestAcceptanceNormalAnnounceStillRebroadcasts(t *testing.T) {
 		if sentCount(out) > 0 && tr.HasPath(dest) {
 			return
 		}
-		time.Sleep(20 * time.Millisecond)
+		waitInboundDrain(t, tr, 20*time.Millisecond)
 		tr.processDelayedAnnounceJobs()
 	}
 	t.Fatalf("normal announce path=%v forwards=%d", tr.HasPath(dest), sentCount(out))

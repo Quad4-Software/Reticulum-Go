@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,7 +22,8 @@ func TestTeardownStorm(t *testing.T) {
 	initLink, respLink, mesh := establishChaosLink(t, nil, 1, 15*time.Second)
 	defer mesh.close()
 
-	respLink.SetLinkClosedCallback(func(*Link) {})
+	var closedCalls atomic.Int32
+	respLink.SetLinkClosedCallback(func(*Link) { closedCalls.Add(1) })
 
 	var wg sync.WaitGroup
 	for i := 0; i < 8; i++ {
@@ -45,6 +47,9 @@ func TestTeardownStorm(t *testing.T) {
 
 	if st := initLink.GetStatus(); st != StatusClosed {
 		t.Fatalf("initiator status=%d want Closed", st)
+	}
+	if n := closedCalls.Load(); n != 1 {
+		t.Fatalf("closed callback fired %d times want 1", n)
 	}
 }
 

@@ -17,6 +17,7 @@ import (
 
 type packetJob struct {
 	pc         packetCopy
+	pkt        *packet.Packet
 	iface      common.NetworkInterface
 	packetType byte
 	destType   byte
@@ -134,7 +135,7 @@ func (t *Transport) runPacketJob(job packetJob) {
 		return
 	}
 	defer putPacketCopy(job.pc)
-	t.dispatchInboundPacket(job.pc.buf, job.iface, job.packetType, job.destType, job.headerType)
+	t.dispatchInboundPacket(job.pkt, job.pc.buf, job.iface, job.packetType, job.destType, job.headerType)
 }
 
 func (t *Transport) enqueuePacket(job packetJob, block bool) bool {
@@ -187,7 +188,7 @@ func (t *Transport) occupyHandlerPoolForTest(hold <-chan struct{}) int {
 	return filled
 }
 
-func (t *Transport) dispatchInboundPacket(payload []byte, iface common.NetworkInterface, packetType, destType, headerType byte) {
+func (t *Transport) dispatchInboundPacket(pkt *packet.Packet, payload []byte, iface common.NetworkInterface, packetType, destType, headerType byte) {
 	switch packetType {
 	case PacketTypeAnnounce:
 		if debug.Enabled(debug.DebugVerbose) {
@@ -200,22 +201,24 @@ func (t *Transport) dispatchInboundPacket(payload []byte, iface common.NetworkIn
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Processing link packet (type=0x02)", "packet_size", len(payload))
 		}
-		t.handleLinkPacket(payload, iface, PacketTypeLink)
+		t.handleLinkPacket(payload, pkt, iface, PacketTypeLink)
 	case packet.PacketTypeProof:
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Processing proof packet")
 		}
-		pkt := &packet.Packet{Raw: payload}
-		if err := pkt.Unpack(); err != nil {
-			if debug.Enabled(debug.DebugInfo) {
-				debug.Log(debug.DebugWarning, "Failed to unpack proof packet", "error", err)
+		if pkt == nil {
+			pkt = &packet.Packet{Raw: payload}
+			if err := pkt.Unpack(); err != nil {
+				if debug.Enabled(debug.DebugInfo) {
+					debug.Log(debug.DebugWarning, "Failed to unpack proof packet", "error", err)
+				}
+				ifaceName := ""
+				if iface != nil {
+					ifaceName = iface.GetName()
+				}
+				health.Inc(ifaceName, health.KindUnpackFail)
+				return
 			}
-			ifaceName := ""
-			if iface != nil {
-				ifaceName = iface.GetName()
-			}
-			health.Inc(ifaceName, health.KindUnpackFail)
-			return
 		}
 		t.handleProofPacket(pkt, iface)
 	case 0:
@@ -223,12 +226,12 @@ func (t *Transport) dispatchInboundPacket(payload []byte, iface common.NetworkIn
 			if debug.Enabled(debug.DebugVerbose) {
 				debug.Log(debug.DebugVerbose, "Processing link data packet (dest_type=3)", "packet_size", len(payload))
 			}
-			t.handleLinkPacket(payload, iface, 0)
+			t.handleLinkPacket(payload, pkt, iface, 0)
 		} else {
 			if debug.Enabled(debug.DebugVerbose) {
 				debug.Log(debug.DebugVerbose, "Processing data packet (type 0x00)", "packet_size", len(payload), "dest_type", destType, "header_type", headerType)
 			}
-			t.handleTransportPacket(payload, iface)
+			t.handleTransportPacket(payload, pkt, iface)
 		}
 	default:
 		src := ""

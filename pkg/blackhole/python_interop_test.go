@@ -72,7 +72,7 @@ print(json.dumps(out, sort_keys=True))
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
 	if err != nil {
-		t.Skipf("python decode failed (umsgpack missing?): %v", err)
+		t.Fatalf("python decode failed: %v", err)
 	}
 	got := strings.TrimSpace(string(out))
 	if !strings.Contains(got, hex.EncodeToString(id1)) || !strings.Contains(got, hex.EncodeToString(id2)) {
@@ -101,7 +101,7 @@ sys.stdout.write(base64.b64encode(umsgpack.packb(data)).decode())
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
 	if err != nil {
-		t.Skipf("python encode failed (umsgpack missing?): %v", err)
+		t.Fatalf("python encode failed: %v", err)
 	}
 	raw, err := fromBase64(strings.TrimSpace(string(out)))
 	if err != nil {

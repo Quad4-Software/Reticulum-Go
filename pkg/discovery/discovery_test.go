@@ -178,7 +178,7 @@ print(json.dumps(out, sort_keys=True))
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
 	if err != nil {
-		t.Skipf("python decode failed: %v", err)
+		t.Fatalf("python decode failed: %v", err)
 	}
 	got := strings.TrimSpace(string(out))
 	parsed := map[string]any{}

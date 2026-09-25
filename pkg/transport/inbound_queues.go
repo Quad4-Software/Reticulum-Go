@@ -79,6 +79,7 @@ func (q *inboundQueues) get(done <-chan struct{}) (packetJob, bool) {
 		for tc := range inboundQueueCount {
 			if len(q.queues[tc]) > 0 {
 				job := q.queues[tc][0]
+				q.queues[tc][0] = packetJob{}
 				q.queues[tc] = q.queues[tc][1:]
 				return job, true
 			}

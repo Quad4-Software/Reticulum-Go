@@ -4,10 +4,12 @@
 package link
 
 import (
+	"bytes"
 	"testing"
 	"time"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
@@ -120,8 +122,17 @@ func TestLinkIDGeneration(t *testing.T) {
 	if len(linkID) != 16 {
 		t.Errorf("Expected link ID length 16, got %d", len(linkID))
 	}
-
-	t.Logf("Generated link ID: %x", linkID)
+	// Python RNS.Link.link_id_from_lr_packet: truncated hash of the
+	// hashable part minus any data beyond the ephemeral public keys.
+	excess := len(pkt.Data) - ECPubSize
+	hashable := append([]byte{pkt.Raw[0] & 0x0F}, pkt.Raw[2:]...)
+	if excess > 0 {
+		hashable = hashable[:len(hashable)-excess]
+	}
+	want := identity.TruncatedHash(hashable)
+	if !bytes.Equal(linkID, want) {
+		t.Errorf("linkID %x does not match link request hash %x", linkID, want)
+	}
 }
 
 func TestHandshake(t *testing.T) {
@@ -260,6 +271,23 @@ func TestLinkEstablishment(t *testing.T) {
 
 	if string(responderLink.linkID) != string(initiatorLink.linkID) {
 		t.Error("Link IDs do not match between initiator and responder")
+	}
+	if linkID := linkIDFromPacket(linkRequestPkt); string(linkID) != string(responderLink.linkID) {
+		t.Error("linkID does not match the request packet derivation")
+	}
+
+	// Independently re-derive the shared secret from the initiator side:
+	// ECDH(initiator private, responder public) must equal the responder's
+	// derived sharedKey, proving the handshake math not just field copying.
+	if responderLink.sharedKey == nil || responderLink.pub == nil || initiatorLink.prv == nil {
+		t.Fatal("missing key material for independent ECDH check")
+	}
+	wantShared, err := cryptography.DeriveSharedSecret(initiatorLink.prv.Bytes(), responderLink.pub)
+	if err != nil {
+		t.Fatalf("initiator ECDH: %v", err)
+	}
+	if !bytes.Equal(wantShared, responderLink.sharedKey.Bytes()) {
+		t.Error("responder sharedKey does not match initiator-derived ECDH secret")
 	}
 
 	t.Logf("Responder handshake successful, shared_key_len=%d", bufLen(responderLink.sharedKey))

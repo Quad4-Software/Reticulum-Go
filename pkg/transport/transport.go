@@ -160,6 +160,7 @@ type Transport struct {
 	announceHandlerSnap   []announce.Handler
 	paths                 map[[PathMapKeySize]byte]*common.Path
 	receipts              []*packet.PacketReceipt
+	receiptsByHash        map[[32]byte]*packet.PacketReceipt
 	receiptsMutex         sync.RWMutex
 	pathStates            map[[PathMapKeySize]byte]byte
 	discoveryPathRequests map[hash16]*DiscoveryPathRequest
@@ -302,6 +303,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		destinations:             make(map[hash16]registeredDestination),
 		pathfinder:               pathfinder.NewPathFinder(),
 		receipts:                 make([]*packet.PacketReceipt, 0),
+		receiptsByHash:           make(map[[32]byte]*packet.PacketReceipt),
 		receiptsMutex:            sync.RWMutex{},
 		pathStates:               make(map[[PathMapKeySize]byte]byte),
 		discoveryPathRequests:    make(map[hash16]*DiscoveryPathRequest),
@@ -2235,22 +2237,24 @@ func (t *Transport) processInterfaceAnnounceQueues() {
 	}
 }
 
-func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface, packetType byte) {
+func (t *Transport) handleLinkPacket(data []byte, pkt *packet.Packet, iface common.NetworkInterface, packetType byte) {
 	startTime := time.Now()
 	if debug.Enabled(debug.DebugVerbose) {
 		debug.Log(debug.DebugVerbose, "Handling link packet", "bytes", len(data), "packet_type", fmt.Sprintf("0x%02x", packetType), "interface", iface.GetName())
 	}
 
-	pkt := &packet.Packet{Raw: data}
+	if pkt == nil {
+		pkt = &packet.Packet{Raw: data}
+		if err := pkt.Unpack(); err != nil {
+			debug.Log(debug.DebugError, "Failed to unpack link packet", "error", err, "elapsed", time.Since(startTime).Seconds())
+			health.Inc(iface.GetName(), health.KindUnpackFail)
+			return
+		}
+	}
 
 	if packetType == PacketTypeLink {
 		debug.Log(debug.DebugVerbose, "Processing LINKREQUEST (type=0x02)", "interface", iface.GetName())
 
-		if err := pkt.Unpack(); err != nil {
-			debug.Log(debug.DebugError, "Failed to unpack link request", "error", err, "elapsed", time.Since(startTime).Seconds())
-			health.Inc(iface.GetName(), health.KindUnpackFail)
-			return
-		}
 		if !t.applyPacketFilter(pkt, iface) {
 			return
 		}
@@ -2304,11 +2308,6 @@ func (t *Transport) handleLinkPacket(data []byte, iface common.NetworkInterface,
 
 	debug.Log(debug.DebugVerbose, "Processing link data packet", "interface", iface.GetName())
 
-	if err := pkt.Unpack(); err != nil {
-		debug.Log(debug.DebugError, "Failed to unpack link data packet", "error", err, "interface", iface.GetName())
-		health.Inc(iface.GetName(), health.KindUnpackFail)
-		return
-	}
 	if !t.applyPacketFilter(pkt, iface) {
 		return
 	}
@@ -2385,12 +2384,14 @@ func (t *Transport) handlePathResponse(data []byte, iface common.NetworkInterfac
 	debug.Log(debug.DebugVerbose, "Ignoring unsigned DATA PATH_RESPONSE (paths come from verified announces only)")
 }
 
-func (t *Transport) handleTransportPacket(data []byte, iface common.NetworkInterface) {
+func (t *Transport) handleTransportPacket(data []byte, pkt *packet.Packet, iface common.NetworkInterface) {
 	if len(data) < 2 {
 		return
 	}
 
-	pkt := &packet.Packet{Raw: data}
+	if pkt == nil {
+		pkt = &packet.Packet{Raw: data}
+	}
 	if err := pkt.Unpack(); err != nil {
 		if debug.Enabled(debug.DebugWarning) {
 			debug.Log(debug.DebugWarning, "Failed to unpack transport packet", "error", err)
@@ -3272,6 +3273,11 @@ func (t *Transport) RegisterReceipt(receipt *packet.PacketReceipt) {
 	t.receiptsMutex.Lock()
 	defer t.receiptsMutex.Unlock()
 	t.receipts = append(t.receipts, receipt)
+	if h := receipt.GetHash(); len(h) == 32 {
+		var key [32]byte
+		copy(key[:], h)
+		t.receiptsByHash[key] = receipt
+	}
 	if debug.Enabled(debug.DebugPackets) {
 		debug.Log(debug.DebugPackets, "Registered packet receipt", "hash", fmt.Sprintf("%x", receipt.GetHash()[:8]))
 	}
@@ -3281,6 +3287,11 @@ func (t *Transport) UnregisterReceipt(receipt *packet.PacketReceipt) {
 	t.receiptsMutex.Lock()
 	defer t.receiptsMutex.Unlock()
 
+	if h := receipt.GetHash(); len(h) == 32 {
+		var key [32]byte
+		copy(key[:], h)
+		delete(t.receiptsByHash, key)
+	}
 	for i, r := range t.receipts {
 		if r == receipt {
 			t.receipts = append(t.receipts[:i], t.receipts[i+1:]...)
@@ -3365,23 +3376,30 @@ func (t *Transport) handleProofPacket(pkt *packet.Packet, iface common.NetworkIn
 		debug.Log(debug.DebugPackets, "Implicit proof")
 	}
 
+	// Explicit proofs carry the full packet hash, so they resolve against
+	// the hash index instead of scanning every outstanding receipt.
+	if len(proofHash) == 32 {
+		var key [32]byte
+		copy(key[:], proofHash)
+		t.receiptsMutex.RLock()
+		receipt := t.receiptsByHash[key]
+		t.receiptsMutex.RUnlock()
+		if receipt != nil && receipt.ValidateProofPacket(pkt) {
+			debug.Log(debug.DebugPackets, "Proof validated for receipt")
+			t.UnregisterReceipt(receipt)
+			return
+		}
+		debug.Log(debug.DebugPackets, "No matching receipt for proof")
+		return
+	}
+
 	t.receiptsMutex.RLock()
 	receipts := make([]*packet.PacketReceipt, len(t.receipts))
 	copy(receipts, t.receipts)
 	t.receiptsMutex.RUnlock()
 
 	for _, receipt := range receipts {
-		receiptValidated := false
-
-		if proofHash != nil {
-			if receipt.MatchesHash(proofHash) {
-				receiptValidated = receipt.ValidateProofPacket(pkt)
-			}
-		} else {
-			receiptValidated = receipt.ValidateProofPacket(pkt)
-		}
-
-		if receiptValidated {
+		if receipt.ValidateProofPacket(pkt) {
 			debug.Log(debug.DebugPackets, "Proof validated for receipt")
 			t.UnregisterReceipt(receipt)
 			return

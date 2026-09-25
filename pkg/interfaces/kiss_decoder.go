@@ -3,6 +3,8 @@
 
 package interfaces
 
+import "bytes"
+
 // kissCmdUnknown matches Python RNS.Interfaces.TCPInterface.KISS.CMD_UNKNOWN.
 const kissCmdUnknown byte = 0xFE
 
@@ -40,8 +42,38 @@ func (d *kissStreamDecoder) reset() {
 }
 
 func (d *kissStreamDecoder) feed(buf []byte) {
-	for _, b := range buf {
-		d.feedByte(b)
+	for len(buf) > 0 {
+		if d.escape {
+			d.feedByte(buf[0])
+			buf = buf[1:]
+			continue
+		}
+		if !(d.inFrame && d.haveCmd && d.command == KISSCmdData) {
+			d.feedByte(buf[0])
+			buf = buf[1:]
+			continue
+		}
+		iFend := bytes.IndexByte(buf, KISSFend)
+		iEsc := bytes.IndexByte(buf, KISSFesc)
+		next := len(buf)
+		if iFend >= 0 && iFend < next {
+			next = iFend
+		}
+		if iEsc >= 0 && iEsc < next {
+			next = iEsc
+		}
+		if next > 0 {
+			if len(d.data)+next > d.mtu {
+				// Same bound as feedByte: a frame past MTU is dropped whole.
+				d.reset()
+				return
+			}
+			d.data = append(d.data, buf[:next]...)
+			buf = buf[next:]
+			continue
+		}
+		d.feedByte(buf[0])
+		buf = buf[1:]
 	}
 }
 

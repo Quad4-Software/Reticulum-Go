@@ -364,11 +364,9 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 	case path.HopCount > 1:
 		out, err = rebuildHeaderType2(raw, newHops, path.NextHop)
 	case path.HopCount == 1:
-		rawCopy := append([]byte(nil), raw...)
-		out, err = stripHeaderType2(rawCopy, newHops)
+		out, err = stripHeaderType2(raw, newHops)
 	default:
-		rawCopy := append([]byte(nil), raw...)
-		out = rewriteHopsInPlace(rawCopy, newHops)
+		out = rewriteHopsInPlace(raw, newHops)
 	}
 	if err != nil {
 		debug.Log(debug.DebugError, "Failed to rewrite transport packet",
@@ -589,7 +587,7 @@ func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, s
 		return true
 	}
 
-	out := rewriteHopsOnly(raw, newHops)
+	out := rewriteHopsInPlace(raw, newHops)
 	// Multi-hop paths need HeaderType2 with the next transport hop, matching
 	// SendPacket and Python Transport outbound wrapping. Bare HT1 LRs are
 	// dropped by mesh peers that only forward when transport_id matches.

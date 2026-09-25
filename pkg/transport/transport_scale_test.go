@@ -61,18 +61,21 @@ func BenchmarkRoutingTableUpdates(b *testing.B) {
 			iface.Name = "eth0"
 			_ = tr.RegisterInterface("eth0", iface)
 
-			hashes := make([][]byte, b.N)
-			for i := 0; i < b.N; i++ {
+			hashes := make([][]byte, size)
+			for i := 0; i < size; i++ {
 				h := make([]byte, 16)
 				_, _ = rand.Read(h)
 				hashes[i] = h
+			}
+			for i := 0; i < size; i++ {
+				tr.UpdatePath(hashes[i], nil, "eth0", uint8(i%10))
 			}
 
 			b.ResetTimer()
 			b.ReportAllocs()
 
 			for i := 0; i < b.N; i++ {
-				tr.UpdatePath(hashes[i], nil, "eth0", uint8(i%10))
+				tr.UpdatePath(hashes[i%size], nil, "eth0", uint8(i%10))
 			}
 		})
 	}

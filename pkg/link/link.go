@@ -568,9 +568,14 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 			plaintext = pkt.Data
 		} else {
 			minEnc := aes.BlockSize + aes.BlockSize + 32
-			if pkt.Context == packet.ContextKeepalive && len(pkt.Data) < minEnc {
+			switch {
+			case pkt.Context == packet.ContextKeepalive && len(pkt.Data) < minEnc:
 				plaintext = pkt.Data
-			} else {
+			case decryptsInternally(pkt.Context):
+				// These sub-handlers decrypt pkt.Data themselves; decrypting
+				// here would verify the same HMAC twice and waste the first
+				// plaintext allocation.
+			default:
 				plaintext, err = l.decrypt(pkt.Data)
 				if err != nil {
 					debug.Log(debug.DebugError, "Failed to decrypt packet", "error", err, "context", fmt.Sprintf("0x%02x", pkt.Context), "link_id", fmt.Sprintf("%x", l.linkID))
@@ -659,6 +664,20 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 
 	return nil
 }
+func decryptsInternally(ctx byte) bool {
+	switch ctx {
+	case packet.ContextChannel,
+		packet.ContextResourceAdv,
+		packet.ContextResourceReq,
+		packet.ContextResourceHMU,
+		packet.ContextResourceICL,
+		packet.ContextResourceRCL,
+		packet.ContextLRRTT:
+		return true
+	}
+	return false
+}
+
 func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
 	if !l.initiator {
 		if l.status.Load() != int32(StatusHandshake) {
@@ -882,11 +901,11 @@ func (l *Link) SetPacketTimeout(pkt any, callback func(any), timeout time.Durati
 	if !ok || callback == nil {
 		return
 	}
-	go func() {
+	time.AfterFunc(timeout, func() {
 		select {
 		case <-l.linkDone:
 			return
-		case <-time.After(timeout):
+		default:
 		}
 		l.channelReceiptMu.Lock()
 		receipt := l.channelReceipts[packetObj]
@@ -895,7 +914,7 @@ func (l *Link) SetPacketTimeout(pkt any, callback func(any), timeout time.Durati
 			return
 		}
 		callback(packetObj)
-	}()
+	})
 }
 
 // DropPacketReceipt stops delivery tracking for a packet whose envelope the
@@ -956,7 +975,12 @@ func (l *Link) maintainLink() {
 	ticker := time.NewTicker(time.Second * Keepalive)
 	defer ticker.Stop()
 
-	for range ticker.C {
+	for {
+		select {
+		case <-l.linkDone:
+			return
+		case <-ticker.C:
+		}
 		if l.status.Load() != int32(StatusActive) {
 			return
 		}

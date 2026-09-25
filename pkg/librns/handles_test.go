@@ -104,6 +104,10 @@ func TestIdentityLoadRoundTrip(t *testing.T) {
 	if err := rec.identity.ToFile(path); err != nil {
 		t.Fatal(err)
 	}
+	want, code := IdentityHashHex(id)
+	if code != OK {
+		t.Fatal(code)
+	}
 	_ = IdentityDestroy(id)
 
 	loaded, code := IdentityLoad(path)
@@ -114,6 +118,9 @@ func TestIdentityLoadRoundTrip(t *testing.T) {
 	hex, code := IdentityHashHex(loaded)
 	if code != OK || len(hex) != 32 {
 		t.Fatalf("hash %q code %d", hex, code)
+	}
+	if hex != want {
+		t.Fatalf("loaded identity hash %q != saved %q", hex, want)
 	}
 }
 
