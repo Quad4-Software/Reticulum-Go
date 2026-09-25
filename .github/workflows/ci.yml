@@ -69,11 +69,18 @@ jobs:
       - name: Commit identity check
         run: |
           # Refuse placeholder identities. A repo-local git config once set
-          # user.email to the literal string "user.name", poisoning 42 pushed
-          # commits; this gate makes sure that cannot merge again.
-          if git log --format='%ae%n%ce' | grep -qE '^(user\.name|user\.email|<.*>)$'; then
+          # user.email to the literal string "user.name", poisoning pushed
+          # commits; this gate makes sure that cannot merge again. Only the
+          # pushed/PR commits are checked so pre-fix history does not trip it.
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            range="HEAD"
+          else
+            range="${base}..HEAD"
+          fi
+          if git log --format='%ae%n%ce' $range | grep -qE '^user\.(name|email)$'; then
             echo "placeholder commit identity found:"
-            git log --format='%h %an <%ae>' | grep -E 'user\.name|user\.email' | head -5
+            git log --format='%h %an <%ae>' $range | grep -E 'user\.name|user\.email' | head -5
             exit 1
           fi
 
