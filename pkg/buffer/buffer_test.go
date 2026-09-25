@@ -805,3 +805,50 @@ func TestRawChannelWriterWriteContextCancel(t *testing.T) {
 		t.Fatalf("WriteContext = %v, want context.DeadlineExceeded", err)
 	}
 }
+
+// WaitReadable must wake on data and on EOF, and ReadContext must never
+// return (0, nil) on an open stream.
+func TestRawChannelReaderWaitReadable(t *testing.T) {
+	ch := channel.NewChannel(nil)
+	reader := NewRawChannelReader(1, ch)
+
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		reader.HandleMessage(&StreamDataMessage{StreamID: 1, Data: []byte("hi")})
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := reader.WaitReadable(ctx); err != nil {
+		t.Fatalf("WaitReadable: %v", err)
+	}
+	buf := make([]byte, 8)
+	n, err := reader.ReadContext(ctx, buf)
+	if err != nil || string(buf[:n]) != "hi" {
+		t.Fatalf("ReadContext: n=%d err=%v buf=%q", n, err, buf[:n])
+	}
+}
+
+func TestRawChannelReaderWaitReadableEOFAndCancel(t *testing.T) {
+	ch := channel.NewChannel(nil)
+	reader := NewRawChannelReader(1, ch)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+	if err := reader.WaitReadable(ctx); err == nil {
+		t.Fatal("WaitReadable returned before data or EOF")
+	}
+
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		reader.HandleMessage(&StreamDataMessage{StreamID: 1, EOF: true})
+	}()
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel2()
+	if err := reader.WaitReadable(ctx2); err != nil {
+		t.Fatalf("EOF did not wake waiter: %v", err)
+	}
+	if _, err := reader.ReadContext(ctx2, make([]byte, 4)); err != io.EOF {
+		t.Fatalf("ReadContext after EOF: %v", err)
+	}
+}

@@ -66,6 +66,10 @@ type RawChannelReader struct {
 	nextCallbackID   int
 	messageHandlerID int
 	mutex            sync.RWMutex
+	// genCh is closed and replaced whenever buffer or eof changes, so
+	// WaitReadable waiters wake on new data and on EOF. Lazily allocated so
+	// literal-constructed readers still work.
+	genCh chan struct{}
 }
 
 func NewRawChannelReader(streamID int, ch *channel.Channel) *RawChannelReader {
@@ -113,6 +117,38 @@ func (r *RawChannelReader) Read(p []byte) (n int, err error) {
 	return n, err
 }
 
+// WaitReadable blocks until the reader has buffered data, reaches EOF, or ctx
+// expires. Read on an empty, open stream returns (0, nil), which makes naive
+// io.Reader consumers spin; callers that can wait should prefer ReadContext.
+func (r *RawChannelReader) WaitReadable(ctx context.Context) error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	for r.buffer.Len() == 0 && !r.eof {
+		if r.genCh == nil {
+			r.genCh = make(chan struct{})
+		}
+		ch := r.genCh
+		r.mutex.Unlock()
+		select {
+		case <-ctx.Done():
+			r.mutex.Lock()
+			return ctx.Err()
+		case <-ch:
+			r.mutex.Lock()
+		}
+	}
+	return nil
+}
+
+// ReadContext waits for buffered data or EOF under ctx, then reads. Unlike
+// Read it never returns (0, nil) on an open stream.
+func (r *RawChannelReader) ReadContext(ctx context.Context, p []byte) (int, error) {
+	if err := r.WaitReadable(ctx); err != nil {
+		return 0, err
+	}
+	return r.Read(p)
+}
+
 // maxReaderBufferBytes bounds unread stream data held for the application.
 // The sender is remote-controlled, so without a bound a stalled reader lets
 // the peer grow this buffer without limit.
@@ -150,6 +186,10 @@ func (r *RawChannelReader) HandleMessage(msg channel.MessageBase) bool {
 	cbs := make([]func(int), 0, len(r.callbacks))
 	for _, cb := range r.callbacks {
 		cbs = append(cbs, cb)
+	}
+	if r.genCh != nil {
+		close(r.genCh)
+		r.genCh = make(chan struct{})
 	}
 	r.mutex.Unlock()
 

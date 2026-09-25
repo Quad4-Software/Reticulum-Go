@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `RawChannelReader.WaitReadable` and `ReadContext`: cancellable, event-driven reads that never return (0, nil) on an open stream. Plain `Read` keeps its Python-compatible non-blocking semantics.
+
 ## v1.3.1 - 2026-09-25
 
 ### Changed
