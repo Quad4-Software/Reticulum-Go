@@ -30,12 +30,34 @@ func newReverseTable() *reverseTable {
 	return &reverseTable{entries: make(map[hash16]*ReverseEntry)}
 }
 
+// maxReverseEntries bounds the reverse-proof relay table. Entries live up
+// to ReverseTimeout, so a flood of transported packets with unique hashes
+// would otherwise grow the map unbounded. Oldest entries evict first.
+const maxReverseEntries = 32768
+
 func (rt *reverseTable) put(truncatedHash []byte, entry *ReverseEntry) {
 	if rt == nil || entry == nil || len(truncatedHash) == 0 {
 		return
 	}
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
+	if len(rt.entries) >= maxReverseEntries {
+		var oldestKey hash16
+		var oldest time.Time
+		found := false
+		for k, e := range rt.entries {
+			if e == nil || !found || e.Timestamp.Before(oldest) {
+				oldestKey = k
+				if e != nil {
+					oldest = e.Timestamp
+				}
+				found = true
+			}
+		}
+		if found {
+			delete(rt.entries, oldestKey)
+		}
+	}
 	rt.entries[hash16FromSlice(truncatedHash)] = entry
 }
 
@@ -52,6 +74,19 @@ func (rt *reverseTable) pop(truncatedHash []byte) (*ReverseEntry, bool) {
 	}
 	delete(rt.entries, k)
 	return e, true
+}
+
+// get reads an entry without consuming it. forwardReverseProof validates the
+// receiving interface before popping so a wrong-interface or forged proof
+// cannot consume the single-use entry meant for the real proof.
+func (rt *reverseTable) get(truncatedHash []byte) (*ReverseEntry, bool) {
+	if rt == nil || len(truncatedHash) == 0 {
+		return nil, false
+	}
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	e, ok := rt.entries[hash16FromSlice(truncatedHash)]
+	return e, ok
 }
 
 func (rt *reverseTable) sweep(maxAge time.Duration) int {
@@ -112,13 +147,12 @@ func (t *Transport) forwardReverseProof(pkt *packet.Packet, iface common.Network
 	if len(dest) > packet.TruncatedHashLength {
 		dest = dest[:packet.TruncatedHashLength]
 	}
-	entry, ok := t.reverseTable.pop(dest)
+	entry, ok := t.reverseTable.get(dest)
 	if !ok || entry == nil {
 		return false
 	}
 	proofForLocalClient := isLocalClientInterface(entry.ReceivedIface)
 	if !t.transportEnabled() && !isLocalClientInterface(iface) && !proofForLocalClient {
-		t.reverseTable.put(dest, entry)
 		return false
 	}
 	if iface != entry.OutboundIface {
@@ -127,6 +161,10 @@ func (t *Transport) forwardReverseProof(pkt *packet.Packet, iface common.Network
 		return true
 	}
 	if entry.ReceivedIface == nil || !entry.ReceivedIface.IsEnabled() {
+		return true
+	}
+	// Everything matched; consume the entry now that the proof is honored.
+	if popped, ok := t.reverseTable.pop(dest); !ok || popped != entry {
 		return true
 	}
 	out := rewriteHopsOnly(pkt.Raw, pkt.Hops)

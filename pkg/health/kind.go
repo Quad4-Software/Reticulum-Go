@@ -41,6 +41,7 @@ const (
 	KindDoSHandshake
 	KindDoSCoolDown
 	KindPathRebalance
+	KindJobPanic
 	kindCount
 )
 
@@ -63,6 +64,8 @@ func (k Kind) String() string {
 		return "lrproof_hop_mismatch"
 	case KindPathRebalance:
 		return "path_rebalance"
+	case KindJobPanic:
+		return "job_panic"
 	case KindRequestSkewReject:
 		return "request_skew_reject"
 	case KindBlackholeHit:

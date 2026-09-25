@@ -41,9 +41,36 @@ func newLinkRelayTable() *linkRelayTable {
 	return &linkRelayTable{entries: make(map[hash16]*LinkRelayEntry)}
 }
 
+// maxLinkRelayEntries bounds transit relay state. Without it a flood of
+// forged link requests grows the table until proof timeouts catch up. On
+// overflow the oldest unvalidated entry is evicted first; a table of only
+// validated entries drops the new insert instead.
+const maxLinkRelayEntries = 8192
+
 func (lt *linkRelayTable) put(linkID []byte, entry *LinkRelayEntry) {
 	lt.mu.Lock()
 	defer lt.mu.Unlock()
+	if len(lt.entries) >= maxLinkRelayEntries {
+		var oldestKey hash16
+		var oldest time.Time
+		found := false
+		for k, e := range lt.entries {
+			if e == nil || !e.Validated {
+				if !found || e == nil || e.Timestamp.Before(oldest) {
+					oldestKey = k
+					if e != nil {
+						oldest = e.Timestamp
+					}
+					found = true
+				}
+			}
+		}
+		if found {
+			delete(lt.entries, oldestKey)
+		} else {
+			return
+		}
+	}
 	lt.entries[hash16FromSlice(linkID)] = entry
 }
 
@@ -402,11 +429,17 @@ func (t *Transport) recordLinkRelay(pkt *packet.Packet, raw []byte, recvIface co
 		"next_hop_iface", path.Interface.GetName())
 }
 
-func (t *Transport) forwardLinkData(raw []byte, sourceIface common.NetworkInterface) bool {
-	if t.linkTable == nil || len(raw) < identity.TruncatedHashLength/8+2 {
+// forwardLinkData relays link traffic between the receiving interface and
+// the recorded next-hop interface. linkID is the parsed destination hash
+// from the packet header: deriving it from raw bytes by a fixed offset is
+// wrong for HT2 packets where the link ID follows the transport ID.
+func (t *Transport) forwardLinkData(linkID []byte, raw []byte, sourceIface common.NetworkInterface) bool {
+	if t.linkTable == nil || len(raw) < identity.TruncatedHashLength/8+2 || len(linkID) == 0 {
 		return false
 	}
-	linkID := raw[2 : identity.TruncatedHashLength/8+2]
+	if len(linkID) > identity.TruncatedHashLength/8 {
+		linkID = linkID[:identity.TruncatedHashLength/8]
+	}
 	entry, ok := t.linkTable.get(linkID)
 	if !ok {
 		return false
@@ -669,7 +702,9 @@ func (t *Transport) queueDiscoveryPathRequest(destHash []byte, exclude common.Ne
 		return
 	}
 	t.pendingDiscoveryPRs = append(t.pendingDiscoveryPRs, pendingDiscoveryPR{
-		destHash: destHash,
+		// Copy: destHash aliases a pooled inbound buffer recycled after the
+		// packet job ends, long before the drainer rebroadcasts.
+		destHash: append([]byte(nil), destHash...),
 		exclude:  exclude,
 	})
 	shouldStart := !t.discoveryDraining.Load()
@@ -686,6 +721,11 @@ func (t *Transport) queueDiscoveryPathRequest(destHash []byte, exclude common.Ne
 func (t *Transport) drainDiscoveryPRs() {
 	defer t.discoveryDraining.Store(false)
 	for {
+		select {
+		case <-t.done:
+			return
+		default:
+		}
 		t.pendingDiscoveryPRMu.Lock()
 		if len(t.pendingDiscoveryPRs) == 0 {
 			t.pendingDiscoveryPRMu.Unlock()
@@ -697,6 +737,10 @@ func (t *Transport) drainDiscoveryPRs() {
 		t.pendingDiscoveryPRMu.Unlock()
 
 		t.rebroadcastPathRequest(entry.destHash, nil, nil, entry.exclude)
-		time.Sleep(discoveryPRTxThrottle)
+		select {
+		case <-t.done:
+			return
+		case <-time.After(discoveryPRTxThrottle):
+		}
 	}
 }

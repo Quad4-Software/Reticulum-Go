@@ -271,7 +271,7 @@ func TestLinkRelayUnvalidatedExpiresUnderTraffic(t *testing.T) {
 	ident = append(ident, linkID...)
 	ident = append(ident, packet.ContextLinkIdentify)
 	ident = append(ident, []byte{0xde, 0xad, 0xbe, 0xef}...)
-	_ = tr.forwardLinkData(ident, in)
+	_ = tr.forwardLinkData(ident[2:18], ident, in)
 
 	if _, ok := tr.linkTable.get(linkID); !ok {
 		t.Fatal("entry vanished before sweep")

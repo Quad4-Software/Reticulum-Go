@@ -562,7 +562,7 @@ func TestLinkRelayBidirectional(t *testing.T) {
 	raw = append(raw, []byte{0x01, 0x02, 0x03, 0x04}...)
 	origHops := raw[1]
 
-	if !tr.forwardLinkData(raw, in) {
+	if !tr.forwardLinkData(raw[2:18], raw, in) {
 		t.Fatal("forwardLinkData returned false on known link id (in->out direction)")
 	}
 	if raw[1] != origHops {
@@ -583,7 +583,7 @@ func TestLinkRelayBidirectional(t *testing.T) {
 	ret = append(ret, packet.ContextNone)
 	ret = append(ret, []byte{0x01, 0x02, 0x03, 0x04}...)
 
-	if !tr.forwardLinkData(ret, out) {
+	if !tr.forwardLinkData(ret[2:18], ret, out) {
 		t.Fatal("forwardLinkData returned false on known link id (out->in direction)")
 	}
 	gotIn := in.snapshot()
@@ -661,7 +661,7 @@ func TestLocalClientLinkHopSpoofing(t *testing.T) {
 	out.sent = nil
 	out.mu.Unlock()
 
-	if !tr.forwardLinkData(ident, in) {
+	if !tr.forwardLinkData(ident[2:18], ident, in) {
 		t.Fatal("forwardLinkData should relay identify from local client")
 	}
 	identFwd := out.snapshot()
@@ -679,7 +679,7 @@ func TestLocalClientLinkHopSpoofing(t *testing.T) {
 	proof = append(proof, packet.ContextLRProof)
 	proof = append(proof, []byte{0x01, 0x02, 0x03, 0x04}...)
 
-	if !tr.forwardLinkData(proof, out) {
+	if !tr.forwardLinkData(proof[2:18], proof, out) {
 		t.Fatal("forwardLinkData should relay proof from wan")
 	}
 	proofFwd := in.snapshot()
@@ -824,7 +824,7 @@ func TestLinkRelayLocalClientWhenTransportDisabled(t *testing.T) {
 	ident = append(ident, packet.ContextLinkIdentify)
 	ident = append(ident, []byte{0xde, 0xad, 0xbe, 0xef}...)
 
-	if !tr.forwardLinkData(ident, in) {
+	if !tr.forwardLinkData(ident[2:18], ident, in) {
 		t.Fatal("forwardLinkData should relay identify from local client")
 	}
 	if n := len(out.snapshot()); n != 1 {
@@ -837,7 +837,7 @@ func TestLinkRelayLocalClientWhenTransportDisabled(t *testing.T) {
 	proof = append(proof, packet.ContextNone)
 	proof = append(proof, []byte{0x01, 0x02, 0x03, 0x04}...)
 
-	if !tr.forwardLinkData(proof, out) {
+	if !tr.forwardLinkData(proof[2:18], proof, out) {
 		t.Fatal("forwardLinkData should relay return traffic to local client")
 	}
 	if n := len(in.snapshot()); n != 1 {
@@ -899,7 +899,7 @@ func TestLinkRelayHopMismatchDrops(t *testing.T) {
 	raw = append(raw, linkID...)
 	raw = append(raw, packet.ContextNone)
 
-	if !tr.forwardLinkData(raw, in) {
+	if !tr.forwardLinkData(raw[2:18], raw, in) {
 		t.Fatal("should claim known link id even when dropping")
 	}
 	if n := len(out.snapshot()); n != 0 {
@@ -929,7 +929,7 @@ func TestLinkRelayDisabledByConfig(t *testing.T) {
 	raw = append(raw, linkID...)
 	raw = append(raw, packet.ContextNone)
 
-	if !tr.forwardLinkData(raw, in) {
+	if !tr.forwardLinkData(raw[2:18], raw, in) {
 		t.Fatal("forwardLinkData should claim packet (drop) when transport disabled")
 	}
 	if n := len(out.snapshot()) + len(in.snapshot()); n != 0 {
