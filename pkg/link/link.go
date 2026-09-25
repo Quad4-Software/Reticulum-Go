@@ -579,7 +579,18 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 			}
 		}
 	} else {
-		plaintext = pkt.Data
+		// With no session keys, only contexts that carry their own
+		// integrity (resource, cache request) may pass as plaintext.
+		// ContextNone, Request, and Response payloads must be encrypted;
+		// accepting them unencrypted would let forged link packets reach
+		// the application before the peer proves its keys.
+		switch pkt.Context {
+		case packet.ContextResource, packet.ContextCacheReq, packet.ContextKeepalive:
+			plaintext = pkt.Data
+		default:
+			debug.Log(debug.DebugError, "Dropping unencrypted link packet before session keys", "context", fmt.Sprintf("0x%02x", pkt.Context), "link_id", fmt.Sprintf("%x", l.linkID))
+			return errors.New("link packet requires session keys")
+		}
 	}
 
 	switch pkt.Context {
