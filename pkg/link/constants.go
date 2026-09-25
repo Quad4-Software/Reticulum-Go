@@ -52,7 +52,7 @@ const (
 	DestTypeLink = 0x03
 
 	MaxPendingRequests = 8
-	// MaxPendingResourceSends bounds goroutines parked inside SendResource;
+	// MaxPendingResourceSends bounds goroutines parked inside SendResource.
 	// each retains a full resource copy.
 	MaxPendingResourceSends = 8
 	MinRequestDataLen       = 3

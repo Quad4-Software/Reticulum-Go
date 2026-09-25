@@ -56,7 +56,7 @@ var (
 	knownDestinationsLock sync.RWMutex
 	knownRatchets         = make(map[destMapKey]knownRatchetEntry)
 	// privateRatchets holds operator-set private ratchet keys keyed by the
-	// raw id string; never mix them into the destHash keyspace above.
+	// raw id string. Never mix them into the destHash keyspace above.
 	privateRatchets    = make(map[string]knownRatchetEntry)
 	ratchetPersistLock sync.Mutex
 )
@@ -363,7 +363,7 @@ func evictKnownDestinationsIfNeededLocked() {
 
 // ValidateAnnounce validates a legacy-format announce signature covering
 // destHash || publicKey || appData. The wire path in pkg/announce covers the
-// fuller modern field set (nameHash, randomHash, ratchet); use that for real
+// fuller modern field set (nameHash, randomHash, ratchet). Use that for real
 // announces.
 func ValidateAnnounce(packet []byte, destHash []byte, publicKey []byte, signature []byte, appData []byte) bool {
 	if len(publicKey) != KeySize/8 {
@@ -819,7 +819,7 @@ func RecallIdentity(path string) (*Identity, error) {
 	}
 	defer securemem.WipeBytes(privateKeyBytes)
 
-	// LoadIdentityBlob can return RHB1 descriptors or other non-key blobs;
+	// LoadIdentityBlob can return RHB1 descriptors or other non-key blobs.
 	// only a raw 64-byte private keypair is valid here.
 	if len(privateKeyBytes) != 64 {
 		return nil, fmt.Errorf("identity blob has invalid length %d (want 64)", len(privateKeyBytes))
@@ -1114,7 +1114,9 @@ func (i *Identity) CleanupExpiredRatchets() {
 	debug.Log(debug.DebugAll, "Cleaned up expired ratchets", "cleaned", cleaned, "remaining", len(i.ratchets))
 }
 
-// ValidateAnnounce validates an announce packet's signature
+// ValidateAnnounce validates a legacy-format announce signature covering
+// destHash || i.publicKey || appData. See the package-level ValidateAnnounce
+// for why this is not the wire announce path.
 func (i *Identity) ValidateAnnounce(data []byte, destHash []byte, appData []byte) bool {
 	if i == nil || len(data) < ed25519.SignatureSize {
 		return false

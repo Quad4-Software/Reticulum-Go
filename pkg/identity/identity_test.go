@@ -706,8 +706,8 @@ func TestIdentityMemoryScale(t *testing.T) {
 	t.Logf("Average per destination: %d bytes", perEntry)
 }
 
-// TestRecallIdentityRejectsShortBlob: a truncated or wrong-format identity
-// blob must fail, not panic on a slice or silently load mangled key material.
+// A truncated or wrong-format identity blob must fail instead of
+// panicking on a slice or silently loading mangled key material.
 func TestRecallIdentityRejectsShortBlob(t *testing.T) {
 	path := t.TempDir() + "/short_identity"
 	for _, n := range []int{0, 16, 32, 63} {

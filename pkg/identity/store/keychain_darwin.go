@@ -48,7 +48,7 @@ func (KeychainBackend) Set(attrs map[string]string, secret []byte, label string)
 	_ = label
 	// The security CLI only accepts the item secret as a -w argument, so the
 	// hex passphrase is briefly visible in the process list during Set. That
-	// is the accepted tradeoff of the no-cgo CLI approach; the window is a
+	// is the accepted tradeoff of the no-cgo CLI approach. The window is a
 	// single exec and other local users are outside this backend's model.
 	err := exec.Command("/usr/bin/security", "add-generic-password", "-U",
 		"-s", ApplicationName, "-a", keychainAccount(attrs),

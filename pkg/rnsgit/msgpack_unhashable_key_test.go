@@ -11,7 +11,7 @@ import (
 
 // Request payloads are attacker-controlled on linked rnsgit sessions. A
 // msgpack map with an array or map key is legal wire syntax but its key is
-// unhashable in Go; decoding must error, not panic with
+// unhashable in Go. Decoding must error, not panic with
 // "hash of unhashable type".
 func TestDecodeRequestUnhashableKey(t *testing.T) {
 	data := []byte{0x81, 0x91, 0x01, 0x02} // {[1]:2}

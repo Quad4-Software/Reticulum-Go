@@ -41,7 +41,7 @@ func (l *Link) sendKeepalive() error {
 		Data:            keepaliveData,
 		CreateReceipt:   false,
 	}
-	// Python Packet.pack sends KEEPALIVE payloads unencrypted; encrypting
+	// Python Packet.pack sends KEEPALIVE payloads unencrypted. Encrypting
 	// here would make the 0xFF byte unrecognizable to the peer and the
 	// reply would never arrive, leaving the link to go stale.
 	if err := keepalivePkt.Pack(); err != nil {

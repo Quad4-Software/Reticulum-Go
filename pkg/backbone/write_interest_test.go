@@ -70,7 +70,7 @@ func TestWriteStreamInterestRace(t *testing.T) {
 		s.mu.Unlock()
 		armed := p.last()&evWrite != 0
 		// armed with an empty buffer is harmless (one spurious EPOLLOUT wakeup
-		// self-corrects); pending bytes with write interest cleared is the bug.
+		// self-corrects). Pending bytes with write interest cleared is the bug.
 		if pending && !armed {
 			t.Fatalf("iter %d: %d queued bytes but last poller mod=%d disarmed evWrite",
 				i, len(s.txBuf), p.last())

@@ -124,7 +124,7 @@ type Link struct {
 
 	outgoingMu     sync.Mutex
 	resourceSendMu sync.Mutex
-	// resSendInflight bounds goroutines parked in SendResource; each holds a
+	// resSendInflight bounds goroutines parked in SendResource. Each holds a
 	// full resource copy, so a rapid requester could otherwise pile them up.
 	resSendInflight         atomic.Int64
 	outgoingRes             *resource.Resource
@@ -137,7 +137,7 @@ type Link struct {
 
 	// earlyChannel holds ContextChannel packets that arrive after handshake
 	// keys exist but before promoteToActive. Python rnsh sends Version in that
-	// window; processing them before the established callback drops messages.
+	// window. Processing them before the established callback drops messages.
 	earlyChannelMu sync.Mutex
 	earlyChannel   []*packet.Packet
 }
@@ -278,7 +278,7 @@ func (l *Link) resetForReconnectLocked() {
 	l.requestPacket = nil
 	l.requestTime = time.Time{}
 	l.teardownReason = 0
-	// The stale linkID must leave the transport's link table; otherwise a
+	// The stale linkID must leave the transport's link table. Otherwise a
 	// replayed proof for the old ID can interfere with the fresh attempt.
 	if l.transport != nil && len(l.linkID) > 0 {
 		l.transport.UnregisterLink(l.linkID)
@@ -336,7 +336,7 @@ func (l *Link) Teardown() {
 	l.dropSplitAssemblies()
 	l.mutex.Unlock()
 
-	// The callback is user code and may call back into the link; it must not
+	// The callback is user code and may call back into the link. It must not
 	// run while l.mutex is held.
 	if cb != nil {
 		cb(l)
@@ -1089,7 +1089,7 @@ func (l *Link) finishWatchdogClose(reason byte, invalidatePath bool) {
 	if invalidatePath && l.initiator {
 		l.invalidateTransportPathAfterInitiatorFailure()
 	}
-	// Callers hold l.mutex; user callbacks may call back into the link.
+	// Callers hold l.mutex. User callbacks may call back into the link.
 	if l.closedCallback != nil {
 		cb := l.closedCallback
 		go cb(l)

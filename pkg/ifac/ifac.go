@@ -203,7 +203,7 @@ func (i *Identity) Mask(raw []byte) ([]byte, error) {
 //
 // The caller is responsible for separately enforcing the policy "if IFAC is
 // configured for this interface but the IFAC flag is not set, drop the
-// packet" -- this function only validates packets that claim to carry an
+// packet". This function only validates packets that claim to carry an
 // IFAC.
 func (i *Identity) Unmask(raw []byte) ([]byte, bool, error) {
 	i.maskMu.Lock()

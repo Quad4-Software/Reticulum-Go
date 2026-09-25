@@ -8,9 +8,8 @@ import (
 	"time"
 )
 
-// stallConn never completes a write beyond accepting nothing: every Write
-// returns 0 with a nil error, simulating a peer that stops reading while the
-// kernel buffer never drains.
+// stallConn models a peer that stopped reading: Write accepts nothing and
+// returns nil error, so the outbound queue only grows.
 type stallConn struct{ closed bool }
 
 func (c *stallConn) Read([]byte) (int, error)         { time.Sleep(time.Hour); return 0, nil }
@@ -22,8 +21,8 @@ func (c *stallConn) SetDeadline(time.Time) error      { return nil }
 func (c *stallConn) SetReadDeadline(time.Time) error  { return nil }
 func (c *stallConn) SetWriteDeadline(time.Time) error { return nil }
 
-// TestStreamQueueBoundClosesSlowPeer: a peer that never reads must not pin
-// unbounded memory; the stream closes once the queue crosses the cap.
+// A peer that never reads must not pin unbounded memory. The stream
+// closes once the queue crosses the cap.
 func TestStreamQueueBoundClosesSlowPeer(t *testing.T) {
 	h := &Hub{streams: make(map[int]*Stream), stop: make(chan struct{})}
 	s := &Stream{hub: h, conn: &stallConn{}, fd: 7, decoder: NewHDLCDecoder(4096, nil)}
@@ -68,9 +67,9 @@ func (c *throttledConn) SetDeadline(time.Time) error      { return nil }
 func (c *throttledConn) SetReadDeadline(time.Time) error  { return nil }
 func (c *throttledConn) SetWriteDeadline(time.Time) error { return nil }
 
-// TestGoModeQueuePreservesOrder: on the go backend a partial write leaves
-// queued bytes in txBuf; the next QueueSend must flush the leftovers before
-// the new frame, never overwrite them.
+// On the go backend a partial write leaves queued bytes in txBuf. The
+// next QueueSend must flush the leftovers before the new frame instead of
+// overwriting them.
 func TestGoModeQueuePreservesOrder(t *testing.T) {
 	h := &Hub{goMode: true, streams: make(map[int]*Stream), stop: make(chan struct{})}
 	conn := &throttledConn{left: 4} // accept only 4 bytes of the first frame

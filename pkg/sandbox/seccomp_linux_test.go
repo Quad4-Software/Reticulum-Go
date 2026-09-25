@@ -156,7 +156,7 @@ func TestSeccompBuildProg(t *testing.T) {
 }
 
 func TestSeccompInstallSoftFailUnsupportedArch(t *testing.T) {
-	// installSeccompFilter soft-fails via applySeccomp; policy error path is covered
+	// installSeccompFilter soft-fails via applySeccomp. Policy error path is covered
 	// by seccompPolicy on supported arches returning a usable denylist.
 	arch, denied, err := seccompPolicy()
 	if err != nil {

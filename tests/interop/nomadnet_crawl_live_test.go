@@ -164,7 +164,7 @@ func waitForRequestReceipt(receipt *rlink.RequestReceipt, timeout time.Duration)
 // TestLiveNomadNetCrawlFetchMU listens for NomadNet node announces over TCP and fetches .mu pages.
 // Required: RUN_LIVE_INTEROP=1.
 // Optional env:
-//   - INTEROP_NOMADNET_TCP_HOST/PORT/NAME pin a single uplink; unset, the test
+//   - INTEROP_NOMADNET_TCP_HOST/PORT/NAME pin a single uplink. Unset, the test
 //     walks the same public peer list as the relay test until one forwards
 //     announces
 //   - INTEROP_NOMADNET_ANNOUNCE_WAIT_SEC (default 45, per uplink)

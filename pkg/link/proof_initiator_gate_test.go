@@ -11,11 +11,11 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
-// TestResponderRejectsReflectedProof verifies that a responder link ignores an
-// LRProof packet entirely: a reflected copy of its own signed proof verifies
-// against the local identity, and without the initiator gate it would
-// overwrite the peer's ephemeral key with the responder's own, fire the
-// established callback, and corrupt the real session.
+// A responder link must ignore LRProof packets entirely. A reflected copy
+// of its own signed proof verifies against the local identity, and without
+// the initiator gate it would overwrite the peer's ephemeral key with the
+// responder's own, fire the established callback, and corrupt the real
+// session.
 func TestResponderRejectsReflectedProof(t *testing.T) {
 	responderIdent, err := identity.NewIdentity()
 	if err != nil {
@@ -93,9 +93,8 @@ func TestResponderRejectsReflectedProof(t *testing.T) {
 	}
 }
 
-// TestDuplicateLRRTTDoesNotRefire verifies a second decryptable LRRTT on an
-// already-active responder link does not re-fire the established callback or
-// reset link timing.
+// A second LRRTT on an already-active responder link must not re-fire
+// the established callback or reset link timing.
 func TestDuplicateLRRTTDoesNotRefire(t *testing.T) {
 	responderIdent, err := identity.NewIdentity()
 	if err != nil {
@@ -107,7 +106,7 @@ func TestDuplicateLRRTTDoesNotRefire(t *testing.T) {
 		t.Fatalf("destination: %v", err)
 	}
 
-	// Responder already past handshake: session keys and Active status.
+	// Responder link with Active status but no session keys yet.
 	responderLink := &Link{transport: transportInstance, destination: dest, initiator: false}
 	if err := responderLink.generateEphemeralKeys(); err != nil {
 		t.Fatalf("ephemeral keys: %v", err)
@@ -118,12 +117,11 @@ func TestDuplicateLRRTTDoesNotRefire(t *testing.T) {
 	fires := 0
 	responderLink.establishedCallback = func(*Link) { fires++ }
 
-	// Fabricate an encrypted LRRTT payload via the link's own encrypt path.
+	// Feed a garbage RTT packet. Without real ciphertext decrypt fails,
 	rttPkt := &packet.Packet{Context: packet.ContextLRRTT, Data: []byte{}}
 	if err := responderLink.handleRTTPacket(rttPkt); err != nil {
-		// Decrypt may fail without real ciphertext; the important assertion
-		// below is on callback fires and status, which must not change even
-		// when the packet parses on an Active link.
+		// which is fine. The assertions below cover callback fires and
+		// status, which must hold whether or not the packet parses.
 		t.Logf("RTT handling returned: %v", err)
 	}
 

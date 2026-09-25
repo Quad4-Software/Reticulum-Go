@@ -86,7 +86,7 @@ var (
 	cbMu      sync.Mutex
 	cbFn      map[uint64]C.rns_event_callback
 	cbUser    map[uint64]unsafe.Pointer
-	cbScratch map[uint64]unsafe.Pointer // C.malloc'd; never a Go pointer
+	cbScratch map[uint64]unsafe.Pointer // C.malloc'd, never a Go pointer
 )
 
 func init() {
@@ -174,7 +174,7 @@ func rns_node_pause(node C.uint64_t) C.int {
 //export rns_node_refresh_paths
 func rns_node_refresh_paths(node C.uint64_t, destHashes *C.uint8_t, count C.size_t) C.int {
 	n, ok := sizeToInt(count)
-	// Bound n*16 to a sane count; on 32-bit targets n*16 overflows int and
+	// Bound n*16 to a sane count. On 32-bit targets n*16 overflows int and
 	// unsafe.Slice panics, aborting the host process.
 	if !ok || n > 65536 {
 		return cCode(librns.ErrInvalidArg)
@@ -841,7 +841,7 @@ func fillInterfaceEntry(dst *C.rns_interface_entry, e librns.InterfaceEntry) {
 }
 
 func fillEvent(dst *C.rns_event, ev librns.Event) {
-	// ev.Kind is an event kind, not an error code; routing it through cCode
+	// ev.Kind is an event kind, not an error code. Routing it through cCode
 	// mapped every kind above 8 to RNS_EV_REQUEST_INCOMING.
 	dst.kind = C.int(ev.Kind)
 	dst.hops = C.uint8_t(ev.Hops)

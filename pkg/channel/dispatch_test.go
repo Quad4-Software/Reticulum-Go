@@ -25,7 +25,7 @@ func inboundFrame(t *testing.T, seq uint16) []byte {
 	return raw
 }
 
-// Transport workers can race to drain the RX ring; handler dispatch must stay
+// Transport workers can race to drain the RX ring. Handler dispatch must stay
 // serialized and in sequence order per channel.
 func TestHandleInboundDispatchSerializedAndOrdered(t *testing.T) {
 	link := &mockLink{status: transport.StatusActive}

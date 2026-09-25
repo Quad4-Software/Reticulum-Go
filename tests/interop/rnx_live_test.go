@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
-// Live rnx / rgox interop: Go↔Go and Go↔Python over UDP.
+// Live rnx / rgox interop: Go<->Go and Go<->Python over UDP.
 // Set RUN_LIVE_INTEROP=1 to enable. Python tests also need rnx on PATH
 // (or RETICULUM_PATH pointing at a Reticulum checkout with RNS.Utilities.rnx).
 

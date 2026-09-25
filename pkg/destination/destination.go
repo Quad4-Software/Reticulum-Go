@@ -366,7 +366,7 @@ func localAnnounceAllowed(iface, attached common.NetworkInterface) bool {
 // AcceptsLinks marks whether this destination should accept incoming links.
 // AcceptsLinks(true) registers the destination with transport if one is set.
 // Direction In already auto-registers in New. AcceptsLinks(false) makes the
-// destination silently drop inbound link requests; it clears the flag only
+// destination silently drop inbound link requests. It clears the flag only
 // and does not unregister the destination from transport, which also routes
 // inbound data packets.
 func (d *Destination) AcceptsLinks(accepts bool) {
