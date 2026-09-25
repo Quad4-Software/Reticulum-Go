@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Quad4-Software/Reticulum-Go/internal/storage"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/announce"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
@@ -365,7 +366,7 @@ func localAnnounceAllowed(iface, attached common.NetworkInterface) bool {
 // AcceptsLinks marks whether this destination should accept incoming links.
 // AcceptsLinks(true) registers the destination with transport if one is set.
 // Direction In already auto-registers in New. AcceptsLinks(false) makes the
-// destination silently drop inbound link requests; it clears the flag only
+// destination silently drop inbound link requests. It clears the flag only
 // and does not unregister the destination from transport, which also routes
 // inbound data packets.
 func (d *Destination) AcceptsLinks(accepts bool) {
@@ -1003,34 +1004,10 @@ func (d *Destination) persistRatchets() error {
 		return fmt.Errorf("failed to pack ratchet data: %w", err)
 	}
 
-	// Write to temporary file first, then rename (atomic operation)
-	tempPath := d.ratchetPath + ".tmp"
-	file, err := os.Create(tempPath) // #nosec G304
-	if err != nil {
-		return fmt.Errorf("failed to create temp ratchet file: %w", err)
-	}
-
-	if _, err := file.Write(finalData); err != nil {
-		// #nosec G104 - Error already being handled, cleanup errors are non-critical
-		file.Close()
-		// #nosec G104 - Error already being handled, cleanup errors are non-critical
-		os.Remove(tempPath)
-		return fmt.Errorf("failed to write ratchet data: %w", err)
-	}
-	// #nosec G104 - File is being closed after successful write, error is non-critical
-	file.Close()
-
-	// Remove old file if exists
-	if _, err := os.Stat(d.ratchetPath); err == nil {
-		// #nosec G104 - Removing old file, error is non-critical if it doesn't exist
-		os.Remove(d.ratchetPath)
-	}
-
-	// Atomic rename
-	if err := os.Rename(tempPath, d.ratchetPath); err != nil {
-		// #nosec G104 - Error already being handled, cleanup errors are non-critical
-		os.Remove(tempPath)
-		return fmt.Errorf("failed to rename ratchet file: %w", err)
+	// Atomic write at 0600: ratchets are private X25519 keys and os.Create
+	// would leave them world-readable under a typical umask.
+	if err := storage.AtomicWriteFile(d.ratchetPath, finalData, 0o600); err != nil {
+		return fmt.Errorf("failed to write ratchet file: %w", err)
 	}
 
 	debug.Log(debug.DebugPackets, "Ratchets persisted successfully")

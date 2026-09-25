@@ -233,7 +233,7 @@ func TestWorkDocEditAuthorOnly(t *testing.T) {
 }
 
 func TestWorkDocAdminCompleteActivate(t *testing.T) {
-	// Only admins have interact+write; author only has read+propose.
+	// Only admins have interact+write. Author only has read+propose.
 	node, author, _ := newWorkTestNode(t, "r:all,p:all")
 	admin, err := identity.New()
 	if err != nil {
@@ -352,7 +352,7 @@ func TestWorkDocScopedPermissions(t *testing.T) {
 	node, proposer, _ := newWorkTestNode(t, "r:all,p:all")
 	docID := workCreateDoc(t, node, proposer, "propose", "Proposal", "review me")
 
-	// Proposer's doc .allowed grants i+w to proposer only; a stranger keeps
+	// Proposer's doc .allowed grants i+w to proposer only. A stranger keeps
 	// base repo read access but cannot comment without interact.
 	stranger, err := identity.New()
 	if err != nil {

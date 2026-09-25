@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/node"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/rnsutil"
 )
@@ -263,4 +264,21 @@ func repoRoot(t *testing.T) string {
 	}
 	// tests/interop -> repo root
 	return filepath.Clean(filepath.Join(wd, "../.."))
+}
+
+// waitIdentityFile polls until a spawned daemon has written its identity file.
+// A fixed sleep races daemon startup under suite load.
+func waitIdentityFile(t *testing.T, path string) *identity.Identity {
+	t.Helper()
+	deadline := time.Now().Add(15 * time.Second)
+	for {
+		id, err := identity.FromFile(path)
+		if err == nil {
+			return id
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("identity file %s never appeared: %v", path, err)
+		}
+		time.Sleep(150 * time.Millisecond)
+	}
 }

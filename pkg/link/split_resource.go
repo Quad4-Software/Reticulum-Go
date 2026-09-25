@@ -28,7 +28,7 @@ var (
 
 // maxSplitAssembliesPerLink bounds distinct in-flight split resources on one
 // link. Upstream paces segments so effectively one assembly advances at a
-// time; a small allowance covers pipelined senders without letting a peer
+// time. A small allowance covers pipelined senders without letting a peer
 // accumulate unbounded staged state.
 const maxSplitAssembliesPerLink = 4
 
@@ -37,7 +37,7 @@ const maxSplitAssembliesTotal = 1024
 
 // maxSplitAssemblyBytes is the hard ceiling on staged bytes per split
 // resource regardless of advertised sizes. Upstream trusts the declared
-// total implicitly; a finite bound keeps a hostile peer from appending
+// total implicitly. A finite bound keeps a hostile peer from appending
 // unbounded data to memory or disk.
 const maxSplitAssemblyBytes = 1 << 30
 
@@ -129,7 +129,7 @@ func (l *Link) splitResourceKey(originalHash []byte) string {
 // every advertisement, so sequential indexes and a cumulative byte bound
 // derived from the declared total reject replay, reordering, and append
 // amplification without affecting honest transfers. A segment index of 1
-// after a partial assembly means the sender restarted the transfer; the
+// after a partial assembly means the sender restarted the transfer. The
 // record resets and callers truncate previously staged bytes. The record is
 // removed by finishSplitAssembly or dropSplitAssemblies.
 func admitSplitSegment(key string, adv *resource.ResourceAdvertisement, payloadLen int) error {

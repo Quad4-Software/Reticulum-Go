@@ -76,7 +76,7 @@ func (d *hdlcStreamDecoder) dropPartial() bool {
 func (d *hdlcStreamDecoder) feedByte(b byte) {
 	if b == HDLCFlag {
 		if d.inFrame && len(d.data) > 0 {
-			// maxFrame allows escaped assembly headroom; delivered payload
+			// maxFrame allows escaped assembly headroom. Delivered payload
 			// must still fit the interface MTU (matching KISS). TCP/Backbone
 			// also reject frames at or below HEADER_MINSIZE (RNS 1.3.9).
 			ok := d.onFrame != nil && (d.mtu <= 0 || len(d.data) <= d.mtu)

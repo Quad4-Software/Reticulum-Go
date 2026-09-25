@@ -246,7 +246,7 @@ Go-only local DoS / overload gates (IDS detect, IPS prevent, smart auto). Wired 
 
 ### pkg/rnsutil
 
-Helpers and RPC client for CLI utilities (reticulum-go status, slow, id, probe, …).
+Helpers and RPC client for CLI utilities (reticulum-go status, slow, id, probe, ...).
 
 | Item | Detail |
 |------|--------|
@@ -459,7 +459,7 @@ Filesystem persistence under ~/.reticulum-go/storage/.
 | Path | Binary | Role |
 |------|--------|------|
 | cmd/reticulum-go | reticulum-go | Daemon and tools (status, id, probe, path, cp, pageserver). Legacy rgo* names are thin wrappers / install symlinks. |
-| cmd/rgostatus … cmd/rgocp | (wrappers) | Call into pkg/cli for compatibility with old build scripts |
+| cmd/rgostatus ... cmd/rgocp | (wrappers) | Call into pkg/cli for compatibility with old build scripts |
 | cmd/reticulum-wasm | WASM module | Browser entry |
 
 CLI dispatch lives in pkg/cli. Pageserver logic lives in pkg/pageserver.

@@ -210,7 +210,7 @@ func MigrateEncryptedToFile(path string) error {
 }
 
 // RekeyEncryptedFile changes the passphrase on an RNE1 identity file. A stored
-// wrap passphrase is dropped; run MigrateToWrapped again to restore it.
+// wrap passphrase is dropped. Run MigrateToWrapped again to restore it.
 func RekeyEncryptedFile(path string, oldPass, newPass []byte) error {
 	raw, err := os.ReadFile(path) // #nosec G304
 	if err != nil {

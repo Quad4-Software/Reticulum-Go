@@ -27,7 +27,7 @@ func SetPassphraseResolver(r store.PassphraseResolver) {
 }
 
 // ToEncryptedFile saves the identity as an RNE1 passphrase-encrypted file.
-// Requires exportable key material; fails for hardware-bound identities.
+// Requires exportable key material. Fails for hardware-bound identities.
 func (i *Identity) ToEncryptedFile(path string, passphrase []byte) error {
 	if i.externalSigner != nil {
 		return ErrSigningMaterialNotExportable

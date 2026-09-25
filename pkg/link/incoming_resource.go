@@ -97,7 +97,7 @@ type incomingResourceAsm struct {
 	// It must be computed from the link MDU, matching both
 	// ResourceAdvertisement.Pack (the initial segment 0) and
 	// chooseHashmapUpdateSegment/HashmapSegment on the sending side
-	// (subsequent HMU segments) -- NOT from the resource part SDU (sdu
+	// (subsequent HMU segments), NOT from the resource part SDU (sdu
 	// above), which is a different, smaller value used purely for sizing
 	// actual part payloads. Using the wrong value here silently
 	// desynchronizes every segment offset beyond the first (whose offset
@@ -1265,7 +1265,7 @@ func (l *Link) completeRequestWithResourcePayload(req *RequestReceipt, payload [
 	if req.status != StatusPending && req.status != StatusReceiving {
 		// Receipt already concluded (timeout or a plain response won the
 		// race). Python response_received skips FAILED receipts the same
-		// way; never resurrect or double-fire callbacks.
+		// way. Never resurrect or double-fire callbacks.
 		req.mutex.Unlock()
 		return
 	}

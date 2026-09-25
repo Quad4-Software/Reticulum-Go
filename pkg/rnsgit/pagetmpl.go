@@ -15,7 +15,7 @@ import (
 )
 
 // Template substitution keys, matching the placeholders rngit template files
-// use. Only base sees the full set; per-page templates get PAGE_CONTENT.
+// use. Only base sees the full set. Per-page templates get PAGE_CONTENT.
 const (
 	tplPageContent = "{PAGE_CONTENT}"
 	tplNodeName    = "{NODE_NAME}"
@@ -25,14 +25,14 @@ const (
 )
 
 // Version is the rngit version string shown in page footers. The CLI stamps
-// it from the build version; library users may set it before serving.
+// it from the build version. Library users may set it before serving.
 var Version = "dev"
 
 // tabWidth matches the Python format_tabs replacement width.
 const tabWidth = 3
 
 // templateExecTimeout bounds dynamic template execution. The Python
-// implementation runs executable templates with no timeout or output cap;
+// implementation runs executable templates with no timeout or output cap.
 // both bounds are deliberate hardening additions here.
 const (
 	templateExecTimeout = 5 * time.Second

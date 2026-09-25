@@ -20,7 +20,7 @@ func DestinationCreate(nodeHandle, identityHandle uint64, appName string, aspect
 	if err != nil {
 		return 0, setLastError(err)
 	}
-	ident := nodeRec.identity
+	ident := nodeRec.identity.Load()
 	if identityHandle != 0 {
 		identRec, err := identityByHandle(identityHandle)
 		if err != nil {
@@ -244,7 +244,9 @@ func wireInboundLinks(nodeRec *nodeRecord, dest *destination.Destination) {
 			return
 		}
 		id := lnk.GetLinkID()
-		lr := &linkRecord{link: lnk, id: append([]byte(nil), id...), nodeID: nodeRec.handle, established: true}
+		lr := &linkRecord{id: append([]byte(nil), id...), nodeID: nodeRec.handle}
+		lr.link.Store(lnk)
+		lr.established.Store(true)
 		runtimeMu.Lock()
 		linkHandle := handles.insert(kindLink, lr)
 		nodeRec.links[linkHandle] = lr

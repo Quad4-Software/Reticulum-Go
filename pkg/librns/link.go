@@ -23,7 +23,7 @@ func LinkOpen(nodeHandle uint64, destHash []byte) (uint64, int) {
 	if err != nil {
 		return 0, setLastError(err)
 	}
-	if !nodeRec.started {
+	if !nodeRec.started.Load() {
 		return 0, setLastError(errState)
 	}
 	if len(destHash) != identity.TruncatedHashLength/8 {
@@ -61,20 +61,20 @@ func LinkOpen(nodeHandle uint64, destHash []byte) (uint64, int) {
 
 	lr := &linkRecord{nodeID: nodeHandle}
 	established := func(l *link.Link) {
-		lr.link = l
-		lr.id = append([]byte(nil), l.GetLinkID()...)
-		lr.established = true
+		lr.link.Store(l)
+		lr.setLinkID(l.GetLinkID())
+		lr.established.Store(true)
 		wireLinkData(nodeRec, lr)
 		nodeRec.enqueue(Event{
 			Kind:            EventLinkEstablished,
-			LinkID:          append([]byte(nil), lr.id...),
+			LinkID:          lr.linkIDBytes(),
 			DestinationHash: append([]byte(nil), destHash...),
 			IdentityHash:    remoteIdentityBytes(l),
 		})
 	}
 	closed := func(l *link.Link) {
-		if lr.established {
-			nodeRec.enqueue(Event{Kind: EventLinkClosed, LinkID: append([]byte(nil), lr.id...)})
+		if lr.established.Load() {
+			nodeRec.enqueue(Event{Kind: EventLinkClosed, LinkID: lr.linkIDBytes()})
 		} else {
 			nodeRec.enqueue(Event{
 				Kind:            EventLinkFailed,
@@ -102,16 +102,17 @@ func LinkOpen(nodeHandle uint64, destHash []byte) (uint64, int) {
 		})
 		return 0, setLastError(err)
 	}
-	if lr.id == nil {
-		lr.id = append([]byte(nil), lnk.GetLinkID()...)
-	}
+	lr.setLinkID(lnk.GetLinkID())
 	lnk.SetLinkClosedCallback(closed)
-	lnk.Start()
 
+	// Register before Start so a link that closes during startup is removed
+	// from the handle table by the closed callback rather than leaking.
 	runtimeMu.Lock()
 	linkHandle := handles.insert(kindLink, lr)
 	nodeRec.links[linkHandle] = lr
 	runtimeMu.Unlock()
+
+	lnk.Start()
 	return linkHandle, OK
 }
 
@@ -121,10 +122,10 @@ func LinkSend(linkHandle uint64, data []byte) int {
 	if err != nil {
 		return setLastError(err)
 	}
-	if lr.link == nil || !lr.established {
+	if lr.link.Load() == nil || !lr.established.Load() {
 		return setLastError(errState)
 	}
-	if err := lr.link.SendPacket(data); err != nil {
+	if err := lr.link.Load().SendPacket(data); err != nil {
 		return setLastError(err)
 	}
 	return OK
@@ -137,7 +138,7 @@ func LinkSendResource(linkHandle uint64, data []byte, name string) int {
 	if err != nil {
 		return setLastError(err)
 	}
-	if lr.link == nil || !lr.established {
+	if lr.link.Load() == nil || !lr.established.Load() {
 		return setLastError(errState)
 	}
 	res, err := resource.New(append([]byte(nil), data...), false)
@@ -150,11 +151,11 @@ func LinkSendResource(linkHandle uint64, data []byte, name string) int {
 		}
 	}
 	go func() {
-		if err := lr.link.SendResource(res); err != nil {
+		if err := lr.link.Load().SendResource(res); err != nil {
 			if nodeRec, nerr := nodeByHandle(lr.nodeID); nerr == nil {
 				nodeRec.enqueue(Event{
 					Kind:         EventRequestFailed,
-					LinkID:       append([]byte(nil), lr.id...),
+					LinkID:       lr.linkIDBytes(),
 					ErrorMessage: err.Error(),
 					Path:         "resource",
 				})
@@ -170,8 +171,8 @@ func LinkClose(linkHandle uint64) int {
 	if err != nil {
 		return setLastError(err)
 	}
-	if lr.link != nil {
-		lr.link.Teardown()
+	if lr.link.Load() != nil {
+		lr.link.Load().Teardown()
 	}
 	return OK
 }
@@ -182,11 +183,10 @@ func LinkID(linkHandle uint64) ([]byte, int) {
 	if err != nil {
 		return nil, setLastError(err)
 	}
-	if lr.id == nil {
+	out := lr.linkIDBytes()
+	if len(out) == 0 {
 		return nil, setLastError(errState)
 	}
-	out := make([]byte, len(lr.id))
-	copy(out, lr.id)
 	return out, OK
 }
 
@@ -203,7 +203,7 @@ func LinkFromID(nodeHandle uint64, linkID []byte) (uint64, int) {
 	runtimeMu.RLock()
 	defer runtimeMu.RUnlock()
 	for h, lr := range nodeRec.links {
-		if lr != nil && bytes.Equal(lr.id, linkID) {
+		if lr != nil && bytes.Equal(lr.linkIDBytes(), linkID) {
 			return h, OK
 		}
 	}
@@ -224,7 +224,7 @@ func LinkRequest(nodeHandle, linkHandle uint64, path string, data []byte, timeou
 	if err != nil {
 		return nil, setLastError(err)
 	}
-	if lr.link == nil || !lr.established {
+	if lr.link.Load() == nil || !lr.established.Load() {
 		return nil, setLastError(errState)
 	}
 	timeout := time.Duration(timeoutMs) * time.Millisecond
@@ -232,12 +232,12 @@ func LinkRequest(nodeHandle, linkHandle uint64, path string, data []byte, timeou
 		timeout = 0
 	}
 	payload := decodeLinkRequestPayload(data)
-	receipt, err := lr.link.Request(path, payload, timeout)
+	receipt, err := lr.link.Load().Request(path, payload, timeout)
 	if err != nil {
 		return nil, setLastError(err)
 	}
 	id := receipt.GetRequestID()
-	linkID := append([]byte(nil), lr.id...)
+	linkID := lr.linkIDBytes()
 	receipt.SetResponseCallback(func(r *link.RequestReceipt) {
 		nodeRec.enqueue(Event{
 			Kind:      EventRequestResponse,
@@ -260,25 +260,25 @@ func LinkRequest(nodeHandle, linkHandle uint64, path string, data []byte, timeou
 }
 
 func wireLinkData(nodeRec *nodeRecord, lr *linkRecord) {
-	if lr.link == nil {
+	if lr.link.Load() == nil {
 		return
 	}
-	id := append([]byte(nil), lr.id...)
-	lr.link.SetPacketCallback(func(data []byte, _ *packet.Packet) {
+	id := lr.linkIDBytes()
+	lr.link.Load().SetPacketCallback(func(data []byte, _ *packet.Packet) {
 		nodeRec.enqueue(Event{
 			Kind:    EventLinkData,
 			LinkID:  id,
 			AppData: append([]byte(nil), data...),
 		})
 	})
-	_ = lr.link.SetResourceStrategy(link.AcceptAll)
-	lr.link.SetResourceStartedCallback(func(_ any) {
+	_ = lr.link.Load().SetResourceStrategy(link.AcceptAll)
+	lr.link.Load().SetResourceStartedCallback(func(_ any) {
 		nodeRec.enqueue(Event{
 			Kind:   EventResourceStarted,
 			LinkID: append([]byte(nil), id...),
 		})
 	})
-	lr.link.SetResourceConcludedCallback(func(v any) {
+	lr.link.Load().SetResourceConcludedCallback(func(v any) {
 		ev := Event{
 			Kind:   EventResourceConcluded,
 			LinkID: append([]byte(nil), id...),

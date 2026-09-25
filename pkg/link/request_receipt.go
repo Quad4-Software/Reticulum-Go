@@ -129,7 +129,12 @@ func (l *Link) RequestLimited(path string, data any, timeout time.Duration, maxR
 	}
 
 	debug.Log(debug.DebugVerbose, "Sending request as resource", "path", path, "request_id", fmt.Sprintf("%x", requestID), "packed_len", len(packedRequest))
+	if !l.acquireResourceSendSlot() {
+		l.failPendingRequest(receipt)
+		return nil, errors.New("link resource send slots exhausted")
+	}
 	go func() {
+		defer l.releaseResourceSendSlot()
 		if err := l.SendResource(res); err != nil {
 			debug.Log(debug.DebugError, "Failed to send request resource", "request_id", fmt.Sprintf("%x", requestID), "error", err)
 			l.failPendingRequest(receipt)
@@ -265,7 +270,7 @@ func (l *Link) removePendingRequest(req *RequestReceipt) {
 }
 
 // failPendingRequest moves a pending or receiving receipt to FAILED, drops
-// it from pendingRequests, and fires the failed callback. Idempotent; a
+// it from pendingRequests, and fires the failed callback. Idempotent. A
 // concluded receipt is left alone so a late failure cannot resurrect it or
 // double-fire callbacks.
 func (l *Link) failPendingRequest(req *RequestReceipt) {
@@ -304,7 +309,7 @@ func (r *RequestReceipt) startTimeout() {
 			return
 		}
 		// A response resource is transferring. Python suspends the request
-		// timeout in RECEIVING and lets the resource watchdog bound stalls;
+		// timeout in RECEIVING and lets the resource watchdog bound stalls.
 		// abort paths fail this receipt. Bound only the orphaned case where
 		// no live transfer claims the receipt (e.g. a peer that abandons a
 		// split transfer between segments).
@@ -482,7 +487,11 @@ func (l *Link) sendResponse(requestID []byte, response any) error {
 		}
 		res.SetRequestID(requestID)
 		res.SetIsResponse(true)
+		if !l.acquireResourceSendSlot() {
+			return errors.New("link resource send slots exhausted")
+		}
 		go func() {
+			defer l.releaseResourceSendSlot()
 			if err := l.SendResource(res); err != nil {
 				debug.Log(debug.DebugError, "Failed to send file response resource", "request_id", fmt.Sprintf("%x", requestID), "error", err)
 			}
@@ -537,7 +546,11 @@ func (l *Link) sendResponse(requestID []byte, response any) error {
 	res.SetIsResponse(true)
 
 	debug.Log(debug.DebugVerbose, "Sending response as resource", "request_id", fmt.Sprintf("%x", requestID), "packed_len", len(packedResponse), "mdu", mdu)
+	if !l.acquireResourceSendSlot() {
+		return errors.New("link resource send slots exhausted")
+	}
 	go func() {
+		defer l.releaseResourceSendSlot()
 		if err := l.SendResource(res); err != nil {
 			debug.Log(debug.DebugError, "Failed to send response resource", "request_id", fmt.Sprintf("%x", requestID), "error", err)
 		}

@@ -138,6 +138,14 @@ func decryptWithKeys(sessionKey, hmacKey, data []byte, block cipher.Block, mac h
 	return cryptography.RemovePKCS7Padding(plaintext)
 }
 
+// hasSessionKeys reports whether session keys are present, read under the
+// link mutex so handshake writers do not race the check.
+func (l *Link) hasSessionKeys() bool {
+	l.mutex.RLock()
+	defer l.mutex.RUnlock()
+	return l.sessionKey != nil && l.hmacKey != nil
+}
+
 // snapshotSessionKeysLocked copies session/hmac key bytes into dst while the
 // link mutex is held. Prefer this over retaining securemem.Bytes() across the
 // unlocked AES work so handshake writers are not starved and closed buffers

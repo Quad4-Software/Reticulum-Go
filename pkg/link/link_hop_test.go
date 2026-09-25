@@ -42,7 +42,7 @@ func TestValidateLinkProof_HopMismatch(t *testing.T) {
 		Context:         packet.ContextLRProof,
 		DestinationType: DestTypeLink,
 		DestinationHash: l.linkID,
-		Hops:            5, // wire 5 → accounted 6 on wan
+		Hops:            5, // wire 5 -> accounted 6 on wan
 		Data:            bytes.Repeat([]byte{0xAB}, identity.SigLength/8+KeySize),
 	}
 	err = l.ValidateLinkProof(proof, iface)
@@ -85,7 +85,7 @@ func TestValidateLinkProof_AccountedHopsMatch(t *testing.T) {
 		Context:         packet.ContextLRProof,
 		DestinationType: DestTypeLink,
 		DestinationHash: l.linkID,
-		Hops:            0, // wire 0 → accounted 1
+		Hops:            0, // wire 0 -> accounted 1
 		Data:            bytes.Repeat([]byte{0xCD}, identity.SigLength/8+KeySize),
 	}
 	err = l.ValidateLinkProof(proof, iface)

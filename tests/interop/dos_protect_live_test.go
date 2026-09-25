@@ -161,7 +161,7 @@ func TestLiveDoSProtectAutoLearnOnUDP(t *testing.T) {
 
 	payload := []byte{1, 2, 3, 4, 5, 6, 7, 8}
 	// Arming needs AdaptiveWarmupSamples plus AutoStableWindows consecutive
-	// quiet samples; under suite load a single perturbed window restarts the
+	// quiet samples. Under suite load a single perturbed window restarts the
 	// stable count, so keep generous headroom over the ~20s minimum.
 	deadline := time.Now().Add(150 * time.Second)
 	for time.Now().Before(deadline) && e.Phase() != protect.AutoArmed {

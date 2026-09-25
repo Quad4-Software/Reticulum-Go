@@ -247,6 +247,14 @@ func (c *Channel) Send(msg MessageBase) error {
 	return nil
 }
 
+// dropReceiptTracking releases delivery tracking on outlets that keep it.
+// Optional interface: outlets without receipt tracking simply ignore it.
+func (c *Channel) dropReceiptTracking(packet any) {
+	if d, ok := c.link.(interface{ DropPacketReceipt(any) }); ok {
+		d.DropPacketReceipt(packet)
+	}
+}
+
 // handleTimeout handles packet timeout events
 func (c *Channel) handleTimeout(packet any) {
 	if packet == nil {
@@ -264,6 +272,7 @@ func (c *Channel) handleTimeout(packet any) {
 		if env.Tries >= c.maxTries {
 			c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
 			releaseEnvelope(env)
+			c.dropReceiptTracking(packet)
 			c.signalReadyLocked()
 			return
 		}
@@ -272,6 +281,7 @@ func (c *Channel) handleTimeout(packet any) {
 			debug.Log(debug.DebugInfo, "Failed to resend packet", "error", err)
 			c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
 			releaseEnvelope(env)
+			c.dropReceiptTracking(packet)
 			c.signalReadyLocked()
 			return
 		}
@@ -313,7 +323,7 @@ func (c *Channel) signalReadyLocked() {
 }
 
 // NotifyClosed wakes WaitReady waiters so they observe a dead outlet. The
-// owning link calls this when it closes; other outlet types may call it on
+// owning link calls this when it closes. Other outlet types may call it on
 // equivalent teardown.
 func (c *Channel) NotifyClosed() {
 	c.mutex.Lock()
@@ -407,10 +417,10 @@ func (c *Channel) HandleInbound(data []byte) error {
 	}
 
 	// dispatchMu serializes emplace, drain and handler dispatch per channel.
-	// Parallel transport workers may race to drain the RX ring; without this,
+	// Parallel transport workers may race to drain the RX ring. Without this,
 	// a worker holding a drained envelope can be preempted before its handler
 	// runs while another worker dispatches a later sequence first. Python
-	// delivers serially from a single inbound_job consumer; dispatchMu gives
+	// delivers serially from a single inbound_job consumer. dispatchMu gives
 	// the same ordering without shrinking the packet worker pool.
 	c.dispatchMu.Lock()
 	defer c.dispatchMu.Unlock()

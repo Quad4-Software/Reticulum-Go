@@ -56,7 +56,7 @@ func operatorKind(op token.Token) mutantKind {
 
 // listPackageSources returns the .go files that actually compile into the
 // package on this platform: only the package directory itself (subdirectories
-// are different packages whose tests never run under `go test ./pkg`) and only
+// are different packages whose tests never run under go test ./pkg) and only
 // files selected by the current build constraints, so mutants can never be
 // injected into code the test binary cannot execute.
 func listPackageSources(pkg string) ([]string, error) {

@@ -165,7 +165,7 @@ rgostatus [flags] [filter]
 | -b | List blocked IPs per interface |
 | -t | Show transport traffic totals |
 | -p | Show packets per second in totals |
-| -Q | Show inbound queue pressure (use -Q not -q; -q is quiet) |
+| -Q | Show inbound queue pressure (use -Q rather than -q, which is quiet) |
 | -z | Show profiling results when the instance provides them |
 | -m | Continuously monitor status |
 | -I sec | Monitor refresh interval (default 1) |
@@ -234,7 +234,7 @@ Link throughput test modeled on Python Examples/Speedtest.py.
 | Daemon (VPS / docker) | reticulum-go speedtest -daemon |
 | Client (cross-host) | reticulum-go speedtest <server_dest_hash> |
 
-Destination is speedtest.server. Server and client must use the same -bytes size. After the transfer the server sends a SPEEDOK ack with the confirmed RX count. Networked clients pace sends (100 µs per packet by default) so UDP sockets are not overrun; loopback does not pace.
+Destination is speedtest.server. Server and client must use the same -bytes size. After the transfer the server sends a SPEEDOK ack with the confirmed RX count. Networked clients pace sends (100 us per packet by default) so UDP sockets are not overrun. Loopback does not pace.
 
 Every run prints a grep-friendly speedtest_result ... line on stdout (visible in docker logs). With -json, a JSON object follows on stdout as well.
 
@@ -251,7 +251,7 @@ Use a real config with UDP/TCP (or a shared path). share_instance is forced off 
 | -config dir | Config directory (default ~/.reticulum-go) |
 | -identity path | Persistent identity for listen mode |
 | -bytes n | Plaintext bytes to transfer (default 2 MiB) |
-| -min-bps n | Fail below this rate (0 disables; loopback defaults to 1e6) |
+| -min-bps n | Fail below this rate (0 disables, loopback defaults to 1e6) |
 | -timeout sec | Overall timeout (default 60) |
 | -announce sec | Listen announce interval (0 once, <0 never) |
 | -json | Emit JSON after each speedtest_result line |
@@ -523,18 +523,18 @@ When `serve_nomadnet = yes` is set in the `[pages]` section of the server config
 
 - `/page/index.mu`, `group.mu`, `repo.mu`, `tree.mu`, `blob.mu`, `commits.mu`, `commit.mu`, `refs.mu`, `stats.mu`, `releases.mu`, `release.mu`, `work.mu`, `work_doc.mu`
 - `/file/artifact`, `/file/download`, `/file/workdoc` for release artifacts, raw blobs, and work document downloads
-- `/media` is a Reticulum-Go extension for repository blobs with optional WebP conversion (media_conversion config); the reference implementation has no such route
+- `/media` is a Reticulum-Go extension for repository blobs with optional WebP conversion (media_conversion config). The reference implementation has no such route
 
 Page requests carry NomadNet `var_*` fields (var_g, var_r, var_ref, var_path, var_scope, var_id, var_t, var_a, var_thanks, var_page, var_type, var_h, var_raw, var_render). Unidentified peers resolve as the null identity `d7db22f63b453c23bb0688dde565b7c1` and can be refused entirely by listing it under `blocked_identities`.
 
 Templates come from `<configdir>/templates/<name>.mu` with defaults compiled in. Supported names: base, front, group, repo, tree, blob, commits, commit, refs, stats, releases, release, work, work_doc, no_ident. Placeholders: `{PAGE_CONTENT}` in every template, plus `{NODE_NAME}`, `{VERSION}`, `{NAVIGATION}`, and `{GEN_TIME}` in base. A template file with the executable bit set is run and its stdout becomes the template, bounded by a 5 second timeout and a 1 MiB output cap.
 
-Markdown files (README, work documents) are converted to Micron, and blob pages apply syntax highlighting unless `syntax_highlight = no`. With `record_stats = yes` the node persists Python-compatible daily counters and renders a stats page with activity scoring; `stats_ignore_identities` and `stats_push_ignore_identities` exclude identities from counting.
+Markdown files (README, work documents) are converted to Micron, and blob pages apply syntax highlighting unless `syntax_highlight = no`. With `record_stats = yes` the node persists Python-compatible daily counters and renders a stats page with activity scoring. `stats_ignore_identities` and `stats_push_ignore_identities` exclude identities from counting.
 
 Deliberate differences from the Python reference:
 
 - Git subprocesses for pages are bounded by an 8 second timeout and blob display is capped at 256 KiB, same limits, but executable templates and blob head reads are bounded where the reference is not
-- `stats_push_ignore_identities` is honored; the reference parses it but never applies it
+- `stats_push_ignore_identities` is honored. The reference parses it but never applies it
 - rperms rechecks repository admin permission, not group permission (reference bug)
 - Work document delete on a missing document returns Not Found instead of failing
 - Missing release artifacts return no response instead of slipping through a no-op guard
@@ -556,7 +556,7 @@ Deliberate differences from the Python reference:
 | Tool | Role |
 |------|------|
 | reticulum-go status | Interface stats over shared-instance RPC (-json, -q), including Go integrity counters when present |
-| reticulum-go slow | Bottleneck and local health findings (integrity_burst, auth_pressure, link_degraded, …) |
+| reticulum-go slow | Bottleneck and local health findings (integrity_burst, auth_pressure, link_degraded, ...) |
 | reticulum-go path -t | Path table dump |
 | reticulum-go debug | Effective config path, log level, platform, RPC reachability (-rates, -json) |
 | reticulum-go self-check | Host OS preflight checklist (--json, --quick, --full, --strict) |

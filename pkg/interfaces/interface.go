@@ -109,16 +109,18 @@ type BaseInterface struct {
 	// deferInboundIFAC skips ApplyIFACInbound in ProcessIncoming so transport
 	// inbound preprocessing can apply IFAC once (RNS 1.5.0).
 	deferInboundIFAC bool
-	ifacScratch      []byte
-	prxc, ptxc       uint64
-	sampleARXB       uint64
-	sampleATXB       uint64
-	samplePRXB       uint64
-	samplePTXB       uint64
-	currentARXS      float64
-	currentATXS      float64
-	currentPRXS      float64
-	currentPTXS      float64
+	// ifacMu serializes outbound masking over the shared ifacScratch buffer.
+	ifacMu      sync.Mutex
+	ifacScratch []byte
+	prxc, ptxc  uint64
+	sampleARXB  uint64
+	sampleATXB  uint64
+	samplePRXB  uint64
+	samplePTXB  uint64
+	currentARXS float64
+	currentATXS float64
+	currentPRXS float64
+	currentPTXS float64
 
 	announceQueue     []queuedAnnounce
 	announceAllowedAt time.Time
@@ -430,7 +432,9 @@ func (i *BaseInterface) Send(data []byte, address string) error {
 		debug.Log(debug.DebugTrace, "Interface sending bytes", "name", i.Name, "bytes", len(data), "address", address)
 	}
 
+	i.ifacMu.Lock()
 	masked, err := common.ApplyIFACOutboundInto(i, i.ifacOutboundScratch(len(data)), data)
+	i.ifacMu.Unlock()
 	if err != nil {
 		debug.Log(debug.DebugError, "Failed to mask outgoing packet for IFAC", "name", i.Name, "error", err)
 		return err

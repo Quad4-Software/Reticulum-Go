@@ -48,7 +48,7 @@ func TestHandleInboundBuffersInWindowSequence(t *testing.T) {
 }
 
 // TestHandleInboundFarAheadFloodStaysBounded sends a spread of sequences well
-// past the window; the ring must stay empty for every one.
+// past the window. The ring must stay empty for every one.
 func TestHandleInboundFarAheadFloodStaysBounded(t *testing.T) {
 	c := NewChannel(&mockLink{status: 1})
 	defer func() { _ = c.Close() }()
