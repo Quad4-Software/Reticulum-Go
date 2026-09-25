@@ -170,6 +170,9 @@ func (qc *QUICClientInterface) initReconnectDriver() {
 
 func (qc *QUICClientInterface) dialSession() (net.Conn, error) {
 	addr := net.JoinHostPort(qc.targetAddr, fmt.Sprintf("%d", qc.targetPort))
+	if len(qc.peerPin) == 0 && qc.GetIFAC() == nil {
+		debug.Log(debug.DebugWarning, "QUIC interface has neither peer_key nor IFAC; transport is unauthenticated", "name", qc.Name)
+	}
 	tlsConf := buildQUICClientTLS(qc.sni, qc.peerPin, qc.clientCert)
 	ctx, cancel := context.WithTimeout(context.Background(), quicDialTimeout)
 	defer cancel()
@@ -481,6 +484,9 @@ func (qs *QUICServerInterface) Start() error {
 	qs.Mutex.Unlock()
 
 	addr := net.JoinHostPort(qs.bindAddr, fmt.Sprintf("%d", qs.bindPort))
+	if len(qs.peerPin) == 0 && qs.GetIFAC() == nil {
+		debug.Log(debug.DebugWarning, "QUIC server has neither peer_key nor IFAC; transport is unauthenticated", "name", qs.Name)
+	}
 	tlsConf := buildQUICServerTLS(qs.serverCert, qs.peerPin)
 	ln, err := quic.ListenAddr(addr, tlsConf, quicConfig())
 	if err != nil {

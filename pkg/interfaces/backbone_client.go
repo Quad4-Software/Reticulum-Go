@@ -39,6 +39,7 @@ type BackboneClientInterface struct {
 	stopOnce          sync.Once
 	spawnedAt         time.Time
 	remoteIP          string
+	admitRelease      func()
 
 	// AutoconnectHash is set when this client was created from rnstransport
 	// interface discovery (Python interface.autoconnect_hash).
@@ -120,6 +121,8 @@ func newSpawnedBackboneClient(parent *BackboneInterface, conn net.Conn) *Backbon
 	bc.Online = true
 	if tcpConn, ok := conn.(*net.TCPConn); ok {
 		_ = tcpConn.SetNoDelay(true)
+		_ = tcpConn.SetKeepAlive(true)
+		_ = tcpConn.SetKeepAlivePeriod(30 * time.Second)
 	}
 	return bc
 }
@@ -193,13 +196,16 @@ func (bc *BackboneClientInterface) teardownConn() {
 	bc.Mutex.Lock()
 	stream := bc.stream
 	bc.stream = nil
-	if bc.conn != nil {
-		_ = bc.conn.Close()
-		bc.conn = nil
-	}
+	conn := bc.conn
+	bc.conn = nil
 	bc.Mutex.Unlock()
+	// Deregister the stream (poller.Del) before the fd is freed, so a reused
+	// fd can never be stripped of its new registration. Stream.Close already
+	// closes the socket.
 	if stream != nil {
 		stream.Close()
+	} else if conn != nil {
+		_ = conn.Close()
 	}
 }
 
@@ -244,14 +250,15 @@ func (bc *BackboneClientInterface) Stop() error {
 	bc.Online = false
 	stream := bc.stream
 	bc.stream = nil
-	if bc.conn != nil {
-		_ = bc.conn.Close()
-		bc.conn = nil
-	}
+	conn := bc.conn
+	bc.conn = nil
 	bc.Mutex.Unlock()
 
+	// Same ordering as teardownConn: poller deregistration before fd close.
 	if stream != nil {
 		stream.Close()
+	} else if conn != nil {
+		_ = conn.Close()
 	}
 
 	bc.stopOnce.Do(func() {
@@ -292,6 +299,12 @@ func (bc *BackboneClientInterface) attachStream() error {
 		remoteIP := bc.remoteIP
 		bc.stream = nil
 		bc.Mutex.Unlock()
+		if bc.admitRelease != nil {
+			bc.admitRelease()
+			bc.Mutex.Lock()
+			bc.admitRelease = nil
+			bc.Mutex.Unlock()
+		}
 		if parent != nil {
 			parent.removeSpawned(bc)
 			if !initiator && !spawnedAt.IsZero() {

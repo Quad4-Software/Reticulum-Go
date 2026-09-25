@@ -4,11 +4,13 @@
 package backbone
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 )
@@ -143,11 +145,14 @@ func (h *Hub) acceptLoop(ln net.Listener, accept func(net.Conn)) {
 		}
 		conn, err := ln.Accept()
 		if err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				return
+			}
 			select {
 			case <-h.stop:
 				return
-			default:
-				return
+			case <-time.After(100 * time.Millisecond):
+				continue
 			}
 		}
 		if accept != nil {
@@ -225,20 +230,42 @@ func (h *Hub) goReadLoop(s *Stream) {
 }
 
 // QueueSend appends an HDLC frame to the transmit buffer and arms write interest.
+// maxStreamQueueBytes bounds a stream's outbound queue. A peer that stops
+// reading would otherwise pin unbounded memory on this node.
+const maxStreamQueueBytes = 8 << 20
+
 func (s *Stream) QueueSend(payload []byte) {
 	if s == nil || s.closed.Load() {
 		return
 	}
 	if s.hub.goMode {
 		s.mu.Lock()
-		frame := appendFrameHDLC(s.txBuf[:0], payload)
-		written, err := s.conn.Write(frame)
-		s.requeueUnwrittenLocked(frame, written, err)
+		s.txBuf = appendFrameHDLC(s.txBuf, payload)
+		if len(s.txBuf) > maxStreamQueueBytes {
+			s.mu.Unlock()
+			s.Close()
+			return
+		}
+		// Write the whole queued buffer, newest frame included, so leftover
+		// bytes from an earlier partial write go first and the queue drains.
+		written, err := s.conn.Write(s.txBuf)
+		if written < 0 {
+			written = 0
+		}
+		s.txBuf = s.txBuf[written:]
 		s.mu.Unlock()
+		if err != nil && written == 0 && !s.closed.Load() {
+			debug.Log(debug.DebugVerbose, "go-mode backbone write stalled", "queued", len(s.txBuf))
+		}
 		return
 	}
 	s.mu.Lock()
 	s.txBuf = appendFrameHDLC(s.txBuf, payload)
+	if len(s.txBuf) > maxStreamQueueBytes {
+		s.mu.Unlock()
+		s.Close()
+		return
+	}
 	needOut := !s.wantOut && len(s.txBuf) > 0
 	if needOut {
 		s.wantOut = true
