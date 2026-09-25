@@ -39,7 +39,7 @@ func PacketSend(nodeHandle uint64, destHash, plaintext []byte) int {
 	if err != nil {
 		return setLastError(err)
 	}
-	if !nodeRec.started {
+	if !nodeRec.started.Load() {
 		return setLastError(errState)
 	}
 	if len(destHash) != identity.TruncatedHashLength/8 {
