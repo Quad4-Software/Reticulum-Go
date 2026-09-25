@@ -59,10 +59,12 @@ const (
 
 	// Bounds on KDF parameters accepted from files. Files we write always
 	// carry the defaults above; the caps stop a crafted header from
-	// requesting unbounded work or memory at load time.
-	argonMaxTime    uint32 = 64
-	argonMaxMemory  uint32 = 2 * 1024 * 1024
-	argonMaxThreads uint8  = 64
+	// requesting unbounded work or memory at load time. 512 MiB is still
+	// generous for an identity unwrap but is no longer a 2 GiB/64-round
+	// exhaustion primitive.
+	argonMaxTime    uint32 = 16
+	argonMaxMemory  uint32 = 512 * 1024
+	argonMaxThreads uint8  = 16
 )
 
 var rneMagic = []byte("RNE1")

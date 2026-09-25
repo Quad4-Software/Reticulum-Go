@@ -256,7 +256,10 @@ func TestTruncatedHash(t *testing.T) {
 }
 
 func TestGetRandomHash(t *testing.T) {
-	h := GetRandomHash()
+	h, err := GetRandomHash()
+	if err != nil {
+		t.Fatalf("GetRandomHash: %v", err)
+	}
 	if len(h) != TruncatedHashLength/8 {
 		t.Errorf("Expected length %d, got %d", TruncatedHashLength/8, len(h))
 	}
@@ -416,10 +419,12 @@ func TestRatchetKeyDefensiveCopies(t *testing.T) {
 func TestKnownRatchetsCap(t *testing.T) {
 	ratchetPersistLock.Lock()
 	knownRatchets = make(map[destMapKey]knownRatchetEntry)
+	privateRatchets = make(map[string]knownRatchetEntry)
 	ratchetPersistLock.Unlock()
 	t.Cleanup(func() {
 		ratchetPersistLock.Lock()
 		knownRatchets = make(map[destMapKey]knownRatchetEntry)
+		privateRatchets = make(map[string]knownRatchetEntry)
 		ratchetPersistLock.Unlock()
 	})
 
@@ -434,14 +439,19 @@ func TestKnownRatchetsCap(t *testing.T) {
 	}
 
 	ratchetPersistLock.Lock()
-	n := len(knownRatchets)
-	_, kept := knownRatchets[ratchetMapKey(fmt.Sprintf("peer-%d", MaxKnownRatchets+31))]
+	n := len(privateRatchets)
+	_, kept := privateRatchets[fmt.Sprintf("peer-%d", MaxKnownRatchets+31)]
+	// Private keys must never enter the announced-ratchet (destHash) keyspace.
+	collided := len(knownRatchets) != 0
 	ratchetPersistLock.Unlock()
 	if n > MaxKnownRatchets {
-		t.Fatalf("knownRatchets size = %d, want <= %d", n, MaxKnownRatchets)
+		t.Fatalf("privateRatchets size = %d, want <= %d", n, MaxKnownRatchets)
 	}
 	if !kept {
 		t.Fatal("most recently inserted ratchet must not be evicted")
+	}
+	if collided {
+		t.Fatal("SetRatchetKey must not write into the announced-ratchet map")
 	}
 }
 
@@ -694,4 +704,18 @@ func TestIdentityMemoryScale(t *testing.T) {
 
 	perEntry := (m2.Alloc - m1.Alloc) / uint64(size)
 	t.Logf("Average per destination: %d bytes", perEntry)
+}
+
+// TestRecallIdentityRejectsShortBlob: a truncated or wrong-format identity
+// blob must fail, not panic on a slice or silently load mangled key material.
+func TestRecallIdentityRejectsShortBlob(t *testing.T) {
+	path := t.TempDir() + "/short_identity"
+	for _, n := range []int{0, 16, 32, 63} {
+		if err := os.WriteFile(path, make([]byte, n), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := RecallIdentity(path); err == nil {
+			t.Fatalf("RecallIdentity accepted %d-byte blob", n)
+		}
+	}
 }
