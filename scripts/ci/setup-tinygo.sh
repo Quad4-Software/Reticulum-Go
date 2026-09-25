@@ -23,4 +23,9 @@ fi
 
 run_priv dpkg -i /tmp/tinygo.deb 2>/dev/null || run_priv apt-get install -f -y
 rm -f /tmp/tinygo.deb
-tinygo version
+GOT="$(tinygo version 2>&1 | head -n1)"
+echo "$GOT"
+case "$GOT" in
+    *"$VER"*) ;;
+    *) echo "error: resolved TinyGo does not match pinned ${VER} (got: $GOT)" >&2; exit 1 ;;
+esac

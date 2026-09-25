@@ -1,0 +1,58 @@
+# Pinned actions (bump tag and SHA together when upgrading):
+#   actions/checkout@v7.0.1            3d3c42e5aac5ba805825da76410c181273ba90b1
+#
+name: Stress
+
+# Nightly repetition of timing-sensitive tests so flakes surface on a
+# dedicated run with full logs instead of intermittently blocking merges.
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: stress-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  CI_GO_VERSION: "1.27.1"
+  CI_TASK_VERSION: "3.46.3"
+  GOFLAGS: -mod=vendor
+  GOPROXY: "off"
+  GOTOOLCHAIN: local
+  TESTSUMMARY_QUIET: "1"
+  RNS_REQUIRED_SIGNER: e318cbc04468bd574db2b4523dddd710
+
+jobs:
+  stress:
+    name: Flaky-surface stress
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup CI
+        uses: $/.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+
+      - name: Stress timing-sensitive tests
+        run: |
+          set -euo pipefail
+          go test -count=10 -timeout 20m -v ./pkg/interfaces -run 'TestModem73'
+          go test -count=10 -timeout 20m -v ./pkg/rgosh -run 'TestE2E'
+          go test -count=10 -timeout 15m -v ./pkg/backbone ./pkg/channel ./pkg/buffer ./pkg/link -run 'TestBackbone|TestChannel|TestWait|TestRawChannel|TestWriteContext|TestCompression'

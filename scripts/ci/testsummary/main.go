@@ -15,7 +15,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/term"
@@ -35,6 +37,182 @@ func main() {
 
 func quietMode() bool {
 	return os.Getenv("TESTSUMMARY_QUIET") != "" || os.Getenv("CI_QUIET_TESTS") != ""
+}
+
+// rerunRounds returns the TESTSUMMARY_RERUN_FAILS retry budget: the number of
+// extra passes each failed test gets before it counts as a real failure.
+func rerunRounds() int {
+	v := os.Getenv("TESTSUMMARY_RERUN_FAILS")
+	if v == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
+}
+
+// rerunArgs rebuilds go test argv for a retry pass: keeps user flags like -C,
+// -tags, -race, -short, -timeout and -vet, but drops -run/-count/-coverprofile
+// so the retry selects only the failed tests without cache reuse.
+func rerunArgs(user []string, pkg string, tests []string) []string {
+	var out []string
+	for i := 0; i < len(user); i++ {
+		a := user[i]
+		switch {
+		case a == "-run" || a == "-count" || a == "-coverprofile" || a == "-cpu":
+			i++
+		case strings.HasPrefix(a, "-run=") || strings.HasPrefix(a, "-count=") ||
+			strings.HasPrefix(a, "-coverprofile=") || strings.HasPrefix(a, "-cpu="):
+		case a == "-json":
+		default:
+			out = append(out, a)
+		}
+	}
+	out = append(out, "-count=1")
+	if len(tests) > 0 {
+		quoted := make([]string, 0, len(tests))
+		for _, t := range tests {
+			quoted = append(quoted, regexp.QuoteMeta(t))
+		}
+		slices.Sort(quoted)
+		out = append(out, "-run", "^("+strings.Join(quoted, "|")+")$")
+	}
+	out = append(out, pkg)
+	return out
+}
+
+// topLevelTestName strips subtests so -run can address the parent.
+func topLevelTestName(name string) string {
+	if i := strings.IndexByte(name, '/'); i >= 0 {
+		return name[:i]
+	}
+	return name
+}
+
+// rerunFailed re-runs each failed test up to TESTSUMMARY_RERUN_FAILS times.
+// Tests that pass on any retry are reported as FLAKE and removed from the
+// failure sets. Package level failures without a named test are retried as a
+// whole package. Retried tests run under -count=1 so the cache cannot hide a
+// real failure.
+func rerunFailed(
+	user []string,
+	failedTests map[string]map[string]struct{},
+	failedPackages map[string]struct{},
+) []string {
+	var flakes []string
+	for round := 1; round <= rerunRounds(); round++ {
+		if len(failedTests) == 0 && len(failedPackages) == 0 {
+			break
+		}
+		for pkg := range failedPackages {
+			if len(failedTests[pkg]) > 0 {
+				// Named test failures cover this package already.
+				continue
+			}
+			fmt.Fprintf(os.Stderr, "testsummary: retry round %d for failed package %s\n", round, pkg)
+			if rerunPackage(user, pkg) == 0 {
+				delete(failedPackages, pkg)
+				flakes = append(flakes, pkg)
+				fmt.Fprintf(os.Stderr, "%s %s (package passed on retry %d)\n",
+					term.Yellow(os.Stderr, "testsummary: FLAKE"), pkg, round)
+			}
+		}
+		for pkg, tests := range failedTests {
+			uniq := make(map[string]struct{})
+			for t := range tests {
+				uniq[topLevelTestName(t)] = struct{}{}
+			}
+			names := make([]string, 0, len(uniq))
+			for n := range uniq {
+				names = append(names, n)
+			}
+			fmt.Fprintf(os.Stderr, "testsummary: retry round %d for %s (%d tests)\n", round, pkg, len(names))
+			passed := rerunPackageTests(user, pkg, names)
+			for orig := range tests {
+				if !passed[topLevelTestName(orig)] {
+					continue
+				}
+				delete(tests, orig)
+				flakes = append(flakes, pkg+" "+orig)
+				fmt.Fprintf(os.Stderr, "%s %s %s (passed on retry %d)\n",
+					term.Yellow(os.Stderr, "testsummary: FLAKE"), pkg, orig, round)
+			}
+			if len(tests) == 0 {
+				delete(failedTests, pkg)
+				delete(failedPackages, pkg)
+			}
+		}
+	}
+	return flakes
+}
+
+// rerunPackage retries a package that failed without named tests (build
+// failure, panic, TestMain exit) and reports whether the retry passed.
+func rerunPackage(user []string, pkg string) int {
+	args := rerunArgs(user, pkg, nil)
+	cmd := exec.Command("go", goTestArgs(args)...) // #nosec G204 -- same flag policy as the main run
+	if env := childEnv(); env != nil {
+		cmd.Env = env
+	}
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+	if err := cmd.Run(); err != nil {
+		if tail := tailLines(buf.String(), 20); tail != "" {
+			fmt.Fprintf(os.Stderr, "testsummary: retry output for %s:\n%s\n", pkg, tail)
+		}
+		return 1
+	}
+	return 0
+}
+
+// rerunPackageTests runs a -run filtered retry and returns which named tests
+// now pass. A test absent from the JSON output counts as not passed.
+func rerunPackageTests(user []string, pkg string, tests []string) map[string]bool {
+	args := rerunArgs(user, pkg, tests)
+	cmd := exec.Command("go", goTestArgs(args)...) // #nosec G204 -- same flag policy as the main run
+	if env := childEnv(); env != nil {
+		cmd.Env = env
+	}
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+	_ = cmd.Run()
+	out := buf.String()
+	passed := make(map[string]bool)
+	failed := make(map[string]bool)
+	for _, line := range strings.Split(out, "\n") {
+		var ev testEvent
+		if json.Unmarshal([]byte(line), &ev) != nil || ev.Test == "" {
+			continue
+		}
+		top := topLevelTestName(ev.Test)
+		switch ev.Action {
+		case "pass":
+			passed[top] = true
+		case "fail":
+			failed[top] = true
+		}
+	}
+	for _, t := range tests {
+		passed[t] = passed[t] && !failed[t]
+	}
+	if len(failed) > 0 {
+		if tail := tailLines(out, 20); tail != "" {
+			fmt.Fprintf(os.Stderr, "testsummary: retry output for %s:\n%s\n", pkg, tail)
+		}
+	}
+	return passed
+}
+
+func tailLines(s string, n int) string {
+	lines := strings.Split(strings.TrimRight(s, "\n"), "\n")
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	return strings.Join(lines, "\n")
 }
 
 // childEnv builds the environment for the go test child. TESTSUMMARY_GOOS
@@ -228,6 +406,20 @@ func run() int {
 			delete(failedPackages, pkg)
 		}
 		failedTests = make(map[string]map[string]struct{})
+	}
+
+	if rerunRounds() > 0 && (len(failedTests) > 0 || len(failedPackages) > 0) {
+		flakes := rerunFailed(user, failedTests, failedPackages)
+		if len(flakes) > 0 {
+			slices.Sort(flakes)
+			fmt.Printf("\n%s\n", term.Yellow(os.Stdout, "testsummary: FLAKY TESTS (passed on retry):"))
+			for _, f := range flakes {
+				fmt.Printf("  - %s\n", f)
+			}
+		}
+		if len(failedTests) == 0 && len(failedPackages) == 0 {
+			exit = 0
+		}
 	}
 
 	if quiet {
