@@ -247,6 +247,14 @@ func (c *Channel) Send(msg MessageBase) error {
 	return nil
 }
 
+// dropReceiptTracking releases delivery tracking on outlets that keep it.
+// Optional interface: outlets without receipt tracking simply ignore it.
+func (c *Channel) dropReceiptTracking(packet any) {
+	if d, ok := c.link.(interface{ DropPacketReceipt(any) }); ok {
+		d.DropPacketReceipt(packet)
+	}
+}
+
 // handleTimeout handles packet timeout events
 func (c *Channel) handleTimeout(packet any) {
 	if packet == nil {
@@ -264,6 +272,7 @@ func (c *Channel) handleTimeout(packet any) {
 		if env.Tries >= c.maxTries {
 			c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
 			releaseEnvelope(env)
+			c.dropReceiptTracking(packet)
 			c.signalReadyLocked()
 			return
 		}
@@ -272,6 +281,7 @@ func (c *Channel) handleTimeout(packet any) {
 			debug.Log(debug.DebugInfo, "Failed to resend packet", "error", err)
 			c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
 			releaseEnvelope(env)
+			c.dropReceiptTracking(packet)
 			c.signalReadyLocked()
 			return
 		}
