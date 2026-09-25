@@ -76,7 +76,7 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			listen,
 			target,
 			cfg.Enabled,
-			cfg.MaxReconnTries,
+			MaxReconnectTriesFromConfig(cfg),
 		)
 	case "AutoInterface":
 		iface, err = NewAutoInterface(name, cfg)
@@ -93,7 +93,7 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			cfg.KISSFraming,
 			cfg.I2PTunneled,
 			cfg.Enabled,
-			cfg.MaxReconnTries,
+			MaxReconnectTriesFromConfig(cfg),
 		)
 		if err == nil {
 			if tc, ok := iface.(*TCPClientInterface); ok && ctx != nil && ctx.SynthesizeTunnel != nil {
@@ -160,7 +160,7 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			DSRDTR:            cfg.DSRDTR,
 			XONXOFF:           cfg.XONXOFF,
 			FrameIdle:         frameIdle,
-			MaxReconnectTries: cfg.MaxReconnTries,
+			MaxReconnectTries: MaxReconnectTriesFromConfig(cfg),
 			MTU:               cfg.MTU,
 			Bitrate:           cfg.Bitrate,
 		})
@@ -181,7 +181,7 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			Callsign:              cfg.IDCallsign,
 			STAirTimeLock:         rnodeAirtimeFromConfig(cfg.AirtimeLimitShort, cfg.AirtimeLimitShortSet),
 			LTAirTimeLock:         rnodeAirtimeFromConfig(cfg.AirtimeLimitLong, cfg.AirtimeLimitLongSet),
-			MaxReconnectTries:     cfg.MaxReconnTries,
+			MaxReconnectTries:     MaxReconnectTriesFromConfig(cfg),
 			PanicOnInterfaceError: ctx != nil && ctx.PanicOnInterfaceError,
 		})
 	case "RNodeMultiInterface":
@@ -194,7 +194,7 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 				Port:                  port,
 				IDInterval:            time.Duration(cfg.IDInterval) * time.Second,
 				Callsign:              cfg.IDCallsign,
-				MaxReconnectTries:     cfg.MaxReconnTries,
+				MaxReconnectTries:     MaxReconnectTriesFromConfig(cfg),
 				PanicOnInterfaceError: ctx != nil && ctx.PanicOnInterfaceError,
 			},
 			SubInterfaces: cfg.SubInterfaces,
@@ -233,7 +233,7 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			AutoBitrate:       autoBitrate,
 			CSMAOverhead:      csma,
 			TimeoutMargin:     cfg.TimeoutMargin,
-			MaxReconnectTries: cfg.MaxReconnTries,
+			MaxReconnectTries: MaxReconnectTriesFromConfig(cfg),
 		})
 	case "DNSRendezvousInterface":
 		interval := time.Duration(cfg.ResolveIntervalSec) * time.Second
@@ -266,7 +266,7 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			cid,
 			uint32(cfg.Port), // #nosec G115
 			cfg.Enabled,
-			cfg.MaxReconnTries,
+			MaxReconnectTriesFromConfig(cfg),
 		)
 	case "VSOCKServerInterface":
 		srv, serr := NewVSOCKServerInterface(name, uint32(cfg.Port)) // #nosec G115
@@ -288,7 +288,7 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			cfg.TargetHost,
 			cfg.TargetPort,
 			cfg.Enabled,
-			cfg.MaxReconnTries,
+			MaxReconnectTriesFromConfig(cfg),
 			HTTPSClientOptions{
 				CertFile: cfg.CertFile,
 				KeyFile:  cfg.KeyFile,

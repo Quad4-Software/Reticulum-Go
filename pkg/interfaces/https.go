@@ -561,6 +561,16 @@ func (hs *HTTPSServerInterface) LeafSPKIPinHex() (string, error) {
 	return SPKIPinHex(leaf), nil
 }
 
+// remoteHostKey extracts the stable part of the transport peer for DoS
+// bucketing; the port changes per connection but the host does not.
+func remoteHostKey(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
 // PeerCount returns the number of known long-poll peers.
 func (hs *HTTPSServerInterface) PeerCount() int {
 	hs.Mutex.RLock()
@@ -636,6 +646,12 @@ func (hs *HTTPSServerInterface) Start() error {
 	hs.Online = true
 	hs.Mutex.Unlock()
 
+	if hs.peerPin == nil {
+		debug.Log(debug.DebugWarning,
+			"HTTPS server has no peer_key: any TLS client can register peer IDs",
+			"name", hs.Name)
+	}
+
 	hs.serveWg.Go(func() {
 		err := srv.Serve(ln)
 		if err != nil && err != http.ErrServerClosed {
@@ -682,7 +698,10 @@ func (hs *HTTPSServerInterface) handleSend(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if len(body) > 0 {
-		hs.ProcessIncomingFrom(body, peerID)
+		// The X-RNS-Peer header is self-chosen, so it cannot key DoS
+		// buckets: rotating IDs would defeat per-peer fair sharing.
+		// The transport address is what the peer cannot forge.
+		hs.ProcessIncomingFrom(body, remoteHostKey(r))
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

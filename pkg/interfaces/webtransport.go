@@ -22,6 +22,7 @@ import (
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/protect"
 )
 
 const (
@@ -226,6 +227,7 @@ type WebTransportClientInterface struct {
 	txMu              sync.Mutex
 	readBuf           []byte
 	recvCancel        context.CancelFunc
+	readerActive       atomic.Bool
 
 	DatagramsRX    atomic.Uint64
 	DatagramsTX    atomic.Uint64
@@ -390,15 +392,19 @@ func (wc *WebTransportClientInterface) Start() error {
 		recvCtx, recvCancel := context.WithCancel(context.Background())
 		wc.recvCancel = recvCancel
 		mode := wc.mode
+		startReaders := wc.readerActive.CompareAndSwap(false, true)
 		wc.Mutex.Unlock()
-		switch mode {
-		case wtModeStream:
-			go wc.streamReadLoop()
-		case wtModeDual:
-			go wc.datagramRecvLoop(recvCtx)
-			go wc.acceptStreamLoop(recvCtx)
-		default:
-			go wc.datagramRecvLoop(recvCtx)
+		// Repeat Start calls while connected must not stack read loops.
+		if startReaders {
+			switch mode {
+			case wtModeStream:
+				go wc.streamReadLoop()
+			case wtModeDual:
+				go wc.datagramRecvLoop(recvCtx)
+				go wc.acceptStreamLoop(recvCtx)
+			default:
+				go wc.datagramRecvLoop(recvCtx)
+			}
 		}
 		return nil
 	}
@@ -428,6 +434,7 @@ func (wc *WebTransportClientInterface) Stop() error {
 	wc.Online = false
 	cancel := wc.recvCancel
 	wc.recvCancel = nil
+	wc.readerActive.Store(false)
 	conn := wc.conn
 	wc.conn = nil
 	wc.Mutex.Unlock()
@@ -667,6 +674,7 @@ func (wc *WebTransportClientInterface) teardownConn() {
 	wc.Mutex.Lock()
 	cancel := wc.recvCancel
 	wc.recvCancel = nil
+	wc.readerActive.Store(false)
 	conn := wc.conn
 	wc.conn = nil
 	wc.Online = false
@@ -820,12 +828,23 @@ func (ws *WebTransportServerInterface) Start() error {
 	}
 
 	mux.HandleFunc(ws.path, func(w http.ResponseWriter, r *http.Request) {
+		// The only spawned listener must not be the one without admission:
+		// pre-auth sessions each cost a goroutine plus session state.
+		d, release := protect.AdmitConn(ws.Name)
+		if !d.Allow {
+			http.Error(w, "too many connections", http.StatusServiceUnavailable)
+			return
+		}
 		sess, err := srv.Upgrade(w, r)
 		if err != nil {
+			release()
 			debug.Log(debug.DebugVerbose, "WebTransport upgrade failed", "name", ws.Name, "error", err)
 			return
 		}
-		go ws.handleSession(sess)
+		go func() {
+			defer release()
+			ws.handleSession(sess)
+		}()
 	})
 
 	ws.Mutex.Lock()

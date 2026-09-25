@@ -692,6 +692,11 @@ func (ts *TCPServerInterface) Start() error {
 					return // Normal shutdown
 				}
 				debug.Log(debug.DebugError, "Error accepting connection", "error", err)
+				select {
+				case <-time.After(50 * time.Millisecond):
+				case <-done:
+					return
+				}
 				continue
 			}
 

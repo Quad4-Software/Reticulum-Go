@@ -96,7 +96,6 @@ type I2PInterfacePeer struct {
 	lastWrite         time.Time
 	lastError         string
 	tunnelState       atomic.Uint32
-	wdReset           atomic.Bool
 	wdGen             atomic.Uint64
 	done              chan struct{}
 	stopOnce          sync.Once
@@ -755,9 +754,7 @@ func (peer *I2PInterfacePeer) readLoop() {
 			detached := peer.Detached
 			peer.Mutex.Unlock()
 			peer.tunnelState.Store(i2pTunnelStateInit)
-			peer.wdReset.Store(true)
 			time.Sleep(2 * time.Second)
-			peer.wdReset.Store(false)
 			if initiator && !detached {
 				go peer.reconnect()
 			} else {
@@ -790,11 +787,13 @@ func (peer *I2PInterfacePeer) deliverFrame(data []byte) {
 }
 
 // A new readLoop after a fast reconnect starts a new watchdog; the
-// generation check retires any older one still sleeping.
+// generation check retires any older one still sleeping. A shared reset
+// flag would also retire the replacement watchdog started inside the
+// reset window, leaving the new conn unmonitored.
 func (peer *I2PInterfacePeer) readWatchdog(gen uint64) {
-	for !peer.wdReset.Load() {
+	for {
 		time.Sleep(time.Second)
-		if peer.wdReset.Load() || peer.wdGen.Load() != gen {
+		if peer.wdGen.Load() != gen {
 			return
 		}
 		peer.Mutex.RLock()

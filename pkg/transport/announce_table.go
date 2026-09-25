@@ -239,11 +239,21 @@ func (t *Transport) queuePathResponseAnnounce(destHash []byte, path *common.Path
 // notePendingLocalPathRequest records that a shared-instance client is waiting
 // for an announce for destHash so a later ingress announce can answer it
 // immediately
+// maxPendingLocalPathReqs bounds local-client path-request state. Entries
+// normally clear on announce answer; a hostile local client could
+// otherwise grow the map without limit.
+const maxPendingLocalPathReqs = 2048
+
 func (t *Transport) notePendingLocalPathRequest(destHash []byte, iface common.NetworkInterface) {
 	if t == nil || iface == nil || len(destHash) != packet.TruncatedHashLength {
 		return
 	}
 	t.mutex.Lock()
+	if len(t.pendingLocalPathReqs) >= maxPendingLocalPathReqs {
+		t.mutex.Unlock()
+		debug.Log(debug.DebugVerbose, "Pending local path request table full, dropping")
+		return
+	}
 	t.pendingLocalPathReqs[destKey(destHash)] = iface
 	t.mutex.Unlock()
 }

@@ -542,6 +542,11 @@ func (qs *QUICServerInterface) acceptLoop(ctx context.Context, ln *quic.Listener
 			default:
 			}
 			debug.Log(debug.DebugVerbose, "QUIC accept error", "name", qs.Name, "error", err)
+			select {
+			case <-time.After(50 * time.Millisecond):
+			case <-ctx.Done():
+				return
+			}
 			continue
 		}
 		d, release := protect.AdmitConn(qs.Name)

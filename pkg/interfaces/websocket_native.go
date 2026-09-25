@@ -328,16 +328,25 @@ func (wsi *WebSocketInterface) readLoop() {
 
 			debug.Log(debug.DebugInfo, "WebSocket closed", "name", wsi.Name, "error", err)
 
-			time.Sleep(WSReconnectDelay)
-
-			wsi.Mutex.RLock()
-			stillEnabled := wsi.Enabled && !wsi.Detached
-			wsi.Mutex.RUnlock()
-
-			if stillEnabled {
-				go wsi.Start()
+			// A single re-Start that fails leaves the interface dead;
+			// loop with a done-aware sleep until the dial lands or Stop
+			// lands.
+			for {
+				select {
+				case <-time.After(WSReconnectDelay):
+				case <-done:
+					return
+				}
+				wsi.Mutex.RLock()
+				stillEnabled := wsi.Enabled && !wsi.Detached
+				wsi.Mutex.RUnlock()
+				if !stillEnabled {
+					return
+				}
+				if err := wsi.Start(); err == nil {
+					return
+				}
 			}
-			return
 		}
 
 		if len(data) > 0 {

@@ -604,6 +604,7 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		setBool(&iface.PreferIPv6, value)
 	case "max_reconnect_tries":
 		setInt(value, &iface.MaxReconnTries)
+		iface.MaxReconnTriesSet = true
 	case "bitrate":
 		setInt64(value, &iface.Bitrate)
 	case "mtu":
