@@ -188,8 +188,10 @@ func TestRegression_ValidateLinkProofSafeUnderConcurrentInbound(t *testing.T) {
 	}
 	wg.Wait()
 
-	if l.GetStatus() != StatusClosed {
-		t.Fatalf("link status want Closed after bad proof storm, got %d", l.GetStatus())
+	// Bad proofs are dropped, not fatal: the pending link must survive a
+	// storm of forged proofs so an on-path attacker cannot kill it.
+	if l.GetStatus() == StatusClosed {
+		t.Fatal("link status must not be Closed after bad proof storm")
 	}
 }
 

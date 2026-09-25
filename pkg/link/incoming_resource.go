@@ -1279,6 +1279,7 @@ func (l *Link) completeRequestWithResourcePayload(req *RequestReceipt, payload [
 	pcb := req.progressCb
 	cb := req.responseCb
 	req.mutex.Unlock()
+	req.signalDone()
 
 	l.removePendingRequest(req)
 	if pcb != nil {

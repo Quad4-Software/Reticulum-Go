@@ -280,7 +280,9 @@ func (l *Link) validateLinkProofLocked(pkt *packet.Packet, networkIface common.N
 	accounted := transport.AccountInboundHops(pkt.Hops, networkIface)
 	if l.expectedHops != transport.PathfinderM && accounted != l.expectedHops {
 		if !l.tryTerminusPathRebalanceLocked(pkt, networkIface, accounted) {
-			l.markInitiatorEstablishmentFailedLocked()
+			// A malformed or forged proof must not kill the pending link.
+			// Anyone who saw the broadcast link request can emit one.
+			// Python drops it and lets the establishment timeout decide.
 			ifaceName := ""
 			if networkIface != nil {
 				ifaceName = networkIface.GetName()
@@ -292,7 +294,6 @@ func (l *Link) validateLinkProofLocked(pkt *packet.Packet, networkIface common.N
 	}
 
 	if len(pkt.Data) < identity.SigLength/8+KeySize {
-		l.markInitiatorEstablishmentFailedLocked()
 		incProofFail(networkIface)
 		return errors.New("link proof data too short")
 	}
@@ -335,7 +336,6 @@ func (l *Link) validateLinkProofLocked(pkt *packet.Packet, networkIface common.N
 
 	if !l.destination.GetIdentity().Verify(signedData, signature) {
 		debug.Log(debug.DebugError, "Link proof signature validation failed", "link_id", fmt.Sprintf("%x", l.linkID[:8]), "signature", fmt.Sprintf("%x", signature[:8]), "signed_data", fmt.Sprintf("%x", signedData))
-		l.markInitiatorEstablishmentFailedLocked()
 		incProofFail(networkIface)
 		return errors.New("link proof signature validation failed")
 	}

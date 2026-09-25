@@ -86,8 +86,14 @@ type Link struct {
 	proofCallback             func(*packet.Packet) bool
 	trackPhyStats             bool
 
-	watchdogLock         bool
-	watchdogActive       atomic.Bool
+	watchdogLock   bool
+	watchdogActive atomic.Bool
+	// watchdogDone is closed by closeOnce so the watchdog exits promptly
+	// instead of lingering for up to a 5s sleep after close.
+	watchdogDone chan struct{}
+	// linkDone is closed by closeOnce. Per-packet timeout and request
+	// waiters select on it so teardown releases sleepers immediately.
+	linkDone             chan struct{}
 	establishmentTimeout time.Duration
 	keepalive            time.Duration
 	staleTime            time.Duration
@@ -164,6 +170,7 @@ func NewLink(dest *destination.Destination, transport *transport.Transport, netw
 		staleTime:            time.Duration(StaleTime * float64(time.Second)),
 		initiator:            false,
 		pendingRequests:      make([]*RequestReceipt, 0),
+		linkDone:             make(chan struct{}),
 	}
 }
 func (l *Link) Establish() error {
@@ -312,6 +319,7 @@ func (l *Link) registerLinkPath() {
 	}
 
 	l.transport.UpdatePath(l.linkID, nextHop, l.networkInterface.GetName(), hops)
+	l.transport.MarkLinkPath(l.linkID)
 }
 func (l *Link) GetRemoteIdentity() *identity.Identity {
 	l.mutex.RLock()
@@ -321,7 +329,12 @@ func (l *Link) GetRemoteIdentity() *identity.Identity {
 func (l *Link) Teardown() {
 	l.mutex.Lock()
 
-	if !l.status.CompareAndSwap(int32(StatusActive), int32(StatusClosed)) {
+	if l.status.Load() == int32(StatusClosed) {
+		l.resetIncomingResource()
+		l.mutex.Unlock()
+		return
+	}
+	if !l.closeOnce(StatusClosed) {
 		l.resetIncomingResource()
 		l.mutex.Unlock()
 		return
@@ -331,9 +344,7 @@ func (l *Link) Teardown() {
 		l.transport.UnregisterLink(l.linkID)
 	}
 	cb := l.closedCallback
-	l.notifyChannelClosed()
 	l.resetIncomingResource()
-	l.dropSplitAssemblies()
 	l.mutex.Unlock()
 
 	// The callback is user code and may call back into the link. It must not
@@ -741,6 +752,16 @@ func (l *Link) closeOnce(reason byte) bool {
 			l.teardownReason = reason
 			l.dropSplitAssemblies()
 			l.notifyChannelClosed()
+			if l.watchdogDone != nil {
+				close(l.watchdogDone)
+			}
+			if l.linkDone != nil {
+				close(l.linkDone)
+			}
+			// Fail pending requests and wake SendResource waiters so teardown
+			// does not leave them parked on their deadlines.
+			l.failAllPendingRequests()
+			l.signalOutgoingResourceComplete()
 			return true
 		}
 	}
@@ -851,7 +872,11 @@ func (l *Link) SetPacketTimeout(pkt any, callback func(any), timeout time.Durati
 		return
 	}
 	go func() {
-		time.Sleep(timeout)
+		select {
+		case <-l.linkDone:
+			return
+		case <-time.After(timeout):
+		}
 		l.channelReceiptMu.Lock()
 		receipt := l.channelReceipts[packetObj]
 		l.channelReceiptMu.Unlock()
@@ -955,12 +980,20 @@ func (l *Link) startWatchdog() {
 	if !l.watchdogActive.CompareAndSwap(false, true) {
 		return
 	}
+	l.mutex.Lock()
+	l.watchdogDone = make(chan struct{})
+	l.mutex.Unlock()
 	go l.watchdog()
 }
 func (l *Link) watchdog() {
 	for l.GetStatus() != StatusClosed {
 		if GlobalPaused() {
-			time.Sleep(time.Duration(WatchdogInterval * float64(time.Second)))
+			select {
+			case <-l.watchdogDone:
+				l.watchdogActive.Store(false)
+				return
+			case <-time.After(time.Duration(WatchdogInterval * float64(time.Second))):
+			}
 			continue
 		}
 		l.mutex.Lock()
@@ -973,7 +1006,12 @@ func (l *Link) watchdog() {
 				rttWait = WatchdogMinSleep
 			}
 			l.mutex.Unlock()
-			time.Sleep(time.Duration(rttWait * float64(time.Second)))
+			select {
+			case <-l.watchdogDone:
+				l.watchdogActive.Store(false)
+				return
+			case <-time.After(time.Duration(rttWait * float64(time.Second))):
+			}
 			continue
 		}
 
@@ -1071,7 +1109,12 @@ func (l *Link) watchdog() {
 		}
 
 		l.mutex.Unlock()
-		time.Sleep(time.Duration(sleepTime * float64(time.Second)))
+		select {
+		case <-l.watchdogDone:
+			l.watchdogActive.Store(false)
+			return
+		case <-time.After(time.Duration(sleepTime * float64(time.Second))):
+		}
 	}
 	l.watchdogActive.Store(false)
 }

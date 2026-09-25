@@ -115,7 +115,7 @@ func TestInvalidateTransportPathAfterInitiatorFailure_clearsPathWhenNeverEstabli
 	}
 }
 
-func TestInitiatorBadLinkProofExpiresCachedPathAndClosesLink(t *testing.T) {
+func TestInitiatorBadLinkProofIgnored(t *testing.T) {
 	srvIdent, err := identity.New()
 	if err != nil {
 		t.Fatal(err)
@@ -165,11 +165,13 @@ func TestInitiatorBadLinkProofExpiresCachedPathAndClosesLink(t *testing.T) {
 	if err := l.ValidateLinkProof(badProof, iface); err == nil {
 		t.Fatal("expected proof validation error")
 	}
-	if tr.HasPath(destHash) {
-		t.Fatal("invalid link proof should expire cached transport path")
+	// An invalid proof is ignored, matching Python: the pending link and its
+	// cached path survive so a forged proof cannot kill establishment.
+	if !tr.HasPath(destHash) {
+		t.Fatal("invalid link proof should not expire cached transport path")
 	}
-	if l.GetStatus() != StatusClosed {
-		t.Fatalf("link status want Closed, got %d", l.GetStatus())
+	if l.GetStatus() == StatusClosed {
+		t.Fatal("link status must not be Closed after an invalid proof")
 	}
 }
 
