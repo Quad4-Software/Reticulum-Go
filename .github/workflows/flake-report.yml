@@ -21,10 +21,11 @@ jobs:
   report:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the run's commit for report-flakes.sh
+      - name: Checkout base for report-flakes.sh
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          # Deliberately NOT the run's head_sha: a PR could otherwise ship a
+          # modified report script that executes under the issues:write token.
           persist-credentials: false
 
       - name: Report flaky tests

@@ -23,6 +23,15 @@
 ### Security
 
 - A failed unlock of an encrypted transport identity no longer falls through to writing a fresh plaintext identity over the file. Startup fails with the real error instead.
+- A responder link no longer processes link-request proofs: a reflected copy of its own signed proof could overwrite the peer ephemeral key and fire the established callback on a bogus self-session.
+- Backbone interfaces now apply the same connection admission control as every other listener, bound a stream's outbound queue at 8 MiB, and deregister a stream's fd before closing the socket, closing unauthenticated slow-consumer memory exhaustion and an fd-reuse wedge.
+- The librns C event callback now copies app_data through C-allocated scratch. Passing a struct containing a Go pointer to C previously tripped cgocheck and aborted the embedding process on any event carrying app_data.
+- Interface teardown no longer releases a socket before its poller deregistration, so a reused fd can never be unregistered under a new connection.
+- A readable but corrupt transport identity file now fails startup instead of silently replacing the node's identity.
+- Ratchet key persistence writes with mode 0600 instead of the umask-derived default, and ingress announce-arrival history is bounded against sustained floods.
+- Denied rgosh sessions and finished listener sessions now tear down their links, closing a parked-link exhaustion path against the registered-link ceiling.
+- rgosh/rnx/rgocp allowlist loading no longer resolves home-relative paths against the daemon working directory when HOME is unset.
+- RNE1 headers now bound accepted Argon2 parameters to 16 rounds, 512 MiB and 16 threads.
 
 ### Fixed
 
