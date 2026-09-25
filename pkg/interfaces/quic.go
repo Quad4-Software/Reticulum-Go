@@ -251,9 +251,7 @@ func (qc *QUICClientInterface) Start() error {
 	if qc.conn != nil {
 		qc.Online = true
 		if qc.readerActive.CompareAndSwap(false, true) {
-			if qc.readerActive.CompareAndSwap(false, true) {
-				go qc.readLoop()
-			}
+			go qc.readLoop()
 		}
 		qc.Mutex.Unlock()
 		return nil
