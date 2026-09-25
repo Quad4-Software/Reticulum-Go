@@ -23,7 +23,7 @@ func (l *Link) GetChannel() *channel.Channel {
 }
 func (l *Link) handleChannelPacket(pkt *packet.Packet) error {
 	if !l.IsActive() {
-		if l.status.Load() == int32(StatusHandshake) && l.sessionKey != nil {
+		if l.status.Load() == int32(StatusHandshake) && l.hasSessionKeys() {
 			l.queueEarlyChannel(pkt)
 			return nil
 		}

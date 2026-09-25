@@ -129,7 +129,12 @@ func (l *Link) RequestLimited(path string, data any, timeout time.Duration, maxR
 	}
 
 	debug.Log(debug.DebugVerbose, "Sending request as resource", "path", path, "request_id", fmt.Sprintf("%x", requestID), "packed_len", len(packedRequest))
+	if !l.acquireResourceSendSlot() {
+		l.failPendingRequest(receipt)
+		return nil, errors.New("link resource send slots exhausted")
+	}
 	go func() {
+		defer l.releaseResourceSendSlot()
 		if err := l.SendResource(res); err != nil {
 			debug.Log(debug.DebugError, "Failed to send request resource", "request_id", fmt.Sprintf("%x", requestID), "error", err)
 			l.failPendingRequest(receipt)
@@ -482,7 +487,11 @@ func (l *Link) sendResponse(requestID []byte, response any) error {
 		}
 		res.SetRequestID(requestID)
 		res.SetIsResponse(true)
+		if !l.acquireResourceSendSlot() {
+			return errors.New("link resource send slots exhausted")
+		}
 		go func() {
+			defer l.releaseResourceSendSlot()
 			if err := l.SendResource(res); err != nil {
 				debug.Log(debug.DebugError, "Failed to send file response resource", "request_id", fmt.Sprintf("%x", requestID), "error", err)
 			}
@@ -537,7 +546,11 @@ func (l *Link) sendResponse(requestID []byte, response any) error {
 	res.SetIsResponse(true)
 
 	debug.Log(debug.DebugVerbose, "Sending response as resource", "request_id", fmt.Sprintf("%x", requestID), "packed_len", len(packedResponse), "mdu", mdu)
+	if !l.acquireResourceSendSlot() {
+		return errors.New("link resource send slots exhausted")
+	}
 	go func() {
+		defer l.releaseResourceSendSlot()
 		if err := l.SendResource(res); err != nil {
 			debug.Log(debug.DebugError, "Failed to send response resource", "request_id", fmt.Sprintf("%x", requestID), "error", err)
 		}

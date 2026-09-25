@@ -258,6 +258,13 @@ func (l *Link) ValidateLinkProof(pkt *packet.Packet, networkIface common.Network
 // validateLinkProofLocked completes initiator-side link establishment after
 // receiving the responder's signed proof. The link mutex must be held.
 func (l *Link) validateLinkProofLocked(pkt *packet.Packet, networkIface common.NetworkInterface) error {
+	if !l.initiator {
+		// Responders never validate LRProofs. Without this gate a reflected
+		// copy of our own signed proof verifies against the local identity,
+		// overwrites peerPub with our own ephemeral key, and fires the
+		// established callback on a bogus self-session.
+		return nil
+	}
 	startTime := time.Now()
 	debug.Log(debug.DebugVerbose, "Validating link proof", "link_id", fmt.Sprintf("%x", l.linkID), "status", l.status.Load(), "initiator", l.initiator, "has_interface", networkIface != nil, "proof_data_len", len(pkt.Data))
 	st := l.status.Load()
