@@ -26,15 +26,16 @@ type LocalSpawnHook func(client *LocalClientInterface)
 // Unix domain sockets with HDLC framing.
 type LocalServerInterface struct {
 	BaseInterface
-	listener   net.Listener
-	bindPort   int
-	socketPath string
-	useUnix    bool
-	hub        *backbone.Hub
-	clients    atomic.Int32
-	spawnHook  LocalSpawnHook
-	done       chan struct{}
-	stopOnce   sync.Once
+	listener    net.Listener
+	bindPort    int
+	socketPath  string
+	useUnix     bool
+	hub         *backbone.Hub
+	clients     atomic.Int32
+	spawnHook   LocalSpawnHook
+	done        chan struct{}
+	stopOnce    sync.Once
+	listenerGen atomic.Uint64
 }
 
 // NewLocalServerInterface binds a shared-instance listener on 127.0.0.1:port
@@ -105,12 +106,14 @@ func (ls *LocalServerInterface) Start() error {
 	ls.Mutex.Lock()
 	ls.listener = ln
 	ls.Online = true
+	gen := ls.listenerGen.Add(1)
+	done := ls.done
 	ls.Mutex.Unlock()
 
 	if ls.hub != nil {
 		return ls.hub.RegisterListener(ln, ls.handleConnection)
 	}
-	go ls.acceptLoop()
+	go ls.acceptLoop(ln, done, gen)
 	return nil
 }
 
@@ -128,26 +131,25 @@ func (ls *LocalServerInterface) Stop() error {
 	return nil
 }
 
-func (ls *LocalServerInterface) acceptLoop() {
+// acceptLoop is bound to the listener, done channel, and generation captured
+// at Start. Re-reading the fields on a restart would let a stale loop adopt
+// the new listener alongside the fresh acceptor.
+func (ls *LocalServerInterface) acceptLoop(ln net.Listener, done <-chan struct{}, gen uint64) {
 	for {
-		ls.Mutex.RLock()
-		ln := ls.listener
-		done := ls.done
-		ls.Mutex.RUnlock()
-		if ln == nil {
-			return
-		}
 		select {
 		case <-done:
 			return
 		default:
+		}
+		if ls.listenerGen.Load() != gen {
+			return
 		}
 		conn, err := ln.Accept()
 		if err != nil {
 			ls.Mutex.RLock()
 			online := ls.Online
 			ls.Mutex.RUnlock()
-			if !online {
+			if !online || ls.listenerGen.Load() != gen {
 				return
 			}
 			debug.Log(debug.DebugError, "Local shared instance accept error", "error", err)
@@ -158,10 +160,9 @@ func (ls *LocalServerInterface) acceptLoop() {
 			_ = conn.Close()
 			continue
 		}
-		func(c net.Conn, rel func()) {
-			defer rel()
-			ls.handleConnection(c)
-		}(conn, release)
+		// The admission slot must outlive the connection: releasing here
+		// would report capacity while the client is still connected.
+		ls.handleConnection(&releaseConn{Conn: conn, release: release})
 	}
 }
 
@@ -233,6 +234,7 @@ type LocalClientInterface struct {
 	reconnecting    bool
 	done            chan struct{}
 	stopOnce        sync.Once
+	readerActive    atomic.Bool
 	targetPort      int
 	socketPath      string
 	useUnix         bool
@@ -311,11 +313,21 @@ func (lc *LocalClientInterface) String() string {
 }
 
 func (lc *LocalClientInterface) Start() error {
+	lc.Mutex.Lock()
+	select {
+	case <-lc.done:
+		lc.done = make(chan struct{})
+		lc.stopOnce = sync.Once{}
+	default:
+	}
+	lc.Mutex.Unlock()
 	if lc.conn != nil {
 		if lc.hub != nil {
 			return lc.attachToHub(lc.hub)
 		}
-		go lc.readLoop()
+		if lc.readerActive.CompareAndSwap(false, true) {
+			go lc.readLoop()
+		}
 		return nil
 	}
 	if err := lc.connect(); err != nil {
@@ -324,7 +336,9 @@ func (lc *LocalClientInterface) Start() error {
 	if lc.hub != nil {
 		return lc.attachToHub(lc.hub)
 	}
-	go lc.readLoop()
+	if lc.readerActive.CompareAndSwap(false, true) {
+		go lc.readLoop()
+	}
 	return nil
 }
 
@@ -429,6 +443,7 @@ func (lc *LocalClientInterface) Send(data []byte, address string) error {
 }
 
 func (lc *LocalClientInterface) readLoop() {
+	defer lc.readerActive.Store(false)
 	lc.runHDLCLoop(func(frame []byte) {
 		lc.ProcessIncoming(frame)
 	})
@@ -517,7 +532,10 @@ func (lc *LocalClientInterface) reconnect() {
 			}
 			return
 		}
-		lc.readLoop()
+		if lc.readerActive.CompareAndSwap(false, true) {
+			lc.readLoop()
+			lc.readerActive.Store(false)
+		}
 		return
 	}
 }
@@ -548,4 +566,18 @@ func (lc *LocalClientInterface) ParentClients() *atomic.Int32 {
 		return nil
 	}
 	return &lc.parent.clients
+}
+
+// releaseConn returns the admission slot when the connection closes, so
+// protect accounting tracks live clients rather than accept attempts.
+type releaseConn struct {
+	net.Conn
+	release func()
+	once    sync.Once
+}
+
+func (c *releaseConn) Close() error {
+	err := c.Conn.Close()
+	c.once.Do(c.release)
+	return err
 }

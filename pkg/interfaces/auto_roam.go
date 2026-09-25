@@ -86,7 +86,13 @@ func (ai *AutoInterface) replaceDataListener(ifname, newAddr string) {
 
 	var started bool
 	for attempt := 0; attempt < 8 && !started; attempt++ {
-		time.Sleep(dataListenerRetryDelay)
+		// Check done so a Stop+Start inside the retry window cannot leave an
+		// old loop alive to adopt the new done channel and duplicate peers.
+		select {
+		case <-ai.done:
+			return
+		case <-time.After(dataListenerRetryDelay):
+		}
 		if err := ai.startDataListener(iface); err != nil {
 			debug.Log(debug.DebugError, "Failed to restart data listener after roam",
 				"interface", ifname, "attempt", attempt+1, "error", err)

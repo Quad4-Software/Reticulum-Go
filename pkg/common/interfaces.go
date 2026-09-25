@@ -290,6 +290,9 @@ func (i *BaseInterface) Enable() {
 	defer i.Mutex.Unlock()
 	i.Enabled = true
 	i.Online = true
+	// Enable resurrects a detached interface; Detach stays the power-down
+	// verb and Enable plus Start must be able to bring it back.
+	i.Detached = false
 }
 
 func (i *BaseInterface) Disable() {

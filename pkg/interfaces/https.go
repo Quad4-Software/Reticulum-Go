@@ -92,12 +92,20 @@ func newHTTPSPeerID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
+// maxHTTPSPeers bounds self-registered X-RNS-Peer identities; each entry
+// claims a queue and up to one parked poll goroutine.
+const maxHTTPSPeers = 1024
+
+// httpsPeerIdleTTL drops peer entries with no send or poll activity.
+const httpsPeerIdleTTL = 10 * time.Minute
+
 type httpsPeerQueue struct {
-	ch chan []byte
+	ch       chan []byte
+	lastSeen time.Time
 }
 
 func newHTTPSPeerQueue() *httpsPeerQueue {
-	return &httpsPeerQueue{ch: make(chan []byte, httpsQueueSize)}
+	return &httpsPeerQueue{ch: make(chan []byte, httpsQueueSize), lastSeen: time.Now()}
 }
 
 func (q *httpsPeerQueue) enqueue(pkt []byte) {
@@ -564,10 +572,25 @@ func (hs *HTTPSServerInterface) ensurePeer(peerID string) *httpsPeerQueue {
 	hs.Mutex.Lock()
 	defer hs.Mutex.Unlock()
 	q := hs.peers[peerID]
-	if q == nil {
-		q = newHTTPSPeerQueue()
-		hs.peers[peerID] = q
+	if q != nil {
+		q.lastSeen = time.Now()
+		return q
 	}
+	// Peer IDs are requester-chosen, so new registrations need a bound and
+	// an idle expiry or a flood of unique IDs grows the map forever.
+	if len(hs.peers) >= maxHTTPSPeers {
+		now := time.Now()
+		for id, pq := range hs.peers {
+			if now.Sub(pq.lastSeen) > httpsPeerIdleTTL {
+				delete(hs.peers, id)
+			}
+		}
+		if len(hs.peers) >= maxHTTPSPeers {
+			return nil
+		}
+	}
+	q = newHTTPSPeerQueue()
+	hs.peers[peerID] = q
 	return q
 }
 
@@ -643,7 +666,10 @@ func (hs *HTTPSServerInterface) handleSend(w http.ResponseWriter, r *http.Reques
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	hs.ensurePeer(peerID)
+	if hs.ensurePeer(peerID) == nil {
+		http.Error(w, "too many peers", http.StatusServiceUnavailable)
+		return
+	}
 
 	limit := int64(hs.MTU + httpsMaxBodySlack)
 	body, err := io.ReadAll(io.LimitReader(r.Body, limit+1))
@@ -672,6 +698,10 @@ func (hs *HTTPSServerInterface) handlePoll(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	q := hs.ensurePeer(peerID)
+	if q == nil {
+		http.Error(w, "too many peers", http.StatusServiceUnavailable)
+		return
+	}
 
 	hs.Mutex.RLock()
 	done := hs.done

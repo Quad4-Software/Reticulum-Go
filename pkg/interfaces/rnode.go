@@ -231,8 +231,18 @@ func (r *RNodeInterface) Start() error {
 		return errors.New("RNode interface is not enabled")
 	}
 	if detached {
+		// Enable clears Detached; arriving here detached means Stop or
+		// Detach ran without a later Enable.
 		return errors.New("RNode interface is detached")
 	}
+	r.Mutex.Lock()
+	select {
+	case <-r.done:
+		r.done = make(chan struct{})
+		r.stopOnce = sync.Once{}
+	default:
+	}
+	r.Mutex.Unlock()
 	return r.startLocked()
 }
 

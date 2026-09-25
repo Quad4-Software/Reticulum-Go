@@ -179,6 +179,10 @@ func (wsi *WebSocketInterface) Start() error {
 		return fmt.Errorf("unsupported scheme: %s (use ws:// or wss://)", u.Scheme)
 	}
 
+	// One deadline covers the whole TLS+HTTP upgrade exchange; a stalled
+	// peer must not park the dial goroutine forever.
+	_ = conn.SetDeadline(time.Now().Add(WSConnectTimeout))
+
 	key, err := generateWebSocketKey()
 	if err != nil {
 		_ = conn.Close()
@@ -211,7 +215,10 @@ func (wsi *WebSocketInterface) Start() error {
 		return fmt.Errorf("failed to send handshake: %w", err)
 	}
 
-	resp, err := http.ReadResponse(bufio.NewReader(conn), req)
+	// Keep the buffered reader for the post-upgrade stream too: it may hold
+	// bytes that arrived with the 101 response, which a fresh reader drops.
+	br := bufio.NewReader(conn)
+	resp, err := http.ReadResponse(br, req)
 	if err != nil {
 		_ = conn.Close()
 		return fmt.Errorf("failed to read handshake response: %w", err)
@@ -236,9 +243,12 @@ func (wsi *WebSocketInterface) Start() error {
 		return fmt.Errorf("invalid accept key")
 	}
 
+	// Upgrade succeeded; clear the handshake deadline for long-lived reads.
+	_ = conn.SetDeadline(time.Time{})
+
 	wsi.Mutex.Lock()
 	wsi.conn = conn
-	wsi.reader = bufio.NewReader(conn)
+	wsi.reader = br
 	wsi.connected = true
 	wsi.Online = true
 
@@ -347,10 +357,18 @@ func (wsi *WebSocketInterface) readFrameBounded() ([]byte, error) {
 	if limit <= 0 {
 		limit = WSMTU
 	}
-	return wsi.readFrameWithRemaining(limit)
+	return wsi.readFrameWithRemaining(limit, 0)
 }
 
-func (wsi *WebSocketInterface) readFrameWithRemaining(remaining int) ([]byte, error) {
+// wsMaxFragments bounds continuation frames per message. Zero-length
+// continuations cost no payload budget, so without a count cap an endless
+// fragment stream recurses until the goroutine stack blows out.
+const wsMaxFragments = 64
+
+func (wsi *WebSocketInterface) readFrameWithRemaining(remaining int, depth int) ([]byte, error) {
+	if depth > wsMaxFragments {
+		return nil, fmt.Errorf("websocket message exceeds %d fragments", wsMaxFragments)
+	}
 	wsi.Mutex.RLock()
 	reader := wsi.reader
 	wsi.Mutex.RUnlock()
@@ -426,7 +444,7 @@ func (wsi *WebSocketInterface) readFrameWithRemaining(remaining int) ([]byte, er
 	}
 
 	if !fin {
-		nextFrame, err := wsi.readFrameWithRemaining(remaining - payloadLen)
+		nextFrame, err := wsi.readFrameWithRemaining(remaining-payloadLen, depth+1)
 		if err != nil {
 			return nil, err
 		}
