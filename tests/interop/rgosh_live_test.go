@@ -133,14 +133,7 @@ func TestLiveGoToGoRgoshPTY(t *testing.T) {
 	time.Sleep(800 * time.Millisecond)
 
 	idPath := filepath.Join(cfgDirA, "storage", "identities", rnsutil.RgoshAppName)
-	id, err := identity.FromFile(idPath)
-	if err != nil {
-		time.Sleep(500 * time.Millisecond)
-		id, err = identity.FromFile(idPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
+	id := waitIdentityFile(t, idPath)
 	destHash := destination.Hash(id, rnsutil.RgoshAppName)
 	start := time.Now()
 	client := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "-N", "-m", "-w", "20", hex.EncodeToString(destHash), "/bin/sh", "-c", "sleep 6; echo pty-alive")
@@ -185,14 +178,7 @@ func TestLiveGoAuthDeny(t *testing.T) {
 	time.Sleep(800 * time.Millisecond)
 
 	idPath := filepath.Join(cfgDirA, "storage", "identities", rnsutil.RgoshAppName)
-	id, err := identity.FromFile(idPath)
-	if err != nil {
-		time.Sleep(500 * time.Millisecond)
-		id, err = identity.FromFile(idPath)
-		if err != nil {
-			t.Fatalf("listener identity: %v", err)
-		}
-	}
+	id := waitIdentityFile(t, idPath)
 	destHash := destination.Hash(id, rnsutil.RgoshAppName)
 
 	client := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "-m", hex.EncodeToString(destHash), "/bin/echo", "attacker")
@@ -224,18 +210,24 @@ func TestLiveGoForcedCommand(t *testing.T) {
 	time.Sleep(800 * time.Millisecond)
 
 	idPath := filepath.Join(cfgDirA, "storage", "identities", rnsutil.RgoshAppName)
-	id, err := identity.FromFile(idPath)
-	if err != nil {
-		time.Sleep(500 * time.Millisecond)
-		id, err = identity.FromFile(idPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
+	id := waitIdentityFile(t, idPath)
 	destHash := destination.Hash(id, rnsutil.RgoshAppName)
-	client := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "-N", "-m", "-w", "20", hex.EncodeToString(destHash), "/bin/echo", "client-cmd")
-	client.Stdin = bytes.NewReader(nil)
-	out, _ := client.CombinedOutput()
+
+	// Leg 1 asserts the deny actually reached the client, which doubles as a
+	// listener-readiness probe: an unreachable listener produced empty output
+	// and silently passed the old assertions while burning the shared ctx
+	// budget that leg 2 needed. Retrying absorbs startup jitter.
+	var out []byte
+	denied := false
+	for i := 0; i < 4 && !denied; i++ {
+		client := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "-N", "-m", "-w", "20", hex.EncodeToString(destHash), "/bin/echo", "client-cmd")
+		client.Stdin = bytes.NewReader(nil)
+		out, _ = client.CombinedOutput()
+		denied = bytes.Contains(out, []byte("auth denied"))
+	}
+	if !denied {
+		t.Fatalf("deny never reached client: %s", out)
+	}
 	if bytes.Contains(out, []byte("client-cmd")) {
 		t.Fatalf("remote cmdline ran under -C: %s", out)
 	}
@@ -245,7 +237,7 @@ func TestLiveGoForcedCommand(t *testing.T) {
 
 	clientOK := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "-N", "-m", "-w", "20", hex.EncodeToString(destHash))
 	clientOK.Stdin = bytes.NewReader(nil)
-	out, err = clientOK.CombinedOutput()
+	out, err := clientOK.CombinedOutput()
 	if !bytes.Contains(out, []byte("forced-only")) {
 		t.Fatalf("expected default command output, err=%v out=%s", err, out)
 	}
@@ -357,14 +349,7 @@ func TestLivePythonRnshToGoCompat(t *testing.T) {
 	time.Sleep(800 * time.Millisecond)
 
 	idPath := filepath.Join(cfgDirA, "storage", "identities", rnsutil.RnshAppName)
-	id, err := identity.FromFile(idPath)
-	if err != nil {
-		time.Sleep(500 * time.Millisecond)
-		id, err = identity.FromFile(idPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
+	id := waitIdentityFile(t, idPath)
 	destHex := hex.EncodeToString(destination.Hash(id, rnsutil.RnshAppName))
 
 	py := exec.CommandContext(ctx, pythonExe(), script)
