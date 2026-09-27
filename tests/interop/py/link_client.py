@@ -257,7 +257,25 @@ def main() -> int:
             sys.stderr.write("unknown INTEROP_LINK_CLIENT_MODE\n")
             return 1
 
-    RNS.Link(dest, on_link_established)
+    # A single lost LINKREQUEST or proof packet stalls the link until its
+    # establishment timeout, and the initiator never retransmits on its own.
+    # Retry the establishment so one dropped packet cannot burn the entire
+    # test budget.
+    link_deadline = time.time() + 60.0
+    while time.time() < link_deadline:
+        link = RNS.Link(dest, on_link_established)
+        attempt_deadline = min(time.time() + 15.0, link_deadline)
+        while time.time() < attempt_deadline:
+            if link.status in (RNS.Link.ACTIVE, RNS.Link.CLOSED):
+                break
+            time.sleep(0.05)
+        if link.status == RNS.Link.ACTIVE:
+            break
+        interop_events.emit("retry", detail="link establishment")
+        try:
+            link.teardown()
+        except Exception:
+            pass
 
     while True:
         time.sleep(60.0)

@@ -109,7 +109,18 @@ func TestE2E_RgoshPipeEcho(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	l, err := rnsutil.EstablishRgoshLink(ctx, nB.Transport(), dest.GetHash(), rnsutil.RgoshAppName)
+	// Link establishment sends a single LINKREQUEST and proof with no
+	// retransmit, so one dropped packet stalls the attempt for its whole
+	// window. Bound each attempt so retries fit inside the outer context.
+	var l *link.Link
+	for range 3 {
+		attemptCtx, attemptCancel := context.WithTimeout(ctx, 12*time.Second)
+		l, err = rnsutil.EstablishRgoshLink(attemptCtx, nB.Transport(), dest.GetHash(), rnsutil.RgoshAppName)
+		attemptCancel()
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,9 +154,9 @@ func TestE2E_RgoshPipeEcho(t *testing.T) {
 		return true
 	})
 	time.Sleep(50 * time.Millisecond)
-	if err := sess.SendVersion(); err != nil {
-		t.Fatal(err)
-	}
+	// A send error here is not fatal: the resend loop below retries while the
+	// session stays in StateWaitVers.
+	_ = sess.SendVersion()
 	deadline := time.After(20 * time.Second)
 	lastVers := time.Now()
 	for sess.State() == StateWaitVers {

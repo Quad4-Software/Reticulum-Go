@@ -48,6 +48,10 @@ func TestTeardownStorm(t *testing.T) {
 	if st := initLink.GetStatus(); st != StatusClosed {
 		t.Fatalf("initiator status=%d want Closed", st)
 	}
+	// The responder's closed callback fires when the teardown packet arrives
+	// through the mesh, which is asynchronous to the initiator's Teardown.
+	waitForCond(t, 10*time.Second, func() bool { return closedCalls.Load() == 1 },
+		"responder closed callback never fired")
 	if n := closedCalls.Load(); n != 1 {
 		t.Fatalf("closed callback fired %d times want 1", n)
 	}

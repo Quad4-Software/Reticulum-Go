@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
@@ -28,6 +29,8 @@ const (
 	statusUnknown   = "unknown"
 	statusStale     = "stale"
 )
+
+var persistTmpSeq atomic.Uint64
 
 var discoverableTypes = map[string]struct{}{
 	"BackboneInterface":  {},
@@ -161,7 +164,10 @@ func persistDiscoveredRecord(storageDir string, rec *DiscoveredInterface) error 
 	if err != nil {
 		return err
 	}
-	tmp := name + ".tmp"
+	// The tmp name must be unique per call: concurrent persisters for the
+	// same record share the target name, and a rename can otherwise publish
+	// another writer's still-open tmp file.
+	tmp := fmt.Sprintf("%s.%x.%x.tmp", name, os.Getpid(), persistTmpSeq.Add(1))
 	if err := root.WriteFile(tmp, packed, 0o600); err != nil {
 		return err
 	}

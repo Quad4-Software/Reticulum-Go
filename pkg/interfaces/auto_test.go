@@ -183,8 +183,12 @@ func (m *mockAutoInterface) mockHandlePeerAnnounce(addr *net.UDPAddr, ifaceName 
 }
 
 func TestAutoInterfacePeerManagement(t *testing.T) {
-	// Use a shorter timeout for testing
-	testTimeout := 100 * time.Millisecond
+	// Peer TTL must stay well above the subtests' 10ms settle sleeps: with a
+	// 100ms TTL a stalled CI runner (seen on windows-latest) lets the reaper
+	// delete a peer between announce and assert. The reap tick stays short so
+	// PeerTimeout still drains quickly.
+	const reapInterval = 100 * time.Millisecond
+	const peerTTL = 1 * time.Second
 
 	config := &common.InterfaceConfig{Enabled: true}
 	ai, err := newMockAutoInterface("autoPeerTest", config)
@@ -197,7 +201,7 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 
 	// Start peer management with done channel
 	go func() {
-		ticker := time.NewTicker(testTimeout)
+		ticker := time.NewTicker(reapInterval)
 		defer ticker.Stop()
 
 		for {
@@ -206,7 +210,7 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 				ai.Mutex.Lock()
 				now := time.Now()
 				for addr, peer := range ai.peers {
-					if now.Sub(peer.lastHeard) > testTimeout {
+					if now.Sub(peer.lastHeard) > peerTTL {
 						delete(ai.peers, addr)
 					}
 				}
@@ -340,16 +344,22 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 	})
 
 	t.Run("PeerTimeout", func(t *testing.T) {
-		// Wait for peer timeout
-		time.Sleep(testTimeout * 2)
-
+		// Poll for the reaper to drain both peers instead of assuming two
+		// ticks is enough; a delayed tick must not flake the assert.
+		deadline := time.Now().Add(peerTTL + 3*reapInterval + 2*time.Second)
+		for time.Now().Before(deadline) {
+			ai.Mutex.RLock()
+			count := len(ai.peers)
+			ai.Mutex.RUnlock()
+			if count == 0 {
+				return
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
 		ai.Mutex.RLock()
 		count := len(ai.peers)
 		ai.Mutex.RUnlock()
-
-		if count != 0 {
-			t.Errorf("Expected all peers to timeout, got %d peers", count)
-		}
+		t.Errorf("Expected all peers to timeout, got %d peers", count)
 	})
 }
 

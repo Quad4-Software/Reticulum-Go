@@ -376,7 +376,7 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 
 	if pkt.PacketType == packet.PacketTypeLinkReq {
 		out = clampRelayedLinkRequestMTU(out, pkt, sourceIface, path.Interface)
-		t.recordLinkRelay(pkt, out, sourceIface, path, int(newHops))
+		t.recordLinkRelay(out, sourceIface, path, int(newHops))
 	} else if pkt.PacketType != packet.PacketTypeAnnounce {
 		t.recordReverseEntry(pkt, sourceIface, path.Interface)
 	}
@@ -396,11 +396,20 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 	return true
 }
 
-func (t *Transport) recordLinkRelay(pkt *packet.Packet, raw []byte, recvIface common.NetworkInterface, path *common.Path, takenHops int) {
+func (t *Transport) recordLinkRelay(raw []byte, recvIface common.NetworkInterface, path *common.Path, takenHops int) {
 	if t.linkTable == nil {
 		return
 	}
-	linkID := packet.LinkIDFromLinkRequest(pkt)
+	// The caller's parsed packet aliases the inbound wire buffer, which is
+	// rewritten in place during forwarding: the HeaderType2 strip shifts the
+	// payload over the transport ID, so its hashed region and DestinationHash
+	// slice no longer hold the responder-visible bytes. Derive both from the
+	// forwarded packet, which is what the responder hashes and proves.
+	fwd := &packet.Packet{Raw: raw}
+	if err := fwd.Unpack(); err != nil {
+		return
+	}
+	linkID := packet.LinkIDFromLinkRequest(fwd)
 	if len(linkID) == 0 {
 		return
 	}
@@ -413,7 +422,7 @@ func (t *Transport) recordLinkRelay(pkt *packet.Packet, raw []byte, recvIface co
 		ReceivedIface:   recvIface,
 		RemainingHops:   remaining,
 		TakenHops:       takenHops,
-		DestinationHash: append([]byte(nil), pkt.DestinationHash...),
+		DestinationHash: append([]byte(nil), fwd.DestinationHash...),
 		Validated:       false,
 		ProofTimeout:    timeout,
 		Timestamp:       now,
@@ -600,7 +609,7 @@ func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, s
 		}
 		out = wrapped
 	}
-	t.recordLinkRelay(pkt, out, sourceIface, path, int(newHops))
+	t.recordLinkRelay(out, sourceIface, path, int(newHops))
 
 	debug.Log(debug.DebugInfo, "Relaying bridged link request",
 		"dest_hash", fmt.Sprintf("%x", destHash),

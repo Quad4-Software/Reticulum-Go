@@ -237,11 +237,17 @@ func TestLiveGoForcedCommand(t *testing.T) {
 		t.Fatalf("forced command ran despite remote argv: %s", out)
 	}
 
-	clientOK := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "-N", "-m", "-w", "20", hex.EncodeToString(destHash))
-	clientOK.Stdin = bytes.NewReader(nil)
-	out, err := clientOK.CombinedOutput()
-	if !bytes.Contains(out, []byte("forced-only")) {
-		t.Fatalf("expected default command output, err=%v out=%s", err, out)
+	// Leg 2 gets the same retry budget as leg 1: a single dropped link
+	// handshake packet stalls the client for its whole -w window otherwise.
+	forced := false
+	for i := 0; i < 3 && !forced; i++ {
+		clientOK := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "-N", "-m", "-w", "20", hex.EncodeToString(destHash))
+		clientOK.Stdin = bytes.NewReader(nil)
+		out, _ = clientOK.CombinedOutput()
+		forced = bytes.Contains(out, []byte("forced-only"))
+	}
+	if !forced {
+		t.Fatalf("expected default command output, out=%s", out)
 	}
 }
 

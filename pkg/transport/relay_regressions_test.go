@@ -155,3 +155,61 @@ func TestReverseTableCap(t *testing.T) {
 		t.Fatalf("reverse table %d exceeds cap %d", n, maxReverseEntries)
 	}
 }
+
+// Regression: an inbound HT2 link request forwarded onto a 1-hop path is
+// stripped to HT1 in place, which mutates the parsed packet's Raw buffer.
+// The relayed-link entry must key on the forwarded bytes: the responder
+// hashes those into the link ID it sends the proof to, so keying on the
+// mutated inbound packet dropped every proof at the relay.
+func TestRecordLinkRelayKeysForwardedPacket(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	t.Cleanup(func() { _ = tr.Close() })
+	tr.SetIdentity(mustIdentity(t))
+
+	in := newRelayIface("in")
+	out := newRelayIface("out")
+	_ = tr.RegisterInterface("in", in)
+	_ = tr.RegisterInterface("out", out)
+
+	destHash := bytes.Repeat([]byte{0xAA}, 16)
+	tr.UpdatePath(destHash, destHash, "out", 1)
+
+	requestData := bytes.Repeat([]byte{0x42}, packet.LinkRequestECPubSize+3)
+	flags := byte(0)
+	flags |= (packet.HeaderType2 << 6) & packet.HeaderMaskHeaderType
+	flags |= (packet.PropagationTransport << 4) & packet.HeaderMaskTransportType
+	flags |= (packet.DestinationSingle << 2) & packet.HeaderMaskDestinationType
+	flags |= packet.PacketTypeLinkReq & packet.HeaderMaskPacketType
+
+	raw := make([]byte, 0, 2+16+16+1+len(requestData))
+	raw = append(raw, flags, 0x00)
+	raw = append(raw, tr.ourTransportID()...)
+	raw = append(raw, destHash...)
+	raw = append(raw, packet.ContextNone)
+	raw = append(raw, requestData...)
+
+	pkt := &packet.Packet{Raw: raw}
+	if err := pkt.Unpack(); err != nil {
+		t.Fatalf("unpack: %v", err)
+	}
+	if !tr.forwardTransportPacket(pkt, raw, in) {
+		t.Fatal("HT2 link request was not relayed")
+	}
+	sent := out.snapshot()
+	if len(sent) != 1 {
+		t.Fatalf("expected 1 forwarded packet, got %d", len(sent))
+	}
+
+	fwd := &packet.Packet{Raw: sent[0]}
+	if err := fwd.Unpack(); err != nil {
+		t.Fatalf("unpack forwarded: %v", err)
+	}
+	wantID := packet.LinkIDFromLinkRequest(fwd)
+	entry, ok := tr.linkTable.get(wantID)
+	if !ok {
+		t.Fatal("relayed link not keyed by forwarded packet link ID")
+	}
+	if !bytes.Equal(entry.DestinationHash, destHash) {
+		t.Fatalf("entry dest hash = %x want %x", entry.DestinationHash, destHash)
+	}
+}
