@@ -98,7 +98,7 @@ Math-backed TNC simulator (no radio): Modem73Simulator in modem73_sim.go with PH
 
 Owns an SDR front end via pkg/sdr and a Go burst modem over baseband IQ.
 
-**Lab / testing disclaimer.** This interface is for local mock, simulation, and controlled lab use. It is not a certified radio product and does not grant authority to transmit. Live TX (for example HackRF) can radiate on the tuned frequency. You must follow local license, band, power, and interference rules. Prefer device = mock or the math channel for development. The burst modem is not air-compatible with Modem73 OFDM or RNode. Everyday RF mesh should use purpose-built interfaces when those fit the link.
+Lab / testing disclaimer. This interface is for local mock, simulation, and controlled lab use. It is not a certified radio product and does not grant authority to transmit. Live TX (for example HackRF) can radiate on the tuned frequency. You must follow local license, band, power, and interference rules. Prefer device = mock or the math channel for development. The burst modem is not air-compatible with Modem73 OFDM or RNode. Everyday RF mesh should use purpose-built interfaces when those fit the link.
 
 ```ini
 [[SDR0]]
@@ -188,8 +188,8 @@ Local shared-instance access uses HDLC over TCP (127.0.0.1:port) or abstract Uni
 
 Two configuration paths:
 
-1. **Automatic (Python-compatible):** share_instance = yes in [reticulum] via pkg/sharedinstance
-2. **Explicit interface block:** type = LocalInterface or type = LocalServerInterface in [[...]]
+1. Automatic (Python-compatible): share_instance = yes in [reticulum] via pkg/sharedinstance
+2. Explicit interface block: type = LocalInterface or type = LocalServerInterface in [[...]]
 
 Local clients set ConnectedToSharedInstance and skip path-request ingress limiting, matching Python behavior.
 
@@ -203,6 +203,12 @@ Requirements:
 - Open binds do not adopt the source address of the first inbound packet
 
 Optional reconnect when max_reconnect_tries > 0 is a Go extension. Python does not reconnect UDP by default.
+
+Optional `keepalive = <seconds>` sends a one-byte hold-open datagram to the
+target whenever the link has been idle for one interval, keeping NAT and
+stateful-firewall mappings alive (WireGuard PersistentKeepalive semantics).
+The byte fails packet decode on the remote and is dropped before transport.
+Python and Go peers both ignore it. Off by default.
 
 ## TCP client and server
 
@@ -406,7 +412,7 @@ Live Go-Go: RUN_LIVE_INTEROP=1 with tests/interop/https_live_test.go.
 
 ## AwareInterface
 
-WiFi Aware (NAN) transport, Android only. The host app supplies an AwareDriver (a gomobile bridge to WifiAwareManager); the controller spawns one peer interface per data path and frames it with HDLC identical to TCPClientInterface, so wire behaviour is unchanged.
+WiFi Aware (NAN) transport, Android only. The host app supplies an AwareDriver (a gomobile bridge to WifiAwareManager). The controller spawns one peer interface per data path and frames it with HDLC identical to TCPClientInterface, so wire behaviour is unchanged.
 
 ```
 type = AwareInterface
@@ -460,11 +466,11 @@ Per-interface keys announce_cap, announce_rate_*, ingress_control, and ic_* feed
 
 ## Operational notes
 
-**MTU.** Default Reticulum packet MTU is 500 bytes (pkg/packet.MTU). Interface mtu should be consistent with the physical path. Stream underlays still read 64 KiB from the socket so many HDLC frames can arrive in one Read. UDP and DNS rendezvous stay datagram-sized.
+MTU. Default Reticulum packet MTU is 500 bytes (pkg/packet.MTU). Interface mtu should be consistent with the physical path. Stream underlays still read 64 KiB from the socket so many HDLC frames can arrive in one Read. UDP and DNS rendezvous stay datagram-sized.
 
-**IPv6.** prefer_ipv6 affects TCP and Auto binding and discovery.
+IPv6. prefer_ipv6 affects TCP and Auto binding and discovery.
 
-**Panic on error.** panic_on_interface_error = yes can crash the daemon on fatal interface errors. Default is no.
+Panic on error. panic_on_interface_error = yes can crash the daemon on fatal interface errors. Default is no.
 
 ## Testing
 

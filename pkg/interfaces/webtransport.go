@@ -48,7 +48,7 @@ func newWebTransportClientFromConfig(name string, cfg *common.InterfaceConfig, _
 		cfg.TargetPort,
 		cfg.Path,
 		cfg.Enabled,
-		cfg.MaxReconnTries,
+		MaxReconnectTriesFromConfig(cfg),
 		WebTransportClientOptions{
 			CertFile:      cfg.CertFile,
 			KeyFile:       cfg.KeyFile,

@@ -12,7 +12,7 @@ import (
 
 func init() {
 	registerBuiltinFromConfig("QUICClientInterface", func(name string, cfg *common.InterfaceConfig, _ *FromConfigContext) (Interface, error) {
-		return NewQUICClientInterfaceWithRetries(name, cfg.TargetHost, cfg.TargetPort, cfg.Enabled, cfg.MaxReconnTries, QUICClientOptions{
+		return NewQUICClientInterfaceWithRetries(name, cfg.TargetHost, cfg.TargetPort, cfg.Enabled, MaxReconnectTriesFromConfig(cfg), QUICClientOptions{
 			CertFile: cfg.CertFile,
 			KeyFile:  cfg.KeyFile,
 			PeerKey:  cfg.PeerKey,

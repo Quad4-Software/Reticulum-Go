@@ -153,6 +153,13 @@ type InterfaceConfig struct {
 	Outgoing    bool
 	OutgoingSet bool
 
+	// KeepaliveSec is the directed-interface persistent keepalive interval
+	// in seconds (WireGuard PersistentKeepalive / nebula punchy pattern).
+	// When > 0 the interface emits a minimal hold-open datagram toward its
+	// configured target while idle so NAT/firewall mappings stay fresh.
+	// Zero disables it. Only UDPInterface consumes this today.
+	KeepaliveSec int
+
 	// Discoverable enables rnstransport interface discovery announces.
 	Discoverable bool
 	// DiscoveryName is the human-readable name published in discovery announces.

@@ -10,6 +10,7 @@ import (
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
 )
 
 const interfaceMonitorInterval = 10 * time.Second
@@ -25,12 +26,24 @@ func (n *Node) startInterfaceMonitor() {
 	go func() {
 		ticker := time.NewTicker(interfaceMonitorInterval)
 		defer ticker.Stop()
+		// Event-driven wake: rtnetlink link/address events shortcut the poll
+		// interval so roams are handled in well under a second. The poll
+		// remains as fallback on platforms without a watcher.
+		events := make(chan struct{}, 1)
+		unsub := interfaces.WatchNetworkChanges(func() {
+			select {
+			case events <- struct{}{}:
+			default:
+			}
+		})
+		defer unsub()
 		last := currentInterfaceSnapshot()
 		for {
 			select {
 			case <-stop:
 				return
 			case <-ticker.C:
+			case <-events:
 			}
 			cur := currentInterfaceSnapshot()
 			if interfaceSnapshotsEqual(last, cur) {

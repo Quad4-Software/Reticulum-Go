@@ -109,7 +109,7 @@ node_profile fills unset knobs. Keys present in the file are never overwritten.
 
 ### dos_protection (Go-only)
 
-Local overload gates in pkg/protect. They keep **this node** alive under floods and resource storms. They do not ban peers mesh-wide and do not replace IFAC, link crypto, or Sybil-resistant admission policy.
+Local overload gates in pkg/protect. They keep this node alive under floods and resource storms. They do not ban peers mesh-wide and do not replace IFAC, link crypto, or Sybil-resistant admission policy.
 
 | Mode | Behavior |
 |------|----------|
@@ -218,6 +218,7 @@ Each block defines one interface. Common keys:
 | interface | Auto | OS network interface name |
 | prefer_ipv6 | TCP, Auto | Prefer IPv6 when available |
 | max_reconnect_tries | TCP, UDP, backbone, QUIC, WebTransport, HTTPS, VSOCK | -1 or omitted means unlimited |
+| keepalive | UDP | Persistent keepalive seconds. Sends a 1-byte hold-open datagram toward the target while idle so NAT mappings stay fresh. Off by default (Go extension) |
 | bitrate | All | Declared bitrate hint |
 | mtu | All | Interface MTU (default packet MTU is 500 bytes) |
 | discovery_port | Auto | Multicast discovery port |

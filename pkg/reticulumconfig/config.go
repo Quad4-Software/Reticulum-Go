@@ -605,6 +605,8 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 	case "max_reconnect_tries":
 		setInt(value, &iface.MaxReconnTries)
 		iface.MaxReconnTriesSet = true
+	case "keepalive", "persistent_keepalive":
+		setInt(value, &iface.KeepaliveSec)
 	case "bitrate":
 		setInt64(value, &iface.Bitrate)
 	case "mtu":
@@ -1132,6 +1134,9 @@ func writeInterface(b *strings.Builder, name string, iface *common.InterfaceConf
 	}
 	if iface.MaxReconnTries != 0 {
 		fmt.Fprintf(b, "    max_reconnect_tries = %d\n", iface.MaxReconnTries)
+	}
+	if iface.KeepaliveSec > 0 {
+		fmt.Fprintf(b, "    keepalive = %d\n", iface.KeepaliveSec)
 	}
 	if iface.Bitrate != 0 {
 		fmt.Fprintf(b, "    bitrate = %d\n", iface.Bitrate)

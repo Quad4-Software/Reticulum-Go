@@ -2,7 +2,7 @@
 
 ## Reference target
 
-Reticulum-Go is tested against **Python RNS 1.5.4**, plus the [official network API reference](https://reticulum.network/manual/reference.html).
+Reticulum-Go is tested against Python RNS 1.5.4, plus the [official network API reference](https://reticulum.network/manual/reference.html).
 
 Crossref vectors clone the reference from rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum via [rngit](https://reticulum.network/manual/git.html) (tests/crossref/run_crossref.sh). The GitHub mirror is not used for vectors.
 
@@ -57,6 +57,14 @@ The detailed matrix with config key tables lives in [COMPATIBILITY.md](../../COM
 UDP requires explicit target_host or target_address (Python forward_ip policy).
 
 Opt-in UDP reconnect when max_reconnect_tries > 0 is a Go extension.
+
+Opt-in `keepalive = <seconds>` on UDPInterface is a Go extension. It emits a
+one-byte hold-open datagram while idle (NAT binding keepalive). Peers drop it
+at decode, so it is safe to enable against Python endpoints.
+
+Reconnect backoff carries jitter and reconnects kick early on underlay
+network changes (Linux rtnetlink). Both are local timing behavior only. No
+wire changes.
 
 ## Python 1.2.x to 1.4.2 changes
 

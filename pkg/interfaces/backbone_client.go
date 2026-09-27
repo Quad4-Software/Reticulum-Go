@@ -71,7 +71,7 @@ func NewBackboneClientInterface(name string, cfg *common.InterfaceConfig, hub *b
 		return nil, fmt.Errorf("target_port required for BackboneClientInterface %q", name)
 	}
 
-	maxTries := NormalizeMaxReconnectTries(cfg.MaxReconnTries)
+	maxTries := MaxReconnectTriesFromConfig(cfg)
 
 	bc := &BackboneClientInterface{
 		BaseInterface:     NewBaseInterface(name, common.IFTypeBackbone, cfg.Enabled),

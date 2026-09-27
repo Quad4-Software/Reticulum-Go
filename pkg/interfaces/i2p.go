@@ -40,7 +40,7 @@ func newI2PFromConfig(name string, cfg *common.InterfaceConfig, ctx *FromConfigC
 	}
 	for _, peerAddr := range cfg.I2PPeers {
 		peerName := name + " to " + peerAddr
-		peer := NewI2PInterfacePeer(parent, peerName, peerAddr, cfg.MaxReconnTries, cfg)
+		peer := NewI2PInterfacePeer(parent, peerName, peerAddr, MaxReconnectTriesFromConfig(cfg), cfg)
 		parent.registerSpawnedPeer(peer)
 	}
 	return parent, nil
@@ -172,7 +172,7 @@ func (p *I2PInterface) Start() error {
 	p.Mutex.Lock()
 	p.listener = ln
 	p.Online = true
-	// A closed done means a previous Stop; restart needs fresh channels and
+	// A closed done means a previous Stop. Restart needs fresh channels and
 	// fresh onces or the new loops exit immediately.
 	select {
 	case <-p.serverDone:
@@ -385,7 +385,7 @@ func (p *I2PInterface) ListSpawnedPeers() []Interface {
 func (p *I2PInterface) AutoconnectPeer(name, dest string, peerCfg *common.InterfaceConfig, endpointHash, source []byte) *I2PInterfacePeer {
 	maxReconn := -1
 	if peerCfg != nil {
-		maxReconn = peerCfg.MaxReconnTries
+		maxReconn = MaxReconnectTriesFromConfig(peerCfg)
 	}
 	peer := NewI2PInterfacePeer(p, name, dest, maxReconn, peerCfg)
 	if len(endpointHash) > 0 {
@@ -656,7 +656,10 @@ func (peer *I2PInterfacePeer) reconnect() {
 		}
 		time.Sleep(i2pReconnectWait)
 		attempts++
-		if peer.maxReconnectTries >= 0 && attempts > peer.maxReconnectTries {
+		// ReconnectNever (-2) means zero retries: exhaust on the first pass.
+		// Other negative values are unlimited.
+		capped := peer.maxReconnectTries >= 0 || peer.maxReconnectTries == ReconnectNever
+		if capped && attempts > max(peer.maxReconnectTries, 0) {
 			debug.Log(debug.DebugError, "I2P peer max reconnect attempts reached", "name", peer.Name)
 			peer.teardown()
 			return
@@ -786,7 +789,7 @@ func (peer *I2PInterfacePeer) deliverFrame(data []byte) {
 	peer.ProcessIncomingFrom(data, peer.peerKey)
 }
 
-// A new readLoop after a fast reconnect starts a new watchdog; the
+// A new readLoop after a fast reconnect starts a new watchdog. The
 // generation check retires any older one still sleeping. A shared reset
 // flag would also retire the replacement watchdog started inside the
 // reset window, leaving the new conn unmonitored.
