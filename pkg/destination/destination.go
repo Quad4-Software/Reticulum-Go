@@ -420,7 +420,7 @@ func (d *Destination) HandleIncomingLinkRequest(pkt any, transport any, networkI
 	accepts := d.acceptsLinks
 	d.mutex.RUnlock()
 	if !accepts {
-		debug.Log(debug.DebugVerbose, "Destination does not accept link requests; dropping",
+		debug.Log(debug.DebugVerbose, "Destination does not accept link requests. Dropping",
 			"hash", fmt.Sprintf("%x", d.GetHash()))
 		return nil
 	}
@@ -621,7 +621,7 @@ func (d *Destination) EnableRatchets(path string) bool {
 	d.latestRatchetTime = time.Time{} // Zero time to force rotation
 
 	// Load or initialize ratchets. A present but unreadable file means lost
-	// forward secrecy material, not a fresh start; refusing to overwrite it
+	// forward secrecy material, not a fresh start. Refusing to overwrite it
 	// keeps the corrupt file for recovery instead of wiping the keys.
 	if err := d.reloadRatchets(); err != nil {
 		debug.Log(debug.DebugError, "Failed to load ratchets", "error", err)

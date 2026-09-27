@@ -15,13 +15,13 @@ The primary deliverables are:
 
 ## Design goals
 
-**Protocol interoperability.** Peers running Python Reticulum and Reticulum-Go must exchange packets, establish links, and verify cryptography without translation gateways.
+Protocol interoperability. Peers running Python Reticulum and Reticulum-Go must exchange packets, establish links, and verify cryptography without translation gateways.
 
-**Portability.** Builds are static by default (CGO_ENABLED=0). Cross-compilation targets Linux, Windows, macOS, and WebAssembly. A separate TinyGo branch exists for very small embedded targets.
+Portability. Builds are static by default (CGO_ENABLED=0). Cross-compilation targets Linux, Windows, macOS, and WebAssembly. A separate TinyGo branch exists for very small embedded targets.
 
-**Performance and reliability.** Go goroutines handle interface I/O, transport forwarding, and link sessions. Backbone interfaces can use epoll, kqueue, or io_uring multiplexing instead of one goroutine per socket.
+Performance and reliability. Go goroutines handle interface I/O, transport forwarding, and link sessions. Backbone interfaces can use epoll, kqueue, or io_uring multiplexing instead of one goroutine per socket.
 
-**Operational safety.** The daemon applies an OS-level sandbox after startup by default. Dependencies are vendored for reproducible offline builds. Release assets are signed with cosign attestations.
+Operational safety. The daemon applies an OS-level sandbox after startup by default. Dependencies are vendored for reproducible offline builds. Release assets are signed with cosign attestations.
 
 ## How Reticulum fits together
 

@@ -23,7 +23,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
 )
 
-// The Go side tears down an inbound link; Python must observe its
+// The Go side tears down an inbound link. Python must observe its
 // link.closed callback, proving the teardown packet on the wire.
 func TestLiveInteropGoTeardownSeenByPython(t *testing.T) {
 	liveOrSkip(t)

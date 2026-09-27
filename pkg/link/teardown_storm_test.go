@@ -78,7 +78,7 @@ func TestPanicInPacketCallback(t *testing.T) {
 	_ = initLink.SendPacket([]byte("detonate"))
 	time.Sleep(300 * time.Millisecond)
 
-	// Second packet must still be delivered; the panic must not have taken
+	// Second packet must still be delivered. The panic must not have taken
 	// the worker or the link down.
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
@@ -121,7 +121,7 @@ func TestLinkStartStopCycleLeak(t *testing.T) {
 		mesh.close()
 	}
 
-	// maintainLink exits on its 1s tick; allow a tick plus slack.
+	// maintainLink exits on its 1s tick. Allow a tick plus slack.
 	runtime.GC()
 	time.Sleep(1500 * time.Millisecond)
 	got := runtime.NumGoroutine()

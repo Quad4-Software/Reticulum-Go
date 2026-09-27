@@ -280,7 +280,7 @@ func TestAnnounceFanoutAndFreshness(t *testing.T) {
 
 	for rh, n := range seenRandomHashes {
 		if n != len(ifaces) {
-			t.Fatalf("random hash %x appeared on %d/%d interfaces; expected exactly one announce per interface", []byte(rh), n, len(ifaces))
+			t.Fatalf("random hash %x appeared on %d/%d interfaces. Expected exactly one announce per interface", []byte(rh), n, len(ifaces))
 		}
 	}
 	if got, want := len(seenRandomHashes), announces; got != want {

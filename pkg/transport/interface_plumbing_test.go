@@ -29,7 +29,7 @@ func requireTCPPlumbing(t *testing.T) {
 	case "1", "true", "yes", "on":
 		return
 	default:
-		t.Skipf("skipping TCP plumbing test; set %s=1 to enable", tcpPlumbingEnvVar)
+		t.Skipf("skipping TCP plumbing test, set %s=1 to enable", tcpPlumbingEnvVar)
 	}
 }
 
@@ -112,7 +112,7 @@ func TestRegisterInterfaceRejectsAbstractBase(t *testing.T) {
 // invoke the installed callback with a *different* iface pointer as its
 // NetworkInterface argument and assert that the registered iface (not the
 // supplied one) is the one HandlePacket goes on to use. We detect that by
-// counting GetName calls on each iface - HandlePacket calls iface.GetName
+// counting GetName calls on each iface. HandlePacket calls iface.GetName
 // at the top of every dispatch.
 func TestRegisterInterfacePreservesConcreteType(t *testing.T) {
 	prevLevel := debug.GetDebugLevel()
@@ -161,10 +161,10 @@ func TestRegisterInterfacePreservesConcreteType(t *testing.T) {
 	impCalls, _, _ := imposter.counts()
 
 	if regCalls == 0 {
-		t.Fatalf("registered iface GetName not called by HandlePacket; closure did not substitute the captured concrete iface")
+		t.Fatalf("registered iface GetName not called by HandlePacket. Closure did not substitute the captured concrete iface")
 	}
 	if impCalls != 0 {
-		t.Fatalf("imposter iface GetName called %d times; closure forwarded its argument instead of the captured concrete iface (this is the dynamic-dispatch bug)", impCalls)
+		t.Fatalf("imposter iface GetName called %d times. Closure forwarded its argument instead of the captured concrete iface (this is the dynamic-dispatch bug)", impCalls)
 	}
 }
 
@@ -227,7 +227,7 @@ func TestTransportLoopbackOverTCP(t *testing.T) {
 		t.Fatalf("client send: %v", err)
 	}
 	if !srvRx.waitFor(clientToServer, 2*time.Second) {
-		t.Fatalf("server never received bytes from client; got %d packets", len(srvRx.snapshot()))
+		t.Fatalf("server never received bytes from client. Got %d packets", len(srvRx.snapshot()))
 	}
 
 	serverToClient := []byte{0x22, 0x01, 0xfe, 0xed, 0xfa, 0xce}
@@ -235,7 +235,7 @@ func TestTransportLoopbackOverTCP(t *testing.T) {
 		t.Fatalf("server send: %v", err)
 	}
 	if !cliRx.waitFor(serverToClient, 2*time.Second) {
-		t.Fatalf("client never received bytes from server; got %d packets", len(cliRx.snapshot()))
+		t.Fatalf("client never received bytes from server. Got %d packets", len(cliRx.snapshot()))
 	}
 }
 

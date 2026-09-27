@@ -10,13 +10,13 @@ The mesh is destinations, announces, and links between peers. No node is privile
 
 The Control API is a local HTTP/WebSocket front end for one reticulum-go process. It is not the mesh. Apps that treat this API as a required remote service reintroduce a single control host even when RNS routing stays peer-to-peer.
 
-**Appropriate uses**
+Appropriate uses
 
 - Tools and UIs on the same host as the daemon
 - App logic in another language while the daemon owns transport
 - Lab or ops access on loopback (or a private network you fully control)
 
-**Avoid**
+Avoid
 
 - A public Control API endpoint that clients must use to participate
 - Putting identity, routing, or app policy behind one always-on control host

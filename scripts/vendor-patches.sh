@@ -4,7 +4,7 @@
 # vendor/ is generated output, but a few upstream packages need local fixes
 # that are not (yet) upstream. `go mod vendor` wipes them every time, so any
 # vendoring run must be followed by this script. vendor-sync.sh calls it
-# automatically; run it by hand after a manual `go mod vendor`.
+# automatically. Run it by hand after a manual `go mod vendor`.
 #
 # Usage: vendor-patches.sh [dir ...]
 #   Each dir is a module root containing vendor/. Defaults to the repo root.

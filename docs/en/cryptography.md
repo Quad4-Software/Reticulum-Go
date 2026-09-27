@@ -13,11 +13,11 @@ On-wire layouts match the Python reference. Changing algorithms or sizes without
 
 ## Design goals
 
-**Interoperability.** Peers on Python Reticulum must verify signatures, decrypt identity payloads when keys match, and complete link handshakes with Reticulum-Go nodes.
+Interoperability. Peers on Python Reticulum must verify signatures, decrypt identity payloads when keys match, and complete link handshakes with Reticulum-Go nodes.
 
-**Single integration surface.** Application code calls pkg/cryptography and pkg/identity. Do not import crypto/ed25519 or curve25519 directly in application layers.
+Single integration surface. Application code calls pkg/cryptography and pkg/identity. Do not import crypto/ed25519 or curve25519 directly in application layers.
 
-**Explicit non-goals.** This tree does not implement post-quantum algorithms, alternative curves for Reticulum identities, or custom TLS-style handshakes outside the Reticulum protocol.
+Explicit non-goals. This tree does not implement post-quantum algorithms, alternative curves for Reticulum identities, or custom TLS-style handshakes outside the Reticulum protocol.
 
 ## Primitive inventory
 

@@ -25,7 +25,7 @@ func TestEscapeHDLC(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := escapeHDLC(tc.input)
 			if !bytes.Equal(result, tc.expected) {
-				t.Errorf("escapeHDLC(%x) = %x; want %x", tc.input, result, tc.expected)
+				t.Errorf("escapeHDLC(%x) = %x. Want %x", tc.input, result, tc.expected)
 			}
 		})
 	}
@@ -48,7 +48,7 @@ func TestEscapeKISS(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := escapeKISS(tc.input)
 			if !bytes.Equal(result, tc.expected) {
-				t.Errorf("escapeKISS(%x) = %x; want %x", tc.input, result, tc.expected)
+				t.Errorf("escapeKISS(%x) = %x. Want %x", tc.input, result, tc.expected)
 			}
 		})
 	}

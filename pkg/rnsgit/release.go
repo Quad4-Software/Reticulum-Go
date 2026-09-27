@@ -255,7 +255,7 @@ func sanReleaseTag(tag string) (string, []byte) {
 }
 
 // resolveReleaseTag handles the special "latest" tag. The marker file holds a
-// tag written by a previous request; its contents are re-validated the same
+// tag written by a previous request. Its contents are re-validated the same
 // way before use so a corrupt or planted marker cannot escape releasesPath.
 func resolveReleaseTag(releasesPath, tag string) (string, []byte) {
 	if tag != "latest" {

@@ -6,11 +6,11 @@ to match upstream. When it does not, that is a bug: file an issue.
 
 Three categories exist:
 
-- **Local hardening bounds**: caps on memory or state that upstream leaves
+- Local hardening bounds: caps on memory or state that upstream leaves
   unbounded. They change nothing on the wire for conforming peers.
-- **Local-only extensions**: features that never appear on a shared medium
+- Local-only extensions: features that never appear on a shared medium
   or in packets a Python peer would parse differently.
-- **Wire-visible extensions**: additions a Python peer can observe. These
+- Wire-visible extensions: additions a Python peer can observe. These
   are additive and ignored by upstream where noted.
 
 ## Local hardening bounds

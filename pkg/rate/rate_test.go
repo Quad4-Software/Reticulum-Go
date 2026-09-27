@@ -191,7 +191,7 @@ func TestIngressControl_BurstSampleMinimum(t *testing.T) {
 		t.Fatalf("burst should not engage with fewer than %d samples", burstSampleMinimum)
 	}
 	if ic.HeldCount() != 0 {
-		t.Fatalf("no announces must be held before burst engages; held=%d", ic.HeldCount())
+		t.Fatalf("no announces must be held before burst engages. Held=%d", ic.HeldCount())
 	}
 
 	for i := range 50 {

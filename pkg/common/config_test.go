@@ -12,25 +12,25 @@ func TestNewReticulumConfig(t *testing.T) {
 	cfg := NewReticulumConfig()
 
 	if !cfg.EnableTransport {
-		t.Errorf("NewReticulumConfig() EnableTransport = %v; want true", cfg.EnableTransport)
+		t.Errorf("NewReticulumConfig() EnableTransport = %v. Want true", cfg.EnableTransport)
 	}
 	if !cfg.ShareInstance {
-		t.Errorf("NewReticulumConfig() ShareInstance = %v; want true", cfg.ShareInstance)
+		t.Errorf("NewReticulumConfig() ShareInstance = %v. Want true", cfg.ShareInstance)
 	}
 	if cfg.SharedInstancePort != DefaultSharedInstancePort {
-		t.Errorf("NewReticulumConfig() SharedInstancePort = %d; want %d", cfg.SharedInstancePort, DefaultSharedInstancePort)
+		t.Errorf("NewReticulumConfig() SharedInstancePort = %d. Want %d", cfg.SharedInstancePort, DefaultSharedInstancePort)
 	}
 	if cfg.InstanceControlPort != DefaultInstanceControlPort {
-		t.Errorf("NewReticulumConfig() InstanceControlPort = %d; want %d", cfg.InstanceControlPort, DefaultInstanceControlPort)
+		t.Errorf("NewReticulumConfig() InstanceControlPort = %d. Want %d", cfg.InstanceControlPort, DefaultInstanceControlPort)
 	}
 	if cfg.PanicOnInterfaceErr {
-		t.Errorf("NewReticulumConfig() PanicOnInterfaceErr = %v; want false", cfg.PanicOnInterfaceErr)
+		t.Errorf("NewReticulumConfig() PanicOnInterfaceErr = %v. Want false", cfg.PanicOnInterfaceErr)
 	}
 	if cfg.LogLevel != DefaultLogLevel {
-		t.Errorf("NewReticulumConfig() LogLevel = %d; want %d", cfg.LogLevel, DefaultLogLevel)
+		t.Errorf("NewReticulumConfig() LogLevel = %d. Want %d", cfg.LogLevel, DefaultLogLevel)
 	}
 	if len(cfg.Interfaces) != 0 {
-		t.Errorf("NewReticulumConfig() Interfaces length = %d; want 0", len(cfg.Interfaces))
+		t.Errorf("NewReticulumConfig() Interfaces length = %d. Want 0", len(cfg.Interfaces))
 	}
 }
 
@@ -38,31 +38,31 @@ func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 
 	if !cfg.EnableTransport {
-		t.Errorf("DefaultConfig() EnableTransport = %v; want true", cfg.EnableTransport)
+		t.Errorf("DefaultConfig() EnableTransport = %v. Want true", cfg.EnableTransport)
 	}
 	if !cfg.ShareInstance {
-		t.Errorf("DefaultConfig() ShareInstance = %v; want true", cfg.ShareInstance)
+		t.Errorf("DefaultConfig() ShareInstance = %v. Want true", cfg.ShareInstance)
 	}
 	if cfg.SharedInstancePort != DefaultSharedInstancePort {
-		t.Errorf("DefaultConfig() SharedInstancePort = %d; want %d", cfg.SharedInstancePort, DefaultSharedInstancePort)
+		t.Errorf("DefaultConfig() SharedInstancePort = %d. Want %d", cfg.SharedInstancePort, DefaultSharedInstancePort)
 	}
 	if cfg.InstanceControlPort != DefaultInstanceControlPort {
-		t.Errorf("DefaultConfig() InstanceControlPort = %d; want %d", cfg.InstanceControlPort, DefaultInstanceControlPort)
+		t.Errorf("DefaultConfig() InstanceControlPort = %d. Want %d", cfg.InstanceControlPort, DefaultInstanceControlPort)
 	}
 	if cfg.PanicOnInterfaceErr {
-		t.Errorf("DefaultConfig() PanicOnInterfaceErr = %v; want false", cfg.PanicOnInterfaceErr)
+		t.Errorf("DefaultConfig() PanicOnInterfaceErr = %v. Want false", cfg.PanicOnInterfaceErr)
 	}
 	if cfg.LogLevel != DefaultLogLevel {
-		t.Errorf("DefaultConfig() LogLevel = %d; want %d", cfg.LogLevel, DefaultLogLevel)
+		t.Errorf("DefaultConfig() LogLevel = %d. Want %d", cfg.LogLevel, DefaultLogLevel)
 	}
 	if len(cfg.Interfaces) != 0 {
-		t.Errorf("DefaultConfig() Interfaces length = %d; want 0", len(cfg.Interfaces))
+		t.Errorf("DefaultConfig() Interfaces length = %d. Want 0", len(cfg.Interfaces))
 	}
 	if cfg.AppName != "Go Client" {
-		t.Errorf("DefaultConfig() AppName = %q; want %q", cfg.AppName, "Go Client")
+		t.Errorf("DefaultConfig() AppName = %q. Want %q", cfg.AppName, "Go Client")
 	}
 	if cfg.AppAspect != "node" {
-		t.Errorf("DefaultConfig() AppAspect = %q; want %q", cfg.AppAspect, "node")
+		t.Errorf("DefaultConfig() AppAspect = %q. Want %q", cfg.AppAspect, "node")
 	}
 }
 

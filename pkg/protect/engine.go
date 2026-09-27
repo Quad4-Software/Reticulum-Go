@@ -123,7 +123,7 @@ type Engine struct {
 	mu     sync.Mutex
 	ifaces map[string]*ifaceState
 	conns  map[string]int
-	// offConns counts accepted conns while protection is off; the
+	// offConns counts accepted conns while protection is off. The
 	// backstop below keeps a flood from exhausting fds without
 	// engaging adaptive policy.
 	offConns     map[string]int
@@ -729,7 +729,7 @@ func (e *Engine) AdmitHandler(iface string) Decision {
 
 // offModeMaxConns is the unconditional accepted-connection ceiling per
 // interface when protect is disabled. Well above any legitimate peer count
-// on a sparse mesh; it exists so an idle-conn flood cannot exhaust fds.
+// on a sparse mesh. It exists so an idle-conn flood cannot exhaust fds.
 const offModeMaxConns = 8192
 
 // AdmitConn checks concurrent accepted connections for iface.

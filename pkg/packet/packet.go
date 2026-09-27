@@ -421,7 +421,7 @@ func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []b
 	nameHash10 := nameHash[:10]
 	debug.Log(debug.DebugPackets, "Using name hash", "name", appName, "hash", fmt.Sprintf("%x", nameHash10))
 
-	// Create random hash (10 bytes) - 5 bytes random + 5 bytes time
+	// Create random hash (10 bytes): 5 bytes random + 5 bytes time
 	randomHash := make([]byte, 10)
 	_, err := rand.Read(randomHash[:5]) // #nosec G104
 	if err != nil {

@@ -139,7 +139,7 @@ func TestLinkRelayTableCap(t *testing.T) {
 	}
 }
 
-// Regression: the reverse table is bounded too; oldest entries evict first.
+// Regression: the reverse table is bounded too. Oldest entries evict first.
 func TestReverseTableCap(t *testing.T) {
 	rt := &reverseTable{entries: make(map[hash16]*ReverseEntry)}
 	for i := 0; i < maxReverseEntries+64; i++ {

@@ -43,7 +43,7 @@ func newLinkRelayTable() *linkRelayTable {
 
 // maxLinkRelayEntries bounds transit relay state. Without it a flood of
 // forged link requests grows the table until proof timeouts catch up. On
-// overflow the oldest unvalidated entry is evicted first; a table of only
+// overflow the oldest unvalidated entry is evicted first. A table of only
 // validated entries drops the new insert instead.
 const maxLinkRelayEntries = 8192
 

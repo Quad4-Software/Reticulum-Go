@@ -290,7 +290,7 @@ func (i *BaseInterface) Enable() {
 	defer i.Mutex.Unlock()
 	i.Enabled = true
 	i.Online = true
-	// Enable resurrects a detached interface; Detach stays the power-down
+	// Enable resurrects a detached interface. Detach stays the power-down
 	// verb and Enable plus Start must be able to bring it back.
 	i.Detached = false
 }
@@ -386,7 +386,7 @@ func (i *BaseInterface) ProcessIncoming(data []byte) {
 // pointer leaking through a callback closure) instead of letting the
 // transport silently swallow every outgoing packet.
 func (i *BaseInterface) ProcessOutgoing(data []byte) error {
-	return fmt.Errorf("ProcessOutgoing not implemented on abstract common.BaseInterface (name=%q, %d bytes); concrete interface type must override it", i.Name, len(data))
+	return fmt.Errorf("ProcessOutgoing not implemented on abstract common.BaseInterface (name=%q, %d bytes). Concrete interface type must override it", i.Name, len(data))
 }
 
 func (i *BaseInterface) SendPathRequest(data []byte) error {

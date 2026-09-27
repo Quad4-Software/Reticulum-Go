@@ -123,40 +123,40 @@ func TestPacketPackUnpack(t *testing.T) {
 			}
 
 			if unpackTarget.HeaderType != tc.headerType {
-				t.Errorf("Unpacked HeaderType = %d; want %d", unpackTarget.HeaderType, tc.headerType)
+				t.Errorf("Unpacked HeaderType = %d. Want %d", unpackTarget.HeaderType, tc.headerType)
 			}
 			if unpackTarget.PacketType != tc.packetType {
-				t.Errorf("Unpacked PacketType = %d; want %d", unpackTarget.PacketType, tc.packetType)
+				t.Errorf("Unpacked PacketType = %d. Want %d", unpackTarget.PacketType, tc.packetType)
 			}
 			if unpackTarget.TransportType != tc.transportType {
-				t.Errorf("Unpacked TransportType = %d; want %d", unpackTarget.TransportType, tc.transportType)
+				t.Errorf("Unpacked TransportType = %d. Want %d", unpackTarget.TransportType, tc.transportType)
 			}
 			if unpackTarget.Context != tc.context {
-				t.Errorf("Unpacked Context = %d; want %d", unpackTarget.Context, tc.context)
+				t.Errorf("Unpacked Context = %d. Want %d", unpackTarget.Context, tc.context)
 			}
 			if unpackTarget.ContextFlag != tc.contextFlag {
-				t.Errorf("Unpacked ContextFlag = %d; want %d", unpackTarget.ContextFlag, tc.contextFlag)
+				t.Errorf("Unpacked ContextFlag = %d. Want %d", unpackTarget.ContextFlag, tc.contextFlag)
 			}
 			if unpackTarget.Hops != 5 { // Should match the Hops set before packing
-				t.Errorf("Unpacked Hops = %d; want %d", unpackTarget.Hops, 5)
+				t.Errorf("Unpacked Hops = %d. Want %d", unpackTarget.Hops, 5)
 			}
 			if unpackTarget.DestinationType != tc.destType {
-				t.Errorf("Unpacked DestinationType = %d; want %d", unpackTarget.DestinationType, tc.destType)
+				t.Errorf("Unpacked DestinationType = %d. Want %d", unpackTarget.DestinationType, tc.destType)
 			}
 			if !bytes.Equal(unpackTarget.DestinationHash, originalDestHash) {
-				t.Errorf("Unpacked DestinationHash = %x; want %x", unpackTarget.DestinationHash, originalDestHash)
+				t.Errorf("Unpacked DestinationHash = %x. Want %x", unpackTarget.DestinationHash, originalDestHash)
 			}
 			if !bytes.Equal(unpackTarget.Data, originalData) {
-				t.Errorf("Unpacked Data = %x; want %x", unpackTarget.Data, originalData)
+				t.Errorf("Unpacked Data = %x. Want %x", unpackTarget.Data, originalData)
 			}
 
 			if tc.needsTransportID {
 				if !bytes.Equal(unpackTarget.TransportID, originalTransportID) {
-					t.Errorf("Unpacked TransportID = %x; want %x", unpackTarget.TransportID, originalTransportID)
+					t.Errorf("Unpacked TransportID = %x. Want %x", unpackTarget.TransportID, originalTransportID)
 				}
 			} else {
 				if unpackTarget.TransportID != nil {
-					t.Errorf("Unpacked TransportID = %x; want nil", unpackTarget.TransportID)
+					t.Errorf("Unpacked TransportID = %x. Want nil", unpackTarget.TransportID)
 				}
 			}
 		})

@@ -424,7 +424,7 @@ func transportStoragePath(cfg *common.ReticulumConfig) string {
 func (t *Transport) runMaintenanceTick(fn func()) {
 	defer func() {
 		if r := recover(); r != nil {
-			debug.Log(debug.DebugError, "Panic in transport maintenance job; job skipped",
+			debug.Log(debug.DebugError, "Panic in transport maintenance job. Job skipped",
 				"panic", fmt.Sprint(r))
 			health.Inc("", health.KindJobPanic)
 		}
@@ -1690,7 +1690,7 @@ func (t *Transport) handleInboundPacket(data []byte, iface common.NetworkInterfa
 			if iface != nil {
 				ifaceName = iface.GetName()
 			}
-			debug.Log(debug.DebugError, "Panic in inbound packet preprocessing; packet dropped",
+			debug.Log(debug.DebugError, "Panic in inbound packet preprocessing. Packet dropped",
 				"panic", fmt.Sprint(r), "packet_size", len(data), "source", ifaceName)
 			health.Inc(ifaceName, health.KindUnpackFail)
 		}
@@ -2742,7 +2742,7 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 	}
 
 	prEntry := &DiscoveryPathRequest{
-		// destHash aliases the pooled inbound packet buffer; copy it before
+		// destHash aliases the pooled inbound packet buffer. Copy it before
 		// storing or recycled packet bytes corrupt the pending request.
 		DestinationHash: append([]byte(nil), destHash...),
 		Timeout:         time.Now().Add(discoveryTimeout),

@@ -81,7 +81,7 @@ func TestIncomingResourceWatchdog_RecoversFromDroppedRequestPacket(t *testing.T)
 			t.Fatalf("payload mismatch: got %d bytes, want %d bytes", len(received), len(payload))
 		}
 	case <-time.After(30 * time.Second):
-		t.Fatal("timed out waiting for resource despite watchdog retry; incoming resource stall recovery regressed")
+		t.Fatal("timed out waiting for resource despite watchdog retry. Incoming resource stall recovery regressed")
 	}
 
 	mu.Lock()

@@ -11,7 +11,7 @@ Contributions are welcome. Prefer sending changes as `.patch` files over Reticul
 5. Branch from `dev` for feature work.
 6. Before pushing: `make prepush` or full `make check`.
 
-Automation is available via **Make** (`make help`). Plain `go build` / `go test` also work with vendored modules.
+Automation is available via Make (`make help`). Plain `go build` / `go test` also work with vendored modules.
 
 Optional: use [mise](https://mise.jdx.dev/) (`mise install`) or the Dev Container (`.devcontainer/`) for pinned Go and tool versions.
 
@@ -73,7 +73,7 @@ git config user.signingkey ~/.rngit/client_identity
 git config user.email <your identity hash>    # rngcs binds the author to the signer
 ```
 
-The author field must equal the identity hash, or an LXMF address you can prove. GPG, SSH, and gitsign signatures are also accepted (`make gitsign-setup`; set `SIGSTORE_FULCIO_URL`, `SIGSTORE_REKOR_URL` and `SIGSTORE_OIDC_ISSUER` for a private Sigstore stack).
+The author field must equal the identity hash, or an LXMF address you can prove. GPG, SSH, and gitsign signatures are also accepted (`make gitsign-setup`, set `SIGSTORE_FULCIO_URL`, `SIGSTORE_REKOR_URL` and `SIGSTORE_OIDC_ISSUER` for a private Sigstore stack).
 
 ### Developer Certificate of Origin
 
@@ -155,8 +155,8 @@ Contributions are licensed to the project and its recipients under the project's
 
 Send issues, suggestions, patches, or feedback to:
 
-- **Reticulum LXMF:** `f489752fbef161c64d65e385a4e9fc74` (Ivan, Lead Maintainer)
-- **Email:** `team@quad4.io`
+- Reticulum LXMF: `f489752fbef161c64d65e385a4e9fc74` (Ivan, Lead Maintainer)
+- Email: `team@quad4.io`
 
 ## AI-assisted contributions
 

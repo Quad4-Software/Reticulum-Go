@@ -26,7 +26,7 @@ func TestSanRef(t *testing.T) {
 		t.Fatal("expected invalid ref")
 	}
 	if SanRef("HEAD") != "" {
-		t.Fatal("HEAD must fail SanRef (no slash); clients expand it first")
+		t.Fatal("HEAD must fail SanRef (no slash). Clients expand it first")
 	}
 }
 

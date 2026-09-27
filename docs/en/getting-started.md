@@ -3,7 +3,7 @@
 ## Requirements
 
 - Go 1.27.1 or later
-- Make (optional, for convenience targets; plain `go` works too)
+- Make (optional, for convenience targets, plain `go` works too)
 - A writable home directory for ~/.reticulum-go
 
 The repository vendors dependencies. A normal build does not contact module proxies when GOFLAGS=-mod=vendor is set (default in the Makefile).
@@ -237,17 +237,17 @@ See [Security](security.md) for platform behavior.
 
 ## Troubleshooting
 
-**Daemon exits on config error.** Check the config path and syntax. Unknown keys are ignored so a damaged file can still boot. Fix typos in type and interface names.
+Daemon exits on config error. Check the config path and syntax. Unknown keys are ignored so a damaged file can still boot. Fix typos in type and interface names.
 
-**No paths to remote destinations.** Confirm interfaces are enabled, peers are reachable, and transport is enabled. Use debug level 5 or higher temporarily. Request paths explicitly from application code or the control API.
+No paths to remote destinations. Confirm interfaces are enabled, peers are reachable, and transport is enabled. Use debug level 5 or higher temporarily. Request paths explicitly from application code or the control API.
 
-**IFAC mismatches.** Peers must use the same network_name and passphrase. Wrong IFAC frames are dropped silently on ingress.
+IFAC mismatches. Peers must use the same network_name and passphrase. Wrong IFAC frames are dropped silently on ingress.
 
-**Shared instance conflicts.** Only one process should own interfaces when share_instance = yes. Others should connect as clients. Check shared_instance_port (default 37428).
+Shared instance conflicts. Only one process should own interfaces when share_instance = yes. Others should connect as clients. Check shared_instance_port (default 37428).
 
-**status connection refused.** Point -config at the daemon config dir (~/.reticulum for rnsd). Align shared_instance_type and instance_name / ports, or leave the type unset on Linux for Unix. See [CLI utilities](utilities.md).
+status connection refused. Point -config at the daemon config dir (~/.reticulum for rnsd). Align shared_instance_type and instance_name / ports, or leave the type unset on Linux for Unix. See [CLI utilities](utilities.md).
 
-**Permission errors on Linux sandbox.** Landlock requires kernel 5.13+. The config directory and storage paths must live under whitelisted locations. See [Security](security.md).
+Permission errors on Linux sandbox. Landlock requires kernel 5.13+. The config directory and storage paths must live under whitelisted locations. See [Security](security.md).
 
 ## Next steps
 

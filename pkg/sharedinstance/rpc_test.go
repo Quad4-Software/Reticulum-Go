@@ -59,7 +59,7 @@ func TestRPCServerLinkCountAfterAuth(t *testing.T) {
 		t.Fatalf("unmarshal: %v", err)
 	}
 	if count != 0 {
-		t.Fatalf("link_count = %d; want 0", count)
+		t.Fatalf("link_count = %d. Want 0", count)
 	}
 }
 

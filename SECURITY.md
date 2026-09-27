@@ -10,17 +10,17 @@ If you find a security issue, please contact us privately first. This gives us a
 
 ### How to reach us
 
-*   **LXMF Address:** `f489752fbef161c64d65e385a4e9fc74`
-*   **Email:** `security@quad4.io`
+*   LXMF Address: `f489752fbef161c64d65e385a4e9fc74`
+*   Email: `security@quad4.io`
 
 When reporting, please include enough detail to help us reproduce or understand the issue. Useful information includes the affected component, what you expected to happen, and what actually happened. We take all reports seriously and will work with you on a reasonable timeline to resolve the issue and coordinate public disclosure.
 
 ## Security Practices Overview
 
-*   **Builds and Automation:** GitHub Actions runs tests and security checks on every change. Setup and scanners live in reviewable shell scripts under `scripts/ci/`.
-*   **Scanning and Analysis:** Gosec, govulncheck, Trivy, CodeQL (including Actions workflows), and PR dependency review.
-*   **Runtime Sandbox:** The `reticulum-go` daemon applies OS restrictions after startup, limiting filesystem and syscall access if the process is compromised.
-*   **Signed Releases:** Release assets get **cosign** attestations signed with the project key. Public key: `cosign.pub`.
+*   Builds and Automation: GitHub Actions runs tests and security checks on every change. Setup and scanners live in reviewable shell scripts under `scripts/ci/`.
+*   Scanning and Analysis: Gosec, govulncheck, Trivy, CodeQL (including Actions workflows), and PR dependency review.
+*   Runtime Sandbox: The `reticulum-go` daemon applies OS restrictions after startup, limiting filesystem and syscall access if the process is compromised.
+*   Signed Releases: Release assets get cosign attestations signed with the project key. Public key: `cosign.pub`.
 
 ## Supply Chain and CI
 
@@ -34,9 +34,9 @@ We pin third-party GitHub Actions to full commit SHAs, not floating tags. Compil
 
 ### Commit and repository policy
 
-- **DCO:** every commit needs a `Signed-off-by:` trailer (`git commit -s`). Enforced by the commit-msg hook and the `dco-signoff` CI job.
-- **Signatures:** the preferred method is `rngcs`, which signs with a Reticulum identity (see CONTRIBUTING.md). GPG, SSH, and gitsign signatures are also accepted and checked by an advisory CI job. gitsign (keyless x509) is supported via `make gitsign-setup`, which can target a private Fulcio/Rekor/OIDC stack through `SIGSTORE_*` env vars.
-- **gittuf:** `make gittuf-init` (scripts/ci/gittuf-init.sh) writes a repository security policy into `refs/gittuf/*`: branch rules for `master` and `dev`, tag rules for releases, and file rules for crypto, identity, workflows and CI scripts. Push the gittuf refs after running it.
+- DCO: every commit needs a `Signed-off-by:` trailer (`git commit -s`). Enforced by the commit-msg hook and the `dco-signoff` CI job.
+- Signatures: the preferred method is `rngcs`, which signs with a Reticulum identity (see CONTRIBUTING.md). GPG, SSH, and gitsign signatures are also accepted and checked by an advisory CI job. gitsign (keyless x509) is supported via `make gitsign-setup`, which can target a private Fulcio/Rekor/OIDC stack through `SIGSTORE_*` env vars.
+- gittuf: `make gittuf-init` (scripts/ci/gittuf-init.sh) writes a repository security policy into `refs/gittuf/*`: branch rules for `master` and `dev`, tag rules for releases, and file rules for crypto, identity, workflows and CI scripts. Push the gittuf refs after running it.
 
 ### Source tree integrity (`.rsm`)
 
@@ -67,7 +67,7 @@ Skip one commit with `SKIP_TREE_RSM_HOOK=1`.
 
 When we publish a release, we build the binaries, WebAssembly targets, and pageserver examples. We also generate software bills of materials (SBOMs) using Trivy.
 
-For each release asset, we generate a signed provenance bundle using **cosign**. We do not use separate checksum files.
+For each release asset, we generate a signed provenance bundle using cosign. We do not use separate checksum files.
 
 Each bundle carries an RFC 3161 timestamp (default TSA: `timestamp.sigstore.dev`, override with `COSIGN_TSA_URL`, set `COSIGN_TSA_URL=none` to disable). Setting `COSIGN_REKOR_URL` additionally uploads every attestation to a transparency log, public or self-hosted.
 
@@ -85,9 +85,9 @@ Alternatively, you can run the standard `cosign` command directly with the same 
 
 We use several security scanners to check our codebase on every commit:
 
-*   **Gosec:** Scans the Go code for security issues and unsafe coding patterns.
-*   **Govulncheck:** Checks our dependencies against the official Go vulnerability database to find reachable vulnerabilities.
-*   **Trivy:** Scans our filesystem and dependencies for known vulnerabilities. Findings that do not apply are recorded in `openvex.json` (OpenVEX format) at the repo root; Trivy reads it automatically during scans so suppressed findings stay documented rather than hidden.
+*   Gosec: Scans the Go code for security issues and unsafe coding patterns.
+*   Govulncheck: Checks our dependencies against the official Go vulnerability database to find reachable vulnerabilities.
+*   Trivy: Scans our filesystem and dependencies for known vulnerabilities. Findings that do not apply are recorded in `openvex.json` (OpenVEX format) at the repo root. Trivy reads it automatically during scans so suppressed findings stay documented rather than hidden.
 
 #### Our Approach to Scanner Safety
 
@@ -99,7 +99,7 @@ To protect our build pipeline, we do not download Trivy using moving tags or unv
 
 To protect your system, the `reticulum-go` daemon can restrict its own permissions after starting up. It does this by calling `sandbox.Apply` after it has loaded its configuration and set up its network interfaces.
 
-This sandbox is **enabled by default** using the `enable_sandbox = yes` setting in the Reticulum configuration. If you need to disable it, you can set `enable_sandbox = no`. On Linux, `enable_seccomp = yes` is the default when the sandbox is on. Set `enable_seccomp = no` to skip the seccomp filter. Seccomp install failures soft-fail so the daemon continues.
+This sandbox is enabled by default using the `enable_sandbox = yes` setting in the Reticulum configuration. If you need to disable it, you can set `enable_sandbox = no`. On Linux, `enable_seccomp = yes` is the default when the sandbox is on. Set `enable_seccomp = no` to skip the seccomp filter. Seccomp install failures soft-fail so the daemon continues.
 
 The level of protection depends on your operating system:
 
@@ -118,11 +118,11 @@ Optional Go-only keys: `sandbox_strict` (fail closed), `sandbox_profile` (`full`
 
 The packaged systemd unit sets ProtectSystem, kernel/cgroup/clock protection, LockPersonality, RestrictRealtime, RestrictSUIDSGID, and UMask=0077. It does not set User= (serial devices need extra groups). Example drop-in: `packaging/systemd/user.conf.example`.
 
-Please note that sandboxing is designed as defense in depth. It is not a replacement for strong cryptography, proper interface configuration, or secure hosting practices. It also does not apply to WebAssembly builds, which rely on the browser or runtime environment sandbox.
+Sandboxing is designed as defense in depth. It is not a replacement for strong cryptography, proper interface configuration, or secure hosting practices. It also does not apply to WebAssembly builds, which rely on the browser or runtime environment sandbox.
 
 ## Local DoS protection
 
-Reticulum-Go includes Go-only local overload gates (`dos_protection` in `[reticulum]`, default `off`). Modes are off, detect, prevent, and auto. They shed floods, accept storms, crypto and handshake spam, resource pile-ups, and memory pressure on **this node** only. They do not ban peers mesh-wide. Leave off on public transports until you have measured a busy node.
+Reticulum-Go includes Go-only local overload gates (`dos_protection` in `[reticulum]`, default `off`). Modes are off, detect, prevent, and auto. They shed floods, accept storms, crypto and handshake spam, resource pile-ups, and memory pressure on this node only. They do not ban peers mesh-wide. Leave off on public transports until you have measured a busy node.
 
 Details: [docs/en/security.md](docs/en/security.md#dos-protection-local-idsips) and [docs/en/configuration.md](docs/en/configuration.md#dos_protection-go-only).
 

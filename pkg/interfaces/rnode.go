@@ -231,7 +231,7 @@ func (r *RNodeInterface) Start() error {
 		return errors.New("RNode interface is not enabled")
 	}
 	if detached {
-		// Enable clears Detached; arriving here detached means Stop or
+		// Enable clears Detached. Arriving here detached means Stop or
 		// Detach ran without a later Enable.
 		return errors.New("RNode interface is detached")
 	}
@@ -615,7 +615,7 @@ func (r *RNodeInterface) ProcessOutgoing(data []byte) error {
 	if !r.interfaceReady {
 		if len(r.packetQueue) >= rnodeMaxQueuedPackets {
 			r.queueMu.Unlock()
-			debug.Log(debug.DebugVerbose, "RNode transmit queue full; dropping packet", "name", r.Name)
+			debug.Log(debug.DebugVerbose, "RNode transmit queue full. Dropping packet", "name", r.Name)
 			return nil
 		}
 		r.packetQueue = append(r.packetQueue, append([]byte(nil), data...))

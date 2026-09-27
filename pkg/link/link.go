@@ -572,7 +572,7 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 			case pkt.Context == packet.ContextKeepalive && len(pkt.Data) < minEnc:
 				plaintext = pkt.Data
 			case decryptsInternally(pkt.Context):
-				// These sub-handlers decrypt pkt.Data themselves; decrypting
+				// These sub-handlers decrypt pkt.Data themselves. Decrypting
 				// here would verify the same HMAC twice and waste the first
 				// plaintext allocation.
 			default:

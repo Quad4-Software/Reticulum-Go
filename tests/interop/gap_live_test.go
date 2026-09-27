@@ -29,7 +29,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
-// Python initiates a link then tears it down; Go must observe the
+// Python initiates a link then tears it down. Go must observe the
 // remote-initiated close through the same wire teardown packet.
 func TestLiveInteropPythonTeardownSeenByGo(t *testing.T) {
 	liveOrSkip(t)
@@ -113,7 +113,7 @@ func TestLiveInteropPythonTeardownSeenByGo(t *testing.T) {
 	select {
 	case <-closed:
 	case <-time.After(10 * time.Second):
-		t.Fatalf("go link closed callback never fired; status=%v", l.GetStatus())
+		t.Fatalf("go link closed callback never fired. Status=%v", l.GetStatus())
 	}
 	if st := l.GetStatus(); st == link.StatusActive || st == link.StatusPending || st == link.StatusHandshake {
 		t.Fatalf("link still active after remote teardown: %v", st)
@@ -202,7 +202,7 @@ func TestLiveInteropGoTwoLinksSamePythonDest(t *testing.T) {
 	l2.Teardown()
 }
 
-// A announces through two chained Go relays; the receiving Python node
+// A announces through two chained Go relays. The receiving Python node
 // must see the announce at the propagated hop count.
 func TestLiveInteropMultiHopAnnounceProgression(t *testing.T) {
 	liveOrSkip(t)
@@ -285,7 +285,7 @@ func TestLiveInteropMultiHopAnnounceProgression(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bad hops %q", got)
 	}
-	// A emits 0; R1 forwards wire=1; R2 forwards wire=2; C parses +1
+	// A emits 0. R1 forwards wire=1. R2 forwards wire=2. C parses +1
 	// into its path table entry, which Python stores as hops taken.
 	if hops != 3 {
 		t.Fatalf("expected 3 hops through two relays, got %d", hops)
@@ -300,7 +300,7 @@ func TestLiveInteropMultiHopAnnounceProgression(t *testing.T) {
 	}
 }
 
-// Go persists a Python-announced ratchet; a fresh process reading the
+// Go persists a Python-announced ratchet. A fresh process reading the
 // same storage path must recover the key without a new announce.
 func TestLiveInteropRatchetPersistsAcrossRestart(t *testing.T) {
 	liveOrSkip(t)

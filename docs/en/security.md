@@ -63,15 +63,15 @@ Application code should use pkg/cryptography and pkg/identity. IFAC configuratio
 
 ## Supply chain
 
-**Vendored dependencies.** Third-party source is committed in vendor/. Ordinary builds use GOFLAGS=-mod=vendor and GOPROXY=off so compile time does not fetch modules from the network.
+Vendored dependencies. Third-party source is committed in vendor/. Ordinary builds use GOFLAGS=-mod=vendor and GOPROXY=off so compile time does not fetch modules from the network.
 
-**CI security scans.** GitHub Actions runs Gosec, govulncheck, and Trivy on pushes and pull requests to master/dev. CodeQL covers Go, JavaScript/TypeScript, Python, and Actions workflows. Pull requests also run dependency-review.yml. Trivy is installed from a pinned release with SHA256 verification (scripts/ci/setup-trivy.sh).
+CI security scans. GitHub Actions runs Gosec, govulncheck, and Trivy on pushes and pull requests to master/dev. CodeQL covers Go, JavaScript/TypeScript, Python, and Actions workflows. Pull requests also run dependency-review.yml. Trivy is installed from a pinned release with SHA256 verification (scripts/ci/setup-trivy.sh).
 
-**Reproducibility.** CI includes a reproducibility check (make reproducibility).
+Reproducibility. CI includes a reproducibility check (make reproducibility).
 
-**Actions pinning.** Third-party actions are pinned to full commit SHAs. Dependabot proposes weekly Action updates (.github/dependabot.yml).
+Actions pinning. Third-party actions are pinned to full commit SHAs. Dependabot proposes weekly Action updates (.github/dependabot.yml).
 
-**Tree integrity.** Root file reticulum-go.rsm is an rnid signed message embedding SHA-256 hashes of tracked files (excluding vendor/ trees). CI verifies signer e318cbc04468bd574db2b4523dddd710 and rechecks bytes at job start and end (make tree-rsm-verify).
+Tree integrity. Root file reticulum-go.rsm is an rnid signed message embedding SHA-256 hashes of tracked files (excluding vendor/ trees). CI verifies signer e318cbc04468bd574db2b4523dddd710 and rechecks bytes at job start and end (make tree-rsm-verify).
 
 ## Releases
 
@@ -124,7 +124,7 @@ make check
 
 Go-only. Config key dos_protection in [reticulum] (default off). Implementation: pkg/protect.
 
-This is **node-local** overload control. It is off until you opt in, because a false positive on a public transport drops path requests and can freeze a shared UDP interface. Mesh announce and path-request de-dup still run in Transport. When enabled it sheds work on this process so floods, accept storms, crypto spam, handshake spam, resource pile-ups, and memory pressure do not freeze the daemon. It is not a network-wide IDS and does not stop Sybil join storms across the mesh (for example mass fake peers on an anonymity overlay). Pair it with IFAC, careful public-face exposure, and operator policy.
+This is node-local overload control. It is off until you opt in, because a false positive on a public transport drops path requests and can freeze a shared UDP interface. Mesh announce and path-request de-dup still run in Transport. When enabled it sheds work on this process so floods, accept storms, crypto spam, handshake spam, resource pile-ups, and memory pressure do not freeze the daemon. It is not a network-wide IDS and does not stop Sybil join storms across the mesh (for example mass fake peers on an anonymity overlay). Pair it with IFAC, careful public-face exposure, and operator policy.
 
 | Mode | Effect |
 |------|--------|

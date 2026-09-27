@@ -21,7 +21,7 @@ func TestDenyFiresTeardown(t *testing.T) {
 	// An exec attempt with no identity hits denyProtocolLocked directly.
 	_ = sess.HandleMessage(&ExecMessage{Cmdline: []string{"/bin/evil"}})
 	if !torn {
-		t.Fatal("denied session never invoked OnTeardown; link would stay registered")
+		t.Fatal("denied session never invoked OnTeardown. Link would stay registered")
 	}
 	if sess.State() != StateTeardown {
 		t.Fatalf("state=%s", sess.State())

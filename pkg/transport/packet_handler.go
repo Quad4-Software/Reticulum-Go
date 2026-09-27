@@ -119,7 +119,7 @@ func (t *Transport) runPacketJob(job packetJob) {
 			if job.iface != nil {
 				ifaceName = job.iface.GetName()
 			}
-			debug.Log(debug.DebugError, "Panic in inbound packet handler; packet dropped",
+			debug.Log(debug.DebugError, "Panic in inbound packet handler. Packet dropped",
 				"panic", fmt.Sprint(r), "packet_type", job.packetType,
 				"packet_size", len(job.pc.buf), "source", ifaceName)
 			health.Inc(ifaceName, health.KindUnpackFail)

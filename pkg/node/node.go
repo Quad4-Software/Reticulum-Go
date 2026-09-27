@@ -78,7 +78,7 @@ type Node struct {
 }
 
 // SetAwareDriver installs the host-supplied WiFi Aware session driver before
-// Start. Android builds inject the gomobile bridge here; when unset, an
+// Start. Android builds inject the gomobile bridge here. When unset, an
 // AwareInterface in config fails at Start.
 func (n *Node) SetAwareDriver(d interfaces.AwareDriver) {
 	n.awareDriver = d

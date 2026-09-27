@@ -71,8 +71,8 @@ RNE1 wraps the standard 64-byte identity blob in an authenticated envelope: Argo
 
 Two unlock modes exist:
 
-- **Passphrase**: you supply the passphrase at unlock. Resolved in order: RETICULUM_IDENTITY_PASSPHRASE, the fd named by RETICULUM_IDENTITY_PASSPHRASE_FD (for systemd LoadCredential and similar), a stored wrap secret, then an interactive terminal prompt.
-- **Wrapped**: a random passphrase is generated and stored in the OS credential store, giving encrypted at rest with unattended unlock. Linux uses the kernel keyring then Secret Service, macOS uses Keychain via /usr/bin/security, Windows uses a DPAPI-protected sidecar file. Platforms without a credential store (the BSDs) support passphrase mode only.
+- Passphrase: you supply the passphrase at unlock. Resolved in order: RETICULUM_IDENTITY_PASSPHRASE, the fd named by RETICULUM_IDENTITY_PASSPHRASE_FD (for systemd LoadCredential and similar), a stored wrap secret, then an interactive terminal prompt.
+- Wrapped: a random passphrase is generated and stored in the OS credential store, giving encrypted at rest with unattended unlock. Linux uses the kernel keyring then Secret Service, macOS uses Keychain via /usr/bin/security, Windows uses a DPAPI-protected sidecar file. Platforms without a credential store (the BSDs) support passphrase mode only.
 
 CLI (path via -i):
 

@@ -2,7 +2,7 @@
 
 Go-native tools that speak the same shared-instance msgpack RPC, destinations, and identity file formats as Python rnstatus, rnid, rnprobe, rnpath, rncp, rnsh, and rnx. They are not Python clones. Python tools and Go tools both work against rnsd and reticulum-go.
 
-They ship as **subcommands of the single reticulum-go binary**:
+They ship as subcommands of the single reticulum-go binary:
 
 ```bash
 make build
@@ -63,13 +63,13 @@ Remote drop, path-request, and blackhole mutate over -R exit 255 on both stacks.
 
 rgostatus and rgopath -t / drop / blackhole modes dial a running shared instance (Python rnsd or reticulum-go) over the same multiprocessing.connection + msgpack protocol Python uses.
 
-RPC is fully supported on **both** transports:
+RPC is fully supported on both transports:
 
 | shared_instance_type | Listen / dial address |
 |------------------------|------------------------|
 | tcp | 127.0.0.1:<instance_control_port> (default 37429) |
 | unix | Abstract socket @rns/<instance_name>/rpc (Linux) |
-| unset | Platform default: **unix** on Linux, **tcp** elsewhere (matches Python RNS) |
+| unset | Platform default: unix on Linux, tcp elsewhere (matches Python RNS) |
 
 Go implements both server and client for TCP and Unix. When the type is unset, utilities try the platform default first, then the other transport, so stock Linux Python rnsd works without forcing TCP.
 
@@ -77,10 +77,10 @@ Go implements both server and client for TCP and Unix. When the type is unset, u
 
 Issues that usually stack:
 
-1. **Wrong config directory.** Python uses ~/.reticulum. Go defaults to ~/.reticulum-go. Point -config at the directory of the daemon you are querying.
-2. **Explicit transport mismatch.** If one side sets shared_instance_type = tcp and the other unix, dials miss. Leave the key unset on Linux, or set the same value on both.
-3. **Daemon not sharing.** The process that owns interfaces must have share_instance = yes and be running.
-4. **Auth key mismatch.** Align rpc_key, or share the same derived transport_identity.
+1. Wrong config directory. Python uses ~/.reticulum. Go defaults to ~/.reticulum-go. Point -config at the directory of the daemon you are querying.
+2. Explicit transport mismatch. If one side sets shared_instance_type = tcp and the other unix, dials miss. Leave the key unset on Linux, or set the same value on both.
+3. Daemon not sharing. The process that owns interfaces must have share_instance = yes and be running.
+4. Auth key mismatch. Align rpc_key, or share the same derived transport_identity.
 
 ### Working config for Python rnsd + Go tools (Unix on Linux)
 
@@ -92,7 +92,7 @@ Stock Linux Python already uses abstract Unix sockets. Point Go tools at that co
 ./bin/reticulum-go path -config ~/.reticulum -t -json
 ```
 
-Optional shared auth key in **both** configs (recommended when mixing stacks):
+Optional shared auth key in both configs (recommended when mixing stacks):
 
 ```ini
 [reticulum]

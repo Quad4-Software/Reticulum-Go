@@ -53,20 +53,20 @@ Need Reticulum in my app
 | Out-of-process any language | [Control API](control-api.md) | HTTP and WebSocket |
 | Browser | pkg/wasm | WebSocket gateway clients |
 
-Most of this page describes the **pkg/node happy path**. Other paths expose the same concepts with different bindings.
+Most of this page describes the pkg/node happy path. Other paths expose the same concepts with different bindings.
 
 ## Mental model
 
-1. **Config** loads interfaces and storage paths (pkg/reticulumconfig, pkg/common).
-2. **Node** starts transport, interfaces, and optional shared instance (pkg/node).
-3. **Identity** holds X25519 + Ed25519 keys (pkg/identity).
-4. **Destination** is an app endpoint named app.aspect... (pkg/destination).
-5. **Announce** publishes reachability. Peers learn paths.
-6. **Path** is a cached route (Transport.HasPath / RequestPath).
-7. **Link** is an encrypted session to a destination (pkg/link).
-8. **Request / resource** move structured replies and large payloads (Link.Request, pkg/resource).
+1. Config loads interfaces and storage paths (pkg/reticulumconfig, pkg/common).
+2. Node starts transport, interfaces, and optional shared instance (pkg/node).
+3. Identity holds X25519 + Ed25519 keys (pkg/identity).
+4. Destination is an app endpoint named app.aspect... (pkg/destination).
+5. Announce publishes reachability. Peers learn paths.
+6. Path is a cached route (Transport.HasPath / RequestPath).
+7. Link is an encrypted session to a destination (pkg/link).
+8. Request / resource move structured replies and large payloads (Link.Request, pkg/resource).
 
-Packet MTU remains **500 bytes** on the wire (pkg/packet.MTU), same as Python.
+Packet MTU remains 500 bytes on the wire (pkg/packet.MTU), same as Python.
 
 ## Quick start recipe (Go)
 
@@ -248,7 +248,7 @@ Orchestrates transport, interfaces, shared instance, and lifecycle. Prefer this 
 | LoadOrCreateTransportIdentity | Daemon transport identity |
 | RotateRatchet / GetRatchets / GetCurrentRatchetKey | Explicit identity-level keys only. Does not auto-generate. On-wire SINGLE ratchets use Destination.EnableRatchets |
 
-Constants: KeySize (bits), TruncatedHashLength (bits). Hex destination or identity hashes are **32 characters**.
+Constants: KeySize (bits), TruncatedHashLength (bits). Hex destination or identity hashes are 32 characters.
 
 Private key material uses pkg/securemem (best-effort mlock, wipe on Close). See [Identity and destinations](identity-and-destinations.md).
 
@@ -311,7 +311,7 @@ Private key material uses pkg/securemem (best-effort mlock, wipe on Close). See 
 | Method | Role |
 |--------|------|
 | Concluded() | Finished (success or failure) |
-| GetStatus() | **StatusActive means response OK**, StatusFailed means timeout or error |
+| GetStatus() | StatusActive means response OK, StatusFailed means timeout or error |
 | GetResponse() / GetResponseValue() | Bytes or decoded msgpack |
 | GetMetadata() | Resource response metadata |
 | Progress() | Bytes received / total for resource replies |
@@ -369,7 +369,7 @@ Avoid transport.Destination and transport.Link placeholder types. Use destinatio
 
 Important ReticulumConfig fields: EnableTransport, ShareInstance, SharedInstanceType, ports, RPCKey, Interfaces, EnableControlAPI, InMemoryPathTable, InMemoryStorage, WatchInterfaces, DiscoverInterfaces, BackboneIO.
 
-Default config directory is **~/.reticulum-go**, not ~/.reticulum.
+Default config directory is ~/.reticulum-go, not ~/.reticulum.
 
 ## Python to Go map
 
