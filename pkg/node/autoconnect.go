@@ -160,6 +160,15 @@ func (n *Node) autoconnect(info *discovery.ReceivedAnnounceInfo) {
 	if discovery.IsYggIPv6(info.Info.ReachableOn) {
 		return
 	}
+	// TCP and backbone peers need a reachable address. Without it the spawn
+	// would succeed against an empty target and retry forever. I2P peers use
+	// the peers field instead.
+	if ifaceType != "I2PInterface" && info.Info.ReachableOn == "" {
+		debug.Log(debug.DebugVerbose,
+			"Not auto-connecting discovered interface, no reachable address",
+			"type", ifaceType, "name", info.Info.Name)
+		return
+	}
 
 	// Serialize the exists-check plus spawn section so two announces for the
 	// same endpoint cannot race into two interfaces (Python autoconnect_lock).

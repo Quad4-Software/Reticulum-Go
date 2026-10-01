@@ -50,8 +50,14 @@ func TestOracleAutoconnectRespectsMaxConcurrent(t *testing.T) {
 	if oracle.Count != 2 {
 		t.Fatalf("count=%d want 2", oracle.Count)
 	}
-	if oracle.Backbone != 2 || oracle.TCP != 0 {
-		t.Fatalf("mix backbone=%d tcp=%d want 2/0", oracle.Backbone, oracle.TCP)
+	// On platforms without backbone support (darwin, windows) the announced
+	// BackboneInterface peers degrade to TCPClientInterface like Python.
+	if discovery.BackboneSupported() {
+		if oracle.Backbone != 2 || oracle.TCP != 0 {
+			t.Fatalf("mix backbone=%d tcp=%d want 2/0", oracle.Backbone, oracle.TCP)
+		}
+	} else if oracle.Backbone != 0 || oracle.TCP != 2 {
+		t.Fatalf("mix backbone=%d tcp=%d want 0/2 on this platform", oracle.Backbone, oracle.TCP)
 	}
 }
 
