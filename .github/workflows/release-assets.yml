@@ -499,10 +499,6 @@ jobs:
           fi
           notes="$(mktemp)"
           trap 'rm -f "$notes"' EXIT
-          gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
-            -f tag_name="${tag}" \
-            -f target_commitish="${RELEASE_TARGET:-${GITHUB_SHA}}" \
-            --jq .body > "${notes}.gen" || true
           {
             if [ "${RELEASE_PRERELEASE}" = "true" ]; then
               echo "**Preview release**: automated weekly snapshot from \`master\`. Not a stable release; use tagged \`v*\` releases for production."
@@ -511,11 +507,7 @@ jobs:
               echo "Commit: [\`${GITHUB_SHA:0:7}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})"
               echo
             fi
-            if [ -s "${notes}.gen" ]; then
-              cat "${notes}.gen"
-            else
-              echo "Release ${tag}"
-            fi
+            sh scripts/ci/release-notes.sh
             echo
             echo "## SHA256 digests (backup only)"
             echo
@@ -531,7 +523,6 @@ jobs:
             find merged -type f ! -name '*.cosign.bundle' -print0 | LC_ALL=C sort -z | xargs -0 sha256sum
             echo '```'
           } > "$notes"
-          rm -f "${notes}.gen"
           args=(
             --repo "${GITHUB_REPOSITORY}"
             --title "${tag}"
