@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
@@ -109,6 +110,28 @@ func (n *Node) autoconnectPeerConfig() *common.InterfaceConfig {
 	return cfg
 }
 
+// autoconnectQualified applies the RNS 1.5.5 implementation and version
+// criteria: announces without a recognized TRANSPORT_IMPL, or below the
+// minimum version for that implementation, are not auto-connected unless
+// autoconnect_unverified_implementations is enabled.
+func (n *Node) autoconnectQualified(info *discovery.ReceivedAnnounceInfo) bool {
+	if n.config.AutoconnectUnverifiedImplementations {
+		return true
+	}
+	impl := info.Info.TransportImpl
+	if impl == "" {
+		return false
+	}
+	minVer, ok := discovery.AutoconnectMinVersions[impl]
+	if !ok {
+		return false
+	}
+	if info.Info.TransportVers == "" {
+		return false
+	}
+	return discovery.VersionAtLeast(info.Info.TransportVers, minVer)
+}
+
 func (n *Node) autoconnect(info *discovery.ReceivedAnnounceInfo) {
 	if n == nil || n.config == nil || info == nil {
 		return
@@ -124,20 +147,42 @@ func (n *Node) autoconnect(info *discovery.ReceivedAnnounceInfo) {
 	if _, ok := discovery.AutoconnectTypes[ifaceType]; !ok {
 		return
 	}
+	if !n.autoconnectQualified(info) {
+		impl := "unknown implementation"
+		if info.Info.TransportImpl != "" || info.Info.TransportVers != "" {
+			impl = strings.TrimSpace(info.Info.TransportImpl + " " + info.Info.TransportVers)
+		}
+		debug.Log(debug.DebugVerbose,
+			"Not auto-connecting discovered interface, auto-connect criteria not satisfied",
+			"type", ifaceType, "name", info.Info.Name, "impl", impl)
+		return
+	}
 	if discovery.IsYggIPv6(info.Info.ReachableOn) {
 		return
 	}
+
+	// Serialize the exists-check plus spawn section so two announces for the
+	// same endpoint cannot race into two interfaces (Python autoconnect_lock).
+	n.acSpawnMu.Lock()
+	defer n.acSpawnMu.Unlock()
+
 	if n.autoconnectExists(info) {
 		debug.Log(debug.DebugVerbose, "Discovered interface already exists, not auto-connecting",
 			"type", ifaceType, "name", info.Info.Name)
 		return
 	}
 
-	name := autoconnectInterfaceName(info)
+	name := n.autoconnectInterfaceName(info)
+	if name != autoconnectBaseName(info) {
+		debug.Log(debug.DebugInfo, "Auto-connect name collision, using sequential name",
+			"announced", info.Info.Name, "name", name)
+	}
 	eh := discovery.EndpointHash(info)
 	peerCfg := n.autoconnectPeerConfig()
-	peerCfg.IFACNetname = info.Info.IFACNetname
-	peerCfg.IFACNetkey = info.Info.IFACNetkey
+	// Drop the invalidly persisted literal "None" IFAC values published by
+	// unguarded node-side configuration (RNS 1.5.5 sanitization).
+	peerCfg.IFACNetname = discovery.SanitizeIFACValue(info.Info.IFACNetname)
+	peerCfg.IFACNetkey = discovery.SanitizeIFACValue(info.Info.IFACNetkey)
 
 	switch ifaceType {
 	case "I2PInterface":
@@ -147,11 +192,20 @@ func (n *Node) autoconnect(info *discovery.ReceivedAnnounceInfo) {
 	case "TCPServerInterface":
 		n.autoconnectTCPClient(info, name, eh, peerCfg)
 	case "BackboneInterface":
-		n.autoconnectBackboneClient(info, name, eh, peerCfg)
+		if discovery.BackboneSupported() {
+			n.autoconnectBackboneClient(info, name, eh, peerCfg)
+		} else {
+			debug.Log(debug.DebugInfo,
+				"BackboneInterface is not supported on this platform, auto-connecting using TCPClientInterface",
+				"name", name)
+			n.autoconnectTCPClient(info, name, eh, peerCfg)
+		}
 	}
 }
 
-func autoconnectInterfaceName(info *discovery.ReceivedAnnounceInfo) string {
+// autoconnectBaseName derives the announced interface name without collision
+// resolution.
+func autoconnectBaseName(info *discovery.ReceivedAnnounceInfo) string {
 	if info == nil {
 		return "Discovered interface"
 	}
@@ -167,6 +221,25 @@ func autoconnectInterfaceName(info *discovery.ReceivedAnnounceInfo) string {
 		return base
 	}
 	return fmt.Sprintf("%s (%s)", base, spec)
+}
+
+// autoconnectInterfaceName resolves name collisions against all registered
+// interface names with sequential numbering, matching Python
+// InterfaceDiscovery.autoconnect_interface_name (RNS 1.5.5).
+func (n *Node) autoconnectInterfaceName(info *discovery.ReceivedAnnounceInfo) string {
+	name := autoconnectBaseName(info)
+	if n == nil || n.transport == nil {
+		return name
+	}
+	if existing, err := n.transport.GetInterface(name); err != nil || existing == nil {
+		return name
+	}
+	for i := 2; ; i++ {
+		candidate := fmt.Sprintf("%s (%d)", name, i)
+		if existing, err := n.transport.GetInterface(candidate); err != nil || existing == nil {
+			return candidate
+		}
+	}
 }
 
 func (n *Node) autoconnectBackboneClient(info *discovery.ReceivedAnnounceInfo, name string, eh []byte, peerCfg *common.InterfaceConfig) {
@@ -346,8 +419,18 @@ func (n *Node) autoconnectMonitorTick() {
 	n.acMu.Lock()
 	now := time.Now()
 	var detach []*autoconnectEntry
+	var unmonitor []*autoconnectEntry
 	for _, e := range n.acEntries {
 		if e.iface == nil {
+			continue
+		}
+		// RNS 1.5.5: a monitored auto-connected interface that was manually
+		// detached leaves the transport registry; drop it from monitoring
+		// instead of tearing it down again.
+		if gone, gerr := n.transport.GetInterface(e.iface.GetName()); gerr != nil || gone == nil || gone != common.NetworkInterface(e.iface) {
+			debug.Log(debug.DebugVerbose, "A monitored auto-connected interface was manually detached, removing from monitoring",
+				"name", e.iface.GetName())
+			unmonitor = append(unmonitor, e)
 			continue
 		}
 		if e.iface.IsOnline() {
@@ -362,10 +445,35 @@ func (n *Node) autoconnectMonitorTick() {
 			detach = append(detach, e)
 		}
 	}
+	for _, e := range unmonitor {
+		n.untrackAutoconnectLocked(e)
+	}
 	n.acMu.Unlock()
+	for _, e := range unmonitor {
+		n.reloadMu.Lock()
+		kept := n.interfaces[:0]
+		for _, cur := range n.interfaces {
+			if cur != e.iface {
+				kept = append(kept, cur)
+			}
+		}
+		n.interfaces = kept
+		n.reloadMu.Unlock()
+	}
 	for _, e := range detach {
 		n.teardownAutoconnect(e)
 	}
+}
+
+// untrackAutoconnectLocked removes e from acEntries. acMu must be held.
+func (n *Node) untrackAutoconnectLocked(e *autoconnectEntry) {
+	kept := n.acEntries[:0]
+	for _, cur := range n.acEntries {
+		if cur != e {
+			kept = append(kept, cur)
+		}
+	}
+	n.acEntries = kept
 }
 
 func (n *Node) teardownAutoconnect(e *autoconnectEntry) {
@@ -377,27 +485,7 @@ func (n *Node) teardownAutoconnect(e *autoconnectEntry) {
 	if hook, ok := e.iface.(interface{ DetachAutoconnectFromParent() }); ok {
 		hook.DetachAutoconnectFromParent()
 	}
-	_ = e.iface.Stop()
-	n.transport.UnregisterInterface(name)
-	n.unregisterInterfaceBuffers(name)
-
-	n.reloadMu.Lock()
-	filtered := n.interfaces[:0]
-	for _, iface := range n.interfaces {
-		if iface != e.iface {
-			filtered = append(filtered, iface)
-		}
-	}
-	n.interfaces = filtered
-	n.reloadMu.Unlock()
-
-	n.acMu.Lock()
-	kept := n.acEntries[:0]
-	for _, cur := range n.acEntries {
-		if cur != e {
-			kept = append(kept, cur)
-		}
-	}
-	n.acEntries = kept
-	n.acMu.Unlock()
+	// Route through the shared drop path used by interface management
+	// (Python teardown_interface -> _detach_interface, RNS 1.5.5).
+	n.dropInterface(e.iface)
 }

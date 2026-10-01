@@ -22,7 +22,7 @@ func TestAdversarialAutoconnectIgnoresUnknownType(t *testing.T) {
 
 	before := n.autoconnectCount()
 	n.autoconnect(&discovery.ReceivedAnnounceInfo{
-		Info: discovery.Info{Type: "AutoInterface", ReachableOn: "192.0.2.1", HasPort: true, Port: 1},
+		Info: discovery.Info{Type: "AutoInterface", ReachableOn: "192.0.2.1", HasPort: true, Port: 1, TransportImpl: "RNS", TransportVers: "1.5.5"},
 	})
 	if n.autoconnectCount() != before {
 		t.Fatal("AutoInterface must not autoconnect")
@@ -39,7 +39,7 @@ func TestAdversarialAutoconnectSkipsEmptyReachableOn(t *testing.T) {
 	defer n.Stop()
 
 	n.autoconnect(&discovery.ReceivedAnnounceInfo{
-		Info: discovery.Info{Type: "BackboneInterface", Name: "empty", HasPort: true, Port: 1},
+		Info: discovery.Info{Type: "BackboneInterface", Name: "empty", HasPort: true, Port: 1, TransportImpl: "RNS", TransportVers: "1.5.5"},
 	})
 	if n.autoconnectCount() != 0 {
 		t.Fatalf("count=%d want 0 for empty host", n.autoconnectCount())
@@ -58,6 +58,7 @@ func TestAdversarialAutoconnectDisabledWhenMaxZero(t *testing.T) {
 	n.onInterfaceDiscovered(&discovery.ReceivedAnnounceInfo{
 		Info: discovery.Info{
 			Type: "BackboneInterface", ReachableOn: "192.0.2.5", Port: 1, HasPort: true, Transport: true,
+			TransportImpl: "RNS", TransportVers: "1.5.5",
 		},
 		RemoteIdentity: bytes.Repeat([]byte{0x01}, 16),
 	})

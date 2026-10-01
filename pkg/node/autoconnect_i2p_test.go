@@ -26,10 +26,12 @@ func TestAutoconnectI2PCreatesPeer(t *testing.T) {
 	dest := "peer.b32.i2p"
 	info := &discovery.ReceivedAnnounceInfo{
 		Info: discovery.Info{
-			Type:        "I2PInterface",
-			Name:        "i2p peer",
-			ReachableOn: dest,
-			Transport:   true,
+			Type:          "I2PInterface",
+			TransportImpl: "RNS",
+			TransportVers: "1.5.5",
+			Name:          "i2p peer",
+			ReachableOn:   dest,
+			Transport:     true,
 		},
 		RemoteIdentity: bytes.Repeat([]byte{0x22}, 16),
 	}

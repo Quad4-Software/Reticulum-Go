@@ -17,8 +17,21 @@ import (
 	"time"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/ifac"
 )
+
+// warnAmbiguousIFAC reports and rejects the literal "None" in IFAC network
+// name / passphrase fields, matching the RNS 1.5.5 ambiguous-IFAC warning.
+func warnAmbiguousIFAC(name, value string) bool {
+	if value != "None" {
+		return false
+	}
+	debug.Log(debug.DebugWarning,
+		"Ambiguous IFAC value \"None\", this value is ignored and no IFAC network name or passphrase has been set",
+		"interface", name)
+	return true
+}
 
 // Default values used when a fresh configuration is created or fields are
 // omitted from the on-disk file.
@@ -387,6 +400,13 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		if n > 0 {
 			cfg.AutoconnectDiscoveredInterfaces = n
 		}
+	case "autoconnect_unverified_implementations":
+		setBool(&cfg.AutoconnectUnverifiedImplementations, value)
+	case "enable_interface_management":
+		var enabled bool
+		if setBool(&enabled, value) && !enabled {
+			cfg.DisableInterfaceManagement = true
+		}
 	case "publish_blackhole":
 		setBool(&cfg.PublishBlackhole, value)
 	case "blackhole_sources":
@@ -652,13 +672,21 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 	case "ic_held_release_interval":
 		setInt(value, &iface.ICHeldReleaseInterval)
 	case "network_name", "networkname":
-		iface.NetworkName = value
+		if !warnAmbiguousIFAC(iface.Name, value) {
+			iface.NetworkName = value
+		}
 	case "passphrase", "pass_phrase":
-		iface.Passphrase = value
+		if !warnAmbiguousIFAC(iface.Name, value) {
+			iface.Passphrase = value
+		}
 	case "ifac_netname":
-		iface.IFACNetname = value
+		if !warnAmbiguousIFAC(iface.Name, value) {
+			iface.IFACNetname = value
+		}
 	case "ifac_netkey":
-		iface.IFACNetkey = value
+		if !warnAmbiguousIFAC(iface.Name, value) {
+			iface.IFACNetkey = value
+		}
 	case "ifac_size":
 		setIFACSize(value, &iface.IFACSize)
 	case "publish_ifac":
@@ -957,6 +985,12 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	}
 	if cfg.AutoconnectDiscoveredInterfaces > 0 {
 		fmt.Fprintf(&b, "  autoconnect_discovered_interfaces = %d\n", cfg.AutoconnectDiscoveredInterfaces)
+	}
+	if cfg.AutoconnectUnverifiedImplementations {
+		fmt.Fprintf(&b, "  autoconnect_unverified_implementations = yes\n")
+	}
+	if cfg.DisableInterfaceManagement {
+		fmt.Fprintf(&b, "  enable_interface_management = no\n")
 	}
 	if cfg.PublishBlackhole {
 		fmt.Fprintf(&b, "  publish_blackhole = yes\n")

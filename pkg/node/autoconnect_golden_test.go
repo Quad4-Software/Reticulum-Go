@@ -24,7 +24,7 @@ func TestGoldenAutoconnectInterfaceName(t *testing.T) {
 		},
 	}
 	for i, tc := range cases {
-		got := autoconnectInterfaceName(&discovery.ReceivedAnnounceInfo{Info: tc.info})
+		got := autoconnectBaseName(&discovery.ReceivedAnnounceInfo{Info: tc.info})
 		if got != tc.want {
 			t.Fatalf("case %d: got %q want %q", i, got, tc.want)
 		}

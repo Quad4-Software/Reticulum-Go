@@ -293,6 +293,18 @@ type ReticulumConfig struct {
 	// Zero disables autoconnect (Python autoconnect_discovered_interfaces).
 	AutoconnectDiscoveredInterfaces int
 
+	// AutoconnectUnverifiedImplementations allows auto-connecting discovered
+	// interfaces whose announces carry no implementation/version info or that
+	// fail the implementation/version criteria (RNS 1.5.5
+	// autoconnect_unverified_implementations). Default false.
+	AutoconnectUnverifiedImplementations bool
+
+	// DisableInterfaceManagement turns off attach/detach/reload of interfaces
+	// over the shared instance RPC (RNS 1.5.5 enable_interface_management).
+	// Interface management is enabled by default; the negative flag keeps the
+	// zero value matching Python's default.
+	DisableInterfaceManagement bool
+
 	// PublishBlackhole registers rnstransport.info.blackhole with a /list
 	// request handler so peers can fetch this instance's blackhole table.
 	PublishBlackhole bool
