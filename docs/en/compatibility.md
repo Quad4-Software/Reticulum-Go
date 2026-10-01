@@ -2,7 +2,7 @@
 
 ## Reference target
 
-Reticulum-Go is tested against Python RNS 1.5.4, plus the [official network API reference](https://reticulum.network/manual/reference.html).
+Reticulum-Go is tested against Python RNS 1.5.5, plus the [official network API reference](https://reticulum.network/manual/reference.html).
 
 Crossref vectors clone the reference from rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum via [rngit](https://reticulum.network/manual/git.html) (tests/crossref/run_crossref.sh). The GitHub mirror is not used for vectors.
 
@@ -119,6 +119,10 @@ wire-visible extensions see [deviations.md](deviations.md):
 | Feature | Package / location |
 |---------|-------------------|
 | Interface hot reload | pkg/node/reload.go, SIGHUP |
+| Interface attach/detach/reload | pkg/node/manage.go, shared-instance RPC, rgostatus -attach/-detach/-reload (RNS 1.5.5) |
+| Endpoint quarantine | pkg/interfaces/endpoint_health.go, backoff + flap scoring on outbound clients (Go-only) |
+| Announce reject counters | Per-reason announce drop counts in interface_stats (Go-only) |
+| Path topology view | rgostatus -T, paths grouped by interface (Go-only) |
 | watch_interfaces NIC polling | pkg/node/netmon.go |
 | Node lifecycle API | OnNetworkAvailable, OnNetworkLost, RefreshPaths |
 | UDP reconnect (opt-in) | pkg/interfaces/reconnect.go |

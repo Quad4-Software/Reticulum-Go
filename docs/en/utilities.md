@@ -164,12 +164,18 @@ rgostatus [flags] [filter]
 | -B | Only interfaces with active bursts |
 | -b | List blocked IPs per interface |
 | -t | Show transport traffic totals |
+| -T | Show path topology: path table grouped by receiving interface with hops, next-hop hash, age (Go-only) |
 | -p | Show packets per second in totals |
 | -Q | Show inbound queue pressure (use -Q rather than -q, which is quiet) |
 | -z | Show profiling results when the instance provides them |
 | -m | Continuously monitor status |
 | -I sec | Monitor refresh interval (default 1) |
 | -d / -D | List discovered interfaces (details with -D) |
+| -show-stale | Include stale discovery entries when listing discovered interfaces |
+| -show-unknown | Include discovery entries without implementation/version info |
+| -attach name | Attach interface by name via shared-instance RPC (RNS 1.5.5) |
+| -detach name | Detach interface by name via shared-instance RPC |
+| -reload name | Detach and re-attach interface by name |
 | -s key | Sort by rate, rx, tx, rxs, txs, traffic, announce, arx, atx, prx, ptx, held, queue |
 | -r | Sort ascending (default descending) |
 | -timeout dur | RPC timeout (default 10s) |
@@ -180,6 +186,12 @@ rgostatus [flags] [filter]
 JSON includes per-interface announce and path-request frequencies, held announces, outgoing announce queue, burst flags, and traffic counters when the daemon provides them. Totals include rxpps/txpps when available.
 
 Against a Go daemon, human and JSON output also include local mesh health fields when counters are non-zero: ifac_fail, hmac_fail, announce_sig_fail, unpack_fail, integrity_fail_rate, stale_closes, keepalive_timeout, and related totals. Python rnsd does not populate these keys. Missing fields mean zero or unknown, not a protocol error.
+
+Go daemons report announce reject-reason counters per interface (announce_malformed, announce_dest_type, announce_blackholed, announce_key_mismatch, announce_max_hops, announce_held, announce_suppressed) plus per-endpoint dial health on outbound client interfaces (endpoint_dial_failures, endpoint_flaps, endpoint_quarantined, endpoint_quarantine_s). The endpoint fields render as an Endpoint line when non-zero. An endpoint that keeps failing or flapping is quarantined with an escalating cooldown instead of being redialed forever.
+
+Discovered interface listings show the announced implementation and version in the Stack field. Entries that stopped being announced go stale, and entries whose announce carries no implementation or version are hidden by default. Pass -show-stale / -show-unknown to include them (same defaults as Python rnstatus 1.5.5).
+
+Interface attach/detach/reload requires `enable_interface_management = yes` (the default) on the owning instance and only works against a running shared instance. I2P and local shared-instance interfaces cannot be detached, matching Python.
 
 ## rgoslow
 

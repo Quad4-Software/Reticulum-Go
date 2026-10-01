@@ -172,6 +172,8 @@ Do not wait a flat 15 seconds for a path or link. AwaitPath sizes the wait from 
 
 Do not loop RequestPath, Announce, Establish, or Request. Repeats return ErrPathRequestThrottled, ErrDestAnnounceThrottled, ErrLinkEstablishBusy / ErrLinkAlreadySettled, or ErrLinkRequestBusy / ErrLinkRequestDuplicate. RequestPath with no ready outgoing interface returns ErrTransportNoOutgoingForPR. Wait on callbacks or AwaitPath.
 
+Each of these misuse paths also logs a warning once per minute naming the destination or link, so retry loops are visible in logs without flooding them. The same gate covers link request timeouts and abandoned mid-transfer responses.
+
 Run reticulum-go zen on your module to catch these patterns in source before they ship. See [CLI utilities](utilities.md#rgozen).
 
 If you must use a timer around handshake, wait l.EstablishmentTimeout() plus a small margin (rnsutil.LinkEstablishmentWindow).
