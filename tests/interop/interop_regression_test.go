@@ -46,16 +46,16 @@ func TestRNS154InteropPins(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(body, []byte(`RNS_REF_TAG="${RNS_REF_TAG:-1.5.4}"`)) {
-		t.Fatal("crossref must default RNS_REF_TAG to 1.5.4")
+	if !bytes.Contains(body, []byte(`RNS_REF_TAG="${RNS_REF_TAG:-1.5.5}"`)) {
+		t.Fatal("crossref must default RNS_REF_TAG to 1.5.5")
 	}
 	ci := filepath.Join(root, ".github", "workflows", "ci.yml")
 	ciBody, err := os.ReadFile(ci)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(ciBody, []byte(`rns==1.5.4`)) {
-		t.Fatal("CI must install rns==1.5.4")
+	if !bytes.Contains(ciBody, []byte(`rns==1.5.5`)) {
+		t.Fatal("CI must install rns==1.5.5")
 	}
 	disc := filepath.Join(root, "pkg", "discovery", "discovery.go")
 	discBody, err := os.ReadFile(disc)
@@ -85,6 +85,111 @@ func TestRNS154InteropPins(t *testing.T) {
 		if !bytes.Contains(qBody, []byte(n)) {
 			t.Fatalf("inbound queues missing %q (RNS 1.5.1+ defaults)", n)
 		}
+	}
+}
+
+// TestRNS155InteropPins locks the RNS 1.5.5 surface: the manage RPC path,
+// autoconnect criteria, sequential naming, and the new config keys.
+func TestRNS155InteropPins(t *testing.T) {
+	root := repoRoot(t)
+
+	rpcBody, err := os.ReadFile(filepath.Join(root, "pkg", "sharedinstance", "rpc.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, action := range []string{"attach_interface", "detach_interface", "reload_interface"} {
+		if !bytes.Contains(rpcBody, []byte(`"`+action+`"`)) {
+			t.Fatalf("sharedinstance RPC missing manage action %q", action)
+		}
+	}
+	if !bytes.Contains(rpcBody, []byte(`call["manage"]`)) {
+		t.Fatal("sharedinstance RPC must serve the manage path")
+	}
+
+	cfgBody, err := os.ReadFile(filepath.Join(root, "pkg", "reticulumconfig", "config.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"enable_interface_management", "autoconnect_unverified_implementations"} {
+		if !bytes.Contains(cfgBody, []byte(`"`+key+`"`)) {
+			t.Fatalf("reticulumconfig missing %q", key)
+		}
+	}
+
+	acBody, err := os.ReadFile(filepath.Join(root, "pkg", "node", "autoconnect.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []string{"autoconnectQualified", "autoconnectInterfaceName"} {
+		if !bytes.Contains(acBody, []byte(s)) {
+			t.Fatalf("autoconnect missing %s (RNS 1.5.5 criteria)", s)
+		}
+	}
+	discBody, err := os.ReadFile(filepath.Join(root, "pkg", "discovery", "discovery.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(discBody, []byte("AutoconnectMinVersions")) {
+		t.Fatal("discovery must carry the autoconnect minimum-version table")
+	}
+
+	statusBody, err := os.ReadFile(filepath.Join(root, "pkg", "cli", "status.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, flag := range []string{`"attach"`, `"detach"`, `"reload"`, `"show-stale"`, `"show-unknown"`} {
+		if !bytes.Contains(statusBody, []byte(flag)) {
+			t.Fatalf("rgostatus missing %s flag", flag)
+		}
+	}
+}
+
+// TestHealthObservabilityPins locks the announce reject-reason counters and
+// endpoint-health fields on the interface_stats surface. These are Go-only
+// keys: extra msgpack fields are ignored by Python readers, so interop is
+// unaffected, but removing them would silently break operator tooling.
+func TestHealthObservabilityPins(t *testing.T) {
+	root := repoRoot(t)
+
+	statBody, err := os.ReadFile(filepath.Join(root, "pkg", "transport", "rpc_api.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{
+		"announce_malformed", "announce_dest_type", "announce_blackholed",
+		"announce_key_mismatch", "announce_max_hops", "announce_held",
+		"announce_suppressed",
+		"endpoint_dial_failures", "endpoint_flaps", "endpoint_quarantined",
+		"endpoint_quarantine_s",
+	} {
+		if !bytes.Contains(statBody, []byte(`msgpack:"`+f+`"`)) {
+			t.Fatalf("InterfaceStat missing %s field", f)
+		}
+	}
+
+	kindBody, err := os.ReadFile(filepath.Join(root, "pkg", "health", "kind.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"announce_malformed", "announce_held", "announce_suppressed"} {
+		if !bytes.Contains(kindBody, []byte(`"`+k+`"`)) {
+			t.Fatalf("health kind missing %q", k)
+		}
+	}
+
+	epBody, err := os.ReadFile(filepath.Join(root, "pkg", "interfaces", "endpoint_health.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(epBody, []byte("DefaultEndpointTracker")) {
+		t.Fatal("interfaces must share the DefaultEndpointTracker")
+	}
+	rcBody, err := os.ReadFile(filepath.Join(root, "pkg", "interfaces", "reconnect.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(rcBody, []byte("dialTracked")) {
+		t.Fatal("reconnect driver must route dials through dialTracked")
 	}
 }
 

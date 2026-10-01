@@ -151,7 +151,7 @@ func TestGoroutineBudgetAfterUnregisterStress(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 	after := runtime.NumGoroutine()
 	if after > before+64 {
-		t.Fatalf("goroutine budget: before=%d after=%d (possible leak; run with -race)", before, after)
+		t.Fatalf("goroutine budget: before=%d after=%d (possible leak. Run with -race)", before, after)
 	}
 }
 

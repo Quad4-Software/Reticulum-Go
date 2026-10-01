@@ -75,6 +75,10 @@ func (n *Node) serveBlobPage(_ string, data []byte, _ []byte, _ []byte, remote *
 			} else {
 				actions = append(actions, mLinkR("View rendered", pagePathBlob, mergeFields(fields, "render", "y")))
 			}
+			// RNS 1.5.5: markdown files offer a micron-converted download.
+			if convertableExts[ext] {
+				actions = append(actions, mDim(mLinkR("as micron", filePathDownload, mergeFields(fields, "fmt", "mu"))))
+			}
 		}
 		b.WriteString(strings.Join(actions, "  "+n.icons().Sep+"  ") + "\n\n")
 		b.WriteString(mDivider() + "\n\n")

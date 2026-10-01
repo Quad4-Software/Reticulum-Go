@@ -49,7 +49,7 @@ func TestRegression_ReleaseBuildEmbedsDefaultVersion(t *testing.T) {
 				continue
 			}
 			if i+1 < len(lines) && strings.Contains(lines[i+1], "sh: git describe") {
-				t.Error("taskfiles/build.yml: dynamic sh: VERSION overrides CLI/env; use GIT_DESCRIBE instead")
+				t.Error("taskfiles/build.yml: dynamic sh: VERSION overrides CLI/env. Use GIT_DESCRIBE instead")
 			}
 		}
 	}

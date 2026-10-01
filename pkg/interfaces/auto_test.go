@@ -28,31 +28,31 @@ func TestNewAutoInterface(t *testing.T) {
 		}
 
 		if ai.GetName() != "autoDefault" {
-			t.Errorf("GetName() = %s; want autoDefault", ai.GetName())
+			t.Errorf("GetName() = %s. Want autoDefault", ai.GetName())
 		}
 		if ai.GetType() != common.IFTypeAuto {
-			t.Errorf("GetType() = %v; want %v", ai.GetType(), common.IFTypeAuto)
+			t.Errorf("GetType() = %v. Want %v", ai.GetType(), common.IFTypeAuto)
 		}
 		if ai.discoveryPort != DefaultDiscoveryPort {
-			t.Errorf("discoveryPort = %d; want %d", ai.discoveryPort, DefaultDiscoveryPort)
+			t.Errorf("discoveryPort = %d. Want %d", ai.discoveryPort, DefaultDiscoveryPort)
 		}
 		if ai.dataPort != DefaultDataPort {
-			t.Errorf("dataPort = %d; want %d", ai.dataPort, DefaultDataPort)
+			t.Errorf("dataPort = %d. Want %d", ai.dataPort, DefaultDataPort)
 		}
 		if string(ai.groupID) != "reticulum" {
-			t.Errorf("groupID = %s; want reticulum", string(ai.groupID))
+			t.Errorf("groupID = %s. Want reticulum", string(ai.groupID))
 		}
 		if ai.discoveryScope != ScopeLink {
-			t.Errorf("discoveryScope = %s; want %s", ai.discoveryScope, ScopeLink)
+			t.Errorf("discoveryScope = %s. Want %s", ai.discoveryScope, ScopeLink)
 		}
 		if len(ai.peers) != 0 {
 			t.Errorf("peers map not empty initially")
 		}
 		if ai.unicastDiscoveryPort != DefaultDiscoveryPort+1 {
-			t.Errorf("unicastDiscoveryPort = %d; want %d", ai.unicastDiscoveryPort, DefaultDiscoveryPort+1)
+			t.Errorf("unicastDiscoveryPort = %d. Want %d", ai.unicastDiscoveryPort, DefaultDiscoveryPort+1)
 		}
 		if ai.reversePeeringInterval != time.Duration(float64(AnnounceInterval)*3.25) {
-			t.Errorf("reversePeeringInterval = %v; want %v", ai.reversePeeringInterval, time.Duration(float64(AnnounceInterval)*3.25))
+			t.Errorf("reversePeeringInterval = %v. Want %v", ai.reversePeeringInterval, time.Duration(float64(AnnounceInterval)*3.25))
 		}
 	})
 
@@ -72,13 +72,13 @@ func TestNewAutoInterface(t *testing.T) {
 		}
 
 		if ai.discoveryPort != 12345 {
-			t.Errorf("discoveryPort = %d; want 12345", ai.discoveryPort)
+			t.Errorf("discoveryPort = %d. Want 12345", ai.discoveryPort)
 		}
 		if ai.dataPort != 54321 {
-			t.Errorf("dataPort = %d; want 54321", ai.dataPort)
+			t.Errorf("dataPort = %d. Want 54321", ai.dataPort)
 		}
 		if string(ai.groupID) != "customGroup" {
-			t.Errorf("groupID = %s; want customGroup", string(ai.groupID))
+			t.Errorf("groupID = %s. Want customGroup", string(ai.groupID))
 		}
 	})
 
@@ -93,10 +93,10 @@ func TestNewAutoInterface(t *testing.T) {
 			t.Fatalf("NewAutoInterface failed: %v", err)
 		}
 		if !slices.Equal(ai.allowedInterfaces, []string{"eth0", "eth1"}) {
-			t.Errorf("allowedInterfaces = %v; want [eth0 eth1]", ai.allowedInterfaces)
+			t.Errorf("allowedInterfaces = %v. Want [eth0 eth1]", ai.allowedInterfaces)
 		}
 		if !slices.Equal(ai.ignoredInterfaces, []string{"wlan0"}) {
-			t.Errorf("ignoredInterfaces = %v; want [wlan0]", ai.ignoredInterfaces)
+			t.Errorf("ignoredInterfaces = %v. Want [wlan0]", ai.ignoredInterfaces)
 		}
 	})
 }
@@ -109,7 +109,7 @@ func TestAutoInterfacePeerCount(t *testing.T) {
 	}
 
 	if ai.PeerCount() != 0 {
-		t.Errorf("PeerCount() = %d; want 0", ai.PeerCount())
+		t.Errorf("PeerCount() = %d. Want 0", ai.PeerCount())
 	}
 
 	ai.Mutex.Lock()
@@ -126,7 +126,7 @@ func TestAutoInterfacePeerCount(t *testing.T) {
 	ai.Mutex.Unlock()
 
 	if ai.PeerCount() != 2 {
-		t.Errorf("PeerCount() = %d; want 2", ai.PeerCount())
+		t.Errorf("PeerCount() = %d. Want 2", ai.PeerCount())
 	}
 }
 
@@ -183,8 +183,12 @@ func (m *mockAutoInterface) mockHandlePeerAnnounce(addr *net.UDPAddr, ifaceName 
 }
 
 func TestAutoInterfacePeerManagement(t *testing.T) {
-	// Use a shorter timeout for testing
-	testTimeout := 100 * time.Millisecond
+	// Peer TTL must stay well above the subtests' 10ms settle sleeps: with a
+	// 100ms TTL a stalled CI runner (seen on windows-latest) lets the reaper
+	// delete a peer between announce and assert. The reap tick stays short so
+	// PeerTimeout still drains quickly.
+	const reapInterval = 100 * time.Millisecond
+	const peerTTL = 1 * time.Second
 
 	config := &common.InterfaceConfig{Enabled: true}
 	ai, err := newMockAutoInterface("autoPeerTest", config)
@@ -197,7 +201,7 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 
 	// Start peer management with done channel
 	go func() {
-		ticker := time.NewTicker(testTimeout)
+		ticker := time.NewTicker(reapInterval)
 		defer ticker.Stop()
 
 		for {
@@ -206,7 +210,7 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 				ai.Mutex.Lock()
 				now := time.Now()
 				for addr, peer := range ai.peers {
-					if now.Sub(peer.lastHeard) > testTimeout {
+					if now.Sub(peer.lastHeard) > peerTTL {
 						delete(ai.peers, addr)
 					}
 				}
@@ -260,7 +264,7 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 			t.Fatalf("Peer %s not found in map", peer1AddrStr)
 		}
 		if ifaceName != "eth0" {
-			t.Errorf("Peer %s interface name = %s; want eth0", peer1AddrStr, ifaceName)
+			t.Errorf("Peer %s interface name = %s. Want eth0", peer1AddrStr, ifaceName)
 		}
 	})
 
@@ -340,16 +344,22 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 	})
 
 	t.Run("PeerTimeout", func(t *testing.T) {
-		// Wait for peer timeout
-		time.Sleep(testTimeout * 2)
-
+		// Poll for the reaper to drain both peers instead of assuming two
+		// ticks is enough; a delayed tick must not flake the assert.
+		deadline := time.Now().Add(peerTTL + 3*reapInterval + 2*time.Second)
+		for time.Now().Before(deadline) {
+			ai.Mutex.RLock()
+			count := len(ai.peers)
+			ai.Mutex.RUnlock()
+			if count == 0 {
+				return
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
 		ai.Mutex.RLock()
 		count := len(ai.peers)
 		ai.Mutex.RUnlock()
-
-		if count != 0 {
-			t.Errorf("Expected all peers to timeout, got %d peers", count)
-		}
+		t.Errorf("Expected all peers to timeout, got %d peers", count)
 	})
 }
 
@@ -508,7 +518,7 @@ func TestSelectLinkLocalAddrPrefersBindable(t *testing.T) {
 		t.Fatalf("selected address %q is not bindable", selected)
 	}
 	if selected != "fe80::1" {
-		t.Fatalf("selected = %q; want fe80::1 when manual nodad address is bindable", selected)
+		t.Fatalf("selected = %q. Want fe80::1 when manual nodad address is bindable", selected)
 	}
 }
 
@@ -537,7 +547,7 @@ func TestAutoInterfaceConfiguresBindableLinkLocalOnVeth(t *testing.T) {
 		t.Fatal("interface not adopted")
 	}
 	if adopted.linkLocalAddr != "fe80::1" {
-		t.Fatalf("linkLocalAddr = %q; want fe80::1", adopted.linkLocalAddr)
+		t.Fatalf("linkLocalAddr = %q. Want fe80::1", adopted.linkLocalAddr)
 	}
 	if !hasOutbound {
 		t.Fatal("expected outbound socket for adopted interface")

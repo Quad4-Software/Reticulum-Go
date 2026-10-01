@@ -24,7 +24,7 @@ func TestDeriveKey(t *testing.T) {
 	}
 
 	if len(key1) != length {
-		t.Errorf("DeriveKey returned key of length %d; want %d", len(key1), length)
+		t.Errorf("DeriveKey returned key of length %d. Want %d", len(key1), length)
 	}
 
 	// Derive another key with the same parameters, should be identical
@@ -73,7 +73,7 @@ func TestDeriveKey(t *testing.T) {
 		t.Fatalf("DeriveKey with different length failed: %v", err)
 	}
 	if len(key6) != differentLength {
-		t.Errorf("DeriveKey returned key of length %d; want %d", len(key6), differentLength)
+		t.Errorf("DeriveKey returned key of length %d. Want %d", len(key6), differentLength)
 	}
 }
 

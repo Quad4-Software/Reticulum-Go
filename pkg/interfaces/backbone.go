@@ -397,6 +397,18 @@ func (bi *BackboneInterface) SetPacketCallback(cb common.PacketCallback) {
 	bi.spawnMu.Unlock()
 }
 
+// SpawnedInterfaces returns the currently connected spawned clients,
+// matching Python BackboneInterface.spawned_interfaces for detach walks.
+func (bi *BackboneInterface) SpawnedInterfaces() []Interface {
+	bi.spawnMu.Lock()
+	defer bi.spawnMu.Unlock()
+	out := make([]Interface, 0, len(bi.spawned))
+	for _, c := range bi.spawned {
+		out = append(out, c)
+	}
+	return out
+}
+
 func (bi *BackboneInterface) ProcessOutgoing([]byte) error {
 	return nil
 }

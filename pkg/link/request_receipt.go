@@ -157,7 +157,7 @@ func (l *Link) registerPendingRequest(receipt *RequestReceipt) error {
 	l.requestMutex.Lock()
 	defer l.requestMutex.Unlock()
 	if len(l.pendingRequests) >= MaxPendingRequests {
-		debug.Log(debug.DebugWarning, "Link request rejected, too many in flight",
+		l.warnFootgun("Link request rejected, too many in flight",
 			"pending", len(l.pendingRequests),
 			"max", MaxPendingRequests,
 			"hint", "wait for receipts, do not loop Request")
@@ -166,7 +166,7 @@ func (l *Link) registerPendingRequest(receipt *RequestReceipt) error {
 	if len(receipt.pathHash) > 0 {
 		for _, pending := range l.pendingRequests {
 			if pending != nil && bytes.Equal(pending.pathHash, receipt.pathHash) {
-				debug.Log(debug.DebugWarning, "Link request rejected, duplicate path in flight",
+				l.warnFootgun("Link request rejected, duplicate path in flight",
 					"hint", "wait for the receipt")
 				return common.ErrLinkRequestDuplicate
 			}
@@ -328,6 +328,10 @@ func (r *RequestReceipt) startTimeout() {
 			// response resource was advertised but never progressed, cancel
 			// it like Python response_resource_progress does for a FAILED
 			// receipt.
+			r.link.warnFootgun("Link request timed out",
+				"link_id", fmt.Sprintf("%x", r.link.linkID),
+				"timeout_s", r.timeout.Seconds(),
+				"hint", "peer did not respond; check path and keepalive, do not loop Request")
 			r.link.abortResponseResourceFor(r)
 			r.link.failPendingRequest(r)
 			return
@@ -348,6 +352,10 @@ func (r *RequestReceipt) startTimeout() {
 		} else if unboundSince.IsZero() {
 			unboundSince = time.Now()
 		} else if time.Since(unboundSince) > r.timeout {
+			r.link.warnFootgun("Link request response abandoned mid-transfer",
+				"link_id", fmt.Sprintf("%x", r.link.linkID),
+				"timeout_s", r.timeout.Seconds(),
+				"hint", "peer started but never finished the response; check resource handlers")
 			r.link.failPendingRequest(r)
 			return
 		}

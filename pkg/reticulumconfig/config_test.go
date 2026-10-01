@@ -1185,3 +1185,58 @@ func TestAwareInterfaceConfigParse(t *testing.T) {
 		}
 	}
 }
+
+// TestLoadConfig_InterfaceManagementAndUnverified covers the RNS 1.5.5 keys
+// enable_interface_management and autoconnect_unverified_implementations.
+func TestLoadConfig_InterfaceManagementAndUnverified(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config")
+	body := `[reticulum]
+enable_interface_management = no
+autoconnect_unverified_implementations = yes
+`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.DisableInterfaceManagement {
+		t.Fatal("enable_interface_management = no must disable management")
+	}
+	if !cfg.AutoconnectUnverifiedImplementations {
+		t.Fatal("autoconnect_unverified_implementations = yes must parse")
+	}
+}
+
+// TestLoadConfig_IFACNoneIgnored covers the RNS 1.5.5 ambiguous-IFAC rule:
+// a literal "None" value is ignored instead of being applied as the IFAC
+// network name or passphrase.
+func TestLoadConfig_IFACNoneIgnored(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config")
+	body := `[interfaces]
+  [[net]]
+    type = UDPInterface
+    enabled = yes
+    ifac_netname = None
+    ifac_netkey = None
+    network_name = None
+    passphrase = None
+`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	iface := cfg.Interfaces["net"]
+	if iface == nil {
+		t.Fatal("interface missing")
+	}
+	if iface.IFACNetname != "" || iface.IFACNetkey != "" || iface.NetworkName != "" || iface.Passphrase != "" {
+		t.Fatalf("IFAC None values must be ignored: %+v", iface)
+	}
+}

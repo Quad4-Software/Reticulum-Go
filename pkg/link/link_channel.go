@@ -13,9 +13,15 @@ import (
 )
 
 func (l *Link) GetChannel() *channel.Channel {
+	l.channelMutex.RLock()
+	if l.channel != nil {
+		defer l.channelMutex.RUnlock()
+		return l.channel
+	}
+	l.channelMutex.RUnlock()
+
 	l.channelMutex.Lock()
 	defer l.channelMutex.Unlock()
-
 	if l.channel == nil {
 		l.channel = channel.NewChannel(l)
 	}

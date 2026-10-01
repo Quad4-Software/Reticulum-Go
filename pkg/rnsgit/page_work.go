@@ -4,6 +4,7 @@
 package rnsgit
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,6 +14,36 @@ import (
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 )
+
+// workScopeCount counts numeric document directories in a scope that have a
+// root document and pass the read permission for remote, matching the
+// reference work page filter counts (RNS 1.5.5).
+func (n *Node) workScopeCount(workPath, group, repo, scope string, remote *identity.Identity) int {
+	dir := filepath.Join(workPath, scope)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0
+	}
+	hash := remotePageHash(remote)
+	count := 0
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		id, err := strconv.Atoi(e.Name())
+		if err != nil {
+			continue
+		}
+		if st, err := os.Stat(filepath.Join(dir, e.Name(), "root")); err != nil || st.IsDir() {
+			continue
+		}
+		if !n.accessTable().ResolveDoc(group, repo, id, hash, permRead) {
+			continue
+		}
+		count++
+	}
+	return count
+}
 
 // workDocCount counts numeric document directories in a scope.
 func (n *Node) workDocCount(repoPath, scope string) int {
@@ -121,9 +152,21 @@ func (n *Node) serveWorkPage(_ string, data []byte, _ []byte, _ []byte, remote *
 		} else {
 			scopes = []string{scope}
 		}
+		// RNS 1.5.5: scope filter links carry work document counts.
+		counts := make(map[string]int, len(workScopes))
+		totalDocs := 0
+		for _, s := range workScopes {
+			counts[s] = n.workScopeCount(workPath, group, repo, s, remote)
+			totalDocs += counts[s]
+		}
 		var filters []string
 		for _, s := range append(append([]string{}, workScopes...), "all") {
-			filters = append(filters, mLinkR(s, pagePathWork, mergeFields(base, "scope", s)))
+			c := totalDocs
+			if s != "all" {
+				c = counts[s]
+			}
+			label := fmt.Sprintf("%s (%d)", capitalize(s), c)
+			filters = append(filters, mLinkR(label, pagePathWork, mergeFields(base, "scope", s)))
 		}
 		b.WriteString(strings.Join(filters, "  "+icons.Sep+"  ") + "\n\n")
 

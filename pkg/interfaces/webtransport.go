@@ -48,7 +48,7 @@ func newWebTransportClientFromConfig(name string, cfg *common.InterfaceConfig, _
 		cfg.TargetPort,
 		cfg.Path,
 		cfg.Enabled,
-		cfg.MaxReconnTries,
+		MaxReconnectTriesFromConfig(cfg),
 		WebTransportClientOptions{
 			CertFile:      cfg.CertFile,
 			KeyFile:       cfg.KeyFile,
@@ -1103,4 +1103,10 @@ func (ws *WebTransportServerInterface) ListenAddr() net.Addr {
 	ws.Mutex.RLock()
 	defer ws.Mutex.RUnlock()
 	return ws.listenAddr
+}
+
+// EndpointStatus reports dial-health for this interface's remote endpoint:
+// dial failures, flaps, and active quarantine remaining.
+func (wc *WebTransportClientInterface) EndpointStatus() EndpointStatus {
+	return wc.reconnect.endpointStatus()
 }

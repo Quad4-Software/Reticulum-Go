@@ -26,14 +26,18 @@ unzip -qo "$TMP/logs.zip" -d "$TMP/logs" 2>/dev/null || {
 	exit 0
 }
 
-# Failed tests look like "--- FAIL: TestFoo (1.23s)". Retried flakes look
-# like "testsummary: FLAKE <pkg> <Test> (passed on retry N)".
+# A test that passed on retry produces both a "--- FAIL" log line (first
+# attempt) and a "testsummary: FLAKE <pkg> <Test> (passed on retry N)" line.
+# Subtract retried-passed names from the raw FAIL set so a recovered test is
+# reported only as flaky, not also as a hard failure.
 grep -rhoE -- '--- FAIL: [A-Za-z_][A-Za-z0-9_]*' "$TMP/logs" |
 	sed 's/--- FAIL: //' | sort -u >"$TMP/failed.txt" || true
 grep -rhoE 'testsummary: FLAKE [A-Za-z0-9_./-]+ [A-Za-z_][A-Za-z0-9_]*' "$TMP/logs" |
 	sed 's/.*testsummary: FLAKE //' | sort -u >"$TMP/flaked.txt" || true
+awk '{print $NF}' "$TMP/flaked.txt" | sort -u >"$TMP/flaked_names.txt"
+comm -23 "$TMP/failed.txt" "$TMP/flaked_names.txt" >"$TMP/hardfailed.txt" || true
 
-if [ ! -s "$TMP/failed.txt" ] && [ ! -s "$TMP/flaked.txt" ]; then
+if [ ! -s "$TMP/hardfailed.txt" ] && [ ! -s "$TMP/flaked.txt" ]; then
 	echo "no failed or flaky tests in run ${RUN_ID}"
 	exit 0
 fi
@@ -47,10 +51,19 @@ RUN_URL="https://github.com/${REPO}/actions/runs/${RUN_ID}"
 OPEN="$(gh issue list --repo "$REPO" --label "$LABEL" --state open --limit 200 \
 	--json number,title --jq '.[] | "\(.number)\t\(.title)"' 2>/dev/null || true)"
 
+# Names filed this run. The OPEN issue list is fetched once before any
+# creates, so a name seen again under a different kind would otherwise open
+# a duplicate issue seconds later.
+: >"$TMP/seen.txt"
+
 report() {
 	name="$1"
 	kind="$2"
-	existing="$(printf '%s\n' "$OPEN" | grep -F "$name" | head -n1 | cut -f1 || true)"
+	if grep -Fqx "$name" "$TMP/seen.txt"; then
+		return
+	fi
+	printf '%s\n' "$name" >>"$TMP/seen.txt"
+	existing="$(printf '%s\n' "$OPEN" | grep -F "Flake: $name" | head -n1 | cut -f1 || true)"
 	if [ -n "$existing" ]; then
 		gh issue comment "$existing" --repo "$REPO" \
 			--body "Seen again in run ${RUN_URL} (${kind})." >/dev/null
@@ -67,7 +80,7 @@ report() {
 # match the "--- FAIL:" entries.
 while IFS= read -r t; do
 	[ -n "$t" ] && report "$t" "a failure"
-done <"$TMP/failed.txt"
+done <"$TMP/hardfailed.txt"
 
 while IFS= read -r t; do
 	[ -n "$t" ] && report "${t##* }" "flaky (passed on retry)"

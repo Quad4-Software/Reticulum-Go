@@ -5,6 +5,7 @@ package transport
 
 import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 )
 
@@ -39,4 +40,14 @@ func ifaceIFACViolation(iface common.NetworkInterface) {
 	if v, ok := iface.(interface{ IFACViolation() }); ok {
 		v.IFACViolation()
 	}
+}
+
+// announceReject counts an announce drop by reason on the per-interface and
+// transport-wide health registries. iface may be nil.
+func announceReject(iface common.NetworkInterface, kind health.Kind) {
+	name := ""
+	if iface != nil {
+		name = iface.GetName()
+	}
+	health.Inc(name, kind)
 }

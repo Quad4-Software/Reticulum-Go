@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.4.0 - 2026-09-30
+
+Tracks Python RNS 1.5.5.
+
+### Added
+
+- Live interface attach, detach, and reload over the shared-instance RPC `manage` path, matching `rnstatus --attach/--detach/--reload`. `rgostatus` gains `-attach`, `-detach`, and `-reload`. `node.AttachInterface`/`DetachInterface`/`ReloadInterface` expose the same operations and route over RPC when the node is a shared-instance client. Gated by `enable_interface_management` (default yes).
+- Discovery auto-connect now requires a recognized implementation and minimum version (`AutoconnectMinVersions`: RNS >= 1.5.2, reticulum-go >= 1.1.0) unless `autoconnect_unverified_implementations` is enabled. Announces persist `impl_name`/`version` and rgostatus discovered listings show them in a Stack field, with `-show-stale` and `-show-unknown` filters matching Python defaults.
+- Auto-connect resolves interface-name collisions with sequential names, serializes the exists-check plus spawn section, and stops monitoring interfaces that were manually detached.
+- rngit page node: `fmt=mu` download converts markdown blobs to micron with link-scope rewriting, blob pages offer an "as micron" link for .md files, and work-page scope filters show document counts.
+- Generated I2P discovery config entries append `.b32.i2p` to peers.
+- Interfaces learn `Detach` for TCPClient, AutoInterface, SerialInterface, and spawned-child enumeration on BackboneInterface, AwareInterface, and RNodeMultiInterface for management detach.
+- Per-interface announce reject-reason counters (announce_malformed, announce_dest_type, announce_blackholed, announce_key_mismatch, announce_max_hops, announce_held, announce_suppressed) surface through interface_stats, rgostatus human output (Announce line), and JSON.
+- Endpoint health tracking for outbound client interfaces (TCP, backbone, QUIC, VSOCK, WebTransport, UDP): sustained dial failures or fast flap bursts quarantine an endpoint into an escalating cooldown (5m base, 1h cap) instead of redialing forever. Exposed as endpoint_dial_failures, endpoint_flaps, endpoint_quarantined, endpoint_quarantine_s in interface_stats.
+- `rgostatus -T` renders a path topology view grouped by receiving interface (paths, hop range, next-hop hash, age, expiry). Go-only.
+- Announce ingest hot path: signature scratch buffer and announce-forward copies are pooled, and the delayed-forward queue carries struct jobs instead of closures (171 B/op, 1 alloc/op steady-state, down from 437 B/op, 5 allocs/op).
+- `Destination.Announce` now warns once per minute when a local app exceeds the 8-announces-per-10s burst limit (previously returned `ErrDestAnnounceThrottled` silently). The warn names the destination and count so operators can find the misbehaving app.
+- Misuse warnings normalized across link and path paths: `RequestPath` throttling and `TryBeginOutboundEstablish` busy now warn once per minute per destination instead of logging at verbose level, and `Link` warn-once gating covers Establish-while-busy, Establish-after-settled, request-queue-full, duplicate in-flight request, request timeout, and abandoned mid-transfer response. Retry loops get one warn per minute, not a log flood.
+
+### Fixed
+
+- Serial and RNode initial bring-up failures no longer fail Start. The interface registers and retries in the background like Python 1.5.5.
+- Spawned Backbone clients inherit announce_cap along with the other parent properties.
+- Literal `None` IFAC netname/passphrase values are warned about and ignored, and previously persisted `"None"` strings are dropped at sanitize time.
+- Discoverable interfaces that enable IFAC publishing without configured IFAC credentials now warn and publish no IFAC fields instead of emitting empty fields.
+
 ## v1.3.2 - 2026-09-25
 
 ### Added

@@ -250,7 +250,7 @@ func (i *BaseInterface) ProcessIncomingFrom(data []byte, peerKey string) {
 // instead of letting the transport silently swallow every outgoing packet.
 func (i *BaseInterface) ProcessOutgoing(data []byte) error {
 	debug.Log(debug.DebugCritical, "BaseInterface.ProcessOutgoing called directly, concrete interface type must override it", "name", i.Name, "bytes", len(data))
-	return fmt.Errorf("ProcessOutgoing not implemented on abstract interfaces.BaseInterface (name=%q, %d bytes); concrete interface type must override it", i.Name, len(data))
+	return fmt.Errorf("ProcessOutgoing not implemented on abstract interfaces.BaseInterface (name=%q, %d bytes). Concrete interface type must override it", i.Name, len(data))
 }
 
 func (i *BaseInterface) SendPathRequest(packet []byte) error {
@@ -302,7 +302,7 @@ func (i *BaseInterface) Enable() {
 	prevState := i.Enabled
 	i.Enabled = true
 	i.Online = true
-	// Enable resurrects a detached interface; Detach remains the
+	// Enable resurrects a detached interface. Detach remains the
 	// power-down verb and a later Enable plus Start must be able to
 	// bring it back.
 	i.Detached = false

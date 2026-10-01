@@ -34,7 +34,7 @@ func TestAllThreadsSyscallUsable(t *testing.T) {
 
 	_, _, errno := syscall.AllThreadsSyscall(unix.SYS_GETPID, 0, 0, 0)
 	if errno == syscall.ENOTSUP {
-		t.Skip("AllThreadsSyscall ENOTSUP (real cgo linked via net/os/user; release builds use CGO_ENABLED=0)")
+		t.Skip("AllThreadsSyscall ENOTSUP (real cgo linked via net/os/user, release builds use CGO_ENABLED=0)")
 	}
 	if errno != 0 {
 		t.Fatalf("AllThreadsSyscall(GETPID): %v", errno)

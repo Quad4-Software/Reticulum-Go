@@ -27,13 +27,13 @@ func TestNewUDPInterface(t *testing.T) {
 			t.Fatal("NewUDPInterface returned nil interface with valid config")
 		}
 		if ui.GetName() != "udpValid" {
-			t.Errorf("GetName() = %s; want udpValid", ui.GetName())
+			t.Errorf("GetName() = %s. Want udpValid", ui.GetName())
 		}
 		if ui.GetType() != common.IFTypeUDP {
-			t.Errorf("GetType() = %v; want %v", ui.GetType(), common.IFTypeUDP)
+			t.Errorf("GetType() = %v. Want %v", ui.GetType(), common.IFTypeUDP)
 		}
 		if ui.targetAddr.String() != validTarget {
-			t.Errorf("Resolved targetAddr = %s; want %s", ui.targetAddr.String(), validTarget)
+			t.Errorf("Resolved targetAddr = %s. Want %s", ui.targetAddr.String(), validTarget)
 		}
 		if !ui.Enabled { // BaseInterface field
 			t.Error("Interface not enabled by default when requested")
@@ -52,7 +52,7 @@ func TestNewUDPInterface(t *testing.T) {
 			t.Fatal("NewUDPInterface returned nil interface with valid config (no target)")
 		}
 		if ui.targetAddr != nil {
-			t.Errorf("targetAddr = %v; want nil", ui.targetAddr)
+			t.Errorf("targetAddr = %v. Want nil", ui.targetAddr)
 		}
 	})
 
@@ -246,6 +246,6 @@ func TestUDPSocketBuffersAbsorbBurst(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	if c := got.Load(); c < n {
-		t.Fatalf("received %d/%d burst packets; kernel socket buffer too small", c, n)
+		t.Fatalf("received %d/%d burst packets. Kernel socket buffer too small", c, n)
 	}
 }

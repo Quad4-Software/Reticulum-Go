@@ -1,8 +1,8 @@
 # Reticulum-Go
 
-Go implementation of the [Reticulum Network Stack](https://github.com/markqvist/Reticulum). It strengthens existing networks and brings Reticulum to more devices without needing the pure cryptographic primitives. It is **not a replacement** for the Python reference.
+Go implementation of the [Reticulum Network Stack](https://github.com/markqvist/Reticulum). It strengthens existing networks and brings Reticulum to more devices without needing the pure cryptographic primitives. It is not a replacement for the Python reference.
 
-**Important: This project is still considered experimental, may not always be up to date with the Python reference, and not ready to be reliably used, we do welcome testers and feedback.**
+Important: This project is still considered experimental, may not always be up to date with the Python reference, and not ready to be reliably used, we do welcome testers and feedback.
 
 NomadNet Node (rngit): `132f67e79d9b24aad014e93015fb858f:/page/index.mu`
 

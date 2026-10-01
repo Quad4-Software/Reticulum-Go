@@ -465,7 +465,7 @@ func TestRecordLinkRelayUsesWireLinkID(t *testing.T) {
 	_ = tr.RegisterInterface("out", out)
 	tr.UpdatePath(destHash, destHash, "out", 1)
 
-	tr.recordLinkRelay(pkt, raw, in, &common.Path{
+	tr.recordLinkRelay(raw, in, &common.Path{
 		NextHop:   destHash,
 		Interface: out,
 		HopCount:  1,
@@ -508,7 +508,7 @@ func TestRecordLinkRelayProofTimeoutUsesOutboundBitrate(t *testing.T) {
 	_ = tr.RegisterInterface("radio", out)
 
 	before := time.Now()
-	tr.recordLinkRelay(pkt, raw, in, &common.Path{
+	tr.recordLinkRelay(raw, in, &common.Path{
 		NextHop:   destHash,
 		Interface: out,
 		HopCount:  1,

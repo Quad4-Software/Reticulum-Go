@@ -195,7 +195,7 @@ func TestUpdatePathResetsState(t *testing.T) {
 	st, exists := tr.pathStates[pathMapKey(destHash)]
 	tr.mutex.RUnlock()
 	if !exists || st != StateUnknown {
-		t.Fatalf("path state must be StateUnknown after update; got exists=%v state=%d", exists, st)
+		t.Fatalf("path state must be StateUnknown after update. Got exists=%v state=%d", exists, st)
 	}
 }
 
@@ -234,7 +234,7 @@ func TestAnnounceHopCount(t *testing.T) {
 	// Announce payload: pubKey(64) + nameHash(10) + randomHash(10) + signature(64)
 	payload := raw[19:]
 	copy(payload[0:64], id.GetPublicKey())
-	// Name hash, random hash, signature - filling with dummy data but valid length
+	// Name hash, random hash, signature, filling with dummy data but valid length
 	// Normally we would sign it properly, but handleAnnouncePacket validates it.
 	// Actually, handleAnnouncePacket WILL fail if signature is invalid.
 	// Use NewAnnouncePacket to get a valid signed packet

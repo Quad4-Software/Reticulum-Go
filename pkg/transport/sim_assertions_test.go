@@ -211,7 +211,7 @@ func assertNextHopTowardSourceOnLine(t testing.TB, net *simNetwork, nodeIdx, src
 		t.Fatalf("node%d has no next-hop interface toward dest", nodeIdx)
 	}
 	wantNeighbor := net.nodes[nodeIdx-1].name
-	if !containsIfaceToward(net.nodes[nodeIdx], wantNeighbor) {
+	if !strings.Contains(ifName, "_to_"+wantNeighbor) {
 		t.Errorf("node%d nextHopInterface %q does not route toward %s", nodeIdx, ifName, wantNeighbor)
 	}
 }

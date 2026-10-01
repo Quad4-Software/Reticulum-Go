@@ -24,12 +24,14 @@ func TestRaceAutoconnectConcurrentSameEndpoint(t *testing.T) {
 
 	info := &discovery.ReceivedAnnounceInfo{
 		Info: discovery.Info{
-			Type:        "TCPServerInterface",
-			Name:        "race-tcp",
-			ReachableOn: "192.0.2.88",
-			Port:        8888,
-			HasPort:     true,
-			Transport:   true,
+			Type:          "TCPServerInterface",
+			TransportImpl: "RNS",
+			TransportVers: "1.5.5",
+			Name:          "race-tcp",
+			ReachableOn:   "192.0.2.88",
+			Port:          8888,
+			HasPort:       true,
+			Transport:     true,
 		},
 		RemoteIdentity: bytes.Repeat([]byte{0x33}, 16),
 	}
@@ -64,12 +66,14 @@ func TestRaceAutoconnectMonitorAndConnect(t *testing.T) {
 				id := seq.Add(1)
 				n.autoconnect(&discovery.ReceivedAnnounceInfo{
 					Info: discovery.Info{
-						Type:        "BackboneInterface",
-						Name:        "race",
-						ReachableOn: "192.0.2.100",
-						Port:        int64(1000 + id),
-						HasPort:     true,
-						Transport:   true,
+						Type:          "BackboneInterface",
+						TransportImpl: "RNS",
+						TransportVers: "1.5.5",
+						Name:          "race",
+						ReachableOn:   "192.0.2.100",
+						Port:          int64(1000 + id),
+						HasPort:       true,
+						Transport:     true,
 					},
 					RemoteIdentity: bytes.Repeat([]byte{byte(id)}, 16),
 				})

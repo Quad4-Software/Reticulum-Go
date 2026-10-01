@@ -153,6 +153,13 @@ type InterfaceConfig struct {
 	Outgoing    bool
 	OutgoingSet bool
 
+	// KeepaliveSec is the directed-interface persistent keepalive interval
+	// in seconds (WireGuard PersistentKeepalive / nebula punchy pattern).
+	// When > 0 the interface emits a minimal hold-open datagram toward its
+	// configured target while idle so NAT/firewall mappings stay fresh.
+	// Zero disables it. Only UDPInterface consumes this today.
+	KeepaliveSec int
+
 	// Discoverable enables rnstransport interface discovery announces.
 	Discoverable bool
 	// DiscoveryName is the human-readable name published in discovery announces.
@@ -285,6 +292,18 @@ type ReticulumConfig struct {
 	// autoconnected discovery peers from rnstransport (Backbone, TCP, I2P).
 	// Zero disables autoconnect (Python autoconnect_discovered_interfaces).
 	AutoconnectDiscoveredInterfaces int
+
+	// AutoconnectUnverifiedImplementations allows auto-connecting discovered
+	// interfaces whose announces carry no implementation/version info or that
+	// fail the implementation/version criteria (RNS 1.5.5
+	// autoconnect_unverified_implementations). Default false.
+	AutoconnectUnverifiedImplementations bool
+
+	// DisableInterfaceManagement turns off attach/detach/reload of interfaces
+	// over the shared instance RPC (RNS 1.5.5 enable_interface_management).
+	// Interface management is enabled by default; the negative flag keeps the
+	// zero value matching Python's default.
+	DisableInterfaceManagement bool
 
 	// PublishBlackhole registers rnstransport.info.blackhole with a /list
 	// request handler so peers can fetch this instance's blackhole table.

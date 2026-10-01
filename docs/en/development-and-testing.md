@@ -22,7 +22,7 @@ make doctor
 make hooks-install
 ```
 
-Run `make help` for available targets. Plain `go` commands work too; the Makefile sets `GOFLAGS=-mod=vendor`, `GOPROXY=off`, and `GOSUMDB=off`, so export those if you bypass it.
+Run `make help` for available targets. Plain `go` commands work too. The Makefile sets `GOFLAGS=-mod=vendor`, `GOPROXY=off`, and `GOSUMDB=off`, so export those if you bypass it.
 
 A Taskfile also exists for maintainer and CI automation (`task --list`), but it is not required for contributing. Everything below works with Make or plain shell.
 
@@ -325,10 +325,10 @@ Enable:
 RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
 ```
 
-Optional Python interpreter (prefer a venv or pipx install with rns==1.5.4):
+Optional Python interpreter (prefer a venv or pipx install with rns==1.5.5):
 
 ```bash
-sh scripts/ci/setup-venv-pip.sh 'rns==1.5.4'
+sh scripts/ci/setup-venv-pip.sh 'rns==1.5.5'
 PYTHON_INTEROP=.venv/bin/python RUN_LIVE_INTEROP=1 go test -v ./tests/interop/...
 ```
 
@@ -464,7 +464,7 @@ make deps
 
 `make vendor-sync` requires `LIBS_ROOT` pointing at the Reticulum-Go-Deps sibling tree for replace directives. Commit `go.mod`, `go.sum`, and `vendor/` after refresh.
 
-`go mod vendor` regenerates vendor/ from scratch and deletes local patches applied on top of upstream code (currently the linux/ppc64 serial stub). `vendor-sync` reapplies them automatically through `scripts/vendor-patches.sh`. After any manual `go mod vendor` run `make vendor-patch`; `make vendor-check` fails if the patches are missing and runs in `make ci`.
+`go mod vendor` regenerates vendor/ from scratch and deletes local patches applied on top of upstream code (currently the linux/ppc64 serial stub). `vendor-sync` reapplies them automatically through `scripts/vendor-patches.sh`. After any manual `go mod vendor` run `make vendor-patch`. `make vendor-check` fails if the patches are missing and runs in `make ci`.
 
 Day-to-day clones only need `vendor/` to build offline. Sibling checkouts are only required when re-vendoring first-party libraries. `examples/wasm` and `examples/pageserver` keep their own `go.mod` / `vendor/` trees. Docker configs under `docker/` copy those folders for offline image builds.
 

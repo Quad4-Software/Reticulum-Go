@@ -109,5 +109,5 @@ func TestLiveInteropPythonRNCPToGoListener(t *testing.T) {
 	for _, e := range entries {
 		names = append(names, e.Name())
 	}
-	t.Fatalf("received file missing or wrong content; saveDir contents: %v", names)
+	t.Fatalf("received file missing or wrong content. saveDir contents: %v", names)
 }

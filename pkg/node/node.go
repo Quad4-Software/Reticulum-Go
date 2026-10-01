@@ -67,6 +67,7 @@ type Node struct {
 	bhUpdaterStop    chan struct{}
 
 	acMu             sync.Mutex
+	acSpawnMu        sync.Mutex
 	acEntries        []*autoconnectEntry
 	acMonitorRunning bool
 	acMonitorStop    chan struct{}
@@ -78,7 +79,7 @@ type Node struct {
 }
 
 // SetAwareDriver installs the host-supplied WiFi Aware session driver before
-// Start. Android builds inject the gomobile bridge here; when unset, an
+// Start. Android builds inject the gomobile bridge here. When unset, an
 // AwareInterface in config fails at Start.
 func (n *Node) SetAwareDriver(d interfaces.AwareDriver) {
 	n.awareDriver = d
@@ -196,6 +197,7 @@ func (n *Node) Start() error {
 	hooks := sharedinstance.Hooks{
 		RegisterInterface: n.transport.RegisterInterface,
 		HandleInterface:   n.handleInterface,
+		ManageInterface:   n.manageInterfaceRPC,
 	}
 	inst, err := sharedinstance.Attach(n.config, n.transport, hooks)
 	if err != nil {

@@ -4,6 +4,7 @@
 package transport
 
 import (
+	"encoding/hex"
 	"sync"
 	"testing"
 	"time"
@@ -86,6 +87,11 @@ func TestPathRequestDestinationHashStable(t *testing.T) {
 	}
 	if string(h1) != string(h2) {
 		t.Fatal("hash not stable")
+	}
+	// Python Destination.hash(None, "rnstransport","path","request").
+	const pyVector = "6b9f66014d9853faab220fba47d02761"
+	if hex.EncodeToString(h1) != pyVector {
+		t.Fatalf("path request dest hash %x does not match python %s", h1, pyVector)
 	}
 }
 

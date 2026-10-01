@@ -19,7 +19,7 @@ func TestGenerateHMACKey(t *testing.T) {
 				t.Fatalf("GenerateHMACKey(%d) failed: %v", size, err)
 			}
 			if len(key) != size {
-				t.Errorf("GenerateHMACKey(%d) returned key of length %d; want %d", size, len(key), size)
+				t.Errorf("GenerateHMACKey(%d) returned key of length %d. Want %d", size, len(key), size)
 			}
 
 			// Check if key is not all zeros (basic check for randomness)
@@ -48,7 +48,7 @@ func TestComputeAndValidateHMAC(t *testing.T) {
 	// Compute HMAC
 	computedHMAC := ComputeHMAC(key, message)
 	if len(computedHMAC) != 32 { // SHA256 output size
-		t.Errorf("ComputeHMAC returned HMAC of length %d; want 32", len(computedHMAC))
+		t.Errorf("ComputeHMAC returned HMAC of length %d. Want 32", len(computedHMAC))
 	}
 
 	// Validate correct HMAC

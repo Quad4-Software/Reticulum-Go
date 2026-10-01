@@ -61,9 +61,14 @@ func NewSerialInterface(name string, enabled bool, opts SerialOptions) (*SerialI
 	si.Bitrate = opts.Bitrate
 	if enabled {
 		if err := si.openPort(); err != nil {
-			return nil, err
+			// RNS 1.5.5: a failed initial open keeps the interface registered
+			// and retries in the background instead of failing the bring-up.
+			debug.Log(debug.DebugError, "Could not open serial port, will retry periodically",
+				"name", si.Name, "device", si.opts.Device, "error", err)
+			go si.reconnectLoop()
+		} else {
+			si.startReadLoop()
 		}
-		si.startReadLoop()
 	}
 	return si, nil
 }
@@ -110,7 +115,7 @@ func (si *SerialInterface) Start() error {
 		return nil
 	}
 	enabled := si.Enabled
-	// A closed done means a previous Stop; restart needs a fresh channel and
+	// A closed done means a previous Stop. Restart needs a fresh channel and
 	// a fresh once or the new readLoop exits immediately.
 	select {
 	case <-si.done:
@@ -123,10 +128,26 @@ func (si *SerialInterface) Start() error {
 		return fmt.Errorf("interface not enabled")
 	}
 	if err := si.openPort(); err != nil {
-		return err
+		debug.Log(debug.DebugError, "Could not open serial port, will retry periodically",
+			"name", si.Name, "device", si.opts.Device, "error", err)
+		go si.reconnectLoop()
+		return nil
 	}
 	si.startReadLoop()
 	return nil
+}
+
+// Detach marks the interface detached and closes the port, stopping the
+// reconnect loop (RNS 1.5.5 SerialInterface.detach).
+func (si *SerialInterface) Detach() {
+	si.Mutex.Lock()
+	si.Detached = true
+	si.Online = false
+	si.Mutex.Unlock()
+	si.closePort()
+	si.stopOnce.Do(func() {
+		close(si.done)
+	})
 }
 
 func (si *SerialInterface) Stop() error {

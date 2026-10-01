@@ -14,6 +14,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 )
 
 // buildValidAnnounceForReceiver produces a valid announce wire payload that
@@ -168,7 +169,7 @@ func TestAnnounceIngestNoGrowth(t *testing.T) {
 	enableSimFastPath(t)
 	debug.SetDebugLevel(debug.DebugCritical)
 
-	pkt, tr, iface := buildValidAnnounceForReceiver(t)
+	_, tr, iface := buildValidAnnounceForReceiver(t)
 	defer tr.Close()
 	defer iface.stop()
 
@@ -176,11 +177,21 @@ func TestAnnounceIngestNoGrowth(t *testing.T) {
 	const perBatch = 50_000
 	var samples [batches]uint64
 
-	for range perBatch {
-		tr.mutex.Lock()
-		clear(tr.seenAnnounces)
-		tr.mutex.Unlock()
-		_ = tr.handleAnnouncePacket(pkt, iface)
+	// Prebuild a pool of distinct announces so per-iteration keying is not
+	// degenerate: each packet hash is unique, so seenAnnounces and the dedup
+	// table actually work.
+	distinct := make([][]byte, 256)
+	for i := range distinct {
+		id2, err2 := identity.New()
+		if err2 != nil {
+			t.Fatalf("identity: %v", err2)
+		}
+		raw, _ := signedAnnounceWithContext(t, tr, id2, packet.ContextNone)
+		distinct[i] = raw
+	}
+
+	for i := range perBatch {
+		_ = tr.handleAnnouncePacket(distinct[i%len(distinct)], iface)
 	}
 	runtime.GC()
 	runtime.GC()
@@ -189,11 +200,8 @@ func TestAnnounceIngestNoGrowth(t *testing.T) {
 	samples[0] = m.HeapAlloc
 
 	for b := 1; b < batches; b++ {
-		for range perBatch {
-			tr.mutex.Lock()
-			clear(tr.seenAnnounces)
-			tr.mutex.Unlock()
-			_ = tr.handleAnnouncePacket(pkt, iface)
+		for i := range perBatch {
+			_ = tr.handleAnnouncePacket(distinct[(i+b)%len(distinct)], iface)
 		}
 		runtime.GC()
 		runtime.GC()

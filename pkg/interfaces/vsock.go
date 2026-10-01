@@ -84,7 +84,7 @@ func (vc *VSOCKClientInterface) initReconnectDriver() {
 	})
 }
 
-// vsockDialTimeout bounds a connect attempt; vsock.Dial has no context
+// vsockDialTimeout bounds a connect attempt, and vsock.Dial has no context
 // support, so the dial runs on a helper goroutine the caller can abandon.
 const vsockDialTimeout = 10 * time.Second
 
@@ -578,4 +578,10 @@ func (vs *VSOCKServerInterface) Port() uint32 {
 	vs.Mutex.RLock()
 	defer vs.Mutex.RUnlock()
 	return vs.port
+}
+
+// EndpointStatus reports dial-health for this interface's remote endpoint:
+// dial failures, flaps, and active quarantine remaining.
+func (vc *VSOCKClientInterface) EndpointStatus() EndpointStatus {
+	return vc.reconnect.endpointStatus()
 }

@@ -211,7 +211,7 @@ func TestLinkRequestPassesMapDataAsDict(t *testing.T) {
 	}
 
 	if receivedMap == nil {
-		t.Fatalf("handler did not receive a dict; got %#v (raw type %T)", receivedRaw, receivedRaw)
+		t.Fatalf("handler did not receive a dict. Got %#v (raw type %T)", receivedRaw, receivedRaw)
 	}
 	if receivedMap["var_name"] != "alice" {
 		t.Errorf("var_name mismatch: %#v", receivedMap["var_name"])
@@ -237,7 +237,7 @@ func TestReportIncomingResourceProgress_UpdatesPendingRequest(t *testing.T) {
 	l.reportIncomingResourceProgress(rx)
 
 	if received, total := req.Progress(); received != 10 || total != 30 {
-		t.Fatalf("progress after 1 part = %d/%d; want 10/30", received, total)
+		t.Fatalf("progress after 1 part = %d/%d. Want 10/30", received, total)
 	}
 
 	rx.partSlots[1] = make([]byte, 10)
@@ -245,7 +245,7 @@ func TestReportIncomingResourceProgress_UpdatesPendingRequest(t *testing.T) {
 	l.reportIncomingResourceProgress(rx)
 
 	if received, total := req.Progress(); received != 30 || total != 30 {
-		t.Fatalf("progress after all parts = %d/%d; want 30/30", received, total)
+		t.Fatalf("progress after all parts = %d/%d. Want 30/30", received, total)
 	}
 }
 

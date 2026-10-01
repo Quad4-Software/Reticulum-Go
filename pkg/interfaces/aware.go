@@ -43,7 +43,7 @@ const (
 )
 
 // AwareDriver is the host-platform NAN session. Android bridges implement
-// this over gomobile; other platforms may return errors on Start.
+// this over gomobile. Other platforms may return errors on Start.
 type AwareDriver interface {
 	StartPublish() error
 	StartSubscribe() error
@@ -58,7 +58,7 @@ type AwareDriver interface {
 }
 
 // AwareEvents delivers driver lifecycle events to the controller. All are
-// invoked from driver threads; implementations must be goroutine-safe.
+// invoked from driver threads. Implementations must be goroutine-safe.
 type AwareEvents struct {
 	// OnLinkUp reports a data-path socket ready for framing.
 	OnLinkUp func(peerID int)
@@ -292,6 +292,18 @@ func (ai *AwareInterface) PeerCount() int {
 	ai.Mutex.RLock()
 	defer ai.Mutex.RUnlock()
 	return len(ai.peers)
+}
+
+// SpawnedInterfaces returns the currently connected spawned peers,
+// matching Python spawned_interfaces for detach walks.
+func (ai *AwareInterface) SpawnedInterfaces() []Interface {
+	ai.Mutex.RLock()
+	defer ai.Mutex.RUnlock()
+	out := make([]Interface, 0, len(ai.peers))
+	for _, p := range ai.peers {
+		out = append(out, p)
+	}
+	return out
 }
 
 func (ai *AwareInterface) String() string {

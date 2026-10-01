@@ -78,6 +78,11 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			cfg.Enabled,
 			MaxReconnectTriesFromConfig(cfg),
 		)
+		if err == nil && cfg.KeepaliveSec > 0 {
+			if u, ok := iface.(*UDPInterface); ok {
+				u.SetKeepaliveInterval(time.Duration(cfg.KeepaliveSec) * time.Second)
+			}
+		}
 	case "AutoInterface":
 		iface, err = NewAutoInterface(name, cfg)
 		if err == nil {

@@ -157,7 +157,7 @@ func TestUnmaskNoFlagPassesThrough(t *testing.T) {
 		t.Fatalf("Unmask without IFAC flag must pass through")
 	}
 	if !bytes.Equal(got, raw) {
-		t.Fatalf("Unmask without IFAC flag must return the same bytes; got=%x", got)
+		t.Fatalf("Unmask without IFAC flag must return the same bytes. Got=%x", got)
 	}
 }
 

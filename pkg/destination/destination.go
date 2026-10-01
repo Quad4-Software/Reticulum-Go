@@ -95,8 +95,9 @@ type Destination struct {
 	defaultAppData []byte
 	mutex          sync.RWMutex
 
-	announceWindowStart time.Time
-	announceWindowCount int
+	announceWindowStart      time.Time
+	announceWindowCount      int
+	announceThrottleWarnedAt time.Time
 
 	requestHandlers map[string]*RequestHandler
 
@@ -268,7 +269,22 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 		}
 		d.announceWindowCount++
 		if d.announceWindowCount > announceBurstMax {
+			throttled := d.announceWindowCount
+			hashPrefix := fmt.Sprintf("%x", d.hashValue[:8])
+			name := d.ExpandName()
+			warn := now.Sub(d.announceThrottleWarnedAt) >= announceThrottleWarnCooldown
+			if warn {
+				d.announceThrottleWarnedAt = now
+			}
 			d.mutex.Unlock()
+			if warn {
+				debug.Log(debug.DebugWarning,
+					"Destination announce rate exceeds burst limit (8 per 10s). Announce dropped. Throttle the announce loop.",
+					"dest_hash", hashPrefix,
+					"name", name,
+					"count", throttled,
+				)
+			}
 			return common.ErrDestAnnounceThrottled
 		}
 	}
@@ -420,7 +436,7 @@ func (d *Destination) HandleIncomingLinkRequest(pkt any, transport any, networkI
 	accepts := d.acceptsLinks
 	d.mutex.RUnlock()
 	if !accepts {
-		debug.Log(debug.DebugVerbose, "Destination does not accept link requests; dropping",
+		debug.Log(debug.DebugVerbose, "Destination does not accept link requests. Dropping",
 			"hash", fmt.Sprintf("%x", d.GetHash()))
 		return nil
 	}
@@ -621,7 +637,7 @@ func (d *Destination) EnableRatchets(path string) bool {
 	d.latestRatchetTime = time.Time{} // Zero time to force rotation
 
 	// Load or initialize ratchets. A present but unreadable file means lost
-	// forward secrecy material, not a fresh start; refusing to overwrite it
+	// forward secrecy material, not a fresh start. Refusing to overwrite it
 	// keeps the corrupt file for recovery instead of wiping the keys.
 	if err := d.reloadRatchets(); err != nil {
 		debug.Log(debug.DebugError, "Failed to load ratchets", "error", err)

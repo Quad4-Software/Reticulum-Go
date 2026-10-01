@@ -231,7 +231,7 @@ sh scripts/build-librns-targets.sh linux windows darwin android
 | macOS | bin/darwin/amd64/librns.dylib or bin/darwin/arm64/librns.dylib |
 | Android | bin/android/<abi>/librns.so |
 
-Embedders should call rns_version() and compare to RNS_API_VERSION from the header they compiled against. Current ABI is **1.6**.
+Embedders should call rns_version() and compare to RNS_API_VERSION from the header they compiled against. Current ABI is 1.6.
 
 ## Typical flow
 

@@ -229,3 +229,63 @@ func TestDownloadEndpoint(t *testing.T) {
 		t.Fatalf("download body: %q", fr.Data)
 	}
 }
+
+// TestDownloadMuConversion covers the RNS 1.5.5 markdown-to-micron download
+// conversion: fmt=mu on a .md file renders micron with a .mu name; other
+// extensions are refused; unknown formats return no response.
+func TestDownloadMuConversion(t *testing.T) {
+	node, _ := pageTestNode(t, "rw:all")
+
+	resp := node.serveDownload(filePathDownload,
+		pageReq(t, map[string]string{
+			"g": "public", "r": "demo", "path": "README.md", "fmt": "mu",
+		}), nil, nil, nil, 0)
+	fr, ok := resp.(link.FileResponse)
+	if !ok {
+		t.Fatalf("fmt=mu on README.md: response %T", resp)
+	}
+	if len(fr.Data) == 0 {
+		t.Fatal("fmt=mu returned empty body")
+	}
+	if strings.Contains(string(fr.Data), "# Demo") {
+		t.Fatalf("micron body should not carry raw markdown heading: %q", fr.Data)
+	}
+	if !strings.Contains(string(fr.Data), "Demo") {
+		t.Fatalf("micron body missing content: %q", fr.Data)
+	}
+
+	// Non-convertable extension with a format request returns no response.
+	if r := node.serveDownload(filePathDownload,
+		pageReq(t, map[string]string{
+			"g": "public", "r": "demo", "path": "hello.txt", "fmt": "mu",
+		}), nil, nil, nil, 0); r != nil {
+		t.Fatalf("fmt on non-md file must return nil, got %T", r)
+	}
+	// Unknown format on a convertable file also returns no response.
+	if r := node.serveDownload(filePathDownload,
+		pageReq(t, map[string]string{
+			"g": "public", "r": "demo", "path": "README.md", "fmt": "pdf",
+		}), nil, nil, nil, 0); r != nil {
+		t.Fatalf("unsupported fmt must return nil, got %T", r)
+	}
+}
+
+// TestBlobPageAsMicronLink checks that the blob page advertises the micron
+// download conversion for markdown files only (RNS 1.5.5).
+func TestBlobPageAsMicronLink(t *testing.T) {
+	node, _ := pageTestNode(t, "rw:all")
+	out := pageBody(t, node.serveBlobPage(pagePathBlob,
+		pageReq(t, map[string]string{
+			"g": "public", "r": "demo", "path": "README.md",
+		}), nil, nil, nil, 0))
+	if !strings.Contains(out, "as micron") {
+		t.Fatalf("blob page missing as micron link for .md:\n%s", out)
+	}
+	out = pageBody(t, node.serveBlobPage(pagePathBlob,
+		pageReq(t, map[string]string{
+			"g": "public", "r": "demo", "path": "hello.txt",
+		}), nil, nil, nil, 0))
+	if strings.Contains(out, "as micron") {
+		t.Fatalf("blob page must not offer as micron for non-md:\n%s", out)
+	}
+}

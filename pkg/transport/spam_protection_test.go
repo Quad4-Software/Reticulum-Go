@@ -103,7 +103,7 @@ func TestIngressControlHoldsAnnounceFlood(t *testing.T) {
 		t.Fatal("ingress control did not engage under flood")
 	}
 	if got := sentCount(out); got >= 12 {
-		t.Fatalf("expected forward fan-out to be suppressed by ingress control; sent=%d", got)
+		t.Fatalf("expected forward fan-out to be suppressed by ingress control. Sent=%d", got)
 	}
 }
 
@@ -151,7 +151,7 @@ func TestEgressAnnounceRateControlSuppressesRebroadcast(t *testing.T) {
 	time.Sleep(800 * time.Millisecond)
 
 	if got := sentCount(out); got > 2 {
-		t.Fatalf("egress AnnounceRateControl did not suppress rebroadcast; out sent=%d", got)
+		t.Fatalf("egress AnnounceRateControl did not suppress rebroadcast. Out sent=%d", got)
 	}
 }
 
@@ -188,7 +188,7 @@ func TestReleaseHeldAnnouncesIsNoOpWhenEmpty(t *testing.T) {
 	}
 	tr.releaseHeldAnnounces()
 	if got := sentCount(iface); got != 0 {
-		t.Fatalf("nothing should have been emitted; sent=%d", got)
+		t.Fatalf("nothing should have been emitted. Sent=%d", got)
 	}
 }
 
@@ -240,7 +240,7 @@ func TestHeldAnnounceForwardsOnRelease(t *testing.T) {
 		t.Fatal("expected ingress state on in iface")
 	}
 	if st.ingress.HeldCount() == 0 {
-		t.Skip("no announce was held; ingress did not engage in time")
+		t.Skip("no announce was held, ingress did not engage in time")
 	}
 
 	before := sentCount(out)

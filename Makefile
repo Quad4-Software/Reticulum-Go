@@ -23,7 +23,7 @@
 GOCMD := go
 GO_LEGACY_WIN7 ?= /usr/local/go-legacy-win7/bin/go
 GO_LEGACY_WINXP ?= /usr/local/go-legacy-winxp/bin/go
-# Use committed vendor/ for builds and tests; targets that fetch modules or tools clear these.
+# Use committed vendor/ for builds and tests. Targets that fetch modules or tools clear these.
 GOFLAGS := -mod=vendor
 GOPROXY := off
 GOSUMDB := off
@@ -201,7 +201,7 @@ test-race:
 test-crossref:
 	@bash tests/crossref/run_crossref.sh
 
-# js/wasm packages are not included in `go test ./...` on native GOOS; requires Node (see GOROOT/lib/wasm/go_js_wasm_exec).
+# js/wasm packages are not included in `go test ./...` on native GOOS. Requires Node (see GOROOT/lib/wasm/go_js_wasm_exec).
 test-wasm:
 	env -i HOME=$$HOME PATH="/usr/local/bin:/usr/bin:/bin" GOROOT=$(shell go env GOROOT) TMPDIR=/tmp TESTSUMMARY_GOOS=js TESTSUMMARY_GOARCH=wasm $(GOCMD) run ./scripts/ci/testsummary -count=1 -exec="$(shell go env GOROOT)/lib/wasm/go_js_wasm_exec" ./pkg/wasm/... ./cmd/reticulum-wasm/...
 
@@ -313,7 +313,7 @@ test-python:
 vendor-sync: deps
 
 # Reapply local vendor patches that go mod vendor deletes on regeneration.
-# Run after any manual go mod vendor; vendor-sync already calls this.
+# Run after any manual go mod vendor. vendor-sync already calls this.
 vendor-patch:
 	sh scripts/vendor-patches.sh . examples/wasm examples/pageserver
 

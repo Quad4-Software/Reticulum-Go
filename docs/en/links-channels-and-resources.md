@@ -17,9 +17,9 @@ A link is a bidirectional encrypted session between two destinations.
 
 ### Establishing links
 
-**Outbound.** Application opens a link to a destination hash that is already known from an announce or path table. The initiator stores expected_hops from the path table (PATHFINDER_M when unknown). Link-request proofs are accepted only when the proof hop count matches, or when hops were unknown at creation (RNS 1.3.8).
+Outbound. Application opens a link to a destination hash that is already known from an announce or path table. The initiator stores expected_hops from the path table (PATHFINDER_M when unknown). Link-request proofs are accepted only when the proof hop count matches, or when hops were unknown at creation (RNS 1.3.8).
 
-**Inbound.** Peer sends a link request. Transport dispatches to:
+Inbound. Peer sends a link request. Transport dispatches to:
 
 ```go
 link.HandleIncomingLinkRequest(...)
@@ -134,13 +134,13 @@ Python 1.3.2 tears down links at LINKIDENTIFY when the remote identity is blackh
 
 ## Application guidance
 
-**Keep handlers short.** Request handlers run on link goroutines. Long work should offload to worker pools and respond before timeout.
+Keep handlers short. Request handlers run on link goroutines. Long work should offload to worker pools and respond before timeout.
 
-**One link per peer session.** Multiplex logical streams with channel or buffer instead of opening redundant links.
+One link per peer session. Multiplex logical streams with channel or buffer instead of opening redundant links.
 
-**Wait with the stack, not a flat timer.** Outbound links need a path. Call Transport.AwaitPath (or send Control API link.open / librns LinkOpen) so the wait follows interface bitrate. Do not sleep 15 seconds. reticulum-go zen flags these patterns in application code.
+Wait with the stack, not a flat timer. Outbound links need a path. Call Transport.AwaitPath (or send Control API link.open / librns LinkOpen) so the wait follows interface bitrate. Do not sleep 15 seconds. reticulum-go zen flags these patterns in application code.
 
-**Resource size.** Respect MTU and part sizing. Large files use many parts over the same link.
+Resource size. Respect MTU and part sizing. Large files use many parts over the same link.
 
 ## Related documents
 

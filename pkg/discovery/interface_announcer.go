@@ -289,8 +289,26 @@ func (a *InterfaceAnnouncer) infoForInterface(iface *common.InterfaceConfig) (*I
 		info.Type = ifaceType
 	}
 	if iface.PublishIFAC {
-		info.IFACNetname = sanitize(iface.IFACNetname)
-		info.IFACNetkey = sanitize(iface.IFACNetkey)
+		// Publish the resolved IFAC credentials (ifac_netname/ifac_netkey
+		// fall back to network_name/passphrase like Python's synthesize).
+		// When neither is configured, warn and skip publishing instead of
+		// emitting empty IFAC fields (RNS 1.5.5).
+		ifacNetname := iface.IFACNetname
+		if ifacNetname == "" {
+			ifacNetname = iface.NetworkName
+		}
+		ifacNetkey := iface.IFACNetkey
+		if ifacNetkey == "" {
+			ifacNetkey = iface.Passphrase
+		}
+		if ifacNetname == "" && ifacNetkey == "" {
+			debug.Log(debug.DebugWarning,
+				"IFAC publishing was enabled for a discoverable interface, but neither IFAC netname nor passphrase is configured; disabling IFAC publishing",
+				"interface", iface.Name)
+		} else {
+			info.IFACNetname = sanitize(ifacNetname)
+			info.IFACNetkey = sanitize(ifacNetkey)
+		}
 	}
 	if len(iface.DiscoveryLXMFAddress) == 16 {
 		info.OperatorLXMFAddress = append([]byte(nil), iface.DiscoveryLXMFAddress...)

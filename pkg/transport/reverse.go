@@ -163,7 +163,7 @@ func (t *Transport) forwardReverseProof(pkt *packet.Packet, iface common.Network
 	if entry.ReceivedIface == nil || !entry.ReceivedIface.IsEnabled() {
 		return true
 	}
-	// Everything matched; consume the entry now that the proof is honored.
+	// Everything matched. Consume the entry now that the proof is honored.
 	if popped, ok := t.reverseTable.pop(dest); !ok || popped != entry {
 		return true
 	}

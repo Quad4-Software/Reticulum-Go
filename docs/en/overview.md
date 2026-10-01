@@ -4,7 +4,7 @@
 
 Reticulum-Go is a Go implementation of the [Reticulum Network Stack](https://reticulum.network/). Reticulum is a cryptographic mesh networking protocol designed for resilient communication over heterogeneous links. It can run over UDP, TCP, radio hardware, I2P, and other transports without assuming a single global internet path.
 
-Reticulum-Go targets full wire compatibility with the official Python reference implementation (RNS 1.5.4) while using Go concurrency and static compilation for deployment on servers, desktops, embedded targets, and WebAssembly runtimes.
+Reticulum-Go targets full wire compatibility with the official Python reference implementation (RNS 1.5.5) while using Go concurrency and static compilation for deployment on servers, desktops, embedded targets, and WebAssembly runtimes.
 
 The primary deliverables are:
 
@@ -15,13 +15,13 @@ The primary deliverables are:
 
 ## Design goals
 
-**Protocol interoperability.** Peers running Python Reticulum and Reticulum-Go must exchange packets, establish links, and verify cryptography without translation gateways.
+Protocol interoperability. Peers running Python Reticulum and Reticulum-Go must exchange packets, establish links, and verify cryptography without translation gateways.
 
-**Portability.** Builds are static by default (CGO_ENABLED=0). Cross-compilation targets Linux, Windows, macOS, and WebAssembly. A separate TinyGo branch exists for very small embedded targets.
+Portability. Builds are static by default (CGO_ENABLED=0). Cross-compilation targets Linux, Windows, macOS, and WebAssembly. A separate TinyGo branch exists for very small embedded targets.
 
-**Performance and reliability.** Go goroutines handle interface I/O, transport forwarding, and link sessions. Backbone interfaces can use epoll, kqueue, or io_uring multiplexing instead of one goroutine per socket.
+Performance and reliability. Go goroutines handle interface I/O, transport forwarding, and link sessions. Backbone interfaces can use epoll, kqueue, or io_uring multiplexing instead of one goroutine per socket.
 
-**Operational safety.** The daemon applies an OS-level sandbox after startup by default. Dependencies are vendored for reproducible offline builds. Release assets are signed with cosign attestations.
+Operational safety. The daemon applies an OS-level sandbox after startup by default. Dependencies are vendored for reproducible offline builds. Release assets are signed with cosign attestations.
 
 ## How Reticulum fits together
 

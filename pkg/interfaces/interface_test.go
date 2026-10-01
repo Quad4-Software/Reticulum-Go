@@ -78,16 +78,16 @@ func TestBaseInterfaceGetters(t *testing.T) {
 	bi := NewBaseInterface("getterTest", common.IFTypeAuto, true)
 
 	if bi.GetName() != "getterTest" {
-		t.Errorf("GetName() = %s; want getterTest", bi.GetName())
+		t.Errorf("GetName() = %s. Want getterTest", bi.GetName())
 	}
 	if bi.GetType() != common.IFTypeAuto {
-		t.Errorf("GetType() = %v; want %v", bi.GetType(), common.IFTypeAuto)
+		t.Errorf("GetType() = %v. Want %v", bi.GetType(), common.IFTypeAuto)
 	}
 	if bi.GetMode() != common.IFModeFull {
-		t.Errorf("GetMode() = %v; want %v", bi.GetMode(), common.IFModeFull)
+		t.Errorf("GetMode() = %v. Want %v", bi.GetMode(), common.IFModeFull)
 	}
 	if bi.GetMTU() != common.DefaultMTU { // Assuming default MTU
-		t.Errorf("GetMTU() = %d; want %d", bi.GetMTU(), common.DefaultMTU)
+		t.Errorf("GetMTU() = %d. Want %d", bi.GetMTU(), common.DefaultMTU)
 	}
 }
 
@@ -98,10 +98,10 @@ func TestBaseInterfaceCallbacks(t *testing.T) {
 
 	callback := func(data []byte, iface common.NetworkInterface) {
 		if len(data) != 5 {
-			t.Errorf("Callback received data length %d; want 5", len(data))
+			t.Errorf("Callback received data length %d. Want 5", len(data))
 		}
 		if iface.GetName() != "callbackTest" {
-			t.Errorf("Callback received interface name %s; want callbackTest", iface.GetName())
+			t.Errorf("Callback received interface name %s. Want callbackTest", iface.GetName())
 		}
 		callbackCalled = true
 		wg.Done()
@@ -132,12 +132,12 @@ func TestBaseInterfaceStats(t *testing.T) {
 
 	bi.ProcessIncoming(data1)
 	if bi.RxBytes != uint64(len(data1)) {
-		t.Errorf("RxBytes = %d; want %d after first ProcessIncoming", bi.RxBytes, len(data1))
+		t.Errorf("RxBytes = %d. Want %d after first ProcessIncoming", bi.RxBytes, len(data1))
 	}
 
 	bi.ProcessIncoming(data2)
 	if bi.RxBytes != uint64(len(data1)+len(data2)) {
-		t.Errorf("RxBytes = %d; want %d after second ProcessIncoming", bi.RxBytes, len(data1)+len(data2))
+		t.Errorf("RxBytes = %d. Want %d after second ProcessIncoming", bi.RxBytes, len(data1)+len(data2))
 	}
 
 	// BaseInterface.ProcessOutgoing is now a fail-loud stub that the
@@ -150,7 +150,7 @@ func TestBaseInterfaceStats(t *testing.T) {
 		t.Fatal("expected BaseInterface.ProcessOutgoing to return an error, got nil")
 	}
 	if bi.TxBytes != 0 {
-		t.Errorf("TxBytes = %d; want 0 (BaseInterface.ProcessOutgoing must not update stats)", bi.TxBytes)
+		t.Errorf("TxBytes = %d. Want 0 (BaseInterface.ProcessOutgoing must not update stats)", bi.TxBytes)
 	}
 }
 
@@ -161,13 +161,13 @@ func TestUpdateBandwidthStatsAccumulatesTxBytes(t *testing.T) {
 	bi.updateBandwidthStats(64)
 
 	if bi.TxBytes != 192 {
-		t.Errorf("TxBytes = %d; want 192 after updateBandwidthStats calls", bi.TxBytes)
+		t.Errorf("TxBytes = %d. Want 192 after updateBandwidthStats calls", bi.TxBytes)
 	}
 	if bi.GetTxBytes() != 192 {
-		t.Errorf("GetTxBytes() = %d; want 192", bi.GetTxBytes())
+		t.Errorf("GetTxBytes() = %d. Want 192", bi.GetTxBytes())
 	}
 	if bi.GetTxPackets() != 2 {
-		t.Errorf("GetTxPackets() = %d; want 2", bi.GetTxPackets())
+		t.Errorf("GetTxPackets() = %d. Want 2", bi.GetTxPackets())
 	}
 }
 
@@ -233,14 +233,14 @@ func TestInterceptedInterface(t *testing.T) {
 		t.Error("Interceptor function was not called")
 	}
 	if !bytes.Equal(interceptedData, testData) {
-		t.Errorf("Interceptor received data %x; want %x", interceptedData, testData)
+		t.Errorf("Interceptor received data %x. Want %x", interceptedData, testData)
 	}
 
 	if !mockBase.sendCalled {
 		t.Error("Original Send function was not called")
 	}
 	if !bytes.Equal(mockBase.sendData, testData) {
-		t.Errorf("Original Send received data %x; want %x", mockBase.sendData, testData)
+		t.Errorf("Original Send received data %x. Want %x", mockBase.sendData, testData)
 	}
 }
 

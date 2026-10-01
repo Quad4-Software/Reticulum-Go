@@ -242,6 +242,17 @@ func (c *RPCClient) DropAllVia(transportHash []byte) (int, error) {
 	return out, err
 }
 
+// ManageInterface runs an interface management action against a shared
+// instance (RNS 1.5.5 "manage" RPC path). action is one of
+// "attach_interface", "detach_interface", "reload_interface". The result is
+// the Python tri-state: true on success, false when refused/disabled, or nil
+// when no such interface or config entry exists.
+func (c *RPCClient) ManageInterface(action, name string) (any, error) {
+	var out any
+	err := c.Call(map[string]any{"manage": action, "name": name}, &out)
+	return out, err
+}
+
 // DropAnnounceQueues clears per-interface outgoing announce queues.
 // Returns the number of queued announces dropped.
 func (c *RPCClient) DropAnnounceQueues() (int, error) {

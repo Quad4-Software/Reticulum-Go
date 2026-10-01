@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -34,6 +35,7 @@ func RunStatus(args []string, opt ...Options) int {
 	burstFilter := fs.Bool("B", false, "only show interfaces with active bursts")
 	blockedIPs := fs.Bool("b", false, "list blocked IPs per interface")
 	trafficTotals := fs.Bool("t", false, "show transport traffic totals")
+	topology := fs.Bool("T", false, "show path topology grouped by interface")
 	showPPS := fs.Bool("p", false, "display packets per second in totals")
 	queues := fs.Bool("Q", false, "show inbound queue pressure (RNS 1.5.0, use -Q not -q)")
 	profiling := fs.Bool("z", false, "display live profiling results when the instance provides them")
@@ -41,6 +43,11 @@ func RunStatus(args []string, opt ...Options) int {
 	monitorInterval := fs.Float64("I", 1, "refresh interval for monitor mode in seconds")
 	discovered := fs.Bool("d", false, "list discovered interfaces")
 	discoveredDetail := fs.Bool("D", false, "show details and config entries for discovered interfaces")
+	showStale := fs.Bool("show-stale", false, "show stale discovery entries")
+	showUnknown := fs.Bool("show-unknown", false, "show discovery entries without version info")
+	attachName := fs.String("attach", "", "attach interface by name")
+	detachName := fs.String("detach", "", "detach interface by name")
+	reloadName := fs.String("reload", "", "reload interface by name")
 	sortBy := fs.String("s", "", "sort by rate|rx|tx|rxs|txs|traffic|announce|arx|atx|prx|ptx|held|pvs|ivs|flt|arxc|atxc|prxc|ptxc|gravity")
 	sortAsc := fs.Bool("r", false, "sort ascending (default descending)")
 	timeout := fs.Duration("timeout", 10*time.Second, "RPC timeout")
@@ -91,6 +98,12 @@ func RunStatus(args []string, opt ...Options) int {
 	}
 
 	runOnce := func(out io.Writer) int {
+		if *attachName != "" || *detachName != "" || *reloadName != "" {
+			return runInterfaceManage(cfg, *attachName, *detachName, *reloadName, *timeout, out, stderr)
+		}
+		if *topology {
+			return runTopology(cfg, filter, *timeout, out, stderr)
+		}
 		if *discovered || *discoveredDetail {
 			storageDir := ""
 			if cfg.ConfigPath != "" {
@@ -103,6 +116,7 @@ func RunStatus(args []string, opt ...Options) int {
 				fmt.Fprintf(stderr, "discovered interfaces: %v\n", err)
 				return 1
 			}
+			list = rnsutil.FilterDiscovered(list, *showStale, *showUnknown)
 			if *jsonOut {
 				if err := rnsutil.WriteDiscoveredJSON(out, list); err != nil {
 					diagErr(stderr, "json", err)
@@ -110,7 +124,11 @@ func RunStatus(args []string, opt ...Options) int {
 				}
 				return 0
 			}
-			if err := rnsutil.WriteDiscoveredHuman(out, list, *discoveredDetail); err != nil {
+			if err := rnsutil.WriteDiscoveredHuman(out, list, rnsutil.DiscoveredOptions{
+				Details:     *discoveredDetail,
+				ShowStale:   *showStale,
+				ShowUnknown: *showUnknown,
+			}); err != nil {
 				diagErr(stderr, "write", err)
 				return 1
 			}
@@ -218,6 +236,88 @@ func RunStatus(args []string, opt ...Options) int {
 		case <-time.After(sleepFor):
 		}
 	}
+}
+
+// runInterfaceManage implements rgostatus --attach/--detach/--reload against
+// the local shared instance RPC (rnstatus equivalents, RNS 1.5.5).
+func runInterfaceManage(cfg *common.ReticulumConfig, attach, detach, reload string, timeout time.Duration, stdout, stderr io.Writer) int {
+	client, err := rnsutil.DialRPC(cfg, nil)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
+		return 1
+	}
+	client.SetTimeout(timeout)
+
+	action := ""
+	name := ""
+	switch {
+	case attach != "":
+		action, name = "attach_interface", attach
+	case detach != "":
+		action, name = "detach_interface", detach
+	case reload != "":
+		action, name = "reload_interface", reload
+	}
+	result, err := client.ManageInterface(action, name)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
+		return 1
+	}
+	past := map[string]string{
+		"attach_interface": "attached",
+		"detach_interface": "detached",
+		"reload_interface": "reloaded",
+	}[action]
+	switch v := result.(type) {
+	case bool:
+		if v {
+			fmt.Fprintf(stdout, "Interface %s was %s\n", name, past)
+			return 0
+		}
+		fmt.Fprintf(stdout, "Could not %s interface %s\n", strings.TrimSuffix(past, "ed"), name)
+		return 1
+	case nil:
+		fmt.Fprintf(stdout, "The interface %s does not exist\n", name)
+		return 1
+	default:
+		fmt.Fprintf(stdout, "Unknown error while %sing interface %s\n", strings.TrimSuffix(past, "ed"), name)
+		return 1
+	}
+}
+
+// runTopology renders the path table grouped by receiving interface over the
+// shared-instance RPC. Go-only view; Python rnstatus has no equivalent.
+func runTopology(cfg *common.ReticulumConfig, nameFilter string, timeout time.Duration, stdout, stderr io.Writer) int {
+	client, err := rnsutil.DialRPC(cfg, nil)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
+		return 1
+	}
+	client.SetTimeout(timeout)
+	stats, err := client.GetInterfaceStats()
+	if err != nil {
+		fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
+		return 1
+	}
+	paths, err := client.GetPathTable(nil)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s: %v\n", errMsg(stderr, "rpc"), err)
+		return 1
+	}
+	if nameFilter != "" {
+		kept := paths[:0]
+		for _, p := range paths {
+			if strings.Contains(p.Interface, nameFilter) {
+				kept = append(kept, p)
+			}
+		}
+		paths = kept
+	}
+	if err := rnsutil.WriteTopologyHuman(stdout, stats, paths, time.Now()); err != nil {
+		diagErr(stderr, "write", err)
+		return 1
+	}
+	return 0
 }
 
 type statusRemoteOpts struct {

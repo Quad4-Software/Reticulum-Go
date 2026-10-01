@@ -119,7 +119,7 @@ func (r *RawChannelReader) Read(p []byte) (n int, err error) {
 
 // WaitReadable blocks until the reader has buffered data, reaches EOF, or ctx
 // expires. Read on an empty, open stream returns (0, nil), which makes naive
-// io.Reader consumers spin; callers that can wait should prefer ReadContext.
+// io.Reader consumers spin. Callers that can wait should prefer ReadContext.
 func (r *RawChannelReader) WaitReadable(ctx context.Context) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
@@ -172,7 +172,7 @@ func (r *RawChannelReader) HandleMessage(msg channel.MessageBase) bool {
 		if r.buffer.Len()+len(data) <= maxReaderBufferBytes {
 			r.buffer.Write(data)
 		} else {
-			debug.Log(debug.DebugWarning, "Raw channel reader buffer full; dropping stream data", "stream_id", r.streamID)
+			debug.Log(debug.DebugWarning, "Raw channel reader buffer full. Dropping stream data", "stream_id", r.streamID)
 		}
 	}
 

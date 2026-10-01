@@ -56,6 +56,7 @@ type AutoInterface struct {
 	done                    chan struct{}
 	stopOnce                sync.Once
 	doneGen                 atomic.Uint64
+	netwatchUnsub           func()
 }
 
 type AdoptedInterface struct {
@@ -64,7 +65,7 @@ type AdoptedInterface struct {
 	index         int
 }
 
-// maxAutoPeers bounds discovered LAN peers; autoPeerEvictAge is the
+// maxAutoPeers bounds discovered LAN peers, and autoPeerEvictAge is the
 // idle age required before pressure evicts an entry.
 const maxAutoPeers = 1024
 const autoPeerEvictAge = 30 * time.Second
@@ -297,6 +298,16 @@ func (ai *AutoInterface) Start() error {
 	ai.Mutex.Lock()
 	gen := ai.doneGen.Add(1)
 	loopDone := ai.done
+	if ai.netwatchUnsub != nil {
+		// Restart without Stop: do not leak the previous subscription.
+		ai.netwatchUnsub()
+		ai.netwatchUnsub = nil
+	}
+	// Event-driven rescan honors watch_interfaces (same feature as the
+	// periodic poll in maybeRescanLocked, netlink-triggered).
+	if ai.watchInterfaces {
+		ai.netwatchUnsub = netwatchSubscribe(ai.onNetworkChange)
+	}
 	ai.Mutex.Unlock()
 	go ai.peerJobs(loopDone, gen)
 	go ai.announceLoop(loopDone, gen)
@@ -803,6 +814,15 @@ func (ai *AutoInterface) PeerCount() int {
 	return len(ai.peers)
 }
 
+// Detach marks the interface detached and shuts down all listeners and
+// discovery sockets, matching Python AutoInterface.detach (RNS 1.5.5).
+func (ai *AutoInterface) Detach() {
+	ai.Mutex.Lock()
+	ai.Detached = true
+	ai.Mutex.Unlock()
+	_ = ai.Stop()
+}
+
 func (ai *AutoInterface) Stop() error {
 	ai.Mutex.Lock()
 	ai.Online = false
@@ -825,7 +845,13 @@ func (ai *AutoInterface) Stop() error {
 		conn.Close() // #nosec G104
 	}
 
+	unsub := ai.netwatchUnsub
+	ai.netwatchUnsub = nil
 	ai.Mutex.Unlock()
+
+	if unsub != nil {
+		unsub()
+	}
 
 	ai.stopOnce.Do(func() {
 		if ai.done != nil {

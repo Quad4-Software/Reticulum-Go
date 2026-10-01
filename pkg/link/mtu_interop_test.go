@@ -90,7 +90,13 @@ func establishInteropLinkPipe(t *testing.T, asyncDelivery bool) (initiator *Link
 	if err := destA.Announce(false, nil, nil); err != nil {
 		t.Fatalf("Announce: %v", err)
 	}
-	time.Sleep(100 * time.Millisecond)
+	pathDeadline := time.Now().Add(10 * time.Second)
+	for !trB.HasPath(destA.GetHash()) && time.Now().Before(pathDeadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !trB.HasPath(destA.GetHash()) {
+		t.Fatal("trB never learned path to destA")
+	}
 
 	estB := make(chan struct{}, 1)
 	initiatorLink := NewLink(destA, trB, pipeB, func(*Link) {

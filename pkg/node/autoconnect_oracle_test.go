@@ -29,9 +29,9 @@ func TestOracleAutoconnectRespectsMaxConcurrent(t *testing.T) {
 	defer n.Stop()
 
 	peers := []discovery.Info{
-		{Type: "BackboneInterface", Name: "b1", ReachableOn: "192.0.2.10", Port: 1, HasPort: true, Transport: true},
-		{Type: "BackboneInterface", Name: "b2", ReachableOn: "192.0.2.11", Port: 2, HasPort: true, Transport: true},
-		{Type: "TCPServerInterface", Name: "t3", ReachableOn: "192.0.2.12", Port: 3, HasPort: true, Transport: true},
+		{Type: "BackboneInterface", Name: "b1", ReachableOn: "192.0.2.10", Port: 1, HasPort: true, Transport: true, TransportImpl: "RNS", TransportVers: "1.5.5"},
+		{Type: "BackboneInterface", Name: "b2", ReachableOn: "192.0.2.11", Port: 2, HasPort: true, Transport: true, TransportImpl: "RNS", TransportVers: "1.5.5"},
+		{Type: "TCPServerInterface", Name: "t3", ReachableOn: "192.0.2.12", Port: 3, HasPort: true, Transport: true, TransportImpl: "RNS", TransportVers: "1.5.5"},
 	}
 	for _, p := range peers {
 		n.autoconnect(&discovery.ReceivedAnnounceInfo{Info: p, RemoteIdentity: bytes.Repeat([]byte{0x01}, 16)})
@@ -50,8 +50,14 @@ func TestOracleAutoconnectRespectsMaxConcurrent(t *testing.T) {
 	if oracle.Count != 2 {
 		t.Fatalf("count=%d want 2", oracle.Count)
 	}
-	if oracle.Backbone != 2 || oracle.TCP != 0 {
-		t.Fatalf("mix backbone=%d tcp=%d want 2/0", oracle.Backbone, oracle.TCP)
+	// On platforms without backbone support (darwin, windows) the announced
+	// BackboneInterface peers degrade to TCPClientInterface like Python.
+	if discovery.BackboneSupported() {
+		if oracle.Backbone != 2 || oracle.TCP != 0 {
+			t.Fatalf("mix backbone=%d tcp=%d want 2/0", oracle.Backbone, oracle.TCP)
+		}
+	} else if oracle.Backbone != 0 || oracle.TCP != 2 {
+		t.Fatalf("mix backbone=%d tcp=%d want 0/2 on this platform", oracle.Backbone, oracle.TCP)
 	}
 }
 
@@ -67,6 +73,7 @@ func TestOracleAutoconnectExistsBlocksDuplicateHash(t *testing.T) {
 	info := &discovery.ReceivedAnnounceInfo{
 		Info: discovery.Info{
 			Type: "TCPServerInterface", ReachableOn: "192.0.2.20", Port: 5000, HasPort: true,
+			TransportImpl: "RNS", TransportVers: "1.5.5",
 		},
 	}
 	n.autoconnect(info)
@@ -111,6 +118,9 @@ func TestOracleAutoconnectMonitorClearsDownSince(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry := &autoconnectEntry{iface: tc, hash: []byte{0x01}, downSince: time.Now()}
+	if err := n.transport.RegisterInterface(tc.Name, tc); err != nil {
+		t.Fatal(err)
+	}
 	n.acMu.Lock()
 	n.acEntries = []*autoconnectEntry{entry}
 	n.acMu.Unlock()
@@ -138,6 +148,9 @@ func TestOracleAutoconnectMonitorDetachesStaleOffline(t *testing.T) {
 		iface:     tc,
 		hash:      []byte{0x02},
 		downSince: time.Now().Add(-autoconnectDetachAfter - time.Second),
+	}
+	if err := n.transport.RegisterInterface(tc.Name, tc); err != nil {
+		t.Fatal(err)
 	}
 	n.acMu.Lock()
 	n.acEntries = []*autoconnectEntry{entry}

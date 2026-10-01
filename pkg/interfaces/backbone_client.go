@@ -71,7 +71,7 @@ func NewBackboneClientInterface(name string, cfg *common.InterfaceConfig, hub *b
 		return nil, fmt.Errorf("target_port required for BackboneClientInterface %q", name)
 	}
 
-	maxTries := NormalizeMaxReconnectTries(cfg.MaxReconnTries)
+	maxTries := MaxReconnectTriesFromConfig(cfg)
 
 	bc := &BackboneClientInterface{
 		BaseInterface:     NewBaseInterface(name, common.IFTypeBackbone, cfg.Enabled),
@@ -118,6 +118,8 @@ func newSpawnedBackboneClient(parent *BackboneInterface, conn net.Conn) *Backbon
 	bc.AnnouncesToInternal = parent.AnnouncesToInternal
 	bc.AnnouncesFromInternal = parent.AnnouncesFromInternal
 	bc.RecursivePRs = parent.RecursivePRs
+	// RNS 1.5.5 propagates announce_cap to spawned clients too.
+	bc.announceCap = parent.announceCapFraction()
 	bc.Online = true
 	if tcpConn, ok := conn.(*net.TCPConn); ok {
 		_ = tcpConn.SetNoDelay(true)
@@ -424,4 +426,10 @@ func (bc *BackboneClientInterface) TargetPort() int {
 		return 0
 	}
 	return bc.targetPort
+}
+
+// EndpointStatus reports dial-health for this interface's remote endpoint:
+// dial failures, flaps, and active quarantine remaining.
+func (bc *BackboneClientInterface) EndpointStatus() EndpointStatus {
+	return bc.reconnect.endpointStatus()
 }

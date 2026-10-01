@@ -416,6 +416,24 @@ func run() int {
 			for _, f := range flakes {
 				fmt.Printf("  - %s\n", f)
 			}
+			// The rerun clears failedTests/failedPackages, so printSummary
+			// never sees them. Without this block the first-attempt failure
+			// output for a flake is lost entirely, which is exactly the
+			// output needed to triage the flake.
+			fmt.Printf("\n%s\n", term.Yellow(os.Stdout, "testsummary: FLAKE DETAILS (first attempt output):"))
+			for _, f := range flakes {
+				pkg, test, _ := strings.Cut(f, " ")
+				var detail string
+				if test != "" {
+					detail = trimFailureOutput(testOutputs[pkg][test], quiet)
+				} else {
+					detail = trimFailureOutput(pkgOutputs[pkg], quiet)
+				}
+				if strings.TrimSpace(detail) == "" {
+					continue
+				}
+				fmt.Printf("\n=== %s ===\n%s", f, detail)
+			}
 		}
 		if len(failedTests) == 0 && len(failedPackages) == 0 {
 			exit = 0

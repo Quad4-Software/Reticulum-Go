@@ -2,7 +2,7 @@
 
 Go-native tools that speak the same shared-instance msgpack RPC, destinations, and identity file formats as Python rnstatus, rnid, rnprobe, rnpath, rncp, rnsh, and rnx. They are not Python clones. Python tools and Go tools both work against rnsd and reticulum-go.
 
-They ship as **subcommands of the single reticulum-go binary**:
+They ship as subcommands of the single reticulum-go binary:
 
 ```bash
 make build
@@ -63,13 +63,13 @@ Remote drop, path-request, and blackhole mutate over -R exit 255 on both stacks.
 
 rgostatus and rgopath -t / drop / blackhole modes dial a running shared instance (Python rnsd or reticulum-go) over the same multiprocessing.connection + msgpack protocol Python uses.
 
-RPC is fully supported on **both** transports:
+RPC is fully supported on both transports:
 
 | shared_instance_type | Listen / dial address |
 |------------------------|------------------------|
 | tcp | 127.0.0.1:<instance_control_port> (default 37429) |
 | unix | Abstract socket @rns/<instance_name>/rpc (Linux) |
-| unset | Platform default: **unix** on Linux, **tcp** elsewhere (matches Python RNS) |
+| unset | Platform default: unix on Linux, tcp elsewhere (matches Python RNS) |
 
 Go implements both server and client for TCP and Unix. When the type is unset, utilities try the platform default first, then the other transport, so stock Linux Python rnsd works without forcing TCP.
 
@@ -77,10 +77,10 @@ Go implements both server and client for TCP and Unix. When the type is unset, u
 
 Issues that usually stack:
 
-1. **Wrong config directory.** Python uses ~/.reticulum. Go defaults to ~/.reticulum-go. Point -config at the directory of the daemon you are querying.
-2. **Explicit transport mismatch.** If one side sets shared_instance_type = tcp and the other unix, dials miss. Leave the key unset on Linux, or set the same value on both.
-3. **Daemon not sharing.** The process that owns interfaces must have share_instance = yes and be running.
-4. **Auth key mismatch.** Align rpc_key, or share the same derived transport_identity.
+1. Wrong config directory. Python uses ~/.reticulum. Go defaults to ~/.reticulum-go. Point -config at the directory of the daemon you are querying.
+2. Explicit transport mismatch. If one side sets shared_instance_type = tcp and the other unix, dials miss. Leave the key unset on Linux, or set the same value on both.
+3. Daemon not sharing. The process that owns interfaces must have share_instance = yes and be running.
+4. Auth key mismatch. Align rpc_key, or share the same derived transport_identity.
 
 ### Working config for Python rnsd + Go tools (Unix on Linux)
 
@@ -92,7 +92,7 @@ Stock Linux Python already uses abstract Unix sockets. Point Go tools at that co
 ./bin/reticulum-go path -config ~/.reticulum -t -json
 ```
 
-Optional shared auth key in **both** configs (recommended when mixing stacks):
+Optional shared auth key in both configs (recommended when mixing stacks):
 
 ```ini
 [reticulum]
@@ -164,12 +164,18 @@ rgostatus [flags] [filter]
 | -B | Only interfaces with active bursts |
 | -b | List blocked IPs per interface |
 | -t | Show transport traffic totals |
+| -T | Show path topology: path table grouped by receiving interface with hops, next-hop hash, age (Go-only) |
 | -p | Show packets per second in totals |
 | -Q | Show inbound queue pressure (use -Q rather than -q, which is quiet) |
 | -z | Show profiling results when the instance provides them |
 | -m | Continuously monitor status |
 | -I sec | Monitor refresh interval (default 1) |
 | -d / -D | List discovered interfaces (details with -D) |
+| -show-stale | Include stale discovery entries when listing discovered interfaces |
+| -show-unknown | Include discovery entries without implementation/version info |
+| -attach name | Attach interface by name via shared-instance RPC (RNS 1.5.5) |
+| -detach name | Detach interface by name via shared-instance RPC |
+| -reload name | Detach and re-attach interface by name |
 | -s key | Sort by rate, rx, tx, rxs, txs, traffic, announce, arx, atx, prx, ptx, held, queue |
 | -r | Sort ascending (default descending) |
 | -timeout dur | RPC timeout (default 10s) |
@@ -180,6 +186,12 @@ rgostatus [flags] [filter]
 JSON includes per-interface announce and path-request frequencies, held announces, outgoing announce queue, burst flags, and traffic counters when the daemon provides them. Totals include rxpps/txpps when available.
 
 Against a Go daemon, human and JSON output also include local mesh health fields when counters are non-zero: ifac_fail, hmac_fail, announce_sig_fail, unpack_fail, integrity_fail_rate, stale_closes, keepalive_timeout, and related totals. Python rnsd does not populate these keys. Missing fields mean zero or unknown, not a protocol error.
+
+Go daemons report announce reject-reason counters per interface (announce_malformed, announce_dest_type, announce_blackholed, announce_key_mismatch, announce_max_hops, announce_held, announce_suppressed) plus per-endpoint dial health on outbound client interfaces (endpoint_dial_failures, endpoint_flaps, endpoint_quarantined, endpoint_quarantine_s). The endpoint fields render as an Endpoint line when non-zero. An endpoint that keeps failing or flapping is quarantined with an escalating cooldown instead of being redialed forever.
+
+Discovered interface listings show the announced implementation and version in the Stack field. Entries that stopped being announced go stale, and entries whose announce carries no implementation or version are hidden by default. Pass -show-stale / -show-unknown to include them (same defaults as Python rnstatus 1.5.5).
+
+Interface attach/detach/reload requires `enable_interface_management = yes` (the default) on the owning instance and only works against a running shared instance. I2P and local shared-instance interfaces cannot be detached, matching Python.
 
 ## rgoslow
 

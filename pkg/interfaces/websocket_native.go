@@ -179,7 +179,7 @@ func (wsi *WebSocketInterface) Start() error {
 		return fmt.Errorf("unsupported scheme: %s (use ws:// or wss://)", u.Scheme)
 	}
 
-	// One deadline covers the whole TLS+HTTP upgrade exchange; a stalled
+	// One deadline covers the whole TLS+HTTP upgrade exchange. A stalled
 	// peer must not park the dial goroutine forever.
 	_ = conn.SetDeadline(time.Now().Add(WSConnectTimeout))
 
@@ -243,7 +243,7 @@ func (wsi *WebSocketInterface) Start() error {
 		return fmt.Errorf("invalid accept key")
 	}
 
-	// Upgrade succeeded; clear the handshake deadline for long-lived reads.
+	// Upgrade succeeded. Clear the handshake deadline for long-lived reads.
 	_ = conn.SetDeadline(time.Time{})
 
 	wsi.Mutex.Lock()

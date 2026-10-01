@@ -13,7 +13,9 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+
 	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 type mockTransport struct {
@@ -40,61 +42,53 @@ func (m *mockTransport) RegisterDestination(hash []byte, dest any) {
 }
 
 func TestLinkRequestResponse(t *testing.T) {
-	serverIdent, err := identity.New()
-	if err != nil {
-		t.Fatalf("Failed to create server identity: %v", err)
-	}
-
-	clientIdent, err := identity.New()
-	if err != nil {
-		t.Fatalf("Failed to create client identity: %v", err)
-	}
-
-	mockTrans := &mockTransport{
-		sentPackets: make([]*packet.Packet, 0),
-	}
-
-	serverDest, err := destination.New(serverIdent, destination.In, destination.Single, "testapp", mockTrans, "server")
-	if err != nil {
-		t.Fatalf("Failed to create server destination: %v", err)
-	}
+	skipHeavyLinkTestsIfShort(t)
+	initLink, respLink, cleanup := establishInteropLink(t)
+	defer cleanup()
 
 	expectedResponse := []byte("response data")
-	testPath := "/test/path"
+	testPath := "test/path"
 
-	err = serverDest.RegisterRequestHandler(testPath, func(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) []byte {
-		if path != testPath {
-			t.Errorf("Expected path %s, got %s", testPath, path)
-		}
-		return expectedResponse
-	}, destination.AllowAll, nil)
-	if err != nil {
-		t.Fatalf("Failed to register request handler: %v", err)
-	}
-
-	// Test the handler is registered correctly
+	var gotPath string
+	var gotPayload, gotLinkID, gotRequestID []byte
 	pathHash := identity.TruncatedHash([]byte(testPath))
-	handler := serverDest.GetRequestHandler(pathHash)
+	if err := respLink.destination.RegisterRequestHandler(testPath, func(path string, data []byte, requestID []byte, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) []byte {
+		gotPath = path
+		gotPayload = append([]byte(nil), data...)
+		gotLinkID = append([]byte(nil), linkID...)
+		gotRequestID = append([]byte(nil), requestID...)
+		return expectedResponse
+	}, destination.AllowAll, nil); err != nil {
+		t.Fatalf("RegisterRequestHandler: %v", err)
+	}
+
+	handler := respLink.destination.GetRequestHandler(pathHash)
 	if handler == nil {
-		t.Fatal("Handler not found after registration")
+		t.Fatal("handler not found after registration")
 	}
 
-	// Call the handler
-	testLinkID := make([]byte, 16)
-	result := handler(pathHash, []byte("test data"), []byte("request-id"), testLinkID, clientIdent, time.Now())
-
-	if result == nil {
-		t.Fatal("Handler returned nil")
+	payload := []byte("test data")
+	plaintext := packRequest(t, time.Now().Unix(), pathHash, payload)
+	pkt := &packet.Packet{Data: plaintext}
+	if err := pkt.Pack(); err != nil {
+		t.Fatalf("Pack: %v", err)
 	}
-
-	responseBytes, ok := result.([]byte)
-	if !ok {
-		t.Fatalf("Handler returned unexpected type: %T", result)
+	if err := respLink.handleRequest(plaintext, pkt.TruncatedHash()); err != nil {
+		t.Fatalf("handleRequest: %v", err)
 	}
-
-	if !bytes.Equal(responseBytes, expectedResponse) {
-		t.Errorf("Expected response %q, got %q", expectedResponse, responseBytes)
+	if gotPath != testPath {
+		t.Fatalf("handler path %q want %q", gotPath, testPath)
 	}
+	if !bytes.Equal(gotPayload, payload) {
+		t.Fatalf("handler payload %q want %q", gotPayload, payload)
+	}
+	if !bytes.Equal(gotLinkID, respLink.GetLinkID()) {
+		t.Fatal("handler linkID does not match the responder link")
+	}
+	if !bytes.Equal(gotRequestID, pkt.TruncatedHash()) {
+		t.Fatal("handler requestID is not the request packet hash")
+	}
+	_ = initLink
 }
 
 func TestLinkRequestHandlerNotFound(t *testing.T) {
@@ -112,33 +106,54 @@ func TestLinkRequestHandlerNotFound(t *testing.T) {
 	}
 }
 
+// TestLinkResponseHandling drives the real response path: a receipt is
+// registered on the initiating link and an inbound msgpack response
+// completes it, fires the callback, and removes it from pending.
 func TestLinkResponseHandling(t *testing.T) {
-	// This test verifies the basic structure for response handling
-	// Full integration testing would require a proper transport setup
+	skipHeavyLinkTestsIfShort(t)
+	initLink, _, cleanup := establishInteropLink(t)
+	defer cleanup()
 
-	requestID := []byte("test-request-id-")
-	responseData := []byte("response payload")
-
+	requestID := bytes.Repeat([]byte{0x42}, 16)
 	receipt := &RequestReceipt{
+		link:      initLink,
 		requestID: requestID,
+		pathHash:  bytes.Repeat([]byte{0x11}, 16),
 		status:    StatusPending,
+		done:      make(chan struct{}),
+	}
+	done := make(chan *RequestReceipt, 1)
+	receipt.responseCb = func(r *RequestReceipt) { done <- r }
+
+	if err := initLink.registerPendingRequest(receipt); err != nil {
+		t.Fatalf("registerPendingRequest: %v", err)
 	}
 
-	// Verify initial state
-	if receipt.status != StatusPending {
-		t.Errorf("Expected initial status PENDING, got %d", receipt.status)
+	responseData := []byte("response payload")
+	packed, err := msgpack.Marshal([]any{requestID, responseData})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if err := initLink.handleResponse(packed); err != nil {
+		t.Fatalf("handleResponse: %v", err)
 	}
 
-	// Simulate setting response
-	receipt.response = responseData
-	receipt.status = StatusActive
-
-	if !bytes.Equal(receipt.response, responseData) {
-		t.Errorf("Expected response %q, got %q", responseData, receipt.response)
+	select {
+	case got := <-done:
+		if got != receipt {
+			t.Fatal("callback received different receipt")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("response callback never fired")
 	}
-
 	if receipt.status != StatusActive {
-		t.Errorf("Expected status ACTIVE after response, got %d", receipt.status)
+		t.Fatalf("receipt status=%d want Active", receipt.status)
+	}
+	if !bytes.Equal(receipt.response, responseData) {
+		t.Fatalf("response %q want %q", receipt.response, responseData)
+	}
+	if n := len(initLink.pendingRequests); n != 0 {
+		t.Fatalf("pendingRequests still has %d entries", n)
 	}
 }
 

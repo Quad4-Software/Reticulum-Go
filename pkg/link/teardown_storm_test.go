@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,7 +22,8 @@ func TestTeardownStorm(t *testing.T) {
 	initLink, respLink, mesh := establishChaosLink(t, nil, 1, 15*time.Second)
 	defer mesh.close()
 
-	respLink.SetLinkClosedCallback(func(*Link) {})
+	var closedCalls atomic.Int32
+	respLink.SetLinkClosedCallback(func(*Link) { closedCalls.Add(1) })
 
 	var wg sync.WaitGroup
 	for i := 0; i < 8; i++ {
@@ -45,6 +47,13 @@ func TestTeardownStorm(t *testing.T) {
 
 	if st := initLink.GetStatus(); st != StatusClosed {
 		t.Fatalf("initiator status=%d want Closed", st)
+	}
+	// The responder's closed callback fires when the teardown packet arrives
+	// through the mesh, which is asynchronous to the initiator's Teardown.
+	waitForCond(t, 10*time.Second, func() bool { return closedCalls.Load() == 1 },
+		"responder closed callback never fired")
+	if n := closedCalls.Load(); n != 1 {
+		t.Fatalf("closed callback fired %d times want 1", n)
 	}
 }
 
@@ -73,7 +82,7 @@ func TestPanicInPacketCallback(t *testing.T) {
 	_ = initLink.SendPacket([]byte("detonate"))
 	time.Sleep(300 * time.Millisecond)
 
-	// Second packet must still be delivered; the panic must not have taken
+	// Second packet must still be delivered. The panic must not have taken
 	// the worker or the link down.
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
@@ -116,7 +125,7 @@ func TestLinkStartStopCycleLeak(t *testing.T) {
 		mesh.close()
 	}
 
-	// maintainLink exits on its 1s tick; allow a tick plus slack.
+	// maintainLink exits on its 1s tick. Allow a tick plus slack.
 	runtime.GC()
 	time.Sleep(1500 * time.Millisecond)
 	got := runtime.NumGoroutine()

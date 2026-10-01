@@ -82,7 +82,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install rngcs verifier
-        run: python3 -m pip install "rns==1.5.4"
+        run: python3 -m pip install "rns==1.5.5"
 
       - name: Configure rngcs verification
         run: |
