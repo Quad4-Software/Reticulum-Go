@@ -4,6 +4,7 @@
 package interfaces
 
 import (
+	"errors"
 	"fmt"
 	"math/rand/v2"
 	"net"
@@ -15,6 +16,10 @@ import (
 )
 
 const idleReconnectInterval = 5 * time.Minute
+
+// errDialAborted is returned by dialTracked when a quarantine wait is
+// interrupted by driver shutdown. It is never a real dial failure.
+var errDialAborted = errors.New("dial aborted")
 
 // kickMinInterval rate-limits network-change kicks so a burst of netlink
 // events cannot spin the dial loop faster than this.
@@ -28,7 +33,7 @@ func jitterBackoff(base time.Duration) time.Duration {
 		return base
 	}
 	half := int64(base / 2)
-	return time.Duration(half + rand.Int64N(half))
+	return time.Duration(half + rand.Int64N(half)) // #nosec G404 -- timing jitter, not security material
 }
 
 type reconnectDriver struct {
@@ -46,6 +51,8 @@ type reconnectDriver struct {
 	kickCh            chan struct{}
 	lastKick          time.Time
 	attempted         atomic.Bool
+	tracker           *EndpointTracker
+	connectedAt       time.Time
 }
 
 func newReconnectDriver(label string, maxTries int, done chan struct{}, dial func() (net.Conn, error), onConnected func(net.Conn)) *reconnectDriver {
@@ -56,6 +63,7 @@ func newReconnectDriver(label string, maxTries int, done chan struct{}, dial fun
 		onConnected:       onConnected,
 		label:             label,
 		kickCh:            make(chan struct{}, 1),
+		tracker:           DefaultEndpointTracker,
 	}
 }
 
@@ -102,6 +110,52 @@ func (rd *reconnectDriver) start() {
 	go rd.run(unsub)
 }
 
+// dialTracked wraps rd.dial with endpoint-health accounting: quarantined
+// endpoints wait out their cooldown, dial outcomes feed the tracker, and a
+// successful dial stamps connectedAt for flap detection.
+func (rd *reconnectDriver) dialTracked() (net.Conn, error) {
+	tr := rd.tracker
+	if tr != nil && rd.label != "" {
+		for {
+			ok, wait := tr.DialAllowed(rd.label)
+			if ok {
+				break
+			}
+			debug.Log(debug.DebugInfo, "Endpoint quarantined, delaying dial",
+				"target", rd.label, "retry_in", wait)
+			if !rd.wait(wait) {
+				return nil, errDialAborted
+			}
+		}
+		conn, err := rd.dial()
+		if err != nil {
+			tr.RecordFailure(rd.label)
+			return nil, err
+		}
+		tr.RecordSuccess(rd.label)
+		rd.mu.Lock()
+		rd.connectedAt = tr.clock()
+		rd.mu.Unlock()
+		return conn, nil
+	}
+	conn, err := rd.dial()
+	if err == nil {
+		rd.mu.Lock()
+		rd.connectedAt = time.Now()
+		rd.mu.Unlock()
+	}
+	return conn, err
+}
+
+// endpointStatus returns the tracker view of this endpoint. Tracked is false
+// when the driver has no tracker or no endpoint label.
+func (rd *reconnectDriver) endpointStatus() EndpointStatus {
+	if rd == nil || rd.tracker == nil || rd.label == "" {
+		return EndpointStatus{}
+	}
+	return rd.tracker.Status(rd.label)
+}
+
 func (rd *reconnectDriver) run(unsub func()) {
 	defer unsub()
 	defer func() {
@@ -128,7 +182,7 @@ func (rd *reconnectDriver) run(unsub func()) {
 			return
 		}
 
-		conn, err := rd.dial()
+		conn, err := rd.dialTracked()
 		if err == nil {
 			if rd.shouldStop() {
 				_ = conn.Close()
@@ -177,7 +231,7 @@ func (rd *reconnectDriver) run(unsub func()) {
 		if rd.shouldStop() {
 			return
 		}
-		conn, err := rd.dial()
+		conn, err := rd.dialTracked()
 		if err == nil {
 			if rd.shouldStop() {
 				_ = conn.Close()
@@ -203,7 +257,7 @@ func (rd *reconnectDriver) runNever() {
 	if !rd.attempted.CompareAndSwap(false, true) {
 		return
 	}
-	conn, err := rd.dial()
+	conn, err := rd.dialTracked()
 	if err != nil {
 		debug.Log(debug.DebugError, "Reconnect disabled. Initial dial failed",
 			"target", rd.label,
@@ -269,7 +323,18 @@ func (rd *reconnectDriver) isActive() bool {
 	return rd.reconnecting
 }
 
+// notifyFailure reports that the established connection dropped. A drop
+// within EndpointFlapLifetime of the dial counts as a flap toward the
+// endpoint-health quarantine.
 func (rd *reconnectDriver) notifyFailure() {
+	rd.mu.Lock()
+	connAt := rd.connectedAt
+	rd.connectedAt = time.Time{}
+	tr := rd.tracker
+	rd.mu.Unlock()
+	if tr != nil && !connAt.IsZero() && rd.label != "" && tr.clock().Sub(connAt) < EndpointFlapLifetime {
+		tr.RecordFlap(rd.label)
+	}
 	rd.fireDown()
 	rd.start()
 }

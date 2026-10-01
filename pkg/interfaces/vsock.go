@@ -579,3 +579,9 @@ func (vs *VSOCKServerInterface) Port() uint32 {
 	defer vs.Mutex.RUnlock()
 	return vs.port
 }
+
+// EndpointStatus reports dial-health for this interface's remote endpoint:
+// dial failures, flaps, and active quarantine remaining.
+func (vc *VSOCKClientInterface) EndpointStatus() EndpointStatus {
+	return vc.reconnect.endpointStatus()
+}

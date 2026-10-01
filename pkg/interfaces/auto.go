@@ -814,6 +814,15 @@ func (ai *AutoInterface) PeerCount() int {
 	return len(ai.peers)
 }
 
+// Detach marks the interface detached and shuts down all listeners and
+// discovery sockets, matching Python AutoInterface.detach (RNS 1.5.5).
+func (ai *AutoInterface) Detach() {
+	ai.Mutex.Lock()
+	ai.Detached = true
+	ai.Mutex.Unlock()
+	_ = ai.Stop()
+}
+
 func (ai *AutoInterface) Stop() error {
 	ai.Mutex.Lock()
 	ai.Online = false

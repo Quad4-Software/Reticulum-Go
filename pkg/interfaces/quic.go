@@ -709,3 +709,9 @@ func (qs *QUICServerInterface) ListenAddr() net.Addr {
 	}
 	return qs.listener.Addr()
 }
+
+// EndpointStatus reports dial-health for this interface's remote endpoint:
+// dial failures, flaps, and active quarantine remaining.
+func (qc *QUICClientInterface) EndpointStatus() EndpointStatus {
+	return qc.reconnect.endpointStatus()
+}

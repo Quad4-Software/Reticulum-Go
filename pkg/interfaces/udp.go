@@ -459,3 +459,9 @@ func (ui *UDPInterface) IsEnabled() bool {
 	defer ui.Mutex.RUnlock()
 	return ui.Enabled && ui.Online && !ui.Detached
 }
+
+// EndpointStatus reports dial-health for this interface's remote endpoint:
+// dial failures, flaps, and active quarantine remaining.
+func (ui *UDPInterface) EndpointStatus() EndpointStatus {
+	return ui.reconnect.endpointStatus()
+}

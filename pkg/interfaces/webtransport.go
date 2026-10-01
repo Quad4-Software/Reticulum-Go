@@ -1104,3 +1104,9 @@ func (ws *WebTransportServerInterface) ListenAddr() net.Addr {
 	defer ws.Mutex.RUnlock()
 	return ws.listenAddr
 }
+
+// EndpointStatus reports dial-health for this interface's remote endpoint:
+// dial failures, flaps, and active quarantine remaining.
+func (wc *WebTransportClientInterface) EndpointStatus() EndpointStatus {
+	return wc.reconnect.endpointStatus()
+}

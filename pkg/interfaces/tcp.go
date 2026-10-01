@@ -187,6 +187,16 @@ func (tc *TCPClientInterface) Start() error {
 	return nil
 }
 
+// Detach marks the client detached and closes the connection, ending any
+// reconnect loop permanently (RNS 1.5.5 TCPClientInterface.detach).
+func (tc *TCPClientInterface) Detach() {
+	tc.Mutex.Lock()
+	tc.Detached = true
+	tc.Online = false
+	tc.Mutex.Unlock()
+	_ = tc.Stop()
+}
+
 func (tc *TCPClientInterface) Stop() error {
 	tc.Mutex.Lock()
 	tc.Enabled = false
@@ -858,4 +868,10 @@ func (ts *TCPServerInterface) Send(data []byte, address string) error {
 
 	ts.updateBandwidthStats(uint64(len(masked)))
 	return nil
+}
+
+// EndpointStatus reports dial-health for this interface's remote endpoint:
+// dial failures, flaps, and active quarantine remaining.
+func (tc *TCPClientInterface) EndpointStatus() EndpointStatus {
+	return tc.reconnect.endpointStatus()
 }

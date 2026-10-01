@@ -294,6 +294,18 @@ func (ai *AwareInterface) PeerCount() int {
 	return len(ai.peers)
 }
 
+// SpawnedInterfaces returns the currently connected spawned peers,
+// matching Python spawned_interfaces for detach walks.
+func (ai *AwareInterface) SpawnedInterfaces() []Interface {
+	ai.Mutex.RLock()
+	defer ai.Mutex.RUnlock()
+	out := make([]Interface, 0, len(ai.peers))
+	for _, p := range ai.peers {
+		out = append(out, p)
+	}
+	return out
+}
+
 func (ai *AwareInterface) String() string {
 	return fmt.Sprintf("AwareInterface[%s]", ai.Name)
 }

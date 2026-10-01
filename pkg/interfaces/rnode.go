@@ -243,7 +243,15 @@ func (r *RNodeInterface) Start() error {
 	default:
 	}
 	r.Mutex.Unlock()
-	return r.startLocked()
+	if err := r.startLocked(); err != nil {
+		// RNS 1.5.5: a failed initial bring-up keeps the interface registered
+		// and retries in the background instead of failing Start.
+		debug.Log(debug.DebugError, "Could not bring up RNode interface, will retry periodically",
+			"name", r.Name, "port", r.opts.Port, "error", err)
+		go r.reconnectLoop()
+		return nil
+	}
+	return nil
 }
 
 func (r *RNodeInterface) startLocked() error {
