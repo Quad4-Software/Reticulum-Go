@@ -52,20 +52,28 @@ done
 emit() {
 	file="$TMP/$1"
 	title="$2"
+	open="${3:-}"
 	[ -s "$file" ] || return 0
-	echo "### ${title}"
+	count="$(wc -l <"$file" | tr -d ' ')"
+	if [ "$open" = "open" ]; then
+		echo "<details open>"
+	else
+		echo "<details>"
+	fi
+	echo "<summary><strong>${title}</strong> (${count})</summary>"
 	echo
 	while IFS="$(printf '\t')" read -r sha subj; do
 		short="$(printf %s "$sha" | cut -c1-7)"
 		echo "- ${subj} ([${short}](${BASE_URL}/${sha}))"
 	done <"$file"
+	echo "</details>"
 	echo
 }
 
 echo "## Changelog (${heading})"
 echo
-emit feat "New Features"
-emit fix "Bug Fixes"
+emit feat "New Features" open
+emit fix "Bug Fixes" open
 emit perf "Performance"
 emit docs "Documentation"
 emit test "Tests"
