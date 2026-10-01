@@ -21,8 +21,8 @@ TARBALL="go-legacy-winxp-${VER}.linux_${ARCH}.tar.gz"
 URL="${BASE}/${TARBALL}"
 
 case "$ARCH" in
-    amd64) EXPECTED_SHA256="19787633c02d7c6c927fd500a548d6593447d8966133995a0055e0df00a75098" ;;
-    arm64) EXPECTED_SHA256="196c28270281acb4d30e3e39f3c521a31cec2e644d1be42e5578ff3b25a81a01" ;;
+    amd64) EXPECTED_SHA256="c627806bccb8c5ec2fc43041a2f01a231d4b69eb200c0baffc10e709be4af030" ;;
+    arm64) EXPECTED_SHA256="f38ba248edeca69ab9bff69f5c80d325a0d6e7068288210a956dfc36ae936afe" ;;
 esac
 
 curl -fsSL "$URL" -o /tmp/go-legacy-winxp.tar.gz

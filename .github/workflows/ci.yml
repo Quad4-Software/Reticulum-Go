@@ -27,7 +27,7 @@ permissions:
 env:
   CI_GO_VERSION: "1.27.1"
   CI_GO_LEGACY_WIN7_VERSION: "1.27.1-1"
-  CI_GO_LEGACY_WINXP_VERSION: "1.26.6"
+  CI_GO_LEGACY_WINXP_VERSION: "1.27.1"
   CI_TASK_VERSION: "3.46.3"
   CI_REVIVE_VERSION: "v1.15.0"
   CI_STATICCHECK_VERSION: "2026.2.1"
@@ -1170,8 +1170,8 @@ jobs:
               ;;
           esac
           # Official go.mod targets Go 1.27.x; rewrite down to go-legacy-winxp.
-          sed -i 's/^go 1\.2[67]\.[0-9][0-9]*$/go 1.26.6/' go.mod
-          sed -i 's/go 1\.2[67]\.[0-9][0-9]*/go 1.26.6/g' vendor/modules.txt
+          sed -i 's/^go 1\.2[67]\.[0-9][0-9]*$/go 1.27.1/' go.mod
+          sed -i 's/go 1\.2[67]\.[0-9][0-9]*/go 1.27.1/g' vendor/modules.txt
           mkdir -p bin
           "$LEGACY_GO" build -ldflags="-s -w" \
             -o "bin/reticulum-go-windows-${{ matrix.goarch }}-winxp.exe" \
