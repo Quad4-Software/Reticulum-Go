@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.4.1 - Unreleased
+
+Tracks Python RNS 1.5.5.
+
+### Added
+
+- Release assets now carry GitHub OIDC build-provenance attestations (SLSA Build L3) alongside the cosign bundles. Verify with `gh attestation verify <file> --repo Quad4-Software/Reticulum-Go`.
+- Cosign attestation bundles are anchored in the Rekor transparency log, and the SLSA predicate records the source commit in resolvedDependencies.
+
 ## v1.4.0 - 2026-09-30
 
 Tracks Python RNS 1.5.5.
