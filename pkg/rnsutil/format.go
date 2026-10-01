@@ -279,6 +279,40 @@ func WriteStatusHuman(w io.Writer, stats transport.InterfaceStatsResponse, linkC
 				return err
 			}
 		}
+		annRejects := st.AnnounceMalformed + st.AnnounceDestType + st.AnnounceBlackholed +
+			st.AnnounceKeyMismatch + st.AnnounceMaxHops + st.AnnounceSuppressed
+		if st.AnnounceOK > 0 || st.AnnounceDup > 0 || annRejects > 0 || st.AnnounceHeld > 0 {
+			parts := fmt.Sprintf("ok=%d dup=%d held=%d", st.AnnounceOK, st.AnnounceDup, st.AnnounceHeld)
+			rej := ""
+			add := func(name string, v uint64) {
+				if v > 0 {
+					rej += fmt.Sprintf(" %s=%d", name, v)
+				}
+			}
+			add("sig", st.AnnounceSigFail)
+			add("malformed", st.AnnounceMalformed)
+			add("dest_type", st.AnnounceDestType)
+			add("blackholed", st.AnnounceBlackholed)
+			add("key_mismatch", st.AnnounceKeyMismatch)
+			add("max_hops", st.AnnounceMaxHops)
+			add("suppressed", st.AnnounceSuppressed)
+			if rej != "" {
+				parts += " reject:" + rej
+			}
+			if _, err := fmt.Fprintf(w, "  Announce  : %s\n", parts); err != nil {
+				return err
+			}
+		}
+		if st.EndpointDialFailures > 0 || st.EndpointFlaps > 0 || st.EndpointQuarantined {
+			line := fmt.Sprintf("dial_failures=%d flaps=%d quarantined=%v",
+				st.EndpointDialFailures, st.EndpointFlaps, st.EndpointQuarantined)
+			if st.EndpointQuarantined {
+				line += fmt.Sprintf(" quarantine_s=%.0f", st.EndpointQuarantineS)
+			}
+			if _, err := fmt.Fprintf(w, "  Endpoint  : %s\n", line); err != nil {
+				return err
+			}
+		}
 		if st.Clients != nil {
 			if _, err := fmt.Fprintf(w, "  Clients   : %d\n", *st.Clients); err != nil {
 				return err
@@ -481,6 +515,19 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 		HMACFail                  uint64   `json:"hmac_fail"`
 		AnnounceSigFail           uint64   `json:"announce_sig_fail"`
 		UnpackFail                uint64   `json:"unpack_fail"`
+		AnnounceMalformed         uint64   `json:"announce_malformed"`
+		AnnounceDestType          uint64   `json:"announce_dest_type"`
+		AnnounceBlackholed        uint64   `json:"announce_blackholed"`
+		AnnounceKeyMismatch       uint64   `json:"announce_key_mismatch"`
+		AnnounceMaxHops           uint64   `json:"announce_max_hops"`
+		AnnounceHeld              uint64   `json:"announce_held"`
+		AnnounceSuppressed        uint64   `json:"announce_suppressed"`
+		AnnounceOK                uint64   `json:"announce_ok"`
+		AnnounceDup               uint64   `json:"announce_dup"`
+		EndpointDialFailures      uint64   `json:"endpoint_dial_failures"`
+		EndpointFlaps             uint64   `json:"endpoint_flaps"`
+		EndpointQuarantined       bool     `json:"endpoint_quarantined"`
+		EndpointQuarantineS       float64  `json:"endpoint_quarantine_s"`
 		IntegrityFailRate         float64  `json:"integrity_fail_rate"`
 		StaleCloses               uint64   `json:"stale_closes"`
 		KeepaliveTimeout          uint64   `json:"keepalive_timeout"`
@@ -570,6 +617,19 @@ func WriteStatusJSON(w io.Writer, stats transport.InterfaceStatsResponse) error 
 			HMACFail:                  st.HMACFail,
 			AnnounceSigFail:           st.AnnounceSigFail,
 			UnpackFail:                st.UnpackFail,
+			AnnounceMalformed:         st.AnnounceMalformed,
+			AnnounceDestType:          st.AnnounceDestType,
+			AnnounceBlackholed:        st.AnnounceBlackholed,
+			AnnounceKeyMismatch:       st.AnnounceKeyMismatch,
+			AnnounceMaxHops:           st.AnnounceMaxHops,
+			AnnounceHeld:              st.AnnounceHeld,
+			AnnounceSuppressed:        st.AnnounceSuppressed,
+			AnnounceOK:                st.AnnounceOK,
+			AnnounceDup:               st.AnnounceDup,
+			EndpointDialFailures:      st.EndpointDialFailures,
+			EndpointFlaps:             st.EndpointFlaps,
+			EndpointQuarantined:       st.EndpointQuarantined,
+			EndpointQuarantineS:       st.EndpointQuarantineS,
 			IntegrityFailRate:         st.IntegrityFailRate,
 			StaleCloses:               st.StaleCloses,
 			KeepaliveTimeout:          st.KeepaliveTimeout,
@@ -591,6 +651,8 @@ func WriteDiscoveredJSON(w io.Writer, list []*discovery.DiscoveredInterface) err
 	type row struct {
 		Type                string   `json:"type"`
 		Name                string   `json:"name"`
+		ImplName            string   `json:"impl_name,omitempty"`
+		Version             string   `json:"version,omitempty"`
 		Status              string   `json:"status"`
 		Transport           bool     `json:"transport"`
 		ReachableOn         string   `json:"reachable_on,omitempty"`
@@ -617,6 +679,8 @@ func WriteDiscoveredJSON(w io.Writer, list []*discovery.DiscoveredInterface) err
 		r := row{
 			Type:        rec.Type,
 			Name:        rec.Name,
+			ImplName:    rec.ImplName,
+			Version:     rec.Version,
 			Status:      rec.Status,
 			Transport:   rec.Transport,
 			ReachableOn: rec.ReachableOn,
@@ -646,17 +710,67 @@ func WriteDiscoveredJSON(w io.Writer, list []*discovery.DiscoveredInterface) err
 	return enc.Encode(out)
 }
 
+// DiscoveredOptions controls WriteDiscoveredHuman filtering, matching the
+// rnstatus --show-stale / --show-unknown gates added in RNS 1.5.5.
+type DiscoveredOptions struct {
+	Details     bool
+	ShowStale   bool
+	ShowUnknown bool
+}
+
+// FilterDiscovered drops stale entries and entries without implementation
+// info unless the matching show flag is set (rnstatus --show-stale /
+// --show-unknown, RNS 1.5.5).
+func FilterDiscovered(list []*discovery.DiscoveredInterface, showStale, showUnknown bool) []*discovery.DiscoveredInterface {
+	out := make([]*discovery.DiscoveredInterface, 0, len(list))
+	for _, rec := range list {
+		if rec == nil {
+			continue
+		}
+		if rec.Status == "stale" && !showStale {
+			continue
+		}
+		if (rec.ImplName == "" || rec.Version == "") && !showUnknown {
+			continue
+		}
+		out = append(out, rec)
+	}
+	return out
+}
+
+// StackString renders the announced implementation and version, or "Unknown"
+// when the peer signalled neither (RNS 1.5.5 rnstatus "Stack" field).
+func StackString(rec *discovery.DiscoveredInterface) string {
+	if rec == nil {
+		return "Unknown"
+	}
+	if rec.ImplName == "" || rec.Version == "" {
+		return "Unknown"
+	}
+	return rec.ImplName + " " + rec.Version
+}
+
 // WriteDiscoveredHuman prints discovered interfaces (rnstatus -d / -D).
-func WriteDiscoveredHuman(w io.Writer, list []*discovery.DiscoveredInterface, details bool) error {
+func WriteDiscoveredHuman(w io.Writer, list []*discovery.DiscoveredInterface, opts DiscoveredOptions) error {
+	details := opts.Details
 	if len(list) == 0 {
 		_, err := fmt.Fprintln(w)
 		return err
 	}
 	now := time.Now()
-	for idx, rec := range list {
+	shown := 0
+	for _, rec := range list {
 		if rec == nil {
 			continue
 		}
+		if rec.Status == "stale" && !opts.ShowStale {
+			continue
+		}
+		if (rec.ImplName == "" || rec.Version == "") && !opts.ShowUnknown {
+			continue
+		}
+		idx := shown
+		shown++
 		if idx > 0 {
 			if details {
 				if _, err := fmt.Fprintln(w, "\n==============================================="); err != nil {
@@ -703,6 +817,9 @@ func WriteDiscoveredHuman(w io.Writer, list []*discovery.DiscoveredInterface, de
 			return err
 		}
 		if _, err := fmt.Fprintf(w, "Type         : %s\n", rec.Type); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(w, "Stack        : %s\n", StackString(rec)); err != nil {
 			return err
 		}
 		if _, err := fmt.Fprintf(w, "Status       : %s\n", status); err != nil {
