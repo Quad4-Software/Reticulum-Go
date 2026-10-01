@@ -51,7 +51,7 @@ go test -v ./...
 go run ./cmd/reticulum-go
 ```
 
-Packages: `make package-deb`, `make package-rpm`, `make package-arch` (output in `dist/`). Arch/CachyOS: [quad4-arch](https://github.com/Quad4-Software/quad4-arch).
+Packages: `make package-deb`, `make package-rpm`, `make package-arch` (output in `dist/`). Arch/CachyOS: [arch](https://github.com/Quad4-Software/arch).
 
 More targets, cross-compiles, WASM, and librns: [docs/en/getting-started.md](docs/en/getting-started.md) and [docs/en/development-and-testing.md](docs/en/development-and-testing.md).
 
