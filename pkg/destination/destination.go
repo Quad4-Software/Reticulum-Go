@@ -95,8 +95,9 @@ type Destination struct {
 	defaultAppData []byte
 	mutex          sync.RWMutex
 
-	announceWindowStart time.Time
-	announceWindowCount int
+	announceWindowStart      time.Time
+	announceWindowCount      int
+	announceThrottleWarnedAt time.Time
 
 	requestHandlers map[string]*RequestHandler
 
@@ -268,7 +269,22 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 		}
 		d.announceWindowCount++
 		if d.announceWindowCount > announceBurstMax {
+			throttled := d.announceWindowCount
+			hashPrefix := fmt.Sprintf("%x", d.hashValue[:8])
+			name := d.ExpandName()
+			warn := now.Sub(d.announceThrottleWarnedAt) >= announceThrottleWarnCooldown
+			if warn {
+				d.announceThrottleWarnedAt = now
+			}
 			d.mutex.Unlock()
+			if warn {
+				debug.Log(debug.DebugWarning,
+					"Destination announce rate exceeds burst limit (8 per 10s). Announce dropped. Throttle the announce loop.",
+					"dest_hash", hashPrefix,
+					"name", name,
+					"count", throttled,
+				)
+			}
 			return common.ErrDestAnnounceThrottled
 		}
 	}

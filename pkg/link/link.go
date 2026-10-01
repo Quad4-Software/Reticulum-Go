@@ -100,6 +100,9 @@ type Link struct {
 	initiator            bool
 	expectedHops         uint8
 	rebalanced           time.Time
+	// footgunWarnAt gates misuse warnings (busy/settled/duplicate-request) so
+	// an app retry loop cannot spam the log. Unix nano, atomic.
+	footgunWarnAt atomic.Int64
 
 	prv           *securemem.Buf
 	sigPriv       *securemem.Buf
@@ -173,19 +176,37 @@ func NewLink(dest *destination.Destination, transport *transport.Transport, netw
 		linkDone:             make(chan struct{}),
 	}
 }
+
+// warnFootgun logs a link-misuse warning at most once per minute so an app
+// retry loop cannot spam the log. Returns true when the caller should keep
+// handling the error path (always) - it never swallows the error itself.
+func (l *Link) warnFootgun(msg string, args ...any) {
+	now := time.Now().UnixNano()
+	for {
+		last := l.footgunWarnAt.Load()
+		if last != 0 && now-last < int64(time.Minute) {
+			return
+		}
+		if l.footgunWarnAt.CompareAndSwap(last, now) {
+			debug.Log(debug.DebugWarning, msg, args...)
+			return
+		}
+	}
+}
+
 func (l *Link) Establish() error {
 	l.mutex.Lock()
 	startTime := time.Now()
 
 	if l.status.Load() != int32(StatusPending) {
-		debug.Log(debug.DebugWarning, common.MsgLinkAlreadySettled,
+		l.warnFootgun(common.MsgLinkAlreadySettled,
 			"status", l.status.Load(),
 			"hint", "wait for the established or closed callback, do not call Establish again")
 		l.mutex.Unlock()
 		return common.ErrLinkAlreadySettled
 	}
 	if !l.requestTime.IsZero() {
-		debug.Log(debug.DebugWarning, common.MsgLinkEstablishBusy,
+		l.warnFootgun(common.MsgLinkEstablishBusy,
 			"hint", "wait for the established callback, do not loop NewLink/Establish")
 		l.mutex.Unlock()
 		return common.ErrLinkEstablishBusy

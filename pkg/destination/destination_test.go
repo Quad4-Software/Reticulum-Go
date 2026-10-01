@@ -16,6 +16,7 @@ import (
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/announce"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 )
@@ -1120,6 +1121,64 @@ func TestAnnounceThrottlesBurst(t *testing.T) {
 	}
 	if err := dest.Announce(true, nil, nil); err != nil {
 		t.Fatalf("path-response announce should skip app throttle: %v", err)
+	}
+}
+
+func TestAnnounceThrottleWarnsOnce(t *testing.T) {
+	id, err := identity.New()
+	if err != nil {
+		t.Fatalf("identity.New: %v", err)
+	}
+	iface := newRecordingInterface("udp")
+	tr := &mockTransport{
+		config: &common.ReticulumConfig{},
+		interfaces: map[string]common.NetworkInterface{
+			"udp": iface,
+		},
+	}
+	dest, err := New(id, In, Single, "testapp", tr, "aspect")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	var logs bytes.Buffer
+	debug.SetExtraWriter(&logs)
+	t.Cleanup(func() { debug.SetExtraWriter(nil) })
+
+	// First burst fires the warn once.
+	for i := range announceBurstMax + 2 {
+		err := dest.Announce(false, nil, nil)
+		if i < announceBurstMax && err != nil {
+			t.Fatalf("announce %d: %v", i, err)
+		}
+	}
+	if got := strings.Count(logs.String(), "announce rate exceeds burst limit"); got != 1 {
+		t.Fatalf("warn count = %d, want 1\nlogs:\n%s", got, logs.String())
+	}
+
+	// Reset the burst window but stay inside the warn cooldown: no second warn.
+	dest.mutex.Lock()
+	dest.announceWindowStart = time.Now().Add(-announceBurstWindow - time.Second)
+	dest.announceWindowCount = 0
+	dest.mutex.Unlock()
+	for range announceBurstMax + 1 {
+		_ = dest.Announce(false, nil, nil)
+	}
+	if got := strings.Count(logs.String(), "announce rate exceeds burst limit"); got != 1 {
+		t.Fatalf("warn count after cooldown reset = %d, want 1\nlogs:\n%s", got, logs.String())
+	}
+
+	// After cooldown passes, the next throttle does warn again.
+	dest.mutex.Lock()
+	dest.announceWindowStart = time.Now().Add(-announceBurstWindow - time.Second)
+	dest.announceWindowCount = 0
+	dest.announceThrottleWarnedAt = time.Now().Add(-announceThrottleWarnCooldown - time.Second)
+	dest.mutex.Unlock()
+	for range announceBurstMax + 1 {
+		_ = dest.Announce(false, nil, nil)
+	}
+	if got := strings.Count(logs.String(), "announce rate exceeds burst limit"); got != 2 {
+		t.Fatalf("warn count after cooldown expiry = %d, want 2\nlogs:\n%s", got, logs.String())
 	}
 }
 
