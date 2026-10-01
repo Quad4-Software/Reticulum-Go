@@ -77,7 +77,7 @@ Tree integrity. Root file reticulum-go.rsm is an rnid signed message embedding S
 
 Tagged releases publish from .github/workflows/publish.yml on GitHub Actions.
 
-Each release asset has a cosign attestation bundle (*.cosign.bundle) signed with the project key. Public key: cosign.pub in the repository.
+Each release asset has a cosign attestation bundle (*.cosign.bundle) signed with the project key and anchored in the Rekor transparency log. Public key: cosign.pub in the repository.
 
 Verify:
 
@@ -85,7 +85,13 @@ Verify:
 sh scripts/ci/verify-release-attestation.sh PATH/TO/blob PATH/TO/blob.cosign.bundle
 ```
 
-SHA256 listings in release notes are an informal backup. Prefer cosign verification.
+Assets also carry GitHub OIDC build provenance (SLSA Build L3), signed by the GitHub attestation service against the release workflow run rather than a repo secret:
+
+```bash
+gh attestation verify PATH/TO/blob --repo Quad4-Software/Reticulum-Go
+```
+
+SHA256 listings in release notes are an informal backup. Prefer cosign or attestation verification.
 
 SBOMs (SPDX and CycloneDX) are attached to tagged releases via Trivy (make sbom).
 

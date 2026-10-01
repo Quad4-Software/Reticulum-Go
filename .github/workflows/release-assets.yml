@@ -2,6 +2,7 @@
 #   actions/checkout@v7.0.1            3d3c42e5aac5ba805825da76410c181273ba90b1
 #   actions/upload-artifact@v7.0.1     043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
 #   actions/download-artifact@v8.0.1   3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+#   actions/attest-build-provenance@v4.2.2  4d101475d8b20a2381f78447822ac1eab6504dd8
 #
 name: Release assets
 
@@ -39,6 +40,8 @@ env:
   CI_TASK_VERSION: "3.46.3"
   CI_COSIGN_VERSION: "3.0.5"
   CI_TRIVY_VERSION: "0.69.3"
+  # Anchor cosign attestation bundles in the public Rekor transparency log.
+  COSIGN_REKOR_URL: "https://rekor.sigstore.dev"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
   GOTOOLCHAIN: local
@@ -424,6 +427,8 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write
+      id-token: write
+      attestations: write
 
     steps:
       - name: Harden runner
@@ -466,6 +471,15 @@ jobs:
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
         run: sh scripts/ci/attest-release-assets.sh merged
 
+      # Platform-bound SLSA provenance (Build L3): the attestation is signed
+      # by GitHub's service against this workflow run's OIDC identity, so it
+      # cannot be forged by anyone holding only the repo secrets. Verify with
+      # "gh attestation verify <file> -R Quad4-Software/Reticulum-Go".
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: merged/**
+
       - name: Create release with assets and notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -505,7 +519,13 @@ jobs:
             echo
             echo "## SHA256 digests (backup only)"
             echo
-            echo "Prefer verification with cosign: each release file has a matching \`*.cosign.bundle\` signed for this repo; use \`cosign.pub\` and \`scripts/ci/verify-release-attestation.sh\` (or \`cosign verify-blob-attestation\`)."
+            echo "Prefer verification with cosign: each release file has a matching \`*.cosign.bundle\` signed for this repo; use \`cosign.pub\` and \`scripts/ci/verify-release-attestation.sh\` (or \`cosign verify-blob-attestation\`). Bundles are anchored in the Rekor transparency log."
+            echo
+            echo "GitHub OIDC provenance attestation (SLSA Build L3) is available per asset:"
+            echo
+            echo '```sh'
+            echo "gh attestation verify <file> --repo ${GITHUB_REPOSITORY}"
+            echo '```'
             echo
             echo '```'
             find merged -type f ! -name '*.cosign.bundle' -print0 | LC_ALL=C sort -z | xargs -0 sha256sum
