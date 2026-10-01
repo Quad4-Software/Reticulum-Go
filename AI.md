@@ -14,8 +14,9 @@ Method: Fireworks (ZDR)
 
 - `Harness` is the agent/orchestration layer that drove the change.
 - `Model` is the model that produced the code.
-- `Method` is the inference path, including data-retention terms where
-  relevant (for example ZDR = zero data retention).
+- `Method` is the inference path. Use `Local` for models running on your
+  own hardware, or the provider name plus data-retention terms for API
+  inference (for example `Fireworks (ZDR)` = zero data retention).
 
 `git log --format='%(trailers)'` or `git log --grep='^Model:'` audits them.
 Trailers are metadata, not authorship; the human committer remains the
@@ -47,7 +48,7 @@ The hooks live in `.githooks/` and install once per clone:
 sh scripts/ci/install-git-hooks.sh
 ```
 
-Then configure the identity this machine reports:
+Then configure the identity this machine reports. Example:
 
 ```
 git config --global ai.harness "Nullray"
@@ -56,7 +57,19 @@ git config --global ai.method  "Fireworks (ZDR)"
 ```
 
 With the config present, every commit gains the trailers plus the note.
-Unset the keys or use `SKIP_AI_HOOK=1 git commit ...` to opt out.
+
+## Committing without provenance
+
+When you author a commit yourself with no AI involvement:
+
+```
+SKIP_AI_HOOK=1 git commit -m "..."
+```
+
+The env var skips both the trailer injection and the notes hook, so the
+commit carries no AI metadata. For a local-only opt-out on one clone,
+`git config --unset ai.harness` (etc.) or unset the keys globally and set
+them per-repo where agent work happens.
 
 ## Honest scope
 
