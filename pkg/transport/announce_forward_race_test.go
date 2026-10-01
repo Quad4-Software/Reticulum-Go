@@ -31,16 +31,18 @@ func TestScheduleAnnounceForwardJob_BacklogFullDrops(t *testing.T) {
 	tr.pendingAnnounceMu.Lock()
 	for range MaxPendingAnnounceForwards {
 		tr.pendingAnnounceJobs = append(tr.pendingAnnounceJobs, delayedAnnounceJob{
-			due: time.Now().Add(time.Hour),
-			job: func() {},
+			due:  time.Now().Add(time.Hour),
+			data: []byte{0x01, 0x00},
 		})
 	}
 	tr.pendingAnnounceMu.Unlock()
 
-	ran := false
-	tr.scheduleAnnounceForwardJob(func() { ran = true })
-	if ran {
-		t.Fatal("backlog-full schedule must drop the job")
+	tr.scheduleAnnounceForward([]byte{0x01, 0x00}, hash16{}, []byte("dest"), nil)
+	tr.pendingAnnounceMu.Lock()
+	n0 := len(tr.pendingAnnounceJobs)
+	tr.pendingAnnounceMu.Unlock()
+	if n0 != MaxPendingAnnounceForwards {
+		t.Fatalf("backlog-full schedule must drop the job, queued=%d", n0)
 	}
 	tr.pendingAnnounceMu.Lock()
 	n := len(tr.pendingAnnounceJobs)
@@ -54,20 +56,36 @@ func TestProcessDelayedAnnounceJobs_RunsDueOnly(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
 	defer tr.Close()
 
-	var ranDue, ranFuture bool
+	in := newRelayIface("due-in")
+	out := newRelayIface("due-out")
+	if err := tr.RegisterInterface(in.GetName(), in); err != nil {
+		t.Fatal(err)
+	}
+	if err := tr.RegisterInterface(out.GetName(), out); err != nil {
+		t.Fatal(err)
+	}
+	// A due job must run (observable as a send on out), a future job must not.
+	dueData := []byte{0x04, 0x01}
+	var dueDst [16]byte
+	futData := []byte{0x04, 0x01}
+	var futDst [16]byte
+	futDst[15] = 0xFF
 	tr.pendingAnnounceMu.Lock()
 	tr.pendingAnnounceJobs = []delayedAnnounceJob{
-		{due: time.Now().Add(-time.Millisecond), job: func() { ranDue = true }},
-		{due: time.Now().Add(time.Hour), job: func() { ranFuture = true }},
+		{due: time.Now().Add(-time.Millisecond), data: dueData, dest: destKey(dueDst[:]), dst: dueDst, from: in},
+		{due: time.Now().Add(time.Hour), data: futData, dest: destKey(futDst[:]), dst: futDst, from: in},
 	}
 	tr.pendingAnnounceMu.Unlock()
 
 	tr.processDelayedAnnounceJobs()
-	if !ranDue {
+	if countSends(out) == 0 {
 		t.Fatal("due job must run")
 	}
-	if ranFuture {
-		t.Fatal("future job must remain queued")
+	tr.pendingAnnounceMu.Lock()
+	remaining := len(tr.pendingAnnounceJobs)
+	tr.pendingAnnounceMu.Unlock()
+	if remaining != 1 {
+		t.Fatalf("pending after process = %d, want 1", remaining)
 	}
 	tr.pendingAnnounceMu.Lock()
 	n := len(tr.pendingAnnounceJobs)
@@ -97,13 +115,7 @@ func TestRegression_AnnounceForwardSurvivesCallerBufferReuse(t *testing.T) {
 	for i := range 64 {
 		buf := bytes.Repeat([]byte{byte(i + 1)}, 48)
 		dest := append([]byte(nil), buf[:16]...)
-		fwd := append([]byte(nil), buf...)
-		fwd[1]++
-		destCopy := append([]byte(nil), dest...)
-		from := in
-		tr.scheduleAnnounceForwardJob(func() {
-			_ = tr.forwardAnnouncePacket(fwd, destKey(destCopy), destCopy, from)
-		})
+		tr.scheduleAnnounceForward(buf, destKey(dest), dest, in)
 		for j := range buf {
 			buf[j] = 0xFF
 		}
@@ -138,10 +150,7 @@ func TestAnnounceForwardStorm_NoGoroutineExplosion(t *testing.T) {
 	for i := range MaxPendingAnnounceForwards * 2 {
 		buf := bytes.Repeat([]byte{byte(i)}, 32)
 		dest := append([]byte(nil), randomDestHash(300+i)...)
-		fwd := append([]byte(nil), buf...)
-		tr.scheduleAnnounceForwardJob(func() {
-			_ = tr.forwardAnnouncePacket(fwd, destKey(dest), dest, in)
-		})
+		tr.scheduleAnnounceForward(buf, destKey(dest), dest, in)
 	}
 	tr.pendingAnnounceMu.Lock()
 	queued := len(tr.pendingAnnounceJobs)
