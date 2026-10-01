@@ -37,6 +37,10 @@ type Hooks struct {
 	UnregisterInterface func(name string)
 	HandleInterface     func(iface common.NetworkInterface)
 	OnClientAttach      func()
+	// ManageInterface serves the "manage" RPC path (attach_interface,
+	// detach_interface, reload_interface) when this instance owns the
+	// network interfaces (RNS 1.5.5). Returns true, false, or nil.
+	ManageInterface func(action, name string) any
 }
 
 // Attach starts or joins a shared local instance when share_instance is
@@ -143,6 +147,7 @@ func attachServerOrClient(cfg *common.ReticulumConfig, tr *transport.Transport, 
 			_ = server.Stop()
 			return nil, err
 		}
+		rpc.SetManager(hooks.ManageInterface)
 		inst.RPC = rpc
 		debug.Log(debug.DebugInfo, "Started shared instance server", "port", port, "unix", useUnix)
 		return inst, nil

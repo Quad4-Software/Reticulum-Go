@@ -67,6 +67,7 @@ type Node struct {
 	bhUpdaterStop    chan struct{}
 
 	acMu             sync.Mutex
+	acSpawnMu        sync.Mutex
 	acEntries        []*autoconnectEntry
 	acMonitorRunning bool
 	acMonitorStop    chan struct{}
@@ -196,6 +197,7 @@ func (n *Node) Start() error {
 	hooks := sharedinstance.Hooks{
 		RegisterInterface: n.transport.RegisterInterface,
 		HandleInterface:   n.handleInterface,
+		ManageInterface:   n.manageInterfaceRPC,
 	}
 	inst, err := sharedinstance.Attach(n.config, n.transport, hooks)
 	if err != nil {

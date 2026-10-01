@@ -21,6 +21,10 @@ import (
 // RPCHandler serves shared-instance control requests.
 type RPCHandler struct {
 	Transport *transport.Transport
+	// Manage, when set, serves the RNS 1.5.5 "manage" RPC path:
+	// attach_interface, detach_interface and reload_interface by name.
+	// It returns true, false, or nil exactly like Python rpc_return.
+	Manage func(action, name string) any
 }
 
 func (h *RPCHandler) Handle(call map[string]any) any {
@@ -58,6 +62,16 @@ func (h *RPCHandler) Handle(call map[string]any) any {
 			return h.Transport.IsBlackholedRPC(decodeHash(call["identity_hash"]))
 		case "profiling_results":
 			return profiler.ResultsOrNil()
+		}
+	}
+	if manage, ok := call["manage"].(string); ok {
+		switch manage {
+		case "attach_interface", "detach_interface", "reload_interface":
+			if h.Manage == nil {
+				return false
+			}
+			name, _ := call["name"].(string)
+			return h.Manage(manage, name)
 		}
 	}
 	if drop, ok := call["drop"].(string); ok {
@@ -151,10 +165,19 @@ func StartRPCServer(cfg *common.ReticulumConfig, tr *transport.Transport) (*RPCS
 		handler:  &RPCHandler{Transport: tr},
 		done:     make(chan struct{}),
 	}
+
 	s.wg.Add(1)
 	go s.serve()
 	debug.Log(debug.DebugInfo, "Shared instance RPC listening", "addr", ln.Addr().String())
 	return s, nil
+}
+
+// SetManager installs the handler for the "manage" RPC path after server
+// creation, letting the owning node wire interface attach/detach/reload.
+func (s *RPCServer) SetManager(fn func(action, name string) any) {
+	if s != nil && s.handler != nil {
+		s.handler.Manage = fn
+	}
 }
 
 func (s *RPCServer) serve() {

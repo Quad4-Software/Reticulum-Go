@@ -93,3 +93,52 @@ func freeTCPPort(t *testing.T) int {
 	defer ln.Close()
 	return ln.Addr().(*net.TCPAddr).Port
 }
+
+// TestRPCHandlerManage covers the RNS 1.5.5 interface management RPC path
+// (rnstatus --attach/--detach/--reload). Without a Manage hook the handler
+// answers false; with one it forwards the action and interface name and
+// preserves the Python tri-state (true/false/nil).
+func TestRPCHandlerManage(t *testing.T) {
+	cfg := &common.ReticulumConfig{EnableTransport: false, InMemoryStorage: true}
+	tr := transport.NewTransport(cfg)
+	defer tr.Close()
+	h := &RPCHandler{Transport: tr}
+
+	for _, action := range []string{"attach_interface", "detach_interface", "reload_interface"} {
+		got := h.Handle(map[string]any{"manage": action, "name": "udp_test"})
+		if b, ok := got.(bool); !ok || b {
+			t.Fatalf("no-hook manage %s: %#v want false", action, got)
+		}
+	}
+
+	var gotAction, gotName string
+	returns := map[string]any{
+		"attach_interface": true,
+		"detach_interface": false,
+		"reload_interface": nil,
+	}
+	h.Manage = func(action, name string) any {
+		gotAction, gotName = action, name
+		return returns[action]
+	}
+	for action, want := range returns {
+		got := h.Handle(map[string]any{"manage": action, "name": "udp_test"})
+		if gotAction != action || gotName != "udp_test" {
+			t.Fatalf("manage forwarded %s/%s want %s/udp_test", gotAction, gotName, action)
+		}
+		switch want {
+		case nil:
+			if got != nil {
+				t.Fatalf("manage %s: %#v want nil", action, got)
+			}
+		default:
+			if got != want {
+				t.Fatalf("manage %s: %#v want %#v", action, got, want)
+			}
+		}
+	}
+	// Unknown manage actions are ignored.
+	if got := h.Handle(map[string]any{"manage": "bogus", "name": "x"}); got != nil {
+		t.Fatalf("bogus manage: %#v want nil", got)
+	}
+}
