@@ -8,7 +8,7 @@ Every AI-assisted commit ends with trailers:
 
 ```
 Harness: Nullray
-Model: Kimi K3
+Model: Kimi K3, GLM-5.3-Flash, Qwen3.8
 Method: Fireworks (ZDR)
 ```
 
@@ -52,7 +52,7 @@ Then configure the identity this machine reports. Example:
 
 ```
 git config --global ai.harness "Nullray"
-git config --global ai.model   "Kimi K3"
+git config --global ai.model   "Kimi K3, GLM-5.3-Flash, Qwen3.8"
 git config --global ai.method  "Fireworks (ZDR)"
 ```
 
