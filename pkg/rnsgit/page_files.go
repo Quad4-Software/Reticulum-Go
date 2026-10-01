@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
@@ -69,9 +70,15 @@ func (n *Node) serveArtifact(_ string, data []byte, _ []byte, _ []byte, remote *
 	return link.FileResponse{Data: blob, MetadataPacked: meta, AutoCompress: true}
 }
 
-// serveDownload streams a raw blob as a file response. The reference pipes
-// git show directly. This implementation reads the blob with the page git
-// timeout, which bounds both runtime and memory through the subprocess cap.
+// convertableExts are blob extensions eligible for format conversion on
+// download (RNS 1.5.5 CONVERTABLE_EXTS). Only .md converts, to micron.
+var convertableExts = map[string]bool{".md": true}
+
+// serveDownload streams a raw blob as a file response, or a micron-converted
+// rendering when fmt=mu is requested for a markdown file (RNS 1.5.5). The
+// reference pipes git show directly. This implementation reads the blob with
+// the page git timeout, which bounds both runtime and memory through the
+// subprocess cap.
 func (n *Node) serveDownload(_ string, data []byte, _ []byte, _ []byte, remote *identity.Identity, _ int64) any {
 	vars := pageVars(data)
 	group, repo, repoPath, errBody := n.accessibleRepo(vars, remote)
@@ -90,12 +97,37 @@ func (n *Node) serveDownload(_ string, data []byte, _ []byte, _ []byte, remote *
 	if filePath == "" || strings.Contains(filePath, "..") {
 		return nil
 	}
+	fileFmt := vars["fmt"]
+	ext := strings.ToLower(path.Ext(filePath))
+	if fileFmt != "" && !convertableExts[ext] {
+		debug.Log(debug.DebugVerbose, "Download conversion request for non-convertable file", "path", filePath)
+		return nil
+	}
 	blob, err := n.git.ShowBlob(repoPath, resolved, filePath)
 	if err != nil {
 		return nil
 	}
 	n.downloadSucceeded(group, repo, remote)
 	name := path.Base(filePath)
+	if fileFmt == "mu" {
+		parts := strings.Split(strings.Trim(filePath, "/"), "/")
+		dir := ""
+		if len(parts) > 1 {
+			dir = strings.Join(parts[:len(parts)-1], "/") + "/"
+		}
+		urlScope := ":" + pagePathBlob + "`g=" + mFieldValue(group) +
+			"|r=" + mFieldValue(repo) + "|ref=" + mFieldValue(vars["ref"]) +
+			"|path=" + mFieldValue(dir)
+		mu := n.mdc.formatBlock(string(blob), urlScope)
+		if mu == "" {
+			return nil
+		}
+		stem := strings.TrimSuffix(name, ext)
+		name = stem + ".mu"
+		blob = []byte(mu)
+	} else if fileFmt != "" {
+		return nil
+	}
 	meta, _ := msgpack.Marshal(map[string]any{"name": []byte(name)})
 	return link.FileResponse{Data: blob, MetadataPacked: meta, AutoCompress: true}
 }
