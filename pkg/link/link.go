@@ -22,6 +22,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/pathfinder"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/rate"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/securemem"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
@@ -140,6 +141,12 @@ type Link struct {
 	outgoingReceiverMinPart int
 	outgoingResCompleteChan chan struct{}
 	outgoingDispatchMu      sync.Mutex
+	// reqLimiter bounds inbound RESOURCE_REQ dispatch on the sending side.
+	// Each REQ can select up to a full window of parts which are then
+	// re-encrypted and retransmitted, so an unauthenticated-rate REQ flood
+	// is a small-in/large-out amplification vector. Lazily created on the
+	// first dispatch.
+	reqLimiter *rate.Limiter
 
 	pendingPlainMu   sync.Mutex
 	pendingPlainData []byte
@@ -149,6 +156,13 @@ type Link struct {
 	// window. Processing them before the established callback drops messages.
 	earlyChannelMu sync.Mutex
 	earlyChannel   []*packet.Packet
+
+	// cachedProofRaw keeps the responder's sent LRPROOF wire bytes so a
+	// replayed identical LINKREQUEST can be answered by resend instead of
+	// a fresh keygen+ECDH+sign. cachedProofPkt covers the transport-routed
+	// send path when no receiving interface is bound.
+	cachedProofRaw []byte
+	cachedProofPkt *packet.Packet
 }
 
 func NewLink(dest *destination.Destination, transport *transport.Transport, networkIface common.NetworkInterface, establishedCallback func(*Link), closedCallback func(*Link)) *Link {

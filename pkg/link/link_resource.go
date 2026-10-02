@@ -12,7 +12,9 @@ import (
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/rate"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
@@ -592,6 +594,27 @@ func selectRequestedPartIndexes(out *resource.Resource, reqHashes []byte, receiv
 	}
 	return indexes
 }
+
+// resourceReqRate bounds RESOURCE_REQ dispatch per link. A legit receiver
+// re-requests at most once per drained window (~75 parts), so this still
+// allows ~5MB/s of part retransmission while bounding the amplification a
+// REQ flood can drive.
+const (
+	resourceReqRate  = 128.0
+	resourceReqBurst = 384.0
+)
+
+func (l *Link) resourceReqAllowed() bool {
+	l.outgoingMu.Lock()
+	rl := l.reqLimiter
+	if rl == nil {
+		rl = rate.NewLimiter(resourceReqRate, resourceReqBurst)
+		l.reqLimiter = rl
+	}
+	l.outgoingMu.Unlock()
+	return rl.Allow()
+}
+
 func (l *Link) handleResourceRequest(pkt *packet.Packet) error {
 	plaintext, err := l.decrypt(pkt.Data)
 	if err != nil {
@@ -602,6 +625,16 @@ func (l *Link) handleResourceRequest(pkt *packet.Packet) error {
 	out := l.outgoingRes
 	l.outgoingMu.Unlock()
 	if out != nil && len(plaintext) >= 1+32 {
+		if !l.resourceReqAllowed() {
+			debug.Log(
+				debug.DebugVerbose,
+				"Dropping excess resource request",
+				"link_id",
+				fmt.Sprintf("%x", l.linkID),
+			)
+			health.Inc(l.attachedIfaceName(), health.KindResourceReqDrop)
+			return nil
+		}
 		l.dispatchOutgoingResourceRequests(plaintext)
 		return nil
 	}

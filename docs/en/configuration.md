@@ -144,7 +144,11 @@ Optional limits (zero or unset keeps built-in defaults):
 | dos_max_crypto | Concurrent crypto verify jobs |
 | dos_max_handshake | Concurrent link handshake jobs |
 
-Ingress uses interface bitrate when available to scale adaptive floors. Announce-class traffic sheds at the adaptive trip line. Path requests, data, and established link or proof traffic may stay admitted above that line (up to 2x, or the advertised bitrate if higher). That band does not arm interface cool-down. Interface-wide cool-down is off by default so a public UDP listener is not blackholed. A single flooder can still be peer-cooled.
+Ingress uses interface bitrate when available to scale adaptive floors. Announce-class traffic sheds gradually (probabilistic early drop starting at half the adaptive trip line, ramping to the line) and then fully at the line. Path requests, data, and established link or proof traffic may stay admitted above that line (up to 2x, or the advertised bitrate if higher). That band does not arm interface cool-down. Interface-wide cool-down is off by default so a public UDP listener is not blackholed. A single flooder can still be peer-cooled.
+
+The adaptive baseline grows asymmetrically: quiet rates raise it slowly (alpha 0.03) while drops lower it quickly (alpha 0.2), so a sustained flood parked just under the learn gate cannot walk the trip line to the absolute ceiling in seconds.
+
+Independent of this mode, unconditional structural bounds always apply: 256 registered links or pending handshakes, one incoming resource per link, bounded resource part counts, a capped path table, and dedup-before-verify on announces. Identical replayed LINKREQUEST packets are answered by resending the cached proof rather than redoing responder crypto.
 
 Operator visibility: reticulum-go status -json and shared-instance interface_stats include a protect object (mode, phase, trip lines, cool-down). Control API GET /v1/status includes the same protect block.
 
@@ -160,6 +164,8 @@ Surfaces gated when mode is not off:
 | Handshakes | Link setup / proof floods |
 | Memory shed | Soft heap pressure (pairs with soft_memory_limit) |
 | Iface cool-down | Opt-in 15s hard reject after a burst of trips on one iface. Off by default so a public UDP listener is not blackholed |
+| Resource REQ dispatch | Per-link token bucket (128/s, burst 384) bounds retransmit amplification |
+| Ratchet persistence | Global limiter (16/s) bounds announce-driven disk writes |
 
 Stdout trip lines look like:
 

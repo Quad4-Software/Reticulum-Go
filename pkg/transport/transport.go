@@ -352,7 +352,11 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 	if !inMemory {
 		storagePath = transportStoragePath(cfg)
 	}
-	if cfg != nil {
+	// Only touch the protect engine when the operator actually configured
+	// dos_protection (or a caller set the field programmatically). A bare
+	// NewTransport must not silently downgrade a previously installed
+	// engine back to ModeOff.
+	if cfg != nil && (cfg.DoSProtectionSet || cfg.DoSProtection != "") {
 		protectStore := ""
 		if storagePath != "" {
 			protectStore = filepath.Join(storagePath, protect.StoreFileName)
@@ -1808,6 +1812,28 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		return fmt.Errorf("packet too small: %d bytes", len(data))
 	}
 
+	// Cheap dedup before signature verification. The announce hash covers
+	// data[2:], so a replayed announce is recognised here for the cost of
+	// one SHA-256 plus a map lookup instead of a full Ed25519 verify.
+	// Rejected announces never enter seenAnnounces (the claim below only
+	// happens after a successful verify), so retries still reach the
+	// verifier.
+	announceHash := sha256.Sum256(data[2:])
+	t.mutex.RLock()
+	if last, ok := t.seenAnnounces[announceHash]; ok && time.Since(last) < SeenAnnounceTTL {
+		t.mutex.RUnlock()
+		dupIface := ""
+		if iface != nil {
+			dupIface = iface.GetName()
+		}
+		health.Inc(dupIface, health.KindAnnounceDup)
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Ignoring duplicate announce (pre-verify)", "hash", fmt.Sprintf("%x", announceHash[:8]))
+		}
+		return nil
+	}
+	t.mutex.RUnlock()
+
 	var destinationHash []byte
 	var context byte
 	var payload []byte
@@ -1951,8 +1977,6 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		announceReject(iface, health.KindAnnounceMalformed)
 		return fmt.Errorf("destination hash mismatch")
 	}
-
-	announceHash := sha256.Sum256(data[2:])
 
 	// Claim the dedup slot atomically with the check: concurrent inbound
 	// workers must not both pass before either records the announce. The

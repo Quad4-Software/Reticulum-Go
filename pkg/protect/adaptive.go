@@ -31,8 +31,24 @@ func (a *adaptiveState) observe(pps, bps float64) {
 		a.ewmaPPS = pps
 		a.ewmaBPS = bps
 	} else {
-		a.ewmaPPS = EWMAAlpha*pps + (1-EWMAAlpha)*a.ewmaPPS
-		a.ewmaBPS = EWMAAlpha*bps + (1-EWMAAlpha)*a.ewmaBPS
+		// Asymmetric EWMA once armed: the baseline climbs slowly under
+		// sustained elevation (EWMAAlphaUp) but still falls quickly back
+		// toward quiet traffic (EWMAAlpha). A constant alpha lets an
+		// attacker parked at 1.49x the baseline inflate it ~10%/s and
+		// reach the absolute ceiling in under a minute, silently
+		// neutering the adaptive trip line.
+		alphaPPS := EWMAAlpha
+		alphaBPS := EWMAAlpha
+		if a.ready {
+			if pps > a.ewmaPPS {
+				alphaPPS = EWMAAlphaUp
+			}
+			if bps > a.ewmaBPS {
+				alphaBPS = EWMAAlphaUp
+			}
+		}
+		a.ewmaPPS = alphaPPS*pps + (1-alphaPPS)*a.ewmaPPS
+		a.ewmaBPS = alphaBPS*bps + (1-alphaBPS)*a.ewmaBPS
 	}
 	a.samples++
 	if a.samples >= AdaptiveWarmupSamples {

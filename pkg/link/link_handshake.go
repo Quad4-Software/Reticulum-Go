@@ -24,6 +24,20 @@ func HandleIncomingLinkRequest(pkt *packet.Packet, dest *destination.Destination
 	startTime := time.Now()
 	debug.Log(debug.DebugVerbose, "Creating link for incoming request", "dest_hash", fmt.Sprintf("%x", dest.GetHash()), "interface", networkIface.GetName())
 
+	// Replay dedup before any slot or crypto work: an identical
+	// LINKREQUEST produces an identical linkID. If a live link for it
+	// already exists, resend its cached proof instead of paying
+	// keygen+ECDH+sign+proof-transmit again. Legitimate initiator retries
+	// (lost proof) still get an answer; a replay flood becomes near-free.
+	if transport != nil {
+		if existing := transport.FindLink(linkIDFromPacket(pkt)); existing != nil {
+			if l, ok := existing.(*Link); ok && l.resendProofIfPending() {
+				return l, nil
+			}
+			return nil, nil
+		}
+	}
+
 	if transport != nil {
 		if !transport.BeginIncomingHandshake() {
 			return nil, errors.New("incoming link limit reached")
@@ -66,6 +80,44 @@ func HandleIncomingLinkRequest(pkt *packet.Packet, dest *destination.Destination
 	debug.Log(debug.DebugInfo, "Link established for incoming request", "link_id", fmt.Sprintf("%x", l.linkID), "elapsed", time.Since(startTime).Seconds())
 	return l, nil
 }
+
+// resendProofIfPending retransmits the cached link proof for a responder
+// link that already handled this identical request. Returns true when the
+// replay has been fully answered (or is best ignored), false when the
+// caller should create a fresh link - for example the prior attempt died.
+func (l *Link) resendProofIfPending() bool {
+	l.mutex.Lock()
+	if l.initiator {
+		l.mutex.Unlock()
+		return true // replayed copy of our own outbound request: ignore
+	}
+	st := l.status.Load()
+	if st == int32(StatusClosed) || st == int32(StatusFailed) {
+		l.mutex.Unlock()
+		return false
+	}
+	raw := append([]byte(nil), l.cachedProofRaw...)
+	cachedPkt := l.cachedProofPkt
+	iface := l.networkInterface
+	tr := l.transport
+	l.mutex.Unlock()
+	if len(raw) > 0 && iface != nil {
+		if err := iface.Send(raw, ""); err != nil {
+			debug.Log(debug.DebugVerbose, "Failed to resend cached link proof", "error", err)
+		} else {
+			l.recordOutbound()
+			debug.Log(debug.DebugVerbose, "Resent cached link proof for replayed request", "link_id", fmt.Sprintf("%x", l.linkID))
+		}
+	} else if cachedPkt != nil && tr != nil {
+		if err := tr.SendPacket(cachedPkt); err != nil {
+			debug.Log(debug.DebugVerbose, "Failed to resend cached link proof via transport", "error", err)
+		} else {
+			l.recordOutbound()
+		}
+	}
+	return true
+}
+
 func (l *Link) Identify(id *identity.Identity) error {
 	if !l.IsActive() {
 		return common.ErrLinkNotActive

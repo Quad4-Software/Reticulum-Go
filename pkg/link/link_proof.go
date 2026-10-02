@@ -171,6 +171,10 @@ func (l *Link) sendLinkProof(ownerIdentity *identity.Identity) error {
 			return fmt.Errorf("failed to pack proof packet: %w", err)
 		}
 
+		l.mutex.Lock()
+		l.cachedProofRaw = append([]byte(nil), proofPkt.Raw...)
+		l.mutex.Unlock()
+
 		debug.Log(debug.DebugVerbose, "Sending proof through interface", "raw_len", len(proofPkt.Raw), "interface", l.networkInterface.GetName())
 
 		if err := l.networkInterface.Send(proofPkt.Raw, ""); err != nil {
@@ -182,6 +186,12 @@ func (l *Link) sendLinkProof(ownerIdentity *identity.Identity) error {
 
 	// For initiator links, use transport (path lookup)
 	if l.transport != nil {
+		if err := proofPkt.Pack(); err != nil {
+			return fmt.Errorf("failed to pack proof packet: %w", err)
+		}
+		l.mutex.Lock()
+		l.cachedProofPkt = proofPkt
+		l.mutex.Unlock()
 		if err := l.transport.SendPacket(proofPkt); err != nil {
 			return fmt.Errorf("failed to send link proof: %w", err)
 		}
