@@ -2503,6 +2503,13 @@ func (t *Transport) handleTransportPacket(data []byte, pkt *packet.Packet, iface
 			return
 		}
 
+		// Packets from shared-instance clients addressed to non-local
+		// destinations are originated by this transport on the client's
+		// behalf, mirroring relayBridgedLinkRequest for link requests.
+		if destType == DestTypeSingle && t.forwardLocalClientPacket(pkt, data, iface) {
+			return
+		}
+
 		destHash := pkt.DestinationHash
 		if len(destHash) > 16 {
 			destHash = destHash[:16]

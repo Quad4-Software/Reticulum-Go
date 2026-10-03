@@ -417,11 +417,16 @@ func (l *Link) validateLinkProofLocked(pkt *packet.Packet, networkIface common.N
 	if l.establishedCallback != nil {
 		// Initiator callback runs from ValidateLinkProof while the link mutex is
 		// held. Callbacks call GetLinkID and must not run on this goroutine.
+		// Gate channel delivery until it returns so packets cannot outrun
+		// the message handlers it installs.
+		l.channelGate.Store(true)
 		cb := l.establishedCallback
 		go func() {
 			cb(l)
-			l.flushEarlyChannel()
+			l.markChannelReady()
 		}()
+	} else {
+		l.markChannelReady()
 	}
 
 	return nil

@@ -5,6 +5,8 @@ package transport
 
 import (
 	"sync"
+
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 )
 
 // Inbound traffic classes (RNS 1.5.0 Transport.TC_*).
@@ -202,6 +204,15 @@ func (t *Transport) inboundQueueDrainer() {
 		job, ok := t.inboundQueues.get(t.done)
 		if !ok {
 			return
+		}
+		// Data packets for established links take this serial path so wire
+		// order survives to Link.HandleInbound. Sending them through the
+		// shared worker channel let consecutive packets for one link be
+		// dequeued in order but processed out of order, which broke
+		// identify-before-request sequencing.
+		if job.destType == DestTypeLink && job.packetType == packet.PacketTypeData {
+			t.runPacketJob(job)
+			continue
 		}
 		if !t.enqueuePacket(job, false) {
 			putPacketCopy(job.pc)

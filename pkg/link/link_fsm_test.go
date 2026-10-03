@@ -173,7 +173,7 @@ func TestLinkFSM_StaleToActiveOnInbound(t *testing.T) {
 		DestinationHash: l.linkID,
 		Data:            []byte{0x00},
 	}
-	_ = l.HandleInbound(pkt)
+	_ = l.processInbound(pkt)
 	if l.GetStatus() != StatusActive {
 		t.Fatalf("status = %d, want Active after inbound on Stale", l.GetStatus())
 	}

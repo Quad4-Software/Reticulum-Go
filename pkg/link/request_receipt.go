@@ -424,7 +424,7 @@ func (l *Link) handleRequest(plaintext []byte, requestID []byte) error {
 	if l.destination != nil {
 		handler := l.destination.GetRequestHandler(pathHash)
 		if handler != nil {
-			response := handler(pathHash, requestPayload, requestID, l.linkID, l.remoteIdentity, requestedAt)
+			response := handler(pathHash, requestPayload, requestID, l.linkID, l.GetRemoteIdentity(), requestedAt)
 			if response != nil {
 				return l.sendResponse(requestID, response)
 			}

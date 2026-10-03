@@ -396,6 +396,78 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 	return true
 }
 
+// forwardLocalClientPacket routes a packet received from a shared-instance
+// local client to a non-local destination out through the path table. The
+// server originates the wire transmission on the client's behalf: hops are
+// unchanged (the local socket does not count as a wire hop, same accounting
+// as client announces) and multi-hop paths get a HeaderType2 wrap with the
+// next transport hop, matching SendPacket and relayBridgedLinkRequest.
+// Non-announce packets record a reverse-table entry so proofs and replies
+// can find their way back to the originating client.
+func (t *Transport) forwardLocalClientPacket(pkt *packet.Packet, raw []byte, sourceIface common.NetworkInterface) bool {
+	if pkt == nil || !isLocalClientInterface(sourceIface) {
+		return false
+	}
+	destHash := pkt.DestinationHash
+	if len(destHash) > identity.TruncatedHashLength/8 {
+		destHash = destHash[:identity.TruncatedHashLength/8]
+	}
+	destKey := hash16FromSlice(destHash)
+
+	t.mutex.RLock()
+	path, hasPath := t.paths[pathMapKey(destHash)]
+	_, isLocal := t.destinations[destKey]
+	t.mutex.RUnlock()
+
+	if isLocal {
+		return false
+	}
+	if !hasPath || path == nil || path.Interface == nil {
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "No path for local client packet",
+				"dest_hash", fmt.Sprintf("%x", destHash))
+		}
+		return false
+	}
+	if path.Interface == sourceIface {
+		return true
+	}
+
+	newHops := linkRelayAccountedHops(raw[1], true)
+	if newHops >= MaxHops {
+		debug.Log(debug.DebugInfo, "Local client packet exceeds MaxHops, dropping",
+			"hops", newHops)
+		return true
+	}
+
+	out := rewriteHopsInPlace(raw, newHops)
+	if path.HopCount > 1 && len(path.NextHop) > 0 && !bytes.Equal(path.NextHop, destHash) {
+		wrapped, err := insertHeaderType2(raw, newHops, path.NextHop)
+		if err != nil {
+			debug.Log(debug.DebugError, "Failed to wrap local client packet for transport",
+				"error", err)
+			return true
+		}
+		out = wrapped
+	}
+
+	if pkt.PacketType != packet.PacketTypeAnnounce {
+		t.recordReverseEntry(pkt, sourceIface, path.Interface)
+	}
+
+	if debug.Enabled(debug.DebugVerbose) {
+		debug.Log(debug.DebugVerbose, "Forwarding packet from local client",
+			"dest_hash", fmt.Sprintf("%x", destHash),
+			"out_iface", path.Interface.GetName(),
+			"hops", newHops,
+			"path_hops", path.HopCount)
+	}
+	if err := sendOnInterface(path.Interface, out, ""); err != nil {
+		debug.Log(debug.DebugError, "Failed to forward local client packet", "error", err)
+	}
+	return true
+}
+
 func (t *Transport) recordLinkRelay(raw []byte, recvIface common.NetworkInterface, path *common.Path, takenHops int) {
 	if t.linkTable == nil {
 		return
