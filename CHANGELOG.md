@@ -6,6 +6,7 @@ Tracks Python RNS 1.5.5.
 
 ### Added
 
+- GitHub CI runs the same short self-check on a NetBSD 10.2 VM as FreeBSD and OpenBSD. Local anyvm targets cover FreeBSD, OpenBSD, NetBSD, and HardenedBSD (`task test-freebsd-anyvm` and siblings).
 - Release assets now carry GitHub OIDC build-provenance attestations (SLSA Build L3) alongside the cosign bundles. Verify with `gh attestation verify <file> --repo Quad4-Software/Reticulum-Go`.
 - Cosign attestation bundles are anchored in the Rekor transparency log, and the SLSA predicate records the source commit in resolvedDependencies.
 

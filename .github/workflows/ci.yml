@@ -3,8 +3,9 @@
 #   dorny/paths-filter@v3.0.2          de90cc6fb38fc0963ad72b210f1f284cd68cea36
 #   actions/setup-node@v7.0.0          820762786026740c76f36085b0efc47a31fe5020
 #   actions/setup-java@v6.0.0          dd06d9cba3e5552c54d9f8ea23572deb30010f7c
-#   vmactions/freebsd-vm@v1.5.5        f0552d3b69211736abd97f02ff3d4674c56b73b1
+#   vmactions/freebsd-vm@v1.5.6        8b0f1a8fc0ea0def307835c258940ca358fe6480
 #   vmactions/openbsd-vm@v1.4.7        86cdc08415d9d0865267e686561e276c52d62530
+#   vmactions/netbsd-vm@v1.5.2         c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92
 #   vmactions/haiku-vm@v1.1.5          6a07e023ed05895c09aa73843b58cfa671f34594
 #
 name: CI
@@ -340,15 +341,7 @@ jobs:
           run: |
             set -eu
             export PATH=/usr/local/go/bin:$PATH
-            export GOFLAGS=-mod=vendor
-            export GOPROXY=off
-            export GOTOOLCHAIN=local
-            go version
-            go test -buildvcs=false -short -count=1 -timeout 10m ./pkg/selfcheck/ ./pkg/sandbox/ ./pkg/protect/
-            go test -buildvcs=false -short -count=1 -timeout 10m ./pkg/transport/ -run 'Protect|HandlePacket'
-            mkdir -p bin
-            go build -buildvcs=false -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
-            ./bin/reticulum-go self-check --binary "$(pwd)/bin/reticulum-go" --json --full
+            sh scripts/ci/bsd-guest-self-check.sh
 
       - name: Verify workspace clean
         uses: ./.github/actions/verify-workspace-clean
@@ -383,15 +376,43 @@ jobs:
           run: |
             set -eu
             export PATH=/usr/local/go/bin:$PATH
-            export GOFLAGS=-mod=vendor
-            export GOPROXY=off
-            export GOTOOLCHAIN=local
-            go version
-            go test -buildvcs=false -short -count=1 -timeout 10m ./pkg/selfcheck/ ./pkg/sandbox/ ./pkg/protect/
-            go test -buildvcs=false -short -count=1 -timeout 10m ./pkg/transport/ -run 'Protect|HandlePacket'
-            mkdir -p bin
-            go build -buildvcs=false -ldflags="-s -w" -o bin/reticulum-go ./cmd/reticulum-go
-            ./bin/reticulum-go self-check --binary "$(pwd)/bin/reticulum-go" --json --full
+            sh scripts/ci/bsd-guest-self-check.sh
+
+      - name: Verify workspace clean
+        uses: ./.github/actions/verify-workspace-clean
+
+  test-netbsd:
+    name: NetBSD self-check
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.core == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run NetBSD VM tests
+        uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
+        with:
+          release: "10.2"
+          usesh: true
+          copyback: false
+          prepare: |
+            set -eu
+            /usr/sbin/pkg_add -u curl
+            curl -fsSL -o /tmp/go.tgz https://go.dev/dl/go${{ env.CI_GO_VERSION }}.netbsd-amd64.tar.gz
+            rm -rf /usr/local/go
+            tar -C /usr/local -xzf /tmp/go.tgz
+          run: |
+            set -eu
+            export PATH=/usr/local/go/bin:$PATH
+            sh scripts/ci/bsd-guest-self-check.sh
 
       - name: Verify workspace clean
         uses: ./.github/actions/verify-workspace-clean
