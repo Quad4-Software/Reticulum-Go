@@ -101,6 +101,18 @@ func (m *Messenger) requestPath(destHash []byte, recursive bool) bool {
 	return t.requestPath(destHash, recursive)
 }
 
+// pathRequestWait returns the upstream path_request_wait bound used to
+// size path waits on slow mediums.
+func (m *Messenger) pathRequestWait() time.Duration {
+	m.prMu.Lock()
+	t := m.pathRequests
+	m.prMu.Unlock()
+	if t == nil {
+		return PathRequestWait
+	}
+	return t.pathRequestWait()
+}
+
 // messengerAnnounceHandler records announced stamp costs for outbound
 // delivery, matching upstream LXMFDeliveryAnnounceHandler.
 type messengerAnnounceHandler struct {
@@ -441,6 +453,18 @@ func (m *Messenger) send(ctx context.Context, msg *LXMessage) error {
 		packet.FlagUnset,
 	)
 	pkt.DestinationHash = append([]byte(nil), msg.DestinationHash...)
+
+	// Upstream handle_outbound pre-emptively requests the path for an
+	// opportunistic message when it is unknown, then waits
+	// path_request_wait before delivery attempts. SendPacket needs a
+	// resolved path, so wait for the response here.
+	if !m.transport.HasPath(msg.DestinationHash) {
+		m.requestPath(msg.DestinationHash, true)
+		deadline := time.Now().Add(m.pathRequestWait())
+		for !m.transport.HasPath(msg.DestinationHash) && time.Now().Before(deadline) {
+			time.Sleep(pathPollInterval)
+		}
+	}
 
 	if err := pkt.Pack(); err != nil {
 		return fmt.Errorf("packet packing failed: %w", err)

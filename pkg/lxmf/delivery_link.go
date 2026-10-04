@@ -72,10 +72,13 @@ func (m *Messenger) establishDeliveryLink(peerHash []byte) (*link.Link, error) {
 		m.requestPath(peerHash, true)
 	}
 
-	pathDeadline := time.Now().Add(pathWaitForDelivery)
+	// Upstream bounds path waits by max(timeout, path_request_wait) so a
+	// slow medium gets its full round trip before the next attempt.
+	pathWait := max(pathWaitForDelivery, m.pathRequestWait())
+	pathDeadline := time.Now().Add(pathWait)
 	for !m.transport.HasPath(peerHash) {
 		if time.Now().After(pathDeadline) {
-			return nil, fmt.Errorf("peer %s: no path within %s", peerHex, pathWaitForDelivery)
+			return nil, fmt.Errorf("peer %s: no path within %s", peerHex, pathWait)
 		}
 		time.Sleep(pathPollInterval)
 	}

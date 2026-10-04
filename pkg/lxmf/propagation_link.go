@@ -71,11 +71,14 @@ func (m *Messenger) establishPropagationLink(propNodeHash []byte) (*link.Link, e
 		m.requestPath(propNodeHash, true)
 	}
 
-	pathDeadline := time.Now().Add(pathWaitForPropagation)
+	// Upstream bounds path waits by max(timeout, path_request_wait) so a
+	// slow medium gets its full round trip before the next attempt.
+	pathWait := max(pathWaitForPropagation, m.pathRequestWait())
+	pathDeadline := time.Now().Add(pathWait)
 	lastPathLog := time.Time{}
 	for !m.transport.HasPath(propNodeHash) {
 		if time.Now().After(pathDeadline) {
-			return nil, fmt.Errorf("propagation node %s: no path within %s", nodeHex, pathWaitForPropagation)
+			return nil, fmt.Errorf("propagation node %s: no path within %s", nodeHex, pathWait)
 		}
 		if time.Since(lastPathLog) >= propagationStatusInterval {
 			Verbose("propagation waiting for path", "node", nodeHex, "hops", m.transport.HopsTo(propNodeHash))
