@@ -1,0 +1,11 @@
+.git
+.cache
+bin/
+dist/
+*.test
+coverage.out
+coverage.html
+.idea/
+.vscode/
+.cursor/
+.DS_Store

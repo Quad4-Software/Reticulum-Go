@@ -1,0 +1,31 @@
+# Portable CI without marketplace Actions.
+
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - dev
+  pull_request:
+
+env:
+  GOFLAGS: -mod=vendor
+  GOPROXY: "off"
+  GOSUMDB: "off"
+  GOTOOLCHAIN: local
+  CGO_ENABLED: "0"
+  RNS_REQUIRED_SIGNER: e318cbc04468bd574db2b4523dddd710
+
+jobs:
+  pr:
+    name: PR gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Bootstrap toolchain
+        run: bash scripts/ci/bootstrap-toolchain.sh install
+      - name: PR gate
+        env:
+          RNS_INVENTORY_OUT: /tmp/reticulum-go-ci-inventory.txt
+        run: bash scripts/ci/run.sh pr

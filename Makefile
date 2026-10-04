@@ -12,7 +12,7 @@
 .PHONY: build-freebsd build-openbsd build-netbsd build-dragonfly build-solaris build-illumos build-aix build-android
 .PHONY: test-short test-race test-crossref test-wasm test-odin test-dart test-all coverage bench debug release
 .PHONY: man install-man install-service package package-deb package-rpm package-arch stage-nfpm
-.PHONY: test-services test-install-script tree-manifest tree-rsm-sign tree-rsm-verify hooks-install doctor bootstrap changelog-preview gitsign-setup gittuf-init test-zig test-cpp build-wasm build-librns-targets
+.PHONY: test-services test-install-script tree-manifest tree-rsm-sign tree-rsm-verify hooks-install doctor bootstrap changelog-preview gitsign-setup gittuf-init test-zig test-cpp build-wasm build-librns-targets ci-pr ci-docker
 .PHONY: test-property test-mutation test-chaos test-soak test-soak-protect test-oracle test-binary-smoke test-acceptance test-e2e test-blackbox test-bench-gate test-link-speed
 .PHONY: test-c test-rust test-swift test-lua test-java test-kotlin test-python vendor-sync vendor-patch vendor-check reproducibility sbom
 .PHONY: build-librns
@@ -375,6 +375,12 @@ doctor:
 
 bootstrap:
 	sh scripts/ci/bootstrap.sh
+
+ci-pr:
+	bash scripts/ci/run.sh pr
+
+ci-docker:
+	bash scripts/ci/run-docker.sh pr
 
 changelog-preview:
 	sh scripts/ci/changelog-preview.sh
