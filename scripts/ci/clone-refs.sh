@@ -2,16 +2,16 @@
 # Shallow-clone upstream reference trees used by Python interop harnesses.
 # Usage: clone-refs.sh
 # Env:
-#   LXMF_REF_REV          git ref for markqvist/LXMF (tag or 40-char SHA, default 1.1.1)
+#   LXMF_REF_REV          git ref for markqvist/LXMF (tag or 40-char SHA, default 1.2.0)
 #   LXMF_REF_PYPI_SHA256  sha256 of the PyPI lxmf sdist, used when the git tag
-#                         does not exist (1.1.1 is a PyPI-only release)
+#                         does not exist (e.g. 1.1.1 was a PyPI-only release)
 #   RRC_REF_REV           git ref for kc1awv/rrcd (tag or 40-char SHA)
 set -eu
 
 ROOT="$(CDPATH='' cd -- "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
-LXMF_REF_REV="${LXMF_REF_REV:-1.1.1}"
+LXMF_REF_REV="${LXMF_REF_REV:-1.2.0}"
 LXMF_REF_PYPI_SHA256="${LXMF_REF_PYPI_SHA256:-}"
 RRC_REF_REV="${RRC_REF_REV:-f6d7e9d72bf83c70d7a9373ae8c5edaa052a7bf2}"
 

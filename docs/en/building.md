@@ -69,7 +69,7 @@ Run a built binary:
 | rrc | `task test:rrc` | `go test -v -count=1 ./pkg/rrc/...` |
 | rrc interop | `task test:rrc:interop` | needs RRC-ref + uv |
 | lxst | `task test:lxst` | `go test -v -count=1 ./pkg/lxst/...` |
-| lxst interop | `task test:lxst:interop` | needs `pip install lxst==0.5.3` |
+| lxst interop | `task test:lxst:interop` | needs `pip install lxst==0.5.4` |
 | rnv | `task test:rnv` | `go test -v -count=1 ./pkg/rnv/...` |
 | rnv short | `task test:rnv:short` | `go test -short -v -count=1 ./pkg/rnv/...` |
 | rnv live | `task test:rnv:live` | live UDP + optional Python hub |

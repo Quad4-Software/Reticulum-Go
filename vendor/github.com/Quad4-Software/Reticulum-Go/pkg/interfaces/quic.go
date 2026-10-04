@@ -38,7 +38,7 @@ func newQUICClientFromConfig(name string, cfg *common.InterfaceConfig, _ *FromCo
 		cfg.TargetHost,
 		cfg.TargetPort,
 		cfg.Enabled,
-		cfg.MaxReconnTries,
+		MaxReconnectTriesFromConfig(cfg),
 		QUICClientOptions{
 			CertFile: cfg.CertFile,
 			KeyFile:  cfg.KeyFile,
@@ -173,7 +173,7 @@ func (qc *QUICClientInterface) initReconnectDriver() {
 func (qc *QUICClientInterface) dialSession() (net.Conn, error) {
 	addr := net.JoinHostPort(qc.targetAddr, fmt.Sprintf("%d", qc.targetPort))
 	if len(qc.peerPin) == 0 && qc.GetIFAC() == nil {
-		debug.Log(debug.DebugWarning, "QUIC interface has neither peer_key nor IFAC; transport is unauthenticated", "name", qc.Name)
+		debug.Log(debug.DebugWarning, "QUIC interface has neither peer_key nor IFAC. Transport is unauthenticated", "name", qc.Name)
 	}
 	tlsConf := buildQUICClientTLS(qc.sni, qc.peerPin, qc.clientCert)
 	ctx, cancel := context.WithTimeout(context.Background(), quicDialTimeout)
@@ -492,7 +492,7 @@ func (qs *QUICServerInterface) Start() error {
 
 	addr := net.JoinHostPort(qs.bindAddr, fmt.Sprintf("%d", qs.bindPort))
 	if len(qs.peerPin) == 0 && qs.GetIFAC() == nil {
-		debug.Log(debug.DebugWarning, "QUIC server has neither peer_key nor IFAC; transport is unauthenticated", "name", qs.Name)
+		debug.Log(debug.DebugWarning, "QUIC server has neither peer_key nor IFAC. Transport is unauthenticated", "name", qs.Name)
 	}
 	tlsConf := buildQUICServerTLS(qs.serverCert, qs.peerPin)
 	ln, err := quic.ListenAddr(addr, tlsConf, quicConfig())
@@ -708,4 +708,10 @@ func (qs *QUICServerInterface) ListenAddr() net.Addr {
 		return nil
 	}
 	return qs.listener.Addr()
+}
+
+// EndpointStatus reports dial-health for this interface's remote endpoint:
+// dial failures, flaps, and active quarantine remaining.
+func (qc *QUICClientInterface) EndpointStatus() EndpointStatus {
+	return qc.reconnect.endpointStatus()
 }

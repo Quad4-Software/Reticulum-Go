@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	version             = "0.5.3"
+	version             = "0.5.4"
 	interactiveRingTime = 30 * time.Second
 	interactiveWaitTime = 60 * time.Second
 )

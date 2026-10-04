@@ -62,6 +62,11 @@ type Messenger struct {
 	// set, already-held messages are not reported back to the node, so
 	// the node keeps them for other clients.
 	retainSyncedOnNode bool
+
+	// pathRequests debounces path requests like upstream
+	// LXMRouter.request_path.
+	prMu         sync.Mutex
+	pathRequests *pathRequestTracker
 }
 
 // NewMessenger registers d's packet callback for inbound LXMF. Use NewDeliveryDestination for lxmf.delivery naming.
@@ -74,12 +79,26 @@ func NewMessenger(t *transport.Transport, d *destination.Destination) *Messenger
 		deliveredTIDs:    make(map[string]float64),
 		tickets:          newTicketBook(""),
 		stampCosts:       newStampCostBook(""),
+		pathRequests:     newPathRequestTracker(t),
 	}
 	d.SetPacketCallback(m.onPacket)
 	d.SetLinkEstablishedCallback(m.onLinkEstablished)
 	t.RegisterDestination(d.GetHash(), m)
 	t.RegisterAnnounceHandler(&messengerAnnounceHandler{m: m})
 	return m
+}
+
+// requestPath emits a debounced path request for destHash, matching
+// upstream LXMRouter.request_path. The tracker is created lazily so
+// Messenger values built without NewMessenger still work.
+func (m *Messenger) requestPath(destHash []byte, recursive bool) bool {
+	m.prMu.Lock()
+	if m.pathRequests == nil {
+		m.pathRequests = newPathRequestTracker(m.transport)
+	}
+	t := m.pathRequests
+	m.prMu.Unlock()
+	return t.requestPath(destHash, recursive)
 }
 
 // messengerAnnounceHandler records announced stamp costs for outbound

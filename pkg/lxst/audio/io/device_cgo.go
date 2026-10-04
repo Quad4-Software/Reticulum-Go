@@ -27,6 +27,11 @@ package io
 
 typedef struct {
 	ma_device device;
+	ma_device_config config;
+	ma_device_id play_id;
+	ma_device_id cap_id;
+	int have_play;
+	int have_cap;
 	ma_pcm_rb capture_rb;
 	ma_pcm_rb playback_rb;
 	int frameSize;
@@ -182,7 +187,35 @@ static int rgesp_audio_init_ex(rgesp_audio *a, int role, const char *play_name, 
 		}
 		return -1;
 	}
+	a->config = config;
+	a->have_cap = have_cap;
+	a->have_play = have_play;
+	if (have_cap) {
+		a->cap_id = cap_id;
+	}
+	if (have_play) {
+		a->play_id = play_id;
+	}
 	a->started = 0;
+	return 0;
+}
+
+static int rgesp_audio_reinit(rgesp_audio *a) {
+	if (a->started) {
+		ma_device_stop(&a->device);
+		a->started = 0;
+	}
+	ma_device_uninit(&a->device);
+	a->config.capture.pDeviceID = a->have_cap ? &a->cap_id : NULL;
+	a->config.playback.pDeviceID = a->have_play ? &a->play_id : NULL;
+	if (ma_device_init(NULL, &a->config, &a->device) != MA_SUCCESS) {
+		return -1;
+	}
+	ma_pcm_rb_reset(&a->capture_rb);
+	if (ma_device_start(&a->device) != MA_SUCCESS) {
+		return -1;
+	}
+	a->started = 1;
 	return 0;
 }
 
@@ -238,8 +271,18 @@ static void rgesp_audio_close(rgesp_audio *a) {
 import "C"
 import (
 	"fmt"
+	"runtime"
+	"time"
 	"unsafe"
 )
+
+// checkCaptureSignal enables the dead-input watchdog from upstream LXST
+// 0.5.4, which only runs on Android where the recorder can silently die.
+const checkCaptureSignal = runtime.GOOS == "android"
+
+// signalFailReinitThreshold matches upstream
+// LineSource.SIGNAL_FAIL_REINIT_THRESHOLD.
+const signalFailReinitThreshold = 1500 * time.Millisecond
 
 type miniaudioDevice struct {
 	dev       *C.rgesp_audio
@@ -247,10 +290,18 @@ type miniaudioDevice struct {
 	closed    bool
 	frameSize int
 	pcm       []int16
+
+	checkSignal bool
+	signalOK    bool
+	zeroSince   time.Time
 }
 
 func Open(opts Options) (Device, error) {
-	d := &miniaudioDevice{duplex: opts.Role != RoleCapture, frameSize: DefaultFrameSize}
+	d := &miniaudioDevice{
+		duplex:      opts.Role != RoleCapture,
+		frameSize:   DefaultFrameSize,
+		checkSignal: checkCaptureSignal && opts.Role != RolePlayback,
+	}
 	d.dev = (*C.rgesp_audio)(C.calloc(1, C.sizeof_rgesp_audio))
 	if d.dev == nil {
 		return nil, fmt.Errorf("%w: alloc", ErrDeviceInit)
@@ -295,9 +346,34 @@ func (d *miniaudioDevice) ReadPCM() ([]int16, error) {
 	n := C.rgesp_audio_read(d.dev, (*C.short)(unsafe.Pointer(&d.pcm[0])), cInt(d.frameSize))
 	if n <= 0 {
 		clear(d.pcm)
+		d.watchCapture(d.pcm)
 		return d.pcm, nil
 	}
+	d.watchCapture(d.pcm[:n])
 	return d.pcm[:n], nil
+}
+
+// watchCapture mirrors upstream LXST 0.5.4 LineSource signal monitoring:
+// when the input produces only zero samples for longer than
+// SIGNAL_FAIL_REINIT_THRESHOLD the recorder is re-initialised.
+func (d *miniaudioDevice) watchCapture(pcm []int16) {
+	if !d.checkSignal || d.signalOK {
+		return
+	}
+	for _, s := range pcm {
+		if s != 0 {
+			d.signalOK = true
+			return
+		}
+	}
+	if d.zeroSince.IsZero() {
+		d.zeroSince = time.Now()
+		return
+	}
+	if time.Since(d.zeroSince) > signalFailReinitThreshold {
+		d.zeroSince = time.Now()
+		_ = C.rgesp_audio_reinit(d.dev)
+	}
 }
 
 func (d *miniaudioDevice) WritePCM(pcm []int16) error {

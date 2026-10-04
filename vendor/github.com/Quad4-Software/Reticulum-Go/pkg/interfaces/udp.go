@@ -7,10 +7,18 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 )
+
+// udpKeepalivePayload is a one-byte datagram that deliberately fails packet
+// decode on the remote side. It exists only to refresh NAT/firewall state
+// toward the configured target (WireGuard PersistentKeepalive pattern) and
+// is dropped by both Python and Go peers before reaching transport.
+var udpKeepalivePayload = []byte{0x00}
 
 type UDPInterface struct {
 	BaseInterface
@@ -24,6 +32,8 @@ type UDPInterface struct {
 	onUp              func()
 	done              chan struct{}
 	stopOnce          sync.Once
+	keepalive         time.Duration
+	lastWriteNs       atomic.Int64
 }
 
 func NewUDPInterface(name string, addr string, target string, enabled bool) (*UDPInterface, error) {
@@ -60,6 +70,16 @@ func NewUDPInterfaceWithRetries(name string, addr string, target string, enabled
 	}
 
 	return ui, nil
+}
+
+// SetKeepaliveInterval enables the persistent keepalive loop. The interface
+// sends a minimal hold-open datagram to the configured target whenever no
+// outbound packet has been written for the interval, keeping NAT and
+// stateful-firewall mappings alive. Zero disables it (default).
+func (ui *UDPInterface) SetKeepaliveInterval(d time.Duration) {
+	ui.Mutex.Lock()
+	ui.keepalive = d
+	ui.Mutex.Unlock()
 }
 
 func (ui *UDPInterface) SetConnectivityHooks(onDown, onUp func()) {
@@ -223,8 +243,41 @@ func (ui *UDPInterface) ProcessOutgoing(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("UDP write failed: %w", err)
 	}
+	ui.lastWriteNs.Store(time.Now().UnixNano())
 
 	return nil
+}
+
+// keepaliveLoop emits a hold-open datagram when the link has been idle for
+// one keepalive interval. Runs for the lifetime of a Start() generation and
+// exits on done.
+func (ui *UDPInterface) keepaliveLoop(done <-chan struct{}, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+		}
+
+		ui.Mutex.RLock()
+		conn := ui.conn
+		target := ui.targetAddr
+		online := ui.Online && !ui.Detached && ui.keepalive > 0
+		ui.Mutex.RUnlock()
+		if !online || conn == nil || target == nil {
+			continue
+		}
+		if last := ui.lastWriteNs.Load(); last != 0 && time.Since(time.Unix(0, last)) < interval {
+			continue
+		}
+		if _, err := conn.WriteToUDP(udpKeepalivePayload, target); err != nil {
+			debug.Log(debug.DebugVerbose, "UDP keepalive write failed", "name", ui.Name, "error", err)
+			continue
+		}
+		ui.updateBandwidthStats(uint64(len(udpKeepalivePayload)))
+	}
 }
 
 func (ui *UDPInterface) Send(data []byte, address string) error {
@@ -305,7 +358,13 @@ func (ui *UDPInterface) Start() error {
 		}
 	}
 	useReconnect := ui.maxReconnectTries > 0
+	keepalive := ui.keepalive
+	done := ui.done
 	ui.Mutex.Unlock()
+
+	if keepalive > 0 {
+		go ui.keepaliveLoop(done, keepalive)
+	}
 
 	if useReconnect {
 		ui.initReconnectDriver()
@@ -399,4 +458,10 @@ func (ui *UDPInterface) IsEnabled() bool {
 	ui.Mutex.RLock()
 	defer ui.Mutex.RUnlock()
 	return ui.Enabled && ui.Online && !ui.Detached
+}
+
+// EndpointStatus reports dial-health for this interface's remote endpoint:
+// dial failures, flaps, and active quarantine remaining.
+func (ui *UDPInterface) EndpointStatus() EndpointStatus {
+	return ui.reconnect.endpointStatus()
 }

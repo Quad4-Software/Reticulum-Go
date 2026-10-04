@@ -61,7 +61,7 @@ func loadPythonOracle(t *testing.T) pythonOracle {
 
 func TestLXSTConstantsMatchPython(t *testing.T) {
 	o := loadPythonOracle(t)
-	if o.Version != "0.5.3" {
+	if o.Version != "0.5.4" {
 		t.Fatalf("lxst version %s", o.Version)
 	}
 	if o.App != proto.AppName || o.Aspect != proto.AspectName {

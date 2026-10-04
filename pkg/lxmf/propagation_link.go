@@ -68,9 +68,7 @@ func (m *Messenger) establishPropagationLink(propNodeHash []byte) (*link.Link, e
 
 	if !m.transport.HasPath(propNodeHash) {
 		Info("propagation requesting path", "node", nodeHex)
-		if err := m.transport.RequestPath(propNodeHash, "", nil, true); err != nil {
-			return nil, fmt.Errorf("propagation path request: %w", err)
-		}
+		m.requestPath(propNodeHash, true)
 	}
 
 	pathDeadline := time.Now().Add(pathWaitForPropagation)

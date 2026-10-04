@@ -32,7 +32,7 @@ func Start(ctx context.Context, transport bool) {
 		return
 	}
 	// The monitor is a process singleton shared by every Node. Only the
-	// first live Start owns the loop; a Stop frees the slot so the next
+	// first live Start owns the loop. A Stop frees the slot so the next
 	// Start can monitor again.
 	monitorMu.Lock()
 	if monitorStop == nil {

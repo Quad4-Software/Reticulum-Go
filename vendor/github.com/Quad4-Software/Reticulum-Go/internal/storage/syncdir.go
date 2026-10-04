@@ -9,7 +9,7 @@ import "os"
 
 // syncDir flushes the directory entry so a rename survives a crash.
 func syncDir(dir string) {
-	if d, err := os.Open(dir); err == nil {
+	if d, err := os.Open(dir); err == nil { // #nosec G304 -- dir is an internal storage path fsynced for durability, never a user-controlled read target
 		_ = d.Sync()
 		_ = d.Close()
 	}

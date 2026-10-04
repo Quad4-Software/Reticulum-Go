@@ -43,10 +43,10 @@ env:
   CI_REVIVE_VERSION: "v1.15.0"
   CI_GOSEC_VERSION: "v2.29.0"
   CI_UV_VERSION: "0.11.32"
-  LXMF_REF_REV: "1.1.1"
-  # lxmf 1.1.1 is a PyPI-only release (no upstream git tag); this pins the
-  # sdist fetched by scripts/ci/clone-refs.sh when the tag is absent.
-  LXMF_REF_PYPI_SHA256: "f2f7ea17d793fcc32cab826e81e8e9824404d025d1fc71b143be3242d45e6a5e"
+  LXMF_REF_REV: "1.2.0"
+  # Fallback for releases without an upstream git tag (e.g. 1.1.1): this pins
+  # the sdist fetched by scripts/ci/clone-refs.sh when the tag is absent.
+  LXMF_REF_PYPI_SHA256: "f14243283b90ad06356071d90394357640924201f9c992dcdfecbc23614fb309"
   RRC_REF_REV: "f6d7e9d72bf83c70d7a9373ae8c5edaa052a7bf2"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
@@ -400,7 +400,7 @@ jobs:
           sudo apt-get install -y cmake libcodec2-dev libopus-dev
           python3 -m venv .venv-lxst
           .venv-lxst/bin/pip install -U pip
-          .venv-lxst/bin/pip install "rns==1.5.4" "lxst==0.5.3" "numpy" "pycodec2"
+          .venv-lxst/bin/pip install "rns==1.5.6" "lxst==0.5.4" "numpy" "pycodec2"
 
       - name: Run interop
         env:

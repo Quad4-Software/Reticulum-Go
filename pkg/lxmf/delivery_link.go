@@ -69,9 +69,7 @@ func (m *Messenger) establishDeliveryLink(peerHash []byte) (*link.Link, error) {
 	Info("delivery link start", "peer", peerHex, "hops", hops, "has_path", m.transport.HasPath(peerHash))
 
 	if !m.transport.HasPath(peerHash) {
-		if err := m.transport.RequestPath(peerHash, "", nil, true); err != nil {
-			return nil, fmt.Errorf("delivery path request: %w", err)
-		}
+		m.requestPath(peerHash, true)
 	}
 
 	pathDeadline := time.Now().Add(pathWaitForDelivery)

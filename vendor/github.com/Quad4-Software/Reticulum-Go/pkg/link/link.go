@@ -100,6 +100,9 @@ type Link struct {
 	initiator            bool
 	expectedHops         uint8
 	rebalanced           time.Time
+	// footgunWarnAt gates misuse warnings (busy/settled/duplicate-request) so
+	// an app retry loop cannot spam the log. Unix nano, atomic.
+	footgunWarnAt atomic.Int64
 
 	prv           *securemem.Buf
 	sigPriv       *securemem.Buf
@@ -173,19 +176,37 @@ func NewLink(dest *destination.Destination, transport *transport.Transport, netw
 		linkDone:             make(chan struct{}),
 	}
 }
+
+// warnFootgun logs a link-misuse warning at most once per minute so an app
+// retry loop cannot spam the log. Returns true when the caller should keep
+// handling the error path (always) - it never swallows the error itself.
+func (l *Link) warnFootgun(msg string, args ...any) {
+	now := time.Now().UnixNano()
+	for {
+		last := l.footgunWarnAt.Load()
+		if last != 0 && now-last < int64(time.Minute) {
+			return
+		}
+		if l.footgunWarnAt.CompareAndSwap(last, now) {
+			debug.Log(debug.DebugWarning, msg, args...)
+			return
+		}
+	}
+}
+
 func (l *Link) Establish() error {
 	l.mutex.Lock()
 	startTime := time.Now()
 
 	if l.status.Load() != int32(StatusPending) {
-		debug.Log(debug.DebugWarning, common.MsgLinkAlreadySettled,
+		l.warnFootgun(common.MsgLinkAlreadySettled,
 			"status", l.status.Load(),
 			"hint", "wait for the established or closed callback, do not call Establish again")
 		l.mutex.Unlock()
 		return common.ErrLinkAlreadySettled
 	}
 	if !l.requestTime.IsZero() {
-		debug.Log(debug.DebugWarning, common.MsgLinkEstablishBusy,
+		l.warnFootgun(common.MsgLinkEstablishBusy,
 			"hint", "wait for the established callback, do not loop NewLink/Establish")
 		l.mutex.Unlock()
 		return common.ErrLinkEstablishBusy
@@ -568,9 +589,14 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 			plaintext = pkt.Data
 		} else {
 			minEnc := aes.BlockSize + aes.BlockSize + 32
-			if pkt.Context == packet.ContextKeepalive && len(pkt.Data) < minEnc {
+			switch {
+			case pkt.Context == packet.ContextKeepalive && len(pkt.Data) < minEnc:
 				plaintext = pkt.Data
-			} else {
+			case decryptsInternally(pkt.Context):
+				// These sub-handlers decrypt pkt.Data themselves. Decrypting
+				// here would verify the same HMAC twice and waste the first
+				// plaintext allocation.
+			default:
 				plaintext, err = l.decrypt(pkt.Data)
 				if err != nil {
 					debug.Log(debug.DebugError, "Failed to decrypt packet", "error", err, "context", fmt.Sprintf("0x%02x", pkt.Context), "link_id", fmt.Sprintf("%x", l.linkID))
@@ -659,6 +685,20 @@ func (l *Link) handleDataPacket(pkt *packet.Packet) error {
 
 	return nil
 }
+func decryptsInternally(ctx byte) bool {
+	switch ctx {
+	case packet.ContextChannel,
+		packet.ContextResourceAdv,
+		packet.ContextResourceReq,
+		packet.ContextResourceHMU,
+		packet.ContextResourceICL,
+		packet.ContextResourceRCL,
+		packet.ContextLRRTT:
+		return true
+	}
+	return false
+}
+
 func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
 	if !l.initiator {
 		if l.status.Load() != int32(StatusHandshake) {
@@ -882,11 +922,11 @@ func (l *Link) SetPacketTimeout(pkt any, callback func(any), timeout time.Durati
 	if !ok || callback == nil {
 		return
 	}
-	go func() {
+	time.AfterFunc(timeout, func() {
 		select {
 		case <-l.linkDone:
 			return
-		case <-time.After(timeout):
+		default:
 		}
 		l.channelReceiptMu.Lock()
 		receipt := l.channelReceipts[packetObj]
@@ -895,7 +935,7 @@ func (l *Link) SetPacketTimeout(pkt any, callback func(any), timeout time.Durati
 			return
 		}
 		callback(packetObj)
-	}()
+	})
 }
 
 // DropPacketReceipt stops delivery tracking for a packet whose envelope the
@@ -956,7 +996,12 @@ func (l *Link) maintainLink() {
 	ticker := time.NewTicker(time.Second * Keepalive)
 	defer ticker.Stop()
 
-	for range ticker.C {
+	for {
+		select {
+		case <-l.linkDone:
+			return
+		case <-ticker.C:
+		}
 		if l.status.Load() != int32(StatusActive) {
 			return
 		}

@@ -627,7 +627,7 @@ func (s *RNodeSubInterface) ProcessOutgoing(data []byte) error {
 	if !s.interfaceReady {
 		if len(s.packetQueue) >= rnodeMaxQueuedPackets {
 			s.stateMu.Unlock()
-			debug.Log(debug.DebugVerbose, "RNode transmit queue full; dropping packet", "name", s.String())
+			debug.Log(debug.DebugVerbose, "RNode transmit queue full. Dropping packet", "name", s.String())
 			return nil
 		}
 		s.packetQueue = append(s.packetQueue, append([]byte(nil), data...))

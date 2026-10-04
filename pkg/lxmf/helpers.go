@@ -196,7 +196,12 @@ func normalizeAnnounceRGB3(rgb []byte) []byte {
 // payload. nodeState matches upstream propagation_node and not
 // from_static_only; the limits are announced as configured either way.
 func EncodePNAnnounceAppData(timebase int64, nodeState bool, transferLimitKB, syncLimitKB int, stampTarget, stampFlex, peeringCost int, nodeName string) ([]byte, error) {
-	md := map[byte]any{}
+	// Upstream lxmd 1.2.0 always announces implementation name and
+	// version in the propagation node metadata.
+	md := map[byte]any{
+		PNMetaImplName: "golxmd",
+		PNMetaVersion:  Version,
+	}
 	if nodeName != "" {
 		md[PNMetaName] = []byte(nodeName)
 	}

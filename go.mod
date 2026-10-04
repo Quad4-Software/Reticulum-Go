@@ -3,7 +3,7 @@ module github.com/Quad4-Software/reticulum-go-protocols
 go 1.27.1
 
 require (
-	github.com/Quad4-Software/Reticulum-Go v1.3.2
+	github.com/Quad4-Software/Reticulum-Go v1.4.0
 	github.com/Quad4-Software/msgpack/v5 v5.9.2
 	github.com/Quad4-Software/pbt v1.0.2
 	github.com/ebitengine/purego v0.11.0

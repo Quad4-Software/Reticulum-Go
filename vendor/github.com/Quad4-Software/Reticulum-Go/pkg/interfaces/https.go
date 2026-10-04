@@ -92,7 +92,7 @@ func newHTTPSPeerID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// maxHTTPSPeers bounds self-registered X-RNS-Peer identities; each entry
+// maxHTTPSPeers bounds self-registered X-RNS-Peer identities. Each entry
 // claims a queue and up to one parked poll goroutine.
 const maxHTTPSPeers = 1024
 
@@ -280,7 +280,9 @@ func (hc *HTTPSClientInterface) markOffline() {
 func (hc *HTTPSClientInterface) pollLoop() {
 	backoff := InitialBackoff
 	retries := 0
-	unlimited := hc.maxReconnectTries < 0
+	// ReconnectNever (-2) is not unlimited: it means zero retries, so the
+	// first register failure or session end exhausts immediately.
+	unlimited := hc.maxReconnectTries < 0 && hc.maxReconnectTries != ReconnectNever
 
 	for {
 		select {
@@ -562,7 +564,7 @@ func (hs *HTTPSServerInterface) LeafSPKIPinHex() (string, error) {
 }
 
 // remoteHostKey extracts the stable part of the transport peer for DoS
-// bucketing; the port changes per connection but the host does not.
+// bucketing. The port changes per connection but the host does not.
 func remoteHostKey(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {

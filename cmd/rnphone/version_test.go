@@ -21,7 +21,7 @@ func TestRnphoneVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("rnphone -version: %v\n%s", err, got)
 	}
-	if !strings.Contains(string(got), "rnphone 0.5.3") {
+	if !strings.Contains(string(got), "rnphone 0.5.4") {
 		t.Fatalf("version %q", got)
 	}
 }

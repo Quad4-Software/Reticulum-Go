@@ -198,11 +198,13 @@ func (p *Peer) sync() {
 
 	tr := p.router.transport
 	if !tr.HasPath(p.DestinationHash) {
-		_ = tr.RequestPath(p.DestinationHash, "", nil, true)
+		// Upstream LXMPeer.sync calls router.request_path, which
+		// debounces repeats inside the request window.
+		p.router.requestPath(p.DestinationHash, true)
 		time.Sleep(peerPathRequestGrace)
 	}
 	if !tr.HasPath(p.DestinationHash) {
-		// LXMF 1.1.1: an unanswered path request backs off the sync
+		// LXMF 1.2.0: an unanswered path request backs off the sync
 		// schedule and marks the peer not alive.
 		p.SyncBackoff += peerSyncBackoffStep
 		p.NextSyncAttempt = float64(time.Now().Unix()) + p.SyncBackoff
@@ -820,7 +822,7 @@ func (r *Router) peerFromStatic(destHash []byte) {
 	}
 	r.peersMu.Unlock()
 	if r.transport != nil {
-		_ = r.transport.RequestPath(destHash, "", nil, false)
+		r.requestPath(destHash, false)
 	}
 }
 

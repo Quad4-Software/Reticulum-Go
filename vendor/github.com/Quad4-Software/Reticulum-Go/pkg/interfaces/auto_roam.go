@@ -125,3 +125,15 @@ func (ai *AutoInterface) peerJobsUpdateLinkLocal() {
 	}
 	ai.updateLinkLocalAddresses()
 }
+
+// onNetworkChange is the netwatch callback: an underlay link or address
+// change triggers an immediate rescan and link-local refresh instead of
+// waiting for the next peerJobs cycle.
+func (ai *AutoInterface) onNetworkChange() {
+	if !ai.IsOnline() {
+		return
+	}
+	debug.Log(debug.DebugVerbose, "AutoInterface: network change detected, rescanning")
+	_ = ai.RescanInterfaces()
+	ai.updateLinkLocalAddresses()
+}

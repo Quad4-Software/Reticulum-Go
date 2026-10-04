@@ -92,7 +92,7 @@ const (
 	CompressionRatioText          = 0.4  // .txt, .log, .json, .xml, .html
 	CompressionRatioCSV           = 0.5  // structured but partially compressed
 	CompressionRatioOfficeLegacy  = 0.8  // .doc
-	CompressionRatioOfficeModern  = 0.95 // .docx, .pdf - already zipped
+	CompressionRatioOfficeModern  = 0.95 // .docx, .pdf, already zipped
 	CompressionRatioAlreadyPacked = 0.99 // images, audio, video, archives
 	CompressionRatioUnknown       = 0.7  // fallback for unrecognised extensions
 )

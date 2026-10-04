@@ -12,7 +12,7 @@ import (
 
 func init() {
 	registerBuiltinFromConfig("WebTransportClientInterface", func(name string, cfg *common.InterfaceConfig, _ *FromConfigContext) (Interface, error) {
-		return NewWebTransportClientInterfaceWithRetries(name, cfg.TargetHost, cfg.TargetPort, cfg.Path, cfg.Enabled, cfg.MaxReconnTries, WebTransportClientOptions{
+		return NewWebTransportClientInterfaceWithRetries(name, cfg.TargetHost, cfg.TargetPort, cfg.Path, cfg.Enabled, MaxReconnectTriesFromConfig(cfg), WebTransportClientOptions{
 			CertFile:      cfg.CertFile,
 			KeyFile:       cfg.KeyFile,
 			PeerKey:       cfg.PeerKey,

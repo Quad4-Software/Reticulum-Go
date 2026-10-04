@@ -88,6 +88,11 @@ type Router struct {
 	tickets    *ticketBook
 	stampCosts *stampCostBook
 
+	// pathRequests debounces path requests like upstream
+	// LXMRouter.request_path.
+	prMu         sync.Mutex
+	pathRequests *pathRequestTracker
+
 	stop chan struct{}
 	wg   sync.WaitGroup
 }
@@ -152,6 +157,7 @@ func NewRouter(id *identity.Identity, tr *transport.Transport, opts RouterOption
 		controlLinks:       make(map[string]*link.Link),
 		validatingFrom:     make(map[string]float64),
 		throttledPeers:     make(map[string]float64),
+		pathRequests:       newPathRequestTracker(tr),
 		stop:               make(chan struct{}),
 	}
 
@@ -436,6 +442,19 @@ func (r *Router) propagationAnnounceAppData() ([]byte, error) {
 		r.cfg.Propagation.PeeringCost,
 		nodeName,
 	)
+}
+
+// requestPath emits a debounced path request for destHash, matching
+// upstream LXMRouter.request_path. The tracker is created lazily so
+// Router values built without NewRouter still work.
+func (r *Router) requestPath(destHash []byte, recursive bool) bool {
+	r.prMu.Lock()
+	if r.pathRequests == nil {
+		r.pathRequests = newPathRequestTracker(r.transport)
+	}
+	t := r.pathRequests
+	r.prMu.Unlock()
+	return t.requestPath(destHash, recursive)
 }
 
 func (r *Router) isStaticPeer(hash []byte) bool {

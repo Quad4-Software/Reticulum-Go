@@ -5,7 +5,7 @@
 Reticulum-Go has been distributed under four licenses over its history.
 The boundary commits below define which terms apply to which revision of the
 source. For any checkout, the LICENSE file present at that commit is the
-governing text; this file exists so recipients of older snapshots can map a
+governing text. This file exists so recipients of older snapshots can map a
 commit to its license without diffing LICENSE history.
 
 | Range | License | Notes |

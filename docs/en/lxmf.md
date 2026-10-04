@@ -1,6 +1,6 @@
 # pkg/lxmf
 
-Matches LXMF 1.1.1 on the wire: pack and Ed25519 sign, opportunistic and direct delivery, proof-of-work stamps, lxm:// paper URIs, packed containers, and announce app-data. `NewDeliveryMessenger` builds an inbound lxmf.delivery destination so the hash matches what Python LXMF derives for the same identity.
+Matches LXMF 1.2.0 on the wire: pack and Ed25519 sign, opportunistic and direct delivery, proof-of-work stamps, lxm:// paper URIs, packed containers, and announce app-data. `NewDeliveryMessenger` builds an inbound lxmf.delivery destination so the hash matches what Python LXMF derives for the same identity.
 
 ```go
 messenger, err := lxmf.NewDeliveryMessenger(id, tr)

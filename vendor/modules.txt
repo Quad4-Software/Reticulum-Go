@@ -1,4 +1,4 @@
-# github.com/Quad4-Software/Reticulum-Go v1.3.2
+# github.com/Quad4-Software/Reticulum-Go v1.4.0
 ## explicit; go 1.27.1
 github.com/Quad4-Software/Reticulum-Go/internal/storage
 github.com/Quad4-Software/Reticulum-Go/pkg/announce

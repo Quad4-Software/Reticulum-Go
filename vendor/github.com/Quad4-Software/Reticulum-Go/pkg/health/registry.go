@@ -109,6 +109,13 @@ type Snapshot struct {
 	DoSCrypto             KindTotals `json:"dos_crypto" msgpack:"dos_crypto"`
 	DoSHandshake          KindTotals `json:"dos_handshake" msgpack:"dos_handshake"`
 	DoSCoolDown           KindTotals `json:"dos_cooldown" msgpack:"dos_cooldown"`
+	AnnounceMalformed     KindTotals `json:"announce_malformed" msgpack:"announce_malformed"`
+	AnnounceDestType      KindTotals `json:"announce_dest_type" msgpack:"announce_dest_type"`
+	AnnounceBlackholed    KindTotals `json:"announce_blackholed" msgpack:"announce_blackholed"`
+	AnnounceKeyMismatch   KindTotals `json:"announce_key_mismatch" msgpack:"announce_key_mismatch"`
+	AnnounceMaxHops       KindTotals `json:"announce_max_hops" msgpack:"announce_max_hops"`
+	AnnounceHeld          KindTotals `json:"announce_held" msgpack:"announce_held"`
+	AnnounceSuppressed    KindTotals `json:"announce_suppressed" msgpack:"announce_suppressed"`
 	// IntegrityFailRate is fails/(fails+ok) over the 60s window when sample size allows.
 	IntegrityFailRate float64 `json:"integrity_fail_rate" msgpack:"integrity_fail_rate"`
 	StaleCloses       uint64  `json:"stale_closes" msgpack:"stale_closes"`
@@ -173,6 +180,13 @@ func (r *Registry) snapshotArray(arr *[kindCount]windowedCounter) Snapshot {
 		DoSCrypto:             snapKind(arr, KindDoSCrypto, now),
 		DoSHandshake:          snapKind(arr, KindDoSHandshake, now),
 		DoSCoolDown:           snapKind(arr, KindDoSCoolDown, now),
+		AnnounceMalformed:     snapKind(arr, KindAnnounceMalformed, now),
+		AnnounceDestType:      snapKind(arr, KindAnnounceDestType, now),
+		AnnounceBlackholed:    snapKind(arr, KindAnnounceBlackholed, now),
+		AnnounceKeyMismatch:   snapKind(arr, KindAnnounceKeyMismatch, now),
+		AnnounceMaxHops:       snapKind(arr, KindAnnounceMaxHops, now),
+		AnnounceHeld:          snapKind(arr, KindAnnounceHeld, now),
+		AnnounceSuppressed:    snapKind(arr, KindAnnounceSuppressed, now),
 	}
 	s.StaleCloses = s.LinkStaleClose.Total
 	fails := s.IFACFail.Rate60 + s.HMACFail.Rate60 + s.UnpackFail.Rate60 + s.PaddingFail.Rate60

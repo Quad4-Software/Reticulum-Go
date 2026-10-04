@@ -27,4 +27,7 @@ const (
 
 	announceBurstWindow = 10 * time.Second
 	announceBurstMax    = 8
+	// Warn at most once per destination per window about announce throttling.
+	// One warn is enough; repeated warns are just log noise for the same bug.
+	announceThrottleWarnCooldown = time.Minute
 )

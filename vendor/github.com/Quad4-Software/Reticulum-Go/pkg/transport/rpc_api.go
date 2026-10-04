@@ -11,6 +11,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/protect"
 )
@@ -74,6 +75,17 @@ type InterfaceStat struct {
 	RxOK                      uint64   `msgpack:"rx_ok"`
 	AnnounceOK                uint64   `msgpack:"announce_ok"`
 	AnnounceDup               uint64   `msgpack:"announce_dup"`
+	AnnounceMalformed         uint64   `msgpack:"announce_malformed"`
+	AnnounceDestType          uint64   `msgpack:"announce_dest_type"`
+	AnnounceBlackholed        uint64   `msgpack:"announce_blackholed"`
+	AnnounceKeyMismatch       uint64   `msgpack:"announce_key_mismatch"`
+	AnnounceMaxHops           uint64   `msgpack:"announce_max_hops"`
+	AnnounceHeld              uint64   `msgpack:"announce_held"`
+	AnnounceSuppressed        uint64   `msgpack:"announce_suppressed"`
+	EndpointDialFailures      uint64   `msgpack:"endpoint_dial_failures"`
+	EndpointFlaps             uint64   `msgpack:"endpoint_flaps"`
+	EndpointQuarantined       bool     `msgpack:"endpoint_quarantined"`
+	EndpointQuarantineS       float64  `msgpack:"endpoint_quarantine_s"`
 	PathRespSuppressed        uint64   `msgpack:"path_resp_suppressed"`
 	PathReqDup                uint64   `msgpack:"path_req_dup"`
 	PathReqNoCache            uint64   `msgpack:"path_req_no_cache"`
@@ -383,6 +395,13 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 		st.RxOK = hs.RxOK.Total
 		st.AnnounceOK = hs.AnnounceOK.Total
 		st.AnnounceDup = hs.AnnounceDup.Total
+		st.AnnounceMalformed = hs.AnnounceMalformed.Total
+		st.AnnounceDestType = hs.AnnounceDestType.Total
+		st.AnnounceBlackholed = hs.AnnounceBlackholed.Total
+		st.AnnounceKeyMismatch = hs.AnnounceKeyMismatch.Total
+		st.AnnounceMaxHops = hs.AnnounceMaxHops.Total
+		st.AnnounceHeld = hs.AnnounceHeld.Total
+		st.AnnounceSuppressed = hs.AnnounceSuppressed.Total
 		st.PathRespSuppressed = hs.PathRespSuppressed.Total
 		st.PathReqDup = hs.PathReqDup.Total
 		st.PathReqNoCache = hs.PathReqNoCache.Total
@@ -391,6 +410,18 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 		st.IntegrityFailRate = hs.IntegrityFailRate
 		st.IntegritySamples60 = hs.IFACFail.Rate60 + hs.HMACFail.Rate60 + hs.UnpackFail.Rate60 + hs.PaddingFail.Rate60 + hs.RxOK.Rate60
 		st.StaleCloses = hs.StaleCloses
+		if ep, ok := iface.(interface {
+			EndpointStatus() interfaces.EndpointStatus
+		}); ok {
+			if es := ep.EndpointStatus(); es.Tracked {
+				st.EndpointDialFailures = es.DialFailures
+				st.EndpointFlaps = es.Flaps
+				st.EndpointQuarantined = es.Quarantined
+				if es.Quarantined {
+					st.EndpointQuarantineS = es.QuarantineRemaining.Seconds()
+				}
+			}
+		}
 		fillInterfaceAccounting(&st, iface)
 		resp.Interfaces = append(resp.Interfaces, st)
 	}

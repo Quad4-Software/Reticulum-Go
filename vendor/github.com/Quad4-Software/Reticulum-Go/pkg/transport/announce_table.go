@@ -240,7 +240,7 @@ func (t *Transport) queuePathResponseAnnounce(destHash []byte, path *common.Path
 // for an announce for destHash so a later ingress announce can answer it
 // immediately
 // maxPendingLocalPathReqs bounds local-client path-request state. Entries
-// normally clear on announce answer; a hostile local client could
+// normally clear on announce answer. A hostile local client could
 // otherwise grow the map without limit.
 const maxPendingLocalPathReqs = 2048
 
