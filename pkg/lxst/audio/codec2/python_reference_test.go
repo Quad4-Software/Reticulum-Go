@@ -15,7 +15,7 @@ import (
 
 func TestCodec2WirePythonDecode(t *testing.T) {
 	if !codec2.Native() {
-		t.Skip("codec2 wire oracle requires lxst_native build tag")
+		t.Skip("codec2 wire reference requires lxst_native build tag")
 	}
 	py := lxsttest.Python(t)
 	params := proto.ProfileParams(proto.ProfileBandwidthLow)

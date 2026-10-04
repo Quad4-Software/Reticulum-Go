@@ -73,9 +73,9 @@ tasks:
       - '{{.GOCMD}} test -short -v -count=1 ./internal/gorrcd/... ./cmd/gorrcd/...'
 
   test:gorrcd:short:
-    desc: gorrcd smoke, unit, property, oracle, mutation, acceptance, crossref, adversarial, leak, race (skips live mesh)
+    desc: gorrcd smoke, unit, property, reference, mutation, acceptance, crossref, adversarial, leak, race (skips live mesh)
     cmds:
-      - "{{.GOCMD}} test -short -v -count=1 -run='Test(Smoke|Unit|Property|Oracle|Mutation|Acceptance|BlackBox|CrossRef|Adversarial|Leak|Race)|TestParse|TestConfig|TestRoom|TestFirst|TestTrust|TestSplit|TestMode|TestUnknown|TestUDP|TestSetFlag' ./internal/gorrcd/..."
+      - "{{.GOCMD}} test -short -v -count=1 -run='Test(Smoke|Unit|Property|Reference|Mutation|Acceptance|BlackBox|CrossRef|Adversarial|Leak|Race)|TestParse|TestConfig|TestRoom|TestFirst|TestTrust|TestSplit|TestMode|TestUnknown|TestUDP|TestSetFlag' ./internal/gorrcd/..."
 
   test:gorrcd:e2e:
     desc: gorrcd e2e and acceptance live mesh tests
@@ -123,9 +123,9 @@ tasks:
       - '{{.GOCMD}} test -v -count=1 ./pkg/lxmf/...'
 
   test:lxmf:short:
-    desc: LXMF smoke, unit, property, oracle, mutation, acceptance, black-box (skips live mesh)
+    desc: LXMF smoke, unit, property, reference, mutation, acceptance, black-box (skips live mesh)
     cmds:
-      - "{{.GOCMD}} test -short -v -count=1 -run='Test(Smoke|Unit|Property|Oracle|Mutation|Acceptance|BlackBox)|TestNewMessage|TestPack|TestUnpack|TestPaper|TestContainer|TestHex|TestDisplay|TestStamp|TestPN|TestMessageStore|TestGenerateStamp' ./pkg/lxmf/..."
+      - "{{.GOCMD}} test -short -v -count=1 -run='Test(Smoke|Unit|Property|Reference|Mutation|Acceptance|BlackBox)|TestNewMessage|TestPack|TestUnpack|TestPaper|TestContainer|TestHex|TestDisplay|TestStamp|TestPN|TestMessageStore|TestGenerateStamp' ./pkg/lxmf/..."
 
   test:lxmf:e2e:
     desc: LXMF e2e and acceptance live mesh tests
@@ -158,9 +158,9 @@ tasks:
       - '{{.GOCMD}} test -short -v -count=1 ./internal/golxmd/...'
 
   test:golxmd:security:
-    desc: golxmd oracle, adversarial, and property tests
+    desc: golxmd reference, adversarial, and property tests
     cmds:
-      - "{{.GOCMD}} test -short -v -count=1 -run='Test(Oracle|Adversarial|Property|Console)_' ./internal/golxmd/..."
+      - "{{.GOCMD}} test -short -v -count=1 -run='Test(Reference|Adversarial|Property|Console)_' ./internal/golxmd/..."
 
   test:golxmd:peer-sync:
     desc: golxmd propagation peer sync edge-case tests
@@ -194,9 +194,9 @@ tasks:
       - '{{.GOCMD}} test -v -count=1 ./pkg/rrc/...'
 
   test:rrc:short:
-    desc: RRC smoke, unit, property, oracle, mutation, acceptance, black-box, security unit (skips live mesh)
+    desc: RRC smoke, unit, property, reference, mutation, acceptance, black-box, security unit (skips live mesh)
     cmds:
-      - "{{.GOCMD}} test -short -v -count=1 -run='Test(Smoke|Unit|Property|Oracle|Mutation|Acceptance|BlackBox|Security)|TestNormalize|TestSanitize|TestEnvelope|TestHello|TestJoined|TestClient|TestHub' ./pkg/rrc/..."
+      - "{{.GOCMD}} test -short -v -count=1 -run='Test(Smoke|Unit|Property|Reference|Mutation|Acceptance|BlackBox|Security)|TestNormalize|TestSanitize|TestEnvelope|TestHello|TestJoined|TestClient|TestHub' ./pkg/rrc/..."
 
   test:rrc:e2e:
     desc: RRC e2e and acceptance live mesh tests
@@ -224,14 +224,14 @@ tasks:
       - '{{.GOCMD}} test -v -count=1 -timeout 20m -run TestInterop_Spec_ ./pkg/rrc/...'
 
   test:rrc:security:
-    desc: RRC security, adversarial, and oracle tests (skips live mesh in -short)
+    desc: RRC security, adversarial, and reference tests (skips live mesh in -short)
     cmds:
-      - "{{.GOCMD}} test -v -count=1 -timeout 15m -run='Test(Security|Adversarial|Oracle)' ./pkg/rrc/..."
+      - "{{.GOCMD}} test -v -count=1 -timeout 15m -run='Test(Security|Adversarial|Reference)' ./pkg/rrc/..."
 
   test:rrc:security:short:
-    desc: RRC security unit and oracle tests only (no mesh)
+    desc: RRC security unit and reference tests only (no mesh)
     cmds:
-      - "{{.GOCMD}} test -short -v -count=1 -run='Test(Security|Oracle)_' ./pkg/rrc/..."
+      - "{{.GOCMD}} test -short -v -count=1 -run='Test(Security|Reference)_' ./pkg/rrc/..."
 
   test:lxst:
     desc: Run all LXST unit and loopback tests
@@ -239,9 +239,9 @@ tasks:
       - '{{.GOCMD}} test -v -count=1 ./pkg/lxst/... ./tests/lxst/...'
 
   test:lxst:short:
-    desc: LXST smoke, unit, property, oracle, mutation, acceptance (skips live mesh)
+    desc: LXST smoke, unit, property, reference, mutation, acceptance (skips live mesh)
     cmds:
-      - "{{.GOCMD}} test -short -v -count=1 -run='Test(Smoke|Unit|Property|Oracle|Mutation|Acceptance|BlackBox|Adversarial)' ./pkg/lxst/... ./tests/lxst/..."
+      - "{{.GOCMD}} test -short -v -count=1 -run='Test(Smoke|Unit|Property|Reference|Mutation|Acceptance|BlackBox|Adversarial)' ./pkg/lxst/... ./tests/lxst/..."
 
   test:lxst:e2e:
     desc: LXST live mesh call tests (no -short)

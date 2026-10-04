@@ -15,7 +15,7 @@ import (
 	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/proto"
 )
 
-type pythonOracle struct {
+type pythonReference struct {
 	Version  string             `json:"version"`
 	App      string             `json:"app"`
 	Aspect   string             `json:"aspect"`
@@ -44,23 +44,23 @@ type opusRow struct {
 	Voip     bool `json:"voip"`
 }
 
-func loadPythonOracle(t *testing.T) pythonOracle {
+func loadPythonReference(t *testing.T) pythonReference {
 	t.Helper()
 	py := lxsttest.Python(t)
-	script := filepath.Join(lxsttest.RepoRoot(t), "testdata", "lxst", "lxst_oracle.py")
+	script := filepath.Join(lxsttest.RepoRoot(t), "testdata", "lxst", "lxst_reference.py")
 	out, err := exec.Command(py, script).Output()
 	if err != nil {
-		t.Fatalf("lxst_oracle.py: %v", err)
+		t.Fatalf("lxst_reference.py: %v", err)
 	}
-	var o pythonOracle
+	var o pythonReference
 	if err := json.Unmarshal(out, &o); err != nil {
-		t.Fatalf("oracle json: %v\n%s", err, out)
+		t.Fatalf("reference json: %v\n%s", err, out)
 	}
 	return o
 }
 
 func TestLXSTConstantsMatchPython(t *testing.T) {
-	o := loadPythonOracle(t)
+	o := loadPythonReference(t)
 	if o.Version != "0.5.4" {
 		t.Fatalf("lxst version %s", o.Version)
 	}
@@ -174,7 +174,7 @@ func TestLXSTConstantsMatchPython(t *testing.T) {
 }
 
 func TestUmsgpackWireMatchesPython(t *testing.T) {
-	o := loadPythonOracle(t)
+	o := loadPythonReference(t)
 	cases := []struct {
 		name string
 		pack func() ([]byte, error)
