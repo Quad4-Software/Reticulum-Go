@@ -85,8 +85,12 @@ def main() -> int:
     sys.stdout.flush()
     packet.send()
 
+    repeat = os.environ.get("INTEROP_ANNOUNCE_REPEAT_SEC", "").strip()
+    interval = float(repeat) if repeat else 0.0
     while True:
-        time.sleep(60.0)
+        time.sleep(interval if interval > 0 else 60.0)
+        if interval > 0:
+            destination.announce(app_data=app_data)
 
 
 if __name__ == "__main__":

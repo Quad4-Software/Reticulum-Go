@@ -2112,9 +2112,21 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		}
 	}
 
+	fromLocal := isLocalClientInterface(iface)
+	accountedHops := byte(announceHops)
+
+	// Local clients get a copy even when this instance is not a transport node.
+	if err := t.forwardAnnounceToLocalClients(data, destinationHash, iface, accountedHops); err != nil {
+		debug.Log(debug.DebugVerbose, "Failed to forward announce to local shared-instance clients",
+			"dest_hash", fmt.Sprintf("%x", destinationHash), "error", err)
+	}
+
 	if !t.transportEnabled() {
+		if fromLocal && !isPathResponse {
+			t.scheduleAnnounceForward(data, destKey(destinationHash), destinationHash, iface, accountedHops)
+		}
 		if debug.Enabled(debug.DebugVerbose) {
-			debug.Log(debug.DebugVerbose, "Not forwarding announce: transport disabled",
+			debug.Log(debug.DebugVerbose, "Not forwarding announce on mesh: transport disabled",
 				"dest_hash", fmt.Sprintf("%x", destinationHash))
 		}
 		return nil
@@ -2136,7 +2148,7 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		return nil
 	}
 
-	t.scheduleAnnounceForward(data, destKey(destinationHash), destinationHash, iface)
+	t.scheduleAnnounceForward(data, destKey(destinationHash), destinationHash, iface, accountedHops)
 
 	return nil
 }
@@ -2150,10 +2162,10 @@ func (t *Transport) unclaimAnnounce(announceHash [32]byte) {
 }
 
 // scheduleAnnounceForward queues an announce rebroadcast for the
-// announce-forward ticker after the pathfinder rebroadcast delay. The packet
-// copy comes from announceForwardPool and returns to it after the job runs.
-// Drops when the pending queue is full.
-func (t *Transport) scheduleAnnounceForward(data []byte, dest hash16, destinationHash []byte, from common.NetworkInterface) {
+// announce-forward ticker after the pathfinder rebroadcast delay. hops is
+// written to the copy. The packet copy comes from announceForwardPool and
+// returns to it after the job runs. Drops when the pending queue is full.
+func (t *Transport) scheduleAnnounceForward(data []byte, dest hash16, destinationHash []byte, from common.NetworkInterface, hops byte) {
 	if t == nil || len(data) == 0 {
 		return
 	}
@@ -2167,7 +2179,9 @@ func (t *Transport) scheduleAnnounceForward(data []byte, dest hash16, destinatio
 		return
 	}
 	fwd := append(announceForwardPool.Get().([]byte)[:0], data...)
-	fwd[1]++
+	if len(fwd) >= 2 {
+		fwd[1] = hops
+	}
 	var dst [16]byte
 	copy(dst[:], destinationHash)
 	t.pendingAnnounceJobs = append(t.pendingAnnounceJobs, delayedAnnounceJob{
@@ -2211,6 +2225,30 @@ func (t *Transport) processDelayedAnnounceJobs() {
 			announceForwardPool.Put(job.data)
 		}
 	}
+}
+
+// forwardAnnounceToLocalClients sends an accepted announce on each local
+// client interface except fromIface. hops is written to the copy.
+func (t *Transport) forwardAnnounceToLocalClients(data []byte, destinationHash []byte, fromIface common.NetworkInterface, hops byte) error {
+	if len(data) < 2 {
+		return nil
+	}
+	var lastErr error
+	for _, e := range t.snapshotRegisteredInterfaces() {
+		outIface := e.iface
+		if outIface == fromIface || !outIface.IsEnabled() || !isLocalClientInterface(outIface) {
+			continue
+		}
+		if !t.shouldForwardAnnounceOn(destinationHash, outIface, fromIface) {
+			continue
+		}
+		fwd := append([]byte(nil), data...)
+		fwd[1] = hops
+		if err := t.transmitOrQueueAnnounce(outIface, e.name, fwd, destinationHash); err != nil {
+			lastErr = err
+		}
+	}
+	return lastErr
 }
 
 func (t *Transport) forwardAnnouncePacket(data []byte, dest hash16, destinationHash []byte, fromIface common.NetworkInterface) error {

@@ -1082,3 +1082,203 @@ func TestHandleAnnouncePacketRespectsTransportFlag(t *testing.T) {
 		t.Fatalf("announce forwarded while transport disabled: %d packets", n)
 	}
 }
+
+// TestMeshAnnounceForwardedToLocalClientWhenTransportDisabled checks that a
+// WAN announce is sent to a local client when EnableTransport is false.
+// Outbound hops are 2 for wire hops 1. WAN gets nothing.
+func TestMeshAnnounceForwardedToLocalClientWhenTransportDisabled(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	defer tr.Close()
+
+	wan := newRelayIface("wan")
+	localClient := newLocalClientRelayIface("local-client")
+	_ = tr.RegisterInterface("wan", wan)
+	_ = tr.RegisterInterface("local-client", localClient)
+
+	id := mustIdentity(t)
+	raw, dest := signedAnnounceWithContext(t, tr, id, packet.ContextNone)
+	raw[1] = 1
+
+	tr.HandlePacket(raw, wan)
+	waitInboundDrain(t, tr, 50*time.Millisecond)
+
+	got := localClient.snapshot()
+	if len(got) != 1 {
+		t.Fatalf("local-client announce forwards = %d, want 1", len(got))
+	}
+	if got[0][1] != 2 {
+		t.Fatalf("local-client announce hops = %d, want 2", got[0][1])
+	}
+	if !bytes.Equal(got[0][2:], raw[2:]) {
+		t.Fatal("local-client announce payload mutated")
+	}
+	if n := len(wan.snapshot()); n != 0 {
+		t.Fatalf("WAN rebroadcast while transport disabled = %d, want 0", n)
+	}
+	if !tr.HasPath(dest) {
+		t.Fatal("expected path from WAN announce")
+	}
+}
+
+// TestPathResponseAnnounceForwardedToLocalClientWhenTransportDisabled checks
+// that a PATH_RESPONSE announce reaches a local client and is not sent on WAN.
+func TestPathResponseAnnounceForwardedToLocalClientWhenTransportDisabled(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	defer tr.Close()
+
+	wan := newRelayIface("wan")
+	localClient := newLocalClientRelayIface("local-client")
+	_ = tr.RegisterInterface("wan", wan)
+	_ = tr.RegisterInterface("local-client", localClient)
+
+	id := mustIdentity(t)
+	raw, dest := signedAnnounceWithContext(t, tr, id, packet.ContextPathResponse)
+	raw[1] = 1
+
+	tr.HandlePacket(raw, wan)
+	waitInboundDrain(t, tr, 50*time.Millisecond)
+
+	got := localClient.snapshot()
+	if len(got) != 1 {
+		t.Fatalf("local-client PATH_RESPONSE forwards = %d, want 1", len(got))
+	}
+	if got[0][1] != 2 {
+		t.Fatalf("local-client PATH_RESPONSE hops = %d, want 2", got[0][1])
+	}
+	if n := len(wan.snapshot()); n != 0 {
+		t.Fatalf("PATH_RESPONSE WAN rebroadcast = %d, want 0", n)
+	}
+	if !tr.HasPath(dest) {
+		t.Fatal("expected path from PATH_RESPONSE")
+	}
+}
+
+// TestPathResponseAnnounceForwardedToLocalClientWhenTransportEnabled checks
+// PATH_RESPONSE is sent to a local client when EnableTransport is true.
+// Other mesh interfaces get nothing.
+func TestPathResponseAnnounceForwardedToLocalClientWhenTransportEnabled(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+
+	wan := newRelayIface("wan")
+	out := newRelayIface("out")
+	localClient := newLocalClientRelayIface("local-client")
+	_ = tr.RegisterInterface("wan", wan)
+	_ = tr.RegisterInterface("out", out)
+	_ = tr.RegisterInterface("local-client", localClient)
+
+	id := mustIdentity(t)
+	raw, _ := signedAnnounceWithContext(t, tr, id, packet.ContextPathResponse)
+	raw[1] = 1
+
+	tr.HandlePacket(raw, wan)
+	waitInboundDrain(t, tr, 50*time.Millisecond)
+
+	if n := len(localClient.snapshot()); n != 1 {
+		t.Fatalf("local-client PATH_RESPONSE forwards = %d, want 1", n)
+	}
+	if n := len(out.snapshot()); n != 0 {
+		t.Fatalf("PATH_RESPONSE mesh flood = %d, want 0", n)
+	}
+	if n := len(wan.snapshot()); n != 0 {
+		t.Fatalf("PATH_RESPONSE reflected on WAN = %d, want 0", n)
+	}
+}
+
+// TestLocalClientAnnounceForwardedToWANWhenTransportDisabled checks that an
+// announce from a local client is sent on the WAN when EnableTransport is
+// false, with hops left at 0.
+func TestLocalClientAnnounceForwardedToWANWhenTransportDisabled(t *testing.T) {
+	withFastAnnounceForward(t)
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	defer tr.Close()
+
+	wan := newRelayIface("wan")
+	localClient := newLocalClientRelayIface("local-client")
+	_ = tr.RegisterInterface("wan", wan)
+	_ = tr.RegisterInterface("local-client", localClient)
+
+	id := mustIdentity(t)
+	raw, dest := signedAnnounceWithContext(t, tr, id, packet.ContextNone)
+	raw[1] = 0
+
+	tr.HandlePacket(raw, localClient)
+	waitInboundDrain(t, tr, 20*time.Millisecond)
+	tr.processDelayedAnnounceJobs()
+
+	got := wan.snapshot()
+	if len(got) != 1 {
+		t.Fatalf("WAN announce forwards = %d, want 1", len(got))
+	}
+	if got[0][1] != 0 {
+		t.Fatalf("WAN announce hops = %d, want 0", got[0][1])
+	}
+	if n := len(localClient.snapshot()); n != 0 {
+		t.Fatalf("announce reflected on originating local client = %d, want 0", n)
+	}
+	if hops := tr.HopsTo(dest); hops != 0 {
+		t.Fatalf("owner path hops = %d, want 0", hops)
+	}
+}
+
+// TestLocalClientAnnounceForwardedToWANWhenTransportEnabled checks hop-0 WAN
+// send of a local-client announce with EnableTransport true.
+func TestLocalClientAnnounceForwardedToWANWhenTransportEnabled(t *testing.T) {
+	withFastAnnounceForward(t)
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+
+	wan := newRelayIface("wan")
+	localClient := newLocalClientRelayIface("local-client")
+	_ = tr.RegisterInterface("wan", wan)
+	_ = tr.RegisterInterface("local-client", localClient)
+
+	id := mustIdentity(t)
+	raw, dest := signedAnnounceWithContext(t, tr, id, packet.ContextNone)
+	raw[1] = 0
+
+	tr.HandlePacket(raw, localClient)
+	waitInboundDrain(t, tr, 20*time.Millisecond)
+	tr.processDelayedAnnounceJobs()
+
+	got := wan.snapshot()
+	if len(got) != 1 {
+		t.Fatalf("WAN announce forwards = %d, want 1", len(got))
+	}
+	if got[0][1] != 0 {
+		t.Fatalf("WAN announce hops = %d, want 0", got[0][1])
+	}
+	if hops := tr.HopsTo(dest); hops != 0 {
+		t.Fatalf("owner path hops = %d, want 0", hops)
+	}
+}
+
+// TestLocalClientAnnounceForwardedToPeerClientWhenTransportDisabled checks
+// that a local-client announce is sent to other local clients.
+func TestLocalClientAnnounceForwardedToPeerClientWhenTransportDisabled(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	defer tr.Close()
+
+	src := newLocalClientRelayIface("client-a")
+	peer := newLocalClientRelayIface("client-b")
+	_ = tr.RegisterInterface("client-a", src)
+	_ = tr.RegisterInterface("client-b", peer)
+
+	id := mustIdentity(t)
+	raw, _ := signedAnnounceWithContext(t, tr, id, packet.ContextNone)
+	raw[1] = 0
+
+	tr.HandlePacket(raw, src)
+	waitInboundDrain(t, tr, 50*time.Millisecond)
+
+	got := peer.snapshot()
+	if len(got) != 1 {
+		t.Fatalf("peer local-client announce forwards = %d, want 1", len(got))
+	}
+	if got[0][1] != 0 {
+		t.Fatalf("peer local-client announce hops = %d, want 0", got[0][1])
+	}
+	if n := len(src.snapshot()); n != 0 {
+		t.Fatalf("announce reflected on originating client = %d, want 0", n)
+	}
+}
