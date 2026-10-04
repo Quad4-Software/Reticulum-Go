@@ -43,12 +43,28 @@ type InterfaceStat struct {
 	HeldAnnounces             int      `msgpack:"held_announces"`
 	AnnounceQueue             int      `msgpack:"announce_queue"`
 	BurstActive               bool     `msgpack:"burst_active"`
+	BurstActivated            float64  `msgpack:"burst_activated"`
+	BurstCount                int      `msgpack:"burst_count"`
 	PRBurstActive             bool     `msgpack:"pr_burst_active"`
+	PRBurstActivated          float64  `msgpack:"pr_burst_activated"`
+	PRBurstCount              int      `msgpack:"pr_burst_count"`
 	Status                    bool     `msgpack:"status"`
 	Mode                      byte     `msgpack:"mode"`
+	MTU                       int      `msgpack:"mtu"`
 	Gravity                   int      `msgpack:"gravity"`
 	AnnouncesToInternal       bool     `msgpack:"announces_to_internal"`
 	Clients                   *int     `msgpack:"clients"`
+	TXDrops                   uint64   `msgpack:"txdrp"`
+	TXDropBytes               uint64   `msgpack:"txdrb"`
+	TXStalled                 bool     `msgpack:"txstalled"`
+	TXBuffered                int      `msgpack:"txbuffered"`
+	AnnounceRateTarget        *float64 `msgpack:"announce_rate_target"`
+	AnnounceRateGrace         *int     `msgpack:"announce_rate_grace"`
+	AnnounceRatePenalty       *float64 `msgpack:"announce_rate_penalty"`
+	AutoconnectSource         *string  `msgpack:"autoconnect_source"`
+	IFACSignature             []byte   `msgpack:"ifac_signature"`
+	IFACSize                  *int     `msgpack:"ifac_size"`
+	IFACNetname               *string  `msgpack:"ifac_netname"`
 	Bitrate                   int64    `msgpack:"bitrate"`
 	RTTMs                     *float64 `msgpack:"rtt_ms,omitempty"`
 	BandwidthAvailable        *bool    `msgpack:"bandwidth_available,omitempty"`
@@ -281,9 +297,17 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 			Type:      interfaceStatusType(iface),
 			Status:    iface.IsOnline(),
 			Mode:      byte(iface.GetMode()),
+			MTU:       iface.GetMTU(),
 			Gravity:   interfaceGravity(iface),
 			RXB:       rx,
 			TXB:       tx,
+		}
+		if i2 := iface.GetIFAC(); i2 != nil {
+			sz := i2.Size()
+			st.IFACSize = &sz
+			if sh, ok := i2.(interface{ IdentityHash() []byte }); ok {
+				st.IFACSignature = sh.IdentityHash()
+			}
 		}
 		if v, ok := iface.(interface{ AnnouncesToInternalFlag() bool }); ok {
 			st.AnnouncesToInternal = v.AnnouncesToInternalFlag()
@@ -348,6 +372,12 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 		if v, ok := iface.(interface{ PRBurstActive() bool }); ok {
 			st.PRBurstActive = v.PRBurstActive()
 		}
+		if v, ok := iface.(interface{ PRBurstActivatedAt() float64 }); ok {
+			st.PRBurstActivated = v.PRBurstActivatedAt()
+		}
+		if v, ok := iface.(interface{ PRBurstCount() int }); ok {
+			st.PRBurstCount = v.PRBurstCount()
+		}
 		if v, ok := iface.(interface{ GetRxSpeed() float64 }); ok {
 			st.RXS = v.GetRxSpeed()
 			rxsTotal += st.RXS
@@ -367,9 +397,21 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 			st.BandwidthAvailable = &avail
 		}
 		if t.ifaceStates != nil {
-			if stt := t.ifaceStates.get(iface.GetName()); stt != nil && stt.ingress != nil {
-				st.HeldAnnounces = stt.ingress.HeldCount()
-				st.BurstActive = stt.ingress.InBurst()
+			if stt := t.ifaceStates.get(iface.GetName()); stt != nil {
+				if stt.ingress != nil {
+					st.HeldAnnounces = stt.ingress.HeldCount()
+					st.BurstActive = stt.ingress.InBurst()
+					st.BurstActivated = stt.ingress.BurstActivatedAt()
+					st.BurstCount = stt.ingress.BurstCount()
+				}
+				if stt.egress != nil {
+					target := stt.egress.Target()
+					grace := stt.egress.Grace()
+					penalty := stt.egress.Penalty()
+					st.AnnounceRateTarget = &target
+					st.AnnounceRateGrace = &grace
+					st.AnnounceRatePenalty = &penalty
+				}
 			}
 		}
 		if q, ok := iface.(interface{ AnnounceQueueLen() int }); ok {

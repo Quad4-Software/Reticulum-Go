@@ -58,6 +58,25 @@ func (r *relayIface) snapshot() [][]byte {
 	return out
 }
 
+func waitRelaySends(t *testing.T, tr *Transport, iface *relayIface, want int) [][]byte {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		tr.processDelayedAnnounceJobs()
+		got := iface.snapshot()
+		if len(got) == want {
+			return got
+		}
+		if len(got) > want {
+			t.Fatalf("announce forwards = %d, want %d", len(got), want)
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("announce forwards = %d, want %d", len(got), want)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
 func mustIdentity(t *testing.T) *identity.Identity {
 	t.Helper()
 	id, err := identity.New()
@@ -1204,12 +1223,7 @@ func TestLocalClientAnnounceForwardedToWANWhenTransportDisabled(t *testing.T) {
 
 	tr.HandlePacket(raw, localClient)
 	waitInboundDrain(t, tr, 20*time.Millisecond)
-	tr.processDelayedAnnounceJobs()
-
-	got := wan.snapshot()
-	if len(got) != 1 {
-		t.Fatalf("WAN announce forwards = %d, want 1", len(got))
-	}
+	got := waitRelaySends(t, tr, wan, 1)
 	if got[0][1] != 0 {
 		t.Fatalf("WAN announce hops = %d, want 0", got[0][1])
 	}
@@ -1239,12 +1253,7 @@ func TestLocalClientAnnounceForwardedToWANWhenTransportEnabled(t *testing.T) {
 
 	tr.HandlePacket(raw, localClient)
 	waitInboundDrain(t, tr, 20*time.Millisecond)
-	tr.processDelayedAnnounceJobs()
-
-	got := wan.snapshot()
-	if len(got) != 1 {
-		t.Fatalf("WAN announce forwards = %d, want 1", len(got))
-	}
+	got := waitRelaySends(t, tr, wan, 1)
 	if got[0][1] != 0 {
 		t.Fatalf("WAN announce hops = %d, want 0", got[0][1])
 	}
@@ -1270,8 +1279,10 @@ func TestLocalClientAnnounceForwardedToPeerClientWhenTransportDisabled(t *testin
 
 	tr.HandlePacket(raw, src)
 	waitInboundDrain(t, tr, 50*time.Millisecond)
-
-	got := peer.snapshot()
+	got := waitRelaySends(t, tr, peer, 1)
+	time.Sleep(50 * time.Millisecond)
+	tr.processDelayedAnnounceJobs()
+	got = peer.snapshot()
 	if len(got) != 1 {
 		t.Fatalf("peer local-client announce forwards = %d, want 1", len(got))
 	}

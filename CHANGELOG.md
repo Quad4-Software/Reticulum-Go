@@ -9,6 +9,13 @@ Tracks Python RNS 1.5.5.
 - Release assets now carry GitHub OIDC build-provenance attestations (SLSA Build L3) alongside the cosign bundles. Verify with `gh attestation verify <file> --repo Quad4-Software/Reticulum-Go`.
 - Cosign attestation bundles are anchored in the Rekor transparency log, and the SLSA predicate records the source commit in resolvedDependencies.
 
+### Fixed
+
+- Shared-instance RPC now answers medium_path_timeout and lowest_interface_bitrate. Python callers such as rngit previously received msgpack nil, which unpacks to None and crashed numeric comparisons. The timeout matches Python Transport.medium_path_timeout: a two-way MTU airtime on the slowest online outgoing interface plus the per-hop establishment timeout.
+- interface_stats entries now carry the full always-present Python key set (mtu, txdrp, txdrb, txstalled, txbuffered, burst_activated/count, pr_burst_activated/count, announce_rate_target/grace/penalty, autoconnect_source, ifac_signature/ifac_size/ifac_netname), so Python tools like rnstatus no longer hit KeyError. IngressControl and BaseInterface now track burst activation timestamps and counts to back them.
+- rnsutil GetPathTable always sends max_hops, including nil. Python's rpc_loop reads call["max_hops"] unguarded and silently dropped calls that omitted it, which surfaced as read timeouts.
+- New live interop coverage: rpc_surface_probe.py calls every client getter against a Go shared instance and asserts strict numeric replies plus the required per-interface key set; the suite also runs rnstatus against the Go instance and every Go RPC getter plus rgostatus against a real Python rnsd, so RPC surface gaps fail in both directions.
+
 ## v1.4.0 - 2026-09-30
 
 Tracks Python RNS 1.5.5.

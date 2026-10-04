@@ -77,6 +77,36 @@ func destAnnounceKey(destHash string) [16]byte {
 	return k
 }
 
+// Target returns the configured minimum seconds between rebroadcasts.
+func (arc *AnnounceRateControl) Target() float64 {
+	if arc == nil {
+		return 0
+	}
+	arc.mutex.RLock()
+	defer arc.mutex.RUnlock()
+	return arc.rateTarget
+}
+
+// Grace returns the configured grace count before the penalty applies.
+func (arc *AnnounceRateControl) Grace() int {
+	if arc == nil {
+		return 0
+	}
+	arc.mutex.RLock()
+	defer arc.mutex.RUnlock()
+	return arc.rateGrace
+}
+
+// Penalty returns the configured penalty period in seconds.
+func (arc *AnnounceRateControl) Penalty() float64 {
+	if arc == nil {
+		return 0
+	}
+	arc.mutex.RLock()
+	defer arc.mutex.RUnlock()
+	return arc.ratePenalty
+}
+
 // AllowAnnounce reports whether an announce for destHash is allowed.
 // Returns true unconditionally when rateTarget <= 0.
 func (arc *AnnounceRateControl) AllowAnnounce(destHash string) bool {
@@ -177,13 +207,15 @@ func NewIngressControlConfig() IngressControlConfig {
 type IngressControl struct {
 	cfg IngressControlConfig
 
-	spawnedAt      time.Time
-	arrivals       []time.Time
-	heldQueue      []ingressHeld
-	heldIndex      map[[32]byte]int
-	burstActive    bool
-	burstClearedAt time.Time
-	lastReleaseAt  time.Time
+	spawnedAt        time.Time
+	arrivals         []time.Time
+	heldQueue        []ingressHeld
+	heldIndex        map[[32]byte]int
+	burstActive      bool
+	burstActivatedAt time.Time
+	burstCount       int
+	burstClearedAt   time.Time
+	lastReleaseAt    time.Time
 
 	mutex sync.Mutex
 }
@@ -269,6 +301,10 @@ func (ic *IngressControl) ProcessAnnounceHash(announceHash [32]byte, announceDat
 	freq := ic.currentFrequencyLocked(now)
 
 	if freq > threshold {
+		if !ic.burstActive {
+			ic.burstActivatedAt = now
+			ic.burstCount++
+		}
 		ic.burstActive = true
 		ic.burstClearedAt = time.Time{}
 	} else if ic.burstActive {
@@ -350,6 +386,30 @@ func (ic *IngressControl) InBurst() bool {
 	ic.mutex.Lock()
 	defer ic.mutex.Unlock()
 	return ic.burstActive
+}
+
+// BurstActivatedAt returns the unix timestamp the current or most recent
+// burst began, 0 when no burst has been detected.
+func (ic *IngressControl) BurstActivatedAt() float64 {
+	if ic == nil {
+		return 0
+	}
+	ic.mutex.Lock()
+	defer ic.mutex.Unlock()
+	if ic.burstActivatedAt.IsZero() {
+		return 0
+	}
+	return float64(ic.burstActivatedAt.Unix())
+}
+
+// BurstCount returns how many bursts the controller has detected.
+func (ic *IngressControl) BurstCount() int {
+	if ic == nil {
+		return 0
+	}
+	ic.mutex.Lock()
+	defer ic.mutex.Unlock()
+	return ic.burstCount
 }
 
 // maxArrivalEntries bounds the arrival history even under a sustained

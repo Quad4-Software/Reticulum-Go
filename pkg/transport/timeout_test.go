@@ -134,6 +134,54 @@ func TestSlowestOnlineBitrateSkipsReceiveOnly(t *testing.T) {
 	}
 }
 
+func TestMediumPathTimeoutNoInterfaceIsZero(t *testing.T) {
+	tr := NewTransport(common.DefaultConfig())
+	defer tr.Close()
+	if got := tr.MediumPathTimeout(); got != 0 {
+		t.Fatalf("medium path timeout = %v, want 0", got)
+	}
+}
+
+func TestMediumPathTimeoutMatchesPython(t *testing.T) {
+	tr := NewTransport(common.DefaultConfig())
+	defer tr.Close()
+	slow := &bitrateIface{}
+	slow.BaseInterface = interfaces.NewBaseInterface("lora", common.IFTypeUDP, true)
+	slow.Online = true
+	slow.bitrate = 125
+	fast := &bitrateIface{}
+	fast.BaseInterface = interfaces.NewBaseInterface("tcp", common.IFTypeTCP, true)
+	fast.Online = true
+	fast.bitrate = 10_000_000
+	if err := tr.RegisterInterface("lora", slow); err != nil {
+		t.Fatalf("register slow: %v", err)
+	}
+	if err := tr.RegisterInterface("tcp", fast); err != nil {
+		t.Fatalf("register fast: %v", err)
+	}
+	// Python: 2*(MTU*8/max(125, 5)) + DEFAULT_PER_HOP_TIMEOUT
+	want := 2*(float64(packet.MTU)*8/125) + float64(EstablishmentTimeoutPerHop)
+	if got := tr.MediumPathTimeout(); got != want {
+		t.Fatalf("medium path timeout = %v, want %v", got, want)
+	}
+}
+
+func TestMediumPathTimeoutFloorsAtMinimumBitrate(t *testing.T) {
+	tr := NewTransport(common.DefaultConfig())
+	defer tr.Close()
+	drip := &bitrateIface{}
+	drip.BaseInterface = interfaces.NewBaseInterface("drip", common.IFTypeUDP, true)
+	drip.Online = true
+	drip.bitrate = 1
+	if err := tr.RegisterInterface("drip", drip); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	want := 2*(float64(packet.MTU)*8/float64(common.BitrateMinimum)) + float64(EstablishmentTimeoutPerHop)
+	if got := tr.MediumPathTimeout(); got != want {
+		t.Fatalf("medium path timeout = %v, want %v (floor at %d bit/s)", got, want, common.BitrateMinimum)
+	}
+}
+
 func TestDiscoveryTimeoutUsesSlowestOutgoingFanout(t *testing.T) {
 	tr := NewTransport(common.DefaultConfig())
 	slow := &bitrateIface{}

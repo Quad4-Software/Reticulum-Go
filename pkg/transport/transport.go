@@ -2256,7 +2256,7 @@ func (t *Transport) forwardAnnouncePacket(data []byte, dest hash16, destinationH
 	for _, e := range t.snapshotRegisteredInterfaces() {
 		name := e.name
 		outIface := e.iface
-		if outIface == fromIface || !outIface.IsEnabled() {
+		if outIface == fromIface || !outIface.IsEnabled() || isLocalClientInterface(outIface) {
 			continue
 		}
 
