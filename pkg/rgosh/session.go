@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -654,7 +655,7 @@ func (s *Session) copyProcessStream(ctx context.Context, sender Sender, compat b
 		if n > 0 {
 			data := append([]byte(nil), buf[:n]...)
 			if sendErr := s.sendStreamChunks(ctx, sender, compat, streamID, data, false); sendErr != nil {
-				debug.Log(debug.DebugWarning, "rgosh: stream chunk send failed, output dropped", "stream", streamID, "err", sendErr)
+				debug.Log(debug.DebugWarning, "rgosh: stream chunk send failed", "stream", streamID, "err", sendErr)
 			}
 			s.mu.Lock()
 			onOut := s.OnStdout
@@ -687,18 +688,9 @@ func (s *Session) sendStreamChunks(ctx context.Context, sender Sender, compat bo
 		}
 	}
 	for {
-		if rs, ok := sender.(interface{ WaitReady(context.Context) error }); ok {
-			waitCtx := ctx
-			if waitCtx == nil {
-				waitCtx = context.Background()
-			}
-			if err := rs.WaitReady(waitCtx); err != nil {
-				return err
-			}
-		}
 		if len(data) == 0 {
 			if eof {
-				return sender.Send(&StreamMessage{Compat: compat, StreamID: streamID, EOF: true})
+				return sendRetryReady(ctx, sender, &StreamMessage{Compat: compat, StreamID: streamID, EOF: true})
 			}
 			return nil
 		}
@@ -713,7 +705,7 @@ func (s *Session) sendStreamChunks(ctx context.Context, sender Sender, compat bo
 		}
 		data = data[n:]
 		sendEOF := eof && len(data) == 0
-		if err := sender.Send(&StreamMessage{
+		if err := sendRetryReady(ctx, sender, &StreamMessage{
 			Compat:     compat,
 			StreamID:   streamID,
 			Data:       chunk,
@@ -840,20 +832,50 @@ func (s *Session) MutateDefaultCmdAppend(arg string) {
 	s.cfg.DefaultCmd = append(s.cfg.DefaultCmd, arg)
 }
 
+// sendRetryReady waits for a ready outlet then sends. ErrLinkNotReady is
+// retried until ctx is done so a full TX window cannot drop process output.
+func sendRetryReady(ctx context.Context, sender Sender, msg Message) error {
+	if sender == nil {
+		return nil
+	}
+	waitCtx := ctx
+	if waitCtx == nil {
+		waitCtx = context.Background()
+	}
+	for {
+		if rs, ok := sender.(interface{ WaitReady(context.Context) error }); ok {
+			if err := rs.WaitReady(waitCtx); err != nil {
+				return err
+			}
+		}
+		err := sender.Send(msg)
+		if err == nil {
+			return nil
+		}
+		if !errors.Is(err, channel.ErrLinkNotReady) {
+			return err
+		}
+		select {
+		case <-waitCtx.Done():
+			return waitCtx.Err()
+		case <-time.After(time.Millisecond):
+		}
+	}
+}
+
 // sendWhenReady waits up to wait for a ready outlet, then sends. Exit uses
 // this so a full TX window cannot drop the final status.
 func sendWhenReady(sender Sender, msg Message, wait time.Duration) {
 	if sender == nil {
 		return
 	}
-	if rs, ok := sender.(interface{ WaitReady(context.Context) error }); ok && wait > 0 {
-		ctx, cancel := context.WithTimeout(context.Background(), wait)
-		if err := rs.WaitReady(ctx); err != nil {
-			debug.Log(debug.DebugWarning, "rgosh: outlet not ready before send", "err", err)
-		}
-		cancel()
+	ctx := context.Background()
+	cancel := func() {}
+	if wait > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), wait)
 	}
-	if err := sender.Send(msg); err != nil {
+	defer cancel()
+	if err := sendRetryReady(ctx, sender, msg); err != nil {
 		debug.Log(debug.DebugWarning, "rgosh: message send failed", "err", err)
 	}
 }
