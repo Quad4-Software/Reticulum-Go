@@ -481,7 +481,7 @@ GitHub Actions workflows in .github/workflows/:
 | dependency-review.yml | PR dependency and advisory gate |
 | publish.yml | Tagged releases, cosign attestations |
 
-CI uses Go 1.27.1 via actions/setup-go in .github/actions/setup-ci with GOTOOLCHAIN=local and vendored modules. Actions are SHA-pinned. Dependabot opens weekly PRs for Action bumps (.github/dependabot.yml).
+CI uses Go 1.27.1 via actions/setup-go in .github/actions/setup-ci with GOTOOLCHAIN=local and vendored modules. Actions are SHA-pinned.
 
 ## Cross-compilation
 
