@@ -580,6 +580,9 @@ func NewTCPServerInterface(name string, bindAddr string, bindPort int, kissFrami
 			MTU:      common.DefaultMTU,
 			Enabled:  true,
 			Detached: false,
+			// Upstream assigns BITRATE_GUESS to TCP server interfaces; a
+			// zero bitrate would make the announce queue never drain.
+			Bitrate: BitrateGuess,
 		},
 		connections: make(map[string]net.Conn),
 		bindAddr:    bindAddr,

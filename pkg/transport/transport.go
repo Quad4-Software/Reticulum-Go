@@ -2252,6 +2252,26 @@ func (t *Transport) forwardAnnounceToLocalClients(data []byte, destinationHash [
 }
 
 func (t *Transport) forwardAnnouncePacket(data []byte, dest hash16, destinationHash []byte, fromIface common.NetworkInterface) error {
+	// Upstream retransmits announces as header type 2 packets carrying
+	// this node's transport identity, so downstream nodes learn this
+	// node as the next hop for transport addressing. Forwarding the
+	// announce raw would advertise the upstream relay's transport id, or
+	// none at all, and break multi-hop packet forwarding.
+	wrapped := data
+	if tid := t.ourTransportID(); len(tid) == identity.TruncatedHashLength/8 && len(data) > 2 {
+		headerType := (data[0] & HeaderTypeMask) >> HeaderTypeShift
+		var werr error
+		if headerType == packet.HeaderType2 {
+			wrapped, werr = rebuildHeaderType2(append([]byte(nil), data...), data[1], tid)
+		} else {
+			wrapped, werr = insertHeaderType2(data, data[1], tid)
+		}
+		if werr != nil {
+			debug.Log(debug.DebugError, "Failed to wrap announce for forwarding", "error", werr)
+			wrapped = data
+		}
+	}
+
 	var lastErr error
 	for _, e := range t.snapshotRegisteredInterfaces() {
 		name := e.name
@@ -2277,7 +2297,7 @@ func (t *Transport) forwardAnnouncePacket(data []byte, dest hash16, destinationH
 		}
 
 		debug.Log(debug.DebugAll, "Forwarding announce on interface", "name", name)
-		if err := t.transmitOrQueueAnnounce(outIface, name, data, destinationHash); err != nil {
+		if err := t.transmitOrQueueAnnounce(outIface, name, wrapped, destinationHash); err != nil {
 			debug.Log(debug.DebugAll, "Failed to forward announce", "name", name, "error", err)
 			lastErr = err
 		}
@@ -2895,7 +2915,11 @@ func (t *Transport) SendPacket(p *packet.Packet) error {
 		return common.ErrNoPathToDestinationf(destHash)
 	}
 
-	if p.DestinationType != DestTypeLink && path.HopCount > 1 && len(path.NextHop) > 0 && !bytes.Equal(path.NextHop, destHash) {
+	// Upstream also injects single-hop packets into transport when the
+	// sender is behind a shared instance, so the instance relays them
+	// onto the network instead of the packet dying at the hub.
+	multiHop := path.HopCount > 1 || (path.HopCount == 1 && t.ConnectedToSharedInstance())
+	if p.DestinationType != DestTypeLink && multiHop && len(path.NextHop) > 0 && !bytes.Equal(path.NextHop, destHash) {
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Rewrapping packet for transport", "destHash", fmt.Sprintf("%x", destHash), "nextHop", fmt.Sprintf("%x", path.NextHop), "hops", path.HopCount)
 		}
