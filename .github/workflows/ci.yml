@@ -73,17 +73,22 @@ jobs:
           # set to the literal strings user.name / user.email more than once,
           # poisoning author names on pushed commits. The previous gate only
           # grepped emails, so Author: user.email <identity-hash> passed.
-          # Names and emails are both checked. Only the pushed/PR range is
-          # scanned so pre-fix history does not trip it.
+          # Names and emails are both checked. Scan the pushed/PR range, then
+          # drop commits from before this gate (0414df45) so merging a
+          # long-lived branch onto master does not re-fail on pre-fix history.
+          cutoff="0414df45a4c6f97e1a277d8f126969c4e01d6a17"
           base="${{ github.event.pull_request.base.sha || github.event.before }}"
           if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
-            range="HEAD"
+            set -- HEAD
           else
-            range="${base}..HEAD"
+            set -- "${base}..HEAD"
           fi
-          if git log --format='%an%n%cn%n%ae%n%ce' $range | grep -qE '^user\.(name|email)$'; then
+          if git cat-file -e "${cutoff}^{commit}" 2>/dev/null; then
+            set -- "$@" --not "${cutoff}^"
+          fi
+          if git log --format='%an%n%cn%n%ae%n%ce' "$@" | grep -qE '^user\.(name|email)$'; then
             echo "placeholder commit identity found:"
-            git log --format='%h %an <%ae>' $range | grep -E 'user\.name|user\.email' | head -5
+            git log --format='%h author=%an <%ae> committer=%cn <%ce>' "$@" | grep -E 'user\.(name|email)' | head -5
             exit 1
           fi
 

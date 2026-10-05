@@ -4,6 +4,7 @@
 """Fast git-index tree manifest for reticulum-go.rsm signing.
 
 Hashes index blobs (same bytes as git show :path) via git cat-file --batch.
+Oids are written on a side thread so the batch stdout pipe cannot fill.
 Output format matches scripts/ci/tree-manifest.sh generate.
 """
 
@@ -13,6 +14,7 @@ import hashlib
 import os
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 MANIFEST_HEADER = "# reticulum-go tree manifest v1"
@@ -103,21 +105,30 @@ def generate_manifest(root: Path) -> str:
     assert proc.stdin is not None
     assert proc.stdout is not None
 
-    stdin_buf = "".join(f"{oid}\n" for _path, _mode, oid in rows).encode("ascii")
-    proc.stdin.write(stdin_buf)
-    proc.stdin.close()
+    def _write_oids() -> None:
+        try:
+            for _path, _mode, oid in rows:
+                proc.stdin.write(f"{oid}\n".encode("ascii"))
+            proc.stdin.close()
+        except BrokenPipeError:
+            pass
 
-    for path, _mode, _oid in rows:
-        header = proc.stdout.readline()
-        if not header:
-            raise RuntimeError("git cat-file --batch closed stdout early")
-        blob = _read_batch_blob(proc.stdout, header)
-        if blob is None:
-            continue
-        digest = hashlib.sha256(blob).hexdigest()
-        lines.append(f"{digest}  {path}")
-
-    proc.wait()
+    writer = threading.Thread(target=_write_oids, daemon=True)
+    writer.start()
+    try:
+        for path, _mode, _oid in rows:
+            header = proc.stdout.readline()
+            if not header:
+                raise RuntimeError("git cat-file --batch closed stdout early")
+            blob = _read_batch_blob(proc.stdout, header)
+            if blob is None:
+                continue
+            digest = hashlib.sha256(blob).hexdigest()
+            lines.append(f"{digest}  {path}")
+    finally:
+        proc.stdout.close()
+        writer.join(timeout=30)
+        proc.wait()
     if proc.returncode not in (0, None):
         raise RuntimeError(f"git cat-file --batch exited {proc.returncode}")
 
