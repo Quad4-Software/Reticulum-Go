@@ -106,6 +106,41 @@ tasks:
     cmds:
       - sh scripts/ci/run-haiku-anyvm.sh
 
+  test-bsd-anyvm:
+    desc: Build and self-check on a BSD guest via anyvm Docker (OS=freebsd|openbsd|netbsd|hardenedbsd)
+    requires:
+      vars: [OS]
+    cmds:
+      - sh scripts/ci/run-bsd-anyvm.sh {{.OS}}
+
+  test-freebsd-anyvm:
+    desc: Build and self-check on FreeBSD via anyvm Docker (QEMU/KVM)
+    cmds:
+      - task: test-bsd-anyvm
+        vars:
+          OS: freebsd
+
+  test-openbsd-anyvm:
+    desc: Build and self-check on OpenBSD via anyvm Docker (QEMU/KVM)
+    cmds:
+      - task: test-bsd-anyvm
+        vars:
+          OS: openbsd
+
+  test-netbsd-anyvm:
+    desc: Build and self-check on NetBSD via anyvm Docker (QEMU/KVM)
+    cmds:
+      - task: test-bsd-anyvm
+        vars:
+          OS: netbsd
+
+  test-hardenedbsd-anyvm:
+    desc: Build and self-check on HardenedBSD via anyvm Docker (QEMU/KVM)
+    cmds:
+      - task: test-bsd-anyvm
+        vars:
+          OS: hardenedbsd
+
   test-self-check-qemu:
     desc: Cross-build linux/$GOARCH and run self-check under qemu-user
     requires:

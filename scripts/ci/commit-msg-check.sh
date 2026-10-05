@@ -15,6 +15,25 @@ if [ -z "$MSG_FILE" ] || [ ! -f "$MSG_FILE" ]; then
 	exit 1
 fi
 
+# Refuse placeholder git identities. Repo-local config has been set to
+# the literal strings user.name / user.email, which then land in commits.
+ident_name="${GIT_AUTHOR_NAME:-$(git config --get user.name || true)}"
+ident_email="${GIT_AUTHOR_EMAIL:-$(git config --get user.email || true)}"
+case "$ident_name" in
+user.name | user.email)
+	echo "commit-msg: placeholder author name: $ident_name" >&2
+	echo "commit-msg: set user.name to a person name, not a git config key" >&2
+	exit 1
+	;;
+esac
+case "$ident_email" in
+user.name | user.email)
+	echo "commit-msg: placeholder author email: $ident_email" >&2
+	echo "commit-msg: set user.email to the rngcs identity hash" >&2
+	exit 1
+	;;
+esac
+
 SUBJECT="$(sed -n '1p' "$MSG_FILE")"
 
 # Allow merge and revert commits.

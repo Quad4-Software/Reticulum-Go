@@ -5,6 +5,8 @@ package resource
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -63,5 +65,46 @@ func TestPrepareOutboundSmallNotSplit(t *testing.T) {
 	}
 	if res.GetTotalSegments() != 1 || res.GetSegmentIndex() != 1 {
 		t.Fatalf("segments: i=%d l=%d", res.GetSegmentIndex(), res.GetTotalSegments())
+	}
+}
+
+func TestPrepareOutboundFileSplitsDistinctSegments(t *testing.T) {
+	tmp := filepath.Join(t.TempDir(), "split.bin")
+	first := bytes.Repeat([]byte("A"), MaxEfficientSize)
+	second := bytes.Repeat([]byte("B"), 4096)
+	if err := os.WriteFile(tmp, append(first, second...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Open(tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	res, err := New(f, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := res.PrepareOutboundForLink(identityEncrypt, 200); err != nil {
+		t.Fatal(err)
+	}
+	if !res.IsSplit() {
+		t.Fatal("expected split resource")
+	}
+	seg1, err := res.readRawBodyLocked(0, int64(MaxEfficientSize))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := res.PrepareNextOutboundSegment(identityEncrypt, 200); err != nil {
+		t.Fatal(err)
+	}
+	seg2, err := res.readRawBodyLocked(int64(MaxEfficientSize), 4096)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Equal(seg1[:4096], seg2) {
+		t.Fatal("second segment repeated the first chunk")
+	}
+	if !bytes.Equal(seg2, second) {
+		t.Fatalf("second segment mismatch len=%d", len(seg2))
 	}
 }

@@ -148,11 +148,10 @@ func (c *RPCClient) GetInterfaceStats() (transport.InterfaceStatsResponse, error
 }
 
 // GetPathTable fetches the path table. maxHops may be nil for no filter.
+// The key is always sent because Python's rpc_loop reads call["max_hops"]
+// unguarded and drops the call when it is absent.
 func (c *RPCClient) GetPathTable(maxHops *int) ([]transport.PathTableEntry, error) {
-	call := map[string]any{"get": "path_table"}
-	if maxHops != nil {
-		call["max_hops"] = *maxHops
-	}
+	call := map[string]any{"get": "path_table", "max_hops": maxHops}
 	var out []transport.PathTableEntry
 	err := c.Call(call, &out)
 	return out, err
@@ -219,6 +218,22 @@ func (c *RPCClient) GetFirstHopTimeout(destinationHash []byte) (float64, error) 
 		"get":              "first_hop_timeout",
 		"destination_hash": destinationHash,
 	}, &out)
+	return out, err
+}
+
+// GetLowestInterfaceBitrate returns the slowest online interface bitrate,
+// 0 when unknown.
+func (c *RPCClient) GetLowestInterfaceBitrate() (int64, error) {
+	var out int64
+	err := c.Call(map[string]any{"get": "lowest_interface_bitrate"}, &out)
+	return out, err
+}
+
+// GetMediumPathTimeout returns the medium path request timeout in seconds,
+// 0 when unknown.
+func (c *RPCClient) GetMediumPathTimeout() (float64, error) {
+	var out float64
+	err := c.Call(map[string]any{"get": "medium_path_timeout"}, &out)
 	return out, err
 }
 

@@ -213,3 +213,30 @@ func TestTickIncomingResourceWatchdog_RespectsStallGrace(t *testing.T) {
 		t.Fatalf("grace violated: waiting=%v stalls=%d", rx.waitingForHmu, rx.consecutiveStalls)
 	}
 }
+
+func TestStartIncomingWindow(t *testing.T) {
+	if got := startIncomingWindow(0, resource.WindowMin, resource.WindowMaxFast, resource.WindowMaxSlow); got != resource.WindowMaxSlow {
+		t.Fatalf("empty last: got %d want %d", got, resource.WindowMaxSlow)
+	}
+	if got := startIncomingWindow(40, resource.WindowMin, resource.WindowMaxFast, resource.WindowMaxSlow); got != 40 {
+		t.Fatalf("last 40: got %d", got)
+	}
+	if got := startIncomingWindow(200, resource.WindowMin, resource.WindowMaxFast, resource.WindowMaxSlow); got != resource.WindowMaxFast {
+		t.Fatalf("clamp max: got %d", got)
+	}
+	if got := startIncomingWindow(1, resource.WindowMin, resource.WindowMaxFast, resource.WindowMaxSlow); got != resource.WindowMin {
+		t.Fatalf("clamp min: got %d", got)
+	}
+}
+
+func TestGrowIncomingResourceWindow_HealthyRefill(t *testing.T) {
+	rx := &incomingResourceAsm{
+		window:    resource.WindowMaxSlow,
+		windowMin: resource.WindowMin,
+		windowMax: resource.WindowMaxFast,
+	}
+	growIncomingResourceWindow(rx)
+	if rx.window <= resource.WindowMaxSlow {
+		t.Fatalf("healthy refill did not grow window: %d", rx.window)
+	}
+}

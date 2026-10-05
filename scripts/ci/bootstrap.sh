@@ -7,6 +7,8 @@ cd "$ROOT"
 
 . "$ROOT/scripts/ci/dev-tools.env"
 
+GOSEC_VERSION="${CI_GOSEC_VERSION:-v2.29.0}"
+
 if ! command -v go >/dev/null 2>&1; then
 	echo "bootstrap: install Go $CI_GO_VERSION first (mise install, or https://go.dev/dl/)" >&2
 	exit 1
@@ -29,9 +31,16 @@ install_tool() {
 		go install "${module}@${version}"
 }
 
-install_tool "github.com/go-task/task/v3/cmd/task" "$CI_TASK_VERSION"
+task_ver="$CI_TASK_VERSION"
+case "$task_ver" in
+v*) ;;
+*) task_ver="v${task_ver}" ;;
+esac
+
+install_tool "github.com/go-task/task/v3/cmd/task" "$task_ver"
 install_tool "github.com/mgechev/revive" "$CI_REVIVE_VERSION"
 install_tool "honnef.co/go/tools/cmd/staticcheck" "$CI_STATICCHECK_VERSION"
+install_tool "github.com/securego/gosec/v2/cmd/gosec" "$GOSEC_VERSION"
 
 echo ""
 echo "bootstrap: Go tools installed. Ensure GOBIN is on PATH:"

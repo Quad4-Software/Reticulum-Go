@@ -93,7 +93,6 @@ Thumbs.db
 # IDE / Editor config directories
 .idea/
 .vscode/
-.cursor/
 
 # Swap and test binaries
 *.swp

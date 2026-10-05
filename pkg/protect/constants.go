@@ -113,4 +113,19 @@ const (
 	// PeerIdleEvictAfter prunes a peer sub-bucket that has been quiet this
 	// long, making room for new peers once MaxTrackedPeersPerIface is hit.
 	PeerIdleEvictAfter = 5 * time.Minute
+
+	// EWMAAlphaUp is the baseline growth rate once adaptive learning is
+	// armed. It is deliberately much smaller than EWMAAlpha so a sustained
+	// flood parked just under the 1.5x learn gate cannot walk the trip
+	// line up to the absolute ceiling in seconds. Baseline decay keeps the
+	// faster alpha so quiet periods re-tighten quickly.
+	EWMAAlphaUp = 0.03
+
+	// EarlyDropStartFraction is where graduated early shedding begins for
+	// shed-first traffic: at this fraction of the adaptive trip line,
+	// packets are dropped with probability ramping linearly to 1.0 at the
+	// line itself (RED-style incipient-congestion response). Prefer-keep
+	// traffic never early-drops; link payloads are expensive to
+	// re-establish while announces retransmit by design.
+	EarlyDropStartFraction = 0.5
 )

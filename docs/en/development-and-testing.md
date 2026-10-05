@@ -28,6 +28,22 @@ A Taskfile also exists for maintainer and CI automation (`task --list`), but it 
 
 Optional: [mise](https://mise.jdx.dev/) (mise install) or the Dev Container (.devcontainer/).
 
+## Portable CI (Forgejo, Gitea, local, Podman)
+
+Same PR gate as `task check`, without GitHub Marketplace actions:
+
+| Command | Role |
+| --- | --- |
+| `bash scripts/ci/bootstrap-toolchain.sh install` | Pinned Go, Task, revive, staticcheck |
+| `CI_SKIP_TREE_VERIFY=1 bash scripts/ci/run.sh pr` | PR gate without `reticulum-go.rsm` verify |
+| `bash scripts/ci/run-docker.sh pr` | PR gate in `scripts/ci/Dockerfile.ci` (Podman if available) |
+| `task ci:pr` / `make ci-pr` | Wrappers for `run.sh pr` |
+| `task ci:docker` / `make ci-docker` | Wrapper for `run-docker.sh pr` |
+
+Forgejo and Gitea: `.gitea/workflows/ci.yml` and `.forgejo/workflows/ci.yml` run bootstrap plus `run.sh`.
+
+Pinned versions: `scripts/ci/versions.env` and `scripts/ci/dev-tools.env`.
+
 ## Build automation reference
 
 | Make | Manual / notes |
@@ -481,7 +497,7 @@ GitHub Actions workflows in .github/workflows/:
 | dependency-review.yml | PR dependency and advisory gate |
 | publish.yml | Tagged releases, cosign attestations |
 
-CI uses Go 1.27.1 via actions/setup-go in .github/actions/setup-ci with GOTOOLCHAIN=local and vendored modules. Actions are SHA-pinned. Dependabot opens weekly PRs for Action bumps (.github/dependabot.yml).
+CI uses Go 1.27.1 via actions/setup-go in .github/actions/setup-ci with GOTOOLCHAIN=local and vendored modules. Actions are SHA-pinned.
 
 ## Cross-compilation
 

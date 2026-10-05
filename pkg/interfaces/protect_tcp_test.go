@@ -111,7 +111,7 @@ func TestIfaceChaosProtectFlood(t *testing.T) {
 	if calls.Load() >= 200 {
 		t.Fatalf("chaos prevent flood should shed got %d", calls.Load())
 	}
-	if e.TripCount(protect.ReasonPPS) == 0 {
-		t.Fatal("expected pps trips")
+	if e.TripCount(protect.ReasonPPS) == 0 && e.TripCount(protect.ReasonEarlyDrop) == 0 {
+		t.Fatal("expected pps or early-drop trips")
 	}
 }

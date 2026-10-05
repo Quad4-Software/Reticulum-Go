@@ -64,7 +64,7 @@ make package-rpm
 make package-arch
 ```
 
-Arch Linux and CachyOS: add the Quad4 pacman repo from [quad4-arch](https://github.com/Quad4-Software/quad4-arch) (reticulum-go or reticulum-go-git). That is a Quad4-hosted repo, not AUR.
+Arch Linux and CachyOS: add the Quad4 pacman repo from [arch](https://github.com/Quad4-Software/arch) (reticulum-go or reticulum-go-git). That is a Quad4-hosted repo, not AUR.
 
 Full Make target map: [Development and testing](development-and-testing.md#build-automation-reference).
 

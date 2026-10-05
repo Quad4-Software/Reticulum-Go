@@ -25,6 +25,10 @@ type PipeInterface struct {
 	tr     *transport.Transport
 	online atomic.Bool
 
+	// delivered counts frames handed to the peer transport. Flood tests
+	// use it to measure outbound amplification.
+	delivered atomic.Int64
+
 	// dropOnce, if set, is consulted for every outbound packet. Returning
 
 	// true drops that packet instead of delivering it. Used by tests that
@@ -130,6 +134,7 @@ func (p *PipeInterface) deliver(data []byte) {
 	if !p.online.Load() || p.peer == nil || !p.peer.online.Load() || p.peer.tr == nil {
 		return
 	}
+	p.delivered.Add(1)
 	dataCopy := make([]byte, len(data))
 	copy(dataCopy, data)
 	p.peer.tr.HandlePacket(dataCopy, p.peer)

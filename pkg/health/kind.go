@@ -49,6 +49,8 @@ const (
 	KindAnnounceMaxHops
 	KindAnnounceHeld
 	KindAnnounceSuppressed
+	KindDoSEarlyDrop
+	KindResourceReqDrop
 	kindCount
 )
 
@@ -139,6 +141,10 @@ func (k Kind) String() string {
 		return "announce_held"
 	case KindAnnounceSuppressed:
 		return "announce_suppressed"
+	case KindDoSEarlyDrop:
+		return "dos_early_drop"
+	case KindResourceReqDrop:
+		return "resource_req_drop"
 	default:
 		return "unknown"
 	}

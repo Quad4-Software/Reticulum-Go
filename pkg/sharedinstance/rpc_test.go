@@ -142,3 +142,20 @@ func TestRPCHandlerManage(t *testing.T) {
 		t.Fatalf("bogus manage: %#v want nil", got)
 	}
 }
+
+// TestRPCHandlerTimeoutKeys covers the Python rpc_loop keys rngit and rnstatus
+// clients fetch. They must answer with numbers, never nil: a nil unpacks to
+// Python None and crashes clients doing numeric comparisons on it.
+func TestRPCHandlerTimeoutKeys(t *testing.T) {
+	cfg := &common.ReticulumConfig{EnableTransport: false, InMemoryStorage: true}
+	tr := transport.NewTransport(cfg)
+	defer tr.Close()
+	h := &RPCHandler{Transport: tr}
+
+	if got := h.Handle(map[string]any{"get": "lowest_interface_bitrate"}); got != int64(0) {
+		t.Fatalf("lowest_interface_bitrate: %#v want int64 0", got)
+	}
+	if got := h.Handle(map[string]any{"get": "medium_path_timeout"}); got != float64(0) {
+		t.Fatalf("medium_path_timeout: %#v want float64 0", got)
+	}
+}

@@ -252,11 +252,12 @@ func EstablishRNCPLink(ctx context.Context, tr *transport.Transport, destHash []
 
 // SendFileOverLink pushes a file resource with rncp metadata over an active link.
 func SendFileOverLink(l *link.Link, filePath string, autoCompress bool, progress func(float64, int64, int64)) error {
-	data, err := os.ReadFile(filePath) // #nosec G304 -- operator-selected file path
+	f, err := os.Open(filePath) // #nosec G304 -- operator-selected file path
 	if err != nil {
 		return err
 	}
-	res, err := resource.New(data, autoCompress)
+	defer f.Close()
+	res, err := resource.New(f, autoCompress)
 	if err != nil {
 		return err
 	}

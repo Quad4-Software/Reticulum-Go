@@ -52,6 +52,10 @@ func (h *RPCHandler) Handle(call map[string]any) any {
 			return h.Transport.GetNextHopRPC(decodeHash(call["destination_hash"]))
 		case "first_hop_timeout":
 			return h.Transport.GetFirstHopTimeoutRPC(decodeHash(call["destination_hash"]))
+		case "lowest_interface_bitrate":
+			return h.Transport.SlowestOnlineBitrate()
+		case "medium_path_timeout":
+			return h.Transport.MediumPathTimeout()
 		case "link_count":
 			return h.Transport.GetLinkCountRPC()
 		case "active_link_count":

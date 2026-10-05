@@ -37,7 +37,7 @@ func TestScheduleAnnounceForwardJob_BacklogFullDrops(t *testing.T) {
 	}
 	tr.pendingAnnounceMu.Unlock()
 
-	tr.scheduleAnnounceForward([]byte{0x01, 0x00}, hash16{}, []byte("dest"), nil)
+	tr.scheduleAnnounceForward([]byte{0x01, 0x00}, hash16{}, []byte("dest"), nil, 1)
 	tr.pendingAnnounceMu.Lock()
 	n0 := len(tr.pendingAnnounceJobs)
 	tr.pendingAnnounceMu.Unlock()
@@ -115,7 +115,7 @@ func TestRegression_AnnounceForwardSurvivesCallerBufferReuse(t *testing.T) {
 	for i := range 64 {
 		buf := bytes.Repeat([]byte{byte(i + 1)}, 48)
 		dest := append([]byte(nil), buf[:16]...)
-		tr.scheduleAnnounceForward(buf, destKey(dest), dest, in)
+		tr.scheduleAnnounceForward(buf, destKey(dest), dest, in, 1)
 		for j := range buf {
 			buf[j] = 0xFF
 		}
@@ -150,7 +150,7 @@ func TestAnnounceForwardStorm_NoGoroutineExplosion(t *testing.T) {
 	for i := range MaxPendingAnnounceForwards * 2 {
 		buf := bytes.Repeat([]byte{byte(i)}, 32)
 		dest := append([]byte(nil), randomDestHash(300+i)...)
-		tr.scheduleAnnounceForward(buf, destKey(dest), dest, in)
+		tr.scheduleAnnounceForward(buf, destKey(dest), dest, in, 1)
 	}
 	tr.pendingAnnounceMu.Lock()
 	queued := len(tr.pendingAnnounceJobs)

@@ -30,7 +30,7 @@ To run our builds and security scans, we use helper scripts located in `scripts/
 
 ### Version Pinning
 
-We pin third-party GitHub Actions to full commit SHAs, not floating tags. Compilers and scanners are pinned in workflow `env` blocks. Dependabot opens weekly PRs for Action updates (`.github/dependabot.yml`).
+We pin third-party GitHub Actions to full commit SHAs, not floating tags. Compilers and scanners are pinned in workflow `env` blocks.
 
 ### Commit and repository policy
 

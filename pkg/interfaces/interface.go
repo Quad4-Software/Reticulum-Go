@@ -87,6 +87,7 @@ type BaseInterface struct {
 	oaFreqDeque        []time.Time
 	icPRBurstActive    bool
 	icPRBurstActivated time.Time
+	icPRBurstCount     int
 	ingressControl     bool
 	egressControl      bool
 	icPRBurstFreqNewV  float64
@@ -611,6 +612,24 @@ func (i *BaseInterface) PRBurstActive() bool {
 	return i.icPRBurstActive
 }
 
+// PRBurstActivatedAt returns the unix timestamp the current or most recent
+// path-request burst began, 0 when none has been detected.
+func (i *BaseInterface) PRBurstActivatedAt() float64 {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	if i.icPRBurstActivated.IsZero() {
+		return 0
+	}
+	return float64(i.icPRBurstActivated.Unix())
+}
+
+// PRBurstCount returns how many path-request bursts have been detected.
+func (i *BaseInterface) PRBurstCount() int {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.icPRBurstCount
+}
+
 // SampleTraffic updates current RX/TX bitrates from byte-counter deltas.
 func (i *BaseInterface) SampleTraffic() {
 	i.Mutex.Lock()
@@ -759,6 +778,7 @@ func (i *BaseInterface) ShouldIngressLimitPR() bool {
 	if ipFreq > freqThreshold {
 		i.icPRBurstActive = true
 		i.icPRBurstActivated = time.Now()
+		i.icPRBurstCount++
 		return true
 	}
 	return false

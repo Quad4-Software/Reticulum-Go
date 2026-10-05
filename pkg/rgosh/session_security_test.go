@@ -10,6 +10,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/Quad4-Software/Reticulum-Go/pkg/channel"
 )
 
 type fakeProc struct {
@@ -315,6 +317,68 @@ func TestAdversarialPacingWaitReady(t *testing.T) {
 	if n.load() == 0 {
 		t.Fatal("no sends after ready")
 	}
+}
+
+func TestStreamChunkRetriesLinkNotReady(t *testing.T) {
+	send := &retryLinkSender{fail: 3}
+	sess := NewSession(Config{Listener: true, AllowAll: true, DefaultCmd: []string{"x"}}, send)
+	fp := &fakeProc{
+		stdin: newPipeBuf(), stdout: newPipeBuf(), stderr: newPipeBuf(),
+		code: 0, done: make(chan struct{}),
+	}
+	sess.StartProcess = func(req ExecRequest) (ProcessHandle, error) {
+		return fp, nil
+	}
+	_ = sess.HandleMessage(&VersionMessage{ProtocolVersion: 1, SoftwareVersion: "t"})
+	_ = sess.HandleMessage(&ExecMessage{Cmdline: []string{"x"}, PipeStdout: true, PipeStderr: true, PipeStdin: true})
+	if _, err := fp.stdout.Write([]byte("hello-rgosh\n")); err != nil {
+		t.Fatal(err)
+	}
+	_ = fp.stdout.Close()
+	_ = fp.stderr.Close()
+	close(fp.done)
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if send.hasStreamData(StreamStdout, []byte("hello-rgosh\n")) {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatal("stdout chunk never sent after link-not-ready retries")
+}
+
+type retryLinkSender struct {
+	memSender
+	failMu sync.Mutex
+	fail   int
+}
+
+func (r *retryLinkSender) Send(msg Message) error {
+	r.failMu.Lock()
+	if r.fail > 0 {
+		r.fail--
+		r.failMu.Unlock()
+		return channel.ErrLinkNotReady
+	}
+	r.failMu.Unlock()
+	return r.memSender.Send(msg)
+}
+
+func (r *retryLinkSender) WaitReady(context.Context) error { return nil }
+
+func (r *retryLinkSender) hasStreamData(streamID int, want []byte) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, msg := range r.msgs {
+		sm, ok := msg.(*StreamMessage)
+		if !ok || sm.StreamID != streamID {
+			continue
+		}
+		if bytes.Equal(sm.Data, want) {
+			return true
+		}
+	}
+	return false
 }
 
 func TestCompressAdaptiveFitsMDU(t *testing.T) {

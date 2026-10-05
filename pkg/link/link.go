@@ -22,6 +22,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/pathfinder"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/rate"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/securemem"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
@@ -88,6 +89,17 @@ type Link struct {
 
 	watchdogLock   bool
 	watchdogActive atomic.Bool
+
+	// inboundMu guards the ordered inbound queue. Packets for one link are
+	// dispatched by different transport workers and would otherwise race:
+	// an identify packet must always be processed before a request that
+	// follows it on the wire.
+	inboundMu   sync.Mutex
+	inboundQ    []*packet.Packet
+	inboundBusy bool
+	// channelGate holds channel packets in earlyChannel while the initiator's
+	// async established callback installs message handlers.
+	channelGate atomic.Bool
 	// watchdogDone is closed by closeOnce so the watchdog exits promptly
 	// instead of lingering for up to a 5s sleep after close.
 	watchdogDone chan struct{}
@@ -130,6 +142,11 @@ type Link struct {
 
 	incomingMu sync.Mutex
 	incomingRx *incomingResourceAsm
+	// lastResourceWindow is the receive window from the last completed
+	// incoming resource on this link. The next advertisement starts from
+	// that value so split segments and back-to-back files do not ramp
+	// from WINDOW_MAX_SLOW again.
+	lastResourceWindow int
 
 	outgoingMu     sync.Mutex
 	resourceSendMu sync.Mutex
@@ -140,6 +157,12 @@ type Link struct {
 	outgoingReceiverMinPart int
 	outgoingResCompleteChan chan struct{}
 	outgoingDispatchMu      sync.Mutex
+	// reqLimiter bounds inbound RESOURCE_REQ dispatch on the sending side.
+	// Each REQ can select up to a full window of parts which are then
+	// re-encrypted and retransmitted, so an unauthenticated-rate REQ flood
+	// is a small-in/large-out amplification vector. Lazily created on the
+	// first dispatch.
+	reqLimiter *rate.Limiter
 
 	pendingPlainMu   sync.Mutex
 	pendingPlainData []byte
@@ -149,6 +172,13 @@ type Link struct {
 	// window. Processing them before the established callback drops messages.
 	earlyChannelMu sync.Mutex
 	earlyChannel   []*packet.Packet
+
+	// cachedProofRaw keeps the responder's sent LRPROOF wire bytes so a
+	// replayed identical LINKREQUEST can be answered by resend instead of
+	// a fresh keygen+ECDH+sign. cachedProofPkt covers the transport-routed
+	// send path when no receiving interface is bound.
+	cachedProofRaw []byte
+	cachedProofPkt *packet.Packet
 }
 
 func NewLink(dest *destination.Destination, transport *transport.Transport, networkIface common.NetworkInterface, establishedCallback func(*Link), closedCallback func(*Link)) *Link {
@@ -480,7 +510,75 @@ func (l *Link) SendPacketWithContext(data []byte, context byte) error {
 
 	return l.transport.SendPacket(p)
 }
+
+// HandleInbound enqueues a wire packet for ordered per-link processing.
+// Transport workers run concurrently, so consecutive packets for the same
+// link (for example identify then request) could otherwise be processed
+// out of order or in parallel. Transport dispatches link data packets
+// serially on the inbound drainer, so this queue preserves wire order; a
+// dedicated drain goroutine processes it one packet at a time.
 func (l *Link) HandleInbound(pkt *packet.Packet) error {
+	// pkt aliases the transport's pooled receive buffer, which is recycled
+	// as soon as the dispatch job returns. Detach it before queueing so
+	// later packets do not overwrite the queued bytes.
+	queued := &packet.Packet{Raw: append([]byte(nil), pkt.Raw...)}
+	if err := queued.Unpack(); err != nil {
+		return err
+	}
+	l.inboundMu.Lock()
+	l.inboundQ = append(l.inboundQ, queued)
+	if l.inboundBusy {
+		l.inboundMu.Unlock()
+		return nil
+	}
+	l.inboundBusy = true
+	l.inboundMu.Unlock()
+	go l.drainInbound()
+	return nil
+}
+
+func (l *Link) popInbound() (*packet.Packet, bool) {
+	l.inboundMu.Lock()
+	defer l.inboundMu.Unlock()
+	if len(l.inboundQ) == 0 {
+		l.inboundBusy = false
+		return nil, true
+	}
+	p := l.inboundQ[0]
+	l.inboundQ[0] = nil
+	l.inboundQ = l.inboundQ[1:]
+	return p, false
+}
+
+// drainInbound pops queued packets in arrival order. At most one drainer
+// runs per link, guarded by inboundBusy.
+func (l *Link) drainInbound() {
+	for {
+		p, done := l.popInbound()
+		if done {
+			return
+		}
+		if err := l.processInboundSafe(p); err != nil {
+			debug.Log(debug.DebugError, "Error handling inbound packet", "error", err)
+		}
+	}
+}
+
+// processInboundSafe contains panics in packet processing so a misbehaving
+// callback cannot wedge the inbound queue or take down the transport worker.
+func (l *Link) processInboundSafe(pkt *packet.Packet) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic in inbound packet handler: %v", r)
+			debug.Log(debug.DebugError, "Panic in inbound packet handler",
+				"panic", fmt.Sprint(r),
+				"link_id", fmt.Sprintf("%x", l.linkID))
+		}
+	}()
+	return l.processInbound(pkt)
+}
+
+func (l *Link) processInbound(pkt *packet.Packet) error {
 	if pkt.PacketType == packet.PacketTypeData {
 		l.mutex.Lock()
 		l.watchdogLock = true
@@ -750,7 +848,7 @@ func (l *Link) handleRTTPacket(pkt *packet.Packet) error {
 		}
 		// Python rnsh may deliver Version before this RTT is processed. Flush
 		// after handlers are registered so early channel envelopes are not dropped.
-		l.flushEarlyChannel()
+		l.markChannelReady()
 
 		establishmentElapsed := time.Since(l.requestTime).Seconds()
 		debug.Log(debug.DebugInfo, "Link established (responder) after RTT", "link_id", fmt.Sprintf("%x", l.linkID), "rtt", fmt.Sprintf("%.3fs", logRtt), "total_elapsed", fmt.Sprintf("%.3fs", establishmentElapsed))

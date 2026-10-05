@@ -2,6 +2,10 @@
 # Verify a cosign SLSA bundle for a release binary using the repository public key.
 # Usage: verify-release-attestation.sh <blob-file> <bundle-file>
 # Env: COSIGN_PUBLIC_KEY (default cosign.pub)
+#
+# Releases also carry GitHub OIDC build provenance (SLSA Build L3). Verify
+# that path with:
+#   gh attestation verify <blob-file> --repo Quad4-Software/Reticulum-Go
 set -eu
 
 BLOB="${1:?blob path}"

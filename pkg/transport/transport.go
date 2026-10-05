@@ -352,7 +352,11 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 	if !inMemory {
 		storagePath = transportStoragePath(cfg)
 	}
-	if cfg != nil {
+	// Only touch the protect engine when the operator actually configured
+	// dos_protection (or a caller set the field programmatically). A bare
+	// NewTransport must not silently downgrade a previously installed
+	// engine back to ModeOff.
+	if cfg != nil && (cfg.DoSProtectionSet || cfg.DoSProtection != "") {
 		protectStore := ""
 		if storagePath != "" {
 			protectStore = filepath.Join(storagePath, protect.StoreFileName)
@@ -1808,6 +1812,28 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		return fmt.Errorf("packet too small: %d bytes", len(data))
 	}
 
+	// Cheap dedup before signature verification. The announce hash covers
+	// data[2:], so a replayed announce is recognised here for the cost of
+	// one SHA-256 plus a map lookup instead of a full Ed25519 verify.
+	// Rejected announces never enter seenAnnounces (the claim below only
+	// happens after a successful verify), so retries still reach the
+	// verifier.
+	announceHash := sha256.Sum256(data[2:])
+	t.mutex.RLock()
+	if last, ok := t.seenAnnounces[announceHash]; ok && time.Since(last) < SeenAnnounceTTL {
+		t.mutex.RUnlock()
+		dupIface := ""
+		if iface != nil {
+			dupIface = iface.GetName()
+		}
+		health.Inc(dupIface, health.KindAnnounceDup)
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Ignoring duplicate announce (pre-verify)", "hash", fmt.Sprintf("%x", announceHash[:8]))
+		}
+		return nil
+	}
+	t.mutex.RUnlock()
+
 	var destinationHash []byte
 	var context byte
 	var payload []byte
@@ -1952,8 +1978,6 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		return fmt.Errorf("destination hash mismatch")
 	}
 
-	announceHash := sha256.Sum256(data[2:])
-
 	// Claim the dedup slot atomically with the check: concurrent inbound
 	// workers must not both pass before either records the announce. The
 	// claim is released on the early returns below so a dropped copy does
@@ -2088,9 +2112,21 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		}
 	}
 
+	fromLocal := isLocalClientInterface(iface)
+	accountedHops := byte(announceHops)
+
+	// Local clients get a copy even when this instance is not a transport node.
+	if err := t.forwardAnnounceToLocalClients(data, destinationHash, iface, accountedHops); err != nil {
+		debug.Log(debug.DebugVerbose, "Failed to forward announce to local shared-instance clients",
+			"dest_hash", fmt.Sprintf("%x", destinationHash), "error", err)
+	}
+
 	if !t.transportEnabled() {
+		if fromLocal && !isPathResponse {
+			t.scheduleAnnounceForward(data, destKey(destinationHash), destinationHash, iface, accountedHops)
+		}
 		if debug.Enabled(debug.DebugVerbose) {
-			debug.Log(debug.DebugVerbose, "Not forwarding announce: transport disabled",
+			debug.Log(debug.DebugVerbose, "Not forwarding announce on mesh: transport disabled",
 				"dest_hash", fmt.Sprintf("%x", destinationHash))
 		}
 		return nil
@@ -2112,7 +2148,7 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		return nil
 	}
 
-	t.scheduleAnnounceForward(data, destKey(destinationHash), destinationHash, iface)
+	t.scheduleAnnounceForward(data, destKey(destinationHash), destinationHash, iface, accountedHops)
 
 	return nil
 }
@@ -2126,10 +2162,10 @@ func (t *Transport) unclaimAnnounce(announceHash [32]byte) {
 }
 
 // scheduleAnnounceForward queues an announce rebroadcast for the
-// announce-forward ticker after the pathfinder rebroadcast delay. The packet
-// copy comes from announceForwardPool and returns to it after the job runs.
-// Drops when the pending queue is full.
-func (t *Transport) scheduleAnnounceForward(data []byte, dest hash16, destinationHash []byte, from common.NetworkInterface) {
+// announce-forward ticker after the pathfinder rebroadcast delay. hops is
+// written to the copy. The packet copy comes from announceForwardPool and
+// returns to it after the job runs. Drops when the pending queue is full.
+func (t *Transport) scheduleAnnounceForward(data []byte, dest hash16, destinationHash []byte, from common.NetworkInterface, hops byte) {
 	if t == nil || len(data) == 0 {
 		return
 	}
@@ -2143,7 +2179,9 @@ func (t *Transport) scheduleAnnounceForward(data []byte, dest hash16, destinatio
 		return
 	}
 	fwd := append(announceForwardPool.Get().([]byte)[:0], data...)
-	fwd[1]++
+	if len(fwd) >= 2 {
+		fwd[1] = hops
+	}
 	var dst [16]byte
 	copy(dst[:], destinationHash)
 	t.pendingAnnounceJobs = append(t.pendingAnnounceJobs, delayedAnnounceJob{
@@ -2189,12 +2227,56 @@ func (t *Transport) processDelayedAnnounceJobs() {
 	}
 }
 
+// forwardAnnounceToLocalClients sends an accepted announce on each local
+// client interface except fromIface. hops is written to the copy.
+func (t *Transport) forwardAnnounceToLocalClients(data []byte, destinationHash []byte, fromIface common.NetworkInterface, hops byte) error {
+	if len(data) < 2 {
+		return nil
+	}
+	var lastErr error
+	for _, e := range t.snapshotRegisteredInterfaces() {
+		outIface := e.iface
+		if outIface == fromIface || !outIface.IsEnabled() || !isLocalClientInterface(outIface) {
+			continue
+		}
+		if !t.shouldForwardAnnounceOn(destinationHash, outIface, fromIface) {
+			continue
+		}
+		fwd := append([]byte(nil), data...)
+		fwd[1] = hops
+		if err := t.transmitOrQueueAnnounce(outIface, e.name, fwd, destinationHash); err != nil {
+			lastErr = err
+		}
+	}
+	return lastErr
+}
+
 func (t *Transport) forwardAnnouncePacket(data []byte, dest hash16, destinationHash []byte, fromIface common.NetworkInterface) error {
+	// Upstream retransmits announces as header type 2 packets carrying
+	// this node's transport identity, so downstream nodes learn this
+	// node as the next hop for transport addressing. Forwarding the
+	// announce raw would advertise the upstream relay's transport id, or
+	// none at all, and break multi-hop packet forwarding.
+	wrapped := data
+	if tid := t.ourTransportID(); len(tid) == identity.TruncatedHashLength/8 && len(data) > 2 {
+		headerType := (data[0] & HeaderTypeMask) >> HeaderTypeShift
+		var werr error
+		if headerType == packet.HeaderType2 {
+			wrapped, werr = rebuildHeaderType2(append([]byte(nil), data...), data[1], tid)
+		} else {
+			wrapped, werr = insertHeaderType2(data, data[1], tid)
+		}
+		if werr != nil {
+			debug.Log(debug.DebugError, "Failed to wrap announce for forwarding", "error", werr)
+			wrapped = data
+		}
+	}
+
 	var lastErr error
 	for _, e := range t.snapshotRegisteredInterfaces() {
 		name := e.name
 		outIface := e.iface
-		if outIface == fromIface || !outIface.IsEnabled() {
+		if outIface == fromIface || !outIface.IsEnabled() || isLocalClientInterface(outIface) {
 			continue
 		}
 
@@ -2215,7 +2297,7 @@ func (t *Transport) forwardAnnouncePacket(data []byte, dest hash16, destinationH
 		}
 
 		debug.Log(debug.DebugAll, "Forwarding announce on interface", "name", name)
-		if err := t.transmitOrQueueAnnounce(outIface, name, data, destinationHash); err != nil {
+		if err := t.transmitOrQueueAnnounce(outIface, name, wrapped, destinationHash); err != nil {
 			debug.Log(debug.DebugAll, "Failed to forward announce", "name", name, "error", err)
 			lastErr = err
 		}
@@ -2476,6 +2558,13 @@ func (t *Transport) handleTransportPacket(data []byte, pkt *packet.Packet, iface
 		}
 
 		if destType == DestTypeLink && t.forwardLinkData(pkt.DestinationHash, data, iface) {
+			return
+		}
+
+		// Packets from shared-instance clients addressed to non-local
+		// destinations are originated by this transport on the client's
+		// behalf, mirroring relayBridgedLinkRequest for link requests.
+		if destType == DestTypeSingle && t.forwardLocalClientPacket(pkt, data, iface) {
 			return
 		}
 
@@ -2826,7 +2915,11 @@ func (t *Transport) SendPacket(p *packet.Packet) error {
 		return common.ErrNoPathToDestinationf(destHash)
 	}
 
-	if p.DestinationType != DestTypeLink && path.HopCount > 1 && len(path.NextHop) > 0 && !bytes.Equal(path.NextHop, destHash) {
+	// Upstream also injects single-hop packets into transport when the
+	// sender is behind a shared instance, so the instance relays them
+	// onto the network instead of the packet dying at the hub.
+	multiHop := path.HopCount > 1 || (path.HopCount == 1 && t.ConnectedToSharedInstance())
+	if p.DestinationType != DestTypeLink && multiHop && len(path.NextHop) > 0 && !bytes.Equal(path.NextHop, destHash) {
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Rewrapping packet for transport", "destHash", fmt.Sprintf("%x", destHash), "nextHop", fmt.Sprintf("%x", path.NextHop), "hops", path.HopCount)
 		}

@@ -23,7 +23,7 @@ type Resource struct {
 	mutex             sync.RWMutex
 	data              []byte
 	sourceData        []byte
-	fileHandle        io.ReadWriteSeeker
+	fileHandle        io.ReadSeeker
 	fileName          string
 	hash              []byte
 	randomHash        []byte
@@ -70,7 +70,7 @@ func New(data any, autoCompress bool) (*Resource, error) {
 	case []byte:
 		r.data = v
 		r.dataSize = int64(len(v))
-	case io.ReadWriteSeeker:
+	case io.ReadSeeker:
 		r.fileHandle = v
 		size, err := v.Seek(0, io.SeekEnd)
 		if err != nil {
@@ -89,10 +89,14 @@ func New(data any, autoCompress bool) (*Resource, error) {
 		return nil, errors.New("unsupported data type")
 	}
 
-	// Calculate segments needed
-	r.segments = uint16((r.dataSize + DefaultSegmentSize - 1) / DefaultSegmentSize) // #nosec G115
-	if r.segments > MaxSegments {
-		return nil, errors.New("resource too large")
+	parts := (r.dataSize + DefaultSegmentSize - 1) / DefaultSegmentSize
+	if parts < 1 {
+		parts = 1
+	}
+	if parts > int64(MaxSegments) {
+		r.segments = MaxSegments
+	} else {
+		r.segments = uint16(parts) // #nosec G115
 	}
 
 	// Calculate transfer size
@@ -445,14 +449,7 @@ func (r *Resource) PrepareNextOutboundSegment(encrypt func([]byte) ([]byte, erro
 }
 
 func (r *Resource) rawBodySizeLocked() (int64, error) {
-	src := r.data
-	if r.sourceData != nil {
-		src = r.sourceData
-	}
-	switch {
-	case src != nil:
-		return int64(len(src)), nil
-	case r.fileHandle != nil:
+	if r.fileHandle != nil {
 		cur, err := r.fileHandle.Seek(0, io.SeekCurrent)
 		if err != nil {
 			return 0, err
@@ -465,9 +462,15 @@ func (r *Resource) rawBodySizeLocked() (int64, error) {
 			return 0, err
 		}
 		return end, nil
-	default:
-		return 0, errors.New("no data")
 	}
+	src := r.data
+	if r.sourceData != nil {
+		src = r.sourceData
+	}
+	if src != nil {
+		return int64(len(src)), nil
+	}
+	return 0, errors.New("no data")
 }
 
 func (r *Resource) readRawBodyLocked(offset, length int64) ([]byte, error) {
@@ -477,18 +480,7 @@ func (r *Resource) readRawBodyLocked(offset, length int64) ([]byte, error) {
 	if length == 0 {
 		return []byte{}, nil
 	}
-	src := r.data
-	if r.sourceData != nil {
-		src = r.sourceData
-	}
-	switch {
-	case src != nil:
-		if offset > int64(len(src)) {
-			return nil, errors.New("segment offset past end of data")
-		}
-		end := min(offset+length, int64(len(src)))
-		return append([]byte(nil), src[offset:end]...), nil
-	case r.fileHandle != nil:
+	if r.fileHandle != nil {
 		if _, err := r.fileHandle.Seek(offset, io.SeekStart); err != nil {
 			return nil, err
 		}
@@ -501,9 +493,19 @@ func (r *Resource) readRawBodyLocked(offset, length int64) ([]byte, error) {
 			return nil, err
 		}
 		return buf, nil
-	default:
-		return nil, errors.New("no data")
 	}
+	src := r.data
+	if r.sourceData != nil {
+		src = r.sourceData
+	}
+	if src != nil {
+		if offset > int64(len(src)) {
+			return nil, errors.New("segment offset past end of data")
+		}
+		end := min(offset+length, int64(len(src)))
+		return append([]byte(nil), src[offset:end]...), nil
+	}
+	return nil, errors.New("no data")
 }
 
 func (r *Resource) finishPrepareSegmentLocked(encrypt func([]byte) ([]byte, error), sdu int, segmentBody []byte, includeMeta bool) error {
@@ -548,7 +550,7 @@ func (r *Resource) finishPrepareSegmentLocked(encrypt func([]byte) ([]byte, erro
 	}
 
 	// ExpectedProof prepends metadataPacked when present on segment 1.
-	if r.split && r.sourceData == nil && r.data != nil {
+	if r.split && r.sourceData == nil && r.data != nil && r.fileHandle == nil {
 		r.sourceData = r.data
 	}
 	r.data = append([]byte(nil), segmentBody...)

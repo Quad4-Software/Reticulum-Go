@@ -28,6 +28,24 @@ func (l *Link) GetChannel() *channel.Channel {
 	return l.channel
 }
 func (l *Link) handleChannelPacket(pkt *packet.Packet) error {
+	// The initiator's established callback installs channel handlers on its
+	// own goroutine. Hold packets while the gate is up so a packet processed
+	// between link activation and handler registration is not dropped by
+	// the channel and the session stalls.
+	if l.channelGate.Load() {
+		if l.status.Load() == int32(StatusClosed) {
+			return common.ErrLinkNotActive
+		}
+		l.earlyChannelMu.Lock()
+		if l.channelGate.Load() {
+			if len(l.earlyChannel) < maxEarlyChannelPackets {
+				l.earlyChannel = append(l.earlyChannel, pkt)
+			}
+			l.earlyChannelMu.Unlock()
+			return nil
+		}
+		l.earlyChannelMu.Unlock()
+	}
 	if !l.IsActive() {
 		if l.status.Load() == int32(StatusHandshake) && l.hasSessionKeys() {
 			l.queueEarlyChannel(pkt)
@@ -64,14 +82,28 @@ func (l *Link) queueEarlyChannel(pkt *packet.Packet) {
 	l.earlyChannel = append(l.earlyChannel, pkt)
 	debug.Log(debug.DebugVerbose, "Queued early channel packet until link active", "link_id", fmt.Sprintf("%x", l.linkID), "queued", len(l.earlyChannel))
 }
-func (l *Link) flushEarlyChannel() {
+
+// markChannelReady releases the channel gate and requeues packets that
+// arrived while channel handlers were not yet installed at the head of
+// the ordered inbound queue, so they are still processed before anything
+// that arrived after them.
+func (l *Link) markChannelReady() {
+	// Release the gate under earlyChannelMu so a packet racing the release
+	// either lands in earlyChannel before this grab or sees gate=false.
 	l.earlyChannelMu.Lock()
+	l.channelGate.Store(false)
 	queued := l.earlyChannel
 	l.earlyChannel = nil
 	l.earlyChannelMu.Unlock()
-	for _, pkt := range queued {
-		if err := l.handleChannelPacket(pkt); err != nil {
-			debug.Log(debug.DebugWarning, "Failed to flush early channel packet", "error", err, "link_id", fmt.Sprintf("%x", l.linkID))
-		}
+	if len(queued) == 0 {
+		return
+	}
+	l.inboundMu.Lock()
+	l.inboundQ = append(queued, l.inboundQ...)
+	spawn := !l.inboundBusy
+	l.inboundBusy = true
+	l.inboundMu.Unlock()
+	if spawn {
+		go l.drainInbound()
 	}
 }
