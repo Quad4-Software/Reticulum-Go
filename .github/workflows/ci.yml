@@ -407,6 +407,7 @@ jobs:
             set -eu
             /usr/sbin/pkg_add -u curl
             curl -fsSL -o /tmp/go.tgz https://go.dev/dl/go${{ env.CI_GO_VERSION }}.netbsd-amd64.tar.gz
+            mkdir -p /usr/local
             rm -rf /usr/local/go
             tar -C /usr/local -xzf /tmp/go.tgz
           run: |
