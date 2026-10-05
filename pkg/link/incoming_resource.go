@@ -282,6 +282,7 @@ func (l *Link) flushIncomingResourceStats(rx *incomingResourceAsm, outcome strin
 		rx.hmuWaitNanos/int64(time.Millisecond),
 	)
 	if outcome == "complete" {
+		l.lastResourceWindow = rx.window
 		health.Inc(l.attachedIfaceName(), health.KindResourceComplete)
 	}
 }
@@ -354,6 +355,9 @@ func (l *Link) beginIncomingResource(adv *resource.ResourceAdvertisement) error 
 	)
 
 	l.incomingMu.Lock()
+	if w := startIncomingWindow(l.lastResourceWindow, resource.WindowMin, resource.WindowMaxFast, resource.WindowMaxSlow); w != rx.window {
+		rx.window = w
+	}
 	old := l.incomingRx
 	l.incomingRx = rx
 	var oldRelease func()
@@ -504,10 +508,6 @@ func (l *Link) sendIncomingResourceReqNext() error {
 		l.incomingMu.Unlock()
 		return nil
 	}
-	if rx.waitingForHmu {
-		l.incomingMu.Unlock()
-		return nil
-	}
 
 	searchStart := max(rx.consecutiveCompleted+1, 0)
 	if searchStart >= rx.totalParts {
@@ -536,6 +536,7 @@ func (l *Link) sendIncomingResourceReqNext() error {
 	requestedHashes := make([]byte, 0, slotsNeeded*resource.MapHashLen)
 	requestedIdx := make([]int, 0, slotsNeeded)
 	exhausted := false
+	waitingHmu := rx.waitingForHmu
 	for pn := searchStart; pn < end; pn++ {
 		if rx.partSlots[pn] != nil || rx.inflight[pn] {
 			continue
@@ -548,6 +549,9 @@ func (l *Link) sendIncomingResourceReqNext() error {
 				break
 			}
 			continue
+		}
+		if waitingHmu {
+			break
 		}
 		exhausted = true
 		break
@@ -1052,8 +1056,8 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 		win = resource.Window
 	}
 	needRefill := false
-	if !rx.waitingForHmu && (rx.outstandingParts == 0 || rx.outstandingParts <= win/2) {
-		if rx.outstandingParts == 0 {
+	if rx.outstandingParts == 0 || rx.outstandingParts <= win/2 {
+		if rx.consecutiveStalls == 0 {
 			growIncomingResourceWindow(rx)
 		}
 		needRefill = true
@@ -1069,9 +1073,25 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 	return nil
 }
 
+// startIncomingWindow returns the receive window for a new advertisement.
+// last is the window from the previous completed resource on this link, or 0.
+func startIncomingWindow(last, minW, maxW, defaultW int) int {
+	if last <= 0 {
+		return defaultW
+	}
+	if last > maxW {
+		return maxW
+	}
+	if last < minW {
+		return minW
+	}
+	return last
+}
+
 // growIncomingResourceWindow advances the receive window toward windowMax
-// after a completed outstanding set, matching Python Resource.request_next
-// pacing (WINDOW -> WINDOW_MAX_FAST on healthy paths).
+// on a healthy refill. Python grows only when outstanding_parts hits 0.
+// Half-window pipelining never reaches 0 against a slower sender, so the
+// window must also grow on a healthy half-window refill.
 func growIncomingResourceWindow(rx *incomingResourceAsm) {
 	if rx == nil {
 		return

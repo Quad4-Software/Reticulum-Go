@@ -142,6 +142,11 @@ type Link struct {
 
 	incomingMu sync.Mutex
 	incomingRx *incomingResourceAsm
+	// lastResourceWindow is the receive window from the last completed
+	// incoming resource on this link. The next advertisement starts from
+	// that value so split segments and back-to-back files do not ramp
+	// from WINDOW_MAX_SLOW again.
+	lastResourceWindow int
 
 	outgoingMu     sync.Mutex
 	resourceSendMu sync.Mutex

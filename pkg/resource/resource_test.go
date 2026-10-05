@@ -190,3 +190,26 @@ func TestPBTResourceSegmentsReassemble(t *testing.T) {
 	)
 	pbt.Check(t, prop, pbt.WithRuns(80), pbt.WithSeed(17))
 }
+
+func TestNewAllowsBodiesLargerThanMaxPartsEstimate(t *testing.T) {
+	tmp := filepath.Join(t.TempDir(), "large.bin")
+	f, err := os.Create(tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	size := int64(MaxSegments)*int64(DefaultSegmentSize) + 4096
+	if err := f.Truncate(size); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		t.Fatal(err)
+	}
+	r, err := New(f, false)
+	if err != nil {
+		t.Fatalf("New rejected split-sized file: %v", err)
+	}
+	if r.GetDataSize() != size {
+		t.Fatalf("data size %d want %d", r.GetDataSize(), size)
+	}
+}
