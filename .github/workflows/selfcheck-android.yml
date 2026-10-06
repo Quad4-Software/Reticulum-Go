@@ -48,20 +48,23 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Build android arm64 self-check binary
+      - name: Build android amd64 self-check binary
         env:
-          CGO_ENABLED: "0"
           GOOS: android
-          GOARCH: arm64
+          GOARCH: amd64
+        # android/amd64 requires external linking, so link with the NDK
+        # clang preinstalled on the runner image.
         run: |
-          mkdir -p bin/android/arm64
-          go build -ldflags="-s -w" -o bin/android/arm64/reticulum-go ./cmd/reticulum-go
+          NDK="${ANDROID_NDK_LATEST_HOME:-${ANDROID_NDK_HOME:-}}"
+          CC="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android30-clang"
+          mkdir -p bin/android/amd64
+          CGO_ENABLED=1 CC="$CC" go build -ldflags="-s -w" -o bin/android/amd64/reticulum-go ./cmd/reticulum-go
 
       - name: Run emulator and self-check
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 30
-          arch: arm64-v8a
+          arch: x86_64
           target: default
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
