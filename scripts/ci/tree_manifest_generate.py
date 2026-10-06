@@ -13,6 +13,7 @@ import hashlib
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 MANIFEST_HEADER = "# reticulum-go tree manifest v1"
@@ -93,19 +94,21 @@ def generate_manifest(root: Path) -> str:
     if not rows:
         return "\n".join(lines) + "\n"
 
-    proc = subprocess.Popen(
-        ["git", "cat-file", "--batch"],
-        cwd=root,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        env=env,
-    )
-    assert proc.stdin is not None
+    # Feed the request list from a file, not a pipe: cat-file writes each
+    # blob response before reading the next oid, so a pipe stdin deadlocks
+    # once its output buffer fills while we are still blocked writing
+    # requests. A regular file lets cat-file read ahead freely.
+    with tempfile.TemporaryFile(prefix="tree-manifest-oids-") as req:
+        req.write("".join(f"{oid}\n" for _p, _m, oid in rows).encode("ascii"))
+        req.seek(0)
+        proc = subprocess.Popen(
+            ["git", "cat-file", "--batch"],
+            cwd=root,
+            stdin=req,
+            stdout=subprocess.PIPE,
+            env=env,
+        )
     assert proc.stdout is not None
-
-    stdin_buf = "".join(f"{oid}\n" for _path, _mode, oid in rows).encode("ascii")
-    proc.stdin.write(stdin_buf)
-    proc.stdin.close()
 
     for path, _mode, _oid in rows:
         header = proc.stdout.readline()
