@@ -71,6 +71,28 @@ func TestAutoconnectQualifyMatrix(t *testing.T) {
 	}
 }
 
+// TestAutoconnectQualifiedRequiresTransport covers the RNS 1.5.6 gate: an
+// announce from a non-transport node never qualifies, even with the
+// unverified-implementations bypass or a satisfying impl/version pair.
+func TestAutoconnectQualifiedRequiresTransport(t *testing.T) {
+	for _, unverified := range []bool{false, true} {
+		cfg := common.DefaultConfig()
+		cfg.AutoconnectDiscoveredInterfaces = 4
+		cfg.AutoconnectUnverifiedImplementations = unverified
+		n, err := New(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		info := qualifyInfo("RNS", "1.5.6")
+		info.Info.Transport = false
+		got := n.autoconnectQualified(info)
+		n.Stop()
+		if got {
+			t.Fatalf("non-transport announce qualified (unverified=%v)", unverified)
+		}
+	}
+}
+
 // TestAutoconnectQualifiedBlocksConnect verifies the gate actually stops the
 // spawn path, not just the predicate.
 func TestAutoconnectQualifiedBlocksConnect(t *testing.T) {

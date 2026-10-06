@@ -110,11 +110,15 @@ func (n *Node) autoconnectPeerConfig() *common.InterfaceConfig {
 	return cfg
 }
 
-// autoconnectQualified applies the RNS 1.5.5 implementation and version
-// criteria: announces without a recognized TRANSPORT_IMPL, or below the
-// minimum version for that implementation, are not auto-connected unless
+// autoconnectQualified applies the RNS 1.5.6 criteria: only interfaces
+// announced from transport-enabled nodes qualify, and announces without a
+// recognized TRANSPORT_IMPL, or below the minimum version for that
+// implementation, are not auto-connected unless
 // autoconnect_unverified_implementations is enabled.
 func (n *Node) autoconnectQualified(info *discovery.ReceivedAnnounceInfo) bool {
+	if !info.Info.Transport {
+		return false
+	}
 	if n.config.AutoconnectUnverifiedImplementations {
 		return true
 	}

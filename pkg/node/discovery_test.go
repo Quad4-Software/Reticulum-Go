@@ -68,3 +68,40 @@ func TestStartInterfaceDiscoveryFromDiscoverable(t *testing.T) {
 	n.announcer.Stop()
 	n.discovery.Stop()
 }
+
+// TestDiscoverableEnablesStaticTransportIdentity covers the RNS 1.5.6 rule:
+// a discoverable interface on a non-transport instance flips
+// static_transport_identity on at config-apply time.
+func TestDiscoverableEnablesStaticTransportIdentity(t *testing.T) {
+	cfg := common.DefaultConfig()
+	cfg.EnableTransport = false
+	cfg.Interfaces = map[string]*common.InterfaceConfig{
+		"pub": {
+			Type:         "TCPServerInterface",
+			Enabled:      true,
+			Discoverable: true,
+			Port:         4243,
+			ReachableOn:  "127.0.0.1",
+		},
+	}
+	n, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer n.Stop()
+	if !cfg.StaticTransportIdentity {
+		t.Fatal("discoverable interface should force static transport identity")
+	}
+
+	// Without a discoverable interface the flag stays off.
+	plain := common.DefaultConfig()
+	plain.EnableTransport = false
+	n2, err := New(plain)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer n2.Stop()
+	if plain.StaticTransportIdentity {
+		t.Fatal("non-discoverable config must not gain static transport identity")
+	}
+}

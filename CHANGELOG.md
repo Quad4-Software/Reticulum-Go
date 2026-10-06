@@ -2,7 +2,7 @@
 
 ## v1.4.1 - Unreleased
 
-Tracks Python RNS 1.5.5.
+Tracks Python RNS 1.5.7.
 
 ### Added
 
@@ -16,6 +16,12 @@ Tracks Python RNS 1.5.5.
 - interface_stats entries now carry the full always-present Python key set (mtu, txdrp, txdrb, txstalled, txbuffered, burst_activated/count, pr_burst_activated/count, announce_rate_target/grace/penalty, autoconnect_source, ifac_signature/ifac_size/ifac_netname), so Python tools like rnstatus no longer hit KeyError. IngressControl and BaseInterface now track burst activation timestamps and counts to back them.
 - rnsutil GetPathTable always sends max_hops, including nil. Python's rpc_loop reads call["max_hops"] unguarded and silently dropped calls that omitted it, which surfaced as read timeouts.
 - New live interop coverage: rpc_surface_probe.py calls every client getter against a Go shared instance and asserts strict numeric replies plus the required per-interface key set; the suite also runs rnstatus against the Go instance and every Go RPC getter plus rgostatus against a real Python rnsd, so RPC surface gaps fail in both directions.
+
+### Changed
+
+- Discovery auto-connect now requires the announcing node to be transport-enabled (`transport` field true in the interface announce), matching RNS 1.5.6 `autoconnect_qualified`. Non-transport announces are skipped even with `autoconnect_unverified_implementations`.
+- A configured `discoverable` interface on a non-transport instance now forces `static_transport_identity` on at config-apply time (RNS 1.5.6), so peers can map announces back to the node.
+- RNS 1.5.7 resets backbone egress-control counters and the transmit buffer after a stall teardown. Go already gets the equivalent behavior structurally: a torn-down backbone stream is terminal and a reconnect attaches a fresh queue, so there is no stale drain state to clear.
 
 ## v1.4.0 - 2026-09-30
 
