@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.4.1 - Unreleased
+## v1.4.1 - 2026-10-06
 
 Tracks Python RNS 1.5.7.
 
