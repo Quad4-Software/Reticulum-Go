@@ -138,6 +138,21 @@ func New(cfg *common.ReticulumConfig) (*Node, error) {
 	if _, err := backbone.Init(backbone.ParseBackend(cfg.BackboneIO)); err != nil {
 		return nil, fmt.Errorf("backbone I/O hub: %w", err)
 	}
+	// RNS 1.5.6: a configured discoverable interface on a non-transport
+	// instance needs a static transport identity or peers cannot map
+	// announces back to it. Upstream applies this during config parsing,
+	// before the enabled and type checks.
+	discoverableConfigured := false
+	for _, iface := range cfg.Interfaces {
+		if iface != nil && iface.Discoverable {
+			discoverableConfigured = true
+			break
+		}
+	}
+	if discoverableConfigured && !cfg.EnableTransport && !cfg.StaticTransportIdentity {
+		debug.Log(debug.DebugWarning, "Discoverable interface configured, enabling static transport identity on non-transport instance")
+		cfg.StaticTransportIdentity = true
+	}
 	t := transport.NewTransport(cfg)
 	n := &Node{
 		config:       cfg,

@@ -93,11 +93,13 @@ tasks:
     desc: Run govulncheck (Go vulnerability database)
     cmds:
       - |
+        # Bound the scan so a stalled module or database fetch fails the
+        # step with logs instead of hanging until the job timeout.
         if command -v govulncheck >/dev/null 2>&1; then
-          env GOFLAGS= GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct \
+          timeout 20m env GOFLAGS= GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct \
             govulncheck {{.SCAN_GO_PACKAGES}}
         else
-          env GOFLAGS= GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct \
+          timeout 20m env GOFLAGS= GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct \
             go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 {{.SCAN_GO_PACKAGES}}
         fi
 

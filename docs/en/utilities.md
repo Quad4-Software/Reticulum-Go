@@ -189,7 +189,7 @@ Against a Go daemon, human and JSON output also include local mesh health fields
 
 Go daemons report announce reject-reason counters per interface (announce_malformed, announce_dest_type, announce_blackholed, announce_key_mismatch, announce_max_hops, announce_held, announce_suppressed) plus per-endpoint dial health on outbound client interfaces (endpoint_dial_failures, endpoint_flaps, endpoint_quarantined, endpoint_quarantine_s). The endpoint fields render as an Endpoint line when non-zero. An endpoint that keeps failing or flapping is quarantined with an escalating cooldown instead of being redialed forever.
 
-Discovered interface listings show the announced implementation and version in the Stack field. Entries that stopped being announced go stale, and entries whose announce carries no implementation or version are hidden by default. Pass -show-stale / -show-unknown to include them (same defaults as Python rnstatus 1.5.5).
+Discovered interface listings show the announced implementation and version in the Stack field. Entries that stopped being announced go stale, and entries whose announce carries no implementation or version are hidden by default. Pass -show-stale / -show-unknown to include them (same defaults as Python rnstatus 1.5.7).
 
 Interface attach/detach/reload requires `enable_interface_management = yes` (the default) on the owning instance and only works against a running shared instance. I2P and local shared-instance interfaces cannot be detached, matching Python.
 

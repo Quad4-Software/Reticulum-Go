@@ -5,7 +5,7 @@ set -eu
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
-BINARY="${ANDROID_SELFCHECK_BINARY:-bin/android/arm64/reticulum-go}"
+BINARY="${ANDROID_SELFCHECK_BINARY:-bin/android/amd64/reticulum-go}"
 REMOTE="/data/local/tmp/reticulum-go-selfcheck"
 OUT_LOCAL="${ANDROID_SELFCHECK_OUT:-.cache/selfcheck/android.json}"
 

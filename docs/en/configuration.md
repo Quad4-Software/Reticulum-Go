@@ -85,7 +85,7 @@ storage/ratchets/ holds known-peer public keys named by destination hash (Python
 | autoconnect_interface_gravity | (unset) | Gravity applied to autoconnected interfaces |
 | autoconnect_interface_mode | (unset) | Mode override for autoconnected interfaces |
 | autoconnect_announces_to_internal | (unset) | announces_to_internal on autoconnect peers |
-| autoconnect_unverified_implementations | no | Skip impl/version qualification on discovered peers (RNS 1.5.5) |
+| autoconnect_unverified_implementations | no | Skip impl/version qualification on discovered peers (transport gate still applies, RNS 1.5.6) |
 | enable_interface_management | yes | Allow rgostatus -attach/-detach/-reload over shared-instance RPC (RNS 1.5.5) |
 | publish_blackhole | no | Register rnstransport.info.blackhole with /list |
 | blackhole_sources | (empty) | Comma-separated transport identity hashes to pull blackhole lists from |
