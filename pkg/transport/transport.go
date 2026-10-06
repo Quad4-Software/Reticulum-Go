@@ -1813,12 +1813,17 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	}
 
 	// Cheap dedup before signature verification. The announce hash covers
-	// data[2:], so a replayed announce is recognised here for the cost of
-	// one SHA-256 plus a map lookup instead of a full Ed25519 verify.
+	// everything from the destination hash onward, so a replayed announce
+	// is recognised here for the cost of one SHA-256 plus a map lookup
+	// instead of a full Ed25519 verify. Skipping the transport id keeps
+	// dedup stable when each relay rewrites header type 2 with its own
+	// transport identity: without that, every hop produces fresh bytes and
+	// the announce is re-verified and re-forwarded once per upstream
+	// neighbour instead of once per emission.
 	// Rejected announces never enter seenAnnounces (the claim below only
 	// happens after a successful verify), so retries still reach the
 	// verifier.
-	announceHash := sha256.Sum256(data[2:])
+	announceHash := sha256.Sum256(data[startIdx+addrSize-AddrHashSize:])
 	t.mutex.RLock()
 	if last, ok := t.seenAnnounces[announceHash]; ok && time.Since(last) < SeenAnnounceTTL {
 		t.mutex.RUnlock()
@@ -2269,6 +2274,10 @@ func (t *Transport) forwardAnnouncePacket(data []byte, dest hash16, destinationH
 		if werr != nil {
 			debug.Log(debug.DebugError, "Failed to wrap announce for forwarding", "error", werr)
 			wrapped = data
+		} else {
+			// Upstream keeps the announce's BROADCAST propagation type on
+			// retransmit; only the transport id marks the emitter.
+			wrapped[0] &^= HeaderPropTypeMask
 		}
 	}
 
