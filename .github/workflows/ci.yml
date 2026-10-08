@@ -334,7 +334,9 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: block
+          # audit on Windows: schannel revocation checks hit CA CRL/OCSP
+          # endpoints that vary by issuer and cannot be statically listed.
+          egress-policy: ${{ matrix.os == 'windows-latest' && 'audit' || 'block' }}
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
