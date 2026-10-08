@@ -1,6 +1,6 @@
 # Pinned actions (bump tag and SHA together when upgrading):
 #   actions/checkout@v7.0.1            3d3c42e5aac5ba805825da76410c181273ba90b1
-#   amannn/action-semantic-pull-request@v5.4.0  977d02e702ed69005e48d655ac0fddc19b34bb38
+#   amannn/action-semantic-pull-request@v5.4.0  e9fabac35e210fea40ca5b14c0da95a099eff26f
 #
 name: PR checks
 
@@ -46,7 +46,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Validate title
-        uses: amannn/action-semantic-pull-request@977d02e702ed69005e48d655ac0fddc19b34bb38 # v5.4.0
+        uses: amannn/action-semantic-pull-request@e9fabac35e210fea40ca5b14c0da95a099eff26f # v5.4.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
