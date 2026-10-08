@@ -83,6 +83,10 @@ func (q *inboundQueues) get(done <-chan struct{}) (packetJob, bool) {
 				job := q.queues[tc][0]
 				q.queues[tc][0] = packetJob{}
 				q.queues[tc] = q.queues[tc][1:]
+				// A slot just freed. Wake producers parked in putWait or
+				// HandlePacketBlocking callers sleep forever once the queue
+				// has space and no further puts arrive to signal them.
+				q.cond.Broadcast()
 				return job, true
 			}
 		}
