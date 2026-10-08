@@ -19,9 +19,33 @@ concurrency:
 
 permissions:
   contents: read
-  actions: read
+  actions: read # run/job metadata for harden-runner
 
 env:
+  # harden-runner egress allowlist (block mode). One union list covers
+  # every job in this workflow.
+  HR_ENDPOINTS: |
+    github.com:443
+    api.github.com:443
+    objects.githubusercontent.com:443
+    release-assets.githubusercontent.com:443
+    go.dev:443
+    dl.google.com:443
+    storage.googleapis.com:443
+    agent.stepsecurity.io:443
+    azure.archive.ubuntu.com:80
+    archive.ubuntu.com:80
+    security.ubuntu.com:80
+    packages.microsoft.com:443
+    ppa.launchpadcontent.net:443
+    proxy.golang.org:443
+    sum.golang.org:443
+    *.actions.githubusercontent.com:443
+    *.blob.core.windows.net:443
+    ghcr.io:443
+    pkg-containers.githubusercontent.com:443
+    public.ecr.aws:443
+    vuln.go.dev:443
   CI_GO_VERSION: "1.27.1"
   CI_TASK_VERSION: "3.46.3"
   CI_TRIVY_VERSION: "0.69.3"
@@ -52,26 +76,32 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Install ${{ matrix.scanner }}
-        run: sh scripts/ci/${{ matrix.setup }} "${{ matrix.version }}"
+        env:
+          SETUP_SCRIPT: ${{ matrix.setup }}
+          SCANNER_VERSION: ${{ matrix.version }}
+        run: sh "scripts/ci/${SETUP_SCRIPT}" "${SCANNER_VERSION}"
 
       - name: Run ${{ matrix.scanner }}
-        run: task ${{ matrix.task }}
+        env:
+          SCANNER_TASK: ${{ matrix.task }}
+        run: task "${SCANNER_TASK}"
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   trivy:
     name: Trivy
@@ -81,14 +111,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -97,13 +128,13 @@ jobs:
         run: sh scripts/ci/exec-priv.sh apt-get update -qq
 
       - name: Install Trivy
-        run: sh scripts/ci/setup-trivy.sh "${{ env.CI_TRIVY_VERSION }}"
+        run: sh scripts/ci/setup-trivy.sh "${CI_TRIVY_VERSION}"
 
       - name: Filesystem scan
         run: task trivy:ci
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   sbom:
     name: SBOM
@@ -114,14 +145,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -130,7 +162,7 @@ jobs:
         run: sh scripts/ci/exec-priv.sh apt-get update -qq
 
       - name: Install Trivy
-        run: sh scripts/ci/setup-trivy.sh "${{ env.CI_TRIVY_VERSION }}"
+        run: sh scripts/ci/setup-trivy.sh "${CI_TRIVY_VERSION}"
 
       - name: Generate SBOM
         run: task sbom

@@ -1,0 +1,59 @@
+# Pinned actions (bump tag and SHA together when upgrading):
+#   actions/checkout@v7.0.1            3d3c42e5aac5ba805825da76410c181273ba90b1
+#
+name: Zizmor
+
+# Static analysis gate for the workflow files themselves. Runs at the
+# pedantic persona so every audit fires; findings fail the job.
+
+on:
+  push:
+    branches: [master, dev]
+  pull_request:
+    branches: [master, dev]
+  workflow_dispatch:
+
+concurrency:
+  group: zizmor-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # harden-runner egress allowlist (block mode). One union list covers
+  # every job in this workflow.
+  HR_ENDPOINTS: |
+    github.com:443
+    api.github.com:443
+    agent.stepsecurity.io:443
+    pypi.org:443
+    files.pythonhosted.org:443
+  CI_ZIZMOR_VERSION: "1.30.1"
+
+jobs:
+  audit:
+    name: Workflow audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install zizmor
+        run: python3 -m pip install "zizmor==${CI_ZIZMOR_VERSION}"
+
+      - name: Audit workflows
+        env:
+          # The read-only token only lifts API rate limits and enables the
+          # online audits (impostor-commit, stale-action-refs,
+          # known-vulnerable-actions). zizmor is a read-only analyzer.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: zizmor --persona pedantic .github/

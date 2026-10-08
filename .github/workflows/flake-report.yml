@@ -4,14 +4,29 @@ name: Flake report
 # testsummary retry, so timing-sensitive tests stay visible instead of being
 # silently re-run away.
 
-on:
+# workflow_run hands this job an issues:write token triggered by any
+# completed CI run, including runs on fork PRs. The blast radius is closed
+# three ways: the branches filter limits triggering runs to master/dev, the
+# job if requires the triggering event to be a push (never pull_request, so
+# a fork PR can never reach the issues:write token), and checkout reads the
+# default branch rather than the run's head_sha, so a PR cannot ship a
+# modified report-flakes.sh that executes here.
+on: # zizmor: ignore[dangerous-triggers] see comment above; never runs PR-controlled code
   workflow_run:
     workflows: [CI]
     types: [completed]
+    branches: [master, dev]
 
 permissions:
-  actions: read
-  issues: write
+  actions: read # reads completed run logs via gh api
+  issues: write # zizmor: ignore[excessive-permissions] report-flakes.sh files ci-flake issues via gh
+
+env:
+  # harden-runner egress allowlist: checkout + gh api/issue calls only.
+  HR_ENDPOINTS: |
+    github.com:443
+    api.github.com:443
+    agent.stepsecurity.io:443
 
 concurrency:
   group: flake-report
@@ -19,12 +34,22 @@ concurrency:
 
 jobs:
   report:
+    name: Report flakes
     runs-on: ubuntu-latest
-    # Only file flakes for runs that ran to a real conclusion. Cancelled or
-    # timed-out runs carry partial logs from a superseded commit and their
-    # failures are noise, not flakes.
-    if: github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure'
+    # Only file flakes for push runs on master/dev that ran to a real
+    # conclusion. Pull request runs are excluded entirely: a fork could
+    # otherwise print crafted test failures to spawn issues under the
+    # issues:write token. Cancelled or timed-out runs carry partial logs
+    # from a superseded commit and their failures are noise, not flakes.
+    if: >-
+      github.event.workflow_run.event == 'push' &&
+      (github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure')
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout base for report-flakes.sh
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -36,4 +61,5 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
         run: sh scripts/ci/report-flakes.sh

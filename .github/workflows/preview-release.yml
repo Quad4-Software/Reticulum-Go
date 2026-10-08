@@ -15,6 +15,13 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # harden-runner egress allowlist (block mode): checkout + gh api only.
+  HR_ENDPOINTS: |
+    github.com:443
+    api.github.com:443
+    agent.stepsecurity.io:443
+
 jobs:
   metadata:
     name: Prepare preview tag
@@ -27,7 +34,8 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -71,10 +79,10 @@ jobs:
     needs: metadata
     if: needs.metadata.outputs.skip_release != 'true'
     permissions:
-      contents: write
-      id-token: write
-      attestations: write
-    uses: ./.github/workflows/release-assets.yml
+      contents: write # publishes the preview GitHub release
+      id-token: write # OIDC token for sigstore signing
+      attestations: write # build provenance attestation
+    uses: $/.github/workflows/release-assets.yml
     with:
       tag_name: ${{ needs.metadata.outputs.tag_name }}
       prerelease: true

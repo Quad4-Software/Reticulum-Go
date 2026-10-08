@@ -16,9 +16,25 @@ concurrency:
 
 permissions:
   contents: read
-  actions: read
+  actions: read # run/job metadata for harden-runner
 
 env:
+  # harden-runner egress allowlist (block mode). One union list covers
+  # every job in this workflow.
+  HR_ENDPOINTS: |
+    github.com:443
+    api.github.com:443
+    objects.githubusercontent.com:443
+    release-assets.githubusercontent.com:443
+    go.dev:443
+    dl.google.com:443
+    storage.googleapis.com:443
+    agent.stepsecurity.io:443
+    azure.archive.ubuntu.com:80
+    archive.ubuntu.com:80
+    security.ubuntu.com:80
+    packages.microsoft.com:443
+    ppa.launchpadcontent.net:443
   CI_GO_VERSION: "1.27.1"
   CI_TASK_VERSION: "3.46.3"
   CI_TINYGO_VERSION: "0.37.0"
@@ -47,14 +63,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -63,7 +80,7 @@ jobs:
         run: sh scripts/ci/exec-priv.sh apt-get update -qq
 
       - name: Install TinyGo
-        run: sh scripts/ci/setup-tinygo.sh "${{ env.CI_TINYGO_VERSION }}"
+        run: sh scripts/ci/setup-tinygo.sh "${CI_TINYGO_VERSION}"
 
       - name: Build with TinyGo
         env:

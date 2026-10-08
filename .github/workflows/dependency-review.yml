@@ -13,7 +13,15 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: read # reads the PR diff for dependency changes
+
+env:
+  # harden-runner egress allowlist (block mode). One union list covers
+  # every job in this workflow.
+  HR_ENDPOINTS: |
+    github.com:443
+    api.github.com:443
+    agent.stepsecurity.io:443
 
 jobs:
   dependency-review:
@@ -24,7 +32,8 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

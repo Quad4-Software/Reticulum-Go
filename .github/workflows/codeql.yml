@@ -1,8 +1,8 @@
 # Pinned first-party and CodeQL actions (bump tag and SHA together when upgrading):
 #   actions/checkout@v7.0.1                    3d3c42e5aac5ba805825da76410c181273ba90b1
 #   actions/setup-go@v7.0.0                    b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
-#   github/codeql-action/init@v4.37.9          cdf488f595d80d6e07e03d4674febd5ab45fa938
-#   github/codeql-action/analyze@v4.37.9       cdf488f595d80d6e07e03d4674febd5ab45fa938
+#   github/codeql-action/init@v4.38.0          b96794f015dfd88f77b49b1c93e0fa7110f94c63
+#   github/codeql-action/analyze@v4.38.0       b96794f015dfd88f77b49b1c93e0fa7110f94c63
 #
 name: CodeQL
 
@@ -25,14 +25,26 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # harden-runner egress allowlist (block mode).
+  HR_ENDPOINTS: |
+    github.com:443
+    api.github.com:443
+    objects.githubusercontent.com:443
+    release-assets.githubusercontent.com:443
+    go.dev:443
+    dl.google.com:443
+    storage.googleapis.com:443
+    agent.stepsecurity.io:443
+
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
     permissions:
-      security-events: write
-      packages: read
-      actions: read
+      security-events: write # uploads SARIF results to code scanning
+      packages: read # lets CodeQL resolve package dependencies during analysis
+      actions: read # run/job metadata for harden-runner
       contents: read
 
     strategy:
@@ -57,7 +69,8 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -34,6 +34,32 @@ permissions:
   contents: read
 
 env:
+  # harden-runner egress allowlist (block mode). One union list covers
+  # every job in this workflow.
+  HR_ENDPOINTS: |
+    github.com:443
+    api.github.com:443
+    objects.githubusercontent.com:443
+    release-assets.githubusercontent.com:443
+    go.dev:443
+    dl.google.com:443
+    storage.googleapis.com:443
+    agent.stepsecurity.io:443
+    azure.archive.ubuntu.com:80
+    archive.ubuntu.com:80
+    security.ubuntu.com:80
+    packages.microsoft.com:443
+    ppa.launchpadcontent.net:443
+    ghcr.io:443
+    pkg-containers.githubusercontent.com:443
+    public.ecr.aws:443
+    fulcio.sigstore.dev:443
+    rekor.sigstore.dev:443
+    timestamp.sigstore.dev:443
+    oauth2.sigstore.dev:443
+    *.actions.githubusercontent.com:443
+    *.blob.core.windows.net:443
+    uploads.github.com:443
   CI_GO_VERSION: "1.27.1"
   CI_GO_LEGACY_WIN7_VERSION: "1.27.1-1"
   CI_GO_LEGACY_WINXP_VERSION: "1.27.1"
@@ -138,14 +164,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -187,17 +214,18 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up go-legacy-win7
-        run: sh scripts/ci/setup-go-legacy-win7.sh "${{ env.CI_GO_LEGACY_WIN7_VERSION }}"
+        run: sh scripts/ci/setup-go-legacy-win7.sh "${CI_GO_LEGACY_WIN7_VERSION}"
 
       - name: Setup Task
-        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
+        run: sh scripts/ci/setup-task.sh "${CI_TASK_VERSION}"
 
       - name: Build with go-legacy-win7
         env:
@@ -218,7 +246,7 @@ jobs:
               exit 1
               ;;
           esac
-          output_name="reticulum-go-windows-${{ matrix.goarch }}-win7.exe"
+          output_name="reticulum-go-windows-${GOARCH}-win7.exe"
           "$LEGACY_GO" build -ldflags="-s -w -X main.defaultVersion=${VERSION}" -o "${output_name}" ./cmd/reticulum-go
           echo "Built: ${output_name}"
 
@@ -242,17 +270,18 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up go-legacy-winxp
-        run: sh scripts/ci/setup-go-legacy-winxp.sh "${{ env.CI_GO_LEGACY_WINXP_VERSION }}"
+        run: sh scripts/ci/setup-go-legacy-winxp.sh "${CI_GO_LEGACY_WINXP_VERSION}"
 
       - name: Setup Task
-        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
+        run: sh scripts/ci/setup-task.sh "${CI_TASK_VERSION}"
 
       - name: Build with go-legacy-winxp
         env:
@@ -276,7 +305,7 @@ jobs:
           # Official go.mod targets Go 1.27.x; rewrite down to go-legacy-winxp.
           sed -i 's/^go 1\.2[67]\.[0-9][0-9]*$/go 1.27.1/' go.mod
           sed -i 's/go 1\.2[67]\.[0-9][0-9]*/go 1.27.1/g' vendor/modules.txt
-          output_name="reticulum-go-windows-${{ matrix.goarch }}-winxp.exe"
+          output_name="reticulum-go-windows-${GOARCH}-winxp.exe"
           "$LEGACY_GO" build -ldflags="-s -w -X main.defaultVersion=${VERSION}" -o "${output_name}" ./cmd/reticulum-go
           echo "Built: ${output_name}"
 
@@ -295,14 +324,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -311,7 +341,7 @@ jobs:
         run: sh scripts/ci/exec-priv.sh apt-get update -qq
 
       - name: Install Trivy
-        run: sh scripts/ci/setup-trivy.sh "${{ env.CI_TRIVY_VERSION }}"
+        run: sh scripts/ci/setup-trivy.sh "${CI_TRIVY_VERSION}"
 
       - name: Generate SBOM
         run: task sbom
@@ -339,14 +369,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -426,15 +457,16 @@ jobs:
     needs: [build, build-windows-legacy, build-windows-xp, sbom, examples]
     timeout-minutes: 30
     permissions:
-      contents: write
-      id-token: write
-      attestations: write
+      contents: write # creates the GitHub release and uploads assets
+      id-token: write # OIDC token for sigstore signing
+      attestations: write # build provenance attestation
 
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -451,7 +483,7 @@ jobs:
         run: sh scripts/ci/verify-release-platform-assets.sh merged
 
       - name: Install cosign
-        run: sh scripts/ci/setup-cosign.sh "${{ env.CI_COSIGN_VERSION }}"
+        run: sh scripts/ci/setup-cosign.sh "${CI_COSIGN_VERSION}"
 
       - name: Write cosign private key
         env:

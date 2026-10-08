@@ -9,9 +9,23 @@ on:
     branches: [master, dev]
     types: [opened, edited, synchronize, reopened]
 
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: read # semantic title check and commit listing
+
+env:
+  # harden-runner egress allowlist (block mode): GitHub API + PyPI for the
+  # rngcs verifier install.
+  HR_ENDPOINTS: |
+    github.com:443
+    api.github.com:443
+    pypi.org:443
+    files.pythonhosted.org:443
+    agent.stepsecurity.io:443
 
 jobs:
   semantic-pr-title:
@@ -22,7 +36,8 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Validate title
         uses: amannn/action-semantic-pull-request@977d02e702ed69005e48d655ac0fddc19b34bb38 # v5.4.0
         env:
@@ -51,7 +66,8 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -74,7 +90,8 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
