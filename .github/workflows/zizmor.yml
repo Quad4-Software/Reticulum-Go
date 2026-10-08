@@ -26,7 +26,14 @@ env:
   HR_ENDPOINTS: |
     github.com:443
     api.github.com:443
-    agent.stepsecurity.io:443
+    codeload.github.com:443
+    release-assets.githubusercontent.com:443
+    objects.githubusercontent.com:443
+    *.actions.githubusercontent.com:443
+    *.blob.core.windows.net:443
+    *.githubapp.com:443
+    prod.app-api.stepsecurity.io:443
+    agent.api.stepsecurity.io:443
     pypi.org:443
     files.pythonhosted.org:443
   CI_ZIZMOR_VERSION: "1.30.1"
