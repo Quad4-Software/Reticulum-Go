@@ -22,7 +22,7 @@ permissions:
 env:
   # harden-runner egress allowlist (block mode). One union list covers
   # every job in this workflow.
-  HR_ENDPOINTS: |
+  HR_ENDPOINTS: >-
     github.com:443
     api.github.com:443
     codeload.github.com:443

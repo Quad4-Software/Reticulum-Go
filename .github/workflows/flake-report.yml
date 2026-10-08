@@ -23,7 +23,7 @@ permissions:
 
 env:
   # harden-runner egress allowlist: checkout + gh api/issue calls only.
-  HR_ENDPOINTS: |
+  HR_ENDPOINTS: >-
     github.com:443
     api.github.com:443
     codeload.github.com:443
