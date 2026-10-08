@@ -47,6 +47,7 @@ env:
     sum.golang.org:443
     vuln.go.dev:443
     ghcr.io:443
+    mirror.gcr.io:443
     pkg-containers.githubusercontent.com:443
     public.ecr.aws:443
     rekor.sigstore.dev:443
