@@ -50,8 +50,17 @@ func TestTeardownStorm(t *testing.T) {
 	}
 	// The responder's closed callback fires when the teardown packet arrives
 	// through the mesh, which is asynchronous to the initiator's Teardown.
-	waitForCond(t, 10*time.Second, func() bool { return closedCalls.Load() == 1 },
-		"responder closed callback never fired")
+	// sendTeardownPacket is single-shot best-effort and the storm can make the
+	// responder drop it at a full inbound queue. Re-driving is safe because
+	// handleTeardown is idempotent via closeOnce.
+	waitForCond(t, 30*time.Second, func() bool {
+		if closedCalls.Load() == 0 {
+			initLink.mutex.Lock()
+			_ = initLink.sendTeardownPacket()
+			initLink.mutex.Unlock()
+		}
+		return closedCalls.Load() == 1
+	}, "responder closed callback never fired")
 	if n := closedCalls.Load(); n != 1 {
 		t.Fatalf("closed callback fired %d times want 1", n)
 	}

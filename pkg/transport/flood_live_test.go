@@ -15,6 +15,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/protect"
 )
 
@@ -23,9 +24,20 @@ import (
 // same entry point real interfaces use.
 type floodIface struct {
 	common.BaseInterface
-	sentMu sync.Mutex
-	sent   int
-	sentB  int64
+	ingressOff bool
+	sentMu     sync.Mutex
+	sent       int
+	sentB      int64
+}
+
+// InterfaceConfig returns a config with ingress control disabled when the
+// test asked for it. Held announces release their dedup claim, so ingress
+// holding would make an exact replay count nondeterministic.
+func (m *floodIface) InterfaceConfig() *common.InterfaceConfig {
+	if !m.ingressOff {
+		return nil
+	}
+	return &common.InterfaceConfig{IngressControlSet: true, IngressControl: false}
 }
 
 func (m *floodIface) Send(data []byte, _ string) error {
@@ -67,6 +79,7 @@ func TestFloodAnnounceReplayIsCheap(t *testing.T) {
 	defer tr.Close()
 
 	iface := newFloodIface("flood1")
+	iface.ingressOff = true
 	if err := tr.RegisterInterface("flood1", iface); err != nil {
 		t.Fatalf("RegisterInterface: %v", err)
 	}
@@ -75,28 +88,76 @@ func TestFloodAnnounceReplayIsCheap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, _ := signedAnnounceRaw(t, tr, id)
+	// signedAnnounceWithContext builds an announce whose name hash matches
+	// the destination hash. signedAnnounceRaw does not, so its announces are
+	// rejected before the dedup claim and would only measure the reject path.
+	raw, _ := signedAnnounceWithContext(t, tr, id, packet.ContextNone)
 
-	// First delivery pays the verify and is accepted.
+	// First delivery pays the verify and is accepted. Drain before the replay
+	// loop so the dedup claim exists and every replay takes the cheap path.
 	tr.HandlePacket(append([]byte(nil), raw...), iface)
-	time.Sleep(50 * time.Millisecond)
+	waitInboundDrain(t, tr, 20*time.Millisecond)
 
+	// HandlePacket submits to a bounded inbound queue and silently drops on
+	// overflow. HandlePacketBlocking waits for the pool instead, so every
+	// replay reaches the dedup check and the dup count stays exact.
 	const replays = 4000
 	start := time.Now()
 	for i := 0; i < replays; i++ {
-		tr.HandlePacket(raw, iface)
+		tr.HandlePacketBlocking(append([]byte(nil), raw...), iface)
 	}
+	waitInboundDrain(t, tr, 0)
 	perReplay := time.Since(start) / replays
 	t.Logf("announce replay: %d packets in %s (%s/pkt)", replays, time.Since(start), perReplay)
 
-	// An Ed25519 verify is ~40-90us native and several hundred us under
-	// -race; the pre-verify dedup path is a SHA256 + map lookup. The 80us
-	// bound stays an order of magnitude below any real verify.
-	if perReplay > 80*time.Microsecond {
-		t.Fatalf("replay path too slow (%s/pkt): dedup is not running before verify", perReplay)
+	// The queue reading empty only means jobs dequeued. Workers still process
+	// the tail, so give the dup counter a settle window before asserting.
+	time.Sleep(200 * time.Millisecond)
+
+	// Reference cost: one Ed25519 verify is what a deduped replay must not
+	// pay. Measure it on this runner so the bound scales with CPU speed
+	// instead of tripping a fixed threshold on a loaded shared host.
+	refID, err := identity.New()
+	if err != nil {
+		t.Fatal(err)
 	}
-	dups := health.Default.SnapshotTransport().AnnounceDup.Total
-	t.Logf("PASS: %d replays at %s/pkt, announce_dup=%d", replays, perReplay, dups)
+	msg := []byte("dedup-cost-probe")
+	sig, err := refID.Sign(msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const verifyIters = 8
+	verifyStart := time.Now()
+	for i := 0; i < verifyIters; i++ {
+		if !refID.Verify(msg, sig) {
+			t.Fatal("verify probe failed")
+		}
+	}
+	verifyCost := time.Since(verifyStart) / verifyIters
+
+	// An Ed25519 verify is ~40-90us native and several hundred us under
+	// -race; the pre-verify dedup path is a SHA256 + map lookup. Requiring
+	// replays to run at least 2x faster than a verify keeps the ordering
+	// assertion while scaling out from under loaded-runner noise.
+	limit := max(80*time.Microsecond, verifyCost/2)
+	if perReplay > limit {
+		t.Fatalf("replay path too slow (%s/pkt, verify %s): dedup is not running before verify", perReplay, verifyCost)
+	}
+	// Every replay either lands in dedup or is shed by the handler-overflow
+	// gate when the worker pool saturates. Both paths stay far below verify
+	// cost, which the scaled bound above asserts. The counters must cover
+	// every submitted replay.
+	s := health.Default.SnapshotTransport()
+	dups, shed := s.AnnounceDup.Total, s.DoSHandler.Total
+	if dups == 0 {
+		t.Fatal("announce_dup=0: dedup path never ran")
+	}
+	if dups+shed < replays {
+		t.Fatalf("%d replays unaccounted (announce_dup=%d, dos_handler=%d)",
+			replays-dups-shed, dups, shed)
+	}
+	t.Logf("PASS: %d replays at %s/pkt (verify %s, bound %s), announce_dup=%d dos_handler=%d",
+		replays, perReplay, verifyCost, limit, dups, shed)
 }
 
 // TestFloodDistinctAnnouncesBounded checks that a flood of distinct,
@@ -120,7 +181,7 @@ func TestFloodDistinctAnnouncesBounded(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		raw, _ := signedAnnounceRaw(t, tr, id)
+		raw, _ := signedAnnounceWithContext(t, tr, id, packet.ContextNone)
 		raws[i] = raw
 	}
 
