@@ -8,7 +8,7 @@ Contributions are welcome. Prefer sending changes as `.patch` files over Reticul
 2. Install dev tools: `make bootstrap`.
 3. Verify your environment: `make doctor`.
 4. Enable git hooks: `make hooks-install`.
-5. Branch from `dev` for feature work.
+5. Branch from `master` for feature work.
 6. Before pushing: `make prepush` or full `make check`.
 
 Automation is available via Make (`make help`). Plain `go build` / `go test` also work with vendored modules.
@@ -17,9 +17,8 @@ Optional: use [mise](https://mise.jdx.dev/) (`mise install`) or the Dev Containe
 
 ## Branch workflow
 
-- `dev` is the integration branch for ongoing work.
-- `master` is release-stable.
-- Open pull requests against `dev` unless you are fixing a release-only issue.
+- `master` is the mainline branch. Open pull requests against `master`.
+- `tinygo` is a long-lived port branch for TinyGo builds.
 
 ## Commit messages
 
@@ -135,7 +134,7 @@ Required on pull requests (see `.github/workflows/ci.yml`):
 | Test | Core Go tests, smoke, self-check |
 | PR checks | Semantic PR title, DCO sign-off, signed-commit advisory |
 
-Binding, OS matrix, legacy Windows, examples, and reproducibility jobs run on push to `dev`/`master`, or when relevant paths change on pull requests.
+Binding, OS matrix, legacy Windows, examples, and reproducibility jobs run on push to `master`, or when relevant paths change on pull requests.
 
 Advisory or scheduled: CodeQL, security workflow, sim-heavy, TinyGo, preview-release.
 

@@ -10,11 +10,9 @@ on:
   push:
     branches:
       - master
-      - dev
   pull_request:
     branches:
       - master
-      - dev
   schedule:
     - cron: "20 16 * * 6"
 
@@ -66,7 +64,7 @@ jobs:
             build-mode: none
 
     env:
-      CI_GO_VERSION: "1.27.1"
+      CI_GO_VERSION: "1.27.2"
       GOFLAGS: -mod=vendor
       GOPROXY: "off"
       GOTOOLCHAIN: local

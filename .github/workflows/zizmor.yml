@@ -8,9 +8,9 @@ name: Zizmor
 
 on:
   push:
-    branches: [master, dev]
+    branches: [master]
   pull_request:
-    branches: [master, dev]
+    branches: [master]
   workflow_dispatch:
 
 concurrency:

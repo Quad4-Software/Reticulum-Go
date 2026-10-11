@@ -6,9 +6,9 @@ name: Security
 
 on:
   push:
-    branches: [master, dev]
+    branches: [master]
   pull_request:
-    branches: [master, dev]
+    branches: [master]
   schedule:
     - cron: "30 12 * * 1"
   workflow_dispatch:
@@ -54,7 +54,7 @@ env:
     go.dev:443
     dl.google.com:443
     storage.googleapis.com:443
-  CI_GO_VERSION: "1.27.1"
+  CI_GO_VERSION: "1.27.2"
   CI_TASK_VERSION: "3.46.3"
   CI_TRIVY_VERSION: "0.69.3"
   GOFLAGS: -mod=vendor
