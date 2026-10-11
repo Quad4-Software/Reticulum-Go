@@ -85,3 +85,24 @@ done <"$TMP/hardfailed.txt"
 while IFS= read -r t; do
 	[ -n "$t" ] && report "${t##* }" "flaky (passed on retry)"
 done <"$TMP/flaked.txt"
+
+# Auto-close: on a green run, an open flake issue whose test ran and passed
+# outright is resolved. A test absent from the logs entirely is left alone;
+# the suite may not have covered it this run.
+if [ "${RUN_CONCLUSION:-}" = "success" ]; then
+	printf '%s\n' "$OPEN" | while IFS="$(printf '\t')" read -r num title; do
+		name="${title#Flake: }"
+		case "$name" in
+		"$title" | "") continue ;;
+		esac
+		if grep -Fqx "$name" "$TMP/failed.txt" || grep -Fqx "$name" "$TMP/flaked_names.txt"; then
+			continue
+		fi
+		if grep -rqE -- "--- PASS: ${name}( |$)" "$TMP/logs"; then
+			if gh issue close "$num" --repo "$REPO" \
+				--comment "Passed in run ${RUN_URL}; closing." >/dev/null 2>&1; then
+				echo "auto-closed #${num} (${name} passed)"
+			fi
+		fi
+	done
+fi

@@ -196,34 +196,23 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 		t.Fatalf("Failed to create mock interface: %v", err)
 	}
 
-	// Create a done channel to signal goroutine cleanup
-	done := make(chan struct{})
-
-	// Start peer management with done channel
-	go func() {
-		ticker := time.NewTicker(reapInterval)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				ai.Mutex.Lock()
-				now := time.Now()
-				for addr, peer := range ai.peers {
-					if now.Sub(peer.lastHeard) > peerTTL {
-						delete(ai.peers, addr)
-					}
-				}
-				ai.Mutex.Unlock()
-			case <-done:
-				return
+	reapPeers := func() {
+		ai.Mutex.Lock()
+		now := time.Now()
+		for addr, peer := range ai.peers {
+			if now.Sub(peer.lastHeard) > peerTTL {
+				delete(ai.peers, addr)
 			}
 		}
-	}()
+		ai.Mutex.Unlock()
+	}
+
+	// The reaper only runs inside the PeerTimeout subtest. Driving it for the
+	// whole test lets a stalled CI runner reap a peer between announce and
+	// assert, which is exactly the flake this test kept tripping on.
 
 	// Ensure cleanup
 	defer func() {
-		close(done)
 		ai.Stop()
 	}()
 
@@ -319,6 +308,14 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 			t.Fatalf("Peer %s not found before timestamp update", peer1AddrStr)
 		}
 
+		// The announce stamps lastHeard with time.Now(); on coarse clocks
+		// (windows CI granularity can exceed 10ms) that can equal the
+		// previously recorded instant, so wait for the clock to move past it
+		// before re-announcing or the After check is a coin toss.
+		for !time.Now().After(initialTime) {
+			time.Sleep(time.Millisecond)
+		}
+
 		ai.Mutex.Lock()
 		ai.mockHandlePeerAnnounce(peer1Addr, "eth0")
 		ai.Mutex.Unlock()
@@ -348,6 +345,7 @@ func TestAutoInterfacePeerManagement(t *testing.T) {
 		// ticks is enough; a delayed tick must not flake the assert.
 		deadline := time.Now().Add(peerTTL + 3*reapInterval + 2*time.Second)
 		for time.Now().Before(deadline) {
+			reapPeers()
 			ai.Mutex.RLock()
 			count := len(ai.peers)
 			ai.Mutex.RUnlock()

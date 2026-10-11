@@ -1,8 +1,8 @@
 # Pinned actions (bump tag and SHA together when upgrading):
 #   actions/checkout@v7.0.1            3d3c42e5aac5ba805825da76410c181273ba90b1
-#   dorny/paths-filter@v3.0.2          de90cc6fb38fc0963ad72b210f1f284cd68cea36
+#   dorny/paths-filter@v4.0.3          ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
 #   actions/setup-node@v7.0.0          820762786026740c76f36085b0efc47a31fe5020
-#   actions/setup-java@v6.0.0          dd06d9cba3e5552c54d9f8ea23572deb30010f7c
+#   actions/setup-java@v6.0.1          de7274f081f381c8f8158605e0321c36c376e2e6
 #   vmactions/freebsd-vm@v1.5.6        8b0f1a8fc0ea0def307835c258940ca358fe6480
 #   vmactions/openbsd-vm@v1.4.7        86cdc08415d9d0865267e686561e276c52d62530
 #   vmactions/netbsd-vm@v1.5.2         c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92
@@ -22,10 +22,47 @@ concurrency:
 
 permissions:
   contents: read
-  actions: read
-  pull-requests: read
+  actions: read # run/job metadata for harden-runner
+  pull-requests: read # paths-filter lists changed files on PRs
 
 env:
+  # harden-runner egress allowlist (block mode). One union list covers
+  # every job in this workflow.
+  HR_ENDPOINTS: >-
+    github.com:443
+    api.github.com:443
+    codeload.github.com:443
+    release-assets.githubusercontent.com:443
+    objects.githubusercontent.com:443
+    *.actions.githubusercontent.com:443
+    *.blob.core.windows.net:443
+    *.githubapp.com:443
+    prod.app-api.stepsecurity.io:443
+    agent.api.stepsecurity.io:443
+    pypi.org:443
+    files.pythonhosted.org:443
+    socket.quad4.io:443
+    example.net:4242
+    example.net:443
+    proxy.golang.org:443
+    sum.golang.org:443
+    go.dev:443
+    dl.google.com:443
+    storage.googleapis.com:443
+    nodejs.org:443
+    api.adoptium.net:443
+    repo1.maven.org:443
+    pub.dev:443
+    ziglang.org:443
+    download.swift.org:443
+    azure.archive.ubuntu.com:80
+    azure.archive.ubuntu.com:443
+    archive.ubuntu.com:80
+    security.ubuntu.com:80
+    motd.ubuntu.com:443
+    esm.ubuntu.com:443
+    packages.microsoft.com:443
+    ppa.launchpadcontent.net:443
   CI_GO_VERSION: "1.27.1"
   CI_GO_LEGACY_WIN7_VERSION: "1.27.1-1"
   CI_GO_LEGACY_WINXP_VERSION: "1.27.1"
@@ -60,7 +97,8 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -68,6 +106,8 @@ jobs:
           fetch-depth: 0
 
       - name: Commit identity check
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           # Refuse placeholder identities. A repo-local git config has been
           # set to the literal strings user.name / user.email more than once,
@@ -77,7 +117,7 @@ jobs:
           # drop commits from before this gate (0414df45) so merging a
           # long-lived branch onto master does not re-fail on pre-fix history.
           cutoff="0414df45a4c6f97e1a277d8f126969c4e01d6a17"
-          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          base="${BASE_SHA}"
           if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
             set -- HEAD
           else
@@ -136,14 +176,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -160,7 +201,7 @@ jobs:
 
       - name: Staticcheck
         run: |
-          sh scripts/ci/setup-staticcheck.sh "${{ env.CI_STATICCHECK_VERSION }}"
+          sh scripts/ci/setup-staticcheck.sh "${CI_STATICCHECK_VERSION}"
           task staticcheck
 
       - name: Installer script
@@ -170,7 +211,7 @@ jobs:
           sh scripts/ci/test-install.sh
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test:
     name: Test (${{ matrix.os }}, ${{ matrix.goarch }})
@@ -191,14 +232,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -216,8 +258,10 @@ jobs:
         run: task test-self-check
 
       - name: Run tests
+        env:
+          MATRIX_GOARCH: ${{ matrix.goarch }}
         run: |
-          if [ "${{ matrix.goarch }}" = "amd64" ]; then
+          if [ "${MATRIX_GOARCH}" = "amd64" ]; then
             go run ./scripts/ci/testsummary -v -vet=all -coverprofile=coverage.out ./...
           else
             task test
@@ -232,7 +276,7 @@ jobs:
           retention-days: 14
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-live-interop:
     name: Live interop (Go/Python RNS)
@@ -244,6 +288,8 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
+          # audit only: live interop dials arbitrary public Reticulum peers
+          # discovered via directory.rns.recipes; endpoints are not enumerable.
           egress-policy: audit
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -251,7 +297,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -271,7 +317,7 @@ jobs:
         run: go run ./scripts/ci/testsummary -count=1 -timeout 30m ./tests/interop/
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-os-matrix:
     name: OS runtime (${{ matrix.os }})
@@ -288,14 +334,17 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          # audit on Windows: schannel revocation checks hit CA CRL/OCSP
+          # endpoints that vary by issuer and cannot be statically listed.
+          egress-policy: ${{ matrix.os == 'windows-latest' && 'audit' || 'block' }}
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -316,7 +365,7 @@ jobs:
         run: task test-self-check
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-freebsd:
     name: FreeBSD self-check
@@ -328,6 +377,8 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
+          # audit only: the guest VM's egress is NAT'd through qemu on the host,
+          # so per-domain allowlisting cannot see the real destinations.
           egress-policy: audit
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -351,7 +402,7 @@ jobs:
             sh scripts/ci/bsd-guest-self-check.sh
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-openbsd:
     name: OpenBSD self-check
@@ -363,6 +414,8 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
+          # audit only: the guest VM's egress is NAT'd through qemu on the host,
+          # so per-domain allowlisting cannot see the real destinations.
           egress-policy: audit
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -386,7 +439,7 @@ jobs:
             sh scripts/ci/bsd-guest-self-check.sh
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-netbsd:
     name: NetBSD self-check
@@ -398,6 +451,8 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
+          # audit only: the guest VM's egress is NAT'd through qemu on the host,
+          # so per-domain allowlisting cannot see the real destinations.
           egress-policy: audit
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -423,7 +478,7 @@ jobs:
             sh scripts/ci/bsd-guest-self-check.sh
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-haiku:
     name: Haiku self-check
@@ -435,6 +490,8 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
+          # audit only: the guest VM's egress is NAT'd through qemu on the host,
+          # so per-domain allowlisting cannot see the real destinations.
           egress-policy: audit
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -475,7 +532,7 @@ jobs:
             ./bin/reticulum-go self-check --binary "$(pwd)/bin/reticulum-go" --json --full
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-qemu-arch:
     name: Linux ${{ matrix.goarch }} self-check (qemu-user)
@@ -502,14 +559,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -531,7 +589,7 @@ jobs:
         run: sh scripts/ci/run-qemu-arch-self-check.sh "${GOARCH_TARGET}"
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-odin:
     name: Odin bindings
@@ -543,26 +601,27 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Setup Odin
-        run: sh scripts/ci/setup-odin.sh "${{ env.CI_ODIN_VERSION }}"
+        run: sh scripts/ci/setup-odin.sh "${CI_ODIN_VERSION}"
 
       - name: Run Odin bindings tests
         run: task test-odin
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-zig:
     name: Zig bindings
@@ -574,26 +633,27 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Setup Zig
-        run: sh scripts/ci/setup-zig.sh "${{ env.CI_ZIG_VERSION }}"
+        run: sh scripts/ci/setup-zig.sh "${CI_ZIG_VERSION}"
 
       - name: Run Zig bindings tests
         run: task test-zig
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-cpp:
     name: C++ bindings
@@ -605,14 +665,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -624,7 +685,7 @@ jobs:
         run: task test-cpp
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-c:
     name: C librns examples
@@ -636,14 +697,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -652,7 +714,7 @@ jobs:
         run: task test-c
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-rust:
     name: Rust bindings
@@ -664,14 +726,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -680,7 +743,7 @@ jobs:
         run: task test-rust
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-swift:
     name: Swift bindings
@@ -692,20 +755,21 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Setup Swift
-        run: sh scripts/ci/setup-swift.sh "${{ env.CI_SWIFT_VERSION }}"
+        run: sh scripts/ci/setup-swift.sh "${CI_SWIFT_VERSION}"
 
       - name: Run Swift bindings tests and examples
         run: |
@@ -713,7 +777,7 @@ jobs:
           task test-swift
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-lua:
     name: Lua bindings
@@ -725,14 +789,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -744,7 +809,7 @@ jobs:
         run: task test-lua
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-java:
     name: Java bindings
@@ -756,14 +821,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -778,7 +844,7 @@ jobs:
         run: task test-java
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-kotlin:
     name: Kotlin bindings
@@ -790,14 +856,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -809,7 +876,7 @@ jobs:
           java-version: "17"
 
       - name: Setup Kotlin
-        run: sh scripts/ci/setup-kotlin.sh "${{ env.CI_KOTLIN_VERSION }}"
+        run: sh scripts/ci/setup-kotlin.sh "${CI_KOTLIN_VERSION}"
 
       - name: Run Kotlin bindings tests and examples
         run: |
@@ -817,7 +884,7 @@ jobs:
           task test-kotlin
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-python:
     name: Python bindings
@@ -829,14 +896,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -845,7 +913,7 @@ jobs:
         run: task test-python
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-dart:
     name: Dart bindings
@@ -857,7 +925,8 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -869,7 +938,7 @@ jobs:
           sdk: ${{ env.CI_DART_VERSION }}
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -878,7 +947,7 @@ jobs:
         run: task test-dart
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-mutation:
     name: Mutation testing (${{ matrix.name }})
@@ -902,14 +971,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -921,7 +991,7 @@ jobs:
         run: task test-mutation
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   test-extra:
     name: Extra (${{ matrix.suite }})
@@ -938,14 +1008,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -982,7 +1053,7 @@ jobs:
           esac
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   build:
     name: Build (${{ matrix.goos }}, ${{ matrix.goarch }})
@@ -1076,14 +1147,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -1098,7 +1170,7 @@ jobs:
         run: sh scripts/ci/build-named-release-binary.sh
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   build-windows-legacy:
     name: Build (windows, ${{ matrix.goarch }}, win7)
@@ -1115,17 +1187,18 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up go-legacy-win7
-        run: sh scripts/ci/setup-go-legacy-win7.sh "${{ env.CI_GO_LEGACY_WIN7_VERSION }}"
+        run: sh scripts/ci/setup-go-legacy-win7.sh "${CI_GO_LEGACY_WIN7_VERSION}"
 
       - name: Setup Task
-        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
+        run: sh scripts/ci/setup-task.sh "${CI_TASK_VERSION}"
 
       - name: Build with go-legacy-win7
         env:
@@ -1147,11 +1220,11 @@ jobs:
           esac
           mkdir -p bin
           "$LEGACY_GO" build -ldflags="-s -w" \
-            -o "bin/reticulum-go-windows-${{ matrix.goarch }}-win7.exe" \
+            -o "bin/reticulum-go-windows-${GOARCH}-win7.exe" \
             ./cmd/reticulum-go
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   build-windows-xp:
     name: Build (windows, ${{ matrix.goarch }}, winxp)
@@ -1168,17 +1241,18 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up go-legacy-winxp
-        run: sh scripts/ci/setup-go-legacy-winxp.sh "${{ env.CI_GO_LEGACY_WINXP_VERSION }}"
+        run: sh scripts/ci/setup-go-legacy-winxp.sh "${CI_GO_LEGACY_WINXP_VERSION}"
 
       - name: Setup Task
-        run: sh scripts/ci/setup-task.sh "${{ env.CI_TASK_VERSION }}"
+        run: sh scripts/ci/setup-task.sh "${CI_TASK_VERSION}"
 
       - name: Build with go-legacy-winxp
         env:
@@ -1203,11 +1277,11 @@ jobs:
           sed -i 's/go 1\.2[67]\.[0-9][0-9]*/go 1.27.1/g' vendor/modules.txt
           mkdir -p bin
           "$LEGACY_GO" build -ldflags="-s -w" \
-            -o "bin/reticulum-go-windows-${{ matrix.goarch }}-winxp.exe" \
+            -o "bin/reticulum-go-windows-${GOARCH}-winxp.exe" \
             ./cmd/reticulum-go
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   examples:
     name: Examples (pageserver, wasm)
@@ -1219,14 +1293,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -1276,7 +1351,7 @@ jobs:
         run: task build-wasm
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   reproducibility:
     name: Reproducible build
@@ -1288,14 +1363,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -1304,7 +1380,7 @@ jobs:
         run: task reproducibility
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean
 
   benchmark:
     name: Benchmark gate
@@ -1316,14 +1392,15 @@ jobs:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup CI
-        uses: ./.github/actions/setup-ci
+        uses: $/.github/actions/setup-ci
         with:
           go_version: ${{ env.CI_GO_VERSION }}
           task_version: ${{ env.CI_TASK_VERSION }}
@@ -1332,4 +1409,4 @@ jobs:
         run: task test-bench-gate
 
       - name: Verify workspace clean
-        uses: ./.github/actions/verify-workspace-clean
+        uses: $/.github/actions/verify-workspace-clean

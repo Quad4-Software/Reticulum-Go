@@ -64,4 +64,30 @@ if [ "${SKIP_DCO_HOOK:-0}" != "1" ] && ! grep -qE '^Signed-off-by: .+ <[^>]+>' "
 	exit 1
 fi
 
+# AI provenance: on machines with ai.* git config, the prepare-commit-msg
+# hook injects Harness/Model/Method trailers. A message that reaches this
+# point either lacks them (injection bypassed) or carries values that do
+# not match the configured machine identity (written by hand), so fail
+# both ways. For commits with no AI involvement, commit with
+# SKIP_AI_HOOK=1 so no trailers are injected and this check is skipped.
+if [ "${SKIP_AI_HOOK:-0}" != "1" ]; then
+	for key in harness model method; do
+		want="$(git config "ai.$key" || true)"
+		[ -n "$want" ] || continue
+		trailer="$(echo "$key" | sed 's/./\U&/')"
+		got="$(grep -E "^${trailer}: " "$MSG_FILE" | sed "s/^${trailer}: //" || true)"
+		if [ -z "$got" ]; then
+			echo "commit-msg: missing $trailer trailer while ai.$key is configured" >&2
+			echo "commit-msg: let prepare-commit-msg inject it, or use SKIP_AI_HOOK=1" >&2
+			exit 1
+		fi
+		if [ "$got" != "$want" ]; then
+			echo "commit-msg: $trailer trailer '$got' does not match ai.$key '$want'" >&2
+			echo "commit-msg: do not write Harness/Model/Method by hand; the hook" >&2
+			echo "commit-msg: injects them from git config ai.* on this machine" >&2
+			exit 1
+		fi
+	done
+fi
+
 exit 0
