@@ -61,14 +61,23 @@ func LoadRgoshAllowedIdentities(extra []string) ([][]byte, error) {
 		seen[k] = struct{}{}
 		out = append(out, h)
 	}
-	home := os.Getenv("HOME")
-	candidates := []string{
-		"/etc/rgosh/allowed_identities",
-		filepath.Join(home, ".config", "rgosh", "allowed_identities"),
-		filepath.Join(home, ".rgosh", "allowed_identities"),
-		"/etc/rnsh/allowed_identities",
-		filepath.Join(home, ".config", "rnsh", "allowed_identities"),
-		filepath.Join(home, ".rnsh", "allowed_identities"),
+	// Skip home-relative candidates when no home exists: joining on an
+	// empty HOME produces relative paths that read allowlists from the
+	// daemon's working directory.
+	home, _ := os.UserHomeDir()
+	candidates := []string{"/etc/rgosh/allowed_identities"}
+	if home != "" {
+		candidates = append(candidates,
+			filepath.Join(home, ".config", "rgosh", "allowed_identities"),
+			filepath.Join(home, ".rgosh", "allowed_identities"),
+		)
+	}
+	candidates = append(candidates, "/etc/rnsh/allowed_identities")
+	if home != "" {
+		candidates = append(candidates,
+			filepath.Join(home, ".config", "rnsh", "allowed_identities"),
+			filepath.Join(home, ".rnsh", "allowed_identities"),
+		)
 	}
 	for _, path := range candidates {
 		hashes, err := readAllowedFile(path)

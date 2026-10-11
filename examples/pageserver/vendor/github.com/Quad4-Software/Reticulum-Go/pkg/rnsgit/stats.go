@@ -178,6 +178,9 @@ func toInt64(v any) int64 {
 	case uint32:
 		return int64(x)
 	case uint64:
+		if x > math.MaxInt64 {
+			return math.MaxInt64
+		}
 		return int64(x)
 	case float64:
 		return int64(x)

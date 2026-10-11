@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/quic-go/quic-go"
@@ -37,7 +38,7 @@ func newQUICClientFromConfig(name string, cfg *common.InterfaceConfig, _ *FromCo
 		cfg.TargetHost,
 		cfg.TargetPort,
 		cfg.Enabled,
-		cfg.MaxReconnTries,
+		MaxReconnectTriesFromConfig(cfg),
 		QUICClientOptions{
 			CertFile: cfg.CertFile,
 			KeyFile:  cfg.KeyFile,
@@ -109,6 +110,7 @@ type QUICClientInterface struct {
 	maxReconnectTries int
 	done              chan struct{}
 	stopOnce          sync.Once
+	readerActive      atomic.Bool
 	reconnect         *reconnectDriver
 	txFrame           []byte
 	txMu              sync.Mutex
@@ -170,6 +172,9 @@ func (qc *QUICClientInterface) initReconnectDriver() {
 
 func (qc *QUICClientInterface) dialSession() (net.Conn, error) {
 	addr := net.JoinHostPort(qc.targetAddr, fmt.Sprintf("%d", qc.targetPort))
+	if len(qc.peerPin) == 0 && qc.GetIFAC() == nil {
+		debug.Log(debug.DebugWarning, "QUIC interface has neither peer_key nor IFAC. Transport is unauthenticated", "name", qc.Name)
+	}
 	tlsConf := buildQUICClientTLS(qc.sni, qc.peerPin, qc.clientCert)
 	ctx, cancel := context.WithTimeout(context.Background(), quicDialTimeout)
 	defer cancel()
@@ -196,7 +201,9 @@ func (qc *QUICClientInterface) onConnected(conn net.Conn) {
 		_ = conn.Close()
 		return
 	}
-	go qc.readLoop()
+	if qc.readerActive.CompareAndSwap(false, true) {
+		go qc.readLoop()
+	}
 }
 
 func (qc *QUICClientInterface) adoptConn(conn net.Conn) bool {
@@ -243,7 +250,9 @@ func (qc *QUICClientInterface) Start() error {
 	}
 	if qc.conn != nil {
 		qc.Online = true
-		go qc.readLoop()
+		if qc.readerActive.CompareAndSwap(false, true) {
+			go qc.readLoop()
+		}
 		qc.Mutex.Unlock()
 		return nil
 	}
@@ -331,6 +340,7 @@ func (qc *QUICClientInterface) Send(data []byte, address string) error {
 }
 
 func (qc *QUICClientInterface) readLoop() {
+	defer qc.readerActive.Store(false)
 	decoder := newHDLCToggleStreamDecoder(qc.MTU, func(payload []byte) {
 		if len(payload) == 0 {
 			return
@@ -481,6 +491,9 @@ func (qs *QUICServerInterface) Start() error {
 	qs.Mutex.Unlock()
 
 	addr := net.JoinHostPort(qs.bindAddr, fmt.Sprintf("%d", qs.bindPort))
+	if len(qs.peerPin) == 0 && qs.GetIFAC() == nil {
+		debug.Log(debug.DebugWarning, "QUIC server has neither peer_key nor IFAC. Transport is unauthenticated", "name", qs.Name)
+	}
 	tlsConf := buildQUICServerTLS(qs.serverCert, qs.peerPin)
 	ln, err := quic.ListenAddr(addr, tlsConf, quicConfig())
 	if err != nil {
@@ -529,6 +542,11 @@ func (qs *QUICServerInterface) acceptLoop(ctx context.Context, ln *quic.Listener
 			default:
 			}
 			debug.Log(debug.DebugVerbose, "QUIC accept error", "name", qs.Name, "error", err)
+			select {
+			case <-time.After(50 * time.Millisecond):
+			case <-ctx.Done():
+				return
+			}
 			continue
 		}
 		d, release := protect.AdmitConn(qs.Name)
@@ -550,13 +568,16 @@ func (qs *QUICServerInterface) handleConn(ctx context.Context, conn *quic.Conn) 
 		return
 	}
 	sess := &quicSessionConn{stream: stream, conn: conn}
-	addr := conn.RemoteAddr().String()
+	// Key on the session pointer, not the remote address: multiple QUIC
+	// connections can share one 4-tuple, and an addr-keyed delete can evict
+	// a newer session when an older one exits.
+	key := fmt.Sprintf("%p", sess)
 	qs.Mutex.Lock()
-	qs.connections[addr] = sess
+	qs.connections[key] = sess
 	qs.Mutex.Unlock()
 	defer func() {
 		qs.Mutex.Lock()
-		delete(qs.connections, addr)
+		delete(qs.connections, key)
 		qs.Mutex.Unlock()
 		_ = sess.Close()
 	}()
@@ -687,4 +708,10 @@ func (qs *QUICServerInterface) ListenAddr() net.Addr {
 		return nil
 	}
 	return qs.listener.Addr()
+}
+
+// EndpointStatus reports dial-health for this interface's remote endpoint:
+// dial failures, flaps, and active quarantine remaining.
+func (qc *QUICClientInterface) EndpointStatus() EndpointStatus {
+	return qc.reconnect.endpointStatus()
 }

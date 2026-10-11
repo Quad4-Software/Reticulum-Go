@@ -412,7 +412,7 @@ func truncateCell(text string, width int) string {
 			closers.WriteString("`" + string(tag))
 		}
 	}
-	return truncated + closers.String() + "…"
+	return truncated + closers.String() + "..."
 }
 
 // formatTable renders a markdown table with box-drawing borders, shrinking

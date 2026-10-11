@@ -3,6 +3,8 @@
 
 package interfaces
 
+import "bytes"
+
 // hdlcStreamDecoder incrementally parses HDLC-framed packets from a byte stream.
 // Payload bytes are unescaped during assembly. onFrame receives a view of the
 // assembler buffer that is reused after the callback returns. Callers that
@@ -54,9 +56,54 @@ func (d *hdlcStreamDecoder) reset() {
 }
 
 func (d *hdlcStreamDecoder) feed(buf []byte) {
-	for _, b := range buf {
-		d.feedByte(b)
+	for len(buf) > 0 {
+		if d.escape {
+			d.feedByte(buf[0])
+			buf = buf[1:]
+			continue
+		}
+		if !d.inFrame {
+			i := bytes.IndexByte(buf, HDLCFlag)
+			if i < 0 {
+				return
+			}
+			d.feedByte(buf[i])
+			buf = buf[i+1:]
+			continue
+		}
+		iFlag := bytes.IndexByte(buf, HDLCFlag)
+		iEsc := bytes.IndexByte(buf, HDLCEsc)
+		next := len(buf)
+		if iFlag >= 0 && iFlag < next {
+			next = iFlag
+		}
+		if iEsc >= 0 && iEsc < next {
+			next = iEsc
+		}
+		if next > 0 {
+			d.appendRun(buf[:next])
+			buf = buf[next:]
+			continue
+		}
+		d.feedByte(buf[0])
+		buf = buf[1:]
 	}
+}
+
+// appendRun bulk-appends a run of unescaped frame bytes with the same
+// bound check feedByte applies per byte.
+func (d *hdlcStreamDecoder) appendRun(run []byte) {
+	limit := d.maxFrame
+	if d.mtu > 0 && d.mtu < limit {
+		limit = d.mtu
+	}
+	if len(d.data)+len(run) > limit {
+		d.data = d.data[:0]
+		d.inFrame = false
+		d.escape = false
+		return
+	}
+	d.data = append(d.data, run...)
 }
 
 // dropPartial clears an incomplete frame. Used when a serial inter-byte idle
@@ -76,7 +123,7 @@ func (d *hdlcStreamDecoder) dropPartial() bool {
 func (d *hdlcStreamDecoder) feedByte(b byte) {
 	if b == HDLCFlag {
 		if d.inFrame && len(d.data) > 0 {
-			// maxFrame allows escaped assembly headroom; delivered payload
+			// maxFrame allows escaped assembly headroom. Delivered payload
 			// must still fit the interface MTU (matching KISS). TCP/Backbone
 			// also reject frames at or below HEADER_MINSIZE (RNS 1.3.9).
 			ok := d.onFrame != nil && (d.mtu <= 0 || len(d.data) <= d.mtu)

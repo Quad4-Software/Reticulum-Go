@@ -6,6 +6,6 @@ set -eu
 . "$(dirname "$0")/priv.sh"
 
 export PATH="/usr/local/go/bin:$PATH"
-VER="${1:-v2.29.0}"
+VER="${1:-v2.29.1-0.20261009120814-7b1b5cebe007}"
 run_priv env PATH="$PATH" GOBIN=/usr/local/bin GOFLAGS= GOPROXY=https://proxy.golang.org,direct go install "github.com/securego/gosec/v2/cmd/gosec@${VER}"
 command -v gosec

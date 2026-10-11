@@ -64,7 +64,7 @@ func NewChannelModel(freqHz, distanceM, sampleRate float64, seed int64) *Channel
 }
 
 // FreeSpacePathLossDB returns FSPL in dB.
-// FSPL = 20*log10(d) + 20*log10(f) + 20*log10(4π/c)
+// FSPL = 20*log10(d) + 20*log10(f) + 20*log10(4pi/c)
 func FreeSpacePathLossDB(distanceM, freqHz float64) float64 {
 	if distanceM <= 0 || freqHz <= 0 {
 		return 0

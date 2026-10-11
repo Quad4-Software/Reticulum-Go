@@ -14,7 +14,7 @@ import (
 
 // serveReleasesPage lists published releases, matching the reference
 // releases page. The reference renders the empty case through the repo
-// template; here the releases template is used consistently.
+// template. Here the releases template is used consistently.
 func (n *Node) serveReleasesPage(_ string, data []byte, _ []byte, _ []byte, remote *identity.Identity, _ int64) any {
 	st := time.Now()
 	vars := pageVars(data)

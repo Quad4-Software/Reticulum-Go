@@ -12,8 +12,10 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
@@ -29,6 +31,8 @@ const (
 	statusStale     = "stale"
 )
 
+var persistTmpSeq atomic.Uint64
+
 var discoverableTypes = map[string]struct{}{
 	"BackboneInterface":  {},
 	"TCPServerInterface": {},
@@ -40,8 +44,13 @@ var discoverableTypes = map[string]struct{}{
 
 // DiscoveredInterface is one persisted rnstransport discovery record.
 type DiscoveredInterface struct {
-	Type                string
-	Name                string
+	Type string
+	Name string
+	// ImplName is the announced TRANSPORT_IMPL (RNS 1.5.1+), empty when the
+	// peer did not signal an implementation.
+	ImplName string
+	// Version is the announced TRANSPORT_VERS, empty when not signalled.
+	Version             string
 	Transport           bool
 	ReachableOn         string
 	Port                int64
@@ -96,14 +105,16 @@ func buildDiscoveredRecord(info *ReceivedAnnounceInfo, hops uint8, now float64) 
 	rec := &DiscoveredInterface{
 		Type:        info.Info.Type,
 		Name:        sanitizeDiscoveryName(info.Info.Name),
+		ImplName:    info.Info.TransportImpl,
+		Version:     info.Info.TransportVers,
 		Transport:   info.Info.Transport,
 		ReachableOn: info.Info.ReachableOn,
 		Port:        info.Info.Port,
 		HasPort:     info.Info.HasPort,
 		TransportID: append([]byte(nil), info.Info.TransportID...),
 		NetworkID:   append([]byte(nil), info.RemoteIdentity...),
-		IFACNetname: info.Info.IFACNetname,
-		IFACNetkey:  info.Info.IFACNetkey,
+		IFACNetname: SanitizeIFACValue(info.Info.IFACNetname),
+		IFACNetkey:  SanitizeIFACValue(info.Info.IFACNetkey),
 		Hops:        hops,
 		Value:       info.StampValue,
 		Received:    now,
@@ -161,7 +172,10 @@ func persistDiscoveredRecord(storageDir string, rec *DiscoveredInterface) error 
 	if err != nil {
 		return err
 	}
-	tmp := name + ".tmp"
+	// The tmp name must be unique per call: concurrent persisters for the
+	// same record share the target name, and a rename can otherwise publish
+	// another writer's still-open tmp file.
+	tmp := fmt.Sprintf("%s.%x.%x.tmp", name, os.Getpid(), persistTmpSeq.Add(1))
 	if err := root.WriteFile(tmp, packed, 0o600); err != nil {
 		return err
 	}
@@ -192,6 +206,8 @@ func discoveredToMap(rec *DiscoveredInterface, existing map[string]any, now floa
 	m := map[string]any{
 		"type":           rec.Type,
 		"name":           rec.Name,
+		"impl_name":      stringOrNil(rec.ImplName),
+		"version":        stringOrNil(rec.Version),
 		"transport":      rec.Transport,
 		"transport_id":   hex.EncodeToString(rec.TransportID),
 		"network_id":     hex.EncodeToString(rec.NetworkID),
@@ -311,10 +327,14 @@ func normalizeDiscoveredRecord(m map[string]any, now time.Time) (*DiscoveredInte
 	rec := &DiscoveredInterface{}
 	rec.Type, _ = m["type"].(string)
 	rec.Name = sanitizeDiscoveryName(stringField(m["name"]))
+	rec.ImplName, _ = m["impl_name"].(string)
+	rec.Version, _ = m["version"].(string)
 	rec.Transport, _ = m["transport"].(bool)
 	rec.ReachableOn, _ = m["reachable_on"].(string)
-	rec.IFACNetname, _ = m["ifac_netname"].(string)
-	rec.IFACNetkey, _ = m["ifac_netkey"].(string)
+	// Invalidly persisted "None" strings from unguarded node-side IFAC
+	// configuration are dropped, matching RNS 1.5.5 Discovery sanitization.
+	rec.IFACNetname = SanitizeIFACValue(stringField(m["ifac_netname"]))
+	rec.IFACNetkey = SanitizeIFACValue(stringField(m["ifac_netkey"]))
 	rec.ConfigEntry, _ = m["config_entry"].(string)
 	rec.TransportID = decodeHexField(m["transport_id"])
 	rec.NetworkID = decodeHexField(m["network_id"])
@@ -472,6 +492,34 @@ func stringField(v any) string {
 	return ""
 }
 
+// BackboneSupported reports whether this platform uses BackboneClientInterface
+// for discovered backbone endpoints, matching Python's
+// "not is_windows() and not is_darwin()" gate in RNS 1.5.5. Go runs the
+// backbone client everywhere; the gate exists so emitted config entries match
+// what a same-platform Python rnsd would write.
+func BackboneSupported() bool {
+	return runtime.GOOS != "windows" && runtime.GOOS != "darwin"
+}
+
+// SanitizeIFACValue drops the invalidly persisted literal "None" produced by
+// unguarded node-side IFAC configuration (RNS 1.5.5 Discovery sanitization),
+// returning the value unchanged otherwise.
+func SanitizeIFACValue(v string) string {
+	if v == "None" {
+		return ""
+	}
+	return v
+}
+
+// stringOrNil returns nil for empty strings so the persisted map carries a
+// msgpack nil like the Python info dict does for absent impl/version.
+func stringOrNil(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
 func hopsToUint8(v int64) uint8 {
 	if v < 0 {
 		return 0
@@ -511,16 +559,19 @@ func configEntryForDiscovered(rec *DiscoveredInterface) string {
 	identityStr := "\n  transport_identity = " + tidHex
 	switch rec.Type {
 	case "BackboneInterface", "TCPServerInterface":
-		remoteKey := "remote"
+		// RNS 1.5.5 emits BackboneInterface on platforms with backbone
+		// support and degrades to TCPClientInterface elsewhere.
 		ifaceType := "BackboneInterface"
-		if rec.Type == "TCPServerInterface" {
+		remoteKey := "remote"
+		if !BackboneSupported() {
 			ifaceType = "TCPClientInterface"
 			remoteKey = "target_host"
 		}
 		return fmt.Sprintf("[[%s]]\n  type = %s\n  enabled = yes\n  %s = %s\n  target_port = %d%s%s%s",
 			rec.Name, ifaceType, remoteKey, rec.ReachableOn, rec.Port, identityStr, netname, netkey)
 	case "I2PInterface":
-		return fmt.Sprintf("[[%s]]\n  type = I2PInterface\n  enabled = yes\n  peers = %s%s%s%s",
+		// RNS 1.5.5: the peers entry needs the .b32.i2p suffix.
+		return fmt.Sprintf("[[%s]]\n  type = I2PInterface\n  enabled = yes\n  peers = %s.b32.i2p%s%s%s",
 			rec.Name, rec.ReachableOn, identityStr, netname, netkey)
 	default:
 		return ""
@@ -544,6 +595,8 @@ func LoadPersistedInterfaces(storageDir string) ([]*ReceivedAnnounceInfo, error)
 		}
 		info.Info.Type = rec.Type
 		info.Info.Name = rec.Name
+		info.Info.TransportImpl = rec.ImplName
+		info.Info.TransportVers = rec.Version
 		info.Info.Transport = rec.Transport
 		info.Info.ReachableOn = rec.ReachableOn
 		info.Info.Port = rec.Port

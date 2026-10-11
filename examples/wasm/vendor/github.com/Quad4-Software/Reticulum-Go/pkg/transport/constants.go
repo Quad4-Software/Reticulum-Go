@@ -128,6 +128,10 @@ const (
 	// maxQueuedDiscoveryPRs is the maximum pending discovery path requests.
 	maxQueuedDiscoveryPRs = 32
 
+	// maxDiscoveryPathRequests bounds remote-triggered discovery state.
+	// Entries also expire via cleanupExpiredDiscoveryRequests.
+	maxDiscoveryPathRequests = 4096
+
 	// discoveryPRTxThrottle is the minimum interval between processing
 	// queued discovery path requests.
 	discoveryPRTxThrottle = 500 * time.Millisecond

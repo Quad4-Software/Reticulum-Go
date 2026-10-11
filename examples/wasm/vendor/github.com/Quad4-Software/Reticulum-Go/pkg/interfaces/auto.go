@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
@@ -54,6 +55,8 @@ type AutoInterface struct {
 	lastRescan              time.Time
 	done                    chan struct{}
 	stopOnce                sync.Once
+	doneGen                 atomic.Uint64
+	netwatchUnsub           func()
 }
 
 type AdoptedInterface struct {
@@ -61,6 +64,11 @@ type AdoptedInterface struct {
 	linkLocalAddr string
 	index         int
 }
+
+// maxAutoPeers bounds discovered LAN peers, and autoPeerEvictAge is the
+// idle age required before pressure evicts an entry.
+const maxAutoPeers = 1024
+const autoPeerEvictAge = 30 * time.Second
 
 type Peer struct {
 	ifaceName    string
@@ -287,8 +295,22 @@ func (ai *AutoInterface) Start() error {
 	ai.Out = true
 	ai.Mutex.Unlock()
 
-	go ai.peerJobs()
-	go ai.announceLoop()
+	ai.Mutex.Lock()
+	gen := ai.doneGen.Add(1)
+	loopDone := ai.done
+	if ai.netwatchUnsub != nil {
+		// Restart without Stop: do not leak the previous subscription.
+		ai.netwatchUnsub()
+		ai.netwatchUnsub = nil
+	}
+	// Event-driven rescan honors watch_interfaces (same feature as the
+	// periodic poll in maybeRescanLocked, netlink-triggered).
+	if ai.watchInterfaces {
+		ai.netwatchUnsub = netwatchSubscribe(ai.onNetworkChange)
+	}
+	ai.Mutex.Unlock()
+	go ai.peerJobs(loopDone, gen)
+	go ai.announceLoop(loopDone, gen)
 
 	debug.Log(debug.DebugInfo, "AutoInterface started", "adopted", len(ai.adoptedInterfaces))
 	return nil
@@ -576,6 +598,20 @@ func (ai *AutoInterface) handlePeerAnnounce(addr *net.UDPAddr, ifaceName string)
 		peer.lastHeard = time.Now()
 		debug.Log(debug.DebugTrace, "Updated peer", "peer", peerIP, "interface", ifaceName)
 	} else {
+		// Peer keys are attacker-forgeable on the local segment, so the map
+		// needs a bound plus expiry-on-pressure.
+		if len(ai.peers) >= maxAutoPeers {
+			now := time.Now()
+			for k, p := range ai.peers {
+				if now.Sub(p.lastHeard) > autoPeerEvictAge {
+					delete(ai.peers, k)
+				}
+			}
+			if len(ai.peers) >= maxAutoPeers {
+				debug.Log(debug.DebugWarning, "Auto peer table full, dropping announce", "peer", peerIP)
+				return
+			}
+		}
 		ai.peers[peerKey] = &Peer{
 			ifaceName:    ifaceName,
 			lastHeard:    time.Now(),
@@ -586,18 +622,21 @@ func (ai *AutoInterface) handlePeerAnnounce(addr *net.UDPAddr, ifaceName string)
 	}
 }
 
-func (ai *AutoInterface) announceLoop() {
+// announceLoop and peerJobs bind to the done channel and generation captured
+// at Start. Reading ai.done live would let a loop that outlived a Stop+Start
+// adopt the replacement channel and run as a duplicate.
+func (ai *AutoInterface) announceLoop(done <-chan struct{}, gen uint64) {
 	ticker := time.NewTicker(ai.announceInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			if !ai.IsOnline() {
+			if !ai.IsOnline() || ai.doneGen.Load() != gen {
 				return
 			}
 			ai.sendPeerAnnounce()
-		case <-ai.done:
+		case <-done:
 			return
 		}
 	}
@@ -657,14 +696,14 @@ func (ai *AutoInterface) reverseAnnounce(peer *Peer) {
 	}
 }
 
-func (ai *AutoInterface) peerJobs() {
+func (ai *AutoInterface) peerJobs(done <-chan struct{}, gen uint64) {
 	ticker := time.NewTicker(ai.peerJobInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			if !ai.IsOnline() {
+			if !ai.IsOnline() || ai.doneGen.Load() != gen {
 				return
 			}
 
@@ -775,6 +814,15 @@ func (ai *AutoInterface) PeerCount() int {
 	return len(ai.peers)
 }
 
+// Detach marks the interface detached and shuts down all listeners and
+// discovery sockets, matching Python AutoInterface.detach (RNS 1.5.5).
+func (ai *AutoInterface) Detach() {
+	ai.Mutex.Lock()
+	ai.Detached = true
+	ai.Mutex.Unlock()
+	_ = ai.Stop()
+}
+
 func (ai *AutoInterface) Stop() error {
 	ai.Mutex.Lock()
 	ai.Online = false
@@ -797,7 +845,13 @@ func (ai *AutoInterface) Stop() error {
 		conn.Close() // #nosec G104
 	}
 
+	unsub := ai.netwatchUnsub
+	ai.netwatchUnsub = nil
 	ai.Mutex.Unlock()
+
+	if unsub != nil {
+		unsub()
+	}
 
 	ai.stopOnce.Do(func() {
 		if ai.done != nil {

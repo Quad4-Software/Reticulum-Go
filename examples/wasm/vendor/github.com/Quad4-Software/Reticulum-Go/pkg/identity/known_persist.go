@@ -54,6 +54,11 @@ type knownDestRecord struct {
 // accepted. Malformed entries are skipped and counted. A structurally
 // invalid top-level payload that is not a msgpack map is returned as an
 // error.
+
+// maxStateFileBytes caps state files loaded from disk so a replaced or
+// oversized file cannot exhaust memory during startup.
+const maxStateFileBytes = 64 << 20
+
 func decodeKnownDestinations(data []byte) (records []knownDestRecord, skipped int, err error) {
 	var loaded map[string]any
 	if err := msgpack.Unmarshal(data, &loaded); err != nil {
@@ -183,7 +188,7 @@ func loadKnownDestinationsFromDisk(configPath string) {
 	if err != nil {
 		return
 	}
-	data, err := os.ReadFile(path) // #nosec G304 -- operator-controlled storage path
+	data, err := storage.ReadFileCapped(path, maxStateFileBytes)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			debug.Log(debug.DebugInfo, "Known destinations load failed, using in-memory table", "error", err)

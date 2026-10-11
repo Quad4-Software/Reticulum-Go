@@ -13,22 +13,27 @@ type ConfigProvider interface {
 
 // InterfaceConfig is per-interface settings (announce_* / ic_* and related keys).
 type InterfaceConfig struct {
-	Name              string
-	Type              string
-	Enabled           bool
-	Address           string
-	Port              int
-	TargetHost        string
-	TargetPort        int
-	TargetAddress     string
-	Interface         string
-	KISSFraming       bool
-	I2PTunneled       bool
-	I2PPeers          []string
-	I2PConnectable    bool
-	I2PSAMAddress     string
-	PreferIPv6        bool
-	MaxReconnTries    int
+	Name           string
+	Type           string
+	Enabled        bool
+	Address        string
+	Port           int
+	TargetHost     string
+	TargetPort     int
+	TargetAddress  string
+	Interface      string
+	KISSFraming    bool
+	I2PTunneled    bool
+	I2PPeers       []string
+	I2PConnectable bool
+	I2PSAMAddress  string
+	PreferIPv6     bool
+	MaxReconnTries int
+	// MaxReconnTriesSet distinguishes an explicit max_reconnect_tries = 0
+	// (never reconnect) from an unset value (unlimited). Explicit zero
+	// semantics matter: conflating the two silently changes operator
+	// intent, the same class as Tailscale's checkPeriod zero-default bug.
+	MaxReconnTriesSet bool
 	Bitrate           int64
 	MTU               int
 	GroupID           string
@@ -111,6 +116,14 @@ type InterfaceConfig struct {
 	// LongPollSec is HTTPS long-poll timeout seconds (default 25).
 	LongPollSec int
 
+	// AwareRole selects the WiFi Aware session role: publish or subscribe.
+	// mode = publish|subscribe is also accepted for config compatibility
+	// with the Python AwareInterface.
+	AwareRole string
+
+	// AwarePeers caps concurrent data paths (default 4, max 8).
+	AwarePeers int
+
 	// Mode is the interface operational mode (full, gateway, internal, ...).
 	// Empty means full.
 	Mode string
@@ -139,6 +152,13 @@ type InterfaceConfig struct {
 	// When false the interface is receive-only (Python OUT = False).
 	Outgoing    bool
 	OutgoingSet bool
+
+	// KeepaliveSec is the directed-interface persistent keepalive interval
+	// in seconds (WireGuard PersistentKeepalive / nebula punchy pattern).
+	// When > 0 the interface emits a minimal hold-open datagram toward its
+	// configured target while idle so NAT/firewall mappings stay fresh.
+	// Zero disables it. Only UDPInterface consumes this today.
+	KeepaliveSec int
 
 	// Discoverable enables rnstransport interface discovery announces.
 	Discoverable bool
@@ -272,6 +292,18 @@ type ReticulumConfig struct {
 	// autoconnected discovery peers from rnstransport (Backbone, TCP, I2P).
 	// Zero disables autoconnect (Python autoconnect_discovered_interfaces).
 	AutoconnectDiscoveredInterfaces int
+
+	// AutoconnectUnverifiedImplementations allows auto-connecting discovered
+	// interfaces whose announces carry no implementation/version info or that
+	// fail the implementation/version criteria (RNS 1.5.5
+	// autoconnect_unverified_implementations). Default false.
+	AutoconnectUnverifiedImplementations bool
+
+	// DisableInterfaceManagement turns off attach/detach/reload of interfaces
+	// over the shared instance RPC (RNS 1.5.5 enable_interface_management).
+	// Interface management is enabled by default; the negative flag keeps the
+	// zero value matching Python's default.
+	DisableInterfaceManagement bool
 
 	// PublishBlackhole registers rnstransport.info.blackhole with a /list
 	// request handler so peers can fetch this instance's blackhole table.

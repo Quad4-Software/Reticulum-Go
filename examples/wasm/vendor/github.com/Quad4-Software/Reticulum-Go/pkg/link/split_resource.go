@@ -28,7 +28,7 @@ var (
 
 // maxSplitAssembliesPerLink bounds distinct in-flight split resources on one
 // link. Upstream paces segments so effectively one assembly advances at a
-// time; a small allowance covers pipelined senders without letting a peer
+// time. A small allowance covers pipelined senders without letting a peer
 // accumulate unbounded staged state.
 const maxSplitAssembliesPerLink = 4
 
@@ -37,7 +37,7 @@ const maxSplitAssembliesTotal = 1024
 
 // maxSplitAssemblyBytes is the hard ceiling on staged bytes per split
 // resource regardless of advertised sizes. Upstream trusts the declared
-// total implicitly; a finite bound keeps a hostile peer from appending
+// total implicitly. A finite bound keeps a hostile peer from appending
 // unbounded data to memory or disk.
 const maxSplitAssemblyBytes = 1 << 30
 
@@ -93,8 +93,12 @@ func (l *Link) resourceStorageDir() string {
 	return filepath.Join(home, ".reticulum-go", "storage", "resources")
 }
 
+// resourceStoragePath scopes the on-disk staging file by link ID as well as
+// resource hash: two links transferring the same hash must not share one
+// file and corrupt each other's append state.
 func (l *Link) resourceStoragePath(originalHash []byte) string {
-	return filepath.Join(l.resourceStorageDir(), hex.EncodeToString(originalHash))
+	name := hex.EncodeToString(l.linkID) + "-" + hex.EncodeToString(originalHash)
+	return filepath.Join(l.resourceStorageDir(), name)
 }
 
 // handleSplitSegmentComplete appends a finished resource segment to durable
@@ -129,7 +133,7 @@ func (l *Link) splitResourceKey(originalHash []byte) string {
 // every advertisement, so sequential indexes and a cumulative byte bound
 // derived from the declared total reject replay, reordering, and append
 // amplification without affecting honest transfers. A segment index of 1
-// after a partial assembly means the sender restarted the transfer; the
+// after a partial assembly means the sender restarted the transfer. The
 // record resets and callers truncate previously staged bytes. The record is
 // removed by finishSplitAssembly or dropSplitAssemblies.
 func admitSplitSegment(key string, adv *resource.ResourceAdvertisement, payloadLen int) error {

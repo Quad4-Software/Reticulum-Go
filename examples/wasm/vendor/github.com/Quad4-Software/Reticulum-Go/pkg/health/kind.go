@@ -41,6 +41,16 @@ const (
 	KindDoSHandshake
 	KindDoSCoolDown
 	KindPathRebalance
+	KindJobPanic
+	KindAnnounceMalformed
+	KindAnnounceDestType
+	KindAnnounceBlackholed
+	KindAnnounceKeyMismatch
+	KindAnnounceMaxHops
+	KindAnnounceHeld
+	KindAnnounceSuppressed
+	KindDoSEarlyDrop
+	KindResourceReqDrop
 	kindCount
 )
 
@@ -63,6 +73,8 @@ func (k Kind) String() string {
 		return "lrproof_hop_mismatch"
 	case KindPathRebalance:
 		return "path_rebalance"
+	case KindJobPanic:
+		return "job_panic"
 	case KindRequestSkewReject:
 		return "request_skew_reject"
 	case KindBlackholeHit:
@@ -115,6 +127,24 @@ func (k Kind) String() string {
 		return "dos_handshake"
 	case KindDoSCoolDown:
 		return "dos_cooldown"
+	case KindAnnounceMalformed:
+		return "announce_malformed"
+	case KindAnnounceDestType:
+		return "announce_dest_type"
+	case KindAnnounceBlackholed:
+		return "announce_blackholed"
+	case KindAnnounceKeyMismatch:
+		return "announce_key_mismatch"
+	case KindAnnounceMaxHops:
+		return "announce_max_hops"
+	case KindAnnounceHeld:
+		return "announce_held"
+	case KindAnnounceSuppressed:
+		return "announce_suppressed"
+	case KindDoSEarlyDrop:
+		return "dos_early_drop"
+	case KindResourceReqDrop:
+		return "resource_req_drop"
 	default:
 		return "unknown"
 	}

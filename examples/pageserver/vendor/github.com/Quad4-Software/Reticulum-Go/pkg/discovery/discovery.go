@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"runtime/debug"
+	"strings"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/lxstamper"
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
@@ -585,4 +586,72 @@ func toIntOK(v any) (int64, bool) {
 		return int64(x), true
 	}
 	return 0, false
+}
+
+// AutoconnectMinVersions maps announced TRANSPORT_IMPL names to the minimum
+// version eligible for discovery auto-connect, matching Python
+// InterfaceDiscovery.AUTOCONNECT_IMPLS + AUTOCONNECT_MIN_V (RNS 1.5.5).
+// Python accepts only "RNS" >= 1.5.2. This port also admits its own
+// implementation name; version signalling first shipped in v1.1.0.
+var AutoconnectMinVersions = map[string]string{
+	"RNS":              "1.5.2",
+	ImplementationName: "1.1.0",
+}
+
+// VersionTuple parses a dotted version string into integer components,
+// mirroring Python Discovery.version_tuple. Each dot-separated component
+// contributes its leading digits; the first component without leading digits
+// stops the parse. A leading v or V is stripped so release tags like v1.3.0
+// compare like Python's bare "1.5.2" strings. Returns nil when no digits
+// parse.
+func VersionTuple(version string) []int {
+	version = strings.TrimSpace(version)
+	if version == "" {
+		return nil
+	}
+	version = strings.TrimPrefix(version, "v")
+	version = strings.TrimPrefix(version, "V")
+	var out []int
+	for _, component := range strings.Split(version, ".") {
+		i := 0
+		for i < len(component) && component[i] >= '0' && component[i] <= '9' {
+			i++
+		}
+		if i == 0 {
+			break
+		}
+		n := 0
+		for _, c := range component[:i] {
+			n = n*10 + int(c-'0')
+		}
+		out = append(out, n)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// VersionAtLeast reports whether version parses to at least minimum, using
+// VersionTuple semantics. Missing trailing components compare as zero, like
+// Python tuple comparison (1,5) < (1,5,2) and (1,6) >= (1,5,2).
+func VersionAtLeast(version, minimum string) bool {
+	v := VersionTuple(version)
+	m := VersionTuple(minimum)
+	if v == nil || m == nil {
+		return false
+	}
+	for i := 0; i < len(m); i++ {
+		var vc int
+		if i < len(v) {
+			vc = v[i]
+		}
+		if vc > m[i] {
+			return true
+		}
+		if vc < m[i] {
+			return false
+		}
+	}
+	return true
 }

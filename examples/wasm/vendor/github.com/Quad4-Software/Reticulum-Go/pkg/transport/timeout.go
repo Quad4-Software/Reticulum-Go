@@ -55,6 +55,23 @@ func (t *Transport) SlowestOnlineBitrate() int64 {
 	return slowest
 }
 
+// MediumPathTimeout returns seconds for the shared-instance RPC
+// "medium_path_timeout". Matches Python Transport.medium_path_timeout: a
+// two-way MTU airtime on the slowest online outgoing interface, floored at
+// the 5 bit/s minimum, plus the per-hop establishment timeout. Zero when no
+// online interface advertises a bitrate, which Python clients treat as
+// unknown.
+func (t *Transport) MediumPathTimeout() float64 {
+	br := t.SlowestOnlineBitrate()
+	if br <= 0 {
+		return 0
+	}
+	if min := int64(common.BitrateMinimum); br < min {
+		br = min
+	}
+	return 2*(float64(packet.MTU)*8/float64(br)) + float64(common.EstablishmentTimeoutPerHop)
+}
+
 // DiscoveryTimeout is how long a recursive unknown-path search is kept.
 // Floor is PathRequestTimeout. Each interface the request will actually
 // leave on can raise that to a two-way MTU airtime plus PathRequestGrace

@@ -436,7 +436,7 @@ func prettyShortTime(sec float64) string {
 	case sec < 1e-6:
 		return fmt.Sprintf("%.0fns", sec*1e9)
 	case sec < 1e-3:
-		return fmt.Sprintf("%.1fµs", sec*1e6)
+		return fmt.Sprintf("%.1fus", sec*1e6)
 	case sec < 1:
 		return fmt.Sprintf("%.1fms", sec*1e3)
 	case sec < 60:

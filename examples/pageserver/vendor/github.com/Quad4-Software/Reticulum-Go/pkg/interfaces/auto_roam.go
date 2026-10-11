@@ -86,7 +86,13 @@ func (ai *AutoInterface) replaceDataListener(ifname, newAddr string) {
 
 	var started bool
 	for attempt := 0; attempt < 8 && !started; attempt++ {
-		time.Sleep(dataListenerRetryDelay)
+		// Check done so a Stop+Start inside the retry window cannot leave an
+		// old loop alive to adopt the new done channel and duplicate peers.
+		select {
+		case <-ai.done:
+			return
+		case <-time.After(dataListenerRetryDelay):
+		}
 		if err := ai.startDataListener(iface); err != nil {
 			debug.Log(debug.DebugError, "Failed to restart data listener after roam",
 				"interface", ifname, "attempt", attempt+1, "error", err)
@@ -117,5 +123,17 @@ func (ai *AutoInterface) peerJobsUpdateLinkLocal() {
 	if !ai.IsOnline() {
 		return
 	}
+	ai.updateLinkLocalAddresses()
+}
+
+// onNetworkChange is the netwatch callback: an underlay link or address
+// change triggers an immediate rescan and link-local refresh instead of
+// waiting for the next peerJobs cycle.
+func (ai *AutoInterface) onNetworkChange() {
+	if !ai.IsOnline() {
+		return
+	}
+	debug.Log(debug.DebugVerbose, "AutoInterface: network change detected, rescanning")
+	_ = ai.RescanInterfaces()
 	ai.updateLinkLocalAddresses()
 }

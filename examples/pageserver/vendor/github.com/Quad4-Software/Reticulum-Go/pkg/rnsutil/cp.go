@@ -77,12 +77,15 @@ func LoadAllowedIdentities(extra []string) ([][]byte, error) {
 		seen[k] = struct{}{}
 		out = append(out, h)
 	}
-	candidates := []string{
-		"/etc/rncp/allowed_identities",
-		filepath.Join(os.Getenv("HOME"), ".config", "rncp", "allowed_identities"),
-		filepath.Join(os.Getenv("HOME"), ".rncp", "allowed_identities"),
-		filepath.Join(os.Getenv("HOME"), ".config", "rgocp", "allowed_identities"),
-		filepath.Join(os.Getenv("HOME"), ".rgocp", "allowed_identities"),
+	home, _ := os.UserHomeDir()
+	candidates := []string{"/etc/rncp/allowed_identities"}
+	if home != "" {
+		candidates = append(candidates,
+			filepath.Join(home, ".config", "rncp", "allowed_identities"),
+			filepath.Join(home, ".rncp", "allowed_identities"),
+			filepath.Join(home, ".config", "rgocp", "allowed_identities"),
+			filepath.Join(home, ".rgocp", "allowed_identities"),
+		)
 	}
 	for _, path := range candidates {
 		hashes, err := readAllowedFile(path)
@@ -249,11 +252,12 @@ func EstablishRNCPLink(ctx context.Context, tr *transport.Transport, destHash []
 
 // SendFileOverLink pushes a file resource with rncp metadata over an active link.
 func SendFileOverLink(l *link.Link, filePath string, autoCompress bool, progress func(float64, int64, int64)) error {
-	data, err := os.ReadFile(filePath) // #nosec G304 -- operator-selected file path
+	f, err := os.Open(filePath) // #nosec G304 -- operator-selected file path
 	if err != nil {
 		return err
 	}
-	res, err := resource.New(data, autoCompress)
+	defer f.Close()
+	res, err := resource.New(f, autoCompress)
 	if err != nil {
 		return err
 	}

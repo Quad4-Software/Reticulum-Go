@@ -56,6 +56,8 @@ func interfaceConfigsEqualForReload(a, b *common.InterfaceConfig) bool {
 		a.Bitrate == b.Bitrate &&
 		a.MTU == b.MTU &&
 		sliceEqual(a.I2PPeers, b.I2PPeers) &&
+		a.AwareRole == b.AwareRole &&
+		a.AwarePeers == b.AwarePeers &&
 		sliceEqual(a.Devices, b.Devices) &&
 		sliceEqual(a.IgnoredDevices, b.IgnoredDevices) &&
 		a.GroupID == b.GroupID &&

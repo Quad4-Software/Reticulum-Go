@@ -890,7 +890,7 @@ func WriteSlowHuman(w io.Writer, rep SlowReport) error {
 		fmt.Fprintf(w, "  · %s\n", r)
 	}
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, term.CyanW(w, "Tip: rgoslow -dest <hash> focuses one destination; -paths adds hop/egress analysis; -json for scripting"))
+	fmt.Fprintln(w, term.CyanW(w, "Tip: rgoslow -dest <hash> focuses one destination. -paths adds hop/egress analysis. -json for scripting"))
 	fmt.Fprintln(w, term.CyanW(w, "Works against Go (reticulum-go) and Python (rnsd) shared instances via RPC"))
 	return nil
 }

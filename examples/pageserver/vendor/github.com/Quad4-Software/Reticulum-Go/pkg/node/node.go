@@ -67,9 +67,22 @@ type Node struct {
 	bhUpdaterStop    chan struct{}
 
 	acMu             sync.Mutex
+	acSpawnMu        sync.Mutex
 	acEntries        []*autoconnectEntry
 	acMonitorRunning bool
 	acMonitorStop    chan struct{}
+
+	netmonMu   sync.Mutex
+	netmonStop chan struct{}
+
+	awareDriver interfaces.AwareDriver
+}
+
+// SetAwareDriver installs the host-supplied WiFi Aware session driver before
+// Start. Android builds inject the gomobile bridge here. When unset, an
+// AwareInterface in config fails at Start.
+func (n *Node) SetAwareDriver(d interfaces.AwareDriver) {
+	n.awareDriver = d
 }
 
 // StartInterfaceDiscovery enables rnstransport interface discovery listening
@@ -124,6 +137,21 @@ func New(cfg *common.ReticulumConfig) (*Node, error) {
 	sandbox.SetExecRlimits(cfg.SandboxExecRlimits)
 	if _, err := backbone.Init(backbone.ParseBackend(cfg.BackboneIO)); err != nil {
 		return nil, fmt.Errorf("backbone I/O hub: %w", err)
+	}
+	// RNS 1.5.6: a configured discoverable interface on a non-transport
+	// instance needs a static transport identity or peers cannot map
+	// announces back to it. Upstream applies this during config parsing,
+	// before the enabled and type checks.
+	discoverableConfigured := false
+	for _, iface := range cfg.Interfaces {
+		if iface != nil && iface.Discoverable {
+			discoverableConfigured = true
+			break
+		}
+	}
+	if discoverableConfigured && !cfg.EnableTransport && !cfg.StaticTransportIdentity {
+		debug.Log(debug.DebugWarning, "Discoverable interface configured, enabling static transport identity on non-transport instance")
+		cfg.StaticTransportIdentity = true
 	}
 	t := transport.NewTransport(cfg)
 	n := &Node{
@@ -184,6 +212,7 @@ func (n *Node) Start() error {
 	hooks := sharedinstance.Hooks{
 		RegisterInterface: n.transport.RegisterInterface,
 		HandleInterface:   n.handleInterface,
+		ManageInterface:   n.manageInterfaceRPC,
 	}
 	inst, err := sharedinstance.Attach(n.config, n.transport, hooks)
 	if err != nil {
@@ -262,6 +291,12 @@ func (n *Node) startInterfaces() error {
 // Stop shuts down interfaces and transport.
 func (n *Node) Stop() error {
 	hostcap.Stop()
+	n.netmonMu.Lock()
+	if n.netmonStop != nil {
+		close(n.netmonStop)
+		n.netmonStop = nil
+	}
+	n.netmonMu.Unlock()
 	n.stopBlackholeUpdater()
 	n.stopAutoconnectMonitor()
 	n.drainAutoconnectEntries()
@@ -364,6 +399,16 @@ func (n *Node) fromConfigContext() *interfaces.FromConfigContext {
 				n.unregisterInterfaceBuffers(name)
 			}, nil)
 		},
+		SpawnAware: func(peer *interfaces.AwarePeerInterface) {
+			name := peer.GetName()
+			if err := n.transport.RegisterInterface(name, peer); err != nil {
+				debug.Log(debug.DebugError, "Failed to register spawned aware peer", "error", err)
+				_ = peer.Stop()
+				return
+			}
+			n.handleInterface(peer)
+		},
+		AwareDriver: n.awareDriver,
 		RegisterPeer: func(name string, peer common.NetworkInterface) error {
 			return n.transport.RegisterInterface(name, peer)
 		},

@@ -32,13 +32,20 @@ func LoadIdentity(path string) (*identity.Identity, error) {
 	return identity.FromFile(path)
 }
 
-// GenerateIdentity creates and optionally saves a new identity.
+// GenerateIdentity creates and optionally saves a new identity. Refuses to
+// overwrite an existing file: destroying a stored identity by accident loses
+// the network persona with no recovery.
 func GenerateIdentity(path string) (*identity.Identity, error) {
 	id, err := identity.NewIdentity()
 	if err != nil {
 		return nil, err
 	}
 	if path != "" {
+		if _, err := os.Stat(path); err == nil {
+			return nil, fmt.Errorf("identity file %s already exists, refusing to overwrite", path)
+		} else if !os.IsNotExist(err) {
+			return nil, err
+		}
 		if err := id.ToFile(path); err != nil {
 			return nil, err
 		}

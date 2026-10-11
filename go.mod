@@ -24,7 +24,7 @@ require (
 	github.com/dunglas/httpsfv v1.1.1 // indirect
 	github.com/mdlayher/socket v0.6.0 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
-	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	kernel.org/pub/linux/libs/security/libcap/psx v1.2.77 // indirect

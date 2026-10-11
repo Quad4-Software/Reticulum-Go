@@ -66,6 +66,10 @@ type RawChannelReader struct {
 	nextCallbackID   int
 	messageHandlerID int
 	mutex            sync.RWMutex
+	// genCh is closed and replaced whenever buffer or eof changes, so
+	// WaitReadable waiters wake on new data and on EOF. Lazily allocated so
+	// literal-constructed readers still work.
+	genCh chan struct{}
 }
 
 func NewRawChannelReader(streamID int, ch *channel.Channel) *RawChannelReader {
@@ -113,14 +117,46 @@ func (r *RawChannelReader) Read(p []byte) (n int, err error) {
 	return n, err
 }
 
+// WaitReadable blocks until the reader has buffered data, reaches EOF, or ctx
+// expires. Read on an empty, open stream returns (0, nil), which makes naive
+// io.Reader consumers spin. Callers that can wait should prefer ReadContext.
+func (r *RawChannelReader) WaitReadable(ctx context.Context) error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	for r.buffer.Len() == 0 && !r.eof {
+		if r.genCh == nil {
+			r.genCh = make(chan struct{})
+		}
+		ch := r.genCh
+		r.mutex.Unlock()
+		select {
+		case <-ctx.Done():
+			r.mutex.Lock()
+			return ctx.Err()
+		case <-ch:
+			r.mutex.Lock()
+		}
+	}
+	return nil
+}
+
+// ReadContext waits for buffered data or EOF under ctx, then reads. Unlike
+// Read it never returns (0, nil) on an open stream.
+func (r *RawChannelReader) ReadContext(ctx context.Context, p []byte) (int, error) {
+	if err := r.WaitReadable(ctx); err != nil {
+		return 0, err
+	}
+	return r.Read(p)
+}
+
 // maxReaderBufferBytes bounds unread stream data held for the application.
 // The sender is remote-controlled, so without a bound a stalled reader lets
 // the peer grow this buffer without limit.
 const maxReaderBufferBytes = 8 << 20
 
-func (r *RawChannelReader) HandleMessage(msg channel.MessageBase) bool { // #nosec G115
+func (r *RawChannelReader) HandleMessage(msg channel.MessageBase) bool {
 	streamMsg, ok := msg.(*StreamDataMessage)
-	if !ok || streamMsg.StreamID != uint16(r.streamID) {
+	if !ok || streamMsg.StreamID != uint16(r.streamID) { // #nosec G115 -- stream ids are uint16 on the wire
 		return false
 	}
 
@@ -136,7 +172,7 @@ func (r *RawChannelReader) HandleMessage(msg channel.MessageBase) bool { // #nos
 		if r.buffer.Len()+len(data) <= maxReaderBufferBytes {
 			r.buffer.Write(data)
 		} else {
-			debug.Log(debug.DebugWarning, "Raw channel reader buffer full; dropping stream data", "stream_id", r.streamID)
+			debug.Log(debug.DebugWarning, "Raw channel reader buffer full. Dropping stream data", "stream_id", r.streamID)
 		}
 	}
 
@@ -151,6 +187,10 @@ func (r *RawChannelReader) HandleMessage(msg channel.MessageBase) bool { // #nos
 	for _, cb := range r.callbacks {
 		cbs = append(cbs, cb)
 	}
+	if r.genCh != nil {
+		close(r.genCh)
+		r.genCh = make(chan struct{})
+	}
 	r.mutex.Unlock()
 
 	// Invoke callbacks without the lock held so a callback that reads or
@@ -161,26 +201,72 @@ func (r *RawChannelReader) HandleMessage(msg channel.MessageBase) bool { // #nos
 	return true
 }
 
+// CompressionPolicy controls whether RawChannelWriter attempts bzip2
+// compression on outgoing stream data.
+type CompressionPolicy uint8
+
+const (
+	// CompressionAuto keeps the Python-compatible three-probe compression
+	// algorithm. This is the default.
+	CompressionAuto CompressionPolicy = iota
+	// CompressionDisabled always emits uncompressed StreamDataMessages, which
+	// Python RNS receivers already accept. For payloads the application knows
+	// are incompressible (TLS, SSH, archives, tunnels) this avoids repeated
+	// compression probes that cannot succeed.
+	CompressionDisabled
+)
+
+// WriterOptions configures a RawChannelWriter.
+type WriterOptions struct {
+	Compression CompressionPolicy
+}
+
 type RawChannelWriter struct {
 	streamID int
 	channel  *channel.Channel
 	eof      bool
+	opts     WriterOptions
 }
 
 func NewRawChannelWriter(streamID int, ch *channel.Channel) *RawChannelWriter {
+	return NewRawChannelWriterWithOptions(streamID, ch, WriterOptions{})
+}
+
+// NewRawChannelWriterWithOptions creates a writer with an explicit
+// compression policy and other options.
+func NewRawChannelWriterWithOptions(streamID int, ch *channel.Channel, opts WriterOptions) *RawChannelWriter {
 	_ = ch.RegisterSystemMessageType(StreamDataMessageType, func() channel.MessageBase {
 		return &StreamDataMessage{}
 	})
 	return &RawChannelWriter{
 		streamID: streamID,
 		channel:  ch,
+		opts:     opts,
 	}
 }
 
+// streamMDU returns the payload limit for one stream message, derived from
+// the live channel MDU like Python RawChannelWriter._mdu
+// (channel.mdu - StreamDataMessage.HEADER_LEN).
+func (w *RawChannelWriter) streamMDU() int {
+	mdu := w.channel.MDU() - StreamHeaderSize
+	if mdu < 1 {
+		mdu = 1
+	}
+	return mdu
+}
+
 func (w *RawChannelWriter) Write(p []byte) (n int, err error) {
+	return w.WriteContext(context.Background(), p)
+}
+
+// WriteContext is Write with caller-controlled cancellation of the
+// backpressure wait when the channel TX window is full.
+func (w *RawChannelWriter) WriteContext(ctx context.Context, p []byte) (n int, err error) {
 	if len(p) > MaxChunkLen {
 		p = p[:MaxChunkLen]
 	}
+	mdu := w.streamMDU()
 
 	msg := &StreamDataMessage{
 		StreamID: uint16(w.streamID), // #nosec G115
@@ -188,11 +274,11 @@ func (w *RawChannelWriter) Write(p []byte) (n int, err error) {
 	}
 	processed := 0
 
-	if len(p) > CompressThreshold {
+	if w.opts.Compression != CompressionDisabled && len(p) > CompressThreshold {
 		for try := 1; try < CompressTries; try++ {
 			chunkLen := len(p) / try
 			compressed := compressData(p[:chunkLen])
-			if compressed != nil && len(compressed) < MaxDataLen && len(compressed) < chunkLen {
+			if compressed != nil && len(compressed) < mdu && len(compressed) < chunkLen {
 				msg.Data = compressed
 				msg.Compressed = true
 				processed = chunkLen
@@ -201,14 +287,14 @@ func (w *RawChannelWriter) Write(p []byte) (n int, err error) {
 		}
 	}
 	if !msg.Compressed {
-		if len(p) > MaxDataLen {
-			p = p[:MaxDataLen]
+		if len(p) > mdu {
+			p = p[:mdu]
 		}
 		msg.Data = p
 		processed = len(p)
 	}
 
-	if err := w.channel.WaitReady(context.Background()); err != nil {
+	if err := w.channel.WaitReady(ctx); err != nil {
 		return 0, err
 	}
 	if err := w.channel.Send(msg); err != nil {
@@ -249,13 +335,24 @@ func CreateReader(streamID int, ch *channel.Channel, readyCallback func(int)) *b
 }
 
 func CreateWriter(streamID int, ch *channel.Channel) *bufio.Writer {
-	raw := NewRawChannelWriter(streamID, ch)
+	return CreateWriterWithOptions(streamID, ch, WriterOptions{})
+}
+
+// CreateWriterWithOptions is CreateWriter with an explicit compression policy.
+func CreateWriterWithOptions(streamID int, ch *channel.Channel, opts WriterOptions) *bufio.Writer {
+	raw := NewRawChannelWriterWithOptions(streamID, ch, opts)
 	return bufio.NewWriter(raw)
 }
 
 func CreateBidirectionalBuffer(receiveStreamID, sendStreamID int, ch *channel.Channel, readyCallback func(int)) *bufio.ReadWriter {
+	return CreateBidirectionalBufferWithOptions(receiveStreamID, sendStreamID, ch, readyCallback, WriterOptions{})
+}
+
+// CreateBidirectionalBufferWithOptions is CreateBidirectionalBuffer with an
+// explicit compression policy on the send stream.
+func CreateBidirectionalBufferWithOptions(receiveStreamID, sendStreamID int, ch *channel.Channel, readyCallback func(int), opts WriterOptions) *bufio.ReadWriter {
 	reader := CreateReader(receiveStreamID, ch, readyCallback)
-	writer := CreateWriter(sendStreamID, ch)
+	writer := CreateWriterWithOptions(sendStreamID, ch, opts)
 	return bufio.NewReadWriter(reader, writer)
 }
 

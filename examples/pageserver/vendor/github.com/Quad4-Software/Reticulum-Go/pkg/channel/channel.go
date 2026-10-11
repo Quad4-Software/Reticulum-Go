@@ -60,6 +60,8 @@ type Channel struct {
 	link              transport.LinkInterface
 	sendMu            sync.Mutex
 	mutex             sync.RWMutex
+	dispatchMu        sync.Mutex
+	readyCh           chan struct{}
 	txRing            []*Envelope
 	rxRing            []rxEnvelope
 	window            int
@@ -102,6 +104,7 @@ func NewChannel(link transport.LinkInterface) *Channel {
 		link:              link,
 		messageHandlers:   make([]messageHandlerEntry, InitialHandlerCapacity),
 		factories:         make(map[uint16]MessageConstructor),
+		readyCh:           make(chan struct{}),
 		mutex:             sync.RWMutex{},
 		windowMax:         WindowMaxSlow,
 		windowMin:         WindowMinSlow,
@@ -244,6 +247,14 @@ func (c *Channel) Send(msg MessageBase) error {
 	return nil
 }
 
+// dropReceiptTracking releases delivery tracking on outlets that keep it.
+// Optional interface: outlets without receipt tracking simply ignore it.
+func (c *Channel) dropReceiptTracking(packet any) {
+	if d, ok := c.link.(interface{ DropPacketReceipt(any) }); ok {
+		d.DropPacketReceipt(packet)
+	}
+}
+
 // handleTimeout handles packet timeout events
 func (c *Channel) handleTimeout(packet any) {
 	if packet == nil {
@@ -261,6 +272,8 @@ func (c *Channel) handleTimeout(packet any) {
 		if env.Tries >= c.maxTries {
 			c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
 			releaseEnvelope(env)
+			c.dropReceiptTracking(packet)
+			c.signalReadyLocked()
 			return
 		}
 		env.Tries++
@@ -268,6 +281,8 @@ func (c *Channel) handleTimeout(packet any) {
 			debug.Log(debug.DebugInfo, "Failed to resend packet", "error", err)
 			c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
 			releaseEnvelope(env)
+			c.dropReceiptTracking(packet)
+			c.signalReadyLocked()
 			return
 		}
 		timeout := c.packetTimeoutLocked(env.Tries)
@@ -295,8 +310,25 @@ func (c *Channel) handleDelivered(packet any) {
 		c.txRing = append(c.txRing[:i], c.txRing[i+1:]...)
 		releaseEnvelope(env)
 		c.adjustWindowOnDeliveredLocked(rtt)
+		c.signalReadyLocked()
 		break
 	}
+}
+
+// signalReadyLocked wakes WaitReady/WaitTxIdle waiters after the TX ring or
+// window changed. Caller must hold c.mutex.
+func (c *Channel) signalReadyLocked() {
+	close(c.readyCh)
+	c.readyCh = make(chan struct{})
+}
+
+// NotifyClosed wakes WaitReady waiters so they observe a dead outlet. The
+// owning link calls this when it closes. Other outlet types may call it on
+// equivalent teardown.
+func (c *Channel) NotifyClosed() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.signalReadyLocked()
 }
 
 // packetTimeoutSeconds matches Python Channel._get_packet_timeout_time:
@@ -383,6 +415,15 @@ func (c *Channel) HandleInbound(data []byte) error {
 			Seq:  sequence,
 		}
 	}
+
+	// dispatchMu serializes emplace, drain and handler dispatch per channel.
+	// Parallel transport workers may race to drain the RX ring. Without this,
+	// a worker holding a drained envelope can be preempted before its handler
+	// runs while another worker dispatches a later sequence first. Python
+	// delivers serially from a single inbound_job consumer. dispatchMu gives
+	// the same ordering without shrinking the packet worker pool.
+	c.dispatchMu.Lock()
+	defer c.dispatchMu.Unlock()
 
 	c.mutex.Lock()
 	if staleRXSequence(sequence, c.nextRxSequence) || farAheadRXSequence(sequence, c.nextRxSequence) {
@@ -502,7 +543,10 @@ func (c *Channel) IsReadyToSend() bool {
 	return len(c.txRing) < c.window
 }
 
-// WaitReady blocks until IsReadyToSend or ctx is done.
+// WaitReady blocks until IsReadyToSend or ctx is done. Waiters wake on TX-ring
+// removal, window growth, channel close, or outlet teardown (NotifyClosed).
+// A coarse 1s recheck remains as a backstop for outlets that cannot signal
+// teardown, such as the transport wrapper used by node wiring.
 func (c *Channel) WaitReady(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background()
@@ -511,13 +555,19 @@ func (c *Channel) WaitReady(ctx context.Context) error {
 		if c.link != nil && !outletReady(c.link.GetStatus()) {
 			return ErrLinkNotReady
 		}
+		// Capture the current generation before checking readiness so a signal
+		// arriving between the check and the wait is not lost.
+		c.mutex.RLock()
+		ch := c.readyCh
+		c.mutex.RUnlock()
 		if c.IsReadyToSend() {
 			return nil
 		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(5 * time.Millisecond):
+		case <-ch:
+		case <-time.After(time.Second):
 		}
 	}
 }
@@ -612,13 +662,23 @@ func (c *Channel) WaitTxIdle(timeout time.Duration) bool {
 	}
 	deadline := time.Now().Add(timeout)
 	for {
-		if c.TxRingLen() == 0 {
+		c.mutex.RLock()
+		idle := len(c.txRing) == 0
+		ch := c.readyCh
+		c.mutex.RUnlock()
+		if idle {
 			return true
 		}
-		if time.Now().After(deadline) {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
 			return c.TxRingLen() == 0
 		}
-		time.Sleep(5 * time.Millisecond)
+		timer := time.NewTimer(remaining)
+		select {
+		case <-ch:
+			timer.Stop()
+		case <-timer.C:
+		}
 	}
 }
 
@@ -634,9 +694,13 @@ func (c *Channel) Close() error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	for _, env := range c.txRing {
+		if env != nil && env.Packet != nil {
+			c.dropReceiptTracking(env.Packet)
+		}
 		releaseEnvelope(env)
 	}
 	c.txRing = nil
 	c.rxRing = nil
+	c.signalReadyLocked()
 	return nil
 }

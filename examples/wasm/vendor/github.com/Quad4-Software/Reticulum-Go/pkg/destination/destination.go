@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Quad4-Software/Reticulum-Go/internal/storage"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/announce"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
@@ -94,8 +95,9 @@ type Destination struct {
 	defaultAppData []byte
 	mutex          sync.RWMutex
 
-	announceWindowStart time.Time
-	announceWindowCount int
+	announceWindowStart      time.Time
+	announceWindowCount      int
+	announceThrottleWarnedAt time.Time
 
 	requestHandlers map[string]*RequestHandler
 
@@ -239,19 +241,23 @@ func (d *Destination) ExpandName() string {
 // outbound path exists. Access-point interfaces are skipped on unattached
 // local origin, same as Python Transport.outbound.
 func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface common.NetworkInterface) error {
+	// Build the signed packet under the lock, but send after releasing it:
+	// a wedged interface write must not stall every other destination op.
 	d.mutex.Lock()
-	defer d.mutex.Unlock()
 
 	debug.Log(debug.DebugVerbose, "Announcing destination", "name", d.ExpandName(), "path_response", pathResponse)
 
 	if d.destType != Single {
+		d.mutex.Unlock()
 		return errors.New("only SINGLE destination types can be announced")
 	}
 	if d.direction&In == 0 {
+		d.mutex.Unlock()
 		return common.ErrDestAnnounceRequiresIn
 	}
 
 	if d.transport == nil {
+		d.mutex.Unlock()
 		return common.ErrDestTransportNotSet
 	}
 
@@ -263,6 +269,22 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 		}
 		d.announceWindowCount++
 		if d.announceWindowCount > announceBurstMax {
+			throttled := d.announceWindowCount
+			hashPrefix := fmt.Sprintf("%x", d.hashValue[:8])
+			name := d.ExpandName()
+			warn := now.Sub(d.announceThrottleWarnedAt) >= announceThrottleWarnCooldown
+			if warn {
+				d.announceThrottleWarnedAt = now
+			}
+			d.mutex.Unlock()
+			if warn {
+				debug.Log(debug.DebugWarning,
+					"Destination announce rate exceeds burst limit (8 per 10s). Announce dropped. Throttle the announce loop.",
+					"dest_hash", hashPrefix,
+					"name", name,
+					"count", throttled,
+				)
+			}
 			return common.ErrDestAnnounceThrottled
 		}
 	}
@@ -272,6 +294,7 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 	var ratchetPub []byte
 	if d.ratchetsEnabled {
 		if err := d.rotateRatchetsLocked(); err != nil {
+			d.mutex.Unlock()
 			return err
 		}
 		ratchetPub = d.currentRatchetPublicLocked()
@@ -283,11 +306,14 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 	// Create announce packet using announce package
 	announceObj, err := announce.New(d.identity, d.hashValue, d.ExpandName(), appData, pathResponse, d.transport.GetConfig())
 	if err != nil {
+		d.mutex.Unlock()
 		return fmt.Errorf("failed to create announce: %w", err)
 	}
 	announceObj.SetRatchetPublic(ratchetPub)
 
 	packet, err := announceObj.GetPacket()
+	transport := d.transport
+	d.mutex.Unlock()
 	if err != nil {
 		return fmt.Errorf("failed to create announce packet: %w", err)
 	}
@@ -311,7 +337,7 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 			debug.Log(debug.DebugVerbose, "Skipping announce on receive-only attached interface", "name", attachedInterface.GetName())
 		}
 	} else {
-		interfaces := d.transport.GetInterfaces()
+		interfaces := transport.GetInterfaces()
 		if len(interfaces) == 0 {
 			return common.ErrDestAnnounceNoInterfaces
 		}
@@ -365,7 +391,7 @@ func localAnnounceAllowed(iface, attached common.NetworkInterface) bool {
 // AcceptsLinks marks whether this destination should accept incoming links.
 // AcceptsLinks(true) registers the destination with transport if one is set.
 // Direction In already auto-registers in New. AcceptsLinks(false) makes the
-// destination silently drop inbound link requests; it clears the flag only
+// destination silently drop inbound link requests. It clears the flag only
 // and does not unregister the destination from transport, which also routes
 // inbound data packets.
 func (d *Destination) AcceptsLinks(accepts bool) {
@@ -410,7 +436,7 @@ func (d *Destination) HandleIncomingLinkRequest(pkt any, transport any, networkI
 	accepts := d.acceptsLinks
 	d.mutex.RUnlock()
 	if !accepts {
-		debug.Log(debug.DebugVerbose, "Destination does not accept link requests; dropping",
+		debug.Log(debug.DebugVerbose, "Destination does not accept link requests. Dropping",
 			"hash", fmt.Sprintf("%x", d.GetHash()))
 		return nil
 	}
@@ -610,10 +636,14 @@ func (d *Destination) EnableRatchets(path string) bool {
 	d.ratchetPath = path
 	d.latestRatchetTime = time.Time{} // Zero time to force rotation
 
-	// Load or initialize ratchets
+	// Load or initialize ratchets. A present but unreadable file means lost
+	// forward secrecy material, not a fresh start. Refusing to overwrite it
+	// keeps the corrupt file for recovery instead of wiping the keys.
 	if err := d.reloadRatchets(); err != nil {
 		debug.Log(debug.DebugError, "Failed to load ratchets", "error", err)
-		// Initialize empty ratchet list
+		if _, statErr := os.Stat(d.ratchetPath); statErr == nil {
+			return false
+		}
 		d.ratchets = make([]*securemem.Buf, 0)
 		if err := d.persistRatchets(); err != nil {
 			debug.Log(debug.DebugError, "Failed to create initial ratchet file", "error", err)
@@ -1003,34 +1033,10 @@ func (d *Destination) persistRatchets() error {
 		return fmt.Errorf("failed to pack ratchet data: %w", err)
 	}
 
-	// Write to temporary file first, then rename (atomic operation)
-	tempPath := d.ratchetPath + ".tmp"
-	file, err := os.Create(tempPath) // #nosec G304
-	if err != nil {
-		return fmt.Errorf("failed to create temp ratchet file: %w", err)
-	}
-
-	if _, err := file.Write(finalData); err != nil {
-		// #nosec G104 - Error already being handled, cleanup errors are non-critical
-		file.Close()
-		// #nosec G104 - Error already being handled, cleanup errors are non-critical
-		os.Remove(tempPath)
-		return fmt.Errorf("failed to write ratchet data: %w", err)
-	}
-	// #nosec G104 - File is being closed after successful write, error is non-critical
-	file.Close()
-
-	// Remove old file if exists
-	if _, err := os.Stat(d.ratchetPath); err == nil {
-		// #nosec G104 - Removing old file, error is non-critical if it doesn't exist
-		os.Remove(d.ratchetPath)
-	}
-
-	// Atomic rename
-	if err := os.Rename(tempPath, d.ratchetPath); err != nil {
-		// #nosec G104 - Error already being handled, cleanup errors are non-critical
-		os.Remove(tempPath)
-		return fmt.Errorf("failed to rename ratchet file: %w", err)
+	// Atomic write at 0600: ratchets are private X25519 keys and os.Create
+	// would leave them world-readable under a typical umask.
+	if err := storage.AtomicWriteFile(d.ratchetPath, finalData, 0o600); err != nil {
+		return fmt.Errorf("failed to write ratchet file: %w", err)
 	}
 
 	debug.Log(debug.DebugPackets, "Ratchets persisted successfully")

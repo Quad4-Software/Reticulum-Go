@@ -19,6 +19,7 @@ const (
 	ReasonCrypto
 	ReasonHandshake
 	ReasonCoolDown
+	ReasonEarlyDrop
 	reasonCount
 )
 
@@ -43,6 +44,8 @@ func (r Reason) String() string {
 		return "handshake"
 	case ReasonCoolDown:
 		return "cooldown"
+	case ReasonEarlyDrop:
+		return "early_drop"
 	default:
 		return "none"
 	}
@@ -69,6 +72,8 @@ func (r Reason) HealthKind() health.Kind {
 		return health.KindDoSHandshake
 	case ReasonCoolDown:
 		return health.KindDoSCoolDown
+	case ReasonEarlyDrop:
+		return health.KindDoSEarlyDrop
 	default:
 		return health.KindDoSPPS
 	}

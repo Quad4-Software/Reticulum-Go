@@ -24,22 +24,23 @@ import (
 
 // Node hosts git repositories over Reticulum.
 type Node struct {
-	cfg        *ServerConfig
-	access     atomic.Pointer[AccessTable]
-	git        *GitRunner
-	identity   *identity.Identity
-	dest       *destination.Destination
-	pageDest   *destination.Destination
-	n          *node.Node
-	mirrorStop context.CancelFunc
-	mu         sync.RWMutex
-	permsMu    sync.Mutex
-	workMu     sync.Mutex
-	stats      *statsStore
-	thanks     thanksTracker
-	tmplCache  templateCache
-	mdc        *mdToMicron
-	hl         *highlighter
+	cfg          *ServerConfig
+	access       atomic.Pointer[AccessTable]
+	git          *GitRunner
+	identity     *identity.Identity
+	dest         *destination.Destination
+	pageDest     *destination.Destination
+	n            *node.Node
+	mirrorStop   context.CancelFunc
+	announceStop chan struct{}
+	mu           sync.RWMutex
+	permsMu      sync.Mutex
+	workMu       sync.Mutex
+	stats        *statsStore
+	thanks       thanksTracker
+	tmplCache    templateCache
+	mdc          *mdToMicron
+	hl           *highlighter
 }
 
 // NewNode creates a git repository node.
@@ -86,7 +87,8 @@ func (n *Node) Start(rnsConfig string) error {
 	if n.cfg.AnnounceInterval >= 0 {
 		n.announce()
 		if n.cfg.AnnounceInterval > 0 {
-			go n.announceLoop(time.Duration(n.cfg.AnnounceInterval) * time.Minute)
+			n.announceStop = make(chan struct{})
+			go n.announceLoop(time.Duration(n.cfg.AnnounceInterval)*time.Minute, n.announceStop)
 		}
 	}
 	if n.cfg.MirrorIntervalHrs > 0 {
@@ -106,6 +108,10 @@ func (n *Node) Start(rnsConfig string) error {
 
 // Stop shuts down the node.
 func (n *Node) Stop() {
+	if n.announceStop != nil {
+		close(n.announceStop)
+		n.announceStop = nil
+	}
 	if n.mirrorStop != nil {
 		n.mirrorStop()
 	}
@@ -158,11 +164,16 @@ func (n *Node) announce() {
 	n.announcePages()
 }
 
-func (n *Node) announceLoop(interval time.Duration) {
+func (n *Node) announceLoop(interval time.Duration, stop <-chan struct{}) {
 	t := time.NewTicker(interval)
 	defer t.Stop()
-	for range t.C {
-		n.announce()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-t.C:
+			n.announce()
+		}
 	}
 }
 

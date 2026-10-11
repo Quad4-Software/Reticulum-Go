@@ -91,7 +91,10 @@ func (t *Transport) SynthesizeTunnel(iface TunnelInterface) error {
 	pubKey := id.GetPublicKey()
 	tunnelIDData := append(append([]byte(nil), pubKey...), ifHash...)
 	tunnelID := cryptography.Hash(tunnelIDData)
-	randomHash := identity.GetRandomHash()
+	randomHash, err := identity.GetRandomHash()
+	if err != nil {
+		return err
+	}
 	signedData := append(append([]byte(nil), tunnelIDData...), randomHash...)
 	sig, err := id.Sign(signedData)
 	if err != nil {

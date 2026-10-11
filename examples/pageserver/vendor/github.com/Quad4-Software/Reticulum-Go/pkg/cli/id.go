@@ -15,6 +15,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity/store"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/rnsutil"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/securemem"
+	"golang.org/x/term"
 )
 
 const defaultAspects = "rns.id"
@@ -48,7 +49,10 @@ func RunID(args []string, opt ...Options) int {
 	useHex := fs.Bool("hex", false, "hex encoding (default)")
 	toSecretService := fs.Bool("to-secretservice", false, "migrate identity file into Freedesktop Secret Service (writes RSSI marker)")
 	toKeyring := fs.Bool("to-keyring", false, "migrate identity file into Linux kernel keyring (writes RSSI marker)")
-	toFile := fs.Bool("to-file", false, "migrate marker-backed identity back to a plaintext identity file")
+	toFile := fs.Bool("to-file", false, "migrate marker-backed or passphrase-encrypted identity back to a plaintext identity file")
+	toPassphrase := fs.Bool("to-passphrase", false, "encrypt identity file with a passphrase (RNE1)")
+	toWrapped := fs.Bool("to-wrapped", false, "encrypt identity file with a random passphrase stored in the OS credential store (RNE1)")
+	rekey := fs.Bool("rekey", false, "change the passphrase on an RNE1 identity file")
 	bindFlagUsage(fs, "rgoid - Reticulum identity tool",
 		"Generate, import, export, sign, encrypt, and verify identity material.",
 		[]helpLine{
@@ -65,14 +69,10 @@ func RunID(args []string, opt ...Options) int {
 	}
 
 	migrateCount := 0
-	if *toSecretService {
-		migrateCount++
-	}
-	if *toKeyring {
-		migrateCount++
-	}
-	if *toFile {
-		migrateCount++
+	for _, f := range []*bool{toSecretService, toKeyring, toFile, toPassphrase, toWrapped, rekey} {
+		if *f {
+			migrateCount++
+		}
 	}
 	if migrateCount > 0 {
 		path := expand(*identityPath)
@@ -81,23 +81,47 @@ func RunID(args []string, opt ...Options) int {
 			return 2
 		}
 		if migrateCount > 1 {
-			fmt.Fprintln(stderr, "use only one of -to-secretservice, -to-keyring, or -to-file")
+			fmt.Fprintln(stderr, "use only one of -to-secretservice, -to-keyring, -to-file, -to-passphrase, -to-wrapped, or -rekey")
 			return 2
 		}
 		var err error
+		var msg string
 		switch {
 		case *toSecretService:
 			err = store.MigrateToSecretService(path, "")
 		case *toKeyring:
 			err = store.MigrateToKeyring(path, "")
+		case *toPassphrase:
+			var pass []byte
+			pass, err = newPassphraseFor(path)
+			if err == nil {
+				defer securemem.WipeBytes(pass)
+				err = store.MigrateToPassphrase(path, pass)
+			}
+		case *toWrapped:
+			var backend string
+			backend, err = store.MigrateToWrapped(path)
+			if err == nil {
+				msg = fmt.Sprintf("Identity storage migrated (wrap passphrase in %s)", backend)
+			}
+		case *rekey:
+			err = doRekey(path)
 		default:
-			err = store.MigrateToFile(path)
+			enc, encErr := identity.IdentityFileIsEncrypted(path)
+			if encErr == nil && enc {
+				err = store.MigrateEncryptedToFile(path)
+			} else {
+				err = store.MigrateToFile(path)
+			}
 		}
 		if err != nil {
 			fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
-		fmt.Fprintln(stdout, okMsg(stdout, "Identity storage migrated"))
+		if msg == "" {
+			msg = "Identity storage migrated"
+		}
+		fmt.Fprintln(stdout, okMsg(stdout, msg))
 		return 0
 	}
 
@@ -559,6 +583,40 @@ func writeOutput(path string, data []byte, force bool) error {
 		}
 	}
 	return rnsutil.WriteFileAtomic(path, data)
+}
+
+func newPassphraseFor(path string) ([]byte, error) {
+	if p := os.Getenv(store.NewPassphraseEnv); p != "" {
+		if len(p) < 8 {
+			return nil, fmt.Errorf("passphrase too short (minimum 8 characters)")
+		}
+		return []byte(p), nil
+	}
+	if p := os.Getenv(store.PassphraseEnv); p != "" {
+		if len(p) < 8 {
+			return nil, fmt.Errorf("passphrase too short (minimum 8 characters)")
+		}
+		return []byte(p), nil
+	}
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return nil, fmt.Errorf("passphrase required: set %s or run on a terminal", store.PassphraseEnv)
+	}
+	return store.PromptNewPassphrase(path)
+}
+
+func doRekey(path string) error {
+	// ResolvePassphrase covers env, fd, wrap backends, and terminal prompt.
+	oldPass, err := store.ResolvePassphrase(path)
+	if err != nil {
+		return err
+	}
+	defer securemem.WipeBytes(oldPass)
+	newPass, err := newPassphraseFor(path)
+	if err != nil {
+		return err
+	}
+	defer securemem.WipeBytes(newPass)
+	return store.RekeyEncryptedFile(path, oldPass, newPass)
 }
 
 func expand(path string) string {

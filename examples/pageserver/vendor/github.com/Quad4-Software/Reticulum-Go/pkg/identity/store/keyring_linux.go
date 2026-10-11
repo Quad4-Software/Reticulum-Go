@@ -34,7 +34,14 @@ func (KeyringBackend) ensurePersistent() {
 func keyDesc(attrs map[string]string) string {
 	path := attrs[AttrIdentityPath]
 	sum := sha256.Sum256([]byte(path))
-	return "reticulum-go:id:" + hex.EncodeToString(sum[:8])
+	desc := "reticulum-go:id:" + hex.EncodeToString(sum[:8])
+	// Wrap passphrases share the path with identity secrets but must not
+	// collide with them: Set invalidates any existing key at the same
+	// description.
+	if attrs[AttrIdentityKind] == wrapKind {
+		desc += ":wrap"
+	}
+	return desc
 }
 
 func (b KeyringBackend) find(attrs map[string]string) (int, error) {

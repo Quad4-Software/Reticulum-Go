@@ -187,6 +187,16 @@ func (tc *TCPClientInterface) Start() error {
 	return nil
 }
 
+// Detach marks the client detached and closes the connection, ending any
+// reconnect loop permanently (RNS 1.5.5 TCPClientInterface.detach).
+func (tc *TCPClientInterface) Detach() {
+	tc.Mutex.Lock()
+	tc.Detached = true
+	tc.Online = false
+	tc.Mutex.Unlock()
+	_ = tc.Stop()
+}
+
 func (tc *TCPClientInterface) Stop() error {
 	tc.Mutex.Lock()
 	tc.Enabled = false
@@ -361,7 +371,9 @@ func (tc *TCPClientInterface) handlePacket(data []byte) {
 	tc.lastRx = lastRx
 	tc.Mutex.Unlock()
 
-	debug.Log(debug.DebugAll, "Received packet", "type", fmt.Sprintf("0x%02x", data[0]), "size", len(data))
+	if debug.Enabled(debug.DebugAll) {
+		debug.Log(debug.DebugAll, "Received packet", "type", fmt.Sprintf("0x%02x", data[0]), "size", len(data))
+	}
 
 	tc.ProcessIncoming(data)
 }
@@ -568,6 +580,9 @@ func NewTCPServerInterface(name string, bindAddr string, bindPort int, kissFrami
 			MTU:      common.DefaultMTU,
 			Enabled:  true,
 			Detached: false,
+			// Upstream assigns BITRATE_GUESS to TCP server interfaces; a
+			// zero bitrate would make the announce queue never drain.
+			Bitrate: BitrateGuess,
 		},
 		connections: make(map[string]net.Conn),
 		bindAddr:    bindAddr,
@@ -692,6 +707,11 @@ func (ts *TCPServerInterface) Start() error {
 					return // Normal shutdown
 				}
 				debug.Log(debug.DebugError, "Error accepting connection", "error", err)
+				select {
+				case <-time.After(50 * time.Millisecond):
+				case <-done:
+					return
+				}
 				continue
 			}
 
@@ -734,6 +754,12 @@ func (ts *TCPServerInterface) Stop() error {
 }
 
 func (ts *TCPServerInterface) handleConnection(conn net.Conn) {
+	// Accepted sockets get no liveness probe by default. A silent peer would
+	// otherwise pin a goroutine and read buffer forever.
+	if tc, ok := conn.(*net.TCPConn); ok {
+		_ = tc.SetKeepAlive(true)
+		_ = tc.SetKeepAlivePeriod(30 * time.Second)
+	}
 	addr := conn.RemoteAddr().String()
 	ts.Mutex.Lock()
 	ts.connections[addr] = conn
@@ -798,13 +824,14 @@ func (ts *TCPServerInterface) ProcessOutgoing(data []byte) error {
 		return fmt.Errorf("interface offline")
 	}
 
+	// Build into a fresh buffer per call: sharing ts.txFrame lets concurrent
+	// senders interleave writes into one backing array and puts torn frames
+	// on the wire.
 	var frame []byte
 	if ts.kissFraming {
-		frame = appendFrameKISS(ts.txFrame[:0], data)
-		ts.txFrame = frame
+		frame = appendFrameKISS(nil, data)
 	} else {
-		frame = appendFrameHDLC(ts.txFrame[:0], data)
-		ts.txFrame = frame
+		frame = appendFrameHDLC(nil, data)
 	}
 
 	ts.Mutex.Lock()
@@ -844,4 +871,10 @@ func (ts *TCPServerInterface) Send(data []byte, address string) error {
 
 	ts.updateBandwidthStats(uint64(len(masked)))
 	return nil
+}
+
+// EndpointStatus reports dial-health for this interface's remote endpoint:
+// dial failures, flaps, and active quarantine remaining.
+func (tc *TCPClientInterface) EndpointStatus() EndpointStatus {
+	return tc.reconnect.endpointStatus()
 }

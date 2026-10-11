@@ -87,6 +87,7 @@ type BaseInterface struct {
 	oaFreqDeque        []time.Time
 	icPRBurstActive    bool
 	icPRBurstActivated time.Time
+	icPRBurstCount     int
 	ingressControl     bool
 	egressControl      bool
 	icPRBurstFreqNewV  float64
@@ -109,16 +110,18 @@ type BaseInterface struct {
 	// deferInboundIFAC skips ApplyIFACInbound in ProcessIncoming so transport
 	// inbound preprocessing can apply IFAC once (RNS 1.5.0).
 	deferInboundIFAC bool
-	ifacScratch      []byte
-	prxc, ptxc       uint64
-	sampleARXB       uint64
-	sampleATXB       uint64
-	samplePRXB       uint64
-	samplePTXB       uint64
-	currentARXS      float64
-	currentATXS      float64
-	currentPRXS      float64
-	currentPTXS      float64
+	// ifacMu serializes outbound masking over the shared ifacScratch buffer.
+	ifacMu      sync.Mutex
+	ifacScratch []byte
+	prxc, ptxc  uint64
+	sampleARXB  uint64
+	sampleATXB  uint64
+	samplePRXB  uint64
+	samplePTXB  uint64
+	currentARXS float64
+	currentATXS float64
+	currentPRXS float64
+	currentPTXS float64
 
 	announceQueue     []queuedAnnounce
 	announceAllowedAt time.Time
@@ -248,7 +251,7 @@ func (i *BaseInterface) ProcessIncomingFrom(data []byte, peerKey string) {
 // instead of letting the transport silently swallow every outgoing packet.
 func (i *BaseInterface) ProcessOutgoing(data []byte) error {
 	debug.Log(debug.DebugCritical, "BaseInterface.ProcessOutgoing called directly, concrete interface type must override it", "name", i.Name, "bytes", len(data))
-	return fmt.Errorf("ProcessOutgoing not implemented on abstract interfaces.BaseInterface (name=%q, %d bytes); concrete interface type must override it", i.Name, len(data))
+	return fmt.Errorf("ProcessOutgoing not implemented on abstract interfaces.BaseInterface (name=%q, %d bytes). Concrete interface type must override it", i.Name, len(data))
 }
 
 func (i *BaseInterface) SendPathRequest(packet []byte) error {
@@ -300,6 +303,10 @@ func (i *BaseInterface) Enable() {
 	prevState := i.Enabled
 	i.Enabled = true
 	i.Online = true
+	// Enable resurrects a detached interface. Detach remains the
+	// power-down verb and a later Enable plus Start must be able to
+	// bring it back.
+	i.Detached = false
 
 	debug.Log(debug.DebugInfo, "Interface state changed", "name", i.Name, "enabled_prev", prevState, "enabled", i.Enabled, "online_prev", !i.Online, "online", i.Online)
 }
@@ -430,7 +437,9 @@ func (i *BaseInterface) Send(data []byte, address string) error {
 		debug.Log(debug.DebugTrace, "Interface sending bytes", "name", i.Name, "bytes", len(data), "address", address)
 	}
 
+	i.ifacMu.Lock()
 	masked, err := common.ApplyIFACOutboundInto(i, i.ifacOutboundScratch(len(data)), data)
+	i.ifacMu.Unlock()
 	if err != nil {
 		debug.Log(debug.DebugError, "Failed to mask outgoing packet for IFAC", "name", i.Name, "error", err)
 		return err
@@ -603,6 +612,24 @@ func (i *BaseInterface) PRBurstActive() bool {
 	return i.icPRBurstActive
 }
 
+// PRBurstActivatedAt returns the unix timestamp the current or most recent
+// path-request burst began, 0 when none has been detected.
+func (i *BaseInterface) PRBurstActivatedAt() float64 {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	if i.icPRBurstActivated.IsZero() {
+		return 0
+	}
+	return float64(i.icPRBurstActivated.Unix())
+}
+
+// PRBurstCount returns how many path-request bursts have been detected.
+func (i *BaseInterface) PRBurstCount() int {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.icPRBurstCount
+}
+
 // SampleTraffic updates current RX/TX bitrates from byte-counter deltas.
 func (i *BaseInterface) SampleTraffic() {
 	i.Mutex.Lock()
@@ -751,6 +778,7 @@ func (i *BaseInterface) ShouldIngressLimitPR() bool {
 	if ipFreq > freqThreshold {
 		i.icPRBurstActive = true
 		i.icPRBurstActivated = time.Now()
+		i.icPRBurstCount++
 		return true
 	}
 	return false

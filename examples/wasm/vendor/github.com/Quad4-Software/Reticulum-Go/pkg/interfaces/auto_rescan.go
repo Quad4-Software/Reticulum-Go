@@ -17,6 +17,14 @@ const autoRescanInterval = 10 * time.Second
 func (ai *AutoInterface) SetWatchInterfaces(enabled bool) {
 	ai.Mutex.Lock()
 	ai.watchInterfaces = enabled
+	// Keep the netwatch subscription in step so toggling at runtime applies
+	// immediately, not only on the next Start.
+	if enabled && ai.Online && ai.netwatchUnsub == nil {
+		ai.netwatchUnsub = netwatchSubscribe(ai.onNetworkChange)
+	} else if !enabled && ai.netwatchUnsub != nil {
+		ai.netwatchUnsub()
+		ai.netwatchUnsub = nil
+	}
 	ai.Mutex.Unlock()
 }
 

@@ -12,7 +12,6 @@ require (
 	github.com/Quad4-Software/tagparser/v2 v2.2.1 // indirect
 	github.com/creack/pty v1.1.24 // indirect
 	github.com/dunglas/httpsfv v1.1.1 // indirect
-	github.com/ebitengine/purego v0.11.0 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/landlock-lsm/go-landlock v0.10.1 // indirect
 	github.com/mdlayher/socket v0.6.0 // indirect
@@ -22,7 +21,7 @@ require (
 	github.com/quic-go/webtransport-go v0.13.0 // indirect
 	go.bug.st/serial v1.8.0 // indirect
 	golang.org/x/crypto v0.57.0 // indirect
-	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/term v0.46.0 // indirect

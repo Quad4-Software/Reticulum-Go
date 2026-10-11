@@ -39,6 +39,11 @@ type pendingPathEntry struct {
 // the number of skipped entries is reported so callers/tests can assert on
 // corruption handling. A structurally invalid top-level payload (not a
 // msgpack array) is returned as an error.
+
+// maxStateFileBytes caps state files loaded from disk so a replaced or
+// oversized file cannot exhaust memory during startup.
+const maxStateFileBytes = 64 << 20
+
 func decodePathTableEntries(data []byte, now time.Time) (records []pathRecord, skipped int, err error) {
 	var entries []any
 	if err := msgpack.Unmarshal(data, &entries); err != nil {
@@ -231,7 +236,7 @@ func (t *Transport) loadPathTableFromDisk() {
 		debug.Log(debug.DebugInfo, "Skipping path table load", "error", err)
 		return
 	}
-	data, err := os.ReadFile(path) // #nosec G304 -- operator-controlled storage path
+	data, err := storage.ReadFileCapped(path, maxStateFileBytes)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			debug.Log(debug.DebugInfo, "Path table load failed, using in-memory table", "error", err)

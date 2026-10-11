@@ -231,9 +231,27 @@ func (r *RNodeInterface) Start() error {
 		return errors.New("RNode interface is not enabled")
 	}
 	if detached {
+		// Enable clears Detached. Arriving here detached means Stop or
+		// Detach ran without a later Enable.
 		return errors.New("RNode interface is detached")
 	}
-	return r.startLocked()
+	r.Mutex.Lock()
+	select {
+	case <-r.done:
+		r.done = make(chan struct{})
+		r.stopOnce = sync.Once{}
+	default:
+	}
+	r.Mutex.Unlock()
+	if err := r.startLocked(); err != nil {
+		// RNS 1.5.5: a failed initial bring-up keeps the interface registered
+		// and retries in the background instead of failing Start.
+		debug.Log(debug.DebugError, "Could not bring up RNode interface, will retry periodically",
+			"name", r.Name, "port", r.opts.Port, "error", err)
+		go r.reconnectLoop()
+		return nil
+	}
+	return nil
 }
 
 func (r *RNodeInterface) startLocked() error {
@@ -605,7 +623,7 @@ func (r *RNodeInterface) ProcessOutgoing(data []byte) error {
 	if !r.interfaceReady {
 		if len(r.packetQueue) >= rnodeMaxQueuedPackets {
 			r.queueMu.Unlock()
-			debug.Log(debug.DebugVerbose, "RNode transmit queue full; dropping packet", "name", r.Name)
+			debug.Log(debug.DebugVerbose, "RNode transmit queue full. Dropping packet", "name", r.Name)
 			return nil
 		}
 		r.packetQueue = append(r.packetQueue, append([]byte(nil), data...))

@@ -448,7 +448,7 @@ afterAuth:
 	}
 
 	// Let the peer finish RTT and register channel handlers. UDP can deliver
-	// Version before LRRTT; Python rnsh drops that race without a queue.
+	// Version before LRRTT. Python rnsh drops that race without a queue.
 	settle := min(max(time.Duration(l.GetRTT()*5*float64(time.Second)), 50*time.Millisecond), 2*time.Second)
 	select {
 	case <-time.After(settle):

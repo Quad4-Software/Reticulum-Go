@@ -13,6 +13,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/backbone"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/protect"
 )
 
 const (
@@ -226,21 +227,32 @@ func (bi *BackboneInterface) acceptConn(conn net.Conn) {
 		return
 	}
 
+	// Same admission control as every other listener: without it a backbone
+	// accept binds a hub stream and a ~2 MiB decoder budget per socket.
+	d, release := protect.AdmitConn(bi.Name)
+	if !d.Allow {
+		_ = conn.Close()
+		return
+	}
+
 	client := newSpawnedBackboneClient(bi, conn)
 	bi.spawnMu.Lock()
 	select {
 	case <-bi.done:
 		bi.spawnMu.Unlock()
+		release()
 		_ = conn.Close()
 		return
 	default:
 	}
 	if bi.isFastFlappingBlocked(remoteIP) {
 		bi.spawnMu.Unlock()
+		release()
 		debug.Log(debug.DebugVerbose, "Ignoring incoming connection from fast-flapping IP", "ip", remoteIP)
 		_ = conn.Close()
 		return
 	}
+	client.admitRelease = release
 	bi.spawned = append(bi.spawned, client)
 	cb := bi.callback
 	hook := bi.spawnHook
@@ -254,6 +266,10 @@ func (bi *BackboneInterface) acceptConn(conn net.Conn) {
 	}
 	if err := client.attachStream(); err != nil {
 		debug.Log(debug.DebugError, "backbone spawn attach failed", "error", err)
+		if client.admitRelease != nil {
+			client.admitRelease()
+			client.admitRelease = nil
+		}
 		_ = client.Stop()
 	}
 }
@@ -379,6 +395,18 @@ func (bi *BackboneInterface) SetPacketCallback(cb common.PacketCallback) {
 		c.SetPacketCallback(cb)
 	}
 	bi.spawnMu.Unlock()
+}
+
+// SpawnedInterfaces returns the currently connected spawned clients,
+// matching Python BackboneInterface.spawned_interfaces for detach walks.
+func (bi *BackboneInterface) SpawnedInterfaces() []Interface {
+	bi.spawnMu.Lock()
+	defer bi.spawnMu.Unlock()
+	out := make([]Interface, 0, len(bi.spawned))
+	for _, c := range bi.spawned {
+		out = append(out, c)
+	}
+	return out
 }
 
 func (bi *BackboneInterface) ProcessOutgoing([]byte) error {

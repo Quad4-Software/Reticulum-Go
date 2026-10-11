@@ -286,16 +286,20 @@ func runListen(tr *transport.Transport, id *identity.Identity, opts listenOpts) 
 			if !ok || target == nil {
 				return nil
 			}
-			body, err := os.ReadFile(filePath) // #nosec G304 -- jail-validated path
+			f, err := os.Open(filePath) // #nosec G304 -- jail-validated path
 			if err != nil {
 				return nil
 			}
-			res, err := resource.New(body, !opts.noCompress)
+			res, err := resource.New(f, !opts.noCompress)
 			if err != nil {
+				_ = f.Close()
 				return nil
 			}
 			_ = res.SetMetadata(map[string]any{"name": []byte(filepath.Base(filePath))})
-			go func() { _ = target.SendResource(res) }()
+			go func() {
+				defer f.Close()
+				_ = target.SendResource(res)
+			}()
 			return true
 		}, allowMode, allowList)
 	}

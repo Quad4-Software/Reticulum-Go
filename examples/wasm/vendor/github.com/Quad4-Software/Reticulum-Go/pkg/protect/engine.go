@@ -120,14 +120,19 @@ type Engine struct {
 	autoLearnMinSamples  int
 	transportNode        bool
 
-	mu           sync.Mutex
-	ifaces       map[string]*ifaceState
-	conns        map[string]int
+	mu     sync.Mutex
+	ifaces map[string]*ifaceState
+	conns  map[string]int
+	// offConns counts accepted conns while protection is off. The
+	// backstop below keeps a flood from exhausting fds without
+	// engaging adaptive policy.
+	offConns     map[string]int
 	resources    int
 	crypto       int
 	handshake    int
 	warns        map[warnKey]*warnState
 	shedMemory   atomic.Bool
+	prngState    atomic.Uint64
 	tripCounts   [reasonCount]atomic.Uint64
 	autoPhase    atomic.Int32
 	fingerprint  string
@@ -137,6 +142,7 @@ type Engine struct {
 
 	memStop chan struct{}
 	memOnce sync.Once
+	memWg   sync.WaitGroup
 	started atomic.Bool
 }
 
@@ -246,6 +252,7 @@ func New(opts Options) *Engine {
 		memStop:              make(chan struct{}),
 		learnStarted:         opts.Now(),
 	}
+	e.prngState.Store(uint64(opts.Now().UnixNano()))
 	if opts.Mode == ModeAuto {
 		e.autoPhase.Store(int32(AutoLearning))
 	}
@@ -294,9 +301,16 @@ func (e *Engine) StartMemoryMonitor() {
 	if e == nil || e.mode == ModeOff {
 		return
 	}
+	e.mu.Lock()
+	if e.memStop == nil {
+		e.memStop = make(chan struct{})
+		e.memOnce = sync.Once{}
+	}
+	e.mu.Unlock()
 	if !e.started.CompareAndSwap(false, true) {
 		return
 	}
+	e.memWg.Add(1)
 	go e.memoryLoop()
 }
 
@@ -312,9 +326,19 @@ func (e *Engine) StopMemoryMonitor() {
 	e.memOnce.Do(func() {
 		close(e.memStop)
 	})
+	e.memWg.Wait()
+	// Reset so a later StartMemoryMonitor on this engine actually restarts;
+	// without it the consumed once and closed channel make every subsequent
+	// start exit immediately.
+	e.mu.Lock()
+	e.memStop = make(chan struct{})
+	e.memOnce = sync.Once{}
+	e.mu.Unlock()
 }
 
 func (e *Engine) memoryLoop() {
+	defer e.memWg.Done()
+	defer e.started.Store(false)
 	ticker := time.NewTicker(MemorySampleInterval)
 	defer ticker.Stop()
 	persistEvery := PersistInterval
@@ -447,7 +471,22 @@ func (e *Engine) admitWithOpts(iface string, nbytes int, opts AdmitOpts) Decisio
 	if !e.disableAdaptive {
 		ppsLimit, bpsLimit = st.adapt.tripLine(e.maxPPS, e.maxBPS, floorPPS, floorBPS)
 	}
+	adaptReady := st.adapt.ready
 	e.mu.Unlock()
+
+	// Graduated early drop for shed-first traffic (RED-style incipient
+	// congestion response): once the rate passes EarlyDropStartFraction of
+	// the effective trip line, drop with probability ramping to 1.0 at the
+	// line. This bleeds off an incipient announce flood instead of
+	// alternating between full accept and a hard cliff. Prefer-keep
+	// classes never early-drop: losing a link payload mid-transfer costs
+	// far more to recover than an announce the peer retransmits anyway.
+	// Recorded as its own reason and never arms iface cool-down.
+	if opts.Class == ClassShedFirst && (adaptReady || e.disableAdaptive || e.enforcementMode() == ModePrevent) {
+		if e.earlyDrop(pps, bps, ppsLimit, bpsLimit) {
+			return e.decide(iface, ReasonEarlyDrop)
+		}
+	}
 
 	overPPS := pps > ppsLimit
 	overBPS := bps > bpsLimit
@@ -705,11 +744,38 @@ func (e *Engine) AdmitHandler(iface string) Decision {
 	return e.decide(iface, ReasonHandler)
 }
 
+// offModeMaxConns is the unconditional accepted-connection ceiling per
+// interface when protect is disabled. Well above any legitimate peer count
+// on a sparse mesh. It exists so an idle-conn flood cannot exhaust fds.
+const offModeMaxConns = 8192
+
 // AdmitConn checks concurrent accepted connections for iface.
 func (e *Engine) AdmitConn(iface string) (Decision, func()) {
 	noop := func() {}
-	if e == nil || e.mode == ModeOff {
+	if e == nil {
 		return Decision{Allow: true}, noop
+	}
+	if e.mode == ModeOff {
+		e.mu.Lock()
+		if e.offConns == nil {
+			e.offConns = make(map[string]int)
+		}
+		if e.offConns[iface] >= offModeMaxConns {
+			e.mu.Unlock()
+			return Decision{Allow: false}, noop
+		}
+		e.offConns[iface]++
+		e.mu.Unlock()
+		var once sync.Once
+		return Decision{Allow: true}, func() {
+			once.Do(func() {
+				e.mu.Lock()
+				if e.offConns[iface] > 0 {
+					e.offConns[iface]--
+				}
+				e.mu.Unlock()
+			})
+		}
 	}
 	if e.shedMemory.Load() {
 		d := e.decideMemory(iface)
@@ -843,6 +909,41 @@ func (e *Engine) admitSlot(iface string, reason Reason, slot *int, limit int) (D
 		return trip, release
 	}
 	return Decision{Allow: true}, release
+}
+
+// earlyDrop returns true when a shed-first packet should be dropped while
+// the rate sits inside the graduated-drop band between
+// EarlyDropStartFraction of the trip line and the line itself.
+func (e *Engine) earlyDrop(pps, bps, ppsLimit, bpsLimit float64) bool {
+	frac := 0.0
+	if start := ppsLimit * EarlyDropStartFraction; ppsLimit > start && pps > start {
+		frac = (pps - start) / (ppsLimit - start)
+	}
+	if start := bpsLimit * EarlyDropStartFraction; bpsLimit > start && bps > start {
+		if f := (bps - start) / (bpsLimit - start); f > frac {
+			frac = f
+		}
+	}
+	if frac <= 0 {
+		return false
+	}
+	if frac > 1 {
+		frac = 1
+	}
+	return e.nextFloat() < frac
+}
+
+// nextFloat returns a pseudo-random value in [0,1) from a process-global
+// splitmix64 stream advanced atomically. Probabilistic shedding needs cheap
+// uniform samples without crypto/rand or a shared mutex on the hot path.
+func (e *Engine) nextFloat() float64 {
+	x := e.prngState.Add(0x9E3779B97F4A7C15)
+	x ^= x >> 30
+	x *= 0xBF58476D1CE4E5B9
+	x ^= x >> 27
+	x *= 0x94D049BB133111EB
+	x ^= x >> 31
+	return float64(x>>11) * (1.0 / (1 << 53))
 }
 
 func (e *Engine) decide(iface string, reason Reason) Decision {

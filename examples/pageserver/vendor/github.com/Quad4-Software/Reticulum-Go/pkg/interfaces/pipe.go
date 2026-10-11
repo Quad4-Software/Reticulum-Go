@@ -82,6 +82,12 @@ func (pi *PipeInterface) Start() error {
 		return nil
 	}
 	enabled := pi.Enabled
+	select {
+	case <-pi.done:
+		pi.done = make(chan struct{})
+		pi.stopOnce = sync.Once{}
+	default:
+	}
 	pi.Mutex.Unlock()
 	if !enabled {
 		return fmt.Errorf("interface not enabled")

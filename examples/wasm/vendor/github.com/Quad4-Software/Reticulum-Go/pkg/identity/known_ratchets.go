@@ -14,6 +14,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/internal/storage"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/rate"
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
@@ -28,6 +29,7 @@ type knownRatchetFile struct {
 }
 
 // RatchetPublicBytes returns the X25519 public key for a 32-byte ratchet private key.
+
 func RatchetPublicBytes(private []byte) ([]byte, error) {
 	if len(private) != RatchetSize/8 {
 		return nil, errors.New("invalid ratchet key size")
@@ -164,7 +166,7 @@ func CleanKnownRatchets() {
 			continue
 		}
 		path := filepath.Join(dir, name)
-		data, err := os.ReadFile(path) // #nosec G304 -- operator storage path
+		data, err := storage.ReadFileCapped(path, maxStateFileBytes)
 		if err != nil {
 			continue
 		}
@@ -199,7 +201,19 @@ func CleanKnownRatchets() {
 	}
 }
 
+// ratchetPersistLimiter bounds disk writes driven by inbound announces.
+// Every valid signed announce carrying a ratchet triggers one file write;
+// without a ceiling on write rate an announce drip becomes a sustained
+// disk-fill and iops vector. 16/s sustained with a 64 burst is far above
+// any legitimate destination-churn rate.
+var ratchetPersistLimiter = rate.NewLimiter(16.0, 64.0)
+
 func persistKnownRatchet(destHash []byte, entry knownRatchetEntry) {
+	if !ratchetPersistLimiter.Allow() {
+		debug.Log(debug.DebugTrace, "Ratchet persist rate limited",
+			"destination", hex.EncodeToString(destHash))
+		return
+	}
 	dir, err := knownRatchetsDir()
 	if err != nil || dir == "" {
 		return
@@ -238,7 +252,7 @@ func loadKnownRatchetFromDisk(destHash []byte) []byte {
 		return nil
 	}
 	path := filepath.Join(dir, hex.EncodeToString(destHash))
-	data, err := os.ReadFile(path) // #nosec G304 -- operator storage path
+	data, err := storage.ReadFileCapped(path, maxStateFileBytes)
 	if err != nil {
 		return nil
 	}

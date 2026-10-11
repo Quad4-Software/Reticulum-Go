@@ -94,6 +94,9 @@ func (m *Manager) SaveRatchet(identityHash []byte, ratchetKey []byte) error {
 		return fmt.Errorf("failed to marshal ratchet data: %w", err)
 	}
 
+	if len(ratchetKey) < 16 {
+		return fmt.Errorf("ratchet key too short: %d bytes", len(ratchetKey))
+	}
 	ratchetHash := hex.EncodeToString(ratchetKey[:16])
 	outPath := filepath.Join(ratchetDir, ratchetHash+".out")
 	finalPath := filepath.Join(ratchetDir, ratchetHash)

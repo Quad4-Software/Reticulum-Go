@@ -9,7 +9,7 @@ import (
 )
 
 // GenerateStamp searches for a stamp meeting stampCost using the parallel
-// CPU path. The former OpenCL backend was removed; stamps are byte-identical
+// CPU path. The former OpenCL backend was removed. Stamps are byte-identical
 // either way, so this is a performance simplification, not a wire change.
 func GenerateStamp(ctx context.Context, messageID []byte, stampCost, expandRounds int) ([]byte, int, error) {
 	return GenerateStampCPU(ctx, messageID, stampCost, expandRounds)

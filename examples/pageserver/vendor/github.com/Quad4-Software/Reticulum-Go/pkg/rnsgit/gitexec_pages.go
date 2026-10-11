@@ -140,7 +140,7 @@ type RefInfo struct {
 	TagSubject string
 }
 
-// ForEachRef returns all refs with subjects; tags additionally carry the
+// ForEachRef returns all refs with subjects. Tags additionally carry the
 // tag message subject used to detect annotated tags.
 func (g *GitRunner) ForEachRef(repoPath string) ([]RefInfo, error) {
 	out, _, err := g.runPage(repoPath, "for-each-ref",

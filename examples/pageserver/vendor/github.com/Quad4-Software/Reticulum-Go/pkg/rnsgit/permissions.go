@@ -370,11 +370,11 @@ func (t *AccessTable) Resolve(group, repo string, remoteHash []byte, perm int) b
 		return false
 	}
 	hexID := hex.EncodeToString(remoteHash)
-	if repo == "" {
-		return resolveLevel(ga.permSet(perm), ga.Admin, hexID) > 0
-	}
 	if t.Blocked[hexID] {
 		return false
+	}
+	if repo == "" {
+		return resolveLevel(ga.permSet(perm), ga.Admin, hexID) > 0
 	}
 	ra, ok := ga.Repositories[repo]
 	if !ok {
@@ -410,6 +410,9 @@ func (t *AccessTable) ResolveDoc(group, repo string, docID int, remoteHash []byt
 		return false
 	}
 	hexID := hex.EncodeToString(remoteHash)
+	if t.Blocked[hexID] {
+		return false
+	}
 	workPath := ra.Path + ".work"
 	allowedPath := filepath.Join(workPath, strconv.Itoa(docID)+".allowed")
 	if st, err := os.Stat(workPath); err == nil && st.IsDir() {

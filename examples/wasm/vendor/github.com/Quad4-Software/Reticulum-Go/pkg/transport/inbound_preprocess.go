@@ -92,12 +92,17 @@ func (t *Transport) preprocessInboundPacket(data []byte, iface common.NetworkInt
 	headerType := (headerByte & HeaderTypeMask) >> HeaderTypeShift
 	destType := (headerByte & HeaderDestTypeMask) >> HeaderDestTypeShift
 
-	pkt := &packet.Packet{Raw: data}
+	// Copy into the pooled buffer before unpacking so the parsed packet's
+	// fields alias memory that lives until the job is recycled.
+	pc := getPacketCopy(len(data))
+	copy(pc.buf, data)
+	pkt := &packet.Packet{Raw: pc.buf}
 	if err := pkt.Unpack(); err != nil {
 		ifaceProtocolViolation(iface)
 		if iface != nil {
 			health.Inc(iface.GetName(), health.KindUnpackFail)
 		}
+		putPacketCopy(pc)
 		return packetJob{}, 0, false
 	}
 
@@ -114,10 +119,12 @@ func (t *Transport) preprocessInboundPacket(data []byte, iface common.NetworkInt
 					"dest_type", destType, "wire_hops", data[1], "accounted_hops", accounted)
 			}
 			ifaceProtocolViolation(iface)
+			putPacketCopy(pc)
 			return packetJob{}, 0, false
 		}
 	}
 	if !t.applyPacketFilter(pkt, iface) {
+		putPacketCopy(pc)
 		return packetJob{}, 0, false
 	}
 
@@ -126,6 +133,7 @@ func (t *Transport) preprocessInboundPacket(data []byte, iface common.NetworkInt
 	if packetType == PacketTypeAnnounce {
 		if destType == DestTypePlain || destType == DestTypeGroup {
 			ifaceProtocolViolation(iface)
+			putPacketCopy(pc)
 			return packetJob{}, 0, false
 		}
 		if iface != nil {
@@ -137,6 +145,7 @@ func (t *Transport) preprocessInboundPacket(data []byte, iface common.NetworkInt
 		destHash, _, tag, prOK := parsePathRequestWire(pkt.Data)
 		if !prOK {
 			ifaceProtocolViolation(iface)
+			putPacketCopy(pc)
 			return packetJob{}, 0, false
 		}
 		if len(tag) > identity.TruncatedHashLength/8 {
@@ -150,10 +159,9 @@ func (t *Transport) preprocessInboundPacket(data []byte, iface common.NetworkInt
 		_ = destHash
 	}
 
-	pc := getPacketCopy(len(data))
-	copy(pc.buf, data)
 	return packetJob{
 		pc:         pc,
+		pkt:        pkt,
 		iface:      iface,
 		packetType: packetType,
 		destType:   destType,
