@@ -34,6 +34,7 @@ env:
     api.securityscorecards.dev:443
     fulcio.sigstore.dev:443
     rekor.sigstore.dev:443
+    tuf-repo-cdn.sigstore.dev:443
     api.osv.dev:443
     www.bestpractices.dev:443
     oss-fuzz-build-logs.storage.googleapis.com:443
