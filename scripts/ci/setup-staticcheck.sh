@@ -6,7 +6,7 @@ set -eu
 . "$(dirname "$0")/priv.sh"
 
 export PATH="/usr/local/go/bin:$PATH"
-VER="${1:-v0.6.1}"
+VER="${1:-v0.7.0-0.dev.0.20261009230814-452d5bb86b45}"
 run_priv env PATH="$PATH" GOBIN=/usr/local/bin GOFLAGS= GOPROXY=https://proxy.golang.org,direct \
 	go install "honnef.co/go/tools/cmd/staticcheck@${VER}"
 command -v staticcheck
