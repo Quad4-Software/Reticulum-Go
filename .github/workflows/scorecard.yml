@@ -32,6 +32,11 @@ env:
     prod.app-api.stepsecurity.io:443
     agent.api.stepsecurity.io:443
     api.securityscorecards.dev:443
+    fulcio.sigstore.dev:443
+    rekor.sigstore.dev:443
+    api.osv.dev:443
+    www.bestpractices.dev:443
+    oss-fuzz-build-logs.storage.googleapis.com:443
 
 jobs:
   analysis:
