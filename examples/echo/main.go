@@ -267,9 +267,15 @@ func clientLoop(destHash []byte, t *transport.Transport, timeout float64) error 
 				continue
 			}
 
+			randomHash, err := identity.GetRandomHash()
+			if err != nil {
+				debug.Log(debug.DebugError, "Failed to get random hash", "error", err)
+				os.Exit(1)
+			}
+
 			echoRequest := packet.NewPacket(
 				destination.Single,
-				identity.GetRandomHash(),
+				randomHash,
 				packet.PacketTypeData,
 				packet.ContextNone,
 				0,
