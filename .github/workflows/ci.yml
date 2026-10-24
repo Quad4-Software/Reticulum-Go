@@ -63,8 +63,8 @@ env:
     esm.ubuntu.com:443
     packages.microsoft.com:443
     ppa.launchpadcontent.net:443
-  CI_GO_VERSION: "1.27.2"
-  CI_GO_LEGACY_WIN7_VERSION: "1.27.1-1"
+  CI_GO_VERSION: "1.27.3"
+  CI_GO_LEGACY_WIN7_VERSION: "1.27.2-1"
   CI_GO_LEGACY_WINXP_VERSION: "1.27.1"
   CI_TASK_VERSION: "3.46.3"
   CI_REVIVE_VERSION: "v1.15.0"
@@ -1218,6 +1218,9 @@ jobs:
               exit 1
               ;;
           esac
+          # Official go.mod targets Go 1.27.x; rewrite down to go-legacy-win7.
+          sed -i 's/^go 1\.2[67]\.[0-9][0-9]*$/go 1.27.2/' go.mod
+          sed -i 's/go 1\.2[67]\.[0-9][0-9]*/go 1.27.2/g' vendor/modules.txt
           mkdir -p bin
           "$LEGACY_GO" build -ldflags="-s -w" \
             -o "bin/reticulum-go-windows-${GOARCH}-win7.exe" \

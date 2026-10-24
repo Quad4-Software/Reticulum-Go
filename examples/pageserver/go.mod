@@ -1,6 +1,6 @@
 module github.com/Quad4-Software/Reticulum-Go/examples/pageserver
 
-go 1.27.1
+go 1.27.3
 
 require (
 	github.com/Quad4-Software/Reticulum-Go v1.4.1

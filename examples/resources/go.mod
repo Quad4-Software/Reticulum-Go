@@ -1,6 +1,6 @@
 module example-resources
 
-go 1.27.1
+go 1.27.3
 
 require github.com/Quad4-Software/Reticulum-Go v1.4.1
 

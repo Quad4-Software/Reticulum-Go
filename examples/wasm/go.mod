@@ -1,6 +1,6 @@
 module github.com/Quad4-Software/Reticulum-Go/examples/wasm
 
-go 1.27.1
+go 1.27.3
 
 require (
 	github.com/Quad4-Software/Reticulum-Go v1.1.2-0.20260915034538-6c079df83b52

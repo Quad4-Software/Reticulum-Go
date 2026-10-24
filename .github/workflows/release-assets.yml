@@ -69,8 +69,8 @@ env:
     go.dev:443
     dl.google.com:443
     storage.googleapis.com:443
-  CI_GO_VERSION: "1.27.2"
-  CI_GO_LEGACY_WIN7_VERSION: "1.27.1-1"
+  CI_GO_VERSION: "1.27.3"
+  CI_GO_LEGACY_WIN7_VERSION: "1.27.2-1"
   CI_GO_LEGACY_WINXP_VERSION: "1.27.1"
   CI_TASK_VERSION: "3.46.3"
   CI_COSIGN_VERSION: "3.0.5"
@@ -255,6 +255,9 @@ jobs:
               exit 1
               ;;
           esac
+          # Official go.mod targets Go 1.27.x; rewrite down to go-legacy-win7.
+          sed -i 's/^go 1\.2[67]\.[0-9][0-9]*$/go 1.27.2/' go.mod
+          sed -i 's/go 1\.2[67]\.[0-9][0-9]*/go 1.27.2/g' vendor/modules.txt
           output_name="reticulum-go-windows-${GOARCH}-win7.exe"
           "$LEGACY_GO" build -ldflags="-s -w -X main.defaultVersion=${VERSION}" -o "${output_name}" ./cmd/reticulum-go
           echo "Built: ${output_name}"

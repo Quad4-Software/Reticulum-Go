@@ -1,6 +1,6 @@
 module github.com/Quad4-Software/Reticulum-Go
 
-go 1.27.1
+go 1.27.3
 
 require (
 	github.com/Quad4-Software/bzip2 v1.0.1

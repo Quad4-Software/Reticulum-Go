@@ -31,7 +31,7 @@ env:
     dl.google.com:443
     repo1.maven.org:443
     api.adoptium.net:443
-  CI_GO_VERSION: "1.27.2"
+  CI_GO_VERSION: "1.27.3"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
   GOTOOLCHAIN: local

@@ -1,5 +1,5 @@
 # Dev Container image for Reticulum-Go (Go, Task, revive, staticcheck, shellcheck, yamllint).
-FROM golang:1.27.1-bookworm@sha256:648f440f42a0958804efb24df176f806f9d353b41f1c0627f666428e40310f6b
+FROM golang:1.27.3-bookworm@sha256:972b4110ba0f47539a975c31e52c64765e1ff19f2d74469ae4a595c6676e80a5
 
 ARG TASK_VERSION=3.46.3
 ARG REVIVE_VERSION=v1.15.0
