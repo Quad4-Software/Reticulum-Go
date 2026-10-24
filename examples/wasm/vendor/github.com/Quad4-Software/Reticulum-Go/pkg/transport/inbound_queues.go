@@ -63,7 +63,6 @@ func (q *inboundQueues) put(tc int, job packetJob) bool {
 	defer q.mu.Unlock()
 	if len(q.queues[tc]) >= q.sizes[tc] {
 		q.dropped[tc]++
-		putPacketCopy(job.pc)
 		return false
 	}
 	q.queues[tc] = append(q.queues[tc], job)

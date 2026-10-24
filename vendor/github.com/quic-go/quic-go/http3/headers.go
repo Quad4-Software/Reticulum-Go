@@ -27,6 +27,24 @@ func (e *qpackError) Unwrap() error { return e.err }
 
 var errHeaderTooLarge = errors.New("http3: headers too large")
 
+// readHeaderBlock preallocates up to 8 KiB, growing larger buffers as data arrives.
+// The caller must check length against the configured header size limit first.
+func readHeaderBlock(r io.Reader, length uint64) ([]byte, error) {
+	const maxInitialBufferSize = 8 << 10
+
+	b := make([]byte, min(length, maxInitialBufferSize))
+	if length <= maxInitialBufferSize {
+		_, err := io.ReadFull(r, b)
+		return b, err
+	}
+	buf := bytes.NewBuffer(b[:0])
+	n, err := io.CopyN(buf, r, int64(length))
+	if errors.Is(err, io.EOF) && n > 0 {
+		err = io.ErrUnexpectedEOF
+	}
+	return buf.Bytes(), err
+}
+
 type header struct {
 	// Pseudo header fields defined in RFC 9114
 	Path      string
@@ -290,23 +308,26 @@ func requestFromHeaders(decodeFn qpack.DecodeFunc, sizeLimit int, headerFields *
 	if !isExtendedConnected && hasProtocol {
 		return nil, errors.New(":protocol must be omitted")
 	}
+	// url.ParseRequestURI accepts absolute URIs and "*", so validate :path before parsing.
+	validPath := strings.HasPrefix(hdr.Path, "/") || (hdr.Method == http.MethodOptions && hdr.Path == "*")
+	if (!isConnect || isExtendedConnected) && !validPath {
+		return nil, fmt.Errorf("invalid :path: %q", hdr.Path)
+	}
 
 	var u *url.URL
 	var requestURI string
 
 	protocol := "HTTP/3.0"
 
-	if isConnect {
-		u = &url.URL{}
-		if isExtendedConnected {
-			u, err = url.ParseRequestURI(hdr.Path)
-			if err != nil {
-				return nil, err
-			}
-			protocol = hdr.Protocol
-		} else {
-			u.Path = hdr.Path
+	if isExtendedConnected {
+		u, err = url.ParseRequestURI(hdr.Path)
+		if err != nil {
+			return nil, err
 		}
+		requestURI = hdr.Path
+		protocol = hdr.Protocol
+	} else if isConnect {
+		u = &url.URL{Host: hdr.Authority}
 		requestURI = hdr.Authority
 	} else {
 		u, err = url.ParseRequestURI(hdr.Path)
@@ -315,8 +336,6 @@ func requestFromHeaders(decodeFn qpack.DecodeFunc, sizeLimit int, headerFields *
 		}
 		requestURI = hdr.Path
 	}
-	u.Scheme = hdr.Scheme
-	u.Host = hdr.Authority
 
 	req := &http.Request{
 		Method:        hdr.Method,
@@ -449,8 +468,8 @@ func decodeTrailers(r io.Reader, hf *headersFrame, maxHeaderBytes int, decoder *
 		return nil, fmt.Errorf("http3: HEADERS frame too large: %d bytes (max: %d)", hf.Length, maxHeaderBytes)
 	}
 
-	b := make([]byte, hf.Length)
-	if _, err := io.ReadFull(r, b); err != nil {
+	b, err := readHeaderBlock(r, hf.Length)
+	if err != nil {
 		return nil, err
 	}
 	decodeFn := decoder.Decode(b)

@@ -174,13 +174,10 @@ func (t *Transport) submitInboundJob(job packetJob, tc int, block bool) bool {
 		if t.inboundQueues.put(tc, job) {
 			return true
 		}
-		if block {
-			if t.inboundQueues.putWait(tc, job, t.done) {
-				return true
-			}
-			putPacketCopy(job.pc)
+		if block && t.inboundQueues.putWait(tc, job, t.done) {
 			return true
 		}
+		putPacketCopy(job.pc)
 		t.shedHandlerOverflow(job.iface)
 		return false
 	}

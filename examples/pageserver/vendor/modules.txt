@@ -1,4 +1,4 @@
-# github.com/Quad4-Software/Reticulum-Go v0.0.0 => ../..
+# github.com/Quad4-Software/Reticulum-Go v1.4.1 => ../..
 ## explicit; go 1.27.1
 github.com/Quad4-Software/Reticulum-Go/internal/storage
 github.com/Quad4-Software/Reticulum-Go/pkg/announce
@@ -58,10 +58,10 @@ github.com/Quad4-Software/tagparser/v2/pkg/tagparser
 # github.com/creack/pty v1.1.24
 ## explicit; go 1.18
 github.com/creack/pty
-# github.com/dunglas/httpsfv v1.1.1
+# github.com/dunglas/httpsfv v1.1.2
 ## explicit; go 1.14
 github.com/dunglas/httpsfv
-# github.com/godbus/dbus/v5 v5.2.2
+# github.com/godbus/dbus/v5 v5.2.4
 ## explicit; go 1.20
 github.com/godbus/dbus/v5
 # github.com/landlock-lsm/go-landlock v0.10.1
@@ -69,8 +69,8 @@ github.com/godbus/dbus/v5
 github.com/landlock-lsm/go-landlock/landlock
 github.com/landlock-lsm/go-landlock/landlock/internal
 github.com/landlock-lsm/go-landlock/landlock/syscall
-# github.com/mdlayher/socket v0.6.0
-## explicit; go 1.25.0
+# github.com/mdlayher/socket v0.8.0
+## explicit; go 1.26.0
 github.com/mdlayher/socket
 # github.com/mdlayher/vsock v1.3.0
 ## explicit; go 1.25.0
@@ -78,7 +78,7 @@ github.com/mdlayher/vsock
 # github.com/quic-go/qpack v0.6.0
 ## explicit; go 1.24
 github.com/quic-go/qpack
-# github.com/quic-go/quic-go v0.62.0
+# github.com/quic-go/quic-go v0.64.1
 ## explicit; go 1.26.0
 github.com/quic-go/quic-go
 github.com/quic-go/quic-go/http3
@@ -105,7 +105,7 @@ github.com/quic-go/webtransport-go
 ## explicit; go 1.25.0
 go.bug.st/serial
 go.bug.st/serial/unixutils
-# golang.org/x/crypto v0.57.0
+# golang.org/x/crypto v0.58.0
 ## explicit; go 1.26.0
 golang.org/x/crypto/argon2
 golang.org/x/crypto/blake2b
@@ -115,7 +115,7 @@ golang.org/x/crypto/curve25519
 golang.org/x/crypto/hkdf
 golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
-# golang.org/x/net v0.60.0
+# golang.org/x/net v0.61.0
 ## explicit; go 1.26.0
 golang.org/x/net/bpf
 golang.org/x/net/http/httpguts
@@ -125,26 +125,26 @@ golang.org/x/net/internal/iana
 golang.org/x/net/internal/socket
 golang.org/x/net/ipv4
 golang.org/x/net/ipv6
-# golang.org/x/sync v0.23.0
+# golang.org/x/sync v0.24.0
 ## explicit; go 1.26.0
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.48.0
+# golang.org/x/sys v0.49.0
 ## explicit; go 1.26.0
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
-# golang.org/x/term v0.46.0
+# golang.org/x/term v0.47.0
 ## explicit; go 1.26.0
 golang.org/x/term
-# golang.org/x/text v0.42.0
+# golang.org/x/text v0.43.0
 ## explicit; go 1.26.0
 golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
-# kernel.org/pub/linux/libs/security/libcap/psx v1.2.77
+# kernel.org/pub/linux/libs/security/libcap/psx v1.2.78
 ## explicit; go 1.11
 kernel.org/pub/linux/libs/security/libcap/psx
 # github.com/Quad4-Software/Reticulum-Go => ../..
