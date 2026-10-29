@@ -25,9 +25,10 @@ type handshakeVector struct {
 	Tree           packet.Frame `json:"tree"`
 }
 
-// TestHandshakeVectorPackAndReplay builds known-good announce, PATH_RESPONSE,
-// and LINKREQUEST frames then checks DecodeFrame trees. Vectors are also
-// written under testdata for external porters.
+// TestHandshakeVectorPackAndReplay builds announce, PATH_RESPONSE, and
+// LINKREQUEST frames, then checks DecodeFrame trees. Set
+// RNS_UPDATE_HANDSHAKE_VECTORS=1 to write vectors under testdata; otherwise,
+// the vectors are written to a temporary directory.
 func TestHandshakeVectorPackAndReplay(t *testing.T) {
 	id, err := identity.NewIdentity()
 	if err != nil {
@@ -100,7 +101,10 @@ func TestHandshakeVectorPackAndReplay(t *testing.T) {
 		}
 	}
 
-	outDir := filepath.Join("testdata")
+	outDir := t.TempDir()
+	if os.Getenv("RNS_UPDATE_HANDSHAKE_VECTORS") == "1" {
+		outDir = "testdata"
+	}
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}

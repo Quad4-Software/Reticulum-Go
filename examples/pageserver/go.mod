@@ -13,7 +13,7 @@ require (
 	github.com/creack/pty v1.1.24 // indirect
 	github.com/dunglas/httpsfv v1.1.2 // indirect
 	github.com/godbus/dbus/v5 v5.2.4 // indirect
-	github.com/landlock-lsm/go-landlock v0.10.1 // indirect
+	github.com/landlock-lsm/go-landlock v0.11.0 // indirect
 	github.com/mdlayher/socket v0.8.0 // indirect
 	github.com/mdlayher/vsock v1.3.0 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
@@ -21,7 +21,7 @@ require (
 	github.com/quic-go/webtransport-go v0.13.0 // indirect
 	go.bug.st/serial v1.8.0 // indirect
 	golang.org/x/crypto v0.58.0 // indirect
-	golang.org/x/net v0.61.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/term v0.47.0 // indirect

@@ -1,5 +1,5 @@
 # github.com/Quad4-Software/Reticulum-Go v1.1.2-0.20260915034538-6c079df83b52 => ../../
-## explicit; go 1.27.1
+## explicit; go 1.27.3
 github.com/Quad4-Software/Reticulum-Go/internal/storage
 github.com/Quad4-Software/Reticulum-Go/pkg/announce
 github.com/Quad4-Software/Reticulum-Go/pkg/backbone
@@ -51,8 +51,8 @@ github.com/dunglas/httpsfv
 # github.com/godbus/dbus/v5 v5.2.4
 ## explicit; go 1.20
 github.com/godbus/dbus/v5
-# github.com/landlock-lsm/go-landlock v0.10.1
-## explicit; go 1.24.0
+# github.com/landlock-lsm/go-landlock v0.11.0
+## explicit; go 1.26.0
 github.com/landlock-lsm/go-landlock/landlock
 github.com/landlock-lsm/go-landlock/landlock/internal
 github.com/landlock-lsm/go-landlock/landlock/syscall
@@ -102,7 +102,7 @@ golang.org/x/crypto/curve25519
 golang.org/x/crypto/hkdf
 golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
-# golang.org/x/net v0.61.0
+# golang.org/x/net v0.62.0
 ## explicit; go 1.26.0
 golang.org/x/net/bpf
 golang.org/x/net/http/httpguts
