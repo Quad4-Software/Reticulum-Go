@@ -4,8 +4,8 @@ github.com/Quad4-Software/msgpack/v5 v5.9.2 h1:u7w+VhyG3TgRcEJp5EL5Ycentzv2OUnt4
 github.com/Quad4-Software/msgpack/v5 v5.9.2/go.mod h1:QZyJyJ+zotzU854cnsrd3bmRghUkBg7zpeYCKTpyVQs=
 github.com/Quad4-Software/pbt v1.0.2 h1:Pbd+M1dr/1zZ6F0VTxk0JR7OezECFg8xZ9pfQbMO3Hc=
 github.com/Quad4-Software/pbt v1.0.2/go.mod h1:LT0wImA1rUlv1IcuPHf3rrDBa5WwDi5nHAPupxi7a84=
-github.com/Quad4-Software/reticulum-go-protocols v0.0.0-20260915041511-3c6fc8492060 h1:QUlveM/72GnPlByHDdSiilFQ+TJSiZe0UaENUqzvbGE=
-github.com/Quad4-Software/reticulum-go-protocols v0.0.0-20260915041511-3c6fc8492060/go.mod h1:yhob76kcw35+QqTmF+Co9QdaX6grjeeegpulBR72i0o=
+github.com/Quad4-Software/reticulum-go-protocols v0.0.0-20260928010046-472ce44773d9 h1:rNAfNkJ3g7eEEoEjZMSyWvlTi/SAJT2dIrE87OjNjn8=
+github.com/Quad4-Software/reticulum-go-protocols v0.0.0-20260928010046-472ce44773d9/go.mod h1:KOUb3UGQvAlbUk91RI22VIpT71eNvG3e7xOtebp1HOo=
 github.com/Quad4-Software/tagparser/v2 v2.2.1 h1:kzqn0lCINb4H3ysLJoCoOE36jEW4OVGGMayTJF/z7MM=
 github.com/Quad4-Software/tagparser/v2 v2.2.1/go.mod h1:WbIheb6QbJCsk0E0LcWFfndPs4I+Ws/GPNG21lhE5Kw=
 github.com/dunglas/httpsfv v1.1.2 h1:432E+FKy2DLMbVcZeAnOuM7nhyJ4vTiH7b9iXJ/Dkmc=

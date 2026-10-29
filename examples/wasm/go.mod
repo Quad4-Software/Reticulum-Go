@@ -3,8 +3,8 @@ module github.com/Quad4-Software/Reticulum-Go/examples/wasm
 go 1.27.3
 
 require (
-	github.com/Quad4-Software/Reticulum-Go v1.1.2-0.20260915034538-6c079df83b52
-	github.com/Quad4-Software/reticulum-go-protocols v0.0.0-20260915041511-3c6fc8492060
+	github.com/Quad4-Software/Reticulum-Go v1.4.1
+	github.com/Quad4-Software/reticulum-go-protocols v0.0.0-20260928010046-472ce44773d9
 )
 
 require (
