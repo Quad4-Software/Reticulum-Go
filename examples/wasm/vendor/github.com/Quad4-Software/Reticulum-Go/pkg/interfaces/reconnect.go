@@ -17,6 +17,11 @@ import (
 
 const idleReconnectInterval = 5 * time.Minute
 
+// quarantinePollInterval bounds a single quarantine wait slice so the dial
+// loop re-probes interface addresses and recovers on platforms without
+// netlink events. A var so tests can shorten it.
+var quarantinePollInterval = 15 * time.Second
+
 // errDialAborted is returned by dialTracked when a quarantine wait is
 // interrupted by driver shutdown. It is never a real dial failure.
 var errDialAborted = errors.New("dial aborted")
@@ -116,6 +121,7 @@ func (rd *reconnectDriver) start() {
 func (rd *reconnectDriver) dialTracked() (net.Conn, error) {
 	tr := rd.tracker
 	if tr != nil && rd.label != "" {
+		tr.NetworkChanged()
 		for {
 			ok, wait := tr.DialAllowed(rd.label)
 			if ok {
@@ -123,9 +129,12 @@ func (rd *reconnectDriver) dialTracked() (net.Conn, error) {
 			}
 			debug.Log(debug.DebugInfo, "Endpoint quarantined, delaying dial",
 				"target", rd.label, "retry_in", wait)
-			if !rd.wait(wait) {
+			if !rd.wait(min(wait, quarantinePollInterval)) {
 				return nil, errDialAborted
 			}
+			// An interface coming up clears quarantines, so re-probe
+			// before looping back into DialAllowed.
+			tr.NetworkChanged()
 		}
 		conn, err := rd.dial()
 		if err != nil {
@@ -304,6 +313,9 @@ func (rd *reconnectDriver) wait(d time.Duration) bool {
 // immediately after the underlay network changes (Tailscale netmon / nebula
 // rebind pattern). Kicks are non-blocking and rate-limited.
 func (rd *reconnectDriver) kick() {
+	if rd.tracker != nil {
+		rd.tracker.NetworkChanged()
+	}
 	rd.mu.Lock()
 	if now := time.Now(); !rd.lastKick.IsZero() && now.Sub(rd.lastKick) < kickMinInterval {
 		rd.mu.Unlock()

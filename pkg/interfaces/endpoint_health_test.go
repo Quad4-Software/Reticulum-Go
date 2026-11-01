@@ -6,6 +6,7 @@ package interfaces
 import (
 	"errors"
 	"net"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -242,3 +243,176 @@ func TestReconnectDriverSlowDropNotFlap(t *testing.T) {
 type fakeConn struct{ net.Conn }
 
 func (f *fakeConn) Close() error { return nil }
+
+// quarantineNow drives ep into quarantine at the tracker's current clock.
+func quarantineNow(t *testing.T, et *EndpointTracker, ep string) time.Duration {
+	t.Helper()
+	for i := 0; i < EndpointQuarantineConsecutiveFails; i++ {
+		et.RecordFailure(ep)
+	}
+	ok, wait := et.DialAllowed(ep)
+	if ok {
+		t.Fatal("expected quarantine")
+	}
+	return wait
+}
+
+func TestEndpointTrackerResetQuarantines(t *testing.T) {
+	et := NewEndpointTracker()
+	now := time.Now()
+	et.now = func() time.Time { return now }
+	ep := "reset:1"
+
+	first := quarantineNow(t, et, ep)
+	now = now.Add(first + time.Second)
+	second := quarantineNow(t, et, ep)
+	if second <= first {
+		t.Fatal("expected escalation before reset")
+	}
+
+	et.RecordFlap(ep)
+	et.ResetQuarantines()
+
+	if ok, _ := et.DialAllowed(ep); !ok {
+		t.Fatal("endpoint still quarantined after reset")
+	}
+	st := et.Status(ep)
+	if st.DialFailures != 2*EndpointQuarantineConsecutiveFails {
+		t.Fatalf("dial_failures=%d, lifetime counters must survive reset", st.DialFailures)
+	}
+	if st.Flaps != 1 {
+		t.Fatalf("flaps=%d, lifetime counters must survive reset", st.Flaps)
+	}
+
+	// Escalation restarts at the base duration after a reset.
+	third := quarantineNow(t, et, ep)
+	if third > EndpointQuarantineBase || third <= EndpointQuarantineBase/2 {
+		t.Fatalf("post-reset quarantine %v, want about %v", third, EndpointQuarantineBase)
+	}
+}
+
+func TestEndpointTrackerNilSafeReset(t *testing.T) {
+	var et *EndpointTracker
+	et.ResetQuarantines()
+	if et.NetworkChanged() {
+		t.Fatal("nil tracker must report no change")
+	}
+}
+
+// probeTracker returns a tracker whose address snapshot is controlled by the
+// returned setter.
+func probeTracker(t *testing.T) (*EndpointTracker, func(map[string]struct{}, error)) {
+	t.Helper()
+	et := NewEndpointTracker()
+	var mu sync.Mutex
+	cur := map[string]struct{}{"eth0|192.168.1.2": {}}
+	var err error
+	et.netProbe = func() (map[string]struct{}, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return cur, err
+	}
+	return et, func(m map[string]struct{}, e error) {
+		mu.Lock()
+		cur = m
+		err = e
+		mu.Unlock()
+	}
+}
+
+func TestEndpointTrackerNetworkChangedBaseline(t *testing.T) {
+	et, _ := probeTracker(t)
+	ep := "base:1"
+	quarantineNow(t, et, ep)
+	// First call only establishes the baseline: no reset, returns false.
+	if et.NetworkChanged() {
+		t.Fatal("baseline call must return false")
+	}
+	if ok, _ := et.DialAllowed(ep); ok {
+		t.Fatal("baseline call must not clear quarantine")
+	}
+}
+
+func TestEndpointTrackerNetworkChangedGainedResets(t *testing.T) {
+	et, set := probeTracker(t)
+	ep := "gain:1"
+	quarantineNow(t, et, ep)
+	if et.NetworkChanged() {
+		t.Fatal("baseline call must return false")
+	}
+	set(map[string]struct{}{
+		"eth0|192.168.1.2": {},
+		"wlan0|10.0.0.5":   {},
+	}, nil)
+	if !et.NetworkChanged() {
+		t.Fatal("gained address must reset and return true")
+	}
+	if ok, _ := et.DialAllowed(ep); !ok {
+		t.Fatal("gained address must clear quarantine")
+	}
+	// Identical snapshot is a no-op.
+	if et.NetworkChanged() {
+		t.Fatal("unchanged snapshot must return false")
+	}
+}
+
+func TestEndpointTrackerNetworkChangedRemovalOnly(t *testing.T) {
+	et, set := probeTracker(t)
+	ep := "lose:1"
+	quarantineNow(t, et, ep)
+	et.NetworkChanged()
+	set(map[string]struct{}{}, nil)
+	if et.NetworkChanged() {
+		t.Fatal("removal-only change must not reset")
+	}
+	if ok, _ := et.DialAllowed(ep); ok {
+		t.Fatal("removal-only change must keep quarantine")
+	}
+}
+
+func TestEndpointTrackerNetworkChangedProbeError(t *testing.T) {
+	et, set := probeTracker(t)
+	ep := "err:1"
+	quarantineNow(t, et, ep)
+	et.NetworkChanged()
+	set(nil, errors.New("probe failed"))
+	if et.NetworkChanged() {
+		t.Fatal("probe error must return false")
+	}
+	if ok, _ := et.DialAllowed(ep); ok {
+		t.Fatal("probe error must keep quarantine")
+	}
+	// The failed probe did not replace the baseline: a later gain still
+	// resets against the last good snapshot.
+	set(map[string]struct{}{
+		"eth0|192.168.1.2": {},
+		"wlan0|10.0.0.5":   {},
+	}, nil)
+	if !et.NetworkChanged() {
+		t.Fatal("gain after probe error must reset")
+	}
+}
+
+func TestEndpointTrackerNetworkChangedConcurrent(t *testing.T) {
+	et, set := probeTracker(t)
+	ep := "race:1"
+	et.NetworkChanged()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 200; i++ {
+			set(map[string]struct{}{"eth0|192.168.1.2": {}}, nil)
+			set(map[string]struct{}{
+				"eth0|192.168.1.2": {},
+				"wlan0|10.0.0.5":   {},
+			}, nil)
+		}
+	}()
+	for i := 0; i < 200; i++ {
+		et.NetworkChanged()
+		et.RecordFailure(ep)
+		et.DialAllowed(ep)
+		et.ResetQuarantines()
+	}
+	<-done
+}

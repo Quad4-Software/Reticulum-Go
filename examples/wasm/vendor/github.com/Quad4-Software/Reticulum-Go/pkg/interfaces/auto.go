@@ -355,19 +355,26 @@ func (ai *AutoInterface) configureInterface(iface *net.Interface) error {
 		linkLocalAddr: linkLocalAddr,
 		index:         iface.Index,
 	}
-	ai.linkLocalAddrs = append(ai.linkLocalAddrs, linkLocalAddr)
+	if !slices.Contains(ai.linkLocalAddrs, linkLocalAddr) {
+		ai.linkLocalAddrs = append(ai.linkLocalAddrs, linkLocalAddr)
+	}
 	ai.multicastEchoes[iface.Name] = time.Now()
 	ai.Mutex.Unlock()
 
+	// Any failure after adoption rolls back fully so the next rescan
+	// retries instead of skipping a half-adopted entry.
 	if err := ai.startDiscoveryListener(iface); err != nil {
+		ai.removeInterface(iface.Name)
 		return fmt.Errorf("failed to start discovery listener: %w", err)
 	}
 
 	if err := ai.startUnicastDiscoveryListener(iface); err != nil {
+		ai.removeInterface(iface.Name)
 		return fmt.Errorf("failed to start unicast discovery listener: %w", err)
 	}
 
 	if err := ai.startDataListener(iface); err != nil {
+		ai.removeInterface(iface.Name)
 		return fmt.Errorf("failed to start data listener: %w", err)
 	}
 
@@ -380,6 +387,7 @@ func (ai *AutoInterface) configureInterface(iface *net.Interface) error {
 	}
 	outboundConn, err := net.ListenUDP("udp6", outboundAddr)
 	if err != nil {
+		ai.removeInterface(iface.Name)
 		return fmt.Errorf("failed to create outbound socket: %w", err)
 	}
 

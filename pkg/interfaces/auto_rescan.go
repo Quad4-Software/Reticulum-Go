@@ -6,6 +6,7 @@ package interfaces
 import (
 	"fmt"
 	"net"
+	"slices"
 	"time"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
@@ -85,6 +86,11 @@ func (ai *AutoInterface) RescanInterfaces() error {
 
 func (ai *AutoInterface) removeInterface(name string) {
 	ai.Mutex.Lock()
+	if adopted, ok := ai.adoptedInterfaces[name]; ok {
+		ai.linkLocalAddrs = slices.DeleteFunc(ai.linkLocalAddrs, func(a string) bool {
+			return a == adopted.linkLocalAddr
+		})
+	}
 	delete(ai.adoptedInterfaces, name)
 	delete(ai.multicastEchoes, name)
 	delete(ai.timedOutInterfaces, name)

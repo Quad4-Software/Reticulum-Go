@@ -586,3 +586,31 @@ func TestUpdateLinkLocalAddressesEmpty(t *testing.T) {
 	}
 	ai.updateLinkLocalAddresses()
 }
+
+// TestRemoveInterfaceDropsLinkLocalAddr verifies removeInterface removes the
+// adopted address from linkLocalAddrs so repeated adopt/remove cycles do
+// not grow stale or duplicate entries.
+func TestRemoveInterfaceDropsLinkLocalAddr(t *testing.T) {
+	config := &common.InterfaceConfig{Type: "AutoInterface"}
+	ai, err := NewAutoInterface("autoRemoveLL", config)
+	if err != nil {
+		t.Fatalf("NewAutoInterface failed: %v", err)
+	}
+	const name = "test0"
+	const addr = "fe80::1"
+	ai.Mutex.Lock()
+	ai.adoptedInterfaces[name] = &AdoptedInterface{name: name, linkLocalAddr: addr, index: 1}
+	ai.linkLocalAddrs = append(ai.linkLocalAddrs, addr)
+	ai.Mutex.Unlock()
+
+	ai.removeInterface(name)
+
+	ai.Mutex.Lock()
+	defer ai.Mutex.Unlock()
+	if slices.Contains(ai.linkLocalAddrs, addr) {
+		t.Fatal("linkLocalAddrs still holds removed address")
+	}
+	if _, ok := ai.adoptedInterfaces[name]; ok {
+		t.Fatal("adoptedInterfaces still holds removed interface")
+	}
+}

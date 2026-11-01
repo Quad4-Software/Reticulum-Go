@@ -50,6 +50,13 @@ type EndpointTracker struct {
 	mu  sync.Mutex
 	eps map[string]*endpointState
 	now func() time.Time
+
+	// netProbe snapshots usable network addresses; nil uses
+	// usableNetworkAddrs. netBase holds the last snapshot and netInit
+	// marks the baseline as established.
+	netProbe func() (map[string]struct{}, error)
+	netBase  map[string]struct{}
+	netInit  bool
 }
 
 type endpointState struct {
@@ -66,6 +73,11 @@ type endpointState struct {
 // DefaultEndpointTracker is shared by all interfaces in the process so a
 // flapping autoconnected endpoint counts across interfaces.
 var DefaultEndpointTracker = NewEndpointTracker()
+
+// ResetEndpointQuarantines clears all quarantines on the default tracker.
+func ResetEndpointQuarantines() {
+	DefaultEndpointTracker.ResetQuarantines()
+}
 
 // NewEndpointTracker returns an empty tracker.
 func NewEndpointTracker() *EndpointTracker {
@@ -209,6 +221,67 @@ func (et *EndpointTracker) quarantineLocked(st *endpointState, now time.Time) {
 	st.quarantinedUntil = now.Add(dur)
 	st.consecutiveFails = 0
 	st.flapTimes = st.flapTimes[:0]
+}
+
+// ResetQuarantines clears every quarantine, consecutive-failure count, flap
+// history and escalation level so dials resume immediately, for example
+// after the underlay network returns. Lifetime counters are kept.
+func (et *EndpointTracker) ResetQuarantines() {
+	if et == nil {
+		return
+	}
+	et.mu.Lock()
+	defer et.mu.Unlock()
+	et.resetQuarantinesLocked()
+}
+
+// resetQuarantinesLocked clears quarantine state on all endpoints. Caller
+// holds mu.
+func (et *EndpointTracker) resetQuarantinesLocked() {
+	for _, st := range et.eps {
+		st.quarantinedUntil = time.Time{}
+		st.consecutiveFails = 0
+		st.flapTimes = st.flapTimes[:0]
+		st.quarantineCount = 0
+	}
+}
+
+// NetworkChanged snapshots usable interface addresses and resets all
+// quarantine state when an address was gained, meaning an interface came
+// up. Removal-only changes never reset. The first call establishes the
+// baseline and reports false. Returns true when a reset happened.
+func (et *EndpointTracker) NetworkChanged() bool {
+	if et == nil {
+		return false
+	}
+	probe := et.netProbe
+	if probe == nil {
+		probe = usableNetworkAddrs
+	}
+	cur, err := probe()
+	if err != nil {
+		return false
+	}
+	et.mu.Lock()
+	defer et.mu.Unlock()
+	if !et.netInit {
+		et.netBase = cur
+		et.netInit = true
+		return false
+	}
+	gained := false
+	for k := range cur {
+		if _, ok := et.netBase[k]; !ok {
+			gained = true
+			break
+		}
+	}
+	et.netBase = cur
+	if !gained {
+		return false
+	}
+	et.resetQuarantinesLocked()
+	return true
 }
 
 // Status returns the operator view of an endpoint's health.

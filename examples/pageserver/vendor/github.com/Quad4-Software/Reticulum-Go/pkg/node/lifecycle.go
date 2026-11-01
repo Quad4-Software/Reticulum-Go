@@ -28,6 +28,7 @@ func (n *Node) OnNetworkAvailable() error {
 	}
 	n.networkPaused = false
 	link.SetGlobalPaused(false)
+	interfaces.ResetEndpointQuarantines()
 
 	if !n.ownsInterfaces() {
 		return n.RefreshPathsWithDownDuration(downDuration)

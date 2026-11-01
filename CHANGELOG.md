@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.4.2 - 2026-11-01
+
+### Fixed
+
+- Endpoint quarantine no longer outlives a network outage. When an interface gains a usable address (wifi reconnects, cable plugged in), every endpoint quarantine, consecutive-failure count, flap history, and escalation level is cleared and dials resume immediately. Detection runs on rtnetlink events and as a 15 second poll while an endpoint waits out a cooldown, so platforms without netlink events recover too. Lifetime counters in interface_stats are kept. `Node.OnNetworkAvailable` also clears all quarantines for hosts that signal network return themselves (Android, librns, control API).
+- AutoInterface no longer stays dead after a failed adoption. If a listener or the outbound socket failed to start right after an interface returned (for example while the IPv6 link-local address was still settling), the half-adopted entry was kept and later rescans skipped it. Adoption now rolls back fully so the next rescan retries, and the adopted address list no longer accumulates stale or duplicate entries.
+
 ## v1.4.1 - 2026-10-06
 
 Tracks Python RNS 1.5.7.
