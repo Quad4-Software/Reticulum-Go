@@ -28,6 +28,28 @@ on:
         required: true
       COSIGN_PASSWORD:
         required: false
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Git tag and release name (must match the ref this run is dispatched on)
+        required: true
+        type: string
+      prerelease:
+        description: Publish as a GitHub prerelease (preview)
+        required: false
+        type: boolean
+        default: false
+      target_commitish:
+        description: Commit SHA or branch for the release tag (preview builds)
+        required: false
+        type: string
+        default: ""
+
+concurrency:
+  # One release pipeline per tag; a superseded run must never cancel a
+  # release mid-publish.
+  group: release-assets-${{ inputs.tag_name || github.ref }}
+  cancel-in-progress: false
 
 # Build jobs stay read-only. The publish job elevates to contents: write.
 permissions:
@@ -82,6 +104,48 @@ env:
   GOTOOLCHAIN: local
 
 jobs:
+  validate:
+    name: Validate release inputs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
+      # A manual run must target an existing release tag, and must be
+      # dispatched from that tag so the checkout and builds produce the
+      # tag's tree rather than whatever ref the run started on. Preview
+      # tags arrive only from the preview-release caller, never dispatch.
+      - name: Check tag input
+        env:
+          RELEASE_TAG: ${{ inputs.tag_name }}
+          RELEASE_PRERELEASE: ${{ inputs.prerelease }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -eu
+          if echo "${RELEASE_TAG}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+'; then
+            :
+          elif [ "${RELEASE_TAG#preview-}" != "${RELEASE_TAG}" ] && [ "${RELEASE_PRERELEASE}" = "true" ]; then
+            :
+          else
+            echo "tag_name '${RELEASE_TAG}' is not a release tag (want vX.Y.Z)" >&2
+            exit 1
+          fi
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+            echo "${RELEASE_TAG}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+' || {
+              echo "dispatch requires a vX.Y.Z tag_name, got '${RELEASE_TAG}'" >&2
+              exit 1
+            }
+            if [ "${REF_NAME}" != "${RELEASE_TAG}" ]; then
+              echo "dispatch ref '${REF_NAME}' does not match tag_name '${RELEASE_TAG}'" >&2
+              echo "dispatch this workflow from the tag's ref" >&2
+              exit 1
+            fi
+          fi
+
   build:
     name: Build (${{ matrix.goos }}, ${{ matrix.goarch }})
     strategy:
@@ -466,7 +530,7 @@ jobs:
   release:
     name: Cosign attest and publish release
     runs-on: ubuntu-latest
-    needs: [build, build-windows-legacy, build-windows-xp, sbom, examples]
+    needs: [validate, build, build-windows-legacy, build-windows-xp, sbom, examples]
     timeout-minutes: 30
     permissions:
       contents: write # creates the GitHub release and uploads assets

@@ -9,6 +9,7 @@ on:
     branches: [tinygo]
   pull_request:
     branches: [tinygo]
+  workflow_dispatch:
 
 concurrency:
   group: tinygo-${{ github.event.pull_request.number || github.ref }}

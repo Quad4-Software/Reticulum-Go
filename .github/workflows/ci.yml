@@ -15,6 +15,7 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
@@ -88,11 +89,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      docs_only: ${{ steps.filter.outputs.docs_only }}
-      core: ${{ steps.filter.outputs.core }}
-      bindings: ${{ steps.filter.outputs.bindings }}
-      ci: ${{ steps.filter.outputs.ci }}
-      examples: ${{ steps.filter.outputs.examples }}
+      docs_only: ${{ steps.filter.outputs.docs_only || steps.manual.outputs.docs_only }}
+      core: ${{ steps.filter.outputs.core || steps.manual.outputs.core }}
+      bindings: ${{ steps.filter.outputs.bindings || steps.manual.outputs.bindings }}
+      ci: ${{ steps.filter.outputs.ci || steps.manual.outputs.ci }}
+      examples: ${{ steps.filter.outputs.examples || steps.manual.outputs.examples }}
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
@@ -133,6 +134,7 @@ jobs:
           fi
 
       - name: Detect changed paths
+        if: github.event_name != 'workflow_dispatch'
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
@@ -167,6 +169,21 @@ jobs:
               - 'mise.toml'
             examples:
               - 'examples/**'
+
+      # Manual dispatch has no push or PR diff for paths-filter, so every
+      # category counts as changed like a full push run (docs_only stays
+      # false so docs-gated jobs still run).
+      - name: Treat all paths as changed on manual dispatch
+        if: github.event_name == 'workflow_dispatch'
+        id: manual
+        run: |
+          {
+            echo "docs_only=false"
+            echo "core=true"
+            echo "bindings=true"
+            echo "ci=true"
+            echo "examples=true"
+          } >> "$GITHUB_OUTPUT"
 
   lint:
     name: Lint
@@ -216,7 +233,7 @@ jobs:
   test:
     name: Test (${{ matrix.os }}, ${{ matrix.goarch }})
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.docs_only != 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.docs_only != 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -281,7 +298,7 @@ jobs:
   test-live-interop:
     name: Live interop (Go/Python RNS)
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.core == 'true' || needs.changes.outputs.ci == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true' || needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -322,7 +339,7 @@ jobs:
   test-os-matrix:
     name: OS runtime (${{ matrix.os }})
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.core == 'true' || needs.changes.outputs.bindings == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true' || needs.changes.outputs.bindings == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     strategy:
@@ -370,7 +387,7 @@ jobs:
   test-freebsd:
     name: FreeBSD self-check
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.core == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -407,7 +424,7 @@ jobs:
   test-openbsd:
     name: OpenBSD self-check
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.core == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -444,7 +461,7 @@ jobs:
   test-netbsd:
     name: NetBSD self-check
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.core == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -483,7 +500,7 @@ jobs:
   test-haiku:
     name: Haiku self-check
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.core == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -537,7 +554,7 @@ jobs:
   test-qemu-arch:
     name: Linux ${{ matrix.goarch }} self-check (qemu-user)
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.core == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
@@ -594,7 +611,7 @@ jobs:
   test-odin:
     name: Odin bindings
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -626,7 +643,7 @@ jobs:
   test-zig:
     name: Zig bindings
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -658,7 +675,7 @@ jobs:
   test-cpp:
     name: C++ bindings
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -690,7 +707,7 @@ jobs:
   test-c:
     name: C librns examples
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -719,7 +736,7 @@ jobs:
   test-rust:
     name: Rust bindings
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -748,7 +765,7 @@ jobs:
   test-swift:
     name: Swift bindings
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -782,7 +799,7 @@ jobs:
   test-lua:
     name: Lua bindings
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -814,7 +831,7 @@ jobs:
   test-java:
     name: Java bindings
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -849,7 +866,7 @@ jobs:
   test-kotlin:
     name: Kotlin bindings
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -889,7 +906,7 @@ jobs:
   test-python:
     name: Python bindings
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -918,7 +935,7 @@ jobs:
   test-dart:
     name: Dart bindings
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.bindings == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -952,7 +969,7 @@ jobs:
   test-mutation:
     name: Mutation testing (${{ matrix.name }})
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.core == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     strategy:
@@ -996,7 +1013,7 @@ jobs:
   test-extra:
     name: Extra (${{ matrix.suite }})
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.core == 'true' || needs.changes.outputs.examples == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true' || needs.changes.outputs.examples == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -1058,7 +1075,7 @@ jobs:
   build:
     name: Build (${{ matrix.goos }}, ${{ matrix.goarch }})
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.core == 'true' || needs.changes.outputs.bindings == 'true' || needs.changes.outputs.ci == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true' || needs.changes.outputs.bindings == 'true' || needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -1175,7 +1192,7 @@ jobs:
   build-windows-legacy:
     name: Build (windows, ${{ matrix.goarch }}, win7)
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.core == 'true' || needs.changes.outputs.ci == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true' || needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -1232,7 +1249,7 @@ jobs:
   build-windows-xp:
     name: Build (windows, ${{ matrix.goarch }}, winxp)
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.core == 'true' || needs.changes.outputs.ci == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true' || needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -1289,7 +1306,7 @@ jobs:
   examples:
     name: Examples (pageserver, wasm)
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.core == 'true' || needs.changes.outputs.examples == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true' || needs.changes.outputs.examples == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -1359,7 +1376,7 @@ jobs:
   reproducibility:
     name: Reproducible build
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.core == 'true' || needs.changes.outputs.ci == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true' || needs.changes.outputs.ci == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -1388,7 +1405,7 @@ jobs:
   benchmark:
     name: Benchmark gate
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.core == 'true'
+    if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

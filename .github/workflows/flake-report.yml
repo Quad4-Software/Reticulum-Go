@@ -16,6 +16,12 @@ on: # zizmor: ignore[dangerous-triggers] see comment above; never runs PR-contro
     workflows: [CI]
     types: [completed]
     branches: [master]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Actions run ID of a completed CI run to analyse
+        required: true
+        type: string
 
 permissions:
   actions: read # reads completed run logs via gh api
@@ -49,8 +55,10 @@ jobs:
     # issues:write token. Cancelled or timed-out runs carry partial logs
     # from a superseded commit and their failures are noise, not flakes.
     if: >-
-      github.event.workflow_run.event == 'push' &&
-      (github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure')
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.event == 'push' &&
+       (github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_id != '')
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
@@ -67,6 +75,6 @@ jobs:
       - name: Report flaky tests
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
           RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
         run: sh scripts/ci/report-flakes.sh

@@ -7,6 +7,13 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Git tag and release name (must match the ref this run is dispatched on)
+        required: false
+        type: string
+        default: ""
 
 concurrency:
   group: publish-${{ github.ref }}
@@ -23,7 +30,7 @@ jobs:
       attestations: write # build provenance attestation
     uses: $/.github/workflows/release-assets.yml
     with:
-      tag_name: ${{ github.ref_name }}
+      tag_name: ${{ inputs.tag_name || github.ref_name }}
       prerelease: false
     secrets:
       COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}

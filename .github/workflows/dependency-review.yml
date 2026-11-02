@@ -6,6 +6,18 @@ name: Dependency Review
 
 on:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: Base ref to compare against
+        required: false
+        type: string
+        default: master
+      head_ref:
+        description: Head ref to review (defaults to the ref this run is dispatched on)
+        required: false
+        type: string
+        default: ""
 
 concurrency:
   group: dependency-review-${{ github.event.pull_request.number || github.ref }}
@@ -50,3 +62,5 @@ jobs:
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high
+          base-ref: ${{ inputs.base_ref }}
+          head-ref: ${{ inputs.head_ref || github.sha }}

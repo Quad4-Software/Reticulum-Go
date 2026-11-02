@@ -8,6 +8,13 @@ on:
   pull_request:
     branches: [master]
     types: [opened, edited, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: Base ref for the DCO and signature commit range (branch, tag or SHA)
+        required: false
+        type: string
+        default: master
 
 concurrency:
   group: pr-checks-${{ github.event.pull_request.number || github.ref }}
@@ -39,6 +46,8 @@ jobs:
     name: Semantic PR title
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # No PR exists on a manual dispatch, so there is no title to validate.
+    if: github.event_name == 'pull_request'
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
@@ -84,9 +93,17 @@ jobs:
       - name: Check Signed-off-by trailers
         env:
           GITHUB_EVENT_NAME: pull_request
-          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
-        run: sh scripts/ci/verify-dco.sh
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha || inputs.base_ref }}
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        # base_ref arrives as a branch or tag name; resolve it (and its
+        # origin/ fallback) to a SHA before diffing the commit range.
+        run: |
+          set -eu
+          base="${GITHUB_BASE_SHA}"
+          if ! git rev-parse -q --verify "${base}^{commit}" >/dev/null 2>&1; then
+            base="origin/${base}"
+          fi
+          GITHUB_BASE_SHA="$(git rev-parse "${base}")" sh scripts/ci/verify-dco.sh
 
   signed-commits:
     name: Signed commits (advisory)
@@ -116,6 +133,12 @@ jobs:
       - name: Verify commit signatures
         env:
           GITHUB_EVENT_NAME: pull_request
-          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
-        run: sh scripts/ci/verify-signed-commits.sh
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha || inputs.base_ref }}
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -eu
+          base="${GITHUB_BASE_SHA}"
+          if ! git rev-parse -q --verify "${base}^{commit}" >/dev/null 2>&1; then
+            base="origin/${base}"
+          fi
+          GITHUB_BASE_SHA="$(git rev-parse "${base}")" sh scripts/ci/verify-signed-commits.sh
