@@ -1,0 +1,206 @@
+# Mirrors .github/workflows/ci.yml job "test-extra" (sim, chaos, soak,
+# leaks, fuzz-guided, bench-gate, wasm) and the bindings test jobs that run
+# inside a Linux container.
+variables:
+  - &golang_image 'docker.io/library/golang:1.27.3-bookworm'
+  - base_env: &base_env
+      GOFLAGS: -mod=vendor
+      GOPROXY: 'off'
+      GOSUMDB: 'off'
+      GOTOOLCHAIN: local
+      CGO_ENABLED: '0'
+      GOMODCACHE: ${CI_WORKSPACE}/.cache/go-mod
+      GOCACHE: ${CI_WORKSPACE}/.cache/go-build
+      TESTSUMMARY_QUIET: '1'
+      TESTSUMMARY_RERUN_FAILS: '2'
+
+when:
+  - event: push
+    branch: master
+  - event: pull_request
+  - event: manual
+
+cache:
+  - key: go-{{ arch }}-{{ checksum "go.sum" }}
+    restore_keys: ['go-{{ arch }}-']
+    paths:
+      - .cache/go-mod
+      - .cache/go-build
+
+steps:
+  sim:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - task test-sim
+
+  chaos:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - task test-chaos
+
+  soak:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - task test-soak
+      - task test-soak-protect
+
+  leaks:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - task test-leaks
+
+  fuzz-guided:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - task test-fuzz-guided
+
+  bench-gate:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - task test-bench-gate
+
+  wasm:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - apt-get update -qq
+      - apt-get install -y -qq nodejs
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - task test-wasm
+
+  bindings-c:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - apt-get update -qq
+      - apt-get install -y -qq make gcc
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - task test-c
+
+  bindings-cpp:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - apt-get update -qq
+      - apt-get install -y -qq cmake g++ make
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - task test-cpp
+
+  bindings-lua:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - apt-get update -qq
+      - apt-get install -y -qq luajit make gcc
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - task test-lua
+
+  bindings-python:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - apt-get update -qq
+      - apt-get install -y -qq python3 make gcc
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - task test-python
+
+  bindings-java:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - apt-get update -qq
+      - apt-get install -y -qq default-jdk-headless make gcc
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - task test-java
+
+  bindings-kotlin:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - apt-get update -qq
+      - apt-get install -y -qq default-jdk-headless make gcc
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - sh scripts/ci/setup-kotlin.sh "2.1.10"
+      - export PATH="$${HOME}/.local/bin:$${PATH}"
+      - task test-kotlin
+
+  bindings-zig:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - sh scripts/ci/setup-zig.sh "0.16.0"
+      - export PATH="$${HOME}/.local/bin:$${PATH}"
+      - task test-zig
+
+  bindings-odin:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - sh scripts/ci/setup-odin.sh "dev-2026-06"
+      - export PATH="$${HOME}/.local/bin:$${PATH}"
+      - task test-odin
+
+  bindings-rust:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - apt-get update -qq
+      - apt-get install -y -qq make gcc
+      - curl -fsSL https://sh.rustup.rs -o /tmp/rustup.sh
+      - sh /tmp/rustup.sh -y --profile minimal --default-toolchain stable
+      - export PATH="$${HOME}/.cargo/bin:$${PATH}"
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - task test-rust
+
+  bindings-dart:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - apt-get update -qq
+      - apt-get install -y -qq unzip make gcc
+      - curl -fsSL -o /tmp/dart.zip "https://storage.googleapis.com/dart-archive/channels/stable/release/3.11.4/sdk/dartsdk-linux-x64-release.zip"
+      - unzip -q /tmp/dart.zip -d /opt
+      - export PATH="/opt/dart-sdk/bin:$${PATH}"
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - task test-dart
+
+  bindings-swift:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - sh scripts/ci/setup-swift.sh "6.0.3"
+      - export PATH="$${HOME}/.local/bin:$${PATH}"
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - task test-swift

@@ -1,0 +1,35 @@
+# Mirrors .github/workflows/stress.yml: nightly repetition of
+# timing-sensitive tests so flakes surface on a dedicated run.
+variables:
+  - &golang_image 'docker.io/library/golang:1.27.3-bookworm'
+  - base_env: &base_env
+      GOFLAGS: -mod=vendor
+      GOPROXY: 'off'
+      GOSUMDB: 'off'
+      GOTOOLCHAIN: local
+      CGO_ENABLED: '0'
+      GOMODCACHE: ${CI_WORKSPACE}/.cache/go-mod
+      GOCACHE: ${CI_WORKSPACE}/.cache/go-build
+      TESTSUMMARY_QUIET: '1'
+      TESTSUMMARY_RERUN_FAILS: '2'
+
+when:
+  - event: cron
+    cron: nightly
+  - event: manual
+
+cache:
+  - key: go-{{ arch }}-{{ checksum "go.sum" }}
+    restore_keys: ['go-{{ arch }}-']
+    paths:
+      - .cache/go-mod
+      - .cache/go-build
+
+steps:
+  stress:
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - go test -count=10 -timeout 20m -v ./pkg/interfaces -run 'TestModem73'
+      - go test -count=10 -timeout 20m -v ./pkg/rgosh -run 'TestE2E'
+      - go test -count=10 -timeout 15m -v ./pkg/backbone ./pkg/channel ./pkg/buffer ./pkg/link -run 'TestBackbone|TestChannel|TestWait|TestRawChannel|TestWriteContext|TestCompression'

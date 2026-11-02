@@ -1,0 +1,44 @@
+# Mirrors .github/workflows/ci.yml job "test-live-interop". The suite dials
+# public Reticulum peers discovered via directory.rns.recipes, so it never
+# runs on pull requests: manual or scheduled runs only. A single step
+# keeps the apt-installed python and the .venv in the same container.
+variables:
+  - &golang_image 'docker.io/library/golang:1.27.3-bookworm'
+  - base_env: &base_env
+      GOFLAGS: -mod=vendor
+      GOPROXY: 'off'
+      GOSUMDB: 'off'
+      GOTOOLCHAIN: local
+      CGO_ENABLED: '0'
+      GOMODCACHE: ${CI_WORKSPACE}/.cache/go-mod
+      GOCACHE: ${CI_WORKSPACE}/.cache/go-build
+      TESTSUMMARY_QUIET: '1'
+      TESTSUMMARY_RERUN_FAILS: '2'
+      RUN_LIVE_INTEROP: '1'
+
+when:
+  - event: manual
+  - event: cron
+    cron: nightly
+
+cache:
+  - key: go-{{ arch }}-{{ checksum "go.sum" }}
+    restore_keys: ['go-{{ arch }}-']
+    paths:
+      - .cache/go-mod
+      - .cache/go-build
+
+steps:
+  live-interop:
+    image: *golang_image
+    environment:
+      <<: *base_env
+      PYTHON_INTEROP: ${CI_WORKSPACE}/.venv/bin/python
+    commands:
+      - apt-get update -qq
+      - apt-get install -y -qq python3 python3-venv
+      - sh scripts/ci/setup-venv-pip.sh 'rns==1.5.5' 'pyserial'
+      - cd examples/pageserver
+      - go build -mod=vendor -o example-pageserver .
+      - cd "$${CI_WORKSPACE}"
+      - go run ./scripts/ci/testsummary -count=1 -timeout 30m ./tests/interop/

@@ -1,0 +1,72 @@
+# Mirrors .github/workflows/ci.yml job "lint": gofmt check, go vet, revive,
+# staticcheck and the install.sh shellcheck/dry-run test.
+variables:
+  - &golang_image 'docker.io/library/golang:1.27.3-bookworm'
+  - base_env: &base_env
+      GOFLAGS: -mod=vendor
+      GOPROXY: 'off'
+      GOSUMDB: 'off'
+      GOTOOLCHAIN: local
+      CGO_ENABLED: '0'
+      GOMODCACHE: ${CI_WORKSPACE}/.cache/go-mod
+      GOCACHE: ${CI_WORKSPACE}/.cache/go-build
+      TESTSUMMARY_QUIET: '1'
+      TESTSUMMARY_RERUN_FAILS: '2'
+
+when:
+  - event: push
+    branch: master
+  - event: pull_request
+  - event: manual
+
+# Keys are immutable, so a new cache is saved only when go.sum changes.
+cache:
+  - key: go-{{ arch }}-{{ checksum "go.sum" }}
+    restore_keys: ['go-{{ arch }}-']
+    paths:
+      - .cache/go-mod
+      - .cache/go-build
+
+steps:
+  fmt-check:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - task fmt-check
+
+  vet:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - task vet
+
+  revive:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - sh scripts/ci/setup-revive.sh "v1.15.0"
+      - task lint
+
+  staticcheck:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - sh scripts/ci/setup-task.sh "3.46.3"
+      - sh scripts/ci/setup-staticcheck.sh "v0.7.0-0.dev.0.20261009230814-452d5bb86b45"
+      - task staticcheck
+
+  install-script:
+    depends_on: []
+    image: *golang_image
+    environment: *base_env
+    commands:
+      - apt-get update -qq
+      - apt-get install -y -qq shellcheck
+      - sh scripts/ci/test-install.sh
