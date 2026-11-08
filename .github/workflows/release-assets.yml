@@ -106,7 +106,7 @@ env:
 jobs:
   validate:
     name: Validate release inputs
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
     steps:
       - name: Harden runner
@@ -230,7 +230,7 @@ jobs:
           - goos: js
             goarch: wasm
 
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 30
 
     steps:
@@ -240,7 +240,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -280,7 +280,7 @@ jobs:
       matrix:
         goarch: [amd64, arm64]
 
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
 
     steps:
@@ -290,7 +290,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -339,7 +339,7 @@ jobs:
       matrix:
         goarch: [386, amd64]
 
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
 
     steps:
@@ -349,7 +349,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -393,7 +393,7 @@ jobs:
 
   sbom:
     name: SBOM
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 60
 
     steps:
@@ -403,7 +403,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -438,7 +438,7 @@ jobs:
 
   examples:
     name: Examples (pageserver, wasm)
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 30
 
     steps:
@@ -448,7 +448,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -529,7 +529,7 @@ jobs:
 
   release:
     name: Cosign attest and publish release
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     needs: [validate, build, build-windows-legacy, build-windows-xp, sbom, examples]
     timeout-minutes: 30
     permissions:
@@ -544,7 +544,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0

@@ -44,7 +44,7 @@ env:
 jobs:
   semantic-pr-title:
     name: Semantic PR title
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
     # No PR exists on a manual dispatch, so there is no title to validate.
     if: github.event_name == 'pull_request'
@@ -76,7 +76,7 @@ jobs:
 
   dco-signoff:
     name: DCO sign-off
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
     steps:
       - name: Harden runner
@@ -85,7 +85,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -107,7 +107,7 @@ jobs:
 
   signed-commits:
     name: Signed commits (advisory)
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
     continue-on-error: true
     steps:
@@ -117,7 +117,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0

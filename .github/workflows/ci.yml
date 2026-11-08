@@ -86,7 +86,7 @@ env:
 jobs:
   changes:
     name: Path filter
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
     outputs:
       docs_only: ${{ steps.filter.outputs.docs_only || steps.manual.outputs.docs_only }}
@@ -101,7 +101,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -187,7 +187,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     steps:
       - name: Harden runner
@@ -196,7 +196,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -240,9 +240,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: blacksmith-4vcpu-ubuntu-2404
             goarch: amd64
-          - os: ubuntu-24.04-arm
+          - os: blacksmith-4vcpu-ubuntu-2404-arm
             goarch: arm64
 
     steps:
@@ -252,7 +252,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -299,7 +299,7 @@ jobs:
     name: Live interop (Go/Python RNS)
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true' || needs.changes.outputs.ci == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 40
     steps:
       - name: Harden runner
@@ -309,7 +309,7 @@ jobs:
           # discovered via directory.rns.recipes; endpoints are not enumerable.
           egress-policy: audit
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -345,7 +345,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [blacksmith-6vcpu-macos-15, blacksmith-4vcpu-windows-2025]
 
     steps:
       - name: Harden runner
@@ -388,7 +388,7 @@ jobs:
     name: FreeBSD self-check
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 45
     steps:
       - name: Harden runner
@@ -398,7 +398,7 @@ jobs:
           # so per-domain allowlisting cannot see the real destinations.
           egress-policy: audit
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -425,7 +425,7 @@ jobs:
     name: OpenBSD self-check
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 45
     steps:
       - name: Harden runner
@@ -435,7 +435,7 @@ jobs:
           # so per-domain allowlisting cannot see the real destinations.
           egress-policy: audit
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -462,7 +462,7 @@ jobs:
     name: NetBSD self-check
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 45
     steps:
       - name: Harden runner
@@ -472,7 +472,7 @@ jobs:
           # so per-domain allowlisting cannot see the real destinations.
           egress-policy: audit
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -501,7 +501,7 @@ jobs:
     name: Haiku self-check
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 60
     steps:
       - name: Harden runner
@@ -511,7 +511,7 @@ jobs:
           # so per-domain allowlisting cannot see the real destinations.
           egress-policy: audit
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -555,7 +555,7 @@ jobs:
     name: Linux ${{ matrix.goarch }} self-check (qemu-user)
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 40
     strategy:
       fail-fast: false
@@ -579,7 +579,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -612,7 +612,7 @@ jobs:
     name: Odin bindings
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
     steps:
       - name: Harden runner
@@ -621,7 +621,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -644,7 +644,7 @@ jobs:
     name: Zig bindings
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
     steps:
       - name: Harden runner
@@ -653,7 +653,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -676,7 +676,7 @@ jobs:
     name: C++ bindings
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
     steps:
       - name: Harden runner
@@ -685,7 +685,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -708,7 +708,7 @@ jobs:
     name: C librns examples
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     steps:
       - name: Harden runner
@@ -717,7 +717,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -737,7 +737,7 @@ jobs:
     name: Rust bindings
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 25
     steps:
       - name: Harden runner
@@ -746,7 +746,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -766,7 +766,7 @@ jobs:
     name: Swift bindings
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 25
     steps:
       - name: Harden runner
@@ -775,7 +775,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -800,7 +800,7 @@ jobs:
     name: Lua bindings
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     steps:
       - name: Harden runner
@@ -809,7 +809,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -832,7 +832,7 @@ jobs:
     name: Java bindings
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
     steps:
       - name: Harden runner
@@ -841,7 +841,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -867,7 +867,7 @@ jobs:
     name: Kotlin bindings
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 25
     steps:
       - name: Harden runner
@@ -876,7 +876,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -907,7 +907,7 @@ jobs:
     name: Python bindings
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     steps:
       - name: Harden runner
@@ -916,7 +916,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -936,7 +936,7 @@ jobs:
     name: Dart bindings
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.bindings == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     steps:
       - name: Harden runner
@@ -945,7 +945,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -970,7 +970,7 @@ jobs:
     name: Mutation testing (${{ matrix.name }})
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 75
     strategy:
       fail-fast: false
@@ -991,7 +991,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -1014,7 +1014,7 @@ jobs:
     name: Extra (${{ matrix.suite }})
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true' || needs.changes.outputs.examples == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -1028,7 +1028,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -1076,7 +1076,7 @@ jobs:
     name: Build (${{ matrix.goos }}, ${{ matrix.goarch }})
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true' || needs.changes.outputs.bindings == 'true' || needs.changes.outputs.ci == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -1167,7 +1167,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -1193,7 +1193,7 @@ jobs:
     name: Build (windows, ${{ matrix.goarch }}, win7)
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true' || needs.changes.outputs.ci == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -1207,7 +1207,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -1250,7 +1250,7 @@ jobs:
     name: Build (windows, ${{ matrix.goarch }}, winxp)
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true' || needs.changes.outputs.ci == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -1264,7 +1264,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -1307,7 +1307,7 @@ jobs:
     name: Examples (pageserver, wasm)
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true' || needs.changes.outputs.examples == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
     steps:
       - name: Harden runner
@@ -1316,7 +1316,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -1377,7 +1377,7 @@ jobs:
     name: Reproducible build
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true' || needs.changes.outputs.ci == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     steps:
       - name: Harden runner
@@ -1386,7 +1386,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -1406,7 +1406,7 @@ jobs:
     name: Benchmark gate
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 30
     steps:
       - name: Harden runner
@@ -1415,7 +1415,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: useblacksmith/checkout@v1 # v7.0.1
         with:
           persist-credentials: false
 
