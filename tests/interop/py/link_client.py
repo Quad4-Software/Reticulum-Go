@@ -164,6 +164,7 @@ def main() -> int:
                 link,
                 auto_compress=auto_compress,
                 callback=on_res_concluded,
+                app_flag=os.environ.get("INTEROP_RESOURCE_APP_FLAG", "0") == "1",
             )
 
         elif mode == "request":

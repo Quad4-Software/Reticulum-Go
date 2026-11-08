@@ -658,7 +658,9 @@ func WriteDiscoveredJSON(w io.Writer, list []*discovery.DiscoveredInterface) err
 		ReachableOn         string   `json:"reachable_on,omitempty"`
 		Port                int64    `json:"port,omitempty"`
 		Hops                uint8    `json:"hops"`
-		Value               int      `json:"value"`
+		Value               float64  `json:"value"`
+		DstCost             *float64 `json:"dst_cost,omitempty"`
+		PrCost              *float64 `json:"pr_cost,omitempty"`
 		TransportID         string   `json:"transport_id"`
 		NetworkID           string   `json:"network_id"`
 		OperatorLXMFAddress string   `json:"operator_lxmf_address,omitempty"`
@@ -687,6 +689,8 @@ func WriteDiscoveredJSON(w io.Writer, list []*discovery.DiscoveredInterface) err
 			Port:        rec.Port,
 			Hops:        rec.Hops,
 			Value:       rec.Value,
+			DstCost:     rec.DstCost,
+			PrCost:      rec.PrCost,
 			TransportID: hex.EncodeToString(rec.TransportID),
 			NetworkID:   hex.EncodeToString(rec.NetworkID),
 			Discovered:  rec.Discovered,
@@ -841,8 +845,18 @@ func WriteDiscoveredHuman(w io.Writer, list []*discovery.DiscoveredInterface, op
 		if _, err := fmt.Fprintf(w, "Hops         : %d\n", rec.Hops); err != nil {
 			return err
 		}
-		if _, err := fmt.Fprintf(w, "Stamp value  : %d\n", rec.Value); err != nil {
+		if _, err := fmt.Fprintf(w, "Stamp value  : %g\n", rec.Value); err != nil {
 			return err
+		}
+		if rec.DstCost != nil {
+			if _, err := fmt.Fprintf(w, "Dst cost     : %g\n", *rec.DstCost); err != nil {
+				return err
+			}
+		}
+		if rec.PrCost != nil {
+			if _, err := fmt.Fprintf(w, "PR cost      : %g\n", *rec.PrCost); err != nil {
+				return err
+			}
 		}
 		if details {
 			dago := now.Sub(time.Unix(int64(rec.Discovered), 0))

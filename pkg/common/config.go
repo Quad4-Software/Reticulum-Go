@@ -138,6 +138,16 @@ type InterfaceConfig struct {
 	// interface.
 	RecursivePRs bool
 
+	// DestinationCost is the per-interface required announce stamp cost
+	// (RNS 1.6.0 destination_cost). Unset inherits the transport default.
+	DestinationCost    float64
+	DestinationCostSet bool
+
+	// PRCost is the per-interface required path-request stamp cost
+	// (RNS 1.6.0 pr_cost). Unset inherits the transport default.
+	PRCost    float64
+	PRCostSet bool
+
 	// AnnouncesFromInternal controls whether announces learned via an
 	// internal-mode next hop are rebroadcast. Default true when unset.
 	AnnouncesFromInternal    bool
@@ -438,6 +448,13 @@ type ReticulumConfig struct {
 	// instance sockets: auto, epoll, kqueue, io_uring, or go.
 	BackboneIO    string
 	BackboneIOSet bool
+
+	// Stamps carries the parsed [stamps] section (RNS 1.6.0). Resolve with
+	// StampsSettings().
+	Stamps StampsConfig
+
+	// Filter carries the parsed [filter] section (RNS 1.6.0).
+	Filter FilterConfig
 
 	// DiscoverInterfaces enables rnstransport discovery listening and
 	// AutoInterface NIC rescan when supported.

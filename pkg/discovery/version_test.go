@@ -64,11 +64,11 @@ func TestVersionAtLeast(t *testing.T) {
 }
 
 // TestAutoconnectMinVersionsOracles checks the table against the Python
-// values: only "RNS" >= 1.5.2 in the reference, plus this port's own name.
+// values: only "RNS" >= 1.5.7 in the reference, plus this port's own name.
 func TestAutoconnectMinVersionsOracles(t *testing.T) {
 	minVer, ok := AutoconnectMinVersions["RNS"]
-	if !ok || minVer != "1.5.2" {
-		t.Fatalf("RNS min=%q ok=%v, want 1.5.2", minVer, ok)
+	if !ok || minVer != "1.5.7" {
+		t.Fatalf("RNS min=%q ok=%v, want 1.5.7", minVer, ok)
 	}
 	if _, ok := AutoconnectMinVersions[ImplementationName]; !ok {
 		t.Fatal("own implementation name must be recognized")

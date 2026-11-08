@@ -10,6 +10,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/announce"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
@@ -107,6 +108,12 @@ func (h *interfaceAnnounceHandler) ReceivePathResponses() bool {
 
 func (h *interfaceAnnounceHandler) ReceivedAnnounce(destHash []byte, announcedIdentity any, appData []byte, hops uint8) error {
 	if len(appData) <= 1 {
+		return nil
+	}
+	// RNS 1.6.0: ignore discovered interfaces whose announce already
+	// travelled more than PATHFINDER_M-1 hops.
+	if int(hops) > packet.PathfinderM-1 {
+		debug.Log(debug.DebugVerbose, "Ignored discovered interface with invalid hop count", "hops", hops)
 		return nil
 	}
 	body := appData[1:]

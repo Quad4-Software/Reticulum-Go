@@ -40,7 +40,7 @@ func TestAutoconnectSkipsYgg(t *testing.T) {
 
 	before := n.autoconnectCount()
 	n.autoconnect(&discovery.ReceivedAnnounceInfo{
-		Info: discovery.Info{Type: "BackboneInterface", ReachableOn: "200::1", HasPort: true, Port: 4242, TransportImpl: "RNS", TransportVers: "1.5.5"},
+		Info: discovery.Info{Type: "BackboneInterface", ReachableOn: "200::1", HasPort: true, Port: 4242, TransportImpl: "RNS", TransportVers: "1.6.0"},
 	})
 	if n.autoconnectCount() != before {
 		t.Fatal("Yggdrasil autoconnect should be skipped")
@@ -60,7 +60,7 @@ func TestAutoconnectTCPClientFromTCPServerAnnounce(t *testing.T) {
 		Info: discovery.Info{
 			Type:          "TCPServerInterface",
 			TransportImpl: "RNS",
-			TransportVers: "1.5.5",
+			TransportVers: "1.6.0",
 			Name:          "tcp peer",
 			ReachableOn:   "192.0.2.50",
 			Port:          4242,

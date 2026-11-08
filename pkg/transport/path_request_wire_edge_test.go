@@ -34,7 +34,7 @@ func TestParsePathRequestWireShapes(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			d, tidOut, tagOut, ok := parsePathRequestWire(tc.data)
+			d, tidOut, tagOut, _, ok := parsePathRequestWire(tc.data)
 			if ok != tc.ok {
 				t.Fatalf("ok=%v want %v", ok, tc.ok)
 			}
@@ -70,7 +70,7 @@ func FuzzParsePathRequestWire(f *testing.F) {
 		if len(data) > 1<<12 {
 			t.Skip()
 		}
-		dest, tid, tag, ok := parsePathRequestWire(data)
+		dest, tid, tag, _, ok := parsePathRequestWire(data)
 		if len(data) < h {
 			if ok {
 				t.Fatal("accepted short payload")

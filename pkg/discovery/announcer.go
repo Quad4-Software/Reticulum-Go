@@ -65,7 +65,7 @@ type ReceivedAnnounceInfo struct {
 	Flags          byte
 	Info           Info
 	Stamp          []byte
-	StampValue     int
+	StampValue     float64
 	RequiredValue  int
 	RemoteIdentity []byte
 	Hops           uint8
@@ -116,7 +116,7 @@ func ValidateAndDecodeWithIdentity(appData []byte, requiredValue int, expandRoun
 	}
 	value := StampValue(wb, stamp)
 	if !MeetsCost(stamp, requiredValue, wb) {
-		return nil, fmt.Errorf("discovery: stamp value %d below required cost %d", value, requiredValue)
+		return nil, fmt.Errorf("discovery: stamp value %g below required cost %d", value, requiredValue)
 	}
 	info, err := DecodeInfo(packed)
 	if err != nil {

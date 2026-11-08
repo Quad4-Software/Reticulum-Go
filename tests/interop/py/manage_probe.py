@@ -2,7 +2,7 @@
 """Python interface-management probe for shared-instance interop.
 
 Connects as a shared-instance client to an already-running Go server and
-exercises the RNS 1.5.5 manage RPC path: attach_interface, detach_interface
+exercises the RNS 1.6.0 manage RPC path: attach_interface, detach_interface
 and reload_interface via the public RNS.Reticulum wrappers.
 
 Prints one result token per line; the Go side asserts on them.

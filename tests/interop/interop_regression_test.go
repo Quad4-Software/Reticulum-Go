@@ -46,16 +46,16 @@ func TestRNS154InteropPins(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(body, []byte(`RNS_REF_TAG="${RNS_REF_TAG:-1.5.5}"`)) {
-		t.Fatal("crossref must default RNS_REF_TAG to 1.5.5")
+	if !bytes.Contains(body, []byte(`RNS_REF_TAG="${RNS_REF_TAG:-1.6.0}"`)) {
+		t.Fatal("crossref must default RNS_REF_TAG to 1.6.0")
 	}
 	ci := filepath.Join(root, ".github", "workflows", "ci.yml")
 	ciBody, err := os.ReadFile(ci)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(ciBody, []byte(`rns==1.5.5`)) {
-		t.Fatal("CI must install rns==1.5.5")
+	if !bytes.Contains(ciBody, []byte(`rns==1.6.0`)) {
+		t.Fatal("CI must install rns==1.6.0")
 	}
 	disc := filepath.Join(root, "pkg", "discovery", "discovery.go")
 	discBody, err := os.ReadFile(disc)

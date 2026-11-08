@@ -209,6 +209,11 @@ func CleanKnownRatchets() {
 var ratchetPersistLimiter = rate.NewLimiter(16.0, 64.0)
 
 func persistKnownRatchet(destHash []byte, entry knownRatchetEntry) {
+	// RNS 1.6.0: ratchets live in known_destinations.db when sqlite is on.
+	if s := knownStore.Load(); s != nil {
+		s.MarkRatchetDirty(destHash, entry.key)
+		return
+	}
 	if !ratchetPersistLimiter.Allow() {
 		debug.Log(debug.DebugTrace, "Ratchet persist rate limited",
 			"destination", hex.EncodeToString(destHash))
@@ -247,6 +252,18 @@ func persistKnownRatchet(destHash []byte, entry knownRatchetEntry) {
 }
 
 func loadKnownRatchetFromDisk(destHash []byte) []byte {
+	if s := knownStore.Load(); s != nil {
+		if r, err := s.FetchRatchet(destHash); err == nil && len(r) == RatchetSize/8 {
+			key := knownDestKey(destHash)
+			ratchetPersistLock.Lock()
+			knownRatchets[key] = knownRatchetEntry{key: append([]byte(nil), r...), received: time.Now().Unix()}
+			evictKnownRatchetsLocked(key)
+			out := append([]byte(nil), r...)
+			ratchetPersistLock.Unlock()
+			return out
+		}
+		return nil
+	}
 	dir, err := knownRatchetsDir()
 	if err != nil || dir == "" {
 		return nil

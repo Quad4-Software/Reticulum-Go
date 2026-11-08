@@ -16,6 +16,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/stamps"
 )
 
 // LinkRelayEntry is one row in the transit link relay table (link_table).
@@ -719,7 +720,7 @@ func (t *Transport) discoveryFanoutIfaces(exclude common.NetworkInterface) []com
 	return ifaces
 }
 
-func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag []byte, exclude common.NetworkInterface) {
+func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag, ext []byte, exclude common.NetworkInterface) {
 	if !t.transportEnabled() {
 		return
 	}
@@ -727,13 +728,19 @@ func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag [
 	if len(ifaces) == 0 {
 		return
 	}
+	// Relayed PRs carry their ext payload as received; unstamped requests
+	// relayed by a stamp-aware node get the lenient 0xFF placeholder
+	// (RNS 1.6.0 transition behaviour when STAMP_PRS is on).
+	if ext == nil && t.StampPRs() {
+		ext = append([]byte{stamps.ExtPayloadMarker, 0xFF}, make([]byte, stamps.StampLength)...)
+	}
 	for _, iface := range ifaces {
 		// Re-check at emit time (RNS 1.4.2 online gate). An iface may go
 		// offline or lose bitrate while the discovery PR queue drains.
 		if !ifaceReadyForPathRequest(iface) {
 			continue
 		}
-		if err := t.RequestPath(destHash, iface.GetName(), tag, true); err != nil {
+		if err := t.requestPath(destHash, iface.GetName(), tag, ext, true); err != nil {
 			debug.Log(debug.DebugVerbose, "Path-request rebroadcast failed",
 				"iface", iface.GetName(), "error", err)
 		}
@@ -815,7 +822,7 @@ func (t *Transport) drainDiscoveryPRs() {
 		t.pendingDiscoveryPRs = t.pendingDiscoveryPRs[1:]
 		t.pendingDiscoveryPRMu.Unlock()
 
-		t.rebroadcastPathRequest(entry.destHash, nil, nil, entry.exclude)
+		t.rebroadcastPathRequest(entry.destHash, nil, nil, nil, entry.exclude)
 		select {
 		case <-t.done:
 			return

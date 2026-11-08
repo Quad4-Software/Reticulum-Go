@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/fs"
-	"math"
 	"net"
 	"os"
 	"path/filepath"
@@ -19,6 +18,8 @@ import (
 	"time"
 
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+
+	"github.com/Quad4-Software/Reticulum-Go/pkg/stamps"
 )
 
 const (
@@ -62,7 +63,9 @@ type DiscoveredInterface struct {
 	IFACNetname         string
 	IFACNetkey          string
 	Hops                uint8
-	Value               int
+	Value               float64
+	DstCost             *float64
+	PrCost              *float64
 	Received            float64
 	Discovered          float64
 	LastHeard           float64
@@ -118,6 +121,8 @@ func buildDiscoveredRecord(info *ReceivedAnnounceInfo, hops uint8, now float64) 
 		Hops:        hops,
 		Value:       info.StampValue,
 		Received:    now,
+		DstCost:     info.Info.DstCost,
+		PrCost:      info.Info.PrCost,
 	}
 	if info.Info.HasGeo {
 		lat := info.Info.Latitude
@@ -213,6 +218,8 @@ func discoveredToMap(rec *DiscoveredInterface, existing map[string]any, now floa
 		"network_id":     hex.EncodeToString(rec.NetworkID),
 		"hops":           rec.Hops,
 		"value":          rec.Value,
+		"dst_cost":       rec.DstCost,
+		"pr_cost":        rec.PrCost,
 		"received":       now,
 		"discovered":     discovered,
 		"last_heard":     now,
@@ -357,29 +364,36 @@ func normalizeDiscoveredRecord(m map[string]any, now time.Time) (*DiscoveredInte
 	}
 	switch v := m["value"].(type) {
 	case int:
-		rec.Value = v
+		rec.Value = float64(v)
 	case int8:
-		rec.Value = int(v)
+		rec.Value = float64(v)
 	case int16:
-		rec.Value = int(v)
+		rec.Value = float64(v)
 	case int32:
-		rec.Value = int(v)
+		rec.Value = float64(v)
 	case int64:
-		rec.Value = int(v)
+		rec.Value = float64(v)
 	case uint8:
-		rec.Value = int(v)
+		rec.Value = float64(v)
 	case uint16:
-		rec.Value = int(v)
+		rec.Value = float64(v)
 	case uint32:
-		rec.Value = int(v)
+		rec.Value = float64(v)
 	case uint64:
-		if v > uint64(math.MaxInt) {
-			rec.Value = math.MaxInt
-		} else {
-			rec.Value = int(v)
-		}
+		rec.Value = float64(v)
 	case float64:
-		rec.Value = int(v)
+		rec.Value = v
+	}
+	for _, kv := range []struct {
+		key string
+		dst **float64
+	}{{"dst_cost", &rec.DstCost}, {"pr_cost", &rec.PrCost}} {
+		if raw, ok := m[kv.key]; ok && raw != nil {
+			if f, ok := toFloatOK(raw); ok {
+				q := stamps.QuantizeCost(f)
+				*kv.dst = &q
+			}
+		}
 	}
 	switch h := m["hops"].(type) {
 	case uint8:

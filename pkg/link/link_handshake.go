@@ -252,8 +252,12 @@ func signallingBytes(mtu int, mode byte) []byte {
 // prepareLinkRequestLocked builds the outbound link request and derives linkID.
 // The link mutex must be held by the caller.
 func (l *Link) prepareLinkRequestLocked() error {
-	if err := l.generateEphemeralKeys(); err != nil {
-		return err
+	// Skip key generation when stamped keys were already set by
+	// stampThenEstablish (RNS 1.6.0 __defer_keys path).
+	if l.prv == nil || len(l.pub) == 0 {
+		if err := l.generateEphemeralKeys(); err != nil {
+			return err
+		}
 	}
 
 	l.mode = ModeDefault
@@ -322,6 +326,19 @@ func (l *Link) HandleLinkRequest(pkt *packet.Packet, ownerIdentity *identity.Ide
 
 	l.peerPub = append([]byte(nil), peerPub...)
 	l.peerSigPub = append([]byte(nil), peerSigPub...)
+
+	// RNS 1.6.0 link request stamps: compute the stamp value and enforce
+	// the owner-announced link cost when LR_STAMPS_ENFORCED is on.
+	if v, err := l.validateLinkRequestStamp(l.destination.GetHash(), l.destination.GetLinkCost(), peerPub, peerSigPub); err != nil {
+		l.stampCost = v
+		l.stampStatus = true
+		debug.Log(debug.DebugWarning, "Rejected link request: insufficient stamp", "value", v, "dest_hash", fmt.Sprintf("%x", l.destination.GetHash()))
+		return err
+	} else {
+		l.stampCost = v
+		l.stampStatus = true
+	}
+
 	l.linkID = linkIDFromPacket(pkt)
 	l.initiator = false
 

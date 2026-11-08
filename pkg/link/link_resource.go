@@ -350,6 +350,9 @@ func (l *Link) dispatchOutgoingResourceRequests(plaintext []byte) {
 		)
 		return
 	}
+	// RNS 1.6.0 HASHMAP_IS_EMPTY (0xFE): receiver got an advertisement with
+	// an empty hashmap (oversized adv deferred "m": b"") and asks for the
+	// initial hashmap. Serve the first hashmap segment from index 0.
 	reqHashes := plaintext[pad+32:]
 	if len(reqHashes)%resource.MapHashLen != 0 {
 		debug.Log(debug.DebugVerbose, "Ignoring resource request: invalid hash vector length", "len", len(reqHashes))
@@ -359,6 +362,21 @@ func (l *Link) dispatchOutgoingResourceRequests(plaintext []byte) {
 	hashmapMDU := l.mdu
 	l.mutex.RUnlock()
 	partSDU := l.resourceSDU()
+
+	// RNS 1.6.0 HASHMAP_IS_EMPTY (0xFE): receiver got an advertisement with
+	// an empty hashmap (oversized adv deferred "m": b"") and asks for the
+	// initial hashmap. Serve the first hashmap segment from index 0.
+	if plaintext[0] == hashmapIsEmpty {
+		anchor := out.MapHashAt(0)
+		if len(anchor) == resource.MapHashLen {
+			if _, err := l.sendResourceHashmapUpdate(out, hashmapMDU, anchor, 0); err == nil {
+				l.outgoingMu.Lock()
+				l.outgoingReceiverMinPart = resource.HashmapEntriesPerSegment(hashmapMDU)
+				l.outgoingMu.Unlock()
+			}
+		}
+		return
+	}
 	// Select and send parts for the current receiver window first, then
 	// advance the window and emit HMU. Updating receiverMinPart before
 	// selection drops in-window hashes from the same HASHMAP_IS_EXHAUSTED

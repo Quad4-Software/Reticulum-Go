@@ -279,12 +279,12 @@ func TestStampValueDeterministic(t *testing.T) {
 	v1 := StampValue(wb, stamp)
 	v2 := StampValue(wb, stamp)
 	if v1 != v2 {
-		t.Errorf("StampValue not deterministic: %d vs %d", v1, v2)
+		t.Errorf("StampValue not deterministic: %g vs %g", v1, v2)
 	}
 	// Different stamps must (almost always) yield different values.
 	other := bytes.Repeat([]byte{0xCD}, StampSize)
 	if v2 := StampValue(wb, other); v2 == v1 {
-		t.Logf("note: StampValue collision for distinct stamps (%d)", v1)
+		t.Logf("note: StampValue collision for distinct stamps (%g)", v1)
 	}
 }
 
@@ -330,7 +330,7 @@ func TestBuildAppDataAndValidateRoundTrip(t *testing.T) {
 		t.Errorf("name: got %q, want %q", info.Info.Name, in.Name)
 	}
 	if info.StampValue < 2 {
-		t.Errorf("StampValue: got %d, want >= 2", info.StampValue)
+		t.Errorf("StampValue: got %g, want >= 2", info.StampValue)
 	}
 	if len(info.Stamp) != StampSize {
 		t.Errorf("stamp size: got %d", len(info.Stamp))

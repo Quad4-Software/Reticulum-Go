@@ -48,6 +48,7 @@ type Resource struct {
 	readOffset        int64
 	requestID         []byte
 	isResponse        bool
+	appFlag           bool
 	hashmap           []byte
 	outboundCipher    []byte
 	outboundPartSent  []bool
@@ -721,6 +722,18 @@ func (r *Resource) IsRequest() bool {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 	return r.requestID != nil && !r.isResponse
+}
+
+func (r *Resource) AppFlag() bool {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	return r.appFlag
+}
+
+func (r *Resource) SetAppFlag(v bool) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	r.appFlag = v
 }
 
 func (r *Resource) IsResponse() bool {

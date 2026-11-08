@@ -1471,9 +1471,197 @@ def generate_cache_request_vectors():
     return vectors
 
 
+def generate_stamp_vectors():
+    """Generate stamp primitive vectors from RNS.Stamps (1.6.0+)."""
+    import random
+    import RNS.Stamps as Stamps
+
+    vectors = {"costs": [], "values": [], "validity": [], "detached": [], "keystamps": []}
+
+    for cost in [0, 1, 9.3691, 14.125, 23.5, 25, 99.99, 100]:
+        fp = Stamps.cost_to_fp(cost)
+        vectors["costs"].append({
+            "cost": cost,
+            "fp": fp,
+            "bytes_hex": Stamps.fp_to_bytes(fp).hex(),
+            "target_hex": f"{Stamps.target_from_fp(fp):064x}",
+            "quantized": Stamps.quantize_cost(cost),
+        })
+
+    rng = random.Random(0x5354414D50)
+    materials = [bytes(rng.randbytes(rng.choice([0, 1, 16, 32, 90]))) for _ in range(200)]
+    for i in range(200):
+        material = materials[i]
+        if i % 10 == 0:
+            stamp = bytes(rng.choice([0x00, 0xFF, 0x55])) * rng.choice([14, 32])
+        else:
+            stamp = rng.randbytes(rng.choice([14, 32]))
+        vectors["values"].append({
+            "material_hex": material.hex(),
+            "stamp_hex": stamp.hex(),
+            "value": Stamps.stamp_value(material, stamp),
+        })
+
+    probes = [rng.randbytes(14) for _ in range(20)]
+    for stamp in probes:
+        value = Stamps.stamp_value(b"", stamp)
+        for cost in [0, value - 0.5, Stamps.quantize_cost(value), min(value + 4, 100), 100]:
+            vectors["validity"].append({
+                "workblock_hex": "",
+                "stamp_hex": stamp.hex(),
+                "cost": cost,
+                "valid": Stamps.stamp_valid(stamp, cost, b""),
+            })
+
+    for i in range(4):
+        material = rng.randbytes(32)
+        cost = [8, 9, 10, 10][i]
+        stamp, value = Stamps.generate_stamp(material, cost, expand_rounds=0, no_expand=True, size=14)
+        vectors["detached"].append({
+            "material_hex": material.hex(),
+            "cost": cost,
+            "stamp_hex": stamp.hex(),
+            "value": value,
+        })
+
+    for i in range(3):
+        material = rng.randbytes(24)
+        cost = [8, 9, 10][i]
+        keypair, value = Stamps.generate_stamped_key(material, cost)
+        vectors["keystamps"].append({
+            "material_hex": material.hex(),
+            "cost": cost,
+            "priv_hex": keypair[0].hex(),
+            "pub_hex": keypair[1].hex(),
+            "value": value,
+        })
+
+    return vectors
+
+
+
+def generate_stamped_announce_vectors():
+    """Python 1.6.0 stamped announces: raw HeaderType1 wire packets whose
+    app_data carries the 18-byte stamp ext payload, signed over."""
+    import random
+    import RNS.Stamps as Stamps
+    from RNS.Identity import Identity
+
+    vectors = []
+    rng = random.Random(0x414E4E43)
+
+    cases = [
+        {"app_data": b"hello-app", "ratchet": True, "cost": 10, "lr_cost": 12.5},
+        {"app_data": None, "ratchet": False, "cost": 10, "lr_cost": 0},
+        {"app_data": b"x" * 64, "ratchet": False, "cost": 10, "lr_cost": 30.25},
+    ]
+    for case in cases:
+        ident = Identity()
+        app_name, aspects = "app", ["stamp", "test"]
+        full_name = ".".join([app_name] + aspects)
+        name_hash = hashlib.sha256(full_name.encode()).digest()[:10]
+        dest_hash = hashlib.sha256(name_hash + ident.hash).digest()[:16]
+        random_hash = rng.randbytes(5) + int(1700000000).to_bytes(5, "big")
+        ratchet = rng.randbytes(32) if case["ratchet"] else b""
+
+        material = dest_hash + ident.get_public_key() + name_hash
+        stamp, value = Stamps.generate_stamp(material, case["cost"], expand_rounds=0, size=14)
+        cost_bytes = Stamps.cost_to_bytes(case["lr_cost"])
+        ext = bytes([0xC1, 0x00]) + stamp + bytes([cost_bytes[1], cost_bytes[0]])
+
+        app_data = case["app_data"]
+        stamped_app_data = (app_data or b"") + ext
+        signed_data = dest_hash + ident.get_public_key() + name_hash + random_hash + ratchet + stamped_app_data
+        signature = ident.sign(signed_data)
+
+        context_flag = 1 if ratchet else 0
+        header = bytes([(context_flag << 5) | 0x01, 0x00])
+        context = 0x00
+        raw = header + dest_hash + bytes([context]) + ident.get_public_key() + name_hash + random_hash + ratchet + signature + stamped_app_data
+
+        vectors.append({
+            "raw_hex": raw.hex(),
+            "dest_hash_hex": dest_hash.hex(),
+            "public_key_hex": ident.get_public_key().hex(),
+            "name_hash_hex": name_hash.hex(),
+            "random_hash_hex": random_hash.hex(),
+            "ratchet_hex": ratchet.hex(),
+            "signature_hex": signature.hex(),
+            "app_data_hex": stamped_app_data.hex(),
+            "orig_app_data_hex": (app_data or b"").hex(),
+            "stamp_hex": stamp.hex(),
+            "stamp_value": value,
+            "lr_cost": case["lr_cost"],
+            "required_cost": case["cost"],
+        })
+    return vectors
+
+
+
+def generate_path_request_stamp_vectors():
+    """Python 1.6.0 path-request payloads (wire DATA portion only)."""
+    import RNS.Stamps as Stamps
+    from RNS.Transport import Transport
+
+    vectors = []
+    dst = bytes(range(16))
+    tid = bytes(range(16, 32))
+    tag = bytes(range(32, 48))
+
+    material = Transport.pr_stamp_material(dst, tag)
+    stamp, value = Stamps.generate_stamp(material, stamp_cost=8, expand_rounds=0, size=14)
+
+    for flag in (0x00, 0xFF):
+        vectors.append({
+            "kind": "stamped",
+            "flag": flag,
+            "payload_hex": (dst + tid + tag + bytes([0xC1, flag]) + stamp).hex(),
+            "dest_hash_hex": dst.hex(),
+            "tid_hex": tid.hex(),
+            "tag_hex": tag.hex(),
+            "stamp_hex": stamp.hex(),
+            "stamp_value": value,
+        })
+
+    vectors.append({
+        "kind": "modern48",
+        "payload_hex": (dst + tid + tag).hex(),
+        "dest_hash_hex": dst.hex(),
+        "tid_hex": tid.hex(),
+        "tag_hex": tag.hex(),
+    })
+    vectors.append({
+        "kind": "legacy32",
+        "payload_hex": (dst + tag).hex(),
+        "dest_hash_hex": dst.hex(),
+        "tid_hex": "",
+        "tag_hex": tag.hex(),
+    })
+    return vectors
+
+
+def generate_stamped_lr_key_vectors():
+    """Python 1.6.0 link-request stamped X25519 keys (material = dest_hash + sig_pub)."""
+    import RNS.Stamps as Stamps
+
+    vectors = []
+    dest_hash = bytes(range(64, 80))
+    for i in range(2):
+        sig_pub = bytes([i + 1]) * 32
+        keypair, value = Stamps.generate_stamped_key(material=dest_hash + sig_pub, stamp_cost=8)
+        vectors.append({
+            "dest_hash_hex": dest_hash.hex(),
+            "sig_pub_hex": sig_pub.hex(),
+            "priv_hex": keypair[0].hex(),
+            "pub_hex": keypair[1].hex(),
+            "cost": 8,
+            "value": value,
+        })
+    return vectors
+
 def main():
     all_vectors = {
-        "format_version": 6,
+        "format_version": 7,
         "generator": "Python Reticulum reference implementation",
         "identity": generate_identity_vectors(),
         "destination_hash": generate_destination_hash_vectors(),
@@ -1515,6 +1703,10 @@ def main():
         "lrrtt": generate_lrrtt_vectors(),
         "destination_type": generate_destination_type_vectors(),
         "cache_request": generate_cache_request_vectors(),
+        "stamps": generate_stamp_vectors(),
+        "stamped_announce": generate_stamped_announce_vectors(),
+        "path_request_stamp": generate_path_request_stamp_vectors(),
+        "stamped_lr_key": generate_stamped_lr_key_vectors(),
     }
 
     output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_vectors.json")
@@ -1529,3 +1721,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+

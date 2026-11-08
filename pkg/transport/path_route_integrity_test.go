@@ -44,7 +44,7 @@ func TestProcessPathRequest_doesNotAnswerWhenNextHopEqualsRequestorTransportID(t
 	tr.announceTable[destKey(dest)] = oldEntry
 	tr.mutex.Unlock()
 
-	tr.processPathRequest(dest, wan, append([]byte(nil), requestorTID...), tag)
+	tr.processPathRequest(dest, wan, append([]byte(nil), requestorTID...), tag, nil)
 
 	tr.mutex.RLock()
 	cur := tr.announceTable[destKey(dest)]
@@ -95,7 +95,7 @@ func TestProcessPathRequest_rewritesAnnounceWhenNextHopIsNotRequestor(t *testing
 	tr.announceTable[destKey(dest)] = oldEntry
 	tr.mutex.Unlock()
 
-	tr.processPathRequest(dest, wan, append([]byte(nil), requestorTID...), tag)
+	tr.processPathRequest(dest, wan, append([]byte(nil), requestorTID...), tag, nil)
 
 	tr.mutex.RLock()
 	cur := tr.announceTable[destKey(dest)]
@@ -139,7 +139,7 @@ func TestProcessPathRequest_knownPathWithoutAnnounceDoesNotStartDiscovery(t *tes
 	}
 	tr.mutex.Unlock()
 
-	tr.processPathRequest(dest, wan, nil, tag)
+	tr.processPathRequest(dest, wan, nil, tag, nil)
 
 	tr.mutex.RLock()
 	_, pending := tr.discoveryPathRequests[destKey(dest)]
@@ -204,7 +204,7 @@ func TestProcessPathRequest_expiredPathStartsDiscovery(t *testing.T) {
 	}
 	tr.mutex.Unlock()
 
-	tr.processPathRequest(dest, wan, nil, tag)
+	tr.processPathRequest(dest, wan, nil, tag, nil)
 
 	tr.mutex.RLock()
 	_, ok := tr.discoveryPathRequests[destKey(dest)]
@@ -246,7 +246,7 @@ func TestProcessPathRequest_pathRequestTTLStillAnswers(t *testing.T) {
 	}, at: time.Now()}
 	tr.mutex.Unlock()
 
-	tr.processPathRequest(dest, wan, nil, tag)
+	tr.processPathRequest(dest, wan, nil, tag, nil)
 
 	tr.mutex.RLock()
 	_, discovering := tr.discoveryPathRequests[destKey(dest)]
@@ -289,7 +289,7 @@ func TestProcessPathRequest_fromLocalClientForwardsOnAllInterfaces(t *testing.T)
 	dest := bytes.Repeat([]byte{0x99}, 16)
 	tag := bytes.Repeat([]byte{0x77}, 16)
 
-	tr.processPathRequest(dest, localClient, nil, tag)
+	tr.processPathRequest(dest, localClient, nil, tag, nil)
 
 	if n := len(wan.snapshot()); n != 1 {
 		t.Fatalf("expected 1 PR forwarded to wan, got %d", n)
@@ -334,7 +334,7 @@ func TestProcessPathRequest_fromLocalClientKnownPathBypassesTransportDisabled(t 
 
 	// With transport disabled, a normal (non-local-client) PR would be
 	// rejected. A local-client PR must still be answered.
-	tr.processPathRequest(dest, localClient, nil, tag)
+	tr.processPathRequest(dest, localClient, nil, tag, nil)
 
 	if n := countSends(localClient); n < 1 {
 		t.Fatalf("local-client PR with known path must emit path response, got %d sends", n)
@@ -364,7 +364,7 @@ func TestProcessPathRequest_nonLocalClientDropsUnknownPathWithFullMode(t *testin
 	dest := bytes.Repeat([]byte{0x33}, 16)
 	tag := bytes.Repeat([]byte{0x55}, 16)
 
-	tr.processPathRequest(dest, fullIface, nil, tag)
+	tr.processPathRequest(dest, fullIface, nil, tag, nil)
 
 	if n := len(wan.snapshot()); n != 0 {
 		t.Fatalf("non-local-client PR with Full mode must NOT be forwarded, got %d sends", n)

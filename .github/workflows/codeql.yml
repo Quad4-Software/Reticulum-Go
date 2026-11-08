@@ -45,6 +45,7 @@ jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
     runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 30
     permissions:
       security-events: write # uploads SARIF results to code scanning
       packages: read # lets CodeQL resolve package dependencies during analysis

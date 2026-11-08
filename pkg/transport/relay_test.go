@@ -979,7 +979,7 @@ func TestRebroadcastPathRequestSkipsExcludedIface(t *testing.T) {
 
 	destHash := bytes.Repeat([]byte{0x42}, 16)
 
-	tr.rebroadcastPathRequest(destHash, nil, []byte("test-tag-12345678"), in)
+	tr.rebroadcastPathRequest(destHash, nil, []byte("test-tag-12345678"), nil, in)
 
 	if got := len(in.snapshot()); got != 0 {
 		t.Errorf("rebroadcast leaked back to receive interface: %d packets", got)
@@ -1005,7 +1005,7 @@ func TestRebroadcastPathRequestRespectsTransportFlag(t *testing.T) {
 	_ = tr.RegisterInterface("ifaceB", b)
 
 	destHash := bytes.Repeat([]byte{0x42}, 16)
-	tr.rebroadcastPathRequest(destHash, nil, []byte("a-tag"), nil)
+	tr.rebroadcastPathRequest(destHash, nil, []byte("a-tag"), nil, nil)
 	if n := len(a.snapshot()) + len(b.snapshot()); n != 0 {
 		t.Fatalf("rebroadcast emitted %d packets while transport disabled", n)
 	}

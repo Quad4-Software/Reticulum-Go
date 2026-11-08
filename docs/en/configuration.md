@@ -422,3 +422,7 @@ Optional hardware-bound descriptors (RHB1, 72 bytes) are documented in [Identity
 - [Architecture](architecture.md) for shared instance and persistence
 - [CLI utilities](utilities.md) for rgostatus / rgoid / rgoprobe and RPC setup
 - [COMPATIBILITY.md](../../COMPATIBILITY.md) for full Python key comparison tables
+
+## Stamps and filtering (RNS 1.6.0)
+
+`[stamps]` configures network-stamp enforcement and per-type requirements (`enabled`, `enforce_stamps`, `destination_cost`, `pr_cost`, `lr_cost`, `stamp_prs`, `stamp_lrs`, `stamp_announces`, `stamp_destinations`, `max_cached_stamps`). `[filter]` configures destination-type filtering (`ignored_types`, `allowed_types`, `required_only`, `hop_limiter`). Interfaces accept per-interface `destination_cost`/`pr_cost` overrides. Announce and known-destination state persists to `storage/known_destinations.db` and `storage/cache/announces.db` (SQLite, pure-Go); delete the `RETICULUM_DISABLE_SQLITE_KNOWN` env var is not needed — set it to `1` only to force the legacy file layout.

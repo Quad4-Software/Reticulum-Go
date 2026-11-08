@@ -65,7 +65,7 @@ func TestLocalClientPR_NilAttachedIface(t *testing.T) {
 
 	// nil iface -> isLocalClientInterface(nil) is false, so this falls through
 	// to the "no path known" branch and returns.
-	tr.processPathRequest(dest, nil, nil, tag)
+	tr.processPathRequest(dest, nil, nil, tag, nil)
 
 	if n := countSends(wan); n != 0 {
 		t.Fatalf("nil iface must not forward, got %d sends", n)
@@ -91,7 +91,7 @@ func TestLocalClientPR_EmptyDestHash(t *testing.T) {
 	// Empty destHash: won't match any local destination or path, so it should
 	// fall through to the local-client forwarding branch. RequestPath will
 	// still send a packet addressed to the well-known PR destination.
-	tr.processPathRequest([]byte{}, lc, nil, bytes.Repeat([]byte{0x02}, 16))
+	tr.processPathRequest([]byte{}, lc, nil, bytes.Repeat([]byte{0x02}, 16), nil)
 
 	// Even with empty destHash, the PR is forwarded (RequestPath uses the
 	// well-known pathRequestDestHash, not the destHash for addressing).
@@ -121,7 +121,7 @@ func TestLocalClientPR_AllOtherInterfacesDisabled(t *testing.T) {
 	dest := randomDestHash(2)
 	tag := bytes.Repeat([]byte{0x03}, 16)
 
-	tr.processPathRequest(dest, lc, nil, tag)
+	tr.processPathRequest(dest, lc, nil, tag, nil)
 
 	if n := countSends(wan); n != 0 {
 		t.Fatalf("disabled interfaces must not receive PR, got %d", n)
@@ -147,7 +147,7 @@ func TestLocalClientPR_SingleInterfaceOnlyLocalClient(t *testing.T) {
 	dest := randomDestHash(3)
 	tag := bytes.Repeat([]byte{0x04}, 16)
 
-	tr.processPathRequest(dest, lc, nil, tag)
+	tr.processPathRequest(dest, lc, nil, tag, nil)
 
 	if n := countSends(lc); n != 0 {
 		t.Fatalf("PR must not echo back to the only local client, got %d", n)
@@ -176,7 +176,7 @@ func TestLocalClientPR_MultipleWanInterfaces(t *testing.T) {
 	dest := randomDestHash(4)
 	tag := bytes.Repeat([]byte{0x05}, 16)
 
-	tr.processPathRequest(dest, lc, nil, tag)
+	tr.processPathRequest(dest, lc, nil, tag, nil)
 
 	for i, w := range wans {
 		if n := countSends(w); n != 1 {
@@ -208,7 +208,7 @@ func TestLocalClientPR_TransportDisabledStillForwardsUnknown(t *testing.T) {
 	dest := randomDestHash(5)
 	tag := bytes.Repeat([]byte{0x06}, 16)
 
-	tr.processPathRequest(dest, lc, nil, tag)
+	tr.processPathRequest(dest, lc, nil, tag, nil)
 
 	if n := countSends(wan); n != 1 {
 		t.Fatalf("local-client PR must forward even with transport disabled, got %d", n)
@@ -236,7 +236,7 @@ func TestLocalClientPR_SelfExclusionStrict(t *testing.T) {
 	dest := randomDestHash(6)
 	tag := bytes.Repeat([]byte{0x07}, 16)
 
-	tr.processPathRequest(dest, lc1, nil, tag)
+	tr.processPathRequest(dest, lc1, nil, tag, nil)
 
 	if n := countSends(lc1); n != 0 {
 		t.Fatalf("PR must not echo to lc1, got %d", n)
@@ -276,7 +276,7 @@ func TestLocalClientPR_StalePathFallsThroughToForwarding(t *testing.T) {
 	}
 	tr.mutex.Unlock()
 
-	tr.processPathRequest(dest, lc, nil, tag)
+	tr.processPathRequest(dest, lc, nil, tag, nil)
 
 	// Expired path is dropped, so hasPath=false. The local-client branch
 	// forwards the PR on wan.
@@ -317,7 +317,7 @@ func TestLocalClientPR_ConcurrentStress(t *testing.T) {
 				dest := randomDestHash(gid*100 + j)
 				tag := make([]byte, 16)
 				_, _ = rand.Read(tag)
-				tr.processPathRequest(dest, lc, nil, tag)
+				tr.processPathRequest(dest, lc, nil, tag, nil)
 			}
 		}(i)
 	}
@@ -367,7 +367,7 @@ func TestLocalClientPR_ConcurrentMixedInterfaces(t *testing.T) {
 			dest := randomDestHash(1000 + i)
 			tag := make([]byte, 16)
 			_, _ = rand.Read(tag)
-			tr.processPathRequest(dest, lc, nil, tag)
+			tr.processPathRequest(dest, lc, nil, tag, nil)
 		}
 	}()
 
@@ -377,7 +377,7 @@ func TestLocalClientPR_ConcurrentMixedInterfaces(t *testing.T) {
 			dest := randomDestHash(2000 + i)
 			tag := make([]byte, 16)
 			_, _ = rand.Read(tag)
-			tr.processPathRequest(dest, gw, nil, tag)
+			tr.processPathRequest(dest, gw, nil, tag, nil)
 		}
 	}()
 
@@ -416,7 +416,7 @@ func TestLocalClientPR_NoDiscoveryPathRequestsLeak(t *testing.T) {
 		dest := randomDestHash(3000 + i)
 		tag := make([]byte, 16)
 		_, _ = rand.Read(tag)
-		tr.processPathRequest(dest, lc, nil, tag)
+		tr.processPathRequest(dest, lc, nil, tag, nil)
 	}
 
 	tr.mutex.RLock()
@@ -447,7 +447,7 @@ func TestLocalClientPR_NoAnnounceTableLeakForUnknown(t *testing.T) {
 	dest := randomDestHash(4000)
 	tag := bytes.Repeat([]byte{0x09}, 16)
 
-	tr.processPathRequest(dest, lc, nil, tag)
+	tr.processPathRequest(dest, lc, nil, tag, nil)
 
 	tr.mutex.RLock()
 	atCount := len(tr.announceTable)
@@ -484,7 +484,7 @@ func TestLocalClientPR_NoGoroutineLeak(t *testing.T) {
 		dest := randomDestHash(5000 + i)
 		tag := make([]byte, 16)
 		_, _ = rand.Read(tag)
-		tr.processPathRequest(dest, lc, nil, tag)
+		tr.processPathRequest(dest, lc, nil, tag, nil)
 	}
 
 	// Allow any async work to settle.
@@ -592,7 +592,7 @@ func TestLocalClientPR_ModeTypeMatrix(t *testing.T) {
 				tag := make([]byte, 16)
 				_, _ = rand.Read(tag)
 
-				tr.processPathRequest(dest, src, nil, tag)
+				tr.processPathRequest(dest, src, nil, tag, nil)
 
 				shouldForward := tt.isLocal || mt.discovers
 				if tt.isLocal {
@@ -650,7 +650,7 @@ func TestLocalClientPR_TagUniqueness(t *testing.T) {
 	origTag := bytes.Repeat([]byte{0xAA}, 16)
 
 	for range 10 {
-		tr.processPathRequest(dest, lc, nil, origTag)
+		tr.processPathRequest(dest, lc, nil, origTag, nil)
 	}
 
 	// Each PR should generate a unique fresh tag -> forwarded on wan each time.
@@ -711,7 +711,7 @@ func TestLocalClientPR_ImmediateRetransmitForKnownPath(t *testing.T) {
 			tr.mutex.Unlock()
 
 			before := time.Now()
-			tr.processPathRequest(dest, src, nil, tag)
+			tr.processPathRequest(dest, src, nil, tag, nil)
 
 			if tc.local {
 				if n := countSends(src); n < 1 {
@@ -769,7 +769,7 @@ func TestRegression_NonLocalClientFullModeDropsUnknownPath(t *testing.T) {
 	dest := randomDestHash(8000)
 	tag := bytes.Repeat([]byte{0x0B}, 16)
 
-	tr.processPathRequest(dest, fullIface, nil, tag)
+	tr.processPathRequest(dest, fullIface, nil, tag, nil)
 
 	if n := countSends(wan); n != 0 {
 		t.Fatalf("non-local-client Full-mode PR must not forward, got %d", n)
@@ -808,7 +808,7 @@ func TestRegression_NonLocalClientTransportDisabledDropsKnownPath(t *testing.T) 
 	tr.announceTable[destKey(dest)] = oldEntry
 	tr.mutex.Unlock()
 
-	tr.processPathRequest(dest, gw, nil, tag)
+	tr.processPathRequest(dest, gw, nil, tag, nil)
 
 	tr.mutex.RLock()
 	cur := tr.announceTable[destKey(dest)]
@@ -835,7 +835,7 @@ func TestRegression_NonLocalClientGatewayForwardsUnknownPath(t *testing.T) {
 	dest := randomDestHash(10000)
 	tag := bytes.Repeat([]byte{0x0D}, 16)
 
-	tr.processPathRequest(dest, gw, nil, tag)
+	tr.processPathRequest(dest, gw, nil, tag, nil)
 
 	tr.mutex.RLock()
 	_, ok := tr.discoveryPathRequests[destKey(dest)]
@@ -876,7 +876,7 @@ func TestRegression_NextHopEqualsRequestorSuppressesAnswer(t *testing.T) {
 	tr.announceTable[destKey(dest)] = oldEntry
 	tr.mutex.Unlock()
 
-	tr.processPathRequest(dest, lc, requestorTID, tag)
+	tr.processPathRequest(dest, lc, requestorTID, tag, nil)
 
 	tr.mutex.RLock()
 	cur := tr.announceTable[destKey(dest)]
@@ -957,7 +957,7 @@ func FuzzProcessPathRequest(f *testing.F) {
 		}
 
 		// Must never panic regardless of input.
-		tr.processPathRequest(destHash, src, requestorTID, tag)
+		tr.processPathRequest(destHash, src, requestorTID, tag, nil)
 
 		// Allow async discovery goroutines to settle before close.
 		time.Sleep(10 * time.Millisecond)

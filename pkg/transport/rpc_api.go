@@ -11,6 +11,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/protect"
@@ -24,6 +25,11 @@ type PathTableEntry struct {
 	Hops      uint8   `msgpack:"hops"`
 	Expires   float64 `msgpack:"expires"`
 	Interface string  `msgpack:"interface"`
+	// RNS 1.6.0: path entries gained value (recall stamp value), used
+	// (last-use timestamp), lr_cost (announced link cost).
+	Value  *float64 `msgpack:"value"`
+	Used   float64  `msgpack:"used"`
+	LRCost *float64 `msgpack:"lr_cost"`
 }
 
 // InterfaceStat is the per-interface stats subset used by status tools.
@@ -178,6 +184,19 @@ type InterfaceStatsResponse struct {
 	Protect            protect.Snapshot `msgpack:"protect"`
 	RXPPS              float64          `msgpack:"rxpps"`
 	TXPPS              float64          `msgpack:"txpps"`
+	// RNS 1.6.0 packet/table counters surfaced via interface_stats.
+	RXPackets  uint64 `msgpack:"rxpkts"`
+	TXPackets  uint64 `msgpack:"txpkts"`
+	ARXPackets uint64 `msgpack:"arxpkts"`
+	ATXPackets uint64 `msgpack:"atxpkts"`
+	PRXPackets uint64 `msgpack:"prxpkts"`
+	PTXPackets uint64 `msgpack:"ptxpkts"`
+	TLinks     int    `msgpack:"tlinks"`
+	ALinks     int    `msgpack:"alinks"`
+	PLinks     int    `msgpack:"plinks"`
+	TPCount    int    `msgpack:"tpcount"`
+	UnupCount  int    `msgpack:"unupcount"`
+	ActpCount  int    `msgpack:"actpcount"`
 }
 
 // RateTableEntry is one rate-table row for shared-instance RPC.
@@ -261,6 +280,13 @@ func (t *Transport) GetPathTable(maxHops *int) []PathTableEntry {
 			Via:       append([]byte(nil), path.NextHop...),
 			Hops:      hops,
 			Expires:   expires,
+			Used:      float64(path.LastUpdated.Unix()),
+		}
+		if v, ok := identity.RecallStampValue(key[:]); ok && v > 0 {
+			entry.Value = &v
+		}
+		if c, ok := identity.RecallLinkCost(key[:]); ok {
+			entry.LRCost = &c
 		}
 		if path.Interface != nil {
 			entry.Interface = path.Interface.GetName()
@@ -471,6 +497,31 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 	resp.TXB = txTotal
 	resp.RXS = rxsTotal
 	resp.TXS = txsTotal
+	resp.RXPackets = rxPackets
+	resp.TXPackets = txPackets
+	var arx, atx uint64
+	for _, iface := range t.interfaces {
+		if iface == nil {
+			continue
+		}
+		if v, ok := iface.(interface{ AnnounceRXCount() uint64 }); ok {
+			arx += v.AnnounceRXCount()
+		}
+		if v, ok := iface.(interface{ AnnounceTXCount() uint64 }); ok {
+			atx += v.AnnounceTXCount()
+		}
+	}
+	resp.ARXPackets = arx
+	resp.ATXPackets = atx
+	resp.PRXPackets = t.PRRxCount.Load()
+	resp.PTXPackets = t.PRTxCount.Load()
+	resp.TLinks = t.GetLinkCountRPC()
+	resp.ALinks = t.GetActiveLinkCountRPC()
+	resp.PLinks = resp.TLinks - resp.ALinks
+	resp.TPCount = len(t.paths)
+	resp.ActpCount = resp.TPCount
+	resp.UnupCount = 0
+
 	rxPPS, txPPS := t.updatePacketPPS(rxPackets, txPackets)
 	resp.RXPPS = rxPPS
 	resp.TXPPS = txPPS

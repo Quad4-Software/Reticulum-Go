@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased — RNS 1.6.0 compatibility
+
+### Added
+
+- Network stamps (RNS 1.6.0): stamped identities, destination persistence fields, stamped announces, destination/link-cost APIs, configuration support, stamped path requests and link requests, and enforcement options (`enforce_stamps`, per-type stamp PRs/LRs, announce caching). Python↔Go interop verified live in both directions.
+- SQLite storage (`internal/sqlitestore`, pure-Go `modernc.org/sqlite`, CGO-free, build-tagged off for js/wasip1/tinygo): `known_destinations.db` and `cache/announces.db` with Python-identical schemas, WAL mode, legacy file import, automatic fallback to the legacy layout, and read-only open for shared-instance clients.
+- `[filter]` config: `ignored_types`/`allowed_types`/`required_only`/`hop_limiter` destination-type filtering with `wants_destination_type`/`unwants_destination_type`/`unwants_all_destination_types` RPC calls.
+- RPC additions: `link_distribution`, path-table `value`/`used`/`lr_cost`, rate-table `hash`, interface/path stats counters (`rxpkts`, `txpkts`, `arxpkts`, `atxpkts`, `prxpkts`, `ptxpkts`, `tlinks`, `alinks`, `plinks`, `tpcount`, `unupcount`, `actpcount`).
+- Resource `app_flag` (advertisement flags bit 6) and MTU-aware advertisements: oversized advertisements defer the hashmap (`"m": b""`) and the receiver requests it with the `0xFE` initial-hashmap request.
+- Discovery 1.6.0: `DST_COST`/`PR_COST` announce fields, autoconnect cost gating, `AUTOCONNECT_MIN_V` 1.5.7, hop-limit `PATHFINDER_M-1`, `RNS.Stamps` value math (replaces LXStamper integer math).
+
+### Fixed
+
+- Stamped link requests no longer have their ephemeral X25519 keys overwritten before packet construction.
+- Stamp enforcement no longer bypassed by announces with empty `app_data`.
+- Announce-cache DB (`storage/cache/announces.db`) now persists and is flushed/cleaned on Python's cadence; falls back to in-memory when unavailable.
+
+### Notes / deviations
+
+- Per-path "used" timestamps are approximated (no dedicated tracking); path-table sharding/culling and memory-density structures are not implemented.
+
 ## v1.4.2 - 2026-11-01
 
 ### Fixed

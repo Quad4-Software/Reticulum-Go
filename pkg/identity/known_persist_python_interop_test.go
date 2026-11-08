@@ -18,6 +18,7 @@ import (
 // Guarantee: Go-written known_destinations is accepted by Python
 // Identity.load_known_destinations (16-byte keys, 64-byte pubkey values).
 func TestKnownDestinationsMsgpackReadableByPython(t *testing.T) {
+	t.Setenv("RETICULUM_DISABLE_SQLITE_KNOWN", "1")
 	py := pythonInteropBin(t)
 	resetKnownDestinations(t)
 	tmp := t.TempDir()
@@ -147,6 +148,7 @@ sys.stdout.buffer.write(dest + ident.get_public_key())
 
 // Guarantee: legacy Go hex-keyed files still load after the write format change.
 func TestKnownDestinationsLoadLegacyHexKeys(t *testing.T) {
+	t.Setenv("RETICULUM_DISABLE_SQLITE_KNOWN", "1")
 	resetKnownDestinations(t)
 	id, err := New()
 	if err != nil {

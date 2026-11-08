@@ -26,7 +26,7 @@ func TestRaceAutoconnectConcurrentSameEndpoint(t *testing.T) {
 		Info: discovery.Info{
 			Type:          "TCPServerInterface",
 			TransportImpl: "RNS",
-			TransportVers: "1.5.5",
+			TransportVers: "1.6.0",
 			Name:          "race-tcp",
 			ReachableOn:   "192.0.2.88",
 			Port:          8888,
@@ -68,7 +68,7 @@ func TestRaceAutoconnectMonitorAndConnect(t *testing.T) {
 					Info: discovery.Info{
 						Type:          "BackboneInterface",
 						TransportImpl: "RNS",
-						TransportVers: "1.5.5",
+						TransportVers: "1.6.0",
 						Name:          "race",
 						ReachableOn:   "192.0.2.100",
 						Port:          int64(1000 + id),

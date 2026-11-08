@@ -8,10 +8,18 @@ import (
 	"fmt"
 	"time"
 
+	"sync/atomic"
+
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+
+	"path/filepath"
+
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+
+	"github.com/Quad4-Software/Reticulum-Go/internal/sqlitestore"
 )
 
 const PathRequestGrace = 400 * time.Millisecond
@@ -135,16 +143,38 @@ func (t *Transport) cacheAnnouncePacket(destHash []byte, pkt *packet.Packet) {
 	}
 	t.announcePacketCache[key] = &cachedAnnounce{pkt: cached, at: time.Now()}
 	t.evictAnnouncePacketCacheUnlocked()
+	db := t.announceCacheDB
 	t.mutex.Unlock()
+	if db != nil {
+		if raw, err := serializeCachedAnnounce(cached); err == nil {
+			db.Store(append([]byte(nil), destHash...), raw, "")
+			if db.PendingCount() > announceCacheMaxPending {
+				_, _ = db.Flush()
+			}
+		}
+	}
 }
 
 func (t *Transport) getCachedAnnouncePacket(destHash []byte) *packet.Packet {
 	if t == nil || len(destHash) != packet.TruncatedHashLength {
 		return nil
 	}
+	key := destKey(destHash)
 	t.mutex.RLock()
-	ca := t.announcePacketCache[destKey(destHash)]
+	ca := t.announcePacketCache[key]
+	db := t.announceCacheDB
 	t.mutex.RUnlock()
+	if ca == nil && db != nil {
+		if raw, _, ok := db.Fetch(append([]byte(nil), destHash...)); ok {
+			if pkt, err := deserializeCachedAnnounce(raw); err == nil {
+				ca = &cachedAnnounce{pkt: pkt, at: time.Now()}
+				t.mutex.Lock()
+				t.announcePacketCache[key] = ca
+				t.evictAnnouncePacketCacheUnlocked()
+				t.mutex.Unlock()
+			}
+		}
+	}
 	if ca == nil {
 		return nil
 	}
@@ -417,4 +447,99 @@ func (t *Transport) buildPathResponseWire(entry *PathAnnounceEntry) ([]byte, err
 		return nil, err
 	}
 	return out.Raw, nil
+}
+
+const announceCacheMaxPending = 10000
+
+// serializeCachedAnnounce encodes the announce fields needed to rebuild a
+// packet after an announce-cache DB fetch. Node-local format (msgpack map).
+func serializeCachedAnnounce(p *packet.Packet) ([]byte, error) {
+	return msgpack.Marshal(map[string]any{
+		"h": p.HeaderType, "t": p.PacketType, "tt": p.TransportType,
+		"c": p.Context, "cf": p.ContextFlag, "hops": p.Hops,
+		"dt": p.DestinationType, "dh": p.DestinationHash, "data": p.Data,
+	})
+}
+
+func deserializeCachedAnnounce(raw []byte) (*packet.Packet, error) {
+	var m map[string]any
+	if err := msgpack.Unmarshal(raw, &m); err != nil {
+		return nil, err
+	}
+	p := &packet.Packet{}
+	if v, ok := m["h"].(uint8); ok {
+		p.HeaderType = v
+	}
+	if v, ok := m["t"].(uint8); ok {
+		p.PacketType = v
+	}
+	if v, ok := m["tt"].(uint8); ok {
+		p.TransportType = v
+	}
+	if v, ok := m["c"].(uint8); ok {
+		p.Context = v
+	}
+	if v, ok := m["cf"].(uint8); ok {
+		p.ContextFlag = v
+	}
+	if v, ok := m["hops"].(uint8); ok {
+		p.Hops = v
+	}
+	if v, ok := m["dt"].(uint8); ok {
+		p.DestinationType = v
+	}
+	if v, ok := m["dh"].([]byte); ok {
+		p.DestinationHash = append([]byte(nil), v...)
+	}
+	if v, ok := m["data"].([]byte); ok {
+		p.Data = append([]byte(nil), v...)
+	}
+	return p, nil
+}
+
+// openAnnounceCacheDB opens the persistent announce cache at
+// <storage>/cache/announces.db (Python 1.6.0 filename) and imports any
+// legacy per-hash files under <storage>/cache/announces/. Returns nil on
+// any failure so callers fall back to the in-memory cache.
+func openAnnounceCacheDB(storagePath string) *sqlitestore.AnnounceCache {
+	cacheDir := filepath.Join(storagePath, "cache")
+	db, err := sqlitestore.OpenAnnounceCache(filepath.Join(cacheDir, "announces.db"))
+	if err != nil {
+		debug.Log(debug.DebugWarning, "announce cache DB unavailable, using memory only", "error", err)
+		return nil
+	}
+	if n, err := db.ImportLegacy(filepath.Join(cacheDir, "announces")); err == nil && n > 0 {
+		debug.Log(debug.DebugInfo, "imported legacy announce cache files", "count", n)
+	}
+	return db
+}
+
+var announceCacheFlushCounter atomic.Int64
+
+// maintainAnnounceCacheDB flushes the announce-cache DB roughly every 15s
+// (Python ac_flush_interval) and cleans entries not backing active paths.
+func (t *Transport) maintainAnnounceCacheDB() {
+	if t == nil || t.announceCacheDB == nil {
+		return
+	}
+	if announceCacheFlushCounter.Add(1)%3 != 0 { // 5s tick -> ~15s
+		return
+	}
+	t.mutex.RLock()
+	active := make([][]byte, 0, len(t.paths))
+	for k := range t.paths {
+		active = append(active, k[:])
+	}
+	db := t.announceCacheDB
+	t.mutex.RUnlock()
+	_, _ = db.Clean(active)
+	_, _ = db.Flush()
+}
+
+func (t *Transport) closeAnnounceCacheDB() {
+	if t != nil && t.announceCacheDB != nil {
+		_, _ = t.announceCacheDB.Flush()
+		_ = t.announceCacheDB.Close()
+		t.announceCacheDB = nil
+	}
 }

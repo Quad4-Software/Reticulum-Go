@@ -71,6 +71,10 @@ type TestVectors struct {
 	LRRTT                  []LRRTTVector                  `json:"lrrtt"`
 	DestinationType        []DestinationTypeVector        `json:"destination_type"`
 	CacheRequest           []CacheRequestVector           `json:"cache_request"`
+	Stamps                 *StampVectors                  `json:"stamps"`
+	StampedAnnounce        []StampedAnnounceVector        `json:"stamped_announce"`
+	PathRequestStamp       []PathRequestStampVector       `json:"path_request_stamp"`
+	StampedLRKey           []StampedLRKeyVector           `json:"stamped_lr_key"`
 }
 
 type ResourceReqVector struct {
@@ -440,7 +444,7 @@ func loadVectors(t *testing.T) *TestVectors {
 		t.Fatalf("Failed to parse test vectors: %v", err)
 	}
 
-	if v.FormatVersion < 1 || v.FormatVersion > 6 {
+	if v.FormatVersion < 1 || v.FormatVersion > 7 {
 		t.Fatalf("Unsupported test vector format version: %d", v.FormatVersion)
 	}
 

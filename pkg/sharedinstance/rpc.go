@@ -56,6 +56,8 @@ func (h *RPCHandler) Handle(call map[string]any) any {
 			return h.Transport.SlowestOnlineBitrate()
 		case "medium_path_timeout":
 			return h.Transport.MediumPathTimeout()
+		case "link_distribution":
+			return h.Transport.LinkDistributionRPC()
 		case "link_count":
 			return h.Transport.GetLinkCountRPC()
 		case "active_link_count":
@@ -67,6 +69,20 @@ func (h *RPCHandler) Handle(call map[string]any) any {
 		case "profiling_results":
 			return profiler.ResultsOrNil()
 		}
+	}
+	// RNS 1.6.0 destination-type requirement calls (requester/signature
+	// unchecked, matching upstream TODO).
+	if fn, ok := call["wants_destination_type"].(string); ok {
+		requester, _ := call["requester"].(string)
+		return h.Transport.WantsDestinationTypeRPC(fn, requester)
+	}
+	if fn, ok := call["unwants_destination_type"].(string); ok {
+		requester, _ := call["requester"].(string)
+		return h.Transport.UnwantsDestinationTypeRPC(fn, requester)
+	}
+	if _, ok := call["unwants_all_destination_types"]; ok {
+		requester, _ := call["requester"].(string)
+		return h.Transport.UnwantsAllDestinationTypesRPC(requester)
 	}
 	if manage, ok := call["manage"].(string); ok {
 		switch manage {

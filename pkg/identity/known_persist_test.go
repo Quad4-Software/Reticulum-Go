@@ -30,6 +30,9 @@ func resetKnownDestinations(t *testing.T) {
 	knownPersistDirty.Store(false)
 	knownPersistGen.Store(0)
 	knownPersistLast.Store(0)
+	if old := knownStore.Swap(nil); old != nil {
+		old.Close()
+	}
 	SetKnownDestinationsMaxEntries(0)
 }
 
@@ -54,10 +57,7 @@ func TestKnownDestinationsPersistenceRoundTrip(t *testing.T) {
 
 	SaveKnownDestinationsSync()
 
-	path, err := storage.KnownDestinationsPath(cfgPath)
-	if err != nil {
-		t.Fatalf("KnownDestinationsPath: %v", err)
-	}
+	path := knownPersistFilePath(t, cfgPath)
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("known_destinations not written: %v", err)
 	}
@@ -75,6 +75,7 @@ func TestKnownDestinationsPersistenceRoundTrip(t *testing.T) {
 }
 
 func TestKnownDestinationsLoadPythonStyleBytesKey(t *testing.T) {
+	t.Setenv("RETICULUM_DISABLE_SQLITE_KNOWN", "1")
 	resetKnownDestinations(t)
 
 	id, err := New()
@@ -137,10 +138,7 @@ func TestKnownDestinationsEnvOverrideForcesInMemory(t *testing.T) {
 
 func writeKnownDestinations(t *testing.T, cfgPath string, data []byte) string {
 	t.Helper()
-	path, err := storage.KnownDestinationsPath(cfgPath)
-	if err != nil {
-		t.Fatalf("KnownDestinationsPath: %v", err)
-	}
+	path := knownPersistFilePath(t, cfgPath)
 	if err := storage.AtomicWriteFile(path, data, 0o600); err != nil {
 		t.Fatalf("AtomicWriteFile: %v", err)
 	}
@@ -238,6 +236,7 @@ func TestDecodeKnownDestinations_RejectsWrongLengthPublicKey(t *testing.T) {
 }
 
 func TestKnownDestinationsLoad_CorruptFileFallsBackToInMemory(t *testing.T) {
+	t.Setenv("RETICULUM_DISABLE_SQLITE_KNOWN", "1")
 	resetKnownDestinations(t)
 	tmp := t.TempDir()
 	cfgPath := filepath.Join(tmp, "config")
@@ -250,6 +249,7 @@ func TestKnownDestinationsLoad_CorruptFileFallsBackToInMemory(t *testing.T) {
 }
 
 func TestKnownDestinationsLoad_WrongShapeDoesNotPanic(t *testing.T) {
+	t.Setenv("RETICULUM_DISABLE_SQLITE_KNOWN", "1")
 	resetKnownDestinations(t)
 	tmp := t.TempDir()
 	cfgPath := filepath.Join(tmp, "config")
@@ -594,4 +594,22 @@ func BenchmarkDecodeKnownDestinations(b *testing.B) {
 			b.Fatalf("decodeKnownDestinations: %v", err)
 		}
 	}
+}
+
+// knownPersistFilePath returns the path of whichever persistence backend is
+// active (sqlite DB preferred, legacy file otherwise) for test assertions.
+func knownPersistFilePath(t *testing.T, cfgPath string) string {
+	t.Helper()
+	if knownStore.Load() != nil {
+		p, err := knownDestinationsDBPath(cfgPath)
+		if err != nil {
+			t.Fatalf("db path: %v", err)
+		}
+		return p
+	}
+	p, err := storage.KnownDestinationsPath(cfgPath)
+	if err != nil {
+		t.Fatalf("KnownDestinationsPath: %v", err)
+	}
+	return p
 }

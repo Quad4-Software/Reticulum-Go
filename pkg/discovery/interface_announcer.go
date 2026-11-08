@@ -17,6 +17,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/sandbox"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/stamps"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
 )
 
@@ -288,6 +289,21 @@ func (a *InterfaceAnnouncer) infoForInterface(iface *common.InterfaceConfig) (*I
 		ifaceType = "KISSInterface"
 		info.Type = ifaceType
 	}
+	// RNS 1.6.0: announce quantized destination/path-request costs.
+	// Per-interface values fall back to the transport defaults.
+	dstCost := a.transport.DestinationValue()
+	prCost := a.transport.PRValue()
+	if iface.DestinationCostSet {
+		dstCost = iface.DestinationCost
+	}
+	if iface.PRCostSet {
+		prCost = iface.PRCost
+	}
+	dq := stamps.QuantizeCost(dstCost)
+	pq := stamps.QuantizeCost(prCost)
+	info.DstCost = &dq
+	info.PrCost = &pq
+
 	if iface.PublishIFAC {
 		// Publish the resolved IFAC credentials (ifac_netname/ifac_netkey
 		// fall back to network_name/passphrase like Python's synthesize).

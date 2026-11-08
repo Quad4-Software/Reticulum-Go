@@ -730,7 +730,7 @@ func TestRegression_KnownPathCachedAnnounceAnswersLocalClient(t *testing.T) {
 	tr.announcePacketCache[destKey(dest)] = &cachedAnnounce{pkt: announcePkt(dest, 0xAE), at: time.Now()}
 	tr.mutex.Unlock()
 
-	tr.processPathRequest(dest, local, nil, bytes.Repeat([]byte{0x01}, 16))
+	tr.processPathRequest(dest, local, nil, bytes.Repeat([]byte{0x01}, 16), nil)
 	if n := countSends(local); n != 1 {
 		t.Fatalf("local client must receive path response, got %d", n)
 	}
@@ -764,7 +764,7 @@ func TestRegression_KnownPathWithoutCacheForwardsLocalClientPR(t *testing.T) {
 	}
 	tr.mutex.Unlock()
 
-	tr.processPathRequest(dest, local, nil, bytes.Repeat([]byte{0x02}, 16))
+	tr.processPathRequest(dest, local, nil, bytes.Repeat([]byte{0x02}, 16), nil)
 	if n := countSends(wan); n < 1 {
 		t.Fatalf("local-client PR without cache must forward discovery, got %d", n)
 	}

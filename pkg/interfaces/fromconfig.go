@@ -372,6 +372,10 @@ func applyModeFromConfig(iface Interface, cfg *common.InterfaceConfig, ctx *From
 		base.AnnouncesFromInternal = afi
 		base.AnnouncesToInternal = ati
 		base.Gravity = gravity
+		base.DestinationCost = cfg.DestinationCost
+		base.DestinationCostSet = cfg.DestinationCostSet
+		base.PRCost = cfg.PRCost
+		base.PRCostSet = cfg.PRCostSet
 	}
 }
 

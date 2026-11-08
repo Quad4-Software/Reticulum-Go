@@ -28,7 +28,7 @@ func TestAutoconnectI2PCreatesPeer(t *testing.T) {
 		Info: discovery.Info{
 			Type:          "I2PInterface",
 			TransportImpl: "RNS",
-			TransportVers: "1.5.5",
+			TransportVers: "1.6.0",
 			Name:          "i2p peer",
 			ReachableOn:   dest,
 			Transport:     true,

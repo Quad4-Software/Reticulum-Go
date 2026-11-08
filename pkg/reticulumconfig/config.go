@@ -52,6 +52,8 @@ const (
 	sectionInterfaces   = "interfaces"
 	sectionInterface    = "interface"
 	sectionSubInterface = "subinterface"
+	sectionStamps       = "stamps"
+	sectionFilter       = "filter"
 	sectionUnknown      = "unknown"
 )
 
@@ -217,6 +219,10 @@ func classifySection(name string, depth int) string {
 		return sectionReticulum
 	case sectionLogging:
 		return sectionLogging
+	case sectionStamps:
+		return sectionStamps
+	case sectionFilter:
+		return sectionFilter
 	case sectionInterfaces:
 		return sectionInterfaces
 	default:
@@ -311,6 +317,10 @@ func LoadConfig(path string) (*common.ReticulumConfig, error) {
 			applyGlobalOption(cfg, key, value)
 		case sectionLogging:
 			applyLoggingOption(cfg, key, value)
+		case sectionStamps:
+			applyStampsOption(cfg, key, value)
+		case sectionFilter:
+			applyFilterOption(cfg, key, value)
 		case sectionInterface:
 			if iface, ok := cfg.Interfaces[top.name]; ok {
 				applyInterfaceOption(iface, key, value)
@@ -546,6 +556,78 @@ func applyLoggingOption(cfg *common.ReticulumConfig, key, value string) {
 	}
 }
 
+// applyStampsOption handles keys under [stamps] (RNS 1.6.0). Booleans only
+// enable; floats are stored raw and clamped when applied so StampsSettings
+// matches Reticulum.py.
+func applyStampsOption(cfg *common.ReticulumConfig, key, value string) {
+	s := &cfg.Stamps
+	switch strings.ToLower(key) {
+	case "enforce_stamps":
+		setBool(&s.EnforceStamps, value)
+	case "stamp_destinations":
+		setBool(&s.StampDestinations, value)
+	case "stamp_prs":
+		setBool(&s.StampPRs, value)
+	case "always_stamp_lrs":
+		setBool(&s.AlwaysStampLRs, value)
+	case "destination_cost":
+		if setFloat(value, &s.DestinationCost) {
+			s.DestinationCostSet = true
+		}
+	case "destination_value":
+		if setFloat(value, &s.DestinationValue) {
+			s.DestinationValueSet = true
+		}
+	case "pr_cost":
+		if setFloat(value, &s.PRCost) {
+			s.PRCostSet = true
+		}
+	case "pr_value":
+		if setFloat(value, &s.PRValue) {
+			s.PRValueSet = true
+		}
+	case "lr_cost":
+		if setFloat(value, &s.LRCost) {
+			s.LRCostSet = true
+		}
+	case "lr_stamp_timeout":
+		if setFloat(value, &s.LRStampTimeout) {
+			s.LRStampTimeoutSet = true
+		}
+	case "pr_stamp_timeout":
+		if setFloat(value, &s.PRStampTimeout) {
+			s.PRStampTimeoutSet = true
+		}
+	}
+}
+
+// applyFilterOption handles keys under [filter] (RNS 1.6.0). Values are only
+// parsed and stored here; the announce-path behaviour is applied elsewhere.
+func applyFilterOption(cfg *common.ReticulumConfig, key, value string) {
+	f := &cfg.Filter
+	switch strings.ToLower(key) {
+	case "required_only":
+		if setBool(&f.RequiredOnly, value) {
+			f.RequiredOnlySet = true
+		}
+	case "ignored_types":
+		f.IgnoredTypes = append(f.IgnoredTypes, splitCommaPaths(value)...)
+	case "allowed_types":
+		f.AllowedTypes = append(f.AllowedTypes, splitCommaPaths(value)...)
+	case "hop_limiter":
+		var n int
+		setInt(value, &n)
+		if n < 0 {
+			n = 0
+		}
+		if n > 128 {
+			n = 128
+		}
+		f.HopLimiter = n
+		f.HopLimiterSet = true
+	}
+}
+
 // applyInterfaceOption sets a single key on an interface configuration.
 // Unknown keys are ignored.
 func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
@@ -727,6 +809,18 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 	case "outgoing", "selected_outgoing":
 		if setBool(&iface.Outgoing, value) {
 			iface.OutgoingSet = true
+		}
+	case "destination_cost":
+		var v float64
+		if setFloat(value, &v) {
+			iface.DestinationCost = max(0, min(v, common.StampCostCap))
+			iface.DestinationCostSet = true
+		}
+	case "pr_cost":
+		var v float64
+		if setFloat(value, &v) {
+			iface.PRCost = max(0, min(v, common.StampCostCap))
+			iface.PRCostSet = true
 		}
 	case "discoverable":
 		setBool(&iface.Discoverable, value)

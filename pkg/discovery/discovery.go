@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/lxstamper"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/stamps"
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack/msgpcode"
 )
@@ -57,6 +58,10 @@ const (
 	// keys, so emitting it does not break receive-side interop. Remap if RNS
 	// standardizes a different code.
 	FieldOpPage byte = 0xF1
+
+	// RNS 1.6.0 discovery announce cost fields (quantized floats).
+	FieldDstCost byte = 0xFB
+	FieldPrCost  byte = 0xFA
 )
 
 // implementationVersion is the fallback TRANSPORT_VERS when build info is
@@ -123,6 +128,10 @@ type Info struct {
 	IFACNetname string
 	IFACNetkey  string
 
+	// DstCost/PrCost are the RNS 1.6.0 quantized interface costs (nil = absent).
+	DstCost *float64
+	PrCost  *float64
+
 	Frequency           int64
 	Bandwidth           int64
 	SpreadingFactor     int64
@@ -159,6 +168,8 @@ func EncodeInfo(in Info) ([]byte, error) {
 	pairs = append(pairs,
 		[2]any{FieldInterfaceType, in.Type},
 		[2]any{FieldTransport, in.Transport},
+		[2]any{FieldDstCost, in.DstCost},
+		[2]any{FieldPrCost, in.PrCost},
 		[2]any{FieldTransportID, in.TransportID},
 		[2]any{FieldTransportImpl, impl},
 		[2]any{FieldTransportVers, vers},
@@ -292,6 +303,16 @@ func DecodeInfo(raw []byte) (Info, error) {
 		case FieldTransport:
 			if b, ok := raw.(bool); ok {
 				out.Transport = b
+			}
+		case FieldDstCost:
+			if f, ok := toFloatOK(raw); ok {
+				q := stamps.QuantizeCost(f)
+				out.DstCost = &q
+			}
+		case FieldPrCost:
+			if f, ok := toFloatOK(raw); ok {
+				q := stamps.QuantizeCost(f)
+				out.PrCost = &q
 			}
 		case FieldReachableOn:
 			if s, ok := raw.(string); ok {
@@ -474,16 +495,17 @@ func safeDecodeBytes(dec *msgpack.Decoder, maxLen int) ([]byte, error) {
 }
 
 // StampWorkblock builds the workblock used by StampValue and StampValid.
+// RNS 1.6.0 uses RNS.Stamps.stamp_workblock (HKDF expansion).
 func StampWorkblock(material []byte, expandRounds int) ([]byte, error) {
 	if expandRounds <= 0 {
 		expandRounds = WorkblockExpandRounds
 	}
-	return lxstamper.StampWorkblock(material, expandRounds)
+	return stamps.StampWorkblock(material, expandRounds)
 }
 
-// StampValue counts the leading-zero bits of sha256(workblock || stamp).
-func StampValue(workblock, stamp []byte) int {
-	return lxstamper.StampValue(workblock, stamp)
+// StampValue returns the RNS.Stamps fixed-point stamp value.
+func StampValue(workblock, stamp []byte) float64 {
+	return stamps.StampValue(workblock, stamp)
 }
 
 // StampValid reports whether stamp meets the LXStamper numeric threshold for
@@ -496,16 +518,18 @@ func StampValid(stamp []byte, targetCost int, workblock []byte) bool {
 	if len(stamp) != StampSize {
 		return false
 	}
-	return lxstamper.StampValid(stamp, targetCost, workblock)
+	return stamps.StampValid(stamp, float64(targetCost), workblock)
 }
 
 // MeetsCost reports whether stamp passes both LXStamper StampValid and
 // StampValue >= targetCost, matching RNS Discovery receive gating.
+// MeetsCost mirrors RNS 1.6.0 Discovery gating: only stamp_valid gates
+// acceptance (the legacy value<required_value check was log-only upstream).
 func MeetsCost(stamp []byte, targetCost int, workblock []byte) bool {
 	if targetCost < 0 || targetCost > 256 {
 		return false
 	}
-	return lxstamper.MeetsCost(stamp, targetCost, workblock)
+	return stamps.StampValid(stamp, float64(targetCost), workblock)
 }
 
 // GenerateStamp brute-forces a 32-byte stamp meeting the LXStamper threshold
@@ -524,9 +548,21 @@ func GenerateStamp(messageID []byte, stampCost int, expandRounds int) (stamp []b
 		if err != nil {
 			return nil, 0, err
 		}
-		return stamp, StampValue(wb, stamp), nil
+		stamp2, val, err := stamps.GenerateStamp(context.Background(), wb, float64(stampCost), StampSize)
+		if err != nil {
+			return nil, 0, err
+		}
+		return stamp2, int(val + 0.5), nil
 	}
-	return lxstamper.GenerateStamp(context.Background(), messageID, stampCost, expandRounds)
+	wb, err := StampWorkblock(messageID, expandRounds)
+	if err != nil {
+		return nil, 0, err
+	}
+	stamp2, val, err := stamps.GenerateStamp(context.Background(), wb, float64(stampCost), StampSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	return stamp2, int(val + 0.5), nil
 }
 
 // InfoHash returns sha256(packedInfo), used as the message id when stamping
@@ -590,11 +626,11 @@ func toIntOK(v any) (int64, bool) {
 
 // AutoconnectMinVersions maps announced TRANSPORT_IMPL names to the minimum
 // version eligible for discovery auto-connect, matching Python
-// InterfaceDiscovery.AUTOCONNECT_IMPLS + AUTOCONNECT_MIN_V (RNS 1.5.5).
-// Python accepts only "RNS" >= 1.5.2. This port also admits its own
+// InterfaceDiscovery.AUTOCONNECT_IMPLS + AUTOCONNECT_MIN_V (RNS 1.6.0).
+// Python accepts only "RNS" >= 1.5.7. This port also admits its own
 // implementation name; version signalling first shipped in v1.1.0.
 var AutoconnectMinVersions = map[string]string{
-	"RNS":              "1.5.2",
+	"RNS":              "1.5.7",
 	ImplementationName: "1.1.0",
 }
 

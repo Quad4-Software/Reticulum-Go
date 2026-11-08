@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/Quad4-Software/Reticulum-Go/internal/storage"
 )
 
 // Guarantee: dirty periodic flushes respect KnownPersistMinInterval, while
@@ -29,10 +27,7 @@ func TestOracleKnownPersistThrottleSkipsThenForceWrites(t *testing.T) {
 	}
 
 	SaveKnownDestinationsSync()
-	path, err := storage.KnownDestinationsPath(cfgPath)
-	if err != nil {
-		t.Fatalf("path: %v", err)
-	}
+	path := knownPersistFilePath(t, cfgPath)
 	info1, err := os.Stat(path)
 	if err != nil {
 		t.Fatalf("stat after force: %v", err)

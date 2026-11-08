@@ -82,6 +82,7 @@ func TestRememberRatchetRejectsWrongSize(t *testing.T) {
 }
 
 func TestGetRatchetPersistRoundtrip(t *testing.T) {
+	t.Setenv("RETICULUM_DISABLE_SQLITE_KNOWN", "1")
 	resetKnownRatchets(t)
 	tmp := t.TempDir()
 	cfg := filepath.Join(tmp, "config")

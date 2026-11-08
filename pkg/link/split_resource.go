@@ -328,11 +328,12 @@ func (l *Link) handleSplitSegmentInMemory(payload []byte, adv *resource.Resource
 	}
 
 	if l.resourceConcludedCallback != nil {
-		if metadata != nil {
+		if metadata != nil || adv.AppFlag {
 			l.resourceConcludedCallback(IncomingResource{
 				Data:     data,
 				Metadata: metadata,
 				Hash:     append([]byte(nil), adv.OriginalHash...),
+				AppFlag:  adv.AppFlag,
 			})
 		} else {
 			l.resourceConcludedCallback(data)
@@ -414,11 +415,12 @@ func (l *Link) handleSplitSegmentOnDisk(payload []byte, adv *resource.ResourceAd
 	}
 
 	if l.resourceConcludedCallback != nil {
-		if metadata != nil {
+		if metadata != nil || adv.AppFlag {
 			l.resourceConcludedCallback(IncomingResource{
 				Data:     data,
 				Metadata: metadata,
 				Hash:     append([]byte(nil), adv.OriginalHash...),
+				AppFlag:  adv.AppFlag,
 			})
 		} else {
 			l.resourceConcludedCallback(data)

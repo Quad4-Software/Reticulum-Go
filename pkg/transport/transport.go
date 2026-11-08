@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Quad4-Software/Reticulum-Go/internal/sqlitestore"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/announce"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/blackhole"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
@@ -30,6 +31,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/pathfinder"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/protect"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/rate"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/stamps"
 )
 
 var (
@@ -157,6 +159,9 @@ type Transport struct {
 	pendingAnnounceMu     sync.Mutex
 	pathfinder            *pathfinder.PathFinder
 	announceHandlers      []announce.Handler
+	destFilters           *destinationFilters
+	filterRequiredOnly    bool
+	filterHopLimiter      int
 	announceHandlerSnap   []announce.Handler
 	paths                 map[[PathMapKeySize]byte]*common.Path
 	receipts              []*packet.PacketReceipt
@@ -168,6 +173,7 @@ type Transport struct {
 	announceTable         map[hash16]*PathAnnounceEntry
 	heldAnnounces         map[hash16]*PathAnnounceEntry
 	announcePacketCache   map[hash16]*cachedAnnounce
+	announceCacheDB       *sqlitestore.AnnounceCache
 	pendingLocalPathReqs  map[hash16]common.NetworkInterface
 	transportIdentity     *identity.Identity
 	// transportIDCache is the truncated hash of transportIdentity, kept so
@@ -231,6 +237,14 @@ type Transport struct {
 	inboundWG           sync.WaitGroup
 	inboundQueueSizes   [inboundQueueCount]int
 	pathRequestDestHash []byte
+	prStamps            prStampCache
+	prStampMu           sync.Mutex
+	prStampJobs         chan prStampJob
+	prStampPending      map[string]struct{}
+	// PRRxCount/PRTxCount count accepted inbound and emitted outbound path
+	// requests for later RPC/stats exposure (RNS 1.6.0 prxpkts/prtxpkts).
+	PRRxCount atomic.Uint64
+	PRTxCount atomic.Uint64
 }
 
 // SetBlackholeTable sets the blackhole table. handleAnnouncePacket drops
@@ -332,6 +346,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		announceTable:            make(map[hash16]*PathAnnounceEntry),
 		heldAnnounces:            make(map[hash16]*PathAnnounceEntry),
 		announcePacketCache:      make(map[hash16]*cachedAnnounce),
+		destFilters:              newDestinationFilters(),
 		pendingLocalPathReqs:     make(map[hash16]common.NetworkInterface),
 		linkTable:                newLinkRelayTable(),
 		reverseTable:             newReverseTable(),
@@ -418,6 +433,9 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		inMemoryKnown = true
 	}
 	identity.InitKnownDestinationsPersistence(configPath(cfg), inMemoryKnown)
+	if storagePath != "" && !inMemoryKnown {
+		t.announceCacheDB = openAnnounceCacheDB(storagePath)
+	}
 
 	handlers := common.DefaultMaxPacketHandlers
 	if cfg != nil {
@@ -478,6 +496,7 @@ func (t *Transport) startMaintenanceJobs() {
 				t.cleanupExpiredReceipts()
 				t.cleanupSeenAnnounces()
 				t.persistPathTableIfDirty()
+				t.maintainAnnounceCacheDB()
 				identity.PersistKnownDestinationsIfDirty()
 				t.maybeCleanKnownDestinations()
 				if tab := t.BlackholeTable(); tab != nil {
@@ -987,6 +1006,9 @@ func (t *Transport) SetReticulumConfig(cfg *common.ReticulumConfig) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	t.config = cfg
+	if cfg != nil {
+		t.applyFilterConfig(cfg.Filter)
+	}
 }
 
 // interfaceConfig returns config for name by map key or by InterfaceConfig.Name, or nil.
@@ -1058,6 +1080,7 @@ func (t *Transport) Close() error {
 			t.inboundQueues.wakeAll()
 		}
 	})
+	destination.StopStamper()
 	t.inboundWG.Wait()
 	t.handlerClosed.Store(true)
 	t.handlerOnce.Do(func() {})
@@ -1083,6 +1106,7 @@ func (t *Transport) Close() error {
 	t.savePathTableSync()
 	identity.SaveKnownDestinationsSync()
 
+	t.closeAnnounceCacheDB()
 	return nil
 }
 
@@ -1336,11 +1360,19 @@ func (t *Transport) NextHopInterface(destinationHash []byte) string {
 }
 
 func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag []byte, recursive bool) error {
+	return t.requestPath(destinationHash, onInterface, tag, nil, recursive)
+}
+
+func (t *Transport) requestPath(destinationHash []byte, onInterface string, tag, ext []byte, recursive bool) error {
 	if t == nil {
 		return common.ErrNoPathToDestination
 	}
 	if len(destinationHash) != 0 && len(destinationHash) != 16 {
 		return common.ErrTransportEmptyDestinationHash
+	}
+	// RNS 1.6.0 tags are truncated to 16 bytes.
+	if len(tag) > identity.TruncatedHashLength/8 {
+		tag = tag[:identity.TruncatedHashLength/8]
 	}
 	if tag == nil {
 		t.mutex.Lock()
@@ -1368,18 +1400,27 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 		}
 	}
 
-	var pathRequestData []byte
-	if t.transportIdentity != nil {
-		tid := t.transportIdentity.Hash()
-		pathRequestData = make([]byte, 0, len(destinationHash)+len(tid)+len(tag))
-		pathRequestData = append(pathRequestData, destinationHash...)
-		pathRequestData = append(pathRequestData, tid...)
-		pathRequestData = append(pathRequestData, tag...)
-	} else {
-		pathRequestData = make([]byte, 0, len(destinationHash)+len(tag))
-		pathRequestData = append(pathRequestData, destinationHash...)
-		pathRequestData = append(pathRequestData, tag...)
+	// RNS 1.6.0 stamped path requests: serve from the stamp cache, else
+	// defer emission to the background stamper (Transport.enqueue_stamped_pr).
+	if ext == nil && t.StampPRs() {
+		material := append(append([]byte{}, destinationHash...), tag...)
+		if stamp, ok := t.prStamps.get(material); ok {
+			ext = append([]byte{stamps.ExtPayloadMarker, 0x00}, stamp...)
+		} else {
+			if t.enqueueStampedPR(prStampJob{destHash: destinationHash, tag: tag, ifaceName: onInterface, recursive: recursive}) {
+				return nil
+			}
+		}
 	}
+
+	// From 1.6.0 path requests always carry the transport identity:
+	// dst_hash | transport_id | tag, 48 bytes before any ext payload.
+	tid := t.prTransportID()
+	pathRequestData := make([]byte, 0, len(destinationHash)+len(tid)+len(tag)+prExtPayloadLen)
+	pathRequestData = append(pathRequestData, destinationHash...)
+	pathRequestData = append(pathRequestData, tid...)
+	pathRequestData = append(pathRequestData, tag...)
+	pathRequestData = append(pathRequestData, ext...)
 
 	pathRequestName := "rnstransport.path.request"
 	nameHashFull := sha256.Sum256([]byte(pathRequestName))
@@ -1404,6 +1445,7 @@ func (t *Transport) RequestPath(destinationHash []byte, onInterface string, tag 
 		return fmt.Errorf("failed to pack path request: %w", err)
 	}
 
+	t.PRTxCount.Add(1)
 	debug.Log(debug.DebugVerbose, "Sending path request", "dest_hash", fmt.Sprintf("%x", destinationHash), "data_len", len(pathRequestData), "packet_len", len(pkt.Raw))
 
 	if onInterface != "" {
@@ -1618,47 +1660,6 @@ func (p *LinkPacket) send() error {
 	return sendOnInterface(iface, packet, "")
 }
 
-func (t *Transport) sendPathRequest(req *PathRequest, interfaceName string) error {
-	if req.TTL < 0 || req.TTL > PathRequestTTLMax {
-		return fmt.Errorf("path request TTL out of range: %d", req.TTL)
-	}
-	packet := &PathRequestPacket{
-		Type:            PacketTypeAnnounce,
-		DestinationHash: req.DestinationHash,
-		Tag:             req.Tag,
-		TTL:             byte(req.TTL),
-		Recursive:       req.Recursive,
-	}
-
-	buf := make([]byte, 0, 128)
-	buf = append(buf, packet.Type)
-	buf = append(buf, packet.DestinationHash...)
-	buf = append(buf, packet.Tag...)
-	buf = append(buf, packet.TTL)
-	if packet.Recursive {
-		buf = append(buf, wireFlagTrue)
-	} else {
-		buf = append(buf, wireFlagFalse)
-	}
-
-	t.mutex.RLock()
-	iface, ok := t.interfaces[interfaceName]
-	t.mutex.RUnlock()
-	if !ok || iface == nil {
-		return errors.New("interface not found")
-	}
-
-	return sendOnInterface(iface, buf, "")
-}
-
-type PathRequestPacket struct {
-	Type            byte
-	DestinationHash []byte
-	Tag             []byte
-	TTL             byte
-	Recursive       bool
-}
-
 type NetworkInterface struct {
 	Name    string
 	Addr    *net.UDPAddr
@@ -1776,6 +1777,29 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 
 	headerByte1 := data[0]
 	hopCount := data[1]
+
+	// RNS 1.6.0 [filter] hop_limiter: Python drops any packet with
+	// hops >= HOP_LIMITER before processing (interface.hop_limiter_hit()).
+	// Default limiter is PATHFINDER_M; [filter] hop_limiter overrides.
+	limiter := t.filterHopLimiter
+	if limiter <= 0 {
+		// No [filter] hop_limiter configured: the default PATHFINDER_M bound
+		// is enforced later by the existing MaxHops path which also counts
+		// announce_max_hops drops.
+		goto hopLimiterDone
+	}
+	if int(hopCount) >= limiter {
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Dropped announce by hop limiter", "hops", hopCount, "limiter", limiter)
+		}
+		if iface != nil {
+			if h, ok := iface.(interface{ HopLimiterHit() }); ok {
+				h.HopLimiterHit()
+			}
+		}
+		return nil
+	}
+hopLimiterDone:
 
 	ifacFlag := (headerByte1 & HeaderIFACMask) >> HeaderIFACShift
 	headerType := (headerByte1 & HeaderTypeMask) >> HeaderTypeShift
@@ -1901,6 +1925,56 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	pos += 64
 	appData = payload[pos:]
 
+	// RNS 1.6.0 announce stamps: the trailing 18-byte ext payload is
+	// validated against the receiving interface's destination_cost. The
+	// signature below still covers the full unstripped app_data; only a
+	// valid stamp strips the trailer for storage and handler delivery.
+	// RNS 1.6.0 [filter]: drop blocked destination types and (when
+	// required_only is set) announces for types no local client needs.
+	// Mirrors Python Transport.inbound ordering: filter runs before the
+	// stamp/signature path.
+	if t.destFilters != nil {
+		if !t.destFilters.announceAllowed(nameHash, int(hopCount), t.filterRequiredOnly, iface != nil && isLocalClientInterface(iface)) {
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Dropped announce by destination filter", "name_hash", fmt.Sprintf("%x", nameHash))
+			}
+			return nil
+		}
+	}
+
+	settings := t.StampsSettings()
+	var stampInfo *identity.StampInfo
+	storedAppData := appData
+	stamped, stampOk := false, false
+	if settings.Enabled && len(appData) > 0 {
+		requiredCost := t.interfaceDestinationCost(iface, settings)
+		var stripped []byte
+		var stamp []byte
+		var stampValue, lrCost float64
+		stripped, stamped, stampOk, stamp, stampValue, lrCost = stamps.ParseAnnounceExt(appData, destinationHash, pubKey, nameHash, requiredCost)
+		if stamped {
+			info := &identity.StampInfo{Stamp: stamp, Value: stampValue}
+			if stampOk {
+				c := lrCost
+				info.LRCost = &c
+				storedAppData = stripped
+			}
+			stampInfo = info
+		}
+	}
+	if settings.Enabled && settings.Enforced {
+		if !stamped {
+			debug.Log(debug.DebugVerbose, "Dropping unstamped announce (stamps enforced)", "dest_hash", fmt.Sprintf("%x", destinationHash))
+			announceReject(iface, health.KindAnnounceNoStamp)
+			return nil
+		}
+		if !stampOk {
+			debug.Log(debug.DebugVerbose, "Dropping announce with invalid stamp (stamps enforced)", "dest_hash", fmt.Sprintf("%x", destinationHash))
+			announceReject(iface, health.KindAnnounceInvalidStamp)
+			return nil
+		}
+	}
+
 	if debug.Enabled(debug.DebugVerbose) {
 		ratchetHex := "(none)"
 		if len(ratchetData) > 0 {
@@ -2005,7 +2079,7 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 	t.rememberSeenAnnounceUnlocked(announceHash, time.Now())
 	t.mutex.Unlock()
 
-	if !identity.RememberIdentity(data, destinationHash, pubKey, appData, id) {
+	if !identity.RememberStamped(data, destinationHash, pubKey, storedAppData, id, stampInfo) {
 		if debug.Enabled(debug.DebugWarning) {
 			debug.Log(debug.DebugWarning, "Rejected announce: destination hash already known with a different public key")
 		}
@@ -2095,7 +2169,7 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 		t.answerPendingLocalPathRequest(destinationHash, byte(announceHops))
 	}
 
-	t.notifyAnnounceHandlersFiltered(destinationHash, id, appData, uint8(announceHops), isPathResponse)
+	t.notifyAnnounceHandlersFiltered(destinationHash, id, storedAppData, uint8(announceHops), isPathResponse)
 
 	if iface != nil {
 		if st := t.ifaceStates.get(iface.GetName()); st != nil && st.ingress != nil {
@@ -2644,14 +2718,45 @@ func (t *Transport) InitializePathRequestHandler() error {
 }
 
 func (t *Transport) handlePathRequest(data []byte, iface common.NetworkInterface) {
-	destHash, requestorTransportID, tag, ok := parsePathRequestWire(data)
+	// RNS 1.6.0: stamped path requests are 64 bytes; larger is a
+	// protocol violation, and tagless requests are rejected below.
+	if len(data) > prStampedPRDataLen {
+		ifaceProtocolViolation(iface)
+		return
+	}
+	destHash, requestorTransportID, tag, ext, ok := parsePathRequestWire(data)
 	if !ok {
 		if len(data) < identity.TruncatedHashLength/8 {
 			debug.Log(debug.DebugVerbose, "Path request too short")
-		} else if debug.Enabled(debug.DebugVerbose) {
-			debug.Log(debug.DebugVerbose, "Ignoring tagless path request", "dest_hash", fmt.Sprintf("%x", destHash))
+		} else {
+			ifaceProtocolViolation(iface)
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Ignoring tagless path request", "dest_hash", fmt.Sprintf("%x", destHash))
+			}
 		}
 		return
+	}
+	t.PRRxCount.Add(1)
+
+	// RNS 1.6.0: validate the stamp ext (marker 0xC1 + 14-byte stamp over
+	// material dst|tag) against the receiving interface's pr_cost. The 0xFF
+	// flag marks a lenient-relayed unstamped request; it is validated the
+	// same way. Dropped only when stamps are enforced.
+	settings := t.StampsSettings()
+	if settings.Enabled {
+		stampOK := false
+		if ext != nil && ext[0] == stamps.ExtPayloadMarker {
+			required := t.interfacePRCost(iface, settings)
+			stampOK = validatePRStamp(ext[2:], destHash, tag, required)
+		}
+		if !stampOK && settings.Enforced {
+			ifaceName := ""
+			if iface != nil {
+				ifaceName = iface.GetName()
+			}
+			health.Inc(ifaceName, health.KindPathReqDup)
+			return
+		}
 	}
 
 	tagKey := discoveryPRTagKey(destHash, tag)
@@ -2689,7 +2794,7 @@ func (t *Transport) handlePathRequest(data []byte, iface common.NetworkInterface
 	// Path-request byte accounting happens in preprocessInboundPacket so
 	// every wire arrival (including duplicates) counts toward PR burst
 	// frequency once. Counting again here would double-count unique PRs.
-	t.processPathRequest(destHash, iface, requestorTransportID, tag)
+	t.processPathRequest(destHash, iface, requestorTransportID, tag, ext)
 }
 
 func discoveryPRTagKey(destHash, tag []byte) [32]byte {
@@ -2702,30 +2807,36 @@ func discoveryPRTagKey(destHash, tag []byte) [32]byte {
 // parsePathRequestWire extracts dest hash, optional requestor transport ID,
 // and tag from a path-request payload. ok is false when the payload is too
 // short or tagless (matching Python Transport.path_request_handler).
-func parsePathRequestWire(data []byte) (destHash, requestorTransportID, tag []byte, ok bool) {
+// parsePathRequestWire mirrors Transport.parse_path_request (RNS 1.6.0):
+// 64 bytes is stamped (dst|tid|tag|ext), >32 is dst|tid|tag with the tag
+// truncated to 16, >16 is legacy dst|tag, <=16 fails.
+func parsePathRequestWire(data []byte) (destHash, requestorTransportID, tag, ext []byte, ok bool) {
 	hashLen := identity.TruncatedHashLength / 8
 	if len(data) < hashLen {
-		return nil, nil, nil, false
+		return nil, nil, nil, nil, false
 	}
 	destHash = data[:hashLen]
+	if len(data) == prStampedPRDataLen {
+		return destHash, data[hashLen : hashLen*2], data[hashLen*2 : hashLen*3], data[hashLen*3:], true
+	}
 	if len(data) > hashLen*2 {
 		requestorTransportID = data[hashLen : hashLen*2]
 		tag = data[hashLen*2:]
 	} else if len(data) > hashLen {
 		tag = data[hashLen:]
 	} else {
-		return destHash, nil, nil, false
+		return destHash, nil, nil, nil, false
 	}
 	if len(tag) > hashLen {
 		tag = tag[:hashLen]
 	}
 	if len(tag) == 0 {
-		return destHash, requestorTransportID, nil, false
+		return destHash, requestorTransportID, nil, nil, false
 	}
-	return destHash, requestorTransportID, tag, true
+	return destHash, requestorTransportID, tag, nil, true
 }
 
-func (t *Transport) processPathRequest(destHash []byte, attachedIface common.NetworkInterface, requestorTransportID []byte, tag []byte) {
+func (t *Transport) processPathRequest(destHash []byte, attachedIface common.NetworkInterface, requestorTransportID []byte, tag, ext []byte) {
 	destHashKey := destKey(destHash)
 	pathKey := pathMapKey(destHash)
 	isFromLocalClient := isLocalClientInterface(attachedIface)
@@ -2825,7 +2936,7 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 			if e.iface == attachedIface || !e.iface.IsEnabled() {
 				continue
 			}
-			if err := t.RequestPath(destHash, e.iface.GetName(), freshTag, false); err != nil {
+			if err := t.requestPath(destHash, e.iface.GetName(), freshTag, nil, false); err != nil {
 				debug.Log(debug.DebugVerbose, "Failed to forward path request from local client",
 					"iface", e.iface.GetName(), "error", err)
 			} else {

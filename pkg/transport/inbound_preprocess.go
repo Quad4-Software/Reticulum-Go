@@ -142,7 +142,7 @@ func (t *Transport) preprocessInboundPacket(data []byte, iface common.NetworkInt
 			}
 		}
 	} else if tc == TCPathRequest {
-		destHash, _, tag, prOK := parsePathRequestWire(pkt.Data)
+		destHash, _, tag, _, prOK := parsePathRequestWire(pkt.Data)
 		if !prOK {
 			ifaceProtocolViolation(iface)
 			putPacketCopy(pc)

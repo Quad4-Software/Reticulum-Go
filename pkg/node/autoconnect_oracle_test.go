@@ -29,9 +29,9 @@ func TestOracleAutoconnectRespectsMaxConcurrent(t *testing.T) {
 	defer n.Stop()
 
 	peers := []discovery.Info{
-		{Type: "BackboneInterface", Name: "b1", ReachableOn: "192.0.2.10", Port: 1, HasPort: true, Transport: true, TransportImpl: "RNS", TransportVers: "1.5.5"},
-		{Type: "BackboneInterface", Name: "b2", ReachableOn: "192.0.2.11", Port: 2, HasPort: true, Transport: true, TransportImpl: "RNS", TransportVers: "1.5.5"},
-		{Type: "TCPServerInterface", Name: "t3", ReachableOn: "192.0.2.12", Port: 3, HasPort: true, Transport: true, TransportImpl: "RNS", TransportVers: "1.5.5"},
+		{Type: "BackboneInterface", Name: "b1", ReachableOn: "192.0.2.10", Port: 1, HasPort: true, Transport: true, TransportImpl: "RNS", TransportVers: "1.6.0"},
+		{Type: "BackboneInterface", Name: "b2", ReachableOn: "192.0.2.11", Port: 2, HasPort: true, Transport: true, TransportImpl: "RNS", TransportVers: "1.6.0"},
+		{Type: "TCPServerInterface", Name: "t3", ReachableOn: "192.0.2.12", Port: 3, HasPort: true, Transport: true, TransportImpl: "RNS", TransportVers: "1.6.0"},
 	}
 	for _, p := range peers {
 		n.autoconnect(&discovery.ReceivedAnnounceInfo{Info: p, RemoteIdentity: bytes.Repeat([]byte{0x01}, 16)})
@@ -73,7 +73,7 @@ func TestOracleAutoconnectExistsBlocksDuplicateHash(t *testing.T) {
 	info := &discovery.ReceivedAnnounceInfo{
 		Info: discovery.Info{
 			Type: "TCPServerInterface", ReachableOn: "192.0.2.20", Port: 5000, HasPort: true,
-			TransportImpl: "RNS", TransportVers: "1.5.5",
+			TransportImpl: "RNS", TransportVers: "1.6.0",
 		},
 	}
 	n.autoconnect(info)

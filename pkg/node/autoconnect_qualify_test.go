@@ -39,10 +39,10 @@ func TestAutoconnectQualifyMatrix(t *testing.T) {
 		unverified bool
 		want       bool
 	}{
-		{"rns at min", "RNS", "1.5.2", false, true},
-		{"rns above min", "RNS", "1.5.5", false, true},
+		{"rns at min", "RNS", "1.5.7", false, true},
+		{"rns above min", "RNS", "1.5.9", false, true},
 		{"rns next major", "RNS", "1.6.0", false, true},
-		{"rns below min", "RNS", "1.5.1", false, false},
+		{"rns below min", "RNS", "1.5.6", false, false},
 		{"rns old major", "RNS", "1.4.9", false, false},
 		{"ret-go at min", "reticulum-go", "1.1.0", false, true},
 		{"ret-go v-prefixed", "reticulum-go", "v1.2.0", false, true},
@@ -107,11 +107,11 @@ func TestAutoconnectQualifiedBlocksConnect(t *testing.T) {
 	if n.autoconnectCount() != 0 {
 		t.Fatal("unqualified impl must not autoconnect")
 	}
-	n.autoconnect(qualifyInfo("RNS", "1.5.1"))
+	n.autoconnect(qualifyInfo("RNS", "1.5.6"))
 	if n.autoconnectCount() != 0 {
 		t.Fatal("below-min RNS version must not autoconnect")
 	}
-	n.autoconnect(qualifyInfo("RNS", "1.5.5"))
+	n.autoconnect(qualifyInfo("RNS", "1.6.0"))
 	if n.autoconnectCount() != 1 {
 		t.Fatalf("qualified announce should connect, count=%d", n.autoconnectCount())
 	}

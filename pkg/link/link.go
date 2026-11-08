@@ -73,6 +73,8 @@ type Link struct {
 	identifiedCallback  func(*Link, *identity.Identity)
 
 	teardownReason byte
+	stampCost      float64
+	stampStatus    bool
 	hmacKey        *securemem.Buf
 	transport      *transport.Transport
 
@@ -268,6 +270,16 @@ func (l *Link) Establish() error {
 	l.initiator = true
 	l.status.Store(int32(StatusPending))
 	l.requestTime = time.Now()
+
+	// RNS 1.6.0 stamped link requests: when the destination announced a
+	// link cost (or ALWAYS_STAMP_LRS is on) the ephemeral X25519 key is
+	// mined as a key-stamp on a goroutine; the link stays PENDING and the
+	// request is registered/sent only once stamping completes.
+	if cost, stamped := l.linkStampCost(); stamped {
+		l.mutex.Unlock()
+		go l.stampThenEstablish(destHash, cost)
+		return nil
+	}
 	l.expectedHops = l.transport.HopsTo(destHash)
 	hops := int(l.expectedHops)
 	if hops < 1 || l.expectedHops >= HopCountUnreachable {

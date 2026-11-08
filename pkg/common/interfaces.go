@@ -124,6 +124,14 @@ type BaseInterface struct {
 	// Gravity is configured pathing affinity (RNS 1.4.1).
 	Gravity int
 
+	// DestinationCost/PRCost are the per-interface stamp requirements
+	// (RNS 1.6.0 destination_cost / pr_cost). *Set false means inherit the
+	// transport default at validation time.
+	DestinationCost    float64
+	DestinationCostSet bool
+	PRCost             float64
+	PRCostSet          bool
+
 	// ReceiveOnly blocks transmit when true (Python outgoing = no).
 	ReceiveOnly bool
 
@@ -158,6 +166,12 @@ func NewBaseInterface(name string, ifaceType InterfaceType, enabled bool) BaseIn
 func NewBaseInterfacePtr(name string, ifaceType InterfaceType, enabled bool) *BaseInterface {
 	b := NewBaseInterface(name, ifaceType, enabled)
 	return &b
+}
+
+// GetStampCosts reports the per-interface stamp requirements (RNS 1.6.0).
+// A false flag means the value is unset and the transport default applies.
+func (i *BaseInterface) GetStampCosts() (destinationCost float64, prCost float64, destSet, prSet bool) {
+	return i.DestinationCost, i.PRCost, i.DestinationCostSet, i.PRCostSet
 }
 
 // Default implementations for BaseInterface

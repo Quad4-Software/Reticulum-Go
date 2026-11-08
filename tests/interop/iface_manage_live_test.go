@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-Reticulum
 // Copyright (c) 2024-2026 Quad4.io
 
-// Live interface-management interop for the RNS 1.5.5 attach/detach/reload
+// Live interface-management interop for the RNS 1.6.0 attach/detach/reload
 // RPC path. Set RUN_LIVE_INTEROP=1.
 
 package interop
@@ -24,7 +24,7 @@ import (
 )
 
 // TestLiveManagePythonClientAgainstGoSharedInstance runs the full
-// attach/detach/reload tri-state matrix from a Python 1.5.5 shared-instance
+// attach/detach/reload tri-state matrix from a Python 1.6.0 shared-instance
 // client against a Go instance that owns the interfaces.
 func TestLiveManagePythonClientAgainstGoSharedInstance(t *testing.T) {
 	liveOrSkip(t)

@@ -27,6 +27,7 @@ import (
 const (
 	hashmapNotExhausted = 0x00
 	hashmapExhausted    = 0xff
+	hashmapIsEmpty      = 0xfe
 
 	// incomingResourceRetryInterval is how often the receive-side watchdog
 	// polls for a stalled transfer.
@@ -85,6 +86,8 @@ type IncomingResource struct {
 	Data     []byte
 	Metadata map[string]any
 	Hash     []byte
+	// AppFlag mirrors ResourceAdvertisement.app_flag (RNS 1.6.0 flags bit 6).
+	AppFlag bool
 }
 
 type mapHashKey [resource.MapHashLen]byte
@@ -555,6 +558,22 @@ func (l *Link) sendIncomingResourceReqNext() error {
 		}
 		exhausted = true
 		break
+	}
+
+	// RNS 1.6.0: when the advertisement carried an empty hashmap ("m": b"",
+	// oversized adv deferred to HMU), hashmap[0] is unknown — request the
+	// initial hashmap with HASHMAP_IS_EMPTY (0xFE) instead of part hashes.
+	if rx.hashmapHeight == 0 && len(rx.mapHashes) == 0 {
+		prefix := []byte{hashmapIsEmpty}
+		reqBody := append(prefix, rx.adv.Hash...)
+		iface := l.attachedIfaceName()
+		debug.Log(debug.DebugInfo, "Incoming resource requesting initial hashmap (empty adv)", "link_id", fmt.Sprintf("%x", l.linkID))
+		l.incomingMu.Unlock()
+		health.Inc(iface, health.KindResourceReq)
+		if err := l.SendPacketWithContext(reqBody, packet.ContextResourceReq); err != nil {
+			return err
+		}
+		return nil
 	}
 
 	if len(requestedHashes) == 0 && !exhausted {
@@ -1220,11 +1239,12 @@ func (l *Link) deliverIncomingResource(inner []byte, adv *resource.ResourceAdver
 
 	filePayload, metadata := splitResourceMetadata(payload, adv)
 	if l.resourceConcludedCallback != nil {
-		if metadata != nil {
+		if metadata != nil || adv.AppFlag {
 			l.resourceConcludedCallback(IncomingResource{
 				Data:     filePayload,
 				Metadata: metadata,
 				Hash:     append([]byte(nil), adv.Hash...),
+				AppFlag:  adv.AppFlag,
 			})
 		} else {
 			l.resourceConcludedCallback(filePayload)

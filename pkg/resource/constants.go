@@ -69,6 +69,7 @@ const (
 	AdvFlagIsRequest   byte = 0x08
 	AdvFlagIsResponse  byte = 0x10
 	AdvFlagHasMetadata byte = 0x20
+	AdvFlagApp         byte = 0x40
 
 	AdvFlagShiftCompressed  = 1
 	AdvFlagShiftSplit       = 2

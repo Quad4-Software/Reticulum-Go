@@ -4,6 +4,7 @@
 package destination
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -95,6 +96,14 @@ type Destination struct {
 	defaultAppData []byte
 	mutex          sync.RWMutex
 
+	// RNS 1.6.0 destination stamps (set_value / _link_cost / stamp fields).
+	targetValue float64
+	linkCost    float64
+	linkCostSet bool
+	stamp       []byte
+	stampValue  float64
+	stampGenMu  sync.Mutex
+
 	announceWindowStart      time.Time
 	announceWindowCount      int
 	announceThrottleWarnedAt time.Time
@@ -143,6 +152,9 @@ func New(id *identity.Identity, direction byte, destType byte, appName string, t
 	// Generate destination hash
 	d.hashValue = d.calculateHash()
 	debug.Log(debug.DebugVerbose, "Created destination with hash", "hash", fmt.Sprintf("%x", d.hashValue))
+
+	// Load a persisted destination stamp (RNS 1.6.0) when stamping is on.
+	d.loadDestinationStamp(d.stampsSettingsLocked())
 
 	// Auto-register with transport if direction is In
 	if (direction & In) != 0 {
@@ -303,6 +315,32 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 		}
 	}
 
+	// RNS 1.6.0 destination stamps: when stamping is enabled and no stamp
+	// exists yet, defer emission to the background stamper so Announce()
+	// does not block on generation.
+	settings := d.stampsSettingsLocked()
+	var announceStamp []byte
+	var announceLRCost float64
+	if settings.StampDestinations {
+		if len(d.stamp) == 0 {
+			d.mutex.Unlock()
+			if enqueueStampedAnnounce(stampJob{dest: d, pathResponse: pathResponse, tag: tag, attachedIface: attachedInterface}) {
+				return nil
+			}
+			// Stamper queue full: fall through to inline generation.
+			d.mutex.Lock()
+		}
+		d.mutex.Unlock()
+		ok := d.awaitStamp(context.Background(), settings)
+		d.mutex.Lock()
+		if !ok {
+			d.mutex.Unlock()
+			return errors.New("could not generate destination stamp, announce emission cancelled")
+		}
+		announceStamp = append([]byte(nil), d.stamp...)
+		announceLRCost = d.getLinkCostLocked(settings)
+	}
+
 	// Create announce packet using announce package
 	announceObj, err := announce.New(d.identity, d.hashValue, d.ExpandName(), appData, pathResponse, d.transport.GetConfig())
 	if err != nil {
@@ -310,6 +348,9 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 		return fmt.Errorf("failed to create announce: %w", err)
 	}
 	announceObj.SetRatchetPublic(ratchetPub)
+	if len(announceStamp) > 0 {
+		announceObj.SetStamp(announceStamp, announceLRCost)
+	}
 
 	packet, err := announceObj.GetPacket()
 	transport := d.transport

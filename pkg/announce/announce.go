@@ -16,6 +16,7 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/stamps"
 )
 
 type Announce struct {
@@ -32,6 +33,8 @@ type Announce struct {
 	retries         int
 	handlers        []Handler
 	ratchetPub      []byte
+	stamp           []byte
+	stampLRCost     float64
 	packet          []byte
 	hash            []byte
 }
@@ -88,6 +91,26 @@ func DestinationHash(id *identity.Identity, destName string) []byte {
 	out := make([]byte, AddrHashSize)
 	copy(out, full[:AddrHashSize])
 	return out
+}
+
+// SetStamp attaches a validated 14-byte destination stamp and the announced
+// link-request cost. The 18-byte ext payload is appended to app_data before
+// signing (signature covers it), matching RNS 1.6.0 Destination._announce.
+func (a *Announce) SetStamp(stamp []byte, lrCost float64) {
+	if a == nil {
+		return
+	}
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	if len(stamp) == stamps.StampLength {
+		a.stamp = append([]byte(nil), stamp...)
+		a.stampLRCost = lrCost
+	} else {
+		a.stamp = nil
+		a.stampLRCost = 0
+	}
+	a.packet = nil
+	a.hash = nil
 }
 
 // SetRatchetPublic attaches a 32-byte announced ratchet public key.
@@ -249,6 +272,9 @@ func (a *Announce) HandleAnnounce(data []byte) error {
 	randomHash := packetData[pos : pos+RandomHashSize]
 	pos += RandomHashSize
 
+	// Combine public keys
+	pubKey := append(encKey, signKey...)
+
 	var ratchetData []byte
 	if hasRatchet {
 		if len(packetData) < pos+RatchetSize+SignatureSize {
@@ -262,6 +288,33 @@ func (a *Announce) HandleAnnounce(data []byte) error {
 	pos += SignatureSize
 	appData := packetData[pos:]
 
+	// RNS 1.6.0 announce stamps: the signature below still covers the full
+	// unstripped app_data; only a valid stamp strips the trailer for
+	// storage and handler delivery.
+	settings := a.config.StampsSettings()
+	var stampInfo *identity.StampInfo
+	storedAppData := appData
+	if settings.Enabled && len(appData) > 0 {
+		stripped, stamped, stampOk, stamp, stampValue, lrCost := stamps.ParseAnnounceExt(appData, destHash, pubKey, nameHash, settings.DestinationCost)
+		if stamped {
+			info := &identity.StampInfo{Stamp: stamp, Value: stampValue}
+			if stampOk {
+				c := lrCost
+				info.LRCost = &c
+				storedAppData = stripped
+			}
+			stampInfo = info
+		}
+		if settings.Enforced {
+			if !stamped {
+				return errors.New("announce without stamp rejected (stamps enforced)")
+			}
+			if !stampOk {
+				return errors.New("announce with invalid stamp rejected (stamps enforced)")
+			}
+		}
+	}
+
 	debug.Log(debug.DebugTrace, "Announce fields", "encKey", fmt.Sprintf("%x", encKey), "signKey", fmt.Sprintf("%x", signKey))
 	debug.Log(debug.DebugTrace, "Name and random hash", "nameHash", fmt.Sprintf("%x", nameHash), "randomHash", fmt.Sprintf("%x", randomHash))
 	if len(ratchetData) >= 8 {
@@ -270,9 +323,6 @@ func (a *Announce) HandleAnnounce(data []byte) error {
 		debug.Log(debug.DebugTrace, "Ratchet data", "ratchet", "(none)")
 	}
 	debug.Log(debug.DebugTrace, "Signature and app data", "signature", fmt.Sprintf("%x", signature[:8]), "appDataLen", len(appData))
-
-	// Combine public keys
-	pubKey := append(encKey, signKey...)
 
 	// Create announced identity from public keys
 	announcedIdentity := identity.FromPublicKey(pubKey)
@@ -305,7 +355,7 @@ func (a *Announce) HandleAnnounce(data []byte) error {
 		return errors.New("destination hash mismatch")
 	}
 
-	if !identity.Remember(data, destHash, pubKey, appData) {
+	if !identity.RememberStamped(data, destHash, pubKey, storedAppData, nil, stampInfo) {
 		return errors.New("announce public key mismatch")
 	}
 
@@ -316,7 +366,7 @@ func (a *Announce) HandleAnnounce(data []byte) error {
 	// Process with handlers
 	for _, handler := range a.handlers {
 		if handler.ReceivePathResponses() || !a.pathResponse {
-			if err := handler.ReceivedAnnounce(destHash, announcedIdentity, appData, hopCount); err != nil {
+			if err := handler.ReceivedAnnounce(destHash, announcedIdentity, storedAppData, hopCount); err != nil {
 				return err
 			}
 		}
@@ -405,6 +455,12 @@ func (a *Announce) CreatePacket() ([]byte, error) {
 	}
 
 	appData := a.appData
+	if len(a.stamp) == stamps.StampLength {
+		ext := stamps.AnnounceExt(a.stamp, a.stampLRCost)
+		stamped := make([]byte, 0, len(appData)+len(ext))
+		stamped = append(stamped, appData...)
+		appData = append(stamped, ext...)
+	}
 	if appData == nil {
 		appData = []byte{}
 	}

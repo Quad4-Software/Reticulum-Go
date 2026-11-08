@@ -98,6 +98,12 @@ func (i *Identity) hasDecryptPrivate() bool {
 	return i != nil && i.privateKey != nil && i.privateKey.Len() == 32
 }
 
+// HasPrivateKey reports whether this identity holds a usable X25519 private
+// key (Python Identity.prv != None).
+func (i *Identity) HasPrivateKey() bool {
+	return i.hasDecryptPrivate()
+}
+
 // Close wipes locked private key material. Safe to call multiple times.
 func (i *Identity) Close() {
 	if i == nil {
