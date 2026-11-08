@@ -64,7 +64,7 @@ func CostToFP(cost float64) int {
 }
 
 func FPToBytes(fp int) [2]byte {
-	return [2]byte{byte(fp >> costFPBits), byte(fp)}
+	return [2]byte{byte((fp >> costFPBits) & 0xFF), byte(fp & 0xFF)}
 }
 
 func CostToBytes(cost float64) [2]byte {

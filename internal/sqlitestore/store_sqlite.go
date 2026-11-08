@@ -58,12 +58,12 @@ func OpenKnownDestinations(dbPath string, hashWidth int, readOnly bool) (*KnownD
 			"PRAGMA journal_mode=WAL", "PRAGMA synchronous=NORMAL", "PRAGMA journal_size_limit=8388608",
 		} {
 			if _, err := db.Exec(p); err != nil {
-				db.Close()
+				_ = db.Close()
 				return nil, err
 			}
 		}
 		if err := s.createSchema(); err != nil {
-			db.Close()
+			_ = db.Close()
 			return nil, err
 		}
 	}
@@ -219,13 +219,13 @@ func (s *KnownDestinationsStore) Flush() error {
 			VALUES (?,?,?,?,?,?,?,?,?,?)
 			ON CONFLICT(destination_hash) DO UPDATE SET last_heard=excluded.last_heard,packet_hash=excluded.packet_hash,public_key=excluded.public_key,app_data=excluded.app_data,used=excluded.used,stamp=excluded.stamp,stamp_value=excluded.stamp_value,lr_cost=excluded.lr_cost,identity_hash=excluded.identity_hash`,
 			e.DestinationHash, e.LastHeard, e.PacketHash, e.PublicKey, e.AppData, e.Used, e.Stamp, e.StampValue, lr, s.identityHash(e.PublicKey)); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 	}
 	for k := range deletes {
 		if _, err := tx.Exec("DELETE FROM known_destinations WHERE destination_hash=?", []byte(k)); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 	}
@@ -233,13 +233,13 @@ func (s *KnownDestinationsStore) Flush() error {
 		if _, err := tx.Exec(`INSERT INTO ratchets (destination_hash,ratchet,received) VALUES (?,?,?)
 			ON CONFLICT(destination_hash) DO UPDATE SET ratchet=excluded.ratchet,received=excluded.received`,
 			[]byte(k), r, float64Now()); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 	}
 	for k := range rd {
 		if _, err := tx.Exec("DELETE FROM ratchets WHERE destination_hash=?", []byte(k)); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 	}
@@ -322,7 +322,7 @@ func OpenAnnounceCache(dbPath string) (*AnnounceCache, error) {
 		"PRAGMA user_version = 1",
 	} {
 		if _, err := db.Exec(p); err != nil {
-			db.Close()
+			_ = db.Close()
 			return nil, err
 		}
 	}
@@ -376,7 +376,7 @@ func (c *AnnounceCache) Flush() (int, error) {
 		if _, err := tx.Exec(`INSERT INTO cached_announces VALUES (?,?,?,?)
 			ON CONFLICT(packet_hash) DO UPDATE SET received=excluded.received, raw=excluded.raw, interface_reference=excluded.interface_reference`,
 			[]byte(h), e.received, e.raw, iface); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			c.mu.Lock()
 			for k, v := range pending {
 				c.pending[k] = v
@@ -401,22 +401,22 @@ func (c *AnnounceCache) Clean(activeHashes [][]byte) (int64, error) {
 		return 0, err
 	}
 	if _, err := tx.Exec("DROP TABLE IF EXISTS temp.active_announces"); err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		return 0, err
 	}
 	if _, err := tx.Exec("CREATE TEMP TABLE active_announces (packet_hash BLOB PRIMARY KEY)"); err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		return 0, err
 	}
 	for _, h := range activeHashes {
 		if _, err := tx.Exec("INSERT OR IGNORE INTO active_announces VALUES (?)", h); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return 0, err
 		}
 	}
 	res, err := tx.Exec("DELETE FROM cached_announces WHERE packet_hash NOT IN (SELECT packet_hash FROM active_announces)")
 	if err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		return 0, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -444,7 +444,7 @@ func (c *AnnounceCache) ImportLegacy(dirPath string) (int, error) {
 		if e.IsDir() {
 			continue
 		}
-		raw, err := os.ReadFile(filepath.Join(dirPath, e.Name()))
+		raw, err := os.ReadFile(filepath.Join(dirPath, e.Name())) // #nosec G304 -- dirPath is the configured legacy cache dir, names come from directory listing
 		if err != nil || len(raw) == 0 {
 			continue
 		}

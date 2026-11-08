@@ -72,7 +72,7 @@ func LoadDestinationStamp(storagePath string, destinationHash, material []byte, 
 	if path == "" {
 		return nil, 0, false
 	}
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) // #nosec G304 -- path is derived from the configured storage dir and a hashed destination key
 	if err != nil {
 		return nil, 0, false
 	}

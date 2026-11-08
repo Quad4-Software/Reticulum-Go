@@ -33,7 +33,7 @@ func knownDestinationsDBPath(configPath string) (string, error) {
 func initKnownStore(configPath string) {
 	old := knownStore.Swap(nil)
 	if old != nil {
-		old.Close()
+		_ = old.Close()
 	}
 	if !sqlitestore.Available || os.Getenv("RETICULUM_DISABLE_SQLITE_KNOWN") == "1" {
 		return
@@ -59,7 +59,7 @@ func importLegacyKnownDestinations(configPath string, s *sqlitestore.KnownDestin
 	if err != nil {
 		return
 	}
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- path comes from the configured storage dir
 	if err != nil || len(data) == 0 {
 		return
 	}
@@ -110,7 +110,7 @@ func importLegacyRatchets(configPath string, s *sqlitestore.KnownDestinationsSto
 		if e.IsDir() {
 			continue
 		}
-		raw, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		raw, err := os.ReadFile(filepath.Join(dir, e.Name())) // #nosec G304 -- dir is the configured ratchets dir, names come from directory listing
 		if err != nil || len(raw) != 32 {
 			continue
 		}
