@@ -587,11 +587,10 @@ func TestUpdateLinkLocalAddressesEmpty(t *testing.T) {
 	ai.updateLinkLocalAddresses()
 }
 
-// TestAutoInterfaceStartOnHostInterface exercises the full per-interface
-// listener setup against a real NIC with a link-local IPv6 address. It is the
-// regression test for the Windows multicast discovery bind failure
-// (WSAEADDRNOTAVAIL on scoped wildcard binds); hosts without a suitable
-// interface skip.
+// TestAutoInterfaceStartOnHostInterface runs the full per-interface listener
+// setup against a real NIC with a link-local IPv6 address. Covers the Windows
+// multicast bind regression (WSAEADDRNOTAVAIL on scoped wildcard binds).
+// Skips when no suitable interface exists.
 func TestAutoInterfaceStartOnHostInterface(t *testing.T) {
 	ifaces, err := net.Interfaces()
 	if err != nil {

@@ -405,11 +405,10 @@ func (ai *AutoInterface) startDiscoveryListener(iface *net.Interface) error {
 		Port: ai.discoveryPort,
 		Zone: iface.Name,
 	}
-	// Windows rejects bind() on the wildcard address when sin6_scope_id is
-	// set (WSAEADDRNOTAVAIL). ListenMulticastUDP rewrites the multicast bind
-	// address to [::] regardless, and the group join targets iface.Index via
-	// the ifi argument, so the zone only reaches the bind sockaddr — clear it
-	// there. Matches the Python reference, which binds ('', port) on Windows.
+	// Windows rejects bind() on [::] when sin6_scope_id is set
+	// (WSAEADDRNOTAVAIL). ListenMulticastUDP binds [::] for multicast
+	// groups and joins via ifi.Index, so the zone only reaches the bind
+	// sockaddr. Matches the Python reference, which binds ('', port).
 	if runtime.GOOS == "windows" {
 		addr.Zone = ""
 	}

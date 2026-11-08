@@ -17,13 +17,13 @@ Tracks Python RNS 1.6.0.
 
 - Stamped link requests no longer have their ephemeral X25519 keys overwritten before packet construction.
 - Stamp enforcement no longer bypassed by announces with empty `app_data`.
-- Announce-cache DB (`storage/cache/announces.db`) now persists and is flushed/cleaned on Python's cadence; falls back to in-memory when unavailable.
+- Announce-cache DB (`storage/cache/announces.db`) now persists and is flushed/cleaned on Python's cadence. Falls back to in-memory when unavailable.
 - AutoInterface discovery works on Windows again: the multicast listener no longer binds a scoped wildcard address (WSAEADDRNOTAVAIL), matching the Python reference which binds the wildcard port and joins the group per interface.
 - SQLite storage is limited to platforms supported by modernc.org/sqlite (other targets keep the legacy file layout), and the stores are closed on shutdown so Windows can remove temp dirs cleanly.
 
 ### Notes / deviations
 
-- Per-path "used" timestamps are approximated (no dedicated tracking); path-table sharding/culling and memory-density structures are not implemented.
+- Per-path "used" timestamps are approximated (no dedicated tracking). Path-table sharding/culling and memory-density structures are not implemented.
 
 ## v1.4.2 - 2026-11-01
 
