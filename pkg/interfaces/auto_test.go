@@ -587,6 +587,60 @@ func TestUpdateLinkLocalAddressesEmpty(t *testing.T) {
 	ai.updateLinkLocalAddresses()
 }
 
+// TestAutoInterfaceStartOnHostInterface exercises the full per-interface
+// listener setup against a real NIC with a link-local IPv6 address. It is the
+// regression test for the Windows multicast discovery bind failure
+// (WSAEADDRNOTAVAIL on scoped wildcard binds); hosts without a suitable
+// interface skip.
+func TestAutoInterfaceStartOnHostInterface(t *testing.T) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		t.Fatalf("net.Interfaces: %v", err)
+	}
+
+	var candidate *net.Interface
+	for i := range ifaces {
+		iface := &ifaces[i]
+		if iface.Flags&(net.FlagUp|net.FlagLoopback) != net.FlagUp {
+			continue
+		}
+		if selectLinkLocalAddr(iface, 0) == "" {
+			continue
+		}
+		candidate = iface
+		break
+	}
+	if candidate == nil {
+		t.Skip("no up, non-loopback interface with a link-local IPv6 address")
+	}
+
+	ai, err := NewAutoInterface("autoHost", &common.InterfaceConfig{
+		Enabled:       true,
+		Devices:       []string{candidate.Name},
+		DiscoveryPort: 45916,
+		DataPort:      45971,
+	})
+	if err != nil {
+		t.Fatalf("NewAutoInterface: %v", err)
+	}
+	if err := ai.Start(); err != nil {
+		t.Fatalf("Start on %s: %v", candidate.Name, err)
+	}
+	defer ai.Stop()
+
+	ai.Mutex.RLock()
+	_, adopted := ai.adoptedInterfaces[candidate.Name]
+	hasDiscovery := ai.discoveryServers[candidate.Name] != nil
+	ai.Mutex.RUnlock()
+
+	if !adopted {
+		t.Fatalf("interface %s not adopted", candidate.Name)
+	}
+	if !hasDiscovery {
+		t.Fatalf("no discovery listener for %s", candidate.Name)
+	}
+}
+
 // TestRemoveInterfaceDropsLinkLocalAddr verifies removeInterface removes the
 // adopted address from linkLocalAddrs so repeated adopt/remove cycles do
 // not grow stale or duplicate entries.
