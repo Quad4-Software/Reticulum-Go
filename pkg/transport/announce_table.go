@@ -502,6 +502,9 @@ func deserializeCachedAnnounce(raw []byte) (*packet.Packet, error) {
 // legacy per-hash files under <storage>/cache/announces/. Returns nil on
 // any failure so callers fall back to the in-memory cache.
 func openAnnounceCacheDB(storagePath string) *sqlitestore.AnnounceCache {
+	if !sqlitestore.Available {
+		return nil
+	}
 	cacheDir := filepath.Join(storagePath, "cache")
 	db, err := sqlitestore.OpenAnnounceCache(filepath.Join(cacheDir, "announces.db"))
 	if err != nil {

@@ -28,6 +28,15 @@ func knownDestinationsDBPath(configPath string) (string, error) {
 	return filepath.Join(dir, "known_destinations.db"), nil
 }
 
+// CloseKnownDestinationsStore closes the shared sqlite store, if open.
+// Transport.Close calls this so Windows tests can clean up temp dirs
+// (open sqlite handles block directory removal there).
+func CloseKnownDestinationsStore() {
+	if old := knownStore.Swap(nil); old != nil {
+		_ = old.Close()
+	}
+}
+
 // initKnownStore opens the DB and imports legacy persistence. Called from
 // InitKnownDestinationsPersistence while knownPersistMu is held.
 func initKnownStore(configPath string) {

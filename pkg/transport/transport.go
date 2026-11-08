@@ -1107,6 +1107,7 @@ func (t *Transport) Close() error {
 	identity.SaveKnownDestinationsSync()
 
 	t.closeAnnounceCacheDB()
+	identity.CloseKnownDestinationsStore()
 	return nil
 }
 

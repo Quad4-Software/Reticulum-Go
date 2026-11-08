@@ -118,17 +118,16 @@ func (f *destinationFilters) unwantsAll(requester string) bool {
 func (f *destinationFilters) announceAllowed(nameHash []byte, hops int, requiredOnly bool, localClient bool) bool {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
-	key := string(nameHash)
-	if f.blocked[key] {
+	if f.blocked[string(nameHash)] {
 		return false
 	}
 	if !requiredOnly {
 		return true
 	}
-	if f.allowed[key] {
+	if f.allowed[string(nameHash)] {
 		return true
 	}
-	if _, ok := f.clients[key]; ok {
+	if _, ok := f.clients[string(nameHash)]; ok {
 		return true
 	}
 	if localClient && hops == 1 {
