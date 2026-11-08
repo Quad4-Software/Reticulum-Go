@@ -15,8 +15,6 @@ variables:
       TESTSUMMARY_RERUN_FAILS: '2'
 
 when:
-  - event: cron
-    cron: nightly
   - event: manual
 
 cache:

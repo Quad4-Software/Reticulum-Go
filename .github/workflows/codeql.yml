@@ -10,8 +10,6 @@ on:
   push:
     branches:
       - master
-  schedule:
-    - cron: "20 16 * * 6"
   workflow_dispatch:
 
 concurrency:

@@ -4,8 +4,6 @@ name: Self-check Android
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "30 5 * * 1"
 
 concurrency:
   group: selfcheck-android-${{ github.ref }}
