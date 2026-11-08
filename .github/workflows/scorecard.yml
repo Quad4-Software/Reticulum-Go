@@ -5,9 +5,6 @@ on:
   branch_protection_rule:
   schedule:
     - cron: "17 9 * * 1"
-  push:
-    branches:
-      - master
   workflow_dispatch:
 
 concurrency:

@@ -10,9 +10,6 @@ on:
   push:
     branches:
       - master
-  pull_request:
-    branches:
-      - master
   schedule:
     - cron: "20 16 * * 6"
   workflow_dispatch:

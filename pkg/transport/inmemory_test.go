@@ -100,6 +100,7 @@ func TestDiskBacked_PathEvictionAndAnnounceCache(t *testing.T) {
 		MaxInMemoryPaths: 3,
 	}
 	tr := NewTransport(cfg)
+	defer tr.Close()
 	t.Cleanup(func() { identity.SetKnownDestinationsMaxEntries(0) })
 
 	if tr.packetHashes == nil || tr.packetHashes.max != common.DefaultMaxPacketHashlistClient {

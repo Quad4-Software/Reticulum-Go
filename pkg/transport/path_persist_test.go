@@ -35,6 +35,7 @@ func TestPathTablePersistenceRoundTrip(t *testing.T) {
 	cfg := &common.ReticulumConfig{ConfigPath: cfgPath}
 
 	tr := NewTransport(cfg)
+	defer tr.Close()
 	iface := newPersistMockInterface("wan")
 	if err := tr.RegisterInterface("wan", iface); err != nil {
 		t.Fatalf("RegisterInterface: %v", err)
@@ -55,6 +56,7 @@ func TestPathTablePersistenceRoundTrip(t *testing.T) {
 	}
 
 	tr2 := NewTransport(cfg)
+	defer tr2.Close()
 	iface2 := newPersistMockInterface("wan")
 	if err := tr2.RegisterInterface("wan", iface2); err != nil {
 		t.Fatalf("RegisterInterface reload: %v", err)
@@ -85,6 +87,7 @@ func TestPathTablePersistenceInterfaceRegisteredLater(t *testing.T) {
 	cfg := &common.ReticulumConfig{ConfigPath: cfgPath}
 
 	tr := NewTransport(cfg)
+	defer tr.Close()
 	iface := newPersistMockInterface("wan")
 	_ = tr.RegisterInterface("wan", iface)
 	dest := bytes.Repeat([]byte{0x55}, 16)
@@ -144,6 +147,7 @@ func TestPathTablePersistenceSkipsExpiredEntries(t *testing.T) {
 	writeDestinationTable(t, cfgPath, data)
 
 	tr := NewTransport(cfg)
+	defer tr.Close()
 	iface := newPersistMockInterface("wan")
 	_ = tr.RegisterInterface("wan", iface)
 
@@ -197,6 +201,7 @@ func TestInMemoryPathTableConfig(t *testing.T) {
 		InMemoryPathTable: true,
 	}
 	tr := NewTransport(cfg)
+	defer tr.Close()
 	if !tr.pathPersistMemory.Load() {
 		t.Fatal("expected in-memory path table")
 	}
@@ -207,6 +212,7 @@ func TestInMemoryPathTableEnvOverride(t *testing.T) {
 	tmp := t.TempDir()
 	cfg := &common.ReticulumConfig{ConfigPath: filepath.Join(tmp, "config")}
 	tr := NewTransport(cfg)
+	defer tr.Close()
 	if !tr.pathPersistMemory.Load() {
 		t.Fatal("expected env override to force in-memory path table")
 	}
@@ -352,6 +358,7 @@ func TestPathTableLoad_CorruptFileFallsBackToInMemory(t *testing.T) {
 
 	cfg := &common.ReticulumConfig{ConfigPath: cfgPath}
 	tr := NewTransport(cfg)
+	defer tr.Close()
 	if !tr.pathPersistMemory.Load() || !tr.pathPersistDisabled.Load() {
 		t.Fatal("corrupt destination_table should force in-memory fallback")
 	}
@@ -527,6 +534,7 @@ func TestPathPersistence_NoGoroutineLeakAcrossManyTransports(t *testing.T) {
 	for i := range 50 {
 		cfg := &common.ReticulumConfig{ConfigPath: filepath.Join(tmp, "config")}
 		tr := NewTransport(cfg)
+		defer tr.Close()
 		iface := newPersistMockInterface("wan")
 		_ = tr.RegisterInterface("wan", iface)
 		tr.UpdatePath(bytes.Repeat([]byte{byte(i)}, 16), bytes.Repeat([]byte{0x01}, 16), "wan", 1)
