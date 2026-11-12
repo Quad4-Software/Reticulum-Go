@@ -6,6 +6,7 @@
 package sqlitestore
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -56,6 +57,41 @@ func TestKnownDestinationsRoundTrip(t *testing.T) {
 	rat, err := ro.FetchRatchet(e.DestinationHash)
 	if err != nil || len(rat) != 32 {
 		t.Fatalf("ratchet %v %d", err, len(rat))
+	}
+}
+
+// Close must flush pending write-behind changes: a store swapped out by
+// re-init or closed directly cannot drop queued destination/ratchet writes.
+func TestCloseFlushesPendingWrites(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "known_destinations.db")
+	s, err := OpenKnownDestinations(dbPath, 16, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := &KnownDestEntry{
+		DestinationHash: []byte("0123456789abcdef"),
+		LastHeard:       1700000000.5,
+		PublicKey:       append([]byte(nil), make([]byte, 64)...),
+	}
+	s.MarkDirty(e)
+	s.MarkRatchetDirty(e.DestinationHash, bytes.Repeat([]byte{0x5A}, 32))
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	ro, err := OpenKnownDestinations(dbPath, 16, true)
+	if err != nil {
+		t.Fatalf("read-only open: %v", err)
+	}
+	defer ro.Close()
+	rows, err := ro.LoadAll()
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("rows=%v %d", err, len(rows))
+	}
+	rat, err := ro.FetchRatchet(e.DestinationHash)
+	if err != nil || len(rat) != 32 || rat[0] != 0x5A {
+		t.Fatalf("ratchet %v %x", err, rat)
 	}
 }
 

@@ -291,7 +291,13 @@ func (s *KnownDestinationsStore) Checkpoint() {
 	_, _ = s.db.Exec("PRAGMA wal_checkpoint(FULL)")
 }
 
-func (s *KnownDestinationsStore) Close() error { return s.db.Close() }
+// Close flushes pending write-behind changes before closing so queued
+// destination and ratchet updates are not lost when the store is swapped
+// out by a re-init or closed directly.
+func (s *KnownDestinationsStore) Close() error {
+	_ = s.Flush()
+	return s.db.Close()
+}
 
 // AnnounceCache mirrors Python RNS.Storage.AnnounceCache.
 type AnnounceCache struct {

@@ -18,6 +18,36 @@ import (
 // available and persistence is enabled; nil means use the legacy file.
 var knownStore atomic.Pointer[sqlitestore.KnownDestinationsStore]
 
+// knownStoreReadInit guards the one-shot lazy open used by standalone
+// ratchet lookups (GetRatchet) that never went through transport init.
+// The legacy file backend resolved the storage path lazily on every read;
+// the sqlite backend needs the store opened once to keep that behaviour.
+var knownStoreReadInit atomic.Bool
+
+// ensureKnownStoreReadable opens the known-destinations DB on first use by
+// a reader that bypassed InitKnownDestinationsPersistence. It only runs
+// when an explicit storage location is resolvable (config path already set
+// or RETICULUM_STORAGE_PATH); otherwise the legacy file path keeps handling
+// the default-directory lookup exactly as before. Processes that already
+// initialized persistence as in-memory or disabled keep that choice: the
+// lazy open must not flip them back to disk writes.
+func ensureKnownStoreReadable() {
+	if knownStore.Load() != nil || knownStoreReadInit.Load() ||
+		knownPersistMemory.Load() || knownPersistDisabled.Load() {
+		return
+	}
+	knownPersistMu.Lock()
+	cfg := knownPersistConfig
+	knownPersistMu.Unlock()
+	if cfg == "" && os.Getenv("RETICULUM_STORAGE_PATH") == "" {
+		return
+	}
+	if !knownStoreReadInit.CompareAndSwap(false, true) {
+		return
+	}
+	InitKnownDestinationsPersistence(cfg, false)
+}
+
 // knownDestinationsDBPath resolves storage/known_destinations.db (Python
 // Storage.KnownDestinationsStore filename).
 func knownDestinationsDBPath(configPath string) (string, error) {

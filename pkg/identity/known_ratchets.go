@@ -68,6 +68,10 @@ func RememberRatchet(destHash, ratchet []byte) {
 	if knownPersistMemory.Load() || knownPersistDisabled.Load() {
 		return
 	}
+	// Ratchet writes are write-behind in the sqlite store; mark dirty so the
+	// periodic known-destinations flush persists them even when no
+	// destination-table entry changed (Python flushes every 10s).
+	markKnownDestinationsDirty()
 	persistKnownRatchet(destHash, entry)
 }
 
@@ -252,6 +256,7 @@ func persistKnownRatchet(destHash []byte, entry knownRatchetEntry) {
 }
 
 func loadKnownRatchetFromDisk(destHash []byte) []byte {
+	ensureKnownStoreReadable()
 	if s := knownStore.Load(); s != nil {
 		if r, err := s.FetchRatchet(destHash); err == nil && len(r) == RatchetSize/8 {
 			key := knownDestKey(destHash)
