@@ -515,8 +515,7 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 	resp.ATXPackets = atx
 	resp.PRXPackets = t.PRRxCount.Load()
 	resp.PTXPackets = t.PRTxCount.Load()
-	resp.TLinks = t.GetLinkCountRPC()
-	resp.ALinks = t.GetActiveLinkCountRPC()
+	resp.TLinks, resp.ALinks = t.linkCountsLocked()
 	resp.PLinks = resp.TLinks - resp.ALinks
 	resp.TPCount = len(t.paths)
 	resp.ActpCount = resp.TPCount
@@ -531,13 +530,7 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 	resp.NetmonFlap = trHealth.NetmonFlap.Total
 	total, heights, dropped := t.inboundQueueSnapshot()
 	fillInboundQueueStats(&resp, total, heights, dropped, t.inboundQueueSizes)
-	if t.linkTable != nil {
-		total, validated := t.linkTable.counts()
-		resp.ActiveLinks = validated
-		_ = total
-	} else {
-		resp.ActiveLinks = t.countActiveLinksLocked()
-	}
+	_, resp.ActiveLinks = t.linkCountsLocked()
 	if t.transportIdentity != nil {
 		resp.TransportID = t.transportIdentity.Hash()
 	}
@@ -696,24 +689,29 @@ func interfaceStatusType(iface common.NetworkInterface) string {
 	return "Interface"
 }
 
+// linkCountsLocked returns total and validated link counts. The caller must
+// hold t.mutex (read or write); it must not call back into a method that
+// acquires t.mutex because Go RWMutex read locks are not reentrant once a
+// writer is queued.
+func (t *Transport) linkCountsLocked() (total, validated int) {
+	if t.linkTable != nil {
+		return t.linkTable.counts()
+	}
+	return len(t.links), t.countActiveLinksLocked()
+}
+
 func (t *Transport) GetLinkCountRPC() int {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-	if t.linkTable != nil {
-		total, _ := t.linkTable.counts()
-		return total
-	}
-	return len(t.links)
+	total, _ := t.linkCountsLocked()
+	return total
 }
 
 func (t *Transport) GetActiveLinkCountRPC() int {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-	if t.linkTable != nil {
-		_, validated := t.linkTable.counts()
-		return validated
-	}
-	return t.countActiveLinksLocked()
+	_, validated := t.linkCountsLocked()
+	return validated
 }
 
 func fillInterfaceAccounting(st *InterfaceStat, iface common.NetworkInterface) {

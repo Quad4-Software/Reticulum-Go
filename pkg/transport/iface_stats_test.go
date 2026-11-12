@@ -5,6 +5,7 @@ package transport
 
 import (
 	"testing"
+	"time"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
@@ -22,6 +23,23 @@ func (s *statsQueueIface) Send(data []byte, address string) error {
 
 func (s *statsQueueIface) ProcessOutgoing(data []byte) error {
 	return s.Send(data, "")
+}
+
+// statsBlockingIface parks inside GetRxBytes so a test can hold the
+// transport read lock mid-snapshot while a writer queues behind it.
+type statsBlockingIface struct {
+	mockInterface
+	entered chan struct{}
+	unblock chan struct{}
+}
+
+func (s *statsBlockingIface) GetRxBytes() uint64 {
+	select {
+	case s.entered <- struct{}{}:
+	default:
+	}
+	<-s.unblock
+	return 0
 }
 
 func TestGetInterfaceStatsRPCTypeNames(t *testing.T) {
@@ -56,6 +74,62 @@ func TestGetInterfaceStatsRPCTypeNames(t *testing.T) {
 	}
 	if got[tcp.GetName()] != "TCPClientInterface" {
 		t.Fatalf("TCP type=%q want TCPClientInterface", got[tcp.GetName()])
+	}
+}
+
+// GetInterfaceStatsRPC must not re-acquire t.mutex through helper calls:
+// Go RWMutex read locks are not reentrant once a writer is queued, so a
+// nested RLock deadlocks the transport mutex (seen as daemon/reload timeouts
+// under qemu-user self-check).
+func TestGetInterfaceStatsRPCNoRecursiveReadLock(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{})
+	t.Cleanup(func() { _ = tr.Close() })
+
+	blocker := &statsBlockingIface{
+		entered: make(chan struct{}, 1),
+		unblock: make(chan struct{}),
+	}
+	blocker.Name = "stats-blocker"
+	blocker.Enabled = true
+	blocker.Online = true
+	if err := tr.RegisterInterface("stats-blocker", blocker); err != nil {
+		t.Fatalf("RegisterInterface: %v", err)
+	}
+
+	statsDone := make(chan InterfaceStatsResponse, 1)
+	go func() { statsDone <- tr.GetInterfaceStatsRPC() }()
+
+	select {
+	case <-blocker.entered:
+	case <-time.After(10 * time.Second):
+		t.Fatal("GetInterfaceStatsRPC did not reach interface stats")
+	}
+
+	// Queue a writer behind the in-flight read lock.
+	writerDone := make(chan error, 1)
+	go func() {
+		writerDone <- tr.RegisterInterface("stats-writer", mockIface("stats-writer", true))
+	}()
+
+	// A pending writer makes TryRLock fail; poll until the writer is queued.
+	deadline := time.Now().Add(10 * time.Second)
+	for tr.mutex.TryRLock() {
+		tr.mutex.RUnlock()
+		if time.Now().After(deadline) {
+			t.Fatal("writer never queued on transport mutex")
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	close(blocker.unblock)
+
+	select {
+	case <-statsDone:
+	case <-time.After(10 * time.Second):
+		t.Fatal("GetInterfaceStatsRPC deadlocked behind queued writer")
+	}
+	if err := <-writerDone; err != nil {
+		t.Fatalf("RegisterInterface: %v", err)
 	}
 }
 
