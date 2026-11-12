@@ -40,6 +40,7 @@ func TestLiveInteropGoResourceAppFlagToPython(t *testing.T) {
 		"INTEROP_FORWARD_PORT="+strconv.Itoa(pyForward),
 		"INTEROP_LINK_MODE=resource",
 		"INTEROP_RESOURCE_EXPECT=interop-appflag-payload",
+		"INTEROP_PRINT_APP_FLAG=1",
 	)
 	cmd.Stderr = os.Stderr
 	out, err := cmd.StdoutPipe()

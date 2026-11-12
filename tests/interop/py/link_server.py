@@ -135,7 +135,8 @@ def client_connected(link):
             ).encode("utf-8")
             if data == expected:
                 sys.stdout.write("RESOURCE_OK\n")
-                sys.stdout.write("RESOURCE_APP_FLAG %d\n" % (1 if getattr(resource, "app_flag", False) else 0))
+                if os.environ.get("INTEROP_PRINT_APP_FLAG", "0") == "1":
+                    sys.stdout.write("RESOURCE_APP_FLAG %d\n" % (1 if getattr(resource, "app_flag", False) else 0))
                 sys.stdout.flush()
             else:
                 sys.stderr.write("resource data mismatch got %r\n" % (data,))
