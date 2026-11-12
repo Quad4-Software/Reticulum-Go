@@ -166,6 +166,7 @@ func TestPathTablePersistenceFallsBackOnWriteFailure(t *testing.T) {
 	cfg := &common.ReticulumConfig{ConfigPath: cfgPath}
 
 	tr := NewTransport(cfg)
+	defer tr.Close()
 	iface := newPersistMockInterface("wan")
 	_ = tr.RegisterInterface("wan", iface)
 	tr.UpdatePath(bytes.Repeat([]byte{0x33}, 16), bytes.Repeat([]byte{0x44}, 16), "wan", 1)
