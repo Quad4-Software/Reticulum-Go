@@ -44,7 +44,7 @@ env:
 jobs:
   semantic-pr-title:
     name: Semantic PR title
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     # No PR exists on a manual dispatch, so there is no title to validate.
     if: github.event_name == 'pull_request'
@@ -76,7 +76,7 @@ jobs:
 
   dco-signoff:
     name: DCO sign-off
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Harden runner
@@ -107,7 +107,7 @@ jobs:
 
   signed-commits:
     name: Signed commits (advisory)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     continue-on-error: true
     steps:

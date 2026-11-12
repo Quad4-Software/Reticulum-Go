@@ -43,7 +43,7 @@ env:
 jobs:
   stress:
     name: Flaky-surface stress
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - name: Harden runner

@@ -45,7 +45,7 @@ env:
 jobs:
   dependency-review:
     name: Review dependency changes
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: Harden runner

@@ -87,7 +87,7 @@ env:
 jobs:
   changes:
     name: Path filter
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       docs_only: ${{ steps.filter.outputs.docs_only || steps.manual.outputs.docs_only }}
@@ -259,8 +259,8 @@ jobs:
           build_core='[{"goos":"linux","goarch":"amd64"},{"goos":"linux","goarch":"arm64"},{"goos":"windows","goarch":"amd64"},{"goos":"darwin","goarch":"arm64"},{"goos":"freebsd","goarch":"amd64"},{"goos":"js","goarch":"wasm"}]'
           # Keep in sync with scripts/build-release-targets.sh
           build_full='[{"goos":"linux","goarch":"amd64"},{"goos":"linux","goarch":"386"},{"goos":"linux","goarch":"arm64"},{"goos":"linux","goarch":"arm"},{"goos":"linux","goarch":"riscv64"},{"goos":"linux","goarch":"ppc64le"},{"goos":"linux","goarch":"ppc64"},{"goos":"linux","goarch":"mips"},{"goos":"linux","goarch":"mipsle"},{"goos":"linux","goarch":"mips64"},{"goos":"linux","goarch":"mips64le"},{"goos":"linux","goarch":"s390x"},{"goos":"windows","goarch":"amd64"},{"goos":"windows","goarch":"arm64"},{"goos":"windows","goarch":"386"},{"goos":"darwin","goarch":"amd64"},{"goos":"darwin","goarch":"arm64"},{"goos":"freebsd","goarch":"amd64"},{"goos":"freebsd","goarch":"arm64"},{"goos":"freebsd","goarch":"arm"},{"goos":"freebsd","goarch":"386"},{"goos":"freebsd","goarch":"riscv64"},{"goos":"openbsd","goarch":"amd64"},{"goos":"openbsd","goarch":"arm64"},{"goos":"openbsd","goarch":"arm"},{"goos":"openbsd","goarch":"386"},{"goos":"openbsd","goarch":"ppc64"},{"goos":"openbsd","goarch":"riscv64"},{"goos":"netbsd","goarch":"amd64"},{"goos":"netbsd","goarch":"arm64"},{"goos":"netbsd","goarch":"arm"},{"goos":"netbsd","goarch":"386"},{"goos":"dragonfly","goarch":"amd64"},{"goos":"solaris","goarch":"amd64"},{"goos":"illumos","goarch":"amd64"},{"goos":"aix","goarch":"ppc64"},{"goos":"android","goarch":"arm64"},{"goos":"js","goarch":"wasm"}]'
-          test_core='[{"os":"blacksmith-4vcpu-ubuntu-2404","goarch":"amd64"}]'
-          test_full='[{"os":"blacksmith-4vcpu-ubuntu-2404","goarch":"amd64"},{"os":"blacksmith-4vcpu-ubuntu-2404-arm","goarch":"arm64"}]'
+          test_core='[{"os":"ubuntu-latest","goarch":"amd64"}]'
+          test_full='[{"os":"ubuntu-latest","goarch":"amd64"},{"os":"ubuntu-24.04-arm","goarch":"arm64"}]'
           if [ "$full" = "true" ]; then
             build_json="$build_full"
             test_json="$test_full"
@@ -277,7 +277,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: Harden runner
@@ -385,7 +385,7 @@ jobs:
     name: Live interop (Go/Python RNS)
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true' || needs.changes.outputs.ci == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
       - name: Harden runner
@@ -431,7 +431,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [blacksmith-6vcpu-macos-15, blacksmith-4vcpu-windows-2025]
+        os: [macos-latest, windows-latest]
 
     steps:
       - name: Harden runner
@@ -474,7 +474,7 @@ jobs:
     name: FreeBSD self-check
     needs: changes
     if: needs.changes.outputs.full == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - name: Harden runner
@@ -511,7 +511,7 @@ jobs:
     name: OpenBSD self-check
     needs: changes
     if: needs.changes.outputs.full == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - name: Harden runner
@@ -548,7 +548,7 @@ jobs:
     name: NetBSD self-check
     needs: changes
     if: needs.changes.outputs.full == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - name: Harden runner
@@ -587,7 +587,7 @@ jobs:
     name: Haiku self-check
     needs: changes
     if: needs.changes.outputs.full == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - name: Harden runner
@@ -641,7 +641,7 @@ jobs:
     name: Linux ${{ matrix.goarch }} self-check (qemu-user)
     needs: changes
     if: needs.changes.outputs.full == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
       fail-fast: false
@@ -698,7 +698,7 @@ jobs:
     name: Odin bindings
     needs: changes
     if: needs.changes.outputs.bindings == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Harden runner
@@ -730,7 +730,7 @@ jobs:
     name: Zig bindings
     needs: changes
     if: needs.changes.outputs.bindings == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Harden runner
@@ -762,7 +762,7 @@ jobs:
     name: C++ bindings
     needs: changes
     if: needs.changes.outputs.bindings == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Harden runner
@@ -794,7 +794,7 @@ jobs:
     name: C librns examples
     needs: changes
     if: needs.changes.outputs.bindings == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: Harden runner
@@ -823,7 +823,7 @@ jobs:
     name: Rust bindings
     needs: changes
     if: needs.changes.outputs.bindings == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - name: Harden runner
@@ -852,7 +852,7 @@ jobs:
     name: Swift bindings
     needs: changes
     if: needs.changes.outputs.bindings == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - name: Harden runner
@@ -886,7 +886,7 @@ jobs:
     name: Lua bindings
     needs: changes
     if: needs.changes.outputs.bindings == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: Harden runner
@@ -918,7 +918,7 @@ jobs:
     name: Java bindings
     needs: changes
     if: needs.changes.outputs.bindings == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Harden runner
@@ -953,7 +953,7 @@ jobs:
     name: Kotlin bindings
     needs: changes
     if: needs.changes.outputs.bindings == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - name: Harden runner
@@ -993,7 +993,7 @@ jobs:
     name: Python bindings
     needs: changes
     if: needs.changes.outputs.bindings == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: Harden runner
@@ -1022,7 +1022,7 @@ jobs:
     name: Dart bindings
     needs: changes
     if: needs.changes.outputs.bindings == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: Harden runner
@@ -1056,7 +1056,7 @@ jobs:
     name: Mutation testing (${{ matrix.name }})
     needs: changes
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 75
     strategy:
       fail-fast: false
@@ -1100,7 +1100,7 @@ jobs:
     name: Extra (${{ matrix.suite }})
     needs: changes
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -1163,7 +1163,7 @@ jobs:
     name: Build (${{ matrix.goos }}, ${{ matrix.goarch }})
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true' || needs.changes.outputs.bindings == 'true' || needs.changes.outputs.ci == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -1203,7 +1203,7 @@ jobs:
     name: Build (windows, ${{ matrix.goarch }}, win7)
     needs: changes
     if: needs.changes.outputs.full == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -1260,7 +1260,7 @@ jobs:
     name: Build (windows, ${{ matrix.goarch }}, winxp)
     needs: changes
     if: needs.changes.outputs.full == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -1317,7 +1317,7 @@ jobs:
     name: Examples (pageserver, wasm)
     needs: changes
     if: needs.changes.outputs.examples == 'true' || needs.changes.outputs.bindings == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Harden runner
@@ -1387,7 +1387,7 @@ jobs:
     name: Reproducible build
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.core == 'true' || needs.changes.outputs.ci == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: Harden runner
@@ -1416,7 +1416,7 @@ jobs:
     name: Benchmark gate
     needs: changes
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Harden runner
