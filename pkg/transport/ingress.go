@@ -69,10 +69,18 @@ func (t *ifaceStateTable) snapshot() []struct {
 	return out
 }
 
+// Python-parity announce rate defaults (Interface.DEFAULT_AR_*): applied
+// per interface when transport is enabled and no announce_rate_target is
+// configured. Upstream offers no config opt-out on transport nodes.
+const (
+	defaultAnnounceRateTarget = 3600.0
+	defaultAnnounceRateGrace  = 5
+)
+
 // buildIfaceState builds per-iface spam state. Nil cfg uses defaults
 
 // (announce_cap 2%, ingress on, rate thresholds from pkg/rate).
-func buildIfaceState(cfg *common.InterfaceConfig) *ifaceState {
+func buildIfaceState(cfg *common.InterfaceConfig, transportEnabled bool) *ifaceState {
 	st := &ifaceState{}
 
 	st.announceCap = 2.0
@@ -80,15 +88,28 @@ func buildIfaceState(cfg *common.InterfaceConfig) *ifaceState {
 		st.announceCap = cfg.AnnounceCap
 	}
 
-	if cfg != nil && cfg.AnnounceRateTarget > 0 {
-		grace := cfg.AnnounceRateGrace
+	target := 0.0
+	grace := 0
+	penalty := 0.0
+	if cfg != nil {
+		target = cfg.AnnounceRateTarget
+		grace = cfg.AnnounceRateGrace
+		penalty = cfg.AnnounceRatePenalty
+	}
+	if transportEnabled && target <= 0 {
+		target = defaultAnnounceRateTarget
+		if grace <= 0 {
+			grace = defaultAnnounceRateGrace
+		}
+	}
+	if target > 0 {
 		if grace <= 0 {
 			grace = rate.DefaultAnnounceRateGrace
 		}
 		st.egress = rate.NewAnnounceRateControl(
-			cfg.AnnounceRateTarget,
+			target,
 			grace,
-			cfg.AnnounceRatePenalty,
+			penalty,
 		)
 	}
 

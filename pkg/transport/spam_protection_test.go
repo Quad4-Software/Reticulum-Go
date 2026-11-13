@@ -193,7 +193,7 @@ func TestReleaseHeldAnnouncesIsNoOpWhenEmpty(t *testing.T) {
 }
 
 func TestBuildIfaceStateDefaults(t *testing.T) {
-	st := buildIfaceState(nil)
+	st := buildIfaceState(nil, false)
 	if st.ingress == nil || !st.ingress.Enabled() {
 		t.Fatal("default ingress should be enabled")
 	}
@@ -202,6 +202,33 @@ func TestBuildIfaceStateDefaults(t *testing.T) {
 	}
 	if st.announceCap != 2.0 {
 		t.Fatalf("default announce_cap = %v, want 2.0", st.announceCap)
+	}
+}
+
+// Python applies Interface.DEFAULT_AR_* (3600s target, 5 grace, 0 penalty)
+// to every interface on transport-enabled nodes when announce_rate_target
+// is unset. Go must match or a flooding destination can be rebroadcast
+// indefinitely.
+func TestBuildIfaceStateTransportDefaultAnnounceRate(t *testing.T) {
+	st := buildIfaceState(nil, true)
+	if st.egress == nil {
+		t.Fatal("transport-enabled iface must get the Python-parity announce rate controller")
+	}
+	if st.egress.Target() != defaultAnnounceRateTarget {
+		t.Fatalf("egress target = %v, want %v", st.egress.Target(), defaultAnnounceRateTarget)
+	}
+	if st.egress.Grace() != defaultAnnounceRateGrace {
+		t.Fatalf("egress grace = %v, want %v", st.egress.Grace(), defaultAnnounceRateGrace)
+	}
+
+	// An explicit target opts out of the default triple but keeps the
+	// configured grace.
+	custom := buildIfaceState(&common.InterfaceConfig{
+		AnnounceRateTarget: 60,
+		AnnounceRateGrace:  2,
+	}, true)
+	if custom.egress == nil || custom.egress.Target() != 60 || custom.egress.Grace() != 2 {
+		t.Fatalf("explicit announce rate not honored: %+v", custom.egress)
 	}
 }
 
