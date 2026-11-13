@@ -31,6 +31,12 @@ func TestSanRef(t *testing.T) {
 }
 
 func TestExpandSymbolicRefHEAD(t *testing.T) {
+	// Tag and commit checkouts leave HEAD detached, where there is no
+	// symbolic name to expand. The property under test only holds when
+	// HEAD is a symbolic ref.
+	if err := localGitCmd("symbolic-ref", "-q", "HEAD").Run(); err != nil {
+		t.Skip("HEAD is detached, no symbolic ref to expand")
+	}
 	full, err := ExpandSymbolicRef("HEAD")
 	if err != nil {
 		t.Fatal(err)
