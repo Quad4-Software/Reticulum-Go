@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -120,6 +121,16 @@ func pythonInteropCandidates() []string {
 		filepath.Join(".venv", "bin", "python"),
 		filepath.Join(".venv", "bin", "python3"),
 		filepath.Join(".venv", "Scripts", "python.exe"),
+	}
+	// go test runs with cwd set to the package directory, so also probe the
+	// repository root derived from this file's location.
+	if _, file, _, ok := runtime.Caller(0); ok {
+		root := filepath.Join(filepath.Dir(file), "..", "..", "..")
+		cands = append(cands,
+			filepath.Join(root, ".venv", "bin", "python"),
+			filepath.Join(root, ".venv", "bin", "python3"),
+			filepath.Join(root, ".venv", "Scripts", "python.exe"),
+		)
 	}
 	if home != "" {
 		pipxHome := os.Getenv("PIPX_HOME")

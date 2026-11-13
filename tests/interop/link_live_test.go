@@ -12,6 +12,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"net"
 	"os"
 	"os/exec"
@@ -1993,4 +1994,147 @@ func TestLiveInteropPythonLinkRequestResourceToGo(t *testing.T) {
 		}
 	}
 	t.Fatal("no REQUEST_OK within deadline")
+}
+
+// Exercises non-ratchet SINGLE destination DATA in both directions, the
+// shape LXMF messages take on the wire (identity-encrypted, no link).
+func TestLiveInteropSingleDestDataBothDirections(t *testing.T) {
+	liveOrSkip(t)
+	ctx, cancel := context.WithTimeout(context.Background(), pyProcShortTimeout)
+	defer cancel()
+
+	pyListen := freeUDPPort(t)
+	pyForward := freeUDPPort(t)
+	tr, _, cleanup := setupGoUDPPeer(t, pyListen, pyForward)
+	defer cleanup()
+
+	idGo, err := identity.New()
+	if err != nil {
+		t.Fatalf("identity: %v", err)
+	}
+	destGo, err := destination.New(idGo, destination.In, destination.Single, interopApp, tr, "destdata")
+	if err != nil {
+		t.Fatalf("destination: %v", err)
+	}
+
+	goRecv := make(chan []byte, 4)
+	destGo.SetPacketCallback(func(data []byte, _ common.NetworkInterface) {
+		goRecv <- append([]byte(nil), data...)
+	})
+
+	if err := destGo.Announce(false, nil, nil); err != nil {
+		t.Fatalf("announce: %v", err)
+	}
+
+	script := pyScript(t, "dest_data_peer.py")
+	cmd := exec.CommandContext(ctx, pythonExe(), script)
+	cmd.Env = append(os.Environ(),
+		"INTEROP_LISTEN_PORT="+strconv.Itoa(pyListen),
+		"INTEROP_FORWARD_PORT="+strconv.Itoa(pyForward),
+		"INTEROP_GO_DEST_HASH="+hex.EncodeToString(destGo.GetHash()),
+	)
+	cmd.Stderr = os.Stderr
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("stdout pipe: %v", err)
+	}
+	in, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatalf("stdin pipe: %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start python: %v", err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	}()
+
+	br := bufio.NewReader(out)
+	line, err := readLineTimeout(ctx, br, 30*time.Second)
+	if err != nil {
+		t.Fatalf("wait READY: %v", err)
+	}
+	if strings.TrimSpace(line) != "READY" {
+		t.Fatalf("expected READY, got %q", line)
+	}
+	hashLine, err := readLineTimeout(ctx, br, 10*time.Second)
+	if err != nil {
+		t.Fatalf("wait hash: %v", err)
+	}
+	pyHash, err := hex.DecodeString(strings.TrimSpace(hashLine))
+	if err != nil || len(pyHash) != 16 {
+		t.Fatalf("bad python destination hash: %q err %v", hashLine, err)
+	}
+	if err := waitPath(ctx, tr, pyHash, 40*time.Second); err != nil {
+		t.Fatalf("path to python: %v", err)
+	}
+
+	// Python -> Go: ask the peer to send a DATA packet to destGo.
+	pyToGoPayload := []byte("lxmf-shaped-payload-python-to-go")
+	if _, err := fmt.Fprintf(in, "SEND %x\n", pyToGoPayload); err != nil {
+		t.Fatalf("write SEND: %v", err)
+	}
+	select {
+	case got := <-goRecv:
+		if !bytes.Equal(got, pyToGoPayload) {
+			t.Fatalf("go received %q, want %q", got, pyToGoPayload)
+		}
+	case <-time.After(45 * time.Second):
+		t.Fatal("timeout waiting for python DATA packet on go destination")
+	}
+
+	// Go -> Python: send a DATA packet to the announced python destination.
+	srvID, err := identity.Recall(pyHash)
+	if err != nil {
+		t.Fatalf("recall python identity: %v", err)
+	}
+	destOut, err := destination.FromHash(pyHash, srvID, destination.Single, tr)
+	if err != nil {
+		t.Fatalf("from hash: %v", err)
+	}
+	goToPyPayload := []byte("lxmf-shaped-payload-go-to-python")
+	encrypted, err := destOut.Encrypt(goToPyPayload)
+	if err != nil {
+		t.Fatalf("encrypt: %v", err)
+	}
+	pkt := packet.NewPacket(
+		packet.DestinationSingle,
+		encrypted,
+		packet.PacketTypeData,
+		packet.ContextNone,
+		packet.PropagationBroadcast,
+		packet.HeaderType1,
+		nil,
+		false,
+		packet.FlagUnset,
+	)
+	pkt.DestinationHash = append([]byte(nil), pyHash...)
+	if err := pkt.Pack(); err != nil {
+		t.Fatalf("pack: %v", err)
+	}
+	if err := tr.SendPacket(pkt); err != nil {
+		t.Fatalf("send packet: %v", err)
+	}
+
+	deadline := time.Now().Add(45 * time.Second)
+	for time.Now().Before(deadline) {
+		l, err := readLineTimeout(ctx, br, 10*time.Second)
+		if err != nil {
+			t.Fatalf("wait DATA line: %v", err)
+		}
+		l = strings.TrimSpace(l)
+		if !strings.HasPrefix(l, "DATA ") {
+			continue
+		}
+		got, err := hex.DecodeString(strings.TrimPrefix(l, "DATA "))
+		if err != nil {
+			t.Fatalf("bad DATA hex: %q", l)
+		}
+		if bytes.Equal(got, goToPyPayload) {
+			return
+		}
+		t.Fatalf("python received %q, want %q", got, goToPyPayload)
+	}
+	t.Fatal("timeout waiting for python DATA callback")
 }
