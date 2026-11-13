@@ -35,6 +35,16 @@ merge_cover_profile() {
 	tail -n +2 "$src" >> "$dst"
 }
 
+# go test output is drowned in app logs, so tail -N alone loses the
+# "--- FAIL: TestName" lines. Name every failing test explicitly, plus
+# panic/race markers, before the generic tail.
+show_test_failures() {
+	log="$1"
+	echo "fuzz-guided: failing tests in $log" >&2
+	grep -E '^[[:space:]]*--- FAIL:' "$log" | sed 's/^[[:space:]]*//' | sort -u | tail -40 >&2 || true
+	grep -nE 'panic:|DATA RACE' "$log" | tail -20 >&2 || true
+}
+
 collect_unit_coverage() {
 	out="$1"
 	log="$2"
@@ -52,6 +62,7 @@ collect_unit_coverage() {
 
 echo "fuzz-guided: collecting unit-test coverage"
 if ! collect_unit_coverage "$UNIT_COVER" "$COVER_DIR/unit-before.log"; then
+	show_test_failures "$COVER_DIR/unit-before.log"
 	tail -80 "$COVER_DIR/unit-before.log" >&2
 	exit 1
 fi
@@ -121,6 +132,7 @@ run_fuzz ./pkg/librns FuzzValidatePath "$(fuzz_time_for librns 5s)"
 
 echo "fuzz-guided: rechecking unit coverage"
 if ! collect_unit_coverage "$UNIT_AFTER" "$COVER_DIR/unit-after.log"; then
+	show_test_failures "$COVER_DIR/unit-after.log"
 	tail -80 "$COVER_DIR/unit-after.log" >&2
 	exit 1
 fi
