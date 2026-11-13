@@ -25,6 +25,10 @@ Three categories exist:
 | Channel receive window | Drop sequences more than WINDOW_MAX (48) ahead | Same check upstream applies. It also bounds ring residency |
 | msgpack map keys | Non-comparable keys rejected | Go panics on unhashable keys where Python tolerates them |
 | Per-packet panic recovery | Worker recovers and continues | A malformed packet must not kill the process |
+| `Destination.Announce` burst cap | 8 announces per 10s per destination | Python has no equivalent. Excess announces return `ErrDestAnnounceThrottled`. Reduces own-originated wire traffic only |
+| `RequestPath` per-destination throttle | 20s minimum interval (`PATH_REQUEST_MI`) | Python `request_path()` has no throttle; it only gates automated callers. Go applies it to the public API too, so a second call within 20s returns `ErrPathRequestThrottled`. `AwaitPath` retries on the same interval until its window expires where Python sends exactly one request |
+| Announce egress rate keying | Per (interface, destination) | Python keys `announce_rate_table` globally per destination using the ingress interface's target. With the shared 3600s/5/0 defaults a multi-interface Go node can rebroadcast a given destination roughly once per interface per window instead of once total. Both bound floods; Go's bound is N times looser on N interfaces |
+| Unsigned DATA `PATH_RESPONSE` | Dropped before delivery | Path responses are verified announces only. Python would hand a plain-destination DATA packet with this context to the app callback. Go ignores it so forged path responses cannot poison the path table |
 
 ## Local-only extensions
 
@@ -45,6 +49,7 @@ Three categories exist:
 | OP_PAGE 0xF1 provisional operator page field | Yes | Ignored by current Python RNS |
 | rngit `/media` blob route | Yes | Not present in Python rngit. A Reticulum-Go extension |
 | SDR burst modem | Yes | Lab/testing only, not air-compatible with Modem73/RNode |
+| Bare HT1 LINKREQUEST bridging | Yes | Python drops link requests for non-local destinations. When this node holds a known path it re-originates the request on the path interface (HeaderType2-wrapped for multi-hop paths), so link establishment can succeed through a Go mesh where a pure-Python mesh fails. Bounded by packet-hash dedup and MaxHops |
 
 ## What is NOT here
 
