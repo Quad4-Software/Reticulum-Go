@@ -12,6 +12,7 @@ Tracks Python RNS 1.6.0.
 - RPC additions: `link_distribution`, path-table `value`/`used`/`lr_cost`, rate-table `hash`, interface/path stats counters (`rxpkts`, `txpkts`, `arxpkts`, `atxpkts`, `prxpkts`, `ptxpkts`, `tlinks`, `alinks`, `plinks`, `tpcount`, `unupcount`, `actpcount`).
 - Resource `app_flag` (advertisement flags bit 6) and MTU-aware advertisements: oversized advertisements defer the hashmap (`"m": b""`) and the receiver requests it with the `0xFE` initial-hashmap request.
 - Discovery 1.6.0: `DST_COST`/`PR_COST` announce fields, autoconnect cost gating, `AUTOCONNECT_MIN_V` 1.5.7, hop-limit `PATHFINDER_M-1`, `RNS.Stamps` value math (replaces LXStamper integer math).
+- Live interop coverage for non-ratchet SINGLE destination DATA in both directions, the wire shape LXMF messages use, driven by a new Python `dest_data_peer`. The interop harness now also finds a repository-root `.venv` when `go test` runs with the package directory as its working directory.
 
 ### Fixed
 
@@ -20,10 +21,20 @@ Tracks Python RNS 1.6.0.
 - Announce-cache DB (`storage/cache/announces.db`) now persists and is flushed/cleaned on Python's cadence. Falls back to in-memory when unavailable.
 - AutoInterface discovery works on Windows again: the multicast listener no longer binds a scoped wildcard address (WSAEADDRNOTAVAIL), matching the Python reference which binds the wildcard port and joins the group per interface.
 - SQLite storage is limited to platforms supported by modernc.org/sqlite (other targets keep the legacy file layout), and the stores are closed on shutdown so Windows can remove temp dirs cleanly.
+- Ingress now drops Header Type 2 non-announce packets whose transport id names a different transport instance, matching Python's packet filter. Go previously let them reach local handling, which could re-originate link requests a Python node would never emit.
+- Relayed and local-client path requests now keep the received tag and extension payload and fan out to every eligible interface. A fresh tag per interface let the first hop consume the per-destination throttle, collapsing discovery fanout to a single egress where Python emits on all interfaces. Stamped path request queue entries are keyed per interface so one shared stamp serves the whole fanout.
+- Transport-enabled interfaces with no configured `announce_rate_target` now apply Python's defaults of 3600 seconds target, 5 grace, and 0 penalty. Go previously ran with no egress announce rate control in that configuration.
+- The interface stats RPC no longer takes a recursive read lock, removing a deadlock when stats are read while the path table is being written.
+- The SQLite known-destinations store flushes on close and marks ratchet-only changes dirty, so those updates are not lost on shutdown.
+
+### Security
+
+- Go toolchain raised to 1.27.4 for GO-2026-6859, an HTTP/1 server crash in `net/http` fixed upstream. The control API and interface listeners serve HTTP/1.
 
 ### Notes / deviations
 
 - Per-path "used" timestamps are approximated (no dedicated tracking). Path-table sharding/culling and memory-density structures are not implemented.
+- Wire-visible differences from Python RNS 1.6.0 are enumerated in `docs/en/deviations.md`.
 
 ## v1.4.2 - 2026-11-01
 
