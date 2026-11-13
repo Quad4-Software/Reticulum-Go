@@ -131,6 +131,8 @@ func putPacketCopy(pc packetCopy) {
 
 type pendingDiscoveryPR struct {
 	destHash []byte
+	tag      []byte
+	ext      []byte
 	exclude  common.NetworkInterface
 }
 
@@ -904,7 +906,7 @@ func (t *Transport) registerInterfaceLocked(name string, iface common.NetworkInt
 			cfg = pc
 		}
 	}
-	t.ifaceStates.put(name, buildIfaceState(cfg))
+	t.ifaceStates.put(name, buildIfaceState(cfg, t.transportEnabled()))
 	applyIfacePRConfig(iface, cfg)
 }
 
@@ -2922,12 +2924,16 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 
 	// Forward path requests from local (shared-instance) clients on all other
 	// interfaces unconditionally, bypassing mode/transport/ingress gates that
-	// apply to normal relayed path requests.
+	// apply to normal relayed path requests. Python reuses the received tag
+	// and ext payload so the path response correlates and loops are avoided.
 	if isFromLocalClient {
-		freshTag := make([]byte, 16)
-		if _, err := rand.Read(freshTag); err != nil {
-			debug.Log(debug.DebugError, "Failed to generate path request tag", "error", err)
-			return
+		forwardTag := tag
+		if len(forwardTag) == 0 {
+			forwardTag = make([]byte, identity.TruncatedHashLength/8)
+			if _, err := rand.Read(forwardTag); err != nil {
+				debug.Log(debug.DebugError, "Failed to generate path request tag", "error", err)
+				return
+			}
 		}
 		t.notePendingLocalPathRequest(destHash, attachedIface)
 		debug.Log(debug.DebugVerbose, "Forwarding path request from local client",
@@ -2937,7 +2943,7 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 			if e.iface == attachedIface || !e.iface.IsEnabled() {
 				continue
 			}
-			if err := t.requestPath(destHash, e.iface.GetName(), freshTag, nil, false); err != nil {
+			if err := t.requestPath(destHash, e.iface.GetName(), forwardTag, ext, false); err != nil {
 				debug.Log(debug.DebugVerbose, "Failed to forward path request from local client",
 					"iface", e.iface.GetName(), "error", err)
 			} else {
@@ -3006,7 +3012,7 @@ func (t *Transport) processPathRequest(destHash []byte, attachedIface common.Net
 	t.discoveryPathRequests[destHashKey] = prEntry
 	t.mutex.Unlock()
 
-	t.queueDiscoveryPathRequest(destHash, attachedIface)
+	t.queueDiscoveryPathRequest(destHash, tag, ext, attachedIface)
 }
 
 func (t *Transport) SendPacket(p *packet.Packet) error {

@@ -4,6 +4,7 @@
 package transport
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -166,6 +167,16 @@ func (t *Transport) packetFilter(pkt *packet.Packet) bool {
 	}
 	if t.config != nil && t.config.ConnectedToSharedInstance {
 		return true
+	}
+
+	// Python Transport.packet_filter drops non-announce packets whose
+	// transport_id addresses a different transport instance. HeaderType2
+	// is the only header carrying a transport id; announces are exempt
+	// because they carry the sender's transport id as next-hop info.
+	if pkt.HeaderType == packet.HeaderType2 && pkt.PacketType != packet.PacketTypeAnnounce {
+		if ourID := t.ourTransportID(); len(ourID) == 0 || !bytes.Equal(pkt.TransportID, ourID) {
+			return false
+		}
 	}
 
 	switch pkt.Context {

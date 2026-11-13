@@ -271,6 +271,58 @@ func TestForwardTransportPacketIgnoresOtherTransportID(t *testing.T) {
 	}
 }
 
+// TestForeignTransportIDLinkRequestDropped verifies Python
+// Transport.packet_filter parity: a HeaderType2 link request whose
+// transport_id addresses a different transport instance is dropped at
+// the filter. It previously fell through to relayBridgedLinkRequest,
+// which stripped the header and re-originated the request, emitting
+// relay traffic Python would never produce.
+func TestForeignTransportIDLinkRequestDropped(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+	tr.SetIdentity(mustIdentity(t))
+
+	in := newRelayIface("in")
+	out := newRelayIface("out")
+	_ = tr.RegisterInterface("in", in)
+	_ = tr.RegisterInterface("out", out)
+
+	destHash := bytes.Repeat([]byte{0xAA}, 16)
+	tr.UpdatePath(destHash, destHash, "out", 2)
+
+	ht1, _ := buildHT1LinkRequest(t, destHash)
+	foreign := bytes.Repeat([]byte{0xEE}, 16)
+	wrapped, err := insertHeaderType2(ht1, 0, foreign)
+	if err != nil {
+		t.Fatalf("insertHeaderType2: %v", err)
+	}
+	tr.HandlePacket(wrapped, in)
+
+	time.Sleep(150 * time.Millisecond)
+	if n := len(out.snapshot()); n != 0 {
+		t.Fatalf("foreign-tid link request produced %d relay packets, want 0", n)
+	}
+
+	// The same request addressed to our transport identity must still
+	// relay, proving the drop is specific to foreign transport ids.
+	ours, err := insertHeaderType2(ht1, 0, tr.ourTransportID())
+	if err != nil {
+		t.Fatalf("insertHeaderType2: %v", err)
+	}
+	tr.HandlePacket(ours, in)
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if n := len(out.snapshot()); n >= 1 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if n := len(out.snapshot()); n != 1 {
+		t.Fatalf("addressed-to-us link request relayed %d packets, want 1", n)
+	}
+}
+
 // TestRelayBridgedLinkRequestForwardsHT1 verifies HeaderType1 link requests are
 // relayed across a known path when the destination is not local.
 func TestRelayBridgedLinkRequestForwardsHT1(t *testing.T) {
@@ -763,7 +815,7 @@ func TestRelayBridgedLinkRequestFromLocalClientWhenTransportDisabled(t *testing.
 
 // TestHandleLinkRequestFromLocalClientWhenTransportDisabled drives the
 // inbound packet path Python rngit uses: a 1-hop dest is wrapped as
-// HeaderType2 toward the next hop (not this instance) and sent on the
+// HeaderType2 toward this instance's transport identity and sent on the
 // local-client socket. enable_transport = no must still bridge it.
 func TestHandleLinkRequestFromLocalClientWhenTransportDisabled(t *testing.T) {
 	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
@@ -779,7 +831,7 @@ func TestHandleLinkRequestFromLocalClientWhenTransportDisabled(t *testing.T) {
 	tr.UpdatePath(destHash, destHash, "wan", 1)
 
 	ht1, _ := buildHT1LinkRequest(t, destHash)
-	wrapped, err := insertHeaderType2(ht1, 0, destHash)
+	wrapped, err := insertHeaderType2(ht1, 0, tr.ourTransportID())
 	if err != nil {
 		t.Fatalf("insertHeaderType2: %v", err)
 	}
@@ -990,6 +1042,59 @@ func TestRebroadcastPathRequestSkipsExcludedIface(t *testing.T) {
 	if got := len(b.snapshot()); got != 1 {
 		t.Errorf("ifaceB expected 1 path-request emission, got %d", got)
 	}
+}
+
+// TestRebroadcastPathRequestNilTagFansOut is the regression for relayed
+// discovery path requests egressing on a single interface: drainDiscoveryPRs
+// passes a nil tag, which used to make the first requestPath call consume
+// the per-destination throttle and mint its own random tag while every
+// later interface was suppressed. Python reuses one tag across the fan-out.
+func TestRebroadcastPathRequestNilTagFansOut(t *testing.T) {
+	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	defer tr.Close()
+	tr.SetIdentity(mustIdentity(t))
+
+	in := newRelayIface("in")
+	a := newRelayIface("ifaceA")
+	b := newRelayIface("ifaceB")
+	_ = tr.RegisterInterface("in", in)
+	_ = tr.RegisterInterface("ifaceA", a)
+	_ = tr.RegisterInterface("ifaceB", b)
+
+	destHash := bytes.Repeat([]byte{0x42}, 16)
+
+	// Nil tag is what drainDiscoveryPRs passes for relayed requests.
+	tr.rebroadcastPathRequest(destHash, nil, nil, nil, in)
+
+	gotA := a.snapshot()
+	gotB := b.snapshot()
+	if len(gotA) != 1 || len(gotB) != 1 {
+		t.Fatalf("relayed PR fan-out = %d/%d packets, want 1/1", len(gotA), len(gotB))
+	}
+
+	// Both emissions must carry the same request tag so the path
+	// response correlates back to the original requester.
+	tagA := pathRequestTagFromRaw(t, gotA[0])
+	tagB := pathRequestTagFromRaw(t, gotB[0])
+	if !bytes.Equal(tagA, tagB) {
+		t.Fatalf("relayed PR tags differ across interfaces: %x vs %x", tagA, tagB)
+	}
+}
+
+// pathRequestTagFromRaw extracts the 16-byte tag from an emitted path
+// request packet: HT1 wire layout is flags|hops|destHash|context|data,
+// and the data payload is destHash|transportID|tag|ext.
+func pathRequestTagFromRaw(t *testing.T, raw []byte) []byte {
+	t.Helper()
+	pkt := &packet.Packet{Raw: raw}
+	if err := pkt.Unpack(); err != nil {
+		t.Fatalf("unpack emitted PR: %v", err)
+	}
+	// data = destHash(16) | transportID(16) | tag(16) | ext
+	if len(pkt.Data) < 48 {
+		t.Fatalf("emitted PR data too short: %d", len(pkt.Data))
+	}
+	return append([]byte(nil), pkt.Data[32:48]...)
 }
 
 // TestRebroadcastPathRequestRespectsTransportFlag confirms that path

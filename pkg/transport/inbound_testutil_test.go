@@ -10,6 +10,7 @@ import (
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/protect"
 )
 
@@ -75,9 +76,18 @@ func waitProtectHandlerTrip(t *testing.T, e *protect.Engine, tr *Transport, ifac
 }
 
 func minimalDataPacket() []byte {
-	tid := bytes.Repeat([]byte{0x01}, 16)
 	dest := bytes.Repeat([]byte{0x02}, 16)
-	return buildHT2Packet(tid, dest, 0, []byte{0xab})
+	flags := byte(0)
+	flags |= (packet.HeaderType1 << 6) & packet.HeaderMaskHeaderType
+	flags |= (packet.PropagationBroadcast << 4) & packet.HeaderMaskTransportType
+	flags |= (packet.DestinationSingle << 2) & packet.HeaderMaskDestinationType
+	flags |= packet.PacketTypeData & packet.HeaderMaskPacketType
+
+	out := make([]byte, 0, 2+16+1+1)
+	out = append(out, flags, 0x00)
+	out = append(out, dest...)
+	out = append(out, packet.ContextNone, 0xab)
+	return out
 }
 
 func waitInboundDrain(t *testing.T, tr *Transport, extra time.Duration) {

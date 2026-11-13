@@ -5,6 +5,7 @@ package transport
 
 import (
 	"bytes"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"slices"
@@ -734,6 +735,17 @@ func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag, 
 	if ext == nil && t.StampPRs() {
 		ext = append([]byte{stamps.ExtPayloadMarker, 0xFF}, make([]byte, stamps.StampLength)...)
 	}
+	// Python path_request relays reuse the received tag on every interface
+	// ("to avoid potential loops") and never throttle relayed requests.
+	// A nil tag would make requestPath mint a fresh one per call and hit
+	// the per-destination PathRequestMI throttle after the first iface.
+	if tag == nil {
+		tag = make([]byte, identity.TruncatedHashLength/8)
+		if _, err := rand.Read(tag); err != nil {
+			debug.Log(debug.DebugError, "Failed to generate relayed path request tag", "error", err)
+			return
+		}
+	}
 	for _, iface := range ifaces {
 		// Re-check at emit time (RNS 1.4.2 online gate). An iface may go
 		// offline or lose bitrate while the discovery PR queue drains.
@@ -777,7 +789,7 @@ func modeInFilter(mode common.InterfaceMode, filter []common.InterfaceMode) bool
 	return slices.Contains(filter, mode)
 }
 
-func (t *Transport) queueDiscoveryPathRequest(destHash []byte, exclude common.NetworkInterface) {
+func (t *Transport) queueDiscoveryPathRequest(destHash, tag, ext []byte, exclude common.NetworkInterface) {
 	t.pendingDiscoveryPRMu.Lock()
 	if len(t.pendingDiscoveryPRs) >= maxQueuedDiscoveryPRs {
 		t.pendingDiscoveryPRMu.Unlock()
@@ -787,10 +799,12 @@ func (t *Transport) queueDiscoveryPathRequest(destHash []byte, exclude common.Ne
 		}
 		return
 	}
+	// Copy: destHash, tag and ext alias a pooled inbound buffer recycled
+	// after the packet job ends, long before the drainer rebroadcasts.
 	t.pendingDiscoveryPRs = append(t.pendingDiscoveryPRs, pendingDiscoveryPR{
-		// Copy: destHash aliases a pooled inbound buffer recycled after the
-		// packet job ends, long before the drainer rebroadcasts.
 		destHash: append([]byte(nil), destHash...),
+		tag:      append([]byte(nil), tag...),
+		ext:      append([]byte(nil), ext...),
 		exclude:  exclude,
 	})
 	shouldStart := !t.discoveryDraining.Load()
@@ -822,7 +836,7 @@ func (t *Transport) drainDiscoveryPRs() {
 		t.pendingDiscoveryPRs = t.pendingDiscoveryPRs[1:]
 		t.pendingDiscoveryPRMu.Unlock()
 
-		t.rebroadcastPathRequest(entry.destHash, nil, nil, nil, entry.exclude)
+		t.rebroadcastPathRequest(entry.destHash, nil, entry.tag, entry.ext, entry.exclude)
 		select {
 		case <-t.done:
 			return

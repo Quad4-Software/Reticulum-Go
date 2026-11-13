@@ -64,12 +64,15 @@ type prStampJob struct {
 }
 
 // enqueueStampedPR defers a path request until its stamp is generated,
-// matching Transport.enqueue_stamped_pr. Dedupes per stamp material.
+// matching Transport.enqueue_stamped_pr. Dedupes per stamp material and
+// target interface: Python keys stamp queue entries on
+// destination_hash+on_interface.get_hash() so a fan-out emits on every
+// interface once the shared stamp lands in the cache.
 func (t *Transport) enqueueStampedPR(job prStampJob) bool {
 	t.prStampMu.Lock()
 	defer t.prStampMu.Unlock()
 
-	key := string(append(append([]byte{}, job.destHash...), job.tag...))
+	key := string(append(append(append([]byte{}, job.destHash...), job.tag...), job.ifaceName...))
 	if _, dup := t.prStampPending[key]; dup {
 		return true
 	}
@@ -91,22 +94,28 @@ func (t *Transport) enqueueStampedPR(job prStampJob) bool {
 
 func (t *Transport) prStampWorker() {
 	for job := range t.prStampJobs {
-		key := string(append(append([]byte{}, job.destHash...), job.tag...))
+		key := string(append(append(append([]byte{}, job.destHash...), job.tag...), job.ifaceName...))
 		t.prStampMu.Lock()
 		delete(t.prStampPending, key)
 		t.prStampMu.Unlock()
 
 		settings := t.StampsSettings()
 		material := append(append([]byte{}, job.destHash...), job.tag...)
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(settings.PRStampTimeout*float64(time.Second)))
-		stamp, _, err := stamps.GenerateStamp(ctx, material, settings.PRValue, stamps.StampLength)
-		cancel()
-		if err != nil || len(stamp) == 0 {
-			debug.Log(debug.DebugWarning, "Could not generate path request stamp, emission cancelled",
-				"dest_hash", fmt.Sprintf("%x", job.destHash), "error", err)
-			continue
+		// Python stamp_path_request serves repeated materials from
+		// pr_stamp_cache, so per-interface jobs share one generation.
+		stamp, cached := t.prStamps.get(material)
+		if !cached {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(settings.PRStampTimeout*float64(time.Second)))
+			var err error
+			stamp, _, err = stamps.GenerateStamp(ctx, material, settings.PRValue, stamps.StampLength)
+			cancel()
+			if err != nil || len(stamp) == 0 {
+				debug.Log(debug.DebugWarning, "Could not generate path request stamp, emission cancelled",
+					"dest_hash", fmt.Sprintf("%x", job.destHash), "error", err)
+				continue
+			}
+			t.prStamps.put(material, stamp)
 		}
-		t.prStamps.put(material, stamp)
 		ext := append([]byte{stamps.ExtPayloadMarker, 0x00}, stamp...)
 		if err := t.requestPath(job.destHash, job.ifaceName, job.tag, ext, job.recursive); err != nil {
 			debug.Log(debug.DebugVerbose, "Stamped path request send failed",
