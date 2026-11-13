@@ -1,7 +1,7 @@
 # Mirrors .github/workflows/stress.yml: nightly repetition of
 # timing-sensitive tests so flakes surface on a dedicated run.
 variables:
-  - &golang_image 'docker.io/library/golang:1.27.3-bookworm'
+  - &golang_image 'docker.io/library/golang:1.27.4-bookworm'
   - base_env: &base_env
       GOFLAGS: -mod=vendor
       GOPROXY: 'off'

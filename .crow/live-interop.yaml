@@ -3,7 +3,7 @@
 # runs on pull requests: manual or scheduled runs only. A single step
 # keeps the apt-installed python and the .venv in the same container.
 variables:
-  - &golang_image 'docker.io/library/golang:1.27.3-bookworm'
+  - &golang_image 'docker.io/library/golang:1.27.4-bookworm'
   - base_env: &base_env
       GOFLAGS: -mod=vendor
       GOPROXY: 'off'

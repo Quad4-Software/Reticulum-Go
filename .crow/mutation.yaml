@@ -1,7 +1,7 @@
 # Mirrors .github/workflows/ci.yml job "test-mutation": gomutant runs per
 # package with per-package score thresholds.
 variables:
-  - &golang_image 'docker.io/library/golang:1.27.3-bookworm'
+  - &golang_image 'docker.io/library/golang:1.27.4-bookworm'
   - base_env: &base_env
       GOFLAGS: -mod=vendor
       GOPROXY: 'off'

@@ -1,6 +1,6 @@
 module example-page-downloader
 
-go 1.27.3
+go 1.27.4
 
 require github.com/Quad4-Software/Reticulum-Go v1.4.1
 

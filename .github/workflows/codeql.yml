@@ -61,7 +61,7 @@ jobs:
             build-mode: none
 
     env:
-      CI_GO_VERSION: "1.27.3"
+      CI_GO_VERSION: "1.27.4"
       GOFLAGS: -mod=vendor
       GOPROXY: "off"
       GOTOOLCHAIN: local
