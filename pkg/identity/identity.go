@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -633,8 +634,10 @@ func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRat
 	// identity-key decryption even with no ratchets on hand.
 	var plaintext, ratchetID []byte
 	if len(ratchets) > 0 {
+		salt := i.GetSalt()
+		context := i.GetContext()
 		for _, ratchet := range ratchets {
-			if decrypted, id, err := i.tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet); err == nil {
+			if decrypted, id, err := i.tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet, salt, context); err == nil {
 				plaintext = decrypted
 				ratchetID = id
 				break
@@ -691,13 +694,46 @@ func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRat
 	return plaintext, nil
 }
 
+// ratchetPubCache memoizes X25519 public-key derivation for ratchet private
+// keys. Each inbound ratcheted message retries decryption against every
+// stored ratchet, and PublicKeyFromPrivate is a full scalar multiplication.
+// The cache key is SHA-256 of the private scalar so raw private material is
+// never retained as an ordinary map key; cached values are public keys.
+var ratchetPubCache = struct {
+	sync.Mutex
+	m map[[32]byte][]byte
+}{m: make(map[[32]byte][]byte)}
+
+const ratchetPubCacheMax = 4096
+
+func ratchetPublicKey(priv []byte) ([]byte, error) {
+	sum := sha256.Sum256(priv)
+	ratchetPubCache.Lock()
+	pub, ok := ratchetPubCache.m[sum]
+	ratchetPubCache.Unlock()
+	if ok {
+		return pub, nil
+	}
+	pub, err := cryptography.PublicKeyFromPrivate(priv)
+	if err != nil {
+		return nil, err
+	}
+	ratchetPubCache.Lock()
+	if len(ratchetPubCache.m) >= ratchetPubCacheMax {
+		ratchetPubCache.m = make(map[[32]byte][]byte, ratchetPubCacheMax)
+	}
+	ratchetPubCache.m[sum] = pub
+	ratchetPubCache.Unlock()
+	return pub, nil
+}
+
 // Helper function to attempt decryption using a ratchet
-func (i *Identity) tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet []byte) (plaintext, ratchetID []byte, err error) {
+func (i *Identity) tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet, salt, context []byte) (plaintext, ratchetID []byte, err error) {
 	// Convert ratchet to private key
 	ratchetPriv := ratchet
 
 	// Get ratchet ID
-	ratchetPubBytes, err := cryptography.PublicKeyFromPrivate(ratchetPriv)
+	ratchetPubBytes, err := ratchetPublicKey(ratchetPriv)
 	if err != nil {
 		debug.Log(debug.DebugAll, "Failed to generate ratchet public key", "error", err)
 		return nil, nil, err
@@ -710,7 +746,7 @@ func (i *Identity) tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet [
 	}
 	defer securemem.WipeBytes(sharedSecret)
 
-	key, err := cryptography.DeriveIdentityKeyMaterial(sharedSecret, i.GetSalt(), i.GetContext())
+	key, err := cryptography.DeriveIdentityKeyMaterial(sharedSecret, salt, context)
 	if err != nil {
 		return nil, nil, err
 	}
