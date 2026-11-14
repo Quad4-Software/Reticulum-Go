@@ -5,6 +5,7 @@ package transport
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -35,6 +36,11 @@ func newReverseTable() *reverseTable {
 // would otherwise grow the map unbounded. Oldest entries evict first.
 const maxReverseEntries = 32768
 
+// reverseEvictBatch is how many of the oldest entries are dropped each time
+// the table overflows. Batching amortizes the O(n) oldest-entry scan over
+// thousands of inserts instead of paying it on every put once full.
+const reverseEvictBatch = 4096
+
 func (rt *reverseTable) put(truncatedHash []byte, entry *ReverseEntry) {
 	if rt == nil || entry == nil || len(truncatedHash) == 0 {
 		return
@@ -42,23 +48,57 @@ func (rt *reverseTable) put(truncatedHash []byte, entry *ReverseEntry) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
 	if len(rt.entries) >= maxReverseEntries {
-		var oldestKey hash16
-		var oldest time.Time
-		found := false
-		for k, e := range rt.entries {
-			if e == nil || !found || e.Timestamp.Before(oldest) {
-				oldestKey = k
-				if e != nil {
-					oldest = e.Timestamp
-				}
-				found = true
-			}
-		}
-		if found {
-			delete(rt.entries, oldestKey)
-		}
+		rt.evictOldestLocked()
 	}
 	rt.entries[hash16FromSlice(truncatedHash)] = entry
+}
+
+// evictOldestLocked removes the oldest reverseEvictBatch entries. Caller must
+// hold rt.mu. The table only reaches this path when full, so the scan and
+// sort run once per batch of inserts rather than once per insert.
+func (rt *reverseTable) evictOldestLocked() {
+	evictOldestMapKeys(rt.entries,
+		func(e *ReverseEntry) time.Time {
+			if e == nil {
+				return time.Time{}
+			}
+			return e.Timestamp
+		},
+		func(e *ReverseEntry) bool { return e != nil },
+		reverseEvictBatch)
+}
+
+// evictOldestMapKeys deletes the n oldest entries of m according to the
+// timestamp returned by at. eligible, when non-nil, restricts candidates
+// (for example to unvalidated entries). Sorting once per call amortizes the
+// O(n log n) scan over a whole eviction batch instead of paying an O(n)
+// scan on every insert while the map sits at its cap.
+func evictOldestMapKeys[K comparable, V any](m map[K]V, at func(V) time.Time, eligible func(V) bool, n int) int {
+	if n <= 0 || len(m) == 0 {
+		return 0
+	}
+	type candidate struct {
+		k K
+		t time.Time
+	}
+	all := make([]candidate, 0, len(m))
+	for k, v := range m {
+		if eligible != nil && !eligible(v) {
+			continue
+		}
+		all = append(all, candidate{k: k, t: at(v)})
+	}
+	if len(all) == 0 {
+		return 0
+	}
+	sort.Slice(all, func(i, j int) bool { return all[i].t.Before(all[j].t) })
+	if n > len(all) {
+		n = len(all)
+	}
+	for i := 0; i < n; i++ {
+		delete(m, all[i].k)
+	}
+	return n
 }
 
 func (rt *reverseTable) pop(truncatedHash []byte) (*ReverseEntry, bool) {

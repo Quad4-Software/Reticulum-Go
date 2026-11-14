@@ -59,41 +59,21 @@ func (t *Transport) evictAnnouncePacketCacheUnlocked() {
 	if over <= 0 {
 		return
 	}
-	batch := max(over, 64)
-	if batch > len(t.announcePacketCache) {
-		batch = over
+	// Evict down to 90% of the cap in one sorted pass so the O(n log n)
+	// scan amortizes over a batch of inserts instead of running on every
+	// cacheAnnouncePacket once the cache sits at its soft cap.
+	need := len(t.announcePacketCache) - limit*9/10
+	if need < 1 {
+		need = 1
 	}
-	if batch < 1 {
-		return
-	}
-	keys := make([]hash16, 0, batch)
-	times := make([]time.Time, 0, batch)
-	for k, e := range t.announcePacketCache {
-		when := time.Time{}
-		if e != nil {
-			when = e.at
-		}
-		if len(keys) < batch {
-			keys = append(keys, k)
-			times = append(times, when)
-			continue
-		}
-		idx := 0
-		newest := times[0]
-		for i := 1; i < batch; i++ {
-			if times[i].After(newest) {
-				newest = times[i]
-				idx = i
+	evictOldestMapKeys(t.announcePacketCache,
+		func(e *cachedAnnounce) time.Time {
+			if e == nil {
+				return time.Time{}
 			}
-		}
-		if when.Before(newest) {
-			keys[idx] = k
-			times[idx] = when
-		}
-	}
-	for _, k := range keys {
-		delete(t.announcePacketCache, k)
-	}
+			return e.at
+		},
+		nil, need)
 }
 
 // cleanupAnnouncePacketCache removes entries with no live path and enforces the

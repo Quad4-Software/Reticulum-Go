@@ -49,27 +49,27 @@ func newLinkRelayTable() *linkRelayTable {
 // validated entries drops the new insert instead.
 const maxLinkRelayEntries = 8192
 
+// linkRelayEvictBatch is how many unvalidated entries are dropped each time
+// the table overflows, amortizing the eviction scan over many inserts.
+const linkRelayEvictBatch = 1024
+
 func (lt *linkRelayTable) put(linkID []byte, entry *LinkRelayEntry) {
 	lt.mu.Lock()
 	defer lt.mu.Unlock()
 	if len(lt.entries) >= maxLinkRelayEntries {
-		var oldestKey hash16
-		var oldest time.Time
-		found := false
-		for k, e := range lt.entries {
-			if e == nil || !e.Validated {
-				if !found || e == nil || e.Timestamp.Before(oldest) {
-					oldestKey = k
-					if e != nil {
-						oldest = e.Timestamp
-					}
-					found = true
+		// Evict a batch of the oldest unvalidated entries in one sorted
+		// pass. The previous scan ran O(n) on every put once full; batching
+		// keeps the table below the cap for thousands of inserts at a time.
+		removed := evictOldestMapKeys(lt.entries,
+			func(e *LinkRelayEntry) time.Time {
+				if e == nil {
+					return time.Time{}
 				}
-			}
-		}
-		if found {
-			delete(lt.entries, oldestKey)
-		} else {
+				return e.Timestamp
+			},
+			func(e *LinkRelayEntry) bool { return e == nil || !e.Validated },
+			linkRelayEvictBatch)
+		if removed == 0 {
 			return
 		}
 	}

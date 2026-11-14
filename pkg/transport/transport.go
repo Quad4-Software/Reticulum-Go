@@ -262,6 +262,7 @@ type Transport struct {
 
 	inboundQueues       *inboundQueues
 	linkLanes           []chan packetJob
+	announceLanes       []chan packetJob
 	inboundWG           sync.WaitGroup
 	inboundQueueSizes   [inboundQueueCount]int
 	pathRequestDestHash []byte
@@ -493,6 +494,15 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 	for i := range t.linkLanes {
 		t.linkLanes[i] = make(chan packetJob, laneBuf)
 	}
+	annCount := announceLaneCount()
+	annBuf := sizes[TCAnnounce]
+	if annBuf <= 0 {
+		annBuf = defaultInboundAnnounceQueueLen
+	}
+	t.announceLanes = make([]chan packetJob, annCount)
+	for i := range t.announceLanes {
+		t.announceLanes[i] = make(chan packetJob, annBuf)
+	}
 	t.pathRequestDestHash = pathRequestDestinationHash()
 	t.startInboundDrainer()
 
@@ -633,38 +643,16 @@ func (t *Transport) evictSeenAnnouncesUnlocked(now time.Time) {
 	if limit <= 0 || len(t.seenAnnounces) <= limit {
 		return
 	}
-	over := len(t.seenAnnounces) - limit
-	batch := max(over, 64)
-	if batch > len(t.seenAnnounces) {
-		batch = over
+	// Evict down to 90% of the cap in one sorted pass. The previous
+	// selection scan ran O(n) on every remember once over the cap; batching
+	// amortizes it over thousands of inserts.
+	need := len(t.seenAnnounces) - limit*9/10
+	if need < 1 {
+		need = 1
 	}
-	if batch < 1 {
-		return
-	}
-	keys := make([][32]byte, 0, batch)
-	times := make([]time.Time, 0, batch)
-	for k, v := range t.seenAnnounces {
-		if len(keys) < batch {
-			keys = append(keys, k)
-			times = append(times, v)
-			continue
-		}
-		idx := 0
-		newest := times[0]
-		for i := 1; i < batch; i++ {
-			if times[i].After(newest) {
-				newest = times[i]
-				idx = i
-			}
-		}
-		if v.Before(newest) {
-			keys[idx] = k
-			times[idx] = v
-		}
-	}
-	for _, k := range keys {
-		delete(t.seenAnnounces, k)
-	}
+	evictOldestMapKeys(t.seenAnnounces,
+		func(v time.Time) time.Time { return v },
+		nil, need)
 }
 
 func (t *Transport) cleanupExpiredPaths() {
