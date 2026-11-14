@@ -317,7 +317,8 @@ func (p *Packet) Unpack() error {
 
 	p.Packed = false
 	p.hashValid = false
-	p.updateHash()
+	// Hash lazily on first GetHash: packets dropped before the dedup filter
+	// (foreign transport id, bad hops, malformed) never pay the SHA-256.
 	return nil
 }
 

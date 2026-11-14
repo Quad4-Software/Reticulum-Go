@@ -4,7 +4,9 @@
 package health
 
 import (
+	"math"
 	"sync"
+	"sync/atomic"
 )
 
 const (
@@ -15,12 +17,15 @@ const (
 
 // windowedCounter tracks totals plus fixed-span buckets for rate windows.
 // Hot path uses unix seconds only. No time.Time values are stored.
+//
+// add runs on every counted packet, so the common case (current bucket
+// already active) is lock-free: atomics only. The mutex is taken solely to
+// serialize bucket rollover, which happens at most once per 5s bucket.
 type windowedCounter struct {
 	mu         sync.Mutex
-	total      uint64
-	lastBucket int64
-	started    bool
-	buckets    [bucketCount]uint64
+	total      atomic.Uint64
+	lastBucket atomic.Int64 // bucket index, math.MinInt64 until first add
+	buckets    [bucketCount]atomic.Uint64
 }
 
 func bucketIndexUnix(unixSec int64) int64 {
@@ -36,53 +41,68 @@ func bucketSlot(idx int64) int {
 }
 
 func (w *windowedCounter) add(n uint64, unixSec int64) {
-	w.mu.Lock()
 	cur := bucketIndexUnix(unixSec)
+	if w.lastBucket.Load() == cur {
+		w.buckets[bucketSlot(cur)].Add(n)
+		w.total.Add(n)
+		return
+	}
+	w.addSlow(cur, n)
+}
+
+// addSlow handles first use, bucket rollover, and stale timestamps. Caller
+// must not hold w.mu.
+func (w *windowedCounter) addSlow(cur int64, n uint64) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	w.advanceLocked(cur)
-	w.buckets[bucketSlot(cur)] += n
-	w.total += n
-	w.mu.Unlock()
+	w.buckets[bucketSlot(cur)].Add(n)
+	w.total.Add(n)
+}
+
+// advanceLocked moves lastBucket forward to cur, clearing bucket slots that
+// the rollover invalidates. Caller must hold w.mu. Buckets are zeroed before
+// lastBucket is stored, so a lock-free add that observes the new lastBucket
+// can never write into a slot that is about to be cleared.
+func (w *windowedCounter) advanceLocked(cur int64) {
+	lb := w.lastBucket.Load()
+	if lb == math.MinInt64 {
+		w.lastBucket.Store(cur)
+		return
+	}
+	if cur <= lb {
+		return
+	}
+	gap := cur - lb
+	if gap >= int64(bucketCount) {
+		for i := range w.buckets {
+			w.buckets[i].Store(0)
+		}
+	} else {
+		for b := lb + 1; b <= cur; b++ {
+			w.buckets[bucketSlot(b)].Store(0)
+		}
+	}
+	w.lastBucket.Store(cur)
 }
 
 func (w *windowedCounter) snapshot(unixSec int64) (total, rate60, rate300 uint64) {
 	w.mu.Lock()
-	cur := bucketIndexUnix(unixSec)
-	w.advanceLocked(cur)
-	total = w.total
-	rate60 = w.sumLocked(cur, bucketsShort)
-	rate300 = w.sumLocked(cur, bucketCount)
+	w.advanceLocked(bucketIndexUnix(unixSec))
 	w.mu.Unlock()
+	total = w.total.Load()
+	rate60 = w.sum(bucketIndexUnix(unixSec), bucketsShort)
+	rate300 = w.sum(bucketIndexUnix(unixSec), bucketCount)
 	return total, rate60, rate300
 }
 
-func (w *windowedCounter) advanceLocked(cur int64) {
-	if !w.started {
-		w.lastBucket = cur
-		w.started = true
-		return
-	}
-	if cur <= w.lastBucket {
-		return
-	}
-	gap := cur - w.lastBucket
-	if gap >= int64(bucketCount) {
-		clear(w.buckets[:])
-		w.lastBucket = cur
-		return
-	}
-	for b := w.lastBucket + 1; b <= cur; b++ {
-		w.buckets[bucketSlot(b)] = 0
-	}
-	w.lastBucket = cur
-}
-
-func (w *windowedCounter) sumLocked(cur int64, nBuckets int) uint64 {
+func (w *windowedCounter) sum(cur int64, nBuckets int) uint64 {
 	if nBuckets > bucketCount {
 		nBuckets = bucketCount
 	}
 	var sum uint64
 	for i := 0; i < nBuckets; i++ {
-		sum += w.buckets[bucketSlot(cur-int64(i))]
+		sum += w.buckets[bucketSlot(cur-int64(i))].Load()
 	}
 	return sum
 }
