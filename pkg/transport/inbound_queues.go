@@ -308,7 +308,9 @@ func laneForHash(lanes []chan packetJob, job packetJob) chan packetJob {
 		dh = dh[:16]
 	}
 	k := hash16FromSlice(dh)
-	idx := int(binary.LittleEndian.Uint64(k.bytes[:8]) % uint64(len(lanes)))
+	// uint16 -> int cannot overflow on any supported platform, and two
+	// hash bytes give plenty of spread across the small lane counts.
+	idx := int(binary.LittleEndian.Uint16(k.bytes[:2])) % len(lanes)
 	return lanes[idx]
 }
 
