@@ -9,11 +9,18 @@
 - Ratchet public-key derivation is memoized per private scalar (SHA-256 keyed cache holding only public values), and ratchet decrypt attempts reuse the identity salt and context instead of recomputing them per attempt. Each ratcheted inbound message previously paid an X25519 scalar multiplication per stored ratchet just to compute the ratchet id.
 - Packet handler pools no longer ramp to the full configured depth by default: worker growth is capped at `max(32, GOMAXPROCS*8)` unless `max_packet_handlers` is set explicitly. Queue depth is unchanged. In a 16-node simulated packet flood this cut live handler goroutines from about 8400 to 1200 and heap growth under load by roughly 45%.
 - Repeated "no path to relay link request", "no destination for link request", and "exceeds MaxHops" diagnostics are throttled per destination and interface for 30 seconds. A link-request flood previously emitted a full log record per packet, over 32000 records in an 8-second simulated run, serializing on the log handler.
+- Announce processing runs on dedicated lanes sharded by announced destination hash (bounded count scaled to GOMAXPROCS) instead of the shared packet-handler pool. Per-destination announce ordering is preserved while unrelated announces verify in parallel, and an announce flood can no longer occupy every packet handler or convoy on the global known-destination lock. Combined with the per-class inbound queues this keeps floods isolated to the announce class: link DATA and path requests keep their own bounded queues and drain first.
+- Inbound job queues are fixed-capacity ring buffers. The previous slice implementation popped from the front and resliced on every dequeue, which reallocated and copied under sustained load.
+- Bounded maps (seen announces, announce packet cache, link relay table, reverse proof table) now evict in timestamp-sorted batches down to roughly 90% of capacity instead of scanning the whole map for a single oldest entry on every insert once at the cap.
+- Health rate-window counters increment atomically with a mutex taken only on bucket rollover (about 9ns/op, previously a mutex per increment), and `TouchKnownDestination` fast-paths destinations already touched within the current second under a read lock.
+- Packet SHA-256 is computed lazily on first `GetHash` instead of eagerly inside `Unpack`, so packets rejected by early transport-id and format filters skip the hash entirely.
+- Per-packet-job profiler spans are now opt-in via `enable_packet_profiling` in the config (off by default). Each span cost hundreds of nanoseconds plus allocations per inbound packet under profiling.
 
 ### Added
 
 - `pkg/transport/prof_load_test.go`: opt-in (`RET_PROF_LOAD=1`) simulated-mesh load harness that sustains mixed announce/data traffic and writes CPU, heap, goroutine, mutex, and block pprof profiles.
 - `pkg/transport/link_lane_test.go`: regression coverage proving per-link FIFO ordering while multiple links process concurrently.
+- `pkg/transport/announce_lane_test.go`: coverage proving per-destination announce ordering on the new announce lanes and that flood overflow sheds without blocking unrelated destinations.
 
 ## v1.5.0 - 2026-11-13
 
