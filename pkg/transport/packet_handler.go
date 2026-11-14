@@ -125,7 +125,10 @@ func (t *Transport) runPacketJob(job packetJob) {
 			health.Inc(ifaceName, health.KindUnpackFail)
 		}
 	}()
-	span := profiler.Start("Transport.runPacketJob")
+	var span *profiler.Span
+	if t.config != nil && t.config.EnablePacketProfiling {
+		span = profiler.Start("Transport.runPacketJob")
+	}
 	defer span.End()
 	if job.hold != nil {
 		select {

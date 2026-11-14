@@ -349,6 +349,8 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 	switch strings.ToLower(key) {
 	case "enable_transport":
 		setBool(&cfg.EnableTransport, value)
+	case "enable_packet_profiling":
+		setBool(&cfg.EnablePacketProfiling, value)
 	case "share_instance":
 		setBool(&cfg.ShareInstance, value)
 	case "shared_instance_port":
@@ -1039,6 +1041,7 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 
 	b.WriteString("[reticulum]\n")
 	fmt.Fprintf(&b, "  enable_transport = %s\n", boolStr(cfg.EnableTransport))
+	fmt.Fprintf(&b, "  enable_packet_profiling = %s\n", boolStr(cfg.EnablePacketProfiling))
 	fmt.Fprintf(&b, "  share_instance = %s\n", boolStr(cfg.ShareInstance))
 	if cfg.InstanceName != "" {
 		fmt.Fprintf(&b, "  instance_name = %s\n", cfg.InstanceName)

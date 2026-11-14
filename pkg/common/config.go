@@ -262,20 +262,26 @@ const (
 
 // ReticulumConfig represents the main configuration structure
 type ReticulumConfig struct {
-	ConfigPath          string
-	EnableTransport     bool
-	ShareInstance       bool
-	SharedInstancePort  int
-	InstanceControlPort int
-	SharedInstanceType  string
-	InstanceName        string
-	RPCKey              []byte
-	PanicOnInterfaceErr bool
-	LogLevel            int
-	Interfaces          map[string]*InterfaceConfig
-	AppName             string
-	AppAspect           string
-	EnableSandbox       bool
+	ConfigPath      string
+	EnableTransport bool
+	ShareInstance   bool
+
+	// EnablePacketProfiling turns on per-packet-job live profiling spans
+	// (profiler_results RPC). Off by default: the capture costs a few
+	// hundred ns plus allocations per inbound packet, which is measurable
+	// under load. Python RNS does not instrument its packet path at all.
+	EnablePacketProfiling bool
+	SharedInstancePort    int
+	InstanceControlPort   int
+	SharedInstanceType    string
+	InstanceName          string
+	RPCKey                []byte
+	PanicOnInterfaceErr   bool
+	LogLevel              int
+	Interfaces            map[string]*InterfaceConfig
+	AppName               string
+	AppAspect             string
+	EnableSandbox         bool
 
 	// EnableSeccomp installs a Linux seccomp denylist after Landlock when the
 	// sandbox is enabled. Default true. Soft-fails if the kernel rejects the filter.

@@ -46,6 +46,13 @@ func TestProfSimNetworkLoad(t *testing.T) {
 	runtime.MemProfileRate = 131072
 	defer func() { runtime.MemProfileRate = oldRate }()
 
+	// Enable block and mutex contention sampling; without an explicit
+	// rate both profiles come out empty. Rates are coarse enough that the
+	// sampler overhead stays well under the load it measures.
+	runtime.SetBlockProfileRate(1 << 21)
+	oldMutexFrac := runtime.SetMutexProfileFraction(5)
+	defer runtime.SetMutexProfileFraction(oldMutexFrac)
+
 	net := buildRandom(t, nodes, 0.15, 0x9e3779b9)
 	t.Cleanup(net.close)
 
