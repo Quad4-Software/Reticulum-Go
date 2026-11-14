@@ -78,7 +78,7 @@ func (t *Transport) growOneHandler() bool {
 		return false
 	default:
 	}
-	if int(t.handlerLive.Load()) >= t.handlerN {
+	if int(t.handlerLive.Load()) >= t.handlerCap {
 		return false
 	}
 	t.handlerWG.Add(1)
@@ -135,6 +135,7 @@ func (t *Transport) runPacketJob(job packetJob) {
 		return
 	}
 	defer putPacketCopy(job.pc)
+	defer putInboundPacket(job.pkt)
 	t.dispatchInboundPacket(job.pkt, job.pc.buf, job.iface, job.packetType, job.destType, job.headerType)
 }
 
@@ -143,6 +144,7 @@ func (t *Transport) enqueuePacket(job packetJob, block bool) bool {
 	select {
 	case <-t.done:
 		putPacketCopy(job.pc)
+		putInboundPacket(job.pkt)
 		return true
 	case t.packetQ <- job:
 		return true
@@ -161,12 +163,14 @@ func (t *Transport) enqueuePacket(job packetJob, block bool) bool {
 	select {
 	case <-t.done:
 		putPacketCopy(job.pc)
+		putInboundPacket(job.pkt)
 		return true
 	default:
 	}
 	select {
 	case <-t.done:
 		putPacketCopy(job.pc)
+		putInboundPacket(job.pkt)
 		return true
 	case t.packetQ <- job:
 		return true

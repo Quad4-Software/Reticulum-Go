@@ -4,6 +4,8 @@
 package transport
 
 import (
+	"encoding/binary"
+	"runtime"
 	"sync"
 
 	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
@@ -199,6 +201,60 @@ func (t *Transport) startInboundDrainer() {
 	}
 	t.inboundWG.Add(1)
 	go t.inboundQueueDrainer()
+	for _, lane := range t.linkLanes {
+		t.inboundWG.Add(1)
+		go t.linkDataLaneWorker(lane)
+	}
+}
+
+// linkDataLaneCount sizes the per-link data lanes. Link crypto is the
+// CPU-bound part of the steady-state path, so lanes track available
+// parallelism but stay bounded to keep goroutine count sane on big hosts.
+func linkDataLaneCount() int {
+	n := runtime.GOMAXPROCS(0)
+	if n < 2 {
+		n = 2
+	}
+	if n > 8 {
+		n = 8
+	}
+	return n
+}
+
+// linkDataLaneWorker drains one link-data lane. Jobs for the same link id
+// always land on the same lane, so per-link wire order is preserved while
+// different links process in parallel.
+func (t *Transport) linkDataLaneWorker(lane <-chan packetJob) {
+	defer t.inboundWG.Done()
+	for {
+		select {
+		case <-t.done:
+			return
+		case job, ok := <-lane:
+			if !ok {
+				return
+			}
+			t.runPacketJob(job)
+		}
+	}
+}
+
+// linkDataLaneFor maps a job to its lane by link id (the packet's
+// destination hash, truncated the same way handleLinkPacket keys t.links).
+func (t *Transport) linkDataLaneFor(job packetJob) chan packetJob {
+	if len(t.linkLanes) == 0 {
+		return nil
+	}
+	if job.pkt == nil {
+		return t.linkLanes[0]
+	}
+	dh := job.pkt.DestinationHash
+	if len(dh) > 16 {
+		dh = dh[:16]
+	}
+	k := hash16FromSlice(dh)
+	idx := int(binary.LittleEndian.Uint64(k.bytes[:8]) % uint64(len(t.linkLanes)))
+	return t.linkLanes[idx]
 }
 
 func (t *Transport) inboundQueueDrainer() {
@@ -208,17 +264,34 @@ func (t *Transport) inboundQueueDrainer() {
 		if !ok {
 			return
 		}
-		// Data packets for established links take this serial path so wire
-		// order survives to Link.HandleInbound. Sending them through the
-		// shared worker channel let consecutive packets for one link be
-		// dequeued in order but processed out of order, which broke
-		// identify-before-request sequencing.
+		// Data packets for established links are sharded across per-link-id
+		// lanes so wire order survives to Link.HandleInbound while different
+		// links decrypt in parallel. Routing them through the shared worker
+		// channel let consecutive packets for one link be dequeued in order
+		// but processed out of order, which broke identify-before-request
+		// sequencing; a single serial lane capped multi-link throughput.
 		if job.destType == DestTypeLink && job.packetType == packet.PacketTypeData {
-			t.runPacketJob(job)
+			lane := t.linkDataLaneFor(job)
+			if lane == nil {
+				t.runPacketJob(job)
+				continue
+			}
+			select {
+			case <-t.done:
+				putPacketCopy(job.pc)
+				putInboundPacket(job.pkt)
+				return
+			case lane <- job:
+			default:
+				putPacketCopy(job.pc)
+				putInboundPacket(job.pkt)
+				t.shedHandlerOverflow(job.iface)
+			}
 			continue
 		}
 		if !t.enqueuePacket(job, false) {
 			putPacketCopy(job.pc)
+			putInboundPacket(job.pkt)
 			t.shedHandlerOverflow(job.iface)
 		}
 	}

@@ -14,6 +14,7 @@ import (
 	"net"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -129,6 +130,29 @@ func putPacketCopy(pc packetCopy) {
 	packetCopyPool.Put(pc.bp)
 }
 
+// inboundPacketPool recycles parsed packet.Packet structs. Each inbound
+// packet allocates a ~300-byte struct; under load that dominates GC pressure.
+// The struct carries no retained state after dispatch: all wire fields alias
+// the pooled pc.buf, and no consumer stores the Packet itself.
+var inboundPacketPool = sync.Pool{
+	New: func() any { return &packet.Packet{} },
+}
+
+func getInboundPacket() *packet.Packet {
+	return inboundPacketPool.Get().(*packet.Packet)
+}
+
+// putInboundPacket resets and recycles a packet. Call only when the packet is
+// no longer referenced: after a preprocess drop or once runPacketJob's
+// dispatch has returned.
+func putInboundPacket(p *packet.Packet) {
+	if p == nil {
+		return
+	}
+	*p = packet.Packet{}
+	inboundPacketPool.Put(p)
+}
+
 type pendingDiscoveryPR struct {
 	destHash []byte
 	tag      []byte
@@ -152,6 +176,7 @@ type Transport struct {
 	seenAnnounces         map[[32]byte]time.Time
 	packetQ               chan packetJob
 	handlerN              int
+	handlerCap            int
 	handlerLive           atomic.Int32
 	handlerClosed         atomic.Bool
 	handlerOnce           sync.Once
@@ -236,6 +261,7 @@ type Transport struct {
 	tunnelSynthOutHash []byte
 
 	inboundQueues       *inboundQueues
+	linkLanes           []chan packetJob
 	inboundWG           sync.WaitGroup
 	inboundQueueSizes   [inboundQueueCount]int
 	pathRequestDestHash []byte
@@ -440,15 +466,33 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 	}
 
 	handlers := common.DefaultMaxPacketHandlers
+	handlerCap := handlers
 	if cfg != nil {
 		handlers = cfg.EffectiveMaxPacketHandlers()
+		if !cfg.MaxPacketHandlersSet {
+			// Packet handling is crypto-bound; workers beyond a few times
+			// GOMAXPROCS mostly add goroutine and lock-convoy overhead. The
+			// queue keeps the full configured depth for burst absorption.
+			// An explicit MaxPacketHandlers still lifts the cap.
+			handlerCap = min(handlers, max(32, runtime.GOMAXPROCS(0)*8))
+		}
 	}
 	t.handlerN = handlers
+	t.handlerCap = handlerCap
 	t.packetQ = make(chan packetJob, handlers)
 
 	sizes := inboundQueueSizesFromConfig(cfg)
 	t.inboundQueueSizes = sizes
 	t.inboundQueues = newInboundQueues(sizes)
+	laneCount := linkDataLaneCount()
+	laneBuf := sizes[TCData]
+	if laneBuf <= 0 {
+		laneBuf = defaultInboundDataQueueLen
+	}
+	t.linkLanes = make([]chan packetJob, laneCount)
+	for i := range t.linkLanes {
+		t.linkLanes[i] = make(chan packetJob, laneBuf)
+	}
 	t.pathRequestDestHash = pathRequestDestinationHash()
 	t.startInboundDrainer()
 
@@ -2497,11 +2541,13 @@ func (t *Transport) handleLinkPacket(data []byte, pkt *packet.Packet, iface comm
 				return
 			}
 			if isLocalClientInterface(iface) {
-				debug.Log(debug.DebugError, common.MsgTransportNoPathForLinkRelay,
-					"hash", fmt.Sprintf("%x", destHash),
-					"iface", iface.GetName(),
-					"hint", "path may have expired, call Transport.AwaitPath again")
-			} else {
+				if allowNoPathLog(destHash, iface.GetName()) {
+					debug.Log(debug.DebugError, common.MsgTransportNoPathForLinkRelay,
+						"hash", fmt.Sprintf("%x", destHash),
+						"iface", iface.GetName(),
+						"hint", "path may have expired, call Transport.AwaitPath again")
+				}
+			} else if allowNoPathLog(destHash, iface.GetName()) {
 				debug.Log(debug.DebugError, common.MsgTransportNoDestForLinkRequest,
 					"hash", fmt.Sprintf("%x", destHash),
 					"elapsed", time.Since(startTime).Seconds())

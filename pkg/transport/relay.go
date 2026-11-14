@@ -336,10 +336,12 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 		return false
 	}
 	if !hasPath || path == nil || path.Interface == nil {
-		debug.Log(debug.DebugInfo, common.MsgTransportNoPathForLinkRelay,
-			"dest_hash", fmt.Sprintf("%x", destHash),
-			"iface", sourceIface.GetName(),
-			"hint", "call Transport.AwaitPath before Link.Establish")
+		if allowNoPathLog(destHash, sourceIface.GetName()) {
+			debug.Log(debug.DebugInfo, common.MsgTransportNoPathForLinkRelay,
+				"dest_hash", fmt.Sprintf("%x", destHash),
+				"iface", sourceIface.GetName(),
+				"hint", "call Transport.AwaitPath before Link.Establish")
+		}
 		return true
 	}
 	if path.Interface == sourceIface {
@@ -353,7 +355,7 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 	fromLocal := isLocalClientInterface(sourceIface)
 	newHops := linkRelayAccountedHops(pkt.Hops, fromLocal)
 	if newHops >= MaxHops {
-		if debug.Enabled(debug.DebugInfo) {
+		if debug.Enabled(debug.DebugInfo) && noPathLogRate.allow("mh|"+sourceIface.GetName()+"|"+string(destHash)) {
 			debug.Log(debug.DebugInfo, "Transport packet exceeds MaxHops, dropping",
 				"hops", newHops)
 		}
@@ -437,8 +439,10 @@ func (t *Transport) forwardLocalClientPacket(pkt *packet.Packet, raw []byte, sou
 
 	newHops := linkRelayAccountedHops(raw[1], true)
 	if newHops >= MaxHops {
-		debug.Log(debug.DebugInfo, "Local client packet exceeds MaxHops, dropping",
-			"hops", newHops)
+		if noPathLogRate.allow("mh|" + sourceIface.GetName() + "|" + string(destHash)) {
+			debug.Log(debug.DebugInfo, "Local client packet exceeds MaxHops, dropping",
+				"hops", newHops)
+		}
 		return true
 	}
 
@@ -645,7 +649,7 @@ func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, s
 	_, isLocal := t.destinations[destKey]
 	t.mutex.RUnlock()
 	if isLocal || !hasPath || path == nil || path.Interface == nil {
-		if !isLocal {
+		if !isLocal && allowNoPathLog(destHash, sourceIface.GetName()) {
 			debug.Log(debug.DebugInfo, common.MsgTransportNoPathForLinkRelay,
 				"dest_hash", fmt.Sprintf("%x", destHash),
 				"iface", sourceIface.GetName(),
@@ -666,7 +670,9 @@ func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, s
 	fromLocal := isLocalClientInterface(sourceIface)
 	newHops := linkRelayAccountedHops(pkt.Hops, fromLocal)
 	if newHops >= MaxHops {
-		debug.Log(debug.DebugInfo, "Bridged link request exceeds MaxHops, dropping", "hops", newHops)
+		if noPathLogRate.allow("mh|" + sourceIface.GetName() + "|" + string(destHash)) {
+			debug.Log(debug.DebugInfo, "Bridged link request exceeds MaxHops, dropping", "hops", newHops)
+		}
 		return true
 	}
 

@@ -10,7 +10,6 @@ import (
 	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
 	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
 )
 
 func (t *Transport) classifyInboundTraffic(data []byte, iface common.NetworkInterface, packetType, destType byte) int {
@@ -96,13 +95,15 @@ func (t *Transport) preprocessInboundPacket(data []byte, iface common.NetworkInt
 	// fields alias memory that lives until the job is recycled.
 	pc := getPacketCopy(len(data))
 	copy(pc.buf, data)
-	pkt := &packet.Packet{Raw: pc.buf}
+	pkt := getInboundPacket()
+	pkt.Raw = pc.buf
 	if err := pkt.Unpack(); err != nil {
 		ifaceProtocolViolation(iface)
 		if iface != nil {
 			health.Inc(iface.GetName(), health.KindUnpackFail)
 		}
 		putPacketCopy(pc)
+		putInboundPacket(pkt)
 		return packetJob{}, 0, false
 	}
 
@@ -120,11 +121,13 @@ func (t *Transport) preprocessInboundPacket(data []byte, iface common.NetworkInt
 			}
 			ifaceProtocolViolation(iface)
 			putPacketCopy(pc)
+			putInboundPacket(pkt)
 			return packetJob{}, 0, false
 		}
 	}
 	if !t.applyPacketFilter(pkt, iface) {
 		putPacketCopy(pc)
+		putInboundPacket(pkt)
 		return packetJob{}, 0, false
 	}
 
@@ -134,6 +137,7 @@ func (t *Transport) preprocessInboundPacket(data []byte, iface common.NetworkInt
 		if destType == DestTypePlain || destType == DestTypeGroup {
 			ifaceProtocolViolation(iface)
 			putPacketCopy(pc)
+			putInboundPacket(pkt)
 			return packetJob{}, 0, false
 		}
 		if iface != nil {
@@ -146,6 +150,7 @@ func (t *Transport) preprocessInboundPacket(data []byte, iface common.NetworkInt
 		if !prOK {
 			ifaceProtocolViolation(iface)
 			putPacketCopy(pc)
+			putInboundPacket(pkt)
 			return packetJob{}, 0, false
 		}
 		if len(tag) > identity.TruncatedHashLength/8 {
@@ -178,6 +183,7 @@ func (t *Transport) submitInboundJob(job packetJob, tc int, block bool) bool {
 			return true
 		}
 		putPacketCopy(job.pc)
+		putInboundPacket(job.pkt)
 		t.shedHandlerOverflow(job.iface)
 		return false
 	}
@@ -185,6 +191,7 @@ func (t *Transport) submitInboundJob(job packetJob, tc int, block bool) bool {
 		return true
 	}
 	putPacketCopy(job.pc)
+	putInboundPacket(job.pkt)
 	t.shedHandlerOverflow(job.iface)
 	return false
 }
