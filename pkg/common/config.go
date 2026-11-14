@@ -415,6 +415,19 @@ type ReticulumConfig struct {
 	MaxPacketHashlist    int
 	MaxPacketHashlistSet bool
 
+	// MaxSeenAnnounces caps the seen-announce dedup table. Zero uses
+	// DefaultMaxSeenAnnounces. Negative disables eviction (unbounded).
+	MaxSeenAnnounces int
+
+	// MaxReverseEntries caps the reverse proof relay table. Zero uses the
+	// built-in default. Negative disables eviction (unbounded).
+	MaxReverseEntries int
+
+	// MaxAnnounceCache caps cached announce packets kept for path
+	// responses. Zero uses the path-table-derived default. Negative
+	// disables the cap.
+	MaxAnnounceCache int
+
 	// MaxPacketHandlers is the HandlePacket worker count and queue depth.
 	// Zero uses DefaultMaxPacketHandlers (512).
 	MaxPacketHandlers    int

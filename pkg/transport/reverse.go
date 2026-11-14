@@ -25,10 +25,25 @@ type ReverseEntry struct {
 type reverseTable struct {
 	mu      sync.Mutex
 	entries map[hash16]*ReverseEntry
+	limit   int
 }
 
-func newReverseTable() *reverseTable {
-	return &reverseTable{entries: make(map[hash16]*ReverseEntry)}
+func newReverseTable(limit int) *reverseTable {
+	return &reverseTable{entries: make(map[hash16]*ReverseEntry), limit: limit}
+}
+
+func reverseEntriesLimit(cfg *common.ReticulumConfig) int {
+	if cfg == nil {
+		return 0
+	}
+	return cfg.MaxReverseEntries
+}
+
+func (rt *reverseTable) maxEntries() int {
+	if rt != nil && rt.limit != 0 {
+		return rt.limit
+	}
+	return maxReverseEntries
 }
 
 // maxReverseEntries bounds the reverse-proof relay table. Entries live up
@@ -47,7 +62,7 @@ func (rt *reverseTable) put(truncatedHash []byte, entry *ReverseEntry) {
 	}
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
-	if len(rt.entries) >= maxReverseEntries {
+	if max := rt.maxEntries(); max > 0 && len(rt.entries) >= max {
 		rt.evictOldestLocked()
 	}
 	rt.entries[hash16FromSlice(truncatedHash)] = entry

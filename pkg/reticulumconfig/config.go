@@ -503,6 +503,12 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 	case "max_packet_hashlist":
 		setInt(value, &cfg.MaxPacketHashlist)
 		cfg.MaxPacketHashlistSet = true
+	case "max_seen_announces":
+		setInt(value, &cfg.MaxSeenAnnounces)
+	case "max_reverse_entries":
+		setInt(value, &cfg.MaxReverseEntries)
+	case "max_announce_cache":
+		setInt(value, &cfg.MaxAnnounceCache)
 	case "max_packet_handlers":
 		setInt(value, &cfg.MaxPacketHandlers)
 		cfg.MaxPacketHandlersSet = true
@@ -1160,6 +1166,15 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	}
 	if cfg.MaxPacketHashlist != 0 {
 		fmt.Fprintf(&b, "  max_packet_hashlist = %d\n", cfg.MaxPacketHashlist)
+	}
+	if cfg.MaxSeenAnnounces != 0 {
+		fmt.Fprintf(&b, "  max_seen_announces = %d\n", cfg.MaxSeenAnnounces)
+	}
+	if cfg.MaxReverseEntries != 0 {
+		fmt.Fprintf(&b, "  max_reverse_entries = %d\n", cfg.MaxReverseEntries)
+	}
+	if cfg.MaxAnnounceCache != 0 {
+		fmt.Fprintf(&b, "  max_announce_cache = %d\n", cfg.MaxAnnounceCache)
 	}
 	if cfg.MaxPacketHandlers != 0 {
 		fmt.Fprintf(&b, "  max_packet_handlers = %d\n", cfg.MaxPacketHandlers)

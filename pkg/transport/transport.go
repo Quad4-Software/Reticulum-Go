@@ -378,7 +378,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		destFilters:              newDestinationFilters(),
 		pendingLocalPathReqs:     make(map[hash16]common.NetworkInterface),
 		linkTable:                newLinkRelayTable(),
-		reverseTable:             newReverseTable(),
+		reverseTable:             newReverseTable(reverseEntriesLimit(cfg)),
 		packetHashes:             newPacketHashList(effectivePacketHashlistMax(cfg)),
 		lastPathRequest:          make(map[[PathMapKeySize]byte]time.Time),
 		lastPathRequestWarn:      make(map[[PathMapKeySize]byte]time.Time),
@@ -640,6 +640,9 @@ func (t *Transport) rememberSeenAnnounceUnlocked(h [32]byte, now time.Time) {
 
 func (t *Transport) evictSeenAnnouncesUnlocked(now time.Time) {
 	limit := common.DefaultMaxSeenAnnounces
+	if t.config != nil && t.config.MaxSeenAnnounces != 0 {
+		limit = t.config.MaxSeenAnnounces
+	}
 	if limit <= 0 || len(t.seenAnnounces) <= limit {
 		return
 	}

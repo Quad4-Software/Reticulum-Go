@@ -6,6 +6,7 @@ package transport
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"time"
 
 	"sync/atomic"
@@ -38,6 +39,12 @@ type cachedAnnounce struct {
 }
 
 func (t *Transport) announcePacketCacheMax() int {
+	if t != nil && t.config != nil && t.config.MaxAnnounceCache != 0 {
+		if t.config.MaxAnnounceCache < 0 {
+			return math.MaxInt32
+		}
+		return t.config.MaxAnnounceCache
+	}
 	limit := 0
 	if t != nil && t.config != nil {
 		limit = t.config.EffectiveMaxInMemoryPaths()
