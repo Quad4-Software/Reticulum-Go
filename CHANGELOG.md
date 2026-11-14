@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.5.1 - unreleased
+
+### Performance
+
+- Established-link DATA packets now process on sharded lanes keyed by link id instead of one serial worker. Packets for a given link keep strict FIFO order while different links decrypt and dispatch concurrently, removing the single-threaded link-data bottleneck under multi-link load.
+- Inbound `packet.Packet` structs are pooled and recycled after dispatch and on every preprocess drop path, on top of the existing pooled raw-buffer copies. Removes one struct allocation per inbound packet.
+- Ratchet public-key derivation is memoized per private scalar (SHA-256 keyed cache holding only public values), and ratchet decrypt attempts reuse the identity salt and context instead of recomputing them per attempt. Each ratcheted inbound message previously paid an X25519 scalar multiplication per stored ratchet just to compute the ratchet id.
+- Packet handler pools no longer ramp to the full configured depth by default: worker growth is capped at `max(32, GOMAXPROCS*8)` unless `max_packet_handlers` is set explicitly. Queue depth is unchanged. In a 16-node simulated packet flood this cut live handler goroutines from about 8400 to 1200 and heap growth under load by roughly 45%.
+- Repeated "no path to relay link request", "no destination for link request", and "exceeds MaxHops" diagnostics are throttled per destination and interface for 30 seconds. A link-request flood previously emitted a full log record per packet, over 32000 records in an 8-second simulated run, serializing on the log handler.
+
+### Added
+
+- `pkg/transport/prof_load_test.go`: opt-in (`RET_PROF_LOAD=1`) simulated-mesh load harness that sustains mixed announce/data traffic and writes CPU, heap, goroutine, mutex, and block pprof profiles.
+- `pkg/transport/link_lane_test.go`: regression coverage proving per-link FIFO ordering while multiple links process concurrently.
+
 ## v1.5.0 - 2026-11-13
 
 Tracks Python RNS 1.6.0.
