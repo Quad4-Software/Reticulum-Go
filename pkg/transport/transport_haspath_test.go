@@ -34,10 +34,10 @@ func backdatePath(t *Transport, destHash []byte, age time.Duration) {
 	if !ok {
 		return
 	}
-	clone := *old
+	clone := old.Clone()
 	clone.LastUpdated = time.Now().Add(-age)
 	clone.Expires = clone.LastUpdated.Add(time.Duration(PathfinderE) * time.Second)
-	t.paths[pathMapKey(destHash)] = &clone
+	t.paths[pathMapKey(destHash)] = clone
 }
 
 func randomHash(t testing.TB, n int) []byte {

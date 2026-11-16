@@ -299,9 +299,9 @@ func (t *Transport) answerPendingLocalPathRequest(destHash []byte, hops byte) {
 		path = &common.Path{HopCount: hops, Interface: iface}
 	} else if hops > 0 {
 		// Prefer the hops from the announce that just arrived.
-		cp := *path
+		cp := path.Clone()
 		cp.HopCount = hops
-		path = &cp
+		path = cp
 	}
 	_ = t.queuePathResponseAnnounce(destHash, path, iface, true)
 }

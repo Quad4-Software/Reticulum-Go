@@ -167,3 +167,33 @@ const (
 	StateUnresponsive = 0x01
 	StateResponsive   = 0x02
 )
+
+// Path table sharding tuning (RNS 1.6.0). Vars rather than consts so
+// tests can shrink the windows; production code must not reassign them.
+
+var (
+	// UnusedPathLinger is how long a never-used path stays in the table on
+	// transport nodes (Python Transport.UNUSED_PATH_LINGER, 1h45m).
+	UnusedPathLinger = 105 * time.Minute
+
+	// UnusedPathLingerLeaf is the never-used linger on non-transport
+	// instances (Python UNUSED_PATH_LINGER_LEAF, 12h).
+	UnusedPathLingerLeaf = 12 * time.Hour
+
+	// PathSlowBitrate marks interfaces as slow for linger purposes
+	// (Python PATH_SLOW_BITRATE, 25 kbit/s).
+	PathSlowBitrate = 25000
+
+	// PathSlowLingerFactor multiplies the never-used linger on slow
+	// interfaces (Python PATH_SLOW_LINGER_FACTOR).
+	PathSlowLingerFactor = 10
+
+	// PathPoolUnusedTarget is the maximum number of never-used paths kept
+	// in the table (Python PATH_POOL_UNUSED_TARGET). When exceeded, the
+	// oldest never-used entries are culled down to the target.
+	PathPoolUnusedTarget = 2048
+
+	// pathPoolCheckInterval is how often the unused-path pool size is
+	// re-evaluated (Python pool_size_check_interval, 5 min).
+	pathPoolCheckInterval = 5 * time.Minute
+)

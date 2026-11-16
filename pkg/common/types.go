@@ -4,6 +4,7 @@
 package common
 
 import (
+	"sync/atomic"
 	"time"
 )
 
@@ -18,6 +19,59 @@ type Path struct {
 	HopCount    uint8
 	RandomBlobs [][]byte
 	Expires     time.Time
+
+	// usedUnixNano is the last time this path was used for outbound
+	// traffic, as Unix nanoseconds (RNS 1.6.0 IDX_PT_USED). Zero means the
+	// path was never used: RNS 1.6.0 path table sharding culls never-used
+	// paths after a short linger and keeps a bounded pool of them, so the
+	// marking happens on the outbound hot path without the transport write
+	// lock. Always access through MarkUsed/UsedAt/EverUsed.
+	usedUnixNano atomic.Int64
+}
+
+// MarkUsed records that the path carried outbound traffic at now.
+func (p *Path) MarkUsed(now time.Time) {
+	if p != nil {
+		p.usedUnixNano.Store(now.UnixNano())
+	}
+}
+
+// UsedAt returns the last outbound-use time, or the zero time when the
+// path was never used.
+func (p *Path) UsedAt() time.Time {
+	if p == nil {
+		return time.Time{}
+	}
+	if ns := p.usedUnixNano.Load(); ns != 0 {
+		return time.Unix(0, ns)
+	}
+	return time.Time{}
+}
+
+// EverUsed reports whether the path has ever carried outbound traffic.
+func (p *Path) EverUsed() bool {
+	return p != nil && p.usedUnixNano.Load() != 0
+}
+
+// Clone returns a deep-enough copy: the usage timestamp carries over so
+// sharding state survives copies made to tweak single fields.
+func (p *Path) Clone() *Path {
+	if p == nil {
+		return nil
+	}
+	cp := &Path{
+		Interface:   p.Interface,
+		NextHop:     append([]byte(nil), p.NextHop...),
+		Hops:        p.Hops,
+		LastUpdated: p.LastUpdated,
+		HopCount:    p.HopCount,
+		Expires:     p.Expires,
+	}
+	cp.usedUnixNano.Store(p.usedUnixNano.Load())
+	for _, blob := range p.RandomBlobs {
+		cp.RandomBlobs = append(cp.RandomBlobs, append([]byte(nil), blob...))
+	}
+	return cp
 }
 
 // Common callbacks

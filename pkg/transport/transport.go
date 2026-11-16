@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -206,6 +207,9 @@ type Transport struct {
 	// state for failover. See path_failover.go.
 	backupPaths         map[[PathMapKeySize]byte][]backupPath
 	pendingAltAnnounces map[[PathMapKeySize]byte][]pendingAltAnnounce
+	// pathPoolLastChecked gates the RNS 1.6.0 unused-path pool cull
+	// (Python pool_size_last_checked). Guarded by t.mutex.
+	pathPoolLastChecked time.Time
 	transportIdentity   *identity.Identity
 	// transportIDCache is the truncated hash of transportIdentity, kept so
 	// relay hot paths can compare TransportID without rehashing every packet.
@@ -666,10 +670,18 @@ func (t *Transport) evictSeenAnnouncesUnlocked(now time.Time) {
 }
 
 func (t *Transport) cleanupExpiredPaths() {
+	linger := UnusedPathLinger
+	if !t.transportEnabled() {
+		linger = UnusedPathLingerLeaf
+	}
 	t.mutex.Lock()
 
 	now := time.Now()
 	var failover [][PathMapKeySize]byte
+	// RNS 1.6.0 path table sharding: track never-used paths so the pool
+	// can be culled down to PATH_POOL_UNUSED_TARGET when it overflows.
+	poolCheckDue := now.Sub(t.pathPoolLastChecked) >= pathPoolCheckInterval
+	var unusedPaths []unusedPathInfo
 	for key, path := range t.paths {
 		if pathExpired(path, now) {
 			t.dropPathEntryUnlocked(key)
@@ -679,7 +691,51 @@ func (t *Transport) cleanupExpiredPaths() {
 			if debug.Enabled(debug.DebugVerbose) {
 				debug.Log(debug.DebugVerbose, "Expired path", "dest_hash", fmt.Sprintf("%x", key[:8]))
 			}
+			continue
 		}
+		// RNS 1.6.0: a path whose attached interface no longer exists is
+		// removed immediately.
+		if path.Interface != nil {
+			iface := t.interfaces[path.Interface.GetName()]
+			if iface == nil || iface != path.Interface {
+				t.dropPathEntryUnlocked(key)
+				if len(t.backupPaths[key]) > 0 || len(t.pendingAltAnnounces[key]) > 0 {
+					failover = append(failover, key)
+				}
+				if debug.Enabled(debug.DebugVerbose) {
+					debug.Log(debug.DebugVerbose, "Path removed, attached interface no longer exists", "dest_hash", fmt.Sprintf("%x", key[:8]))
+				}
+				continue
+			}
+		}
+		if !path.EverUsed() {
+			slow := interfaceIsSlowForPath(path.Interface)
+			lingerLimit := linger
+			if slow {
+				lingerLimit *= time.Duration(PathSlowLingerFactor)
+			}
+			if now.Sub(path.LastUpdated) > lingerLimit {
+				t.dropPathEntryUnlocked(key)
+				if len(t.backupPaths[key]) > 0 || len(t.pendingAltAnnounces[key]) > 0 {
+					failover = append(failover, key)
+				}
+				if debug.Enabled(debug.DebugVerbose) {
+					debug.Log(debug.DebugVerbose, "Removing never used path", "dest_hash", fmt.Sprintf("%x", key[:8]))
+				}
+				continue
+			}
+			if poolCheckDue {
+				unusedPaths = append(unusedPaths, unusedPathInfo{
+					slow:   slow,
+					expiry: path.Expires.UnixNano(),
+					key:    key,
+				})
+			}
+		}
+	}
+	if poolCheckDue {
+		t.pathPoolLastChecked = now
+		t.cullUnusedPathPoolLocked(unusedPaths, now)
 	}
 	t.markPathTableDirty()
 	t.mutex.Unlock()
@@ -689,6 +745,60 @@ func (t *Transport) cleanupExpiredPaths() {
 	for _, key := range failover {
 		t.maybeFailoverPath(key)
 	}
+}
+
+// unusedPathInfo tracks one never-used path entry for pool-size culling.
+// The sort order matches Python: non-slow interfaces cull first, then
+// earliest expiry, then hash.
+type unusedPathInfo struct {
+	slow   bool
+	expiry int64
+	key    [PathMapKeySize]byte
+}
+
+func (a unusedPathInfo) less(b unusedPathInfo) bool {
+	if a.slow != b.slow {
+		return !a.slow && b.slow
+	}
+	if a.expiry != b.expiry {
+		return a.expiry < b.expiry
+	}
+	return bytes.Compare(a.key[:], b.key[:]) < 0
+}
+
+// cullUnusedPathPoolLocked drops the oldest never-used paths down to
+// PathPoolUnusedTarget (Python PATH_POOL_UNUSED_TARGET culling).
+// Caller must hold t.mutex.
+func (t *Transport) cullUnusedPathPoolLocked(unused []unusedPathInfo, now time.Time) {
+	if len(unused) <= PathPoolUnusedTarget {
+		return
+	}
+	cullCount := len(unused) - PathPoolUnusedTarget
+	sort.Slice(unused, func(i, j int) bool { return unused[i].less(unused[j]) })
+	for _, info := range unused[:cullCount] {
+		if _, ok := t.paths[info.key]; !ok {
+			continue
+		}
+		t.dropPathEntryUnlocked(info.key)
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Culling never used path to reach pool size target",
+				"dest_hash", fmt.Sprintf("%x", info.key[:8]),
+				"target", PathPoolUnusedTarget)
+		}
+	}
+}
+
+// interfaceIsSlowForPath reports whether the path's interface counts as
+// slow for never-used linger purposes (Python PATH_SLOW_BITRATE check).
+func interfaceIsSlowForPath(iface common.NetworkInterface) bool {
+	if iface == nil {
+		return false
+	}
+	bitrate := int64(0)
+	if b, ok := iface.(interface{ GetBitrate() int64 }); ok {
+		bitrate = b.GetBitrate()
+	}
+	return bitrate > 0 && bitrate < int64(PathSlowBitrate)
 }
 
 func (t *Transport) cleanupExpiredDiscoveryRequests() {
@@ -3202,6 +3312,16 @@ func (t *Transport) SendPacket(p *packet.Packet) error {
 	if !exists {
 		debug.Log(debug.DebugVerbose, "No path found for destination", "hash", fmt.Sprintf("%x", destHash))
 		return common.ErrNoPathToDestinationf(destHash)
+	}
+
+	// RNS 1.6.0 path table sharding: every outbound packet routed over a
+	// path marks it used (Python sets IDX_PT_USED in Transport.outbound).
+	// Announces are excluded: they do not travel via the path table and
+	// Python's outbound marks only non-announce traffic. Never-used paths
+	// are culled after a short linger, so usage marking is what keeps a
+	// hot destination's path alive beyond that window.
+	if p.PacketType != packet.PacketTypeAnnounce {
+		path.MarkUsed(time.Now())
 	}
 
 	// Upstream also injects single-hop packets into transport when the
