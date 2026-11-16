@@ -5,9 +5,10 @@ package rate
 
 // Default and threshold constants for rate limiting and announce control.
 const (
-	DefaultAnnounceRateTarget  = 3600.0
-	DefaultAnnounceRateGrace   = 3
-	DefaultAnnounceRatePenalty = 7200.0
+	// DefaultRateTableRetainSec is the floor for per-destination announce
+	// rate history retention, matching the reference RATE_TABLE_RETAIN.
+	DefaultRateTableRetainSec = 3600.0
+
 	DefaultNewTime             = 2 * 60 * 60
 	DefaultBurstFreqNew        = 3.5
 	DefaultBurstFreq           = 12.0

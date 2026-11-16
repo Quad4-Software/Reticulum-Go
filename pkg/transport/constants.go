@@ -10,9 +10,8 @@ import (
 )
 
 const (
-	PathfinderM     = 128
-	PathRequestTTL  = common.PathRequestTTL
-	AnnounceTimeout = common.AnnounceTimeout
+	PathfinderM    = 128
+	PathRequestTTL = common.PathRequestTTL
 
 	// PathRequestTimeout is the default client path-request wait in seconds
 	// (Python Transport.PATH_REQUEST_TIMEOUT).
@@ -161,14 +160,6 @@ const (
 	DestTypeGroup  = 0x01
 	DestTypePlain  = 0x02
 	DestTypeLink   = 0x03
-)
-
-const (
-	MaxRetries             = 3
-	RetryInterval          = 5 * time.Second
-	MaxQueueSize           = 1000
-	MinPriorityDelta       = 0.1
-	DefaultPropagationRate = 0.02
 )
 
 const (

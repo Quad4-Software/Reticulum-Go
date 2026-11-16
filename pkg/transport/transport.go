@@ -568,6 +568,7 @@ func (t *Transport) startMaintenanceJobs() {
 					t.reverseTable.sweep(ReverseTimeout)
 				}
 				t.cleanupExpiredPathRequestThrottle()
+				t.cleanupAnnounceRateHistory()
 				t.releaseHeldAnnounces()
 				t.sampleInterfaceTraffic()
 				t.maybeAnnounceMgmtDestinations()
@@ -778,6 +779,19 @@ func (t *Transport) releaseHeldAnnounces() {
 					"Released held announce failed reprocessing",
 					"iface", entry.name, "error", err)
 			}
+		}
+	}
+}
+
+// cleanupAnnounceRateHistory drops expired per-destination egress rate
+// history on every interface so the tables cannot grow without bound.
+func (t *Transport) cleanupAnnounceRateHistory() {
+	if t.ifaceStates == nil {
+		return
+	}
+	for _, entry := range t.ifaceStates.snapshot() {
+		if entry.state != nil && entry.state.egress != nil {
+			entry.state.egress.CleanupExpired()
 		}
 	}
 }

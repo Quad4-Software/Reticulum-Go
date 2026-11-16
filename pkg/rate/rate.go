@@ -125,7 +125,7 @@ func (arc *AnnounceRateControl) AllowAnnounceHash(destHash [16]byte) bool {
 	history := arc.announceHistory[destHash]
 	now := time.Now()
 
-	cutoff := now.Add(-24 * time.Hour)
+	cutoff := now.Add(-arc.retention())
 	newHistory := make([]time.Time, 0, len(history))
 	for _, t := range history {
 		if t.After(cutoff) {
@@ -134,7 +134,7 @@ func (arc *AnnounceRateControl) AllowAnnounceHash(destHash [16]byte) bool {
 	}
 	history = newHistory
 
-	if len(history) < arc.rateGrace {
+	if len(history) == 0 || len(history) < arc.rateGrace {
 		arc.announceHistory[destHash] = append(history, now)
 		return true
 	}
@@ -153,14 +153,25 @@ func (arc *AnnounceRateControl) AllowAnnounceHash(destHash [16]byte) bool {
 	return true
 }
 
-// CleanupExpired drops history entries older than 24 hours.
+// retention returns how long per-destination announce history is kept.
+// Matches the reference RATE_TABLE_RETAIN floor of one hour, raised to the
+// configured target when that is larger so spacing checks keep working.
+func (arc *AnnounceRateControl) retention() time.Duration {
+	retain := arc.rateTarget
+	if retain < DefaultRateTableRetainSec {
+		retain = DefaultRateTableRetainSec
+	}
+	return time.Duration(retain * float64(time.Second)) // #nosec G115
+}
+
+// CleanupExpired drops history entries older than the retention window.
 func (arc *AnnounceRateControl) CleanupExpired() {
 	if arc == nil {
 		return
 	}
 	arc.mutex.Lock()
 	defer arc.mutex.Unlock()
-	cutoff := time.Now().Add(-24 * time.Hour)
+	cutoff := time.Now().Add(-arc.retention())
 	for hash, history := range arc.announceHistory {
 		filtered := history[:0]
 		for _, t := range history {

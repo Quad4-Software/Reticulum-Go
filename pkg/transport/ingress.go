@@ -104,7 +104,7 @@ func buildIfaceState(cfg *common.InterfaceConfig, transportEnabled bool) *ifaceS
 	}
 	if target > 0 {
 		if grace <= 0 {
-			grace = rate.DefaultAnnounceRateGrace
+			grace = defaultAnnounceRateGrace
 		}
 		st.egress = rate.NewAnnounceRateControl(
 			target,

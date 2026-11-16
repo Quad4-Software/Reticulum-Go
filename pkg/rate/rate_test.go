@@ -94,6 +94,18 @@ func TestAnnounceRateControl_DisabledByZeroTarget(t *testing.T) {
 	}
 }
 
+// Regression: grace=0 with an unseen destination must not panic on the
+// empty history slice.
+func TestAnnounceRateControl_ZeroGraceEmptyHistory(t *testing.T) {
+	arc := NewAnnounceRateControl(60.0, 0, 0)
+	if !arc.AllowAnnounce("fresh") {
+		t.Error("first announce for a new destination should pass with grace=0")
+	}
+	if arc.AllowAnnounce("fresh") {
+		t.Error("second announce inside the target window should be denied with grace=0")
+	}
+}
+
 func TestNewIngressControl(t *testing.T) {
 	ic := NewIngressControl(true)
 	if ic == nil {
