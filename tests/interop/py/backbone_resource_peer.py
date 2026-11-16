@@ -75,6 +75,10 @@ def recv_mode(client):
 
         def concluded(resource):
             data = resource.data if hasattr(resource, "data") else resource
+            # RNS 1.6.0 hands received resources a file-like object in
+            # resource.data (memory-managed storage); read it back.
+            if hasattr(data, "read"):
+                data = data.read()
             digest = hashlib.sha256(bytes(data)).hexdigest()
             state["len"] = len(data)
             state["sha256"] = digest
@@ -106,10 +110,17 @@ def send_mode(client, target_hex):
 
     target_hash = bytes.fromhex(target_hex)
     deadline = time.time() + TIMEOUT
+    # RNS 1.6 path table sharding: relays no longer broadcast every
+    # announce to every client. Express interest with path requests
+    # instead of waiting passively for a broadcast announce.
     while time.time() < deadline:
         if RNS.Transport.has_path(target_hash):
             break
-        time.sleep(1)
+        try:
+            RNS.Transport.request_path(target_hash)
+        except Exception:
+            pass
+        time.sleep(2)
     else:
         log("PATH_TIMEOUT")
         return 1
