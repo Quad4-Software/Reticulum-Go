@@ -16,6 +16,31 @@ if [ -z "$STAGED" ]; then
 	exit 0
 fi
 
+# Files under nested modules (examples/*, testdata) are outside the main
+# module; package patterns for them fail go vet. gofmt still checks them.
+VET_STAGED="$STAGED"
+NESTED_MOD_DIRS="$(git ls-files | grep 'go\.mod$' | grep -v '^go\.mod$' | grep -v '^vendor/' | grep -v '/vendor/' | xargs -r -n1 dirname | sort -u)"
+if [ -n "$NESTED_MOD_DIRS" ]; then
+	VET_STAGED=""
+	while IFS= read -r path; do
+		[ -n "$path" ] || continue
+		nested=0
+		while IFS= read -r moddir; do
+			case "$path" in
+			"$moddir"/*) nested=1; break ;;
+			esac
+		done <<EOF
+$NESTED_MOD_DIRS
+EOF
+		if [ "$nested" -eq 0 ]; then
+			VET_STAGED="$VET_STAGED$path
+"
+		fi
+	done <<EOF
+$STAGED
+EOF
+fi
+
 if ! command -v go >/dev/null 2>&1; then
 	echo "pre-commit: go not found" >&2
 	exit 1
@@ -36,7 +61,7 @@ while IFS= read -r path; do
 	pkg="./${dir%/}/..."
 	pkgs="$pkgs $pkg"
 done <<EOF
-$STAGED
+$VET_STAGED
 EOF
 
 # shellcheck disable=SC2086
