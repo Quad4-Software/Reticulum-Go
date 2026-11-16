@@ -1,6 +1,6 @@
 # pkg/lxst
 
-LXST 0.5.4 telephony over Reticulum links. Wire format uses msgpack maps for signalling (`{0: [...]}`) and audio frames (`{1: [codec, payload]}`). Destination is lxst.telephony. Opus is the default codec, with Codec2 for low bandwidth.
+LXST 0.6.0 telephony over Reticulum links. Wire format uses msgpack maps for signalling (`{0: [...]}`) and audio frames (`{1: [codec, payload]}`). Destination is lxst.telephony. Opus is the default codec, with Codec2 for low bandwidth.
 
 ```go
 caller := call.NewCall(tr, call.Config{
@@ -42,7 +42,7 @@ task build-liblxst
 task test-codec
 ```
 
-Python round-trips need `pip install lxst==0.5.4`.
+Python round-trips need `pip install lxst==0.6.0`.
 
 ```bash
 task test:lxst

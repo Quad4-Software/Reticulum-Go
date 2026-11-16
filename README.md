@@ -1,13 +1,13 @@
 # reticulum-go-protocols
 
-Go implementations of application protocols that run on [Reticulum-Go](https://github.com/Quad4-Software/Reticulum-Go). All packages share one transport instance. This is a monorepo.
+Go implementations of application protocols that run on [Reticulum-Go](https://git.quad4.io/reticulum/Reticulum-Go). All packages share one transport instance. This is a monorepo.
 
 | Package | What it is | Docs |
 | --- | --- | --- |
 | [pkg/mf](pkg/mf) | Compact native format: 16-byte sender hash plus UTF-8 text | [docs/en/mf.md](docs/en/mf.md) |
-| [pkg/lxmf](pkg/lxmf) | [LXMF](https://github.com/markqvist/LXMF) 1.2.0 pack, stamp, paper URI, delivery | [docs/en/lxmf.md](docs/en/lxmf.md) |
+| [pkg/lxmf](pkg/lxmf) | [LXMF](https://github.com/markqvist/LXMF) 1.3.0 pack, stamp, paper URI, delivery | [docs/en/lxmf.md](docs/en/lxmf.md) |
 | [pkg/rrc](pkg/rrc) | [RRC](https://rrc.kc1awv.net/) protocol version 1 (spec 0.1.3) hub and client | [docs/en/rrc.md](docs/en/rrc.md) |
-| [pkg/lxst](pkg/lxst) | [LXST](https://pypi.org/project/lxst/) 0.5.4 encrypted voice over Reticulum links | [docs/en/lxst.md](docs/en/lxst.md) |
+| [pkg/lxst](pkg/lxst) | [LXST](https://pypi.org/project/lxst/) 0.6.0 encrypted voice over Reticulum links | [docs/en/lxst.md](docs/en/lxst.md) |
 | [pkg/rnv](pkg/rnv) | Reticulum-Go Native Video (concept only): stills, clips, low-rate A/V streams | [docs/en/rnv.md](docs/en/rnv.md) |
 | [cmd/gorrcd](cmd/gorrcd) | Go RRC hub daemon | [docs/en/gorrcd.md](docs/en/gorrcd.md) |
 
@@ -15,8 +15,8 @@ Full English index: [docs/en](docs/en).
 
 ## Requirements
 
-- Go 1.26.6
-- [Reticulum-Go](https://github.com/Quad4-Software/Reticulum-Go)
+- Go 1.27.4
+- [Reticulum-Go](https://git.quad4.io/reticulum/Reticulum-Go)
 - [Make](https://www.gnu.org/software/make/) and/or [Task](https://taskfile.dev/) (optional wrappers)
 
 Optional, for Go/Python interop tests:
@@ -45,7 +45,7 @@ Pin a commit or tag instead of `master` for a reproducible build. For a local ch
 replace github.com/Quad4-Software/reticulum-go-protocols => ../reticulum-go-protocols
 ```
 
-Copy the `replace` lines for `github.com/Quad4-Software/Reticulum-Go` and the other `quad4/*` modules from this repo's go.mod, or set:
+Copy the `replace` lines for `git.quad4.io/reticulum/Reticulum-Go` and the other `quad4/*` modules from this repo's go.mod, or set:
 
 ```bash
 export GOPRIVATE=quad4/*

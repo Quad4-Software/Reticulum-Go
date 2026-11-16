@@ -6,7 +6,7 @@ reticulum-go-protocols was initialized with a 0BSD LICENSE file while its
 source headers were mixed 0BSD and Apache-2.0, inherited from the
 Reticulum-Go extraction. Reticulum-Go itself carried MIT, then 0BSD, then
 Apache-2.0 before moving to the Reticulum License; see
-https://github.com/Quad4-Software/Reticulum-Go LEGAL.md for that lineage.
+https://git.quad4.io/reticulum/Reticulum-Go LEGAL.md for that lineage.
 
 | Range | License | Notes |
 |-------|---------|-------|

@@ -249,7 +249,7 @@ tasks:
       - "{{.GOCMD}} test -v -count=1 -timeout 15m -run='Test(GoGo|E2E|Acceptance|Sim)' ./pkg/lxst/call/... ./tests/lxst/..."
 
   test:lxst:interop:
-    desc: LXST Go-Python interop (requires pip lxst 0.5.4)
+    desc: LXST Go-Python interop (requires pip lxst 0.6.0)
     cmds:
       - sh scripts/ci/run-lxst-interop.sh
 
