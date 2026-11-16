@@ -2,6 +2,19 @@
 
 ## v1.5.1 - unreleased
 
+### Changed
+
+- `enable_transport` now defaults to `no`, matching the Python RNS default. Only stationary always-on systems should be transport nodes; fresh installs no longer join the mesh as routers unless configured. Existing config files are unaffected because the value is written explicitly. Set `enable_transport = yes` for backbone/transport deployments.
+- Per-destination egress announce rate history is retained for the reference `RATE_TABLE_RETAIN` window (one hour, or the configured target when larger) instead of a flat 24 hours, and expired entries are now culled periodically. Previously the table was only pruned lazily per destination on access and `CleanupExpired` had no caller.
+- Announce deduplication no longer drops alternate copies outright. A seen announce is evaluated against the path contest on cleartext fields (hops, receiving interface, random blob) before verification: copies that cannot improve the route still cost only one SHA-256 and a map lookup, while copies that could win (higher interface gravity, unresponsive path, newer emission) pay for signature verification and re-run the full contest, matching the reference implementation which verifies every copy. Verified announce copies that lose the post-verification contest no longer propagate: mesh forwarding, local-client delivery, announce handlers, path-request answers, and the announce packet cache are now gated on the contest result exactly as in Python `Transport`.
+- Held announces that answer a destination with a pending local path request are released ahead of unrelated held announces on each ingress-control drain. Priority releases still respect burst and hold/penalty gates but skip the 30-second FIFO pacing interval, so path-request latency during announce floods drops from up to the release interval to the next maintenance tick.
+
+### Fixed
+
+- `rate.AnnounceRateControl.AllowAnnounceHash` no longer panics on an empty history when grace is zero.
+- Removed dead code: the unused `AnnounceManager`/`AnnounceEntry` announce queue (`pkg/transport/announce.go`) and the constants only it referenced (`MaxRetries`, `RetryInterval`, `MaxQueueSize`, `MinPriorityDelta`, `DefaultPropagationRate`), the unused `AnnounceTimeout` constant, and the unused `rate.DefaultAnnounceRate*` constants. The live announce path (`handleAnnouncePacket` plus delayed forwarding) is unchanged.
+- The egress announce-rate grace fallback now uses the same default (5) as the transport-default path instead of a divergent constant (3).
+
 ### Performance
 
 - Established-link DATA packets now process on sharded lanes keyed by link id instead of one serial worker. Packets for a given link keep strict FIFO order while different links decrypt and dispatch concurrently, removing the single-threaded link-data bottleneck under multi-link load.
@@ -21,6 +34,8 @@
 - `pkg/transport/prof_load_test.go`: opt-in (`RET_PROF_LOAD=1`) simulated-mesh load harness that sustains mixed announce/data traffic and writes CPU, heap, goroutine, mutex, and block pprof profiles.
 - `pkg/transport/link_lane_test.go`: regression coverage proving per-link FIFO ordering while multiple links process concurrently.
 - `pkg/transport/announce_lane_test.go`: coverage proving per-destination announce ordering on the new announce lanes and that flood overflow sheds without blocking unrelated destinations.
+- `pkg/transport/path_contest_test.go`: coverage for the dedup-hit path contest (worse-route drop, gravity win, unresponsive failover), bounded pending-alternate buffering, backup-path promotion, held-announce priority release, and a three-node mesh simulation of alternate-path failover.
+- `pkg/rate` ingress control: `ProcessAnnounceHashDest` records the destination hash on held entries and `ReleaseHeldAnnounceFor` releases the first held announce matching a pending path request out of FIFO order.
 
 ## v1.5.0 - 2026-11-13
 
