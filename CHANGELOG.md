@@ -17,6 +17,7 @@
 - `rate.AnnounceRateControl.AllowAnnounceHash` no longer panics on an empty history when grace is zero.
 - Removed dead code: the unused `AnnounceManager`/`AnnounceEntry` announce queue (`pkg/transport/announce.go`) and the constants only it referenced (`MaxRetries`, `RetryInterval`, `MaxQueueSize`, `MinPriorityDelta`, `DefaultPropagationRate`), the unused `AnnounceTimeout` constant, and the unused `rate.DefaultAnnounceRate*` constants. The live announce path (`handleAnnouncePacket` plus delayed forwarding) is unchanged.
 - The egress announce-rate grace fallback now uses the same default (5) as the transport-default path instead of a divergent constant (3).
+- The incoming-resource watchdog now re-requests an overdue hashmap update (HMU) even while parts are still arriving. Previously the stall check only fired after full transfer idleness, so a lost HMU left the receiver silent for the remainder of the window; on slow or deeply queued paths that silence could outlive the peer's keepalive and get the link marked stale mid-transfer. The re-request leaves in-flight part reservations and window state untouched.
 
 ### Performance
 
@@ -34,6 +35,8 @@
 
 ### Added
 
+- Adaptive receive-side congestion control for incoming Resources (`pkg/link/incoming_resource_cc.go`). Each request round is measured (bytes over elapsed time, request-to-first-part RTT) and the link is classified with round-count hysteresis matching Python `Resource.py`: the window ceiling is 4 parts below 250 B/s, 10 parts by default, and 75 parts after sustained rounds above 6250 B/s, promoting or demoting over consecutive healthy or very-slow rounds instead of starting every transfer at the fast ceiling. The stall grace is derived from the smoothed RTT and measured rate (outstanding bytes over rate, margin factor, one RTT, per-stall backoff) instead of a fixed 250 ms, and interfaces that perform their own loss recovery (TCP, QUIC, backbone, VSOCK, I2P, Unix, HTTPS, WebTransport) double the margin so transport retransmits are not mistaken for stalls. The measured rate and class are carried across transfers on a link so back-to-back files skip the slow-start ramp. Covered by unit tests and in-memory impaired-pipe transfer tests (loss, delay, throttle, mid-transfer regime changes) under `-race`; the wire format is unchanged and Go↔Python resource interop still passes in both directions.
+- `tests/interop/vega_backbone_live_test.go` (gated by `RUN_VEGA_LIVE=1`): live end-to-end resource transfers over the public Vega backbones at 78.46.92.205, Go↔Go through the Go backbone and Go↔Python through the Python backbone in both directions, with a Python peer (`tests/interop/py/backbone_resource_peer.py`) that attaches a standalone Python `BackboneClientInterface` to the same relay.
 - `pkg/transport/prof_load_test.go`: opt-in (`RET_PROF_LOAD=1`) simulated-mesh load harness that sustains mixed announce/data traffic and writes CPU, heap, goroutine, mutex, and block pprof profiles.
 - `pkg/transport/link_lane_test.go`: regression coverage proving per-link FIFO ordering while multiple links process concurrently.
 - `pkg/transport/announce_lane_test.go`: coverage proving per-destination announce ordering on the new announce lanes and that flood overflow sheds without blocking unrelated destinations.
