@@ -11,12 +11,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 )
 
 // Announce registers a filtered announce handler and publishes

@@ -8,8 +8,8 @@ package main
 import (
 	"syscall/js"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/wasm"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/wasm"
 )
 
 func main() {

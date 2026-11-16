@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/health"
 )
 
 // delaySimIface injects per-packet latency (and optional jitter) before

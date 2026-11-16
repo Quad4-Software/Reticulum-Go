@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 )
 
 const (

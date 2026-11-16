@@ -14,8 +14,8 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/lxstamper"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/stamps"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/lxstamper"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/stamps"
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack/msgpcode"
 )

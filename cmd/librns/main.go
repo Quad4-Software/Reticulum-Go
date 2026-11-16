@@ -3,6 +3,6 @@
 
 package main
 
-import _ "github.com/Quad4-Software/Reticulum-Go/pkg/librns/capi"
+import _ "git.quad4.io/reticulum/Reticulum-Go/pkg/librns/capi"
 
 func main() {}

@@ -4,8 +4,8 @@
 package interfaces
 
 import (
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/cryptography"
 )
 
 // TunnelPeer is implemented by interfaces that participate in Reticulum tunnel

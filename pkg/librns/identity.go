@@ -6,7 +6,7 @@ package librns
 import (
 	"fmt"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 )
 
 // IdentityGenerate creates a new software identity handle.

@@ -5,7 +5,7 @@
 
 package interfaces
 
-import "github.com/Quad4-Software/Reticulum-Go/pkg/common"
+import "git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 
 func applyI2PParentConfig(parent *I2PInterface, cfg *common.InterfaceConfig) {
 	if cfg == nil {

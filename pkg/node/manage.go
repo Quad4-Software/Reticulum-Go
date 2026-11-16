@@ -4,11 +4,11 @@
 package node
 
 import (
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/reticulumconfig"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/rnsutil"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/reticulumconfig"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/rnsutil"
 )
 
 // ManageOutcome mirrors the Python True/False/None tri-state returned by

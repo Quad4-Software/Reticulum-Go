@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
 )
 
 func TestLiveInteropQUICGoGoEcho(t *testing.T) {

@@ -6,9 +6,9 @@ package transport
 import (
 	"crypto/rand"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
 )
 
 // initLocalHopsDelta picks a random hop delta in [2, 7] when enabled.

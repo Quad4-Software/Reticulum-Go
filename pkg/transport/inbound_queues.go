@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
 )
 
 // Inbound traffic classes (RNS 1.5.0 Transport.TC_*).

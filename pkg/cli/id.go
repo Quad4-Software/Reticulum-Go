@@ -11,10 +11,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity/store"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/rnsutil"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/securemem"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity/store"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/rnsutil"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/securemem"
 	"golang.org/x/term"
 )
 

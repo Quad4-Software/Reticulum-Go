@@ -15,10 +15,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/channel"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/channel"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 	"github.com/Quad4-Software/bzip2/pkg/bzip2"
 	"github.com/Quad4-Software/pbt/pkg/pbt"
 )

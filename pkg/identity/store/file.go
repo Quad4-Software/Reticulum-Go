@@ -8,8 +8,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/Quad4-Software/Reticulum-Go/internal/storage"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/securemem"
+	"git.quad4.io/reticulum/Reticulum-Go/internal/storage"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/securemem"
 )
 
 // FileBackend stores secrets as ordinary files at AttrIdentityPath.

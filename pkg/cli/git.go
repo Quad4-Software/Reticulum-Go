@@ -15,10 +15,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/rnsgit"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/rnsutil"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/term"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/rnsgit"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/rnsutil"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/term"
 )
 
 // RunGit implements reticulum-go git (rgogit).

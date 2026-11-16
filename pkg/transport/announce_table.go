@@ -15,12 +15,12 @@ import (
 
 	"path/filepath"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/health"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
 
-	"github.com/Quad4-Software/Reticulum-Go/internal/sqlitestore"
+	"git.quad4.io/reticulum/Reticulum-Go/internal/sqlitestore"
 )
 
 const PathRequestGrace = 400 * time.Millisecond

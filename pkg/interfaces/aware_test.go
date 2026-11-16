@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 )
 
 // fakeAwareDriver implements AwareDriver for tests. It records sends and

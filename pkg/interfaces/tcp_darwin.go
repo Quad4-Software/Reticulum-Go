@@ -9,7 +9,7 @@ import (
 	"net"
 	"syscall"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 )
 
 func (tc *TCPClientInterface) setTimeoutsLinux() error {

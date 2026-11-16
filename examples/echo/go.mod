@@ -2,7 +2,7 @@ module example-echo
 
 go 1.27.4
 
-require github.com/Quad4-Software/Reticulum-Go v1.4.1
+require git.quad4.io/reticulum/Reticulum-Go v1.4.1
 
 require (
 	github.com/Quad4-Software/msgpack/v5 v5.9.2 // indirect
@@ -25,4 +25,4 @@ require (
 	kernel.org/pub/linux/libs/security/libcap/psx v1.2.78 // indirect
 )
 
-replace github.com/Quad4-Software/Reticulum-Go => ../..
+replace git.quad4.io/reticulum/Reticulum-Go => ../..

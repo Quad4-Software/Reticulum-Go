@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 )
 
 // serveReleasesPage lists published releases, matching the reference

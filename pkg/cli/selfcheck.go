@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/selfcheck"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/selfcheck"
 )
 
 // RunSelfCheck runs the host OS preflight checklist.

@@ -9,7 +9,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/cryptography"
 )
 
 func oracleHandshakeLink(t *testing.T, mode byte) *Link {

@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/node"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/node"
 )
 
 func startGoSharedOwner(t *testing.T, enableTransport bool, sharedPort, ctrlPort, goUDP, peerUDP int) (*node.Node, string, func()) {

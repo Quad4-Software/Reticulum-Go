@@ -6,7 +6,7 @@ package link
 import (
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
 )
 
 func (l *Link) updateKeepaliveLocked() {

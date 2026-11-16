@@ -6,7 +6,7 @@ package identity
 import (
 	"fmt"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity/store"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity/store"
 )
 
 // SetIdentityBackend selects file or secretservice persistence for ToFile.

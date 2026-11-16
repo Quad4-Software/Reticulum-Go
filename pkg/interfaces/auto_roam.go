@@ -7,7 +7,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 )
 
 const dataListenerRetryDelay = 1250 * time.Millisecond

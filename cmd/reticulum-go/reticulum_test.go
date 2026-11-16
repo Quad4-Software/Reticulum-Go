@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/internal/config"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/internal/config"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 )
 
 func TestNewReticulum(t *testing.T) {

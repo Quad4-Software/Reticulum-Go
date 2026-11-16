@@ -6,7 +6,7 @@ package node
 import (
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 )
 
 func TestInterfaceConfigsEqualForReloadNilCases(t *testing.T) {

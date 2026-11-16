@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/tests/interop/harness"
+	"git.quad4.io/reticulum/Reticulum-Go/tests/interop/harness"
 )
 
 func TestReadLineTimeoutNoConcurrentPanic(t *testing.T) {

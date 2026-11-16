@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
-	rlink "github.com/Quad4-Software/Reticulum-Go/pkg/link"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
+	rlink "git.quad4.io/reticulum/Reticulum-Go/pkg/link"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/resource"
 )
 
 // Go -> Python: resource with AppFlag set must arrive with app_flag true.

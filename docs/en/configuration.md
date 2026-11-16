@@ -393,7 +393,7 @@ On Unix the daemon reloads interface blocks on SIGHUP via node.ReloadInterfaces.
 ## Programmatic access
 
 ```go
-import "github.com/Quad4-Software/Reticulum-Go/pkg/reticulumconfig"
+import "git.quad4.io/reticulum/Reticulum-Go/pkg/reticulumconfig"
 
 cfg, err := reticulumconfig.LoadConfig("/path/to/config")
 ```

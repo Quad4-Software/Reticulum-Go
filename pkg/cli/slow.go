@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/rnsutil"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/rnsutil"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 )
 
 func RunSlow(args []string, opt ...Options) int {

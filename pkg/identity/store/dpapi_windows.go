@@ -11,7 +11,7 @@ import (
 	"os"
 	"unsafe"
 
-	"github.com/Quad4-Software/Reticulum-Go/internal/storage"
+	"git.quad4.io/reticulum/Reticulum-Go/internal/storage"
 	"golang.org/x/sys/windows"
 )
 

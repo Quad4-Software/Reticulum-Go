@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/backbone"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity/store"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/securemem"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/backbone"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity/store"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/securemem"
 )
 
 func checkSandbox(ctx context.Context, opts Options) Result {

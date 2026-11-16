@@ -4,7 +4,7 @@
 package transport
 
 import (
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 )
 
 // StampsSettings resolves the effective RNS 1.6.0 stamp configuration

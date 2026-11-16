@@ -12,10 +12,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/pageserver"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/reticulumconfig"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/pageserver"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/reticulumconfig"
 )
 
 // RunPageserver serves NomadNet-style pages and files over Reticulum.

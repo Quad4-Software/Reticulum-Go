@@ -8,9 +8,9 @@ package node
 import (
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/health"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
 )
 
 const interfaceMonitorInterval = 10 * time.Second

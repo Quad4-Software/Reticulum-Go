@@ -4,7 +4,7 @@ package librns_test
 import (
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/librns"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/librns"
 )
 
 func TestDestinationCreateSurfacesPacketEvents(t *testing.T) {

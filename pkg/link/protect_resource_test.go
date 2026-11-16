@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/protect"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/protect"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/resource"
 )
 
 func TestBeginIncomingResourceProtectPrevent(t *testing.T) {

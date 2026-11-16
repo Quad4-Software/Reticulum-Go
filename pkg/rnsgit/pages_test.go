@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
 )
 
 // pageTestNode builds a node with one real repository containing a commit.

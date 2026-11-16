@@ -10,7 +10,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/zenfix"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/zenfix"
 )
 
 // RunZen scans Go (and optionally Python) sources for Reticulum footguns.

@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/internal/sqlitestore"
+	"git.quad4.io/reticulum/Reticulum-Go/internal/sqlitestore"
 )
 
 // Standalone GetRatchet (no transport init in this "process") must still

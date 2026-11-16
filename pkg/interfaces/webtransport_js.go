@@ -7,7 +7,7 @@ package interfaces
 import (
 	"fmt"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 )
 
 func init() {

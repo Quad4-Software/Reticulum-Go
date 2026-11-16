@@ -40,7 +40,7 @@ if [ -z "$PROTO_DIR" ]; then
 fi
 
 cat > "$ROOT/go.mod" <<EOF
-module github.com/Quad4-Software/Reticulum-Go
+module git.quad4.io/reticulum/Reticulum-Go
 
 go 1.27.4
 
@@ -67,12 +67,12 @@ replace (
 EOF
 
 cat > "$ROOT/examples/wasm/go.mod" <<EOF
-module github.com/Quad4-Software/Reticulum-Go/examples/wasm
+module git.quad4.io/reticulum/Reticulum-Go/examples/wasm
 
 go 1.27.4
 
 require (
-	github.com/Quad4-Software/Reticulum-Go v0.0.0
+	git.quad4.io/reticulum/Reticulum-Go v0.0.0
 	github.com/Quad4-Software/reticulum-go-protocols v0.0.0
 )
 
@@ -85,7 +85,7 @@ require (
 )
 
 replace (
-	github.com/Quad4-Software/Reticulum-Go => ../../
+	git.quad4.io/reticulum/Reticulum-Go => ../../
 	github.com/Quad4-Software/bzip2 => $REL_WASM_LIBS/bzip2
 	github.com/Quad4-Software/msgpack/v5 => $REL_WASM_LIBS/msgpack
 	github.com/Quad4-Software/pbt => $REL_WASM_LIBS/pbt
@@ -95,11 +95,11 @@ replace (
 EOF
 
 cat > "$ROOT/examples/pageserver/go.mod" <<EOF
-module github.com/Quad4-Software/Reticulum-Go/examples/pageserver
+module git.quad4.io/reticulum/Reticulum-Go/examples/pageserver
 
 go 1.27.4
 
-require github.com/Quad4-Software/Reticulum-Go v0.0.0
+require git.quad4.io/reticulum/Reticulum-Go v0.0.0
 
 require (
 	github.com/Quad4-Software/bzip2 v1.0.1 // indirect
@@ -111,7 +111,7 @@ require (
 )
 
 replace (
-	github.com/Quad4-Software/Reticulum-Go => ../..
+	git.quad4.io/reticulum/Reticulum-Go => ../..
 	github.com/Quad4-Software/bzip2 => $REL_PS_LIBS/bzip2
 	github.com/Quad4-Software/msgpack/v5 => $REL_PS_LIBS/msgpack
 	github.com/Quad4-Software/pbt => $REL_PS_LIBS/pbt

@@ -3,7 +3,7 @@
 
 package protect
 
-import "github.com/Quad4-Software/Reticulum-Go/pkg/health"
+import "git.quad4.io/reticulum/Reticulum-Go/pkg/health"
 
 // Reason identifies why a protect trip fired.
 type Reason int

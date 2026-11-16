@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/securemem"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/stamps"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/cryptography"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/securemem"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/stamps"
 )
 
 // TeardownStampFailure is the RNS 1.6.0 link teardown reason for a link

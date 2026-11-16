@@ -16,9 +16,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/node"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/rnsutil"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/node"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/rnsutil"
 )
 
 // TestLiveEndpointQuarantineAndAnnounceStats runs a Go shared instance with a

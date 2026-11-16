@@ -17,14 +17,14 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/node"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/rgosh"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/rnsutil"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/node"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/rgosh"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/rnsutil"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 )
 
 // RunSH implements reticulum-go sh / rgosh remote shell.

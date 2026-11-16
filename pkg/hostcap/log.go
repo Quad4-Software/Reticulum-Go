@@ -4,7 +4,7 @@
 package hostcap
 
 import (
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 )
 
 // LogUnderMemoryPressure adds host-capability context when heap shedding starts.

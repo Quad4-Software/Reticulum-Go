@@ -6,7 +6,7 @@ package interfaces
 import (
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/backbone"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/backbone"
 )
 
 func testBackboneHub(t *testing.T) *backbone.Hub {

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 )
 
 // workScopeCount counts numeric document directories in a scope that have a

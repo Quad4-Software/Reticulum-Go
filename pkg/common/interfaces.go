@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/health"
 )
 
 // IFAC is the subset of pkg/ifac.Identity that interfaces and transport need

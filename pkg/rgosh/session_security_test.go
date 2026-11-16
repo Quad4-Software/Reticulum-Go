@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/channel"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/channel"
 )
 
 type fakeProc struct {

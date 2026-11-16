@@ -1,6 +1,6 @@
 {
   "@context": "https://openvex.dev/ns/v0.2.0",
-  "@id": "https://github.com/Quad4-Software/Reticulum-Go/openvex.json",
+  "@id": "https://git.quad4.io/reticulum/Reticulum-Go/src/branch/master/openvex.json",
   "author": "Quad4",
   "timestamp": "2026-09-18T00:00:00Z",
   "version": 1,

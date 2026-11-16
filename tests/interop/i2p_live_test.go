@@ -20,9 +20,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/i2p"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/i2p"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
 )
 
 func liveI2PInteropOrSkip(t *testing.T) {

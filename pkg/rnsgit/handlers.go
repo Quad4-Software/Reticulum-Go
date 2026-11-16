@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
 )
 
 func (n *Node) handleList(path string, data []byte, _ []byte, _ []byte, remote *identity.Identity, _ int64) any {

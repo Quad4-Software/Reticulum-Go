@@ -11,10 +11,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/internal/storage"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/rate"
+	"git.quad4.io/reticulum/Reticulum-Go/internal/storage"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/cryptography"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/rate"
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 

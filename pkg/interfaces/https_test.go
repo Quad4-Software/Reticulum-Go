@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 )
 
 func freeHTTPSPort(t *testing.T) int {

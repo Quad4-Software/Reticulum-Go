@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/rnsgit"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/rnsgit"
 )
 
 // gitWorkRepoWithCommit creates a non-bare repo with one commit on main.

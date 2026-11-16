@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/reticulumconfig"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/reticulumconfig"
 )
 
 func TestE2E_DoSProtectionConfigLoad(t *testing.T) {

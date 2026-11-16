@@ -54,7 +54,7 @@ func TestValidateGoTestArgs(t *testing.T) {
 }
 
 func TestIsSpuriousFuzzDeadline(t *testing.T) {
-	pkg := "github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+	pkg := "git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
 	failed := map[string]map[string]struct{}{
 		pkg: {"FuzzReadPCAPUDPPayloads": {}},
 	}

@@ -11,8 +11,8 @@ import (
 	"io"
 	"sync"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/channel"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/channel"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 	"github.com/Quad4-Software/bzip2/pkg/bzip2"
 )
 

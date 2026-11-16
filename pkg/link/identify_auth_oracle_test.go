@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/cryptography"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 )
 
 // Guarantee: invalid LINKIDENTIFY signature never sets remoteIdentity or fires identified callback.

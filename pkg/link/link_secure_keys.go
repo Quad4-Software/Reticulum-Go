@@ -4,7 +4,7 @@
 package link
 
 import (
-	"github.com/Quad4-Software/Reticulum-Go/pkg/securemem"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/securemem"
 )
 
 func closeSecBuf(b **securemem.Buf) {

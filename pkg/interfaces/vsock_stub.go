@@ -9,7 +9,7 @@ import (
 	"math"
 	"net"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 )
 
 // ParseVSOCKContextID converts a config integer to a vsock context ID.

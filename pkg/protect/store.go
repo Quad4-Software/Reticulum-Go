@@ -7,7 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	storageio "github.com/Quad4-Software/Reticulum-Go/internal/storage"
+	storageio "git.quad4.io/reticulum/Reticulum-Go/internal/storage"
 	"os"
 	"path/filepath"
 	"sort"

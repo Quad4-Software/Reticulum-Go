@@ -9,9 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/internal/sqlitestore"
-	"github.com/Quad4-Software/Reticulum-Go/internal/storage"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/internal/sqlitestore"
+	"git.quad4.io/reticulum/Reticulum-Go/internal/storage"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 )
 
 // knownStore holds the sqlite known-destinations DB when the driver is

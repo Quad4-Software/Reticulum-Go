@@ -4,9 +4,9 @@
 package transport
 
 import (
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/health"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/health"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
 )
 
 func (t *Transport) applyPacketFilter(pkt *packet.Packet, iface common.NetworkInterface) bool {

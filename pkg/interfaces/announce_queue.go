@@ -6,7 +6,7 @@ package interfaces
 import (
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 )
 
 // OutgoingAnnounceQueue is the optional per-interface delayed TX list used

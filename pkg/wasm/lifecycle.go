@@ -10,8 +10,8 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 )
 
 func OnNetworkAvailableJS(this js.Value, args []js.Value) interface{} {

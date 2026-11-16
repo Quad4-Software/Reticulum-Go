@@ -74,8 +74,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/librns"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/librns"
 )
 
 const maxCGoBytes = math.MaxInt32

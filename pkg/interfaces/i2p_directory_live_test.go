@@ -16,8 +16,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/i2p"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/i2p"
 )
 
 const defaultI2PDirectoryURL = "https://directory.rns.recipes/api/directory/submitted?search=&type=i2p&status=online"

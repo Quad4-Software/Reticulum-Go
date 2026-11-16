@@ -274,7 +274,7 @@ RNode radios, rngit releases, and the same short flags as the Python 1.5.2 tools
 ### Changed
 
 - Short flags match the Python 1.5.2 tools. `rgopath` gained the blackhole and queue-drop flags. `rgocp -f` takes the remote path as a positional.
-- Module path is `github.com/Quad4-Software/Reticulum-Go`. First-party deps are real module versions, and `go.mod` has no `replace` lines (#13).
+- Module path is `git.quad4.io/reticulum/Reticulum-Go`. First-party deps are real module versions, and `go.mod` has no `replace` lines (#13).
 - Commits after v1.1.1 were re-authored to ivan@quad4.io and signed with GPG instead of Reticulum signatures.
 
 ### Fixed

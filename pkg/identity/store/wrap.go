@@ -9,8 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Quad4-Software/Reticulum-Go/internal/storage"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/securemem"
+	"git.quad4.io/reticulum/Reticulum-Go/internal/storage"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/securemem"
 )
 
 // wrapKind distinguishes passphrase-wrap entries from identity-secret entries

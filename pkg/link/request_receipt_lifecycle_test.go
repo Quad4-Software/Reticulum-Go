@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/resource"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/resource"
 )
 
 func newTestRequestReceipt(l *Link, seed byte, timeout time.Duration) *RequestReceipt {

@@ -6,7 +6,7 @@ package node
 import (
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/discovery"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/discovery"
 )
 
 func TestGoldenAutoconnectInterfaceName(t *testing.T) {

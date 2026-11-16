@@ -1,0 +1,313 @@
+// SPDX-License-Identifier: LicenseRef-Reticulum
+// Copyright (c) 2024-2026 Quad4.io
+
+package identity
+
+import (
+	"bytes"
+	"encoding/hex"
+	"errors"
+	"os"
+	"path/filepath"
+	"time"
+
+	"git.quad4.io/reticulum/Reticulum-Go/internal/storage"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/cryptography"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/rate"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+)
+
+type knownRatchetEntry struct {
+	key      []byte
+	received int64
+}
+
+type knownRatchetFile struct {
+	Ratchet  []byte  `msgpack:"ratchet"`
+	Received float64 `msgpack:"received"`
+}
+
+// RatchetPublicBytes returns the X25519 public key for a 32-byte ratchet private key.
+
+func RatchetPublicBytes(private []byte) ([]byte, error) {
+	if len(private) != RatchetSize/8 {
+		return nil, errors.New("invalid ratchet key size")
+	}
+	return cryptography.PublicKeyFromPrivate(private)
+}
+
+// RememberRatchet stores the announced ratchet public key for destHash.
+// Matches Python Identity._remember_ratchet: skip persist when the key is
+// already known, and skip disk writes for in-memory / shared-instance mode.
+func RememberRatchet(destHash, ratchet []byte) {
+	if len(destHash) == 0 || len(ratchet) != RatchetSize/8 {
+		return
+	}
+
+	key := knownDestKey(destHash)
+	ratchetPersistLock.Lock()
+	existing, ok := knownRatchets[key]
+	if ok && bytes.Equal(existing.key, ratchet) {
+		ratchetPersistLock.Unlock()
+		return
+	}
+
+	knownRatchets[key] = knownRatchetEntry{
+		key:      append([]byte(nil), ratchet...),
+		received: time.Now().Unix(),
+	}
+	evictKnownRatchetsLocked(key)
+	entry := knownRatchets[key]
+	ratchetPersistLock.Unlock()
+
+	debug.Log(debug.DebugTrace, "Remembering ratchet",
+		"ratchet_id", hex.EncodeToString(TruncatedHash(ratchet)[:NameHashLength/8]),
+		"destination", hex.EncodeToString(destHash))
+
+	if knownPersistMemory.Load() || knownPersistDisabled.Load() {
+		return
+	}
+	persistKnownRatchet(destHash, entry)
+}
+
+// GetRatchet returns the announced ratchet public key for destHash, or nil.
+// Matches Python Identity.get_ratchet: memory first, then storage/ratchets/{hex}.
+func GetRatchet(destHash []byte) []byte {
+	var buf [32]byte
+	n := CopyRatchet(destHash, buf[:])
+	if n == 0 {
+		return nil
+	}
+	return append([]byte(nil), buf[:n]...)
+}
+
+// CopyRatchet writes the announced ratchet public key for destHash into dst.
+// Returns the number of bytes written (32) or 0 when missing or expired.
+func CopyRatchet(destHash, dst []byte) int {
+	if len(destHash) == 0 || len(dst) < RatchetSize/8 {
+		return 0
+	}
+	key := knownDestKey(destHash)
+	now := time.Now().Unix()
+
+	ratchetPersistLock.Lock()
+	if e, ok := knownRatchets[key]; ok {
+		if now < e.received+RatchetExpiry && len(e.key) == RatchetSize/8 {
+			n := copy(dst, e.key)
+			ratchetPersistLock.Unlock()
+			return n
+		}
+		delete(knownRatchets, key)
+		ratchetPersistLock.Unlock()
+		return 0
+	}
+	ratchetPersistLock.Unlock()
+
+	if knownPersistMemory.Load() || knownPersistDisabled.Load() {
+		return 0
+	}
+
+	loaded := loadKnownRatchetFromDisk(destHash)
+	if loaded == nil {
+		debug.Log(debug.DebugTrace, "Could not load ratchet", "destination", hex.EncodeToString(destHash))
+		return 0
+	}
+	return copy(dst, loaded)
+}
+
+// CurrentRatchetID returns the 10-byte ratchet ID for destHash, or nil.
+func CurrentRatchetID(destHash []byte) []byte {
+	ratchet := GetRatchet(destHash)
+	if len(ratchet) == 0 {
+		return nil
+	}
+	h := cryptography.Hash(ratchet)
+	return h[:NameHashLength/8]
+}
+
+// CleanKnownRatchets drops expired in-memory entries and removes expired,
+// corrupted, or orphaned on-disk known-peer ratchet files. Destination-private
+// ratchet files (signed lists) in the same directory are left alone.
+func CleanKnownRatchets() {
+	now := time.Now().Unix()
+
+	ratchetPersistLock.Lock()
+	for k, e := range knownRatchets {
+		if now >= e.received+RatchetExpiry {
+			delete(knownRatchets, k)
+		}
+	}
+	ratchetPersistLock.Unlock()
+
+	if knownPersistMemory.Load() || knownPersistDisabled.Load() {
+		return
+	}
+
+	dir, err := knownRatchetsDir()
+	if err != nil || dir == "" {
+		return
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+
+	for _, ent := range entries {
+		if ent.IsDir() {
+			continue
+		}
+		name := ent.Name()
+		if len(name) != TruncatedHashLength/4 {
+			continue
+		}
+		destHash, err := hex.DecodeString(name)
+		if err != nil || len(destHash) != TruncatedHashLength/8 {
+			continue
+		}
+		path := filepath.Join(dir, name)
+		data, err := storage.ReadFileCapped(path, maxStateFileBytes)
+		if err != nil {
+			continue
+		}
+		var parsed map[string]any
+		if err := msgpack.Unmarshal(data, &parsed); err != nil {
+			continue
+		}
+		if _, hasSig := parsed["signature"]; hasSig {
+			continue
+		}
+		expired := false
+		if rec, ok := parsed["received"]; ok {
+			received := asFloat64(rec)
+			if float64(now) > received+float64(RatchetExpiry) {
+				expired = true
+			}
+		} else {
+			expired = true
+		}
+
+		unknown := false
+		knownDestinationsLock.RLock()
+		_, exists := knownDestinations[knownDestKey(destHash)]
+		knownDestinationsLock.RUnlock()
+		if !exists {
+			unknown = true
+		}
+
+		if expired || unknown {
+			_ = os.Remove(path)
+		}
+	}
+}
+
+// ratchetPersistLimiter bounds disk writes driven by inbound announces.
+// Every valid signed announce carrying a ratchet triggers one file write;
+// without a ceiling on write rate an announce drip becomes a sustained
+// disk-fill and iops vector. 16/s sustained with a 64 burst is far above
+// any legitimate destination-churn rate.
+var ratchetPersistLimiter = rate.NewLimiter(16.0, 64.0)
+
+func persistKnownRatchet(destHash []byte, entry knownRatchetEntry) {
+	if !ratchetPersistLimiter.Allow() {
+		debug.Log(debug.DebugTrace, "Ratchet persist rate limited",
+			"destination", hex.EncodeToString(destHash))
+		return
+	}
+	dir, err := knownRatchetsDir()
+	if err != nil || dir == "" {
+		return
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		debug.Log(debug.DebugError, "Could not persist ratchet", "error", err)
+		return
+	}
+
+	payload := knownRatchetFile{
+		Ratchet:  append([]byte(nil), entry.key...),
+		Received: float64(entry.received),
+	}
+	packed, err := msgpack.Marshal(payload)
+	if err != nil {
+		debug.Log(debug.DebugError, "Could not persist ratchet", "error", err)
+		return
+	}
+
+	hexhash := hex.EncodeToString(destHash)
+	outPath := filepath.Join(dir, hexhash+".out")
+	finalPath := filepath.Join(dir, hexhash)
+	if err := os.WriteFile(outPath, packed, 0o600); err != nil { // #nosec G304 -- operator storage path
+		debug.Log(debug.DebugError, "Could not persist ratchet", "error", err)
+		return
+	}
+	if err := os.Rename(outPath, finalPath); err != nil {
+		_ = os.Remove(outPath)
+		debug.Log(debug.DebugError, "Could not persist ratchet", "error", err)
+	}
+}
+
+func loadKnownRatchetFromDisk(destHash []byte) []byte {
+	dir, err := knownRatchetsDir()
+	if err != nil || dir == "" {
+		return nil
+	}
+	path := filepath.Join(dir, hex.EncodeToString(destHash))
+	data, err := storage.ReadFileCapped(path, maxStateFileBytes)
+	if err != nil {
+		return nil
+	}
+
+	var parsed knownRatchetFile
+	if err := msgpack.Unmarshal(data, &parsed); err != nil {
+		debug.Log(debug.DebugError, "An error occurred while loading ratchet data", "error", err)
+		return nil
+	}
+	if time.Now().Unix() >= int64(parsed.Received)+RatchetExpiry || len(parsed.Ratchet) != RatchetSize/8 {
+		return nil
+	}
+
+	key := knownDestKey(destHash)
+	ratchetPersistLock.Lock()
+	knownRatchets[key] = knownRatchetEntry{
+		key:      append([]byte(nil), parsed.Ratchet...),
+		received: int64(parsed.Received),
+	}
+	evictKnownRatchetsLocked(key)
+	out := append([]byte(nil), parsed.Ratchet...)
+	ratchetPersistLock.Unlock()
+	return out
+}
+
+func knownRatchetsDir() (string, error) {
+	knownPersistMu.Lock()
+	cfg := knownPersistConfig
+	knownPersistMu.Unlock()
+	return storage.RatchetsDir(cfg)
+}
+
+func ratchetMapKey(id string) destMapKey {
+	raw, err := hex.DecodeString(id)
+	if err == nil && len(raw) >= TruncatedHashLength/8 {
+		return knownDestKey(raw)
+	}
+	var k destMapKey
+	copy(k[:], id)
+	return k
+}
+
+func evictKnownRatchetsLocked(keep destMapKey) {
+	if len(knownRatchets) <= MaxKnownRatchets {
+		return
+	}
+	excess := len(knownRatchets) - MaxKnownRatchets
+	for k := range knownRatchets {
+		if excess <= 0 {
+			return
+		}
+		if k == keep {
+			continue
+		}
+		delete(knownRatchets, k)
+		excess--
+	}
+}

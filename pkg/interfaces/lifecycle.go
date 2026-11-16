@@ -4,10 +4,10 @@
 package interfaces
 
 import (
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"runtime"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 )
 
 // ConnectivityNotifier allows embedders to observe interface up/down transitions.

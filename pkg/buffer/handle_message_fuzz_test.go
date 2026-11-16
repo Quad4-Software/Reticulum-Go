@@ -7,8 +7,8 @@ import (
 	"io"
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/channel"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/channel"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 )
 
 func TestHandleMessageCorruptCompressedStillHonorsEOF(t *testing.T) {

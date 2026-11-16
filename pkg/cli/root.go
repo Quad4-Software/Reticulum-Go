@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/term"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/term"
 )
 
 // Command names accepted as subcommands or argv0 aliases.

@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/buffer"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/channel"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/buffer"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/channel"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 )
 
 func (n *Node) handleInterface(iface common.NetworkInterface) {

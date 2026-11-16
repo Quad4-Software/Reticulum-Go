@@ -9,7 +9,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/term"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/term"
 )
 
 // Severity classifies a single check outcome.

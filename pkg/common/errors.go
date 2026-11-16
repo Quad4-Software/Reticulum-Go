@@ -22,7 +22,7 @@ const (
 	MsgDestAnnounceNoWritable     = "destination: announce sent on 0 interfaces (none online, enabled, and writable)"
 	MsgDestAnnounceRequiresIn     = "destination: only IN destination types can be announced"
 	MsgDestAnnounceThrottled      = "destination: announce throttled (wait before announcing again, do not loop Announce)"
-	MsgDestNoIncomingLinkHandler  = `destination: no incoming link handler (import the link package, e.g. _ "github.com/Quad4-Software/Reticulum-Go/pkg/link")`
+	MsgDestNoIncomingLinkHandler  = `destination: no incoming link handler (import the link package, e.g. _ "git.quad4.io/reticulum/Reticulum-Go/pkg/link")`
 	MsgDestAcceptsLinksFalseOnly  = "destination: AcceptsLinks(false) clears the flag only and does not unregister from transport"
 	MsgDestNoPacketCallback       = "destination: packet received but no packet callback set (call SetPacketCallback)"
 	MsgDestNoRequestHandler       = "destination: no request handler registered for path (call RegisterRequestHandler)"

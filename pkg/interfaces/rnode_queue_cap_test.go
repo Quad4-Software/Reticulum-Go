@@ -8,7 +8,7 @@ package interfaces
 import (
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 )
 
 // TestRNodeQueueCap bounds the transmit queue while flow control holds the

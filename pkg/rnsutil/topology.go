@@ -9,7 +9,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 )
 
 // WriteTopologyHuman renders the path table grouped by receiving interface:

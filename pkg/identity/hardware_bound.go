@@ -9,11 +9,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Quad4-Software/Reticulum-Go/internal/storage"
+	"git.quad4.io/reticulum/Reticulum-Go/internal/storage"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity/store"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/securemem"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/cryptography"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity/store"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/securemem"
 )
 
 const (

@@ -4,7 +4,7 @@
 package transport
 
 import (
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 )
 
 // interfaceGravity returns configured gravity for iface (RNS 1.4.1).

@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Quad4-Software/Reticulum-Go/internal/storage"
+	"git.quad4.io/reticulum/Reticulum-Go/internal/storage"
 )
 
 const (
