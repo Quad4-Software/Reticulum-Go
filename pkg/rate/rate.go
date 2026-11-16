@@ -234,6 +234,9 @@ type IngressControl struct {
 type ingressHeld struct {
 	hash [32]byte
 	data []byte
+	// dest keys the entry for ReleaseHeldAnnounceFor; zero means no
+	// destination key.
+	dest [16]byte
 }
 
 // NewIngressControl constructs an IngressControl with default thresholds.
@@ -295,6 +298,13 @@ func (ic *IngressControl) ProcessAnnounce(announceHash string, announceData []by
 
 // ProcessAnnounceHash is ProcessAnnounce keyed by a 32-byte announce hash.
 func (ic *IngressControl) ProcessAnnounceHash(announceHash [32]byte, announceData []byte, isNewDest bool) bool {
+	return ic.ProcessAnnounceHashDest(announceHash, announceData, isNewDest, [16]byte{})
+}
+
+// ProcessAnnounceHashDest is ProcessAnnounceHash that also records a
+// destination key on the held entry so ReleaseHeldAnnounceFor can find it.
+// A zero dest marks the entry as having no destination key.
+func (ic *IngressControl) ProcessAnnounceHashDest(announceHash [32]byte, announceData []byte, isNewDest bool, dest [16]byte) bool {
 	if !ic.Enabled() {
 		return true
 	}
@@ -342,7 +352,7 @@ func (ic *IngressControl) ProcessAnnounceHash(announceHash [32]byte, announceDat
 	buf := make([]byte, len(announceData))
 	copy(buf, announceData)
 	ic.heldIndex[announceHash] = len(ic.heldQueue)
-	ic.heldQueue = append(ic.heldQueue, ingressHeld{hash: announceHash, data: buf})
+	ic.heldQueue = append(ic.heldQueue, ingressHeld{hash: announceHash, data: buf, dest: dest})
 	return false
 }
 
@@ -355,28 +365,74 @@ func (ic *IngressControl) ReleaseHeldAnnounce() (string, []byte, bool) {
 	ic.mutex.Lock()
 	defer ic.mutex.Unlock()
 
-	if len(ic.heldQueue) == 0 {
-		return "", nil, false
-	}
 	now := time.Now()
-	if ic.burstActive {
-		return "", nil, false
-	}
-	if !ic.burstClearedAt.IsZero() && now.Sub(ic.burstClearedAt) < ic.cfg.BurstHold+ic.cfg.BurstPenalty {
+	if !ic.releaseGateOpenLocked(now) {
 		return "", nil, false
 	}
 	if !ic.lastReleaseAt.IsZero() && now.Sub(ic.lastReleaseAt) < ic.cfg.HeldReleaseInterval {
 		return "", nil, false
 	}
 
-	entry := ic.heldQueue[0]
-	ic.heldQueue = ic.heldQueue[1:]
+	entry := ic.removeHeldLocked(0)
+	ic.lastReleaseAt = now
+	return string(entry.hash[:]), entry.data, true
+}
+
+// ReleaseHeldAnnounceFor returns the first queued announce held for dest
+// when the burst is clear and the hold/penalty quiet period has elapsed.
+// Priority releases skip HeldReleaseInterval pacing and do not update
+// lastReleaseAt, so they neither wait on nor disturb FIFO releases. A zero
+// dest never matches.
+func (ic *IngressControl) ReleaseHeldAnnounceFor(dest [16]byte) (string, []byte, bool) {
+	if ic == nil {
+		return "", nil, false
+	}
+	if dest == ([16]byte{}) {
+		return "", nil, false
+	}
+	ic.mutex.Lock()
+	defer ic.mutex.Unlock()
+
+	if !ic.releaseGateOpenLocked(time.Now()) {
+		return "", nil, false
+	}
+	idx := -1
+	for i, h := range ic.heldQueue {
+		if h.dest == dest {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return "", nil, false
+	}
+	entry := ic.removeHeldLocked(idx)
+	return string(entry.hash[:]), entry.data, true
+}
+
+// releaseGateOpenLocked reports whether held announces may be released:
+// the queue is non-empty and the burst plus hold/penalty quiet period has
+// passed. Caller must hold ic.mutex.
+func (ic *IngressControl) releaseGateOpenLocked(now time.Time) bool {
+	if len(ic.heldQueue) == 0 || ic.burstActive {
+		return false
+	}
+	if !ic.burstClearedAt.IsZero() && now.Sub(ic.burstClearedAt) < ic.cfg.BurstHold+ic.cfg.BurstPenalty {
+		return false
+	}
+	return true
+}
+
+// removeHeldLocked removes heldQueue[idx], preserving the order of the
+// remaining entries, and rebuilds heldIndex. Caller must hold ic.mutex.
+func (ic *IngressControl) removeHeldLocked(idx int) ingressHeld {
+	entry := ic.heldQueue[idx]
+	ic.heldQueue = append(ic.heldQueue[:idx], ic.heldQueue[idx+1:]...)
 	delete(ic.heldIndex, entry.hash)
 	for i, h := range ic.heldQueue {
 		ic.heldIndex[h.hash] = i
 	}
-	ic.lastReleaseAt = now
-	return string(entry.hash[:]), entry.data, true
+	return entry
 }
 
 // HeldCount returns the number of currently queued announces.

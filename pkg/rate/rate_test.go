@@ -232,6 +232,245 @@ func TestIngressControl_MaxHeldAnnouncesCap(t *testing.T) {
 	}
 }
 
+// newBurstingIngress returns an IngressControl driven into a burst with a
+// fast config so hold/release tests avoid long sleeps.
+func newBurstingIngress(t *testing.T) *IngressControl {
+	t.Helper()
+	cfg := NewIngressControlConfig()
+	cfg.BurstFreq = 50.0
+	cfg.BurstFreqNew = 50.0
+	cfg.NewTime = 0
+	cfg.BurstHold = 50 * time.Millisecond
+	cfg.BurstPenalty = 50 * time.Millisecond
+	cfg.HeldReleaseInterval = 10 * time.Millisecond
+	ic := NewIngressControlWith(cfg)
+
+	for i := range 200 {
+		ic.ProcessAnnounce("flood-"+itoa(i), []byte{byte(i)}, false)
+	}
+	if !ic.InBurst() {
+		t.Fatal("expected burst-active after announce flood")
+	}
+	return ic
+}
+
+// clearBurst waits out the burst hold/penalty quiet period so held
+// announces become releasable.
+func clearBurst(t *testing.T, ic *IngressControl) {
+	t.Helper()
+	time.Sleep(150 * time.Millisecond)
+	ic.ProcessAnnounce("settle", []byte{0}, false)
+	time.Sleep(150 * time.Millisecond)
+	ic.ProcessAnnounce("settle2", []byte{0}, false)
+	if ic.InBurst() {
+		t.Fatal("expected burst cleared")
+	}
+}
+
+func TestIngressControl_ReleaseHeldAnnounceFor_MatchesDest(t *testing.T) {
+	ic := newBurstingIngress(t)
+	dA := destAnnounceKey("dest-a")
+	dB := destAnnounceKey("dest-b")
+	dC := destAnnounceKey("dest-c")
+	hashB := announceHoldKey("hb")
+
+	ic.ProcessAnnounceHashDest(announceHoldKey("ha"), []byte("aaa"), true, dA)
+	ic.ProcessAnnounceHashDest(hashB, []byte("bbb"), true, dB)
+	ic.ProcessAnnounceHashDest(announceHoldKey("hc"), []byte("ccc"), true, dC)
+	if got := ic.HeldCount(); got != 3 {
+		t.Fatalf("HeldCount = %d, want 3", got)
+	}
+	clearBurst(t, ic)
+
+	// dest-b sits mid-queue; the priority release must find it anyway.
+	gotHash, gotData, ok := ic.ReleaseHeldAnnounceFor(dB)
+	if !ok {
+		t.Fatal("ReleaseHeldAnnounceFor should release the announce held for dest-b")
+	}
+	if gotHash != string(hashB[:]) {
+		t.Errorf("released hash = %q, want %q", gotHash, string(hashB[:]))
+	}
+	if string(gotData) != "bbb" {
+		t.Errorf("released data = %q, want %q", string(gotData), "bbb")
+	}
+	if got := ic.HeldCount(); got != 2 {
+		t.Errorf("HeldCount = %d, want 2 after priority release", got)
+	}
+}
+
+func TestIngressControl_ReleaseHeldAnnounceFor_PreservesFIFOOrder(t *testing.T) {
+	ic := newBurstingIngress(t)
+	dA := destAnnounceKey("dest-a")
+	dB := destAnnounceKey("dest-b")
+	dC := destAnnounceKey("dest-c")
+	hashA := announceHoldKey("ha")
+	hashC := announceHoldKey("hc")
+
+	ic.ProcessAnnounceHashDest(hashA, []byte("aaa"), true, dA)
+	ic.ProcessAnnounceHashDest(announceHoldKey("hb"), []byte("bbb"), true, dB)
+	ic.ProcessAnnounceHashDest(hashC, []byte("ccc"), true, dC)
+	clearBurst(t, ic)
+
+	if _, _, ok := ic.ReleaseHeldAnnounceFor(dB); !ok {
+		t.Fatal("priority release of dest-b should succeed")
+	}
+
+	gotHash, _, ok := ic.ReleaseHeldAnnounce()
+	if !ok {
+		t.Fatal("FIFO release should succeed")
+	}
+	if gotHash != string(hashA[:]) {
+		t.Errorf("FIFO head = %q, want %q", gotHash, string(hashA[:]))
+	}
+
+	time.Sleep(15 * time.Millisecond)
+	gotHash, _, ok = ic.ReleaseHeldAnnounce()
+	if !ok {
+		t.Fatal("second FIFO release should succeed after HeldReleaseInterval")
+	}
+	if gotHash != string(hashC[:]) {
+		t.Errorf("FIFO second = %q, want %q", gotHash, string(hashC[:]))
+	}
+	if got := ic.HeldCount(); got != 0 {
+		t.Errorf("HeldCount = %d, want 0", got)
+	}
+}
+
+func TestIngressControl_ReleaseHeldAnnounceFor_NoMatch(t *testing.T) {
+	ic := newBurstingIngress(t)
+
+	ic.ProcessAnnounceHashDest(announceHoldKey("ha"), []byte("aaa"), true, destAnnounceKey("dest-a"))
+	ic.ProcessAnnounceHash(announceHoldKey("hz"), []byte("zzz"), true) // zero dest
+	clearBurst(t, ic)
+
+	if _, _, ok := ic.ReleaseHeldAnnounceFor(destAnnounceKey("dest-b")); ok {
+		t.Error("ReleaseHeldAnnounceFor should fail for a dest with no queued announce")
+	}
+	if _, _, ok := ic.ReleaseHeldAnnounceFor([16]byte{}); ok {
+		t.Error("ReleaseHeldAnnounceFor must never match the zero destination")
+	}
+	if got := ic.HeldCount(); got != 2 {
+		t.Errorf("HeldCount = %d, want 2 (no entry removed)", got)
+	}
+}
+
+func TestIngressControl_ReleaseHeldAnnounceFor_RespectsBurstGates(t *testing.T) {
+	ic := newBurstingIngress(t)
+	dA := destAnnounceKey("dest-a")
+	ic.ProcessAnnounceHashDest(announceHoldKey("ha"), []byte("aaa"), true, dA)
+
+	if _, _, ok := ic.ReleaseHeldAnnounceFor(dA); ok {
+		t.Error("ReleaseHeldAnnounceFor must not release while burst is active")
+	}
+
+	// First settle stamps burstClearedAt but the burst flag stays set.
+	time.Sleep(150 * time.Millisecond)
+	ic.ProcessAnnounce("settle", []byte{0}, false)
+	if _, _, ok := ic.ReleaseHeldAnnounceFor(dA); ok {
+		t.Error("ReleaseHeldAnnounceFor must not release while burst flag still set")
+	}
+
+	// Second settle clears burstActive inside the BurstHold+BurstPenalty
+	// quiet period (60ms > BurstHold 50ms, < 100ms total).
+	time.Sleep(60 * time.Millisecond)
+	ic.ProcessAnnounce("settle2", []byte{0}, false)
+	if ic.InBurst() {
+		t.Fatal("expected burst cleared")
+	}
+	if _, _, ok := ic.ReleaseHeldAnnounceFor(dA); ok {
+		t.Error("ReleaseHeldAnnounceFor must respect BurstHold+BurstPenalty quiet period")
+	}
+
+	time.Sleep(80 * time.Millisecond)
+	if _, _, ok := ic.ReleaseHeldAnnounceFor(dA); !ok {
+		t.Error("ReleaseHeldAnnounceFor should succeed once quiet period elapsed")
+	}
+}
+
+func TestIngressControl_ReleaseHeldAnnounceFor_IgnoresReleaseInterval(t *testing.T) {
+	ic := newBurstingIngress(t)
+	dA := destAnnounceKey("dest-a")
+	dB := destAnnounceKey("dest-b")
+
+	ic.ProcessAnnounceHashDest(announceHoldKey("ha"), []byte("aaa"), true, dA)
+	ic.ProcessAnnounceHashDest(announceHoldKey("hb"), []byte("bbb"), true, dB)
+	clearBurst(t, ic)
+
+	if _, _, ok := ic.ReleaseHeldAnnounce(); !ok {
+		t.Fatal("FIFO release should succeed first")
+	}
+	// HeldReleaseInterval is 10ms; an immediate priority release for a
+	// different dest must not be paced by it.
+	if _, _, ok := ic.ReleaseHeldAnnounceFor(dB); !ok {
+		t.Error("ReleaseHeldAnnounceFor must ignore HeldReleaseInterval")
+	}
+	if got := ic.HeldCount(); got != 0 {
+		t.Errorf("HeldCount = %d, want 0", got)
+	}
+}
+
+func TestIngressControl_ReleaseHeldAnnounceFor_IndexConsistency(t *testing.T) {
+	ic := newBurstingIngress(t)
+	dA := destAnnounceKey("dest-a")
+	dB := destAnnounceKey("dest-b")
+	dC := destAnnounceKey("dest-c")
+	hashA := announceHoldKey("ha")
+	hashB := announceHoldKey("hb")
+	hashC := announceHoldKey("hc")
+
+	ic.ProcessAnnounceHashDest(hashA, []byte("aaa"), true, dA)
+	ic.ProcessAnnounceHashDest(hashB, []byte("bbb"), true, dB)
+	ic.ProcessAnnounceHashDest(hashC, []byte("ccc"), true, dC)
+	clearBurst(t, ic)
+
+	if _, _, ok := ic.ReleaseHeldAnnounceFor(dB); !ok {
+		t.Fatal("priority release of dest-b should succeed")
+	}
+
+	// Re-burst so the hold path runs again.
+	for i := range 200 {
+		ic.ProcessAnnounce("reflood-"+itoa(i), []byte{byte(i)}, false)
+	}
+	if !ic.InBurst() {
+		t.Fatal("expected burst-active after re-flood")
+	}
+
+	// hashC is still queued: resubmitting it is a duplicate.
+	if ic.ProcessAnnounceHashDest(hashC, []byte("ccc2"), true, dC) {
+		t.Fatal("resubmitted queued hash should be held")
+	}
+	if got := ic.HeldCount(); got != 2 {
+		t.Fatalf("HeldCount = %d, want 2 after duplicate submit", got)
+	}
+
+	// hashB was priority-released: resubmitting queues it again at tail.
+	if ic.ProcessAnnounceHashDest(hashB, []byte("bbb2"), true, dB) {
+		t.Fatal("released hash should be held again")
+	}
+	if got := ic.HeldCount(); got != 3 {
+		t.Fatalf("HeldCount = %d, want 3 after requeue", got)
+	}
+
+	// Queue order must be A, C, B after the clear and rebuild.
+	clearBurst(t, ic)
+	want := []string{string(hashA[:]), string(hashC[:]), string(hashB[:])}
+	for i, w := range want {
+		gotHash, _, ok := ic.ReleaseHeldAnnounce()
+		if !ok {
+			t.Fatalf("FIFO release %d should succeed", i)
+		}
+		if gotHash != w {
+			t.Errorf("FIFO release %d = %q, want %q", i, gotHash, w)
+		}
+		if i < len(want)-1 {
+			time.Sleep(15 * time.Millisecond)
+		}
+	}
+	if got := ic.HeldCount(); got != 0 {
+		t.Errorf("HeldCount = %d, want 0", got)
+	}
+}
+
 func itoa(i int) string {
 	if i == 0 {
 		return "0"

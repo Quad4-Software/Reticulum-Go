@@ -753,11 +753,20 @@ func (t *Transport) MemoryStats() MemoryStats {
 }
 
 // releaseHeldAnnounces replays announces held by per-interface ingress control
-// through handleAnnouncePacket after burst-clear timing allows.
+// through handleAnnouncePacket after burst-clear timing allows. Announces
+// answering destinations with pending local path requests are released first:
+// path latency is user-visible while announce redundancy is not.
 func (t *Transport) releaseHeldAnnounces() {
 	if t.ifaceStates == nil {
 		return
 	}
+	t.mutex.RLock()
+	pendingDests := make([][16]byte, 0, len(t.pendingLocalPathReqs))
+	for k := range t.pendingLocalPathReqs {
+		pendingDests = append(pendingDests, k.bytes)
+	}
+	t.mutex.RUnlock()
+
 	for _, entry := range t.ifaceStates.snapshot() {
 		st := entry.state
 		if st == nil || st.ingress == nil {
@@ -769,12 +778,25 @@ func (t *Transport) releaseHeldAnnounces() {
 		if !ok || iface == nil {
 			continue
 		}
+		for _, dest := range pendingDests {
+			for {
+				_, data, ok := st.ingress.ReleaseHeldAnnounceFor(dest)
+				if !ok {
+					break
+				}
+				if err := t.handleAnnouncePacketHeld(data, iface); err != nil {
+					debug.Log(debug.DebugVerbose,
+						"Priority released held announce failed reprocessing",
+						"iface", entry.name, "error", err)
+				}
+			}
+		}
 		for {
 			_, data, ok := st.ingress.ReleaseHeldAnnounce()
 			if !ok {
 				break
 			}
-			if err := t.handleAnnouncePacket(data, iface); err != nil {
+			if err := t.handleAnnouncePacketHeld(data, iface); err != nil {
 				debug.Log(debug.DebugVerbose,
 					"Released held announce failed reprocessing",
 					"iface", entry.name, "error", err)
@@ -1819,6 +1841,18 @@ func (t *Transport) handleInboundPacket(data []byte, iface common.NetworkInterfa
 }
 
 func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterface) error {
+	return t.handleAnnouncePacketEx(data, iface, false)
+}
+
+// handleAnnouncePacketHeld replays an announce released from ingress
+// control. The announce already won the path contest when it was first
+// received, so propagation is forced even though the replayed copy loses
+// the re-run contest against the path it installed.
+func (t *Transport) handleAnnouncePacketHeld(data []byte, iface common.NetworkInterface) error {
+	return t.handleAnnouncePacketEx(data, iface, true)
+}
+
+func (t *Transport) handleAnnouncePacketEx(data []byte, iface common.NetworkInterface, forcePropagate bool) error {
 	if debug.Enabled(debug.DebugVerbose) {
 		debug.Log(debug.DebugVerbose, "Processing announce packet", "length", len(data))
 	}
@@ -2225,7 +2259,7 @@ hopLimiterDone:
 
 	if iface != nil {
 		if st := t.ifaceStates.get(iface.GetName()); st != nil && st.ingress != nil {
-			if !st.ingress.ProcessAnnounceHash(announceHash, data, isNewDest) {
+			if !st.ingress.ProcessAnnounceHashDest(announceHash, data, isNewDest, destKey(destinationHash).bytes) {
 				if debug.Enabled(debug.DebugVerbose) {
 					debug.Log(debug.DebugVerbose,
 						"Announce held by ingress control",
