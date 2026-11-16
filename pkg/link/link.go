@@ -149,6 +149,13 @@ type Link struct {
 	// that value so split segments and back-to-back files do not ramp
 	// from WINDOW_MAX_SLOW again.
 	lastResourceWindow int
+	// lastResourceRateBps and lastResourceClass carry the measured data
+	// rate and link class from the last completed incoming resource, so
+	// the next transfer starts with an appropriate window ceiling
+	// instead of re-probing from the slow default.
+	lastResourceRateBps   float64
+	lastResourceRateKnown bool
+	lastResourceClass     LinkClass
 
 	outgoingMu     sync.Mutex
 	resourceSendMu sync.Mutex
