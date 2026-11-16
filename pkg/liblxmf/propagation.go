@@ -4,8 +4,8 @@ package liblxmf
 import (
 	"fmt"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxmf"
 )
 

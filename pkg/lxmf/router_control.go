@@ -2,7 +2,7 @@
 package lxmf
 
 import (
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 )
 
 func (r *Router) statsGetRequestHandler(path string, data []byte, requestID, linkID []byte, remoteIdentity *identity.Identity, requestedAt int64) any {

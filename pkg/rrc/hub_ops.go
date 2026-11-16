@@ -4,7 +4,7 @@ package rrc
 import (
 	"strings"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
 )
 
 func (h *Hub) reHello(p *hubPeer, env *Envelope) {

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"testing/quick"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 )
 
 func TestPackUnpack_RoundTripRandomized(t *testing.T) {

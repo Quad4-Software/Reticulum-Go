@@ -8,9 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxmf"
 	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/rnsnode"
 )

@@ -4,7 +4,7 @@ package lxmf
 import (
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
 )
 
 // Job intervals are counted in processing ticks matching upstream

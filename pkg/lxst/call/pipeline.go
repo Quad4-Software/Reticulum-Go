@@ -6,7 +6,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/audio/filter"
 	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/audio/io"
 	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/audio/opus"

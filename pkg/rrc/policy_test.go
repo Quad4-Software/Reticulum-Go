@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
 )
 
 type stubPolicy struct {

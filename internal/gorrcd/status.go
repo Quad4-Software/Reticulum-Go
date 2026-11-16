@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
 	"github.com/Quad4-Software/reticulum-go-protocols/pkg/rrc"
 )
 

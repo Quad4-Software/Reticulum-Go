@@ -4,7 +4,7 @@ package gorrcd
 import (
 	"testing"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
 )
 
 func TestVersionLine(t *testing.T) {

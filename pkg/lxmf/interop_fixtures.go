@@ -6,8 +6,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 )
 
 // MessagingInteropFields returns a representative map covering native LXMF field types.

@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/interfaces"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 )
 
 // Interop tests mapped to RRC 0.1.3 spec sections (https://rrc.kc1awv.net/).

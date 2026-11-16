@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/packet"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 )
 
 // Path request timing and attempt limits matching upstream LXMRouter.

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/audio/io"
 	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/call"
 	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxst/proto"

@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/destination"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
-	"github.com/Quad4-Software/Reticulum-Go/pkg/transport"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 )
 
 // ClientState is the client session state machine (4-RRC).

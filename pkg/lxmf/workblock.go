@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/cryptography"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/cryptography"
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 

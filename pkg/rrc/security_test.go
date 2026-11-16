@@ -9,7 +9,7 @@ import (
 	"testing/quick"
 	"time"
 
-	"github.com/Quad4-Software/Reticulum-Go/pkg/link"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
 )
 
 func TestSecurity_MarshalRejectsWrongVersion(t *testing.T) {
