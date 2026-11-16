@@ -38,6 +38,8 @@ Three categories exist:
 | QUIC, WebSocket, WebTransport, VSOCK, HTTPS long-poll, DNSRendezvous interfaces | New underlay endpoints. Packet bytes on the medium are unchanged HDLC/framing |
 | Landlock + seccomp sandbox | Local hardening |
 | `pkg/health` counters, `reticulum-go slow` | Observe-only diagnostics |
+| Bounded alternate-path retention and failover | Losing duplicate announces and displaced paths are kept per destination (capped, TTL'd). On path failure a backup promotes or an alternate re-verifies through the normal pipeline, and pending local path requests get answered immediately. Local state only, no wire change |
+| Interface path-failure penalty in announce contests | `MarkPathUnresponsive` feeds a bounded per-interface penalty into `pathingAffinity`, so measured failures tilt duplicate-announce contests away from the failed interface. Python contests use static gravity only |
 | RHB1 hardware-bound identity descriptor | Local storage format. Python reads only the 64-byte software layout |
 | RNE1 passphrase-encrypted identity file | Local storage format. Argon2id + XChaCha20-Poly1305 envelope around the standard 64-byte blob. Opt-in, decrypts back to plaintext. No wire change |
 

@@ -69,9 +69,11 @@ HandlePacket
 
 When transport mode is enabled and the local node acts as a relay, data packets may be rewrapped with header type 2 if the transport ID in the path matches. This matches Python transport relay semantics.
 
-### Announce deduplication
+### Announce deduplication and path contests
 
-If a destination is already present in the path table, duplicate announces may be dropped per Python 1.3.4 behavior.
+Announces are deduplicated by a content hash before signature verification. A seen announce is not dropped outright: the copy is evaluated against the path contest on cleartext fields (wire hops, receiving interface, the random-blob prefix of the signed payload). Copies that cannot improve the route cost one SHA-256 and a map lookup. Copies that could win (fewer hops, newer emission, better interface gravity, or a path marked unresponsive) pay for full signature verification and re-run the contest before any state changes, matching the reference implementation which verifies every copy. Verified copies that lose the post-verification contest do not propagate: forwarding, local delivery, handlers, path-request answers, and the announce cache are all gated on the contest result.
+
+Losing duplicate copies are buffered as bounded alternate-path candidates (per destination, per interface, with a TTL). Displaced verified paths are kept in a small per-destination backup list. When the active path is marked unresponsive or expires, the best backup promotes instantly, or buffered alternates are re-injected through the normal verify-and-contest pipeline. A promoted path also answers any pending local path request immediately when the announce bytes are still cached. All of this is local state only; nothing changes on the wire.
 
 ## Links at the transport layer
 

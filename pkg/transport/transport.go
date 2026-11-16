@@ -202,7 +202,11 @@ type Transport struct {
 	announcePacketCache   map[hash16]*cachedAnnounce
 	announceCacheDB       *sqlitestore.AnnounceCache
 	pendingLocalPathReqs  map[hash16]common.NetworkInterface
-	transportIdentity     *identity.Identity
+	// backupPaths and pendingAltAnnounces retain bounded alternate-path
+	// state for failover. See path_failover.go.
+	backupPaths         map[[PathMapKeySize]byte][]backupPath
+	pendingAltAnnounces map[[PathMapKeySize]byte][]pendingAltAnnounce
+	transportIdentity   *identity.Identity
 	// transportIDCache is the truncated hash of transportIdentity, kept so
 	// relay hot paths can compare TransportID without rehashing every packet.
 	transportIDCache []byte
@@ -377,6 +381,8 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		announcePacketCache:      make(map[hash16]*cachedAnnounce),
 		destFilters:              newDestinationFilters(),
 		pendingLocalPathReqs:     make(map[hash16]common.NetworkInterface),
+		backupPaths:              make(map[[PathMapKeySize]byte][]backupPath),
+		pendingAltAnnounces:      make(map[[PathMapKeySize]byte][]pendingAltAnnounce),
 		linkTable:                newLinkRelayTable(),
 		reverseTable:             newReverseTable(reverseEntriesLimit(cfg)),
 		packetHashes:             newPacketHashList(effectivePacketHashlistMax(cfg)),
@@ -661,18 +667,28 @@ func (t *Transport) evictSeenAnnouncesUnlocked(now time.Time) {
 
 func (t *Transport) cleanupExpiredPaths() {
 	t.mutex.Lock()
-	defer t.mutex.Unlock()
 
 	now := time.Now()
-	for destHash, path := range t.paths {
+	var failover [][PathMapKeySize]byte
+	for key, path := range t.paths {
 		if pathExpired(path, now) {
-			t.dropPathEntryUnlocked(destHash)
+			t.dropPathEntryUnlocked(key)
+			if len(t.backupPaths[key]) > 0 || len(t.pendingAltAnnounces[key]) > 0 {
+				failover = append(failover, key)
+			}
 			if debug.Enabled(debug.DebugVerbose) {
-				debug.Log(debug.DebugVerbose, "Expired path", "dest_hash", fmt.Sprintf("%x", destHash[:8]))
+				debug.Log(debug.DebugVerbose, "Expired path", "dest_hash", fmt.Sprintf("%x", key[:8]))
 			}
 		}
 	}
 	t.markPathTableDirty()
+	t.mutex.Unlock()
+
+	// Restoring a path can re-verify announces and queue forwards, so it
+	// must run after the table lock is released.
+	for _, key := range failover {
+		t.maybeFailoverPath(key)
+	}
 }
 
 func (t *Transport) cleanupExpiredDiscoveryRequests() {
@@ -859,9 +875,20 @@ func (t *Transport) cleanupExpiredReceipts() {
 }
 
 func (t *Transport) MarkPathUnresponsive(destHash []byte) {
+	key := pathMapKey(destHash)
 	t.mutex.Lock()
-	defer t.mutex.Unlock()
-	t.pathStates[pathMapKey(destHash)] = StateUnresponsive
+	t.pathStates[key] = StateUnresponsive
+	var failedIface common.NetworkInterface
+	if p := t.paths[key]; p != nil {
+		failedIface = p.Interface
+	}
+	t.mutex.Unlock()
+	// Feed the measured-failure penalty so later announce contests prefer
+	// healthier interfaces over the one that just failed.
+	if failedIface != nil {
+		t.noteIfacePathFailure(failedIface)
+	}
+	t.maybeFailoverPath(key)
 }
 
 func (t *Transport) MarkPathResponsive(destHash []byte) {
@@ -1587,6 +1614,15 @@ func (t *Transport) updatePathUnlocked(destinationHash []byte, nextHop []byte, i
 		blobs = appendRandomBlob(nil, randomBlob)
 	}
 	expires := now.Add(pathLifetimeFor(iface))
+	// Demote the displaced path into the bounded backup list so a later
+	// failure can fail over without waiting for a path request. A refresh
+	// through the same interface is not an alternate path: promotion
+	// skips the current interface anyway, so keeping it would only waste
+	// a backup slot.
+	if existing, ok := t.paths[key]; ok && existing.Interface != nil &&
+		existing.Interface.GetName() != interfaceName {
+		t.demotePathToBackupUnlocked(key, existing)
+	}
 	// Own NextHop bytes: HT1 announce parsing aliases destinationHash into the
 	// inbound buffer, and sync HandlePacket can reuse that buffer under load.
 	t.paths[key] = &common.Path{
@@ -1922,32 +1958,19 @@ hopLimiterDone:
 		return fmt.Errorf("packet too small: %d bytes", len(data))
 	}
 
-	// Cheap dedup before signature verification. The announce hash covers
-	// everything from the destination hash onward, so a replayed announce
-	// is recognised here for the cost of one SHA-256 plus a map lookup
-	// instead of a full Ed25519 verify. Skipping the transport id keeps
-	// dedup stable when each relay rewrites header type 2 with its own
+	// Cheap dedup key, computed before signature verification. The announce
+	// hash covers everything from the destination hash onward, so a replayed
+	// announce is recognised here for the cost of one SHA-256 plus a map
+	// lookup instead of a full Ed25519 verify. Skipping the transport id
+	// keeps dedup stable when each relay rewrites header type 2 with its own
 	// transport identity: without that, every hop produces fresh bytes and
 	// the announce is re-verified and re-forwarded once per upstream
 	// neighbour instead of once per emission.
 	// Rejected announces never enter seenAnnounces (the claim below only
 	// happens after a successful verify), so retries still reach the
-	// verifier.
+	// verifier. The dedup hit itself is evaluated after parsing, where the
+	// cleartext contest fields are available.
 	announceHash := sha256.Sum256(data[startIdx+addrSize-AddrHashSize:])
-	t.mutex.RLock()
-	if last, ok := t.seenAnnounces[announceHash]; ok && time.Since(last) < SeenAnnounceTTL {
-		t.mutex.RUnlock()
-		dupIface := ""
-		if iface != nil {
-			dupIface = iface.GetName()
-		}
-		health.Inc(dupIface, health.KindAnnounceDup)
-		if debug.Enabled(debug.DebugVerbose) {
-			debug.Log(debug.DebugVerbose, "Ignoring duplicate announce (pre-verify)", "hash", fmt.Sprintf("%x", announceHash[:8]))
-		}
-		return nil
-	}
-	t.mutex.RUnlock()
 
 	var destinationHash []byte
 	var context byte
@@ -1965,6 +1988,39 @@ hopLimiterDone:
 		destinationHash = data[startIdx+AddrHashSize : startIdx+DoubleAddrSize]
 		context = data[startIdx+DoubleAddrSize]
 		payload = data[startIdx+DoubleAddrSize+ContextByteLen:]
+	}
+
+	// Dedup gate. A seen announce is not an automatic drop: the copy may
+	// have arrived via a different interface and carry a better route
+	// (fewer hops, newer emission, better gravity, or a path marked
+	// unresponsive). The contest below reads only cleartext fields, so
+	// losers still cost one SHA-256 plus a map lookup while possible
+	// winners pay for signature verification like the reference
+	// implementation, which verifies every copy. Nothing unverified ever
+	// reaches the path table: winners re-run the full contest after
+	// verification and only then update paths or propagate.
+	dupeWinner := false
+	t.mutex.RLock()
+	lastSeen, wasSeen := t.seenAnnounces[announceHash]
+	t.mutex.RUnlock()
+	if wasSeen && time.Since(lastSeen) < SeenAnnounceTTL {
+		win, curIfaceName := t.duplicateAnnounceContest(hopCount, iface, destinationHash, payload)
+		if !win {
+			dupIface := ""
+			if iface != nil {
+				dupIface = iface.GetName()
+			}
+			health.Inc(dupIface, health.KindAnnounceDup)
+			t.notePendingAltAnnounce(destinationHash, data, iface, hopCount, curIfaceName)
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Ignoring duplicate announce (pre-verify)", "hash", fmt.Sprintf("%x", announceHash[:8]))
+			}
+			return nil
+		}
+		dupeWinner = true
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Duplicate announce passes path contest, verifying", "hash", fmt.Sprintf("%x", announceHash[:8]))
+		}
 	}
 
 	if debug.Enabled(debug.DebugVerbose) {
@@ -2146,10 +2202,14 @@ hopLimiterDone:
 	// Claim the dedup slot atomically with the check: concurrent inbound
 	// workers must not both pass before either records the announce. The
 	// claim is released on the early returns below so a dropped copy does
-	// not block a valid re-arrival (for example a shorter path).
+	// not block a valid re-arrival (for example a shorter path). A copy
+	// that already won the pre-verify contest skips the fresh-duplicate
+	// return: the entry it saw is the same emission it is allowed to
+	// challenge, and the post-verification contest below decides whether
+	// it actually improves the path.
 	t.mutex.Lock()
 	if last, ok := t.seenAnnounces[announceHash]; ok {
-		if time.Since(last) < SeenAnnounceTTL {
+		if time.Since(last) < SeenAnnounceTTL && !dupeWinner {
 			t.mutex.Unlock()
 			if debug.Enabled(debug.DebugVerbose) {
 				debug.Log(debug.DebugVerbose, "Ignoring duplicate announce", "hash", fmt.Sprintf("%x", announceHash[:8]))
@@ -2177,18 +2237,6 @@ hopLimiterDone:
 		identity.RememberRatchet(destinationHash, ratchetData)
 	}
 
-	t.cacheAnnouncePacket(destinationHash, &packet.Packet{
-		HeaderType:      headerType,
-		PacketType:      packetType,
-		TransportType:   propType,
-		Context:         context,
-		ContextFlag:     contextFlag,
-		Hops:            hopCount,
-		DestinationType: destType,
-		DestinationHash: destinationHash,
-		Data:            payload,
-	})
-
 	isNewDest := iface != nil && !t.HasPath(destinationHash)
 
 	announceHops := int(hopCount) + 1
@@ -2206,6 +2254,14 @@ hopLimiterDone:
 
 	isPathResponse := context == packet.ContextPathResponse
 
+	// shouldAdd mirrors the reference path contest: only announces that
+	// improve the path table propagate to the mesh, local clients, and
+	// handlers. Verified copies that lose the contest update nothing and
+	// forward nothing, matching Python Transport behaviour. iface == nil
+	// keeps unconditional delivery for internal callers, and
+	// forcePropagate (held-announce replay) restores an announce that
+	// already won the contest when it was first received.
+	shouldAdd := true
 	if iface != nil {
 		nextHop := receivedFrom
 		if len(nextHop) == 0 {
@@ -2231,7 +2287,7 @@ hopLimiterDone:
 		if st, ok := t.pathStates[destKey]; ok && st == StateUnresponsive {
 			pathUnresponsive = true
 		}
-		shouldAdd := shouldUpdateAnnouncePath(existing, announcePathInput{
+		shouldAdd = shouldUpdateAnnouncePath(existing, announcePathInput{
 			destinationKnown: destinationKnown,
 			announceHops:     uint8(announceHops),
 			randomBlob:       randomHash,
@@ -2252,8 +2308,29 @@ hopLimiterDone:
 				t.associateTunnelPath(tun, destinationHash, receivedFrom, announceHash[:], uint8(announceHops))
 			}
 		}
-		t.answerPendingLocalPathRequest(destinationHash, byte(announceHops))
 	}
+
+	if !shouldAdd && !forcePropagate {
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Announce lost path contest, not propagating",
+				"dest_hash", fmt.Sprintf("%x", destinationHash))
+		}
+		return nil
+	}
+
+	t.cacheAnnouncePacket(destinationHash, &packet.Packet{
+		HeaderType:      headerType,
+		PacketType:      packetType,
+		TransportType:   propType,
+		Context:         context,
+		ContextFlag:     contextFlag,
+		Hops:            hopCount,
+		DestinationType: destType,
+		DestinationHash: destinationHash,
+		Data:            payload,
+	})
+
+	t.answerPendingLocalPathRequest(destinationHash, byte(announceHops))
 
 	t.notifyAnnounceHandlersFiltered(destinationHash, id, storedAppData, uint8(announceHops), isPathResponse)
 
