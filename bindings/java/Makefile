@@ -11,6 +11,8 @@ JAVA ?= java
 JNA_VER := 5.17.0
 JNA_JAR := $(ABS_JAVA)/lib/jna.jar
 JNA_URL := https://repo1.maven.org/maven2/net/java/dev/jna/jna/$(JNA_VER)/jna-$(JNA_VER).jar
+JNA_MIRROR_URL := https://maven-central.storage-download.googleapis.com/maven2/net/java/dev/jna/jna/$(JNA_VER)/jna-$(JNA_VER).jar
+CURL_RETRY := curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors
 OUT := $(ABS_JAVA)/out
 CP := $(OUT):$(JNA_JAR)
 
@@ -36,7 +38,8 @@ jna: $(JNA_JAR)
 
 $(JNA_JAR):
 	mkdir -p $(ABS_JAVA)/lib
-	curl -fsSL -o "$(ABS_JAVA)/lib/jna-$(JNA_VER).jar" "$(JNA_URL)"
+	$(CURL_RETRY) -o "$(ABS_JAVA)/lib/jna-$(JNA_VER).jar" "$(JNA_URL)" || \
+		$(CURL_RETRY) -o "$(ABS_JAVA)/lib/jna-$(JNA_VER).jar" "$(JNA_MIRROR_URL)"
 	ln -sfn "jna-$(JNA_VER).jar" "$(JNA_JAR)"
 
 classes: $(JNA_JAR)
