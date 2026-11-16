@@ -92,6 +92,29 @@ unsafe extern "C" {
         local_addr: *const c_char,
         peer_addr: *const c_char,
     ) -> c_int;
+    pub fn rrc_node_add_tcp_client_interface(
+        node: u64,
+        name: *const c_char,
+        target: *const c_char,
+    ) -> c_int;
+    pub fn rrc_node_add_tcp_server_interface(
+        node: u64,
+        name: *const c_char,
+        listen: *const c_char,
+    ) -> c_int;
+    pub fn rrc_node_add_auto_interface(node: u64, name: *const c_char) -> c_int;
+    pub fn rrc_node_add_backbone_client_interface(
+        node: u64,
+        name: *const c_char,
+        target: *const c_char,
+    ) -> c_int;
+    pub fn rrc_node_interface_count(node: u64) -> c_int;
+    pub fn rrc_node_interface_names(
+        node: u64,
+        out: *mut c_char,
+        out_len: usize,
+        written: *mut usize,
+    ) -> c_int;
     pub fn rrc_node_has_path(
         node: u64,
         dest_hash: *const u8,

@@ -3,7 +3,7 @@
 use std::ffi::CString;
 
 use crate::buffers::grow_string;
-use crate::error::{map_code, Error, Result};
+use crate::error::{Error, Result};
 use crate::ffi;
 
 pub fn normalize_room(name: &str) -> Result<String> {
