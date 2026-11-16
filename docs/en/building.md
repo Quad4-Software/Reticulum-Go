@@ -70,9 +70,6 @@ Run a built binary:
 | rrc interop | `task test:rrc:interop` | needs RRC-ref + uv |
 | lxst | `task test:lxst` | `go test -v -count=1 ./pkg/lxst/...` |
 | lxst interop | `task test:lxst:interop` | needs `pip install lxst==0.6.0` |
-| rnv | `task test:rnv` | `go test -v -count=1 ./pkg/rnv/...` |
-| rnv short | `task test:rnv:short` | `go test -short -v -count=1 ./pkg/rnv/...` |
-| rnv live | `task test:rnv:live` | live UDP + optional Python hub |
 | Live Go mesh | `task test:live` | hub/client mesh over UDP |
 | Race | `task test-race` | `go test -race -v ./...` |
 | Coverage | `task coverage` | writes `coverage.out` |

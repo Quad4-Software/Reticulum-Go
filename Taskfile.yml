@@ -258,26 +258,6 @@ tasks:
     cmds:
       - bash -c 'FUZZTIME="${FUZZTIME:-15s}"; GOCMD="${GOCMD:-go}"; GOVENDORFLAGS=(); [[ -d vendor ]] && GOVENDORFLAGS=(-mod=vendor); for name in $($GOCMD test "${GOVENDORFLAGS[@]}" -list . ./pkg/lxst/... 2>/dev/null | grep "^Fuzz"); do echo "fuzz $name ./pkg/lxst"; $GOCMD test "${GOVENDORFLAGS[@]}" -run="^$" -fuzz="$name" -fuzztime="$FUZZTIME" ./pkg/lxst/...; done'
 
-  test:rnv:
-    desc: Run all RNV unit and live tests
-    cmds:
-      - '{{.GOCMD}} test -v -count=1 ./pkg/rnv/...'
-
-  test:rnv:short:
-    desc: RNV unit, acceptance, guards (skips live mesh)
-    cmds:
-      - '{{.GOCMD}} test -short -v -count=1 ./pkg/rnv/...'
-
-  test:rnv:live:
-    desc: RNV live UDP + Python shared-instance tests (no -short)
-    cmds:
-      - "{{.GOCMD}} test -v -count=1 -timeout 5m -run='TestLive' ./pkg/rnv/session/..."
-
-  test:rnv:live:python:
-    desc: RNV live tests requiring Python RNS (fails if missing)
-    cmds:
-      - REQUIRE_RNV_PYTHON=1 {{.GOCMD}} test -v -count=1 -timeout 5m -run='TestLivePython' ./pkg/rnv/session/...
-
   rnphone:
     desc: Build rnphone and rgesp-dial into bin/ (CGO)
     cmds:
