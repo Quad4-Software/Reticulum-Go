@@ -1,5 +1,5 @@
 # Relaxed rules for GitHub Actions workflows and Task files.
-# Used by scripts/ci/pre-commit-lint.sh when yamllint is on PATH.
+# Used by CI lint when yamllint is on PATH.
 
 extends: default
 

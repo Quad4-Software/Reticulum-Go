@@ -81,14 +81,14 @@ fi
 if command -v shellcheck >/dev/null 2>&1; then
 	echo "OK: shellcheck on PATH"
 else
-	echo "WARN: shellcheck not found (optional for hooks)" >&2
+	echo "WARN: shellcheck not found (optional)" >&2
 	warn=$((warn + 1))
 fi
 
 if command -v yamllint >/dev/null 2>&1; then
 	echo "OK: yamllint on PATH"
 else
-	echo "WARN: yamllint not found (PyYAML fallback in hooks)" >&2
+	echo "WARN: yamllint not found (optional)" >&2
 	warn=$((warn + 1))
 fi
 
@@ -117,14 +117,6 @@ else
 		echo "WARN: no RSM signing identity (optional for forks)" >&2
 		warn=$((warn + 1))
 	fi
-fi
-
-HOOKS_PATH="$(git config --get core.hooksPath 2>/dev/null || true)"
-if [ "$HOOKS_PATH" = ".githooks" ]; then
-	echo "OK: core.hooksPath=.githooks"
-else
-	echo "WARN: hooks not installed (run task hooks:install)" >&2
-	warn=$((warn + 1))
 fi
 
 echo ""

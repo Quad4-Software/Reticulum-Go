@@ -178,11 +178,6 @@ tasks:
     cmds:
       - sh scripts/ci/verify-tree-rsm.sh
 
-  hooks:install:
-    desc: Enable tracked .githooks (Go, YAML, shellcheck, commit-msg, pre-push, RSM)
-    cmds:
-      - sh scripts/ci/install-git-hooks.sh
-
   gitsign:setup:
     desc: Configure gitsign commit signing (SIGSTORE_* env for private Fulcio/Rekor/OIDC)
     cmds:

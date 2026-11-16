@@ -7,9 +7,8 @@ Contributions are welcome. Prefer sending changes as `.patch` files over Reticul
 1. Clone the repository. Dependencies live in `vendor/` (no network fetch for ordinary builds).
 2. Install dev tools: `make bootstrap`.
 3. Verify your environment: `make doctor`.
-4. Enable git hooks: `make hooks-install`.
-5. Branch from `master` for feature work.
-6. Before pushing: `make prepush` or full `make check`.
+4. Branch from `master` for feature work.
+5. Before pushing: `make prepush` or full `make check`.
 
 Automation is available via Make (`make help`). Plain `go build` / `go test` also work with vendored modules.
 
@@ -22,7 +21,7 @@ Optional: use [mise](https://mise.jdx.dev/) (`mise install`) or the Dev Containe
 
 ## Commit messages
 
-We use [Conventional Commits](https://www.conventionalcommits.org/) (enforced by the `commit-msg` hook when hooks are installed).
+We use [Conventional Commits](https://www.conventionalcommits.org/) for commit subjects and PR titles.
 
 ### Format
 
@@ -76,10 +75,7 @@ The author field must equal the identity hash, or an LXMF address you can prove.
 
 ### Developer Certificate of Origin
 
-Every commit must carry a `Signed-off-by:` trailer certifying the [Developer Certificate of Origin](https://developercertificate.org/). Add it with `git commit -s`. The commit-msg hook enforces it and the `dco-signoff` CI job re-checks every PR commit.
-
-Skip the commit-msg hook for one commit: `SKIP_COMMIT_MSG_HOOK=1 git commit ...`
-Skip only the DCO check: `SKIP_DCO_HOOK=1 git commit ...`
+Every commit must carry a `Signed-off-by:` trailer certifying the [Developer Certificate of Origin](https://developercertificate.org/). Add it with `git commit -s`. The `dco-signoff` CI job re-checks every PR commit.
 
 ## Changelog and compatibility
 
@@ -89,38 +85,12 @@ Skip only the DCO check: `SKIP_DCO_HOOK=1 git commit ...`
 
 ## Pull request checklist
 
-The PR template mirrors this list:
-
 - [ ] `make prepush` or `make check` passes locally
 - [ ] `CHANGELOG.md` updated when behavior or UX changes
 - [ ] `COMPATIBILITY.md` updated when wire or API compatibility changes
 - [ ] Tests added or extended for behavior changes
 - [ ] PR title follows Conventional Commits (required for squash merges)
 - [ ] Every commit signed off (`git commit -s`, DCO)
-- [ ] RSM hook skipped only when intentional (`SKIP_TREE_RSM_HOOK=1` with reason in PR)
-
-## Git hooks
-
-After `make hooks-install`:
-
-| Hook | Runs |
-|------|------|
-| `pre-commit` | Staged Go fmt/vet, YAML, shellcheck, optional `reticulum-go.rsm` resign |
-| `commit-msg` | Conventional commit format, DCO sign-off |
-| `pre-push` | `make prepush` (fmt-check, vet, lint, test-short) |
-
-Skip env vars:
-
-| Variable | Skips |
-|----------|-------|
-| `SKIP_LINT_HOOK=1` | All pre-commit lint steps |
-| `SKIP_GO_HOOK=1` | Staged Go fmt/vet |
-| `SKIP_YAML_HOOK=1` | YAML checks |
-| `SKIP_SHELLCHECK_HOOK=1` | shellcheck |
-| `SKIP_TREE_RSM_HOOK=1` | RSM resign |
-| `SKIP_COMMIT_MSG_HOOK=1` | commit-msg format and DCO |
-| `SKIP_DCO_HOOK=1` | DCO sign-off only |
-| `SKIP_PREPUSH=1` | pre-push checks |
 
 See `SECURITY.md` for RSM signing and inventory details.
 

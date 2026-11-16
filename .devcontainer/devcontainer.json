@@ -13,7 +13,7 @@
       ]
     }
   },
-  "postCreateCommand": "task bootstrap && task hooks:install",
+  "postCreateCommand": "task bootstrap",
   "containerEnv": {
     "GOFLAGS": "-mod=vendor",
     "GOPROXY": "off",

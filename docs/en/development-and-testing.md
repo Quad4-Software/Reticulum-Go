@@ -1,6 +1,6 @@
 # Development and testing
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for commit format, git hooks, pull request checklist, and CI overview.
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) for commit format, pull request checklist, and CI overview.
 
 ## Development environment
 
@@ -9,7 +9,7 @@ Requirements:
 - Go 1.27.4 or later (see scripts/ci/dev-tools.env and mise.toml)
 - Make (or plain `go` commands)
 - revive and staticcheck (`make bootstrap` installs pinned versions)
-- shellcheck and yamllint for git hooks (optional system packages)
+- shellcheck and yamllint (optional system packages)
 - Python 3 for crossref vector generation (optional)
 
 Clone the repository. Dependencies are in vendor/. No network fetch is needed for ordinary builds.
@@ -19,7 +19,6 @@ Setup:
 ```bash
 make bootstrap
 make doctor
-make hooks-install
 ```
 
 Run `make help` for available targets. Plain `go` commands work too. The Makefile sets `GOFLAGS=-mod=vendor`, `GOPROXY=off`, and `GOSUMDB=off`, so export those if you bypass it.
@@ -82,7 +81,6 @@ Pinned versions: `scripts/ci/versions.env` and `scripts/ci/dev-tools.env`.
 | `make build-wasm` | `GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o bin/reticulum-go.wasm ./cmd/reticulum-wasm` |
 | `make microvm-up` / `microvm-stop` | Firecracker guest. See [microvm](microvm.md) |
 | `make tree-rsm-verify` / `tree-rsm-sign` | Source tree `.rsm` inventory. See [SECURITY.md](../../SECURITY.md) |
-| `make hooks-install` | Tracked git hooks |
 | `make doctor` / `bootstrap` / `changelog-preview` | Dev tool pins and CHANGELOG preview |
 
 ## Code quality commands
