@@ -5,7 +5,7 @@ package lxmf
 const AppName = "lxmf"
 
 // Version is the LXMF package version aligned with upstream LXMF.
-const Version = "1.2.0"
+const Version = "1.3.0"
 
 // Wire layout sizes for packed LXMF messages.
 const (
@@ -157,7 +157,7 @@ const (
 	SFCompression byte = 0x00
 )
 
-// Transport encryption labels for packed_container metadata. Upstream LXMF 1.2.0 labels AES group encryption AES-256, matching the RNS 1.5.5 Token default.
+// Transport encryption labels for packed_container metadata. Upstream LXMF 1.3.0 labels AES group encryption AES-256, matching the RNS 1.6.0 Token default.
 const (
 	EncryptionDescriptionAES         = "AES-256"
 	EncryptionDescriptionAES256      = EncryptionDescriptionAES
@@ -177,7 +177,7 @@ const (
 const URISchema = "lxm"
 
 // Packet and link MDU limits aligned with Reticulum-Go defaults. Upstream
-// LXMF 1.2.0 uses RNS.Packet.ENCRYPTED_MDU directly without adding
+// LXMF 1.3.0 uses RNS.Packet.ENCRYPTED_MDU directly without adding
 // TIMESTAMP_SIZE, so a single encrypted packet carries at most 383 bytes.
 const (
 	EncryptedPacketMDU = 383

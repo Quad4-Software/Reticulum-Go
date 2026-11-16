@@ -22,13 +22,13 @@ func Python(t *testing.T) string {
 		if c == "" {
 			continue
 		}
-		cmd := exec.Command(c, "-c", "from RNS.vendor import umsgpack; import LXST, RNS; from LXST._version import __version__; raise SystemExit(0 if __version__=='0.5.4' else 1)") // #nosec G204 G702 -- probes trusted interpreter candidates for test setup
+		cmd := exec.Command(c, "-c", "from RNS.vendor import umsgpack; import LXST, RNS; from LXST._version import __version__; raise SystemExit(0 if __version__=='0.6.0' else 1)") // #nosec G204 G702 -- probes trusted interpreter candidates for test setup
 		if err := cmd.Run(); err == nil {
 			return c
 		}
 	}
 	if os.Getenv("REQUIRE_LXST") == "1" {
-		t.Fatal("python LXST 0.5.4 required (set LXST_PYTHON or install lxst)")
+		t.Fatal("python LXST 0.6.0 required (set LXST_PYTHON or install lxst)")
 	}
 	t.Skip("python LXST not available")
 	return ""

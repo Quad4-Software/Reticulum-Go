@@ -61,7 +61,7 @@ func loadPythonReference(t *testing.T) pythonReference {
 
 func TestLXSTConstantsMatchPython(t *testing.T) {
 	o := loadPythonReference(t)
-	if o.Version != "0.5.4" {
+	if o.Version != "0.6.0" {
 		t.Fatalf("lxst version %s", o.Version)
 	}
 	if o.App != proto.AppName || o.Aspect != proto.AspectName {

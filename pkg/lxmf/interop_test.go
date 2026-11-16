@@ -19,12 +19,12 @@ import (
 )
 
 func TestDecodeHarnessOutputSkipsUVPreamble(t *testing.T) {
-	raw := []byte("Using CPython 3.12.3 interpreter at: /usr/bin/python3\nCreating virtual environment at: .venv\n{\"ok\": true, \"lxmf_version\": \"1.2.0\"}\n")
+	raw := []byte("Using CPython 3.12.3 interpreter at: /usr/bin/python3\nCreating virtual environment at: .venv\n{\"ok\": true, \"lxmf_version\": \"1.3.0\"}\n")
 	var resp interopResponse
 	if err := decodeHarnessOutput(raw, &resp); err != nil {
 		t.Fatal(err)
 	}
-	if !resp.OK || resp.LXMFVersion != "1.2.0" {
+	if !resp.OK || resp.LXMFVersion != "1.3.0" {
 		t.Fatalf("resp=%+v", resp)
 	}
 }
@@ -35,8 +35,8 @@ func TestInterop_Ping(t *testing.T) {
 	if resp.LXMFVersion == "" {
 		t.Fatal("expected lxmf_version in ping response")
 	}
-	if resp.LXMFVersion != "1.2.0" {
-		t.Fatalf("expected lxmf 1.2.0 ref, got %q", resp.LXMFVersion)
+	if resp.LXMFVersion != "1.3.0" {
+		t.Fatalf("expected lxmf 1.3.0 ref, got %q", resp.LXMFVersion)
 	}
 }
 
@@ -294,8 +294,8 @@ func TestInterop_StampValueCross(t *testing.T) {
 		"stamp":     hex.EncodeToString(stamp),
 		"workblock": hex.EncodeToString(wb),
 	})
-	if resp.Value != goVal {
-		t.Fatalf("stamp value mismatch: go=%d py=%d", goVal, resp.Value)
+	if int(resp.Value) != goVal {
+		t.Fatalf("stamp value mismatch: go=%d py=%v", goVal, resp.Value)
 	}
 }
 

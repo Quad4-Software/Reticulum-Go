@@ -277,7 +277,7 @@ import (
 )
 
 // checkCaptureSignal enables the dead-input watchdog from upstream LXST
-// 0.5.4, which only runs on Android where the recorder can silently die.
+// 0.6.0, which only runs on Android where the recorder can silently die.
 const checkCaptureSignal = runtime.GOOS == "android"
 
 // signalFailReinitThreshold matches upstream
@@ -353,7 +353,7 @@ func (d *miniaudioDevice) ReadPCM() ([]int16, error) {
 	return d.pcm[:n], nil
 }
 
-// watchCapture mirrors upstream LXST 0.5.4 LineSource signal monitoring:
+// watchCapture mirrors upstream LXST 0.6.0 LineSource signal monitoring:
 // when the input produces only zero samples for longer than
 // SIGNAL_FAIL_REINIT_THRESHOLD the recorder is re-initialised.
 func (d *miniaudioDevice) watchCapture(pcm []int16) {

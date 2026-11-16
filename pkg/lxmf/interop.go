@@ -45,10 +45,10 @@ type interopResponse struct {
 	DestinationHash      string         `json:"destination_hash,omitempty"`
 	Message              interopMessage `json:"message"`
 
-	Workblock string `json:"workblock,omitempty"`
-	Valid     bool   `json:"valid,omitempty"`
-	Value     int    `json:"value,omitempty"`
-	Stamp     string `json:"stamp,omitempty"`
+	Workblock string  `json:"workblock,omitempty"`
+	Valid     bool    `json:"valid,omitempty"`
+	Value     float64 `json:"value,omitempty"`
+	Stamp     string  `json:"stamp,omitempty"`
 
 	TransientID string `json:"transient_id,omitempty"`
 	LxmData     string `json:"lxm_data,omitempty"`

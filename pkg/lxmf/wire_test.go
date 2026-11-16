@@ -182,7 +182,7 @@ func TestFieldConstants_MatchUpstream(t *testing.T) {
 	if PNMetaVersion != 0x00 || PNMetaUtilPressure != 0x05 || SFCompression != 0x00 {
 		t.Fatal("pn/sf keys")
 	}
-	if MethodPaper != 0x05 || URISchema != "lxm" || AppName != "lxmf" || Version != "1.2.0" {
+	if MethodPaper != 0x05 || URISchema != "lxm" || AppName != "lxmf" || Version != "1.3.0" {
 		t.Fatal("method/uri/version")
 	}
 	t.Log("LXMF_FIELD_CONSTANTS_PROVED")

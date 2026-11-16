@@ -204,7 +204,7 @@ func (p *Peer) sync() {
 		time.Sleep(peerPathRequestGrace)
 	}
 	if !tr.HasPath(p.DestinationHash) {
-		// LXMF 1.2.0: an unanswered path request backs off the sync
+		// LXMF 1.3.0: an unanswered path request backs off the sync
 		// schedule and marks the peer not alive.
 		p.SyncBackoff += peerSyncBackoffStep
 		p.NextSyncAttempt = float64(time.Now().Unix()) + p.SyncBackoff

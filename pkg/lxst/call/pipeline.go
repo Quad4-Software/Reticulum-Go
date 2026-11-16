@@ -221,7 +221,7 @@ func (c *Call) sendMediaTick(bufs *pcmScratch) {
 	n := copy(bufs.pending, bufs.pending[want:])
 	bufs.pending = bufs.pending[:n]
 	if err != nil {
-		// LXST 0.5.4 Sources.py: encode errors are logged and the frame dropped.
+		// LXST 0.6.0 Sources.py: encode errors are logged and the frame dropped.
 		debug.Log(debug.DebugTrace, "lxst encode error", "error", err)
 		return
 	}
