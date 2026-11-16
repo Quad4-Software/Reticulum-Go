@@ -66,8 +66,8 @@ third_party/opus/include/
 third_party/opus-src/
 third_party/codec2/build/
 third_party/codec2/install/
-third_party/codec2/lib/
-third_party/codec2/include/
+third_party/codec2/lib
+third_party/codec2/include
 third_party/codec2-src/
 third_party/miniaudio-src/
 
