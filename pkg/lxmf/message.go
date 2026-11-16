@@ -858,9 +858,9 @@ func asFields(v any) (map[byte]any, error) {
 func normalizeFieldValue(v any) (any, error) {
 	switch x := v.(type) {
 	case map[any]any:
-		return asFields(x)
+		return asNestedValue(x)
 	case map[string]any:
-		return asFields(x)
+		return asNestedValue(x)
 	case map[byte]any:
 		out := make(map[byte]any, len(x))
 		for k, val := range x {
@@ -884,6 +884,104 @@ func normalizeFieldValue(v any) (any, error) {
 	default:
 		return v, nil
 	}
+}
+
+// asNestedValue normalizes a map found inside a field value. LXMF field
+// values are arbitrary msgpack data: a nested map may be another LXMF field
+// map (byte-encodable keys) or an application dict with named keys (command
+// entries, reaction dicts). Try the strict field-map decode first; when keys
+// are not byte-encodable, preserve the map as map[string]any so named-key
+// payloads from Python LXMFy and other clients survive the round trip.
+func asNestedValue(v any) (any, error) {
+	if strict, err := asFields(v); err == nil {
+		return strict, nil
+	}
+	return tolerantNestedMap(v)
+}
+
+func tolerantNestedMap(v any) (any, error) {
+	out := make(map[string]any)
+	switch m := v.(type) {
+	case map[string]any:
+		for k, val := range m {
+			normalized, err := normalizeFieldValue(val)
+			if err != nil {
+				return nil, err
+			}
+			out[k] = normalized
+		}
+	case map[any]any:
+		for k, val := range m {
+			normalized, err := normalizeFieldValue(val)
+			if err != nil {
+				return nil, err
+			}
+			out[nestedKeyString(k)] = normalized
+		}
+	default:
+		return nil, fmt.Errorf("%w: expected map, got %T", ErrInvalidPayload, v)
+	}
+	return out, nil
+}
+
+func nestedKeyString(k any) string {
+	switch x := k.(type) {
+	case string:
+		return x
+	case []byte:
+		return string(x)
+	case byte:
+		return nestedByteKey(x)
+	case int, int8, int16, int32, int64, uint, uint16, uint32, uint64:
+		if n, ok := nestedIntKey(x); ok {
+			return fmt.Sprintf("0x%02x", n)
+		}
+		return fmt.Sprintf("%v", x)
+	default:
+		return fmt.Sprintf("%v", x)
+	}
+}
+
+func nestedByteKey(b byte) string {
+	if b >= 0x20 && b < 0x7F {
+		return string(b)
+	}
+	return fmt.Sprintf("0x%02x", b)
+}
+
+func nestedIntKey(v any) (int, bool) {
+	var n int64
+	switch x := v.(type) {
+	case int:
+		n = int64(x)
+	case int8:
+		n = int64(x)
+	case int16:
+		n = int64(x)
+	case int32:
+		n = int64(x)
+	case int64:
+		n = x
+	case uint:
+		n = int64(x)
+	case uint8:
+		n = int64(x)
+	case uint16:
+		n = int64(x)
+	case uint32:
+		n = int64(x)
+	case uint64:
+		if x > 0xFF {
+			return 0, false
+		}
+		n = int64(x)
+	default:
+		return 0, false
+	}
+	if n < 0 || n > 0xFF {
+		return 0, false
+	}
+	return int(n), true
 }
 
 func asByteKey(v any) (byte, error) {
