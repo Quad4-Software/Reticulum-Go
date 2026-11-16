@@ -529,7 +529,7 @@ type ReticulumConfig struct {
 // NewReticulumConfig creates a new ReticulumConfig with default values
 func NewReticulumConfig() *ReticulumConfig {
 	return &ReticulumConfig{
-		EnableTransport:     true,
+		EnableTransport:     false,
 		ShareInstance:       true,
 		SharedInstancePort:  DefaultSharedInstancePort,
 		InstanceControlPort: DefaultInstanceControlPort,
@@ -595,7 +595,7 @@ func (c *ReticulumConfig) GetInterfaces() map[string]InterfaceConfig {
 // DefaultConfig returns a ReticulumConfig with built-in defaults.
 func DefaultConfig() *ReticulumConfig {
 	return &ReticulumConfig{
-		EnableTransport:     true,
+		EnableTransport:     false,
 		ShareInstance:       true,
 		SharedInstancePort:  DefaultSharedInstancePort,
 		InstanceControlPort: DefaultInstanceControlPort,

@@ -21,8 +21,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg == nil {
 		t.Fatal("DefaultConfig returned nil")
 	}
-	if !cfg.EnableTransport {
-		t.Error("EnableTransport should be true by default")
+	if cfg.EnableTransport {
+		t.Error("EnableTransport should be false by default")
 	}
 	if cfg.LogLevel != DefaultLogLevel {
 		t.Errorf("LogLevel: got %d, want %d", cfg.LogLevel, DefaultLogLevel)
@@ -415,8 +415,8 @@ func TestLoadConfig_EmptyFile(t *testing.T) {
 	if cfg.LogLevel != DefaultLogLevel {
 		t.Errorf("LogLevel: got %d, want %d", cfg.LogLevel, DefaultLogLevel)
 	}
-	if !cfg.EnableTransport {
-		t.Error("EnableTransport should fall back to default")
+	if cfg.EnableTransport {
+		t.Error("EnableTransport should fall back to default (false)")
 	}
 	if len(cfg.Interfaces) != 0 {
 		t.Errorf("Interfaces should be empty, got %d", len(cfg.Interfaces))

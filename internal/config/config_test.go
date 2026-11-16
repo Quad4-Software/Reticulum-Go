@@ -34,8 +34,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg == nil {
 		t.Fatal("DefaultConfig returned nil")
 	}
-	if !cfg.EnableTransport {
-		t.Error("DefaultConfig should enable transport")
+	if cfg.EnableTransport {
+		t.Error("DefaultConfig should not enable transport by default")
 	}
 	if cfg.SharedInstancePort != reticulumconfig.DefaultSharedInstancePort {
 		t.Errorf("SharedInstancePort: got %d, want %d",

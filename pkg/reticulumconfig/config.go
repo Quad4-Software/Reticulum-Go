@@ -68,7 +68,7 @@ var errEmptyConfigPath = errors.New("config path not set")
 // DefaultConfig returns a ReticulumConfig populated with built-in defaults.
 func DefaultConfig() *common.ReticulumConfig {
 	return &common.ReticulumConfig{
-		EnableTransport:        true,
+		EnableTransport:        false,
 		ShareInstance:          true,
 		SharedInstancePort:     DefaultSharedInstancePort,
 		InstanceControlPort:    DefaultInstanceControlPort,

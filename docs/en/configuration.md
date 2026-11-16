@@ -50,7 +50,7 @@ storage/ratchets/ holds known-peer public keys named by destination hash (Python
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| enable_transport | yes | Enable mesh transport routing. A shared-instance owner still relays local-client path and link traffic when this is no |
+| enable_transport | no | Enable mesh transport routing. Matches the Python RNS default: only stationary always-on systems should be transport nodes. A shared-instance owner still relays local-client path and link traffic when this is no |
 | share_instance | yes | Use shared instance multiplexing |
 | shared_instance_port | 37428 | TCP port for shared instance |
 | instance_control_port | 37429 | Control port when this process owns the instance |

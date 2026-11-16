@@ -11,8 +11,8 @@ import (
 func TestNewReticulumConfig(t *testing.T) {
 	cfg := NewReticulumConfig()
 
-	if !cfg.EnableTransport {
-		t.Errorf("NewReticulumConfig() EnableTransport = %v. Want true", cfg.EnableTransport)
+	if cfg.EnableTransport {
+		t.Errorf("NewReticulumConfig() EnableTransport = %v. Want false", cfg.EnableTransport)
 	}
 	if !cfg.ShareInstance {
 		t.Errorf("NewReticulumConfig() ShareInstance = %v. Want true", cfg.ShareInstance)
@@ -37,8 +37,8 @@ func TestNewReticulumConfig(t *testing.T) {
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 
-	if !cfg.EnableTransport {
-		t.Errorf("DefaultConfig() EnableTransport = %v. Want true", cfg.EnableTransport)
+	if cfg.EnableTransport {
+		t.Errorf("DefaultConfig() EnableTransport = %v. Want false", cfg.EnableTransport)
 	}
 	if !cfg.ShareInstance {
 		t.Errorf("DefaultConfig() ShareInstance = %v. Want true", cfg.ShareInstance)
