@@ -34,6 +34,14 @@ make build                   # bin/reticulum-go plus tool symlinks
 make install                 # PREFIX=/usr/local (binary, tool symlinks, man pages)
 ```
 
+Or install straight into your Go binary directory without a checkout:
+
+```bash
+go install git.quad4.io/reticulum/Reticulum-Go/cmd/reticulum-go@master
+```
+
+`@latest` resolves once a release tag carrying the new module path is published (v1.5.1 onward).
+
 From a git checkout, use Make or plain Go:
 
 ```bash
