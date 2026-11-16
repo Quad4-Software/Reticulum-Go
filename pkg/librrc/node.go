@@ -3,11 +3,13 @@ package librrc
 
 import (
 	"fmt"
+	"path/filepath"
 	"sync"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/reticulumconfig"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 )
 
@@ -33,14 +35,27 @@ func nodeByHandle(id uint64) (*nodeRecord, error) {
 	return ref.(*nodeRecord), nil
 }
 
+// NodeCreate builds a node handle. An empty configPath uses in-memory
+// defaults (no interfaces). A non-empty path loads a Reticulum-Go config
+// file and attaches every enabled [interfaces] entry; individual interface
+// failures are logged and skipped. Shared-instance attach is always off:
+// librrc runs its own in-process transport.
 func NodeCreate(configPath string) (uint64, int) {
-	if configPath != "" {
+	var cfg *common.ReticulumConfig
+	var configDir string
+	if configPath == "" {
+		cfg = common.DefaultConfig()
+	} else {
 		if err := validatePath(configPath); err != nil {
 			return 0, setLastError(err)
 		}
-		return 0, setLastError(fmt.Errorf("%w: config file loading not supported in librrc yet", errInvalidArg))
+		loaded, err := reticulumconfig.LoadConfig(configPath)
+		if err != nil {
+			return 0, setLastError(fmt.Errorf("%w: %v", errIO, err))
+		}
+		cfg = loaded
+		configDir = filepath.Dir(configPath)
 	}
-	cfg := common.DefaultConfig()
 	cfg.ShareInstance = false
 
 	rec := &nodeRecord{
@@ -51,6 +66,10 @@ func NodeCreate(configPath string) (uint64, int) {
 	id := handles.insert(kindNode, rec)
 	rec.handle = id
 	runtimeMu.Unlock()
+
+	if configDir != "" {
+		attachConfiguredInterfaces(rec, configDir)
+	}
 	return id, OK
 }
 

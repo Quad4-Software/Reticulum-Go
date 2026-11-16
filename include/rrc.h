@@ -87,12 +87,23 @@ int rrc_envelope_destroy(uint64_t envelope);
 int rrc_normalize_room(const char *in, char *out, size_t out_len, size_t *written);
 int rrc_sanitize_nick(const char *in, char *out, size_t out_len, size_t *written);
 
+/* config_path may point to a Reticulum-Go config file; every enabled
+ * [interfaces] entry is attached (UDP, TCP client/server, Auto, Backbone
+ * clients, and the rest the interface factory supports). Empty path uses
+ * in-memory defaults with no interfaces. */
 uint64_t rrc_node_create(const char *config_path);
 int rrc_node_start(uint64_t node);
 int rrc_node_stop(uint64_t node);
 int rrc_node_destroy(uint64_t node);
 int rrc_node_set_identity(uint64_t node, uint64_t identity);
 int rrc_node_add_udp_interface(uint64_t node, const char *name, const char *local_addr, const char *peer_addr);
+/* target/listen take "host:port". */
+int rrc_node_add_tcp_client_interface(uint64_t node, const char *name, const char *target);
+int rrc_node_add_tcp_server_interface(uint64_t node, const char *name, const char *listen);
+int rrc_node_add_auto_interface(uint64_t node, const char *name);
+int rrc_node_add_backbone_client_interface(uint64_t node, const char *name, const char *target);
+int rrc_node_interface_count(uint64_t node);
+int rrc_node_interface_names(uint64_t node, char *out, size_t out_len, size_t *written);
 int rrc_node_has_path(uint64_t node, const uint8_t *dest_hash, size_t dest_hash_len, int *has_path);
 
 uint64_t rrc_identity_generate(void);

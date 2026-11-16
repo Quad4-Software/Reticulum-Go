@@ -34,6 +34,7 @@ import "C"
 
 import (
 	"math"
+	"strings"
 	"sync"
 	"unsafe"
 
@@ -235,6 +236,44 @@ func rrc_node_set_identity(node, identity C.uint64_t) C.int {
 //export rrc_node_add_udp_interface
 func rrc_node_add_udp_interface(node C.uint64_t, name, localAddr, peerAddr *C.char) C.int {
 	return cCode(librrc.NodeAddUDPInterface(uint64(node), cStringOrEmpty(name), cStringOrEmpty(localAddr), cStringOrEmpty(peerAddr)))
+}
+
+//export rrc_node_add_tcp_client_interface
+func rrc_node_add_tcp_client_interface(node C.uint64_t, name, target *C.char) C.int {
+	return cCode(librrc.NodeAddTCPClientInterface(uint64(node), cStringOrEmpty(name), cStringOrEmpty(target)))
+}
+
+//export rrc_node_add_tcp_server_interface
+func rrc_node_add_tcp_server_interface(node C.uint64_t, name, listen *C.char) C.int {
+	return cCode(librrc.NodeAddTCPServerInterface(uint64(node), cStringOrEmpty(name), cStringOrEmpty(listen)))
+}
+
+//export rrc_node_add_auto_interface
+func rrc_node_add_auto_interface(node C.uint64_t, name *C.char) C.int {
+	return cCode(librrc.NodeAddAutoInterface(uint64(node), cStringOrEmpty(name)))
+}
+
+//export rrc_node_add_backbone_client_interface
+func rrc_node_add_backbone_client_interface(node C.uint64_t, name, target *C.char) C.int {
+	return cCode(librrc.NodeAddBackboneClientInterface(uint64(node), cStringOrEmpty(name), cStringOrEmpty(target)))
+}
+
+//export rrc_node_interface_count
+func rrc_node_interface_count(node C.uint64_t) C.int {
+	n, code := librrc.NodeInterfaceCount(uint64(node))
+	if code != librrc.OK {
+		return cCode(code)
+	}
+	return C.int(n)
+}
+
+//export rrc_node_interface_names
+func rrc_node_interface_names(node C.uint64_t, out *C.char, outLen C.size_t, written *C.size_t) C.int {
+	names, code := librrc.NodeInterfaceNames(uint64(node))
+	if code != librrc.OK {
+		return cCode(code)
+	}
+	return writeString(out, outLen, written, strings.Join(names, "\n"))
 }
 
 //export rrc_node_has_path
