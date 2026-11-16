@@ -3,6 +3,7 @@ package librrc
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Quad4-Software/reticulum-go-protocols/pkg/rrc"
@@ -55,7 +56,13 @@ func ClientDial(nodeHandle, identityHandle uint64, hubHash []byte, nick, name, v
 				q.push(Event{Kind: EventWelcome, Body: text, MsgType: env.Type})
 			},
 			OnJoined: func(room string, members [][]byte, env *rrc.Envelope) {
-				q.push(Event{Kind: EventJoined, Room: room, MsgType: env.Type})
+				// Member list (when the hub includes it): hex hashes, one
+				// per line, so embedders can show who is in the room.
+				var b strings.Builder
+				for _, m := range members {
+					fmt.Fprintf(&b, "%x\n", m)
+				}
+				q.push(Event{Kind: EventJoined, Room: room, Body: b.String(), MsgType: env.Type})
 			},
 			OnParted: func(room string, env *rrc.Envelope) {
 				q.push(Event{Kind: EventParted, Room: room, MsgType: env.Type})
