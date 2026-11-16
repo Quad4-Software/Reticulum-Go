@@ -5,9 +5,9 @@
 # Install reticulum-go from a GitHub release binary or by building source.
 #
 # Curl:
-#   curl -fsSL https://raw.githubusercontent.com/Quad4-Software/Reticulum-Go/master/install.sh | sh
-#   curl -fsSL https://raw.githubusercontent.com/Quad4-Software/Reticulum-Go/master/install.sh | sh -s -- --dry-run
-#   curl -fsSL https://raw.githubusercontent.com/Quad4-Software/Reticulum-Go/master/install.sh | sh -s -- --source
+#   curl -fsSL https://git.quad4.io/reticulum/Reticulum-Go/raw/branch/master/install.sh | sh
+#   curl -fsSL https://git.quad4.io/reticulum/Reticulum-Go/raw/branch/master/install.sh | sh -s -- --dry-run
+#   curl -fsSL https://git.quad4.io/reticulum/Reticulum-Go/raw/branch/master/install.sh | sh -s -- --source
 #
 # Checkout:
 #   ./install.sh
@@ -96,8 +96,8 @@ Environment:
   RGO_SERVICE RGO_GOAMD64 RGO_VERIFY RGO_GITHUB RGO_GITHUB_API
 
 Examples:
-  curl -fsSL https://raw.githubusercontent.com/Quad4-Software/Reticulum-Go/master/install.sh | sh
-  curl -fsSL https://raw.githubusercontent.com/Quad4-Software/Reticulum-Go/master/install.sh | sh -s -- --dry-run
+  curl -fsSL https://git.quad4.io/reticulum/Reticulum-Go/raw/branch/master/install.sh | sh
+  curl -fsSL https://git.quad4.io/reticulum/Reticulum-Go/raw/branch/master/install.sh | sh -s -- --dry-run
   ./install.sh --source --init runit
 EOF
 }

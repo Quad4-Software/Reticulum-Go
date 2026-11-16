@@ -27,11 +27,11 @@ Status detail: [docs/en/overview.md](docs/en/overview.md) and [COMPATIBILITY.md]
 
 Requires Go 1.27.4 or later. Dependencies are vendored (`GOFLAGS=-mod=vendor`).
 
-Install a release binary (and optional init units):
-
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Quad4-Software/Reticulum-Go/master/install.sh | sh
-curl -fsSL https://raw.githubusercontent.com/Quad4-Software/Reticulum-Go/master/install.sh | sh -s -- --source
+git clone https://git.quad4.io/reticulum/Reticulum-Go.git
+cd Reticulum-Go
+make build                   # bin/reticulum-go plus tool symlinks
+make install                 # PREFIX=/usr/local (binary, tool symlinks, man pages)
 ```
 
 From a git checkout, use Make or plain Go:
