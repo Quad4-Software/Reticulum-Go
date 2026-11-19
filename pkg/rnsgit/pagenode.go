@@ -87,6 +87,10 @@ func (n *Node) startPageNode() error {
 	if err != nil {
 		return fmt.Errorf("page destination: %w", err)
 	}
+	if n.cfg.PageNodeStampValue != nil {
+		dest.SetValue(*n.cfg.PageNodeStampValue)
+	}
+	dest.SetLinkCost(n.cfg.PageNodeLinkCost)
 	dest.SetDefaultAppData([]byte(n.cfg.NodeName))
 	for _, r := range n.pageRoutes() {
 		_ = dest.RegisterRequestHandlerAny(r.path, n.wrapPageHandler(r.path, r.fn),

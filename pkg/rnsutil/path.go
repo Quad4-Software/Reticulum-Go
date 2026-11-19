@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/stamps"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 )
 
@@ -23,9 +24,19 @@ type BlackholeEntry struct {
 	Source   []byte
 }
 
-// WritePathTableHuman writes path table rows in rnpath style.
-func WritePathTableHuman(w io.Writer, table []transport.PathTableEntry, filter []byte) (int, error) {
+// PathTableDisplay mirrors the Python rnpath -t display toggles.
+type PathTableDisplay struct {
+	Active   bool    // -a: only paths with a recorded last-use timestamp
+	Usage    bool    // -u: show last-use age
+	Vias     bool    // -V: show via transport IDs
+	Expiry   bool    // -E: show expiry delta
+	MinValue float64 // -M: minimum path value filter (0 = disabled)
+}
+
+// WritePathTableHuman writes path table rows in rnpath 1.6.1 style.
+func WritePathTableHuman(w io.Writer, table []transport.PathTableEntry, filter []byte, opts PathTableDisplay) (int, error) {
 	displayed := 0
+	now := float64(time.Now().Unix())
 	sorted := append([]transport.PathTableEntry(nil), table...)
 	sort.SliceStable(sorted, func(i, j int) bool {
 		if sorted[i].Interface != sorted[j].Interface {
@@ -38,17 +49,52 @@ func WritePathTableHuman(w io.Writer, table []transport.PathTableEntry, filter [
 			continue
 		}
 		displayed++
-		hopWord := "hops"
-		if path.Hops == 1 {
-			hopWord = "hop "
+		if opts.MinValue != 0 {
+			if path.Value == nil || *path.Value < opts.MinValue {
+				continue
+			}
 		}
-		if _, err := fmt.Fprintf(w, "%s is %d %s away via %s on %s expires %s\n",
-			PrettyHex(path.Hash), path.Hops, hopWord, PrettyHex(path.Via), path.Interface,
-			formatUnixTimestamp(path.Expires)); err != nil {
+		stateStr := " (?)"
+		switch path.State {
+		case transport.StateResponsive:
+			stateStr = " (R)"
+		case transport.StateUnresponsive:
+			stateStr = " (u)"
+		}
+		uStr := ""
+		if opts.Active && path.Used <= 0 {
+			continue
+		}
+		if opts.Usage {
+			if path.Used > 0 {
+				uStr = fmt.Sprintf(", last used %s ago", formatSeconds(maxFloat(0, now-path.Used)))
+			} else {
+				uStr = ", never used"
+			}
+		}
+		viaStr := ""
+		if opts.Vias {
+			viaStr = " via " + PrettyHex(path.Via)
+		}
+		expStr := ""
+		if opts.Expiry {
+			expStr = " expires in " + formatSeconds(maxFloat(0, path.Expires-now))
+		}
+		if _, err := fmt.Fprintf(w, "%s %3dh%s%s on %s%s (dv:%s/lc:%s)%s\n",
+			PrettyHex(path.Hash), path.Hops, stateStr, viaStr, path.Interface,
+			expStr, prettyCost(path.Value), prettyCost(path.LRCost), uStr); err != nil {
 			return displayed, err
 		}
 	}
 	return displayed, nil
+}
+
+// prettyCost renders a stamp cost like RNS.prettycost ("n" for nil).
+func prettyCost(v *float64) string {
+	if v == nil {
+		return "n"
+	}
+	return fmt.Sprintf("%.3f", stamps.QuantizeCost(*v))
 }
 
 // WritePathTableJSON writes the path table as JSON with hashes hex-encoded.

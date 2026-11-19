@@ -8,6 +8,8 @@ import (
 	"net/http"
 	_ "net/http/pprof" // #nosec G108 -- opt-in via RETICULUM_PPROF_ADDR, localhost bind only
 	"os"
+	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,6 +28,14 @@ func startPprofIfRequested() {
 	if err != nil {
 		debug.Log(debug.DebugError, "pprof listen failed", "addr", addr, "error", err)
 		return
+	}
+	// Mutex and block profiles stay off unless explicitly requested; they are
+	// meaningless without sampling rates set.
+	if n, err := strconv.Atoi(os.Getenv("RETICULUM_PPROF_MUTEX")); err == nil && n > 0 {
+		runtime.SetMutexProfileFraction(n)
+	}
+	if n, err := strconv.Atoi(os.Getenv("RETICULUM_PPROF_BLOCK")); err == nil && n > 0 {
+		runtime.SetBlockProfileRate(n)
 	}
 	srv := &http.Server{
 		Handler:           http.DefaultServeMux,

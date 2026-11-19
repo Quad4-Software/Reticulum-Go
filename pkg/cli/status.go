@@ -37,6 +37,9 @@ func RunStatus(args []string, opt ...Options) int {
 	trafficTotals := fs.Bool("t", false, "show transport traffic totals")
 	topology := fs.Bool("T", false, "show path topology grouped by interface")
 	showPPS := fs.Bool("p", false, "display packets per second in totals")
+	filterStats := fs.Bool("F", false, "show filtered traffic stats")
+	tunnels := fs.Bool("u", false, "display tunnel information (Python -T; -T is topology here)")
+	linkStats := fs.Bool("L", false, "show transport link traffic stats")
 	queues := fs.Bool("Q", false, "show inbound queue pressure (RNS 1.5.0, use -Q not -q)")
 	profiling := fs.Bool("z", false, "display live profiling results when the instance provides them")
 	monitor := fs.Bool("m", false, "continuously monitor status")
@@ -95,6 +98,9 @@ func RunStatus(args []string, opt ...Options) int {
 		TrafficTotals:  *trafficTotals,
 		BurstFilter:    *burstFilter,
 		ShowPPS:        *showPPS,
+		FilterStats:    *filterStats,
+		TunnelStats:    *tunnels,
+		LinkStats:      *linkStats,
 	}
 
 	runOnce := func(out io.Writer) int {

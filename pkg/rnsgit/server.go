@@ -82,6 +82,10 @@ func (n *Node) Start(rnsConfig string) error {
 		_ = nd.Stop() // #nosec G104 -- rollback partial start
 		return err
 	}
+	if n.cfg.StampValue != nil {
+		dest.SetValue(*n.cfg.StampValue)
+	}
+	dest.SetLinkCost(n.cfg.LinkCost)
 	n.dest = dest
 	n.registerHandlers()
 	if n.cfg.AnnounceInterval >= 0 {
