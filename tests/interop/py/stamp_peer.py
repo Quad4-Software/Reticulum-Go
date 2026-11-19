@@ -52,8 +52,7 @@ def main():
     RNS.Transport.PR_VALUE = 10
     RNS.Transport.PR_COST = float(os.environ.get("PR_COST", "8"))
     RNS.Transport.PR_STAMP_TIMEOUT = 60
-    if os.environ.get("STAMP_PRS", "") == "yes":
-        RNS.Transport.STAMP_PRS = True
+    RNS.Transport.STAMP_PRS = os.environ.get("STAMP_PRS", "yes") == "yes"
     ident = RNS.Identity()
     dest = RNS.Destination(ident, RNS.Destination.IN, RNS.Destination.SINGLE, APP, ASPECT)
     link_cost = float(os.environ.get("INTEROP_LINK_COST", "9"))

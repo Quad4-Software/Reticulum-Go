@@ -60,6 +60,11 @@ def main() -> int:
     write_config(cfg_dir, listen_port, forward_port)
     RNS.Reticulum(cfg_dir)
 
+    # 1.6.1 stamps announces by default at DESTINATION_VALUE=25, which takes
+    # tens of seconds on a loaded test host. Keep the stamped wire shape but
+    # lower the work factor for the interop run.
+    RNS.Transport.DESTINATION_VALUE = float(os.environ.get("DEST_VALUE", "8"))
+
     identity = RNS.Identity()
     destination = RNS.Destination(
         identity,

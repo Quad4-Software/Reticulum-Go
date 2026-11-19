@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
@@ -78,7 +77,7 @@ func TestLiveInteropPythonTCPClientGoTCPServer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), pyProcShortTimeout)
 	defer cancel()
 
-	tr := transport.NewTransport(&common.ReticulumConfig{})
+	tr := transport.NewTransport(interopPeerConfig())
 	defer tr.Close()
 
 	port := freeTCPPort(t)

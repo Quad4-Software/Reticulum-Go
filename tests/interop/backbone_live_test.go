@@ -234,8 +234,7 @@ func TestLiveInteropBackboneRNSAnnounce(t *testing.T) {
 	}
 	defer backbone.Shutdown()
 
-	cfg := &common.ReticulumConfig{}
-	tr := transport.NewTransport(cfg)
+	tr := transport.NewTransport(interopPeerConfig())
 	iface, err := interfaces.NewBackboneClientInterface("interop_bb", &common.InterfaceConfig{
 		Enabled:    true,
 		TargetHost: "127.0.0.1",

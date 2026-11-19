@@ -76,7 +76,8 @@ func meshPeersFromEnv(t *testing.T) []directoryPeer {
 
 func setupGoTransportRelay(t *testing.T, pyListen, pyForward int, peers []directoryPeer) (*transport.Transport, func()) {
 	t.Helper()
-	cfg := &common.ReticulumConfig{EnableTransport: true}
+	cfg := interopPeerConfig()
+	cfg.EnableTransport = true
 	tr := transport.NewTransport(cfg)
 
 	relayAddr := "127.0.0.1:" + strconv.Itoa(pyForward)

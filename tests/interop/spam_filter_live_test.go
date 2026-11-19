@@ -82,10 +82,9 @@ func setupSpamLiveTopoAttempt(t *testing.T, gateway bool) (*spamLiveTopo, func()
 	inIface.SetIngressControl(false)
 	outIface.SetIngressControl(false)
 
-	cfg := &common.ReticulumConfig{
-		EnableTransport: true,
-		DoSProtection:   "off",
-	}
+	cfg := interopPeerConfig()
+	cfg.EnableTransport = true
+	cfg.DoSProtection = "off"
 	tr := transport.NewTransport(cfg)
 	if err := tr.RegisterInterface("spam_in", inIface); err != nil {
 		return nil, nil, fmt.Errorf("register in: %w", err)

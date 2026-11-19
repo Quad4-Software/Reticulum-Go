@@ -94,10 +94,20 @@ func pyScript(t *testing.T, name string) string {
 	return filepath.Join(scriptDir(t), "py", name)
 }
 
+// interopPeerConfig returns the bare config with the destination stamp
+// work factor lowered. 1.6.1 stamps announces at DESTINATION_VALUE=25 by
+// default, which takes tens of seconds under load; the stamped wire shape
+// is kept, matching the Python peers' DEST_VALUE=8.
+func interopPeerConfig() *common.ReticulumConfig {
+	cfg := &common.ReticulumConfig{}
+	cfg.Stamps.DestinationValue = 8
+	cfg.Stamps.DestinationValueSet = true
+	return cfg
+}
+
 func setupGoUDPPeer(t *testing.T, pyListen, pyForward int) (*transport.Transport, *interfaces.UDPInterface, func()) {
 	t.Helper()
-	cfg := &common.ReticulumConfig{}
-	tr := transport.NewTransport(cfg)
+	tr := transport.NewTransport(interopPeerConfig())
 	addrGo := "127.0.0.1:" + strconv.Itoa(pyForward)
 	targetGo := "127.0.0.1:" + strconv.Itoa(pyListen)
 	iface, err := interfaces.NewUDPInterface("interop_udp", addrGo, targetGo, true)

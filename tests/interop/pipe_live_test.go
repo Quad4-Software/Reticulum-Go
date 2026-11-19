@@ -125,7 +125,7 @@ func TestLiveInteropPipeFullStackPython(t *testing.T) {
 	}
 	defer pi.Stop()
 
-	tr := transport.NewTransport(&common.ReticulumConfig{})
+	tr := transport.NewTransport(interopPeerConfig())
 	defer tr.Close()
 	if err := tr.RegisterInterface("go_pipe", pi); err != nil {
 		t.Fatalf("register: %v", err)

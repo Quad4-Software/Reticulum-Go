@@ -16,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/ifac"
@@ -36,8 +35,7 @@ const (
 
 func setupGoIFACPeer(t *testing.T, pyListen, pyForward int, netname, netkey string, size int) (*transport.Transport, *interfaces.UDPInterface, func()) {
 	t.Helper()
-	cfg := &common.ReticulumConfig{}
-	tr := transport.NewTransport(cfg)
+	tr := transport.NewTransport(interopPeerConfig())
 	addrGo := "127.0.0.1:" + strconv.Itoa(pyForward)
 	targetGo := "127.0.0.1:" + strconv.Itoa(pyListen)
 	iface, err := interfaces.NewUDPInterface("interop_ifac_udp", addrGo, targetGo, true)

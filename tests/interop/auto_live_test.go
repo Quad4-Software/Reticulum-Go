@@ -182,7 +182,7 @@ func TestLiveInteropAutoInterfaceGoSeesPythonAnnounce(t *testing.T) {
 	defer cleanupVeth()
 
 	// Set up Go transport with AutoInterface on veth0
-	tr := transport.NewTransport(&common.ReticulumConfig{})
+	tr := transport.NewTransport(interopPeerConfig())
 	defer tr.Close()
 
 	cfg := &common.InterfaceConfig{
@@ -258,7 +258,7 @@ func TestLiveInteropAutoInterfacePythonSeesGoAnnounce(t *testing.T) {
 	veth0, veth1, cleanupVeth := setupVethPair(t)
 	defer cleanupVeth()
 
-	tr := transport.NewTransport(&common.ReticulumConfig{})
+	tr := transport.NewTransport(interopPeerConfig())
 	defer tr.Close()
 
 	cfg := &common.InterfaceConfig{

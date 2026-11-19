@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	rlink "git.quad4.io/reticulum/Reticulum-Go/pkg/link"
@@ -72,7 +71,9 @@ func TestLiveDirectoryBz2ResourceBombRejection(t *testing.T) {
 	peers := shufflePeers(fetchOnlineClearnetTCPPeers(t, 24))
 	t.Logf("directory returned %d clearnet TCP peers (shuffled)", len(peers))
 
-	cfg := &common.ReticulumConfig{EnableTransport: true, ShareInstance: false}
+	cfg := interopPeerConfig()
+	cfg.EnableTransport = true
+	cfg.ShareInstance = false
 	tr := transport.NewTransport(cfg)
 	defer func() { _ = tr.Close() }()
 	if err := tr.InitializePathRequestHandler(); err != nil {

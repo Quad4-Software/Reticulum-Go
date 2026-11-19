@@ -39,7 +39,10 @@ func preparePageServerIdentity(t *testing.T, homeDir string) []byte {
 		t.Fatalf("write identity: %v", err)
 	}
 
-	tr := transport.NewTransport(common.DefaultConfig())
+	cfg := common.DefaultConfig()
+	cfg.Stamps.DestinationValue = 8
+	cfg.Stamps.DestinationValueSet = true
+	tr := transport.NewTransport(cfg)
 	dest, err := destination.New(id, destination.In, destination.Single, "nomadnetwork", tr, "node")
 	if err != nil {
 		t.Fatalf("destination hash derive: %v", err)

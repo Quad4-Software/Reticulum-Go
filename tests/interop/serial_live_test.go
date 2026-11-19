@@ -175,7 +175,7 @@ func TestLiveInteropSerialRNSSession(t *testing.T) {
 	// Python can open the device.
 	defer slave.Close()
 
-	tr := transport.NewTransport(&common.ReticulumConfig{})
+	tr := transport.NewTransport(interopPeerConfig())
 	defer tr.Close()
 
 	si, err := interfaces.NewSerialInterface("go_serial", true, interfaces.SerialOptions{

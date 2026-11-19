@@ -210,7 +210,10 @@ func TestLiveNomadNetCrawlFetchMU(t *testing.T) {
 	// automatically the crawl source.
 	for _, peer := range peers {
 		t.Logf("uplink %s %s:%d: waiting up to %s for announces", peer.Name, peer.Host, peer.Port, announceWait)
-		tr2 := transport.NewTransport(common.DefaultConfig())
+		cfg2 := common.DefaultConfig()
+		cfg2.Stamps.DestinationValue = 8
+		cfg2.Stamps.DestinationValueSet = true
+		tr2 := transport.NewTransport(cfg2)
 		iface, err := interfaces.NewTCPClientInterface(peer.Name, peer.Host, peer.Port, false, false, true)
 		if err != nil {
 			t.Logf("uplink %s connect failed: %v", peer.Name, err)

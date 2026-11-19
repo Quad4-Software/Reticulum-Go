@@ -389,9 +389,10 @@ func TestLiveInteropEnforcedPythonAnnounceFilter(t *testing.T) {
 			defer cancel()
 			pyListen := freeUDPPort(t)
 			pyForward := freeUDPPort(t)
-			cfg := common.StampsConfig{}
+			// 1.6.1 defaults stamping on; an unset flag cannot disable it,
+			// so the unstamped case needs the explicit Set toggle.
+			cfg := common.StampsConfig{StampDestinationsSet: true, StampDestinations: tc.stamped}
 			if tc.stamped {
-				cfg.StampDestinations = true
 				cfg.DestinationValue = 10
 				cfg.DestinationValueSet = true
 			}
@@ -459,8 +460,8 @@ func TestLiveInteropEnforcedPythonPathRequest(t *testing.T) {
 			pyListen := freeUDPPort(t)
 			pyForward := freeUDPPort(t)
 			tr, _, cleanup := setupGoStampPeer(t, common.StampsConfig{
-				StampPRs: tc.stampPRs,
-				PRValue:  10, PRValueSet: true,
+				StampPRsSet: true, StampPRs: tc.stampPRs,
+				PRValue: 10, PRValueSet: true,
 				PRStampTimeout: 30, PRStampTimeoutSet: true,
 			}, pyListen, pyForward)
 			defer cleanup()

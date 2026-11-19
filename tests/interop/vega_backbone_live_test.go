@@ -65,7 +65,7 @@ func newBackboneHub(t *testing.T) *backbone.Hub {
 // and shared; pass the same hub to every transport in the test.
 func newBackboneTransport(t *testing.T, hub *backbone.Hub, name, host string, port int) (*transport.Transport, func()) {
 	t.Helper()
-	tr := transport.NewTransport(&common.ReticulumConfig{})
+	tr := transport.NewTransport(interopPeerConfig())
 	if err := tr.InitializePathRequestHandler(); err != nil {
 		t.Fatalf("InitializePathRequestHandler: %v", err)
 	}

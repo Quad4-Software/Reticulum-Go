@@ -41,6 +41,10 @@ func writeRNGitServerConfigAccess(t *testing.T, rngitDir, repoRoot, access strin
 		"[rngit]",
 		"announce_interval = 0",
 		"mirror_interval = 0",
+		// 1.6.1 stamps link requests at the announced link cost; keep the
+		// stamped wire shape but cheap enough to mine under suite load.
+		"link_cost = 6",
+		"stamp_value = 8",
 	}, "\n")), 0o600); err != nil {
 		t.Fatal(err)
 	}

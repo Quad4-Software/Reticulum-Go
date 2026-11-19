@@ -17,7 +17,6 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 )
@@ -28,7 +27,8 @@ func setupGoUDPRelay(
 	bListen, bForward int,
 ) (*transport.Transport, func()) {
 	t.Helper()
-	cfg := &common.ReticulumConfig{EnableTransport: true}
+	cfg := interopPeerConfig()
+	cfg.EnableTransport = true
 	tr := transport.NewTransport(cfg)
 
 	mkIface := func(name string, listen, forward int) *interfaces.UDPInterface {
@@ -179,8 +179,7 @@ func TestLiveInteropGoRelayDisabledByConfig(t *testing.T) {
 	pyBListen := freeUDPPort(t)
 	pyBForward := freeUDPPort(t)
 
-	cfg := &common.ReticulumConfig{EnableTransport: false}
-	tr := transport.NewTransport(cfg)
+	tr := transport.NewTransport(interopPeerConfig())
 	defer tr.Close()
 
 	mk := func(name string, listen, forward int) {
