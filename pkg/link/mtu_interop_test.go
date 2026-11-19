@@ -28,14 +28,14 @@ func establishInteropLinkPipe(t *testing.T, asyncDelivery bool) (initiator *Link
 	t.Helper()
 	skipHeavyLinkTestsIfShort(t)
 
-	cfgA := &common.ReticulumConfig{}
+	cfgA := unstampedLinkConfig()
 	trA := transport.NewTransport(cfgA)
 	idA, err := identity.New()
 	if err != nil {
 		t.Fatalf("identity.New A: %v", err)
 	}
 
-	cfgB := &common.ReticulumConfig{}
+	cfgB := unstampedLinkConfig()
 	trB := transport.NewTransport(cfgB)
 
 	var pipeA, pipeB common.NetworkInterface

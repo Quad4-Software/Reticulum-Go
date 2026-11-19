@@ -295,11 +295,13 @@ func (s *Server) handlePaths(w http.ResponseWriter, r *http.Request) {
 	out := make([]pathTableEntryJSON, 0, len(entries))
 	for _, e := range entries {
 		out = append(out, pathTableEntryJSON{
-			Hash:      hex.EncodeToString(e.Hash),
-			Via:       hex.EncodeToString(e.Via),
-			Hops:      e.Hops,
-			Expires:   e.Expires,
-			Interface: e.Interface,
+			Hash:          hex.EncodeToString(e.Hash),
+			Via:           hex.EncodeToString(e.Via),
+			Hops:          e.Hops,
+			Expires:       e.Expires,
+			Interface:     e.Interface,
+			InterfaceHash: hex.EncodeToString(e.InterfaceHash),
+			State:         e.State,
 		})
 	}
 	writeJSON(w, http.StatusOK, out)

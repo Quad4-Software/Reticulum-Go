@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
@@ -295,7 +294,7 @@ func TestLinkRobustness_IdentifyOverMTUClampedLink(t *testing.T) {
 
 func TestLinkRobustness_RequestResponseOverMTUClampedLink(t *testing.T) {
 	skipHeavyLinkTestsIfShort(t)
-	cfgA := &common.ReticulumConfig{}
+	cfgA := unstampedLinkConfig()
 	trA := transport.NewTransport(cfgA)
 	defer trA.Close()
 	idA, err := identity.New()
@@ -303,7 +302,7 @@ func TestLinkRobustness_RequestResponseOverMTUClampedLink(t *testing.T) {
 		t.Fatalf("identity.New A: %v", err)
 	}
 
-	cfgB := &common.ReticulumConfig{}
+	cfgB := unstampedLinkConfig()
 	trB := transport.NewTransport(cfgB)
 	defer trB.Close()
 

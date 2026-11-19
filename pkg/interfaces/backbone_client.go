@@ -87,6 +87,7 @@ func NewBackboneClientInterface(name string, cfg *common.InterfaceConfig, hub *b
 	bc.Bitrate = backboneClientBitrateGuess
 	bc.In = true
 	bc.Out = true
+	bc.SetTunnelsAllowed(true)
 	if cfg.Enabled {
 		bc.startReconnect()
 	}
@@ -120,6 +121,11 @@ func newSpawnedBackboneClient(parent *BackboneInterface, conn net.Conn) *Backbon
 	bc.RecursivePRs = parent.RecursivePRs
 	// RNS 1.5.5 propagates announce_cap to spawned clients too.
 	bc.announceCap = parent.announceCapFraction()
+	bc.SetTunnelsAllowed(true)
+	bc.SetLosslessMedium(true)
+	if lim, ok := parent.HopLimiter(); ok {
+		bc.SetHopLimiter(lim)
+	}
 	bc.Online = true
 	if tcpConn, ok := conn.(*net.TCPConn); ok {
 		_ = tcpConn.SetNoDelay(true)
@@ -333,6 +339,15 @@ func (bc *BackboneClientInterface) attachStream() error {
 	bc.stream = stream
 	bc.Online = true
 	bc.Mutex.Unlock()
+	return nil
+}
+
+// SpawnedParent returns the owning BackboneInterface for counter
+// propagation (Python parent_interface); nil for outbound clients.
+func (bc *BackboneClientInterface) SpawnedParent() common.NetworkInterface {
+	if bc.parent != nil {
+		return bc.parent
+	}
 	return nil
 }
 

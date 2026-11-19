@@ -51,7 +51,7 @@ func randomDestHash(seed int) []byte {
 // TestLocalClientPR_NilAttachedIface verifies that a nil attached interface
 // does not crash and does not forward anything.
 func TestLocalClientPR_NilAttachedIface(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -75,7 +75,7 @@ func TestLocalClientPR_NilAttachedIface(t *testing.T) {
 // TestLocalClientPR_EmptyDestHash verifies that an empty destHash does not
 // crash processPathRequest.
 func TestLocalClientPR_EmptyDestHash(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -104,7 +104,7 @@ func TestLocalClientPR_EmptyDestHash(t *testing.T) {
 // TestLocalClientPR_AllOtherInterfacesDisabled verifies that when all other
 // interfaces are disabled, the PR is not forwarded and no error occurs.
 func TestLocalClientPR_AllOtherInterfacesDisabled(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -135,7 +135,7 @@ func TestLocalClientPR_AllOtherInterfacesDisabled(t *testing.T) {
 // registered interface is the local client itself, no forwarding happens (no
 // echo back to self).
 func TestLocalClientPR_SingleInterfaceOnlyLocalClient(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -156,7 +156,7 @@ func TestLocalClientPR_SingleInterfaceOnlyLocalClient(t *testing.T) {
 
 // TestLocalClientPR_MultipleWanInterfaces verifies forwarding to N>1 interfaces.
 func TestLocalClientPR_MultipleWanInterfaces(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -192,7 +192,7 @@ func TestLocalClientPR_MultipleWanInterfaces(t *testing.T) {
 // with transport disabled, a local-client PR for an unknown destination is
 // forwarded (the is_from_local_client branch bypasses transportEnabled()).
 func TestLocalClientPR_TransportDisabledStillForwardsUnknown(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -219,7 +219,7 @@ func TestLocalClientPR_TransportDisabledStillForwardsUnknown(t *testing.T) {
 // on the same interface that it arrived from, even if that interface is the
 // only one registered alongside the local client.
 func TestLocalClientPR_SelfExclusionStrict(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -250,7 +250,7 @@ func TestLocalClientPR_SelfExclusionStrict(t *testing.T) {
 // client PR for a stale (over-TTL) path falls through to the forwarding branch
 // (not the known-path answer branch).
 func TestLocalClientPR_StalePathFallsThroughToForwarding(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -292,7 +292,7 @@ func TestLocalClientPR_StalePathFallsThroughToForwarding(t *testing.T) {
 // TestLocalClientPR_ConcurrentStress verifies goroutine safety when many
 // goroutines simultaneously send path requests from local-client interfaces.
 func TestLocalClientPR_ConcurrentStress(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -339,7 +339,7 @@ func TestLocalClientPR_ConcurrentStress(t *testing.T) {
 // queue may asynchronously rebroadcast on lc (correct behavior), so we don't
 // assert lc send count here.
 func TestLocalClientPR_ConcurrentMixedInterfaces(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -399,7 +399,7 @@ func TestLocalClientPR_ConcurrentMixedInterfaces(t *testing.T) {
 // never create entries in discoveryPathRequests (the local-client branch is a
 // direct forward, not a queued discovery).
 func TestLocalClientPR_NoDiscoveryPathRequestsLeak(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -431,7 +431,7 @@ func TestLocalClientPR_NoDiscoveryPathRequestsLeak(t *testing.T) {
 // TestLocalClientPR_NoAnnounceTableLeakForUnknown verifies that local-client
 // PRs for unknown destinations don't leave entries in announceTable.
 func TestLocalClientPR_NoAnnounceTableLeakForUnknown(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -465,7 +465,7 @@ func TestLocalClientPR_NoAnnounceTableLeakForUnknown(t *testing.T) {
 // TestLocalClientPR_NoGoroutineLeak verifies that processing many local-client
 // PRs does not leak goroutines.
 func TestLocalClientPR_NoGoroutineLeak(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -501,7 +501,7 @@ func TestLocalClientPR_NoGoroutineLeak(t *testing.T) {
 // discoveryPRTags dedup map doesn't grow unboundedly from local-client PRs
 // (it gets reset at DiscoveryPRTagsCap).
 func TestLocalClientPR_DiscoveryPRTagsNoUnboundedGrowth(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -573,7 +573,7 @@ func TestLocalClientPR_ModeTypeMatrix(t *testing.T) {
 		for _, tt := range types {
 			name := fmt.Sprintf("mode=%s/type=%v", mt.name, tt.ifType)
 			t.Run(name, func(t *testing.T) {
-				tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+				tr := NewTransport(unstampedTestConfig(true))
 				defer tr.Close()
 				tr.SetIdentity(mustIdentity(t))
 
@@ -630,7 +630,7 @@ func TestLocalClientPR_ModeTypeMatrix(t *testing.T) {
 // unique fresh tag (not the original tag from the incoming PR), so the
 // dedup mechanism doesn't suppress legitimate forwarded PRs.
 func TestLocalClientPR_TagUniqueness(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -667,7 +667,7 @@ func TestLocalClientPR_TagUniqueness(t *testing.T) {
 // with a known cached announce emit a path response immediately, while remote
 // PRs queue with PATH_REQUEST_GRACE before send.
 func TestLocalClientPR_ImmediateRetransmitForKnownPath(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -751,7 +751,7 @@ func TestLocalClientPR_ImmediateRetransmitForKnownPath(t *testing.T) {
 // behavior (drop PR for unknown dest from Full-mode non-local-client interface)
 // is preserved.
 func TestRegression_NonLocalClientFullModeDropsUnknownPath(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -780,7 +780,7 @@ func TestRegression_NonLocalClientFullModeDropsUnknownPath(t *testing.T) {
 // a non-local-client PR with transport disabled is still rejected for a known
 // path (the old behavior).
 func TestRegression_NonLocalClientTransportDisabledDropsKnownPath(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -822,7 +822,7 @@ func TestRegression_NonLocalClientTransportDisabledDropsKnownPath(t *testing.T) 
 // old behavior (forward PR from Gateway-mode interface for unknown dest via
 // discovery queue) is preserved.
 func TestRegression_NonLocalClientGatewayForwardsUnknownPath(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -848,7 +848,7 @@ func TestRegression_NonLocalClientGatewayForwardsUnknownPath(t *testing.T) {
 // TestRegression_NextHopEqualsRequestorSuppressesAnswer verifies that even for
 // local-client PRs, the next-hop-is-requestor suppression still applies.
 func TestRegression_NextHopEqualsRequestorSuppressesAnswer(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -903,7 +903,7 @@ func FuzzHandlePathRequest(f *testing.F) {
 	f.Add(bytes.Repeat([]byte{0x00}, 16))   // all zeros (tagless)
 
 	f.Fuzz(func(t *testing.T, data []byte) {
-		tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+		tr := NewTransport(unstampedTestConfig(true))
 		tr.SetIdentity(mustIdentity(t))
 
 		lc := newLocalClientRelayIface("lc_fuzz")
@@ -938,7 +938,7 @@ func FuzzProcessPathRequest(f *testing.F) {
 	f.Add(dest16, empty, tid16, false)
 
 	f.Fuzz(func(t *testing.T, destHash, tag, requestorTID []byte, useLocalClient bool) {
-		tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+		tr := NewTransport(unstampedTestConfig(true))
 		tr.SetIdentity(mustIdentity(t))
 
 		var src *relayIface
@@ -973,7 +973,7 @@ func FuzzHandlePathRequestMultipleInterfaces(f *testing.F) {
 	f.Add(bytes.Repeat([]byte{0xAA}, 32), true)
 
 	f.Fuzz(func(t *testing.T, data []byte, useLocalClient bool) {
-		tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+		tr := NewTransport(unstampedTestConfig(true))
 		tr.SetIdentity(mustIdentity(t))
 
 		var src *relayIface
@@ -1007,7 +1007,7 @@ func FuzzHandlePathRequestMultipleInterfaces(f *testing.F) {
 // handlePathRequest -> processPathRequest pipeline for a local-client
 // interface, ensuring the data parsing correctly extracts destHash + tag.
 func TestE2E_HandlePathRequestFromLocalClientForwards(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -1043,7 +1043,7 @@ func TestE2E_HandlePathRequestFromLocalClientForwards(t *testing.T) {
 // TestE2E_HandlePathRequestWithTransportIDFromLocalClient verifies parsing
 // when the path request data includes a requestor transport ID.
 func TestE2E_HandlePathRequestWithTransportIDFromLocalClient(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -1078,7 +1078,7 @@ func TestE2E_HandlePathRequestWithTransportIDFromLocalClient(t *testing.T) {
 // handlePathRequest calls (same destHash+tag) are suppressed by the
 // discoveryPRTags dedup, even for local-client interfaces.
 func TestE2E_DuplicatePRSuppressedByDiscoveryPRTags(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -1117,7 +1117,7 @@ func TestE2E_DuplicatePRSuppressedByDiscoveryPRTags(t *testing.T) {
 // TestE2E_TaglessPRDropped verifies that tagless path requests are dropped by
 // handlePathRequest (matching Python behavior).
 func TestE2E_TaglessPRDropped(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -1149,7 +1149,7 @@ func TestE2E_TaglessPRDropped(t *testing.T) {
 // processed via handlePathRequest (the accounting path is exercised, even
 // though BaseInterface's implementation is currently a no-op).
 func TestLocalClientPR_ReceivedPathRequestAccounting(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 

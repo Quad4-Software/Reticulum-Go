@@ -250,6 +250,10 @@ func newLinkTestServer(t *testing.T) (*Server, *transport.Transport, []byte) {
 
 	cfg := common.DefaultConfig()
 	cfg.RPCKey = key
+	// These tests announce over an in-process pipe and wait for path
+	// propagation; the 1.6.1 default announce stamp would defer the
+	// announce past the path deadline.
+	cfg.Stamps.StampDestinationsSet = true
 
 	tr := transport.NewTransport(cfg)
 	t.Cleanup(func() { _ = tr.Close() })

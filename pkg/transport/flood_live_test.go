@@ -149,15 +149,19 @@ func TestFloodAnnounceReplayIsCheap(t *testing.T) {
 	// every submitted replay.
 	s := health.Default.SnapshotTransport()
 	dups, shed := s.AnnounceDup.Total, s.DoSHandler.Total
-	if dups == 0 {
-		t.Fatal("announce_dup=0: dedup path never ran")
+	filtered := iface.FilteredARXC
+	// RNS 1.6.1: identical replays of a known emission are dropped by the
+	// announce prefilter (afrxc) before the dedup claim runs; both counters
+	// are valid evidence the cheap path executed.
+	if filtered == 0 && dups == 0 {
+		t.Fatal("announce replay hit neither prefilter nor dedup")
 	}
-	if dups+shed < replays {
-		t.Fatalf("%d replays unaccounted (announce_dup=%d, dos_handler=%d)",
-			replays-dups-shed, dups, shed)
+	if filtered+dups+shed < replays {
+		t.Fatalf("%d replays unaccounted (afrxc=%d, announce_dup=%d, dos_handler=%d)",
+			replays-filtered-dups-shed, filtered, dups, shed)
 	}
-	t.Logf("PASS: %d replays at %s/pkt (verify %s, bound %s), announce_dup=%d dos_handler=%d",
-		replays, perReplay, verifyCost, limit, dups, shed)
+	t.Logf("PASS: %d replays at %s/pkt (verify %s, bound %s), afrxc=%d announce_dup=%d dos_handler=%d",
+		replays, perReplay, verifyCost, limit, filtered, dups, shed)
 }
 
 // TestFloodDistinctAnnouncesBounded checks that a flood of distinct,

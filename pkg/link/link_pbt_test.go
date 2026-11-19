@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
@@ -21,7 +20,7 @@ func TestPBTLinkStatusLaws(t *testing.T) {
 		"link status laws under random ops",
 		op,
 		func(kind int) bool {
-			cfg := &common.ReticulumConfig{}
+			cfg := unstampedLinkConfig()
 			tr := transport.NewTransport(cfg)
 			defer tr.Close()
 			id, err := identity.New()

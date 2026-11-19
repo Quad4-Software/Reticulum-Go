@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
@@ -29,14 +28,14 @@ func newChaosMesh(t *testing.T) *chaosMesh {
 	t.Helper()
 	skipHeavyLinkTestsIfShort(t)
 
-	cfgA := &common.ReticulumConfig{}
+	cfgA := unstampedLinkConfig()
 	trA := transport.NewTransport(cfgA)
 	idA, err := identity.New()
 	if err != nil {
 		t.Fatalf("identity.New A: %v", err)
 	}
 
-	cfgB := &common.ReticulumConfig{}
+	cfgB := unstampedLinkConfig()
 	trB := transport.NewTransport(cfgB)
 
 	pipeA := NewPipeInterface("chaos-pipeA")

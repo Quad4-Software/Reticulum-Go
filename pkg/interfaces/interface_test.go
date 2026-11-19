@@ -131,13 +131,19 @@ func TestBaseInterfaceStats(t *testing.T) {
 	data2 := []byte{4, 5, 6, 7, 8}
 
 	bi.ProcessIncoming(data1)
+	// RNS 1.6.1: rxb counts only transport-accepted inbound.
+	if bi.RxBytes != 0 {
+		t.Errorf("RxBytes = %d. Want 0 before transport accept", bi.RxBytes)
+	}
+	bi.AcceptedRxTally(len(data1))
 	if bi.RxBytes != uint64(len(data1)) {
-		t.Errorf("RxBytes = %d. Want %d after first ProcessIncoming", bi.RxBytes, len(data1))
+		t.Errorf("RxBytes = %d. Want %d after accept", bi.RxBytes, len(data1))
 	}
 
 	bi.ProcessIncoming(data2)
+	bi.AcceptedRxTally(len(data2))
 	if bi.RxBytes != uint64(len(data1)+len(data2)) {
-		t.Errorf("RxBytes = %d. Want %d after second ProcessIncoming", bi.RxBytes, len(data1)+len(data2))
+		t.Errorf("RxBytes = %d. Want %d after second accept", bi.RxBytes, len(data1)+len(data2))
 	}
 
 	// BaseInterface.ProcessOutgoing is now a fail-loud stub that the

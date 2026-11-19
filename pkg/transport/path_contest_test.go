@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
 )
@@ -17,7 +16,7 @@ import (
 // contestIfaces builds a transport with the given named tracking ifaces.
 func contestIfaces(t *testing.T, names ...string) (*Transport, map[string]*trackingIface) {
 	t.Helper()
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	ifaces := make(map[string]*trackingIface, len(names))
 	for _, n := range names {
 		ti := newTrackingIface(n)

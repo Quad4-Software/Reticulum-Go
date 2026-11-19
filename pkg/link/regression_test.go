@@ -380,7 +380,7 @@ func TestRegression_BlackholeIdentifyTearsDownLink(t *testing.T) {
 // TestHandleInboundLRRTTNoNestedLockDeadlock ensures LRRTT handling unlocks
 // before decrypt, matching data and resource-proof inbound paths.
 func TestHandleInboundLRRTTNoNestedLockDeadlock(t *testing.T) {
-	cfg := &common.ReticulumConfig{}
+	cfg := unstampedLinkConfig()
 	tr := transport.NewTransport(cfg)
 	defer tr.Close()
 	id, err := identity.New()

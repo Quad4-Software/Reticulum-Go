@@ -20,7 +20,7 @@ func TestAnnounceOmitsRatchetUnlessEnabled(t *testing.T) {
 	ifaces := map[string]common.NetworkInterface{
 		"if-a": newRecordingInterface("if-a"),
 	}
-	tr := &mockTransport{config: &common.ReticulumConfig{}, interfaces: ifaces}
+	tr := &mockTransport{config: unstampedTestConfig(), interfaces: ifaces}
 	dest, err := New(id, In, Single, "ratchetapp", tr, "aspect")
 	if err != nil {
 		t.Fatal(err)
@@ -42,7 +42,7 @@ func TestAnnounceIncludesDestinationRatchet(t *testing.T) {
 	ifaces := map[string]common.NetworkInterface{
 		"if-a": newRecordingInterface("if-a"),
 	}
-	tr := &mockTransport{config: &common.ReticulumConfig{}, interfaces: ifaces}
+	tr := &mockTransport{config: unstampedTestConfig(), interfaces: ifaces}
 	dest, err := New(id, In, Single, "ratchetapp", tr, "aspect")
 	if err != nil {
 		t.Fatal(err)
@@ -82,7 +82,7 @@ func TestEncryptUsesAnnouncedRatchet(t *testing.T) {
 	ifaces := map[string]common.NetworkInterface{
 		"if-a": newRecordingInterface("if-a"),
 	}
-	tr := &mockTransport{config: &common.ReticulumConfig{}, interfaces: ifaces}
+	tr := &mockTransport{config: unstampedTestConfig(), interfaces: ifaces}
 	aliceDest, err := New(alice, In, Single, "ratchetapp", tr, "aspect")
 	if err != nil {
 		t.Fatal(err)
@@ -138,7 +138,7 @@ func TestHandleAnnounceRemembersPeerRatchet(t *testing.T) {
 	ifaces := map[string]common.NetworkInterface{
 		"if-a": newRecordingInterface("if-a"),
 	}
-	tr := &mockTransport{config: &common.ReticulumConfig{}, interfaces: ifaces}
+	tr := &mockTransport{config: unstampedTestConfig(), interfaces: ifaces}
 	dest, err := New(id, In, Single, "ratchetapp", tr, "aspect")
 	if err != nil {
 		t.Fatal(err)
@@ -155,7 +155,7 @@ func TestHandleAnnounceRemembersPeerRatchet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ann, err := announce.New(peer, make([]byte, 16), "other", nil, false, &common.ReticulumConfig{})
+	ann, err := announce.New(peer, make([]byte, 16), "other", nil, false, unstampedTestConfig())
 	if err != nil {
 		t.Fatal(err)
 	}

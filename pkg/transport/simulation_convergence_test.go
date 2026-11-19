@@ -174,6 +174,10 @@ func TestSimPartitionHeal(t *testing.T) {
 	assertNoPath(t, net.nodes[3:], src.destHash)
 
 	net.link(t, 2, 3)
+	// The healing announce must have a newer emission timebase or it loses
+	// the RNS 1.6.1 path contest at nodes 1-2 and is filtered before it can
+	// cross the new link. Announce timestamps carry second resolution.
+	time.Sleep(1100 * time.Millisecond)
 	src.originateAnnounce(t)
 	assertAllHavePath(t, net.nodes[3:], src.destHash, timeout)
 }

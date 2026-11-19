@@ -16,7 +16,7 @@ import (
 // guards against relaying a path answer that would send traffic back toward
 // the requester (the failure mode described for stale path_table + path request).
 func TestProcessPathRequest_doesNotAnswerWhenNextHopEqualsRequestorTransportID(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 
 	wan := mockIface("wan", true)
@@ -61,7 +61,7 @@ func TestProcessPathRequest_doesNotAnswerWhenNextHopEqualsRequestorTransportID(t
 // when the cached next hop is not the requestor, a path request may refresh the
 // announce queue entry from the cached announce payload.
 func TestProcessPathRequest_rewritesAnnounceWhenNextHopIsNotRequestor(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 
 	wan := mockIface("wan", true)
@@ -119,7 +119,7 @@ func TestProcessPathRequest_rewritesAnnounceWhenNextHopIsNotRequestor(t *testing
 // a path cache hit without a cached announce does not fall through to discovery
 // (no synthetic answer and no discoveryPathRequests row).
 func TestProcessPathRequest_knownPathWithoutAnnounceDoesNotStartDiscovery(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 
 	wan := mockIface("wan", true)
@@ -153,7 +153,7 @@ func TestProcessPathRequest_knownPathWithoutAnnounceDoesNotStartDiscovery(t *tes
 // relay rule that avoids forwarding HeaderType2 back out the same interface the
 // packet arrived on (prevents trivial bounce / asymmetry at this hop).
 func TestForwardTransportPacket_dropsWhenEgressInterfaceEqualsIngress(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	id := mustIdentity(t)
 	tr.SetIdentity(id)
@@ -180,7 +180,7 @@ func TestForwardTransportPacket_dropsWhenEgressInterfaceEqualsIngress(t *testing
 // PATHFINDER_E / Expires like HasPath: an expired path row is dropped and the
 // request falls through to discovery.
 func TestProcessPathRequest_expiredPathStartsDiscovery(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -217,7 +217,7 @@ func TestProcessPathRequest_expiredPathStartsDiscovery(t *testing.T) {
 // TestProcessPathRequest_pathRequestTTLStillAnswers ensures paths older than
 // PathRequestTTL but within PATHFINDER_E remain answerable (Python has_path).
 func TestProcessPathRequest_pathRequestTTLStillAnswers(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -266,7 +266,7 @@ func TestProcessPathRequest_pathRequestTTLStillAnswers(t *testing.T) {
 // interface has IFModeFull (which is NOT in DiscoverPathsFor). This matches
 // Python RNS Transport.path_request "elif is_from_local_client" branch.
 func TestProcessPathRequest_fromLocalClientForwardsOnAllInterfaces(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -304,7 +304,7 @@ func TestProcessPathRequest_fromLocalClientForwardsOnAllInterfaces(t *testing.T)
 // even when transport is disabled (matching Python's
 // "(transport_enabled() or is_from_local_client) and has_path" condition).
 func TestProcessPathRequest_fromLocalClientKnownPathBypassesTransportDisabled(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -346,7 +346,7 @@ func TestProcessPathRequest_fromLocalClientKnownPathBypassesTransportDisabled(t 
 // an unknown destination is still dropped (the old behavior is preserved for
 // regular relayed PRs).
 func TestProcessPathRequest_nonLocalClientDropsUnknownPathWithFullMode(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 

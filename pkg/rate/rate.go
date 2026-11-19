@@ -164,6 +164,27 @@ func (arc *AnnounceRateControl) retention() time.Duration {
 	return time.Duration(retain * float64(time.Second)) // #nosec G115
 }
 
+// Snapshot returns a copy of the per-destination announce history, used to
+// persist the announce rate table (RNS 1.6.1).
+func (arc *AnnounceRateControl) Snapshot() map[[16]byte][]time.Time {
+	arc.mutex.RLock()
+	defer arc.mutex.RUnlock()
+	out := make(map[[16]byte][]time.Time, len(arc.announceHistory))
+	for k, v := range arc.announceHistory {
+		out[k] = append([]time.Time(nil), v...)
+	}
+	return out
+}
+
+// Restore seeds the announce history from a persisted snapshot.
+func (arc *AnnounceRateControl) Restore(hist map[[16]byte][]time.Time) {
+	arc.mutex.Lock()
+	defer arc.mutex.Unlock()
+	for k, v := range hist {
+		arc.announceHistory[k] = append([]time.Time(nil), v...)
+	}
+}
+
 // CleanupExpired drops history entries older than the retention window.
 func (arc *AnnounceRateControl) CleanupExpired() {
 	if arc == nil {

@@ -15,6 +15,8 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/protect"
+
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 // PathTableEntry is one path-table row for shared-instance RPC.
@@ -30,6 +32,9 @@ type PathTableEntry struct {
 	Value  *float64 `msgpack:"value"`
 	Used   float64  `msgpack:"used"`
 	LRCost *float64 `msgpack:"lr_cost"`
+	// RNS 1.6.1: interface hash and path state (Python STATE_* int).
+	InterfaceHash []byte `msgpack:"interface_hash"`
+	State         byte   `msgpack:"state"`
 }
 
 // InterfaceStat is the per-interface stats subset used by status tools.
@@ -134,6 +139,18 @@ type InterfaceStat struct {
 	ProtocolViolations        uint64   `msgpack:"protocol_violations"`
 	IFACViolations            uint64   `msgpack:"ifac_violations"`
 	PacketFilterHits          uint64   `msgpack:"packet_filter_hits"`
+	FRXB                      uint64   `msgpack:"frxb"`
+	FTXB                      uint64   `msgpack:"ftxb"`
+	FRXS                      float64  `msgpack:"frxs"`
+	FTXS                      float64  `msgpack:"ftxs"`
+	AFRXC                     uint64   `msgpack:"afrxc"`
+	TunnelID                  []byte   `msgpack:"tunnel_id,omitempty"`
+	RemoteTransportID         []byte   `msgpack:"remote_transport_id,omitempty"`
+	RemImpl                   *string  `msgpack:"rem_impl"`
+	RemVers                   []int    `msgpack:"rem_vers"`
+	RemIsTN                   *bool    `msgpack:"rem_is_tn"`
+	RemDstCost                *float64 `msgpack:"rem_dst_cost"`
+	RemPRCost                 *float64 `msgpack:"rem_pr_cost"`
 }
 
 // InterfaceStatsResponse is the top-level interface stats RPC payload.
@@ -165,6 +182,14 @@ type InterfaceStatsResponse struct {
 	RXQAD              int              `msgpack:"rxqad"`
 	RXQPD              int              `msgpack:"rxqpd"`
 	RXQILD             int              `msgpack:"rxqild"`
+	LRXB               uint64           `msgpack:"lrxb"`
+	LTXB               uint64           `msgpack:"ltxb"`
+	LRXS               float64          `msgpack:"lrxs"`
+	LTXS               float64          `msgpack:"ltxs"`
+	FRXB               uint64           `msgpack:"frxb"`
+	FTXB               uint64           `msgpack:"ftxb"`
+	FRXS               float64          `msgpack:"frxs"`
+	FTXS               float64          `msgpack:"ftxs"`
 	TQPressure         float64          `msgpack:"tqpressure"`
 	DQPressure         float64          `msgpack:"dqpressure"`
 	AQPressure         float64          `msgpack:"aqpressure"`
@@ -290,7 +315,11 @@ func (t *Transport) GetPathTable(maxHops *int) []PathTableEntry {
 		}
 		if path.Interface != nil {
 			entry.Interface = path.Interface.GetName()
+			if hasher, ok := path.Interface.(interface{ InterfaceHash() []byte }); ok {
+				entry.InterfaceHash = hasher.InterfaceHash()
+			}
 		}
+		entry.State = t.pathStates[key]
 		out = append(out, entry)
 	}
 	return out
@@ -498,6 +527,15 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 	resp.RXS = rxsTotal
 	resp.TXS = txsTotal
 	resp.RXPackets = rxPackets
+	lrxs, ltxs, frxs, ftxs := t.sampleFilteredAndLinkSpeeds()
+	resp.LRXB = t.linkRxB.Load()
+	resp.LTXB = t.linkTxB.Load()
+	resp.LRXS = lrxs
+	resp.LTXS = ltxs
+	resp.FRXB = t.filteredRxB.Load()
+	resp.FTXB = t.filteredTxB.Load()
+	resp.FRXS = frxs
+	resp.FTXS = ftxs
 	resp.TXPackets = txPackets
 	var arx, atx uint64
 	for _, iface := range t.interfaces {
@@ -554,6 +592,32 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 }
 
 // updatePacketPPS refreshes transport-wide packet rates for rnstatus -p.
+// sampleFilteredAndLinkSpeeds derives per-second filtered/link byte rates
+// from the monotonic counters, mirroring Python's speed counters on
+// Transport (link_speed_rx/tx, filtered_speed_rx/tx).
+func (t *Transport) sampleFilteredAndLinkSpeeds() (lrxs, ltxs, frxs, ftxs float64) {
+	t.ppsMu.Lock()
+	defer t.ppsMu.Unlock()
+	now := time.Now()
+	if t.ppsSampleAt.IsZero() {
+		t.ppsSampleAt = now
+		return
+	}
+	td := now.Sub(t.ppsSampleAt).Seconds()
+	if td <= 0 {
+		return 0, 0, 0, 0
+	}
+	lrx, ltx := t.linkRxB.Load(), t.linkTxB.Load()
+	frx, ftx := t.filteredRxB.Load(), t.filteredTxB.Load()
+	lrxs = float64(lrx-t.ppsLastLinkRx) / td
+	ltxs = float64(ltx-t.ppsLastLinkTx) / td
+	frxs = float64(frx-t.ppsLastFilteredRx) / td
+	ftxs = float64(ftx-t.ppsLastFilteredTx) / td
+	t.ppsLastLinkRx, t.ppsLastLinkTx = lrx, ltx
+	t.ppsLastFilteredRx, t.ppsLastFilteredTx = frx, ftx
+	return
+}
+
 // Safe under concurrent GetInterfaceStatsRPC callers (own mutex).
 func (t *Transport) updatePacketPPS(rxPackets, txPackets uint64) (rxPPS, txPPS float64) {
 	now := time.Now()
@@ -628,6 +692,18 @@ func (t *Transport) GetRateTableRPC() []RateTableEntry {
 		})
 	}
 	return out
+}
+
+// GetKnownDestinationsRPC answers the shared-instance "known_destinations"
+// get request (RNS 1.6.1 Reticulum.get_known_destinations): a msgpack map of
+// raw destination hashes to 8-field entries. Python split-mode clients fetch
+// this over RPC when the shared database is not directly readable.
+func (t *Transport) GetKnownDestinationsRPC() msgpack.RawMessage {
+	blob, err := identity.MarshalKnownDestinationsRPC()
+	if err != nil {
+		return nil
+	}
+	return blob
 }
 
 func (t *Transport) DropPathRPC(destinationHash []byte) bool {
@@ -762,6 +838,51 @@ func fillInterfaceAccounting(st *InterfaceStat, iface common.NetworkInterface) {
 	}
 	if v, ok := iface.(interface{ PathRequestTXSpeed() float64 }); ok {
 		st.PTXS = v.PathRequestTXSpeed()
+	}
+	// RNS 1.6.1 filtered-traffic and tunnel metadata keys.
+	if v, ok := iface.(interface{ FilteredRxB() uint64 }); ok {
+		st.FRXB = v.FilteredRxB()
+	}
+	if v, ok := iface.(interface{ FilteredTxB() uint64 }); ok {
+		st.FTXB = v.FilteredTxB()
+	}
+	if v, ok := iface.(interface{ FilteredRxSpeed() float64 }); ok {
+		st.FRXS = v.FilteredRxSpeed()
+	}
+	if v, ok := iface.(interface{ FilteredTxSpeed() float64 }); ok {
+		st.FTXS = v.FilteredTxSpeed()
+	}
+	if v, ok := iface.(interface{ FilteredAnnounceCount() uint64 }); ok {
+		st.AFRXC = v.FilteredAnnounceCount()
+	}
+	if v, ok := iface.(interface{ LocalTunnelID() []byte }); ok {
+		if id := v.LocalTunnelID(); len(id) > 0 {
+			st.TunnelID = id
+		}
+	}
+	if v, ok := iface.(interface{ RemoteTransportHash() []byte }); ok {
+		if h := v.RemoteTransportHash(); len(h) > 0 {
+			st.RemoteTransportID = h
+		}
+	}
+	// rem_* keys are null on shared-medium interfaces like Python.
+	var sharedMedium bool
+	if v, ok := iface.(interface{ SharedMedium() bool }); ok {
+		sharedMedium = v.SharedMedium()
+	}
+	if !sharedMedium {
+		if v, ok := iface.(interface {
+			RemoteTunnelMeta() (impl, vers string, isTN, ok bool, dstCost, prCost float64)
+		}); ok {
+			impl, vers, isTN, ok, dstCost, prCost := v.RemoteTunnelMeta()
+			if ok {
+				st.RemImpl = &impl
+				st.RemVers = common.VersionTuple(vers)
+				st.RemIsTN = &isTN
+				st.RemDstCost = &dstCost
+				st.RemPRCost = &prCost
+			}
+		}
 	}
 }
 

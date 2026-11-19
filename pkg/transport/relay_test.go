@@ -86,6 +86,19 @@ func mustIdentity(t *testing.T) *identity.Identity {
 	return id
 }
 
+// unstampedTestConfig returns a config with the RNS 1.6.1 stamp-generation
+// defaults forced off for tests that exercise the synchronous
+// request-path / announce emission paths.
+func unstampedTestConfig(transport bool) *common.ReticulumConfig {
+	return &common.ReticulumConfig{
+		EnableTransport: transport,
+		Stamps: common.StampsConfig{
+			StampDestinationsSet: true,
+			StampPRsSet:          true,
+		},
+	}
+}
+
 // buildHT2Packet hand-rolls a HeaderType2 data packet so the relay
 // path can be exercised without going through the full wire-format packet
 // builder.
@@ -111,7 +124,7 @@ func buildHT2Packet(transportID, destHash []byte, hops byte, payload []byte) []b
 // outbound copy must contain the next hop transport id (not ours) and
 // must land on the corresponding interface.
 func TestForwardTransportPacketRewritesNextHop(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	id := mustIdentity(t)
 	tr.SetIdentity(id)
@@ -169,7 +182,7 @@ func TestForwardTransportPacketRewritesNextHop(t *testing.T) {
 // addressed packet, matching Transport.inbound's remaining_hops==1
 // branch.
 func TestForwardTransportPacketLastHopStripsHeader(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	id := mustIdentity(t)
 	tr.SetIdentity(id)
@@ -219,7 +232,7 @@ func TestForwardTransportPacketLastHopStripsHeader(t *testing.T) {
 // packets addressed to our transport id are dropped (returns true,
 // nothing forwarded) instead of being silently relayed.
 func TestForwardTransportPacketDisabledByConfig(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 	id := mustIdentity(t)
 	tr.SetIdentity(id)
@@ -248,7 +261,7 @@ func TestForwardTransportPacketDisabledByConfig(t *testing.T) {
 // drop it when no destination exists). The relay must not transmit
 // anything on outbound interfaces in that case.
 func TestForwardTransportPacketIgnoresOtherTransportID(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -278,7 +291,7 @@ func TestForwardTransportPacketIgnoresOtherTransportID(t *testing.T) {
 // which stripped the header and re-originated the request, emitting
 // relay traffic Python would never produce.
 func TestForeignTransportIDLinkRequestDropped(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -326,7 +339,7 @@ func TestForeignTransportIDLinkRequestDropped(t *testing.T) {
 // TestRelayBridgedLinkRequestForwardsHT1 verifies HeaderType1 link requests are
 // relayed across a known path when the destination is not local.
 func TestRelayBridgedLinkRequestForwardsHT1(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 
 	in := newRelayIface("in")
@@ -381,7 +394,7 @@ func TestRelayBridgedLinkRequestForwardsHT1(t *testing.T) {
 // link requests are wrapped with HeaderType2 and the next transport hop so
 // mesh peers will accept and forward them.
 func TestRelayBridgedLinkRequestInsertsHT2ForMultiHop(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 
 	in := newRelayIface("in")
@@ -453,7 +466,7 @@ func TestRelayBridgedLinkRequestInsertsHT2ForMultiHop(t *testing.T) {
 // TestLinkProofRelayViaLinkTable verifies forged LR proofs are not forwarded
 // through the link relay table (signature gate).
 func TestLinkProofRelayViaLinkTable(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 
 	in := newRelayIface("in")
@@ -528,7 +541,7 @@ func TestRecordLinkRelayUsesWireLinkID(t *testing.T) {
 		t.Fatal("test vector accidentally matches deprecated sha256(dest+data) algorithm")
 	}
 
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	in := newRelayIface("in")
 	out := newRelayIface("out")
@@ -568,7 +581,7 @@ func TestRecordLinkRelayProofTimeoutUsesOutboundBitrate(t *testing.T) {
 		t.Fatalf("unpack link request: %v", err)
 	}
 
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	in := newRelayIface("in")
 	out := &bitrateIface{}
@@ -606,7 +619,7 @@ func sha256LinkID(dest, data []byte) []byte {
 // id) from the opposite direction. The data must be forwarded back out
 // the original receiving interface.
 func TestLinkRelayBidirectional(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 
 	in := newRelayIface("in")
@@ -669,7 +682,7 @@ func TestLinkRelayBidirectional(t *testing.T) {
 // TestLocalClientLinkHopSpoofing ensures shared-instance local clients do not
 // consume a hop on link request or identify relay, matching Python Transport.
 func TestLocalClientLinkHopSpoofing(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 
 	in := newRelayIface("local-client")
@@ -785,7 +798,7 @@ func buildHT1LinkRequest(t *testing.T, destHash []byte) ([]byte, *packet.Packet)
 // rngit / Python shared-instance case: enable_transport = no must still
 // forward LINKREQUEST from a local client onto a known path.
 func TestRelayBridgedLinkRequestFromLocalClientWhenTransportDisabled(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 
 	in := newLocalClientRelayIface("local-client")
@@ -818,7 +831,7 @@ func TestRelayBridgedLinkRequestFromLocalClientWhenTransportDisabled(t *testing.
 // HeaderType2 toward this instance's transport identity and sent on the
 // local-client socket. enable_transport = no must still bridge it.
 func TestHandleLinkRequestFromLocalClientWhenTransportDisabled(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -850,7 +863,7 @@ func TestHandleLinkRequestFromLocalClientWhenTransportDisabled(t *testing.T) {
 // non-local-client LINKREQUEST is still claimed and dropped when this
 // node is not a transport.
 func TestRelayBridgedLinkRequestDropsWANWhenTransportDisabled(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 
 	in := newRelayIface("wan-in")
@@ -874,7 +887,7 @@ func TestRelayBridgedLinkRequestDropsWANWhenTransportDisabled(t *testing.T) {
 // returning link data for a relay table entry that belongs to a local
 // client, even when enable_transport is no.
 func TestLinkRelayLocalClientWhenTransportDisabled(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 
 	in := newLocalClientRelayIface("local-client")
@@ -921,7 +934,7 @@ func TestLinkRelayLocalClientWhenTransportDisabled(t *testing.T) {
 // (hops==1 wrap onto the shared instance) even when we are not a
 // transport node.
 func TestForwardTransportPacketFromLocalClientWhenTransportDisabled(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 	id := mustIdentity(t)
 	tr.SetIdentity(id)
@@ -950,7 +963,7 @@ func TestForwardTransportPacketFromLocalClientWhenTransportDisabled(t *testing.T
 
 // TestLinkRelayHopMismatchDrops verifies hop-gated link relay drops bad packets.
 func TestLinkRelayHopMismatchDrops(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 
 	in := newRelayIface("in")
@@ -981,7 +994,7 @@ func TestLinkRelayHopMismatchDrops(t *testing.T) {
 // TestLinkRelayDisabledByConfig confirms link data forwarding is gated
 // on EnableTransport even when an entry exists.
 func TestLinkRelayDisabledByConfig(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 
 	in := newRelayIface("in")
@@ -1018,7 +1031,7 @@ func TestLinkRelayDisabledByConfig(t *testing.T) {
 
 // interfaces saw a Send call and the receive interface saw none.
 func TestRebroadcastPathRequestSkipsExcludedIface(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -1050,7 +1063,7 @@ func TestRebroadcastPathRequestSkipsExcludedIface(t *testing.T) {
 // the per-destination throttle and mint its own random tag while every
 // later interface was suppressed. Python reuses one tag across the fan-out.
 func TestRebroadcastPathRequestNilTagFansOut(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -1100,7 +1113,7 @@ func pathRequestTagFromRaw(t *testing.T, raw []byte) []byte {
 // TestRebroadcastPathRequestRespectsTransportFlag confirms that path
 // requests are not rebroadcast when transport is disabled.
 func TestRebroadcastPathRequestRespectsTransportFlag(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -1120,7 +1133,7 @@ func TestRebroadcastPathRequestRespectsTransportFlag(t *testing.T) {
 // interval (PathRequestMI). The first call schedules a request, the
 // second within the window must be suppressed and emit nothing.
 func TestRequestPathThrottle(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -1148,7 +1161,7 @@ func TestRequestPathThrottle(t *testing.T) {
 // onto caller-owned destination-hash storage. This guards against
 // side-effects when the caller provides a short slice with spare capacity.
 func TestRequestPathDoesNotMutateInputHash(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -1176,7 +1189,7 @@ func TestRequestPathDoesNotMutateInputHash(t *testing.T) {
 // interfaces when EnableTransport is false. The receiving interface
 // itself must not be touched (we never send back the way we came).
 func TestHandleAnnouncePacketRespectsTransportFlag(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 
 	in := newRelayIface("in")
@@ -1211,7 +1224,7 @@ func TestHandleAnnouncePacketRespectsTransportFlag(t *testing.T) {
 // WAN announce is sent to a local client when EnableTransport is false.
 // Outbound hops are 2 for wire hops 1. WAN gets nothing.
 func TestMeshAnnounceForwardedToLocalClientWhenTransportDisabled(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 
 	wan := newRelayIface("wan")
@@ -1247,7 +1260,7 @@ func TestMeshAnnounceForwardedToLocalClientWhenTransportDisabled(t *testing.T) {
 // TestPathResponseAnnounceForwardedToLocalClientWhenTransportDisabled checks
 // that a PATH_RESPONSE announce reaches a local client and is not sent on WAN.
 func TestPathResponseAnnounceForwardedToLocalClientWhenTransportDisabled(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 
 	wan := newRelayIface("wan")
@@ -1281,7 +1294,7 @@ func TestPathResponseAnnounceForwardedToLocalClientWhenTransportDisabled(t *test
 // PATH_RESPONSE is sent to a local client when EnableTransport is true.
 // Other mesh interfaces get nothing.
 func TestPathResponseAnnounceForwardedToLocalClientWhenTransportEnabled(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 
 	wan := newRelayIface("wan")
@@ -1314,7 +1327,7 @@ func TestPathResponseAnnounceForwardedToLocalClientWhenTransportEnabled(t *testi
 // false, with hops left at 0.
 func TestLocalClientAnnounceForwardedToWANWhenTransportDisabled(t *testing.T) {
 	withFastAnnounceForward(t)
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 
 	wan := newRelayIface("wan")
@@ -1344,7 +1357,7 @@ func TestLocalClientAnnounceForwardedToWANWhenTransportDisabled(t *testing.T) {
 // send of a local-client announce with EnableTransport true.
 func TestLocalClientAnnounceForwardedToWANWhenTransportEnabled(t *testing.T) {
 	withFastAnnounceForward(t)
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 
 	wan := newRelayIface("wan")
@@ -1370,7 +1383,7 @@ func TestLocalClientAnnounceForwardedToWANWhenTransportEnabled(t *testing.T) {
 // TestLocalClientAnnounceForwardedToPeerClientWhenTransportDisabled checks
 // that a local-client announce is sent to other local clients.
 func TestLocalClientAnnounceForwardedToPeerClientWhenTransportDisabled(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 
 	src := newLocalClientRelayIface("client-a")

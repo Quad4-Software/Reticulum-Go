@@ -55,8 +55,9 @@ const (
 	// runtime sizing. This constant remains the absolute ceiling default.
 	HashlistMaxSize = 1_000_000
 
-	// ReverseTimeout is how long reverse-table proof return paths are kept.
-	ReverseTimeout = 8 * 60 * time.Second
+	// ReverseTimeout is how long reverse-table proof return paths are kept
+	// (Python REVERSE_TIMEOUT, 3 minutes since RNS 1.6.1).
+	ReverseTimeout = 3 * 60 * time.Second
 
 	// SeenAnnounceTTL is how long a deduplication key for an announce hash is retained.
 	SeenAnnounceTTL = 1 * time.Hour
@@ -188,10 +189,18 @@ var (
 	// interfaces (Python PATH_SLOW_LINGER_FACTOR).
 	PathSlowLingerFactor = 10
 
-	// PathPoolUnusedTarget is the maximum number of never-used paths kept
-	// in the table (Python PATH_POOL_UNUSED_TARGET). When exceeded, the
-	// oldest never-used entries are culled down to the target.
-	PathPoolUnusedTarget = 2048
+	// PathPoolUnusedMax is the maximum number of never-used paths kept
+	// in the table (Python PATH_POOL_UNUSED_MAX, RNS 1.6.1). Declared as
+	// var so tests can shrink the pool.
+	PathPoolUnusedMax = 1536
+
+	// PathPoolUnusedMin is the minimum unused-path pool target
+	// (Python PATH_POOL_UNUSED_MIN, RNS 1.6.1).
+	PathPoolUnusedMin = 512
+
+	// PathPoolUsedTarget is the used-path count at which the unused
+	// pool target starts decreasing (Python PATH_POOL_USED_TARGET).
+	PathPoolUsedTarget = 2048
 
 	// pathPoolCheckInterval is how often the unused-path pool size is
 	// re-evaluated (Python pool_size_check_interval, 5 min).

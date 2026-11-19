@@ -135,6 +135,18 @@ type BaseInterface struct {
 	// ReceiveOnly blocks transmit when true (Python outgoing = no).
 	ReceiveOnly bool
 
+	// HopLimiter overrides the global maximum hops for packets received on
+	// this interface (RNS 1.6.1 hop_limiter). HopLimiterSet distinguishes an
+	// explicit value from "use transport default".
+	HopLimit    int
+	HopLimitSet bool
+
+	// Filtered traffic counters (RNS 1.6.1).
+	FilteredRxB  uint64
+	FilteredTxB  uint64
+	FilteredARXC uint64
+	HopLimitHits uint64
+
 	// deferInboundIFAC skips ApplyIFACInbound in ProcessIncoming so transport
 	// inbound preprocessing can apply IFAC once (RNS 1.5.0).
 	deferInboundIFAC bool
@@ -274,6 +286,57 @@ func (i *BaseInterface) GetTxBytes() uint64 {
 	return i.TxBytes
 }
 
+// AcceptedRxTally counts wire bytes accepted by transport inbound
+// processing (RNS 1.6.1 rxb).
+func (i *BaseInterface) AcceptedRxTally(n int) {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.RxBytes += uint64(n)
+}
+
+// FilteredRxTally counts bytes dropped by inbound filtering (RNS 1.6.1 frxb).
+func (i *BaseInterface) FilteredRxTally(n int) {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.FilteredRxB += uint64(n)
+}
+
+// FilteredTxTally counts bytes dropped by outbound filtering (RNS 1.6.1 ftxb).
+func (i *BaseInterface) FilteredTxTally(n int) {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.FilteredTxB += uint64(n)
+}
+
+// FilteredAnnounce counts a dropped announce (RNS 1.6.1 farxc/afrxc).
+func (i *BaseInterface) FilteredAnnounce() {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.FilteredARXC++
+}
+
+// HopLimiterHit counts a packet dropped over the hop limiter.
+func (i *BaseInterface) HopLimiterHit() {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.HopLimitHits++
+}
+
+// HopLimiter returns the per-interface hop limiter (RNS 1.6.1 hop_limiter).
+func (i *BaseInterface) HopLimiter() (int, bool) {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.HopLimit, i.HopLimitSet
+}
+
+// SetHopLimiter configures the per-interface hop limiter.
+func (i *BaseInterface) SetHopLimiter(n int) {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.HopLimit = n
+	i.HopLimitSet = n > 0
+}
+
 func (i *BaseInterface) GetRxBytes() uint64 {
 	i.Mutex.RLock()
 	defer i.Mutex.RUnlock()
@@ -374,7 +437,6 @@ func (i *BaseInterface) DeferInboundIFAC() bool {
 
 func (i *BaseInterface) ProcessIncoming(data []byte) {
 	i.Mutex.Lock()
-	i.RxBytes += uint64(len(data))
 	i.RxPackets++
 	deferInbound := i.deferInboundIFAC
 	i.Mutex.Unlock()

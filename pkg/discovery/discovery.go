@@ -11,9 +11,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"runtime/debug"
-	"strings"
 
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/lxstamper"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/stamps"
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
@@ -29,7 +28,7 @@ var Aspects = []string{"discovery", "interface"}
 
 // ImplementationName is the short transport stack id announced in discovery
 // info (RNS 1.5.1+ TRANSPORT_IMPL). Python RNS uses "RNS".
-const ImplementationName = "reticulum-go"
+const ImplementationName = common.ImplementationName
 
 // Field tags from Discovery. Each is a single-byte msgpack map key.
 const (
@@ -64,25 +63,11 @@ const (
 	FieldPrCost  byte = 0xFA
 )
 
-// implementationVersion is the fallback TRANSPORT_VERS when build info is
-// unavailable. Link with -X if a pinned release string is required.
-var implementationVersion = "dev"
-
 // ImplementationVersion returns the transport version string for discovery
-// announces (RNS 1.5.1+ TRANSPORT_VERS).
+// announces (RNS 1.5.1+ TRANSPORT_VERS). Delegates to
+// common.ImplementationVersion.
 func ImplementationVersion() string {
-	if implementationVersion != "" && implementationVersion != "dev" {
-		return implementationVersion
-	}
-	if info, ok := debug.ReadBuildInfo(); ok {
-		if v := info.Main.Version; v != "" && v != "(devel)" {
-			return v
-		}
-	}
-	if implementationVersion == "" {
-		return "dev"
-	}
-	return implementationVersion
+	return common.ImplementationVersion()
 }
 
 // Flag bits used in the announce app_data flag byte.
@@ -635,59 +620,13 @@ var AutoconnectMinVersions = map[string]string{
 }
 
 // VersionTuple parses a dotted version string into integer components,
-// mirroring Python Discovery.version_tuple. Each dot-separated component
-// contributes its leading digits; the first component without leading digits
-// stops the parse. A leading v or V is stripped so release tags like v1.3.0
-// compare like Python's bare "1.5.2" strings. Returns nil when no digits
-// parse.
+// mirroring Python Discovery.version_tuple. Delegates to common.VersionTuple.
 func VersionTuple(version string) []int {
-	version = strings.TrimSpace(version)
-	if version == "" {
-		return nil
-	}
-	version = strings.TrimPrefix(version, "v")
-	version = strings.TrimPrefix(version, "V")
-	var out []int
-	for _, component := range strings.Split(version, ".") {
-		i := 0
-		for i < len(component) && component[i] >= '0' && component[i] <= '9' {
-			i++
-		}
-		if i == 0 {
-			break
-		}
-		n := 0
-		for _, c := range component[:i] {
-			n = n*10 + int(c-'0')
-		}
-		out = append(out, n)
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
+	return common.VersionTuple(version)
 }
 
 // VersionAtLeast reports whether version parses to at least minimum, using
-// VersionTuple semantics. Missing trailing components compare as zero, like
-// Python tuple comparison (1,5) < (1,5,2) and (1,6) >= (1,5,2).
+// VersionTuple semantics. Delegates to common.VersionAtLeast.
 func VersionAtLeast(version, minimum string) bool {
-	v := VersionTuple(version)
-	m := VersionTuple(minimum)
-	if v == nil || m == nil {
-		return false
-	}
-	for i := 0; i < len(m); i++ {
-		var vc int
-		if i < len(v) {
-			vc = v[i]
-		}
-		if vc > m[i] {
-			return true
-		}
-		if vc < m[i] {
-			return false
-		}
-	}
-	return true
+	return common.VersionAtLeast(version, minimum)
 }

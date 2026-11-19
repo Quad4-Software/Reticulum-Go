@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
@@ -21,7 +20,7 @@ func TestResponderRejectsReflectedProof(t *testing.T) {
 	if err != nil {
 		t.Fatalf("identity: %v", err)
 	}
-	transportInstance := transport.NewTransport(&common.ReticulumConfig{})
+	transportInstance := transport.NewTransport(unstampedLinkConfig())
 
 	dest, err := destination.New(responderIdent, destination.In, destination.Single, "test", transportInstance, "link")
 	if err != nil {
@@ -100,7 +99,7 @@ func TestDuplicateLRRTTDoesNotRefire(t *testing.T) {
 	if err != nil {
 		t.Fatalf("identity: %v", err)
 	}
-	transportInstance := transport.NewTransport(&common.ReticulumConfig{})
+	transportInstance := transport.NewTransport(unstampedLinkConfig())
 	dest, err := destination.New(responderIdent, destination.In, destination.Single, "test", transportInstance, "link")
 	if err != nil {
 		t.Fatalf("destination: %v", err)

@@ -84,11 +84,13 @@ type protectSnapshotJSON struct {
 
 // pathTableEntryJSON mirrors transport.PathTableEntry with hex-encoded hashes.
 type pathTableEntryJSON struct {
-	Hash      string  `json:"hash"`
-	Via       string  `json:"via"`
-	Hops      uint8   `json:"hops"`
-	Expires   float64 `json:"expires"`
-	Interface string  `json:"interface"`
+	Hash          string  `json:"hash"`
+	Via           string  `json:"via"`
+	Hops          uint8   `json:"hops"`
+	Expires       float64 `json:"expires"`
+	Interface     string  `json:"interface"`
+	InterfaceHash string  `json:"interface_hash,omitempty"`
+	State         byte    `json:"state"`
 }
 
 // createSessionRequest is the body of POST /v1/sessions. IdentityPath, when

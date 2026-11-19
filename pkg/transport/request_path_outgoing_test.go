@@ -12,7 +12,7 @@ import (
 )
 
 func TestRequestPathNoOutgoingInterface(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -23,7 +23,7 @@ func TestRequestPathNoOutgoingInterface(t *testing.T) {
 }
 
 func TestRequestPathIfaceNotReady(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 

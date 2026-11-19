@@ -344,7 +344,48 @@ func saveKnownDestinations(force bool) {
 		return
 	}
 
+	export := exportKnownDestinations()
+
+	encoded, err := marshalKnownDestinationsPython(export)
+	if err != nil {
+		debug.Log(debug.DebugInfo, "Known destinations marshal failed", "error", err)
+		return
+	}
+
+	knownPersistMu.Lock()
+	cfgPath := knownPersistConfig
+	knownPersistMu.Unlock()
+
+	path, err := storage.KnownDestinationsPath(cfgPath)
+	if err != nil {
+		disableKnownDestinationsPersistence(err)
+		return
+	}
+	if err := storage.AtomicWriteFile(path, encoded, 0o600); err != nil {
+		disableKnownDestinationsPersistence(err)
+		return
+	}
+	knownPersistLast.Store(time.Now().UnixNano())
+	// Only clear dirty when no Remember/Retain landed after the snapshot gen.
+	if knownPersistGen.Load() == gen {
+		knownPersistDirty.Store(false)
+	}
+	debug.Log(debug.DebugVerbose, "Saved known destinations to storage", "count", len(export))
+}
+
+func disableKnownDestinationsPersistence(err error) {
+	debug.Log(debug.DebugInfo, "Known destinations persistence disabled, continuing in-memory", "error", err)
+	knownPersistMemory.Store(true)
+	knownPersistDisabled.Store(true)
+	knownPersistDirty.Store(false)
+}
+
+// exportKnownDestinations snapshots the table as Python 1.6.x
+// known_destinations entries keyed by the raw 16-byte destination hash.
+// Used for disk persistence and the shared-instance known_destinations RPC.
+func exportKnownDestinations() map[string][]any {
 	knownDestinationsLock.RLock()
+	defer knownDestinationsLock.RUnlock()
 	export := make(map[string][]any, len(knownDestinations))
 	for hashKey, e := range knownDestinations {
 		if e.id == nil || len(e.hash) == 0 {
@@ -383,40 +424,18 @@ func saveKnownDestinations(force bool) {
 			lrCost,
 		}
 	}
-	knownDestinationsLock.RUnlock()
-
-	encoded, err := marshalKnownDestinationsPython(export)
-	if err != nil {
-		debug.Log(debug.DebugInfo, "Known destinations marshal failed", "error", err)
-		return
-	}
-
-	knownPersistMu.Lock()
-	cfgPath := knownPersistConfig
-	knownPersistMu.Unlock()
-
-	path, err := storage.KnownDestinationsPath(cfgPath)
-	if err != nil {
-		disableKnownDestinationsPersistence(err)
-		return
-	}
-	if err := storage.AtomicWriteFile(path, encoded, 0o600); err != nil {
-		disableKnownDestinationsPersistence(err)
-		return
-	}
-	knownPersistLast.Store(time.Now().UnixNano())
-	// Only clear dirty when no Remember/Retain landed after the snapshot gen.
-	if knownPersistGen.Load() == gen {
-		knownPersistDirty.Store(false)
-	}
-	debug.Log(debug.DebugVerbose, "Saved known destinations to storage", "count", len(export))
+	return export
 }
 
-func disableKnownDestinationsPersistence(err error) {
-	debug.Log(debug.DebugInfo, "Known destinations persistence disabled, continuing in-memory", "error", err)
-	knownPersistMemory.Store(true)
-	knownPersistDisabled.Store(true)
-	knownPersistDirty.Store(false)
+// MarshalKnownDestinationsRPC returns the known destinations table packed the
+// same way Python Reticulum.get_known_destinations answers the shared-instance
+// RPC: a msgpack map of raw 16-byte destination hashes to 8-field entries.
+func MarshalKnownDestinationsRPC() (msgpack.RawMessage, error) {
+	blob, err := marshalKnownDestinationsPython(exportKnownDestinations())
+	if err != nil {
+		return nil, err
+	}
+	return msgpack.RawMessage(blob), nil
 }
 
 // marshalKnownDestinationsPython encodes the table with binary map keys, matching

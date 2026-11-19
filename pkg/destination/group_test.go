@@ -86,7 +86,7 @@ func TestGroupAnnounceRejected(t *testing.T) {
 		t.Fatal(err)
 	}
 	tr := &mockTransport{
-		config: &common.ReticulumConfig{},
+		config: unstampedTestConfig(),
 		interfaces: map[string]common.NetworkInterface{
 			"if-a": newRecordingInterface("if-a"),
 		},

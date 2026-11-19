@@ -37,7 +37,7 @@ func TestScheduleAnnounceForwardJob_BacklogFullDrops(t *testing.T) {
 	}
 	tr.pendingAnnounceMu.Unlock()
 
-	tr.scheduleAnnounceForward([]byte{0x01, 0x00}, hash16{}, []byte("dest"), nil, 1)
+	tr.scheduleAnnounceForward([]byte{0x01, 0x00}, hash16{}, []byte("dest"), nil, 1, false)
 	tr.pendingAnnounceMu.Lock()
 	n0 := len(tr.pendingAnnounceJobs)
 	tr.pendingAnnounceMu.Unlock()
@@ -81,17 +81,13 @@ func TestProcessDelayedAnnounceJobs_RunsDueOnly(t *testing.T) {
 	if countSends(out) == 0 {
 		t.Fatal("due job must run")
 	}
+	// The due job ran but stays queued for PATHFINDER_R retries (Python
+	// announce_table); the future job must not have run.
 	tr.pendingAnnounceMu.Lock()
 	remaining := len(tr.pendingAnnounceJobs)
 	tr.pendingAnnounceMu.Unlock()
-	if remaining != 1 {
-		t.Fatalf("pending after process = %d, want 1", remaining)
-	}
-	tr.pendingAnnounceMu.Lock()
-	n := len(tr.pendingAnnounceJobs)
-	tr.pendingAnnounceMu.Unlock()
-	if n != 1 {
-		t.Fatalf("pending after process = %d, want 1", n)
+	if remaining != 2 {
+		t.Fatalf("pending after process = %d, want 2", remaining)
 	}
 }
 
@@ -115,7 +111,7 @@ func TestRegression_AnnounceForwardSurvivesCallerBufferReuse(t *testing.T) {
 	for i := range 64 {
 		buf := bytes.Repeat([]byte{byte(i + 1)}, 48)
 		dest := append([]byte(nil), buf[:16]...)
-		tr.scheduleAnnounceForward(buf, destKey(dest), dest, in, 1)
+		tr.scheduleAnnounceForward(buf, destKey(dest), dest, in, 1, false)
 		for j := range buf {
 			buf[j] = 0xFF
 		}
@@ -150,7 +146,7 @@ func TestAnnounceForwardStorm_NoGoroutineExplosion(t *testing.T) {
 	for i := range MaxPendingAnnounceForwards * 2 {
 		buf := bytes.Repeat([]byte{byte(i)}, 32)
 		dest := append([]byte(nil), randomDestHash(300+i)...)
-		tr.scheduleAnnounceForward(buf, destKey(dest), dest, in, 1)
+		tr.scheduleAnnounceForward(buf, destKey(dest), dest, in, 1, false)
 	}
 	tr.pendingAnnounceMu.Lock()
 	queued := len(tr.pendingAnnounceJobs)

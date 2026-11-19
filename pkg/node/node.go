@@ -5,11 +5,14 @@ package node
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -97,6 +100,7 @@ func (n *Node) StartInterfaceDiscovery() {
 		return
 	}
 	if n.discovery == nil {
+		n.transport.WantsDiscoveryDestination()
 		isBH := func(h []byte) bool {
 			tab := n.transport.BlackholeTable()
 			return tab != nil && tab.Has(h)
@@ -222,6 +226,7 @@ func (n *Node) Start() error {
 	if err := n.transport.InitializeNetworkIdentity(); err != nil {
 		return fmt.Errorf("network identity: %w", err)
 	}
+	n.loadConfigDirTables()
 	if !inst.OwnsNetworkInterfaces() {
 		debug.Log(debug.DebugInfo, "Using existing local shared Reticulum instance, skipping configured network interfaces")
 		return nil
@@ -360,6 +365,63 @@ func defaultGravityFromConfig(cfg *common.ReticulumConfig) int {
 	return 0
 }
 
+// nodeConfigDir returns the directory holding this node's config files.
+func (n *Node) nodeConfigDir() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	configDir := filepath.Join(homeDir, ".reticulum-go")
+	if n.config != nil && n.config.ConfigPath != "" {
+		configDir = filepath.Dir(n.config.ConfigPath)
+	}
+	return configDir
+}
+
+// loadConfigDirTables reads the config-dir tables RNS 1.6.1 loads at
+// startup: blocked_ips (permanent backbone blocks), known_destination_types
+// and flagged_destination_types (name-hash display names).
+func (n *Node) loadConfigDirTables() {
+	configDir := n.nodeConfigDir()
+	if configDir == "" {
+		return
+	}
+	if raw, err := os.ReadFile(filepath.Join(configDir, "blocked_ips")); err == nil {
+		count := 0
+		for _, line := range strings.Split(string(raw), "\n") {
+			ip := strings.TrimSpace(line)
+			if ip == "" || strings.HasPrefix(ip, "#") {
+				continue
+			}
+			if parsed := net.ParseIP(ip); parsed != nil {
+				interfaces.BlockPermanently(ip)
+				count++
+			}
+		}
+		debug.Log(debug.DebugVerbose, "Loaded blocked IPs", "count", count)
+	}
+	for _, table := range []struct {
+		file     string
+		register func([]byte, string)
+	}{
+		{"known_destination_types", n.transport.RegisterKnownDestinationType},
+		{"flagged_destination_types", n.transport.RegisterFlaggedDestinationType},
+	} {
+		raw, err := os.ReadFile(filepath.Join(configDir, table.file))
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(raw), "\n") {
+			name := strings.TrimSpace(line)
+			if name == "" || strings.HasPrefix(name, "#") {
+				continue
+			}
+			h := sha256.Sum256([]byte(name))
+			table.register(h[:10], name)
+		}
+	}
+}
+
 func (n *Node) fromConfigContext() *interfaces.FromConfigContext {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -398,6 +460,19 @@ func (n *Node) fromConfigContext() *interfaces.FromConfigContext {
 				n.transport.UnregisterInterface(name)
 				n.unregisterInterfaceBuffers(name)
 			}, nil)
+		},
+		SpawnTCP: func(client *interfaces.TCPServerClientInterface) {
+			name := client.GetName()
+			if err := n.transport.RegisterInterface(name, client); err != nil {
+				debug.Log(debug.DebugError, "Failed to register spawned TCP client", "error", err)
+				_ = client.Stop()
+				return
+			}
+			n.handleInterface(client)
+			client.SetDisconnectHooks(func() {
+				n.transport.UnregisterInterface(name)
+				n.unregisterInterfaceBuffers(name)
+			})
 		},
 		SpawnAware: func(peer *interfaces.AwarePeerInterface) {
 			name := peer.GetName()

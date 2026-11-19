@@ -33,7 +33,7 @@ func announcePkt(dest []byte, seed byte) *packet.Packet {
 }
 
 func TestCacheAnnouncePacket_NilAndEmptySafe(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 
 	dest := randomDestHash(101)
@@ -54,7 +54,7 @@ func TestCacheAnnouncePacket_NilAndEmptySafe(t *testing.T) {
 }
 
 func TestCacheAnnouncePacket_StoresIndependentCopy(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 
 	dest := randomDestHash(102)
@@ -80,7 +80,7 @@ func TestCacheAnnouncePacket_StoresIndependentCopy(t *testing.T) {
 }
 
 func TestQueuePathResponseAnnounce_LocalEmitsImmediately(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -135,7 +135,7 @@ func TestQueuePathResponseAnnounce_LocalEmitsImmediately(t *testing.T) {
 }
 
 func TestQueuePathResponseAnnounce_RemoteUsesGrace(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -180,7 +180,7 @@ func TestQueuePathResponseAnnounce_RemoteUsesGrace(t *testing.T) {
 }
 
 func TestQueuePathResponseAnnounce_RemoteRetryDoesNotResetGrace(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -231,7 +231,7 @@ func TestQueuePathResponseAnnounce_RemoteRetryDoesNotResetGrace(t *testing.T) {
 }
 
 func TestQueuePathResponseAnnounce_NoCacheReturnsFalse(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -251,7 +251,7 @@ func TestQueuePathResponseAnnounce_NoCacheReturnsFalse(t *testing.T) {
 }
 
 func TestQueuePathResponseAnnounce_HoldsInFlightEntry(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -291,7 +291,7 @@ func TestQueuePathResponseAnnounce_HoldsInFlightEntry(t *testing.T) {
 }
 
 func TestNoteAndAnswerPendingLocalPathRequest(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -329,7 +329,7 @@ func TestNoteAndAnswerPendingLocalPathRequest(t *testing.T) {
 }
 
 func TestProcessAnnounceTable_CleansNilAndExhaustedRetries(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -379,7 +379,7 @@ func TestProcessAnnounceTable_CleansNilAndExhaustedRetries(t *testing.T) {
 }
 
 func TestEmitAnnounceTableEntry_DisabledInterfaceDropsEntry(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -409,7 +409,7 @@ func TestEmitAnnounceTableEntry_DisabledInterfaceDropsEntry(t *testing.T) {
 }
 
 func TestEmitAnnounceTableEntry_ReinsertsHeldAnnounce(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -450,7 +450,7 @@ func TestEmitAnnounceTableEntry_ReinsertsHeldAnnounce(t *testing.T) {
 }
 
 func TestBuildPathResponseWire_Errors(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.mutex.Lock()
 	tr.transportIdentity = nil
@@ -485,7 +485,7 @@ func TestBuildPathResponseWire_Errors(t *testing.T) {
 }
 
 func TestBuildPathResponseWire_NonBlockedUsesContextNone(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -508,7 +508,7 @@ func TestBuildPathResponseWire_NonBlockedUsesContextNone(t *testing.T) {
 }
 
 func TestBuildPathResponseWire_MTUExceeded(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -527,7 +527,7 @@ func TestBuildPathResponseWire_MTUExceeded(t *testing.T) {
 }
 
 func TestCacheAnnouncePacket_RejectsNonTruncatedHash(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 
 	short := []byte{0x01, 0x02}
@@ -544,7 +544,7 @@ func TestCacheAnnouncePacket_RejectsNonTruncatedHash(t *testing.T) {
 }
 
 func TestQueuePathResponseAnnounce_UsesAnnounceTableWhenCacheEmpty(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -571,7 +571,7 @@ func TestQueuePathResponseAnnounce_UsesAnnounceTableWhenCacheEmpty(t *testing.T)
 }
 
 func TestAnswerPendingLocalPathRequest_PrefersAnnounceHops(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -597,7 +597,7 @@ func TestAnswerPendingLocalPathRequest_PrefersAnnounceHops(t *testing.T) {
 }
 
 func TestQueuePathResponseAnnounce_FillsMissingDestHash(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -625,7 +625,7 @@ func TestQueuePathResponseAnnounce_FillsMissingDestHash(t *testing.T) {
 }
 
 func TestQueuePathResponseAnnounce_RawFallbackWhenUnpackFails(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -653,7 +653,7 @@ func TestQueuePathResponseAnnounce_RawFallbackWhenUnpackFails(t *testing.T) {
 }
 
 func TestProcessAnnounceTable_SkipsFutureTimeout(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -685,7 +685,7 @@ func TestProcessAnnounceTable_SkipsFutureTimeout(t *testing.T) {
 }
 
 func TestNotePendingLocalPathRequest_RejectsBadInputs(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	local := newLocalClientRelayIface("bad-pending")
 	dest := randomDestHash(121)
@@ -706,7 +706,7 @@ func TestNotePendingLocalPathRequest_RejectsBadInputs(t *testing.T) {
 
 // Regression: shared-instance known-path answer must deliver PATH_RESPONSE.
 func TestRegression_KnownPathCachedAnnounceAnswersLocalClient(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -741,7 +741,7 @@ func TestRegression_KnownPathCachedAnnounceAnswersLocalClient(t *testing.T) {
 
 // Regression: known path without cache must fall through to local-client forward.
 func TestRegression_KnownPathWithoutCacheForwardsLocalClientPR(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -778,7 +778,7 @@ func TestRegression_KnownPathWithoutCacheForwardsLocalClientPR(t *testing.T) {
 
 // Regression: unregistering a local client must drop its pending path requests.
 func TestRegression_UnregisterClearsPendingLocalPathRequests(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 
 	local := newLocalClientRelayIface("lc3")
@@ -798,7 +798,7 @@ func TestRegression_UnregisterClearsPendingLocalPathRequests(t *testing.T) {
 }
 
 func TestAnnounceTable_ConcurrentCacheQueueProcess(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 	tr.SetIdentity(mustIdentity(t))
 
@@ -878,7 +878,7 @@ func TestAnnouncePacketCache_CapEviction(t *testing.T) {
 }
 
 func TestAnnouncePacketCache_PathExpiryCleanup(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 
 	dest := randomDestHash(310)
@@ -887,6 +887,7 @@ func TestAnnouncePacketCache_PathExpiryCleanup(t *testing.T) {
 	tr.mutex.Lock()
 	tr.paths[pathMapKey(dest)] = &common.Path{
 		NextHop:     append([]byte(nil), dest...),
+		HopCount:    1,
 		LastUpdated: time.Now().Add(-48 * time.Hour),
 		Expires:     time.Now().Add(-time.Hour),
 	}
@@ -907,7 +908,7 @@ func TestAnnouncePacketCache_PathExpiryCleanup(t *testing.T) {
 }
 
 func TestAnnouncePacketCache_CleanupOrphans(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 
 	dest := randomDestHash(311)
@@ -923,7 +924,7 @@ func TestAnnouncePacketCache_CleanupOrphans(t *testing.T) {
 }
 
 func TestMemoryStats_ReflectsAnnounceCache(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	defer tr.Close()
 
 	dest := randomDestHash(320)

@@ -345,6 +345,7 @@ func (t *Transport) savePathTableSync() {
 		return
 	}
 	t.savePathTable(true)
+	t.saveAnnounceRateTable()
 }
 
 func (t *Transport) savePathTable(force bool) {

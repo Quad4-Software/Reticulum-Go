@@ -211,9 +211,14 @@ func TestPathRemovedWithInterface(t *testing.T) {
 // PATH_POOL_UNUSED_TARGET, non-slow interfaces first and oldest expiry
 // first (Python unused_paths.sort() order).
 func TestUnusedPathPoolCull(t *testing.T) {
-	oldTarget := PathPoolUnusedTarget
-	PathPoolUnusedTarget = 3
-	t.Cleanup(func() { PathPoolUnusedTarget = oldTarget })
+	oldMax := PathPoolUnusedMax
+	oldMin := PathPoolUnusedMin
+	PathPoolUnusedMax = 3
+	PathPoolUnusedMin = 0
+	t.Cleanup(func() {
+		PathPoolUnusedMax = oldMax
+		PathPoolUnusedMin = oldMin
+	})
 
 	tr := newShardingTransport(t)
 	fast := fastIface("pool_fast")
@@ -260,8 +265,8 @@ func TestUnusedPathPoolCull(t *testing.T) {
 			survivors[fmtHash16(info.dest)] = true
 		}
 	}
-	if got := len(survivors); got != PathPoolUnusedTarget {
-		t.Fatalf("survivors = %d, want %d", got, PathPoolUnusedTarget)
+	if got := len(survivors); got != PathPoolUnusedMax {
+		t.Fatalf("survivors = %d, want %d", got, PathPoolUnusedMax)
 	}
 	if survivors[fmtHash16(infos[1].dest)] {
 		t.Fatal("earliest-expiry fast path was not culled first")

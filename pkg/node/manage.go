@@ -59,6 +59,8 @@ func spawnedInterfaces(iface common.NetworkInterface) []interfaces.Interface {
 		return out
 	case *interfaces.AwareInterface:
 		return p.SpawnedInterfaces()
+	case *interfaces.TCPServerInterface:
+		return p.SpawnedInterfaces()
 	case *interfaces.I2PInterface:
 		return p.ListSpawnedPeers()
 	case spawnedLister:

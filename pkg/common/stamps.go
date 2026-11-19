@@ -3,7 +3,7 @@
 
 package common
 
-// StampsSettings carries the resolved RNS 1.6.0 stamp knobs (Transport.py
+// StampsSettings carries the resolved RNS 1.6.1 stamp knobs (Transport.py
 // STAMPS_* constants and [stamps] config values). The zero value is not the
 // default; use DefaultStampsSettings.
 type StampsSettings struct {
@@ -23,20 +23,26 @@ type StampsSettings struct {
 
 	LinkStampTimeout float64 // LINK_STAMP_TIMEOUT seconds, default 15
 	PRStampTimeout   float64 // PR_STAMP_TIMEOUT seconds, default 15
+
+	MaxWorkers     int // Stamps.MAX_WORKERS, 0 = all cores
+	WorkerNiceness int // Stamps.NICENESS, default 16
 }
 
-// DefaultStampsSettings returns the Python 1.6.0 defaults.
+// DefaultStampsSettings returns the Python 1.6.1 defaults.
 func DefaultStampsSettings() StampsSettings {
 	return StampsSettings{
-		Enabled:          true,
-		StampLRs:         true,
-		DestinationCost:  23.5,
-		DestinationValue: 25.0,
-		PRCost:           15.8,
-		PRValue:          15.8,
-		LRCost:           12.5,
-		LinkStampTimeout: 15,
-		PRStampTimeout:   15,
+		Enabled:           true,
+		StampDestinations: true,
+		StampPRs:          true,
+		StampLRs:          true,
+		DestinationCost:   23.5,
+		DestinationValue:  25.0,
+		PRCost:            15.8,
+		PRValue:           15.8,
+		LRCost:            12.5,
+		LinkStampTimeout:  15,
+		PRStampTimeout:    15,
+		WorkerNiceness:    16,
 	}
 }
 
@@ -52,6 +58,10 @@ type StampsConfig struct {
 	// no stamp_lrs config key in Python; this is a runtime/test toggle.
 	StampLRs    bool
 	StampLRsSet bool
+	// StampDestinationsSet/StampPRsSet are runtime/test toggles to force
+	// the 1.6.1 defaults back off; config-file booleans only enable.
+	StampDestinationsSet bool
+	StampPRsSet          bool
 
 	DestinationCost     float64
 	DestinationCostSet  bool
@@ -67,6 +77,10 @@ type StampsConfig struct {
 	LRStampTimeoutSet   bool
 	PRStampTimeout      float64
 	PRStampTimeoutSet   bool
+	MaxWorkers          int
+	MaxWorkersSet       bool
+	WorkerNiceness      int
+	WorkerNicenessSet   bool
 }
 
 // StampCostCap mirrors RNS.Transport.STAMP_COST_CAP (pkg/stamps keeps the
@@ -105,6 +119,12 @@ func (c StampsConfig) Apply(base StampsSettings) StampsSettings {
 	if c.StampLRsSet {
 		s.StampLRs = c.StampLRs
 	}
+	if c.StampDestinationsSet {
+		s.StampDestinations = c.StampDestinations
+	}
+	if c.StampPRsSet {
+		s.StampPRs = c.StampPRs
+	}
 	if c.DestinationCostSet {
 		s.DestinationCost = clampCost(c.DestinationCost, StampCostCap)
 	}
@@ -129,6 +149,12 @@ func (c StampsConfig) Apply(base StampsSettings) StampsSettings {
 		s.PRStampTimeout = c.PRStampTimeout
 	} else if c.PRStampTimeoutSet {
 		s.PRStampTimeout = 0.020
+	}
+	if c.MaxWorkersSet {
+		s.MaxWorkers = max(1, c.MaxWorkers)
+	}
+	if c.WorkerNicenessSet {
+		s.WorkerNiceness = min(20, max(0, c.WorkerNiceness))
 	}
 	return s
 }

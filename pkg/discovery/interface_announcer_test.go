@@ -84,7 +84,12 @@ func TestInterfaceAnnouncerBuildAnnounceData(t *testing.T) {
 }
 
 func TestInterfaceAnnouncerAnnounceDue(t *testing.T) {
-	tr := transport.NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := transport.NewTransport(&common.ReticulumConfig{
+		EnableTransport: true,
+		// Destination stamps defer announce emission to the async stamper
+		// under RNS 1.6.1 defaults; disable for the synchronous check.
+		Stamps: common.StampsConfig{StampDestinationsSet: true},
+	})
 	defer tr.Close()
 	id, err := identity.New()
 	if err != nil {

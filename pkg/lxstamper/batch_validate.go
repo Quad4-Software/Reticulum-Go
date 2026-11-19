@@ -4,8 +4,9 @@
 package lxstamper
 
 import (
-	"runtime"
 	"sync"
+
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/stamps"
 )
 
 // StampCandidate is one material+stamp pair for batch validation.
@@ -29,7 +30,7 @@ func ValidateStampBatch(cands []StampCandidate, targetCost, expandRounds int) []
 
 func validateStampBatchCPU(cands []StampCandidate, targetCost, expandRounds int) []bool {
 	out := make([]bool, len(cands))
-	workers := max(min(runtime.GOMAXPROCS(0), len(cands)), 1)
+	workers := max(min(stamps.WorkerCount(), len(cands)), 1)
 	var wg sync.WaitGroup
 	chunk := (len(cands) + workers - 1) / workers
 	for w := range workers {
@@ -68,7 +69,7 @@ func ValidatePNStamps(messages [][]byte, targetCost int) []PNStampEntry {
 		ent PNStampEntry
 	}
 	slots := make([]slot, len(messages))
-	workers := max(min(runtime.GOMAXPROCS(0), len(messages)), 1)
+	workers := max(min(stamps.WorkerCount(), len(messages)), 1)
 	var wg sync.WaitGroup
 	chunk := (len(messages) + workers - 1) / workers
 	for w := range workers {

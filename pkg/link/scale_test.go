@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
@@ -27,8 +26,8 @@ func TestLinkScaleManyConcurrent(t *testing.T) {
 	}
 	const n = 48
 
-	trA := transport.NewTransport(&common.ReticulumConfig{})
-	trB := transport.NewTransport(&common.ReticulumConfig{})
+	trA := transport.NewTransport(unstampedLinkConfig())
+	trB := transport.NewTransport(unstampedLinkConfig())
 
 	pa := NewPipeInterface("scale-a")
 	pb := NewPipeInterface("scale-b")

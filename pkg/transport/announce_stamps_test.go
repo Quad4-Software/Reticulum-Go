@@ -30,8 +30,10 @@ func (h *captureAnnounceHandler) ReceivedAnnounce(_ []byte, _ any, appData []byt
 }
 
 // buildStampedAnnounceWire returns a signed announce packet whose app_data
-// carries a valid 18-byte stamp ext at the given generation cost.
-func buildStampedAnnounceWire(t *testing.T, appData []byte, genCost, lrCost float64, badStamp bool) (raw, destHash []byte, id *identity.Identity, nameHash []byte) {
+// carries a valid 18-byte stamp ext at the given generation cost. Stamp
+// value is a geometric draw above genCost, so maxValue > 0 regenerates
+// until the drawn value is below it; use it for "insufficient work" cases.
+func buildStampedAnnounceWire(t *testing.T, appData []byte, genCost, lrCost, maxValue float64, badStamp bool) (raw, destHash []byte, id *identity.Identity, nameHash []byte) {
 	t.Helper()
 	var err error
 	id, err = identity.New()
@@ -51,9 +53,18 @@ func buildStampedAnnounceWire(t *testing.T, appData []byte, genCost, lrCost floa
 	} else {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
-		stamp, _, err = stamps.GenerateStamp(ctx, material, genCost, stamps.StampLength)
-		if err != nil {
-			t.Fatalf("GenerateStamp: %v", err)
+		for i := 0; ; i++ {
+			var value float64
+			stamp, value, err = stamps.GenerateStamp(ctx, material, genCost, stamps.StampLength)
+			if err != nil {
+				t.Fatalf("GenerateStamp: %v", err)
+			}
+			if maxValue <= 0 || value < maxValue {
+				break
+			}
+			if i >= 200 {
+				t.Fatalf("no stamp below maxValue %.2f after %d draws (last %.2f)", maxValue, i, value)
+			}
 		}
 	}
 
@@ -90,7 +101,7 @@ func newStampTestTransport(t *testing.T, stampsCfg common.StampsConfig) (*Transp
 
 func TestStampedAnnounceStripsAndRecords(t *testing.T) {
 	tr, iface, h := newStampTestTransport(t, common.StampsConfig{DestinationCost: 8, DestinationCostSet: true})
-	raw, destHash, _, _ := buildStampedAnnounceWire(t, []byte("hello-app"), 10, 12.5, false)
+	raw, destHash, _, _ := buildStampedAnnounceWire(t, []byte("hello-app"), 10, 12.5, 0, false)
 	if err := tr.handleAnnouncePacket(raw, iface); err != nil {
 		t.Fatalf("handleAnnouncePacket: %v", err)
 	}
@@ -110,7 +121,7 @@ func TestStampedAnnounceStripsAndRecords(t *testing.T) {
 
 func TestStampedAnnounceNoAppData(t *testing.T) {
 	tr, iface, h := newStampTestTransport(t, common.StampsConfig{DestinationCost: 8, DestinationCostSet: true})
-	raw, _, _, _ := buildStampedAnnounceWire(t, nil, 10, 30.25, false)
+	raw, _, _, _ := buildStampedAnnounceWire(t, nil, 10, 30.25, 0, false)
 	if err := tr.handleAnnouncePacket(raw, iface); err != nil {
 		t.Fatalf("handleAnnouncePacket: %v", err)
 	}
@@ -126,7 +137,7 @@ func TestInvalidStampKeepsAppData(t *testing.T) {
 	tr, iface, h := newStampTestTransport(t, common.StampsConfig{DestinationCost: 23.5, DestinationCostSet: true})
 	// Generate at cost 8: below the required 23.5, so the ext format is
 	// known but the stamp is invalid. app_data must stay untouched.
-	raw, destHash, _, _ := buildStampedAnnounceWire(t, []byte("payload"), 8, 12.5, false)
+	raw, destHash, _, _ := buildStampedAnnounceWire(t, []byte("payload"), 8, 12.5, 23.5, false)
 	if err := tr.handleAnnouncePacket(raw, iface); err != nil {
 		t.Fatalf("handleAnnouncePacket: %v", err)
 	}
@@ -223,7 +234,7 @@ func TestStampsEnforcedDrops(t *testing.T) {
 	}
 
 	// Stamped but below the required cost must be dropped too.
-	raw2, _, _, _ := buildStampedAnnounceWire(t, []byte("y"), 6, 12.5, false)
+	raw2, _, _, _ := buildStampedAnnounceWire(t, []byte("y"), 6, 12.5, 10, false)
 	if err := tr.handleAnnouncePacket(raw2, iface); err != nil {
 		t.Fatalf("handleAnnouncePacket: %v", err)
 	}
@@ -232,7 +243,7 @@ func TestStampsEnforcedDrops(t *testing.T) {
 	}
 
 	// A stamp meeting the required cost passes.
-	raw3, _, _, _ := buildStampedAnnounceWire(t, []byte("z"), 12, 12.5, false)
+	raw3, _, _, _ := buildStampedAnnounceWire(t, []byte("z"), 12, 12.5, 0, false)
 	if err := tr.handleAnnouncePacket(raw3, iface); err != nil {
 		t.Fatalf("handleAnnouncePacket: %v", err)
 	}

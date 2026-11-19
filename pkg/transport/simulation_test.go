@@ -124,7 +124,7 @@ func newSimNode(t testing.TB, idx int) *simNode {
 	if err != nil {
 		t.Fatalf("identity.New: %v", err)
 	}
-	cfg := &common.ReticulumConfig{EnableTransport: true}
+	cfg := unstampedTestConfig(true)
 	tr := NewTransport(cfg)
 	tr.SetIdentity(id)
 

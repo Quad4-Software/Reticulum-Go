@@ -35,6 +35,7 @@ func TestUDPPathE2E(t *testing.T) {
 	portB := freeUDPPort(t)
 
 	cfgA := common.DefaultConfig()
+	cfgA.Stamps.StampDestinationsSet = true
 	cfgA.ShareInstance = false
 	cfgA.EnableControlAPI = false
 	cfgA.Interfaces = map[string]*common.InterfaceConfig{
@@ -48,6 +49,7 @@ func TestUDPPathE2E(t *testing.T) {
 		},
 	}
 	cfgB := common.DefaultConfig()
+	cfgB.Stamps.StampDestinationsSet = true
 	cfgB.ShareInstance = false
 	cfgB.EnableControlAPI = false
 	cfgB.Interfaces = map[string]*common.InterfaceConfig{

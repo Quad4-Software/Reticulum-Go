@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/stamps"
 )
 
 // BuildAppData composes the full app_data payload that should be carried in
@@ -110,14 +111,24 @@ func ValidateAndDecodeWithIdentity(appData []byte, requiredValue int, expandRoun
 	}
 
 	infoHash := InfoHash(packed)
-	wb, err := StampWorkblock(infoHash, expandRounds)
+	// RNS 1.6.1 transitory mechanism: accept stamps computed against the
+	// non-expanded workblock first, then fall back to expansion.
+	wbNE, err := stamps.StampWorkblock(infoHash, 0)
 	if err != nil {
 		return nil, err
 	}
-	value := StampValue(wb, stamp)
-	if !MeetsCost(stamp, requiredValue, wb) {
-		return nil, fmt.Errorf("discovery: stamp value %g below required cost %d", value, requiredValue)
+	wb := wbNE
+	if !MeetsCost(stamp, requiredValue, wbNE) {
+		wbExp, werr := StampWorkblock(infoHash, expandRounds)
+		if werr != nil {
+			return nil, werr
+		}
+		if !MeetsCost(stamp, requiredValue, wbExp) {
+			return nil, fmt.Errorf("discovery: stamp value %g below required cost %d", StampValue(wbExp, stamp), requiredValue)
+		}
+		wb = wbExp
 	}
+	value := StampValue(wb, stamp)
 	info, err := DecodeInfo(packed)
 	if err != nil {
 		return nil, err

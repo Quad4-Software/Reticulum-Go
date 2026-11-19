@@ -599,6 +599,9 @@ func (t *Transport) forwardLinkData(linkID []byte, raw []byte, sourceIface commo
 			"error", err,
 			"out_iface", outIface.GetName())
 	}
+	if !isLocalClientInterface(outIface) {
+		t.linkTxB.Add(uint64(len(out)))
+	}
 	t.linkTable.touch(linkID)
 	return true
 }

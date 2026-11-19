@@ -46,6 +46,8 @@ func (h *RPCHandler) Handle(call map[string]any) any {
 			return h.Transport.GetInterfaceStatsRPC()
 		case "rate_table":
 			return h.Transport.GetRateTableRPC()
+		case "known_destinations":
+			return h.Transport.GetKnownDestinationsRPC()
 		case "next_hop_if_name":
 			return h.Transport.GetNextHopIfNameRPC(decodeHash(call["destination_hash"]))
 		case "next_hop":

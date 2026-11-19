@@ -110,8 +110,14 @@ func TestUDPProcessIncomingCountsRx(t *testing.T) {
 	if !called {
 		t.Fatal("callback not invoked")
 	}
+	// RNS 1.6.1: rxb counts only transport-accepted inbound, not raw
+	// process_incoming traffic (filtered frames count frxb instead).
+	if ui.GetRxBytes() != 0 {
+		t.Fatalf("RxBytes=%d want 0", ui.GetRxBytes())
+	}
+	ui.AcceptedRxTally(len(payload))
 	if ui.GetRxBytes() != uint64(len(payload)) {
-		t.Fatalf("RxBytes=%d want %d", ui.GetRxBytes(), len(payload))
+		t.Fatalf("RxBytes=%d want %d after accept", ui.GetRxBytes(), len(payload))
 	}
 	if ui.GetRxPackets() != 1 {
 		t.Fatalf("RxPackets=%d want 1", ui.GetRxPackets())

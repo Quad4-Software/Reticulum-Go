@@ -571,7 +571,6 @@ func (ai *AutoInterface) handleData(conn *net.UDPConn, ifaceName string) {
 		}
 
 		// Update RX stats
-		ai.RxBytes += uint64(len(data))
 		ai.RxPackets++
 		ai.lastRx = now
 

@@ -21,6 +21,8 @@ const (
 	defaultFastFlapThresholdSec = 20.0
 	defaultFastFlapGrace        = 5
 	defaultFastFlapExpirySec    = 12 * 60 * 60
+	// defaultBackboneClientLimit is Python BackboneInterface.CLIENT_LIMIT.
+	defaultBackboneClientLimit = 500
 )
 
 // fastFlapEntry tracks short-lived reconnects from one remote IP.
@@ -29,6 +31,28 @@ type fastFlapEntry struct {
 	started  time.Time
 	lastFlap time.Time
 	flaps    int
+}
+
+// permanentlyBlockedIPs mirrors Python's class-level fast_flapping entries
+// seeded from the config-dir blocked_ips file: every BackboneInterface
+// instance shares them and they never expire.
+var permanentlyBlockedIPs sync.Map
+
+// BlockPermanently marks remoteIP as blocked for the lifetime of the
+// process (Python blocked_ips file entries use a ~1000-year expiry).
+func BlockPermanently(remoteIP string) {
+	permanentlyBlockedIPs.Store(remoteIP, struct{}{})
+}
+
+// PermanentlyBlockedIPs returns the configured blocked_ips entries.
+func PermanentlyBlockedIPs() []string {
+	var out []string
+	permanentlyBlockedIPs.Range(func(k, _ any) bool {
+		out = append(out, k.(string))
+		return true
+	})
+	sort.Strings(out)
+	return out
 }
 
 // BackboneInterface is a high-throughput TCP server using the process-wide I/O hub.
@@ -54,6 +78,9 @@ type BackboneInterface struct {
 	fastFlapExpiry    time.Duration
 	fastFlapMu        sync.Mutex
 	fastFlapping      map[string]*fastFlapEntry
+
+	// clientLimit caps live spawned peers (Python CLIENT_LIMIT, 500).
+	clientLimit int
 }
 
 // NewBackboneInterface binds a local TCP listener using cfg.Address/cfg.Port or cfg.Interface.
@@ -137,10 +164,16 @@ func NewBackboneInterface(name string, cfg *common.InterfaceConfig, hub *backbon
 		fastFlapExpiry:    time.Duration(expirySec * float64(time.Second)),
 		fastFlapping:      make(map[string]*fastFlapEntry),
 	}
+	bi.clientLimit = defaultBackboneClientLimit
+	if cfg != nil && cfg.ClientLimit > 0 {
+		bi.clientLimit = cfg.ClientLimit
+	}
 	bi.MTU = backboneHWMTU
 	bi.Bitrate = backboneServerBitrateGuess
 	bi.In = true
 	bi.Out = false
+	bi.SetTunnelsAllowed(true)
+	bi.SetLosslessMedium(true)
 	return bi, nil
 }
 
@@ -245,6 +278,14 @@ func (bi *BackboneInterface) acceptConn(conn net.Conn) {
 		return
 	default:
 	}
+	if len(bi.spawned) >= bi.clientLimit {
+		bi.spawnMu.Unlock()
+		release()
+		debug.Log(debug.DebugVerbose, "Ignoring incoming connection over client limit",
+			"iface", bi.Name, "limit", bi.clientLimit)
+		_ = conn.Close()
+		return
+	}
 	if bi.isFastFlappingBlocked(remoteIP) {
 		bi.spawnMu.Unlock()
 		release()
@@ -286,7 +327,13 @@ func peerIP(conn net.Conn) string {
 }
 
 func (bi *BackboneInterface) isFastFlappingBlocked(remoteIP string) bool {
-	if !bi.blockFastFlapping || remoteIP == "" {
+	if remoteIP == "" {
+		return false
+	}
+	if _, ok := permanentlyBlockedIPs.Load(remoteIP); ok {
+		return true
+	}
+	if !bi.blockFastFlapping {
 		return false
 	}
 	now := time.Now()
@@ -302,17 +349,19 @@ func (bi *BackboneInterface) isFastFlappingBlocked(remoteIP string) bool {
 
 // BlockedIPCount returns how many remote IPs are currently blocked for flapping.
 func (bi *BackboneInterface) BlockedIPCount() int {
+	count := len(PermanentlyBlockedIPs())
 	if !bi.blockFastFlapping {
-		return 0
+		return count
 	}
 	now := time.Now()
 	bi.fastFlapMu.Lock()
 	defer bi.fastFlapMu.Unlock()
 	bi.expireFastFlapsLocked(now)
-	count := 0
-	for _, ffe := range bi.fastFlapping {
+	for ip, ffe := range bi.fastFlapping {
 		if ffe.flaps > bi.fastFlapGrace {
-			count++
+			if _, ok := permanentlyBlockedIPs.Load(ip); !ok {
+				count++
+			}
 		}
 	}
 	return count
@@ -322,16 +371,20 @@ func (bi *BackboneInterface) BlockedIPCount() int {
 // Unlike Python's blocked_ip_list (which returns every tracked flap entry),
 // Go only exports IPs that have exceeded the grace threshold.
 func (bi *BackboneInterface) BlockedIPs() []string {
+	out := PermanentlyBlockedIPs()
 	if !bi.blockFastFlapping {
-		return nil
+		return out
 	}
 	now := time.Now()
 	bi.fastFlapMu.Lock()
 	defer bi.fastFlapMu.Unlock()
 	bi.expireFastFlapsLocked(now)
-	out := make([]string, 0)
+	seen := make(map[string]bool, len(out))
+	for _, ip := range out {
+		seen[ip] = true
+	}
 	for ip, ffe := range bi.fastFlapping {
-		if ffe.flaps > bi.fastFlapGrace {
+		if ffe.flaps > bi.fastFlapGrace && !seen[ip] {
 			out = append(out, ip)
 		}
 	}

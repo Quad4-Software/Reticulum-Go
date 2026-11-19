@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/cryptography"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
@@ -74,7 +73,7 @@ func TestLinkIDGeneration(t *testing.T) {
 		t.Fatalf("Failed to create responder identity: %v", err)
 	}
 
-	cfg := &common.ReticulumConfig{}
+	cfg := unstampedLinkConfig()
 	transportInstance := transport.NewTransport(cfg)
 
 	dest, err := destination.New(responderIdent, destination.In, destination.Single, "test", transportInstance, "link")
@@ -187,7 +186,7 @@ func TestLinkEstablishment(t *testing.T) {
 		t.Fatalf("Failed to create responder identity: %v", err)
 	}
 
-	cfg := &common.ReticulumConfig{}
+	cfg := unstampedLinkConfig()
 	transportInstance := transport.NewTransport(cfg)
 
 	dest, err := destination.New(responderIdent, destination.In, destination.Single, "test", transportInstance, "link")
@@ -299,7 +298,7 @@ func TestLinkProofValidation(t *testing.T) {
 		t.Fatalf("Failed to create responder identity: %v", err)
 	}
 
-	cfg := &common.ReticulumConfig{}
+	cfg := unstampedLinkConfig()
 	transportInstance := transport.NewTransport(cfg)
 
 	dest, err := destination.New(responderIdent, destination.In, destination.Single, "test", transportInstance, "link")
@@ -429,7 +428,7 @@ func TestIncomingLinkCountLimit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("identity: %v", err)
 	}
-	tr := transport.NewTransport(&common.ReticulumConfig{})
+	tr := transport.NewTransport(unstampedLinkConfig())
 	t.Cleanup(func() { _ = tr.Close() })
 	dest, err := destination.New(responderIdent, destination.In, destination.Single, "test", tr, "link")
 	if err != nil {

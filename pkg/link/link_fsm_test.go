@@ -17,7 +17,7 @@ import (
 
 func newFSMLink(t *testing.T) (*Link, *transport.Transport, func()) {
 	t.Helper()
-	cfg := &common.ReticulumConfig{}
+	cfg := unstampedLinkConfig()
 	tr := transport.NewTransport(cfg)
 	id, err := identity.New()
 	if err != nil {

@@ -184,13 +184,13 @@ func (p *PipeInterface) Detach()         {}
 func TestNodeInterop(t *testing.T) {
 	skipHeavyLinkTestsIfShort(t)
 	// Create Node A
-	cfgA := &common.ReticulumConfig{}
+	cfgA := unstampedLinkConfig()
 	trA := transport.NewTransport(cfgA)
 	defer trA.Close()
 	idA, _ := identity.New()
 
 	// Create Node B
-	cfgB := &common.ReticulumConfig{}
+	cfgB := unstampedLinkConfig()
 	trB := transport.NewTransport(cfgB)
 	defer trB.Close()
 	idB, _ := identity.New()
@@ -391,12 +391,12 @@ func TestNodeInterop(t *testing.T) {
 func TestLinkRequestResponseInterop(t *testing.T) {
 	skipHeavyLinkTestsIfShort(t)
 	// Create Nodes
-	cfgA := &common.ReticulumConfig{}
+	cfgA := unstampedLinkConfig()
 	trA := transport.NewTransport(cfgA)
 	defer trA.Close()
 	idA, _ := identity.New()
 
-	cfgB := &common.ReticulumConfig{}
+	cfgB := unstampedLinkConfig()
 	trB := transport.NewTransport(cfgB)
 	defer trB.Close()
 	idB, _ := identity.New()

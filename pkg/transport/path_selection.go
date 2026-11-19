@@ -69,21 +69,30 @@ type announcePathInput struct {
 }
 
 func shouldUpdateAnnouncePath(existing *common.Path, in announcePathInput, pathUnresponsive bool) bool {
+	add, _ := announcePathDecision(existing, in, pathUnresponsive)
+	return add
+}
+
+// announcePathDecision resolves the announce path contest. insertionOnly is
+// true when the announce wins solely to replace an unresponsive path on the
+// same emission timebase (Python table_insertion_only): the path updates but
+// the announce is not retransmitted.
+func announcePathDecision(existing *common.Path, in announcePathInput, pathUnresponsive bool) (add, insertionOnly bool) {
 	if !in.destinationKnown || existing == nil {
-		return true
+		return true, false
 	}
 	if in.announceHops <= existing.HopCount {
 		pathTimebase := timebaseFromRandomBlobs(existing.RandomBlobs)
 		emitted := announceEmitted(in.randomBlob)
 		if !randomBlobKnown(existing.RandomBlobs, in.randomBlob) && emitted > pathTimebase {
-			return true
+			return true, false
 		}
 		// Same emission timebase on a higher-affinity interface wins the path
 		// (Python: announce_emitted == path_timebase and announce_gravity > current).
 		if in.affinityKnown && emitted == pathTimebase && in.announceAffinity > in.currentAffinity {
-			return true
+			return true, false
 		}
-		return false
+		return false, false
 	}
 
 	emitted := announceEmitted(in.randomBlob)
@@ -100,13 +109,13 @@ func shouldUpdateAnnouncePath(existing *common.Path, in announcePathInput, pathU
 	}
 
 	if !existing.Expires.IsZero() && !in.now.Before(existing.Expires) {
-		return !randomBlobKnown(existing.RandomBlobs, in.randomBlob)
+		return !randomBlobKnown(existing.RandomBlobs, in.randomBlob), false
 	}
 	if emitted > pathEmitted {
-		return !randomBlobKnown(existing.RandomBlobs, in.randomBlob)
+		return !randomBlobKnown(existing.RandomBlobs, in.randomBlob), false
 	}
 	if emitted == pathEmitted && pathUnresponsive {
-		return true
+		return true, true
 	}
-	return false
+	return false, false
 }

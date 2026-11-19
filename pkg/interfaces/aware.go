@@ -323,6 +323,15 @@ type AwarePeerInterface struct {
 	closed   bool
 }
 
+// SpawnedParent returns the owning AwareInterface for counter propagation
+// (Python parent_interface).
+func (p *AwarePeerInterface) SpawnedParent() common.NetworkInterface {
+	if p.parent != nil {
+		return p.parent
+	}
+	return nil
+}
+
 func newAwarePeerInterface(parent *AwareInterface, peerID int) *AwarePeerInterface {
 	p := &AwarePeerInterface{
 		BaseInterface: NewBaseInterface(

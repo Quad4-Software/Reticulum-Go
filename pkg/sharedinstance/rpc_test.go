@@ -159,3 +159,23 @@ func TestRPCHandlerTimeoutKeys(t *testing.T) {
 		t.Fatalf("medium_path_timeout: %#v want float64 0", got)
 	}
 }
+
+func TestRPCHandlerKnownDestinations(t *testing.T) {
+	cfg := &common.ReticulumConfig{EnableTransport: false, InMemoryStorage: true}
+	tr := transport.NewTransport(cfg)
+	defer tr.Close()
+	h := &RPCHandler{Transport: tr}
+
+	got := h.Handle(map[string]any{"get": "known_destinations"})
+	raw, ok := got.(msgpack.RawMessage)
+	if !ok {
+		t.Fatalf("unexpected known_destinations payload type %T", got)
+	}
+	var decoded map[string]any
+	if err := msgpack.Unmarshal(raw, &decoded); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if len(decoded) != 0 {
+		t.Fatalf("expected empty table, got %d entries", len(decoded))
+	}
+}

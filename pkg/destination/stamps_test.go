@@ -222,3 +222,53 @@ func TestStampedAnnounceDeferred(t *testing.T) {
 		t.Fatal("emitted announce missing stamp ext")
 	}
 }
+
+// The deferred announce job must not retain the caller's tag slice: callers
+// pass tag slices that alias pooled inbound packet buffers recycled once the
+// packet job completes.
+func TestStampedAnnounceJobCopiesTag(t *testing.T) {
+	t.Setenv("RETICULUM_STORAGE_PATH", t.TempDir())
+	StopStamper()
+	t.Cleanup(StopStamper)
+
+	mkDest := func(value float64) *Destination {
+		cfg := &common.ReticulumConfig{Stamps: common.StampsConfig{
+			StampDestinations:   true,
+			DestinationValue:    value,
+			DestinationValueSet: true,
+		}}
+		tr := &mockTransport{config: cfg}
+		id, err := identity.New()
+		if err != nil {
+			t.Fatal(err)
+		}
+		d, err := New(id, In, Single, "app", tr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return d
+	}
+
+	// Occupy the worker with a slow stamp generation so the inspected job
+	// stays queued in stamper.jobs.
+	if !enqueueStampedAnnounce(stampJob{dest: mkDest(30)}) {
+		t.Fatal("enqueue slow job")
+	}
+
+	tag := []byte{0xAA, 0xBB, 0xCC, 0xDD}
+	d2 := mkDest(8)
+	if err := d2.Announce(true, tag, nil); err != nil {
+		t.Fatalf("Announce: %v", err)
+	}
+
+	var job stampJob
+	select {
+	case job = <-stamper.jobs:
+	case <-time.After(5 * time.Second):
+		t.Fatal("deferred announce job never queued")
+	}
+	tag[0] = 0xFF
+	if job.tag[0] == 0xFF {
+		t.Fatal("deferred announce job aliases the caller's tag slice")
+	}
+}

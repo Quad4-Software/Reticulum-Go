@@ -83,7 +83,7 @@ func (r *recordingInterface) GetBandwidthAvailable() bool { return r.bwOK }
 
 func TestNewDestination(t *testing.T) {
 	id, _ := identity.New()
-	transport := &mockTransport{config: &common.ReticulumConfig{}}
+	transport := &mockTransport{config: unstampedTestConfig()}
 
 	dest, err := New(id, In|Out, Single, "testapp", transport, "testaspect")
 	if err != nil {
@@ -236,7 +236,7 @@ func TestAnnounceFanoutAndFreshness(t *testing.T) {
 		"if-b": newRecordingInterface("if-b"),
 		"if-c": newRecordingInterface("if-c"),
 	}
-	tr := &mockTransport{config: &common.ReticulumConfig{}, interfaces: ifaces}
+	tr := &mockTransport{config: unstampedTestConfig(), interfaces: ifaces}
 
 	dest, err := New(id, In|Out, Single, "testapp", tr, "testaspect")
 	if err != nil {
@@ -307,7 +307,7 @@ func TestAnnounceSkipsOfflineOrDisabledInterfaces(t *testing.T) {
 	disabled.enabled = false
 
 	tr := &mockTransport{
-		config: &common.ReticulumConfig{},
+		config: unstampedTestConfig(),
 		interfaces: map[string]common.NetworkInterface{
 			"healthy":  healthy,
 			"offline":  offline,
@@ -348,7 +348,7 @@ func TestAnnounceSkipsReceiveOnlyInterfaces(t *testing.T) {
 	ro.SetOutgoingAllowed(false)
 
 	tr := &mockTransport{
-		config: &common.ReticulumConfig{},
+		config: unstampedTestConfig(),
 		interfaces: map[string]common.NetworkInterface{
 			"tx": tx,
 			"ro": ro,
@@ -389,7 +389,7 @@ func TestAnnounceOnlyReceiveOnlyReturnsNoWritable(t *testing.T) {
 	ro := newRecordingInterface("ro")
 	ro.SetOutgoingAllowed(false)
 	tr := &mockTransport{
-		config: &common.ReticulumConfig{},
+		config: unstampedTestConfig(),
 		interfaces: map[string]common.NetworkInterface{
 			"ro": ro,
 		},
@@ -414,7 +414,7 @@ func TestAnnounceRejectsOutOnly(t *testing.T) {
 	}
 	tx := newRecordingInterface("tx")
 	tr := &mockTransport{
-		config: &common.ReticulumConfig{},
+		config: unstampedTestConfig(),
 		interfaces: map[string]common.NetworkInterface{
 			"tx": tx,
 		},
@@ -441,7 +441,7 @@ func TestAnnounceSkipsAccessPointInterfaces(t *testing.T) {
 	ap := newRecordingInterface("ap")
 	ap.Mode = common.IFModeAccessPoint
 	tr := &mockTransport{
-		config: &common.ReticulumConfig{},
+		config: unstampedTestConfig(),
 		interfaces: map[string]common.NetworkInterface{
 			"full": full,
 			"ap":   ap,
@@ -1030,7 +1030,7 @@ func TestAnnounceFailsWithNoInterfaces(t *testing.T) {
 		t.Fatalf("identity.New: %v", err)
 	}
 	tr := &mockTransport{
-		config:     &common.ReticulumConfig{},
+		config:     unstampedTestConfig(),
 		interfaces: map[string]common.NetworkInterface{},
 	}
 	dest, err := New(id, In|Out, Single, "testapp", tr, "aspect")
@@ -1051,7 +1051,7 @@ func TestAnnounceFailsWhenAllInterfacesUnusable(t *testing.T) {
 	offline := newRecordingInterface("offline")
 	offline.online = false
 	tr := &mockTransport{
-		config: &common.ReticulumConfig{},
+		config: unstampedTestConfig(),
 		interfaces: map[string]common.NetworkInterface{
 			"offline": offline,
 		},
@@ -1101,7 +1101,7 @@ func TestAnnounceThrottlesBurst(t *testing.T) {
 	}
 	iface := newRecordingInterface("udp")
 	tr := &mockTransport{
-		config: &common.ReticulumConfig{},
+		config: unstampedTestConfig(),
 		interfaces: map[string]common.NetworkInterface{
 			"udp": iface,
 		},
@@ -1131,7 +1131,7 @@ func TestAnnounceThrottleWarnsOnce(t *testing.T) {
 	}
 	iface := newRecordingInterface("udp")
 	tr := &mockTransport{
-		config: &common.ReticulumConfig{},
+		config: unstampedTestConfig(),
 		interfaces: map[string]common.NetworkInterface{
 			"udp": iface,
 		},
@@ -1199,5 +1199,17 @@ func TestParseName(t *testing.T) {
 	}
 	if _, _, err := ParseName("   "); err == nil {
 		t.Fatal("whitespace-only name should error")
+	}
+}
+
+// unstampedTestConfig forces the RNS 1.6.1 stamp defaults off so announces
+// run synchronously and assertable on the wire.
+func unstampedTestConfig() *common.ReticulumConfig {
+	return &common.ReticulumConfig{
+		Stamps: common.StampsConfig{
+			StampDestinationsSet: true,
+			StampPRsSet:          true,
+			StampLRsSet:          true,
+		},
 	}
 }

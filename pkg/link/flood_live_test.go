@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/health"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
@@ -55,7 +54,7 @@ type pipeNode struct {
 
 func newPipeNode(t *testing.T, name string) *pipeNode {
 	t.Helper()
-	tr := transport.NewTransport(&common.ReticulumConfig{})
+	tr := transport.NewTransport(unstampedLinkConfig())
 	p := NewPipeInterface(name)
 	n := &pipeNode{tr: tr, pipe: p}
 	p.tr = tr

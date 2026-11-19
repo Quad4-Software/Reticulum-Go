@@ -302,3 +302,16 @@ func TestChooseHashmapUpdateSegment_SelectsNextSegmentBoundary(t *testing.T) {
 		t.Fatalf("expected nextMin %d, got %d", entries, nextMin)
 	}
 }
+
+// unstampedLinkConfig returns a config with the RNS 1.6.1 stamp-generation
+// defaults forced off so announces and link handshakes run synchronously
+// over in-process test pipes.
+func unstampedLinkConfig() *common.ReticulumConfig {
+	return &common.ReticulumConfig{
+		Stamps: common.StampsConfig{
+			StampDestinationsSet: true,
+			StampPRsSet:          true,
+			StampLRsSet:          true,
+		},
+	}
+}

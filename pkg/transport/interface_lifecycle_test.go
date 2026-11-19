@@ -21,7 +21,7 @@ func mockIface(name string, enabled bool) *mockInterface {
 }
 
 func TestUnregisterInterfaceScrubsPaths(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 
 	a := mockIface("a", true)
@@ -54,7 +54,7 @@ func TestUnregisterInterfaceScrubsPaths(t *testing.T) {
 }
 
 func TestUnregisterInterfaceScrubsLinkRelay(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 
 	a := mockIface("a", true)
@@ -96,7 +96,7 @@ func TestUnregisterInterfaceScrubsLinkRelay(t *testing.T) {
 }
 
 func TestUnregisterInterfaceScrubsDiscoveryAndAnnounceTables(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 
 	a := mockIface("wan", true)
@@ -137,7 +137,7 @@ func TestUnregisterInterfaceScrubsDiscoveryAndAnnounceTables(t *testing.T) {
 }
 
 func TestReplaceInterfaceSwapsRegistration(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 
 	first := mockIface("u1", true)
@@ -161,7 +161,7 @@ func TestReplaceInterfaceSwapsRegistration(t *testing.T) {
 }
 
 func TestRequestPathSkipsDisabledInterface(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 
 	up := mockIface("up", true)
@@ -186,13 +186,13 @@ func TestRequestPathSkipsDisabledInterface(t *testing.T) {
 }
 
 func TestUnregisterInterfaceIdempotent(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 	tr.UnregisterInterface("nonexistent")
 }
 
 func TestSendAnnounceSkipsDisabledInterface(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{})
+	tr := NewTransport(unstampedTestConfig(false))
 	defer tr.Close()
 	SetTransportInstance(tr)
 	defer SetTransportInstance(nil)

@@ -33,6 +33,12 @@ func warnAmbiguousIFAC(name, value string) bool {
 	return true
 }
 
+// RNS 1.6.1 autoconnect caps (Reticulum.__autoconnect_warn/cap).
+const (
+	AutoconnectWarn = 6
+	AutoconnectCap  = 12
+)
+
 // Default values used when a fresh configuration is created or fields are
 // omitted from the on-disk file.
 const (
@@ -338,6 +344,17 @@ func LoadConfig(path string) (*common.ReticulumConfig, error) {
 		return nil, fmt.Errorf("read config %q: %w", path, err)
 	}
 
+	// RNS 1.6.1: warn above the soft limit, hard-cap the autoconnect target
+	// unless caps are explicitly disabled.
+	if !cfg.AutoconnectDisableCaps && cfg.AutoconnectDiscoveredInterfaces > 0 {
+		if cfg.AutoconnectDiscoveredInterfaces > AutoconnectCap {
+			cfg.AutoconnectDiscoveredInterfaces = AutoconnectCap
+			debug.Log(debug.DebugWarning, "Auto-connect interface target was capped to "+strconv.Itoa(AutoconnectCap))
+		} else if cfg.AutoconnectDiscoveredInterfaces > AutoconnectWarn {
+			debug.Log(debug.DebugWarning, "Configured more than "+strconv.Itoa(AutoconnectWarn)+" auto-connect interfaces; this is usually excessive")
+		}
+	}
+
 	cfg.NormalizeInMemoryFlags()
 	cfg.ApplyNodeProfile()
 	return cfg, nil
@@ -412,6 +429,8 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		if n > 0 {
 			cfg.AutoconnectDiscoveredInterfaces = n
 		}
+	case "autoconnect_discovered_interfaces_disable_caps":
+		setBool(&cfg.AutoconnectDisableCaps, value)
 	case "autoconnect_unverified_implementations":
 		setBool(&cfg.AutoconnectUnverifiedImplementations, value)
 	case "enable_interface_management":
@@ -606,6 +625,18 @@ func applyStampsOption(cfg *common.ReticulumConfig, key, value string) {
 		if setFloat(value, &s.PRStampTimeout) {
 			s.PRStampTimeoutSet = true
 		}
+	case "max_workers":
+		var n int
+		if setInt(value, &n) {
+			s.MaxWorkers = n
+			s.MaxWorkersSet = true
+		}
+	case "worker_niceness":
+		var n int
+		if setInt(value, &n) {
+			s.WorkerNiceness = n
+			s.WorkerNicenessSet = true
+		}
 	}
 }
 
@@ -667,6 +698,17 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		setBool(&iface.RTSCTS, value)
 	case "dsrdtr":
 		setBool(&iface.DSRDTR, value)
+	case "hop_limiter":
+		var n int
+		setInt(value, &n)
+		if n < 0 {
+			n = 0
+		}
+		if n > 128 {
+			n = 128
+		}
+		iface.HopLimiter = n
+		iface.HopLimiterSet = true
 	case "xonxoff":
 		setBool(&iface.XONXOFF, value)
 	case "frame_idle_ms":
@@ -872,6 +914,8 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		setInt(value, &iface.FastFlappingGrace)
 	case "fast_flapping_block_time":
 		setFloat(value, &iface.FastFlappingBlockTimeMin)
+	case "client_limit":
+		setInt(value, &iface.ClientLimit)
 	case "latitude":
 		setFloat(value, &iface.DiscoveryLatitude)
 		iface.HasDiscoveryGeo = true

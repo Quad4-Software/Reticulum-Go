@@ -164,7 +164,7 @@ func TestForwardAnnounceQueuesWhenCapped(t *testing.T) {
 	copy(pkt[2:], dest)
 	pkt[1] = 1
 
-	if err := tr.forwardAnnouncePacket(pkt, destKey(dest), dest, in); err != nil {
+	if err := tr.forwardAnnouncePacket(pkt, destKey(dest), dest, in, nil); err != nil {
 		t.Fatal(err)
 	}
 	if len(out.sent) != 1 {
@@ -173,7 +173,7 @@ func TestForwardAnnounceQueuesWhenCapped(t *testing.T) {
 
 	pkt2 := append([]byte(nil), pkt...)
 	pkt2[3] = 0xcd
-	if err := tr.forwardAnnouncePacket(pkt2, destKey(dest), dest, in); err != nil {
+	if err := tr.forwardAnnouncePacket(pkt2, destKey(dest), dest, in, nil); err != nil {
 		t.Fatal(err)
 	}
 	if len(out.sent) != 1 {
@@ -198,10 +198,12 @@ func TestForwardAnnounceQueuesWhenCapped(t *testing.T) {
 		t.Fatalf("announce_queue=%d want 1", found.AnnounceQueue)
 	}
 
-	if n := tr.DropAnnounceQueuesRPC(); n != 1 {
-		t.Fatalf("drop=%d want 1", n)
+	// The retransmit flood covers the receiving interface too (Python
+	// announce_table semantics), so both interfaces hold a queued announce.
+	if n := tr.DropAnnounceQueuesRPC(); n != 2 {
+		t.Fatalf("drop=%d want 2", n)
 	}
-	if out.AnnounceQueueLen() != 0 {
+	if out.AnnounceQueueLen() != 0 || in.AnnounceQueueLen() != 0 {
 		t.Fatal("queue not empty after drop")
 	}
 }

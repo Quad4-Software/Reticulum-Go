@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/resource"
@@ -143,12 +142,12 @@ func TestCompleteRequestWithResourcePayload_NoMetadataStillUnwrapsEnvelope(t *te
 func TestLinkRequestPassesMapDataAsDict(t *testing.T) {
 	skipHeavyLinkTestsIfShort(t)
 
-	cfgA := &common.ReticulumConfig{}
+	cfgA := unstampedLinkConfig()
 	trA := transport.NewTransport(cfgA)
 	defer trA.Close()
 	idA, _ := identity.New()
 
-	cfgB := &common.ReticulumConfig{}
+	cfgB := unstampedLinkConfig()
 	trB := transport.NewTransport(cfgB)
 	defer trB.Close()
 

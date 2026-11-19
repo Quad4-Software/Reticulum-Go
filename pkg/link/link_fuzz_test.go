@@ -6,7 +6,6 @@ package link
 import (
 	"testing"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
@@ -14,7 +13,7 @@ import (
 )
 
 func FuzzLinkHandleData(f *testing.F) {
-	cfg := &common.ReticulumConfig{}
+	cfg := unstampedLinkConfig()
 	tr := transport.NewTransport(cfg)
 	defer tr.Close()
 	id, err := identity.New()
@@ -66,7 +65,7 @@ func FuzzLinkHandleData(f *testing.F) {
 
 // FuzzLinkHandleInbound drives HandleInbound across status and context noise.
 func FuzzLinkHandleInbound(f *testing.F) {
-	cfg := &common.ReticulumConfig{}
+	cfg := unstampedLinkConfig()
 	tr := transport.NewTransport(cfg)
 	defer tr.Close()
 	id, err := identity.New()

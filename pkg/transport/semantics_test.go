@@ -68,7 +68,7 @@ func withFastAnnounceForward(t *testing.T) {
 // inject paths or trigger rebroadcasts (Python Transport blackhole gate).
 func TestBlackholeAnnounceDropped(t *testing.T) {
 	withFastAnnounceForward(t)
-	cfg := &common.ReticulumConfig{EnableTransport: true}
+	cfg := unstampedTestConfig(true)
 	tr := NewTransport(cfg)
 	t.Cleanup(func() { _ = tr.Close() })
 
@@ -114,7 +114,7 @@ func TestBlackholeAnnounceDropped(t *testing.T) {
 // may update the path table but must not flood other interfaces.
 func TestPathResponseAnnounceDoesNotRebroadcast(t *testing.T) {
 	withFastAnnounceForward(t)
-	cfg := &common.ReticulumConfig{EnableTransport: true}
+	cfg := unstampedTestConfig(true)
 	tr := NewTransport(cfg)
 	t.Cleanup(func() { _ = tr.Close() })
 
@@ -153,7 +153,7 @@ func TestPathResponseAnnounceDoesNotRebroadcast(t *testing.T) {
 // TestLocalClientAnnounceHopsStayZero ensures shared-instance client
 // announces do not inflate path hop counts (Python hops+=1 then hops-=1).
 func TestLocalClientAnnounceHopsStayZero(t *testing.T) {
-	cfg := &common.ReticulumConfig{EnableTransport: true}
+	cfg := unstampedTestConfig(true)
 	tr := NewTransport(cfg)
 	t.Cleanup(func() { _ = tr.Close() })
 
@@ -180,7 +180,7 @@ func TestLocalClientAnnounceHopsStayZero(t *testing.T) {
 
 // TestPlainMultiHopDropped matches Python packet_filter for PLAIN DATA.
 func TestPlainMultiHopDropped(t *testing.T) {
-	cfg := &common.ReticulumConfig{EnableTransport: true}
+	cfg := unstampedTestConfig(true)
 	tr := NewTransport(cfg)
 	t.Cleanup(func() { _ = tr.Close() })
 
@@ -205,7 +205,7 @@ func TestPlainMultiHopDropped(t *testing.T) {
 // TestDiscoveryPRTagCapKeepsNewest ensures the just-inserted PR tag
 // survives eviction at DiscoveryPRTagsCap.
 func TestDiscoveryPRTagCapKeepsNewest(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	t.Cleanup(func() { _ = tr.Close() })
 	tr.SetIdentity(mustIdentity(t))
 
@@ -248,7 +248,7 @@ func TestDiscoveryPRTagCapKeepsNewest(t *testing.T) {
 // TestLinkRelayUnvalidatedExpiresUnderTraffic ensures unvalidated
 // link-table rows die at proof timeout even when transit refreshes Timestamp.
 func TestLinkRelayUnvalidatedExpiresUnderTraffic(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	t.Cleanup(func() { _ = tr.Close() })
 
 	in := newRelayIface("in")
@@ -289,7 +289,7 @@ func TestLinkRelayUnvalidatedExpiresUnderTraffic(t *testing.T) {
 // to the PATH_RESPONSE exploratory check: ordinary announces must still fan out.
 func TestAcceptanceNormalAnnounceStillRebroadcasts(t *testing.T) {
 	withFastAnnounceForward(t)
-	cfg := &common.ReticulumConfig{EnableTransport: true}
+	cfg := unstampedTestConfig(true)
 	tr := NewTransport(cfg)
 	t.Cleanup(func() { _ = tr.Close() })
 
@@ -331,7 +331,7 @@ func TestHasPathUsesPathfinderE(t *testing.T) {
 // TestReverseTableForwardsReceiptProof ensures multi-hop DATA proofs
 // return via reverse_table.
 func TestReverseTableForwardsReceiptProof(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	t.Cleanup(func() { _ = tr.Close() })
 	tr.SetIdentity(mustIdentity(t))
 
@@ -383,7 +383,7 @@ func TestReverseTableForwardsReceiptProof(t *testing.T) {
 // TestLRProofTransitRequiresValidSignature ensures forged LRPROOF cannot
 // traverse the link relay table, while a correctly signed proof does.
 func TestLRProofTransitRequiresValidSignature(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	t.Cleanup(func() { _ = tr.Close() })
 
 	in := newRelayIface("in")
@@ -510,7 +510,7 @@ func TestExpiredPathReadersAgree(t *testing.T) {
 // of PLAIN announces.
 func TestPlainAnnounceDropped(t *testing.T) {
 	withFastAnnounceForward(t)
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	t.Cleanup(func() { _ = tr.Close() })
 	tr.SetIdentity(mustIdentity(t))
 	in := newTrackingIface("in")
@@ -543,7 +543,7 @@ func TestPlainAnnounceDropped(t *testing.T) {
 // TestReverseProofForLocalClientWithoutTransport ensures receipt
 // proofs still return to a shared-instance client when EnableTransport is off.
 func TestReverseProofForLocalClientWithoutTransport(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: false})
+	tr := NewTransport(unstampedTestConfig(false))
 	t.Cleanup(func() { _ = tr.Close() })
 
 	wan := newRelayIface("wan")
@@ -620,7 +620,7 @@ func TestAPRoamingPathLifetime(t *testing.T) {
 // TestPacketHashFilterDropsDuplicateRelay ensures duplicate DATA is
 // not relayed twice (Python packet_hashlist).
 func TestPacketHashFilterDropsDuplicateRelay(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	t.Cleanup(func() { _ = tr.Close() })
 	tr.SetIdentity(mustIdentity(t))
 
@@ -653,7 +653,7 @@ func TestPacketHashFilterDropsDuplicateRelay(t *testing.T) {
 // TestLinkExpiryMarksUnresponsiveAndRequestsPath covers minimal
 // Python link-table proof-timeout rediscovery.
 func TestLinkExpiryMarksUnresponsiveAndRequestsPath(t *testing.T) {
-	tr := NewTransport(&common.ReticulumConfig{EnableTransport: true})
+	tr := NewTransport(unstampedTestConfig(true))
 	t.Cleanup(func() { _ = tr.Close() })
 
 	out := newRelayIface("out")

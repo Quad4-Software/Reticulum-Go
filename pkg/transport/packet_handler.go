@@ -22,6 +22,7 @@ type packetJob struct {
 	packetType byte
 	destType   byte
 	headerType byte
+	wireLen    int
 	hold       <-chan struct{}
 }
 
@@ -139,7 +140,7 @@ func (t *Transport) runPacketJob(job packetJob) {
 	}
 	defer putPacketCopy(job.pc)
 	defer putInboundPacket(job.pkt)
-	t.dispatchInboundPacket(job.pkt, job.pc.buf, job.iface, job.packetType, job.destType, job.headerType)
+	t.dispatchInboundPacket(job.pkt, job.pc.buf, job.iface, job.packetType, job.destType, job.headerType, job.wireLen)
 }
 
 func (t *Transport) enqueuePacket(job packetJob, block bool) bool {
@@ -195,13 +196,16 @@ func (t *Transport) occupyHandlerPoolForTest(hold <-chan struct{}) int {
 	return filled
 }
 
-func (t *Transport) dispatchInboundPacket(pkt *packet.Packet, payload []byte, iface common.NetworkInterface, packetType, destType, headerType byte) {
+func (t *Transport) dispatchInboundPacket(pkt *packet.Packet, payload []byte, iface common.NetworkInterface, packetType, destType, headerType byte, wireLen int) {
+	if wireLen <= 0 {
+		wireLen = len(payload)
+	}
 	switch packetType {
 	case PacketTypeAnnounce:
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Processing announce packet")
 		}
-		if err := t.handleAnnouncePacket(payload, iface); err != nil {
+		if err := t.handleAnnouncePacketEx(payload, iface, false, wireLen); err != nil {
 			debug.Log(debug.DebugWarning, "Announce handling failed", "error", err)
 		}
 	case PacketTypeLink:
@@ -233,6 +237,7 @@ func (t *Transport) dispatchInboundPacket(pkt *packet.Packet, payload []byte, if
 			if debug.Enabled(debug.DebugVerbose) {
 				debug.Log(debug.DebugVerbose, "Processing link data packet (dest_type=3)", "packet_size", len(payload))
 			}
+			t.linkRxB.Add(uint64(len(payload)))
 			t.handleLinkPacket(payload, pkt, iface, 0)
 		} else {
 			if debug.Enabled(debug.DebugVerbose) {

@@ -448,13 +448,13 @@ func establishImpairedLinkOn(t *testing.T, pair *impairedPipe) (initiator *Link,
 	t.Helper()
 	skipHeavyLinkTestsIfShort(t)
 
-	cfgA := &common.ReticulumConfig{}
+	cfgA := unstampedLinkConfig()
 	trA := transport.NewTransport(cfgA)
 	idA, err := identity.New()
 	if err != nil {
 		t.Fatalf("identity.New: %v", err)
 	}
-	cfgB := &common.ReticulumConfig{}
+	cfgB := unstampedLinkConfig()
 	trB := transport.NewTransport(cfgB)
 
 	pair.tr = trA
@@ -630,6 +630,12 @@ func TestIncomingResourceCCLossyLinkCompletes(t *testing.T) {
 			pkt := &packet.Packet{Raw: append([]byte(nil), data...)}
 			if err := pkt.Unpack(); err != nil {
 				return dropApplyRate
+			}
+			// The setup announce is sent once and never retried, same as
+			// ADV/PRF: a lost announce hangs the test before the CC logic
+			// under test ever runs.
+			if pkt.PacketType == packet.PacketTypeAnnounce {
+				return dropNever
 			}
 			switch pkt.Context {
 			case packet.ContextResourceAdv, packet.ContextResourcePRF, packet.ContextKeepalive:

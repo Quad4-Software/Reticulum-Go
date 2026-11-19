@@ -104,6 +104,10 @@ func normalizeSerialOptions(opts SerialOptions) SerialOptions {
 	return opts
 }
 
+// SharedMedium reports true: serial links are a shared medium per
+// Python SerialInterface.shared_medium.
+func (si *SerialInterface) SharedMedium() bool { return true }
+
 func (si *SerialInterface) String() string {
 	return fmt.Sprintf("SerialInterface[%s/%s]", si.Name, si.opts.Device)
 }
