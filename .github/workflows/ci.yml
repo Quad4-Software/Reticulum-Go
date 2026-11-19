@@ -349,7 +349,7 @@ jobs:
           task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Python venv and RNS
-        run: sh scripts/ci/setup-venv-pip.sh 'rns==1.6.0'
+        run: sh scripts/ci/setup-venv-pip.sh 'rns==1.6.1'
 
       - name: Generate crossref vectors
         run: task test-crossref -- generate
@@ -406,7 +406,7 @@ jobs:
           task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Python venv, RNS, and pyserial
-        run: sh scripts/ci/setup-venv-pip.sh 'rns==1.6.0' 'pyserial'
+        run: sh scripts/ci/setup-venv-pip.sh 'rns==1.6.1' 'pyserial'
 
       - name: Build pageserver example for live tests
         run: |
@@ -453,7 +453,7 @@ jobs:
           task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Python venv and RNS
-        run: sh scripts/ci/setup-venv-pip.sh 'rns==1.6.0'
+        run: sh scripts/ci/setup-venv-pip.sh 'rns==1.6.1'
 
       - name: Generate crossref vectors
         run: task test-crossref -- generate
@@ -1132,7 +1132,7 @@ jobs:
           package-manager-cache: false
 
       - name: Python venv and RNS
-        run: sh scripts/ci/setup-venv-pip.sh 'rns==1.6.0'
+        run: sh scripts/ci/setup-venv-pip.sh 'rns==1.6.1'
 
       - name: Generate crossref vectors
         run: task test-crossref -- generate
