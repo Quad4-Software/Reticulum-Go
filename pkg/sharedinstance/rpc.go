@@ -70,6 +70,8 @@ func (h *RPCHandler) Handle(call map[string]any) any {
 			return h.Transport.IsBlackholedRPC(decodeHash(call["identity_hash"]))
 		case "profiling_results":
 			return profiler.ResultsOrNil()
+		case "memory_stats":
+			return h.Transport.GetMemoryStatsRPC()
 		}
 	}
 	// RNS 1.6.0 destination-type requirement calls (requester/signature

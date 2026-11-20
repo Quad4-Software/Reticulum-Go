@@ -4,13 +4,21 @@
 
 Tracks Python RNS 1.6.1 plus post-release fixes.
 
+### Added
+
+- `rgostatus --memory` prints Go runtime memory stats (heap, stack, sys, goroutines, GC counters, soft limit) and transport table sizes via a new `memory_stats` shared-instance RPC call. Python instances answer it as unavailable.
+
 ### Fixed
 
 - A `discoverable = yes` interface on a non-transport instance without `static_transport_identity` no longer announces under the ephemeral transport identity. Following upstream commit `606a1691`, discovery is disabled for that interface with a warning explaining the `static_transport_identity = yes` option, instead of silently pinning the identity. Previously Go auto-enabled the static identity, matching the earlier upstream behavior that was reverted.
 - `TRANSPORT_VERS` in tunnel synthesis and discovery announces now always carries a version string Python `version_tuple` can parse. Release builds set it from the release tag (bare `1.6.0` form, not `v1.6.0`), in-tree builds use the module pseudo-version, and an unparseable fallback maps to `0.0.0-dev`. Previously a plain build sent `dev`, which Python rejects as a protocol violation, and a v-prefixed string failed the same way. Version parsing for received metadata and autoconnect qualification is now strict like Python's `version_tuple`.
 - The rgosh end-to-end UDP peer configs use a low destination stamp cost so stamp generation does not exceed the announce wait on loaded runners.
+- Known destinations now store the announce payload hash and raw public key instead of a full announce packet copy and a per-destination Identity object, matching the Python `known_destinations` layout (`packet_hash` field). Retained heap per known destination drops by roughly 700 bytes, and the sqlite `packet_hash` column and `known_destinations` RPC export now carry a 32 byte hash like Python instead of the full packet.
+- The in-memory announce packet cache keeps the slim wire fields needed to rebuild a PATH_RESPONSE announce instead of a full packet structure, saving roughly 150 bytes per cached announce.
 
 ### Changed
+
+- When `soft_memory_limit` is unset, a soft heap limit of about 65 percent of the cgroup memory limit or total RAM is applied so freed transport memory is returned instead of riding the GOGC=100 headroom. `GOMEMLIMIT` and explicit `soft_memory_limit` settings take precedence, and a prior programmatic limit is never overridden.
 
 - The tree manifest `reticulum-go.rsm` is now signed by `6947fc2980d273b51a8ff4bc22b290b1`, replacing `e318cbc04468bd574db2b4523dddd710`.
 

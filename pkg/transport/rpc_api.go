@@ -6,6 +6,8 @@ package transport
 import (
 	"math"
 	"reflect"
+	"runtime"
+	"runtime/debug"
 	"time"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
@@ -589,6 +591,40 @@ func (t *Transport) GetInterfaceStatsRPC() InterfaceStatsResponse {
 	t.mutex.RUnlock()
 	resp.Protect = protect.CurrentSnapshot()
 	return resp
+}
+
+// GetMemoryStatsRPC returns Go runtime memory stats plus per-table entry
+// counts for rgostatus --memory. Go-only: Python shared instances do not
+// serve this key and clients must tolerate an empty or failed reply.
+func (t *Transport) GetMemoryStatsRPC() map[string]any {
+	var ms runtime.MemStats
+	runtime.ReadMemStats(&ms)
+	out := map[string]any{
+		"heap_alloc":     ms.HeapAlloc,
+		"heap_inuse":     ms.HeapInuse,
+		"heap_idle":      ms.HeapIdle,
+		"heap_released":  ms.HeapReleased,
+		"heap_sys":       ms.HeapSys,
+		"stack_inuse":    ms.StackInuse,
+		"sys":            ms.Sys,
+		"goroutines":     runtime.NumGoroutine(),
+		"num_gc":         ms.NumGC,
+		"pause_total_ns": ms.PauseTotalNs,
+		"memlimit":       debug.SetMemoryLimit(-1),
+	}
+	if t == nil {
+		return out
+	}
+	t.mutex.RLock()
+	tables := t.memoryStatsUnlocked()
+	t.mutex.RUnlock()
+	out["paths"] = tables.Paths
+	out["packet_hashes"] = tables.PacketHashes
+	out["announce_cache"] = tables.AnnouncePacketCache
+	out["seen_announces"] = tables.SeenAnnounces
+	out["announce_table"] = tables.AnnounceTable
+	out["held_announces"] = tables.HeldAnnounces
+	return out
 }
 
 // updatePacketPPS refreshes transport-wide packet rates for rnstatus -p.

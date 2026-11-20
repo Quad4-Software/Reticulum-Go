@@ -391,6 +391,8 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		cfg.NormalizeInMemoryFlags()
 		if cfg.SoftMemoryLimitBytes > 0 {
 			common.ApplySoftMemoryLimit(cfg.SoftMemoryLimitBytes)
+		} else {
+			common.ApplyDefaultSoftMemoryLimit()
 		}
 		if err := identity.ApplyIdentityBackendFromConfig(cfg.IdentityBackend); err != nil {
 			debug.Log(debug.DebugError, "identity_backend unavailable", "backend", cfg.IdentityBackend, "error", err)
