@@ -1253,6 +1253,7 @@ func (t *Transport) UnregisterInterface(name string) {
 	t.ifaceSnap = nil
 	t.ifaceStates.delete(name)
 	t.markPathTableDirty()
+	health.RemoveIface(name)
 }
 
 // ReplaceInterface swaps the registered implementation for name, scrubbing
@@ -1270,6 +1271,7 @@ func (t *Transport) ReplaceInterface(name string, iface common.NetworkInterface)
 		delete(t.interfaces, name)
 		t.ifaceSnap = nil
 		t.ifaceStates.delete(name)
+		health.RemoveIface(name)
 	}
 	t.registerInterfaceLocked(name, iface)
 	t.activatePendingPathsForInterface(name, iface)
