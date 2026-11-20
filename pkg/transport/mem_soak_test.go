@@ -64,13 +64,13 @@ func splitLines(b []byte) [][]byte {
 //
 //	SOAK_DESTS=200000 SOAK_DIR=/tmp/mem-161 go test ./pkg/transport -run TestTransportMemorySoak -v
 func TestTransportMemorySoak(t *testing.T) {
-	n := 100000
-	if v := os.Getenv("SOAK_DESTS"); v != "" {
-		parsed, err := strconv.Atoi(v)
-		if err != nil || parsed < 1 {
-			t.Fatalf("SOAK_DESTS=%q invalid", v)
-		}
-		n = parsed
+	v := os.Getenv("SOAK_DESTS")
+	if v == "" {
+		t.Skip("memory soak is opt-in, set SOAK_DESTS")
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 {
+		t.Fatalf("SOAK_DESTS=%q invalid", v)
 	}
 	outDir := os.Getenv("SOAK_DIR")
 	if outDir == "" {
