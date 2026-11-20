@@ -5,6 +5,7 @@
 package rate
 
 import (
+	"math"
 	"sync"
 	"time"
 )
@@ -258,6 +259,9 @@ type ingressHeld struct {
 	// dest keys the entry for ReleaseHeldAnnounceFor; zero means no
 	// destination key.
 	dest [16]byte
+	// hops is the wire hop count (packet header byte 1) so the release
+	// can pick the most useful announce like Python 1.6.1 does.
+	hops int
 }
 
 // NewIngressControl constructs an IngressControl with default thresholds.
@@ -372,8 +376,12 @@ func (ic *IngressControl) ProcessAnnounceHashDest(announceHash [32]byte, announc
 	}
 	buf := make([]byte, len(announceData))
 	copy(buf, announceData)
+	hops := math.MaxInt
+	if len(announceData) > 1 {
+		hops = int(announceData[1])
+	}
 	ic.heldIndex[announceHash] = len(ic.heldQueue)
-	ic.heldQueue = append(ic.heldQueue, ingressHeld{hash: announceHash, data: buf, dest: dest})
+	ic.heldQueue = append(ic.heldQueue, ingressHeld{hash: announceHash, data: buf, dest: dest, hops: hops})
 	return false
 }
 
@@ -394,9 +402,40 @@ func (ic *IngressControl) ReleaseHeldAnnounce() (string, []byte, bool) {
 		return "", nil, false
 	}
 
-	entry := ic.removeHeldLocked(0)
+	// Python 1.6.1 releases the lowest-hops (most useful) held announce,
+	// not the queue head.
+	idx := 0
+	for i := 1; i < len(ic.heldQueue); i++ {
+		if ic.heldQueue[i].hops < ic.heldQueue[idx].hops {
+			idx = i
+		}
+	}
+	entry := ic.removeHeldLocked(idx)
 	ic.lastReleaseAt = now
 	return string(entry.hash[:]), entry.data, true
+}
+
+// CullHeldAnnounce drops held entries for which cull returns true and
+// reports how many were removed. The transport layer supplies the
+// predicate so entries that can no longer win against the known path
+// free their queue slots instead of aging out (Python 1.6.1
+// process_held_announces).
+func (ic *IngressControl) CullHeldAnnounce(cull func(dest [16]byte, data []byte) bool) int {
+	if ic == nil || cull == nil {
+		return 0
+	}
+	ic.mutex.Lock()
+	defer ic.mutex.Unlock()
+
+	removed := 0
+	for i := len(ic.heldQueue) - 1; i >= 0; i-- {
+		h := ic.heldQueue[i]
+		if cull(h.dest, h.data) {
+			ic.removeHeldLocked(i)
+			removed++
+		}
+	}
+	return removed
 }
 
 // ReleaseHeldAnnounceFor returns the first queued announce held for dest

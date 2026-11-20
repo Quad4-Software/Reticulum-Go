@@ -193,6 +193,24 @@ func (t *Transport) announcePrefilterDrop(pkt *packet.Packet, nameHash []byte, i
 	return true
 }
 
+// heldAnnounceUseless reports whether a held announce for dest can no longer
+// win against the known path. Python 1.6.1 culls those from the held queue so
+// useful new announces keep their slots. Unknown paths keep their entries.
+func (t *Transport) heldAnnounceUseless(dest hash16, data []byte, recvIface common.NetworkInterface) bool {
+	pkt := &packet.Packet{Raw: data}
+	if err := pkt.Unpack(); err != nil {
+		return false
+	}
+	t.mutex.RLock()
+	path, pathKnown := t.paths[pathMapKey(dest.bytes[:])]
+	pathState := t.pathStates[pathMapKey(dest.bytes[:])]
+	t.mutex.RUnlock()
+	if !pathKnown || path == nil {
+		return false
+	}
+	return !t.announcePrefilterPasses(pkt, path, recvIface, pathState)
+}
+
 // announcePrefilterPasses mirrors Python Transport.announce_prefilter:
 // newer announces pass, older do not, equal timebases prefer higher-gravity
 // receiving interfaces, and unresponsive paths accept equal announces.

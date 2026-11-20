@@ -418,9 +418,10 @@ func TestIngressControl_ReleaseHeldAnnounceFor_IndexConsistency(t *testing.T) {
 	hashB := announceHoldKey("hb")
 	hashC := announceHoldKey("hc")
 
-	ic.ProcessAnnounceHashDest(hashA, []byte("aaa"), true, dA)
-	ic.ProcessAnnounceHashDest(hashB, []byte("bbb"), true, dB)
-	ic.ProcessAnnounceHashDest(hashC, []byte("ccc"), true, dC)
+	// Equal hops bytes keep the release order identical to queue order.
+	ic.ProcessAnnounceHashDest(hashA, []byte{0, 9, 'a'}, true, dA)
+	ic.ProcessAnnounceHashDest(hashB, []byte{0, 9, 'b'}, true, dB)
+	ic.ProcessAnnounceHashDest(hashC, []byte{0, 9, 'c'}, true, dC)
 	clearBurst(t, ic)
 
 	if _, _, ok := ic.ReleaseHeldAnnounceFor(dB); !ok {
@@ -436,7 +437,7 @@ func TestIngressControl_ReleaseHeldAnnounceFor_IndexConsistency(t *testing.T) {
 	}
 
 	// hashC is still queued: resubmitting it is a duplicate.
-	if ic.ProcessAnnounceHashDest(hashC, []byte("ccc2"), true, dC) {
+	if ic.ProcessAnnounceHashDest(hashC, []byte{0, 9, 'c', '2'}, true, dC) {
 		t.Fatal("resubmitted queued hash should be held")
 	}
 	if got := ic.HeldCount(); got != 2 {
@@ -444,14 +445,15 @@ func TestIngressControl_ReleaseHeldAnnounceFor_IndexConsistency(t *testing.T) {
 	}
 
 	// hashB was priority-released: resubmitting queues it again at tail.
-	if ic.ProcessAnnounceHashDest(hashB, []byte("bbb2"), true, dB) {
+	if ic.ProcessAnnounceHashDest(hashB, []byte{0, 9, 'b', '2'}, true, dB) {
 		t.Fatal("released hash should be held again")
 	}
 	if got := ic.HeldCount(); got != 3 {
 		t.Fatalf("HeldCount = %d, want 3 after requeue", got)
 	}
 
-	// Queue order must be A, C, B after the clear and rebuild.
+	// Queue order must be A, C, B after the clear and rebuild (equal
+	// hops bytes, so the release follows queue order).
 	clearBurst(t, ic)
 	want := []string{string(hashA[:]), string(hashC[:]), string(hashB[:])}
 	for i, w := range want {
@@ -505,4 +507,66 @@ func TestPBTAnnounceRateControlDisabledAlwaysAllows(t *testing.T) {
 		},
 	)
 	pbt.Check(t, prop, pbt.WithRuns(80), pbt.WithSeed(88))
+}
+
+func TestIngressControl_ReleaseHeldAnnounce_SelectsLowestHops(t *testing.T) {
+	ic := newBurstingIngress(t)
+	hashFar := announceHoldKey("h-far")
+	hashNear := announceHoldKey("h-near")
+	hashMid := announceHoldKey("h-mid")
+
+	// Wire packets: header byte 1 is the hop count. Hold order is
+	// far, near, mid — a FIFO drain would emit "far" first.
+	ic.ProcessAnnounceHashDest(hashFar, []byte{0x00, 0x07, 0xAA}, true, destAnnounceKey("dest-f"))
+	ic.ProcessAnnounceHashDest(hashNear, []byte{0x00, 0x01, 0xBB}, true, destAnnounceKey("dest-n"))
+	ic.ProcessAnnounceHashDest(hashMid, []byte{0x00, 0x03, 0xCC}, true, destAnnounceKey("dest-m"))
+	clearBurst(t, ic)
+
+	gotHash, gotData, ok := ic.ReleaseHeldAnnounce()
+	if !ok {
+		t.Fatal("release should succeed once burst cleared")
+	}
+	if gotHash != string(hashNear[:]) {
+		t.Errorf("released hash = %q, want lowest-hops %q", gotHash, string(hashNear[:]))
+	}
+	if len(gotData) < 2 || gotData[1] != 0x01 {
+		t.Errorf("released data = %x, want the 1-hop announce", gotData)
+	}
+}
+
+func TestIngressControl_CullHeldAnnounce_DropsUselessEntries(t *testing.T) {
+	ic := newBurstingIngress(t)
+	dKeep := destAnnounceKey("dest-keep")
+	dDrop := destAnnounceKey("dest-drop")
+	hashKeep := announceHoldKey("h-keep")
+	hashDrop := announceHoldKey("h-drop")
+
+	ic.ProcessAnnounceHashDest(hashKeep, []byte{0, 1, 'k'}, true, dKeep)
+	ic.ProcessAnnounceHashDest(hashDrop, []byte{0, 5, 'd'}, true, dDrop)
+	if got := ic.HeldCount(); got != 2 {
+		t.Fatalf("HeldCount = %d, want 2", got)
+	}
+
+	removed := ic.CullHeldAnnounce(func(dest [16]byte, data []byte) bool {
+		return dest == dDrop
+	})
+	if removed != 1 {
+		t.Errorf("culled = %d, want 1", removed)
+	}
+	if got := ic.HeldCount(); got != 1 {
+		t.Errorf("HeldCount = %d, want 1 after cull", got)
+	}
+
+	clearBurst(t, ic)
+	gotHash, _, ok := ic.ReleaseHeldAnnounce()
+	if !ok {
+		t.Fatal("release should succeed")
+	}
+	if gotHash != string(hashKeep[:]) {
+		t.Errorf("released = %q, want surviving %q", gotHash, string(hashKeep[:]))
+	}
+
+	if n := ic.CullHeldAnnounce(nil); n != 0 {
+		t.Errorf("nil predicate cull = %d, want 0", n)
+	}
 }

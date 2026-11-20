@@ -939,9 +939,11 @@ func (t *Transport) MemoryStats() MemoryStats {
 }
 
 // releaseHeldAnnounces replays announces held by per-interface ingress control
-// through handleAnnouncePacket after burst-clear timing allows. Announces
-// answering destinations with pending local path requests are released first:
-// path latency is user-visible while announce redundancy is not.
+// through handleAnnouncePacket after burst-clear timing allows. Entries that
+// can no longer win against the known path are culled first (Python 1.6.1
+// process_held_announces). Announces answering destinations with pending local
+// path requests are released first: path latency is user-visible while
+// announce redundancy is not.
 func (t *Transport) releaseHeldAnnounces() {
 	if t.ifaceStates == nil {
 		return
@@ -964,6 +966,9 @@ func (t *Transport) releaseHeldAnnounces() {
 		if !ok || iface == nil {
 			continue
 		}
+		st.ingress.CullHeldAnnounce(func(dest [16]byte, data []byte) bool {
+			return t.heldAnnounceUseless(destKey(dest[:]), data, iface)
+		})
 		for _, dest := range pendingDests {
 			for {
 				_, data, ok := st.ingress.ReleaseHeldAnnounceFor(dest)
