@@ -120,7 +120,7 @@ func (b *BaseInterface) RemoteTunnelMeta() (impl, vers string, isTN, ok bool, ds
 // transport where the parent is reachable.
 func (b *BaseInterface) AcceptedRxTally(n int) {
 	b.Mutex.Lock()
-	b.RxBytes += uint64(n)
+	b.RxBytes += uint64(n) // #nosec G115 -- n is a byte count, non-negative
 	b.Mutex.Unlock()
 }
 
@@ -128,14 +128,14 @@ func (b *BaseInterface) AcceptedRxTally(n int) {
 // interface tally happens in transport where the parent is reachable.
 func (b *BaseInterface) FilteredRxTally(n int) {
 	b.Mutex.Lock()
-	b.frxb += uint64(n)
+	b.frxb += uint64(n) // #nosec G115 -- n is a byte count, non-negative
 	b.Mutex.Unlock()
 }
 
 // FilteredTxTally adds n filtered outbound bytes (Python ftxb).
 func (b *BaseInterface) FilteredTxTally(n int) {
 	b.Mutex.Lock()
-	b.ftxb += uint64(n)
+	b.ftxb += uint64(n) // #nosec G115 -- n is a byte count, non-negative
 	b.Mutex.Unlock()
 }
 

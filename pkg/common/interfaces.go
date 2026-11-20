@@ -291,21 +291,21 @@ func (i *BaseInterface) GetTxBytes() uint64 {
 func (i *BaseInterface) AcceptedRxTally(n int) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
-	i.RxBytes += uint64(n)
+	i.RxBytes += uint64(n) // #nosec G115 -- n is a byte count, non-negative
 }
 
 // FilteredRxTally counts bytes dropped by inbound filtering (RNS 1.6.1 frxb).
 func (i *BaseInterface) FilteredRxTally(n int) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
-	i.FilteredRxB += uint64(n)
+	i.FilteredRxB += uint64(n) // #nosec G115 -- n is a byte count, non-negative
 }
 
 // FilteredTxTally counts bytes dropped by outbound filtering (RNS 1.6.1 ftxb).
 func (i *BaseInterface) FilteredTxTally(n int) {
 	i.Mutex.Lock()
 	defer i.Mutex.Unlock()
-	i.FilteredTxB += uint64(n)
+	i.FilteredTxB += uint64(n) // #nosec G115 -- n is a byte count, non-negative
 }
 
 // FilteredAnnounce counts a dropped announce (RNS 1.6.1 farxc/afrxc).

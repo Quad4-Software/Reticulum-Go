@@ -59,7 +59,7 @@ func marshalRateTable(entries map[[16]byte]rateTableEntry) []byte {
 	buf.WriteByte(rateTableMaxTS)
 	buf.WriteByte(rateTableKeyLen)
 	buf.Write([]byte{0, 0})
-	_ = binary.Write(buf, binary.LittleEndian, uint32(count)) //nolint:errcheck
+	_ = binary.Write(buf, binary.LittleEndian, uint32(count)) // #nosec G115 -- entry count bounded by the rate table size //nolint:errcheck
 	for _, k := range keys {
 		buf.Write(k[:])
 	}
@@ -73,10 +73,10 @@ func marshalRateTable(entries map[[16]byte]rateTableEntry) []byte {
 		_ = binary.Write(buf, binary.LittleEndian, entries[k].viol) //nolint:errcheck
 	}
 	for _, k := range keys {
-		buf.WriteByte(byte(len(entries[k].timestamps)))
+		buf.WriteByte(byte(len(entries[k].timestamps))) // #nosec G115 -- timestamps capped at rateTableMaxTS (16)
 	}
 	for _, k := range keys {
-		buf.WriteByte(byte(len(entries[k].timestamps) % rateTableMaxTS))
+		buf.WriteByte(byte(len(entries[k].timestamps) % rateTableMaxTS)) // #nosec G115 -- result bounded by the modulus
 	}
 	for _, k := range keys {
 		ts := entries[k].timestamps
@@ -123,7 +123,7 @@ func unmarshalRateTable(blob []byte) (map[[16]byte]rateTableEntry, bool) {
 	blocked := readF64()
 	viol := make([]int32, count)
 	for i := range viol {
-		viol[i] = int32(binary.LittleEndian.Uint32(blob[off+i*4 : off+i*4+4]))
+		viol[i] = int32(binary.LittleEndian.Uint32(blob[off+i*4 : off+i*4+4])) // #nosec G115 -- file field is int32; bit reinterpretation intended
 	}
 	off += count * 4
 	tsLen := make([]int, count)
@@ -180,7 +180,7 @@ func (t *Transport) loadAnnounceRateTable() {
 	if err != nil {
 		return
 	}
-	blob, err := os.ReadFile(path)
+	blob, err := os.ReadFile(path) // #nosec G304 -- path under the node's own config dir
 	if err != nil {
 		return
 	}

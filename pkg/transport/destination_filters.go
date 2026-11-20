@@ -102,11 +102,10 @@ func (f *destinationFilters) registerFlagged(nameHash []byte, fullName string) {
 func (f *destinationFilters) typeName(nameHash []byte) string {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
-	key := string(nameHash)
-	if n, ok := f.names[key]; ok {
+	if n, ok := f.names[string(nameHash)]; ok {
 		return n
 	}
-	if n, ok := f.flagged[key]; ok {
+	if n, ok := f.flagged[string(nameHash)]; ok {
 		return n
 	}
 	return hex.EncodeToString(nameHash)

@@ -386,7 +386,7 @@ func (n *Node) loadConfigDirTables() {
 	if configDir == "" {
 		return
 	}
-	if raw, err := os.ReadFile(filepath.Join(configDir, "blocked_ips")); err == nil {
+	if raw, err := os.ReadFile(filepath.Join(configDir, "blocked_ips")); err == nil { // #nosec G304 -- path under the node's own config dir
 		count := 0
 		for _, line := range strings.Split(string(raw), "\n") {
 			ip := strings.TrimSpace(line)
@@ -407,7 +407,7 @@ func (n *Node) loadConfigDirTables() {
 		{"known_destination_types", n.transport.RegisterKnownDestinationType},
 		{"flagged_destination_types", n.transport.RegisterFlaggedDestinationType},
 	} {
-		raw, err := os.ReadFile(filepath.Join(configDir, table.file))
+		raw, err := os.ReadFile(filepath.Join(configDir, table.file)) // #nosec G304 -- path under the node's own config dir
 		if err != nil {
 			continue
 		}

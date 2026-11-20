@@ -330,6 +330,9 @@ func (t *Transport) handleTunnelSynthesize(data []byte, iface common.NetworkInte
 					}
 					n = int64(kk)
 				case uint:
+					if uint64(kk) > math.MaxInt64 {
+						continue
+					}
 					n = int64(kk)
 				default:
 					continue
@@ -532,7 +535,7 @@ func (t *Transport) dropExpiredTunnels(now time.Time) {
 			delete(t.tunnels, id)
 			continue
 		}
-		if entry.expires.After(now.Add(2 * tunnelTimeout)) || now.After(entry.expires) {
+		if entry.expires.After(now.Add(2*tunnelTimeout)) || now.After(entry.expires) {
 			delete(t.tunnels, id)
 			continue
 		}
