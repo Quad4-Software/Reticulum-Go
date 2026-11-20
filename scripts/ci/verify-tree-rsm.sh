@@ -2,7 +2,7 @@
 # Verify reticulum-go.rsm signature and byte-level file hashes.
 #
 # Env:
-#   RNS_REQUIRED_SIGNER  identity hash (default: e318cbc04468bd574db2b4523dddd710)
+#   RNS_REQUIRED_SIGNER  identity hash (default: 6947fc2980d273b51a8ff4bc22b290b1)
 #   RNS_RSM_PATH         path to .rsm (default: reticulum-go.rsm)
 #   RNS_ID_BIN           reticulum-go binary when rnid is unavailable (default: bin/reticulum-go)
 #   RNS_INVENTORY_OUT    if set, write inventory here only after hash verify succeeds
@@ -15,7 +15,7 @@ set -eu
 ROOT="$(CDPATH='' cd -- "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
-SIGNER="${RNS_REQUIRED_SIGNER:-e318cbc04468bd574db2b4523dddd710}"
+SIGNER="${RNS_REQUIRED_SIGNER:-6947fc2980d273b51a8ff4bc22b290b1}"
 RSM_PATH="${RNS_RSM_PATH:-$ROOT/reticulum-go.rsm}"
 BIN="${RNS_ID_BIN:-$ROOT/bin/reticulum-go}"
 HEADER="# reticulum-go tree manifest v1"

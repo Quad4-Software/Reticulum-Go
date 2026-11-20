@@ -71,7 +71,7 @@ Reproducibility. CI includes a reproducibility check (make reproducibility).
 
 Actions pinning. Third-party actions are pinned to full commit SHAs.
 
-Tree integrity. Root file reticulum-go.rsm is an rnid signed message embedding SHA-256 hashes of tracked files (excluding vendor/ trees). CI verifies signer e318cbc04468bd574db2b4523dddd710 and rechecks bytes at job start and end (make tree-rsm-verify).
+Tree integrity. Root file reticulum-go.rsm is an rnid signed message embedding SHA-256 hashes of tracked files (excluding vendor/ trees). CI verifies signer 6947fc2980d273b51a8ff4bc22b290b1 and rechecks bytes at job start and end (make tree-rsm-verify).
 
 ## Releases
 

@@ -8,7 +8,7 @@ export GOPROXY="${GOPROXY:-off}"
 export GOSUMDB="${GOSUMDB:-off}"
 export GOTOOLCHAIN="${GOTOOLCHAIN:-local}"
 export CGO_ENABLED="${CGO_ENABLED:-0}"
-export RNS_REQUIRED_SIGNER="${RNS_REQUIRED_SIGNER:-e318cbc04468bd574db2b4523dddd710}"
+export RNS_REQUIRED_SIGNER="${RNS_REQUIRED_SIGNER:-6947fc2980d273b51a8ff4bc22b290b1}"
 
 _ci_toolchain="${CI_TOOLCHAIN_ROOT:-$ROOT/.cache/ci-toolchain}"
 if [ -d "$_ci_toolchain/bin" ]; then

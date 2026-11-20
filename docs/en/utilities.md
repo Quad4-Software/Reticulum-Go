@@ -321,7 +321,7 @@ Examples:
 ./bin/reticulum-go id -i id.rid -S "hello" -w note -f
 ./bin/reticulum-go id -i id.rid -S @inventory.txt -w reticulum-go.rsm -f
 ./bin/reticulum-go id -V note.rsm
-./bin/reticulum-go id -i e318cbc04468bd574db2b4523dddd710 -V reticulum-go.rsm -extract
+./bin/reticulum-go id -i 6947fc2980d273b51a8ff4bc22b290b1 -V reticulum-go.rsm -extract
 ./bin/reticulum-go id -i id.rid -e secret.txt -f
 ./bin/reticulum-go id -i id.rid -d secret.txt.rfe -f
 ```

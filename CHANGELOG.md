@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.6.1 - unreleased
+
+Tracks Python RNS 1.6.1 plus post-release fixes.
+
+### Fixed
+
+- A `discoverable = yes` interface on a non-transport instance without `static_transport_identity` no longer announces under the ephemeral transport identity. Following upstream commit `606a1691`, discovery is disabled for that interface with a warning explaining the `static_transport_identity = yes` option, instead of silently pinning the identity. Previously Go auto-enabled the static identity, matching the earlier upstream behavior that was reverted.
+- `TRANSPORT_VERS` in tunnel synthesis and discovery announces now always carries a version string Python `version_tuple` can parse. Release builds set it from the release tag (bare `1.6.0` form, not `v1.6.0`), in-tree builds use the module pseudo-version, and an unparseable fallback maps to `0.0.0-dev`. Previously a plain build sent `dev`, which Python rejects as a protocol violation, and a v-prefixed string failed the same way. Version parsing for received metadata and autoconnect qualification is now strict like Python's `version_tuple`.
+- The rgosh end-to-end UDP peer configs use a low destination stamp cost so stamp generation does not exceed the announce wait on loaded runners.
+
+### Changed
+
+- The tree manifest `reticulum-go.rsm` is now signed by `6947fc2980d273b51a8ff4bc22b290b1`, replacing `e318cbc04468bd574db2b4523dddd710`.
+
 ## v1.6.0 - 2026-11-20
 
 Tracks Python RNS 1.6.1.
