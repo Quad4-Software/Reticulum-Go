@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,6 +18,14 @@ import (
 
 // mediaConversionTimeout matches Python CONVERSION_TIMEOUT.
 const mediaConversionTimeout = 8 * time.Second
+
+const (
+	// convSizeMax caps converter input, matching Python CONV_SIZE_MAX.
+	convSizeMax = 32 << 20
+	// sniffBytes is how much input is read for format detection,
+	// matching Python SNIFF_BYTES.
+	sniffBytes = 64
+)
 
 // mediaBackends are the supported WebP encoders in preference order, matching
 // Python BACKENDS. RNGIT_MEDIA_BACKEND forces a specific backend.
@@ -91,9 +100,48 @@ func selectedMediaBackend() (string, []string, bool) {
 	return "", nil, false
 }
 
+// isBMPHeader verifies a BMP magic plus a plausible DIB header size,
+// matching Python _is_bmp_header.
+func isBMPHeader(data []byte) bool {
+	if len(data) < 18 || data[0] != 'B' || data[1] != 'M' {
+		return false
+	}
+	switch binary.LittleEndian.Uint32(data[14:18]) {
+	case 12, 40, 52, 56, 64, 108, 124:
+		return true
+	}
+	return false
+}
+
+// DetectImageFormat classifies the leading bytes of an image stream,
+// matching Python detect_image_format/_classify_image. Returns "" when the
+// bytes do not match a supported raster format.
+func DetectImageFormat(data []byte) string {
+	switch {
+	case len(data) >= 8 && bytes.Equal(data[:8], []byte("\x89PNG\r\n\x1a\n")):
+		return "png"
+	case len(data) >= 3 && bytes.Equal(data[:3], []byte{0xff, 0xd8, 0xff}):
+		return "jpeg"
+	case len(data) >= 6 && (bytes.Equal(data[:6], []byte("GIF87a")) || bytes.Equal(data[:6], []byte("GIF89a"))):
+		return "gif"
+	case len(data) >= 4 && (bytes.Equal(data[:4], []byte("II*\x00")) || bytes.Equal(data[:4], []byte("MM\x00*"))):
+		return "tiff"
+	default:
+		if _, _, ok := webpInfo(data); ok {
+			return "webp"
+		}
+		if isBMPHeader(data) {
+			return "bmp"
+		}
+		return ""
+	}
+}
+
 // configuredMediaArgv applies quality and dimension options to the backend
-// argv, matching Python _configured_backend.
-func configuredMediaArgv(quality, maxDimension int) (string, []string, bool) {
+// argv, matching Python _configured_backend. For ImageMagick-family backends
+// a non-empty inputSpec (e.g. "png:-") replaces the "-" input argument so the
+// decoder is selected explicitly and cannot be driven by crafted input.
+func configuredMediaArgv(quality, maxDimension int, inputSpec string) (string, []string, bool) {
 	name, argv, ok := selectedMediaBackend()
 	if !ok {
 		return "", nil, false
@@ -109,6 +157,14 @@ func configuredMediaArgv(quality, maxDimension int) (string, []string, bool) {
 	}
 	switch name {
 	case "magick", "convert", "gm":
+		if inputSpec != "" {
+			for i, a := range argv {
+				if a == "-" {
+					argv[i] = inputSpec
+					break
+				}
+			}
+		}
 		var options []string
 		if qualityArg > 0 {
 			options = append(options, "-quality", strconv.Itoa(qualityArg))
@@ -184,10 +240,12 @@ func validWebP(path string) bool {
 }
 
 // ConvertToWebP runs inputArgv piped through the selected WebP encoder into
-// outputPath, matching Python media.convert_to_webp.
+// outputPath, matching Python media.convert_to_webp. The input stream is
+// sniffed and must classify as a supported raster format, and the encoder
+// gets an explicit "format:-" input spec, so crafted input can never drive
+// an ImageMagick coder or delegate into reading arbitrary files.
 func ConvertToWebP(inputArgv []string, outputPath, cwd string, timeout time.Duration, quality, maxDimension int) bool {
-	backend, encoderArgv, ok := configuredMediaArgv(quality, maxDimension)
-	if !ok {
+	if _, _, ok := configuredMediaArgv(quality, maxDimension, ""); !ok {
 		return false
 	}
 	if timeout <= 0 {
@@ -208,21 +266,57 @@ func ConvertToWebP(inputArgv []string, outputPath, cwd string, timeout time.Dura
 	if err != nil {
 		return false
 	}
-	encoderProc := exec.CommandContext(ctx, encoderArgv[0], encoderArgv[1:]...) // #nosec G204 -- fixed backend argv
-	encoderProc.Stdin = pipe
-	encoderProc.Stdout = out
+	if err := inputProc.Start(); err != nil {
+		return false
+	}
+	defer inputProc.Wait() // #nosec G104 -- best effort reap
 
+	// Sniff the leading bytes and reject anything that is not a supported
+	// image before the encoder process is ever spawned.
+	prefix := make([]byte, sniffBytes)
+	n, _ := io.ReadFull(pipe, prefix)
+	prefix = prefix[:n]
+	detected := DetectImageFormat(prefix)
+	if detected == "" {
+		_ = inputProc.Process.Kill()
+		return false
+	}
+	_, encoderArgv, ok := configuredMediaArgv(quality, maxDimension, detected+":-")
+	if !ok {
+		_ = inputProc.Process.Kill()
+		return false
+	}
+
+	encoderProc := exec.CommandContext(ctx, encoderArgv[0], encoderArgv[1:]...) // #nosec G204 -- fixed backend argv
+	encStdin, err := encoderProc.StdinPipe()
+	if err != nil {
+		return false
+	}
+	encoderProc.Stdout = out
 	if err := encoderProc.Start(); err != nil {
 		return false
 	}
-	if err := inputProc.Start(); err != nil {
+
+	// Pump the stream with a hard size cap instead of wiring the input
+	// process straight into the encoder.
+	written := int64(len(prefix))
+	_, werr := encStdin.Write(prefix)
+	if werr == nil {
+		var copied int64
+		copied, werr = io.Copy(encStdin, io.LimitReader(pipe, convSizeMax-written+1))
+		written += copied
+	}
+	_ = encStdin.Close()
+	if werr != nil || written > convSizeMax {
+		_ = inputProc.Process.Kill()
+		_ = encoderProc.Process.Kill()
 		_ = encoderProc.Wait()
 		return false
 	}
+
 	encErr := encoderProc.Wait()
 	_ = inputProc.Wait()
 	if encErr != nil || ctx.Err() != nil {
-		_ = backend
 		return false
 	}
 	if !validWebP(outputPath) {
@@ -232,13 +326,18 @@ func ConvertToWebP(inputArgv []string, outputPath, cwd string, timeout time.Dura
 }
 
 // ConvertFileToWebP encodes a file to WebP and returns the temporary output
-// path, matching Python convert_file_to_webp.
+// path, matching Python convert_file_to_webp. The source is size-capped and
+// must sniff as a supported image, and the encoder gets an explicit
+// "format:-" input spec.
 func ConvertFileToWebP(sourcePath string, quality, maxDimension int, timeout time.Duration) (string, bool) {
-	_, encoderArgv, ok := configuredMediaArgv(quality, maxDimension)
-	if !ok {
+	if _, _, ok := configuredMediaArgv(quality, maxDimension, ""); !ok {
 		return "", false
 	}
-	if st, err := os.Stat(sourcePath); err != nil || !st.Mode().IsRegular() {
+	st, err := os.Stat(sourcePath)
+	if err != nil || !st.Mode().IsRegular() {
+		return "", false
+	}
+	if st.Size() > convSizeMax {
 		return "", false
 	}
 	if timeout <= 0 {
@@ -265,6 +364,21 @@ func ConvertFileToWebP(sourcePath string, quality, maxDimension int, timeout tim
 		return "", false
 	}
 	defer in.Close()
+
+	prefix := make([]byte, sniffBytes)
+	n, _ := io.ReadFull(in, prefix)
+	prefix = prefix[:n]
+	detected := DetectImageFormat(prefix)
+	if detected == "" {
+		return "", false
+	}
+	if _, err := in.Seek(0, io.SeekStart); err != nil {
+		return "", false
+	}
+	_, encoderArgv, ok := configuredMediaArgv(quality, maxDimension, detected+":-")
+	if !ok {
+		return "", false
+	}
 
 	cmd := exec.CommandContext(ctx, encoderArgv[0], encoderArgv[1:]...) // #nosec G204 -- fixed backend argv
 	cmd.Stdin = in
