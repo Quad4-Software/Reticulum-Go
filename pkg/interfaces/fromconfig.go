@@ -114,6 +114,11 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			spawn = ctx.SpawnBackbone
 		}
 		iface, err = NewBackboneFromConfig(name, cfg, hub, spawn)
+		if err == nil {
+			if bc, ok := iface.(*BackboneClientInterface); ok && ctx != nil && ctx.SynthesizeTunnel != nil {
+				bc.SetTunnelSynth(ctx.SynthesizeTunnel)
+			}
+		}
 	case "AwareInterface":
 		role := cfg.AwareRole
 		if role == "" && (cfg.Mode == "publish" || cfg.Mode == "subscribe") {

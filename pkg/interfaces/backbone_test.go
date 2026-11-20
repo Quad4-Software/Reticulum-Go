@@ -673,3 +673,51 @@ func BenchmarkBackboneSend(b *testing.B) {
 		}
 	}
 }
+
+func TestBackboneClientSynthesizesTunnelOnConnect(t *testing.T) {
+	hub := testBackboneHub(t)
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := ln.Addr().(*net.TCPAddr).Port
+	_ = ln.Close()
+
+	server, err := NewBackboneInterface("server", &common.InterfaceConfig{
+		Enabled: true,
+		Address: "127.0.0.1",
+		Port:    port,
+	}, hub, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := server.Start(); err != nil {
+		t.Fatalf("server Start: %v", err)
+	}
+	t.Cleanup(func() { _ = server.Stop() })
+
+	client, err := NewBackboneClientInterface("client", &common.InterfaceConfig{
+		Enabled:    true,
+		TargetHost: "127.0.0.1",
+		TargetPort: port,
+	}, hub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = client.Stop() })
+
+	synthCh := make(chan TunnelPeer, 4)
+	client.SetTunnelSynth(func(p TunnelPeer) { synthCh <- p })
+
+	select {
+	case p := <-synthCh:
+		if p != client {
+			t.Fatal("tunnel peer mismatch")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("expected tunnel synthesis on backbone client connect")
+	}
+	if !client.WantsTunnel() {
+		t.Fatal("client should want a tunnel after connect")
+	}
+}
