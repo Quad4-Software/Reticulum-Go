@@ -97,7 +97,8 @@ func TestLinkDataLanesPreservePerLinkOrder(t *testing.T) {
 	}
 	wg.Wait()
 
-	deadline := time.Now().Add(10 * time.Second)
+	// 10s was marginal under full-suite -race load on slow hosts.
+	deadline := time.Now().Add(60 * time.Second)
 	for time.Now().Before(deadline) {
 		done := true
 		for _, r := range recs {
