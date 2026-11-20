@@ -727,8 +727,14 @@ jobs:
           # qemu-user-binfmt, so fall back to it when the static name has no
           # installation candidate.
           sudo apt-get install -y qemu-user-static || sudo apt-get install -y qemu-user-binfmt
-          command -v "${QEMU_BIN}"
-          "${QEMU_BIN}" --version | head -1
+          # qemu-user-binfmt ships dynamic interpreters (qemu-<arch>), not the
+          # static names. Accept either, matching run-qemu-arch-self-check.sh.
+          QEMU_RESOLVED="$(command -v "${QEMU_BIN}" || command -v "${QEMU_BIN%-static}" || true)"
+          if [ -z "${QEMU_RESOLVED}" ]; then
+            echo "qemu binary not found for ${QEMU_BIN}" >&2
+            exit 1
+          fi
+          "${QEMU_RESOLVED}" --version | head -1
         env:
           QEMU_BIN: ${{ matrix.qemu }}
 
