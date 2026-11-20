@@ -639,8 +639,15 @@ func TestIncomingResourceCCLossyLinkCompletes(t *testing.T) {
 			if pkt.PacketType == packet.PacketTypeAnnounce {
 				return dropNever
 			}
+			// Link establishment packets are sent once, same as the
+			// announce: a dropped LINKREQUEST or LRPROOF fails the setup
+			// phase rather than exercising data-path loss.
+			if pkt.PacketType == packet.PacketTypeLinkReq {
+				return dropNever
+			}
 			switch pkt.Context {
-			case packet.ContextResourceAdv, packet.ContextResourcePRF, packet.ContextKeepalive:
+			case packet.ContextResourceAdv, packet.ContextResourcePRF, packet.ContextKeepalive,
+				packet.ContextLRRTT, packet.ContextLRProof:
 				return dropNever
 			}
 			return dropApplyRate
