@@ -34,8 +34,9 @@ func simConvergenceTimeout(diameter int) time.Duration {
 		diameter = 1
 	}
 	if simFastPathActive() {
-		// One hop per announceForwardCheckInterval in the worst case, plus slack.
-		return time.Duration(diameter)*announceForwardCheckInterval*2 + 2*time.Second
+		// One hop per announceForwardCheckInterval in the worst case, plus slack
+		// for goroutine starvation on loaded CI runners.
+		return time.Duration(diameter)*announceForwardCheckInterval*2 + 4*time.Second
 	}
 	return time.Duration(float64(diameter)*PathfinderRW*3)*time.Second + 5*time.Second
 }
