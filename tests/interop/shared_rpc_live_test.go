@@ -103,7 +103,7 @@ func TestLiveInteropPythonRPCAgainstGoUnixSharedInstance(t *testing.T) {
 		SharedInstanceType: common.SharedInstanceUnix,
 		EnableTransport:    false,
 		ConfigPath:         cfgPath,
-		Stamps:              common.StampsConfig{DestinationValue: 8, DestinationValueSet: true},
+		Stamps:             common.StampsConfig{DestinationValue: 8, DestinationValueSet: true},
 	}
 	n, err := node.New(goCfg)
 	if err != nil {
@@ -159,7 +159,7 @@ func TestLiveGoRPCUnixSharedInstance(t *testing.T) {
 		SharedInstanceType: common.SharedInstanceUnix,
 		EnableTransport:    false,
 		ConfigPath:         cfgPath,
-		Stamps:              common.StampsConfig{DestinationValue: 8, DestinationValueSet: true},
+		Stamps:             common.StampsConfig{DestinationValue: 8, DestinationValueSet: true},
 	}
 	n, err := node.New(goCfg)
 	if err != nil {
