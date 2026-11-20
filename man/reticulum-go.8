@@ -34,6 +34,10 @@ Operators must follow local license, band, power, and interference rules.
 Graceful shutdown.
 .It Dv SIGHUP
 Reload interfaces from configuration (Unix).
+.It Dv SIGUSR1
+Write a heap profile to
+.Pa <config>/storage/heap-<nanoseconds>.pprof
+(Unix). The newest five heap-*.pprof files are kept.
 .El
 .Sh FILES
 .Bl -tag -width "~/.reticulum-go/logfile/reticulum.log"

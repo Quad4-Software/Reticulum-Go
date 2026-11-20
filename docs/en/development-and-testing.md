@@ -647,6 +647,16 @@ Builds and runs bindings/c/examples (smoke plus page-fetch/pageserver compile). 
 4. For protocol behavior, add or extend interop test when feasible
 5. Update [Compatibility](compatibility.md) and [COMPATIBILITY.md](../../COMPATIBILITY.md) if parity status changes
 
+## Memory diagnostics on a running node
+
+Three ways to inspect memory on a production node without restarting it:
+
+- `rgostatus --memory` prints Go runtime stats (heap, stack, sys, goroutines, GC counters, the effective soft limit) and transport table sizes from the shared-instance RPC. Python shared instances answer it as unavailable.
+- `SIGUSR1` (Unix) writes a pprof heap profile to `<config dir>/storage/heap-<nanoseconds>.pprof`. The newest five `heap-*.pprof` files are kept. Analyze offline with `go tool pprof -top <file>`.
+- `RETICULUM_PPROF_ADDR=127.0.0.1:6060` binds a localhost-only net/http/pprof listener at daemon start. Fetch a profile with `go tool pprof http://127.0.0.1:6060/debug/pprof/heap`. Leave it unset on hosts where localhost is not trusted.
+
+When a soft memory limit is in effect (always on current builds unless `GOMEMLIMIT` or `soft_memory_limit` overrides it), the daemon logs a warning once heap usage crosses 85 percent of the limit and re-arms below 70 percent. Setting `RETICULUM_HEAP_DUMP_ON_THRESHOLD=1` also writes a bounded heap profile to the storage directory on each crossing.
+
 ## Related documents
 
 - [Security](security.md) for CI scan detail

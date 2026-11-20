@@ -136,6 +136,10 @@ func runDaemon(opts daemonOptions) int {
 	r.StartControlAPI()
 	startPprofIfRequested()
 
+	storageDir := memwatchStorageDir(cfg.ConfigPath)
+	watchHeapDumpSignal(storageDir)
+	watchMemory(storageDir)
+
 	if err := sandbox.Apply(cfg); err != nil {
 		debug.Log(debug.DebugError, "Sandbox application failed", "error", err)
 		if cfg != nil && (cfg.PanicOnInterfaceErr || cfg.SandboxStrict) {

@@ -72,7 +72,7 @@ storage/ratchets/ holds known-peer public keys named by destination hash (Python
 | in_memory_known_destinations | no | Keep known destinations in RAM only |
 | in_memory_storage | no | Fully ephemeral mode: no disk for paths, known dests, known-peer ratchets, transport identity, blackhole, or split resources. Implies both table flags |
 | identity_backend | file | Identity at-rest store: file, secretservice (Freedesktop Secret Service), or keyring (Linux kernel keyring) |
-| soft_memory_limit | (none) | Soft heap budget (K/M/G or bytes) via Go debug.SetMemoryLimit. Env: RETICULUM_SOFT_MEMORY_LIMIT |
+| soft_memory_limit | derived | Soft heap budget (K/M/G or bytes) via Go debug.SetMemoryLimit. Unset uses about 65 percent of the cgroup limit or total RAM. GOMEMLIMIT and a prior programmatic limit take precedence. Env: RETICULUM_SOFT_MEMORY_LIMIT |
 | dos_protection | off | Go-only local IDS/IPS gates. Default off. Values: off, detect, prevent, auto (alias smart). See [DoS protection](#dos_protection-go-only) |
 | max_in_memory_paths | 100000 | Soft cap on the live path table in RAM (disk-backed and in-memory). Zero uses default. Negative disables. Env: RETICULUM_MAX_IN_MEMORY_PATHS |
 | max_in_memory_known_destinations | 100000 | Soft cap on known destinations in RAM. Zero uses default. Negative disables. Env: RETICULUM_MAX_IN_MEMORY_KNOWN_DESTINATIONS |

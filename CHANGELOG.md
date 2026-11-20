@@ -7,6 +7,7 @@ Tracks Python RNS 1.6.1 plus post-release fixes.
 ### Added
 
 - `rgostatus --memory` prints Go runtime memory stats (heap, stack, sys, goroutines, GC counters, soft limit) and transport table sizes via a new `memory_stats` shared-instance RPC call. Python instances answer it as unavailable.
+- `SIGUSR1` on Unix writes a bounded heap profile to `<config>/storage/heap-<ts>.pprof` for production diagnostics, the daemon warns when heap crosses 85 percent of the soft memory limit, and `RETICULUM_HEAP_DUMP_ON_THRESHOLD=1` writes a bounded profile on each crossing.
 
 ### Fixed
 
