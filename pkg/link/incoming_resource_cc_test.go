@@ -500,7 +500,8 @@ func establishImpairedLinkOn(t *testing.T, pair *impairedPipe) (initiator *Link,
 	if err := initiatorLink.Establish(); err != nil {
 		t.Fatalf("Establish: %v", err)
 	}
-	deadline := time.Now().Add(20 * time.Second)
+	// 20s was marginal under full-suite -race load on slow hosts.
+	deadline := time.Now().Add(60 * time.Second)
 	for time.Now().Before(deadline) {
 		respMu.Lock()
 		up := responderLink != nil
