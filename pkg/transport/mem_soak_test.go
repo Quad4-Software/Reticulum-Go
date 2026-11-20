@@ -82,6 +82,12 @@ func TestTransportMemorySoak(t *testing.T) {
 	}
 
 	cfg := unstampedTestConfig(true)
+	if v := os.Getenv("SOAK_MAX_PATHS"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil {
+			cfg.MaxInMemoryPaths = p
+			cfg.MaxInMemoryPathsSet = true
+		}
+	}
 	if storage != "" {
 		cfg.ConfigPath = filepath.Join(storage, "config")
 	}
