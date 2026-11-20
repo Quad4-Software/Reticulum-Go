@@ -348,6 +348,8 @@ PYTHON_INTEROP=.venv/bin/python RUN_LIVE_INTEROP=1 go test -v ./tests/interop/..
 
 RNS 1.6.1 generates destination stamps by default at value 25, which is too slow for tests. Both sides use a low-cost convention so the wire shape stays stamped but generation is cheap: Go peers set `DestinationValue` in `interopPeerConfig()` (tests/interop/link_live_test.go) and the Python helpers set `DEST_VALUE` in their RNS config, both to 8.
 
+The 1.6.1 wheel on PyPI was respun once as `rns-1.6.1-0` (2026-11-19) to hotfix the `rngit` media conversion helpers. `pip install rns==1.6.1` resolves to the hotfix build, which is the only version these tests are run against.
+
 With pipx (`pipx install rns`), the interop harness and self-check also auto-detect `~/.local/share/pipx/venvs/rns/bin/python` when `PYTHON_INTEROP` is unset.
 
 #### Debug harness

@@ -23,6 +23,7 @@ Tracks Python RNS 1.6.1.
 - Removed dead code: the unused `AnnounceManager`/`AnnounceEntry` announce queue (`pkg/transport/announce.go`) and the constants only it referenced (`MaxRetries`, `RetryInterval`, `MaxQueueSize`, `MinPriorityDelta`, `DefaultPropagationRate`), the unused `AnnounceTimeout` constant, and the unused `rate.DefaultAnnounceRate*` constants. The live announce path (`handleAnnouncePacket` plus delayed forwarding) is unchanged.
 - The egress announce-rate grace fallback now uses the same default (5) as the transport-default path instead of a divergent constant (3).
 - The incoming-resource watchdog now re-requests an overdue hashmap update (HMU) even while parts are still arriving. Previously the stall check only fired after full transfer idleness, so a lost HMU left the receiver silent for the remainder of the window; on slow or deeply queued paths that silence could outlive the peer's keepalive and get the link marked stale mid-transfer. The re-request leaves in-flight part reservations and window state untouched.
+- `rnsgit` media conversion now sniffs the input image format before invoking an external encoder, rejects input that is not a supported image, caps conversion input at 32 MiB, and passes an explicit input format specification to ImageMagick-family backends instead of an unconstrained stdin. This ports the upstream RNS 1.6.1 hotfix (wheel respin `rns-1.6.1-0`, published 2026-11-19) that blocks arbitrary file reads through crafted media input.
 
 ### Performance
 
