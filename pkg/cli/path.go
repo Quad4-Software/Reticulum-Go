@@ -133,7 +133,7 @@ func RunPath(args []string, opt ...Options) int {
 				Active: *active, Usage: *usage, Vias: *vias, Expiry: *expiry, MinValue: *minValue,
 			},
 			stdout: stdout,
-			stderr:      stderr,
+			stderr: stderr,
 		})
 	}
 
