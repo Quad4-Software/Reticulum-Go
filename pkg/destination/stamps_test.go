@@ -261,11 +261,20 @@ func TestStampedAnnounceJobCopiesTag(t *testing.T) {
 		t.Fatalf("Announce: %v", err)
 	}
 
+	// The slow job may still be queued ahead of d2's job if the worker has
+	// not dequeued it yet; skip jobs belonging to other destinations.
+	deadline := time.Now().Add(5 * time.Second)
 	var job stampJob
-	select {
-	case job = <-stamper.jobs:
-	case <-time.After(5 * time.Second):
-		t.Fatal("deferred announce job never queued")
+	for found := false; !found; {
+		select {
+		case got := <-stamper.jobs:
+			if got.dest == d2 {
+				job = got
+				found = true
+			}
+		case <-time.After(deadline.Sub(time.Now())):
+			t.Fatal("deferred announce job never queued")
+		}
 	}
 	tag[0] = 0xFF
 	if job.tag[0] == 0xFF {
