@@ -64,7 +64,7 @@ def main() -> int:
     # tens of seconds on a loaded test host. Keep the stamped wire shape but
     # lower the work factor for the interop run.
     RNS.Transport.DESTINATION_VALUE = float(os.environ.get("DEST_VALUE", "8"))
-RNS.Transport.DESTINATION_COST = float(os.environ.get("DEST_COST", "8"))
+    RNS.Transport.DESTINATION_COST = float(os.environ.get("DEST_COST", "8"))
 
     identity = RNS.Identity()
     destination = RNS.Destination(

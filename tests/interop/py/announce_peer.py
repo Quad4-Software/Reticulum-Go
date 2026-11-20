@@ -63,7 +63,7 @@ def main() -> int:
     # 1.6.1 stamps announces by default at DESTINATION_VALUE=25, which takes
     # far too long in tests. Keep the stamped wire shape with a cheap cost.
     RNS.Transport.DESTINATION_VALUE = float(os.environ.get("DEST_VALUE", "8"))
-RNS.Transport.DESTINATION_COST = float(os.environ.get("DEST_COST", "8"))
+    RNS.Transport.DESTINATION_COST = float(os.environ.get("DEST_COST", "8"))
 
     identity = RNS.Identity()
     destination = RNS.Destination(

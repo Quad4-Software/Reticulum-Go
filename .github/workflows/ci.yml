@@ -852,7 +852,9 @@ jobs:
     name: Swift bindings
     needs: changes
     if: needs.changes.outputs.bindings == 'true'
-    runs-on: ubuntu-latest
+    # Pinned image: the toolchain tarball targets ubuntu24.04 and links
+    # libxml2.so.2, which no longer exists on newer ubuntu-latest images.
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - name: Harden runner

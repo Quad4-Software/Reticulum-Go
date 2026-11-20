@@ -78,22 +78,6 @@ URL="https://download.swift.org/swift-${SWIFT_VERSION}-release/${PLATFORM}/swift
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-# The toolchain's swift-test links against the system libxml2. Recent
-# ubuntu-latest images no longer ship it, so install the runtime package
-# when it is missing and we can.
-if ! ldconfig -p 2>/dev/null | grep -q 'libxml2\.so\.2'; then
-	if command -v apt-get >/dev/null 2>&1; then
-		SUDO=""
-		if [ "$(id -u)" != "0" ]; then
-			SUDO="sudo"
-		fi
-		$SUDO apt-get update -qq && $SUDO apt-get install -y libxml2 || \
-			echo "warning: could not install libxml2, swift-test may fail" >&2
-	else
-		echo "warning: libxml2.so.2 missing and no apt-get, swift-test may fail" >&2
-	fi
-fi
-
 echo "Downloading $URL"
 curl -fsSL "$URL" -o "$TMP/swift.tar.gz"
 mkdir -p "$INSTALL_DIR"
