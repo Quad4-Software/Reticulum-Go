@@ -16,6 +16,9 @@ Tracks Python RNS 1.6.1 plus post-release fixes.
 - The rgosh end-to-end UDP peer configs use a low destination stamp cost so stamp generation does not exceed the announce wait on loaded runners.
 - Known destinations now store the announce payload hash and raw public key instead of a full announce packet copy and a per-destination Identity object, matching the Python `known_destinations` layout (`packet_hash` field). Retained heap per known destination drops by roughly 700 bytes, and the sqlite `packet_hash` column and `known_destinations` RPC export now carry a 32 byte hash like Python instead of the full packet.
 - The in-memory announce packet cache keeps the slim wire fields needed to rebuild a PATH_RESPONSE announce instead of a full packet structure, saving roughly 150 bytes per cached announce.
+- Path table, announce packet cache, and seen-announce maps are rebuilt once they drop below half of their observed peak, since Go maps otherwise keep their full bucket allocation after large culls.
+- Over-cap path table eviction now selects the batch of oldest entries in a single pass instead of an O(n x batch) rescan per insert, cutting the per-announce eviction cost at a full 350k table from about 2 ms to 0.6 ms.
+- Path table persistence streams to a temporary file through a buffered msgpack encoder instead of marshaling the whole table into a second in-memory copy, removing the large transient allocation on each save.
 
 ### Changed
 
