@@ -1,0 +1,266 @@
+# GoReleaser configuration for reticulum-go.
+#
+# This mirrors the build flags of scripts/ci/build-named-release-binary.sh
+# and .github/workflows/release-assets.yml: CGO disabled, trimmed paths,
+# stripped debug info, empty build id, and the two version ldflags.
+#
+# release-assets.yml remains the publisher for GitHub releases. This config
+# is for local snapshot builds, CI validation, and a future goreleaser-based
+# release path. The js/wasm target and the win7/winxp legacy builds are not
+# covered here; they stay in release-assets.yml.
+version: 2
+
+project_name: reticulum-go
+
+env:
+  - CGO_ENABLED=0
+
+before:
+  hooks: []
+
+builds:
+  - id: reticulum-go
+    main: ./cmd/reticulum-go
+    binary: reticulum-go
+    goos:
+      - linux
+      - windows
+      - darwin
+      - freebsd
+      - openbsd
+      - netbsd
+      - dragonfly
+      - solaris
+      - illumos
+      - aix
+      - android
+    goarch:
+      - amd64
+      - "386"
+      - arm64
+      - arm
+      - riscv64
+      - ppc64le
+      - ppc64
+      - mips
+      - mipsle
+      - mips64
+      - mips64le
+      - s390x
+    goarm:
+      - "6"
+    ignore:
+      # Only the pairs the release matrix builds are kept.
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: riscv64
+      - goos: windows
+        goarch: ppc64le
+      - goos: windows
+        goarch: ppc64
+      - goos: windows
+        goarch: mips
+      - goos: windows
+        goarch: mipsle
+      - goos: windows
+        goarch: mips64
+      - goos: windows
+        goarch: mips64le
+      - goos: windows
+        goarch: s390x
+      - goos: darwin
+        goarch: "386"
+      - goos: darwin
+        goarch: arm
+      - goos: darwin
+        goarch: riscv64
+      - goos: darwin
+        goarch: ppc64le
+      - goos: darwin
+        goarch: ppc64
+      - goos: darwin
+        goarch: mips
+      - goos: darwin
+        goarch: mipsle
+      - goos: darwin
+        goarch: mips64
+      - goos: darwin
+        goarch: mips64le
+      - goos: darwin
+        goarch: s390x
+      - goos: freebsd
+        goarch: ppc64le
+      - goos: freebsd
+        goarch: ppc64
+      - goos: freebsd
+        goarch: mips
+      - goos: freebsd
+        goarch: mipsle
+      - goos: freebsd
+        goarch: mips64
+      - goos: freebsd
+        goarch: mips64le
+      - goos: freebsd
+        goarch: s390x
+      - goos: openbsd
+        goarch: mips
+      - goos: openbsd
+        goarch: mipsle
+      - goos: openbsd
+        goarch: mips64
+      - goos: openbsd
+        goarch: mips64le
+      - goos: openbsd
+        goarch: s390x
+      - goos: netbsd
+        goarch: riscv64
+      - goos: netbsd
+        goarch: ppc64le
+      - goos: netbsd
+        goarch: ppc64
+      - goos: netbsd
+        goarch: mips
+      - goos: netbsd
+        goarch: mipsle
+      - goos: netbsd
+        goarch: mips64
+      - goos: netbsd
+        goarch: mips64le
+      - goos: netbsd
+        goarch: s390x
+      - goos: dragonfly
+        goarch: "386"
+      - goos: dragonfly
+        goarch: arm
+      - goos: dragonfly
+        goarch: arm64
+      - goos: dragonfly
+        goarch: riscv64
+      - goos: dragonfly
+        goarch: ppc64le
+      - goos: dragonfly
+        goarch: ppc64
+      - goos: dragonfly
+        goarch: mips
+      - goos: dragonfly
+        goarch: mipsle
+      - goos: dragonfly
+        goarch: mips64
+      - goos: dragonfly
+        goarch: mips64le
+      - goos: dragonfly
+        goarch: s390x
+      - goos: solaris
+        goarch: "386"
+      - goos: solaris
+        goarch: arm
+      - goos: solaris
+        goarch: arm64
+      - goos: solaris
+        goarch: riscv64
+      - goos: solaris
+        goarch: ppc64le
+      - goos: solaris
+        goarch: ppc64
+      - goos: solaris
+        goarch: mips
+      - goos: solaris
+        goarch: mipsle
+      - goos: solaris
+        goarch: mips64
+      - goos: solaris
+        goarch: mips64le
+      - goos: solaris
+        goarch: s390x
+      - goos: illumos
+        goarch: "386"
+      - goos: illumos
+        goarch: arm
+      - goos: illumos
+        goarch: arm64
+      - goos: illumos
+        goarch: riscv64
+      - goos: illumos
+        goarch: ppc64le
+      - goos: illumos
+        goarch: ppc64
+      - goos: illumos
+        goarch: mips
+      - goos: illumos
+        goarch: mipsle
+      - goos: illumos
+        goarch: mips64
+      - goos: illumos
+        goarch: mips64le
+      - goos: illumos
+        goarch: s390x
+      - goos: aix
+        goarch: "386"
+      - goos: aix
+        goarch: arm
+      - goos: aix
+        goarch: arm64
+      - goos: aix
+        goarch: riscv64
+      - goos: aix
+        goarch: ppc64le
+      - goos: aix
+        goarch: mips
+      - goos: aix
+        goarch: mipsle
+      - goos: aix
+        goarch: mips64
+      - goos: aix
+        goarch: mips64le
+      - goos: aix
+        goarch: s390x
+      - goos: android
+        goarch: "386"
+      - goos: android
+        goarch: arm
+      - goos: android
+        goarch: riscv64
+      - goos: android
+        goarch: ppc64le
+      - goos: android
+        goarch: ppc64
+      - goos: android
+        goarch: mips
+      - goos: android
+        goarch: mipsle
+      - goos: android
+        goarch: mips64
+      - goos: android
+        goarch: mips64le
+      - goos: android
+        goarch: s390x
+    flags:
+      - -trimpath
+      - -buildvcs=false
+    ldflags:
+      - -s -w -buildid= -X main.defaultVersion={{ or .Tag .Version }} -X git.quad4.io/reticulum/Reticulum-Go/pkg/common.implementationVersion={{ or .Tag .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: reticulum-go
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: "reticulum-go-{{ .Os }}-{{ .Arch }}"
+    files:
+      - none*
+
+checksum:
+  name_template: "reticulum-go-checksums.txt"
+  algorithm: sha256
+
+changelog:
+  use: github
+  sort: asc
+
+release:
+  extra_files: []

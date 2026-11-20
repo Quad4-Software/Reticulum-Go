@@ -11,6 +11,8 @@ env:
 
 vars:
   GOCMD: go
+  GORELEASER:
+    sh: 'command -v goreleaser || echo "$HOME/go/bin/goreleaser"'
   LIBS_ROOT: '{{default "../Reticulum-Go-Deps" .LIBS_ROOT}}'
   GO_LEGACY_WIN7: '{{default "/usr/local/go-legacy-win7/bin/go" .GO_LEGACY_WIN7}}'
   GO_LEGACY_WINXP: '{{default "/usr/local/go-legacy-winxp/bin/go" .GO_LEGACY_WINXP}}'
@@ -82,6 +84,11 @@ tasks:
     desc: Verify CI and tests never reach the public network without opt-in
     cmds:
       - sh scripts/ci/check-hermetic.sh
+
+  release-snapshot:
+    desc: Build all release targets locally via goreleaser (snapshot, unpublished)
+    cmds:
+      - '{{.GORELEASER}} release --snapshot --clean --skip=publish,sign'
 
   staticcheck:
     desc: Run staticcheck on core packages

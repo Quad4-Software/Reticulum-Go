@@ -94,6 +94,7 @@ jobs:
       core: ${{ steps.filter.outputs.core || steps.manual.outputs.core }}
       bindings: ${{ steps.filter.outputs.bindings || steps.manual.outputs.bindings }}
       ci: ${{ steps.filter.outputs.ci || steps.manual.outputs.ci }}
+      release: ${{ steps.filter.outputs.release || steps.manual.outputs.release }}
       examples: ${{ steps.filter.outputs.examples || steps.manual.outputs.examples }}
       full: ${{ steps.plan.outputs.full }}
       osruntime: ${{ steps.plan.outputs.osruntime }}
@@ -216,6 +217,12 @@ jobs:
               - 'Makefile'
               - 'cliff.toml'
               - 'mise.toml'
+            release:
+              - '.goreleaser.yaml'
+              - '.github/workflows/release-assets.yml'
+              - 'scripts/build-release-targets.sh'
+              - 'scripts/ci/build-named-release-binary.sh'
+              - 'scripts/ci/release-assets-sha256.sh'
             examples:
               - 'examples/**'
 
@@ -231,6 +238,7 @@ jobs:
             echo "core=true"
             echo "bindings=true"
             echo "ci=true"
+            echo "release=true"
             echo "examples=true"
             echo "full_build=true"
             echo "osruntime=true"
@@ -320,6 +328,39 @@ jobs:
       - name: Hermetic CI check
         run: sh scripts/ci/check-hermetic.sh
 
+      - name: Verify workspace clean
+        uses: $/.github/actions/verify-workspace-clean
+
+  goreleaser:
+    name: GoReleaser
+    needs: changes
+    if: needs.changes.outputs.release == 'true' || needs.changes.outputs.ci == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Setup CI
+        uses: $/.github/actions/setup-ci
+        with:
+          go_version: ${{ env.CI_GO_VERSION }}
+          task_version: ${{ env.CI_TASK_VERSION }}
+      - name: Install goreleaser
+        run: sh scripts/ci/setup-goreleaser.sh "${CI_GORELEASER_VERSION:-v2.19.0}"
+      - name: Goreleaser check
+        run: goreleaser check
+      - name: Goreleaser snapshot build
+        run: goreleaser build --snapshot --clean --single-target
+      - name: Snapshot binary --version
+        run: ./dist/reticulum-go_linux_amd64_v1/reticulum-go --version
       - name: Verify workspace clean
         uses: $/.github/actions/verify-workspace-clean
 
