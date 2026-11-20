@@ -5,7 +5,7 @@ Environment variables:
     INTEROP_GO_DEST_HASH       hex destination hash of the Go pageserver
     INTEROP_REQUEST_PATH       request path, default /page/index.mu
     INTEROP_TIMEOUT_SEC        overall timeout, default 90
-    INTEROP_TCP_HOST           TCP hub host, default rns.beleth.net
+    INTEROP_TCP_HOST           TCP hub host (required, no public default)
     INTEROP_TCP_PORT           TCP hub port, default 4242
     INTEROP_CONFIG_DIR         optional persistent config directory
     RETICULUM_PATH             optional alt RNS install to prepend to sys.path
@@ -88,7 +88,10 @@ def main():
     go_hash = bytes.fromhex(go_hash_hex)
     request_path = os.environ.get("INTEROP_REQUEST_PATH", "/page/index.mu").strip()
     timeout_sec = float(os.environ.get("INTEROP_TIMEOUT_SEC", "90"))
-    tcp_host = os.environ.get("INTEROP_TCP_HOST", "rns.beleth.net").strip()
+    tcp_host = os.environ.get("INTEROP_TCP_HOST", "").strip()
+    if not tcp_host:
+        sys.stderr.write("INTEROP_TCP_HOST is required (no default; keep CI hermetic)\n")
+        return 2
     tcp_port = int(os.environ.get("INTEROP_TCP_PORT", "4242"))
     iface_type = os.environ.get("INTEROP_HUB_TYPE", "tcp").strip().lower()
     if iface_type not in ("tcp", "backbone"):

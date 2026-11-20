@@ -51,6 +51,12 @@ func directoryURL() string {
 
 func fetchOnlineClearnetTCPPeers(t *testing.T, limit int) []directoryPeer {
 	t.Helper()
+	// The default directory is a public endpoint and the returned peers are
+	// public mesh hosts. CI must stay hermetic: require an explicit opt-in
+	// (a custom directory URL or the blanket public-mesh flag).
+	if strings.TrimSpace(os.Getenv("INTEROP_DIRECTORY_URL")) == "" && os.Getenv("RUN_PUBLIC_MESH") != "1" {
+		t.Skip("set RUN_PUBLIC_MESH=1 or INTEROP_DIRECTORY_URL to use public directory peers")
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 

@@ -46,6 +46,11 @@ func meshPeersFromEnv(t *testing.T) []directoryPeer {
 	t.Helper()
 	raw := strings.TrimSpace(os.Getenv("INTEROP_NOMADNET_MESH_PEERS"))
 	if raw == "" {
+		// The built-in peers are public Reticulum mesh hosts. CI must stay
+		// hermetic, so dialing them requires an explicit opt-in.
+		if os.Getenv("RUN_PUBLIC_MESH") != "1" {
+			t.Skip("set RUN_PUBLIC_MESH=1 or INTEROP_NOMADNET_MESH_PEERS to run against public mesh hosts")
+		}
 		return defaultMeshPeers()
 	}
 	var peers []directoryPeer
@@ -293,6 +298,9 @@ func TestLiveNomadNetLinkThroughGoRelay(t *testing.T) {
 func TestDirectoryMeshPeersOnline(t *testing.T) {
 	if os.Getenv("RUN_LIVE_INTEROP") == "" {
 		t.Skip("set RUN_LIVE_INTEROP=1 to query directory and probe mesh peers")
+	}
+	if os.Getenv("RUN_PUBLIC_MESH") != "1" {
+		t.Skip("set RUN_PUBLIC_MESH=1 to query the public directory and probe mesh peers")
 	}
 
 	resp, err := http.Get("https://directory.rns.recipes/api/directory/submitted?search=&type=&status=online")

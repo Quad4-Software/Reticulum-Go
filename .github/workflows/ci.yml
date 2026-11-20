@@ -317,6 +317,9 @@ jobs:
           sudo apt-get install -y shellcheck
           sh scripts/ci/test-install.sh
 
+      - name: Hermetic CI check
+        run: sh scripts/ci/check-hermetic.sh
+
       - name: Verify workspace clean
         uses: $/.github/actions/verify-workspace-clean
 

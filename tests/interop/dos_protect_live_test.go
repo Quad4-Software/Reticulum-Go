@@ -250,6 +250,9 @@ func baselineSamples(e *protect.Engine, iface string) int {
 // TestLiveDoSProtectMeshPeersDialQuiet dials real public mesh TCP peers when reachable.
 func TestLiveDoSProtectMeshPeersDialQuiet(t *testing.T) {
 	liveOrSkip(t)
+	if os.Getenv("RUN_PUBLIC_MESH") != "1" {
+		t.Skip("set RUN_PUBLIC_MESH=1 to dial public mesh peers")
+	}
 	t.Cleanup(func() { protect.SetDefault(nil) })
 	health.Default.Reset()
 

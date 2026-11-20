@@ -78,6 +78,11 @@ tasks:
     cmds:
       - revive -config revive.toml -formatter friendly -exclude './vendor/...' ./pkg/... ./cmd/... ./internal/...
 
+  check-hermetic:
+    desc: Verify CI and tests never reach the public network without opt-in
+    cmds:
+      - sh scripts/ci/check-hermetic.sh
+
   staticcheck:
     desc: Run staticcheck on core packages
     cmds:

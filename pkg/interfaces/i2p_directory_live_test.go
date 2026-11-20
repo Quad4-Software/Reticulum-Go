@@ -47,6 +47,13 @@ func i2pDirectoryURL() string {
 
 func fetchOnlineI2PPeers(t *testing.T, limit int) []string {
 	t.Helper()
+	// The default directory is a public endpoint. CI must stay hermetic:
+	// require an explicit opt-in (custom directory URL or public-mesh flag).
+	if strings.TrimSpace(os.Getenv("I2P_DIRECTORY_URL")) == "" &&
+		strings.TrimSpace(os.Getenv("INTEROP_DIRECTORY_URL")) == "" &&
+		os.Getenv("RUN_PUBLIC_MESH") != "1" {
+		t.Skip("set RUN_PUBLIC_MESH=1 or a directory URL env to use public directory peers")
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, i2pDirectoryURL(), nil)
