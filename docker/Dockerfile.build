@@ -30,7 +30,8 @@ ARG BUILD_PATH=./cmd/reticulum-go
 
 RUN mkdir -p /dist && \
     go build \
-    -ldflags='-w -s -extldflags "-static"' \
+    -trimpath -buildvcs=false \
+    -ldflags='-w -s -buildid= -extldflags "-static"' \
     -a -installsuffix cgo \
     -o /dist/${BINARY_NAME} \
     ${BUILD_PATH}

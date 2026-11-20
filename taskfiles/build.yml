@@ -29,7 +29,7 @@ tasks:
         if [ -z "$V" ]; then
           V="{{.GIT_DESCRIBE}}"
         fi
-        {{.GOCMD}} build -ldflags="-s -w -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}
+        {{.GOCMD}} build -trimpath -buildvcs=false -ldflags="-s -w -buildid= -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}
 
   build-utils:
     desc: Alias for build (tools are subcommands of reticulum-go)
@@ -97,8 +97,8 @@ tasks:
         if [ -z "$V" ]; then
           V="{{.GIT_DESCRIBE}}"
         fi
-        GOOS=windows GOARCH=amd64 {{.GO_LEGACY_WIN7}} build -ldflags="-s -w -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64-win7.exe {{.MAIN_PACKAGE}}
-        GOOS=windows GOARCH=arm64 {{.GO_LEGACY_WIN7}} build -ldflags="-s -w -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-arm64-win7.exe {{.MAIN_PACKAGE}}
+        GOOS=windows GOARCH=amd64 {{.GO_LEGACY_WIN7}} build -trimpath -buildvcs=false -ldflags="-s -w -buildid= -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64-win7.exe {{.MAIN_PACKAGE}}
+        GOOS=windows GOARCH=arm64 {{.GO_LEGACY_WIN7}} build -trimpath -buildvcs=false -ldflags="-s -w -buildid= -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-arm64-win7.exe {{.MAIN_PACKAGE}}
 
   build-windows-xp:
     desc: Build for Windows XP/2003 using go-legacy-winxp (386, amd64)
@@ -111,8 +111,8 @@ tasks:
         if [ -z "$V" ]; then
           V="{{.GIT_DESCRIBE}}"
         fi
-        GOOS=windows GOARCH=386 {{.GO_LEGACY_WINXP}} build -ldflags="-s -w -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-386-winxp.exe {{.MAIN_PACKAGE}}
-        GOOS=windows GOARCH=amd64 {{.GO_LEGACY_WINXP}} build -ldflags="-s -w -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64-winxp.exe {{.MAIN_PACKAGE}}
+        GOOS=windows GOARCH=386 {{.GO_LEGACY_WINXP}} build -trimpath -buildvcs=false -ldflags="-s -w -buildid= -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-386-winxp.exe {{.MAIN_PACKAGE}}
+        GOOS=windows GOARCH=amd64 {{.GO_LEGACY_WINXP}} build -trimpath -buildvcs=false -ldflags="-s -w -buildid= -X main.defaultVersion=${V}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64-winxp.exe {{.MAIN_PACKAGE}}
 
   build-darwin:
     desc: Build for MacOS (amd64, arm64)
@@ -172,7 +172,7 @@ tasks:
       GOARCH: wasm
     cmds:
       - mkdir -p {{.BUILD_DIR}}
-      - '{{.GOCMD}} build -ldflags="-s -w" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm ./cmd/reticulum-wasm'
+      - '{{.GOCMD}} build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}.wasm ./cmd/reticulum-wasm'
 
   tinygo-build:
     desc: Build binary with TinyGo compiler
@@ -191,7 +191,7 @@ tasks:
     cmds:
       - mkdir -p {{.BUILD_DIR}}
       # Prefix beats Taskfile/OS CGO_ENABLED=0 when nested tasks inherit outer env.
-      - CGO_ENABLED=1 {{.GOCMD}} build -buildmode=c-shared -o {{.BUILD_DIR}}/librns.so ./cmd/librns
+      - CGO_ENABLED=1 {{.GOCMD}} build -buildmode=c-shared -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o {{.BUILD_DIR}}/librns.so ./cmd/librns
       - cp include/rns.h {{.BUILD_DIR}}/rns.h
 
   build-librns-targets:

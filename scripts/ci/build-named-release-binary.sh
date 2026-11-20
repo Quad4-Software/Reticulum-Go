@@ -30,18 +30,18 @@ if [ "$GOOS" = windows ]; then
 	suffix=".exe"
 fi
 
-ldflags="-s -w"
+ldflags="-s -w -buildid="
 if [ -n "$VERSION" ]; then
 	ldflags="$ldflags -X main.defaultVersion=${VERSION} -X git.quad4.io/reticulum/Reticulum-Go/pkg/common.implementationVersion=${VERSION}"
 fi
 
 build_one() {
 	out="$1"
-	go build -ldflags="$ldflags" -o "$out" ./cmd/reticulum-go
+	go build -trimpath -buildvcs=false -ldflags="$ldflags" -o "$out" ./cmd/reticulum-go
 }
 
 if [ "$GOOS" = js ] && [ "$GOARCH" = wasm ]; then
-	go build -ldflags="-s -w" -o "$DEST_DIR/reticulum-go-js-wasm.wasm" ./cmd/reticulum-wasm
+	go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o "$DEST_DIR/reticulum-go-js-wasm.wasm" ./cmd/reticulum-wasm
 	echo "built $DEST_DIR/reticulum-go-js-wasm.wasm"
 	exit 0
 fi

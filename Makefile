@@ -51,7 +51,7 @@ TOOL_LINKS := rgostatus rgoid rgoprobe rgopath rgocp rgox rnx rgosh rgopageserve
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 # Package version must start with a digit and avoid git describe noise.
 PKG_VERSION ?= $(shell echo "$(VERSION)" | sed 's/^v//' | sed 's/-dirty$$//' | sed 's/-\([0-9]*\)-g[0-9a-f]*/.\1/' )
-LDFLAGS := -s -w -X main.defaultVersion=$(VERSION) -X git.quad4.io/reticulum/Reticulum-Go/pkg/common.implementationVersion=$(VERSION)
+LDFLAGS := -s -w -buildid= -X main.defaultVersion=$(VERSION) -X git.quad4.io/reticulum/Reticulum-Go/pkg/common.implementationVersion=$(VERSION)
 
 all: build
 
@@ -109,7 +109,7 @@ help:
 
 build:
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 $(GOCMD) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PACKAGE)
+	CGO_ENABLED=0 $(GOCMD) build -trimpath -buildvcs=false -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PACKAGE)
 
 # Compatibility alias: utilities live inside the main binary.
 build-utils: build
@@ -206,7 +206,7 @@ test-wasm:
 
 build-librns:
 	mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=1 $(GOCMD) build -buildmode=c-shared -o $(BUILD_DIR)/librns.so ./cmd/librns
+	CGO_ENABLED=1 $(GOCMD) build -buildmode=c-shared -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o $(BUILD_DIR)/librns.so ./cmd/librns
 	cp include/rns.h $(BUILD_DIR)/rns.h
 
 test-odin: build-librns
@@ -223,7 +223,7 @@ test-cpp:
 
 build-wasm:
 	mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=js GOARCH=wasm $(GOCMD) build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME).wasm ./cmd/reticulum-wasm
+	CGO_ENABLED=0 GOOS=js GOARCH=wasm $(GOCMD) build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o $(BUILD_DIR)/$(BINARY_NAME).wasm ./cmd/reticulum-wasm
 
 # LIBRNS_TARGETS selects platforms, e.g. make build-librns-targets LIBRNS_TARGETS="linux android windows"
 build-librns-targets:
@@ -428,13 +428,13 @@ build-windows:
 
 build-windows-legacy:
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO_LEGACY_WIN7) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64-win7.exe $(MAIN_PACKAGE)
-	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 $(GO_LEGACY_WIN7) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64-win7.exe $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO_LEGACY_WIN7) build -trimpath -buildvcs=false -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64-win7.exe $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 $(GO_LEGACY_WIN7) build -trimpath -buildvcs=false -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64-win7.exe $(MAIN_PACKAGE)
 
 build-windows-xp:
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=windows GOARCH=386 $(GO_LEGACY_WINXP) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-386-winxp.exe $(MAIN_PACKAGE)
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO_LEGACY_WINXP) build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64-winxp.exe $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=windows GOARCH=386 $(GO_LEGACY_WINXP) build -trimpath -buildvcs=false -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-386-winxp.exe $(MAIN_PACKAGE)
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO_LEGACY_WINXP) build -trimpath -buildvcs=false -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64-winxp.exe $(MAIN_PACKAGE)
 
 build-darwin:
 	DEST_DIR=$(BUILD_DIR) VERSION="$(VERSION)" sh scripts/build-release-targets.sh darwin

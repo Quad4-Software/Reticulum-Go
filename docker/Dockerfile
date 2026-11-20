@@ -21,7 +21,8 @@ COPY internal/ internal/
 COPY pkg/ pkg/
 
 RUN go build \
-    -ldflags='-w -s -extldflags "-static"' \
+    -trimpath -buildvcs=false \
+    -ldflags='-w -s -buildid= -extldflags "-static"' \
     -a -installsuffix cgo \
     -o reticulum-go \
     ./cmd/reticulum-go

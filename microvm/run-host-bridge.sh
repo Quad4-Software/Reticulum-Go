@@ -41,7 +41,7 @@ fi
 BIN="${OUT}/reticulum-go-host"
 CGO_ENABLED=0 GOFLAGS=-mod=mod go build \
 	-C "${REPO}" \
-	-ldflags='-w -s' \
+	-ldflags='-w -s -buildid=' \
 	-o "${BIN}" \
 	./cmd/reticulum-go
 

@@ -109,7 +109,7 @@ echo "building static reticulum-go (${GOARCH})"
 # Prefer module mode so a stale vendor/modules.txt cannot block guest builds.
 CGO_ENABLED=0 GOOS=linux GOARCH="${GOARCH}" GOFLAGS=-mod=mod go build \
 	-C "${REPO}" \
-	-ldflags='-w -s -extldflags "-static"' \
+	-ldflags='-w -s -buildid= -extldflags "-static"' \
 	-o "${STAGING}/usr/bin/reticulum-go" \
 	./cmd/reticulum-go
 chmod 755 "${STAGING}/usr/bin/reticulum-go"

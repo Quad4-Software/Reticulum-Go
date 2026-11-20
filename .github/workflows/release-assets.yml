@@ -323,7 +323,7 @@ jobs:
           sed -i 's/^go 1\.2[67]\.[0-9][0-9]*$/go 1.27.2/' go.mod
           sed -i 's/go 1\.2[67]\.[0-9][0-9]*/go 1.27.2/g' vendor/modules.txt
           output_name="reticulum-go-windows-${GOARCH}-win7.exe"
-          "$LEGACY_GO" build -ldflags="-s -w -X main.defaultVersion=${VERSION} -X git.quad4.io/reticulum/Reticulum-Go/pkg/common.implementationVersion=${VERSION}" -o "${output_name}" ./cmd/reticulum-go
+          "$LEGACY_GO" build -trimpath -buildvcs=false -ldflags="-s -w -buildid= -X main.defaultVersion=${VERSION} -X git.quad4.io/reticulum/Reticulum-Go/pkg/common.implementationVersion=${VERSION}" -o "${output_name}" ./cmd/reticulum-go
           echo "Built: ${output_name}"
 
       - name: Upload artifact
@@ -382,7 +382,7 @@ jobs:
           sed -i 's/^go 1\.2[67]\.[0-9][0-9]*$/go 1.27.1/' go.mod
           sed -i 's/go 1\.2[67]\.[0-9][0-9]*/go 1.27.1/g' vendor/modules.txt
           output_name="reticulum-go-windows-${GOARCH}-winxp.exe"
-          "$LEGACY_GO" build -ldflags="-s -w -X main.defaultVersion=${VERSION} -X git.quad4.io/reticulum/Reticulum-Go/pkg/common.implementationVersion=${VERSION}" -o "${output_name}" ./cmd/reticulum-go
+          "$LEGACY_GO" build -trimpath -buildvcs=false -ldflags="-s -w -buildid= -X main.defaultVersion=${VERSION} -X git.quad4.io/reticulum/Reticulum-Go/pkg/common.implementationVersion=${VERSION}" -o "${output_name}" ./cmd/reticulum-go
           echo "Built: ${output_name}"
 
       - name: Upload artifact
@@ -466,7 +466,7 @@ jobs:
         run: |
           set -euo pipefail
           cd examples/pageserver
-          go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-amd64 .
+          go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o ../../reticulum-go-example-pageserver-linux-amd64 .
 
       - name: Build pageserver (linux/arm64)
         env:
@@ -476,7 +476,7 @@ jobs:
         run: |
           set -euo pipefail
           cd examples/pageserver
-          go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-arm64 .
+          go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o ../../reticulum-go-example-pageserver-linux-arm64 .
 
       - name: Build pageserver (linux/arm v6)
         env:
@@ -487,7 +487,7 @@ jobs:
         run: |
           set -euo pipefail
           cd examples/pageserver
-          go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-arm .
+          go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o ../../reticulum-go-example-pageserver-linux-arm .
 
       - name: Build pageserver (linux/386)
         env:
@@ -497,7 +497,7 @@ jobs:
         run: |
           set -euo pipefail
           cd examples/pageserver
-          go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-386 .
+          go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o ../../reticulum-go-example-pageserver-linux-386 .
 
       - name: Build pageserver (linux/riscv64)
         env:
@@ -507,7 +507,7 @@ jobs:
         run: |
           set -euo pipefail
           cd examples/pageserver
-          go build -ldflags="-s -w" -o ../../reticulum-go-example-pageserver-linux-riscv64 .
+          go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o ../../reticulum-go-example-pageserver-linux-riscv64 .
 
       - name: Build wasm example
         run: task example:wasm:build
