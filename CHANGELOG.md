@@ -8,6 +8,7 @@ Tracks Python RNS 1.6.1 plus post-release fixes.
 
 - `rgostatus --memory` prints Go runtime memory stats (heap, stack, sys, goroutines, GC counters, soft limit) and transport table sizes via a new `memory_stats` shared-instance RPC call. Python instances answer it as unavailable.
 - `SIGUSR1` on Unix writes a bounded heap profile to `<config>/storage/heap-<ts>.pprof` for production diagnostics, the daemon warns when heap crosses 85 percent of the soft memory limit, and `RETICULUM_HEAP_DUMP_ON_THRESHOLD=1` writes a bounded profile on each crossing.
+- `task release-rngit TAG=<tag>` publishes a tagged GitHub release's assets to the rngit repository at `rns://06a54b505bb67b25ef3f8097e8001edc/public/Reticulum-Go`, signing each asset into `.rsg` files plus a `manifest.rsm` with the matching changelog section as notes. `ARGS=--dry-run` generates everything locally without uploading.
 
 ### Fixed
 

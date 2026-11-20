@@ -108,6 +108,15 @@ Binding, OS matrix, legacy Windows, examples, and reproducibility jobs run on pu
 
 Advisory or scheduled: CodeQL, security workflow, sim-heavy, TinyGo, preview-release.
 
+## Releasing
+
+Tagged GitHub releases are built and signed by `.github/workflows/release-assets.yml`. The same assets are also published to the rngit repository at `rns://06a54b505bb67b25ef3f8097e8001edc/public/Reticulum-Go`:
+
+1. Tag the release and let the GitHub release pipeline finish (assets, checksums, SBOMs, cosign bundles).
+2. Download the assets with `gh release download <tag>` or point the script at a local `dist/` tree.
+3. Run `task release-rngit TAG=<tag>` (or `sh scripts/release/rngit-release.sh <tag>`). The script writes rngit `.rsg` signatures and `manifest.rsm` for every asset and uploads them to the remote with the matching CHANGELOG section as release notes.
+4. Preview everything locally first with `--dry-run` (passes `-L` to `rngit release create`, generating signatures and the manifest without uploading).
+
 Local parity:
 
 ```bash

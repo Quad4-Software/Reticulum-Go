@@ -90,6 +90,14 @@ tasks:
     cmds:
       - '{{.GORELEASER}} release --snapshot --clean --skip=publish,sign'
 
+  release-rngit:
+    desc: Upload release assets to the rngit repository (dry run with TAG and --dry-run)
+    vars:
+      TAG: ''
+      ARGS: ''
+    cmds:
+      - sh scripts/release/rngit-release.sh '{{.TAG}}' {{.ARGS}}
+
   staticcheck:
     desc: Run staticcheck on core packages
     cmds:
