@@ -32,7 +32,7 @@ fi
 
 ldflags="-s -w"
 if [ -n "$VERSION" ]; then
-	ldflags="$ldflags -X main.defaultVersion=${VERSION}"
+	ldflags="$ldflags -X main.defaultVersion=${VERSION} -X git.quad4.io/reticulum/Reticulum-Go/pkg/common.implementationVersion=${VERSION}"
 fi
 
 build_one() {

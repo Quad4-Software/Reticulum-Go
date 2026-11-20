@@ -17,36 +17,49 @@ const ImplementationName = "reticulum-go"
 // unavailable. Link with -X if a pinned release string is required.
 var implementationVersion = "dev"
 
+// devWireVersion is emitted when no parseable version is available. Python
+// version_tuple rejects strings that do not start with digits, so this
+// keeps the value usable instead of producing a protocol violation.
+const devWireVersion = "0.0.0-dev"
+
 // ImplementationVersion returns the transport version string for discovery
 // announces (RNS 1.5.1+ TRANSPORT_VERS) and tunnel synthesis metadata.
+// Python parses the value with Discovery.version_tuple, which requires each
+// leading component to start with digits, so a leading v is stripped from
+// release-style strings and an unparseable result maps to devWireVersion.
 func ImplementationVersion() string {
-	if implementationVersion != "" && implementationVersion != "dev" {
-		return implementationVersion
-	}
-	if info, ok := debug.ReadBuildInfo(); ok {
-		if v := info.Main.Version; v != "" && v != "(devel)" {
-			return v
+	v := implementationVersion
+	if v == "" || v == "dev" {
+		if info, ok := debug.ReadBuildInfo(); ok {
+			if mv := info.Main.Version; mv != "" && mv != "(devel)" {
+				v = mv
+			}
 		}
 	}
-	if implementationVersion == "" {
-		return "dev"
+	return normalizeWireVersion(v)
+}
+
+// normalizeWireVersion strips a leading v/V from release-style strings and
+// maps anything Python version_tuple cannot parse to devWireVersion.
+func normalizeWireVersion(v string) string {
+	v = strings.TrimPrefix(v, "v")
+	v = strings.TrimPrefix(v, "V")
+	if VersionTuple(v) == nil {
+		return devWireVersion
 	}
-	return implementationVersion
+	return v
 }
 
 // VersionTuple parses a dotted version string into integer components,
 // mirroring Python Discovery.version_tuple. Each dot-separated component
 // contributes its leading digits. The first component without leading digits
-// stops the parse. A leading v or V is stripped so release tags like v1.3.0
-// compare like Python's bare "1.5.2" strings. Returns nil when no digits
-// parse.
+// stops the parse, so a leading v fails the parse like it does in Python.
+// Returns nil when no digits parse.
 func VersionTuple(version string) []int {
 	version = strings.TrimSpace(version)
 	if version == "" {
 		return nil
 	}
-	version = strings.TrimPrefix(version, "v")
-	version = strings.TrimPrefix(version, "V")
 	var out []int
 	for _, component := range strings.Split(version, ".") {
 		i := 0

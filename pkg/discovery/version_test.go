@@ -9,8 +9,8 @@ import (
 )
 
 // TestVersionTuple matches Python Discovery.version_tuple: each component's
-// leading digits contribute; non-digit components stop the parse. A leading
-// v/V is stripped so release tags like v1.3.0 compare like Python versions.
+// leading digits contribute; non-digit components stop the parse, so a
+// leading v fails like it does in Python.
 func TestVersionTuple(t *testing.T) {
 	cases := []struct {
 		in   string
@@ -18,7 +18,7 @@ func TestVersionTuple(t *testing.T) {
 	}{
 		{"1.5.2", []int{1, 5, 2}},
 		{"1.5.5", []int{1, 5, 5}},
-		{"v1.3.0", []int{1, 3, 0}},
+		{"v1.3.0", nil},
 		{"2", []int{2}},
 		{"1.10.2", []int{1, 10, 2}},
 		{"1.5.2.post1", []int{1, 5, 2}}, // post suffix digits: "post1" has no leading digit -> stop
@@ -51,7 +51,7 @@ func TestVersionAtLeast(t *testing.T) {
 		{"1.5.1", "1.5.2", false},
 		{"1.4.9", "1.5.2", false},
 		{"0.9.9", "1.5.2", false},
-		{"v1.5.2", "1.5.2", true},
+		{"v1.5.2", "1.5.2", false},
 		{"", "1.5.2", false},
 		{"junk", "1.5.2", false},
 		{"1.5", "1.5.2", false}, // (1,5) < (1,5,2) in Python tuple order

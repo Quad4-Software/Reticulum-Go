@@ -323,7 +323,7 @@ jobs:
           sed -i 's/^go 1\.2[67]\.[0-9][0-9]*$/go 1.27.2/' go.mod
           sed -i 's/go 1\.2[67]\.[0-9][0-9]*/go 1.27.2/g' vendor/modules.txt
           output_name="reticulum-go-windows-${GOARCH}-win7.exe"
-          "$LEGACY_GO" build -ldflags="-s -w -X main.defaultVersion=${VERSION}" -o "${output_name}" ./cmd/reticulum-go
+          "$LEGACY_GO" build -ldflags="-s -w -X main.defaultVersion=${VERSION} -X git.quad4.io/reticulum/Reticulum-Go/pkg/common.implementationVersion=${VERSION}" -o "${output_name}" ./cmd/reticulum-go
           echo "Built: ${output_name}"
 
       - name: Upload artifact
@@ -382,7 +382,7 @@ jobs:
           sed -i 's/^go 1\.2[67]\.[0-9][0-9]*$/go 1.27.1/' go.mod
           sed -i 's/go 1\.2[67]\.[0-9][0-9]*/go 1.27.1/g' vendor/modules.txt
           output_name="reticulum-go-windows-${GOARCH}-winxp.exe"
-          "$LEGACY_GO" build -ldflags="-s -w -X main.defaultVersion=${VERSION}" -o "${output_name}" ./cmd/reticulum-go
+          "$LEGACY_GO" build -ldflags="-s -w -X main.defaultVersion=${VERSION} -X git.quad4.io/reticulum/Reticulum-Go/pkg/common.implementationVersion=${VERSION}" -o "${output_name}" ./cmd/reticulum-go
           echo "Built: ${output_name}"
 
       - name: Upload artifact

@@ -45,7 +45,7 @@ func TestAutoconnectQualifyMatrix(t *testing.T) {
 		{"rns below min", "RNS", "1.5.6", false, false},
 		{"rns old major", "RNS", "1.4.9", false, false},
 		{"ret-go at min", "reticulum-go", "1.1.0", false, true},
-		{"ret-go v-prefixed", "reticulum-go", "v1.2.0", false, true},
+		{"ret-go v-prefixed", "reticulum-go", "v1.2.0", false, false},
 		{"ret-go below min", "reticulum-go", "1.0.9", false, false},
 		{"unknown impl", "nomadnet", "3.0.0", false, false},
 		{"missing impl", "", "1.5.5", false, false},

@@ -51,7 +51,7 @@ TOOL_LINKS := rgostatus rgoid rgoprobe rgopath rgocp rgox rnx rgosh rgopageserve
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 # Package version must start with a digit and avoid git describe noise.
 PKG_VERSION ?= $(shell echo "$(VERSION)" | sed 's/^v//' | sed 's/-dirty$$//' | sed 's/-\([0-9]*\)-g[0-9a-f]*/.\1/' )
-LDFLAGS := -s -w -X main.defaultVersion=$(VERSION)
+LDFLAGS := -s -w -X main.defaultVersion=$(VERSION) -X git.quad4.io/reticulum/Reticulum-Go/pkg/common.implementationVersion=$(VERSION)
 
 all: build
 
