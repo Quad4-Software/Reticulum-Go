@@ -107,7 +107,9 @@ func TestE2E_RgoshPipeEcho(t *testing.T) {
 	_ = dest.Announce(false, nil, nil)
 	time.Sleep(100 * time.Millisecond)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	// Path discovery plus link establishment takes ~17s under -race on a
+	// slow host; give the outer context enough headroom for full-suite load.
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	// Link establishment sends a single LINKREQUEST and proof with no
 	// retransmit, so one dropped packet stalls the attempt for its whole

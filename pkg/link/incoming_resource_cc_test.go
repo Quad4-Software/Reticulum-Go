@@ -487,7 +487,8 @@ func establishImpairedLinkOn(t *testing.T, pair *impairedPipe) (initiator *Link,
 	if err := destA.Announce(false, nil, nil); err != nil {
 		t.Fatalf("Announce: %v", err)
 	}
-	pathDeadline := time.Now().Add(20 * time.Second)
+	// 20s was marginal under full-suite -race load on slow hosts.
+	pathDeadline := time.Now().Add(60 * time.Second)
 	for !trB.HasPath(destA.GetHash()) && time.Now().Before(pathDeadline) {
 		time.Sleep(10 * time.Millisecond)
 	}
