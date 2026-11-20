@@ -94,7 +94,7 @@ func marshalRateTable(entries map[[16]byte]rateTableEntry) []byte {
 // rateTableCountFits verifies the stored blob length exactly in 64-bit so a
 // crafted entryCount cannot overflow the product on 32-bit platforms.
 func rateTableCountFits(blobLen int, entryCount uint32, keyLen, fileMaxTS int) bool {
-	entry := uint64(keyLen) + 22 + uint64(fileMaxTS)*8 // #nosec G115 -- keyLen and fileMaxTS are validated header fields
+	entry := uint64(keyLen) + 22 + uint64(fileMaxTS)*8    // #nosec G115 -- keyLen and fileMaxTS are validated header fields
 	return uint64(blobLen) == 16+uint64(entryCount)*entry // #nosec G115 -- blobLen is a non-negative file length
 }
 
