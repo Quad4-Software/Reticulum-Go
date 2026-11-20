@@ -22,15 +22,6 @@ func (m *memSender) Send(msg Message) error {
 	return nil
 }
 
-func (m *memSender) last() Message {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if len(m.msgs) == 0 {
-		return nil
-	}
-	return m.msgs[len(m.msgs)-1]
-}
-
 func (m *memSender) ofType(t uint16) int {
 	m.mu.Lock()
 	defer m.mu.Unlock()

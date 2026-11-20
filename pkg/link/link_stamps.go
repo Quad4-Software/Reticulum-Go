@@ -153,34 +153,6 @@ func (l *Link) failStampedEstablish(destHash []byte, err error) {
 	}
 }
 
-// generateStampedKeys is replaced by stampThenEstablish's inline path; kept
-// for tests exercising the stamped key fields directly.
-func (l *Link) generateStampedKeys(ctx context.Context, material []byte, cost float64) error {
-	sigPub, sigPriv, err := cryptography.GenerateSigningKeyPair()
-	if err != nil {
-		return err
-	}
-	priv, pub, _, err := stamps.GenerateStampedKey(ctx, material, cost)
-	if err != nil {
-		securemem.WipeBytes(sigPriv)
-		return err
-	}
-	if err := setSecBuf(&l.prv, priv[:]); err != nil {
-		securemem.WipeBytes(priv[:])
-		securemem.WipeBytes(sigPriv)
-		return err
-	}
-	securemem.WipeBytes(priv[:])
-	l.pub = pub[:]
-	if err := setSecBuf(&l.sigPriv, sigPriv); err != nil {
-		securemem.WipeBytes(sigPriv)
-		return err
-	}
-	securemem.WipeBytes(sigPriv)
-	l.sigPub = sigPub
-	return nil
-}
-
 // StampCost reports the computed link-request stamp value (responder) or
 // the target cost (initiator). ok is false when unset.
 func (l *Link) StampCost() (float64, bool) {

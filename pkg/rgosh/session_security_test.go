@@ -19,7 +19,6 @@ type fakeProc struct {
 	stdout *pipeBuf
 	stderr *pipeBuf
 	code   int
-	cmd    []string
 	done   chan struct{}
 	mu     sync.Mutex
 	killed bool

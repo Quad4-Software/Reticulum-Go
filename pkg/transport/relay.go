@@ -115,12 +115,6 @@ func (lt *linkRelayTable) touch(linkID []byte) {
 	}
 }
 
-func (lt *linkRelayTable) delete(linkID []byte) {
-	lt.mu.Lock()
-	defer lt.mu.Unlock()
-	delete(lt.entries, hash16FromSlice(linkID))
-}
-
 func (lt *linkRelayTable) sweep(maxIdle time.Duration) (expiredUnvalidated []*LinkRelayEntry, removed int) {
 	lt.mu.Lock()
 	defer lt.mu.Unlock()

@@ -11,10 +11,7 @@ import (
 
 func TestPathHelpMatchesPythonShortFlags(t *testing.T) {
 	var stderr bytes.Buffer
-	code := RunPath([]string{"-h"}, Options{Stderr: &stderr})
-	if code != 2 && code != 0 {
-		// flag.ContinueOnError returns Parse error as 2 from RunPath
-	}
+	RunPath([]string{"-h"}, Options{Stderr: &stderr})
 	out := stderr.String()
 	for _, want := range []string{
 		"-D", "drop all queued announces",

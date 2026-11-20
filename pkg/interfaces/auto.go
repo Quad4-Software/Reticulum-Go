@@ -309,7 +309,7 @@ func (ai *AutoInterface) Start() error {
 		ai.netwatchUnsub = netwatchSubscribe(ai.onNetworkChange)
 	}
 	ai.Mutex.Unlock()
-	go ai.peerJobs(loopDone, gen)
+	go ai.peerJobs(gen)
 	go ai.announceLoop(loopDone, gen)
 
 	debug.Log(debug.DebugInfo, "AutoInterface started", "adopted", len(ai.adoptedInterfaces))
@@ -710,7 +710,7 @@ func (ai *AutoInterface) reverseAnnounce(peer *Peer) {
 	}
 }
 
-func (ai *AutoInterface) peerJobs(done <-chan struct{}, gen uint64) {
+func (ai *AutoInterface) peerJobs(gen uint64) {
 	ticker := time.NewTicker(ai.peerJobInterval)
 	defer ticker.Stop()
 

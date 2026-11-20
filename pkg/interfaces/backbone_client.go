@@ -393,24 +393,6 @@ func (bc *BackboneClientInterface) Send(data []byte, address string) error {
 	return nil
 }
 
-func (bc *BackboneClientInterface) setTimeoutsLinux(conn net.Conn) error {
-	tc, ok := conn.(*net.TCPConn)
-	if !ok {
-		return nil
-	}
-	tmp := &TCPClientInterface{conn: tc}
-	return tmp.setTimeoutsLinux()
-}
-
-func (bc *BackboneClientInterface) setTimeoutsOSX(conn net.Conn) error {
-	tc, ok := conn.(*net.TCPConn)
-	if !ok {
-		return nil
-	}
-	tmp := &TCPClientInterface{conn: tc}
-	return tmp.setTimeoutsOSX()
-}
-
 func (bc *BackboneClientInterface) GetConn() net.Conn {
 	bc.Mutex.RLock()
 	defer bc.Mutex.RUnlock()

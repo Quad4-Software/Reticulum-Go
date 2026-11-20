@@ -103,6 +103,11 @@ tasks:
     cmds:
       - staticcheck -tests=false ./pkg/... ./cmd/... ./internal/... ./tests/...
 
+  deadcode:
+    desc: Fail on unused code and dead assignments (U1000, SA4006, SA4010, SA9003)
+    cmds:
+      - staticcheck -checks 'U1000,SA4006,SA4010,SA9003' ./pkg/... ./cmd/... ./internal/... ./tests/...
+
   scan:
     desc: Run gosec security scanner
     cmds:

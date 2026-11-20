@@ -55,8 +55,6 @@ func asBytes(v any) []byte {
 	}
 }
 
-const maxInt64 = int64(1<<63 - 1)
-
 // isSafeDiscoveryPersistName accepts only lowercase-hex SHA-256 hashes.
 func isSafeDiscoveryPersistName(name string) bool {
 	if len(name) != 64 {

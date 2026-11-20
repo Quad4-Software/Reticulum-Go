@@ -89,7 +89,6 @@ type AwareInterface struct {
 	unregister func(name string)
 	peers      map[int]*AwarePeerInterface
 	spawning   map[int]struct{}
-	peerKey    string
 }
 
 // NewAwareInterface builds a controller around a host-supplied driver. A nil

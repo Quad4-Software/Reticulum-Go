@@ -47,10 +47,8 @@ func (m *floodIface) Send(data []byte, _ string) error {
 	m.sentMu.Unlock()
 	return nil
 }
-func (m *floodIface) GetName() string  { return m.Name }
-func (m *floodIface) IsEnabled() bool  { return m.Enabled }
-func (m *floodIface) sentCount() int   { m.sentMu.Lock(); defer m.sentMu.Unlock(); return m.sent }
-func (m *floodIface) sentBytes() int64 { m.sentMu.Lock(); defer m.sentMu.Unlock(); return m.sentB }
+func (m *floodIface) GetName() string { return m.Name }
+func (m *floodIface) IsEnabled() bool { return m.Enabled }
 
 func newFloodIface(name string) *floodIface {
 	m := &floodIface{}

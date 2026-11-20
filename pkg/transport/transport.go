@@ -1554,10 +1554,6 @@ func (t *Transport) UnregisterAnnounceHandler(handler announce.Handler) {
 	t.announceHandlerSnap = nil
 }
 
-func (t *Transport) notifyAnnounceHandlers(destHash []byte, identity any, appData []byte, hops uint8) {
-	t.notifyAnnounceHandlersFiltered(destHash, identity, appData, hops, false)
-}
-
 func (t *Transport) notifyAnnounceHandlersFiltered(destHash []byte, identity any, appData []byte, hops uint8, isPathResponse bool) {
 	handlers := t.snapshotAnnounceHandlers()
 

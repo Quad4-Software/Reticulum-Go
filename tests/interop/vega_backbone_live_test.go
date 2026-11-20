@@ -258,7 +258,7 @@ func TestVegaGoToPythonResource(t *testing.T) {
 	br, pyCleanup := runVegaPythonPeer(ctx, t, "recv")
 	defer pyCleanup()
 
-	line, err := readVegaLine(ctx, br, "READY", 90*time.Second)
+	_, err := readVegaLine(ctx, br, "READY", 90*time.Second)
 	if err != nil {
 		t.Fatalf("READY: %v", err)
 	}
@@ -316,6 +316,7 @@ func TestVegaGoToPythonResource(t *testing.T) {
 	}
 
 	// Python peer prints "RESOURCE_OK <len> <sha256>".
+	var line string
 	line, err = readVegaLine(ctx, br, "RESOURCE_OK", 4*time.Minute)
 	if err != nil {
 		t.Fatalf("resource result: %v", err)

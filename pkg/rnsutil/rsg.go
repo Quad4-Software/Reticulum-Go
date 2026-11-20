@@ -44,8 +44,6 @@ var (
 	errInvalidSig    = errors.New("signature invalid")
 	errDecryptFailed = errors.New("decrypt failed")
 	rsgASCIIHeader   = []byte("#### Start of rsg data ")
-	rsgASCIIFooter   = []byte(" End of rsg data ####")
-	rsgASCIIRowWidth = 64
 )
 
 // RSGMeta is the metadata map embedded in an RSG envelope.

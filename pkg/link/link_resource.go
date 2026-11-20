@@ -265,9 +265,6 @@ func (l *Link) rejectResource(resourceHash []byte) error {
 	l.recordOutbound()
 	return l.transport.SendPacket(rejectPkt)
 }
-func (l *Link) sendResourceResponse(requestID []byte, response any) error {
-	return l.sendResponse(requestID, response)
-}
 func (l *Link) sendResourceAdvertisement(res *resource.Resource) error {
 	adv := resource.NewResourceAdvertisement(res)
 	if adv == nil {

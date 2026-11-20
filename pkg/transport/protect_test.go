@@ -13,15 +13,6 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/protect"
 )
 
-func occupyHandlerPool(t *testing.T, tr *Transport) {
-	t.Helper()
-	hold := make(chan struct{})
-	if n := tr.occupyHandlerPoolForTest(hold); n == 0 {
-		t.Fatal("handler pool not occupied")
-	}
-	t.Cleanup(func() { close(hold) })
-}
-
 func TestHandlePacketProtectPreventShedsOnSemFull(t *testing.T) {
 	t.Cleanup(func() { protect.SetDefault(nil) })
 	health.Default.Reset()

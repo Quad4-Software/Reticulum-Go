@@ -101,9 +101,8 @@ func TestIdentifyBeforeRequest(t *testing.T) {
 	}
 
 	type sawIdentity struct {
-		has    bool
-		at     time.Time
-		result string
+		has bool
+		at  time.Time
 	}
 	saw := make(chan sawIdentity, 4)
 	err = destA.RegisterRequestHandler("/who", func(_ string, _ []byte, _ []byte, _ []byte, remote *identity.Identity, _ int64) []byte {

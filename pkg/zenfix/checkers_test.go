@@ -35,24 +35,6 @@ func f(t *T) { t.RequestPath(nil, "LoRa", nil, false) }
 func TestRecallBeforePathOrder(t *testing.T) {
 	src := `package p
 
-type identityPkg struct{}
-func (identityPkg) Recall([]byte) (any, error) { return nil, nil }
-
-var identity identityPkg
-
-type Transport struct{}
-func (t *Transport) AwaitPath(context.Context, []byte) error { return nil }
-
-import "context"
-
-func BadRecall(tr *Transport, dest []byte) {
-	identity.Recall(dest)
-	_ = tr.AwaitPath(context.Background(), dest)
-}
-`
-	// fix import order
-	src = `package p
-
 import "context"
 
 type identityPkg struct{}

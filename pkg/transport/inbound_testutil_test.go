@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/health"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/protect"
 )
@@ -18,24 +17,6 @@ func newOnlineTestIface(name string) *common.BaseInterface {
 	iface := common.NewBaseInterfacePtr(name, common.IFTypeUDP, true)
 	iface.Online = true
 	return iface
-}
-
-func saturateInboundDataQueue(t *testing.T, tr *Transport) {
-	t.Helper()
-	if tr == nil || tr.inboundQueues == nil {
-		t.Fatal("no inbound queues")
-	}
-	size := tr.inboundQueueSizes[TCData]
-	if size <= 0 {
-		size = defaultInboundDataQueueLen
-	}
-	for i := 0; i < size; i++ {
-		pc := getPacketCopy(2)
-		pc.buf[0] = 0x00
-		if !tr.inboundQueues.put(TCData, packetJob{pc: pc, packetType: 0}) {
-			t.Fatalf("fill inbound queue at %d/%d", i, size)
-		}
-	}
 }
 
 // fillPacketQueueForTest blocks every handler worker so enqueuePacket fails
@@ -47,18 +28,6 @@ func fillPacketQueueForTest(t *testing.T, tr *Transport) {
 		t.Fatal("handler pool not occupied")
 	}
 	t.Cleanup(func() { close(hold) })
-}
-
-func waitHandlerShed(t *testing.T, before uint64, ifaceName string, timeout time.Duration) {
-	t.Helper()
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		if health.Default.SnapshotIface(ifaceName).DoSHandler.Total > before {
-			return
-		}
-		time.Sleep(time.Millisecond)
-	}
-	t.Fatalf("overflow did not shed: dos_handler %d -> %d", before, health.Default.SnapshotIface(ifaceName).DoSHandler.Total)
 }
 
 func waitProtectHandlerTrip(t *testing.T, e *protect.Engine, tr *Transport, iface common.NetworkInterface, timeout time.Duration) {

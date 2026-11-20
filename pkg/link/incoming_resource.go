@@ -1054,7 +1054,6 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 	sum := hb.Sum(nil)
 	mh := sum[:resource.MapHashLen]
 
-	idx := -1
 	// Match Python: only consider map hashes inside the active receive
 	// window starting at consecutive_completed. A global scan lets 4-byte
 	// map-hash collisions steal an earlier empty slot and leave the
@@ -1065,7 +1064,7 @@ func (l *Link) appendIncomingResourcePart(data []byte) error {
 		win = resource.Window
 	}
 	windowEnd := min(windowStart+win, rx.totalParts)
-	idx = rx.lookupMapHash(mh, windowStart, windowEnd)
+	idx := rx.lookupMapHash(mh, windowStart, windowEnd)
 	if idx < 0 {
 		for i := windowStart; i < windowEnd; i++ {
 			if rx.partSlots[i] != nil {

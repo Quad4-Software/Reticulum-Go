@@ -318,6 +318,7 @@ jobs:
         run: |
           sh scripts/ci/setup-staticcheck.sh "${CI_STATICCHECK_VERSION}"
           task staticcheck
+          task deadcode
 
       - name: Installer script
         run: |

@@ -114,11 +114,6 @@ func (d *delaySimIface) Send(data []byte, addr string) error {
 	return nil
 }
 
-func (d *delaySimIface) stop() {
-	d.simIface.stop()
-	d.wg.Wait()
-}
-
 // flapSimIface drops all packets while the interface is marked down.
 type flapSimIface struct {
 	*simIface
@@ -306,25 +301,6 @@ func (c *corruptSimIface) Send(data []byte, addr string) error {
 		c.deliver(out)
 	}
 	return nil
-}
-
-func (c *corruptSimIface) flushReorderLocked() {
-	if len(c.queue) == 0 {
-		return
-	}
-	batch := c.queue
-	c.queue = nil
-	c.rng.Shuffle(len(batch), func(i, j int) { batch[i], batch[j] = batch[j], batch[i] })
-	for _, frame := range batch {
-		c.deliver(frame)
-	}
-}
-
-func (c *corruptSimIface) stop() {
-	c.rngMu.Lock()
-	c.flushReorderLocked()
-	c.rngMu.Unlock()
-	c.simIface.stop()
 }
 
 // TestSimChaosCorruptFrames bit-flips and truncates frames on a line and

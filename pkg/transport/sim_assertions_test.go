@@ -119,16 +119,6 @@ func graphDistanceLine(n, srcIdx, dstIdx int) int {
 	return d
 }
 
-func graphDistanceStar(n, srcIdx, dstIdx int) int {
-	if srcIdx == dstIdx {
-		return 0
-	}
-	if srcIdx == 0 || dstIdx == 0 {
-		return 1
-	}
-	return 2
-}
-
 func (s *simNetwork) shortestPath(srcIdx, dstIdx int) (int, bool) {
 	path, ok := s.pathNodes(srcIdx, dstIdx)
 	if !ok {
@@ -215,16 +205,6 @@ func assertNextHopTowardSourceOnLine(t testing.TB, net *simNetwork, nodeIdx, src
 	if !strings.Contains(ifName, "_to_"+wantNeighbor) {
 		t.Errorf("node%d nextHopInterface %q does not route toward %s", nodeIdx, ifName, wantNeighbor)
 	}
-}
-
-func containsIfaceToward(node *simNode, peerName string) bool {
-	want := fmt.Sprintf("_to_%s", peerName)
-	for _, ifc := range node.ifaces {
-		if strings.Contains(ifc.GetName(), want) {
-			return true
-		}
-	}
-	return false
 }
 
 func simPathTableLen(tr *Transport) int {

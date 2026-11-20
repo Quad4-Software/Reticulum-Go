@@ -23,10 +23,6 @@ func ifaceBitrate(iface common.NetworkInterface) int64 {
 	return 0
 }
 
-func admitIncoming(iface common.NetworkInterface, name string, data []byte) bool {
-	return admitIncomingFrom(iface, name, data, "")
-}
-
 // admitIncomingFrom is admitIncoming plus an optional peerKey identifying
 // the remote sender on a shared local interface (for example a listener
 // accepting many client connections, or a single UDP socket serving many

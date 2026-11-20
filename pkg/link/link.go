@@ -1262,7 +1262,6 @@ func (l *Link) watchdog() {
 				sleepTime = time.Until(nextKeepalive).Seconds()
 			}
 		} else if l.status.Load() == int32(StatusStale) {
-			sleepTime = 0.001
 			debug.Log(debug.DebugWarning, "Link marked stale, closing", "link_id", fmt.Sprintf("%x", l.linkID))
 			ifaceName := ""
 			if l.networkInterface != nil {

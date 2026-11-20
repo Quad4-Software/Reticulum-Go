@@ -24,6 +24,7 @@ Tracks Python RNS 1.6.1 plus post-release fixes.
 ### Changed
 
 - When `soft_memory_limit` is unset, a soft heap limit of about 65 percent of the cgroup memory limit or total RAM is applied so freed transport memory is returned instead of riding the GOGC=100 headroom. `GOMEMLIMIT` and explicit `soft_memory_limit` settings take precedence, and a prior programmatic limit is never overridden.
+- Removed unused functions, fields, constants, and dead assignments found by staticcheck U1000, SA4006, SA4010, SA9003, unparam, and ineffassign. A new `task deadcode` check and CI lint step now fail on newly introduced unused code.
 
 - The tree manifest `reticulum-go.rsm` is now signed by `6947fc2980d273b51a8ff4bc22b290b1`, replacing `e318cbc04468bd574db2b4523dddd710`.
 

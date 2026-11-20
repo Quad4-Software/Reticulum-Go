@@ -194,9 +194,3 @@ func (f *destinationFilters) announceAllowed(nameHash []byte, hops int, required
 	}
 	return false
 }
-
-func (f *destinationFilters) stats() (blocked, allowed int, clients int) {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-	return len(f.blocked), len(f.allowed), len(f.clients)
-}

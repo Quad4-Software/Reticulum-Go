@@ -32,21 +32,21 @@ func TestParsePathRequestWireSizes(t *testing.T) {
 		t.Fatal("48-byte form misparse")
 	}
 	// 33..63: tid + variable tag truncated to 16.
-	d, tid, tag, ext, ok = parsePathRequestWire(mk(40))
+	_, tid, tag, ext, ok = parsePathRequestWire(mk(40))
 	if !ok || len(tid) != 16 || len(tag) != 8 || ext != nil {
 		t.Fatalf("40-byte form: tid=%d tag=%d ext=%v", len(tid), len(tag), ext)
 	}
-	d, tid, tag, ext, ok = parsePathRequestWire(mk(50))
+	_, _, tag, _, ok = parsePathRequestWire(mk(50))
 	if !ok || len(tag) != 16 {
 		t.Fatalf("50-byte form tag=%d want 16", len(tag))
 	}
 	// Legacy 32-byte dst|tag (no tid).
-	d, tid, tag, ext, ok = parsePathRequestWire(mk(32))
+	_, tid, tag, _, ok = parsePathRequestWire(mk(32))
 	if !ok || tid != nil || len(tag) != 16 {
 		t.Fatal("32-byte legacy misparse")
 	}
 	// 17..31 legacy variable tag.
-	d, tid, tag, ext, ok = parsePathRequestWire(mk(20))
+	_, tid, tag, _, ok = parsePathRequestWire(mk(20))
 	if !ok || tid != nil || len(tag) != 4 {
 		t.Fatalf("20-byte legacy tag=%d", len(tag))
 	}

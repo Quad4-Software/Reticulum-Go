@@ -245,13 +245,6 @@ func NormalizeBlackholeRPC(raw []map[string]any) []BlackholeEntry {
 	return out
 }
 
-func formatUnixTimestamp(ts float64) string {
-	if ts <= 0 {
-		return "unknown"
-	}
-	return time.Unix(int64(ts), 0).UTC().Format("2006-01-02 15:04:05")
-}
-
 func truncateRunes(s string, maxRunes int) string {
 	r := []rune(s)
 	if len(r) <= maxRunes {

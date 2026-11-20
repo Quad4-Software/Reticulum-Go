@@ -60,19 +60,6 @@ func (t *Transport) filteredInboundAnnounce(iface common.NetworkInterface) {
 	t.filteredARXC.Add(1)
 }
 
-// filteredTx counts filtered outbound bytes on an interface (Python ftxb).
-func (t *Transport) filteredTx(iface common.NetworkInterface, size int) {
-	if size < 0 {
-		size = 0
-	}
-	for i := iface; i != nil; i = spawnedParentOf(i) {
-		if fa, ok := i.(interface{ FilteredTxTally(int) }); ok {
-			fa.FilteredTxTally(size)
-		}
-	}
-	t.filteredTxB.Add(uint64(size))
-}
-
 // announceReceived mirrors Python Interface.received_announce: arxc/arxb on
 // the receiving interface and every spawned parent.
 func announceReceived(iface common.NetworkInterface, size int) {

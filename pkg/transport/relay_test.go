@@ -1397,10 +1397,10 @@ func TestLocalClientAnnounceForwardedToPeerClientWhenTransportDisabled(t *testin
 
 	tr.HandlePacket(raw, src)
 	waitInboundDrain(t, tr, 50*time.Millisecond)
-	got := waitRelaySends(t, tr, peer, 1)
+	waitRelaySends(t, tr, peer, 1)
 	time.Sleep(50 * time.Millisecond)
 	tr.processDelayedAnnounceJobs()
-	got = peer.snapshot()
+	got := peer.snapshot()
 	if len(got) != 1 {
 		t.Fatalf("peer local-client announce forwards = %d, want 1", len(got))
 	}
