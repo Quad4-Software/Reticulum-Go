@@ -191,7 +191,6 @@ func TestReconnectDriverQuarantineDelay(t *testing.T) {
 func TestReconnectDriverRecordsFlap(t *testing.T) {
 	et := NewEndpointTracker()
 	done := make(chan struct{})
-	defer close(done)
 	ep := "flap:4242"
 	conn := &fakeConn{}
 	rd := newReconnectDriver(ep, -1, done, func() (net.Conn, error) { return conn, nil }, func(net.Conn) {})
@@ -205,6 +204,10 @@ func TestReconnectDriverRecordsFlap(t *testing.T) {
 	if c == nil {
 		t.Fatal("nil conn")
 	}
+	// Stop the driver before reporting the drop. notifyFailure launches a
+	// reconnect goroutine that would otherwise redial immediately and record
+	// a second success before Status is read.
+	close(done)
 	rd.notifyFailure()
 	st := et.Status(ep)
 	if st.Flaps != 1 {
