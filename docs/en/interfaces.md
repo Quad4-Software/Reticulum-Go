@@ -260,7 +260,7 @@ Go and Python interop lives in tests/interop/i2p_live_test.go (RUN_LIVE_INTEROP=
 
 ## Backbone
 
-Backbone interfaces multiplex many TCP streams through pkg/backbone hubs. Select poller backend with backbone_io in [reticulum]:
+Backbone interfaces multiplex many TCP streams through pkg/backbone hubs. Select poller backend with backbone_io in [reticulum]. `client_limit` on a BackboneInterface caps accepted clients (default 500, RNS 1.6.1). Clients over the cap are refused and the count frees on disconnect.
 
 | Value | Platform |
 |-------|----------|

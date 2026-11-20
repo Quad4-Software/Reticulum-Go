@@ -161,10 +161,13 @@ rgostatus [flags] [filter]
 | -l | Include link count |
 | -A | Show announce byte and count stats |
 | -P | Show path-request byte and count stats |
+| -F | Show filtered traffic stats per interface and in totals (RNS 1.6.1) |
 | -B | Only interfaces with active bursts |
 | -b | List blocked IPs per interface |
 | -t | Show transport traffic totals |
 | -T | Show path topology: path table grouped by receiving interface with hops, next-hop hash, age (Go-only) |
+| -L | Show transport link traffic share in totals (RNS 1.6.1) |
+| -u | Show tunnel ID and remote transport implementation per interface (Python uses -T for this. Here -T is topology) |
 | -p | Show packets per second in totals |
 | -Q | Show inbound queue pressure (use -Q rather than -q, which is quiet) |
 | -z | Show profiling results when the instance provides them |
@@ -352,6 +355,12 @@ rgopath [flags] [destination_hash]
 | -config dir | Config directory |
 | -t | Show path table (optional hash filter) |
 | -r | Show announce rate info |
+| -a | Show in-use paths only (RNS 1.6.1) |
+| -u | Show per-path usage time (RNS 1.6.1) |
+| -V | Show via transport IDs (RNS 1.6.1) |
+| -E | Show path expiry times (RNS 1.6.1) |
+| -M value | Only show paths whose announce stamp value is at or above this number (RNS 1.6.1) |
+| -A / -capture path | Analyze tables, optionally writing a capture file (stub, same as Python) |
 | -json / -j | JSON for -t / -r / -b |
 | -m N | Max hops filter for path table |
 | -d | Drop path to hash |

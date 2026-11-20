@@ -383,7 +383,8 @@ Python defaults from `RNS.Reticulum.__create_default_config` and [RNS/Reticulum.
 | max_in_memory_known_destinations | No | Yes | Soft known-dest cap under in_memory_storage |
 | max_in_memory_resource_bytes | No | Yes | Soft split-resource staging budget under in_memory_storage |
 | discover_interfaces | Yes | Yes | Starts rnstransport listening (StartInterfaceDiscovery). Per-interface discoverable also starts listening and the InterfaceAnnouncer. |
-| autoconnect_discovered_interfaces | Yes | Yes | Max autoconnect peers from discovery (>0 enables) |
+| autoconnect_discovered_interfaces | Yes | Yes | Max autoconnect peers from discovery (>0 enables). Warns above 6, caps at 12 (RNS 1.6.1) |
+| autoconnect_discovered_interfaces_disable_caps | Yes (1.6.1) | Yes | Lifts the warn/cap above |
 | autoconnect_unverified_implementations | Yes (1.5.5) | Yes | Also auto-connect discovered peers without version info or below min version |
 | enable_interface_management | Yes (1.5.5) | Yes | Enables rgostatus --attach/--detach/--reload over shared-instance RPC (default yes) |
 | publish_blackhole | Yes | Yes | Registers `rnstransport.info.blackhole` with `/list` |
@@ -399,6 +400,30 @@ Python defaults from `RNS.Reticulum.__create_default_config` and [RNS/Reticulum.
 | loglevel | Yes | Yes | Same default (4 = info). Go 0 is silent. Python 0 is critical. 5 verbose, 6 trace, 7 packets |
 | destination | Yes | Yes | Python: stdout / file / callback. Go also accepts syslog, journald, and combinations such as `syslog+stderr` |
 | logfile | Yes | Yes | Used when destination includes file |
+
+### [stamps] keys (RNS 1.6.1)
+
+| Key | Python *rns* | Reticulum-Go | Notes |
+|-----|:------------:|:------------:|-------|
+| enforce_stamps | Yes | Yes | Drop stamped traffic below required cost |
+| stamp_destinations | Yes | Yes | Default yes. Async stamp generation before destination announces |
+| stamp_prs | Yes | Yes | Default yes. Stamps on path requests |
+| always_stamp_lrs | Yes | Yes | Stamp link requests even without enforcement |
+| destination_cost | Yes | Yes | Required destination stamp cost (default 23.5) |
+| destination_value | Yes | Yes | Generated destination stamp value (default 25) |
+| pr_cost / pr_value | Yes | Yes | Path-request cost and generated value (default 15.8) |
+| lr_cost | Yes | Yes | Link-request cost when enforced (default 12.5) |
+| lr_stamp_timeout / pr_stamp_timeout | Yes | Yes | Seconds before a queued stamp job is abandoned |
+| max_workers | Yes | Yes | Stamp worker pool bound (unset uses all cores) |
+| worker_niceness | Yes | Parsed only | Stored, not applied. Go has no portable thread priority |
+
+### [filter] keys (RNS 1.6.1)
+
+| Key | Python *rns* | Reticulum-Go | Notes |
+|-----|:------------:|:------------:|-------|
+| ignored_types / allowed_types | Yes | Yes | Destination name or `<hex>` name hash per line |
+| required_only | Yes | Yes | Allow only the service types an unknown destination needs |
+| hop_limiter | Yes | Yes | Global hop ceiling before ingress prefilter (0-128) |
 
 ### [[Interface Name]] keys
 
@@ -438,6 +463,10 @@ Parsed in [pkg/reticulumconfig/config.go](pkg/reticulumconfig/config.go). Unlist
 | transport_mode | No | Yes | WebTransport: datagram, stream, or dual |
 | domain | No | Yes | DNSRendezvousInterface TXT lookup name |
 | resolve_interval | No | Yes | DNSRendezvous re-query interval seconds |
+| hop_limiter | Yes (1.6.1) | Yes | All. Per-interface hop ceiling at ingress prefilter (clamped 0-128) |
+| destination_cost / pr_cost | Yes (1.6.1) | Yes | All. Per-interface required stamp costs |
+| discovery_stamp_value | Yes | Yes | Auto, TCP discovery announces |
+| client_limit | Yes (1.6.1) | Yes | Backbone. Accepted client cap (default 500) |
 | context_id / cid | No | Yes | VSOCKClientInterface peer CID |
 | long_poll_sec | No | Yes | HTTPS long-poll timeout seconds |
 

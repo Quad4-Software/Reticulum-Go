@@ -53,6 +53,12 @@ Three categories exist:
 | SDR burst modem | Yes | Lab/testing only, not air-compatible with Modem73/RNode |
 | Bare HT1 LINKREQUEST bridging | Yes | Python drops link requests for non-local destinations. When this node holds a known path it re-originates the request on the path interface (HeaderType2-wrapped for multi-hop paths), so link establishment can succeed through a Go mesh where a pure-Python mesh fails. Bounded by packet-hash dedup and MaxHops |
 
+## Parsed but not applied
+
+| Config key | Behavior |
+|------------|----------|
+| `worker_niceness` under `[stamps]` | Parsed and clamped to 0-20 and stored on the config. Go has no portable per-thread priority, so stamp workers run at normal niceness. Python applies it to its worker threads |
+
 ## What is NOT here
 
 No changes to packet layout, crypto primitives, signature inputs, link

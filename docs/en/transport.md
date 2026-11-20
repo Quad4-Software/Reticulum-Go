@@ -42,6 +42,8 @@ Known destinations persist under storage/known_destinations/. Set in_memory_know
 
 Set in_memory_storage = yes for fully ephemeral stack state (paths, known destinations, transport identity, blackhole, and split-resource staging). Soft caps (max_in_memory_paths, max_in_memory_known_destinations, max_packet_hashlist, soft_memory_limit) bound RAM for path and known-dest tables and the packet hash filter even when storage is disk-backed.
 
+When transport is enabled (and this process is not a shared-instance client), egress announce-rate state also persists to announce_rate_table in the config dir, in the Python RNSART binary layout, so rate windows survive restarts (RNS 1.6.1).
+
 ## Packet handling
 
 Inbound packets enter HandlePacket and branch on packet type:
@@ -74,6 +76,10 @@ When transport mode is enabled and the local node acts as a relay, data packets 
 Announces are deduplicated by a content hash before signature verification. A seen announce is not dropped outright: the copy is evaluated against the path contest on cleartext fields (wire hops, receiving interface, the random-blob prefix of the signed payload). Copies that cannot improve the route cost one SHA-256 and a map lookup. Copies that could win (fewer hops, newer emission, better interface gravity, or a path marked unresponsive) pay for full signature verification and re-run the contest before any state changes, matching the reference implementation which verifies every copy. Verified copies that lose the post-verification contest do not propagate: forwarding, local delivery, handlers, path-request answers, and the announce cache are all gated on the contest result.
 
 Losing duplicate copies are buffered as bounded alternate-path candidates (per destination, per interface, with a TTL). Displaced verified paths are kept in a small per-destination backup list. When the active path is marked unresponsive or expires, the best backup promotes instantly, or buffered alternates are re-injected through the normal verify-and-contest pipeline. A promoted path also answers any pending local path request immediately when the announce bytes are still cached. All of this is local state only; nothing changes on the wire.
+
+Before any of that work, inbound frames run a cheap gate chain (RNS 1.6.1): malformed, offline, IFAC-invalid, MTU-overflow, packet-filter and hop-limit rejections happen before packet handling, and the announce prefilter drops copies that a [filter] destination-type rule blocks or that cannot win the contest against the known path, using only cleartext fields and map lookups. Every rejected frame counts toward the filtered traffic counters (rgostatus -F) instead of the accepted counters.
+
+Accepted announces are retransmitted the same way Python 1.6.1 does: a randomized initial retransmit, then fixed-interval retries up to PATHFINDER_R local rebroadcasts, and the pending forward is cancelled when another node's rebroadcast of the same announce is heard. Interfaces that already delivered an identical wire copy while the forward was pending are recorded and skipped, and interfaces listed under a packet's blocked_interfaces field never receive the forward.
 
 ## Links at the transport layer
 
