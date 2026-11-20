@@ -218,6 +218,8 @@ builds:
       - goos: android
         goarch: "386"
       - goos: android
+        goarch: amd64
+      - goos: android
         goarch: arm
       - goos: android
         goarch: riscv64
