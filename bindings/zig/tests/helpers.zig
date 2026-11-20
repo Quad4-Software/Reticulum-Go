@@ -29,6 +29,10 @@ pub fn writeUdpPeerConfig(dir: Io.Dir, listen: u16, peer: u16) !void {
         \\    target_host = 127.0.0.1
         \\    target_port = {d}
         \\
+        \\[stamps]
+        \\destination_value = 8
+        \\destination_cost = 8
+        \\
     , .{ listen, peer });
     try dir.writeFile(testing.io, .{ .sub_path = "config", .data = cfg });
 }

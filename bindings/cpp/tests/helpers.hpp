@@ -69,7 +69,11 @@ inline bool write_udp_peer_config(const std::string &dir, std::uint16_t listen,
 	    << "    listen_ip = 127.0.0.1\n"
 	    << "    listen_port = " << listen << "\n"
 	    << "    target_host = 127.0.0.1\n"
-	    << "    target_port = " << peer << "\n";
+	    << "    target_port = " << peer << "\n"
+	    << "\n"
+	    << "[stamps]\n"
+	    << "destination_value = 8\n"
+	    << "destination_cost = 8\n";
 	std::ofstream out(dir + "/config");
 	if (!out) {
 		return false;

@@ -58,7 +58,11 @@ write_udp_peer_config :: proc(dir: string, listen: int, peer: int) -> bool {
 		"    listen_ip = 127.0.0.1\n" +
 		"    listen_port = %d\n" +
 		"    target_host = 127.0.0.1\n" +
-		"    target_port = %d\n",
+		"    target_port = %d\n" +
+		"\n" +
+		"[stamps]\n" +
+		"destination_value = 8\n" +
+		"destination_cost = 8\n",
 		listen,
 		peer,
 	)
