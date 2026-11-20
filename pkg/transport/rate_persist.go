@@ -51,7 +51,7 @@ func marshalRateTable(entries map[[16]byte]rateTableEntry) []byte {
 	sort.Slice(keys, func(i, j int) bool {
 		return bytes.Compare(keys[i][:], keys[j][:]) < 0
 	})
-	count := len(keys)
+	entryCount := len(keys)
 	buf := new(bytes.Buffer)
 	buf.WriteString(ratePersistMagic)
 	buf.WriteByte(ratePersistVersion)
@@ -59,7 +59,7 @@ func marshalRateTable(entries map[[16]byte]rateTableEntry) []byte {
 	buf.WriteByte(rateTableMaxTS)
 	buf.WriteByte(rateTableKeyLen)
 	buf.Write([]byte{0, 0})
-	_ = binary.Write(buf, binary.LittleEndian, uint32(count)) // #nosec G115 -- entry count bounded by the rate table size //nolint:errcheck
+	_ = binary.Write(buf, binary.LittleEndian, uint32(entryCount)) // #nosec G115 -- entry entryCount bounded by the rate table size //nolint:errcheck
 	for _, k := range keys {
 		buf.Write(k[:])
 	}
@@ -91,6 +91,13 @@ func marshalRateTable(entries map[[16]byte]rateTableEntry) []byte {
 	return buf.Bytes()
 }
 
+// rateTableCountFits verifies the stored blob length exactly in 64-bit so a
+// crafted entryCount cannot overflow the product on 32-bit platforms.
+func rateTableCountFits(blobLen int, entryCount uint32, keyLen, fileMaxTS int) bool {
+	entry := uint64(keyLen) + 22 + uint64(fileMaxTS)*8
+	return uint64(blobLen) == 16+uint64(entryCount)*entry
+}
+
 func unmarshalRateTable(blob []byte) (map[[16]byte]rateTableEntry, bool) {
 	if len(blob) < 16 || string(blob[:6]) != ratePersistMagic ||
 		blob[6] != ratePersistVersion || blob[7] != 0x00 {
@@ -98,52 +105,53 @@ func unmarshalRateTable(blob []byte) (map[[16]byte]rateTableEntry, bool) {
 	}
 	fileMaxTS := int(blob[8])
 	keyLen := int(blob[9])
-	count := int(binary.LittleEndian.Uint32(blob[12:16]))
+	countU := binary.LittleEndian.Uint32(blob[12:16])
 	if fileMaxTS < 1 || fileMaxTS > 255 || keyLen != rateTableKeyLen {
 		return nil, false
 	}
-	if len(blob) != 16+count*(keyLen+22+fileMaxTS*8) {
+	if !rateTableCountFits(len(blob), countU, keyLen, fileMaxTS) {
 		return nil, false
 	}
+	entryCount := int(countU)
 	off := 16
-	keys := make([][16]byte, count)
+	keys := make([][16]byte, entryCount)
 	for i := range keys {
 		copy(keys[i][:], blob[off+i*keyLen:off+(i+1)*keyLen])
 	}
-	off += count * keyLen
+	off += entryCount * keyLen
 	readF64 := func() []float64 {
-		out := make([]float64, count)
+		out := make([]float64, entryCount)
 		for i := range out {
 			out[i] = math.Float64frombits(binary.LittleEndian.Uint64(blob[off+i*8 : off+i*8+8]))
 		}
-		off += count * 8
+		off += entryCount * 8
 		return out
 	}
 	last := readF64()
 	blocked := readF64()
-	viol := make([]int32, count)
+	viol := make([]int32, entryCount)
 	for i := range viol {
 		viol[i] = int32(binary.LittleEndian.Uint32(blob[off+i*4 : off+i*4+4])) // #nosec G115 -- file field is int32; bit reinterpretation intended
 	}
-	off += count * 4
-	tsLen := make([]int, count)
+	off += entryCount * 4
+	tsLen := make([]int, entryCount)
 	for i := range tsLen {
 		tsLen[i] = int(blob[off+i])
 	}
-	off += count
-	tsHead := make([]int, count)
+	off += entryCount
+	tsHead := make([]int, entryCount)
 	for i := range tsHead {
 		tsHead[i] = int(blob[off+i])
 	}
-	off += count
+	off += entryCount
 	for i := range tsLen {
 		if tsLen[i] > fileMaxTS || tsHead[i] >= fileMaxTS {
 			return nil, false
 		}
 	}
 	tsBase := off
-	out := make(map[[16]byte]rateTableEntry, count)
-	for i := 0; i < count; i++ {
+	out := make(map[[16]byte]rateTableEntry, entryCount)
+	for i := 0; i < entryCount; i++ {
 		base := tsBase + i*fileMaxTS*8
 		ring := make([]float64, fileMaxTS)
 		for j := 0; j < fileMaxTS; j++ {

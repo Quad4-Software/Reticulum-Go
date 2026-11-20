@@ -64,3 +64,22 @@ func TestRateTablePersistRingFull(t *testing.T) {
 		t.Fatalf("timestamps=%v", e.timestamps)
 	}
 }
+
+// TestRateTableLenCheckOverflow guards the 32-bit path: a crafted count can
+// wrap a 32-bit int product so the old expression len(blob) == 16+count*entry
+// passed, then make([][16]byte, count) allocated gigabytes. The check must be
+// computed in 64-bit.
+func TestRateTableLenCheckOverflow(t *testing.T) {
+	// count*entrySize wraps past 2^32: 93392930*46 = 4296074780.
+	// On a 32-bit int this wraps to 1107484, +16 = 1107500, which would
+	// accept a 1107500-byte blob and then allocate ~1.5G entries.
+	if rateTableCountFits(1107500, 93392930, 16, 1) {
+		t.Fatal("crafted count that overflows a 32-bit product was accepted")
+	}
+	if !rateTableCountFits(16+3*46, 3, 16, 1) {
+		t.Fatal("valid small table rejected")
+	}
+	if rateTableCountFits(16+3*46+1, 3, 16, 1) {
+		t.Fatal("off-by-one length accepted")
+	}
+}
