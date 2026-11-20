@@ -95,6 +95,7 @@ func TestPathTablePersistenceInterfaceRegisteredLater(t *testing.T) {
 	tr.savePathTableSync()
 
 	tr2 := NewTransport(cfg) // loads snapshot, but "wan" is not registered yet
+	defer tr2.Close()
 	tr2.mutex.RLock()
 	_, ok := tr2.paths[pathMapKey(dest)]
 	pendingBefore := len(tr2.pendingPathEntries)

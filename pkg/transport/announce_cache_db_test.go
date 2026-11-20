@@ -23,6 +23,7 @@ func TestOpenAnnounceCacheDBCreatesCacheDir(t *testing.T) {
 	if db == nil {
 		t.Fatal("expected announce cache DB on fresh storage dir")
 	}
+	t.Cleanup(func() { _ = db.Close() })
 	if _, err := os.Stat(filepath.Join(dir, "cache", "announces.db")); err != nil {
 		t.Fatalf("announces.db not created: %v", err)
 	}
