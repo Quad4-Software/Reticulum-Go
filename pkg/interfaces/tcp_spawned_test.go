@@ -6,6 +6,7 @@ package interfaces
 import (
 	"fmt"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,9 +21,12 @@ func TestTCPServerSpawnedClientsIndependentState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewTCPServerInterface: %v", err)
 	}
+	var mu sync.Mutex
 	var spawned []*TCPServerClientInterface
 	srv.EnableSpawnedClients(&common.InterfaceConfig{}, func(c *TCPServerClientInterface) {
+		mu.Lock()
 		spawned = append(spawned, c)
+		mu.Unlock()
 	})
 	if srv.AllowsOutgoing() {
 		t.Fatal("listener must be receive-only in spawned mode (Python OUT=False)")
@@ -46,9 +50,17 @@ func TestTCPServerSpawnedClientsIndependentState(t *testing.T) {
 	defer c2.Close()
 
 	deadline := time.Now().Add(3 * time.Second)
-	for time.Now().Before(deadline) && len(spawned) < 2 {
+	for time.Now().Before(deadline) {
+		mu.Lock()
+		n := len(spawned)
+		mu.Unlock()
+		if n >= 2 {
+			break
+		}
 		time.Sleep(10 * time.Millisecond)
 	}
+	mu.Lock()
+	defer mu.Unlock()
 	if len(spawned) != 2 {
 		t.Fatalf("expected 2 spawned clients, got %d", len(spawned))
 	}
