@@ -97,7 +97,7 @@ func TestLiveGoToGoRgoshPipe(t *testing.T) {
 	destHex := hex.EncodeToString(dest.GetHash())
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "-N", "-m", destHex, "/bin/echo", "live-rgosh-ok")
+	cmd := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "-N", "-m", "-w", "20", destHex, "/bin/echo", "live-rgosh-ok")
 	cmd.Stdin = bytes.NewReader(nil)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -301,7 +301,7 @@ func TestLiveGoCompatToPythonRnsh(t *testing.T) {
 	go io.Copy(io.Discard, stdout)
 
 	rgoshBin := ensureRgosh(t)
-	cmd := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "--compat", "-N", "-m", "-v", destHex, "/bin/echo", "py-rnsh-ok")
+	cmd := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirB, "--compat", "-N", "-m", "-v", "-w", "20", destHex, "/bin/echo", "py-rnsh-ok")
 	// Hold stdin open for the session: with a null stdin rgosh sends an
 	// immediate stdin EOF, which makes Python's listener close the child
 	// stdin and race its own reaper. In RNS 1.5.x that path reaps the child
