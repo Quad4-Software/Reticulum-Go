@@ -2751,7 +2751,6 @@ func (t *Transport) announceHeardMatch(dest hash16, wireHops byte) bool {
 // same emission counts toward the local rebroadcast limit; a relayed copy of
 // our own rebroadcast cancels the pending retries.
 func (t *Transport) heardAnnounceRebroadcast(dest hash16, wireHops byte) {
-	var released [][]byte
 	now := time.Now()
 	t.pendingAnnounceMu.Lock()
 	keep := t.pendingAnnounceJobs[:0]
@@ -2765,7 +2764,6 @@ func (t *Transport) heardAnnounceRebroadcast(dest hash16, wireHops byte) {
 		if wireHops == jobHops {
 			job.localRebroadcasts++
 			if job.retries > 0 && job.localRebroadcasts >= LocalRebroadcastsMax {
-				released = append(released, job.data)
 				continue
 			}
 		}
@@ -2774,7 +2772,6 @@ func (t *Transport) heardAnnounceRebroadcast(dest hash16, wireHops byte) {
 				debug.Log(debug.DebugVerbose, "Rebroadcasted announce passed on, no further tries needed",
 					"dest_hash", fmt.Sprintf("%x", job.dst))
 			}
-			released = append(released, job.data)
 			continue
 		}
 		keep = append(keep, *job)
@@ -2784,11 +2781,9 @@ func (t *Transport) heardAnnounceRebroadcast(dest hash16, wireHops byte) {
 	}
 	t.pendingAnnounceJobs = keep
 	t.pendingAnnounceMu.Unlock()
-	for _, buf := range released {
-		if cap(buf) <= 4*common.DefaultMTU {
-			announceForwardPool.Put(buf)
-		}
-	}
+	// Removed jobs' data buffers are not returned to announceForwardPool:
+	// a shallow copy in processDelayedAnnounceJobs' due list may still be
+	// mid-forward reading the same buffer.
 
 	// The same rules cover announce-table entries (path responses) in
 	// Python's shared announce_table.
@@ -2842,7 +2837,18 @@ func (t *Transport) processDelayedAnnounceJobs() {
 		if !now.Before(job.due) {
 			job.due = now.Add(time.Duration((PathfinderG+effectivePathfinderRW())*1000.0) * time.Millisecond)
 			job.retries++
-			due = append(due, *job)
+			dueJob := *job
+			// forwardAnnouncePacket reads dedup after pendingAnnounceMu is
+			// released; noteAnnounceDedupIface may still add to the live
+			// map, so the emit gets a snapshot.
+			if job.dedup != nil {
+				d := make(map[string]struct{}, len(job.dedup))
+				for k := range job.dedup {
+					d[k] = struct{}{}
+				}
+				dueJob.dedup = d
+			}
+			due = append(due, dueJob)
 		}
 		keep = append(keep, *job)
 	}
