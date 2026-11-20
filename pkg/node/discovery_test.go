@@ -40,6 +40,7 @@ func TestStartInterfaceDiscoveryDisabled(t *testing.T) {
 func TestStartInterfaceDiscoveryFromDiscoverable(t *testing.T) {
 	cfg := common.DefaultConfig()
 	cfg.DiscoverInterfaces = false
+	cfg.StaticTransportIdentity = true
 	cfg.Interfaces = map[string]*common.InterfaceConfig{
 		"pub": {
 			Type:         "TCPServerInterface",
@@ -69,10 +70,12 @@ func TestStartInterfaceDiscoveryFromDiscoverable(t *testing.T) {
 	n.discovery.Stop()
 }
 
-// TestDiscoverableEnablesStaticTransportIdentity covers the RNS 1.5.6 rule:
-// a discoverable interface on a non-transport instance flips
-// static_transport_identity on at config-apply time.
-func TestDiscoverableEnablesStaticTransportIdentity(t *testing.T) {
+// TestDiscoverableDisabledWithoutStaticTransportIdentity covers upstream
+// 606a1691: a discoverable interface on a non-transport instance that does
+// not opt into static_transport_identity has discovery disabled instead of
+// silently pinning the ephemeral identity, so restarts cannot register it
+// as a new node on discovery services.
+func TestDiscoverableDisabledWithoutStaticTransportIdentity(t *testing.T) {
 	cfg := common.DefaultConfig()
 	cfg.EnableTransport = false
 	cfg.Interfaces = map[string]*common.InterfaceConfig{
@@ -89,19 +92,35 @@ func TestDiscoverableEnablesStaticTransportIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer n.Stop()
-	if !cfg.StaticTransportIdentity {
-		t.Fatal("discoverable interface should force static transport identity")
+	if cfg.StaticTransportIdentity {
+		t.Fatal("discoverable interface must not gain static transport identity")
+	}
+	if cfg.Interfaces["pub"].Discoverable {
+		t.Fatal("discoverable flag should be cleared on non-transport ephemeral instance")
+	}
+	if n.announcer != nil {
+		t.Fatal("no announcer should start for the disabled discoverable interface")
 	}
 
-	// Without a discoverable interface the flag stays off.
-	plain := common.DefaultConfig()
-	plain.EnableTransport = false
-	n2, err := New(plain)
+	// With static_transport_identity set the interface stays discoverable.
+	fixed := common.DefaultConfig()
+	fixed.EnableTransport = false
+	fixed.StaticTransportIdentity = true
+	fixed.Interfaces = map[string]*common.InterfaceConfig{
+		"pub": {
+			Type:         "TCPServerInterface",
+			Enabled:      true,
+			Discoverable: true,
+			Port:         4244,
+			ReachableOn:  "127.0.0.1",
+		},
+	}
+	n2, err := New(fixed)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer n2.Stop()
-	if plain.StaticTransportIdentity {
-		t.Fatal("non-discoverable config must not gain static transport identity")
+	if !fixed.Interfaces["pub"].Discoverable {
+		t.Fatal("static transport identity must keep the interface discoverable")
 	}
 }

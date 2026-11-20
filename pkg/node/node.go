@@ -142,20 +142,23 @@ func New(cfg *common.ReticulumConfig) (*Node, error) {
 	if _, err := backbone.Init(backbone.ParseBackend(cfg.BackboneIO)); err != nil {
 		return nil, fmt.Errorf("backbone I/O hub: %w", err)
 	}
-	// RNS 1.5.6: a configured discoverable interface on a non-transport
-	// instance needs a static transport identity or peers cannot map
-	// announces back to it. Upstream applies this during config parsing,
-	// before the enabled and type checks.
-	discoverableConfigured := false
-	for _, iface := range cfg.Interfaces {
-		if iface != nil && iface.Discoverable {
-			discoverableConfigured = true
-			break
+	// Upstream 606a1691: a discoverable interface on a non-transport
+	// instance without static_transport_identity announces under the
+	// ephemeral transport identity, so every restart would show it as a
+	// new node. Discovery is disabled for that interface instead of
+	// silently pinning the identity. Upstream applies this during
+	// config parsing, before the enabled and type checks.
+	if !cfg.EnableTransport && !cfg.StaticTransportIdentity {
+		for name, iface := range cfg.Interfaces {
+			if iface == nil || !iface.Discoverable {
+				continue
+			}
+			debug.Log(debug.DebugWarning, "The interface \""+name+"\" was configured discoverable, but this instance has transport disabled")
+			debug.Log(debug.DebugWarning, "and is using an ephemeral transport identity. To make interfaces discoverable for non-transport")
+			debug.Log(debug.DebugWarning, "instances, explicitly enable using static transport identity in the config file,")
+			debug.Log(debug.DebugWarning, "by adding \"static_transport_identity = yes\" to the [reticulum] section.")
+			iface.Discoverable = false
 		}
-	}
-	if discoverableConfigured && !cfg.EnableTransport && !cfg.StaticTransportIdentity {
-		debug.Log(debug.DebugWarning, "Discoverable interface configured, enabling static transport identity on non-transport instance")
-		cfg.StaticTransportIdentity = true
 	}
 	t := transport.NewTransport(cfg)
 	n := &Node{
