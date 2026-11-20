@@ -378,6 +378,22 @@ func (n *Node) nodeConfigDir() string {
 	return configDir
 }
 
+// parseBlockedIPs extracts valid IP addresses from a blocked_ips file body:
+// one entry per line, blank lines and # comments skipped.
+func parseBlockedIPs(raw []byte) []string {
+	var out []string
+	for _, line := range strings.Split(string(raw), "\n") {
+		ip := strings.TrimSpace(line)
+		if ip == "" || strings.HasPrefix(ip, "#") {
+			continue
+		}
+		if net.ParseIP(ip) != nil {
+			out = append(out, ip)
+		}
+	}
+	return out
+}
+
 // loadConfigDirTables reads the config-dir tables RNS 1.6.1 loads at
 // startup: blocked_ips (permanent backbone blocks), known_destination_types
 // and flagged_destination_types (name-hash display names).
@@ -387,18 +403,11 @@ func (n *Node) loadConfigDirTables() {
 		return
 	}
 	if raw, err := os.ReadFile(filepath.Join(configDir, "blocked_ips")); err == nil { // #nosec G304 -- path under the node's own config dir
-		count := 0
-		for _, line := range strings.Split(string(raw), "\n") {
-			ip := strings.TrimSpace(line)
-			if ip == "" || strings.HasPrefix(ip, "#") {
-				continue
-			}
-			if parsed := net.ParseIP(ip); parsed != nil {
-				interfaces.BlockPermanently(ip)
-				count++
-			}
+		ips := parseBlockedIPs(raw)
+		for _, ip := range ips {
+			interfaces.BlockPermanently(ip)
 		}
-		debug.Log(debug.DebugVerbose, "Loaded blocked IPs", "count", count)
+		debug.Log(debug.DebugVerbose, "Loaded blocked IPs", "count", len(ips))
 	}
 	for _, table := range []struct {
 		file     string
