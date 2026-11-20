@@ -370,14 +370,18 @@ func TestLivePythonRnshToGoCompat(t *testing.T) {
 		"INTEROP_COMMAND=/bin/echo go-compat-ok",
 	)
 	out, err := py.CombinedOutput()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 77 {
-			t.Skip("python rnsh unavailable")
-		}
-		t.Fatalf("python rnsh client: %v\n%s", err, out)
+	// rnsh returns 255 on teardown if the channel closes before the local
+	// session reaps the exit status, even when the command already ran and
+	// its output arrived. The interop assertion is the echoed marker, so
+	// check it before the exit code.
+	if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 77 {
+		t.Skip("python rnsh unavailable")
 	}
 	if !bytes.Contains(out, []byte("go-compat-ok")) {
 		t.Fatalf("missing output: %s", out)
+	}
+	if err != nil {
+		t.Fatalf("python rnsh client: %v\n%s", err, out)
 	}
 }
 

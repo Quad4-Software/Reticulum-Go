@@ -69,6 +69,8 @@ def write_rngit_config(rngit_dir: str, repo_root: str, serve_pages: bool = False
             "",
             "[pages]",
             "serve_nomadnet = yes",
+            "link_cost = 6",
+            "stamp_value = 8",
             "",
         ]
     with open(os.path.join(rngit_dir, "config"), "w", encoding="utf-8") as f:

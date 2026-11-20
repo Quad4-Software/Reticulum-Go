@@ -49,6 +49,9 @@ func writeRNGitPagesServerConfig(t *testing.T, rngitDir, repoRoot string) {
 		"node_name = Interop Go Node",
 		"[pages]",
 		"serve_nomadnet = yes",
+		// Cheap to mine under CI load; keeps the stamped wire shape.
+		"link_cost = 6",
+		"stamp_value = 8",
 	}, "\n")), 0o600); err != nil {
 		t.Fatal(err)
 	}
