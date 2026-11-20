@@ -410,7 +410,11 @@ func (t *Transport) savePathTable(force bool) {
 		return
 	}
 	err = storage.AtomicWriteFunc(path, 0o600, func(w io.Writer) error {
-		bw := bufio.NewWriterSize(w, 1<<20)
+		bufSize := 64 << 10
+		if est := len(snap) * 96; est > bufSize {
+			bufSize = min(est, 1<<20)
+		}
+		bw := bufio.NewWriterSize(w, bufSize)
 		enc := msgpack.NewEncoder(bw)
 		if err := enc.EncodeArrayLen(len(snap)); err != nil {
 			return err
