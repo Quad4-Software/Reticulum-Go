@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"os"
 	"time"
 
 	"sync/atomic"
@@ -493,6 +494,10 @@ func openAnnounceCacheDB(storagePath string) *sqlitestore.AnnounceCache {
 		return nil
 	}
 	cacheDir := filepath.Join(storagePath, "cache")
+	if err := os.MkdirAll(cacheDir, 0o700); err != nil {
+		debug.Log(debug.DebugWarning, "announce cache DB unavailable, using memory only", "error", err)
+		return nil
+	}
 	db, err := sqlitestore.OpenAnnounceCache(filepath.Join(cacheDir, "announces.db"))
 	if err != nil {
 		debug.Log(debug.DebugWarning, "announce cache DB unavailable, using memory only", "error", err)
