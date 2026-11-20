@@ -170,9 +170,18 @@ type Transport struct {
 	// linkPathKeys marks path-table rows installed by registerLinkPath so
 	// UnregisterLink can remove them without touching a real path that
 	// happens to collide on the same 16-byte key.
-	linkPathKeys          map[hash16]struct{}
-	incomingHandshakes    int
-	destinations          map[hash16]registeredDestination
+	linkPathKeys       map[hash16]struct{}
+	incomingHandshakes int
+	destinations       map[hash16]registeredDestination
+	// unusedPathLinger* and pathPool* snapshot the matching package knobs
+	// at construction so maintenance goroutines never read mutable globals.
+	unusedPathLinger      time.Duration
+	unusedPathLingerLeaf  time.Duration
+	pathSlowBitrate       int64
+	pathSlowLingerFactor  int
+	pathPoolUnusedMax     int
+	pathPoolUnusedMin     int
+	pathPoolUsedTarget    int
 	announceRate          *rate.Limiter
 	seenAnnounces         map[[32]byte]time.Time
 	packetQ               chan packetJob
@@ -391,6 +400,13 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 	t := &Transport{
 		interfaces:               make(map[string]common.NetworkInterface),
 		paths:                    make(map[[PathMapKeySize]byte]*common.Path),
+		unusedPathLinger:         UnusedPathLinger,
+		unusedPathLingerLeaf:     UnusedPathLingerLeaf,
+		pathSlowBitrate:          int64(PathSlowBitrate),
+		pathSlowLingerFactor:     PathSlowLingerFactor,
+		pathPoolUnusedMax:        PathPoolUnusedMax,
+		pathPoolUnusedMin:        PathPoolUnusedMin,
+		pathPoolUsedTarget:       PathPoolUsedTarget,
 		seenAnnounces:            make(map[[32]byte]time.Time),
 		announceRate:             rate.NewLimiter(rate.DefaultBurstFreq, AnnounceRateKbps),
 		mutex:                    sync.RWMutex{},
@@ -700,9 +716,9 @@ func (t *Transport) evictSeenAnnouncesUnlocked(now time.Time) {
 }
 
 func (t *Transport) cleanupExpiredPaths() {
-	linger := UnusedPathLinger
+	linger := t.unusedPathLinger
 	if !t.transportEnabled() {
-		linger = UnusedPathLingerLeaf
+		linger = t.unusedPathLingerLeaf
 	}
 	t.mutex.Lock()
 
@@ -746,10 +762,10 @@ func (t *Transport) cleanupExpiredPaths() {
 			}
 		}
 		if !path.EverUsed() && !localDest {
-			slow := interfaceIsSlowForPath(path.Interface)
+			slow := interfaceIsSlowForPath(path.Interface, t.pathSlowBitrate)
 			lingerLimit := linger
 			if slow {
-				lingerLimit *= time.Duration(PathSlowLingerFactor)
+				lingerLimit *= time.Duration(t.pathSlowLingerFactor)
 			}
 			if now.Sub(path.LastUpdated) > lingerLimit {
 				t.dropPathEntryUnlocked(key)
@@ -828,8 +844,8 @@ func (t *Transport) effectiveHopLimiter() int {
 // used paths exceed PATH_POOL_USED_TARGET, floored at PATH_POOL_UNUSED_MIN.
 // Caller must hold t.mutex.
 func (t *Transport) cullUnusedPathPoolLocked(unused []unusedPathInfo, usedCount int, now time.Time) {
-	unusedTrim := max(0, usedCount-PathPoolUsedTarget)
-	target := max(PathPoolUnusedMin, PathPoolUnusedMax-unusedTrim)
+	unusedTrim := max(0, usedCount-t.pathPoolUsedTarget)
+	target := max(t.pathPoolUnusedMin, t.pathPoolUnusedMax-unusedTrim)
 	if len(unused) <= target {
 		return
 	}
@@ -850,7 +866,7 @@ func (t *Transport) cullUnusedPathPoolLocked(unused []unusedPathInfo, usedCount 
 
 // interfaceIsSlowForPath reports whether the path's interface counts as
 // slow for never-used linger purposes (Python PATH_SLOW_BITRATE check).
-func interfaceIsSlowForPath(iface common.NetworkInterface) bool {
+func interfaceIsSlowForPath(iface common.NetworkInterface, slowBitrate int64) bool {
 	if iface == nil {
 		return false
 	}
@@ -858,7 +874,7 @@ func interfaceIsSlowForPath(iface common.NetworkInterface) bool {
 	if b, ok := iface.(interface{ GetBitrate() int64 }); ok {
 		bitrate = b.GetBitrate()
 	}
-	return bitrate > 0 && bitrate < int64(PathSlowBitrate)
+	return bitrate > 0 && bitrate < slowBitrate
 }
 
 func (t *Transport) cleanupExpiredDiscoveryRequests() {
