@@ -19,7 +19,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/protect"
 )
 
-// floodIface counts outbound frames; the inbound path is exercised by
+// floodIface counts outbound frames. The inbound path is exercised by
 // calling tr.HandlePacket directly with crafted wire bytes, which is the
 // same entry point real interfaces use.
 type floodIface struct {
@@ -136,7 +136,7 @@ func TestFloodAnnounceReplayIsCheap(t *testing.T) {
 	verifyCost := time.Since(verifyStart) / verifyIters
 
 	// An Ed25519 verify is ~40-90us native and several hundred us under
-	// -race; the pre-verify dedup path is a SHA256 + map lookup. Requiring
+	// -race. The pre-verify dedup path is a SHA256 + map lookup. Requiring
 	// replays to run at least 2x faster than a verify keeps the ordering
 	// assertion while scaling out from under loaded-runner noise.
 	limit := max(80*time.Microsecond, verifyCost/2)
@@ -151,7 +151,7 @@ func TestFloodAnnounceReplayIsCheap(t *testing.T) {
 	dups, shed := s.AnnounceDup.Total, s.DoSHandler.Total
 	filtered := iface.FilteredARXC
 	// RNS 1.6.1: identical replays of a known emission are dropped by the
-	// announce prefilter (afrxc) before the dedup claim runs; both counters
+	// announce prefilter (afrxc) before the dedup claim runs. Both counters
 	// are valid evidence the cheap path executed.
 	if filtered == 0 && dups == 0 {
 		t.Fatal("announce replay hit neither prefilter nor dedup")
@@ -197,7 +197,7 @@ func TestFloodDistinctAnnouncesBounded(t *testing.T) {
 	}
 	elapsed := time.Since(start)
 
-	// Handler workers run async off bounded queues; wait for the pool to
+	// Handler workers run async off bounded queues. Wait for the pool to
 	// drain before measuring growth.
 	var g1 int
 	prevG, stable := -1, 0
@@ -225,7 +225,7 @@ func TestFloodDistinctAnnouncesBounded(t *testing.T) {
 		t.Fatalf("path table exceeded soft cap: %d", paths)
 	}
 	// Handler pool (512) plus test/infrastructure slack is the expected
-	// ceiling; anything beyond means the announce path spawned its own
+	// ceiling. Anything beyond means the announce path spawned its own
 	// unbounded workers.
 	if g1-g0 > MaxConcurrentPacketHandlers+128 {
 		t.Fatalf("announce flood spawned unbounded work: +%d goroutines", g1-g0)

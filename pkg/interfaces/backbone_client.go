@@ -343,7 +343,7 @@ func (bc *BackboneClientInterface) attachStream() error {
 }
 
 // SpawnedParent returns the owning BackboneInterface for counter
-// propagation (Python parent_interface); nil for outbound clients.
+// propagation (Python parent_interface). Nil for outbound clients.
 func (bc *BackboneClientInterface) SpawnedParent() common.NetworkInterface {
 	if bc.parent != nil {
 		return bc.parent

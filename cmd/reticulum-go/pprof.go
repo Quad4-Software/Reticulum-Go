@@ -29,7 +29,7 @@ func startPprofIfRequested() {
 		debug.Log(debug.DebugError, "pprof listen failed", "addr", addr, "error", err)
 		return
 	}
-	// Mutex and block profiles stay off unless explicitly requested; they are
+	// Mutex and block profiles stay off unless explicitly requested. They are
 	// meaningless without sampling rates set.
 	if n, err := strconv.Atoi(os.Getenv("RETICULUM_PPROF_MUTEX")); err == nil && n > 0 {
 		runtime.SetMutexProfileFraction(n)

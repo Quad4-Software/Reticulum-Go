@@ -325,7 +325,7 @@ func (d *Destination) Announce(pathResponse bool, tag []byte, attachedInterface 
 		if len(d.stamp) == 0 {
 			d.mutex.Unlock()
 			// tag can alias a pooled inbound packet buffer that is recycled
-			// once the packet job completes; the deferred emit needs its own
+			// once the packet job completes. The deferred emit needs its own
 			// copy.
 			if enqueueStampedAnnounce(stampJob{dest: d, pathResponse: pathResponse, tag: append([]byte(nil), tag...), attachedIface: attachedInterface}) {
 				return nil

@@ -295,7 +295,7 @@ func (lc *LocalClientInterface) IsSharedInstanceClient() bool {
 
 // IsLocalClientInterface reports whether this interface is a local client
 // SpawnedParent returns the owning LocalServerInterface for counter
-// propagation (Python parent_interface); nil for outbound clients.
+// propagation (Python parent_interface). Nil for outbound clients.
 func (lc *LocalClientInterface) SpawnedParent() common.NetworkInterface {
 	if lc.parent != nil && !lc.sharedInitiator {
 		return lc.parent

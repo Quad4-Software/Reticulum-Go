@@ -32,7 +32,7 @@ func (h *captureAnnounceHandler) ReceivedAnnounce(_ []byte, _ any, appData []byt
 // buildStampedAnnounceWire returns a signed announce packet whose app_data
 // carries a valid 18-byte stamp ext at the given generation cost. Stamp
 // value is a geometric draw above genCost, so maxValue > 0 regenerates
-// until the drawn value is below it; use it for "insufficient work" cases.
+// until the drawn value is below it. Use it for "insufficient work" cases.
 func buildStampedAnnounceWire(t *testing.T, appData []byte, genCost, lrCost, maxValue float64, badStamp bool) (raw, destHash []byte, id *identity.Identity, nameHash []byte) {
 	t.Helper()
 	var err error

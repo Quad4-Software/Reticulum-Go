@@ -132,7 +132,7 @@ func putPacketCopy(pc packetCopy) {
 }
 
 // inboundPacketPool recycles parsed packet.Packet structs. Each inbound
-// packet allocates a ~300-byte struct; under load that dominates GC pressure.
+// packet allocates a ~300-byte struct. Under load that dominates GC pressure.
 // The struct carries no retained state after dispatch: all wire fields alias
 // the pooled pc.buf, and no consumer stores the Packet itself.
 var inboundPacketPool = sync.Pool{
@@ -345,7 +345,7 @@ type PathAnnounceEntry struct {
 // heard rebroadcasts show propagation already happened.
 type delayedAnnounceJob struct {
 	due               time.Time
-	data              []byte // pooled via announceForwardPool; released when the job completes
+	data              []byte // pooled via announceForwardPool. Released when the job completes
 	dest              hash16
 	dst               [16]byte
 	from              common.NetworkInterface
@@ -511,7 +511,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 	if cfg != nil {
 		handlers = cfg.EffectiveMaxPacketHandlers()
 		if !cfg.MaxPacketHandlersSet {
-			// Packet handling is crypto-bound; workers beyond a few times
+			// Packet handling is crypto-bound. Workers beyond a few times
 			// GOMAXPROCS mostly add goroutine and lock-convoy overhead. The
 			// queue keeps the full configured depth for burst absorption.
 			// An explicit MaxPacketHandlers still lifts the cap.
@@ -688,7 +688,7 @@ func (t *Transport) evictSeenAnnouncesUnlocked(now time.Time) {
 		return
 	}
 	// Evict down to 90% of the cap in one sorted pass. The previous
-	// selection scan ran O(n) on every remember once over the cap; batching
+	// selection scan ran O(n) on every remember once over the cap. Batching
 	// amortizes it over thousands of inserts.
 	need := len(t.seenAnnounces) - limit*9/10
 	if need < 1 {
@@ -2070,7 +2070,7 @@ func (t *Transport) handleAnnouncePacketEx(data []byte, iface common.NetworkInte
 
 	// RNS 1.6.0 [filter] hop_limiter: Python drops any packet with
 	// hops >= HOP_LIMITER before processing (interface.hop_limiter_hit()).
-	// Default limiter is PATHFINDER_M; [filter] hop_limiter overrides.
+	// Default limiter is PATHFINDER_M. [filter] hop_limiter overrides.
 	limiter := t.filterHopLimiter
 	if limiter <= 0 {
 		// No [filter] hop_limiter configured: the default PATHFINDER_M bound
@@ -2257,7 +2257,7 @@ hopLimiterDone:
 
 	// RNS 1.6.0 announce stamps: the trailing 18-byte ext payload is
 	// validated against the receiving interface's destination_cost. The
-	// signature below still covers the full unstripped app_data; only a
+	// signature below still covers the full unstripped app_data. Only a
 	// valid stamp strips the trailer for storage and handler delivery.
 	// RNS 1.6.0 [filter]: drop blocked destination types and (when
 	// required_only is set) announces for types no local client needs.
@@ -2748,7 +2748,7 @@ func (t *Transport) announceHeardMatch(dest hash16, wireHops byte) bool {
 
 // heardAnnounceRebroadcast applies the Python announce_table heard-rebroadcast
 // rules for an announce with wireHops on destination dest. A rebroadcast of the
-// same emission counts toward the local rebroadcast limit; a relayed copy of
+// same emission counts toward the local rebroadcast limit. A relayed copy of
 // our own rebroadcast cancels the pending retries.
 func (t *Transport) heardAnnounceRebroadcast(dest hash16, wireHops byte) {
 	now := time.Now()
@@ -2839,7 +2839,7 @@ func (t *Transport) processDelayedAnnounceJobs() {
 			job.retries++
 			dueJob := *job
 			// forwardAnnouncePacket reads dedup after pendingAnnounceMu is
-			// released; noteAnnounceDedupIface may still add to the live
+			// released. NoteAnnounceDedupIface may still add to the live
 			// map, so the emit gets a snapshot.
 			if job.dedup != nil {
 				d := make(map[string]struct{}, len(job.dedup))
@@ -2912,7 +2912,7 @@ func (t *Transport) forwardAnnouncePacket(data []byte, dest hash16, destinationH
 			wrapped = data
 		} else {
 			// Upstream keeps the announce's BROADCAST propagation type on
-			// retransmit; only the transport id marks the emitter.
+			// retransmit. Only the transport id marks the emitter.
 			wrapped[0] &^= HeaderPropTypeMask
 		}
 	}
@@ -2922,7 +2922,7 @@ func (t *Transport) forwardAnnouncePacket(data []byte, dest hash16, destinationH
 		name := e.name
 		outIface := e.iface
 		// Python announce_table retransmits to every OUT interface, including
-		// the receiving one; only blocked (dedup) interfaces are excluded.
+		// the receiving one. Only blocked (dedup) interfaces are excluded.
 		if !outIface.IsEnabled() || isLocalClientInterface(outIface) {
 			continue
 		}
@@ -3279,7 +3279,7 @@ func (t *Transport) InitializePathRequestHandler() error {
 }
 
 func (t *Transport) handlePathRequest(data []byte, iface common.NetworkInterface) {
-	// RNS 1.6.0: stamped path requests are 64 bytes; larger is a
+	// RNS 1.6.0: stamped path requests are 64 bytes. Larger is a
 	// protocol violation, and tagless requests are rejected below.
 	if len(data) > prStampedPRDataLen {
 		ifaceProtocolViolation(iface)
@@ -3301,7 +3301,7 @@ func (t *Transport) handlePathRequest(data []byte, iface common.NetworkInterface
 
 	// RNS 1.6.0: validate the stamp ext (marker 0xC1 + 14-byte stamp over
 	// material dst|tag) against the receiving interface's pr_cost. The 0xFF
-	// flag marks a lenient-relayed unstamped request; it is validated the
+	// flag marks a lenient-relayed unstamped request. It is validated the
 	// same way. Dropped only when stamps are enforced.
 	settings := t.StampsSettings()
 	if settings.Enabled {

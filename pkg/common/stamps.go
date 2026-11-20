@@ -5,7 +5,7 @@ package common
 
 // StampsSettings carries the resolved RNS 1.6.1 stamp knobs (Transport.py
 // STAMPS_* constants and [stamps] config values). The zero value is not the
-// default; use DefaultStampsSettings.
+// default. Use DefaultStampsSettings.
 type StampsSettings struct {
 	Enabled           bool // STAMPS_ENABLED: validate stamps on announces/path requests
 	Enforced          bool // STAMPS_ENFORCED: drop unstamped/invalid-stamp announces
@@ -47,7 +47,7 @@ func DefaultStampsSettings() StampsSettings {
 }
 
 // StampsConfig is the parsed [stamps] config section. Booleans only enable
-// (matching Reticulum.py: a true value sets the flag; false/unset leaves the
+// (matching Reticulum.py: a true value sets the flag. False/unset leaves the
 // default). Float fields apply clamping on Apply.
 type StampsConfig struct {
 	EnforceStamps     bool
@@ -55,11 +55,11 @@ type StampsConfig struct {
 	StampPRs          bool
 	AlwaysStampLRs    bool
 	// StampLRs/StampLRsSet override the STAMP_LRS default (true) — there is
-	// no stamp_lrs config key in Python; this is a runtime/test toggle.
+	// no stamp_lrs config key in Python. This is a runtime/test toggle.
 	StampLRs    bool
 	StampLRsSet bool
 	// StampDestinationsSet/StampPRsSet are runtime/test toggles to force
-	// the 1.6.1 defaults back off; config-file booleans only enable.
+	// the 1.6.1 defaults back off. Config-file booleans only enable.
 	StampDestinationsSet bool
 	StampPRsSet          bool
 
@@ -84,7 +84,7 @@ type StampsConfig struct {
 }
 
 // StampCostCap mirrors RNS.Transport.STAMP_COST_CAP (pkg/stamps keeps the
-// primitive constant; common cannot import it without a cycle).
+// primitive constant. Common cannot import it without a cycle).
 const StampCostCap = 100
 
 // LinkCostCap mirrors RNS.Transport.LINK_COST_CAP.
@@ -169,7 +169,7 @@ func (c *ReticulumConfig) StampsSettings() StampsSettings {
 }
 
 // FilterConfig is the parsed [filter] section (RNS 1.6.0). Behaviour is
-// applied by the transport announce path; this struct only carries values.
+// applied by the transport announce path. This struct only carries values.
 type FilterConfig struct {
 	RequiredOnly    bool
 	RequiredOnlySet bool

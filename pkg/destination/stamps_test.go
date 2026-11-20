@@ -262,7 +262,7 @@ func TestStampedAnnounceJobCopiesTag(t *testing.T) {
 	}
 
 	// The slow job may still be queued ahead of d2's job if the worker has
-	// not dequeued it yet; skip jobs belonging to other destinations.
+	// not dequeued it yet. Skip jobs belonging to other destinations.
 	deadline := time.Now().Add(5 * time.Second)
 	var job stampJob
 	for found := false; !found; {

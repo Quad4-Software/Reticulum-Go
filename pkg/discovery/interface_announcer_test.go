@@ -87,7 +87,7 @@ func TestInterfaceAnnouncerAnnounceDue(t *testing.T) {
 	tr := transport.NewTransport(&common.ReticulumConfig{
 		EnableTransport: true,
 		// Destination stamps defer announce emission to the async stamper
-		// under RNS 1.6.1 defaults; disable for the synchronous check.
+		// under RNS 1.6.1 defaults. Disable for the synchronous check.
 		Stamps: common.StampsConfig{StampDestinationsSet: true},
 	})
 	defer tr.Close()

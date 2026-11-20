@@ -82,7 +82,7 @@ func TestProcessDelayedAnnounceJobs_RunsDueOnly(t *testing.T) {
 		t.Fatal("due job must run")
 	}
 	// The due job ran but stays queued for PATHFINDER_R retries (Python
-	// announce_table); the future job must not have run.
+	// announce_table). The future job must not have run.
 	tr.pendingAnnounceMu.Lock()
 	remaining := len(tr.pendingAnnounceJobs)
 	tr.pendingAnnounceMu.Unlock()

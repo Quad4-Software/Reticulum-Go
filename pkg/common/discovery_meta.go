@@ -36,7 +36,7 @@ func ImplementationVersion() string {
 
 // VersionTuple parses a dotted version string into integer components,
 // mirroring Python Discovery.version_tuple. Each dot-separated component
-// contributes its leading digits; the first component without leading digits
+// contributes its leading digits. The first component without leading digits
 // stops the parse. A leading v or V is stripped so release tags like v1.3.0
 // compare like Python's bare "1.5.2" strings. Returns nil when no digits
 // parse.

@@ -108,7 +108,7 @@ func TestE2E_RgoshPipeEcho(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Path discovery plus link establishment takes ~17s under -race on a
-	// slow host; give the outer context enough headroom for full-suite load.
+	// slow host. Give the outer context enough headroom for full-suite load.
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	// Link establishment sends a single LINKREQUEST and proof with no

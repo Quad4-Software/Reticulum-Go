@@ -203,7 +203,7 @@ func TestLiveInteropKnownDestinationsOverRPC(t *testing.T) {
 	port := freeUDPPort(t)
 	ctrlPort := freeUDPPort(t)
 
-	// Server config dir; the Go node writes its known destinations into its
+	// Server config dir. The Go node writes its known destinations into its
 	// own storage so the client cannot see the database file (split mode).
 	serverCfgDir := t.TempDir()
 	serverCfg := strings.Join([]string{

@@ -163,7 +163,7 @@ func (t *Transport) announcePrefilterDrop(pkt *packet.Packet, nameHash []byte, i
 	t.mutex.RUnlock()
 	if !inAnnounceTable {
 		// Python announce_table membership also covers announces awaiting
-		// retransmission; Go queues those as delayed forward jobs.
+		// retransmission. Go queues those as delayed forward jobs.
 		inAnnounceTable = t.hasPendingAnnounceForward(destKey)
 	}
 
@@ -178,7 +178,7 @@ func (t *Transport) announcePrefilterDrop(pkt *packet.Packet, nameHash []byte, i
 	if t.announcePrefilterPasses(pkt, path, iface, pathState) {
 		return false
 	}
-	// Keep the losing copy as a failover alternate; it re-enters full
+	// Keep the losing copy as a failover alternate. It re-enters full
 	// validation if the current path goes unresponsive.
 	curIfaceName := ""
 	if path.Interface != nil {

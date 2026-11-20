@@ -18,7 +18,7 @@ import (
 
 // RNS 1.6.1 RNS.Storage.AnnounceRateTable persist format ("RNSART").
 // The Go transport keeps per-interface egress rate histories instead of a
-// single global columnar table; on save the histories are merged per
+// single global columnar table. On save the histories are merged per
 // destination and on load they seed each interface's egress control.
 
 const (

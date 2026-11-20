@@ -54,7 +54,7 @@ func TestFacadeLinkOpenSendClose(t *testing.T) {
 
 	// NodeCreate uses the default config, so node A's announce carries a
 	// destination stamp at the default cost (25). Generation dominates the
-	// wait under -race; keep it well above the native ~1s.
+	// wait under -race. Keep it well above the native ~1s.
 	deadline := time.Now().Add(15 * time.Second)
 	var announce Event
 	for time.Now().Before(deadline) {

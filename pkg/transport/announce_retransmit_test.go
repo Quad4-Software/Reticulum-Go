@@ -129,7 +129,7 @@ func TestDelayedAnnounceJob_LocalClientEmitsOnce(t *testing.T) {
 }
 
 // Python: hearing the same emission rebroadcast back at our hop count counts
-// toward LOCAL_REBROADCASTS_MAX; hearing it passed on (hops+1) cancels retries.
+// toward LOCAL_REBROADCASTS_MAX. Hearing it passed on (hops+1) cancels retries.
 func TestHeardAnnounceRebroadcast(t *testing.T) {
 	newJob := func(retries int, hops byte) (tr *Transport, dst [16]byte) {
 		tr = NewTransport(&common.ReticulumConfig{EnableTransport: true})

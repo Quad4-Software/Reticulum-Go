@@ -96,7 +96,7 @@ func pyScript(t *testing.T, name string) string {
 
 // interopPeerConfig returns the bare config with the destination stamp
 // work factor lowered. 1.6.1 stamps announces at DESTINATION_VALUE=25 by
-// default, which takes tens of seconds under load; the stamped wire shape
+// default, which takes tens of seconds under load. The stamped wire shape
 // is kept, matching the Python peers' DEST_VALUE=8.
 func interopPeerConfig() *common.ReticulumConfig {
 	cfg := &common.ReticulumConfig{}

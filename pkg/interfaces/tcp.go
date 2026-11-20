@@ -1037,7 +1037,7 @@ func (c *TCPServerClientInterface) SetTunnelID(id []byte) {
 }
 
 // InterfaceConfig makes the spawned conn inherit the listener's config
-// (InterfaceConfigProvider) — gravity, costs, hop limiter.
+// (InterfaceConfigProvider): gravity, costs, hop limiter.
 func (c *TCPServerClientInterface) InterfaceConfig() *common.InterfaceConfig {
 	if c.parent == nil {
 		return nil

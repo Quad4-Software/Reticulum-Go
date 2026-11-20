@@ -136,7 +136,7 @@ type InterfaceConfig struct {
 
 	// HopLimiter overrides the transport hop limiter for packets received on
 	// this interface (RNS 1.6.1 interface hop_limiter). 0 means use the
-	// transport value; Python clamps to [0, PATHFINDER_M].
+	// transport value. Python clamps to [0, PATHFINDER_M].
 	HopLimiter    int
 	HopLimiterSet bool
 
@@ -331,7 +331,7 @@ type ReticulumConfig struct {
 
 	// DisableInterfaceManagement turns off attach/detach/reload of interfaces
 	// over the shared instance RPC (RNS 1.5.5 enable_interface_management).
-	// Interface management is enabled by default; the negative flag keeps the
+	// Interface management is enabled by default. The negative flag keeps the
 	// zero value matching Python's default.
 	DisableInterfaceManagement bool
 

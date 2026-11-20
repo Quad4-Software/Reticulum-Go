@@ -173,7 +173,7 @@ func (t *Transport) preprocessInboundPacket(data []byte, iface common.NetworkInt
 			return packetJob{}, 0, false
 		}
 		// RNS 1.6.1 early announce checks, before queueing and expensive
-		// validation. Hops here are still raw wire hops; the type-filter
+		// validation. Hops here are still raw wire hops. The type-filter
 		// local-client gate sees wire hops + 1 like Python post-increment.
 		if len(data) > packet.MTU {
 			ifaceProtocolViolation(iface)

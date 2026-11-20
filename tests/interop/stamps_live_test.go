@@ -102,7 +102,7 @@ func pyStampPeer(t *testing.T, ctx context.Context, mode string, pyListen, pyFor
 	return destHash, lines, cmd
 }
 
-// (a) Go client -> stamped Python server; sub-cases per destination_cost.
+// (a) Go client -> stamped Python server. Sub-cases per destination_cost.
 func TestLiveInteropGoLinkToStampedPython(t *testing.T) {
 	liveOrSkip(t)
 	for _, tc := range []struct {
@@ -389,7 +389,7 @@ func TestLiveInteropEnforcedPythonAnnounceFilter(t *testing.T) {
 			defer cancel()
 			pyListen := freeUDPPort(t)
 			pyForward := freeUDPPort(t)
-			// 1.6.1 defaults stamping on; an unset flag cannot disable it,
+			// 1.6.1 defaults stamping on. An unset flag cannot disable it,
 			// so the unstamped case needs the explicit Set toggle.
 			cfg := common.StampsConfig{StampDestinationsSet: true, StampDestinations: tc.stamped}
 			if tc.stamped {
@@ -418,7 +418,7 @@ func TestLiveInteropEnforcedPythonAnnounceFilter(t *testing.T) {
 			})
 			defer func() { _ = cmd.Process.Kill(); _ = cmd.Wait() }()
 
-			// Python sink monitors a Go dest hash; point it at ours.
+			// Python sink monitors a Go dest hash. Point it at ours.
 			// (sink mode reads INTEROP_GO_DEST_HASH at start — set before launch;
 			//  we rely on the stamped announce reaching it.)
 			if err := destGo.Announce(false, nil, nil); err != nil {

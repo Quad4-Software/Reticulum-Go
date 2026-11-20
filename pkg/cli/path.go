@@ -104,7 +104,7 @@ func RunPath(args []string, opt ...Options) int {
 	}
 
 	if *analyze {
-		// Python rnpath analyze_tables is a stub; mirror it.
+		// Python rnpath analyze_tables is a stub. Mirror it.
 		_ = *capture
 		fmt.Fprintln(stdout, "Not yet implemented")
 		return 0
