@@ -47,11 +47,18 @@ type Identity struct {
 }
 
 type knownDestEntry struct {
-	pkt    []byte
-	hash   []byte
-	rawKey string // truncated dest hash as a 16-byte string key for msgpack
-	id     *Identity
-	app    []byte
+	// pktHash is the announce payload hash stored in the packet_hash slot
+	// (Python known_destinations entry[1]). Rows loaded from databases
+	// written before this fix may carry the full announce packet instead;
+	// both forms are only ever re-exported, never interpreted.
+	pktHash []byte
+	// pubKey is the 64-byte identity public key. Keeping raw key bytes
+	// instead of an *Identity avoids one Identity object per destination.
+	pubKey []byte
+	// id is set only when the remembered identity carries private
+	// material. Public-only identities are rebuilt lazily on recall.
+	id  *Identity
+	app []byte
 
 	// Stamp fields mirror Python known_destinations entry[5:8]:
 	// stamp bytes, stamp value, and announced link-request cost. lrCost is
@@ -59,6 +66,22 @@ type knownDestEntry struct {
 	stamp      []byte
 	stampValue float64
 	lrCost     *float64
+}
+
+// hasPublicKey reports whether the entry carries a usable public key.
+func (e *knownDestEntry) hasPublicKey() bool {
+	return len(e.pubKey) == KeySize/8 || e.id != nil
+}
+
+// publicKeyBytes returns the stored or identity-carried public key.
+func (e *knownDestEntry) publicKeyBytes() []byte {
+	if len(e.pubKey) == KeySize/8 {
+		return e.pubKey
+	}
+	if e.id != nil {
+		return e.id.GetPublicKey()
+	}
+	return nil
 }
 
 // StampInfo carries announce stamp metadata recorded alongside a known
@@ -354,10 +377,32 @@ func KnownIdentityMatching(destHash, publicKey []byte) *Identity {
 	knownDestinationsLock.RLock()
 	e, ok := knownDestinations[key]
 	knownDestinationsLock.RUnlock()
-	if !ok || e.id == nil || !e.id.publicKeyEqual(publicKey) {
+	if !ok || !bytes.Equal(e.publicKeyBytes(), publicKey) {
 		return nil
 	}
-	return e.id
+	return e.cachedIdentity(key)
+}
+
+// cachedIdentity returns the stored identity, building and memoizing a
+// public-only one on first recall.
+func (e *knownDestEntry) cachedIdentity(key destMapKey) *Identity {
+	if e.id != nil {
+		return e.id
+	}
+	if len(e.pubKey) == 0 {
+		return nil
+	}
+	knownDestinationsLock.Lock()
+	defer knownDestinationsLock.Unlock()
+	cur, ok := knownDestinations[key]
+	if !ok {
+		return nil
+	}
+	if cur.id == nil {
+		cur.id = FromPublicKey(cur.pubKey)
+		knownDestinations[key] = cur
+	}
+	return cur.id
 }
 
 func rememberKnown(packet []byte, destHash []byte, publicKey []byte, appData []byte, id *Identity, info *StampInfo) bool {
@@ -366,20 +411,21 @@ func rememberKnown(packet []byte, destHash []byte, publicKey []byte, appData []b
 	knownDestinationsLock.Lock()
 	defer knownDestinationsLock.Unlock()
 
+	pktHash := sha256.Sum256(packet)
 	now := time.Now().Unix()
-	if existing, ok := knownDestinations[hashStr]; ok && existing.id != nil {
-		if !existing.id.publicKeyEqual(publicKey) {
+	if existing, ok := knownDestinations[hashStr]; ok && len(existing.pubKey) > 0 {
+		if !bytes.Equal(existing.pubKey, publicKey) {
 			debug.Log(debug.DebugWarning, "Rejected announce: destination hash already known with a different public key")
 			return false
 		}
-		if bytes.Equal(existing.pkt, packet) && bytes.Equal(existing.app, appData) {
+		if bytes.Equal(existing.pktHash, pktHash[:]) && bytes.Equal(existing.app, appData) {
 			meta := knownDestMetaByKey[hashStr]
 			meta.rememberedAt = now
 			knownDestMetaByKey[hashStr] = meta
 			markKnownDestinationsDirty()
 			return true
 		}
-		existing.pkt = append([]byte(nil), packet...)
+		existing.pktHash = append(existing.pktHash[:0], pktHash[:]...)
 		existing.app = append([]byte(nil), appData...)
 		if info != nil {
 			existing.stamp = append(existing.stamp[:0], info.Stamp...)
@@ -394,15 +440,13 @@ func rememberKnown(packet []byte, destHash []byte, publicKey []byte, appData []b
 		return true
 	}
 
-	if id == nil || !id.publicKeyEqual(publicKey) {
-		id = FromPublicKey(publicKey)
-	}
 	entry := knownDestEntry{
-		pkt:    append([]byte(nil), packet...),
-		hash:   append([]byte(nil), destHash...),
-		rawKey: string(hashStr[:]),
-		id:     id,
-		app:    append([]byte(nil), appData...),
+		pktHash: append([]byte(nil), pktHash[:]...),
+		pubKey:  append([]byte(nil), publicKey...),
+		app:     append([]byte(nil), appData...),
+	}
+	if id != nil && id.publicKeyEqual(publicKey) && id.hasPrivateMaterial() {
+		entry.id = id
 	}
 	if info != nil {
 		entry.stamp = append([]byte(nil), info.Stamp...)
@@ -521,9 +565,11 @@ func Recall(hash []byte) (*Identity, error) {
 	data, exists := knownDestinations[hashStr]
 	knownDestinationsLock.RUnlock()
 
-	if exists && data.id != nil {
-		TouchKnownDestination(hash)
-		return data.id, nil
+	if exists && data.hasPublicKey() {
+		if id := data.cachedIdentity(hashStr); id != nil {
+			TouchKnownDestination(hash)
+			return id, nil
+		}
 	}
 
 	return nil, common.ErrIdentityNotFoundf(hash)
@@ -1041,9 +1087,9 @@ func GetKnownDestination(hash string) ([]any, bool) {
 	knownDestinationsLock.RUnlock()
 	if exists {
 		return []any{
-			append([]byte(nil), data.pkt...),
-			append([]byte(nil), data.hash...),
-			data.id,
+			append([]byte(nil), data.pktHash...),
+			append([]byte(nil), key[:]...),
+			data.cachedIdentity(key),
 			append([]byte(nil), data.app...),
 		}, true
 	}

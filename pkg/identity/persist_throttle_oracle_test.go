@@ -78,7 +78,7 @@ func TestOracleKnownPersistThrottleSkipsThenForceWrites(t *testing.T) {
 	knownDestinationsLock.RLock()
 	e := knownDestinations[knownDestKey(id.Hash())]
 	knownDestinationsLock.RUnlock()
-	if len(e.rawKey) != TruncatedHashLength/8 {
-		t.Fatalf("rawKey len=%d want %d", len(e.rawKey), TruncatedHashLength/8)
+	if len(e.pubKey) != KeySize/8 {
+		t.Fatalf("pubKey len=%d want %d", len(e.pubKey), KeySize/8)
 	}
 }

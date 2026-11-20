@@ -141,8 +141,8 @@ sys.stdout.buffer.write(dest + ident.get_public_key())
 	knownDestinationsLock.RLock()
 	e := knownDestinations[knownDestKey(dest)]
 	knownDestinationsLock.RUnlock()
-	if len(e.rawKey) != TruncatedHashLength/8 {
-		t.Fatalf("rawKey len=%d want %d", len(e.rawKey), TruncatedHashLength/8)
+	if len(e.pubKey) != KeySize/8 {
+		t.Fatalf("pubKey len=%d want %d", len(e.pubKey), KeySize/8)
 	}
 }
 

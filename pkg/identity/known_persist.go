@@ -263,16 +263,13 @@ func loadKnownDestinationsFromDisk(configPath string) {
 
 	count := 0
 	for _, rec := range records {
-		id := FromPublicKey(rec.publicKey)
-		if id == nil {
+		if len(rec.publicKey) != KeySize/8 {
 			continue
 		}
 		canonicalKey := knownDestKey(rec.destHash)
 		knownDestinations[canonicalKey] = knownDestEntry{
-			pkt:        rec.packetRaw,
-			hash:       rec.destHash,
-			rawKey:     string(canonicalKey[:]),
-			id:         id,
+			pktHash:    append([]byte(nil), rec.packetRaw...),
+			pubKey:     append([]byte(nil), rec.publicKey...),
 			app:        rec.appData,
 			stamp:      rec.stamp,
 			stampValue: rec.stampValue,
@@ -388,16 +385,13 @@ func exportKnownDestinations() map[string][]any {
 	defer knownDestinationsLock.RUnlock()
 	export := make(map[string][]any, len(knownDestinations))
 	for hashKey, e := range knownDestinations {
-		if e.id == nil || len(e.hash) == 0 {
+		if !e.hasPublicKey() {
 			continue
 		}
 		// Python Identity.load_known_destinations keeps keys whose length
 		// equals the truncated hash size (16). Use the raw hash bytes as a
 		// Go string key so msgpack emits a 16-byte str/bin key Python accepts.
-		key := e.rawKey
-		if len(key) != TruncatedHashLength/8 {
-			key = string(hashKey[:])
-		}
+		key := string(hashKey[:])
 		meta := knownDestMetaByKey[hashKey]
 		rememberedAt := float64(meta.rememberedAt)
 		if rememberedAt == 0 {
@@ -415,8 +409,8 @@ func exportKnownDestinations() map[string][]any {
 		}
 		export[key] = []any{
 			rememberedAt,
-			e.pkt,
-			e.id.GetPublicKey(),
+			append([]byte(nil), e.pktHash...),
+			e.publicKeyBytes(),
 			e.app,
 			float64(meta.lastUsed),
 			stamp,

@@ -106,6 +106,9 @@ func TestRememberIdentityReuseAllocBudget(t *testing.T) {
 	if !RememberIdentity(pkt, dest, pub, app, id) {
 		t.Fatal("RememberIdentity")
 	}
+	// Warm the lazily-built public identity so steady-state recall is
+	// alloc-free.
+	_ = KnownIdentityMatching(dest, pub)
 
 	allocs := testing.AllocsPerRun(1000, func() {
 		_ = RememberIdentity(pkt, dest, pub, app, id)

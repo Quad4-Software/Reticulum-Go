@@ -219,16 +219,13 @@ func loadKnownDestinationsFromDB() bool {
 	defer knownDestinationsLock.Unlock()
 	count := 0
 	for _, rec := range rows {
-		id := FromPublicKey(rec.PublicKey)
-		if id == nil {
+		if len(rec.PublicKey) != KeySize/8 {
 			continue
 		}
 		canonicalKey := knownDestKey(rec.DestinationHash)
 		knownDestinations[canonicalKey] = knownDestEntry{
-			pkt:        rec.PacketHash,
-			hash:       rec.DestinationHash,
-			rawKey:     string(canonicalKey[:]),
-			id:         id,
+			pktHash:    append([]byte(nil), rec.PacketHash...),
+			pubKey:     append([]byte(nil), rec.PublicKey...),
 			app:        rec.AppData,
 			stamp:      rec.Stamp,
 			stampValue: rec.StampValue,
@@ -257,7 +254,7 @@ func saveKnownDestinationsDB() bool {
 	knownDestinationsLock.RLock()
 	defer knownDestinationsLock.RUnlock()
 	for hashKey, e := range knownDestinations {
-		if e.id == nil || len(e.hash) == 0 {
+		if !e.hasPublicKey() {
 			continue
 		}
 		meta := knownDestMetaByKey[hashKey]
@@ -266,10 +263,10 @@ func saveKnownDestinationsDB() bool {
 			rem = float64(time.Now().Unix())
 		}
 		s.MarkDirty(&sqlitestore.KnownDestEntry{
-			DestinationHash: e.hash,
+			DestinationHash: append([]byte(nil), hashKey[:]...),
 			LastHeard:       rem,
-			PacketHash:      e.pkt,
-			PublicKey:       e.id.GetPublicKey(),
+			PacketHash:      e.pktHash,
+			PublicKey:       e.publicKeyBytes(),
 			AppData:         e.app,
 			Used:            float64(meta.lastUsed),
 			Stamp:           e.stamp,
