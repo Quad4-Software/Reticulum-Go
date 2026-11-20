@@ -57,7 +57,7 @@ func startGoSharedOwner(t *testing.T, enableTransport bool, sharedPort, ctrlPort
 		InstanceControlPort: ctrlPort,
 		SharedInstanceType:  common.SharedInstanceTCP,
 		ConfigPath:          cfgPath,
-		Stamps:              common.StampsConfig{DestinationValue: 8, DestinationValueSet: true},
+		Stamps:              common.StampsConfig{DestinationValue: 8, DestinationValueSet: true, DestinationCost: 8, DestinationCostSet: true},
 	}
 	n, err := node.New(goCfg)
 	if err != nil {

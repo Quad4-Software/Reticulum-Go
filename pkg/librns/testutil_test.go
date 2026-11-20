@@ -62,6 +62,18 @@ func mustCreateNode(t *testing.T) uint64 {
 		t.Fatalf("NodeCreate: code=%d err=%q", code, LastError())
 	}
 	t.Cleanup(func() { _ = NodeDestroy(id) })
+	rec, err := nodeByHandle(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Keep the stamped wire behavior but cheap to mine. NodeCreate uses the
+	// default config, whose destination stamp cost of 25 dominates the test
+	// deadlines under -race on loaded CI runners.
+	cfg := rec.node.Transport().GetConfig()
+	cfg.Stamps.DestinationValue = 8
+	cfg.Stamps.DestinationValueSet = true
+	cfg.Stamps.DestinationCost = 8
+	cfg.Stamps.DestinationCostSet = true
 	return id
 }
 

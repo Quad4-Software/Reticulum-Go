@@ -22,6 +22,7 @@ import time
 
 import RNS
 RNS.Transport.DESTINATION_VALUE = float(os.environ.get("DEST_VALUE", "8"))
+RNS.Transport.DESTINATION_COST = float(os.environ.get("DEST_COST", "8"))
 
 from RNS.Interfaces.BackboneInterface import BackboneClientInterface
 

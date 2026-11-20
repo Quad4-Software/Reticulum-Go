@@ -35,6 +35,7 @@ if _reticulum_path:
 
 import RNS
 RNS.Transport.DESTINATION_VALUE = float(os.environ.get("DEST_VALUE", "8"))
+RNS.Transport.DESTINATION_COST = float(os.environ.get("DEST_COST", "8"))
 
 
 INTEROP_APP = "interop_pygo"

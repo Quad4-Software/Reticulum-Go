@@ -22,6 +22,7 @@ if _reticulum_path:
 
 import RNS  # noqa: E402
 RNS.Transport.DESTINATION_VALUE = float(os.environ.get("DEST_VALUE", "8"))
+RNS.Transport.DESTINATION_COST = float(os.environ.get("DEST_COST", "8"))
 
 
 PAGE_APP = "nomadnetwork"

@@ -147,7 +147,7 @@ func TestLiveRgosnapGoDaemon(t *testing.T) {
 		InstanceControlPort: ctrlPort,
 		SharedInstanceType:  common.SharedInstanceTCP,
 		ConfigPath:          cfgPath,
-		Stamps:              common.StampsConfig{DestinationValue: 8, DestinationValueSet: true},
+		Stamps:              common.StampsConfig{DestinationValue: 8, DestinationValueSet: true, DestinationCost: 8, DestinationCostSet: true},
 	})
 	if err != nil {
 		t.Fatal(err)

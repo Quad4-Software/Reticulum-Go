@@ -102,6 +102,8 @@ func interopPeerConfig() *common.ReticulumConfig {
 	cfg := &common.ReticulumConfig{}
 	cfg.Stamps.DestinationValue = 8
 	cfg.Stamps.DestinationValueSet = true
+	cfg.Stamps.DestinationCost = 8
+	cfg.Stamps.DestinationCostSet = true
 	return cfg
 }
 
