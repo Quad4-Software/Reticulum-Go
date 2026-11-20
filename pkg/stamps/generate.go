@@ -27,12 +27,18 @@ func SetMaxWorkers(n int) {
 	maxWorkers.Store(int64(n))
 }
 
-// WorkerCount returns the effective generation worker count.
+// WorkerCount returns the effective generation worker count. The base is
+// GOMAXPROCS up to 12 cores and half above, like Python's job sizing;
+// max_workers only lowers that base, it never raises it.
 func WorkerCount() int {
-	if n := int(maxWorkers.Load()); n > 0 {
-		return n
+	jobs := max(runtime.GOMAXPROCS(0), 1)
+	if jobs > 12 {
+		jobs = jobs / 2
 	}
-	return max(runtime.GOMAXPROCS(0), 1)
+	if n := int(maxWorkers.Load()); n > 0 && n < jobs {
+		jobs = n
+	}
+	return jobs
 }
 
 // GenerateStamp searches for a detached hash stamp of the given size whose

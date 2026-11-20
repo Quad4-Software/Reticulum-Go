@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -127,4 +128,26 @@ func TestStampWorkblockNoExpand(t *testing.T) {
 	if string(wb) != string(material) {
 		t.Fatal("expand_rounds=0 must return material")
 	}
+}
+
+func TestWorkerCountCapsNotSets(t *testing.T) {
+	cores := max(runtime.GOMAXPROCS(0), 1)
+	wantBase := cores
+	if wantBase > 12 {
+		wantBase = cores / 2
+	}
+	SetMaxWorkers(0)
+	if got := WorkerCount(); got != wantBase {
+		t.Fatalf("uncapped WorkerCount = %d, want %d (cores if <=12 else cores/2)", got, wantBase)
+	}
+	// Python MAX_WORKERS only lowers the core-derived job count.
+	SetMaxWorkers(1)
+	if got := WorkerCount(); got != 1 {
+		t.Fatalf("max_workers=1 WorkerCount = %d, want 1", got)
+	}
+	SetMaxWorkers(1 << 30)
+	if got := WorkerCount(); got != wantBase {
+		t.Fatalf("huge max_workers WorkerCount = %d, want %d", got, wantBase)
+	}
+	SetMaxWorkers(0)
 }
