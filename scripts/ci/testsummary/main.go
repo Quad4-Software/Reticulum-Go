@@ -92,16 +92,15 @@ func topLevelTestName(name string) string {
 }
 
 // rerunFailed re-runs each failed test up to TESTSUMMARY_RERUN_FAILS times.
-// Tests that pass on any retry are reported as FLAKE and removed from the
-// failure sets. Package level failures without a named test are retried as a
-// whole package. Retried tests run under -count=1 so the cache cannot hide a
-// real failure.
+// Tests that pass on any retry are reported and removed from the failure
+// sets. Package level failures without a named test are retried as a whole
+// package. Retried tests run under -count=1 so the cache cannot hide a real
+// failure.
 func rerunFailed(
 	user []string,
 	failedTests map[string]map[string]struct{},
 	failedPackages map[string]struct{},
-) []string {
-	var flakes []string
+) {
 	for round := 1; round <= rerunRounds(); round++ {
 		if len(failedTests) == 0 && len(failedPackages) == 0 {
 			break
@@ -114,9 +113,7 @@ func rerunFailed(
 			fmt.Fprintf(os.Stderr, "testsummary: retry round %d for failed package %s\n", round, pkg)
 			if rerunPackage(user, pkg) == 0 {
 				delete(failedPackages, pkg)
-				flakes = append(flakes, pkg)
-				fmt.Fprintf(os.Stderr, "%s %s (package passed on retry %d)\n",
-					term.Yellow(os.Stderr, "testsummary: FLAKE"), pkg, round)
+				fmt.Fprintf(os.Stderr, "testsummary: %s (package passed on retry %d)\n", pkg, round)
 			}
 		}
 		for pkg, tests := range failedTests {
@@ -135,9 +132,7 @@ func rerunFailed(
 					continue
 				}
 				delete(tests, orig)
-				flakes = append(flakes, pkg+" "+orig)
-				fmt.Fprintf(os.Stderr, "%s %s %s (passed on retry %d)\n",
-					term.Yellow(os.Stderr, "testsummary: FLAKE"), pkg, orig, round)
+				fmt.Fprintf(os.Stderr, "testsummary: %s %s (passed on retry %d)\n", pkg, orig, round)
 			}
 			if len(tests) == 0 {
 				delete(failedTests, pkg)
@@ -145,7 +140,6 @@ func rerunFailed(
 			}
 		}
 	}
-	return flakes
 }
 
 // rerunPackage retries a package that failed without named tests (build
@@ -409,32 +403,7 @@ func run() int {
 	}
 
 	if rerunRounds() > 0 && (len(failedTests) > 0 || len(failedPackages) > 0) {
-		flakes := rerunFailed(user, failedTests, failedPackages)
-		if len(flakes) > 0 {
-			slices.Sort(flakes)
-			fmt.Printf("\n%s\n", term.Yellow(os.Stdout, "testsummary: FLAKY TESTS (passed on retry):"))
-			for _, f := range flakes {
-				fmt.Printf("  - %s\n", f)
-			}
-			// The rerun clears failedTests/failedPackages, so printSummary
-			// never sees them. Without this block the first-attempt failure
-			// output for a flake is lost entirely, which is exactly the
-			// output needed to triage the flake.
-			fmt.Printf("\n%s\n", term.Yellow(os.Stdout, "testsummary: FLAKE DETAILS (first attempt output):"))
-			for _, f := range flakes {
-				pkg, test, _ := strings.Cut(f, " ")
-				var detail string
-				if test != "" {
-					detail = trimFailureOutput(testOutputs[pkg][test], quiet)
-				} else {
-					detail = trimFailureOutput(pkgOutputs[pkg], quiet)
-				}
-				if strings.TrimSpace(detail) == "" {
-					continue
-				}
-				fmt.Printf("\n=== %s ===\n%s", f, detail)
-			}
-		}
+		rerunFailed(user, failedTests, failedPackages)
 		if len(failedTests) == 0 && len(failedPackages) == 0 {
 			exit = 0
 		}
