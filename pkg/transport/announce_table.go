@@ -148,6 +148,7 @@ func (t *Transport) cleanupAnnouncePacketCache() {
 		}
 	}
 	t.evictAnnouncePacketCacheUnlocked()
+	t.announcePacketCache = shrinkSparseMap(t.announcePacketCache, &t.announceCachePeak)
 }
 
 func (t *Transport) cacheAnnouncePacket(destHash []byte, pkt *packet.Packet) {

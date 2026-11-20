@@ -83,6 +83,31 @@ func (rt *reverseTable) evictOldestLocked() {
 		reverseEvictBatch)
 }
 
+// sparseMapMinPeak is the smallest map high-water mark that justifies a
+// shrink rebuild.
+const sparseMapMinPeak = 4096
+
+// shrinkSparseMap rebuilds m when it has fallen below half of its
+// observed peak: Go maps never release bucket memory on delete, so a map
+// that peaked large keeps that allocation forever. peak tracks the
+// high-water mark and must be a stable pointer owned by the caller.
+func shrinkSparseMap[K comparable, V any](m map[K]V, peak *int) map[K]V {
+	n := len(m)
+	if n > *peak {
+		*peak = n
+		return m
+	}
+	if *peak >= sparseMapMinPeak && n < *peak/2 {
+		nm := make(map[K]V, n*11/10+16)
+		for k, v := range m {
+			nm[k] = v
+		}
+		*peak = n
+		return nm
+	}
+	return m
+}
+
 // evictOldestMapKeys deletes the n oldest entries of m according to the
 // timestamp returned by at. eligible, when non-nil, restricts candidates
 // (for example to unvalidated entries). Sorting once per call amortizes the

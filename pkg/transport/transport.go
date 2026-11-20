@@ -216,6 +216,14 @@ type Transport struct {
 	// state for failover. See path_failover.go.
 	backupPaths         map[[PathMapKeySize]byte][]backupPath
 	pendingAltAnnounces map[[PathMapKeySize]byte][]pendingAltAnnounce
+	// pathsPeak, seenAnnouncesPeak and announceCachePeak are the high-water
+	// marks feeding shrinkSparseMap: Go maps keep bucket memory after
+	// deletes, so a table that peaked large is rebuilt once it drops below
+	// half its peak.
+	pathsPeak         int
+	seenAnnouncesPeak int
+	announceCachePeak int
+
 	// pathPoolLastChecked gates the RNS 1.6.0 unused-path pool cull
 	// (Python pool_size_last_checked). Guarded by t.mutex.
 	pathPoolLastChecked time.Time
@@ -690,6 +698,7 @@ func (t *Transport) cleanupSeenAnnounces() {
 		}
 	}
 	t.evictSeenAnnouncesUnlocked(now)
+	t.seenAnnounces = shrinkSparseMap(t.seenAnnounces, &t.seenAnnouncesPeak)
 }
 
 func (t *Transport) rememberSeenAnnounceUnlocked(h [32]byte, now time.Time) {
@@ -803,6 +812,9 @@ func (t *Transport) cleanupExpiredPaths() {
 		t.pathPoolLastChecked = now
 		t.cullUnusedPathPoolLocked(unusedPaths, usedCount, now)
 	}
+	t.paths = shrinkSparseMap(t.paths, &t.pathsPeak)
+	t.pathStates = shrinkSparseMap(t.pathStates, &t.pathsPeak)
+	t.announcePacketCache = shrinkSparseMap(t.announcePacketCache, &t.announceCachePeak)
 	t.markPathTableDirty()
 	t.mutex.Unlock()
 
