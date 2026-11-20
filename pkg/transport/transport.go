@@ -1873,6 +1873,7 @@ func (t *Transport) evictPathsIfNeededUnlocked(now time.Time) {
 	}
 	keys := make([][PathMapKeySize]byte, 0, batch)
 	times := make([]time.Time, 0, batch)
+	maxIdx := -1
 	for k, p := range t.paths {
 		when := now
 		if p != nil && !p.LastUpdated.IsZero() {
@@ -1881,19 +1882,20 @@ func (t *Transport) evictPathsIfNeededUnlocked(now time.Time) {
 		if len(keys) < batch {
 			keys = append(keys, k)
 			times = append(times, when)
+			if maxIdx < 0 || when.After(times[maxIdx]) {
+				maxIdx = len(times) - 1
+			}
 			continue
 		}
-		idx := 0
-		newest := times[0]
-		for i := 1; i < batch; i++ {
-			if times[i].After(newest) {
-				newest = times[i]
-				idx = i
+		if when.Before(times[maxIdx]) {
+			keys[maxIdx] = k
+			times[maxIdx] = when
+			maxIdx = 0
+			for i := 1; i < batch; i++ {
+				if times[i].After(times[maxIdx]) {
+					maxIdx = i
+				}
 			}
-		}
-		if when.Before(newest) {
-			keys[idx] = k
-			times[idx] = when
 		}
 	}
 	for _, k := range keys {
