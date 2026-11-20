@@ -679,7 +679,10 @@ jobs:
         run: |
           set -eu
           sudo apt-get update -qq
-          sudo apt-get install -y qemu-user-static
+          # On Ubuntu 26.04 qemu-user-static is a virtual package satisfied by
+          # qemu-user-binfmt, so fall back to it when the static name has no
+          # installation candidate.
+          sudo apt-get install -y qemu-user-static || sudo apt-get install -y qemu-user-binfmt
           command -v "${QEMU_BIN}"
           "${QEMU_BIN}" --version | head -1
         env:
