@@ -39,7 +39,7 @@ Same PR gate as `task check`, without GitHub Marketplace actions:
 | `task ci:pr` / `make ci-pr` | Wrappers for `run.sh pr` |
 | `task ci:docker` / `make ci-docker` | Wrapper for `run-docker.sh pr` |
 
-Forgejo and Gitea: `.gitea/workflows/ci.yml` and `.forgejo/workflows/ci.yml` run bootstrap plus `run.sh`.
+Forgejo: `.forgejo/workflows/ci.yml` runs bootstrap plus `run.sh`.
 
 Pinned versions: `scripts/ci/versions.env` and `scripts/ci/dev-tools.env`.
 

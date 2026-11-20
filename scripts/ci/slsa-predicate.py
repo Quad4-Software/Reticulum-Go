@@ -25,7 +25,7 @@ def _build_type() -> str:
     repo = os.environ.get("GITHUB_REPOSITORY") or os.environ.get("GITEA_REPOSITORY") or ""
     if server and repo:
         if os.environ.get("GITEA_SERVER_URL"):
-            return f"{server}/{repo}/.gitea/workflows/publish.yml"
+            return f"{server}/{repo}/.forgejo/workflows/ci.yml"
         return f"{server}/{repo}/.github/workflows/publish.yml"
     return "https://slsa.dev/provenance/v1"
 
