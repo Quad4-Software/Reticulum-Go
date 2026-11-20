@@ -28,7 +28,7 @@ func SetMaxWorkers(n int) {
 }
 
 // WorkerCount returns the effective generation worker count. The base is
-// GOMAXPROCS up to 12 cores and half above, like Python's job sizing;
+// GOMAXPROCS up to 12 cores and half above, like Python's job sizing.
 // max_workers only lowers that base, it never raises it.
 func WorkerCount() int {
 	jobs := max(runtime.GOMAXPROCS(0), 1)

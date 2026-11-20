@@ -516,7 +516,7 @@ func TestIngressControl_ReleaseHeldAnnounce_SelectsLowestHops(t *testing.T) {
 	hashMid := announceHoldKey("h-mid")
 
 	// Wire packets: header byte 1 is the hop count. Hold order is
-	// far, near, mid — a FIFO drain would emit "far" first.
+	// far, near, mid. A FIFO drain would emit "far" first.
 	ic.ProcessAnnounceHashDest(hashFar, []byte{0x00, 0x07, 0xAA}, true, destAnnounceKey("dest-f"))
 	ic.ProcessAnnounceHashDest(hashNear, []byte{0x00, 0x01, 0xBB}, true, destAnnounceKey("dest-n"))
 	ic.ProcessAnnounceHashDest(hashMid, []byte{0x00, 0x03, 0xCC}, true, destAnnounceKey("dest-m"))
