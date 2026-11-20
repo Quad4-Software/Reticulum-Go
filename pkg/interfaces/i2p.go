@@ -358,9 +358,11 @@ func (p *I2PInterface) registerSpawnedPeer(peer *I2PInterfacePeer) {
 	p.spawnMu.Lock()
 	p.spawned = append(p.spawned, peer)
 	p.spawnMu.Unlock()
+	drop := func() { p.removeSpawnedPeer(peer) }
 	if p.ctx != nil && p.ctx.RegisterPeer != nil {
 		if err := p.ctx.RegisterPeer(peer.GetName(), peer); err != nil {
 			debug.Log(debug.DebugError, "Failed to register I2P peer", "name", peer.GetName(), "error", err)
+			drop()
 			return
 		}
 	}
@@ -369,6 +371,7 @@ func (p *I2PInterface) registerSpawnedPeer(peer *I2PInterfacePeer) {
 	}
 	if err := peer.Start(); err != nil {
 		debug.Log(debug.DebugError, "Failed to start I2P peer", "name", peer.GetName(), "error", err)
+		drop()
 	}
 }
 

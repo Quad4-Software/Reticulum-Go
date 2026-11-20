@@ -311,6 +311,9 @@ func (bi *BackboneInterface) acceptConn(conn net.Conn) {
 			client.admitRelease()
 			client.admitRelease = nil
 		}
+		// No stream was registered so onClose never runs: drop the client
+		// from spawned here or the slot leaks.
+		bi.removeSpawned(client)
 		_ = client.Stop()
 	}
 }
