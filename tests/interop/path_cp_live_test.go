@@ -54,6 +54,7 @@ func TestLiveRgopathRPCAgainstGoDaemon(t *testing.T) {
 		InstanceControlPort: ctrlPort,
 		SharedInstanceType:  common.SharedInstanceTCP,
 		ConfigPath:          cfgPath,
+		Stamps:              common.StampsConfig{DestinationValue: 8, DestinationValueSet: true},
 	}
 	n, err := node.New(goCfg)
 	if err != nil {

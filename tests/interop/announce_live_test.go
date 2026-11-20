@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/announce"
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 )
@@ -103,7 +102,7 @@ func TestLiveInteropAnnouncePythonNoRatchetToGo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("identity: %v", err)
 	}
-	ann, err := announce.New(id, make([]byte, 16), "liveann", nil, false, &common.ReticulumConfig{})
+	ann, err := announce.New(id, make([]byte, 16), "liveann", nil, false, interopPeerConfig())
 	if err != nil {
 		t.Fatalf("announce.New: %v", err)
 	}

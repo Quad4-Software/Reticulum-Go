@@ -13,6 +13,8 @@ if _reticulum_path:
     sys.path.insert(0, os.path.abspath(_reticulum_path))
 
 import RNS
+RNS.Transport.DESTINATION_VALUE = float(os.environ.get("DEST_VALUE", "8"))
+
 from RNS.Utilities.rngit.server import ReticulumGitNode
 
 
@@ -51,9 +53,16 @@ def write_rngit_config(rngit_dir: str, repo_root: str, serve_pages: bool = False
         "public = rw:all",
         "",
     ]
+    # Keep the stamped wire shape but cheap to mine on slow CI runners.
+    # Without this the node announces the rngit DEFAULT_LINK_COST of 18 and
+    # every client link request mines 2^18 hashes inside a 15s deadline.
+    lines += [
+        "[rngit]",
+        "link_cost = 6",
+        "",
+    ]
     if serve_pages:
         lines += [
-            "[rngit]",
             "node_name = Interop Py Node",
             "record_stats = yes",
             "",

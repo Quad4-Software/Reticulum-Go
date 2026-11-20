@@ -58,6 +58,7 @@ func startGoSharedInstance(t *testing.T, port, ctrlPort int, cfgPath string) *no
 		SharedInstanceType:  common.SharedInstanceTCP,
 		EnableTransport:     false,
 		ConfigPath:          cfgPath,
+		Stamps:              common.StampsConfig{DestinationValue: 8, DestinationValueSet: true},
 	}
 	n, err := node.New(cfg)
 	if err != nil {

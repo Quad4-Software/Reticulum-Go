@@ -15,6 +15,8 @@ if _reticulum_path:
     sys.path.insert(0, os.path.abspath(_reticulum_path))
 
 import RNS
+RNS.Transport.DESTINATION_VALUE = float(os.environ.get("DEST_VALUE", "8"))
+
 
 INTEROP_APP = "interop_pygo"
 INTEROP_ASPECT = "linksvc"

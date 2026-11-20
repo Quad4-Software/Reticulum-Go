@@ -138,6 +138,8 @@ func TestLiveDirectoryOutgoingPolicy(t *testing.T) {
 	// 1.6.1 defaults defer announces to the async stamper, which would hide
 	// the synchronous no-writable error this test asserts.
 	cfg.Stamps.StampDestinationsSet = true
+	cfg.Stamps.DestinationValue = 8
+	cfg.Stamps.DestinationValueSet = true
 	tr := transport.NewTransport(cfg)
 	defer func() { _ = tr.Close() }()
 	if err := tr.InitializePathRequestHandler(); err != nil {
@@ -209,6 +211,8 @@ func TestLiveDirectoryAnnouncePath(t *testing.T) {
 	peers := fetchOnlineClearnetTCPPeers(t, 12)
 
 	cfg := &common.ReticulumConfig{EnableTransport: true, ShareInstance: false}
+	cfg.Stamps.DestinationValue = 8
+	cfg.Stamps.DestinationValueSet = true
 	tr := transport.NewTransport(cfg)
 	defer func() { _ = tr.Close() }()
 	if err := tr.InitializePathRequestHandler(); err != nil {

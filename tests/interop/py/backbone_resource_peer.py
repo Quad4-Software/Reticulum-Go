@@ -21,6 +21,8 @@ import threading
 import time
 
 import RNS
+RNS.Transport.DESTINATION_VALUE = float(os.environ.get("DEST_VALUE", "8"))
+
 from RNS.Interfaces.BackboneInterface import BackboneClientInterface
 
 APP_NAME = "vegaapp"

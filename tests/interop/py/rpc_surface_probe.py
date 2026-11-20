@@ -24,6 +24,8 @@ if _reticulum_path:
     sys.path.insert(0, os.path.abspath(_reticulum_path))
 
 import RNS
+RNS.Transport.DESTINATION_VALUE = float(os.environ.get("DEST_VALUE", "8"))
+
 
 ZERO_DEST = b"\x00" * 16
 ZERO_HASH = b"\x00" * 32
