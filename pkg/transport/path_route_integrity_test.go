@@ -91,7 +91,9 @@ func TestProcessPathRequest_rewritesAnnounceWhenNextHopIsNotRequestor(t *testing
 		HopCount:    2,
 		LastUpdated: time.Now(),
 	}
-	tr.announcePacketCache[destKey(dest)] = &cachedAnnounce{pkt: oldPkt, at: time.Now()}
+	oldCA1 := newCachedAnnounce(oldPkt)
+	oldCA1.at = time.Now()
+	tr.announcePacketCache[destKey(dest)] = oldCA1
 	tr.announceTable[destKey(dest)] = oldEntry
 	tr.mutex.Unlock()
 
@@ -239,11 +241,11 @@ func TestProcessPathRequest_pathRequestTTLStillAnswers(t *testing.T) {
 		LastUpdated: now.Add(-time.Duration(PathRequestTTL+30) * time.Second),
 		Expires:     now.Add(time.Duration(PathfinderE) * time.Second),
 	}
-	tr.announcePacketCache[destKey(dest)] = &cachedAnnounce{pkt: &packet.Packet{
-		DestinationHash: append([]byte(nil), dest...),
-		Data:            []byte{0x01},
-		Raw:             []byte{0x01, 0x00},
-	}, at: time.Now()}
+	tr.announcePacketCache[destKey(dest)] = &cachedAnnounce{
+		data: []byte{0x01},
+		raw:  []byte{0x01, 0x00},
+		at:   time.Now(),
+	}
 	tr.mutex.Unlock()
 
 	tr.processPathRequest(dest, wan, nil, tag, nil)
@@ -329,7 +331,9 @@ func TestProcessPathRequest_fromLocalClientKnownPathBypassesTransportDisabled(t 
 		HopCount:    1,
 		LastUpdated: time.Now(),
 	}
-	tr.announcePacketCache[destKey(dest)] = &cachedAnnounce{pkt: oldPkt, at: time.Now()}
+	oldCA3 := newCachedAnnounce(oldPkt)
+	oldCA3.at = time.Now()
+	tr.announcePacketCache[destKey(dest)] = oldCA3
 	tr.mutex.Unlock()
 
 	// With transport disabled, a normal (non-local-client) PR would be

@@ -13,7 +13,6 @@ import (
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
 )
 
 func TestInMemoryStorage_NoDiskWrites(t *testing.T) {
@@ -125,8 +124,8 @@ func TestDiskBacked_PathEvictionAndAnnounceCache(t *testing.T) {
 		nh[0] = byte(i + 10)
 		tr.updatePathUnlocked(h, nh, "udp0", 1, nil, nil, now.Add(time.Duration(i)*time.Second))
 		tr.announcePacketCache[destKey(h)] = &cachedAnnounce{
-			pkt: &packet.Packet{Data: []byte{byte(i)}},
-			at:  now.Add(time.Duration(i) * time.Second),
+			data: []byte{byte(i)},
+			at:   now.Add(time.Duration(i) * time.Second),
 		}
 	}
 	if len(tr.paths) != 3 {

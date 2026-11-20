@@ -727,7 +727,9 @@ func TestRegression_KnownPathCachedAnnounceAnswersLocalClient(t *testing.T) {
 		HopCount:    4,
 		LastUpdated: time.Now(),
 	}
-	tr.announcePacketCache[destKey(dest)] = &cachedAnnounce{pkt: announcePkt(dest, 0xAE), at: time.Now()}
+	seed := newCachedAnnounce(announcePkt(dest, 0xAE))
+	seed.at = time.Now()
+	tr.announcePacketCache[destKey(dest)] = seed
 	tr.mutex.Unlock()
 
 	tr.processPathRequest(dest, local, nil, bytes.Repeat([]byte{0x01}, 16), nil)

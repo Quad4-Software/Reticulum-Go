@@ -707,7 +707,9 @@ func TestLocalClientPR_ImmediateRetransmitForKnownPath(t *testing.T) {
 				HopCount:    1,
 				LastUpdated: time.Now(),
 			}
-			tr.announcePacketCache[destKey(dest)] = &cachedAnnounce{pkt: oldPkt, at: time.Now()}
+			oldCA := newCachedAnnounce(oldPkt)
+			oldCA.at = time.Now()
+			tr.announcePacketCache[destKey(dest)] = oldCA
 			tr.mutex.Unlock()
 
 			before := time.Now()
