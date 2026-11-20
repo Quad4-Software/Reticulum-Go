@@ -45,6 +45,13 @@ func writeUDPPeerConfig(t *testing.T, dir string, listen, peerPort int) {
 		"    forward_ip = 127.0.0.1",
 		"    forward_port = " + strconv.Itoa(peerPort),
 		"",
+		// Keep the stamped wire shape but cheap to mine. The default
+		// destination cost of 25 can exceed the path-wait deadlines when
+		// the runner is under load.
+		"[stamps]",
+		"destination_value = 8",
+		"destination_cost = 8",
+		"",
 	}, "\n")
 	if err := os.WriteFile(filepath.Join(dir, "config"), []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)

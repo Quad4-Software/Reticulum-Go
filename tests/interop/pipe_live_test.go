@@ -84,6 +84,10 @@ func writePythonTCPServerConfig(t *testing.T, dir string, listenPort int) {
 		"enabled = yes",
 		"listen_ip = 127.0.0.1",
 		"listen_port = " + strconv.Itoa(listenPort),
+		// Keep the stamped wire shape but cheap to mine on slow runners.
+		"[stamps]",
+		"destination_value = 8",
+		"destination_cost = 8",
 		"",
 	}, "\n")
 	if err := os.WriteFile(filepath.Join(dir, "config"), []byte(cfg), 0o600); err != nil {

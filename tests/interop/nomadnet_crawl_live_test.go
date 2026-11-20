@@ -213,6 +213,8 @@ func TestLiveNomadNetCrawlFetchMU(t *testing.T) {
 		cfg2 := common.DefaultConfig()
 		cfg2.Stamps.DestinationValue = 8
 		cfg2.Stamps.DestinationValueSet = true
+		cfg2.Stamps.DestinationCost = 8
+		cfg2.Stamps.DestinationCostSet = true
 		tr2 := transport.NewTransport(cfg2)
 		iface, err := interfaces.NewTCPClientInterface(peer.Name, peer.Host, peer.Port, false, false, true)
 		if err != nil {

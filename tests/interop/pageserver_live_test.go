@@ -62,6 +62,11 @@ func writePageServerInteropReticulumConfig(t *testing.T, home string, goListen, 
 	cfg.EnableTransport = true
 	cfg.ShareInstance = false
 	cfg.EnableSandbox = false
+	// Keep the stamped wire shape but cheap to mine on slow runners.
+	cfg.Stamps.DestinationValue = 8
+	cfg.Stamps.DestinationValueSet = true
+	cfg.Stamps.DestinationCost = 8
+	cfg.Stamps.DestinationCostSet = true
 	cfg.Interfaces = map[string]*common.InterfaceConfig{
 		"UDP": {
 			Name:       "UDP",

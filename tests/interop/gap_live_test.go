@@ -654,6 +654,11 @@ func writePythonTCPClientKISSConfig(t *testing.T, dir string, targetPort int) {
 		"target_port = " + strconv.Itoa(targetPort),
 		"kiss_framing = yes",
 		"",
+		// Keep the stamped wire shape but cheap to mine on slow runners.
+		"[stamps]",
+		"destination_value = 8",
+		"destination_cost = 8",
+		"",
 	}, "\n")
 	if err := os.WriteFile(filepath.Join(dir, "config"), []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)

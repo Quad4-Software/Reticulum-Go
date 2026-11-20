@@ -142,6 +142,10 @@ func writePythonSerialConfig(t *testing.T, dir, device string) {
 		"enabled = yes",
 		"port = " + device,
 		"speed = 115200",
+		// Keep the stamped wire shape but cheap to mine on slow runners.
+		"[stamps]",
+		"destination_value = 8",
+		"destination_cost = 8",
 		"",
 	}, "\n")
 	if err := os.WriteFile(filepath.Join(dir, "config"), []byte(cfg), 0o600); err != nil {
