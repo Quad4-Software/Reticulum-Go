@@ -3,12 +3,11 @@ module git.quad4.io/reticulum/Reticulum-Go/examples/wasm
 go 1.27.4
 
 require (
-	git.quad4.io/reticulum/Reticulum-Go v1.4.1
-	github.com/Quad4-Software/reticulum-go-protocols v0.0.0-20260928010046-472ce44773d9
+	git.quad4.io/reticulum/Reticulum-Go v1.4.2-0.20261116070446-8ea07667aa63
+	github.com/Quad4-Software/reticulum-go-protocols v0.0.0-20261116094814-29d56fba9be7
 )
 
 require (
-	github.com/Quad4-Software/Reticulum-Go v1.3.2 // indirect
 	github.com/Quad4-Software/bzip2 v1.0.1 // indirect
 	github.com/Quad4-Software/msgpack/v5 v5.9.2 // indirect
 	github.com/Quad4-Software/tagparser/v2 v2.2.1 // indirect

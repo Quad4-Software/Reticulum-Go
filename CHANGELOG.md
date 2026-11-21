@@ -26,6 +26,7 @@ Tracks Python RNS 1.6.1 plus post-release fixes.
 
 ### Changed
 
+- Go module dependencies refreshed: x/crypto v0.59.0, x/sys v0.50.0, x/term v0.48.0, x/sync v0.25.0, x/text v0.44.0, x/mod v0.43.0, go-landlock v0.11.2, vsock v1.4.0, yaml v3.0.6, mock v0.6.0. quic-go stays v0.64.1 because v0.65.0 breaks the vendored webtransport-go v0.13.0 handshake path with no upstream fix yet. CI tool and GitHub Actions pins refreshed; details in the release notes.
 - When `soft_memory_limit` is unset, a soft heap limit of about 65 percent of the cgroup memory limit or total RAM is applied so freed transport memory is returned instead of riding the GOGC=100 headroom. `GOMEMLIMIT` and explicit `soft_memory_limit` settings take precedence, and a prior programmatic limit is never overridden.
 - Removed unused functions, fields, constants, and dead assignments found by staticcheck U1000, SA4006, SA4010, SA9003, unparam, and ineffassign. A new `task deadcode` check and CI lint step now fail on newly introduced unused code.
 

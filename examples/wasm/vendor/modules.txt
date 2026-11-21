@@ -1,4 +1,4 @@
-# git.quad4.io/reticulum/Reticulum-Go v1.4.1 => ../../
+# git.quad4.io/reticulum/Reticulum-Go v1.4.2-0.20261116070446-8ea07667aa63 => ../../
 ## explicit; go 1.27.4
 git.quad4.io/reticulum/Reticulum-Go/internal/sqlitestore
 git.quad4.io/reticulum/Reticulum-Go/internal/storage
@@ -31,33 +31,6 @@ git.quad4.io/reticulum/Reticulum-Go/pkg/stamps
 git.quad4.io/reticulum/Reticulum-Go/pkg/term
 git.quad4.io/reticulum/Reticulum-Go/pkg/transport
 git.quad4.io/reticulum/Reticulum-Go/pkg/wasm
-# github.com/Quad4-Software/Reticulum-Go v1.3.2
-## explicit; go 1.27.1
-github.com/Quad4-Software/Reticulum-Go/internal/storage
-github.com/Quad4-Software/Reticulum-Go/pkg/announce
-github.com/Quad4-Software/Reticulum-Go/pkg/backbone
-github.com/Quad4-Software/Reticulum-Go/pkg/blackhole
-github.com/Quad4-Software/Reticulum-Go/pkg/common
-github.com/Quad4-Software/Reticulum-Go/pkg/cryptography
-github.com/Quad4-Software/Reticulum-Go/pkg/debug
-github.com/Quad4-Software/Reticulum-Go/pkg/destination
-github.com/Quad4-Software/Reticulum-Go/pkg/health
-github.com/Quad4-Software/Reticulum-Go/pkg/hostcap
-github.com/Quad4-Software/Reticulum-Go/pkg/i2p
-github.com/Quad4-Software/Reticulum-Go/pkg/identity
-github.com/Quad4-Software/Reticulum-Go/pkg/identity/store
-github.com/Quad4-Software/Reticulum-Go/pkg/ifac
-github.com/Quad4-Software/Reticulum-Go/pkg/interfaces
-github.com/Quad4-Software/Reticulum-Go/pkg/packet
-github.com/Quad4-Software/Reticulum-Go/pkg/pathfinder
-github.com/Quad4-Software/Reticulum-Go/pkg/profiler
-github.com/Quad4-Software/Reticulum-Go/pkg/protect
-github.com/Quad4-Software/Reticulum-Go/pkg/rate
-github.com/Quad4-Software/Reticulum-Go/pkg/sandbox
-github.com/Quad4-Software/Reticulum-Go/pkg/sdr
-github.com/Quad4-Software/Reticulum-Go/pkg/securemem
-github.com/Quad4-Software/Reticulum-Go/pkg/term
-github.com/Quad4-Software/Reticulum-Go/pkg/transport
 # github.com/Quad4-Software/bzip2 v1.0.1
 ## explicit; go 1.27.1
 github.com/Quad4-Software/bzip2/internal/enc
@@ -66,8 +39,8 @@ github.com/Quad4-Software/bzip2/pkg/bzip2
 ## explicit; go 1.27.1
 github.com/Quad4-Software/msgpack/v5/pkg/msgpack
 github.com/Quad4-Software/msgpack/v5/pkg/msgpack/msgpcode
-# github.com/Quad4-Software/reticulum-go-protocols v0.0.0-20260928010046-472ce44773d9
-## explicit; go 1.27.1
+# github.com/Quad4-Software/reticulum-go-protocols v0.0.0-20261116094814-29d56fba9be7
+## explicit; go 1.27.4
 github.com/Quad4-Software/reticulum-go-protocols/pkg/mf
 # github.com/Quad4-Software/tagparser/v2 v2.2.1
 ## explicit; go 1.27.1

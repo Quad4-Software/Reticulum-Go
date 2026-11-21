@@ -843,7 +843,11 @@ func fillInterfaceEntry(dst *C.rns_interface_entry, e librns.InterfaceEntry) {
 func fillEvent(dst *C.rns_event, ev librns.Event) {
 	// ev.Kind is an event kind, not an error code. Routing it through cCode
 	// mapped every kind above 8 to RNS_EV_REQUEST_INCOMING.
-	dst.kind = C.int(ev.Kind)
+	kind := ev.Kind
+	if kind < 0 || kind > math.MaxInt32 {
+		kind = 0
+	}
+	dst.kind = C.int(kind)
 	dst.hops = C.uint8_t(ev.Hops)
 	dst.link_id_len = 0
 	dst.destination_hash_len = 0
