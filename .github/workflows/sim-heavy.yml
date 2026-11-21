@@ -30,7 +30,7 @@ env:
     agent.api.stepsecurity.io:443
     socket.quad4.io:443
   CI_GO_VERSION: "1.27.4"
-  CI_TASK_VERSION: "3.46.3"
+  CI_TASK_VERSION: "3.54.0"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
   GOTOOLCHAIN: local
