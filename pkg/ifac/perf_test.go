@@ -8,7 +8,10 @@ import (
 )
 
 // TestMaskUnmaskAllocBudget fails if IFAC round-trip allocs grow with payload
-// the way the old per-block hmac.New HKDF path did.
+// the way the old per-block hmac.New HKDF path did. About 7 of the budget is
+// the per-sign heap copy: securemem keys live outside the Go heap and stdlib
+// ed25519 needs a heap pointer, so each sign allocates a scoped copy plus a
+// fresh FIPS key derivation instead of hitting the stdlib weak-handle cache.
 func TestMaskUnmaskAllocBudget(t *testing.T) {
 	id, err := New(0, "budget-net", "budget-pass")
 	if err != nil {
@@ -26,8 +29,8 @@ func TestMaskUnmaskAllocBudget(t *testing.T) {
 			t.Fatalf("unmask ok=%v err=%v", ok, err)
 		}
 	})
-	if allocs > 45 {
-		t.Fatalf("IFAC mask+unmask(1024) allocs=%.1f want <= 45", allocs)
+	if allocs > 50 {
+		t.Fatalf("IFAC mask+unmask(1024) allocs=%.1f want <= 50", allocs)
 	}
 }
 
@@ -49,7 +52,7 @@ func TestMaskIntoScratchAllocBudget(t *testing.T) {
 			t.Fatalf("unmask ok=%v err=%v", ok, err)
 		}
 	})
-	if allocs > 40 {
-		t.Fatalf("IFAC MaskInto+unmask(1024) allocs=%.1f want <= 40", allocs)
+	if allocs > 48 {
+		t.Fatalf("IFAC MaskInto+unmask(1024) allocs=%.1f want <= 48", allocs)
 	}
 }
