@@ -125,7 +125,7 @@ tasks:
             govulncheck {{.SCAN_GO_PACKAGES}}
         else
           timeout 20m env GOFLAGS= GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct \
-            go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 {{.SCAN_GO_PACKAGES}}
+            go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 {{.SCAN_GO_PACKAGES}}
         fi
 
   prepush:

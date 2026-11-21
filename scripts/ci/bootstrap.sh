@@ -7,7 +7,7 @@ cd "$ROOT"
 
 . "$ROOT/scripts/ci/dev-tools.env"
 
-GOSEC_VERSION="${CI_GOSEC_VERSION:-v2.29.0}"
+GOSEC_VERSION="${CI_GOSEC_VERSION:-v2.30.0}"
 
 if ! command -v go >/dev/null 2>&1; then
 	echo "bootstrap: install Go $CI_GO_VERSION first (mise install, or https://go.dev/dl/)" >&2

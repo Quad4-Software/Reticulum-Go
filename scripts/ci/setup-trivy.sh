@@ -37,6 +37,7 @@ URL="${TRIVY_DEB_URL:-https://github.com/aquasecurity/trivy/releases/download/v$
 
 case "$VER" in
     0.69.3) EXPECTED="${TRIVY_DEB_SHA256:-a484057aafde31089cf2558ca0f79a4bc835125a5ee6834183a5bcf0735af358}" ;;
+    0.76.2) EXPECTED="${TRIVY_DEB_SHA256:-7edaf64c8a2a0ae02137f776c6e56adf285fc36ec76b045274afdc462f20f092}" ;;
     custom) EXPECTED="${TRIVY_DEB_SHA256:-}" ;;
     *)
         EXPECTED="${TRIVY_DEB_SHA256:-}"

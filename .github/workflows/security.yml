@@ -53,8 +53,8 @@ env:
     dl.google.com:443
     storage.googleapis.com:443
   CI_GO_VERSION: "1.27.4"
-  CI_TASK_VERSION: "3.46.3"
-  CI_TRIVY_VERSION: "0.69.3"
+  CI_TASK_VERSION: "3.54.0"
+  CI_TRIVY_VERSION: "0.76.2"
   GOFLAGS: -mod=vendor
   GOPROXY: "off"
   GOTOOLCHAIN: local
@@ -71,11 +71,11 @@ jobs:
         include:
           - scanner: gosec
             setup: setup-gosec.sh
-            version: v2.29.1-0.20261009120814-7b1b5cebe007
+            version: v2.30.0
             task: scan
           - scanner: govulncheck
             setup: setup-govulncheck.sh
-            version: v1.7.0
+            version: v1.9.0
             task: vulncheck
 
     steps:

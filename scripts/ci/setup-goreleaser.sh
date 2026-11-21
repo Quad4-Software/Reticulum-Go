@@ -5,7 +5,7 @@ set -eu
 
 . "$(dirname "$0")/priv.sh"
 
-VERSION="${1:-v2.19.0}"
+VERSION="${1:-v2.20.2}"
 VER="${VERSION#v}"
 
 ARCH="$(uname -m)"
