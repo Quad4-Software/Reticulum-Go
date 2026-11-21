@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -349,11 +350,22 @@ func TestLivePythonRnshToGoCompat(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
-	listen := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirA, "-l", "-n", "--compat", "/bin/echo", "go-compat-ok")
+	listen := exec.CommandContext(ctx, rgoshBin, "-config", cfgDirA, "-l", "-n", "-v", "--compat", "/bin/echo", "go-compat-ok")
+	listenLog, lerr := os.Create(filepath.Join(os.TempDir(), fmt.Sprintf("rgosh-listen-%d.log", time.Now().UnixNano())))
+	if lerr == nil {
+		listen.Stdout = listenLog
+		listen.Stderr = listenLog
+		t.Logf("listener log: %s", listenLog.Name())
+	}
 	if err := listen.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = listen.Process.Kill() }()
+	defer func() {
+		_ = listen.Process.Kill()
+		if listenLog != nil {
+			_ = listenLog.Close()
+		}
+	}()
 	time.Sleep(800 * time.Millisecond)
 
 	idPath := filepath.Join(cfgDirA, "storage", "identities", rnsutil.RnshAppName)
@@ -370,6 +382,11 @@ func TestLivePythonRnshToGoCompat(t *testing.T) {
 		"INTEROP_COMMAND=/bin/echo go-compat-ok",
 	)
 	out, err := py.CombinedOutput()
+	dumpPyLog := func() {
+		if logBytes, rerr := os.ReadFile(filepath.Join(cfgDirB, "logfile")); rerr == nil && len(logBytes) > 0 {
+			t.Logf("python rns log tail:\n%s", tailLines(string(logBytes), 60))
+		}
+	}
 	// rnsh returns 255 on teardown if the channel closes before the local
 	// session reaps the exit status, even when the command already ran and
 	// its output arrived. The interop assertion is the echoed marker, so
@@ -378,9 +395,11 @@ func TestLivePythonRnshToGoCompat(t *testing.T) {
 		t.Skip("python rnsh unavailable")
 	}
 	if !bytes.Contains(out, []byte("go-compat-ok")) {
-		t.Fatalf("missing output: %s", out)
+		dumpPyLog()
+		t.Fatalf("missing output (err=%v): %s", err, out)
 	}
 	if err != nil {
+		dumpPyLog()
 		t.Fatalf("python rnsh client: %v\n%s", err, out)
 	}
 }

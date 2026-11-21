@@ -20,6 +20,8 @@ Tracks Python RNS 1.6.1 plus post-release fixes.
 - Path table, announce packet cache, and seen-announce maps are rebuilt once they drop below half of their observed peak, since Go maps otherwise keep their full bucket allocation after large culls.
 - Over-cap path table eviction now selects the batch of oldest entries in a single pass instead of an O(n x batch) rescan per insert, cutting the per-announce eviction cost at a full 350k table from about 2 ms to 0.6 ms.
 - Path table persistence streams to a temporary file through a buffered msgpack encoder instead of marshaling the whole table into a second in-memory copy, removing the large transient allocation on each save.
+- A remote stdin EOF on an rgosh PTY session no longer closes the PTY master right away. Closing it SIGHUPed the child, and a fast command then reported Go's -1 signal exit code, which a Python rnsh client mirrors as exit status 255. The session now writes EOT so canonical-mode readers see a natural EOF and only closes the master after a 250 ms grace, matching Python's close_stdin plus ensure_terminate window. Signaled exits are now reported as the Python `waitpid & 0xff` code instead of -1.
+- An rgosh listener no longer tears down the link as soon as the exit-status packet drains its TX ring. The teardown is deferred up to max(rtt*3, 6s) like Python's session prune, so the peer can consume the final stream and exit messages before the link drops.
 
 ### Changed
 

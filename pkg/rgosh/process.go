@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/creack/pty"
 )
@@ -25,6 +26,30 @@ type LocalProcess struct {
 	ptyF   *os.File
 	usePTY bool
 	once   sync.Once
+}
+
+// ptyStdinEOFGrace bounds how long a PTY child may ignore a remote stdin EOF
+// before the master closes and SIGHUPs it, matching Python rnsh's close_stdin
+// plus _ensure_terminate window (~250ms).
+const ptyStdinEOFGrace = 250 * time.Millisecond
+
+// ptyStdin wraps the PTY master fd used for child stdin. Closing the master
+// SIGHUPs the child, so a remote stdin EOF that lands while a short-lived
+// command is still exiting would kill it and surface a signal exit code
+// upstream. Write EOT first so canonical-mode readers see a natural EOF, then
+// fall back to closing the master after a grace window like Python's
+// close_stdin + ensure_terminate does for children that linger.
+type ptyStdin struct {
+	f    *os.File
+	proc *LocalProcess
+}
+
+func (s *ptyStdin) Write(b []byte) (int, error) { return s.f.Write(b) }
+
+func (s *ptyStdin) Close() error {
+	_, _ = s.f.Write([]byte{0x04})
+	time.AfterFunc(ptyStdinEOFGrace, s.proc.closePTY)
+	return nil
 }
 
 // StartLocalProcess starts cmdline with PTY unless any pipe flag is set.
@@ -54,7 +79,7 @@ func StartLocalProcess(req ExecRequest) (ProcessHandle, error) {
 		})
 		if err == nil {
 			lp.ptyF = f
-			lp.stdin = f
+			lp.stdin = &ptyStdin{f: f, proc: lp}
 			lp.stdout = f
 			lp.stderr = io.NopCloser(emptyReader{})
 			return lp, nil
@@ -108,11 +133,7 @@ func (p *LocalProcess) Wait() (int, error) {
 	// Use Process.Wait rather than Cmd.Wait. Cmd.Wait closes StdoutPipe/StderrPipe
 	// parent ends and can drop unread output when the pump still needs those pipes.
 	state, err := p.cmd.Process.Wait()
-	p.once.Do(func() {
-		if p.ptyF != nil {
-			_ = p.ptyF.Close()
-		}
-	})
+	p.closePTY()
 	if state != nil {
 		p.cmd.ProcessState = state
 	}
@@ -120,9 +141,19 @@ func (p *LocalProcess) Wait() (int, error) {
 		return 1, err
 	}
 	if state != nil && !state.Success() {
-		return state.ExitCode(), &exec.ExitError{ProcessState: state}
+		return waitStatusCode(state, state.ExitCode()), &exec.ExitError{ProcessState: state}
 	}
 	return 0, nil
+}
+
+// closePTY closes the PTY master once, shared by Wait cleanup and the deferred
+// stdin-EOF close scheduled by ptyStdin.Close.
+func (p *LocalProcess) closePTY() {
+	p.once.Do(func() {
+		if p.ptyF != nil {
+			_ = p.ptyF.Close()
+		}
+	})
 }
 
 func (p *LocalProcess) Kill() error {
