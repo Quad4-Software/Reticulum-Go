@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.6.1 - unreleased
+## v1.6.1 - 2026-11-21
 
 Tracks Python RNS 1.6.1 plus post-release fixes.
 
