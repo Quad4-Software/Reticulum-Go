@@ -1,12 +1,12 @@
 # Pinned actions (bump tag and SHA together when upgrading):
 #   actions/checkout@v7.0.1            3d3c42e5aac5ba805825da76410c181273ba90b1
 #   dorny/paths-filter@v4.0.3          ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
-#   actions/setup-node@v7.0.0          820762786026740c76f36085b0efc47a31fe5020
-#   actions/setup-java@v6.0.1          de7274f081f381c8f8158605e0321c36c376e2e6
-#   vmactions/freebsd-vm@v1.5.6        8b0f1a8fc0ea0def307835c258940ca358fe6480
-#   vmactions/openbsd-vm@v1.4.7        86cdc08415d9d0865267e686561e276c52d62530
-#   vmactions/netbsd-vm@v1.5.2         c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92
-#   vmactions/haiku-vm@v1.1.5          6a07e023ed05895c09aa73843b58cfa671f34594
+#   actions/setup-node@v7.1.0          949feb2413d6458794dcd2491c4babbbce0c15c1
+#   actions/setup-java@v6.3.0          d1374f8ac74474200d16ef8ecee22c7ae7a51880
+#   vmactions/freebsd-vm@v1.6.0        811efaaac0668df8bfb8308c3ec997b5ab50037b
+#   vmactions/openbsd-vm@v1.4.9        f1ca8bc8ecc5b6ef7218e5b914836e067e1546d3
+#   vmactions/netbsd-vm@v1.5.3         5957cf330aef2e6ddc63c604364c99ce2e02b91d
+#   vmactions/haiku-vm@v1.1.6          4d49d1f4d8c265fe5b27c41aa98b7153255d9d4c
 #
 name: CI
 
@@ -102,7 +102,7 @@ jobs:
       test_include: ${{ steps.plan.outputs.test_include }}
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -289,7 +289,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -340,7 +340,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -378,7 +378,7 @@ jobs:
 
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -417,7 +417,7 @@ jobs:
 
       - name: Upload coverage profile
         if: matrix.goarch == 'amd64'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-amd64
           path: coverage.out
@@ -434,7 +434,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           # audit only: live interop dials arbitrary public Reticulum peers
           # discovered via directory.rns.recipes; endpoints are not enumerable.
@@ -480,7 +480,7 @@ jobs:
 
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           # audit on Windows: schannel revocation checks hit CA CRL/OCSP
           # endpoints that vary by issuer and cannot be statically listed.
@@ -523,7 +523,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           # audit only: the guest VM's egress is NAT'd through qemu on the host,
           # so per-domain allowlisting cannot see the real destinations.
@@ -534,7 +534,7 @@ jobs:
           persist-credentials: false
 
       - name: Run FreeBSD VM tests
-        uses: vmactions/freebsd-vm@8b0f1a8fc0ea0def307835c258940ca358fe6480 # v1.5.6
+        uses: vmactions/freebsd-vm@811efaaac0668df8bfb8308c3ec997b5ab50037b # v1.6.0
         with:
           release: "14.3"
           usesh: true
@@ -560,7 +560,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           # audit only: the guest VM's egress is NAT'd through qemu on the host,
           # so per-domain allowlisting cannot see the real destinations.
@@ -571,7 +571,7 @@ jobs:
           persist-credentials: false
 
       - name: Run OpenBSD VM tests
-        uses: vmactions/openbsd-vm@86cdc08415d9d0865267e686561e276c52d62530 # v1.4.7
+        uses: vmactions/openbsd-vm@f1ca8bc8ecc5b6ef7218e5b914836e067e1546d3 # v1.4.9
         with:
           release: "7.7"
           usesh: true
@@ -597,7 +597,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           # audit only: the guest VM's egress is NAT'd through qemu on the host,
           # so per-domain allowlisting cannot see the real destinations.
@@ -608,7 +608,7 @@ jobs:
           persist-credentials: false
 
       - name: Run NetBSD VM tests
-        uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
+        uses: vmactions/netbsd-vm@5957cf330aef2e6ddc63c604364c99ce2e02b91d # v1.5.3
         with:
           release: "10.2"
           usesh: true
@@ -636,7 +636,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           # audit only: the guest VM's egress is NAT'd through qemu on the host,
           # so per-domain allowlisting cannot see the real destinations.
@@ -647,7 +647,7 @@ jobs:
           persist-credentials: false
 
       - name: Run Haiku VM tests
-        uses: vmactions/haiku-vm@6a07e023ed05895c09aa73843b58cfa671f34594 # v1.1.5
+        uses: vmactions/haiku-vm@4d49d1f4d8c265fe5b27c41aa98b7153255d9d4c # v1.1.6
         with:
           release: "r1beta5"
           usesh: true
@@ -705,7 +705,7 @@ jobs:
             qemu: qemu-ppc64-static
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -756,7 +756,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -788,7 +788,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -820,7 +820,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -852,7 +852,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -881,7 +881,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -912,7 +912,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -946,7 +946,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -978,7 +978,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -994,7 +994,7 @@ jobs:
           task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Setup Java
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: "17"
@@ -1013,7 +1013,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -1029,7 +1029,7 @@ jobs:
           task_version: ${{ env.CI_TASK_VERSION }}
 
       - name: Setup Java
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: "17"
@@ -1053,7 +1053,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -1082,7 +1082,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -1092,7 +1092,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Dart
-        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        uses: dart-lang/setup-dart@2286a0c042b44434fe26d292bbce8d34f7ec662b # v1.8.2
         with:
           sdk: ${{ env.CI_DART_VERSION }}
 
@@ -1128,7 +1128,7 @@ jobs:
           - { name: interfaces, pkg: ./pkg/interfaces, threshold: 40 }
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -1165,7 +1165,7 @@ jobs:
 
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -1182,7 +1182,7 @@ jobs:
 
       - name: Set up Node.js
         if: matrix.suite == 'wasm'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "${{ env.CI_NODE_MAJOR }}"
           package-manager-cache: false
@@ -1228,7 +1228,7 @@ jobs:
 
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -1268,7 +1268,7 @@ jobs:
 
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -1325,7 +1325,7 @@ jobs:
 
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -1377,7 +1377,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -1447,7 +1447,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -1476,7 +1476,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}

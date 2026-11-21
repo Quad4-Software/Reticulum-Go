@@ -1,8 +1,8 @@
 # Pinned first-party and CodeQL actions (bump tag and SHA together when upgrading):
 #   actions/checkout@v7.0.1                    3d3c42e5aac5ba805825da76410c181273ba90b1
 #   actions/setup-go@v7.0.0                    b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
-#   github/codeql-action/init@v4.38.0          b96794f015dfd88f77b49b1c93e0fa7110f94c63
-#   github/codeql-action/analyze@v4.38.0       b96794f015dfd88f77b49b1c93e0fa7110f94c63
+#   github/codeql-action/init@v4.39.3          f3bbb05694c2f74569081c28664c0866d64dec21
+#   github/codeql-action/analyze@v4.39.3       f3bbb05694c2f74569081c28664c0866d64dec21
 #
 name: CodeQL
 
@@ -67,7 +67,7 @@ jobs:
       GOTOOLCHAIN: local
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: ${{ env.HR_ENDPOINTS }}
@@ -86,7 +86,7 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        uses: github/codeql-action/init@f3bbb05694c2f74569081c28664c0866d64dec21 # v4.39.3
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -96,6 +96,6 @@ jobs:
         run: go build -mod=vendor ./...
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        uses: github/codeql-action/analyze@f3bbb05694c2f74569081c28664c0866d64dec21 # v4.39.3
         with:
           category: "/language:${{ matrix.language }}"
