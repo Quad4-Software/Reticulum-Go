@@ -126,6 +126,24 @@ make check
 - identity_backend = keyring stores the same blobs in the Linux kernel keyring (no D-Bus), suitable for systemd units. See [Identity and destinations](identity-and-destinations.md) for threat coverage.
 - Identity private keys are held in locked memory when the OS allows (pkg/securemem). This is defense in depth, not a substitute for disk encryption or HSM signing.
 
+## Secret memory handling (pkg/securemem)
+
+Long-term secret material (identity private keys, link session keys) lives outside the Go heap:
+
+- Small buffers are carved from shared 256 KiB anonymous mappings so per-link allocation does not syscall. Each mapping has PROT_NONE guard pages on both ends, is mlock'd when the OS allows it, is marked MADV_DONTDUMP and MADV_WIPEONFORK on Linux, and uses MAP_CONCEAL on OpenBSD. Cells carry 16-byte canaries that are checked on every operation and on Close.
+- NewProtected gives one dedicated mapping per buffer in the same guard-page shape. The region is PROT_NONE while idle and becomes read-write only inside Use, CopyFrom, CopyOut, and Wipe. Intended for high-value long-term secrets, not per-packet keys.
+- Close wipes the cell or region before release. A finalizer wipes as a safety net when Close is forgotten, but it may run long after the secret was last used.
+- The daemon calls securemem.HardenProcess at startup: PR_SET_DUMPABLE off and RLIMIT_CORE zero on Linux, RLIMIT_CORE zero on other Unix. Core dumps cannot carry secrets out of the process. Set RETICULUM_DISABLE_HARDEN=1 when debugging.
+- securemem.Do wraps runtime/secret.Do when the binary is built with -tags goexperiment.runtimesecret, so register and stack copies of secrets are erased after the scoped call.
+
+What is not covered, so you can plan around it:
+
+- crypto APIs take key bytes and keep them in Go-heap and stack memory the package cannot wipe. Signing copies the key to a heap buffer for the call and wipes it (stdlib ed25519 requires a heap pointer for its FIPS weak-handle cache). x/crypto primitives read the mapped bytes directly.
+- Bytes() hands out the live region. Callers must not retain it, and CopyOut explicitly produces a heap copy the caller must wipe with WipeBytes.
+- mlock keeps pages out of swap only. It does not stop a root debugger, ptrace peer, hibernation image, or VM host from reading memory.
+- Canaries detect writes past a live cell. Writes into a freed cell land on already-wiped bytes and are not distinguishable until the cell is reallocated.
+- On js/wasm, haiku, and plan9 the package falls back to wiped heap buffers with no OS-level protection.
+
 ## DoS protection (local IDS/IPS)
 
 Go-only. Config key dos_protection in [reticulum] (default off). Implementation: pkg/protect.

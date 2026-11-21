@@ -151,6 +151,7 @@ cryptography.SetProvider replaces the active provider for tests or experiments. 
 - Optional RNE1 passphrase-encrypted identity files add at-rest encryption with env, fd, prompt, or OS-store unlock
 - Backup of the 64-byte software file or RHB1 plus signing capability equals full impersonation capability
 - Verbose debug logging may hex-dump sensitive metadata. Lower loglevel in production
+- In-memory key material is held in guarded, locked, off-heap mappings via pkg/securemem (guard pages, mlock, MADV_DONTDUMP/MADV_WIPEONFORK on Linux, per-cell canaries, wipe on close). See docs/en/security.md for the exact protection boundary: crypto calls still copy keys into Go-heap and stack memory for the duration of the operation, and that boundary is documented honestly rather than claimed away.
 
 ## Verification
 

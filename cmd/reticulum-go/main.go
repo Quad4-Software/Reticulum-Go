@@ -23,6 +23,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/node"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/sandbox"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/securemem"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/selfcheck"
 )
 
@@ -98,6 +99,13 @@ func runDaemonCLI(args []string) int {
 
 func runDaemon(opts daemonOptions) int {
 	debug.Init()
+
+	// Disable core dumps and dumpability so long-term secrets cannot leave
+	// the process through a core file. RETICULUM_DISABLE_HARDEN=1 opts out
+	// for debugging.
+	if os.Getenv("RETICULUM_DISABLE_HARDEN") != "1" {
+		securemem.HardenProcess()
+	}
 
 	var cfg *common.ReticulumConfig
 	var err error

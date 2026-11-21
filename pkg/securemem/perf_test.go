@@ -36,6 +36,20 @@ func BenchmarkBufCopyOut(b *testing.B) {
 	}
 }
 
+func BenchmarkBufNewClose(b *testing.B) {
+	src := make([]byte, 64)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		buf, err := New(64)
+		if err != nil {
+			b.Fatal(err)
+		}
+		_ = buf.CopyFrom(src)
+		_ = buf.Close()
+	}
+}
+
 func TestBufBytesAllocBudget(t *testing.T) {
 	buf, err := New(32)
 	if err != nil {

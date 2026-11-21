@@ -112,6 +112,10 @@ The packaged systemd unit sets ProtectSystem, kernel/cgroup/clock protection, Lo
 
 Sandboxing is designed as defense in depth. It is not a replacement for strong cryptography, proper interface configuration, or secure hosting practices. It also does not apply to WebAssembly builds, which rely on the browser or runtime environment sandbox.
 
+## In-memory secret handling
+
+Key material lives in `pkg/securemem`: anonymous off-heap mappings with PROT_NONE guard pages, `mlock`, `MADV_DONTDUMP` and `MADV_WIPEONFORK` on Linux, `MAP_CONCEAL` on OpenBSD, `VirtualAlloc`/`VirtualLock`/`VirtualProtect` on Windows, per-cell canaries, and wipe on close with a finalizer safety net. `NewProtected` keeps a dedicated mapping PROT_NONE except inside a scoped `Use` call. The daemon also disables core dumps and dumpability at startup (`RETICULUM_DISABLE_HARDEN=1` opts out). Limits: crypto calls still copy keys into Go heap and stack for the operation, and WebAssembly/Haiku/Plan 9 targets fall back to wiped heap memory. Details: [docs/en/security.md](docs/en/security.md#secret-memory-handling-pkgsecuremem).
+
 ## Local DoS protection
 
 Reticulum-Go includes Go-only local overload gates (`dos_protection` in `[reticulum]`, default `off`). Modes are off, detect, prevent, and auto. They shed floods, accept storms, crypto and handshake spam, resource pile-ups, and memory pressure on this node only. They do not ban peers mesh-wide. Leave off on public transports until you have measured a busy node.
