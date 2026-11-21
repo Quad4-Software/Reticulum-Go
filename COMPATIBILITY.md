@@ -8,7 +8,17 @@ For crypto and storage see [docs/en/cryptography.md](docs/en/cryptography.md). F
 
 ## RNS 1.6.1 status
 
-This build targets RNS 1.6.1: network stamps on by default for destination and path-request traffic (with enforcement options), quantized stamp costs and configurable stamp worker count, SQLite-backed known-destinations and announce caches with legacy fallback, `[filter]` destination-type filtering by name hash including `<hex>` references, global and per-interface hop limiters, fast announce ingress prefiltering, filtered and link traffic statistics over RPC, persistent `blocked_ips`, autoconnect caps, bidirectional tunnel synthesis with metadata and a 10-minute reconnect window, 3-minute reverse timeout, and the revised path pool constants (`PATH_POOL_UNUSED_MAX`/`MIN`/`USED_TARGET`). See [docs/en/deviations.md](docs/en/deviations.md) for intentional differences.
+This build targets RNS 1.6.1. The 1.6.1 work covers:
+
+- Network stamps on by default for destination and path-request traffic, with enforcement options, quantized costs and a configurable worker count.
+- SQLite-backed known-destinations and announce caches, with the legacy file layout as fallback.
+- `[filter]` destination-type filtering by name hash, including `<hex>` references.
+- Hop limiters, globally and per interface.
+- Fast announce ingress prefiltering, plus filtered and link traffic statistics over RPC.
+- Persistent `blocked_ips`, autoconnect caps, and bidirectional tunnel synthesis with metadata and a 10-minute reconnect window.
+- A 3-minute reverse timeout and the revised path pool constants (`PATH_POOL_UNUSED_MAX`, `MIN` and `USED_TARGET`).
+
+See [docs/en/deviations.md](docs/en/deviations.md) for intentional differences.
 
 ## Interop methodology
 
