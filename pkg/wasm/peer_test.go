@@ -53,6 +53,9 @@ func TestTwoPeersAnnounce(t *testing.T) {
 	tmpDirB, _ := os.MkdirTemp("", "reticulum_peerB")
 	defer os.RemoveAll(tmpDirB)
 
+	if os.Getenv("RETICULUM_LIVE_WS") != "1" {
+		t.Skip("set RETICULUM_LIVE_WS=1 to run tests against socket.quad4.io")
+	}
 	wsURL := "wss://socket.quad4.io/ws"
 
 	os.Setenv("RETICULUM_STORAGE_PATH", tmpDirA)

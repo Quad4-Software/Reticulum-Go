@@ -3,6 +3,7 @@ package gorrcd
 
 import (
 	"fmt"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"io"
 	"log/slog"
 	"testing"
@@ -50,9 +51,9 @@ func startUDP(t *testing.T, name, local, peer string, tr *transport.Transport) i
 func newDaemonMesh(t *testing.T, basePort int, cfg Config) *daemonMesh {
 	t.Helper()
 	debug.SetDebugLevel(0)
-	cfgH := common.DefaultConfig()
-	cfgA := common.DefaultConfig()
-	cfgB := common.DefaultConfig()
+	cfgH := testconfig.New()
+	cfgA := testconfig.New()
+	cfgB := testconfig.New()
 	trH := transport.NewTransport(cfgH)
 	trA := transport.NewTransport(cfgA)
 	trB := transport.NewTransport(cfgB)

@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"net"
 	"os"
 	"os/exec"
@@ -198,7 +199,7 @@ func startGoLocal(t *testing.T, port int) (*transport.Transport, *identity.Ident
 
 func isolatedTransportConfig(t *testing.T) *common.ReticulumConfig {
 	t.Helper()
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	cfg.ShareInstance = false
 	cfg.InMemoryPathTable = true
 	cfg.InMemoryKnownDestinations = true

@@ -3,6 +3,7 @@ package e2e_test
 
 import (
 	"context"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"testing"
 	"time"
 
@@ -45,7 +46,7 @@ func TestE2EBothSidesReceiveMedia(t *testing.T) {
 		t.Skip("live mesh e2e test")
 	}
 	cfg := func() *common.ReticulumConfig {
-		c := common.DefaultConfig()
+		c := testconfig.New()
 		c.ShareInstance = false
 		c.InMemoryPathTable = true
 		c.InMemoryKnownDestinations = true

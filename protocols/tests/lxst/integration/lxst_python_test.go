@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"net"
 	"os"
 	"os/exec"
@@ -14,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
@@ -360,7 +360,7 @@ func TestPythonTelephonePythonDialsGo(t *testing.T) {
 
 func startGoUDP(t *testing.T, listenPort, targetPort int) (*transport.Transport, *identity.Identity) {
 	t.Helper()
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	cfg.ShareInstance = false
 	cfg.InMemoryPathTable = true
 	cfg.InMemoryKnownDestinations = true

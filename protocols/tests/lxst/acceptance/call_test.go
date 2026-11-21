@@ -3,6 +3,7 @@ package acceptance_test
 
 import (
 	"context"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"testing"
 	"time"
 
@@ -45,7 +46,7 @@ func TestAcceptanceFullCallAndHangup(t *testing.T) {
 		t.Skip("live mesh acceptance test")
 	}
 	cfg := func() *common.ReticulumConfig {
-		c := common.DefaultConfig()
+		c := testconfig.New()
 		c.ShareInstance = false
 		c.InMemoryPathTable = true
 		c.InMemoryKnownDestinations = true

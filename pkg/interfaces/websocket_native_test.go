@@ -7,6 +7,7 @@ package interfaces
 
 import (
 	"net"
+	"os"
 	"testing"
 	"time"
 
@@ -50,6 +51,7 @@ func TestComputeAcceptKey(t *testing.T) {
 }
 
 func TestNewWebSocketInterface(t *testing.T) {
+	checkNetwork(t)
 	ws, err := NewWebSocketInterface("test", "wss://socket.quad4.io/ws", true)
 	if err != nil {
 		t.Fatalf("Failed to create WebSocket interface: %v", err)
@@ -73,6 +75,10 @@ func TestNewWebSocketInterface(t *testing.T) {
 }
 
 func checkNetwork(t *testing.T) {
+	t.Helper()
+	if os.Getenv("RETICULUM_LIVE_WS") != "1" {
+		t.Skip("set RETICULUM_LIVE_WS=1 to run tests against socket.quad4.io")
+	}
 	conn, err := net.DialTimeout("tcp", "socket.quad4.io:443", 1*time.Second)
 	if err != nil {
 		t.Skip("Skipping network test: socket.quad4.io unreachable")
@@ -257,6 +263,7 @@ func TestWebSocketFrameEncoding(t *testing.T) {
 }
 
 func TestWebSocketEnableDisable(t *testing.T) {
+	checkNetwork(t)
 	ws, err := NewWebSocketInterface("test", "wss://socket.quad4.io/ws", false)
 	if err != nil {
 		t.Fatalf("Failed to create WebSocket interface: %v", err)
@@ -278,6 +285,7 @@ func TestWebSocketEnableDisable(t *testing.T) {
 }
 
 func TestWebSocketDetach(t *testing.T) {
+	checkNetwork(t)
 	ws, err := NewWebSocketInterface("test", "wss://socket.quad4.io/ws", true)
 	if err != nil {
 		t.Fatalf("Failed to create WebSocket interface: %v", err)

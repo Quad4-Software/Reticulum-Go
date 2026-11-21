@@ -3,6 +3,7 @@ package integration_test
 
 import (
 	"context"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"math/rand"
 	"sync"
 	"testing"
@@ -118,8 +119,8 @@ func TestSimCallSignaling(t *testing.T) {
 	if testing.Short() {
 		t.Skip("live mesh integration test")
 	}
-	cfgA := common.DefaultConfig()
-	cfgB := common.DefaultConfig()
+	cfgA := testconfig.New()
+	cfgB := testconfig.New()
 	cfgA.ShareInstance = false
 	cfgB.ShareInstance = false
 	cfgA.InMemoryPathTable = true
@@ -200,8 +201,8 @@ func TestSimLossyCall(t *testing.T) {
 	if testing.Short() {
 		t.Skip("live mesh integration test")
 	}
-	cfgA := common.DefaultConfig()
-	cfgB := common.DefaultConfig()
+	cfgA := testconfig.New()
+	cfgB := testconfig.New()
 	cfgA.ShareInstance = false
 	cfgB.ShareInstance = false
 	cfgA.InMemoryPathTable = true
@@ -292,8 +293,8 @@ func TestSimLossyCall(t *testing.T) {
 
 func simPair(t *testing.T, tweak func(a, b *simIface)) (*transport.Transport, *transport.Transport, *identity.Identity, *identity.Identity, *simIface, *simIface, chan *call.Call) {
 	t.Helper()
-	cfgA := common.DefaultConfig()
-	cfgB := common.DefaultConfig()
+	cfgA := testconfig.New()
+	cfgB := testconfig.New()
 	cfgA.ShareInstance = false
 	cfgB.ShareInstance = false
 	cfgA.InMemoryPathTable = true

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"math"
 	"net"
 	"os"
@@ -378,7 +379,7 @@ func (p *pairIface) ProcessOutgoing(data []byte) error { return p.Send(data, "")
 
 func isolatedConfig(t *testing.T) *common.ReticulumConfig {
 	t.Helper()
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	cfg.ShareInstance = false
 	cfg.InMemoryPathTable = true
 	cfg.InMemoryKnownDestinations = true
