@@ -147,3 +147,57 @@ hugo-reticulum serve [flags]
 
 MIT. See LICENSE. This project depends on Reticulum-Go, which is
 published under the Reticulum License.
+
+## The Reticulum-Go docs site
+
+`site/` is the Reticulum-Go documentation site. It mounts `../docs/en` as
+its content through `module.mounts`, so the Markdown source lives in the
+repository docs tree and carries no front matter. Page titles come from
+the first `#` heading (`site/layouts/partials/doc-title.html`) and the
+sidebar order comes from `site/data/docsnav.toml`, which mirrors the
+reading order in `docs/en/README.md`.
+
+Build everything:
+
+```sh
+cd website
+go run ./cmd/docs-bundle          # writes site/static/downloads/*
+cd site && hugo --source . && ../bin/hugo-reticulum build
+```
+
+`task docs-site` from the repository root runs the same pipeline.
+`hugo server --source site` previews the HTML build on port 1313 and
+`bin/hugo-reticulum serve` run from `site/` serves the Micron pages over
+Reticulum.
+
+### Downloads
+
+`cmd/docs-bundle` reads the nav order in `site/data/docsnav.toml` and
+produces a Markdown ZIP with an `INDEX.md`, a combined print HTML, a PDF
+rendered with headless Chromium, and a hand assembled EPUB 3 in
+`site/static/downloads` (gitignored). Versioned files plus stable aliases
+are written; the version comes from the top released heading in the root
+CHANGELOG. Pass `-require-pdf` to fail when no Chromium is found. The
+HTML site links the files from the top bar menu and `/downloads/`; the
+Micron pages mention them under `/file/downloads/`.
+
+### Theme and JavaScript
+
+The site supports light, dark and system themes. A small inline script in
+`<head>` applies the saved `localStorage` choice (or `?theme=` query)
+before first paint so there is no flash. `site/static/js/site.js` adds
+the theme menu, a code copy button, the mobile sidebar toggle and menu
+keyboard handling. Without JavaScript the theme falls back to
+`prefers-color-scheme`, menus stay usable as `<details>` elements, and the
+sidebar stays visible. Nothing is fetched from the network: no web fonts,
+no CDN assets.
+
+### Icons
+
+Icons are vendored SVGs from the Lucide set (ISC license) under
+`site/assets/icons`, rendered through the `icon` partial so they inherit
+`currentColor`. The vendored copy, its license, the exact version and the
+tarball hash live in `site/assets/icons/`. To refresh: download the
+matching `lucide-static` release tarball, copy the needed SVGs over the
+existing ones, and update `site/assets/icons/README.md` with the new
+version and sha256.

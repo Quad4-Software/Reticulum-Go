@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.6.2 - unreleased
+
+### Added
+
+- The docs site at `website/site` renders every document in `docs/en` as HTML and as a Micron page over Reticulum. Page titles come from the first heading, the sidebar follows the reading order in `docs/en/README.md`, and light, dark and system themes work with or without JavaScript. A `docs-bundle` tool packages the docs as a Markdown ZIP, a single PDF and an EPUB under `website/site/static/downloads`, served at `/downloads/` over HTTP and `/file/downloads/` over Micron.
+
 ## v1.6.1 - 2026-11-21
 
 Tracks Python RNS 1.6.1 plus post-release fixes.

@@ -486,7 +486,7 @@ make deps
 
 The repository contains three modules: the root stack, `protocols/` (LXMF, LXST, MF, RRC) and `website/` (the Hugo module and docs site). Each has its own `go.mod` and `vendor/` policy. The root and `protocols/` modules vendor their dependencies and build with `GOFLAGS=-mod=vendor`. `website/` resolves modules from the proxy at build time. Build and test the nested modules with `task protocols-build`, `task protocols-test`, `task website-build` and `task website-test`.
 
-The docs site is a Hugo site at `website/site` that mounts `docs/en` as its content. Each page renders as HTML and as Micron. `task docs-site` writes both under `website/site/public` and converts the Markdown bodies to Micron. `hugo server --source website/site` previews the HTML build, and `website/bin/hugo-reticulum serve` run from `website/site` serves the Micron pages over Reticulum.
+The docs site is a Hugo site at `website/site` that mounts `docs/en` as its content. Each page renders as HTML and as Micron. `task docs-site` first runs `cmd/docs-bundle`, which reads the nav order from `website/site/data/docsnav.toml` and writes a Markdown ZIP, a combined print HTML, a PDF rendered with headless Chromium, and a hand assembled EPUB 3 to `website/site/static/downloads` (gitignored). `hugo --source .` then writes the site under `website/site/public` and `hugo-reticulum build` converts the Markdown bodies to Micron. The downloads are served at `/downloads/` over HTTP and `/file/downloads/` over Micron. `hugo server --source website/site` previews the HTML build, and `website/bin/hugo-reticulum serve` run from `website/site` serves the Micron pages over Reticulum.
 
 Day-to-day clones only need `vendor/` to build offline. Sibling checkouts are only required when re-vendoring first-party libraries. `examples/wasm` and `examples/pageserver` keep their own `go.mod` / `vendor/` trees. Docker configs under `docker/` copy those folders for offline image builds.
 
@@ -540,7 +540,7 @@ See [Embedding and WebAssembly](embedding-and-wasm.md).
 
 ```bash
 make build-librns
-make -C bindings/c/examples/smoke
+make -C `bindings/c/examples`/smoke
 ./bindings/c/examples/smoke/librns-smoke
 ```
 
@@ -643,7 +643,7 @@ make build-librns
 make test-c
 ```
 
-Builds and runs bindings/c/examples (smoke plus page-fetch/pageserver compile). Binding CI jobs also run make -C bindings/<lang> examples.
+Builds and runs bindings/c/examples (smoke plus page-fetch/pageserver compile). Binding CI jobs also run make -C bindings/`<lang>` examples.
 
 ## Adding a change safely
 

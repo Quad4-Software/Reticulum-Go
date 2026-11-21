@@ -77,7 +77,7 @@ The two nested modules point at the root module with a `replace` directive, so l
 
 ## Docs
 
-The docs site lives in `website/site` and mounts `docs/en` as its content. `task docs-site` renders each page twice, as HTML for the web and as Micron for NomadNet, under `website/site/public`. `hugo server` previews the HTML build and `website/bin/hugo-reticulum serve` serves the Micron pages over Reticulum.
+The docs site lives in `website/site` and mounts `docs/en` as its content. `task docs-site` runs `cmd/docs-bundle` to package the docs as a ZIP, a PDF and an EPUB under `website/site/static/downloads`, then renders each page twice, as HTML for the web and as Micron for NomadNet, under `website/site/public`. `hugo server` previews the HTML build and `website/bin/hugo-reticulum serve` serves the Micron pages over Reticulum.
 
 - English docs: [docs/en/](docs/en/README.md)
 - Getting started: [docs/en/getting-started.md](docs/en/getting-started.md)
