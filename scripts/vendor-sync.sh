@@ -21,11 +21,12 @@ REL_LIBS="$(relpath "$LIBS_ROOT" "$ROOT")"
 REL_WASM_LIBS="$(relpath "$LIBS_ROOT" "$ROOT/examples/wasm")"
 REL_PS_LIBS="$(relpath "$LIBS_ROOT" "$ROOT/examples/pageserver")"
 
-PROTO_DIR=""
-if [ -d "$LIBS_ROOT/reticulum-go-protocols" ]; then
-	PROTO_DIR="reticulum-go-protocols"
-elif [ -d "$LIBS_ROOT/reticulum-go-mf" ]; then
-	PROTO_DIR="reticulum-go-mf"
+# The protocols module lives in this repository under protocols/.
+PROTO_DIR="protocols"
+REL_PROTO="$(relpath "$ROOT/protocols" "$ROOT/examples/wasm")"
+if [ ! -d "$ROOT/protocols" ]; then
+	echo "vendor-sync.sh: missing $ROOT/protocols" >&2
+	exit 1
 fi
 
 for lib in bzip2 msgpack pbt tagparser; do
@@ -34,10 +35,6 @@ for lib in bzip2 msgpack pbt tagparser; do
 		exit 1
 	fi
 done
-if [ -z "$PROTO_DIR" ]; then
-	echo "vendor-sync.sh: missing $LIBS_ROOT/reticulum-go-protocols (or reticulum-go-mf)" >&2
-	exit 1
-fi
 
 cat > "$ROOT/go.mod" <<EOF
 module git.quad4.io/reticulum/Reticulum-Go
@@ -89,7 +86,7 @@ replace (
 	github.com/Quad4-Software/bzip2 => $REL_WASM_LIBS/bzip2
 	github.com/Quad4-Software/msgpack/v5 => $REL_WASM_LIBS/msgpack
 	github.com/Quad4-Software/pbt => $REL_WASM_LIBS/pbt
-	github.com/Quad4-Software/reticulum-go-protocols => $REL_WASM_LIBS/$PROTO_DIR
+	github.com/Quad4-Software/reticulum-go-protocols => $REL_PROTO
 	github.com/Quad4-Software/tagparser/v2 => $REL_WASM_LIBS/tagparser
 )
 EOF

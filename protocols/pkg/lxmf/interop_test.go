@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"os"
 	"testing"
 	"time"
@@ -682,7 +683,7 @@ func TestInterop_Live_GoMessengerPythonRecv(t *testing.T) {
 		udpGo  = "LXMFIGO"
 	)
 
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	cfg.Interfaces = map[string]*common.InterfaceConfig{
 		udpGo: {Type: "UDPInterface", Enabled: true, Address: "127.0.0.1:0", TargetHost: "127.0.0.1:0", Name: udpGo},
 	}

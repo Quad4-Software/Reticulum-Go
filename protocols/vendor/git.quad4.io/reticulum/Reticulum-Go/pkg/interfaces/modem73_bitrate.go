@@ -18,29 +18,8 @@ const (
 	modem73MFSKTimeoutBPS = 10
 )
 
-// Legacy aliases kept for existing call sites. Prefer modem73RobustBPSExt.
-var modem73RobustBPS = modem73RobustBPSExt
+// Legacy alias kept for existing call sites. Prefer modem73RobustTimeoutBPSExt.
 var modem73RobustTimeoutBPS = modem73RobustTimeoutBPSExt
-
-// modem73RobustAirtime legacy slice derived from nrows formula for modes 0-9.
-var modem73RobustAirtime = func() []float64 {
-	out := make([]float64, 10)
-	for i := range 10 {
-		out[i] = Modem73RobustAirtime(i)
-	}
-	return out
-}()
-
-var modem73OFDMAirtime = map[string][3]float64{
-	"BPSK":    {1.50, 2.60, 4.80},
-	"QPSK":    {1.00, 2.60, 4.80},
-	"8PSK":    {1.90, 3.40, 6.40},
-	"QAM16":   {1.00, 2.60, 4.80},
-	"QAM64":   {1.90, 3.40, 6.40},
-	"QAM256":  {1.50, 2.60, 4.80},
-	"QAM1024": {2.20, 4.00, 4.00},
-	"QAM4096": {1.90, 3.40, 3.40},
-}
 
 var modem73OFDMModulations = []string{
 	"BPSK", "QPSK", "8PSK", "QAM16", "QAM64", "QAM256", "QAM1024", "QAM4096",

@@ -2,12 +2,12 @@
 package lxmf
 
 import (
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
@@ -18,7 +18,7 @@ import (
 // destination, base64url-encoded as lxm://, then ingested locally with
 // stamp enforcement skipped.
 func TestIngestLXMURI(t *testing.T) {
-	tr := transport.NewTransport(common.DefaultConfig())
+	tr := transport.NewTransport(testconfig.New())
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)
 	}

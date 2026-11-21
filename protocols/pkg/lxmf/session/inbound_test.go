@@ -4,10 +4,10 @@ package session
 import (
 	"context"
 	"errors"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 	"github.com/Quad4-Software/reticulum-go-protocols/pkg/lxmf"
@@ -71,7 +71,7 @@ func (stubPath) RequestPath([]byte, string, []byte, bool) error { return nil }
 
 func openTestSession(t *testing.T, cfg Config) *Session {
 	t.Helper()
-	c := common.DefaultConfig()
+	c := testconfig.New()
 	c.ShareInstance = false
 	c.InMemoryPathTable = true
 	c.InMemoryKnownDestinations = true

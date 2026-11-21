@@ -3,9 +3,9 @@
 
 package common
 
-// StampsSettings carries the resolved RNS 1.6.0 stamp knobs (Transport.py
+// StampsSettings carries the resolved RNS 1.6.1 stamp knobs (Transport.py
 // STAMPS_* constants and [stamps] config values). The zero value is not the
-// default; use DefaultStampsSettings.
+// default. Use DefaultStampsSettings.
 type StampsSettings struct {
 	Enabled           bool // STAMPS_ENABLED: validate stamps on announces/path requests
 	Enforced          bool // STAMPS_ENFORCED: drop unstamped/invalid-stamp announces
@@ -23,25 +23,31 @@ type StampsSettings struct {
 
 	LinkStampTimeout float64 // LINK_STAMP_TIMEOUT seconds, default 15
 	PRStampTimeout   float64 // PR_STAMP_TIMEOUT seconds, default 15
+
+	MaxWorkers     int // Stamps.MAX_WORKERS, 0 = all cores
+	WorkerNiceness int // Stamps.NICENESS, default 16
 }
 
-// DefaultStampsSettings returns the Python 1.6.0 defaults.
+// DefaultStampsSettings returns the Python 1.6.1 defaults.
 func DefaultStampsSettings() StampsSettings {
 	return StampsSettings{
-		Enabled:          true,
-		StampLRs:         true,
-		DestinationCost:  23.5,
-		DestinationValue: 25.0,
-		PRCost:           15.8,
-		PRValue:          15.8,
-		LRCost:           12.5,
-		LinkStampTimeout: 15,
-		PRStampTimeout:   15,
+		Enabled:           true,
+		StampDestinations: true,
+		StampPRs:          true,
+		StampLRs:          true,
+		DestinationCost:   23.5,
+		DestinationValue:  25.0,
+		PRCost:            15.8,
+		PRValue:           15.8,
+		LRCost:            12.5,
+		LinkStampTimeout:  15,
+		PRStampTimeout:    15,
+		WorkerNiceness:    16,
 	}
 }
 
 // StampsConfig is the parsed [stamps] config section. Booleans only enable
-// (matching Reticulum.py: a true value sets the flag; false/unset leaves the
+// (matching Reticulum.py: a true value sets the flag. False/unset leaves the
 // default). Float fields apply clamping on Apply.
 type StampsConfig struct {
 	EnforceStamps     bool
@@ -49,9 +55,13 @@ type StampsConfig struct {
 	StampPRs          bool
 	AlwaysStampLRs    bool
 	// StampLRs/StampLRsSet override the STAMP_LRS default (true) — there is
-	// no stamp_lrs config key in Python; this is a runtime/test toggle.
+	// no stamp_lrs config key in Python. This is a runtime/test toggle.
 	StampLRs    bool
 	StampLRsSet bool
+	// StampDestinationsSet/StampPRsSet are runtime/test toggles to force
+	// the 1.6.1 defaults back off. Config-file booleans only enable.
+	StampDestinationsSet bool
+	StampPRsSet          bool
 
 	DestinationCost     float64
 	DestinationCostSet  bool
@@ -67,10 +77,14 @@ type StampsConfig struct {
 	LRStampTimeoutSet   bool
 	PRStampTimeout      float64
 	PRStampTimeoutSet   bool
+	MaxWorkers          int
+	MaxWorkersSet       bool
+	WorkerNiceness      int
+	WorkerNicenessSet   bool
 }
 
 // StampCostCap mirrors RNS.Transport.STAMP_COST_CAP (pkg/stamps keeps the
-// primitive constant; common cannot import it without a cycle).
+// primitive constant. Common cannot import it without a cycle).
 const StampCostCap = 100
 
 // LinkCostCap mirrors RNS.Transport.LINK_COST_CAP.
@@ -105,6 +119,12 @@ func (c StampsConfig) Apply(base StampsSettings) StampsSettings {
 	if c.StampLRsSet {
 		s.StampLRs = c.StampLRs
 	}
+	if c.StampDestinationsSet {
+		s.StampDestinations = c.StampDestinations
+	}
+	if c.StampPRsSet {
+		s.StampPRs = c.StampPRs
+	}
 	if c.DestinationCostSet {
 		s.DestinationCost = clampCost(c.DestinationCost, StampCostCap)
 	}
@@ -130,6 +150,12 @@ func (c StampsConfig) Apply(base StampsSettings) StampsSettings {
 	} else if c.PRStampTimeoutSet {
 		s.PRStampTimeout = 0.020
 	}
+	if c.MaxWorkersSet {
+		s.MaxWorkers = max(1, c.MaxWorkers)
+	}
+	if c.WorkerNicenessSet {
+		s.WorkerNiceness = min(20, max(0, c.WorkerNiceness))
+	}
 	return s
 }
 
@@ -143,7 +169,7 @@ func (c *ReticulumConfig) StampsSettings() StampsSettings {
 }
 
 // FilterConfig is the parsed [filter] section (RNS 1.6.0). Behaviour is
-// applied by the transport announce path; this struct only carries values.
+// applied by the transport announce path. This struct only carries values.
 type FilterConfig struct {
 	RequiredOnly    bool
 	RequiredOnlySet bool

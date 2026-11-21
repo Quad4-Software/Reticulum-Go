@@ -14,7 +14,7 @@ const (
 	DefaultBurstFreq           = 12.0
 	DefaultBurstHold           = 60
 	DefaultBurstPenalty        = 300
-	DefaultMaxHeldAnnounces    = 256
+	DefaultMaxHeldAnnounces    = 64
 	DefaultHeldReleaseInterval = 30
 
 	AllowanceMinThreshold = 1.0

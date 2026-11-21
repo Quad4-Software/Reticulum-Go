@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"os"
 	"testing"
 	"time"
@@ -154,7 +155,7 @@ func TestInterop_Live_PythonClientGoHub(t *testing.T) {
 		udpGo  = "RRCIGO"
 	)
 
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	cfg.Interfaces = map[string]*common.InterfaceConfig{
 		udpGo: {Type: "UDPInterface", Enabled: true, Address: "127.0.0.1:0", TargetHost: "127.0.0.1:0", Name: udpGo},
 	}
@@ -282,7 +283,7 @@ func TestInterop_Live_GoClientPythonHub(t *testing.T) {
 		udpGo  = "RRCGOPY"
 	)
 
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	cfg.Interfaces = map[string]*common.InterfaceConfig{
 		udpGo: {Type: "UDPInterface", Enabled: true, Address: "127.0.0.1:0", TargetHost: "127.0.0.1:0", Name: udpGo},
 	}

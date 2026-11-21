@@ -3,11 +3,11 @@ package lxmf
 
 import (
 	"crypto/sha256"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 )
 
@@ -25,7 +25,7 @@ func TestPeerSeedSyncQueuesStoreMessages(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tr := transport.NewTransport(common.DefaultConfig())
+	tr := transport.NewTransport(testconfig.New())
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestPeerNeedsSyncFalseWhenHandled(t *testing.T) {
 	}
 	tid := sha256.Sum256(lxm)
 
-	tr := transport.NewTransport(common.DefaultConfig())
+	tr := transport.NewTransport(testconfig.New())
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +122,7 @@ func TestPeerNeedsSyncTrueForUnhandledStoreEntry(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tr := transport.NewTransport(common.DefaultConfig())
+	tr := transport.NewTransport(testconfig.New())
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)
 	}

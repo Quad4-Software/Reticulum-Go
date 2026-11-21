@@ -3,6 +3,7 @@ package rrc
 
 import (
 	"fmt"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"strings"
 	"testing"
 	"time"
@@ -45,9 +46,9 @@ func startTestUDP(t testing.TB, name, local, peer string, tr *transport.Transpor
 
 func newTestMesh(t testing.TB, basePort int, hubCfg HubConfig) *testMesh {
 	t.Helper()
-	cfgH := common.DefaultConfig()
-	cfgA := common.DefaultConfig()
-	cfgB := common.DefaultConfig()
+	cfgH := testconfig.New()
+	cfgA := testconfig.New()
+	cfgB := testconfig.New()
 	trH := transport.NewTransport(cfgH)
 	trA := transport.NewTransport(cfgA)
 	trB := transport.NewTransport(cfgB)

@@ -233,6 +233,46 @@ tasks:
     cmds:
       - sh scripts/ci/verify-workspace-clean.sh "${RNS_INVENTORY_OUT:-/tmp/reticulum-go-tree-inventory.txt}"
 
+  protocols-build:
+    desc: Build the protocols module
+    dir: protocols
+    cmds:
+      - go build ./...
+
+  protocols-test:
+    desc: Test the protocols module
+    dir: protocols
+    cmds:
+      - go test ./...
+
+  website-build:
+    desc: Build the documentation site tool
+    dir: website
+    env:
+      GOFLAGS: ""
+      GOPROXY: https://proxy.golang.org,direct
+    cmds:
+      - go build ./...
+
+  website-test:
+    desc: Test the documentation site tool
+    dir: website
+    env:
+      GOFLAGS: ""
+      GOPROXY: https://proxy.golang.org,direct
+    cmds:
+      - go test ./...
+
+  docs-site:
+    desc: Render the docs site to Micron pages
+    dir: website
+    env:
+      GOFLAGS: ""
+      GOPROXY: https://proxy.golang.org,direct
+    cmds:
+      - go build -o bin/hugo-reticulum ./cmd/hugo-reticulum
+      - cd site && hugo --source . && ../bin/hugo-reticulum build
+
   vendor-sync:
     desc: Refresh vendor trees from Reticulum-Go-Deps
     cmds:

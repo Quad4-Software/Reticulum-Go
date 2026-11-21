@@ -218,6 +218,11 @@ func (p *Packet) Pack() error {
 		debug.Log(debug.DebugTrace, "Final packet size", "bytes", len(p.Raw))
 	}
 
+	if p.PacketType == PacketTypeAnnounce && p.HeaderType == HeaderType1 {
+		if len(p.Raw)+TruncatedHashLength > MTU {
+			return fmt.Errorf("transport-inserted announce packet size of %d exceeds MTU of %d bytes", len(p.Raw)+TruncatedHashLength, MTU)
+		}
+	}
 	if len(p.Raw) > MTU {
 		return errors.New("packet size exceeds MTU")
 	}

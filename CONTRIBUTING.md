@@ -77,6 +77,18 @@ The author field must equal the identity hash, or an LXMF address you can prove.
 
 Every commit must carry a `Signed-off-by:` trailer certifying the [Developer Certificate of Origin](https://developercertificate.org/). Add it with `git commit -s`. The `dco-signoff` CI job re-checks every PR commit.
 
+## Repository modules
+
+The repository holds three Go modules:
+
+| Path | Module | Build and test |
+|------|--------|----------------|
+| `/` | `git.quad4.io/reticulum/Reticulum-Go` | `make check` |
+| `protocols/` | `github.com/Quad4-Software/reticulum-go-protocols` | `task protocols-build`, `task protocols-test` |
+| `website/` | `github.com/Quad4-Software/hugo-reticulum` | `task website-build`, `task website-test`, `task docs-site` |
+
+Changes under `protocols/` or `website/` run their own CI jobs. The docs site renders `docs/en`, so doc edits also change the site output.
+
 ## Changelog and compatibility
 
 - User-facing changes: add an entry under the current `[unreleased]` section in `CHANGELOG.md` (Keep a Changelog style).

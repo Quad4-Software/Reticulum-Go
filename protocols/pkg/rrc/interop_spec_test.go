@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"testing"
 	"time"
 
@@ -429,7 +430,7 @@ func TestInterop_Spec_4_FullSession_GoClientPyHub(t *testing.T) {
 	}
 	identity.Remember(nil, hubHash, pub, nil)
 
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	tr := transport.NewTransport(cfg)
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)

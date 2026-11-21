@@ -5,9 +5,9 @@ Go implementations of application protocols that run on [Reticulum-Go](https://g
 | Package | What it is | Docs |
 | --- | --- | --- |
 | [pkg/mf](pkg/mf) | Compact native format: 16-byte sender hash plus UTF-8 text | [docs/en/mf.md](docs/en/mf.md) |
-| [pkg/lxmf](pkg/lxmf) | [LXMF](https://github.com/markqvist/LXMF) 1.3.0 pack, stamp, paper URI, delivery | [docs/en/lxmf.md](docs/en/lxmf.md) |
+| [pkg/lxmf](pkg/lxmf) | [LXMF](https://github.com/markqvist/LXMF) 1.3.1 pack, stamp, paper URI, delivery | [docs/en/lxmf.md](docs/en/lxmf.md) |
 | [pkg/rrc](pkg/rrc) | [RRC](https://rrc.kc1awv.net/) protocol version 1 (spec 0.1.3) hub and client | [docs/en/rrc.md](docs/en/rrc.md) |
-| [pkg/lxst](pkg/lxst) | [LXST](https://pypi.org/project/lxst/) 0.6.0 encrypted voice over Reticulum links | [docs/en/lxst.md](docs/en/lxst.md) |
+| [pkg/lxst](pkg/lxst) | [LXST](https://pypi.org/project/lxst/) 0.6.1 encrypted voice over Reticulum links | [docs/en/lxst.md](docs/en/lxst.md) |
 | [cmd/gorrcd](cmd/gorrcd) | Go RRC hub daemon | [docs/en/gorrcd.md](docs/en/gorrcd.md) |
 
 Full English index: [docs/en](docs/en).

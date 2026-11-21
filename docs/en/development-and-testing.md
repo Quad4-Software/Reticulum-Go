@@ -480,9 +480,13 @@ make vendor-sync
 make deps
 ```
 
-`make vendor-sync` requires `LIBS_ROOT` pointing at the Reticulum-Go-Deps sibling tree for replace directives. Commit `go.mod`, `go.sum`, and `vendor/` after refresh.
+`make vendor-sync` requires `LIBS_ROOT` pointing at the Reticulum-Go-Deps sibling tree for the bzip2, msgpack, pbt and tagparser replace directives. The protocols module is in this tree under `protocols/`, and its `go.mod` replaces the root module with `..`. Commit `go.mod`, `go.sum`, and `vendor/` after refresh.
 
 `go mod vendor` regenerates vendor/ from scratch and deletes local patches applied on top of upstream code (currently the linux/ppc64 serial stub). `vendor-sync` reapplies them automatically through `scripts/vendor-patches.sh`. After any manual `go mod vendor` run `make vendor-patch`. `make vendor-check` fails if the patches are missing and runs in `make ci`.
+
+The repository contains three modules: the root stack, `protocols/` (LXMF, LXST, MF, RRC) and `website/` (the Hugo module and docs site). Each has its own `go.mod` and `vendor/` policy. The root and `protocols/` modules vendor their dependencies and build with `GOFLAGS=-mod=vendor`. `website/` resolves modules from the proxy at build time. Build and test the nested modules with `task protocols-build`, `task protocols-test`, `task website-build` and `task website-test`.
+
+The docs site is a Hugo site at `website/site` that mounts `docs/en` as its content. `task docs-site` renders it and converts the Markdown bodies to Micron pages under `website/site/public`. To serve those pages over Reticulum, run `website/bin/hugo-reticulum serve` from `website/site`.
 
 Day-to-day clones only need `vendor/` to build offline. Sibling checkouts are only required when re-vendoring first-party libraries. `examples/wasm` and `examples/pageserver` keep their own `go.mod` / `vendor/` trees. Docker configs under `docker/` copy those folders for offline image builds.
 

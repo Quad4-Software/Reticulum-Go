@@ -119,6 +119,9 @@ func NewRNodeMultiInterface(name string, enabled bool, opts RNodeMultiOptions) (
 	return m, nil
 }
 
+// SharedMedium reports true per Python RNodeMultiInterface.shared_medium.
+func (m *RNodeMultiInterface) SharedMedium() bool { return true }
+
 func (m *RNodeMultiInterface) String() string {
 	return fmt.Sprintf("RNodeMultiInterface[%s]", m.Name)
 }
@@ -290,6 +293,15 @@ func (m *RNodeMultiInterface) spawnSubinterfaces() error {
 	}
 	if spawned == 0 {
 		return errors.New("no RNode subinterfaces enabled")
+	}
+	return nil
+}
+
+// SpawnedParent returns the owning RNodeMultiInterface for counter
+// propagation (Python parent_interface).
+func (s *RNodeSubInterface) SpawnedParent() common.NetworkInterface {
+	if s.parent != nil {
+		return s.parent
 	}
 	return nil
 }
@@ -613,6 +625,10 @@ func (m *RNodeMultiInterface) writeFrameBytesLocked(frame []byte) error {
 
 // ProcessOutgoing is intentionally a no-op because only children transmit.
 func (m *RNodeMultiInterface) ProcessOutgoing([]byte) error { return nil }
+
+// SharedMedium reports true: subinterfaces share the parent's radio
+// medium like Python RNodeSubInterface.
+func (s *RNodeSubInterface) SharedMedium() bool { return true }
 
 func (s *RNodeSubInterface) String() string {
 	return fmt.Sprintf("%s[%s]", s.parent.Name, s.Name)

@@ -188,6 +188,10 @@ func validateModem73Options(opts Modem73Options) error {
 	return nil
 }
 
+// SharedMedium reports true: the modem radio medium is shared like
+// Python's radio interfaces.
+func (m *Modem73Interface) SharedMedium() bool { return true }
+
 func (m *Modem73Interface) String() string {
 	return fmt.Sprintf("Modem73Interface[%s/%s:%d]", m.Name, m.opts.TargetHost, m.opts.TargetPort)
 }

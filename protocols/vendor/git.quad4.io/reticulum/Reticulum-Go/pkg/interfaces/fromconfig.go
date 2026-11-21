@@ -34,6 +34,7 @@ type FromConfigContext struct {
 	SpawnBackbone         func(client *BackboneClientInterface)
 	SpawnLocal            LocalSpawnHook
 	SpawnAware            AwareSpawnHook
+	SpawnTCP              func(client *TCPServerClientInterface)
 	AwareDriver           AwareDriver
 	ConfigDir             string
 }
@@ -113,6 +114,11 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			spawn = ctx.SpawnBackbone
 		}
 		iface, err = NewBackboneFromConfig(name, cfg, hub, spawn)
+		if err == nil {
+			if bc, ok := iface.(*BackboneClientInterface); ok && ctx != nil && ctx.SynthesizeTunnel != nil {
+				bc.SetTunnelSynth(ctx.SynthesizeTunnel)
+			}
+		}
 	case "AwareInterface":
 		role := cfg.AwareRole
 		if role == "" && (cfg.Mode == "publish" || cfg.Mode == "subscribe") {
@@ -137,7 +143,8 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 		}
 		iface, err = NewWebSocketInterface(name, wsURL, cfg.Enabled)
 	case "TCPServerInterface":
-		iface, err = NewTCPServerInterface(
+		var srv *TCPServerInterface
+		srv, err = NewTCPServerInterface(
 			name,
 			cfg.Address,
 			cfg.Port,
@@ -145,6 +152,10 @@ func NewFromConfigWithContext(name string, cfg *common.InterfaceConfig, ctx *Fro
 			cfg.I2PTunneled,
 			cfg.PreferIPv6,
 		)
+		if err == nil && ctx != nil && ctx.SpawnTCP != nil {
+			srv.EnableSpawnedClients(cfg, ctx.SpawnTCP)
+		}
+		iface = srv
 	case "PipeInterface":
 		delay := time.Duration(cfg.RespawnDelay) * time.Second
 		panicOnErr := ctx != nil && ctx.PanicOnInterfaceError
@@ -376,6 +387,9 @@ func applyModeFromConfig(iface Interface, cfg *common.InterfaceConfig, ctx *From
 		base.DestinationCostSet = cfg.DestinationCostSet
 		base.PRCost = cfg.PRCost
 		base.PRCostSet = cfg.PRCostSet
+		if cfg.HopLimiterSet {
+			base.SetHopLimiter(cfg.HopLimiter)
+		}
 	}
 }
 

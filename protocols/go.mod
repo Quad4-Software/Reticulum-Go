@@ -40,3 +40,5 @@ require (
 	modernc.org/memory v1.12.1 // indirect
 	modernc.org/sqlite v1.62.0 // indirect
 )
+
+replace git.quad4.io/reticulum/Reticulum-Go => ..

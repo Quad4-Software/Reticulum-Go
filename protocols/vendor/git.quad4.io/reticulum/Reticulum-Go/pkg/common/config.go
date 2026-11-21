@@ -134,6 +134,12 @@ type InterfaceConfig struct {
 	Gravity    int
 	GravitySet bool
 
+	// HopLimiter overrides the transport hop limiter for packets received on
+	// this interface (RNS 1.6.1 interface hop_limiter). 0 means use the
+	// transport value. Python clamps to [0, PATHFINDER_M].
+	HopLimiter    int
+	HopLimiterSet bool
+
 	// RecursivePRs enables path discovery for unknown destinations on this
 	// interface.
 	RecursivePRs bool
@@ -206,6 +212,9 @@ type InterfaceConfig struct {
 	FastFlappingThreshold    float64 // seconds connected under this counts as a flap
 	FastFlappingGrace        int     // flaps allowed before block
 	FastFlappingBlockTimeMin float64 // block duration in minutes
+	// ClientLimit caps spawned client interfaces on a backbone listener
+	// (RNS 1.6.1, default 500).
+	ClientLimit int
 
 	// Modem73Interface control socket and modem policy.
 	ControlHost       string
@@ -309,6 +318,11 @@ type ReticulumConfig struct {
 	// Zero disables autoconnect (Python autoconnect_discovered_interfaces).
 	AutoconnectDiscoveredInterfaces int
 
+	// AutoconnectDisableCaps opts out of the RNS 1.6.1 warn/cap on the
+	// autoconnect target (Python
+	// autoconnect_discovered_interfaces_disable_caps).
+	AutoconnectDisableCaps bool
+
 	// AutoconnectUnverifiedImplementations allows auto-connecting discovered
 	// interfaces whose announces carry no implementation/version info or that
 	// fail the implementation/version criteria (RNS 1.5.5
@@ -317,7 +331,7 @@ type ReticulumConfig struct {
 
 	// DisableInterfaceManagement turns off attach/detach/reload of interfaces
 	// over the shared instance RPC (RNS 1.5.5 enable_interface_management).
-	// Interface management is enabled by default; the negative flag keeps the
+	// Interface management is enabled by default. The negative flag keeps the
 	// zero value matching Python's default.
 	DisableInterfaceManagement bool
 

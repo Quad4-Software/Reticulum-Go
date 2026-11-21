@@ -10,11 +10,36 @@ import (
 	"errors"
 	"runtime"
 	"sync"
+	"sync/atomic"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/cryptography"
 )
 
 const stopCheckInterval = 64
+
+// maxWorkers caps the parallel search workers used by stamp generation
+// (Python Stamps.MAX_WORKERS). Zero means GOMAXPROCS.
+var maxWorkers atomic.Int64
+
+// SetMaxWorkers applies the [stamps] max_workers config: n > 0 caps workers,
+// n <= 0 restores the GOMAXPROCS default.
+func SetMaxWorkers(n int) {
+	maxWorkers.Store(int64(n))
+}
+
+// WorkerCount returns the effective generation worker count. The base is
+// GOMAXPROCS up to 12 cores and half above, like Python's job sizing.
+// max_workers only lowers that base, it never raises it.
+func WorkerCount() int {
+	jobs := max(runtime.GOMAXPROCS(0), 1)
+	if jobs > 12 {
+		jobs = jobs / 2
+	}
+	if n := int(maxWorkers.Load()); n > 0 && n < jobs {
+		jobs = n
+	}
+	return jobs
+}
 
 // GenerateStamp searches for a detached hash stamp of the given size whose
 // sha256(workblock+stamp) is at or below target(cost). material is used
@@ -37,7 +62,7 @@ func GenerateStamp(ctx context.Context, material []byte, cost float64, size int)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	workers := max(runtime.GOMAXPROCS(0), 1)
+	workers := WorkerCount()
 	var wg sync.WaitGroup
 	for range workers {
 		wg.Go(func() {
@@ -101,7 +126,7 @@ func GenerateStampedKey(ctx context.Context, material []byte, cost float64) (pri
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	workers := max(runtime.GOMAXPROCS(0), 1)
+	workers := WorkerCount()
 	var wg sync.WaitGroup
 	for range workers {
 		wg.Go(func() {

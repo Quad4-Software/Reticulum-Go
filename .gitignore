@@ -139,3 +139,18 @@ dist/
 /bindings/c/examples/*/librns-*
 /bindings/cpp/examples/*/cpp-*
 /bindings/c/examples/pageserver/identity
+
+# Documentation site (website/site) build output
+website/site/public/
+website/site/resources/
+website/site/.hugo_build.lock
+website/exampleSite/public/
+website/exampleSite/resources/
+website/hugo-reticulum
+
+# Protocols module build artifacts
+protocols/bin/
+protocols/*.test
+protocols/rrc.test
+/reticulum-go
+/reticulum-go.exe

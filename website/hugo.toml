@@ -1,0 +1,67 @@
+# hugo-reticulum module configuration.
+#
+# This file is merged into any site that imports the module. It registers
+# the Micron media type and output format, declares which page kinds emit
+# Micron output, and provides default params under [params.reticulum].
+
+[module]
+  [[module.mounts]]
+    source = "layouts"
+    target = "layouts"
+
+# Media type for Micron documents. The .mu suffix is the NomadNet page
+# extension.
+[mediaTypes."text/micron"]
+  suffixes = ["mu"]
+  delimiter = "."
+
+# Output format used for every page kind. isPlainText keeps Hugo from
+# adding markup around the template output.
+[outputFormats.Micron]
+  mediaType = "text/micron"
+  isPlainText = true
+  notAlternative = true
+
+# Emit Micron for every page kind and nothing else. Sites that want to keep
+# HTML output can override this table in their own config.
+[outputs]
+  home = ["Micron"]
+  page = ["Micron"]
+  section = ["Micron"]
+  taxonomy = ["Micron"]
+  term = ["Micron"]
+
+# Default presentation settings. Sites override individual keys under
+# [params.reticulum] in their own hugo.toml.
+[params.reticulum]
+  # Node name announced to the Reticulum network.
+  node_name = ""
+
+  # Page colors. Accepts "#rrggbb", "#rgb", or a named Micron color.
+  bg = ""
+  fg = ""
+
+  # Character width budget for tables and wrapped lines.
+  max_width = 100
+
+  # Show the navigation block at the top of every page.
+  show_nav = true
+
+  # Menu name used to build the navigation links.
+  nav_menu = "main"
+
+  # Text shown in the footer block.
+  footer = ""
+
+  # Link decoration: plain, underline, bold, both, or color.
+  link_style = "both"
+
+  # Hex color used when link_style is color.
+  link_color = ""
+
+  # Cache hint emitted as a #!c= directive. Empty disables it.
+  cache_ttl = ""
+
+  # Wrap long lines in paragraph text to max_width. False leaves lines as
+  # authored.
+  wrap_text = true

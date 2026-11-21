@@ -1,4 +1,4 @@
-# git.quad4.io/reticulum/Reticulum-Go v1.4.2-0.20261116070446-8ea07667aa63
+# git.quad4.io/reticulum/Reticulum-Go v1.4.2-0.20261116070446-8ea07667aa63 => ..
 ## explicit; go 1.27.4
 git.quad4.io/reticulum/Reticulum-Go/internal/sqlitestore
 git.quad4.io/reticulum/Reticulum-Go/internal/storage
@@ -202,3 +202,4 @@ modernc.org/memory
 modernc.org/sqlite
 modernc.org/sqlite/lib
 modernc.org/sqlite/vtab
+# git.quad4.io/reticulum/Reticulum-Go => ..

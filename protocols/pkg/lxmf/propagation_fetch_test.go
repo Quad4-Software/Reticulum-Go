@@ -3,6 +3,7 @@ package lxmf
 
 import (
 	"bytes"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"path/filepath"
 	"testing"
 	"time"
@@ -119,7 +120,7 @@ func TestFetchPropagatedInvalidNode(t *testing.T) {
 }
 
 func TestMessageGetTransferLimit(t *testing.T) {
-	tr := transport.NewTransport(common.DefaultConfig())
+	tr := transport.NewTransport(testconfig.New())
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)
 	}

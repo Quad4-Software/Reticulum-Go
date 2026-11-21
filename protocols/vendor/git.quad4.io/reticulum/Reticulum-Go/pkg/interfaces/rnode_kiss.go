@@ -57,13 +57,6 @@ const (
 	rnodeRadioStateOn  byte = 0x01
 	rnodeRadioStateAsk byte = 0xFF
 
-	rnodeErrorInitRadio    byte = 0x01
-	rnodeErrorTXFailed     byte = 0x02
-	rnodeErrorEEPROMLocked byte = 0x03
-	rnodeErrorQueueFull    byte = 0x04
-	rnodeErrorMemoryLow    byte = 0x05
-	rnodeErrorModemTimeout byte = 0x06
-
 	rnodePlatformAVR   byte = 0x90
 	rnodePlatformESP32 byte = 0x80
 	rnodePlatformNRF52 byte = 0x70

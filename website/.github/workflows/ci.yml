@@ -1,0 +1,33 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.x"
+      - run: go vet ./...
+      - run: gofmt -l . | tee /dev/stderr | (! read)
+      - run: go test ./...
+
+  hugo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: "latest"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.x"
+      - run: go build -o hugo-reticulum ./cmd/hugo-reticulum
+      - run: hugo --source exampleSite
+      - run: ./hugo-reticulum build --source exampleSite
+      - run: find exampleSite/public -name '*.mu' | wc -l | grep -q '^[1-9]'

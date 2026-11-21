@@ -3,6 +3,7 @@ package rrc
 
 import (
 	"encoding/hex"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"strconv"
 	"testing"
 	"time"
@@ -26,7 +27,7 @@ type interopGoHub struct {
 func startInteropGoHub(t *testing.T, goPort, pyPort int, tag string, cfg HubConfig) *interopGoHub {
 	t.Helper()
 	udpName := "RRCI-" + tag
-	trCfg := common.DefaultConfig()
+	trCfg := testconfig.New()
 	trCfg.Interfaces = map[string]*common.InterfaceConfig{
 		udpName: {Type: "UDPInterface", Enabled: true, Address: "127.0.0.1:0", TargetHost: "127.0.0.1:0", Name: udpName},
 	}

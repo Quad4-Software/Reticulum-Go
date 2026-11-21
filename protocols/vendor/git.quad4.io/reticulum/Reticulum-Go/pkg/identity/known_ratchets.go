@@ -307,16 +307,6 @@ func knownRatchetsDir() (string, error) {
 	return storage.RatchetsDir(cfg)
 }
 
-func ratchetMapKey(id string) destMapKey {
-	raw, err := hex.DecodeString(id)
-	if err == nil && len(raw) >= TruncatedHashLength/8 {
-		return knownDestKey(raw)
-	}
-	var k destMapKey
-	copy(k[:], id)
-	return k
-}
-
 func evictKnownRatchetsLocked(keep destMapKey) {
 	if len(knownRatchets) <= MaxKnownRatchets {
 		return

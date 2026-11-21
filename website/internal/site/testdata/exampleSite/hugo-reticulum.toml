@@ -1,0 +1,11 @@
+# hugo-reticulum settings for the example site.
+
+[reticulum]
+node_name = "example-node"
+announce_interval_minutes = 60
+
+[markdown]
+max_width = 72
+link_style = "both"
+image_policy = "link"
+table_align = "center"

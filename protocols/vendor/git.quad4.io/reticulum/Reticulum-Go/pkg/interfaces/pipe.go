@@ -71,6 +71,9 @@ func NewPipeInterface(name, command string, enabled bool, respawnDelay time.Dura
 	return pi, nil
 }
 
+// SharedMedium reports true per Python PipeInterface.shared_medium.
+func (pi *PipeInterface) SharedMedium() bool { return true }
+
 func (pi *PipeInterface) String() string {
 	return fmt.Sprintf("PipeInterface[%s]", pi.Name)
 }

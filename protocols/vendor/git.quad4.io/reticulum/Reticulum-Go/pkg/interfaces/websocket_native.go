@@ -350,10 +350,6 @@ func (wsi *WebSocketInterface) readLoop() {
 		}
 
 		if len(data) > 0 {
-			wsi.Mutex.Lock()
-			wsi.RxBytes += uint64(len(data))
-			wsi.Mutex.Unlock()
-
 			wsi.ProcessIncoming(data)
 		}
 	}

@@ -114,6 +114,30 @@ type BaseInterface struct {
 	arxb, atxb         uint64
 	prxb, ptxb         uint64
 	arxc, atxc         uint64
+	frxb, ftxb         uint64
+	afrxc              uint64
+
+	currentFRXS float64
+	currentFTXS float64
+	sampleFRXB  uint64
+	sampleFTXB  uint64
+
+	hopLimiter     int
+	hopLimiterSet  bool
+	hopLimiterHits uint64
+
+	tunnelsAllowed      bool
+	losslessMedium      bool
+	synthesisEmitted    bool
+	synthesisReceived   bool
+	remoteTransportHash []byte
+	localTunnelID       []byte
+	remoteImpl          string
+	remoteVers          string
+	remoteIsTN          bool
+	remoteDstCost       float64
+	remotePRCost        float64
+	remoteMeta          bool
 
 	// deferInboundIFAC skips ApplyIFACInbound in ProcessIncoming so transport
 	// inbound preprocessing can apply IFAC once (RNS 1.5.0).
@@ -225,7 +249,6 @@ func (i *BaseInterface) ProcessIncoming(data []byte) {
 // listener accepting many client connections). See admitIncomingFrom.
 func (i *BaseInterface) ProcessIncomingFrom(data []byte, peerKey string) {
 	i.Mutex.Lock()
-	i.RxBytes += uint64(len(data))
 	i.RxPackets++
 	name := i.Name
 	i.Mutex.Unlock()
@@ -656,6 +679,8 @@ func (i *BaseInterface) SampleTraffic() {
 		i.sampleATXB = i.atxb
 		i.samplePRXB = i.prxb
 		i.samplePTXB = i.ptxb
+		i.sampleFRXB = i.frxb
+		i.sampleFTXB = i.ftxb
 		i.sampleTS = now
 		return
 	}

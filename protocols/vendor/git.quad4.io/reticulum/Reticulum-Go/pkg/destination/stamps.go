@@ -170,12 +170,6 @@ func (d *Destination) setStamp(stamp []byte, value float64) {
 	d.stampValue = value
 }
 
-func (d *Destination) currentStamp() []byte {
-	d.mutex.RLock()
-	defer d.mutex.RUnlock()
-	return d.stamp
-}
-
 func (d *Destination) hexhash() string {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()

@@ -263,16 +263,13 @@ func loadKnownDestinationsFromDisk(configPath string) {
 
 	count := 0
 	for _, rec := range records {
-		id := FromPublicKey(rec.publicKey)
-		if id == nil {
+		if len(rec.publicKey) != KeySize/8 {
 			continue
 		}
 		canonicalKey := knownDestKey(rec.destHash)
 		knownDestinations[canonicalKey] = knownDestEntry{
-			pkt:        rec.packetRaw,
-			hash:       rec.destHash,
-			rawKey:     string(canonicalKey[:]),
-			id:         id,
+			pktHash:    append([]byte(nil), rec.packetRaw...),
+			pubKey:     append([]byte(nil), rec.publicKey...),
 			app:        rec.appData,
 			stamp:      rec.stamp,
 			stampValue: rec.stampValue,
@@ -344,46 +341,7 @@ func saveKnownDestinations(force bool) {
 		return
 	}
 
-	knownDestinationsLock.RLock()
-	export := make(map[string][]any, len(knownDestinations))
-	for hashKey, e := range knownDestinations {
-		if e.id == nil || len(e.hash) == 0 {
-			continue
-		}
-		// Python Identity.load_known_destinations keeps keys whose length
-		// equals the truncated hash size (16). Use the raw hash bytes as a
-		// Go string key so msgpack emits a 16-byte str/bin key Python accepts.
-		key := e.rawKey
-		if len(key) != TruncatedHashLength/8 {
-			key = string(hashKey[:])
-		}
-		meta := knownDestMetaByKey[hashKey]
-		rememberedAt := float64(meta.rememberedAt)
-		if rememberedAt == 0 {
-			rememberedAt = float64(time.Now().Unix())
-		}
-		// 8-field Python 1.6.0 entry: stamp and lr_cost stay msgpack nil
-		// (Python None) when absent.
-		var stamp any
-		if len(e.stamp) > 0 {
-			stamp = e.stamp
-		}
-		var lrCost any
-		if e.lrCost != nil {
-			lrCost = *e.lrCost
-		}
-		export[key] = []any{
-			rememberedAt,
-			e.pkt,
-			e.id.GetPublicKey(),
-			e.app,
-			float64(meta.lastUsed),
-			stamp,
-			e.stampValue,
-			lrCost,
-		}
-	}
-	knownDestinationsLock.RUnlock()
+	export := exportKnownDestinations()
 
 	encoded, err := marshalKnownDestinationsPython(export)
 	if err != nil {
@@ -417,6 +375,61 @@ func disableKnownDestinationsPersistence(err error) {
 	knownPersistMemory.Store(true)
 	knownPersistDisabled.Store(true)
 	knownPersistDirty.Store(false)
+}
+
+// exportKnownDestinations snapshots the table as Python 1.6.x
+// known_destinations entries keyed by the raw 16-byte destination hash.
+// Used for disk persistence and the shared-instance known_destinations RPC.
+func exportKnownDestinations() map[string][]any {
+	knownDestinationsLock.RLock()
+	defer knownDestinationsLock.RUnlock()
+	export := make(map[string][]any, len(knownDestinations))
+	for hashKey, e := range knownDestinations {
+		if !e.hasPublicKey() {
+			continue
+		}
+		// Python Identity.load_known_destinations keeps keys whose length
+		// equals the truncated hash size (16). Use the raw hash bytes as a
+		// Go string key so msgpack emits a 16-byte str/bin key Python accepts.
+		key := string(hashKey[:])
+		meta := knownDestMetaByKey[hashKey]
+		rememberedAt := float64(meta.rememberedAt)
+		if rememberedAt == 0 {
+			rememberedAt = float64(time.Now().Unix())
+		}
+		// 8-field Python 1.6.0 entry: stamp and lr_cost stay msgpack nil
+		// (Python None) when absent.
+		var stamp any
+		if len(e.stamp) > 0 {
+			stamp = e.stamp
+		}
+		var lrCost any
+		if e.lrCost != nil {
+			lrCost = *e.lrCost
+		}
+		export[key] = []any{
+			rememberedAt,
+			append([]byte(nil), e.pktHash...),
+			e.publicKeyBytes(),
+			e.app,
+			float64(meta.lastUsed),
+			stamp,
+			e.stampValue,
+			lrCost,
+		}
+	}
+	return export
+}
+
+// MarshalKnownDestinationsRPC returns the known destinations table packed the
+// same way Python Reticulum.get_known_destinations answers the shared-instance
+// RPC: a msgpack map of raw 16-byte destination hashes to 8-field entries.
+func MarshalKnownDestinationsRPC() (msgpack.RawMessage, error) {
+	blob, err := marshalKnownDestinationsPython(exportKnownDestinations())
+	if err != nil {
+		return nil, err
+	}
+	return msgpack.RawMessage(blob), nil
 }
 
 // marshalKnownDestinationsPython encodes the table with binary map keys, matching

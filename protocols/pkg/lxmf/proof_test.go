@@ -3,9 +3,9 @@ package lxmf
 
 import (
 	"bytes"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"testing"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
@@ -27,7 +27,7 @@ func TestSendDeliveryProof_ExplicitFormat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("identity: %v", err)
 	}
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	tr := transport.NewTransport(cfg)
 	dest, err := NewDeliveryDestination(id, tr)
 	if err != nil {

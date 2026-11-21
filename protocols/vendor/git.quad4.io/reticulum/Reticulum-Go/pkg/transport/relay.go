@@ -115,12 +115,6 @@ func (lt *linkRelayTable) touch(linkID []byte) {
 	}
 }
 
-func (lt *linkRelayTable) delete(linkID []byte) {
-	lt.mu.Lock()
-	defer lt.mu.Unlock()
-	delete(lt.entries, hash16FromSlice(linkID))
-}
-
 func (lt *linkRelayTable) sweep(maxIdle time.Duration) (expiredUnvalidated []*LinkRelayEntry, removed int) {
 	lt.mu.Lock()
 	defer lt.mu.Unlock()
@@ -598,6 +592,9 @@ func (t *Transport) forwardLinkData(linkID []byte, raw []byte, sourceIface commo
 		debug.Log(debug.DebugError, "Failed to relay link data packet",
 			"error", err,
 			"out_iface", outIface.GetName())
+	}
+	if !isLocalClientInterface(outIface) {
+		t.linkTxB.Add(uint64(len(out)))
 	}
 	t.linkTable.touch(linkID)
 	return true

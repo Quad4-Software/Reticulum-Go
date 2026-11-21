@@ -211,6 +211,9 @@ func validateRNodeAirtime(value *float64, name string) error {
 	return nil
 }
 
+// SharedMedium reports true per Python RNodeInterface.shared_medium.
+func (r *RNodeInterface) SharedMedium() bool { return true }
+
 func (r *RNodeInterface) String() string {
 	return fmt.Sprintf("RNodeInterface[%s]", r.Name)
 }

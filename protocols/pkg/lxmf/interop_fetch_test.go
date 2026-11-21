@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -102,7 +103,7 @@ func TestInterop_Live_GoFetchPythonNode(t *testing.T) {
 	readyPath := filepath.Join(tmp, "ready.json")
 	stopPath := filepath.Join(tmp, "stop")
 
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	tr := transport.NewTransport(cfg)
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)
@@ -236,7 +237,7 @@ func TestInterop_Live_PythonFetchGoNode(t *testing.T) {
 	tmp := t.TempDir()
 	readyPath := filepath.Join(tmp, "ready.json")
 
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	tr := transport.NewTransport(cfg)
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)

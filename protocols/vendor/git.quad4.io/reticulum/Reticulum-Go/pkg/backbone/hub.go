@@ -15,11 +15,6 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 )
 
-type listenerSlot struct {
-	ln     net.Listener
-	accept func(net.Conn)
-}
-
 // Stream is a non-blocking TCP/unix connection managed by the hub.
 type Stream struct {
 	hub    *Hub
@@ -44,7 +39,6 @@ type Hub struct {
 	goMode  bool
 
 	mu              sync.Mutex
-	listeners       map[int]*listenerSlot
 	streams         map[int]*Stream
 	acceptListeners []net.Listener
 
@@ -60,12 +54,11 @@ func newHub(backend Backend) (*Hub, error) {
 		return nil, err
 	}
 	h := &Hub{
-		backend:   backend,
-		poller:    p,
-		goMode:    backend == BackendGo,
-		listeners: make(map[int]*listenerSlot),
-		streams:   make(map[int]*Stream),
-		stop:      make(chan struct{}),
+		backend: backend,
+		poller:  p,
+		goMode:  backend == BackendGo,
+		streams: make(map[int]*Stream),
+		stop:    make(chan struct{}),
 	}
 	if !h.goMode {
 		h.wg.Add(1)

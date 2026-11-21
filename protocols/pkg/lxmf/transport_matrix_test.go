@@ -3,6 +3,7 @@ package lxmf
 
 import (
 	"fmt"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"net"
 	"testing"
 	"time"
@@ -19,7 +20,7 @@ import (
 // the chain; endpoint transports may disable it.
 func matrixTransport(t *testing.T, enableTransport bool) *transport.Transport {
 	t.Helper()
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	cfg.ShareInstance = false
 	cfg.EnableTransport = enableTransport
 	cfg.InMemoryPathTable = true

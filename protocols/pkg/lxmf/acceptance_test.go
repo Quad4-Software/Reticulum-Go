@@ -4,6 +4,7 @@ package lxmf
 import (
 	"bytes"
 	"errors"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"strings"
 	"testing"
 	"time"
@@ -96,7 +97,7 @@ func TestAcceptance_5_LiveDeliveryVerified(t *testing.T) {
 }
 
 func TestAcceptance_UnknownDestinationRejected(t *testing.T) {
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	tr := transport.NewTransport(cfg)
 	id := mustNewIdentity(t)
 	m, err := NewDeliveryMessenger(id, tr)

@@ -2,10 +2,10 @@
 package lxmf
 
 import (
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/destination"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
@@ -44,7 +44,7 @@ func TestPropagationRegistry_PNAnnounce(t *testing.T) {
 
 func TestPropagationRegistry_IgnoresDeliveryAnnounce(t *testing.T) {
 	id, _ := identity.NewIdentity()
-	tr := transport.NewTransport(common.DefaultConfig())
+	tr := transport.NewTransport(testconfig.New())
 	dest, err := NewDeliveryDestination(id, tr)
 	if err != nil {
 		t.Fatalf("dest: %v", err)
@@ -67,7 +67,7 @@ func TestPropagationRegistry_IgnoresDeliveryAnnounce(t *testing.T) {
 func TestPackPropagated_RoundTripFields(t *testing.T) {
 	src, _ := identity.NewIdentity()
 	dst, _ := identity.NewIdentity()
-	tr := transport.NewTransport(common.DefaultConfig())
+	tr := transport.NewTransport(testconfig.New())
 
 	srcDest, err := NewDeliveryDestination(src, tr)
 	if err != nil {
@@ -109,7 +109,7 @@ func TestSendPropagated_NoPath(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping propagation path wait in short mode")
 	}
-	tr := transport.NewTransport(common.DefaultConfig())
+	tr := transport.NewTransport(testconfig.New())
 	id, _ := identity.NewIdentity()
 	m, err := NewDeliveryMessenger(id, tr)
 	if err != nil {

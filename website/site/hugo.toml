@@ -1,0 +1,48 @@
+baseURL = "https://docs.quad4.io/reticulum-go/"
+title = "Reticulum-Go"
+locale = "en"
+
+[module]
+  replacements = 'github.com/Quad4-Software/hugo-reticulum -> ../..'
+  [[module.imports]]
+    path = "github.com/Quad4-Software/hugo-reticulum"
+  [[module.mounts]]
+    source = "content"
+    target = "content"
+  [[module.mounts]]
+    source = "../../docs/en"
+    target = "content/docs"
+
+[params]
+  [params.reticulum]
+    node_name = "reticulum-go-docs"
+    bg = "111111"
+    fg = "dddddd"
+    max_width = 78
+    show_nav = true
+    nav_menu = "main"
+    footer = "Reticulum-Go documentation"
+    link_style = "both"
+    wrap_text = true
+
+[[menu.main]]
+  name = "Home"
+  url = "/"
+  weight = 1
+
+[[menu.main]]
+  name = "Docs"
+  url = "/docs/"
+  weight = 2
+
+[[menu.main]]
+  name = "Getting started"
+  url = "/docs/getting-started/"
+  weight = 3
+
+[outputs]
+home = ["Micron"]
+page = ["Micron"]
+section = ["Micron"]
+taxonomy = ["Micron"]
+term = ["Micron"]

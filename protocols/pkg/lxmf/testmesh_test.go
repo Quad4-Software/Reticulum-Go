@@ -3,6 +3,7 @@ package lxmf
 
 import (
 	"fmt"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"testing"
 	"time"
 
@@ -42,8 +43,8 @@ func startLXMFUDP(t *testing.T, name, local, peer string, tr *transport.Transpor
 
 func newLXMFMesh(t *testing.T, basePort int) *lxmfMesh {
 	t.Helper()
-	cfg1 := common.DefaultConfig()
-	cfg2 := common.DefaultConfig()
+	cfg1 := testconfig.New()
+	cfg2 := testconfig.New()
 	tr1 := transport.NewTransport(cfg1)
 	tr2 := transport.NewTransport(cfg2)
 	if err := tr1.Start(); err != nil {

@@ -5,18 +5,18 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"strings"
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/link"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 )
 
 func TestDialTimeoutNoPath(t *testing.T) {
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	cfg.ShareInstance = false
 	cfg.InMemoryPathTable = true
 	cfg.InMemoryKnownDestinations = true
@@ -58,8 +58,8 @@ func TestDialWelcomeBodyInvalid(t *testing.T) {
 	if testing.Short() {
 		t.Skip("live dial skipped in -short")
 	}
-	cfgH := common.DefaultConfig()
-	cfgA := common.DefaultConfig()
+	cfgH := testconfig.New()
+	cfgA := testconfig.New()
 	cfgH.ShareInstance = false
 	cfgA.ShareInstance = false
 	cfgH.InMemoryPathTable = true

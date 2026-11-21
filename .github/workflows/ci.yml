@@ -96,6 +96,8 @@ jobs:
       ci: ${{ steps.filter.outputs.ci || steps.manual.outputs.ci }}
       release: ${{ steps.filter.outputs.release || steps.manual.outputs.release }}
       examples: ${{ steps.filter.outputs.examples || steps.manual.outputs.examples }}
+      protocols: ${{ steps.filter.outputs.protocols || steps.manual.outputs.protocols }}
+      website: ${{ steps.filter.outputs.website || steps.manual.outputs.website }}
       full: ${{ steps.plan.outputs.full }}
       osruntime: ${{ steps.plan.outputs.osruntime }}
       build_include: ${{ steps.plan.outputs.build_include }}
@@ -225,6 +227,14 @@ jobs:
               - 'scripts/ci/release-assets-sha256.sh'
             examples:
               - 'examples/**'
+            protocols:
+              - 'protocols/**'
+              - 'go.mod'
+              - 'pkg/**'
+            website:
+              - 'website/**'
+              - 'docs/**'
+              - 'go.mod'
 
       # Manual dispatch has no push or PR diff for paths-filter, so every
       # category counts as changed like a full push run (docs_only stays
@@ -240,6 +250,8 @@ jobs:
             echo "ci=true"
             echo "release=true"
             echo "examples=true"
+            echo "protocols=true"
+            echo "website=true"
             echo "full_build=true"
             echo "osruntime=true"
           } >> "$GITHUB_OUTPUT"
@@ -282,6 +294,70 @@ jobs:
             echo "build_include=$build_json"
             echo "test_include=$test_json"
           } >> "$GITHUB_OUTPUT"
+
+  protocols:
+    name: Protocols module
+    needs: changes
+    if: needs.changes.outputs.protocols == 'true' || needs.changes.outputs.ci == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.CI_GO_VERSION }}
+      - name: Build and test protocols
+        working-directory: protocols
+        run: |
+          go build ./...
+          go test ./...
+
+  website:
+    name: Docs site
+    needs: changes
+    if: needs.changes.outputs.website == 'true' || needs.changes.outputs.ci == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOFLAGS: ""
+      GOPROXY: https://proxy.golang.org,direct
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: block
+          allowed-endpoints: ${{ env.HR_ENDPOINTS }}
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.CI_GO_VERSION }}
+      - name: Build and test website tool
+        working-directory: website
+        run: |
+          go build ./...
+          go test ./...
+      - name: Render docs site
+        working-directory: website
+        run: |
+          go install github.com/gohugoio/hugo@v0.168.0
+          go build -o bin/hugo-reticulum ./cmd/hugo-reticulum
+          cd site
+          hugo --source .
+          ../bin/hugo-reticulum build
+          test -f public/docs/index.mu
 
   lint:
     name: Lint

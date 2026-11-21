@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"testing"
 	"time"
 
@@ -211,7 +212,7 @@ func TestUtilityFunctions(t *testing.T) {
 
 func TestMessenger_SendMessage(t *testing.T) {
 	// Setup a minimal Reticulum environment
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	tr := transport.NewTransport(cfg)
 
 	id, _ := identity.NewIdentity()
@@ -266,7 +267,7 @@ func TestNewMessageFromHexGrouped(t *testing.T) {
 }
 
 func TestSendHashRecallTimeout(t *testing.T) {
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	cfg.ShareInstance = false
 	cfg.InMemoryPathTable = true
 	cfg.InMemoryKnownDestinations = true

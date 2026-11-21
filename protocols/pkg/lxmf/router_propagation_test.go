@@ -2,16 +2,16 @@
 package lxmf
 
 import (
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"path/filepath"
 	"testing"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
 func TestPeerSkipsOwnPropagationHash(t *testing.T) {
-	tr := transport.NewTransport(common.DefaultConfig())
+	tr := transport.NewTransport(testconfig.New())
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestPeerSkipsOwnPropagationHash(t *testing.T) {
 }
 
 func TestHandlePropagationPacketIgnoresEmptyMessages(t *testing.T) {
-	tr := transport.NewTransport(common.DefaultConfig())
+	tr := transport.NewTransport(testconfig.New())
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestHandlePropagationPacketIgnoresEmptyMessages(t *testing.T) {
 }
 
 func TestThrottlePeerRecordsCooldown(t *testing.T) {
-	tr := transport.NewTransport(common.DefaultConfig())
+	tr := transport.NewTransport(testconfig.New())
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)
 	}

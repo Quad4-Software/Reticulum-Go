@@ -6,13 +6,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
@@ -218,8 +218,8 @@ func (m *routerMesh) close() {
 
 func newRouterMesh(t *testing.T, basePort int) *routerMesh {
 	t.Helper()
-	sendTr := transport.NewTransport(common.DefaultConfig())
-	recvTr := transport.NewTransport(common.DefaultConfig())
+	sendTr := transport.NewTransport(testconfig.New())
+	recvTr := transport.NewTransport(testconfig.New())
 	if err := sendTr.Start(); err != nil {
 		t.Fatal(err)
 	}

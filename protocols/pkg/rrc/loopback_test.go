@@ -2,6 +2,7 @@
 package rrc
 
 import (
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"testing"
 	"time"
 
@@ -24,15 +25,15 @@ func TestHubClientLoopback(t *testing.T) {
 		t.Skip("loopback rrc test skipped in -short mode")
 	}
 
-	cfgH := common.DefaultConfig()
+	cfgH := testconfig.New()
 	cfgH.Interfaces = map[string]*common.InterfaceConfig{
 		rrcUDP1: {Type: "UDPInterface", Enabled: true, Address: rrcLoopback, TargetHost: rrcLoopback, Name: rrcUDP1},
 	}
-	cfgA := common.DefaultConfig()
+	cfgA := testconfig.New()
 	cfgA.Interfaces = map[string]*common.InterfaceConfig{
 		rrcUDP2: {Type: "UDPInterface", Enabled: true, Address: rrcLoopback, TargetHost: rrcLoopback, Name: rrcUDP2},
 	}
-	cfgB := common.DefaultConfig()
+	cfgB := testconfig.New()
 	cfgB.Interfaces = map[string]*common.InterfaceConfig{
 		rrcUDP3: {Type: "UDPInterface", Enabled: true, Address: rrcLoopback, TargetHost: rrcLoopback, Name: rrcUDP3},
 	}

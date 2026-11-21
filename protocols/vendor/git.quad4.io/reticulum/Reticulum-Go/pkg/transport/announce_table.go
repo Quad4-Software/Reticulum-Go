@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"os"
 	"time"
 
 	"sync/atomic"
@@ -31,11 +32,57 @@ const announceTableCheckInterval = 250 * time.Millisecond
 // drained. Must stay well below sim/line hop budgets (pathfinder delay can be 0).
 const announceForwardCheckInterval = 25 * time.Millisecond
 
-// cachedAnnounce holds a PATH_RESPONSE-capable announce payload with insert time
-// for oldest-first eviction under the in-memory soft cap.
+// cachedAnnounce holds the wire fields needed to rebuild an announce
+// packet for PATH_RESPONSE answers. Storing the fields instead of a
+// whole *packet.Packet keeps the per-destination cost to the payload
+// plus this struct rather than the packet's slice-heavy layout.
 type cachedAnnounce struct {
-	pkt *packet.Packet
-	at  time.Time
+	data            []byte
+	raw             []byte // wire bytes when the seed carried Raw without Data
+	headerType      byte
+	packetType      byte
+	transportType   byte
+	context         byte
+	contextFlag     byte
+	hops            byte
+	destinationType byte
+	at              time.Time
+}
+
+func newCachedAnnounce(p *packet.Packet) *cachedAnnounce {
+	var raw []byte
+	if len(p.Data) == 0 && len(p.Raw) > 0 {
+		// Test seeds may carry wire bytes without a decoded payload.
+		raw = append([]byte(nil), p.Raw...)
+	}
+	return &cachedAnnounce{
+		data:            append([]byte(nil), p.Data...),
+		raw:             raw,
+		headerType:      p.HeaderType,
+		packetType:      p.PacketType,
+		transportType:   p.TransportType,
+		context:         p.Context,
+		contextFlag:     p.ContextFlag,
+		hops:            p.Hops,
+		destinationType: p.DestinationType,
+	}
+}
+
+// packet rebuilds a *packet.Packet for emit. The returned packet owns a
+// fresh DestinationHash but shares data: callers must not mutate it.
+func (ca *cachedAnnounce) packet(destHash []byte) *packet.Packet {
+	return &packet.Packet{
+		HeaderType:      ca.headerType,
+		PacketType:      ca.packetType,
+		TransportType:   ca.transportType,
+		Context:         ca.context,
+		ContextFlag:     ca.contextFlag,
+		Hops:            ca.hops,
+		DestinationType: ca.destinationType,
+		DestinationHash: append([]byte(nil), destHash...),
+		Data:            ca.data,
+		Raw:             ca.raw,
+	}
 }
 
 func (t *Transport) announcePacketCacheMax() int {
@@ -101,6 +148,7 @@ func (t *Transport) cleanupAnnouncePacketCache() {
 		}
 	}
 	t.evictAnnouncePacketCacheUnlocked()
+	t.announcePacketCache = shrinkSparseMap(t.announcePacketCache, &t.announceCachePeak)
 }
 
 func (t *Transport) cacheAnnouncePacket(destHash []byte, pkt *packet.Packet) {
@@ -109,31 +157,22 @@ func (t *Transport) cacheAnnouncePacket(destHash []byte, pkt *packet.Packet) {
 	}
 	key := destKey(destHash)
 	t.mutex.Lock()
-	if existing := t.announcePacketCache[key]; existing != nil && existing.pkt != nil &&
-		bytes.Equal(existing.pkt.Data, pkt.Data) &&
-		existing.pkt.Hops == pkt.Hops &&
-		existing.pkt.ContextFlag == pkt.ContextFlag {
+	if existing := t.announcePacketCache[key]; existing != nil &&
+		bytes.Equal(existing.data, pkt.Data) &&
+		existing.hops == pkt.Hops &&
+		existing.contextFlag == pkt.ContextFlag {
 		existing.at = time.Now()
 		t.mutex.Unlock()
 		return
 	}
-	cached := &packet.Packet{
-		HeaderType:      pkt.HeaderType,
-		PacketType:      pkt.PacketType,
-		TransportType:   pkt.TransportType,
-		Context:         pkt.Context,
-		ContextFlag:     pkt.ContextFlag,
-		Hops:            pkt.Hops,
-		DestinationType: pkt.DestinationType,
-		DestinationHash: append([]byte(nil), destHash...),
-		Data:            append([]byte(nil), pkt.Data...),
-	}
-	t.announcePacketCache[key] = &cachedAnnounce{pkt: cached, at: time.Now()}
+	ca := newCachedAnnounce(pkt)
+	ca.at = time.Now()
+	t.announcePacketCache[key] = ca
 	t.evictAnnouncePacketCacheUnlocked()
 	db := t.announceCacheDB
 	t.mutex.Unlock()
 	if db != nil {
-		if raw, err := serializeCachedAnnounce(cached); err == nil {
+		if raw, err := serializeCachedAnnounce(destHash, ca); err == nil {
 			db.Store(append([]byte(nil), destHash...), raw, "")
 			if db.PendingCount() > announceCacheMaxPending {
 				_, _ = db.Flush()
@@ -153,8 +192,9 @@ func (t *Transport) getCachedAnnouncePacket(destHash []byte) *packet.Packet {
 	t.mutex.RUnlock()
 	if ca == nil && db != nil {
 		if raw, _, ok := db.Fetch(append([]byte(nil), destHash...)); ok {
-			if pkt, err := deserializeCachedAnnounce(raw); err == nil {
-				ca = &cachedAnnounce{pkt: pkt, at: time.Now()}
+			if loaded, err := deserializeCachedAnnounce(raw); err == nil {
+				ca = loaded
+				ca.at = time.Now()
 				t.mutex.Lock()
 				t.announcePacketCache[key] = ca
 				t.evictAnnouncePacketCacheUnlocked()
@@ -165,7 +205,7 @@ func (t *Transport) getCachedAnnouncePacket(destHash []byte) *packet.Packet {
 	if ca == nil {
 		return nil
 	}
-	return ca.pkt
+	return ca.packet(destHash)
 }
 
 // queuePathResponseAnnounce inserts a path-response announce for destHash
@@ -179,7 +219,7 @@ func (t *Transport) queuePathResponseAnnounce(destHash []byte, path *common.Path
 	t.mutex.RLock()
 	var cached *packet.Packet
 	if ca := t.announcePacketCache[key]; ca != nil {
-		cached = ca.pkt
+		cached = ca.packet(destHash)
 	}
 	announceEntry := t.announceTable[key]
 	t.mutex.RUnlock()
@@ -288,7 +328,7 @@ func (t *Transport) answerPendingLocalPathRequest(destHash []byte, hops byte) {
 	}
 	var cached *packet.Packet
 	if ca := t.announcePacketCache[key]; ca != nil {
-		cached = ca.pkt
+		cached = ca.packet(destHash)
 	}
 	path := t.paths[pathMapKey(destHash)]
 	t.mutex.Unlock()
@@ -299,9 +339,9 @@ func (t *Transport) answerPendingLocalPathRequest(destHash []byte, hops byte) {
 		path = &common.Path{HopCount: hops, Interface: iface}
 	} else if hops > 0 {
 		// Prefer the hops from the announce that just arrived.
-		cp := *path
+		cp := path.Clone()
 		cp.HopCount = hops
-		path = &cp
+		path = cp
 	}
 	_ = t.queuePathResponseAnnounce(destHash, path, iface, true)
 }
@@ -440,48 +480,45 @@ const announceCacheMaxPending = 10000
 
 // serializeCachedAnnounce encodes the announce fields needed to rebuild a
 // packet after an announce-cache DB fetch. Node-local format (msgpack map).
-func serializeCachedAnnounce(p *packet.Packet) ([]byte, error) {
+func serializeCachedAnnounce(destHash []byte, ca *cachedAnnounce) ([]byte, error) {
 	return msgpack.Marshal(map[string]any{
-		"h": p.HeaderType, "t": p.PacketType, "tt": p.TransportType,
-		"c": p.Context, "cf": p.ContextFlag, "hops": p.Hops,
-		"dt": p.DestinationType, "dh": p.DestinationHash, "data": p.Data,
+		"h": ca.headerType, "t": ca.packetType, "tt": ca.transportType,
+		"c": ca.context, "cf": ca.contextFlag, "hops": ca.hops,
+		"dt": ca.destinationType, "dh": destHash, "data": ca.data,
 	})
 }
 
-func deserializeCachedAnnounce(raw []byte) (*packet.Packet, error) {
+func deserializeCachedAnnounce(raw []byte) (*cachedAnnounce, error) {
 	var m map[string]any
 	if err := msgpack.Unmarshal(raw, &m); err != nil {
 		return nil, err
 	}
-	p := &packet.Packet{}
+	ca := &cachedAnnounce{}
 	if v, ok := m["h"].(uint8); ok {
-		p.HeaderType = v
+		ca.headerType = v
 	}
 	if v, ok := m["t"].(uint8); ok {
-		p.PacketType = v
+		ca.packetType = v
 	}
 	if v, ok := m["tt"].(uint8); ok {
-		p.TransportType = v
+		ca.transportType = v
 	}
 	if v, ok := m["c"].(uint8); ok {
-		p.Context = v
+		ca.context = v
 	}
 	if v, ok := m["cf"].(uint8); ok {
-		p.ContextFlag = v
+		ca.contextFlag = v
 	}
 	if v, ok := m["hops"].(uint8); ok {
-		p.Hops = v
+		ca.hops = v
 	}
 	if v, ok := m["dt"].(uint8); ok {
-		p.DestinationType = v
-	}
-	if v, ok := m["dh"].([]byte); ok {
-		p.DestinationHash = append([]byte(nil), v...)
+		ca.destinationType = v
 	}
 	if v, ok := m["data"].([]byte); ok {
-		p.Data = append([]byte(nil), v...)
+		ca.data = append([]byte(nil), v...)
 	}
-	return p, nil
+	return ca, nil
 }
 
 // openAnnounceCacheDB opens the persistent announce cache at
@@ -493,6 +530,10 @@ func openAnnounceCacheDB(storagePath string) *sqlitestore.AnnounceCache {
 		return nil
 	}
 	cacheDir := filepath.Join(storagePath, "cache")
+	if err := os.MkdirAll(cacheDir, 0o700); err != nil {
+		debug.Log(debug.DebugWarning, "announce cache DB unavailable, using memory only", "error", err)
+		return nil
+	}
 	db, err := sqlitestore.OpenAnnounceCache(filepath.Join(cacheDir, "announces.db"))
 	if err != nil {
 		debug.Log(debug.DebugWarning, "announce cache DB unavailable, using memory only", "error", err)

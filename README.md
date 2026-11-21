@@ -63,7 +63,21 @@ Packages: `make package-deb`, `make package-rpm`, `make package-arch` (output in
 
 More targets, cross-compiles, WASM, and librns: [docs/en/getting-started.md](docs/en/getting-started.md) and [docs/en/development-and-testing.md](docs/en/development-and-testing.md).
 
+## Repository layout
+
+This repository holds three Go modules:
+
+| Path | Module | Contents |
+|------|--------|----------|
+| `/` | `git.quad4.io/reticulum/Reticulum-Go` | The RNS stack, CLI utilities, librns |
+| `protocols/` | `github.com/Quad4-Software/reticulum-go-protocols` | LXMF, LXST, MF, RRC and their bindings and daemons |
+| `website/` | `github.com/Quad4-Software/hugo-reticulum` | Hugo module that renders the docs as Micron pages and serves them over Reticulum |
+
+The two nested modules point at the root module with a `replace` directive, so local builds use the code in this tree. Build and test them with `task protocols-build`, `task protocols-test`, `task website-build` and `task website-test`.
+
 ## Docs
+
+The docs site lives in `website/site` and mounts `docs/en` as its content. `task docs-site` renders it to Micron pages under `website/site/public`, and `website/bin/hugo-reticulum serve` serves those pages over Reticulum.
 
 - English docs: [docs/en/](docs/en/README.md)
 - Getting started: [docs/en/getting-started.md](docs/en/getting-started.md)

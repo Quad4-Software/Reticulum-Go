@@ -6,6 +6,7 @@ Tracks Python RNS 1.6.1 plus post-release fixes.
 
 ### Added
 
+- The protocols module (LXMF, LXST, MF, RRC, their bindings and daemons) and the `hugo-reticulum` docs site now live in this repository under `protocols/` and `website/`. Both modules replace the root module with a local path. New `task` targets build and test each module, and new CI jobs cover them. `make vendor-sync` now reads the protocols module from `protocols/` instead of the `Reticulum-Go-Deps` sibling tree.
 - `rgostatus --memory` prints Go runtime memory stats (heap, stack, sys, goroutines, GC counters, soft limit) and transport table sizes. The data comes from a new `memory_stats` shared-instance RPC call, which Python instances answer as unavailable.
 - `SIGUSR1` on Unix writes a heap profile to `<config>/storage/heap-<ts>.pprof` and keeps the newest five. The daemon warns when the heap crosses 85 percent of the soft memory limit, and `RETICULUM_HEAP_DUMP_ON_THRESHOLD=1` writes a profile on each crossing.
 - `task release-rngit TAG=<tag>` publishes a tagged GitHub release to the rngit repository at `rns://06a54b505bb67b25ef3f8097e8001edc/public/Reticulum-Go`. Every asset gets a `.rsg` signature, the release carries a `manifest.rsm`, and the notes are taken from the matching changelog section. `ARGS=--dry-run` builds all of it locally without uploading.

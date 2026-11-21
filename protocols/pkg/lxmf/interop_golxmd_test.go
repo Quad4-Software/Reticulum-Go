@@ -4,6 +4,7 @@ package lxmf
 import (
 	"encoding/hex"
 	"encoding/json"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/transport"
 )
@@ -165,7 +165,7 @@ func TestInterop_Live_GoPropagationGoGolxmd(t *testing.T) {
 		t.Fatalf("propagation_hash=%q err=%v", ready["propagation_hash"], err)
 	}
 
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	tr := transport.NewTransport(cfg)
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)
@@ -327,7 +327,7 @@ func TestInterop_Live_GoDeliveryGolxmd(t *testing.T) {
 		announceAtStart: true,
 	})
 
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	tr := transport.NewTransport(cfg)
 	if err := tr.Start(); err != nil {
 		t.Fatal(err)

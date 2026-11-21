@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"sync"
 	"testing"
 	"time"
@@ -19,7 +20,7 @@ import (
 const pathEstablishWait = 10 * time.Second
 
 func TestMessenger_Compose(t *testing.T) {
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	tr := transport.NewTransport(cfg)
 	id, err := identity.NewIdentity()
 	if err != nil {
@@ -49,7 +50,7 @@ func TestMessenger_Compose(t *testing.T) {
 }
 
 func TestMessenger_Send_RejectsUnknownDestination(t *testing.T) {
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	tr := transport.NewTransport(cfg)
 	id, _ := identity.NewIdentity()
 	m, err := NewDeliveryMessenger(id, tr)
@@ -64,7 +65,7 @@ func TestMessenger_Send_RejectsUnknownDestination(t *testing.T) {
 }
 
 func TestMessenger_SetSourceResolver(t *testing.T) {
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	tr := transport.NewTransport(cfg)
 	id, _ := identity.NewIdentity()
 	m, err := NewDeliveryMessenger(id, tr)
@@ -144,7 +145,7 @@ func TestMessenger_TwoWayLoopback(t *testing.T) {
 }
 
 func TestMessenger_RatchetEncryptedInbound(t *testing.T) {
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	tr := transport.NewTransport(cfg)
 	id, err := identity.NewIdentity()
 	if err != nil {

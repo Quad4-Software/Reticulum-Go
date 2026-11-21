@@ -94,6 +94,15 @@ func (i *Identity) hasExportablePrivate() bool {
 		i.signingSeed != nil && i.signingSeed.Len() == ed25519.SeedSize
 }
 
+// hasPrivateMaterial reports whether the identity carries any private
+// key material (local keys or an external signer).
+func (i *Identity) hasPrivateMaterial() bool {
+	return i != nil &&
+		(i.externalSigner != nil ||
+			(i.privateKey != nil && i.privateKey.Len() > 0) ||
+			(i.signingSeed != nil && i.signingSeed.Len() > 0))
+}
+
 func (i *Identity) hasDecryptPrivate() bool {
 	return i != nil && i.privateKey != nil && i.privateKey.Len() == 32
 }

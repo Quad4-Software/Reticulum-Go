@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -131,7 +132,7 @@ func putPacketCopy(pc packetCopy) {
 }
 
 // inboundPacketPool recycles parsed packet.Packet structs. Each inbound
-// packet allocates a ~300-byte struct; under load that dominates GC pressure.
+// packet allocates a ~300-byte struct. Under load that dominates GC pressure.
 // The struct carries no retained state after dispatch: all wire fields alias
 // the pooled pc.buf, and no consumer stores the Packet itself.
 var inboundPacketPool = sync.Pool{
@@ -169,9 +170,18 @@ type Transport struct {
 	// linkPathKeys marks path-table rows installed by registerLinkPath so
 	// UnregisterLink can remove them without touching a real path that
 	// happens to collide on the same 16-byte key.
-	linkPathKeys          map[hash16]struct{}
-	incomingHandshakes    int
-	destinations          map[hash16]registeredDestination
+	linkPathKeys       map[hash16]struct{}
+	incomingHandshakes int
+	destinations       map[hash16]registeredDestination
+	// unusedPathLinger* and pathPool* snapshot the matching package knobs
+	// at construction so maintenance goroutines never read mutable globals.
+	unusedPathLinger      time.Duration
+	unusedPathLingerLeaf  time.Duration
+	pathSlowBitrate       int64
+	pathSlowLingerFactor  int
+	pathPoolUnusedMax     int
+	pathPoolUnusedMin     int
+	pathPoolUsedTarget    int
 	announceRate          *rate.Limiter
 	seenAnnounces         map[[32]byte]time.Time
 	packetQ               chan packetJob
@@ -206,10 +216,25 @@ type Transport struct {
 	// state for failover. See path_failover.go.
 	backupPaths         map[[PathMapKeySize]byte][]backupPath
 	pendingAltAnnounces map[[PathMapKeySize]byte][]pendingAltAnnounce
+	// pathsPeak, seenAnnouncesPeak and announceCachePeak are the high-water
+	// marks feeding shrinkSparseMap: Go maps keep bucket memory after
+	// deletes, so a table that peaked large is rebuilt once it drops below
+	// half its peak.
+	pathsPeak         int
+	seenAnnouncesPeak int
+	announceCachePeak int
+
+	// pathPoolLastChecked gates the RNS 1.6.0 unused-path pool cull
+	// (Python pool_size_last_checked). Guarded by t.mutex.
+	pathPoolLastChecked time.Time
 	transportIdentity   *identity.Identity
 	// transportIDCache is the truncated hash of transportIdentity, kept so
 	// relay hot paths can compare TransportID without rehashing every packet.
 	transportIDCache []byte
+	// rateTableSeed holds the announce rate table loaded from storage until
+	// interfaces register their egress controls (RNS 1.6.1).
+	rateTableSeed map[[16]byte]rateTableEntry
+
 	// rpcIdentity is the persisted transport identity used for shared-instance
 	// RPC auth when an ephemeral wire identity is active.
 	rpcIdentity              *identity.Identity
@@ -255,6 +280,17 @@ type Transport struct {
 	txPPS                    float64
 	destinationsLastCleaned  atomic.Int64
 	knownDestCleaning        atomic.Bool
+
+	// RNS 1.6.1 transport-wide filtered/link traffic counters.
+	linkRxB           atomic.Uint64
+	linkTxB           atomic.Uint64
+	filteredRxB       atomic.Uint64
+	filteredTxB       atomic.Uint64
+	filteredARXC      atomic.Uint64
+	ppsLastLinkRx     uint64
+	ppsLastLinkTx     uint64
+	ppsLastFilteredRx uint64
+	ppsLastFilteredTx uint64
 
 	rebalanceMu     sync.Mutex
 	rebalanceByDest map[[PathMapKeySize]byte]*rebalanceEntry
@@ -318,12 +354,22 @@ type PathAnnounceEntry struct {
 
 // delayedAnnounceJob carries a pending announce forward as data rather than
 // a closure so the hot path allocates once and the packet buffer is pooled.
+// pktHash is the received-wire packet hash and dedup the interfaces that
+// delivered an identical copy while the forward was pending, matching
+// Python announce_table IDX_AT_DEDUP_IFS / Packet.blocked_interfaces.
+// retries and localRebroadcasts mirror IDX_AT_RETRIES/IDX_AT_LCL_RBRD: the
+// job retransmits while retries <= PathfinderR and is dropped early when
+// heard rebroadcasts show propagation already happened.
 type delayedAnnounceJob struct {
-	due  time.Time
-	data []byte // pooled via announceForwardPool; released after run
-	dest hash16
-	dst  [16]byte
-	from common.NetworkInterface
+	due               time.Time
+	data              []byte // pooled via announceForwardPool. Released when the job completes
+	dest              hash16
+	dst               [16]byte
+	from              common.NetworkInterface
+	pktHash           [32]byte
+	dedup             map[string]struct{}
+	retries           int
+	localRebroadcasts int
 }
 
 // announceForwardPool recycles the announce forward-copy buffer. Entries are
@@ -353,6 +399,8 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		cfg.NormalizeInMemoryFlags()
 		if cfg.SoftMemoryLimitBytes > 0 {
 			common.ApplySoftMemoryLimit(cfg.SoftMemoryLimitBytes)
+		} else {
+			common.ApplyDefaultSoftMemoryLimit()
 		}
 		if err := identity.ApplyIdentityBackendFromConfig(cfg.IdentityBackend); err != nil {
 			debug.Log(debug.DebugError, "identity_backend unavailable", "backend", cfg.IdentityBackend, "error", err)
@@ -362,6 +410,13 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 	t := &Transport{
 		interfaces:               make(map[string]common.NetworkInterface),
 		paths:                    make(map[[PathMapKeySize]byte]*common.Path),
+		unusedPathLinger:         UnusedPathLinger,
+		unusedPathLingerLeaf:     UnusedPathLingerLeaf,
+		pathSlowBitrate:          int64(PathSlowBitrate),
+		pathSlowLingerFactor:     PathSlowLingerFactor,
+		pathPoolUnusedMax:        PathPoolUnusedMax,
+		pathPoolUnusedMin:        PathPoolUnusedMin,
+		pathPoolUsedTarget:       PathPoolUsedTarget,
 		seenAnnounces:            make(map[[32]byte]time.Time),
 		announceRate:             rate.NewLimiter(rate.DefaultBurstFreq, AnnounceRateKbps),
 		mutex:                    sync.RWMutex{},
@@ -395,6 +450,10 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 		done:                     make(chan struct{}),
 		startTime:                time.Now(),
 		lastMgmtAnnounce:         time.Now().Add(-MgmtAnnounceInterval + MgmtAnnounceFirstDelay),
+	}
+
+	if cfg != nil {
+		stamps.SetMaxWorkers(cfg.StampsSettings().MaxWorkers)
 	}
 
 	inMemory := cfg == nil || cfg.UseInMemoryStorage()
@@ -461,6 +520,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 	t.ensureRebalanceState()
 	t.initLocalHopsDelta()
 	t.initPathPersistence(cfg)
+	t.loadAnnounceRateTable()
 	inMemoryKnown := false
 	if cfg != nil {
 		inMemoryKnown = cfg.InMemoryKnownDestinations || cfg.ConnectedToSharedInstance || cfg.UseInMemoryStorage()
@@ -477,7 +537,7 @@ func NewTransport(cfg *common.ReticulumConfig) *Transport {
 	if cfg != nil {
 		handlers = cfg.EffectiveMaxPacketHandlers()
 		if !cfg.MaxPacketHandlersSet {
-			// Packet handling is crypto-bound; workers beyond a few times
+			// Packet handling is crypto-bound. Workers beyond a few times
 			// GOMAXPROCS mostly add goroutine and lock-convoy overhead. The
 			// queue keeps the full configured depth for burst absorption.
 			// An explicit MaxPacketHandlers still lifts the cap.
@@ -638,6 +698,7 @@ func (t *Transport) cleanupSeenAnnounces() {
 		}
 	}
 	t.evictSeenAnnouncesUnlocked(now)
+	t.seenAnnounces = shrinkSparseMap(t.seenAnnounces, &t.seenAnnouncesPeak)
 }
 
 func (t *Transport) rememberSeenAnnounceUnlocked(h [32]byte, now time.Time) {
@@ -654,7 +715,7 @@ func (t *Transport) evictSeenAnnouncesUnlocked(now time.Time) {
 		return
 	}
 	// Evict down to 90% of the cap in one sorted pass. The previous
-	// selection scan ran O(n) on every remember once over the cap; batching
+	// selection scan ran O(n) on every remember once over the cap. Batching
 	// amortizes it over thousands of inserts.
 	need := len(t.seenAnnounces) - limit*9/10
 	if need < 1 {
@@ -666,12 +727,27 @@ func (t *Transport) evictSeenAnnouncesUnlocked(now time.Time) {
 }
 
 func (t *Transport) cleanupExpiredPaths() {
+	linger := t.unusedPathLinger
+	if !t.transportEnabled() {
+		linger = t.unusedPathLingerLeaf
+	}
 	t.mutex.Lock()
 
 	now := time.Now()
 	var failover [][PathMapKeySize]byte
+	// RNS 1.6.0 path table sharding: track never-used paths so the pool
+	// can be culled down to the RNS 1.6.1 unused pool target when it
+	// overflows. Local destinations (hops == 0) are exempt from expiry,
+	// linger and hop-limit culling (RNS 1.6.1 local-path fix).
+	poolCheckDue := now.Sub(t.pathPoolLastChecked) >= pathPoolCheckInterval
+	var unusedPaths []unusedPathInfo
+	usedCount := 0
 	for key, path := range t.paths {
-		if pathExpired(path, now) {
+		localDest := path.HopCount == 0
+		if path.EverUsed() {
+			usedCount++
+		}
+		if pathExpired(path, now) && !localDest {
 			t.dropPathEntryUnlocked(key)
 			if len(t.backupPaths[key]) > 0 || len(t.pendingAltAnnounces[key]) > 0 {
 				failover = append(failover, key)
@@ -679,8 +755,66 @@ func (t *Transport) cleanupExpiredPaths() {
 			if debug.Enabled(debug.DebugVerbose) {
 				debug.Log(debug.DebugVerbose, "Expired path", "dest_hash", fmt.Sprintf("%x", key[:8]))
 			}
+			continue
+		}
+		// RNS 1.6.0: a path whose attached interface no longer exists is
+		// removed immediately.
+		if path.Interface != nil {
+			iface := t.interfaces[path.Interface.GetName()]
+			if iface == nil || iface != path.Interface {
+				t.dropPathEntryUnlocked(key)
+				if len(t.backupPaths[key]) > 0 || len(t.pendingAltAnnounces[key]) > 0 {
+					failover = append(failover, key)
+				}
+				if debug.Enabled(debug.DebugVerbose) {
+					debug.Log(debug.DebugVerbose, "Path removed, attached interface no longer exists", "dest_hash", fmt.Sprintf("%x", key[:8]))
+				}
+				continue
+			}
+		}
+		if !path.EverUsed() && !localDest {
+			slow := interfaceIsSlowForPath(path.Interface, t.pathSlowBitrate)
+			lingerLimit := linger
+			if slow {
+				lingerLimit *= time.Duration(t.pathSlowLingerFactor)
+			}
+			if now.Sub(path.LastUpdated) > lingerLimit {
+				t.dropPathEntryUnlocked(key)
+				if len(t.backupPaths[key]) > 0 || len(t.pendingAltAnnounces[key]) > 0 {
+					failover = append(failover, key)
+				}
+				if debug.Enabled(debug.DebugVerbose) {
+					debug.Log(debug.DebugVerbose, "Removing never used path", "dest_hash", fmt.Sprintf("%x", key[:8]))
+				}
+				continue
+			}
+			if poolCheckDue {
+				unusedPaths = append(unusedPaths, unusedPathInfo{
+					slow:   slow,
+					expiry: path.Expires.UnixNano(),
+					key:    key,
+				})
+			}
+		}
+		// RNS 1.6.1: paths beyond the hop limiter are culled.
+		if int(path.HopCount) > t.effectiveHopLimiter() {
+			t.dropPathEntryUnlocked(key)
+			if len(t.backupPaths[key]) > 0 || len(t.pendingAltAnnounces[key]) > 0 {
+				failover = append(failover, key)
+			}
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Removing excessive hops path", "dest_hash", fmt.Sprintf("%x", key[:8]), "hops", path.HopCount)
+			}
+			continue
 		}
 	}
+	if poolCheckDue {
+		t.pathPoolLastChecked = now
+		t.cullUnusedPathPoolLocked(unusedPaths, usedCount, now)
+	}
+	t.paths = shrinkSparseMap(t.paths, &t.pathsPeak)
+	t.pathStates = shrinkSparseMap(t.pathStates, &t.pathsPeak)
+	t.announcePacketCache = shrinkSparseMap(t.announcePacketCache, &t.announceCachePeak)
 	t.markPathTableDirty()
 	t.mutex.Unlock()
 
@@ -689,6 +823,72 @@ func (t *Transport) cleanupExpiredPaths() {
 	for _, key := range failover {
 		t.maybeFailoverPath(key)
 	}
+}
+
+// unusedPathInfo tracks one never-used path entry for pool-size culling.
+// The sort order matches Python: non-slow interfaces cull first, then
+// earliest expiry, then hash.
+type unusedPathInfo struct {
+	slow   bool
+	expiry int64
+	key    [PathMapKeySize]byte
+}
+
+func (a unusedPathInfo) less(b unusedPathInfo) bool {
+	if a.slow != b.slow {
+		return !a.slow && b.slow
+	}
+	if a.expiry != b.expiry {
+		return a.expiry < b.expiry
+	}
+	return bytes.Compare(a.key[:], b.key[:]) < 0
+}
+
+// effectiveHopLimiter returns the active inbound hop limit (Python
+// Transport.HOP_LIMITER): the [filter] hop_limiter override or PATHFINDER_M.
+func (t *Transport) effectiveHopLimiter() int {
+	if t.filterHopLimiter > 0 {
+		return t.filterHopLimiter
+	}
+	return PathfinderM
+}
+
+// cullUnusedPathPoolLocked drops the oldest never-used paths down to the
+// RNS 1.6.1 unused pool target: PATH_POOL_UNUSED_MAX reduced by however far
+// used paths exceed PATH_POOL_USED_TARGET, floored at PATH_POOL_UNUSED_MIN.
+// Caller must hold t.mutex.
+func (t *Transport) cullUnusedPathPoolLocked(unused []unusedPathInfo, usedCount int, now time.Time) {
+	unusedTrim := max(0, usedCount-t.pathPoolUsedTarget)
+	target := max(t.pathPoolUnusedMin, t.pathPoolUnusedMax-unusedTrim)
+	if len(unused) <= target {
+		return
+	}
+	cullCount := len(unused) - target
+	sort.Slice(unused, func(i, j int) bool { return unused[i].less(unused[j]) })
+	for _, info := range unused[:cullCount] {
+		if _, ok := t.paths[info.key]; !ok {
+			continue
+		}
+		t.dropPathEntryUnlocked(info.key)
+		if debug.Enabled(debug.DebugVerbose) {
+			debug.Log(debug.DebugVerbose, "Culling never used path to reach pool size target",
+				"dest_hash", fmt.Sprintf("%x", info.key[:8]),
+				"target", target)
+		}
+	}
+}
+
+// interfaceIsSlowForPath reports whether the path's interface counts as
+// slow for never-used linger purposes (Python PATH_SLOW_BITRATE check).
+func interfaceIsSlowForPath(iface common.NetworkInterface, slowBitrate int64) bool {
+	if iface == nil {
+		return false
+	}
+	bitrate := int64(0)
+	if b, ok := iface.(interface{ GetBitrate() int64 }); ok {
+		bitrate = b.GetBitrate()
+	}
+	return bitrate > 0 && bitrate < slowBitrate
 }
 
 func (t *Transport) cleanupExpiredDiscoveryRequests() {
@@ -769,9 +969,11 @@ func (t *Transport) MemoryStats() MemoryStats {
 }
 
 // releaseHeldAnnounces replays announces held by per-interface ingress control
-// through handleAnnouncePacket after burst-clear timing allows. Announces
-// answering destinations with pending local path requests are released first:
-// path latency is user-visible while announce redundancy is not.
+// through handleAnnouncePacket after burst-clear timing allows. Entries that
+// can no longer win against the known path are culled first (Python 1.6.1
+// process_held_announces). Announces answering destinations with pending local
+// path requests are released first: path latency is user-visible while
+// announce redundancy is not.
 func (t *Transport) releaseHeldAnnounces() {
 	if t.ifaceStates == nil {
 		return
@@ -794,6 +996,9 @@ func (t *Transport) releaseHeldAnnounces() {
 		if !ok || iface == nil {
 			continue
 		}
+		st.ingress.CullHeldAnnounce(func(dest [16]byte, data []byte) bool {
+			return t.heldAnnounceUseless(destKey(dest[:]), data, iface)
+		})
 		for _, dest := range pendingDests {
 			for {
 				_, data, ok := st.ingress.ReleaseHeldAnnounceFor(dest)
@@ -1005,6 +1210,7 @@ func (t *Transport) registerInterfaceLocked(name string, iface common.NetworkInt
 		}
 	}
 	t.ifaceStates.put(name, buildIfaceState(cfg, t.transportEnabled()))
+	t.seedEgressRateHistory(t.ifaceStates.get(name))
 	applyIfacePRConfig(iface, cfg)
 }
 
@@ -1077,6 +1283,7 @@ func (t *Transport) UnregisterInterface(name string) {
 	t.ifaceSnap = nil
 	t.ifaceStates.delete(name)
 	t.markPathTableDirty()
+	health.RemoveIface(name)
 }
 
 // ReplaceInterface swaps the registered implementation for name, scrubbing
@@ -1094,6 +1301,7 @@ func (t *Transport) ReplaceInterface(name string, iface common.NetworkInterface)
 		delete(t.interfaces, name)
 		t.ifaceSnap = nil
 		t.ifaceStates.delete(name)
+		health.RemoveIface(name)
 	}
 	t.registerInterfaceLocked(name, iface)
 	t.activatePendingPathsForInterface(name, iface)
@@ -1108,6 +1316,9 @@ func (t *Transport) SetReticulumConfig(cfg *common.ReticulumConfig) {
 	t.config = cfg
 	if cfg != nil {
 		t.applyFilterConfig(cfg.Filter)
+		stamps.SetMaxWorkers(cfg.StampsSettings().MaxWorkers)
+	} else {
+		stamps.SetMaxWorkers(0)
 	}
 }
 
@@ -1343,10 +1554,6 @@ func (t *Transport) UnregisterAnnounceHandler(handler announce.Handler) {
 	t.announceHandlerSnap = nil
 }
 
-func (t *Transport) notifyAnnounceHandlers(destHash []byte, identity any, appData []byte, hops uint8) {
-	t.notifyAnnounceHandlersFiltered(destHash, identity, appData, hops, false)
-}
-
 func (t *Transport) notifyAnnounceHandlersFiltered(destHash []byte, identity any, appData []byte, hops uint8, isPathResponse bool) {
 	handlers := t.snapshotAnnounceHandlers()
 
@@ -1562,11 +1769,7 @@ func (t *Transport) requestPath(destinationHash []byte, onInterface string, tag,
 		if err := sendOnInterface(iface, pkt.Raw, ""); err != nil {
 			return err
 		}
-		if sp, ok := iface.(interface{ SentPathRequestBytes(int) }); ok {
-			sp.SentPathRequestBytes(len(pkt.Raw))
-		} else {
-			iface.SentPathRequest()
-		}
+		pathRequestSent(iface, len(pkt.Raw))
 		return nil
 	}
 
@@ -1581,11 +1784,7 @@ func (t *Transport) requestPath(destinationHash []byte, onInterface string, tag,
 			}
 			debug.Log(debug.DebugError, "Failed to send path request on interface", "interface", e.iface.GetName(), "error", err)
 		} else {
-			if sp, ok := e.iface.(interface{ SentPathRequestBytes(int) }); ok {
-				sp.SentPathRequestBytes(len(pkt.Raw))
-			} else {
-				e.iface.SentPathRequest()
-			}
+			pathRequestSent(e.iface, len(pkt.Raw))
 			sent++
 		}
 	}
@@ -1670,6 +1869,7 @@ func (t *Transport) evictPathsIfNeededUnlocked(now time.Time) {
 	}
 	keys := make([][PathMapKeySize]byte, 0, batch)
 	times := make([]time.Time, 0, batch)
+	maxIdx := -1
 	for k, p := range t.paths {
 		when := now
 		if p != nil && !p.LastUpdated.IsZero() {
@@ -1678,19 +1878,20 @@ func (t *Transport) evictPathsIfNeededUnlocked(now time.Time) {
 		if len(keys) < batch {
 			keys = append(keys, k)
 			times = append(times, when)
+			if maxIdx < 0 || when.After(times[maxIdx]) {
+				maxIdx = len(times) - 1
+			}
 			continue
 		}
-		idx := 0
-		newest := times[0]
-		for i := 1; i < batch; i++ {
-			if times[i].After(newest) {
-				newest = times[i]
-				idx = i
+		if when.Before(times[maxIdx]) {
+			keys[maxIdx] = k
+			times[maxIdx] = when
+			maxIdx = 0
+			for i := 1; i < batch; i++ {
+				if times[i].After(times[maxIdx]) {
+					maxIdx = i
+				}
 			}
-		}
-		if when.Before(newest) {
-			keys[idx] = k
-			times[idx] = when
 		}
 	}
 	for _, k := range keys {
@@ -1877,7 +2078,7 @@ func (t *Transport) handleInboundPacket(data []byte, iface common.NetworkInterfa
 }
 
 func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterface) error {
-	return t.handleAnnouncePacketEx(data, iface, false)
+	return t.handleAnnouncePacketEx(data, iface, false, len(data))
 }
 
 // handleAnnouncePacketHeld replays an announce released from ingress
@@ -1885,14 +2086,16 @@ func (t *Transport) handleAnnouncePacket(data []byte, iface common.NetworkInterf
 // received, so propagation is forced even though the replayed copy loses
 // the re-run contest against the path it installed.
 func (t *Transport) handleAnnouncePacketHeld(data []byte, iface common.NetworkInterface) error {
-	return t.handleAnnouncePacketEx(data, iface, true)
+	return t.handleAnnouncePacketEx(data, iface, true, len(data))
 }
 
-func (t *Transport) handleAnnouncePacketEx(data []byte, iface common.NetworkInterface, forcePropagate bool) error {
+func (t *Transport) handleAnnouncePacketEx(data []byte, iface common.NetworkInterface, forcePropagate bool, wireLen int) error {
 	if debug.Enabled(debug.DebugVerbose) {
 		debug.Log(debug.DebugVerbose, "Processing announce packet", "length", len(data))
 	}
 	if len(data) < 2 {
+		t.filteredInbound(iface, wireLen)
+		ifaceProtocolViolation(iface)
 		announceReject(iface, health.KindAnnounceMalformed)
 		return fmt.Errorf("packet too small for header")
 	}
@@ -1902,7 +2105,7 @@ func (t *Transport) handleAnnouncePacketEx(data []byte, iface common.NetworkInte
 
 	// RNS 1.6.0 [filter] hop_limiter: Python drops any packet with
 	// hops >= HOP_LIMITER before processing (interface.hop_limiter_hit()).
-	// Default limiter is PATHFINDER_M; [filter] hop_limiter overrides.
+	// Default limiter is PATHFINDER_M. [filter] hop_limiter overrides.
 	limiter := t.filterHopLimiter
 	if limiter <= 0 {
 		// No [filter] hop_limiter configured: the default PATHFINDER_M bound
@@ -1915,6 +2118,7 @@ func (t *Transport) handleAnnouncePacketEx(data []byte, iface common.NetworkInte
 			debug.Log(debug.DebugVerbose, "Dropped announce by hop limiter", "hops", hopCount, "limiter", limiter)
 		}
 		if iface != nil {
+			t.filteredInbound(iface, wireLen)
 			if h, ok := iface.(interface{ HopLimiterHit() }); ok {
 				h.HopLimiterHit()
 			}
@@ -1933,6 +2137,7 @@ hopLimiterDone:
 	if destType == DestTypePlain || destType == DestTypeGroup {
 		debug.Log(debug.DebugVerbose, "Dropped PLAIN/GROUP announce",
 			"dest_type", destType, "packet_type", packetType)
+		t.filteredInbound(iface, wireLen)
 		ifaceProtocolViolation(iface)
 		announceReject(iface, health.KindAnnounceDestType)
 		return nil
@@ -1954,6 +2159,8 @@ hopLimiterDone:
 
 	minSize := startIdx + addrSize + ContextByteLen
 	if len(data) < minSize {
+		t.filteredInbound(iface, wireLen)
+		ifaceProtocolViolation(iface)
 		announceReject(iface, health.KindAnnounceMalformed)
 		return fmt.Errorf("packet too small: %d bytes", len(data))
 	}
@@ -2006,18 +2213,30 @@ hopLimiterDone:
 	if wasSeen && time.Since(lastSeen) < SeenAnnounceTTL {
 		win, curIfaceName := t.duplicateAnnounceContest(hopCount, iface, destinationHash, payload)
 		if !win {
-			dupIface := ""
-			if iface != nil {
-				dupIface = iface.GetName()
+			// Python evaluates the announce_table heard-rebroadcast rules on
+			// validated copies: a transport-id announce matching a pending
+			// forward's hop pattern must reach verification, not the dedup
+			// drop, so the rules can cancel or count the rebroadcast.
+			if headerType == 1 && t.transportEnabled() &&
+				t.announceHeardMatch(destKey(destinationHash), hopCount) {
+				dupeWinner = true
+			} else {
+				dupIface := ""
+				if iface != nil {
+					dupIface = iface.GetName()
+				}
+				health.Inc(dupIface, health.KindAnnounceDup)
+				t.notePendingAltAnnounce(destinationHash, data, iface, hopCount, curIfaceName)
+				if debug.Enabled(debug.DebugVerbose) {
+					debug.Log(debug.DebugVerbose, "Ignoring duplicate announce (pre-verify)", "hash", fmt.Sprintf("%x", announceHash[:8]))
+				}
+				return nil
 			}
-			health.Inc(dupIface, health.KindAnnounceDup)
-			t.notePendingAltAnnounce(destinationHash, data, iface, hopCount, curIfaceName)
-			if debug.Enabled(debug.DebugVerbose) {
-				debug.Log(debug.DebugVerbose, "Ignoring duplicate announce (pre-verify)", "hash", fmt.Sprintf("%x", announceHash[:8]))
-			}
-			return nil
+		} else {
+			dupeWinner = true
 		}
-		dupeWinner = true
+	}
+	if dupeWinner {
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Duplicate announce passes path contest, verifying", "hash", fmt.Sprintf("%x", announceHash[:8]))
 		}
@@ -2038,6 +2257,8 @@ hopLimiterDone:
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Payload too small for announce", "bytes", len(payload), "minimum", minAnnounceSize)
 		}
+		t.filteredInbound(iface, wireLen)
+		ifaceProtocolViolation(iface)
 		announceReject(iface, health.KindAnnounceMalformed)
 		return fmt.Errorf("payload too small for announce")
 	}
@@ -2056,6 +2277,8 @@ hopLimiterDone:
 			if debug.Enabled(debug.DebugVerbose) {
 				debug.Log(debug.DebugVerbose, "Payload too small for announce with ratchet")
 			}
+			t.filteredInbound(iface, wireLen)
+			ifaceProtocolViolation(iface)
 			announceReject(iface, health.KindAnnounceMalformed)
 			return fmt.Errorf("payload too small for announce with ratchet")
 		}
@@ -2069,7 +2292,7 @@ hopLimiterDone:
 
 	// RNS 1.6.0 announce stamps: the trailing 18-byte ext payload is
 	// validated against the receiving interface's destination_cost. The
-	// signature below still covers the full unstripped app_data; only a
+	// signature below still covers the full unstripped app_data. Only a
 	// valid stamp strips the trailer for storage and handler delivery.
 	// RNS 1.6.0 [filter]: drop blocked destination types and (when
 	// required_only is set) announces for types no local client needs.
@@ -2078,6 +2301,8 @@ hopLimiterDone:
 	if t.destFilters != nil {
 		if !t.destFilters.announceAllowed(nameHash, int(hopCount), t.filterRequiredOnly, iface != nil && isLocalClientInterface(iface)) {
 			if debug.Enabled(debug.DebugVerbose) {
+				t.filteredInboundAnnounce(iface)
+				t.filteredInbound(iface, wireLen)
 				debug.Log(debug.DebugVerbose, "Dropped announce by destination filter", "name_hash", fmt.Sprintf("%x", nameHash))
 			}
 			return nil
@@ -2107,11 +2332,15 @@ hopLimiterDone:
 	if settings.Enabled && settings.Enforced {
 		if !stamped {
 			debug.Log(debug.DebugVerbose, "Dropping unstamped announce (stamps enforced)", "dest_hash", fmt.Sprintf("%x", destinationHash))
+			t.filteredInboundAnnounce(iface)
+			t.filteredInbound(iface, wireLen)
 			announceReject(iface, health.KindAnnounceNoStamp)
 			return nil
 		}
 		if !stampOk {
 			debug.Log(debug.DebugVerbose, "Dropping announce with invalid stamp (stamps enforced)", "dest_hash", fmt.Sprintf("%x", destinationHash))
+			t.filteredInboundAnnounce(iface)
+			t.filteredInbound(iface, wireLen)
 			announceReject(iface, health.KindAnnounceInvalidStamp)
 			return nil
 		}
@@ -2133,6 +2362,8 @@ hopLimiterDone:
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Failed to create identity from public key")
 		}
+		t.filteredInbound(iface, wireLen)
+		ifaceProtocolViolation(iface)
 		announceReject(iface, health.KindAnnounceMalformed)
 		return fmt.Errorf("invalid identity")
 	}
@@ -2154,6 +2385,7 @@ hopLimiterDone:
 	d, release := protect.AdmitCrypto(ifaceName)
 	if !d.Allow {
 		signDataPool.Put(signDataP)
+		t.filteredInbound(iface, wireLen)
 		return fmt.Errorf("dos_protection refused crypto")
 	}
 	ok := id.Verify(signData, signature)
@@ -2163,6 +2395,8 @@ hopLimiterDone:
 		if debug.Enabled(debug.DebugWarning) {
 			debug.Log(debug.DebugWarning, "Signature verification failed - announce rejected")
 		}
+		t.filteredInbound(iface, wireLen)
+		ifaceProtocolViolation(iface)
 		health.Inc(ifaceName, health.KindAnnounceSigFail)
 		return fmt.Errorf("invalid announce signature")
 	}
@@ -2172,16 +2406,13 @@ hopLimiterDone:
 			debug.Log(debug.DebugVerbose, "Ignoring announce from blackholed identity",
 				"identity", fmt.Sprintf("%x", id.Hash()))
 		}
+		t.filteredInboundAnnounce(iface)
+		t.filteredInbound(iface, wireLen)
 		announceReject(iface, health.KindAnnounceBlackholed)
 		return nil
 	}
 
 	if iface != nil {
-		if ra, ok := iface.(interface{ ReceivedAnnounceBytes(int) }); ok {
-			ra.ReceivedAnnounceBytes(len(data))
-		} else if ra, ok := iface.(interface{ ReceivedAnnounce() }); ok {
-			ra.ReceivedAnnounce()
-		}
 		health.Inc(iface.GetName(), health.KindAnnounceOK)
 	}
 
@@ -2195,6 +2426,8 @@ hopLimiterDone:
 		if debug.Enabled(debug.DebugWarning) {
 			debug.Log(debug.DebugWarning, "Destination hash mismatch - announce rejected")
 		}
+		announceReceived(iface, wireLen)
+		t.acceptedInbound(iface, wireLen)
 		announceReject(iface, health.KindAnnounceMalformed)
 		return fmt.Errorf("destination hash mismatch")
 	}
@@ -2218,6 +2451,8 @@ hopLimiterDone:
 			if iface != nil {
 				dupIface = iface.GetName()
 			}
+			announceReceived(iface, wireLen)
+			t.acceptedInbound(iface, wireLen)
 			health.Inc(dupIface, health.KindAnnounceDup)
 			return nil
 		}
@@ -2229,6 +2464,8 @@ hopLimiterDone:
 		if debug.Enabled(debug.DebugWarning) {
 			debug.Log(debug.DebugWarning, "Rejected announce: destination hash already known with a different public key")
 		}
+		announceReceived(iface, wireLen)
+		t.acceptedInbound(iface, wireLen)
 		announceReject(iface, health.KindAnnounceKeyMismatch)
 		t.unclaimAnnounce(announceHash)
 		return fmt.Errorf("announce public key mismatch")
@@ -2247,12 +2484,27 @@ hopLimiterDone:
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Announce exceeded max hops", "wire_hops", hopCount, "announce_hops", announceHops)
 		}
+		announceReceived(iface, wireLen)
+		t.acceptedInbound(iface, wireLen)
 		announceReject(iface, health.KindAnnounceMaxHops)
 		t.unclaimAnnounce(announceHash)
 		return nil
 	}
 
 	isPathResponse := context == packet.ContextPathResponse
+
+	// Python announce_table heard-rebroadcast rules: for non-local
+	// destinations announced via a transport id, an in-flight pending
+	// forward for the same destination counts or cancels on heard
+	// rebroadcasts before the path contest runs.
+	if headerType == 1 && t.transportEnabled() {
+		t.mutex.RLock()
+		_, isLocalDest := t.destinations[destKey(destinationHash)]
+		t.mutex.RUnlock()
+		if !isLocalDest {
+			t.heardAnnounceRebroadcast(destKey(destinationHash), hopCount)
+		}
+	}
 
 	// shouldAdd mirrors the reference path contest: only announces that
 	// improve the path table propagate to the mesh, local clients, and
@@ -2262,6 +2514,7 @@ hopLimiterDone:
 	// forcePropagate (held-announce replay) restores an announce that
 	// already won the contest when it was first received.
 	shouldAdd := true
+	insertionOnly := false
 	if iface != nil {
 		nextHop := receivedFrom
 		if len(nextHop) == 0 {
@@ -2287,7 +2540,7 @@ hopLimiterDone:
 		if st, ok := t.pathStates[destKey]; ok && st == StateUnresponsive {
 			pathUnresponsive = true
 		}
-		shouldAdd = shouldUpdateAnnouncePath(existing, announcePathInput{
+		shouldAdd, insertionOnly = announcePathDecision(existing, announcePathInput{
 			destinationKnown: destinationKnown,
 			announceHops:     uint8(announceHops),
 			randomBlob:       randomHash,
@@ -2311,6 +2564,18 @@ hopLimiterDone:
 	}
 
 	if !shouldAdd && !forcePropagate {
+		// Python IDX_AT_DEDUP_IFS: when an identical copy of a pending
+		// announce arrives on a non-shared-medium interface, that interface
+		// is excluded from the queued rebroadcast.
+		if iface != nil {
+			shared := false
+			if sm, ok := iface.(interface{ SharedMedium() bool }); ok {
+				shared = sm.SharedMedium()
+			}
+			if !shared {
+				t.noteAnnounceDedupIface(destKey(destinationHash), sha256.Sum256(data), iface.GetName())
+			}
+		}
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Announce lost path contest, not propagating",
 				"dest_hash", fmt.Sprintf("%x", destinationHash))
@@ -2344,6 +2609,8 @@ hopLimiterDone:
 						"dest_hash", fmt.Sprintf("%x", destinationHash),
 						"queue_depth", st.ingress.HeldCount())
 				}
+				announceReceived(iface, 0)
+				t.filteredInbound(iface, wireLen)
 				announceReject(iface, health.KindAnnounceHeld)
 				// The hold owns the bytes now. Release the dedup claim or the
 				// replayed announce on release dies as a duplicate and the new
@@ -2353,6 +2620,12 @@ hopLimiterDone:
 			}
 		}
 	}
+
+	// Python received_announce/accepted_inbound: the announce survived
+	// validation and ingress control, so it counts arxc/arxb and rxb on
+	// the receiving interface and spawned parents.
+	announceReceived(iface, wireLen)
+	t.acceptedInbound(iface, wireLen)
 
 	fromLocal := isLocalClientInterface(iface)
 	accountedHops := byte(announceHops)
@@ -2364,8 +2637,8 @@ hopLimiterDone:
 	}
 
 	if !t.transportEnabled() {
-		if fromLocal && !isPathResponse {
-			t.scheduleAnnounceForward(data, destKey(destinationHash), destinationHash, iface, accountedHops)
+		if fromLocal && !isPathResponse && !insertionOnly {
+			t.scheduleAnnounceForward(data, destKey(destinationHash), destinationHash, iface, accountedHops, fromLocal)
 		}
 		if debug.Enabled(debug.DebugVerbose) {
 			debug.Log(debug.DebugVerbose, "Not forwarding announce on mesh: transport disabled",
@@ -2390,7 +2663,13 @@ hopLimiterDone:
 		return nil
 	}
 
-	t.scheduleAnnounceForward(data, destKey(destinationHash), destinationHash, iface, accountedHops)
+	// Python table_insertion_only: an announce that only replaced an
+	// unresponsive path on the same emission timebase is not retransmitted.
+	if insertionOnly {
+		return nil
+	}
+
+	t.scheduleAnnounceForward(data, destKey(destinationHash), destinationHash, iface, accountedHops, fromLocal)
 
 	return nil
 }
@@ -2407,11 +2686,18 @@ func (t *Transport) unclaimAnnounce(announceHash [32]byte) {
 // announce-forward ticker after the pathfinder rebroadcast delay. hops is
 // written to the copy. The packet copy comes from announceForwardPool and
 // returns to it after the job runs. Drops when the pending queue is full.
-func (t *Transport) scheduleAnnounceForward(data []byte, dest hash16, destinationHash []byte, from common.NetworkInterface, hops byte) {
+func (t *Transport) scheduleAnnounceForward(data []byte, dest hash16, destinationHash []byte, from common.NetworkInterface, hops byte, fromLocalClient bool) {
 	if t == nil || len(data) == 0 {
 		return
 	}
 	due := time.Now().Add(pathfinderRebroadcastDelay())
+	// Python: announces from local clients are emitted immediately and only
+	// once (retries starts at PATHFINDER_R).
+	retries := 0
+	if fromLocalClient {
+		due = time.Now()
+		retries = PathfinderR
+	}
 	t.pendingAnnounceMu.Lock()
 	if len(t.pendingAnnounceJobs) >= MaxPendingAnnounceForwards {
 		t.pendingAnnounceMu.Unlock()
@@ -2427,13 +2713,131 @@ func (t *Transport) scheduleAnnounceForward(data []byte, dest hash16, destinatio
 	var dst [16]byte
 	copy(dst[:], destinationHash)
 	t.pendingAnnounceJobs = append(t.pendingAnnounceJobs, delayedAnnounceJob{
-		due:  due,
-		data: fwd,
-		dest: dest,
-		dst:  dst,
-		from: from,
+		due:     due,
+		data:    fwd,
+		dest:    dest,
+		dst:     dst,
+		from:    from,
+		pktHash: sha256.Sum256(data),
+		retries: retries,
 	})
 	t.pendingAnnounceMu.Unlock()
+}
+
+// hasPendingAnnounceForward reports whether an accepted announce for dest is
+// still queued for rebroadcast. Python's equivalent gate is announce_table
+// membership, which also covers normal announces awaiting retransmission.
+func (t *Transport) hasPendingAnnounceForward(dest hash16) bool {
+	t.pendingAnnounceMu.Lock()
+	defer t.pendingAnnounceMu.Unlock()
+	for i := range t.pendingAnnounceJobs {
+		if t.pendingAnnounceJobs[i].dest == dest {
+			return true
+		}
+	}
+	return false
+}
+
+// noteAnnounceDedupIface records a non-shared-medium interface that delivered
+// an identical copy of a pending announce so the queued rebroadcast skips it
+// (Python announce_table IDX_AT_DEDUP_IFS -> Packet.blocked_interfaces).
+func (t *Transport) noteAnnounceDedupIface(dest hash16, pktHash [32]byte, ifaceName string) {
+	t.pendingAnnounceMu.Lock()
+	defer t.pendingAnnounceMu.Unlock()
+	for i := range t.pendingAnnounceJobs {
+		job := &t.pendingAnnounceJobs[i]
+		if job.dest == dest && job.pktHash == pktHash {
+			if job.dedup == nil {
+				job.dedup = make(map[string]struct{})
+			}
+			job.dedup[ifaceName] = struct{}{}
+			return
+		}
+	}
+}
+
+// announceHeardMatch reports whether wireHops matches either heard-rebroadcast
+// pattern against a pending forward or announce-table entry for dest. Used
+// pre-verification so copies that would feed the heard-rebroadcast rule are
+// not dropped as duplicates.
+func (t *Transport) announceHeardMatch(dest hash16, wireHops byte) bool {
+	t.pendingAnnounceMu.Lock()
+	for i := range t.pendingAnnounceJobs {
+		job := &t.pendingAnnounceJobs[i]
+		if job.dest != dest || len(job.data) < 2 {
+			continue
+		}
+		if wireHops == job.data[1] || wireHops == job.data[1]+1 {
+			t.pendingAnnounceMu.Unlock()
+			return true
+		}
+	}
+	t.pendingAnnounceMu.Unlock()
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	if entry, ok := t.announceTable[dest]; ok && entry != nil {
+		return wireHops == entry.AnnounceHops || wireHops == entry.AnnounceHops+1
+	}
+	return false
+}
+
+// heardAnnounceRebroadcast applies the Python announce_table heard-rebroadcast
+// rules for an announce with wireHops on destination dest. A rebroadcast of the
+// same emission counts toward the local rebroadcast limit. A relayed copy of
+// our own rebroadcast cancels the pending retries.
+func (t *Transport) heardAnnounceRebroadcast(dest hash16, wireHops byte) {
+	now := time.Now()
+	t.pendingAnnounceMu.Lock()
+	keep := t.pendingAnnounceJobs[:0]
+	for i := range t.pendingAnnounceJobs {
+		job := &t.pendingAnnounceJobs[i]
+		if job.dest != dest || len(job.data) < 2 {
+			keep = append(keep, *job)
+			continue
+		}
+		jobHops := job.data[1]
+		if wireHops == jobHops {
+			job.localRebroadcasts++
+			if job.retries > 0 && job.localRebroadcasts >= LocalRebroadcastsMax {
+				continue
+			}
+		}
+		if wireHops == jobHops+1 && job.retries > 0 && now.Before(job.due) {
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Rebroadcasted announce passed on, no further tries needed",
+					"dest_hash", fmt.Sprintf("%x", job.dst))
+			}
+			continue
+		}
+		keep = append(keep, *job)
+	}
+	for i := len(keep); i < len(t.pendingAnnounceJobs); i++ {
+		t.pendingAnnounceJobs[i] = delayedAnnounceJob{}
+	}
+	t.pendingAnnounceJobs = keep
+	t.pendingAnnounceMu.Unlock()
+	// Removed jobs' data buffers are not returned to announceForwardPool:
+	// a shallow copy in processDelayedAnnounceJobs' due list may still be
+	// mid-forward reading the same buffer.
+
+	// The same rules cover announce-table entries (path responses) in
+	// Python's shared announce_table.
+	t.mutex.Lock()
+	for key, entry := range t.announceTable {
+		if key != dest || entry == nil {
+			continue
+		}
+		if wireHops == entry.AnnounceHops {
+			entry.LocalRebroadcasts++
+			if entry.Retries > 0 && entry.LocalRebroadcasts >= LocalRebroadcastsMax {
+				delete(t.announceTable, key)
+			}
+		}
+		if wireHops == entry.AnnounceHops+1 && entry.Retries > 0 && now.Before(entry.RetransmitTimeout) {
+			delete(t.announceTable, key)
+		}
+	}
+	t.mutex.Unlock()
 }
 
 func (t *Transport) processDelayedAnnounceJobs() {
@@ -2448,23 +2852,53 @@ func (t *Transport) processDelayedAnnounceJobs() {
 	}
 	due := make([]delayedAnnounceJob, 0, len(t.pendingAnnounceJobs))
 	keep := t.pendingAnnounceJobs[:0]
-	for _, e := range t.pendingAnnounceJobs {
-		if len(e.data) == 0 {
+	var released [][]byte
+	for i := range t.pendingAnnounceJobs {
+		job := &t.pendingAnnounceJobs[i]
+		if len(job.data) == 0 {
 			continue
 		}
-		if !now.Before(e.due) {
-			due = append(due, e)
+		// Python announce_table job order: retry limits are checked before
+		// the retransmit timeout, so a job at retries > PATHFINDER_R (or the
+		// local rebroadcast cap) completes without another emit.
+		if job.retries > 0 && job.retries >= LocalRebroadcastsMax {
+			released = append(released, job.data)
 			continue
 		}
-		keep = append(keep, e)
+		if job.retries > PathfinderR {
+			released = append(released, job.data)
+			continue
+		}
+		if !now.Before(job.due) {
+			job.due = now.Add(time.Duration((PathfinderG+effectivePathfinderRW())*1000.0) * time.Millisecond)
+			job.retries++
+			dueJob := *job
+			// forwardAnnouncePacket reads dedup after pendingAnnounceMu is
+			// released. NoteAnnounceDedupIface may still add to the live
+			// map, so the emit gets a snapshot.
+			if job.dedup != nil {
+				d := make(map[string]struct{}, len(job.dedup))
+				for k := range job.dedup {
+					d[k] = struct{}{}
+				}
+				dueJob.dedup = d
+			}
+			due = append(due, dueJob)
+		}
+		keep = append(keep, *job)
+	}
+	for i := len(keep); i < len(t.pendingAnnounceJobs); i++ {
+		t.pendingAnnounceJobs[i] = delayedAnnounceJob{}
 	}
 	t.pendingAnnounceJobs = keep
 	t.pendingAnnounceMu.Unlock()
 
 	for _, job := range due {
-		_ = t.forwardAnnouncePacket(job.data, job.dest, job.dst[:], job.from)
-		if cap(job.data) <= 4*common.DefaultMTU {
-			announceForwardPool.Put(job.data)
+		_ = t.forwardAnnouncePacket(job.data, job.dest, job.dst[:], job.from, job.dedup)
+	}
+	for _, buf := range released {
+		if cap(buf) <= 4*common.DefaultMTU {
+			announceForwardPool.Put(buf)
 		}
 	}
 }
@@ -2493,7 +2927,7 @@ func (t *Transport) forwardAnnounceToLocalClients(data []byte, destinationHash [
 	return lastErr
 }
 
-func (t *Transport) forwardAnnouncePacket(data []byte, dest hash16, destinationHash []byte, fromIface common.NetworkInterface) error {
+func (t *Transport) forwardAnnouncePacket(data []byte, dest hash16, destinationHash []byte, fromIface common.NetworkInterface, dedup map[string]struct{}) error {
 	// Upstream retransmits announces as header type 2 packets carrying
 	// this node's transport identity, so downstream nodes learn this
 	// node as the next hop for transport addressing. Forwarding the
@@ -2513,7 +2947,7 @@ func (t *Transport) forwardAnnouncePacket(data []byte, dest hash16, destinationH
 			wrapped = data
 		} else {
 			// Upstream keeps the announce's BROADCAST propagation type on
-			// retransmit; only the transport id marks the emitter.
+			// retransmit. Only the transport id marks the emitter.
 			wrapped[0] &^= HeaderPropTypeMask
 		}
 	}
@@ -2522,7 +2956,12 @@ func (t *Transport) forwardAnnouncePacket(data []byte, dest hash16, destinationH
 	for _, e := range t.snapshotRegisteredInterfaces() {
 		name := e.name
 		outIface := e.iface
-		if outIface == fromIface || !outIface.IsEnabled() || isLocalClientInterface(outIface) {
+		// Python announce_table retransmits to every OUT interface, including
+		// the receiving one. Only blocked (dedup) interfaces are excluded.
+		if !outIface.IsEnabled() || isLocalClientInterface(outIface) {
+			continue
+		}
+		if _, ok := dedup[name]; ok {
 			continue
 		}
 
@@ -2577,11 +3016,7 @@ func (t *Transport) transmitOrQueueAnnounce(outIface common.NetworkInterface, na
 	if err := sendOnInterface(outIface, data, ""); err != nil {
 		return err
 	}
-	if sa, ok := outIface.(interface{ SentAnnounceBytes(int) }); ok {
-		sa.SentAnnounceBytes(len(data))
-	} else if sa, ok := outIface.(interface{ SentAnnounce() }); ok {
-		sa.SentAnnounce()
-	}
+	announceSent(outIface, len(data))
 	return nil
 }
 
@@ -2602,11 +3037,7 @@ func (t *Transport) processInterfaceAnnounceQueues() {
 			debug.Log(debug.DebugAll, "Failed to send queued announce", "name", e.name, "error", err)
 			continue
 		}
-		if sa, ok := e.iface.(interface{ SentAnnounceBytes(int) }); ok {
-			sa.SentAnnounceBytes(len(raw))
-		} else if sa, ok := e.iface.(interface{ SentAnnounce() }); ok {
-			sa.SentAnnounce()
-		}
+		announceSent(e.iface, len(raw))
 	}
 }
 
@@ -2883,7 +3314,7 @@ func (t *Transport) InitializePathRequestHandler() error {
 }
 
 func (t *Transport) handlePathRequest(data []byte, iface common.NetworkInterface) {
-	// RNS 1.6.0: stamped path requests are 64 bytes; larger is a
+	// RNS 1.6.0: stamped path requests are 64 bytes. Larger is a
 	// protocol violation, and tagless requests are rejected below.
 	if len(data) > prStampedPRDataLen {
 		ifaceProtocolViolation(iface)
@@ -2905,7 +3336,7 @@ func (t *Transport) handlePathRequest(data []byte, iface common.NetworkInterface
 
 	// RNS 1.6.0: validate the stamp ext (marker 0xC1 + 14-byte stamp over
 	// material dst|tag) against the receiving interface's pr_cost. The 0xFF
-	// flag marks a lenient-relayed unstamped request; it is validated the
+	// flag marks a lenient-relayed unstamped request. It is validated the
 	// same way. Dropped only when stamps are enforced.
 	settings := t.StampsSettings()
 	if settings.Enabled {
@@ -3202,6 +3633,16 @@ func (t *Transport) SendPacket(p *packet.Packet) error {
 	if !exists {
 		debug.Log(debug.DebugVerbose, "No path found for destination", "hash", fmt.Sprintf("%x", destHash))
 		return common.ErrNoPathToDestinationf(destHash)
+	}
+
+	// RNS 1.6.0 path table sharding: every outbound packet routed over a
+	// path marks it used (Python sets IDX_PT_USED in Transport.outbound).
+	// Announces are excluded: they do not travel via the path table and
+	// Python's outbound marks only non-announce traffic. Never-used paths
+	// are culled after a short linger, so usage marking is what keeps a
+	// hot destination's path alive beyond that window.
+	if p.PacketType != packet.PacketTypeAnnounce {
+		path.MarkUsed(time.Now())
 	}
 
 	// Upstream also injects single-hop packets into transport when the

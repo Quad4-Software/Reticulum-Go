@@ -39,3 +39,4 @@ require (
 )
 
 replace git.quad4.io/reticulum/Reticulum-Go => ../../
+replace github.com/Quad4-Software/reticulum-go-protocols => ../../protocols

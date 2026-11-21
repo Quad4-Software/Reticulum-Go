@@ -3,6 +3,7 @@ package mf
 import (
 	"bytes"
 	"encoding/hex"
+	"github.com/Quad4-Software/reticulum-go-protocols/internal/testconfig"
 	"testing"
 	"time"
 
@@ -22,7 +23,7 @@ const (
 )
 
 func TestMessenger_TwoWayCommunication(t *testing.T) {
-	cfg1 := common.DefaultConfig()
+	cfg1 := testconfig.New()
 	cfg1.Interfaces = make(map[string]*common.InterfaceConfig)
 	cfg1.Interfaces[testInterface1] = &common.InterfaceConfig{
 		Type:       "UDPInterface",
@@ -32,7 +33,7 @@ func TestMessenger_TwoWayCommunication(t *testing.T) {
 		Name:       testInterface1,
 	}
 
-	cfg2 := common.DefaultConfig()
+	cfg2 := testconfig.New()
 	cfg2.Interfaces = make(map[string]*common.InterfaceConfig)
 	cfg2.Interfaces[testInterface2] = &common.InterfaceConfig{
 		Type:       "UDPInterface",
@@ -176,7 +177,7 @@ func TestMessenger_TwoWayCommunication(t *testing.T) {
 }
 
 func TestMessenger_QoL(t *testing.T) {
-	cfg := common.DefaultConfig()
+	cfg := testconfig.New()
 	tr := transport.NewTransport(cfg)
 
 	id, _ := identity.NewIdentity()
