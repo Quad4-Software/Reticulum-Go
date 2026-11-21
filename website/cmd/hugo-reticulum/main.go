@@ -359,6 +359,7 @@ func runServe(args []string) int {
 		PageRefreshInterval: pageRefresh,
 		FileRefreshInterval: fileRefresh,
 		DisablePageStats:    sf.disableStats || cfg.Reticulum.DisablePageStats,
+		LogLevel:            -1,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "reticulum: %v\n", err)

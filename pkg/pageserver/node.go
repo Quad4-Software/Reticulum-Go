@@ -19,6 +19,7 @@ import (
 
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/backbone"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/buffer"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/channel"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
@@ -83,6 +84,9 @@ func NewReticulum(cfg *common.ReticulumConfig, opts Options) (*Reticulum, error)
 		cfg = common.DefaultConfig()
 	}
 	sandbox.SetExecRlimits(cfg.SandboxExecRlimits)
+	if _, err := backbone.Init(backbone.ParseBackend(cfg.BackboneIO)); err != nil {
+		return nil, fmt.Errorf("backbone I/O hub: %w", err)
+	}
 
 	if opts.NodeDisplayName == "" {
 		opts.NodeDisplayName = AppName
