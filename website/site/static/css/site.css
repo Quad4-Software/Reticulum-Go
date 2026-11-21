@@ -397,24 +397,56 @@ code, pre {
 code { background: var(--code-bg); padding: 0.12em 0.35em; border-radius: 4px; }
 pre {
   background: var(--code-bg);
-  padding: var(--sp-3) var(--sp-4);
+  padding: var(--sp-4);
   overflow-x: auto;
   border-radius: 6px;
   border: 1px solid var(--rule);
   margin: var(--sp-4) 0;
+  line-height: 1.55;
 }
-pre code { background: none; padding: 0; font-size: 0.85rem; border-radius: 0; }
+pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.875rem;
+  border-radius: 0;
+}
 
-/* Chroma themes live in syntax-light.css and syntax-dark.css. The base
-   colors follow the site palette instead of the generated backgrounds. */
-pre.chroma { background: var(--code-bg); color: var(--fg); }
-
-.codeblock { position: relative; }
-.codeblock pre { padding-right: 2.6rem; }
+/* .codeblock is the single visible box for fenced blocks. Everything
+   inside stays transparent so Chroma only supplies token colors. */
+.codeblock {
+  position: relative;
+  margin: var(--sp-4) 0;
+  padding: var(--sp-4);
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  overflow-x: auto;
+}
+.codeblock .highlight,
+.codeblock .chroma,
+.codeblock pre,
+.codeblock pre.chroma {
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  line-height: 1.55;
+}
+.codeblock code,
+.codeblock pre code {
+  background: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  font-size: 0.875rem;
+}
+.codeblock pre { padding-right: 2rem; }
 .codeblock .copy-btn {
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
+  top: var(--sp-2);
+  right: var(--sp-2);
   display: inline-flex;
   align-items: center;
   justify-content: center;
