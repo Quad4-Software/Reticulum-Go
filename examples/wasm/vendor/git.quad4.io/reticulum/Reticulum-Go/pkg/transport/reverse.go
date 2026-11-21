@@ -5,6 +5,7 @@ package transport
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -24,10 +25,25 @@ type ReverseEntry struct {
 type reverseTable struct {
 	mu      sync.Mutex
 	entries map[hash16]*ReverseEntry
+	limit   int
 }
 
-func newReverseTable() *reverseTable {
-	return &reverseTable{entries: make(map[hash16]*ReverseEntry)}
+func newReverseTable(limit int) *reverseTable {
+	return &reverseTable{entries: make(map[hash16]*ReverseEntry), limit: limit}
+}
+
+func reverseEntriesLimit(cfg *common.ReticulumConfig) int {
+	if cfg == nil {
+		return 0
+	}
+	return cfg.MaxReverseEntries
+}
+
+func (rt *reverseTable) maxEntries() int {
+	if rt != nil && rt.limit != 0 {
+		return rt.limit
+	}
+	return maxReverseEntries
 }
 
 // maxReverseEntries bounds the reverse-proof relay table. Entries live up
@@ -35,30 +51,94 @@ func newReverseTable() *reverseTable {
 // would otherwise grow the map unbounded. Oldest entries evict first.
 const maxReverseEntries = 32768
 
+// reverseEvictBatch is how many of the oldest entries are dropped each time
+// the table overflows. Batching amortizes the O(n) oldest-entry scan over
+// thousands of inserts instead of paying it on every put once full.
+const reverseEvictBatch = 4096
+
 func (rt *reverseTable) put(truncatedHash []byte, entry *ReverseEntry) {
 	if rt == nil || entry == nil || len(truncatedHash) == 0 {
 		return
 	}
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
-	if len(rt.entries) >= maxReverseEntries {
-		var oldestKey hash16
-		var oldest time.Time
-		found := false
-		for k, e := range rt.entries {
-			if e == nil || !found || e.Timestamp.Before(oldest) {
-				oldestKey = k
-				if e != nil {
-					oldest = e.Timestamp
-				}
-				found = true
-			}
-		}
-		if found {
-			delete(rt.entries, oldestKey)
-		}
+	if max := rt.maxEntries(); max > 0 && len(rt.entries) >= max {
+		rt.evictOldestLocked()
 	}
 	rt.entries[hash16FromSlice(truncatedHash)] = entry
+}
+
+// evictOldestLocked removes the oldest reverseEvictBatch entries. Caller must
+// hold rt.mu. The table only reaches this path when full, so the scan and
+// sort run once per batch of inserts rather than once per insert.
+func (rt *reverseTable) evictOldestLocked() {
+	evictOldestMapKeys(rt.entries,
+		func(e *ReverseEntry) time.Time {
+			if e == nil {
+				return time.Time{}
+			}
+			return e.Timestamp
+		},
+		func(e *ReverseEntry) bool { return e != nil },
+		reverseEvictBatch)
+}
+
+// sparseMapMinPeak is the smallest map high-water mark that justifies a
+// shrink rebuild.
+const sparseMapMinPeak = 4096
+
+// shrinkSparseMap rebuilds m when it has fallen below half of its
+// observed peak: Go maps never release bucket memory on delete, so a map
+// that peaked large keeps that allocation forever. peak tracks the
+// high-water mark and must be a stable pointer owned by the caller.
+func shrinkSparseMap[K comparable, V any](m map[K]V, peak *int) map[K]V {
+	n := len(m)
+	if n > *peak {
+		*peak = n
+		return m
+	}
+	if *peak >= sparseMapMinPeak && n < *peak/2 {
+		nm := make(map[K]V, n*11/10+16)
+		for k, v := range m {
+			nm[k] = v
+		}
+		*peak = n
+		return nm
+	}
+	return m
+}
+
+// evictOldestMapKeys deletes the n oldest entries of m according to the
+// timestamp returned by at. eligible, when non-nil, restricts candidates
+// (for example to unvalidated entries). Sorting once per call amortizes the
+// O(n log n) scan over a whole eviction batch instead of paying an O(n)
+// scan on every insert while the map sits at its cap.
+func evictOldestMapKeys[K comparable, V any](m map[K]V, at func(V) time.Time, eligible func(V) bool, n int) int {
+	if n <= 0 || len(m) == 0 {
+		return 0
+	}
+	type candidate struct {
+		k K
+		t time.Time
+	}
+	all := make([]candidate, 0, len(m))
+	for k, v := range m {
+		if eligible != nil && !eligible(v) {
+			continue
+		}
+		all = append(all, candidate{k: k, t: at(v)})
+	}
+	if len(all) == 0 {
+		return 0
+	}
+	sort.Slice(all, func(i, j int) bool { return all[i].t.Before(all[j].t) })
+	if n > len(all) {
+		n = len(all)
+	}
+	for i := 0; i < n; i++ {
+		delete(m, all[i].k)
+	}
+	return n
 }
 
 func (rt *reverseTable) pop(truncatedHash []byte) (*ReverseEntry, bool) {

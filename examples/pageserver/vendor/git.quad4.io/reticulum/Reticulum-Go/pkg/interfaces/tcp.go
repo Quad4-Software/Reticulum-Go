@@ -61,6 +61,8 @@ func NewTCPClientInterfaceWithRetries(name string, targetHost string, targetPort
 	}
 	tc.initReconnectDriver()
 	tc.Bitrate = BitrateGuess
+	tc.SetTunnelsAllowed(true)
+	tc.SetLosslessMedium(true)
 
 	if enabled {
 		tc.startReconnect()
@@ -108,6 +110,12 @@ func (tc *TCPClientInterface) onConnected(conn net.Conn) {
 	tc.Mutex.RLock()
 	synth := tc.synthesizeTunnel
 	tc.Mutex.RUnlock()
+	// RNS 1.6.1: each new connection restarts tunnel synthesis state.
+	if !tc.kissFraming {
+		tc.SetWantsTunnel(true)
+	}
+	tc.SetRemoteTransportHash(nil)
+	tc.SetSynthesisReceived(false)
 	if tc.WantsTunnel() && synth != nil {
 		synth(tc)
 	}
@@ -559,6 +567,10 @@ func (tc *TCPClientInterface) GetRTT() time.Duration {
 type TCPServerInterface struct {
 	BaseInterface
 	connections map[string]net.Conn
+	spawned     map[string]*TCPServerClientInterface
+	spawnMu     sync.Mutex
+	spawnHook   func(*TCPServerClientInterface)
+	cfg         *common.InterfaceConfig
 	listener    net.Listener
 	bindAddr    string
 	bindPort    int
@@ -585,6 +597,7 @@ func NewTCPServerInterface(name string, bindAddr string, bindPort int, kissFrami
 			Bitrate: BitrateGuess,
 		},
 		connections: make(map[string]net.Conn),
+		spawned:     make(map[string]*TCPServerClientInterface),
 		bindAddr:    bindAddr,
 		bindPort:    bindPort,
 		preferIPv6:  preferIPv6,
@@ -593,8 +606,49 @@ func NewTCPServerInterface(name string, bindAddr string, bindPort int, kissFrami
 		done:        make(chan struct{}),
 		txFrame:     make([]byte, 0, DefaultMTU*2+4),
 	}
+	ts.SetTunnelsAllowed(true)
+	ts.SetLosslessMedium(true)
 
 	return ts, nil
+}
+
+// EnableSpawnedClients switches the listener to Python's spawned-interface
+// model: every accepted connection becomes its own interface object that the
+// node registers with transport, while the listener itself stays
+// receive-only for outbound floods (Python TCPServerInterface.OUT = False).
+func (ts *TCPServerInterface) EnableSpawnedClients(cfg *common.InterfaceConfig, spawn func(*TCPServerClientInterface)) {
+	ts.Mutex.Lock()
+	defer ts.Mutex.Unlock()
+	ts.cfg = cfg
+	ts.spawnHook = spawn
+}
+
+// AllowsOutgoing keeps the listener receive-only once spawned-client mode is
+// on (Python TCPServerInterface.OUT = False): outbound floods reach each
+// connection through its own spawned interface, not a broadcast on the
+// listener. Without a spawn hook the legacy broadcast behaviour is kept.
+func (ts *TCPServerInterface) AllowsOutgoing() bool {
+	ts.Mutex.RLock()
+	defer ts.Mutex.RUnlock()
+	return ts.spawnHook == nil && !ts.ReceiveOnly
+}
+
+// SpawnedInterfaces lists live per-connection children (Python
+// spawned_interfaces, used by the detach walk).
+func (ts *TCPServerInterface) SpawnedInterfaces() []Interface {
+	ts.spawnMu.Lock()
+	defer ts.spawnMu.Unlock()
+	out := make([]Interface, 0, len(ts.spawned))
+	for _, c := range ts.spawned {
+		out = append(out, c)
+	}
+	return out
+}
+
+// InterfaceConfig supplies the listener's config so spawned clients inherit
+// gravity, costs and hop limiter through InterfaceConfigProvider.
+func (ts *TCPServerInterface) InterfaceConfig() *common.InterfaceConfig {
+	return ts.cfg
 }
 
 func (ts *TCPServerInterface) String() string {
@@ -772,6 +826,19 @@ func (ts *TCPServerInterface) handleConnection(conn net.Conn) {
 		_ = conn.Close()
 	}()
 
+	ts.Mutex.RLock()
+	spawn := ts.spawnHook
+	ts.Mutex.RUnlock()
+	if spawn != nil {
+		client := newTCPServerClient(conn, ts, addr)
+		ts.spawnMu.Lock()
+		ts.spawned[addr] = client
+		ts.spawnMu.Unlock()
+		spawn(client)
+		client.readLoop()
+		return
+	}
+
 	ts.readFramedLoop(conn)
 }
 
@@ -818,10 +885,17 @@ func (ts *TCPServerInterface) readFramedLoop(conn net.Conn) {
 func (ts *TCPServerInterface) ProcessOutgoing(data []byte) error {
 	ts.Mutex.RLock()
 	online := ts.Online
+	spawned := ts.spawnHook != nil
 	ts.Mutex.RUnlock()
 
 	if !online {
 		return fmt.Errorf("interface offline")
+	}
+
+	// Python TCPServerInterface.process_outgoing is a no-op: in spawned-client
+	// mode every send goes through the per-connection spawned interface.
+	if spawned {
+		return nil
 	}
 
 	// Build into a fresh buffer per call: sharing ts.txFrame lets concurrent
@@ -877,4 +951,234 @@ func (ts *TCPServerInterface) Send(data []byte, address string) error {
 // dial failures, flaps, and active quarantine remaining.
 func (tc *TCPClientInterface) EndpointStatus() EndpointStatus {
 	return tc.reconnect.endpointStatus()
+}
+
+// TCPServerClientInterface is spawned per accepted connection on a
+// TCPServerInterface, matching Python's spawned TCPClientInterface: each
+// socket carries its own registration, counters and tunnel-synthesis state,
+// while the listener itself stays receive-only.
+type TCPServerClientInterface struct {
+	BaseInterface
+	conn         net.Conn
+	peerKey      string
+	parent       *TCPServerInterface
+	kissFraming  bool
+	sendMu       sync.Mutex
+	txFrame      []byte
+	wantsTunnel  bool
+	tunnelID     []byte
+	onDisconnect func()
+}
+
+func newTCPServerClient(conn net.Conn, ts *TCPServerInterface, peerKey string) *TCPServerClientInterface {
+	c := &TCPServerClientInterface{
+		BaseInterface: BaseInterface{
+			Name:    "Client on " + ts.Name + "@" + peerKey,
+			Mode:    ts.Mode,
+			Type:    common.IFTypeTCP,
+			Online:  true,
+			Enabled: true,
+			MTU:     ts.MTU,
+			Bitrate: ts.Bitrate,
+			In:      true,
+			Out:     true,
+		},
+		conn:        conn,
+		peerKey:     peerKey,
+		parent:      ts,
+		kissFraming: ts.kissFraming,
+		txFrame:     make([]byte, 0, DefaultMTU*2+4),
+	}
+	// Python copies the listener's routing and identity config onto the
+	// spawned interface (mode, gravity, hop_limiter, costs, IFAC).
+	ts.Mutex.RLock()
+	c.Gravity = ts.Gravity
+	c.RecursivePRs = ts.RecursivePRs
+	c.AnnouncesFromInternal = ts.AnnouncesFromInternal
+	c.AnnouncesToInternal = ts.AnnouncesToInternal
+	c.DestinationCost = ts.DestinationCost
+	c.DestinationCostSet = ts.DestinationCostSet
+	c.PRCost = ts.PRCost
+	c.PRCostSet = ts.PRCostSet
+	c.IFACIdentity = ts.IFACIdentity
+	c.deferInboundIFAC = ts.deferInboundIFAC
+	c.announceCap = ts.announceCap
+	ts.Mutex.RUnlock()
+	if n, ok := ts.HopLimiter(); ok {
+		c.SetHopLimiter(n)
+	}
+	c.SetTunnelsAllowed(true)
+	c.SetLosslessMedium(true)
+	return c
+}
+
+func (c *TCPServerClientInterface) String() string {
+	return "TCPServerClientInterface[" + c.Name + "]"
+}
+
+// InterfaceHash feeds the tunnel id (Python interface.get_hash()).
+func (c *TCPServerClientInterface) InterfaceHash() []byte {
+	return InterfaceHashFromName(c.Name)
+}
+
+func (c *TCPServerClientInterface) WantsTunnel() bool     { return c.wantsTunnel }
+func (c *TCPServerClientInterface) SetWantsTunnel(v bool) { c.wantsTunnel = v }
+
+func (c *TCPServerClientInterface) TunnelID() []byte {
+	c.Mutex.RLock()
+	defer c.Mutex.RUnlock()
+	return append([]byte(nil), c.tunnelID...)
+}
+
+func (c *TCPServerClientInterface) SetTunnelID(id []byte) {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+	c.tunnelID = append(c.tunnelID[:0], id...)
+}
+
+// InterfaceConfig makes the spawned conn inherit the listener's config
+// (InterfaceConfigProvider): gravity, costs, hop limiter.
+func (c *TCPServerClientInterface) InterfaceConfig() *common.InterfaceConfig {
+	if c.parent == nil {
+		return nil
+	}
+	return c.parent.cfg
+}
+
+// SpawnedParent returns the owning TCPServerInterface for counter
+// propagation (Python parent_interface).
+func (c *TCPServerClientInterface) SpawnedParent() common.NetworkInterface {
+	return c.parent
+}
+
+func (c *TCPServerClientInterface) SetDisconnectHooks(onDisconnect func()) {
+	c.onDisconnect = onDisconnect
+}
+
+func (c *TCPServerClientInterface) GetConn() net.Conn { return c.conn }
+
+func (c *TCPServerClientInterface) readLoop() {
+	onFrame := func(data []byte) { c.processIncoming(data) }
+	var feed func([]byte)
+	if c.kissFraming {
+		decoder := newKISSStreamDecoder(c.MTU, onFrame)
+		feed = decoder.feed
+	} else {
+		decoder := newTCPHDLCStreamDecoder(c.MTU, onFrame)
+		feed = decoder.feed
+	}
+	buf := make([]byte, streamReadSize(c.MTU))
+	for {
+		n, err := c.conn.Read(buf)
+		if n == 0 {
+			if err != nil {
+				break
+			}
+			continue
+		}
+		feed(buf[:n])
+		if err != nil {
+			break
+		}
+	}
+	c.Mutex.Lock()
+	c.Online = false
+	c.Mutex.Unlock()
+	if c.parent != nil {
+		c.parent.spawnMu.Lock()
+		delete(c.parent.spawned, c.peerKey)
+		c.parent.spawnMu.Unlock()
+	}
+	if c.onDisconnect != nil {
+		c.onDisconnect()
+	}
+}
+
+// processIncoming mirrors BaseInterface.ProcessIncomingFrom but hands the
+// packet callback the spawned client itself, not the embedded base, so the
+// tunnel handler sees this connection's own synthesis state.
+func (c *TCPServerClientInterface) processIncoming(data []byte) {
+	c.Mutex.Lock()
+	c.RxPackets++
+	c.Mutex.Unlock()
+
+	if !admitIncomingFrom(c, c.Name, data, c.peerKey) {
+		return
+	}
+
+	c.Mutex.RLock()
+	deferInbound := c.deferInboundIFAC
+	c.Mutex.RUnlock()
+
+	payload := data
+	if !deferInbound {
+		var ok bool
+		payload, ok = common.ApplyIFACInbound(c, data)
+		if !ok {
+			debug.Log(debug.DebugVerbose, "Dropped packet failing IFAC policy", "name", c.Name, "size", len(data))
+			return
+		}
+	}
+
+	if cb := c.GetPacketCallback(); cb != nil {
+		cb(payload, c)
+	}
+}
+
+func (c *TCPServerClientInterface) ProcessIncoming(data []byte) {
+	c.processIncoming(data)
+}
+
+func (c *TCPServerClientInterface) ProcessOutgoing(data []byte) error {
+	c.Mutex.RLock()
+	online := c.Online
+	c.Mutex.RUnlock()
+	if !online {
+		return fmt.Errorf("interface offline")
+	}
+
+	c.sendMu.Lock()
+	defer c.sendMu.Unlock()
+
+	var frame []byte
+	if c.kissFraming {
+		frame = appendFrameKISS(c.txFrame[:0], data)
+	} else {
+		frame = appendFrameHDLC(c.txFrame[:0], data)
+	}
+	c.txFrame = frame
+
+	if _, err := c.conn.Write(frame); err != nil {
+		debug.Log(debug.DebugVerbose, "TCP spawned client write failed", "name", c.Name, "error", err)
+		return err
+	}
+	return nil
+}
+
+func (c *TCPServerClientInterface) Send(data []byte, address string) error {
+	if err := common.RejectReceiveOnly(c); err != nil {
+		return err
+	}
+	masked, err := common.ApplyIFACOutbound(c, data)
+	if err != nil {
+		debug.Log(debug.DebugError, "Failed to mask outgoing packet for IFAC", "name", c.Name, "error", err)
+		return err
+	}
+	if err := c.ProcessOutgoing(masked); err != nil {
+		debug.Log(debug.DebugVerbose, "Interface failed to send data", "name", c.Name, "error", err)
+		return err
+	}
+	c.updateBandwidthStats(uint64(len(masked)))
+	return nil
+}
+
+func (c *TCPServerClientInterface) Detach() {
+	c.Detached = true
+	c.Online = false
+	_ = c.conn.Close()
+}
+
+func (c *TCPServerClientInterface) Stop() error {
+	c.Detach()
+	return nil
 }

@@ -95,7 +95,3 @@ func (p *kqueuePoller) Wait(timeoutMs int) ([]pollEvent, error) {
 func (p *kqueuePoller) Close() error {
 	return unix.Close(p.fd)
 }
-
-func setNonblockFD(fd int) error {
-	return unix.SetNonblock(fd, true)
-}

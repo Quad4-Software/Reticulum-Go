@@ -76,6 +76,10 @@ func NewUDPInterfaceWithRetries(name string, addr string, target string, enabled
 // sends a minimal hold-open datagram to the configured target whenever no
 // outbound packet has been written for the interval, keeping NAT and
 // stateful-firewall mappings alive. Zero disables it (default).
+// SharedMedium reports true: UDP is a broadcast medium like Python's
+// UDPInterface.shared_medium, so announce dedup-ifs never applies.
+func (ui *UDPInterface) SharedMedium() bool { return true }
+
 func (ui *UDPInterface) SetKeepaliveInterval(d time.Duration) {
 	ui.Mutex.Lock()
 	ui.keepalive = d
@@ -196,7 +200,6 @@ func (ui *UDPInterface) ProcessIncoming(data []byte) {
 // other peer using the same socket. See admitIncomingFrom.
 func (ui *UDPInterface) ProcessIncomingFromAddr(data []byte, peerKey string) {
 	ui.Mutex.Lock()
-	ui.RxBytes += uint64(len(data))
 	ui.RxPackets++
 	name := ui.Name
 	ui.Mutex.Unlock()

@@ -33,6 +33,12 @@ func warnAmbiguousIFAC(name, value string) bool {
 	return true
 }
 
+// RNS 1.6.1 autoconnect caps (Reticulum.__autoconnect_warn/cap).
+const (
+	AutoconnectWarn = 6
+	AutoconnectCap  = 12
+)
+
 // Default values used when a fresh configuration is created or fields are
 // omitted from the on-disk file.
 const (
@@ -52,6 +58,8 @@ const (
 	sectionInterfaces   = "interfaces"
 	sectionInterface    = "interface"
 	sectionSubInterface = "subinterface"
+	sectionStamps       = "stamps"
+	sectionFilter       = "filter"
 	sectionUnknown      = "unknown"
 )
 
@@ -66,7 +74,7 @@ var errEmptyConfigPath = errors.New("config path not set")
 // DefaultConfig returns a ReticulumConfig populated with built-in defaults.
 func DefaultConfig() *common.ReticulumConfig {
 	return &common.ReticulumConfig{
-		EnableTransport:        true,
+		EnableTransport:        false,
 		ShareInstance:          true,
 		SharedInstancePort:     DefaultSharedInstancePort,
 		InstanceControlPort:    DefaultInstanceControlPort,
@@ -217,6 +225,10 @@ func classifySection(name string, depth int) string {
 		return sectionReticulum
 	case sectionLogging:
 		return sectionLogging
+	case sectionStamps:
+		return sectionStamps
+	case sectionFilter:
+		return sectionFilter
 	case sectionInterfaces:
 		return sectionInterfaces
 	default:
@@ -311,6 +323,10 @@ func LoadConfig(path string) (*common.ReticulumConfig, error) {
 			applyGlobalOption(cfg, key, value)
 		case sectionLogging:
 			applyLoggingOption(cfg, key, value)
+		case sectionStamps:
+			applyStampsOption(cfg, key, value)
+		case sectionFilter:
+			applyFilterOption(cfg, key, value)
 		case sectionInterface:
 			if iface, ok := cfg.Interfaces[top.name]; ok {
 				applyInterfaceOption(iface, key, value)
@@ -328,6 +344,17 @@ func LoadConfig(path string) (*common.ReticulumConfig, error) {
 		return nil, fmt.Errorf("read config %q: %w", path, err)
 	}
 
+	// RNS 1.6.1: warn above the soft limit, hard-cap the autoconnect target
+	// unless caps are explicitly disabled.
+	if !cfg.AutoconnectDisableCaps && cfg.AutoconnectDiscoveredInterfaces > 0 {
+		if cfg.AutoconnectDiscoveredInterfaces > AutoconnectCap {
+			cfg.AutoconnectDiscoveredInterfaces = AutoconnectCap
+			debug.Log(debug.DebugWarning, "Auto-connect interface target was capped to "+strconv.Itoa(AutoconnectCap))
+		} else if cfg.AutoconnectDiscoveredInterfaces > AutoconnectWarn {
+			debug.Log(debug.DebugWarning, "Configured more than "+strconv.Itoa(AutoconnectWarn)+" auto-connect interfaces; this is usually excessive")
+		}
+	}
+
 	cfg.NormalizeInMemoryFlags()
 	cfg.ApplyNodeProfile()
 	return cfg, nil
@@ -339,6 +366,8 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 	switch strings.ToLower(key) {
 	case "enable_transport":
 		setBool(&cfg.EnableTransport, value)
+	case "enable_packet_profiling":
+		setBool(&cfg.EnablePacketProfiling, value)
 	case "share_instance":
 		setBool(&cfg.ShareInstance, value)
 	case "shared_instance_port":
@@ -400,6 +429,8 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 		if n > 0 {
 			cfg.AutoconnectDiscoveredInterfaces = n
 		}
+	case "autoconnect_discovered_interfaces_disable_caps":
+		setBool(&cfg.AutoconnectDisableCaps, value)
 	case "autoconnect_unverified_implementations":
 		setBool(&cfg.AutoconnectUnverifiedImplementations, value)
 	case "enable_interface_management":
@@ -491,6 +522,12 @@ func applyGlobalOption(cfg *common.ReticulumConfig, key, value string) {
 	case "max_packet_hashlist":
 		setInt(value, &cfg.MaxPacketHashlist)
 		cfg.MaxPacketHashlistSet = true
+	case "max_seen_announces":
+		setInt(value, &cfg.MaxSeenAnnounces)
+	case "max_reverse_entries":
+		setInt(value, &cfg.MaxReverseEntries)
+	case "max_announce_cache":
+		setInt(value, &cfg.MaxAnnounceCache)
 	case "max_packet_handlers":
 		setInt(value, &cfg.MaxPacketHandlers)
 		cfg.MaxPacketHandlersSet = true
@@ -546,6 +583,90 @@ func applyLoggingOption(cfg *common.ReticulumConfig, key, value string) {
 	}
 }
 
+// applyStampsOption handles keys under [stamps] (RNS 1.6.0). Booleans only
+// enable; floats are stored raw and clamped when applied so StampsSettings
+// matches Reticulum.py.
+func applyStampsOption(cfg *common.ReticulumConfig, key, value string) {
+	s := &cfg.Stamps
+	switch strings.ToLower(key) {
+	case "enforce_stamps":
+		setBool(&s.EnforceStamps, value)
+	case "stamp_destinations":
+		setBool(&s.StampDestinations, value)
+	case "stamp_prs":
+		setBool(&s.StampPRs, value)
+	case "always_stamp_lrs":
+		setBool(&s.AlwaysStampLRs, value)
+	case "destination_cost":
+		if setFloat(value, &s.DestinationCost) {
+			s.DestinationCostSet = true
+		}
+	case "destination_value":
+		if setFloat(value, &s.DestinationValue) {
+			s.DestinationValueSet = true
+		}
+	case "pr_cost":
+		if setFloat(value, &s.PRCost) {
+			s.PRCostSet = true
+		}
+	case "pr_value":
+		if setFloat(value, &s.PRValue) {
+			s.PRValueSet = true
+		}
+	case "lr_cost":
+		if setFloat(value, &s.LRCost) {
+			s.LRCostSet = true
+		}
+	case "lr_stamp_timeout":
+		if setFloat(value, &s.LRStampTimeout) {
+			s.LRStampTimeoutSet = true
+		}
+	case "pr_stamp_timeout":
+		if setFloat(value, &s.PRStampTimeout) {
+			s.PRStampTimeoutSet = true
+		}
+	case "max_workers":
+		var n int
+		if setInt(value, &n) {
+			s.MaxWorkers = n
+			s.MaxWorkersSet = true
+		}
+	case "worker_niceness":
+		var n int
+		if setInt(value, &n) {
+			s.WorkerNiceness = n
+			s.WorkerNicenessSet = true
+		}
+	}
+}
+
+// applyFilterOption handles keys under [filter] (RNS 1.6.0). Values are only
+// parsed and stored here; the announce-path behaviour is applied elsewhere.
+func applyFilterOption(cfg *common.ReticulumConfig, key, value string) {
+	f := &cfg.Filter
+	switch strings.ToLower(key) {
+	case "required_only":
+		if setBool(&f.RequiredOnly, value) {
+			f.RequiredOnlySet = true
+		}
+	case "ignored_types":
+		f.IgnoredTypes = append(f.IgnoredTypes, splitCommaPaths(value)...)
+	case "allowed_types":
+		f.AllowedTypes = append(f.AllowedTypes, splitCommaPaths(value)...)
+	case "hop_limiter":
+		var n int
+		setInt(value, &n)
+		if n < 0 {
+			n = 0
+		}
+		if n > 128 {
+			n = 128
+		}
+		f.HopLimiter = n
+		f.HopLimiterSet = true
+	}
+}
+
 // applyInterfaceOption sets a single key on an interface configuration.
 // Unknown keys are ignored.
 func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
@@ -577,6 +698,17 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		setBool(&iface.RTSCTS, value)
 	case "dsrdtr":
 		setBool(&iface.DSRDTR, value)
+	case "hop_limiter":
+		var n int
+		setInt(value, &n)
+		if n < 0 {
+			n = 0
+		}
+		if n > 128 {
+			n = 128
+		}
+		iface.HopLimiter = n
+		iface.HopLimiterSet = true
 	case "xonxoff":
 		setBool(&iface.XONXOFF, value)
 	case "frame_idle_ms":
@@ -728,6 +860,18 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		if setBool(&iface.Outgoing, value) {
 			iface.OutgoingSet = true
 		}
+	case "destination_cost":
+		var v float64
+		if setFloat(value, &v) {
+			iface.DestinationCost = max(0, min(v, common.StampCostCap))
+			iface.DestinationCostSet = true
+		}
+	case "pr_cost":
+		var v float64
+		if setFloat(value, &v) {
+			iface.PRCost = max(0, min(v, common.StampCostCap))
+			iface.PRCostSet = true
+		}
 	case "discoverable":
 		setBool(&iface.Discoverable, value)
 	case "discovery_name":
@@ -770,6 +914,8 @@ func applyInterfaceOption(iface *common.InterfaceConfig, key, value string) {
 		setInt(value, &iface.FastFlappingGrace)
 	case "fast_flapping_block_time":
 		setFloat(value, &iface.FastFlappingBlockTimeMin)
+	case "client_limit":
+		setInt(value, &iface.ClientLimit)
 	case "latitude":
 		setFloat(value, &iface.DiscoveryLatitude)
 		iface.HasDiscoveryGeo = true
@@ -945,6 +1091,7 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 
 	b.WriteString("[reticulum]\n")
 	fmt.Fprintf(&b, "  enable_transport = %s\n", boolStr(cfg.EnableTransport))
+	fmt.Fprintf(&b, "  enable_packet_profiling = %s\n", boolStr(cfg.EnablePacketProfiling))
 	fmt.Fprintf(&b, "  share_instance = %s\n", boolStr(cfg.ShareInstance))
 	if cfg.InstanceName != "" {
 		fmt.Fprintf(&b, "  instance_name = %s\n", cfg.InstanceName)
@@ -1063,6 +1210,15 @@ func SaveConfig(cfg *common.ReticulumConfig) error {
 	}
 	if cfg.MaxPacketHashlist != 0 {
 		fmt.Fprintf(&b, "  max_packet_hashlist = %d\n", cfg.MaxPacketHashlist)
+	}
+	if cfg.MaxSeenAnnounces != 0 {
+		fmt.Fprintf(&b, "  max_seen_announces = %d\n", cfg.MaxSeenAnnounces)
+	}
+	if cfg.MaxReverseEntries != 0 {
+		fmt.Fprintf(&b, "  max_reverse_entries = %d\n", cfg.MaxReverseEntries)
+	}
+	if cfg.MaxAnnounceCache != 0 {
+		fmt.Fprintf(&b, "  max_announce_cache = %d\n", cfg.MaxAnnounceCache)
 	}
 	if cfg.MaxPacketHandlers != 0 {
 		fmt.Fprintf(&b, "  max_packet_handlers = %d\n", cfg.MaxPacketHandlers)

@@ -75,6 +75,14 @@ type BaseInterface struct {
 	// Gravity is configured pathing affinity (RNS 1.4.1).
 	Gravity int
 
+	// DestinationCost/PRCost are the per-interface stamp requirements
+	// (RNS 1.6.0 destination_cost / pr_cost). *Set false means inherit the
+	// transport default at validation time.
+	DestinationCost    float64
+	DestinationCostSet bool
+	PRCost             float64
+	PRCostSet          bool
+
 	// ReceiveOnly blocks transmit when true (Python outgoing = no).
 	// Zero value is false so unset interfaces still transmit.
 	ReceiveOnly bool
@@ -106,6 +114,30 @@ type BaseInterface struct {
 	arxb, atxb         uint64
 	prxb, ptxb         uint64
 	arxc, atxc         uint64
+	frxb, ftxb         uint64
+	afrxc              uint64
+
+	currentFRXS float64
+	currentFTXS float64
+	sampleFRXB  uint64
+	sampleFTXB  uint64
+
+	hopLimiter     int
+	hopLimiterSet  bool
+	hopLimiterHits uint64
+
+	tunnelsAllowed      bool
+	losslessMedium      bool
+	synthesisEmitted    bool
+	synthesisReceived   bool
+	remoteTransportHash []byte
+	localTunnelID       []byte
+	remoteImpl          string
+	remoteVers          string
+	remoteIsTN          bool
+	remoteDstCost       float64
+	remotePRCost        float64
+	remoteMeta          bool
 
 	// deferInboundIFAC skips ApplyIFACInbound in ProcessIncoming so transport
 	// inbound preprocessing can apply IFAC once (RNS 1.5.0).
@@ -155,6 +187,12 @@ func NewBaseInterface(name string, ifType common.InterfaceType, enabled bool) Ba
 		lastTx:                time.Now(),
 		lastRx:                time.Now(),
 	}
+}
+
+// GetStampCosts reports the per-interface stamp requirements (RNS 1.6.0).
+// A false flag means the value is unset and the transport default applies.
+func (i *BaseInterface) GetStampCosts() (destinationCost float64, prCost float64, destSet, prSet bool) {
+	return i.DestinationCost, i.PRCost, i.DestinationCostSet, i.PRCostSet
 }
 
 func (i *BaseInterface) base() *BaseInterface {
@@ -211,7 +249,6 @@ func (i *BaseInterface) ProcessIncoming(data []byte) {
 // listener accepting many client connections). See admitIncomingFrom.
 func (i *BaseInterface) ProcessIncomingFrom(data []byte, peerKey string) {
 	i.Mutex.Lock()
-	i.RxBytes += uint64(len(data))
 	i.RxPackets++
 	name := i.Name
 	i.Mutex.Unlock()
@@ -642,6 +679,8 @@ func (i *BaseInterface) SampleTraffic() {
 		i.sampleATXB = i.atxb
 		i.samplePRXB = i.prxb
 		i.samplePTXB = i.ptxb
+		i.sampleFRXB = i.frxb
+		i.sampleFTXB = i.ftxb
 		i.sampleTS = now
 		return
 	}

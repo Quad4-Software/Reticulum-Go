@@ -13,7 +13,11 @@ import (
 	"strings"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/stamps"
 )
+
+// defaultLinkCost matches Python rngit's DEFAULT_LINK_COST.
+const defaultLinkCost = 18.0
 
 // ClientConfig holds git-remote-rns client settings.
 type ClientConfig struct {
@@ -45,6 +49,14 @@ type ServerConfig struct {
 	RNSConfigDir              string
 	IdentityPath              string
 	LogLevel                  int
+	// RNS 1.6.1: optional destination stamp value and required link stamp
+	// cost for the repositories destination.
+	StampValue *float64
+	LinkCost   float64
+	// PageNodeStampValue/PageNodeLinkCost apply to the nomadnetwork.node
+	// page destination ([pages] section).
+	PageNodeStampValue *float64
+	PageNodeLinkCost   float64
 }
 
 // DefaultClientConfigDir returns ~/.rngit or /etc/rngit.
@@ -127,6 +139,8 @@ func LoadServerConfig(dir string) (*ServerConfig, error) {
 		StatsPushIgnoreIdentities: map[string]bool{},
 		IdentityPath:              filepath.Join(dir, "server_identity"),
 		LogLevel:                  4,
+		LinkCost:                  stamps.QuantizeCost(defaultLinkCost),
+		PageNodeLinkCost:          stamps.QuantizeCost(defaultLinkCost),
 	}
 	path := filepath.Join(dir, "config")
 	sections, err := parseINI(path)
@@ -139,6 +153,17 @@ func LoadServerConfig(dir string) (*ServerConfig, error) {
 	if v, ok := sections["rngit"]["announce_interval"]; ok {
 		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
 			cfg.AnnounceInterval = n
+		}
+	}
+	if v, ok := sections["rngit"]["stamp_value"]; ok {
+		if f, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil {
+			q := stamps.QuantizeCost(f)
+			cfg.StampValue = &q
+		}
+	}
+	if v, ok := sections["rngit"]["link_cost"]; ok {
+		if f, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil {
+			cfg.LinkCost = stamps.QuantizeCost(f)
 		}
 	}
 	if v, ok := sections["rngit"]["record_stats"]; ok {
@@ -213,6 +238,17 @@ func LoadServerConfig(dir string) (*ServerConfig, error) {
 	}
 	if v, ok := sections["pages"]["syntax_highlight"]; ok {
 		cfg.SyntaxHighlight = strings.EqualFold(strings.TrimSpace(v), "yes")
+	}
+	if v, ok := sections["pages"]["stamp_value"]; ok {
+		if f, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil {
+			q := stamps.QuantizeCost(f)
+			cfg.PageNodeStampValue = &q
+		}
+	}
+	if v, ok := sections["pages"]["link_cost"]; ok {
+		if f, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil {
+			cfg.PageNodeLinkCost = stamps.QuantizeCost(f)
+		}
 	}
 	if v, ok := sections["logging"]["loglevel"]; ok {
 		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
@@ -336,6 +372,16 @@ announce_interval = 360
 record_stats = no
 mirror_interval = 24
 
+# You can configure the required link stamp cost for
+# connecting to the repository node.
+
+# link_cost = 18.0
+
+# The target stamp value for the repositories destination
+# can also be configured.
+
+# stamp_value = 25.0
+
 # You can block specific identities from any interaction
 # with this node.
 
@@ -362,6 +408,16 @@ public = r:all
 
 [pages]
 serve_nomadnet = no
+
+# You can configure the required link stamp cost for
+# connecting to the page node.
+
+# link_cost = 18.0
+
+# The target stamp value for the node destination can
+# also be configured.
+
+# stamp_value = 25.0
 
 # It is possible to disable Nerd Font icons and instead
 # use simpler (but more compatible) unicode icons.

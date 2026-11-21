@@ -38,10 +38,8 @@ type langSpec struct {
 	keywords      map[string]bool
 	types         map[string]bool
 	caseFold      bool
-	hashComment   bool
 	preprocChar   byte // '#' for c-like
 	numberHex     bool
-	identChars    string
 }
 
 var langSpecs = map[string]*langSpec{}
@@ -369,9 +367,6 @@ func emitEscaped(b *strings.Builder, text string) {
 			b.WriteString("\\`")
 		case '\n':
 			b.WriteByte('\n')
-			if i+1 < len(text) && (text[i+1] == '-' || text[i+1] == '>' || text[i+1] == '<') {
-				// handled on next iteration via lineStart detection below
-			}
 		default:
 			b.WriteByte(c)
 		}

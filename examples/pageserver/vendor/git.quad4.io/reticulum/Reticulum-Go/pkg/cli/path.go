@@ -24,6 +24,13 @@ func RunPath(args []string, opt ...Options) int {
 	jsonOut := fs.Bool("json", false, "emit JSON")
 	fs.BoolVar(jsonOut, "j", false, "emit JSON (Python rnpath alias)")
 	maxHops := fs.Int("m", -1, "max hops filter for path table (-1 = no filter)")
+	minValue := fs.Float64("M", 0, "minimum value filter for path table")
+	active := fs.Bool("a", false, "show in-use paths only")
+	usage := fs.Bool("u", false, "show path usage time")
+	vias := fs.Bool("V", false, "show via transport IDs")
+	expiry := fs.Bool("E", false, "show path expiry times")
+	analyze := fs.Bool("A", false, "analyze tables")
+	capture := fs.String("capture", "", "path to capture file for analyze mode")
 	rates := fs.Bool("r", false, "show announce rate info")
 	drop := fs.Bool("d", false, "drop path to destination")
 	// Match Python rnpath: -D drop-announces, -x drop-via. Keep -q as Go alias for -D.
@@ -86,14 +93,21 @@ func RunPath(args []string, opt ...Options) int {
 	}
 
 	modeCount := 0
-	for _, b := range []bool{*table, *rates, *drop, *dropVia, *dropQueues, *blackholed, *blackhole, *unblackhole, *remoteBHList} {
+	for _, b := range []bool{*table, *rates, *drop, *dropVia, *dropQueues, *blackholed, *blackhole, *unblackhole, *remoteBHList, *analyze} {
 		if b {
 			modeCount++
 		}
 	}
 	if modeCount > 1 {
-		fmt.Fprintln(stderr, "specify only one of -t -r -d -D -x -b -B -U -p")
+		fmt.Fprintln(stderr, "specify only one of -t -r -d -D -x -b -B -U -p -A")
 		return 2
+	}
+
+	if *analyze {
+		// Python rnpath analyze_tables is a stub. Mirror it.
+		_ = *capture
+		fmt.Fprintln(stdout, "Not yet implemented")
+		return 0
 	}
 
 	if *remoteBHList {
@@ -115,8 +129,11 @@ func RunPath(args []string, opt ...Options) int {
 			remoteHex:   *remoteHex,
 			identPath:   *mgmtIdent,
 			timeoutSec:  *remoteTimeoutSec,
-			stdout:      stdout,
-			stderr:      stderr,
+			display: rnsutil.PathTableDisplay{
+				Active: *active, Usage: *usage, Vias: *vias, Expiry: *expiry, MinValue: *minValue,
+			},
+			stdout: stdout,
+			stderr: stderr,
 		})
 	}
 
@@ -147,7 +164,9 @@ func RunPath(args []string, opt ...Options) int {
 				}
 				return 0
 			}
-			n, err := rnsutil.WritePathTableHuman(stdout, paths, destHash)
+			n, err := rnsutil.WritePathTableHuman(stdout, paths, destHash, rnsutil.PathTableDisplay{
+				Active: *active, Usage: *usage, Vias: *vias, Expiry: *expiry, MinValue: *minValue,
+			})
 			if err != nil {
 				fmt.Fprintf(stderr, "%v\n", err)
 				return 1
@@ -394,6 +413,7 @@ type pathRemoteOpts struct {
 	remoteHex   string
 	identPath   string
 	timeoutSec  float64
+	display     rnsutil.PathTableDisplay
 	stdout      io.Writer
 	stderr      io.Writer
 }
@@ -499,7 +519,7 @@ func runPathRemote(cfg *common.ReticulumConfig, destHash []byte, opts pathRemote
 		}
 		return 0
 	}
-	nshown, err := rnsutil.WritePathTableHuman(stdout, table, destHash)
+	nshown, err := rnsutil.WritePathTableHuman(stdout, table, destHash, opts.display)
 	if err != nil {
 		fmt.Fprintf(stderr, "%v\n", err)
 		return 1

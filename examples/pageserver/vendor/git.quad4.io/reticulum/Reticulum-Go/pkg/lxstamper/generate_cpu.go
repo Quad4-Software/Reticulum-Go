@@ -10,8 +10,9 @@ import (
 	"crypto/sha256"
 	"encoding"
 	"encoding/binary"
-	"runtime"
 	"sync"
+
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/stamps"
 	"sync/atomic"
 )
 
@@ -25,7 +26,7 @@ func cpuMineStamp(ctx context.Context, workblock []byte, stampCost int) ([]byte,
 	}
 	midState := ms.Marshaled
 
-	workers := max(runtime.GOMAXPROCS(0), 1)
+	workers := stamps.WorkerCount()
 	var found atomic.Bool
 	resCh := make(chan []byte, 1)
 
@@ -103,7 +104,7 @@ func cpuMineStamp(ctx context.Context, workblock []byte, stampCost int) ([]byte,
 
 func cpuMineStampFallback(ctx context.Context, workblock []byte, stampCost int) ([]byte, int, error) {
 	target := stampTarget(stampCost)
-	workers := max(runtime.GOMAXPROCS(0), 1)
+	workers := stamps.WorkerCount()
 	var found atomic.Bool
 	resCh := make(chan []byte, 1)
 

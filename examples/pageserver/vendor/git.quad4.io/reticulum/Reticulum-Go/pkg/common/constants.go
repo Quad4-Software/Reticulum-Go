@@ -108,7 +108,6 @@ const (
 	KeepaliveInterval          = Keepalive
 	StaleTime                  = 720
 	PathRequestTTL             = 300
-	AnnounceTimeout            = 15
 	PathRequestTimeout         = 15
 )
 

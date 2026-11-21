@@ -4,6 +4,8 @@
 package transport
 
 import (
+	"bufio"
+	"io"
 	"os"
 	"time"
 
@@ -345,6 +347,7 @@ func (t *Transport) savePathTableSync() {
 		return
 	}
 	t.savePathTable(true)
+	t.saveAnnounceRateTable()
 }
 
 func (t *Transport) savePathTable(force bool) {
@@ -358,11 +361,23 @@ func (t *Transport) savePathTable(force bool) {
 
 	gen := t.pathPersistGen.Load()
 
+	// pathSnapshot is one flat entry per path: keeping the snapshot as a
+	// slice of values (instead of []any of []any plus byte copies) and
+	// streaming the encode keeps large-table saves from building a second
+	// full copy of the table in memory.
+	type pathSnapshot struct {
+		destHash [packet.TruncatedHashLength]byte
+		nextHop  []byte
+		ifaceKey []byte
+		lastUpd  float64
+		hops     uint8
+	}
+
 	t.mutex.RLock()
-	serialised := make([]any, 0, len(t.paths))
+	snap := make([]pathSnapshot, 0, len(t.paths))
 	now := time.Now()
 	expires := float64(now.Unix()) + 7*24*3600
-	truncLen := packet.TruncatedHashLength
+	ifaceKeys := make(map[string][]byte)
 
 	for key, path := range t.paths {
 		if path == nil || path.Interface == nil {
@@ -374,33 +389,69 @@ func (t *Transport) savePathTable(force bool) {
 			continue
 		}
 
-		destHash := append([]byte(nil), key[:truncLen]...)
-		nextHop := append([]byte(nil), path.NextHop...)
-		serialised = append(serialised, []any{
-			destHash,
-			float64(path.LastUpdated.Unix()),
-			nextHop,
-			path.HopCount,
-			expires,
-			[]any{},
-			interfacePersistKey(ifaceName),
-			[]byte{},
-		})
+		ifaceKey, ok := ifaceKeys[ifaceName]
+		if !ok {
+			ifaceKey = interfacePersistKey(ifaceName)
+			ifaceKeys[ifaceName] = ifaceKey
+		}
+		var e pathSnapshot
+		copy(e.destHash[:], key[:packet.TruncatedHashLength])
+		e.nextHop = append([]byte(nil), path.NextHop...)
+		e.ifaceKey = ifaceKey
+		e.lastUpd = float64(path.LastUpdated.Unix())
+		e.hops = path.HopCount
+		snap = append(snap, e)
 	}
 	t.mutex.RUnlock()
-
-	data, err := msgpack.Marshal(serialised)
-	if err != nil {
-		debug.Log(debug.DebugInfo, "Path table marshal failed", "error", err)
-		return
-	}
 
 	path, err := storage.DestinationTablePath(configPath(t.config))
 	if err != nil {
 		t.disablePathPersistence(err)
 		return
 	}
-	if err := storage.AtomicWriteFile(path, data, 0o600); err != nil {
+	err = storage.AtomicWriteFunc(path, 0o600, func(w io.Writer) error {
+		bufSize := 64 << 10
+		if est := len(snap) * 96; est > bufSize {
+			bufSize = min(est, 1<<20)
+		}
+		bw := bufio.NewWriterSize(w, bufSize)
+		enc := msgpack.NewEncoder(bw)
+		if err := enc.EncodeArrayLen(len(snap)); err != nil {
+			return err
+		}
+		for i := range snap {
+			e := &snap[i]
+			if err := enc.EncodeArrayLen(8); err != nil {
+				return err
+			}
+			if err := enc.EncodeBytes(e.destHash[:]); err != nil {
+				return err
+			}
+			if err := enc.EncodeFloat64(e.lastUpd); err != nil {
+				return err
+			}
+			if err := enc.EncodeBytes(e.nextHop); err != nil {
+				return err
+			}
+			if err := enc.EncodeUint8(e.hops); err != nil {
+				return err
+			}
+			if err := enc.EncodeFloat64(expires); err != nil {
+				return err
+			}
+			if err := enc.EncodeArrayLen(0); err != nil {
+				return err
+			}
+			if err := enc.EncodeBytes(e.ifaceKey); err != nil {
+				return err
+			}
+			if err := enc.EncodeBytes([]byte{}); err != nil {
+				return err
+			}
+		}
+		return bw.Flush()
+	})
+	if err != nil {
 		t.disablePathPersistence(err)
 		return
 	}
@@ -409,7 +460,7 @@ func (t *Transport) savePathTable(force bool) {
 	if t.pathPersistGen.Load() == gen {
 		t.pathPersistDirty.Store(false)
 	}
-	debug.Log(debug.DebugVerbose, "Saved path table to storage", "entries", len(serialised))
+	debug.Log(debug.DebugVerbose, "Saved path table to storage", "entries", len(snap))
 }
 
 func (t *Transport) disablePathPersistence(err error) {

@@ -61,9 +61,27 @@ func (r *Registry) ifaceSlot(iface string) *[kindCount]windowedCounter {
 	return slot
 }
 
+// RemoveIface drops the per-iface slot for a detached interface. Python
+// keeps counters on the interface object, so they die with it. Spawned
+// interfaces have per-connection names and would otherwise accumulate
+// without bound under connection churn.
+func (r *Registry) RemoveIface(iface string) {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	delete(r.byIface, iface)
+	r.mu.Unlock()
+}
+
 // Inc is a convenience wrapper around Default.Inc.
 func Inc(iface string, kind Kind) {
 	Default.Inc(iface, kind)
+}
+
+// RemoveIface is a convenience wrapper around Default.RemoveIface.
+func RemoveIface(iface string) {
+	Default.RemoveIface(iface)
 }
 
 // KindTotals is the lifetime and windowed counts for one kind.

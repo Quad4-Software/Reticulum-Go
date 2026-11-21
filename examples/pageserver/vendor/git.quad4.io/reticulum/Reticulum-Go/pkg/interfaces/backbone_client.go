@@ -40,6 +40,9 @@ type BackboneClientInterface struct {
 	spawnedAt         time.Time
 	remoteIP          string
 	admitRelease      func()
+	wantsTunnel       bool
+	tunnelID          []byte
+	synthesizeTunnel  func(TunnelPeer)
 
 	// AutoconnectHash is set when this client was created from rnstransport
 	// interface discovery (Python interface.autoconnect_hash).
@@ -81,12 +84,14 @@ func NewBackboneClientInterface(name string, cfg *common.InterfaceConfig, hub *b
 		initiator:         true,
 		maxReconnectTries: maxTries,
 		done:              make(chan struct{}),
+		wantsTunnel:       true,
 	}
 	bc.initReconnectDriver()
 	bc.MTU = backboneHWMTU
 	bc.Bitrate = backboneClientBitrateGuess
 	bc.In = true
 	bc.Out = true
+	bc.SetTunnelsAllowed(true)
 	if cfg.Enabled {
 		bc.startReconnect()
 	}
@@ -120,6 +125,11 @@ func newSpawnedBackboneClient(parent *BackboneInterface, conn net.Conn) *Backbon
 	bc.RecursivePRs = parent.RecursivePRs
 	// RNS 1.5.5 propagates announce_cap to spawned clients too.
 	bc.announceCap = parent.announceCapFraction()
+	bc.SetTunnelsAllowed(true)
+	bc.SetLosslessMedium(true)
+	if lim, ok := parent.HopLimiter(); ok {
+		bc.SetHopLimiter(lim)
+	}
 	bc.Online = true
 	if tcpConn, ok := conn.(*net.TCPConn); ok {
 		_ = tcpConn.SetNoDelay(true)
@@ -175,6 +185,17 @@ func (bc *BackboneClientInterface) initReconnectDriver() {
 			default:
 			}
 			bc.reconnect.notifyFailure()
+			return
+		}
+		bc.Mutex.RLock()
+		synth := bc.synthesizeTunnel
+		bc.Mutex.RUnlock()
+		// RNS 1.6.1: each new connection restarts tunnel synthesis state.
+		bc.SetWantsTunnel(true)
+		bc.SetRemoteTransportHash(nil)
+		bc.SetSynthesisReceived(false)
+		if bc.WantsTunnel() && synth != nil {
+			synth(bc)
 		}
 	})
 	bc.reconnect.setOnExhausted(func() {
@@ -336,6 +357,15 @@ func (bc *BackboneClientInterface) attachStream() error {
 	return nil
 }
 
+// SpawnedParent returns the owning BackboneInterface for counter
+// propagation (Python parent_interface). Nil for outbound clients.
+func (bc *BackboneClientInterface) SpawnedParent() common.NetworkInterface {
+	if bc.parent != nil {
+		return bc.parent
+	}
+	return nil
+}
+
 func (bc *BackboneClientInterface) ProcessOutgoing(data []byte) error {
 	bc.Mutex.RLock()
 	online := bc.Online
@@ -363,28 +393,51 @@ func (bc *BackboneClientInterface) Send(data []byte, address string) error {
 	return nil
 }
 
-func (bc *BackboneClientInterface) setTimeoutsLinux(conn net.Conn) error {
-	tc, ok := conn.(*net.TCPConn)
-	if !ok {
-		return nil
-	}
-	tmp := &TCPClientInterface{conn: tc}
-	return tmp.setTimeoutsLinux()
-}
-
-func (bc *BackboneClientInterface) setTimeoutsOSX(conn net.Conn) error {
-	tc, ok := conn.(*net.TCPConn)
-	if !ok {
-		return nil
-	}
-	tmp := &TCPClientInterface{conn: tc}
-	return tmp.setTimeoutsOSX()
-}
-
 func (bc *BackboneClientInterface) GetConn() net.Conn {
 	bc.Mutex.RLock()
 	defer bc.Mutex.RUnlock()
 	return bc.conn
+}
+
+// SetTunnelSynth registers the tunnel synthesis callback invoked after each
+// outbound connect, matching Python Transport.synthesize_tunnel wiring.
+func (bc *BackboneClientInterface) SetTunnelSynth(fn func(TunnelPeer)) {
+	bc.Mutex.Lock()
+	bc.synthesizeTunnel = fn
+	bc.Mutex.Unlock()
+}
+
+// InterfaceHash returns the tunnel interface hash for this client.
+func (bc *BackboneClientInterface) InterfaceHash() []byte {
+	return InterfaceHashFromName(bc.Name)
+}
+
+// WantsTunnel reports whether this client still awaits tunnel synthesis.
+func (bc *BackboneClientInterface) WantsTunnel() bool {
+	bc.Mutex.RLock()
+	defer bc.Mutex.RUnlock()
+	return bc.wantsTunnel
+}
+
+// SetWantsTunnel records tunnel synthesis state.
+func (bc *BackboneClientInterface) SetWantsTunnel(v bool) {
+	bc.Mutex.Lock()
+	bc.wantsTunnel = v
+	bc.Mutex.Unlock()
+}
+
+// TunnelID returns the established tunnel id, if any.
+func (bc *BackboneClientInterface) TunnelID() []byte {
+	bc.Mutex.RLock()
+	defer bc.Mutex.RUnlock()
+	return append([]byte(nil), bc.tunnelID...)
+}
+
+// SetTunnelID records the established tunnel id.
+func (bc *BackboneClientInterface) SetTunnelID(id []byte) {
+	bc.Mutex.Lock()
+	bc.tunnelID = append(bc.tunnelID[:0], id...)
+	bc.Mutex.Unlock()
 }
 
 func (bc *BackboneClientInterface) IsConnected() bool {

@@ -5,8 +5,10 @@ package identity
 
 import (
 	"bytes"
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -22,6 +24,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity/store"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/protect"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/securemem"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/stamps"
 )
 
 // Ed25519Signer is re-exported for identity callers configuring HSM-backed signing.
@@ -44,11 +47,50 @@ type Identity struct {
 }
 
 type knownDestEntry struct {
-	pkt    []byte
-	hash   []byte
-	rawKey string // truncated dest hash as a 16-byte string key for msgpack
-	id     *Identity
-	app    []byte
+	// pktHash is the announce payload hash stored in the packet_hash slot
+	// (Python known_destinations entry[1]). Rows loaded from databases
+	// written before this fix may carry the full announce packet instead;
+	// both forms are only ever re-exported, never interpreted.
+	pktHash []byte
+	// pubKey is the 64-byte identity public key. Keeping raw key bytes
+	// instead of an *Identity avoids one Identity object per destination.
+	pubKey []byte
+	// id is set only when the remembered identity carries private
+	// material. Public-only identities are rebuilt lazily on recall.
+	id  *Identity
+	app []byte
+
+	// Stamp fields mirror Python known_destinations entry[5:8]:
+	// stamp bytes, stamp value, and announced link-request cost. lrCost is
+	// nil for Python None (no cost announced).
+	stamp      []byte
+	stampValue float64
+	lrCost     *float64
+}
+
+// hasPublicKey reports whether the entry carries a usable public key.
+func (e *knownDestEntry) hasPublicKey() bool {
+	return len(e.pubKey) == KeySize/8 || e.id != nil
+}
+
+// publicKeyBytes returns the stored or identity-carried public key.
+func (e *knownDestEntry) publicKeyBytes() []byte {
+	if len(e.pubKey) == KeySize/8 {
+		return e.pubKey
+	}
+	if e.id != nil {
+		return e.id.GetPublicKey()
+	}
+	return nil
+}
+
+// StampInfo carries announce stamp metadata recorded alongside a known
+// destination (Python remember() stamp/stamp_value/lr_cost arguments).
+// LRCost is nil when the announce did not carry a link cost.
+type StampInfo struct {
+	Stamp  []byte
+	Value  float64
+	LRCost *float64
 }
 
 var (
@@ -93,6 +135,61 @@ func New() (*Identity, error) {
 	i.cachePublicHash()
 
 	return i, nil
+}
+
+// NewIdentityWithValue creates an Identity whose X25519 keypair is a stamped
+// key of the given cost, matching Python Identity(value=v): the Ed25519
+// signing keypair is generated first, then the X25519 keypair is mined with
+// material = sig_pub_bytes. Generation can take a while at higher costs.
+func NewIdentityWithValue(value float64) (*Identity, error) {
+	return NewIdentityWithValueContext(context.Background(), value)
+}
+
+// NewIdentityWithValueContext is NewIdentityWithValue with cancellation.
+func NewIdentityWithValueContext(ctx context.Context, value float64) (*Identity, error) {
+	i := &Identity{
+		ratchets:      make(map[string]*securemem.Buf),
+		ratchetExpiry: make(map[string]int64),
+		mutex:         &sync.RWMutex{},
+	}
+
+	var ed25519Seed [32]byte
+	if _, err := io.ReadFull(rand.Reader, ed25519Seed[:]); err != nil {
+		return nil, fmt.Errorf("failed to generate Ed25519 seed: %w", err)
+	}
+	sigPub := ed25519.NewKeyFromSeed(ed25519Seed[:]).Public().(ed25519.PublicKey)
+
+	priv, pub, _, err := stamps.GenerateStampedKey(ctx, sigPub, value)
+	if err != nil {
+		securemem.WipeBytes(ed25519Seed[:])
+		return nil, fmt.Errorf("stamped key generation failed: %w", err)
+	}
+
+	if err := storeSigningMaterial(i, ed25519Seed[:]); err != nil {
+		securemem.WipeBytes(ed25519Seed[:])
+		securemem.WipeBytes(priv[:])
+		return nil, err
+	}
+	securemem.WipeBytes(ed25519Seed[:])
+	if err := storeX25519(i, priv[:]); err != nil {
+		securemem.WipeBytes(priv[:])
+		i.Close()
+		return nil, err
+	}
+	securemem.WipeBytes(priv[:])
+	i.publicKey = pub[:]
+	i.cachePublicHash()
+
+	return i, nil
+}
+
+// GetValue returns the stamp value of this identity (Python Identity.get_value):
+// stamp_value(sig_pub_bytes, x25519_pub_bytes). Zero when no public key is set.
+func (i *Identity) GetValue() float64 {
+	if i == nil || len(i.verificationKey) != 32 || len(i.publicKey) != 32 {
+		return 0
+	}
+	return stamps.StampValue(i.verificationKey, i.publicKey)
 }
 
 // GetPublicKey returns a fresh 64-byte X25519||Ed25519 public key, matching
@@ -258,13 +355,19 @@ func GetRandomHash() ([]byte, error) {
 // Remember stores a known destination from a validated announce.
 // Returns false when destHash is already known under a different public key.
 func Remember(packet []byte, destHash []byte, publicKey []byte, appData []byte) bool {
-	return rememberKnown(packet, destHash, publicKey, appData, nil)
+	return rememberKnown(packet, destHash, publicKey, appData, nil, nil)
 }
 
 // RememberIdentity is Remember using an already-built Identity when the
 // public key matches. Avoids a second FromPublicKey on first insert.
 func RememberIdentity(packet []byte, destHash []byte, publicKey []byte, appData []byte, id *Identity) bool {
-	return rememberKnown(packet, destHash, publicKey, appData, id)
+	return rememberKnown(packet, destHash, publicKey, appData, id, nil)
+}
+
+// RememberStamped is RememberIdentity plus the announce stamp metadata a
+// validated announce ext payload carried (RNS 1.6.0).
+func RememberStamped(packet []byte, destHash []byte, publicKey []byte, appData []byte, id *Identity, info *StampInfo) bool {
+	return rememberKnown(packet, destHash, publicKey, appData, id, info)
 }
 
 // KnownIdentityMatching returns the stored Identity for destHash when its
@@ -274,33 +377,61 @@ func KnownIdentityMatching(destHash, publicKey []byte) *Identity {
 	knownDestinationsLock.RLock()
 	e, ok := knownDestinations[key]
 	knownDestinationsLock.RUnlock()
-	if !ok || e.id == nil || !e.id.publicKeyEqual(publicKey) {
+	if !ok || !bytes.Equal(e.publicKeyBytes(), publicKey) {
 		return nil
 	}
-	return e.id
+	return e.cachedIdentity(key)
 }
 
-func rememberKnown(packet []byte, destHash []byte, publicKey []byte, appData []byte, id *Identity) bool {
+// cachedIdentity returns the stored identity, building and memoizing a
+// public-only one on first recall.
+func (e *knownDestEntry) cachedIdentity(key destMapKey) *Identity {
+	if e.id != nil {
+		return e.id
+	}
+	if len(e.pubKey) == 0 {
+		return nil
+	}
+	knownDestinationsLock.Lock()
+	defer knownDestinationsLock.Unlock()
+	cur, ok := knownDestinations[key]
+	if !ok {
+		return nil
+	}
+	if cur.id == nil {
+		cur.id = FromPublicKey(cur.pubKey)
+		knownDestinations[key] = cur
+	}
+	return cur.id
+}
+
+func rememberKnown(packet []byte, destHash []byte, publicKey []byte, appData []byte, id *Identity, info *StampInfo) bool {
 	hashStr := knownDestKey(destHash)
 
 	knownDestinationsLock.Lock()
 	defer knownDestinationsLock.Unlock()
 
+	pktHash := sha256.Sum256(packet)
 	now := time.Now().Unix()
-	if existing, ok := knownDestinations[hashStr]; ok && existing.id != nil {
-		if !existing.id.publicKeyEqual(publicKey) {
+	if existing, ok := knownDestinations[hashStr]; ok && len(existing.pubKey) > 0 {
+		if !bytes.Equal(existing.pubKey, publicKey) {
 			debug.Log(debug.DebugWarning, "Rejected announce: destination hash already known with a different public key")
 			return false
 		}
-		if bytes.Equal(existing.pkt, packet) && bytes.Equal(existing.app, appData) {
+		if bytes.Equal(existing.pktHash, pktHash[:]) && bytes.Equal(existing.app, appData) {
 			meta := knownDestMetaByKey[hashStr]
 			meta.rememberedAt = now
 			knownDestMetaByKey[hashStr] = meta
 			markKnownDestinationsDirty()
 			return true
 		}
-		existing.pkt = append([]byte(nil), packet...)
+		existing.pktHash = append(existing.pktHash[:0], pktHash[:]...)
 		existing.app = append([]byte(nil), appData...)
+		if info != nil {
+			existing.stamp = append(existing.stamp[:0], info.Stamp...)
+			existing.stampValue = info.Value
+			existing.lrCost = info.LRCost
+		}
 		knownDestinations[hashStr] = existing
 		meta := knownDestMetaByKey[hashStr]
 		meta.rememberedAt = now
@@ -309,16 +440,20 @@ func rememberKnown(packet []byte, destHash []byte, publicKey []byte, appData []b
 		return true
 	}
 
-	if id == nil || !id.publicKeyEqual(publicKey) {
-		id = FromPublicKey(publicKey)
+	entry := knownDestEntry{
+		pktHash: append([]byte(nil), pktHash[:]...),
+		pubKey:  append([]byte(nil), publicKey...),
+		app:     append([]byte(nil), appData...),
 	}
-	knownDestinations[hashStr] = knownDestEntry{
-		pkt:    append([]byte(nil), packet...),
-		hash:   append([]byte(nil), destHash...),
-		rawKey: string(hashStr[:]),
-		id:     id,
-		app:    append([]byte(nil), appData...),
+	if id != nil && id.publicKeyEqual(publicKey) && id.hasPrivateMaterial() {
+		entry.id = id
 	}
+	if info != nil {
+		entry.stamp = append([]byte(nil), info.Stamp...)
+		entry.stampValue = info.Value
+		entry.lrCost = info.LRCost
+	}
+	knownDestinations[hashStr] = entry
 	prev := knownDestMetaByKey[hashStr]
 	lastUsed := prev.lastUsed
 	if lastUsed < 0 {
@@ -430,12 +565,43 @@ func Recall(hash []byte) (*Identity, error) {
 	data, exists := knownDestinations[hashStr]
 	knownDestinationsLock.RUnlock()
 
-	if exists && data.id != nil {
-		TouchKnownDestination(hash)
-		return data.id, nil
+	if exists && data.hasPublicKey() {
+		if id := data.cachedIdentity(hashStr); id != nil {
+			TouchKnownDestination(hash)
+			return id, nil
+		}
 	}
 
 	return nil, common.ErrIdentityNotFoundf(hash)
+}
+
+// RecallStampValue returns the announce stamp value recorded for destHash
+// (Python Identity.recall_stamp_value). ok is false when the destination is
+// unknown; a known but unstamped destination reports 0, matching Python's
+// entry[6] default.
+func RecallStampValue(destHash []byte) (value float64, ok bool) {
+	hashStr := knownDestKey(destHash)
+	knownDestinationsLock.RLock()
+	e, exists := knownDestinations[hashStr]
+	knownDestinationsLock.RUnlock()
+	if !exists {
+		return 0, false
+	}
+	return e.stampValue, true
+}
+
+// RecallLinkCost returns the link-request stamp cost announced by destHash
+// (Python Identity.recall_link_cost). ok is false when the destination is
+// unknown or has not announced a cost.
+func RecallLinkCost(destHash []byte) (cost float64, ok bool) {
+	hashStr := knownDestKey(destHash)
+	knownDestinationsLock.RLock()
+	e, exists := knownDestinations[hashStr]
+	knownDestinationsLock.RUnlock()
+	if !exists || e.lrCost == nil {
+		return 0, false
+	}
+	return *e.lrCost, true
 }
 
 // GenerateHMACKey returns a fresh KeySize/8-byte HMAC key, or nil on RNG failure.
@@ -514,8 +680,10 @@ func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRat
 	// identity-key decryption even with no ratchets on hand.
 	var plaintext, ratchetID []byte
 	if len(ratchets) > 0 {
+		salt := i.GetSalt()
+		context := i.GetContext()
 		for _, ratchet := range ratchets {
-			if decrypted, id, err := i.tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet); err == nil {
+			if decrypted, id, err := i.tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet, salt, context); err == nil {
 				plaintext = decrypted
 				ratchetID = id
 				break
@@ -572,13 +740,46 @@ func (i *Identity) Decrypt(ciphertextToken []byte, ratchets [][]byte, enforceRat
 	return plaintext, nil
 }
 
+// ratchetPubCache memoizes X25519 public-key derivation for ratchet private
+// keys. Each inbound ratcheted message retries decryption against every
+// stored ratchet, and PublicKeyFromPrivate is a full scalar multiplication.
+// The cache key is SHA-256 of the private scalar so raw private material is
+// never retained as an ordinary map key; cached values are public keys.
+var ratchetPubCache = struct {
+	sync.Mutex
+	m map[[32]byte][]byte
+}{m: make(map[[32]byte][]byte)}
+
+const ratchetPubCacheMax = 4096
+
+func ratchetPublicKey(priv []byte) ([]byte, error) {
+	sum := sha256.Sum256(priv)
+	ratchetPubCache.Lock()
+	pub, ok := ratchetPubCache.m[sum]
+	ratchetPubCache.Unlock()
+	if ok {
+		return pub, nil
+	}
+	pub, err := cryptography.PublicKeyFromPrivate(priv)
+	if err != nil {
+		return nil, err
+	}
+	ratchetPubCache.Lock()
+	if len(ratchetPubCache.m) >= ratchetPubCacheMax {
+		ratchetPubCache.m = make(map[[32]byte][]byte, ratchetPubCacheMax)
+	}
+	ratchetPubCache.m[sum] = pub
+	ratchetPubCache.Unlock()
+	return pub, nil
+}
+
 // Helper function to attempt decryption using a ratchet
-func (i *Identity) tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet []byte) (plaintext, ratchetID []byte, err error) {
+func (i *Identity) tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet, salt, context []byte) (plaintext, ratchetID []byte, err error) {
 	// Convert ratchet to private key
 	ratchetPriv := ratchet
 
 	// Get ratchet ID
-	ratchetPubBytes, err := cryptography.PublicKeyFromPrivate(ratchetPriv)
+	ratchetPubBytes, err := ratchetPublicKey(ratchetPriv)
 	if err != nil {
 		debug.Log(debug.DebugAll, "Failed to generate ratchet public key", "error", err)
 		return nil, nil, err
@@ -591,7 +792,7 @@ func (i *Identity) tryRatchetDecryption(peerPubBytes, ciphertext, mac, ratchet [
 	}
 	defer securemem.WipeBytes(sharedSecret)
 
-	key, err := cryptography.DeriveIdentityKeyMaterial(sharedSecret, i.GetSalt(), i.GetContext())
+	key, err := cryptography.DeriveIdentityKeyMaterial(sharedSecret, salt, context)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -886,9 +1087,9 @@ func GetKnownDestination(hash string) ([]any, bool) {
 	knownDestinationsLock.RUnlock()
 	if exists {
 		return []any{
-			append([]byte(nil), data.pkt...),
-			append([]byte(nil), data.hash...),
-			data.id,
+			append([]byte(nil), data.pktHash...),
+			append([]byte(nil), key[:]...),
+			data.cachedIdentity(key),
 			append([]byte(nil), data.app...),
 		}, true
 	}

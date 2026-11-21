@@ -73,12 +73,6 @@ const (
 	MsgpackBin8MaxLen      = 255
 )
 
-// Single-byte boolean wire encoding used in path-request frames.
-const (
-	wireFlagFalse byte = 0x00
-	wireFlagTrue  byte = 0x01
-)
-
 // Tunables for transport bookkeeping.
 const (
 	// DiscoveryPRTagsCap bounds the in-memory dedupe set for

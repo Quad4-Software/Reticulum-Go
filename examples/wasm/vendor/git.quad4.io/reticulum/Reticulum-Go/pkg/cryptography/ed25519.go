@@ -6,6 +6,8 @@ package cryptography
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/securemem"
 )
 
 // Ed25519SignatureSize is the byte length of an Ed25519 signature.
@@ -16,7 +18,13 @@ func implGenerateSigningKeyPair() (ed25519.PublicKey, ed25519.PrivateKey, error)
 }
 
 func implSign(privateKey ed25519.PrivateKey, message []byte) []byte {
-	return ed25519.Sign(privateKey, message)
+	// stdlib ed25519 registers a weak handle on the key slice for its FIPS
+	// key cache, which requires a Go-heap pointer. securemem callers pass
+	// memory mapped outside the heap, so sign on a scoped copy and wipe it.
+	k := make(ed25519.PrivateKey, len(privateKey))
+	copy(k, privateKey)
+	defer securemem.WipeBytes(k)
+	return ed25519.Sign(k, message)
 }
 
 func implVerify(publicKey ed25519.PublicKey, message, signature []byte) bool {

@@ -143,6 +143,8 @@ func NewI2PInterface(name string, cfg *common.InterfaceConfig, ctx *FromConfigCo
 		serverDone:        make(chan struct{}),
 		acceptDone:        make(chan struct{}),
 	}
+	parent.SetTunnelsAllowed(true)
+	parent.SetLosslessMedium(true)
 	parent.In = true
 	parent.Out = false
 	parent.MTU = DefaultMTU
@@ -356,9 +358,11 @@ func (p *I2PInterface) registerSpawnedPeer(peer *I2PInterfacePeer) {
 	p.spawnMu.Lock()
 	p.spawned = append(p.spawned, peer)
 	p.spawnMu.Unlock()
+	drop := func() { p.removeSpawnedPeer(peer) }
 	if p.ctx != nil && p.ctx.RegisterPeer != nil {
 		if err := p.ctx.RegisterPeer(peer.GetName(), peer); err != nil {
 			debug.Log(debug.DebugError, "Failed to register I2P peer", "name", peer.GetName(), "error", err)
+			drop()
 			return
 		}
 	}
@@ -367,6 +371,7 @@ func (p *I2PInterface) registerSpawnedPeer(peer *I2PInterfacePeer) {
 	}
 	if err := peer.Start(); err != nil {
 		debug.Log(debug.DebugError, "Failed to start I2P peer", "name", peer.GetName(), "error", err)
+		drop()
 	}
 }
 
@@ -419,6 +424,8 @@ func NewI2PInterfacePeer(parent *I2PInterface, name, targetDest string, maxRecon
 	peer.MTU = DefaultMTU
 	peer.Bitrate = i2pBitrateGuess
 	peer.Mode = common.IFModeFull
+	peer.SetTunnelsAllowed(true)
+	peer.SetLosslessMedium(true)
 	applyI2PPeerConfig(peer, cfg)
 	go peer.tunnelSetupLoop()
 	return peer
@@ -439,6 +446,8 @@ func newI2PInterfacePeerAccepted(parent *I2PInterface, name string, conn net.Con
 	peer.MTU = parent.MTU
 	peer.Bitrate = parent.Bitrate
 	peer.Mode = common.IFModeFull
+	peer.SetTunnelsAllowed(true)
+	peer.SetLosslessMedium(true)
 	applyI2PPeerConfig(peer, parent.cfg)
 	peer.Online = true
 	_ = setI2PConnTimeouts(conn)
@@ -542,6 +551,10 @@ func (peer *I2PInterfacePeer) DetachAutoconnectFromParent() {
 }
 
 func (peer *I2PInterfacePeer) onConnected() {
+	// RNS 1.6.1: each new connection restarts tunnel synthesis state.
+	peer.wantsTunnel = true
+	peer.SetRemoteTransportHash(nil)
+	peer.SetSynthesisReceived(false)
 	if peer.wantsTunnel && peer.parent != nil && peer.parent.ctx != nil && peer.parent.ctx.SynthesizeTunnel != nil {
 		peer.parent.ctx.SynthesizeTunnel(peer)
 	}
@@ -772,17 +785,24 @@ func (peer *I2PInterfacePeer) readLoop() {
 	}
 }
 
+// SpawnedParent returns the owning I2PInterface for counter propagation
+// (Python parent_interface).
+func (peer *I2PInterfacePeer) SpawnedParent() common.NetworkInterface {
+	if peer.parent != nil {
+		return peer.parent
+	}
+	return nil
+}
+
 func (peer *I2PInterfacePeer) deliverFrame(data []byte) {
 	if len(data) == 0 {
 		return
 	}
 	peer.Mutex.Lock()
-	peer.RxBytes += uint64(len(data))
 	peer.RxPackets++
 	peer.Mutex.Unlock()
 	if peer.parentCount && peer.parent != nil {
 		peer.parent.Mutex.Lock()
-		peer.parent.RxBytes += uint64(len(data))
 		peer.parent.RxPackets++
 		peer.parent.Mutex.Unlock()
 	}

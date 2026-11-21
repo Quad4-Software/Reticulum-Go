@@ -5,6 +5,7 @@ package transport
 
 import (
 	"bytes"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"slices"
@@ -16,6 +17,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/health"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/packet"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/stamps"
 )
 
 // LinkRelayEntry is one row in the transit link relay table (link_table).
@@ -47,27 +49,27 @@ func newLinkRelayTable() *linkRelayTable {
 // validated entries drops the new insert instead.
 const maxLinkRelayEntries = 8192
 
+// linkRelayEvictBatch is how many unvalidated entries are dropped each time
+// the table overflows, amortizing the eviction scan over many inserts.
+const linkRelayEvictBatch = 1024
+
 func (lt *linkRelayTable) put(linkID []byte, entry *LinkRelayEntry) {
 	lt.mu.Lock()
 	defer lt.mu.Unlock()
 	if len(lt.entries) >= maxLinkRelayEntries {
-		var oldestKey hash16
-		var oldest time.Time
-		found := false
-		for k, e := range lt.entries {
-			if e == nil || !e.Validated {
-				if !found || e == nil || e.Timestamp.Before(oldest) {
-					oldestKey = k
-					if e != nil {
-						oldest = e.Timestamp
-					}
-					found = true
+		// Evict a batch of the oldest unvalidated entries in one sorted
+		// pass. The previous scan ran O(n) on every put once full; batching
+		// keeps the table below the cap for thousands of inserts at a time.
+		removed := evictOldestMapKeys(lt.entries,
+			func(e *LinkRelayEntry) time.Time {
+				if e == nil {
+					return time.Time{}
 				}
-			}
-		}
-		if found {
-			delete(lt.entries, oldestKey)
-		} else {
+				return e.Timestamp
+			},
+			func(e *LinkRelayEntry) bool { return e == nil || !e.Validated },
+			linkRelayEvictBatch)
+		if removed == 0 {
 			return
 		}
 	}
@@ -111,12 +113,6 @@ func (lt *linkRelayTable) touch(linkID []byte) {
 	if e, ok := lt.entries[hash16FromSlice(linkID)]; ok && e != nil {
 		e.Timestamp = time.Now()
 	}
-}
-
-func (lt *linkRelayTable) delete(linkID []byte) {
-	lt.mu.Lock()
-	defer lt.mu.Unlock()
-	delete(lt.entries, hash16FromSlice(linkID))
 }
 
 func (lt *linkRelayTable) sweep(maxIdle time.Duration) (expiredUnvalidated []*LinkRelayEntry, removed int) {
@@ -334,10 +330,12 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 		return false
 	}
 	if !hasPath || path == nil || path.Interface == nil {
-		debug.Log(debug.DebugInfo, common.MsgTransportNoPathForLinkRelay,
-			"dest_hash", fmt.Sprintf("%x", destHash),
-			"iface", sourceIface.GetName(),
-			"hint", "call Transport.AwaitPath before Link.Establish")
+		if allowNoPathLog(destHash, sourceIface.GetName()) {
+			debug.Log(debug.DebugInfo, common.MsgTransportNoPathForLinkRelay,
+				"dest_hash", fmt.Sprintf("%x", destHash),
+				"iface", sourceIface.GetName(),
+				"hint", "call Transport.AwaitPath before Link.Establish")
+		}
 		return true
 	}
 	if path.Interface == sourceIface {
@@ -351,7 +349,7 @@ func (t *Transport) forwardTransportPacket(pkt *packet.Packet, raw []byte, sourc
 	fromLocal := isLocalClientInterface(sourceIface)
 	newHops := linkRelayAccountedHops(pkt.Hops, fromLocal)
 	if newHops >= MaxHops {
-		if debug.Enabled(debug.DebugInfo) {
+		if debug.Enabled(debug.DebugInfo) && noPathLogRate.allow("mh|"+sourceIface.GetName()+"|"+string(destHash)) {
 			debug.Log(debug.DebugInfo, "Transport packet exceeds MaxHops, dropping",
 				"hops", newHops)
 		}
@@ -435,8 +433,10 @@ func (t *Transport) forwardLocalClientPacket(pkt *packet.Packet, raw []byte, sou
 
 	newHops := linkRelayAccountedHops(raw[1], true)
 	if newHops >= MaxHops {
-		debug.Log(debug.DebugInfo, "Local client packet exceeds MaxHops, dropping",
-			"hops", newHops)
+		if noPathLogRate.allow("mh|" + sourceIface.GetName() + "|" + string(destHash)) {
+			debug.Log(debug.DebugInfo, "Local client packet exceeds MaxHops, dropping",
+				"hops", newHops)
+		}
 		return true
 	}
 
@@ -593,6 +593,9 @@ func (t *Transport) forwardLinkData(linkID []byte, raw []byte, sourceIface commo
 			"error", err,
 			"out_iface", outIface.GetName())
 	}
+	if !isLocalClientInterface(outIface) {
+		t.linkTxB.Add(uint64(len(out)))
+	}
 	t.linkTable.touch(linkID)
 	return true
 }
@@ -643,7 +646,7 @@ func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, s
 	_, isLocal := t.destinations[destKey]
 	t.mutex.RUnlock()
 	if isLocal || !hasPath || path == nil || path.Interface == nil {
-		if !isLocal {
+		if !isLocal && allowNoPathLog(destHash, sourceIface.GetName()) {
 			debug.Log(debug.DebugInfo, common.MsgTransportNoPathForLinkRelay,
 				"dest_hash", fmt.Sprintf("%x", destHash),
 				"iface", sourceIface.GetName(),
@@ -664,7 +667,9 @@ func (t *Transport) relayBridgedLinkRequestHT1(pkt *packet.Packet, raw []byte, s
 	fromLocal := isLocalClientInterface(sourceIface)
 	newHops := linkRelayAccountedHops(pkt.Hops, fromLocal)
 	if newHops >= MaxHops {
-		debug.Log(debug.DebugInfo, "Bridged link request exceeds MaxHops, dropping", "hops", newHops)
+		if noPathLogRate.allow("mh|" + sourceIface.GetName() + "|" + string(destHash)) {
+			debug.Log(debug.DebugInfo, "Bridged link request exceeds MaxHops, dropping", "hops", newHops)
+		}
 		return true
 	}
 
@@ -719,7 +724,7 @@ func (t *Transport) discoveryFanoutIfaces(exclude common.NetworkInterface) []com
 	return ifaces
 }
 
-func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag []byte, exclude common.NetworkInterface) {
+func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag, ext []byte, exclude common.NetworkInterface) {
 	if !t.transportEnabled() {
 		return
 	}
@@ -727,13 +732,30 @@ func (t *Transport) rebroadcastPathRequest(destHash, requestorTransportID, tag [
 	if len(ifaces) == 0 {
 		return
 	}
+	// Relayed PRs carry their ext payload as received; unstamped requests
+	// relayed by a stamp-aware node get the lenient 0xFF placeholder
+	// (RNS 1.6.0 transition behaviour when STAMP_PRS is on).
+	if ext == nil && t.StampPRs() {
+		ext = append([]byte{stamps.ExtPayloadMarker, 0xFF}, make([]byte, stamps.StampLength)...)
+	}
+	// Python path_request relays reuse the received tag on every interface
+	// ("to avoid potential loops") and never throttle relayed requests.
+	// A nil tag would make requestPath mint a fresh one per call and hit
+	// the per-destination PathRequestMI throttle after the first iface.
+	if tag == nil {
+		tag = make([]byte, identity.TruncatedHashLength/8)
+		if _, err := rand.Read(tag); err != nil {
+			debug.Log(debug.DebugError, "Failed to generate relayed path request tag", "error", err)
+			return
+		}
+	}
 	for _, iface := range ifaces {
 		// Re-check at emit time (RNS 1.4.2 online gate). An iface may go
 		// offline or lose bitrate while the discovery PR queue drains.
 		if !ifaceReadyForPathRequest(iface) {
 			continue
 		}
-		if err := t.RequestPath(destHash, iface.GetName(), tag, true); err != nil {
+		if err := t.requestPath(destHash, iface.GetName(), tag, ext, true); err != nil {
 			debug.Log(debug.DebugVerbose, "Path-request rebroadcast failed",
 				"iface", iface.GetName(), "error", err)
 		}
@@ -770,7 +792,7 @@ func modeInFilter(mode common.InterfaceMode, filter []common.InterfaceMode) bool
 	return slices.Contains(filter, mode)
 }
 
-func (t *Transport) queueDiscoveryPathRequest(destHash []byte, exclude common.NetworkInterface) {
+func (t *Transport) queueDiscoveryPathRequest(destHash, tag, ext []byte, exclude common.NetworkInterface) {
 	t.pendingDiscoveryPRMu.Lock()
 	if len(t.pendingDiscoveryPRs) >= maxQueuedDiscoveryPRs {
 		t.pendingDiscoveryPRMu.Unlock()
@@ -780,10 +802,12 @@ func (t *Transport) queueDiscoveryPathRequest(destHash []byte, exclude common.Ne
 		}
 		return
 	}
+	// Copy: destHash, tag and ext alias a pooled inbound buffer recycled
+	// after the packet job ends, long before the drainer rebroadcasts.
 	t.pendingDiscoveryPRs = append(t.pendingDiscoveryPRs, pendingDiscoveryPR{
-		// Copy: destHash aliases a pooled inbound buffer recycled after the
-		// packet job ends, long before the drainer rebroadcasts.
 		destHash: append([]byte(nil), destHash...),
+		tag:      append([]byte(nil), tag...),
+		ext:      append([]byte(nil), ext...),
 		exclude:  exclude,
 	})
 	shouldStart := !t.discoveryDraining.Load()
@@ -815,7 +839,7 @@ func (t *Transport) drainDiscoveryPRs() {
 		t.pendingDiscoveryPRs = t.pendingDiscoveryPRs[1:]
 		t.pendingDiscoveryPRMu.Unlock()
 
-		t.rebroadcastPathRequest(entry.destHash, nil, nil, entry.exclude)
+		t.rebroadcastPathRequest(entry.destHash, nil, entry.tag, entry.ext, entry.exclude)
 		select {
 		case <-t.done:
 			return

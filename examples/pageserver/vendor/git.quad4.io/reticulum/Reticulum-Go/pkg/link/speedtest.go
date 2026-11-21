@@ -289,9 +289,13 @@ func RunSpeedtest(initiator, responder *Link, opt SpeedtestOptions) (SpeedtestRe
 func RunLoopbackSpeedtest(opt SpeedtestOptions) (SpeedtestResult, error) {
 	opt = normalizeSpeedtestOptions(opt)
 
+	// 1.6.1 defers announces to the async stamper by default. The in-process
+	// pipe needs the announce emitted synchronously for the link to find a path.
 	cfgA := &common.ReticulumConfig{}
+	cfgA.Stamps.StampDestinationsSet = true
 	trA := transport.NewTransport(cfgA)
 	cfgB := &common.ReticulumConfig{}
+	cfgB.Stamps.StampDestinationsSet = true
 	trB := transport.NewTransport(cfgB)
 
 	pa := newSpeedPipe("speedpipeA")

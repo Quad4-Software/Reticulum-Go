@@ -72,22 +72,22 @@ func (t *ClientTunnel) Run(ctx context.Context) error {
 		return t.client.NamingLookup(setupCtx, name)
 	})
 	if err != nil {
-		t.setStatus(true, true, err)
+		t.setStatus(true, err)
 		return err
 	}
 	sess, err := t.client.OpenSession(setupCtx, GenerateSessionID(), transientDest)
 	if err != nil {
-		t.setStatus(true, true, err)
+		t.setStatus(true, err)
 		return err
 	}
 	t.session = sess
 	ln, err := net.Listen("tcp", t.localAddr)
 	if err != nil {
-		t.setStatus(true, true, err)
+		t.setStatus(true, err)
 		return err
 	}
 	t.listener = ln
-	t.setStatus(true, false, nil)
+	t.setStatus(false, nil)
 	debug.Log(debug.DebugInfo, "I2P client tunnel listening", "addr", t.localAddr, "dest", t.remoteDest)
 
 	t.wg.Add(1)
@@ -145,8 +145,8 @@ func (t *ClientTunnel) Stop() {
 	t.wg.Wait()
 }
 
-func (t *ClientTunnel) setStatus(ran, failed bool, err error) {
-	t.status.Store(TunnelStatus{SetupRan: ran, SetupFailed: failed, Err: err})
+func (t *ClientTunnel) setStatus(failed bool, err error) {
+	t.status.Store(TunnelStatus{SetupRan: true, SetupFailed: failed, Err: err})
 }
 
 // ServerTunnel accepts inbound I2P connections and forwards to a local service.
@@ -189,8 +189,8 @@ func (t *ServerTunnel) Stop() {
 	t.wg.Wait()
 }
 
-func (t *ServerTunnel) setStatus(ran, failed bool, err error) {
-	t.status.Store(TunnelStatus{SetupRan: ran, SetupFailed: failed, Err: err})
+func (t *ServerTunnel) setStatus(failed bool, err error) {
+	t.status.Store(TunnelStatus{SetupRan: true, SetupFailed: failed, Err: err})
 }
 
 func ioCopyAndClose(dst, src net.Conn) {
@@ -222,15 +222,15 @@ func (t *ServerTunnel) Run(ctx context.Context) error {
 	}
 	sess, err := t.client.OpenSession(setupCtx, GenerateSessionID(), dest)
 	if err != nil {
-		t.setStatus(true, true, err)
+		t.setStatus(true, err)
 		return err
 	}
 	t.session = sess
 	if t.destination == nil {
-		t.setStatus(true, true, ErrTunnelSetup)
+		t.setStatus(true, ErrTunnelSetup)
 		return ErrTunnelSetup
 	}
-	t.setStatus(true, false, nil)
+	t.setStatus(false, nil)
 	debug.Log(debug.DebugInfo, "I2P server tunnel ready", "b32", t.destination.Base32())
 
 	t.wg.Add(1)

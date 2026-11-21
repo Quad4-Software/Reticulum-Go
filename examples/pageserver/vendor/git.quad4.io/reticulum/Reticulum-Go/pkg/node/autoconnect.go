@@ -14,6 +14,7 @@ import (
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/discovery"
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/interfaces"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/stamps"
 )
 
 const autoconnectMonitorInterval = 5 * time.Second
@@ -118,6 +119,18 @@ func (n *Node) autoconnectPeerConfig() *common.InterfaceConfig {
 func (n *Node) autoconnectQualified(info *discovery.ReceivedAnnounceInfo) bool {
 	if !info.Info.Transport {
 		return false
+	}
+	// RNS 1.6.0: when the announce carries interface costs, only
+	// auto-connect if we meet both announced requirements.
+	if info.Info.DstCost != nil && info.Info.PrCost != nil && n.transport != nil {
+		dv := stamps.QuantizeCost(n.transport.DestinationValue())
+		pv := stamps.QuantizeCost(n.transport.PRValue())
+		if *info.Info.DstCost > dv || *info.Info.PrCost > pv {
+			debug.Log(debug.DebugVerbose, "Not auto-connecting discovered interface, announced costs exceed ours",
+				"dst_cost", *info.Info.DstCost, "pr_cost", *info.Info.PrCost,
+				"our_dst", dv, "our_pr", pv)
+			return false
+		}
 	}
 	if n.config.AutoconnectUnverifiedImplementations {
 		return true

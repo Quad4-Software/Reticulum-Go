@@ -48,9 +48,9 @@ require (
 	github.com/Quad4-Software/bzip2 v1.0.1
 	github.com/Quad4-Software/msgpack/v5 v5.9.2
 	github.com/Quad4-Software/pbt v1.0.2
-	github.com/landlock-lsm/go-landlock v0.11.0
-	golang.org/x/crypto v0.58.0
-	golang.org/x/sys v0.49.0
+	github.com/landlock-lsm/go-landlock v0.11.2
+	golang.org/x/crypto v0.59.0
+	golang.org/x/sys v0.50.0
 )
 
 require (
@@ -80,7 +80,7 @@ require (
 	github.com/Quad4-Software/msgpack/v5 v5.9.2 // indirect
 	github.com/Quad4-Software/pbt v1.0.2 // indirect
 	github.com/Quad4-Software/tagparser/v2 v2.2.1 // indirect
-	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/crypto v0.59.0 // indirect
 	golang.org/x/net v0.62.0 // indirect
 )
 
@@ -106,7 +106,7 @@ require (
 	github.com/Quad4-Software/msgpack/v5 v5.9.2 // indirect
 	github.com/Quad4-Software/pbt v1.0.2 // indirect
 	github.com/Quad4-Software/tagparser/v2 v2.2.1 // indirect
-	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/crypto v0.59.0 // indirect
 	golang.org/x/net v0.62.0 // indirect
 )
 

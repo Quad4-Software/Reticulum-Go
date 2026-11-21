@@ -134,9 +134,25 @@ type InterfaceConfig struct {
 	Gravity    int
 	GravitySet bool
 
+	// HopLimiter overrides the transport hop limiter for packets received on
+	// this interface (RNS 1.6.1 interface hop_limiter). 0 means use the
+	// transport value. Python clamps to [0, PATHFINDER_M].
+	HopLimiter    int
+	HopLimiterSet bool
+
 	// RecursivePRs enables path discovery for unknown destinations on this
 	// interface.
 	RecursivePRs bool
+
+	// DestinationCost is the per-interface required announce stamp cost
+	// (RNS 1.6.0 destination_cost). Unset inherits the transport default.
+	DestinationCost    float64
+	DestinationCostSet bool
+
+	// PRCost is the per-interface required path-request stamp cost
+	// (RNS 1.6.0 pr_cost). Unset inherits the transport default.
+	PRCost    float64
+	PRCostSet bool
 
 	// AnnouncesFromInternal controls whether announces learned via an
 	// internal-mode next hop are rebroadcast. Default true when unset.
@@ -196,6 +212,9 @@ type InterfaceConfig struct {
 	FastFlappingThreshold    float64 // seconds connected under this counts as a flap
 	FastFlappingGrace        int     // flaps allowed before block
 	FastFlappingBlockTimeMin float64 // block duration in minutes
+	// ClientLimit caps spawned client interfaces on a backbone listener
+	// (RNS 1.6.1, default 500).
+	ClientLimit int
 
 	// Modem73Interface control socket and modem policy.
 	ControlHost       string
@@ -252,20 +271,26 @@ const (
 
 // ReticulumConfig represents the main configuration structure
 type ReticulumConfig struct {
-	ConfigPath          string
-	EnableTransport     bool
-	ShareInstance       bool
-	SharedInstancePort  int
-	InstanceControlPort int
-	SharedInstanceType  string
-	InstanceName        string
-	RPCKey              []byte
-	PanicOnInterfaceErr bool
-	LogLevel            int
-	Interfaces          map[string]*InterfaceConfig
-	AppName             string
-	AppAspect           string
-	EnableSandbox       bool
+	ConfigPath      string
+	EnableTransport bool
+	ShareInstance   bool
+
+	// EnablePacketProfiling turns on per-packet-job live profiling spans
+	// (profiler_results RPC). Off by default: the capture costs a few
+	// hundred ns plus allocations per inbound packet, which is measurable
+	// under load. Python RNS does not instrument its packet path at all.
+	EnablePacketProfiling bool
+	SharedInstancePort    int
+	InstanceControlPort   int
+	SharedInstanceType    string
+	InstanceName          string
+	RPCKey                []byte
+	PanicOnInterfaceErr   bool
+	LogLevel              int
+	Interfaces            map[string]*InterfaceConfig
+	AppName               string
+	AppAspect             string
+	EnableSandbox         bool
 
 	// EnableSeccomp installs a Linux seccomp denylist after Landlock when the
 	// sandbox is enabled. Default true. Soft-fails if the kernel rejects the filter.
@@ -293,6 +318,11 @@ type ReticulumConfig struct {
 	// Zero disables autoconnect (Python autoconnect_discovered_interfaces).
 	AutoconnectDiscoveredInterfaces int
 
+	// AutoconnectDisableCaps opts out of the RNS 1.6.1 warn/cap on the
+	// autoconnect target (Python
+	// autoconnect_discovered_interfaces_disable_caps).
+	AutoconnectDisableCaps bool
+
 	// AutoconnectUnverifiedImplementations allows auto-connecting discovered
 	// interfaces whose announces carry no implementation/version info or that
 	// fail the implementation/version criteria (RNS 1.5.5
@@ -301,7 +331,7 @@ type ReticulumConfig struct {
 
 	// DisableInterfaceManagement turns off attach/detach/reload of interfaces
 	// over the shared instance RPC (RNS 1.5.5 enable_interface_management).
-	// Interface management is enabled by default; the negative flag keeps the
+	// Interface management is enabled by default. The negative flag keeps the
 	// zero value matching Python's default.
 	DisableInterfaceManagement bool
 
@@ -399,6 +429,19 @@ type ReticulumConfig struct {
 	MaxPacketHashlist    int
 	MaxPacketHashlistSet bool
 
+	// MaxSeenAnnounces caps the seen-announce dedup table. Zero uses
+	// DefaultMaxSeenAnnounces. Negative disables eviction (unbounded).
+	MaxSeenAnnounces int
+
+	// MaxReverseEntries caps the reverse proof relay table. Zero uses the
+	// built-in default. Negative disables eviction (unbounded).
+	MaxReverseEntries int
+
+	// MaxAnnounceCache caps cached announce packets kept for path
+	// responses. Zero uses the path-table-derived default. Negative
+	// disables the cap.
+	MaxAnnounceCache int
+
 	// MaxPacketHandlers is the HandlePacket worker count and queue depth.
 	// Zero uses DefaultMaxPacketHandlers (512).
 	MaxPacketHandlers    int
@@ -438,6 +481,13 @@ type ReticulumConfig struct {
 	// instance sockets: auto, epoll, kqueue, io_uring, or go.
 	BackboneIO    string
 	BackboneIOSet bool
+
+	// Stamps carries the parsed [stamps] section (RNS 1.6.0). Resolve with
+	// StampsSettings().
+	Stamps StampsConfig
+
+	// Filter carries the parsed [filter] section (RNS 1.6.0).
+	Filter FilterConfig
 
 	// DiscoverInterfaces enables rnstransport discovery listening and
 	// AutoInterface NIC rescan when supported.
@@ -493,7 +543,7 @@ type ReticulumConfig struct {
 // NewReticulumConfig creates a new ReticulumConfig with default values
 func NewReticulumConfig() *ReticulumConfig {
 	return &ReticulumConfig{
-		EnableTransport:     true,
+		EnableTransport:     false,
 		ShareInstance:       true,
 		SharedInstancePort:  DefaultSharedInstancePort,
 		InstanceControlPort: DefaultInstanceControlPort,
@@ -559,7 +609,7 @@ func (c *ReticulumConfig) GetInterfaces() map[string]InterfaceConfig {
 // DefaultConfig returns a ReticulumConfig with built-in defaults.
 func DefaultConfig() *ReticulumConfig {
 	return &ReticulumConfig{
-		EnableTransport:     true,
+		EnableTransport:     false,
 		ShareInstance:       true,
 		SharedInstancePort:  DefaultSharedInstancePort,
 		InstanceControlPort: DefaultInstanceControlPort,

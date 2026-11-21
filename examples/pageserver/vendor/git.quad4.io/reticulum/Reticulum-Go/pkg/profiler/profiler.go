@@ -31,15 +31,24 @@ type tagState struct {
 	mu       sync.Mutex
 	super    string
 	hasSuper bool
-	captures []capture
-	running  map[uint64][]int
+	// captures is a FIFO of *capture bounded at MaxCaptures, matching the
+	// Python deque(maxlen=) semantics: eviction drops the oldest entry but
+	// running stacks keep their own reference so End still lands. head is
+	// the index of the oldest live entry; entries before head are dead.
+	captures []*capture
+	head     int
+	running  map[uint64][]*capture
 }
 
 var (
-	globalMu  sync.Mutex
+	globalMu  sync.RWMutex
 	tags      = map[string]*tagState{}
 	ranAtomic atomic.Bool
 	gidSeq    atomic.Uint64
+	// capturePool recycles evicted captures. A capture is only returned to
+	// the pool once done, so a span still in flight can never alias a
+	// recycled slot.
+	capturePool = sync.Pool{New: func() any { return &capture{} }}
 )
 
 // Span is an open capture. Call End when finished.
@@ -61,10 +70,11 @@ func StartSuper(tag, superTag string, hasSuper bool) *Span {
 	st := getTag(tag, superTag, hasSuper)
 	now := float64(time.Now().UnixNano()) / 1e9
 	id := gidSeq.Add(1)
+	c := capturePool.Get().(*capture)
+	*c = capture{start: now, threadIdent: id}
 	st.mu.Lock()
-	st.push(capture{start: now, threadIdent: id})
-	idx := len(st.captures) - 1
-	st.running[id] = append(st.running[id], idx)
+	st.push(c)
+	st.running[id] = append(st.running[id], c)
 	st.mu.Unlock()
 	return &Span{tag: tag, id: id}
 }
@@ -85,15 +95,11 @@ func (s *Span) End() {
 	if len(stack) == 0 {
 		return
 	}
-	idx := stack[len(stack)-1]
+	c := stack[len(stack)-1]
 	st.running[s.id] = stack[:len(stack)-1]
 	if len(st.running[s.id]) == 0 {
 		delete(st.running, s.id)
 	}
-	if idx < 0 || idx >= len(st.captures) {
-		return
-	}
-	c := &st.captures[idx]
 	if c.done {
 		return
 	}
@@ -110,52 +116,62 @@ func Do(tag string, fn func()) {
 }
 
 func getTag(tag, super string, hasSuper bool) *tagState {
-	globalMu.Lock()
-	defer globalMu.Unlock()
+	globalMu.RLock()
 	st, ok := tags[tag]
-	if !ok {
-		st = &tagState{
-			super:    super,
-			hasSuper: hasSuper,
-			captures: make([]capture, 0, 64),
-			running:  make(map[uint64][]int),
+	globalMu.RUnlock()
+	if ok {
+		if hasSuper {
+			globalMu.Lock()
+			if !st.hasSuper {
+				st.super = super
+				st.hasSuper = true
+			}
+			globalMu.Unlock()
 		}
-		tags[tag] = st
 		return st
 	}
-	if hasSuper && !st.hasSuper {
-		st.super = super
-		st.hasSuper = true
+	globalMu.Lock()
+	defer globalMu.Unlock()
+	if st, ok = tags[tag]; ok {
+		return st
 	}
+	st = &tagState{
+		super:    super,
+		hasSuper: hasSuper,
+		running:  make(map[uint64][]*capture),
+	}
+	tags[tag] = st
 	return st
 }
 
 func lookupTag(tag string) *tagState {
-	globalMu.Lock()
-	defer globalMu.Unlock()
+	globalMu.RLock()
+	defer globalMu.RUnlock()
 	return tags[tag]
 }
 
-func (st *tagState) push(c capture) {
-	if len(st.captures) >= MaxCaptures {
-		// Drop oldest like Python deque(maxlen=). Adjust running indices.
-		st.captures = st.captures[1:]
-		for id, stack := range st.running {
-			out := stack[:0]
-			for _, idx := range stack {
-				if idx == 0 {
-					continue
-				}
-				out = append(out, idx-1)
-			}
-			if len(out) == 0 {
-				delete(st.running, id)
-			} else {
-				st.running[id] = out
-			}
+// push appends c to the bounded FIFO, evicting the oldest entry at
+// MaxCaptures like the Python deque(maxlen=). Evicted captures that
+// already completed are recycled through capturePool; captures still
+// referenced by a running stack are left for the GC, matching Python
+// where the deque drop does not invalidate the thread's running ref.
+func (st *tagState) push(c *capture) {
+	live := len(st.captures) - st.head
+	if live >= MaxCaptures {
+		old := st.captures[st.head]
+		st.captures[st.head] = nil
+		st.head++
+		if old.done {
+			capturePool.Put(old)
 		}
 	}
 	st.captures = append(st.captures, c)
+	// Compact the dead prefix occasionally so the backing array does not
+	// grow without bound under sustained load.
+	if st.head > 256 && st.head*2 >= len(st.captures) {
+		st.captures = append([]*capture(nil), st.captures[st.head:]...)
+		st.head = 0
+	}
 }
 
 // Ran reports whether any capture has completed (Python Profiler.ran).
@@ -223,7 +239,13 @@ func Results() map[string]TagResult {
 	for i, name := range names {
 		st := snaps[i].st
 		st.mu.Lock()
-		caps := append([]capture(nil), st.captures...)
+		live := st.captures[st.head:]
+		caps := make([]capture, 0, len(live))
+		for _, c := range live {
+			if c != nil {
+				caps = append(caps, *c)
+			}
+		}
 		st.mu.Unlock()
 
 		completed := make([]capture, 0, len(caps))

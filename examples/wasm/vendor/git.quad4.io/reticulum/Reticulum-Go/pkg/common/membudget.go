@@ -5,7 +5,11 @@ package common
 
 import (
 	"errors"
+	"math"
+	"os"
 	"runtime/debug"
+	"strconv"
+	"strings"
 	"sync/atomic"
 )
 
@@ -91,4 +95,80 @@ func ApplySoftMemoryLimit(limitBytes int64) int64 {
 		return debug.SetMemoryLimit(-1)
 	}
 	return debug.SetMemoryLimit(limitBytes)
+}
+
+// defaultSoftMemoryLimitFraction is the share of the detected memory
+// ceiling used for the default soft heap limit.
+const defaultSoftMemoryLimitFraction = 65
+
+// DefaultSoftMemoryLimitBytes derives a default soft heap limit of about
+// 65 percent of the cgroup memory limit when one is set, else of total
+// system memory. Returns 0 when no ceiling can be determined, leaving the
+// runtime default (unlimited).
+func DefaultSoftMemoryLimitBytes() int64 {
+	if lim := cgroupMemoryLimit(); lim > 0 {
+		return lim * defaultSoftMemoryLimitFraction / 100
+	}
+	if lim := systemMemoryBytes(); lim > 0 {
+		return lim * defaultSoftMemoryLimitFraction / 100
+	}
+	return 0
+}
+
+// ApplyDefaultSoftMemoryLimit installs a derived soft heap limit when the
+// caller has not configured one: no soft_memory_limit config value, no
+// GOMEMLIMIT environment setting, and no earlier programmatic limit. It
+// reports the limit applied (0 when the runtime default stays in effect).
+func ApplyDefaultSoftMemoryLimit() int64 {
+	if os.Getenv("GOMEMLIMIT") != "" {
+		return 0
+	}
+	if debug.SetMemoryLimit(-1) != math.MaxInt64 {
+		return 0
+	}
+	lim := DefaultSoftMemoryLimitBytes()
+	if lim <= 0 {
+		return 0
+	}
+	debug.SetMemoryLimit(lim)
+	return lim
+}
+
+// cgroupMemoryLimit reads the cgroup v2 or v1 memory ceiling. A v1
+// sentinel near math.MaxInt64 means "no limit" and yields 0.
+func cgroupMemoryLimit() int64 {
+	if data, err := os.ReadFile("/sys/fs/cgroup/memory.max"); err == nil {
+		s := strings.TrimSpace(string(data))
+		if s != "max" {
+			if v, err := strconv.ParseInt(s, 10, 64); err == nil && v > 0 {
+				return v
+			}
+		}
+	}
+	if data, err := os.ReadFile("/sys/fs/cgroup/memory/memory.limit_in_bytes"); err == nil {
+		if v, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64); err == nil && v > 0 && v < math.MaxInt64/2 {
+			return v
+		}
+	}
+	return 0
+}
+
+// systemMemoryBytes reads MemTotal from /proc/meminfo. Returns 0 on any
+// error, for example on non-Linux systems.
+func systemMemoryBytes() int64 {
+	data, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		return 0
+	}
+	for line := range strings.Lines(string(data)) {
+		if strings.HasPrefix(line, "MemTotal:") {
+			fields := strings.Fields(line)
+			if len(fields) >= 2 {
+				if kb, err := strconv.ParseInt(fields[1], 10, 64); err == nil {
+					return kb * 1024
+				}
+			}
+		}
+	}
+	return 0
 }

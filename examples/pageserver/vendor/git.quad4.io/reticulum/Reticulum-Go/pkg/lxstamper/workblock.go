@@ -7,10 +7,10 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"runtime"
 	"sync"
 
 	"git.quad4.io/reticulum/Reticulum-Go/pkg/cryptography"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/stamps"
 	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
 )
 
@@ -34,7 +34,7 @@ func StampWorkblockCPU(material []byte, expandRounds int) ([]byte, error) {
 
 func cpuExpandWorkblock(material []byte, expandRounds int) ([]byte, error) {
 	out := make([]byte, 256*expandRounds)
-	workers := max(min(runtime.GOMAXPROCS(0), expandRounds), 1)
+	workers := max(min(stamps.WorkerCount(), expandRounds), 1)
 	var (
 		wg   sync.WaitGroup
 		once sync.Once

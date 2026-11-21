@@ -54,14 +54,6 @@ type repoStats struct {
 	DateRange      string
 }
 
-// statsDB mirrors the msgpack layout the Python node persists:
-// {"pages":{"front":{day:count}}, "groups":{group:{"view":{day:count},
-// "repositories":{repo:{kind:{day:count}}}}}}
-type statsDB struct {
-	Pages  map[string]map[string]int64 `msgpack:"pages"`
-	Groups map[string]map[string]any   `msgpack:"groups"`
-}
-
 // statsStore records and persists daily counters.
 type statsStore struct {
 	mu      sync.Mutex

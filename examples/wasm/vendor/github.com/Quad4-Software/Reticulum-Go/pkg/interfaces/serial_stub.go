@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: LicenseRef-Reticulum
+// Copyright (c) 2024-2026 Quad4.io
+
+//go:build js
+
+package interfaces
+
+import (
+	"fmt"
+	"runtime"
+	"time"
+
+	"github.com/Quad4-Software/Reticulum-Go/pkg/common"
+)
+
+const serialDefaultIFACSize = 8
+
+// SerialInterface is unavailable on this platform.
+type SerialInterface struct {
+	BaseInterface
+}
+
+// SerialOptions is a stub for unsupported platforms.
+type SerialOptions struct {
+	Device            string
+	Speed             int
+	DataBits          int
+	Parity            string
+	StopBits          int
+	RTSCTS            bool
+	DSRDTR            bool
+	XONXOFF           bool
+	FrameIdle         time.Duration
+	ReconnectDelay    time.Duration
+	MaxReconnectTries int
+	MTU               int
+	Bitrate           int64
+}
+
+// NewSerialInterface returns an error on unsupported platforms.
+func NewSerialInterface(name string, enabled bool, opts SerialOptions) (*SerialInterface, error) {
+	return nil, fmt.Errorf("SerialInterface is not available on %s/%s", runtime.GOOS, runtime.GOARCH)
+}
+
+func (si *SerialInterface) GetType() common.InterfaceType { return common.IFTypeSerial }

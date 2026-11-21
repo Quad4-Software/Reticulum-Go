@@ -47,6 +47,9 @@ type knownDestRecord struct {
 	appData      []byte
 	rememberedAt float64
 	lastUsed     float64
+	stamp        []byte
+	stampValue   float64
+	lrCost       *float64
 }
 
 // decodeKnownDestinations parses a known_destinations snapshot. Both
@@ -97,6 +100,25 @@ func decodeKnownDestinations(data []byte) (records []knownDestRecord, skipped in
 		if len(entry) >= 5 {
 			lastUsed = asFloat64(entry[4])
 		}
+		// RNS 1.6.0 entries extend to [stamp, stamp_value, lr_cost].
+		// Shorter legacy entries leave these zero/nil, matching the
+		// Python upgrade to [..., 0, None, 0, None].
+		var stamp []byte
+		if len(entry) >= 6 {
+			if raw, ok := entry[5].([]byte); ok && len(raw) > 0 {
+				stamp = append([]byte(nil), raw...)
+			}
+		}
+		stampValue := float64(0)
+		if len(entry) >= 7 {
+			stampValue = asFloat64(entry[6])
+		}
+		var lrCost *float64
+		if len(entry) >= 8 {
+			if c, ok := asFloat64Opt(entry[7]); ok {
+				lrCost = &c
+			}
+		}
 
 		records = append(records, knownDestRecord{
 			destHash:     destHash,
@@ -105,10 +127,29 @@ func decodeKnownDestinations(data []byte) (records []knownDestRecord, skipped in
 			appData:      appData,
 			rememberedAt: rememberedAt,
 			lastUsed:     lastUsed,
+			stamp:        stamp,
+			stampValue:   stampValue,
+			lrCost:       lrCost,
 		})
 	}
 
 	return records, skipped, nil
+}
+
+func asFloat64Opt(v any) (float64, bool) {
+	switch n := v.(type) {
+	case float64:
+		return n, true
+	case float32:
+		return float64(n), true
+	case int:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	case uint64:
+		return float64(n), true
+	}
+	return 0, false
 }
 
 func asFloat64(v any) float64 {
@@ -180,7 +221,12 @@ func InitKnownDestinationsPersistence(configPath string, inMemory bool) {
 		_ = os.MkdirAll(dir, 0o700)
 	}
 
-	loadKnownDestinationsFromDisk(configPath)
+	// RNS 1.6.0: SQLite known_destinations.db when the driver is available,
+	// with legacy-file import and automatic fallback.
+	initKnownStore(configPath)
+	if !loadKnownDestinationsFromDB() {
+		loadKnownDestinationsFromDisk(configPath)
+	}
 }
 
 func loadKnownDestinationsFromDisk(configPath string) {
@@ -217,17 +263,17 @@ func loadKnownDestinationsFromDisk(configPath string) {
 
 	count := 0
 	for _, rec := range records {
-		id := FromPublicKey(rec.publicKey)
-		if id == nil {
+		if len(rec.publicKey) != KeySize/8 {
 			continue
 		}
 		canonicalKey := knownDestKey(rec.destHash)
 		knownDestinations[canonicalKey] = knownDestEntry{
-			pkt:    rec.packetRaw,
-			hash:   rec.destHash,
-			rawKey: string(canonicalKey[:]),
-			id:     id,
-			app:    rec.appData,
+			pktHash:    append([]byte(nil), rec.packetRaw...),
+			pubKey:     append([]byte(nil), rec.publicKey...),
+			app:        rec.appData,
+			stamp:      rec.stamp,
+			stampValue: rec.stampValue,
+			lrCost:     rec.lrCost,
 		}
 		rememberedAt := int64(rec.rememberedAt)
 		if rememberedAt <= 0 {
@@ -286,33 +332,16 @@ func saveKnownDestinations(force bool) {
 
 	gen := knownPersistGen.Load()
 
-	knownDestinationsLock.RLock()
-	export := make(map[string][]any, len(knownDestinations))
-	for hashKey, e := range knownDestinations {
-		if e.id == nil || len(e.hash) == 0 {
-			continue
+	// SQLite backend (RNS 1.6.0) handles the write; legacy path otherwise.
+	if saveKnownDestinationsDB() {
+		knownPersistLast.Store(time.Now().UnixNano())
+		if knownPersistGen.Load() == gen {
+			knownPersistDirty.Store(false)
 		}
-		// Python Identity.load_known_destinations keeps keys whose length
-		// equals the truncated hash size (16). Use the raw hash bytes as a
-		// Go string key so msgpack emits a 16-byte str/bin key Python accepts.
-		key := e.rawKey
-		if len(key) != TruncatedHashLength/8 {
-			key = string(hashKey[:])
-		}
-		meta := knownDestMetaByKey[hashKey]
-		rememberedAt := float64(meta.rememberedAt)
-		if rememberedAt == 0 {
-			rememberedAt = float64(time.Now().Unix())
-		}
-		export[key] = []any{
-			rememberedAt,
-			e.pkt,
-			e.id.GetPublicKey(),
-			e.app,
-			float64(meta.lastUsed),
-		}
+		return
 	}
-	knownDestinationsLock.RUnlock()
+
+	export := exportKnownDestinations()
 
 	encoded, err := marshalKnownDestinationsPython(export)
 	if err != nil {
@@ -346,6 +375,61 @@ func disableKnownDestinationsPersistence(err error) {
 	knownPersistMemory.Store(true)
 	knownPersistDisabled.Store(true)
 	knownPersistDirty.Store(false)
+}
+
+// exportKnownDestinations snapshots the table as Python 1.6.x
+// known_destinations entries keyed by the raw 16-byte destination hash.
+// Used for disk persistence and the shared-instance known_destinations RPC.
+func exportKnownDestinations() map[string][]any {
+	knownDestinationsLock.RLock()
+	defer knownDestinationsLock.RUnlock()
+	export := make(map[string][]any, len(knownDestinations))
+	for hashKey, e := range knownDestinations {
+		if !e.hasPublicKey() {
+			continue
+		}
+		// Python Identity.load_known_destinations keeps keys whose length
+		// equals the truncated hash size (16). Use the raw hash bytes as a
+		// Go string key so msgpack emits a 16-byte str/bin key Python accepts.
+		key := string(hashKey[:])
+		meta := knownDestMetaByKey[hashKey]
+		rememberedAt := float64(meta.rememberedAt)
+		if rememberedAt == 0 {
+			rememberedAt = float64(time.Now().Unix())
+		}
+		// 8-field Python 1.6.0 entry: stamp and lr_cost stay msgpack nil
+		// (Python None) when absent.
+		var stamp any
+		if len(e.stamp) > 0 {
+			stamp = e.stamp
+		}
+		var lrCost any
+		if e.lrCost != nil {
+			lrCost = *e.lrCost
+		}
+		export[key] = []any{
+			rememberedAt,
+			append([]byte(nil), e.pktHash...),
+			e.publicKeyBytes(),
+			e.app,
+			float64(meta.lastUsed),
+			stamp,
+			e.stampValue,
+			lrCost,
+		}
+	}
+	return export
+}
+
+// MarshalKnownDestinationsRPC returns the known destinations table packed the
+// same way Python Reticulum.get_known_destinations answers the shared-instance
+// RPC: a msgpack map of raw 16-byte destination hashes to 8-field entries.
+func MarshalKnownDestinationsRPC() (msgpack.RawMessage, error) {
+	blob, err := marshalKnownDestinationsPython(exportKnownDestinations())
+	if err != nil {
+		return nil, err
+	}
+	return msgpack.RawMessage(blob), nil
 }
 
 // marshalKnownDestinationsPython encodes the table with binary map keys, matching

@@ -34,7 +34,7 @@ func (t *Transport) handleUnvalidatedLinkExpiry(entry *LinkRelayEntry) {
 		needPR = true
 		debug.Log(debug.DebugInfo, "Rediscovering path after failed link (path missing)",
 			"dest", fmt.Sprintf("%x", dest))
-	} else if !throttled && entry.TakenHops == 0 {
+	} else if !throttled && entry.TakenHops == 0 && t.HopsTo(dest) != 0 {
 		needPR = true
 		debug.Log(debug.DebugInfo, "Rediscovering path after failed local-client link",
 			"dest", fmt.Sprintf("%x", dest))
@@ -65,7 +65,9 @@ func (t *Transport) handleUnvalidatedLinkExpiry(entry *LinkRelayEntry) {
 		}
 	}
 
-	if !t.transportEnabled() {
+	// RNS 1.6.1: local destination paths (hops == 0) are never expired
+	// here, only remote paths on non-transport instances.
+	if !t.transportEnabled() && t.HopsTo(dest) != 0 {
 		t.ExpirePath(dest)
 	}
 }

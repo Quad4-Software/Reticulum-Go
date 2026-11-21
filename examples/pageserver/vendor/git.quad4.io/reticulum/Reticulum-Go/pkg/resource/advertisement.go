@@ -28,6 +28,7 @@ type ResourceAdvertisement struct {
 	IsRequest     bool
 	IsResponse    bool
 	Flags         byte
+	AppFlag       bool
 }
 
 func NewResourceAdvertisement(res *Resource) *ResourceAdvertisement {
@@ -41,6 +42,9 @@ func NewResourceAdvertisement(res *Resource) *ResourceAdvertisement {
 	}
 	if res.IsResponse() {
 		flags |= AdvFlagIsResponse
+	}
+	if res.AppFlag() {
+		flags |= AdvFlagApp
 	}
 	if res.IsRequest() {
 		flags |= AdvFlagIsRequest
@@ -86,6 +90,7 @@ func NewResourceAdvertisement(res *Resource) *ResourceAdvertisement {
 		IsRequest:     res.IsRequest(),
 		IsResponse:    res.IsResponse(),
 		Flags:         flags,
+		AppFlag:       res.AppFlag(),
 	}
 }
 
@@ -110,7 +115,21 @@ func (ra *ResourceAdvertisement) Pack(segment int, linkMDU int) ([]byte, error) 
 		"m": hashmap,
 	}
 
-	return msgpack.Marshal(dict)
+	packed, err := msgpack.Marshal(dict)
+	if err != nil {
+		return nil, err
+	}
+	// RNS 1.6.0: packed advertisement larger than the link MDU defers the
+	// initial hashmap ("m": b""); the receiver then issues a
+	// HASHMAP_IS_EMPTY (0xFE) request and the sender serves from index 0.
+	if linkMDU > 0 && len(packed) > linkMDU {
+		dict["m"] = []byte{}
+		packed, err = msgpack.Marshal(dict)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return packed, nil
 }
 
 func packInt64Compact(v int64) any {
@@ -252,6 +271,7 @@ func UnpackResourceAdvertisement(data []byte) (*ResourceAdvertisement, error) {
 		ra.Flags = flags
 	}
 
+	ra.AppFlag = ra.Flags&AdvFlagApp != 0
 	ra.Encrypted = ra.Flags&AdvFlagEncrypted != 0
 	ra.Compressed = ra.Flags&AdvFlagCompressed != 0
 	ra.Split = ra.Flags&AdvFlagSplit != 0

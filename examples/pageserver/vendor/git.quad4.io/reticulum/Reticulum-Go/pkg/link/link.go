@@ -73,6 +73,8 @@ type Link struct {
 	identifiedCallback  func(*Link, *identity.Identity)
 
 	teardownReason byte
+	stampCost      float64
+	stampStatus    bool
 	hmacKey        *securemem.Buf
 	transport      *transport.Transport
 
@@ -147,6 +149,13 @@ type Link struct {
 	// that value so split segments and back-to-back files do not ramp
 	// from WINDOW_MAX_SLOW again.
 	lastResourceWindow int
+	// lastResourceRateBps and lastResourceClass carry the measured data
+	// rate and link class from the last completed incoming resource, so
+	// the next transfer starts with an appropriate window ceiling
+	// instead of re-probing from the slow default.
+	lastResourceRateBps   float64
+	lastResourceRateKnown bool
+	lastResourceClass     LinkClass
 
 	outgoingMu     sync.Mutex
 	resourceSendMu sync.Mutex
@@ -268,6 +277,16 @@ func (l *Link) Establish() error {
 	l.initiator = true
 	l.status.Store(int32(StatusPending))
 	l.requestTime = time.Now()
+
+	// RNS 1.6.0 stamped link requests: when the destination announced a
+	// link cost (or ALWAYS_STAMP_LRS is on) the ephemeral X25519 key is
+	// mined as a key-stamp on a goroutine; the link stays PENDING and the
+	// request is registered/sent only once stamping completes.
+	if cost, stamped := l.linkStampCost(); stamped {
+		l.mutex.Unlock()
+		go l.stampThenEstablish(destHash, cost)
+		return nil
+	}
 	l.expectedHops = l.transport.HopsTo(destHash)
 	hops := int(l.expectedHops)
 	if hops < 1 || l.expectedHops >= HopCountUnreachable {
@@ -1243,7 +1262,6 @@ func (l *Link) watchdog() {
 				sleepTime = time.Until(nextKeepalive).Seconds()
 			}
 		} else if l.status.Load() == int32(StatusStale) {
-			sleepTime = 0.001
 			debug.Log(debug.DebugWarning, "Link marked stale, closing", "link_id", fmt.Sprintf("%x", l.linkID))
 			ifaceName := ""
 			if l.networkInterface != nil {

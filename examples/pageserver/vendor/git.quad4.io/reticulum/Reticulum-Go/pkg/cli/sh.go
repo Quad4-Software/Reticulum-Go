@@ -283,6 +283,11 @@ func serveSHLink(l *link.Link, baseCfg rgosh.Config, stderr io.Writer) {
 	}
 	sess := rgosh.NewSession(baseCfg, rgosh.ChannelSender{Ch: ch})
 	sess.StartProcess = rgosh.StartLocalProcess
+	// Python rnsh prunes sessions max(rtt*3, PROCESS_PIPE_TIME+5) after the
+	// command ends; tearing the link down as soon as the TX ring drains can
+	// beat the exit message to the peer and strand the session without its
+	// status. Normally the client tears down the link itself on exit.
+	sess.ExitTeardownDelay = max(6*time.Second, time.Duration(l.GetRTT()*3*float64(time.Second)))
 	sess.OnTeardown = func() {
 		sess.Close()
 		l.Teardown()

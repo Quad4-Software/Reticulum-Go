@@ -77,7 +77,3 @@ func (p *epollPoller) Wait(timeoutMs int) ([]pollEvent, error) {
 func (p *epollPoller) Close() error {
 	return unix.Close(p.fd)
 }
-
-func setNonblockFD(fd int) error {
-	return unix.SetNonblock(fd, true)
-}

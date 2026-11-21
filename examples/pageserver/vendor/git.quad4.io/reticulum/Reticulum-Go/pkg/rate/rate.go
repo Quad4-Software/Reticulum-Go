@@ -5,6 +5,7 @@
 package rate
 
 import (
+	"math"
 	"sync"
 	"time"
 )
@@ -125,7 +126,7 @@ func (arc *AnnounceRateControl) AllowAnnounceHash(destHash [16]byte) bool {
 	history := arc.announceHistory[destHash]
 	now := time.Now()
 
-	cutoff := now.Add(-24 * time.Hour)
+	cutoff := now.Add(-arc.retention())
 	newHistory := make([]time.Time, 0, len(history))
 	for _, t := range history {
 		if t.After(cutoff) {
@@ -134,7 +135,7 @@ func (arc *AnnounceRateControl) AllowAnnounceHash(destHash [16]byte) bool {
 	}
 	history = newHistory
 
-	if len(history) < arc.rateGrace {
+	if len(history) == 0 || len(history) < arc.rateGrace {
 		arc.announceHistory[destHash] = append(history, now)
 		return true
 	}
@@ -153,14 +154,46 @@ func (arc *AnnounceRateControl) AllowAnnounceHash(destHash [16]byte) bool {
 	return true
 }
 
-// CleanupExpired drops history entries older than 24 hours.
+// retention returns how long per-destination announce history is kept.
+// Matches the reference RATE_TABLE_RETAIN floor of one hour, raised to the
+// configured target when that is larger so spacing checks keep working.
+func (arc *AnnounceRateControl) retention() time.Duration {
+	retain := arc.rateTarget
+	if retain < DefaultRateTableRetainSec {
+		retain = DefaultRateTableRetainSec
+	}
+	return time.Duration(retain * float64(time.Second)) // #nosec G115
+}
+
+// Snapshot returns a copy of the per-destination announce history, used to
+// persist the announce rate table (RNS 1.6.1).
+func (arc *AnnounceRateControl) Snapshot() map[[16]byte][]time.Time {
+	arc.mutex.RLock()
+	defer arc.mutex.RUnlock()
+	out := make(map[[16]byte][]time.Time, len(arc.announceHistory))
+	for k, v := range arc.announceHistory {
+		out[k] = append([]time.Time(nil), v...)
+	}
+	return out
+}
+
+// Restore seeds the announce history from a persisted snapshot.
+func (arc *AnnounceRateControl) Restore(hist map[[16]byte][]time.Time) {
+	arc.mutex.Lock()
+	defer arc.mutex.Unlock()
+	for k, v := range hist {
+		arc.announceHistory[k] = append([]time.Time(nil), v...)
+	}
+}
+
+// CleanupExpired drops history entries older than the retention window.
 func (arc *AnnounceRateControl) CleanupExpired() {
 	if arc == nil {
 		return
 	}
 	arc.mutex.Lock()
 	defer arc.mutex.Unlock()
-	cutoff := time.Now().Add(-24 * time.Hour)
+	cutoff := time.Now().Add(-arc.retention())
 	for hash, history := range arc.announceHistory {
 		filtered := history[:0]
 		for _, t := range history {
@@ -223,6 +256,12 @@ type IngressControl struct {
 type ingressHeld struct {
 	hash [32]byte
 	data []byte
+	// dest keys the entry for ReleaseHeldAnnounceFor; zero means no
+	// destination key.
+	dest [16]byte
+	// hops is the wire hop count (packet header byte 1) so the release
+	// can pick the most useful announce like Python 1.6.1 does.
+	hops int
 }
 
 // NewIngressControl constructs an IngressControl with default thresholds.
@@ -284,6 +323,13 @@ func (ic *IngressControl) ProcessAnnounce(announceHash string, announceData []by
 
 // ProcessAnnounceHash is ProcessAnnounce keyed by a 32-byte announce hash.
 func (ic *IngressControl) ProcessAnnounceHash(announceHash [32]byte, announceData []byte, isNewDest bool) bool {
+	return ic.ProcessAnnounceHashDest(announceHash, announceData, isNewDest, [16]byte{})
+}
+
+// ProcessAnnounceHashDest is ProcessAnnounceHash that also records a
+// destination key on the held entry so ReleaseHeldAnnounceFor can find it.
+// A zero dest marks the entry as having no destination key.
+func (ic *IngressControl) ProcessAnnounceHashDest(announceHash [32]byte, announceData []byte, isNewDest bool, dest [16]byte) bool {
 	if !ic.Enabled() {
 		return true
 	}
@@ -330,8 +376,12 @@ func (ic *IngressControl) ProcessAnnounceHash(announceHash [32]byte, announceDat
 	}
 	buf := make([]byte, len(announceData))
 	copy(buf, announceData)
+	hops := math.MaxInt
+	if len(announceData) > 1 {
+		hops = int(announceData[1])
+	}
 	ic.heldIndex[announceHash] = len(ic.heldQueue)
-	ic.heldQueue = append(ic.heldQueue, ingressHeld{hash: announceHash, data: buf})
+	ic.heldQueue = append(ic.heldQueue, ingressHeld{hash: announceHash, data: buf, dest: dest, hops: hops})
 	return false
 }
 
@@ -344,28 +394,105 @@ func (ic *IngressControl) ReleaseHeldAnnounce() (string, []byte, bool) {
 	ic.mutex.Lock()
 	defer ic.mutex.Unlock()
 
-	if len(ic.heldQueue) == 0 {
-		return "", nil, false
-	}
 	now := time.Now()
-	if ic.burstActive {
-		return "", nil, false
-	}
-	if !ic.burstClearedAt.IsZero() && now.Sub(ic.burstClearedAt) < ic.cfg.BurstHold+ic.cfg.BurstPenalty {
+	if !ic.releaseGateOpenLocked(now) {
 		return "", nil, false
 	}
 	if !ic.lastReleaseAt.IsZero() && now.Sub(ic.lastReleaseAt) < ic.cfg.HeldReleaseInterval {
 		return "", nil, false
 	}
 
-	entry := ic.heldQueue[0]
-	ic.heldQueue = ic.heldQueue[1:]
+	// Python 1.6.1 releases the lowest-hops (most useful) held announce,
+	// not the queue head.
+	idx := 0
+	for i := 1; i < len(ic.heldQueue); i++ {
+		if ic.heldQueue[i].hops < ic.heldQueue[idx].hops {
+			idx = i
+		}
+	}
+	entry := ic.removeHeldLocked(idx)
+	ic.lastReleaseAt = now
+	return string(entry.hash[:]), entry.data, true
+}
+
+// CullHeldAnnounce drops held entries for which cull returns true and
+// reports how many were removed. The transport layer supplies the
+// predicate so entries that can no longer win against the known path
+// free their queue slots instead of aging out (Python 1.6.1
+// process_held_announces).
+func (ic *IngressControl) CullHeldAnnounce(cull func(dest [16]byte, data []byte) bool) int {
+	if ic == nil || cull == nil {
+		return 0
+	}
+	ic.mutex.Lock()
+	defer ic.mutex.Unlock()
+
+	removed := 0
+	for i := len(ic.heldQueue) - 1; i >= 0; i-- {
+		h := ic.heldQueue[i]
+		if cull(h.dest, h.data) {
+			ic.removeHeldLocked(i)
+			removed++
+		}
+	}
+	return removed
+}
+
+// ReleaseHeldAnnounceFor returns the first queued announce held for dest
+// when the burst is clear and the hold/penalty quiet period has elapsed.
+// Priority releases skip HeldReleaseInterval pacing and do not update
+// lastReleaseAt, so they neither wait on nor disturb FIFO releases. A zero
+// dest never matches.
+func (ic *IngressControl) ReleaseHeldAnnounceFor(dest [16]byte) (string, []byte, bool) {
+	if ic == nil {
+		return "", nil, false
+	}
+	if dest == ([16]byte{}) {
+		return "", nil, false
+	}
+	ic.mutex.Lock()
+	defer ic.mutex.Unlock()
+
+	if !ic.releaseGateOpenLocked(time.Now()) {
+		return "", nil, false
+	}
+	idx := -1
+	for i, h := range ic.heldQueue {
+		if h.dest == dest {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return "", nil, false
+	}
+	entry := ic.removeHeldLocked(idx)
+	return string(entry.hash[:]), entry.data, true
+}
+
+// releaseGateOpenLocked reports whether held announces may be released:
+// the queue is non-empty and the burst plus hold/penalty quiet period has
+// passed. Caller must hold ic.mutex.
+func (ic *IngressControl) releaseGateOpenLocked(now time.Time) bool {
+	if len(ic.heldQueue) == 0 || ic.burstActive {
+		return false
+	}
+	if !ic.burstClearedAt.IsZero() && now.Sub(ic.burstClearedAt) < ic.cfg.BurstHold+ic.cfg.BurstPenalty {
+		return false
+	}
+	return true
+}
+
+// removeHeldLocked removes heldQueue[idx], preserving the order of the
+// remaining entries, and rebuilds heldIndex. Caller must hold ic.mutex.
+func (ic *IngressControl) removeHeldLocked(idx int) ingressHeld {
+	entry := ic.heldQueue[idx]
+	ic.heldQueue = append(ic.heldQueue[:idx], ic.heldQueue[idx+1:]...)
 	delete(ic.heldIndex, entry.hash)
 	for i, h := range ic.heldQueue {
 		ic.heldIndex[h.hash] = i
 	}
-	ic.lastReleaseAt = now
-	return string(entry.hash[:]), entry.data, true
+	return entry
 }
 
 // HeldCount returns the number of currently queued announces.

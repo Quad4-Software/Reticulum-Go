@@ -221,13 +221,19 @@ func (i *BaseInterface) sampleTypedTraffic(now time.Time, elapsed float64) {
 	atDiff := i.atxb - i.sampleATXB
 	prDiff := i.prxb - i.samplePRXB
 	ptDiff := i.ptxb - i.samplePTXB
+	frDiff := i.frxb - i.sampleFRXB
+	ftDiff := i.ftxb - i.sampleFTXB
 	i.currentARXS = float64(arDiff*8) / elapsed
 	i.currentATXS = float64(atDiff*8) / elapsed
 	i.currentPRXS = float64(prDiff*8) / elapsed
 	i.currentPTXS = float64(ptDiff*8) / elapsed
+	i.currentFRXS = float64(frDiff*8) / elapsed
+	i.currentFTXS = float64(ftDiff*8) / elapsed
 	i.sampleARXB = i.arxb
 	i.sampleATXB = i.atxb
 	i.samplePRXB = i.prxb
 	i.samplePTXB = i.ptxb
+	i.sampleFRXB = i.frxb
+	i.sampleFTXB = i.ftxb
 	_ = now
 }

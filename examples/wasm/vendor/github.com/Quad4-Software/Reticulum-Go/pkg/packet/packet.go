@@ -1,0 +1,471 @@
+// SPDX-License-Identifier: LicenseRef-Reticulum
+// Copyright (c) 2024-2026 Quad4.io
+
+package packet
+
+import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/Quad4-Software/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/Reticulum-Go/pkg/identity"
+)
+
+// Packet represents a Reticulum packet with header, destination, context and payload.
+type Packet struct {
+	HeaderType    byte
+	PacketType    byte
+	TransportType byte
+	Context       byte
+	ContextFlag   byte
+	Hops          byte
+
+	DestinationType byte
+	DestinationHash []byte
+	Destination     any
+	TransportID     []byte
+	Data            []byte
+
+	Raw           []byte
+	Packed        bool
+	Sent          bool
+	CreateReceipt bool
+	FromPacked    bool
+
+	SentAt     time.Time
+	PacketHash []byte
+	hashBuf    [32]byte
+	RatchetID  []byte
+
+	RSSI *float64
+	SNR  *float64
+	Q    *float64
+
+	Addresses []byte
+	Link      any
+
+	hashValid bool
+}
+
+// hashableInto writes the wire bytes that participate in the packet hash into dst
+// (reinitialized) and returns the resulting slice. dst must have capacity at least
+// the preimage length (always <= MTU for valid packets).
+func (p *Packet) hashableInto(dst []byte) []byte {
+	b := dst[:0]
+	b = append(b, p.Raw[0]&HashableFlagsMask)
+	if p.HeaderType == HeaderType2 {
+		start := TruncatedHashLength + 2
+		if len(p.Raw) > start {
+			b = append(b, p.Raw[start:]...)
+		}
+	} else if len(p.Raw) > 2 {
+		b = append(b, p.Raw[2:]...)
+	}
+	return b
+}
+
+func (p *Packet) hashablePreimageLen() int {
+	n := 1
+	if p.HeaderType == HeaderType2 {
+		start := TruncatedHashLength + 2
+		if len(p.Raw) > start {
+			n += len(p.Raw) - start
+		}
+	} else if len(p.Raw) > 2 {
+		n += len(p.Raw) - 2
+	}
+	return n
+}
+
+func nextRawWireCap(need int) int {
+	if need > MTU {
+		return need
+	}
+	const align = 64
+	rounded := (need + align - 1) / align * align
+	if rounded > MTU {
+		return MTU
+	}
+	return rounded
+}
+
+// PacketConfig holds the parameters used to create a new packet.
+type PacketConfig struct {
+	DestType      byte
+	Data          []byte
+	PacketType    byte
+	Context       byte
+	TransportType byte
+	HeaderType    byte
+	TransportID   []byte
+	CreateReceipt bool
+	ContextFlag   byte
+}
+
+// NewPacket builds a new Packet from the given config fields.
+func NewPacket(destType byte, data []byte, packetType byte, context byte,
+	transportType byte, headerType byte, transportID []byte, createReceipt bool,
+	contextFlag byte) *Packet {
+
+	return &Packet{
+		HeaderType:      headerType,
+		PacketType:      packetType,
+		TransportType:   transportType,
+		Context:         context,
+		ContextFlag:     contextFlag,
+		Hops:            0,
+		DestinationType: destType,
+		Data:            data,
+		TransportID:     transportID,
+		CreateReceipt:   createReceipt,
+		Packed:          false,
+		Sent:            false,
+		FromPacked:      false,
+	}
+}
+
+func (p *Packet) headerFlags() byte {
+	flags := byte(0)
+	flags |= (p.HeaderType << 6) & HeaderMaskHeaderType
+	flags |= (p.ContextFlag << 5) & HeaderMaskContextFlag
+	flags |= (p.TransportType << 4) & HeaderMaskTransportType
+	flags |= (p.DestinationType << 2) & HeaderMaskDestinationType
+	flags |= p.PacketType & HeaderMaskPacketType
+	return flags
+}
+
+func (p *Packet) Pack() error {
+	if p.Packed {
+		return nil
+	}
+
+	if debug.Enabled(debug.DebugPackets) {
+		debug.Log(debug.DebugPackets, "Packing packet", "type", p.PacketType, "header", p.HeaderType)
+	}
+
+	if n := len(p.DestinationHash); n != 0 && n != TruncatedHashLength {
+		return fmt.Errorf("destination hash must be %d bytes, got %d", TruncatedHashLength, n)
+	}
+	if p.HeaderType == HeaderType2 {
+		if p.TransportID == nil {
+			return errors.New("transport ID required for header type 2")
+		}
+		if len(p.TransportID) != TruncatedHashLength {
+			return fmt.Errorf("transport ID must be %d bytes, got %d", TruncatedHashLength, len(p.TransportID))
+		}
+	}
+
+	flags := p.headerFlags()
+
+	if debug.Enabled(debug.DebugTrace) {
+		debug.Log(debug.DebugTrace, "Created packet header", "flags", fmt.Sprintf("%08b", flags), "hops", p.Hops)
+	}
+
+	need := 2 + len(p.DestinationHash) + 1 + len(p.Data)
+	if p.HeaderType == HeaderType2 {
+		need += len(p.TransportID)
+		if debug.Enabled(debug.DebugAll) {
+			debug.Log(debug.DebugAll, "Added transport ID to header", "transport_id", fmt.Sprintf("%x", p.TransportID))
+		}
+	}
+
+	destHash := p.DestinationHash
+	transportID := p.TransportID
+	payload := p.Data
+
+	var raw []byte
+	if cap(p.Raw) >= need {
+		// Unpack leaves DestinationHash, TransportID, and Data as views into Raw.
+		// Reusing that buffer would clobber those views while packing (especially
+		// HT1 to HT2 upgrades used by multi-hop SendPacket rewrap).
+		destHash = append([]byte(nil), destHash...)
+		if len(transportID) > 0 {
+			transportID = append([]byte(nil), transportID...)
+		}
+		payload = append([]byte(nil), payload...)
+		p.DestinationHash = destHash
+		p.TransportID = transportID
+		p.Data = payload
+		raw = p.Raw[:0]
+	} else {
+		newCap := need
+		if cap(p.Raw) > 0 {
+			newCap = nextRawWireCap(need)
+		}
+		raw = make([]byte, 0, newCap)
+	}
+	raw = append(raw, flags, p.Hops)
+	if p.HeaderType == HeaderType2 {
+		raw = append(raw, transportID...)
+	}
+	raw = append(raw, destHash...)
+	raw = append(raw, p.Context)
+	raw = append(raw, payload...)
+	p.Raw = raw
+
+	if debug.Enabled(debug.DebugPackets) {
+		hdrLen := 2 + len(destHash) + 1
+		if p.HeaderType == HeaderType2 {
+			hdrLen += len(transportID)
+		}
+		debug.Log(debug.DebugPackets, "Final header length", "bytes", hdrLen)
+	}
+	if debug.Enabled(debug.DebugTrace) {
+		debug.Log(debug.DebugTrace, "Final packet size", "bytes", len(p.Raw))
+	}
+
+	if len(p.Raw) > MTU {
+		return errors.New("packet size exceeds MTU")
+	}
+
+	p.Packed = true
+	p.hashValid = false
+	p.updateHash()
+	if debug.Enabled(debug.DebugAll) {
+		debug.Log(debug.DebugAll, "Packet hash", "hash", fmt.Sprintf("%x", p.PacketHash))
+	}
+	return nil
+}
+
+// PrepareHT1Buffer writes the header type 1 prefix into Raw and returns the
+// payload region for in-place encryption or a copy. destHash must be
+// TruncatedHashLength bytes and must not alias Raw.
+func (p *Packet) PrepareHT1Buffer(destHash []byte, payloadLen int) ([]byte, error) {
+	if len(destHash) != TruncatedHashLength {
+		return nil, fmt.Errorf("destination hash must be %d bytes, got %d", TruncatedHashLength, len(destHash))
+	}
+	if p.HeaderType != HeaderType1 {
+		return nil, errors.New("PrepareHT1Buffer requires header type 1")
+	}
+	need := HeaderType1Overhead + payloadLen
+	if need > MTU {
+		return nil, errors.New("packet size exceeds MTU")
+	}
+	raw := p.Raw
+	if cap(raw) < need {
+		raw = make([]byte, need, nextRawWireCap(need))
+	} else {
+		raw = raw[:need]
+	}
+	raw[0] = p.headerFlags()
+	raw[1] = p.Hops
+	copy(raw[2:2+TruncatedHashLength], destHash)
+	raw[2+TruncatedHashLength] = p.Context
+	p.Raw = raw
+	p.DestinationHash = destHash
+	p.Data = raw[HeaderType1Overhead:]
+	p.Packed = false
+	p.hashValid = false
+	return p.Data, nil
+}
+
+// CommitPacked hashes a Raw buffer previously filled by PrepareHT1Buffer.
+func (p *Packet) CommitPacked() error {
+	if len(p.Raw) > MTU {
+		return errors.New("packet size exceeds MTU")
+	}
+	p.Packed = true
+	p.hashValid = false
+	p.updateHash()
+	return nil
+}
+
+func (p *Packet) Unpack() error {
+	if len(p.Raw) < MinPacketSize {
+		return errors.New("packet too short")
+	}
+	if len(p.Raw) > MaxInboundPacketSize {
+		return errors.New("packet exceeds maximum inbound size")
+	}
+
+	flags := p.Raw[0]
+	p.Hops = p.Raw[1]
+
+	if int(p.Hops) >= PathfinderM {
+		return fmt.Errorf("invalid hop count %d", p.Hops)
+	}
+
+	p.HeaderType = (flags & HeaderMaskHeaderType) >> 6
+	p.ContextFlag = (flags & HeaderMaskContextFlag) >> 5
+	p.TransportType = (flags & HeaderMaskTransportType) >> 4
+	p.DestinationType = (flags & HeaderMaskDestinationType) >> 2
+	p.PacketType = flags & HeaderMaskPacketType
+
+	dstLen := TruncatedHashLength
+
+	if p.HeaderType == HeaderType2 {
+		if len(p.Raw) < 2*dstLen+MinPacketSize {
+			return errors.New("packet too short for header type 2")
+		}
+		p.TransportID = p.Raw[2 : dstLen+2]
+		p.DestinationHash = p.Raw[dstLen+2 : 2*dstLen+2]
+		p.Context = p.Raw[2*dstLen+2]
+		p.Data = p.Raw[2*dstLen+3:]
+	} else {
+		if len(p.Raw) < dstLen+MinPacketSize {
+			return errors.New("packet too short for header type 1")
+		}
+		p.TransportID = nil
+		p.DestinationHash = p.Raw[2 : dstLen+2]
+		p.Context = p.Raw[dstLen+2]
+		p.Data = p.Raw[dstLen+3:]
+	}
+
+	p.Packed = false
+	p.hashValid = false
+	p.updateHash()
+	return nil
+}
+
+func (p *Packet) GetHash() []byte {
+	if !p.hashValid {
+		p.updateHash()
+	}
+	return p.PacketHash
+}
+
+func (p *Packet) updateHash() {
+	n := p.hashablePreimageLen()
+	var sum [sha256.Size]byte
+	if n <= MTU {
+		var scratch [MTU]byte
+		hb := p.hashableInto(scratch[:0])
+		sum = sha256.Sum256(hb)
+	} else {
+		scratch := make([]byte, n)
+		hb := p.hashableInto(scratch[:0])
+		sum = sha256.Sum256(hb)
+	}
+	// Always bind PacketHash to this packet's hashBuf so a value-copied
+	// Packet cannot keep writing into another packet's buffer.
+	p.PacketHash = p.hashBuf[:]
+	copy(p.PacketHash, sum[:])
+	p.hashValid = true
+}
+
+func (p *Packet) Hash() []byte {
+	return p.GetHash()
+}
+
+func (p *Packet) TruncatedHash() []byte {
+	hash := p.GetHash()
+	if len(hash) >= TruncatedHashLength {
+		return hash[:TruncatedHashLength]
+	}
+	return hash
+}
+
+// LinkIDFromLinkRequest returns the link ID for a link request packet,
+// matching RNS.Link.link_id_from_lr_packet.
+func LinkIDFromLinkRequest(p *Packet) []byte {
+	if p == nil || len(p.Raw) == 0 {
+		return nil
+	}
+	hashable := p.hashableInto(nil)
+	if len(p.Data) > LinkRequestECPubSize {
+		diff := len(p.Data) - LinkRequestECPubSize
+		if len(hashable) >= diff {
+			hashable = hashable[:len(hashable)-diff]
+		}
+	}
+	return identity.TruncatedHash(hashable)
+}
+
+func (p *Packet) Serialize() ([]byte, error) {
+	if !p.Packed {
+		if err := p.Pack(); err != nil {
+			return nil, fmt.Errorf("failed to pack packet: %w", err)
+		}
+	}
+
+	p.Addresses = p.DestinationHash
+
+	return p.Raw, nil
+}
+
+func NewAnnouncePacket(destHash []byte, identity *identity.Identity, appData []byte, transportID []byte) (*Packet, error) {
+	debug.Log(debug.DebugAll, "Creating new announce packet", "dest_hash", fmt.Sprintf("%x", destHash), "app_data", fmt.Sprintf("%x", appData))
+
+	// Get public key separated into encryption and signing keys
+	pubKey := identity.GetPublicKey()
+	encKey := pubKey[:32]
+	signKey := pubKey[32:]
+	debug.Log(debug.DebugPackets, "Using public keys", "enc_key", fmt.Sprintf("%x", encKey), "sign_key", fmt.Sprintf("%x", signKey))
+
+	// Parse app name from first msgpack element if possible
+	// For nodes, we'll use "reticulum.node" as the name hash
+	var appName string
+	if len(appData) > 2 && appData[0] == 0x93 {
+		// This is a node announce, use standard node name
+		appName = "reticulum.node"
+	} else if len(appData) > 3 && appData[0] == 0x92 && appData[1] == 0xc4 {
+		// Try to extract name from peer announce appData
+		nameLen := int(appData[2])
+		if 3+nameLen <= len(appData) {
+			appName = string(appData[3 : 3+nameLen])
+		} else {
+			// Default fallback
+			appName = "reticulum-go.node"
+		}
+	} else {
+		// Default fallback
+		appName = "reticulum-go.node"
+	}
+
+	// Create name hash (10 bytes)
+	nameHash := sha256.Sum256([]byte(appName))
+	nameHash10 := nameHash[:10]
+	debug.Log(debug.DebugPackets, "Using name hash", "name", appName, "hash", fmt.Sprintf("%x", nameHash10))
+
+	// Create random hash (10 bytes) - 5 bytes random + 5 bytes time
+	randomHash := make([]byte, 10)
+	_, err := rand.Read(randomHash[:5]) // #nosec G104
+	if err != nil {
+		debug.Log(debug.DebugPackets, "Failed to read random bytes for hash", "error", err)
+		return nil, err // Or handle the error appropriately
+	}
+	timeBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(timeBytes, uint64(time.Now().Unix())) // #nosec G115
+	copy(randomHash[5:], timeBytes[3:8])
+	debug.Log(debug.DebugPackets, "Generated random hash", "hash", fmt.Sprintf("%x", randomHash))
+
+	signedData := make([]byte, 0, len(destHash)+len(encKey)+len(signKey)+len(nameHash10)+len(randomHash)+len(appData))
+	signedData = append(signedData, destHash...)
+	signedData = append(signedData, encKey...)
+	signedData = append(signedData, signKey...)
+	signedData = append(signedData, nameHash10...)
+	signedData = append(signedData, randomHash...)
+	signedData = append(signedData, appData...)
+	debug.Log(debug.DebugTrace, "Created signed data", "bytes", len(signedData))
+
+	signature, err := identity.Sign(signedData)
+	if err != nil {
+		return nil, fmt.Errorf("sign announce: %w", err)
+	}
+	debug.Log(debug.DebugPackets, "Generated signature", "signature", fmt.Sprintf("%x", signature))
+
+	data := make([]byte, 0, 32+32+10+10+64+len(appData))
+	data = append(data, encKey...)
+	data = append(data, signKey...)
+	data = append(data, nameHash10...)
+	data = append(data, randomHash...)
+	data = append(data, signature...)
+	data = append(data, appData...)
+
+	debug.Log(debug.DebugTrace, "Combined packet data", "bytes", len(data))
+
+	p := &Packet{
+		HeaderType:      HeaderType2,
+		PacketType:      PacketTypeAnnounce,
+		TransportID:     transportID,
+		DestinationHash: destHash,
+		Data:            data,
+	}
+
+	debug.Log(debug.DebugVerbose, "Created announce packet", "type", p.PacketType, "header", p.HeaderType)
+	return p, nil
+}

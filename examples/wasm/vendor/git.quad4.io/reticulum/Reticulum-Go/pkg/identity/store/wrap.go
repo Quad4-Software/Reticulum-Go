@@ -35,6 +35,8 @@ func wrapAttrs(path string) (map[string]string, error) {
 
 // wrapAccount derives a stable per-item account name for CLI-style backends
 // (macOS security, others) that key items by service plus account strings.
+//
+//lint:ignore U1000 used only by GOOS=darwin/windows backends.
 func wrapAccount(attrs map[string]string) string {
 	return attrs[AttrIdentityKind] + "|" + attrs[AttrIdentityPath]
 }
@@ -231,6 +233,8 @@ func RekeyEncryptedFile(path string, oldPass, newPass []byte) error {
 }
 
 // sidecarPath is where the DPAPI backend keeps its protected blob.
+//
+//lint:ignore U1000 used only by the GOOS=windows DPAPI backend.
 func sidecarPath(path string) string {
 	return filepath.Clean(path) + ".dpwrap"
 }

@@ -72,6 +72,12 @@ type Session struct {
 	OnError      func(msg string, fatal bool)
 	OnTeardown   func()
 
+	// ExitTeardownDelay defers the listener's OnTeardown after a process exit
+	// so the peer can consume the final stream and exit messages before the
+	// link drops. Python rnsh prunes sessions max(rtt*3, 6s) after terminate;
+	// normally the client tears down the link itself on exit.
+	ExitTeardownDelay time.Duration
+
 	outboundMu sync.Mutex
 
 	proc    ProcessHandle
@@ -632,14 +638,22 @@ func (s *Session) pumpProcess(proc ProcessHandle) {
 	s.state = StateTeardown
 	cb := s.OnExit
 	td := s.OnTeardown
+	grace := s.ExitTeardownDelay
 	s.mu.Unlock()
 	if cb != nil {
 		cb(code)
 	}
 	// On the listener the session owns the link. Release it after the
 	// process exits so a completed session cannot park a registered link.
+	// The teardown is deferred so an instantly dropped link cannot beat the
+	// final messages to the peer: Python rnsh prunes sessions max(rtt*3, 6s)
+	// after terminate and normally the client tears down the link itself.
 	if s.cfg.Listener && td != nil {
-		td()
+		if grace > 0 {
+			time.AfterFunc(grace, td)
+		} else {
+			td()
+		}
 	}
 }
 

@@ -37,8 +37,12 @@ func RunStatus(args []string, opt ...Options) int {
 	trafficTotals := fs.Bool("t", false, "show transport traffic totals")
 	topology := fs.Bool("T", false, "show path topology grouped by interface")
 	showPPS := fs.Bool("p", false, "display packets per second in totals")
+	filterStats := fs.Bool("F", false, "show filtered traffic stats")
+	tunnels := fs.Bool("u", false, "display tunnel information (Python -T; -T is topology here)")
+	linkStats := fs.Bool("L", false, "show transport link traffic stats")
 	queues := fs.Bool("Q", false, "show inbound queue pressure (RNS 1.5.0, use -Q not -q)")
 	profiling := fs.Bool("z", false, "display live profiling results when the instance provides them")
+	memory := fs.Bool("memory", false, "show runtime memory stats and table sizes (Go instances)")
 	monitor := fs.Bool("m", false, "continuously monitor status")
 	monitorInterval := fs.Float64("I", 1, "refresh interval for monitor mode in seconds")
 	discovered := fs.Bool("d", false, "list discovered interfaces")
@@ -95,6 +99,9 @@ func RunStatus(args []string, opt ...Options) int {
 		TrafficTotals:  *trafficTotals,
 		BurstFilter:    *burstFilter,
 		ShowPPS:        *showPPS,
+		FilterStats:    *filterStats,
+		TunnelStats:    *tunnels,
+		LinkStats:      *linkStats,
 	}
 
 	runOnce := func(out io.Writer) int {
@@ -204,6 +211,14 @@ func RunStatus(args []string, opt ...Options) int {
 				fmt.Fprintf(out, "\n Profiling    :\n%s\n", prof)
 			} else {
 				fmt.Fprintln(out, "\n Profiling    : no results")
+			}
+		}
+		if *memory {
+			ms, err := client.GetMemoryStats()
+			if err != nil || len(ms) == 0 {
+				fmt.Fprintln(out, "\n Memory       : not available from this instance")
+			} else {
+				fmt.Fprintf(out, "\n Memory       :\n%s", formatMemoryStats(ms))
 			}
 		}
 		return 0
@@ -399,4 +414,47 @@ func runStatusRemote(cfg *common.ReticulumConfig, opts statusRemoteOpts) int {
 		}
 	}
 	return 0
+}
+
+// formatMemoryStats renders the memory_stats RPC map for rgostatus --memory.
+func formatMemoryStats(ms map[string]any) string {
+	num := func(k string) float64 {
+		switch v := ms[k].(type) {
+		case float64:
+			return v
+		case uint64:
+			return float64(v)
+		case int64:
+			return float64(v)
+		case int:
+			return float64(v)
+		}
+		return 0
+	}
+	human := func(b float64) string {
+		switch {
+		case b >= 1<<30:
+			return fmt.Sprintf("%.2f GiB", b/(1<<30))
+		case b >= 1<<20:
+			return fmt.Sprintf("%.2f MiB", b/(1<<20))
+		case b >= 1<<10:
+			return fmt.Sprintf("%.2f KiB", b/(1<<10))
+		default:
+			return fmt.Sprintf("%.0f B", b)
+		}
+	}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "  Heap alloc    : %s\n", human(num("heap_alloc")))
+	fmt.Fprintf(&sb, "  Heap in-use   : %s\n", human(num("heap_inuse")))
+	fmt.Fprintf(&sb, "  Heap idle     : %s\n", human(num("heap_idle")))
+	fmt.Fprintf(&sb, "  Heap released : %s\n", human(num("heap_released")))
+	fmt.Fprintf(&sb, "  Heap sys      : %s\n", human(num("heap_sys")))
+	fmt.Fprintf(&sb, "  Stack in use  : %s\n", human(num("stack_inuse")))
+	fmt.Fprintf(&sb, "  Sys           : %s\n", human(num("sys")))
+	fmt.Fprintf(&sb, "  Soft limit    : %s\n", human(num("memlimit")))
+	fmt.Fprintf(&sb, "  Goroutines    : %.0f\n", num("goroutines"))
+	fmt.Fprintf(&sb, "  GC cycles     : %.0f (total pause %s)\n", num("num_gc"), time.Duration(num("pause_total_ns")).Round(time.Millisecond))
+	fmt.Fprintf(&sb, "  Tables        : paths=%.0f packet_hashes=%.0f announce_cache=%.0f seen=%.0f announce_table=%.0f held=%.0f\n",
+		num("paths"), num("packet_hashes"), num("announce_cache"), num("seen_announces"), num("announce_table"), num("held_announces"))
+	return sb.String()
 }

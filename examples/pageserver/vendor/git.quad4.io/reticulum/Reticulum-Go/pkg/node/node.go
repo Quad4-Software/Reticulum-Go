@@ -5,11 +5,14 @@ package node
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -97,6 +100,7 @@ func (n *Node) StartInterfaceDiscovery() {
 		return
 	}
 	if n.discovery == nil {
+		n.transport.WantsDiscoveryDestination()
 		isBH := func(h []byte) bool {
 			tab := n.transport.BlackholeTable()
 			return tab != nil && tab.Has(h)
@@ -138,20 +142,23 @@ func New(cfg *common.ReticulumConfig) (*Node, error) {
 	if _, err := backbone.Init(backbone.ParseBackend(cfg.BackboneIO)); err != nil {
 		return nil, fmt.Errorf("backbone I/O hub: %w", err)
 	}
-	// RNS 1.5.6: a configured discoverable interface on a non-transport
-	// instance needs a static transport identity or peers cannot map
-	// announces back to it. Upstream applies this during config parsing,
-	// before the enabled and type checks.
-	discoverableConfigured := false
-	for _, iface := range cfg.Interfaces {
-		if iface != nil && iface.Discoverable {
-			discoverableConfigured = true
-			break
+	// Upstream 606a1691: a discoverable interface on a non-transport
+	// instance without static_transport_identity announces under the
+	// ephemeral transport identity, so every restart would show it as a
+	// new node. Discovery is disabled for that interface instead of
+	// silently pinning the identity. Upstream applies this during
+	// config parsing, before the enabled and type checks.
+	if !cfg.EnableTransport && !cfg.StaticTransportIdentity {
+		for name, iface := range cfg.Interfaces {
+			if iface == nil || !iface.Discoverable {
+				continue
+			}
+			debug.Log(debug.DebugWarning, "The interface \""+name+"\" was configured discoverable, but this instance has transport disabled")
+			debug.Log(debug.DebugWarning, "and is using an ephemeral transport identity. To make interfaces discoverable for non-transport")
+			debug.Log(debug.DebugWarning, "instances, explicitly enable using static transport identity in the config file,")
+			debug.Log(debug.DebugWarning, "by adding \"static_transport_identity = yes\" to the [reticulum] section.")
+			iface.Discoverable = false
 		}
-	}
-	if discoverableConfigured && !cfg.EnableTransport && !cfg.StaticTransportIdentity {
-		debug.Log(debug.DebugWarning, "Discoverable interface configured, enabling static transport identity on non-transport instance")
-		cfg.StaticTransportIdentity = true
 	}
 	t := transport.NewTransport(cfg)
 	n := &Node{
@@ -222,6 +229,7 @@ func (n *Node) Start() error {
 	if err := n.transport.InitializeNetworkIdentity(); err != nil {
 		return fmt.Errorf("network identity: %w", err)
 	}
+	n.loadConfigDirTables()
 	if !inst.OwnsNetworkInterfaces() {
 		debug.Log(debug.DebugInfo, "Using existing local shared Reticulum instance, skipping configured network interfaces")
 		return nil
@@ -360,6 +368,72 @@ func defaultGravityFromConfig(cfg *common.ReticulumConfig) int {
 	return 0
 }
 
+// nodeConfigDir returns the directory holding this node's config files.
+func (n *Node) nodeConfigDir() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	configDir := filepath.Join(homeDir, ".reticulum-go")
+	if n.config != nil && n.config.ConfigPath != "" {
+		configDir = filepath.Dir(n.config.ConfigPath)
+	}
+	return configDir
+}
+
+// parseBlockedIPs extracts valid IP addresses from a blocked_ips file body:
+// one entry per line, blank lines and # comments skipped.
+func parseBlockedIPs(raw []byte) []string {
+	var out []string
+	for _, line := range strings.Split(string(raw), "\n") {
+		ip := strings.TrimSpace(line)
+		if ip == "" || strings.HasPrefix(ip, "#") {
+			continue
+		}
+		if net.ParseIP(ip) != nil {
+			out = append(out, ip)
+		}
+	}
+	return out
+}
+
+// loadConfigDirTables reads the config-dir tables RNS 1.6.1 loads at
+// startup: blocked_ips (permanent backbone blocks), known_destination_types
+// and flagged_destination_types (name-hash display names).
+func (n *Node) loadConfigDirTables() {
+	configDir := n.nodeConfigDir()
+	if configDir == "" {
+		return
+	}
+	if raw, err := os.ReadFile(filepath.Join(configDir, "blocked_ips")); err == nil { // #nosec G304 -- path under the node's own config dir
+		ips := parseBlockedIPs(raw)
+		for _, ip := range ips {
+			interfaces.BlockPermanently(ip)
+		}
+		debug.Log(debug.DebugVerbose, "Loaded blocked IPs", "count", len(ips))
+	}
+	for _, table := range []struct {
+		file     string
+		register func([]byte, string)
+	}{
+		{"known_destination_types", n.transport.RegisterKnownDestinationType},
+		{"flagged_destination_types", n.transport.RegisterFlaggedDestinationType},
+	} {
+		raw, err := os.ReadFile(filepath.Join(configDir, table.file)) // #nosec G304 -- path under the node's own config dir
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(raw), "\n") {
+			name := strings.TrimSpace(line)
+			if name == "" || strings.HasPrefix(name, "#") {
+				continue
+			}
+			h := sha256.Sum256([]byte(name))
+			table.register(h[:10], name)
+		}
+	}
+}
+
 func (n *Node) fromConfigContext() *interfaces.FromConfigContext {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -398,6 +472,19 @@ func (n *Node) fromConfigContext() *interfaces.FromConfigContext {
 				n.transport.UnregisterInterface(name)
 				n.unregisterInterfaceBuffers(name)
 			}, nil)
+		},
+		SpawnTCP: func(client *interfaces.TCPServerClientInterface) {
+			name := client.GetName()
+			if err := n.transport.RegisterInterface(name, client); err != nil {
+				debug.Log(debug.DebugError, "Failed to register spawned TCP client", "error", err)
+				_ = client.Stop()
+				return
+			}
+			n.handleInterface(client)
+			client.SetDisconnectHooks(func() {
+				n.transport.UnregisterInterface(name)
+				n.unregisterInterfaceBuffers(name)
+			})
 		},
 		SpawnAware: func(peer *interfaces.AwarePeerInterface) {
 			name := peer.GetName()

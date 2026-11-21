@@ -89,7 +89,6 @@ type AwareInterface struct {
 	unregister func(name string)
 	peers      map[int]*AwarePeerInterface
 	spawning   map[int]struct{}
-	peerKey    string
 }
 
 // NewAwareInterface builds a controller around a host-supplied driver. A nil
@@ -321,6 +320,15 @@ type AwarePeerInterface struct {
 	txMu     sync.Mutex
 	txFrame  []byte
 	closed   bool
+}
+
+// SpawnedParent returns the owning AwareInterface for counter propagation
+// (Python parent_interface).
+func (p *AwarePeerInterface) SpawnedParent() common.NetworkInterface {
+	if p.parent != nil {
+		return p.parent
+	}
+	return nil
 }
 
 func newAwarePeerInterface(parent *AwareInterface, peerID int) *AwarePeerInterface {

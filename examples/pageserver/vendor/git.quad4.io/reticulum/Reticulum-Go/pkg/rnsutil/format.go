@@ -87,6 +87,12 @@ type StatusOptions struct {
 	TrafficTotals  bool
 	BurstFilter    bool
 	ShowPPS        bool
+	// FilterStats shows per-interface and total filtered traffic (rnstatus -F).
+	FilterStats bool
+	// TunnelStats shows tunnel IDs and remote transport metadata (rnstatus -T).
+	TunnelStats bool
+	// LinkStats shows transport-wide link traffic share (rnstatus -L).
+	LinkStats bool
 }
 
 // SortInterfaceStats sorts interfaces in place by SortBy.
@@ -151,6 +157,18 @@ func SortInterfaceStats(stats *transport.InterfaceStatsResponse, sortBy string, 
 	case "flt":
 		less = func(i, j int) bool {
 			return stats.Interfaces[i].PacketFilterHits < stats.Interfaces[j].PacketFilterHits
+		}
+	case "frx":
+		less = func(i, j int) bool { return stats.Interfaces[i].FRXB < stats.Interfaces[j].FRXB }
+	case "ftx":
+		less = func(i, j int) bool { return stats.Interfaces[i].FTXB < stats.Interfaces[j].FTXB }
+	case "frxs":
+		less = func(i, j int) bool { return stats.Interfaces[i].FRXS < stats.Interfaces[j].FRXS }
+	case "ftxs":
+		less = func(i, j int) bool { return stats.Interfaces[i].FTXS < stats.Interfaces[j].FTXS }
+	case "afrxc":
+		less = func(i, j int) bool {
+			return stats.Interfaces[i].AFRXC < stats.Interfaces[j].AFRXC
 		}
 	case "arxc":
 		less = func(i, j int) bool {
@@ -363,13 +381,78 @@ func WriteStatusHuman(w io.Writer, stats transport.InterfaceStatsResponse, linkC
 			}
 		}
 		if opts.AnnounceStats {
-			if _, err := fmt.Fprintf(w, "  Announces : ↓%s ↑%s (%.2f/s ↓ %.2f/s ↑)\n",
+			fStr := ""
+			if st.AFRXC > 0 {
+				fStr = fmt.Sprintf(", %d filtered", st.AFRXC)
+			}
+			if _, err := fmt.Fprintf(w, "  Announces : ↓%s ↑%s (%.2f/s ↓ %.2f/s ↑)%s\n",
 				SizeString(float64(st.ARXB), "B"),
 				SizeString(float64(st.ATXB), "B"),
 				st.IncomingAnnounceFrequency,
 				st.OutgoingAnnounceFrequency,
+				fStr,
 			); err != nil {
 				return err
+			}
+		}
+		if opts.FilterStats && (st.FRXB > 0 || st.FTXB > 0) {
+			frxstat := "↓" + SizeString(float64(st.FRXB), "B")
+			ftxstat := "↑" + SizeString(float64(st.FTXB), "B")
+			if st.FRXS > 0 {
+				frxstat += "  " + SizeString(st.FRXS, "b") + "/s"
+			}
+			if st.FTXS > 0 {
+				ftxstat += "  " + SizeString(st.FTXS, "b") + "/s"
+			}
+			if _, err := fmt.Fprintf(w, "  Filtered  : %s\n                %s\n", ftxstat, frxstat); err != nil {
+				return err
+			}
+		}
+		if opts.TunnelStats {
+			tid := "None"
+			if len(st.TunnelID) > 0 {
+				tid = hex.EncodeToString(st.TunnelID)
+			}
+			if _, err := fmt.Fprintf(w, "  Tunnel ID : %s\n", tid); err != nil {
+				return err
+			}
+			if len(st.TunnelID) > 0 {
+				remTr := "Unknown"
+				if len(st.RemoteTransportID) > 0 {
+					remTr = PrettyHex(st.RemoteTransportID)
+				}
+				if _, err := fmt.Fprintf(w, "  Rem.Tr.ID : %s\n", remTr); err != nil {
+					return err
+				}
+				impl := "Unknown implementation"
+				if st.RemImpl != nil && *st.RemImpl != "" {
+					impl = *st.RemImpl
+				}
+				vers := ", unknown version"
+				if len(st.RemVers) > 0 {
+					parts := make([]string, len(st.RemVers))
+					for i, v := range st.RemVers {
+						parts[i] = strconv.Itoa(v)
+					}
+					tn := ", no transport"
+					if st.RemIsTN != nil && *st.RemIsTN {
+						tn = ", transport enabled"
+					}
+					vers = " " + strings.Join(parts, ".") + tn
+				}
+				if _, err := fmt.Fprintf(w, "  Rem.Vers. : %s%s\n", impl, vers); err != nil {
+					return err
+				}
+				dstCost, prCost := "Dst ?", "PR ?"
+				if st.RemDstCost != nil {
+					dstCost = fmt.Sprintf("Dst %.1f", *st.RemDstCost)
+				}
+				if st.RemPRCost != nil {
+					prCost = fmt.Sprintf("PR %.1f", *st.RemPRCost)
+				}
+				if _, err := fmt.Fprintf(w, "  Rem.Csts. : %s, %s\n", dstCost, prCost); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -437,6 +520,57 @@ func WriteStatusHuman(w io.Writer, stats transport.InterfaceStatsResponse, linkC
 			); err != nil {
 				return err
 			}
+		}
+	}
+	if opts.FilterStats && (stats.FRXB > 0 || stats.FTXB > 0) {
+		frxstat := "↓" + SizeString(float64(stats.FRXB), "B")
+		ftxstat := "↑" + SizeString(float64(stats.FTXB), "B")
+		if d := len(frxstat) - len(ftxstat); d > 0 {
+			ftxstat += strings.Repeat(" ", d)
+		} else if d < 0 {
+			frxstat += strings.Repeat(" ", -d)
+		}
+		if stats.FRXS > 0 {
+			frxstat += "  " + SizeString(stats.FRXS, "b") + "/s"
+		}
+		if stats.FTXS > 0 {
+			ftxstat += "  " + SizeString(stats.FTXS, "b") + "/s"
+		}
+		if _, err := fmt.Fprintf(w, "\n Filtered     : %s\n                %s\n", ftxstat, frxstat); err != nil {
+			return err
+		}
+	}
+	if opts.LinkStats && (stats.LRXB > 0 || stats.LTXB > 0) {
+		lrxstat := "↓" + SizeString(float64(stats.LRXB), "B")
+		ltxstat := "↑" + SizeString(float64(stats.LTXB), "B")
+		if d := len(lrxstat) - len(ltxstat); d > 0 {
+			ltxstat += strings.Repeat(" ", d)
+		} else if d < 0 {
+			lrxstat += strings.Repeat(" ", -d)
+		}
+		parxs := stats.PRXS + stats.ARXS
+		patxs := stats.PTXS + stats.ATXS
+		drxpct := 100.0
+		dtxpct := 100.0
+		if stats.RXS > 0 {
+			drxpct = 100.0 - min(100.0, parxs/stats.RXS*100.0)
+		}
+		if stats.TXS > 0 {
+			dtxpct = 100.0 - min(100.0, patxs/stats.TXS*100.0)
+		}
+		drxs := stats.RXS * drxpct / 100.0
+		dtxs := stats.TXS * dtxpct / 100.0
+		var lrxpct, ltxpct float64
+		if drxs > 0 && stats.LRXS > 0 {
+			lrxpct = min(100.0, stats.LRXS/drxs*100.0)
+		}
+		if dtxs > 0 && stats.LTXS > 0 {
+			ltxpct = min(100.0, stats.LTXS/dtxs*100.0)
+		}
+		lrxstat += "  " + SizeString(stats.LRXS, "b") + fmt.Sprintf("/s, %d%% of data flow", int(lrxpct))
+		ltxstat += "  " + SizeString(stats.LTXS, "b") + fmt.Sprintf("/s, %d%% of data flow", int(ltxpct))
+		if _, err := fmt.Fprintf(w, "\n Links        : %s\n                %s\n", ltxstat, lrxstat); err != nil {
+			return err
 		}
 	}
 	if opts.QueueStats {
@@ -658,7 +792,9 @@ func WriteDiscoveredJSON(w io.Writer, list []*discovery.DiscoveredInterface) err
 		ReachableOn         string   `json:"reachable_on,omitempty"`
 		Port                int64    `json:"port,omitempty"`
 		Hops                uint8    `json:"hops"`
-		Value               int      `json:"value"`
+		Value               float64  `json:"value"`
+		DstCost             *float64 `json:"dst_cost,omitempty"`
+		PrCost              *float64 `json:"pr_cost,omitempty"`
 		TransportID         string   `json:"transport_id"`
 		NetworkID           string   `json:"network_id"`
 		OperatorLXMFAddress string   `json:"operator_lxmf_address,omitempty"`
@@ -687,6 +823,8 @@ func WriteDiscoveredJSON(w io.Writer, list []*discovery.DiscoveredInterface) err
 			Port:        rec.Port,
 			Hops:        rec.Hops,
 			Value:       rec.Value,
+			DstCost:     rec.DstCost,
+			PrCost:      rec.PrCost,
 			TransportID: hex.EncodeToString(rec.TransportID),
 			NetworkID:   hex.EncodeToString(rec.NetworkID),
 			Discovered:  rec.Discovered,
@@ -841,8 +979,18 @@ func WriteDiscoveredHuman(w io.Writer, list []*discovery.DiscoveredInterface, op
 		if _, err := fmt.Fprintf(w, "Hops         : %d\n", rec.Hops); err != nil {
 			return err
 		}
-		if _, err := fmt.Fprintf(w, "Stamp value  : %d\n", rec.Value); err != nil {
+		if _, err := fmt.Fprintf(w, "Stamp value  : %g\n", rec.Value); err != nil {
 			return err
+		}
+		if rec.DstCost != nil {
+			if _, err := fmt.Fprintf(w, "Dst cost     : %g\n", *rec.DstCost); err != nil {
+				return err
+			}
+		}
+		if rec.PrCost != nil {
+			if _, err := fmt.Fprintf(w, "PR cost      : %g\n", *rec.PrCost); err != nil {
+				return err
+			}
 		}
 		if details {
 			dago := now.Sub(time.Unix(int64(rec.Discovered), 0))

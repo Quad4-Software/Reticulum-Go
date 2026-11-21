@@ -102,7 +102,7 @@ func RunSpeedtest(args []string, opt ...Options) int {
 			usageErr(stderr, "speedtest -loopback [flags]")
 			return 2
 		}
-		return emitSpeedResult(stdout, stderr, *jsonOut, "loopback", "", spOpt, func() (rlink.SpeedtestResult, error) {
+		return emitSpeedResult(stdout, stderr, *jsonOut, "loopback", "", func() (rlink.SpeedtestResult, error) {
 			return rlink.RunLoopbackSpeedtest(spOpt)
 		})
 	}
@@ -334,7 +334,7 @@ func linkIfaceName(lnk *rlink.Link) string {
 	return ni.GetName()
 }
 
-func emitSpeedResult(stdout, stderr io.Writer, jsonOut bool, mode, iface string, spOpt rlink.SpeedtestOptions, run func() (rlink.SpeedtestResult, error)) int {
+func emitSpeedResult(stdout, stderr io.Writer, jsonOut bool, mode, iface string, run func() (rlink.SpeedtestResult, error)) int {
 	res, err := run()
 	return emitSpeedResultValues(stdout, stderr, jsonOut, mode, iface, res, err)
 }

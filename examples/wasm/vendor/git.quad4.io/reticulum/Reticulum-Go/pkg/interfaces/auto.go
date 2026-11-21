@@ -309,7 +309,7 @@ func (ai *AutoInterface) Start() error {
 		ai.netwatchUnsub = netwatchSubscribe(ai.onNetworkChange)
 	}
 	ai.Mutex.Unlock()
-	go ai.peerJobs(loopDone, gen)
+	go ai.peerJobs(gen)
 	go ai.announceLoop(loopDone, gen)
 
 	debug.Log(debug.DebugInfo, "AutoInterface started", "adopted", len(ai.adoptedInterfaces))
@@ -404,6 +404,13 @@ func (ai *AutoInterface) startDiscoveryListener(iface *net.Interface) error {
 		IP:   net.ParseIP(ai.mcastDiscoveryAddr),
 		Port: ai.discoveryPort,
 		Zone: iface.Name,
+	}
+	// Windows rejects bind() on [::] when sin6_scope_id is set
+	// (WSAEADDRNOTAVAIL). ListenMulticastUDP binds [::] for multicast
+	// groups and joins via ifi.Index, so the zone only reaches the bind
+	// sockaddr. Matches the Python reference, which binds ('', port).
+	if runtime.GOOS == "windows" {
+		addr.Zone = ""
 	}
 
 	conn, err := net.ListenMulticastUDP("udp6", iface, addr)
@@ -564,7 +571,6 @@ func (ai *AutoInterface) handleData(conn *net.UDPConn, ifaceName string) {
 		}
 
 		// Update RX stats
-		ai.RxBytes += uint64(len(data))
 		ai.RxPackets++
 		ai.lastRx = now
 
@@ -704,7 +710,7 @@ func (ai *AutoInterface) reverseAnnounce(peer *Peer) {
 	}
 }
 
-func (ai *AutoInterface) peerJobs(done <-chan struct{}, gen uint64) {
+func (ai *AutoInterface) peerJobs(gen uint64) {
 	ticker := time.NewTicker(ai.peerJobInterval)
 	defer ticker.Stop()
 

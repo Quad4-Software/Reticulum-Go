@@ -124,8 +124,28 @@ type BaseInterface struct {
 	// Gravity is configured pathing affinity (RNS 1.4.1).
 	Gravity int
 
+	// DestinationCost/PRCost are the per-interface stamp requirements
+	// (RNS 1.6.0 destination_cost / pr_cost). *Set false means inherit the
+	// transport default at validation time.
+	DestinationCost    float64
+	DestinationCostSet bool
+	PRCost             float64
+	PRCostSet          bool
+
 	// ReceiveOnly blocks transmit when true (Python outgoing = no).
 	ReceiveOnly bool
+
+	// HopLimiter overrides the global maximum hops for packets received on
+	// this interface (RNS 1.6.1 hop_limiter). HopLimiterSet distinguishes an
+	// explicit value from "use transport default".
+	HopLimit    int
+	HopLimitSet bool
+
+	// Filtered traffic counters (RNS 1.6.1).
+	FilteredRxB  uint64
+	FilteredTxB  uint64
+	FilteredARXC uint64
+	HopLimitHits uint64
 
 	// deferInboundIFAC skips ApplyIFACInbound in ProcessIncoming so transport
 	// inbound preprocessing can apply IFAC once (RNS 1.5.0).
@@ -158,6 +178,12 @@ func NewBaseInterface(name string, ifaceType InterfaceType, enabled bool) BaseIn
 func NewBaseInterfacePtr(name string, ifaceType InterfaceType, enabled bool) *BaseInterface {
 	b := NewBaseInterface(name, ifaceType, enabled)
 	return &b
+}
+
+// GetStampCosts reports the per-interface stamp requirements (RNS 1.6.0).
+// A false flag means the value is unset and the transport default applies.
+func (i *BaseInterface) GetStampCosts() (destinationCost float64, prCost float64, destSet, prSet bool) {
+	return i.DestinationCost, i.PRCost, i.DestinationCostSet, i.PRCostSet
 }
 
 // Default implementations for BaseInterface
@@ -260,6 +286,57 @@ func (i *BaseInterface) GetTxBytes() uint64 {
 	return i.TxBytes
 }
 
+// AcceptedRxTally counts wire bytes accepted by transport inbound
+// processing (RNS 1.6.1 rxb).
+func (i *BaseInterface) AcceptedRxTally(n int) {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.RxBytes += uint64(n) // #nosec G115 -- n is a byte count, non-negative
+}
+
+// FilteredRxTally counts bytes dropped by inbound filtering (RNS 1.6.1 frxb).
+func (i *BaseInterface) FilteredRxTally(n int) {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.FilteredRxB += uint64(n) // #nosec G115 -- n is a byte count, non-negative
+}
+
+// FilteredTxTally counts bytes dropped by outbound filtering (RNS 1.6.1 ftxb).
+func (i *BaseInterface) FilteredTxTally(n int) {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.FilteredTxB += uint64(n) // #nosec G115 -- n is a byte count, non-negative
+}
+
+// FilteredAnnounce counts a dropped announce (RNS 1.6.1 farxc/afrxc).
+func (i *BaseInterface) FilteredAnnounce() {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.FilteredARXC++
+}
+
+// HopLimiterHit counts a packet dropped over the hop limiter.
+func (i *BaseInterface) HopLimiterHit() {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.HopLimitHits++
+}
+
+// HopLimiter returns the per-interface hop limiter (RNS 1.6.1 hop_limiter).
+func (i *BaseInterface) HopLimiter() (int, bool) {
+	i.Mutex.RLock()
+	defer i.Mutex.RUnlock()
+	return i.HopLimit, i.HopLimitSet
+}
+
+// SetHopLimiter configures the per-interface hop limiter.
+func (i *BaseInterface) SetHopLimiter(n int) {
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
+	i.HopLimit = n
+	i.HopLimitSet = n > 0
+}
+
 func (i *BaseInterface) GetRxBytes() uint64 {
 	i.Mutex.RLock()
 	defer i.Mutex.RUnlock()
@@ -360,7 +437,6 @@ func (i *BaseInterface) DeferInboundIFAC() bool {
 
 func (i *BaseInterface) ProcessIncoming(data []byte) {
 	i.Mutex.Lock()
-	i.RxBytes += uint64(len(data))
 	i.RxPackets++
 	deferInbound := i.deferInboundIFAC
 	i.Mutex.Unlock()
