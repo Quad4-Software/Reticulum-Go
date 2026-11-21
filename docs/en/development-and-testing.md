@@ -486,7 +486,7 @@ make deps
 
 The repository contains three modules: the root stack, `protocols/` (LXMF, LXST, MF, RRC) and `website/` (the Hugo module and docs site). Each has its own `go.mod` and `vendor/` policy. The root and `protocols/` modules vendor their dependencies and build with `GOFLAGS=-mod=vendor`. `website/` resolves modules from the proxy at build time. Build and test the nested modules with `task protocols-build`, `task protocols-test`, `task website-build` and `task website-test`.
 
-The docs site is a Hugo site at `website/site` that mounts `docs/en` as its content. `task docs-site` renders it and converts the Markdown bodies to Micron pages under `website/site/public`. To serve those pages over Reticulum, run `website/bin/hugo-reticulum serve` from `website/site`.
+The docs site is a Hugo site at `website/site` that mounts `docs/en` as its content. Each page renders as HTML and as Micron. `task docs-site` writes both under `website/site/public` and converts the Markdown bodies to Micron. `hugo server --source website/site` previews the HTML build, and `website/bin/hugo-reticulum serve` run from `website/site` serves the Micron pages over Reticulum.
 
 Day-to-day clones only need `vendor/` to build offline. Sibling checkouts are only required when re-vendoring first-party libraries. `examples/wasm` and `examples/pageserver` keep their own `go.mod` / `vendor/` trees. Docker configs under `docker/` copy those folders for offline image builds.
 

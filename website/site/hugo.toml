@@ -41,8 +41,8 @@ locale = "en"
   weight = 3
 
 [outputs]
-home = ["Micron"]
-page = ["Micron"]
-section = ["Micron"]
+home = ["HTML", "Micron"]
+page = ["HTML", "Micron"]
+section = ["HTML", "Micron"]
 taxonomy = ["Micron"]
 term = ["Micron"]

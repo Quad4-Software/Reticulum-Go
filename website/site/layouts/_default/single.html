@@ -1,0 +1,8 @@
+{{ define "main" }}
+{{ $title := .Title }}
+{{ with .File }}{{ if not $title }}{{ $title = .TranslationBaseName | humanize }}{{ end }}{{ end }}
+<article>
+  <h1>{{ $title }}</h1>
+  {{ .Content }}
+</article>
+{{ end }}

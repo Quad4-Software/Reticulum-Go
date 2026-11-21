@@ -1,0 +1,11 @@
+{{ define "main" }}
+<article>
+  <h1>{{ site.Title }}</h1>
+  {{ .Content }}
+  <ul class="page-list">
+  {{ range where site.RegularPages "Section" "docs" }}
+    <li><a href="{{ .RelPermalink }}">{{ .Title }}</a></li>
+  {{ end }}
+  </ul>
+</article>
+{{ end }}
