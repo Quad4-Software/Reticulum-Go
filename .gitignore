@@ -142,6 +142,7 @@ dist/
 
 # Documentation site (website/site) build output
 website/site/public/
+website/site/static/downloads/
 website/site/resources/
 website/site/.hugo_build.lock
 website/exampleSite/public/

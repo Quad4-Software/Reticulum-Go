@@ -19,6 +19,7 @@ fmt:
 	gofmt -w .
 
 docs: build
+	go run ./cmd/docs-bundle
 	cd site && hugo --source . && ../$(BINARY) build
 
 serve: build

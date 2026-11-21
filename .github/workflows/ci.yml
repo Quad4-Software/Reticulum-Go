@@ -356,10 +356,17 @@ jobs:
         run: |
           go install github.com/gohugoio/hugo@v0.168.0
           go build -o bin/hugo-reticulum ./cmd/hugo-reticulum
+          go run ./cmd/docs-bundle -require-pdf
           cd site
           hugo --source .
           ../bin/hugo-reticulum build
           test -f public/docs/index.mu
+          test -s public/downloads/reticulum-go-docs.zip
+          test -s public/downloads/reticulum-go-docs.pdf
+          test -s public/downloads/reticulum-go-docs.epub
+          grep -q 'class="sidebar-nav"' public/index.html
+          grep -q 'reticulum-go-docs.zip' public/index.html
+          ! grep -rE '<li>[[:space:]]*</li>' public --include='*.html'
 
   lint:
     name: Lint

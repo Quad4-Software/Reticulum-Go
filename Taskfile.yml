@@ -271,6 +271,7 @@ tasks:
       GOPROXY: https://proxy.golang.org,direct
     cmds:
       - go build -o bin/hugo-reticulum ./cmd/hugo-reticulum
+      - go run ./cmd/docs-bundle
       - cd site && hugo --source . && ../bin/hugo-reticulum build
 
   vendor-sync:
