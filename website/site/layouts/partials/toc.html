@@ -1,0 +1,8 @@
+{{ if and (eq .Kind "page") (eq .Section "docs") (.TableOfContents | strings.TrimSpace | ne "") }}
+<aside class="toc" aria-label="On this page">
+  <nav>
+    <p class="toc-title">On this page</p>
+    {{ .TableOfContents }}
+  </nav>
+</aside>
+{{ end }}

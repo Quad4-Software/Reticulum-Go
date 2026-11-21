@@ -1,0 +1,4 @@
+<h{{ .Level }} id="{{ .Anchor }}"{{- with .Attributes.id }} data-anchor="{{ . }}"{{ end }}>
+  {{ .Text }}
+  {{ if ge .Level 2 }}<a class="h-anchor" href="#{{ .Anchor }}" aria-label="Link to this section" tabindex="-1">#</a>{{ end }}
+</h{{ .Level }}>

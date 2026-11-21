@@ -1,0 +1,14 @@
+<nav class="sidebar-nav" aria-label="Documentation">
+{{ range hugo.Data.docsnav.groups }}
+  <p class="sidebar-group">{{ .name }}</p>
+  <ul>
+  {{ range .pages }}{{ $e := . }}
+    {{ with site.GetPage (printf "/docs/%s" $e.slug) }}
+    <li{{ if eq .RelPermalink $.RelPermalink }} class="current"{{ end }}>
+      <a href="{{ .RelPermalink }}"{{ if eq .RelPermalink $.RelPermalink }} aria-current="page"{{ end }}>{{ or $e.label (partial "doc-title" .) }}</a>
+    </li>
+    {{ end }}
+  {{ end }}
+  </ul>
+{{ end }}
+</nav>

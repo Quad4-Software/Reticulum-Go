@@ -14,6 +14,10 @@ locale = "en"
     target = "content/docs"
 
 [params]
+  repo_url = "https://github.com/Quad4-Software/Reticulum-Go"
+  docs_version = "1.6.1"
+  description = "A Go implementation of the Reticulum Network Stack, tracking the Python reference implementation."
+
   [params.reticulum]
     node_name = "reticulum-go-docs"
     bg = "111111"
@@ -39,6 +43,14 @@ locale = "en"
   name = "Getting started"
   url = "/docs/getting-started/"
   weight = 3
+
+[markup]
+  [markup.highlight]
+    noClasses = false
+  [markup.tableOfContents]
+    startLevel = 2
+    endLevel = 3
+    ordered = false
 
 [outputs]
 home = ["HTML", "Micron"]

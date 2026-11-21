@@ -1,12 +1,35 @@
 {{ define "main" }}
-<article>
-  {{ if not (strings.Contains .Content "<h1") }}<h1>{{ site.Title }}</h1>{{ end }}
+<article class="landing">
   {{ .Content }}
-  <h2>Documents</h2>
+  <pre><code>CGO_ENABLED=0 go install -ldflags="-s -w" git.quad4.io/reticulum/Reticulum-Go/cmd/reticulum-go@master</code></pre>
+  <p class="startlinks">
+    <a href="{{ "docs/getting-started/" | relURL }}">Getting started</a> &middot;
+    <a href="{{ "docs/configuration/" | relURL }}">Configuration</a> &middot;
+    <a href="{{ "docs/api-reference/" | relURL }}">API reference</a> &middot;
+    <a href="{{ "docs/compatibility/" | relURL }}">Compatibility</a>
+  </p>
+  <h2>Where things live</h2>
+  <table>
+    <thead><tr><th>Path</th><th>Module</th><th>Contents</th></tr></thead>
+    <tbody>
+      <tr><td><code>/</code></td><td><code>git.quad4.io/reticulum/Reticulum-Go</code></td><td>The RNS stack, CLI utilities, librns</td></tr>
+      <tr><td><code>protocols/</code></td><td><code>github.com/Quad4-Software/reticulum-go-protocols</code></td><td>LXMF, LXST, MF, RRC and their bindings and daemons</td></tr>
+      <tr><td><code>website/</code></td><td><code>github.com/Quad4-Software/hugo-reticulum</code></td><td>Hugo module that renders the docs as HTML and as Micron pages over Reticulum</td></tr>
+    </tbody>
+  </table>
+  <h2>Download the docs</h2>
+  <p>Every document in one file, for offline reading:</p>
+  {{ partial "downloads-items" (dict "class" "downloads-list") }}
+  <h2>All documents</h2>
+  {{ range hugo.Data.docsnav.groups }}
+  <h3>{{ .name }}</h3>
   <ul class="page-list">
-  {{ range where site.RegularPages "Section" "docs" }}
-    <li><a href="{{ .RelPermalink }}">{{ .Title }}</a></li>
+  {{ range .pages }}{{ $e := . }}
+    {{ with site.GetPage (printf "/docs/%s" $e.slug) }}
+    <li><a href="{{ .RelPermalink }}">{{ or $e.label (partial "doc-title" .) }}</a></li>
+    {{ end }}
   {{ end }}
   </ul>
+  {{ end }}
 </article>
 {{ end }}

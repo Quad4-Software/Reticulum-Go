@@ -1,37 +1,38 @@
 <!DOCTYPE html>
-<html lang="{{ site.Language.Lang }}">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-{{ $title := .Title }}{{ with .File }}{{ if not $title }}{{ $title = .TranslationBaseName | humanize }}{{ end }}{{ end }}
-<title>{{ if .IsHome }}{{ site.Title }}{{ else }}{{ $title }} · {{ site.Title }}{{ end }}</title>
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#15171b">
+{{ partial "theme-script" . }}
+{{ $title := partial "doc-title" . }}
+<title>{{ if .IsHome }}{{ site.Title }} documentation{{ else }}{{ $title }} | {{ site.Title }}{{ end }}</title>
+<meta name="description" content="{{ site.Params.description }}">
+<link rel="stylesheet" href="{{ "css/syntax-light.css" | relURL }}">
+<link rel="stylesheet" href="{{ "css/syntax-dark.css" | relURL }}">
 <link rel="stylesheet" href="{{ "css/site.css" | relURL }}">
+<script defer src="{{ "js/site.js" | relURL }}"></script>
 </head>
-<body>
-<header class="site-header">
-  <a class="brand" href="{{ site.Home.RelPermalink }}">Reticulum-Go</a>
-  <nav class="top-nav">
-    <a href="{{ site.Home.RelPermalink }}">Home</a>
-    <a href="{{ "docs/" | relURL }}">Docs</a>
-    <a href="{{ "docs/getting-started/" | relURL }}">Getting started</a>
-    <a href="{{ "docs/api-reference/" | relURL }}">API</a>
-  </nav>
-</header>
+<body{{ if .IsHome }} class="home"{{ end }}>
+{{ partial "topbar" . }}
 <div class="shell">
-  <aside class="sidebar">
-    <p class="sidebar-title">Documentation</p>
-    <ul>
-    {{ range where site.RegularPages "Section" "docs" }}
-      <li{{ if eq .RelPermalink $.RelPermalink }} class="current"{{ end }}><a href="{{ .RelPermalink }}">{{ .Title }}</a></li>
-    {{ end }}
-    </ul>
+  <aside class="sidebar" id="sidebar">
+    {{ partial "sidebar" . }}
   </aside>
-  <main>
+  <main id="main">
   {{ block "main" . }}{{ end }}
   </main>
+  {{ partial "toc" . }}
 </div>
 <footer class="site-footer">
-  <p>Served over Reticulum as Micron pages, and over HTTP as HTML.</p>
+  <nav aria-label="Footer">
+    <a href="{{ "docs/" | relURL }}">Docs</a>
+    <a href="{{ "downloads/" | relURL }}">Downloads</a>
+    <a href="{{ site.Params.repo_url }}" rel="noopener">Source</a>
+    <a href="{{ site.Params.repo_url }}/blob/master/LICENSE" rel="noopener">License</a>
+  </nav>
+  <p>Reticulum-Go documentation. Also served as Micron pages over Reticulum.</p>
 </footer>
 </body>
 </html>

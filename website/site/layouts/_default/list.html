@@ -1,11 +1,21 @@
 {{ define "main" }}
 <article>
-  <h1>{{ .Title }}</h1>
+  <h1>{{ partial "doc-title" . }}</h1>
   {{ .Content }}
+  {{ if eq .Section "docs" }}
+  <dl class="doc-index">
+  {{ range hugo.Data.docsnav.groups }}{{ range .pages }}{{ $e := . }}
+    {{ with site.GetPage (printf "/docs/%s" $e.slug) }}
+    <dt><a href="{{ .RelPermalink }}">{{ or $e.label (partial "doc-title" .) }}</a></dt>
+    {{ end }}
+  {{ end }}{{ end }}
+  </dl>
+  {{ else }}
   <ul class="page-list">
   {{ range .Pages.ByTitle }}
-    <li><a href="{{ .RelPermalink }}">{{ .Title }}</a></li>
+    <li><a href="{{ .RelPermalink }}">{{ partial "doc-title" . }}</a></li>
   {{ end }}
   </ul>
+  {{ end }}
 </article>
 {{ end }}

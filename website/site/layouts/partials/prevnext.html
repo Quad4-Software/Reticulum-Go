@@ -1,0 +1,16 @@
+{{ $flat := slice }}
+{{ range hugo.Data.docsnav.groups }}{{ range .pages }}
+  {{ with site.GetPage (printf "/docs/%s" .slug) }}{{ $flat = $flat | append . }}{{ end }}
+{{ end }}{{ end }}
+{{ range $i, $p := $flat }}
+{{ if eq $p.RelPermalink $.RelPermalink }}
+<nav class="prevnext" aria-label="Adjacent documents">
+  {{ if gt $i 0 }}{{ with index $flat (sub $i 1) }}
+  <a class="prev" href="{{ .RelPermalink }}">{{ partial "icon" (dict "name" "chevron-left" "size" 14) }} {{ partial "doc-title" . }}</a>
+  {{ end }}{{ end }}
+  {{ if lt $i (sub (len $flat) 1) }}{{ with index $flat (add $i 1) }}
+  <a class="next" href="{{ .RelPermalink }}">{{ partial "doc-title" . }} {{ partial "icon" (dict "name" "chevron-right" "size" 14) }}</a>
+  {{ end }}{{ end }}
+</nav>
+{{ end }}
+{{ end }}
