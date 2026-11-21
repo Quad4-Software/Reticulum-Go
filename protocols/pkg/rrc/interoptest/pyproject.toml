@@ -1,0 +1,15 @@
+[project]
+name = "rrc-interoptest"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "cbor2>=5.6.0",
+    "rns>=1.6.0",
+    "rrcd",
+]
+
+[tool.uv.sources]
+rrcd = { path = "../../../RRC-ref", editable = true }
+
+[tool.uv]
+package = false

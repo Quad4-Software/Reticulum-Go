@@ -1,0 +1,566 @@
+# Pinned actions (bump tag and SHA together when upgrading):
+#   actions/checkout@v7.0.0                         9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+#   actions/dependency-review-action@v5.0.0         a1d282b36b6f3519aa1f3fc636f609c47dddb294
+#
+# Secure-use: least-privilege GITHUB_TOKEN, SHA-pinned actions, no
+# pull_request_target, persist-credentials disabled, untrusted context
+# values only via env (never inline script interpolation).
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Suite to run (push/PR always run lint, test, live, interop, examples, security)
+        type: choice
+        options:
+          - all
+          - check
+          - test
+          - test-full
+          - live
+          - race
+          - examples
+          - security
+          - interop
+          - build
+        default: all
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CI_GO_VERSION: "1.27.4"
+  CI_TASK_VERSION: "3.46.3"
+  CI_REVIVE_VERSION: "v1.15.0"
+  CI_GOSEC_VERSION: "v2.29.0"
+  CI_UV_VERSION: "0.11.32"
+  LXMF_REF_REV: "1.3.0"
+  # Fallback for releases without an upstream git tag (e.g. 1.1.1): this pins
+  # the sdist fetched by scripts/ci/clone-refs.sh when the tag is absent.
+  LXMF_REF_PYPI_SHA256: "5847534a7e69768425e02ff159096baf385ac99c0919da79e9ed0100e8f46814"
+  RRC_REF_REV: "f6d7e9d72bf83c70d7a9373ae8c5edaa052a7bf2"
+  GOFLAGS: -mod=vendor
+  GOPROXY: "off"
+  GOSUMDB: "off"
+  GOTOOLCHAIN: local
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      contains(fromJSON('["all","check"]'), inputs.suite)
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup toolchain
+        env:
+          CI_INSTALL_REVIVE: "1"
+        run: sh scripts/ci/setup-ci-toolchain.sh
+
+      - name: Format check
+        run: sh scripts/ci/run-suite.sh fmt
+
+      - name: Vet
+        run: sh scripts/ci/run-suite.sh vet
+
+      - name: Revive
+        run: sh scripts/ci/run-suite.sh lint
+
+      - name: Verify workspace clean
+        run: sh scripts/ci/verify-workspace-clean.sh
+
+  test:
+    name: Test (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      contains(fromJSON('["all","test","check"]'), inputs.suite)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            label: linux-amd64
+          - os: ubuntu-24.04-arm
+            label: linux-arm64
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup toolchain
+        run: sh scripts/ci/setup-ci-toolchain.sh
+
+      - name: Short tests
+        run: sh scripts/ci/run-suite.sh test-short
+
+      - name: Verify workspace clean
+        run: sh scripts/ci/verify-workspace-clean.sh
+
+  live:
+    name: Live Go mesh
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      contains(fromJSON('["all","live","test-full"]'), inputs.suite)
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup toolchain
+        run: sh scripts/ci/setup-ci-toolchain.sh
+
+      - name: Live Go-to-Go tests
+        run: sh scripts/ci/run-suite.sh live
+
+      - name: Verify workspace clean
+        run: sh scripts/ci/verify-workspace-clean.sh
+
+  race:
+    name: Race detector
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      contains(fromJSON('["all","race"]'), inputs.suite)
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup toolchain
+        run: sh scripts/ci/setup-ci-toolchain.sh
+
+      - name: Race tests
+        run: sh scripts/ci/run-suite.sh test-race
+
+      - name: Verify workspace clean
+        run: sh scripts/ci/verify-workspace-clean.sh
+
+  examples:
+    name: Examples
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      contains(fromJSON('["all","examples","check"]'), inputs.suite)
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup toolchain
+        run: sh scripts/ci/setup-ci-toolchain.sh
+
+      - name: Build examples
+        run: sh scripts/ci/run-suite.sh examples
+
+      - name: Verify workspace clean
+        run: sh scripts/ci/verify-workspace-clean.sh
+
+  build:
+    name: Build (${{ matrix.goos }}, ${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      contains(fromJSON('["all","build","check"]'), inputs.suite)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {goos: linux, goarch: amd64}
+          - {goos: linux, goarch: 386}
+          - {goos: linux, goarch: arm64}
+          - {goos: linux, goarch: arm}
+          - {goos: linux, goarch: riscv64}
+          - {goos: linux, goarch: ppc64le}
+          - {goos: linux, goarch: s390x}
+          - {goos: linux, goarch: loong64}
+          - {goos: linux, goarch: mips64le}
+          - {goos: darwin, goarch: amd64}
+          - {goos: darwin, goarch: arm64}
+          - {goos: windows, goarch: amd64}
+          - {goos: windows, goarch: 386}
+          - {goos: windows, goarch: arm64}
+          - {goos: freebsd, goarch: amd64}
+          - {goos: freebsd, goarch: arm64}
+          - {goos: freebsd, goarch: 386}
+          - {goos: freebsd, goarch: arm}
+          - {goos: openbsd, goarch: amd64}
+          - {goos: openbsd, goarch: arm64}
+          - {goos: openbsd, goarch: 386}
+          - {goos: openbsd, goarch: arm}
+          - {goos: openbsd, goarch: riscv64}
+          - {goos: openbsd, goarch: ppc64}
+          - {goos: netbsd, goarch: amd64}
+          - {goos: netbsd, goarch: arm64}
+          - {goos: netbsd, goarch: 386}
+          - {goos: netbsd, goarch: arm}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup toolchain
+        run: sh scripts/ci/setup-ci-toolchain.sh
+
+      - name: Build gorrcd
+        env:
+          BUILD_GOOS: ${{ matrix.goos }}
+          BUILD_GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarch == 'arm' && '6' || '' }}
+          VERSION: dev
+        run: sh scripts/ci/build-gorrcd.sh "$BUILD_GOOS" "$BUILD_GOARCH" bin
+
+      - name: Build golxmd
+        env:
+          BUILD_GOOS: ${{ matrix.goos }}
+          BUILD_GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarch == 'arm' && '6' || '' }}
+          VERSION: dev
+        run: sh scripts/ci/build-golxmd.sh "$BUILD_GOOS" "$BUILD_GOARCH" bin
+
+      - name: Verify workspace clean
+        run: sh scripts/ci/verify-workspace-clean.sh
+
+  qemu-smoke:
+    name: QEMU smoke (${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      contains(fromJSON('["all","build"]'), inputs.suite)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {goarch: "386", qemu: qemu-i386-static}
+          - {goarch: arm, qemu: qemu-arm-static, goarm: "6"}
+          - {goarch: riscv64, qemu: qemu-riscv64-static}
+          - {goarch: ppc64le, qemu: qemu-ppc64le-static}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup toolchain
+        run: sh scripts/ci/setup-ci-toolchain.sh
+
+      - name: Install qemu-user-static
+        env:
+          QEMU_BIN: ${{ matrix.qemu }}
+        run: |
+          set -eu
+          sudo apt-get update -qq
+          sudo apt-get install -y qemu-user-static
+          command -v "${QEMU_BIN}"
+          "${QEMU_BIN}" --version | head -1
+
+      - name: Build and run --version
+        env:
+          QEMU_GOARCH: ${{ matrix.goarch }}
+          QEMU_BIN: ${{ matrix.qemu }}
+          GOARM: ${{ matrix.goarm || '' }}
+        run: |
+          sh scripts/ci/qemu-gorrcd-smoke.sh "$QEMU_GOARCH" "$QEMU_BIN" bin
+          sh scripts/ci/qemu-golxmd-smoke.sh "$QEMU_GOARCH" "$QEMU_BIN" bin
+
+      - name: Verify workspace clean
+        run: sh scripts/ci/verify-workspace-clean.sh
+
+  security:
+    name: Security (gosec)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      contains(fromJSON('["all","security","check"]'), inputs.suite)
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup toolchain
+        env:
+          CI_INSTALL_GOSEC: "1"
+        run: sh scripts/ci/setup-ci-toolchain.sh
+
+      - name: Gosec
+        run: sh scripts/ci/run-suite.sh scan
+
+      - name: Verify workspace clean
+        run: sh scripts/ci/verify-workspace-clean.sh
+
+  interop:
+    name: Python interop (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      contains(fromJSON('["all","interop"]'), inputs.suite)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: lxmf
+            suite: interop-lxmf
+          - target: rrc
+            suite: interop-rrc
+          - target: lxst
+            suite: interop-lxst
+            lxst_python: .venv-lxst/bin/python
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup toolchain
+        run: sh scripts/ci/setup-ci-toolchain.sh
+
+      - name: Setup uv
+        env:
+          UV_VERSION: ${{ env.CI_UV_VERSION }}
+        run: sh scripts/ci/setup-uv.sh "$UV_VERSION"
+
+      - name: Clone reference repos
+        if: matrix.target != 'lxst'
+        env:
+          LXMF_REF_REV: ${{ env.LXMF_REF_REV }}
+          LXMF_REF_PYPI_SHA256: ${{ env.LXMF_REF_PYPI_SHA256 }}
+          RRC_REF_REV: ${{ env.RRC_REF_REV }}
+        run: sh scripts/ci/clone-refs.sh
+
+      - name: LXST interop setup
+        if: matrix.target == 'lxst'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y cmake libcodec2-dev libopus-dev
+          python3 -m venv .venv-lxst
+          .venv-lxst/bin/pip install -U pip
+          .venv-lxst/bin/pip install "rns==1.6.0" "lxmf==1.3.0" "lxst==0.6.0" "numpy" "pycodec2"
+
+      - name: Run interop
+        env:
+          INTEROP_SUITE: ${{ matrix.suite }}
+          CI_REQUIRE_INTEROP: "1"
+          REQUIRE_LXST: ${{ matrix.target == 'lxst' && '1' || '' }}
+          LXST_PYTHON: ${{ matrix.lxst_python && format('{0}/{1}', github.workspace, matrix.lxst_python) || '' }}
+        run: sh scripts/ci/run-suite.sh "$INTEROP_SUITE"
+
+      - name: Verify workspace clean
+        run: sh scripts/ci/verify-workspace-clean.sh
+
+  bindings:
+    name: Bindings (${{ matrix.lang }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      contains(fromJSON('["all","test","check"]'), inputs.suite)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lang: python
+          - lang: rust
+          - lang: java
+          - lang: lua
+          - lang: c
+          - lang: cpp
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup toolchain
+        run: sh scripts/ci/setup-ci-toolchain.sh
+
+      - name: Setup language extras
+        if: matrix.lang == 'lua'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y luajit
+
+      - name: Run binding tests
+        env:
+          BINDING_LANG: ${{ matrix.lang }}
+        run: sh "scripts/ci/run-${BINDING_LANG}-bindings.sh"
+
+      - name: Verify workspace clean
+        run: sh scripts/ci/verify-workspace-clean.sh
+
+  bindings-codec:
+    name: Bindings codec (mf/lxmf/lxst)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      contains(fromJSON('["all","test","check"]'), inputs.suite)
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - run: sh scripts/ci/setup-ci-toolchain.sh
+      - run: sh scripts/ci/run-codec-bindings.sh
+      - run: sh scripts/ci/verify-workspace-clean.sh
+
+  bindings-hub-client:
+    name: Bindings hub-client
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      contains(fromJSON('["all","test","check"]'), inputs.suite)
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - run: sh scripts/ci/setup-ci-toolchain.sh
+      - name: Install hub-client language extras
+        run: sudo apt-get update -qq && sudo apt-get install -y luajit
+      - run: sh scripts/ci/run-hub-client-bindings.sh
+      - run: sh scripts/ci/verify-workspace-clean.sh
+
+  lxst-build:
+    name: LXST CLI build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      contains(fromJSON('["all","build","check","test"]'), inputs.suite)
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - run: sh scripts/ci/setup-ci-toolchain.sh
+      - name: Install build tools
+        run: sudo apt-get update -qq && sudo apt-get install -y cmake curl libopus-dev libcodec2-dev
+      - name: Build rnphone and rgesp-dial
+        env:
+          CGO_ENABLED: "1"
+        run: sh scripts/ci/build-rnphone.sh linux amd64 bin
+      - run: sh scripts/ci/verify-workspace-clean.sh
+
+  test-full:
+    name: Full test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      contains(fromJSON('["all","test-full"]'), inputs.suite)
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup toolchain
+        run: sh scripts/ci/setup-ci-toolchain.sh
+
+      - name: Full test suite
+        run: sh scripts/ci/run-suite.sh test
+
+      - name: Verify workspace clean
+        run: sh scripts/ci/verify-workspace-clean.sh
+
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Dependency review
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0

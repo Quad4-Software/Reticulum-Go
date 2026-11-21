@@ -1,0 +1,33 @@
+Third-party software (vendored)
+
+This repository vendors third-party Go module source under vendor/. Full license
+texts are included next to that source. The list below is for convenience; if it
+differs from vendor/modules.txt or the files on disk, the vendored files govern.
+
+Module                                  Version   License (summary)     Full text
+--------------------------------------------------------------------------------
+github.com/Quad4-Software/bzip2                    v0.0.0    0BSD                  vendor/github.com/Quad4-Software/bzip2/LICENSE
+github.com/Quad4-Software/msgpack/v5               v5.0.0    BSD 2-Clause          vendor/github.com/Quad4-Software/msgpack/v5/LICENSE
+github.com/Quad4-Software/tagparser                v0.0.0    BSD 2-Clause          vendor/github.com/Quad4-Software/tagparser/LICENSE
+github.com/Quad4-Software/pbt                      v0.0.0    0BSD                  vendor/github.com/Quad4-Software/pbt/LICENSE
+golang.org/x/crypto                     v0.52.0   BSD 3-Clause          vendor/golang.org/x/crypto/LICENSE
+golang.org/x/sys                        v0.45.0   BSD 3-Clause          vendor/golang.org/x/sys/LICENSE
+
+golang.org/x/crypto and golang.org/x/sys also include a patent grant; see the respective PATENTS files in vendor/.
+
+Reticulum-Go itself is licensed under the terms in the LICENSE file at the
+repository root. SPDX-License-Identifier: LicenseRef-Reticulum. The repository has
+carried four licenses over its history (MIT, then 0BSD, then Apache-2.0, then
+the Reticulum License); LEGAL.md records the boundary commits that mark each
+change.
+
+Upstream reference implementation
+
+Portions of this project are derived from or implement the protocol of the
+Reticulum Network Stack reference implementation, Copyright (c) 2016-2026
+Mark Qvist, published under the Reticulum License:
+https://github.com/markqvist/Reticulum
+
+Machine-readable dependency and license information may also be produced via
+the SBOM tasks in Taskfile.yml (for example task sbom) when the required tools
+are installed.

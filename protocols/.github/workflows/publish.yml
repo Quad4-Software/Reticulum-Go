@@ -1,0 +1,26 @@
+# Pinned first-party actions (bump tag and SHA together when upgrading):
+#   actions/checkout@v7.0.0            9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+#
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    permissions:
+      contents: write # create the GitHub release and upload assets
+    uses: $/.github/workflows/release-assets.yml
+    with:
+      tag_name: ${{ github.ref_name }}
+      prerelease: false
+    # The callee only uses the ambient GITHUB_TOKEN, so no secrets are passed.

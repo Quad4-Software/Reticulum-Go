@@ -1,0 +1,443 @@
+// SPDX-License-Identifier: LicenseRef-Reticulum
+// Copyright (c) 2024-2026 Quad4.io
+
+package identity
+
+import (
+	"bytes"
+	"encoding/hex"
+	"os"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"git.quad4.io/reticulum/Reticulum-Go/internal/storage"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
+	"github.com/Quad4-Software/msgpack/v5/pkg/msgpack"
+)
+
+var (
+	// knownPersistMu guards knownPersistConfig only. knownPersistMemory and
+	// knownPersistDisabled are atomics because Init/load/save run
+	// concurrently with markKnownDestinationsDirty on the Remember hot path
+	// whenever multiple Transport instances share this process (each one
+	// calls InitKnownDestinationsPersistence independently).
+	knownPersistMu       sync.Mutex
+	knownPersistConfig   string
+	knownPersistMemory   atomic.Bool
+	knownPersistDisabled atomic.Bool
+	knownPersistDirty    atomic.Bool
+	knownPersistGen      atomic.Uint64
+	knownPersistSaving   sync.Mutex
+	knownPersistLast     atomic.Int64
+)
+
+// KnownPersistMinInterval is the minimum gap between dirty flushes of
+// known_destinations. Shutdown uses SaveKnownDestinationsSync (force).
+const KnownPersistMinInterval = 30 * time.Second
+
+// knownDestRecord is a fully-decoded, package-state-independent known
+// destination entry. decodeKnownDestinations produces these without
+// touching the knownDestinations map, keeping the parser fuzzable and
+// unit-testable in isolation.
+type knownDestRecord struct {
+	destHash     []byte
+	publicKey    []byte
+	packetRaw    []byte
+	appData      []byte
+	rememberedAt float64
+	lastUsed     float64
+	stamp        []byte
+	stampValue   float64
+	lrCost       *float64
+}
+
+// decodeKnownDestinations parses a known_destinations snapshot. Both
+// hex-string map keys and raw destination-hash bin or str keys are
+// accepted. Malformed entries are skipped and counted. A structurally
+// invalid top-level payload that is not a msgpack map is returned as an
+// error.
+
+// maxStateFileBytes caps state files loaded from disk so a replaced or
+// oversized file cannot exhaust memory during startup.
+const maxStateFileBytes = 64 << 20
+
+func decodeKnownDestinations(data []byte) (records []knownDestRecord, skipped int, err error) {
+	var loaded map[string]any
+	if err := msgpack.Unmarshal(data, &loaded); err != nil {
+		return nil, 0, err
+	}
+
+	for hashKey, raw := range loaded {
+		entry, ok := raw.([]any)
+		if !ok || len(entry) < 4 {
+			skipped++
+			continue
+		}
+
+		publicKey, ok := entry[2].([]byte)
+		if !ok || len(publicKey) != KeySize/8 {
+			skipped++
+			continue
+		}
+
+		destHash, ok := resolveDestHashKey(hashKey)
+		if !ok {
+			skipped++
+			continue
+		}
+
+		var appData []byte
+		if appDataRaw, ok := entry[3].([]byte); ok {
+			appData = append([]byte(nil), appDataRaw...)
+		}
+		var packetRaw []byte
+		if packetHash, ok := entry[1].([]byte); ok && len(packetHash) > 0 {
+			packetRaw = append([]byte(nil), packetHash...)
+		}
+		rememberedAt := asFloat64(entry[0])
+		lastUsed := float64(0)
+		if len(entry) >= 5 {
+			lastUsed = asFloat64(entry[4])
+		}
+		// RNS 1.6.0 entries extend to [stamp, stamp_value, lr_cost].
+		// Shorter legacy entries leave these zero/nil, matching the
+		// Python upgrade to [..., 0, None, 0, None].
+		var stamp []byte
+		if len(entry) >= 6 {
+			if raw, ok := entry[5].([]byte); ok && len(raw) > 0 {
+				stamp = append([]byte(nil), raw...)
+			}
+		}
+		stampValue := float64(0)
+		if len(entry) >= 7 {
+			stampValue = asFloat64(entry[6])
+		}
+		var lrCost *float64
+		if len(entry) >= 8 {
+			if c, ok := asFloat64Opt(entry[7]); ok {
+				lrCost = &c
+			}
+		}
+
+		records = append(records, knownDestRecord{
+			destHash:     destHash,
+			publicKey:    append([]byte(nil), publicKey...),
+			packetRaw:    packetRaw,
+			appData:      appData,
+			rememberedAt: rememberedAt,
+			lastUsed:     lastUsed,
+			stamp:        stamp,
+			stampValue:   stampValue,
+			lrCost:       lrCost,
+		})
+	}
+
+	return records, skipped, nil
+}
+
+func asFloat64Opt(v any) (float64, bool) {
+	switch n := v.(type) {
+	case float64:
+		return n, true
+	case float32:
+		return float64(n), true
+	case int:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	case uint64:
+		return float64(n), true
+	}
+	return 0, false
+}
+
+func asFloat64(v any) float64 {
+	switch n := v.(type) {
+	case float64:
+		return n
+	case float32:
+		return float64(n)
+	case int:
+		return float64(n)
+	case int64:
+		return float64(n)
+	case uint64:
+		return float64(n)
+	default:
+		return 0
+	}
+}
+
+// resolveDestHashKey accepts either a raw truncated-hash-length key
+// (Python / current Go on-disk format) or a legacy hex-encoded key. The
+// msgpack decoder folds bin and str keys into a Go string of equal length
+// regardless of the original wire type.
+func resolveDestHashKey(hashKey string) ([]byte, bool) {
+	if len(hashKey) == TruncatedHashLength/8 {
+		return []byte(hashKey), true
+	}
+	if decoded, err := hex.DecodeString(hashKey); err == nil && len(decoded) == TruncatedHashLength/8 {
+		return decoded, true
+	}
+	return nil, false
+}
+
+// InitKnownDestinationsPersistence configures known-destination disk
+// persistence. Pass inMemory=true to keep the table in RAM only (e.g. for
+// shared-instance clients or when the operator opted out via config/env).
+func InitKnownDestinationsPersistence(configPath string, inMemory bool) {
+	knownPersistMu.Lock()
+	defer knownPersistMu.Unlock()
+
+	knownPersistConfig = configPath
+	knownPersistMemory.Store(inMemory)
+	knownPersistDisabled.Store(false)
+	knownPersistDirty.Store(false)
+	knownPersistGen.Store(0)
+	knownPersistLast.Store(0)
+
+	if configPath == "" && os.Getenv("RETICULUM_STORAGE_PATH") == "" {
+		// No config path was resolved: this is either ad-hoc/library use or
+		// a test harness. Never silently write into the caller's home
+		// directory. Callers that want on-disk persistence must supply a
+
+		// config path (as the real reticulum-go binary always does) or set
+		// RETICULUM_STORAGE_PATH explicitly.
+		knownPersistMemory.Store(true)
+	}
+
+	if knownPersistMemory.Load() {
+		return
+	}
+
+	if _, err := storage.EnsureDataDir(configPath); err != nil {
+		debug.Log(debug.DebugInfo, "Known destinations persistence disabled, storage unavailable", "error", err)
+		knownPersistMemory.Store(true)
+		knownPersistDisabled.Store(true)
+		return
+	}
+	if dir, err := storage.RatchetsDir(configPath); err == nil {
+		_ = os.MkdirAll(dir, 0o700)
+	}
+
+	// RNS 1.6.0: SQLite known_destinations.db when the driver is available,
+	// with legacy-file import and automatic fallback.
+	initKnownStore(configPath)
+	if !loadKnownDestinationsFromDB() {
+		loadKnownDestinationsFromDisk(configPath)
+	}
+}
+
+func loadKnownDestinationsFromDisk(configPath string) {
+	path, err := storage.KnownDestinationsPath(configPath)
+	if err != nil {
+		return
+	}
+	data, err := storage.ReadFileCapped(path, maxStateFileBytes)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			debug.Log(debug.DebugInfo, "Known destinations load failed, using in-memory table", "error", err)
+			knownPersistMemory.Store(true)
+			knownPersistDisabled.Store(true)
+		}
+		return
+	}
+	if len(data) == 0 {
+		return
+	}
+
+	records, skipped, err := decodeKnownDestinations(data)
+	if err != nil {
+		debug.Log(debug.DebugInfo, "Known destinations decode failed, using in-memory table", "error", err)
+		knownPersistMemory.Store(true)
+		knownPersistDisabled.Store(true)
+		return
+	}
+	if skipped > 0 {
+		debug.Log(debug.DebugInfo, "Skipped malformed known destination entries", "count", skipped)
+	}
+
+	knownDestinationsLock.Lock()
+	defer knownDestinationsLock.Unlock()
+
+	count := 0
+	for _, rec := range records {
+		id := FromPublicKey(rec.publicKey)
+		if id == nil {
+			continue
+		}
+		canonicalKey := knownDestKey(rec.destHash)
+		knownDestinations[canonicalKey] = knownDestEntry{
+			pkt:        rec.packetRaw,
+			hash:       rec.destHash,
+			rawKey:     string(canonicalKey[:]),
+			id:         id,
+			app:        rec.appData,
+			stamp:      rec.stamp,
+			stampValue: rec.stampValue,
+			lrCost:     rec.lrCost,
+		}
+		rememberedAt := int64(rec.rememberedAt)
+		if rememberedAt <= 0 {
+			rememberedAt = time.Now().Unix()
+		}
+		setKnownDestMetaLocked(canonicalKey, rememberedAt, int64(rec.lastUsed))
+		count++
+	}
+
+	if count > 0 {
+		debug.Log(debug.DebugInfo, "Loaded known destinations from storage", "count", count)
+	}
+}
+
+// markKnownDestinationsDirty is called from the Remember hot path. It is a
+// single atomic store guarded by two already-loaded bool fields, so it adds
+// no measurable overhead and never allocates.
+func markKnownDestinationsDirty() {
+	if knownPersistMemory.Load() || knownPersistDisabled.Load() {
+		return
+	}
+	knownPersistGen.Add(1)
+	knownPersistDirty.Store(true)
+}
+
+// SaveKnownDestinationsSync writes known destinations unconditionally. Call
+// on transport shutdown.
+func SaveKnownDestinationsSync() {
+	saveKnownDestinations(true)
+}
+
+// PersistKnownDestinationsIfDirty writes known destinations only when
+// Remember has recorded new data since the last save. Called from periodic
+// maintenance.
+func PersistKnownDestinationsIfDirty() {
+	saveKnownDestinations(false)
+}
+
+func saveKnownDestinations(force bool) {
+	if knownPersistMemory.Load() || knownPersistDisabled.Load() {
+		return
+	}
+	if !force {
+		if !knownPersistDirty.Load() {
+			return
+		}
+		last := knownPersistLast.Load()
+		if last != 0 && time.Since(time.Unix(0, last)) < KnownPersistMinInterval {
+			return
+		}
+	}
+	if !knownPersistSaving.TryLock() {
+		return
+	}
+	defer knownPersistSaving.Unlock()
+
+	gen := knownPersistGen.Load()
+
+	// SQLite backend (RNS 1.6.0) handles the write; legacy path otherwise.
+	if saveKnownDestinationsDB() {
+		knownPersistLast.Store(time.Now().UnixNano())
+		if knownPersistGen.Load() == gen {
+			knownPersistDirty.Store(false)
+		}
+		return
+	}
+
+	knownDestinationsLock.RLock()
+	export := make(map[string][]any, len(knownDestinations))
+	for hashKey, e := range knownDestinations {
+		if e.id == nil || len(e.hash) == 0 {
+			continue
+		}
+		// Python Identity.load_known_destinations keeps keys whose length
+		// equals the truncated hash size (16). Use the raw hash bytes as a
+		// Go string key so msgpack emits a 16-byte str/bin key Python accepts.
+		key := e.rawKey
+		if len(key) != TruncatedHashLength/8 {
+			key = string(hashKey[:])
+		}
+		meta := knownDestMetaByKey[hashKey]
+		rememberedAt := float64(meta.rememberedAt)
+		if rememberedAt == 0 {
+			rememberedAt = float64(time.Now().Unix())
+		}
+		// 8-field Python 1.6.0 entry: stamp and lr_cost stay msgpack nil
+		// (Python None) when absent.
+		var stamp any
+		if len(e.stamp) > 0 {
+			stamp = e.stamp
+		}
+		var lrCost any
+		if e.lrCost != nil {
+			lrCost = *e.lrCost
+		}
+		export[key] = []any{
+			rememberedAt,
+			e.pkt,
+			e.id.GetPublicKey(),
+			e.app,
+			float64(meta.lastUsed),
+			stamp,
+			e.stampValue,
+			lrCost,
+		}
+	}
+	knownDestinationsLock.RUnlock()
+
+	encoded, err := marshalKnownDestinationsPython(export)
+	if err != nil {
+		debug.Log(debug.DebugInfo, "Known destinations marshal failed", "error", err)
+		return
+	}
+
+	knownPersistMu.Lock()
+	cfgPath := knownPersistConfig
+	knownPersistMu.Unlock()
+
+	path, err := storage.KnownDestinationsPath(cfgPath)
+	if err != nil {
+		disableKnownDestinationsPersistence(err)
+		return
+	}
+	if err := storage.AtomicWriteFile(path, encoded, 0o600); err != nil {
+		disableKnownDestinationsPersistence(err)
+		return
+	}
+	knownPersistLast.Store(time.Now().UnixNano())
+	// Only clear dirty when no Remember/Retain landed after the snapshot gen.
+	if knownPersistGen.Load() == gen {
+		knownPersistDirty.Store(false)
+	}
+	debug.Log(debug.DebugVerbose, "Saved known destinations to storage", "count", len(export))
+}
+
+func disableKnownDestinationsPersistence(err error) {
+	debug.Log(debug.DebugInfo, "Known destinations persistence disabled, continuing in-memory", "error", err)
+	knownPersistMemory.Store(true)
+	knownPersistDisabled.Store(true)
+	knownPersistDirty.Store(false)
+}
+
+// marshalKnownDestinationsPython encodes the table with binary map keys, matching
+// Python umsgpack.dump({dest_hash_bytes: entry}). Go's default string-key
+// encoder emits msgpack str, which umsgpack rejects when the hash is not UTF-8.
+func marshalKnownDestinationsPython(export map[string][]any) ([]byte, error) {
+	enc := msgpack.GetEncoder()
+	defer msgpack.PutEncoder(enc)
+
+	var buf bytes.Buffer
+	enc.Reset(&buf)
+	if err := enc.EncodeMapLen(len(export)); err != nil {
+		return nil, err
+	}
+	for key, entry := range export {
+		if err := enc.EncodeBytes([]byte(key)); err != nil {
+			return nil, err
+		}
+		if err := enc.Encode(entry); err != nil {
+			return nil, err
+		}
+	}
+	return buf.Bytes(), nil
+}

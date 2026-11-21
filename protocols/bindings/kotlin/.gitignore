@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: LicenseRef-Reticulum
+
+out/
+*.class
+.kotlin/

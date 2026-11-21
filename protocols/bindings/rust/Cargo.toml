@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: LicenseRef-Reticulum
+
+[package]
+name = "rrc"
+version = "1.0.0"
+edition = "2021"
+description = "Idiomatic Rust bindings for the librrc C ABI"
+license = "LicenseRef-Reticulum"
+publish = false
+
+[[example]]
+name = "hub-client"
+path = "examples/hub-client/main.rs"
+
+[lib]
+name = "rrc"
+path = "src/lib.rs"

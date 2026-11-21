@@ -1,0 +1,197 @@
+// SPDX-License-Identifier: LicenseRef-Reticulum
+// Copyright (c) 2024-2026 Quad4.io
+
+package transport
+
+import (
+	"bytes"
+
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/common"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/debug"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/health"
+	"git.quad4.io/reticulum/Reticulum-Go/pkg/identity"
+)
+
+func (t *Transport) classifyInboundTraffic(data []byte, iface common.NetworkInterface, packetType, destType byte) int {
+	tc := TCData
+	if packetType == PacketTypeAnnounce {
+		tc = TCAnnounce
+	} else if len(t.pathRequestDestHash) > 0 {
+		if dh := destinationHashFromRaw(data); len(dh) > 0 && bytes.Equal(dh, t.pathRequestDestHash) {
+			tc = TCPathRequest
+		}
+	}
+	if iface != nil && t.ifaceStates != nil {
+		if st := t.ifaceStates.get(iface.GetName()); st != nil && st.ingress != nil {
+			if tc == TCAnnounce && st.ingress.InBurst() {
+				tc = TCIngressLimited
+			}
+			if tc == TCPathRequest && ifaceIngressPRBurst(iface) {
+				tc = TCIngressLimited
+			}
+		}
+	}
+	_ = destType
+	return tc
+}
+
+func ifaceIngressPRBurst(iface common.NetworkInterface) bool {
+	if pr, ok := iface.(interface{ PRBurstActive() bool }); ok {
+		return pr.PRBurstActive()
+	}
+	return false
+}
+
+func destinationHashFromRaw(data []byte) []byte {
+	if len(data) < 2 {
+		return nil
+	}
+	headerByte := data[0]
+	headerType := (headerByte & HeaderTypeMask) >> HeaderTypeShift
+	ifacFlag := (headerByte & HeaderIFACMask) >> HeaderIFACShift
+	start := HeaderSize
+	if ifacFlag == 1 {
+		start++
+	}
+	addrSize := AddrHashSize
+	if headerType == 1 {
+		addrSize = DoubleAddrSize
+	}
+	if len(data) < start+addrSize {
+		return nil
+	}
+	return data[start : start+AddrHashSize]
+}
+
+func (t *Transport) preprocessInboundPacket(data []byte, iface common.NetworkInterface) (job packetJob, tc int, ok bool) {
+	if len(data) < 2 {
+		ifaceProtocolViolation(iface)
+		return packetJob{}, 0, false
+	}
+	if iface != nil && !iface.IsOnline() {
+		return packetJob{}, 0, false
+	}
+
+	unmasked, ifacOK := common.ApplyIFACInbound(iface, data)
+	if !ifacOK {
+		ifaceIFACViolation(iface)
+		return packetJob{}, 0, false
+	}
+	data = unmasked
+
+	if iface != nil {
+		if mtu := iface.GetMTU(); mtu > 0 && len(data) > mtu+64 {
+			ifaceProtocolViolation(iface)
+			return packetJob{}, 0, false
+		}
+	}
+
+	headerByte := data[0]
+	packetType := headerByte & HeaderPacketTypeMask
+	headerType := (headerByte & HeaderTypeMask) >> HeaderTypeShift
+	destType := (headerByte & HeaderDestTypeMask) >> HeaderDestTypeShift
+
+	// Copy into the pooled buffer before unpacking so the parsed packet's
+	// fields alias memory that lives until the job is recycled.
+	pc := getPacketCopy(len(data))
+	copy(pc.buf, data)
+	pkt := getInboundPacket()
+	pkt.Raw = pc.buf
+	if err := pkt.Unpack(); err != nil {
+		ifaceProtocolViolation(iface)
+		if iface != nil {
+			health.Inc(iface.GetName(), health.KindUnpackFail)
+		}
+		putPacketCopy(pc)
+		putInboundPacket(pkt)
+		return packetJob{}, 0, false
+	}
+
+	// Match Python Transport.packet_filter: PLAIN/GROUP payloads must not
+	// travel more than one hop after inbound hop accounting. This must run
+	// on the unmasked data above: on deferred-IFAC interfaces the raw frame
+	// still carries the IFAC flag and bytes, so a pre-unmask check reads
+	// IFAC bytes as the hops field.
+	if packetType != PacketTypeAnnounce && (destType == DestTypePlain || destType == DestTypeGroup) {
+		accounted := AccountInboundHops(data[1], iface)
+		if accounted > 1 {
+			if debug.Enabled(debug.DebugVerbose) {
+				debug.Log(debug.DebugVerbose, "Dropped multi-hop PLAIN/GROUP packet",
+					"dest_type", destType, "wire_hops", data[1], "accounted_hops", accounted)
+			}
+			ifaceProtocolViolation(iface)
+			putPacketCopy(pc)
+			putInboundPacket(pkt)
+			return packetJob{}, 0, false
+		}
+	}
+	if !t.applyPacketFilter(pkt, iface) {
+		putPacketCopy(pc)
+		putInboundPacket(pkt)
+		return packetJob{}, 0, false
+	}
+
+	tc = t.classifyInboundTraffic(data, iface, packetType, destType)
+
+	if packetType == PacketTypeAnnounce {
+		if destType == DestTypePlain || destType == DestTypeGroup {
+			ifaceProtocolViolation(iface)
+			putPacketCopy(pc)
+			putInboundPacket(pkt)
+			return packetJob{}, 0, false
+		}
+		if iface != nil {
+			if ra, ok := iface.(interface{ ReceivedAnnounceBytes(int) }); ok {
+				ra.ReceivedAnnounceBytes(len(data))
+			}
+		}
+	} else if tc == TCPathRequest {
+		destHash, _, tag, _, prOK := parsePathRequestWire(pkt.Data)
+		if !prOK {
+			ifaceProtocolViolation(iface)
+			putPacketCopy(pc)
+			putInboundPacket(pkt)
+			return packetJob{}, 0, false
+		}
+		if len(tag) > identity.TruncatedHashLength/8 {
+			ifaceProtocolViolation(iface)
+		}
+		if iface != nil {
+			if pr, ok := iface.(interface{ ReceivedPathRequestBytes(int) }); ok {
+				pr.ReceivedPathRequestBytes(len(data))
+			}
+		}
+		_ = destHash
+	}
+
+	return packetJob{
+		pc:         pc,
+		pkt:        pkt,
+		iface:      iface,
+		packetType: packetType,
+		destType:   destType,
+		headerType: headerType,
+	}, tc, true
+}
+
+func (t *Transport) submitInboundJob(job packetJob, tc int, block bool) bool {
+	if t.inboundQueues != nil {
+		if t.inboundQueues.put(tc, job) {
+			return true
+		}
+		if block && t.inboundQueues.putWait(tc, job, t.done) {
+			return true
+		}
+		putPacketCopy(job.pc)
+		putInboundPacket(job.pkt)
+		t.shedHandlerOverflow(job.iface)
+		return false
+	}
+	if t.enqueuePacket(job, block) {
+		return true
+	}
+	putPacketCopy(job.pc)
+	putInboundPacket(job.pkt)
+	t.shedHandlerOverflow(job.iface)
+	return false
+}

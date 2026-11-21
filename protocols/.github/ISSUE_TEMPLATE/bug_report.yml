@@ -1,0 +1,84 @@
+name: Bug report
+description: Report incorrect behavior or a regression
+title: "fix: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Include enough detail to reproduce. For security issues use the Security policy instead.
+
+  - type: input
+    id: version
+    attributes:
+      label: reticulum-go-protocols version
+      description: Output of git describe or the tag/commit you built
+      placeholder: v0.1.0 or git sha
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - lxmf
+        - rrc
+        - lxst
+        - mf
+        - bindings
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS / platform
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - FreeBSD
+        - OpenBSD
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Config or logs
+      description: Relevant config snippet or log lines
+      render: shell
+
+  - type: textarea
+    id: python_rns
+    attributes:
+      label: Python reference comparison
+      description: If interop matters, note the Python LXMF/RNS version and whether Python behaves differently

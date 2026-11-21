@@ -1,0 +1,143 @@
+Binding scaffold for reticulum-go-protocols
+==========================================
+
+Use this file to add a new language binding under bindings/<lang>/.
+It is language-neutral. Follow an existing binding for idioms.
+
+Integration paths
+-----------------
+
+librrc (in-process RRC hub/client)
+  - Link or load the shared library built by task build-librrc
+  - Authoritative C ABI: include/rrc.h
+  - Artifacts: bin/librrc.so (Linux), bin/librrc.dylib, bin/librrc.dll
+
+libmf (MF packet codec)
+  - task build-libmf
+  - include/mf.h
+
+liblxmf (LXMF message codec)
+  - task build-liblxmf
+  - include/lxmf.h
+
+Reference bindings already in tree
+----------------------------------
+
+  bindings/python  librrc + libmf + liblxmf (ctypes)
+  bindings/rust    librrc wrappers (safe Rust over extern)
+  bindings/java    librrc + liblxmf wrappers (JNA)
+  bindings/kotlin  liblxmf facade over Java JNA
+  bindings/lua     librrc wrappers (LuaJIT FFI)
+  bindings/c       librrc + libmf direct C examples
+  bindings/cpp     librrc + libmf CMake smoke tests
+
+Each RRC binding keeps demos under bindings/<lang>/examples/{smoke,codec-roundtrip,hub-client}.
+
+Suggested directory layout
+--------------------------
+
+  bindings/<lang>/
+    Makefile or native build file
+    <package>/ or src/
+      raw ABI layer (thin)
+      errors
+      types / constants
+      envelope (codec)
+      identity
+      node
+      hub
+      client
+      event
+      util (string and buffer helpers)
+    tests/
+    examples/
+
+librrc module map (required surface)
+------------------------------------
+
+Mirror these C entry points. Names may be idiomatic in the host language.
+Handles are opaque uint64. Destroy before process exit.
+
+Version and errors
+  rrc_version
+  rrc_last_error
+  RRC_API_VERSION string must match the header you compiled or loaded against
+  Error codes: OK, INVALID_ARG, INVALID_HANDLE, NOT_FOUND, STATE, IO,
+  INTERNAL, TIMEOUT, TRUNCATED
+
+Envelope codec
+  rrc_envelope_create / set_room / set_nick / set_body_text / set_destination
+  rrc_envelope_get_* / marshal / unmarshal / destroy
+  rrc_normalize_room / rrc_sanitize_nick
+
+Node
+  rrc_node_create (empty config path means in-memory defaults)
+  rrc_node_start / rrc_node_stop / rrc_node_destroy
+  rrc_node_set_identity
+  rrc_node_add_udp_interface
+  rrc_node_has_path
+
+Identity
+  rrc_identity_generate / load / save / destroy / hash
+  rrc_identity_seed_destination
+
+Hub
+  rrc_hub_create / start / announce / hash / peer_count / destroy
+  rrc_hub_event_poll
+
+Client
+  rrc_client_dial / join / part / send_msg / send_notice / send_action / ping
+  rrc_client_close / rrc_client_event_poll
+
+Event kinds
+  WELCOME, JOINED, PARTED, MSG, NOTICE, ACTION, ERROR, PONG
+  HELLO, JOIN, PART, CLOSE, TIMEOUT
+
+Tests to include
+----------------
+
+Minimum
+  version string non-empty and matches RRC_API_VERSION
+  envelope create / marshal / unmarshal round-trip
+  node create / start / stop / destroy
+  identity generate and hash length 16
+  normalize_room and sanitize_nick
+
+Stronger
+  hub-client example over local UDP loopback
+  client dial / join / send_msg / event poll
+  wait for rrc_node_has_path before dial
+
+Codec bindings (mf/lxmf)
+  round-trip pack/unpack in unit tests
+  examples: bindings/python/examples/lxmf-roundtrip, bindings/c/examples/{mf,lxmf}-smoke
+  CI via scripts/ci/run-codec-bindings.sh
+
+Build and smoke
+---------------
+
+From repository root:
+
+  task build-bindings
+  make -C bindings/<lang> test
+  make -C bindings/<lang> examples
+
+Wire CI using scripts/ci/run-<lang>-bindings.sh.
+Hub-client live mesh: scripts/ci/run-hub-client-bindings.sh.
+
+Authoritative sources
+---------------------
+
+  include/rrc.h
+  include/mf.h
+  include/lxmf.h
+  pkg/librrc/
+  pkg/libmf/
+  pkg/liblxmf/
+  bindings/python/
+  bindings/rust/
+  bindings/java/
+  bindings/kotlin/
+  bindings/lua/
+  bindings/c/
+  bindings/cpp/

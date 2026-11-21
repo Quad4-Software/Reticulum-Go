@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: LicenseRef-Reticulum
+// Copyright (c) 2024-2026 Quad4.io
+
+package channel
+
+// Window, sequence, timeout and channel sizing constants.
+const (
+	InitialHandlerCapacity = 0
+
+	WindowInitial     = 2
+	WindowMin         = 2
+	WindowMinSlow     = 2
+	WindowMinMedium   = 5
+	WindowMinFast     = 16
+	WindowMaxSlow     = 5
+	WindowMaxMedium   = 12
+	WindowMaxFast     = 48
+	WindowMax         = WindowMaxFast
+	WindowFlexibility = 4
+
+	RTTFast   = 0.18
+	RTTMedium = 0.75
+	RTTSlow   = 1.45
+
+	SeqMax uint16 = 0xFFFF
+	// SeqModulus matches Python Channel.SEQ_MODULUS (SEQ_MAX + 1).
+	SeqModulus uint32 = uint32(SeqMax) + 1
+
+	FastRateThreshold = 10
+
+	RTTMinThreshold       = 0.025
+	TimeoutBaseMultiplier = 1.5
+	TimeoutRingMultiplier = 2.5
+	TimeoutRingOffset     = 1.5
+
+	ChannelHeaderSize = 6
+	ChannelHeaderBits = 8
+
+	DefaultMaxTries = 5
+
+	// DefaultOutletMDU is used when the outlet does not expose GetMDU.
+	DefaultOutletMDU = 500
+)
+
+// MessageState represents the delivery state of a channel message.
+type MessageState int
+
+const (
+	// MsgStateNew is the initial state before send.
+	MsgStateNew MessageState = iota
+	MsgStateSent
+	MsgStateDelivered
+	MsgStateFailed
+)

@@ -1,0 +1,56 @@
+# Pinned actions (bump tag and SHA together when upgrading):
+#   actions/checkout@v7.0.0            9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+#   zizmorcore/zizmor-action@v0.6.4    cc914d7f3750a2d13d75c7f184a1060aa0e9d482
+#
+# Static analysis of the workflow files themselves. Findings fail the job
+# (advanced-security: false emits annotations instead of SARIF upload, so
+# this works on repositories without GitHub Advanced Security).
+name: Zizmor
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - ".github/**"
+  pull_request:
+    branches: [master]
+    paths:
+      - ".github/**"
+  schedule:
+    - cron: "23 4 * * 3"
+  workflow_dispatch:
+
+concurrency:
+  group: zizmor-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CI_ZIZMOR_VERSION: "1.30.1"
+
+jobs:
+  audit:
+    name: Workflow audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          inputs: .github/
+          collect: workflows
+          persona: pedantic
+          version: ${{ env.CI_ZIZMOR_VERSION }}
+          advanced-security: "false"
+          annotations: "true"

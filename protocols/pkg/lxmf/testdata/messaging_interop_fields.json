@@ -1,0 +1,68 @@
+{
+  "0x02": {
+    "0x00": 42.5,
+    "0x01": "hex:0102"
+  },
+  "0x03": [
+    "hex:73747265616d2d6368756e6b"
+  ],
+  "0x04": {
+    "0x00": "hex:656d6f6a69",
+    "0x01": "hex:89504e47"
+  },
+  "0x05": [
+    {
+      "0x00": "hex:7265706f72742e706466",
+      "0x01": "hex:6174746163686d656e742d6279746573"
+    }
+  ],
+  "0x06": [
+    "hex:706e67",
+    "hex:89504e47"
+  ],
+  "0x07": [
+    19,
+    "hex:010203"
+  ],
+  "0x08": "hex:abababababababababababababababababababababababababababababababab",
+  "0x09": [
+    "hex:70696e67",
+    [
+      "hex:61726731"
+    ]
+  ],
+  "0x0a": [
+    "hex:706f6e67"
+  ],
+  "0x0b": "hex:67726f75702d31",
+  "0x0c": "hex:33333333333333333333333333333333",
+  "0x0d": {
+    "0x00": "hex:6d656574696e67",
+    "0x01": 1700000100
+  },
+  "0x0e": [
+    "hex:aabb"
+  ],
+  "0x0f": [
+    2
+  ],
+  "0x30": "hex:abababababababababababababababababababababababababababababababab",
+  "0x31": "quoted interop text",
+  "0x40": {
+    "0x00": "hex:abababababababababababababababababababababababababababababababab",
+    "0x01": "ok"
+  },
+  "0x41": {
+    "0x00": "hex:abababababababababababababababababababababababababababababababab"
+  },
+  "0x42": {
+    "0x00": "hex:abababababababababababababababababababababababababababababababab"
+  },
+  "0xfb": "hex:64656d6f",
+  "0xfc": "hex:deadbeef",
+  "0xfd": {
+    "0x00": "hex:6d657461"
+  },
+  "0xfe": "hex:6e6f6e2d7370656369666963",
+  "0xff": "hex:6465627567"
+}

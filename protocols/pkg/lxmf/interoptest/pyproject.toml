@@ -1,0 +1,14 @@
+[project]
+name = "lxmf-interoptest"
+version = "0.0.0"
+requires-python = ">=3.10"
+dependencies = [
+    "rns>=1.6.0",
+    "lxmf",
+]
+
+[tool.uv.sources]
+lxmf = { path = "../../../LXMF-ref", editable = true }
+
+[tool.uv]
+package = false
