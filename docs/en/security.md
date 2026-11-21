@@ -1,6 +1,6 @@
 # Security
 
-This page summarizes security practices for Reticulum-Go. The repository root [SECURITY.md](../../SECURITY.md) remains the authoritative source for reporting contacts and detailed CI paths. [Cryptography](cryptography.md) covers algorithms and key handling.
+This page summarizes security practices for Reticulum-Go. The repository root [SECURITY.md](https://github.com/Quad4-Software/Reticulum-Go/blob/master/SECURITY.md) remains the authoritative source for reporting contacts and detailed CI paths. [Cryptography](cryptography.md) covers algorithms and key handling.
 
 ## Reporting vulnerabilities
 
@@ -216,6 +216,6 @@ Link establishment also records expected_hops on both initiator and responder. I
 - [Configuration](configuration.md) for sandbox, control API, and dos_protection keys
 - [CLI utilities](utilities.md) for status and slow health findings
 - [Packet debug](packet-debug.md) for dump, snapshot, and Wireshark
-- [SECURITY.md](../../SECURITY.md) full policy text
+- [SECURITY.md](https://github.com/Quad4-Software/Reticulum-Go/blob/master/SECURITY.md) full policy text
 - [Compatibility](compatibility.md) for RNS 1.6.1 interop
 - [Package map](package-map.md#pkgprotect) for pkg/protect

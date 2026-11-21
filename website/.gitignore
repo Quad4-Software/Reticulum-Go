@@ -1,8 +1,0 @@
-/hugo-reticulum
-/public/
-/resources/
-/exampleSite/public/
-/exampleSite/resources/
-*.log
-.hugo_build.lock
-.DS_Store

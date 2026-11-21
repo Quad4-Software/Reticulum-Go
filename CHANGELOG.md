@@ -4,7 +4,11 @@
 
 ### Added
 
-- The docs site at `website/site` renders every document in `docs/en` as HTML and as a Micron page over Reticulum. Page titles come from the first heading, the sidebar follows the reading order in `docs/en/README.md`, and light, dark and system themes work with or without JavaScript. A `docs-bundle` tool packages the docs as a Markdown ZIP, a single PDF and an EPUB under `website/site/static/downloads`, served at `/downloads/` over HTTP and `/file/downloads/` over Micron.
+- The docs site is now a [Zensical](https://zensical.org) build of `docs/en`, configured by `zensical.toml` at the repository root. `task docs-serve` previews it at http://127.0.0.1:1313/ and `task docs-build` writes the static site to `site/`. `scripts/docs-bundle.py` packages the docs as a Markdown ZIP, a PDF and an EPUB under `docs/en/assets/downloads/`, linked from the site's downloads page. Versions deploy to GitHub Pages with mike: master pushes publish `dev`, releases publish their version and the `latest` alias, which the site root redirects to.
+
+### Removed
+
+- The `website/` module, the Hugo docs site and the `hugo-reticulum` Micron server are gone. The docs are web only now.
 
 ## v1.6.1 - 2026-11-21
 

@@ -245,34 +245,20 @@ tasks:
     cmds:
       - go test ./...
 
-  website-build:
-    desc: Build the documentation site tool
-    dir: website
-    env:
-      GOFLAGS: ""
-      GOPROXY: https://proxy.golang.org,direct
+  docs-bundle:
+    desc: Build the docs ZIP, PDF and EPUB downloads
     cmds:
-      - go build ./...
+      - sh scripts/docs.sh bundle
 
-  website-test:
-    desc: Test the documentation site tool
-    dir: website
-    env:
-      GOFLAGS: ""
-      GOPROXY: https://proxy.golang.org,direct
+  docs-build:
+    desc: Build the docs site with Zensical into site/
     cmds:
-      - go test ./...
+      - sh scripts/docs.sh build
 
-  docs-site:
-    desc: Render the docs site to Micron pages
-    dir: website
-    env:
-      GOFLAGS: ""
-      GOPROXY: https://proxy.golang.org,direct
+  docs-serve:
+    desc: Serve the docs site locally on http://127.0.0.1:1313/
     cmds:
-      - go build -o bin/hugo-reticulum ./cmd/hugo-reticulum
-      - go run ./cmd/docs-bundle
-      - cd site && hugo --source . && ../bin/hugo-reticulum build
+      - sh scripts/docs.sh serve
 
   vendor-sync:
     desc: Refresh vendor trees from Reticulum-Go-Deps

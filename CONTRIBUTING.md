@@ -79,15 +79,14 @@ Every commit must carry a `Signed-off-by:` trailer certifying the [Developer Cer
 
 ## Repository modules
 
-The repository holds three Go modules:
+The repository holds two Go modules:
 
 | Path | Module | Build and test |
 |------|--------|----------------|
 | `/` | `git.quad4.io/reticulum/Reticulum-Go` | `make check` |
 | `protocols/` | `github.com/Quad4-Software/reticulum-go-protocols` | `task protocols-build`, `task protocols-test` |
-| `website/` | `github.com/Quad4-Software/hugo-reticulum` | `task website-build`, `task website-test`, `task docs-site` |
 
-Changes under `protocols/` or `website/` run their own CI jobs. The docs site renders `docs/en`, so doc edits also change the site output.
+Changes under `protocols/` run their own CI job. The docs site is a Zensical build of `docs/en`; check doc edits with `task docs-build`, which the `docs` CI job and the docs deploy workflow also run.
 
 ## Changelog and compatibility
 

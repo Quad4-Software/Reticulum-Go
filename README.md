@@ -65,19 +65,18 @@ More targets, cross-compiles, WASM, and librns: [docs/en/getting-started.md](doc
 
 ## Repository layout
 
-This repository holds three Go modules:
+This repository holds two Go modules:
 
 | Path | Module | Contents |
 |------|--------|----------|
 | `/` | `git.quad4.io/reticulum/Reticulum-Go` | The RNS stack, CLI utilities, librns |
 | `protocols/` | `github.com/Quad4-Software/reticulum-go-protocols` | LXMF, LXST, MF, RRC and their bindings and daemons |
-| `website/` | `github.com/Quad4-Software/hugo-reticulum` | Hugo module that renders the docs as Micron pages and serves them over Reticulum |
 
-The two nested modules point at the root module with a `replace` directive, so local builds use the code in this tree. Build and test them with `task protocols-build`, `task protocols-test`, `task website-build` and `task website-test`.
+The nested module points at the root module with a `replace` directive, so local builds use the code in this tree. Build and test it with `task protocols-build` and `task protocols-test`.
 
 ## Docs
 
-The docs site lives in `website/site` and mounts `docs/en` as its content. `task docs-site` runs `cmd/docs-bundle` to package the docs as a ZIP, a PDF and an EPUB under `website/site/static/downloads`, then renders each page twice, as HTML for the web and as Micron for NomadNet, under `website/site/public`. `hugo server` previews the HTML build and `website/bin/hugo-reticulum serve` serves the Micron pages over Reticulum.
+The docs site is a [Zensical](https://zensical.org) site built from `docs/en` via `zensical.toml`. `task docs-serve` previews it at http://127.0.0.1:1313/ and `task docs-build` writes it to `site/`. `scripts/docs-bundle.py` packages the Markdown sources as a ZIP, a PDF and an EPUB under `docs/en/assets/downloads/` (gitignored), linked from the site's downloads page. Versions are deployed to GitHub Pages with mike: master pushes publish `dev`, releases publish their version and the `latest` alias, which is the site default.
 
 - English docs: [docs/en/](docs/en/README.md)
 - Getting started: [docs/en/getting-started.md](docs/en/getting-started.md)

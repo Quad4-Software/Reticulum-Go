@@ -6,7 +6,7 @@ Reticulum-Go is tested against Python RNS 1.6.1, plus the [official network API 
 
 Crossref vectors clone the reference from rns://7649a50d84610232d1416b41d2896aff/reticulum/reticulum via [rngit](https://reticulum.network/manual/git.html) (tests/crossref/run_crossref.sh). The GitHub mirror is not used for vectors.
 
-The detailed matrix with config key tables lives in [COMPATIBILITY.md](../../COMPATIBILITY.md). This page summarizes the key differences and design choices.
+The detailed matrix with config key tables lives in [COMPATIBILITY.md](https://github.com/Quad4-Software/Reticulum-Go/blob/master/COMPATIBILITY.md). This page summarizes the key differences and design choices.
 
 ## Component parity
 
@@ -203,7 +203,7 @@ To let rgostatus query Python rnsd, point -config at ~/.reticulum and align rpc_
 
 ## Related documents
 
-- [COMPATIBILITY.md](../../COMPATIBILITY.md) full tables
+- [COMPATIBILITY.md](https://github.com/Quad4-Software/Reticulum-Go/blob/master/COMPATIBILITY.md) full tables
 - [CLI utilities](utilities.md) for Go CLI tools and RPC setup
 - [Interfaces](interfaces.md)
 - [Cryptography](cryptography.md)

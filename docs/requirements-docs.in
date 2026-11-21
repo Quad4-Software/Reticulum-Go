@@ -1,0 +1,8 @@
+# Source for docs/requirements-docs.txt. Docs tooling for the Zensical
+# site and the docs-bundle script, plus mike's PyPI deps (mike itself is
+# hash-pinned as a tarball in the txt).
+zensical==0.0.63
+markdown
+jinja2
+pyparsing>=3.0
+verspec

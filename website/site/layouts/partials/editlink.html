@@ -1,3 +1,0 @@
-{{ with .File }}{{ if and (eq $.Section "docs") (ne .TranslationBaseName "_index") }}
-<p class="editlink"><a href="{{ site.Params.repo_url }}/blob/master/docs/en/{{ .TranslationBaseName }}.md">{{ partial "icon" (dict "name" "external-link" "size" 13) }} Edit this page</a></p>
-{{ end }}{{ end }}

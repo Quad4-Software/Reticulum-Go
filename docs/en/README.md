@@ -37,12 +37,12 @@ Documentation is organized by language under docs/. English lives in docs/en/. A
 
 | File | Purpose |
 |------|---------|
-| [README.md](../../README.md) | Project entry point, features, install/build |
-| [COMPATIBILITY.md](../../COMPATIBILITY.md) | Detailed compatibility matrix and interop methodology (also summarized in [compatibility.md](compatibility.md)) |
+| [README.md](https://github.com/Quad4-Software/Reticulum-Go/blob/master/README.md) | Project entry point, features, install/build |
+| [COMPATIBILITY.md](https://github.com/Quad4-Software/Reticulum-Go/blob/master/COMPATIBILITY.md) | Detailed compatibility matrix and interop methodology (also summarized in [compatibility.md](compatibility.md)) |
 | [deviations.md](deviations.md) | Intentional differences from Python RNS and local hardening bounds |
-| [AUTHORS.md](../../AUTHORS.md) | Authorship and attribution |
-| [SECURITY.md](../../SECURITY.md) | Vulnerability reporting and supply-chain detail (also summarized in [security.md](security.md)) |
-| [LICENSE](../../LICENSE) | Reticulum License |
+| [AUTHORS.md](https://github.com/Quad4-Software/Reticulum-Go/blob/master/AUTHORS.md) | Authorship and attribution |
+| [SECURITY.md](https://github.com/Quad4-Software/Reticulum-Go/blob/master/SECURITY.md) | Vulnerability reporting and supply-chain detail (also summarized in [security.md](security.md)) |
+| [LICENSE](https://github.com/Quad4-Software/Reticulum-Go/blob/master/LICENSE) | Reticulum License |
 
 ## External references
 

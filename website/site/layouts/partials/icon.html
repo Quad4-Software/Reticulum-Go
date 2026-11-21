@@ -1,7 +1,0 @@
-{{- $name := .name -}}
-{{- $size := .size | default 16 -}}
-{{- with resources.Get (printf "icons/%s.svg" $name) -}}
-  {{- $svg := .Content -}}
-  {{- $svg = $svg | replaceRE `width="24"` (printf `width="%d"` $size) | replaceRE `height="24"` (printf `height="%d"` $size) | replaceRE "<svg" `<svg aria-hidden="true" focusable="false"` -}}
-<span class="ic">{{ $svg | safeHTML }}</span>
-{{- end -}}

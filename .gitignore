@@ -140,14 +140,11 @@ dist/
 /bindings/cpp/examples/*/cpp-*
 /bindings/c/examples/pageserver/identity
 
-# Documentation site (website/site) build output
-website/site/public/
-website/site/static/downloads/
-website/site/resources/
-website/site/.hugo_build.lock
-website/exampleSite/public/
-website/exampleSite/resources/
-website/hugo-reticulum
+# Documentation site (Zensical) build output and tooling
+/site/
+/.docs-venv/
+/.gh-pages-wt/
+docs/en/assets/downloads/
 
 # Protocols module build artifacts
 protocols/bin/

@@ -1,2 +1,0 @@
-This file is served under /file/images/example.txt.
-It stands in for a static asset such as an image.

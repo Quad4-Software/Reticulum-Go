@@ -1,6 +1,6 @@
 # Development and testing
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for commit format, pull request checklist, and CI overview.
+See [CONTRIBUTING.md](https://github.com/Quad4-Software/Reticulum-Go/blob/master/CONTRIBUTING.md) for commit format, pull request checklist, and CI overview.
 
 ## Development environment
 
@@ -80,7 +80,7 @@ Pinned versions: `scripts/ci/versions.env` and `scripts/ci/dev-tools.env`.
 | `make test-wasm` | js/wasm package tests (Node exec helper) |
 | `make build-wasm` | `GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o bin/reticulum-go.wasm ./cmd/reticulum-wasm` |
 | `make microvm-up` / `microvm-stop` | Firecracker guest. See [microvm](microvm.md) |
-| `make tree-rsm-verify` / `tree-rsm-sign` | Source tree `.rsm` inventory. See [SECURITY.md](../../SECURITY.md) |
+| `make tree-rsm-verify` / `tree-rsm-sign` | Source tree `.rsm` inventory. See [SECURITY.md](https://github.com/Quad4-Software/Reticulum-Go/blob/master/SECURITY.md) |
 | `make doctor` / `bootstrap` / `changelog-preview` | Dev tool pins and CHANGELOG preview |
 
 ## Code quality commands
@@ -484,9 +484,9 @@ make deps
 
 `go mod vendor` regenerates vendor/ from scratch and deletes local patches applied on top of upstream code (currently the linux/ppc64 serial stub). `vendor-sync` reapplies them automatically through `scripts/vendor-patches.sh`. After any manual `go mod vendor` run `make vendor-patch`. `make vendor-check` fails if the patches are missing and runs in `make ci`.
 
-The repository contains three modules: the root stack, `protocols/` (LXMF, LXST, MF, RRC) and `website/` (the Hugo module and docs site). Each has its own `go.mod` and `vendor/` policy. The root and `protocols/` modules vendor their dependencies and build with `GOFLAGS=-mod=vendor`. `website/` resolves modules from the proxy at build time. Build and test the nested modules with `task protocols-build`, `task protocols-test`, `task website-build` and `task website-test`.
+The repository contains two modules: the root stack and `protocols/` (LXMF, LXST, MF, RRC). Each has its own `go.mod` and `vendor/` policy. Both modules vendor their dependencies and build with `GOFLAGS=-mod=vendor`. Build and test the nested module with `task protocols-build` and `task protocols-test`.
 
-The docs site is a Hugo site at `website/site` that mounts `docs/en` as its content. Each page renders as HTML and as Micron. `task docs-site` first runs `cmd/docs-bundle`, which reads the nav order from `website/site/data/docsnav.toml` and writes a Markdown ZIP, a combined print HTML, a PDF rendered with headless Chromium, and a hand assembled EPUB 3 to `website/site/static/downloads` (gitignored). `hugo --source .` then writes the site under `website/site/public` and `hugo-reticulum build` converts the Markdown bodies to Micron. The downloads are served at `/downloads/` over HTTP and `/file/downloads/` over Micron. `hugo server --source website/site` previews the HTML build, and `website/bin/hugo-reticulum serve` run from `website/site` serves the Micron pages over Reticulum.
+The docs site is a [Zensical](https://zensical.org) site configured by `zensical.toml` at the repository root, with `docs/en` as the docs directory. `task docs-serve` runs `scripts/docs-bundle.py` and then `zensical serve` for a live preview at http://127.0.0.1:1313/; `task docs-build` writes the static site to `site/`. `scripts/docs.sh` creates a `.docs-venv` with the pinned tooling from `docs/requirements-docs.txt` on first use. `scripts/docs-bundle.py` reads the page order from `zensical.toml`'s nav and writes a Markdown ZIP, a PDF rendered with headless Chromium, and a hand assembled EPUB 3 to `docs/en/assets/downloads/` (gitignored). Deploys are handled by mike in the docs workflow: pushes to master publish `dev`, releases publish their version and the `latest` alias, and `mike set-default` points the site root at `latest`.
 
 Day-to-day clones only need `vendor/` to build offline. Sibling checkouts are only required when re-vendoring first-party libraries. `examples/wasm` and `examples/pageserver` keep their own `go.mod` / `vendor/` trees. Docker configs under `docker/` copy those folders for offline image builds.
 
@@ -651,7 +651,7 @@ Builds and runs bindings/c/examples (smoke plus page-fetch/pageserver compile). 
 2. If wire format changes, update crossref vectors and Python reference together
 3. Run make check locally
 4. For protocol behavior, add or extend interop test when feasible
-5. Update [Compatibility](compatibility.md) and [COMPATIBILITY.md](../../COMPATIBILITY.md) if parity status changes
+5. Update [Compatibility](compatibility.md) and [COMPATIBILITY.md](https://github.com/Quad4-Software/Reticulum-Go/blob/master/COMPATIBILITY.md) if parity status changes
 
 ## Memory diagnostics on a running node
 
